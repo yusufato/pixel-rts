@@ -1,0 +1,59 @@
+{
+  "test_runs": [
+    {
+      "timestamp": "2026-06-21T08:38:48.621Z",
+      "status": "error",
+      "error_message": "Cannot read properties of null (reading 'addEventListener')",
+      "stack": "TypeError: Cannot read properties of null (reading 'addEventListener')\n    at eval (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:43:5), <anonymous>:1081:39)\n    at Object.<anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:43:5)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47"
+    },
+    {
+      "timestamp": "2026-06-21T08:39:53.633Z",
+      "status": "error",
+      "error_message": "units is not defined",
+      "stack": "ReferenceError: units is not defined\n    at Object.<anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:45:5)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47"
+    },
+    {
+      "timestamp": "2026-06-21T08:40:21.439Z",
+      "status": "error",
+      "error_message": "this.findClosestVisibleEnemy is not a function",
+      "stack": "TypeError: this.findClosestVisibleEnemy is not a function\n    at Unit.engageCombat (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:380:41)\n    at Unit.update (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:269:14)\n    at eval (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:1696:30)\n    at Array.forEach (<anonymous>)\n    at gameLoop (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:1696:15)\n    at eval (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:1728:49)\n    at Object.<anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)"
+    },
+    {
+      "timestamp": "2026-06-21T08:41:47.846Z",
+      "status": "error",
+      "error_message": "Cannot set properties of null (setting 'fillStyle')",
+      "stack": "TypeError: Cannot set properties of null (setting 'fillStyle')\n    at drawMap (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:1528:19)\n    at gameLoop (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:1704:5)\n    at eval (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5), <anonymous>:1728:49)\n    at Object.<anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:65:5)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)"
+    },
+    {
+      "timestamp": "2026-06-21T08:42:12.653Z",
+      "status": "error",
+      "error_message": "ctx.setLineDash is not a function",
+      "stack": "TypeError: ctx.setLineDash is not a function\n    at drawMap (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5), <anonymous>:1577:72)\n    at gameLoop (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5), <anonymous>:1704:5)\n    at eval (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5), <anonymous>:1728:49)\n    at Object.<anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)"
+    },
+    {
+      "timestamp": "2026-06-21T08:42:38.410Z",
+      "status": "error",
+      "error_message": "fogCtx.createRadialGradient is not a function",
+      "stack": "TypeError: fogCtx.createRadialGradient is not a function\n    at drawFogOfWar (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5), <anonymous>:1608:29)\n    at gameLoop (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5), <anonymous>:1707:5)\n    at eval (eval at <anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5), <anonymous>:1728:49)\n    at Object.<anonymous> (C:\\Users\\MSI\\.antigravity-ide\\pixel fragman\\test_sim.js:76:5)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)"
+    },
+    {
+      "timestamp": "2026-06-21T08:42:58.093Z",
+      "status": "success",
+      "ticks": 60,
+      "units_alive": 18,
+      "player_money": 1500,
+      "enemy_money": 0
+    },
+    {
+      "timestamp": "2026-06-21T09:00:31.749Z",
+      "status": "success",
+      "ticks": 60,
+      "units_alive": 18,
+      "player_money": 1500,
+      "enemy_money": 0
+    }
+  ],
+  "game_meta": {
+    "system_initialized": true
+  }
+}

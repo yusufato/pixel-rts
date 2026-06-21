@@ -1,0 +1,426 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body,
+html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #111;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    user-select: none;
+    cursor: default;
+}
+
+#gameCanvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+}
+
+/* ─── KAYNAK PANELİ ─── */
+#ui-resources {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(10, 10, 20, 0.88);
+    border: 2px solid rgba(100, 200, 255, 0.4);
+    border-radius: 8px;
+    padding: 12px 18px;
+    color: #eee;
+    font-size: 12px;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 0 16px rgba(0, 150, 255, 0.15);
+}
+
+.res {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.res span:last-child {
+    color: #4cff7c;
+    font-weight: bold;
+}
+
+/* ─── AŞAMA BİLGİSİ ─── */
+#ui-phase {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    pointer-events: none;
+}
+
+#phase-text {
+    background: rgba(10, 10, 20, 0.85);
+    border: 2px solid rgba(255, 200, 50, 0.5);
+    border-radius: 8px;
+    padding: 8px 20px;
+    color: #ffd740;
+    font-size: 12px;
+    box-shadow: 0 0 20px rgba(255, 200, 50, 0.15);
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 10px rgba(255, 200, 50, 0.1);
+    }
+
+    50% {
+        box-shadow: 0 0 25px rgba(255, 200, 50, 0.3);
+    }
+}
+
+/* ─── BİRİM BİLGİ PANELİ ─── */
+#ui-info {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(10, 10, 20, 0.88);
+    border: 2px solid rgba(100, 200, 255, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #ccc;
+    font-size: 8px;
+    line-height: 1.8;
+    z-index: 10;
+    pointer-events: none;
+    min-width: 180px;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── KAMERA İPUCU ─── */
+#ui-camera-hint {
+    position: absolute;
+    bottom: 108px;
+    left: 12px;
+    background: rgba(10, 10, 20, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: #888;
+    font-size: 7px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* ─── BAŞLAT BUTONU ─── */
+#start-btn {
+    position: absolute;
+    bottom: 115px;
+    left: 40%;
+    transform: translateX(-50%);
+    z-index: 15;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 16px;
+    color: #fff;
+    background: linear-gradient(135deg, #cc4400, #ff6600);
+    border: 3px solid rgba(255, 150, 50, 0.7);
+    border-radius: 12px;
+    padding: 16px 40px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 25px rgba(255, 100, 0, 0.3);
+    animation: start-pulse 1.5s ease-in-out infinite;
+}
+
+#start-btn:hover {
+    background: linear-gradient(135deg, #ff5500, #ff8833);
+    transform: translateX(-50%) scale(1.08);
+    box-shadow: 0 0 35px rgba(255, 100, 0, 0.5);
+}
+
+#start-btn:active {
+    transform: translateX(-50%) scale(0.97);
+}
+
+#start-btn.hidden {
+    display: none;
+}
+
+#train-ai-btn {
+    position: absolute;
+    bottom: 115px;
+    left: 65%;
+    transform: translateX(-50%);
+    z-index: 15;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: #fff;
+    background: linear-gradient(135deg, #005544, #00aa88);
+    border: 2px solid rgba(50, 255, 150, 0.7);
+    border-radius: 10px;
+    padding: 18px 25px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 15px rgba(0, 255, 100, 0.2);
+}
+
+#train-ai-btn:hover {
+    background: linear-gradient(135deg, #007755, #00ccaa);
+    transform: translateX(-50%) scale(1.05);
+    box-shadow: 0 0 25px rgba(0, 255, 100, 0.4);
+}
+
+#train-ai-btn:active {
+    transform: translateX(-50%) scale(0.97);
+}
+
+#train-ai-btn.hidden {
+    display: none;
+}
+
+@keyframes start-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 15px rgba(255, 100, 0, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 35px rgba(255, 100, 0, 0.5);
+    }
+}
+
+/* ─── SPAWN BAR ─── */
+#ui-spawn-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: rgba(10, 10, 20, 0.92);
+    border-top: 2px solid rgba(100, 200, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 10px;
+    z-index: 10;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.spawn-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 105px;
+    height: 88px;
+    background: rgba(30, 40, 70, 0.7);
+    border: 2px solid rgba(80, 130, 220, 0.4);
+    border-radius: 8px;
+    color: #ccc;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 4px 2px;
+}
+
+.spawn-btn:hover {
+    background: rgba(50, 70, 120, 0.9);
+    border-color: rgba(100, 180, 255, 0.8);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(60, 140, 255, 0.3);
+    color: #fff;
+}
+
+.spawn-btn:active {
+    transform: translateY(0);
+    background: rgba(40, 80, 180, 0.8);
+}
+
+.spawn-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.spawn-btn.selected-btn {
+    border-color: #00ff88;
+    background: rgba(0, 180, 80, 0.3);
+    box-shadow: 0 0 12px rgba(0, 255, 100, 0.3);
+}
+
+.btn-icon {
+    width: 44px;
+    height: 32px;
+    image-rendering: pixelated;
+}
+
+.btn-label {
+    font-size: 7px;
+    color: #aaddff;
+}
+
+.btn-cost {
+    font-size: 7px;
+    color: #aaa;
+    margin-top: 1px;
+}
+
+/* ─── HAVA DESTEĞİ PANELİ ─── */
+#ui-support {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 10;
+}
+
+#ui-support.hidden {
+    display: none;
+}
+
+.support-btn {
+    position: relative;
+    width: 140px;
+    height: 40px;
+    background: linear-gradient(135deg, #112233, #223355);
+    border: 2px solid rgba(100, 200, 255, 0.4);
+    border-radius: 6px;
+    color: #aaddff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.1s;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.support-btn:hover {
+    transform: scale(1.05);
+    border-color: rgba(100, 200, 255, 0.8);
+}
+
+.support-btn:active {
+    transform: scale(0.95);
+}
+
+.cooldown-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%; /* JS ile güncellenecek */
+    background: rgba(255, 50, 50, 0.5);
+    pointer-events: none;
+    transition: height 0.1s linear;
+}
+
+/* ─── MINIMAP ─── */
+#minimap {
+    position: absolute;
+    bottom: 108px;
+    right: 12px;
+    width: 200px;
+    height: 110px;
+    background: rgba(10, 10, 20, 0.85);
+    border: 2px solid rgba(100, 200, 255, 0.3);
+    border-radius: 6px;
+    z-index: 11;
+    image-rendering: pixelated;
+    cursor: pointer;
+}
+
+/* ─── GAME OVER VE TRAINING OVERLAY ─── */
+#game-over-screen, #ai-training-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+#game-over-screen.hidden, #ai-training-screen.hidden {
+    display: none;
+}
+
+.game-over-box {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 3px solid rgba(100, 200, 255, 0.5);
+    border-radius: 16px;
+    padding: 40px 60px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(0, 100, 255, 0.2);
+}
+
+#game-over-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 25px;
+    text-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+}
+
+#score-table {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: #ccc;
+    margin-bottom: 30px;
+    line-height: 2.2;
+    text-align: left;
+}
+
+#score-table .score-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4px 0;
+}
+
+#score-table .score-val {
+    color: #4cff7c;
+}
+
+#restart-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, #2266dd, #4488ff);
+    border: 2px solid rgba(100, 200, 255, 0.6);
+    border-radius: 10px;
+    padding: 14px 35px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#restart-btn:hover {
+    background: linear-gradient(135deg, #3388ff, #55aaff);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(60, 140, 255, 0.4);
+}
+
+.ghost-cursor {
+    cursor: crosshair !important;
+}
