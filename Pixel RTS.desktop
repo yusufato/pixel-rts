@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Pixel RTS
+Comment=Taktiksel strateji savaş oyununu başlat
+Exec=/usr/bin/firefox "/home/osman/Masaüstü/RTS strateji oyunu/oyna.html"
+Icon=applications-games
+Terminal=false
+Categories=Game;StrategyGame;
+StartupNotify=true
