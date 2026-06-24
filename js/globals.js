@@ -47,24 +47,34 @@ const WORLD_W = 3400;
 const WORLD_H = 2300;
 
 const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2 };
+// ── SİMETRİK 3-MEVZİ HARİTASI ──
+// 3 kontrol noktası (orta hat: x=880/1700/2520, y=1150) birer AÇIK güçlü-mevzi; etrafları
+// araziyle çerçeveli. Kuzey-güney AYNA simetrik (her iki taraf için adil). Dağlar=geçit/görüş
+// engeli, ormanlar=kanat örtüsü. Noktalar araziden açık (otomatik doğrulandı).
 const terrainFeatures = [
-    // Kuzey orman kuşağı
-    { x: 420,  y: 430,  r: 330, type: TERRAIN.FOREST, seed: 11 },
-    { x: 1040, y: 600,  r: 280, type: TERRAIN.FOREST, seed: 12 },
-    { x: 2630, y: 480,  r: 340, type: TERRAIN.FOREST, seed: 13 },
-    { x: 3260, y: 720,  r: 260, type: TERRAIN.FOREST, seed: 14 },
+    // Orta hat sırtları: 3 noktayı 3 şeride ayırır (aralarından dolanılır = manevra derinliği)
+    { x: 1290, y: 1150, r: 200, type: TERRAIN.MOUNTAIN, seed: 21 },
+    { x: 2110, y: 1150, r: 200, type: TERRAIN.MOUNTAIN, seed: 22 },
 
-    // Orta hatta iki dağ sırası; aralarında açık bir ana geçit bulunur.
-    { x: 760,  y: 1120, r: 235, type: TERRAIN.MOUNTAIN, seed: 21 },
-    { x: 1210, y: 1240, r: 285, type: TERRAIN.MOUNTAIN, seed: 22 },
-    { x: 2390, y: 1190, r: 290, type: TERRAIN.MOUNTAIN, seed: 23 },
-    { x: 2910, y: 1080, r: 225, type: TERRAIN.MOUNTAIN, seed: 24 },
+    // Merkez muhafız yüksek arazi (kuzey/güney ayna): merkez noktayı çetin objektif yapar
+    { x: 1700, y: 620,  r: 235, type: TERRAIN.MOUNTAIN, seed: 23 },
+    { x: 1700, y: 1680, r: 235, type: TERRAIN.MOUNTAIN, seed: 24 },
 
-    // Kanat ormanları ve güney savunma kuşağı
-    { x: 300,  y: 1570, r: 300, type: TERRAIN.FOREST, seed: 31 },
-    { x: 930,  y: 1810, r: 360, type: TERRAIN.FOREST, seed: 32 },
-    { x: 2700, y: 1830, r: 370, type: TERRAIN.FOREST, seed: 33 },
-    { x: 3340, y: 1560, r: 300, type: TERRAIN.FOREST, seed: 34 }
+    // Sol/sağ şerit dağları (kuzey/güney ayna): dış noktaların yaklaşımını çerçeveler
+    { x: 880,  y: 620,  r: 205, type: TERRAIN.MOUNTAIN, seed: 25 },
+    { x: 880,  y: 1680, r: 205, type: TERRAIN.MOUNTAIN, seed: 26 },
+    { x: 2520, y: 620,  r: 205, type: TERRAIN.MOUNTAIN, seed: 27 },
+    { x: 2520, y: 1680, r: 205, type: TERRAIN.MOUNTAIN, seed: 28 },
+
+    // Uzak kanat ormanları (sol/sağ kenar, orta hat): dış noktalara gizli kanat yolu
+    { x: 300,  y: 1150, r: 270, type: TERRAIN.FOREST, seed: 11 },
+    { x: 3100, y: 1150, r: 270, type: TERRAIN.FOREST, seed: 12 },
+
+    // Köşe ormanları (kuzey/güney ayna): yaklaşım örtüsü + görsel doku
+    { x: 560,  y: 930,  r: 230, type: TERRAIN.FOREST, seed: 31 },
+    { x: 560,  y: 1370, r: 230, type: TERRAIN.FOREST, seed: 32 },
+    { x: 2840, y: 930,  r: 230, type: TERRAIN.FOREST, seed: 33 },
+    { x: 2840, y: 1370, r: 230, type: TERRAIN.FOREST, seed: 34 }
 ];
 
 function seededRandom(seed) {
@@ -237,21 +247,27 @@ function getSquadRole(type) {
 // Vision stat added for Fog of War
 
 const STATS = {
-    [T.INFANTRY]: { hp: 200, atk: 14, speed: 0.72, range: 110, vision: 350, atkSpeed: 850, armor: 0, cost: 50, maxAmmo: 60, name: 'Piyade', desc: 'Çok yönlü ana hat askeri', strong: [T.ENGINEER, T.MEDIC, T.ANTI_TANK], weak: [T.ARMOR, T.ARTILLERY, T.ARMOR_INFANTRY] },
-    [T.MECH_INFANTRY]: { hp: 240, atk: 16, speed: 1.20, range: 120, vision: 400, atkSpeed: 780, armor: 1, cost: 80, maxAmmo: 100, name: 'Mekanize', desc: 'Zırhlı personel taşıyıcıda hızlı piyade', strong: [T.INFANTRY, T.RECON, T.ENGINEER], weak: [T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
-    [T.ARMOR_INFANTRY]: { hp: 280, atk: 11, speed: 0.52, range: 100, vision: 250, atkSpeed: 950, armor: 3, cost: 100, maxAmmo: 40, name: 'Zırhlı Piy.', desc: 'Ağır zırhlı, yavaş ön hat askeri', strong: [T.INFANTRY, T.MECH_INFANTRY, T.RECON], weak: [T.ARTILLERY, T.ARMOR, T.ANTI_TANK] },
-    [T.RECON]: { hp: 110, atk: 8, speed: 1.80, range: 130, vision: 800, atkSpeed: 650, armor: 0, cost: 40, maxAmmo: 30, name: 'Keşif', desc: 'Sisin içini aydınlatan geniş görüşlü birim', strong: [T.ARTILLERY, T.MEDIC, T.ENGINEER], weak: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR, T.ANTI_TANK] },
-    [T.ENGINEER]: { hp: 180, atk: 6, speed: 0.60, range: 80, vision: 300, atkSpeed: 1100, armor: 0, cost: 60, maxAmmo: 20, name: 'İstihkam', desc: 'Siper+ikmal kurar; alanda araç/topçu/tanksavar onarılır', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR] },
-    [T.MEDIC]: { hp: 90, atk: 0, speed: 0.80, range: 90, vision: 300, atkSpeed: 1000, armor: 0, cost: 70, maxAmmo: 0, name: 'Sağlıkçı', desc: 'Silahsız; organik dost birlikleri iyileştirir', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
-    [T.ARMOR]: { hp: 600, atk: 35, speed: 0.64, range: 275, vision: 400, atkSpeed: 3000, armor: 8, cost: 200, maxAmmo: 15, name: 'Tank', desc: 'Ana Muharebe Tankı. Ağır vurur ama yavaş ateş eder', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC], weak: [T.ANTI_TANK, T.ARTILLERY] },
-    [T.ANTI_TANK]: { hp: 150, atk: 22, speed: 0.60, range: 320, vision: 420, atkSpeed: 1700, armor: 0, cost: 100, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli zırh avcısı. Zırhlılara x3.2 hasar ve %80 zırh delme', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
-    [T.ARTILLERY]: { hp: 130, atk: 20, speed: 0.36, range: 350, vision: 300, atkSpeed: 5000, armor: 0, cost: 150, maxAmmo: 20, name: 'Topçu', desc: 'Düşük tek hedef hasarı, geniş alan baskısı. Görüş için Keşif ister!', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
+    [T.INFANTRY]: { hp: 200, atk: 14, speed: 0.54, range: 110, vision: 350, atkSpeed: 850, armor: 0, cost: 50, maxAmmo: 60, name: 'Piyade', desc: 'Çok yönlü ana hat askeri; sürüyle tanksavarı ezer', strong: [T.ENGINEER, T.MEDIC, T.ANTI_TANK, T.RECON], weak: [T.ARMOR, T.ARTILLERY, T.ARMOR_INFANTRY] },
+    [T.MECH_INFANTRY]: { hp: 240, atk: 16, speed: 0.90, range: 130, vision: 400, atkSpeed: 780, armor: 1, cost: 80, maxAmmo: 100, name: 'Mekanize', desc: 'Hızlı kanatçı; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.RECON, T.ENGINEER, T.ARTILLERY], weak: [T.ANTI_TANK, T.ARMOR_INFANTRY] },
+    [T.ARMOR_INFANTRY]: { hp: 300, atk: 13, speed: 0.40, range: 110, vision: 250, atkSpeed: 950, armor: 4, cost: 100, maxAmmo: 40, name: 'Zırhlı Piy.', desc: 'Ağır ön hat; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.RECON], weak: [T.ARTILLERY, T.ANTI_TANK] },
+    [T.RECON]: { hp: 110, atk: 8, speed: 1.35, range: 130, vision: 800, atkSpeed: 650, armor: 0, cost: 40, maxAmmo: 30, name: 'Keşif', desc: 'Sisin içini aydınlatan geniş görüşlü birim', strong: [T.ARTILLERY, T.MEDIC, T.ENGINEER], weak: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR, T.ANTI_TANK] },
+    [T.ENGINEER]: { hp: 180, atk: 6, speed: 0.45, range: 80, vision: 300, atkSpeed: 1100, armor: 0, cost: 60, maxAmmo: 20, name: 'İstihkam', desc: 'Siper+ikmal kurar; alanda araç/topçu/tanksavar onarılır', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR] },
+    [T.MEDIC]: { hp: 90, atk: 0, speed: 0.60, range: 90, vision: 300, atkSpeed: 1000, armor: 0, cost: 70, maxAmmo: 0, name: 'Sağlıkçı', desc: 'Silahsız; organik dost birlikleri iyileştirir', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
+    [T.ARMOR]: { hp: 600, atk: 20, speed: 0.48, range: 275, vision: 400, atkSpeed: 8000, armor: 8, cost: 200, maxAmmo: 15, name: 'Tank', desc: 'Ana Muharebe Tankı. Ağır vurur ama yavaş ateş eder (8 sn, 20 hasar)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC], weak: [T.ANTI_TANK, T.ARTILLERY] },
+    [T.ANTI_TANK]: { hp: 150, atk: 25, speed: 0.45, range: 320, vision: 420, atkSpeed: 5000, armor: 0, cost: 100, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli sert zırh avcısı. Zırhlılara ×4.0 hasar ve %85 zırh delme (5 sn, 25 hasar)', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
+    [T.ARTILLERY]: { hp: 130, atk: 25, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 150, maxAmmo: 20, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). Görüş için Keşif ister! (10 sn, 25 alan hasarı)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
 };
 
-const AT_ARMOR_MULTIPLIER = 3.2;
-const AT_ARMOR_PENETRATION = 0.80;
+const AT_ARMOR_MULTIPLIER = 4.0;          // tanksavar → zırhlı: sert anti
+const AT_ARMOR_PENETRATION = 0.85;
+const EQUIPPED_AT_MULTIPLIER = 1.6;       // teçhizatlı piyade (mekanize/zırhlı piy.) → zırhlı: yumuşak anti
+const EQUIPPED_AT_PENETRATION = 0.35;
 const ARTILLERY_SPLASH_RADIUS = 165;
 const ARTILLERY_SPLASH_DAMAGE_RATIO = 0.95;
+// Tank mermisi: dar ama gerçek alan hasarı (HE mermisi). Topçudan KÜÇÜK ve ZAYIF.
+const TANK_SPLASH_RADIUS = 80;            // topçunun ~yarısı
+const TANK_SPLASH_MIN = 0.30;             // kenar hasar oranı
+const TANK_SPLASH_MAX = 0.65;             // merkeze yakın hasar oranı (asla %100 değil)
 const ARTILLERY_SUPPRESSION_RADIUS = 150;
 
 function calculateUnitDamage(attackerType, targetType, baseAttack, targetArmor) {
@@ -261,8 +277,11 @@ function calculateUnitDamage(attackerType, targetType, baseAttack, targetArmor) 
     let effectiveArmor = targetArmor;
 
     if (attackerType === T.ANTI_TANK && armoredTarget) {
-        damage = baseAttack * AT_ARMOR_MULTIPLIER;
+        damage = baseAttack * AT_ARMOR_MULTIPLIER;            // tanksavar: sert tank antisi
         effectiveArmor *= 1 - AT_ARMOR_PENETRATION;
+    } else if ((attackerType === T.MECH_INFANTRY || attackerType === T.ARMOR_INFANTRY) && armoredTarget) {
+        damage = baseAttack * EQUIPPED_AT_MULTIPLIER;        // teçhizatlı piyade: yumuşak tank antisi
+        effectiveArmor *= 1 - EQUIPPED_AT_PENETRATION;
     } else {
         if (attackerStats.strong.includes(targetType)) damage *= 1.5;
         if (attackerStats.weak.includes(targetType)) damage *= 0.5;
@@ -332,7 +351,10 @@ const TACTIC_GENE_LIMITS = Object.freeze({
     targetThreatWeight: [0.55, 1.85],
     finishBias: [0.50, 1.80],
     steeringSeparation: [0.55, 1.65],
-    threatAvoidance: [0.20, 1.60]
+    threatAvoidance: [0.20, 1.60],
+    lossAversion: [1.00, 2.40],     // kuvvet ekonomisi k: 1.0 agresif (kayıp umursamaz) → 2.4 çok temkinli. Eğitim ayarlar.
+    vpPressureWeight: [0.30, 2.20], // FAZ 2/4: bölgede geride isem tempo baskısı şiddeti (turtle'ı puanla zorla)
+    punchFocus: [0.40, 2.00]        // FAZ 3/4: PUNCH'ın en ZAYIF savunulan noktayı seçme eğilimi
 });
 const DEFAULT_TACTIC_GENES = Object.freeze({
     vanguardAggression: 1.00,
@@ -359,7 +381,10 @@ const DEFAULT_TACTIC_GENES = Object.freeze({
     targetThreatWeight: 1.00,
     finishBias: 1.00,
     steeringSeparation: 1.00,
-    threatAvoidance: 1.00
+    threatAvoidance: 1.00,
+    lossAversion: 1.60,
+    vpPressureWeight: 1.00,
+    punchFocus: 1.00
 });
 
 function normalizeTacticGenes(genes = {}) {
@@ -405,15 +430,24 @@ try {
     console.warn("LocalStorage access denied, using memory only.");
 }
 
-if (!aiGenome || !aiGenome.deployMatrix || aiGenome.deployMatrix.length !== 9 || !aiGenome.counterMatrix || aiGenome.counterMatrix.length !== 9) {
-    aiGenome = {
-        counterMatrix: [],
-        deployMatrix: [],
-        tacticGenes: normalizeTacticGenes()
-    };
-    for(let i=0; i<9; i++) {
-        aiGenome.counterMatrix[i] = [1,1,1,1,1,1,1,1,1];
-        aiGenome.deployMatrix[i] = [Math.random(), Math.random()];
+function isValidGenome(g) {
+    return g && g.deployMatrix && g.deployMatrix.length === 9 && g.counterMatrix && g.counterMatrix.length === 9;
+}
+if (!isValidGenome(aiGenome)) {
+    if (typeof TRAINED_BRAIN !== 'undefined' && isValidGenome(TRAINED_BRAIN)) {
+        // Commit'lenmiş eğitilmiş beyin (git ile gelen kalıcı genom)
+        aiGenome = JSON.parse(JSON.stringify(TRAINED_BRAIN));
+        console.log('🧠 Commit\'li eğitilmiş beyin yüklendi (brain.js).');
+    } else {
+        aiGenome = {
+            counterMatrix: [],
+            deployMatrix: [],
+            tacticGenes: normalizeTacticGenes()
+        };
+        for(let i=0; i<9; i++) {
+            aiGenome.counterMatrix[i] = [1,1,1,1,1,1,1,1,1];
+            aiGenome.deployMatrix[i] = [Math.random(), Math.random()];
+        }
     }
 }
 

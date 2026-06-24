@@ -1,28 +1,29 @@
-// Savaş davranışlarını karşılaştırmak için ortak ödül modeli.
+// ── KUVVET EKONOMİSİ ÖDÜL MODELİ ──
+// Temel: "en az kayıpla en fazla hasar". Net değer (düşman_kaybı − k×kendi_kaybım) BASKIN terim.
+// Kazanmak amaç değil, verimli takasların sonucu → intihar-galibiyet, verimli-yenilgiden daha kötü puan alır.
+// Sabır artık cezalı değil (kuşatma/yoğunlaşma beklemek meşru); sadece TAM atalet hafif cezalı.
 const TACTICAL_REWARD_WEIGHTS = Object.freeze({
-    damageDealt: 1.0,
-    damageTaken: -1.15,
-    enemyValueDestroyed: 2.4,
-    aiValueLost: -3.8,
-    rearHitDamage: 0.75,
-    victory: 950,
-    defeat: -900,
-    draw: -350,
-    deadlock: -900,
-    adjudicated: -450,
-    physicalFinish: 700,
-    cleanupFinish: 260,
-    scoutValuableSpot: 120,
-    scoutDeath: -180,
-    antiArtilleryDamage: 1.6,
-    supportKill: 240,
-    fieldKill: 180,
-    lastHuntSecond: -5,
-    fastVictoryPerSecond: 3,
-    idlePerSecond: -2,
-    longIdlePerSecond: -6,
-    efficientTrade: 2.2,
-    recklessValueLoss: -2.8
+    netValuePerPoint: 4.0,    // (enemyValueDestroyed − lossAversion×aiValueLost) × bu = baskın terim
+    lossAversion: 1.6,        // k: kendi birimim daha kıymetli (Foresight ile aynı felsefe)
+    damageDealt: 0.35,        // ikincil sinyal (değer zaten baskın)
+    damageTaken: -0.45,
+    rearHitDamage: 0.5,
+    victory: 500,             // kazanmak önemli ama intiharı haklı çıkaracak kadar değil
+    defeat: -380,
+    draw: -120,               // verimli beraberlik, verimsiz galibiyete yakın olabilmeli
+    deadlock: -300,
+    adjudicated: -180,
+    physicalFinish: 240,
+    cleanupFinish: 110,
+    scoutValuableSpot: 100,
+    scoutDeath: -150,
+    antiArtilleryDamage: 1.2,
+    supportKill: 220,
+    fieldKill: 160,
+    lastHuntSecond: -4,
+    fastVictoryPerSecond: 2,
+    idlePerSecond: -0.35,     // sabır artık ~serbest (eski -2 sabrı cezalandırıp charge'a zorluyordu)
+    longIdlePerSecond: -1.1   // sadece aşırı atalet (>120 sn) hafif cezalı
 });
 
 function calculateTacticalReward(metrics) {
@@ -30,17 +31,14 @@ function calculateTacticalReward(metrics) {
     const fastVictoryBonus = metrics.aiWon
         ? Math.max(0, 120 - metrics.durationSeconds) * w.fastVictoryPerSecond
         : 0;
-    const longIdlePenalty = Math.max(0, metrics.idleSeconds - 45) * w.longIdlePerSecond;
-    const tradeMargin = (metrics.enemyValueDestroyed ?? 0) - (metrics.aiValueLost ?? 0);
-    const efficientTradeBonus = tradeMargin > 0 ? tradeMargin * w.efficientTrade : 0;
-    const recklessLossPenalty = Math.max(0, (metrics.aiValueLost ?? 0) - (metrics.enemyValueDestroyed ?? 0) * 1.15) *
-        Math.abs(w.recklessValueLoss);
+    const longIdlePenalty = Math.max(0, metrics.idleSeconds - 120) * w.longIdlePerSecond;
+    // ÇEKİRDEK: kayıp-kaçınmalı net değer (Foresight metriğiyle birebir aynı).
+    const netValue = (metrics.enemyValueDestroyed ?? 0) - w.lossAversion * (metrics.aiValueLost ?? 0);
 
     return (
+        netValue * w.netValuePerPoint +
         metrics.damageDealt * w.damageDealt +
         metrics.damageTaken * w.damageTaken +
-        metrics.enemyValueDestroyed * w.enemyValueDestroyed +
-        metrics.aiValueLost * w.aiValueLost +
         metrics.rearHitDamage * w.rearHitDamage +
         (metrics.aiWon ? w.victory : metrics.aiLost ? w.defeat : w.draw) +
         (metrics.deadlock ? w.deadlock : 0) +
@@ -53,8 +51,6 @@ function calculateTacticalReward(metrics) {
         (metrics.supportKills ?? 0) * w.supportKill +
         (metrics.fieldKills ?? 0) * w.fieldKill +
         (metrics.lastHuntSeconds ?? 0) * w.lastHuntSecond +
-        efficientTradeBonus -
-        recklessLossPenalty +
         fastVictoryBonus +
         metrics.idleSeconds * w.idlePerSecond +
         longIdlePenalty

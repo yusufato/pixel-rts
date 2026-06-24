@@ -124,6 +124,7 @@ canvas.addEventListener('contextmenu', (e) => {
     }
     if (targetEnemy) {
         selectedUnits.forEach(u => { u.manualTarget = targetEnemy; u.manualMoveTarget = null; u.isMovingToManualTarget = false; });
+        if (typeof replayRecordCommand === 'function') replayRecordCommand(selectedUnits, 'attack', world.x, world.y);
     } else {
         const count = selectedUnits.length;
         const cols = Math.ceil(Math.sqrt(count)), spacing = UNIT_RADIUS * 2.5;
@@ -134,6 +135,7 @@ canvas.addEventListener('contextmenu', (e) => {
             u.manualTarget = null; u.manualMoveTarget = { x: world.x + offsetX, y: world.y + offsetY };
             u.isMovingToManualTarget = true; u.attackTarget = null;
         });
+        if (typeof replayRecordCommand === 'function') replayRecordCommand(selectedUnits, 'move', world.x, world.y);
     }
 });
 
@@ -227,7 +229,9 @@ function startBattle() {
     
     phase = PHASE.BATTLE;
     battleTelemetry.start(simulationTime);
+    if (typeof initControlPoints === 'function') initControlPoints();   // bölge kontrolü / zafer puanları
     layeredAI.reset(simulationTime);
+    if (typeof replayStartRecording === 'function') replayStartRecording();   // insan replay kaydı
     selectedSpawnType = null;
     canvas.classList.remove('ghost-cursor');
 
@@ -285,13 +289,17 @@ function checkGameOver() {
     const redAlive = units.some(u => !u.dead && u.isRed);
 
     let won = null;
-    if (!blueAlive && !redAlive) won = 'draw';
+    // ZAFER PUANI eşiği (turtle-kırıcı): bölge skoru hedefe ulaştıysa maç biter.
+    if (typeof vpWinner !== 'undefined' && vpWinner !== null) {
+        won = vpWinner;
+    } else if (!blueAlive && !redAlive) won = 'draw';
     else if (!blueAlive) won = false;
     else if (!redAlive) won = true;
     else return;
 
     const telemetrySummary = battleTelemetry.finish(won, simulationTime);
     layeredAI.onBattleEnd(telemetrySummary);
+    if (typeof replayStopRecording === 'function') replayStopRecording(won);   // insan replay kaydını bitir
     phase = PHASE.OVER;
     const title = document.getElementById('game-over-title');
     if (won === 'draw') { title.textContent = '🤝 BERABERE!'; title.style.color = '#ffaa00'; }
@@ -905,12 +913,14 @@ function gameLoop(timestamp) {
         updateParticles(scaledDt / 1000);
         updateSupport(scaledDt / 1000, simulationTime);
         battleTelemetry.update(scaledDt / 1000, simulationTime);
+        if (typeof updateControlPoints === 'function') updateControlPoints(scaledDt / 1000, simulationTime);
         checkGameOver();
     } else if (phase === PHASE.DEPLOY) {
         resolveCollisions();
     }
 
     drawMap();
+    if (typeof drawControlPoints === 'function') drawControlPoints(ctx);   // bölge halkaları (birimlerin altında)
     units.forEach(u => u.draw());
     drawParticles(ctx);
     drawSupport(ctx);
@@ -919,6 +929,7 @@ function gameLoop(timestamp) {
     drawGhost();
     drawSelectionBox();
     drawMinimap();
+    if (typeof drawVpHud === 'function') drawVpHud(ctx);   // bölge skor göstergesi (ekran-uzayı)
     updateUI();
 
     requestAnimationFrame(gameLoop);

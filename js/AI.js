@@ -880,6 +880,43 @@ function applySimAttack(attacker, target, targetArmy) {
     }
     const killedTypes = [];
     let antiArtilleryDamage = 0;
+
+    const grantSimKill = (victimType) => {
+        killedTypes.push(victimType);
+        attacker.kills++;
+        if (attacker.kills === 3 && attacker.level === 0) {
+            attacker.level = 1; attacker.xpBonus = 1.15; attacker.maxHp *= 1.15; attacker.hp += attacker.maxHp * 0.15;
+        } else if (attacker.kills === 7 && attacker.level === 1) {
+            attacker.level = 2; attacker.xpBonus = 1.30; attacker.maxHp *= 1.15; attacker.hp += attacker.maxHp * 0.15;
+        }
+    };
+
+    if (attacker.type === T.ARTILLERY) {
+        // TOPÇU: yalnızca geniş alan hasarı (gerçek oyunla birebir aynı)
+        let totalDamage = 0;
+        const cx = target.x, cy = target.y;
+        const splashRadiusSq = ARTILLERY_SPLASH_RADIUS * ARTILLERY_SPLASH_RADIUS;
+        for (const foe of targetArmy) {
+            if (foe.hp <= 0 || distSq(foe.x, foe.y, cx, cy) > splashRadiusSq) continue;
+            const distance = Math.hypot(foe.x - cx, foe.y - cy);
+            const falloff = 1 - distance / ARTILLERY_SPLASH_RADIUS;
+            const blastDmg = Math.max(1, Math.floor(
+                calculateUnitDamage(attacker.type, foe.type, attacker.atk * attacker.xpBonus, foe.armor) *
+                (0.5 + falloff * 0.5)
+            ));
+            const blastActual = Math.min(foe.hp, blastDmg);
+            foe.hp -= blastDmg;
+            foe.panic = Math.min(100, foe.panic + blastDmg / foe.maxHp * 120);
+            foe.suppression += 30;
+            totalDamage += blastActual;
+            if (foe.type === T.ARTILLERY) antiArtilleryDamage += blastActual;
+            if (foe.hp <= 0) grantSimKill(foe.type);
+        }
+        attacker.ammo--;
+        attacker.cooldownMs = simAttackInterval(attacker);
+        return { damage: totalDamage, rearDamage: 0, killed: target.hp <= 0, killedTypes, antiArtilleryDamage };
+    }
+
     let damage = calculateUnitDamage(attacker.type, target.type, attacker.atk * attacker.xpBonus, target.armor);
     const angleToTarget = Math.atan2(target.y - attacker.y, target.x - attacker.x);
     let angleDifference = Math.abs(angleToTarget - target.facingAngle);
@@ -888,64 +925,29 @@ function applySimAttack(attacker, target, targetArmy) {
     if (rearHit) damage *= 2;
     attacker.facingAngle = angleToTarget;
 
-    let totalDamage = 0;
-    let totalRearDamage = 0;
     const actualDamage = Math.min(target.hp, damage);
     target.hp -= damage;
-    totalDamage += actualDamage;
-    totalRearDamage += rearHit ? actualDamage : 0;
+    const totalDamage = actualDamage;
+    const totalRearDamage = rearHit ? actualDamage : 0;
     if (target.type === T.ARTILLERY) antiArtilleryDamage += actualDamage;
     target.panic = Math.min(100, target.panic + damage / target.maxHp * 150);
-    if (attacker.type === T.ARTILLERY || attacker.type === T.ARMOR) {
-        const suppressionRadius = attacker.type === T.ARTILLERY ? ARTILLERY_SUPPRESSION_RADIUS : 100;
-        const suppressionRadiusSq = suppressionRadius * suppressionRadius;
+
+    if (attacker.type === T.ARMOR) {
+        const suppressionRadiusSq = 100 * 100;
         for (const ally of targetArmy) {
             if (ally.hp > 0 && distSq(ally.x, ally.y, target.x, target.y) <= suppressionRadiusSq) {
-                ally.suppression += attacker.type === T.ARTILLERY ? 34 : 40;
+                ally.suppression += 40;
             }
         }
     } else {
         target.suppression += 15;
     }
 
-    if (attacker.type === T.ARTILLERY) {
-        const splashRadiusSq = ARTILLERY_SPLASH_RADIUS * ARTILLERY_SPLASH_RADIUS;
-        for (const ally of targetArmy) {
-            if (ally.hp <= 0 || ally === target || distSq(ally.x, ally.y, target.x, target.y) > splashRadiusSq) continue;
-            const distance = Math.hypot(ally.x - target.x, ally.y - target.y);
-            const falloff = 1 - distance / ARTILLERY_SPLASH_RADIUS;
-            const splashDamage = Math.max(1, Math.floor(
-                calculateUnitDamage(attacker.type, ally.type, attacker.atk * attacker.xpBonus * ARTILLERY_SPLASH_DAMAGE_RATIO, ally.armor) *
-                (0.45 + falloff * 0.55)
-            ));
-            const splashActual = Math.min(ally.hp, splashDamage);
-            ally.hp -= splashDamage;
-            ally.panic = Math.min(100, ally.panic + splashDamage / ally.maxHp * 100);
-            ally.suppression += 25;
-            totalDamage += splashActual;
-            if (ally.type === T.ARTILLERY) antiArtilleryDamage += splashActual;
-            if (ally.hp <= 0) killedTypes.push(ally.type);
-        }
-    }
     attacker.ammo--;
     attacker.cooldownMs = simAttackInterval(attacker);
 
     const killed = target.hp <= 0;
-    if (killed) {
-        killedTypes.push(target.type);
-        attacker.kills++;
-        if (attacker.kills === 3 && attacker.level === 0) {
-            attacker.level = 1;
-            attacker.xpBonus = 1.15;
-            attacker.maxHp *= 1.15;
-            attacker.hp += attacker.maxHp * 0.15;
-        } else if (attacker.kills === 7 && attacker.level === 1) {
-            attacker.level = 2;
-            attacker.xpBonus = 1.30;
-            attacker.maxHp *= 1.15;
-            attacker.hp += attacker.maxHp * 0.15;
-        }
-    }
+    if (killed) grantSimKill(target.type);
     return { damage: totalDamage, rearDamage: totalRearDamage, killed, killedTypes, antiArtilleryDamage };
 }
 

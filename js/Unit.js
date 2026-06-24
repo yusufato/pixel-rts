@@ -47,7 +47,15 @@ class Unit {
         this.fleeTarget = null;
         this.hasFledOnce = false;
         this.lastStandMorale = false;
-        
+
+        // ── Moral & kohezyon bağlamı (her taramada güncellenir) ──
+        this.localForceRatio = 1;      // yerel dost gücü / düşman gücü
+        this.leaderNearby = false;     // yakında deneyimli/gazi (lider) var mı
+        this.fleeingNearby = 0;        // yakında kaçan dost sayısı (bozgun yayılımı)
+        this.nearbyAllyStrength = 0;
+        this.nearbyEnemyStrength = 0;
+        this.lastNearbyAllyCount = 0;  // yoldaş kaybını tespit için
+
         this.suppression = 0; // 0 to 100
         this.facingAngle = isRed ? Math.PI / 2 : -Math.PI / 2;
         this.maxAmmo = s.maxAmmo;
@@ -72,16 +80,45 @@ class Unit {
         
         if (this.suppression > 0) this.suppression -= 0.3 * GAME_SPEED;
 
-        // Her 30 frame'de bir etrafta düşman var mı kontrol et
+        // Her ~30 frame'de bir çevreyi tara: düşman görüşü + birlik morali bağlamı
         if (this.scanTimer <= 0) {
-            let found = false;
+            this.scanTimer = 30;
             const vRadius = STATS[this.type].vision;
+            const vRadius2 = vRadius * vRadius;
+            const MORALE_R2 = 280 * 280; // moral etkisi yarıçapı (yoldaşlık hissi)
+            let enemySeen = false;
+            let allyStr = 0, enemyStr = 0, allyCount = 0, leaderNear = false, fleeingNear = 0;
             for (const u of units) {
-                if (!u.dead && u.isRed !== this.isRed && Math.hypot(u.x - this.x, u.y - this.y) <= vRadius) {
-                    found = true; break;
+                if (u.dead) continue;
+                const ddx = u.x - this.x, ddy = u.y - this.y;
+                const d2 = ddx * ddx + ddy * ddy;
+                if (u.isRed !== this.isRed) {
+                    // Düşman: görüş + yerel tehdit gücü
+                    if (!enemySeen && d2 <= vRadius2) enemySeen = true;
+                    if (d2 <= MORALE_R2) enemyStr += u.atk * (u.hp / Math.max(1, u.maxHp));
+                } else if (u !== this) {
+                    // Dost: yerel destek gücü, lider varlığı, bozgun yayılımı
+                    if (d2 <= MORALE_R2) {
+                        allyStr += u.atk * (u.hp / Math.max(1, u.maxHp));
+                        allyCount++;
+                        if (u.level >= 1) leaderNear = true; // deneyimli/gazi = lider
+                        if (u.isFleeing) fleeingNear++;
+                    }
                 }
             }
-            this.enemyInVision = found;
+            this.enemyInVision = enemySeen;
+            allyStr += this.atk * (this.hp / Math.max(1, this.maxHp)); // kendini de say (yalnız değilsin)
+            this.nearbyEnemyStrength = enemyStr;
+            this.nearbyAllyStrength = allyStr;
+            this.localForceRatio = allyStr / (enemyStr + 1);
+            this.leaderNearby = leaderNear;
+            this.fleeingNearby = fleeingNear;
+            // Çevredeki dost sayısı düştüyse → yoldaş kaybı şoku (tek seferlik panik sıçraması)
+            const losses = this.lastNearbyAllyCount - allyCount;
+            if (losses > 0 && this.enemyInVision && !this.lastStandMorale) {
+                this.panic = Math.min(100, this.panic + Math.min(45, losses * 15));
+            }
+            this.lastNearbyAllyCount = allyCount;
         }
 
         const hpRatio = this.hp / Math.max(1, this.maxHp);
@@ -94,25 +131,48 @@ class Unit {
             this.lastStandMorale = false;
         }
 
+        const isLeader = this.level >= 1;        // deneyimli/gazi = soğukkanlı lider
+        const ratio = this.localForceRatio || 1;
+        const outnumbered = ratio < 0.75;        // yerelde sayıca/güççe dezavantaj
+        const dominant = ratio > 1.5;            // yerelde üstünlük → cesaret
+
+        // ── Panik KAZANIMI (korku kaynakları) ──
+        let panicGain = 0;
+        if (hpRatio < 0.3 && this.enemyInVision) panicGain += 10 / 60 * GAME_SPEED;            // yaralı + düşman karşıda
+        if (outnumbered && this.enemyInVision) panicGain += (0.75 - ratio) * 14 / 60 * GAME_SPEED; // kuşatılmışlık
+        if (this.fleeingNearby >= 2 && this.enemyInVision) panicGain += Math.min(this.fleeingNearby, 5) * 3 / 60 * GAME_SPEED; // bozgun yayılır (yalnız tehlike altında; güvende sönsün)
+        if (this.suppression > 60) panicGain += 4 / 60 * GAME_SPEED;                            // ağır baskı altında
+        if (this.leaderNearby) panicGain *= 0.55;  // yakındaki lider askerleri yatıştırır
+        if (isLeader) panicGain *= 0.5;            // gaziler kolay kolay paniklemez
+
+        // ── Panik AZALMASI (toparlanma kaynakları) ──
         let panicDecay = 5 * (now - this.lastAttackTime > 3000 ? 2 : 1) / 60 * GAME_SPEED;
-        
-        if (!this.lastStandMorale && hpRatio < 0.3 && this.enemyInVision) {
-            this.panic += 10 / 60 * GAME_SPEED;
+        if (!this.enemyInVision) panicDecay *= 5;  // düşman yoksa hızla sakinleş
+        if (this.leaderNearby) panicDecay *= 1.6;  // lider birliği toparlar
+        if (dominant) panicDecay *= 1.5;           // kazandığımızı görmek moral verir
+
+        if (this.lastStandMorale) {
+            this.panic -= panicDecay * 2;          // son direniş: korku kalmadı
+        } else if (panicGain > 0) {
+            this.panic += panicGain;
         } else {
-            if (!this.enemyInVision) panicDecay *= 5; // Düşman yoksa 5 kat hızlı sakinleş
             this.panic -= panicDecay;
         }
         this.panic = Math.max(0, Math.min(100, this.panic));
-        
+
+        // Eşikler lider varlığına/rütbeye göre kayar: cesur birlikler daha geç bozulur
+        const fleeThreshold = isLeader ? 88 : (this.leaderNearby ? 80 : 70);
+        const rallyThreshold = this.leaderNearby ? 30 : 35;
+
         this.isPanicking = !this.lastStandMorale && this.panic > 50;
-        if (!this.lastStandMorale && !this.isFleeing && this.panic > 70 && this.enemyInVision) {
+        if (!this.lastStandMorale && !this.isFleeing && this.panic > fleeThreshold && this.enemyInVision) {
             this.isFleeing = true;
             this.hasFledOnce = true;
             this.fleeTarget = {
                 x: WORLD_W / 2 + (Math.random() * 400 - 200),
                 y: this.isRed ? 200 : WORLD_H - 200
             };
-        } else if (this.isFleeing && (this.panic < 35 || this.lastStandMorale)) {
+        } else if (this.isFleeing && (this.panic < rallyThreshold || this.lastStandMorale)) {
             this.isFleeing = false;
             this.fleeTarget = null;
         }
@@ -410,7 +470,7 @@ class Unit {
                 : 10000 - d * (1.25 - focusFire * 0.5);
             
             if (this.isRed && typeof aiFocusTarget !== 'undefined' && u === aiFocusTarget) {
-                score += 8000 * aiGenome.tacticGenes.focusFire;
+                score += 8000 * Math.max(0.6, aiGenome.tacticGenes.focusFire); // ortak hedefe güçlü yoğunlaşma → öldürme
             }
             
             if (score > maxScore) {
@@ -452,50 +512,103 @@ class Unit {
         }
 
         const primaryTarget = this.attackTarget;
+
+        if (this.type === T.ARTILLERY) {
+            // ── TOPÇU: yalnızca geniş alan hasarı (nokta atışı YOK) ──
+            const cx = primaryTarget.x, cy = primaryTarget.y;
+            const splashNearby = spatialGrid.getNearby(cx, cy, ARTILLERY_SPLASH_RADIUS);
+            for (const n of splashNearby) {
+                if (n.dead || n.isRed === this.isRed) continue;       // sadece düşman birlikleri
+                const distance = Math.hypot(n.x - cx, n.y - cy);
+                if (distance > ARTILLERY_SPLASH_RADIUS) continue;
+                const falloff = 1 - distance / ARTILLERY_SPLASH_RADIUS;
+                const blastDmg = Math.max(1, Math.floor(
+                    calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus, n.armor) *
+                    (0.5 + falloff * 0.5)
+                ));
+                const blastActual = Math.min(n.hp, blastDmg);
+                n.hp -= blastDmg;
+                n.panic += (blastDmg / n.maxHp) * 120;
+                n.flashTimer = 5;
+                n.suppression += 30;                                  // alan baskısı
+                battleTelemetry.recordDamage(this, n, blastActual, false, now);
+                if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
+                if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
+                if (n.hp <= 0 && !n.dead) {
+                    n.dead = true;
+                    battleTelemetry.recordKill(this, n);
+                    if (this.isRed) enemy.kills++; else player.kills++;
+                    if ([T.INFANTRY, T.MECH_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC, T.ANTI_TANK].includes(n.type)) {
+                        decals.push({ x: n.x, y: n.y, type: 'blood', size: 10 + Math.random() * 15, alpha: 0.7 });
+                    } else {
+                        decals.push({ x: n.x, y: n.y, type: 'wreck', size: 25, alpha: 1.0 });
+                    }
+                    if (decals.length > 5000) decals.shift();
+                    this.kills++;
+                    if (this.kills === 3 && this.level === 0) { this.level = 1; this.xpBonus = 1.15; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
+                    else if (this.kills === 7 && this.level === 1) { this.level = 2; this.xpBonus = 1.30; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
+                    if (n === primaryTarget) { this.attackTarget = null; this.manualTarget = null; }
+                }
+            }
+            this.ammo--;
+            this.lastAttackTime = now;
+            if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, cx, cy, true);
+            if (typeof spawnExplosion !== 'undefined') spawnExplosion(cx, cy);
+            return;
+        }
+
         const actualDamage = Math.min(primaryTarget.hp, dmg);
         primaryTarget.hp -= dmg;
         battleTelemetry.recordDamage(this, primaryTarget, actualDamage, isRearHit, now);
         primaryTarget.flashTimer = 6;
-        
+
         primaryTarget.panic += (dmg / primaryTarget.maxHp) * 150;
-        
-        // Baskı Ateşi Uygulama
-        if (this.type === T.ARTILLERY || this.type === T.ARMOR) {
-            const blastRadius = this.type === T.ARTILLERY ? ARTILLERY_SUPPRESSION_RADIUS : 100;
-            const blastNearby = spatialGrid.getNearby(primaryTarget.x, primaryTarget.y, blastRadius);
-            for(let n of blastNearby) {
-                if(n.isRed === primaryTarget.isRed &&
-                    Math.hypot(n.x - primaryTarget.x, n.y - primaryTarget.y) <= blastRadius) {
-                    n.suppression += this.type === T.ARTILLERY ? 34 : 40;
+
+        // Baskı Ateşi (sadece tank alan baskısı yapar; diğerleri tekil)
+        if (this.type === T.ARMOR) {
+            // Tank mermisi = dar HE alan hasarı. Birincil hedef tam vuruşunu zaten aldı;
+            // çevredeki DİĞER düşmanlara ölçülü splash + baskı uygula.
+            const cx = primaryTarget.x, cy = primaryTarget.y;
+            const blastNearby = spatialGrid.getNearby(cx, cy, TANK_SPLASH_RADIUS);
+            for (let n of blastNearby) {
+                if (n.dead) continue;
+                if (n.isRed === this.isRed) {                            // dost: sadece baskı
+                    if (Math.hypot(n.x - cx, n.y - cy) <= TANK_SPLASH_RADIUS) n.suppression += 40;
+                    continue;
+                }
+                if (n === primaryTarget) continue;                       // tam vuruşu aldı
+                const distance = Math.hypot(n.x - cx, n.y - cy);
+                if (distance > TANK_SPLASH_RADIUS) continue;
+                const falloff = 1 - distance / TANK_SPLASH_RADIUS;
+                const ratio = TANK_SPLASH_MIN + falloff * (TANK_SPLASH_MAX - TANK_SPLASH_MIN);
+                const blastDmg = Math.max(1, Math.floor(
+                    calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus, n.armor) * ratio
+                ));
+                const blastActual = Math.min(n.hp, blastDmg);
+                n.hp -= blastDmg;
+                n.panic += (blastDmg / n.maxHp) * 120;
+                n.flashTimer = 5;
+                n.suppression += 25;
+                battleTelemetry.recordDamage(this, n, blastActual, false, now);
+                if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
+                if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
+                if (n.hp <= 0 && !n.dead) {
+                    n.dead = true;
+                    battleTelemetry.recordKill(this, n);
+                    if (this.isRed) enemy.kills++; else player.kills++;
+                    if ([T.INFANTRY, T.MECH_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC, T.ANTI_TANK].includes(n.type)) {
+                        decals.push({ x: n.x, y: n.y, type: 'blood', size: 10 + Math.random() * 15, alpha: 0.7 });
+                    } else {
+                        decals.push({ x: n.x, y: n.y, type: 'wreck', size: 25, alpha: 1.0 });
+                    }
+                    if (decals.length > 5000) decals.shift();
+                    this.kills++;
+                    if (this.kills === 3 && this.level === 0) { this.level = 1; this.xpBonus = 1.15; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
+                    else if (this.kills === 7 && this.level === 1) { this.level = 2; this.xpBonus = 1.30; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
                 }
             }
         } else {
             primaryTarget.suppression += 15;
-        }
-
-        if (this.type === T.ARTILLERY) {
-            const splashNearby = spatialGrid.getNearby(primaryTarget.x, primaryTarget.y, ARTILLERY_SPLASH_RADIUS);
-            for (const n of splashNearby) {
-                if (n.dead || n === primaryTarget || n.isRed !== primaryTarget.isRed) continue;
-                const distance = Math.hypot(n.x - primaryTarget.x, n.y - primaryTarget.y);
-                if (distance > ARTILLERY_SPLASH_RADIUS) continue;
-                const falloff = 1 - distance / ARTILLERY_SPLASH_RADIUS;
-                const splashDamage = Math.max(1, Math.floor(
-                    calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus * ARTILLERY_SPLASH_DAMAGE_RATIO, n.armor) *
-                    (0.45 + falloff * 0.55)
-                ));
-                const splashActual = Math.min(n.hp, splashDamage);
-                n.hp -= splashDamage;
-                n.panic += (splashDamage / n.maxHp) * 100;
-                n.flashTimer = 5;
-                battleTelemetry.recordDamage(this, n, splashActual, false, now);
-                if (n.hp <= 0) {
-                    n.dead = true;
-                    battleTelemetry.recordKill(this, n);
-                    if (this.isRed) enemy.kills++; else player.kills++;
-                    this.kills++;
-                }
-            }
         }
         
         if (this.type !== T.MEDIC) this.ammo--;
