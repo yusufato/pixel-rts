@@ -48,7 +48,7 @@ canvas.addEventListener('mousedown', (e) => {
         const world = screenToWorld(e.clientX, e.clientY);
         let clickedType = null;
         for (const u of units) {
-            if (!u.dead && !u.isRed && Math.hypot(u.x - world.x, u.y - world.y) < 30) {
+            if (!u.dead && u.isRed === myCanonicalSide && Math.hypot(u.x - world.x, u.y - world.y) < 30) {
                 clickedType = u.type;
                 break;
             }
@@ -57,7 +57,7 @@ canvas.addEventListener('mousedown', (e) => {
             const viewW = canvas.width / zoom;
             const viewH = canvas.height / zoom;
             units.forEach(u => {
-                if (!u.dead && !u.isRed && u.type === clickedType) {
+                if (!u.dead && u.isRed === myCanonicalSide && u.type === clickedType) {
                     if (u.x >= camera.x && u.x <= camera.x + viewW && u.y >= camera.y && u.y <= camera.y + viewH) {
                         u.selected = true;
                     }
@@ -68,7 +68,7 @@ canvas.addEventListener('mousedown', (e) => {
     }
 
     isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
-    if (!e.shiftKey) units.forEach(u => { if (!u.isRed) u.selected = false; });
+    if (!e.shiftKey) units.forEach(u => { if (u.isRed === myCanonicalSide) u.selected = false; });
 });
 canvas.addEventListener('mouseup', (e) => {
     if (e.button !== 0) return;
@@ -87,7 +87,7 @@ canvas.addEventListener('mouseup', (e) => {
         const world = screenToWorld(e.clientX, e.clientY);
         let bestUnit = null, bestDist = 30;
         for (const u of units) {
-            if (u.dead || u.isRed) continue;
+            if (u.dead || u.isRed !== myCanonicalSide) continue;
             const d = Math.hypot(u.x - world.x, u.y - world.y);
             if (d < bestDist) { bestUnit = u; bestDist = d; }
         }
@@ -95,7 +95,7 @@ canvas.addEventListener('mouseup', (e) => {
     } else {
         const topLeft = screenToWorld(minSX, minSY), bottomRight = screenToWorld(maxSX, maxSY);
         for (const u of units) {
-            if (u.dead || u.isRed) continue;
+            if (u.dead || u.isRed !== myCanonicalSide) continue;
             if (u.x >= topLeft.x && u.x <= bottomRight.x && u.y >= topLeft.y && u.y <= bottomRight.y) u.selected = true;
         }
     }
@@ -113,6 +113,18 @@ canvas.addEventListener('contextmenu', (e) => {
         return;
     }
     if (phase !== PHASE.BATTLE) return;
+    if (typeof MP !== 'undefined' && MP.active) {
+        const w = screenToWorld(e.clientX, e.clientY);
+        const sel = units.filter(u => u.selected && u.isRed === myCanonicalSide && !u.dead);
+        if (!sel.length) return;
+        let isAttack = false;   // saldırı/hareket kararı BENİM sis'ime göre; hedef ise apply'da sis'siz çözülür (iki PC eşit)
+        for (const u of units) {
+            if (u.dead || u.isRed === myCanonicalSide || !canSee(myCanonicalSide, u.x, u.y)) continue;
+            if (Math.hypot(u.x - w.x, u.y - w.y) < 30) { isAttack = true; break; }
+        }
+        mpEmitCommand(isAttack ? 'attack' : 'move', sel.map(u => u.id), w.x, w.y);
+        return;
+    }
     const world = screenToWorld(e.clientX, e.clientY);
     const selectedUnits = units.filter(u => u.selected && !u.isRed && !u.dead);
     if (selectedUnits.length === 0) return;
@@ -303,12 +315,18 @@ function checkGameOver() {
     else return;
 
     const telemetrySummary = battleTelemetry.finish(won, simulationTime);
-    layeredAI.onBattleEnd(telemetrySummary);
-    if (typeof replayStopRecording === 'function') replayStopRecording(won);   // insan replay kaydını bitir
+    const _mp = (typeof MP !== 'undefined' && MP.active);
+    if (!_mp) {   // MP'de AI/replay eğitimini KİRLETME (insan-vs-insan, AI öğrenmesin)
+        layeredAI.onBattleEnd(telemetrySummary);
+        if (typeof replayStopRecording === 'function') replayStopRecording(won);   // insan replay kaydını bitir
+    }
     phase = PHASE.OVER;
+    // ÇOK OYUNCULU: 'won' MAVİ-perspektifli; ekranı BENİM tarafıma göre çevir (guest=kırmızı)
+    let shownWon = won;
+    if (_mp && won !== 'draw') shownWon = (won === !myCanonicalSide);
     const title = document.getElementById('game-over-title');
-    if (won === 'draw') { title.textContent = '🤝 BERABERE!'; title.style.color = '#ffaa00'; }
-    else if (won) { title.textContent = '🏆 ZAFER!'; title.style.color = '#4cff7c'; }
+    if (shownWon === 'draw') { title.textContent = '🤝 BERABERE!'; title.style.color = '#ffaa00'; }
+    else if (shownWon) { title.textContent = '🏆 ZAFER!'; title.style.color = '#4cff7c'; }
     else { title.textContent = '💀 YENİLDİN!'; title.style.color = '#ff4444'; }
 
     const doctrineNames = {
@@ -776,7 +794,7 @@ function drawFogOfWar() {
     fogCtx.globalCompositeOperation = 'destination-out';
 
     for (const u of units) {
-        if (u.dead || u.isRed) continue;
+        if (u.dead || u.isRed !== myCanonicalSide) continue;
         const s = worldToScreen(u.x, u.y);
         const vRadius = STATS[u.type].vision * zoom;
         
@@ -847,7 +865,7 @@ function drawMinimap() {
     for (const u of units) {
         if (u.dead) continue;
         // Düşman sis içindeyse minimap'te de gözükmez
-        if (u.isRed && phase === PHASE.BATTLE && !canSee(false, u.x, u.y)) continue;
+        if (u.isRed !== myCanonicalSide && phase === PHASE.BATTLE && !canSee(myCanonicalSide, u.x, u.y)) continue;
         
         const mx = (u.x / WORLD_W) * mw, my = (u.y / WORLD_H) * mh;
         minimapCtx.fillStyle = u.isRed ? '#ff4444' : '#4488ff';
@@ -926,12 +944,16 @@ function gameLoop(timestamp) {
     updateCamera();
 
     if (phase === PHASE.BATTLE) {
-        gameTime += scaledDt / 1000;
-        // FAZ 1g: birleşik tick — eğitim (spRunMatch) ile AYNI fizik adımı (eğitim≠canlı sapması biter)
-        stepSim(simulationTime, scaledDt / 1000, updateLayeredAI, true);
-        // canlıya özgü (rollout'ta yok): VFX + ikmal + canlı telemetri + bitiş
+        if (typeof MP !== 'undefined' && MP.active) {
+            mpStep(timestamp);                       // ÇOK OYUNCULU: sabit-tick lockstep (kendi içinde stepSim çağırır)
+        } else {
+            gameTime += scaledDt / 1000;
+            // FAZ 1g: birleşik tick — eğitim (spRunMatch) ile AYNI fizik adımı (eğitim≠canlı sapması biter)
+            stepSim(simulationTime, scaledDt / 1000, updateLayeredAI, true);
+            updateSupport(scaledDt / 1000, simulationTime);   // MP'de KAPALI (setTimeout = desync)
+        }
+        // canlıya özgü (rollout'ta yok): VFX + telemetri + bitiş — iki modda da
         updateParticles(scaledDt / 1000);
-        updateSupport(scaledDt / 1000, simulationTime);
         battleTelemetry.update(scaledDt / 1000, simulationTime);
         checkGameOver();
     } else if (phase === PHASE.DEPLOY) {
