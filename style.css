@@ -521,3 +521,87 @@ html {
 .ghost-cursor {
     cursor: crosshair !important;
 }
+
+/* ═══════════════ PIXEL EUROPA — EKRANLAR (Faz 1) ═══════════════ */
+body:not([data-screen="game"]) #ui-resources,
+body:not([data-screen="game"]) #ui-phase,
+body:not([data-screen="game"]) #ui-info,
+body:not([data-screen="game"]) #ui-camera-hint,
+body:not([data-screen="game"]) #start-btn,
+body:not([data-screen="game"]) #train-ai-btn,
+body:not([data-screen="game"]) #ui-spawn-bar,
+body:not([data-screen="game"]) #ui-support,
+body:not([data-screen="game"]) #minimap { display: none !important; }
+
+.app-screen {
+    position: fixed; inset: 0; z-index: 4000;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(40,70,90,0.55), transparent 60%),
+        radial-gradient(circle at 75% 80%, rgba(60,40,70,0.45), transparent 55%),
+        linear-gradient(160deg, #0a0e16 0%, #0d1320 55%, #070a11 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #dfe7ef; overflow: hidden;
+}
+.app-screen.hidden { display: none !important; }
+
+.menu-logo {
+    position: absolute; top: 14vh; left: 0; right: 0; text-align: center;
+    font-size: clamp(36px, 7vw, 88px); font-weight: 900; letter-spacing: 4px;
+    color: #eaf2fb; text-shadow: 0 0 30px rgba(90,160,220,0.5), 0 4px 0 #1a2536;
+}
+.menu-logo.small { font-size: clamp(28px, 5vw, 56px); top: 12vh; }
+.menu-tag {
+    position: absolute; top: calc(14vh + clamp(48px, 9vw, 104px)); left: 0; right: 0; text-align: center;
+    font-size: clamp(12px, 1.5vw, 18px); color: #7d93ad; letter-spacing: 6px; text-transform: uppercase;
+}
+
+/* Butonlar SAĞ tarafta, yukarıdan-aşağıya (kullanıcı isteği) */
+.menu-side {
+    position: absolute; right: 7vw; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 16px; min-width: 260px;
+}
+.menu-btn {
+    padding: 16px 26px; font-size: clamp(15px, 1.6vw, 20px); font-weight: 700;
+    color: #cfe0f0; background: rgba(20,30,44,0.85); border: 1px solid rgba(90,130,170,0.35);
+    border-radius: 10px; cursor: pointer; text-align: left; letter-spacing: 1px;
+    transition: all 0.15s ease;
+}
+.menu-btn:hover { background: rgba(34,52,74,0.95); border-color: #4c9fff; color: #fff; transform: translateX(-6px); box-shadow: -4px 0 18px rgba(76,159,255,0.3); }
+.menu-btn.primary { background: linear-gradient(135deg, #1d5e3a, #15402b); border-color: #4cff7c; color: #eafff0; }
+.menu-btn.primary:hover { background: linear-gradient(135deg, #267a4a, #1d5e3a); box-shadow: -4px 0 22px rgba(76,255,124,0.4); }
+
+/* Hızlı Maç kutusu (ortada) */
+.qm-box {
+    background: rgba(12,18,28,0.9); border: 1px solid rgba(90,130,170,0.3); border-radius: 14px;
+    padding: 30px 36px; min-width: min(440px, 80vw); box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.qm-row { margin: 16px 0; }
+.qm-row label { display: block; font-size: 15px; margin-bottom: 8px; color: #bcd0e6; }
+.qm-row label b { color: #4cff7c; font-size: 18px; }
+.qm-row input[type=range] { width: 100%; accent-color: #4c9fff; cursor: pointer; height: 6px; }
+.qm-diff { margin-top: 18px; text-align: center; font-size: 18px; font-weight: 700; color: #ffd24c; }
+.qm-hint { margin-top: 8px; text-align: center; font-size: 12px; color: #7d93ad; }
+
+/* ─── Çok Oyunculu lobi ─── */
+.mp-box {
+    background: rgba(12,18,28,0.92); border: 1px solid rgba(90,130,170,0.3); border-radius: 14px;
+    padding: 24px 28px; min-width: min(540px, 86vw); box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.mp-conn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.mp-conn-row input { flex: 1; min-width: 160px; padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(90,130,170,0.4);
+    background: rgba(6,10,16,0.9); color: #dfe7ef; font-size: 14px; }
+.mp-mini-btn { padding: 9px 16px; border-radius: 8px; border: 1px solid #4c9fff; background: rgba(34,52,74,0.9);
+    color: #cfe0f0; cursor: pointer; font-weight: 700; }
+.mp-mini-btn:hover { background: #2a4a6e; color: #fff; }
+.mp-badge { font-size: 12px; color: #7d93ad; white-space: nowrap; }
+.mp-badge.ok { color: #4cff7c; }
+.mp-badge.err { color: #ff6b6b; }
+.mp-list-title { font-size: 13px; color: #8aa0b8; letter-spacing: 1px; margin: 6px 0 8px; text-transform: uppercase; }
+.mp-room-list { max-height: 34vh; overflow-y: auto; border: 1px solid rgba(90,130,170,0.2); border-radius: 8px; background: rgba(6,10,16,0.5); }
+.mp-room { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px;
+    border-bottom: 1px solid rgba(90,130,170,0.12); cursor: pointer; transition: background 0.12s; }
+.mp-room:hover { background: rgba(34,52,74,0.6); }
+.mp-room.selected { background: rgba(76,159,255,0.22); border-left: 3px solid #4c9fff; }
+.mp-room-name { color: #dfe7ef; font-weight: 600; }
+.mp-room-players { color: #ffd24c; font-size: 13px; }
+.mp-empty { padding: 22px; text-align: center; color: #7d93ad; font-size: 13px; }

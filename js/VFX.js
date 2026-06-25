@@ -55,6 +55,7 @@ class Particle {
 }
 
 function spawnExplosion(x, y) {
+    if (SIM.headless) return;   // FAZ 1f: rollout'ta render-only VFX yok
     const count = 15;
     for (let i = 0; i < count; i++) {
         let angle = Math.random() * Math.PI * 2;
@@ -85,6 +86,7 @@ function spawnExplosion(x, y) {
 }
 
 function spawnHitSparks(x, y) {
+    if (SIM.headless) return;   // FAZ 1f: rollout'ta render-only VFX yok
     const count = 5;
     for (let i = 0; i < count; i++) {
         let angle = Math.random() * Math.PI * 2;
@@ -96,6 +98,7 @@ function spawnHitSparks(x, y) {
 }
 
 function spawnTracer(x1, y1, x2, y2, isArtillery = false) {
+    if (SIM.headless) return;   // FAZ 1f: rollout'ta render-only VFX yok
     // Işın kılıcı yerine kısa "Muzzle Flash" (Namlu Alevi) ve çok kısa mermi izi
     const dx = x2 - x1;
     const dy = y2 - y1;

@@ -223,13 +223,18 @@ document.querySelectorAll('.spawn-btn').forEach(btn => {
 
 function startBattle() {
     if (phase !== PHASE.DEPLOY) return;
-    
+
+    // FAZ 0 (Determinizm): sim-RNG'yi maç başında tohumla. Canlı oyunda çeşitlilik için zaman-tabanlı;
+    // istenirse sabit bir sayı verip tekrarlanabilir maç oynanabilir (resetSimRng(12345)).
+    if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
+
     savePlayerMeta(); // Yapay zeka öğrenmesi için oyuncu stratejisini kaydet
     aiDeploy();       // Öğrenilen meta + sahaya göre karşı orduyu bas
     
     phase = PHASE.BATTLE;
     battleTelemetry.start(simulationTime);
     if (typeof initControlPoints === 'function') initControlPoints();   // bölge kontrolü / zafer puanları
+    if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
     layeredAI.reset(simulationTime);
     if (typeof replayStartRecording === 'function') replayStartRecording();   // insan replay kaydı
     selectedSpawnType = null;
@@ -290,8 +295,8 @@ function checkGameOver() {
 
     let won = null;
     // ZAFER PUANI eşiği (turtle-kırıcı): bölge skoru hedefe ulaştıysa maç biter.
-    if (typeof vpWinner !== 'undefined' && vpWinner !== null) {
-        won = vpWinner;
+    if (typeof SIM.vpWinner !== 'undefined' && SIM.vpWinner !== null) {
+        won = SIM.vpWinner;
     } else if (!blueAlive && !redAlive) won = 'draw';
     else if (!blueAlive) won = false;
     else if (!redAlive) won = true;
@@ -869,12 +874,37 @@ let lastFrameTime = 0;
 let simulationTime = 0;
 
 function updateTrenches(now) {
-    for (let index = trenches.length - 1; index >= 0; index--) {
-        const field = trenches[index];
+    for (let index = SIM.trenches.length - 1; index >= 0; index--) {
+        const field = SIM.trenches[index];
         if ((field.expiresAt && now >= field.expiresAt) || field.hp <= 0) {
-            trenches.splice(index, 1);
+            SIM.trenches.splice(index, 1);
         }
     }
+}
+
+// ═══ FAZ 1g — BİRLEŞİK SİMÜLASYON ADIMI ═══════════════════════════════════════
+// Canlı gameLoop ve headless spRunMatch ARTIK AYNI fiziği koşar → "eğitim ≠ canlı"
+// kök-sorunu biter (konseyin işaret ettiği en kritik tutarsızlık; eğitim artık
+// gerçekten oynanan oyunu öğretir). Komut/AI sürücüsü step'in DIŞINDAN verilir.
+//   now           : sim saati (ms) — birim/trench/AI bu zamanı görür
+//   dtSec         : bu adımın saniye süresi (controlPoints/oran hesapları)
+//   driveAI(now)  : AI sürücüsü (canlı: updateLayeredAI; eğitim: 2 controller/replay)
+//   spawnDeathVfx : canlıda ölümde patlama efekti (render); headless'te false
+function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
+    updateTrenches(now);
+    SIM.spatialGrid.clear();
+    for (let i = SIM.units.length - 1; i >= 0; i--) {
+        if (SIM.units[i].dead) {
+            if (spawnDeathVfx) spawnExplosion(SIM.units[i].x, SIM.units[i].y);
+            SIM.units.splice(i, 1);
+        } else {
+            SIM.spatialGrid.insert(SIM.units[i]);
+        }
+    }
+    SIM.units.forEach(u => u.update(now));
+    resolveCollisions();
+    if (driveAI) driveAI(now);
+    if (typeof updateControlPoints === 'function') updateControlPoints(dtSec, now);
 }
 
 function gameLoop(timestamp) {
@@ -897,23 +927,12 @@ function gameLoop(timestamp) {
 
     if (phase === PHASE.BATTLE) {
         gameTime += scaledDt / 1000;
-        updateTrenches(simulationTime);
-        spatialGrid.clear();
-        for (let i = units.length - 1; i >= 0; i--) {
-            if (units[i].dead) {
-                spawnExplosion(units[i].x, units[i].y);
-                units.splice(i, 1);
-            } else {
-                spatialGrid.insert(units[i]);
-            }
-        }
-        units.forEach(u => u.update(simulationTime));
-        resolveCollisions();
-        updateLayeredAI(simulationTime);
+        // FAZ 1g: birleşik tick — eğitim (spRunMatch) ile AYNI fizik adımı (eğitim≠canlı sapması biter)
+        stepSim(simulationTime, scaledDt / 1000, updateLayeredAI, true);
+        // canlıya özgü (rollout'ta yok): VFX + ikmal + canlı telemetri + bitiş
         updateParticles(scaledDt / 1000);
         updateSupport(scaledDt / 1000, simulationTime);
         battleTelemetry.update(scaledDt / 1000, simulationTime);
-        if (typeof updateControlPoints === 'function') updateControlPoints(scaledDt / 1000, simulationTime);
         checkGameOver();
     } else if (phase === PHASE.DEPLOY) {
         resolveCollisions();

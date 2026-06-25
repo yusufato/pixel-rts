@@ -82,6 +82,51 @@ function seededRandom(seed) {
     return value - Math.floor(value);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  SIM — SİMÜLASYON STATE'inin TEK konteyneri (FORGE-Core / Temiz Sayfa, Faz 1)
+//  ----------------------------------------------------------------------------
+//  NOT: "world" adı KULLANILMADI — main.js'te her event handler'da yerel
+//  `const world = screenToWorld(...)` (koordinat) var; çakışmayı önlemek için SIM.
+//  Büyüyerek units/trenches/controlPoints/vpScore/phase/gameTime/money alacak.
+//  Faz 2'de serialize/deserialize/fork DOĞRUDAN bu nesneden çalışır.
+//  Render-only state (decals/craters/particles/screenShake) SIM'e GİRMEZ → ayrı
+//  `view`'a gidecek (Faz 1f): rollout'ta hesaplanmaz = determinizm + hız.
+//
+//  Deterministik RNG (Faz 0): SADECE sim yolu (deploy/ordu/ikmal). VFX Math.random
+//  KALIR. Durum tek 32-bit tamsayı (SIM.rng.state) → tekrarlanabilir + fork'lanabilir.
+// ═══════════════════════════════════════════════════════════════════════════
+const SIM = {
+    rng: { state: 0x9e3779b9 },   // FAZ 0'da SIM_RNG idi → Faz 1'de SIM.rng'ye taşındı
+    // FAZ 1c: bölge/zafer state'i (ControlPoints.js reassign ediyordu → world canonical, alias-kırılması biter)
+    controlPoints: [],
+    vpScore: { red: 0, blue: 0 },
+    vpWinner: null,               // null | true (MAVİ/oyuncu) | false (KIRMIZI/AI)
+    headless: false,              // FAZ 1f: true = rollout (render-only VFX hesaplanmaz → hız + sim/view ayrımı)
+};
+const SIM_RNG = SIM.rng;        // geri-uyumluluk aliası: mevcut SIM_RNG.state okuma/yazmaları SIM.rng'ye düşer
+
+// FAZ 3: AI arka-uç bayrağı (strangler). 'policy'=yeni TEMİZ KOMUTAN (Commander.js, VARSAYILAN —
+// canlı test: tutarlı, halüsinasyonsuz), 'layered'=eski baroque (fallback/karşılaştırma).
+// Konsoldan geçiş: useCleanAI(true/false). NOT: eğitim (SelfPlay) hâlâ LayeredAI genom kullanır (Faz 4'e kadar).
+let AI_BACKEND = 'policy';
+function useCleanAI(on = true) {
+    AI_BACKEND = on ? 'policy' : 'layered';
+    console.log(`AI_BACKEND = '${AI_BACKEND}' (${on ? 'TEMİZ KOMUTAN — kuvvet ekonomisi + bölge' : 'eski LayeredAI'})`);
+    return AI_BACKEND;
+}
+function resetSimRng(seed) {
+    SIM.rng.state = (seed >>> 0) || 0x9e3779b9;
+}
+// mulberry32 — hızlı, kaliteli dağılım, durumu tek tamsayı (tekrarlanabilir + serileştirilebilir)
+function srand() {
+    let a = (SIM_RNG.state = (SIM_RNG.state + 0x6D2B79F5) | 0);
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function srandRange(min, max) { return min + srand() * (max - min); }   // [min, max)
+function srandInt(n) { return Math.floor(srand() * n); }                 // 0..n-1
+
 // Arazi detayları bir kez oluşturulur; her karede aynı yerde kaldıkları için harita titremez.
 const groundDetails = [];
 for (let i = 0; i < 950; i++) {
@@ -255,14 +300,14 @@ const STATS = {
     [T.MEDIC]: { hp: 90, atk: 0, speed: 0.60, range: 90, vision: 300, atkSpeed: 1000, armor: 0, cost: 70, maxAmmo: 0, name: 'Sağlıkçı', desc: 'Silahsız; organik dost birlikleri iyileştirir', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
     [T.ARMOR]: { hp: 600, atk: 20, speed: 0.48, range: 275, vision: 400, atkSpeed: 8000, armor: 8, cost: 200, maxAmmo: 15, name: 'Tank', desc: 'Ana Muharebe Tankı. Ağır vurur ama yavaş ateş eder (8 sn, 20 hasar)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC], weak: [T.ANTI_TANK, T.ARTILLERY] },
     [T.ANTI_TANK]: { hp: 150, atk: 25, speed: 0.45, range: 320, vision: 420, atkSpeed: 5000, armor: 0, cost: 100, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli sert zırh avcısı. Zırhlılara ×4.0 hasar ve %85 zırh delme (5 sn, 25 hasar)', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
-    [T.ARTILLERY]: { hp: 130, atk: 25, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 150, maxAmmo: 20, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). Görüş için Keşif ister! (10 sn, 25 alan hasarı)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
+    [T.ARTILLERY]: { hp: 130, atk: 20, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 150, maxAmmo: 12, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). Görüş için Keşif ister! (10 sn, 20 alan hasarı, 12 mermi)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
 };
 
 const AT_ARMOR_MULTIPLIER = 4.0;          // tanksavar → zırhlı: sert anti
 const AT_ARMOR_PENETRATION = 0.85;
 const EQUIPPED_AT_MULTIPLIER = 1.6;       // teçhizatlı piyade (mekanize/zırhlı piy.) → zırhlı: yumuşak anti
 const EQUIPPED_AT_PENETRATION = 0.35;
-const ARTILLERY_SPLASH_RADIUS = 165;
+const ARTILLERY_SPLASH_RADIUS = 135;      // 165→135: yayık birim splash'tan kaçar, topçu yenilebilir olur
 const ARTILLERY_SPLASH_DAMAGE_RATIO = 0.95;
 // Tank mermisi: dar ama gerçek alan hasarı (HE mermisi). Topçudan KÜÇÜK ve ZAYIF.
 const TANK_SPLASH_RADIUS = 80;            // topçunun ~yarısı
@@ -312,6 +357,10 @@ const enemy = { money: 1500, kills: 0, unitsSpawned: 0 };
 
 const units = [];
 const trenches = [];
+// FAZ 1a: sim-dizilerini world'e alias bağla (const → asla reassign yok, alias güvenli).
+// Mevcut kod `units`/`trenches` global'lerini kullanmaya devam eder; yeni motor-kodu `SIM.units` okur. İkisi AYNI dizi.
+SIM.units = units;
+SIM.trenches = trenches;
 const SUPPLY_FIELD_DURATION_MS = 60000;
 const craters = [];
 const decals = []; // { x, y, type, size, alpha, angle }
@@ -462,7 +511,7 @@ let battlePhase = 1; // 1: Advance (Formasyon Yürüyüşü), 2: Clash (Çatış
 let aiDoctrine = 1; // 1: Ağır Örs, 2: Zırhlı Çekiç
 
 function savePlayerMeta() {
-    for (const u of units) {
+    for (const u of SIM.units) {
         if (!u.isRed) {
             playerMeta[u.type] = (playerMeta[u.type] || 0) + 1;
         }
@@ -474,7 +523,7 @@ function savePlayerMeta() {
 
 // ─── SAVAŞ SİSİ KONTROLÜ (Team Vision) ───
 function canSee(teamIsRed, targetX, targetY) {
-    for (const u of units) {
+    for (const u of SIM.units) {
         if (u.dead || u.isRed !== teamIsRed) continue;
         if (Math.hypot(u.x - targetX, u.y - targetY) <= STATS[u.type].vision) return true;
     }
@@ -526,6 +575,7 @@ class SpatialGrid {
     }
 }
 const spatialGrid = new SpatialGrid(WORLD_W, WORLD_H, 100);
+SIM.spatialGrid = spatialGrid;   // FAZ 1e: sim-ızgara SIM'de (fork: SIM.spatialGrid swap'lanır; canlıda aynı nesne)
 
 // ─── GÖRÜŞ AÇISI ENGELİ (LINE OF SIGHT & FRIENDLY FIRE) ───
 function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2) {
@@ -538,7 +588,7 @@ function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2) {
     const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
     const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
     const rad = Math.hypot(maxX - minX, maxY - minY) / 2;
-    const candidates = spatialGrid.getNearby(midX, midY, rad);
+    const candidates = SIM.spatialGrid.getNearby(midX, midY, rad);
 
     for (const u of candidates) {
         if (u.dead || u === ignoreUnit1 || u === ignoreUnit2) continue;

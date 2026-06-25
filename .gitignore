@@ -1,6 +1,2 @@
-node_modules/
-*.bak
-test_map.html
-debug.js
-check_error.js
-test_sim.js
+__pycache__/
+*.pyc

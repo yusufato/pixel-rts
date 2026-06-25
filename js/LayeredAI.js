@@ -1156,14 +1156,14 @@ class LayeredAIController {
         this.territoryTarget = this.pickTerritoryTarget(center, visibleEnemies);
         // ── FAZ 2: BÖLGE DURUŞU ── director'a tempo baskısı girdisi (geride isem zayıf noktayı zorla)
         let vpDeficit = 0, vpOwn = 0, vpEnemy = 0, vpOpen = 0;
-        if (typeof controlPoints !== 'undefined' && controlPoints && controlPoints.length) {
+        if (typeof SIM.controlPoints !== 'undefined' && SIM.controlPoints && SIM.controlPoints.length) {
             const mineOwner = this.side ? 'red' : 'blue';
-            for (const p of controlPoints) {
+            for (const p of SIM.controlPoints) {
                 if (p.owner === mineOwner) vpOwn++; else if (p.owner) vpEnemy++; else vpOpen++;
             }
-            if (typeof vpScore !== 'undefined' && vpScore) {
-                const myS = this.side ? vpScore.red : vpScore.blue;
-                const enS = this.side ? vpScore.blue : vpScore.red;
+            if (typeof SIM.vpScore !== 'undefined' && SIM.vpScore) {
+                const myS = this.side ? SIM.vpScore.red : SIM.vpScore.blue;
+                const enS = this.side ? SIM.vpScore.blue : SIM.vpScore.red;
                 vpDeficit = enS - myS;   // pozitif = bölgede GERİDEYİM (tempo zorlamalıyım)
             }
         }
@@ -1811,12 +1811,12 @@ class LayeredAIController {
     // PUNCH hedefi: zafer puanı için EN ZAYIF SAVUNULAN çekişilebilir noktaya yığ (turtle'ın zayıf omzuna vur).
     // Yakın + düşman savunması az + (düşmanınkini geri al / nötrü kap) önceliğiyle seç. punchFocus geni eğilimi ayarlar.
     pickTerritoryTarget(center, visibleEnemies) {
-        if (typeof controlPoints === 'undefined' || !controlPoints || !controlPoints.length) return null;
+        if (typeof SIM.controlPoints === 'undefined' || !SIM.controlPoints || !SIM.controlPoints.length) return null;
         const mine = this.side ? 'red' : 'blue';
         const genes = aiGenome.tacticGenes;
         const punchFocus = (genes && genes.punchFocus) || 1.0;
         let best = null, bestScore = -Infinity;
-        for (const p of controlPoints) {
+        for (const p of SIM.controlPoints) {
             if (p.owner === mine && !p.contested) continue;          // zaten güvenle bizim → atla
             const d = Math.hypot(p.x - center.x, p.y - center.y);
             // Düşman savunma yoğunluğu (PUNCH: zayıf savunulanı seç)
@@ -2041,5 +2041,10 @@ class LayeredAIController {
 const layeredAI = new LayeredAIController();
 
 function updateLayeredAI(now) {
-    layeredAI.update(now);
+    // FAZ 3 strangler: 'policy' iken canlı RED'i TEMİZ KOMUTAN sürer; yoksa eski baroque (fallback).
+    if (typeof AI_BACKEND !== 'undefined' && AI_BACKEND === 'policy' && typeof commanderDrive === 'function') {
+        commanderDrive(true, now);
+    } else {
+        layeredAI.update(now);
+    }
 }

@@ -8,7 +8,53 @@
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body data-screen="menu">
+    <!-- ═══ PIXEL EUROPA — EKRANLAR (Faz 1) ═══ -->
+    <div id="screen-menu" class="app-screen">
+        <div class="menu-logo">⚔️ PIXEL EUROPA</div>
+        <div class="menu-tag">Taktik Savaş Komutanlığı</div>
+        <div class="menu-side">
+            <button id="btn-new-story" class="menu-btn">📜 Yeni Hikaye</button>
+            <button id="btn-quick-match" class="menu-btn primary">⚡ Hızlı Maç</button>
+            <button id="btn-multiplayer" class="menu-btn">🌐 Çok Oyunculu</button>
+            <button id="btn-settings" class="menu-btn">⚙️ Ayarlar</button>
+        </div>
+    </div>
+    <div id="screen-quickmatch" class="app-screen hidden">
+        <div class="menu-logo small">⚡ Hızlı Maç</div>
+        <div class="qm-box">
+            <div class="qm-row"><label>🤖 AI Puanı: <b id="qm-ai-val">1500</b></label>
+                <input type="range" id="qm-ai" min="600" max="3000" step="100" value="1500"></div>
+            <div class="qm-row"><label>🧑 Senin Puanın: <b id="qm-pl-val">1500</b></label>
+                <input type="range" id="qm-pl" min="600" max="3000" step="100" value="1500"></div>
+            <div id="qm-difficulty" class="qm-diff">Denge: Eşit ⚖️</div>
+            <div class="qm-hint">Puan = ordu bütçesi. Asimetrik puan = zorluk ayarı.</div>
+        </div>
+        <div class="menu-side">
+            <button id="btn-qm-start" class="menu-btn primary">⚔️ Savaşa Başla</button>
+            <button id="btn-qm-back" class="menu-btn">← Geri</button>
+        </div>
+    </div>
+    <div id="screen-multiplayer" class="app-screen hidden">
+        <div class="menu-logo small">🌐 Çok Oyunculu (LAN 1v1)</div>
+        <div class="mp-box">
+            <div class="mp-conn-row">
+                <input id="mp-server" type="text" value="192.168.0.106" placeholder="Host IP (örn 192.168.0.106)">
+                <button id="mp-conn" class="mp-mini-btn">Bağlan</button>
+                <span id="mp-status" class="mp-badge err">● Bağlı değil</span>
+            </div>
+            <div class="mp-list-title">Açık Oyunlar (sunucu listesi)</div>
+            <div id="mp-room-list" class="mp-room-list">
+                <div class="mp-empty">Bağlan → liste otomatik dolar. Boşsa "Oyun Oluştur".</div>
+            </div>
+        </div>
+        <div class="menu-side">
+            <button id="btn-mp-create" class="menu-btn primary">➕ Oyun Oluştur</button>
+            <button id="btn-mp-join" class="menu-btn">▶️ Oyuna Katıl</button>
+            <button id="btn-mp-back" class="menu-btn">← Geri</button>
+        </div>
+    </div>
+
     <!-- Kaynak Paneli (Sol Üst) -->
     <div id="ui-resources">
         <div class="res"><span class="res-icon">💰</span> Para: <span id="money">1000</span></div>
@@ -138,10 +184,13 @@
     <script src="js/AI.js"></script>
     <script src="js/Foresight.js"></script>
     <script src="js/LayeredAI.js"></script>
+    <script src="js/Commander.js"></script>
     <script src="js/ControlPoints.js"></script>
     <script src="js/main.js"></script>
     <script src="js/Replay.js"></script>
     <script src="js/SelfPlay.js"></script>
+    <script src="js/Net.js"></script>
+    <script src="js/Screens.js"></script>
 </body>
 
 </html>

@@ -7,6 +7,7 @@
 
 const SP_BUDGET = 1500;
 const SP_STEP = 64;          // her tick'te ilerleyen sim-ms (≈ 60fps × GAME_SPEED)
+let spNextSeed = 0x12345678;  // FAZ 0: seed verilmeyen maçlar için otomatik-ilerleyen tohum (deterministik çeşitlilik)
 const SP_MAX_TICKS = 3000;   // ≈ 192 sim-sn üst sınır (kilitlenmeyi keser)
 
 // Hafif yardımcılar ----------------------------------------------------------
@@ -30,10 +31,10 @@ function spDeployArmy(counts, isRed) {
         for (let i = 0; i < n; i++) {
             const col = placed % 6;
             const row = Math.floor(placed / 6);
-            const rx = WORLD_W * 0.5 + (col - 2.5) * 150 + (Math.random() * 50 - 25);
+            const rx = WORLD_W * 0.5 + (col - 2.5) * 150 + (srand() * 50 - 25);
             const ry = isRed
-                ? 200 + row * 110 + (Math.random() * 40 - 20)
-                : WORLD_H - 220 - row * 110 + (Math.random() * 40 - 20);
+                ? 200 + row * 110 + (srand() * 40 - 20)
+                : WORLD_H - 220 - row * 110 + (srand() * 40 - 20);
             placeUnit(type, rx, ry, isRed);
             placed++;
         }
@@ -47,7 +48,7 @@ function spRandomArmy(budget = SP_BUDGET) {
     counts[T.ENGINEER] = 1; budget -= STATS[T.ENGINEER].cost;
     let attempts = 0;
     while (budget > 40 && attempts < 60) {
-        const type = Math.floor(Math.random() * 9);
+        const type = srandInt(9);
         if (type === T.ENGINEER) { attempts++; continue; }
         if (budget >= STATS[type].cost) { counts[type]++; budget -= STATS[type].cost; }
         attempts++;
@@ -98,23 +99,43 @@ function spApplyReplayCommands(replay, state, now) {
     }
 }
 
-// Tek bir headless maç çalıştırır. Kırmızı = redGenome (canlı AI gibi mavi'yi
-// sayar), Mavi = blueGenome (kendi beynini kullanır, verilen kompozisyonla).
-// Geri dönüş: { winner, redValueLost, blueValueLost, ticks, decisive }
-function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_TICKS, blueReplay = null) {
-    // ── Global durumu yedekle (canlı oyunu bozmamak için) ──
-    const snap = {
+// ═══ FAZ 2 — TEMİZ SNAPSHOT/RESTORE (SIM tek-noktadan) ═══════════════════════
+// SelfPlay'in elle-bakımlı snap listesinin yerini alır → "bir alanı yedeklemeyi
+// unuttum" bug'ı (panel'in yakaladığı controlPoints hatası) yapısal olarak biter.
+// Maç-içi MUTASYONA uğrayan TÜM state burada: sim (units/trenches/controlPoints/
+// vpScore/vpWinner/rng) + sınır-skalerleri (phase/money/kills) + render-bayrak +
+// render-dizi uzunlukları (eğitim kalıntısı temizliği). Faz 5'te JSON-serialize
+// (Worker'a state geçişi) buradan türetilecek.
+function snapshotSIM() {
+    return {
         phase, aiGenome, aiFocusTarget, playerMeta,
+        simRngState: SIM.rng.state, headless: SIM.headless,
         playerMoney: player.money, enemyMoney: enemy.money,
         playerKills: player.kills, enemyKills: enemy.kills,
         unitsArr: units.slice(), trenchesArr: trenches.slice(),
         decalsLen: decals.length, cratersLen: craters.length, particlesLen: particles.length,
         btStarted: typeof battleTelemetry !== 'undefined' ? battleTelemetry.started : false,
-        // BÖLGE durumunu da yedekle (panel bug'ı: eksikti → eğitim canlı oyunu bozuyordu)
-        cpArr: typeof controlPoints !== 'undefined' ? controlPoints : null,
-        vpScoreObj: typeof vpScore !== 'undefined' ? vpScore : null,
-        vpWinnerVal: typeof vpWinner !== 'undefined' ? vpWinner : null
+        cpArr: SIM.controlPoints, vpScoreObj: SIM.vpScore, vpWinnerVal: SIM.vpWinner
     };
+}
+function restoreSIM(s) {
+    units.length = 0; for (const u of s.unitsArr) units.push(u);
+    trenches.length = 0; for (const f of s.trenchesArr) trenches.push(f);
+    decals.length = s.decalsLen; craters.length = s.cratersLen; particles.length = s.particlesLen; // eğitim kalıntısı temizliği
+    phase = s.phase; aiGenome = s.aiGenome; aiFocusTarget = s.aiFocusTarget; playerMeta = s.playerMeta;
+    player.money = s.playerMoney; enemy.money = s.enemyMoney;
+    player.kills = s.playerKills; enemy.kills = s.enemyKills;
+    if (typeof battleTelemetry !== 'undefined') battleTelemetry.started = s.btStarted;
+    SIM.controlPoints = s.cpArr; SIM.vpScore = s.vpScoreObj; SIM.vpWinner = s.vpWinnerVal;
+    SIM.rng.state = s.simRngState; SIM.headless = s.headless;
+}
+
+// Tek bir headless maç çalıştırır. Kırmızı = redGenome (canlı AI gibi mavi'yi
+// sayar), Mavi = blueGenome (kendi beynini kullanır, verilen kompozisyonla).
+// Geri dönüş: { winner, redValueLost, blueValueLost, ticks, decisive }
+function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_TICKS, blueReplay = null, matchSeed = null) {
+    // ── Global durumu yedekle (canlı oyunu bozmamak için) — FAZ 2: tek-noktadan ──
+    const snap = snapshotSIM();
     if (typeof battleTelemetry !== 'undefined') battleTelemetry.started = false; // global telemetriye kayıt olmasın
 
     let result;
@@ -126,6 +147,11 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
         player.kills = 0; enemy.kills = 0;
         phase = PHASE.BATTLE;
         playerMeta = {};                          // kırmızı sadece anlık mavi'yi saysın
+        SIM.headless = true;                      // FAZ 1f: rollout — render-only VFX (particle/spark/tracer) hesaplanmaz
+
+        // FAZ 0 (Determinizm): her maç kendi seed'iyle tekrarlanabilir.
+        // matchSeed verilirse aynı seed → BİT-AYNI maç (altın test); verilmezse otomatik-ilerleyen seed (eğitimde çeşitlilik, baştan tekrarlanabilir).
+        resetSimRng(matchSeed != null ? matchSeed : (spNextSeed = (spNextSeed * 1664525 + 1013904223) >>> 0));
 
         if (blueReplay) {
             spDeployReplay(blueReplay);           // mavi = insan kaydı (tam diziliş)
@@ -136,6 +162,7 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
         aiGenome = redGenome;                     // kırmızı, redGenome ile mavi'yi sayarak konuşlanır
         aiDeploy();
         if (typeof initControlPoints === 'function') initControlPoints();   // FAZ 1: eğitim arenası da bölge simüle etsin
+        if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
 
         // İlk değerler (fitness için)
         const initRedValue = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
@@ -162,24 +189,12 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
             now += SP_STEP;
             ticks++;
 
-            // Savaş adımı (canlı gameLoop ile aynı sıra, render yok)
-            updateTrenches(now);
-            spatialGrid.clear();
-            for (let i = units.length - 1; i >= 0; i--) {
-                if (units[i].dead) units.splice(i, 1);
-                else spatialGrid.insert(units[i]);
-            }
-            units.forEach(u => u.update(now));
-            resolveCollisions();
-
-            // Kırmızı beyin (genom-takas hilesi)
-            aiGenome = redGenome; redCtrl.update(now);
-            // Mavi: ya insan replay'i oynat, ya kendi beyni
-            if (blueReplay) spApplyReplayCommands(blueReplay, replayState, now);
-            else { aiGenome = blueGenome; blueCtrl.update(now); }
-
-            // FAZ 1: bölge kontrolü/zafer puanı simülasyonu (canlı oyunla aynı kural)
-            if (typeof updateControlPoints === 'function') updateControlPoints(SP_STEP / 1000, now);
+            // FAZ 1g: canlı gameLoop ile AYNI birleşik tick (stepSim) — render/VFX yok (spawnDeathVfx=false)
+            stepSim(now, SP_STEP / 1000, (n) => {
+                aiGenome = redGenome; redCtrl.update(n);              // kırmızı beyin (genom-takas hilesi)
+                if (blueReplay) spApplyReplayCommands(blueReplay, replayState, n);
+                else { aiGenome = blueGenome; blueCtrl.update(n); }  // mavi: replay veya kendi beyni
+            }, false);
 
             // Per-side telemetriyi besle (controller kararları için yaklaşık)
             const redHp = spSumHp(true), blueHp = spSumHp(false);
@@ -203,15 +218,15 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
             // Bitiş kontrolü
             const redAlive = redHp > 0, blueAlive = blueHp > 0;
             if (!redAlive || !blueAlive) break;
-            if (typeof vpWinner !== 'undefined' && vpWinner !== null) break;   // FAZ 1: bölge puanı eşiği = maç biter
+            if (typeof SIM.vpWinner !== 'undefined' && SIM.vpWinner !== null) break;   // FAZ 1: bölge puanı eşiği = maç biter
             if (ticks - lastActivityTick > 400) break; // 400 tick (~25 sn) hareketsizlik → kilitlenme
         }
 
         const redVal = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
         const blueVal = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
-        const rVp = (typeof vpScore !== 'undefined') ? vpScore.red : 0;
-        const bVp = (typeof vpScore !== 'undefined') ? vpScore.blue : 0;
-        const vpW = (typeof vpWinner !== 'undefined') ? vpWinner : null;
+        const rVp = (typeof SIM.vpScore !== 'undefined') ? SIM.vpScore.red : 0;
+        const bVp = (typeof SIM.vpScore !== 'undefined') ? SIM.vpScore.blue : 0;
+        const vpW = (typeof SIM.vpWinner !== 'undefined') ? SIM.vpWinner : null;
         let winner = 'draw';
         // FAZ 1: KAZANAN = bölge-öncelikli, değer-ikincil
         if (vpW !== null) winner = (vpW === false) ? 'red' : 'blue';   // bölge puan eşiği aşıldı (false=kırmızı/AI)
@@ -237,21 +252,8 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
             maxTicks
         };
     } finally {
-        // ── Global durumu geri yükle ──
-        units.length = 0; for (const u of snap.unitsArr) units.push(u);
-        trenches.length = 0; for (const f of snap.trenchesArr) trenches.push(f);
-        decals.length = snap.decalsLen; craters.length = snap.cratersLen; particles.length = snap.particlesLen; // eğitim kalıntılarını temizle
-        phase = snap.phase;
-        aiGenome = snap.aiGenome;
-        aiFocusTarget = snap.aiFocusTarget;
-        playerMeta = snap.playerMeta;
-        player.money = snap.playerMoney; enemy.money = snap.enemyMoney;
-        player.kills = snap.playerKills; enemy.kills = snap.enemyKills;
-        if (typeof battleTelemetry !== 'undefined') battleTelemetry.started = snap.btStarted;
-        // BÖLGE durumunu geri yükle (canlı oyun bozulmasın) — maç initControlPoints ile yeni dizi atadı
-        if (snap.cpArr !== null) controlPoints = snap.cpArr;
-        if (snap.vpScoreObj !== null) vpScore = snap.vpScoreObj;
-        if (typeof vpWinner !== 'undefined') vpWinner = snap.vpWinnerVal;
+        // ── Global durumu geri yükle (FAZ 2: tek-noktadan, eksik-alan bug'ı imkansız) ──
+        restoreSIM(snap);
     }
     return result;
 }
@@ -549,9 +551,9 @@ function spShowTrainMenu() {
         '<div class="box">' +
         '<h2>🧠 Eğitim Modu Seç</h2>' +
         '<p>Kayıtlı insan replay\'i: <b style="color:#fff;">' + repCount + '</b></p>' +
-        '<button class="sp-menu-btn" data-mode="aivsinsan">🧑 AI vs İnsan — ~2000 maç<br><span>Son 10 kaydına karşı, SENİ yenmeye odaklı. (önerilen)</span></button>' +
-        '<button class="sp-menu-btn" data-mode="aivsai">🤖 AI vs AI — 288 maç<br><span>Hızlı klasik self-play (insan kaydı kullanmaz).</span></button>' +
-        '<button class="sp-menu-btn" data-mode="gece">🌙 Gece Eğitimi — 20.000 maç<br><span>En güçlü. İnsan kaydın varsa SANA karşı. (çok uzun sürer)</span></button>' +
+        '<button class="sp-menu-btn" data-mode="aivsai">⚡ Komutan — Hızlı (20 epoch)<br><span>Self-play: mirror + turtle + aggro + all-arty senaryo. ~1-2 dk.</span></button>' +
+        '<button class="sp-menu-btn" data-mode="aivsinsan">🧠 Komutan — Orta (40 epoch)<br><span>Daha güçlü, daha uzun. (önerilen)</span></button>' +
+        '<button class="sp-menu-btn" data-mode="gece">🌙 Komutan — Uzun (80 epoch)<br><span>En güçlü. Birkaç dakika sürer.</span></button>' +
         '<button class="sp-menu-btn cancel" data-mode="cancel">İptal</button>' +
         '</div>';
     document.body.appendChild(modal);
@@ -564,9 +566,10 @@ function spShowTrainMenu() {
         modal.remove();
         if (mode === 'cancel') return;
         if (phase !== PHASE.DEPLOY) { alert('Eğitim sadece BİRLİK YERLEŞTİRME ekranında başlatılabilir.'); return; }
-        if (mode === 'aivsinsan')  spStartTraining({ scale: 2000, batch: 8, useReplays: true });
-        else if (mode === 'aivsai') spStartTraining({ scale: 288, batch: 1, useReplays: false });
-        else if (mode === 'gece')   spStartTraining({ scale: 20000, batch: 16, useReplays: true });
+        // KOMUTAN eğitimi (canlı AI = Commander). Eski spStartTraining (LayeredAI) artık devre dışı — canlı oyun komutanı kullanıyor.
+        if (mode === 'aivsai')         spMenuTrainCommander(20);
+        else if (mode === 'aivsinsan') spMenuTrainCommander(40);
+        else if (mode === 'gece')      spMenuTrainCommander(80);
     });
 }
 
@@ -615,6 +618,27 @@ function spTestMatch() {
     return r;
 }
 
+// ── FAZ 0 ALTIN TEST: aynı seed → BİT-AYNI maç (determinizm doğrulaması) ──
+// Konsoldan: spGoldenTest()  → ✅ ise sim deterministik (fork + eğitim-ödülü güvenli).
+// ❌ ise bir yerde seedlenmemiş Math.random / duvar-saati / kaymış iterasyon var.
+function spGoldenTest(seed = 1234567, runs = 3) {
+    const g = aiGenome;
+    const counts = spRandomArmy();   // ordu kompozisyonu sabit; deploy jitter seed'e bağlı olacak
+    const sig = r => `kayıp R/B=${r.redValueLost}/${r.blueValueLost} | tick=${r.ticks} | VP R/B=${r.redVp}/${r.blueVp} | kazanan=${r.winner} | kesin=${r.decisive}`;
+    console.log(`Altın test: ${runs} koşu, seed=${seed}, ordu=[${counts.join(',')}]`);
+    let first = null, ok = true;
+    for (let i = 0; i < runs; i++) {
+        const r = spRunMatch(g, g, counts.slice(), SP_MAX_TICKS, null, seed);
+        const s = sig(r);
+        console.log(`  koşu ${i + 1}: ${s}`);
+        if (first === null) first = s; else if (s !== first) ok = false;
+    }
+    console.log(ok
+        ? `✅ ALTIN TEST GEÇTİ — sim deterministik (aynı seed → bit-aynı sonuç). Fork/eğitim güvenli.`
+        : `❌ ALTIN TEST KALDI — determinizm sızıntısı! (seedlenmemiş random / duvar-saati / kaymış iterasyon ara).`);
+    return ok;
+}
+
 // Step 2 doğrulama: mevcut beyin (kırmızı) kayıtlı bir replay'e (mavi=insan) karşı.
 // index verilmezse en son kayıt. Konsola: spTestReplayMatch()
 function spTestReplayMatch(index) {
@@ -629,4 +653,190 @@ function spTestReplayMatch(index) {
     console.log(`Sonuç: ${verdict} · kırmızı kayıp ${Math.round(r.redValueLost)} / mavi kayıp ${Math.round(r.blueValueLost)} · temas ${r.contactTicks} tick · ${Math.round(t1 - t0)} ms`);
     console.log(r);
     return r;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FAZ 4b — KOMUTAN SELF-PLAY EĞİTİMİ
+//  ----------------------------------------------------------------------------
+//  commanderGenome'un 12 karar-parametresini genetik (mutate-and-keep-best) ile
+//  evirir. Maç: İKİ TARAF DA temiz komutan (genome-swap), GERÇEK stepSim fiziği.
+//  Ödül: kuvvet ekonomisi (blueLost − k×redLost) + VP farkı, RED açısından.
+//  İnsan-gibi kalır: yapı sabit (sektör-makro, süper-APM yok), sadece sayılar evrilir.
+//  Konsoldan: spTrainCommander()  → bitince commanderGenome (canlı) güncellenir.
+// ═══════════════════════════════════════════════════════════════════════════
+const CMDR_TRAIN_TICKS = 1200;   // eğitim maçı üst sınırı (≈77 sim-sn, hız için kısa)
+
+// Tek komutan maçı: redGenes (kuzey) vs blueGenes (güney). RED açısından net döner.
+// Senaryo orduları (komutan eğitimi: belirli kompozisyonlara karşı taktik öğren — konsey egitimTasarim)
+function spAllArtyArmy()   { const c = new Array(9).fill(0); c[T.ENGINEER] = 1; c[T.RECON] = 1; c[T.ARTILLERY] = 8; return c; }      // "tamamen topçu"
+function spArtyHunterArmy() { const c = new Array(9).fill(0); c[T.ENGINEER] = 1; c[T.RECON] = 4; c[T.MECH_INFANTRY] = 8; c[T.INFANTRY] = 4; return c; }  // all-arty counter
+
+function spRunCommanderMatch(redGenes, blueGenes, maxTicks = CMDR_TRAIN_TICKS, matchSeed = null, redArmy = null, blueArmy = null, blueReplay = null) {
+    const savedGenome = commanderGenome;       // canlı genomu koru
+    const snap = snapshotSIM();
+    try {
+        units.length = 0; trenches.length = 0;
+        player.money = SP_BUDGET; enemy.money = SP_BUDGET; player.kills = 0; enemy.kills = 0;
+        phase = PHASE.BATTLE; playerMeta = {}; SIM.headless = true;
+        resetSimRng(matchSeed != null ? matchSeed : (spNextSeed = (spNextSeed * 1664525 + 1013904223) >>> 0));
+        if (blueReplay) { spDeployReplay(blueReplay); aiDeploy(); }   // mavi=İNSAN kaydı, kırmızı=AI counter-deploy (canlı akış)
+        else { spDeployArmy(blueArmy || spRandomArmy(), false); spDeployArmy(redArmy || spRandomArmy(), true); }
+        if (typeof initControlPoints === 'function') initControlPoints();
+        commanderReset();
+
+        const initRed  = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
+        const initBlue = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
+
+        const replayState = { idx: 0 };
+        let now = 0;
+        for (let t = 0; t < maxTicks; t++) {
+            now += SP_STEP;
+            stepSim(now, SP_STEP / 1000, (n) => {
+                commanderGenome = redGenes; commanderDrive(true, n);                // kuzey = AI komutan
+                if (blueReplay) spApplyReplayCommands(blueReplay, replayState, n);   // güney = İNSAN kaydı (gerçek oyun)
+                else { commanderGenome = blueGenes; commanderDrive(false, n); }      // güney = AI komutan
+            }, false);
+            if (SIM.vpWinner !== null) break;
+            if (spSideUnits(true).length === 0 || spSideUnits(false).length === 0) break;
+        }
+
+        const redVal  = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
+        const blueVal = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
+        const redLost = initRed - redVal, blueLost = initBlue - blueVal;
+        let net = (blueLost - SP_LOSS_AVERSION * redLost) * SP_NET_SCALE;   // kuvvet ekonomisi (baskın)
+        net += ((SIM.vpScore.red || 0) - (SIM.vpScore.blue || 0)) * SP_VP_WEIGHT;   // bölge
+        return { net, redLost, blueLost, redVp: SIM.vpScore.red, blueVp: SIM.vpScore.blue };
+    } finally {
+        commanderGenome = savedGenome;          // canlı genomu geri yükle
+        restoreSIM(snap);
+    }
+}
+
+// Bir genomu, RAKİP(ler)e karşı N maç ortalamasıyla değerlendir. opponents tek genom veya dizi olabilir.
+// Dizi → her rakibe karşı matchesEach maç (ör. [champion, turtle] = mirror + anti-savunma).
+function spEvalCommander(genes, opponents, matchesEach = 2, seedBase = 0, replays = null) {
+    const opps = Array.isArray(opponents) ? opponents : [opponents];
+    let sum = 0, cnt = 0;
+    for (let oi = 0; oi < opps.length; oi++)
+        for (let i = 0; i < matchesEach; i++) {
+            sum += spRunCommanderMatch(genes, opps[oi], CMDR_TRAIN_TICKS, seedBase + (oi * 31 + i) * 7919).net;
+            cnt++;
+        }
+    // SENARYO: aday (RECON+MECH avcı ordusu) vs ALL-ARTY rakip → topçu-RUSH genlerini eğit/ölç (konsey egitimTasarim)
+    sum += spRunCommanderMatch(genes, opps[0], CMDR_TRAIN_TICKS, seedBase + 99991, spArtyHunterArmy(), spAllArtyArmy()).net;
+    cnt++;
+    // İNSAN REPLAY'LERİNE KARŞI (varsa): AI senin GERÇEK oyunlarını yenmeyi öğrenir — asıl insan-yen sinyali (2× ağırlık)
+    if (replays && replays.length) {
+        const nR = Math.min(2, replays.length);
+        for (let i = 0; i < nR; i++) {
+            sum += spRunCommanderMatch(genes, null, CMDR_TRAIN_TICKS, seedBase + 70000 + i * 333, null, null, replays[replays.length - 1 - i]).net * 2;
+            cnt += 2;
+        }
+    }
+    return cnt ? sum / cnt : 0;
+}
+
+// Gen mutasyonu: her parametreyi sınırları içinde rastgele oynat (evrim gürültüsü → Math.random).
+function mutateCommanderGenes(base, scale) {
+    const g = Object.assign({}, base);
+    for (const k in COMMANDER_GENE_LIMITS) {
+        const lim = COMMANDER_GENE_LIMITS[k], span = lim[1] - lim[0];
+        let v = g[k] + (Math.random() * 2 - 1) * span * scale;
+        g[k] = Math.max(lim[0], Math.min(lim[1], v));
+    }
+    return g;
+}
+
+// ── PFSP-LİTE LİG (konsey Faz B): geçmiş-şampiyon arşivi (hall of fame). Aday yalnız mevcut
+// şampiyona değil, ÇEŞİTLİ geçmiş şampiyonlara karşı eğitilir → tek-şampiyon overfit'i kırılır,
+// genom sağlamlaşır. localStorage'da kalıcı; seanslar arası BÜYÜR (sürekli güçlenen rakip havuzu).
+let cmdrHallOfFame = [];
+try { const _h = localStorage.getItem('cmdrHall'); if (_h) cmdrHallOfFame = JSON.parse(_h) || []; } catch (_) {}
+function cmdrGeneDist(a, b) {
+    let d = 0; for (const k in COMMANDER_GENE_LIMITS) { const lim = COMMANDER_GENE_LIMITS[k]; d += Math.abs((a[k] || 0) - (b[k] || 0)) / ((lim[1] - lim[0]) || 1); }
+    return d;
+}
+function cmdrArchive(genome) {
+    for (const g of cmdrHallOfFame) if (cmdrGeneDist(g, genome) < 1.5) return;   // çok benzer → ekleme (çeşitlilik koru)
+    cmdrHallOfFame.push(Object.assign({}, genome));
+    if (cmdrHallOfFame.length > 12) cmdrHallOfFame.shift();                       // tavan
+    try { localStorage.setItem('cmdrHall', JSON.stringify(cmdrHallOfFame)); } catch (_) {}
+}
+function cmdrClearHall() { cmdrHallOfFame = []; try { localStorage.removeItem('cmdrHall'); } catch (_) {} return 'Hall of Fame temizlendi.'; }
+
+// EXPLOITER (konsey Faz B): champion'ı EN ÇOK YENEN genomu ara (yalnız champion'a karşı) → lige ekle.
+// Böylece champion KENDİ counter-stratejisini de yenmeyi öğrenir (zayıflık-avı = exploit-dirençli, sağlam).
+function cmdrFindExploiter(champion, tries, seed) {
+    let best = null, bestFit = -Infinity;
+    for (let i = 0; i < tries; i++) {
+        const cand = mutateCommanderGenes(champion, 0.20 + 0.35 * Math.random());
+        const fit = spEvalCommander(cand, [champion], 2, seed + i * 311);
+        if (fit > bestFit) { bestFit = fit; best = cand; }
+    }
+    return best;
+}
+
+// ── ANA EĞİTİM: champion'ı mutasyonlarla yen, en iyiyi al. Konsoldan: spTrainCommander() ──
+function spTrainCommander(epochs = 30, pop = 10, matches = 2, onDone, onProgress) {
+    let champion = Object.assign({}, commanderGenome);
+    // İNSAN REPLAY'LERİ (varsa): eğitim senin GERÇEK oyunlarını yenmeyi de hedefler (imitasyon-adjacent, insan-yen)
+    const cmdrReplays = (typeof replayLoadAll === 'function') ? (replayLoadAll() || []) : [];
+    // LİG RAKİPLERİ: mirror + TURTLE + AGGRO + 2 rastgele GEÇMİŞ-ŞAMPİYON (hall of fame) + all-arty senaryo.
+    // → genel + anti-savunma + anti-baskı + ÇEŞİTLİ geçmiş stratejilere karşı sağlam (overfit kırılır).
+    const opponents = () => {
+        const o = [champion, TURTLE_COMMANDER_GENES, AGGRO_COMMANDER_GENES];
+        for (let i = 0; i < Math.min(2, cmdrHallOfFame.length); i++) o.push(cmdrHallOfFame[Math.floor(Math.random() * cmdrHallOfFame.length)]);
+        return o;
+    };
+    let championFit = spEvalCommander(champion, opponents(), matches, 1009, cmdrReplays);
+    let e = 0;
+    console.log(`🧠 Komutan eğitimi: ${epochs} epoch × ${pop} aday · lig(${cmdrHallOfFame.length} şampiyon) + ${cmdrReplays.length} insan-replay. Başlangıç fit≈${championFit.toFixed(0)}.`);
+    function epochStep() {
+        const opps = opponents();
+        // ADİL KIYAS (gerçek-eğitim düzeltmesi): bu epoch'un SABİT senaryoları — şampiyon VE tüm adaylar
+        // AYNI ordular/seed'lerde ölçülür. Eskiden her aday FARKLI seed alıyordu → şanslı aday seçiliyordu
+        // (gürültü, etkisiz eğitim). Şampiyonu da bu senaryolarda yeniden ölç (taze, adil baz).
+        const epochSeed = 3000 + e * 9173;
+        let bestG = champion, bestFit = spEvalCommander(champion, opps, matches, epochSeed, cmdrReplays);
+        for (let k = 0; k < pop; k++) {
+            const cand = mutateCommanderGenes(champion, 0.08 + 0.14 * Math.random());
+            const fit = spEvalCommander(cand, opps, matches, epochSeed, cmdrReplays);   // AYNI senaryo → GENUINE seçim
+            if (fit > bestFit) { bestFit = fit; bestG = cand; }
+        }
+        champion = bestG; championFit = bestFit;
+        e++;
+        console.log(`  epoch ${e}/${epochs}: en iyi fit=${championFit.toFixed(0)}`);
+        if (onProgress) onProgress(e, epochs, championFit);
+        if (e % 8 === 0) cmdrArchive(champion);   // periyodik arşivle → lig havuzu büyür (PFSP)
+        if (e % 12 === 0 && e > 0) { const ex = cmdrFindExploiter(champion, 5, 60000 + e * 7); if (ex) cmdrArchive(ex); }   // exploiter: zayıflık-avcısını lige ekle
+        if (e < epochs) { setTimeout(epochStep, 0); }   // tarayıcıyı kilitleme (epoch'lar arası nefes)
+        else {
+            commanderGenome = champion;                 // CANLI komutan artık evrilmiş genomu kullanır
+            cmdrArchive(champion);                       // final şampiyonu lige ekle
+            try { localStorage.setItem('cmdrGenome', JSON.stringify(champion)); } catch (_) {}   // KALICILIK
+            console.log(`✅ Eğitim bitti. commanderGenome CANLI + kalıcı. Lig havuzu: ${cmdrHallOfFame.length} şampiyon.`);
+            console.log(JSON.stringify(champion, null, 2));
+            if (onDone) onDone(champion);
+        }
+    }
+    setTimeout(epochStep, 0);
+    return 'Eğitim başladı — konsolu izle (epoch fit artmalı). Bitince commanderGenome güncellenir.';
+}
+
+// UI'dan KOMUTAN eğitimi: progress ekranını gösterir, bitince kaydeder + uyarır.
+function spMenuTrainCommander(epochs) {
+    const screen = document.getElementById('ai-training-screen');
+    const bar = document.getElementById('train-progress-bar');
+    const txt = document.getElementById('train-progress-text');
+    if (screen) screen.classList.remove('hidden');
+    spTrainCommander(epochs, 10, 2,
+        () => {
+            if (screen) screen.classList.add('hidden');
+            alert('✅ Komutan eğitimi bitti! Yeni beyin CANLI + kalıcı (reload\'da kalır). Oyna ve gör.');
+        },
+        (e, total, fit) => {
+            if (bar) bar.style.width = Math.round(e / total * 100) + '%';
+            if (txt) txt.textContent = `🧠 Komutan eğitimi: ${e}/${total} epoch · fit ${Math.round(fit)}`;
+        }
+    );
 }

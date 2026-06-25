@@ -39,11 +39,11 @@ class Plane {
     dropParas() {
         // 3 Paraşütçü indir (Şimdilik direkt oluşturuyoruz, gelecekte paraşüt animasyonu eklenebilir)
         for (let i = 0; i < 3; i++) {
-            let dropX = this.targetX + (Math.random() * 150 - 75);
-            let dropY = this.targetY + (Math.random() * 150 - 75);
+            let dropX = this.targetX + (srand() * 150 - 75);
+            let dropY = this.targetY + (srand() * 150 - 75);
             
             setTimeout(() => {
-                units.push(new Unit(T.INFANTRY, dropX, dropY, false));
+                SIM.units.push(new Unit(T.INFANTRY, dropX, dropY, false));
                 player.unitsSpawned++;
             }, 1000 / GAME_SPEED);
         }

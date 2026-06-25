@@ -10,12 +10,18 @@ function aiDeploy() {
     let currentMoney = enemy.money;
     const aiDeployCounts = new Array(9).fill(0);
     
-    // Geçmiş hafıza (Local Storage) + Şu anki haritadaki Mavi birimler
+    // Şu anki haritadaki CANLI mavi birimler (oyuncunun gerçek ordusu — hilesiz, deploy anında görünür)
     let blueCounts = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0 };
-    for (const type in playerMeta) blueCounts[type] += playerMeta[type] * 0.4; // %40 Hafıza etkisi
+    let liveBlue = 0;
     for (const u of units) {
-        if (!u.isRed) blueCounts[u.type] += 1;
+        if (!u.isRed) { blueCounts[u.type] += 1; liveBlue++; }
     }
+    // KONSEY BATCH 2: monoculture (tek-tip) tespiti → tek-tip netken hafızayı SULANDIRMA
+    // (sahadaki saf sinyal bulanmasın, sert counter devreye girsin). Kullanıcı isteği: tek-tip→counter.
+    let domCount = 0; for (let t = 0; t < 9; t++) if (blueCounts[t] > domCount) domCount = blueCounts[t];
+    const dominantRatio = liveBlue > 0 ? domCount / liveBlue : 0;
+    const metaFactor = dominantRatio >= 0.7 ? 0.1 : 0.4;        // tek-tip → hafıza %10, çeşitli → %40
+    for (const type in playerMeta) blueCounts[type] += playerMeta[type] * metaFactor;
 
     // Ağırlık Sistemi (Genetik Algoritma Counter Geni kullanarak)
     let aiWeights = { 0:1, 1:1, 2:1, 3:1, 4:1, 5:1, 6:1, 7:1, 8:1 };
@@ -38,7 +44,7 @@ function aiDeploy() {
     };
 
     // Canlı fizik artık sınırlı mühimmat kullandığı için AI her orduda bir lojistik çekirdek taşır.
-    buyUnit(T.ENGINEER, WORLD_W * 0.5 + (Math.random() * 80 - 40), 220);
+    buyUnit(T.ENGINEER, WORLD_W * 0.5 + (srand() * 80 - 40), 220);
     aiWeights[T.ENGINEER] *= 0.18;
 
     // Oyuncu tek tip zırha yüklendiyse öğrenilmiş matris ne derse desin temel bir karşı kuvvet kur.
@@ -64,8 +70,8 @@ function aiDeploy() {
             const type = hunterPackage[index];
             const row = Math.floor(index / 4);
             const column = index % 4;
-            const rx = WORLD_W * 0.5 + (column - 1.5) * 145 + (Math.random() * 28 - 14);
-            const ry = 250 + row * 115 + (Math.random() * 28 - 14);
+            const rx = WORLD_W * 0.5 + (column - 1.5) * 145 + (srand() * 28 - 14);
+            const ry = 250 + row * 115 + (srand() * 28 - 14);
             buyUnit(type, rx, ry);
         }
         aiWeights[T.RECON] += 28;
@@ -83,13 +89,39 @@ function aiDeploy() {
         for (let index = 0; index < antiTankCount; index++) {
             const column = index % 5;
             const row = Math.floor(index / 5);
-            const rx = WORLD_W * 0.5 + (column - 2) * 150 + (Math.random() * 30 - 15);
-            const ry = 330 + row * 110 + (Math.random() * 30 - 15);
+            const rx = WORLD_W * 0.5 + (column - 2) * 150 + (srand() * 30 - 15);
+            const ry = 330 + row * 110 + (srand() * 30 - 15);
             buyUnit(T.ANTI_TANK, rx, ry);
         }
         aiWeights[T.ANTI_TANK] += 35;
         aiWeights[T.ARTILLERY] += 14;
         aiWeights[T.RECON] += 8;
+    }
+    // ── KONSEY BATCH 2: TOPÇU-AĞIRLIKLI AVCI PAKETİ (oransal + kompozisyon-farkında) ──
+    // Topçu yakın-dövüşte cam (vision300<range350, speed0.27, 10s reload, weak:RECON). Onu RUSH'layacak
+    // HIZLI+SPOTTER ordu kur. ŞİDDET oranyla ölçeklenir (eşik DEĞİL → "tam eşik-altı kal" sömürüsü kapalı).
+    // Koruma varsa dengele: zırh→AT ekle, AT→zırhlı-piyade ekle (adversarial rafine). Kullanıcı: tek-tip→counter.
+    const deployedAT = deployedBlue.filter(u => u.type === T.ANTI_TANK).length;
+    const totalBlue = Math.max(1, deployedBlue.length);
+    const artilleryRatio = deployedArtillery / totalBlue;
+    const antiTankRatio = deployedAT / totalBlue;
+    const huntArtyStrength = artilleryRatio - 0.9 * armorRatio - 0.9 * antiTankRatio;  // topçu açıkta mı
+    if (deployedArtillery >= 2 && huntArtyStrength > 0.1) {
+        const s = Math.min(2.2, 0.6 + huntArtyStrength * 2.4);                          // orantılı şiddet
+        const reconN = Math.min(4, Math.max(2, Math.round(deployedArtillery * (0.3 + huntArtyStrength * 0.5))));  // 2-4 SPOTTER yeter (görüş takım-geneli)
+        for (let i = 0; i < reconN; i++) {                                              // spotter: topçu görüşünü kır
+            const rx = WORLD_W * 0.5 + (i % 5 - 2) * 150 + (srand() * 40 - 20);
+            buyUnit(T.RECON, rx, 250 + Math.floor(i / 5) * 70);
+        }
+        // ASIL ÖLDÜRÜCÜ = MECH/PİYADE sürüsü (dayanıklı, splash'ta erimez). RECON sadece spotter (az).
+        aiWeights[T.RECON]         += 16 * s;                                           // az ek recon (kırılgan)
+        aiWeights[T.MECH_INFANTRY] += 52 * s;                                           // ASIL kapatıcı sürü (hızlı + dayanıklı)
+        aiWeights[T.INFANTRY]      += 32 * s;                                           // ucuz kitle (sayı üstünlüğü)
+        if (armorRatio > 0.1)    aiWeights[T.ANTI_TANK]      += 30 * armorRatio * 3;    // koruyan zırh duvarını kır
+        if (antiTankRatio > 0.1) aiWeights[T.ARMOR_INFANTRY] += 26 * antiTankRatio * 3; // koruyan AT'yi ez
+        aiWeights[T.ARTILLERY] *= 0.30;                                                 // kendi yavaş topçunu kıs
+        aiWeights[T.ARMOR]     *= 0.60;
+        aiWeights[T.ENGINEER]  *= 0.50;
     }
     if (deployedSupport >= 2) {
         aiWeights[T.RECON] += 18;
@@ -119,8 +151,8 @@ function aiDeploy() {
             let ry = (WORLD_H * 0.4 - 50) - (yRatio * (WORLD_H * 0.4 - 100));
             
             // Birliklerin üst üste binip patlamasını (çarpışma) engellemek için hafif rastgelelik (Jitter)
-            rx += (Math.random() * 60) - 30;
-            ry += (Math.random() * 60) - 30;
+            rx += (srand() * 60) - 30;
+            ry += (srand() * 60) - 30;
             
             buyUnit(bestType, rx, ry);
             aiWeights[bestType] *= 0.5; 
@@ -403,8 +435,8 @@ function updateAITactics(now) {
         
         if (battlePhase === 4) {
             // Regroup modundaysa herkes çekilme merkezine (vanguardX/Y) koşsun
-            ru.targetX = vanguardX + (Math.random()*200 - 100); 
-            ru.targetY = vanguardY + (Math.random()*200 - 100);
+            ru.targetX = vanguardX + (srand()*200 - 100);
+            ru.targetY = vanguardY + (srand()*200 - 100);
             ru.aiAction = 'FLEE';
             continue;
         } else if (battlePhase === 5) {
@@ -414,8 +446,8 @@ function updateAITactics(now) {
             let aiBaseX = WORLD_W / 2;
             let aiBaseY = 180;
             
-            ru.targetX = aiBaseX + (Math.random() * 200 - 100);
-            ru.targetY = aiBaseY + (Math.random() * 200 - 100);
+            ru.targetX = aiBaseX + (srand() * 200 - 100);
+            ru.targetY = aiBaseY + (srand() * 200 - 100);
             ru.aiAction = 'FLEE'; // Tamamen kaç (Üsse dön)
             continue; 
         }
@@ -428,8 +460,8 @@ function updateAITactics(now) {
                 
                 // Eğer düşman ona çok yakınsa ama Support (ana ordu) ona çok uzaksa (Yem olmamak için)
                 if (distToEnemyU < 600 / roleGenes.aggression && supportDistToEnemy - distToEnemyU > 400 * genes.cohesion) {
-                    ru.targetX = supportX + (Math.random()*100 - 50); 
-                    ru.targetY = supportY + (Math.random()*100 - 50);
+                    ru.targetX = supportX + (srand()*100 - 50);
+                    ru.targetY = supportY + (srand()*100 - 50);
                     ru.aiAction = 'KITE'; // Ateş ede ede kendi ana hattına kaç
                     continue; // Formasyon hedefini ez
                 }

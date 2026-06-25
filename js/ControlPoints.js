@@ -15,31 +15,30 @@ const VP_POINT_RADIUS = 250;     // ele geçirme yarıçapı (dünya px) — bö
 const VP_CAPTURE_TIME = 6;       // tek başına nötrden sahipliğe (yarı menzil) süre referansı (sn)
 const VP_SCORE_RATE = 5;         // tutulan nokta sn'de kaç puan
 
-let controlPoints = [];
-let vpScore = { red: 0, blue: 0 };
-let vpWinner = null;             // null | true (oyuncu/MAVİ kazandı) | false (AI/KIRMIZI kazandı)
+// FAZ 1c: SIM.controlPoints / SIM.vpScore / SIM.vpWinner artık world'de tanımlı (globals.js) — world CANONICAL.
+// initControlPoints() bunları world üzerinde sıfırlar; tüm okumalar world.* üzerinden.
 
 function initControlPoints() {
     const cy = WORLD_H * 0.5;
-    controlPoints = [
+    SIM.controlPoints = [
         { name: 'Sol Mevzi', x: WORLD_W * 0.5 - 820, y: cy, r: VP_POINT_RADIUS, cap: 0, owner: null, contested: false },
         { name: 'Merkez',    x: WORLD_W * 0.5,        y: cy, r: VP_POINT_RADIUS, cap: 0, owner: null, contested: false },
         { name: 'Sağ Mevzi', x: WORLD_W * 0.5 + 820, y: cy, r: VP_POINT_RADIUS, cap: 0, owner: null, contested: false }
     ];
-    vpScore = { red: 0, blue: 0 };
-    vpWinner = null;
+    SIM.vpScore = { red: 0, blue: 0 };
+    SIM.vpWinner = null;
 }
 
 // cap ∈ [-1,+1]: -1 = KIRMIZI(AI) sahibi, +1 = MAVİ(oyuncu) sahibi, 0 = nötr
 function controlPointOwner(p) { return p.cap <= -0.999 ? 'red' : (p.cap >= 0.999 ? 'blue' : null); }
 
 function updateControlPoints(dt, now) {
-    if (!controlPoints.length || dt <= 0) return;
+    if (!SIM.controlPoints.length || dt <= 0) return;
     const rate = 1 / VP_CAPTURE_TIME;
-    for (const p of controlPoints) {
+    for (const p of SIM.controlPoints) {
         let red = 0, blue = 0;
         const r2 = p.r * p.r;
-        for (const u of units) {
+        for (const u of SIM.units) {
             if (u.dead) continue;
             const dx = u.x - p.x, dy = u.y - p.y;
             if (dx * dx + dy * dy <= r2) { if (u.isRed) red++; else blue++; }
@@ -50,20 +49,20 @@ function updateControlPoints(dt, now) {
         // çekişmeli veya boş → değişmez (mevcut ele geçirme korunur, terk edince elde kalır)
         p.owner = controlPointOwner(p);
     }
-    for (const p of controlPoints) {
-        if (p.owner === 'red') vpScore.red += VP_SCORE_RATE * dt;
-        else if (p.owner === 'blue') vpScore.blue += VP_SCORE_RATE * dt;
+    for (const p of SIM.controlPoints) {
+        if (p.owner === 'red') SIM.vpScore.red += VP_SCORE_RATE * dt;
+        else if (p.owner === 'blue') SIM.vpScore.blue += VP_SCORE_RATE * dt;
     }
-    if (vpWinner === null) {
-        if (vpScore.red >= VP_TARGET) vpWinner = false;       // AI/KIRMIZI kazandı (oyuncu kaybetti)
-        else if (vpScore.blue >= VP_TARGET) vpWinner = true;  // oyuncu/MAVİ kazandı
+    if (SIM.vpWinner === null) {
+        if (SIM.vpScore.red >= VP_TARGET) SIM.vpWinner = false;       // AI/KIRMIZI kazandı (oyuncu kaybetti)
+        else if (SIM.vpScore.blue >= VP_TARGET) SIM.vpWinner = true;  // oyuncu/MAVİ kazandı
     }
 }
 
 // Red(AI) için: kaç nokta tutuyor / rakip kaç tutuyor (AI karar yardımı)
 function vpCounts() {
     let red = 0, blue = 0, open = 0;
-    for (const p of controlPoints) {
+    for (const p of SIM.controlPoints) {
         if (p.owner === 'red') red++;
         else if (p.owner === 'blue') blue++;
         else open++;
@@ -72,8 +71,8 @@ function vpCounts() {
 }
 
 function drawControlPoints(ctx) {
-    if (!controlPoints.length || phase !== PHASE.BATTLE) return;
-    for (const p of controlPoints) {
+    if (!SIM.controlPoints.length || phase !== PHASE.BATTLE) return;
+    for (const p of SIM.controlPoints) {
         const s = worldToScreen(p.x, p.y);
         const rr = p.r * zoom;
         if (s.x < -rr || s.x > canvas.width + rr || s.y < -rr || s.y > canvas.height + rr) continue;
@@ -118,7 +117,7 @@ function drawControlPoints(ctx) {
 
 // Ekran-uzayı skor HUD (üst orta)
 function drawVpHud(ctx) {
-    if (!controlPoints.length || phase !== PHASE.BATTLE) return;
+    if (!SIM.controlPoints.length || phase !== PHASE.BATTLE) return;
     const w = 380, h = 16;
     const x = Math.round((canvas.width - w) / 2);
     const y = 12;
@@ -126,8 +125,8 @@ function drawVpHud(ctx) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(x - 8, y - 6, w + 16, h + 40);
     // hedefe oran (KIRMIZI soldan, MAVİ sağdan)
-    const rp = Math.min(1, vpScore.red / VP_TARGET);
-    const bp = Math.min(1, vpScore.blue / VP_TARGET);
+    const rp = Math.min(1, SIM.vpScore.red / VP_TARGET);
+    const bp = Math.min(1, SIM.vpScore.blue / VP_TARGET);
     const half = w / 2;
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     ctx.fillRect(x, y, w, h);
@@ -141,10 +140,10 @@ function drawVpHud(ctx) {
     ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ff8888';
-    ctx.fillText(`KIRMIZI(AI) ${Math.floor(vpScore.red)}`, x, y + h + 16);
+    ctx.fillText(`KIRMIZI(AI) ${Math.floor(SIM.vpScore.red)}`, x, y + h + 16);
     ctx.textAlign = 'right';
     ctx.fillStyle = '#9fd4ff';
-    ctx.fillText(`${Math.floor(vpScore.blue)} SEN(MAVİ)`, x + w, y + h + 16);
+    ctx.fillText(`${Math.floor(SIM.vpScore.blue)} SEN(MAVİ)`, x + w, y + h + 16);
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     const c = vpCounts();

@@ -69,7 +69,7 @@ class Unit {
         this.sx = SP_PAD + type * (SP_W + SP_PAD);
         this.sy = isRed ? (SP_PAD * 2 + SP_H) : SP_PAD;
         this.flashTimer = 0;
-        this.scanTimer = Math.floor(Math.random() * 30);
+        this.scanTimer = srandInt(30);
     }
 
     update(now) {
@@ -88,7 +88,7 @@ class Unit {
             const MORALE_R2 = 280 * 280; // moral etkisi yarıçapı (yoldaşlık hissi)
             let enemySeen = false;
             let allyStr = 0, enemyStr = 0, allyCount = 0, leaderNear = false, fleeingNear = 0;
-            for (const u of units) {
+            for (const u of SIM.units) {
                 if (u.dead) continue;
                 const ddx = u.x - this.x, ddy = u.y - this.y;
                 const d2 = ddx * ddx + ddy * ddy;
@@ -151,12 +151,15 @@ class Unit {
         if (this.leaderNearby) panicDecay *= 1.6;  // lider birliği toparlar
         if (dominant) panicDecay *= 1.5;           // kazandığımızı görmek moral verir
 
+        // SÜRE-BAZLI RALLY: bir süredir kaçan birlik baskı altında OLSA BİLE toparlanır (panik sonsuz sürmez —
+        // "düşman kovalarken birim savaşmıyor" sorununun çözümü). Net-decay: panik artık tek-yönlü artmaz.
+        const fleeingLong = this.isFleeing && this.fleeSince != null && (now - this.fleeSince) > 4000;
         if (this.lastStandMorale) {
             this.panic -= panicDecay * 2;          // son direniş: korku kalmadı
-        } else if (panicGain > 0) {
-            this.panic += panicGain;
+        } else if (fleeingLong) {
+            this.panic -= panicDecay * 5;          // uzun kaçış → ZORUNLU toparlanma → tekrar savaşır
         } else {
-            this.panic -= panicDecay;
+            this.panic += panicGain - panicDecay;  // HER ZAMAN net → baskı azalınca panik düşer (bir süre sonra biter)
         }
         this.panic = Math.max(0, Math.min(100, this.panic));
 
@@ -168,12 +171,14 @@ class Unit {
         if (!this.lastStandMorale && !this.isFleeing && this.panic > fleeThreshold && this.enemyInVision) {
             this.isFleeing = true;
             this.hasFledOnce = true;
+            this.fleeSince = now;                  // RALLY: kaçış başlangıç zamanı (süre-bazlı toparlanma)
             this.fleeTarget = {
-                x: WORLD_W / 2 + (Math.random() * 400 - 200),
+                x: WORLD_W / 2 + (srand() * 400 - 200),
                 y: this.isRed ? 200 : WORLD_H - 200
             };
         } else if (this.isFleeing && (this.panic < rallyThreshold || this.lastStandMorale)) {
             this.isFleeing = false;
+            this.fleeSince = null;
             this.fleeTarget = null;
         }
 
@@ -273,7 +278,7 @@ class Unit {
                 }
             }
         }
-        for (const t of trenches) {
+        for (const t of SIM.trenches) {
             if (t.isRed === this.isRed && Math.hypot(this.x - t.x, this.y - t.y) < t.r) {
                 this.inTrench = true;
                 this.inSupply = t.providesSupply !== false;
@@ -313,7 +318,7 @@ class Unit {
                 this.buildTrenchTimer += GAME_SPEED / 60;
                 if (Math.random() < 0.1 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(this.x, this.y);
                 if (this.buildTrenchTimer > 3.0) {
-                    trenches.push({
+                    SIM.trenches.push({
                         x: this.x,
                         y: this.y,
                         r: 72,
@@ -341,7 +346,7 @@ class Unit {
 
     updateEngineerBonus() {
         this.armor = this.baseArmor + (this.inForest ? 3 : 0) + (this.inTrench ? 6 : 0);
-        const nearby = spatialGrid.getNearby(this.x, this.y, 180);
+        const nearby = SIM.spatialGrid.getNearby(this.x, this.y, 180);
         for (const u of nearby) {
             if (u.dead || u.type !== T.ENGINEER || u.isRed !== this.isRed || u === this) continue;
             if (Math.hypot(u.x - this.x, u.y - this.y) <= 180) { this.armor += 2; break; }
@@ -353,7 +358,7 @@ class Unit {
         if (now - this.lastAttackTime < this.atkSpeed) return;
         let lowestHpUnit = null;
         let lowestRatio = 1;
-        const nearby = spatialGrid.getNearby(this.x, this.y, this.range);
+        const nearby = SIM.spatialGrid.getNearby(this.x, this.y, this.range);
         for (const u of nearby) {
             if (u.dead || u.isRed !== this.isRed || u === this || u.hp >= u.maxHp) continue;
             if (!isMedicHealable(u.type)) continue;
@@ -446,7 +451,7 @@ class Unit {
         let bestTarget = null;
         let maxScore = -Infinity;
         
-        const nearby = spatialGrid.getNearby(this.x, this.y, this.range * 1.5);
+        const nearby = SIM.spatialGrid.getNearby(this.x, this.y, this.range * 1.5);
         for (const u of nearby) {
             if (u.dead || u.isRed === this.isRed) continue;
             
@@ -516,7 +521,7 @@ class Unit {
         if (this.type === T.ARTILLERY) {
             // ── TOPÇU: yalnızca geniş alan hasarı (nokta atışı YOK) ──
             const cx = primaryTarget.x, cy = primaryTarget.y;
-            const splashNearby = spatialGrid.getNearby(cx, cy, ARTILLERY_SPLASH_RADIUS);
+            const splashNearby = SIM.spatialGrid.getNearby(cx, cy, ARTILLERY_SPLASH_RADIUS);
             for (const n of splashNearby) {
                 if (n.dead || n.isRed === this.isRed) continue;       // sadece düşman birlikleri
                 const distance = Math.hypot(n.x - cx, n.y - cy);
@@ -569,7 +574,7 @@ class Unit {
             // Tank mermisi = dar HE alan hasarı. Birincil hedef tam vuruşunu zaten aldı;
             // çevredeki DİĞER düşmanlara ölçülü splash + baskı uygula.
             const cx = primaryTarget.x, cy = primaryTarget.y;
-            const blastNearby = spatialGrid.getNearby(cx, cy, TANK_SPLASH_RADIUS);
+            const blastNearby = SIM.spatialGrid.getNearby(cx, cy, TANK_SPLASH_RADIUS);
             for (let n of blastNearby) {
                 if (n.dead) continue;
                 if (n.isRed === this.isRed) {                            // dost: sadece baskı
@@ -738,10 +743,10 @@ class Unit {
 
 function resolveCollisions() {
     const MIN_DIST = UNIT_RADIUS * 1.9;
-    for (let i = 0; i < units.length; i++) {
-        if (units[i].dead) continue;
-        const a = units[i];
-        const nearby = spatialGrid.getNearby(a.x, a.y, MIN_DIST);
+    for (let i = 0; i < SIM.units.length; i++) {
+        if (SIM.units[i].dead) continue;
+        const a = SIM.units[i];
+        const nearby = SIM.spatialGrid.getNearby(a.x, a.y, MIN_DIST);
         for (let j = 0; j < nearby.length; j++) {
             const b = nearby[j];
             if (b.dead || a === b) continue;
@@ -757,7 +762,7 @@ function resolveCollisions() {
             }
         }
     }
-    for (const u of units) {
+    for (const u of SIM.units) {
         if (u.dead) continue;
         for (const t of terrainFeatures) {
             if (t.type === TERRAIN.MOUNTAIN) {
@@ -779,6 +784,6 @@ function placeUnit(type, worldX, worldY, isRed) {
     if (src.money < s.cost) return false;
     src.money -= s.cost;
     src.unitsSpawned++;
-    units.push(new Unit(type, worldX, worldY, isRed));
+    SIM.units.push(new Unit(type, worldX, worldY, isRed));
     return true;
 }
