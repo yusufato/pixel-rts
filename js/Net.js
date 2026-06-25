@@ -16,17 +16,39 @@ function netStatus(text, cls) {
     if (el) { el.textContent = text; el.className = 'mp-badge ' + (cls || ''); }
 }
 
-function netConnect(ip, port) {
+function netConnect(ip, port, onReady) {
     port = port || 8080;
     try { if (Net.ws) Net.ws.close(); } catch (_) {}
     Net.connected = false; netStatus('● Bağlanıyor…', '');
     let url;
     try { url = 'ws://' + ip.trim() + ':' + port; Net.ws = new WebSocket(url); }
     catch (_) { netStatus('● Geçersiz adres', 'err'); return; }
-    Net.ws.onopen = () => { Net.connected = true; netStatus('● Bağlı', 'ok'); netSend({ type: 'list' }); };
+    Net.ws.onopen = () => { Net.connected = true; netStatus('● Bağlı', 'ok'); if (onReady) onReady(); };
     Net.ws.onclose = () => { Net.connected = false; netStatus('● Bağlantı kapandı', 'err'); };
-    Net.ws.onerror = () => { netStatus('● Bağlantı hatası (IP / firewall / sunucu?)', 'err'); };
+    Net.ws.onerror = () => { netStatus('● Bağlanamadı (sunucu açık mı? firewall? aynı ağ mı?)', 'err'); };
     Net.ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } netOnMessage(m); };
+}
+
+// ── ŞİFRE ↔ ADRES (sunucu make_code ile birebir aynı şema) ──
+function netParseCode(code) {
+    const packed = parseInt(String(code || '').trim().toUpperCase(), 36);
+    if (!isFinite(packed) || packed <= 0) return null;
+    const room = packed % 1000;
+    const ipInt = Math.floor(packed / 1000) >>> 0;
+    const ip = ((ipInt >>> 24) & 255) + '.' + ((ipInt >>> 16) & 255) + '.' + ((ipInt >>> 8) & 255) + '.' + (ipInt & 255);
+    return { ip: ip, room: room };
+}
+
+// ── HOST: kendi sunucusuna (localhost) bağlan → oda kur → şifre al ──
+function mpCreateGame() {
+    const host = (location.hostname && location.hostname.length) ? location.hostname : 'localhost';
+    netConnect(host, 8080, () => netSend({ type: 'create', name: 'Oyun' }));
+}
+// ── GUEST: şifreyi çöz → host'un sunucusuna bağlan → odaya katıl ──
+function mpJoinByCode(code) {
+    const p = netParseCode(code);
+    if (!p) { alert('Geçersiz şifre. Host\'un verdiği şifreyi aynen gir.'); return; }
+    netConnect(p.ip, 8080, () => netSend({ type: 'join', room: p.room }));
 }
 
 function netSend(o) {
@@ -37,8 +59,9 @@ function netOnMessage(m) {
     switch (m.type) {
         case 'rooms':       netRenderRooms(m.rooms || []); break;
         case 'created':
-            Net.room = m.room; Net.role = 'host'; Net.seed = m.seed;
+            Net.room = m.room; Net.role = 'host'; Net.seed = m.seed; Net.code = m.code;
             netStatus('● Oda kuruldu — rakip bekleniyor…', 'ok');
+            netShowCode(m.code);
             netSetWaiting(true);
             break;
         case 'joined':
@@ -85,4 +108,13 @@ function netSetWaiting(on) {
     const j = document.getElementById('btn-mp-join');
     if (c) c.disabled = on;
     if (j) j.disabled = on;
+}
+
+function netShowCode(code) {
+    const show = document.getElementById('mp-code-show');
+    const enter = document.getElementById('mp-code-enter');
+    const el = document.getElementById('mp-code');
+    if (el) el.textContent = code || '----';
+    if (show) show.classList.remove('hidden');
+    if (enter) enter.classList.add('hidden');
 }

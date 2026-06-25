@@ -605,3 +605,15 @@ body:not([data-screen="game"]) #minimap { display: none !important; }
 .mp-room-name { color: #dfe7ef; font-weight: 600; }
 .mp-room-players { color: #ffd24c; font-size: 13px; }
 .mp-empty { padding: 22px; text-align: center; color: #7d93ad; font-size: 13px; }
+/* şifre-tabanlı bağlantı */
+.mp-badge { display: block; text-align: center; margin-bottom: 14px; }
+.mp-code-area { text-align: center; padding: 6px 0 2px; }
+.mp-code-label { font-size: 13px; color: #8aa0b8; margin-bottom: 10px; }
+.mp-code { font-size: 30px; font-weight: 800; letter-spacing: 5px; color: #4cff7c; font-family: 'Courier New', monospace;
+    background: rgba(6,10,16,0.85); border: 1px dashed rgba(76,255,124,0.45); border-radius: 10px;
+    padding: 14px 10px; margin-bottom: 12px; user-select: all; cursor: text; }
+#mp-code-input { width: 100%; box-sizing: border-box; text-align: center; font-size: 24px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase; font-family: 'Courier New', monospace; padding: 12px;
+    border-radius: 10px; border: 1px solid rgba(90,130,170,0.4); background: rgba(6,10,16,0.9); color: #dfe7ef; }
+#mp-code-input:focus { outline: none; border-color: #4c9fff; }
+.mp-wait { margin-top: 12px; font-size: 13px; color: #ffd24c; }

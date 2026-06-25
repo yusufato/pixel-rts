@@ -30,6 +30,23 @@ def lan_ip():
     finally:
         s.close()
 
+_B36 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+def make_code(ip, room):
+    """host LAN-IP + oda → tek okunabilir şifre (guest çözüp host'a bağlanır).
+       packed = ip_int*1000 + oda; base36. İstemci Net.netParseCode ile çözer."""
+    try:
+        a, b, c, d = (int(x) for x in ip.split('.'))
+    except Exception:
+        a = b = c = d = 0
+    packed = (((a << 24) | (b << 16) | (c << 8) | d) & 0xFFFFFFFF) * 1000 + (room % 1000)
+    if packed == 0:
+        return '0'
+    out = ''
+    while packed > 0:
+        out = _B36[packed % 36] + out
+        packed //= 36
+    return out
+
 def room_list():
     return [{'id': r['id'], 'name': r['name'],
              'players': (1 if r['host'] else 0) + (1 if r['guest'] else 0), 'max': 2}
@@ -69,7 +86,8 @@ async def route(ws, m):
         rooms[rid] = {'id': rid, 'name': m.get('name', f'Oyun #{rid}'), 'seed': seed,
                       'host': ws, 'guest': None, 'started': False}
         c['room'] = rid; c['role'] = 'host'
-        await send(ws, {'type': 'created', 'room': rid, 'seed': seed, 'role': 'host'})
+        code = make_code(lan_ip(), rid)
+        await send(ws, {'type': 'created', 'room': rid, 'seed': seed, 'role': 'host', 'code': code})
         await broadcast_lobby()
 
     elif t == 'join':

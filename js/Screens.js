@@ -42,25 +42,34 @@ function quickMatchStart() {
 }
 
 // ── Çok Oyunculu lobi bağlantıları (idempotent) ──
+function mpResetLobbyUI() {
+    document.getElementById('mp-code-show')?.classList.add('hidden');
+    document.getElementById('mp-code-enter')?.classList.remove('hidden');
+    if (typeof netSetWaiting === 'function') netSetWaiting(false);
+    if (typeof netStatus === 'function') netStatus('● Hazır', '');
+}
+
 function mpInit() {
-    if (mpInit._bound) { if (Net.connected) netSend({ type: 'list' }); return; }
+    mpResetLobbyUI();                       // her açılışta paneli sıfırla
+    if (mpInit._bound) return;
     mpInit._bound = true;
-    document.getElementById('mp-conn')?.addEventListener('click', () => {
-        const ip = (document.getElementById('mp-server')?.value || '').trim() || 'localhost';
-        netConnect(ip);
-    });
-    document.getElementById('btn-mp-create')?.addEventListener('click', () => {
-        if (!Net.connected) { alert('Önce "Bağlan" (Host IP gir).'); return; }
-        netSend({ type: 'create', name: 'Oyun' });
-    });
+    // HOST: Oyun Kur → kendi sunucusuna bağlan → oda kur → ŞİFRE üret
+    document.getElementById('btn-mp-create')?.addEventListener('click', () => { if (typeof mpCreateGame === 'function') mpCreateGame(); });
+    // GUEST: şifreyi gir → Oyuna Katıl → host'un sunucusuna bağlan
     document.getElementById('btn-mp-join')?.addEventListener('click', () => {
-        if (!Net.connected) { alert('Önce "Bağlan".'); return; }
-        if (!Net.selectedRoom) { alert('Listeden bir oyun seç.'); return; }
-        netSend({ type: 'join', room: Net.selectedRoom });
+        const code = document.getElementById('mp-code-input')?.value || '';
+        if (!code.trim()) { alert('Önce arkadaşının verdiği şifreyi gir.'); return; }
+        if (typeof mpJoinByCode === 'function') mpJoinByCode(code);
+    });
+    document.getElementById('mp-code-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('btn-mp-join')?.click();
+    });
+    document.getElementById('mp-code-copy')?.addEventListener('click', () => {
+        const c = (document.getElementById('mp-code')?.textContent || '').trim();
+        try { navigator.clipboard.writeText(c); } catch (_) {}
+        const b = document.getElementById('mp-code-copy'); if (b) { b.textContent = '✓ Kopyalandı'; setTimeout(() => { b.textContent = '📋 Kopyala'; }, 1500); }
     });
     document.getElementById('btn-mp-back')?.addEventListener('click', () => { try { if (Net.ws) Net.ws.close(); } catch (_) {} showScreen('menu'); });
-    // lobi açıkken oda listesini periyodik tazele
-    setInterval(() => { if (APP_SCREEN === 'multiplayer' && Net.connected && !Net.room) netSend({ type: 'list' }); }, 3000);
 }
 
 function screensInit() {

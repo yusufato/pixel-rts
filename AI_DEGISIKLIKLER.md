@@ -485,3 +485,10 @@ Tüm dosyalar (0,0,0). **TEST:** all-arty'ne karşı oyna → AI artık RUSH'lay
 - ⏳ **Adım 4-7 (SIRADA — lockstep çekirdeği):** `js/MP.js` (sabit-tick akümülatör + pending[execTick] + mpApplyTick + lsStateHash FNV-1a desync) + main.js MP-dalı (`if(MP.active)`) + uzak-komut (id-bazlı, sis'siz hedef) + taraf-atama (myCanonicalSide) + deploy/seed senkron + Support-kapat. MVP: simetrik-sabit-ordu (serbest-deploy sonra).
 
 **TEST (lobi):** host `python3 mp_server.py` → iki PC `http://192.168.0.106:8080` → Çok Oyunculu → Bağlan → Oluştur(A)/Katıl(B) → oda listesi dolmalı, bağlantı kurulmalı. (Maç başlatma = lockstep, sonraki adım.)
+
+### 🔑 ŞİFRE SİSTEMİ (IP yerine — kullanıcı isteği)
+IP-yazma kaldırıldı. **"Oyun Kur" → sunucu bir ŞİFRE üretir** (host LAN-IP + oda → base36, örn `158V9MYOH`); **guest şifreyi girer → doğrudan host'un sunucusuna bağlanır.** Sunucu `make_code(ip,room)` ↔ istemci `netParseCode(code)` birebir aynı şema (round-trip testi tüm IP'lerde GEÇTİ). Lobi UI yenilendi: host şifre-göster+kopyala, guest şifre-giriş. `mpCreateGame` (localhost'a bağlan→create), `mpJoinByCode` (çöz→bağlan→join). **Gelecek:** internet-geneli için merkezi sunucu + şifre (port-forward / public broker) — şimdilik LAN. `git pull` her iki PC'de AYNI sürüm şart (lockstep determinizmi).
+
+### 📦 GitHub: `141ebbb..a96511b main` puşlandı (diğer PC `git pull` ile indirir). __pycache__ .gitignore'a eklendi. Bundan sonra düzenli puş.
+
+**TEST (şifre):** HOST: `python3 mp_server.py` → oyunu aç → Çok Oyunculu → **Oyun Kur** → şifre çıkar. GUEST: oyunu aç → şifreyi gir → **Oyuna Katıl** → bağlanmalı. (Maç motoru = lockstep, sıradaki adım.)

@@ -36,20 +36,22 @@
         </div>
     </div>
     <div id="screen-multiplayer" class="app-screen hidden">
-        <div class="menu-logo small">🌐 Çok Oyunculu (LAN 1v1)</div>
+        <div class="menu-logo small">🌐 Çok Oyunculu (1v1)</div>
         <div class="mp-box">
-            <div class="mp-conn-row">
-                <input id="mp-server" type="text" value="192.168.0.106" placeholder="Host IP (örn 192.168.0.106)">
-                <button id="mp-conn" class="mp-mini-btn">Bağlan</button>
-                <span id="mp-status" class="mp-badge err">● Bağlı değil</span>
+            <div id="mp-status" class="mp-badge">● Hazır</div>
+            <div id="mp-code-enter" class="mp-code-area">
+                <div class="mp-code-label">Arkadaşının şifresini gir → "Oyuna Katıl":</div>
+                <input id="mp-code-input" type="text" placeholder="ŞİFRE" autocomplete="off" spellcheck="false">
             </div>
-            <div class="mp-list-title">Açık Oyunlar (sunucu listesi)</div>
-            <div id="mp-room-list" class="mp-room-list">
-                <div class="mp-empty">Bağlan → liste otomatik dolar. Boşsa "Oyun Oluştur".</div>
+            <div id="mp-code-show" class="mp-code-area hidden">
+                <div class="mp-code-label">🔑 Sunucu Şifren — arkadaşına ver:</div>
+                <div id="mp-code" class="mp-code">— — — —</div>
+                <button id="mp-code-copy" class="mp-mini-btn">📋 Kopyala</button>
+                <div class="mp-wait">⏳ Rakip bekleniyor…</div>
             </div>
         </div>
         <div class="menu-side">
-            <button id="btn-mp-create" class="menu-btn primary">➕ Oyun Oluştur</button>
+            <button id="btn-mp-create" class="menu-btn primary">➕ Oyun Kur</button>
             <button id="btn-mp-join" class="menu-btn">▶️ Oyuna Katıl</button>
             <button id="btn-mp-back" class="menu-btn">← Geri</button>
         </div>
