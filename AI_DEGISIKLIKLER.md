@@ -492,3 +492,16 @@ IP-yazma kaldırıldı. **"Oyun Kur" → sunucu bir ŞİFRE üretir** (host LAN-
 ### 📦 GitHub: `141ebbb..a96511b main` puşlandı (diğer PC `git pull` ile indirir). __pycache__ .gitignore'a eklendi. Bundan sonra düzenli puş.
 
 **TEST (şifre):** HOST: `python3 mp_server.py` → oyunu aç → Çok Oyunculu → **Oyun Kur** → şifre çıkar. GUEST: oyunu aç → şifreyi gir → **Oyuna Katıl** → bağlanmalı. (Maç motoru = lockstep, sıradaki adım.)
+
+### ⚔️ LOCKSTEP MAÇ MOTORU (Adım 4-7 BİTTİ — ilk oynanabilir MP!)
+**`js/MP.js`** — deterministik motorun üstüne ince katman. Sabit-tick **20Hz input-delay lockstep**: her sağ-tık komutu `execTick = tick+3`'e kuyruğa girer, ağa gider, İKİ PC'de aynı tick'te uygulanır. Boş tick = heartbeat + bariyer (rakip komutu gelmezse STALL = bekle, atlama yok). `mpApplyTick` MAVİ-komutları ÖNCE KIRMIZI SONRA (sabit sıra). Hedef seçimi **sis'siz mutlak-en-yakın** (canSee=ıraksar). **FNV-1a desync-hash** her 30 tick (id-sıralı x/y/hp/rng/vp) → sapma anında "SENKRON KOPTU" + dondur. `now = tick×50×GAME_SPEED` (cooldown↔hareket tutarlı). **MVP: simetrik sabit ordu** (12 birim/taraf: 4 piyade+3 mech+2 tank+2 AT+1 topçu; serbest-deploy sonraki adım).
+
+**main.js entegrasyonu** (tek-oyunculu BOZULMADAN — hepsi `if(MP.active)`/`myCanonicalSide`):
+- gameLoop BATTLE dalı: MP.active → `mpStep` (yoksa eski stepSim). MP'de Support KAPALI (setTimeout=desync), gameTime donduruldu (sim'de kullanılmıyor — doğrulandı).
+- contextmenu: MP'de anında-uygula yerine `mpEmitCommand` (id-bazlı).
+- Taraf-atama `myCanonicalSide` (host=MAVİ/güney, guest=KIRMIZI/kuzey): seçim(5)+sis(2)+düşman-tarama. Tek-oyunculuda false → eski `!u.isRed` ile BİREBİR aynı.
+- checkGameOver: guest zafer/yenilgi etiketi düzeltildi + MP'de AI/replay eğitimi kirletilmiyor.
+
+Tüm dosyalar (0,0,0). Puş: `67d4a0d..462a4d6`.
+
+**TEST (GERÇEK MP — iki PC):** ① iki PC `git pull` (AYNI sürüm şart) ② HOST `python3 mp_server.py`+oyun aç+Oyun Kur → şifre ③ GUEST oyun aç+şifre gir+Katıl → **maç başlamalı**: host MAVİ (güney) guest KIRMIZI (kuzey), 12'şer birim. Sağ-tık komut ver → İKİ ekranda da AYNI hareket etmeli, senkron kalmalı (SENKRON KOPTU çıkmamalı). AYNI Chrome şart.
