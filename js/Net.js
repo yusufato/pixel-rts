@@ -42,7 +42,12 @@ function netParseCode(code) {
 // ── HOST: kendi sunucusuna (localhost) bağlan → oda kur → şifre al ──
 function mpCreateGame() {
     const host = (location.hostname && location.hostname.length) ? location.hostname : 'localhost';
+    Net.code = null;
     netConnect(host, 8080, () => netSend({ type: 'create', name: 'Oyun' }));
+    setTimeout(() => {                                  // teşhis: 4sn'de şifre gelmezse nedenini söyle
+        if (!Net.connected) netStatus('● Sunucuya bağlanılamadı (' + host + ':8080) — host\'ta python3 mp_server.py çalışıyor mu?', 'err');
+        else if (!Net.code) netStatus('● Bağlandı ama şifre gelmedi — sunucu ESKİ (Ctrl+C → git pull → yeniden başlat)', 'err');
+    }, 4000);
 }
 // ── GUEST: şifreyi çöz → host'un sunucusuna bağlan → odaya katıl ──
 function mpJoinByCode(code) {
