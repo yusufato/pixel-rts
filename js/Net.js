@@ -11,21 +11,26 @@ const Net = {
     selectedRoom: null
 };
 
+// İNTERNET (bulut relay) vs LAN modu: https'ten (Render) açılınca otomatik BULUT, localhost/file → LAN.
+let NET_MODE = (location.protocol === 'https:') ? 'cloud' : 'lan';
+function wsBase() { return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host; }
+
 function netStatus(text, cls) {
     const el = document.getElementById('mp-status');
     if (el) { el.textContent = text; el.className = 'mp-badge ' + (cls || ''); }
 }
 
 function netConnect(ip, port, onReady) {
-    port = port || 8080;
+    netConnectUrl('ws://' + String(ip).trim() + ':' + (port || 8080), onReady);   // LAN (ip:port)
+}
+function netConnectUrl(url, onReady) {                                            // bulut (tam ws/wss URL)
     try { if (Net.ws) Net.ws.close(); } catch (_) {}
-    Net.connected = false; netStatus('● Bağlanıyor…', '');
-    let url;
-    try { url = 'ws://' + ip.trim() + ':' + port; Net.ws = new WebSocket(url); }
+    Net.connected = false;
+    try { Net.ws = new WebSocket(url); }
     catch (_) { netStatus('● Geçersiz adres', 'err'); return; }
     Net.ws.onopen = () => { Net.connected = true; netStatus('● Bağlı', 'ok'); if (onReady) onReady(); };
     Net.ws.onclose = () => { Net.connected = false; netStatus('● Bağlantı kapandı', 'err'); };
-    Net.ws.onerror = () => { netStatus('● Bağlanamadı (sunucu açık mı? firewall? aynı ağ mı?)', 'err'); };
+    Net.ws.onerror = () => { netStatus('● Bağlanamadı (sunucu açık mı? aynı ağ mı?)', 'err'); };
     Net.ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } netOnMessage(m); };
 }
 
@@ -39,18 +44,33 @@ function netParseCode(code) {
     return { ip: ip, room: room };
 }
 
-// ── HOST: kendi sunucusuna (localhost) bağlan → oda kur → şifre al ──
+// ── HOST: oda kur → kod al. BULUT: relay'e (wss, aynı origin) bağlan. LAN: localhost'a. ──
 function mpCreateGame() {
-    const host = (location.hostname && location.hostname.length) ? location.hostname : 'localhost';
     Net.code = null;
-    netConnect(host, 8080, () => netSend({ type: 'create', name: 'Oyun' }));
-    setTimeout(() => {                                  // teşhis: 4sn'de şifre gelmezse nedenini söyle
-        if (!Net.connected) netStatus('● Sunucu çalışmıyor — "baslat.sh" (Linux) / "baslat.bat" (Windows) ile başlat', 'err');
-        else if (!Net.code) netStatus('● Bağlandı ama şifre gelmedi — sunucu ESKİ (Ctrl+C → git pull → yeniden başlat)', 'err');
-    }, 4000);
+    if (NET_MODE === 'cloud') {
+        netStatus('● Sunucuya bağlanılıyor (uyanması ~30sn sürebilir)…', '');
+        netConnectUrl(wsBase(), () => netSend({ type: 'create', name: 'Oyun' }));
+    } else {
+        const host = (location.hostname && location.hostname.length) ? location.hostname : 'localhost';
+        netStatus('● Sunucuya bağlanılıyor…', '');
+        netConnect(host, 8080, () => netSend({ type: 'create', name: 'Oyun' }));
+    }
+    setTimeout(() => {                                  // teşhis: kod gelmezse nedenini söyle
+        if (!Net.connected) netStatus(NET_MODE === 'cloud'
+            ? '● Sunucuya ulaşılamadı — internet? (uyanıyor olabilir, birazdan tekrar dene)'
+            : '● Sunucu çalışmıyor — "baslat.sh" / "baslat.bat" ile başlat', 'err');
+        else if (!Net.code) netStatus('● Bağlandı ama kod gelmedi — sunucu güncel mi?', 'err');
+    }, NET_MODE === 'cloud' ? 35000 : 4000);
 }
-// ── GUEST: şifreyi çöz → host'un sunucusuna bağlan → odaya katıl ──
+// ── GUEST: koda göre bağlan → katıl. BULUT: relay'e + 4-haneli kod. LAN: şifreyi çöz + IP. ──
 function mpJoinByCode(code) {
+    code = String(code || '').trim();
+    if (NET_MODE === 'cloud') {
+        if (!code) { alert('Oda kodunu gir.'); return; }
+        netStatus('● Bağlanılıyor (uyanması ~30sn sürebilir)…', '');
+        netConnectUrl(wsBase(), () => netSend({ type: 'join', room: code.toUpperCase() }));
+        return;
+    }
     const p = netParseCode(code);
     if (!p) { alert('Geçersiz şifre. Host\'un verdiği şifreyi aynen gir.'); return; }
     netConnect(p.ip, 8080, () => netSend({ type: 'join', room: p.room }));

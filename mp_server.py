@@ -9,11 +9,12 @@
 #  (host localhost da olur). Firewall: Linux `sudo ufw allow 8080/tcp`,
 #  Windows Defender → "özel ağda izin ver". AYNI Chrome/Chromium kullanın.
 # ═══════════════════════════════════════════════════════════════════════════
-import asyncio, json, socket, mimetypes, os, sys, http
+import asyncio, json, socket, mimetypes, os, sys, http, secrets
 import websockets
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+PORT = int(os.environ.get('PORT', sys.argv[1] if len(sys.argv) > 1 else 8080))   # Render PORT env'i atar
+IS_CLOUD = os.environ.get('RTS_ROLE', 'lan') == 'cloud'   # bulut: 4-haneli oda kodu (LAN: IP-kodlu şifre)
 INDEX = 'oyna.html' if os.path.isfile(os.path.join(ROOT, 'oyna.html')) else 'index.html'
 
 rooms = {}        # rid -> {id, name, seed, host, guest, started}
@@ -46,6 +47,14 @@ def make_code(ip, room):
         out = _B36[packed % 36] + out
         packed //= 36
     return out
+
+_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'   # 0/O/1/I yok → telefonda/sözlü karışmaz
+def make_room_code():
+    """bulut modu: kısa 4-haneli oda kodu (relay adresi istemcide zaten belli → IP gerekmez)."""
+    while True:
+        code = ''.join(secrets.choice(_CODE_ALPHABET) for _ in range(4))
+        if code not in rooms:
+            return code
 
 def room_list():
     return [{'id': r['id'], 'name': r['name'],
@@ -81,17 +90,21 @@ async def route(ws, m):
         await send(ws, {'type': 'rooms', 'rooms': room_list()})
 
     elif t == 'create':
-        rid = _next_rid[0]; _next_rid[0] += 1
         seed = _next_seed[0]; _next_seed[0] = (_next_seed[0] * 1103515245 + 12345) & 0x7fffffff
-        rooms[rid] = {'id': rid, 'name': m.get('name', f'Oyun #{rid}'), 'seed': seed,
+        if IS_CLOUD:
+            rid = make_room_code(); code = rid                 # bulut: kısa 4-haneli kod (= oda)
+        else:
+            rid = _next_rid[0]; _next_rid[0] += 1; code = make_code(lan_ip(), rid)   # LAN: IP-kodlu şifre
+        rooms[rid] = {'id': rid, 'name': m.get('name', 'Oyun'), 'seed': seed,
                       'host': ws, 'guest': None, 'started': False}
         c['room'] = rid; c['role'] = 'host'
-        code = make_code(lan_ip(), rid)
         await send(ws, {'type': 'created', 'room': rid, 'seed': seed, 'role': 'host', 'code': code})
         await broadcast_lobby()
 
     elif t == 'join':
         rid = m.get('room')
+        if IS_CLOUD and isinstance(rid, str):
+            rid = rid.strip().upper()                          # bulut kodu normalize et (kxq7 → KXQ7)
         r = rooms.get(rid)
         if not r or r['guest'] is not None or r['started']:
             await send(ws, {'type': 'error', 'msg': 'Oda dolu veya yok'}); return

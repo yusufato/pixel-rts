@@ -17,7 +17,7 @@ const MP = {
 };
 
 const MP_TICK_MS = 50;        // 20 Hz sabit-tick
-const MP_INPUT_DELAY = 3;     // ~150ms komut gecikmesi (LAN'da bol; latency gizler)
+let MP_INPUT_DELAY = 3;       // tick cinsinden komut gecikmesi (LAN=3≈150ms; bulut=6≈300ms internet için)
 const MP_HASH_PERIOD = 30;    // her 30 tick'te desync-hash
 const MP_MAX_STEPS = 6;       // bir frame'de en çok kaç tick simüle (catch-up sınırı)
 
@@ -46,6 +46,7 @@ function mpStartMatch(seed) {
     MP.mySide = (Net.role === 'host') ? 'blue' : 'red';
     MP.foeSide = (MP.mySide === 'blue') ? 'red' : 'blue';
     myCanonicalSide = (Net.role !== 'host');
+    MP_INPUT_DELAY = (typeof NET_MODE !== 'undefined' && NET_MODE === 'cloud') ? 6 : 3;   // internet → geniş tampon (takılmayı önler)
 
     // DETERMİNİSTİK KURULUM — sıra kritik: önce TÜM mavi, sonra TÜM kırmızı → id 1..12 / 13..24
     Unit.nextId = 0;

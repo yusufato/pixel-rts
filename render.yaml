@@ -1,0 +1,12 @@
+# Render.com — tek-tık deploy (Blueprint). render.com → New + → Blueprint → bu repo.
+# Ücretsiz plan, kredi kartı YOK. Build sonrası wss://<isim>.onrender.com adresini verir.
+services:
+  - type: web
+    name: pixel-rts
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 mp_server.py
+    envVars:
+      - key: RTS_ROLE
+        value: cloud
