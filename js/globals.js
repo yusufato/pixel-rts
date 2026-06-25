@@ -534,7 +534,8 @@ function canSee(teamIsRed, targetX, targetY) {
 }
 
 function isInPlayerZone(worldX, worldY) {
-    // Oyuncu artık Güney'de (Haritanın alt kısmında) yerleşecek.
+    // Tek-oyuncu/host = Güney (alt). Çok-oyunculu guest (KIRMIZI) = Kuzey (üst).
+    if (typeof myCanonicalSide !== 'undefined' && myCanonicalSide) return worldY < (WORLD_H * 0.4);
     return worldY > (WORLD_H * 0.6);
 }
 

@@ -13,7 +13,8 @@ const MP = {
     tick: 0, acc: 0, lastTs: null, stalls: 0,
     pending: {}, localCmds: {}, sentUpTo: -1,
     myHash: {}, peerHash: {},
-    mySide: 'blue', foeSide: 'red'
+    mySide: 'blue', foeSide: 'red',
+    myDeployReady: false, myDeployList: null, peerDeploy: null   // serbest-deploy
 };
 
 const MP_TICK_MS = 50;        // 20 Hz sabit-tick
@@ -21,58 +22,88 @@ let MP_INPUT_DELAY = 3;       // tick cinsinden komut gecikmesi (LAN=3≈150ms; 
 const MP_HASH_PERIOD = 30;    // her 30 tick'te desync-hash
 const MP_MAX_STEPS = 6;       // bir frame'de en çok kaç tick simüle (catch-up sınırı)
 
-// ── SİMETRİK SABİT ORDU (MVP — serbest-deploy sonraki adım) ──
-const MP_ARMY = [
-    T.INFANTRY, T.INFANTRY, T.INFANTRY, T.INFANTRY,
-    T.MECH_INFANTRY, T.MECH_INFANTRY, T.MECH_INFANTRY,
-    T.ARMOR, T.ARMOR, T.ANTI_TANK, T.ANTI_TANK, T.ARTILLERY
-];
-function mpSpawnSide(isRed) {
-    const n = MP_ARMY.length;
-    const cx = WORLD_W / 2, spread = WORLD_W * 0.5;
-    const y = isRed ? WORLD_H * 0.16 : WORLD_H * 0.84;
-    for (let i = 0; i < n; i++) {
-        const x = cx - spread / 2 + spread * (i / (n - 1));
-        SIM.units.push(new Unit(MP_ARMY[i], x, y, isRed));
-    }
+// ── KAMERAYI KENDİ ORDUMA ORTALA (yerel — ağa gitmez) ──
+function mpCameraToMyArmy() {
+    if (typeof camera === 'undefined' || typeof zoom === 'undefined') return;
+    const viewH = (canvas.height - 100) / zoom;                 // -100: alt araç-çubuğu payı (clampCamera ile tutarlı)
+    const myY = myCanonicalSide ? WORLD_H * 0.16 : WORLD_H * 0.84;
+    camera.x = WORLD_W / 2 - (canvas.width / zoom) / 2;
+    camera.y = myY - viewH / 2;
+    if (typeof clampCamera === 'function') clampCamera();
 }
 
-// ── MAÇ BAŞLAT (iki PC aynı seed → birebir aynı spawn + id eşleşmesi) ──
-function mpStartMatch(seed) {
+// ── LOBİ EŞLEŞTİ → DEPLOY FAZI (her oyuncu KENDİ ordusunu dizer) ──
+function mpEnterDeploy() {
+    MP.active = true; MP.desync = false;
+    MP.myDeployReady = false; MP.myDeployList = null; MP.peerDeploy = null;
+    MP.mySide = (Net.role === 'host') ? 'blue' : 'red';
+    MP.foeSide = (MP.mySide === 'blue') ? 'red' : 'blue';
+    myCanonicalSide = (Net.role !== 'host');                    // host=MAVİ(false/güney), guest=KIRMIZI(true/kuzey)
+    MP_INPUT_DELAY = (typeof NET_MODE !== 'undefined' && NET_MODE === 'cloud') ? 6 : 3;
+
+    SIM.units.length = 0;                                       // temiz deploy sahnesi (yerel önizleme)
+    if (SIM.trenches) SIM.trenches.length = 0;
+    if (typeof player !== 'undefined') player.money = 1500;     // host bütçesi (MAVİ)
+    if (typeof enemy !== 'undefined') enemy.money = 1500;       // guest bütçesi (KIRMIZI)
+    phase = PHASE.DEPLOY;                                       // lockstep DEPLOY'da DÖNMEZ (sadece BATTLE)
+
+    if (typeof showScreen === 'function') showScreen('game');
+    mpCameraToMyArmy();
+    const sb = document.getElementById('ui-spawn-bar'); if (sb) { sb.style.opacity = '1'; sb.style.pointerEvents = 'auto'; }
+    const sbtn = document.getElementById('start-btn'); if (sbtn) sbtn.classList.add('hidden');
+    const tbtn = document.getElementById('train-ai-btn'); if (tbtn) tbtn.classList.add('hidden');
+    const rbtn = document.getElementById('mp-ready-btn'); if (rbtn) rbtn.classList.remove('hidden');
+    netStatus('● ORDUNU DİZ — sen ' + (myCanonicalSide ? 'KIRMIZI (kuzey)' : 'MAVİ (güney)') + ', bitince ✅ HAZIR', 'ok');
+}
+
+// ── HAZIR: kendi ordumu karşıya yolla ──
+function mpReadyDeploy() {
+    if (!MP.active || MP.myDeployReady) return;
+    const mine = SIM.units.filter(u => !u.dead && u.isRed === myCanonicalSide);
+    if (!mine.length) { alert('Önce en az bir birim diz, sonra HAZIR.'); return; }
+    MP.myDeployList = mine.map(u => ({ t: u.type, x: Math.round(u.x), y: Math.round(u.y) }));
+    MP.myDeployReady = true;
+    netSend({ type: 'deploy', side: MP.mySide, units: MP.myDeployList });
+    const sb = document.getElementById('ui-spawn-bar'); if (sb) { sb.style.opacity = '0.3'; sb.style.pointerEvents = 'none'; }
+    const rbtn = document.getElementById('mp-ready-btn'); if (rbtn) rbtn.classList.add('hidden');
+    netStatus('● Hazırsın — rakip bekleniyor…', 'ok');
+    if (Net.role === 'host') mpTryStartFromHost();
+}
+
+// ── HOST iki ordu da hazırsa → start yay + maçı başlat ──
+function mpTryStartFromHost() {
+    if (Net.role !== 'host' || !MP.myDeployList || !MP.peerDeploy) return;
+    const blue = MP.myDeployList;   // host = MAVİ
+    const red = MP.peerDeploy;      // guest = KIRMIZI
+    netSend({ type: 'start', seed: Net.seed, blue: blue, red: red });
+    mpStartBattle(Net.seed, blue, red);
+}
+
+// ── DETERMİNİSTİK MAÇ KURULUMU (İKİ PC AYNI: önce TÜM mavi, sonra TÜM kırmızı → id eşleşir) ──
+function mpStartBattle(seed, blue, red) {
     MP.active = true; MP.desync = false;
     MP.tick = 0; MP.acc = 0; MP.lastTs = null; MP.stalls = 0;
     MP.pending = {}; MP.localCmds = {}; MP.sentUpTo = -1;
     MP.myHash = {}; MP.peerHash = {};
-    MP.mySide = (Net.role === 'host') ? 'blue' : 'red';
-    MP.foeSide = (MP.mySide === 'blue') ? 'red' : 'blue';
-    myCanonicalSide = (Net.role !== 'host');
-    MP_INPUT_DELAY = (typeof NET_MODE !== 'undefined' && NET_MODE === 'cloud') ? 6 : 3;   // internet → geniş tampon (takılmayı önler)
 
-    // DETERMİNİSTİK KURULUM — sıra kritik: önce TÜM mavi, sonra TÜM kırmızı → id 1..12 / 13..24
     Unit.nextId = 0;
     if (typeof resetSimRng === 'function') resetSimRng((seed >>> 0) || 1);
-    SIM.units.length = 0;
+    SIM.units.length = 0;                                       // ÖNİZLEME birimlerini SİL → start listesinden yeniden kur
     if (SIM.trenches) SIM.trenches.length = 0;
-    mpSpawnSide(false);
-    mpSpawnSide(true);
+    for (const d of (blue || [])) SIM.units.push(new Unit(d.t, d.x, d.y, false));   // MAVİ önce → id 1..N
+    for (const d of (red || []))  SIM.units.push(new Unit(d.t, d.x, d.y, true));    // KIRMIZI sonra → id N+1..
     if (typeof player !== 'undefined') player.money = 0;
     if (typeof enemy !== 'undefined') enemy.money = 0;
 
     phase = PHASE.BATTLE;
     if (typeof initControlPoints === 'function') initControlPoints();
     if (typeof battleTelemetry !== 'undefined' && battleTelemetry.start) battleTelemetry.start(0);
-
-    // kamerayı KENDİ tarafıma getir
-    if (typeof camera !== 'undefined' && typeof zoom !== 'undefined') {
-        camera.x = WORLD_W / 2 - (canvas.width / zoom) / 2;
-        camera.y = myCanonicalSide ? 0 : (WORLD_H - canvas.height / zoom);
-    }
-    if (typeof showScreen === 'function') showScreen('game');
+    mpCameraToMyArmy();
     const sb = document.getElementById('ui-spawn-bar'); if (sb) { sb.style.opacity = '0.3'; sb.style.pointerEvents = 'none'; }
     const ph = document.getElementById('ui-phase'); if (ph) ph.style.display = 'none';
-    const sbtn = document.getElementById('start-btn'); if (sbtn) sbtn.classList.add('hidden');
-    const tbtn = document.getElementById('train-ai-btn'); if (tbtn) tbtn.classList.add('hidden');
-    netStatus('● Maç başladı — sen ' + (myCanonicalSide ? 'KIRMIZI (kuzey)' : 'MAVİ (güney)'), 'ok');
+    const rbtn = document.getElementById('mp-ready-btn'); if (rbtn) rbtn.classList.add('hidden');
+    const us = document.getElementById('ui-support'); if (us) us.classList.add('hidden');   // MP'de destek kapalı (setTimeout=desync)
+    netStatus('● Maç başladı — sen ' + (myCanonicalSide ? 'KIRMIZI' : 'MAVİ'), 'ok');
 }
 
 // ── KOMUT YAYINLA (sağ-tık) → execTick'e kuyrukla (ANINDA UYGULANMAZ) ──
@@ -207,7 +238,13 @@ function mpDesync(tick) {
 
 // ── AĞ MESAJLARI (Net.js default → mpGameMessage) ──
 function mpGameMessage(m) {
-    if (m.type === 'start') { mpStartMatch(m.seed); return; }
+    if (m.type === 'deploy') {                          // rakip ordusunu yolladı
+        MP.peerDeploy = m.units || [];
+        netStatus(MP.myDeployReady ? '● Rakip hazır — başlıyor…' : '● Rakip hazır — sen de diz + HAZIR', 'ok');
+        if (Net.role === 'host') mpTryStartFromHost();
+        return;
+    }
+    if (m.type === 'start') { mpStartBattle(m.seed, m.blue, m.red); return; }   // guest: aynı ordu, deterministik
     if (m.type === 'cmd') {
         (MP.pending[m.tick] || (MP.pending[m.tick] = {}))[m.side] = m.cmds || [];
         return;
@@ -215,15 +252,13 @@ function mpGameMessage(m) {
     if (m.type === 'hash') { MP.peerHash[m.tick] = m.hash; mpTryCompare(m.tick); return; }
 }
 
-// ── lobi olayları (Net.js çağırır) ──
+// ── lobi olayları (Net.js çağırır) ── her iki taraf DEPLOY'a girer (host start YOLLAMAZ — Hazır'da yollar)
 function mpBeginMatch() {
-    if (Net.role === 'host') {
-        netSend({ type: 'start', seed: Net.seed });   // guest 'start'ı alınca aynı seed'le başlar
-        mpStartMatch(Net.seed);
-    }
-    // guest: 'start' mesajını bekler (mpGameMessage)
+    mpEnterDeploy();
 }
 function mpOnPeerLeft() {
-    if (MP.active && !MP.desync) { MP.desync = true; alert('Rakip ayrıldı. Maç bitti.'); }
-    MP.active = false;
+    if (MP.active) alert('Rakip ayrıldı. Menüye dönülüyor.');
+    MP.active = false; MP.desync = false;
+    MP.myDeployReady = false; MP.myDeployList = null; MP.peerDeploy = null;
+    if (typeof showScreen === 'function') showScreen('menu');
 }

@@ -12,7 +12,7 @@ canvas.addEventListener('mousedown', (e) => {
                 }
             }
             if (canPlace) {
-                placeUnit(selectedSpawnType, world.x, world.y, false);
+                placeUnit(selectedSpawnType, world.x, world.y, (typeof myCanonicalSide !== 'undefined' ? myCanonicalSide : false));
             }
         }
         return;
@@ -265,6 +265,7 @@ function startBattle() {
 }
 
 document.getElementById('start-btn').addEventListener('click', () => {
+    if (typeof MP !== 'undefined' && MP.active) { mpReadyDeploy(); return; }   // ÇOK OYUNCULU: Hazır (start-btn yedek)
     if (units.filter(u => !u.isRed).length === 0) return;
     startBattle();
 });
@@ -298,6 +299,7 @@ minimapCanvas.addEventListener('click', (e) => {
     const my = (e.clientY - rect.top) / rect.height;
     camera.x = mx * WORLD_W - (canvas.width / zoom) / 2;
     camera.y = my * WORLD_H - (canvas.height / zoom) / 2;
+    if (typeof clampCamera === 'function') clampCamera();
 });
 
 function checkGameOver() {
@@ -412,11 +414,12 @@ function checkGameOver() {
 }
 
 function updateUI() {
-    document.getElementById('money').textContent = Math.floor(player.money);
+    const myWallet = (typeof MP !== 'undefined' && MP.active && myCanonicalSide) ? enemy : player;   // MP guest = enemy bütçesi
+    document.getElementById('money').textContent = Math.floor(myWallet.money);
     if (phase === PHASE.DEPLOY) {
         document.querySelectorAll('.spawn-btn').forEach(btn => {
             const type = parseInt(btn.dataset.type);
-            btn.classList.toggle('disabled', player.money < STATS[type].cost);
+            btn.classList.toggle('disabled', myWallet.money < STATS[type].cost);
         });
     }
 
@@ -714,13 +717,16 @@ function drawMap() {
     }
 
     if (phase === PHASE.DEPLOY) {
-        // Alt kısım (Oyuncu)
-        const ls = worldToScreen(0, WORLD_H * 0.6); const le = worldToScreen(WORLD_W, WORLD_H);
+        const mpGuest = (typeof myCanonicalSide !== 'undefined' && myCanonicalSide);   // true = MP guest (KIRMIZI/kuzey)
+        // BENİM bölgem (belirgin mavi) — host güney, guest kuzey
+        const myY0 = mpGuest ? 0 : WORLD_H * 0.6, myY1 = mpGuest ? WORLD_H * 0.4 : WORLD_H;
+        const ls = worldToScreen(0, myY0); const le = worldToScreen(WORLD_W, myY1);
         ctx.fillStyle = 'rgba(40, 100, 255, 0.06)'; ctx.fillRect(ls.x, ls.y, le.x - ls.x, le.y - ls.y);
         ctx.strokeStyle = 'rgba(80, 160, 255, 0.25)'; ctx.lineWidth = 2; ctx.setLineDash([10, 6]); ctx.strokeRect(ls.x, ls.y, le.x - ls.x, le.y - ls.y);
 
-        // Üst kısım (Düşman AI)
-        const rs = worldToScreen(0, 0); const re = worldToScreen(WORLD_W, WORLD_H * 0.4);
+        // RAKİP bölgesi (soluk kırmızı)
+        const eY0 = mpGuest ? WORLD_H * 0.6 : 0, eY1 = mpGuest ? WORLD_H : WORLD_H * 0.4;
+        const rs = worldToScreen(0, eY0); const re = worldToScreen(WORLD_W, eY1);
         ctx.fillStyle = 'rgba(255, 40, 40, 0.05)'; ctx.strokeRect(rs.x, rs.y, re.x - rs.x, re.y - rs.y);
         ctx.setLineDash([]);
     }
