@@ -114,7 +114,12 @@ function netShowCode(code) {
     const show = document.getElementById('mp-code-show');
     const enter = document.getElementById('mp-code-enter');
     const el = document.getElementById('mp-code');
-    if (el) el.textContent = code || '----';
+    if (el) {
+        if (code) { el.textContent = code; el.style.fontSize = ''; }
+        else { el.textContent = 'SUNUCU ESKİ'; el.style.fontSize = '15px'; el.title = 'Sunucuda: Ctrl+C → git pull → python3 mp_server.py'; }
+    }
     if (show) show.classList.remove('hidden');
     if (enter) enter.classList.add('hidden');
+    // sunucu şifre yollamadıysa (eski sürüm) kullanıcıyı uyar
+    if (!code) netStatus('● Sunucu eski — host: Ctrl+C → git pull → yeniden başlat', 'err');
 }
