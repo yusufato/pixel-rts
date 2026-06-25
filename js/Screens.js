@@ -51,27 +51,42 @@ function mpResetLobbyUI() {
     if (typeof netStatus === 'function') netStatus('● Hazır', '');
 }
 
+// İnternet / Aynı-Ağ modu seç (sekme) — placeholder + etiket güncellenir, panel sıfırlanır
+function mpSetMode(mode) {
+    if (typeof NET_MODE !== 'undefined') NET_MODE = mode;
+    document.getElementById('mp-tab-cloud')?.classList.toggle('active', mode === 'cloud');
+    document.getElementById('mp-tab-lan')?.classList.toggle('active', mode === 'lan');
+    const inp = document.getElementById('mp-code-input');
+    if (inp) inp.placeholder = (mode === 'cloud') ? 'ODA KODU (4 hane)' : 'ŞİFRE';
+    const lbl = document.querySelector('#mp-code-enter .mp-code-label');
+    if (lbl) lbl.textContent = (mode === 'cloud') ? 'Arkadaşının ODA KODUNU gir → "Oyuna Katıl":' : 'Arkadaşının şifresini gir → "Oyuna Katıl":';
+    mpResetLobbyUI();
+}
+
 function mpInit() {
-    mpResetLobbyUI();                       // her açılışta paneli sıfırla
-    if (mpInit._bound) return;
-    mpInit._bound = true;
-    // HOST: Oyun Kur → kendi sunucusuna bağlan → oda kur → ŞİFRE üret
-    document.getElementById('btn-mp-create')?.addEventListener('click', () => { if (typeof mpCreateGame === 'function') mpCreateGame(); });
-    // GUEST: şifreyi gir → Oyuna Katıl → host'un sunucusuna bağlan
-    document.getElementById('btn-mp-join')?.addEventListener('click', () => {
-        const code = document.getElementById('mp-code-input')?.value || '';
-        if (!code.trim()) { alert('Önce arkadaşının verdiği şifreyi gir.'); return; }
-        if (typeof mpJoinByCode === 'function') mpJoinByCode(code);
-    });
-    document.getElementById('mp-code-input')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') document.getElementById('btn-mp-join')?.click();
-    });
-    document.getElementById('mp-code-copy')?.addEventListener('click', () => {
-        const c = (document.getElementById('mp-code')?.textContent || '').trim();
-        try { navigator.clipboard.writeText(c); } catch (_) {}
-        const b = document.getElementById('mp-code-copy'); if (b) { b.textContent = '✓ Kopyalandı'; setTimeout(() => { b.textContent = '📋 Kopyala'; }, 1500); }
-    });
-    document.getElementById('btn-mp-back')?.addEventListener('click', () => { try { if (Net.ws) Net.ws.close(); } catch (_) {} showScreen('menu'); });
+    if (!mpInit._bound) {
+        mpInit._bound = true;
+        // HOST: Oyun Kur → relay'e bağlan → oda kur → KOD üret
+        document.getElementById('btn-mp-create')?.addEventListener('click', () => { if (typeof mpCreateGame === 'function') mpCreateGame(); });
+        // GUEST: kodu gir → Oyuna Katıl
+        document.getElementById('btn-mp-join')?.addEventListener('click', () => {
+            const code = document.getElementById('mp-code-input')?.value || '';
+            if (!code.trim()) { alert('Önce arkadaşının verdiği kodu gir.'); return; }
+            if (typeof mpJoinByCode === 'function') mpJoinByCode(code);
+        });
+        document.getElementById('mp-code-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('btn-mp-join')?.click();
+        });
+        document.getElementById('mp-code-copy')?.addEventListener('click', () => {
+            const c = (document.getElementById('mp-code')?.textContent || '').trim();
+            try { navigator.clipboard.writeText(c); } catch (_) {}
+            const b = document.getElementById('mp-code-copy'); if (b) { b.textContent = '✓ Kopyalandı'; setTimeout(() => { b.textContent = '📋 Kopyala'; }, 1500); }
+        });
+        document.getElementById('mp-tab-cloud')?.addEventListener('click', () => mpSetMode('cloud'));
+        document.getElementById('mp-tab-lan')?.addEventListener('click', () => mpSetMode('lan'));
+        document.getElementById('btn-mp-back')?.addEventListener('click', () => { try { if (Net.ws) Net.ws.close(); } catch (_) {} showScreen('menu'); });
+    }
+    mpSetMode(typeof NET_MODE !== 'undefined' ? NET_MODE : 'cloud');   // her açılışta UI'yı moda göre kur + paneli sıfırla
 }
 
 function screensInit() {

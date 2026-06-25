@@ -618,3 +618,8 @@ body:not([data-screen="game"]) #minimap { display: none !important; }
     border-radius: 10px; border: 1px solid rgba(90,130,170,0.4); background: rgba(6,10,16,0.9); color: #dfe7ef; }
 #mp-code-input:focus { outline: none; border-color: #4c9fff; }
 .mp-wait { margin-top: 12px; font-size: 13px; color: #ffd24c; }
+.mp-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.mp-tab { flex: 1; padding: 9px; border-radius: 8px; border: 1px solid rgba(90,130,170,0.35);
+    background: rgba(6,10,16,0.6); color: #8aa0b8; cursor: pointer; font-weight: 700; font-size: 14px; }
+.mp-tab:hover { color: #cfe0f0; }
+.mp-tab.active { background: rgba(76,159,255,0.25); border-color: #4c9fff; color: #fff; }

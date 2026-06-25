@@ -11,9 +11,10 @@ const Net = {
     selectedRoom: null
 };
 
-// İNTERNET (bulut relay) vs LAN modu: https'ten (Render) açılınca otomatik BULUT, localhost/file → LAN.
-let NET_MODE = (location.protocol === 'https:') ? 'cloud' : 'lan';
-function wsBase() { return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host; }
+// İNTERNET (bulut relay) VARSAYILAN. RELAY_URL = Render adresin — oyunu nereden açarsan aç
+// (yerel dosya, localhost ya da Render) "Oyun Kur" buraya DIŞARI bağlanır → firewall/port derdi YOK.
+const RELAY_URL = 'wss://pixel-rts.onrender.com';
+let NET_MODE = 'cloud';   // varsayılan İNTERNET; lobide "🏠 Aynı Ağ" ile LAN'a geçilir (internetsiz, aynı ev)
 
 function netStatus(text, cls) {
     const el = document.getElementById('mp-status');
@@ -49,7 +50,7 @@ function mpCreateGame() {
     Net.code = null;
     if (NET_MODE === 'cloud') {
         netStatus('● Sunucuya bağlanılıyor (uyanması ~30sn sürebilir)…', '');
-        netConnectUrl(wsBase(), () => netSend({ type: 'create', name: 'Oyun' }));
+        netConnectUrl(RELAY_URL, () => netSend({ type: 'create', name: 'Oyun' }));
     } else {
         const host = (location.hostname && location.hostname.length) ? location.hostname : 'localhost';
         netStatus('● Sunucuya bağlanılıyor…', '');
@@ -68,7 +69,7 @@ function mpJoinByCode(code) {
     if (NET_MODE === 'cloud') {
         if (!code) { alert('Oda kodunu gir.'); return; }
         netStatus('● Bağlanılıyor (uyanması ~30sn sürebilir)…', '');
-        netConnectUrl(wsBase(), () => netSend({ type: 'join', room: code.toUpperCase() }));
+        netConnectUrl(RELAY_URL, () => netSend({ type: 'join', room: code.toUpperCase() }));
         return;
     }
     const p = netParseCode(code);
