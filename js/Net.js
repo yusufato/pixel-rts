@@ -45,7 +45,7 @@ function mpCreateGame() {
     Net.code = null;
     netConnect(host, 8080, () => netSend({ type: 'create', name: 'Oyun' }));
     setTimeout(() => {                                  // teşhis: 4sn'de şifre gelmezse nedenini söyle
-        if (!Net.connected) netStatus('● Sunucuya bağlanılamadı (' + host + ':8080) — host\'ta python3 mp_server.py çalışıyor mu?', 'err');
+        if (!Net.connected) netStatus('● Sunucu çalışmıyor — "baslat.sh" (Linux) / "baslat.bat" (Windows) ile başlat', 'err');
         else if (!Net.code) netStatus('● Bağlandı ama şifre gelmedi — sunucu ESKİ (Ctrl+C → git pull → yeniden başlat)', 'err');
     }, 4000);
 }
