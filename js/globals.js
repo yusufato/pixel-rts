@@ -292,22 +292,22 @@ function getSquadRole(type) {
 // Vision stat added for Fog of War
 
 const STATS = {
-    [T.INFANTRY]: { hp: 200, atk: 14, speed: 0.54, range: 110, vision: 350, atkSpeed: 850, armor: 0, cost: 50, maxAmmo: 60, name: 'Piyade', desc: 'Çok yönlü ana hat askeri; sürüyle tanksavarı ezer', strong: [T.ENGINEER, T.MEDIC, T.ANTI_TANK, T.RECON], weak: [T.ARMOR, T.ARTILLERY, T.ARMOR_INFANTRY] },
-    [T.MECH_INFANTRY]: { hp: 240, atk: 16, speed: 0.90, range: 130, vision: 400, atkSpeed: 780, armor: 1, cost: 80, maxAmmo: 100, name: 'Mekanize', desc: 'Hızlı kanatçı; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.RECON, T.ENGINEER, T.ARTILLERY], weak: [T.ANTI_TANK, T.ARMOR_INFANTRY] },
-    [T.ARMOR_INFANTRY]: { hp: 300, atk: 13, speed: 0.40, range: 110, vision: 250, atkSpeed: 950, armor: 4, cost: 100, maxAmmo: 40, name: 'Zırhlı Piy.', desc: 'Ağır ön hat; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.RECON], weak: [T.ARTILLERY, T.ANTI_TANK] },
-    [T.RECON]: { hp: 110, atk: 8, speed: 1.35, range: 130, vision: 800, atkSpeed: 650, armor: 0, cost: 40, maxAmmo: 30, name: 'Keşif', desc: 'Sisin içini aydınlatan geniş görüşlü birim', strong: [T.ARTILLERY, T.MEDIC, T.ENGINEER], weak: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR, T.ANTI_TANK] },
-    [T.ENGINEER]: { hp: 180, atk: 6, speed: 0.45, range: 80, vision: 300, atkSpeed: 1100, armor: 0, cost: 60, maxAmmo: 20, name: 'İstihkam', desc: 'Siper+ikmal kurar; alanda araç/topçu/tanksavar onarılır', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR] },
-    [T.MEDIC]: { hp: 90, atk: 0, speed: 0.60, range: 90, vision: 300, atkSpeed: 1000, armor: 0, cost: 70, maxAmmo: 0, name: 'Sağlıkçı', desc: 'Silahsız; organik dost birlikleri iyileştirir', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
-    [T.ARMOR]: { hp: 600, atk: 20, speed: 0.48, range: 275, vision: 400, atkSpeed: 8000, armor: 8, cost: 200, maxAmmo: 15, name: 'Tank', desc: 'Ana Muharebe Tankı. Ağır vurur ama yavaş ateş eder (8 sn, 20 hasar)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC], weak: [T.ANTI_TANK, T.ARTILLERY] },
-    [T.ANTI_TANK]: { hp: 150, atk: 25, speed: 0.45, range: 320, vision: 420, atkSpeed: 5000, armor: 0, cost: 100, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli sert zırh avcısı. Zırhlılara ×4.0 hasar ve %85 zırh delme (5 sn, 25 hasar)', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
-    [T.ARTILLERY]: { hp: 110, atk: 20, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 150, maxAmmo: 12, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). CAM-TOP: keşif kadar kırılgan (110 can). Görüş için Keşif ister! (10 sn, 20 alan hasarı, 12 mermi)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
+    [T.INFANTRY]: { hp: 260, atk: 14, speed: 0.54, range: 110, vision: 350, atkSpeed: 850, armor: 0, cost: 50, maxAmmo: 60, name: 'Piyade', desc: 'Çok yönlü ana hat askeri; sürüyle tanksavarı ezer', strong: [T.ENGINEER, T.MEDIC, T.ANTI_TANK, T.RECON], weak: [T.ARMOR, T.ARTILLERY, T.ARMOR_INFANTRY] },
+    [T.MECH_INFANTRY]: { hp: 312, atk: 16, speed: 0.90, range: 130, vision: 400, atkSpeed: 780, armor: 1, cost: 80, maxAmmo: 100, name: 'Mekanize', desc: 'Hızlı kanatçı; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.RECON, T.ENGINEER, T.ARTILLERY], weak: [T.ANTI_TANK, T.ARMOR_INFANTRY] },
+    [T.ARMOR_INFANTRY]: { hp: 390, atk: 13, speed: 0.40, range: 110, vision: 250, atkSpeed: 950, armor: 4, cost: 100, maxAmmo: 40, name: 'Zırhlı Piy.', desc: 'Ağır ön hat; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.RECON], weak: [T.ARTILLERY, T.ANTI_TANK] },
+    [T.RECON]: { hp: 143, atk: 8, speed: 1.35, range: 130, vision: 800, atkSpeed: 650, armor: 0, cost: 40, maxAmmo: 30, name: 'Keşif', desc: 'Sisin içini aydınlatan geniş görüşlü birim', strong: [T.ARTILLERY, T.MEDIC, T.ENGINEER], weak: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR, T.ANTI_TANK] },
+    [T.ENGINEER]: { hp: 234, atk: 6, speed: 0.45, range: 80, vision: 300, atkSpeed: 1100, armor: 0, cost: 60, maxAmmo: 20, name: 'İstihkam', desc: 'Siper+ikmal kurar; alanda araç/topçu/tanksavar onarılır', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR] },
+    [T.MEDIC]: { hp: 117, atk: 0, speed: 0.60, range: 90, vision: 300, atkSpeed: 1000, armor: 0, cost: 70, maxAmmo: 0, name: 'Sağlıkçı', desc: 'Silahsız; organik dost birlikleri iyileştirir', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
+    [T.ARMOR]: { hp: 780, atk: 20, speed: 0.48, range: 275, vision: 400, atkSpeed: 8000, armor: 8, cost: 200, maxAmmo: 15, name: 'Tank', desc: 'Ana Muharebe Tankı. Ağır vurur ama yavaş ateş eder (8 sn, 20 hasar)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC], weak: [T.ANTI_TANK, T.ARTILLERY] },
+    [T.ANTI_TANK]: { hp: 195, atk: 25, speed: 0.45, range: 320, vision: 420, atkSpeed: 5000, armor: 0, cost: 100, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli sert zırh avcısı. Zırhlılara ×4.0 hasar ve %85 zırh delme (5 sn, 25 hasar)', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
+    [T.ARTILLERY]: { hp: 143, atk: 20, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 150, maxAmmo: 12, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). CAM-TOP: keşif kadar kırılgan (110 can). Görüş için Keşif ister! (10 sn, 20 alan hasarı, 12 mermi)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
 };
 
 const AT_ARMOR_MULTIPLIER = 4.0;          // tanksavar → zırhlı: sert anti
 const AT_ARMOR_PENETRATION = 0.85;
 const EQUIPPED_AT_MULTIPLIER = 1.6;       // teçhizatlı piyade (mekanize/zırhlı piy.) → zırhlı: yumuşak anti
 const EQUIPPED_AT_PENETRATION = 0.35;
-const ARTILLERY_SPLASH_RADIUS = 135;      // 165→135: yayık birim splash'tan kaçar, topçu yenilebilir olur
+const ARTILLERY_SPLASH_RADIUS = 120;      // 165→135: yayık birim splash'tan kaçar, topçu yenilebilir olur
 const ARTILLERY_SPLASH_DAMAGE_RATIO = 0.95;
 // Tank mermisi: dar ama gerçek alan hasarı (HE mermisi). Topçudan KÜÇÜK ve ZAYIF.
 const TANK_SPLASH_RADIUS = 80;            // topçunun ~yarısı
