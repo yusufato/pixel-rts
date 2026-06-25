@@ -505,3 +505,6 @@ IP-yazma kaldırıldı. **"Oyun Kur" → sunucu bir ŞİFRE üretir** (host LAN-
 Tüm dosyalar (0,0,0). Puş: `67d4a0d..462a4d6`.
 
 **TEST (GERÇEK MP — iki PC):** ① iki PC `git pull` (AYNI sürüm şart) ② HOST `python3 mp_server.py`+oyun aç+Oyun Kur → şifre ③ GUEST oyun aç+şifre gir+Katıl → **maç başlamalı**: host MAVİ (güney) guest KIRMIZI (kuzey), 12'şer birim. Sağ-tık komut ver → İKİ ekranda da AYNI hareket etmeli, senkron kalmalı (SENKRON KOPTU çıkmamalı). AYNI Chrome şart.
+
+### 🌐 İNTERNET ÇOK OYUNCULU — CANLI + DOĞRULANDI ✓
+Render'a deploy edildi: **`wss://pixel-rts.onrender.com`**. `RELAY_URL` Net.js'e gömüldü, **NET_MODE='cloud' varsayılan** → oyunu YERELDEN açsan bile "Oyun Kur" doğrudan internet relay'ine DIŞARI bağlanır = **firewall/IP/port YOK.** Lobide **🌐 İnternet / 🏠 Aynı Ağ** sekmesi (mpSetMode). Kod 4-haneli (`N5NF`). **Canlı sunucuda uçtan uca test GEÇTİ:** oda kur→kod→guest katıl→AYNI seed→peer_joined→komut relay hepsi ✓. Tek-seferlik deploy bitti; her maç sadece: aç → Oyun Kur → kod paylaş → arkadaş girer → oyna. Cold-start ~30-60sn (free-tier uyku). Render auto-deploy. Push: `→6fb7041`.
