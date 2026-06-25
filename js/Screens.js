@@ -43,8 +43,10 @@ function quickMatchStart() {
 
 // ── Çok Oyunculu lobi bağlantıları (idempotent) ──
 function mpResetLobbyUI() {
-    document.getElementById('mp-code-show')?.classList.add('hidden');
-    document.getElementById('mp-code-enter')?.classList.remove('hidden');
+    const show = document.getElementById('mp-code-show');
+    if (show) { show.classList.add('hidden'); show.style.display = 'none'; }
+    const enter = document.getElementById('mp-code-enter');
+    if (enter) { enter.classList.remove('hidden'); enter.style.display = 'block'; }
     if (typeof netSetWaiting === 'function') netSetWaiting(false);
     if (typeof netStatus === 'function') netStatus('● Hazır', '');
 }

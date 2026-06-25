@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+111#!/usr/bin/env python3
 # ═══════════════════════════════════════════════════════════════════════════
 #  PIXEL RTS — LAN ÇOK OYUNCULU SUNUCU (lobi + lockstep relay)
 #  Tek dosya, NO-NODE: websockets 10.4 (kurulu). Aynı port (8080): statik dosya

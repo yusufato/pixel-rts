@@ -543,6 +543,7 @@ body:not([data-screen="game"]) #minimap { display: none !important; }
     font-family: 'Segoe UI', system-ui, sans-serif; color: #dfe7ef; overflow: hidden;
 }
 .app-screen.hidden { display: none !important; }
+.hidden { display: none !important; }   /* GENEL gizle-class'ı (mp-code panelleri vb. bunu kullanıyordu — eksikti) */
 
 .menu-logo {
     position: absolute; top: 14vh; left: 0; right: 0; text-align: center;
