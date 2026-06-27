@@ -629,20 +629,30 @@ function drawMap() {
         ctx.drawImage(groundCanvas, camera.x, camera.y, viewW, viewH, o.x, o.y, canvas.width, canvas.height);
     }
 
-    // Katman 4: orman zemini. Ağaçlardan önce çizilir.
+    // Katman 4: orman zemini — organik poligon (asimetrik kenar, daire değil)
     for (const t of terrainFeatures) {
         if (t.type !== TERRAIN.FOREST) continue;
         const s = worldToScreen(t.x, t.y);
         const radius = t.r * zoom;
-        if (s.x < -radius || s.x > canvas.width + radius || s.y < -radius || s.y > canvas.height + radius) continue;
-        const forestFloor = ctx.createRadialGradient(s.x, s.y, radius * 0.15, s.x, s.y, radius);
-        forestFloor.addColorStop(0, 'rgba(15,52,27,0.82)');
-        forestFloor.addColorStop(0.72, 'rgba(24,68,35,0.70)');
+        if (s.x < -radius * 1.3 || s.x > canvas.width + radius * 1.3 || s.y < -radius * 1.3 || s.y > canvas.height + radius * 1.3) continue;
+        const poly = t.orgPoly;
+        if (!poly) continue;
+        ctx.save();
+        ctx.beginPath();
+        for (let k = 0; k <= poly.length; k++) {
+            const v = poly[k % poly.length];
+            if (k === 0) ctx.moveTo(s.x + v.dx * zoom, s.y + v.dy * zoom);
+            else         ctx.lineTo(s.x + v.dx * zoom, s.y + v.dy * zoom);
+        }
+        ctx.closePath();
+        ctx.clip();
+        const forestFloor = ctx.createRadialGradient(s.x, s.y, radius * 0.15, s.x, s.y, radius * 1.25);
+        forestFloor.addColorStop(0, 'rgba(15,52,27,0.84)');
+        forestFloor.addColorStop(0.68, 'rgba(24,68,35,0.72)');
         forestFloor.addColorStop(1, 'rgba(22,57,31,0)');
         ctx.fillStyle = forestFloor;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(s.x - radius * 1.3, s.y - radius * 1.3, radius * 2.6, radius * 2.6);
+        ctx.restore();
     }
 
     // Katman 5: dağ kütleleri, tepeler ve ağaç taçları.
@@ -651,19 +661,35 @@ function drawMap() {
             const s = worldToScreen(t.x, t.y);
             if (s.x < -t.r * zoom || s.x > canvas.width + t.r * zoom || s.y < -t.r * zoom || s.y > canvas.height + t.r * zoom) continue;
             const radius = t.r * zoom;
+            const poly = t.orgPoly;
+
+            // Gölge (hafif aşağı-sağ kaydırılmış organik polygon)
             ctx.fillStyle = 'rgba(15,25,18,0.45)';
             ctx.beginPath();
-            ctx.ellipse(s.x + radius * 0.16, s.y + radius * 0.22, radius * 1.05, radius * 0.78, 0, 0, Math.PI * 2);
-            ctx.fill();
+            if (poly) {
+                for (let k = 0; k <= poly.length; k++) {
+                    const v = poly[k % poly.length];
+                    if (k === 0) ctx.moveTo(s.x + radius * 0.18 + v.dx * zoom, s.y + radius * 0.22 + v.dy * zoom);
+                    else         ctx.lineTo(s.x + radius * 0.18 + v.dx * zoom, s.y + radius * 0.22 + v.dy * zoom);
+                }
+            } else { ctx.ellipse(s.x + radius * 0.16, s.y + radius * 0.22, radius * 1.05, radius * 0.78, 0, 0, Math.PI * 2); }
+            ctx.closePath(); ctx.fill();
 
+            // Kaya gövdesi — organik polygon
             const rockGradient = ctx.createRadialGradient(s.x - radius * 0.28, s.y - radius * 0.32, radius * 0.08, s.x, s.y, radius);
             rockGradient.addColorStop(0, '#8d927d');
             rockGradient.addColorStop(0.5, '#62695c');
             rockGradient.addColorStop(1, '#343b35');
             ctx.fillStyle = rockGradient;
             ctx.beginPath();
-            ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
-            ctx.fill();
+            if (poly) {
+                for (let k = 0; k <= poly.length; k++) {
+                    const v = poly[k % poly.length];
+                    if (k === 0) ctx.moveTo(s.x + v.dx * zoom, s.y + v.dy * zoom);
+                    else         ctx.lineTo(s.x + v.dx * zoom, s.y + v.dy * zoom);
+                }
+            } else { ctx.arc(s.x, s.y, radius, 0, Math.PI * 2); }
+            ctx.closePath(); ctx.fill();
             ctx.strokeStyle = '#252b27';
             ctx.lineWidth = Math.max(2, 5 * zoom);
             ctx.stroke();

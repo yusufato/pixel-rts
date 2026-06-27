@@ -146,6 +146,14 @@ for (let i = 0; i < 360; i++) {
 function decorateTerrain(features) {
     for (const t of features) {
         if (t.type === TERRAIN.FOREST) {
+            // Organik kenar poligonu (görsel; gameplay daire kalır)
+            const FN = 16;
+            t.orgPoly = [];
+            for (let k = 0; k < FN; k++) {
+                const ang = (k / FN) * Math.PI * 2;
+                const r = t.r * (0.78 + seededRandom(t.seed * 71 + k * 13) * 0.44);
+                t.orgPoly.push({ dx: Math.cos(ang) * r, dy: Math.sin(ang) * r });
+            }
             t.trees = [];
             const treeCount = Math.floor(t.r * t.r / 520);
             for (let i = 0; i < treeCount; i++) {
@@ -161,6 +169,14 @@ function decorateTerrain(features) {
             }
             t.trees.sort((a, b) => a.y - b.y);
         } else if (t.type === TERRAIN.MOUNTAIN) {
+            // Organik kenar poligonu (görsel)
+            const MN = 14;
+            t.orgPoly = [];
+            for (let k = 0; k < MN; k++) {
+                const ang = (k / MN) * Math.PI * 2;
+                const r = t.r * (0.80 + seededRandom(t.seed * 83 + k * 17) * 0.44);
+                t.orgPoly.push({ dx: Math.cos(ang) * r, dy: Math.sin(ang) * r });
+            }
             t.peaks = [];
             for (let i = 0; i < 7; i++) {
                 const angle = seededRandom(t.seed * 100 + i) * Math.PI * 2;
@@ -519,36 +535,50 @@ function _eNoise(x, y, seed) {
     const a = v00 + (v10 - v00) * fx, b = v01 + (v11 - v01) * fx;
     return a + (b - a) * fy;
 }
-function elevationAt(x, y) {                      // 0..1 yükseklik; harita-genelinde her noktada
-    const s = currentElevSeed; let e = 0, amp = 1, freq = 1 / 760, sum = 0;
-    for (let o = 0; o < 3; o++) { e += _eNoise(x * freq, y * freq, s + o * 131) * amp; sum += amp; amp *= 0.5; freq *= 2; }
-    return e / sum;
+function elevationAt(x, y) {                      // 0..1 yükseklik; her dağ=ayrı tepe, ova=sıfır
+    let e = 0;
+    for (const f of terrainFeatures) {
+        if (f.type !== TERRAIN.MOUNTAIN) continue;
+        // Domain warp: örnek noktayı noise ile kaydır → organik/asimetrik tepe şekli
+        const wx = x + f.r * 0.32 * (_eNoise(x / 215, y / 215, f.seed * 5    ) - 0.5) * 2;
+        const wy = y + f.r * 0.32 * (_eNoise(x / 215, y / 215, f.seed * 5 + 3) - 0.5) * 2;
+        const dist = Math.sqrt((wx - f.x) * (wx - f.x) + (wy - f.y) * (wy - f.y));
+        const tt = Math.max(0, 1 - dist / (f.r * 1.9));
+        e = Math.max(e, tt * tt * (3 - 2 * tt));    // max → tepeler iç içe geçmez
+    }
+    // Çok hafif arka plan dalgası (ova alanlarına derinlik)
+    const s = currentElevSeed;
+    e += (_eNoise(x / 960, y / 960, s) * 0.5 + _eNoise(x / 460, y / 460, s + 131) * 0.5) * 0.06 - 0.03;
+    return Math.max(0, Math.min(1, e));
 }
-function bakeTerrainElevation() {                 // yükselti dolgu + kontur çizgileri — offscreen world-canvas'a BİR KEZ damgala
+function bakeTerrainElevation() {                 // topo kontur: her dağ etrafında eşmerkezli halkalar
     _elevDirty = false;
     if (typeof SIM !== 'undefined' && SIM.headless) return;
     if (typeof document === 'undefined' || !document.createElement) return;
     if (!elevCanvas) { elevCanvas = document.createElement('canvas'); elevCanvas.width = WORLD_W; elevCanvas.height = WORLD_H; elevCtx = elevCanvas.getContext('2d'); }
     const c = elevCtx; c.clearRect(0, 0, WORLD_W, WORLD_H);
-    const step = 60, cols = Math.ceil(WORLD_W / step), rows = Math.ceil(WORLD_H / step);
+    const step = 50, cols = Math.ceil(WORLD_W / step), rows = Math.ceil(WORLD_H / step);
     const E = [];
     for (let j = 0; j <= rows; j++) { E[j] = []; for (let i = 0; i <= cols; i++) E[j][i] = elevationAt(i * step, j * step); }
 
-    // Geçiş 1: yüksek alanlara çok hafif ısıl renk dolgusu (çizgisiz bile okunabilir)
+    // Geçiş 1: dağ bölgelerine hafif ısıl dolgu (yükseklik okunabilirliği)
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
         const avg = (E[j][i] + E[j][i + 1] + E[j + 1][i + 1] + E[j + 1][i]) * 0.25;
-        if (avg < 0.32) continue;
-        const alpha = Math.min(0.30, (avg - 0.32) * 0.55);
-        c.fillStyle = `rgba(200,172,100,${alpha.toFixed(3)})`;
+        if (avg < 0.08) continue;
+        const alpha = Math.min(0.28, (avg - 0.08) * 0.30);
+        c.fillStyle = `rgba(195,165,90,${alpha.toFixed(3)})`;
         c.fillRect(i * step, j * step, step + 1, step + 1);
     }
 
-    // Geçiş 2: topografik kontur çizgileri — lineWidth 7 world-px (zoom 0.65'te ~4-5 ekran px → net görünür)
-    const levels = [0.30, 0.42, 0.54, 0.66, 0.78];
-    c.lineWidth = 7; c.lineJoin = 'round'; c.lineCap = 'round';
-    for (const L of levels) {
-        const opacity = 0.52 + (L - 0.30) * 1.0;   // 0.52 → 0.52 → 1.0 aralığı (0.30→0.78 eşik)
-        c.strokeStyle = `rgba(190,155,75,${Math.min(1, opacity).toFixed(3)})`;
+    // Geçiş 2: topografik kontur çizgileri (marching squares)
+    // Seviyeler: dağ merkezinde e≈1, kenarda e≈0.5, ovada e≈0 → 6 halka
+    const levels = [0.10, 0.24, 0.38, 0.52, 0.68, 0.83];
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (let li = 0; li < levels.length; li++) {
+        const L = levels[li];
+        c.lineWidth = (li % 3 === 2) ? 7 : 5;                       // her 3. çizgi "index" = biraz kalın
+        const opacity = 0.48 + li * 0.08;
+        c.strokeStyle = `rgba(125,95,42,${Math.min(1, opacity).toFixed(2)})`;
         c.beginPath();
         for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
             const x0 = i * step, y0 = j * step, x1 = x0 + step, y1 = y0 + step;
