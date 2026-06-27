@@ -749,13 +749,19 @@ function drawMap() {
 
     // ── GEÇİCİ TEŞHİS: grid harita durumu (DEBUG_TERRAIN=false yapınca kapanır) ──
     if (typeof DEBUG_TERRAIN !== 'undefined' && DEBUG_TERRAIN) {
+        const _w2s = (typeof worldToScreen === 'function') ? worldToScreen(0, 0) : { x: '?', y: '?' };
         const lines = [
             'MAP_MODE=' + (typeof MAP_MODE !== 'undefined' ? MAP_MODE : 'undefined'),
             'terrainGrid=' + (typeof terrainGrid !== 'undefined' && terrainGrid ? terrainGrid.length : 'NULL'),
             'bakeCanvas=' + (typeof terrainBakeCanvas !== 'undefined' && terrainBakeCanvas ? (terrainBakeCanvas.width + 'x' + terrainBakeCanvas.height) : 'NULL'),
             'drawGridTerrain=' + (typeof drawGridTerrain === 'function' ? 'var' : 'YOK'),
             'SIM.headless=' + (typeof SIM !== 'undefined' ? SIM.headless : '?'),
-            'coarse=' + (typeof terrainFeatures !== 'undefined' ? terrainFeatures.length : '?')
+            'coarse=' + (typeof terrainFeatures !== 'undefined' ? terrainFeatures.length : '?'),
+            'zoom=' + (typeof zoom !== 'undefined' ? zoom.toFixed(3) : '?'),
+            'cam=' + (typeof camera !== 'undefined' ? (Math.round(camera.x) + ',' + Math.round(camera.y)) : '?'),
+            'w2s(0,0)=' + (typeof _w2s.x === 'number' ? (Math.round(_w2s.x) + ',' + Math.round(_w2s.y)) : '?'),
+            'phase=' + (typeof phase !== 'undefined' ? phase : '?'),
+            'canvas=' + canvas.width + 'x' + canvas.height
         ];
         const bx = 12, bh = 18 * lines.length + 10, by = Math.round(canvas.height / 2 - bh / 2);
         ctx.save();
