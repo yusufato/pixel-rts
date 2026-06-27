@@ -570,7 +570,7 @@ class Unit {
             this.ammo--;
             this.lastAttackTime = now;
             if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, cx, cy, true);
-            if (typeof spawnExplosion !== 'undefined') spawnExplosion(cx, cy);
+            if (typeof spawnExplosion !== 'undefined') spawnExplosion(cx, cy, 1.7);
             if (typeof triggerScreenShake === 'function') triggerScreenShake(0.55);   // topçu patlaması = sağlam trauma
             if (typeof triggerHitStop === 'function') triggerHitStop(3);
             return;
