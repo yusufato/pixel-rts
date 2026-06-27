@@ -558,3 +558,11 @@ Düello motorunun **ÜSTÜNE** binen meta-katman. Çekirdek sim'e DOKUNMAZ; komu
 - **T3 PUSU (ambush)**: ormandaki birlik ateş edene kadar gizli (AMBUSH_DETECT=170 dışından hedeflenemez/çizilmez); gizliden ilk atış ×1.45 sürpriz; ateş→açığa çık (revealTimer=150). globals: enemyDetectsConcealed.
 - **Ateş ekran-titremesi %80 azaltıldı**: topçu-ateş 0.24→0.05, topçu-patlama 0.44→0.09, tank 0.42→0.08, tanksavar 0.3→0.06.
 - **Öğrenen Beyin v2 (plan)**: OGRENEN_BEYIN_PLANI.md güncellendi → 337→421 girdi (su/köprü +44, T3 +40), MLP [421→96→64→32→20]=~49.5k param (~50k hedef), NeuralBrain.js değişmeden (sizes). Determinizm korunur (ReLU/argmax, exp yok). intent her ~15-30 frame (throughput).
+
+## T3 MEKANİK SETİ TAMAM (Unit.js, Commander.js, globals.js)
+
+- **Kuşatılma (Cannae)**: yakın düşmanların 8-sektör açı-kapsaması → `encirclement` 0..1; ≥0.5 iken güçlü panik → sarılan birlik bozulur (ENVELOP ödüllenir).
+- **Lojistik-hattı**: `supplyCut` (derin cephe + arkamda düşman gücü) → siperde bile mühimmat ikmali durur + hafif panik; `supplyDist` üsten uzaklık.
+- **Tempo/C2**: posture (büyük karar) komut-gecikmesiyle yerleşir — C2-bağlı(lider yakın)=1 komutan-döngüsü, izole=3 döngü; menzil hemen. `c2Linked` girdisi.
+- **Keşif-çekişi**: KEŞİF birimi gizli pusucuları 2× mesafeden (340) tespit eder → önden keşif ambush'ı dengeler.
+- (Daha önce: Pusu/ambush + Darboğaz/su(köprü+A*) zaten eklendi.) Tüm 6 T3 boşluğu kapandı; üretilen alanlar NN v2 girdilerine (421) beslenecek.
