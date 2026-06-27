@@ -151,3 +151,46 @@ function drawParticles(ctx) {
     }
     ctx.globalCompositeOperation = 'source-over';
 }
+
+// ── HASAR SAYILARI (yükselip sönen; AYNI hedefte BİRİKTİRİR → kalabalık olmaz) ──
+const floatTexts = [];
+function addDamageNumber(target, amount, isCrit) {
+    if (SIM.headless) return;
+    amount = Math.round(amount);
+    if (amount <= 0) return;
+    const f = target._dmgFloat;
+    if (f && f.life > 0) {                 // aktif sayı varsa BİRİKTİR + tazele
+        f.value += amount; f.text = '' + f.value;
+        f.life = f.maxLife; f.vy = -22;
+        if (isCrit) f.crit = true;
+        return;
+    }
+    const nf = { x: target.x + (Math.random() * 8 - 4), y: target.y - 8, vy: -22, value: amount, text: '' + amount, life: 0.7, maxLife: 0.7, crit: !!isCrit };
+    floatTexts.push(nf);
+    target._dmgFloat = nf;
+    if (floatTexts.length > 120) floatTexts.shift();
+}
+function updateFloatTexts(dt) {            // GERÇEK dt ile (game-speed'den bağımsız ~0.7s görünür)
+    for (let i = floatTexts.length - 1; i >= 0; i--) {
+        const f = floatTexts[i];
+        f.y += f.vy * dt; f.vy *= 0.92; f.life -= dt;
+        if (f.life <= 0) floatTexts.splice(i, 1);
+    }
+}
+function drawFloatTexts(ctx) {
+    if (typeof zoom !== 'undefined' && zoom < 0.5) return;   // çok uzakta gizle (kalabalık olmasın)
+    ctx.textAlign = 'center';
+    for (const f of floatTexts) {
+        if (!canSee(false, f.x, f.y)) continue;
+        const s = worldToScreen(f.x, f.y);
+        const a = Math.max(0, f.life / f.maxLife);
+        const size = (f.crit ? 15 : 11) * Math.min(1.4, zoom) * (0.75 + 0.25 * a);
+        ctx.globalAlpha = a;
+        ctx.font = `bold ${size}px monospace`;
+        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.strokeText(f.text, s.x, s.y);
+        ctx.fillStyle = f.crit ? '#ffdd33' : '#ffffff';     // crit (arkadan-vuruş) = altın
+        ctx.fillText(f.text, s.x, s.y);
+    }
+    ctx.globalAlpha = 1;
+}

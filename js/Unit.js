@@ -580,6 +580,7 @@ class Unit {
         primaryTarget.hp -= dmg;
         battleTelemetry.recordDamage(this, primaryTarget, actualDamage, isRearHit, now);
         primaryTarget.flashTimer = 6;
+        if (typeof addDamageNumber === 'function') addDamageNumber(primaryTarget, actualDamage, isRearHit);
         // İMPACT his (render-only): hedef knockback + atıcı geri-tepme; ağır silah → trauma + darbe-donması
         if (typeof applyKnockback === 'function') {
             applyKnockback(primaryTarget, this.x, this.y, this.type === T.ARMOR ? 4.5 : this.type === T.ANTI_TANK ? 3.5 : 2);
@@ -818,7 +819,25 @@ class Unit {
         ctx.fillStyle = ratio > 0.5 ? '#4cff7c' : ratio > 0.25 ? '#ffaa00' : '#ff3333';
         ctx.fillRect(barX, barY, barW * ratio, barH);
         ctx.strokeStyle = '#000'; ctx.strokeRect(barX, barY, barW, barH);
-        
+
+        // ── OKUNABİLİRLİK: bastırma çubuğu (can altında) + durum rozeti (zoom-out'ta bile görünür) ──
+        if (this.suppression > 5) {
+            const supRatio = Math.min(1, this.suppression / 100);
+            const sbY = barY + barH + 1 * zoom;
+            const sbH = Math.max(2, 2 * zoom);
+            ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(barX, sbY, barW, sbH);
+            ctx.fillStyle = this.suppression > 60 ? '#ff7b00' : '#ffd24c';   // ağır baskı=turuncu, hafif=sarı
+            ctx.fillRect(barX, sbY, barW * supRatio, sbH);
+        }
+        // Durum rozeti: kaçış/ağır-baskı 3px nokta → kamera uzakken bile "kim eziliyor" okunur
+        if (this.isFleeing || this.suppression > 50) {
+            const dotR = Math.max(2.5, 2.5 * zoom);
+            ctx.beginPath(); ctx.arc(barX - dotR - 2, barY + barH / 2, dotR, 0, Math.PI * 2);
+            ctx.fillStyle = this.isFleeing ? '#ff2b2b' : (this.suppression > 80 ? '#ff7b00' : '#ffd24c');
+            ctx.fill();
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.stroke();
+        }
+
         // İnşaat Barı
         if (this.buildTrenchTimer > 0) {
             ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';

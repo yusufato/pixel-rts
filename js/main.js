@@ -962,6 +962,7 @@ function gameLoop(timestamp) {
         }
         // canlıya özgü (rollout'ta yok): VFX + telemetri + bitiş — iki modda da
         updateParticles(scaledDt / 1000);
+        if (typeof updateFloatTexts === 'function') updateFloatTexts(dt / 1000);   // hasar sayıları (gerçek dt)
         battleTelemetry.update(scaledDt / 1000, simulationTime);
         checkGameOver();
     } else if (phase === PHASE.DEPLOY) {
@@ -972,6 +973,7 @@ function gameLoop(timestamp) {
     if (typeof drawControlPoints === 'function') drawControlPoints(ctx);   // bölge halkaları (birimlerin altında)
     units.forEach(u => u.draw());
     drawParticles(ctx);
+    if (typeof drawFloatTexts === 'function') drawFloatTexts(ctx);   // hasar sayıları (partiküllerin üstünde)
     drawSupport(ctx);
     drawAIWaypoints();
     drawFogOfWar();
