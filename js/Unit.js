@@ -25,7 +25,7 @@ class Unit {
         this.armor = s.armor;
         
         this.inForest = false;
-        this.inHill = false;
+        this.elevation = 0.5;
         this.inTrench = false;
         this.buildTrenchTarget = null;
         this.buildTrenchTimer = 0;
@@ -270,16 +270,12 @@ class Unit {
 
     updateTerrainBonuses(now) {
         this.inForest = false;
-        this.inHill = false;
         this.inTrench = false;
         this.inSupply = false;
         for (const t of terrainFeatures) {
-            if (t.type !== TERRAIN.FOREST && t.type !== TERRAIN.HILL) continue;
-            if (Math.hypot(this.x - t.x, this.y - t.y) < t.r) {
-                if (t.type === TERRAIN.FOREST) this.inForest = true;
-                else this.inHill = true;                              // T2 YÜKSELTİ
-            }
+            if (t.type === TERRAIN.FOREST && Math.hypot(this.x - t.x, this.y - t.y) < t.r) { this.inForest = true; break; }
         }
+        this.elevation = (typeof elevationAt === 'function') ? elevationAt(this.x, this.y) : 0.5;   // T2: harita-geneli sürekli yükselti
         for (const t of SIM.trenches) {
             if (t.isRed === this.isRed && Math.hypot(this.x - t.x, this.y - t.y) < t.r) {
                 this.inTrench = true;
@@ -471,7 +467,7 @@ class Unit {
             const d = Math.hypot(u.x - this.x, u.y - this.y);
             if (d > this.range * 1.5) continue; 
             
-            const _visR = this.inHill ? this.vision * HILL_VISION_MULT : this.vision;   // T2: tepede görüş artar
+            const _visR = this.vision * (1 + Math.max(0, (this.elevation || 0.5) - 0.45) * 0.55);   // T2: yüksekte görüş artar
             if (d > _visR && !canSee(this.isRed, u.x, u.y)) continue;
             
             if (this.type !== T.ARTILLERY && !checkLineOfSight(this.x, this.y, u.x, u.y, this, u)) continue;
@@ -537,9 +533,10 @@ class Unit {
             dmg *= _tgtArmored ? 1.7 : 1.4;
         }                                           // ÖN (120-180°): zırh tam etkili (×1.0)
 
-        // T2: YÜKSELTİ — yüksek zemin firefight'ı kazanır (saldırgan tepede / hedef tepede)
-        if (this.inHill && !this.attackTarget.inHill) dmg *= HILL_HIGH_DMG;        // yüksekten ateş sert
-        else if (!this.inHill && this.attackTarget.inHill) dmg *= HILL_LOW_DMG;    // yokuş-yukarı zayıf
+        // T2: YÜKSELTİ — sürekli yükselti farkı (her yerde): yüksekten sert, yokuş-yukarı zayıf
+        const _eDelta = (this.elevation || 0.5) - (this.attackTarget.elevation || 0.5);
+        if (_eDelta > 0.05) dmg *= 1 + Math.min(0.28, _eDelta * 1.6);
+        else if (_eDelta < -0.05) dmg *= 1 - Math.min(0.20, -_eDelta * 1.3);
 
         const primaryTarget = this.attackTarget;
 

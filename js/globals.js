@@ -47,10 +47,6 @@ const WORLD_W = 3400;
 const WORLD_H = 2300;
 
 const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3 };
-// T2 YÜKSELTİ: yüksek zemin firefight + görüş avantajı (tepe içindeki birim)
-const HILL_HIGH_DMG = 1.2;       // yüksek zeminden ateş (hedef alçakta)
-const HILL_LOW_DMG = 0.85;       // yokuş-yukarı ateş (hedef tepede)
-const HILL_VISION_MULT = 1.25;   // tepede görüş menzili
 // ── SİMETRİK 3-MEVZİ HARİTASI ──
 // 3 kontrol noktası (orta hat: x=880/1700/2520, y=1150) birer AÇIK güçlü-mevzi; etrafları
 // araziyle çerçeveli. Kuzey-güney AYNA simetrik (her iki taraf için adil). Dağlar=geçit/görüş
@@ -502,6 +498,69 @@ function bakeGround() {                   // kuyruktaki yeni decal/crater'ları 
     }
     groundCtx.globalAlpha = 1;
     decals.length = 0;
+}
+
+// ── T2 YÜKSELTİ: harita-geneli SÜREKLİ yükselti alanı (deterministik fraktal value-noise) ──
+// Daire-tepe yerine doğal heightmap; kuşbakışı topografik KONTUR çizgileriyle render. Yüksek-zemin avantajı HER YERDE.
+let currentElevSeed = 7919;
+let elevCanvas = null, elevCtx = null, _elevDirty = true;
+function _eHash(ix, iy, seed) {                  // 32-bit integer hash → [0,1), saf aritmetik (bit-tutarlı)
+    let h = ((ix | 0) * 374761393 + (iy | 0) * 668265263 + (seed | 0) * 1274126177) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177) | 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+    return h / 4294967296;
+}
+function _eSmooth(t) { return t * t * (3 - 2 * t); }     // smoothstep (polinom; transcendental YOK)
+function _eNoise(x, y, seed) {
+    const x0 = Math.floor(x), y0 = Math.floor(y);
+    const fx = _eSmooth(x - x0), fy = _eSmooth(y - y0);
+    const v00 = _eHash(x0, y0, seed), v10 = _eHash(x0 + 1, y0, seed);
+    const v01 = _eHash(x0, y0 + 1, seed), v11 = _eHash(x0 + 1, y0 + 1, seed);
+    const a = v00 + (v10 - v00) * fx, b = v01 + (v11 - v01) * fx;
+    return a + (b - a) * fy;
+}
+function elevationAt(x, y) {                      // 0..1 yükseklik; harita-genelinde her noktada
+    const s = currentElevSeed; let e = 0, amp = 1, freq = 1 / 760, sum = 0;
+    for (let o = 0; o < 3; o++) { e += _eNoise(x * freq, y * freq, s + o * 131) * amp; sum += amp; amp *= 0.5; freq *= 2; }
+    return e / sum;
+}
+function bakeTerrainElevation() {                 // kontur çizgilerini offscreen world-canvas'a BİR KEZ damgala (marching squares)
+    _elevDirty = false;
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    if (typeof document === 'undefined' || !document.createElement) return;
+    if (!elevCanvas) { elevCanvas = document.createElement('canvas'); elevCanvas.width = WORLD_W; elevCanvas.height = WORLD_H; elevCtx = elevCanvas.getContext('2d'); }
+    const c = elevCtx; c.clearRect(0, 0, WORLD_W, WORLD_H);
+    const step = 60, cols = Math.ceil(WORLD_W / step), rows = Math.ceil(WORLD_H / step);
+    const E = [];
+    for (let j = 0; j <= rows; j++) { E[j] = []; for (let i = 0; i <= cols; i++) E[j][i] = elevationAt(i * step, j * step); }
+    const levels = [0.30, 0.42, 0.54, 0.66, 0.78];
+    c.lineWidth = 2; c.lineJoin = 'round';
+    for (const L of levels) {
+        c.strokeStyle = `rgba(116,96,54,${(0.28 + (L - 0.3) * 0.7).toFixed(3)})`;
+        c.beginPath();
+        for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+            const x0 = i * step, y0 = j * step, x1 = x0 + step, y1 = y0 + step;
+            const a = E[j][i], b = E[j][i + 1], cc = E[j + 1][i + 1], d = E[j + 1][i];
+            const cs = (a > L ? 8 : 0) | (b > L ? 4 : 0) | (cc > L ? 2 : 0) | (d > L ? 1 : 0);
+            if (cs === 0 || cs === 15) continue;
+            const TP = () => [x0 + step * ((L - a) / (b - a)), y0];
+            const RT = () => [x1, y0 + step * ((L - b) / (cc - b))];
+            const BT = () => [x0 + step * ((L - d) / (cc - d)), y1];
+            const LF = () => [x0, y0 + step * ((L - a) / (d - a))];
+            const sg = (p, q) => { c.moveTo(p[0], p[1]); c.lineTo(q[0], q[1]); };
+            switch (cs) {
+                case 1: case 14: sg(LF(), BT()); break;
+                case 2: case 13: sg(BT(), RT()); break;
+                case 3: case 12: sg(LF(), RT()); break;
+                case 4: case 11: sg(TP(), RT()); break;
+                case 5: sg(LF(), TP()); sg(BT(), RT()); break;
+                case 6: case 9: sg(TP(), BT()); break;
+                case 7: case 8: sg(LF(), TP()); break;
+                case 10: sg(LF(), BT()); sg(TP(), RT()); break;
+            }
+        }
+        c.stroke();
+    }
 }
 
 let mouseScreenX = 500, mouseScreenY = 500;

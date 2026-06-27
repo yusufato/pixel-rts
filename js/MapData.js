@@ -23,10 +23,7 @@ const MAPS = [
         { x: 560,  y: 930,  r: 230, type: _F, seed: 31 },
         { x: 560,  y: 1370, r: 230, type: _F, seed: 32 },
         { x: 2840, y: 930,  r: 230, type: _F, seed: 33 },
-        { x: 2840, y: 1370, r: 230, type: _F, seed: 34 },
-        { x: 1700, y: 1150, r: 165, type: _H, seed: 41 },   // T2 YÜKSELTİ: merkez kontrol-noktası = tartışmalı yüksek zemin
-        { x: 880,  y: 1150, r: 140, type: _H, seed: 42 },
-        { x: 2520, y: 1150, r: 140, type: _H, seed: 43 }
+        { x: 2840, y: 1370, r: 230, type: _F, seed: 34 }
     ]},
     // 1 — AÇIK OVA: az engel, geniş açık savaş (zırhlı/menzil avantajı)
     { id: 1, name: 'Açık Ova', features: [
@@ -35,10 +32,7 @@ const MAPS = [
         { x: 550,  y: 650,  r: 240, type: _F, seed: 103 },
         { x: 550,  y: 1650, r: 240, type: _F, seed: 104 },
         { x: 2850, y: 650,  r: 240, type: _F, seed: 105 },
-        { x: 2850, y: 1650, r: 240, type: _F, seed: 106 },
-        { x: 1700, y: 1150, r: 185, type: _H, seed: 107 },   // T2 YÜKSELTİ: açık ovada merkez yüksek zemin
-        { x: 1100, y: 1150, r: 150, type: _H, seed: 108 },
-        { x: 2300, y: 1150, r: 150, type: _H, seed: 109 }
+        { x: 2850, y: 1650, r: 240, type: _F, seed: 106 }
     ]},
     // 2 — ORMAN LABİRENTİ: bol orman (kanat/pusu), dar koridorlar
     { id: 2, name: 'Orman Labirenti', features: [
@@ -141,6 +135,7 @@ let currentMapId = 0;
 function applyMap(id) {
     if (typeof MAPS === 'undefined' || typeof terrainFeatures === 'undefined') return 0;
     currentMapId = ((id | 0) % MAPS.length + MAPS.length) % MAPS.length;
+    if (typeof currentElevSeed !== 'undefined') { currentElevSeed = 7919 * (currentMapId + 1); _elevDirty = true; }   // T2: harita-bazlı yükselti tohumu (her harita farklı topografya)
     const src = MAPS[currentMapId].features;
     terrainFeatures.length = 0;                                  // REASSIGN değil → 8-dosya canlı okuma kırılmaz
     for (const f of src) terrainFeatures.push({ x: f.x, y: f.y, r: f.r, type: f.type, seed: f.seed });

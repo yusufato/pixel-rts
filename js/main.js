@@ -615,6 +615,13 @@ function drawMap() {
         ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(canvas.width, sy); ctx.stroke();
     }
     
+    // T2 YÜKSELTİ: harita-geneli topografik kontur çizgileri (offscreen, bir kez bake → tek blit)
+    if (_elevDirty && typeof bakeTerrainElevation === 'function') bakeTerrainElevation();
+    if (elevCanvas) {
+        const oe = worldToScreen(camera.x, camera.y);
+        ctx.drawImage(elevCanvas, camera.x, camera.y, viewW, viewH, oe.x, oe.y, canvas.width, canvas.height);
+    }
+
     // Katman 3: savaş izleri — BAKED-GROUND (ceset/kan/scorch tek offscreen canvas'a damgalı; görünür bölge tek blit)
     if (typeof bakeGround === 'function') bakeGround();
     if (groundCanvas) {
@@ -640,32 +647,7 @@ function drawMap() {
 
     // Katman 5: dağ kütleleri, tepeler ve ağaç taçları.
     for (const t of terrainFeatures) {
-        if (t.type === TERRAIN.HILL) {
-            const s = worldToScreen(t.x, t.y);
-            const radius = t.r * zoom;
-            if (s.x < -radius || s.x > canvas.width + radius || s.y < -radius || s.y > canvas.height + radius) continue;
-            // hafif gölge (yükseklik hissi)
-            ctx.fillStyle = 'rgba(15,22,12,0.20)';
-            ctx.beginPath();
-            ctx.ellipse(s.x + radius * 0.07, s.y + radius * 0.10, radius, radius * 0.9, 0, 0, Math.PI * 2);
-            ctx.fill();
-            // yumuşak yükseklik tinti (merkeze doğru açılır = zirve daha açık)
-            const hg = ctx.createRadialGradient(s.x, s.y, radius * 0.1, s.x, s.y, radius);
-            hg.addColorStop(0, 'rgba(208,200,150,0.55)');
-            hg.addColorStop(0.7, 'rgba(150,150,104,0.32)');
-            hg.addColorStop(1, 'rgba(120,124,84,0)');
-            ctx.fillStyle = hg;
-            ctx.beginPath(); ctx.arc(s.x, s.y, radius, 0, Math.PI * 2); ctx.fill();
-            // TOPOGRAFİK KONTUR ÇİZGİLERİ (kuşbakışı yükselti — çizgisel yöntem): 5 konsantrik isoline
-            ctx.strokeStyle = 'rgba(120,95,50,0.72)';
-            ctx.lineWidth = Math.max(1, 1.1 * zoom);
-            for (const rf of [0.92, 0.72, 0.52, 0.34, 0.18]) {
-                ctx.beginPath(); ctx.arc(s.x, s.y, radius * rf, 0, Math.PI * 2); ctx.stroke();
-            }
-            // zirve işareti (en yüksek nokta)
-            ctx.fillStyle = 'rgba(110,84,38,0.78)';
-            ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(1.5, 1.8 * zoom), 0, Math.PI * 2); ctx.fill();
-        } else if (t.type === TERRAIN.MOUNTAIN) {
+        if (t.type === TERRAIN.MOUNTAIN) {
             const s = worldToScreen(t.x, t.y);
             if (s.x < -t.r * zoom || s.x > canvas.width + t.r * zoom || s.y < -t.r * zoom || s.y > canvas.height + t.r * zoom) continue;
             const radius = t.r * zoom;
