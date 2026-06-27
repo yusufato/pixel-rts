@@ -258,7 +258,19 @@ const UNIT_RADIUS = Math.max(BASE_DRAW_W, BASE_DRAW_H) / 2;
 // ── BİRİM YÖNELİMİ (render-only; sim facingAngle'ı zaten hesaplıyor → eğitim/MP etkilenmez) ──
 const UNIT_ROTATE = true;            // tüm sprite facing yönüne döner (hedefe "düz" bakar)
 const UNIT_FACE_OFFSET = Math.PI / 2;// ÖN = dikdörtgenin UZUN kenarı (geniş cephe öne); kısa-kenar-ön istersen 0 yap
-const UNIT_TURN_SMOOTH = 0.18;       // yumuşak dönüş (tık-diye değil): drawAngle her kare facingAngle'a bu oranda yaklaşır (0..1)
+const UNIT_TURN_SMOOTH = 1.0;        // GLOBAL dönüş hız çarpanı (hepsini topluca ayarla; 0.5 = yarı hız)
+// Tip-bazlı dönüş çevikliği (kare-başı yaklaşma oranı 0..1) — tank/topçu ağır, piyade/keşif çevik; index = tip no
+const UNIT_TURN_RATE = [
+    0.11,  // 0 Piyade
+    0.10,  // 1 Mekanize
+    0.08,  // 2 Zırhlı Piyade (ağır)
+    0.13,  // 3 Keşif (en çevik)
+    0.09,  // 4 İstihkam
+    0.11,  // 5 Sağlıkçı
+    0.06,  // 6 Tank (ağır, yavaş döner)
+    0.07,  // 7 Tanksavar (yavaş taret)
+    0.045  // 8 Topçu (en yavaş döner)
+];
 const UNIT_FRONT_MARKER = true;      // ön/arka okunsun + kuşatmada kafa karışmasın diye facing'e bakan parlak ÖN-işareti
 
 function drawW() { return BASE_DRAW_W * zoom; }

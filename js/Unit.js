@@ -685,7 +685,7 @@ class Unit {
         let _da = this.facingAngle - this.drawAngle;
         while (_da > Math.PI) _da -= Math.PI * 2;
         while (_da < -Math.PI) _da += Math.PI * 2;
-        this.drawAngle += _da * UNIT_TURN_SMOOTH;
+        this.drawAngle += _da * ((UNIT_TURN_RATE[this.type] || 0.09) * UNIT_TURN_SMOOTH);
         const _ang = this.drawAngle + UNIT_FACE_OFFSET;    // sprite + seçim-kutusu çizim açısı
 
         if (this.selected && !this.isRed) {
