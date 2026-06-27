@@ -4,3 +4,5 @@ node_modules/
 train/measure_progress.txt
 train/measure_out.txt
 *.log
+train/measure_native_progress.txt
+train/measure_native_out.txt
