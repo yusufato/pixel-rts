@@ -910,7 +910,14 @@ function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
     SIM.spatialGrid.clear();
     for (let i = SIM.units.length - 1; i >= 0; i--) {
         if (SIM.units[i].dead) {
-            if (spawnDeathVfx) spawnExplosion(SIM.units[i].x, SIM.units[i].y);
+            if (spawnDeathVfx) {
+                const _du = SIM.units[i];
+                spawnExplosion(_du.x, _du.y, _du.type === T.ARMOR ? 1.5 : 1);     // tank ölümü = büyük boom
+                if (_du.type === T.ARMOR && typeof triggerCinematic === 'function') {
+                    const ss = worldToScreen(_du.x, _du.y);                       // SADECE ekrandaysa slow-mo
+                    if (ss.x > 0 && ss.x < canvas.width && ss.y > 0 && ss.y < canvas.height) triggerCinematic();
+                }
+            }
             SIM.units.splice(i, 1);
         } else {
             SIM.spatialGrid.insert(SIM.units[i]);
@@ -935,7 +942,8 @@ function gameLoop(timestamp) {
     
     if (!lastFrameTime) lastFrameTime = timestamp;
     const dt = timestamp - lastFrameTime;
-    const scaledDt = dt * GAME_SPEED;
+    if (typeof updateCinematic === 'function') updateCinematic(dt / 1000);   // sinematik slow-mo zarfı (gerçek dt)
+    const scaledDt = dt * GAME_SPEED * timeScale;                            // timeScale<1 → slow-mo (tek-oyunculu)
     lastFrameTime = timestamp;
 
     // Hit-stop: tek-oyunculuda kısa darbe-donması (render sürer, sim donar) — MP/headless'te YOK (lockstep desync)
@@ -969,6 +977,15 @@ function gameLoop(timestamp) {
         resolveCollisions();
     }
 
+    // Sinematik zoom (render-only, ekran-merkezli; oyuncunun zoom/kamera'sı kalıcı DEĞİŞMEZ)
+    let _cz = false, _sZoom, _sCamX, _sCamY;
+    if (typeof cinemaZoom !== 'undefined' && cinemaZoom > 1.001 && phase === PHASE.BATTLE) {
+        _cz = true; _sZoom = zoom; _sCamX = camera.x; _sCamY = camera.y;
+        const cw = screenToWorld(canvas.width / 2, canvas.height / 2);
+        zoom = zoom * cinemaZoom;
+        camera.x = cw.x - (canvas.width / 2) / zoom;
+        camera.y = cw.y - (canvas.height / 2) / zoom;
+    }
     drawMap();
     if (typeof drawControlPoints === 'function') drawControlPoints(ctx);   // bölge halkaları (birimlerin altında)
     units.forEach(u => u.draw());
@@ -978,6 +995,7 @@ function gameLoop(timestamp) {
     drawAIWaypoints();
     drawFogOfWar();
     drawGhost();
+    if (_cz) { zoom = _sZoom; camera.x = _sCamX; camera.y = _sCamY; }   // sinematik zoom geri al → HUD/minimap doğru kalır
     drawSelectionBox();
     drawMinimap();
     if (typeof drawVpHud === 'function') drawVpHud(ctx);   // bölge skor göstergesi (ekran-uzayı)

@@ -210,6 +210,25 @@ function applyKnockback(t, srcX, srcY, amt) {
     const m = Math.hypot(t.voffX, t.voffY);
     if (m > 7) { t.voffX *= 7 / m; t.voffY *= 7 / m; }         // tavan
 }
+// ── Subtle AUTO-KAMERA: belirleyici anda slow-mo + hafif zoom (tek-oyunculu; kamera-ele-geçirme YOK) ──
+let timeScale = 1.0, cinemaZoom = 1.0, cinemaTimer = 0, cinemaCooldown = 0;
+const CINEMA_DUR = 0.5;          // saniye (gerçek)
+function triggerCinematic() {
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    if (typeof MP !== 'undefined' && MP.active) return;
+    if (cinemaCooldown > 0 || cinemaTimer > 0) return;
+    cinemaTimer = CINEMA_DUR;
+    cinemaCooldown = 5.0;        // seyrek tetikle → "özel" kalsın
+}
+function updateCinematic(dt) {
+    if (cinemaCooldown > 0) cinemaCooldown -= dt;
+    if (cinemaTimer > 0) {
+        cinemaTimer -= dt;
+        const e = Math.max(0, cinemaTimer / CINEMA_DUR);   // 1→0 (tetikte en güçlü, sonra söner)
+        timeScale = 1 - 0.65 * e;                          // 0.35 slow-mo → 1.0
+        cinemaZoom = 1 + 0.14 * e;                         // 1.14 zoom → 1.0
+    } else { timeScale = 1; cinemaZoom = 1; }
+}
 
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
