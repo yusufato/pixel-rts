@@ -763,6 +763,15 @@ function drawMap() {
         ctx.strokeStyle = '#5f6'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, 250, bh);
         ctx.font = '14px monospace'; ctx.fillStyle = '#5f6'; ctx.textAlign = 'left';
         lines.forEach((l, i) => ctx.fillText(l, bx + 8, by + 22 + i * 18));
+        // bake canvas önizlemesi (renkli görünürse bake DOLU → sorun ana blit'te)
+        if (typeof terrainBakeCanvas !== 'undefined' && terrainBakeCanvas) {
+            const ty = by + bh + 8;
+            ctx.fillStyle = '#000'; ctx.fillRect(bx, ty, 200, 135);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(terrainBakeCanvas, 0, 0, WORLD_W, WORLD_H, bx, ty, 200, 135);
+            ctx.strokeStyle = '#5f6'; ctx.strokeRect(bx, ty, 200, 135);
+            ctx.fillStyle = '#5f6'; ctx.fillText('↑ bake önizleme', bx + 8, ty + 135 + 16);
+        }
         ctx.restore();
     }
 
