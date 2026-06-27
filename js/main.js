@@ -244,6 +244,7 @@ function startBattle() {
     aiDeploy();       // Öğrenilen meta + sahaya göre karşı orduyu bas
     
     phase = PHASE.BATTLE;
+    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     battleTelemetry.start(simulationTime);
     if (typeof initControlPoints === 'function') initControlPoints();   // bölge kontrolü / zafer puanları
     if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
@@ -614,39 +615,11 @@ function drawMap() {
         ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(canvas.width, sy); ctx.stroke();
     }
     
-    // Katman 3: savaş izleri.
-    for (const c of craters) {
-        const s = worldToScreen(c.x, c.y);
-        if (s.x < -c.r * zoom || s.x > canvas.width + c.r * zoom || s.y < -c.r * zoom || s.y > canvas.height + c.r * zoom) continue;
-        ctx.fillStyle = `rgba(10, 15, 10, ${c.alpha})`;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, c.r * zoom, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    // Decals'leri Çiz (Kan, Palet, Enkaz)
-    for (const d of decals) {
-        const s = worldToScreen(d.x, d.y);
-        const zSize = d.size * zoom;
-        if (s.x < -zSize || s.x > canvas.width + zSize || s.y < -zSize || s.y > canvas.height + zSize) continue;
-        
-        ctx.save();
-        ctx.translate(s.x, s.y);
-        if (d.angle) ctx.rotate(d.angle);
-        ctx.globalAlpha = d.alpha;
-        
-        if (d.type === 'blood') {
-            ctx.fillStyle = '#6b0000';
-            ctx.beginPath(); ctx.arc(0, 0, zSize, 0, Math.PI*2); ctx.fill();
-        } else if (d.type === 'track') {
-            ctx.fillStyle = 'rgba(20, 15, 10, 0.4)';
-            ctx.fillRect(-zSize, -zSize/2, zSize*2, zSize);
-        } else if (d.type === 'wreck') {
-            ctx.fillStyle = '#3a3a3a';
-            ctx.fillRect(-zSize, -zSize, zSize*2, zSize*2);
-            ctx.strokeStyle = '#222'; ctx.lineWidth = 2*zoom; ctx.strokeRect(-zSize, -zSize, zSize*2, zSize*2);
-        }
-        ctx.restore();
+    // Katman 3: savaş izleri — BAKED-GROUND (ceset/kan/scorch tek offscreen canvas'a damgalı; görünür bölge tek blit)
+    if (typeof bakeGround === 'function') bakeGround();
+    if (groundCanvas) {
+        const o = worldToScreen(camera.x, camera.y);          // sol-üst köşe (shake dahil)
+        ctx.drawImage(groundCanvas, camera.x, camera.y, viewW, viewH, o.x, o.y, canvas.width, canvas.height);
     }
 
     // Katman 4: orman zemini. Ağaçlardan önce çizilir.

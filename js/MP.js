@@ -97,6 +97,7 @@ function mpStartBattle(seed, blue, red) {
     if (typeof enemy !== 'undefined') enemy.money = 0;
 
     phase = PHASE.BATTLE;
+    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     if (typeof initControlPoints === 'function') initControlPoints();
     if (typeof battleTelemetry !== 'undefined' && battleTelemetry.start) battleTelemetry.start(0);
     mpCameraToMyArmy();

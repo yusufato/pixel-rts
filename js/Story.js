@@ -495,6 +495,7 @@ function storyEnterBattle(node) {
 // SAVAŞ ALANINI DEPLOY'a SIFIRLA (startBattle'ın tersi — reload olmadan yeni maç)
 function storyResetBattlefield() {
     units.length = 0;
+    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     SIM.controlPoints = []; SIM.vpScore = { red: 0, blue: 0 }; SIM.vpWinner = null;
     player.kills = 0; player.unitsSpawned = 0;
     enemy.kills = 0; enemy.unitsSpawned = 0;

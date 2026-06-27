@@ -431,6 +431,53 @@ const SUPPLY_FIELD_DURATION_MS = 60000;
 const craters = [];
 const decals = []; // { x, y, type, size, alpha, angle }
 
+// ── BAKED-GROUND: kalıcı savaş izleri (ceset/kan/scorch) world-uzaylı tek offscreen canvas'a STAMP ──
+// Her kare N decal yeniden çizilmez; yeni decal'ler bir kez damgalanır, görünür bölge tek drawImage ile basılır.
+let groundCanvas = null, groundCtx = null;
+function initGroundCanvas() {
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    if (typeof document === 'undefined' || !document.createElement) return;
+    if (!groundCanvas) {
+        groundCanvas = document.createElement('canvas');
+        groundCanvas.width = WORLD_W; groundCanvas.height = WORLD_H;
+        groundCtx = groundCanvas.getContext('2d');
+    }
+}
+function resetGroundCanvas() {            // yeni maç → önceki izleri temizle
+    initGroundCanvas();
+    if (groundCtx) groundCtx.clearRect(0, 0, WORLD_W, WORLD_H);
+    craters.length = 0; decals.length = 0;
+}
+function bakeGround() {                   // kuyruktaki yeni decal/crater'ları damgala, sonra kuyruğu boşalt
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    if (!groundCtx) { initGroundCanvas(); if (!groundCtx) return; }
+    for (const c of craters) {
+        groundCtx.fillStyle = `rgba(10, 15, 10, ${c.alpha})`;
+        groundCtx.beginPath(); groundCtx.arc(c.x, c.y, c.r, 0, Math.PI * 2); groundCtx.fill();
+    }
+    craters.length = 0;
+    for (const d of decals) {
+        groundCtx.save();
+        groundCtx.translate(d.x, d.y);
+        if (d.angle) groundCtx.rotate(d.angle);
+        groundCtx.globalAlpha = d.alpha;
+        if (d.type === 'blood') {
+            groundCtx.fillStyle = '#6b0000';
+            groundCtx.beginPath(); groundCtx.arc(0, 0, d.size, 0, Math.PI * 2); groundCtx.fill();
+        } else if (d.type === 'track') {
+            groundCtx.fillStyle = 'rgba(20, 15, 10, 0.4)';
+            groundCtx.fillRect(-d.size, -d.size / 2, d.size * 2, d.size);
+        } else if (d.type === 'wreck') {
+            groundCtx.fillStyle = '#3a3a3a';
+            groundCtx.fillRect(-d.size, -d.size, d.size * 2, d.size * 2);
+            groundCtx.strokeStyle = '#222'; groundCtx.lineWidth = 2; groundCtx.strokeRect(-d.size, -d.size, d.size * 2, d.size * 2);
+        }
+        groundCtx.restore();
+    }
+    groundCtx.globalAlpha = 1;
+    decals.length = 0;
+}
+
 let mouseScreenX = 500, mouseScreenY = 500;
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
