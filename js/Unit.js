@@ -698,8 +698,36 @@ class Unit {
         }
 
         if (this.flashTimer > 0) ctx.globalAlpha = 0.5;
-        ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
+        if (UNIT_ROTATE) {
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(this.facingAngle + UNIT_FACE_OFFSET);   // tüm sprite hedefe "düz" döner
+            ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -dw / 2, -dh / 2, dw, dh);
+            ctx.restore();
+        } else {
+            ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
+        }
         ctx.globalAlpha = 1.0;
+
+        // ÖN-işareti: facing yönüne bakan parlak burun → ön/arka net (arkadan kuşatılınca bile okunur)
+        if (UNIT_FRONT_MARKER) {
+            const fa = this.facingAngle;
+            const cx = Math.cos(fa), cy = Math.sin(fa);
+            const px = -cy, py = cx;                            // facing'e dik (taban yönü)
+            const fr = Math.max(dw, dh) * 0.5 + 2 * zoom;       // sprite ön-ucu
+            const fx = s.x + cx * fr, fy = s.y + cy * fr;
+            const tip = 5 * zoom, half = 3 * zoom;
+            ctx.beginPath();
+            ctx.moveTo(fx + cx * tip, fy + cy * tip);           // burun ucu
+            ctx.lineTo(fx + px * half, fy + py * half);         // taban-sol
+            ctx.lineTo(fx - px * half, fy - py * half);         // taban-sağ
+            ctx.closePath();
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, 0.6 * zoom);
+            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+            ctx.stroke();
+        }
 
         // HİKAYE: GAZİ rütbesi (savaştan savaşa taşınan birim) — altın yıldız(lar) üstte
         if (this.veteran > 0) {

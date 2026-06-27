@@ -255,6 +255,11 @@ const BASE_DRAW_W = SP_W * BASE_DRAW_SCALE;
 const BASE_DRAW_H = SP_H * BASE_DRAW_SCALE;
 const UNIT_RADIUS = Math.max(BASE_DRAW_W, BASE_DRAW_H) / 2;
 
+// ── BİRİM YÖNELİMİ (render-only; sim facingAngle'ı zaten hesaplıyor → eğitim/MP etkilenmez) ──
+const UNIT_ROTATE = true;        // tüm sprite facing yönüne döner (hedefe "düz" bakar)
+const UNIT_FACE_OFFSET = 0;      // sprite sanatının "ön" hizası: NATO sembol simetrik → 0; yönlü sprite çizilince ayarlanır
+const UNIT_FRONT_MARKER = true;  // ön/arka okunsun + kuşatmada kafa karışmasın diye facing'e bakan parlak ÖN-işareti
+
 function drawW() { return BASE_DRAW_W * zoom; }
 function drawH() { return BASE_DRAW_H * zoom; }
 
