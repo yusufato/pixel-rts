@@ -78,7 +78,7 @@ class Unit {
         if (this.flashTimer > 0) this.flashTimer -= GAME_SPEED;
         this.scanTimer -= GAME_SPEED;
         
-        if (this.suppression > 0) this.suppression -= 0.3 * GAME_SPEED;
+        if (this.suppression > 0) this.suppression -= 0.18 * GAME_SPEED;   // T1: yavaş decay → bastırma birikebilir (taktik kaynak)
 
         // Her ~30 frame'de bir çevreyi tara: düşman görüşü + birlik morali bağlamı
         if (this.scanTimer <= 0) {
@@ -339,7 +339,8 @@ class Unit {
 
         let currentSpeed = this.inForest ? this.baseSpeed * 0.7 : this.baseSpeed;
         if (this.isPanicking && !this.isFleeing) currentSpeed *= 0.7; // 30% slower when panicking but not fleeing yet
-        if (this.suppression > 50) currentSpeed *= 0.5; // Baskı ateşi hızı yarıya düşürür
+        if (this.suppression > PINNED_SUPPRESSION) currentSpeed *= 0.12;   // PINNED: yere yatar, ilerleyemez
+        else if (this.suppression > 50) currentSpeed *= 0.5;               // ağır baskı: hız yarıya
         this.speed = currentSpeed;
         return false;
     }
@@ -504,7 +505,8 @@ class Unit {
         }
         
         let currentAtkSpeed = this.isPanicking ? this.atkSpeed * 1.5 : this.atkSpeed; 
-        if (this.suppression > 50) currentAtkSpeed *= 1.5; // Baskı altında ateş yavaşlar
+        if (this.suppression > PINNED_SUPPRESSION) currentAtkSpeed *= 2.4;   // PINNED: ateş edemez gibi (çok nadir)
+        else if (this.suppression > 50) currentAtkSpeed *= 1.5;             // baskı altında ateş yavaşlar
         if (now - this.lastAttackTime < currentAtkSpeed) return;
 
         let dmg = calculateUnitDamage(
@@ -832,14 +834,14 @@ class Unit {
             const sbY = barY + barH + 1 * zoom;
             const sbH = Math.max(2, 2 * zoom);
             ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(barX, sbY, barW, sbH);
-            ctx.fillStyle = this.suppression > 60 ? '#ff7b00' : '#ffd24c';   // ağır baskı=turuncu, hafif=sarı
+            ctx.fillStyle = this.suppression > PINNED_SUPPRESSION ? '#ff3b3b' : this.suppression > 50 ? '#ff7b00' : '#ffd24c';   // PINNED=kırmızı, ağır=turuncu, hafif=sarı
             ctx.fillRect(barX, sbY, barW * supRatio, sbH);
         }
         // Durum rozeti: kaçış/ağır-baskı 3px nokta → kamera uzakken bile "kim eziliyor" okunur
         if (this.isFleeing || this.suppression > 50) {
             const dotR = Math.max(2.5, 2.5 * zoom);
             ctx.beginPath(); ctx.arc(barX - dotR - 2, barY + barH / 2, dotR, 0, Math.PI * 2);
-            ctx.fillStyle = this.isFleeing ? '#ff2b2b' : (this.suppression > 80 ? '#ff7b00' : '#ffd24c');
+            ctx.fillStyle = this.isFleeing ? '#ff2b2b' : (this.suppression > PINNED_SUPPRESSION ? '#ff3b3b' : '#ff9d2b');
             ctx.fill();
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.stroke();
         }

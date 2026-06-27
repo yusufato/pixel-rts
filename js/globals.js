@@ -230,6 +230,9 @@ function updateCinematic(dt) {
     } else { timeScale = 1; cinemaZoom = 1; }
 }
 
+// Bastırma eşiği: bu üstünde birim PINNED (yere yatar, ilerleyemez, çok nadir ateş eder)
+const PINNED_SUPPRESSION = 80;
+
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
