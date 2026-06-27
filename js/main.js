@@ -638,9 +638,26 @@ function drawMap() {
         ctx.fill();
     }
 
-    // Katman 5: dağ kütleleri ve ağaç taçları.
+    // Katman 5: dağ kütleleri, tepeler ve ağaç taçları.
     for (const t of terrainFeatures) {
-        if (t.type === TERRAIN.MOUNTAIN) {
+        if (t.type === TERRAIN.HILL) {
+            const s = worldToScreen(t.x, t.y);
+            const radius = t.r * zoom;
+            if (s.x < -radius || s.x > canvas.width + radius || s.y < -radius || s.y > canvas.height + radius) continue;
+            ctx.fillStyle = 'rgba(20,30,15,0.30)';                       // gölge → yükseklik hissi
+            ctx.beginPath();
+            ctx.ellipse(s.x + radius * 0.10, s.y + radius * 0.14, radius * 1.02, radius * 0.86, 0, 0, Math.PI * 2);
+            ctx.fill();
+            const hg = ctx.createRadialGradient(s.x - radius * 0.25, s.y - radius * 0.28, radius * 0.1, s.x, s.y, radius);
+            hg.addColorStop(0, 'rgba(178,172,120,0.85)');
+            hg.addColorStop(0.6, 'rgba(142,140,96,0.68)');
+            hg.addColorStop(1, 'rgba(110,112,78,0)');
+            ctx.fillStyle = hg;
+            ctx.beginPath(); ctx.arc(s.x, s.y, radius, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(92,96,60,0.40)';                    // kontur halkası → yükselti ipucu
+            ctx.lineWidth = Math.max(1, 1.2 * zoom);
+            ctx.beginPath(); ctx.arc(s.x, s.y, radius * 0.62, 0, Math.PI * 2); ctx.stroke();
+        } else if (t.type === TERRAIN.MOUNTAIN) {
             const s = worldToScreen(t.x, t.y);
             if (s.x < -t.r * zoom || s.x > canvas.width + t.r * zoom || s.y < -t.r * zoom || s.y > canvas.height + t.r * zoom) continue;
             const radius = t.r * zoom;

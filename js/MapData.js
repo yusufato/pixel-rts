@@ -5,7 +5,7 @@
 //  terrainFeatures'a IN-PLACE doldurur → 8 dosyadaki canlı-dizi okumaları kırılmaz.
 //  Hızlı Maç + Çok Oyunculu'da seçilebilir; Hikaye savaşları da bunları kullanır.
 // ═══════════════════════════════════════════════════════════════════════════
-const _M = TERRAIN.MOUNTAIN, _F = TERRAIN.FOREST;
+const _M = TERRAIN.MOUNTAIN, _F = TERRAIN.FOREST, _H = TERRAIN.HILL;
 
 const MAPS = [
     // 0 — ÜÇ SIRT (mevcut harita, BİREBİR — geri uyumluluk)
@@ -23,7 +23,10 @@ const MAPS = [
         { x: 560,  y: 930,  r: 230, type: _F, seed: 31 },
         { x: 560,  y: 1370, r: 230, type: _F, seed: 32 },
         { x: 2840, y: 930,  r: 230, type: _F, seed: 33 },
-        { x: 2840, y: 1370, r: 230, type: _F, seed: 34 }
+        { x: 2840, y: 1370, r: 230, type: _F, seed: 34 },
+        { x: 1700, y: 1150, r: 165, type: _H, seed: 41 },   // T2 YÜKSELTİ: merkez kontrol-noktası = tartışmalı yüksek zemin
+        { x: 880,  y: 1150, r: 140, type: _H, seed: 42 },
+        { x: 2520, y: 1150, r: 140, type: _H, seed: 43 }
     ]},
     // 1 — AÇIK OVA: az engel, geniş açık savaş (zırhlı/menzil avantajı)
     { id: 1, name: 'Açık Ova', features: [
@@ -32,7 +35,10 @@ const MAPS = [
         { x: 550,  y: 650,  r: 240, type: _F, seed: 103 },
         { x: 550,  y: 1650, r: 240, type: _F, seed: 104 },
         { x: 2850, y: 650,  r: 240, type: _F, seed: 105 },
-        { x: 2850, y: 1650, r: 240, type: _F, seed: 106 }
+        { x: 2850, y: 1650, r: 240, type: _F, seed: 106 },
+        { x: 1700, y: 1150, r: 185, type: _H, seed: 107 },   // T2 YÜKSELTİ: açık ovada merkez yüksek zemin
+        { x: 1100, y: 1150, r: 150, type: _H, seed: 108 },
+        { x: 2300, y: 1150, r: 150, type: _H, seed: 109 }
     ]},
     // 2 — ORMAN LABİRENTİ: bol orman (kanat/pusu), dar koridorlar
     { id: 2, name: 'Orman Labirenti', features: [

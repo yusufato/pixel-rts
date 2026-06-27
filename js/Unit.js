@@ -25,6 +25,7 @@ class Unit {
         this.armor = s.armor;
         
         this.inForest = false;
+        this.inHill = false;
         this.inTrench = false;
         this.buildTrenchTarget = null;
         this.buildTrenchTimer = 0;
@@ -269,13 +270,14 @@ class Unit {
 
     updateTerrainBonuses(now) {
         this.inForest = false;
+        this.inHill = false;
         this.inTrench = false;
         this.inSupply = false;
         for (const t of terrainFeatures) {
-            if (t.type === TERRAIN.FOREST) {
-                if (Math.hypot(this.x - t.x, this.y - t.y) < t.r) {
-                    this.inForest = true; break;
-                }
+            if (t.type !== TERRAIN.FOREST && t.type !== TERRAIN.HILL) continue;
+            if (Math.hypot(this.x - t.x, this.y - t.y) < t.r) {
+                if (t.type === TERRAIN.FOREST) this.inForest = true;
+                else this.inHill = true;                              // T2 YÜKSELTİ
             }
         }
         for (const t of SIM.trenches) {
@@ -469,7 +471,8 @@ class Unit {
             const d = Math.hypot(u.x - this.x, u.y - this.y);
             if (d > this.range * 1.5) continue; 
             
-            if (d > this.vision && !canSee(this.isRed, u.x, u.y)) continue; 
+            const _visR = this.inHill ? this.vision * HILL_VISION_MULT : this.vision;   // T2: tepede görüş artar
+            if (d > _visR && !canSee(this.isRed, u.x, u.y)) continue;
             
             if (this.type !== T.ARTILLERY && !checkLineOfSight(this.x, this.y, u.x, u.y, this, u)) continue;
             
@@ -533,6 +536,10 @@ class Unit {
             isFlankHit = true;
             dmg *= _tgtArmored ? 1.7 : 1.4;
         }                                           // ÖN (120-180°): zırh tam etkili (×1.0)
+
+        // T2: YÜKSELTİ — yüksek zemin firefight'ı kazanır (saldırgan tepede / hedef tepede)
+        if (this.inHill && !this.attackTarget.inHill) dmg *= HILL_HIGH_DMG;        // yüksekten ateş sert
+        else if (!this.inHill && this.attackTarget.inHill) dmg *= HILL_LOW_DMG;    // yokuş-yukarı zayıf
 
         const primaryTarget = this.attackTarget;
 

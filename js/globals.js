@@ -46,7 +46,11 @@ window.addEventListener('resize', resize);
 const WORLD_W = 3400;
 const WORLD_H = 2300;
 
-const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2 };
+const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3 };
+// T2 YÜKSELTİ: yüksek zemin firefight + görüş avantajı (tepe içindeki birim)
+const HILL_HIGH_DMG = 1.2;       // yüksek zeminden ateş (hedef alçakta)
+const HILL_LOW_DMG = 0.85;       // yokuş-yukarı ateş (hedef tepede)
+const HILL_VISION_MULT = 1.25;   // tepede görüş menzili
 // ── SİMETRİK 3-MEVZİ HARİTASI ──
 // 3 kontrol noktası (orta hat: x=880/1700/2520, y=1150) birer AÇIK güçlü-mevzi; etrafları
 // araziyle çerçeveli. Kuzey-güney AYNA simetrik (her iki taraf için adil). Dağlar=geçit/görüş
