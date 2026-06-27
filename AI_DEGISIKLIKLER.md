@@ -546,3 +546,15 @@ Düello motorunun **ÜSTÜNE** binen meta-katman. Çekirdek sim'e DOKUNMAZ; komu
 **ERTELENEN (Faz-1.5 / Faz-2):** düşmanın oyuncuya saldırması (savunma düellosu), şehir/maden/köy ekonomisi, Orta+Fantezi çağ, çok-komutan yönetimi, diplomasi, gazi görsel-işareti.
 
 **TEST BEKLEMEDE (kullanıcı, tarayıcı):** Node/tarayıcı ortamda yok → statik doğrulandı (tüm global referanslar mevcut, isim çakışması yok, brace dengeli, yükleme sırası doğru). Akış: Ana Menü → 📜 Yeni Hikaye → harita → komşu düşman bölgeye tıkla → Saldır → dizil → Savaşı Başlat → düello → Dünyaya Dön → fetih/gazi/kayıt. Tek-oyuncu/Hızlı-Maç/MP'nin bozulmadığı da kontrol edilmeli.
+
+---
+
+## ÇİZİLEN HARİTA + NEHİR/PUSU + BEYİN v2 (MapImage.js, Unit.js, globals.js, main.js)
+
+- **Çizilen harita motoru** (MapImage.js): kullanıcının pixil PNG'si (150×100) → arazi ızgarası. Ova/orman/dağ/SU + köprü. Render birim-fiziği (hareket/görüş/örtü/yükselti) ızgaradan; AI makro için kaba daireler türetilir (8 AI dosyası değişmedi). `MAP_MODE='grid'` dallanması; eski 10 daire-harita korundu. Dropdown'da "🗺️ Çizilen Harita".
+  - **Render fix:** 3. büyük offscreen canvas (3400×2300) Firefox bellek limitinde boş kalıyordu → terrain doğrudan ana ctx'e çizilir (minimap gibi).
+  - Kararlar: su+dağ TAM engel (köprü hariç su geçilmez), kırmızı işaret=köprü.
+- **Nehir yol bulma (A\*)**: `findPath` ızgara 8-yön A* + LOS string-pulling. `Unit.update` düz-hat su/dağla kapalıysa köprü-yolunu izler. Deterministik → canlı+headless eğitim aynı `stepSim`, parite bedava.
+- **T3 PUSU (ambush)**: ormandaki birlik ateş edene kadar gizli (AMBUSH_DETECT=170 dışından hedeflenemez/çizilmez); gizliden ilk atış ×1.45 sürpriz; ateş→açığa çık (revealTimer=150). globals: enemyDetectsConcealed.
+- **Ateş ekran-titremesi %80 azaltıldı**: topçu-ateş 0.24→0.05, topçu-patlama 0.44→0.09, tank 0.42→0.08, tanksavar 0.3→0.06.
+- **Öğrenen Beyin v2 (plan)**: OGRENEN_BEYIN_PLANI.md güncellendi → 337→421 girdi (su/köprü +44, T3 +40), MLP [421→96→64→32→20]=~49.5k param (~50k hedef), NeuralBrain.js değişmeden (sizes). Determinizm korunur (ReLU/argmax, exp yok). intent her ~15-30 frame (throughput).

@@ -59,3 +59,29 @@ OpenAI Five **256 GPU'ya karşı 128.000 CPU çekirdeği** kullandı — kıt ka
 **ÇIKARIM (oyun-içi):** NeuralBrain.js PPO-export JSON ağırlıkları yükler → forward → argmax → u.intent. Deterministik (ReLU/argmax, exp yok), MP-güvenli. İnsan-oyuncu/intent-yok → kural-AI fallback.
 
 **İNŞA SIRASI:** (1) BrainState.js encode/decode (2) oyun-içi entegrasyon (bayrak) (3) Node-sim env (4) behavior-cloning (5) PPO script (6) köprü/export. → Sonra diğer PC'de gece-eğitim.
+
+---
+
+## v2 — GENİŞLETİLMİŞ TASARIM (su/köprü + T3 girdileri, ~50k param) — KİLİTLENDİ
+
+Sebep: harita ızgara-tabanlı oldu (su geçilmez, köprü geçit, A* yol bulma) + T3 mekanikleri geliyor (pusu kuruldu). NN'in bunları "görmesi" için girdi büyütüldü; oyuna-özel uzman AI hedefi → ~50k parametre.
+
+**GİRDİ: 337 → 421 skaler** (su/köprü +44, T3 +40). Hepsi deterministik (RNG yok), 0..1/−1..1 sabit-ölçek.
+
+**+44 SU/KÖPRÜ** (MapImage.js API'sinden): köprüdeyim-mi · suya-bitişik(sıkışma) · en-yakın-köprü yön+mesafe(3) · A* yol ilk-bacak yön(2) · düz-hat-kapalı-mı(pathBlockedBetween) · yol-sapma-oranı · köprü-kontrol dost/düşman/boş(3) · **5×5 geçilebilirlik ızgarası(25)** · LOS-su/dağ-kesik · geçit-darlığı(2) · su-korumalı-kanat · köprü-yaklaşım-açıklığı · köprü-öbür-yaka-düşman.
+
+**+40 T3** (çoğu mevcut alandan TÜRETİLİR): gizliyim-mi(inForest+ateş-penceresi) · gizli-düşman-şüphesi yön+mesafe(2) · görünür-müyüm · kanat-açık + sol/sağ-örtü(3) · aşırı-yayılma · flanked-mıyım(2)+hedef-flanked · kuşatılma-derecesi · bastırma self+hedef(3) · tempo/son-emir-gecikmesi · C2-bağlı · ikmal-hattı-mesafesi + kesik(2) · mühimmat-tükenme(2) · keşif-oranı · keşif-boşluğu(2) · parça-parça-yenme(localForceRatio) · yükselti-avantajı(3) · veteranlık/moral(3) · bozgun-yayılma · şarj/temas.
+> DİSİPLİN: T3 girdilerinin sim-mekaniği (gizli-şüphe, tempo-damgası, hat-kesik) EĞİTİMDEN ÖNCE sim'e girmeli; yoksa beyin boş kanal öğrenir.
+
+**AĞ (önerilen): MLP [421→96→64→32→20] = 49.460 param (~50k).** NeuralBrain.js DEĞİŞMEDEN çalışır (ReLU/argmax/linear, exp yok) — sadece `sizes` dizisi güncellenir; paramCount=Σ(in×out+out) doğrulandı.
+- Alternatif-1 (hibrit-conv): 7×7×5 ızgarayı küçük 2D-conv ile işle → ~31k, uzaysal akılda üstün ama NeuralBrain'e ~20 satır deterministik conv + MP-hash testi gerekir.
+- Alternatif-2 (deep-sets): düşman/dost için permütasyon-değişmez pool → sabit-K kısıtını kaldırır; odak-head yine en-yakın-8 ister; ilk sürümde gereksiz.
+
+**ÇIKTI:** 7 posture + 4 menzil + 8 odak + 1 value = 20 (aynı).
+
+**EK UZMANLAŞTIRMA (determinizmi bozmadan, öneri):** (1) frame-stack momentum ~20 girdi (Δhp/Δsuppression/düşman-yaklaşıyor) — en yüksek fayda/maliyet; (2) sektör/rol-embedding ~8 (SQUAD enum); (3) auxiliary düşman-niyet-tahmin head'i (sadece eğitim sinyali); (4) faz one-hot ~3 (bedava). → girdi ~449, ilk katman 449×96 ile ~52k (hedef civarı).
+> REDDEDİLEN: LSTM/GRU (sigmoid/tanh=exp → MP-determinizm KIRAR; yerine frame-stack), BatchNorm/LayerNorm (running-stats+exp → sabit mean/std JSON normu kullan).
+
+**THROUGHPUT (#1 risk):** intent'i her frame değil her ~15-30 frame güncelle (scanTimer ritmi) → 50k ağ inference'i 20-30× ucuzlar, posture saniyede değişmediği için kalite düşmez.
+
+**İNŞA SIRASI (güncel):** (1) BrainState.js encode (421) — su/köprü+T3 dahil (2) intent throttle (~20f) (3) Node-sim env (4) behavior-cloning (kural-AI'dan) (5) PPO (6) köprü/export JSON → NeuralBrain.sizes=[421,96,64,32,20]. → diğer PC gece-eğitim.
