@@ -537,6 +537,8 @@ class Unit {
         const primaryTarget = this.attackTarget;
 
         if (this.type === T.ARTILLERY) {
+            // T1: TOPÇU GÖZCÜ ister — kendi LOS'u ya da dost gözcü hedefi görmeli (yoksa ateş edemez → keşifle eşleş)
+            if (typeof artilleryHasSight === 'function' && !artilleryHasSight(this, primaryTarget)) { this.aiAction = 'Gözcü Yok'; return; }
             // ── TOPÇU: yalnızca geniş alan hasarı (nokta atışı YOK) ──
             const cx = primaryTarget.x, cy = primaryTarget.y;
             const splashNearby = SIM.spatialGrid.getNearby(cx, cy, ARTILLERY_SPLASH_RADIUS);

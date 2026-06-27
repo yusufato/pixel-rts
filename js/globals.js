@@ -743,7 +743,32 @@ function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2) {
             return false;
         }
     }
+    // T1: ARAZİ engeli — orman/dağ çizgiyi kesiyorsa görüş kapanır (uçlardan biri arazinin İÇİNDEyse o arazi engellemez → ormanda yakın dövüş görür)
+    if (typeof terrainFeatures !== 'undefined') {
+        for (const t of terrainFeatures) {
+            if (t.type !== TERRAIN.FOREST && t.type !== TERRAIN.MOUNTAIN) continue;
+            const d1x = x1 - t.x, d1y = y1 - t.y, d2x = x2 - t.x, d2y = y2 - t.y;
+            if (d1x * d1x + d1y * d1y <= t.r * t.r || d2x * d2x + d2y * d2y <= t.r * t.r) continue;
+            const dotT = ((t.x - x1) * dx + (t.y - y1) * dy) / (len * len);
+            if (dotT < 0 || dotT > 1) continue;
+            const ex = t.x - (x1 + dotT * dx), ey = t.y - (y1 + dotT * dy);
+            if (ex * ex + ey * ey < t.r * t.r) return false;
+        }
+    }
     return true;
+}
+
+// T1: TOPÇU GÖZCÜ — topçunun KENDİ LOS'u YA DA dost bir birim hedefi görüyor olmalı (all-arty dengesi: keşif ister)
+function artilleryHasSight(shooter, target) {
+    if (checkLineOfSight(shooter.x, shooter.y, target.x, target.y, shooter, target)) return true;
+    const nearby = SIM.spatialGrid.getNearby(target.x, target.y, 850);
+    for (const u of nearby) {
+        if (u.dead || u === shooter || u.isRed !== shooter.isRed) continue;
+        const dx = u.x - target.x, dy = u.y - target.y;
+        const vis = STATS[u.type].vision;
+        if (dx * dx + dy * dy <= vis * vis && checkLineOfSight(u.x, u.y, target.x, target.y, u, target)) return true;
+    }
+    return false;
 }
 
 // Inicialize
