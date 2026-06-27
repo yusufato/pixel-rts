@@ -133,6 +133,8 @@ let currentMapId = 0;
 
 // HARİTA UYGULA — terrainFeatures'a IN-PLACE doldur (alias-güvenli), süsle, AI cache tazele.
 function applyMap(id) {
+    if (id === -2 && typeof applyImageMap === 'function') { currentMapId = -2; return applyImageMap(); }   // çizilen ızgara-harita
+    if (typeof MAP_MODE !== 'undefined') MAP_MODE = 'circle';     // eski daire-haritaya dönüş
     if (typeof MAPS === 'undefined' || typeof terrainFeatures === 'undefined') return 0;
     currentMapId = ((id | 0) % MAPS.length + MAPS.length) % MAPS.length;
     if (typeof currentElevSeed !== 'undefined') { currentElevSeed = 7919 * (currentMapId + 1); _elevDirty = true; }   // T2: harita-bazlı yükselti tohumu (her harita farklı topografya)

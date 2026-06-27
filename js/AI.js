@@ -783,7 +783,9 @@ function updateSimEnvironment(unit, allies, enemies, fields) {
     unit.cooldownMs = Math.max(0, unit.cooldownMs - SIM_TICK_MS);
     unit.suppression = Math.max(0, unit.suppression - 18 * SIM_TICK_SECONDS);
     unit.inForest = false;
-    for (const terrain of SIM_FORESTS) {
+    if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid' && typeof terrainTypeAt === 'function') {
+        unit.inForest = (terrainTypeAt(unit.x, unit.y) === TERRAIN.FOREST);
+    } else for (const terrain of SIM_FORESTS) {
         if (distSq(unit.x, unit.y, terrain.x, terrain.y) < terrain.r * terrain.r) {
             unit.inForest = true;
             break;

@@ -39,7 +39,7 @@ function quickMatchStart() {
     // 10-HARİTA: seçili haritayı uygula (ya da 🎲 rastgele) — deploy/savaş bu terrain'de geçer
     if (typeof applyMap === 'function') {
         let mid = +(document.getElementById('qm-map')?.value);
-        if (isNaN(mid) || mid < 0) mid = (typeof MAPS !== 'undefined') ? Math.floor(Math.random() * MAPS.length) : 0;
+        if (mid !== -2 && (isNaN(mid) || mid < 0)) mid = (typeof MAPS !== 'undefined') ? Math.floor(Math.random() * MAPS.length) : 0;   // -2=çizilen harita pas geçer
         applyMap(mid);
         if (typeof initControlPoints === 'function') initControlPoints();
     }
@@ -113,7 +113,8 @@ function screensInit() {
     // 10-HARİTA seçiciyi doldur (🎲 Rastgele + 10 harita adı)
     const qmMap = document.getElementById('qm-map');
     if (qmMap && typeof MAPS !== 'undefined') {
-        qmMap.innerHTML = '<option value="-1">🎲 Rastgele</option>' +
+        qmMap.innerHTML = '<option value="-2" selected>🗺️ Çizilen Harita</option>' +
+            '<option value="-1">🎲 Rastgele</option>' +
             MAPS.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
     }
     document.getElementById('btn-qm-start')?.addEventListener('click', quickMatchStart);

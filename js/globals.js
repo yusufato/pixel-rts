@@ -46,7 +46,7 @@ window.addEventListener('resize', resize);
 const WORLD_W = 3400;
 const WORLD_H = 2300;
 
-const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3 };
+const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4 };
 // ── SİMETRİK 3-MEVZİ HARİTASI ──
 // 3 kontrol noktası (orta hat: x=880/1700/2520, y=1150) birer AÇIK güçlü-mevzi; etrafları
 // araziyle çerçeveli. Kuzey-güney AYNA simetrik (her iki taraf için adil). Dağlar=geçit/görüş
@@ -535,7 +535,10 @@ function _eNoise(x, y, seed) {
     const a = v00 + (v10 - v00) * fx, b = v01 + (v11 - v01) * fx;
     return a + (b - a) * fy;
 }
-function elevationAt(x, y) {                      // 0..1 yükseklik; her dağ=ayrı tepe, ova=sıfır
+function elevationAt(x, y) {                      // 0..1 yükseklik; grid modunda ızgaradan, yoksa her dağ=ayrı tepe
+    if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid') {
+        return (typeof gridElevationAt === 'function') ? gridElevationAt(x, y) : 0;
+    }
     let e = 0;
     for (const f of terrainFeatures) {
         if (f.type !== TERRAIN.MOUNTAIN) continue;
@@ -561,18 +564,21 @@ function bakeTerrainElevation() {                 // topo kontur: her dağ etraf
     const E = [];
     for (let j = 0; j <= rows; j++) { E[j] = []; for (let i = 0; i <= cols; i++) E[j][i] = elevationAt(i * step, j * step); }
 
-    // Geçiş 1: dağ bölgelerine hafif ısıl dolgu (yükseklik okunabilirliği)
-    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-        const avg = (E[j][i] + E[j][i + 1] + E[j + 1][i + 1] + E[j + 1][i]) * 0.25;
-        if (avg < 0.08) continue;
-        const alpha = Math.min(0.28, (avg - 0.08) * 0.30);
-        c.fillStyle = `rgba(195,165,90,${alpha.toFixed(3)})`;
-        c.fillRect(i * step, j * step, step + 1, step + 1);
+    const gridMode = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
+
+    // Geçiş 1: dağ bölgelerine hafif ısıl dolgu (yalnız circle modunda; grid'de zemin rengi tipi belli eder)
+    if (!gridMode) {
+        for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+            const avg = (E[j][i] + E[j][i + 1] + E[j + 1][i + 1] + E[j + 1][i]) * 0.25;
+            if (avg < 0.08) continue;
+            const alpha = Math.min(0.28, (avg - 0.08) * 0.30);
+            c.fillStyle = `rgba(195,165,90,${alpha.toFixed(3)})`;
+            c.fillRect(i * step, j * step, step + 1, step + 1);
+        }
     }
 
-    // Geçiş 2: topografik kontur çizgileri (marching squares)
-    // Seviyeler: dağ merkezinde e≈1, kenarda e≈0.5, ovada e≈0 → 6 halka
-    const levels = [0.10, 0.24, 0.38, 0.52, 0.68, 0.83];
+    // Geçiş 2: topografik kontur çizgileri (marching squares) — dağ kütlelerini saran halkalar
+    const levels = gridMode ? [0.14, 0.26, 0.40, 0.55, 0.72] : [0.10, 0.24, 0.38, 0.52, 0.68, 0.83];
     c.lineJoin = 'round'; c.lineCap = 'round';
     for (let li = 0; li < levels.length; li++) {
         const L = levels[li];
@@ -848,7 +854,12 @@ function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2) {
             return false;
         }
     }
-    // T1: ARAZİ engeli — orman/dağ çizgiyi kesiyorsa görüş kapanır (uçlardan biri arazinin İÇİNDEyse o arazi engellemez → ormanda yakın dövüş görür)
+    // ARAZİ engeli — grid modunda ışın-tarama; aksi halde daire-kesişim
+    if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid') {
+        if (typeof gridLOSBlocked === 'function' && gridLOSBlocked(x1, y1, x2, y2)) return false;
+        return true;
+    }
+    // T1: orman/dağ çizgiyi kesiyorsa görüş kapanır (uçlardan biri arazinin İÇİNDEyse o arazi engellemez → ormanda yakın dövüş görür)
     if (typeof terrainFeatures !== 'undefined') {
         for (const t of terrainFeatures) {
             if (t.type !== TERRAIN.FOREST && t.type !== TERRAIN.MOUNTAIN) continue;

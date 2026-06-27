@@ -523,6 +523,11 @@ function drawMap() {
     ctx.fillStyle = '#46583a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // GRID MODU: çizilen harita zemini tek blit ile (groundTiles/orman/dağ daireleri atlanır)
+    const _gridMap = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
+    if (_gridMap && typeof drawGridTerrain === 'function') drawGridTerrain();
+    if (!_gridMap) {
+
     const tilePalette = ['#425438', '#485c3b', '#4d603d', '#3f5035', '#526344'];
     for (const tile of groundTiles) {
         const s = worldToScreen(tile.x, tile.y);
@@ -598,6 +603,8 @@ function drawMap() {
     drawRoad([[1800, -80], [1710, 500], [1870, 980], [1800, 1500], [1900, 2480]], 5, 'rgba(49,39,28,0.46)');
     drawRoad([[1830, -80], [1740, 500], [1900, 980], [1830, 1500], [1930, 2480]], 5, 'rgba(49,39,28,0.38)');
 
+    }   // _gridMap değilse: eski daire-tabanlı zemin/yol bloğu sonu
+
     ctx.strokeStyle = 'rgba(8,22,12,0.10)';
     ctx.lineWidth = 1;
     const gridSize = 60;
@@ -629,8 +636,8 @@ function drawMap() {
         ctx.drawImage(groundCanvas, camera.x, camera.y, viewW, viewH, o.x, o.y, canvas.width, canvas.height);
     }
 
-    // Katman 4: orman zemini — organik poligon (asimetrik kenar, daire değil)
-    for (const t of terrainFeatures) {
+    // Katman 4: orman zemini — organik poligon (asimetrik kenar, daire değil) — grid modunda bake ile çizildi
+    if (!_gridMap) for (const t of terrainFeatures) {
         if (t.type !== TERRAIN.FOREST) continue;
         const s = worldToScreen(t.x, t.y);
         const radius = t.r * zoom;
@@ -655,8 +662,8 @@ function drawMap() {
         ctx.restore();
     }
 
-    // Katman 5: dağ kütleleri, tepeler ve ağaç taçları.
-    for (const t of terrainFeatures) {
+    // Katman 5: dağ kütleleri, tepeler ve ağaç taçları — grid modunda bake ile çizildi
+    if (!_gridMap) for (const t of terrainFeatures) {
         if (t.type === TERRAIN.MOUNTAIN) {
             const s = worldToScreen(t.x, t.y);
             if (s.x < -t.r * zoom || s.x > canvas.width + t.r * zoom || s.y < -t.r * zoom || s.y > canvas.height + t.r * zoom) continue;
@@ -878,7 +885,16 @@ function drawMinimap() {
     minimapCtx.fillStyle = '#1a221a';
     minimapCtx.fillRect(0, 0, mw, mh);
 
-    for (const terrain of terrainFeatures) {
+    if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid' && terrainGrid) {
+        // grid: hücreleri minimap'e ölçekle
+        const cw = mw / GRID_W, ch = mh / GRID_H;
+        for (let gy = 0; gy < GRID_H; gy++) for (let gx = 0; gx < GRID_W; gx++) {
+            const t = terrainGrid[gy * GRID_W + gx];
+            if (t === TERRAIN.NONE) continue;
+            minimapCtx.fillStyle = t === TERRAIN.WATER ? '#3f5fb0' : t === TERRAIN.MOUNTAIN ? '#70756a' : '#235c32';
+            minimapCtx.fillRect(gx * cw, gy * ch, cw + 0.6, ch + 0.6);
+        }
+    } else for (const terrain of terrainFeatures) {
         const mx = terrain.x / WORLD_W * mw;
         const my = terrain.y / WORLD_H * mh;
         const rx = terrain.r / WORLD_W * mw;

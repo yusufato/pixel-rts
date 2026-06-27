@@ -211,11 +211,12 @@ class Unit {
         const distToTarget = Math.sqrt(desiredX * desiredX + desiredY * desiredY);
         const movementSpeed = this.speed * GAME_SPEED;
 
+        const _gridMode = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
         if (distToTarget > movementSpeed + 1) {
             let moveX = (desiredX / distToTarget) * movementSpeed;
             let moveY = (desiredY / distToTarget) * movementSpeed;
 
-            for (const t of terrainFeatures) {
+            if (!_gridMode) for (const t of terrainFeatures) {
                 if (t.type === TERRAIN.MOUNTAIN) {
                     let dx = this.x - t.x;
                     let dy = this.y - t.y;
@@ -248,8 +249,21 @@ class Unit {
             
             const finalDist = Math.hypot(moveX, moveY);
             if (finalDist > 0) {
-                this.x += (moveX / finalDist) * movementSpeed;
-                this.y += (moveY / finalDist) * movementSpeed;
+                let stepX = (moveX / finalDist) * movementSpeed;
+                let stepY = (moveY / finalDist) * movementSpeed;
+                if (_gridMode && typeof isPassableAt === 'function') {
+                    // sert engel: dağ/su (köprü hariç) geçilmez → eksen-bazlı kaydır
+                    let nx = this.x + stepX, ny = this.y + stepY;
+                    if (!isPassableAt(nx, ny)) {
+                        if (isPassableAt(this.x + stepX, this.y)) { ny = this.y; }
+                        else if (isPassableAt(this.x, this.y + stepY)) { nx = this.x; }
+                        else { nx = this.x; ny = this.y; }
+                    }
+                    this.x = nx; this.y = ny;
+                } else {
+                    this.x += stepX;
+                    this.y += stepY;
+                }
                 this.facingAngle = Math.atan2(moveY, moveX);
                 if (this.type === T.ARMOR && Math.random() < 0.2) {
                     decals.push({ x: this.x, y: this.y, type: 'track', size: 12, angle: this.facingAngle, alpha: 0.3 });
@@ -272,8 +286,12 @@ class Unit {
         this.inForest = false;
         this.inTrench = false;
         this.inSupply = false;
-        for (const t of terrainFeatures) {
-            if (t.type === TERRAIN.FOREST && Math.hypot(this.x - t.x, this.y - t.y) < t.r) { this.inForest = true; break; }
+        if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid') {
+            this.inForest = (typeof terrainTypeAt === 'function' && terrainTypeAt(this.x, this.y) === TERRAIN.FOREST);
+        } else {
+            for (const t of terrainFeatures) {
+                if (t.type === TERRAIN.FOREST && Math.hypot(this.x - t.x, this.y - t.y) < t.r) { this.inForest = true; break; }
+            }
         }
         this.elevation = (typeof elevationAt === 'function') ? elevationAt(this.x, this.y) : 0.5;   // T2: harita-geneli sürekli yükselti
         for (const t of SIM.trenches) {
@@ -901,6 +919,11 @@ function resolveCollisions() {
 
 function placeUnit(type, worldX, worldY, isRed) {
     const s = STATS[type];
+    // GRID MODU: dağ/su (köprü hariç) üzerine birlik konmasın → en yakın geçilebilir noktaya sabitle
+    if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid' && typeof isPassableAt === 'function' && !isPassableAt(worldX, worldY)) {
+        const np = nearestPassable(worldX, worldY, 20);
+        worldX = np.x; worldY = np.y;
+    }
     // FAZ-2 KAYNAK-BAZLI: OYUNCU (mavi) ilgili kaynak bütçesinden öder (zırhlı→petrol, piyade→insan, topçu→puan)
     if (!isRed && typeof DEPLOY_RES !== 'undefined' && DEPLOY_RES && DEPLOY_RES.blue) {
         const g = (typeof UNIT_RES_GROUP !== 'undefined' && UNIT_RES_GROUP[type]) || 'manpower';
