@@ -602,7 +602,7 @@ class Unit {
             this.lastAttackTime = now;
             if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, cx, cy, true);
             if (typeof spawnExplosion !== 'undefined') spawnExplosion(cx, cy, 1.7);
-            if (typeof triggerScreenShake === 'function') triggerScreenShake(0.44);   // topçu patlaması (≈%20 azaltıldı — fazla titretiyordu)
+            if (typeof triggerScreenShake === 'function') triggerScreenShake(0.09);   // topçu patlaması (%80 azaltıldı)
             if (typeof triggerHitStop === 'function') triggerHitStop(3);
             return;
         }
@@ -618,7 +618,7 @@ class Unit {
             applyKnockback(this, primaryTarget.x, primaryTarget.y, 1.1);
         }
         if (this.type === T.ARMOR || this.type === T.ANTI_TANK) {
-            if (typeof triggerScreenShake === 'function') triggerScreenShake(this.type === T.ARMOR ? 0.42 : 0.3);
+            if (typeof triggerScreenShake === 'function') triggerScreenShake(this.type === T.ARMOR ? 0.08 : 0.06);   // tank/tanksavar isabet (%80 azaltıldı)
             if (typeof triggerHitStop === 'function') triggerHitStop(2);
         }
 

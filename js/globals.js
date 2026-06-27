@@ -54,7 +54,7 @@ const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4 };
 // 10-HARİTA SİSTEMİ: terrainFeatures artık BOŞ başlar, MapData.js'teki applyMap(id)
 // ile IN-PLACE doldurulur (length=0 + push → 8 dosyadaki canlı-dizi okumaları KIRILMAZ).
 let terrainFeatures = [];
-let DEBUG_TERRAIN = true;   // GEÇİCİ: grid-harita teşhis overlay'i (sorun çözülünce false)
+let DEBUG_TERRAIN = false;   // grid-harita teşhis overlay'i (sorun çözüldü → kapalı)
 
 function seededRandom(seed) {
     let value = Math.sin(seed * 999.91) * 43758.5453;

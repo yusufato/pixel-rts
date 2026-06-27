@@ -239,12 +239,18 @@ function drawGridTerrain() {
         ctx.fillStyle = col;
         ctx.fillRect(sx, sy, cw, ch);
     }
-    // köprüler (geçilebilir su-şeridi → ahşap)
+    // köprüler (geçilebilir su-şeridi → belirgin AHŞAP köprü: açık ahşap + tahta çizgileri + kenar)
     if (bridgeSet) for (const key of bridgeSet) {
         const [bx, by] = key.split(',').map(Number);
         if (bx < gx0 - 1 || bx > gx1 || by < gy0 - 1 || by > gy1) continue;
         const sx = o0.x + bx * CELL_W * zoom, sy = o0.y + by * CELL_H * zoom;
-        ctx.fillStyle = '#7a5a36'; ctx.fillRect(sx, sy, cw, ch);
+        ctx.fillStyle = '#9c7038'; ctx.fillRect(sx, sy, cw, ch);                    // ahşap taban (açık)
+        ctx.strokeStyle = 'rgba(58,40,20,0.85)'; ctx.lineWidth = Math.max(1, 1.5 * zoom);
+        ctx.beginPath();                                                            // tahta çizgileri (3 enine)
+        for (let k = 1; k <= 3; k++) { const ly = sy + ch * (k / 4); ctx.moveTo(sx, ly); ctx.lineTo(sx + cw, ly); }
+        ctx.stroke();
+        ctx.strokeStyle = '#5a4026'; ctx.lineWidth = Math.max(1, 2 * zoom);         // korkuluk/kenar
+        ctx.strokeRect(sx, sy, cw, ch);
     }
     // hafif doku: orman ağaç noktası + dağ kaya beneği (görünür hücrelerde, ucuz)
     for (let gy = gy0; gy < gy1; gy++) for (let gx = gx0; gx < gx1; gx++) {

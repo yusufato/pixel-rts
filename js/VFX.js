@@ -113,8 +113,8 @@ function spawnTracer(x1, y1, x2, y2, isArtillery = false) {
     particles.push(new Particle(x1 + dirX * 10, y1 + dirY * 10, 0, 0, 0.05, flashSize, flashColor, false, null, true));
     
     if (isArtillery) {
-        // Ekran titremesi (trauma ölçeği: topçu ateş geri-tepmesi; ≈%20 azaltıldı)
-        if (typeof triggerScreenShake !== 'undefined') triggerScreenShake(0.24);
+        // Ekran titremesi (trauma ölçeği: topçu ateş geri-tepmesi; %80 azaltıldı)
+        if (typeof triggerScreenShake !== 'undefined') triggerScreenShake(0.05);
     } else if (Math.random() < 0.5) {
         // %50 ihtimalle kısa mermi izi (Tracer)
         let tracerLen = Math.min(dist * 0.3, 40); // Sadece yolun küçük bir kısmı
