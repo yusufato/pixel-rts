@@ -87,6 +87,7 @@ function mpStartBattle(seed, blue, red) {
     MP.myHash = {}; MP.peerHash = {};
 
     Unit.nextId = 0;
+    if (typeof applyMap === 'function') applyMap(0);            // MP FAZ-1: harita 0'a KİLİTLİ (iki PC aynı terrain = determinizm; harita-senkron Faz-2)
     if (typeof resetSimRng === 'function') resetSimRng((seed >>> 0) || 1);
     SIM.units.length = 0;                                       // ÖNİZLEME birimlerini SİL → start listesinden yeniden kur
     if (SIM.trenches) SIM.trenches.length = 0;

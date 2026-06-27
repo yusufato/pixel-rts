@@ -57,7 +57,7 @@ canvas.addEventListener('mousedown', (e) => {
             const viewW = canvas.width / zoom;
             const viewH = canvas.height / zoom;
             units.forEach(u => {
-                if (!u.dead && u.isRed === myCanonicalSide && u.type === clickedType) {
+                if (!u.dead && u.isRed === myCanonicalSide && !u.ally && u.type === clickedType) {
                     if (u.x >= camera.x && u.x <= camera.x + viewW && u.y >= camera.y && u.y <= camera.y + viewH) {
                         u.selected = true;
                     }
@@ -87,7 +87,7 @@ canvas.addEventListener('mouseup', (e) => {
         const world = screenToWorld(e.clientX, e.clientY);
         let bestUnit = null, bestDist = 30;
         for (const u of units) {
-            if (u.dead || u.isRed !== myCanonicalSide) continue;
+            if (u.dead || u.isRed !== myCanonicalSide || u.ally) continue;   // müttefik (otonom dost-AI) seçilemez
             const d = Math.hypot(u.x - world.x, u.y - world.y);
             if (d < bestDist) { bestUnit = u; bestDist = d; }
         }
@@ -95,7 +95,7 @@ canvas.addEventListener('mouseup', (e) => {
     } else {
         const topLeft = screenToWorld(minSX, minSY), bottomRight = screenToWorld(maxSX, maxSY);
         for (const u of units) {
-            if (u.dead || u.isRed !== myCanonicalSide) continue;
+            if (u.dead || u.isRed !== myCanonicalSide || u.ally) continue;   // müttefik (otonom dost-AI) seçilemez
             if (u.x >= topLeft.x && u.x <= bottomRight.x && u.y >= topLeft.y && u.y <= bottomRight.y) u.selected = true;
         }
     }
@@ -126,7 +126,7 @@ canvas.addEventListener('contextmenu', (e) => {
         return;
     }
     const world = screenToWorld(e.clientX, e.clientY);
-    const selectedUnits = units.filter(u => u.selected && !u.isRed && !u.dead);
+    const selectedUnits = units.filter(u => u.selected && !u.isRed && !u.ally && !u.dead);
     if (selectedUnits.length === 0) return;
 
     let targetEnemy = null;
@@ -410,16 +410,34 @@ function checkGameOver() {
     `;
     const reportOutput = document.getElementById('battle-report-output');
     if (reportOutput) reportOutput.value = readableReport;
+    // HİKAYE: kampanya düellosuysa sonucu dünyaya işle (fetih/gazi/itibar) + "Dünyaya Dön" butonu.
+    // Varsayılan: normal "Tekrar Oyna" görünür, "Dünyaya Dön" gizli (story hook gerekirse ters çevirir).
+    document.getElementById('restart-btn')?.classList.remove('hidden');
+    document.getElementById('story-return-btn')?.classList.add('hidden');
+    if (typeof STORY !== 'undefined' && STORY.active && STORY.battleCtx && typeof storyOnBattleEnd === 'function') {
+        storyOnBattleEnd(won);
+    }
     document.getElementById('game-over-screen').classList.remove('hidden');
 }
 
 function updateUI() {
-    const myWallet = (typeof MP !== 'undefined' && MP.active && myCanonicalSide) ? enemy : player;   // MP guest = enemy bütçesi
-    document.getElementById('money').textContent = Math.floor(myWallet.money);
+    const _mp = (typeof MP !== 'undefined' && MP.active);
+    const myWallet = (_mp && myCanonicalSide) ? enemy : player;   // MP guest = enemy bütçesi
+    // FAZ-2 KAYNAK-BAZLI (hikaye düellosu): 3 kaynak bütçesini göster, harca-azalt; yoksa tek-para
+    const dres = (!_mp && typeof DEPLOY_RES !== 'undefined' && DEPLOY_RES && DEPLOY_RES.blue) ? DEPLOY_RES.blue : null;
+    if (dres) {
+        document.getElementById('money').textContent = Math.floor(dres.oil + dres.manpower + dres.points);
+        const mo = document.getElementById('money-oil'); if (mo) mo.textContent = Math.floor(dres.oil);
+        const mm = document.getElementById('money-manpower'); if (mm) mm.textContent = Math.floor(dres.manpower);
+        const mp = document.getElementById('money-points'); if (mp) mp.textContent = Math.floor(dres.points);
+    } else {
+        document.getElementById('money').textContent = Math.floor(myWallet.money);
+    }
     if (phase === PHASE.DEPLOY) {
         document.querySelectorAll('.spawn-btn').forEach(btn => {
             const type = parseInt(btn.dataset.type);
-            btn.classList.toggle('disabled', myWallet.money < STATS[type].cost);
+            const afford = dres ? ((dres[UNIT_RES_GROUP[type]] || 0) >= STATS[type].cost) : (myWallet.money >= STATS[type].cost);
+            btn.classList.toggle('disabled', !afford);
         });
     }
 
@@ -932,6 +950,12 @@ function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
 }
 
 function gameLoop(timestamp) {
+    // HİKAYE: dünya-haritası ekranı aktifse düello render'ını atla, dünyayı çiz/işle (kendi canvas'ı)
+    if (typeof APP_SCREEN !== 'undefined' && APP_SCREEN === 'story') {
+        if (typeof storyWorldFrame === 'function') storyWorldFrame(timestamp);
+        requestAnimationFrame(gameLoop);
+        return;
+    }
     if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
         resize();
     }

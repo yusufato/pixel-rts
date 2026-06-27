@@ -72,17 +72,22 @@ const COMMANDER_DECISION_JITTER = 0.12;
 
 // ── RUNTIME STATE ──
 const COMMANDER = {
-    plan:         { red: null, blue: null },
-    lastDecision: { red: -1e9, blue: -1e9 },
-    rushStartFoe: { red: null, blue: null },
-    mainRefVal:   { red: 0, blue: 0 },        // ATTACK girişinde MAIN değeri (yedek-tetik)
-    reserveDumped:{ red: false, blue: false } // yedek döküldü mü
+    plan:         { red: null, blue: null, ally: null },
+    lastDecision: { red: -1e9, blue: -1e9, ally: -1e9 },
+    rushStartFoe: { red: null, blue: null, ally: null },
+    mainRefVal:   { red: 0, blue: 0, ally: 0 },        // ATTACK girişinde MAIN değeri (yedek-tetik)
+    reserveDumped:{ red: false, blue: false, ally: false }, // yedek döküldü mü
+    advisor: null   // ADIM 4: Foresight danışmanı (taraf başına instance; commanderReset'te oluşur)
 };
 function commanderReset() {
-    for (const k of ['red', 'blue']) {
+    for (const k of ['red', 'blue', 'ally']) {
         COMMANDER.plan[k] = null; COMMANDER.lastDecision[k] = -1e9;
         COMMANDER.rushStartFoe[k] = null; COMMANDER.mainRefVal[k] = 0; COMMANDER.reserveDumped[k] = false;
     }
+    // ADIM 4: FORESIGHT danışmanları (taraf başına 1; histerez için kalıcı, savaş başında taze)
+    COMMANDER.advisor = (typeof LookaheadAdvisor !== 'undefined')
+        ? { red: new LookaheadAdvisor(true), blue: new LookaheadAdvisor(false), ally: new LookaheadAdvisor(false) }
+        : null;
 }
 
 function cmdrValue(u) { return STATS[u.type].cost * (u.hp / Math.max(1, u.maxHp)); }
@@ -129,7 +134,13 @@ function commanderDrive(side, now) {
         if (foeArtyRaw > 0) { aCx /= foeArtyRaw; aCy /= foeArtyRaw; }
         const foeArtyShare = foeRaw > 0 ? foeArtyRaw / foeRaw : 0;
 
-        const plan = cmdrDecide(side, key, foes, ownVal, foeThreat, foeArtyShare, oCx, oCy, fCx, fCy, aCx, aCy, foeHasArty, G);
+        // ADIM 4: FORESIGHT danışmanı (TEK danışman → cmdrDecide'a GİRDİ; gerçekçi Lanchester intihar-charge'ı önler + Schwerpunkt yoğunlaştırır)
+        let adv = null;
+        if (COMMANDER.advisor && COMMANDER.advisor[key] && foes.length) {
+            const enemyStatic = foes.some(e => e.inTrench || e.inForest);   // kazılı/ormanlı düşman = charge pahalı
+            adv = COMMANDER.advisor[key].decide(own, foes, null, now, enemyStatic);
+        }
+        const plan = cmdrDecide(side, key, foes, ownVal, foeThreat, foeArtyShare, oCx, oCy, fCx, fCy, aCx, aCy, foeHasArty, G, adv);
         plan.foeHasArty = foeHasArty;
 
         // YEDEK tetiği: ATTACK girişinde MAIN-referansı; eridiyse veya temas → dök
@@ -139,26 +150,92 @@ function commanderDrive(side, now) {
         } else { COMMANDER.mainRefVal[key] = 0; COMMANDER.reserveDumped[key] = false; }
 
         cmdrAssignRoles(side, key, own, foes, plan, ownVal, oCx, oCy, fCx, fCy, G);
+        let _kt = null, _ktS = -Infinity;   // ADIM 6: KOORDİNELİ ODAK ATEŞ — en "sulu" düşman (kırılgan yüksek-değer: topçu/AT) kill-target
+        for (const e of foes) { const s = cmdrValue(e) / Math.max(40, e.hp) * (cmdrFragileRanged(e) ? 2.2 : 1); if (s > _ktS) { _ktS = s; _kt = e; } }
+        plan.killTarget = _kt;
         COMMANDER.plan[key] = plan;
     }
     const plan = COMMANDER.plan[key];
+    plan._focusUsed = 0; plan._focusCap = (plan.killTarget && !plan.killTarget.dead) ? Math.max(2, Math.ceil((plan.killTarget.hp || 100) / 70)) : 0;   // ADIM 6: hedefi öldürecek kadar nişancı (overkill yok)
+    for (const u of own) cmdrOrderUnit(u, side, plan, foes, G);
+}
+
+// ── MÜTTEFİK SÜRÜCÜ (OTONOM DOST-AI) — commanderDrive'ın İZOLE kopyası; own=yalnız u.ally, foes=KIRMIZI.
+//    key='ally' (red state'e dokunmaz), side=false (mavi geometri: güney üs, kuzeye taarruz). Kırmızı AI birebir kullanılır.
+function commanderDriveAlly(now) {
+    const G = commanderGenome, key = 'ally', side = false;
+    const own = [], foes = [];
+    for (const u of SIM.units) {
+        if (u.dead) continue;
+        if (u.ally) own.push(u);                                  // TEK FARK: oyuncu birimleri değil, yalnız MÜTTEFİK
+        else if (u.isRed && canSee(side, u.x, u.y)) foes.push(u); // düşman = KIRMIZI (mavi görüşü)
+    }
+    if (!own.length) return;
+
+    if (now - COMMANDER.lastDecision[key] >= G.decisionMs || COMMANDER.plan[key] == null) {
+        COMMANDER.lastDecision[key] = now;
+        let ownVal = 0, oCx = 0, oCy = 0;
+        for (const u of own) { const v = cmdrValue(u); ownVal += v; oCx += u.x * v; oCy += u.y * v; }
+        oCx /= (ownVal || 1); oCy /= (ownVal || 1);
+        let foeThreat = 0, fCx = 0, fCy = 0, foeRaw = 0, foeArtyRaw = 0, aCx = 0, aCy = 0, foeHasArty = false;
+        for (const e of foes) {
+            const tv = cmdrThreatValue(e, foes, G); foeThreat += tv; fCx += e.x * tv; fCy += e.y * tv;
+            const rv = cmdrValue(e); foeRaw += rv;
+            if (cmdrFragileRanged(e)) { foeHasArty = true; foeArtyRaw += rv; aCx += e.x * rv; aCy += e.y * rv; }
+        }
+        if (foeThreat > 0) { fCx /= foeThreat; fCy /= foeThreat; }
+        if (foeArtyRaw > 0) { aCx /= foeArtyRaw; aCy /= foeArtyRaw; }
+        const foeArtyShare = foeRaw > 0 ? foeArtyRaw / foeRaw : 0;
+
+        // ADIM 4: FORESIGHT danışmanı (TEK danışman → cmdrDecide'a GİRDİ; gerçekçi Lanchester intihar-charge'ı önler + Schwerpunkt yoğunlaştırır)
+        let adv = null;
+        if (COMMANDER.advisor && COMMANDER.advisor[key] && foes.length) {
+            const enemyStatic = foes.some(e => e.inTrench || e.inForest);   // kazılı/ormanlı düşman = charge pahalı
+            adv = COMMANDER.advisor[key].decide(own, foes, null, now, enemyStatic);
+        }
+        const plan = cmdrDecide(side, key, foes, ownVal, foeThreat, foeArtyShare, oCx, oCy, fCx, fCy, aCx, aCy, foeHasArty, G, adv);
+        plan.foeHasArty = foeHasArty;
+
+        if (plan.mode === 'ATTACK') {
+            if (COMMANDER.mainRefVal[key] <= 0) COMMANDER.mainRefVal[key] = ownVal;
+            if (ownVal < COMMANDER.mainRefVal[key] * (1 - G.commitReserveK)) COMMANDER.reserveDumped[key] = true;
+        } else { COMMANDER.mainRefVal[key] = 0; COMMANDER.reserveDumped[key] = false; }
+
+        cmdrAssignRoles(side, key, own, foes, plan, ownVal, oCx, oCy, fCx, fCy, G);
+        let _kt = null, _ktS = -Infinity;   // ADIM 6: KOORDİNELİ ODAK ATEŞ — en "sulu" düşman (kırılgan yüksek-değer: topçu/AT) kill-target
+        for (const e of foes) { const s = cmdrValue(e) / Math.max(40, e.hp) * (cmdrFragileRanged(e) ? 2.2 : 1); if (s > _ktS) { _ktS = s; _kt = e; } }
+        plan.killTarget = _kt;
+        COMMANDER.plan[key] = plan;
+    }
+    const plan = COMMANDER.plan[key];
+    plan._focusUsed = 0; plan._focusCap = (plan.killTarget && !plan.killTarget.dead) ? Math.max(2, Math.ceil((plan.killTarget.hp || 100) / 70)) : 0;   // ADIM 6: hedefi öldürecek kadar nişancı (overkill yok)
     for (const u of own) cmdrOrderUnit(u, side, plan, foes, G);
 }
 
 // Makro karar: RUSH > ATTACK > REGROUP > TERRITORY (matchup-farkında, histerezi+jitter)
-function cmdrDecide(side, key, foes, ownVal, foeThreat, foeArtyShare, oCx, oCy, fCx, fCy, aCx, aCy, foeHasArty, G) {
+function cmdrDecide(side, key, foes, ownVal, foeThreat, foeArtyShare, oCx, oCy, fCx, fCy, aCx, aCy, foeHasArty, G, adv) {
     const jit = 1 + (srand() - 0.5) * COMMANDER_DECISION_JITTER;
+    // ADIM 4: FORESIGHT WITHDRAW override — danışmanın gerçekçi Lanchester'ı "en iyi saldırı bile ağır aleyhte" diyorsa, kaba kuvvet-oranı ne derse desin ÇEKİL (intihar-charge önle)
+    if (adv && adv.posture === 'WITHDRAW') { COMMANDER.rushStartFoe[key] = null; return cmdrRegroupPlan(side, foes, oCx, oCy, fCx, fCy); }
+    // SCHWERPUNKT: danışman bir hedef kümesi önerdiyse ATTACK odağını oraya kaydır (kuvvet yoğunlaştırma — parça-parça imha)
+    const sx = (adv && adv.target) ? adv.target.x : fCx, sy = (adv && adv.target) ? adv.target.y : fCy;
     if (foes.length && foeArtyShare >= G.rushArtyK && ownVal >= foeThreat * 0.6 * jit) {
         if (COMMANDER.rushStartFoe[key] == null) COMMANDER.rushStartFoe[key] = foeThreat;
         if (foeThreat > COMMANDER.rushStartFoe[key] * G.ambushK) { COMMANDER.rushStartFoe[key] = null; return cmdrRegroupPlan(side, foes, oCx, oCy, fCx, fCy); }
         return { x: aCx || fCx, y: aCy || fCy, mode: 'RUSH' };
     }
     COMMANDER.rushStartFoe[key] = null;
-    if (foes.length && ownVal >= foeThreat * G.commitK * jit) return { x: fCx, y: fCy, mode: 'ATTACK' };
-    if (foes.length && ownVal < foeThreat * G.regroupK * jit) return cmdrRegroupPlan(side, foes, oCx, oCy, fCx, fCy);
+    // ADIM 5: SCHMITT HİSTEREZİ — kesin üstün→ATTACK, kesin zayıf→REGROUP, ARADAKİ BANT→ÖNCEKİ MODU KORU (postür titremez, AI kararlı durur)
+    if (foes.length) {
+        if (ownVal >= foeThreat * G.commitK * jit) return { x: sx, y: sy, mode: 'ATTACK' };
+        if (ownVal < foeThreat * G.regroupK * jit) return cmdrRegroupPlan(side, foes, oCx, oCy, fCx, fCy);
+        const prevMode = COMMANDER.plan[key] && COMMANDER.plan[key].mode;   // bant içi yapışkan (flip-flop önle)
+        if (prevMode === 'ATTACK' || prevMode === 'RUSH') return { x: sx, y: sy, mode: 'ATTACK' };
+        if (prevMode === 'REGROUP') return cmdrRegroupPlan(side, foes, oCx, oCy, fCx, fCy);
+    }
     const bestPt = cmdrBestPoint(side, foes, oCx, oCy, G);
     if (bestPt) return { x: bestPt.x, y: bestPt.y, mode: 'TERRITORY' };
-    if (foes.length) return { x: fCx, y: fCy, mode: 'ATTACK' };
+    if (foes.length) return { x: sx, y: sy, mode: 'ATTACK' };
     return { x: WORLD_W / 2, y: WORLD_H / 2, mode: 'TERRITORY' };
 }
 
@@ -231,6 +308,15 @@ function cmdrOrderUnit(u, side, plan, foes, G) {
     const isArty = range > G.artyRange, focusR2 = G.focusR * G.focusR;
     const role = u.cmdrRole || ROLE.MAIN;
     const gt = (plan.groups && plan.groups[role]) || { x: plan.x, y: plan.y };
+    // ADIM 1+3 — TEK NİYET KANALI: makro niyet + ROL-tutarlı kite mesafesi. engageCombat İCRACI bunu okur (rol-taksonomi kopukluğu da biter: PIN/topçu geniş standoff, FLANK orta, MAIN yakın).
+    let _pref = 0.62;   // MAIN: yakın angajman
+    if (role === ROLE.PIN) _pref = 0.92; else if (role === ROLE.FLANK) _pref = 0.72; else if (role === ROLE.RESERVE) _pref = 0.85;
+    u.intent = { posture: plan.mode === 'REGROUP' ? 'DISENGAGE' : (plan.mode === 'TERRITORY' ? 'HOLD' : 'ATTACK'), preferredRange: _pref };
+    // ADIM 6: bu birim öncelikli kill-target'a YOĞUNLAŞSIN mı? (menzile yakın + cap dolmadı + çekilmiyor) → koordineli odak ateş
+    if (plan.killTarget && !plan.killTarget.dead && (plan._focusUsed || 0) < (plan._focusCap || 0) && u.intent.posture !== 'DISENGAGE'
+        && cmdrDist2(u, plan.killTarget.x, plan.killTarget.y) < (range * 1.3) * (range * 1.3)) {
+        u.intent.focusTarget = plan.killTarget; plan._focusUsed = (plan._focusUsed || 0) + 1;
+    }
 
     let nf = null, nfd2 = Infinity, na = null, nad2 = Infinity;
     for (const e of foes) {

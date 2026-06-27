@@ -2047,4 +2047,6 @@ function updateLayeredAI(now) {
     } else {
         layeredAI.update(now);
     }
+    // MÜTTEFİK (OTONOM DOST-AI) — kırmızıdan bağımsız; yalnız hikaye düellosunda u.ally birim varsa sürer (Quick Match/MP no-op)
+    if (typeof commanderDriveAlly === 'function' && units.some(u => u.ally && !u.dead)) commanderDriveAlly(now);
 }

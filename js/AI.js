@@ -34,13 +34,12 @@ function aiDeploy() {
     
     const buyUnit = (type, rx, ry) => {
         if (type === T.ENGINEER && aiDeployCounts[T.ENGINEER] >= 1) return false;
-        if (currentMoney >= STATS[type].cost) {
-            placeUnit(type, rx, ry, true);
-            aiDeployCounts[type]++;
-            currentMoney -= STATS[type].cost;
-            return true;
-        }
-        return false;
+        const cost = STATS[type].cost;
+        if (currentMoney < cost) return false;
+        if (!placeUnit(type, rx, ry, true)) return false;   // HİKAYE: tipli havuz (DEPLOY_RES.red) yetmezse atla → anti-tank=puan SINIRLI; QM/MP'de enemy.money kontrolü (değişmez)
+        aiDeployCounts[type]++;
+        currentMoney -= cost;
+        return true;
     };
 
     // Canlı fizik artık sınırlı mühimmat kullandığı için AI her orduda bir lojistik çekirdek taşır.
@@ -677,8 +676,15 @@ const SIM_TICK_MS = 100;
 const SIM_MOVE_PER_TICK = 60 * (SIM_TICK_MS / 1000);
 const SIM_TICK_SECONDS = SIM_TICK_MS / 1000;
 const SIM_BODY_BLOCK_RADIUS_SQ = (UNIT_RADIUS * 1.5) * (UNIT_RADIUS * 1.5);
-const SIM_FORESTS = terrainFeatures.filter(terrain => terrain.type === TERRAIN.FOREST);
-const SIM_MOUNTAINS = terrainFeatures.filter(terrain => terrain.type === TERRAIN.MOUNTAIN);
+// 10-HARİTA: harita değişince bu cache'ler BAYAT kalmasın → let + tazeleme. (Eskiden const +
+// yükleme-anı filtre olduğundan harita değişince AI yanlış haritada orman/dağ arardı = sinsi bug.)
+let SIM_FORESTS = [];
+let SIM_MOUNTAINS = [];
+function refreshSimTerrainCaches() {
+    SIM_FORESTS = terrainFeatures.filter(terrain => terrain.type === TERRAIN.FOREST);
+    SIM_MOUNTAINS = terrainFeatures.filter(terrain => terrain.type === TERRAIN.MOUNTAIN);
+}
+refreshSimTerrainCaches();   // yükleme anı: MapData.js applyMap(0) terrainFeatures'ı zaten doldurdu
 
 function distSq(ax, ay, bx, by) {
     const dx = ax - bx;

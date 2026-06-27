@@ -508,3 +508,41 @@ Tüm dosyalar (0,0,0). Puş: `67d4a0d..462a4d6`.
 
 ### 🌐 İNTERNET ÇOK OYUNCULU — CANLI + DOĞRULANDI ✓
 Render'a deploy edildi: **`wss://pixel-rts.onrender.com`**. `RELAY_URL` Net.js'e gömüldü, **NET_MODE='cloud' varsayılan** → oyunu YERELDEN açsan bile "Oyun Kur" doğrudan internet relay'ine DIŞARI bağlanır = **firewall/IP/port YOK.** Lobide **🌐 İnternet / 🏠 Aynı Ağ** sekmesi (mpSetMode). Kod 4-haneli (`N5NF`). **Canlı sunucuda uçtan uca test GEÇTİ:** oda kur→kod→guest katıl→AYNI seed→peer_joined→komut relay hepsi ✓. Tek-seferlik deploy bitti; her maç sadece: aç → Oyun Kur → kod paylaş → arkadaş girer → oyna. Cold-start ~30-60sn (free-tier uyku). Render auto-deploy. Push: `→6fb7041`.
+
+---
+
+## BÖLÜM 16 — 10 SAVAŞ HARİTASI + HIZLI MAÇ HARİTA SEÇİCİ (Hikaye altyapısı)
+
+Hikaye/açık-dünya modunun temel taşı: **10 ayrı savaş-arena** (`js/MapData.js`). Hepsi WORLD_W=3400 / WORLD_H=2300, **kuzey-güney ayna simetrik** (adil 1v1). Hızlı Maç'ta seçilebilir; ileride MP + dünya-savaşları da bunları kullanacak.
+
+- **`js/MapData.js` (YENİ):** `MAPS[]` = 10 harita (Üç Sırt, Açık Ova, Orman Labirenti, Dağ Geçitleri, Merkez Kale, Çifte Koridor, Köşe Kaleleri, Çapraz Sırtlar, Dağınık Tepeler, Geniş Cephe). `applyMap(id)` → `terrainFeatures`'a **IN-PLACE** doldurur (`length=0`+push, REASSIGN değil → 8 dosyadaki canlı-dizi okumaları kırılmaz), `decorateTerrain` + `refreshSimTerrainCaches` çağırır. `applyMap(0)` açılışta = eski tek-harita (geri uyumlu).
+- **`js/AI.js` (sinsi-bug fix):** `SIM_FORESTS`/`SIM_MOUNTAINS` artık `const` yükleme-anı-filtre DEĞİL → `let` + **`refreshSimTerrainCaches()`** fonksiyonu. Eskiden harita değişince AI **yanlış haritada** orman/dağ arardı (cache bayat). Şimdi `applyMap` her çağrıda tazeliyor. Diğer tüm terrain tüketicileri (main/Unit/LayeredAI/TacticalAI) zaten `terrainFeatures`'ı **canlı** okuyor → otomatik güncel.
+- **HTML (index + oyna):** `<script src="js/MapData.js">` globals'tan SONRA, TacticalAI'dan ÖNCE. Hızlı Maç kutusuna **🗺️ Harita `<select id="qm-map">`**.
+- **`js/Screens.js`:** `screensInit` dropdown'ı doldurur (🎲 Rastgele + 10 ad). `quickMatchStart` seçili haritayı (`-1`→rastgele) `applyMap` + `initControlPoints` ile uygular, sonra `resetSimRng` + deploy.
+
+Tek-oyunculu/Hızlı-Maç/MP **BOZULMADAN** (applyMap(0) = eski davranış). Sonraki adım: harita-id'yi MP deploy/start ile senkronla (determinizm) + dünya-haritası düğümleri (Hikaye Faz-1).
+
+---
+
+## BÖLÜM 17 — HİKAYE / AÇIK-DÜNYA FAZ-1 (Modern çağ, yaşayan-dünya sandbox)
+
+Düello motorunun **ÜSTÜNE** binen meta-katman. Çekirdek sim'e DOKUNMAZ; komutan dünya-haritasında gezer → komşu düşman bölgeye saldırır → 10 haritadan birinde **mevcut düello motoruyla** savaşır → kazanırsa fetheder, sağ kalanlar **gazi** olur (sonraki savaşa taşınır). Kaynak→ordu bütçesi, refah+itibar→seçim. localStorage kalıcılık. **Tek-oyuncu/Hızlı-Maç/MP bozulmadan.**
+
+- **`js/Story.js` (YENİ, ~500 satır):** tek-dosya meta katman.
+  - **Dünya: PIXEL-AVRUPA+ (Avrupa + K.Afrika + Orta Doğu)** — kullanıcı pixel-art harita verdi ("2D pixel oyun, bu pixel art'ı koy"). **36 bölge** (İrlanda→Rusya + Suriye/Irak/Mısır/Libya/Cezayir/Fas/Suudi… ) gerçek coğrafi konumlarda (`lx,ly` normalize), gerçek kara/deniz sınır komşuluğu (66 kenar, tümü bağlı). **8 büyük güç** (cumhuriyet; 0=oyuncu **"Türk Cumhuriyeti"** başkent Türkiye = merkez; +İber/Britanya/Cermen/Kuzey/Slav/Mağrip/Arap), başkent-BFS sahiplik (graf-hop Voronoi, tie-break oyuncu son). Her bölge harita-id'ye (`id % 10`) → savaş orada geçer.
+  - **Harita çizimi (NİHAİ — İKİ KATMAN, dinamik dünya):** Statik resme politik renk gömmek dinamik büyüme/küçülmeyi engelliyordu (kullanıcı tespiti). Karar: **(1) TERRAIN tabanı** = kullanıcının çizdiği yazısız/politikasız fiziksel harita **`terrain.png`** (yoksa prosedürel terrain yedeği `storyEnsureTerrainCache` — kuzey-yeşil/güney-çöl/dağ); kara/deniz + ülke bölgeleri resimden çıkarılır (`storyBuildLandGridFromImage`: mavi/şeffaf=deniz, kara→en-yakın ülke Voronoi). **(2) DİNAMİK POLİTİK katman** (`storyEnsureOwnerOverlay`): her ülke o anki SAHİBİNİN rengiyle **yarı-saydam** (içeride %40, sınırda koyu-opak) terrain üstüne çizilir → **fetihte renk anında değişir, imparatorluklar büyür/küçülür.** 320×180 hücre, NN-upscale. **Harita üstünde YAZI YOK** (kullanıcı isteği; ülke adları yan panelde). `harita.png` artık kullanılmaz (yazı+politik renk gömülüydü).
+  - **BÜYÜK harita + KAMERA (kullanıcı: "≈4× büyük, kamera ile gez"):** dünya **3200×1800** (viewport'tan ~4× büyük), `storyCam` ile **sürükle-pan** (kısa tık=düğüm seç, sürükle=kaydır) + **WASD/ok tuşları**; `storyClampCam` sınırda tutar, açılışta `storyCenterCamOnPlayer` Türkiye'ye odaklar. Düğümler dünya→ekran kameraya göre. İşaretler: pixel-kare sahip + komutan ⚔ + saldırı(kırmızı nabız)/ilerle(yeşil) kare-halka + ülke adı (dış-çizgili).
+  - **3 kaynak** (petrol/insan/puan): her sahip olunan bölge sahibine biriktirir (gerçek-zaman, `abundance` ayarı). Bütçe = `clamp(700 + 0.18×toplam, 600, 2400)`.
+  - **Komutan-jeton:** dünya-haritasında düğüm-tıkla → komşu kendi bölgene ilerle / komşu düşman bölgeye **SALDIR** (onay → düello). Fetih sonrası komutan ilerler (cephe genişler).
+  - **Düello köprüsü:** `storyLaunchBattle` → bütçeleri kaynaklardan kur (`player/enemy.money`), `applyMap(node.mapId)`, **`storyResetBattlefield`** (reload OLMADAN temiz DEPLOY: `units.length=0`, phase=DEPLOY, UI sıfırla), **gazi-çekirdek bedava ön-yerleşir** (+%12/seviye dayanıklılık), `showScreen('game')`. Oyuncu takviye dizip "⚔️ Savaşı Başlat" → mevcut `startBattle`/`aiDeploy` motoru çalışır.
+  - **Düello bitti** (`storyOnBattleEnd`, main.js `checkGameOver`'dan çağrılır): sağ kalan mavi birimler→**gazi** (tip+seviye, cap 14); kazan→bölge fethet + itibar +1 + 120 puan + refah; kaybet→itibar/refah hafif düşer (gaziler yine taşınır = bağışlayıcı roguelite). İtibar≥6 + refah≥60 → **seçildin/yönetici** kilometre taşı.
+  - **Yaşayan dünya:** düşman devletler her ~12sn birbirinden bölge kapar (oyuncuya dokunmaz — savunma savaşları Faz-1.5). **Kalıcılık:** `localStorage['pixelrts_story_v1']` (her savaş + manuel 💾 otomatik kayıt; "Devam Et / Yeni Kampanya").
+- **HTML (index+oyna):** `#screen-story` (sol harita canvas'ı + sağ panel: kaynak/refah/itibar/log + Duraklat/Kaydet/Menü), game-over'a `#story-return-btn` (🗺️ Dünyaya Dön), `js/Story.js` script. **style.css:** story ekranı stilleri.
+- **`js/main.js` (2 hook, mevcut akış korunur):** `gameLoop` başına `APP_SCREEN==='story'` dalı (düello render'ını atla, `storyWorldFrame` çalıştır — tek rAF, ikinci döngü yok). `checkGameOver` sonuna story-end hook (varsayılan "Tekrar Oyna" görünür; story ise "Dünyaya Dön"e çevrilir).
+- **`js/Screens.js`:** "📜 Yeni Hikaye" butonu artık `storyOpen()` çağırır (eski "yakında" alert kalktı).
+
+**Determinizm:** Hikaye META katmanı tek-oyunculu → Math.random/Date.now SERBEST (lockstep sim DEĞİL). Sadece düello-içi (stepSim) deterministik kalır.
+
+**ERTELENEN (Faz-1.5 / Faz-2):** düşmanın oyuncuya saldırması (savunma düellosu), şehir/maden/köy ekonomisi, Orta+Fantezi çağ, çok-komutan yönetimi, diplomasi, gazi görsel-işareti.
+
+**TEST BEKLEMEDE (kullanıcı, tarayıcı):** Node/tarayıcı ortamda yok → statik doğrulandı (tüm global referanslar mevcut, isim çakışması yok, brace dengeli, yükleme sırası doğru). Akış: Ana Menü → 📜 Yeni Hikaye → harita → komşu düşman bölgeye tıkla → Saldır → dizil → Savaşı Başlat → düello → Dünyaya Dön → fetih/gazi/kayıt. Tek-oyuncu/Hızlı-Maç/MP'nin bozulmadığı da kontrol edilmeli.

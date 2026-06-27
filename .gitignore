@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+node_modules/
+train/measure_progress.txt
+train/measure_out.txt
+*.log

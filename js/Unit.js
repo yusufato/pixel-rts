@@ -378,7 +378,8 @@ class Unit {
     engageCombat(now) {
         if (this.type === T.MEDIC) return;
 
-        if (!this.isRed) {
+        // MÜTTEFİK (u.ally) artık DÜŞMAN AI'sinin AYNI dalını kullanır (aşağıdaki else) — commanderDriveAlly emir verir, bu dal icra eder (red ile birebir). Yalnız OYUNCUNUN birimleri manuel:
+        if (!this.isRed && !this.ally) {
             if (this.manualTarget && !this.manualTarget.dead && canSee(false, this.manualTarget.x, this.manualTarget.y)) {
                 this.attackTarget = this.manualTarget;
             } else {
@@ -412,7 +413,7 @@ class Unit {
         } else {
             if (this.aiAction === 'FLEE') { this.attackTarget = null; return; }
 
-            if (this.attackTarget && (this.attackTarget.dead || !canSee(true, this.attackTarget.x, this.attackTarget.y) || Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y) > this.range * 1.5)) {
+            if (this.attackTarget && (this.attackTarget.dead || !canSee(this.isRed, this.attackTarget.x, this.attackTarget.y) || Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y) > this.range * 1.5)) {
                 this.attackTarget = null;
             } else if (this.attackTarget && this.type !== T.ARTILLERY && !checkLineOfSight(this.x, this.y, this.attackTarget.x, this.attackTarget.y, this, this.attackTarget)) {
                 this.attackTarget = null;
@@ -429,17 +430,26 @@ class Unit {
             if (this.attackTarget) {
                 const d = Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y);
                 if (d <= this.range) {
-                    const roleGenes = getRoleTacticGenes(aiGenome.tacticGenes, this.squad ?? getSquadRole(this.type));
-                    const preferredDistance = this.range * roleGenes.preferredRange;
-                    if (d < preferredDistance * 0.72 && this.type !== T.ARMOR_INFANTRY) {
-                        const awayX = (this.x - this.attackTarget.x) / Math.max(1, d);
-                        const awayY = (this.y - this.attackTarget.y) / Math.max(1, d);
-                        this.targetX = this.x + awayX * preferredDistance * 0.45;
-                        this.targetY = this.y + awayY * preferredDistance * 0.45;
-                        this.aiAction = 'KITE';
-                    } else if (this.aiAction === 'ATTACK') {
-                        this.targetX = this.x;
-                        this.targetY = this.y;
+                    // ADIM 1 — TEK NİYET KANALI: makro 'ÇEKİL' (DISENGAGE) dediyse birim DUR-VUR YAPMAZ; komutanın toplanma noktasına gider (targetX/Y'ye dokunma), yolda ateş eder = temiz savaşçı çekilme. Çelişme yapısal biter.
+                    const disengage = this.intent && this.intent.posture === 'DISENGAGE';
+                    if (!disengage) {
+                        const roleGenes = getRoleTacticGenes(aiGenome.tacticGenes, this.squad ?? getSquadRole(this.type));
+                        // ADIM 3: kite mesafesi KOMUTANIN rolünden (u.intent) gelir → rol-niyeti ile mikro-davranış TUTARLI; gen fallback yalnız niyet-yok (oyuncu)
+                        const prefFrac = (this.intent && this.intent.preferredRange != null) ? this.intent.preferredRange : roleGenes.preferredRange;
+                        const preferredDistance = this.range * prefFrac;
+                        // ADIM 8: AKILLI KİTE — yalnız MENZİL + HIZ üstünlüğü varken kite et (yavaş/kısa-menzilli birim kite ederse yakalanıp DPS kaybeder, kötü takas)
+                        const _tt = this.attackTarget.type;
+                        const _canKite = this.type !== T.ARMOR_INFANTRY && STATS[this.type].range >= STATS[_tt].range * 0.95 && STATS[this.type].speed >= STATS[_tt].speed * 0.85;
+                        if (d < preferredDistance * 0.72 && _canKite) {
+                            const awayX = (this.x - this.attackTarget.x) / Math.max(1, d);
+                            const awayY = (this.y - this.attackTarget.y) / Math.max(1, d);
+                            this.targetX = this.x + awayX * preferredDistance * 0.45;
+                            this.targetY = this.y + awayY * preferredDistance * 0.45;
+                            this.aiAction = 'KITE';
+                        } else if (this.aiAction === 'ATTACK') {
+                            this.targetX = this.x;
+                            this.targetY = this.y;
+                        }
                     }
                     this.performAttack(now);
                 }
@@ -466,7 +476,7 @@ class Unit {
             let score = typeof TacticalAI !== 'undefined'
                 ? TacticalAI.TargetScoring.score(this, u, {
                     genes: this.isRed ? aiGenome.tacticGenes : null,
-                    focusTarget: this.isRed && typeof aiFocusTarget !== 'undefined' ? aiFocusTarget : null,
+                    focusTarget: (this.intent && this.intent.focusTarget) || null,   // ADIM 6: komutanın koordineli kill-target'ı (ölü aiFocusTarget yerine)
                     focusFire,
                     armorPriority: this.isRed ? aiGenome.tacticGenes.targetArmorPriority : 1,
                     supportPriority: this.isRed ? aiGenome.tacticGenes.targetSupportPriority : 1,
@@ -474,8 +484,8 @@ class Unit {
                 })
                 : 10000 - d * (1.25 - focusFire * 0.5);
             
-            if (this.isRed && typeof aiFocusTarget !== 'undefined' && u === aiFocusTarget) {
-                score += 8000 * Math.max(0.6, aiGenome.tacticGenes.focusFire); // ortak hedefe güçlü yoğunlaşma → öldürme
+            if (this.intent && this.intent.focusTarget && u === this.intent.focusTarget) {
+                score += 8000 * Math.max(0.6, aiGenome.tacticGenes.focusFire); // ADIM 6: komutanın kill-target'ına güçlü yoğunlaşma → tek-tek öldürme (canlı)
             }
             
             if (score > maxScore) {
@@ -503,6 +513,7 @@ class Unit {
             this.atk * this.xpBonus,
             this.attackTarget.armor
         );
+        dmg = applyTechCombatBonus(this, this.attackTarget, dmg);   // TEKNOLOJİ: tanksavar→tank, vb. (mavi)
 
         // Yönsel Hasar (Flanking)
         const angleToTarget = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
@@ -528,7 +539,7 @@ class Unit {
                 if (distance > ARTILLERY_SPLASH_RADIUS) continue;
                 const falloff = 1 - distance / ARTILLERY_SPLASH_RADIUS;
                 const blastDmg = Math.max(1, Math.floor(
-                    calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus, n.armor) *
+                    applyTechCombatBonus(this, n, calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus, n.armor)) *
                     (0.5 + falloff * 0.5)
                 ));
                 const blastActual = Math.min(n.hp, blastDmg);
@@ -674,6 +685,10 @@ class Unit {
             ctx.lineWidth = 2;
             ctx.strokeRect(s.x - dw / 2 - 3, s.y - dh / 2 - 3, dw + 6, dh + 6);
         }
+        if (this.ally) {   // OTONOM müttefik (dost-AI; oyuncu seçemez) → camgöbeği nokta
+            ctx.fillStyle = 'rgba(90,220,255,0.95)';
+            ctx.beginPath(); ctx.arc(s.x, s.y - dh / 2 - 4, 2.4, 0, Math.PI * 2); ctx.fill();
+        }
 
         if (this.type === T.ENGINEER && !this.dead) {
             ctx.strokeStyle = this.isRed ? 'rgba(255,200,100,0.08)' : 'rgba(100,255,200,0.08)';
@@ -685,6 +700,14 @@ class Unit {
         if (this.flashTimer > 0) ctx.globalAlpha = 0.5;
         ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
         ctx.globalAlpha = 1.0;
+
+        // HİKAYE: GAZİ rütbesi (savaştan savaşa taşınan birim) — altın yıldız(lar) üstte
+        if (this.veteran > 0) {
+            ctx.fillStyle = '#ffd24c';
+            ctx.font = `bold ${Math.max(7, 7 * zoom)}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillText('★'.repeat(Math.min(3, this.veteran)), s.x, s.y - dh / 2 - 3 * zoom);
+        }
 
         if (this.armor > this.baseArmor) {
             ctx.fillStyle = this.inForest ? '#4caf50' : '#44ffaa';
@@ -779,11 +802,50 @@ function resolveCollisions() {
 }
 
 function placeUnit(type, worldX, worldY, isRed) {
-    const src = isRed ? enemy : player;
     const s = STATS[type];
+    // FAZ-2 KAYNAK-BAZLI: OYUNCU (mavi) ilgili kaynak bütçesinden öder (zırhlı→petrol, piyade→insan, topçu→puan)
+    if (!isRed && typeof DEPLOY_RES !== 'undefined' && DEPLOY_RES && DEPLOY_RES.blue) {
+        const g = (typeof UNIT_RES_GROUP !== 'undefined' && UNIT_RES_GROUP[type]) || 'manpower';
+        let cost = s.cost;   // TEKNOLOJİ: deploy-maliyeti indirimi (Dizel −petrol / Zorunlu Hizmet −insan / Savaş Ekonomisi −hepsi)
+        if (typeof TECH_BONUS !== 'undefined' && TECH_BONUS) {
+            let cm = TECH_BONUS.allCost || 1;
+            if (g === 'oil' && TECH_BONUS.oilCost) cm *= TECH_BONUS.oilCost;
+            if (g === 'manpower' && TECH_BONUS.manpowerCost) cm *= TECH_BONUS.manpowerCost;
+            if (cm !== 1) cost = Math.max(1, Math.round(s.cost * cm));
+        }
+        if ((DEPLOY_RES.blue[g] || 0) < cost) return false;
+        DEPLOY_RES.blue[g] -= cost;
+        player.unitsSpawned++;
+        const u = new Unit(type, worldX, worldY, isRed);
+        applyTechSpawnBonus(u);   // TEKNOLOJİ: zırh/hız/görüş/hp spawn-buff (mavi)
+        SIM.units.push(u);
+        return true;
+    }
+    // FAZ-2 KAYNAK-BAZLI: AI(kırmızı) da HİKAYE düellosunda ilgili kaynaktan öder → anti-tank=puan-grubu SINIRLI (oyuncuyla SİMETRİK; "tüm birimler kendi kaynağından")
+    if (isRed && typeof DEPLOY_RES !== 'undefined' && DEPLOY_RES && DEPLOY_RES.red) {
+        const g = (typeof UNIT_RES_GROUP !== 'undefined' && UNIT_RES_GROUP[type]) || 'manpower';
+        let cost = s.cost;
+        if (typeof TECH_BONUS_RED !== 'undefined' && TECH_BONUS_RED) {
+            let cm = TECH_BONUS_RED.allCost || 1;
+            if (g === 'oil' && TECH_BONUS_RED.oilCost) cm *= TECH_BONUS_RED.oilCost;
+            if (g === 'manpower' && TECH_BONUS_RED.manpowerCost) cm *= TECH_BONUS_RED.manpowerCost;
+            if (cm !== 1) cost = Math.max(1, Math.round(s.cost * cm));
+        }
+        if ((DEPLOY_RES.red[g] || 0) < cost) return false;
+        DEPLOY_RES.red[g] -= cost;
+        enemy.unitsSpawned++;
+        const u = new Unit(type, worldX, worldY, isRed);
+        applyTechSpawnBonus(u);
+        SIM.units.push(u);
+        return true;
+    }
+    // TEK-PARA: AI(kırmızı) Quick Match/MP + (mavi tek-para)
+    const src = isRed ? enemy : player;
     if (src.money < s.cost) return false;
     src.money -= s.cost;
     src.unitsSpawned++;
-    SIM.units.push(new Unit(type, worldX, worldY, isRed));
+    const u2 = new Unit(type, worldX, worldY, isRed);
+    applyTechSpawnBonus(u2);   // TEKNOLOJİ: AI(kırmızı) hikaye-tech buff (Quick/MP'de TECH_BONUS_RED=null → no-op)
+    SIM.units.push(u2);
     return true;
 }

@@ -29,6 +29,8 @@
                 <input type="range" id="qm-pl" min="600" max="3000" step="100" value="1500"></div>
             <div id="qm-difficulty" class="qm-diff">Denge: Eşit ⚖️</div>
             <div class="qm-hint">Puan = ordu bütçesi. Asimetrik puan = zorluk ayarı.</div>
+            <div class="qm-row" style="margin-top:14px;"><label>🗺️ Harita:
+                <select id="qm-map" style="margin-left:8px;padding:5px 10px;border-radius:6px;background:rgba(6,10,16,0.9);color:#dfe7ef;border:1px solid rgba(90,130,170,0.4);font-size:14px;"></select></label></div>
         </div>
         <div class="menu-side">
             <button id="btn-qm-start" class="menu-btn primary">⚔️ Savaşa Başla</button>
@@ -61,9 +63,82 @@
         </div>
     </div>
 
+    <!-- HİKAYE / AÇIK-DÜNYA (Faz-1): yaşayan-dünya harita ekranı -->
+    <div id="screen-story" class="app-screen hidden">
+        <div id="story-wrap">
+            <canvas id="storyCanvas"></canvas>
+            <!-- Sol üst: kompakt devlet HUD'u (her zaman görünür) -->
+            <div id="story-hud">
+                <h2 class="story-title">🌍 <span id="story-era">Modern Çağ</span></h2>
+                <div id="story-stats"></div>
+                <div id="story-node-info"></div>
+            </div>
+            <!-- Sol araç çubuğu: açılır-kapanır panel butonları -->
+            <div id="story-tools">
+                <button id="story-council-btn" class="tool-btn" title="Konsey">🏛️</button>
+                <button id="story-army-btn" class="tool-btn" title="Ordum (komutan + gaziler)">🎖️</button>
+                <button id="story-tech-btn" class="tool-btn" title="Teknoloji Ağacı">🔬</button>
+                <button id="story-city-btn" class="tool-btn" title="Şehirler (yükselt + garnizon)">🏗️</button>
+            </div>
+            <!-- Sağ üst: dur/devam + kaydet + menü -->
+            <div id="story-topright">
+                <button id="story-pause-btn" class="ctrl-btn" title="Duraklat / Devam">⏸</button>
+                <button id="story-save-btn" class="ctrl-btn" title="Kaydet">💾</button>
+                <button id="story-menu-btn" class="ctrl-btn" title="Ana Menü">🏠</button>
+            </div>
+            <!-- Sağ: haber akışı (küçük kutu) -->
+            <div id="story-news">
+                <div class="news-title">📰 Haberler</div>
+                <div id="story-log"></div>
+            </div>
+            <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
+            <aside id="council-panel" aria-hidden="true">
+                <div id="council-header">
+                    <span class="council-title">🏛️ Konsey</span>
+                    <button id="council-close" class="council-x" aria-label="Kapat">✖</button>
+                </div>
+                <div id="council-admin-banner"></div>
+                <div id="council-treasury"></div>
+                <div id="council-list"></div>
+                <div id="council-confirm" class="hidden"></div>
+                <div id="council-actions">
+                    <button id="council-create-btn" class="story-btn">➕ Komutan Yarat</button>
+                    <button id="council-dismiss-btn" class="story-btn">✖ Dağıt Modu</button>
+                </div>
+            </aside>
+            <!-- TEKNOLOJİ — SOLDAN kayar drawer (placeholder: Adım 4'te uygulanacak) -->
+            <aside id="tech-panel" aria-hidden="true">
+                <div id="tech-header">
+                    <span class="council-title">🔬 Teknoloji Ağacı</span>
+                    <button id="tech-close" class="council-x" aria-label="Kapat">✖</button>
+                </div>
+                <div id="tech-body"></div>
+            </aside>
+            <!-- ORDUM — SOLDAN kayar drawer (komutan kartı + ordu bütçesi + gaziler) -->
+            <aside id="army-panel" aria-hidden="true">
+                <div id="army-header">
+                    <span class="council-title">🎖️ Ordum</span>
+                    <button id="army-close" class="council-x" aria-label="Kapat">✖</button>
+                </div>
+                <div id="army-body"></div>
+            </aside>
+            <!-- ŞEHİRLER — SOLDAN kayar drawer (Adım 6: seviye + garnizon) -->
+            <aside id="city-panel" aria-hidden="true">
+                <div id="city-header">
+                    <span class="council-title">🏗️ Şehirler</span>
+                    <button id="city-close" class="council-x" aria-label="Kapat">✖</button>
+                </div>
+                <div id="city-body"></div>
+            </aside>
+        </div>
+    </div>
+
     <!-- Kaynak Paneli (Sol Üst) -->
     <div id="ui-resources">
-        <div class="res"><span class="res-icon">💰</span> Para: <span id="money">1000</span></div>
+        <div class="res"><span class="res-icon">💰</span> Bütçe: <span id="money">1000</span></div>
+        <div class="res hidden" id="res-oil"><span class="res-icon">⛽</span> Petrol: <span id="money-oil">0</span></div>
+        <div class="res hidden" id="res-manpower"><span class="res-icon">👥</span> İnsan: <span id="money-manpower">0</span></div>
+        <div class="res hidden" id="res-points"><span class="res-icon">⭐</span> Puan: <span id="money-points">0</span></div>
     </div>
 
     <!-- Aşama Bilgisi -->
@@ -91,47 +166,47 @@
         <button class="spawn-btn" data-type="0" title="Piyade">
             <canvas class="btn-icon" data-col="0"></canvas>
             <div class="btn-label">Piyade</div>
-            <div class="btn-cost">💰50</div>
+            <div class="btn-cost">👥70</div>
         </button>
         <button class="spawn-btn" data-type="1" title="Mekanize Piyade">
             <canvas class="btn-icon" data-col="1"></canvas>
             <div class="btn-label">Mekanize</div>
-            <div class="btn-cost">💰80</div>
+            <div class="btn-cost">⛽110</div>
         </button>
         <button class="spawn-btn" data-type="2" title="Zırhlı Piyade">
             <canvas class="btn-icon" data-col="2"></canvas>
             <div class="btn-label">Zırhlı Piy.</div>
-            <div class="btn-cost">💰100</div>
+            <div class="btn-cost">⛽140</div>
         </button>
         <button class="spawn-btn" data-type="3" title="Keşif">
             <canvas class="btn-icon" data-col="3"></canvas>
             <div class="btn-label">Keşif</div>
-            <div class="btn-cost">💰40</div>
+            <div class="btn-cost">👥55</div>
         </button>
         <button class="spawn-btn" data-type="4" title="İstihkam">
             <canvas class="btn-icon" data-col="4"></canvas>
             <div class="btn-label">İstihkam</div>
-            <div class="btn-cost">💰60</div>
+            <div class="btn-cost">👥85</div>
         </button>
         <button class="spawn-btn" data-type="5" title="Sağlıkçı">
             <canvas class="btn-icon" data-col="5"></canvas>
             <div class="btn-label">Sağlıkçı</div>
-            <div class="btn-cost">💰70</div>
+            <div class="btn-cost">👥95</div>
         </button>
         <button class="spawn-btn" data-type="6" title="Tank">
             <canvas class="btn-icon" data-col="6"></canvas>
             <div class="btn-label">Tank</div>
-            <div class="btn-cost">💰200</div>
+            <div class="btn-cost">⛽280</div>
         </button>
         <button class="spawn-btn" data-type="7" title="Tanksavar">
             <canvas class="btn-icon" data-col="7"></canvas>
             <div class="btn-label">Tanksavar</div>
-            <div class="btn-cost">💰100</div>
+            <div class="btn-cost">⭐140</div>
         </button>
         <button class="spawn-btn" data-type="8" title="Topçu">
             <canvas class="btn-icon" data-col="8"></canvas>
             <div class="btn-label">Topçu</div>
-            <div class="btn-cost">💰150</div>
+            <div class="btn-cost">⭐200</div>
         </button>
     </div>
 
@@ -176,6 +251,7 @@
                 <button id="download-battle-report-btn">💾 Raporu İndir</button>
             </div>
             <button id="restart-btn">🔄 Tekrar Oyna</button>
+            <button id="story-return-btn" class="hidden">🗺️ Dünyaya Dön</button>
         </div>
     </div>
 
@@ -183,6 +259,7 @@
     <img id="spriteSheet" src="icons.png" style="display:none;">
     <script src="js/brain.js"></script>
     <script src="js/globals.js"></script>
+    <script src="js/MapData.js"></script>
     <script src="js/TacticalAI.js"></script>
     <script src="js/Telemetry.js"></script>
     <script src="js/VFX.js"></script>
@@ -199,6 +276,9 @@
     <script src="js/Net.js"></script>
     <script src="js/MP.js"></script>
     <script src="js/Screens.js"></script>
+    <script src="js/terrainData.js"></script>
+    <script src="js/techTree.js"></script>
+    <script src="js/Story.js"></script>
 </body>
 
 </html>

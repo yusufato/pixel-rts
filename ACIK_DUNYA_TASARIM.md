@@ -8,7 +8,7 @@
 
 ---
 
-## İçindekiler
+## İçindekiler1
 
 1. [Vizyon](#1-vizyon)
 2. [Görsel: Pixel-Avrupa Haritası](#2-görsel-pixel-avrupa-haritası)

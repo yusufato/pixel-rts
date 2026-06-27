@@ -36,8 +36,19 @@ function quickMatchStart() {
     // PUAN → BÜTÇE: oyuncu pl ile birlik dizer; AI ai ile (aiDeploy enemy.money okur).
     if (typeof player !== 'undefined') player.money = pl;
     if (typeof enemy !== 'undefined') enemy.money = ai;
-    // Çeşitlilik için bu maça özel harita-tohumu (10-harita sistemi sonraki adım; şimdilik seed çeşidi)
+    // 10-HARİTA: seçili haritayı uygula (ya da 🎲 rastgele) — deploy/savaş bu terrain'de geçer
+    if (typeof applyMap === 'function') {
+        let mid = +(document.getElementById('qm-map')?.value);
+        if (isNaN(mid) || mid < 0) mid = (typeof MAPS !== 'undefined') ? Math.floor(Math.random() * MAPS.length) : 0;
+        applyMap(mid);
+        if (typeof initControlPoints === 'function') initControlPoints();
+    }
     if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
+    // Hikaye-dışı maç → tek-para modu (kaynak-bazlı deploy KAPALI) + kaynak satırlarını gizle
+    if (typeof DEPLOY_RES !== 'undefined') DEPLOY_RES = null;
+    if (typeof TECH_BONUS !== 'undefined') TECH_BONUS = null;   // teknoloji bonusu sadece hikaye → Quick Match'te kapalı
+    if (typeof TECH_BONUS_RED !== 'undefined') TECH_BONUS_RED = null;
+    ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
     showScreen('game');   // deploy fazına gir (HUD görünür); oyuncu dizer → Savaşı Başlat
 }
 
@@ -91,11 +102,20 @@ function mpInit() {
 
 function screensInit() {
     document.getElementById('btn-quick-match')?.addEventListener('click', () => { showScreen('quickmatch'); quickMatchUpdate(); });
-    document.getElementById('btn-new-story')?.addEventListener('click', () => alert('📜 Yeni Hikaye (açık-dünya / kalıcı imparatorluk) yakında — Faz 2.'));
+    document.getElementById('btn-new-story')?.addEventListener('click', () => {
+        if (typeof storyOpen === 'function') storyOpen();
+        else alert('📜 Hikaye modülü yüklenemedi.');
+    });
     document.getElementById('btn-multiplayer')?.addEventListener('click', () => { showScreen('multiplayer'); if (typeof mpInit === 'function') mpInit(); });
     document.getElementById('btn-settings')?.addEventListener('click', () => alert('⚙️ Ayarlar yakında (devlet sayısı, kaynak bolluğu, zorluk).'));
     document.getElementById('qm-ai')?.addEventListener('input', quickMatchUpdate);
     document.getElementById('qm-pl')?.addEventListener('input', quickMatchUpdate);
+    // 10-HARİTA seçiciyi doldur (🎲 Rastgele + 10 harita adı)
+    const qmMap = document.getElementById('qm-map');
+    if (qmMap && typeof MAPS !== 'undefined') {
+        qmMap.innerHTML = '<option value="-1">🎲 Rastgele</option>' +
+            MAPS.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
+    }
     document.getElementById('btn-qm-start')?.addEventListener('click', quickMatchStart);
     document.getElementById('btn-qm-back')?.addEventListener('click', () => showScreen('menu'));
     // Oyun-bitti ekranındaki "Ana Menü" (varsa) → menüye dön (Faz 1.5'te resetBattleState; şimdilik reload)
