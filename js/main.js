@@ -747,6 +747,23 @@ function drawMap() {
         }
     }
 
+    // ── GEÇİCİ TEŞHİS: grid harita durumu (DEBUG_TERRAIN=false yapınca kapanır) ──
+    if (typeof DEBUG_TERRAIN !== 'undefined' && DEBUG_TERRAIN) {
+        const lines = [
+            'MAP_MODE=' + (typeof MAP_MODE !== 'undefined' ? MAP_MODE : 'undefined'),
+            'terrainGrid=' + (typeof terrainGrid !== 'undefined' && terrainGrid ? terrainGrid.length : 'NULL'),
+            'bakeCanvas=' + (typeof terrainBakeCanvas !== 'undefined' && terrainBakeCanvas ? (terrainBakeCanvas.width + 'x' + terrainBakeCanvas.height) : 'NULL'),
+            'drawGridTerrain=' + (typeof drawGridTerrain === 'function' ? 'var' : 'YOK'),
+            'SIM.headless=' + (typeof SIM !== 'undefined' ? SIM.headless : '?'),
+            'coarse=' + (typeof terrainFeatures !== 'undefined' ? terrainFeatures.length : '?')
+        ];
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(6, 6, 240, 18 * lines.length + 8);
+        ctx.font = '13px monospace'; ctx.fillStyle = '#5f6';
+        lines.forEach((l, i) => ctx.fillText(l, 12, 24 + i * 18));
+        ctx.restore();
+    }
+
     if (phase === PHASE.DEPLOY) {
         const mpGuest = (typeof myCanonicalSide !== 'undefined' && myCanonicalSide);   // true = MP guest (KIRMIZI/kuzey)
         // BENİM bölgem (belirgin mavi) — host güney, guest kuzey
