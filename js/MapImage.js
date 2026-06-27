@@ -221,9 +221,10 @@ function bakeGridTerrain() {
 function drawGridTerrain() {
     if (!terrainBakeCanvas) bakeGridTerrain();
     if (!terrainBakeCanvas) return;
-    const viewW = canvas.width / zoom, viewH = canvas.height / zoom;
-    const o = worldToScreen(camera.x, camera.y);
-    ctx.drawImage(terrainBakeCanvas, camera.x, camera.y, viewW, viewH, o.x, o.y, canvas.width, canvas.height);
+    // SAĞLAM BLIT: tüm bake-canvas'ı ölçekle+konumla (kaynak-kırpma YOK → sınır-aşımı imkansız)
+    const o = worldToScreen(0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(terrainBakeCanvas, o.x, o.y, WORLD_W * zoom, WORLD_H * zoom);
 }
 
 // ── ÇİZİLEN HARİTAYI UYGULA ──
