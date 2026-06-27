@@ -515,17 +515,22 @@ class Unit {
         );
         dmg = applyTechCombatBonus(this, this.attackTarget, dmg);   // TEKNOLOJİ: tanksavar→tank, vb. (mavi)
 
-        // Yönsel Hasar (Flanking)
+        // ── YÖNSEL HASAR (Flanking): ön/yan/arka arkı + yönlü-zırh (moral şoku aşağıda) ──
         const angleToTarget = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
         let angleDiff = Math.abs(angleToTarget - this.attackTarget.facingAngle);
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         angleDiff = Math.abs(angleDiff);
-        
-        // Eğer mermi, hedefin baktığı yön ile aynı açıda geliyorsa (arkadan vuruyorsa)
-        const isRearHit = angleDiff < Math.PI / 3;
-        if (isRearHit) {
-            dmg *= 2; // Arkadan x2 hasar!
-        }
+        // angleDiff: 0=tam ARKA, π/2=YAN, π=tam ÖN (hedef saldırgana bakıyor)
+        const _tgtArmored = this.attackTarget.type === T.ARMOR || this.attackTarget.type === T.ARMOR_INFANTRY ||
+                            this.attackTarget.type === T.ANTI_TANK || this.attackTarget.armor >= 4;
+        let isRearHit = false, isFlankHit = false;
+        if (angleDiff < Math.PI / 3) {              // ARKA (0-60°): zırh büyük ölçüde delinir
+            isRearHit = true; isFlankHit = true;
+            dmg *= _tgtArmored ? 2.6 : 2.0;
+        } else if (angleDiff < 2 * Math.PI / 3) {   // YAN (60-120°): zırh kısmen delinir
+            isFlankHit = true;
+            dmg *= _tgtArmored ? 1.7 : 1.4;
+        }                                           // ÖN (120-180°): zırh tam etkili (×1.0)
 
         const primaryTarget = this.attackTarget;
 
@@ -592,6 +597,7 @@ class Unit {
         }
 
         primaryTarget.panic += (dmg / primaryTarget.maxHp) * 150;
+        if (isFlankHit) primaryTarget.panic += isRearHit ? 18 : 9;   // yandan/arkadan vurulmak = moral ŞOKU (bozguna iter)
 
         // Baskı Ateşi (sadece tank alan baskısı yapar; diğerleri tekil)
         if (this.type === T.ARMOR) {
