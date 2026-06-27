@@ -185,9 +185,30 @@ const CAM_SPEED = 8 * GAME_SPEED;
 const EDGE_SCROLL_ZONE = 40;
 const keys = {};
 
-let screenShake = 0;
+// ── TRAUMA-tabanlı ekran sarsıntısı + darbe-donması + knockback (HEPSİ render-only; SIM'e GİRMEZ) ──
+let screenShake = 0;            // TRAUMA değeri (0..SHAKE_MAX); worldToScreen'de trauma² uygulanır → tüfek≠nuke
+let hitStopFrames = 0;          // darbe-donması kare sayacı (yalnız tek-oyunculu; MP/headless'te yok)
+const SHAKE_MAX = 1.25;         // tavan trauma
+const SHAKE_MAX_PX = 9;         // tam trauma'da max piksel kayma
 function triggerScreenShake(amount) {
-    screenShake = amount;
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    screenShake = Math.min(SHAKE_MAX, screenShake + amount);   // biriktir (capped)
+}
+// Darbe-donması: birkaç render karesi sim'i dondurur (yalnız tek-oyunculu; MP lockstep'i bozMAZ)
+function triggerHitStop(frames) {
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    if (typeof MP !== 'undefined' && MP.active) return;
+    if (frames > hitStopFrames) hitStopFrames = frames;        // en büyük kazanır (üst üste binmesin)
+}
+// Knockback/recoil: SADECE görsel ofset (this.x/y'ye DOKUNMAZ → sim/determinizm/MP korunur)
+function applyKnockback(t, srcX, srcY, amt) {
+    if (typeof SIM !== 'undefined' && SIM.headless) return;
+    const dx = t.x - srcX, dy = t.y - srcY;
+    const d = Math.hypot(dx, dy) || 1;
+    t.voffX = (t.voffX || 0) + (dx / d) * amt;
+    t.voffY = (t.voffY || 0) + (dy / d) * amt;
+    const m = Math.hypot(t.voffX, t.voffY);
+    if (m > 7) { t.voffX *= 7 / m; t.voffY *= 7 / m; }         // tavan
 }
 
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
@@ -240,8 +261,9 @@ function screenToWorld(sx, sy) { return { x: sx / zoom + camera.x, y: sy / zoom 
 function worldToScreen(wx, wy) {
     let shakeX = 0, shakeY = 0;
     if (screenShake > 0) {
-        shakeX = (Math.random() - 0.5) * screenShake;
-        shakeY = (Math.random() - 0.5) * screenShake;
+        const s = screenShake * screenShake;                  // trauma² → küçük olay belli, büyük olay SLAM
+        shakeX = (Math.random() - 0.5) * 2 * SHAKE_MAX_PX * s;
+        shakeY = (Math.random() - 0.5) * 2 * SHAKE_MAX_PX * s;
     }
     return {
         x: (wx - camera.x) * zoom + shakeX,

@@ -964,19 +964,24 @@ function gameLoop(timestamp) {
     const dt = timestamp - lastFrameTime;
     const scaledDt = dt * GAME_SPEED;
     lastFrameTime = timestamp;
-    simulationTime += scaledDt;
+
+    // Hit-stop: tek-oyunculuda kısa darbe-donması (render sürer, sim donar) — MP/headless'te YOK (lockstep desync)
+    const _mpActive = (typeof MP !== 'undefined' && MP.active);
+    let _frozen = false;
+    if (!_mpActive && hitStopFrames > 0) { _frozen = true; hitStopFrames--; }
+    if (!_frozen) simulationTime += scaledDt;
 
     if (screenShake > 0) {
-        screenShake *= 0.9;
-        if (screenShake < 0.5) screenShake = 0;
+        screenShake *= 0.9;                          // trauma decay
+        if (screenShake < 0.02) screenShake = 0;
     }
 
     updateCamera();
 
     if (phase === PHASE.BATTLE) {
-        if (typeof MP !== 'undefined' && MP.active) {
+        if (_mpActive) {
             mpStep(timestamp);                       // ÇOK OYUNCULU: sabit-tick lockstep (kendi içinde stepSim çağırır)
-        } else {
+        } else if (!_frozen) {
             gameTime += scaledDt / 1000;
             // FAZ 1g: birleşik tick — eğitim (spRunMatch) ile AYNI fizik adımı (eğitim≠canlı sapması biter)
             stepSim(simulationTime, scaledDt / 1000, updateLayeredAI, true);

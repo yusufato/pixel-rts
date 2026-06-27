@@ -546,6 +546,7 @@ class Unit {
                 n.hp -= blastDmg;
                 n.panic += (blastDmg / n.maxHp) * 120;
                 n.flashTimer = 5;
+                if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.6);
                 n.suppression += 30;                                  // alan baskısı
                 battleTelemetry.recordDamage(this, n, blastActual, false, now);
                 if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
@@ -570,6 +571,8 @@ class Unit {
             this.lastAttackTime = now;
             if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, cx, cy, true);
             if (typeof spawnExplosion !== 'undefined') spawnExplosion(cx, cy);
+            if (typeof triggerScreenShake === 'function') triggerScreenShake(0.55);   // topçu patlaması = sağlam trauma
+            if (typeof triggerHitStop === 'function') triggerHitStop(3);
             return;
         }
 
@@ -577,6 +580,15 @@ class Unit {
         primaryTarget.hp -= dmg;
         battleTelemetry.recordDamage(this, primaryTarget, actualDamage, isRearHit, now);
         primaryTarget.flashTimer = 6;
+        // İMPACT his (render-only): hedef knockback + atıcı geri-tepme; ağır silah → trauma + darbe-donması
+        if (typeof applyKnockback === 'function') {
+            applyKnockback(primaryTarget, this.x, this.y, this.type === T.ARMOR ? 4.5 : this.type === T.ANTI_TANK ? 3.5 : 2);
+            applyKnockback(this, primaryTarget.x, primaryTarget.y, 1.1);
+        }
+        if (this.type === T.ARMOR || this.type === T.ANTI_TANK) {
+            if (typeof triggerScreenShake === 'function') triggerScreenShake(this.type === T.ARMOR ? 0.42 : 0.3);
+            if (typeof triggerHitStop === 'function') triggerHitStop(2);
+        }
 
         primaryTarget.panic += (dmg / primaryTarget.maxHp) * 150;
 
@@ -604,6 +616,7 @@ class Unit {
                 n.hp -= blastDmg;
                 n.panic += (blastDmg / n.maxHp) * 120;
                 n.flashTimer = 5;
+                if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.8);
                 n.suppression += 25;
                 battleTelemetry.recordDamage(this, n, blastActual, false, now);
                 if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
@@ -675,7 +688,12 @@ class Unit {
 
         if (this.isRed && phase === PHASE.BATTLE && !canSee(false, this.x, this.y)) return;
 
-        const s = worldToScreen(this.x, this.y);
+        // Knockback/recoil görsel ofseti (render-only; this.x/y'ye DOKUNMAZ) — yaylanarak söner
+        if (this.voffX === undefined) { this.voffX = 0; this.voffY = 0; }
+        this.voffX *= 0.82; this.voffY *= 0.82;
+        if (Math.abs(this.voffX) < 0.05) this.voffX = 0;
+        if (Math.abs(this.voffY) < 0.05) this.voffY = 0;
+        const s = worldToScreen(this.x + this.voffX, this.y + this.voffY);
         const dw = drawW(), dh = drawH();
 
         if (s.x < -dw * 2 || s.x > canvas.width + dw * 2 || s.y < -dh * 2 || s.y > canvas.height + dh * 2) return;
@@ -713,17 +731,19 @@ class Unit {
             ctx.fill(); ctx.stroke();
         }
 
-        if (this.flashTimer > 0) ctx.globalAlpha = 0.5;
+        const _flash = this.flashTimer > 0;                    // hit-flash: vuruşta beyaza yakın parlama
         if (UNIT_ROTATE) {
             ctx.save();
             ctx.translate(s.x, s.y);
             ctx.rotate(_ang);                                  // tüm sprite hedefe "düz" döner (yumuşak)
+            if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)';
             ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -dw / 2, -dh / 2, dw, dh);
-            ctx.restore();
+            ctx.restore();                                     // restore filter'ı da sıfırlar
         } else {
+            if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)';
             ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
+            if (_flash) ctx.filter = 'none';
         }
-        ctx.globalAlpha = 1.0;
 
         // ÖN-işareti: facing yönüne bakan parlak burun → ön/arka net (arkadan kuşatılınca bile okunur)
         if (UNIT_FRONT_MARKER) {
