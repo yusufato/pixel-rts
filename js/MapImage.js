@@ -218,13 +218,48 @@ function bakeGridTerrain() {
         }
     }
 }
+// DOĞRUDAN render: görünür hücreleri ana ctx'e çiz (offscreen bake YOK → büyük-canvas/bellek sorunu yok; minimap gibi güvenilir)
 function drawGridTerrain() {
-    if (!terrainBakeCanvas) bakeGridTerrain();
-    if (!terrainBakeCanvas) return;
-    // SAĞLAM BLIT: tüm bake-canvas'ı ölçekle+konumla (kaynak-kırpma YOK → sınır-aşımı imkansız)
-    const o = worldToScreen(0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(terrainBakeCanvas, o.x, o.y, WORLD_W * zoom, WORLD_H * zoom);
+    if (!terrainGrid) return;
+    const viewW = canvas.width / zoom, viewH = canvas.height / zoom;
+    const gx0 = Math.max(0, Math.floor(camera.x / CELL_W));
+    const gy0 = Math.max(0, Math.floor(camera.y / CELL_H));
+    const gx1 = Math.min(GRID_W, Math.ceil((camera.x + viewW) / CELL_W));
+    const gy1 = Math.min(GRID_H, Math.ceil((camera.y + viewH) / CELL_H));
+    const o0 = worldToScreen(0, 0);
+    const cw = Math.ceil(CELL_W * zoom) + 1, ch = Math.ceil(CELL_H * zoom) + 1;
+    for (let gy = gy0; gy < gy1; gy++) for (let gx = gx0; gx < gx1; gx++) {
+        const t = terrainGrid[_gi(gx, gy)];
+        const sx = o0.x + gx * CELL_W * zoom, sy = o0.y + gy * CELL_H * zoom;
+        let col;
+        if (t === TERRAIN.WATER) col = '#3f5fb0';
+        else if (t === TERRAIN.MOUNTAIN) { const v = _cellHash(gx, gy, 2); col = v > 0.66 ? '#727768' : v > 0.33 ? '#62675a' : '#545a4e'; }
+        else if (t === TERRAIN.FOREST) col = _cellHash(gx, gy, 3) > 0.5 ? '#2c4a2a' : '#264424';
+        else col = _GRASS[Math.floor(_cellHash(gx, gy, 1) * _GRASS.length)];
+        ctx.fillStyle = col;
+        ctx.fillRect(sx, sy, cw, ch);
+    }
+    // köprüler (geçilebilir su-şeridi → ahşap)
+    if (bridgeSet) for (const key of bridgeSet) {
+        const [bx, by] = key.split(',').map(Number);
+        if (bx < gx0 - 1 || bx > gx1 || by < gy0 - 1 || by > gy1) continue;
+        const sx = o0.x + bx * CELL_W * zoom, sy = o0.y + by * CELL_H * zoom;
+        ctx.fillStyle = '#7a5a36'; ctx.fillRect(sx, sy, cw, ch);
+    }
+    // hafif doku: orman ağaç noktası + dağ kaya beneği (görünür hücrelerde, ucuz)
+    for (let gy = gy0; gy < gy1; gy++) for (let gx = gx0; gx < gx1; gx++) {
+        const t = terrainGrid[_gi(gx, gy)];
+        if (t !== TERRAIN.FOREST && t !== TERRAIN.MOUNTAIN) continue;
+        const sx = o0.x + gx * CELL_W * zoom, sy = o0.y + gy * CELL_H * zoom;
+        if (t === TERRAIN.FOREST) {
+            const r = (3 + _cellHash(gx, gy, 11) * 3) * zoom;
+            ctx.fillStyle = _cellHash(gx, gy, 12) > 0.5 ? '#1d4d28' : '#23592e';
+            ctx.beginPath(); ctx.arc(sx + cw * 0.5, sy + ch * 0.45, Math.max(1, r), 0, Math.PI * 2); ctx.fill();
+        } else if (_cellHash(gx, gy, 40) > 0.55) {
+            ctx.fillStyle = 'rgba(35,38,32,0.5)';
+            ctx.fillRect(sx + cw * 0.25, sy + ch * 0.3, cw * 0.45, ch * 0.4);
+        }
+    }
 }
 
 // ── ÇİZİLEN HARİTAYI UYGULA ──
