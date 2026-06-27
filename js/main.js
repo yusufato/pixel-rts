@@ -644,19 +644,27 @@ function drawMap() {
             const s = worldToScreen(t.x, t.y);
             const radius = t.r * zoom;
             if (s.x < -radius || s.x > canvas.width + radius || s.y < -radius || s.y > canvas.height + radius) continue;
-            ctx.fillStyle = 'rgba(20,30,15,0.30)';                       // gölge → yükseklik hissi
+            // hafif gölge (yükseklik hissi)
+            ctx.fillStyle = 'rgba(15,22,12,0.20)';
             ctx.beginPath();
-            ctx.ellipse(s.x + radius * 0.10, s.y + radius * 0.14, radius * 1.02, radius * 0.86, 0, 0, Math.PI * 2);
+            ctx.ellipse(s.x + radius * 0.07, s.y + radius * 0.10, radius, radius * 0.9, 0, 0, Math.PI * 2);
             ctx.fill();
-            const hg = ctx.createRadialGradient(s.x - radius * 0.25, s.y - radius * 0.28, radius * 0.1, s.x, s.y, radius);
-            hg.addColorStop(0, 'rgba(178,172,120,0.85)');
-            hg.addColorStop(0.6, 'rgba(142,140,96,0.68)');
-            hg.addColorStop(1, 'rgba(110,112,78,0)');
+            // yumuşak yükseklik tinti (merkeze doğru açılır = zirve daha açık)
+            const hg = ctx.createRadialGradient(s.x, s.y, radius * 0.1, s.x, s.y, radius);
+            hg.addColorStop(0, 'rgba(208,200,150,0.55)');
+            hg.addColorStop(0.7, 'rgba(150,150,104,0.32)');
+            hg.addColorStop(1, 'rgba(120,124,84,0)');
             ctx.fillStyle = hg;
             ctx.beginPath(); ctx.arc(s.x, s.y, radius, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = 'rgba(92,96,60,0.40)';                    // kontur halkası → yükselti ipucu
-            ctx.lineWidth = Math.max(1, 1.2 * zoom);
-            ctx.beginPath(); ctx.arc(s.x, s.y, radius * 0.62, 0, Math.PI * 2); ctx.stroke();
+            // TOPOGRAFİK KONTUR ÇİZGİLERİ (kuşbakışı yükselti — çizgisel yöntem): 5 konsantrik isoline
+            ctx.strokeStyle = 'rgba(120,95,50,0.72)';
+            ctx.lineWidth = Math.max(1, 1.1 * zoom);
+            for (const rf of [0.92, 0.72, 0.52, 0.34, 0.18]) {
+                ctx.beginPath(); ctx.arc(s.x, s.y, radius * rf, 0, Math.PI * 2); ctx.stroke();
+            }
+            // zirve işareti (en yüksek nokta)
+            ctx.fillStyle = 'rgba(110,84,38,0.78)';
+            ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(1.5, 1.8 * zoom), 0, Math.PI * 2); ctx.fill();
         } else if (t.type === TERRAIN.MOUNTAIN) {
             const s = worldToScreen(t.x, t.y);
             if (s.x < -t.r * zoom || s.x > canvas.width + t.r * zoom || s.y < -t.r * zoom || s.y > canvas.height + t.r * zoom) continue;
@@ -867,7 +875,7 @@ function drawMinimap() {
         const my = terrain.y / WORLD_H * mh;
         const rx = terrain.r / WORLD_W * mw;
         const ry = terrain.r / WORLD_H * mh;
-        minimapCtx.fillStyle = terrain.type === TERRAIN.FOREST ? '#235c32' : '#70756a';
+        minimapCtx.fillStyle = terrain.type === TERRAIN.FOREST ? '#235c32' : terrain.type === TERRAIN.HILL ? '#9a8b5c' : '#70756a';
         minimapCtx.beginPath();
         minimapCtx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2);
         minimapCtx.fill();
