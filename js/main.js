@@ -757,10 +757,12 @@ function drawMap() {
             'SIM.headless=' + (typeof SIM !== 'undefined' ? SIM.headless : '?'),
             'coarse=' + (typeof terrainFeatures !== 'undefined' ? terrainFeatures.length : '?')
         ];
+        const bx = 12, bh = 18 * lines.length + 10, by = Math.round(canvas.height / 2 - bh / 2);
         ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(6, 6, 240, 18 * lines.length + 8);
-        ctx.font = '13px monospace'; ctx.fillStyle = '#5f6';
-        lines.forEach((l, i) => ctx.fillText(l, 12, 24 + i * 18));
+        ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(bx, by, 250, bh);
+        ctx.strokeStyle = '#5f6'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, 250, bh);
+        ctx.font = '14px monospace'; ctx.fillStyle = '#5f6'; ctx.textAlign = 'left';
+        lines.forEach((l, i) => ctx.fillText(l, bx + 8, by + 22 + i * 18));
         ctx.restore();
     }
 
