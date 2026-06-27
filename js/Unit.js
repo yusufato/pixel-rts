@@ -57,6 +57,8 @@ class Unit {
         this.nearbyAllyStrength = 0;
         this.nearbyEnemyStrength = 0;
         this.encirclement = 0;         // T3 KUŞATILMA: etrafımı saran düşman açı-kapsaması 0..1 (8 sektör)
+        this.supplyDist = 0;           // T3 LOJİSTİK: üs-kenarından uzaklık 0..1 (0=üste yakın, 1=derin cephe)
+        this.supplyCut = false;        // T3 LOJİSTİK: ikmal hattım kesik mi (düşman benimle üs arasında) → ikmal durur
         this.lastNearbyAllyCount = 0;  // yoldaş kaybını tespit için
 
         this.suppression = 0; // 0 to 100
@@ -90,9 +92,12 @@ class Unit {
             const vRadius = STATS[this.type].vision;
             const vRadius2 = vRadius * vRadius;
             const MORALE_R2 = 280 * 280; // moral etkisi yarıçapı (yoldaşlık hissi)
+            const SUPPLY_R2 = 470 * 470; // T3 lojistik: ikmal hattı kesme yarıçapı (biraz daha geniş)
+            const homeSign = this.isRed ? -1 : 1;   // üs yönü: kırmızı=kuzey(-y), mavi=güney(+y)
             let enemySeen = false;
             let allyStr = 0, enemyStr = 0, allyCount = 0, leaderNear = false, fleeingNear = 0;
-            let encSectors = 0;   // T3 KUŞATILMA: yakın düşmanların doldurduğu 8 sektör bit-maskesi
+            let encSectors = 0;       // T3 KUŞATILMA: yakın düşmanların doldurduğu 8 sektör bit-maskesi
+            let enemyHomeward = 0;    // T3 LOJİSTİK: benimle üs arasındaki düşman gücü (hat kesme)
             for (const u of SIM.units) {
                 if (u.dead) continue;
                 const ddx = u.x - this.x, ddy = u.y - this.y;
@@ -104,6 +109,9 @@ class Unit {
                         enemyStr += u.atk * (u.hp / Math.max(1, u.maxHp));
                         const sec = (Math.floor((Math.atan2(ddy, ddx) + Math.PI) / (Math.PI / 4)) & 7);   // 0..7 yön sektörü
                         encSectors |= (1 << sec);
+                    }
+                    if (d2 <= SUPPLY_R2 && (ddy * homeSign) > Math.abs(ddx) * 0.5) {   // üs yönünde (arkamda) düşman → hattı keser
+                        enemyHomeward += u.atk * (u.hp / Math.max(1, u.maxHp));
                     }
                 } else if (u !== this) {
                     // Dost: yerel destek gücü, lider varlığı, bozgun yayılımı
@@ -122,6 +130,8 @@ class Unit {
             this.localForceRatio = allyStr / (enemyStr + 1);
             let _ec = encSectors, _cnt = 0; while (_ec) { _cnt += _ec & 1; _ec >>= 1; }   // T3 KUŞATILMA: dolu sektör say
             this.encirclement = _cnt / 8;                                                  // 0=serbest, 1=tam sarılı (Cannae)
+            this.supplyDist = this.isRed ? (this.y / WORLD_H) : (1 - this.y / WORLD_H);    // T3 LOJİSTİK: üsten uzaklık 0..1
+            this.supplyCut = this.supplyDist > 0.22 && enemyHomeward > (this.atk * 1.4 + 6); // arkamda yeterli düşman → hat kesik
             this.leaderNearby = leaderNear;
             this.fleeingNearby = fleeingNear;
             // Çevredeki dost sayısı düştüyse → yoldaş kaybı şoku (tek seferlik panik sıçraması)
@@ -152,6 +162,7 @@ class Unit {
         if (hpRatio < 0.3 && this.enemyInVision) panicGain += 10 / 60 * GAME_SPEED;            // yaralı + düşman karşıda
         if (outnumbered && this.enemyInVision) panicGain += (0.75 - ratio) * 14 / 60 * GAME_SPEED; // sayıca dezavantaj
         if (this.encirclement >= 0.5 && this.enemyInVision) panicGain += (this.encirclement - 0.375) * 34 / 60 * GAME_SPEED; // T3 KUŞATILMA (Cannae): etrafı sarılan birlik moral çöker → ENVELOP ödüllenir
+        if (this.supplyCut && this.enemyInVision) panicGain += 5 / 60 * GAME_SPEED;             // T3 LOJİSTİK: ikmal hattı kesik → tedirginlik (geri çekil sinyali)
         if (this.fleeingNearby >= 2 && this.enemyInVision) panicGain += Math.min(this.fleeingNearby, 5) * 3 / 60 * GAME_SPEED; // bozgun yayılır (yalnız tehlike altında; güvende sönsün)
         if (this.suppression > 60) panicGain += 4 / 60 * GAME_SPEED;                            // ağır baskı altında
         if (this.leaderNearby) panicGain *= 0.55;  // yakındaki lider askerleri yatıştırır
@@ -337,7 +348,7 @@ class Unit {
             }
         }
 
-        if (this.inSupply && this.ammo < this.maxAmmo) {
+        if (this.inSupply && !this.supplyCut && this.ammo < this.maxAmmo) {   // T3 LOJİSTİK: hat kesikse siperde bile ikmal gelmez
             this.supplyProgress += 0.035 * GAME_SPEED;
             if (this.supplyProgress >= 1) {
                 const rounds = Math.floor(this.supplyProgress);
