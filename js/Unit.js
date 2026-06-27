@@ -538,7 +538,7 @@ class Unit {
             
             const _visR = this.vision * (1 + Math.max(0, (this.elevation || 0.5) - 0.45) * 0.55);   // T2: yüksekte görüş artar
             if (d > _visR && !canSee(this.isRed, u.x, u.y)) continue;
-            if (u.isConcealed && u.isConcealed() && d > AMBUSH_DETECT) continue;   // T3 PUSU: gizli orman birimi uzaktan hedeflenemez
+            if (u.isConcealed && u.isConcealed() && d > (this.type === T.RECON ? AMBUSH_DETECT * 2 : AMBUSH_DETECT)) continue;   // T3 PUSU/KEŞİF: gizli orman birimi uzaktan hedeflenemez (keşif 2× tespit)
             
             if (this.type !== T.ARTILLERY && !checkLineOfSight(this.x, this.y, u.x, u.y, this, u)) continue;
             

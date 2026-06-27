@@ -784,12 +784,13 @@ function canSee(teamIsRed, targetX, targetY) {
     return false;
 }
 
-// T3 PUSU: viewerIsRed tarafı, gizli u birimini AMBUSH_DETECT içinden fark ediyor mu (render+minimap gizleme)
+// T3 PUSU+KEŞİF: viewerIsRed tarafı gizli u'yu fark ediyor mu — KEŞİF birimi 2× mesafeden tespit eder (pusu-karşıtı)
 function enemyDetectsConcealed(u, viewerIsRed) {
-    const nearby = SIM.spatialGrid.getNearby(u.x, u.y, AMBUSH_DETECT);
+    const nearby = SIM.spatialGrid.getNearby(u.x, u.y, AMBUSH_DETECT * 2);
     for (const o of nearby) {
         if (o.dead || o === u || o.isRed !== viewerIsRed) continue;
-        if (Math.hypot(o.x - u.x, o.y - u.y) <= AMBUSH_DETECT) return true;
+        const r = (o.type === T.RECON) ? AMBUSH_DETECT * 2 : AMBUSH_DETECT;   // keşif önden tarar
+        if (Math.hypot(o.x - u.x, o.y - u.y) <= r) return true;
     }
     return false;
 }
