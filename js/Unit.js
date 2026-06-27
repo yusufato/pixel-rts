@@ -56,6 +56,7 @@ class Unit {
         this.fleeingNearby = 0;        // yakında kaçan dost sayısı (bozgun yayılımı)
         this.nearbyAllyStrength = 0;
         this.nearbyEnemyStrength = 0;
+        this.encirclement = 0;         // T3 KUŞATILMA: etrafımı saran düşman açı-kapsaması 0..1 (8 sektör)
         this.lastNearbyAllyCount = 0;  // yoldaş kaybını tespit için
 
         this.suppression = 0; // 0 to 100
@@ -91,6 +92,7 @@ class Unit {
             const MORALE_R2 = 280 * 280; // moral etkisi yarıçapı (yoldaşlık hissi)
             let enemySeen = false;
             let allyStr = 0, enemyStr = 0, allyCount = 0, leaderNear = false, fleeingNear = 0;
+            let encSectors = 0;   // T3 KUŞATILMA: yakın düşmanların doldurduğu 8 sektör bit-maskesi
             for (const u of SIM.units) {
                 if (u.dead) continue;
                 const ddx = u.x - this.x, ddy = u.y - this.y;
@@ -98,7 +100,11 @@ class Unit {
                 if (u.isRed !== this.isRed) {
                     // Düşman: görüş + yerel tehdit gücü
                     if (!enemySeen && d2 <= vRadius2) enemySeen = true;
-                    if (d2 <= MORALE_R2) enemyStr += u.atk * (u.hp / Math.max(1, u.maxHp));
+                    if (d2 <= MORALE_R2) {
+                        enemyStr += u.atk * (u.hp / Math.max(1, u.maxHp));
+                        const sec = (Math.floor((Math.atan2(ddy, ddx) + Math.PI) / (Math.PI / 4)) & 7);   // 0..7 yön sektörü
+                        encSectors |= (1 << sec);
+                    }
                 } else if (u !== this) {
                     // Dost: yerel destek gücü, lider varlığı, bozgun yayılımı
                     if (d2 <= MORALE_R2) {
@@ -114,6 +120,8 @@ class Unit {
             this.nearbyEnemyStrength = enemyStr;
             this.nearbyAllyStrength = allyStr;
             this.localForceRatio = allyStr / (enemyStr + 1);
+            let _ec = encSectors, _cnt = 0; while (_ec) { _cnt += _ec & 1; _ec >>= 1; }   // T3 KUŞATILMA: dolu sektör say
+            this.encirclement = _cnt / 8;                                                  // 0=serbest, 1=tam sarılı (Cannae)
             this.leaderNearby = leaderNear;
             this.fleeingNearby = fleeingNear;
             // Çevredeki dost sayısı düştüyse → yoldaş kaybı şoku (tek seferlik panik sıçraması)
@@ -142,7 +150,8 @@ class Unit {
         // ── Panik KAZANIMI (korku kaynakları) ──
         let panicGain = 0;
         if (hpRatio < 0.3 && this.enemyInVision) panicGain += 10 / 60 * GAME_SPEED;            // yaralı + düşman karşıda
-        if (outnumbered && this.enemyInVision) panicGain += (0.75 - ratio) * 14 / 60 * GAME_SPEED; // kuşatılmışlık
+        if (outnumbered && this.enemyInVision) panicGain += (0.75 - ratio) * 14 / 60 * GAME_SPEED; // sayıca dezavantaj
+        if (this.encirclement >= 0.5 && this.enemyInVision) panicGain += (this.encirclement - 0.375) * 34 / 60 * GAME_SPEED; // T3 KUŞATILMA (Cannae): etrafı sarılan birlik moral çöker → ENVELOP ödüllenir
         if (this.fleeingNearby >= 2 && this.enemyInVision) panicGain += Math.min(this.fleeingNearby, 5) * 3 / 60 * GAME_SPEED; // bozgun yayılır (yalnız tehlike altında; güvende sönsün)
         if (this.suppression > 60) panicGain += 4 / 60 * GAME_SPEED;                            // ağır baskı altında
         if (this.leaderNearby) panicGain *= 0.55;  // yakındaki lider askerleri yatıştırır
