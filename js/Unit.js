@@ -680,10 +680,26 @@ class Unit {
 
         if (s.x < -dw * 2 || s.x > canvas.width + dw * 2 || s.y < -dh * 2 || s.y > canvas.height + dh * 2) return;
 
+        // Yumuşak dönüş (render-only): drawAngle facingAngle'a kademeli yaklaşır → "tık diye" dönmez
+        if (this.drawAngle === undefined) this.drawAngle = this.facingAngle;
+        let _da = this.facingAngle - this.drawAngle;
+        while (_da > Math.PI) _da -= Math.PI * 2;
+        while (_da < -Math.PI) _da += Math.PI * 2;
+        this.drawAngle += _da * UNIT_TURN_SMOOTH;
+        const _ang = this.drawAngle + UNIT_FACE_OFFSET;    // sprite + seçim-kutusu çizim açısı
+
         if (this.selected && !this.isRed) {
             ctx.strokeStyle = '#00ff55';
             ctx.lineWidth = 2;
-            ctx.strokeRect(s.x - dw / 2 - 3, s.y - dh / 2 - 3, dw + 6, dh + 6);
+            if (UNIT_ROTATE) {
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(_ang);                          // seçim kutusu birimle birlikte döner
+                ctx.strokeRect(-dw / 2 - 3, -dh / 2 - 3, dw + 6, dh + 6);
+                ctx.restore();
+            } else {
+                ctx.strokeRect(s.x - dw / 2 - 3, s.y - dh / 2 - 3, dw + 6, dh + 6);
+            }
         }
         if (this.ally) {   // OTONOM müttefik (dost-AI; oyuncu seçemez) → camgöbeği nokta
             ctx.fillStyle = 'rgba(90,220,255,0.95)';
@@ -701,7 +717,7 @@ class Unit {
         if (UNIT_ROTATE) {
             ctx.save();
             ctx.translate(s.x, s.y);
-            ctx.rotate(this.facingAngle + UNIT_FACE_OFFSET);   // tüm sprite hedefe "düz" döner
+            ctx.rotate(_ang);                                  // tüm sprite hedefe "düz" döner (yumuşak)
             ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -dw / 2, -dh / 2, dw, dh);
             ctx.restore();
         } else {
@@ -711,10 +727,11 @@ class Unit {
 
         // ÖN-işareti: facing yönüne bakan parlak burun → ön/arka net (arkadan kuşatılınca bile okunur)
         if (UNIT_FRONT_MARKER) {
-            const fa = this.facingAngle;
+            const fa = this.drawAngle;                          // yumuşak yön
             const cx = Math.cos(fa), cy = Math.sin(fa);
             const px = -cy, py = cx;                            // facing'e dik (taban yönü)
-            const fr = Math.max(dw, dh) * 0.5 + 2 * zoom;       // sprite ön-ucu
+            const off = UNIT_FACE_OFFSET;                       // ön-uç = leading edge mesafesi (offset'e göre)
+            const fr = (dw / 2) * Math.abs(Math.cos(off)) + (dh / 2) * Math.abs(Math.sin(off)) + 2 * zoom;
             const fx = s.x + cx * fr, fy = s.y + cy * fr;
             const tip = 5 * zoom, half = 3 * zoom;
             ctx.beginPath();
