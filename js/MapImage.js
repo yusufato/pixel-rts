@@ -268,6 +268,92 @@ function drawGridTerrain() {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  YOL BULMA (A*) — birlikler suya dalmasın, KÖPRÜLERDEN geçsin. Determinist.
+//  terrainGrid üzerinde 8-yön A* + LOS string-pulling sadeleştirme. Sonuç: dünya
+//  ara-noktaları dizisi. AI/Unit hareketinde düz-hat su/dağla kapalıysa bu kullanılır.
+// ═══════════════════════════════════════════════════════════════════════════
+function _navPass(gx, gy) {
+    if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) return false;
+    const t = terrainGrid[_gi(gx, gy)];
+    if (t === TERRAIN.MOUNTAIN) return false;
+    if (t === TERRAIN.WATER) return bridgeSet && bridgeSet.has(gx + ',' + gy);
+    return true;
+}
+// düz-hat boyunca geçilemez hücre var mı (örnekleme) → pathfinding gerekiyor mu
+function pathBlockedBetween(x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+    const steps = Math.ceil(len / (CELL_W * 0.5));
+    if (steps <= 1) return !isPassableAt(x2, y2);
+    for (let i = 1; i <= steps; i++) {
+        const x = x1 + dx * i / steps, y = y1 + dy * i / steps;
+        if (!isPassableAt(x, y)) return true;
+    }
+    return false;
+}
+// minik ikili-yığın (A* open set)
+function _MinHeap() { this.a = []; }
+_MinHeap.prototype.push = function (n) { const a = this.a; a.push(n); let i = a.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (a[p].f <= a[i].f) break; const t = a[p]; a[p] = a[i]; a[i] = t; i = p; } };
+_MinHeap.prototype.pop = function () { const a = this.a; const top = a[0], last = a.pop(); if (a.length) { a[0] = last; let i = 0; for (; ;) { let l = 2 * i + 1, r = l + 1, s = i; if (l < a.length && a[l].f < a[s].f) s = l; if (r < a.length && a[r].f < a[s].f) s = r; if (s === i) break; const t = a[s]; a[s] = a[i]; a[i] = t; i = s; } } return top; };
+_MinHeap.prototype.size = function () { return this.a.length; };
+
+function findPathCells(sgx, sgy, ggx, ggy, maxExpand) {
+    if (!_navPass(ggx, ggy)) {                                  // hedef geçilemezse en yakın geçilebilire
+        let best = null, bd = 1e9;
+        for (let r = 1; r <= 6 && !best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            const nx = ggx + dx, ny = ggy + dy; if (!_navPass(nx, ny)) continue;
+            const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [nx, ny]; }
+        }
+        if (!best) return null; ggx = best[0]; ggy = best[1];
+    }
+    const open = new _MinHeap();
+    const came = new Map(), g = new Map();
+    const key = (x, y) => y * GRID_W + x;
+    const h = (x, y) => { const dx = Math.abs(x - ggx), dy = Math.abs(y - ggy); return (dx + dy) + (Math.SQRT2 - 2) * Math.min(dx, dy); };
+    g.set(key(sgx, sgy), 0);
+    open.push({ x: sgx, y: sgy, f: h(sgx, sgy) });
+    const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    let expand = 0; const cap = maxExpand || 6000;
+    while (open.size()) {
+        const cur = open.pop();
+        if (cur.x === ggx && cur.y === ggy) {                   // yol bulundu → geri izle
+            const path = []; let k = key(cur.x, cur.y), cx = cur.x, cy = cur.y;
+            while (k !== key(sgx, sgy)) { path.push([cx, cy]); const p = came.get(k); if (!p) break; cx = p[0]; cy = p[1]; k = key(cx, cy); }
+            path.push([sgx, sgy]); path.reverse(); return path;
+        }
+        if (++expand > cap) return null;
+        const ck = key(cur.x, cur.y), cg = g.get(ck);
+        for (const [dx, dy] of DIRS) {
+            const nx = cur.x + dx, ny = cur.y + dy;
+            if (!_navPass(nx, ny)) continue;
+            if (dx !== 0 && dy !== 0 && (!_navPass(cur.x + dx, cur.y) || !_navPass(cur.x, cur.y + dy))) continue;  // köşe kesme yok
+            const step = (dx !== 0 && dy !== 0) ? Math.SQRT2 : 1;
+            const nk = key(nx, ny), ng = cg + step;
+            if (g.has(nk) && ng >= g.get(nk)) continue;
+            g.set(nk, ng); came.set(nk, [cur.x, cur.y]);
+            open.push({ x: nx, y: ny, f: ng + h(nx, ny) });
+        }
+    }
+    return null;
+}
+// dünya-koordinat yol; LOS string-pulling ile sadeleştirilir → az ara-nokta, akıcı
+function findPath(wx, wy, gwx, gwy) {
+    if (!terrainGrid) return null;
+    const sgx = Math.floor(wx / CELL_W), sgy = Math.floor(wy / CELL_H);
+    const ggx = Math.floor(gwx / CELL_W), ggy = Math.floor(gwy / CELL_H);
+    const cells = findPathCells(sgx, sgy, ggx, ggy);
+    if (!cells || cells.length < 2) return null;
+    const pts = cells.map(c => ({ x: (c[0] + 0.5) * CELL_W, y: (c[1] + 0.5) * CELL_H }));
+    // string-pulling: ardışık görünür noktaları atla
+    const out = [pts[0]]; let anchor = 0;
+    for (let i = 2; i < pts.length; i++) {
+        if (pathBlockedBetween(pts[anchor].x, pts[anchor].y, pts[i].x, pts[i].y)) { out.push(pts[i - 1]); anchor = i - 1; }
+    }
+    out.push(pts[pts.length - 1]);
+    return out;
+}
+
 // ── ÇİZİLEN HARİTAYI UYGULA ──
 function applyImageMap() {
     MAP_MODE = 'grid';

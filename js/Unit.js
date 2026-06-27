@@ -206,15 +206,39 @@ class Unit {
 
         this.engageCombat(now);
 
+        const _gridMode = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
+        // NEHİR/YOL BULMA: düz hat su/dağla kapalıysa KÖPRÜDEN geçen yolu izle (deterministik A*)
+        let _steerX = this.targetX, _steerY = this.targetY;
+        if (_gridMode && typeof findPath === 'function') {
+            this._navCd = (this._navCd || 0) - 1;
+            const blocked = pathBlockedBetween(this.x, this.y, this.targetX, this.targetY);
+            if (!blocked) {
+                this._navPath = null;                                  // düz hat açık → doğrudan git
+            } else {
+                const goalMoved = (this._navGX === undefined) || Math.hypot(this.targetX - this._navGX, this.targetY - this._navGY) > 140;
+                if (goalMoved || !this._navPath || this._navCd <= 0) {
+                    this._navPath = findPath(this.x, this.y, this.targetX, this.targetY);
+                    this._navIdx = 0; this._navGX = this.targetX; this._navGY = this.targetY; this._navCd = 24;
+                }
+                if (this._navPath && this._navPath.length) {
+                    while (this._navIdx < this._navPath.length - 1 &&
+                        Math.hypot(this.x - this._navPath[this._navIdx].x, this.y - this._navPath[this._navIdx].y) < CELL_W * 1.3) this._navIdx++;
+                    const wp = this._navPath[Math.min(this._navIdx, this._navPath.length - 1)];
+                    _steerX = wp.x; _steerY = wp.y;
+                }
+            }
+        }
+
         let desiredX = this.targetX - this.x;
         let desiredY = this.targetY - this.y;
         const distToTarget = Math.sqrt(desiredX * desiredX + desiredY * desiredY);
         const movementSpeed = this.speed * GAME_SPEED;
 
-        const _gridMode = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
         if (distToTarget > movementSpeed + 1) {
-            let moveX = (desiredX / distToTarget) * movementSpeed;
-            let moveY = (desiredY / distToTarget) * movementSpeed;
+            const _sdx = _steerX - this.x, _sdy = _steerY - this.y;
+            const _sd = Math.hypot(_sdx, _sdy) || 1;
+            let moveX = (_sdx / _sd) * movementSpeed;
+            let moveY = (_sdy / _sd) * movementSpeed;
 
             if (!_gridMode) for (const t of terrainFeatures) {
                 if (t.type === TERRAIN.MOUNTAIN) {
