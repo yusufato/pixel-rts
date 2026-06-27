@@ -524,7 +524,7 @@ function elevationAt(x, y) {                      // 0..1 yükseklik; harita-gen
     for (let o = 0; o < 3; o++) { e += _eNoise(x * freq, y * freq, s + o * 131) * amp; sum += amp; amp *= 0.5; freq *= 2; }
     return e / sum;
 }
-function bakeTerrainElevation() {                 // kontur çizgilerini offscreen world-canvas'a BİR KEZ damgala (marching squares)
+function bakeTerrainElevation() {                 // yükselti dolgu + kontur çizgileri — offscreen world-canvas'a BİR KEZ damgala
     _elevDirty = false;
     if (typeof SIM !== 'undefined' && SIM.headless) return;
     if (typeof document === 'undefined' || !document.createElement) return;
@@ -533,10 +533,22 @@ function bakeTerrainElevation() {                 // kontur çizgilerini offscre
     const step = 60, cols = Math.ceil(WORLD_W / step), rows = Math.ceil(WORLD_H / step);
     const E = [];
     for (let j = 0; j <= rows; j++) { E[j] = []; for (let i = 0; i <= cols; i++) E[j][i] = elevationAt(i * step, j * step); }
+
+    // Geçiş 1: yüksek alanlara çok hafif ısıl renk dolgusu (çizgisiz bile okunabilir)
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const avg = (E[j][i] + E[j][i + 1] + E[j + 1][i + 1] + E[j + 1][i]) * 0.25;
+        if (avg < 0.32) continue;
+        const alpha = Math.min(0.30, (avg - 0.32) * 0.55);
+        c.fillStyle = `rgba(200,172,100,${alpha.toFixed(3)})`;
+        c.fillRect(i * step, j * step, step + 1, step + 1);
+    }
+
+    // Geçiş 2: topografik kontur çizgileri — lineWidth 7 world-px (zoom 0.65'te ~4-5 ekran px → net görünür)
     const levels = [0.30, 0.42, 0.54, 0.66, 0.78];
-    c.lineWidth = 2; c.lineJoin = 'round';
+    c.lineWidth = 7; c.lineJoin = 'round'; c.lineCap = 'round';
     for (const L of levels) {
-        c.strokeStyle = `rgba(116,96,54,${(0.28 + (L - 0.3) * 0.7).toFixed(3)})`;
+        const opacity = 0.52 + (L - 0.30) * 1.0;   // 0.52 → 0.52 → 1.0 aralığı (0.30→0.78 eşik)
+        c.strokeStyle = `rgba(190,155,75,${Math.min(1, opacity).toFixed(3)})`;
         c.beginPath();
         for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
             const x0 = i * step, y0 = j * step, x1 = x0 + step, y1 = y0 + step;
