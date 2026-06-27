@@ -311,7 +311,20 @@ function cmdrOrderUnit(u, side, plan, foes, G) {
     // ADIM 1+3 — TEK NİYET KANALI: makro niyet + ROL-tutarlı kite mesafesi. engageCombat İCRACI bunu okur (rol-taksonomi kopukluğu da biter: PIN/topçu geniş standoff, FLANK orta, MAIN yakın).
     let _pref = 0.62;   // MAIN: yakın angajman
     if (role === ROLE.PIN) _pref = 0.92; else if (role === ROLE.FLANK) _pref = 0.72; else if (role === ROLE.RESERVE) _pref = 0.85;
-    u.intent = { posture: plan.mode === 'REGROUP' ? 'DISENGAGE' : (plan.mode === 'TERRITORY' ? 'HOLD' : 'ATTACK'), preferredRange: _pref };
+    // T3 TEMPO/C2: posture (büyük karar) komut-gecikmesiyle yerleşir — C2-bağlı(lider yakın) hızlı, izole yavaş (OODA sürtünmesi)
+    const _desiredPosture = plan.mode === 'REGROUP' ? 'DISENGAGE' : (plan.mode === 'TERRITORY' ? 'HOLD' : 'ATTACK');
+    if (!u.intent) u.intent = { posture: _desiredPosture, preferredRange: _pref };
+    u.intent.preferredRange = _pref;          // menzil-tercihi hemen güncellenir (yalnız posture gecikir)
+    u.intent.focusTarget = null;              // her döngü sıfırla (aşağıda yeniden atanabilir)
+    if (_desiredPosture === u.intent.posture) {
+        u._pendConfirm = 0; u._pendPosture = null;
+    } else {
+        if (u._pendPosture === _desiredPosture) u._pendConfirm = (u._pendConfirm || 0) + 1;
+        else { u._pendPosture = _desiredPosture; u._pendConfirm = 1; }
+        const _need = u.leaderNearby ? 1 : 3;  // C2-bağlı: 1 komutan-döngüsü; izole: 3 döngü gecikme
+        if (u._pendConfirm >= _need) { u.intent.posture = _desiredPosture; u._pendConfirm = 0; u._pendPosture = null; }
+    }
+    u.c2Linked = !!u.leaderNearby;            // T3 NN girdisi: komuta-zincirine bağlı mıyım
     // ADIM 6: bu birim öncelikli kill-target'a YOĞUNLAŞSIN mı? (menzile yakın + cap dolmadı + çekilmiyor) → koordineli odak ateş
     if (plan.killTarget && !plan.killTarget.dead && (plan._focusUsed || 0) < (plan._focusCap || 0) && u.intent.posture !== 'DISENGAGE'
         && cmdrDist2(u, plan.killTarget.x, plan.killTarget.y) < (range * 1.3) * (range * 1.3)) {
