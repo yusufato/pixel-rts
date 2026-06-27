@@ -946,6 +946,8 @@ function drawMinimap() {
         if (u.dead) continue;
         // Düşman sis içindeyse minimap'te de gözükmez
         if (u.isRed !== myCanonicalSide && phase === PHASE.BATTLE && !canSee(myCanonicalSide, u.x, u.y)) continue;
+        // T3 PUSU: gizli düşman (ormanda saklı, yakından fark edilmemiş) minimapta da yok
+        if (u.isRed !== myCanonicalSide && phase === PHASE.BATTLE && u.isConcealed && u.isConcealed() && typeof enemyDetectsConcealed === 'function' && !enemyDetectsConcealed(u, myCanonicalSide)) continue;
         
         const mx = (u.x / WORLD_W) * mw, my = (u.y / WORLD_H) * mh;
         minimapCtx.fillStyle = u.isRed ? '#ff4444' : '#4488ff';

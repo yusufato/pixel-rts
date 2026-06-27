@@ -25,6 +25,7 @@ class Unit {
         this.armor = s.armor;
         
         this.inForest = false;
+        this.revealTimer = 0;        // T3 PUSU: >0 iken açıkta (yeni ateş etti), 0 iken ormanda gizlenebilir
         this.elevation = 0.5;
         this.inTrench = false;
         this.buildTrenchTarget = null;
@@ -77,6 +78,7 @@ class Unit {
         if (this.dead || phase !== PHASE.BATTLE) return;
 
         if (this.flashTimer > 0) this.flashTimer -= GAME_SPEED;
+        if (this.revealTimer > 0) this.revealTimer -= GAME_SPEED;   // T3 PUSU: açıkta kalma süresi azalır → tekrar gizlenir
         this.scanTimer -= GAME_SPEED;
         
         if (this.suppression > 0) this.suppression -= 0.18 * GAME_SPEED;   // T1: yavaş decay → bastırma birikebilir (taktik kaynak)
@@ -498,6 +500,11 @@ class Unit {
         }
     }
 
+    // T3 PUSU: ormanda + yeni ateş etmemiş + kaçmıyor → gizli (sadece AMBUSH_DETECT içinden fark edilir)
+    isConcealed() {
+        return this.inForest && this.revealTimer <= 0 && !this.isFleeing;
+    }
+
     findBestVisibleEnemy() {
         let bestTarget = null;
         let maxScore = -Infinity;
@@ -511,6 +518,7 @@ class Unit {
             
             const _visR = this.vision * (1 + Math.max(0, (this.elevation || 0.5) - 0.45) * 0.55);   // T2: yüksekte görüş artar
             if (d > _visR && !canSee(this.isRed, u.x, u.y)) continue;
+            if (u.isConcealed && u.isConcealed() && d > AMBUSH_DETECT) continue;   // T3 PUSU: gizli orman birimi uzaktan hedeflenemez
             
             if (this.type !== T.ARTILLERY && !checkLineOfSight(this.x, this.y, u.x, u.y, this, u)) continue;
             
@@ -550,6 +558,8 @@ class Unit {
         else if (this.suppression > 50) currentAtkSpeed *= 1.5;             // baskı altında ateş yavaşlar
         if (now - this.lastAttackTime < currentAtkSpeed) return;
 
+        const _wasConcealed = this.isConcealed();   // T3 PUSU: gizliyken ateş → sürpriz bonusu + açığa çıkma
+
         let dmg = calculateUnitDamage(
             this.type,
             this.attackTarget.type,
@@ -579,6 +589,8 @@ class Unit {
         const _eDelta = (this.elevation || 0.5) - (this.attackTarget.elevation || 0.5);
         if (_eDelta > 0.05) dmg *= 1 + Math.min(0.28, _eDelta * 1.6);
         else if (_eDelta < -0.05) dmg *= 1 - Math.min(0.20, -_eDelta * 1.3);
+
+        if (_wasConcealed && this.type !== T.ARTILLERY) dmg *= AMBUSH_DMG_MULT;   // T3 PUSU: gizliden ilk atış sürprizi
 
         const primaryTarget = this.attackTarget;
 
@@ -624,6 +636,7 @@ class Unit {
             }
             this.ammo--;
             this.lastAttackTime = now;
+            this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık
             if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, cx, cy, true);
             if (typeof spawnExplosion !== 'undefined') spawnExplosion(cx, cy, 1.7);
             if (typeof triggerScreenShake === 'function') triggerScreenShake(0.09);   // topçu patlaması (%80 azaltıldı)
@@ -698,8 +711,9 @@ class Unit {
         }
         
         if (this.type !== T.MEDIC) this.ammo--;
-        
+
         this.lastAttackTime = now;
+        this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık (gizlilik bozulur)
         
         if (typeof spawnTracer !== 'undefined') {
             spawnTracer(this.x, this.y, this.attackTarget.x, this.attackTarget.y, this.type === T.ARTILLERY);
@@ -744,6 +758,11 @@ class Unit {
         if (this.dead) return;
 
         if (this.isRed && phase === PHASE.BATTLE && !canSee(false, this.x, this.y)) return;
+        // T3 PUSU: gizli düşman birimi yakından fark edilmiyorsa çizme (ormanda saklı)
+        if (phase === PHASE.BATTLE && this.isConcealed && this.isConcealed()) {
+            const _viewer = (typeof myCanonicalSide !== 'undefined') ? myCanonicalSide : false;
+            if (this.isRed !== _viewer && typeof enemyDetectsConcealed === 'function' && !enemyDetectsConcealed(this, _viewer)) return;
+        }
 
         // Knockback/recoil görsel ofseti (render-only; this.x/y'ye DOKUNMAZ) — yaylanarak söner
         if (this.voffX === undefined) { this.voffX = 0; this.voffY = 0; }

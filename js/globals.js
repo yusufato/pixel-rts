@@ -249,6 +249,10 @@ function updateCinematic(dt) {
 
 // Bastırma eşiği: bu üstünde birim PINNED (yere yatar, ilerleyemez, çok nadir ateş eder)
 const PINNED_SUPPRESSION = 80;
+// T3 PUSU: ormandaki birlik ateş edene kadar gizli → sadece yakından fark edilir; ateş edince açığa çıkar; ilk atış sürpriz bonusu
+const AMBUSH_DETECT = 170;          // gizli orman birimi bu mesafeden yakın düşmanca fark edilir
+const AMBUSH_REVEAL_TICKS = 150;    // ateş sonrası açıkta kalma (update başına GAME_SPEED düşer)
+const AMBUSH_DMG_MULT = 1.45;       // gizliyken yapılan ilk atış sürpriz hasarı
 
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -777,6 +781,16 @@ function canSee(teamIsRed, targetX, targetY) {
     // Kendi güvenli üssünü her zaman görebilir
     if (!teamIsRed && targetY > WORLD_H * 0.7) return true; 
     if (teamIsRed && targetY < WORLD_H * 0.3) return true;
+    return false;
+}
+
+// T3 PUSU: viewerIsRed tarafı, gizli u birimini AMBUSH_DETECT içinden fark ediyor mu (render+minimap gizleme)
+function enemyDetectsConcealed(u, viewerIsRed) {
+    const nearby = SIM.spatialGrid.getNearby(u.x, u.y, AMBUSH_DETECT);
+    for (const o of nearby) {
+        if (o.dead || o === u || o.isRed !== viewerIsRed) continue;
+        if (Math.hypot(o.x - u.x, o.y - u.y) <= AMBUSH_DETECT) return true;
+    }
     return false;
 }
 
