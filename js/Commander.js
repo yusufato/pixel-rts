@@ -330,6 +330,7 @@ function cmdrOrderUnit(u, side, plan, foes, G) {
         && cmdrDist2(u, plan.killTarget.x, plan.killTarget.y) < (range * 1.3) * (range * 1.3)) {
         u.intent.focusTarget = plan.killTarget; plan._focusUsed = (plan._focusUsed || 0) + 1;
     }
+    if (typeof nnApplyIntent === 'function') nnApplyIntent(u);   // ÖĞRENEN BEYİN: aktifse per-birim posture/menzil'i ezer (KAPALI iken kural-AI)
 
     let nf = null, nfd2 = Infinity, na = null, nad2 = Infinity;
     for (const e of foes) {
