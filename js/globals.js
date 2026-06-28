@@ -76,6 +76,7 @@ function seededRandom(seed) {
 // ═══════════════════════════════════════════════════════════════════════════
 const SIM = {
     rng: { state: 0x9e3779b9 },   // FAZ 0'da SIM_RNG idi → Faz 1'de SIM.rng'ye taşındı
+    tick: 0,                      // deterministik sim-saati (öğrenen beyin: intent-yaşı/bellek) — maç-başı sıfırlanır
     // FAZ 1c: bölge/zafer state'i (ControlPoints.js reassign ediyordu → world canonical, alias-kırılması biter)
     controlPoints: [],
     vpScore: { red: 0, blue: 0 },

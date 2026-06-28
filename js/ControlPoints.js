@@ -27,6 +27,7 @@ function initControlPoints() {
     ];
     SIM.vpScore = { red: 0, blue: 0 };
     SIM.vpWinner = null;
+    SIM.tick = 0;   // öğrenen beyin: maç-başı sim-saati sıfırla (MP iki-PC intent-yaşı/bellek fazı aynı olsun)
 }
 
 // cap ∈ [-1,+1]: -1 = KIRMIZI(AI) sahibi, +1 = MAVİ(oyuncu) sahibi, 0 = nötr
