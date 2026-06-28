@@ -322,7 +322,7 @@ function cmdrOrderUnit(u, side, plan, foes, G) {
         if (u._pendPosture === _desiredPosture) u._pendConfirm = (u._pendConfirm || 0) + 1;
         else { u._pendPosture = _desiredPosture; u._pendConfirm = 1; }
         const _need = u.leaderNearby ? 1 : 3;  // C2-bağlı: 1 komutan-döngüsü; izole: 3 döngü gecikme
-        if (u._pendConfirm >= _need) { u.intent.posture = _desiredPosture; u._pendConfirm = 0; u._pendPosture = null; }
+        if (u._pendConfirm >= _need) { u.intent.posture = _desiredPosture; u._pendConfirm = 0; u._pendPosture = null; u._intentStamp = (typeof SIM !== 'undefined' ? (SIM.tick || 0) : 0); }   // intent-yaşı için damga
     }
     u.c2Linked = !!u.leaderNearby;            // T3 NN girdisi: komuta-zincirine bağlı mıyım
     // ADIM 6: bu birim öncelikli kill-target'a YOĞUNLAŞSIN mı? (menzile yakın + cap dolmadı + çekilmiyor) → koordineli odak ateş

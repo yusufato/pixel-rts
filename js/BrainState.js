@@ -2,7 +2,9 @@
 //  BrainState.js — ÖĞRENEN BEYİN v2 GİRDİ KODLAYICI (HİBRİT: özellik + algı)
 //  ----------------------------------------------------------------------------
 //  encode(u, now) → { scalars: Float32Array(SCALAR_DIM), spatial: Float32Array(SPATIAL_DIM) }
-//   • scalars  : 225 el-işçiliği taktik özelliği (ego/düşman8/dost5/saha/bağlam/SU-KÖPRÜ/T3)
+//   • scalars  : 246 el-işçiliği taktik özelliği (ego/düşman8/dost5/saha/bağlam/SU-KÖPRÜ/T3/STRATEJİK/MOMENTUM)
+//     KONSEY-FIX: ölü 0-kanallar dolduruldu (görüş-belleği, intent-yaşı, keşif-boşluğu, yükselti-grad)
+//     + BLOK A (CP cap/contested+3CP+VP-skoru+maç-ilerleme+global-kuvvet) + frame-stack momentum
 //   • spatial  : 8 kanal × 16×16 ego-merkezli, DÜNYA-EKSENLİ ham harita (conv kolu için)
 //  Determinist: trig sadece var-olanlar (atan2 sim'de zaten), RNG yok, sabit ölçek.
 //  En-yakın-K sıralaması d2 + (x,y) tie-break → MP/headless bit-stabil.
@@ -13,8 +15,8 @@
 const BrainState = (function () {
     const K_ENEMY = 8, ENEMY_F = 9;     // 72
     const K_ALLY = 5, ALLY_F = 4;       // 20
-    const EGO_F = 20, FIELD_F = 16, CTX_F = 13, WATER_F = 44, T3_F = 40;
-    const SCALAR_DIM = EGO_F + K_ENEMY * ENEMY_F + K_ALLY * ALLY_F + FIELD_F + CTX_F + WATER_F + T3_F; // 225
+    const EGO_F = 20, FIELD_F = 16, CTX_F = 13, WATER_F = 44, T3_F = 40, STRAT_F = 17, MOM_F = 4;
+    const SCALAR_DIM = EGO_F + K_ENEMY * ENEMY_F + K_ALLY * ALLY_F + FIELD_F + CTX_F + WATER_F + T3_F + STRAT_F + MOM_F; // 246
     const GRID_N = 16, CHANNELS = 8, SPATIAL_DIM = CHANNELS * GRID_N * GRID_N; // 2048
     const EXT = 760;                    // uzaysal pencere yarı-genişliği (ego-merkez, ±760px)
     const R_REF = 900;                  // göreli konum/mesafe referans yarıçapı
@@ -114,6 +116,12 @@ const BrainState = (function () {
         // T3 (40)
         i = encodeT3(u, now, out, i, en);
 
+        // STRATEJİK / BLOK A (17): CP detay + 3 CP global + VP-skoru + maç-ilerleme + global kuvvet
+        i = encodeStrategic(u, out, i);
+
+        // FRAME-STACK / MOMENTUM (4): Δcan / Δbaskı / hedefe-Δmesafe / düşman-yaklaşıyor
+        i = encodeMomentum(u, out, i);
+
         return i;
     }
 
@@ -188,9 +196,14 @@ const BrainState = (function () {
     function encodeT3(u, now, out, i, en) {
         const P = v => { out[i++] = (v === v) ? c01OrN(v) : 0; };
         const st = STATS[u.type] || {};
-        // 1 gizli / 2 gizli-şüphe(yer tutucu) / 1 açıkta
+        // 1 gizli / 2 gizli-düşman-şüphesi (görüş-belleği: en-son-görülen ama ŞU AN kayıp düşman) / 1 açıkta
         P(u.isConcealed && u.isConcealed() ? 1 : 0);
-        P(0); P(0);                                            // gizli-düşman-şüphesi (last-seen belleği → sim eklenince dolar)
+        {
+            let gBest = Infinity, gDx = 0, gDy = 0;
+            const ec = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, R_REF * 1.6) : SIM.units;
+            for (const o of ec) { if (o.dead || o.isRed === u.isRed) continue; if (o.ghVisible !== false || o.ghX == null) continue; const dx = o.ghX - u.x, dy = o.ghY - u.y, d2 = dx * dx + dy * dy; if (d2 < gBest) { gBest = d2; gDx = dx; gDy = dy; } }
+            if (gBest < Infinity) { P(cN1(gDx / R_REF)); P(cN1(gDy / R_REF)); } else { P(0); P(0); }
+        }
         P((u.revealTimer || 0) > 0 ? 1 : 0);
         // kanat-açık + sol/sağ dost örtüsü (yön sektörlerinden)
         const al = nearestK(u, false, K_ALLY);
@@ -212,9 +225,9 @@ const BrainState = (function () {
         P(c01(u.encirclement || 0));
         P(c01((u.suppression || 0) / 100)); P((u.suppression || 0) > (typeof PINNED_SUPPRESSION !== 'undefined' ? PINNED_SUPPRESSION : 80) ? 1 : 0);
         P(at && !at.dead ? c01((at.suppression || 0) / 100) : 0);
-        // tempo/C2 (2)
+        // tempo/C2 (2): bağlı-mı + intent-yaşı (komutan tick damgasından → emrim ne kadar bayat)
         P(u.c2Linked ? 1 : 0);
-        P(0);                                                  // intent-yaşı/tempo (komutan tick damgası → sonra)
+        P(c01(((typeof SIM !== 'undefined' ? (SIM.tick || 0) : 0) - (u._intentStamp || 0)) / 40));
         // lojistik (2): supplyDist, supplyCut
         P(c01(u.supplyDist || 0)); P(u.supplyCut ? 1 : 0);
         // mühimmat (2): frac + düşük-bayrak
@@ -222,14 +235,24 @@ const BrainState = (function () {
         const ammoFrac = maxAmmo > 0 ? c01(u.ammo / maxAmmo) : 1; P(ammoFrac); P(ammoFrac < 0.25 ? 1 : 0);
         // keşif-oranı (1) — gördüğüm düşman / toplam düşman
         P(reconRatio(u));
-        // keşif-boşluğu yön+büyüklük (2) — en boş düşman-sektörü (yer tutucu basit)
-        P(0); P(0);
+        // keşif-boşluğu yön×büyüklük (2) — dost görüşünün EN ZAYIF olduğu yön (kör-nokta)
+        {
+            const cov = new Float64Array(8);
+            for (const a of al) { const s = (Math.floor((Math.atan2(a.dy, a.dx) + Math.PI) / (Math.PI / 4)) & 7); cov[s] += (STATS[a.o.type] ? STATS[a.o.type].vision : 300) / MAXVIS; }
+            let mb = 0, mbv = cov[0]; for (let s = 1; s < 8; s++) if (cov[s] < mbv) { mbv = cov[s]; mb = s; }
+            const ang = (mb + 0.5) * (Math.PI / 4) - Math.PI, blind = c01(1 - mbv);
+            P(cN1(Math.cos(ang) * blind)); P(cN1(Math.sin(ang) * blind));
+        }
         // parça-parça-yenme (localForceRatio keskinleştirilmiş) (1)
         P(c01(1 - (u.localForceRatio || 1)));
-        // yükselti avantajı (3): self, hedef, en-yakın-yüksek yön (basit: 0)
+        // yükselti avantajı (3): self, hedef, yakın-yüksek-zemin kazanç-gradyanı
         P(c01(u.elevation != null ? u.elevation : 0.5));
         P(at && !at.dead ? c01(at.elevation != null ? at.elevation : 0.5) : 0.5);
-        P(0);
+        {
+            let myE = u.elevation != null ? u.elevation : 0.5, maxE = myE;
+            if (typeof elevationAt === 'function') for (let s = 0; s < 8; s++) { const ang = s * (Math.PI / 4); const e = elevationAt(u.x + Math.cos(ang) * 150, u.y + Math.sin(ang) * 150); if (e > maxE) maxE = e; }
+            P(c01((maxE - myE) * 2));                           // yakında ne kadar yüksek-zemin kazanabilirim
+        }
         // veteranlık/moral (3): level, panic, leaderNearby
         P(c01((u.level || 0) / 2)); P(c01((u.panic || 0) / 100)); P(u.leaderNearby ? 1 : 0);
         // bozgun-yayılma (1)
@@ -242,6 +265,41 @@ const BrainState = (function () {
         // veteran ek (2): öldürme sayısı + xp bonus
         P(c01((u.kills || 0) / 10)); P(c01(((u.xpBonus || 1) - 1) / 0.30));
         return i;   // 40
+    }
+
+    // ── STRATEJİK / BLOK A (17): VP-yarışı bağlamı — beyin "ne zaman risk/tut" öğrensin ──
+    function encodeStrategic(u, out, i) {
+        const P = v => { out[i++] = (v === v) ? c01OrN(v) : 0; };
+        const VPT = (typeof VP_TARGET !== 'undefined') ? VP_TARGET : 3000;
+        const capMine = cp => u.isRed ? -(cp.cap || 0) : (cp.cap || 0);   // +1 benim-lehime ele-geçirme
+        // en yakın CP: cap(my-favor) + contested (2)
+        const ncp = nearestCP(u);
+        if (ncp) { P(cN1(capMine(ncp))); P(ncp.contested ? 1 : 0); } else { P(0); P(0); }
+        // 3 CP global (x'e göre sabit-sıra): owner + cap(my-favor) + contested (9)
+        const cps = (SIM.controlPoints || []).slice().sort((a, b) => a.x - b.x || a.y - b.y);
+        for (let k = 0; k < 3; k++) { const cp = cps[k]; if (cp) { P(cpOwnerVal(cp, u)); P(cN1(capMine(cp))); P(cp.contested ? 1 : 0); } else { P(0); P(0); P(0); } }
+        // VP skoru: self / enemy / lead (3)
+        const vs = (typeof SIM !== 'undefined' && SIM.vpScore) ? SIM.vpScore : { red: 0, blue: 0 };
+        const mineVp = u.isRed ? vs.red : vs.blue, foeVp = u.isRed ? vs.blue : vs.red;
+        P(c01(mineVp / VPT)); P(c01(foeVp / VPT)); P(cN1((mineVp - foeVp) / VPT));
+        // maç-ilerleme: karara yakınlık (1)
+        P(c01(Math.max(vs.red, vs.blue) / VPT));
+        // global kuvvet: effHP-oranı + sayı-oranı (2) — yerel localForceRatio yetmez
+        let myEff = 0, foeEff = 0, myN = 0, foeN = 0;
+        for (const o of SIM.units) { if (o.dead) continue; const eff = (STATS[o.type] ? STATS[o.type].atk : 0) * (o.hp / (o.maxHp || 1)); if (o.isRed === u.isRed) { myEff += eff; myN++; } else { foeEff += eff; foeN++; } }
+        P(c01(myEff / (myEff + foeEff + 1))); P(c01(myN / (myN + foeN + 1)));
+        return i;   // 2+9+3+1+2 = 17
+    }
+
+    // ── FRAME-STACK / MOMENTUM (4): trend görünürlüğü (anlık değil eğilim) ──
+    function encodeMomentum(u, out, i) {
+        const P = v => { out[i++] = (v === v) ? c01OrN(v) : 0; };
+        const maxHp = u.maxHp || 1;
+        P(cN1((u._fsDHp || 0) / (maxHp * 0.25)));     // can değişimi (− = hasar alıyorum)
+        P(cN1((u._fsDSupp || 0) / 30));               // baskı değişimi
+        P(cN1(-(u._fsDTargD || 0) / 200));            // hedefe yaklaşma (+ = yaklaşıyorum, − = takıldım/uzaklaşıyorum)
+        P(cN1(-(u._fsDNearD || 0) / 200));            // düşman yaklaşıyor (+ = üstüme geliyor)
+        return i;   // 4
     }
 
     // ── UZAYSAL TENSÖR (8 kanal × 16×16, ego-merkez, dünya-eksenli) ──
@@ -319,6 +377,6 @@ const BrainState = (function () {
     }
 
     return { encode, SCALAR_DIM, SPATIAL_DIM, GRID_N, CHANNELS, EXT,
-        dims: { ego: EGO_F, enemies: K_ENEMY * ENEMY_F, allies: K_ALLY * ALLY_F, field: FIELD_F, context: CTX_F, water: WATER_F, t3: T3_F, scalar: SCALAR_DIM, spatial: SPATIAL_DIM } };
+        dims: { ego: EGO_F, enemies: K_ENEMY * ENEMY_F, allies: K_ALLY * ALLY_F, field: FIELD_F, context: CTX_F, water: WATER_F, t3: T3_F, strategic: STRAT_F, momentum: MOM_F, scalar: SCALAR_DIM, spatial: SPATIAL_DIM } };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = BrainState;

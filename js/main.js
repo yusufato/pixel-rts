@@ -1012,6 +1012,8 @@ function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
     resolveCollisions();
     if (driveAI) driveAI(now);
     if (typeof updateControlPoints === 'function') updateControlPoints(dtSec, now);
+    SIM.tick = (SIM.tick || 0) + 1;   // ÖĞRENEN BEYİN: deterministik sim-saati (intent-yaşı/bellek için)
+    if ((SIM.tick % 12) === 0 && typeof updateBrainMemory === 'function') updateBrainMemory();   // görüş-belleği + frame-stack trend
 }
 
 function gameLoop(timestamp) {

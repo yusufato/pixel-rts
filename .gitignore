@@ -8,3 +8,4 @@ train/measure_native_progress.txt
 train/measure_native_out.txt
 train/bc_data.json
 train/bc_meta.json
+train/signal_report.txt

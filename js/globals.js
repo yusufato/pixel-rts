@@ -795,6 +795,33 @@ function enemyDetectsConcealed(u, viewerIsRed) {
     return false;
 }
 
+// ── ÖĞRENEN BEYİN BELLEĞİ (konsey fix): görüş-belleği (ghost) + frame-stack trend ──
+// Her birim: rakibinin onu EN SON gördüğü yer (ghX/ghY/ghT/ghVisible) + Δcan/Δbaskı/Δmesafe.
+// stepSim'de ~12 tick'te bir çağrılır. Deterministik (canSee + sabit) → MP/headless parite.
+function _nearestEnemyDistBM(u) {
+    const cand = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, 1300) : SIM.units;
+    let bd = Infinity;
+    for (const o of cand) { if (o.dead || o.isRed === u.isRed) continue; const dx = o.x - u.x, dy = o.y - u.y, d2 = dx * dx + dy * dy; if (d2 < bd) bd = d2; }
+    return bd === Infinity ? 9999 : Math.sqrt(bd);
+}
+function updateBrainMemory() {
+    if (typeof SIM === 'undefined' || !SIM.units) return;
+    const tk = SIM.tick || 0;
+    for (const u of SIM.units) {
+        if (u.dead) continue;
+        // GÖRÜŞ-BELLEĞİ: rakip tarafı u'yu şu an görüyor mu?
+        const seen = (typeof canSee === 'function') ? canSee(!u.isRed, u.x, u.y) : true;
+        if (seen) { u.ghVisible = true; u.ghX = u.x; u.ghY = u.y; u.ghT = tk; }
+        else { if (u.ghX == null) { u.ghX = u.x; u.ghY = u.y; u.ghT = tk; } u.ghVisible = false; }
+        // FRAME-STACK trend
+        const td = (u.targetX != null) ? Math.hypot(u.targetX - u.x, u.targetY - u.y) : 0;
+        u._fsDTargD = td - (u._fsTargD != null ? u._fsTargD : td); u._fsTargD = td;
+        u._fsDHp = u.hp - (u._fsHp != null ? u._fsHp : u.hp); u._fsHp = u.hp;
+        const sp = u.suppression || 0; u._fsDSupp = sp - (u._fsSupp != null ? u._fsSupp : sp); u._fsSupp = sp;
+        const nd = _nearestEnemyDistBM(u); u._fsDNearD = nd - (u._fsNearD != null ? u._fsNearD : nd); u._fsNearD = nd;
+    }
+}
+
 function isInPlayerZone(worldX, worldY) {
     // Tek-oyuncu/host = Güney (alt). Çok-oyunculu guest (KIRMIZI) = Kuzey (üst).
     if (typeof myCanonicalSide !== 'undefined' && myCanonicalSide) return worldY < (WORLD_H * 0.4);
