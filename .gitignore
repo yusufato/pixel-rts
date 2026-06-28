@@ -6,3 +6,5 @@ train/measure_out.txt
 *.log
 train/measure_native_progress.txt
 train/measure_native_out.txt
+train/bc_data.json
+train/bc_meta.json
