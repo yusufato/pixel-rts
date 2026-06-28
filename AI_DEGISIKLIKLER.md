@@ -566,3 +566,12 @@ Düello motorunun **ÜSTÜNE** binen meta-katman. Çekirdek sim'e DOKUNMAZ; komu
 - **Tempo/C2**: posture (büyük karar) komut-gecikmesiyle yerleşir — C2-bağlı(lider yakın)=1 komutan-döngüsü, izole=3 döngü; menzil hemen. `c2Linked` girdisi.
 - **Keşif-çekişi**: KEŞİF birimi gizli pusucuları 2× mesafeden (340) tespit eder → önden keşif ambush'ı dengeler.
 - (Daha önce: Pusu/ambush + Darboğaz/su(köprü+A*) zaten eklendi.) Tüm 6 T3 boşluğu kapandı; üretilen alanlar NN v2 girdilerine (421) beslenecek.
+
+## ÖĞRENEN BEYİN — EĞİTİM HATTI + KEŞİF KANITI (BrainState/NNController/train)
+
+- **2 girdi-konseyi** (24 ajan): kapsamlı denetim + halüsinasyon avı. Doğrulanan fix'ler uygulandı:
+  - **ANTİ-HİLE (omniscience):** BrainState sis/gizlilik kapısı + ghost (knownEnemyView) → NN görmemesi gerekeni görmüyor. Birim testiyle kanıtlı.
+  - SIM.tick maç-başı reset (MP desync) · normalizasyon doygunluğu (saha soft-saturate, armor 12...) · 8 duplikat sil + posture 3-one-hot (246→240) · ghost yaş-sönümleme.
+- **Veri-çeşitliliği:** 11 senaryo (harita döngüsü + asimetrik ordu) → DISENGAGE manevrası veride (0→8%), ölü-kanal 20→9.
+- **Eğitim hattı:** gen_bc (BC veri) + bc_train (öğrenme kanıtı: klon %100, karışık %33-şans) + **es_train (ES self-play, torch'suz, 4060'ta koşar)**.
+- **KEŞİF KANITLANDI:** ES fitness 36.7→73.3 (2×, monoton, çok-seed) → AI kuralın ötesinde yeni kazanan davranış buluyor. Rehber: train/TRAINING.md.
