@@ -2,7 +2,7 @@
 //  BrainState.js — ÖĞRENEN BEYİN v2 GİRDİ KODLAYICI (HİBRİT: özellik + algı)
 //  ----------------------------------------------------------------------------
 //  encode(u, now) → { scalars: Float32Array(SCALAR_DIM), spatial: Float32Array(SPATIAL_DIM) }
-//   • scalars  : 246 el-işçiliği taktik özelliği (ego/düşman8/dost5/saha/bağlam/SU-KÖPRÜ/T3/STRATEJİK/MOMENTUM)
+//   • scalars  : 240 el-işçiliği taktik özelliği (ego/düşman8/dost5/saha/bağlam/SU-KÖPRÜ/T3/STRATEJİK/MOMENTUM)
 //     KONSEY-FIX: ölü 0-kanallar dolduruldu (görüş-belleği, intent-yaşı, keşif-boşluğu, yükselti-grad)
 //     + BLOK A (CP cap/contested+3CP+VP-skoru+maç-ilerleme+global-kuvvet) + frame-stack momentum
 //   • spatial  : 8 kanal × 16×16 ego-merkezli, DÜNYA-EKSENLİ ham harita (conv kolu için)
@@ -15,8 +15,8 @@
 const BrainState = (function () {
     const K_ENEMY = 8, ENEMY_F = 9;     // 72
     const K_ALLY = 5, ALLY_F = 4;       // 20
-    const EGO_F = 20, FIELD_F = 16, CTX_F = 13, WATER_F = 44, T3_F = 40, STRAT_F = 17, MOM_F = 4;
-    const SCALAR_DIM = EGO_F + K_ENEMY * ENEMY_F + K_ALLY * ALLY_F + FIELD_F + CTX_F + WATER_F + T3_F + STRAT_F + MOM_F; // 246
+    const EGO_F = 22, FIELD_F = 16, CTX_F = 13, WATER_F = 44, T3_F = 32, STRAT_F = 17, MOM_F = 4;   // konsey: posture 1→3 one-hot (+2); T3 8 duplikat silindi (−8)
+    const SCALAR_DIM = EGO_F + K_ENEMY * ENEMY_F + K_ALLY * ALLY_F + FIELD_F + CTX_F + WATER_F + T3_F + STRAT_F + MOM_F; // 240
     const GRID_N = 16, CHANNELS = 8, SPATIAL_DIM = CHANNELS * GRID_N * GRID_N; // 2048
     const EXT = 760;                    // uzaysal pencere yarı-genişliği (ego-merkez, ±760px)
     const R_REF = 900;                  // göreli konum/mesafe referans yarıçapı
@@ -31,7 +31,8 @@ const BrainState = (function () {
         if (t === T.ANTI_TANK || t === T.ARTILLERY || t === T.MEDIC || t === T.ENGINEER) return 0.5;
         return 0;
     }
-    const POSTURE_IX = { COMMIT: 0, ATTACK: 0, HOLD: 1, WITHDRAW: 2, DISENGAGE: 3, SIEGE: 4, FLANK: 5, ENVELOP: 6 };
+    // motorun ÜRETTİĞİ 3 posture sınıfı (one-hot): atak / tut / çekil — 7-postür haritalaması
+    const ENGINE_POSTURE = { ATTACK: 0, COMMIT: 0, FLANK: 0, ENVELOP: 0, HOLD: 1, SIEGE: 1, WITHDRAW: 2, DISENGAGE: 2 };
 
     // ANTİ-OMNİSCİENCE: birimin bir düşmanı MEŞRU olarak nasıl algıladığı (sis+gizlilik+ghost).
     // Görünür → canlı; görünmüyor ama son-görülen → ghost(son konum/hp); hiç görülmedi → null.
@@ -90,7 +91,8 @@ const BrainState = (function () {
         P(c01((u.level || 0) / 2));
         P(c01(u.x / WORLD_W));
         P(c01(u.y / WORLD_H));
-        P(((u.intent && POSTURE_IX[u.intent.posture]) || 0) / 6);
+        const _pe = (u.intent && ENGINE_POSTURE[u.intent.posture] != null) ? ENGINE_POSTURE[u.intent.posture] : 0;
+        for (let k = 0; k < 3; k++) P(_pe === k ? 1 : 0);                     // posture 3-sınıf one-hot (atak/tut/çekil)
         P((u.intent && u.intent.preferredRange != null) ? u.intent.preferredRange : 0.62);
 
         // EN-YAKIN 8 DÜŞMAN ×9 (72)
@@ -249,12 +251,11 @@ const BrainState = (function () {
         let tgtFlank = 0; const at = u.attackTarget;
         if (at && !at.dead) { const ang = Math.atan2(u.y - at.y, u.x - at.x) - (at.facingAngle || 0); if (Math.cos(ang) > 0.4) tgtFlank = 1; }
         P(tgtFlank);
-        // kuşatılma (1) + bastırma self/pinned (2) + hedef bastırma (1)
+        // kuşatılma (1) + PINNED-bayrağı (1; supp-self BAGLAM'da var → silindi) + hedef bastırma (1)
         P(c01(u.encirclement || 0));
-        P(c01((u.suppression || 0) / 100)); P((u.suppression || 0) > (typeof PINNED_SUPPRESSION !== 'undefined' ? PINNED_SUPPRESSION : 80) ? 1 : 0);
+        P((u.suppression || 0) > (typeof PINNED_SUPPRESSION !== 'undefined' ? PINNED_SUPPRESSION : 80) ? 1 : 0);
         P(at && !at.dead ? c01((at.suppression || 0) / 100) : 0);
-        // tempo/C2 (2): bağlı-mı + intent-yaşı (komutan tick damgasından → emrim ne kadar bayat)
-        P(u.c2Linked ? 1 : 0);
+        // tempo/C2 (1): intent-yaşı (c2Linked=!!leaderNearby duplikat → silindi)
         P(c01(((typeof SIM !== 'undefined' ? (SIM.tick || 0) : 0) - (u._intentStamp || 0)) / 200));   // konsey: /40 ile ~%100 doyuyordu → /200
         // lojistik (2): supplyDist, supplyCut
         P(c01(u.supplyDist || 0)); P(u.supplyCut ? 1 : 0);
@@ -273,26 +274,22 @@ const BrainState = (function () {
         }
         // parça-parça-yenme (localForceRatio keskinleştirilmiş) (1)
         P(c01(1 - (u.localForceRatio || 1)));
-        // yükselti avantajı (3): self, hedef, yakın-yüksek-zemin kazanç-gradyanı
-        P(c01(u.elevation != null ? u.elevation : 0.5));
+        // yükselti avantajı (2): hedef + gradyan (self-elevation BAGLAM'da var → silindi)
         P(at && !at.dead ? c01(at.elevation != null ? at.elevation : 0.5) : 0.5);
         {
             let myE = u.elevation != null ? u.elevation : 0.5, maxE = myE;
             if (typeof elevationAt === 'function') for (let s = 0; s < 8; s++) { const ang = s * (Math.PI / 4); const e = elevationAt(u.x + Math.cos(ang) * 150, u.y + Math.sin(ang) * 150); if (e > maxE) maxE = e; }
             P(c01((maxE - myE) * 2));                           // yakında ne kadar yüksek-zemin kazanabilirim
         }
-        // veteranlık/moral (3): level, panic, leaderNearby
-        P(c01((u.level || 0) / 2)); P(c01((u.panic || 0) / 100)); P(u.leaderNearby ? 1 : 0);
-        // bozgun-yayılma (1)
-        P(c01((u.fleeingNearby || 0) / 5));
+        // (veteranlık/moral level+panic+leader ve bozgun-fleeing BAGLAM/EGO'da var → silindi)
         // şarj/temas (1): en yakın düşman temas-eşiğinde
         P((en && en[0] && Math.sqrt(en[0].d2) < (st.range || 120) * 0.5) ? 1 : 0);
         // durum bayrakları (5): isFleeing, isPanicking, inTrench, dostGücü, düşmanGücü
         P(u.isFleeing ? 1 : 0); P(u.isPanicking ? 1 : 0); P(u.inTrench ? 1 : 0);
         P(c01((u.nearbyAllyStrength || 0) / 120)); P(c01((u.nearbyEnemyStrength || 0) / 120));
-        // veteran ek (2): öldürme sayısı + xp bonus
-        P(c01((u.kills || 0) / 10)); P(c01(((u.xpBonus || 1) - 1) / 0.30));
-        return i;   // 40
+        // veteran (1): öldürme sayısı (xpBonus=level türevi duplikat → silindi)
+        P(c01((u.kills || 0) / 10));
+        return i;   // 32
     }
 
     // ── STRATEJİK / BLOK A (17): VP-yarışı bağlamı — beyin "ne zaman risk/tut" öğrensin ──
