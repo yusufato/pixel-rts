@@ -85,3 +85,17 @@ Sebep: harita ızgara-tabanlı oldu (su geçilmez, köprü geçit, A* yol bulma)
 **THROUGHPUT (#1 risk):** intent'i her frame değil her ~15-30 frame güncelle (scanTimer ritmi) → 50k ağ inference'i 20-30× ucuzlar, posture saniyede değişmediği için kalite düşmez.
 
 **İNŞA SIRASI (güncel):** (1) BrainState.js encode (421) — su/köprü+T3 dahil (2) intent throttle (~20f) (3) Node-sim env (4) behavior-cloning (kural-AI'dan) (5) PPO (6) köprü/export JSON → NeuralBrain.sizes=[421,96,64,32,20]. → diğer PC gece-eğitim.
+
+---
+
+## v2 HİBRİT KODLAYICI KURULDU — BrainState.js (özellik + ALGI)
+
+Kullanıcı kararı: **hibrit** (el-işçiliği doktrin KORUNUR + algı kanalları EKLENİR). Doktrin çöpe gitmedi — head-start olarak duruyor, algı ötesine geçmesi için.
+
+`BrainState.encode(u, now)` → `{ scalars: Float32Array(225), spatial: Float32Array(2048) }`:
+- **scalars (225)** = el-işçiliği doktrin: ego(20) + en-yakın-8-düşman×9(72) + en-yakın-5-dost×4(20) + saha-8yön×2(16) + bağlam(13) + SU/KÖPRÜ(44) + T3(40). Hepsi −1..1, NaN-güvenli, deterministik (en-yakın-K: d2 + x,y tie-break).
+- **spatial (8×16×16=2048)** = ALGI kolu (conv için): ego-merkezli (±760px), dünya-eksenli ham harita. Kanallar: 0 düşman-güç, 1 dost-güç, 2 düşman-yoğunluk, 3 geçilebilirlik, 4 orman, 5 yükselti, 6 kontrol-noktası, 7 köprü. → 7×7×4 ızgarayı DEĞİŞTİRİR (yüksek çözünürlük + conv).
+- Doğrulandı: 225/225 yazım, tüm değerler aralıkta, NaN yok, iki-encode birebir (determinizm).
+
+**AĞ (hibrit, ~200k):** conv(8ch→16→16, 3×3) → flatten → ~64; ⊕ 225 skaler → ~289 → 128 → 64 → 20. Conv DETERMİNİST yazılmalı (sadece ×/+; exp yok) → NeuralBrain.js'e conv eklenecek. 50k saf-MLP varyantı (sadece scalars) da ligde kıyas için kalır.
+**SIRADA:** intent-throttle (~20 frame) → Node-sim env (stepSim'i headless koştur) → behavior-cloning (kural-AI etiketleri) → PPO → export → lig.
