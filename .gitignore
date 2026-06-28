@@ -9,3 +9,5 @@ train/measure_native_out.txt
 train/bc_data.json
 train/bc_meta.json
 train/signal_report.txt
+train/es_brain.json
+train/es_report.json

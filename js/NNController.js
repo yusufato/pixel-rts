@@ -13,6 +13,7 @@
 const NN = {
     brain: null,                 // NeuralBrain örneği (yoksa kural-AI)
     enabled: false,              // true → NN per-birim posture/menzil yazar
+    side: null,                  // null=her iki taraf; true=yalnız KIRMIZI; false=yalnız MAVİ (ES: NN vs kural)
     throttleCycles: 2,           // kaç komutan-döngüsünde bir çıkarım (1=her döngü)
     POSTURES: ['COMMIT', 'HOLD', 'WITHDRAW', 'DISENGAGE', 'SIEGE', 'FLANK', 'ENVELOP'],
     RANGE_TIERS: [0.50, 0.72, 0.90, 1.05],
@@ -47,6 +48,7 @@ function nnOff() { NN.enabled = false; }
 // per-birim intent ezme (throttle'lı). Commander.cmdrOrderUnit sonunda çağrılır.
 function nnApplyIntent(u) {
     if (!NN.enabled || !NN.brain || typeof BrainState === 'undefined' || !u.intent) return;
+    if (NN.side != null && u.isRed !== NN.side) return;   // ES: yalnız NN-tarafının postürünü ez (diğer taraf kural-AI)
     // THROTTLE: önbellekteki kararı kullan, sadece N döngüde bir yeniden çıkar
     u._nnCd = (u._nnCd || 0) - 1;
     if (u._nnCd > 0 && u._nnPosture) {
@@ -55,9 +57,9 @@ function nnApplyIntent(u) {
         return;
     }
     u._nnCd = NN.throttleCycles;
-    const st = BrainState.encode(u);                       // {scalars, spatial}
-    if (NN.brain.sizes[0] !== st.scalars.length) return;  // mimari uyumsuz → kural-AI kalsın
-    const out = NN.brain.forward(st.scalars);             // skaler-MLP (hibrit conv sonra)
+    const sc = (BrainState.encodeScalarsOnly) ? BrainState.encodeScalarsOnly(u) : BrainState.encode(u).scalars;   // skaler-MLP → uzaysal atla (ucuz)
+    if (NN.brain.sizes[0] !== sc.length) return;          // mimari uyumsuz → kural-AI kalsın
+    const out = NN.brain.forward(sc);                     // skaler-MLP (hibrit conv sonra)
     const pIx = NN.brain.argmax(out, 0, 7);
     const rIx = NN.brain.argmax(out, 7, 11) - 7;
     const rawPosture = NN.POSTURES[pIx] || 'COMMIT';

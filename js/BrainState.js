@@ -395,6 +395,13 @@ const BrainState = (function () {
         return total > 0 ? seen / total : 1;
     }
 
+    // HIZLI YOL: yalnız skaler (uzaysal tensör atlanır) — skaler-MLP çıkarımı + ES için ucuz
+    function encodeScalarsOnly(u, now) {
+        if (now == null) now = (typeof simulationTime !== 'undefined') ? simulationTime : 0;
+        const scalars = new Float32Array(SCALAR_DIM);
+        encodeScalars(u, now, scalars);
+        return scalars;
+    }
     let _warned = false;
     function encode(u, now) {
         if (now == null) now = (typeof simulationTime !== 'undefined') ? simulationTime : 0;
@@ -406,7 +413,7 @@ const BrainState = (function () {
         return { scalars, spatial, scalarUsed: used };
     }
 
-    return { encode, SCALAR_DIM, SPATIAL_DIM, GRID_N, CHANNELS, EXT,
+    return { encode, encodeScalarsOnly, SCALAR_DIM, SPATIAL_DIM, GRID_N, CHANNELS, EXT,
         dims: { ego: EGO_F, enemies: K_ENEMY * ENEMY_F, allies: K_ALLY * ALLY_F, field: FIELD_F, context: CTX_F, water: WATER_F, t3: T3_F, strategic: STRAT_F, momentum: MOM_F, scalar: SCALAR_DIM, spatial: SPATIAL_DIM } };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = BrainState;
