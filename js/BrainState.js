@@ -21,7 +21,7 @@ const BrainState = (function () {
     const EXT = 760;                    // uzaysal pencere yarı-genişliği (ego-merkez, ±760px)
     const R_REF = 900;                  // göreli konum/mesafe referans yarıçapı
     // global ölçek üst-sınırları (normalizasyon)
-    const MAXHP = 936, MAXATK = 25, MAXRANGE = 350, MAXVIS = 800, MAXARMOR = 8, MAXSPD = 1.35;
+    const MAXHP = 936, MAXATK = 25, MAXRANGE = 350, MAXVIS = 800, MAXARMOR = 12, MAXSPD = 1.35;   // konsey: tank siper/orman'da 12'ye çıkar → 8'de doyuyordu
 
     const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
     const c01 = v => v < 0 ? 0 : (v > 1 ? 1 : v);
@@ -82,7 +82,7 @@ const BrainState = (function () {
         // EGO (20)
         P(c01(u.hp / maxHp));
         for (let t = 0; t < 9; t++) P(u.type === t ? 1 : 0);                  // tip one-hot (9)
-        P(maxAmmo > 0 ? c01(u.ammo / maxAmmo) : 0);
+        P(maxAmmo > 0 ? c01(u.ammo / maxAmmo) : 1);   // konsey: silahsız (medic)=1 'cephane derdi yok' (T3 ammoFrac ile hizalı; 0 yanlış sinyaldi)
         P(c01((st.range || u.range || 0) / MAXRANGE));
         P(c01((st.speed || 0) / MAXSPD));
         P(c01((u.armor || 0) / MAXARMOR));
@@ -118,7 +118,7 @@ const BrainState = (function () {
         const thr = new Float64Array(8), frd = new Float64Array(8);
         for (const e of en) { const s = (Math.floor((Math.atan2(e.dy, e.dx) + Math.PI) / (Math.PI / 4)) & 7); thr[s] += (STATS[e.o.type] ? STATS[e.o.type].atk : 0) * ((e.view ? e.view.hp : e.o.hp) / (e.o.maxHp || 1)); }
         for (const a of al) { const s = (Math.floor((Math.atan2(a.dy, a.dx) + Math.PI) / (Math.PI / 4)) & 7); frd[s] += (STATS[a.o.type] ? STATS[a.o.type].atk : 0) * (a.o.hp / (a.o.maxHp || 1)); }
-        for (let s = 0; s < 8; s++) { P(c01(thr[s] / 60)); P(c01(frd[s] / 60)); }
+        for (let s = 0; s < 8; s++) { P(thr[s] / (thr[s] + 50)); P(frd[s] / (frd[s] + 50)); }   // konsey: rasyonel soft-saturate (/60 ile 3 birimde 1.0 doyuyordu, yığın ayrışmıyordu)
 
         // BAĞLAM (13)
         const cp = nearestCP(u);
@@ -199,7 +199,10 @@ const BrainState = (function () {
         P(losBlk);
         // geçit-darlığı: 3×3 açık-yön sayısı + min-genişlik (2)
         let openDirs = 0; for (let r = -1; r <= 1; r++) for (let c = -1; c <= 1; c++) { if (r === 0 && c === 0) continue; if (passable(u.x + c * 90, u.y + r * 90)) openDirs++; }
-        P(c01(openDirs / 8)); P(c01(openDirs / 8));
+        // konsey: ikinci kanal copy-paste'ti → gerçek darboğaz-sıkılığı (en dar yönde açıklık)
+        let minOpen = 5;
+        for (let a = 0; a < 8; a++) { const ang = a * Math.PI / 4, cx = Math.cos(ang), cy = Math.sin(ang); let dd = 0; for (; dd < 5; dd++) { if (!passable(u.x + cx * (dd + 1) * 40, u.y + cy * (dd + 1) * 40)) break; } if (dd < minOpen) minOpen = dd; }
+        P(c01(openDirs / 8)); P(c01(minOpen / 5));   // açık-yön sayısı + EN-DAR yön açıklığı (farklı sinyaller)
         // su-korumalı kanat (yan tarafımda su bariyeri) (1)
         let waterFlank = 0;
         if (grid) { if (terrainTypeAt(u.x + 120, u.y) === TERRAIN.WATER || terrainTypeAt(u.x - 120, u.y) === TERRAIN.WATER) waterFlank = 1; }
@@ -252,7 +255,7 @@ const BrainState = (function () {
         P(at && !at.dead ? c01((at.suppression || 0) / 100) : 0);
         // tempo/C2 (2): bağlı-mı + intent-yaşı (komutan tick damgasından → emrim ne kadar bayat)
         P(u.c2Linked ? 1 : 0);
-        P(c01(((typeof SIM !== 'undefined' ? (SIM.tick || 0) : 0) - (u._intentStamp || 0)) / 40));
+        P(c01(((typeof SIM !== 'undefined' ? (SIM.tick || 0) : 0) - (u._intentStamp || 0)) / 200));   // konsey: /40 ile ~%100 doyuyordu → /200
         // lojistik (2): supplyDist, supplyCut
         P(c01(u.supplyDist || 0)); P(u.supplyCut ? 1 : 0);
         // mühimmat (2): frac + düşük-bayrak
@@ -346,7 +349,7 @@ const BrainState = (function () {
             if (o.isRed !== u.isRed) { const v = knownEnemyView(u, o); if (!v) continue; px = v.x; py = v.y; ph = v.hp; }   // sis/gizlilik: bilinmeyen düşman ızgaraya GİRMEZ
             const gx = Math.floor((px - ox) / cell), gy = Math.floor((py - oy) / cell);
             if (gx < 0 || gy < 0 || gx >= GRID_N || gy >= GRID_N) continue;
-            const str = c01(((STATS[o.type] ? STATS[o.type].atk : 0) * (ph / (o.maxHp || 1))) / 40);
+            const str = c01(((STATS[o.type] ? STATS[o.type].atk : 0) * (ph / (o.maxHp || 1))) / 25);   // konsey: /40→/25 (tek-birim ~1.0)
             if (o.isRed !== u.isRed) { out[idx(0, gx, gy)] = Math.min(1, out[idx(0, gx, gy)] + str); out[idx(2, gx, gy)] = Math.min(1, out[idx(2, gx, gy)] + 0.34); }
             else { out[idx(1, gx, gy)] = Math.min(1, out[idx(1, gx, gy)] + str); }
         }
