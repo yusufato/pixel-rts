@@ -26,6 +26,7 @@ class Unit {
         
         this.inForest = false;
         this.revealTimer = 0;        // T3 PUSU: >0 iken açıkta (yeni ateş etti), 0 iken ormanda gizlenebilir
+        this.ghX = null; this.ghY = null; this.ghHp = this.hp; this.ghT = 0; this.ghVisible = false;   // görüş-belleği (rakip beni en-son nerede gördü) — NaN guard
         this.elevation = 0.5;
         this.inTrench = false;
         this.buildTrenchTarget = null;

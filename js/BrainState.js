@@ -33,15 +33,39 @@ const BrainState = (function () {
     }
     const POSTURE_IX = { COMMIT: 0, ATTACK: 0, HOLD: 1, WITHDRAW: 2, DISENGAGE: 3, SIEGE: 4, FLANK: 5, ENVELOP: 6 };
 
-    // en yakın K düşman/dost (deterministik: d2 sonra x sonra y)
+    // ANTİ-OMNİSCİENCE: birimin bir düşmanı MEŞRU olarak nasıl algıladığı (sis+gizlilik+ghost).
+    // Görünür → canlı; görünmüyor ama son-görülen → ghost(son konum/hp); hiç görülmedi → null.
+    function knownEnemyView(u, o) {
+        // GÖRÜNÜRLÜK O(1): o.ghVisible = u'nun tarafı o'yu görüyor mu (updateBrainMemory'de canSee ile önceden hesaplı).
+        // Fallback: bellek hiç koşmadıysa kendi-görüş yarıçapı.
+        let visible;
+        if (o.ghVisible === true) visible = true;
+        else if (o.ghVisible === false) visible = false;
+        else { const dx = o.x - u.x, dy = o.y - u.y; const vis = u.vision || (STATS[u.type] ? STATS[u.type].vision : 350); visible = (dx * dx + dy * dy) <= vis * vis; }
+        if (visible && o.isConcealed && o.isConcealed()) {                 // ormanda-gizli: menzil dışında fark edilmez
+            const dx = o.x - u.x, dy = o.y - u.y; const det = (u.type === T.RECON ? AMBUSH_DETECT * 2 : AMBUSH_DETECT);
+            if (dx * dx + dy * dy > det * det) visible = false;
+        }
+        if (visible) return { x: o.x, y: o.y, hp: o.hp, maxHp: o.maxHp || 1, visible: true };
+        if (o.ghVisible === false && o.ghX != null) return { x: o.ghX, y: o.ghY, hp: (o.ghHp != null ? o.ghHp : o.hp), maxHp: o.maxHp || 1, visible: false, age: (((typeof SIM !== 'undefined' ? SIM.tick : 0) || 0) - (o.ghT || 0)) };
+        return null;                                                       // hiç görülmedi → beyin bilmez
+    }
+
+    // en yakın K düşman/dost (deterministik: d2 sonra x sonra y). Düşmanlar SİS/GİZLİLİK-saygılı (ghost).
     function nearestK(u, wantEnemy, K) {
         const out = [];
-        const cand = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, R_REF * 1.4) : SIM.units;
-        for (const o of cand) {
+        for (const o of SIM.units) {                          // tam tarama: ghost konumu canlıdan farklı olabilir
             if (o.dead || o === u) continue;
             if (wantEnemy ? (o.isRed === u.isRed) : (o.isRed !== u.isRed)) continue;
-            const dx = o.x - u.x, dy = o.y - u.y;
-            out.push({ o, d2: dx * dx + dy * dy, dx, dy });
+            if (wantEnemy) {
+                const v = knownEnemyView(u, o);
+                if (!v) continue;                             // bilinmeyen düşman → girdiye GİRMEZ (hile yok)
+                const dx = v.x - u.x, dy = v.y - u.y;
+                out.push({ o, d2: dx * dx + dy * dy, dx, dy, view: v });
+            } else {
+                const dx = o.x - u.x, dy = o.y - u.y;
+                out.push({ o, d2: dx * dx + dy * dy, dx, dy });
+            }
         }
         out.sort((a, b) => a.d2 - b.d2 || a.o.x - b.o.x || a.o.y - b.o.y);
         return out.slice(0, K);
@@ -74,12 +98,12 @@ const BrainState = (function () {
         for (let k = 0; k < K_ENEMY; k++) {
             const e = en[k];
             if (!e) { for (let f = 0; f < ENEMY_F; f++) P(0); continue; }
-            const o = e.o, oMax = o.maxHp || 1;
+            const o = e.o, vw = e.view || { hp: o.hp, maxHp: o.maxHp || 1, visible: true }, oMax = vw.maxHp || 1;
             P(cN1(e.dx / R_REF)); P(cN1(e.dy / R_REF)); P(c01(Math.sqrt(e.d2) / R_REF));
-            P(c01(o.hp / oMax)); P(typeGroup(o.type)); P(c01((STATS[o.type] ? STATS[o.type].atk : 0) / MAXATK));
-            P(o.attackTarget === u ? 1 : 0);
-            P(c01((now - (o.lastAttackTime || 0)) / Math.max(1, (STATS[o.type] ? STATS[o.type].atkSpeed : 1000))));
-            P((o.inForest || o.inTrench) ? 1 : 0);
+            P(c01(vw.hp / oMax)); P(typeGroup(o.type)); P(c01((STATS[o.type] ? STATS[o.type].atk : 0) / MAXATK));
+            P(vw.visible && o.attackTarget === u ? 1 : 0);                                  // canlı bilgi yalnız GÖRÜNÜRken
+            P(vw.visible ? c01((now - (o.lastAttackTime || 0)) / Math.max(1, (STATS[o.type] ? STATS[o.type].atkSpeed : 1000))) : 0);
+            P(vw.visible && (o.inForest || o.inTrench) ? 1 : 0);
         }
 
         // EN-YAKIN 5 DOST ×4 (20)
@@ -92,7 +116,7 @@ const BrainState = (function () {
 
         // SAHA-OKUMA 8 yön × (tehdit + dost) (16)
         const thr = new Float64Array(8), frd = new Float64Array(8);
-        for (const e of en) { const s = (Math.floor((Math.atan2(e.dy, e.dx) + Math.PI) / (Math.PI / 4)) & 7); thr[s] += (STATS[e.o.type] ? STATS[e.o.type].atk : 0) * (e.o.hp / (e.o.maxHp || 1)); }
+        for (const e of en) { const s = (Math.floor((Math.atan2(e.dy, e.dx) + Math.PI) / (Math.PI / 4)) & 7); thr[s] += (STATS[e.o.type] ? STATS[e.o.type].atk : 0) * ((e.view ? e.view.hp : e.o.hp) / (e.o.maxHp || 1)); }
         for (const a of al) { const s = (Math.floor((Math.atan2(a.dy, a.dx) + Math.PI) / (Math.PI / 4)) & 7); frd[s] += (STATS[a.o.type] ? STATS[a.o.type].atk : 0) * (a.o.hp / (a.o.maxHp || 1)); }
         for (let s = 0; s < 8; s++) { P(c01(thr[s] / 60)); P(c01(frd[s] / 60)); }
 
@@ -199,10 +223,11 @@ const BrainState = (function () {
         // 1 gizli / 2 gizli-düşman-şüphesi (görüş-belleği: en-son-görülen ama ŞU AN kayıp düşman) / 1 açıkta
         P(u.isConcealed && u.isConcealed() ? 1 : 0);
         {
-            let gBest = Infinity, gDx = 0, gDy = 0;
-            const ec = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, R_REF * 1.6) : SIM.units;
-            for (const o of ec) { if (o.dead || o.isRed === u.isRed) continue; if (o.ghVisible !== false || o.ghX == null) continue; const dx = o.ghX - u.x, dy = o.ghY - u.y, d2 = dx * dx + dy * dy; if (d2 < gBest) { gBest = d2; gDx = dx; gDy = dy; } }
-            if (gBest < Infinity) { P(cN1(gDx / R_REF)); P(cN1(gDy / R_REF)); } else { P(0); P(0); }
+            let gBest = Infinity, gDx = 0, gDy = 0, gAge = 0;
+            const tk = (typeof SIM !== 'undefined' ? SIM.tick : 0) || 0;
+            for (const o of SIM.units) { if (o.dead || o.isRed === u.isRed) continue; if (o.ghVisible !== false || o.ghX == null) continue; const dx = o.ghX - u.x, dy = o.ghY - u.y, d2 = dx * dx + dy * dy; if (d2 < gBest) { gBest = d2; gDx = dx; gDy = dy; gAge = tk - (o.ghT || 0); } }
+            const fresh = gBest < Infinity ? Math.max(0, 1 - gAge / 200) : 0;   // bayat ghost → sinyal söner (ghT okunur)
+            P(cN1(gDx / R_REF * fresh)); P(cN1(gDy / R_REF * fresh));
         }
         P((u.revealTimer || 0) > 0 ? 1 : 0);
         // kanat-açık + sol/sağ dost örtüsü (yön sektörlerinden)
@@ -286,7 +311,12 @@ const BrainState = (function () {
         P(c01(Math.max(vs.red, vs.blue) / VPT));
         // global kuvvet: effHP-oranı + sayı-oranı (2) — yerel localForceRatio yetmez
         let myEff = 0, foeEff = 0, myN = 0, foeN = 0;
-        for (const o of SIM.units) { if (o.dead) continue; const eff = (STATS[o.type] ? STATS[o.type].atk : 0) * (o.hp / (o.maxHp || 1)); if (o.isRed === u.isRed) { myEff += eff; myN++; } else { foeEff += eff; foeN++; } }
+        for (const o of SIM.units) {
+            if (o.dead) continue;
+            const a = (STATS[o.type] ? STATS[o.type].atk : 0);
+            if (o.isRed === u.isRed) { myEff += a * (o.hp / (o.maxHp || 1)); myN++; }
+            else { const v = knownEnemyView(u, o); if (!v) continue; foeEff += a * (v.hp / (o.maxHp || 1)); foeN++; }   // yalnız BİLİNEN düşman (komuta-istihbaratı hilesi yok)
+        }
         P(c01(myEff / (myEff + foeEff + 1))); P(c01(myN / (myN + foeN + 1)));
         return i;   // 2+9+3+1+2 = 17
     }
@@ -310,12 +340,13 @@ const BrainState = (function () {
         const idx = (ch, gx, gy) => ch * GRID_N * GRID_N + gy * GRID_N + gx;
         const grid = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid' && typeof terrainTypeAt === 'function');
         // birim kanalları (0 düşman-güç, 1 dost-güç, 2 düşman-sayı)
-        const near = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, EXT * 1.5) : SIM.units;
-        for (const o of near) {
+        for (const o of SIM.units) {
             if (o.dead || o === u) continue;
-            const gx = Math.floor((o.x - ox) / cell), gy = Math.floor((o.y - oy) / cell);
+            let px = o.x, py = o.y, ph = o.hp;
+            if (o.isRed !== u.isRed) { const v = knownEnemyView(u, o); if (!v) continue; px = v.x; py = v.y; ph = v.hp; }   // sis/gizlilik: bilinmeyen düşman ızgaraya GİRMEZ
+            const gx = Math.floor((px - ox) / cell), gy = Math.floor((py - oy) / cell);
             if (gx < 0 || gy < 0 || gx >= GRID_N || gy >= GRID_N) continue;
-            const str = c01(((STATS[o.type] ? STATS[o.type].atk : 0) * (o.hp / (o.maxHp || 1))) / 40);
+            const str = c01(((STATS[o.type] ? STATS[o.type].atk : 0) * (ph / (o.maxHp || 1))) / 40);
             if (o.isRed !== u.isRed) { out[idx(0, gx, gy)] = Math.min(1, out[idx(0, gx, gy)] + str); out[idx(2, gx, gy)] = Math.min(1, out[idx(2, gx, gy)] + 0.34); }
             else { out[idx(1, gx, gy)] = Math.min(1, out[idx(1, gx, gy)] + str); }
         }
@@ -353,10 +384,9 @@ const BrainState = (function () {
         const ownerRed = (owner === 'red' || owner === true || owner === 1);
         return ownerRed === u.isRed ? 1 : -1;
     }
-    function nearestEnemyQuick(u) {
-        const cand = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, 700) : SIM.units;
+    function nearestEnemyQuick(u) {                            // yalnız GÖRÜNÜR düşman (hile yok)
         let best = null, bd = 1e18;
-        for (const o of cand) { if (o.dead || o.isRed === u.isRed) continue; const dx = o.x - u.x, dy = o.y - u.y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = o; } }
+        for (const o of SIM.units) { if (o.dead || o.isRed === u.isRed) continue; const v = knownEnemyView(u, o); if (!v || !v.visible) continue; const dx = o.x - u.x, dy = o.y - u.y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = o; } }
         return best;
     }
     function reconRatio(u) {

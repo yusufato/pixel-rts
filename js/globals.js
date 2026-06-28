@@ -809,10 +809,10 @@ function updateBrainMemory() {
     const tk = SIM.tick || 0;
     for (const u of SIM.units) {
         if (u.dead) continue;
-        // GÖRÜŞ-BELLEĞİ: rakip tarafı u'yu şu an görüyor mu?
+        // GÖRÜŞ-BELLEĞİ: rakip tarafı u'yu şu an görüyor mu? (ghost = son-görülen anlık-görüntü)
         const seen = (typeof canSee === 'function') ? canSee(!u.isRed, u.x, u.y) : true;
-        if (seen) { u.ghVisible = true; u.ghX = u.x; u.ghY = u.y; u.ghT = tk; }
-        else { if (u.ghX == null) { u.ghX = u.x; u.ghY = u.y; u.ghT = tk; } u.ghVisible = false; }
+        if (seen) { u.ghVisible = true; u.ghX = u.x; u.ghY = u.y; u.ghHp = u.hp; u.ghT = tk; }
+        else { if (u.ghX == null) { u.ghX = u.x; u.ghY = u.y; u.ghHp = u.hp; u.ghT = tk; } u.ghVisible = false; }
         // FRAME-STACK trend
         const td = (u.targetX != null) ? Math.hypot(u.targetX - u.x, u.targetY - u.y) : 0;
         u._fsDTargD = td - (u._fsTargD != null ? u._fsTargD : td); u._fsTargD = td;
