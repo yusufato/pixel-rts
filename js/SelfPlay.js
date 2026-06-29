@@ -853,52 +853,56 @@ function spTrainNNBrain(gens, pop, sizesArg, ticks, onProgress, onDone) {
     const genome = (typeof commanderGenome !== 'undefined' && commanderGenome) ? commanderGenome : aiGenome;
     const gauss = () => { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
 
-    let g = 0, baseline = null, bestFit = -Infinity;
-    let scenarios = [], candList = [], results = [], queue = [], qi = 0;
-    function buildGen() {
-        scenarios = [];
-        for (let s = 0; s < SEEDS_PER; s++) {
-            const seed = (g * 1399 + s * 977 + 7) >>> 0;          // her nesil FARKLI senaryolar → genelleme (ezber yok)
-            if (typeof resetSimRng === 'function') resetSimRng(seed);
-            scenarios.push({ seed, blue: spRandomArmy(1500), red: spRandomArmy(1500) });   // çeşitli + asimetrik ordular
-        }
-        candList = [{ w }];                                       // index 0 = ŞAMPİYON
-        for (let p = 0; p < pop; p++) { const c = new Float64Array(NPAR); for (let i = 0; i < NPAR; i++) c[i] = w[i] + sigma * gauss(); candList.push({ w: c }); }
-        results = candList.map(() => 0);
-        queue = [];
-        for (let ci = 0; ci < candList.length; ci++) for (let si = 0; si < scenarios.length; si++) queue.push([ci, si]);
-        qi = 0;
+    // SABİT çeşitli senaryolar (BİR KEZ üretilir) → fitness nesiller arası KIYASLANABİLİR + elitist MONOTON.
+    // (Önceki sürüm her nesil senaryo döndürüyordu → fitness "garip" zıplıyordu, kıyaslanamazdı; o yüzden 1258→633 düşmesi sahteydi.)
+    const FIXED = [];
+    for (let s = 0; s < SEEDS_PER; s++) {
+        const seed = (7001 + s * 977) >>> 0;
+        if (typeof resetSimRng === 'function') resetSimRng(seed);
+        FIXED.push({ seed, army: spRandomArmy(1500) });          // çeşitli ama SABİT ordu (simetrik → fark=politika)
+    }
+    let g = 0, baseline = null, bestFit = -Infinity, ph = 'init';
+    let candList = [], results = [], queue = [], qi = 0;
+    function startEval(list) { candList = list; results = list.map(() => 0); queue = []; for (let ci = 0; ci < list.length; ci++) for (let si = 0; si < FIXED.length; si++) queue.push([ci, si]); qi = 0; }
+    function nextGen() {
+        const cs = [];
+        for (let p = 0; p < pop; p++) { const c = new Float64Array(NPAR); for (let i = 0; i < NPAR; i++) c[i] = w[i] + sigma * gauss(); cs.push({ w: c }); }
+        startEval(cs); setTimeout(step, 0);
     }
     function step() {
         if (qi < queue.length) {
-            const pair = queue[qi++], ci = pair[0], sc = scenarios[pair[1]];
+            const pr = queue[qi++], ci = pr[0], sc = FIXED[pr[1]];
             net.setWeights(candList[ci].w); NN.brain = net; NN.enabled = true; NN.side = true; NN.throttleCycles = 4;   // RED = NN (sık karar)
-            results[ci] += spRunCommanderMatch(genome, genome, TTL, sc.seed, sc.red, sc.blue).net;
+            results[ci] += spRunCommanderMatch(genome, genome, TTL, sc.seed, sc.army, sc.army).net;
             NN.enabled = false; NN.side = null;
-            if (onProgress) onProgress(g + qi / queue.length, gens, bestFit === -Infinity ? 0 : bestFit);
+            if (onProgress) onProgress((ph === 'init' ? 0 : g) + qi / queue.length, gens, bestFit === -Infinity ? 0 : bestFit);
             setTimeout(step, 0);   // HER MAÇ ARASI NEFES → uzun maç olsa bile UI donmaz
         } else {
-            const avg = results.map(s => s / scenarios.length);
-            if (baseline == null) baseline = avg[0];
-            let bi = 0, bv = avg[0];
-            for (let ci = 1; ci < avg.length; ci++) if (avg[ci] > bv) { bv = avg[ci]; bi = ci; }
-            if (bi > 0) { w = candList[bi].w; sigma = Math.min(0.20, sigma * 1.05); } else sigma *= 0.85;   // gelişme→biraz aç, takıldı→daralt
-            bestFit = bv;
-            g++;
-            if (onProgress) onProgress(g, gens, bestFit);
-            console.log(`  nesil ${g}/${gens}: fit=${bestFit.toFixed(0)}${bi > 0 ? ' ↑' : ''} (sigma ${sigma.toFixed(3)})`);
-            if (g % 5 === 0) { try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {} }   // ARA-KAYIT: kesilirse kaybolmaz
-            if (g < gens) { buildGen(); setTimeout(step, 0); }
-            else {
-                net.setWeights(w); NN.brain = net; NN.enabled = true; NN.side = null;
-                try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {}
-                console.log(`✅ NN eğitimi bitti. fit ${baseline.toFixed(0)}→${bestFit.toFixed(0)}. NN CANLI + kalıcı.`);
-                if (onDone) onDone({ sizes, fit: bestFit, baseline });
+            const avg = results.map(s => s / FIXED.length);
+            if (ph === 'init') {                                  // şampiyonu BİR KEZ ölç → baseline
+                bestFit = avg[0]; baseline = avg[0]; ph = 'gen';
+                console.log(`🧠 başlangıç fit=${baseline.toFixed(0)} (${NPAR} param, sabit ${SEEDS_PER} senaryo)`);
+                nextGen();
+            } else {
+                let bi = -1, bv = bestFit;
+                for (let ci = 0; ci < avg.length; ci++) if (avg[ci] > bv) { bv = avg[ci]; bi = ci; }
+                if (bi >= 0) { w = candList[bi].w; bestFit = bv; sigma = Math.min(0.20, sigma * 1.05); } else sigma *= 0.85;   // SADECE iyileşirse benimse → MONOTON
+                g++;
+                if (onProgress) onProgress(g, gens, bestFit);
+                console.log(`  nesil ${g}/${gens}: fit=${bestFit.toFixed(0)}${bi >= 0 ? ' ↑' : ''} (sigma ${sigma.toFixed(3)})`);
+                if (g % 5 === 0) { try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {} }   // ARA-KAYIT
+                if (g < gens) nextGen();
+                else {
+                    net.setWeights(w); NN.brain = net; NN.enabled = true; NN.side = null;
+                    try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {}
+                    console.log(`✅ NN eğitimi bitti. fit ${baseline.toFixed(0)}→${bestFit.toFixed(0)}. NN CANLI + kalıcı.`);
+                    if (onDone) onDone({ sizes, fit: bestFit, baseline });
+                }
             }
         }
     }
-    console.log(`🧠 NN eğitimi (TAM kalite): ${gens} nesil × ${pop} aday × ${SEEDS_PER} senaryo · ${TTL} tick · ${NPAR} param · gerçek harita. Bu PC'de yavaş, 4060'ta hızlı.`);
-    buildGen();
+    console.log(`🧠 NN eğitimi (TAM kalite, SABİT-senaryo monoton): ${gens} nesil × ${pop} aday × ${SEEDS_PER} senaryo · ${TTL} tick · ${NPAR} param.`);
+    startEval([{ w }]);   // önce şampiyon (baseline)
     setTimeout(step, 0);
 }
 
