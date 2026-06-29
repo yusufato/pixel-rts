@@ -10,8 +10,8 @@
     const POP = Math.max(2, +E('ES_POP', 8));      // çift (antithetic çift sayısı = POP/2)
     const SIGMA = +E('ES_SIGMA', 0.10);
     const LR = +E('ES_LR', 0.08);
-    const GENS = +E('ES_GENS', 6);
-    const TICKS = +E('ES_TICKS', 220), STEP = 64;
+    const GENS = +E('ES_GENS', 60);
+    const TICKS = +E('ES_TICKS', 900), STEP = 64;   // UZUN maç (grid'de su/köprü maneuver sonrası çözülsün) — kısma yok
     SIZES[0] = BrainState.SCALAR_DIM; SIZES[SIZES.length - 1] = 20;
 
     let _s = 20240601 >>> 0;
@@ -32,7 +32,7 @@
         player.money = 1500; enemy.money = 1500; player.kills = 0; enemy.kills = 0;
         phase = PHASE.BATTLE; if (typeof playerMeta !== 'undefined') playerMeta = {};
         resetSimRng((seed >>> 0) || 1);
-        spDeployArmy(ARMY, false); spDeployArmy(ARMY, true);   // simetrik ordu → fark = POLİTİKA
+        const _a = spRandomArmy(1500); spDeployArmy(_a, false); spDeployArmy(_a, true);   // simetrik ama ÇEŞİTLİ ordu (seed'den deterministik) → fark=POLİTİKA + genelleme
         if (typeof initControlPoints === 'function') initControlPoints();
         if (typeof commanderReset === 'function') commanderReset();
         const initR = sideVal(true), initB = sideVal(false);
@@ -53,7 +53,7 @@
     }
 
     // ÇOK-SEED ortalama (gürültü azalt) + ELİTİST (1+λ): kazanımı asla kaybetme → temiz keşif eğrisi
-    const EVAL_SEEDS = [101, 202, 303];
+    const EVAL_SEEDS = [101, 202, 303, 404, 505];   // 5 çeşitli senaryo (farklı ordu+RNG) → genelleme
     const evalAvg = (weights) => { let s = 0; for (const sd of EVAL_SEEDS) s += fitness(weights, sd); return s / EVAL_SEEDS.length; };
     let bestFit = evalAvg(w);
     const baseline = bestFit;

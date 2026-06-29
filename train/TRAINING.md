@@ -19,13 +19,19 @@ Torch GEREKMEZ — sadece `node`. Sim tarayıcıdaki ile **birebir aynı** (`ste
 - **Eğitim gerçek:** BC klon dengeli-doğruluk %100, karışık-etiket %33 (şans) → sahte değil.
 - **Keşif:** ES fitness 36.7→73.3 (2×, monoton) → AI kuralın ötesinde yeni kazanan davranış buluyor.
 
-## 4060'ta gece-eğitim
+## TAM KALİTE (kısma yok)
+Hem buton hem script artık **gerçek grid harita + ÇEŞİTLİ (simetrik) ordular + UZUN maç (900 tick) + çok-senaryo denoise** kullanır. Hiçbir şey hız için kısılmadı; bu yüzden zayıf PC'de yavaş, 4060'ta hızlı (~1 dk/maç).
+
+### A) Oyun-içi BUTON (tarayıcı, konsol gerekmez)
+🧠 AI Eğit → mavi NN modları. Maç-başı async (UI donmaz, uzun maç olsa bile), her 5 nesilde otomatik kaydeder (kesilirse kaybolmaz), bitince NN CANLI + kalıcı. Gerçek haritada eğitir. **Gece/uzun mod**: aç-bırak.
+
+### B) 4060 SCRIPT (node, gece)
 ```bash
-# tam ağ (~50k param), büyük popülasyon, uzun maç, çok nesil — saatlerce koşar
-ES_SIZES=240,96,64,32,20 ES_POP=40 ES_GENS=400 ES_TICKS=900 ES_SIGMA=0.1 node train/es_train.js
+# tam ağ (~50k), büyük popülasyon, uzun maç, çok nesil — saatlerce
+ES_SIZES=240,96,64,32,20 ES_POP=32 ES_GENS=300 ES_TICKS=900 ES_SIGMA=0.1 node train/es_train.js
 ```
-Çıktı: `train/es_brain.json` (eğitilmiş ağırlıklar). Ayarlar (env):
-`ES_SIZES` ağ katmanları · `ES_POP` mutasyon sayısı/nesil · `ES_GENS` nesil · `ES_TICKS` maç-uzunluğu · `ES_SIGMA` mutasyon şiddeti · `ES_INIT` başlangıç ölçeği.
+Varsayılanlar zaten tam-kalite (TICKS=900, GENS=60, 5-senaryo, çeşitli ordu). Env ile büyüt.
+Çıktı: `train/es_brain.json`. Ayarlar: `ES_SIZES` katmanlar · `ES_POP` aday/nesil · `ES_GENS` nesil · `ES_TICKS` maç-uzunluğu · `ES_SIGMA` mutasyon · `ES_INIT` başlangıç.
 
 ## Eğitilmiş ağı oyuna yükleme
 Tarayıcı konsolunda: `nnLoadBrain(<es_brain.json içeriği>)` → `NN.enabled=true` → NN komutanı sürer.
