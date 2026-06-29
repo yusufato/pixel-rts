@@ -11,3 +11,7 @@ train/bc_meta.json
 train/signal_report.txt
 train/es_brain.json
 train/es_report.json
+train/nntest.js
+train/bench.js
+train/_nntest_loop.js
+train/_bench_loop.js

@@ -551,9 +551,13 @@ function spShowTrainMenu() {
         '<div class="box">' +
         '<h2>🧠 Eğitim Modu Seç</h2>' +
         '<p>Kayıtlı insan replay\'i: <b style="color:#fff;">' + repCount + '</b></p>' +
-        '<button class="sp-menu-btn" data-mode="aivsai">⚡ Komutan — Hızlı (20 epoch)<br><span>Self-play: mirror + turtle + aggro + all-arty senaryo. ~1-2 dk.</span></button>' +
-        '<button class="sp-menu-btn" data-mode="aivsinsan">🧠 Komutan — Orta (40 epoch)<br><span>Daha güçlü, daha uzun. (önerilen)</span></button>' +
-        '<button class="sp-menu-btn" data-mode="gece">🌙 Komutan — Uzun (80 epoch)<br><span>En güçlü. Birkaç dakika sürer.</span></button>' +
+        '<button class="sp-menu-btn" data-mode="nn-fast" style="border-color:#6af;">🧠 Sinir-Ağı (NN) — Hızlı (12 nesil)<br><span>YENİ öğrenen beyin: 240 girdi → posture. Self-play evrim. ~2-3 dk.</span></button>' +
+        '<button class="sp-menu-btn" data-mode="nn-med" style="border-color:#6af;">🧠 Sinir-Ağı (NN) — Orta (25 nesil)<br><span>Daha güçlü NN. (önerilen) ~5-7 dk.</span></button>' +
+        '<button class="sp-menu-btn" data-mode="nn-long" style="border-color:#6af;">🌙 Sinir-Ağı (NN) — Uzun (50 nesil)<br><span>En güçlü NN. ~12-15 dk.</span></button>' +
+        '<hr style="border-color:#2a3340;margin:10px 0;">' +
+        '<button class="sp-menu-btn" data-mode="aivsai">⚡ Komutan (genom) — Hızlı (20 epoch)<br><span>Eski sistem: kural-genom evrimi. ~1-2 dk.</span></button>' +
+        '<button class="sp-menu-btn" data-mode="aivsinsan">🧠 Komutan (genom) — Orta (40 epoch)<br><span>Daha güçlü genom.</span></button>' +
+        '<button class="sp-menu-btn" data-mode="gece">🌙 Komutan (genom) — Uzun (80 epoch)<br><span>En güçlü genom.</span></button>' +
         '<button class="sp-menu-btn cancel" data-mode="cancel">İptal</button>' +
         '</div>';
     document.body.appendChild(modal);
@@ -567,7 +571,10 @@ function spShowTrainMenu() {
         if (mode === 'cancel') return;
         if (phase !== PHASE.DEPLOY) { alert('Eğitim sadece BİRLİK YERLEŞTİRME ekranında başlatılabilir.'); return; }
         // KOMUTAN eğitimi (canlı AI = Commander). Eski spStartTraining (LayeredAI) artık devre dışı — canlı oyun komutanı kullanıyor.
-        if (mode === 'aivsai')         spMenuTrainCommander(20);
+        if (mode === 'nn-fast')        spMenuTrainNN(12, 4, 220);   // YENİ: sinir-ağı eğitimi (butondan) ~2-3 dk
+        else if (mode === 'nn-med')    spMenuTrainNN(25, 5, 260);   // ~7-10 dk
+        else if (mode === 'nn-long')   spMenuTrainNN(50, 6, 320);   // ~25-30 dk
+        else if (mode === 'aivsai')    spMenuTrainCommander(20);
         else if (mode === 'aivsinsan') spMenuTrainCommander(40);
         else if (mode === 'gece')      spMenuTrainCommander(80);
     });
@@ -821,6 +828,79 @@ function spTrainCommander(epochs = 30, pop = 10, matches = 2, onDone, onProgress
     }
     setTimeout(epochStep, 0);
     return 'Eğitim başladı — konsolu izle (epoch fit artmalı). Bitince commanderGenome güncellenir.';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SİNİR-AĞI (NN) EĞİTİMİ — TARAYICI İÇİ (butondan; konsola/terminale gerek yok)
+//  NeuralBrain ağırlıklarını self-play ES ile evrimleştirir: RED=NN vs BLUE=kural.
+//  Fitness = spRunCommanderMatch().net (kuvvet-ekonomisi+VP, RED açısından). Async (setTimeout
+//  ile nesil-arası nefes → UI donmaz). Bitince NN CANLI + localStorage'a kalıcı.
+// ═══════════════════════════════════════════════════════════════════════════
+function spTrainNNBrain(gens, pop, sizesArg, ticks, onProgress, onDone) {
+    if (typeof NeuralBrain === 'undefined' || typeof BrainState === 'undefined') { alert('NN modülleri yüklü değil'); return; }
+    // HIZ: eğitimi AÇIK haritada yap (ordular hızlı çarpışır → ~700ms/maç; grid'de su/köprü maneuver'ı 8s'ye çıkarıyordu).
+    // Bitince oyuncunun haritasını geri yükle. (4060 script grid+çok-harita kullanır.)
+    const savedMap = (typeof currentMapId !== 'undefined') ? currentMapId : 0;
+    if (typeof applyMap === 'function') applyMap(1);
+    const sizes = (sizesArg || [BrainState.SCALAR_DIM, 96, 64, 32, 20]).slice();
+    sizes[0] = BrainState.SCALAR_DIM; sizes[sizes.length - 1] = 20;
+    const net = new NeuralBrain(sizes);
+    const NPAR = net.nParams;
+    let w = new Float64Array(NPAR);
+    for (let i = 0; i < NPAR; i++) w[i] = (Math.random() - 0.5) * 0.6;   // ±0.3 init → posture çeşitlensin
+    let sigma = 0.12;
+    const genome = (typeof commanderGenome !== 'undefined' && commanderGenome) ? commanderGenome : aiGenome;
+    const gauss = () => { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    // HIZ: küçük ordu (~9 birim) + throttle 6 → maç ~1s (30-birim/throttle3 maçı 12s'ti)
+    const TARMY = new Array(9).fill(0); TARMY[T.INFANTRY] = 4; TARMY[T.MECH_INFANTRY] = 2; TARMY[T.ARMOR] = 1; TARMY[T.ANTI_TANK] = 1; TARMY[T.RECON] = 1;
+    function nnFit(weights, seeds) {
+        net.setWeights(weights); NN.brain = net; NN.enabled = true; NN.side = true; NN.throttleCycles = 6;   // RED = NN
+        let s = 0;
+        for (const sd of seeds) s += spRunCommanderMatch(genome, genome, ticks, sd, TARMY, TARMY).net;
+        NN.enabled = false; NN.side = null;
+        return s / seeds.length;
+    }
+    // SABİT değerlendirme seed'leri → sim deterministik → şampiyon fitness'ı stabil → elitist GERÇEKTEN monoton
+    const FSEEDS = [5001, 5002];
+    let bestFit = nnFit(w, FSEEDS);
+    const baseline = bestFit;
+    let g = 0;
+    console.log(`🧠 NN eğitimi: ${gens} nesil × ${pop} aday · ${NPAR} param · başlangıç fit≈${baseline.toFixed(0)}`);
+    function genStep() {
+        let genBest = bestFit, bestCand = null, improved = false;   // şampiyon fitness sabit (det. sim) → tekrar ölçmeye gerek yok
+        for (let p = 0; p < pop; p++) {
+            const cand = new Float64Array(NPAR);
+            for (let i = 0; i < NPAR; i++) cand[i] = w[i] + sigma * gauss();
+            const f = nnFit(cand, FSEEDS);
+            if (f > genBest) { genBest = f; bestCand = cand; improved = true; }
+        }
+        if (improved) { w = bestCand; bestFit = genBest; } else sigma *= 0.85;
+        g++;
+        if (onProgress) onProgress(g, gens, bestFit);
+        console.log(`  nesil ${g}/${gens}: en iyi fit=${bestFit.toFixed(0)}${improved ? ' ↑' : ''}`);
+        if (g < gens) setTimeout(genStep, 0);
+        else {
+            net.setWeights(w); NN.brain = net; NN.enabled = true; NN.side = null;   // CANLI: AI artık NN komutanı kullanır
+            try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {}
+            if (typeof applyMap === 'function') applyMap(savedMap);   // oyuncunun haritasını geri yükle
+            if (typeof initControlPoints === 'function') initControlPoints();
+            console.log(`✅ NN eğitimi bitti. fit ${baseline.toFixed(0)}→${bestFit.toFixed(0)}. NN CANLI + kalıcı.`);
+            if (onDone) onDone({ sizes, fit: bestFit, baseline });
+        }
+    }
+    setTimeout(genStep, 0);
+}
+
+// UI'dan NN eğitimi: progress ekranı + bitince uyarı.
+function spMenuTrainNN(gens, pop, ticks) {
+    const screen = document.getElementById('ai-training-screen');
+    const bar = document.getElementById('train-progress-bar');
+    const txt = document.getElementById('train-progress-text');
+    if (screen) screen.classList.remove('hidden');
+    spTrainNNBrain(gens, pop, null, ticks,
+        (e, total, fit) => { if (bar) bar.style.width = Math.round(e / total * 100) + '%'; if (txt) txt.textContent = `🧠 Sinir-ağı eğitimi: ${e}/${total} nesil · fit ${Math.round(fit)}`; },
+        (r) => { if (screen) screen.classList.add('hidden'); alert(`✅ Sinir-ağı eğitimi bitti!\nFitness ${Math.round(r.baseline)} → ${Math.round(r.fit)} (${r.fit > r.baseline ? 'gelişti ✓' : 'değişmedi'}).\nNN artık CANLI (reload'da kalır). Oyna ve gör.`); }
+    );
 }
 
 // UI'dan KOMUTAN eğitimi: progress ekranını gösterir, bitince kaydeder + uyarır.

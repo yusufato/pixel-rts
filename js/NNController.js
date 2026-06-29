@@ -70,4 +70,13 @@ function nnApplyIntent(u) {
     // ODAK head'i (11..18) ileride: en-yakın-8'den hedef seçimi (şimdilik heuristik focusTarget kalır)
 }
 
+// AÇILIŞ: daha önce eğitilmiş NN varsa (butonla eğitim → localStorage) yükle → AI onu kullanır.
+// (headless eğitimde localStorage stub null döner → atlanır; mimari uyumsuzsa nnApplyIntent zaten kural-AI'ya düşer)
+try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem) {
+        const _j = localStorage.getItem('nnBrain');
+        if (_j) { const n = nnLoadBrain(JSON.parse(_j)); if (n) console.log('🧠 Eğitilmiş sinir-ağı yüklendi (' + n + ' param) — NN komutanı CANLI.'); }
+    }
+} catch (_) { }
+
 if (typeof module !== 'undefined' && module.exports) module.exports = { NN, nnLoadBrain, nnTestBrain, nnApplyIntent };
