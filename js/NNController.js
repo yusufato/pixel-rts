@@ -27,8 +27,10 @@ const NN = {
 
 // Eğitilmiş ağı yükle (JSON: {sizes, weights}) → aktif et. Döner: parametre sayısı.
 function nnLoadBrain(json) {
-    if (typeof NeuralBrain === 'undefined') return 0;
-    NN.brain = (json && json.sizes) ? NeuralBrain.fromJSON(json) : null;
+    if (!json) return 0;
+    if (json.hybrid && typeof HybridBrain !== 'undefined') NN.brain = HybridBrain.fromJSON(json);
+    else if (json.sizes && typeof NeuralBrain !== 'undefined') NN.brain = NeuralBrain.fromJSON(json);
+    else NN.brain = null;
     NN.enabled = !!NN.brain;
     return NN.brain ? NN.brain.nParams : 0;
 }
@@ -57,9 +59,16 @@ function nnApplyIntent(u) {
         return;
     }
     u._nnCd = NN.throttleCycles;
-    const sc = (BrainState.encodeScalarsOnly) ? BrainState.encodeScalarsOnly(u) : BrainState.encode(u).scalars;   // skaler-MLP → uzaysal atla (ucuz)
-    if (NN.brain.sizes[0] !== sc.length) return;          // mimari uyumsuz → kural-AI kalsın
-    const out = NN.brain.forward(sc);                     // skaler-MLP (hibrit conv sonra)
+    let out;
+    if (NN.brain.isHybrid) {                              // HİBRİT: skaler + uzaysal algı haritası
+        const st = BrainState.encode(u);
+        if (NN.brain.cfg.scalarDim !== st.scalars.length) return;
+        out = NN.brain.forward(st.scalars, st.spatial);
+    } else {                                              // SKALER-MLP: uzaysal atla (ucuz)
+        const sc = (BrainState.encodeScalarsOnly) ? BrainState.encodeScalarsOnly(u) : BrainState.encode(u).scalars;
+        if (NN.brain.sizes[0] !== sc.length) return;      // mimari uyumsuz → kural-AI kalsın
+        out = NN.brain.forward(sc);
+    }
     const pIx = NN.brain.argmax(out, 0, 7);
     const rIx = NN.brain.argmax(out, 7, 11) - 7;
     const rawPosture = NN.POSTURES[pIx] || 'COMMIT';

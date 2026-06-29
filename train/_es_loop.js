@@ -20,7 +20,9 @@
 
     const ARMY = new Array(9).fill(0); ARMY[T.INFANTRY] = 4; ARMY[T.MECH_INFANTRY] = 2; ARMY[T.ARMOR] = 1; ARMY[T.ANTI_TANK] = 1; ARMY[T.ARTILLERY] = 1; ARMY[T.RECON] = 1;
     const genome = (typeof commanderGenome !== 'undefined' && commanderGenome) ? commanderGenome : (typeof aiGenome !== 'undefined' ? aiGenome : null);
-    const net = new NeuralBrain(SIZES);
+    // HİBRİT (conv ALGI + skaler) varsayılan; ES_SCALAR=1 ile eski skaler-MLP'ye düş
+    const useHybrid = (typeof HybridBrain !== 'undefined') && +E('ES_SCALAR', 0) !== 1;
+    const net = useHybrid ? new HybridBrain(HybridBrain.defaultCfg(BrainState.SCALAR_DIM, BrainState.CHANNELS, BrainState.GRID_N)) : new NeuralBrain(SIZES);
     const NPAR = net.nParams;
     const INIT = +E('ES_INIT', 0.30);   // başlangıç ağırlık ölçeği — posture argmax'ı çeşitlensin (çok küçükse hep aynı)
     let w = new Float64Array(NPAR); for (let i = 0; i < NPAR; i++) w[i] = gauss() * INIT;
@@ -77,9 +79,10 @@
     const finalFit = bestFit;
     console.error('[ES] SON en-iyi=' + finalFit.toFixed(1) + ' (başlangıç ' + baseline.toFixed(1) + ')');
 
+    net.setWeights(w);
     __OUT = {
         baseline: +baseline.toFixed(1), final: +finalFit.toFixed(1), kesif: +(finalFit - baseline).toFixed(1),
-        nparams: NPAR, sizes: SIZES, gens: log,
-        brainJSON: { sizes: SIZES, weights: Array.from(w) }
+        nparams: NPAR, sizes: useHybrid ? 'hibrit' : SIZES, gens: log,
+        brainJSON: net.toJSON()    // hibrit {hybrid,cfg,weights} ya da skaler {sizes,weights} → nnLoadBrain ikisini de yükler
     };
 })();

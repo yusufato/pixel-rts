@@ -31,7 +31,7 @@ var document = new Proxy({ readyState: 'complete', getElementById: () => domStub
 var requestAnimationFrame = noop, cancelAnimationFrame = noop, alert = noop, navigator = { userAgent: 'node' }, performance = { now: () => 0 };
 
 var __OUT = null;
-const FILES = ['brain.js', 'globals.js', 'MapImage.js', 'MapData.js', 'BrainState.js', 'NeuralBrain.js', 'NNController.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js', 'Support.js', 'Unit.js', 'AI.js', 'Foresight.js', 'LayeredAI.js', 'Commander.js', 'ControlPoints.js', 'main.js', 'terrainData.js', 'techTree.js', 'SelfPlay.js'];
+const FILES = ['brain.js', 'globals.js', 'MapImage.js', 'MapData.js', 'BrainState.js', 'NeuralBrain.js', 'HybridBrain.js', 'NNController.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js', 'Support.js', 'Unit.js', 'AI.js', 'Foresight.js', 'LayeredAI.js', 'Commander.js', 'ControlPoints.js', 'main.js', 'terrainData.js', 'techTree.js', 'SelfPlay.js'];
 let src = '';
 for (const f of FILES) { const p = path.join(ROOT, 'js', f); if (fs.existsSync(p)) src += '\n;/*=== ' + f + ' ===*/\n' + fs.readFileSync(p, 'utf8'); }
 src += '\n;/*=== _es_loop.js ===*/\n' + fs.readFileSync(path.join(__dirname, '_es_loop.js'), 'utf8');

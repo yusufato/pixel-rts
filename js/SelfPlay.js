@@ -843,8 +843,11 @@ function spTrainNNBrain(gens, pop, sizesArg, ticks, onProgress, onDone) {
     // 4060'ta hızlı. MAÇ-BAŞI ASYNC (her maç sonra setTimeout) → tek maç 10 dk sürse bile UI KİLİTLENMEZ.
     const sizes = (sizesArg || [BrainState.SCALAR_DIM, 96, 64, 32, 20]).slice();
     sizes[0] = BrainState.SCALAR_DIM; sizes[sizes.length - 1] = 20;
-    const net = new NeuralBrain(sizes);
+    // HİBRİT (conv ALGI + skaler) varsayılan — kullanıcı seçimi; yoksa skaler-MLP fallback
+    const useHybrid = (typeof HybridBrain !== 'undefined');
+    const net = useHybrid ? new HybridBrain(HybridBrain.defaultCfg(BrainState.SCALAR_DIM, BrainState.CHANNELS, BrainState.GRID_N)) : new NeuralBrain(sizes);
     const NPAR = net.nParams;
+    const saveBrain = () => { net.setWeights(w); try { localStorage.setItem('nnBrain', JSON.stringify(net.toJSON())); } catch (_) { } };
     let w = new Float64Array(NPAR);
     for (let i = 0; i < NPAR; i++) w[i] = (Math.random() - 0.5) * 0.6;   // ±0.3 init → posture çeşitlensin
     let sigma = 0.12;
@@ -893,11 +896,10 @@ function spTrainNNBrain(gens, pop, sizesArg, ticks, onProgress, onDone) {
                 g++;
                 if (onProgress) onProgress(g, gens, bestFit, bestVal);
                 console.log(`  nesil ${g}/${gens}: eğitim=${bestFit.toFixed(0)} SINAV=${bestVal.toFixed(0)}${bi >= 0 ? ' ↑' : ''}`);
-                if (g % 5 === 0) { try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {} }   // ARA-KAYIT
+                if (g % 5 === 0) saveBrain();   // ARA-KAYIT (kesilirse kaybolmaz)
                 if (g < gens) nextGen();
                 else {
-                    net.setWeights(w); NN.brain = net; NN.enabled = true; NN.side = null;
-                    try { localStorage.setItem('nnBrain', JSON.stringify({ sizes, weights: Array.from(w) })); } catch (_) {}
+                    saveBrain(); NN.brain = net; NN.enabled = true; NN.side = null;   // CANLI + kalıcı
                     console.log(`✅ NN eğitimi bitti. eğitim ${baseTr.toFixed(0)}→${bestFit.toFixed(0)} · SINAV ${baseVal.toFixed(0)}→${bestVal.toFixed(0)}.`);
                     if (onDone) onDone({ sizes, fit: bestFit, baseline: baseTr, valFit: bestVal, valBase: baseVal });
                 }
