@@ -15,7 +15,7 @@ import websockets
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get('PORT', sys.argv[1] if len(sys.argv) > 1 else 8080))   # Render PORT env'i atar
 IS_CLOUD = os.environ.get('RTS_ROLE', 'lan') == 'cloud'   # bulut: 4-haneli oda kodu (LAN: IP-kodlu şifre)
-INDEX = 'oyna.html' if os.path.isfile(os.path.join(ROOT, 'oyna.html')) else 'index.html'
+INDEX = 'index.html'
 
 rooms = {}        # rid -> {id, name, seed, host, guest, started}
 clients = {}      # ws  -> {room, role}
