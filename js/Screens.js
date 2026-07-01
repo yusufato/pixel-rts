@@ -7,12 +7,50 @@
 
 let APP_SCREEN = 'menu';
 
+// Tüm maç türleri için tek, geri-uyumlu savaş sıfırlama noktası.
+// Harita/AI yapılandırmasını korur; önceki maçın hareketli state'ini temizler.
+function resetBattleState() {
+    if (typeof units !== 'undefined') units.length = 0;
+    if (typeof trenches !== 'undefined') trenches.length = 0;
+    if (typeof particles !== 'undefined') particles.length = 0;
+    if (typeof activeSupports !== 'undefined') activeSupports.length = 0;
+    if (typeof craters !== 'undefined') craters.length = 0;
+    if (typeof decals !== 'undefined') decals.length = 0;
+    if (typeof supportCooldowns !== 'undefined') supportCooldowns.paradrop = 0;
+    if (typeof SIM !== 'undefined') {
+        SIM.controlPoints = [];
+        SIM.vpScore = { red: 0, blue: 0 };
+        SIM.vpWinner = null;
+        SIM.tick = 0;
+    }
+    if (typeof player !== 'undefined') { player.kills = 0; player.unitsSpawned = 0; }
+    if (typeof enemy !== 'undefined') { enemy.kills = 0; enemy.unitsSpawned = 0; }
+    if (typeof gameTime !== 'undefined') gameTime = 0;
+    if (typeof simulationTime !== 'undefined') simulationTime = 0;
+    if (typeof phase !== 'undefined' && typeof PHASE !== 'undefined') phase = PHASE.DEPLOY;
+    if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
+    if (typeof battleTelemetry !== 'undefined' && battleTelemetry.reset) battleTelemetry.reset();
+    if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
+    if (typeof commanderReset === 'function') commanderReset();
+    if (typeof layeredAI !== 'undefined' && layeredAI.reset) layeredAI.reset(0);
+    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();
+    if (typeof initControlPoints === 'function') initControlPoints();
+    document.body.setAttribute('data-phase', 'deploy');
+    document.getElementById('game-over-screen')?.classList.add('hidden');
+    document.getElementById('start-btn')?.classList.remove('hidden');
+    document.getElementById('ui-support')?.classList.add('hidden');
+    const spawn = document.getElementById('ui-spawn-bar');
+    if (spawn) { spawn.style.opacity = '1'; spawn.style.pointerEvents = 'auto'; }
+}
+
 function showScreen(name) {
     document.body.setAttribute('data-screen', name);                       // CSS: oyun-HUD'u 'game' dışında gizlenir
+    if (name === 'game' && typeof phase !== 'undefined') document.body.setAttribute('data-phase', phase);
     document.querySelectorAll('.app-screen').forEach(e => e.classList.add('hidden'));
     const ov = document.getElementById('screen-' + name);
     if (ov) ov.classList.remove('hidden');
     APP_SCREEN = name;
+    if (name === 'menu' && typeof warRoomRefreshMenu === 'function') warRoomRefreshMenu();
 }
 
 // ── HIZLI MAÇ: puan = ordu bütçesi (asimetrik puan = zorluk ayarı) ──
@@ -33,6 +71,7 @@ function quickMatchUpdate() {
 function quickMatchStart() {
     const ai = +(document.getElementById('qm-ai')?.value || 1500);
     const pl = +(document.getElementById('qm-pl')?.value || 1500);
+    resetBattleState();
     // PUAN → BÜTÇE: oyuncu pl ile birlik dizer; AI ai ile (aiDeploy enemy.money okur).
     if (typeof player !== 'undefined') player.money = pl;
     if (typeof enemy !== 'undefined') enemy.money = ai;
@@ -103,11 +142,10 @@ function mpInit() {
 function screensInit() {
     document.getElementById('btn-quick-match')?.addEventListener('click', () => { showScreen('quickmatch'); quickMatchUpdate(); });
     document.getElementById('btn-new-story')?.addEventListener('click', () => {
-        if (typeof storyOpen === 'function') storyOpen();
-        else alert('📜 Hikaye modülü yüklenemedi.');
+        showScreen('story-setup');
+        if (typeof warRoomSetupOpen === 'function') warRoomSetupOpen();
     });
     document.getElementById('btn-multiplayer')?.addEventListener('click', () => { showScreen('multiplayer'); if (typeof mpInit === 'function') mpInit(); });
-    document.getElementById('btn-settings')?.addEventListener('click', () => alert('⚙️ Ayarlar yakında (devlet sayısı, kaynak bolluğu, zorluk).'));
     document.getElementById('qm-ai')?.addEventListener('input', quickMatchUpdate);
     document.getElementById('qm-pl')?.addEventListener('input', quickMatchUpdate);
     // 10-HARİTA seçiciyi doldur (🎲 Rastgele + 10 harita adı)

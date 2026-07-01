@@ -45,6 +45,7 @@ class Unit {
         this.aiAction = 'ATTACK';
 
         this.panic = 0; // 0 to 100
+        this.panicResistance = 0;
         this.isPanicking = false;
         this.isFleeing = false;
         this.fleeTarget = null;
@@ -168,6 +169,7 @@ class Unit {
         if (this.suppression > 60) panicGain += 4 / 60 * GAME_SPEED;                            // ağır baskı altında
         if (this.leaderNearby) panicGain *= 0.55;  // yakındaki lider askerleri yatıştırır
         if (isLeader) panicGain *= 0.5;            // gaziler kolay kolay paniklemez
+        panicGain *= 1 - Math.max(0, Math.min(0.75, this.panicResistance || 0));
 
         // ── Panik AZALMASI (toparlanma kaynakları) ──
         let panicDecay = 5 * (now - this.lastAttackTime > 3000 ? 2 : 1) / 60 * GAME_SPEED;
@@ -605,6 +607,11 @@ class Unit {
             isFlankHit = true;
             dmg *= _tgtArmored ? 1.7 : 1.4;
         }                                           // ÖN (120-180°): zırh tam etkili (×1.0)
+        const _perkBonus = typeof _techBonusFor === 'function' ? _techBonusFor(this) : null;
+        if (isFlankHit && _perkBonus && _perkBonus.firstFlankMul && !this._firstFlankPerkSpent) {
+            dmg *= _perkBonus.firstFlankMul;
+            this._firstFlankPerkSpent = true;
+        }
 
         // T2: YÜKSELTİ — sürekli yükselti farkı (her yerde): yüksekten sert, yokuş-yukarı zayıf
         const _eDelta = (this.elevation || 0.5) - (this.attackTarget.elevation || 0.5);

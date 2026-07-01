@@ -244,6 +244,8 @@ function startBattle() {
     aiDeploy();       // Öğrenilen meta + sahaya göre karşı orduyu bas
     
     phase = PHASE.BATTLE;
+    document.body.setAttribute('data-phase', PHASE.BATTLE);
+    if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     battleTelemetry.start(simulationTime);
     if (typeof initControlPoints === 'function') initControlPoints();   // bölge kontrolü / zafer puanları
@@ -270,7 +272,10 @@ document.getElementById('start-btn').addEventListener('click', () => {
     if (units.filter(u => !u.isRed).length === 0) return;
     startBattle();
 });
-document.getElementById('restart-btn').addEventListener('click', () => location.reload());
+document.getElementById('restart-btn').addEventListener('click', () => {
+    if (typeof resetBattleState === 'function') resetBattleState();
+    if (typeof showScreen === 'function') showScreen('menu');
+});
 document.getElementById('copy-battle-report-btn')?.addEventListener('click', async () => {
     const output = document.getElementById('battle-report-output');
     if (!output) return;
@@ -324,6 +329,7 @@ function checkGameOver() {
         if (typeof replayStopRecording === 'function') replayStopRecording(won);   // insan replay kaydını bitir
     }
     phase = PHASE.OVER;
+    document.body.setAttribute('data-phase', PHASE.OVER);
     // ÇOK OYUNCULU: 'won' MAVİ-perspektifli; ekranı BENİM tarafıma göre çevir (guest=kırmızı)
     let shownWon = won;
     if (_mp && won !== 'draw') shownWon = (won === !myCanonicalSide);
@@ -415,13 +421,17 @@ function checkGameOver() {
     // Varsayılan: normal "Tekrar Oyna" görünür, "Dünyaya Dön" gizli (story hook gerekirse ters çevirir).
     document.getElementById('restart-btn')?.classList.remove('hidden');
     document.getElementById('story-return-btn')?.classList.add('hidden');
+    document.getElementById('campaign-result-panel')?.classList.add('hidden');
     if (typeof STORY !== 'undefined' && STORY.active && STORY.battleCtx && typeof storyOnBattleEnd === 'function') {
-        storyOnBattleEnd(won);
+        storyOnBattleEnd(won, telemetrySummary);
     }
     document.getElementById('game-over-screen').classList.remove('hidden');
 }
 
 function updateUI() {
+    if (document.body.getAttribute('data-screen') === 'game') document.body.setAttribute('data-phase', phase);
+    if (phase === PHASE.DEPLOY && typeof warRoomUpdateDeploy === 'function') warRoomUpdateDeploy();
+    if (phase === PHASE.BATTLE && typeof warRoomUpdateBattle === 'function') warRoomUpdateBattle();
     const _mp = (typeof MP !== 'undefined' && MP.active);
     const myWallet = (_mp && myCanonicalSide) ? enemy : player;   // MP guest = enemy bütçesi
     // FAZ-2 KAYNAK-BAZLI (hikaye düellosu): 3 kaynak bütçesini göster, harca-azalt; yoksa tek-para
@@ -854,6 +864,7 @@ function drawMap() {
 }
 
 function drawFogOfWar() {
+    if (typeof STORY !== 'undefined' && STORY.active && STORY.cfg && STORY.cfg.fog === false) return;
     // Deploy fazında fog of war yok - harita açık görünsün
     if (phase === PHASE.DEPLOY) return;
     
@@ -1076,6 +1087,7 @@ function gameLoop(timestamp) {
     drawMap();
     if (typeof drawControlPoints === 'function') drawControlPoints(ctx);   // bölge halkaları (birimlerin altında)
     units.forEach(u => u.draw());
+    if (typeof warRoomDrawBattleAxis === 'function') warRoomDrawBattleAxis(ctx);
     drawParticles(ctx);
     if (typeof drawFloatTexts === 'function') drawFloatTexts(ctx);   // hasar sayıları (partiküllerin üstünde)
     drawSupport(ctx);

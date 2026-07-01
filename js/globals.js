@@ -433,9 +433,12 @@ function applyTechSpawnBonus(u) {
     const t = u.type;
     if (t === T.ARMOR && tb.tankArmor) u.baseArmor = Math.round(u.baseArmor * tb.tankArmor);
     if (t === T.ARMOR && tb.tankHp) { u.maxHp = Math.round(u.maxHp * tb.tankHp); u.hp = u.maxHp; }
+    if ((t === T.ARMOR || t === T.MECH_INFANTRY || t === T.ARMOR_INFANTRY) && tb.armoredHpMul) { u.maxHp = Math.round(u.maxHp * tb.armoredHpMul); u.hp = u.maxHp; }
     if ((t === T.ARMOR || t === T.MECH_INFANTRY || t === T.ARMOR_INFANTRY) && tb.armorSpeed) { u.baseSpeed *= tb.armorSpeed; u.speed = u.baseSpeed; }
     if (t === T.RECON && tb.reconVision) u.vision = Math.round(u.vision * tb.reconVision);
     if (t === T.INFANTRY && tb.infantryHp) { u.maxHp = Math.round(u.maxHp * tb.infantryHp); u.hp = u.maxHp; }
+    if (tb.allArmorAdd) u.baseArmor += tb.allArmorAdd;
+    if (tb.panicResistance) u.panicResistance = Math.max(u.panicResistance || 0, tb.panicResistance);
     if (u.baseArmor != null) u.armor = u.baseArmor;   // dinamik armor'ı taze tabana hizala
 }
 

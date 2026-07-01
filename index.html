@@ -9,17 +9,92 @@
 </head>
 
 <body data-screen="menu">
-    <!-- ═══ PIXEL EUROPA — EKRANLAR (Faz 1) ═══ -->
-    <div id="screen-menu" class="app-screen">
-        <div class="menu-logo">⚔️ PIXEL EUROPA</div>
-        <div class="menu-tag">Taktik Savaş Komutanlığı</div>
-        <div class="menu-side">
-            <button id="btn-new-story" class="menu-btn">📜 Yeni Hikaye</button>
-            <button id="btn-quick-match" class="menu-btn primary">⚡ Hızlı Maç</button>
-            <button id="btn-multiplayer" class="menu-btn">🌐 Çok Oyunculu</button>
-            <button id="btn-settings" class="menu-btn">⚙️ Ayarlar</button>
-        </div>
-    </div>
+    <!-- ═══ WAR ROOM — META EKRANLARI ═══ -->
+    <div id="war-room-shell">
+        <div class="wr-console">
+            <div class="wr-bezel-top">
+                <div class="wr-terminal-name"><i class="wr-led amber"></i> FC-9 · FIELD COMMAND TERMINAL</div>
+                <div class="wr-signal-bank"><span>PWR <i class="wr-led green"></i></span><span>SIG <i class="wr-led amber pulse"></i></span><span>REC <i class="wr-led red pulse"></i></span></div>
+            </div>
+            <main id="war-room-stage">
+                <div class="wr-classification">// TACNET — RESTRICTED //</div>
+
+                <div id="screen-menu" class="app-screen wr-screen">
+                    <div class="wr-grid-backdrop"></div>
+                    <section class="wr-menu-brand" aria-labelledby="wr-main-title">
+                        <div class="wr-eyebrow">FORGE-CORE · TACNET v0.9</div>
+                        <h1 id="wr-main-title">PIXEL<br>RTS</h1>
+                        <p class="wr-terminal-subtitle">SAHA KOMUTA TERMİNALİ<span class="wr-caret">_</span></p>
+                        <div class="wr-boot-log" aria-live="polite">
+                            <p><span class="wr-status-dot ok"></span>TACNET BAĞLANTISI KURULDU</p>
+                            <p><span class="wr-status-dot ok"></span>FORGE-CORE SAVAŞ MOTORU HAZIR</p>
+                            <p id="wr-save-status"><span class="wr-status-dot"></span>KAMPANYA KAYDI TARANIYOR</p>
+                            <p class="wr-await">EMİR BEKLENİYOR<span class="wr-caret">_</span></p>
+                        </div>
+                    </section>
+
+                    <nav class="wr-menu-actions" aria-label="Ana menü">
+                        <button id="btn-new-story" class="wr-menu-button primary">
+                            <span class="wr-menu-line"><b>YENİ HİKAYE</b><kbd>F2</kbd></span>
+                            <small>Devletini seç, yaşayan Avrupa seferine çık</small>
+                        </button>
+                        <button id="btn-story-continue" class="wr-menu-button" disabled>
+                            <span class="wr-menu-line"><b>SEFERE DEVAM</b><kbd>F3</kbd></span>
+                            <small id="wr-continue-copy">Kayıtlı harekât bulunamadı</small>
+                        </button>
+                        <button id="btn-quick-match" class="wr-menu-button">
+                            <span class="wr-menu-line"><b>HIZLI MAÇ</b><kbd>F4</kbd></span>
+                            <small>Anında 1v1 · bütçe ve harita seç</small>
+                        </button>
+                        <button id="btn-multiplayer" class="wr-menu-button compact">
+                            <span class="wr-menu-line"><b>ÇOK OYUNCULU</b><kbd>NET</kbd></span>
+                            <small>İnternet veya aynı ağ üzerinden 1v1</small>
+                        </button>
+                        <button id="btn-settings" class="wr-menu-button compact" aria-expanded="false" aria-controls="wr-settings-panel">
+                            <span class="wr-menu-line"><b>AYARLAR</b><kbd>CFG</kbd></span>
+                            <small>Görüntü ve terminal tercihleri</small>
+                        </button>
+                        <div id="wr-settings-panel" class="wr-settings hidden">
+                            <label><span>CRT TARAMA</span><input id="wr-crt-toggle" type="checkbox" checked></label>
+                            <label><span>ARAYÜZ SESİ</span><input id="wr-volume" type="range" min="0" max="100" value="70"><output id="wr-volume-value">70%</output></label>
+                        </div>
+                    </nav>
+                    <div class="wr-screen-footer"><span>KIŞ HAREKÂTI · MODERN ÇAĞ</span><span>BUILD 0.9.3-mvp</span></div>
+                </div>
+
+                <div id="screen-story-setup" class="app-screen wr-screen hidden">
+                    <header class="wr-setup-header">
+                        <div><span class="wr-eyebrow">YENİ HİKAYE</span><h2>HAREKÂT KURULUMU</h2></div>
+                        <div class="wr-setup-progress"><b>1 · DEVLET & ÇAĞ</b><span>2 · BRİFİNG</span><span>3 · SEFER</span></div>
+                    </header>
+                    <div class="wr-setup-layout">
+                        <section class="wr-state-picker">
+                            <h3>DEVLET SEÇ <span>— 8 YAŞAYAN GÜÇ</span></h3>
+                            <div id="wr-state-grid" class="wr-state-grid" role="listbox" aria-label="Devlet seçimi"></div>
+                        </section>
+                        <section class="wr-briefing">
+                            <div>
+                                <h3>ÇAĞ SEÇ <span>— MVP: MODERN AÇIK</span></h3>
+                                <div class="wr-era-grid">
+                                    <button class="wr-era selected" data-era="modern"><b>MODERN</b><small>Tank · Topçu · Mekanize</small></button>
+                                    <button class="wr-era" disabled><b>ESKİ ÇAĞ</b><small>Yakında</small></button>
+                                    <button class="wr-era" disabled><b>ORTA ÇAĞ</b><small>Yakında</small></button>
+                                    <button class="wr-era" disabled><b>FANTEZİ</b><small>Yakında</small></button>
+                                </div>
+                            </div>
+                            <div class="wr-brief-options">
+                                <h3>HAREKÂT BRİFİNGİ</h3>
+                                <div class="wr-option-row" data-setting="doctrine"><span>DOKTRİN</span><div><button data-value="armor">Zırhlı Mızrak</button><button class="selected" data-value="combined">Birleşik Silahlar</button><button data-value="defense">Derin Savunma</button></div></div>
+                                <div class="wr-option-row locked"><span>DEVLET SAYISI</span><div><button class="selected" data-value="8">8 · Yaşayan Dünya</button></div></div>
+                                <div class="wr-option-row" data-setting="abundance"><span>KAYNAK BOLLUĞU</span><div><button data-value="0.75">Kıt</button><button class="selected" data-value="1">Dengeli</button><button data-value="1.25">Bol</button></div></div>
+                                <div class="wr-option-row" data-setting="fog"><span>SİS-İ HARP</span><div><button class="selected" data-value="on">Açık</button><button data-value="off">Kapalı</button></div></div>
+                            </div>
+                            <div id="wr-selected-state" class="wr-selected-state">Bir devlet seçerek harekât emrini hazırla.</div>
+                            <div class="wr-setup-actions"><button id="btn-setup-back" class="wr-secondary">GERİ</button><button id="btn-story-start" class="wr-confirm" disabled>HİKÂYEYİ BAŞLAT</button></div>
+                        </section>
+                    </div>
+                </div>
+
     <div id="screen-quickmatch" class="app-screen hidden">
         <div class="menu-logo small">⚡ Hızlı Maç</div>
         <div class="qm-box">
@@ -62,40 +137,53 @@
             <button id="btn-mp-back" class="menu-btn">← Geri</button>
         </div>
     </div>
+            </main>
+            <div class="wr-bezel-bottom"><span>F1 ANA MENÜ</span><span>F2 YENİ HİKAYE</span><span>F3 SEFERE DEVAM</span><span>F4 HIZLI MAÇ</span></div>
+        </div>
+    </div>
 
     <!-- HİKAYE / AÇIK-DÜNYA (Faz-1): yaşayan-dünya harita ekranı -->
     <div id="screen-story" class="app-screen hidden">
         <div id="story-wrap">
-            <canvas id="storyCanvas"></canvas>
-            <!-- Sol üst: kompakt devlet HUD'u (her zaman görünür) -->
-            <div id="story-hud">
-                <h2 class="story-title">🌍 <span id="story-era">Modern Çağ</span></h2>
-                <div id="story-stats"></div>
-                <div id="story-node-info"></div>
+            <header id="story-command-bar">
+                <div class="story-command-title"><span>PIXEL</span><b>AVRUPA</b><small>YAŞAYAN HAREKÂT AĞI · MODERN ÇAĞ</small></div>
+                <div id="story-stats" aria-live="polite"></div>
+                <div id="story-topright">
+                    <button id="story-pause-btn" class="ctrl-btn" title="Duraklat / Devam">DURAKLAT</button>
+                    <button id="story-save-btn" class="ctrl-btn" title="Kaydet">KAYDET</button>
+                    <button id="story-menu-btn" class="ctrl-btn" title="Ana Menü">MENÜ</button>
+                </div>
+            </header>
+            <div id="story-map-shell">
+                <canvas id="storyCanvas"></canvas>
+                <div class="story-map-label">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div>
+                <div class="story-map-help">SÜRÜKLE: KAMERA · TEKERLEK: ZOOM · DÜĞÜM: BRİFİNG</div>
+                <div class="story-map-legend"><span class="friendly">DOST HAT</span><span class="open">ERİŞİLEBİLİR</span><span class="hostile">DÜŞMAN</span></div>
             </div>
-            <!-- Sol araç çubuğu: açılır-kapanır panel butonları -->
+            <aside id="story-brief-panel">
+                <div id="story-hud">
+                    <span class="story-kicker">HAREKÂT BRİFİNGİ</span>
+                    <h2 class="story-title"><span id="story-era">MODERN ÇAĞ</span></h2>
+                    <div id="story-node-info"></div>
+                    <button id="story-action-btn" class="story-action-btn" disabled>ERİŞİLEBİLİR BİR DÜĞÜM SEÇ</button>
+                </div>
+                <div id="story-news">
+                    <div class="news-title">MUHAREBE KAYDI</div>
+                    <div id="story-log"></div>
+                </div>
+            </aside>
             <div id="story-tools">
-                <button id="story-council-btn" class="tool-btn" title="Konsey">🏛️</button>
-                <button id="story-army-btn" class="tool-btn" title="Ordum (komutan + gaziler)">🎖️</button>
-                <button id="story-tech-btn" class="tool-btn" title="Teknoloji Ağacı">🔬</button>
-                <button id="story-city-btn" class="tool-btn" title="Şehirler (yükselt + garnizon)">🏗️</button>
-            </div>
-            <!-- Sağ üst: dur/devam + kaydet + menü -->
-            <div id="story-topright">
-                <button id="story-pause-btn" class="ctrl-btn" title="Duraklat / Devam">⏸</button>
-                <button id="story-save-btn" class="ctrl-btn" title="Kaydet">💾</button>
-                <button id="story-menu-btn" class="ctrl-btn" title="Ana Menü">🏠</button>
-            </div>
-            <!-- Sağ: haber akışı (küçük kutu) -->
-            <div id="story-news">
-                <div class="news-title">📰 Haberler</div>
-                <div id="story-log"></div>
+                <button id="story-council-btn" class="tool-btn" title="Konsey"><b>01</b><span>KONSEY</span></button>
+                <button id="story-army-btn" class="tool-btn" title="Ordum ve gaziler"><b>02</b><span>ORDU</span></button>
+                <button id="story-tech-btn" class="tool-btn" title="Teknoloji Ağacı"><b>03</b><span>AR-GE</span></button>
+                <button id="story-city-btn" class="tool-btn" title="Şehirler"><b>04</b><span>ŞEHİR</span></button>
+                <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>05</b><span>KOMUTAN</span></button>
             </div>
             <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
             <aside id="council-panel" aria-hidden="true">
                 <div id="council-header">
-                    <span class="council-title">🏛️ Konsey</span>
-                    <button id="council-close" class="council-x" aria-label="Kapat">✖</button>
+                    <span class="council-title">KONSEY</span>
+                    <button id="council-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="council-admin-banner"></div>
                 <div id="council-treasury"></div>
@@ -109,27 +197,43 @@
             <!-- TEKNOLOJİ — SOLDAN kayar drawer (placeholder: Adım 4'te uygulanacak) -->
             <aside id="tech-panel" aria-hidden="true">
                 <div id="tech-header">
-                    <span class="council-title">🔬 Teknoloji Ağacı</span>
-                    <button id="tech-close" class="council-x" aria-label="Kapat">✖</button>
+                    <span class="council-title">TEKNOLOJİ AĞACI</span>
+                    <button id="tech-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="tech-body"></div>
             </aside>
             <!-- ORDUM — SOLDAN kayar drawer (komutan kartı + ordu bütçesi + gaziler) -->
             <aside id="army-panel" aria-hidden="true">
                 <div id="army-header">
-                    <span class="council-title">🎖️ Ordum</span>
-                    <button id="army-close" class="council-x" aria-label="Kapat">✖</button>
+                    <span class="council-title">ORDUM</span>
+                    <button id="army-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="army-body"></div>
             </aside>
             <!-- ŞEHİRLER — SOLDAN kayar drawer (Adım 6: seviye + garnizon) -->
             <aside id="city-panel" aria-hidden="true">
                 <div id="city-header">
-                    <span class="council-title">🏗️ Şehirler</span>
-                    <button id="city-close" class="council-x" aria-label="Kapat">✖</button>
+                    <span class="council-title">ŞEHİRLER</span>
+                    <button id="city-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="city-body"></div>
             </aside>
+        </div>
+    </div>
+
+    <div id="screen-commander" class="app-screen hidden">
+        <div id="commander-shell">
+            <header class="commander-header"><div><span>İLERLEME & YETENEKLER</span><h2>KOMUTAN PROFİLİ</h2></div><button id="commander-back-btn">HARİTAYA DÖN</button></header>
+            <div class="commander-layout">
+                <section class="commander-profile">
+                    <div id="commander-rank-mark">R1</div>
+                    <h3 id="commander-rank-name">TEĞMEN</h3>
+                    <div class="commander-xp"><span>RÜTBE İLERLEMESİ</span><i><b id="commander-xp-bar"></b></i><em id="commander-xp-text">0 / 600 XP</em></div>
+                    <div id="commander-summary"></div>
+                    <p>En fazla üç yetenek aktif olabilir. Değişiklikler bir sonraki konuşlandırmada uygulanır.</p>
+                </section>
+                <section class="commander-perks"><div class="commander-perk-head"><span>YETENEK SİNYALLERİ</span><b id="commander-slot-count">AKTİF 0/3</b></div><div id="commander-perk-grid"></div></section>
+            </div>
         </div>
     </div>
 
@@ -150,6 +254,41 @@
     <div id="ui-info">
         <div id="info-content">Bir birim seç veya üzerine gel</div>
     </div>
+
+    <!-- WAR ROOM: deploy sırasında gerçek birliklerden beslenen kompozisyon paneli -->
+    <aside id="deploy-sidebar" aria-label="Ordu kompozisyonu">
+        <div class="deploy-side-head"><span>ORDU KOMPOZİSYONU</span><b id="deploy-unit-count">0 / —</b></div>
+        <div id="deploy-operation-name">SERBEST DÜELLO</div>
+        <div id="deploy-comp-list"></div>
+        <div class="deploy-side-summary">
+            <div><span>KALAN BÜTÇE</span><b id="deploy-budget-total">0</b></div>
+            <div><span>SAHADAKİ BİRLİK</span><b id="deploy-field-count">0</b></div>
+        </div>
+        <div class="deploy-side-doctrine"><span>DOKTRİN</span><b id="deploy-doctrine">BİRLEŞİK SİLAHLAR</b></div>
+        <p>Sol sahaya birlik yerleştir. Düşman hattı sis altında kalır; harekât emri verilince karşı ordu konuşlanır.</p>
+    </aside>
+    <section id="battle-vp-hud" aria-label="Zafer puanı">
+        <div class="battle-vp-title"><span>SEKTÖR KONTROLÜ</span><b>HEDEF 3000</b></div>
+        <div class="battle-vp-bars"><i id="battle-vp-blue"></i><i id="battle-vp-red"></i></div>
+        <div class="battle-vp-values"><b id="battle-vp-blue-value">0</b><span id="battle-vp-sector-count">0 : 0</span><b id="battle-vp-red-value">0</b></div>
+    </section>
+    <aside id="battle-target-card" aria-live="polite">
+        <div class="battle-target-head"><span id="battle-contact-label">TARGET LOCK</span><b id="battle-contact-state">BEKLEME</b></div>
+        <div class="battle-target-main"><span id="battle-target-sprite" class="battle-target-sprite"></span><div><h3 id="battle-target-name">BİRİM SEÇ</h3><small id="battle-target-role">SAHA TEMASI YOK</small></div></div>
+        <div class="battle-meter"><span>HULL</span><i><b id="battle-hull-bar"></b></i><em id="battle-hull-value">—</em></div>
+        <div class="battle-meter"><span>AMMO</span><i><b id="battle-ammo-bar"></b></i><em id="battle-ammo-value">—</em></div>
+        <div id="battle-target-stats" class="battle-target-stats"></div>
+        <div id="battle-target-matchup" class="battle-target-matchup">Bir dost birim seçerek savaş verisini aç.</div>
+    </aside>
+    <section id="battle-orders" aria-label="Komutan emirleri">
+        <div>KOMUTAN EMİRLERİ</div>
+        <button data-battle-order="assault"><b>TAARRUZ</b><span>Schwerpunkt</span></button>
+        <button data-battle-order="free-fire"><b>ATEŞ SERBEST</b><span>otonom temas</span></button>
+        <button data-battle-order="trench"><b>SİPER KAZ</b><span>tahkim</span></button>
+        <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
+    </section>
+    <aside id="battle-feed"><div class="battle-feed-head">MUHAREBE KAYDI <b>CANLI</b></div><div id="battle-feed-list"></div></aside>
+    <div id="game-war-overlay" aria-hidden="true"></div>
 
     <!-- Kamera İpucu -->
     <div id="ui-camera-hint">WASD veya fare kenarları ile haritayı kaydır</div>
@@ -229,7 +368,7 @@
     <!-- AI Training Overlay -->
     <div id="ai-training-screen" class="hidden">
         <div class="game-over-box">
-            <h1 id="game-over-title" style="color: #4cff7c; text-shadow: 0 0 20px rgba(76,255,124,0.5);">EVRİM SİMÜLASYONU</h1>
+            <h1 id="ai-training-title" style="color: #4cff7c; text-shadow: 0 0 20px rgba(76,255,124,0.5);">EVRİM SİMÜLASYONU</h1>
             <p style="color: #ccc; font-size: 10px; line-height: 1.5; margin-bottom: 20px;">Kendi kendine oynayarak kusursuz<br>Karşı-Birim (Counter) matrisini hesaplıyor...</p>
             <div style="width: 100%; height: 20px; background: #222; border: 2px solid #555; border-radius: 10px; overflow: hidden;">
                 <div id="train-progress-bar" style="width: 0%; height: 100%; background: #4cff7c; transition: width 0.1s linear;"></div>
@@ -246,6 +385,17 @@
                 <div id="score-table"></div>
                 <textarea id="battle-report-output" readonly></textarea>
             </div>
+            <section id="campaign-result-panel" class="hidden">
+                <div class="campaign-xp-summary"><span>KUVVET EKONOMİSİ</span><b id="campaign-xp-earned">+0 XP</b><em id="campaign-rank-progress">RÜTBE 1</em></div>
+                <div class="campaign-carry"><span>VETERAN TAŞIMA</span><b id="campaign-survivor-count">0 birlik</b></div>
+                <div class="campaign-draft-title">BÖLÜM ÖDÜLÜ — 1 KART SEÇ</div>
+                <div id="campaign-draft-grid">
+                    <button data-reward="logistics"><span>EKONOMİ</span><b>LOJİSTİK HATTI</b><small>Komutan kasasına toplam +450 kaynak.</small></button>
+                    <button data-reward="veterans"><span>BİRLİK</span><b>VETERAN MÜFREZE</b><small>2 kıdemli Tank veteran ordusuna katılır.</small></button>
+                    <button data-reward="steel"><span>TEKNOLOJİ</span><b>ÇELİK DOKTRİNİ</b><small>Tüm zırhlı birlikler sefer boyu +%8 HP.</small></button>
+                </div>
+                <button id="story-claim-reward" disabled>ÖDÜLÜ AL</button>
+            </section>
             <div class="battle-report-actions">
                 <button id="copy-battle-report-btn">📋 Raporu Kopyala</button>
                 <button id="download-battle-report-btn">💾 Raporu İndir</button>
@@ -284,6 +434,7 @@
     <script src="js/terrainData.js"></script>
     <script src="js/techTree.js"></script>
     <script src="js/Story.js"></script>
+    <script src="js/WarRoomUI.js"></script>
 </body>
 
 </html>

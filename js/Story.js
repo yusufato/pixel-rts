@@ -23,6 +23,10 @@ const STORY_STATE_DEFS = [
     { name: 'Mağrip Birliği',    color: '#d98cc0' },   // 6 başkent Cezayir (Kuzey Afrika)
     { name: 'Arap Birliği',      color: '#cfa14c' }     // 7 başkent Suudi Arabistan (Orta Doğu)
 ];
+const STORY_RANKS = [
+    { name: 'Teğmen', xp: 0 }, { name: 'Yüzbaşı', xp: 600 }, { name: 'Binbaşı', xp: 1400 },
+    { name: 'Albay', xp: 2400 }, { name: 'Tümgeneral', xp: 3600 }, { name: 'Mareşal', xp: 5200 }
+];
 
 // ── HARİTA: 36 bölge (Avrupa+K.Afrika+Orta Doğu). lx,ly = harita üzerinde normalize konum 0..1.
 //  Konumlar KULLANICININ terrain.png haritasına hizalandı (hepsi karada). Voronoi ile bölge atanır.
@@ -99,6 +103,7 @@ const STORY = {
     _accDrift: 0,         // düşman yayılma sayacı
     _lastRenderT: 0,      // render throttle
     _hoverNode: -1,
+    selectedNodeId: null, // War Room brifingi için seçili şehir (komut verilene kadar yalnız UI state'i)
     _inited: false
 };
 
@@ -107,6 +112,15 @@ function storyState(id) { return STORY.states[id]; }
 function storyPlayerState() { return STORY.states[STORY.playerStateId]; }
 function storyNode(id) { return STORY.nodes[id]; }
 function storyLog(msg) { STORY.log.unshift(msg); if (STORY.log.length > 6) STORY.log.length = 6; }
+function storyCommanderBackfill(cmd) {
+    if (!cmd) return;
+    if (cmd.xp == null) cmd.xp = 0;
+    if (cmd.score == null) cmd.score = cmd.xp;
+    if (cmd.victories == null) cmd.victories = 0;
+    if (!Array.isArray(cmd.activePerks)) cmd.activePerks = [];
+    if (!cmd.rewardMods) cmd.rewardMods = {};
+    cmd.rank = Math.max(1, STORY_RANKS.filter(rank => cmd.xp >= rank.xp).length);
+}
 
 function storyHasSave() {
     try { return !!localStorage.getItem(STORY_SAVE_KEY); } catch (_) { return false; }
@@ -278,31 +292,40 @@ function storySumRes(cmds) {
     return cmds.reduce((a, c) => { const r = c.res || { oil: 0, manpower: 0, points: 0 }; a.oil += r.oil; a.manpower += r.manpower; a.points += r.points; return a; }, { oil: 0, manpower: 0, points: 0 });
 }
 
-function storyNewCampaign() {
+function storyNewCampaign(config = {}) {
+    const requestedState = Number.isInteger(config.playerStateId) ? config.playerStateId : (STORY.playerStateId | 0);
+    const playerStateId = Math.max(0, Math.min(STORY_STATE_DEFS.length - 1, requestedState));
+    const abundance = Math.max(0.5, Math.min(1.5, Number.isFinite(+config.abundance) ? +config.abundance : (STORY.cfg.abundance || 1)));
     STORY.nodes = storyBuildCities();             // 82 ŞEHİR hareket ağı (önceki 36 ülke yerine)
     storyBuildLandGrid();                         // pixel kara-maske (şehir Voronoi politik katmanı)
     STORY.states = STORY_STATE_DEFS.map((def, id) => ({
-        id, name: def.name, color: def.color, isPlayer: id === 0,
-        res: { oil: 600, manpower: 600, points: 600 },
+        id, name: def.name, color: def.color, isPlayer: id === playerStateId,
+        res: { oil: Math.round(600 * abundance), manpower: Math.round(600 * abundance), points: Math.round(600 * abundance) },
         tech: [], _techBonus: null, techPoints: 0,      // FAZ-2 Adım 4: HER devletin teknolojisi (AI dahil)
         welfare: 50, reputation: 0, isAdmin: false,
         gov: { leader: 'ai', commanders: [] }          // FAZ-2 hükümet (storyInitGovernments doldurur)
     }));
-    STORY.playerStateId = 0;
+    STORY.playerStateId = playerStateId;
     // OYUNCUNUN KOMUTANI = kontrol-jetonu (bağımsız bir komutan-birey)
-    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: 200, manpower: 200, points: 200 }, node: (STORY._capitals && STORY._capitals[0]) || 0 };
+    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {} };
     storyInitGovernments();                            // her devlete AI komutan + hükümet iskeleti
     STORY.veterans = [];
     STORY.tech = [];                                    // FAZ-2 Adım 4: araştırılan teknolojiler (oyuncu devleti)
     STORY._techBonus = null;
-    STORY.cfg = { abundance: 1.0 };
+    STORY.cfg = {
+        abundance,
+        doctrine: config.doctrine || STORY.cfg.doctrine || 'combined',
+        fog: config.fog !== false
+    };
     STORY.paused = false;
     STORY._gameOver = false;   // ADIM 6: yenilgi bayrağı sıfırla
     STORY.clock = 0;
     STORY.log = [];
     STORY.battleCtx = null;
+    STORY.pendingReward = null;
+    STORY.selectedNodeId = STORY.commander.node;
     STORY.active = true;
-    storyLog('🌍 Kampanya başladı! Komutanın bir şehirde — komşu düşman şehirlere saldırarak genişle.');
+    storyLog(`${storyPlayerState().name} harekâtı başladı. Komşu düşman şehirlere saldırarak genişle.`);
     storySave();
 }
 
@@ -313,7 +336,7 @@ function storySave() {
     try {
         const data = {
             v: 2, states: STORY.states, nodes: STORY.nodes, playerStateId: STORY.playerStateId,
-            commander: STORY.commander, veterans: STORY.veterans, tech: STORY.tech, cfg: STORY.cfg,
+            commander: STORY.commander, veterans: STORY.veterans, tech: STORY.tech, cfg: STORY.cfg, pendingReward: STORY.pendingReward,
             clock: STORY.clock, log: STORY.log
         };
         localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(data));
@@ -331,6 +354,7 @@ function storyLoad() {
         storyAssignDeposits();                    // şehir/kaynak işaretlerini ülkelere ata (ekonomi)
         STORY.playerStateId = d.playerStateId | 0;
         STORY.commander = d.commander || { node: 0 };
+        storyCommanderBackfill(STORY.commander);
         // FAZ-2: hükümet backfill (eksik kayıt güvenliği) + komutan-id sayacını ilerlet
         let _mx = (STORY.commander && STORY.commander.id) || 0;
         if (STORY.commander && !STORY.commander.res) STORY.commander.res = { oil: 200, manpower: 200, points: 200 };
@@ -344,12 +368,13 @@ function storyLoad() {
         for (const st of STORY.states) { if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0; storyStateComputeTech(st); }   // FAZ-2 Adım 4: devlet tech backfill + bonus
         for (const n of STORY.nodes) { n._siege = null; if (n.level == null) n.level = 1; if (n.garrison == null) n.garrison = 0; }   // FAZ-2 Adım 5+/6: kuşatma temizle + seviye/garnizon backfill
         STORY.veterans = d.veterans || [];
+        STORY.pendingReward = d.pendingReward || null;
         STORY.tech = d.tech || [];
         storyComputeTechBonus();
-        STORY.cfg = d.cfg || { abundance: 1.0 };
+        STORY.cfg = Object.assign({ abundance: 1.0, doctrine: 'combined', fog: true }, d.cfg || {});
         STORY.clock = d.clock || 0;
         STORY.log = d.log || [];
-        STORY.paused = false; STORY.battleCtx = null; STORY.active = true;
+        STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
         return true;
     } catch (_) { return false; }
 }
@@ -363,15 +388,35 @@ function storyOpen() {
             storyNewCampaign();
         }
     }
+    storyEnterWorld();
+}
+
+function storyEnterWorld() {
+    if (STORY.selectedNodeId == null || !storyNode(STORY.selectedNodeId)) STORY.selectedNodeId = STORY.commander.node;
     showScreen('story');
     storyResize();
     storyCenterCamOnPlayer();
     storyRender();
 }
 
+function storyContinue() {
+    if (!STORY.active && !storyLoad()) {
+        showScreen('story-setup');
+        if (typeof warRoomSetupOpen === 'function') warRoomSetupOpen();
+        return false;
+    }
+    storyEnterWorld();
+    return true;
+}
+
 // ── KOMUTAN HAREKETİ + SALDIRI ───────────────────────────────────────────────
 function storyAreAdjacent(aId, bId) {
     const a = storyNode(aId); return !!(a && a.neighbors.indexOf(bId) >= 0);
+}
+function storySelectNode(id) {
+    if (!storyNode(id)) return;
+    STORY.selectedNodeId = id;
+    storyRender();
 }
 function storyNodeClicked(id) {
     if (STORY.battleCtx) return;
@@ -406,6 +451,9 @@ function storySetPlayerDeployRes() {
     // SEN sadece KENDİ jetonunun bütçesini dizip yönetirsin; MÜTTEFİK komutanlar KENDİ ordularını dizip OTONOM (dost-AI) savaşır
     const r = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
     DEPLOY_RES = { blue: { oil: storyResBudget(r.oil), manpower: storyResBudget(r.manpower), points: storyResBudget(r.points) } };
+    const active = STORY.commander.activePerks || [];
+    if (active.indexOf('logistics') >= 0) DEPLOY_RES.blue.oil += 200;
+    if (active.indexOf('mobilization') >= 0) DEPLOY_RES.blue.manpower += 150;
     const cityId = STORY.battleCtx ? STORY.battleCtx.nodeId : (STORY.commander && STORY.commander.node);
     STORY._battleAllyList = storyForceNear(STORY.playerStateId, cityId).filter(c => c !== STORY.commander);   // savaş şehri/yanındaki dost komutanlar → otonom dizilir
 }
@@ -479,7 +527,12 @@ function storyEnterBattle(node) {
     if (typeof storyTechClose === 'function') storyTechClose();
     if (typeof storyArmyClose === 'function') storyArmyClose();
     if (typeof storyCityClose === 'function') storyCityClose();
-    TECH_BONUS = STORY._techBonus || null;   // MAVİ = oyuncu devleti tech (mavi birim + gaziler)
+    const activePerks = STORY.commander.activePerks || [];
+    TECH_BONUS = Object.assign({}, STORY._techBonus || {});   // MAVİ = oyuncu devleti tech + komutan perkleri
+    if (activePerks.indexOf('steel-wall') >= 0) TECH_BONUS.allArmorAdd = 1;
+    if (activePerks.indexOf('ambusher') >= 0) TECH_BONUS.firstFlankMul = 1.15;
+    if (activePerks.indexOf('morale') >= 0) TECH_BONUS.panicResistance = 0.25;
+    if (STORY.commander.rewardMods?.armoredHpMul) TECH_BONUS.armoredHpMul = STORY.commander.rewardMods.armoredHpMul;
     const _foeId = STORY.battleCtx ? (STORY.battleCtx.enemyStateId != null ? STORY.battleCtx.enemyStateId : (STORY.battleCtx.mode === 'attack' ? STORY.battleCtx.defender : STORY.battleCtx.attacker)) : null;
     const _foe = (_foeId != null) ? storyState(_foeId) : null;
     TECH_BONUS_RED = (_foe && _foe._techBonus) || null;   // KIRMIZI = DÜŞMAN devlet tech (AI birimlerine); savaş sonu temizlenir
@@ -500,6 +553,7 @@ function storyResetBattlefield() {
     player.kills = 0; player.unitsSpawned = 0;
     enemy.kills = 0; enemy.unitsSpawned = 0;
     phase = PHASE.DEPLOY;
+    document.body.setAttribute('data-phase', PHASE.DEPLOY);
     if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
     if (typeof initControlPoints === 'function') initControlPoints();
     // UI'yı yerleştirme durumuna geri al
@@ -573,7 +627,7 @@ function storyCameraToDeployZone() {
 
 // ── DÜELLO BİTTİ: sonucu dünyaya işle (main.js checkGameOver çağırır) ─────────
 //  won: MAVİ-perspektifli (true = oyuncu kazandı, false = AI, 'draw' = berabere)
-function storyOnBattleEnd(won) {
+function storyOnBattleEnd(won, telemetrySummary) {
     const ctx = STORY.battleCtx;
     if (!ctx) return;
     const node = storyNode(ctx.nodeId);
@@ -587,6 +641,14 @@ function storyOnBattleEnd(won) {
     STORY.veterans = newVets.slice(0, 14);
 
     const winText = (won === true);
+    storyCommanderBackfill(STORY.commander);
+    const vpMargin = (SIM.vpScore?.blue || 0) - (SIM.vpScore?.red || 0);
+    const xpEarned = Math.max(0, Math.round((telemetrySummary?.aiValueLost || 0) - (telemetrySummary?.enemyValueDestroyed || 0) * 1.5 + vpMargin * 0.5));
+    STORY.commander.xp += xpEarned;
+    STORY.commander.score += xpEarned;
+    if (winText) STORY.commander.victories++;
+    storyCommanderBackfill(STORY.commander);
+    STORY.pendingReward = { won, xpEarned, survivors: STORY.veterans.length, nodeName: node.name };
     if (ctx.mode === 'defense') {
         // SAVUNMA: düşman (ctx.attacker) oyuncunun node'una saldırdı
         const inv = storyState(ctx.attacker) || { id: ctx.attacker, name: '?', welfare: 50, gov: null };   // güvenlik: null-deref önle
@@ -665,7 +727,25 @@ function storyOnBattleEnd(won) {
     // game-over ekranını HİKAYE moduna çevir: "Dünyaya Dön" göster, "Tekrar Oyna" gizle
     document.getElementById('restart-btn')?.classList.add('hidden');
     const rb = document.getElementById('story-return-btn');
-    if (rb) rb.classList.remove('hidden');
+    if (rb) rb.classList.add('hidden');
+    if (typeof warRoomShowCampaignResult === 'function') warRoomShowCampaignResult(STORY.pendingReward);
+}
+
+function storyClaimReward(reward) {
+    if (!STORY.pendingReward || !reward) return false;
+    storyCommanderBackfill(STORY.commander);
+    if (reward === 'logistics') {
+        STORY.commander.res.oil += 150; STORY.commander.res.manpower += 150; STORY.commander.res.points += 150;
+    } else if (reward === 'veterans') {
+        STORY.veterans.push({ type: T.ARMOR, vet: 2 }, { type: T.ARMOR, vet: 2 });
+        STORY.veterans = STORY.veterans.slice(0, 14);
+    } else if (reward === 'steel') {
+        STORY.commander.rewardMods.armoredHpMul = (STORY.commander.rewardMods.armoredHpMul || 1) * 1.08;
+    } else return false;
+    STORY.pendingReward = null;
+    storySave();
+    storyReturnToWorld();
+    return true;
 }
 
 function storyReturnToWorld() {
@@ -673,6 +753,7 @@ function storyReturnToWorld() {
     TECH_BONUS = null; TECH_BONUS_RED = null;   // teknoloji bonusları savaş-dışı KAPALI (Quick Match/MP güvenli)
     ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
     document.getElementById('game-over-screen')?.classList.add('hidden');
+    document.getElementById('campaign-result-panel')?.classList.add('hidden');
     document.getElementById('story-return-btn')?.classList.add('hidden');
     document.getElementById('restart-btn')?.classList.remove('hidden');   // normal mod için geri-aç
     phase = PHASE.OVER;   // sim duruyor; dünya ekranı devralır
@@ -1504,6 +1585,11 @@ function storyRender() {
     const ovl = storyEnsureOwnerOverlay();
     g.drawImage(ovl, 0, 0, STORY_GW, STORY_GH, -storyCam.x * z, -storyCam.y * z, STORY_WORLD_W * z, STORY_WORLD_H * z);
     STORY._imgMode = false;
+    // War Room renk işlemi: arazi okunur kalırken amber terminal kontrastına yaklaşır.
+    g.fillStyle = 'rgba(2,8,4,0.30)'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(255,176,0,0.055)'; g.lineWidth = 1;
+    for (let gx = 0; gx < w; gx += 60) { g.beginPath(); g.moveTo(gx, 0); g.lineTo(gx, h); g.stroke(); }
+    for (let gy = 0; gy < h; gy += 60) { g.beginPath(); g.moveTo(0, gy); g.lineTo(w, gy); g.stroke(); }
 
     // (3) ŞEHİR/KAYNAK işaretleri (🔴şehir/insan, 🟠petrol, 🟢puan) — dünya konumları, kamera+zoom
     if (typeof STORY_TERRAIN !== 'undefined') {
@@ -1539,6 +1625,7 @@ function storyRender() {
         const p = storyNodePixel(n, w, h);
         const st = storyState(n.owner);
         const isCmd = (n.id === cmdNode);
+        const isSelected = (n.id === STORY.selectedNodeId);
         const attackable = (adj.indexOf(n.id) >= 0 && n.owner !== STORY.playerStateId);
         const moveable = (adj.indexOf(n.id) >= 0 && n.owner === STORY.playerStateId);
         // ŞEHİR/BAŞKENT işareti — pixel KARE (sahip rengi + siyah kontur)
@@ -1556,16 +1643,23 @@ function storyRender() {
             g.strokeStyle = 'rgba(120,235,160,0.75)'; g.lineWidth = 2;
             g.strokeRect(px - sq - 3, py - sq - 3, 2 * (sq + 3), 2 * (sq + 3));
         }
+        if (isSelected) {
+            const r = sq + 8;
+            g.strokeStyle = '#ffb000'; g.lineWidth = 2;
+            g.strokeRect(px - r, py - r, r * 2, r * 2);
+            g.fillStyle = '#ffe9bf'; g.font = '9px monospace'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+            g.fillText('SELECT', px, py - r - 3);
+        }
         // (harita üstünde YAZI YOK — kullanıcı isteği; ülke adları yan panelde gösterilir)
-        // oyuncu komutanı (altın ⚔) — şehir merkezinde
+        // oyuncu komutanı — şehir merkezinde kısa terminal etiketi
         if (isCmd) {
-            g.font = 'bold 16px serif'; g.textBaseline = 'middle';
-            g.lineWidth = 3; g.strokeStyle = '#000'; g.strokeText('⚔', px, py);
-            g.fillStyle = '#ffd24c'; g.fillText('⚔', px, py);
+            g.font = 'bold 8px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillStyle = '#060a06'; g.fillRect(px - 12, py - 5, 24, 10);
+            g.fillStyle = '#ffd27a'; g.fillText('CMD', px, py + 1);
         }
     }
     // FAZ-2: TÜM KOMUTANLARI çiz (devlet-renkli küçük token, şehrin üstünde dizili)
-    // KUŞATMA göstergesi: kuşatılan şehirde kırmızı çift-halka + 🏰 (savunmaya koş!)
+    // KUŞATMA göstergesi: kuşatılan şehirde kırmızı çift-halka + terminal etiketi
     for (const node of STORY.nodes) {
         if (!node._siege) continue;
         const sp = storyNodePixel(node);
@@ -1573,8 +1667,8 @@ function storyRender() {
         g.beginPath(); g.arc(sp.x, sp.y, 10, 0, Math.PI * 2); g.stroke();
         g.strokeStyle = 'rgba(255,80,40,0.45)';
         g.beginPath(); g.arc(sp.x, sp.y, 14, 0, Math.PI * 2); g.stroke();
-        g.font = '12px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffce4c';
-        g.fillText('🏰', sp.x, sp.y - 17);
+        g.font = '8px monospace'; g.textAlign = 'center'; g.fillStyle = '#ffce4c';
+        g.fillText('SIEGE', sp.x, sp.y - 17);
     }
     const cmdByCity = {};
     for (const st of STORY.states) for (const c of (st.gov && st.gov.commanders ? st.gov.commanders : [])) { if (c.node == null || !storyNode(c.node)) continue; (cmdByCity[c.node] = cmdByCity[c.node] || []).push(st.id); }
@@ -1605,27 +1699,52 @@ function storyPanelUpdate() {
     const stats = document.getElementById('story-stats');
     if (stats) {
         const myr = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
-        const cmdName = (STORY.commander && STORY.commander.name) || 'Komutan';
+        const day = 1 + Math.floor((STORY.clock || 0) / 60);
         stats.innerHTML =
-            `<div class="story-state-name" style="color:${me.color}">⬤ ${me.name}</div>` +
-            `<div class="story-res" style="font-size:11px;color:#9fb3c8;margin:-2px 0 1px">🎖️ ${cmdName} — kasan</div>` +
-            `<div class="story-res">⛽ Petrol <b>${Math.floor(myr.oil)}</b> · 👥 İnsan <b>${Math.floor(myr.manpower)}</b> · ⭐ Puan <b>${Math.floor(myr.points)}</b></div>`;
+            `<div class="story-stat-chip identity" style="--state-color:${me.color}">DEVLET<b>${me.name}</b></div>` +
+            `<div class="story-stat-chip">PETROL<b>${Math.floor(myr.oil)}</b></div>` +
+            `<div class="story-stat-chip">İNSAN<b>${Math.floor(myr.manpower)}</b></div>` +
+            `<div class="story-stat-chip">PUAN<b>${Math.floor(myr.points)}</b></div>` +
+            `<div class="story-stat-chip">GAZİ<b>${(STORY.veterans || []).length}</b></div>` +
+            `<div class="story-stat-chip">GÜN<b>${day}</b></div>`;
     }
     const info = document.getElementById('story-node-info');
+    const action = document.getElementById('story-action-btn');
     if (info) {
         const cmd = STORY.commander ? storyNode(STORY.commander.node) : null;
-        const adj = cmd ? cmd.neighbors : [];
-        const targets = adj.filter(id => storyNode(id).owner !== me.id);
-        info.innerHTML =
-            `<div class="story-cmd">⚔ Komutan: <b>${cmd ? cmd.name : '-'}</b></div>` +
-            (targets.length
-                ? `<div class="story-hint">🎯 Saldırılabilir komşu: ${targets.map(id => { const tn = storyNode(id), os = storyState(tn.owner); const itl = (STORY._techBonus && STORY._techBonus.intel) ? ` <span style="color:#9fb3c8">(🔍~${storyEnemyBudget(os)}g)</span>` : ''; return `<b style="color:${os.color}">${tn.name}</b>${itl}`; }).join(', ')}</div><div class="story-hint">Haritada düğüme tıkla → saldır/ilerle.</div>`
-                : `<div class="story-hint">Komşu düşman bölge yok — yeşil halkalı kendi bölgene ilerle.</div>`);
+        const selected = storyNode(STORY.selectedNodeId) || cmd;
+        const owner = selected ? storyState(selected.owner) : null;
+        const adjacent = !!(cmd && selected && cmd.neighbors.indexOf(selected.id) >= 0);
+        const current = !!(cmd && selected && cmd.id === selected.id);
+        const hostile = !!(selected && selected.owner !== me.id);
+        const capital = !!(selected && STORY._capitals && STORY._capitals.indexOf(selected.id) >= 0);
+        const type = selected ? (selected._siege ? 'KUŞATMA' : capital ? 'KARARGAH' : selected.oil > 0 ? 'PETROL MERKEZİ' : selected.pts > 0 ? 'SANAYİ MERKEZİ' : 'ŞEHİR') : '-';
+        const stateText = current ? 'KOMUTA MERKEZİ' : adjacent ? (hostile ? 'AKTİF CEPHE' : 'ERİŞİLEBİLİR') : 'MENZİL DIŞI';
+        const stateColor = current ? '#4ade80' : adjacent ? (hostile ? '#ff6b6b' : '#ffb000') : '#6e6330';
+        const mapName = (typeof MAPS !== 'undefined' && selected && MAPS[selected.mapId]) ? MAPS[selected.mapId].name : `Saha ${(selected?.mapId || 0) + 1}`;
+        const foeValue = hostile && owner ? storyEnemyForceBudget(owner.id, selected.id) : null;
+        const foeTotal = foeValue ? Math.floor(foeValue.oil + foeValue.manpower + foeValue.points) : 0;
+        const reward = hostile ? '+120 puan · fetih · veteran ilerlemesi' : current ? 'Komuta ve ikmal merkezi' : 'Güvenli intikal';
+        info.innerHTML = selected ?
+            `<div class="story-node-heading"><b>${selected.name}</b><span class="story-node-state" style="color:${stateColor}">${stateText}</span></div>` +
+            `<div class="story-brief-grid">` +
+                `<div class="story-brief-cell">TÜR<b>${type}</b></div>` +
+                `<div class="story-brief-cell">KONTROL<b style="color:${owner?.color || '#ffe9bf'}">${owner?.name || '-'}</b></div>` +
+                `<div class="story-brief-cell">MUHAREBE SAHASI<b>${mapName}</b></div>` +
+                `<div class="story-brief-cell">GARNİZON / GÜÇ<b>${hostile ? `${selected.garrison || 0} / ~${foeTotal}` : (selected.garrison || 0)}</b></div>` +
+            `</div><div class="story-brief-note">BEKLENEN SONUÇ: ${reward}<br>DOKTRİN: ${(STORY.cfg.doctrine || 'combined').toUpperCase()}</div>` :
+            `<div class="story-brief-note">Haritada bir şehir seçerek harekât brifingini aç.</div>`;
+
+        if (action) {
+            action.disabled = current || !adjacent;
+            action.classList.toggle('hostile', hostile && adjacent);
+            action.textContent = current ? 'KOMUTA MERKEZİNDESİN' : !adjacent ? 'MENZİL DIŞI' : hostile ? 'HAREKÂTA GEÇ' : 'BÖLGEYE İLERLE';
+        }
     }
     const log = document.getElementById('story-log');
     if (log) log.innerHTML = STORY.log.map(l => `<div class="story-log-row">${l}</div>`).join('');
     const pb = document.getElementById('story-pause-btn');
-    if (pb) { pb.textContent = STORY.paused ? '▶' : '⏸'; pb.title = STORY.paused ? 'Devam' : 'Duraklat'; }
+    if (pb) { pb.textContent = STORY.paused ? 'DEVAM' : 'DURAKLAT'; pb.title = STORY.paused ? 'Devam' : 'Duraklat'; }
 }
 function storyBar(label, val, color) {
     const v = Math.max(0, Math.min(100, val));
@@ -1956,6 +2075,9 @@ function storyInit() {
     document.getElementById('story-pause-btn')?.addEventListener('click', () => { STORY.paused = !STORY.paused; storyRender(); });
     document.getElementById('story-save-btn')?.addEventListener('click', () => { storySave(); storyFlash(STORY._lastSaveOk ? 'Kaydedildi 💾' : 'Kaydedilemedi (localStorage?)'); });
     document.getElementById('story-menu-btn')?.addEventListener('click', () => { storySave(); showScreen('menu'); });
+    document.getElementById('story-action-btn')?.addEventListener('click', () => {
+        if (STORY.selectedNodeId != null) storyNodeClicked(STORY.selectedNodeId);
+    });
     document.getElementById('story-return-btn')?.addEventListener('click', storyReturnToWorld);
     // KONSEY + TEKNOLOJİ drawer bağlamaları (sol araç çubuğu)
     document.getElementById('story-council-btn')?.addEventListener('click', storyCouncilToggle);
@@ -2011,7 +2133,7 @@ function storyInit() {
         window.addEventListener('mouseup', (e) => {
             if (dragging && !moved) {
                 if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen || STORY._cityOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose(); }   // panel açıkken haritaya tık = kapat
-                else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storyNodeClicked(hit); }
+                else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); }
             }
             dragging = false; cv.style.cursor = 'grab';
         });
