@@ -8,8 +8,8 @@ const TACTICAL_REWARD_WEIGHTS = Object.freeze({
     damageDealt: 0.35,        // ikincil sinyal (değer zaten baskın)
     damageTaken: -0.45,
     rearHitDamage: 0.5,
-    victory: 500,             // kazanmak önemli ama intiharı haklı çıkaracak kadar değil
-    defeat: -380,
+    victory: 700,
+    defeat: -700,
     draw: -120,               // verimli beraberlik, verimsiz galibiyete yakın olabilmeli
     deadlock: -300,
     adjudicated: -180,
@@ -28,10 +28,14 @@ const TACTICAL_REWARD_WEIGHTS = Object.freeze({
 
 function calculateTacticalReward(metrics) {
     const w = TACTICAL_REWARD_WEIGHTS;
-    const fastVictoryBonus = metrics.aiWon
-        ? Math.max(0, 120 - metrics.durationSeconds) * w.fastVictoryPerSecond
+    const aiAttacker = metrics.aiRole === BATTLE_ROLE.ATTACKER;
+    const fastVictoryBonus = metrics.aiWon && aiAttacker
+        ? Math.max(0, metrics.timeRemaining || 0) * w.fastVictoryPerSecond
         : 0;
-    const longIdlePenalty = Math.max(0, metrics.idleSeconds - 120) * w.longIdlePerSecond;
+    const defenderSurvivalBonus = metrics.aiWon && !aiAttacker
+        ? Math.min(240, metrics.durationSeconds * 0.8)
+        : 0;
+    const longIdlePenalty = aiAttacker ? Math.max(0, metrics.idleSeconds - 120) * w.longIdlePerSecond : 0;
     // ÇEKİRDEK: kayıp-kaçınmalı net değer (Foresight metriğiyle birebir aynı).
     const netValue = (metrics.enemyValueDestroyed ?? 0) - w.lossAversion * (metrics.aiValueLost ?? 0);
 
@@ -52,7 +56,8 @@ function calculateTacticalReward(metrics) {
         (metrics.fieldKills ?? 0) * w.fieldKill +
         (metrics.lastHuntSeconds ?? 0) * w.lastHuntSecond +
         fastVictoryBonus +
-        metrics.idleSeconds * w.idlePerSecond +
+        defenderSurvivalBonus +
+        (aiAttacker ? metrics.idleSeconds * w.idlePerSecond : 0) +
         longIdlePenalty
     );
 }
@@ -190,7 +195,7 @@ class BattleTelemetry {
         const dominantDoctrine = Object.entries(this.doctrineDurations)
             .sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
         const metrics = {
-            version: 5,
+            version: 6,
             durationSeconds,
             damageDealt: this.damageDealt,
             damageTaken: this.damageTaken,
@@ -212,10 +217,16 @@ class BattleTelemetry {
             doctrineSwitches: this.doctrineSwitches,
             dominantDoctrine,
             cleanupActivated: (this.doctrineDurations.cleanup || 0) > 0 || (this.doctrineDurations.last_hunt || 0) > 0,
-            physicalFinish: playerWon !== 'draw',
+            physicalFinish: [BATTLE_OUTCOME.DEFENDER_ELIMINATED, BATTLE_OUTCOME.ATTACKER_ELIMINATED, BATTLE_OUTCOME.MUTUAL_COLLAPSE].includes(SIM.battle?.outcomeReason),
             lastHuntSeconds: this.doctrineDurations.last_hunt || 0,
             aiWon: playerWon === false,
-            aiLost: playerWon === true
+            aiLost: playerWon === true,
+            aiRole: battleRoleForSide(true),
+            outcomeReason: SIM.battle?.outcomeReason || null,
+            attackerSide: SIM.battle?.attackerSide ? 'red' : 'blue',
+            timeRemaining: Math.max(0, SIM.battle?.remainingSec || 0),
+            redWill: SIM.battle?.red?.will ?? 0,
+            blueWill: SIM.battle?.blue?.will ?? 0
         };
         metrics.reward = calculateTacticalReward(metrics);
         this.summary = metrics;

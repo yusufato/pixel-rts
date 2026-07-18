@@ -44,9 +44,9 @@ function transform(src) {
   return src;
 }
 
-const files = ['brain.js', 'globals.js', 'MapData.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js',
+const files = ['brain.js', 'globals.js', 'BattleRules.js', 'MapData.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js',
   'Support.js', 'Unit.js', 'AI.js', 'Foresight.js', 'LayeredAI.js', 'Commander.js',
-  'ControlPoints.js', 'main.js', 'Replay.js', 'SelfPlay.js'];
+  'main.js', 'Replay.js', 'SelfPlay.js'];
 
 for (const f of files) {
   let src;

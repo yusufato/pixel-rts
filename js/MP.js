@@ -98,7 +98,7 @@ function mpStartBattle(seed, blue, red) {
 
     phase = PHASE.BATTLE;
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
-    if (typeof initControlPoints === 'function') initControlPoints();
+    if (typeof initBattleRules === 'function') initBattleRules({ attackerSide: false, durationSec: DEFAULT_BATTLE_DURATION_SEC });
     if (typeof battleTelemetry !== 'undefined' && battleTelemetry.start) battleTelemetry.start(0);
     mpCameraToMyArmy();
     const sb = document.getElementById('ui-spawn-bar'); if (sb) { sb.style.opacity = '0.3'; sb.style.pointerEvents = 'none'; }
@@ -221,7 +221,13 @@ function lsStateHash() {
         mix(Math.round((u.hp || 0) * 16)); mix(u.isRed ? 1 : 0);
     }
     if (SIM.rng && typeof SIM.rng.state === 'number') mix(SIM.rng.state >>> 0);
-    mix(Math.round((SIM.vpScore || 0) * 16));
+    if (SIM.battle) {
+        mix(SIM.battle.attackerSide ? 1 : 0);
+        mix(Math.round((SIM.battle.elapsedSec || 0) * 1000));
+        mix(SIM.battle.winnerSide === null ? 0 : (SIM.battle.winnerSide ? 2 : 1));
+        mix(Math.round((SIM.battle.red?.will || 0) * 16));
+        mix(Math.round((SIM.battle.blue?.will || 0) * 16));
+    }
     return h >>> 0;
 }
 function mpTryCompare(tick) {

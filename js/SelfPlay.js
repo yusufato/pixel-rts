@@ -102,8 +102,8 @@ function spApplyReplayCommands(replay, state, now) {
 // ═══ FAZ 2 — TEMİZ SNAPSHOT/RESTORE (SIM tek-noktadan) ═══════════════════════
 // SelfPlay'in elle-bakımlı snap listesinin yerini alır → "bir alanı yedeklemeyi
 // unuttum" bug'ı (panel'in yakaladığı controlPoints hatası) yapısal olarak biter.
-// Maç-içi MUTASYONA uğrayan TÜM state burada: sim (units/trenches/controlPoints/
-// vpScore/vpWinner/rng) + sınır-skalerleri (phase/money/kills) + render-bayrak +
+// Maç-içi MUTASYONA uğrayan TÜM state burada: sim (units/trenches/battle/rng) +
+// sınır-skalerleri (phase/money/kills) + render-bayrak +
 // render-dizi uzunlukları (eğitim kalıntısı temizliği). Faz 5'te JSON-serialize
 // (Worker'a state geçişi) buradan türetilecek.
 function snapshotSIM() {
@@ -115,6 +115,7 @@ function snapshotSIM() {
         unitsArr: units.slice(), trenchesArr: trenches.slice(),
         decalsLen: decals.length, cratersLen: craters.length, particlesLen: particles.length,
         btStarted: typeof battleTelemetry !== 'undefined' ? battleTelemetry.started : false,
+        battleState: SIM.battle,
         cpArr: SIM.controlPoints, vpScoreObj: SIM.vpScore, vpWinnerVal: SIM.vpWinner
     };
 }
@@ -126,6 +127,7 @@ function restoreSIM(s) {
     player.money = s.playerMoney; enemy.money = s.enemyMoney;
     player.kills = s.playerKills; enemy.kills = s.enemyKills;
     if (typeof battleTelemetry !== 'undefined') battleTelemetry.started = s.btStarted;
+    SIM.battle = s.battleState;
     SIM.controlPoints = s.cpArr; SIM.vpScore = s.vpScoreObj; SIM.vpWinner = s.vpWinnerVal;
     SIM.rng.state = s.simRngState; SIM.headless = s.headless;
 }
@@ -133,7 +135,7 @@ function restoreSIM(s) {
 // Tek bir headless maç çalıştırır. Kırmızı = redGenome (canlı AI gibi mavi'yi
 // sayar), Mavi = blueGenome (kendi beynini kullanır, verilen kompozisyonla).
 // Geri dönüş: { winner, redValueLost, blueValueLost, ticks, decisive }
-function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_TICKS, blueReplay = null, matchSeed = null) {
+function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_TICKS, blueReplay = null, matchSeed = null, attackerSide = true) {
     // ── Global durumu yedekle (canlı oyunu bozmamak için) — FAZ 2: tek-noktadan ──
     const snap = snapshotSIM();
     if (typeof battleTelemetry !== 'undefined') battleTelemetry.started = false; // global telemetriye kayıt olmasın
@@ -161,12 +163,12 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
 
         aiGenome = redGenome;                     // kırmızı, redGenome ile mavi'yi sayarak konuşlanır
         aiDeploy();
-        if (typeof initControlPoints === 'function') initControlPoints();   // FAZ 1: eğitim arenası da bölge simüle etsin
+        initBattleRules({ attackerSide, durationSec: maxTicks * SP_STEP / 1000 });
         if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
 
         // İlk değerler (fitness için)
-        const initRedValue = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
-        const initBlueValue = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
+        const initRedValue = battleArmyObservation(true).effectiveValue;
+        const initBlueValue = battleArmyObservation(false).effectiveValue;
 
         // ── İki taraf için gerçek beyin + ayrı telemetri ──
         const telRed = new BattleTelemetry();
@@ -179,8 +181,6 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
 
         let now = 0;
         let ticks = 0;
-        let lastActivityTick = 0;
-        let prevTotalHp = spSumHp(true) + spSumHp(false);
         let firstContactTick = -1;   // kırmızı ilk hasarı ne zaman verdi (temas hızı)
         let redActiveTicks = 0;      // kırmızının aktif hasar verdiği tick sayısı
         let prevBlueLostTrack = 0;
@@ -198,8 +198,8 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
 
             // Per-side telemetriyi besle (controller kararları için yaklaşık)
             const redHp = spSumHp(true), blueHp = spSumHp(false);
-            const redValNow = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
-            const blueValNow = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
+            const redValNow = battleArmyObservation(true).effectiveValue;
+            const blueValNow = battleArmyObservation(false).effectiveValue;
             const redLost = initRedValue - redValNow;
             const blueLost = initBlueValue - blueValNow;
             spFeedTelemetry(telRed, initRedValue - redValNow, blueLost, initRedValue, redHp, blueHp, false);
@@ -210,32 +210,14 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
             if (blueLost > prevBlueLostTrack + 0.5) redActiveTicks++;
             prevBlueLostTrack = blueLost;
 
-            // Aktivite / kilitlenme takibi
-            const totalHp = redHp + blueHp;
-            if (Math.abs(totalHp - prevTotalHp) > 1) lastActivityTick = ticks;
-            prevTotalHp = totalHp;
-
             // Bitiş kontrolü
-            const redAlive = redHp > 0, blueAlive = blueHp > 0;
-            if (!redAlive || !blueAlive) break;
-            if (typeof SIM.vpWinner !== 'undefined' && SIM.vpWinner !== null) break;   // FAZ 1: bölge puanı eşiği = maç biter
-            if (ticks - lastActivityTick > 400) break; // 400 tick (~25 sn) hareketsizlik → kilitlenme
+            if (SIM.battle && SIM.battle.winnerSide !== null) break;
         }
 
-        const redVal = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
-        const blueVal = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
-        const rVp = (typeof SIM.vpScore !== 'undefined') ? SIM.vpScore.red : 0;
-        const bVp = (typeof SIM.vpScore !== 'undefined') ? SIM.vpScore.blue : 0;
-        const vpW = (typeof SIM.vpWinner !== 'undefined') ? SIM.vpWinner : null;
-        let winner = 'draw';
-        // FAZ 1: KAZANAN = bölge-öncelikli, değer-ikincil
-        if (vpW !== null) winner = (vpW === false) ? 'red' : 'blue';   // bölge puan eşiği aşıldı (false=kırmızı/AI)
-        else if (redVal > 0 && blueVal <= 0) winner = 'red';           // yok-etme
-        else if (blueVal > 0 && redVal <= 0) winner = 'blue';
-        else if (rVp > bVp + 60) winner = 'red';                       // zaman aşımı: önce tutulan bölge
-        else if (bVp > rVp + 60) winner = 'blue';
-        else if (redVal > blueVal * 1.05) winner = 'red';              // sonra değer üstünlüğü
-        else if (blueVal > redVal * 1.05) winner = 'blue';
+        const redVal = battleArmyObservation(true).effectiveValue;
+        const blueVal = battleArmyObservation(false).effectiveValue;
+        const winnerSide = SIM.battle ? SIM.battle.winnerSide : null;
+        const winner = winnerSide === true ? 'red' : (winnerSide === false ? 'blue' : 'draw');
 
         result = {
             winner,
@@ -243,9 +225,14 @@ function spRunMatch(redGenome, blueGenome, blueCounts = null, maxTicks = SP_MAX_
             blueValueLost: initBlueValue - blueVal,
             redValueRemaining: redVal,
             blueValueRemaining: blueVal,
-            redVp: rVp, blueVp: bVp,            // FAZ 1: bölge puanları (fitness için)
+            redVp: 0, blueVp: 0,                // eski kayıt biçimiyle uyumluluk
             ticks,
-            decisive: !(redVal > 0 && blueVal > 0) || vpW !== null,
+            decisive: winnerSide !== null,
+            attackerSide,
+            outcomeReason: SIM.battle?.outcomeReason || null,
+            timeRemaining: SIM.battle?.remainingSec || 0,
+            redWill: SIM.battle?.red?.will || 0,
+            blueWill: SIM.battle?.blue?.will || 0,
             contactTicks: firstContactTick < 0 ? maxTicks : firstContactTick,
             redActiveRatio: ticks > 0 ? redActiveTicks / ticks : 0,
             redDealtNoDamage: (initBlueValue - blueVal) <= 0,
@@ -300,26 +287,32 @@ function spRunOvernight() { spTrainOvernight(); spStartTraining(); }
 function spEngagementShaping(r) {
     let s = 0;
     const ref = r.maxTicks || SP_TRAIN.MATCH_MAX_TICKS;
-    if (r.redDealtNoDamage) s -= 800;            // hiç hasar vermeme = işe yaramaz
+    const redIsAttacker = r.attackerSide === true;
+    if (redIsAttacker && r.redDealtNoDamage) s -= 800; // saldıranın hiç hasar vermemesi işe yaramaz
     s += (r.redActiveRatio || 0) * 120;          // aktiflik küçük ödül (baskın değil)
-    s -= (r.contactTicks / ref) * 200;           // çok geç temas hafif cezalı (tam atalet engeli)
+    if (redIsAttacker) s -= (r.contactTicks / ref) * 200; // savunan bekleme hakkına sahiptir
     return s;
 }
 
 const SP_LOSS_AVERSION = (typeof FORESIGHT_CALIB !== 'undefined' ? FORESIGHT_CALIB.lossAversion : 1.6);
 const SP_NET_SCALE = 4.0;
-const SP_VP_WEIGHT = 1.0;   // FAZ 1: bölge puan farkı ödülü (turtle-kırıcı: nokta tut → puan götür → kazan)
+const SP_RESULT_BONUS = 650;
 
-// Tek maç fitness'ı: kuvvet ekonomisi (net = düşman_kaybı − k×kendi_kaybım) + BÖLGE puanı. Telemetri ödülüyle aynı felsefe.
-function spMatchFitness(candidateGenome, championGenome, blueCounts) {
-    const r = spRunMatch(candidateGenome, championGenome, blueCounts, SP_TRAIN.MATCH_MAX_TICKS);
+function spRoleFitness(r) {
     let f = (r.blueValueLost - SP_LOSS_AVERSION * r.redValueLost) * SP_NET_SCALE;
-    f += ((r.redVp || 0) - (r.blueVp || 0)) * SP_VP_WEIGHT;   // tutulan bölge × süre
-    if (r.winner === 'red') f += 500;
-    else if (r.winner === 'blue') f -= 380;
-    if (r.decisive && r.winner === 'red') f += 120;
+    if (r.winner === 'red') f += SP_RESULT_BONUS;
+    else if (r.winner === 'blue') f -= SP_RESULT_BONUS;
+    if (r.winner === 'red' && r.attackerSide === true) f += Math.min(500, (r.timeRemaining || 0) * 4);
+    if (r.winner === 'red' && r.attackerSide === false) f += Math.min(220, (r.redValueRemaining || 0) * 0.08);
     f += spEngagementShaping(r);
     return f;
+}
+
+// Tek maç fitness'ı: kuvvet ekonomisi + rol sonucudur. Savunma süreyi tüketebilir;
+// saldırı ise erken sonuç alırsa ek ödül kazanır.
+function spMatchFitness(candidateGenome, championGenome, blueCounts) {
+    const r = spRunMatch(candidateGenome, championGenome, blueCounts, SP_TRAIN.MATCH_MAX_TICKS);
+    return spRoleFitness(r);
 }
 
 function spMakeScenarios(n) {
@@ -465,13 +458,10 @@ function spStartTraining(cfg) {
                 : champion;
             r = spRunMatch(candidates[ci], oppGenome, opp.army, SP_TRAIN.MATCH_MAX_TICKS);
         }
-        let f = (r.blueValueLost - SP_LOSS_AVERSION * r.redValueLost) * SP_NET_SCALE;   // kuvvet ekonomisi (baskın)
-        f += ((r.redVp || 0) - (r.blueVp || 0)) * SP_VP_WEIGHT;                         // FAZ 1: bölge puanı farkı
-        if (r.winner === 'red') { f += 500; redWins++; genRedWins++; }
-        else if (r.winner === 'blue') { f -= 380; blueWins++; }
+        const f = spRoleFitness(r);
+        if (r.winner === 'red') { redWins++; genRedWins++; }
+        else if (r.winner === 'blue') { blueWins++; }
         else { draws++; }
-        if (r.decisive && r.winner === 'red') f += 120;
-        f += spEngagementShaping(r);
         if (opp.kind === 'replay') {                      // insana karşı performans takibi
             replayMatches++; genReplayMatches++;
             fitHuman[ci] += f;                            // asıl hedef: insanı yenmek
@@ -631,7 +621,7 @@ function spTestMatch() {
 function spGoldenTest(seed = 1234567, runs = 3) {
     const g = aiGenome;
     const counts = spRandomArmy();   // ordu kompozisyonu sabit; deploy jitter seed'e bağlı olacak
-    const sig = r => `kayıp R/B=${r.redValueLost}/${r.blueValueLost} | tick=${r.ticks} | VP R/B=${r.redVp}/${r.blueVp} | kazanan=${r.winner} | kesin=${r.decisive}`;
+    const sig = r => `kayıp R/B=${r.redValueLost}/${r.blueValueLost} | tick=${r.ticks} | rol=${r.attackerSide ? 'R saldıran' : 'R savunan'} | sonuç=${r.outcomeReason} | kazanan=${r.winner}`;
     console.log(`Altın test: ${runs} koşu, seed=${seed}, ordu=[${counts.join(',')}]`);
     let first = null, ok = true;
     for (let i = 0; i < runs; i++) {
@@ -667,7 +657,7 @@ function spTestReplayMatch(index) {
 //  ----------------------------------------------------------------------------
 //  commanderGenome'un 12 karar-parametresini genetik (mutate-and-keep-best) ile
 //  evirir. Maç: İKİ TARAF DA temiz komutan (genome-swap), GERÇEK stepSim fiziği.
-//  Ödül: kuvvet ekonomisi (blueLost − k×redLost) + VP farkı, RED açısından.
+//  Ödül: kuvvet ekonomisi + saldıran/savunan görev sonucu, RED açısından.
 //  İnsan-gibi kalır: yapı sabit (sektör-makro, süper-APM yok), sadece sayılar evrilir.
 //  Konsoldan: spTrainCommander()  → bitince commanderGenome (canlı) güncellenir.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -678,7 +668,7 @@ const CMDR_TRAIN_TICKS = 1200;   // eğitim maçı üst sınırı (≈77 sim-sn,
 function spAllArtyArmy()   { const c = new Array(9).fill(0); c[T.ENGINEER] = 1; c[T.RECON] = 1; c[T.ARTILLERY] = 8; return c; }      // "tamamen topçu"
 function spArtyHunterArmy() { const c = new Array(9).fill(0); c[T.ENGINEER] = 1; c[T.RECON] = 4; c[T.MECH_INFANTRY] = 8; c[T.INFANTRY] = 4; return c; }  // all-arty counter
 
-function spRunCommanderMatch(redGenes, blueGenes, maxTicks = CMDR_TRAIN_TICKS, matchSeed = null, redArmy = null, blueArmy = null, blueReplay = null) {
+function spRunCommanderMatch(redGenes, blueGenes, maxTicks = CMDR_TRAIN_TICKS, matchSeed = null, redArmy = null, blueArmy = null, blueReplay = null, attackerSide = true) {
     const savedGenome = commanderGenome;       // canlı genomu koru
     const snap = snapshotSIM();
     try {
@@ -688,11 +678,11 @@ function spRunCommanderMatch(redGenes, blueGenes, maxTicks = CMDR_TRAIN_TICKS, m
         resetSimRng(matchSeed != null ? matchSeed : (spNextSeed = (spNextSeed * 1664525 + 1013904223) >>> 0));
         if (blueReplay) { spDeployReplay(blueReplay); aiDeploy(); }   // mavi=İNSAN kaydı, kırmızı=AI counter-deploy (canlı akış)
         else { spDeployArmy(blueArmy || spRandomArmy(), false); spDeployArmy(redArmy || spRandomArmy(), true); }
-        if (typeof initControlPoints === 'function') initControlPoints();
+        initBattleRules({ attackerSide, durationSec: maxTicks * SP_STEP / 1000 });
         commanderReset();
 
-        const initRed  = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
-        const initBlue = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
+        const initRed = battleArmyObservation(true).effectiveValue;
+        const initBlue = battleArmyObservation(false).effectiveValue;
 
         const replayState = { idx: 0 };
         let now = 0;
@@ -703,16 +693,28 @@ function spRunCommanderMatch(redGenes, blueGenes, maxTicks = CMDR_TRAIN_TICKS, m
                 if (blueReplay) spApplyReplayCommands(blueReplay, replayState, n);   // güney = İNSAN kaydı (gerçek oyun)
                 else { commanderGenome = blueGenes; commanderDrive(false, n); }      // güney = AI komutan
             }, false);
-            if (SIM.vpWinner !== null) break;
-            if (spSideUnits(true).length === 0 || spSideUnits(false).length === 0) break;
+            if (SIM.battle && SIM.battle.winnerSide !== null) break;
         }
 
-        const redVal  = spSideUnits(true).reduce((s, u) => s + STATS[u.type].cost, 0);
-        const blueVal = spSideUnits(false).reduce((s, u) => s + STATS[u.type].cost, 0);
+        const redVal = battleArmyObservation(true).effectiveValue;
+        const blueVal = battleArmyObservation(false).effectiveValue;
         const redLost = initRed - redVal, blueLost = initBlue - blueVal;
-        let net = (blueLost - SP_LOSS_AVERSION * redLost) * SP_NET_SCALE;   // kuvvet ekonomisi (baskın)
-        net += ((SIM.vpScore.red || 0) - (SIM.vpScore.blue || 0)) * SP_VP_WEIGHT;   // bölge
-        return { net, redLost, blueLost, redVp: SIM.vpScore.red, blueVp: SIM.vpScore.blue };
+        const winnerSide = SIM.battle?.winnerSide;
+        const result = {
+            winner: winnerSide === true ? 'red' : (winnerSide === false ? 'blue' : 'draw'),
+            attackerSide,
+            outcomeReason: SIM.battle?.outcomeReason || null,
+            timeRemaining: SIM.battle?.remainingSec || 0,
+            redValueLost: redLost,
+            blueValueLost: blueLost,
+            redValueRemaining: redVal,
+            blueValueRemaining: blueVal,
+            redDealtNoDamage: blueLost <= 0,
+            redActiveRatio: 0,
+            contactTicks: maxTicks,
+            maxTicks
+        };
+        return Object.assign(result, { net: spRoleFitness(result), redLost, blueLost, redVp: 0, blueVp: 0 });
     } finally {
         commanderGenome = savedGenome;          // canlı genomu geri yükle
         restoreSIM(snap);
@@ -726,8 +728,10 @@ function spEvalCommander(genes, opponents, matchesEach = 2, seedBase = 0, replay
     let sum = 0, cnt = 0;
     for (let oi = 0; oi < opps.length; oi++)
         for (let i = 0; i < matchesEach; i++) {
-            sum += spRunCommanderMatch(genes, opps[oi], CMDR_TRAIN_TICKS, seedBase + (oi * 31 + i) * 7919).net;
-            cnt++;
+            const seed = seedBase + (oi * 31 + i) * 7919;
+            sum += spRunCommanderMatch(genes, opps[oi], CMDR_TRAIN_TICKS, seed, null, null, null, true).net;
+            sum += spRunCommanderMatch(genes, opps[oi], CMDR_TRAIN_TICKS, seed, null, null, null, false).net;
+            cnt += 2;
         }
     // SENARYO: aday (RECON+MECH avcı ordusu) vs ALL-ARTY rakip → topçu-RUSH genlerini eğit/ölç (konsey egitimTasarim)
     sum += spRunCommanderMatch(genes, opps[0], CMDR_TRAIN_TICKS, seedBase + 99991, spArtyHunterArmy(), spAllArtyArmy()).net;
@@ -736,7 +740,7 @@ function spEvalCommander(genes, opponents, matchesEach = 2, seedBase = 0, replay
     if (replays && replays.length) {
         const nR = Math.min(2, replays.length);
         for (let i = 0; i < nR; i++) {
-            sum += spRunCommanderMatch(genes, null, CMDR_TRAIN_TICKS, seedBase + 70000 + i * 333, null, null, replays[replays.length - 1 - i]).net * 2;
+            sum += spRunCommanderMatch(genes, null, CMDR_TRAIN_TICKS, seedBase + 70000 + i * 333, null, null, replays[replays.length - 1 - i], false).net * 2;
             cnt += 2;
         }
     }

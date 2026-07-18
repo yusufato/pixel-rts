@@ -42,10 +42,10 @@ var __OUT = null;   // _bc_loop.js sonucu buraya yazar (aynı eval-scope'u)
 
 // sim dosyaları — yükleme sırası (UI/ağ dosyaları HARİÇ: Net/MP/Screens/Story/Replay)
 // NOT: TEK eval-scope'unda üst-seviye let/const TDZ olur → load-anı ileri-referansları
-// önlemek için MapImage (MAP_MODE tanımlar) MapData'dan (applyMap onu kullanır) ÖNCE yüklenir.
-const FILES = ['brain.js', 'globals.js', 'MapImage.js', 'MapData.js', 'BrainState.js', 'NeuralBrain.js', 'HybridBrain.js',
+// Canlı oyunla aynı sırada MapData önce, onun terrainFeatures verisini kullanan MapImage sonra yüklenir.
+const FILES = ['brain.js', 'globals.js', 'BattleRules.js', 'MapData.js', 'MapImage.js', 'BrainState.js', 'NeuralBrain.js', 'HybridBrain.js',
     'NNController.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js', 'Support.js', 'Unit.js', 'AI.js',
-    'Foresight.js', 'LayeredAI.js', 'Commander.js', 'ControlPoints.js', 'main.js', 'terrainData.js',
+    'Foresight.js', 'LayeredAI.js', 'Commander.js', 'main.js', 'terrainData.js',
     'techTree.js', 'SelfPlay.js'];
 
 let src = '';

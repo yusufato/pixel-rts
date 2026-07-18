@@ -247,8 +247,8 @@ function startBattle() {
     document.body.setAttribute('data-phase', PHASE.BATTLE);
     if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
+    if (typeof initBattleRules === 'function') initBattleRules(battleRulesConfigForCurrentMatch());
     battleTelemetry.start(simulationTime);
-    if (typeof initControlPoints === 'function') initControlPoints();   // bölge kontrolü / zafer puanları
     if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
     layeredAI.reset(simulationTime);
     if (typeof replayStartRecording === 'function') replayStartRecording();   // insan replay kaydı
@@ -310,19 +310,18 @@ minimapCanvas.addEventListener('click', (e) => {
 
 function checkGameOver() {
     if (phase !== PHASE.BATTLE) return;
-    const blueAlive = units.some(u => !u.dead && !u.isRed);
-    const redAlive = units.some(u => !u.dead && u.isRed);
-
-    let won = null;
-    // ZAFER PUANI eşiği (turtle-kırıcı): bölge skoru hedefe ulaştıysa maç biter.
-    if (typeof SIM.vpWinner !== 'undefined' && SIM.vpWinner !== null) {
-        won = SIM.vpWinner;
-    } else if (!blueAlive && !redAlive) won = 'draw';
-    else if (!blueAlive) won = false;
-    else if (!redAlive) won = true;
-    else return;
+    let won = typeof battleOutcomeBluePerspective === 'function'
+        ? battleOutcomeBluePerspective()
+        : null;
+    if (won === null) return;
 
     const telemetrySummary = battleTelemetry.finish(won, simulationTime);
+    telemetrySummary.outcomeReason = SIM.battle?.outcomeReason || null;
+    telemetrySummary.outcomeLabel = typeof battleOutcomeLabel === 'function'
+        ? battleOutcomeLabel(telemetrySummary.outcomeReason)
+        : 'Savaş sona erdi';
+    telemetrySummary.attackerSide = SIM.battle?.attackerSide ? 'red' : 'blue';
+    telemetrySummary.timeRemaining = Math.max(0, SIM.battle?.remainingSec || 0);
     const _mp = (typeof MP !== 'undefined' && MP.active);
     if (!_mp) {   // MP'de AI/replay eğitimini KİRLETME (insan-vs-insan, AI öğrenmesin)
         layeredAI.onBattleEnd(telemetrySummary);
@@ -375,6 +374,9 @@ function checkGameOver() {
         'PIXEL RTS CANLI MAÇ RAPORU',
         '',
         `Sonuç: ${won === 'draw' ? 'Berabere' : won ? 'Oyuncu kazandı' : 'AI kazandı'}`,
+        `Bitiş: ${telemetrySummary.outcomeLabel}`,
+        `Rolün: ${SIM.battle?.attackerSide === false ? 'SALDIRAN' : 'SAVUNAN'}`,
+        `Kalan süre: ${Math.ceil(telemetrySummary.timeRemaining)} sn`,
         `Süre: ${telemetrySummary.durationSeconds.toFixed(1)} sn`,
         `AI Taktik Puanı: ${Math.round(telemetrySummary.reward)}`,
         `Hasar: AI ${Math.round(telemetrySummary.damageDealt)} / Oyuncu ${Math.round(telemetrySummary.damageTaken)}`,
@@ -998,7 +1000,7 @@ function updateTrenches(now) {
 // kök-sorunu biter (konseyin işaret ettiği en kritik tutarsızlık; eğitim artık
 // gerçekten oynanan oyunu öğretir). Komut/AI sürücüsü step'in DIŞINDAN verilir.
 //   now           : sim saati (ms) — birim/trench/AI bu zamanı görür
-//   dtSec         : bu adımın saniye süresi (controlPoints/oran hesapları)
+//   dtSec         : bu adımın saniye süresi (savaş süresi/irade/oran hesapları)
 //   driveAI(now)  : AI sürücüsü (canlı: updateLayeredAI; eğitim: 2 controller/replay)
 //   spawnDeathVfx : canlıda ölümde patlama efekti (render); headless'te false
 function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
@@ -1022,7 +1024,7 @@ function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
     SIM.units.forEach(u => u.update(now));
     resolveCollisions();
     if (driveAI) driveAI(now);
-    if (typeof updateControlPoints === 'function') updateControlPoints(dtSec, now);
+    if (typeof updateBattleRules === 'function') updateBattleRules(dtSec, now);
     SIM.tick = (SIM.tick || 0) + 1;   // ÖĞRENEN BEYİN: deterministik sim-saati (intent-yaşı/bellek için)
     if ((SIM.tick % 12) === 0 && typeof updateBrainMemory === 'function') updateBrainMemory();   // görüş-belleği + frame-stack trend
 }
@@ -1085,7 +1087,6 @@ function gameLoop(timestamp) {
         camera.y = cw.y - (canvas.height / 2) / zoom;
     }
     drawMap();
-    if (typeof drawControlPoints === 'function') drawControlPoints(ctx);   // bölge halkaları (birimlerin altında)
     units.forEach(u => u.draw());
     if (typeof warRoomDrawBattleAxis === 'function') warRoomDrawBattleAxis(ctx);
     drawParticles(ctx);
@@ -1097,7 +1098,6 @@ function gameLoop(timestamp) {
     if (_cz) { zoom = _sZoom; camera.x = _sCamX; camera.y = _sCamY; }   // sinematik zoom geri al → HUD/minimap doğru kalır
     drawSelectionBox();
     drawMinimap();
-    if (typeof drawVpHud === 'function') drawVpHud(ctx);   // bölge skor göstergesi (ekran-uzayı)
     updateUI();
 
     requestAnimationFrame(gameLoop);

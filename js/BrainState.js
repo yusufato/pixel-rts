@@ -4,13 +4,13 @@
 //  encode(u, now) → { scalars: Float32Array(SCALAR_DIM), spatial: Float32Array(SPATIAL_DIM) }
 //   • scalars  : 240 el-işçiliği taktik özelliği (ego/düşman8/dost5/saha/bağlam/SU-KÖPRÜ/T3/STRATEJİK/MOMENTUM)
 //     KONSEY-FIX: ölü 0-kanallar dolduruldu (görüş-belleği, intent-yaşı, keşif-boşluğu, yükselti-grad)
-//     + BLOK A (CP cap/contested+3CP+VP-skoru+maç-ilerleme+global-kuvvet) + frame-stack momentum
+//     + BLOK A (rol+süre+ordu iradesi+kuvvet durumu) + frame-stack momentum
 //   • spatial  : 8 kanal × 16×16 ego-merkezli, DÜNYA-EKSENLİ ham harita (conv kolu için)
 //  Determinist: trig sadece var-olanlar (atan2 sim'de zaten), RNG yok, sabit ölçek.
 //  En-yakın-K sıralaması d2 + (x,y) tie-break → MP/headless bit-stabil.
 //  Headless-güvenli: render/DOM yok. globals(T/STATS/canSee/checkLineOfSight),
 //  MapImage(terrainTypeAt/isPassableAt/isBridgeAt/findPath/bridgeSet/gridElevationAt),
-//  SIM.units/controlPoints/spatialGrid kullanır.
+//  SIM.units/battle/spatialGrid kullanır.
 // ═══════════════════════════════════════════════════════════════════════════
 const BrainState = (function () {
     const K_ENEMY = 8, ENEMY_F = 9;     // 72
@@ -292,33 +292,33 @@ const BrainState = (function () {
         return i;   // 32
     }
 
-    // ── STRATEJİK / BLOK A (17): VP-yarışı bağlamı — beyin "ne zaman risk/tut" öğrensin ──
+    // ── STRATEJİK / BLOK A (17): saldıran/savunan bağlamı — beyin "ne zaman risk/tut" öğrensin ──
     function encodeStrategic(u, out, i) {
         const P = v => { out[i++] = (v === v) ? c01OrN(v) : 0; };
-        const VPT = (typeof VP_TARGET !== 'undefined') ? VP_TARGET : 3000;
-        const capMine = cp => u.isRed ? -(cp.cap || 0) : (cp.cap || 0);   // +1 benim-lehime ele-geçirme
-        // en yakın CP: cap(my-favor) + contested (2)
-        const ncp = nearestCP(u);
-        if (ncp) { P(cN1(capMine(ncp))); P(ncp.contested ? 1 : 0); } else { P(0); P(0); }
-        // 3 CP global (x'e göre sabit-sıra): owner + cap(my-favor) + contested (9)
-        const cps = (SIM.controlPoints || []).slice().sort((a, b) => a.x - b.x || a.y - b.y);
-        for (let k = 0; k < 3; k++) { const cp = cps[k]; if (cp) { P(cpOwnerVal(cp, u)); P(cN1(capMine(cp))); P(cp.contested ? 1 : 0); } else { P(0); P(0); P(0); } }
-        // VP skoru: self / enemy / lead (3)
-        const vs = (typeof SIM !== 'undefined' && SIM.vpScore) ? SIM.vpScore : { red: 0, blue: 0 };
-        const mineVp = u.isRed ? vs.red : vs.blue, foeVp = u.isRed ? vs.blue : vs.red;
-        P(c01(mineVp / VPT)); P(c01(foeVp / VPT)); P(cN1((mineVp - foeVp) / VPT));
-        // maç-ilerleme: karara yakınlık (1)
-        P(c01(Math.max(vs.red, vs.blue) / VPT));
-        // global kuvvet: effHP-oranı + sayı-oranı (2) — yerel localForceRatio yetmez
-        let myEff = 0, foeEff = 0, myN = 0, foeN = 0;
-        for (const o of SIM.units) {
-            if (o.dead) continue;
-            const a = (STATS[o.type] ? STATS[o.type].atk : 0);
-            if (o.isRed === u.isRed) { myEff += a * (o.hp / (o.maxHp || 1)); myN++; }
-            else { const v = knownEnemyView(u, o); if (!v) continue; foeEff += a * (v.hp / (o.maxHp || 1)); foeN++; }   // yalnız BİLİNEN düşman (komuta-istihbaratı hilesi yok)
-        }
-        P(c01(myEff / (myEff + foeEff + 1))); P(c01(myN / (myN + foeN + 1)));
-        return i;   // 2+9+3+1+2 = 17
+        const battle = SIM.battle || null;
+        const role = battle && battle.active ? battleRoleForSide(u.isRed) : BATTLE_ROLE.ATTACKER;
+        const mine = battle ? (u.isRed ? battle.red : battle.blue) : null;
+        const foe = battle ? (u.isRed ? battle.blue : battle.red) : null;
+        const duration = Math.max(1, battle?.durationSec || 1);
+
+        P(role === BATTLE_ROLE.ATTACKER ? 1 : 0);                 // rol one-hot (2)
+        P(role === BATTLE_ROLE.DEFENDER ? 1 : 0);
+        P(c01((battle?.elapsedSec || 0) / duration));             // zaman (2)
+        P(c01((battle?.remainingSec || 0) / duration));
+        P(c01((mine?.will ?? 100) / 100));                        // irade (3)
+        P(c01((foe?.will ?? 100) / 100));
+        P(cN1(((mine?.will ?? 100) - (foe?.will ?? 100)) / 100));
+        P(c01(mine?.valueRatio ?? 1));                            // kuvvet değeri (3)
+        P(c01(foe?.valueRatio ?? 1));
+        P(cN1((mine?.valueRatio ?? 1) - (foe?.valueRatio ?? 1)));
+        P(c01(mine?.combatRatio ?? 1));                           // organize savaş gücü (2)
+        P(c01(foe?.combatRatio ?? 1));
+        P(c01(mine?.routedRatio || 0));                           // kendi kırılganlıkları (3)
+        P(c01(mine?.suppressedRatio || 0));
+        P(c01(mine?.supplyCutRatio || 0));
+        P(c01((mine?.surrenderPressure || 0) / 8));               // teslim baskısı (2)
+        P(c01((foe?.surrenderPressure || 0) / 8));
+        return i;   // 2+2+3+3+2+3+2 = 17
     }
 
     // ── FRAME-STACK / MOMENTUM (4): trend görünürlüğü (anlık değil eğilim) ──
@@ -350,7 +350,7 @@ const BrainState = (function () {
             if (o.isRed !== u.isRed) { out[idx(0, gx, gy)] = Math.min(1, out[idx(0, gx, gy)] + str); out[idx(2, gx, gy)] = Math.min(1, out[idx(2, gx, gy)] + 0.34); }
             else { out[idx(1, gx, gy)] = Math.min(1, out[idx(1, gx, gy)] + str); }
         }
-        // arazi kanalları (3 geçilebilir, 4 orman, 5 yükselti, 6 CP, 7 köprü) — hücre merkezinden örnek
+        // arazi kanalları (3 geçilebilir, 4 orman, 5 yükselti, 6 görev-hedefi, 7 köprü) — hücre merkezinden örnek
         for (let gy = 0; gy < GRID_N; gy++) for (let gx = 0; gx < GRID_N; gx++) {
             const wx = ox + (gx + 0.5) * cell, wy = oy + (gy + 0.5) * cell;
             if (wx < 0 || wy < 0 || wx >= WORLD_W || wy >= WORLD_H) { out[idx(3, gx, gy)] = 0; continue; }
@@ -359,31 +359,17 @@ const BrainState = (function () {
             out[idx(3, gx, gy)] = pass; out[idx(4, gx, gy)] = forest; out[idx(7, gx, gy)] = brg;
             out[idx(5, gx, gy)] = c01(typeof elevationAt === 'function' ? elevationAt(wx, wy) : 0.5);
         }
-        // CP kanalı (6): sahip işaretli
-        if (SIM.controlPoints) for (const cp of SIM.controlPoints) {
-            const gx = Math.floor((cp.x - ox) / cell), gy = Math.floor((cp.y - oy) / cell);
-            if (gx < 0 || gy < 0 || gx >= GRID_N || gy >= GRID_N) continue;
-            const own = cpOwnerVal(cp, u);                     // 1 benim, -1 düşman, 0 nötr
-            out[idx(6, gx, gy)] = (own + 1) / 2;               // 0..1
+        // Görev-hedefi kanalı (6): saldıran düşman hattını, savunan kendi hattını görür.
+        const objective = typeof battleObjectiveForSide === 'function' ? battleObjectiveForSide(u.isRed) : null;
+        if (objective) {
+            const gx = Math.floor((objective.x - ox) / cell), gy = Math.floor((objective.y - oy) / cell);
+            if (gx >= 0 && gy >= 0 && gx < GRID_N && gy < GRID_N) out[idx(6, gx, gy)] = 1;
         }
         return out;
     }
 
     // yardımcılar
     function c01OrN(v) { return v < -1 ? -1 : (v > 1 ? 1 : v); }   // -1..1 izinli (yön bileşenleri için)
-    function nearestCP(u) {
-        if (!SIM.controlPoints || !SIM.controlPoints.length) return null;
-        let best = null, bd = 1e18;
-        for (const cp of SIM.controlPoints) { const dx = cp.x - u.x, dy = cp.y - u.y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = cp; } }
-        if (best) best.dist = Math.sqrt(bd);
-        return best;
-    }
-    function cpOwnerVal(cp, u) {
-        const owner = cp.owner;
-        if (owner == null || owner === 'neutral' || owner === 0) return 0;
-        const ownerRed = (owner === 'red' || owner === true || owner === 1);
-        return ownerRed === u.isRed ? 1 : -1;
-    }
     function nearestEnemyQuick(u) {                            // yalnız GÖRÜNÜR düşman (hile yok)
         let best = null, bd = 1e18;
         for (const o of SIM.units) { if (o.dead || o.isRed === u.isRed) continue; const v = knownEnemyView(u, o); if (!v || !v.visible) continue; const dx = o.x - u.x, dy = o.y - u.y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = o; } }

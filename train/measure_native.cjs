@@ -29,9 +29,9 @@ try { fs.writeFileSync(PROG, ''); } catch (e) {}
 globalThis.__log = (m) => { try { fs.appendFileSync(PROG, m + '\n'); } catch (e) {} try { console.log(m); } catch (e) {} };
 globalThis.__cores = os.cpus().length;
 
-const files = ['brain.js', 'globals.js', 'MapData.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js',
+const files = ['brain.js', 'globals.js', 'BattleRules.js', 'MapData.js', 'TacticalAI.js', 'Telemetry.js', 'VFX.js',
   'Support.js', 'Unit.js', 'AI.js', 'Foresight.js', 'LayeredAI.js', 'Commander.js',
-  'ControlPoints.js', 'main.js', 'Replay.js', 'SelfPlay.js'];
+  'main.js', 'Replay.js', 'SelfPlay.js'];
 function transform(src) {
   src = src.replace(/^(const|let)\b/gm, 'var');
   src = src.replace(/^class\s+([A-Za-z_$][\w$]*)/gm, 'var $1 = class $1');

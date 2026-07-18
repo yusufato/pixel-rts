@@ -626,10 +626,8 @@ class AIStrategicDirector {
             scores[AI_DOCTRINE.ADVANCE] += 0.6;
             scores[AI_DOCTRINE.ANTI_ARTILLERY] -= 1.4;
         }
-        // ── FAZ 2: BÖLGE TEMPO BASKISI ── puan/bölge geride isem ve çekişilecek nokta varsa, tempoyu zorla.
-        // Turtle eden insanı puanla cezalandırmak için noktalara baskı (pickTerritoryTarget hedefler;
-        // localExchange vetosu suicidal charge'ı önler → güvenli yığılma).
-        if (state.visibleEnemies > 0 && posture !== 'LAST_STAND') {
+        // ── GÖREV TEMPOSU ── saldıran süre azaldıkça sonucu zorlar; savunan temas aramak zorunda değildir.
+        if (state.visibleEnemies > 0 && posture !== 'LAST_STAND' && state.battleRole === BATTLE_ROLE.ATTACKER) {
             const losingTerritory = (state.vpDeficit || 0) > 0 || (state.vpEnemy || 0) > (state.vpOwn || 0);
             const contestable = (state.vpOpen || 0) > 0 || (state.vpEnemy || 0) > 0;
             if (losingTerritory && contestable) {
@@ -640,8 +638,14 @@ class AIStrategicDirector {
                 scores[AI_DOCTRINE.REGROUP] -= 0.8 * w;
             }
         }
-        // Bu oyunda ekonomi/üs yok: BEKLEMEK = KAYBETMEK. Temas yoksa saldırıya zorla.
-        if (state.idlePressure > 25 && state.visibleEnemies > 0 && posture !== 'LAST_STAND') {
+        if (state.battleRole === BATTLE_ROLE.DEFENDER && posture !== 'LAST_STAND') {
+            scores[AI_DOCTRINE.ATTRITION] += 1.5;
+            scores[AI_DOCTRINE.REGROUP] += 0.7;
+            scores[AI_DOCTRINE.ADVANCE] -= 1.4;
+            scores[AI_DOCTRINE.BREAKTHROUGH] -= 1.2;
+        }
+        // Saldıran için uzun bekleme yenilgidir; savunanın beklemesi görev gereğidir.
+        if (state.battleRole === BATTLE_ROLE.ATTACKER && state.idlePressure > 25 && state.visibleEnemies > 0 && posture !== 'LAST_STAND') {
             scores[AI_DOCTRINE.ADVANCE] += 4.0;
             scores[AI_DOCTRINE.ENCIRCLE] += 1.2;
             if (cleanupOpportunity) scores[AI_DOCTRINE.CLEANUP] += 1.5;
@@ -722,8 +726,8 @@ class AISquadPlanner {
 
     getObjectives(state, doctrine, modifiers, worldModel) {
         const genes = aiGenome.tacticGenes;
-        // HEDEF ÖNCELİĞİ: (1) lehte kavga (COMMIT Schwerpunkt) → dövüş; (2) yoksa kontrol noktası → tut/çekiş
-        // (turtle-kır: zafer puanı al, düşmanı dışarı zorla); (3) yoksa düşman merkezi.
+        // HEDEF ÖNCELİĞİ: (1) lehte kavga (COMMIT Schwerpunkt), (2) rolün görev hattı,
+        // (3) son bilinen düşman merkezi.
         const advisorTarget = (state.advisor && state.advisor.posture === ADVISOR_POSTURE.COMMIT && state.advisor.target)
             ? state.advisor.target : null;
         const target = doctrine === AI_DOCTRINE.HUNT
@@ -1152,21 +1156,14 @@ class LayeredAIController {
         this.advisorPlan = (this.advisor && visibleEnemies.length > 0)
             ? this.advisor.decide(ownUnits, visibleEnemies, combatAnalysis, now, enemyStatic)
             : null;
-        // ── BÖLGE HEDEFİ (PUNCH) ── lehte kavga yoksa, en ZAYIF savunulan kontrol noktasına yığ (turtle-kır).
-        this.territoryTarget = this.pickTerritoryTarget(center, visibleEnemies);
-        // ── FAZ 2: BÖLGE DURUŞU ── director'a tempo baskısı girdisi (geride isem zayıf noktayı zorla)
-        let vpDeficit = 0, vpOwn = 0, vpEnemy = 0, vpOpen = 0;
-        if (typeof SIM.controlPoints !== 'undefined' && SIM.controlPoints && SIM.controlPoints.length) {
-            const mineOwner = this.side ? 'red' : 'blue';
-            for (const p of SIM.controlPoints) {
-                if (p.owner === mineOwner) vpOwn++; else if (p.owner) vpEnemy++; else vpOpen++;
-            }
-            if (typeof SIM.vpScore !== 'undefined' && SIM.vpScore) {
-                const myS = this.side ? SIM.vpScore.red : SIM.vpScore.blue;
-                const enS = this.side ? SIM.vpScore.blue : SIM.vpScore.red;
-                vpDeficit = enS - myS;   // pozitif = bölgede GERİDEYİM (tempo zorlamalıyım)
-            }
-        }
+        // Eski alan adları director uyumluluğu için korunur; artık bölge değil görev temposudur.
+        this.territoryTarget = this.pickMissionTarget();
+        const battleRole = battleRoleForSide(this.side);
+        const battleUrgency = battleUrgencyForSide(this.side);
+        const vpDeficit = battleRole === BATTLE_ROLE.ATTACKER ? battleUrgency * 1000 : 0;
+        const vpOwn = battleRole === BATTLE_ROLE.DEFENDER ? 1 : 0;
+        const vpEnemy = battleRole === BATTLE_ROLE.ATTACKER ? 1 : 0;
+        const vpOpen = battleRole === BATTLE_ROLE.ATTACKER ? 1 : 0;
 
         const state = {
             now,
@@ -1175,6 +1172,7 @@ class LayeredAIController {
             advisor: this.advisorPlan,
             territoryTarget: this.territoryTarget,
             vpDeficit, vpOwn, vpEnemy, vpOpen,
+            battleRole, battleUrgency,
             visibleEnemies: visibleEnemies.length,
             center,
             hpRatio: totalHp / Math.max(1, totalMaxHp),
@@ -1808,32 +1806,8 @@ class LayeredAIController {
         };
     }
 
-    // PUNCH hedefi: zafer puanı için EN ZAYIF SAVUNULAN çekişilebilir noktaya yığ (turtle'ın zayıf omzuna vur).
-    // Yakın + düşman savunması az + (düşmanınkini geri al / nötrü kap) önceliğiyle seç. punchFocus geni eğilimi ayarlar.
-    pickTerritoryTarget(center, visibleEnemies) {
-        if (typeof SIM.controlPoints === 'undefined' || !SIM.controlPoints || !SIM.controlPoints.length) return null;
-        const mine = this.side ? 'red' : 'blue';
-        const genes = aiGenome.tacticGenes;
-        const punchFocus = (genes && genes.punchFocus) || 1.0;
-        let best = null, bestScore = -Infinity;
-        for (const p of SIM.controlPoints) {
-            if (p.owner === mine && !p.contested) continue;          // zaten güvenle bizim → atla
-            const d = Math.hypot(p.x - center.x, p.y - center.y);
-            // Düşman savunma yoğunluğu (PUNCH: zayıf savunulanı seç)
-            let enemyDef = 0;
-            if (visibleEnemies) {
-                for (const e of visibleEnemies) {
-                    if (e.isRed === this.side || e.dead) continue;
-                    if (Math.hypot(e.x - p.x, e.y - p.y) < p.r + 140) enemyDef += (STATS[e.type] && STATS[e.type].cost) || 50;
-                }
-            }
-            let score = -d * 0.4 - enemyDef * 1.1 * punchFocus;      // yakın + ZAYIF savunulan
-            if (p.owner && p.owner !== mine) score += 900;           // düşmanınkini geri al (puanı durdur)
-            else if (!p.owner) score += 700;                         // nötrü kap
-            if (p.contested) score += 250;                           // çekişmeyi pekiştir
-            if (score > bestScore) { bestScore = score; best = p; }
-        }
-        return best ? { x: best.x, y: best.y } : null;
+    pickMissionTarget() {
+        return typeof battleObjectiveForSide === 'function' ? battleObjectiveForSide(this.side) : null;
     }
 
     nearestFriendlyTrench(unit) {
@@ -2032,7 +2006,8 @@ class LayeredAIController {
     }
 
     onBattleEnd(metrics) {
-        const finishReward = (metrics.aiWon ? 800 : metrics.aiLost ? -500 : -100) - metrics.idleSeconds * 2;
+        const idlePenalty = metrics.aiRole === BATTLE_ROLE.ATTACKER ? metrics.idleSeconds * 2 : 0;
+        const finishReward = (metrics.aiWon ? 800 : metrics.aiLost ? -700 : -100) - idlePenalty;
         this.bandit.record(this.director.doctrine, finishReward);
         this.bandit.save();
     }

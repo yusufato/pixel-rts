@@ -23,6 +23,7 @@ function resetBattleState() {
         SIM.vpWinner = null;
         SIM.tick = 0;
     }
+    if (typeof resetBattleRules === 'function') resetBattleRules();
     if (typeof player !== 'undefined') { player.kills = 0; player.unitsSpawned = 0; }
     if (typeof enemy !== 'undefined') { enemy.kills = 0; enemy.unitsSpawned = 0; }
     if (typeof gameTime !== 'undefined') gameTime = 0;
@@ -34,7 +35,6 @@ function resetBattleState() {
     if (typeof commanderReset === 'function') commanderReset();
     if (typeof layeredAI !== 'undefined' && layeredAI.reset) layeredAI.reset(0);
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();
-    if (typeof initControlPoints === 'function') initControlPoints();
     document.body.setAttribute('data-phase', 'deploy');
     document.getElementById('game-over-screen')?.classList.add('hidden');
     document.getElementById('start-btn')?.classList.remove('hidden');
@@ -80,7 +80,6 @@ function quickMatchStart() {
         let mid = +(document.getElementById('qm-map')?.value);
         if (mid !== -2 && (isNaN(mid) || mid < 0)) mid = (typeof MAPS !== 'undefined') ? Math.floor(Math.random() * MAPS.length) : 0;   // -2=çizilen harita pas geçer
         applyMap(mid);
-        if (typeof initControlPoints === 'function') initControlPoints();
     }
     if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
     // Hikaye-dışı maç → tek-para modu (kaynak-bazlı deploy KAPALI) + kaynak satırlarını gizle

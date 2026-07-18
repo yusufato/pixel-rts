@@ -550,12 +550,12 @@ function storyResetBattlefield() {
     units.length = 0;
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     SIM.controlPoints = []; SIM.vpScore = { red: 0, blue: 0 }; SIM.vpWinner = null;
+    if (typeof resetBattleRules === 'function') resetBattleRules();
     player.kills = 0; player.unitsSpawned = 0;
     enemy.kills = 0; enemy.unitsSpawned = 0;
     phase = PHASE.DEPLOY;
     document.body.setAttribute('data-phase', PHASE.DEPLOY);
     if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
-    if (typeof initControlPoints === 'function') initControlPoints();
     // UI'yı yerleştirme durumuna geri al
     document.getElementById('game-over-screen')?.classList.add('hidden');
     document.getElementById('start-btn')?.classList.remove('hidden');
@@ -642,8 +642,17 @@ function storyOnBattleEnd(won, telemetrySummary) {
 
     const winText = (won === true);
     storyCommanderBackfill(STORY.commander);
-    const vpMargin = (SIM.vpScore?.blue || 0) - (SIM.vpScore?.red || 0);
-    const xpEarned = Math.max(0, Math.round((telemetrySummary?.aiValueLost || 0) - (telemetrySummary?.enemyValueDestroyed || 0) * 1.5 + vpMargin * 0.5));
+    const roleBonus = winText ? 120 : 0;
+    const timeBonus = winText && ctx.mode === 'defense'
+        ? Math.round(Math.max(0, telemetrySummary?.durationSeconds || 0) * 0.35)
+        : winText
+            ? Math.round(Math.max(0, telemetrySummary?.timeRemaining || 0) * 0.5)
+            : 0;
+    const xpEarned = Math.max(0, Math.round(
+        (telemetrySummary?.aiValueLost || 0) -
+        (telemetrySummary?.enemyValueDestroyed || 0) * 0.45 +
+        roleBonus + timeBonus
+    ));
     STORY.commander.xp += xpEarned;
     STORY.commander.score += xpEarned;
     if (winText) STORY.commander.victories++;

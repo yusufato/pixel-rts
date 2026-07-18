@@ -28,7 +28,7 @@
 
     let seed = 1;
     for (const sc of scenarios) {
-        if (typeof applyMap === 'function') applyMap(sc.map);   // harita değiş (grid/circle); initControlPoints SIM.tick=0 yapar
+        if (typeof applyMap === 'function') applyMap(sc.map);   // harita değiş (grid/circle)
         units.length = 0;
         if (typeof trenches !== 'undefined') trenches.length = 0;
         player.money = 1500; enemy.money = 1500; player.kills = 0; enemy.kills = 0;
@@ -36,7 +36,8 @@
         if (typeof resetSimRng === 'function') resetSimRng(((seed++) * 2654435761) >>> 0);
         spDeployArmy(sc.blue, false);
         spDeployArmy(sc.red, true);
-        if (typeof initControlPoints === 'function') initControlPoints();
+        const attackerSide = (seed & 1) === 1;                  // veri kümesinde iki rol de görülür
+        initBattleRules({ attackerSide, durationSec: sc.ticks * STEP / 1000 });
         if (typeof commanderReset === 'function') commanderReset();
 
         let now = 0;
@@ -57,9 +58,7 @@
                     samples.push({ s: Array.from(st.scalars), posture: post, range: (u.intent.preferredRange != null) ? u.intent.preferredRange : 0.62, side: u.isRed ? 1 : 0 });
                 }
             }
-            if (typeof SIM !== 'undefined' && SIM.vpWinner != null) break;
-            let r = 0, b = 0; for (const u of units) { if (u.dead) continue; if (u.isRed) r++; else b++; }
-            if (r === 0 || b === 0) break;
+            if (SIM.battle && SIM.battle.winnerSide !== null) break;
         }
     }
 

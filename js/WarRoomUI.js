@@ -252,20 +252,25 @@ function warRoomUpdateBattle() {
     }
     warRoomUpdateBattle._counts = countSig;
 
-    const blueScore = Math.floor(SIM.vpScore?.blue || 0);
-    const redScore = Math.floor(SIM.vpScore?.red || 0);
-    const target = typeof VP_TARGET !== 'undefined' ? VP_TARGET : 3000;
+    const battle = SIM.battle || null;
+    const blueWill = Math.max(0, Math.min(100, battle?.blue?.will ?? 100));
+    const redWill = Math.max(0, Math.min(100, battle?.red?.will ?? 100));
     const blueBar = document.getElementById('battle-vp-blue');
     const redBar = document.getElementById('battle-vp-red');
-    if (blueBar) blueBar.style.width = `${Math.min(50, blueScore / target * 50)}%`;
-    if (redBar) redBar.style.width = `${Math.min(50, redScore / target * 50)}%`;
+    if (blueBar) blueBar.style.width = `${blueWill * 0.5}%`;
+    if (redBar) redBar.style.width = `${redWill * 0.5}%`;
     const blueValue = document.getElementById('battle-vp-blue-value');
     const redValue = document.getElementById('battle-vp-red-value');
-    if (blueValue) blueValue.textContent = blueScore;
-    if (redValue) redValue.textContent = redScore;
-    const sectors = typeof vpCounts === 'function' ? vpCounts() : { blue: 0, red: 0 };
+    if (blueValue) blueValue.textContent = `MAVİ İRADE %${blueWill}`;
+    if (redValue) redValue.textContent = `KIRMIZI İRADE %${redWill}`;
+    const remaining = Math.max(0, Math.ceil(battle?.remainingSec || 0));
+    const clock = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
     const sectorCount = document.getElementById('battle-vp-sector-count');
-    if (sectorCount) sectorCount.textContent = `${sectors.blue} : ${sectors.red}`;
+    if (sectorCount) sectorCount.textContent = clock;
+    const timeLabel = document.getElementById('battle-time-label');
+    if (timeLabel) timeLabel.textContent = clock;
+    const roleLabel = document.getElementById('battle-role-label');
+    if (roleLabel && battle) roleLabel.textContent = battle.attackerSide ? 'KIRMIZI SALDIRIYOR' : 'MAVİ SALDIRIYOR';
 
     const selected = units.find(unit => unit.selected && !unit.dead) || null;
     const stat = selected ? STATS[selected.type] : null;

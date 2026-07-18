@@ -267,10 +267,10 @@
         <div class="deploy-side-doctrine"><span>DOKTRİN</span><b id="deploy-doctrine">BİRLEŞİK SİLAHLAR</b></div>
         <p>Sol sahaya birlik yerleştir. Düşman hattı sis altında kalır; harekât emri verilince karşı ordu konuşlanır.</p>
     </aside>
-    <section id="battle-vp-hud" aria-label="Zafer puanı">
-        <div class="battle-vp-title"><span>SEKTÖR KONTROLÜ</span><b>HEDEF 3000</b></div>
+    <section id="battle-vp-hud" aria-label="Savaş süresi ve ordu iradesi">
+        <div class="battle-vp-title"><span id="battle-role-label">MAVİ SALDIRIYOR</span><b id="battle-time-label">04:00</b></div>
         <div class="battle-vp-bars"><i id="battle-vp-blue"></i><i id="battle-vp-red"></i></div>
-        <div class="battle-vp-values"><b id="battle-vp-blue-value">0</b><span id="battle-vp-sector-count">0 : 0</span><b id="battle-vp-red-value">0</b></div>
+        <div class="battle-vp-values"><b id="battle-vp-blue-value">İRADE %100</b><span id="battle-vp-sector-count">04:00</span><b id="battle-vp-red-value">İRADE %100</b></div>
     </section>
     <aside id="battle-target-card" aria-live="polite">
         <div class="battle-target-head"><span id="battle-contact-label">TARGET LOCK</span><b id="battle-contact-state">BEKLEME</b></div>
@@ -409,6 +409,7 @@
     <img id="spriteSheet" src="icons.png" style="display:none;">
     <script src="js/brain.js"></script>
     <script src="js/globals.js"></script>
+    <script src="js/BattleRules.js"></script>
     <script src="js/MapData.js"></script>
     <script src="js/MapImage.js"></script>
     <script src="js/BrainState.js"></script>
@@ -424,7 +425,6 @@
     <script src="js/Foresight.js"></script>
     <script src="js/LayeredAI.js"></script>
     <script src="js/Commander.js"></script>
-    <script src="js/ControlPoints.js"></script>
     <script src="js/main.js"></script>
     <script src="js/Replay.js"></script>
     <script src="js/SelfPlay.js"></script>

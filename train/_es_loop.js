@@ -27,7 +27,7 @@
     const INIT = +E('ES_INIT', 0.30);   // başlangıç ağırlık ölçeği — posture argmax'ı çeşitlensin (çok küçükse hep aynı)
     let w = new Float64Array(NPAR); for (let i = 0; i < NPAR; i++) w[i] = gauss() * INIT;
 
-    function sideVal(isRed) { return spSideUnits(isRed).reduce((s, u) => s + STATS[u.type].cost, 0); }
+    function sideVal(isRed) { return battleArmyObservation(isRed).effectiveValue; }
     function fitness(weights, seed) {
         net.setWeights(weights); NN.brain = net; NN.enabled = true; NN.side = true; NN.throttleCycles = 3;   // RED = NN
         units.length = 0; if (typeof trenches !== 'undefined') trenches.length = 0;
@@ -35,23 +35,33 @@
         phase = PHASE.BATTLE; if (typeof playerMeta !== 'undefined') playerMeta = {};
         resetSimRng((seed >>> 0) || 1);
         const _a = spRandomArmy(1500); spDeployArmy(_a, false); spDeployArmy(_a, true);   // simetrik ama ÇEŞİTLİ ordu (seed'den deterministik) → fark=POLİTİKA + genelleme
-        if (typeof initControlPoints === 'function') initControlPoints();
+        const attackerSide = (seed & 1) === 1;                  // çok-seed değerlendirmede iki rol
+        initBattleRules({ attackerSide, durationSec: TICKS * STEP / 1000 });
         if (typeof commanderReset === 'function') commanderReset();
         const initR = sideVal(true), initB = sideVal(false);
         let now = 0;
         for (let t = 0; t < TICKS; t++) {
             now += STEP;
             stepSim(now, STEP / 1000, function (n) { commanderGenome = genome; commanderDrive(true, n); commanderGenome = genome; commanderDrive(false, n); }, false);
-            if (SIM.vpWinner != null) break;
-            let r = 0, b = 0; for (const u of units) { if (u.dead) continue; if (u.isRed) r++; else b++; } if (r === 0 || b === 0) break;
+            if (SIM.battle && SIM.battle.winnerSide !== null) break;
         }
         NN.enabled = false; NN.side = null;
         const redLost = initR - sideVal(true), blueLost = initB - sideVal(false);
-        let f = (blueLost - redLost);                          // RED(=NN) açısından kuvvet-ekonomisi
-        if (SIM.vpWinner === false) f += 400; else if (SIM.vpWinner === true) f -= 400;   // false=RED kazandı
-        let r = 0, b = 0; for (const u of units) { if (u.dead) continue; if (u.isRed) r++; else b++; }
-        if (b === 0 && r > 0) f += 400; if (r === 0 && b > 0) f -= 400;
-        return f;
+        const winnerSide = SIM.battle?.winnerSide;
+        return spRoleFitness({
+            winner: winnerSide === true ? 'red' : (winnerSide === false ? 'blue' : 'draw'),
+            attackerSide,
+            outcomeReason: SIM.battle?.outcomeReason || null,
+            timeRemaining: SIM.battle?.remainingSec || 0,
+            redValueLost: redLost,
+            blueValueLost: blueLost,
+            redValueRemaining: sideVal(true),
+            blueValueRemaining: sideVal(false),
+            redDealtNoDamage: blueLost <= 0,
+            redActiveRatio: 0,
+            contactTicks: TICKS,
+            maxTicks: TICKS
+        });
     }
 
     // ÇOK-SEED ortalama (gürültü azalt) + ELİTİST (1+λ): kazanımı asla kaybetme → temiz keşif eğrisi
