@@ -51,7 +51,6 @@ function mpEnterDeploy() {
     mpCameraToMyArmy();
     const sb = document.getElementById('ui-spawn-bar'); if (sb) { sb.style.opacity = '1'; sb.style.pointerEvents = 'auto'; }
     const sbtn = document.getElementById('start-btn'); if (sbtn) sbtn.classList.add('hidden');
-    const tbtn = document.getElementById('train-ai-btn'); if (tbtn) tbtn.classList.add('hidden');
     const rbtn = document.getElementById('mp-ready-btn'); if (rbtn) rbtn.classList.remove('hidden');
     netStatus('● ORDUNU DİZ — sen ' + (myCanonicalSide ? 'KIRMIZI (kuzey)' : 'MAVİ (güney)') + ', bitince ✅ HAZIR', 'ok');
 }

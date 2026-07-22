@@ -76,18 +76,19 @@ function seededRandom(seed) {
 // ═══════════════════════════════════════════════════════════════════════════
 const SIM = {
     rng: { state: 0x9e3779b9 },   // FAZ 0'da SIM_RNG idi → Faz 1'de SIM.rng'ye taşındı
-    tick: 0,                      // deterministik sim-saati (öğrenen beyin: intent-yaşı/bellek) — maç-başı sıfırlanır
-    // FAZ 1c: bölge/zafer state'i (ControlPoints.js reassign ediyordu → world canonical, alias-kırılması biter)
-    controlPoints: [],
-    vpScore: { red: 0, blue: 0 },
-    vpWinner: null,               // null | true (MAVİ/oyuncu) | false (KIRMIZI/AI)
-    headless: false,              // FAZ 1f: true = rollout (render-only VFX hesaplanmaz → hız + sim/view ayrımı)
+    tick: 0,                      // deterministik sim-saati (intent-yaşı) — maç-başı sıfırlanır
+    headless: false,              // true = render-only VFX hesaplanmaz
 };
 const SIM_RNG = SIM.rng;        // geri-uyumluluk aliası: mevcut SIM_RNG.state okuma/yazmaları SIM.rng'ye düşer
 
-// FAZ 3: AI arka-uç bayrağı (strangler). 'policy'=yeni TEMİZ KOMUTAN (Commander.js, VARSAYILAN —
-// canlı test: tutarlı, halüsinasyonsuz), 'layered'=eski baroque (fallback/karşılaştırma).
-// Konsoldan geçiş: useCleanAI(true/false). NOT: eğitim (SelfPlay) hâlâ LayeredAI genom kullanır (Faz 4'e kadar).
+// HIZLI MAÇ AYARLARI (Screens.js maç başında yazar, BattleRules/Commander okur)
+// attackerSide: true = KIRMIZI(AI) saldırır → oyuncu savunur; false = MAVİ(oyuncu) saldırır.
+// Saldıran süre dolmadan kırmak zorunda, savunan süreyi tüketirse kazanır.
+let QUICK_MATCH_ATTACKER_SIDE = false;
+let QUICK_MATCH_SKILL = 'normal';   // 'easy' | 'normal' | 'hard' → commanderSetDifficulty
+
+// AI arka-uç bayrağı. 'policy'=TEMİZ KOMUTAN (Commander.js, VARSAYILAN),
+// 'layered'=eski katmanlı AI (fallback/karşılaştırma). Konsoldan geçiş: useCleanAI(true/false).
 let AI_BACKEND = 'policy';
 function useCleanAI(on = true) {
     AI_BACKEND = on ? 'policy' : 'layered';
@@ -195,11 +196,14 @@ function decorateTerrain(features) {
 
 const camera = { x: 0, y: 0 };
 let zoom = 1.0;
-const GAME_SPEED = 4.0;
+// Simülasyonun akış hızı. Hem birim hareketini hem sim-saatini ölçekler, bu yüzden
+// düşürmek dengeyi bozmaz: her şey (hareket, atış hızı, savaş süresi) aynı oranda yavaşlar,
+// oyuncuya emir vermek için daha çok gerçek zaman kalır.
+const GAME_SPEED = 1.0;
 const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 2.0;
 const ZOOM_STEP = 0.08;
-const CAM_SPEED = 8 * GAME_SPEED;
+const CAM_SPEED = 8;   // kamera kaydırma GAME_SPEED'den bağımsız tutulur (ayrı ayarlanabilsin)
 const EDGE_SCROLL_ZONE = 40;
 const keys = {};
 
@@ -302,6 +306,19 @@ function updateCamera() {
 
 function screenToWorldRaw(sx, sy, z) { return { x: sx / z + camera.x, y: sy / z + camera.y }; }
 function screenToWorld(sx, sy) { return { x: sx / zoom + camera.x, y: sy / zoom + camera.y }; }
+
+// Fare olayını canvas'ın ÇİZİM (bitmap) uzayına çevirir.
+// Şart: canvas'ın CSS boyutu bitmap boyutundan farklı olabiliyor — deploy fazında sağ panel
+// için canvas 330px daraltılıyor (style.css). Ham e.clientX kullanılırsa tıklama ile birimin
+// gerçekten konduğu yer arasında, sağa gidildikçe büyüyen bir kayma oluşur. Tüm fare
+// okumaları bu fonksiyondan geçmeli; çizim kodu zaten bitmap uzayında çalışır.
+function canvasPoint(e) {
+    const r = canvas.getBoundingClientRect();
+    return {
+        x: (e.clientX - r.left) * (canvas.width / (r.width || canvas.width)),
+        y: (e.clientY - r.top) * (canvas.height / (r.height || canvas.height))
+    };
+}
 function worldToScreen(wx, wy) {
     let shakeX = 0, shakeY = 0;
     if (screenShake > 0) {
@@ -465,6 +482,10 @@ const enemy = { money: 1500, kills: 0, unitsSpawned: 0 };
 // FAZ-2: kaynak-bazlı deploy bütçesi (null = tek-para modu/Quick Match/MP). { blue: {oil,manpower,points} }
 //  Sadece OYUNCU(mavi) kaynak-kilitli; AI(kırmızı) birleşik enemy.money kullanır. Story bunu kurar.
 let DEPLOY_RES = null;
+// FAZ-3 HAVUZ DEPLOY: { [birimTipi]: kalanAdet } — hikaye modunda ŞEHİRLERDE ÜRETİLEN ordu.
+// Para değil ADET kısıtı: "elimde tam 3 tank var" ifade edilebilsin diye DEPLOY_RES'ten ayrı tutulur.
+// null = havuz modu KAPALI → placeUnit eski davranışını birebir korur (Quick Match / MP / acil seferberlik).
+let DEPLOY_POOL = null;
 let TECH_BONUS = null;       // hikaye tech bonusu — MAVİ (oyuncu devleti) birime (null = Quick Match/MP)
 let TECH_BONUS_RED = null;   // hikaye tech bonusu — KIRMIZI (düşman devlet) birime (null = Quick Match/MP)
 
@@ -624,12 +645,17 @@ let mouseScreenX = 500, mouseScreenY = 500;
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
 let selectedSpawnType = null;
-// ─── LOCAL STORAGE (Öğrenen AI) ───
+// ─── LOCAL STORAGE ───
 const MEMORY_KEY = 'pixelRtsMemory';
-const GENOME_KEY = 'pixelRtsGenome';
-const TRAINING_REPORT_KEY = 'pixelRtsLastTrainingReport';
-const CHAMPION_ARCHIVE_KEY = 'pixelRtsChampionArchive';
-const HALL_OF_FAME_KEY = 'pixelRtsHallOfFame';
+
+// Kaldırılan öğrenen-AI'nın diskte bıraktığı kayıtları tek seferde temizle.
+// (Eski beyinler artık okunmuyor; durmaları yalnız kafa karıştırır.)
+try {
+    for (const k of ['pixelRtsGenome', 'pixelRtsLastTrainingReport', 'pixelRtsChampionArchive',
+                     'pixelRtsHallOfFame', 'pixelRtsReplays', 'nnBrain', 'cmdrGenome', 'cmdrHall']) {
+        localStorage.removeItem(k);
+    }
+} catch (e) {}
 const TACTIC_GENE_LIMITS = Object.freeze({
     vanguardAggression: [0.55, 1.50],
     vanguardPreferredRange: [0.50, 1.10],
@@ -725,42 +751,52 @@ function getRoleTacticGenes(genes, squad) {
 }
 
 let playerMeta = {};
-let aiGenome = null;
 
 try {
     playerMeta = JSON.parse(localStorage.getItem(MEMORY_KEY)) || {};
-    aiGenome = JSON.parse(localStorage.getItem(GENOME_KEY));
 } catch (e) {
     console.warn("LocalStorage access denied, using memory only.");
 }
 
-function isValidGenome(g) {
-    return g && g.deployMatrix && g.deployMatrix.length === 9 && g.counterMatrix && g.counterMatrix.length === 9;
-}
-if (!isValidGenome(aiGenome)) {
-    if (typeof TRAINED_BRAIN !== 'undefined' && isValidGenome(TRAINED_BRAIN)) {
-        // Commit'lenmiş eğitilmiş beyin (git ile gelen kalıcı genom)
-        aiGenome = JSON.parse(JSON.stringify(TRAINED_BRAIN));
-        console.log('🧠 Commit\'li eğitilmiş beyin yüklendi (brain.js).');
-    } else {
-        aiGenome = {
-            counterMatrix: [],
-            deployMatrix: [],
-            tacticGenes: normalizeTacticGenes()
-        };
-        for(let i=0; i<9; i++) {
-            aiGenome.counterMatrix[i] = [1,1,1,1,1,1,1,1,1];
-            aiGenome.deployMatrix[i] = [Math.random(), Math.random()];
+// ─── AI AYAR TABLOSU (elle ayarlanır — eğitim yok) ───
+// counterMatrix[düşmanTipi][benimTipim]: sahada düşmanTipi görünce benimTipim'i
+// ne kadar tercih edeyim. 1 = nötr, >1 = iyi karşılık, <1 = kötü karşılık.
+// STATS'taki strong/weak listelerinden türetilir: strong → 2.2, weak → 0.45.
+const AI_COUNTER_MATRIX = (() => {
+    const m = [];
+    for (let foe = 0; foe < 9; foe++) {
+        m[foe] = [];
+        for (let mine = 0; mine < 9; mine++) {
+            const s = STATS[mine];
+            let w = 1;
+            if (s.strong && s.strong.includes(foe)) w = 2.2;   // benimTipim foe'yu eziyor
+            if (s.weak && s.weak.includes(foe)) w = 0.45;      // benimTipim foe'ya yem
+            m[foe][mine] = w;
         }
     }
-}
+    return m;
+})();
 
-// Eski kayıtları silmeden yeni taktik genlerine yükselt.
-aiGenome.version = 4;
-aiGenome.tacticGenes = normalizeTacticGenes(aiGenome.tacticGenes);
-try {
-    localStorage.setItem(GENOME_KEY, JSON.stringify(aiGenome));
-} catch(e) {}
+// deployMatrix[tip] = [xOranı 0..1 (sol→sağ), yOranı 0..1 (ön→arka)].
+// Ateş desteği arkada, ana hat ortada, hızlı kanatçılar kenarda.
+const AI_DEPLOY_MATRIX = [
+    [0.50, 0.30],   // 0 Piyade        — merkez ana hat
+    [0.18, 0.45],   // 1 Mekanize      — sol kanat, biraz geride
+    [0.50, 0.20],   // 2 Zırhlı Piyade — merkez ön (kalkan)
+    [0.82, 0.55],   // 3 Keşif         — sağ kanat gözcü, geride
+    [0.62, 0.75],   // 4 İstihkam      — arka (siper/ikmal kurar)
+    [0.38, 0.78],   // 5 Sağlıkçı      — arka güvenli
+    [0.30, 0.25],   // 6 Tank          — merkez-sol ön (kırıcı)
+    [0.70, 0.40],   // 7 Tanksavar     — merkez-sağ, hattın az gerisi
+    [0.50, 0.92]    // 8 Topçu         — en arka (menzil avantajı)
+];
+
+const aiGenome = {
+    version: 5,
+    counterMatrix: AI_COUNTER_MATRIX,
+    deployMatrix: AI_DEPLOY_MATRIX,
+    tacticGenes: normalizeTacticGenes()   // DEFAULT_TACTIC_GENES sınırlara kırpılmış hâli
+};
 
 let battlePhase = 1; // 1: Advance (Formasyon Yürüyüşü), 2: Clash (Çatışma), 3: Flank (Kuşatma)
 let aiDoctrine = 1; // 1: Ağır Örs, 2: Zırhlı Çekiç
@@ -797,33 +833,6 @@ function enemyDetectsConcealed(u, viewerIsRed) {
         if (Math.hypot(o.x - u.x, o.y - u.y) <= r) return true;
     }
     return false;
-}
-
-// ── ÖĞRENEN BEYİN BELLEĞİ (konsey fix): görüş-belleği (ghost) + frame-stack trend ──
-// Her birim: rakibinin onu EN SON gördüğü yer (ghX/ghY/ghT/ghVisible) + Δcan/Δbaskı/Δmesafe.
-// stepSim'de ~12 tick'te bir çağrılır. Deterministik (canSee + sabit) → MP/headless parite.
-function _nearestEnemyDistBM(u) {
-    const cand = (SIM.spatialGrid && SIM.spatialGrid.getNearby) ? SIM.spatialGrid.getNearby(u.x, u.y, 1300) : SIM.units;
-    let bd = Infinity;
-    for (const o of cand) { if (o.dead || o.isRed === u.isRed) continue; const dx = o.x - u.x, dy = o.y - u.y, d2 = dx * dx + dy * dy; if (d2 < bd) bd = d2; }
-    return bd === Infinity ? 9999 : Math.sqrt(bd);
-}
-function updateBrainMemory() {
-    if (typeof SIM === 'undefined' || !SIM.units) return;
-    const tk = SIM.tick || 0;
-    for (const u of SIM.units) {
-        if (u.dead) continue;
-        // GÖRÜŞ-BELLEĞİ: rakip tarafı u'yu şu an görüyor mu? (ghost = son-görülen anlık-görüntü)
-        const seen = (typeof canSee === 'function') ? canSee(!u.isRed, u.x, u.y) : true;
-        if (seen) { u.ghVisible = true; u.ghX = u.x; u.ghY = u.y; u.ghHp = u.hp; u.ghT = tk; }
-        else { if (u.ghX == null) { u.ghX = u.x; u.ghY = u.y; u.ghHp = u.hp; u.ghT = tk; } u.ghVisible = false; }
-        // FRAME-STACK trend
-        const td = (u.targetX != null) ? Math.hypot(u.targetX - u.x, u.targetY - u.y) : 0;
-        u._fsDTargD = td - (u._fsTargD != null ? u._fsTargD : td); u._fsTargD = td;
-        u._fsDHp = u.hp - (u._fsHp != null ? u._fsHp : u.hp); u._fsHp = u.hp;
-        const sp = u.suppression || 0; u._fsDSupp = sp - (u._fsSupp != null ? u._fsSupp : sp); u._fsSupp = sp;
-        const nd = _nearestEnemyDistBM(u); u._fsDNearD = nd - (u._fsNearD != null ? u._fsNearD : nd); u._fsNearD = nd;
-    }
 }
 
 function isInPlayerZone(worldX, worldY) {

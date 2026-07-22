@@ -1,65 +1,59 @@
-// ── KUVVET EKONOMİSİ ÖDÜL MODELİ ──
-// Temel: "en az kayıpla en fazla hasar". Net değer (düşman_kaybı − k×kendi_kaybım) BASKIN terim.
-// Kazanmak amaç değil, verimli takasların sonucu → intihar-galibiyet, verimli-yenilgiden daha kötü puan alır.
-// Sabır artık cezalı değil (kuşatma/yoğunlaşma beklemek meşru); sadece TAM atalet hafif cezalı.
-const TACTICAL_REWARD_WEIGHTS = Object.freeze({
-    netValuePerPoint: 4.0,    // (enemyValueDestroyed − lossAversion×aiValueLost) × bu = baskın terim
-    lossAversion: 1.6,        // k: kendi birimim daha kıymetli (Foresight ile aynı felsefe)
-    damageDealt: 0.35,        // ikincil sinyal (değer zaten baskın)
-    damageTaken: -0.45,
-    rearHitDamage: 0.5,
-    victory: 700,
-    defeat: -700,
-    draw: -120,               // verimli beraberlik, verimsiz galibiyete yakın olabilmeli
-    deadlock: -300,
-    adjudicated: -180,
-    physicalFinish: 240,
-    cleanupFinish: 110,
-    scoutValuableSpot: 100,
-    scoutDeath: -150,
-    antiArtilleryDamage: 1.2,
-    supportKill: 220,
-    fieldKill: 160,
-    lastHuntSecond: -4,
-    fastVictoryPerSecond: 2,
-    idlePerSecond: -0.35,     // sabır artık ~serbest (eski -2 sabrı cezalandırıp charge'a zorluyordu)
-    longIdlePerSecond: -1.1   // sadece aşırı atalet (>120 sn) hafif cezalı
+// ── AI SAĞLIK ÖLÇÜMÜ ──
+// Amaç: "AI iyi mi kötü mü" sorusuna maç sonunda okunabilir cevap vermek.
+// Tek soyut puan yerine üç bağımsız gösterge — hangisinin bozuk olduğu doğrudan görünür.
+//
+//  takas   : öldürdüğü değer / kaybettiği değer. 1.0 = başabaş. Kuvvet ekonomisinin özeti;
+//            AI kazansa bile takas 0.6 ise pahalı kazanmıştır ve ayar gerekir.
+//  temas   : sürenin yüzde kaçında çatışma vardı. Düşükse AI ya kaçıyor ya bulamıyor —
+//            "AI hiçbir şey yapmıyor" şikayetinin sayısal karşılığı budur.
+//  kararlılık: makro plan değişim sıklığı. Çok yüksekse AI kararsız (flip-flop),
+//            sıfırsa hiç uyum sağlamamış. İkisi de kötü; ortası sağlıklı.
+const AI_HEALTH_TARGETS = Object.freeze({
+    exchangeGood: 1.25,      // bu ve üstü: kuvvet ekonomisi sağlıklı
+    exchangePoor: 0.75,      // bu ve altı: AI değer kaybediyor
+    contactGood: 0.55,       // sürenin %55'inde temas = aktif savaş
+    contactPoor: 0.25,       // bunun altı: AI sahada kayıp
+    planChangesPerMinGood: 8 // dakikada 8'den fazla plan değişimi = kararsızlık
 });
 
-function calculateTacticalReward(metrics) {
-    const w = TACTICAL_REWARD_WEIGHTS;
-    const aiAttacker = metrics.aiRole === BATTLE_ROLE.ATTACKER;
-    const fastVictoryBonus = metrics.aiWon && aiAttacker
-        ? Math.max(0, metrics.timeRemaining || 0) * w.fastVictoryPerSecond
+function summarizeAiHealth(metrics) {
+    const minutes = Math.max(1 / 60, metrics.durationSeconds / 60);
+    // Kayıpsız maçlarda bölen sıfıra yaklaşıp oran anlamsız büyüyor; 99 tavanı
+    // "pratikte kayıpsız" demektir ve raporu okunabilir tutar.
+    const exchange = Math.min(99, metrics.enemyValueDestroyed / Math.max(1, metrics.aiValueLost));
+    const contact = metrics.durationSeconds > 0
+        ? Math.max(0, 1 - metrics.idleSeconds / metrics.durationSeconds)
         : 0;
-    const defenderSurvivalBonus = metrics.aiWon && !aiAttacker
-        ? Math.min(240, metrics.durationSeconds * 0.8)
-        : 0;
-    const longIdlePenalty = aiAttacker ? Math.max(0, metrics.idleSeconds - 120) * w.longIdlePerSecond : 0;
-    // ÇEKİRDEK: kayıp-kaçınmalı net değer (Foresight metriğiyle birebir aynı).
-    const netValue = (metrics.enemyValueDestroyed ?? 0) - w.lossAversion * (metrics.aiValueLost ?? 0);
+    const planChangesPerMin = metrics.planSwitches / minutes;
 
-    return (
-        netValue * w.netValuePerPoint +
-        metrics.damageDealt * w.damageDealt +
-        metrics.damageTaken * w.damageTaken +
-        metrics.rearHitDamage * w.rearHitDamage +
-        (metrics.aiWon ? w.victory : metrics.aiLost ? w.defeat : w.draw) +
-        (metrics.deadlock ? w.deadlock : 0) +
-        (metrics.adjudicated ? w.adjudicated : 0) +
-        (metrics.physicalFinish && metrics.aiWon ? w.physicalFinish : 0) +
-        (metrics.cleanupActivated && metrics.physicalFinish && metrics.aiWon ? w.cleanupFinish : 0) +
-        (metrics.scoutValuableSpots ?? 0) * w.scoutValuableSpot +
-        (metrics.scoutDeaths ?? 0) * w.scoutDeath +
-        (metrics.antiArtilleryDamage ?? 0) * w.antiArtilleryDamage +
-        (metrics.supportKills ?? 0) * w.supportKill +
-        (metrics.fieldKills ?? 0) * w.fieldKill +
-        (metrics.lastHuntSeconds ?? 0) * w.lastHuntSecond +
-        fastVictoryBonus +
-        defenderSurvivalBonus +
-        (aiAttacker ? metrics.idleSeconds * w.idlePerSecond : 0) +
-        longIdlePenalty
-    );
+    const notes = [];
+    if (exchange >= AI_HEALTH_TARGETS.exchangeGood) notes.push('kuvvet ekonomisi kârda');
+    else if (exchange <= AI_HEALTH_TARGETS.exchangePoor) notes.push('AI değer kaybediyor — commit eşiği yüksek olabilir');
+    if (contact <= AI_HEALTH_TARGETS.contactPoor) notes.push('temas çok düşük — AI düşmanı bulamıyor veya kaçıyor');
+    else if (contact >= AI_HEALTH_TARGETS.contactGood) notes.push('sürekli temas');
+    if (planChangesPerMin > AI_HEALTH_TARGETS.planChangesPerMinGood) notes.push('plan çok sık değişiyor — histerezi zayıf');
+    // Kazanan AI'nın plan değiştirmemesi kusur değil: ilk plan tuttuğu için değiştirmemiştir.
+    // Uyarı yalnız uzun ve kazanılamamış maçlarda anlamlı.
+    else if (metrics.planSwitches === 0 && metrics.durationSeconds > 90 && !metrics.aiWon) {
+        notes.push('plan hiç değişmedi — AI duruma uyum sağlamıyor');
+    }
+
+    // Harf notu: takas baskın, temas ikincil. Kazanmak tek başına yeterli değil —
+    // pahalı zafer de düşük not alır (kuvvet ekonomisi felsefesi).
+    let score = 0;
+    score += exchange >= 1.5 ? 2 : exchange >= AI_HEALTH_TARGETS.exchangeGood ? 1.5
+           : exchange >= 0.95 ? 1 : exchange >= AI_HEALTH_TARGETS.exchangePoor ? 0.5 : 0;
+    score += contact >= AI_HEALTH_TARGETS.contactGood ? 1 : contact >= AI_HEALTH_TARGETS.contactPoor ? 0.5 : 0;
+    if (metrics.aiWon) score += 0.5;
+    const grade = score >= 3 ? 'A' : score >= 2.25 ? 'B' : score >= 1.5 ? 'C' : score >= 0.75 ? 'D' : 'F';
+
+    return {
+        exchangeRatio: Math.round(exchange * 100) / 100,
+        contactRatio: Math.round(contact * 100) / 100,
+        planChangesPerMin: Math.round(planChangesPerMin * 10) / 10,
+        grade,
+        notes: notes.length ? notes : ['belirgin sorun görünmüyor']
+    };
 }
 
 class BattleTelemetry {
@@ -95,6 +89,13 @@ class BattleTelemetry {
         this.doctrineSwitches = 0;
         this.currentDoctrine = null;
         this.lastDoctrineAt = 0;
+        // Komutanın makro planı (ATTACK/HOLD/RUSH/REGROUP/ADVANCE) ve kuvvet dağılımı
+        this.planDurations = {};
+        this.planSwitches = 0;
+        this.currentPlan = null;
+        this.lastPlanAt = 0;
+        this.roleSamples = 0;
+        this.roleTotals = [0, 0, 0, 0];   // MAIN / PIN / FLANK / RESERVE
         this.summary = null;
     }
 
@@ -104,6 +105,27 @@ class BattleTelemetry {
         this.startTime = now;
         this.lastDamageTime = now;
         this.lastDoctrineAt = now;
+        this.lastPlanAt = now;
+    }
+
+    // Komutanın makro planı + rol dağılımı (Commander.js her karar döngüsünde çağırır).
+    recordCommanderPlan(mode, roleCounts, now) {
+        if (!this.started || this.finished || !mode) return;
+        if (roleCounts) {
+            for (let i = 0; i < 4; i++) this.roleTotals[i] += roleCounts[i] || 0;
+            this.roleSamples++;
+        }
+        if (this.currentPlan === null) {
+            this.currentPlan = mode;
+            this.lastPlanAt = now;
+            return;
+        }
+        if (mode === this.currentPlan) return;
+        this.planDurations[this.currentPlan] =
+            (this.planDurations[this.currentPlan] || 0) + Math.max(0, (now - this.lastPlanAt) / 1000);
+        this.currentPlan = mode;
+        this.lastPlanAt = now;
+        this.planSwitches++;
     }
 
     recordDamage(attacker, target, amount, isRearHit, now) {
@@ -191,6 +213,11 @@ class BattleTelemetry {
                 (this.doctrineDurations[this.currentDoctrine] || 0) + elapsed;
             this.currentDoctrine = null;
         }
+        if (this.currentPlan) {
+            this.planDurations[this.currentPlan] =
+                (this.planDurations[this.currentPlan] || 0) + Math.max(0, (now - this.lastPlanAt) / 1000);
+            this.currentPlan = null;
+        }
         const durationSeconds = Math.max(0, (now - this.startTime) / 1000);
         const dominantDoctrine = Object.entries(this.doctrineDurations)
             .sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
@@ -216,6 +243,13 @@ class BattleTelemetry {
             doctrineDurations: { ...this.doctrineDurations },
             doctrineSwitches: this.doctrineSwitches,
             dominantDoctrine,
+            planDurations: { ...this.planDurations },
+            planSwitches: this.planSwitches,
+            dominantPlan: Object.entries(this.planDurations).sort((a, b) => b[1] - a[1])[0]?.[0] || '-',
+            avgRoleSplit: this.roleSamples
+                ? this.roleTotals.map(t => Math.round(t / this.roleSamples * 10) / 10)
+                : [0, 0, 0, 0],
+            difficulty: (typeof COMMANDER !== 'undefined' && COMMANDER.difficulty) || 'normal',
             cleanupActivated: (this.doctrineDurations.cleanup || 0) > 0 || (this.doctrineDurations.last_hunt || 0) > 0,
             physicalFinish: [BATTLE_OUTCOME.DEFENDER_ELIMINATED, BATTLE_OUTCOME.ATTACKER_ELIMINATED, BATTLE_OUTCOME.MUTUAL_COLLAPSE].includes(SIM.battle?.outcomeReason),
             lastHuntSeconds: this.doctrineDurations.last_hunt || 0,
@@ -228,7 +262,7 @@ class BattleTelemetry {
             redWill: SIM.battle?.red?.will ?? 0,
             blueWill: SIM.battle?.blue?.will ?? 0
         };
-        metrics.reward = calculateTacticalReward(metrics);
+        metrics.health = summarizeAiHealth(metrics);
         this.summary = metrics;
 
         try {

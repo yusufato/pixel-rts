@@ -104,8 +104,22 @@
                 <input type="range" id="qm-pl" min="600" max="3000" step="100" value="1500"></div>
             <div id="qm-difficulty" class="qm-diff">Denge: Eşit ⚖️</div>
             <div class="qm-hint">Puan = ordu bütçesi. Asimetrik puan = zorluk ayarı.</div>
-            <div class="qm-row" style="margin-top:14px;"><label>🗺️ Harita:
-                <select id="qm-map" style="margin-left:8px;padding:5px 10px;border-radius:6px;background:rgba(6,10,16,0.9);color:#dfe7ef;border:1px solid rgba(90,130,170,0.4);font-size:14px;"></select></label></div>
+            <div class="qm-row" style="margin-top:20px;"><label>⚔️ Savaş Rolün:</label>
+                <div id="qm-role" class="qm-choice">
+                    <button data-role="attacker" class="selected"><b>SALDIRAN</b><small>süre dolmadan kır</small></button>
+                    <button data-role="defender"><b>SAVUNAN</b><small>hattı tut, süreyi tüket</small></button>
+                    <button data-role="random"><b>RASTGELE</b><small>maç başında belirlenir</small></button>
+                </div>
+            </div>
+            <div class="qm-row"><label>🎯 AI Zorluğu:</label>
+                <div id="qm-skill" class="qm-choice">
+                    <button data-skill="easy"><b>ACEMİ</b><small>yavaş tepki</small></button>
+                    <button data-skill="normal" class="selected"><b>USTA</b><small>dengeli</small></button>
+                    <button data-skill="hard"><b>GAZİ</b><small>hızlı ve agresif</small></button>
+                </div>
+            </div>
+            <div class="qm-row"><label>🗺️ Harita:
+                <select id="qm-map" class="qm-select"></select></label></div>
         </div>
         <div class="menu-side">
             <button id="btn-qm-start" class="menu-btn primary">⚔️ Savaşa Başla</button>
@@ -176,7 +190,7 @@
                 <button id="story-council-btn" class="tool-btn" title="Konsey"><b>01</b><span>KONSEY</span></button>
                 <button id="story-army-btn" class="tool-btn" title="Ordum ve gaziler"><b>02</b><span>ORDU</span></button>
                 <button id="story-tech-btn" class="tool-btn" title="Teknoloji Ağacı"><b>03</b><span>AR-GE</span></button>
-                <button id="story-city-btn" class="tool-btn" title="Şehirler"><b>04</b><span>ŞEHİR</span></button>
+                <button id="story-city-btn" class="tool-btn" title="Seçili şehri yönet: bina, üretim, garnizon, ordu"><b>04</b><span>ŞEHRE GİR</span></button>
                 <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>05</b><span>KOMUTAN</span></button>
             </div>
             <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
@@ -213,7 +227,7 @@
             <!-- ŞEHİRLER — SOLDAN kayar drawer (Adım 6: seviye + garnizon) -->
             <aside id="city-panel" aria-hidden="true">
                 <div id="city-header">
-                    <span class="council-title">ŞEHİRLER</span>
+                    <span class="council-title" id="city-title">ŞEHİR</span>
                     <button id="city-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="city-body"></div>
@@ -291,14 +305,11 @@
     <div id="game-war-overlay" aria-hidden="true"></div>
 
     <!-- Kamera İpucu -->
-    <div id="ui-camera-hint">WASD veya fare kenarları ile haritayı kaydır</div>
+    <div id="ui-camera-hint">WASD veya fare kenarları ile haritayı kaydır · Yerleşmiş birliğe tıkla → yeni yere tıkla ile taşı</div>
 
     <!-- BAŞLAT Butonu -->
     <button id="start-btn">⚔️ SAVAŞI BAŞLAT!</button>
     <button id="mp-ready-btn" class="hidden" onclick="mpReadyDeploy()">✅ HAZIR — Ordunu Gönder</button>
-
-    <!-- AI Eğit Butonu -->
-    <button id="train-ai-btn">🧠 AI Eğit (500 Maç)</button>
 
     <!-- Birim Üretim Paneli (Alt) -->
     <div id="ui-spawn-bar">
@@ -365,18 +376,6 @@
     <!-- Minimap -->
     <canvas id="minimap"></canvas>
 
-    <!-- AI Training Overlay -->
-    <div id="ai-training-screen" class="hidden">
-        <div class="game-over-box">
-            <h1 id="ai-training-title" style="color: #4cff7c; text-shadow: 0 0 20px rgba(76,255,124,0.5);">EVRİM SİMÜLASYONU</h1>
-            <p style="color: #ccc; font-size: 10px; line-height: 1.5; margin-bottom: 20px;">Kendi kendine oynayarak kusursuz<br>Karşı-Birim (Counter) matrisini hesaplıyor...</p>
-            <div style="width: 100%; height: 20px; background: #222; border: 2px solid #555; border-radius: 10px; overflow: hidden;">
-                <div id="train-progress-bar" style="width: 0%; height: 100%; background: #4cff7c; transition: width 0.1s linear;"></div>
-            </div>
-            <div id="train-progress-text" style="color: #fff; font-size: 12px; margin-top: 15px;">%0 (0 / 500)</div>
-        </div>
-    </div>
-
     <!-- Game Over Ekranı -->
     <div id="game-over-screen" class="hidden">
         <div class="game-over-box">
@@ -407,15 +406,10 @@
 
     <canvas id="gameCanvas"></canvas>
     <img id="spriteSheet" src="icons.png" style="display:none;">
-    <script src="js/brain.js"></script>
     <script src="js/globals.js"></script>
     <script src="js/BattleRules.js"></script>
     <script src="js/MapData.js"></script>
     <script src="js/MapImage.js"></script>
-    <script src="js/BrainState.js"></script>
-    <script src="js/NeuralBrain.js"></script>
-    <script src="js/HybridBrain.js"></script>
-    <script src="js/NNController.js"></script>
     <script src="js/TacticalAI.js"></script>
     <script src="js/Telemetry.js"></script>
     <script src="js/VFX.js"></script>
@@ -426,14 +420,13 @@
     <script src="js/LayeredAI.js"></script>
     <script src="js/Commander.js"></script>
     <script src="js/main.js"></script>
-    <script src="js/Replay.js"></script>
-    <script src="js/SelfPlay.js"></script>
     <script src="js/Net.js"></script>
     <script src="js/MP.js"></script>
     <script src="js/Screens.js"></script>
     <script src="js/terrainData.js"></script>
     <script src="js/techTree.js"></script>
     <script src="js/Story.js"></script>
+    <script src="js/Production.js"></script>
     <script src="js/WarRoomUI.js"></script>
 </body>
 

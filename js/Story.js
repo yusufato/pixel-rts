@@ -197,7 +197,8 @@ function storyBuildCities() {
     if (!C.length) return storyBuildEurope();     // güvenlik: şehir verisi yoksa eski ülke sistemi
     const nodes = C.map((p, id) => ({
         id, name: storyCityName(id), lx: p[0], ly: p[1], owner: 0, mapId: id % MAPS_LEN(),
-        neighbors: [], cities: 1, oil: 0, pts: 0, level: 1, garrison: 0   // FAZ-2 Adım 6: seviye(1-3)+garnizon
+        neighbors: [], cities: 1, oil: 0, pts: 0, level: 1, garrison: 0,  // FAZ-2 Adım 6: seviye(1-3)+garnizon
+        fac: 0, bar: 0, pool: {}, q: []   // FAZ-3: fabrika/kışla seviyesi + ordu havuzu + üretim kuyruğu
     }));
     const K = 3;   // KOMŞULUK: K en-yakın şehir (simetrik)
     for (const a of nodes) {
@@ -337,7 +338,8 @@ function storySave() {
         const data = {
             v: 2, states: STORY.states, nodes: STORY.nodes, playerStateId: STORY.playerStateId,
             commander: STORY.commander, veterans: STORY.veterans, tech: STORY.tech, cfg: STORY.cfg, pendingReward: STORY.pendingReward,
-            clock: STORY.clock, log: STORY.log
+            clock: STORY.clock, log: STORY.log,
+            caps: STORY._capitals   // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
         };
         localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(data));
         STORY._lastSaveOk = true;
@@ -353,6 +355,8 @@ function storyLoad() {
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
         storyAssignDeposits();                    // şehir/kaynak işaretlerini ülkelere ata (ekonomi)
         STORY.playerStateId = d.playerStateId | 0;
+        // Başkentler: eski kayıtlarda yok → yeniden üret (yoksa capitalSeek ve komutan konumlanması bozulur)
+        STORY._capitals = (Array.isArray(d.caps) && d.caps.length) ? d.caps : storyPickCapitals(STORY.nodes, STORY.states.length);
         STORY.commander = d.commander || { node: 0 };
         storyCommanderBackfill(STORY.commander);
         // FAZ-2: hükümet backfill (eksik kayıt güvenliği) + komutan-id sayacını ilerlet
@@ -366,7 +370,7 @@ function storyLoad() {
         _storyCmdNextId = _mx + 1;
         STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
         for (const st of STORY.states) { if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0; storyStateComputeTech(st); }   // FAZ-2 Adım 4: devlet tech backfill + bonus
-        for (const n of STORY.nodes) { n._siege = null; if (n.level == null) n.level = 1; if (n.garrison == null) n.garrison = 0; }   // FAZ-2 Adım 5+/6: kuşatma temizle + seviye/garnizon backfill
+        for (const n of STORY.nodes) storyNodeBackfill(n);   // kuşatma temizliği + seviye/garnizon/bina/havuz/kuyruk backfill (Production.js)
         STORY.veterans = d.veterans || [];
         STORY.pendingReward = d.pendingReward || null;
         STORY.tech = d.tech || [];
@@ -416,6 +420,7 @@ function storyAreAdjacent(aId, bId) {
 function storySelectNode(id) {
     if (!storyNode(id)) return;
     STORY.selectedNodeId = id;
+    if (STORY._cityOpen && typeof storyCityUpdate === 'function') storyCityUpdate();   // ŞEHRE GİR açıksa panel yeni şehre döner
     storyRender();
 }
 function storyNodeClicked(id) {
@@ -549,17 +554,18 @@ function storyEnterBattle(node) {
 function storyResetBattlefield() {
     units.length = 0;
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
-    SIM.controlPoints = []; SIM.vpScore = { red: 0, blue: 0 }; SIM.vpWinner = null;
     if (typeof resetBattleRules === 'function') resetBattleRules();
+    // Hızlı Maç'ta seçilen AI zorluğu kampanyaya sızmasın: sefer daima dengeli komutanla oynanır.
+    if (typeof commanderSetDifficulty === 'function') commanderSetDifficulty('normal');
     player.kills = 0; player.unitsSpawned = 0;
     enemy.kills = 0; enemy.unitsSpawned = 0;
     phase = PHASE.DEPLOY;
     document.body.setAttribute('data-phase', PHASE.DEPLOY);
     if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
+    if (typeof deployCarried !== 'undefined') deployCarried = null;   // elde taşınan birlik ölü referans kalmasın
     // UI'yı yerleştirme durumuna geri al
     document.getElementById('game-over-screen')?.classList.add('hidden');
     document.getElementById('start-btn')?.classList.remove('hidden');
-    document.getElementById('train-ai-btn')?.classList.add('hidden');   // kampanyada eğitim yok
     document.getElementById('mp-ready-btn')?.classList.add('hidden');
     const sbar = document.getElementById('ui-spawn-bar');
     if (sbar) { sbar.style.opacity = '1'; sbar.style.pointerEvents = 'auto'; }
@@ -827,6 +833,9 @@ function storyAdvance(dtSec) {
             else st.techPoints = Math.min(4000, (st.techPoints || 0) + (o.points || 0) * 0.6);   // AI Ar-Ge bütçesi (puan gelirinin %60'ı; tüm tech bitince sınırsız birikmesin → tavan)
         }
     }
+    // FAZ-3: ŞEHİR ÜRETİMİ — kuyruktaki birlikler ilerler, bitenler havuza düşer (oyuncu + AI aynı motor)
+    STORY._accProd = (STORY._accProd || 0) + dtSec;
+    if (STORY._accProd >= 1.0) { const s = STORY._accProd; STORY._accProd = 0; if (typeof prodTick === 'function') prodTick(s); }
     // FAZ-2 Adım 5: KOMUTAN AI — rastgele drift/invade KALDIRILDI; komutanlar kendi konum/güç/kişilikleriyle davranır
     STORY._accCmdAI = (STORY._accCmdAI || 0) + dtSec;
     if (STORY._accCmdAI >= 1.0) { STORY._accCmdAI = 0; storyAICommanderTick(); }      // hareket/fetih/oyuncuya saldırı
@@ -1810,42 +1819,7 @@ function storyArmyClose() {
     document.getElementById('story-army-btn')?.classList.remove('active');
 }
 function storyArmyToggle() { STORY._armyOpen ? storyArmyClose() : storyArmyOpen(); }
-// 🏗️ ŞEHİRLER paneli (Adım 6: seviye + garnizon)
-function storyCityOpen() {
-    storyCouncilClose(); storyTechClose(); storyArmyClose();
-    STORY._cityOpen = true;
-    const p = document.getElementById('city-panel');
-    if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
-    document.getElementById('story-city-btn')?.classList.add('active');
-    storyCityUpdate();
-}
-function storyCityClose() {
-    STORY._cityOpen = false;
-    const p = document.getElementById('city-panel');
-    if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
-    document.getElementById('story-city-btn')?.classList.remove('active');
-}
-function storyCityToggle() { STORY._cityOpen ? storyCityClose() : storyCityOpen(); }
-function storyCityUpdate() {
-    if (!STORY._cityOpen) return;
-    const body = document.getElementById('city-body'); if (!body) return;
-    const cities = STORY.nodes.filter(n => n.owner === STORY.playerStateId).slice().sort((a, b) => ((b.level || 1) - (a.level || 1)) || ((b.garrison || 0) - (a.garrison || 0)));
-    const pts = (STORY.commander && STORY.commander.res) ? Math.floor(STORY.commander.res.points) : 0;
-    const mp = (STORY.commander && STORY.commander.res) ? Math.floor(STORY.commander.res.manpower) : 0;
-    let html = `<div class="city-top">🏰 Şehir <b>${cities.length}</b> · kasan ⭐<b>${pts}</b> 👥<b>${mp}</b><div class="city-hint">Yükselt: gelir +%40/sv + garnizon kapasitesi. Garnizon: savunma düellosunda BİRLİK olarak savaşır + kuşatma savunmasını güçlendirir.</div></div>`;
-    for (const n of cities) {
-        const lvl = n.level || 1, gar = n.garrison || 0, cap = storyCityGarrisonCap(n), upCost = lvl < 3 ? CITY_UPGRADE_COST[lvl] : null;
-        const here = (STORY.commander && STORY.commander.node === n.id) ? ' 📍' : '';
-        html += `<div class="city-row"><div class="city-name">${n.name}${here} <span class="city-lvl">Sv.${lvl}</span></div>`
-            + `<div class="city-stat">🛡️ Garnizon ${gar}/${cap} · gelir ⛽${n.oil || 0} 👥${n.cities || 0} ⭐${n.pts || 0}</div>`
-            + `<div class="city-acts">`
-            + (upCost != null ? `<button class="city-btn cb-up" data-node="${n.id}" ${pts < upCost ? 'disabled' : ''}>🏗️ Sv.${lvl + 1} (${upCost}⭐)</button>` : `<span class="city-max">Maks Sv.3</span>`)
-            + `<button class="city-btn cb-gar" data-node="${n.id}" ${(gar >= cap || mp < CITY_GARRISON_COST) ? 'disabled' : ''}>🛡️ +Garnizon (${CITY_GARRISON_COST}👥)</button>`
-            + `</div></div>`;
-    }
-    if (!cities.length) html += `<div class="city-hint">Hiç şehrin yok.</div>`;
-    body.innerHTML = html;
-}
+// 🏗️ ŞEHRE GİR paneli → js/Production.js (storyCityOpen/Close/Toggle/Update + üretim UI'ı)
 function storyArmyUpdate() {
     if (!STORY._armyOpen) return;
     const c = STORY.commander; const body = document.getElementById('army-body');
@@ -2100,9 +2074,19 @@ function storyInit() {
     document.getElementById('army-close')?.addEventListener('click', storyArmyClose);
     document.getElementById('story-city-btn')?.addEventListener('click', storyCityToggle);
     document.getElementById('city-close')?.addEventListener('click', storyCityClose);
-    document.getElementById('city-body')?.addEventListener('click', (e) => {   // ADIM 6: yükselt / garnizon
-        const up = e.target.closest('.cb-up'); if (up && !up.disabled) { storyCityUpgrade(+up.dataset.node); return; }
-        const gr = e.target.closest('.cb-gar'); if (gr && !gr.disabled) storyCityGarrison(+gr.dataset.node);
+    document.getElementById('city-body')?.addEventListener('click', (e) => {   // ŞEHRE GİR: navigasyon + şehir/bina/üretim/garnizon
+        const b = e.target.closest('button'); if (!b || b.disabled) return;
+        if (b.classList.contains('city-chip')) {   // şeritten şehir seç → odağı değiştir + kamerayı götür
+            STORY.selectedNodeId = +b.dataset.node;
+            storyCityUpdate();
+            const nd = storyNode(+b.dataset.node); if (nd) storyCamCenterOn(nd);
+            return;
+        }
+        if (b.classList.contains('cb-up')) return storyCityUpgrade(+b.dataset.node);
+        if (b.classList.contains('cb-gar')) return storyCityGarrison(+b.dataset.node);
+        if (b.classList.contains('cb-build')) return prodBuild(+b.dataset.node, b.dataset.kind);
+        if (b.classList.contains('cb-make')) return prodEnqueue(+b.dataset.node, +b.dataset.type);
+        if (b.classList.contains('cb-cancel')) return prodCancel(+b.dataset.node, +b.dataset.idx);
     });
     document.getElementById('council-create-btn')?.addEventListener('click', storyCouncilCreate);
     document.getElementById('council-dismiss-btn')?.addEventListener('click', () => { STORY._dismissMode = !STORY._dismissMode; storyCouncilUpdate(); });
@@ -2141,7 +2125,13 @@ function storyInit() {
         });
         window.addEventListener('mouseup', (e) => {
             if (dragging && !moved) {
-                if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen || STORY._cityOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose(); }   // panel açıkken haritaya tık = kapat
+                // ŞEHRE GİR paneli açıkken harita tıklaması paneli KAPATMAZ, odağı o şehre taşır
+                // (şehir seçmek panelin doğal kullanımı — kapatmak akışı bozardı).
+                if (STORY._cityOpen) {
+                    const w = worldFromEvent(e), hit = pickNode(w.x, w.y);
+                    if (hit >= 0) storySelectNode(hit); else storyCityClose();
+                }
+                else if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); }   // diğer paneller: haritaya tık = kapat
                 else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); }
             }
             dragging = false; cv.style.cursor = 'grab';

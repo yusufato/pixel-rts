@@ -18,9 +18,6 @@ function resetBattleState() {
     if (typeof decals !== 'undefined') decals.length = 0;
     if (typeof supportCooldowns !== 'undefined') supportCooldowns.paradrop = 0;
     if (typeof SIM !== 'undefined') {
-        SIM.controlPoints = [];
-        SIM.vpScore = { red: 0, blue: 0 };
-        SIM.vpWinner = null;
         SIM.tick = 0;
     }
     if (typeof resetBattleRules === 'function') resetBattleRules();
@@ -30,6 +27,7 @@ function resetBattleState() {
     if (typeof simulationTime !== 'undefined') simulationTime = 0;
     if (typeof phase !== 'undefined' && typeof PHASE !== 'undefined') phase = PHASE.DEPLOY;
     if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
+    if (typeof deployCarried !== 'undefined') deployCarried = null;   // elde taşınan birlik ölü referans kalmasın
     if (typeof battleTelemetry !== 'undefined' && battleTelemetry.reset) battleTelemetry.reset();
     if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
     if (typeof commanderReset === 'function') commanderReset();
@@ -66,12 +64,35 @@ function quickMatchUpdate() {
     else if (r <= 0.77) d = 'Çok Zor 🔥'; else if (r <= 0.92) d = 'Sana Dezavantaj 😬';
     const el = document.getElementById('qm-difficulty');
     if (el) el.textContent = 'Denge: ' + d;
+    // Rol seçimi görevi değiştirir: saldıran süreyle yarışır, savunan hattı tutar.
+    const roleHint = { attacker: 'Saldıran sensin: 4 dakika içinde düşmanı kır, yoksa savunan kazanır.',
+                       defender: 'Savunan sensin: hattı tut, süre dolarsa kazanırsın.',
+                       random:   'Rol maç başında rastgele belirlenir.' };
+    const hint = document.querySelector('#screen-quickmatch .qm-hint');
+    if (hint) hint.textContent = roleHint[qmSelected('qm-role', 'attacker')] || roleHint.attacker;
+}
+
+// Buton grubu seçimi (rol / zorluk) — seçili değeri döndürür
+function qmSelected(groupId, fallback) {
+    const el = document.querySelector(`#${groupId} button.selected`);
+    return el ? (el.dataset.role || el.dataset.skill) : fallback;
 }
 
 function quickMatchStart() {
     const ai = +(document.getElementById('qm-ai')?.value || 1500);
     const pl = +(document.getElementById('qm-pl')?.value || 1500);
     resetBattleState();
+
+    // SAVAŞ ROLÜ: attackerSide true = KIRMIZI(AI) saldırır (oyuncu savunur).
+    // Oyuncu "saldıran" seçerse AI savunmaya geçer; rastgele ise maç başında atılır.
+    let role = qmSelected('qm-role', 'attacker');
+    if (role === 'random') role = (Math.random() < 0.5) ? 'attacker' : 'defender';
+    QUICK_MATCH_ATTACKER_SIDE = (role === 'defender');   // oyuncu savunuyorsa saldıran AI'dır
+
+    // AI ZORLUĞU: komutan parametrelerini keskinleştirir/yumuşatır
+    QUICK_MATCH_SKILL = qmSelected('qm-skill', 'normal');
+    if (typeof commanderSetDifficulty === 'function') commanderSetDifficulty(QUICK_MATCH_SKILL);
+
     // PUAN → BÜTÇE: oyuncu pl ile birlik dizer; AI ai ile (aiDeploy enemy.money okur).
     if (typeof player !== 'undefined') player.money = pl;
     if (typeof enemy !== 'undefined') enemy.money = ai;
@@ -147,6 +168,16 @@ function screensInit() {
     document.getElementById('btn-multiplayer')?.addEventListener('click', () => { showScreen('multiplayer'); if (typeof mpInit === 'function') mpInit(); });
     document.getElementById('qm-ai')?.addEventListener('input', quickMatchUpdate);
     document.getElementById('qm-pl')?.addEventListener('input', quickMatchUpdate);
+    // Rol / zorluk buton grupları: tıklanan seçili olur (tek seçim)
+    ['qm-role', 'qm-skill'].forEach(groupId => {
+        document.getElementById(groupId)?.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            document.querySelectorAll(`#${groupId} button`).forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            quickMatchUpdate();
+        });
+    });
     // 10-HARİTA seçiciyi doldur (🎲 Rastgele + 10 harita adı)
     const qmMap = document.getElementById('qm-map');
     if (qmMap && typeof MAPS !== 'undefined') {
