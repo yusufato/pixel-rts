@@ -467,34 +467,33 @@ function storySetPlayerDeployRes() {
 // Kapak/rubber-band YOK — güçlü/teknolojili/yığılı devlet GERÇEKTEN güçlü (boş şehir = floor, zayıf).
 // SAVUNMA bütçesi → TİPLİ {oil,manpower,points} (AI da oyuncu gibi tipli havuzdan dizer; anti-tank=puan SINIRLI).
 // Şehirdeki komutan tam, bitişikteki yarım. Milis tabanı çoğu PİYADE (insan gücü) → boş şehir anti-tank/topçu YIĞAMAZ.
+// FAZ-3: AI bütçesi artık kasadan değil ÜRETTİĞİ ORDUDAN türer — oyuncu havuzdan
+// dizerken AI'nın sınırsız kasa-bütçesiyle dizmesi adaletsiz olurdu. Fabrika kurmamış
+// devlet tank dizemez (b.oil ≈ 0). aiDeploy ve DEPLOY_RES.red dalı hiç değişmez.
 function storyEnemyForceBudget(stateId, cityId) {
     const st = storyState(stateId), node = storyNode(cityId);
     if (!st || !node) return { oil: 40, manpower: 200, points: 40 };
-    let oil = 0, mp = 0, pts = 0;
-    for (const c of storyStateCommanders(st)) {
-        const w = c.node === cityId ? 1 : (node.neighbors.indexOf(c.node) >= 0 ? 0.5 : 0);
-        if (!w) continue;
-        const cr = c.res || {};
-        oil += (cr.oil || 0) * w; mp += (cr.manpower || 0) * w; pts += (cr.points || 0) * w;
+    if (typeof storyPoolBudget === 'function') {
+        const r = storyPoolBudget(stateId, cityId, { garrison: true, floor: 170 });
+        STORY._redPoolSrc = r.src;   // savaş sonu: AI'nın sağ kalanları havuzuna döner
+        return r.budget;
     }
-    const div = (st._techBonus && st._techBonus.allCost) ? (st._techBonus.allCost || 1) : 1;
-    const cap = v => Math.max(0, Math.min(4200, Math.round(v / div)));
-    return { oil: cap(40 + oil * 0.8), manpower: cap(170 + mp * 0.8 + (node.garrison || 0) * 50), points: cap(40 + pts * 0.8) };
+    return { oil: 40, manpower: 170 + (node.garrison || 0) * 50, points: 40 };
 }
 // SALDIRI bütçesi → TİPLİ; SADECE saldıran komutanların kendi kaynağı (milis/garnizon YOK; "sadece komutanlar saldırır").
 // Komutanın puanı yoksa anti-tank diziyemez → "imkânsız sayıda anti-tank" biter.
+// SALDIRI bütçesi → saldıran devletin O CEPHEDEKİ havuzu (garnizon/milis YOK: "sadece ordu saldırır")
 function storyAttackerForceBudget(stateId, cityId) {
     const st = storyState(stateId), node = storyNode(cityId);
     if (!st || !node) return { oil: 40, manpower: 200, points: 40 };
-    let oil = 0, mp = 0, pts = 0;
-    for (const c of storyStateCommanders(st)) {
-        if (c.node !== cityId && node.neighbors.indexOf(c.node) < 0) continue;
-        const cr = c.res || {};
-        oil += (cr.oil || 0); mp += (cr.manpower || 0); pts += (cr.points || 0);
+    if (typeof storyPoolBudget === 'function') {
+        // Saldıran kendi topraklarından gelir: havuzu SALDIRANIN cephe şehirlerinden topla
+        const stage = (STORY.battleCtx && STORY.battleCtx.enemyStageNode != null) ? STORY.battleCtx.enemyStageNode : cityId;
+        const r = storyPoolBudget(stateId, stage, { floor: 120 });
+        STORY._redPoolSrc = r.src;
+        return r.budget;
     }
-    const div = (st._techBonus && st._techBonus.allCost) ? (st._techBonus.allCost || 1) : 1;
-    const cap = v => Math.max(0, Math.min(4200, Math.round(v / div)));
-    return { oil: cap(oil * 0.8), manpower: cap(120 + mp * 0.8), points: cap(pts * 0.8) };   // manpower tabanı = en az bir piyade ordusu
+    return { oil: 40, manpower: 120, points: 40 };
 }
 // (intel gösterimi için) ortalama-kasa tahmini bütçe
 function storyEnemyBudget(state) {
@@ -543,11 +542,45 @@ function storyEnterBattle(node) {
     TECH_BONUS_RED = (_foe && _foe._techBonus) || null;   // KIRMIZI = DÜŞMAN devlet tech (AI birimlerine); savaş sonu temizlenir
     if (typeof applyMap === 'function') applyMap(node.mapId);
     storyResetBattlefield();
-    storySpawnVeterans();
+    storySetupPlayerPool(node);   // FAZ-3: şehirlerde ÜRETİLEN ordu → DEPLOY_POOL (yetersizse acil seferberlik)
     storySpawnAllies();   // MÜTTEFİK komutanlar KENDİ ordularını dizer → OTONOM dost-AI (sen sadece KENDİ ordunu yönetirsin)
     storySpawnGarrison();  // ADIM 6: savunmada şehir GARNİZONU ek birlik (otonom)
     showScreen('game');
     storyCameraToDeployZone();
+}
+
+// FAZ-3: oyuncunun savaşa süreceği ordu = şehir havuzları (savaş şehri + bitişik dost şehirler).
+// Havuz kaynak düğümlerden HEMEN düşülür → kayıp kalıcı olur; sağ kalanlar savaş sonu iade edilir.
+// KİLİTLENME KORUMASI: hiç üretim yapmadan saldırıya uğrayan oyuncu oyunsuz kalmasın diye
+// havuz çok azsa eski bütçe sistemi YARI güçle devreye girer (acil seferberlik milisi).
+const POOL_MIN_UNITS = 4;
+function storySetupPlayerPool(node) {
+    DEPLOY_POOL = null;
+    STORY._poolSrc = null;
+    const me = STORY.playerStateId;
+    const muster = (typeof storyMusterPool === 'function') ? storyMusterPool(me, node.id) : { avail: {}, src: [] };
+    let total = 0;
+    for (const k in muster.avail) total += muster.avail[k] | 0;
+
+    if (total < POOL_MIN_UNITS) {
+        storySetPlayerDeployRes();                       // ESKİ yol: kaynak-bütçeli dizme
+        if (DEPLOY_RES && DEPLOY_RES.blue) {             // yarı güç — üretmemenin bedeli var
+            DEPLOY_RES.blue.oil = Math.round(DEPLOY_RES.blue.oil * 0.5);
+            DEPLOY_RES.blue.points = Math.round(DEPLOY_RES.blue.points * 0.5);
+            DEPLOY_RES.blue.manpower = Math.round(DEPLOY_RES.blue.manpower * 0.7);
+        }
+        storyLog('⚠️ Havuz boş — ACİL SEFERBERLİK: sınırlı bütçeyle milis dizildi. Şehirlerinde üretim yap!');
+        return;
+    }
+    DEPLOY_POOL = {};
+    for (const k in muster.avail) DEPLOY_POOL[k] = muster.avail[k] | 0;
+    STORY._poolSrc = muster.src;
+    storyDrainPool(muster.src);                          // havuz şehirlerden çıktı: kayıp artık kalıcı
+    // Kıdem: havuzdan dizilen birimlere gazi etiketi yapışsın (ayrı bedava ordu YOK)
+    STORY._battleVets = (STORY.veterans || []).map(v => ({ type: v.type, vet: v.vet }));
+    storySetPlayerDeployRes();                           // müttefik listesi (_battleAllyList) için gerekli
+    DEPLOY_RES.blue = null;                              // mavi para dalına GİRMEZ — havuz adet kısıtı geçerli
+    storyLog(`⚔️ ${total} birlik sahaya sevk edildi (şehir havuzlarından).`);
 }
 
 // SAVAŞ ALANINI DEPLOY'a SIFIRLA (startBattle'ın tersi — reload olmadan yeni maç)
@@ -571,31 +604,15 @@ function storyResetBattlefield() {
     if (sbar) { sbar.style.opacity = '1'; sbar.style.pointerEvents = 'auto'; }
     document.getElementById('ui-support')?.classList.add('hidden');
     const pt = document.getElementById('phase-text');
-    if (pt) { pt.textContent = '⚔️ BİRLİKLERİNİ YERLEŞTİR (gaziler hazır)'; pt.style.color = ''; }
+    if (pt) { pt.textContent = '⚔️ ORDUNU YERLEŞTİR (şehir havuzundan)'; pt.style.color = ''; }
     const uiPhase = document.getElementById('ui-phase'); if (uiPhase) uiPhase.style.display = '';
     const camHint = document.getElementById('ui-camera-hint'); if (camHint) camHint.style.display = '';
     // FAZ-2: deploy HUD'unda 3 kaynak DEPLOY BÜTÇESİNİ göster (sol üst) — değerleri updateUI canlı doldurur
     ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
 }
 
-// GAZİ-ÇEKİRDEK: sağ kalanlar mavi bölgeye bedava ön-yerleşir (+%12/seviye dayanıklılık)
-function storySpawnVeterans() {
-    const vets = STORY.veterans || [];
-    if (!vets.length) return;
-    const cx = WORLD_W / 2, spacing = 74;
-    const startX = cx - (vets.length - 1) * spacing / 2;
-    vets.forEach((v, i) => {
-        const u = new Unit(v.type, startX + i * spacing, WORLD_H - 300, false);
-        if (typeof applyTechSpawnBonus === 'function') applyTechSpawnBonus(u);   // TEKNOLOJİ: gaziler de zırh/hız/görüş/hp buff alır (deploy birimleriyle tutarlı)
-        const lvl = Math.max(1, v.vet | 0);
-        u.veteran = lvl;
-        u.maxHp = Math.round(u.maxHp * (1 + 0.12 * lvl));
-        u.hp = u.maxHp;
-        units.push(u);
-        player.unitsSpawned++;
-    });
-    storyLog(`🎖️ ${vets.length} gazi savaşa katıldı.`);
-}
+// GAZİLER (FAZ-3): artık bedava ayrı ordu DEĞİL — kıdem havuzdan dizilen birime yapışır.
+// Bkz. storyTagVeteran (Production.js): STORY.veterans listesi kalite katmanı olarak kullanılır.
 // MÜTTEFİK komutanlar KENDİ kasalarıyla ordularını dizer — OTONOM dost-AI (mavi ama oyuncu seçemez/komut veremez; kendi savaşır)
 function storySpawnAllies() {
     const allies = (STORY._battleAllyList || []).filter(Boolean);
@@ -646,6 +663,26 @@ function storyOnBattleEnd(won, telemetrySummary) {
     newVets.sort((a, b) => b.vet - a.vet);
     STORY.veterans = newVets.slice(0, 14);
 
+    // FAZ-3 HAVUZ İADESİ: sahaya sürülmeyenler + sağ kalanlar havuza döner; ÖLENLER kalıcı gider.
+    // (Havuz savaş başında kaynak şehirlerden düşülmüştü — kayıp muhasebesi böyle kapanır.)
+    if (DEPLOY_POOL && typeof storyReturnPool === 'function') {
+        const back = {};
+        for (const k in DEPLOY_POOL) { const c = DEPLOY_POOL[k] | 0; if (c > 0) back[k] = (back[k] | 0) + c; }
+        for (const u of survivors) back[u.type] = (back[u.type] | 0) + 1;
+        const kept = storyReturnPool(back, node, me.id, STORY._poolSrc);
+        const lost = units.filter(u => !u.isRed && u.dead && !u.ally).length;
+        if (kept || lost) storyLog(`⚔️ Ordu dönüşü: ${kept} birlik havuza döndü, ${lost} birlik kayboldu.`);
+    }
+    // AI TARAFI SİMETRİK: kırmızının sağ kalanları kendi havuzuna döner, ölenler kalıcı gider.
+    // Böylece kazandığın savaş düşmanın ordusunu GERÇEKTEN eritir (sadece -30 insan gücü değil).
+    if (STORY._redPoolSrc && typeof storyReturnPool === 'function') {
+        const foeId = (ctx.mode === 'defense') ? ctx.attacker : ctx.defender;
+        const redBack = {};
+        for (const u of units) if (u.isRed && !u.dead) redBack[u.type] = (redBack[u.type] | 0) + 1;
+        storyReturnPool(redBack, null, foeId, STORY._redPoolSrc);
+        STORY._redPoolSrc = null;
+    }
+
     const winText = (won === true);
     storyCommanderBackfill(STORY.commander);
     const roleBonus = winText ? 120 : 0;
@@ -676,6 +713,7 @@ function storyOnBattleEnd(won, telemetrySummary) {
             storyLog(`🤝 ${node.name} savunmasında berabere — bölge sende kaldı. Gazi: ${STORY.veterans.length}`);
         } else {
             node.owner = inv.id;                  // KAYBET → bölge düşmana geçer
+            if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // şehirdeki havuz imha, %25'i fatihe
             const nbOwn = node.neighbors.map(storyNode).find(x => x && x.owner === me.id);   // komşu dost şehre çekil
             const fb = STORY.nodes.find(n => n.owner === me.id);
             const safeId = nbOwn ? nbOwn.id : (fb ? fb.id : null);
@@ -693,6 +731,7 @@ function storyOnBattleEnd(won, telemetrySummary) {
         // SALDIRI: oyuncu komşu düşman node'una saldırdı (ctx.defender = düşman)
         if (winText) {
             node.owner = me.id;                   // FETHET
+            if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // savunanın havuzu imha, %25'i sana
             STORY.commander.node = node.id;       // komutan ilerler
             me.reputation += 1; me.welfare = Math.min(100, me.welfare + 3);
             if (STORY.commander.res) STORY.commander.res.points += 120;   // ganimet → fetheden komutanın KENDİ kasası
@@ -765,6 +804,7 @@ function storyClaimReward(reward) {
 
 function storyReturnToWorld() {
     DEPLOY_RES = null;   // kaynak-bazlı deploy bitti → tek-para moduna dön (Quick Match güvenli)
+    DEPLOY_POOL = null; STORY._poolSrc = null; STORY._battleVets = null;   // FAZ-3: havuz modu kapat (Quick Match/MP güvenli)
     TECH_BONUS = null; TECH_BONUS_RED = null;   // teknoloji bonusları savaş-dışı KAPALI (Quick Match/MP güvenli)
     ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
     document.getElementById('game-over-screen')?.classList.add('hidden');
@@ -849,7 +889,7 @@ function storyAdvance(dtSec) {
     STORY._accTech = (STORY._accTech || 0) + dtSec;
     if (STORY._accTech >= 8) { STORY._accTech = 0; storyAIResearch(); }
     STORY._accCityDev = (STORY._accCityDev || 0) + dtSec;
-    if (STORY._accCityDev >= 10) { STORY._accCityDev = 0; storyAICityDevelop(); }   // ADIM 6: AI sınır şehri geliştirir
+    if (STORY._accCityDev >= 10) { STORY._accCityDev = 0; if (typeof storyAICityTick === 'function') storyAICityTick(); }   // AI: garnizon/şehir/bina geliştirir + ordu üretir
     STORY._accReplenish = (STORY._accReplenish || 0) + dtSec;
     if (STORY._accReplenish >= 12) { STORY._accReplenish = 0; storyReplenishCommanders(); }   // ölen komutanları YAVAŞ telafi (dünya boşalmasın)
     if (storyCheckPlayerDefeat()) return;   // ADIM 6: 0-bölge → kampanya bitti
@@ -867,7 +907,10 @@ function storyCalcCommanderPower(cmd, st) {
     return Math.round((base + kasa) * storyTechPowerMul(st) * loyF);
 }
 function storyCalcDefenseStrength(node, st) {
-    let s = 80 + ((node.cities || 0) * 10) + ((node.garrison || 0) * 10), cmdStr = 0;   // taban + GARNİZON (her birim +10 savunma; maks 120 ≈ bir komutan)
+    // FAZ-3: şehirde bekleyen ORDU HAVUZU da savunmaya katılır → storyEvalTarget/storyExposureAt
+    // bu sayede "iyi savunulan şehre saldırma" davranışını ekstra AI kodu olmadan öğrenir.
+    const poolStr = (typeof storyPoolPower === 'function') ? storyPoolPower(node) : 0;
+    let s = 80 + ((node.cities || 0) * 10) + ((node.garrison || 0) * 10) + poolStr, cmdStr = 0;   // taban + GARNİZON (her birim +10 savunma) + havuz
     if (st && st.gov) for (const c of storyStateCommanders(st)) {
         if (c.node === node.id) cmdStr += storyCalcCommanderPower(c, st);
         else if (node.neighbors.indexOf(c.node) >= 0) cmdStr += storyCalcCommanderPower(c, st) * 0.5;
@@ -899,24 +942,8 @@ function storyCityGarrison(nodeId) {
     storySave(); if (typeof storyCityUpdate === 'function') storyCityUpdate();
 }
 // AI: her devlet ara sıra bir SINIR şehrini geliştirir (garnizon önceliği — savunma)
-function storyAICityDevelop() {
-    for (const st of STORY.states) {
-        if (st.isPlayer || !st.gov) continue;
-        const owned = STORY.nodes.filter(n => n.owner === st.id); if (!owned.length) continue;
-        const border = owned.filter(n => n.neighbors.some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; }));
-        const pool = border.length ? border : owned, n = pool[Math.floor(Math.random() * pool.length)];
-        // SİMETRİK MALİYET: oyuncuyla AYNI — garnizon 70👥, yükseltme 300/600⭐; devletin en zengin komutanından öder (bedava DEĞİL)
-        const cmds = storyStateCommanders(st); if (!cmds.length) continue;
-        const richMp = cmds.slice().sort((a, b) => ((b.res && b.res.manpower) || 0) - ((a.res && a.res.manpower) || 0))[0];
-        const richPt = cmds.slice().sort((a, b) => ((b.res && b.res.points) || 0) - ((a.res && a.res.points) || 0))[0];
-        if ((n.garrison || 0) < storyCityGarrisonCap(n) && Math.random() < 0.7) {
-            if (richMp && richMp.res && richMp.res.manpower >= CITY_GARRISON_COST) { richMp.res.manpower -= CITY_GARRISON_COST; n.garrison = (n.garrison || 0) + 1; }
-        } else if ((n.level || 1) < 3 && Math.random() < 0.25) {
-            const cost = CITY_UPGRADE_COST[n.level || 1] || 300;
-            if (richPt && richPt.res && richPt.res.points >= cost) { richPt.res.points -= cost; n.level = (n.level || 1) + 1; }
-        }
-    }
-}
+// AI ŞEHİR GELİŞTİRME + ÜRETİM → js/Production.js (storyAICityTick)
+// Oyuncu havuzdan ordu sürerken AI'nın da üretmesi ADALET ŞARTI; aynı maliyetler, aynı motor.
 // SAVUNMA düellosunda şehrin TABAN MİLİS + GARNİZONU ek savunan birlik olarak çıkar (otonom dost-AI)
 const CITY_MILITIA_BASE = 3;   // her şehrin doğuştan milisi (düşman savunma base'i 250 ile SİMETRİ; garnizonsuz bile şehir savunmasız değil)
 function storySpawnGarrison() {
@@ -1310,6 +1337,7 @@ function storyResolveSiege(node, byState, besiegers) {
 function storySiegeConquer(node, byState, lead, defState) {
     node._siege = null;
     node.owner = byState.id; lead.node = node.id;
+    if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // kuşatma düşünce şehirdeki ordu da dağılır
     byState.welfare = Math.min(100, byState.welfare + 1); if (defState) defState.welfare = Math.max(0, defState.welfare - 3);
     lead.loyalty = Math.min(100, (lead.loyalty == null ? 60 : lead.loyalty) + 4);
     if (defState && defState.gov) for (const dc of defState.gov.commanders.slice()) if (dc.node === node.id) {   // savunan: ÖLÜR ya da kaçar

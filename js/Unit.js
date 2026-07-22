@@ -995,6 +995,18 @@ function placeUnit(type, worldX, worldY, isRed) {
         const np = nearestPassable(worldX, worldY, 20);
         worldX = np.x; worldY = np.y;
     }
+    // FAZ-3 HAVUZ: hikaye modunda oyuncu ŞEHİRLERDE ÜRETTİĞİ orduyu dizer — para değil ADET kısıtı.
+    // DEPLOY_POOL null iken (Quick Match / MP / acil seferberlik) bu dal hiç çalışmaz.
+    if (!isRed && typeof DEPLOY_POOL !== 'undefined' && DEPLOY_POOL) {
+        if ((DEPLOY_POOL[type] | 0) <= 0) return false;
+        DEPLOY_POOL[type]--;
+        player.unitsSpawned++;
+        const u = new Unit(type, worldX, worldY, isRed);
+        applyTechSpawnBonus(u);
+        if (typeof storyTagVeteran === 'function') storyTagVeteran(u);   // kıdem havuz birimine yapışır
+        SIM.units.push(u);
+        return true;
+    }
     // FAZ-2 KAYNAK-BAZLI: OYUNCU (mavi) ilgili kaynak bütçesinden öder (zırhlı→petrol, piyade→insan, topçu→puan)
     if (!isRed && typeof DEPLOY_RES !== 'undefined' && DEPLOY_RES && DEPLOY_RES.blue) {
         const g = (typeof UNIT_RES_GROUP !== 'undefined' && UNIT_RES_GROUP[type]) || 'manpower';

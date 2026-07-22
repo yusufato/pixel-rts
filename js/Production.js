@@ -55,8 +55,21 @@ function prodQueueCount(n, kind) {
     for (const j of (n.q || [])) if (prodBuildingFor(j.type) === kind) c++;
     return c;
 }
-// Havuz tavanı: sonsuz yığılmayı engeller (tam gelişmiş Sv.3 şehir ≈ 36 birim)
-function prodPoolCap(n) { return 6 + (n.level || 1) * 4 + ((n.fac | 0) + (n.bar | 0)) * 3; }
+// Havuz tavanı: altyapı + KOMUTAN KAPASİTESİ.
+// Şehirde duran komutanın savaşçı yeteneği ne kadar ordunun sevk-idare edilebileceğini
+// belirler — yetenekli komutanın olduğu şehir daha büyük ordu besler, komutansız şehir
+// yalnız altyapı kadarını tutar. Tüm devletler için geçerli (storyForceAt taraf-agnostik).
+const PROD_CMD_CAP_PER_SKILL = 3;   // warrior 0-6 → +0..+18 birim
+function prodCommanderCap(n) {
+    if (n.owner == null || typeof storyForceAt !== 'function') return 0;
+    let best = 0;
+    for (const c of storyForceAt(n.owner, n.id)) {
+        const w = (c.skills && c.skills.warrior) || 0;
+        if (w > best) best = w;
+    }
+    return best * PROD_CMD_CAP_PER_SKILL;
+}
+function prodPoolCap(n) { return 6 + (n.level || 1) * 4 + ((n.fac | 0) + (n.bar | 0)) * 3 + prodCommanderCap(n); }
 function prodPoolCount(n) {
     let c = 0;
     for (const k in (n.pool || {})) c += n.pool[k] | 0;
@@ -322,14 +335,24 @@ function prodQueueSection(n) {
 function prodPoolSection(n) {
     const pool = n.pool || {};
     const total = prodPoolCount(n), cap = prodPoolCap(n);
+    const cmdCap = prodCommanderCap(n);
     let items = '';
     for (const k in pool) {
         const c = pool[k] | 0; if (c <= 0) continue;
         items += `<span class="pool-item">${STATS[+k].name} <b>×${c}</b></span>`;
     }
+    // Komutan katkısı ayrıca gösterilir: "neden bu şehir daha çok ordu besliyor" sorusunun cevabı
+    let capNote = `Altyapı ${cap - cmdCap}`;
+    if (cmdCap > 0) {
+        const who = storyForceAt(n.owner, n.id).slice().sort((a, b) => ((b.skills && b.skills.warrior) || 0) - ((a.skills && a.skills.warrior) || 0))[0];
+        capNote += ` + komutan ${cmdCap} (${who ? who.name : '—'} ⚔️${(who && who.skills && who.skills.warrior) || 0})`;
+    } else {
+        capNote += ' · komutan yok — sevk-idare kapasitesi düşük';
+    }
     return `<div class="prod-sec"><div class="prod-head"><span>⚔️ ORDU HAVUZU <b>${total}/${cap}</b></span></div>`
         + (items ? `<div class="pool-grid">${items}</div>`
                  : `<div class="city-hint">Havuz boş — savaşa girersen acil seferberlik milisi dizilir.</div>`)
+        + `<div class="city-hint">Kapasite: ${capNote}</div>`
         + `<div class="city-hint">Savaşa girince bu birlikleri sahaya SEN yerleştirirsin. Kayıplar havuzdan kalıcı düşer.</div></div>`;
 }
 
@@ -373,6 +396,113 @@ function storyCityUpdate() {
         + `<button class="city-btn cb-gar" data-node="${n.id}" ${(gar >= cap || (w.manpower || 0) < CITY_GARRISON_COST) ? 'disabled' : ''}>+1 (${CITY_GARRISON_COST}👥)</button></div>`
         + `<div class="city-hint">Savunma düellosunda birlik olarak savaşır; kuşatma savunmasını güçlendirir.</div></div>`
         + prodPoolSection(n);
+}
+
+// ── KIDEM: gaziler ayrı bedava ordu değil, havuz birimine yapışan kalite ──
+// Eskiden storySpawnVeterans 14 birimi bedava sahaya koyuyordu; bu, "üretilmemiş ordu
+// sahaya çıkmasın" kuralını delerdi. Artık aynı tipteki havuz birimine kıdem etiketi geçer.
+function storyTagVeteran(u) {
+    const vs = STORY._battleVets;
+    if (!vs || !vs.length) return;
+    const i = vs.findIndex(v => v.type === u.type && !v._used);
+    if (i < 0) return;
+    vs[i]._used = 1;
+    const lvl = Math.max(1, vs[i].vet | 0);
+    u.veteran = lvl;
+    u.maxHp = Math.round(u.maxHp * (1 + 0.12 * lvl));
+    u.hp = u.maxHp;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AI ŞEHİR YÖNETİMİ  (Story.js:storyAICityDevelop'tan taşındı + üretim eklendi)
+//  Oyuncu havuzdan ordu sürerken AI'nın da üretmesi ADALET ŞARTIDIR.
+//  Maliyetler oyuncuyla birebir aynı; devletin en zengin komutanı öder.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// AI için bina kur/yükselt (oyuncunun prodBuild'iyle aynı kurallar, farkı: sahiplik kontrolü ve kasa)
+function aiTryBuild(n, st, payer) {
+    const kinds = ['bar', 'fac'];
+    for (const kind of kinds) {
+        const lvl = n[kind] | 0;
+        if (lvl >= PROD_MAX_LEVEL || lvl >= prodMaxBuildLevel(n)) continue;
+        const cost = prodBuildCost(kind, lvl);
+        if (!payer || !payer.res || (payer.res.points || 0) < cost) continue;
+        payer.res.points -= cost;
+        n[kind] = lvl + 1;
+        return true;
+    }
+    return false;
+}
+
+// AI üretim doktrini: sınır şehri savunma ağırlıklı, iç şehir eldeki en iyi birim
+function aiTryProduce(n, st, cmds) {
+    const isBorder = (n.neighbors || []).some(nb => { const m = storyNode(nb); return m && m.owner !== n.owner; });
+    const open = prodTypesFor(n, 'fac').concat(prodTypesFor(n, 'bar'));
+    if (!open.length) return false;
+    // Savunmada tanksavar+piyade, taarruzda en pahalı (en güçlü) birim
+    let wanted;
+    if (isBorder && Math.random() < 0.6) {
+        const def = open.filter(t => t === T.ANTI_TANK || t === T.INFANTRY);
+        wanted = def.length ? def[(Math.random() * def.length) | 0] : open[(Math.random() * open.length) | 0];
+    } else {
+        wanted = open.slice().sort((a, b) => (STATS[b].cost || 0) - (STATS[a].cost || 0))[0];
+    }
+    const kind = prodBuildingFor(wanted);
+    if (prodQueueCount(n, kind) >= prodSlots(n, kind)) return false;
+    if (prodPoolCount(n) >= prodPoolCap(n)) return false;
+    const g = UNIT_RES_GROUP[wanted] || 'manpower';
+    const cost = (STATS[wanted] && STATS[wanted].cost) || 70;
+    const payer = cmds.slice().sort((a, b) => ((b.res && b.res[g]) || 0) - ((a.res && a.res[g]) || 0))[0];
+    if (!payer || !payer.res || (payer.res[g] || 0) < cost) return false;
+    payer.res[g] -= cost;
+    const t = prodTime(n, kind, wanted);
+    n.q.push({ type: wanted, t, tot: t });
+    return true;
+}
+
+function storyAICityTick() {
+    for (const st of STORY.states) {
+        if (st.isPlayer || !st.gov) continue;
+        const owned = STORY.nodes.filter(n => n.owner === st.id); if (!owned.length) continue;
+        const border = owned.filter(n => n.neighbors.some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; }));
+        const pick = border.length ? border : owned;
+        const n = pick[(Math.random() * pick.length) | 0];
+        const cmds = storyStateCommanders(st); if (!cmds.length) continue;
+        const rich = g => cmds.slice().sort((a, b) => ((b.res && b.res[g]) || 0) - ((a.res && a.res[g]) || 0))[0];
+        // SİMETRİK MALİYET: oyuncuyla AYNI — garnizon 70👥, şehir 300/600⭐, bina FACTORY/BARRACKS_COST
+        const r = Math.random();
+        if (r < 0.28) {
+            const p = rich('manpower');
+            if ((n.garrison || 0) < storyCityGarrisonCap(n) && p && p.res && p.res.manpower >= CITY_GARRISON_COST) {
+                p.res.manpower -= CITY_GARRISON_COST; n.garrison = (n.garrison || 0) + 1;
+            }
+        } else if (r < 0.45) {
+            const p = rich('points');
+            if ((n.level || 1) < 3) {
+                const cost = CITY_UPGRADE_COST[n.level || 1] || 300;
+                if (p && p.res && p.res.points >= cost) { p.res.points -= cost; n.level = (n.level || 1) + 1; }
+            }
+        } else if (r < 0.68) {
+            aiTryBuild(n, st, rich('points'));
+        } else {
+            aiTryProduce(n, st, cmds);
+        }
+    }
+}
+
+// ── FETİH: havuz ganimet/imha ──
+// Şehir el değiştirince orada bekleyen ordu yok olur; küçük bir kısmı fatihe kalır.
+// Snowball'u sınırlar ama "şehri almak orduyu da almaktır" hissini korur.
+function storyCaptureNodePool(n) {
+    if (!n) return;
+    const keep = {};
+    for (const k in (n.pool || {})) {
+        const c = n.pool[k] | 0;
+        const g = Math.floor(c * 0.25);
+        if (g > 0) keep[k] = g;
+    }
+    n.pool = keep;
+    n.q = [];   // üretim kuyruğu fetihle dağılır
 }
 
 // ── AI BÜTÇESİ: havuzdan türetilir ──

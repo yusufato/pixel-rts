@@ -105,6 +105,7 @@ function quickMatchStart() {
     if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
     // Hikaye-dışı maç → tek-para modu (kaynak-bazlı deploy KAPALI) + kaynak satırlarını gizle
     if (typeof DEPLOY_RES !== 'undefined') DEPLOY_RES = null;
+    if (typeof DEPLOY_POOL !== 'undefined') DEPLOY_POOL = null;   // havuz modu yalnız hikayede — Hızlı Maç tek-para
     if (typeof TECH_BONUS !== 'undefined') TECH_BONUS = null;   // teknoloji bonusu sadece hikaye → Quick Match'te kapalı
     if (typeof TECH_BONUS_RED !== 'undefined') TECH_BONUS_RED = null;
     ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.add('hidden'));

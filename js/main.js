@@ -149,6 +149,17 @@ canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const p = canvasPoint(e);
     if (phase === PHASE.DEPLOY) {
+        // HAVUZ MODU: elde birlik varken sağ tık = havuza İADE (yanlış yerleştirmeyi geri al).
+        // Havuzda ödeme yok, o yüzden "geri satmak" yerine sayaç geri artırılır.
+        if (deployCarried && typeof DEPLOY_POOL !== 'undefined' && DEPLOY_POOL) {
+            const u = deployCarried;
+            DEPLOY_POOL[u.type] = (DEPLOY_POOL[u.type] | 0) + 1;
+            u.dead = true;
+            const ix = units.indexOf(u); if (ix >= 0) units.splice(ix, 1);
+            deployCarried = null;
+            canvas.classList.remove('ghost-cursor');
+            return;
+        }
         selectedSpawnType = null;
         if (deployCarried) { deployCarried.selected = false; deployCarried = null; }   // taşımayı iptal et
         document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('selected-btn'));
@@ -515,7 +526,13 @@ function updateUI() {
     const myWallet = (_mp && myCanonicalSide) ? enemy : player;   // MP guest = enemy bütçesi
     // FAZ-2 KAYNAK-BAZLI (hikaye düellosu): 3 kaynak bütçesini göster, harca-azalt; yoksa tek-para
     const dres = (!_mp && typeof DEPLOY_RES !== 'undefined' && DEPLOY_RES && DEPLOY_RES.blue) ? DEPLOY_RES.blue : null;
-    if (dres) {
+    // FAZ-3: havuz modunda para değil ADET gösterilir (kaynak zaten şehirde harcandı)
+    const dpool = (!_mp && typeof DEPLOY_POOL !== 'undefined' && DEPLOY_POOL) ? DEPLOY_POOL : null;
+    if (dpool) {
+        let left = 0; for (const k in dpool) left += dpool[k] | 0;
+        const onField = units.filter(u => !u.isRed && !u.ally && !u.dead).length;
+        document.getElementById('money').textContent = `${left} ⚔️ (sahada ${onField})`;
+    } else if (dres) {
         document.getElementById('money').textContent = Math.floor(dres.oil + dres.manpower + dres.points);
         const mo = document.getElementById('money-oil'); if (mo) mo.textContent = Math.floor(dres.oil);
         const mm = document.getElementById('money-manpower'); if (mm) mm.textContent = Math.floor(dres.manpower);
@@ -526,8 +543,17 @@ function updateUI() {
     if (phase === PHASE.DEPLOY) {
         document.querySelectorAll('.spawn-btn').forEach(btn => {
             const type = parseInt(btn.dataset.type);
-            const afford = dres ? ((dres[UNIT_RES_GROUP[type]] || 0) >= STATS[type].cost) : (myWallet.money >= STATS[type].cost);
-            btn.classList.toggle('disabled', !afford);
+            const costEl = btn.querySelector('.btn-cost');
+            if (costEl && btn.dataset.origCost == null) btn.dataset.origCost = costEl.textContent;   // Hızlı Maç'a dönünce geri yazılsın
+            if (dpool) {
+                const left = dpool[type] | 0;
+                btn.classList.toggle('disabled', left <= 0);
+                if (costEl) costEl.textContent = '×' + left;
+            } else {
+                if (costEl && btn.dataset.origCost != null) costEl.textContent = btn.dataset.origCost;
+                const afford = dres ? ((dres[UNIT_RES_GROUP[type]] || 0) >= STATS[type].cost) : (myWallet.money >= STATS[type].cost);
+                btn.classList.toggle('disabled', !afford);
+            }
         });
     }
 
