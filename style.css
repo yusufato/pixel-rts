@@ -1616,3 +1616,9 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .ship-h { font-size: 11px; color: #cfe3d6; margin-bottom: 6px; }
 .ship-acts { display: flex; gap: 6px; }
 .ship-acts .city-btn { flex: 1; }
+
+/* konsey oturumu: oy / karar ayrımı */
+.cs-opt.decided { box-shadow: inset 3px 0 0 #4cff7c; }
+.cs-myvote { margin-left: auto; padding: 2px 7px; border-radius: 3px; background: rgba(255,176,0,.18);
+    color: var(--wr-amber-bright); font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.2px; }
+.cs-role-mini { margin-left: 10px; color: #9fb3c8; letter-spacing: .8px; }

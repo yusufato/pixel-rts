@@ -150,10 +150,12 @@ function storyCouncilVoteScore(cmd, optId, appeal, ctx, wfDelta, loyDelta) {
     return s;
 }
 // Bir gündem maddesi için tüm komutanların oyu → { byOption: {id:[cmd..]}, winner, tally }
-function storyCouncilTally(item, commanders, st) {
+// playerVote: oyuncunun ELLE verdiği oy — kendi jetonunun hesaplanmış tercihinin yerine geçer.
+function storyCouncilTally(item, commanders, st, playerVote) {
     const ctx = st ? storyCouncilContext(st) : (item._ctx || null);
     const byOption = {}; item.options.forEach(o => { byOption[o.id] = []; });
     for (const c of commanders) {
+        if (c.isPlayer && playerVote && byOption[playerVote]) { byOption[playerVote].push(c); continue; }
         let best = null, bestS = -Infinity;
         for (const o of item.options) {
             const s = storyCouncilVoteScore(c, o.id, o.appeal, ctx, o.welfare, o.loyGain);
@@ -437,7 +439,7 @@ function storyCouncilSessionOpen(st, sessionNo) {
         stateId: st.id, sessionNo, items, idx: 0, choices: {},
         atCapital, capName: cap ? cap.name : '—',
         isAdmin: !!(st.gov && st.gov.leader === 'player'),
-        overrides: 0, results: [],
+        overrides: 0, results: [], myVote: {},
     };
     storyCouncilSessionRender();
     const el = document.getElementById('council-session');
@@ -448,7 +450,9 @@ function storyCouncilSessionRender() {
     const st = storyState(S.stateId); if (!st) return;
     const item = S.items[S.idx]; if (!item) return;
     const cmds = storyStateCommanders(st);
-    const tally = storyCouncilTally(item, cmds, st);
+    if (S.myVote[S.idx] == null) S.myVote[S.idx] = storyCouncilDefaultVote(item, STORY.commander, st);   // kendi eğilimin işaretli gelir
+    const myVote = S.myVote[S.idx];
+    const tally = storyCouncilTally(item, cmds, st, myVote);
     S._tally = tally;
 
     const head = document.getElementById('cs-head');
@@ -457,8 +461,9 @@ function storyCouncilSessionRender() {
         + `<h2 class="cs-title">KONSEY TOPLANTISI</h2>`
         + `<div class="cs-role">${S.isAdmin ? (S.atCapital ? '🏛️ <b style="color:#4cff7c">YÖNETİCİSİN — son sözü sen söylersin</b>' : '📡 <b style="color:#ffd24c">YÖNETİCİSİN ama başkentte değilsin — konseyi ezemezsin</b>') : '🗳️ <b style="color:#9fb3c8">Bir oyun var; kararı AI Cumhurbaşkanı verir</b>'}</div>`;
 
-    const sel = S.choices[S.idx] || tally.winner.id;
     const canOverride = S.isAdmin && S.atCapital;
+    const decided = canOverride ? myVote : tally.winner.id;    // fiilen ne uygulanacak
+    const overriding = canOverride && myVote !== tally.winner.id;
 
     const body = document.getElementById('cs-body');
     if (body) body.innerHTML =
@@ -466,35 +471,59 @@ function storyCouncilSessionRender() {
         + `<div class="cs-options">` + item.options.map(o => {
             const voters = tally.byOption[o.id] || [];
             const isWin = o.id === tally.winner.id;
-            const isSel = o.id === sel;
+            const isMine = o.id === myVote;
+            const isDec = o.id === decided;
             const chips = voters.map(c => `<span class="cs-voter${c.isPlayer ? ' me' : ''}" title="${c.name} · sadakat ${Math.round(c.loyalty || 0)}">${c.isPlayer ? '◆' : (typeof storyPersonaIcon === 'function' ? storyPersonaIcon(c.personality) : '●')} ${c.name.split(' ')[0]}</span>`).join('');
-            return `<button class="cs-opt${isSel ? ' sel' : ''}${isWin ? ' major' : ''}" data-opt="${o.id}">`
+            const tags = (isWin ? ' · ÇOĞUNLUK' : '') + (isDec && !isWin ? ' · KARAR' : '');
+            return `<button class="cs-opt${isMine ? ' sel' : ''}${isWin ? ' major' : ''}${isDec ? ' decided' : ''}" data-opt="${o.id}">`
                 + `<div class="cs-opt-h"><b>${o.name}</b><span class="cs-opt-meta">${o.meta || ''}</span></div>`
                 + `<div class="cs-opt-d">${o.desc}</div>`
-                + `<div class="cs-votes"><span class="cs-vc">${voters.length} oy${isWin ? ' · ÇOĞUNLUK' : ''}</span>${chips}</div>`
+                + `<div class="cs-votes"><span class="cs-vc">${voters.length} oy${tags}</span>${chips}${isMine ? '<span class="cs-myvote">◆ OYUN</span>' : ''}</div>`
                 + `</button>`;
         }).join('') + `</div>`
-        + (sel !== tally.winner.id ? `<div class="cs-warn">⚠️ Konsey çoğunluğunu eziyorsun — <b>tüm komutanların sadakati −5</b> düşecek.</div>` : '')
-        + (!canOverride && S.isAdmin ? `<div class="cs-warn">📡 Başkentte olmadığın için yalnız çoğunluk kararı geçerli. Konseyi ezmek istiyorsan bir dahaki toplantıda <b>${S.capName}</b>'da ol.</div>` : '');
+        + (overriding ? `<div class="cs-warn">⚠️ Konsey çoğunluğunu eziyorsun — <b>tüm komutanların sadakati −5</b> düşecek.</div>` : '')
+        + (!S.isAdmin && myVote !== tally.winner.id
+            ? `<div class="cs-warn">🗳️ Oyun <b>${(item.options.find(o => o.id === myVote) || {}).name}</b>, ama konsey <b>${tally.winner.name}</b> diyor — karar çoğunluğun. Yönetici olursan son sözü sen söylersin.</div>` : '')
+        + (S.isAdmin && !S.atCapital
+            ? `<div class="cs-warn">📡 Yöneticisin ama <b>${S.capName}</b>'da değilsin — bu toplantıda yalnız oy verebilirsin.</div>` : '');
 
     const foot = document.getElementById('cs-foot');
     if (foot) foot.innerHTML =
-        `<div class="cs-prog">MADDE <b>${S.idx + 1}</b> / ${S.items.length}</div>`
-        + `<button id="cs-next" class="story-btn cs-next">${S.idx + 1 < S.items.length ? 'KARARI ONAYLA →' : 'TOPLANTIYI KAPAT'}</button>`;
+        `<div class="cs-prog">MADDE <b>${S.idx + 1}</b> / ${S.items.length}`
+        + `<span class="cs-role-mini">${canOverride ? '🏛️ son söz sende' : '🗳️ oy hakkın var'}</span></div>`
+        + `<button id="cs-next" class="story-btn cs-next">${S.idx + 1 < S.items.length ? (canOverride ? 'KARARI ONAYLA →' : 'OYUNU VER →') : 'TOPLANTIYI KAPAT'}</button>`;
 }
+// OYUNCU HER ZAMAN OY VERİR. (Önceki sürüm yönetici olmayan oyuncuyu tamamen dışarıda
+// bırakıyordu: seçim tıklaması daha ilk satırda reddediliyor, karar oyuncu adına
+// otomatik hesaplanıyordu. Konseyin bütün anlamı katılmaktı.)
+//   · oy       → tabloyu değiştirir, beraberliği bozabilir  (herkes)
+//   · nihai söz → çoğunluğu ezer, sadakate mal olur          (yönetici + başkentte)
 function storyCouncilSessionPick(optId) {
     const S = STORY._session; if (!S) return;
-    const canOverride = S.isAdmin && S.atCapital;
-    if (!canOverride) { storyFlash(S.isAdmin ? 'Başkentte değilsin — çoğunluk kararı geçerli.' : 'Yönetici değilsin — yalnız oy verebilirsin.'); return; }
-    S.choices[S.idx] = optId;
+    S.myVote[S.idx] = optId;                                  // OY: daima serbest
+    if (S.isAdmin && S.atCapital) S.choices[S.idx] = optId;   // NİHAİ SÖZ: yalnız başkentteki yönetici
+    else if (!S.isAdmin && !S._toldVoteOnly) { S._toldVoteOnly = 1; storyFlash('Oyun kaydedildi — kararı konsey çoğunluğu verir. Yönetici olursan son sözü sen söylersin.'); }
+    else if (S.isAdmin && !S.atCapital && !S._toldAway) { S._toldAway = 1; storyFlash(`Oyun kaydedildi. Konseyi ezmek için ${S.capName}'da olmalısın.`); }
     storyCouncilSessionRender();
+}
+// Oyuncunun kişilik/yeteneklerinden türeyen VARSAYILAN tercih (oy vermeden önce işaretli gelir)
+function storyCouncilDefaultVote(item, cmd, st) {
+    const ctx = storyCouncilContext(st);
+    let best = null, bestS = -Infinity;
+    for (const o of item.options) {
+        const s = storyCouncilVoteScore(cmd, o.id, o.appeal, ctx, o.welfare, o.loyGain);
+        if (s > bestS) { bestS = s; best = o; }
+    }
+    return best ? best.id : (item.options[0] || {}).id;
 }
 function storyCouncilSessionNext() {
     const S = STORY._session; if (!S) return;
     const st = storyState(S.stateId); if (!st) { storyCouncilSessionClose(); return; }
     const item = S.items[S.idx];
-    const tally = S._tally || storyCouncilTally(item, storyStateCommanders(st), st);
-    const chosen = S.choices[S.idx] || tally.winner.id;
+    // Oyuncunun oyu tabloya DAHİL (beraberliği bozabilir); nihai sözü yalnız başkentteki yönetici koyar.
+    const tally = S._tally || storyCouncilTally(item, storyStateCommanders(st), st, S.myVote[S.idx]);
+    const canOverride = S.isAdmin && S.atCapital;
+    const chosen = (canOverride && S.choices[S.idx]) ? S.choices[S.idx] : tally.winner.id;
     if (chosen !== tally.winner.id) {                         // konseyi ezmenin bedeli
         S.overrides++;
         for (const c of storyStateCommanders(st)) if (!c.isPlayer) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - 5);
