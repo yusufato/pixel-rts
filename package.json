@@ -8,7 +8,8 @@
     "start": "electron .",
     "dist": "electron-builder --win --x64",
     "dist:dir": "electron-builder --win --x64 --dir",
-    "shortcut": "node electron/make-shortcut.js"
+    "shortcut": "node electron/make-shortcut.js",
+    "icon": "node tools/make-icon.js"
   },
   "devDependencies": {
     "electron": "^34.0.0",
@@ -31,7 +32,8 @@
       "style.css",
       "!**/*.md",
       "!__pycache__/**",
-      "!dist/**"
+      "!dist/**",
+      "!tools/**"
     ],
     "win": {
       "target": [
@@ -42,13 +44,17 @@
           ]
         }
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Pixel RTS"
+      "shortcutName": "Pixel RTS",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "artifactName": "Pixel-RTS-Kurulum-${version}.${ext}"
     }
   }
 }

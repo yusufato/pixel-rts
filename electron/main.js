@@ -30,7 +30,7 @@ function createWindow() {
         show: false,                     // hazır olunca göster (ani siyah kare yok)
         autoHideMenuBar: true,
         title: 'Pixel RTS',
-        // icon: assets/icon.png eklenince açılacak
+        icon: path.join(ROOT, 'assets', 'icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
