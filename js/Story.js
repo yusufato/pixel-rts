@@ -341,6 +341,8 @@ function storyNewCampaign(config = {}) {
     STORY._nextCouncil = (typeof COUNCIL_PERIOD_YEARS !== 'undefined') ? COUNCIL_PERIOD_YEARS * YEAR_SECONDS : 240;   // FAZ-4: ilk konsey 2. yılda
     STORY._councilNo = 0;
     STORY._session = null;
+    STORY.rel = {};                                     // FAZ-6: diplomasi ilişki/antlaşma tablosu
+    STORY._talks = []; STORY._accTalk = 0; STORY._talkUid = 0;
     STORY.cfg = {
         abundance,
         doctrine: config.doctrine || STORY.cfg.doctrine || 'combined',
@@ -368,7 +370,9 @@ function storySave() {
             commander: STORY.commander, veterans: STORY.veterans, tech: STORY.tech, cfg: STORY.cfg, pendingReward: STORY.pendingReward,
             clock: STORY.clock, log: STORY.log,
             caps: STORY._capitals,  // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
-            nextCouncil: STORY._nextCouncil, councilNo: STORY._councilNo   // FAZ-4: konsey takvimi (kanun/anayasa states içinde)
+            nextCouncil: STORY._nextCouncil, councilNo: STORY._councilNo,  // FAZ-4: konsey takvimi (kanun/anayasa states içinde)
+            rel: STORY.rel   // FAZ-6: diplomasi (ilişki + antlaşma). Sohbet kuyruğu KAYDEDİLMEZ:
+                             // seçenekler canlı fonksiyon taşır, serileşemez — yükleyince yenileri üretilir.
         };
         localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(data));
         STORY._lastSaveOk = true;
@@ -434,6 +438,8 @@ function storyLoad() {
         STORY._nextCouncil = (d.nextCouncil != null) ? d.nextCouncil : (Math.floor(STORY.clock / _per) + 1) * _per;
         STORY._councilNo = d.councilNo || 0;
         STORY._session = null;
+        STORY.rel = (d.rel && typeof d.rel === 'object') ? d.rel : {};   // FAZ-6 diplomasi
+        STORY._talks = []; STORY._accTalk = 0;
         STORY.log = d.log || [];
         STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
         return true;
@@ -982,6 +988,10 @@ function storyAdvance(dtSec) {
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
     STORY._accTech = (STORY._accTech || 0) + dtSec;
     if (STORY._accTech >= 8) { STORY._accTech = 0; storyAIResearch(); }
+    // FAZ-6: SOHBET (komutan/kulis/elçi) + AI'ler arası diplomasi
+    if (typeof storyTalkTick === 'function') storyTalkTick(dtSec);
+    STORY._accDip = (STORY._accDip || 0) + dtSec;
+    if (STORY._accDip >= 11) { STORY._accDip = 0; if (typeof storyAIDiplomacyTick === 'function') storyAIDiplomacyTick(); }
     STORY._accCityDev = (STORY._accCityDev || 0) + dtSec;
     if (STORY._accCityDev >= 10) { STORY._accCityDev = 0; if (typeof storyAICityTick === 'function') storyAICityTick(); }   // AI: garnizon/şehir/bina geliştirir + ordu üretir
     STORY._accReplenish = (STORY._accReplenish || 0) + dtSec;
@@ -1155,6 +1165,7 @@ function storyExposureAt(node, st) {
     let threat = 0;
     for (const nb of node.neighbors) {
         const n = storyNode(nb); if (!n || n.owner === st.id) continue;             // sadece DÜŞMAN komşular
+        if (typeof storyIsHostile === 'function' && !storyIsHostile(st.id, n.owner)) continue;   // FAZ-6: antlaşmalı komşu tehdit değil
         const ns = storyState(n.owner); if (!ns || !ns.gov) continue;
         for (const c of storyStateCommanders(ns)) {                                 // o düşman şehrinde/komşusunda hareketli kuvvet
             if (c.node === nb) threat += storyCalcCommanderPower(c, ns);
@@ -1214,7 +1225,9 @@ function storyCommanderDecide(cmd, st) {
     if (rein >= 0) { cmd.node = rein; return; }                 // dost kuşatmasına doğru 1 adım ilerle
     if (!onFront) { storyCommanderAdvance(cmd, st); return; }   // cephe yoksa cepheye ilerle
     // DERİN BEKLENEN-DEĞER hedef seç → KUŞAT (değer × kazanma × ileriye-bakış-riski × konsolidasyon; açgözlü tek-adım DEĞİL)
-    const enemies = node.neighbors.map(storyNode).filter(n => n && n.owner !== st.id);
+    // FAZ-6 DİPLOMASİ: ateşkes/pakt/ittifak olan devlete saldırılmaz (antlaşma bozmak ayrı bir karardır)
+    const enemies = node.neighbors.map(storyNode).filter(n => n && n.owner !== st.id
+        && (typeof storyIsHostile !== 'function' || storyIsHostile(st.id, n.owner)));
     const p = CMD_PERSONA[cmd.personality] || CMD_PERSONA.dengeli;
     const atk = storyCalcCommanderPower(cmd, st);
     let best = null;
@@ -1283,7 +1296,8 @@ function storyStaffPlan(st) {
     const defNeeds = [];
     for (const n of STORY.nodes) {
         if (n.owner !== st.id) continue;
-        if (!n.neighbors.some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; })) continue;   // sadece sınır
+        if (!n.neighbors.some(nb => { const m = storyNode(nb); return m && m.owner !== st.id
+            && (typeof storyIsHostile !== 'function' || storyIsHostile(st.id, m.owner)); })) continue;   // sadece DÜŞMAN sınırı
         const threat = storyExposureAt(n, st); const besieged = !!(n._siege && n._siege.by !== st.id);
         if (threat <= 0 && !besieged) continue;
         const deficit = threat * (besieged ? 1.25 : 0.9) - storyCalcDefenseStrength(n, st);

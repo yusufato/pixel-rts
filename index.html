@@ -191,7 +191,8 @@
                 <button id="story-army-btn" class="tool-btn" title="Ordum ve gaziler"><b>02</b><span>ORDU</span></button>
                 <button id="story-tech-btn" class="tool-btn" title="Teknoloji Ağacı"><b>03</b><span>AR-GE</span></button>
                 <button id="story-city-btn" class="tool-btn" title="Seçili şehri yönet: bina, üretim, garnizon, ordu"><b>04</b><span>ŞEHRE GİR</span></button>
-                <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>05</b><span>KOMUTAN</span></button>
+                <button id="story-talk-btn" class="tool-btn" title="Sohbetler ve diplomasi"><b>05</b><span>SOHBET</span><i id="story-talk-badge" class="tool-badge hidden"></i></button>
+                <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>06</b><span>KOMUTAN</span></button>
             </div>
             <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
             <aside id="council-panel" aria-hidden="true">
@@ -240,6 +241,14 @@
                     <button id="city-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="city-body"></div>
+            </aside>
+            <!-- SOHBET & DİPLOMASİ — SOLDAN kayar drawer (dünyayı durdurmaz) -->
+            <aside id="talk-panel" aria-hidden="true">
+                <div id="talk-header">
+                    <span class="council-title">SOHBET & DİPLOMASİ</span>
+                    <button id="talk-close" class="council-x" aria-label="Kapat">KAPAT</button>
+                </div>
+                <div id="talk-body"></div>
             </aside>
             <!-- KONSEY TOPLANTISI — 2 yılda bir, başkentte. DÜNYAYI DURDURUR (olay). -->
             <div id="council-session" class="hidden">
@@ -444,6 +453,7 @@
     <script src="js/Story.js"></script>
     <script src="js/Production.js"></script>
     <script src="js/Council.js"></script>
+    <script src="js/Talks.js"></script>
     <script src="js/WarRoomUI.js"></script>
 </body>
 
