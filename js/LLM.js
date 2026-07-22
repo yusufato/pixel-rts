@@ -83,6 +83,11 @@ DURUM: ${topicDesc}`;
 // ── DOĞRULAMA ──────────────────────────────────────────────────────────────
 // Model serbest metin üretir; oyun kesin biçim bekler. Tutmayan çıktı ATILIR.
 const LLM_EN_LEAK = /\b(the|and|with|that|from|this|would|should|could|there|their|about|which|please|note|here|assistant|user)\b/i;
+// LATİN DIŞI ALFABE — ölçümde Qwen bir üretimde göreve tamamen çıkıp ÇİNCE bastı
+// ("Kaya Bey: Sorumlular找出所有以字母'f'开头的单词"). EN_LEAK bunu yakalayamaz çünkü
+// kelime sınırı (\b) Çince yazıda tutmuyor; satır kısa ve iki noktalı olduğu için
+// diğer tüm süzgeçlerden de geçip ekrana basılırdı. Tek karakter bile yeter: ele.
+const LLM_NONLATIN = /[　-鿿Ѐ-ӿ؀-ۿ가-힯぀-ヿ]/;
 function llmParseDialog(text, a, b) {
     if (!text) return null;
     const lines = String(text).split('\n').map(l => l.trim())
@@ -93,6 +98,7 @@ function llmParseDialog(text, a, b) {
         if (l.length > 240) return null;                       // aşırı uzun
         if (l.split(/\s+/).length > 30) return null;
         if (LLM_EN_LEAK.test(l)) return null;                  // İngilizce sızıntı
+        if (LLM_NONLATIN.test(l)) return null;                 // Çince/Kiril/Arap kaçağı
     }
     // en az bir replik konuşanlardan birinin adıyla başlamalı (halüsinasyon süzgeci)
     const names = [a && a.name, b && b.name].filter(Boolean).map(n => n.split(' ')[0]);
@@ -106,7 +112,11 @@ function llmEnrich(system, prompt, validate) {
     const b = llmBridge();
     if (!llmAvailable() || LLM.inFlight >= LLM.maxInFlight) return Promise.resolve(null);
     LLM.inFlight++; LLM.stats.asked++;
-    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 160, temperature: 0.85 })
+    // maxTokens 160 → 70: iki replik ~40 jeton. Kalan 120 jeton modele "devam et"
+    // alanı açıyordu ve ölçümde kaçakların ÇOĞU tam orada başladı (2 replik yazıp
+    // sonra listeye/meta metne dalma). Ayrıca CPU'da süreyi yarıdan fazla kısar —
+    // saf CPU'da 7B ~0.8 jeton/sn ölçüldü, yani her 100 jeton ~2 dakika demek.
+    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 70, temperature: 0.85 })
         .then(txt => {
             LLM.inFlight--;
             if (!txt) { LLM.stats.failed++; return null; }

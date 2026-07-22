@@ -183,7 +183,11 @@ ipcMain.handle('llm:generate', async (_e, req) => {
     llmChild.send({ t: 'gen', id, system: req.system, prompt: req.prompt, maxTokens: req.maxTokens, temperature: req.temperature });
     return new Promise(resolve => {
         llmPending.set(id, resolve);
-        setTimeout(() => { if (llmPending.has(id)) { llmPending.delete(id); resolve(null); } }, 30000);
+        // ZAMAN AŞIMI 30 sn → 120 sn. Ölçüm: saf CPU'da 7B ~0.8 jeton/sn, tek diyalog
+        // 36–54 sn sürüyor. 30 sn'lik sınır CPU'daki HER üretimi keserdi: model 4.5 GB
+        // RAM tutar, bir çekirdeği doldurur ve sonuç HİÇBİR ZAMAN kullanılmazdı.
+        // Oyun zaten bunu beklemiyor (ateşle-unut), o yüzden uzun sınır bedava.
+        setTimeout(() => { if (llmPending.has(id)) { llmPending.delete(id); resolve(null); } }, 120000);
     });
 });
 
