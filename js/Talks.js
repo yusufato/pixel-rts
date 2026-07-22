@@ -253,7 +253,8 @@ const TALK_TEMPLATES = [
     {
         id: 'clique', audience: 'player', kind: 'clique',
         when: c => c.mine.length >= 2,
-        weight: () => 2 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2),
+        weight: () => (2 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2))
+                     * ((typeof storyEraEffects === 'function') ? storyEraEffects().plotWeight : 1),
         build: c => {
             const a = talkPick(c.mine);
             const b = talkPick(c.mine.filter(x => x !== a)) || a;
@@ -278,7 +279,8 @@ const TALK_TEMPLATES = [
     {
         id: 'plot', audience: 'player', kind: 'clique',
         when: c => c.mine.filter(x => talkLoy(x) < 50).length >= 2,
-        weight: () => 3 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2.5),
+        weight: () => (3 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2.5))
+                     * ((typeof storyEraEffects === 'function') ? storyEraEffects().plotWeight : 1),
         build: c => {
             const low = c.mine.filter(x => talkLoy(x) < 50);
             const a = talkPick(low);
@@ -709,6 +711,8 @@ function storyTalkUpdate() {
     const me = storyPlayerState(); if (!me) return;
     const talks = STORY._talks || [];
 
+    // 0) DÜNYANIN HÂLİ (Era.js) — her şeyin bağlamı
+    let eraHtml = (typeof storyEraHtml === 'function') ? storyEraHtml() : '';
     // 1) DİPLOMASİ TABLOSU — ilişkiler ve antlaşmalar
     const others = STORY.states.filter(s => s.id !== me.id && STORY.nodes.some(n => n.owner === s.id));
     const diploRows = others.map(s => {
@@ -719,7 +723,7 @@ function storyTalkUpdate() {
             + `<span class="dip-bar"><b style="width:${pct}%;background:${lab.c}"></b></span>`
             + `<span class="dip-v" style="color:${lab.c}">${lab.t}</span></div>`;
     }).join('');
-    let html = `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
+    let html = eraHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
         + `<div class="talk-note">İlişkiler <b>sohbetlerle</b> değişir — elçileri dinle, söz ver, ahdine sadık kal.</div>`
         + (diploRows || `<div class="talk-note">Sahnede başka devlet yok.</div>`) + `</div>`;
 

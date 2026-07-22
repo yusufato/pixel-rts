@@ -343,6 +343,7 @@ function storyNewCampaign(config = {}) {
     STORY._councilNo = 0;
     STORY._session = null;
     STORY.rel = {};                                     // FAZ-6: diplomasi ilişki/antlaşma tablosu
+    STORY._era = null; STORY._eraEvents = []; STORY._eraFlips = []; STORY._accEra = 0;   // FAZ-10 dünya çağı
     STORY._talks = []; STORY._accTalk = 0; STORY._talkUid = 0;
     STORY.cfg = {
         abundance,
@@ -372,6 +373,7 @@ function storySave() {
             clock: STORY.clock, log: STORY.log,
             caps: STORY._capitals,  // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
             nextCouncil: STORY._nextCouncil, councilNo: STORY._councilNo,  // FAZ-4: konsey takvimi (kanun/anayasa states içinde)
+            era: STORY._era, eraEvents: STORY._eraEvents, eraFlips: STORY._eraFlips,   // FAZ-10 dünya çağı
             rel: STORY.rel   // FAZ-6: diplomasi (ilişki + antlaşma). Sohbet kuyruğu KAYDEDİLMEZ:
                              // seçenekler canlı fonksiyon taşır, serileşemez — yükleyince yenileri üretilir.
         };
@@ -462,6 +464,7 @@ function storyLoad() {
         STORY._councilNo = d.councilNo || 0;
         STORY._session = null;
         STORY.rel = (d.rel && typeof d.rel === 'object') ? d.rel : {};   // FAZ-6 diplomasi
+        STORY._era = d.era || null; STORY._eraEvents = d.eraEvents || []; STORY._eraFlips = d.eraFlips || [];   // FAZ-10
         STORY._talks = []; STORY._accTalk = 0;
         STORY.log = d.log || [];
         STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
@@ -1018,6 +1021,9 @@ function storyAdvance(dtSec) {
     if (typeof storyTalkTick === 'function') storyTalkTick(dtSec);
     STORY._accDip = (STORY._accDip || 0) + dtSec;
     if (STORY._accDip >= 11) { STORY._accDip = 0; if (typeof storyAIDiplomacyTick === 'function') storyAIDiplomacyTick(); }
+    // FAZ-10: DÜNYA ÇAĞI — dünyanın karakteri ölçülür, AI ve sohbet ona göre davranır
+    STORY._accEra = (STORY._accEra || 0) + dtSec;
+    if (STORY._accEra >= 6) { STORY._accEra = 0; if (typeof storyEraTick === 'function') storyEraTick(); }
     STORY._accCityDev = (STORY._accCityDev || 0) + dtSec;
     if (STORY._accCityDev >= 10) { STORY._accCityDev = 0; if (typeof storyAICityTick === 'function') storyAICityTick(); }   // AI: garnizon/şehir/bina geliştirir + ordu üretir
     STORY._accReplenish = (STORY._accReplenish || 0) + dtSec;
@@ -1205,7 +1211,9 @@ function storyEvalTarget(cmd, st, t, atk, p) {
     const ts = storyState(t.owner); if (!ts) return null;
     const win = atk / (atk + storyCalcDefenseStrength(t, ts));
     if (win < p.minWin) return null;                                                // kişiliğin risk eşiği
-    let ev = storyTargetValue(t) * p.valMul * win;
+    // FAZ-10: ÇAĞ ETKİSİ — kaos/ateş çağında herkes daha atak, barışta daha çekingen
+    const _eraAggr = (typeof storyEraEffects === 'function') ? (storyEraEffects().aggression || 1) : 1;
+    let ev = storyTargetValue(t) * p.valMul * win * _eraAggr;
     // (1.2) İLERİYE-BAKIŞ — overextension cezası: alırsam karşı-saldırı gücü gücüme göre büyükse EV düşer (temkin kişiliğe bağlı)
     const exposure = storyExposureAt(t, st);
     ev /= (1 + (exposure / Math.max(atk, 1)) * (p.caution == null ? 1 : p.caution));
@@ -1579,6 +1587,7 @@ function storyApplyLoyaltyDrift() {
 function storyStateStr(st) { return st.res.oil + st.res.manpower + st.res.points; }
 function storyStateHealth(st) { return (st.welfare + st.reputation * 10) / 2; }
 function storyCommanderDefectTo(cmd, fromSt, toSt, atNode) {
+    if (typeof storyEraEvent === 'function') storyEraEvent('firar');   // FAZ-10: çalkantı ölçümü
     const i = fromSt.gov.commanders.indexOf(cmd); if (i >= 0) fromSt.gov.commanders.splice(i, 1);
     if (!toSt.gov) toSt.gov = { leader: 'ai', commanders: [] };
     cmd.st = toSt.id;   // FAZ-8: firar edince devlet bağı da taşınır
@@ -1990,6 +1999,8 @@ function storyPanelUpdate() {
             `<div class="story-stat-chip">PUAN<b>${Math.floor(myr.points)}</b></div>` +
             `<div class="story-stat-chip">GAZİ<b>${(STORY.veterans || []).length}</b></div>` +
             `<div class="story-stat-chip wide">TARİH<b>${date}</b></div>` +
+            ((typeof storyEra === 'function') ? (() => { const e = storyEra();
+                return `<div class="story-stat-chip wide" title="${e.desc}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`; })() : '') +
             (toCouncil != null ? `<div class="story-stat-chip${cSoon ? ' urgent' : ''}">KONSEY<b>${(toCouncil / YEAR_SECONDS).toFixed(1)} yıl</b></div>` : '');
     }
     const info = document.getElementById('story-node-info');

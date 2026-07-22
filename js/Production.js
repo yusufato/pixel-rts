@@ -688,6 +688,7 @@ function storyAICityTick() {
 // Şehir el değiştirince orada bekleyen ordu yok olur; küçük bir kısmı fatihe kalır.
 // Snowball'u sınırlar ama "şehri almak orduyu da almaktır" hissini korur.
 function storyCaptureNodePool(n) {
+    if (typeof storyEraFlip === 'function') storyEraFlip();   // FAZ-10: oynaklık ölçümü
     if (!n) return;
     const keep = {};
     for (const k in (n.pool || {})) {
