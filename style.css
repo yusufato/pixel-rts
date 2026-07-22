@@ -1589,3 +1589,30 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .cl-val { color: #ffe9bf; text-align: right; }
 .cl-val.none { color: #5f6f66; font-style: italic; }
 .cl-next { margin-top: 10px; font-size: 10px; color: #9fb3c8; }
+
+/* ══ KONSEY SEKMELERİ (komutanlar ↔ kanunlar) ═══════════════════════════════ */
+#council-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--wr-line); margin: 0 0 8px; }
+.ctab { flex: 1; padding: 9px 6px; cursor: pointer; background: transparent; border: none;
+    border-bottom: 2px solid transparent; color: var(--wr-muted);
+    font: 10px 'Share Tech Mono', monospace; letter-spacing: 1.2px; transition: color .12s, border-color .12s; }
+.ctab:hover { color: var(--wr-amber-bright); }
+.ctab.active { color: var(--wr-amber-bright); border-bottom-color: var(--wr-amber); background: rgba(255,176,0,.06); }
+#council-tab-cmd.hidden, #council-tab-law.hidden { display: none; }
+
+/* ══ ORDUM paneli — sefer ordusu / diğer komutanlar / depolar ════════════════ */
+.army-list, .army-cmds { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.army-row { display: flex; justify-content: space-between; padding: 3px 6px; background: rgba(255,255,255,.04); border-radius: 3px; font-size: 11px; }
+.army-cmd-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 11px; }
+.acr-n { flex: 0 0 auto; color: #e6f0e8; }
+.acr-loc { flex: 1; color: #7f9287; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acr-ct { flex: 0 0 auto; font-weight: 700; color: #ffe9bf; }
+.army-tot { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11px; color: #9fb3c8; border-bottom: 1px solid rgba(255,255,255,.05); }
+.army-tot b { color: #ffe9bf; }
+.army-tot.big { border-bottom: none; margin-top: 2px; font-size: 13px; color: var(--wr-amber-bright); }
+.army-tot.big b { color: var(--wr-amber-bright); font-size: 15px; }
+
+/* ══ SEVK kutusu (ŞEHRE GİR panelinde) ══════════════════════════════════════ */
+.ship-box { margin-top: 8px; padding: 8px; background: rgba(76,159,255,.07); border-left: 3px solid #4c9fff; border-radius: 3px; }
+.ship-h { font-size: 11px; color: #cfe3d6; margin-bottom: 6px; }
+.ship-acts { display: flex; gap: 6px; }
+.ship-acts .city-btn { flex: 1; }

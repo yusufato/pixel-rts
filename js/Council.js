@@ -172,8 +172,12 @@ function storyCouncilBuildAgenda(st, sessionNo) {
     const items = [];
     const rnd = (salt) => _councilHash(st.id + '|' + sessionNo + '|' + salt);
 
-    // 1) TEKNOLOJİ — uygun tech'lerden 3 aday (farklı dallardan olmaya çalış)
-    const avail = TECH_TREE.techs.filter(t => storyTechStatusFor(st.tech || [], t).state === 'available');
+    // 1) TEKNOLOJİ — AĞIR kararlar konseye gelir (K3-K4). Basit K1-K2 teknolojileri
+    // yönetim kendi Ar-Ge fonundan duruma göre geçer (storyTechPriority) — konseyi
+    // önemsiz maddelerle meşgul etmeyelim. K3+ yoksa mevcut olanlara düşülür.
+    const allAvail = TECH_TREE.techs.filter(t => storyTechStatusFor(st.tech || [], t).state === 'available');
+    const heavy = allAvail.filter(t => t.tier > (typeof ADMIN_TECH_MAX_TIER !== 'undefined' ? ADMIN_TECH_MAX_TIER : 2));
+    const avail = heavy.length ? heavy : allAvail;
     if (avail.length) {
         const pool = avail.slice().sort((a, b) => (a.cost - b.cost) + (rnd(a.id) - rnd(b.id)) * 120);
         const picked = [], seenBranch = {};
@@ -230,6 +234,49 @@ function storyCouncilBuildAgenda(st, sessionNo) {
                 { id: '_none',     name: 'Makam Boş Kalsın', desc: 'Hazine korunur, kadro genişlemez.',            meta: 'RET',  appeal: { economist: 0.5, diplomat: -0.3 } },
             ],
         });
+    }
+
+    // 4.5) İNŞAAT PROGRAMI — yönetici DEVLET HAZİNESİNDEN şehirlerde bina yaptırır.
+    // Oyuncunun kendi kasasıyla tek tek kurmasından farklı: bu bir devlet yatırımıdır ve
+    // konsey onaylar. Aday şehirler: başkent + en gelişmeye muhtaç cephe/üretim şehirleri.
+    const mine = STORY.nodes.filter(n => n.owner === st.id);
+    if (mine.length) {
+        const capId = (STORY._capitals || [])[st.id];
+        const score = n => {
+            let v = (n.oil || 0) * 2 + (n.cities || 0) * 1.5 + (n.pts || 0) * 2 + (n.level || 1) * 2;
+            if (n.id === capId) v += 8;                                    // başkent önceliklidir
+            v -= ((n.fac | 0) + (n.bar | 0)) * 3;                          // zaten gelişmişse geri sırada
+            const front = (n.neighbors || []).some(id => { const q = storyNode(id); return q && q.owner !== st.id; });
+            if (front) v += 5;                                             // cephe şehri tahkim edilmeli
+            return v + rnd('site' + n.id) * 6;
+        };
+        const sites = mine.slice().sort((a, b) => score(b) - score(a)).slice(0, 3);
+        const opts = [];
+        for (const n of sites) {
+            // o şehir için en anlamlı tek iş: eksik binayı kur, yoksa şehri yükselt
+            let kind = null;
+            if ((n.bar | 0) < prodMaxBuildLevel(n)) kind = 'bar';
+            else if ((n.fac | 0) < prodMaxBuildLevel(n)) kind = 'fac';
+            if (kind) {
+                const lvl = n[kind] | 0, cost = prodBuildCost(kind, lvl, n);
+                if (cost != null) opts.push({
+                    id: `b|${n.id}|${kind}`, name: `${kind === 'fac' ? '🏭' : '🎖️'} ${n.name}: ${prodBuildingName(kind)} Sv.${lvl + 1}`,
+                    desc: `${cost}⭐ devlet hazinesinden · ${kind === 'fac' ? 'tank/tanksavar/zırhlı piyade' : 'piyade/keşif/topçu'} üretimi`,
+                    meta: 'İNŞAAT', appeal: kind === 'fac' ? { warrior: 1.2, economist: 0.8 } : { warrior: 0.9, economist: 0.9 },
+                });
+            } else if ((n.level || 1) < 3) {
+                const cost = CITY_UPGRADE_COST[n.level || 1];
+                if (cost != null) opts.push({
+                    id: `u|${n.id}`, name: `🏗️ ${n.name}: Şehir Sv.${(n.level || 1) + 1}`,
+                    desc: `${cost}⭐ devlet hazinesinden · ${CITY_UPGRADE_GAIN[n.level || 1] || 'gelir + kapasite'}`,
+                    meta: 'İNŞAAT', appeal: { economist: 1.4, diplomat: 0.5 },
+                });
+            }
+        }
+        if (opts.length) {
+            opts.push({ id: '_none', name: '⏭️ İnşaat Yapılmasın', desc: 'Hazine korunur.', meta: 'RET', appeal: { economist: 0.5 }, welfare: 0 });
+            items.push({ kind: 'build', icon: '🏗️', title: 'İNŞAAT PROGRAMI', desc: 'Devlet hazinesinden hangi şehre yatırım yapılsın?', options: opts });
+        }
     }
 
     // 5) DEVLET ÖNERGESİ — havuzdan 3 farklı önerge + ret
@@ -289,6 +336,25 @@ function storyCouncilApply(st, item, optId) {
         if (!storyCouncilPayFromState(st, { oil: 90, manpower: 90, points: 90 })) return '🎖️ Hazine yetersiz — atama yapılamadı';
         const nc = storyCreateCommanderFor(st.id, optId);
         return nc ? `🎖️ <b>${nc.name}</b> komutanlığa atandı` : null;
+    }
+    if (item.kind === 'build') {
+        const parts = String(optId).split('|');
+        const n = storyNode(+parts[1]);
+        if (!n || n.owner !== st.id) return '🏗️ Şehir artık elimizde değil — inşaat iptal';
+        if (parts[0] === 'b') {
+            const kind = parts[2], lvl = n[kind] | 0;
+            if (lvl >= PROD_MAX_LEVEL || lvl >= prodMaxBuildLevel(n)) return null;
+            const cost = prodBuildCost(kind, lvl, n);
+            if (!storyCouncilPayFromState(st, { points: cost })) return `🏗️ Hazine yetersiz — <b>${n.name}</b> inşaatı ertelendi`;
+            n[kind] = lvl + 1;
+            return `🏗️ <b>${n.name}</b>: ${prodBuildingName(kind)} Sv.${n[kind]} kuruldu`;
+        }
+        const lvl = n.level || 1;
+        if (lvl >= 3) return null;
+        const cost = CITY_UPGRADE_COST[lvl];
+        if (!storyCouncilPayFromState(st, { points: cost })) return `🏗️ Hazine yetersiz — <b>${n.name}</b> yükseltmesi ertelendi`;
+        n.level = lvl + 1;
+        return `🏗️ <b>${n.name}</b> Sv.${n.level}'e yükseldi`;
     }
     if (item.kind === 'motion') {
         const m = MOTION_BY_ID[optId]; if (!m) return null;

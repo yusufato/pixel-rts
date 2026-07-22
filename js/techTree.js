@@ -34,6 +34,7 @@ const TECH_TREE = {
         { id: 'drill',     branch: 'mob',   tier: 1, cost: 75,  name: 'Talim Nizamı',     desc: 'Piyade atışı +%15',                        prereq: [],                                  effect: { infantryAtk: 1.15 } },
         { id: 'trench',    branch: 'mob',   tier: 2, cost: 100, name: 'Siper Kazısı',     desc: 'Piyade +%30 dayanıklılık',                 prereq: ['conscript'], sibling: 'recon',     effect: { infantryHp: 1.30 } },
         { id: 'recon',     branch: 'mob',   tier: 2, cost: 90,  name: 'İleri Keşif',      desc: 'Keşif görüşü +%40',                        prereq: ['conscript'], sibling: 'trench',    effect: { reconVision: 1.40 } },
+        { id: 'fortline',  branch: 'mob',   tier: 2, cost: 110, name: 'Sınır Tahkimatı',  desc: 'Tüm şehirlerin savunması +%8',             prereq: ['conscript'],                       effect: { cityDefense: 0.08 } },
         { id: 'peoplearmy',branch: 'mob',   tier: 3, cost: 200, name: 'Halk Ordusu',      desc: 'Her fetihte +2 gazi piyade',               prereq: ['trench'],                          effect: { conquestVets: 2 } },
         { id: 'infiltrate',branch: 'mob',   tier: 3, cost: 210, name: 'Sızma Taktiği',    desc: 'Tüm birlikler +%8 hız',                    prereq: ['recon'],                           effect: { allSpeed: 1.08 } },
         { id: 'reserves',  branch: 'mob',   tier: 4, cost: 360, name: 'Yedek Ordu',       desc: 'Her şehrin ordu kapasitesi +6',            prereq: ['peoplearmy'],                      effect: { poolCap: 6 } },
@@ -52,6 +53,7 @@ const TECH_TREE = {
         // ══ 🏛️ DEVLET & LOJİSTİK — çarpan/kapı; K3'leri açar ══
         { id: 'tax',       branch: 'state', tier: 1, cost: 70,  name: 'Vergi Reformu',    desc: 'Tüm şehir +%15 ⭐puan geliri',              prereq: [],                                  effect: { pointsIncome: 1.15 } },
         { id: 'intel',     branch: 'state', tier: 1, cost: 140, name: 'İstihbarat Ağı',   desc: 'Komşu düşman savunma gücü görünür',        prereq: [],                                  effect: { intel: true } },
+        { id: 'gendarme',  branch: 'state', tier: 1, cost: 95,  name: 'Jandarma Teşkilatı', desc: 'Sadakat erimesi −%15 (erken iç güvenlik)', prereq: [],                                effect: { loyaltyHold: 0.85 } },
         { id: 'academy',   branch: 'state', tier: 2, cost: 130, name: 'Subay Okulu',      desc: 'Yeni komutan +1 başlangıç yeteneği',       prereq: ['tax'],                             effect: { officer: 1 } },
         { id: 'railways',  branch: 'state', tier: 2, cost: 160, name: 'Demiryolu Ağı',    desc: '⛽petrol ve 👥insan geliri +%15',           prereq: ['tax'],                             effect: { oilIncome: 1.15, manIncome: 1.15 } },
         { id: 'wareco',    branch: 'state', tier: 3, cost: 220, name: 'Savaş Ekonomisi',  desc: 'Tüm birim üretimi −%15 (3 kaynak)',        prereq: ['academy'],                         effect: { allCost: 0.85 } },

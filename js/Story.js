@@ -119,6 +119,7 @@ function storyCommanderBackfill(cmd) {
     if (cmd.victories == null) cmd.victories = 0;
     if (!Array.isArray(cmd.activePerks)) cmd.activePerks = [];
     if (!cmd.rewardMods) cmd.rewardMods = {};
+    if (!cmd.army || typeof cmd.army !== 'object') cmd.army = {};   // FAZ-5: sefer ordusu (komutanla gezer)
     cmd.rank = Math.max(1, STORY_RANKS.filter(rank => cmd.xp >= rank.xp).length);
 }
 
@@ -251,6 +252,7 @@ function storyCreateCommander(stateId, node) {
         skills: { warrior: storyRollSkill(), diplomat: storyRollSkill(), economist: storyRollSkill() },
         res: { oil: 200, manpower: 200, points: 200 },   // FAZ-2: komutanın KENDİ kasası (gelir payı birikir, savaşta bununla diziler)
         recentBattles: [],                               // FAZ-2 Adım 5: son ≤3 savaş (1=galip/0=mağlup) — sadakat formülü
+        army: {},                                        // FAZ-5: SEFER ORDUSU — komutanla birlikte gezer (şehir deposu ayrı)
         node: (node != null ? node : (cap != null ? cap : 0))
     };
     const _tb = st._techBonus;                            // TEKNOLOJİ/KANUN (Subay Okulu, Liyakat): +1 yetenek — HER devlet için
@@ -329,7 +331,7 @@ function storyNewCampaign(config = {}) {
     }));
     STORY.playerStateId = playerStateId;
     // OYUNCUNUN KOMUTANI = kontrol-jetonu (bağımsız bir komutan-birey)
-    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {} };
+    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {}, army: {} };
     storyInitGovernments();                            // her devlete AI komutan + hükümet iskeleti
     STORY.veterans = [];
     // OYUNCU tech'i = kendi devletinin tech dizisi (AYNI dizi nesnesi) → storyTechPowerMul/konsey
@@ -392,7 +394,7 @@ function storyLoad() {
         for (const st of STORY.states) {
             if (!st.gov) st.gov = { leader: (st.isPlayer && st.isAdmin) ? 'player' : 'ai', commanders: [] };
             st._nextStaff = 0;   // 1.3: genelkurmay hemen yeniden-planlasın
-            for (const c of (st.gov.commanders || [])) { if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
+            for (const c of (st.gov.commanders || [])) { if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; if (!c.army || typeof c.army !== 'object') c.army = {}; delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
         }
         _storyCmdNextId = _mx + 1;
         STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
@@ -619,7 +621,12 @@ function storySetupPlayerPool(node) {
     // (Eskiden yalnız havuz dalında kuruluyordu; havuz boşken gaziler tamamen kayboluyordu.)
     STORY._battleVets = (STORY.veterans || []).map(v => ({ type: v.type, vet: v.vet }));
     const me = STORY.playerStateId;
-    const muster = (typeof storyMusterPool === 'function') ? storyMusterPool(me, node.id) : { avail: {}, src: [] };
+    // SEFER ORDUSU: komutanının yanındaki ordu savaşa girer. SAVUNMADA bulunduğun şehrin
+    // deposu da katılır (depodaki birlikler zaten oradadır); SALDIRIDA yalnız yanındakiler.
+    const defending = !!(STORY.battleCtx && STORY.battleCtx.mode === 'defense');
+    const muster = (typeof storyMusterArmy === 'function')
+        ? storyMusterArmy(STORY.commander, node, defending, me)
+        : { avail: {}, src: [] };
     let total = 0;
     for (const k in muster.avail) total += muster.avail[k] | 0;
 
@@ -961,7 +968,11 @@ function storyAdvance(dtSec) {
     if (STORY._accProd >= 1.0) { const s = STORY._accProd; STORY._accProd = 0; if (typeof prodTick === 'function') prodTick(s); }
     // FAZ-2 Adım 5: KOMUTAN AI — rastgele drift/invade KALDIRILDI; komutanlar kendi konum/güç/kişilikleriyle davranır
     STORY._accCmdAI = (STORY._accCmdAI || 0) + dtSec;
-    if (STORY._accCmdAI >= 1.0) { STORY._accCmdAI = 0; storyAICommanderTick(); }      // hareket/fetih/oyuncuya saldırı
+    if (STORY._accCmdAI >= 1.0) {
+        STORY._accCmdAI = 0;
+        if (typeof storyAutoLoadArmies === 'function') storyAutoLoadArmies();   // FAZ-5: komutanlar durdukları şehrin deposunu orduya SEVK eder
+        storyAICommanderTick();                                                 // hareket/fetih/oyuncuya saldırı
+    }
     STORY._accLoyalty = (STORY._accLoyalty || 0) + dtSec;
     if (STORY._accLoyalty >= 0.5) { STORY._accLoyalty = 0; storyApplyLoyaltyDrift(); } // sadakat drift
     STORY._accSocial = (STORY._accSocial || 0) + dtSec;
@@ -987,12 +998,9 @@ function storyTechPowerMul(st) { return 1 + ((st && st.tech ? st.tech.length : 0
 // savaşa gireceği birlikler ise havuzdan geliyordu. Kasası dolu ama şehri boş bir komutan
 // "güçlüyüm" deyip saldırıya kalkıyor, sahaya hiç birlik çıkaramıyordu. ("3-4 komutan hiç
 // ordusu olmadan zafer kazanacağına inanıyor.")
+// FAZ-5: ordu artık komutanın ÜZERİNDE (cmd.army) — şehirde beklemiyor, onunla geziyor.
 function storyCommanderArmy(cmd, st) {
-    if (typeof storyMusterPool !== 'function' || cmd.node == null) return 0;
-    const m = storyMusterPool(st.id, cmd.node);
-    let n = 0;
-    for (const k in m.avail) n += m.avail[k] | 0;
-    return n;
+    return (typeof cmdArmyCount === 'function') ? cmdArmyCount(cmd) : 0;
 }
 function storyCalcCommanderPower(cmd, st) {
     const base = 20 + ((cmd.skills && cmd.skills.warrior) || 0) * 12;   // liderlik katkısı (ordu olmadan tek başına az)
@@ -2037,27 +2045,82 @@ function storyArmyClose() {
 }
 function storyArmyToggle() { STORY._armyOpen ? storyArmyClose() : storyArmyOpen(); }
 // 🏗️ ŞEHRE GİR paneli → js/Production.js (storyCityOpen/Close/Toggle/Update + üretim UI'ı)
+// ORDUM paneli — DEVLETİN TAMAMI: senin sefer ordun, diğer komutanların orduları,
+// şehir depoları ve gaziler. (Eskiden yalnız kasa + gazi listesi vardı; "tüm ordum görünsün".)
 function storyArmyUpdate() {
     if (!STORY._armyOpen) return;
     const c = STORY.commander; const body = document.getElementById('army-body');
     if (!body || !c) return;
-    const r = c.res || { oil: 0, manpower: 0, points: 0 };
+    const me = storyPlayerState(); if (!me) return;
+    const label = t => (typeof STATS !== 'undefined' && STATS[t] && STATS[t].name) ? STATS[t].name : t;
+    const rows = obj => Object.keys(obj || {}).filter(k => (obj[k] | 0) > 0)
+        .sort((a, b) => ((STATS[+b] && STATS[+b].cost) || 0) - ((STATS[+a] && STATS[+a].cost) || 0))
+        .map(k => `<div class="army-row"><span>${label(+k)}</span><span class="army-ct">×${obj[k] | 0}</span></div>`).join('');
+    const count = obj => { let n = 0; for (const k in (obj || {})) n += obj[k] | 0; return n; };
+
+    // 1) SENİN SEFER ORDUN
+    const myN = count(c.army), myCap = cmdArmyCap(c);
+    const here = storyNode(c.node);
+    let html = `<div class="army-card"><div class="army-name">🎖️ ${c.name}</div>`
+        + storyCouncilSkillBars(c.skills)
+        + `<div class="army-sub">Sadakat <b style="color:${storyLoyColor(c.loyalty || 100)}">${Math.round(c.loyalty || 100)}/100</b> · 📍 ${here ? here.name : '—'}</div></div>`;
+    html += `<div class="army-section"><div class="army-h">⚔️ SEFER ORDUN <b>${myN}/${myCap}</b></div>`
+        + `<div class="army-note">Bu ordu <b>seninle birlikte gezer</b> — saldırıya bunu götürürsün. Kapasite savaş yeteneğine bağlı.</div>`
+        + (myN ? `<div class="army-list">${rows(c.army)}</div>`
+               : `<div class="army-note" style="color:#ff8a8a">Ordun yok! Bir şehrine git, <b>ŞEHRE GİR</b> panelinden depodan sevk al.</div>`)
+        + `</div>`;
+
+    // 2) DİĞER KOMUTANLARIN SEFER ORDULARI
+    const others = storyPlayerCommanders().filter(x => !x.isPlayer);
+    const othRows = others.map(x => {
+        const n = count(x.army), cap = cmdArmyCap(x), nd = storyNode(x.node);
+        const col = n === 0 ? '#ff8a8a' : (n >= cap * 0.6 ? '#4cff7c' : '#ffd24c');
+        return `<div class="army-cmd-row"><span class="acr-n">${storyPersonaIcon(x.personality)} ${x.name}</span>`
+            + `<span class="acr-loc">📍 ${nd ? nd.name : '—'}</span>`
+            + `<span class="acr-ct" style="color:${col}">${n}/${cap}</span></div>`;
+    }).join('');
+    const othTotal = others.reduce((a, x) => a + count(x.army), 0);
+    html += `<div class="army-section"><div class="army-h">🎖️ DİĞER KOMUTANLAR <b>${othTotal} birlik</b></div>`
+        + (others.length ? `<div class="army-cmds">${othRows}</div>` : `<div class="army-note">Konseyde başka komutan yok.</div>`)
+        + `</div>`;
+
+    // 3) ŞEHİR DEPOLARI (üretilip sevk bekleyen)
+    const depots = STORY.nodes.filter(n => n.owner === me.id && count(n.pool) > 0)
+        .sort((a, b) => count(b.pool) - count(a.pool));
+    const depTotal = depots.reduce((a, n) => a + count(n.pool), 0);
+    const depRows = depots.map(n => {
+        const has = storyPlayerCommanders().some(x => x.node === n.id);
+        return `<div class="army-cmd-row"><span class="acr-n">🏭 ${n.name}</span>`
+            + `<span class="acr-loc">${has ? 'komutan var — sevk edilebilir' : 'sevk bekliyor'}</span>`
+            + `<span class="acr-ct">${count(n.pool)}/${prodPoolCap(n)}</span></div>`;
+    }).join('');
+    html += `<div class="army-section"><div class="army-h">🏭 ŞEHİR DEPOLARI <b>${depTotal} birlik</b></div>`
+        + `<div class="army-note">Depodaki birlikler bulundukları şehri <b>savunur</b> ama saldırıya gitmez — komutan gelip sevk almalı.</div>`
+        + (depots.length ? `<div class="army-cmds">${depRows}</div>` : `<div class="army-note">Depolar boş — şehirlerinde üretim yap.</div>`)
+        + `</div>`;
+
+    // 4) TOPLAM + GAZİLER
+    html += `<div class="army-section"><div class="army-h">📊 DEVLET TOPLAMI</div>`
+        + `<div class="army-tot"><span>Sefer orduları</span><b>${myN + othTotal}</b></div>`
+        + `<div class="army-tot"><span>Şehir depoları</span><b>${depTotal}</b></div>`
+        + `<div class="army-tot big"><span>TÜM ORDU</span><b>${myN + othTotal + depTotal}</b></div></div>`;
+
     const vets = STORY.veterans || [];
     const groups = {};
     for (const v of vets) { const k = v.type + '|' + (v.vet | 0); groups[k] = (groups[k] || 0) + 1; }
-    const label = t => (typeof STATS !== 'undefined' && STATS[t] && STATS[t].name) ? STATS[t].name : t;
     const vetRows = Object.keys(groups).sort((a, b) => (+b.split('|')[1]) - (+a.split('|')[1])).map(k => {
         const t = k.split('|')[0], lvl = Math.max(1, +k.split('|')[1] || 1);
-        return `<div class="army-vet-row"><span>${label(t)}</span><span class="army-star">${'★'.repeat(Math.min(5, lvl))} sv${lvl}</span><span class="army-ct">×${groups[k]}</span></div>`;
+        return `<div class="army-vet-row"><span>${label(+t)}</span><span class="army-star">${'★'.repeat(Math.min(5, lvl))} sv${lvl}</span><span class="army-ct">×${groups[k]}</span></div>`;
     }).join('');
-    body.innerHTML =
-        `<div class="army-card"><div class="army-name">🎖️ ${c.name}</div>`
-        + storyCouncilSkillBars(c.skills)
-        + `<div class="army-sub">Sadakat <b style="color:${storyLoyColor(c.loyalty || 100)}">${Math.round(c.loyalty || 100)}/100</b></div></div>`
-        + `<div class="army-section"><div class="army-h">💰 Ordu bütçen (kasan)</div><span class="army-res">⛽ ${Math.floor(r.oil)} · 👥 ${Math.floor(r.manpower)} · ⭐ ${Math.floor(r.points)}</span><div class="army-note">Düelloda birliklerini bununla dizersin.</div></div>`
-        + `<div class="army-section"><div class="army-h">🎖️ Gaziler <b>${vets.length}/14</b></div><div class="army-note">Savaştan sağ çıkanlar ★ olarak sonraki düelloya bedava katılır (+%12/seviye dayanıklılık).</div>`
+    html += `<div class="army-section"><div class="army-h">🎖️ GAZİLER <b>${vets.length}/14</b></div>`
+        + `<div class="army-note">Savaştan sağ çıkanların kıdemi sonraki düelloda birliklerine yapışır (+%12/seviye dayanıklılık).</div>`
         + (vets.length ? `<div class="army-vets">${vetRows}</div>` : `<div class="army-note">Henüz gazi yok — bir düelloyu kazan.</div>`)
         + `</div>`;
+
+    const r = c.res || { oil: 0, manpower: 0, points: 0 };
+    html += `<div class="army-section"><div class="army-h">💰 KASAN</div><span class="army-res">⛽ ${Math.floor(r.oil)} · 👥 ${Math.floor(r.manpower)} · ⭐ ${Math.floor(r.points)}</span>`
+        + `<div class="army-note">Üretim, bina ve şehir yükseltmeleri bu kasadan ödenir.</div></div>`;
+    body.innerHTML = html;
 }
 // ── TEKNOLOJİ AĞACI (Faz-2 Adım 4 — HER devlet kendi tech'ini geliştirir) ─────
 const TECH_COST_MULT = 2.5;   // tüm tech fiyatları ×2.5 (daha stratejik/kıt yatırım)
@@ -2138,19 +2201,79 @@ function storyComputeTechBonus() {
 // Bu "kendiliğinden ilerleyen bilim"dir; YÖN veren karar konseydedir (storyCouncilApply).
 // Oyuncu devleti de dahil çünkü aksi hâlde AI serbest ilerlerken oyuncu yalnız 2 yılda bir
 // tech alırdı — ölçümde AI 700sn'de 5-12 tech'e çıkıyordu, oyuncu 2'de kalıyordu.
+// ── YÖNETİCİ AR-GE ÖNCELİĞİ ──
+// "en ucuzu al" yanlıştı: devlet neye ihtiyacı olduğuna bakmadan rastgele bir dalı dolduruyordu.
+// Yönetici artık DURUMA bakar. Yalnız K1-K2 (basit) teknolojiler bu yoldan gelir;
+// K3-K4 ağır kararlar KONSEY oylamasına kalır ("ana kanunlar yine seçimle").
+const ADMIN_TECH_MAX_TIER = 2;
+// İHTİYAÇLAR SÜREKLİ (0..1) ölçülür, eşikli değil. Eşikli ilk sürümde "ordu az mı?" gibi
+// sorular kampanyanın başında hep aynı cevabı veriyordu ve yönetim altı farklı krizde de
+// aynı teknolojiyi seçiyordu (ölçüm: 6 senaryonun 4'ünde tepe seçim aynı). Süreklilik +
+// daha güçlü ağırlıklar kararı gerçekten duruma bağlar.
+function storyStateNeeds(st) {
+    const cl = v => Math.max(0, Math.min(1, v));
+    const owned = STORY.nodes.filter(n => n.owner === st.id);
+    const nOwn = owned.length || 1;
+    const hostileAdj = STORY.nodes.filter(n => n.owner !== st.id && (n.neighbors || []).some(id => { const q = storyNode(id); return q && q.owner === st.id; })).length;
+    let field = 0, depot = 0, build = 0;
+    for (const c of storyStateCommanders(st)) field += (typeof cmdArmyCount === 'function') ? cmdArmyCount(c) : 0;
+    for (const n of owned) { for (const k in (n.pool || {})) depot += n.pool[k] | 0; build += (n.fac | 0) + (n.bar | 0); }
+    const cs = storyStateCommanders(st);
+    const loy = cs.length ? cs.reduce((a, c) => a + (c.loyalty == null ? 60 : c.loyalty), 0) / cs.length : 60;
+    return {
+        army:  cl((4 - (field + depot) / nOwn) / 4),                    // ordu/şehir < 4 → ihtiyaç
+        threat: cl(hostileAdj / nOwn),                                  // düşman komşu oranı
+        money: cl((450 - (st.techPoints || 0)) / 450),
+        welfare: cl((50 - (st.welfare == null ? 50 : st.welfare)) / 50),
+        loyalty: cl((62 - loy) / 62),
+        infra: cl((nOwn * 2 - build) / (nOwn * 2)),                     // şehir başına 2 bina hedefi
+        staff: cl((storyCommanderCap(st) - cs.length) / 4),
+    };
+}
+// needs: çağıran hesaplayıp geçer (bir tick'te bir kez). Devlet nesnesinde ÖNBELLEKLENMEZ —
+// orada tutulsa kayda serileşir ve bayatlar.
+function storyTechPriority(st, tech, needs) {
+    const N = needs || storyStateNeeds(st);
+    const e = tech.effect || {}, b = tech.branch;
+    let s = 4 - tech.tier;                                              // erken kademe hafif tercihli (belirleyici DEĞİL)
+    if (e.prodSpeed)                       s += N.army * 20 + N.infra * 6;
+    if (e.poolCap)                         s += N.army * 18;
+    if (e.allCost || e.oilCost || e.manpowerCost) s += N.army * 10 + N.welfare * 9;
+    if (e.buildCost)                       s += N.infra * 17;
+    if (e.cityDefense)                     s += N.threat * 26;
+    if (e.tankHp || e.tankArmor || e.tankAtk || e.infantryHp || e.infantryAtk
+        || e.allHp || e.mechHp || e.atHp || e.artyAtk || e.artySplash
+        || e.artyVsInf || e.atVsTank)      s += N.threat * 16 + (1 - N.army) * 9;
+    if (e.pointsIncome)                    s += N.money * 25;   // ⭐puan = Ar-Ge yakıtı: fon bitince en acil ihtiyaç
+    if (e.oilIncome || e.manIncome)        s += N.money * 14 + N.army * 6;
+    if (e.loyaltyHold)                     s += N.loyalty * 28;
+    if (e.officer)                         s += N.staff * 13;
+    if (e.cmdCap)                          s += N.staff * 15;
+    if (e.intel)                           s += N.threat * 9;
+    if (e.reconVision)                     s += N.threat * 7;
+    if (e.armorSpeed || e.allSpeed)        s += 3 + (1 - N.army) * 4;
+    if (e.conquestVets)                    s += (1 - N.army) * 11;
+    // aynı dalı sonsuz doldurmasın (doktrin çeşitliliği)
+    const inBranch = (st.tech || []).filter(id => TECH_BY_ID[id] && TECH_BY_ID[id].branch === b).length;
+    return s - inBranch * 2.0;
+}
 function storyAIResearch() {
     for (const st of STORY.states) {
         if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0;
-        let best = null, bestCost = Infinity;
+        const needs = storyStateNeeds(st);                           // tick başına bir kez okunan durum
+        let best = null, bestCost = 0, bestScore = -Infinity;
         for (const t of TECH_TREE.techs) {
+            if (t.tier > ADMIN_TECH_MAX_TIER) continue;              // ağır teknoloji = konsey kararı
             const s = storyTechStatusFor(st.tech, t);
-            if (s.state === 'available' && s.cost <= st.techPoints && s.cost < bestCost) { best = t; bestCost = s.cost; }
+            if (s.state !== 'available' || s.cost > st.techPoints) continue;
+            const p = storyTechPriority(st, t, needs);
+            if (p > bestScore) { bestScore = p; best = t; bestCost = s.cost; }
         }
         if (best) {
             st.techPoints -= bestCost;
             st.tech.push(best.id);
             storyStateComputeTech(st);
-            if (st.isPlayer) { storyComputeTechBonus(); storyLog(`🔬 Ar-Ge tamamlandı: <b>${best.name}</b> (−${bestCost}⭐ araştırma fonu)`); }
+            if (st.isPlayer) { storyComputeTechBonus(); storyLog(`🔬 Yönetim Ar-Ge kararı: <b>${best.name}</b> (−${bestCost}⭐ araştırma fonu)`); }
             else if (Math.random() < 0.45) storyLog(`⚙️ ${st.name} teknoloji geliştirdi: <b>${best.name}</b>`);
         }
     }
@@ -2261,9 +2384,17 @@ function storyCouncilUpdate() {
     const C = STORY_CMD_COST, afford = me.res.oil >= C && me.res.manpower >= C && me.res.points >= C, capFull = extra >= 9;
     if (createBtn) { createBtn.disabled = !isAdmin || capFull || !afford; createBtn.textContent = capFull ? '➕ Konsey dolu (10)' : ((!afford && isAdmin) ? '➕ Hazine yetersiz' : '➕ Komutan Yarat'); }
     if (dismissBtn) { dismissBtn.disabled = !isAdmin || extra === 0; dismissBtn.textContent = STORY._dismissMode ? '✓ Dağıtmayı Bitir' : '✖ Dağıt Modu'; }
-    // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı
+    // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı (KANUNLAR sekmesi)
     const laws = document.getElementById('council-lawbox');
     if (laws && typeof storyCouncilLawsHtml === 'function') laws.innerHTML = storyCouncilLawsHtml(me);
+    storyCouncilSyncTabs();
+}
+// Aktif sekmeyi göster/gizle (komutan listesi ↔ kanun/anayasa)
+function storyCouncilSyncTabs() {
+    const tab = STORY._councilTab || 'cmd';
+    document.querySelectorAll('#council-tabs .ctab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.getElementById('council-tab-cmd')?.classList.toggle('hidden', tab !== 'cmd');
+    document.getElementById('council-tab-law')?.classList.toggle('hidden', tab !== 'law');
 }
 function storyCouncilCreate() {
     const me = storyPlayerState(); if (!me || !(me.gov && me.gov.leader === 'player')) return;
@@ -2343,6 +2474,30 @@ function storyInit() {
         if (b.classList.contains('cb-build')) return prodBuild(+b.dataset.node, b.dataset.kind);
         if (b.classList.contains('cb-make')) return prodEnqueue(+b.dataset.node, +b.dataset.type);
         if (b.classList.contains('cb-cancel')) return prodCancel(+b.dataset.node, +b.dataset.idx);
+        // FAZ-5 SEVK: şehir deposu ↔ komutanın sefer ordusu
+        if (b.classList.contains('cb-load')) {
+            const n = storyNode(+b.dataset.node);
+            const moved = storyLoadArmy(STORY.commander, n);
+            if (moved) storyLog(`🚚 <b>${n.name}</b>: ${moved} birlik sefer ordusuna alındı (${cmdArmyCount(STORY.commander)}/${cmdArmyCap(STORY.commander)}).`);
+            else storyFlash('Sevk edilemedi — depo boş ya da sefer ordun dolu.');
+            storySave(); storyCityUpdate(); storyArmyUpdate(); storyRender();
+            return;
+        }
+        if (b.classList.contains('cb-unload')) {
+            const n = storyNode(+b.dataset.node);
+            const moved = storyUnloadArmy(STORY.commander, n);
+            if (moved) storyLog(`🚚 <b>${n.name}</b>: ${moved} birlik depoya bırakıldı.`);
+            else storyFlash('Bırakılamadı — ordun boş ya da depo dolu.');
+            storySave(); storyCityUpdate(); storyArmyUpdate(); storyRender();
+            return;
+        }
+    });
+    // KONSEY SEKMELERİ: komutan listesi ile kanun/anayasa artık ayrı ekranlarda (panel sıkışmasın)
+    document.getElementById('council-tabs')?.addEventListener('click', (e) => {
+        const t = e.target.closest('.ctab'); if (!t) return;
+        STORY._councilTab = t.dataset.tab;
+        storyCouncilSyncTabs();
+        storyCouncilUpdate();
     });
     document.getElementById('council-create-btn')?.addEventListener('click', storyCouncilCreate);
     document.getElementById('council-dismiss-btn')?.addEventListener('click', () => { STORY._dismissMode = !STORY._dismissMode; storyCouncilUpdate(); });

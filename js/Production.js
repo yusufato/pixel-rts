@@ -242,9 +242,148 @@ function storyMusterPool(stateId, nodeId) {
     return { avail, src };
 }
 
-// Havuzu kaynak düğümlerden DÜŞ (savaş başında) — kayıp kalıcı olsun diye
+// ═══════════════════════════════════════════════════════════════════════════
+//  SEFER ORDUSU — ordu KOMUTANIN ÜZERİNDEDİR, komutanla birlikte gezer
+//  ---------------------------------------------------------------------------
+//  Önceki model orduyu ŞEHİR havuzunda tutuyordu: ürettiğin birlikler o şehirde
+//  kalıyor, komutanla yürümüyordu. İki katman ayrıldı:
+//    n.pool   = ŞEHİR DEPOSU  — üretim buraya düşer, şehri SAVUNUR, taşınmaz
+//    cmd.army = SEFER ORDUSU  — komutanla birlikte hareket eder, SALDIRIYA gider
+//  Komutan dost şehirdeyken depodan orduya SEVK alır (storyLoadArmy); geri
+//  bırakabilir (storyUnloadArmy). Kapasite komutanın savaş yeteneğine bağlı.
+// ═══════════════════════════════════════════════════════════════════════════
+const CMD_ARMY_BASE = 6, CMD_ARMY_PER_SKILL = 3;   // savaşçı 0-6 → 6..24 birlik
+function cmdArmyCap(cmd) {
+    if (!cmd) return 0;
+    const w = (cmd.skills && cmd.skills.warrior) || 0;
+    return CMD_ARMY_BASE + w * CMD_ARMY_PER_SKILL;
+}
+function cmdArmyCount(cmd) {
+    let c = 0;
+    for (const k in ((cmd && cmd.army) || {})) c += cmd.army[k] | 0;
+    return c;
+}
+function cmdArmyPower(cmd) {
+    let v = 0;
+    for (const k in ((cmd && cmd.army) || {})) v += ((STATS[+k] && STATS[+k].cost) || 70) * (cmd.army[k] | 0);
+    return Math.round(v / 20);
+}
+// ŞEHİR DEPOSU → SEFER ORDUSU. counts yoksa kapasite dolana dek en değerliden alır.
+function storyLoadArmy(cmd, node, counts) {
+    if (!cmd || !node || !node.pool) return 0;
+    if (cmd.node !== node.id) return 0;                       // komutan o şehirde olmalı
+    const st = storyState(node.owner);
+    if (!st || !storyStateCommanders(st).some(c => c === cmd)) return 0;   // kendi şehri olmalı
+    if (!cmd.army) cmd.army = {};
+    const cap = cmdArmyCap(cmd);
+    let moved = 0;
+    const keys = counts ? Object.keys(counts)
+        : Object.keys(node.pool).sort((a, b) => ((STATS[+b] && STATS[+b].cost) || 0) - ((STATS[+a] && STATS[+a].cost) || 0));
+    for (const k of keys) {
+        let want = counts ? (counts[k] | 0) : (node.pool[k] | 0);
+        while (want > 0 && (node.pool[k] | 0) > 0 && cmdArmyCount(cmd) < cap) {
+            node.pool[k]--; if (!node.pool[k]) delete node.pool[k];
+            cmd.army[k] = (cmd.army[k] | 0) + 1;
+            want--; moved++;
+        }
+    }
+    return moved;
+}
+// SEFER ORDUSU → ŞEHİR DEPOSU (geri bırak)
+function storyUnloadArmy(cmd, node, counts) {
+    if (!cmd || !cmd.army || !node) return 0;
+    if (cmd.node !== node.id || node.owner == null) return 0;
+    if (!node.pool) node.pool = {};
+    const cap = prodPoolCap(node);
+    let moved = 0;
+    for (const k of (counts ? Object.keys(counts) : Object.keys(cmd.army))) {
+        let want = counts ? (counts[k] | 0) : (cmd.army[k] | 0);
+        while (want > 0 && (cmd.army[k] | 0) > 0 && prodPoolCount(node) < cap) {
+            cmd.army[k]--; if (!cmd.army[k]) delete cmd.army[k];
+            node.pool[k] = (node.pool[k] | 0) + 1;
+            want--; moved++;
+        }
+    }
+    return moved;
+}
+// OTOMATİK SEVK — AI komutanları (ve oyuncunun devletindeki diğer komutanlar) durdukları
+// dost şehirde depoyu orduya alır. Oyuncu bunu elle de yapabilir; otomatik sevk oyuncunun
+// KENDİ jetonunu atlar (onun ordusuna karışmayalım).
+function storyAutoLoadArmies() {
+    for (const st of STORY.states) {
+        if (!st.gov) continue;
+        for (const cmd of storyStateCommanders(st)) {
+            const n = storyNode(cmd.node);
+            if (!n || n.owner !== st.id || !n.pool) continue;
+            if (cmdArmyCount(cmd) >= cmdArmyCap(cmd)) continue;
+            // OYUNCUNUN JETONU: sevk normalde SENİN kararın (ORDU paneli / ŞEHRE GİR).
+            // Tek istisna: ordun TAMAMEN boşken dolu deponun üstünde duruyorsan levazım
+            // seni yükler. Aksi hâlde farkında olmadan 2 milisle savaşa girme tuzağı doğuyor
+            // ve pasif oyuncu ölçümünde devlet tamamen eleniyordu (8 senaryonun 3'ü sıfır).
+            if (cmd.isPlayer && cmdArmyCount(cmd) > 0) continue;
+            storyLoadArmy(cmd, n);
+        }
+    }
+}
+// devletin TOPLAM ordusu (sefer orduları + şehir depoları) — panel/istatistik
+function storyStateArmyTotals(st) {
+    const field = {}, depot = {};
+    for (const cmd of storyStateCommanders(st)) for (const k in (cmd.army || {})) field[k] = (field[k] | 0) + (cmd.army[k] | 0);
+    for (const n of STORY.nodes) { if (n.owner !== st.id) continue; for (const k in (n.pool || {})) depot[k] = (depot[k] | 0) + (n.pool[k] | 0); }
+    return { field, depot };
+}
+
+// Savaşa girecek kuvvet: komutanın SEFER ORDUSU (+ savunmada şehrin DEPOSU).
+// src kayıtları iki türlü olur: { cmdId } → sefer ordusundan, { nodeId } → şehir deposundan.
+function storyMusterArmy(cmd, node, includeCity, stateId) {
+    const avail = {}, src = [];
+    if (cmd && cmd.army) {
+        const take = {};
+        for (const k in cmd.army) { const c = cmd.army[k] | 0; if (c > 0) { avail[k] = (avail[k] | 0) + c; take[k] = c; } }
+        if (Object.keys(take).length) src.push({ cmdId: cmd.id, stateId: stateId, counts: take });
+    }
+    if (includeCity && node && node.pool && node.owner === stateId) {
+        const take = {};
+        for (const k in node.pool) { const c = node.pool[k] | 0; if (c > 0) { avail[k] = (avail[k] | 0) + c; take[k] = c; } }
+        if (Object.keys(take).length) src.push({ nodeId: node.id, counts: take });
+    }
+    return { avail, src };
+}
+// O şehirde duran DOST komutanların ordularını da katar (yığılma anlamlı olsun)
+function storyMusterAt(stateId, nodeId, includeCity) {
+    const node = storyNode(nodeId), st = storyState(stateId);
+    const avail = {}, src = [];
+    if (st) for (const cmd of storyStateCommanders(st)) {
+        if (cmd.node !== nodeId || !cmd.army) continue;
+        const take = {};
+        for (const k in cmd.army) { const c = cmd.army[k] | 0; if (c > 0) { avail[k] = (avail[k] | 0) + c; take[k] = c; } }
+        if (Object.keys(take).length) src.push({ cmdId: cmd.id, stateId: stateId, counts: take });
+    }
+    if (includeCity && node && node.pool && node.owner === stateId) {
+        const take = {};
+        for (const k in node.pool) { const c = node.pool[k] | 0; if (c > 0) { avail[k] = (avail[k] | 0) + c; take[k] = c; } }
+        if (Object.keys(take).length) src.push({ nodeId: node.id, counts: take });
+    }
+    return { avail, src };
+}
+function storyCommanderById(stateId, id) {
+    const st = storyState(stateId); if (!st) return null;
+    for (const c of storyStateCommanders(st)) if (c.id === id) return c;
+    return null;
+}
+
+// Kuvveti kaynağından DÜŞ (savaş başında) — kayıp kalıcı olsun diye
 function storyDrainPool(src) {
     for (const s of (src || [])) {
+        if (s.cmdId != null) {
+            const cmd = storyCommanderById(s.stateId, s.cmdId);
+            if (!cmd || !cmd.army) continue;
+            for (const k in s.counts) {
+                cmd.army[k] = Math.max(0, (cmd.army[k] | 0) - (s.counts[k] | 0));
+                if (!cmd.army[k]) delete cmd.army[k];
+            }
+            continue;
+        }
         const n = storyNode(s.nodeId);
         if (!n || !n.pool) continue;
         for (const k in s.counts) {
@@ -254,21 +393,32 @@ function storyDrainPool(src) {
     }
 }
 
-// Savaş sonu iade: sağ kalanlar + hiç dizilmeyenler havuza döner
+// Savaş sonu iade: sağ kalanlar + dizilmeyenler ÖNCE komutanın sefer ordusuna döner
+// (ordu komutanla gezer), kapasite taşarsa bulunduğu şehrin deposuna düşer.
 function storyReturnPool(counts, preferNode, stateId, src) {
-    let target = null;
-    if (preferNode && preferNode.owner === stateId) target = preferNode;        // savaşın şehri (fethettiysen ordun orada konuşlanır)
-    if (!target) {                                                              // değilse kaynak düğümlerden hâlâ bizde olan ilki
-        for (const s of (src || [])) { const n = storyNode(s.nodeId); if (n && n.owner === stateId) { target = n; break; } }
-    }
-    if (!target && STORY.commander) target = storyNode(STORY.commander.node);    // son çare: komutanın şehri
-    if (!target || target.owner !== stateId) return 0;
-    if (!target.pool) target.pool = {};
     let placed = 0;
-    const cap = prodPoolCap(target);
-    for (const k in (counts || {})) {
-        let c = counts[k] | 0;
-        while (c > 0 && prodPoolCount(target) < cap) { target.pool[k] = (target.pool[k] | 0) + 1; c--; placed++; }
+    // 1) sefer ordusu: kuvveti veren komutan(lar)
+    const cmds = [];
+    for (const s of (src || [])) if (s.cmdId != null) { const c = storyCommanderById(s.stateId != null ? s.stateId : stateId, s.cmdId); if (c) cmds.push(c); }
+    if (!cmds.length && stateId === STORY.playerStateId && STORY.commander) cmds.push(STORY.commander);
+    for (const cmd of cmds) {
+        if (!cmd.army) cmd.army = {};
+        const cap = cmdArmyCap(cmd);
+        for (const k in (counts || {})) {
+            while ((counts[k] | 0) > 0 && cmdArmyCount(cmd) < cap) { cmd.army[k] = (cmd.army[k] | 0) + 1; counts[k]--; placed++; }
+        }
+    }
+    // 2) taşan kısım: şehir deposu
+    let target = null;
+    if (preferNode && preferNode.owner === stateId) target = preferNode;
+    if (!target) for (const s of (src || [])) { const n = s.nodeId != null ? storyNode(s.nodeId) : null; if (n && n.owner === stateId) { target = n; break; } }
+    if (!target && cmds.length) target = storyNode(cmds[0].node);
+    if (target && target.owner === stateId) {
+        if (!target.pool) target.pool = {};
+        const cap = prodPoolCap(target);
+        for (const k in (counts || {})) {
+            while ((counts[k] | 0) > 0 && prodPoolCount(target) < cap) { target.pool[k] = (target.pool[k] | 0) + 1; counts[k]--; placed++; }
+        }
     }
     return placed;
 }
@@ -378,11 +528,32 @@ function prodPoolSection(n) {
     } else {
         capNote += ' · komutan yok — sevk-idare kapasitesi düşük';
     }
-    return `<div class="prod-sec"><div class="prod-head"><span>⚔️ ORDU HAVUZU <b>${total}/${cap}</b></span></div>`
+    // SEVK KONTROLÜ — depo ile komutanın sefer ordusu arasında birlik taşı.
+    // Ordu artık komutanla gezdiği için bu panel "orduyu yola çıkarma" ekranıdır.
+    const cmd = STORY.commander;
+    const atHere = !!(cmd && cmd.node === n.id);
+    const myN = (typeof cmdArmyCount === 'function') ? cmdArmyCount(cmd) : 0;
+    const myCap = (typeof cmdArmyCap === 'function') ? cmdArmyCap(cmd) : 0;
+    let ship = '';
+    if (atHere) {
+        const room = myCap - myN;
+        ship = `<div class="ship-box"><div class="ship-h">🚚 SEVK — <b>${cmd.name}</b> burada · sefer ordun <b>${myN}/${myCap}</b></div>`
+            + `<div class="ship-acts">`
+            + `<button class="city-btn cb-load" data-node="${n.id}" ${(total <= 0 || room <= 0) ? 'disabled' : ''}>⬆️ Depodan Al (${Math.min(total, Math.max(0, room))})</button>`
+            + `<button class="city-btn cb-unload" data-node="${n.id}" ${myN <= 0 ? 'disabled' : ''}>⬇️ Depoya Bırak (${myN})</button>`
+            + `</div>`
+            + (room <= 0 && total > 0 ? `<div class="city-hint" style="color:#ffd24c">Sefer ordun dolu — kapasite savaş yeteneğine bağlı (⚔️${(cmd.skills && cmd.skills.warrior) || 0}).</div>` : '')
+            + `</div>`;
+    } else {
+        ship = `<div class="ship-box"><div class="ship-h">🚚 SEVK</div>`
+            + `<div class="city-hint">Komutanın burada değil — sevk için <b>${n.name}</b>'a gel. Depodaki birlikler yalnız bu şehri savunur.</div></div>`;
+    }
+    return `<div class="prod-sec"><div class="prod-head"><span>🏭 ŞEHİR DEPOSU <b>${total}/${cap}</b></span></div>`
         + (items ? `<div class="pool-grid">${items}</div>`
-                 : `<div class="city-hint">Havuz boş — savaşa girersen acil seferberlik milisi dizilir.</div>`)
+                 : `<div class="city-hint">Depo boş — üretim yap, sonra komutanına sevk et.</div>`)
         + `<div class="city-hint">Kapasite: ${capNote}</div>`
-        + `<div class="city-hint">Savaşa girince bu birlikleri sahaya SEN yerleştirirsin. Kayıplar havuzdan kalıcı düşer.</div></div>`;
+        + ship
+        + `</div>`;
 }
 
 function storyCityUpdate() {
@@ -480,14 +651,69 @@ function aiTryProduce(n, st, cmds) {
     return true;
 }
 
-function storyAICityTick() {
+// ── KOMUTAN YEREL YATIRIMI (TÜM devletler, OYUNCUNUN devleti dahil) ──
+// "sadece ben garnizon koymayayım, komutanlar da dinamik olsun."
+// Her komutan DURDUĞU şehre kendi kasasından yatırım yapar. Öncelik durumsaldır:
+// cephe şehrinde garnizon, geride üretim altyapısı. Oyuncunun kendi jetonu hariç
+// (senin kasan senin kararın) — ama devletindeki diğer komutanlar artık pasif değil.
+const CMD_INVEST_CHANCE = 0.5;    // her tick'te komutan başına yatırım olasılığı
+const CMD_GARRISON_SOFT_CAP = 4;  // komutan garnizonu bu sayıya kadar takviye eder, ötesi israf
+// ÖNCELİK SIRASI ÖNEMLİ: ilk sürümde garnizon en başta geliyordu ve komutanlar bütün
+// insan gücünü garnizona yatırıp ORDU KURMUYORDU. Ölçümde oyuncu devletinin garnizonu
+// 9→39 çıkarken sefer ordusu 22'de takılıyor, AI 536'ya ulaşıp oyuncuyu 731sn'de siliyordu.
+// Artık ÖNCE ORDU: komutan kendi seferi ordusunu doldurmadan altyapıya/garnizona geçmez.
+function storyCommanderCityTick() {
     for (const st of STORY.states) {
-        if (st.isPlayer || !st.gov) continue;
+        if (!st.gov) continue;
+        for (const cmd of storyStateCommanders(st)) {
+            if (cmd.isPlayer) continue;                       // oyuncunun kasasına karışma
+            if (Math.random() > CMD_INVEST_CHANCE) continue;
+            const n = storyNode(cmd.node);
+            if (!n || n.owner !== st.id || !cmd.res) continue;
+            const front = (n.neighbors || []).some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; });
+            const gar = n.garrison || 0, garCap = Math.min(CMD_GARRISON_SOFT_CAP, storyCityGarrisonCap(n));
+            const hungry = cmdArmyCount(cmd) < cmdArmyCap(cmd) * 0.75;   // ordusu eksik mi?
+
+            // 1) ORDU EKSİK → üret (savaşan ordu her şeyden önce gelir)
+            if (hungry && aiTryProduce(n, st, [cmd])) continue;
+            // 2) CEPHE ŞEHRİ + garnizon çok zayıf → asgari savunma refleksi
+            if (front && gar < garCap && cmd.res.manpower >= CITY_GARRISON_COST) {
+                cmd.res.manpower -= CITY_GARRISON_COST; n.garrison = gar + 1;
+                continue;
+            }
+            // 3) altyapı eksik → bina kur (üretim kapasitesi uzun vadeli ordu demektir)
+            if (aiTryBuild(n, st, cmd)) continue;
+            // 4) şehir yükselt (kapasite/savunma/gelir)
+            if ((n.level || 1) < 3) {
+                const cost = CITY_UPGRADE_COST[n.level || 1] || 300;
+                if (cmd.res.points >= cost) { cmd.res.points -= cost; n.level = (n.level || 1) + 1; continue; }
+            }
+            // 5) geride kalan garnizon boşluğu (yalnız yumuşak tavana kadar)
+            if (gar < garCap && cmd.res.manpower >= CITY_GARRISON_COST) {
+                cmd.res.manpower -= CITY_GARRISON_COST; n.garrison = gar + 1;
+                continue;
+            }
+            // 6) ordu doluysa bile üretime devam (depo birikir, diğer komutanlar sevk alır)
+            aiTryProduce(n, st, [cmd]);
+        }
+    }
+}
+
+// DEVLET DÜZEYİ GELİŞTİRME — komutanın bulunmadığı GERİ şehirler de gelişsin.
+// Bu döngü eskiden yalnız AI devletleri için çalışıyordu; komutan-düzeyi yatırım eklenince
+// AI hem devlet hem komutan katmanından yatırım yapar, oyuncunun devleti yalnız komutan
+// katmanından yapar oldu. Ölçüm: oyuncu 19→1 şehre düştü, AI sefer ordusu 881'e çıktı.
+// Artık TÜM devletler için çalışır (oyuncunun KENDİ kasası hariç — o senin kararın).
+function storyAICityTick() {
+    storyCommanderCityTick();   // önce komutanların yerel yatırımı (oyuncu devleti dahil)
+    for (const st of STORY.states) {
+        if (!st.gov) continue;
         const owned = STORY.nodes.filter(n => n.owner === st.id); if (!owned.length) continue;
         const border = owned.filter(n => n.neighbors.some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; }));
         const pick = border.length ? border : owned;
         const n = pick[(Math.random() * pick.length) | 0];
-        const cmds = storyStateCommanders(st); if (!cmds.length) continue;
+        const cmds = storyStateCommanders(st).filter(c => !c.isPlayer);   // oyuncunun kasasına dokunma
+        if (!cmds.length) continue;
         const rich = g => cmds.slice().sort((a, b) => ((b.res && b.res[g]) || 0) - ((a.res && a.res[g]) || 0))[0];
         // SİMETRİK MALİYET: oyuncuyla AYNI — garnizon 70👥, şehir 300/600⭐, bina FACTORY/BARRACKS_COST
         const r = Math.random();
@@ -530,7 +756,10 @@ function storyCaptureNodePool(n) {
 // (aiDeploy / DEPLOY_RES.red dalı değişmez) ama o bütçe artık GERÇEKTEN ürettiği ordunun değeri.
 function storyPoolBudget(stateId, cityId, opts) {
     opts = opts || {};
-    const m = storyMusterPool(stateId, cityId);
+    // SEFER ORDUSU modeli: o şehirde duran komutanların orduları (+ savunmada şehrin deposu).
+    // Eskiden komşu şehirlerin havuzları da toplanıyordu; artık ordu komutanla gezdiği için
+    // "kim oradaysa o savaşır" kuralı geçerli — oyuncuyla birebir aynı.
+    const m = storyMusterAt(stateId, cityId, !!opts.garrison);
     const b = { oil: 0, manpower: 0, points: 0 };
     for (const k in m.avail) {
         const t = +k, g = UNIT_RES_GROUP[t] || 'manpower';

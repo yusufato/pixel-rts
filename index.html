@@ -200,13 +200,21 @@
                     <button id="council-close" class="council-x" aria-label="Kapat">KAPAT</button>
                 </div>
                 <div id="council-admin-banner"></div>
-                <div id="council-treasury"></div>
-                <div id="council-list"></div>
-                <div id="council-lawbox"></div>
-                <div id="council-confirm" class="hidden"></div>
-                <div id="council-actions">
-                    <button id="council-create-btn" class="story-btn">➕ Komutan Yarat</button>
-                    <button id="council-dismiss-btn" class="story-btn">✖ Dağıt Modu</button>
+                <div id="council-tabs">
+                    <button class="ctab active" data-tab="cmd">🎖️ KOMUTANLAR</button>
+                    <button class="ctab" data-tab="law">📜 KANUNLAR</button>
+                </div>
+                <div id="council-tab-cmd">
+                    <div id="council-treasury"></div>
+                    <div id="council-list"></div>
+                    <div id="council-confirm" class="hidden"></div>
+                    <div id="council-actions">
+                        <button id="council-create-btn" class="story-btn">➕ Komutan Yarat</button>
+                        <button id="council-dismiss-btn" class="story-btn">✖ Dağıt Modu</button>
+                    </div>
+                </div>
+                <div id="council-tab-law" class="hidden">
+                    <div id="council-lawbox"></div>
                 </div>
             </aside>
             <!-- TEKNOLOJİ — SOLDAN kayar drawer (placeholder: Adım 4'te uygulanacak) -->
