@@ -1015,7 +1015,7 @@ function drawGhost() {
     const blocked = !deploySpotFree(world.x, world.y, deployCarried);
     ctx.globalAlpha = blocked ? 0.28 : 0.45;
     const sx = SP_PAD + ghostType * (SP_W + SP_PAD);
-    ctx.drawImage(spriteSheet, sx, SP_PAD, SP_W, SP_H, mouseScreenX - dw / 2, mouseScreenY - dh / 2, dw, dh);
+    spriteReady() && ctx.drawImage(spriteSheet, sx, SP_PAD, SP_W, SP_H, mouseScreenX - dw / 2, mouseScreenY - dh / 2, dw, dh);
     ctx.globalAlpha = 1.0;
     if (blocked) {
         ctx.strokeStyle = 'rgba(255, 80, 80, 0.75)'; ctx.lineWidth = 2; ctx.setLineDash([]);
@@ -1093,7 +1093,7 @@ spriteSheet.addEventListener('load', () => {
         c.width = 44; c.height = 32;
         const bctx = c.getContext('2d');
         bctx.imageSmoothingEnabled = false;
-        bctx.drawImage(spriteSheet, SP_PAD + col * (SP_W + SP_PAD), SP_PAD, SP_W, SP_H, 0, 0, 44, 32);
+        bctx.drawImage(spriteSheet, SP_PAD + col * (SP_W + SP_PAD), SP_PAD, SP_W, SP_H, 0, 0, 44, 32);   // 'load' olayı içinde: sprite kesin hazır
     });
 });
 

@@ -841,11 +841,11 @@ class Unit {
             ctx.translate(s.x, s.y);
             ctx.rotate(_ang);                                  // tüm sprite hedefe "düz" döner (yumuşak)
             if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)';
-            ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -dw / 2, -dh / 2, dw, dh);
+            spriteReady() && ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -dw / 2, -dh / 2, dw, dh);
             ctx.restore();                                     // restore filter'ı da sıfırlar
         } else {
             if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)';
-            ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
+            spriteReady() && ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
             if (_flash) ctx.filter = 'none';
         }
 

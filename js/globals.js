@@ -19,6 +19,12 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const spriteSheet = document.getElementById('spriteSheet');
+// Sprite sayfası yüklenmediyse drawImage "broken state" hatası atar ve oyun
+// döngüsünü komple öldürür. (Paketlemede icons.png unutulunca savaş açılışında
+// tam olarak bu oldu.) Tek noktadan kontrol: eksikse çizim atlanır, oyun yaşar.
+function spriteReady() {
+    return !!(spriteSheet && spriteSheet.complete && spriteSheet.naturalWidth > 0);
+}
 const minimapCanvas = document.getElementById('minimap');
 const minimapCtx = minimapCanvas.getContext('2d');
 

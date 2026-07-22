@@ -68,16 +68,31 @@ app.whenReady().then(() => {
             // oyun global'leri gerçekten kuruldu mu?
             let probe = null;
             try {
-                probe = await win.webContents.executeJavaScript(`(() => ({
-                    story: typeof STORY,
-                    council: typeof storyCouncilTick,
-                    talks: typeof storyTalkTick,
-                    chatter: typeof storyChatterTick,
-                    tree: typeof CMDR_TREE,
-                    nodes: (typeof storyBuildCities === 'function') ? storyBuildCities().length : -1,
-                    bridge: typeof window.PIXEL,
-                }))()`);
+                probe = await win.webContents.executeJavaScript(`(() => {
+                    // GÖRSELLER: paketlemede bir varlık unutulursa <img> "broken" olur ve
+                    // ilk drawImage oyun döngüsünü öldürür. Bu tam olarak yaşandı
+                    // (icons.png files listesinde yoktu → savaş açılışında çökme).
+                    // Duman testi artık her <img>'in GERÇEKTEN yüklendiğini doğruluyor.
+                    const imgs = [...document.querySelectorAll('img')].map(i => ({
+                        src: i.getAttribute('src'),
+                        ok: i.complete && i.naturalWidth > 0,
+                    }));
+                    return {
+                        story: typeof STORY,
+                        council: typeof storyCouncilTick,
+                        talks: typeof storyTalkTick,
+                        chatter: typeof storyChatterTick,
+                        tree: typeof CMDR_TREE,
+                        nodes: (typeof storyBuildCities === 'function') ? storyBuildCities().length : -1,
+                        bridge: typeof window.PIXEL,
+                        images: imgs,
+                        brokenImages: imgs.filter(i => !i.ok).map(i => i.src),
+                    };
+                })()`);
             } catch (e) { problems.push('sonda hatası: ' + e.message); }
+            if (probe && probe.brokenImages && probe.brokenImages.length)
+                problems.push('YÜKLENEMEYEN GÖRSEL: ' + probe.brokenImages.join(', ')
+                              + '  → package.json "files" listesinde eksik olabilir');
             console.log('SMOKE_PROBE ' + JSON.stringify(probe));
             console.log('SMOKE_PROBLEMS ' + JSON.stringify(problems));
             console.log(problems.length ? 'SMOKE_FAIL' : 'SMOKE_OK');
