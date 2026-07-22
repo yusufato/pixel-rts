@@ -58,14 +58,17 @@ function storyEraMetrics() {
 // 0.13-0.34 çıktı. 0..1 varsayan puanlama bu yüzden ayırt edemiyordu ve
 // dünyanın %79'u "GRİ ÇAĞ" oluyordu. Ölçümler gözlenen banda göre yeniden
 // ölçeklenir → aynı fark artık çağları gerçekten ayırıyor.
-function _n(v, lo, hi) { return Math.max(0, Math.min(1, (v - lo) / (hi - lo))); }
+// NOT: adı bilerek uzun. Tüm scriptler aynı window'u paylaşıyor; '_n' gibi genel bir
+// küresel ad başka bir yerdeki değişkenle çarpışıp bu fonksiyonu eziyordu
+// ("_n is not a function" → çağ sistemi çöküyordu).
+function eraNorm(v, lo, hi) { return Math.max(0, Math.min(1, (v - lo) / (hi - lo))); }
 function storyEraShape(m) {
     return {
-        war:        _n(m.war,        0.45, 0.95),
-        welfare:    _n(m.welfare,    0.30, 0.75),
-        turmoil:    _n(m.turmoil,    0.05, 0.45),
-        volatility: _n(m.volatility, 0.00, 0.80),
-        tech:       _n(m.tech,       0.00, 0.50),
+        war:        eraNorm(m.war,        0.45, 0.95),
+        welfare:    eraNorm(m.welfare,    0.30, 0.75),
+        turmoil:    eraNorm(m.turmoil,    0.05, 0.45),
+        volatility: eraNorm(m.volatility, 0.00, 0.80),
+        tech:       eraNorm(m.tech,       0.00, 0.50),
     };
 }
 

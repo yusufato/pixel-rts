@@ -16,6 +16,10 @@
 
 // ── BİNA ──
 // Maliyet ⭐puan (şehir yükseltmesiyle aynı kasa). index = mevcut seviye → bir üstü.
+// Maliyet ÖZGÜN DEĞERİNDE. Bir ara düşürülmüştü (220/380/620) ama ölçüm bunun
+// dünyayı hızlandırıp dengeyi bozduğunu gösterdi: 900sn'de ortalama şehir 9.0 → 5.5,
+// üç devletin refahı sıfırlandı. Tank görünürlüğü sorununu çözen şey maliyet değil,
+// kilit YAPISIydı (aşağıdaki PROD_UNLOCK notuna bakınız).
 const FACTORY_COST = [260, 480, 900];    // fabrika pahalı: ağır sanayi
 const BARRACKS_COST = [150, 300, 560];   // kışla ucuz: piyade altyapısı
 const PROD_MAX_LEVEL = 3;
@@ -50,9 +54,16 @@ function prodMaxBuildLevel(n) { return Math.min(PROD_MAX_LEVEL, (n.level || 1) +
 // Seviye kilitleri — üretim kademelenir.
 // MEKANİZE Sv.3'ten Sv.2'ye alındı: Sv.3 kışla şehir Sv.2 gerektiriyor ve pratikte
 // hiç ulaşılamıyordu; orta sınıf birlikler oyunda görünmüyordu.
+// TANK Sv.3'ten Sv.2'ye ALINDI. Sv.3 fabrika tek şehirde 4 yükseltme demekti
+// (şehir Sv.2 + fabrika 0→1→2→3) ve ölçümde 4 kampanya × 1800sn'de tank üretebilen
+// şehir ortalama 1.3, üretilen tank 2 çıkıyordu — oyunda var olan bir birim
+// pratikte hiç görünmüyordu. Maliyet düşürmek ve yatırımı yoğunlaştırmak yetmedi;
+// sorun tuning değil YAPIYDI.
+// Sv.3 anlamsız kalmıyor: PROD_SPEED[3]=2.2 ile SERİ ÜRETİM kademesi oluyor
+// (yeni birim değil, aynı birimi iki kattan hızlı basmak).
 const PROD_UNLOCK = {
     bar: { 1: [T.INFANTRY, T.RECON], 2: [T.ENGINEER, T.MEDIC, T.MECH_INFANTRY], 3: [T.ARTILLERY] },
-    fac: { 1: [T.ANTI_TANK], 2: [T.ARMOR_INFANTRY], 3: [T.ARMOR] }
+    fac: { 1: [T.ANTI_TANK], 2: [T.ARMOR_INFANTRY, T.ARMOR], 3: [] }
 };
 function prodTypesFor(n, kind) {
     const lv = n[kind] | 0;
@@ -601,6 +612,7 @@ function aiTryProduce(n, st, cmds) {
 // (senin kasan senin kararın) — ama devletindeki diğer komutanlar artık pasif değil.
 const CMD_INVEST_CHANCE = 0.5;    // her tick'te komutan başına yatırım olasılığı
 const CMD_GARRISON_SOFT_CAP = 4;  // komutan garnizonu bu sayıya kadar takviye eder, ötesi israf
+const HEAVY_INVEST_POINTS = 900;  // bu eşiğin üstünde kasa → ağır sanayi yatırımı (üst kademe bina/şehir)
 // ÖNCELİK SIRASI ÖNEMLİ: ilk sürümde garnizon en başta geliyordu ve komutanlar bütün
 // insan gücünü garnizona yatırıp ORDU KURMUYORDU. Ölçümde oyuncu devletinin garnizonu
 // 9→39 çıkarken sefer ordusu 22'de takılıyor, AI 536'ya ulaşıp oyuncuyu 731sn'de siliyordu.
@@ -622,6 +634,7 @@ function storyCommanderCityTick() {
             // bu yüzden bina yükseltmesi ordu üretiminin ÖNÜNE alındı (ucuzsa ve gerekliyse).
             const weakInfra = ((n.bar | 0) < 2 || (n.fac | 0) < 2) && (n.bar | 0) + (n.fac | 0) < 4;
             if (weakInfra && Math.random() < 0.55 && aiTryBuild(n, st, cmd)) continue;
+
             // 1) ORDU EKSİK → üret (savaşan ordu her şeyden önce gelir)
             if (hungry && aiTryProduce(n, st, [cmd])) continue;
             // 2) CEPHE ŞEHRİ + garnizon çok zayıf → asgari savunma refleksi
@@ -652,6 +665,35 @@ function storyCommanderCityTick() {
 // AI hem devlet hem komutan katmanından yatırım yapar, oyuncunun devleti yalnız komutan
 // katmanından yapar oldu. Ölçüm: oyuncu 19→1 şehre düştü, AI sefer ordusu 881'e çıktı.
 // Artık TÜM devletler için çalışır (oyuncunun KENDİ kasası hariç — o senin kararın).
+// ── SANAYİ MERKEZLERİ ──
+// Komutanlar durdukları şehre yatırım yapıyor ve sürekli hareket ettikleri için yatırım
+// 80 şehre dağılıyordu: ölçümde 4 kampanyada tank üretebilen şehir ortalama 0.8, üretilen
+// tank 0 idi (devletlerde 3750⭐ birikmişken). Ağır sanayi YOĞUNLAŞMA ister.
+// Her devlet birkaç şehri sanayi merkezi seçer ve devlet bütçesi ORAYA akar.
+const INDUSTRY_CENTERS = 3;
+function storyIndustrialCenters(st) {
+    const owned = STORY.nodes.filter(n => n.owner === st.id);
+    if (!owned.length) return [];
+    const capId = (STORY._capitals || [])[st.id];
+    const val = n => (n.oil || 0) * 2 + (n.pts || 0) * 2 + (n.cities || 0) * 1.5
+        + (n.id === capId ? 10 : 0)                                    // başkent daima merkez
+        + ((n.fac | 0) + (n.bar | 0)) * 2 + (n.level || 1) * 2;        // başlanmış işi bitir
+    return owned.sort((a, b) => val(b) - val(a)).slice(0, INDUSTRY_CENTERS);
+}
+// Merkezde sıradaki mantıklı yatırım: şehir tavanı bina tavanını kısıtlıyorsa şehri,
+// değilse binayı yükselt. Ödeme devletin en zengin komutanından.
+function storyInvestCenter(st, n, payer) {
+    if (!payer || !payer.res) return false;
+    const facBlocked = (n.fac | 0) >= prodMaxBuildLevel(n) && (n.fac | 0) < PROD_MAX_LEVEL;
+    const barBlocked = (n.bar | 0) >= prodMaxBuildLevel(n) && (n.bar | 0) < PROD_MAX_LEVEL;
+    if ((facBlocked || barBlocked) && (n.level || 1) < 3) {
+        const c = CITY_UPGRADE_COST[n.level || 1];
+        if (c != null && (payer.res.points || 0) >= c) { payer.res.points -= c; n.level = (n.level || 1) + 1; return true; }
+        return false;
+    }
+    return aiTryBuild(n, st, payer);
+}
+
 function storyAICityTick() {
     storyCommanderCityTick();   // önce komutanların yerel yatırımı (oyuncu devleti dahil)
     for (const st of STORY.states) {
@@ -662,6 +704,16 @@ function storyAICityTick() {
         const n = pick[(Math.random() * pick.length) | 0];
         const cmds = storyStateCommanders(st).filter(c => !c.isPlayer);   // oyuncunun kasasına dokunma
         if (!cmds.length) continue;
+
+        // AĞIR SANAYİ: devlet bütçesinin bir kısmı sanayi merkezlerine akar (yoğunlaşma).
+        // Bu olmadan yatırım 80 şehre dağılıyor ve hiçbiri tank/topçu kademesine çıkamıyordu.
+        if (Math.random() < 0.55) {
+            const centers = storyIndustrialCenters(st);
+            const rich = cmds.slice().sort((a, b) => ((b.res && b.res.points) || 0) - ((a.res && a.res.points) || 0))[0];
+            let done = false;
+            for (const c of centers) { if (storyInvestCenter(st, c, rich)) { done = true; break; } }
+            if (done) continue;
+        }
         const rich = g => cmds.slice().sort((a, b) => ((b.res && b.res[g]) || 0) - ((a.res && a.res[g]) || 0))[0];
         // SİMETRİK MALİYET: oyuncuyla AYNI — garnizon 70👥, şehir 300/600⭐, bina FACTORY/BARRACKS_COST
         const r = Math.random();
