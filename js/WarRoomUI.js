@@ -21,6 +21,8 @@ const WAR_ROOM_SETUP = {
     abundance: 1,
     fog: true
 };
+// FAZ-7: ARTIK CommanderTree.js/CMDR_TREE geçerli. Bu tablo yalnız eski kayıt
+// göçü ve tarihsel referans için duruyor — UI onu kullanmıyor.
 const WAR_ROOM_PERKS = [
     { id: 'schwerpunkt', rank: 1, name: 'Schwerpunkt', effect: 'Ana çaba kuvveti +%10' },
     { id: 'logistics', rank: 2, name: 'Lojistikçi', effect: '+200 konuşlandırma bütçesi' },
@@ -369,14 +371,12 @@ function warRoomRenderCommander() {
     if (text) text.textContent = rankIndex === ranks.length - 1 ? `${commander.xp} XP · AZAMİ RÜTBE` : `${commander.xp} / ${next.xp} XP`;
     if (summary) summary.innerHTML = `<div><span>SEFER SKORU</span><b>${commander.score}</b></div><div><span>ZAFER</span><b>${commander.victories}</b></div><div><span>VETERAN</span><b>${(STORY.veterans || []).length}</b></div><div><span>AKTİF KAYNAK</span><b>${Math.floor(commander.res.oil + commander.res.manpower + commander.res.points)}</b></div>`;
 
-    const active = commander.activePerks || [];
+    // FAZ-7: 3-slotlu perk ızgarası yerine KOMUTAN GELİŞİM AĞACI (CommanderTree.js)
     const slotCount = document.getElementById('commander-slot-count');
-    if (slotCount) slotCount.textContent = `AKTİF ${active.length}/3`;
+    if (slotCount) slotCount.textContent = (typeof cmdrFreeLP === 'function')
+        ? `LİYAKAT ${cmdrFreeLP(commander)}` : '';
     const grid = document.getElementById('commander-perk-grid');
-    if (grid) grid.innerHTML = WAR_ROOM_PERKS.map(perk => {
-        const owned = commander.rank >= perk.rank, on = active.includes(perk.id);
-        return `<button data-perk="${perk.id}" class="${on ? 'active ' : ''}${owned ? '' : 'locked'}" ${owned ? '' : 'disabled'}><span>R${perk.rank}</span><b>${perk.name}</b><small>${perk.effect}</small><em>${owned ? (on ? 'AKTİF' : 'PASİF') : `RÜTBE ${perk.rank} GEREKLİ`}</em></button>`;
-    }).join('');
+    if (grid && typeof cmdrTreeHtml === 'function') grid.innerHTML = cmdrTreeHtml();
 }
 
 function warRoomOpenCommander() {
@@ -385,16 +385,10 @@ function warRoomOpenCommander() {
     warRoomRenderCommander();
 }
 
+// FAZ-7: perkler ağaca eritildi — aç/kapa yok, LİYAKAT ile kalıcı açılıyor.
+// Eski çağrı yolu korunur (dış bir yerden çağrılırsa ağaç açma denemesine döner).
 function warRoomTogglePerk(perkId) {
-    if (typeof STORY === 'undefined' || !STORY.commander) return;
-    const perk = WAR_ROOM_PERKS.find(item => item.id === perkId);
-    if (!perk || STORY.commander.rank < perk.rank) return;
-    const active = STORY.commander.activePerks || (STORY.commander.activePerks = []);
-    const index = active.indexOf(perkId);
-    if (index >= 0) active.splice(index, 1);
-    else if (active.length < 3) active.push(perkId);
-    if (typeof storySave === 'function') storySave();
-    warRoomRenderCommander();
+    if (typeof cmdrUnlock === 'function') cmdrUnlock(perkId);
 }
 
 function warRoomInit() {

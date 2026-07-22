@@ -80,6 +80,13 @@ function _talkHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) {
 function talkPick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 function talkCmdName(c) { return c ? c.name : 'Bir komutan'; }
 function talkLoy(c) { return c && c.loyalty != null ? c.loyalty : 60; }
+// FAZ-7 'Hami' yeteneği: sohbetlerde SADAKAT KAZANIMLARI çarpanı (kayıplara dokunmaz).
+// Şablonlar Math.min(100, talkLoy(x) + N) yazdığı için artışı tek noktadan ölçeklemek
+// yerine yardımcı veriyoruz; kullanan şablonlar talkGain() üzerinden geçer.
+function talkGain(n) {
+    const m = (typeof cmdrBonus === 'function' && typeof STORY !== 'undefined') ? cmdrBonus(STORY.commander).talkLoyMul : 1;
+    return Math.round(n * (m || 1));
+}
 
 // Konuşma bağlamı: motor bunu şablonlara verir
 function storyTalkContext() {
@@ -115,13 +122,13 @@ const TALK_TEMPLATES = [
             ], options: [
                 { text: 'Kasandan 200 insan gücü gönder', tip: 'Sadakat +12 · sana 200👥 mal olur',
                   run: t => { const w = STORY.commander.res; if ((w.manpower || 0) < 200) return { fail: 'Kasanda yeterli insan gücü yok.' };
-                      w.manpower -= 200; who.res.manpower = (who.res.manpower || 0) + 200; who.loyalty = Math.min(100, talkLoy(who) + 12);
+                      w.manpower -= 200; who.res.manpower = (who.res.manpower || 0) + 200; who.loyalty = Math.min(100, talkLoy(who) + talkGain(12));
                       return { msg: `${who.name} takviyeyi aldı (sadakat +12).` }; } },
                 { text: '"Kendi başının çaresine bak."', tip: 'Sadakat −10 · bedava',
                   run: t => { who.loyalty = Math.max(0, talkLoy(who) - 10); return { msg: `${who.name} küstü (sadakat −10).` }; } },
                 { text: '"Geri çekil, hattı kısaltıyoruz."', tip: 'Sadakat +4 · komutan başkente döner',
                   run: t => { const cap = (STORY._capitals || [])[c.me.id]; if (cap != null) who.node = cap;
-                      who.loyalty = Math.min(100, talkLoy(who) + 4); return { msg: `${who.name} başkente çekildi.` }; } },
+                      who.loyalty = Math.min(100, talkLoy(who) + talkGain(4)); return { msg: `${who.name} başkente çekildi.` }; } },
             ] };
         }
     },
@@ -139,13 +146,13 @@ const TALK_TEMPLATES = [
                 `«${o ? o.name : '—'}» sahada işlemiyor efendim. Konseyde bunu savunacak mısınız?"`,
             ], options: [
                 { text: '"Haklısın, gelecek konseyde değiştireceğim."', tip: 'Sadakat +8 · söz veriyorsun',
-                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + 8); STORY._promises = (STORY._promises || 0) + 1;
+                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + talkGain(8)); STORY._promises = (STORY._promises || 0) + 1;
                       return { msg: `${who.name}'a söz verdin (sadakat +8).` }; } },
                 { text: '"Kanun kanundur. Uygula."', tip: 'Sadakat −6 · refah +2 (otorite)',
                   run: t => { who.loyalty = Math.max(0, talkLoy(who) - 6); c.me.welfare = Math.min(100, c.me.welfare + 2);
                       return { msg: `Otoriteni gösterdin (refah +2, sadakat −6).` }; } },
                 { text: '"Ne öneriyorsun?" (dinle)', tip: 'Sadakat +4 · onun eğilimini öğrenirsin',
-                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + 4);
+                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + talkGain(4));
                       const sk = who.skills || {};
                       const lean = sk.warrior >= sk.economist && sk.warrior >= sk.diplomat ? 'ordu ve tahkimat'
                                  : sk.economist >= sk.diplomat ? 'sanayi ve gelir' : 'halkın refahı';
@@ -164,7 +171,7 @@ const TALK_TEMPLATES = [
                 `bu konseyde kim ne çevirirse çevirsin, benim kılıcım sizindir."`,
             ], options: [
                 { text: '"Bunu unutmayacağım." (kabul)', tip: 'Sadakat +6 · ittifak kurulur',
-                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + 6); who._sworn = true;
+                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + talkGain(6)); who._sworn = true;
                       return { msg: `${who.name} sana <b>yeminli</b> — darbe girişimlerinde yanında.` }; } },
                 { text: '"Sadakat sözle değil, sahada ölçülür."', tip: 'Sadakat −3 · ama saygı',
                   run: t => { who.loyalty = Math.max(0, talkLoy(who) - 3); return { msg: `${who.name} sessizce selam verdi.` }; } },
@@ -182,16 +189,16 @@ const TALK_TEMPLATES = [
                 `Bana bir şehir verin ya da yolumuza ayrı devam edelim. Ordum benimle gelir."`,
             ], options: [
                 { text: 'Bir şehrin valiliğini ver', tip: 'Sadakat +30 · o şehrin geliri ona akar',
-                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + 30); who._governor = who.node;
+                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + talkGain(30)); who._governor = who.node;
                       const nd = storyNode(who.node);
                       return { msg: `${nd ? nd.name : 'Şehir'} valiliği ${who.name}'a verildi (sadakat +30).` }; } },
                 { text: 'Kasandan rüşvet ver (300⭐)', tip: 'Sadakat +18 · 300⭐',
                   run: t => { const w = STORY.commander.res; if ((w.points || 0) < 300) return { fail: '⭐ Puanın yetmiyor.' };
-                      w.points -= 300; who.res.points = (who.res.points || 0) + 300; who.loyalty = Math.min(100, talkLoy(who) + 18);
+                      w.points -= 300; who.res.points = (who.res.points || 0) + 300; who.loyalty = Math.min(100, talkLoy(who) + talkGain(18));
                       return { msg: `${who.name} sustu (sadakat +18, −300⭐).` }; } },
                 { text: '"Git o zaman." (meydan oku)', tip: 'Firar riski · diğerlerine gözdağı',
                   run: t => { const others = c.mine.filter(x => x !== who);
-                      for (const o of others) o.loyalty = Math.min(100, talkLoy(o) + 3);
+                      for (const o of others) o.loyalty = Math.min(100, talkLoy(o) + talkGain(3));
                       who.loyalty = Math.max(0, talkLoy(who) - 15);
                       return { msg: `Meydan okudun — ${who.name} kudurdu, diğerleri hizaya geldi (+3).` }; } },
             ] };
@@ -234,7 +241,7 @@ const TALK_TEMPLATES = [
             ], options: [
                 { text: 'Devlet hazinesinden fon aktar', tip: 'Diğer komutanlardan 250⭐ toplanır',
                   run: t => { if (!storyCouncilPayFromState(c.me, { points: 250 })) return { fail: 'Devlet hazinesi yetersiz.' };
-                      who.res.points = (who.res.points || 0) + 250; who.loyalty = Math.min(100, talkLoy(who) + 9);
+                      who.res.points = (who.res.points || 0) + 250; who.loyalty = Math.min(100, talkLoy(who) + talkGain(9));
                       return { msg: `${who.name}'a 250⭐ aktarıldı (sadakat +9).` }; } },
                 { text: '"Kendi bölgeni kendin kalkındır."', tip: 'Sadakat −7',
                   run: t => { who.loyalty = Math.max(0, talkLoy(who) - 7); return { msg: `${who.name} eli boş döndü (sadakat −7).` }; } },
@@ -246,7 +253,7 @@ const TALK_TEMPLATES = [
     {
         id: 'clique', kind: 'clique',
         when: c => c.mine.length >= 2,
-        weight: () => 2,
+        weight: () => 2 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2),
         build: c => {
             const a = talkPick(c.mine);
             const b = talkPick(c.mine.filter(x => x !== a)) || a;
@@ -256,11 +263,11 @@ const TALK_TEMPLATES = [
                 `"...ikimiz birlikte istersek konsey bize karşı çıkamaz." — ${a.name}`,
             ], options: [
                 { text: 'İkisini de çağır, açık konuş', tip: 'Sadakat +5/+5 · kulis dağılır',
-                  run: t => { a.loyalty = Math.min(100, talkLoy(a) + 5); b.loyalty = Math.min(100, talkLoy(b) + 5);
+                  run: t => { a.loyalty = Math.min(100, talkLoy(a) + talkGain(5)); b.loyalty = Math.min(100, talkLoy(b) + talkGain(5));
                       a._clique = b._clique = null;
                       return { msg: 'Kulis dağıldı — ikisi de açıklık için minnettar (+5).' }; } },
                 { text: 'Birini kayır, ikisini böl', tip: `${a.name} +14 · ${b.name} −12`,
-                  run: t => { a.loyalty = Math.min(100, talkLoy(a) + 14); b.loyalty = Math.max(0, talkLoy(b) - 12);
+                  run: t => { a.loyalty = Math.min(100, talkLoy(a) + talkGain(14)); b.loyalty = Math.max(0, talkLoy(b) - 12);
                       return { msg: `${a.name} kazanıldı (+14), ${b.name} dışlandı (−12).` }; } },
                 { text: 'Sessizce izle', tip: 'Kulis büyür ama bilgi sende',
                   run: t => { a._clique = b.id; b._clique = a.id;
@@ -271,7 +278,7 @@ const TALK_TEMPLATES = [
     {
         id: 'plot', kind: 'clique',
         when: c => c.mine.filter(x => talkLoy(x) < 50).length >= 2,
-        weight: () => 3,
+        weight: () => 3 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2.5),
         build: c => {
             const low = c.mine.filter(x => talkLoy(x) < 50);
             const a = talkPick(low);
@@ -288,10 +295,10 @@ const TALK_TEMPLATES = [
                       return { msg: `${a.name} tutuklandı — konsey ürperdi (sadakat −4, refah −3).` }; } },
                 { text: 'İkisini de satın al', tip: 'Sadakat +20/+20 · 400⭐',
                   run: t => { if (!storyCouncilPayFromState(c.me, { points: 400 })) return { fail: 'Hazine yetersiz.' };
-                      a.loyalty = Math.min(100, talkLoy(a) + 20); b.loyalty = Math.min(100, talkLoy(b) + 20);
+                      a.loyalty = Math.min(100, talkLoy(a) + talkGain(20)); b.loyalty = Math.min(100, talkLoy(b) + talkGain(20));
                       return { msg: 'Komplo parayla söndürüldü (+20/+20, −400⭐).' }; } },
                 { text: 'Sadıklarını topla, hazırlan', tip: 'Yeminli komutanlar +8 · komplo sürer',
-                  run: t => { let n = 0; for (const o of c.mine) if (o._sworn) { o.loyalty = Math.min(100, talkLoy(o) + 8); n++; }
+                  run: t => { let n = 0; for (const o of c.mine) if (o._sworn) { o.loyalty = Math.min(100, talkLoy(o) + talkGain(8)); n++; }
                       return { msg: n ? `${n} yeminli komutan seferber edildi (+8).` : 'Yeminli komutanın yok — yalnızsın.' }; } },
             ] };
         }
@@ -309,14 +316,14 @@ const TALK_TEMPLATES = [
                 `İkisi de senden taraf tutmanı bekliyor.`,
             ], options: [
                 { text: `${a.name}'ı destekle`, tip: `+10 / −8`,
-                  run: t => { a.loyalty = Math.min(100, talkLoy(a) + 10); b.loyalty = Math.max(0, talkLoy(b) - 8);
+                  run: t => { a.loyalty = Math.min(100, talkLoy(a) + talkGain(10)); b.loyalty = Math.max(0, talkLoy(b) - 8);
                       return { msg: `${a.name} kayrıldı.` }; } },
                 { text: `${b.name}'ı destekle`, tip: `−8 / +10`,
-                  run: t => { b.loyalty = Math.min(100, talkLoy(b) + 10); a.loyalty = Math.max(0, talkLoy(a) - 8);
+                  run: t => { b.loyalty = Math.min(100, talkLoy(b) + talkGain(10)); a.loyalty = Math.max(0, talkLoy(a) - 8);
                       return { msg: `${b.name} kayrıldı.` }; } },
                 { text: 'İkisini de payla, kavgayı bitir', tip: 'Her ikisi +5 · 200⭐',
                   run: t => { if (!storyCouncilPayFromState(c.me, { points: 200 })) return { fail: 'Hazine yetersiz.' };
-                      a.loyalty = Math.min(100, talkLoy(a) + 5); b.loyalty = Math.min(100, talkLoy(b) + 5);
+                      a.loyalty = Math.min(100, talkLoy(a) + talkGain(5)); b.loyalty = Math.min(100, talkLoy(b) + talkGain(5));
                       return { msg: 'Kavga parayla çözüldü (+5/+5, −200⭐).' }; } },
             ] };
         }
@@ -422,7 +429,7 @@ const TALK_TEMPLATES = [
                       return { msg: `Haraç ödendi — 2 yıl ateşkes, ama konsey utandı (sadakat −5, refah −4).` }; } },
                 { text: '"Gelin de alın." (reddet)', tip: 'İlişki −25 · komutanlar +8 sadakat',
                   run: t => { storyRelAdd(c.me.id, foe.id, -25);
-                      for (const cm of c.mine) cm.loyalty = Math.min(100, talkLoy(cm) + 8);
+                      for (const cm of c.mine) cm.loyalty = Math.min(100, talkLoy(cm) + talkGain(8));
                       c.me.welfare = Math.min(100, c.me.welfare + 3);
                       return { msg: `Haraç reddedildi — onur korundu (sadakat +8, refah +3), ama savaş yakın.` }; } },
                 { text: 'Zaman kazan: "Konseye götüreyim."', tip: 'İlişki değişmez · saldırı gecikir',
@@ -464,7 +471,7 @@ const TALK_TEMPLATES = [
     {
         id: 'envoy-bribe', kind: 'foreign',
         when: c => c.mine.some(x => talkLoy(x) < 55) && c.neighbors.length > 0,
-        weight: () => 2.2,
+        weight: () => 2.2 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2),
         build: c => {
             const foe = talkPick(c.neighbors);
             const who = talkPick(c.mine.filter(x => talkLoy(x) < 55));
@@ -474,14 +481,14 @@ const TALK_TEMPLATES = [
                 `Mektubun altında ${who.name}'ın mührü var — ama cevabı henüz belli değil.`,
             ], options: [
                 { text: 'Yüzleştir ve affet', tip: 'Sadakat +22 · ilişki −12',
-                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + 22); storyRelAdd(c.me.id, foe.id, -12);
+                  run: t => { who.loyalty = Math.min(100, talkLoy(who) + talkGain(22)); storyRelAdd(c.me.id, foe.id, -12);
                       return { msg: `${who.name} affedildi — minnettar (+22).` }; } },
                 { text: 'Sessizce görevden al', tip: 'Kadrodan çıkar · diğerleri −5',
                   run: t => { const i = c.me.gov.commanders.indexOf(who); if (i >= 0) c.me.gov.commanders.splice(i, 1);
                       for (const o of c.mine) if (o !== who) o.loyalty = Math.max(0, talkLoy(o) - 5);
                       return { msg: `${who.name} tasfiye edildi — konsey tedirgin (−5).` }; } },
                 { text: 'Çift taraflı oyna: sahte bilgi yolla', tip: `İlişki −20 · ${foe.name} yanlış yerden saldırır`,
-                  run: t => { storyRelAdd(c.me.id, foe.id, -20); who.loyalty = Math.min(100, talkLoy(who) + 10);
+                  run: t => { storyRelAdd(c.me.id, foe.id, -20); who.loyalty = Math.min(100, talkLoy(who) + talkGain(10));
                       const front = c.myNodes.filter(n => (n.neighbors || []).some(id => { const q = storyNode(id); return q && q.owner === foe.id; }));
                       for (const n of front.slice(0, 2)) n.garrison = Math.min(storyCityGarrisonCap(n), (n.garrison | 0) + 1);
                       return { msg: `Karşı istihbarat kuruldu — sınır takviye edildi, ${who.name} oyuna ortak (+10).` }; } },
@@ -510,7 +517,7 @@ const TALK_TEMPLATES = [
                       return { msg: `Ticaret açıldı: −200👥 +300⛽ (ilişki +12).` }; } },
                 { text: 'Reddet — "Düşmanla ticaret olmaz."', tip: 'İlişki −8 · komutanlar +3',
                   run: t => { storyRelAdd(c.me.id, foe.id, -8);
-                      for (const x of c.mine) x.loyalty = Math.min(100, talkLoy(x) + 3);
+                      for (const x of c.mine) x.loyalty = Math.min(100, talkLoy(x) + talkGain(3));
                       return { msg: 'Ticaret reddedildi (komutanlar +3 sadakat).' }; } },
             ] };
         }

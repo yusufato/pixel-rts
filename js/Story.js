@@ -392,6 +392,7 @@ function storyLoad() {
         STORY._capitals = (Array.isArray(d.caps) && d.caps.length) ? d.caps : storyPickCapitals(STORY.nodes, STORY.states.length);
         STORY.commander = d.commander || { node: 0 };
         storyCommanderBackfill(STORY.commander);
+        if (typeof cmdrMigrate === 'function') cmdrMigrate(STORY.commander);   // FAZ-7: eski 3-slot perk → ağaç düğümü
         // FAZ-2: hükümet backfill (eksik kayıt güvenliği) + komutan-id sayacını ilerlet
         let _mx = (STORY.commander && STORY.commander.id) || 0;
         if (STORY.commander && !STORY.commander.res) STORY.commander.res = { oil: 200, manpower: 200, points: 200 };
@@ -520,8 +521,9 @@ function storySetPlayerDeployRes() {
     const r = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
     DEPLOY_RES = { blue: { oil: storyResBudget(r.oil), manpower: storyResBudget(r.manpower), points: storyResBudget(r.points) } };
     const active = STORY.commander.activePerks || [];
-    if (active.indexOf('logistics') >= 0) DEPLOY_RES.blue.oil += 200;
-    if (active.indexOf('mobilization') >= 0) DEPLOY_RES.blue.manpower += 150;
+    // (FAZ-7) 'logistics'/'mobilization' ARTIK BURADA DEĞİL: havuz sistemine geçince
+    // DEPLOY_RES.blue null'lanıyordu ve bu iki satır hiç işlemiyordu — ölü koddu.
+    // Yetenekler gelişim ağacında üretim hızı / gelir payı olarak yeniden yorumlandı.
     const cityId = STORY.battleCtx ? STORY.battleCtx.nodeId : (STORY.commander && STORY.commander.node);
     STORY._battleAllyList = storyForceNear(STORY.playerStateId, cityId).filter(c => c !== STORY.commander);   // savaş şehri/yanındaki dost komutanlar → otonom dizilir
 }
@@ -953,10 +955,13 @@ function storyAdvance(dtSec) {
             const cmds = storyStateCommanders(st), k = Math.max(1, cmds.length);
             const o = inc[st.id] || { oil: 0, manpower: 0, points: 0 };
             // 1.5 EKONOMİST: lojistik becerisi → DAHA BÜYÜK gelir payı (toplam korunur; komutanlar gerçek birey)
-            let wsum = 0; for (const c of cmds) wsum += 1 + (((c.skills && c.skills.economist) || 0) * 0.12); wsum = wsum || 1;
+            // FAZ-7: Seferberlik/Hazinedar yetenekleri oyuncunun PAYINI büyütür (toplam gelir sabit)
+            const _shareOf = c => (1 + (((c.skills && c.skills.economist) || 0) * 0.12))
+                * ((typeof cmdrIsPlayerToken === 'function' && cmdrIsPlayerToken(c)) ? cmdrBonus(c).incomeShare : 1);
+            let wsum = 0; for (const c of cmds) wsum += _shareOf(c); wsum = wsum || 1;
             for (const c of cmds) {
                 if (!c.res) c.res = { oil: 0, manpower: 0, points: 0 };
-                const w = (1 + (((c.skills && c.skills.economist) || 0) * 0.12)) / wsum;
+                const w = _shareOf(c) / wsum;
                 c.res.oil += o.oil * w; c.res.manpower += o.manpower * w; c.res.points += o.points * w;
             }
             st.res.oil = cmds.reduce((a, c) => a + (c.res ? c.res.oil : 0), 0);

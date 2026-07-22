@@ -1665,3 +1665,30 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     text-align: center; font-style: normal; }
 .tool-badge.hidden { display: none; }
 @media (max-width: 640px) { #talk-panel { width: 100vw; max-width: 100vw; } }
+
+/* ══ KOMUTAN GELİŞİM AĞACI ══════════════════════════════════════════════════ */
+.ct-top { padding: 10px 12px; margin-bottom: 10px; border: 1px solid var(--wr-line); border-radius: 4px;
+    background: rgba(255,176,0,.06); font-size: 12px; color: #ffe9bf; }
+.ct-top b { color: var(--wr-amber-bright); font-size: 16px; }
+.ct-sub { margin-left: 8px; color: #9fb3c8; font-size: 11px; }
+.ct-hint { margin-top: 4px; font-size: 11px; color: #8fa397; }
+.ct-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+.ct-col { min-width: 0; }
+.ct-col-h { font: 11px 'Share Tech Mono', monospace; letter-spacing: 1.6px; margin-bottom: 2px; }
+.ct-col-d { font-size: 10px; color: #8fa397; margin-bottom: 8px; min-height: 26px; }
+.ct-tier { margin: 8px 0 4px; font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.4px; color: #6f8177;
+    border-top: 1px solid rgba(255,255,255,.07); padding-top: 5px; }
+.ct-node { display: block; width: 100%; text-align: left; margin-bottom: 5px; padding: 7px 9px; font-family: inherit;
+    background: rgba(20,32,26,.7); border: 1px solid var(--wr-line); border-left: 3px solid transparent;
+    border-radius: 3px; color: #cfd8d2; cursor: pointer; transition: border-color .12s, background .12s; }
+.ct-node.open { border-left-color: var(--wr-amber); color: #ffe9bf; }
+.ct-node.open:hover { background: rgba(255,176,0,.14); border-color: var(--wr-amber); }
+.ct-node.owned { border-left-color: #4cff7c; background: rgba(76,255,124,.09); color: #d6f5e0; cursor: default; }
+.ct-node.locked, .ct-node.poor { opacity: .5; cursor: not-allowed; }
+.ct-n-h { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.ct-n-name { font-size: 12px; }
+.ct-n-badge { font: 8px 'Share Tech Mono', monospace; letter-spacing: 1px; color: var(--wr-amber-bright); white-space: nowrap; }
+.ct-node.owned .ct-n-badge { color: #4cff7c; }
+.ct-n-d { margin-top: 3px; font-size: 10px; color: #9fb3c8; line-height: 1.35; }
+.ct-n-lock { margin-top: 3px; font-size: 9px; color: #ff9a8a; }
+@media (max-width: 900px) { .ct-cols { grid-template-columns: 1fr; } .ct-col-d { min-height: 0; } }

@@ -34,7 +34,9 @@ function prodBuildCost(kind, lvl, n) {
     const base = tbl[lvl] != null ? tbl[lvl] : null;   // null = maksimum
     if (base == null) return null;
     const tb = n ? prodStateBonus(n) : null;           // İstihkam Bürosu / Teknik Okullar: bina ucuzlar
-    const m = (tb && tb.buildCost) || 1;
+    let m = (tb && tb.buildCost) || 1;
+    // FAZ-7: İstihkamcı yeteneği — YALNIZ oyuncunun kendi kasasından ödediği inşaat
+    if (typeof cmdrBonus === 'function' && n && n.owner === STORY.playerStateId) m *= cmdrBonus(STORY.commander).buildCost;
     return m === 1 ? base : Math.max(10, Math.round(base * m));
 }
 // Bina şehirden ileri gidemez: Sv.3 tank fabrikası ancak Sv.3 şehirde kurulur.
@@ -58,7 +60,9 @@ function prodTime(n, kind, type) {
     const lv = Math.max(1, n[kind] | 0);
     const cost = (STATS[type] && STATS[type].cost) || 70;
     const tb = prodStateBonus(n);                                   // Montaj Hattı / Seri Üretim / Cunta: süre kısalır
-    const sp = (tb && tb.prodSpeed) || 1;
+    let sp = (tb && tb.prodSpeed) || 1;
+    // FAZ-7: oyuncunun İDARE dalı (Lojistikçi/Levazım Reisi) KENDİ şehirlerinde hızlandırır
+    if (typeof cmdrBonus === 'function' && n.owner === STORY.playerStateId) sp *= cmdrBonus(STORY.commander).prodSpeed;
     return Math.max(3, Math.round((cost / 12) / PROD_SPEED[lv] * sp));   // tank ~11sn, piyade ~6sn
 }
 function prodSlots(n, kind) { return 2 + (n[kind] | 0); }
@@ -256,7 +260,9 @@ const CMD_ARMY_BASE = 6, CMD_ARMY_PER_SKILL = 3;   // savaşçı 0-6 → 6..24 b
 function cmdArmyCap(cmd) {
     if (!cmd) return 0;
     const w = (cmd.skills && cmd.skills.warrior) || 0;
-    return CMD_ARMY_BASE + w * CMD_ARMY_PER_SKILL;
+    // FAZ-7: oyuncunun GELİŞİM AĞACI (Talimci/Öncü Tümen) kapasiteyi büyütür
+    const t = (typeof cmdrIsPlayerToken === 'function' && cmdrIsPlayerToken(cmd)) ? cmdrBonus(cmd).armyCap : 0;
+    return CMD_ARMY_BASE + w * CMD_ARMY_PER_SKILL + t;
 }
 function cmdArmyCount(cmd) {
     let c = 0;

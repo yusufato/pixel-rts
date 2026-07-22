@@ -155,7 +155,13 @@ function storyCouncilTally(item, commanders, st, playerVote) {
     const ctx = st ? storyCouncilContext(st) : (item._ctx || null);
     const byOption = {}; item.options.forEach(o => { byOption[o.id] = []; });
     for (const c of commanders) {
-        if (c.isPlayer && playerVote && byOption[playerVote]) { byOption[playerVote].push(c); continue; }
+        if (c.isPlayer && playerVote && byOption[playerVote]) {
+            byOption[playerVote].push(c);
+            // FAZ-7 SİYASET DALI: Hatip/Kral Yapıcı → oyun birden çok oy sayılır
+            const extra = (typeof cmdrBonus === 'function') ? cmdrBonus(c).voteWeight : 0;
+            for (let i = 0; i < extra; i++) byOption[playerVote].push({ id: -1 - i, name: c.name, isPlayer: true, _proxy: true, personality: c.personality, loyalty: c.loyalty });
+            continue;
+        }
         let best = null, bestS = -Infinity;
         for (const o of item.options) {
             const s = storyCouncilVoteScore(c, o.id, o.appeal, ctx, o.welfare, o.loyGain);
@@ -481,7 +487,7 @@ function storyCouncilSessionRender() {
                 + `<div class="cs-votes"><span class="cs-vc">${voters.length} oy${tags}</span>${chips}${isMine ? '<span class="cs-myvote">◆ OYUN</span>' : ''}</div>`
                 + `</button>`;
         }).join('') + `</div>`
-        + (overriding ? `<div class="cs-warn">⚠️ Konsey çoğunluğunu eziyorsun — <b>tüm komutanların sadakati −5</b> düşecek.</div>` : '')
+        + (overriding ? `<div class="cs-warn">⚠️ Konsey çoğunluğunu eziyorsun — <b>tüm komutanların sadakati −${(typeof cmdrBonus === 'function' && cmdrBonus(STORY.commander).overrideCost != null) ? cmdrBonus(STORY.commander).overrideCost : 5}</b> düşecek.</div>` : '')
         + (!S.isAdmin && myVote !== tally.winner.id
             ? `<div class="cs-warn">🗳️ Oyun <b>${(item.options.find(o => o.id === myVote) || {}).name}</b>, ama konsey <b>${tally.winner.name}</b> diyor — karar çoğunluğun. Yönetici olursan son sözü sen söylersin.</div>` : '')
         + (S.isAdmin && !S.atCapital
@@ -526,7 +532,10 @@ function storyCouncilSessionNext() {
     const chosen = (canOverride && S.choices[S.idx]) ? S.choices[S.idx] : tally.winner.id;
     if (chosen !== tally.winner.id) {                         // konseyi ezmenin bedeli
         S.overrides++;
-        for (const c of storyStateCommanders(st)) if (!c.isPlayer) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - 5);
+        // FAZ-7: 'Sopa' yeteneği bedeli düşürür (5 → 2)
+        const pen = (typeof cmdrBonus === 'function' && cmdrBonus(STORY.commander).overrideCost != null)
+            ? cmdrBonus(STORY.commander).overrideCost : 5;
+        for (const c of storyStateCommanders(st)) if (!c.isPlayer) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - pen);
     }
     const msg = storyCouncilApply(st, item, chosen);
     if (msg) S.results.push(msg);
