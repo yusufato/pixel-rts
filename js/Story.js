@@ -253,13 +253,24 @@ function storyCreateCommander(stateId, node) {
         recentBattles: [],                               // FAZ-2 Adım 5: son ≤3 savaş (1=galip/0=mağlup) — sadakat formülü
         node: (node != null ? node : (cap != null ? cap : 0))
     };
-    if (stateId === STORY.playerStateId && STORY._techBonus && STORY._techBonus.officer && cmd.skills) {   // TEKNOLOJİ (Subay Okulu): +1 yetenek
-        const o = STORY._techBonus.officer;
+    const _tb = st._techBonus;                            // TEKNOLOJİ/KANUN (Subay Okulu, Liyakat): +1 yetenek — HER devlet için
+    if (_tb && _tb.officer && cmd.skills) {
+        const o = _tb.officer;
         cmd.skills.warrior = Math.min(6, cmd.skills.warrior + o);
         cmd.skills.diplomat = Math.min(6, cmd.skills.diplomat + o);
         cmd.skills.economist = Math.min(6, cmd.skills.economist + o);
     }
     st.gov.commanders.push(cmd);
+    return cmd;
+}
+// KONSEY ATAMASI: konseyin seçtiği aday tipine göre yetenek eğilimli komutan (Council.js kullanır)
+function storyCreateCommanderFor(stateId, bias) {
+    const cap = (STORY._capitals && STORY._capitals[stateId]);
+    const cmd = storyCreateCommander(stateId, cap);
+    if (cmd && cmd.skills && cmd.skills[bias] != null) {
+        cmd.skills[bias] = Math.min(6, Math.max(4, cmd.skills[bias] + 2));   // aday vaadi: seçilen alanda güçlü
+        cmd.loyalty = Math.min(100, (cmd.loyalty || 60) + 10);               // konseyin atadığı → daha sadık başlar
+    }
     return cmd;
 }
 // her devlete hükümet + 10 KOMUTAN (oyuncu devleti: 9 + oyuncu = 10), kendi şehirlerine dağılmış
@@ -312,6 +323,7 @@ function storyNewCampaign(config = {}) {
         id, name: def.name, color: def.color, isPlayer: id === playerStateId,
         res: { oil: Math.round(600 * abundance), manpower: Math.round(600 * abundance), points: Math.round(600 * abundance) },
         tech: [], _techBonus: null, techPoints: 0,      // FAZ-2 Adım 4: HER devletin teknolojisi (AI dahil)
+        laws: {}, constitution: 'monarchy',            // FAZ-4: konseyin çıkardığı kanunlar + anayasa (HER devlet)
         welfare: 50, reputation: 0, isAdmin: false,
         gov: { leader: 'ai', commanders: [] }          // FAZ-2 hükümet (storyInitGovernments doldurur)
     }));
@@ -320,8 +332,13 @@ function storyNewCampaign(config = {}) {
     STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {} };
     storyInitGovernments();                            // her devlete AI komutan + hükümet iskeleti
     STORY.veterans = [];
-    STORY.tech = [];                                    // FAZ-2 Adım 4: araştırılan teknolojiler (oyuncu devleti)
+    // OYUNCU tech'i = kendi devletinin tech dizisi (AYNI dizi nesnesi) → storyTechPowerMul/konsey
+    // oyuncu devletinde de doğru çalışır; iki ayrı liste tutmanın yol açtığı sapma biter.
+    STORY.tech = STORY.states[playerStateId].tech;
     STORY._techBonus = null;
+    STORY._nextCouncil = (typeof COUNCIL_PERIOD_YEARS !== 'undefined') ? COUNCIL_PERIOD_YEARS * YEAR_SECONDS : 240;   // FAZ-4: ilk konsey 2. yılda
+    STORY._councilNo = 0;
+    STORY._session = null;
     STORY.cfg = {
         abundance,
         doctrine: config.doctrine || STORY.cfg.doctrine || 'combined',
@@ -348,7 +365,8 @@ function storySave() {
             v: 2, states: STORY.states, nodes: STORY.nodes, playerStateId: STORY.playerStateId,
             commander: STORY.commander, veterans: STORY.veterans, tech: STORY.tech, cfg: STORY.cfg, pendingReward: STORY.pendingReward,
             clock: STORY.clock, log: STORY.log,
-            caps: STORY._capitals   // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
+            caps: STORY._capitals,  // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
+            nextCouncil: STORY._nextCouncil, councilNo: STORY._councilNo   // FAZ-4: konsey takvimi (kanun/anayasa states içinde)
         };
         localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(data));
         STORY._lastSaveOk = true;
@@ -378,7 +396,12 @@ function storyLoad() {
         }
         _storyCmdNextId = _mx + 1;
         STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
-        for (const st of STORY.states) { if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0; storyStateComputeTech(st); }   // FAZ-2 Adım 4: devlet tech backfill + bonus
+        // FAZ-2 Adım 4 + FAZ-4: devlet tech/kanun/anayasa backfill + bonus (eski kayıtlar konsey öncesinden gelir)
+        for (const st of STORY.states) {
+            if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0;
+            if (!st.laws) st.laws = {}; if (!st.constitution) st.constitution = 'monarchy';
+            storyStateComputeTech(st);
+        }
         for (const n of STORY.nodes) storyNodeBackfill(n);   // kuşatma temizliği + seviye/garnizon/bina/havuz/kuyruk backfill (Production.js)
         // ESKİ KAYIT ALTYAPI TELAFİSİ: üretim sisteminden önceki kayıtlarda hiçbir şehirde bina yok.
         // Bu hâlde havuz hep boş kalır, her savaş "acil seferberlik"e düşer ve oyuncu üretim
@@ -393,10 +416,22 @@ function storyLoad() {
         }
         STORY.veterans = d.veterans || [];
         STORY.pendingReward = d.pendingReward || null;
-        STORY.tech = d.tech || [];
+        // OYUNCU tech'i, devletinin tech dizisiyle AYNI nesne olmalı. Eski kayıtlarda oyuncu
+        // tech'i yalnız d.tech'te duruyor, devletin dizisi boştu → önce birleştir, sonra referansla.
+        const _pst = storyPlayerState();
+        if (_pst) {
+            if (!Array.isArray(_pst.tech)) _pst.tech = [];
+            for (const id of (d.tech || [])) if (_pst.tech.indexOf(id) < 0) _pst.tech.push(id);
+            STORY.tech = _pst.tech;
+        } else STORY.tech = d.tech || [];
         storyComputeTechBonus();
         STORY.cfg = Object.assign({ abundance: 1.0, doctrine: 'combined', fog: true }, d.cfg || {});
         STORY.clock = d.clock || 0;
+        // FAZ-4 konsey takvimi: eski kayıtta yoksa "bir sonraki 2-yıl sınırı"na hizala
+        const _per = (typeof COUNCIL_PERIOD_YEARS !== 'undefined') ? COUNCIL_PERIOD_YEARS * YEAR_SECONDS : 240;
+        STORY._nextCouncil = (d.nextCouncil != null) ? d.nextCouncil : (Math.floor(STORY.clock / _per) + 1) * _per;
+        STORY._councilNo = d.councilNo || 0;
+        STORY._session = null;
         STORY.log = d.log || [];
         STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
         return true;
@@ -873,7 +908,10 @@ function storyAssignDeposits() {
 // ── DÜNYA SİMÜLASYONU (gerçek-zaman, duraklatılabilir) ────────────────────────
 function storyAdvance(dtSec) {
     if (STORY.paused) return;
+    if (STORY._session) return;   // FAZ-4: KONSEY TOPLANTIDA — dünya durur (olay), oyuncu karar verene kadar
     STORY.clock += dtSec;
+    // FAZ-4: KONSEY TAKVİMİ — her 2 yılda bir TÜM devletlerde toplanır (AI sessiz, oyuncu modal)
+    if (typeof storyCouncilTick === 'function') { storyCouncilTick(); if (STORY._session) return; }
     // KAYNAK: her sahip olunan düğüm → sahibine petrol/insan/puan biriktirir
     STORY._accResource += dtSec;
     if (STORY._accResource >= 1.0) {
@@ -889,8 +927,14 @@ function storyAdvance(dtSec) {
             o.manpower += (0.4 + (n.cities || 0) * 0.5) * lv * ab * step;
             o.points   += (0.4 + (n.pts    || 0) * 0.7) * lv * ab * step;
         }
-        // TEKNOLOJİ (Vergi Reformu): oyuncu devletinin ⭐puan geliri çarpanı
-        if (STORY._techBonus && STORY._techBonus.pointsIncome && inc[STORY.playerStateId]) inc[STORY.playerStateId].points *= STORY._techBonus.pointsIncome;
+        // TEKNOLOJİ + KANUN (Vergi Reformu, Vergi Rejimi, Demiryolu…): HER devletin gelir çarpanları
+        for (const st of STORY.states) {
+            const tb = st._techBonus, o = inc[st.id];
+            if (!tb || !o) continue;
+            if (tb.pointsIncome) o.points *= tb.pointsIncome;
+            if (tb.oilIncome) o.oil *= tb.oilIncome;
+            if (tb.manIncome) o.manpower *= tb.manIncome;
+        }
         // 2) Geliri KOMUTANLARA EŞİT dağıt (her komutanın kendi kasası birikir); state.res = toplam; gelir/komutan SABİT
         for (const st of STORY.states) {
             const cmds = storyStateCommanders(st), k = Math.max(1, cmds.length);
@@ -906,7 +950,10 @@ function storyAdvance(dtSec) {
             st.res.manpower = cmds.reduce((a, c) => a + (c.res ? c.res.manpower : 0), 0);
             st.res.points = cmds.reduce((a, c) => a + (c.res ? c.res.points : 0), 0);
             if (st.isPlayer) STORY._incPerCmd = { oil: o.oil / k / step, manpower: o.manpower / k / step, points: o.points / k / step };
-            else st.techPoints = Math.min(4000, (st.techPoints || 0) + (o.points || 0) * 0.6);   // AI Ar-Ge bütçesi (puan gelirinin %60'ı; tüm tech bitince sınırsız birikmesin → tavan)
+            // AR-GE BÜTÇESİ: puan gelirinin %60'ı, HER devlet için (oyuncu dahil).
+            // Eskiden yalnız AI biriktiriyordu; oyuncu tech'i elle satın alıyordu → asimetriydi.
+            // Artık ikisi de aynı havuzdan, aynı hızda ilerler; yön KONSEY kararıdır.
+            st.techPoints = Math.min(4000, (st.techPoints || 0) + (o.points || 0) * 0.6);
         }
     }
     // FAZ-3: ŞEHİR ÜRETİMİ — kuyruktaki birlikler ilerler, bitenler havuza düşer (oyuncu + AI aynı motor)
@@ -1468,7 +1515,11 @@ function storyApplyLoyaltyDrift() {
             // TABAN EROZYON -0.15 → -0.04: eski değerde başlangıç refahında (50, yani wf=0) net drift
             // NEGATİF kalıyordu ve komutanlar hiçbir şey yapılmasa bile 1.5-3 dakikada firar eşiğine
             // (35) iniyordu. Sadakat kaybı KÖTÜ YÖNETİMİN sonucu olmalı, varsayılan durum değil.
-            const drift = -0.04 + wf + wr + per + dip;
+            let drift = -0.04 + wf + wr + per + dip;
+            // KONSEY: Propaganda/Sansür/Aristokrat Subaylık + anayasa → NEGATİF drift'i yumuşatır
+            // (pozitif drift'e dokunmaz: sadakat kazanmayı ucuzlatmaz, kaybetmeyi zorlaştırır)
+            const hold = (st._techBonus && st._techBonus.loyaltyHold) || 1;
+            if (drift < 0 && hold < 1) drift *= hold;
             let nl = (cmd.loyalty == null ? 60 : cmd.loyalty) + drift * 0.5;   // dt=0.5
             // SADAKAT TABANI: devlet ayakta ve refah makulse komutan bir eşiğin altına düşmez.
             // Bu olmadan uzun barış dönemleri tüm kadroyu eritiyordu.
@@ -1497,7 +1548,9 @@ function storyCommanderDefectTo(cmd, fromSt, toSt, atNode) {
 const CMD_CAP_MIN = 4;
 function storyCommanderCap(st) {
     const owned = STORY.nodes.filter(n => n.owner === st.id).length;
-    return Math.max(CMD_CAP_MIN, Math.min(10, 4 + Math.floor(owned / 3)));
+    // KONSEY: Genelkurmay tech'i, Halk Komiserleri kanunu ve anayasa kadroyu genişletir/daraltır
+    const extra = (st._techBonus && st._techBonus.cmdCap) || 0;
+    return Math.max(CMD_CAP_MIN, Math.min(12, 4 + Math.floor(owned / 3) + extra));
 }
 function storyReplenishCommanders() {
     for (const st of STORY.states) {
@@ -1877,14 +1930,18 @@ function storyPanelUpdate() {
     const stats = document.getElementById('story-stats');
     if (stats) {
         const myr = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
-        const day = 1 + Math.floor((STORY.clock || 0) / 60);
+        // FAZ-4 TAKVİM: "gün" yerine mevsim+yıl. Konseye kalan süre de burada görünür.
+        const date = (typeof storyDateLabel === 'function') ? storyDateLabel() : `GÜN ${1 + Math.floor((STORY.clock || 0) / 60)}`;
+        const toCouncil = (typeof YEAR_SECONDS !== 'undefined') ? Math.max(0, (STORY._nextCouncil || 0) - (STORY.clock || 0)) : null;
+        const cSoon = toCouncil != null && toCouncil <= 30;
         stats.innerHTML =
             `<div class="story-stat-chip identity" style="--state-color:${me.color}">DEVLET<b>${me.name}</b></div>` +
             `<div class="story-stat-chip">PETROL<b>${Math.floor(myr.oil)}</b></div>` +
             `<div class="story-stat-chip">İNSAN<b>${Math.floor(myr.manpower)}</b></div>` +
             `<div class="story-stat-chip">PUAN<b>${Math.floor(myr.points)}</b></div>` +
             `<div class="story-stat-chip">GAZİ<b>${(STORY.veterans || []).length}</b></div>` +
-            `<div class="story-stat-chip">GÜN<b>${day}</b></div>`;
+            `<div class="story-stat-chip wide">TARİH<b>${date}</b></div>` +
+            (toCouncil != null ? `<div class="story-stat-chip${cSoon ? ' urgent' : ''}">KONSEY<b>${(toCouncil / YEAR_SECONDS).toFixed(1)} yıl</b></div>` : '');
     }
     const info = document.getElementById('story-node-info');
     const action = document.getElementById('story-action-btn');
@@ -2015,38 +2072,74 @@ function storyTechStatusFor(ids, tech) {
     if (tech.sibling && storyTechHasIn(ids, tech.sibling)) return { state: 'locked', reason: (TECH_BY_ID[tech.sibling] ? TECH_BY_ID[tech.sibling].name : '') + ' seçildi (kardeş)', cost };
     if (tech.tier >= 3 && !ids.some(id => TECH_BY_ID[id] && TECH_BY_ID[id].branch === 'state'))
         return { state: 'locked', reason: 'Çağ Kapısı: Devlet dalında ≥1 tech şart', cost };
+    if (tech.tier >= 4 && ids.length < 8)
+        return { state: 'locked', reason: `Çağ Kapısı: ≥8 teknoloji şart (${ids.length}/8)`, cost };
     return { state: 'available', cost };
 }
-// tech listesi → bonus nesnesi (ekonomist sinerjisi ×(1+0.05·eco); indirim+buff iki yönde güçlenir)
-function storyComputeTechBonusFor(ids, eco) {
-    if (!ids || !ids.length) return null;
+// ÇARPAN anahtarları: tech/kanun/anayasa etkisi → TECH_BONUS alanı
+const BONUS_MUL_MAP = {
+    oilCost: 'oilCost', manpowerCost: 'manpowerCost', allCost: 'allCost',
+    tankArmor: 'tankArmor', tankHp: 'tankHp', tankAtk: 'tankAtkMul', armorSpeed: 'armorSpeed',
+    reconVision: 'reconVision', infantryHp: 'infantryHp', infantryAtk: 'infantryAtkMul',
+    mechHp: 'mechHp', atHp: 'atHp', allHp: 'allHp', allSpeed: 'allSpeed',
+    artySplash: 'artySplashMul', artyVsInf: 'artyVsInfMul', artyAtk: 'artyAtkMul', atVsTank: 'atVsTankMul',
+    pointsIncome: 'pointsIncome', oilIncome: 'oilIncome', manIncome: 'manIncome',
+    prodSpeed: 'prodSpeed', buildCost: 'buildCost', loyaltyHold: 'loyaltyHold',
+};
+const BONUS_ADD_KEYS = { conquestVets: 1, officer: 1, poolCap: 1, cmdCap: 1, cityDefense: 1 };
+// etki nesneleri listesi → bonus (ekonomist sinerjisi ×(1+0.05·eco); indirim+buff iki yönde güçlenir)
+function storyComputeBonusFrom(effects, eco) {
+    if (!effects || !effects.length) return null;
     const synF = 1 + 0.05 * (eco || 0);
     const b = {};
-    const mul = (key, v) => { b[key] = (b[key] || 1) * (1 + (v - 1) * synF); };
-    const KMAP = { oilCost: 'oilCost', manpowerCost: 'manpowerCost', allCost: 'allCost', tankArmor: 'tankArmor', tankHp: 'tankHp', armorSpeed: 'armorSpeed', reconVision: 'reconVision', infantryHp: 'infantryHp', artySplash: 'artySplashMul', artyVsInf: 'artyVsInfMul', artyAtk: 'artyAtkMul', atVsTank: 'atVsTankMul', pointsIncome: 'pointsIncome' };
-    for (const id of ids) {
-        const t = TECH_BY_ID[id]; if (!t || !t.effect) continue;
-        for (const k in t.effect) {
-            if (KMAP[k]) mul(KMAP[k], t.effect[k]);
-            else if (k === 'conquestVets') b.conquestVets = (b.conquestVets || 0) + t.effect[k];
-            else if (k === 'officer') b.officer = (b.officer || 0) + t.effect[k];
+    const mul = (key, v) => { b[key] = Math.max(0.2, (b[key] || 1) * (1 + (v - 1) * synF)); };
+    for (const eff of effects) {
+        if (!eff) continue;
+        for (const k in eff) {
+            if (BONUS_MUL_MAP[k]) mul(BONUS_MUL_MAP[k], eff[k]);
+            else if (BONUS_ADD_KEYS[k]) b[k] = (b[k] || 0) + eff[k];
             else if (k === 'intel') b.intel = true;
         }
     }
     return b;
 }
+// devletin YÜRÜRLÜKTEKİ tüm etkileri: teknoloji + konsey kanunları + anayasa
+function storyStateEffects(st) {
+    const out = [];
+    for (const id of (st.tech || [])) { const t = TECH_BY_ID[id]; if (t && t.effect) out.push(t.effect); }
+    if (typeof LAW_SLOT_BY_KEY !== 'undefined') {
+        const laws = st.laws || {};
+        for (const k in laws) { const o = lawOption(k, laws[k]); if (o && o.effect) out.push(o.effect); }
+    }
+    if (typeof CONSTITUTION_BY_ID !== 'undefined') { const c = storyConstitution(st); if (c && c.effect) out.push(c.effect); }
+    return out;
+}
+// eski imza (yalnız tech listesi) — dış çağrılar için korunur
+function storyComputeTechBonusFor(ids, eco) {
+    const eff = []; for (const id of (ids || [])) { const t = TECH_BY_ID[id]; if (t && t.effect) eff.push(t.effect); }
+    return storyComputeBonusFrom(eff, eco);
+}
 // devletin en iyi ekonomisti (AI tech sinerjisi)
 function storyStateBestEco(st) { let m = 0; for (const c of storyStateCommanders(st)) if (c.skills && c.skills.economist > m) m = c.skills.economist; return m; }
-function storyStateComputeTech(st) { st._techBonus = storyComputeTechBonusFor(st.tech || [], storyStateBestEco(st)); return st._techBonus; }
-// — OYUNCU sarmalayıcıları (STORY.tech) —
+function storyStateComputeTech(st) { st._techBonus = storyComputeBonusFrom(storyStateEffects(st), storyStateBestEco(st)); return st._techBonus; }
+// — OYUNCU sarmalayıcıları (STORY.tech = oyuncu devletinin tech dizisi, AYNI nesne) —
 function storyTechHas(id) { return storyTechHasIn(STORY.tech, id); }
 function storyTechCost(tech) { return storyTechCostFor(STORY.tech, tech); }
 function storyTechStatus(tech) { return storyTechStatusFor(STORY.tech, tech); }
-function storyComputeTechBonus() { STORY._techBonus = storyComputeTechBonusFor(STORY.tech, (STORY.commander && STORY.commander.skills && STORY.commander.skills.economist) || 0); return STORY._techBonus; }
-// — AI ARAŞTIRMASI: her AI devlet techPoints'iyle en ucuz UYGUN tech'i alır (organik, ekonomiye bağlı) —
+// Oyuncunun bonusu = devletinin bonusu (kanun/anayasa dahil); STORY._techBonus ile devletinki AYNI nesne.
+function storyComputeTechBonus() {
+    const st = storyPlayerState();
+    if (!st) { STORY._techBonus = storyComputeTechBonusFor(STORY.tech, 0); return STORY._techBonus; }
+    st._techBonus = storyComputeBonusFrom(storyStateEffects(st), (STORY.commander && STORY.commander.skills && STORY.commander.skills.economist) || 0);
+    STORY._techBonus = st._techBonus;
+    return STORY._techBonus;
+}
+// — RUTİN AR-GE: her devlet (OYUNCU DAHİL) techPoints'iyle en ucuz UYGUN tech'i alır.
+// Bu "kendiliğinden ilerleyen bilim"dir; YÖN veren karar konseydedir (storyCouncilApply).
+// Oyuncu devleti de dahil çünkü aksi hâlde AI serbest ilerlerken oyuncu yalnız 2 yılda bir
+// tech alırdı — ölçümde AI 700sn'de 5-12 tech'e çıkıyordu, oyuncu 2'de kalıyordu.
 function storyAIResearch() {
     for (const st of STORY.states) {
-        if (st.isPlayer) continue;
         if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0;
         let best = null, bestCost = Infinity;
         for (const t of TECH_TREE.techs) {
@@ -2057,33 +2150,33 @@ function storyAIResearch() {
             st.techPoints -= bestCost;
             st.tech.push(best.id);
             storyStateComputeTech(st);
-            if (Math.random() < 0.45) storyLog(`⚙️ ${st.name} teknoloji geliştirdi: <b>${best.name}</b>`);
+            if (st.isPlayer) { storyComputeTechBonus(); storyLog(`🔬 Ar-Ge tamamlandı: <b>${best.name}</b> (−${bestCost}⭐ araştırma fonu)`); }
+            else if (Math.random() < 0.45) storyLog(`⚙️ ${st.name} teknoloji geliştirdi: <b>${best.name}</b>`);
         }
     }
 }
+// TEKNOLOJİ ARTIK SATIN ALINMAZ — KONSEY KARARIDIR.
+// Kullanıcı isteği: "teknoloji ağacı geliştirmeleri konsey toplandığında tüm komutanlar seçim
+// yapar, son fikri yönetici koyar". Dükkân mantığı kaldırıldı; iki yol kaldı:
+//   1) RUTİN AR-GE  — araştırma fonu yeterse en ucuz uygun tech kendiliğinden gelir
+//   2) KONSEY KARARI — 2 yılda bir, komutanlar oylar, yönetici pahalı/stratejik olanı seçer
 function storyTechBuy(id) {
     const tech = TECH_BY_ID[id]; if (!tech) return;
-    const st = storyTechStatus(tech);
-    if (st.state !== 'available') { storyFlash('Bu teknoloji şu an araştırılamaz.'); return; }
-    const pts = (STORY.commander && STORY.commander.res) ? STORY.commander.res.points : 0;
-    if (pts < st.cost) { storyFlash(`⭐ Puan yetersiz (gerekli ${st.cost}, var ${Math.floor(pts)}).`); return; }
-    STORY.commander.res.points -= st.cost;
-    (STORY.tech || (STORY.tech = [])).push(id);
-    storyComputeTechBonus();
-    storyLog(`🔬 Teknoloji araştırıldı: ${tech.name} (−${st.cost}⭐)`);
-    storySave();
-    storyTechUpdate();
+    storyFlash(`🏛️ ${tech.name} bir KONSEY kararıdır — toplantıda oylanır, Ar-Ge fonu yeterse kendiliğinden gelir.`);
 }
 function storyTechUpdate() {
     if (!STORY._techOpen) return;
     const body = document.getElementById('tech-body'); if (!body || typeof TECH_TREE === 'undefined') return;
-    const pts = (STORY.commander && STORY.commander.res) ? Math.floor(STORY.commander.res.points) : 0;
+    const me = storyPlayerState();
+    const fund = me ? Math.floor(me.techPoints || 0) : 0;
     const count = (STORY.tech || []).length;
-    let html = `<div class="tech-top">⭐ Puanın: <b>${pts}</b> · Araştırılan: <b>${count}/${TECH_TREE.techs.length}</b>`
-        + `<div class="tech-hint">Maliyet her alımda +%10 · K3 için Devlet dalında ≥1 tech · K2 kardeşlerden biri</div></div><div class="tech-cols">`;
+    const toC = Math.max(0, (STORY._nextCouncil || 0) - (STORY.clock || 0));
+    let html = `<div class="tech-top">🔬 Ar-Ge fonu: <b>${fund}⭐</b> · Araştırılan: <b>${count}/${TECH_TREE.techs.length}</b>`
+        + `<div class="tech-hint">Teknoloji <b>satın alınmaz</b> — fon yeterse en ucuz uygun tech kendiliğinden gelir; pahalı/stratejik olanı <b>KONSEY</b> seçer (sonraki toplantı: ${(toC / YEAR_SECONDS).toFixed(1)} yıl).</div>`
+        + `<div class="tech-hint">Maliyet her alımda +%10 · K3 için Devlet dalında ≥1 tech · K4 için ≥8 tech · K2 kardeşlerden biri</div></div><div class="tech-cols">`;
     for (const br of TECH_TREE.branches) {
         html += `<div class="tech-col"><div class="tech-col-h" style="color:${br.color}">${br.icon} ${br.name}</div>`;
-        for (let tier = 1; tier <= 3; tier++) {
+        for (let tier = 1; tier <= 4; tier++) {
             for (const t of TECH_TREE.techs.filter(x => x.branch === br.key && x.tier === tier)) {
                 const s = storyTechStatus(t);
                 const badge = s.state === 'researched' ? '✓ Araştırıldı' : (s.state === 'locked' ? '🔒' : `${s.cost}⭐`);
@@ -2168,6 +2261,9 @@ function storyCouncilUpdate() {
     const C = STORY_CMD_COST, afford = me.res.oil >= C && me.res.manpower >= C && me.res.points >= C, capFull = extra >= 9;
     if (createBtn) { createBtn.disabled = !isAdmin || capFull || !afford; createBtn.textContent = capFull ? '➕ Konsey dolu (10)' : ((!afford && isAdmin) ? '➕ Hazine yetersiz' : '➕ Komutan Yarat'); }
     if (dismissBtn) { dismissBtn.disabled = !isAdmin || extra === 0; dismissBtn.textContent = STORY._dismissMode ? '✓ Dağıtmayı Bitir' : '✖ Dağıt Modu'; }
+    // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı
+    const laws = document.getElementById('council-lawbox');
+    if (laws && typeof storyCouncilLawsHtml === 'function') laws.innerHTML = storyCouncilLawsHtml(me);
 }
 function storyCouncilCreate() {
     const me = storyPlayerState(); if (!me || !(me.gov && me.gov.leader === 'player')) return;

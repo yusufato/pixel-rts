@@ -1,0 +1,488 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  KONSEY & TAKVİM (PIXEL EUROPA — Faz-4)
+//  · TAKVİM: 1 yıl = 120 sn, 4 mevsim. STORY.clock üzerine ince bir katman.
+//  · KONSEY: her 2 yılda bir BAŞKENTTE toplanır, DÜNYA DURUR (olay).
+//    Gündem maddeleri: teknoloji · kanun · anayasa · atama · devlet önergesi.
+//    Tüm komutanlar OY VERİR, YÖNETİCİ son kararı koyar (konseyi ezmek sadakate mal olur).
+//  · Bu motor TÜM DEVLETLER için çalışır — AI devletleri sessizce aynı gündemi çözer.
+//  Etki anahtarları techTree.js ile ORTAK; Story.js storyComputeBonusFrom() ile birleştirir.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── TAKVİM ───────────────────────────────────────────────────────────────────
+const YEAR_SECONDS = 120;                 // 1 oyun-yılı = 120 sn
+const COUNCIL_PERIOD_YEARS = 2;           // konsey 2 yılda bir toplanır
+const STORY_START_YEAR = 1904;
+const SEASON_NAMES = ['İLKBAHAR', 'YAZ', 'SONBAHAR', 'KIŞ'];
+const SEASON_ICONS = ['🌱', '☀️', '🍂', '❄️'];
+
+function storyYear() { return STORY_START_YEAR + Math.floor((STORY.clock || 0) / YEAR_SECONDS); }
+function storyYearFloat() { return (STORY.clock || 0) / YEAR_SECONDS; }
+function storySeasonIdx() { return Math.min(3, Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / (YEAR_SECONDS / 4))); }
+function storyDateLabel() { const i = storySeasonIdx(); return `${SEASON_ICONS[i]} ${SEASON_NAMES[i]} ${storyYear()}`; }
+function storyDateShort() { return `${SEASON_NAMES[storySeasonIdx()].slice(0, 3)} ${storyYear()}`; }
+
+// ── KANUNLAR (her slot = tek seçim; konsey değiştirir) ───────────────────────
+// appeal: komutanın oyunu belirler (warrior/diplomat/economist katsayısı + aggr kişilik ağırlığı)
+const LAW_SLOTS = [
+    { key: 'conscription', icon: '🎖️', name: 'Askerlik Düzeni', options: [
+        { id: 'volunteer', name: 'Gönüllü Ordu',          desc: 'Piyade −%10 insan gücü · refah +4',                 effect: { manpowerCost: 0.90 }, welfare: 4,  appeal: { diplomat: 1.3, economist: 0.4, aggr: -1 } },
+        { id: 'draft',     name: 'Zorunlu Askerlik',      desc: 'Ordu kapasitesi +4 · refah −3',                     effect: { poolCap: 4 },         welfare: -3, appeal: { warrior: 1.1, aggr: 1 } },
+        { id: 'total',     name: 'Topyekûn Seferberlik',  desc: 'Kapasite +8, üretim −%10 süre · refah −8',          effect: { poolCap: 8, prodSpeed: 0.90 }, welfare: -8, appeal: { warrior: 1.8, aggr: 2.2, economist: -0.6 } },
+    ]},
+    { key: 'economy', icon: '💰', name: 'Ekonomi Düzeni', options: [
+        { id: 'free',      name: 'Serbest Piyasa',        desc: '⭐puan geliri +%15 · refah +3',                      effect: { pointsIncome: 1.15 }, welfare: 3,  appeal: { economist: 1.5, diplomat: 0.5, aggr: -0.8 } },
+        { id: 'mixed',     name: 'Karma Ekonomi',         desc: '⛽ ve 👥 geliri +%8 · dengeli',                      effect: { oilIncome: 1.08, manIncome: 1.08 }, welfare: 1, appeal: { economist: 0.9, diplomat: 0.6 } },
+        { id: 'command',   name: 'Kumanda Ekonomisi',     desc: 'Birim maliyeti −%12, bina −%15 · refah −5',         effect: { allCost: 0.88, buildCost: 0.85 }, welfare: -5, appeal: { warrior: 1.2, economist: 0.7, aggr: 1.2 } },
+    ]},
+    { key: 'industry', icon: '🏭', name: 'Sanayi Politikası', options: [
+        { id: 'private',   name: 'Özel Sanayi',           desc: '⭐puan geliri +%10 · refah +3',                      effect: { pointsIncome: 1.10 }, welfare: 3,  appeal: { economist: 1.4, aggr: -0.6 } },
+        { id: 'state',     name: 'Devlet Fabrikaları',    desc: 'Üretim süresi −%12 · bina −%10',                    effect: { prodSpeed: 0.88, buildCost: 0.90 }, welfare: 0, appeal: { economist: 0.8, warrior: 0.8 } },
+        { id: 'heavy',     name: 'Ağır Sanayi Seferberliği', desc: 'Üretim −%20 süre, kapasite +5 · refah −6',       effect: { prodSpeed: 0.80, poolCap: 5 }, welfare: -6, appeal: { warrior: 1.6, aggr: 1.8, diplomat: -0.5 } },
+    ]},
+    { key: 'tax', icon: '🧾', name: 'Vergi Rejimi', options: [
+        { id: 'low',       name: 'Düşük Vergi',           desc: 'Refah +6 · gelir artışı yok',                       effect: {},                     welfare: 6,  appeal: { diplomat: 1.4, aggr: -1 } },
+        { id: 'moderate',  name: 'Ilımlı Vergi',          desc: 'Tüm gelir +%8 · refah +1',                          effect: { pointsIncome: 1.08, oilIncome: 1.08, manIncome: 1.08 }, welfare: 1, appeal: { economist: 1.2, diplomat: 0.4 } },
+        { id: 'heavy',     name: 'Ağır Vergi',            desc: 'Tüm gelir +%18 · refah −7',                         effect: { pointsIncome: 1.18, oilIncome: 1.18, manIncome: 1.18 }, welfare: -7, appeal: { economist: 1.6, warrior: 0.5, diplomat: -1.2 } },
+    ]},
+    { key: 'press', icon: '📰', name: 'Basın & Bilgi', options: [
+        { id: 'free',      name: 'Özgür Basın',           desc: 'Refah +5 · sadakat dalgalı',                        effect: {},                     welfare: 5,  appeal: { diplomat: 1.6, aggr: -1.2 } },
+        { id: 'guided',    name: 'Denetimli Basın',       desc: 'Sadakat erimesi −%25',                              effect: { loyaltyHold: 0.75 },  welfare: 0,  appeal: { diplomat: 0.5, warrior: 0.6 } },
+        { id: 'censor',    name: 'Sıkı Sansür',           desc: 'Sadakat erimesi −%55 · refah −6',                   effect: { loyaltyHold: 0.45 },  welfare: -6, appeal: { warrior: 1.3, aggr: 1.4, diplomat: -1.4 } },
+    ]},
+    { key: 'officers', icon: '🎓', name: 'Subay Sınıfı', options: [
+        { id: 'merit',     name: 'Liyakat Sistemi',       desc: 'Yeni komutan +1 yetenek · refah +2',                effect: { officer: 1 },         welfare: 2,  appeal: { economist: 1.0, diplomat: 1.0 } },
+        { id: 'noble',     name: 'Aristokrat Subaylık',   desc: 'Sadakat erimesi −%30 · refah −3',                   effect: { loyaltyHold: 0.70 },  welfare: -3, appeal: { warrior: 0.7, diplomat: 0.8, economist: -0.5 } },
+        { id: 'commissar', name: 'Halk Komiserleri',      desc: 'Komutan kadrosu +1, sadakat −%20 erime · refah −4', effect: { cmdCap: 1, loyaltyHold: 0.80 }, welfare: -4, appeal: { warrior: 1.2, aggr: 1.3 } },
+    ]},
+    { key: 'land', icon: '🌾', name: 'Toprak Düzeni', options: [
+        { id: 'estates',   name: 'Büyük Çiftlikler',      desc: '⛽petrol geliri +%12 · refah −4',                    effect: { oilIncome: 1.12 },    welfare: -4, appeal: { economist: 1.3, diplomat: -0.8 } },
+        { id: 'reform',    name: 'Toprak Reformu',        desc: '👥insan geliri +%12 · refah +5',                     effect: { manIncome: 1.12 },    welfare: 5,  appeal: { diplomat: 1.5, economist: 0.3 } },
+    ]},
+    { key: 'education', icon: '📚', name: 'Eğitim Siyaseti', options: [
+        { id: 'war',       name: 'Harp Akademileri',      desc: 'Şehir savunması +%10 · yeni komutan +1 yetenek',    effect: { cityDefense: 0.10, officer: 1 }, welfare: 0, appeal: { warrior: 1.5, aggr: 1 } },
+        { id: 'technical', name: 'Teknik Okullar',        desc: 'Üretim süresi −%10, bina −%10',                     effect: { prodSpeed: 0.90, buildCost: 0.90 }, welfare: 1, appeal: { economist: 1.4 } },
+        { id: 'public',    name: 'Halk Mektepleri',       desc: 'Refah +7 · ⭐puan geliri +%6',                       effect: { pointsIncome: 1.06 }, welfare: 7,  appeal: { diplomat: 1.7, aggr: -1 } },
+    ]},
+];
+const LAW_SLOT_BY_KEY = {}; LAW_SLOTS.forEach(s => { LAW_SLOT_BY_KEY[s.key] = s; });
+function lawOption(slotKey, optId) {
+    const s = LAW_SLOT_BY_KEY[slotKey]; if (!s) return null;
+    return s.options.find(o => o.id === optId) || null;
+}
+
+// ── ANAYASA (tek slot; nadir ve ağır karar) ──────────────────────────────────
+const CONSTITUTIONS = [
+    { id: 'monarchy',  icon: '👑', name: 'Meşruti Monarşi', desc: 'Denge düzeni — ne güçlü ne zayıf.',
+      effect: {}, welfare: 0, appeal: { diplomat: 0.8 } },
+    { id: 'absolute',  icon: '🏰', name: 'Mutlakiyet',      desc: 'Sadakat erimesi −%40 · kadro −1 · refah −5',
+      effect: { loyaltyHold: 0.60, cmdCap: -1 }, welfare: -5, appeal: { warrior: 0.9, aggr: 1.2, diplomat: -1.5 } },
+    { id: 'republic',  icon: '🏛️', name: 'Cumhuriyet',      desc: 'Refah +10 · ⭐puan +%12 · darbe direnci',
+      effect: { pointsIncome: 1.12, loyaltyHold: 0.85 }, welfare: 10, appeal: { diplomat: 2.0, economist: 0.8, aggr: -1.5 } },
+    { id: 'junta',     icon: '⚔️', name: 'Askeri Cunta',    desc: 'Kapasite +10, üretim −%15 süre · refah −12',
+      effect: { poolCap: 10, prodSpeed: 0.85 }, welfare: -12, appeal: { warrior: 2.2, aggr: 2.5, diplomat: -2 } },
+    { id: 'council',   icon: '🤝', name: 'Halk Konseyi',    desc: 'Kadro +2 · birim −%10 maliyet · refah +4',
+      effect: { cmdCap: 2, allCost: 0.90 }, welfare: 4, appeal: { diplomat: 1.4, economist: 1.2, warrior: -0.5 } },
+];
+const CONSTITUTION_BY_ID = {}; CONSTITUTIONS.forEach(c => { CONSTITUTION_BY_ID[c.id] = c; });
+function storyConstitution(st) { return CONSTITUTION_BY_ID[(st && st.constitution) || 'monarchy'] || CONSTITUTIONS[0]; }
+
+// ── DEVLET ÖNERGELERİ (tek seferlik; gündeme çeşni katar) ────────────────────
+// apply(st): anında etki. Maliyet devlet hazinesinden (komutan kasalarından orantılı) düşer.
+const COUNCIL_MOTIONS = [
+    { id: 'winter', wf: 8, loy: 0,   icon: '🧣', name: 'Kışlık İkmal Programı',  desc: 'Refah +8 · hazineden 120⛽',        cost: { oil: 120 },      appeal: { diplomat: 1.4 },              apply: st => { st.welfare = Math.min(100, st.welfare + 8); } },
+    { id: 'parade', wf: 0, loy: 8,   icon: '🥁', name: 'Askerî Geçit Töreni',    desc: 'Tüm komutanlar +8 sadakat · 90⭐',  cost: { points: 90 },    appeal: { warrior: 1.2, aggr: 0.8 },    apply: st => { for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 8); } },
+    { id: 'amnesty', wf: -3, loy: 14,  icon: '🕊️', name: 'Genel Af',               desc: 'Sadakati düşük komutanlar +14 · refah −3', cost: {},        appeal: { diplomat: 1.6, aggr: -1 },    apply: st => { st.welfare = Math.max(0, st.welfare - 3); for (const c of storyStateCommanders(st)) if ((c.loyalty || 60) < 55) c.loyalty = Math.min(100, (c.loyalty || 60) + 14); } },
+    { id: 'roads', wf: 0, loy: 0,    icon: '🛤️', name: 'Yol İnşaat Seferberliği', desc: 'Her şehir +1 seviye ilerleme fonu · 150⭐', cost: { points: 150 }, appeal: { economist: 1.5 },      apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.points += 40; } } },
+    { id: 'veterans', wf: 6, loy: 5, icon: '🎖️', name: 'Gazi Maaşları',          desc: 'Refah +6 · sadakat +5 · 100👥',     cost: { manpower: 100 }, appeal: { diplomat: 1.1, warrior: 0.8 }, apply: st => { st.welfare = Math.min(100, st.welfare + 6); for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 5); } },
+    { id: 'granary', wf: 5, loy: 0,  icon: '🌾', name: 'Devlet Tahıl Ambarı',    desc: 'Refah +5 · tüm komutanlara +30👥',  cost: { oil: 60 },       appeal: { economist: 1.2, diplomat: 0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 5); for (const c of storyStateCommanders(st)) { if (c.res) c.res.manpower += 30; } } },
+    { id: 'arsenal', wf: 0, loy: 0,  icon: '🔧', name: 'Cephanelik Genişletmesi', desc: 'Başkente +1 fabrika seviyesi · 140⛽', cost: { oil: 140 },   appeal: { warrior: 1.5, aggr: 1 },      apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.fac = Math.min(3, (cap.fac | 0) + 1); } },
+    { id: 'barracks', wf: 0, loy: 0, icon: '🏕️', name: 'Kışla Nizamnamesi',      desc: 'Başkente +1 kışla seviyesi · 120👥', cost: { manpower: 120 }, appeal: { warrior: 1.3 },              apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.bar = Math.min(3, (cap.bar | 0) + 1); } },
+    { id: 'purge', wf: 4, loy: 0,    icon: '🗡️', name: 'Ordu Tasfiyesi',         desc: 'En sadakatsiz komutan görevden alınır · refah +4', cost: {}, appeal: { warrior: 0.6, aggr: 1.4, diplomat: -1.6 }, apply: st => {
+        if (!st.gov || !st.gov.commanders.length) return;
+        let worst = null; for (const c of st.gov.commanders) if (!c.isPlayer && (!worst || (c.loyalty || 60) < (worst.loyalty || 60))) worst = c;
+        if (worst) { const i = st.gov.commanders.indexOf(worst); if (i >= 0) st.gov.commanders.splice(i, 1); st.welfare = Math.min(100, st.welfare + 4); }
+    }},
+    { id: 'medals', wf: 0, loy: 10,   icon: '🏅', name: 'Madalya Nizamnamesi',    desc: 'Muharip komutanlar +10 sadakat · 70⭐', cost: { points: 70 }, appeal: { warrior: 1.4 },              apply: st => { for (const c of storyStateCommanders(st)) if ((c.skills && c.skills.warrior) >= 4) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 10); } },
+    { id: 'census', wf: 0, loy: 0,   icon: '📋', name: 'Nüfus Sayımı',           desc: 'Tüm komutanlara +45👥 +45⛽ · 80⭐',  cost: { points: 80 },   appeal: { economist: 1.3 },             apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.manpower += 45; c.res.oil += 45; } } },
+    { id: 'austerity', wf: -6, loy: 0,icon: '✂️', name: 'Tasarruf Tedbirleri',    desc: 'Refah −6 · tüm komutanlara +60⭐',   cost: {},               appeal: { economist: 0.9, diplomat: -1 }, apply: st => { st.welfare = Math.max(0, st.welfare - 6); for (const c of storyStateCommanders(st)) { if (c.res) c.res.points += 60; } } },
+    { id: 'festival', wf: 9, loy: 0, icon: '🎪', name: 'Millî Bayram',           desc: 'Refah +9 · 60⭐ 60⛽',                cost: { points: 60, oil: 60 }, appeal: { diplomat: 1.5, aggr: -0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 9); } },
+    { id: 'reserve', wf: 0, loy: 0,  icon: '🛡️', name: 'İhtiyat Kuvvet Fonu',    desc: 'Başkent garnizonu +1 · 90👥',        cost: { manpower: 90 },  appeal: { warrior: 1.1, aggr: -0.4 },   apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.garrison = Math.min(6, (cap.garrison | 0) + 1); } },
+];
+const MOTION_BY_ID = {}; COUNCIL_MOTIONS.forEach(m => { MOTION_BY_ID[m.id] = m; });
+
+// ── OY MODELİ ────────────────────────────────────────────────────────────────
+// Deterministik serpinti: aynı (komutan, seçenek) çifti hep aynı küçük sapmayı alır
+// → oylar ne hepsi aynı, ne de her tick'te değişken (kaydet/yükle tutarlı).
+function _councilHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; }
+
+// ÜLKENİN HÂLİ — konsey boşlukta oy vermez.
+// Ölçümde (8 devlet × 900sn) yalnız kişilikle oy veren konsey açlık içindeyken bile
+// refah-düşürücü kanunları seçiyor, refah çöküşü sadakat sarmalını besliyordu:
+// kanunsuz konsey 12.0 şehir / 36 refah, kanunlu konsey 8.5 şehir / 28 refah veriyordu.
+// Artık kriz derinleştikçe refah/sadakat getiren seçenekler ağırlık kazanır — konsey
+// kendi kendini düzeltir. Tüm devletler (AI dahil) aynı modeli kullanır.
+function storyCouncilContext(st) {
+    const wf = (st && st.welfare == null) ? 50 : st.welfare;
+    const cmds = (typeof storyStateCommanders === 'function') ? storyStateCommanders(st) : [];
+    const loy = cmds.length ? cmds.reduce((a, c) => a + (c.loyalty == null ? 60 : c.loyalty), 0) / cmds.length : 60;
+    return {
+        welfareNeed: Math.max(0, Math.min(1, (55 - wf) / 55)),   // refah 55+ → 0, refah 0 → 1
+        loyaltyNeed: Math.max(0, Math.min(1, (62 - loy) / 62)),  // sadakat 62+ → 0
+    };
+}
+function storyCouncilVoteScore(cmd, optId, appeal, ctx, wfDelta, loyDelta) {
+    const sk = cmd.skills || { warrior: 3, diplomat: 3, economist: 3 };
+    const aggr = (typeof CMD_PERSONA_AGGR !== 'undefined' && CMD_PERSONA_AGGR[cmd.personality]) || 1;
+    const a = appeal || {};
+    let s = 6;
+    s += (a.warrior   || 0) * (sk.warrior   || 0);
+    s += (a.diplomat  || 0) * (sk.diplomat  || 0);
+    s += (a.economist || 0) * (sk.economist || 0);
+    s += (a.aggr      || 0) * (aggr - 1) * 8;
+    if (ctx) {
+        // Kriz baskısı: refah/sadakat ihtiyacı arttıkça o eksendeki teklif ağırlaşır.
+        // Diplomat komutan halkın hâlini daha çok umursar, agresif komutan daha az.
+        const care = 0.7 + ((sk.diplomat || 0) * 0.09) - ((aggr - 1) * 0.35);
+        s += ctx.welfareNeed * (wfDelta  || 0) * 0.95 * care;
+        s += ctx.loyaltyNeed * (loyDelta || 0) * 0.85 * care;
+    }
+    s += _councilHash(cmd.id + '|' + optId) * 3.0;   // kişisel serpinti
+    return s;
+}
+// Bir gündem maddesi için tüm komutanların oyu → { byOption: {id:[cmd..]}, winner, tally }
+function storyCouncilTally(item, commanders, st) {
+    const ctx = st ? storyCouncilContext(st) : (item._ctx || null);
+    const byOption = {}; item.options.forEach(o => { byOption[o.id] = []; });
+    for (const c of commanders) {
+        let best = null, bestS = -Infinity;
+        for (const o of item.options) {
+            const s = storyCouncilVoteScore(c, o.id, o.appeal, ctx, o.welfare, o.loyGain);
+            if (s > bestS) { bestS = s; best = o; }
+        }
+        if (best) byOption[best.id].push(c);
+    }
+    let winner = item.options[0], wn = -1;
+    for (const o of item.options) { const n = byOption[o.id].length; if (n > wn) { wn = n; winner = o; } }
+    return { byOption, winner, count: wn };
+}
+
+// ── GÜNDEM ÜRETİMİ (oyuncu ve AI aynı fonksiyon → simetri garanti) ───────────
+// sessionNo: kaçıncı konsey (anayasa maddesi seyrekliği için)
+function storyCouncilBuildAgenda(st, sessionNo) {
+    const items = [];
+    const rnd = (salt) => _councilHash(st.id + '|' + sessionNo + '|' + salt);
+
+    // 1) TEKNOLOJİ — uygun tech'lerden 3 aday (farklı dallardan olmaya çalış)
+    const avail = TECH_TREE.techs.filter(t => storyTechStatusFor(st.tech || [], t).state === 'available');
+    if (avail.length) {
+        const pool = avail.slice().sort((a, b) => (a.cost - b.cost) + (rnd(a.id) - rnd(b.id)) * 120);
+        const picked = [], seenBranch = {};
+        for (const t of pool) { if (picked.length >= 3) break; if (seenBranch[t.branch] && picked.length < 2) continue; seenBranch[t.branch] = 1; picked.push(t); }
+        for (const t of pool) { if (picked.length >= 3) break; if (picked.indexOf(t) < 0) picked.push(t); }
+        const BR_APPEAL = { armor: { warrior: 1.2, aggr: 1.0 }, mob: { warrior: 0.9, diplomat: 0.5 }, arty: { warrior: 1.0, economist: 0.5 }, state: { economist: 1.2, diplomat: 0.9 }, ind: { economist: 1.5 } };
+        items.push({
+            kind: 'tech', icon: '🔬', title: 'ARAŞTIRMA BÜTÇESİ',
+            desc: 'Bu dönem hangi teknoloji geliştirilsin? Maliyet devlet ⭐puanından karşılanır.',
+            options: picked.map(t => {
+                const c = storyTechCostFor(st.tech || [], t);
+                return { id: t.id, name: t.name, desc: t.desc + ` · ${c}⭐`, meta: (TECH_TREE.branches.find(b => b.key === t.branch) || {}).name, appeal: BR_APPEAL[t.branch] || {}, techCost: c };
+            }),
+        });
+    }
+
+    // 2) KANUN — bir slot seç, mevcut olan dışındaki seçenekleri öner (+ "değişiklik yok")
+    const slot = LAW_SLOTS[Math.floor(rnd('law') * LAW_SLOTS.length) % LAW_SLOTS.length];
+    if (slot) {
+        const cur = (st.laws || {})[slot.key];
+        const curWf = cur ? ((lawOption(slot.key, cur) || {}).welfare || 0) : 0;
+        const opts = slot.options.filter(o => o.id !== cur).map(o => ({
+            id: o.id, name: o.name, desc: o.desc, meta: 'KANUN', appeal: o.appeal, lawSlot: slot.key,
+            welfare: (o.welfare || 0) - curWf,   // oylanan şey DEĞİŞİM: mevcut kanuna göre refah farkı
+        }));
+        opts.push({ id: '_keep', name: cur ? 'Mevcut Kanun Kalsın' : 'Düzenleme Yapılmasın', desc: cur ? (lawOption(slot.key, cur) || {}).name || '—' : 'Bu alanda kanun çıkarılmaz.', meta: 'STATÜKO', appeal: { diplomat: 0.4 }, welfare: 0 });
+        items.push({ kind: 'law', icon: slot.icon, title: slot.name.toLocaleUpperCase('tr'), desc: `${slot.name} yeniden düzenlensin mi?`, options: opts, lawSlot: slot.key });
+    }
+
+    // 3) ANAYASA — her 3. konseyde (nadir, ağır)
+    if (sessionNo > 0 && sessionNo % 3 === 0) {
+        const cur = (st.constitution || 'monarchy');
+        const others = CONSTITUTIONS.filter(c => c.id !== cur);
+        const pick = others.slice().sort((a, b) => rnd(a.id) - rnd(b.id)).slice(0, 2);
+        items.push({
+            kind: 'constitution', icon: '📜', title: 'ANAYASA GÖRÜŞMESİ',
+            desc: 'Devletin temel düzeni tartışmaya açıldı. Bu karar her şeyi etkiler.',
+            options: pick.map(c => ({ id: c.id, name: c.icon + ' ' + c.name, desc: c.desc, meta: 'ANAYASA', appeal: c.appeal, welfare: (c.welfare || 0) - (storyConstitution(st).welfare || 0) }))
+                .concat([{ id: '_keep', name: '📜 ' + storyConstitution(st).name + ' Sürsün', desc: 'Mevcut anayasa korunur.', meta: 'STATÜKO', appeal: { diplomat: 0.6, economist: 0.4 }, welfare: 0 }]),
+        });
+    }
+
+    // 4) ATAMA — kadro eksikse yeni komutan
+    const cap = (typeof storyCommanderCap === 'function') ? storyCommanderCap(st) : 6;
+    const cur = storyStateCommanders(st).length;
+    if (cur < cap) {
+        items.push({
+            kind: 'appoint', icon: '🎖️', title: 'KOMUTAN ATAMASI',
+            desc: `Kadro ${cur}/${cap} — konsey boş makama aday gösteriyor.`,
+            options: [
+                { id: 'warrior',   name: 'Muharip Subay',   desc: 'Yüksek savaş becerisi — cephe komutanı.',      meta: 'ADAY', appeal: { warrior: 1.6, aggr: 1.2 } },
+                { id: 'economist', name: 'Lojistik Subayı',  desc: 'Yüksek iktisat becerisi — gelir payı büyür.',  meta: 'ADAY', appeal: { economist: 1.6 } },
+                { id: 'diplomat',  name: 'Kurmay Diplomat',  desc: 'Yüksek diplomasi — sadakat istikrarı sağlar.', meta: 'ADAY', appeal: { diplomat: 1.6, aggr: -0.8 } },
+                { id: '_none',     name: 'Makam Boş Kalsın', desc: 'Hazine korunur, kadro genişlemez.',            meta: 'RET',  appeal: { economist: 0.5, diplomat: -0.3 } },
+            ],
+        });
+    }
+
+    // 5) DEVLET ÖNERGESİ — havuzdan 3 farklı önerge + ret
+    const mpool = COUNCIL_MOTIONS.slice().sort((a, b) => rnd(a.id) - rnd(b.id)).slice(0, 3);
+    items.push({
+        kind: 'motion', icon: '📌', title: 'DEVLET ÖNERGELERİ',
+        desc: 'Konseyin önündeki tek seferlik tedbirler. Yalnız biri kabul edilebilir.',
+        options: mpool.map(m => ({ id: m.id, name: m.icon + ' ' + m.name, desc: m.desc, meta: 'ÖNERGE', appeal: m.appeal, welfare: m.wf || 0, loyGain: m.loy || 0 }))
+            .concat([{ id: '_none', name: '⏭️ Önerge Yok', desc: 'Hazine korunur, tedbir alınmaz.', meta: 'RET', appeal: { economist: 0.6 }, welfare: 0 }]),
+    });
+
+    return items;
+}
+
+// ── KARAR UYGULAMA (oyuncu ve AI ortak) ─────────────────────────────────────
+function storyCouncilPayFromState(st, cost) {
+    if (!cost) return true;
+    const cmds = storyStateCommanders(st); if (!cmds.length) return false;
+    for (const k in cost) { let have = 0; for (const c of cmds) have += (c.res && c.res[k]) || 0; if (have < cost[k]) return false; }
+    for (const k in cost) {
+        let need = cost[k];
+        const rich = cmds.slice().sort((a, b) => ((b.res && b.res[k]) || 0) - ((a.res && a.res[k]) || 0));
+        for (const c of rich) { if (need <= 0) break; if (!c.res) continue; const take = Math.min(need, c.res[k]); c.res[k] -= take; need -= take; }
+    }
+    return true;
+}
+// item + seçilen option id → devlete uygula. Döner: kısa log metni (veya null)
+function storyCouncilApply(st, item, optId) {
+    if (!optId || optId === '_keep' || optId === '_none') return null;
+    if (item.kind === 'tech') {
+        const opt = item.options.find(o => o.id === optId); if (!opt) return null;
+        if (!storyCouncilPayFromState(st, { points: opt.techCost })) return `⭐ hazine yetersiz — <b>${opt.name}</b> ertelendi`;
+        if (!st.tech) st.tech = [];
+        if (st.tech.indexOf(optId) < 0) st.tech.push(optId);
+        storyStateComputeTech(st);
+        if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
+        return `🔬 <b>${opt.name}</b> araştırıldı`;
+    }
+    if (item.kind === 'law') {
+        const o = lawOption(item.lawSlot, optId); if (!o) return null;
+        if (!st.laws) st.laws = {};
+        st.laws[item.lawSlot] = optId;
+        if (o.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + o.welfare));
+        storyStateComputeTech(st);
+        if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
+        return `⚖️ <b>${o.name}</b> kanunlaştı`;
+    }
+    if (item.kind === 'constitution') {
+        const c = CONSTITUTION_BY_ID[optId]; if (!c) return null;
+        st.constitution = optId;
+        if (c.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + c.welfare));
+        storyStateComputeTech(st);
+        if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
+        return `📜 Yeni anayasa: <b>${c.name}</b>`;
+    }
+    if (item.kind === 'appoint') {
+        if (!storyCouncilPayFromState(st, { oil: 90, manpower: 90, points: 90 })) return '🎖️ Hazine yetersiz — atama yapılamadı';
+        const nc = storyCreateCommanderFor(st.id, optId);
+        return nc ? `🎖️ <b>${nc.name}</b> komutanlığa atandı` : null;
+    }
+    if (item.kind === 'motion') {
+        const m = MOTION_BY_ID[optId]; if (!m) return null;
+        if (!storyCouncilPayFromState(st, m.cost)) return `📌 Hazine yetersiz — <b>${m.name}</b> reddedildi`;
+        try { m.apply(st); } catch (e) { /* önerge güvenliği: hiçbir önerge dünyayı çökertmesin */ }
+        return `📌 <b>${m.name}</b> kabul edildi`;
+    }
+    return null;
+}
+
+// ── KONSEY OTURUMU ──────────────────────────────────────────────────────────
+// Dünya saatinden tetiklenir: her COUNCIL_PERIOD_YEARS yılda bir, TÜM devletler.
+function storyCouncilDue() {
+    const per = COUNCIL_PERIOD_YEARS * YEAR_SECONDS;
+    if (STORY._nextCouncil == null) STORY._nextCouncil = per;   // ilk konsey 2. yılda
+    return (STORY.clock || 0) >= STORY._nextCouncil;
+}
+function storyCouncilTick() {
+    if (!storyCouncilDue()) return;
+    const per = COUNCIL_PERIOD_YEARS * YEAR_SECONDS;
+    STORY._nextCouncil = (STORY._nextCouncil || per) + per;
+    STORY._councilNo = (STORY._councilNo || 0) + 1;
+    const sessionNo = STORY._councilNo;
+
+    // AI devletleri sessizce çözer
+    for (const st of STORY.states) {
+        if (st.isPlayer) continue;
+        if (!st.gov || !storyStateCommanders(st).length) continue;
+        if (!storyCouncilHasCapital(st)) { storyCouncilNoCapitalPenalty(st); continue; }
+        storyCouncilResolveAI(st, sessionNo);
+    }
+    // Oyuncu devleti: DÜNYA DURUR, oturum açılır
+    const me = storyPlayerState();
+    if (!me || !me.gov) return;
+    if (!storyCouncilHasCapital(me)) { storyCouncilNoCapitalPenalty(me); return; }
+    storyCouncilSessionOpen(me, sessionNo);
+}
+function storyCouncilHasCapital(st) {
+    const capId = (STORY._capitals || [])[st.id];
+    const cap = capId != null ? storyNode(capId) : null;
+    return !!(cap && cap.owner === st.id);
+}
+function storyCouncilNoCapitalPenalty(st) {
+    st.welfare = Math.max(0, (st.welfare || 50) - 6);
+    for (const c of storyStateCommanders(st)) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - 6);
+    if (st.isPlayer) storyLog(`🏛️ <b>KONSEY TOPLANAMADI</b> — başkentin elinde değil! Refah ve sadakat düştü.`);
+}
+// AI: komutanlar oylar, lider (en yüksek savaş+diplomasi) çoğunluğu %75 ihtimalle onaylar
+function storyCouncilResolveAI(st, sessionNo) {
+    const items = storyCouncilBuildAgenda(st, sessionNo);
+    const cmds = storyStateCommanders(st);
+    const logs = [];
+    for (const item of items) {
+        const t = storyCouncilTally(item, cmds, st);
+        const ctx = storyCouncilContext(st);
+        let choice = t.winner;
+        // yönetici vetosu: %25 ihtimalle kendi tercihini dayatır (sadakat bedeliyle)
+        const lead = cmds.slice().sort((a, b) => ((b.skills?.warrior || 0) + (b.skills?.diplomat || 0)) - ((a.skills?.warrior || 0) + (a.skills?.diplomat || 0)))[0];
+        if (lead && _councilHash(st.id + '|' + sessionNo + '|veto|' + item.kind) < 0.25) {
+            let best = null, bestS = -Infinity;
+            for (const o of item.options) { const s = storyCouncilVoteScore(lead, o.id, o.appeal, ctx, o.welfare, o.loyGain); if (s > bestS) { bestS = s; best = o; } }
+            if (best && best.id !== choice.id) { choice = best; for (const c of cmds) if (c !== lead) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - 3); }
+        }
+        const msg = storyCouncilApply(st, item, choice.id);
+        if (msg) logs.push(msg);
+    }
+    // dünya haberi: her AI konseyinden en fazla 1 satır (log taşmasın)
+    if (logs.length && _councilHash(st.id + '|news|' + sessionNo) < 0.5)
+        storyLog(`🏛️ <span style="color:${st.color}">${st.name}</span> konseyi: ${logs[0]}`);
+}
+
+// ── OYUNCU OTURUMU (dünya durur) ────────────────────────────────────────────
+function storyCouncilSessionOpen(st, sessionNo) {
+    const items = storyCouncilBuildAgenda(st, sessionNo);
+    if (!items.length) return;
+    const capId = (STORY._capitals || [])[st.id];
+    const cap = storyNode(capId);
+    const atCapital = !!(STORY.commander && STORY.commander.node === capId);
+    STORY._session = {
+        stateId: st.id, sessionNo, items, idx: 0, choices: {},
+        atCapital, capName: cap ? cap.name : '—',
+        isAdmin: !!(st.gov && st.gov.leader === 'player'),
+        overrides: 0, results: [],
+    };
+    storyCouncilSessionRender();
+    const el = document.getElementById('council-session');
+    if (el) el.classList.remove('hidden');
+}
+function storyCouncilSessionRender() {
+    const S = STORY._session; if (!S) return;
+    const st = storyState(S.stateId); if (!st) return;
+    const item = S.items[S.idx]; if (!item) return;
+    const cmds = storyStateCommanders(st);
+    const tally = storyCouncilTally(item, cmds, st);
+    S._tally = tally;
+
+    const head = document.getElementById('cs-head');
+    if (head) head.innerHTML =
+        `<div class="cs-eyebrow">${storyDateLabel()} · ${S.capName} · ${COUNCIL_PERIOD_YEARS} YILLIK OLAĞAN TOPLANTI</div>`
+        + `<h2 class="cs-title">KONSEY TOPLANTISI</h2>`
+        + `<div class="cs-role">${S.isAdmin ? (S.atCapital ? '🏛️ <b style="color:#4cff7c">YÖNETİCİSİN — son sözü sen söylersin</b>' : '📡 <b style="color:#ffd24c">YÖNETİCİSİN ama başkentte değilsin — konseyi ezemezsin</b>') : '🗳️ <b style="color:#9fb3c8">Bir oyun var; kararı AI Cumhurbaşkanı verir</b>'}</div>`;
+
+    const sel = S.choices[S.idx] || tally.winner.id;
+    const canOverride = S.isAdmin && S.atCapital;
+
+    const body = document.getElementById('cs-body');
+    if (body) body.innerHTML =
+        `<div class="cs-item-h"><span class="cs-item-ic">${item.icon}</span><div><div class="cs-item-t">${item.title}</div><div class="cs-item-d">${item.desc}</div></div></div>`
+        + `<div class="cs-options">` + item.options.map(o => {
+            const voters = tally.byOption[o.id] || [];
+            const isWin = o.id === tally.winner.id;
+            const isSel = o.id === sel;
+            const chips = voters.map(c => `<span class="cs-voter${c.isPlayer ? ' me' : ''}" title="${c.name} · sadakat ${Math.round(c.loyalty || 0)}">${c.isPlayer ? '◆' : (typeof storyPersonaIcon === 'function' ? storyPersonaIcon(c.personality) : '●')} ${c.name.split(' ')[0]}</span>`).join('');
+            return `<button class="cs-opt${isSel ? ' sel' : ''}${isWin ? ' major' : ''}" data-opt="${o.id}">`
+                + `<div class="cs-opt-h"><b>${o.name}</b><span class="cs-opt-meta">${o.meta || ''}</span></div>`
+                + `<div class="cs-opt-d">${o.desc}</div>`
+                + `<div class="cs-votes"><span class="cs-vc">${voters.length} oy${isWin ? ' · ÇOĞUNLUK' : ''}</span>${chips}</div>`
+                + `</button>`;
+        }).join('') + `</div>`
+        + (sel !== tally.winner.id ? `<div class="cs-warn">⚠️ Konsey çoğunluğunu eziyorsun — <b>tüm komutanların sadakati −5</b> düşecek.</div>` : '')
+        + (!canOverride && S.isAdmin ? `<div class="cs-warn">📡 Başkentte olmadığın için yalnız çoğunluk kararı geçerli. Konseyi ezmek istiyorsan bir dahaki toplantıda <b>${S.capName}</b>'da ol.</div>` : '');
+
+    const foot = document.getElementById('cs-foot');
+    if (foot) foot.innerHTML =
+        `<div class="cs-prog">MADDE <b>${S.idx + 1}</b> / ${S.items.length}</div>`
+        + `<button id="cs-next" class="story-btn cs-next">${S.idx + 1 < S.items.length ? 'KARARI ONAYLA →' : 'TOPLANTIYI KAPAT'}</button>`;
+}
+function storyCouncilSessionPick(optId) {
+    const S = STORY._session; if (!S) return;
+    const canOverride = S.isAdmin && S.atCapital;
+    if (!canOverride) { storyFlash(S.isAdmin ? 'Başkentte değilsin — çoğunluk kararı geçerli.' : 'Yönetici değilsin — yalnız oy verebilirsin.'); return; }
+    S.choices[S.idx] = optId;
+    storyCouncilSessionRender();
+}
+function storyCouncilSessionNext() {
+    const S = STORY._session; if (!S) return;
+    const st = storyState(S.stateId); if (!st) { storyCouncilSessionClose(); return; }
+    const item = S.items[S.idx];
+    const tally = S._tally || storyCouncilTally(item, storyStateCommanders(st), st);
+    const chosen = S.choices[S.idx] || tally.winner.id;
+    if (chosen !== tally.winner.id) {                         // konseyi ezmenin bedeli
+        S.overrides++;
+        for (const c of storyStateCommanders(st)) if (!c.isPlayer) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - 5);
+    }
+    const msg = storyCouncilApply(st, item, chosen);
+    if (msg) S.results.push(msg);
+    S.idx++;
+    if (S.idx >= S.items.length) {
+        storyLog(`🏛️ <b>KONSEY (${storyDateShort()})</b> — ${S.results.length ? S.results.join(' · ') : 'karar alınmadı'}`);
+        if (S.overrides) storyLog(`⚠️ Konseyi ${S.overrides} kez ezdin — komutanların sadakati sarsıldı.`);
+        storyCouncilSessionClose();
+        if (typeof storySave === 'function') storySave();
+        return;
+    }
+    storyCouncilSessionRender();
+}
+function storyCouncilSessionClose() {
+    STORY._session = null;
+    const el = document.getElementById('council-session');
+    if (el) el.classList.add('hidden');
+    if (typeof storyPanelUpdate === 'function') storyPanelUpdate();
+    if (typeof storyRender === 'function') storyRender();
+}
+
+// ── KANUN/ANAYASA PANELİ (KONSEY drawer'ında gösterim) ──────────────────────
+function storyCouncilLawsHtml(st) {
+    const laws = st.laws || {};
+    const rows = LAW_SLOTS.map(s => {
+        const o = laws[s.key] ? lawOption(s.key, laws[s.key]) : null;
+        return `<div class="cl-row"><span class="cl-ic">${s.icon}</span><span class="cl-slot">${s.name}</span>`
+            + `<span class="cl-val${o ? '' : ' none'}">${o ? o.name : '— düzenlenmedi'}</span></div>`;
+    }).join('');
+    const c = storyConstitution(st);
+    const next = Math.max(0, (STORY._nextCouncil || COUNCIL_PERIOD_YEARS * YEAR_SECONDS) - (STORY.clock || 0));
+    return `<div class="council-laws">`
+        + `<div class="cl-head">📜 ANAYASA</div>`
+        + `<div class="cl-const">${c.icon} <b>${c.name}</b><div class="cl-cd">${c.desc}</div></div>`
+        + `<div class="cl-head">⚖️ YÜRÜRLÜKTEKİ KANUNLAR</div>${rows}`
+        + `<div class="cl-next">🏛️ Sonraki konsey: <b>${Math.ceil(next / YEAR_SECONDS * 4) / 4} yıl</b> sonra (${storyDateLabel()})</div>`
+        + `</div>`;
+}
+
+// ── OLAY BAĞLAMA ────────────────────────────────────────────────────────────
+function storyCouncilSessionBind() {
+    const body = document.getElementById('cs-body');
+    if (body) body.addEventListener('click', e => {
+        const b = e.target.closest('[data-opt]'); if (b) storyCouncilSessionPick(b.dataset.opt);
+    });
+    const foot = document.getElementById('cs-foot');
+    if (foot) foot.addEventListener('click', e => {
+        if (e.target.closest('#cs-next')) storyCouncilSessionNext();
+    });
+}
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', storyCouncilSessionBind);
+    else storyCouncilSessionBind();
+}

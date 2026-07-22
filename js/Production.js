@@ -23,9 +23,19 @@ const PROD_MAX_LEVEL = 3;
 const FACTORY_TYPES = [T.ARMOR, T.ANTI_TANK, T.ARMOR_INFANTRY];
 function prodBuildingFor(type) { return FACTORY_TYPES.indexOf(type) >= 0 ? 'fac' : 'bar'; }
 function prodBuildingName(kind) { return kind === 'fac' ? 'Fabrika' : 'Kışla'; }
-function prodBuildCost(kind, lvl) {
+// KONSEY/TEKNOLOJİ etkileri: şehrin SAHİBİ devletin bonusu (oyuncu ve AI aynı yolu kullanır)
+function prodStateBonus(n) {
+    if (!n || n.owner == null || typeof storyState !== 'function') return null;
+    const st = storyState(n.owner);
+    return (st && st._techBonus) || null;
+}
+function prodBuildCost(kind, lvl, n) {
     const tbl = kind === 'fac' ? FACTORY_COST : BARRACKS_COST;
-    return tbl[lvl] != null ? tbl[lvl] : null;   // null = maksimum
+    const base = tbl[lvl] != null ? tbl[lvl] : null;   // null = maksimum
+    if (base == null) return null;
+    const tb = n ? prodStateBonus(n) : null;           // İstihkam Bürosu / Teknik Okullar: bina ucuzlar
+    const m = (tb && tb.buildCost) || 1;
+    return m === 1 ? base : Math.max(10, Math.round(base * m));
 }
 // Bina şehirden ileri gidemez: Sv.3 tank fabrikası ancak Sv.3 şehirde kurulur.
 function prodMaxBuildLevel(n) { return n.level || 1; }
@@ -47,7 +57,9 @@ const PROD_SPEED = [0, 1.0, 1.6, 2.2];   // bina seviyesi → hız çarpanı
 function prodTime(n, kind, type) {
     const lv = Math.max(1, n[kind] | 0);
     const cost = (STATS[type] && STATS[type].cost) || 70;
-    return Math.max(4, Math.round((cost / 12) / PROD_SPEED[lv]));   // tank ~11sn, piyade ~6sn
+    const tb = prodStateBonus(n);                                   // Montaj Hattı / Seri Üretim / Cunta: süre kısalır
+    const sp = (tb && tb.prodSpeed) || 1;
+    return Math.max(3, Math.round((cost / 12) / PROD_SPEED[lv] * sp));   // tank ~11sn, piyade ~6sn
 }
 function prodSlots(n, kind) { return 2 + (n[kind] | 0); }
 function prodQueueCount(n, kind) {
@@ -69,7 +81,10 @@ function prodCommanderCap(n) {
     }
     return best * PROD_CMD_CAP_PER_SKILL;
 }
-function prodPoolCap(n) { return 6 + (n.level || 1) * 4 + ((n.fac | 0) + (n.bar | 0)) * 3 + prodCommanderCap(n); }
+function prodPoolCap(n) {
+    const tb = prodStateBonus(n);   // Yedek Ordu / İkmal Depoları / Zorunlu Askerlik / Cunta: kapasite artar
+    return 6 + (n.level || 1) * 4 + ((n.fac | 0) + (n.bar | 0)) * 3 + prodCommanderCap(n) + ((tb && tb.poolCap) || 0);
+}
 function prodPoolCount(n) {
     let c = 0;
     for (const k in (n.pool || {})) c += n.pool[k] | 0;
@@ -96,7 +111,11 @@ const CITY_DEFENSE_BONUS = [0, 0.10, 0.25, 0.45];   // seviye → savunan birlik
 const CITY_MILITIA_BY_LEVEL = [0, 3, 5, 8];         // seviye → savunma düellosundaki taban milis
 const CITY_UPGRADE_GAIN = [null, 'savunma +%25, milis 5', 'savunma +%45, milis 8', null];
 function cityMilitiaFor(n) { return CITY_MILITIA_BY_LEVEL[n.level || 1] || 3; }
-function cityDefenseBonus(n) { return CITY_DEFENSE_BONUS[n.level || 1] || 0; }
+// Şehir savunması = seviye + sahibinin KONSEY kararları (Tahkimat Dairesi / Harp Akademileri)
+function cityDefenseBonus(n) {
+    const tb = prodStateBonus(n);
+    return (CITY_DEFENSE_BONUS[n.level || 1] || 0) + ((tb && tb.cityDefense) || 0);
+}
 
 // ── HAVUZ GÜCÜ (stratejik katman görsün) ──
 // Şehirde bekleyen ordu savunma gücüne katılır → AI "iyi savunulan şehre saldırma"yı
@@ -118,7 +137,7 @@ function prodBuild(nodeId, kind) {
         storyFlash(`Önce şehri yükselt — ${prodBuildingName(kind)} şehir seviyesini (Sv.${n.level || 1}) geçemez.`);
         return false;
     }
-    const cost = prodBuildCost(kind, lvl);
+    const cost = prodBuildCost(kind, lvl, n);
     const w = STORY.commander && STORY.commander.res;
     if (!w || (w.points || 0) < cost) { storyFlash(`⭐ Puan yetersiz (gerekli ${cost}).`); return false; }
     w.points -= cost;
@@ -305,7 +324,7 @@ function prodUnitButtons(n, kind, wallet) {
 
 function prodBuildingSection(n, kind, wallet) {
     const lvl = n[kind] | 0;
-    const cost = prodBuildCost(kind, lvl);
+    const cost = prodBuildCost(kind, lvl, n);
     const icon = kind === 'fac' ? '🏭' : '🎖️';
     const label = kind === 'fac' ? 'FABRİKA' : 'KIŞLA';   // toUpperCase() Türkçe'de 'i'→'I' yapıyor, sabit metin kullanılır
     const maxed = lvl >= PROD_MAX_LEVEL;
@@ -426,7 +445,7 @@ function aiTryBuild(n, st, payer) {
     for (const kind of kinds) {
         const lvl = n[kind] | 0;
         if (lvl >= PROD_MAX_LEVEL || lvl >= prodMaxBuildLevel(n)) continue;
-        const cost = prodBuildCost(kind, lvl);
+        const cost = prodBuildCost(kind, lvl, n);
         if (!payer || !payer.res || (payer.res.points || 0) < cost) continue;
         payer.res.points -= cost;
         n[kind] = lvl + 1;

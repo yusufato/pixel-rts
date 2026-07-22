@@ -436,6 +436,8 @@ function applyTechCombatBonus(attacker, target, dmg) {
         if (tb.artyVsInfMul && (target.type === T.INFANTRY || target.type === T.MECH_INFANTRY || target.type === T.ARMOR_INFANTRY)) m *= tb.artyVsInfMul;
     }
     if (attacker.type === T.ANTI_TANK && target.type === T.ARMOR && tb.atVsTankMul) m *= tb.atVsTankMul;
+    if (attacker.type === T.ARMOR && tb.tankAtkMul) m *= tb.tankAtkMul;                    // Yıldırım Harbi
+    if (attacker.type === T.INFANTRY && tb.infantryAtkMul) m *= tb.infantryAtkMul;         // Talim Nizamı
     return m === 1 ? dmg : dmg * m;
 }
 // SPAWN-ANI stat buff: birim yaratılınca (placeUnit/gazi) zırh/hız/görüş/hp ölçekle (kendi tarafının tech'iyle).
@@ -448,6 +450,10 @@ function applyTechSpawnBonus(u) {
     if ((t === T.ARMOR || t === T.MECH_INFANTRY || t === T.ARMOR_INFANTRY) && tb.armorSpeed) { u.baseSpeed *= tb.armorSpeed; u.speed = u.baseSpeed; }
     if (t === T.RECON && tb.reconVision) u.vision = Math.round(u.vision * tb.reconVision);
     if (t === T.INFANTRY && tb.infantryHp) { u.maxHp = Math.round(u.maxHp * tb.infantryHp); u.hp = u.maxHp; }
+    if ((t === T.MECH_INFANTRY || t === T.ARMOR_INFANTRY) && tb.mechHp) { u.maxHp = Math.round(u.maxHp * tb.mechHp); u.hp = u.maxHp; }   // Zırhlı Yumruk
+    if (t === T.ANTI_TANK && tb.atHp) { u.maxHp = Math.round(u.maxHp * tb.atHp); u.hp = u.maxHp; }                                      // Ağır Tanksavar
+    if (tb.allHp) { u.maxHp = Math.round(u.maxHp * tb.allHp); u.hp = u.maxHp; }                                                          // Gazi Nizamı / Hassas İmalat
+    if (tb.allSpeed) { u.baseSpeed *= tb.allSpeed; u.speed = u.baseSpeed; }                                                              // Sızma Taktiği
     if (tb.allArmorAdd) u.baseArmor += tb.allArmorAdd;
     if (tb.panicResistance) u.panicResistance = Math.max(u.panicResistance || 0, tb.panicResistance);
     if (u.baseArmor != null) u.armor = u.baseArmor;   // dinamik armor'ı taze tabana hizala

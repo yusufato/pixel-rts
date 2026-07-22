@@ -1532,3 +1532,60 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     .commander-layout { grid-template-columns: 1fr; overflow-y: auto; }
     #commander-perk-grid { min-height: 600px; grid-template-columns: 1fr; grid-template-rows: repeat(6, 1fr); }
 }
+
+/* ══ KONSEY TOPLANTISI — 2 yılda bir, dünyayı durduran olay ══════════════════ */
+#council-session { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(10,18,14,.86), rgba(4,8,6,.97)); backdrop-filter: blur(3px); }
+#council-session.hidden { display: none; }
+.cs-shell { width: min(880px, 94vw); max-height: 92vh; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, rgba(16,26,20,.98), rgba(8,14,11,.98));
+    border: 1px solid var(--wr-amber); border-radius: 6px; box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 24px 70px rgba(0,0,0,.7); }
+#cs-head { padding: 16px 20px 12px; border-bottom: 1px solid var(--wr-line); }
+.cs-eyebrow { font: 9px 'Share Tech Mono', monospace; letter-spacing: 1.6px; color: var(--wr-muted); }
+.cs-title { margin: 5px 0 6px; font-size: 21px; letter-spacing: 3px; color: var(--wr-amber-bright); font-weight: 700; }
+.cs-role { font-size: 11px; color: #cfe3d6; }
+#cs-body { padding: 14px 20px; overflow-y: auto; }
+.cs-item-h { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.cs-item-ic { font-size: 26px; line-height: 1; }
+.cs-item-t { font-size: 14px; letter-spacing: 2px; color: var(--wr-amber-bright); font-weight: 700; }
+.cs-item-d { margin-top: 3px; font-size: 11px; color: #9fb3c8; }
+.cs-options { display: flex; flex-direction: column; gap: 8px; }
+.cs-opt { width: 100%; text-align: left; padding: 10px 12px; cursor: pointer;
+    background: rgba(20,34,26,.7); border: 1px solid var(--wr-line); border-left: 3px solid transparent; border-radius: 4px;
+    color: #e6f0e8; font-family: inherit; transition: border-color .12s, background .12s; }
+.cs-opt:hover { background: rgba(30,48,36,.85); border-color: #4c9fff; }
+.cs-opt.major { border-left-color: #4cff7c; }
+.cs-opt.sel { border-color: var(--wr-amber); background: rgba(60,46,14,.6); border-left-color: var(--wr-amber-bright); }
+.cs-opt-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.cs-opt-h b { font-size: 13px; color: #fff; }
+.cs-opt-meta { font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.4px; color: var(--wr-muted); white-space: nowrap; }
+.cs-opt-d { margin-top: 3px; font-size: 11px; color: #a9bfae; }
+.cs-votes { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.cs-vc { font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.2px; color: #4cff7c; margin-right: 4px; }
+.cs-voter { padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,.06); font-size: 9px; color: #b9cbc0; }
+.cs-voter.me { background: rgba(76,255,124,.16); color: #4cff7c; font-weight: 700; }
+.cs-warn { margin-top: 12px; padding: 8px 10px; border-left: 3px solid #ffd24c; background: rgba(255,210,76,.08);
+    font-size: 11px; color: #ffe9bf; border-radius: 3px; }
+#cs-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 12px 20px; border-top: 1px solid var(--wr-line); }
+.cs-prog { font: 9px 'Share Tech Mono', monospace; letter-spacing: 1.6px; color: var(--wr-muted); }
+.cs-prog b { color: var(--wr-amber-bright); font-size: 12px; }
+.cs-next { flex: 0 0 auto; min-width: 190px; }
+@media (max-width: 640px) { .cs-shell { width: 100vw; max-height: 100vh; border-radius: 0; } .cs-title { font-size: 16px; } }
+
+/* takvim + konsey sayacı çipleri */
+.story-stat-chip.wide { min-width: 150px; }
+.story-stat-chip.urgent b { color: #ffd24c; animation: cs-pulse 1.1s ease-in-out infinite; }
+@keyframes cs-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* KONSEY drawer'ında yürürlükteki kanunlar + anayasa */
+.council-laws { padding: 10px 12px; border-top: 1px solid var(--wr-line); }
+.cl-head { margin: 8px 0 6px; font: 9px 'Share Tech Mono', monospace; letter-spacing: 1.6px; color: var(--wr-amber); }
+.cl-const { padding: 8px 10px; background: rgba(76,159,255,.08); border-left: 3px solid #4c9fff; border-radius: 3px; font-size: 12px; color: #e6f0e8; }
+.cl-cd { margin-top: 3px; font-size: 10px; color: #9fb3c8; }
+.cl-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 11px; }
+.cl-ic { width: 18px; text-align: center; }
+.cl-slot { flex: 1; color: #9fb3c8; }
+.cl-val { color: #ffe9bf; text-align: right; }
+.cl-val.none { color: #5f6f66; font-style: italic; }
+.cl-next { margin-top: 10px; font-size: 10px; color: #9fb3c8; }
