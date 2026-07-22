@@ -281,9 +281,29 @@ function storyCouncilBuildAgenda(st, sessionNo) {
                 });
             }
         }
+        // ÇOK BİNALI PROGRAM: tek tek bina kurmak 2 yılda bir olduğu için altyapı asla
+        // yetişmiyordu (ölçüm: 8 devletin 8'i de Sv.1'de kalıp yalnız piyade+tanksavar
+        // üretebiliyordu). Konsey artık kapsamlı program da onaylayabilir.
+        if (opts.length >= 2) {
+            const multi = opts.slice(0, 3).map(o => o.id);
+            let mCost = 0;
+            for (const id of multi) {
+                const pr = id.split('|'), nd = storyNode(+pr[1]);
+                if (!nd) continue;
+                mCost += (pr[0] === 'b') ? (prodBuildCost(pr[2], nd[pr[2]] | 0, nd) || 0)
+                                         : (CITY_UPGRADE_COST[nd.level || 1] || 0);
+            }
+            mCost = Math.round(mCost * 0.85);   // toplu iş indirimi
+            opts.push({
+                id: 'M|' + multi.join(';'),
+                name: `🏗️🏗️ KAPSAMLI PROGRAM (${multi.length} şehir)`,
+                desc: `${mCost}⭐ · yukarıdaki ${multi.length} işin hepsi birden · toplu iş indirimi %15`,
+                meta: 'PROGRAM', appeal: { economist: 1.6, warrior: 0.8, aggr: 0.5 },
+            });
+        }
         if (opts.length) {
             opts.push({ id: '_none', name: '⏭️ İnşaat Yapılmasın', desc: 'Hazine korunur.', meta: 'RET', appeal: { economist: 0.5 }, welfare: 0 });
-            items.push({ kind: 'build', icon: '🏗️', title: 'İNŞAAT PROGRAMI', desc: 'Devlet hazinesinden hangi şehre yatırım yapılsın?', options: opts });
+            items.push({ kind: 'build', icon: '🏗️', title: 'İNŞAAT PROGRAMI', desc: 'Devlet hazinesinden hangi şehirlere yatırım yapılsın?', options: opts });
         }
     }
 
@@ -346,6 +366,33 @@ function storyCouncilApply(st, item, optId) {
         return nc ? `🎖️ <b>${nc.name}</b> komutanlığa atandı` : null;
     }
     if (item.kind === 'build') {
+        if (String(optId).charAt(0) === 'M') {                       // KAPSAMLI PROGRAM
+            const ids = String(optId).slice(2).split(';');
+            let total = 0; const plan = [];
+            for (const id of ids) {
+                const pr = id.split('|'), nd = storyNode(+pr[1]);
+                if (!nd || nd.owner !== st.id) continue;
+                if (pr[0] === 'b') {
+                    const lvl = nd[pr[2]] | 0;
+                    if (lvl >= PROD_MAX_LEVEL || lvl >= prodMaxBuildLevel(nd)) continue;
+                    const c = prodBuildCost(pr[2], lvl, nd); if (c == null) continue;
+                    total += c; plan.push({ n: nd, kind: pr[2], lvl });
+                } else {
+                    const lvl = nd.level || 1; if (lvl >= 3) continue;
+                    const c = CITY_UPGRADE_COST[lvl]; if (c == null) continue;
+                    total += c; plan.push({ n: nd, up: true, lvl });
+                }
+            }
+            if (!plan.length) return null;
+            total = Math.round(total * 0.85);
+            if (!storyCouncilPayFromState(st, { points: total })) return `🏗️ Hazine yetersiz — kapsamlı program ertelendi (${total}⭐)`;
+            const done = [];
+            for (const j of plan) {
+                if (j.up) { j.n.level = j.lvl + 1; done.push(`${j.n.name} Sv.${j.n.level}`); }
+                else { j.n[j.kind] = j.lvl + 1; done.push(`${j.n.name} ${prodBuildingName(j.kind)} Sv.${j.n[j.kind]}`); }
+            }
+            return `🏗️ Kapsamlı program: <b>${done.join(' · ')}</b> (−${total}⭐)`;
+        }
         const parts = String(optId).split('|');
         const n = storyNode(+parts[1]);
         if (!n || n.owner !== st.id) return '🏗️ Şehir artık elimizde değil — inşaat iptal';

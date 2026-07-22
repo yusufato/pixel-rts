@@ -252,7 +252,8 @@ function storyCreateCommander(stateId, node) {
         skills: { warrior: storyRollSkill(), diplomat: storyRollSkill(), economist: storyRollSkill() },
         res: { oil: 200, manpower: 200, points: 200 },   // FAZ-2: komutanın KENDİ kasası (gelir payı birikir, savaşta bununla diziler)
         recentBattles: [],                               // FAZ-2 Adım 5: son ≤3 savaş (1=galip/0=mağlup) — sadakat formülü
-        army: {},                                        // FAZ-5: SEFER ORDUSU — komutanla birlikte gezer (şehir deposu ayrı)
+        army: {},                                        // FAZ-5: SEFER ORDUSU — komutanla birlikte gezer
+        st: stateId,                                     // FAZ-8: bağlı olduğu devlet (ordu tavanı için hızlı erişim)
         node: (node != null ? node : (cap != null ? cap : 0))
     };
     const _tb = st._techBonus;                            // TEKNOLOJİ/KANUN (Subay Okulu, Liyakat): +1 yetenek — HER devlet için
@@ -331,7 +332,7 @@ function storyNewCampaign(config = {}) {
     }));
     STORY.playerStateId = playerStateId;
     // OYUNCUNUN KOMUTANI = kontrol-jetonu (bağımsız bir komutan-birey)
-    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {}, army: {} };
+    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {}, army: {}, st: playerStateId };
     storyInitGovernments();                            // her devlete AI komutan + hükümet iskeleti
     STORY.veterans = [];
     // OYUNCU tech'i = kendi devletinin tech dizisi (AYNI dizi nesnesi) → storyTechPowerMul/konsey
@@ -393,13 +394,14 @@ function storyLoad() {
         STORY.commander = d.commander || { node: 0 };
         storyCommanderBackfill(STORY.commander);
         if (typeof cmdrMigrate === 'function') cmdrMigrate(STORY.commander);   // FAZ-7: eski 3-slot perk → ağaç düğümü
+        STORY.commander.st = STORY.playerStateId;   // FAZ-8: ordu tavanı için devlet bağı
         // FAZ-2: hükümet backfill (eksik kayıt güvenliği) + komutan-id sayacını ilerlet
         let _mx = (STORY.commander && STORY.commander.id) || 0;
         if (STORY.commander && !STORY.commander.res) STORY.commander.res = { oil: 200, manpower: 200, points: 200 };
         for (const st of STORY.states) {
             if (!st.gov) st.gov = { leader: (st.isPlayer && st.isAdmin) ? 'player' : 'ai', commanders: [] };
             st._nextStaff = 0;   // 1.3: genelkurmay hemen yeniden-planlasın
-            for (const c of (st.gov.commanders || [])) { if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; if (!c.army || typeof c.army !== 'object') c.army = {}; delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
+            for (const c of (st.gov.commanders || [])) { c.st = st.id; if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; if (!c.army || typeof c.army !== 'object') c.army = {}; delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
         }
         _storyCmdNextId = _mx + 1;
         STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
@@ -409,7 +411,27 @@ function storyLoad() {
             if (!st.laws) st.laws = {}; if (!st.constitution) st.constitution = 'monarchy';
             storyStateComputeTech(st);
         }
-        for (const n of STORY.nodes) storyNodeBackfill(n);   // kuşatma temizliği + seviye/garnizon/bina/havuz/kuyruk backfill (Production.js)
+        for (const n of STORY.nodes) storyNodeBackfill(n);   // kuşatma temizliği + seviye/garnizon/bina/kuyruk backfill (Production.js)
+        // FAZ-8 GÖÇÜ: şehir deposu kaldırıldı. Eski kayıtta depoda bekleyen birlikler
+        // o şehirdeki dost komutanın ordusuna, yer yoksa garnizona aktarılır — kaybolmaz.
+        for (const n of STORY.nodes) {
+            if (!n.pool || n.owner == null) continue;
+            const st = storyState(n.owner);
+            for (const k in n.pool) {
+                let c = n.pool[k] | 0;
+                while (c > 0) {
+                    let taker = null;
+                    if (st) for (const cm of storyStateCommanders(st)) {
+                        if (cm.node === n.id && cmdArmyCount(cm) < cmdArmyCap(cm)) { taker = cm; break; }
+                    }
+                    if (taker) { if (!taker.army) taker.army = {}; taker.army[k] = (taker.army[k] | 0) + 1; }
+                    else if ((n.garrison | 0) < storyCityGarrisonCap(n)) n.garrison = (n.garrison | 0) + 1;
+                    else break;   // ne ordu ne garnizon yer var
+                    c--;
+                }
+            }
+            n.pool = {};
+        }
         // ESKİ KAYIT ALTYAPI TELAFİSİ: üretim sisteminden önceki kayıtlarda hiçbir şehirde bina yok.
         // Bu hâlde havuz hep boş kalır, her savaş "acil seferberlik"e düşer ve oyuncu üretim
         // sistemini HİÇ göremez. Dünyada tek bir bina bile yoksa kayıt eskidir → başkentlere
@@ -981,7 +1003,6 @@ function storyAdvance(dtSec) {
     STORY._accCmdAI = (STORY._accCmdAI || 0) + dtSec;
     if (STORY._accCmdAI >= 1.0) {
         STORY._accCmdAI = 0;
-        if (typeof storyAutoLoadArmies === 'function') storyAutoLoadArmies();   // FAZ-5: komutanlar durdukları şehrin deposunu orduya SEVK eder
         storyAICommanderTick();                                                 // hareket/fetih/oyuncuya saldırı
     }
     STORY._accLoyalty = (STORY._accLoyalty || 0) + dtSec;
@@ -1560,6 +1581,7 @@ function storyStateHealth(st) { return (st.welfare + st.reputation * 10) / 2; }
 function storyCommanderDefectTo(cmd, fromSt, toSt, atNode) {
     const i = fromSt.gov.commanders.indexOf(cmd); if (i >= 0) fromSt.gov.commanders.splice(i, 1);
     if (!toSt.gov) toSt.gov = { leader: 'ai', commanders: [] };
+    cmd.st = toSt.id;   // FAZ-8: firar edince devlet bağı da taşınır
     toSt.gov.commanders.push(cmd);
     cmd.loyalty = 55; cmd.recentBattles = []; cmd._nextT = 0; cmd._lastDefect = STORY.clock;
     if (atNode != null) cmd.node = atNode;
@@ -2103,25 +2125,25 @@ function storyArmyUpdate() {
         + (others.length ? `<div class="army-cmds">${othRows}</div>` : `<div class="army-note">Konseyde başka komutan yok.</div>`)
         + `</div>`;
 
-    // 3) ŞEHİR DEPOLARI (üretilip sevk bekleyen)
-    const depots = STORY.nodes.filter(n => n.owner === me.id && count(n.pool) > 0)
-        .sort((a, b) => count(b.pool) - count(a.pool));
-    const depTotal = depots.reduce((a, n) => a + count(n.pool), 0);
-    const depRows = depots.map(n => {
-        const has = storyPlayerCommanders().some(x => x.node === n.id);
+    // 3) YOLDAKİ ÜRETİM (kuyrukta bekleyen siparişler — depo kaldırıldı)
+    const busy = STORY.nodes.filter(n => n.owner === me.id && (n.q || []).length);
+    const depTotal = busy.reduce((a, n) => a + n.q.length, 0);
+    const depRows = busy.map(n => {
+        const eta = Math.ceil(Math.min(...n.q.map(j => j.t)));
+        const who = n.q.map(j => { const c = storyCommanderById(me.id, j.cmd); return c ? c.name.split(' ')[0] : '—'; });
         return `<div class="army-cmd-row"><span class="acr-n">🏭 ${n.name}</span>`
-            + `<span class="acr-loc">${has ? 'komutan var — sevk edilebilir' : 'sevk bekliyor'}</span>`
-            + `<span class="acr-ct">${count(n.pool)}/${prodPoolCap(n)}</span></div>`;
+            + `<span class="acr-loc">${[...new Set(who)].join(', ')} için</span>`
+            + `<span class="acr-ct">${n.q.length} · ${eta}sn</span></div>`;
     }).join('');
-    html += `<div class="army-section"><div class="army-h">🏭 ŞEHİR DEPOLARI <b>${depTotal} birlik</b></div>`
-        + `<div class="army-note">Depodaki birlikler bulundukları şehri <b>savunur</b> ama saldırıya gitmez — komutan gelip sevk almalı.</div>`
-        + (depots.length ? `<div class="army-cmds">${depRows}</div>` : `<div class="army-note">Depolar boş — şehirlerinde üretim yap.</div>`)
+    html += `<div class="army-section"><div class="army-h">🏭 YOLDAKİ ÜRETİM <b>${depTotal} birlik</b></div>`
+        + `<div class="army-note">Biten birlik <b>doğrudan sipariş eden komutanın ordusuna</b> katılır. Depo yok.</div>`
+        + (busy.length ? `<div class="army-cmds">${depRows}</div>` : `<div class="army-note">Üretim kuyruğu boş — şehirlerine gir ve birlik bas.</div>`)
         + `</div>`;
 
     // 4) TOPLAM + GAZİLER
     html += `<div class="army-section"><div class="army-h">📊 DEVLET TOPLAMI</div>`
         + `<div class="army-tot"><span>Sefer orduları</span><b>${myN + othTotal}</b></div>`
-        + `<div class="army-tot"><span>Şehir depoları</span><b>${depTotal}</b></div>`
+        + `<div class="army-tot"><span>Yoldaki üretim</span><b>${depTotal}</b></div>`
         + `<div class="army-tot big"><span>TÜM ORDU</span><b>${myN + othTotal + depTotal}</b></div></div>`;
 
     const vets = STORY.veterans || [];
@@ -2493,23 +2515,6 @@ function storyInit() {
         if (b.classList.contains('cb-build')) return prodBuild(+b.dataset.node, b.dataset.kind);
         if (b.classList.contains('cb-make')) return prodEnqueue(+b.dataset.node, +b.dataset.type);
         if (b.classList.contains('cb-cancel')) return prodCancel(+b.dataset.node, +b.dataset.idx);
-        // FAZ-5 SEVK: şehir deposu ↔ komutanın sefer ordusu
-        if (b.classList.contains('cb-load')) {
-            const n = storyNode(+b.dataset.node);
-            const moved = storyLoadArmy(STORY.commander, n);
-            if (moved) storyLog(`🚚 <b>${n.name}</b>: ${moved} birlik sefer ordusuna alındı (${cmdArmyCount(STORY.commander)}/${cmdArmyCap(STORY.commander)}).`);
-            else storyFlash('Sevk edilemedi — depo boş ya da sefer ordun dolu.');
-            storySave(); storyCityUpdate(); storyArmyUpdate(); storyRender();
-            return;
-        }
-        if (b.classList.contains('cb-unload')) {
-            const n = storyNode(+b.dataset.node);
-            const moved = storyUnloadArmy(STORY.commander, n);
-            if (moved) storyLog(`🚚 <b>${n.name}</b>: ${moved} birlik depoya bırakıldı.`);
-            else storyFlash('Bırakılamadı — ordun boş ya da depo dolu.');
-            storySave(); storyCityUpdate(); storyArmyUpdate(); storyRender();
-            return;
-        }
     });
     // KONSEY SEKMELERİ: komutan listesi ile kanun/anayasa artık ayrı ekranlarda (panel sıkışmasın)
     document.getElementById('council-tabs')?.addEventListener('click', (e) => {
