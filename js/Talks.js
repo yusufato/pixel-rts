@@ -333,7 +333,7 @@ const TALK_TEMPLATES = [
 
     // ══════════ DIŞ TEMAS — DİPLOMASİ ══════════
     {
-        id: 'envoy-truce', audience: 'council', kind: 'foreign',
+        id: 'envoy-truce', audience: 'admin', kind: 'foreign',
         when: c => c.neighbors.some(s => storyTreaty(c.me.id, s.id) === 'war'),
         weight: c => 3,
         build: c => {
@@ -365,7 +365,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-pact', audience: 'council', kind: 'foreign',
+        id: 'envoy-pact', audience: 'admin', kind: 'foreign',
         when: c => c.neighbors.some(s => storyRelValue(c.me.id, s.id) >= 20 && storyTreaty(c.me.id, s.id) !== 'alliance' && storyTreaty(c.me.id, s.id) !== 'pact'),
         weight: () => 2.5,
         build: c => {

@@ -493,9 +493,19 @@ function storyCouncilResolveAI(st, sessionNo) {
 // Devleti bağlayan kararlar (ültimatom, ittifak, ortak savaş, ahdi bozma) tek bir
 // komutanın şahsi kararı olamaz — konsey acilen toplanır. Oyuncu yöneticiyse son
 // sözü söyler, değilse oy verir. AI devletlerinde sessizce çözülür.
+// Olağanüstü toplantı ARALIĞI. Ölçümde kısıtsız hâli 15 yılda 49 oturum üretiyordu —
+// yani her 3-4 dakikada bir dünyayı durduran modal. Konsey ancak gerçekten olağanüstü
+// olduğunda toplanmalı; sıradan elçi trafiği kuyruğa/yöneticiye gider.
+const COUNCIL_URGENT_GAP_YEARS = 1.5;
+function storyCouncilUrgentReady() {
+    const gap = COUNCIL_URGENT_GAP_YEARS * YEAR_SECONDS;
+    return (STORY.clock || 0) - (STORY._lastUrgent == null ? -1e9 : STORY._lastUrgent) >= gap;
+}
 function storyCouncilCall(st, item, reason) {
     if (!st || !item) return false;
     if (!storyStateCommanders(st).length) return false;
+    // OYUNCU devletinde kısıt geçerli: çok sık toplanma oyunu kesintiye çevirir.
+    if (st.isPlayer && !storyCouncilUrgentReady()) return false;
     STORY._councilNo = (STORY._councilNo || 0) + 1;
     if (!st.isPlayer) {                                   // AI devleti: sessiz karar
         const cmds = storyStateCommanders(st);
@@ -504,6 +514,7 @@ function storyCouncilCall(st, item, reason) {
         return true;
     }
     if (STORY._session) return false;                     // zaten toplantıdayız
+    STORY._lastUrgent = STORY.clock || 0;
     storyCouncilSessionOpen(st, STORY._councilNo, { items: [item], urgent: true, reason: reason || '' });
     storyLog(`🚨 <b>OLAĞANÜSTÜ KONSEY</b> — ${reason || 'devlet meselesi görüşülüyor'}`);
     return true;
@@ -512,6 +523,17 @@ function storyCouncilCall(st, item, reason) {
 // ── OYUNCU OTURUMU (dünya durur) ────────────────────────────────────────────
 // opts.items  → hazır gündem (olağanüstü toplantı); yoksa olağan gündem üretilir
 // opts.urgent → başlıkta "OLAĞANÜSTÜ" yazar ve sebebi gösterilir
+// Oyuncu cevaplamazsa dünya süresiz donuyordu. Gerçek zamanlı bir emniyet süresi
+// sonunda konsey ÇOĞUNLUK kararıyla kendi kendine kapanır (kararı konsey verir,
+// oyuncu sadece söz hakkını kaçırmış olur).
+const COUNCIL_AFK_MS = 180000;   // 3 dakika
+function storyCouncilAfkCheck() {
+    const S = STORY._session; if (!S || !S.openedAt) return;
+    if (Date.now() - S.openedAt < COUNCIL_AFK_MS) return;
+    let g = 0;
+    while (STORY._session && g++ < 30) storyCouncilSessionNext();
+    if (typeof storyLog === 'function') storyLog('⏳ Konsey seni bekleyemedi — kararlar çoğunlukla alındı.');
+}
 function storyCouncilSessionOpen(st, sessionNo, opts) {
     opts = opts || {};
     const items = opts.items || storyCouncilBuildAgenda(st, sessionNo);
@@ -524,7 +546,7 @@ function storyCouncilSessionOpen(st, sessionNo, opts) {
     STORY._session = {
         stateId: st.id, sessionNo, items, idx: 0, choices: {},
         atCapital, capName: cap ? cap.name : '—',
-        urgent: !!opts.urgent, reason: opts.reason || '',
+        urgent: !!opts.urgent, reason: opts.reason || '', openedAt: Date.now(),
         isAdmin: !!(st.gov && st.gov.leader === 'player'),
         overrides: 0, results: [], myVote: {},
     };

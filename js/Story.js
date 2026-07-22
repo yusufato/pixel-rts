@@ -344,6 +344,7 @@ function storyNewCampaign(config = {}) {
     STORY._session = null;
     STORY.rel = {};                                     // FAZ-6: diplomasi ilişki/antlaşma tablosu
     STORY._era = null; STORY._eraEvents = []; STORY._eraFlips = []; STORY._accEra = 0;   // FAZ-10 dünya çağı
+    STORY._lastUrgent = null;
     STORY._talks = []; STORY._accTalk = 0; STORY._talkUid = 0;
     STORY.cfg = {
         abundance,
@@ -374,6 +375,7 @@ function storySave() {
             caps: STORY._capitals,  // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
             nextCouncil: STORY._nextCouncil, councilNo: STORY._councilNo,  // FAZ-4: konsey takvimi (kanun/anayasa states içinde)
             era: STORY._era, eraEvents: STORY._eraEvents, eraFlips: STORY._eraFlips,   // FAZ-10 dünya çağı
+            lastUrgent: STORY._lastUrgent,
             rel: STORY.rel   // FAZ-6: diplomasi (ilişki + antlaşma). Sohbet kuyruğu KAYDEDİLMEZ:
                              // seçenekler canlı fonksiyon taşır, serileşemez — yükleyince yenileri üretilir.
         };
@@ -465,6 +467,7 @@ function storyLoad() {
         STORY._session = null;
         STORY.rel = (d.rel && typeof d.rel === 'object') ? d.rel : {};   // FAZ-6 diplomasi
         STORY._era = d.era || null; STORY._eraEvents = d.eraEvents || []; STORY._eraFlips = d.eraFlips || [];   // FAZ-10
+        STORY._lastUrgent = d.lastUrgent == null ? null : d.lastUrgent;
         STORY._talks = []; STORY._accTalk = 0;
         STORY.log = d.log || [];
         STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
@@ -948,7 +951,10 @@ function storyAssignDeposits() {
 // ── DÜNYA SİMÜLASYONU (gerçek-zaman, duraklatılabilir) ────────────────────────
 function storyAdvance(dtSec) {
     if (STORY.paused) return;
-    if (STORY._session) return;   // FAZ-4: KONSEY TOPLANTIDA — dünya durur (olay), oyuncu karar verene kadar
+    if (STORY._session) {         // FAZ-4: KONSEY TOPLANTIDA — dünya durur (olay)
+        if (typeof storyCouncilAfkCheck === 'function') storyCouncilAfkCheck();   // ama süresiz değil
+        return;
+    }
     STORY.clock += dtSec;
     // FAZ-4: KONSEY TAKVİMİ — her 2 yılda bir TÜM devletlerde toplanır (AI sessiz, oyuncu modal)
     if (typeof storyCouncilTick === 'function') { storyCouncilTick(); if (STORY._session) return; }
