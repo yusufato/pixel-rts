@@ -571,9 +571,12 @@ function storyEnterBattle(node) {
 
 // FAZ-3: oyuncunun savaşa süreceği ordu = şehir havuzları (savaş şehri + bitişik dost şehirler).
 // Havuz kaynak düğümlerden HEMEN düşülür → kayıp kalıcı olur; sağ kalanlar savaş sonu iade edilir.
-// KİLİTLENME KORUMASI: hiç üretim yapmadan saldırıya uğrayan oyuncu oyunsuz kalmasın diye
-// havuz çok azsa eski bütçe sistemi YARI güçle devreye girer (acil seferberlik milisi).
-const POOL_MIN_UNITS = 4;
+// KİLİTLENME KORUMASI: ordun TAMAMEN bittiyse sahaya çıkacak bir şey kalmaz ve oyun
+// kilitlenir. O yüzden yalnız havuz SIFIRken 2 piyadelik acil milis verilir — savunmayı
+// kurtarmaya yetmez, sadece "hiç birlik dizemiyorum" durumunu engeller.
+// (Eskiden eşik 4'tü ve eski bütçe sistemi yarı güçle devreye giriyordu; bu, üretim
+// yapmayan oyuncunun kaynakla ordu dizmeye devam etmesi anlamına geliyordu.)
+const EMERGENCY_MILITIA = 2;
 function storySetupPlayerPool(node) {
     DEPLOY_POOL = null;
     STORY._poolSrc = null;
@@ -585,22 +588,20 @@ function storySetupPlayerPool(node) {
     let total = 0;
     for (const k in muster.avail) total += muster.avail[k] | 0;
 
-    if (total < POOL_MIN_UNITS) {
-        storySetPlayerDeployRes();                       // ESKİ yol: kaynak-bütçeli dizme
-        if (DEPLOY_RES && DEPLOY_RES.blue) {             // yarı güç — üretmemenin bedeli var
-            DEPLOY_RES.blue.oil = Math.round(DEPLOY_RES.blue.oil * 0.5);
-            DEPLOY_RES.blue.points = Math.round(DEPLOY_RES.blue.points * 0.5);
-            DEPLOY_RES.blue.manpower = Math.round(DEPLOY_RES.blue.manpower * 0.7);
-        }
-        storyLog('⚠️ Havuz boş — ACİL SEFERBERLİK: sınırlı bütçeyle milis dizildi. Şehirlerinde üretim yap!');
+    storySetPlayerDeployRes();                           // müttefik listesi (_battleAllyList) için gerekli
+    DEPLOY_RES.blue = null;                              // mavi para dalına GİRMEZ — hikâyede daima adet kısıtı
+
+    if (total <= 0) {                                    // ordu TAMAMEN bitti → sadece kilitlenmeyi önle
+        DEPLOY_POOL = {};
+        DEPLOY_POOL[T.INFANTRY] = EMERGENCY_MILITIA;
+        STORY._poolSrc = null;
+        storyLog(`⚠️ Ordun yok — ACİL SEFERBERLİK: yalnızca ${EMERGENCY_MILITIA} milis piyade. Şehirlerinde üretim yap!`);
         return;
     }
     DEPLOY_POOL = {};
     for (const k in muster.avail) DEPLOY_POOL[k] = muster.avail[k] | 0;
     STORY._poolSrc = muster.src;
     storyDrainPool(muster.src);                          // havuz şehirlerden çıktı: kayıp artık kalıcı
-    storySetPlayerDeployRes();                           // müttefik listesi (_battleAllyList) için gerekli
-    DEPLOY_RES.blue = null;                              // mavi para dalına GİRMEZ — havuz adet kısıtı geçerli
     storyLog(`⚔️ ${total} birlik sahaya sevk edildi (şehir havuzlarından).`);
 }
 
@@ -935,22 +936,38 @@ function storyAdvance(dtSec) {
 // rastgele storyEnemyDrift/storyMaybeInvade KALDIRILDI → fetih komutanların KONUMUNDA olur (jetonlar artık gerçek aktör).
 const CMD_PERSONA_AGGR = { agresif: 1.3, dengeli: 1.0, savunmacı: 0.5, fırsatçı: 1.15 };
 function storyTechPowerMul(st) { return 1 + ((st && st.tech ? st.tech.length : 0) * 0.03); }   // teknolojili devlet daha güçlü savaşır
+// FAZ-3: komutanın gücü artık ORDUSUNA dayanır. Eskiden yalnız kasasına (manpower) bakıyordu;
+// savaşa gireceği birlikler ise havuzdan geliyordu. Kasası dolu ama şehri boş bir komutan
+// "güçlüyüm" deyip saldırıya kalkıyor, sahaya hiç birlik çıkaramıyordu. ("3-4 komutan hiç
+// ordusu olmadan zafer kazanacağına inanıyor.")
+function storyCommanderArmy(cmd, st) {
+    if (typeof storyMusterPool !== 'function' || cmd.node == null) return 0;
+    const m = storyMusterPool(st.id, cmd.node);
+    let n = 0;
+    for (const k in m.avail) n += m.avail[k] | 0;
+    return n;
+}
 function storyCalcCommanderPower(cmd, st) {
-    const base = 50 + ((cmd.skills && cmd.skills.warrior) || 0) * 15;
-    const kasa = ((cmd.res && cmd.res.manpower) || 0) * 0.05;
+    const base = 20 + ((cmd.skills && cmd.skills.warrior) || 0) * 12;   // liderlik katkısı (ordu olmadan tek başına az)
+    const army = storyCommanderArmy(cmd, st) * 14;                       // ASIL güç: sevk edebileceği birlik sayısı
+    const kasa = ((cmd.res && cmd.res.manpower) || 0) * 0.02;            // kasa artık ikincil (üretim potansiyeli)
     const loyF = 0.7 + ((cmd.loyalty == null ? 60 : cmd.loyalty) / 100) * 0.3;
-    return Math.round((base + kasa) * storyTechPowerMul(st) * loyF);
+    return Math.round((base + army + kasa) * storyTechPowerMul(st) * loyF);
 }
 function storyCalcDefenseStrength(node, st) {
     // FAZ-3: şehirde bekleyen ORDU HAVUZU da savunmaya katılır → storyEvalTarget/storyExposureAt
     // bu sayede "iyi savunulan şehre saldırma" davranışını ekstra AI kodu olmadan öğrenir.
     const poolStr = (typeof storyPoolPower === 'function') ? storyPoolPower(node) : 0;
-    let s = 80 + ((node.cities || 0) * 10) + ((node.garrison || 0) * 10) + poolStr, cmdStr = 0;   // taban + GARNİZON (her birim +10 savunma) + havuz
+    const militia = (typeof cityMilitiaFor === 'function') ? cityMilitiaFor(node) : 3;
+    let s = 60 + militia * 8 + ((node.cities || 0) * 10) + ((node.garrison || 0) * 10) + poolStr, cmdStr = 0;
     if (st && st.gov) for (const c of storyStateCommanders(st)) {
         if (c.node === node.id) cmdStr += storyCalcCommanderPower(c, st);
         else if (node.neighbors.indexOf(c.node) >= 0) cmdStr += storyCalcCommanderPower(c, st) * 0.5;
     }
-    return Math.round((s + cmdStr) * storyTechPowerMul(st));
+    // ŞEHİR SEVİYESİ TAHKİMATI: savaş-içi dayanıklılık bonusunun stratejik karşılığı —
+    // AI gelişmiş şehre saldırmadan önce iki kez düşünür.
+    const fort = 1 + ((typeof cityDefenseBonus === 'function') ? cityDefenseBonus(node) : 0);
+    return Math.round((s + cmdStr) * storyTechPowerMul(st) * fort);
 }
 // ══ FAZ-2 ADIM 6: ŞEHİR GELİŞTİRME (seviye + garnizon) + 0-BÖLGE YENİLGİ ═══════
 const CITY_UPGRADE_COST = [0, 300, 600];     // mevcut lvl → üst lvl maliyeti (⭐puan): 1→2=300, 2→3=600
@@ -985,7 +1002,9 @@ function storySpawnGarrison() {
     const ctx = STORY.battleCtx;
     if (!ctx || ctx.mode !== 'defense' || typeof T === 'undefined' || typeof Unit === 'undefined') return;
     const node = storyNode(ctx.nodeId); if (!node) return;
-    const g = Math.min(20, CITY_MILITIA_BASE + Math.min(storyCityGarrisonCap(node), node.garrison || 0));   // TABAN MİLİS + garnizon
+    // ŞEHİR SEVİYESİ: milis tabanı seviyeyle büyür (Sv.1=3, Sv.2=5, Sv.3=8)
+    const base = (typeof cityMilitiaFor === 'function') ? cityMilitiaFor(node) : CITY_MILITIA_BASE;
+    const g = Math.min(20, base + Math.min(storyCityGarrisonCap(node), node.garrison || 0));
     for (let i = 0; i < g; i++) {
         const type = (i % 3 === 0) ? T.ANTI_TANK : T.INFANTRY;
         const u = new Unit(type, 180 + (i % 10) * 52, (WORLD_H - 300) - Math.floor(i / 10) * 50, false);   // gazi/müttefik ile aynı güvenli dizilim bölgesi
@@ -994,7 +1013,30 @@ function storySpawnGarrison() {
         if (typeof applyTechSpawnBonus === 'function') applyTechSpawnBonus(u);
         units.push(u); player.unitsSpawned++;
     }
-    storyLog(`🛡️ ${node.name} milis + garnizonu (${g} birlik) savunmaya katıldı.`);
+    storyLog(`🛡️ ${node.name} (Sv.${node.level || 1}) milis + garnizonu: ${g} birlik savunmaya katıldı.`);
+}
+
+// ŞEHİR TAHKİMATI: savunma düellosunda ŞEHRİ TUTAN tarafın tüm birlikleri seviyeye göre
+// dayanıklılık kazanır (Sv.2 +%25, Sv.3 +%45). "Seviye yükseltmenin anlamı yok" sorununun
+// savaş-içi karşılığı budur: gelişmiş şehir gerçekten zor alınır.
+function storyApplyCityFortification() {
+    const ctx = STORY.battleCtx;
+    if (!ctx || typeof cityDefenseBonus !== 'function') return;
+    const node = storyNode(ctx.nodeId); if (!node) return;
+    const bonus = cityDefenseBonus(node);
+    if (bonus <= 0) return;
+    // Savunan taraf: hikâyede savunma modunda MAVİ (oyuncu), saldırı modunda KIRMIZI (şehrin sahibi)
+    const defenderIsRed = (ctx.mode === 'attack');
+    let n = 0;
+    for (const u of units) {
+        if (u.dead || u.isRed !== defenderIsRed) continue;
+        u.maxHp = Math.round(u.maxHp * (1 + bonus));
+        u.hp = u.maxHp;
+        u.baseArmor = (u.baseArmor || 0) + (node.level >= 3 ? 2 : 1);
+        u.armor = u.baseArmor;
+        n++;
+    }
+    if (n) storyLog(`🧱 ${node.name} tahkimatı: savunan ${n} birlik +%${Math.round(bonus * 100)} dayanıklılık.`);
 }
 // 0-BÖLGE YENİLGİ: oyuncu tüm şehirlerini kaybetti → kampanya bitti
 function storyCheckPlayerDefeat() {
@@ -1017,6 +1059,32 @@ const CMD_PERSONA = {           // her kişilik = farklı BİREY (min kazanma + 
     fırsatçı:  { minWin: 0.55, valMul: 1.20, capitalSeek: false, wander: true,  caution: 0.9 },   // hesaplı av
 };
 function storyCommanderWeak(cmd) { return ((cmd.res && cmd.res.manpower) || 0) < CMD_WEAK_MANPOWER; }
+
+// ── ORDU TOPLAMA: ordusuz komutan saldırmaz, üretim yapılabilen şehre gider ──
+// Havuz sistemine geçince stratejik katman "ordum var mı" sorusunu hiç sormuyordu.
+// Bu iki fonksiyon o boşluğu kapatır: taarruz için en az MIN_ATTACK_ARMY birlik gerekir,
+// yoksa komutan en yakın ÜRETİM şehrine (fabrika/kışla olan; yoksa başkent) yürür.
+const MIN_ATTACK_ARMY = 3;
+function storyProductionHome(st) {
+    const owned = STORY.nodes.filter(n => n.owner === st.id);
+    if (!owned.length) return null;
+    const capId = (STORY._capitals && STORY._capitals[st.id] != null) ? STORY._capitals[st.id] : null;
+    const cap = capId != null ? owned.find(n => n.id === capId) : null;
+    if (cap && ((cap.fac | 0) || (cap.bar | 0))) return cap;                 // başkent üretim yapabiliyorsa oraya
+    const prod = owned.filter(n => (n.fac | 0) || (n.bar | 0))
+        .sort((a, b) => (((b.fac | 0) + (b.bar | 0)) - ((a.fac | 0) + (a.bar | 0))));
+    return prod[0] || cap || owned[0];
+}
+// Ordusu yetersiz komutanı üretim merkezine doğru 1 adım yürütür. true → bu tick iş bitti.
+function storyCommanderSeekArmy(cmd, st) {
+    if (storyCommanderArmy(cmd, st) >= MIN_ATTACK_ARMY) return false;        // ordusu var, normal karar zincirine devam
+    const home = storyProductionHome(st);
+    if (!home) return false;
+    if (cmd.node === home.id) return true;                                   // zaten üretim merkezindeyim → bekle, ordu birikiyor
+    const step = storyStepToward(cmd.node, home.id, st);
+    if (step >= 0 && step !== cmd.node) { cmd.node = step; return true; }
+    return true;                                                             // yol yok ama saldırmaya da kalkma
+}
 // hedef şehrin DEĞERİ: kaynak/şehir + başkent + zayıf-devlet fırsatı
 function storyTargetValue(node) {
     const owner = storyState(node.owner);
@@ -1079,6 +1147,10 @@ function storyCommanderDecide(cmd, st) {
         if (onFront) { storyCommanderRecover(cmd, st); if (Math.random() < 0.12) storyLog(`🛡️ ${cmd.name} (${st.name}) yıpranmış — geri çekilip toparlanıyor.`); }
         return;
     }
+    // 1.5) ORDU YOKSA SALDIRMA: havuzunda yeterli birlik yoksa üretim merkezine yürü.
+    // (Savunma emri istisnadır — kuşatılan şehri terk etmesin.)
+    const defending = cmd._objective && cmd._objective.kind === 'defend';
+    if (!defending && storyCommanderSeekArmy(cmd, st)) return;
     // 2) GENELKURMAY EMRİ (1.3 KOORDİNASYON): devlet planındaki hedefi uygula → yığılma yok + savunma boyutlu
     if (storyExecuteObjective(cmd, st)) return;
     // 3) FALLBACK (emir yok/uygulanamadı) — bireysel mantık: takviye → ilerle → derin-EV

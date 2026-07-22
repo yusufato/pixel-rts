@@ -298,7 +298,11 @@ function startBattle() {
 
     savePlayerMeta(); // Yapay zeka öğrenmesi için oyuncu stratejisini kaydet
     aiDeploy();       // Öğrenilen meta + sahaya göre karşı orduyu bas
-    
+    // HİKÂYE: şehir seviyesi tahkimatı — iki taraf da dizildikten SONRA uygulanır
+    if (typeof storyApplyCityFortification === 'function' && typeof STORY !== 'undefined' && STORY.battleCtx) {
+        storyApplyCityFortification();
+    }
+
     phase = PHASE.BATTLE;
     document.body.setAttribute('data-phase', PHASE.BATTLE);
     if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();

@@ -88,6 +88,16 @@ function storyNodeBackfill(n) {
     n._siege = null;   // kuşatma transient
 }
 
+// ── ŞEHİR SEVİYESİNİN ANLAMI ──
+// Seviye yükseltmek eskiden yalnız gelir (+%40) veriyordu ve pahalı olduğu için değmiyordu.
+// Artık dört şey birden açar: SAVUNMA bonusu (savaşta tahkimat), daha çok MİLİS, daha büyük
+// ORDU KAPASİTESİ (prodPoolCap) ve daha yüksek BİNA tavanı (prodMaxBuildLevel).
+const CITY_DEFENSE_BONUS = [0, 0.10, 0.25, 0.45];   // seviye → savunan birliklere HP/zırh avantajı
+const CITY_MILITIA_BY_LEVEL = [0, 3, 5, 8];         // seviye → savunma düellosundaki taban milis
+const CITY_UPGRADE_GAIN = [null, 'savunma +%25, milis 5', 'savunma +%45, milis 8', null];
+function cityMilitiaFor(n) { return CITY_MILITIA_BY_LEVEL[n.level || 1] || 3; }
+function cityDefenseBonus(n) { return CITY_DEFENSE_BONUS[n.level || 1] || 0; }
+
 // ── HAVUZ GÜCÜ (stratejik katman görsün) ──
 // Şehirde bekleyen ordu savunma gücüne katılır → AI "iyi savunulan şehre saldırma"yı
 // ekstra kod olmadan öğrenir (storyEvalTarget/storyExposureAt bunu okur).
@@ -371,22 +381,13 @@ function storyCityUpdate() {
     const here = (STORY.commander && STORY.commander.node === n.id) ? ' 📍' : '';
     const isCap = (STORY._capitals && STORY._capitals.indexOf(n.id) >= 0) ? ' ★' : '';
 
-    // Şehirlerim şeridi — tam liste yerine navigasyon (hangi şehrimde ne var, tek bakışta)
-    let chips = '';
-    for (const c of mine.slice().sort((a, b) => ((b.level || 1) - (a.level || 1)) || (prodPoolCount(b) - prodPoolCount(a)))) {
-        chips += `<button class="city-chip${c.id === n.id ? ' sel' : ''}" data-node="${c.id}" title="${c.name}">`
-            + `${c.name} <em>Sv.${c.level || 1}</em>`
-            + ((c.fac | 0) ? ` 🏭${c.fac}` : '') + ((c.bar | 0) ? ` 🎖️${c.bar}` : '')
-            + (prodPoolCount(c) ? ` ⚔️${prodPoolCount(c)}` : '') + `</button>`;
-    }
-
     body.innerHTML =
-        `<div class="city-chips">${chips}</div>`
-        + `<div class="city-top">🏰 <b>${n.name}</b>${here}${isCap} · Sv.${lvl}`
+        `<div class="city-top">🏰 <b>${n.name}</b>${here}${isCap} · Sv.${lvl} <span class="city-lvl">${mine.length} şehrin var</span>`
         + `<div class="city-stat">Gelir ⛽${n.oil || 0} 👥${n.cities || 0} ⭐${n.pts || 0} · kasan ⛽<b>${Math.floor(w.oil)}</b> 👥<b>${Math.floor(w.manpower)}</b> ⭐<b>${Math.floor(w.points)}</b></div>`
+        + `<div class="city-stat">🛡️ Savunma bonusu <b>+%${Math.round((CITY_DEFENSE_BONUS[lvl] || 0) * 100)}</b> · milis <b>${cityMilitiaFor(n)}</b> birlik · ordu kapasitesi <b>${prodPoolCap(n)}</b></div>`
         + `<div class="city-acts">`
         + (upCost != null
-            ? `<button class="city-btn cb-up" data-node="${n.id}" ${(w.points || 0) < upCost ? 'disabled' : ''}>🏗️ Şehir Sv.${lvl + 1} (${upCost}⭐)</button>`
+            ? `<button class="city-btn cb-up" data-node="${n.id}" ${(w.points || 0) < upCost ? 'disabled' : ''}>🏗️ Şehir Sv.${lvl + 1} (${upCost}⭐) — ${CITY_UPGRADE_GAIN[lvl] || ''}</button>`
             : `<span class="city-max">Şehir Maks Sv.3</span>`)
         + `</div></div>`
         + prodBuildingSection(n, 'fac', w)
