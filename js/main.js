@@ -306,7 +306,6 @@ function startBattle() {
     if (typeof initBattleRules === 'function') initBattleRules(battleRulesConfigForCurrentMatch());
     battleTelemetry.start(simulationTime);
     if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
-    layeredAI.reset(simulationTime);
     selectedSpawnType = null;
     if (deployCarried) { deployCarried.selected = false; deployCarried = null; }   // elde birlik kalmışsa bırak
     canvas.classList.remove('ghost-cursor');
@@ -378,7 +377,6 @@ function checkGameOver() {
     telemetrySummary.attackerSide = SIM.battle?.attackerSide ? 'red' : 'blue';
     telemetrySummary.timeRemaining = Math.max(0, SIM.battle?.remainingSec || 0);
     const _mp = (typeof MP !== 'undefined' && MP.active);
-    if (!_mp) layeredAI.onBattleEnd(telemetrySummary);   // MP'de doktrin istatistiğini kirletme (insan-vs-insan)
     phase = PHASE.OVER;
     document.body.setAttribute('data-phase', PHASE.OVER);
     // ÇOK OYUNCULU: 'won' MAVİ-perspektifli; ekranı BENİM tarafıma göre çevir (guest=kırmızı)

@@ -31,7 +31,6 @@ function resetBattleState() {
     if (typeof battleTelemetry !== 'undefined' && battleTelemetry.reset) battleTelemetry.reset();
     if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
     if (typeof commanderReset === 'function') commanderReset();
-    if (typeof layeredAI !== 'undefined' && layeredAI.reset) layeredAI.reset(0);
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();
     document.body.setAttribute('data-phase', 'deploy');
     document.getElementById('game-over-screen')?.classList.add('hidden');

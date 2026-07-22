@@ -12,7 +12,7 @@
 //   • FLANK kırılgan-av: hızlı birimler düşman topçu/AT'ını yandan imha.
 //   • RESERVE: MAIN erirse/temas olursa dökülür (asimetrik histerezi).
 //  Elle ayarlanan 23 parametre. İnsan-gibi (histerezi+kişilik+jitter).
-//  AI_BACKEND==='policy' (varsayılan) iken canlı RED'i bu komutan sürer.
+//  Canlı savaşta KIRMIZI'yı (ve otonom müttefiği) bu komutan sürer.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const ROLE = { MAIN: 0, PIN: 1, FLANK: 2, RESERVE: 3 };
@@ -435,4 +435,13 @@ function cmdrMove(u, x, y) {
     u.targetX = cmdrClamp(x, UNIT_RADIUS, WORLD_W - UNIT_RADIUS);
     u.targetY = cmdrClamp(y, UNIT_RADIUS, WORLD_H - UNIT_RADIUS);
     u.manualTarget = null; u.manualMoveTarget = null; u.isMovingToManualTarget = false;
+}
+
+// ── SAVAŞ AI GİRİŞ NOKTASI ──
+// stepSim her tick bunu çağırır (main.js). Eskiden LayeredAI.js'te bir "strangler"
+// sarmalayıcıydı; eski katmanlı AI silindiği için artık doğrudan burada.
+function updateLayeredAI(now) {
+    commanderDrive(true, now);                                   // DÜŞMAN (kırmızı)
+    // MÜTTEFİK (otonom dost-AI) — yalnız hikâye düellosunda u.ally birim varsa (Quick Match/MP no-op)
+    if (units.some(u => u.ally && !u.dead)) commanderDriveAlly(now);
 }

@@ -87,14 +87,8 @@ const SIM_RNG = SIM.rng;        // geri-uyumluluk aliası: mevcut SIM_RNG.state 
 let QUICK_MATCH_ATTACKER_SIDE = false;
 let QUICK_MATCH_SKILL = 'normal';   // 'easy' | 'normal' | 'hard' → commanderSetDifficulty
 
-// AI arka-uç bayrağı. 'policy'=TEMİZ KOMUTAN (Commander.js, VARSAYILAN),
-// 'layered'=eski katmanlı AI (fallback/karşılaştırma). Konsoldan geçiş: useCleanAI(true/false).
-let AI_BACKEND = 'policy';
-function useCleanAI(on = true) {
-    AI_BACKEND = on ? 'policy' : 'layered';
-    console.log(`AI_BACKEND = '${AI_BACKEND}' (${on ? 'TEMİZ KOMUTAN — kuvvet ekonomisi + bölge' : 'eski LayeredAI'})`);
-    return AI_BACKEND;
-}
+// Savaş AI'sı tek: Commander.js (kural-tabanlı komutan). Eski katmanlı AI (LayeredAI.js,
+// ~2000 satır) ve kullanılmayan TacticalAI.js silindi; AI_BACKEND bayrağı da anlamsız kaldı.
 function resetSimRng(seed) {
     SIM.rng.state = (seed >>> 0) || 0x9e3779b9;
 }
