@@ -49,7 +49,28 @@ KURALLAR:
 - Tam 2 replik yaz, her replik tek satır, "İsim: söz" biçiminde.
 - Her replik en fazla 20 kelime.
 - Açıklama, başlık, madde işareti YAZMA. Sadece iki satır.
-- Konuşanların kişiliğini ve dönemin havasını yansıt.`;
+- Konuşanların kişiliğini ve dönemin havasını yansıt.
+
+ÖRNEKLER (bu üslupta ve bu dil kalitesinde yaz):
+
+Kemal Paşa: Cephane tükeniyor, İstanbul'dan hâlâ ses yok.
+Rıza Bey: Beklemekten başka çare yok Paşam, yollar kapalı.
+
+Nuri Paşa: Bu ittifak bize zaman kazandırır, fazlasını değil.
+Cemil Bey: Zaman da bir kazançtır efendim, hafife almayalım.
+
+Hasan Paşa: Adamlarım üç aydır maaş görmedi, sabırları taştı.
+Orhan Bey: Sabır taşarsa isyan başlar, bunu ikimiz de biliyoruz.`;
+
+// SICAKLIK 0.85 → 0.40. Ölçüldü (gram_bench.js, 4 kol × 3 sahne):
+// Modele açıkça "dil bilgisi kurallarına uy, uydurma kelime yazma" demek HİÇBİR
+// İYİLEŞME sağlamadı (12 satırda ~4 temiz; kuralsız kolla aynı). Beklenen sonuç:
+// bu bir itaat değil YETENEK sorunu — model "hamımlık" yazarken kural çiğnediğini
+// bilmiyor. Buna karşılık sıcaklığı düşürmek ~8/12'ye çıkardı: bozuk morfoloji
+// dağılımın kuyruğunda yaşıyor, örnekleme oraya inmeyince hata da azalıyor.
+// Örnekler ise dil bilgisinden çok ÜSLUBU düzeltti (dönem sesi, "sabırlar tükeniyor").
+// İkisi birlikte: doğruluk için düşük sıcaklık, karakter için örnekler.
+const LLM_TEMPERATURE = 0.40;
 
 function llmSceneContext() {
     const era = (typeof storyEra === 'function') ? storyEra() : null;
@@ -116,7 +137,7 @@ function llmEnrich(system, prompt, validate) {
     // alanı açıyordu ve ölçümde kaçakların ÇOĞU tam orada başladı (2 replik yazıp
     // sonra listeye/meta metne dalma). Ayrıca CPU'da süreyi yarıdan fazla kısar —
     // saf CPU'da 7B ~0.8 jeton/sn ölçüldü, yani her 100 jeton ~2 dakika demek.
-    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 70, temperature: 0.85 })
+    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 70, temperature: LLM_TEMPERATURE })
         .then(txt => {
             LLM.inFlight--;
             if (!txt) { LLM.stats.failed++; return null; }

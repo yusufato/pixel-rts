@@ -848,6 +848,11 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .wr-settings input[type="range"] { width: 130px; accent-color: var(--wr-amber); }
 .wr-settings input[type="checkbox"] { accent-color: var(--wr-green); }
 .wr-settings output { min-width: 34px; color: #ffd27a; }
+/* Yapay anlatıcı notu: anahtarın altında canlı durum (yükleniyor / açık / model yok).
+   Model tembel yüklendiği için açtıktan sonra birkaç saniye sessizlik oluyor; bu
+   satır olmadan kullanıcı "açtım ama bir şey olmadı" sanır. */
+.wr-settings-note { display: block; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--wr-line);
+    color: var(--wr-muted); font-size: 10px; line-height: 1.45; opacity: .85; }
 .wr-screen-footer { position: absolute; left: 5%; right: 5%; bottom: 24px; display: flex; justify-content: space-between; color: var(--wr-dim); font-size: 10px; letter-spacing: 2px; }
 
 .wr-setup-header {

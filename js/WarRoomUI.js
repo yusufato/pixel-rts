@@ -36,17 +36,49 @@ let WAR_ROOM_SELECTED_REWARD = null;
 function warRoomLoadPrefs() {
     try {
         const saved = JSON.parse(localStorage.getItem(WAR_ROOM_UI_KEY) || '{}');
-        return { crt: saved.crt !== false, volume: Number.isFinite(+saved.volume) ? Math.max(0, Math.min(100, +saved.volume)) : 70 };
+        // llm VARSAYILAN OLARAK KAPALI: model yalnız masaüstü sürümünde var, GPU'suz
+        // makinede diyalog başına ~45 sn sürüyor ve 4.5 GB RAM tutuyor. Böyle bir
+        // maliyeti kimseye sormadan yüklemek doğru değil — isteyen açar.
+        return {
+            crt: saved.crt !== false,
+            volume: Number.isFinite(+saved.volume) ? Math.max(0, Math.min(100, +saved.volume)) : 70,
+            llm: saved.llm === true,
+        };
     } catch (_) {
-        return { crt: true, volume: 70 };
+        return { crt: true, volume: 70, llm: false };
     }
 }
 
 function warRoomSavePrefs() {
     const crt = !!document.getElementById('wr-crt-toggle')?.checked;
     const volume = +(document.getElementById('wr-volume')?.value || 70);
-    try { localStorage.setItem(WAR_ROOM_UI_KEY, JSON.stringify({ crt, volume })); } catch (_) {}
+    const llm = !!document.getElementById('wr-llm-toggle')?.checked;
+    try { localStorage.setItem(WAR_ROOM_UI_KEY, JSON.stringify({ crt, volume, llm })); } catch (_) {}
     document.body.classList.toggle('wr-crt-off', !crt);
+    warRoomApplyLLM(llm);
+}
+
+// ── YAPAY ANLATICI ANAHTARI ────────────────────────────────────────────────
+// Anahtar LLM.enabled'ı sürer. Açıldığında llmProbe() modeli TEMBEL yükler; bu
+// birkaç saniye sürdüğü için not satırı durumu canlı gösterir, yoksa kullanıcı
+// açar ve hiçbir şey olmuyor sanır.
+function warRoomApplyLLM(on) {
+    if (typeof LLM === 'undefined') return;
+    LLM.enabled = !!on;
+    const note = document.getElementById('wr-llm-note');
+    const bridge = (typeof window !== 'undefined' && window.PIXEL && window.PIXEL.llm) ? window.PIXEL.llm : null;
+    if (!note) return;
+    if (!on) { note.textContent = 'Kapalı — komutan sohbetleri hazır metinlerden yazılıyor.'; return; }
+    if (!bridge) { note.textContent = 'Tarayıcı sürümünde yapay anlatıcı yok; masaüstü sürümü gerekir. Hazır metinler kullanılıyor.'; return; }
+    note.textContent = 'Model yükleniyor…';
+    if (typeof llmProbe === 'function') {
+        Promise.resolve(llmProbe()).then(() => {
+            if (!LLM.enabled) return;                   // arada kapatılmış olabilir
+            note.textContent = LLM.ready
+                ? 'Açık — sohbetleri ' + (LLM.model || 'yerel model') + ' yazıyor.'
+                : 'Model bulunamadı' + (LLM.error ? ' (' + LLM.error + ')' : '') + '; hazır metinler kullanılıyor.';
+        });
+    }
 }
 
 function warRoomRefreshMenu() {
@@ -399,10 +431,13 @@ function warRoomInit() {
     const crt = document.getElementById('wr-crt-toggle');
     const volume = document.getElementById('wr-volume');
     const volumeValue = document.getElementById('wr-volume-value');
+    const llmToggle = document.getElementById('wr-llm-toggle');
     if (crt) crt.checked = prefs.crt;
     if (volume) volume.value = prefs.volume;
     if (volumeValue) volumeValue.value = `${prefs.volume}%`;
+    if (llmToggle) llmToggle.checked = prefs.llm;
     document.body.classList.toggle('wr-crt-off', !prefs.crt);
+    warRoomApplyLLM(prefs.llm);
 
     document.getElementById('btn-story-continue')?.addEventListener('click', warRoomContinueCampaign);
     document.getElementById('btn-settings')?.addEventListener('click', warRoomToggleSettings);
@@ -422,6 +457,7 @@ function warRoomInit() {
         });
     });
     crt?.addEventListener('change', warRoomSavePrefs);
+    llmToggle?.addEventListener('change', warRoomSavePrefs);
     volume?.addEventListener('input', () => {
         if (volumeValue) volumeValue.value = `${volume.value}%`;
         warRoomSavePrefs();
