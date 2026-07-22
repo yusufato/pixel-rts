@@ -365,6 +365,14 @@ function storyCouncilApply(st, item, optId) {
         const nc = storyCreateCommanderFor(st.id, optId);
         return nc ? `🎖️ <b>${nc.name}</b> komutanlığa atandı` : null;
     }
+    if (item.kind === 'talk') {                       // sohbetten gelen devlet meselesi
+        const opt = item.options.find(o => o.id === optId);
+        if (!opt || typeof opt._run !== 'function') return null;
+        let r = null;
+        try { r = opt._run({}); } catch (_) { r = null; }
+        if (r && r.fail) return r.fail;
+        return (r && r.msg) || null;
+    }
     if (item.kind === 'build') {
         if (String(optId).charAt(0) === 'M') {                       // KAPSAMLI PROGRAM
             const ids = String(optId).slice(2).split(';');
@@ -481,16 +489,42 @@ function storyCouncilResolveAI(st, sessionNo) {
         storyLog(`🏛️ <span style="color:${st.color}">${st.name}</span> konseyi: ${logs[0]}`);
 }
 
+// ── OLAĞANÜSTÜ KONSEY ──────────────────────────────────────────────────────
+// Devleti bağlayan kararlar (ültimatom, ittifak, ortak savaş, ahdi bozma) tek bir
+// komutanın şahsi kararı olamaz — konsey acilen toplanır. Oyuncu yöneticiyse son
+// sözü söyler, değilse oy verir. AI devletlerinde sessizce çözülür.
+function storyCouncilCall(st, item, reason) {
+    if (!st || !item) return false;
+    if (!storyStateCommanders(st).length) return false;
+    STORY._councilNo = (STORY._councilNo || 0) + 1;
+    if (!st.isPlayer) {                                   // AI devleti: sessiz karar
+        const cmds = storyStateCommanders(st);
+        const t = storyCouncilTally(item, cmds, st);
+        storyCouncilApply(st, item, t.winner.id);
+        return true;
+    }
+    if (STORY._session) return false;                     // zaten toplantıdayız
+    storyCouncilSessionOpen(st, STORY._councilNo, { items: [item], urgent: true, reason: reason || '' });
+    storyLog(`🚨 <b>OLAĞANÜSTÜ KONSEY</b> — ${reason || 'devlet meselesi görüşülüyor'}`);
+    return true;
+}
+
 // ── OYUNCU OTURUMU (dünya durur) ────────────────────────────────────────────
-function storyCouncilSessionOpen(st, sessionNo) {
-    const items = storyCouncilBuildAgenda(st, sessionNo);
+// opts.items  → hazır gündem (olağanüstü toplantı); yoksa olağan gündem üretilir
+// opts.urgent → başlıkta "OLAĞANÜSTÜ" yazar ve sebebi gösterilir
+function storyCouncilSessionOpen(st, sessionNo, opts) {
+    opts = opts || {};
+    const items = opts.items || storyCouncilBuildAgenda(st, sessionNo);
     if (!items.length) return;
     const capId = (STORY._capitals || [])[st.id];
     const cap = storyNode(capId);
+    // OLAĞANÜSTÜ toplantıda konsey nerede olursan ol toplanır (kriz beklemez);
+    // ama "konseyi ezme" yetkisi yine başkentte olmayı gerektirir.
     const atCapital = !!(STORY.commander && STORY.commander.node === capId);
     STORY._session = {
         stateId: st.id, sessionNo, items, idx: 0, choices: {},
         atCapital, capName: cap ? cap.name : '—',
+        urgent: !!opts.urgent, reason: opts.reason || '',
         isAdmin: !!(st.gov && st.gov.leader === 'player'),
         overrides: 0, results: [], myVote: {},
     };
@@ -510,8 +544,9 @@ function storyCouncilSessionRender() {
 
     const head = document.getElementById('cs-head');
     if (head) head.innerHTML =
-        `<div class="cs-eyebrow">${storyDateLabel()} · ${S.capName} · ${COUNCIL_PERIOD_YEARS} YILLIK OLAĞAN TOPLANTI</div>`
-        + `<h2 class="cs-title">KONSEY TOPLANTISI</h2>`
+        `<div class="cs-eyebrow">${storyDateLabel()} · ${S.capName} · ${S.urgent ? '⚠️ OLAĞANÜSTÜ ÇAĞRI' : COUNCIL_PERIOD_YEARS + ' YILLIK OLAĞAN TOPLANTI'}</div>`
+        + `<h2 class="cs-title">${S.urgent ? 'OLAĞANÜSTÜ KONSEY' : 'KONSEY TOPLANTISI'}</h2>`
+        + (S.reason ? `<div class="cs-reason">${S.reason}</div>` : '')
         + `<div class="cs-role">${S.isAdmin ? (S.atCapital ? '🏛️ <b style="color:#4cff7c">YÖNETİCİSİN — son sözü sen söylersin</b>' : '📡 <b style="color:#ffd24c">YÖNETİCİSİN ama başkentte değilsin — konseyi ezemezsin</b>') : '🗳️ <b style="color:#9fb3c8">Bir oyun var; kararı AI Cumhurbaşkanı verir</b>'}</div>`;
 
     const canOverride = S.isAdmin && S.atCapital;

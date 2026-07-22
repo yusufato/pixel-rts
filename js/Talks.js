@@ -110,7 +110,7 @@ const TALK_TEMPLATES = [
 
     // ══════════ İÇ SOHBET — kendi komutanların ══════════
     {
-        id: 'need-army', kind: 'internal',
+        id: 'need-army', audience: 'player', kind: 'internal',
         when: c => c.mine.some(x => cmdArmyCount(x) === 0),
         weight: () => 3,
         build: c => {
@@ -133,7 +133,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'law-complaint', kind: 'internal',
+        id: 'law-complaint', audience: 'player', kind: 'internal',
         when: c => c.mine.length > 0 && Object.keys(c.me.laws || {}).length > 0,
         weight: () => 2,
         build: c => {
@@ -161,7 +161,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'oath', kind: 'internal',
+        id: 'oath', audience: 'player', kind: 'internal',
         when: c => c.mine.some(x => talkLoy(x) >= 80),
         weight: () => 1.4,
         build: c => {
@@ -179,7 +179,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'ultimatum', kind: 'internal',
+        id: 'ultimatum', audience: 'player', kind: 'internal',
         when: c => c.mine.some(x => talkLoy(x) < 38),
         weight: () => 3.5,
         build: c => {
@@ -205,7 +205,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'front-warning', kind: 'internal',
+        id: 'front-warning', audience: 'player', kind: 'internal',
         when: c => c.neighbors.length > 0 && c.mine.length > 0,
         weight: () => 2,
         build: c => {
@@ -230,7 +230,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'broke', kind: 'internal',
+        id: 'broke', audience: 'admin', kind: 'internal',
         when: c => c.mine.some(x => ((x.res && x.res.points) || 0) < 60),
         weight: () => 1.8,
         build: c => {
@@ -251,7 +251,7 @@ const TALK_TEMPLATES = [
 
     // ══════════ KULİS — komutanlar kendi aralarında ══════════
     {
-        id: 'clique', kind: 'clique',
+        id: 'clique', audience: 'player', kind: 'clique',
         when: c => c.mine.length >= 2,
         weight: () => 2 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2),
         build: c => {
@@ -276,7 +276,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'plot', kind: 'clique',
+        id: 'plot', audience: 'player', kind: 'clique',
         when: c => c.mine.filter(x => talkLoy(x) < 50).length >= 2,
         weight: () => 3 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2.5),
         build: c => {
@@ -304,7 +304,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'rivalry', kind: 'clique',
+        id: 'rivalry', audience: 'admin', kind: 'clique',
         when: c => c.mine.length >= 2,
         weight: () => 1.5,
         build: c => {
@@ -331,7 +331,7 @@ const TALK_TEMPLATES = [
 
     // ══════════ DIŞ TEMAS — DİPLOMASİ ══════════
     {
-        id: 'envoy-truce', kind: 'foreign',
+        id: 'envoy-truce', audience: 'council', kind: 'foreign',
         when: c => c.neighbors.some(s => storyTreaty(c.me.id, s.id) === 'war'),
         weight: c => 3,
         build: c => {
@@ -363,7 +363,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-pact', kind: 'foreign',
+        id: 'envoy-pact', audience: 'council', kind: 'foreign',
         when: c => c.neighbors.some(s => storyRelValue(c.me.id, s.id) >= 20 && storyTreaty(c.me.id, s.id) !== 'alliance' && storyTreaty(c.me.id, s.id) !== 'pact'),
         weight: () => 2.5,
         build: c => {
@@ -385,7 +385,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-alliance', kind: 'foreign',
+        id: 'envoy-alliance', audience: 'council', kind: 'foreign',
         when: c => c.neighbors.some(s => storyRelValue(c.me.id, s.id) >= 55 && storyTreaty(c.me.id, s.id) !== 'alliance'),
         weight: () => 2.5,
         build: c => {
@@ -409,7 +409,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-tribute', kind: 'foreign',
+        id: 'envoy-tribute', audience: 'council', kind: 'foreign',
         when: c => c.neighbors.some(s => storyStateStrength(s) > storyStateStrength(c.me) * 1.3),
         weight: () => 2.5,
         build: c => {
@@ -439,7 +439,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-joint-war', kind: 'foreign',
+        id: 'envoy-joint-war', audience: 'council', kind: 'foreign',
         when: c => c.neighbors.length >= 2 && c.neighbors.some(s => storyRelValue(c.me.id, s.id) >= 10),
         weight: () => 2,
         build: c => {
@@ -469,7 +469,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-bribe', kind: 'foreign',
+        id: 'envoy-bribe', audience: 'player', kind: 'foreign',
         when: c => c.mine.some(x => talkLoy(x) < 55) && c.neighbors.length > 0,
         weight: () => 2.2 + ((typeof cmdrBonus === 'function' ? cmdrBonus(STORY.commander).intrigue : 0) * 2),
         build: c => {
@@ -496,7 +496,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-trade', kind: 'foreign',
+        id: 'envoy-trade', audience: 'admin', kind: 'foreign',
         when: c => c.neighbors.some(s => storyRelValue(c.me.id, s.id) >= -20),
         weight: () => 1.8,
         build: c => {
@@ -523,7 +523,7 @@ const TALK_TEMPLATES = [
         }
     },
     {
-        id: 'envoy-betray', kind: 'foreign',
+        id: 'envoy-betray', audience: 'council', kind: 'foreign',
         when: c => c.neighbors.some(s => { const t = storyTreaty(c.me.id, s.id); return t === 'pact' || t === 'alliance' || t === 'truce'; }),
         weight: () => 1.4,
         build: c => {
@@ -558,9 +558,58 @@ function storyStateStrength(st) {
     return s * (typeof storyTechPowerMul === 'function' ? storyTechPowerMul(st) : 1);
 }
 
+// ── YETKİ YÖNLENDİRMESİ ────────────────────────────────────────────────────
+// "Her şeyi ben yapıyorum, birçoğu konsey yöneticisinin işi gibi duruyor."
+// Doğru: devlet hazinesi, kadro yönetimi ve antlaşma imzalamak yöneticinin işidir.
+//   player  → şahsi mesele, daima sana gelir
+//   admin   → yöneticiysen sana; değilse AI yönetici karar verir, sen HABER alırsın
+//   council → devleti bağlar → OLAĞANÜSTÜ KONSEY (yöneticiysen son söz sende)
+function storyTalkIsAdmin() {
+    const me = storyPlayerState();
+    return !!(me && me.gov && me.gov.leader === 'player');
+}
+// AI yönetici bir konuşmayı kendi başına çözer; oyuncu sonucu günlükten öğrenir.
+function storyTalkResolveByAdmin(built, tpl, ctx) {
+    const st = ctx.me;
+    // yöneticinin tercihi: en yüksek diplomasi+iktisat yeteneğine sahip komutan gibi düşünür
+    const lead = storyStateCommanders(st).filter(c => !c.isPlayer)
+        .sort((a, b) => ((b.skills?.diplomat || 0) + (b.skills?.economist || 0))
+                      - ((a.skills?.diplomat || 0) + (a.skills?.economist || 0)))[0];
+    let pick = 0;
+    if (lead) {
+        // yönetici "işe yarar ama ucuz" olanı seçer: ilk uygulanabilir seçenek
+        for (let i = 0; i < built.options.length; i++) {
+            const probe = built.options[i];
+            if (probe && probe.text && probe.text.indexOf('Reddet') < 0) { pick = i; break; }
+        }
+    }
+    let res = null;
+    try { res = built.options[pick].run({}); } catch (_) { res = null; }
+    if (res && res.fail) { try { res = built.options[built.options.length - 1].run({}); } catch (_) { res = null; } }
+    const who = lead ? lead.name : 'Yönetim';
+    storyLog(`🏛️ <b>Yönetici kararı</b> (${who}): ${(res && res.msg) || 'mesele kapandı'}`);
+    return true;
+}
+// Devlet meselesini olağanüstü konseye taşı: konuşma gündem MADDESİNE çevrilir.
+function storyTalkToCouncil(built, tpl, ctx) {
+    const item = {
+        kind: 'talk', icon: '🕊️', title: (tpl.id.indexOf('envoy') === 0 ? 'DIŞ TEMAS' : 'DEVLET MESELESİ'),
+        desc: built.lines.join(' '),
+        options: built.options.map((o, i) => ({
+            id: 'o' + i, name: o.text, desc: o.tip || '', meta: 'KARAR',
+            appeal: o._appeal || { diplomat: 0.6 }, _run: o.run,
+        })),
+    };
+    const reason = built.foreign
+        ? `<span style="color:${built.foreign.color}">${built.foreign.name}</span> elçisi kapıda`
+        : 'devleti bağlayan bir karar';
+    return storyCouncilCall(ctx.me, item, reason);
+}
+
 // ── ÜRETİM DÖNGÜSÜ ──────────────────────────────────────────────────────────
 function storyTalkTick(dtSec) {
     if (!STORY.active || STORY._session) return;
+    if (typeof storyChatterTick === 'function') storyChatterTick(dtSec);   // komutanlar arası sohbet
     STORY._accTalk = (STORY._accTalk || 0) + dtSec;
     if (STORY._accTalk < TALK_INTERVAL) return;
     STORY._accTalk = 0;
@@ -581,6 +630,11 @@ function storyTalkTick(dtSec) {
     if (!built || !built.options || !built.options.length) return;
     // aynı şablon üst üste kuyruğa girmesin
     if (STORY._talks.some(t => t.tpl === pick.id)) return;
+
+    // YETKİ: kim karar verecek?
+    const aud = pick.audience || 'player';
+    if (aud === 'council') { if (storyTalkToCouncil(built, pick, ctx)) return; }
+    else if (aud === 'admin' && !storyTalkIsAdmin()) { storyTalkResolveByAdmin(built, pick, ctx); return; }
 
     STORY._talks.push({
         uid: (STORY._talkUid = (STORY._talkUid || 0) + 1),
@@ -685,6 +739,8 @@ function storyTalkUpdate() {
             + `</div></div>`;
     }
     html += `</div>`;
+    // KOMUTANLAR ARASI SOHBET (Chatter.js) — sen yalnız duyarsın
+    if (typeof storyChatterHtml === 'function') html += storyChatterHtml();
     body.innerHTML = html;
 }
 function storyTalkAnswer(uid, optIdx) {

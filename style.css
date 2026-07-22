@@ -1692,3 +1692,13 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .ct-n-d { margin-top: 3px; font-size: 10px; color: #9fb3c8; line-height: 1.35; }
 .ct-n-lock { margin-top: 3px; font-size: 9px; color: #ff9a8a; }
 @media (max-width: 900px) { .ct-cols { grid-template-columns: 1fr; } .ct-col-d { min-height: 0; } }
+
+/* ══ KOMUTANLAR ARASI SOHBET ════════════════════════════════════════════════ */
+.chat-card { margin-bottom: 8px; padding: 8px 10px; border-left: 3px solid #c78cff;
+    background: rgba(199,140,255,.07); border-radius: 3px; }
+.chat-h { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px;
+    font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.1px; color: #8fa397; }
+.chat-line { font-size: 11.5px; color: #e6f0e8; line-height: 1.45; margin-bottom: 2px; }
+.chat-msg { margin-top: 4px; font-size: 10px; color: #b9a3d8; font-style: italic; }
+/* olağanüstü konsey sebebi */
+.cs-reason { margin-top: 4px; font-size: 12px; color: #ffd24c; }
