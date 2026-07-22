@@ -1,5 +1,52 @@
 {
-  "dependencies": {
+  "name": "pixel-rts",
+  "productName": "Pixel RTS",
+  "version": "0.9.4",
+  "description": "Pixel RTS — yaşayan Avrupa seferi: şehir üretimi, konsey, diplomasi",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "dist:dir": "electron-builder --win --x64 --dir"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
     "jsdom": "^29.1.1"
+  },
+  "build": {
+    "appId": "com.pixelrts.game",
+    "productName": "Pixel RTS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "js/**/*",
+      "assets/**/*",
+      "index.html",
+      "style.css",
+      "!**/*.md",
+      "!__pycache__/**",
+      "!dist/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Pixel RTS"
+    }
   }
 }

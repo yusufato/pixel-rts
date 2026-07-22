@@ -15,3 +15,6 @@ train/nntest.js
 train/bench.js
 train/_nntest_loop.js
 train/_bench_loop.js
+
+# Electron
+dist/

@@ -269,3 +269,10 @@ function mpOnPeerLeft() {
     MP.myDeployReady = false; MP.myDeployList = null; MP.peerDeploy = null;
     if (typeof showScreen === 'function') showScreen('menu');
 }
+
+// CSP: satır içi onclick kaldırıldı (script-src 'self' olabilsin diye) → dinleyici burada.
+if (typeof document !== 'undefined') {
+    const _bindMpReady = () => document.getElementById('mp-ready-btn')?.addEventListener('click', () => mpReadyDeploy());
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _bindMpReady);
+    else _bindMpReady();
+}

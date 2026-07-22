@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel RTS - Strateji Savaşı</title>
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss: http: https:; font-src 'self'">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -335,7 +337,7 @@
 
     <!-- BAŞLAT Butonu -->
     <button id="start-btn">⚔️ SAVAŞI BAŞLAT!</button>
-    <button id="mp-ready-btn" class="hidden" onclick="mpReadyDeploy()">✅ HAZIR — Ordunu Gönder</button>
+    <button id="mp-ready-btn" class="hidden">✅ HAZIR — Ordunu Gönder</button>
 
     <!-- Birim Üretim Paneli (Alt) -->
     <div id="ui-spawn-bar">
