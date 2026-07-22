@@ -380,6 +380,17 @@ function storyLoad() {
         STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
         for (const st of STORY.states) { if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0; storyStateComputeTech(st); }   // FAZ-2 Adım 4: devlet tech backfill + bonus
         for (const n of STORY.nodes) storyNodeBackfill(n);   // kuşatma temizliği + seviye/garnizon/bina/havuz/kuyruk backfill (Production.js)
+        // ESKİ KAYIT ALTYAPI TELAFİSİ: üretim sisteminden önceki kayıtlarda hiçbir şehirde bina yok.
+        // Bu hâlde havuz hep boş kalır, her savaş "acil seferberlik"e düşer ve oyuncu üretim
+        // sistemini HİÇ göremez. Dünyada tek bir bina bile yoksa kayıt eskidir → başkentlere
+        // yeni kampanyayla aynı çekirdeği ver (fabrika 1 + kışla 1), garnizonu en az 2'ye çek.
+        if (!STORY.nodes.some(n => (n.fac | 0) || (n.bar | 0))) {
+            for (const capId of (STORY._capitals || [])) {
+                const c = storyNode(capId);
+                if (!c) continue;
+                c.fac = 1; c.bar = 1; c.garrison = Math.max(2, c.garrison || 0);
+            }
+        }
         STORY.veterans = d.veterans || [];
         STORY.pendingReward = d.pendingReward || null;
         STORY.tech = d.tech || [];
@@ -566,6 +577,9 @@ const POOL_MIN_UNITS = 4;
 function storySetupPlayerPool(node) {
     DEPLOY_POOL = null;
     STORY._poolSrc = null;
+    // KIDEM her iki modda da geçerli: acil seferberlikte de gazilerin savaşa katılmalı.
+    // (Eskiden yalnız havuz dalında kuruluyordu; havuz boşken gaziler tamamen kayboluyordu.)
+    STORY._battleVets = (STORY.veterans || []).map(v => ({ type: v.type, vet: v.vet }));
     const me = STORY.playerStateId;
     const muster = (typeof storyMusterPool === 'function') ? storyMusterPool(me, node.id) : { avail: {}, src: [] };
     let total = 0;
@@ -585,8 +599,6 @@ function storySetupPlayerPool(node) {
     for (const k in muster.avail) DEPLOY_POOL[k] = muster.avail[k] | 0;
     STORY._poolSrc = muster.src;
     storyDrainPool(muster.src);                          // havuz şehirlerden çıktı: kayıp artık kalıcı
-    // Kıdem: havuzdan dizilen birimlere gazi etiketi yapışsın (ayrı bedava ordu YOK)
-    STORY._battleVets = (STORY.veterans || []).map(v => ({ type: v.type, vet: v.vet }));
     storySetPlayerDeployRes();                           // müttefik listesi (_battleAllyList) için gerekli
     DEPLOY_RES.blue = null;                              // mavi para dalına GİRMEZ — havuz adet kısıtı geçerli
     storyLog(`⚔️ ${total} birlik sahaya sevk edildi (şehir havuzlarından).`);

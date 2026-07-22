@@ -1022,6 +1022,7 @@ function placeUnit(type, worldX, worldY, isRed) {
         player.unitsSpawned++;
         const u = new Unit(type, worldX, worldY, isRed);
         applyTechSpawnBonus(u);   // TEKNOLOJİ: zırh/hız/görüş/hp spawn-buff (mavi)
+        if (typeof storyTagVeteran === 'function') storyTagVeteran(u);   // KIDEM: acil seferberlikte de gaziler savaşır
         SIM.units.push(u);
         return true;
     }
