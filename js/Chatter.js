@@ -158,6 +158,19 @@ const CH_TOPICS = [
     },
 ];
 
+// Konuların LLM'e verilecek DURUM açıklaması (birleşim üreteci kendi cümlesini
+// yazar; model aynı durumu kendi diliyle yeniden yazsın diye bu ayrı tutulur).
+const CH_TOPIC_DESC = {
+    front:        'Cephe hattının çok ince olduğunu, bir taarruzda çökeceğini tartışıyorlar.',
+    law:          'Yürürlükteki bir kanunun sahada işlemediğinden yakınıyorlar.',
+    'rival-state':'Komşu düşman devletle savaşın kaçınılmaz olup olmadığını tartışıyorlar.',
+    player:       'Kendi komutanları hakkında konuşuyorlar — biri savunuyor, diğeri kuşkulu.',
+    supply:       'Biri kasasının boş olduğunu söylüyor, diğerinden yardım istiyor.',
+    glory:        'Biri son harekâttaki payıyla övünüyor, diğeri bunu yalanlıyor.',
+    welfare:      'Halkın açlığından ve ordunun moralinin bozukluğundan dertleniyorlar.',
+    'old-feud':   'Eski bir husumet yüzünden birbirlerine sert konuşuyorlar.',
+};
+
 // ── ÜRETEÇ ─────────────────────────────────────────────────────────────────
 const CHATTER_INTERVAL = 9;     // deneme aralığı (sn) — sohbetten daha sık, çünkü çoğu HABER
 function storyChatterTick(dtSec) {
@@ -217,6 +230,13 @@ function storyChatterTick(dtSec) {
         node: (storyNode(a.node) || {}).name || '—', where: chPick(CH_OPEN),
     });
     if (STORY._chatter.length > 12) STORY._chatter.length = 12;
+
+    // LLM ZENGİNLEŞTİRMESİ (varsa): kayıt zaten oyuna girdi ve birleşim üreteciyle
+    // yazıldı. Model yetişirse metni değiştirir, yetişmezse hiçbir şey olmaz.
+    if (typeof llmEnrichChatter === 'function') {
+        const desc = (CH_TOPIC_DESC[topic.id] || topic.id);
+        llmEnrichChatter(STORY._chatter[0], a, b, desc);
+    }
 
     // dikkat çeken konuşmalar muharebe kaydına da düşer (hepsi değil — log taşmasın)
     if (eff.notice) storyLog(`👂 <b>${a.name}</b> ile <b>${b.name}</b>: ${eff.msg}`);

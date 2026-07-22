@@ -98,10 +98,78 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
 // ── OYUNA AÇILAN DAR YÜZEY ─────────────────────────────────────────────────
-// Şimdilik yalnız ortam bilgisi. LLM köprüsü buraya eklenecek (ipcMain.handle('llm:...')).
 ipcMain.handle('app:info', () => ({
     version: app.getVersion(),
     platform: process.platform,
     userData: app.getPath('userData'),
     desktop: true,
 }));
+
+// ── LLM KÖPRÜSÜ ────────────────────────────────────────────────────────────
+// Model AYRI SÜREÇTE (electron/llm-host.js) çalışır — çıkarım iş parçacığını
+// bloke ettiği için ana süreçte olsaydı pencere donardı.
+// Model TEMBEL yüklenir: oyun ilk metin isteyene kadar RAM harcanmaz.
+const { fork } = require('child_process');
+const fsx = require('fs');
+
+let llmChild = null, llmReady = false, llmError = null, llmPath = null;
+let llmSeq = 0;
+const llmPending = new Map();
+
+// Model arama sırası: kurulum klasörü → userData → kullanıcının models klasörü
+function findModel() {
+    const cands = [
+        path.join(process.resourcesPath || ROOT, 'models'),
+        path.join(ROOT, 'models'),
+        path.join(app.getPath('userData'), 'models'),
+        path.join(app.getPath('home'), 'models'),
+    ];
+    for (const dir of cands) {
+        let files = [];
+        try { files = fsx.readdirSync(dir); } catch (_) { continue; }
+        // çok parçalı modellerde ilk parça verilir; llama.cpp gerisini bulur
+        const gguf = files.filter(f => /\.gguf$/i.test(f) && !/-0000[2-9]-of-/.test(f));
+        if (gguf.length) return path.join(dir, gguf.sort()[0]);
+    }
+    return null;
+}
+
+function llmStart() {
+    if (llmChild || llmError) return;
+    llmPath = findModel();
+    if (!llmPath) { llmError = 'model bulunamadı'; return; }
+    try {
+        llmChild = fork(path.join(__dirname, 'llm-host.js'), [], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+    } catch (e) { llmError = 'süreç başlatılamadı: ' + e.message; return; }
+
+    llmChild.on('message', m => {
+        if (!m) return;
+        if (m.t === 'loaded') { llmReady = true; return; }
+        if (m.t === 'error') { llmError = m.error; return; }
+        if (m.t === 'gen') {
+            const r = llmPending.get(m.id);
+            if (r) { llmPending.delete(m.id); r(m.error ? null : m.text); }
+        }
+    });
+    llmChild.on('exit', () => { llmChild = null; llmReady = false; for (const r of llmPending.values()) r(null); llmPending.clear(); });
+    // gpuLayers: 0 = saf CPU. Geniş kitle varsayılanı; ölçümden sonra ayarlanacak.
+    llmChild.send({ t: 'load', modelPath: llmPath, gpuLayers: 0 });
+}
+
+ipcMain.handle('llm:status', () => {
+    if (!llmChild && !llmError) llmStart();
+    return { ready: llmReady, error: llmError, model: llmPath ? path.basename(llmPath) : null };
+});
+
+ipcMain.handle('llm:generate', async (_e, req) => {
+    if (!llmChild && !llmError) llmStart();
+    if (!llmReady) return null;                       // hazır değilse oyun yedeğe düşer
+    const id = ++llmSeq;
+    llmChild.send({ t: 'gen', id, system: req.system, prompt: req.prompt, maxTokens: req.maxTokens, temperature: req.temperature });
+    return new Promise(resolve => {
+        llmPending.set(id, resolve);
+        setTimeout(() => { if (llmPending.has(id)) { llmPending.delete(id); resolve(null); } }, 30000);
+    });
+});
+
+app.on('will-quit', () => { if (llmChild) { try { llmChild.send({ t: 'stop' }); } catch (_) {} } });

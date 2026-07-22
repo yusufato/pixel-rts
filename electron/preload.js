@@ -12,6 +12,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('PIXEL', {
     desktop: true,
     info: () => ipcRenderer.invoke('app:info'),
-    // LLM köprüsü (sonraki adım): generate({prompt, max}) → Promise<string>
-    // Şimdilik yok; oyun typeof kontrolüyle birleşim üretecine düşer.
+    llm: {
+        // { ready, error, model } — model tembel yüklenir, ilk çağrıda başlar
+        status: () => ipcRenderer.invoke('llm:status'),
+        // { system, prompt, maxTokens, temperature } → Promise<string|null>
+        // null = model yok/hazır değil/zaman aşımı → oyun birleşim üretecine düşer
+        generate: req => ipcRenderer.invoke('llm:generate', req),
+    },
 });

@@ -10,11 +10,11 @@
     "dist:dir": "electron-builder --win --x64 --dir",
     "shortcut": "node electron/make-shortcut.js"
   },
-  "dependencies": {},
   "devDependencies": {
     "electron": "^34.0.0",
     "electron-builder": "^25.1.8",
-    "jsdom": "^29.1.1"
+    "jsdom": "^29.1.1",
+    "node-llama-cpp": "^3.19.1"
   },
   "build": {
     "appId": "com.pixelrts.game",
