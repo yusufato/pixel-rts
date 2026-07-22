@@ -222,6 +222,15 @@ function storyBuildCities() {
         n.owner = best;
     }
     STORY._capitals = caps;   // state index → başkent şehir id
+    // FAZ-3 BAŞLANGIÇ ALTYAPISI: her devlet başkentinde hazır bir üretim çekirdeği bulur
+    // (fabrika Sv.1 + kışla Sv.1 + garnizon 2). Sıfır altyapıyla başlamak oyuncuyu ilk
+    // savaşlarda "acil seferberlik" yedeğine mahkûm ediyordu — üretim sistemi hiç devreye
+    // girmiyordu. Diğer şehirler boş başlar; onları komutanlar geliştirir.
+    for (const capId of caps) {
+        const c = nodes[capId];
+        if (!c) continue;
+        c.fac = 1; c.bar = 1; c.garrison = 2;
+    }
     return nodes;
 }
 // ── FAZ-2 HÜKÜMET/KONSEY: her devlette yönetici + bağımsız komutan-bireyler (bakanlar sonra) ──
@@ -613,31 +622,44 @@ function storyResetBattlefield() {
 
 // GAZİLER (FAZ-3): artık bedava ayrı ordu DEĞİL — kıdem havuzdan dizilen birime yapışır.
 // Bkz. storyTagVeteran (Production.js): STORY.veterans listesi kalite katmanı olarak kullanılır.
-// MÜTTEFİK komutanlar KENDİ kasalarıyla ordularını dizer — OTONOM dost-AI (mavi ama oyuncu seçemez/komut veremez; kendi savaşır)
+// MÜTTEFİK komutanlar — OTONOM dost-AI (mavi ama oyuncu komut veremez; kendi savaşır).
+// FAZ-3: kasalarından BEDAVA ordu dizmeleri kaldırıldı. Eskiden her müttefik komutan
+// ~1050 tek-para bütçeyle 40 birime kadar diziyordu; savaş şehri + komşularındaki 3 komutan
+// oyunun ilk dakikasında ~30 bedava birim demekti. Artık aynı şehir havuzundan pay alırlar:
+// üretilmemiş hiçbir birlik sahaya çıkmaz, müttefik desteği de gerçek bir maliyete dayanır.
+const ALLY_POOL_SHARE = 0.30;   // havuzun bu oranı otonom müttefiklere, kalanı oyuncunun elinde
 function storySpawnAllies() {
     const allies = (STORY._battleAllyList || []).filter(Boolean);
     if (!allies.length || typeof T === 'undefined' || typeof Unit === 'undefined') return;
-    const mix = [T.INFANTRY, T.ARMOR, T.ARTILLERY, T.INFANTRY, T.MECH_INFANTRY, T.ANTI_TANK, T.RECON, T.ARMOR_INFANTRY];
+    if (!DEPLOY_POOL) return;   // acil seferberlik (havuz yok) → müttefik de dizmez, simetrik
+
+    // Havuzdan müttefik payını AYIR (oyuncunun dizebileceği adetten düşülür)
+    let quota = 0;
+    for (const k in DEPLOY_POOL) quota += DEPLOY_POOL[k] | 0;
+    quota = Math.min(Math.floor(quota * ALLY_POOL_SHARE), allies.length * 6);
+    if (quota < 1) return;
+
+    // UCUZDAN pahalıya pay al: ana vurucu güç (tank/topçu) OYUNCUDA kalsın, müttefik
+    // destek/kitle birlikleriyle savaşsın. Tersi denendi ve müttefikler tüm tankları alıp
+    // oyuncuyu ana kuvvetinden ediyordu — kendi ordunu yönetememek kötü bir his.
+    const types = Object.keys(DEPLOY_POOL)
+        .filter(k => (DEPLOY_POOL[k] | 0) > 0)
+        .sort((a, b) => ((STATS[+a] && STATS[+a].cost) || 0) - ((STATS[+b] && STATS[+b].cost) || 0));
     let placed = 0;
-    for (const ally of allies) {
-        const rr = ally.res || { oil: 0, manpower: 0, points: 0 };
-        let budget = storyResBudget(rr.oil) + storyResBudget(rr.manpower) + storyResBudget(rr.points);
-        let ti = 0, guard = 0;
-        while (budget > 50 && placed < 40 && guard < 220) {
-            guard++;
-            const type = mix[ti % mix.length]; ti++;
-            const cost = (STATS[type] || {}).cost || 70;
-            if (cost > budget) continue;
-            budget -= cost;
+    for (const k of types) {
+        const type = +k;
+        while ((DEPLOY_POOL[k] | 0) > 0 && placed < quota) {
+            DEPLOY_POOL[k]--;
             const x = 140 + (placed % 14) * 50, y = (WORLD_H - 380) - Math.floor(placed / 14) * 54;
             const u = new Unit(type, x, y, false);
             u.ally = true;                                  // OTONOM dost-AI işareti
-            if (typeof getSquadRole === 'function') u.squad = getSquadRole(type);   // düşman AI'sinin squad/taktik genleri için rol
+            if (typeof getSquadRole === 'function') u.squad = getSquadRole(type);
             if (typeof applyTechSpawnBonus === 'function') applyTechSpawnBonus(u);
             units.push(u); player.unitsSpawned++; placed++;
         }
+        if (placed >= quota) break;
     }
-    if (placed) storyLog(`🤝 ${allies.length} müttefik komutan kendi ordusuyla (${placed} birlik, dost-AI) yanında savaşıyor.`);
+    if (placed) storyLog(`🤝 ${allies.length} müttefik komutan ordunun ${placed} birliğini devraldı (otonom savaşır).`);
 }
 function storyCameraToDeployZone() {
     try {
@@ -668,9 +690,10 @@ function storyOnBattleEnd(won, telemetrySummary) {
     if (DEPLOY_POOL && typeof storyReturnPool === 'function') {
         const back = {};
         for (const k in DEPLOY_POOL) { const c = DEPLOY_POOL[k] | 0; if (c > 0) back[k] = (back[k] | 0) + c; }
-        for (const u of survivors) back[u.type] = (back[u.type] | 0) + 1;
+        // Müttefik birlikler de havuzdan pay almıştı → sağ kalanları havuza döner (gazi olmazlar ama ordu senindir)
+        for (const u of units) if (!u.isRed && !u.dead) back[u.type] = (back[u.type] | 0) + 1;
         const kept = storyReturnPool(back, node, me.id, STORY._poolSrc);
-        const lost = units.filter(u => !u.isRed && u.dead && !u.ally).length;
+        const lost = units.filter(u => !u.isRed && u.dead).length;
         if (kept || lost) storyLog(`⚔️ Ordu dönüşü: ${kept} birlik havuza döndü, ${lost} birlik kayboldu.`);
     }
     // AI TARAFI SİMETRİK: kırmızının sağ kalanları kendi havuzuna döner, ölenler kalıcı gider.
@@ -1357,9 +1380,16 @@ function storyApplyLoyaltyDrift() {
             const rb = cmd.recentBattles || [];
             const wr = rb.length ? (rb.reduce((a, b) => a + b, 0) / rb.length - 0.5) * 0.3 : 0;   // galibiyet→sadakat
             const per = { agresif: -0.10, dengeli: 0, savunmacı: 0.15, fırsatçı: -0.12 }[cmd.personality] || 0;
-            const dip = ((cmd.skills && cmd.skills.diplomat) || 0) * 0.05;   // 1.5 DİPLOMAT: sadakat istikrarı (firar/darbe direnci + diplomasiye zemin)
-            const drift = -0.15 + wf + wr + per + dip;           // taban erozyon + faktörler + diplomat
-            cmd.loyalty = Math.max(0, Math.min(100, (cmd.loyalty == null ? 60 : cmd.loyalty) + drift * 0.5));   // dt=0.5
+            const dip = ((cmd.skills && cmd.skills.diplomat) || 0) * 0.05;   // DİPLOMAT: sadakat istikrarı (firar/darbe direnci)
+            // TABAN EROZYON -0.15 → -0.04: eski değerde başlangıç refahında (50, yani wf=0) net drift
+            // NEGATİF kalıyordu ve komutanlar hiçbir şey yapılmasa bile 1.5-3 dakikada firar eşiğine
+            // (35) iniyordu. Sadakat kaybı KÖTÜ YÖNETİMİN sonucu olmalı, varsayılan durum değil.
+            const drift = -0.04 + wf + wr + per + dip;
+            let nl = (cmd.loyalty == null ? 60 : cmd.loyalty) + drift * 0.5;   // dt=0.5
+            // SADAKAT TABANI: devlet ayakta ve refah makulse komutan bir eşiğin altına düşmez.
+            // Bu olmadan uzun barış dönemleri tüm kadroyu eritiyordu.
+            if (st.welfare >= 45) nl = Math.max(nl, 38);
+            cmd.loyalty = Math.max(0, Math.min(100, nl));
         }
     }
 }
@@ -1374,17 +1404,35 @@ function storyCommanderDefectTo(cmd, fromSt, toSt, atNode) {
 }
 // 0 ŞEHİRLİK devlet → komutanları teslim olur (bulundukları şehrin sahibine katılır) / sahipsizse dağılır
 // KOMUTAN TAKVİYESİ: ölümle tükenmesin — şehri olan devletler YAVAŞ yeni komutan yetiştirir (infinite değil: tavanlı + seyrek + refah-kapılı)
+// KOMUTAN TAKVİYESİ — konsey/yönetici boşalan kadroyu doldurur.
+// ESKİ FORMÜL ÖLÜM SARMALI ÜRETİYORDU: tavan `3 + şehir/4` idi, 19 şehirde 7 çıkıyordu —
+// oysa kampanya 10 komutanla başlıyor. `cur >= cap` olduğu için takviye HİÇ tetiklenmiyordu;
+// komutanlar öldükçe şehir de kaybediliyor, tavan daha da düşüyor, kadro bir daha toparlanamıyordu.
+// Yeni formül başlangıç kadrosuyla uyumlu ve TABANI var: devlet ne kadar küçülürse küçülsün
+// çekirdek kadro (4) korunur, böylece geri dönüş mümkün olur.
+const CMD_CAP_MIN = 4;
+function storyCommanderCap(st) {
+    const owned = STORY.nodes.filter(n => n.owner === st.id).length;
+    return Math.max(CMD_CAP_MIN, Math.min(10, 4 + Math.floor(owned / 3)));
+}
 function storyReplenishCommanders() {
     for (const st of STORY.states) {
-        if (!st.gov || st.welfare < 20) continue;                                  // çöken devlet mobilize edemez
+        if (!st.gov) continue;
         const owned = STORY.nodes.filter(n => n.owner === st.id); if (!owned.length) continue;
         const cur = storyStateCommanders(st).length;
-        const cap = Math.min(10, 3 + Math.floor(owned.length / 4));                // şehir sayısına göre komutan tavanı
-        if (cur >= cap || Math.random() > 0.5) continue;                            // dolu ya da bu sefer değil (seyrek)
+        const cap = storyCommanderCap(st);
+        if (cur >= cap) continue;
+        // Kadro kritikse (yarıdan az) refah şartı aranmaz ve zar atılmaz — çöküş engellenir.
+        const critical = cur < Math.ceil(cap / 2);
+        if (!critical) {
+            if (st.welfare < 20) continue;              // sağlıklı kadroda çöken devlet mobilize edemez
+            if (Math.random() > 0.5) continue;          // seyrek takviye
+        }
         const capId = (STORY._capitals && STORY._capitals[st.id] != null) ? STORY._capitals[st.id] : null;
         const at = (capId != null && owned.some(n => n.id === capId)) ? capId : owned[0].id;
         const nc = storyCreateCommander(st.id, at);
-        if (nc && Math.random() < 0.4) storyLog(`🎖️ ${st.name} yeni komutan yetiştirdi: ${nc.name}.`);
+        if (nc && st.isPlayer) storyLog(`🎖️ Konsey yeni komutan atadı: <b>${nc.name}</b> (kadro ${cur + 1}/${cap}).`);
+        else if (nc && Math.random() < 0.4) storyLog(`🎖️ ${st.name} yeni komutan yetiştirdi: ${nc.name}.`);
     }
 }
 function storyDissolveDeadStates() {
