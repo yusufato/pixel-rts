@@ -18,3 +18,8 @@ train/_bench_loop.js
 
 # Electron
 dist/
+
+# Yerel LLM modelleri — paketlemede kullanılır ama depoya girmez (GB'larca)
+# models/README.txt izlenir; yalnız model dosyaları hariç tutulur.
+*.gguf
+models/*.gguf

@@ -23,21 +23,36 @@ async function ensureLoaded(modelPath, gpuLayers) {
     const mod = await import('node-llama-cpp');
     LlamaChatSession = mod.LlamaChatSession;
     llama = await mod.getLlama();
-    model = await llama.loadModel({ modelPath, gpuLayers: gpuLayers | 0 });
+    // GPU KATMANI: 'auto' → node-llama-cpp VRAM'e sığdığı kadar katmanı GPU'ya koyar,
+    // gerisini CPU'da bırakır. Böylece tek varsayılan üç makineyi de idare eder:
+    //   8 GB GPU → tüm katmanlar GPU'da (~30-50 jeton/sn)
+    //   2 GB GPU → birkaç katman GPU, gerisi CPU (orta hız)
+    //   GPU yok  → hepsi CPU (~0.8 jeton/sn ama çalışır)
+    // Sayı verilirse ona uyar (test/ayar için). GPU sığdırma başarısız olursa host
+    // 'error' yollar, oyun şablona düşer — çökme değil, sessiz geri çekilme.
+    const opts = { modelPath };
+    if (gpuLayers !== 'auto' && gpuLayers != null) opts.gpuLayers = gpuLayers | 0;
+    model = await llama.loadModel(opts);
     // Küçük bağlam: sahneler kısa, bellek ve hız önemli.
     ctx = await model.createContext({ contextSize: 1024 });
 }
 
 async function runOne(job) {
-    const session = new LlamaChatSession({
-        contextSequence: ctx.getSequence(),
-        systemPrompt: job.system,
-    });
-    return session.prompt(job.prompt, {
-        maxTokens: job.maxTokens || 160,
-        temperature: job.temperature == null ? 0.85 : job.temperature,
-        topP: 0.9,
-    });
+    // DİZİ (sequence) SINIRLI KAYNAK: her üretimden sonra session VE seq serbest
+    // bırakılmalı. Bırakılmazsa ~4. üretimde "No sequences left" ile düşer — bench'te
+    // birebir yaşandı. try/finally garantiler ki hata durumunda da sızmasın.
+    const seq = ctx.getSequence();
+    const session = new LlamaChatSession({ contextSequence: seq, systemPrompt: job.system });
+    try {
+        return await session.prompt(job.prompt, {
+            maxTokens: job.maxTokens || 160,
+            temperature: job.temperature == null ? 0.85 : job.temperature,
+            topP: 0.9,
+        });
+    } finally {
+        try { session.dispose(); } catch (_) {}
+        try { seq.dispose(); } catch (_) {}
+    }
 }
 
 async function pump() {

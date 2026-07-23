@@ -53,8 +53,36 @@ function createWindow() {
 // DUMAN TESTİ: `electron . --smoke` → pencereyi açar, sayfayı yükler, konsol
 // hatalarını rapor eder ve kapanır. CI/otomatik doğrulama için.
 const SMOKE = process.argv.includes('--smoke');
+// LLM ÖZ-SINAMASI: `Pixel RTS.exe --llm-selftest` → modeli PAKETLENMİŞ çalışma
+// ortamında yükler, tek diyalog üretir, sonucu basıp çıkar. Paketlenmiş kurulumda
+// node-llama-cpp'nin doğal ikililerini (asar dışından) gerçekten yükleyip
+// üretebildiğini kanıtlar — GUI açmadan, tam da kullanıcının çalıştıracağı exe ile.
+const LLM_SELFTEST = process.argv.includes('--llm-selftest');
 
 app.whenReady().then(() => {
+    if (LLM_SELFTEST) {
+        llmStart();
+        const t0 = Date.now();
+        const tick = setInterval(() => {
+            if (llmError) { console.log('LLM_SELFTEST_FAIL yükleme: ' + llmError); clearInterval(tick); app.exit(1); return; }
+            if (Date.now() - t0 > 90000) { console.log('LLM_SELFTEST_FAIL zaman aşımı (model yüklenmedi)'); clearInterval(tick); app.exit(1); return; }
+            if (!llmReady) return;
+            clearInterval(tick);
+            const id = ++llmSeq;
+            llmChild.send({ t: 'gen', id, system: 'Sadece Türkçe, tam 2 replik yaz, "İsim: söz" biçiminde.',
+                prompt: 'KONUŞANLAR:\n- Demir Paşa\n- Kaya Bey\nDURUM: Maaşlar ödenmedi.', maxTokens: 90, temperature: 0.4 });
+            const handler = m => {
+                if (!m || m.t !== 'gen' || m.id !== id) return;
+                llmChild.off('message', handler);
+                console.log('LLM_SELFTEST_MODEL ' + (llmPath ? path.basename(llmPath) : '?'));
+                if (m.error) { console.log('LLM_SELFTEST_FAIL üretim: ' + m.error); app.exit(1); }
+                else { console.log('LLM_SELFTEST_OUT ' + JSON.stringify(String(m.text || '').trim())); console.log('LLM_SELFTEST_OK'); app.exit(0); }
+            };
+            llmChild.on('message', handler);
+        }, 300);
+        return;
+    }
+
     createWindow();
 
     if (SMOKE) {
@@ -174,8 +202,11 @@ function llmStart() {
         }
     });
     llmChild.on('exit', () => { llmChild = null; llmReady = false; for (const r of llmPending.values()) r(null); llmPending.clear(); });
-    // gpuLayers: 0 = saf CPU. Geniş kitle varsayılanı; ölçümden sonra ayarlanacak.
-    llmChild.send({ t: 'load', modelPath: llmPath, gpuLayers: 0 });
+    // gpuLayers: 'auto' → node-llama-cpp VRAM'e sığdığı kadar katmanı GPU'ya koyar,
+    // gerisini CPU'da bırakır. GPU'lu makinede diyalog ~1 sn, GPU'suzda ~45 sn ama
+    // çalışır. Ölçüm: bench --gpu 99 ile 24-50 jeton/sn alındı, yani bu makinede GPU
+    // yolu çalışıyor. Sığdırma başarısız olursa host 'error' yollar, oyun şablona düşer.
+    llmChild.send({ t: 'load', modelPath: llmPath, gpuLayers: 'auto' });
 }
 
 ipcMain.handle('llm:status', () => {

@@ -11,11 +11,13 @@
     "shortcut": "node electron/make-shortcut.js",
     "icon": "node tools/make-icon.js"
   },
+  "dependencies": {
+    "node-llama-cpp": "^3.19.1"
+  },
   "devDependencies": {
     "electron": "^34.0.0",
     "electron-builder": "^25.1.8",
-    "jsdom": "^29.1.1",
-    "node-llama-cpp": "^3.19.1"
+    "jsdom": "^29.1.1"
   },
   "build": {
     "appId": "com.pixelrts.game",
@@ -34,6 +36,20 @@
       "!__pycache__/**",
       "!dist/**",
       "!tools/**"
+    ],
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models",
+        "filter": [
+          "**/*.gguf"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "**/node_modules/@node-llama-cpp/**",
+      "**/node_modules/node-llama-cpp/bins/**",
+      "**/node_modules/node-llama-cpp/llama/**"
     ],
     "win": {
       "target": [
