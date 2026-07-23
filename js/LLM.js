@@ -109,22 +109,41 @@ const LLM_EN_LEAK = /\b(the|and|with|that|from|this|would|should|could|there|the
 // kelime sınırı (\b) Çince yazıda tutmuyor; satır kısa ve iki noktalı olduğu için
 // diğer tüm süzgeçlerden de geçip ekrana basılırdı. Tek karakter bile yeter: ele.
 const LLM_NONLATIN = /[　-鿿Ѐ-ӿ؀-ۿ가-힯぀-ヿ]/;
+// KONUŞAN-ADI-ÇAPALI ayrıştırma. Ölçüm (gram_bench, 3 model): iki model iki ayrı
+// yönde hata yapıyor. Qwen biçime uyuyor ama Türkçesi bozuk; Türkçe-Llama'nın
+// Türkçesi temiz ama "2 satır, başlık yok" kuralını yok sayıp her çıktıya
+// **Başlık:** / **Madde İşareti:** / İsim: / Söz: iskelesi ekliyor.
+// Kilit gözlem: iskele DİYALOGUN ÖNÜNDE durur ve komutan adıyla ASLA başlamaz;
+// gerçek replikler başlar. O yüzden "ilk 2 satırı al" yanlış — "komutan adıyla
+// başlayan 2 satırı al" doğru. Böylece bozuk morfoloji ayıklanamaz ama ayıklanabilir
+// olan iskele temizlenir ve Türkçe-Llama'nın temiz repliği kurtulur.
 function llmParseDialog(text, a, b) {
     if (!text) return null;
-    const lines = String(text).split('\n').map(l => l.trim())
-        .filter(l => l && !/^[-*#>]/.test(l) && l.includes(':'));
-    if (lines.length < 2) return null;
-    const out = lines.slice(0, 2);
-    for (const l of out) {
+    const names = [a && a.name, b && b.name].filter(Boolean).map(n => n.split(' ')[0]);
+    // markdown vurgusunu (**...**, *, öndeki #/>/madde imleri) soy — konuşan adı açığa çıksın
+    const strip = l => l.replace(/\*\*/g, '').replace(/^[*#>\s]+/, '').replace(/\*+$/, '').trim();
+    const raw = String(text).split('\n').map(strip).filter(Boolean);
+
+    let picked;
+    if (names.length) {
+        // yalnız komutan adı + ':' ile başlayan satırlar (İsim:/Başlık:/Madde: iskelesi elenir)
+        const dlg = raw.filter(l => names.some(n => l.startsWith(n) && l.slice(0, n.length + 12).includes(':')));
+        if (dlg.length < 2) return null;
+        picked = dlg.slice(0, 2);
+    } else {
+        // konuşan adı verilmemişse (savunma amaçlı) eski davranışa düş
+        const cl = raw.filter(l => !/^[-]/.test(l) && l.includes(':'));
+        if (cl.length < 2) return null;
+        picked = cl.slice(0, 2);
+    }
+
+    for (const l of picked) {
         if (l.length > 240) return null;                       // aşırı uzun
         if (l.split(/\s+/).length > 30) return null;
         if (LLM_EN_LEAK.test(l)) return null;                  // İngilizce sızıntı
         if (LLM_NONLATIN.test(l)) return null;                 // Çince/Kiril/Arap kaçağı
     }
-    // en az bir replik konuşanlardan birinin adıyla başlamalı (halüsinasyon süzgeci)
-    const names = [a && a.name, b && b.name].filter(Boolean).map(n => n.split(' ')[0]);
-    if (names.length && !out.some(l => names.some(n => l.startsWith(n)))) return null;
-    return out;
+    return picked;
 }
 
 // ── İSTEK ──────────────────────────────────────────────────────────────────
@@ -133,11 +152,14 @@ function llmEnrich(system, prompt, validate) {
     const b = llmBridge();
     if (!llmAvailable() || LLM.inFlight >= LLM.maxInFlight) return Promise.resolve(null);
     LLM.inFlight++; LLM.stats.asked++;
-    // maxTokens 160 → 70: iki replik ~40 jeton. Kalan 120 jeton modele "devam et"
-    // alanı açıyordu ve ölçümde kaçakların ÇOĞU tam orada başladı (2 replik yazıp
-    // sonra listeye/meta metne dalma). Ayrıca CPU'da süreyi yarıdan fazla kısar —
-    // saf CPU'da 7B ~0.8 jeton/sn ölçüldü, yani her 100 jeton ~2 dakika demek.
-    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 70, temperature: LLM_TEMPERATURE })
+    // maxTokens 160 → 70 → 110. Önce 160'tan 70'e indirdik: Qwen'de kalan jeton
+    // "devam et" alanıydı ve kaçaklar orada başlıyordu. Ama Türkçe modeli seçince
+    // yeni bir kısıt çıktı: Türkçe-Llama her çıktıya **Başlık:**/**Madde:** iskelesi
+    // ekliyor (ölçülü davranış, prompt'la kırılamadı) ve o iskele ~20-25 jeton yiyor.
+    // 70 jetonla iskeleden sonra 2. replik yarıda kesiliyordu. 110: iskele + iki TAM
+    // replik sığıyor, doğrulayıcı zaten fazlasını atıyor. CPU maliyeti anahtar kapalı
+    // varsayılan olduğu için kabul edilebilir (saf CPU'da ~0.8 jeton/sn).
+    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 110, temperature: LLM_TEMPERATURE })
         .then(txt => {
             LLM.inFlight--;
             if (!txt) { LLM.stats.failed++; return null; }

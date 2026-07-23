@@ -144,7 +144,14 @@ function findModel() {
         try { files = fsx.readdirSync(dir); } catch (_) { continue; }
         // çok parçalı modellerde ilk parça verilir; llama.cpp gerisini bulur
         const gguf = files.filter(f => /\.gguf$/i.test(f) && !/-0000[2-9]-of-/.test(f));
-        if (gguf.length) return path.join(dir, gguf.sort()[0]);
+        if (!gguf.length) continue;
+        // TÜRKÇE MODELİ TERCİH ET. Ölçüm (gram_bench, 3 model): genel amaçlı Qwen
+        // biçime uyuyor ama Türkçe morfolojisi bozuk ("hamımlık", "önceliğ") ve bu
+        // KODLA DÜZELTİLEMEZ. Türkçe-ayarlı Llama'nın Türkçesi temiz; tek kusuru
+        // biçim iskelesi ve o doğrulayıcıda ayıklanıyor (kullanılabilir %44→%89).
+        // O yüzden bir klasörde Türkçe model varsa onu seç, yoksa alfabetik ilk.
+        const tr = gguf.filter(f => /turkish|cosmos|trendyol|llama-3.*tr|tr[-_]/i.test(f));
+        return path.join(dir, (tr.length ? tr : gguf).sort()[0]);
     }
     return null;
 }
