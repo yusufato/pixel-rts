@@ -435,7 +435,9 @@ function prodUnitButtons(n, kind, wallet) {
     return html;
 }
 
-function prodBuildingSection(n, kind, wallet) {
+// manage=true → 🏗️ BİNALAR alt-görünümü (kur/yükselt burada); manage=false → ana
+// görünüm (yalnız üretim düğmeleri — bina işlemleri BİNALAR'a taşındı, kullanıcı isteği)
+function prodBuildingSection(n, kind, wallet, manage) {
     const lvl = n[kind] | 0;
     const cost = prodBuildCost(kind, lvl, n);
     const icon = kind === 'fac' ? '🏭' : '🎖️';
@@ -444,13 +446,17 @@ function prodBuildingSection(n, kind, wallet) {
     const cityBlocked = !maxed && lvl >= prodMaxBuildLevel(n);
     let head = `<div class="prod-head"><span>${icon} ${label} <b>Sv.${lvl}/${PROD_MAX_LEVEL}</b></span>`;
     if (maxed) head += `<span class="city-max">Maks</span>`;
-    else if (cityBlocked) head += `<span class="prod-lock" title="Bina şehir seviyesini geçemez">🔒 Şehir Sv.${n.level || 1}</span>`;
-    else head += `<button class="city-btn cb-build" data-node="${n.id}" data-kind="${kind}" ${(wallet.points || 0) < cost ? 'disabled' : ''}>`
+    else if (cityBlocked) head += `<span class="prod-lock" title="Bina şehir seviyesini en fazla 1 aşar — şehir büyüsün">🔒 Şehir Sv.${n.level || 1}</span>`;
+    else if (manage) head += `<button class="city-btn cb-build" data-node="${n.id}" data-kind="${kind}" ${(wallet.points || 0) < cost ? 'disabled' : ''}>`
         + `${lvl === 0 ? 'Kur' : `Sv.${lvl + 1}`} (${cost}⭐)</button>`;
     head += `</div>`;
-    const body = lvl > 0
-        ? `<div class="prod-grid">${prodUnitButtons(n, kind, wallet)}</div>`
-        : `<div class="city-hint">${prodBuildingName(kind)} kurulmadı — bu sınıf birlikler üretilemez.</div>`;
+    const body = manage
+        ? `<div class="city-hint">${kind === 'fac'
+            ? 'Zırhlı sınıf: Sv.1 tanksavar · Sv.2 zırhlı piyade + TANK · Sv.3 seri üretim.'
+            : 'Yaya sınıf: Sv.1 piyade/keşif · Sv.2 istihkam/sağlık/mekanize · Sv.3 topçu.'}</div>`
+        : (lvl > 0
+            ? `<div class="prod-grid">${prodUnitButtons(n, kind, wallet)}</div>`
+            : `<div class="city-hint">${prodBuildingName(kind)} kurulmadı — 🏗️ BİNALAR bölümünden kur.</div>`);
     return `<div class="prod-sec">${head}${body}</div>`;
 }
 
@@ -505,21 +511,36 @@ function storyCityUpdate() {
 
     const w = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
     const lvl = n.level || 1, gar = n.garrison || 0, cap = storyCityGarrisonCap(n);
-    const upCost = lvl < 3 ? CITY_UPGRADE_COST[lvl] : null;
     const here = (STORY.commander && STORY.commander.node === n.id) ? ' 📍' : '';
     const isCap = (STORY._capitals && STORY._capitals.indexOf(n.id) >= 0) ? ' ★' : '';
+    // ORGANİK BÜYÜME göstergesi: nüfus/zenginlik çubukları + sonraki seviye eşiği
+    const req = (typeof CITY_LVL_REQ !== 'undefined') ? CITY_LVL_REQ[lvl] : null;
+    const gbar = (lbl, val, target) => {
+        const pct = Math.max(0, Math.min(100, target ? val / target * 100 : 100));
+        return `<div class="city-grow"><span>${lbl}</span><i><b style="width:${pct.toFixed(0)}%"></b></i><em>${Math.round(val)}${target ? '/' + target : ''}</em></div>`;
+    };
+    const sub = STORY._citySub === 'binalar';
 
-    body.innerHTML =
+    const top =
         `<div class="city-top">🏰 <b>${n.name}</b>${here}${isCap} · Sv.${lvl} <span class="city-lvl">${mine.length} şehrin var</span>`
-        + `<div class="city-stat">Gelir ⛽${n.oil || 0} 👥${n.cities || 0} ⭐${n.pts || 0} · kasan ⛽<b>${Math.floor(w.oil)}</b> 👥<b>${Math.floor(w.manpower)}</b> ⭐<b>${Math.floor(w.points)}</b></div>`
-        + `<div class="city-stat">🛡️ Savunma bonusu <b>+%${Math.round((CITY_DEFENSE_BONUS[lvl] || 0) * 100)}</b> · milis <b>${cityMilitiaFor(n)}</b> birlik · garnizon tavanı <b>${storyCityGarrisonCap(n)}</b></div>`
-        + `<div class="city-acts">`
-        + (upCost != null
-            ? `<button class="city-btn cb-up" data-node="${n.id}" ${(w.points || 0) < upCost ? 'disabled' : ''}>🏗️ Şehir Sv.${lvl + 1} (${upCost}⭐) — ${CITY_UPGRADE_GAIN[lvl] || ''}</button>`
-            : `<span class="city-max">Şehir Maks Sv.3</span>`)
-        + `</div></div>`
-        + prodBuildingSection(n, 'fac', w)
-        + prodBuildingSection(n, 'bar', w)
+        + `<div class="city-stat">Gelir ⛽${n.oil || 0} 👥${n.cities || 0} ⭐${n.pts || 0} · 🛡️ savunma <b>+%${Math.round((CITY_DEFENSE_BONUS[lvl] || 0) * 100)}</b> · milis <b>${cityMilitiaFor(n)}</b></div>`
+        + (req
+            ? gbar('👥 Nüfus (bin)', n.pop || 0, req.pop) + gbar('💰 Zenginlik', n.wealth || 0, req.wealth)
+              + `<div class="city-hint">Şehir <b>kendiliğinden</b> büyür: refah, binalar, kaynak yatakları hızlandırır; kuşatma, grev, huzursuzluk durdurur. İki eşik dolunca <b>Sv.${lvl + 1}</b>.</div>`
+            : `<div class="city-hint">Şehir en yüksek seviyede — nüfus ${Math.round(n.pop || 0)}k.</div>`)
+        + `<div class="city-acts"><button class="city-btn cb-sub" data-sub="${sub ? 'genel' : 'binalar'}">${sub ? '← ŞEHRE DÖN' : '🏗️ BİNALAR'}</button></div>`
+        + `</div>`;
+
+    if (sub) {   // 🏗️ BİNALAR alt-görünümü: fabrika + kışla kur/yükselt (kullanıcı isteği)
+        body.innerHTML = top
+            + prodBuildingSection(n, 'fac', w, true)
+            + prodBuildingSection(n, 'bar', w, true)
+            + `<div class="city-hint">Bina seviyesi şehir seviyesini en fazla 1 aşar; şehir büyüdükçe tavan açılır.</div>`;
+        return;
+    }
+    body.innerHTML = top
+        + prodBuildingSection(n, 'fac', w, false)
+        + prodBuildingSection(n, 'bar', w, false)
         + prodQueueSection(n)
         + `<div class="prod-sec"><div class="prod-head"><span>🛡️ GARNİZON <b>${gar}/${cap}</b></span>`
         + `<button class="city-btn cb-gar" data-node="${n.id}" ${(gar >= cap || (w.manpower || 0) < CITY_GARRISON_COST) ? 'disabled' : ''}>+1 (${CITY_GARRISON_COST}👥)</button></div>`
@@ -644,10 +665,10 @@ function storyCommanderCityTick() {
             }
             // 3) altyapı eksik → bina kur (üretim kapasitesi uzun vadeli ordu demektir)
             if (aiTryBuild(n, st, cmd)) continue;
-            // 4) şehir yükselt (kapasite/savunma/gelir)
-            if ((n.level || 1) < 3) {
-                const cost = CITY_UPGRADE_COST[n.level || 1] || 300;
-                if (cmd.res.points >= cost) { cmd.res.points -= cost; n.level = (n.level || 1) + 1; continue; }
+            // 4) ORGANİK BÜYÜME: şehir seviyesi artık SATIN ALINMAZ — komutan parası
+            // şehrin zenginliğine akar, büyümeyi hızlandırır (nüfus/zenginlik eşiği bekler).
+            if ((n.level || 1) < 3 && cmd.res.points >= 120 && Math.random() < 0.4) {
+                cmd.res.points -= 120; n.wealth = (n.wealth || 0) + 6; continue;
             }
             // 5) geride kalan garnizon boşluğu (yalnız yumuşak tavana kadar)
             if (gar < garCap && cmd.res.manpower >= CITY_GARRISON_COST) {
@@ -686,12 +707,53 @@ function storyInvestCenter(st, n, payer) {
     if (!payer || !payer.res) return false;
     const facBlocked = (n.fac | 0) >= prodMaxBuildLevel(n) && (n.fac | 0) < PROD_MAX_LEVEL;
     const barBlocked = (n.bar | 0) >= prodMaxBuildLevel(n) && (n.bar | 0) < PROD_MAX_LEVEL;
+    // ORGANİK BÜYÜME: seviye satın alınmaz. Bina tavana dayandıysa merkez, devlet
+    // parasını şehre ZENGİNLİK olarak enjekte eder — büyüme hızlanır, eşik dolunca
+    // seviye kendiliğinden gelir (storyCityGrowthTick).
     if ((facBlocked || barBlocked) && (n.level || 1) < 3) {
-        const c = CITY_UPGRADE_COST[n.level || 1];
-        if (c != null && (payer.res.points || 0) >= c) { payer.res.points -= c; n.level = (n.level || 1) + 1; return true; }
+        if ((payer.res.points || 0) >= 120) { payer.res.points -= 120; n.wealth = (n.wealth || 0) + 6; return true; }
         return false;
     }
     return aiTryBuild(n, st, payer);
+}
+
+
+// ── ORGANİK ŞEHİR BÜYÜMESİ (kullanıcı isteği) ──────────────────────────────
+// "Şehir yükselmesi puanla değil; nüfusu artarak, parasal zenginleşerek KENDİ
+// KENDİNE olmalı." Taban ölçümü bunu destekledi: satın-almalı sistemde 600 sn'de
+// 82 şehrin SIFIRI yükselmişti — sistem fiilen ölüydü.
+// Sürücüler: refah + binalar + kaynak yatakları büyütür; kuşatma, grev ve
+// huzursuzluk durdurur/yavaşlatır. AI yatırımları artık şehre ZENGİNLİK enjekte
+// eder (satın alma yerine) — para hâlâ anlamlı, ama seviye organik gelir.
+const CITY_LVL_REQ = [null, { pop: 30, wealth: 18 }, { pop: 70, wealth: 55 }];   // → Sv.2, → Sv.3
+function storyCityGrowthTick(dt) {
+    for (const n of STORY.nodes) {
+        const st = storyState(n.owner); if (!st) continue;
+        if (n.pop == null) {                                   // göç: eski kayıt / yeni düğüm
+            const lv = n.level || 1;
+            n.pop = 10 + (lv - 1) * 28 + Math.random() * 4;
+            n.wealth = (lv - 1) * 20;
+        }
+        if (n._siege) continue;                                // kuşatılan şehir büyümez
+        const strike = st._strikeUntil && st._strikeUntil > (STORY.clock || 0);
+        const unr = (typeof storyFacUnrest === 'function') ? storyFacUnrest(st) : 0;
+        const infra = (n.fac | 0) + (n.bar | 0);
+        let g = 0.012 + (st.welfare - 40) * 0.0009 + infra * 0.005 + ((n.oil || 0) + (n.pts || 0)) * 0.002 - unr * 0.0006;
+        if (strike) g *= 0.25;
+        n.pop = Math.max(4, Math.min(140, n.pop + g * dt));
+        // Katsayılar ölçümle kalibre: ilk değerlerde 600 sn'de yalnız 2-5 şehir Sv.2
+        // olabiliyordu (hedef bant 5-20) — darboğaz zenginlik birikimindeydi.
+        n.wealth = Math.max(0, Math.min(200, (n.wealth || 0)
+            + (0.012 + (n.pts || 0) * 0.007 + (n.fac | 0) * 0.010) * (Math.max(10, st.welfare) / 50) * dt));
+        const req = CITY_LVL_REQ[n.level || 1];
+        if (req && n.pop >= req.pop && n.wealth >= req.wealth) {
+            n.level = (n.level || 1) + 1;
+            if (n.owner === STORY.playerStateId) {
+                storyLog(`🏙️ <b>${n.name}</b> büyüdü — <b>Sv.${n.level}</b> (nüfus ${Math.round(n.pop)}k). Bina tavanı yükseldi.`);
+                if (typeof storyFlash === 'function') storyFlash(`🏙️ ${n.name} Sv.${n.level} oldu`);
+            }
+        }
+    }
 }
 
 function storyAICityTick() {
@@ -723,11 +785,9 @@ function storyAICityTick() {
                 p.res.manpower -= CITY_GARRISON_COST; n.garrison = (n.garrison || 0) + 1;
             }
         } else if (r < 0.45) {
+            // ORGANİK BÜYÜME: devlet parası şehrin zenginliğine akar (seviye kendiliğinden)
             const p = rich('points');
-            if ((n.level || 1) < 3) {
-                const cost = CITY_UPGRADE_COST[n.level || 1] || 300;
-                if (p && p.res && p.res.points >= cost) { p.res.points -= cost; n.level = (n.level || 1) + 1; }
-            }
+            if ((n.level || 1) < 3 && p && p.res && p.res.points >= 120) { p.res.points -= 120; n.wealth = (n.wealth || 0) + 6; }
         } else if (r < 0.68) {
             aiTryBuild(n, st, rich('points'));
         } else {

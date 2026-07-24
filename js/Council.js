@@ -18,8 +18,16 @@ const SEASON_ICONS = ['🌱', '☀️', '🍂', '❄️'];
 function storyYear() { return STORY_START_YEAR + Math.floor((STORY.clock || 0) / YEAR_SECONDS); }
 function storyYearFloat() { return (STORY.clock || 0) / YEAR_SECONDS; }
 function storySeasonIdx() { return Math.min(3, Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / (YEAR_SECONDS / 4))); }
-function storyDateLabel() { const i = storySeasonIdx(); return `${SEASON_ICONS[i]} ${SEASON_NAMES[i]} ${storyYear()}`; }
-function storyDateShort() { return `${SEASON_NAMES[storySeasonIdx()].slice(0, 3)} ${storyYear()}`; }
+// TARİH: kullanıcı isteğiyle SAYISAL biçim (GG.AA.YYYY). 1 yıl = 120 sn → 360 kurgu
+// günü; gün/ay oyun saatinden türer. Mevsim fonksiyonları içeride yaşamaya devam
+// eder (çağ/konsey metinleri mevsim havasını kullanabilir).
+function storyDayOfYear() { return Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / YEAR_SECONDS * 360); }
+function storyDateLabel() {
+    const d = storyDayOfYear();
+    const gg = String(1 + (d % 30)).padStart(2, '0'), aa = String(1 + Math.floor(d / 30)).padStart(2, '0');
+    return `${gg}.${aa}.${storyYear()}`;
+}
+function storyDateShort() { return storyDateLabel(); }
 
 // ── KANUNLAR (her slot = tek seçim; konsey değiştirir) ───────────────────────
 // appeal: komutanın oyunu belirler (warrior/diplomat/economist katsayısı + aggr kişilik ağırlığı)

@@ -355,16 +355,26 @@ function charSkillFromTags(tags, dice) {
 // Devlet doktrini (saldırganlık, pakt eğilimi) liderin eksenlerinden türer;
 // lider değişince devletin karakteri değişir.
 const CHAR_PRES_PERSONA = { TR: 'dengeli', IB: 'fırsatçı', BK: 'savunmacı', CB: 'agresif', KB: 'savunmacı', SF: 'agresif', MB: 'fırsatçı', AB: 'dengeli' };
+// Cumhurbaşkanı SİVİLDİR: 'Mert Komutan' gibi asker adı, komutan listesinde
+// karşılığı olmayan bir kişi izlenimi veriyordu (kullanıcı yakaladı). Ad + soyad alır.
+const PRES_SURNAMES = ['Aksoy', 'Demirel', 'Korkmaz', 'Aydoğan', 'Ertem', 'Sancak', 'Uludağ', 'Karaca', 'Tekin', 'Yalman', 'Soylu', 'Erkan'];
+function charPresidentName() {
+    return STORY_CMD_NAMES[Math.floor(Math.random() * STORY_CMD_NAMES.length)] + ' '
+         + PRES_SURNAMES[Math.floor(Math.random() * PRES_SURNAMES.length)];
+}
 function charMakePresident(st) {
     const flavor = (typeof WAR_ROOM_STATE_FLAVOR !== 'undefined' && WAR_ROOM_STATE_FLAVOR[st.id]) || {};
     const persona = CHAR_PRES_PERSONA[flavor.code] || storyPickPersonality();
-    return { name: storyCommanderName(), persona, axes: charAxesFor(persona), dice: charRollDice() };
+    return { name: charPresidentName(), persona, axes: charAxesFor(persona), dice: charRollDice() };
 }
 function storyEnsurePresidents() {
     for (const st of STORY.states) {
         if (!st.gov) continue;
         if (!st.gov.president) st.gov.president = charMakePresident(st);
         if (!st.gov.president.axes) st.gov.president.axes = charAxesFor(st.gov.president.persona || 'dengeli');
+        // GÖÇ: eski kayıtlarda asker-adlı başkan ('Mert Komutan') → sivil soyadla değiştir
+        if (/\s(Paşa|Komutan|Bey|Ağa)$/.test(st.gov.president.name || ''))
+            st.gov.president.name = st.gov.president.name.split(' ')[0] + ' ' + PRES_SURNAMES[(st.id * 5 + 3) % PRES_SURNAMES.length];
     }
 }
 function storyPresidentName(st) {

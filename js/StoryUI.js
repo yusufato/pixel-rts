@@ -26,7 +26,7 @@ function storyPanelUpdate() {
             `<div class="story-stat-chip wide">TARİH<b>${date}</b></div>` +
             ((typeof storyEra === 'function') ? (() => { const e = storyEra();
                 return `<div class="story-stat-chip wide" title="${e.desc}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`; })() : '') +
-            (toCouncil != null ? `<div class="story-stat-chip${cSoon ? ' urgent' : ''}">KONSEY<b>${(toCouncil / YEAR_SECONDS).toFixed(1)} yıl</b></div>` : '');
+            '';   // KONSEY geri-sayım çipi kaldırıldı (kullanıcı isteği) — takvim konsey panelinde
     }
     const info = document.getElementById('story-node-info');
     const action = document.getElementById('story-action-btn');
@@ -139,7 +139,7 @@ function storyArmyUpdate() {
     const myN = count(c.army), myCap = cmdArmyCap(c);
     const here = storyNode(c.node);
     let html = `<div class="army-card"><div class="army-name">🎖️ ${c.name}</div>`
-        + storyCouncilSkillBars(c.skills)
+        + ((typeof charDiceBadge === 'function') ? charDiceBadge(c.skills) : '')
         + `<div class="army-sub">Sadakat <b style="color:${storyLoyColor(c.loyalty || 100)}">${Math.round(c.loyalty || 100)}/100</b> · 📍 ${here ? here.name : '—'}</div></div>`;
     html += `<div class="army-section"><div class="army-h">⚔️ SEFER ORDUN <b>${myN}/${myCap}</b></div>`
         + `<div class="army-note">Bu ordu <b>seninle birlikte gezer</b> — saldırıya bunu götürürsün. Kapasite savaş yeteneğine bağlı.</div>`
@@ -194,9 +194,7 @@ function storyArmyUpdate() {
         + (vets.length ? `<div class="army-vets">${vetRows}</div>` : `<div class="army-note">Henüz gazi yok — bir düelloyu kazan.</div>`)
         + `</div>`;
 
-    const r = c.res || { oil: 0, manpower: 0, points: 0 };
-    html += `<div class="army-section"><div class="army-h">💰 KASAN</div><span class="army-res">⛽ ${Math.floor(r.oil)} · 👥 ${Math.floor(r.manpower)} · ⭐ ${Math.floor(r.points)}</span>`
-        + `<div class="army-note">Üretim, bina ve şehir yükseltmeleri bu kasadan ödenir.</div></div>`;
+    // KASAN bölümü kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
     body.innerHTML = html;
 }
 // ── TEKNOLOJİ AĞACI (Faz-2 Adım 4 — HER devlet kendi tech'ini geliştirir) ─────
@@ -427,8 +425,8 @@ function storyCouncilUpdate() {
     const myr = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
     const inc = STORY._incPerCmd || { oil: 0, manpower: 0, points: 0 };
     const tre = document.getElementById('council-treasury');
+    // 'Senin kasan' satırı kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
     if (tre) tre.innerHTML = `💰 Devlet hazinesi: ⛽<b>${Math.floor(me.res.oil)}</b> 👥<b>${Math.floor(me.res.manpower)}</b> ⭐<b>${Math.floor(me.res.points)}</b>`
-        + `<br>🎖️ <b style="color:#4cff7c">Senin kasan</b> (savaşa bununla girersin): ⛽<b>${Math.floor(myr.oil)}</b> 👥<b>${Math.floor(myr.manpower)}</b> ⭐<b>${Math.floor(myr.points)}</b>`
         + `<br><span style="color:#9fb3c8;font-size:12px">${cmds.length} komutan · gelir/komutan ⛽${inc.oil.toFixed(1)} 👥${inc.manpower.toFixed(1)} ⭐${inc.points.toFixed(1)} /sn (sabit)</span>`;
     // EN GÜÇLÜ (oyuncu hariç) + sıralama (oyuncu üst, sonra skill-toplam azalan)
     const skSum = c => c.skills ? (c.skills.warrior + c.skills.diplomat + c.skills.economist) : 0;
@@ -436,7 +434,11 @@ function storyCouncilUpdate() {
     for (const c of cmds) { if (c.isPlayer) continue; const s = skSum(c); if (s > bestSum) { bestSum = s; bestId = c.id; } }
     const sorted = cmds.slice().sort((a, b) => (a.isPlayer !== b.isPlayer) ? (a.isPlayer ? -1 : 1) : (skSum(b) - skSum(a)));
     const list = document.getElementById('council-list');
-    if (list) list.innerHTML = sorted.map(c => {
+    // CUMHURBAŞKANI KARTI: sivil lider komutan listesinin ÜSTÜNDE ayrı görünür —
+    // 'başkan listede yok' karışıklığı biter (o bir komutan değil, devletin lideri).
+    const presCard = (typeof storyPresidentName === 'function')
+        ? `<div class="pres-card">🏛️ <b>${storyPresidentName(me)}</b> — Cumhurbaşkanı <span class="pres-note">${isAdmin ? '(sensin)' : '(sivil lider — komutan değildir)'}</span></div>` : '';
+    if (list) list.innerHTML = presCard + sorted.map(c => {
         const node = storyNode(c.node);
         const front = (node && node.owner !== me.id) ? ' <span class="front">· cephe-gerisi</span>' : '';
         const loc = node ? ('📍 ' + node.name + front) : '📍 —';
@@ -549,7 +551,8 @@ function storyInit() {
             const nd = storyNode(+b.dataset.node); if (nd) storyCamCenterOn(nd);
             return;
         }
-        if (b.classList.contains('cb-up')) return storyCityUpgrade(+b.dataset.node);
+        if (b.classList.contains('cb-sub')) { STORY._citySub = b.dataset.sub; return (typeof storyCityUpdate === 'function') && storyCityUpdate(); }
+        if (b.classList.contains('cb-up')) return storyCityUpgrade(+b.dataset.node);   // (eski kayıt uyumu — düğme artık üretilmiyor)
         if (b.classList.contains('cb-gar')) return storyCityGarrison(+b.dataset.node);
         if (b.classList.contains('cb-build')) return prodBuild(+b.dataset.node, b.dataset.kind);
         if (b.classList.contains('cb-make')) return prodEnqueue(+b.dataset.node, +b.dataset.type);

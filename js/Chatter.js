@@ -233,7 +233,7 @@ function storyChatterTick(dtSec) {
     if (!STORY._chatter) STORY._chatter = [];
     STORY._chatter.unshift({
         t: Math.round(STORY.clock || 0), date: storyDateShort(),
-        a: a.name, b: b.name, aId: a.id, bId: b.id,
+        a: a.name, b: b.name, aId: a.id, bId: b.id, nodeId: a.node,
         topic: topic.id, lines, msg: eff.msg || '', bond: cmdBond(a, b),
         node: (storyNode(a.node) || {}).name || '—', where: chPick(CH_OPEN),
     });
@@ -253,11 +253,19 @@ function storyChatterTick(dtSec) {
 
 // ── PANEL PARÇASI (SOHBET drawer'ında) ─────────────────────────────────────
 function storyChatterHtml() {
-    const list = STORY._chatter || [];
+    const all = STORY._chatter || [];
     const me = storyPlayerState();
-    let html = `<div class="talk-sec"><div class="talk-h">👂 KOMUTANLAR ARASI <b>${list.length}</b></div>`
-        + `<div class="talk-note">Komutanların kendi aralarında konuşuyor. Bu konuşmalar aralarındaki <b>bağı</b> ve sadakati değiştirir — sen yalnız duyarsın.</div>`;
-    if (!list.length) html += `<div class="talk-note">Henüz kayda değer bir şey duyulmadı.</div>`;
+    // KULLANICI İSTEĞİ: dedikodu her yerden duyulmaz — yalnız BULUNDUĞUN ŞEHİRDEKİ
+    // konuşmalar ve SENİN katıldıkların görünür (uzaktakiler yaşamaya devam eder,
+    // bağları yine değiştirir; sadece kulağına gelmez).
+    const myId = STORY.commander ? STORY.commander.id : -1;
+    const myNode = STORY.commander ? STORY.commander.node : -1;
+    const myNodeName = (storyNode(myNode) || {}).name;
+    const list = all.filter(c => c.aId === myId || c.bId === myId
+        || c.nodeId === myNode || (c.nodeId == null && c.node === myNodeName));
+    let html = `<div class="talk-sec"><div class="talk-h">👂 KOMUTANLAR ARASI <b>${list.length}</b>${all.length > list.length ? ` <small style="color:#667">(${all.length - list.length} uzakta)</small>` : ''}</div>`
+        + `<div class="talk-note">Yalnız <b>bulunduğun şehirdeki</b> konuşmaları ve sana söylenenleri duyarsın. Uzak şehirlerdeki dedikodu yaşamaya devam eder — kulağına gelmez.</div>`;
+    if (!list.length) html += `<div class="talk-note">Bu şehirde kulağına bir şey çalınmadı — komutanlarının olduğu bir şehre git.</div>`;
     for (const c of list) {
         const lab = cmdBondLabel(c.bond);
         html += `<div class="chat-card">`

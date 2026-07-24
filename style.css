@@ -1781,3 +1781,18 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .fac-logs-t { font-size: 9px; letter-spacing: .14em; color: var(--wr-dim); margin-bottom: 4px; }
 .fac-log { font-size: 11px; color: #d9ffe9; line-height: 1.5; }
 .fac-hint { font-size: 10.5px; color: var(--wr-dim); line-height: 1.5; }
+
+/* ═══ GERİ BİLDİRİM PAKETİ: başkan kartı + şehir büyüme çubukları + ağaç taşması ═══ */
+.pres-card { padding: 9px 12px; margin-bottom: 8px; border: 1px solid var(--wr-line); border-left: 3px solid var(--wr-amber);
+    border-radius: 7px; background: rgba(255,176,0,.05); font-size: 12.5px; color: #e6f4ea; }
+.pres-note { color: var(--wr-dim); font-size: 11px; }
+.city-grow { display: grid; grid-template-columns: 108px 1fr 64px; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; color: var(--wr-muted); }
+.city-grow i { display: block; height: 8px; background: #0a1810; border: 1px solid var(--wr-line); border-radius: 4px; overflow: hidden; }
+.city-grow b { display: block; height: 100%; background: var(--wr-amber); border-radius: 3px; transition: width .4s; }
+.city-grow em { font-style: normal; color: #ffd27a; text-align: right; }
+/* KOMUTAN gelişim ağacı taşması: grid çocukları min-height:0 almadan kaydıramaz */
+.commander-layout { min-height: 0; }
+.commander-profile { overflow-y: auto; min-height: 0; }
+.commander-perks { overflow: auto; min-height: 0; min-width: 0; }
+#commander-perk-grid { max-width: 100%; }
+#commander-perk-grid { padding-right: 16px; padding-bottom: 16px; }

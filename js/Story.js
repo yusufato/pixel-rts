@@ -238,7 +238,8 @@ function storyBuildCities() {
     const nodes = C.map((p, id) => ({
         id, name: storyCityName(id), lx: p[0], ly: p[1], owner: 0, mapId: id % MAPS_LEN(),
         neighbors: [], cities: 1, oil: 0, pts: 0, level: 1, garrison: 0,  // FAZ-2 Adım 6: seviye(1-3)+garnizon
-        fac: 0, bar: 0, pool: {}, q: []   // FAZ-3: fabrika/kışla seviyesi + ordu havuzu + üretim kuyruğu
+        fac: 0, bar: 0, pool: {}, q: [],  // FAZ-3: fabrika/kışla seviyesi + ordu havuzu + üretim kuyruğu
+        pop: null, wealth: 0              // ORGANİK BÜYÜME: nüfus(bin)/zenginlik — ilk büyüme tikinde tohumlanır
     }));
     const K = 3;   // KOMŞULUK: K en-yakın şehir (simetrik)
     for (const a of nodes) {
@@ -1075,6 +1076,8 @@ function storyAdvance(dtSec) {
     }
     STORY._accLoyalty = (STORY._accLoyalty || 0) + dtSec;
     if (STORY._accLoyalty >= 0.5) { STORY._accLoyalty = 0; storyApplyLoyaltyDrift(); } // sadakat drift
+    STORY._accGrow = (STORY._accGrow || 0) + dtSec;
+    if (STORY._accGrow >= 5) { const _gdt = STORY._accGrow; STORY._accGrow = 0; if (typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_gdt); }   // organik şehir büyümesi
     STORY._accFac = (STORY._accFac || 0) + dtSec;
     if (STORY._accFac >= 2) { const _fdt = STORY._accFac; STORY._accFac = 0; if (typeof storyFactionsTick === 'function') storyFactionsTick(_fdt); }   // AŞAMA 2 fraksiyonlar
     STORY._accSocial = (STORY._accSocial || 0) + dtSec;

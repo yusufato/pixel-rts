@@ -157,6 +157,14 @@ function storyFactionsTick(dt) {
         const unr = storyFacUnrest(st);
         if (unr > 18) st.welfare = Math.max(0, st.welfare - (unr - 18) * 0.004 * dt);
 
+        // OYUNCUYA SES: eşik aşımlarında uyarı (yalnız oyuncu devleti, anahtar başına 90 sn)
+        if (st.isPlayer && typeof storyFlash === 'function') {
+            if (!st._facWarn) st._facWarn = {};
+            const warn = (key, msg) => { if ((STORY.clock - (st._facWarn[key] || -999)) > 90) { st._facWarn[key] = STORY.clock; storyFlash(msg); } };
+            if (f.military <= 35) warn('mil', '🎖️ Ordu küskün (' + Math.round(f.military) + ') — DARBE riski ×1.5. Zafer, geçit töreni ya da savunma kanunları yatıştırır.');
+            if (f.radicals >= 58 && f.workers <= 45) warn('rad', '🔥 Grev kazanı kaynıyor — refahı yükselt ya da işçi dostu kanun geçir.');
+            if (f.intel <= 30) warn('int', '📰 Basın karşında — sansürü gevşetmek ya da eğitim yatırımı aydınları yumuşatır.');
+        }
         // GENEL GREV: radikal taşkınlık + küskün işçi sınıfı → üretim durur (soğumalı)
         if (f.radicals >= 62 && f.workers <= 42 && (STORY.clock - (st._lastStrike || -999)) > 120) {
             st._lastStrike = STORY.clock;
