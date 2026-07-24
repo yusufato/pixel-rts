@@ -242,7 +242,7 @@ function storyBuildCitiesGeo() {
     const nodes = GEO_CITIES.map((c, id) => ({
         id, name: c.name, lx: c.x / GEO.W, ly: c.y / GEO.H, owner: c.st, mapId: id % MAPS_LEN(),
         neighbors: [], cities: 1,
-        oil: c.oil ? 2 : 0, pts: Math.max(0, c.tier - 1),        // yataklar: petrol şehirleri + büyük şehir ekonomisi
+        oil: c.oil ? 2 : 0, pts: (c.mine ? 2 : 0) + Math.max(0, c.tier - 2),   // ⛽petrol + ⭐maden yatakları + başkent ekonomisi
         level: c.tier, garrison: 0,                               // tier = başlangıç şehir seviyesi (organik büyüme devam eder)
         fac: Math.min(c.fac, c.tier + 1), bar: c.tier >= 2 ? 1 : 0,   // spec'teki fabrika seviyeleri (İstanbul 3 baca!)
         pool: {}, q: [], pop: null, wealth: 0, geo: 1, names: null

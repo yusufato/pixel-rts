@@ -41,50 +41,32 @@ const CB = {
 // blok → oyunun devlet indeksi (STORY_STATE_DEFS sırası)
 const BLOC_STATE = { turk: 0, iber: 1, brit: 2, germ: 3, nord: 4, slav: 5, magr: 6, arab: 7 };
 
-// Spec'ten birebir: 50 gerçek şehir [ad, lon, lat, tier, fabrika, petrol]
-const CITIES = [
- ['Ankara',32.85,39.93,3,2,0],['İstanbul',28.97,41.01,2,3,0],['İzmir',27.14,38.42,2,1,0],['Adana',35.32,37.0,1,1,0],
- ['Atina',23.73,37.98,2,1,0],['Sofya',23.32,42.70,2,1,0],['Belgrad',20.46,44.79,2,1,0],
- ['Madrid',-3.70,40.42,3,2,0],['Barselona',2.17,41.39,2,2,0],['Lizbon',-9.14,38.72,2,1,0],['Sevilla',-5.98,37.39,1,1,0],
- ['Paris',2.35,48.86,2,3,0],['Lyon',4.84,45.76,1,2,0],['Marsilya',5.37,43.30,2,1,0],
- ['Roma',12.50,41.90,2,1,0],['Milano',9.19,45.46,2,3,0],['Napoli',14.25,40.85,1,1,0],
- ['Londra',-0.13,51.51,3,3,0],['Manchester',-2.24,53.48,2,3,0],['Dublin',-6.26,53.35,2,1,0],
- ['Berlin',13.40,52.52,3,3,0],['Hamburg',9.99,53.55,2,2,0],['Münih',11.58,48.14,2,2,0],['Frankfurt',8.68,50.11,1,2,0],
- ['Amsterdam',4.90,52.37,2,2,0],['Brüksel',4.35,50.85,1,1,0],['Zürih',8.54,47.37,1,1,0],
- ['Viyana',16.37,48.21,2,2,0],['Prag',14.42,50.09,2,2,0],['Budapeşte',19.04,47.50,2,1,0],
- ['Varşova',21.01,52.23,2,2,0],['Kopenhag',12.57,55.68,2,1,0],
- ['Stokholm',18.07,59.33,3,2,0],['Oslo',10.75,59.91,2,1,0],['Helsinki',24.94,60.17,2,1,0],
- ['Moskova',37.62,55.76,3,3,0],['St. Petersburg',30.34,59.93,2,2,0],['Volgograd',44.50,48.70,1,1,1],
- ['Kiev',30.52,50.45,2,2,0],['Minsk',27.56,53.90,2,1,0],['Bükreş',26.10,44.43,2,1,1],
- ['Cezayir',3.06,36.75,3,1,1],['Kazablanka',-7.59,33.57,2,1,0],['Tunus',10.17,36.80,2,1,0],['Trablus',13.19,32.90,2,0,1],
- ['Kahire',31.24,30.04,2,2,0],['Şam',36.29,33.51,2,1,0],['Amman',35.93,31.95,1,0,0],
- ['Bağdat',44.36,33.31,2,1,1],['Riyad',46.72,24.63,3,1,1]
-];
-// hangi şehir hangi blokta (coğrafi konuma göre elle; spec CB ülke bazlıydı)
-const CITY_BLOC = {
-    'Ankara':'turk','İstanbul':'turk','İzmir':'turk','Adana':'turk','Atina':'turk','Sofya':'turk','Belgrad':'turk',
-    'Madrid':'iber','Barselona':'iber','Lizbon':'iber','Sevilla':'iber','Paris':'iber','Lyon':'iber','Marsilya':'iber','Roma':'iber','Milano':'iber','Napoli':'iber',
-    'Londra':'brit','Manchester':'brit','Dublin':'brit',
-    'Berlin':'germ','Hamburg':'germ','Münih':'germ','Frankfurt':'germ','Amsterdam':'germ','Brüksel':'germ','Zürih':'germ','Viyana':'germ','Prag':'germ','Budapeşte':'germ','Varşova':'germ','Kopenhag':'germ',
-    'Stokholm':'nord','Oslo':'nord','Helsinki':'nord',
-    'Moskova':'slav','St. Petersburg':'slav','Volgograd':'slav','Kiev':'slav','Minsk':'slav','Bükreş':'slav',
-    'Cezayir':'magr','Kazablanka':'magr','Tunus':'magr','Trablus':'magr',
-    'Kahire':'arab','Şam':'arab','Amman':'arab','Bağdat':'arab','Riyad':'arab'
-};
-// Spec'ten birebir: gerçek yol koridorları
-const ROADS = [
- ['Kazablanka','Cezayir'],['Cezayir','Tunus'],['Tunus','Trablus'],['Trablus','Kahire'],
- ['Kahire','Amman'],['Amman','Şam'],['Şam','Bağdat'],['Bağdat','Riyad'],['Şam','Adana'],
- ['Adana','Ankara'],['Ankara','İstanbul'],['Ankara','İzmir'],['İstanbul','Sofya'],['Sofya','Atina'],
- ['Sofya','Belgrad'],['Belgrad','Budapeşte'],['Budapeşte','Viyana'],['Viyana','Prag'],['Viyana','Münih'],
- ['Prag','Berlin'],['Berlin','Varşova'],['Varşova','Minsk'],['Minsk','Moskova'],['Moskova','St. Petersburg'],
- ['St. Petersburg','Helsinki'],['Stokholm','Oslo'],['Kopenhag','Hamburg'],['Hamburg','Berlin'],
- ['Hamburg','Amsterdam'],['Amsterdam','Brüksel'],['Brüksel','Paris'],['Paris','Frankfurt'],['Frankfurt','Münih'],
- ['Paris','Lyon'],['Lyon','Marsilya'],['Zürih','Milano'],['Milano','Roma'],['Roma','Napoli'],
- ['Marsilya','Barselona'],['Barselona','Madrid'],['Madrid','Lizbon'],['Madrid','Sevilla'],
- ['Londra','Manchester'],['Londra','Paris'],['Dublin','Manchester'],
- ['Kiev','Moskova'],['Kiev','Varşova'],['Kiev','Bükreş'],['Bükreş','Sofya'],['Moskova','Volgograd'],['Lyon','Zürih']
-];
+// ── TEK KAYNAK: şehir/koridor/maden verisi DESIGN dosyasından okunur ────────
+// StoryGeoRender.js design ekibinin canlı prototipi. CITIES/CORRIDORS/MINE_CITIES
+// dizilerini oradan söküp kullanırız → veri iki yerde çoğalmaz, design güncelleyince
+// `node tools/make-geodata.js` ile oyun verisi tazelenir.
+function loadDesignData() {
+    const src = fs.readFileSync(path.join(ROOT, 'StoryGeoRender.js'), 'utf8');
+    const grab = (name) => {
+        const m = src.match(new RegExp('const ' + name + '\\s*=\\s*(\\[[\\s\\S]*?\\n\\])\\s*;'));
+        if (!m) throw new Error(name + ' StoryGeoRender.js\'te bulunamadı');
+        // yorum satırlarını temizle (// ...), sonra eval
+        const body = m[1].replace(/\/\/[^\n]*/g, '');
+        return eval('(' + body + ')');
+    };
+    const CITIES = grab('CITIES');                 // [ad, lon, lat, tier, fac, oil, bloc]
+    const CORRIDORS = grab('CORRIDORS');           // [[ad, ad]...]
+    const mm = src.match(/const MINE_CITIES\s*=\s*new Set\((\[[\s\S]*?\])\)/);
+    const MINE = new Set(mm ? eval('(' + mm[1].replace(/\/\/[^\n]*/g, '') + ')') : []);
+    return { CITIES, CORRIDORS, MINE };
+}
+
+// DESIGN kaynağından (StoryGeoRender.js): 120+ şehir [ad,lon,lat,tier,fac,oil,bloc]
+const _D = loadDesignData();
+const CITIES = _D.CITIES;                         // 7. alan blok
+const CITY_BLOC = {}; for (const c of CITIES) CITY_BLOC[c[0]] = c[6];
+const MINE = _D.MINE;                             // maden (puan) yatakları
+const ROADS = _D.CORRIDORS;
 // Spec'ten: dağ sıraları + nehirler (çizim için)
 const RANGES = [
  [[[5.5,44.2],[7,45.5],[9,46.3],[11,46.8],[13.5,47.0],[15,47.3]],1.0,1.0],
@@ -180,7 +162,7 @@ function linesOf(geom, proj, every = 1) { return ringsOf(geom, proj, every); }  
     };
     const GEO_CITIES = CITIES.map(([name, lon, lat, tier, fac, oil]) => {
         const p = P(lon, lat);
-        return { name, x: p[0], y: p[1], tier, fac, oil, st: BLOC_STATE[CITY_BLOC[name]] };
+        return { name, x: p[0], y: p[1], tier, fac, oil, mine: MINE.has(name) ? 1 : 0, st: BLOC_STATE[CITY_BLOC[name]] };
     });
     const CI = {}; CITIES.forEach((c, i) => CI[c[0]] = i);
     const GEO_ROADS = ROADS.map(([a, b]) => [CI[a], CI[b]]);
