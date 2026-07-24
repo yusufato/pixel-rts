@@ -409,8 +409,9 @@ function storyCouncilSkillBars(sk) {
 function storyCamCenterOn(node) {
     const cv = document.getElementById('storyCanvas'); if (!cv || !node) return;
     storyResize();   // boyut tazele (bayat cv.width fix)
-    storyCam.x = node.lx * STORY_WORLD_W - (cv.width / storyCam.zoom) / 2;
-    storyCam.y = node.ly * STORY_WORLD_H - (cv.height / storyCam.zoom) / 2;
+    STORY._cw = cv.width; STORY._ch = cv.height;                     // WARP: düğüm ekran ortasına
+    storyCam.x = node.lx * STORY_WORLD_W - (cv.width / 2) / storyCam.zoom;
+    storyCam.y = node.ly * STORY_WORLD_H - storyVyOf(0.5) / storyCam.zoom;
     storyClampCam(cv.width, cv.height);
 }
 function storyCouncilUpdate() {
@@ -583,7 +584,8 @@ function storyInit() {
             const rect = cv.getBoundingClientRect();
             const mx = (e.clientX - rect.left) * (cv.width / rect.width);
             const my = (e.clientY - rect.top) * (cv.height / rect.height);
-            return { x: mx / storyCam.zoom + storyCam.x, y: my / storyCam.zoom + storyCam.y };
+            STORY._cw = cv.width; STORY._ch = cv.height;
+            return storyS2W(mx, my);                    // 2.5D warp tersinimi (düz bölme değil)
         };
         const pickNode = (wx, wy) => {
             let hit = -1, hd = 34 * 34;
@@ -595,13 +597,17 @@ function storyInit() {
             return hit;
         };
         // SÜRÜKLE-PAN: basılı tutup gez = kamera; kısa tık (sürüklemeden) = düğüm seç
+        // WARP: imlecin altındaki DÜNYA noktası parmağa yapışsın diye s2w farkıyla kaydır
         let dragging = false, moved = false, lastX = 0, lastY = 0;
         cv.addEventListener('mousedown', (e) => { dragging = true; moved = false; lastX = e.clientX; lastY = e.clientY; });
         window.addEventListener('mousemove', (e) => {
             if (!dragging) return;
-            const dx = e.clientX - lastX, dy = e.clientY - lastY;
-            if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
-            storyCam.x -= dx / storyCam.zoom; storyCam.y -= dy / storyCam.zoom; lastX = e.clientX; lastY = e.clientY;
+            if (Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) > 3) moved = true;
+            STORY._cw = cv.width; STORY._ch = cv.height;
+            const rect = cv.getBoundingClientRect(), sc = cv.width / rect.width, scy = cv.height / rect.height;
+            const a = storyS2W((lastX - rect.left) * sc, (lastY - rect.top) * scy);
+            const b = storyS2W((e.clientX - rect.left) * sc, (e.clientY - rect.top) * scy);
+            storyCam.x += a.x - b.x; storyCam.y += a.y - b.y; lastX = e.clientX; lastY = e.clientY;
             storyClampCam(cv.width, cv.height); cv.style.cursor = 'grabbing'; storyRender();
         });
         window.addEventListener('mouseup', (e) => {
@@ -628,9 +634,12 @@ function storyInit() {
             const rect = cv.getBoundingClientRect();
             const mx = (e.clientX - rect.left) * (cv.width / rect.width);
             const my = (e.clientY - rect.top) * (cv.height / rect.height);
-            const wx = mx / storyCam.zoom + storyCam.x, wy = my / storyCam.zoom + storyCam.y;
+            STORY._cw = cv.width; STORY._ch = cv.height;
+            const wpt = storyS2W(mx, my);               // imleç altındaki dünya noktası (warp)
             storyCam.zoom = Math.max(0.4, Math.min(5, storyCam.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
-            storyCam.x = wx - mx / storyCam.zoom; storyCam.y = wy - my / storyCam.zoom;
+            // aynı ekran noktası aynı dünya noktasını göstersin: cam = dünya − vec/z
+            const u = my / cv.height, vy = storyVyOf(u), vx = (mx - cv.width / 2) / storySxOf(u) + cv.width / 2;
+            storyCam.x = wpt.x - vx / storyCam.zoom; storyCam.y = wpt.y - vy / storyCam.zoom;
             storyClampCam(cv.width, cv.height); storyRender();
         }, { passive: false });
         cv.style.cursor = 'grab';

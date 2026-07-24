@@ -30,26 +30,32 @@ function storyResize() {
     if (cv.width !== w) cv.width = w;
     if (cv.height !== h) cv.height = h;
 }
-// kamerayı dünya sınırlarında tut (zoom dahil görünen alan = w/zoom; dünya küçükse ortala)
+// kamerayı dünya sınırlarında tut — WARP farkında (en geniş şerit = üst satır, sxOf(0)<1)
 function storyClampCam(w, h) {
-    const vw = w / storyCam.zoom, vh = h / storyCam.zoom;
+    STORY._cw = w; STORY._ch = h;
+    storyCam.zoom = Math.max(0.4, Math.min(5, storyCam.zoom));
+    const z = storyCam.zoom;
+    const vw = w / z / Math.min(1, storySxOf(0));     // üst şeritte görünen dünya-genişliği (en geniş)
     if (STORY_WORLD_W <= vw) storyCam.x = (STORY_WORLD_W - vw) / 2;
-    else storyCam.x = Math.max(0, Math.min(STORY_WORLD_W - vw, storyCam.x));
+    else storyCam.x = Math.max(-vw * 0.22, Math.min(STORY_WORLD_W - vw * 0.62, storyCam.x));
+    const vh = storyVyOf(1) / z;                       // görünen dünya-yüksekliği
     if (STORY_WORLD_H <= vh) storyCam.y = (STORY_WORLD_H - vh) / 2;
-    else storyCam.y = Math.max(0, Math.min(STORY_WORLD_H - vh, storyCam.y));
+    else storyCam.y = Math.max(-vh * 0.14, Math.min(STORY_WORLD_H - vh * 0.72, storyCam.y));
 }
 function storyCenterCamOnPlayer() {
     const n = storyNode(STORY.commander.node), cv = document.getElementById('storyCanvas');
     if (!n || !cv) return;
     storyResize();
-    storyCam.x = n.lx * STORY_WORLD_W - (cv.width / storyCam.zoom) / 2;
-    storyCam.y = n.ly * STORY_WORLD_H - (cv.height / storyCam.zoom) / 2;
+    STORY._cw = cv.width; STORY._ch = cv.height;                     // WARP: düğüm ekran ortasına (u=0.5)
+    storyCam.x = n.lx * STORY_WORLD_W - (cv.width / 2) / storyCam.zoom;
+    storyCam.y = n.ly * STORY_WORLD_H - storyVyOf(0.5) / storyCam.zoom;
     storyClampCam(cv.width, cv.height);
 }
 
-// Düğüm DÜNYA-konumu → EKRAN (kamera kaydır + zoom ölçek)
+// Düğüm DÜNYA-konumu → EKRAN (2.5D warp). u = perspektif ölçeği (jeton boyutu).
 function storyNodePixel(n) {
-    return { x: (n.lx * STORY_WORLD_W - storyCam.x) * storyCam.zoom, y: (n.ly * STORY_WORLD_H - storyCam.y) * storyCam.zoom };
+    const s = storyW2S(n.lx * STORY_WORLD_W, n.ly * STORY_WORLD_H);
+    return { x: s.x, y: s.y, u: s.u };
 }
 
 // ── İKİ-KATMAN HARİTA (dinamik dünya): ───────────────────────────────────────────────────────
@@ -61,6 +67,49 @@ function storyNodePixel(n) {
 let STORY_GW = 320, STORY_GH = 180;                  // politik/terrain hücre çözünürlüğü (terrain resmi gelince RESMİN çözünürlüğüne ayarlanır)
 let STORY_WORLD_W = 3200, STORY_WORLD_H = 1800;      // dünya piksel boyutu (terrain resmi gelince oranına göre güncellenir)
 const storyCam = { x: 0, y: 0, zoom: 1 };            // kamera: sol-üst köşe (dünya px) + zoom (fare tekerleği)
+
+// ── 2.5D PERSPEKTİF WARP (design teslimi "hologram" — mode-7 şerit warp) ─────
+//  Komuta masası hologramı: harita ekrana yatık düşer. CSS transform DEĞİL,
+//  canvas şerit-warp — çünkü tıklama (hit-test) tersinir olmalı. Tüm ekran↔dünya
+//  dönüşümü storyW2S/storyS2W çiftinden geçer; render de giriş de aynı matematiği
+//  kullanır → jeton nereye çizilirse tıklama oraya düşer.
+//    u = ekranY/H (0=üst/uzak, 1=alt/yakın)
+//    sxOf(u): satır yatay ölçeği — üst dar (uzak), alt geniş (yakın)
+//    vyOf(u): ekran satırı → düz-görünüm y'si ; uOfVy: tersi
+const STORY_PP = 0.62;                                // eğim gücü (0=düz, prototip 0.8; oyunda okunurluk için orta)
+function storySxOf(u) { return (1 + STORY_PP * u) * (1 + STORY_PP * u) / (1 + STORY_PP); }
+function storyVyOf(u) { const H = STORY._ch || 600; return H * (1 + STORY_PP) * u / (1 + STORY_PP * u); }
+function storyUOfVy(vy) { const H = STORY._ch || 600; const v = vy / H; return v / (1 + STORY_PP - STORY_PP * v); }
+// dünya (px) → ekran; döner {x,y,u}. u perspektif ölçeği için (jeton boyutu).
+function storyW2S(wx, wy) {
+    const W = STORY._cw || 800, z = storyCam.zoom;
+    const vx = (wx - storyCam.x) * z, vy = (wy - storyCam.y) * z;
+    const u = storyUOfVy(vy);
+    return { x: (vx - W / 2) * storySxOf(u) + W / 2, y: u * (STORY._ch || 600), u };
+}
+// ekran → dünya (px) — tıklama/sürükleme/zoom tersinimi
+function storyS2W(X, Y) {
+    const W = STORY._cw || 800, H = STORY._ch || 600, z = storyCam.zoom;
+    const u = Y / H, vy = storyVyOf(u), vx = (X - W / 2) / storySxOf(u) + W / 2;
+    return { x: storyCam.x + vx / z, y: storyCam.y + vy / z };
+}
+// perspektif ölçeği: yakın (alt) büyük, uzak (üst) küçük (jeton/etiket boyutu)
+function storyPScale(u) { return 0.62 + storySxOf(Math.max(0, Math.min(1, u))) * 0.5; }
+// bir önbellek tuvalini (STORY_GW×STORY_GH, dünya 0..STORY_WORLD) warp'lı çiz
+function storyBlitWarp(g, src, alpha) {
+    const W = STORY._cw, H = STORY._ch, z = storyCam.zoom, band = 3;
+    const kx = STORY_GW / STORY_WORLD_W, ky = STORY_GH / STORY_WORLD_H;
+    if (alpha != null) g.globalAlpha = alpha;
+    for (let ys = 0; ys < H; ys += band) {
+        const u0 = ys / H, u1 = Math.min(1, (ys + band) / H);
+        const wy0 = storyCam.y + storyVyOf(u0) / z, wy1 = storyCam.y + storyVyOf(u1) / z;
+        const sxc = storySxOf((u0 + u1) / 2);
+        const srcXw = storyCam.x + (W / 2 * (1 - 1 / sxc)) / z, srcWw = W / (sxc * z);
+        const sh = Math.max(0.01, (wy1 - wy0) * ky);
+        try { g.drawImage(src, srcXw * kx, wy0 * ky, srcWw * kx, sh, 0, ys, W, band + 0.6); } catch (e) {}
+    }
+    if (alpha != null) g.globalAlpha = 1;
+}
 
 // (Eski terrain.png resim-yükleyici KALDIRILDI — file:// üzerinde getImageData "tainted canvas" hatası verdi.
 //  Artık kara/deniz GÖMÜLÜ STORY_TERRAIN maskesinden okunur, terrain motorda boyanır → her yerde güvenli.)
@@ -211,16 +260,17 @@ function storyRender() {
     const g = cv.getContext('2d');
     const w = cv.width, h = cv.height;
     storyClampCam(w, h);
+    STORY._cw = w; STORY._ch = h;
     g.clearRect(0, 0, w, h);
     g.imageSmoothingEnabled = false;
-    g.fillStyle = '#235a7e'; g.fillRect(0, 0, w, h);   // dünya kenarı boşluğu / deniz zemini
+    g.fillStyle = '#03080f'; g.fillRect(0, 0, w, h);   // hologram zemini (uzay/deniz karası)
     const z = storyCam.zoom;
-    // (1) TERRAIN tabanı — gömülü kullanıcı haritasından (STORY_TERRAIN) prosedürel boyanır; kamera+zoom, crisp
+    // (1) TERRAIN tabanı — 2.5D warp'lı şerit-blit (gerçek kıyı çizgileri yatık düşer)
     const terr = storyEnsureTerrainCache();
-    g.drawImage(terr, 0, 0, STORY_GW, STORY_GH, -storyCam.x * z, -storyCam.y * z, STORY_WORLD_W * z, STORY_WORLD_H * z);
-    // (2) DİNAMİK POLİTİK katman (sahip-rengi yarı-saydam) — terrain üstüne; fetihte renk anında değişir
+    storyBlitWarp(g, terr);
+    // (2) DİNAMİK POLİTİK katman (sahip-rengi yarı-saydam) — warp'lı; fetihte renk anında değişir
     const ovl = storyEnsureOwnerOverlay();
-    g.drawImage(ovl, 0, 0, STORY_GW, STORY_GH, -storyCam.x * z, -storyCam.y * z, STORY_WORLD_W * z, STORY_WORLD_H * z);
+    storyBlitWarp(g, ovl);
     STORY._imgMode = false;
     // War Room renk işlemi: arazi okunur kalırken amber terminal kontrastına yaklaşır.
     g.fillStyle = 'rgba(2,8,4,0.30)'; g.fillRect(0, 0, w, h);
@@ -232,8 +282,9 @@ function storyRender() {
     if (typeof STORY_TERRAIN !== 'undefined') {
         const drawMarks = (arr, col, sz) => {
             for (const p of (arr || [])) {
-                const sx = (p[0] * STORY_WORLD_W - storyCam.x) * z, sy = (p[1] * STORY_WORLD_H - storyCam.y) * z;
-                if (sx < -8 || sy < -8 || sx > w + 8 || sy > h + 8) continue;
+                const s = storyW2S(p[0] * STORY_WORLD_W, p[1] * STORY_WORLD_H);
+                if (s.u < -0.04 || s.u > 1.05 || s.x < -8 || s.x > w + 8) continue;
+                const sx = s.x, sy = s.y;
                 g.fillStyle = '#000'; g.fillRect(sx - sz - 1, sy - sz - 1, 2 * sz + 2, 2 * sz + 2);
                 g.fillStyle = col; g.fillRect(sx - sz, sy - sz, 2 * sz, 2 * sz);
             }
@@ -265,8 +316,10 @@ function storyRender() {
         const isSelected = (n.id === STORY.selectedNodeId);
         const attackable = (adj.indexOf(n.id) >= 0 && n.owner !== STORY.playerStateId);
         const moveable = (adj.indexOf(n.id) >= 0 && n.owner === STORY.playerStateId);
-        // ŞEHİR/BAŞKENT işareti — pixel KARE (sahip rengi + siyah kontur)
-        const sq = isCmd ? 9 : 6;
+        // ŞEHİR/BAŞKENT işareti — pixel KARE (sahip rengi + siyah kontur), perspektif ölçekli
+        const sc = storyPScale(p.u);
+        const tierBoost = n.geo ? (n.level >= 3 ? 1.7 : n.level >= 2 ? 1.25 : 1) : 1;   // başkent/büyük şehir iri
+        const sq = Math.round((isCmd ? 9 : 5.5) * sc * tierBoost);
         const px = Math.round(p.x), py = Math.round(p.y);
         g.fillStyle = '#000'; g.fillRect(px - sq - 1, py - sq - 1, 2 * sq + 2, 2 * sq + 2);
         g.fillStyle = st ? st.color : '#888';
