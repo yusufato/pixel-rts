@@ -152,6 +152,94 @@ app.whenReady().then(() => {
         return;
     }
 
+    // OYUN-YAŞAMA TESTİ: `--playtest [--years N] [--shots <klasör>]` → karakter yaratır,
+    // sonra dünyada N YIL yaşar: konseylerde oy kullanır, saldırıya uğrarsa karar verir,
+    // her yıl harita + panel görüntüsü alır, yıl-yıl dünya durumunu JSON raporlar.
+    // Amaç: sonraki geliştirme aşamalarının (fraksiyon/ekonomi/medya) gerekçesini
+    // varsayımdan değil YAŞANMIŞ oyundan çıkarmak.
+    if (process.argv.includes('--playtest')) {
+        createWindow();
+        const yi = process.argv.indexOf('--years');
+        const YEARS = yi >= 0 ? Math.max(1, parseInt(process.argv[yi + 1], 10) || 10) : 10;
+        const fsx2 = require('fs');
+        try { fsx2.mkdirSync(SHOTS_DIR, { recursive: true }); } catch (_) {}
+        const problems = [];
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) problems.push('konsol: ' + message); });
+        win.webContents.on('render-process-gone', (_e, d) => problems.push('render öldü: ' + d.reason));
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        const shot = async name => { try { const img = await win.webContents.capturePage(); fsx2.writeFileSync(path.join(SHOTS_DIR, name + '.png'), img.toPNG()); } catch (_) {} };
+        const click = sel => js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (el) el.click(); return !!el; })()`);
+
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1200);
+            // savunma teklifi: küçük şehirde çekil, başkent/büyük şehirde savaşma yerine yine çekil
+            // (arena otomasyonu ayrı iş; pasif savunma da meşru bir oyuncu stili)
+            await js(`window.confirm = () => false; window.alert = () => {};`);
+            // karakter yarat (uitest ile aynı yol)
+            await click('#btn-new-story'); await sleep(400);
+            await click('.wr-state-card'); await sleep(300);
+            await click('#btn-story-start'); await sleep(500);
+            await js(`(() => { const n = document.getElementById('char-name'); if (n) { n.value = 'Fable Paşa'; n.dispatchEvent(new Event('input')); } })()`);
+            await click('#char-next'); await sleep(300);
+            for (let i = 0; i < 12; i++) { await click('.char-opt'); await sleep(120); }
+            await shot('00-karakter-ozeti');
+            await click('#char-go'); await sleep(1200);
+            await shot('yil-0-baslangic');
+
+            const report = [];
+            let councilShots = 0;
+            for (let y = 1; y <= YEARS; y++) {
+                // 1 yıl = 120 oyun-sn; 30'luk parçalarla ilerlet, arada konsey/duruma bak
+                for (let c = 0; c < 4; c++) {
+                    await js(`(() => { STORY.paused = false; for (let i = 0; i < 30; i++) storyAdvance(1.0); STORY.paused = true; })()`);
+                    const ses = await js(`!!STORY._session`);
+                    if (ses) {
+                        if (councilShots < 2) { await shot('konsey-oturumu-' + (++councilShots)); }
+                        // KONSEYDE YAŞA: her maddede kişiliğime uyan oyu ver, sonra ilerle
+                        await js(`(() => { let g = 0; while (STORY._session && g++ < 24) {
+                            try { const S = STORY._session, item = S.items && S.items[S.idx];
+                                  if (item && item.options && item.options.length && typeof storyCouncilSessionPick === 'function')
+                                      storyCouncilSessionPick(item.options[Math.floor(Math.random() * item.options.length)].id);
+                            } catch (_) {}
+                            storyCouncilSessionNext();
+                        } })()`);
+                    }
+                    await sleep(60);
+                }
+                const snap = JSON.parse(await js(`JSON.stringify((() => {
+                    const me = storyPlayerState();
+                    const cmds = storyStateCommanders(me);
+                    const host = STORY.states.filter(s => s.id !== me.id && STORY.nodes.some(n => n.owner === s.id)
+                        && (typeof storyIsHostile === 'function' && storyIsHostile(me.id, s.id))).length;
+                    return {
+                        yil: storyYear(), sehir: STORY.nodes.filter(n => n.owner === me.id).length,
+                        refah: Math.round(me.welfare), hazine: Math.round(me.res.points),
+                        kasam: Math.round((STORY.commander.res || {}).points || 0),
+                        ordum: (typeof cmdArmyCount === 'function') ? cmdArmyCount(STORY.commander) : -1,
+                        sadakat: Math.round(cmds.reduce((a, c) => a + (c.loyalty || 0), 0) / Math.max(1, cmds.length)),
+                        cag: (typeof storyEra === 'function' && storyEra()) ? storyEra().name : '?',
+                        dusman: host, canli: STORY.states.filter(s => STORY.nodes.some(n => n.owner === s.id)).length,
+                        sohbet: (STORY._chatter || []).length, gorusme: (STORY._talks || []).length,
+                        sonOlay: (STORY.log[0] || '').replace(/<[^>]+>/g, '').slice(0, 90),
+                    };
+                })())`));
+                report.push(snap);
+                console.log('PLAYTEST_YIL ' + JSON.stringify(snap));
+                await shot('yil-' + y);
+            }
+            // yıl 10 panelleri: konsey çekmecesi + sohbet defteri
+            await click('#story-council-btn'); await sleep(400); await shot('panel-konsey');
+            await click('#story-council-btn'); await sleep(200);
+            await click('#story-army-btn'); await sleep(400); await shot('panel-ordu');
+            console.log('PLAYTEST_SHOTS ' + SHOTS_DIR);
+            console.log('PLAYTEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 5)));
+            console.log('PLAYTEST_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     createWindow();
 
     if (SMOKE) {
