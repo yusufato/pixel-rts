@@ -1,33 +1,28 @@
-# MODERN DÜNYA PLANI — Siyaset, Ekonomi, Medya, Şirketler, Hafıza
+# MODERN DÜNYA PLANI — Karakter, Siyaset, Ekonomi, Medya, Şirketler, Hafıza
 
-Kullanıcının 5 aşamalı mimari taslağının (siyasi spektrum, fraksiyonlar, makroekonomi,
-medya/dezenformasyon, şirketler/oligarklar, kademeli hafıza, kara kuğu) mevcut kod
-tabanına eşlenmiş, ölçülebilir uygulama planı. **Karar: kampanya modern/yakın-gelecek
-çağa taşınır** (kullanıcı seçimi).
+Kullanıcının mimari taslağının (karakter yaratma, siyasi spektrum, fraksiyonlar,
+makroekonomi, medya/dezenformasyon, şirketler/oligarklar, kademeli hafıza, kara kuğu)
+mevcut kod tabanına eşlenmiş, ölçülebilir uygulama planı. **Karar: kampanya
+modern/yakın-gelecek çağa taşınır** (kullanıcı seçimi).
 
 ---
 
 ## 0. TAŞIYICI İLKELER (ölçümden gelen, pazarlıksız)
 
-Bu oturumların ölçümleri üç kural dayatıyor. Taslaktaki her fikir bu üç süzgeçten
-geçirilerek uyarlandı:
-
 1. **Sayıları MOTOR hesaplar, LLM yalnız METİN yazar.**
-   Taslak "LLM JSON dönsün, `working_class:+15` uygulansın" diyor. Ölçüm: 8B model
-   "tam 2 satır yaz" kuralına bile uyamıyor (Türkçe-Llama her çıktıya iskele ekliyor,
-   prompt'la kırılamadı — gram_bench). Şemalı JSON + dengeli sayı beklemek gerçekçi
-   değil; *geçerli ama saçma* sayılar dengeyi sessizce çökertir ve hiçbir test yakalamaz
-   (konsey sisteminin ilk hâli devletleri nasıl çökerttiyse). Kelebek etkisi zinciri
-   deterministik kural motorudur; LLM o zinciri **anlatır**, kurmaz.
-   LLM'in "seçim yapması" gereken yerde serbest üretim değil **çoktan seçmeli** verilir
-   (arketip listesinden tek kelime; enum'a karşı doğrulanır).
+   Ölçüm (gram_bench): 8B model "tam 2 satır yaz" kuralına bile uyamıyor. Şemalı JSON +
+   dengeli sayı beklemek gerçekçi değil; *geçerli ama saçma* sayılar dengeyi sessizce
+   çökertir ve hiçbir test yakalamaz. Kelebek etkisi zinciri deterministik kural
+   motorudur; LLM o zinciri **anlatır**, kurmaz. LLM'in "seçim yapması" gereken yerde
+   serbest üretim değil **çoktan seçmeli** verilir (enum-doğrulamalı tek kelime).
 
-2. **Oyun LLM'siz de TAM oynanır.** Yapay anlatıcı varsayılan kapalı, tarayıcıda hiç
-   yok, CPU'da üretim ~45 sn. Simülasyon motorda yaşar; LLM açıksa dünyaya ses verir.
-   Her LLM çıktısı doğrulayıcıdan geçer (llmParseDialog deseni), tutmayan şablona düşer.
+2. **Oyun LLM'siz de TAM oynanır.** Yapay anlatıcı varsayılan kapalı, tarayıcıda yok,
+   CPU'da üretim ~45 sn. Simülasyon motorda yaşar; LLM açıksa dünyaya ses verir.
+   Her LLM çıktısı doğrulayıcıdan geçer, tutmayan şablona düşer.
 
 3. **Her aşama tek başına oynanabilir + jsdom tezgâhıyla ölçülür.** Denge değişikliği
-   çoklu-kampanya kıyaslamasız işlenmez (8 devlet × 900 sn deseni).
+   çoklu-kampanya kıyaslamasız işlenmez (8 devlet × 900 sn deseni). Denge bozan geri
+   alınır (bu oturumlarda üç kez yapıldı).
 
 ---
 
@@ -35,232 +30,291 @@ geçirilerek uyarlandı:
 
 | Taslaktaki kavram | Mevcut karşılığı | Durum |
 |---|---|---|
-| İdeolojik eksenler / kanunlar | `LAW_SLOTS` (8 slot, 23 seçenek) + anayasa (5 form) | VAR — fraksiyon tepkisi eklenecek |
-| Dünya havası / dönemler | `Era.js` (5 metrik → 6 çağ, histerezis) | VAR — aynen kullanılır |
-| Halk desteği | `st.welfare`, komutan `loyalty` | VAR — fraksiyonlara ayrıştırılacak |
+| Karakter yaratma / zar / soru ağacı | `STORY.commander`, yetenekler zaten 0-6 (`Story.js:262`) | EKRAN YOK → AŞAMA 1 |
+| Kişilik etkisi | `personality` 24 yerde ama etkisi hafif | ZAYIF → AŞAMA 1'de motor |
+| İdeolojik eksenler / kanunlar | `LAW_SLOTS` (8 slot, 23 seçenek) + anayasa (5 form) | VAR — eksen+fraksiyon bağlanacak |
+| Dünya havası / dönemler | `Era.js` (5 metrik → 6 çağ, histerezis) | VAR |
+| Halk desteği | `st.welfare`, komutan `loyalty` | VAR — fraksiyonlara ayrışacak |
 | Fraksiyon onayı | — | YOK → AŞAMA 2 |
 | Enflasyon, piyasa güveni | — | YOK → AŞAMA 3 |
-| Stratejik kaynaklar | ⛽oil, ⭐pts, 👥man (düğüm bazlı gelir) | KISMEN → Elektronik + gıda endeksi eklenecek |
-| Tedarik zinciri → üretim | `Production.js` (fac/bar, kuyruk, sanayi merkezleri) | VAR — kaynak kapıları eklenecek |
-| Medya / haber akışı | `storyLog` (ham günlük) | ÇEKİRDEK VAR → gazete sistemi AŞAMA 4 |
-| Diplomasi / krizler | `Talks.js` (17 şablon, TREATIES, storyRel) | VAR — modern arketipler eklenecek |
-| Komutan sohbeti + LLM | `Chatter.js` + `LLM.js` (doğrulayıcı, şablon yedek) | VAR — desen yeni üreticilere kopyalanır |
+| Stratejik kaynaklar | ⛽oil, ⭐pts, 👥man (düğüm geliri) | KISMEN → ⚡Elektronik + gıda |
+| Tedarik zinciri → üretim | `Production.js` (fac/bar, kuyruk, sanayi merkezleri) | VAR — kaynak kapıları |
+| Medya / haber | `storyLog` (ham günlük) | ÇEKİRDEK → AŞAMA 4 |
+| Diplomasi / krizler | `Talks.js` (17 şablon, TREATIES, storyRel) | VAR |
+| Sohbet + LLM | `Chatter.js` + `LLM.js` (doğrulayıcı+yedek) | VAR — desen kopyalanır |
 | Şirketler / oligarklar | `storyIndustrialCenters` (embriyo) | YOK → AŞAMA 6 |
-| Savaş → dünya geri beslemesi | `Telemetry.js` (maç metrikleri zaten toplanıyor!) | ÇEKİRDEK VAR → AŞAMA 5 |
-| Kademeli hafıza | `STORY.log`, `_chatter` (ham) | KISMEN → AŞAMA 7 |
-| Kara kuğu | `COUNCIL_MOTIONS` acil oturum altyapısı | ALTYAPI VAR → AŞAMA 7 |
-| Karakter arketipi (Halkın Adamı…) | `CommanderTree.js` (HARP/İDARE/SİYASET dalları) | KISMEN — etiket sistemi eklenecek |
-
-Sonuç: taslağın ~yarısı embriyo hâlinde kurulu. Sıfırdan inşa değil, katmanlama.
+| Savaş → dünya | `Telemetry.js` (metrikler toplanıyor) | ÇEKİRDEK → AŞAMA 5 |
+| Kademeli hafıza / kara kuğu | `STORY.log`; acil konsey altyapısı | KISMEN → AŞAMA 7 |
 
 ---
 
-## AŞAMA 0 — MODERN ÇAĞ GEÇİŞİ (küçük, önce bu)
+## AŞAMA 0 — MODERN ÇAĞ GEÇİŞİ (S; önce bu)
 
-Envanter taraması: dönem izi sanılandan az. Çağ adları (KAOS ÇAĞI, SOĞUK DENGE…),
-devlet adları (Slav Federasyonu, Cermen Birliği — kurgusal bloklar), rütbeler
-(Tümgeneral, Mareşal) ve birimler (tank, mekanize, tanksavar) modern-uyumlu.
-
+Dönem izi sanılandan az: çağ adları, devlet blokları, rütbeler, birimler modern-uyumlu.
 Değişecekler (yalnız metin/tema — **hiçbir effect/denge değeri değişmez**):
 
-- `STORY_START_YEAR 1904 → 2032` (kurgusal yakın gelecek: gerçek-dünya siyasetine
-  çakışmaz, dron/elektronik teması meşrulaşır). Takvim mekaniği aynı (1 yıl = 120 sn).
-- `STORY_CMD_TITLES ['Bey','Paşa','Komutan','Ağa'] → ['General','Komutan','Paşa']`
-  ("Paşa" modern TSK ağzında yaşıyor; "Ağa/Bey" düşer).
-- LLM promptları: "1900'lerin başında" → "yakın gelecekte"; few-shot örnekler modern
-  ağza yeniden yazılır (Kemal Paşa/cephane → General/İHA-mühimmat tonunda).
-- Teknoloji ağacı AD güncellemeleri (effect aynı): Palet→Aktif Süspansiyon,
-  Eğimli Zırh→Kompozit Zırh, Yıldırım Harbi→Ağ Merkezli Harekât, Şarapnel→Misket
-  Mühimmatı, Roketatar→ÇNRA, Demiryolu Ağı→Lojistik Koridorları, Siper Kazısı→Mevzi
-  Tahkimatı, Aristokrat Subaylık→Kurmay Kastı, Toprak Düzeni→Tarım Politikası,
-  Halk Mektepleri→Devlet Okulları… (uygulamada tam liste).
-- `Chatter.js`/`Talks.js`/`StoryRender.js` dönem kokan ~22 satır (kışla, telgraf vb.)
-  modern eşdeğerine çevrilir.
-- Kaynak yeniden adlandırma (görsel): ⛽ petrol → **ENERJİ** (mekanik aynı).
+- `STORY_START_YEAR 1904 → 2032` (kurgusal yakın gelecek; gerçek siyasete çakışmaz,
+  dron/elektronik teması meşrulaşır). Takvim mekaniği aynı (1 yıl = 120 sn).
+- Unvanlar: `['Bey','Paşa','Komutan','Ağa'] → ['General','Komutan','Paşa']`.
+- LLM promptları "1900'lerin başında" → "yakın gelecekte"; few-shot örnekler modern ağza.
+- Teknoloji ağacı AD güncellemeleri (effect aynı): Palet→Aktif Süspansiyon, Eğimli
+  Zırh→Kompozit Zırh, Yıldırım Harbi→Ağ Merkezli Harekât, Şarapnel→Misket Mühimmatı,
+  Roketatar→ÇNRA, Demiryolu→Lojistik Koridorları, Siper Kazısı→Mevzi Tahkimatı,
+  Aristokrat Subaylık→Kurmay Kastı, Toprak Düzeni→Tarım Politikası, Halk
+  Mektepleri→Devlet Okulları…
+- `Chatter/Talks/StoryRender` dönem kokan ~22 satır modern eşdeğerine.
+- ⛽ petrol → **ENERJİ** (görsel; mekanik aynı).
 
-Doğrulama: 12 jsdom takımı + dönem-terimi grep taraması temiz + SMOKE_OK.
+Doğrulama: 12 jsdom takımı + dönem-terimi grep + SMOKE_OK.
 
 ---
 
-## AŞAMA 1 — FRAKSİYON KATMANI (temel; taslağın 1-B'si)
+## AŞAMA 1 — KARAKTER YARATMA & KİŞİLİK MOTORU (M-L)
 
-**Veri modeli** (`js/Factions.js`, yeni):
-```js
-st.factions = {
-  workers:   { ap: 55 },   // İşçiler & Sendikalar
-  business:  { ap: 55 },   // Sermaye & Şirketler
-  military:  { ap: 55 },   // Ordu & Emniyet
-  intel:     { ap: 55 },   // Aydınlar & Basın
-  radicals:  { ap: 30 },   // Militan Gruplar (taban düşük; kriz yükseltir)
-}
-```
-`storySave` içinde `states` zaten serileşiyor → kalıcılık bedava; eski kayıt için
-`storyFactionBackfill` (mevcut backfill deseni).
+Kullanıcı isteği + tespiti: "komutanların karakter özellikleri var ama oyuna etkisi
+zayıftı." Bu aşama iki iş yapar: (A) harekât kurulumundan sonra **karakter ekranı**,
+(B) kişiliği süs olmaktan çıkarıp **tüm dünyayı süren motora** çevirmek. Sonraki her
+aşama (fraksiyon tavrı, medya etkisi, şirket ilişkisi, LLM sesi) bu profilden okur —
+o yüzden fraksiyonlardan ÖNCE gelir.
 
-**Girdiler** (hepsi mevcut olaylardan; deterministik):
-- Kanun/anayasa seçimlerine `fac:` deltaları eklenir (LAW_SLOTS 23 seçenek + 5 form).
-  Örn. Ağır Vergi: business −8 workers −5; Sıkı Sansür: intel −10 military +6.
-- Savaş durumu: uzun savaş → workers/intel ↓, military ↑; yenilgi → hepsi ↓, radicals ↑.
-- Refah değişimi: workers refahı izler; radicals ters izler (kriz radikalleştirir).
-- Vergi/ekonomi tikleri, fetih, darbe/firar olayları (StorySocial kancaları).
+### 1A. Akış ve zar ekranı
 
-**Etkiler** (mevcut kanallara bağlanır — yeni paralel sistem icat edilmez):
-- Ağırlıklı ortalama → `unrest` endeksi → refah/sadakat erimesine çarpan
-  (mevcut `loyaltyHold` boru hattı).
-- Konseyde komutan oyları fraksiyon baskısından etkilenir
-  (`storyCouncilVoteScore`'a terim: komutan tipi ↔ fraksiyon eşlemesi).
-- `radicals.ap` yüksek + refah düşük → **grev/protesto olayı**: N saniye üretim
-  cezası + haber kaydı; darbe riski (mevcut darbe sistemi) military.ap'den beslenir.
-- AI simetrisi: `storyCouncilContext`'e fraksiyon dengesi girer — AI yönetici de
-  fraksiyon yatıştırmayı öğrenir (oyuncuyla aynı kural).
+`Kurulum (devlet & çağ → brifing) → KARAKTER → sefer başlar` — `screen-story-setup`
+adımlarının arasına yeni ekran (`screen-story-character`).
 
-**UI**: Konsey çekmecesine "FRAKSİYONLAR" sekmesi (5 çubuk + eğilim oku + son etki).
+- **İsim** girişi (varsayılan öneri: mevcut isim havuzundan).
+- **Üç yetenek zarı**: ⚔ Savaş / 🕊 Diplomasi / ⚙ İktisat — **1-6** (mevcut 0-6
+  ölçeğinin oynanır aralığı; `Math.min(6,…)` boru hattı aynen çalışır).
+- **RASTGELE** düğmesi: her basışta üçü yeniden atılır (4/5/6, 2/6/3…).
+- *Tasarım kararı — sınırsız zar neden bozmaz:* sınırsız yeniden atma "6/6/6 gelene
+  kadar bas" demektir; zar anlamsızlaşır. Çözüm: **denkleştirme** — başlangıç Liderlik
+  Puanı `LP = 21 − (zar toplamı)` (taban 3). Düşük zar = güçlü gelişim bütçesi
+  (komutan ağacından erken düğüm), yüksek zar = hazır yetenek ama yavaş gelişim.
+  Her atış oynanabilir; seçim zevk meselesi olur, istismar kapanır.
 
-**Ölçüm**: 8 devlet × 900 sn — çöküş yok (şehir/refah mevcut denge ±%10);
-kanun değişimi → beklenen fraksiyonun tepki verdiği; grev sayısı/kampanya 2-6 bandında.
+### 1B. Yol Ayrımları — uyarlanır 12 soru
+
+Kullanıcının tarifi: A/B/C ağacı, 12 soru, **bir sonraki soru önceki cevaba göre
+değişsin**; 4 seçenek × 12 derinlik = 4¹² ≈ **16.7 milyon farklı sonuç**.
+
+*Mimari dürüstlük:* 16.7M sonuç kombinasyonu evet; ama 16.7M **elle yazılmış soru**
+fiziksel olarak imkânsız (ve gereksiz). Aynı hissi veren doğru yapı:
+
+- **Tema = komutan ağacının 3 dalı** (A=HARP, B=İDARE, C=SİYASET; `CommanderTree.js`
+  ile birebir hizalı). Her temadan 4 soru → koşuda 12 soru.
+- **Zincirleme kural: N+1'inci soru, N'inci CEVABIN etiketine göre seçilir** (tüm
+  geçmişe göre değil). Yazım modeli tema başına: 1 kök + 4+4+4 takip = **13 soru/tema,
+  toplam 39 yazılı soru · 156 seçenek.** Yazılabilir; ve oyuncunun yaşadığı şey aynen
+  istenen: 1. soruda 2. şıkkı seçtiysen 2. soru o şıkkın DEVAMI olarak gelir
+  ("Madem gazeteciyi tutuklattın — şimdi yabancı ajanslar süreci soruyor…").
+  Sonuç uzayı yine 4¹²: profil, eksenler, tohum etiketleri kombinasyonu.
+- Sorular modern vinyetler: sınır karakoluna dron saldırısı, grev dalgası, sızdırılmış
+  ses kaydı, ambargo ültimatomu, ordu içi hizip…
+- **Otomatik ağaç doğrulaması** (test): her düğüm erişilebilir, çıkmaz yok, her yol
+  tam 12 soru — jsdom testi graf üzerinde gezer.
+
+### 1C. Cevapların dünyaya bağlanması (etkiler — hepsi motor, sayı LLM'den gelmez)
+
+Her seçenek şu alanlara yazar:
+
+| Alan | Ne yapar |
+|---|---|
+| **4 ideolojik eksen (0-100)** | Şahin↔Güvercin · Otoriter↔Özgürlükçü · Halkçı↔Teknokrat · Milliyetçi↔Küreselci — taslaktaki spektrumun kendisi. Profilin kalbi. |
+| Yetenek düzeltmesi | Tema ağırlıklı küçük +1'ler (zarı ezmez, renklendirir) |
+| **Fraksiyon ön-tavrı** | AŞAMA 2 açılış değerleri: halkçı cevaplar işçiyi ısındırır, sermayeyi soğutur… |
+| **Arketip unvanı** | Baskın eksen kombinasyonundan: Halkın Adamı / Gölge Teknokrat / Demir Yumruk / Oligark Dostu (taslaktaki 4 profil). Profil kartında, haber dilinde, LLM bağlamında görünür. |
+| **Geçmiş tohumları** | 1-2 `legacy` etiketi ("darbe bastırdı", "sürgünden döndü") → AŞAMA 7 hafızasına doğar; LLM ve haberler sana geçmişinle hitap eder. |
+| Başlangıç kaynağı/perki | Tek küçük somut avantaj (örn. İDARE ağırlıklı yol → başkentte +1 bina seviyesi) |
+
+### 1D. KİŞİLİK MOTORU — "etkisi zayıftı"nın cevabı, tüm dünya için
+
+Eksen/zar profili yalnız oyuncuya değil **tüm komutanlara ve 7 AI devletin
+liderlerine** atanır. Kişilik artık davranış üretir:
+
+- **AI devlet doktrini liderinden türer**: Şahin lider → saldırı eşiği düşük, geç
+  çekilir (`storyEvalTarget`'a eksen terimi); Güvercin → tampon/pakt arar
+  (`Talks` ağırlıkları); Teknokrat → Ar-Ge/sanayi önceliği (`storyCouncilContext` +
+  yatırım tiki); Otoriter → sansür/baskı kanunlarına oy. **Lider değişince (darbe,
+  seçim, ölüm) devletin karakteri gözle görülür değişir** — dinamik dünyanın
+  bel kemiği: aynı harita, farklı liderler, farklı tarih.
+- **Konsey**: `storyCouncilVoteScore`'daki `appeal` sistemi eksenlere oturtulur
+  (bugünkü warrior/diplomat/aggr çarpanları 4 eksene genelleşir).
+- **Sadakat**: fırsatçı profil zayıf devletten hızlı soğur (`StorySocial` erime
+  çarpanı); ilkeli profil istikrarlı ama kırılınca (ihanet görürse) sert kopar.
+- **Bağlar/husumet**: eksen mesafesi `cmd.bonds` sürüklenmesini yönetir — yakın
+  profiller kliknleşir, uzaklar rekabet üretir → darbe koalisyonları kişilikten doğar.
+- **Arenada** (küçük ve ölçülü): savunan/saldıran komutanın profili moral/çekilme
+  eşiğine küçük çarpan (denge tezgâhıyla ayarlanır; büyük çarpan YASAK).
+- **Sohbet/LLM**: `llmCommanderLine` eksenleri ve arketipi bağlama koyar — Demir
+  Yumruk lider başka, Halkın Adamı başka konuşur.
+
+### 1E. İsimli dünya + zar görünümü (kullanıcının iki somut isteği)
+
+- **"AI Cumhurbaşkanı" → gerçek isim** (`Council.js:572`): karar ekranı, konsey
+  paneli ve haberlerde yöneticinin ADI yazar ("Kararı Cumhurbaşkanı **Kaan General**
+  verir"); darbe/seçimle değişince her yerde değişir (tek kaynak: `gov.leader` →
+  isim çözücü yardımcı).
+- **Barlar → zarlar**: komutan listelerindeki yetenek barları yerine `⚔4 🕊2 ⚙5`
+  sayı rozetleri (1-6). Tüm komutanlar üretimde zar atar (bugünkü rastgele üretim
+  1-6'ya oturtulur, `Story.js:238-264`). Profil kartında eksen mini-pusulası.
+
+### Ölçüm
+
+- Soru ağacı graf testi (erişilebilirlik, çıkmazsızlık, 12-derinlik).
+- Eksen dağılımı: 1000 rastgele koşuda arketiplerin hepsi çıkabiliyor mu (tekele düşmemeli).
+- **AI doktrin çeşitliliği ölçümü**: aynı haritada Şahin-ağırlıklı vs Güvercin-ağırlıklı
+  lider kadrosuyla 900 sn — saldırı sayısı/pakt sayısı anlamlı ayrışmalı (bu, "kişilik
+  gerçekten işliyor"un kanıtıdır).
+- Denge: kişilik motoru açıkken 8 devlet dengesi mevcut bandın ±%10'unda.
 
 ---
 
-## AŞAMA 2 — MAKROEKONOMİ (taslağın 2'si; yalın tutulmuş)
+## AŞAMA 2 — FRAKSİYON KATMANI (M)
 
-Devlet başına iki gösterge + bir yeni kaynak + bir endeks. (Taslaktaki 5-kaynaklı tam
-ağ bir kerede kurulmaz — denge riski; kademeli.)
+**Veri** (`js/Factions.js`): devlet başına 5 grup, onay 0-100:
+`workers` İşçiler & Sendikalar · `business` Sermaye · `military` Ordu & Emniyet ·
+`intel` Aydınlar & Basın · `radicals` Militan Gruplar (taban düşük; kriz besler).
+Açılış değerleri **oyuncuda karakter ekranından** (1C), AI devletlerde lider
+profilinden türer. `storySave`'de `states` zaten serileşiyor → kalıcılık bedava;
+eski kayıt `storyFactionBackfill`.
 
-- **Enflasyon (%0-30)**: sürükleyenler = kumanda ekonomisi + savaş harcaması + hazine
-  açığı. Etki: gelir çarpanı ↓, refah ↓, workers.ap ↓. Görünür: panel + haber.
-- **Piyasa Güveni (0-100)**: sürükleyenler = istikrar (savaş/darbe/kamulaştırma ↓,
-  barış/zafer ↑). Etki: ⭐gelir çarpanı; eşik altında **sermaye kaçışı olayı**
-  (tek seferlik hazine kaybı + haber). business.ap ile çift yönlü bağ.
-- **⚡ELEKTRONİK** (yeni kaynak, tek eklenen): yüksek seviyeli şehir + teknoloji
-  üretir; tier-3+ birimler ve ileri teknolojiler elektronik STOK ister. Ambargo/kriz
-  → stok kesilir → arenaya yansır (AŞAMA 5). Ekran: mevcut kaynak şeridine 4. kalem.
-- **GIDA ENDEKSİ** (kaynak değil, oran): şehir sayısı / (ordu + nüfus vekili).
-  Eşik altı → kıtlık olayı: refah −, radicals +, haber. Kuraklık kara-kuğusuyla bağ.
+**Girdiler** (deterministik): kanun/anayasa seçeneklerine `fac:` deltaları (23+5
+seçenek); savaş süresi/sonucu; refah değişimi; vergi; fetih; darbe/firar olayları.
 
-Kelebek zinciri artık gerçek ve **motor içinde**: kuraklık → gıda ↓ → enflasyon ↑ →
-workers ↓ → grev → üretim ↓ → elektronik stok ↓ → arenada tier-3 kilidi.
+**Etkiler** (mevcut kanallara bağlanır): ağırlıklı onay → `unrest` → refah/sadakat
+erime çarpanı (mevcut `loyaltyHold` borusu); konseyde komutan oyları fraksiyon
+baskısından etkilenir; `radicals` yüksek + refah düşük → **grev** (N sn üretim cezası
++ haber) ve darbe riski `military.ap`'den beslenir. AI simetrisi: `storyCouncilContext`
+fraksiyon dengesini görür — AI yönetici de yatıştırmayı öğrenir.
 
-**Ölçüm**: ekonomi tezgâhı — kriz yokken gelirler mevcut dengenin ±%15'inde kalmalı;
-kriz senaryosu enjekte edilip 2 yıl içinde toparlanma ölçülür; AI devletler
-enflasyonda batmamalı (özellikle: AI'nın enflasyona TEPKİ kuralı test edilir).
+**UI**: Konsey çekmecesine FRAKSİYONLAR sekmesi (5 çubuk + eğilim + son etki).
+
+**Ölçüm**: 8×900 sn çöküşsüz (±%10); kanun→beklenen fraksiyon tepkisi; grev sayısı
+kampanya başına 2-6 bandı.
 
 ---
 
-## AŞAMA 3 — MEDYA & GAZETE (taslağın 4-1'i; LLM'in yeni evi)
+## AŞAMA 3 — MAKROEKONOMİ (M)
 
-**Motor tarafı** (`js/News.js`): önemli olaylar (savaş ilanı, şehir düşmesi, kanun,
-grev, darbe, antlaşma, kriz) yapılandırılmış **haber kaydı** üretir:
-`{ arketip, taraflar, yer, tarih, gerçek_özet, önem }`. `storyLog`'un üstüne kurulur.
+İki gösterge + bir kaynak + bir endeks (taslaktaki 5-kaynaklı tam ağ bir kerede
+kurulmaz — denge riski; kademeli):
+
+- **Enflasyon (%0-30)**: kumanda ekonomisi + savaş harcaması + hazine açığı sürükler.
+  Gelir çarpanı ↓, refah ↓, workers ↓.
+- **Piyasa Güveni (0-100)**: istikrarla oynar (savaş/darbe/kamulaştırma ↓, barış ↑).
+  ⭐gelir çarpanı; eşik altı → **sermaye kaçışı** olayı. business ile çift yönlü.
+- **⚡ELEKTRONİK**: yüksek seviyeli şehir + teknoloji üretir; tier-3+ birim ve ileri
+  teknoloji STOK ister; ambargo/kriz stoku keser → arenaya yansır (AŞAMA 5).
+- **GIDA ENDEKSİ**: şehir/(ordu+nüfus vekili) oranı; eşik altı kıtlık: refah −,
+  radicals +, haber. Kuraklık kara-kuğusuyla bağ.
+
+Kelebek zinciri motor içinde: kuraklık → gıda ↓ → enflasyon ↑ → workers ↓ → grev →
+üretim ↓ → elektronik ↓ → arenada tier-3 kilidi.
+
+**Ölçüm**: krizsizken gelirler mevcut dengenin ±%15'inde; enjekte kriz 2 yılda
+toparlanmalı; AI'nın enflasyona tepki kuralı test edilir.
+
+---
+
+## AŞAMA 4 — MEDYA & GAZETE (M; LLM'in yeni evi)
+
+**Motor** (`js/News.js`): önemli olaylar yapılandırılmış haber kaydı üretir
+`{arketip, taraflar, yer, tarih, gerçek_özet, önem}` (`storyLog` üstüne).
 
 **Gazete paneli**: 3 kanal — Devlet Basını / Bağımsız Basın / Sosyal Ağ.
-- Devlet basını oyuncunun **çarpıtma (spin)** aksiyonunu sunar: ⭐maliyet;
-  başarı → huzursuzluk etkisi yumuşar; bedel → basın güvenilirlik puanı ↓, intel.ap ↓;
-  güvenilirlik dibe vurursa çarpıtmalar ters teper (deterministik tablo).
-- Bağımsız basın gerçeği yazar; sansür kanunu onu bastırır ama intel/radicals bedeli
-  mevcut kanun sisteminden gelir (zaten var: press slotu!).
-- Sosyal ağ: hızlı, kısa, çalkantı çarpanı — radicals.ap'yi diğerlerinden hızlı oynatır.
+Devlet basınında **çarpıtma**: ⭐maliyet; başarı huzursuzluğu yumuşatır; bedel basın
+güvenilirliği ↓ + intel ↓; güvenilirlik dibe vurursa çarpıtma ters teper (tablo).
+Sansür kanunu bağımsız basını bastırır (press slotu ZATEN var). Sosyal ağ radicals'ı
+hızlı oynatır. Çarpıtma etkinliği **arketiple** oynar (1C): Halkın Adamı işçiye,
+Teknokrat piyasaya iyi satar.
 
-**LLM rolü** (açıksa): her haber kaydı için **manşet + 1 cümle** yazar; çarpıtılmış
-sürümde "hükümet ağzı" tonunda yazar. Doğrulayıcı: `llmParseHeadline` — tek satır,
-≤14 kelime, Türkçe, Latin-dışı/EN kaçak süzgeci; tutmazsa arketip şablonundan basılır.
-Kuyruk önceliği: haber > özet > sohbet (`LLM.maxInFlight=1` korunur, bayat istek düşer).
+**LLM**: haber başına manşet + 1 cümle; çarpıtılmışta "hükümet ağzı".
+`llmParseHeadline`: tek satır, ≤14 kelime, Türkçe/Latin-dışı/EN süzgeçleri; tutmazsa
+arketip şablonu. Öncelik: haber > özet > sohbet.
 
-**Ölçüm**: haber üretim oranı (kampanya başına 30-80 kayıt bandı), çarpıtmanın refah
-etkisi A/B ölçümü, LLM açıkken manşet kullanılabilirlik ≥%80 (e2e deseniyle).
+**Ölçüm**: kampanya başına 30-80 haber; çarpıtma A/B etkisi; LLM manşet
+kullanılabilirlik ≥%80 (e2e deseni).
 
 ---
 
-## AŞAMA 4 — MAKRO↔MİKRO SAVAŞ KÖPRÜSÜ (taslağın 3'ü)
+## AŞAMA 5 — MAKRO↔MİKRO SAVAŞ KÖPRÜSÜ (M)
 
-**Makro → Arena** (`storyBattleModifiers(st)` — savaş girişinde tek nesne):
-- Moral: meşruiyet + military.ap + refahtan → panik direnci / kaçma eşiği çarpanı
-  (mevcut morale/suppression kancaları).
-- Mühimmat: enflasyon/hazine krizi → deploy bütçesi kısıtı (mevcut `DEPLOY_RES` yolu).
-- Elektronik ambargosu → tier-3 birimler o savaşta KİLİTLİ (spawn bar'da gri + neden).
-- Enerji krizi → zırhlı sınıf deploy maliyeti ↑ (mevcut oilCost kancası).
+**Makro→Arena** (`storyBattleModifiers(st)`): moral (meşruiyet + military.ap + refah →
+panik/kaçma çarpanı, komutan profili terimi 1D'den); mühimmat (hazine krizi → deploy
+kısıtı); elektronik ambargosu → tier-3 o savaşta kilitli (spawn bar'da gri + neden);
+enerji krizi → zırhlı deploy maliyeti ↑.
 
-**Arena → Makro** (savaş sonu; `Telemetry.js` zaten topluyor):
-`{ sonuç, kayıp_oranı, sivil_hasar_vekili, süre, kilit_olay }` → deterministik tablo:
-- Pirus zaferi (kayıp >%50): workers/intel ↓, "matem" haberi; karizma yerine mevcut
-  rütbe/LP sistemine ceza-ödül.
-- Sivil hasar: dünya itibarı ↓ (mevcut `storyRel` dünya-çapı mekanizması — ihanet
-  cezasıyla aynı boru), ambargo olayı tetiklenebilir (elektronik stok kilidi).
-- Zafer + düşük kayıp: military.ap ↑, piyasa güveni ↑.
-LLM: savaş sonucu haberini yazar (AŞAMA 3 hattından).
+**Arena→Makro** (`Telemetry.js` zaten topluyor): `{sonuç, kayıp%, sivil vekili, süre,
+kilit olay}` → deterministik tablo: Pirus zaferi → workers/intel ↓ + matem haberi;
+sivil hasar → dünya itibarı ↓ (mevcut `storyRel` dünya-çapı borusu) + ambargo riski;
+temiz zafer → military ↑, güven ↑. LLM savaş haberini yazar (AŞAMA 4 hattı).
 
-**Ölçüm**: aynı savaş, farklı makro durumlarla jsdom'da koşulur — modifikatörlerin
-yön ve büyüklüğü doğrulanır; dünya dengesi 900 sn testinde bozulmamalı.
+**Ölçüm**: aynı savaş × farklı makro durumlar jsdom'da — yön/büyüklük doğrulanır;
+900 sn dünya dengesi korunur.
 
 ---
 
-## AŞAMA 5 — ŞİRKETLER & OLİGARKLAR (taslağın 5'i)
+## AŞAMA 6 — ŞİRKETLER & OLİGARKLAR (L)
 
-Devlet başına 2-3 **şirket aktörü** (`js/Corps.js`):
-`{ ad, sektör(savunma|teknoloji|enerji|perakende), ceo_adı, align(-100..+100), lobi(0-100), kasa }`
+Devlet başına 2-3 aktör (`js/Corps.js`): `{ad, sektör(savunma|teknoloji|enerji|
+perakende), ceo, align(-100..+100), lobi, kasa}`.
 
-- **Motor davranışı** (10 sn tiki): align'a göre yatırım (sanayi merkezlerine —
-  mevcut `storyInvestCenter` ödeme kaynağına eklenir), medya etkisi (sahip olduğu
-  kanal çarpıtma bonusu/cezası), kriz aksiyonları (düşmanken: fiyat artışı → refah ↓;
-  sermaye kaçışı → piyasa güveni ↓; rakibe fon → ordu havuzuna sızıntı).
-- **Oyuncu hamleleri** (konsey/panel): Teşvik-ihale (align ↑, yolsuzluk izi → intel ↓,
-  skandal riski), Kamulaştırma (kasa hazineye, piyasa güveni ÇÖKER, workers ↑),
-  Şantaj (istihbarat teknolojisi ister; başarısızsa skandal olayı → meşruiyet ↓).
-- **AI simetrisi**: AI devletlerde aynı tik; align devlet politikalarına tepkiyle kayar.
-- **LLM**: CEO'lar Chatter havuzuna girer (komutan-CEO diyalogları, tehdit mektupları,
-  basın açıklamaları) — hepsi mevcut doğrulayıcı hattından.
+**Motor tiki**: align'a göre sanayi merkezine yatırım (`storyInvestCenter` ödeme
+kaynağına eklenir); medya sahipliği (çarpıtma bonusu/cezası); düşmanken kriz
+aksiyonları (fiyat artışı → refah ↓; sermaye kaçışı → güven ↓; rakibe fon).
+**Oyuncu hamleleri**: Teşvik-ihale (align ↑, intel ↓, skandal riski) · Kamulaştırma
+(kasa hazineye, güven ÇÖKER, workers ↑) · Şantaj (istihbarat teknolojisi ister;
+başarısızsa skandal → meşruiyet ↓). CEO tavrı oyuncunun ARKETİPİNE tepki verir
+(Oligark Dostu'na yanaşır, Halkın Adamı'ndan ürker). AI simetrisi tam.
+**LLM**: CEO'lar Chatter havuzunda; tehdit/açıklama metinleri doğrulayıcı hattından.
 
-**Ölçüm**: şirketli/şirketsiz kampanya kıyası — dünya dengesi korunmalı; kamulaştırma
-zincirinin (güven çöküşü → kaçış → toparlanma) süresi ölçülür.
+**Ölçüm**: şirketli/şirketsiz kıyas — denge korunmalı; kamulaştırma zincirinin
+(çöküş→kaçış→toparlanma) süresi ölçülür.
 
 ---
 
-## AŞAMA 6 — HAFIZA + KARA KUĞU + KARAKTER ETİKETLERİ (taslağın 1-4 + 2-4'ü)
+## AŞAMA 7 — HAFIZA + KARA KUĞU (M)
 
-**3 kademeli hafıza** (`STORY.memory`):
-- `recent[]`: son ~6 önemli olayın ham kaydı (motor yazar).
-- `mid[]`: her 5 yılda 2 cümlelik dünya özeti — LLM açıksa yazar
-  (`llmParseSummary`: ≤2 cümle, Türkçe süzgeçleri; yoksa şablon özetleyici).
-- `legacy[]`: mihenk etiketleri — "darbeyi bastırdı", "X'i kamulaştırdı",
-  "pirus zaferi-1936" (motor yazar, silinmez). Komutan ağacının SİYASET dalı ve
-  karakter arketipi (Halkın Adamı / Teknokrat / Demir Yumruk / Oligark Dostu)
-  bu etiketlerden türetilir; LLM promptlarına `llmSceneContext` üzerinden girer.
+**3 kademe** (`STORY.memory`): `recent[]` son ~6 olay (motor) · `mid[]` 5 yılda bir
+2 cümlelik dünya özeti (LLM açıksa `llmParseSummary`, yoksa şablon) · `legacy[]`
+mihenk etiketleri (motor, silinmez; **karakter ekranının tohumları buraya doğar**,
+arketip güncellemeleri buradan türer). Hepsi `llmSceneContext` üzerinden LLM'e girer.
 
-**Kara kuğu motoru**: yıl başına düşük olasılık zarı (motor). Gelirse arketip
-TABLOSUNDAN seçim: pandemi, borsa çöküşü, denizaltı kablo sabotajı, çip fabrikası
-yangını, kuraklık… Etkiler arketip başına deterministik. LLM rolü: (a) 6 arketipten
-birini seçebilir (enum-doğrulamalı tek kelime), (b) olayı haber diliyle anlatır.
-Acil konsey mevcut `storyCouncilCall` hattıyla toplanır.
+**Kara kuğu**: yılda düşük olasılık zarı (motor); arketip tablosu (pandemi, borsa
+çöküşü, kablo sabotajı, çip fabrikası yangını, kuraklık…); etkiler arketip başına
+deterministik; LLM (a) 6 arketipten seçebilir (enum-doğrulamalı), (b) haber diliyle
+anlatır. Acil konsey mevcut `storyCouncilCall` hattı.
 
-**Ölçüm**: kara kuğu enjeksiyon testi (her arketip → beklenen etki zinciri);
-hafıza kayıt/yükleme; LLM özet kullanılabilirliği.
+**Ölçüm**: arketip enjeksiyon testleri; hafıza kayıt/yükleme; özet kullanılabilirliği.
 
 ---
 
-## LLM SÖZLEŞMESİ (tüm aşamalar için ortak)
+## LLM SÖZLEŞMESİ (ortak)
 
 | Kullanım | Doğrulayıcı | Yedek | Öncelik |
 |---|---|---|---|
 | Komutan/CEO diyaloğu | `llmParseDialog` (mevcut) | Chatter şablonları | düşük |
 | Haber manşeti + özet | `llmParseHeadline` (yeni) | arketip şablonu | yüksek |
-| Dünya özeti (hafıza) | `llmParseSummary` (yeni) | şablon özetleyici | orta |
+| Dünya özeti | `llmParseSummary` (yeni) | şablon özetleyici | orta |
 | Arketip seçimi | `llmParsePick` (enum) | motor RNG | orta |
 
-Kurallar: hepsi `llmEnrich` üzerinden (ateşle-unut), `maxInFlight=1`, bayat istek
-düşer, her doğrulayıcıda Latin-dışı + EN-kaçak süzgeci, sayı/etki ASLA LLM'den gelmez.
+Hepsi `llmEnrich` (ateşle-unut), `maxInFlight=1`, bayat düşer, Latin-dışı+EN süzgeci
+her yerde, **sayı/etki asla LLM'den gelmez**. Karakter profili/arketip/legacy her
+prompta `llmSceneContext` ile girer — LLM oyuncuyu geçmişiyle tanır.
 
 ---
 
 ## SIRA, BÜYÜKLÜK, BAĞIMLILIK
 
-| Aşama | Büyüklük | Bağımlı olduğu | Oynanır çıktı |
+| Aşama | Boy | Bağımlılık | Oynanır çıktı |
 |---|---|---|---|
-| 0 Modern tema | S (1 oturum) | — | aynı oyun, modern ses |
-| 1 Fraksiyonlar | M | 0 | konsey/kanunların canlı bedeli |
-| 2 Makroekonomi | M | 1 | enflasyon/güven/elektronik/gıda |
-| 3 Medya | M | 1 | gazete + çarpıtma + LLM manşet |
-| 4 Savaş köprüsü | M | 2 | makro durum arenada hissedilir |
-| 5 Şirketler | L | 1+2+3 | oligark siyaseti |
-| 6 Hafıza+kara kuğu | M | 3 | her kampanya farklı tarih yazar |
+| 0 Modern tema | S | — | aynı oyun, modern ses |
+| 1 Karakter + kişilik motoru | M-L | 0 | zar+soru ekranı; kişilikli dünya; isimli liderler |
+| 2 Fraksiyonlar | M | 1 | kanunların canlı bedeli |
+| 3 Makroekonomi | M | 2 | enflasyon/güven/⚡/gıda |
+| 4 Medya | M | 2 | gazete + çarpıtma + LLM manşet |
+| 5 Savaş köprüsü | M | 3 | makro durum arenada |
+| 6 Şirketler | L | 2+3+4 | oligark siyaseti |
+| 7 Hafıza + kara kuğu | M | 4 | her kampanya farklı tarih |
 
-Her aşama kendi kıyaslama ölçümüyle kapanır; denge bozan değişiklik geri alınır
-(bu oturumlarda üç kez yapıldığı gibi).
+Her aşama kendi kıyaslamasıyla kapanır; denge bozan geri alınır.
