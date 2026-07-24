@@ -11,7 +11,7 @@
 // ── TAKVİM ───────────────────────────────────────────────────────────────────
 const YEAR_SECONDS = 120;                 // 1 oyun-yılı = 120 sn
 const COUNCIL_PERIOD_YEARS = 2;           // konsey 2 yılda bir toplanır
-const STORY_START_YEAR = 1904;
+const STORY_START_YEAR = 2032;   // MODERN ÇAĞ: kurgusal yakın gelecek
 const SEASON_NAMES = ['İLKBAHAR', 'YAZ', 'SONBAHAR', 'KIŞ'];
 const SEASON_ICONS = ['🌱', '☀️', '🍂', '❄️'];
 
@@ -51,17 +51,17 @@ const LAW_SLOTS = [
     ]},
     { key: 'officers', icon: '🎓', name: 'Subay Sınıfı', options: [
         { id: 'merit',     name: 'Liyakat Sistemi',       desc: 'Yeni komutan +1 yetenek · refah +2',                effect: { officer: 1 },         welfare: 2,  appeal: { economist: 1.0, diplomat: 1.0 } },
-        { id: 'noble',     name: 'Aristokrat Subaylık',   desc: 'Sadakat erimesi −%30 · refah −3',                   effect: { loyaltyHold: 0.70 },  welfare: -3, appeal: { warrior: 0.7, diplomat: 0.8, economist: -0.5 } },
-        { id: 'commissar', name: 'Halk Komiserleri',      desc: 'Komutan kadrosu +1, sadakat −%20 erime · refah −4', effect: { cmdCap: 1, loyaltyHold: 0.80 }, welfare: -4, appeal: { warrior: 1.2, aggr: 1.3 } },
+        { id: 'noble',     name: 'Kurmay Kastı',   desc: 'Sadakat erimesi −%30 · refah −3',                   effect: { loyaltyHold: 0.70 },  welfare: -3, appeal: { warrior: 0.7, diplomat: 0.8, economist: -0.5 } },
+        { id: 'commissar', name: 'Siyasi Komiserler',      desc: 'Komutan kadrosu +1, sadakat −%20 erime · refah −4', effect: { cmdCap: 1, loyaltyHold: 0.80 }, welfare: -4, appeal: { warrior: 1.2, aggr: 1.3 } },
     ]},
-    { key: 'land', icon: '🌾', name: 'Toprak Düzeni', options: [
-        { id: 'estates',   name: 'Büyük Çiftlikler',      desc: '⛽petrol geliri +%12 · refah −4',                    effect: { oilIncome: 1.12 },    welfare: -4, appeal: { economist: 1.3, diplomat: -0.8 } },
+    { key: 'land', icon: '🌾', name: 'Tarım Politikası', options: [
+        { id: 'estates',   name: 'Endüstriyel Tarım',      desc: '⛽petrol geliri +%12 · refah −4',                    effect: { oilIncome: 1.12 },    welfare: -4, appeal: { economist: 1.3, diplomat: -0.8 } },
         { id: 'reform',    name: 'Toprak Reformu',        desc: '👥insan geliri +%12 · refah +5',                     effect: { manIncome: 1.12 },    welfare: 5,  appeal: { diplomat: 1.5, economist: 0.3 } },
     ]},
     { key: 'education', icon: '📚', name: 'Eğitim Siyaseti', options: [
-        { id: 'war',       name: 'Harp Akademileri',      desc: 'Şehir savunması +%10 · yeni komutan +1 yetenek',    effect: { cityDefense: 0.10, officer: 1 }, welfare: 0, appeal: { warrior: 1.5, aggr: 1 } },
+        { id: 'war',       name: 'Askeri Akademiler',      desc: 'Şehir savunması +%10 · yeni komutan +1 yetenek',    effect: { cityDefense: 0.10, officer: 1 }, welfare: 0, appeal: { warrior: 1.5, aggr: 1 } },
         { id: 'technical', name: 'Teknik Okullar',        desc: 'Üretim süresi −%10, bina −%10',                     effect: { prodSpeed: 0.90, buildCost: 0.90 }, welfare: 1, appeal: { economist: 1.4 } },
-        { id: 'public',    name: 'Halk Mektepleri',       desc: 'Refah +7 · ⭐puan geliri +%6',                       effect: { pointsIncome: 1.06 }, welfare: 7,  appeal: { diplomat: 1.7, aggr: -1 } },
+        { id: 'public',    name: 'Devlet Okulları',       desc: 'Refah +7 · ⭐puan geliri +%6',                       effect: { pointsIncome: 1.06 }, welfare: 7,  appeal: { diplomat: 1.7, aggr: -1 } },
     ]},
 ];
 const LAW_SLOT_BY_KEY = {}; LAW_SLOTS.forEach(s => { LAW_SLOT_BY_KEY[s.key] = s; });
@@ -72,15 +72,15 @@ function lawOption(slotKey, optId) {
 
 // ── ANAYASA (tek slot; nadir ve ağır karar) ──────────────────────────────────
 const CONSTITUTIONS = [
-    { id: 'monarchy',  icon: '👑', name: 'Meşruti Monarşi', desc: 'Denge düzeni — ne güçlü ne zayıf.',
+    { id: 'monarchy',  icon: '👑', name: 'Parlamenter Sistem', desc: 'Denge düzeni — ne güçlü ne zayıf.',
       effect: {}, welfare: 0, appeal: { diplomat: 0.8 } },
-    { id: 'absolute',  icon: '🏰', name: 'Mutlakiyet',      desc: 'Sadakat erimesi −%40 · kadro −1 · refah −5',
+    { id: 'absolute',  icon: '🏰', name: 'Otokratik Başkanlık',      desc: 'Sadakat erimesi −%40 · kadro −1 · refah −5',
       effect: { loyaltyHold: 0.60, cmdCap: -1 }, welfare: -5, appeal: { warrior: 0.9, aggr: 1.2, diplomat: -1.5 } },
-    { id: 'republic',  icon: '🏛️', name: 'Cumhuriyet',      desc: 'Refah +10 · ⭐puan +%12 · darbe direnci',
+    { id: 'republic',  icon: '🏛️', name: 'Liberal Demokrasi',      desc: 'Refah +10 · ⭐puan +%12 · darbe direnci',
       effect: { pointsIncome: 1.12, loyaltyHold: 0.85 }, welfare: 10, appeal: { diplomat: 2.0, economist: 0.8, aggr: -1.5 } },
     { id: 'junta',     icon: '⚔️', name: 'Askeri Cunta',    desc: 'Kapasite +10, üretim −%15 süre · refah −12',
       effect: { poolCap: 10, prodSpeed: 0.85 }, welfare: -12, appeal: { warrior: 2.2, aggr: 2.5, diplomat: -2 } },
-    { id: 'council',   icon: '🤝', name: 'Halk Konseyi',    desc: 'Kadro +2 · birim −%10 maliyet · refah +4',
+    { id: 'council',   icon: '🤝', name: 'Halk Meclisi',    desc: 'Kadro +2 · birim −%10 maliyet · refah +4',
       effect: { cmdCap: 2, allCost: 0.90 }, welfare: 4, appeal: { diplomat: 1.4, economist: 1.2, warrior: -0.5 } },
 ];
 const CONSTITUTION_BY_ID = {}; CONSTITUTIONS.forEach(c => { CONSTITUTION_BY_ID[c.id] = c; });
@@ -92,17 +92,17 @@ const COUNCIL_MOTIONS = [
     { id: 'winter', wf: 8, loy: 0,   icon: '🧣', name: 'Kışlık İkmal Programı',  desc: 'Refah +8 · hazineden 120⛽',        cost: { oil: 120 },      appeal: { diplomat: 1.4 },              apply: st => { st.welfare = Math.min(100, st.welfare + 8); } },
     { id: 'parade', wf: 0, loy: 8,   icon: '🥁', name: 'Askerî Geçit Töreni',    desc: 'Tüm komutanlar +8 sadakat · 90⭐',  cost: { points: 90 },    appeal: { warrior: 1.2, aggr: 0.8 },    apply: st => { for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 8); } },
     { id: 'amnesty', wf: -3, loy: 14,  icon: '🕊️', name: 'Genel Af',               desc: 'Sadakati düşük komutanlar +14 · refah −3', cost: {},        appeal: { diplomat: 1.6, aggr: -1 },    apply: st => { st.welfare = Math.max(0, st.welfare - 3); for (const c of storyStateCommanders(st)) if ((c.loyalty || 60) < 55) c.loyalty = Math.min(100, (c.loyalty || 60) + 14); } },
-    { id: 'roads', wf: 0, loy: 0,    icon: '🛤️', name: 'Yol İnşaat Seferberliği', desc: 'Her şehir +1 seviye ilerleme fonu · 150⭐', cost: { points: 150 }, appeal: { economist: 1.5 },      apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.points += 40; } } },
+    { id: 'roads', wf: 0, loy: 0,    icon: '🛤️', name: 'Otoyol Yatırım Programı', desc: 'Her şehir +1 seviye ilerleme fonu · 150⭐', cost: { points: 150 }, appeal: { economist: 1.5 },      apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.points += 40; } } },
     { id: 'veterans', wf: 6, loy: 5, icon: '🎖️', name: 'Gazi Maaşları',          desc: 'Refah +6 · sadakat +5 · 100👥',     cost: { manpower: 100 }, appeal: { diplomat: 1.1, warrior: 0.8 }, apply: st => { st.welfare = Math.min(100, st.welfare + 6); for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 5); } },
-    { id: 'granary', wf: 5, loy: 0,  icon: '🌾', name: 'Devlet Tahıl Ambarı',    desc: 'Refah +5 · tüm komutanlara +30👥',  cost: { oil: 60 },       appeal: { economist: 1.2, diplomat: 0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 5); for (const c of storyStateCommanders(st)) { if (c.res) c.res.manpower += 30; } } },
+    { id: 'granary', wf: 5, loy: 0,  icon: '🌾', name: 'Stratejik Gıda Rezervi',    desc: 'Refah +5 · tüm komutanlara +30👥',  cost: { oil: 60 },       appeal: { economist: 1.2, diplomat: 0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 5); for (const c of storyStateCommanders(st)) { if (c.res) c.res.manpower += 30; } } },
     { id: 'arsenal', wf: 0, loy: 0,  icon: '🔧', name: 'Cephanelik Genişletmesi', desc: 'Başkente +1 fabrika seviyesi · 140⛽', cost: { oil: 140 },   appeal: { warrior: 1.5, aggr: 1 },      apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.fac = Math.min(3, (cap.fac | 0) + 1); } },
-    { id: 'barracks', wf: 0, loy: 0, icon: '🏕️', name: 'Kışla Nizamnamesi',      desc: 'Başkente +1 kışla seviyesi · 120👥', cost: { manpower: 120 }, appeal: { warrior: 1.3 },              apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.bar = Math.min(3, (cap.bar | 0) + 1); } },
+    { id: 'barracks', wf: 0, loy: 0, icon: '🏕️', name: 'Kışla Modernizasyonu',      desc: 'Başkente +1 kışla seviyesi · 120👥', cost: { manpower: 120 }, appeal: { warrior: 1.3 },              apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.bar = Math.min(3, (cap.bar | 0) + 1); } },
     { id: 'purge', wf: 4, loy: 0,    icon: '🗡️', name: 'Ordu Tasfiyesi',         desc: 'En sadakatsiz komutan görevden alınır · refah +4', cost: {}, appeal: { warrior: 0.6, aggr: 1.4, diplomat: -1.6 }, apply: st => {
         if (!st.gov || !st.gov.commanders.length) return;
         let worst = null; for (const c of st.gov.commanders) if (!c.isPlayer && (!worst || (c.loyalty || 60) < (worst.loyalty || 60))) worst = c;
         if (worst) { const i = st.gov.commanders.indexOf(worst); if (i >= 0) st.gov.commanders.splice(i, 1); st.welfare = Math.min(100, st.welfare + 4); }
     }},
-    { id: 'medals', wf: 0, loy: 10,   icon: '🏅', name: 'Madalya Nizamnamesi',    desc: 'Muharip komutanlar +10 sadakat · 70⭐', cost: { points: 70 }, appeal: { warrior: 1.4 },              apply: st => { for (const c of storyStateCommanders(st)) if ((c.skills && c.skills.warrior) >= 4) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 10); } },
+    { id: 'medals', wf: 0, loy: 10,   icon: '🏅', name: 'Madalya Yönetmeliği',    desc: 'Muharip komutanlar +10 sadakat · 70⭐', cost: { points: 70 }, appeal: { warrior: 1.4 },              apply: st => { for (const c of storyStateCommanders(st)) if ((c.skills && c.skills.warrior) >= 4) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 10); } },
     { id: 'census', wf: 0, loy: 0,   icon: '📋', name: 'Nüfus Sayımı',           desc: 'Tüm komutanlara +45👥 +45⛽ · 80⭐',  cost: { points: 80 },   appeal: { economist: 1.3 },             apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.manpower += 45; c.res.oil += 45; } } },
     { id: 'austerity', wf: -6, loy: 0,icon: '✂️', name: 'Tasarruf Tedbirleri',    desc: 'Refah −6 · tüm komutanlara +60⭐',   cost: {},               appeal: { economist: 0.9, diplomat: -1 }, apply: st => { st.welfare = Math.max(0, st.welfare - 6); for (const c of storyStateCommanders(st)) { if (c.res) c.res.points += 60; } } },
     { id: 'festival', wf: 9, loy: 0, icon: '🎪', name: 'Millî Bayram',           desc: 'Refah +9 · 60⭐ 60⛽',                cost: { points: 60, oil: 60 }, appeal: { diplomat: 1.5, aggr: -0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 9); } },

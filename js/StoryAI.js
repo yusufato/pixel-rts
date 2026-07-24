@@ -411,7 +411,7 @@ function storyResolveAIBattle(cmd, st, target) {
     const hit = Math.random() < win;
     storyPushBattle(cmd, hit);
     if (hit) {
-        target.owner = st.id; cmd.node = target.id;              // node.owner tek-gerçek-kaynak + jeton senkron
+        target.owner = st.id; storyCityRename(target); cmd.node = target.id;              // node.owner tek-gerçek-kaynak + jeton senkron
         st.welfare = Math.min(100, st.welfare + 1); tgtSt.welfare = Math.max(0, tgtSt.welfare - 3);
         cmd.loyalty = Math.min(100, (cmd.loyalty == null ? 60 : cmd.loyalty) + 3);
         for (const dc of ((tgtSt.gov ? tgtSt.gov.commanders : []).slice())) if (dc.node === target.id) {   // savunan komutan: ÖLÜR ya da kaçar
@@ -442,7 +442,7 @@ function storyTriggerPlayerDefense(cmd, st, pNode, force) {
         const safe = nb ? nb.id : (fb ? fb.id : pNode.id);
         if (STORY.commander.node === pNode.id) STORY.commander.node = safe;
         for (const c of (me.gov ? me.gov.commanders : [])) if (c.node === pNode.id) c.node = safe;   // takviye eden dost komutanlar da çekilir
-        pNode.owner = st.id; cmd.node = pNode.id; pNode._siege = null;
+        pNode.owner = st.id; storyCityRename(pNode); cmd.node = pNode.id; pNode._siege = null;
         me.reputation = Math.max(0, me.reputation - 1); me.welfare = Math.max(0, me.welfare - 4);
         storyLog(`🏳️ ${pNode.name} savaşmadan ${st.name}'e bırakıldı (-itibar, -refah).`);
         storySave();
@@ -521,7 +521,7 @@ function storyResolveSiege(node, byState, besiegers) {
 }
 function storySiegeConquer(node, byState, lead, defState) {
     node._siege = null;
-    node.owner = byState.id; lead.node = node.id;
+    node.owner = byState.id; storyCityRename(node); lead.node = node.id;
     if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // kuşatma düşünce şehirdeki ordu da dağılır
     byState.welfare = Math.min(100, byState.welfare + 1); if (defState) defState.welfare = Math.max(0, defState.welfare - 3);
     lead.loyalty = Math.min(100, (lead.loyalty == null ? 60 : lead.loyalty) + 4);

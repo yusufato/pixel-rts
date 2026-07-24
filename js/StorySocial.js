@@ -135,7 +135,7 @@ function storyApplyCoups() {
             for (const n of STORY.nodes) {
                 if (n.owner !== st.id || flipped >= 2) continue;
                 const nb = n.neighbors.map(storyNode).find(m => m && m.owner !== st.id && !((storyState(m.owner) || {}).isPlayer));
-                if (nb) { n.owner = nb.owner; flipped++; }
+                if (nb) { n.owner = nb.owner; storyCityRename(n); flipped++; }
             }
             for (const c of disloyal) c.loyalty = 50;
             st.welfare = Math.max(0, st.welfare - 8);

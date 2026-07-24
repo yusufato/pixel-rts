@@ -38,7 +38,7 @@ function cmdBondLabel(v) {
 // ── CÜMLE PARÇALARI ────────────────────────────────────────────────────────
 const CH_OPEN = [
     'karargâh çadırında', 'akşam yemeğinde', 'cephe teftişinde', 'tren yolculuğunda',
-    'harita başında', 'kışla avlusunda', 'telgrafhanede', 'sabah içtimasından sonra',
+    'harita başında', 'kışla avlusunda', 'operasyon merkezinde', 'sabah içtimasından sonra',
 ];
 const CH_TONE = {
     agresif:    ['sertçe', 'masaya vurarak', 'küçümseyerek', 'sabırsızca'],

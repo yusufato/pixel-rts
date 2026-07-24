@@ -42,7 +42,7 @@ function llmProbe() {
 
 // ── SAHNE BAĞLAMI → İSTEM ──────────────────────────────────────────────────
 // Dünya Çağı (Era.js) buraya girer: model dönemin havasını bilerek yazar.
-const LLM_SYSTEM = `Sen bir strateji oyununun anlatıcısısın. Oyun 1900'lerin başında geçen kurgusal bir Avrupa'da.
+const LLM_SYSTEM = `Sen bir strateji oyununun anlatıcısısın. Oyun yakın gelecekte, 2030'larda, kurgusal bir dünyada geçiyor; modern ordular, canlı medya ve sert diplomasi çağı.
 Komutanlar arasında geçen KISA bir diyalog yaz.
 KURALLAR:
 - Sadece Türkçe yaz. İngilizce kelime kullanma.
@@ -53,14 +53,14 @@ KURALLAR:
 
 ÖRNEKLER (bu üslupta ve bu dil kalitesinde yaz):
 
-Kemal Paşa: Cephane tükeniyor, İstanbul'dan hâlâ ses yok.
-Rıza Bey: Beklemekten başka çare yok Paşam, yollar kapalı.
+Kemal Paşa: Mühimmat tükeniyor, başkentten hâlâ onay çıkmadı.
+Rıza Komutan: İkmal konvoyu yolda vuruldu Paşam, beklemekten başka çare yok.
 
 Nuri Paşa: Bu ittifak bize zaman kazandırır, fazlasını değil.
-Cemil Bey: Zaman da bir kazançtır efendim, hafife almayalım.
+Cemil Komutan: Zaman da bir kazançtır efendim, hafife almayalım.
 
 Hasan Paşa: Adamlarım üç aydır maaş görmedi, sabırları taştı.
-Orhan Bey: Sabır taşarsa isyan başlar, bunu ikimiz de biliyoruz.`;
+Orhan Komutan: Sabır taşarsa isyan başlar, bunu ikimiz de biliyoruz.`;
 
 // SICAKLIK 0.85 → 0.40. Ölçüldü (gram_bench.js, 4 kol × 3 sahne):
 // Modele açıkça "dil bilgisi kurallarına uy, uydurma kelime yazma" demek HİÇBİR

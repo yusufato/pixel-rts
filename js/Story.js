@@ -13,15 +13,17 @@
 const STORY_SAVE_KEY = 'pixelrts_story_v3';   // v3: 82-ŞEHİR hareket ağı (v1 ızgara / v2 36-ülke kayıtları yok sayılır)
 
 // 8 BÜYÜK GÜÇ (her biri cumhuriyet). 0 = OYUNCU (Türkiye merkezli). Harita+panel rengi.
+// MODERN ÇAĞ: devlet adları çağdaş blok/pakt diline çevrildi; `cult` anahtarı
+// şehir adlandırma kültürünü seçer (fetheden şehre KENDİ kültüründen ad verir).
 const STORY_STATE_DEFS = [
-    { name: 'Türk Cumhuriyeti',  color: '#4cff7c' },   // 0 OYUNCU — başkent Türkiye
-    { name: 'İber Birliği',      color: '#ff8a3c' },   // 1 başkent İspanya
-    { name: 'Britanya Krallığı', color: '#e34c4c' },   // 2 başkent İngiltere
-    { name: 'Cermen Birliği',    color: '#e0d24c' },   // 3 başkent Almanya
-    { name: 'Kuzey Birliği',     color: '#4cc8ff' },   // 4 başkent İsveç
-    { name: 'Slav Federasyonu',  color: '#b07cff' },   // 5 başkent Rusya
-    { name: 'Mağrip Birliği',    color: '#d98cc0' },   // 6 başkent Cezayir (Kuzey Afrika)
-    { name: 'Arap Birliği',      color: '#cfa14c' }     // 7 başkent Suudi Arabistan (Orta Doğu)
+    { name: 'Türk Cumhuriyeti',   cult: 'tr', color: '#4cff7c' },   // 0 OYUNCU
+    { name: 'İber Federasyonu',   cult: 'ib', color: '#ff8a3c' },   // 1
+    { name: 'Britanya Topluluğu', cult: 'br', color: '#e34c4c' },   // 2
+    { name: 'Cermen Federasyonu', cult: 'ge', color: '#e0d24c' },   // 3
+    { name: 'Kuzey Paktı',        cult: 'no', color: '#4cc8ff' },   // 4
+    { name: 'Slav Federasyonu',   cult: 'sl', color: '#b07cff' },   // 5
+    { name: 'Mağrip Konseyi',     cult: 'mg', color: '#d98cc0' },   // 6
+    { name: 'Arap Koalisyonu',    cult: 'ar', color: '#cfa14c' }     // 7
 ];
 const STORY_RANKS = [
     { name: 'Teğmen', xp: 0 }, { name: 'Yüzbaşı', xp: 600 }, { name: 'Binbaşı', xp: 1400 },
@@ -157,7 +159,44 @@ function storyBuildEurope() {
     return nodes;
 }
 // ── 82 ŞEHİR HAREKET AĞI (Faz-2): STORY_TERRAIN.cities → düğümler; K-en-yakın komşuluk + bağlı; 8 başkent-BFS sahiplik ──
-function storyCityName(id) { return 'Şehir ' + (id + 1); }
+function storyCityName(id) { return 'Şehir ' + (id + 1); }   // yalnız ad-öncesi yer tutucu
+
+// ── ŞEHİR ADLANDIRMA — kültürel üreteç ─────────────────────────────────────
+// Her devletin taban×ek havuzu var (12×8=96 benzersiz ad ≥ 82 şehir). Ad,
+// (şehir id, devlet) çiftinden DETERMİNİSTİK üretilir ve n.names'e önbelleklenir:
+// aynı devlet şehri geri alınca ESKİ adı geri gelir (gerçek dünyadaki gibi —
+// şehirlerin fatihe göre ayrı adları olur, rastgele değişip durmaz).
+const CITY_NAME_PARTS = {
+    tr: { b: ['Ak', 'Kara', 'Gök', 'Demir', 'Taş', 'Boz', 'Ulu', 'Yeşil', 'Ay', 'Gün', 'Er', 'Öz'],
+          s: ['hisar', 'kent', 'şehir', 'ova', 'köprü', 'yaka', 'tepe', 'eli'] },
+    ib: { b: ['Villa', 'Monte', 'Puerto', 'Torre', 'Costa', 'Rio', 'Sierra', 'Alta', 'Nueva', 'Vista', 'Casa', 'Vega'],
+          s: ['verde', 'mar', 'luz', 'rey', 'sol', 'blanca', 'rosa', 'flor'] },
+    br: { b: ['Ash', 'Ox', 'Win', 'Nor', 'Black', 'Stone', 'Fair', 'Wool', 'Kings', 'East', 'Grey', 'Mill'],
+          s: ['ford', 'ton', 'bury', 'port', 'field', 'bridge', 'gate', 'mouth'] },
+    ge: { b: ['Neu', 'Ober', 'Bad', 'Rhein', 'Stein', 'Wolfs', 'Grün', 'Falken', 'Eisen', 'Hoch', 'Rot', 'Linden'],
+          s: ['burg', 'stadt', 'heim', 'feld', 'bach', 'hafen', 'berg', 'tal'] },
+    no: { b: ['Nord', 'Björn', 'Ulv', 'Sten', 'Fjell', 'Ny', 'Öster', 'Vinter', 'Sol', 'Havs', 'Lund', 'Björk'],
+          s: ['vik', 'borg', 'stad', 'fjord', 'havn', 'dal', 'ström', 'näs'] },
+    sl: { b: ['Novo', 'Belo', 'Volgo', 'Petro', 'Zlato', 'Krasno', 'Staro', 'Mir', 'Sever', 'Serebro', 'Dnepro', 'Vostok'],
+          s: ['grad', 'gorsk', 'pol', 'slavl', 'retsk', 'zavod', 'birsk', 'morsk'] },
+    mg: { b: ['Ayn', 'Dar', 'Kasr', 'Vadi', 'Tel', 'Bordj', 'Sidi', 'Beni', 'Bab', 'Ksar', 'Ued', 'Ait'],
+          s: [' Azrak', ' Kebir', ' Cedid', ' Beyda', ' Garbi', ' Şarki', ' Aliya', ' Sagira'] },
+    ar: { b: ['Ras', 'Umm', 'Deyr', 'Cebel', 'Bahr', 'Ayn', 'Tel', 'Vadi', 'Kasr', 'Bab', 'Nahr', 'Reml'],
+          s: [' Nur', ' Selam', ' Hayr', ' Şems', ' Feth', ' Emel', ' Zafer', ' Kamer'] },
+};
+function storyCityNameFor(id, stId) {
+    const cult = (STORY_STATE_DEFS[stId] || {}).cult || 'tr';
+    const p = CITY_NAME_PARTS[cult] || CITY_NAME_PARTS.tr;
+    return p.b[id % p.b.length] + p.s[Math.floor(id / p.b.length) % p.s.length];
+}
+// Sahibi değişen (veya ilk kez adlanan) şehre sahibinin kültüründen ad ver.
+// n.names önbelleği node içinde durduğu için kaydet/yükle ile birlikte yaşar.
+function storyCityRename(n) {
+    if (!n) return;
+    if (!n.names) n.names = {};
+    if (!n.names[n.owner]) n.names[n.owner] = storyCityNameFor(n.id, n.owner);
+    n.name = n.names[n.owner];
+}
 function storyDist2(a, b) { const dx = a.lx - b.lx, dy = a.ly - b.ly; return dx * dx + dy * dy; }
 // kopuk bileşenleri en yakın çiftle birleştir → tek gezilebilir graf (her şehre ulaşılır)
 function storyConnectComponents(nodes) {
@@ -223,6 +262,8 @@ function storyBuildCities() {
         n.owner = best;
     }
     STORY._capitals = caps;   // state index → başkent şehir id
+    // ŞEHİR ADLARI: sahiplik belirlendikten sonra her şehir sahibinin kültüründen ad alır
+    for (const n of nodes) storyCityRename(n);
     // FAZ-3 BAŞLANGIÇ ALTYAPISI: her devlet başkentinde hazır bir üretim çekirdeği bulur
     // (fabrika Sv.1 + kışla Sv.1 + garnizon 2). Sıfır altyapıyla başlamak oyuncuyu ilk
     // savaşlarda "acil seferberlik" yedeğine mahkûm ediyordu — üretim sistemi hiç devreye
@@ -236,7 +277,7 @@ function storyBuildCities() {
 }
 // ── FAZ-2 HÜKÜMET/KONSEY: her devlette yönetici + bağımsız komutan-bireyler (bakanlar sonra) ──
 const STORY_CMD_NAMES = ['Demir', 'Kaya', 'Aslan', 'Yıldırım', 'Bozkurt', 'Tunç', 'Çelik', 'Korkut', 'Alp', 'Barış', 'Ergin', 'Doğan', 'Şahin', 'Kartal', 'Volkan', 'Mert', 'Toprak', 'Bora', 'Kaan', 'Atilla'];
-const STORY_CMD_TITLES = ['Bey', 'Paşa', 'Komutan', 'Ağa'];
+const STORY_CMD_TITLES = ['Paşa', 'Komutan'];   // MODERN: Bey/Ağa düştü; 'Paşa' çağdaş orduda hâlâ yaşar
 const STORY_CMD_PERSONA = ['dengeli', 'agresif', 'savunmacı', 'fırsatçı'];
 let _storyCmdNextId = 1;
 function storyCommanderName() { return STORY_CMD_NAMES[Math.floor(Math.random() * STORY_CMD_NAMES.length)] + ' ' + STORY_CMD_TITLES[Math.floor(Math.random() * STORY_CMD_TITLES.length)]; }
@@ -391,7 +432,11 @@ function storyLoad() {
         if (!d || !d.nodes || !d.states) return false;
         STORY.states = d.states; STORY.nodes = d.nodes;
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
-        storyAssignDeposits();                    // şehir/kaynak işaretlerini ülkelere ata (ekonomi)
+        storyAssignDeposits();
+        // MODERN GEÇİŞ backfill: eski kayıtlarda 'Şehir N' ve eski devlet adları var.
+        // Devlet adı statik çeşnidir (kullanıcı verisi değil) → tanımdan tazelenir.
+        for (const st of STORY.states) if (STORY_STATE_DEFS[st.id]) st.name = STORY_STATE_DEFS[st.id].name;
+        for (const n of STORY.nodes) storyCityRename(n);                    // şehir/kaynak işaretlerini ülkelere ata (ekonomi)
         STORY.playerStateId = d.playerStateId | 0;
         // Başkentler: eski kayıtlarda yok → yeniden üret (yoksa capitalSeek ve komutan konumlanması bozulur)
         STORY._capitals = (Array.isArray(d.caps) && d.caps.length) ? d.caps : storyPickCapitals(STORY.nodes, STORY.states.length);
@@ -826,7 +871,7 @@ function storyOnBattleEnd(won, telemetrySummary) {
         } else if (won === 'draw') {
             storyLog(`🤝 ${node.name} savunmasında berabere — bölge sende kaldı. Gazi: ${STORY.veterans.length}`);
         } else {
-            node.owner = inv.id;                  // KAYBET → bölge düşmana geçer
+            node.owner = inv.id; storyCityRename(node);                  // KAYBET → bölge düşmana geçer
             if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // şehirdeki havuz imha, %25'i fatihe
             const nbOwn = node.neighbors.map(storyNode).find(x => x && x.owner === me.id);   // komşu dost şehre çekil
             const fb = STORY.nodes.find(n => n.owner === me.id);
@@ -844,7 +889,7 @@ function storyOnBattleEnd(won, telemetrySummary) {
     } else {
         // SALDIRI: oyuncu komşu düşman node'una saldırdı (ctx.defender = düşman)
         if (winText) {
-            node.owner = me.id;                   // FETHET
+            node.owner = me.id; storyCityRename(node);                   // FETHET
             if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // savunanın havuzu imha, %25'i sana
             STORY.commander.node = node.id;       // komutan ilerler
             me.reputation += 1; me.welfare = Math.min(100, me.welfare + 3);
