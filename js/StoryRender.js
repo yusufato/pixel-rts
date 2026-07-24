@@ -91,6 +91,42 @@ function storyHash(x, y) { let h = (x * 73856093) ^ (y * 19349663); h = (h ^ (h 
 //  Yoksa PROSEDÜREL radius-blob yedeği.
 function storyBuildLandGrid() {
     const nodes = STORY.nodes;
+    // ── GERÇEK AVRUPA KIYILARI (geoData poligonları → scanline even-odd raster) ──
+    // Design teslimi: Natural Earth kıyı çizgileri. Delikler (iç denizler) even-odd
+    // ile kendiliğinden çıkar. Politik katman aynı kalır: hücre → en yakın şehir.
+    if (STORY._geoMap && typeof GEO !== 'undefined') {
+        const w = 300, h = Math.round(300 * GEO.H / GEO.W);
+        STORY_GW = w; STORY_GH = h;
+        STORY_WORLD_W = 3000; STORY_WORLD_H = Math.round(3000 * h / w);
+        const landMask = new Uint8Array(w * h);
+        const sx = w / GEO.W, sy = h / GEO.H;
+        for (const ring of GEO.land) {
+            for (let gy = 0; gy < h; gy++) {
+                const y = (gy + 0.5) / sy;
+                const xs = [];
+                for (let i = 0; i < ring.length; i++) {
+                    const x1 = ring[i][0], y1 = ring[i][1];
+                    const x2 = ring[(i + 1) % ring.length][0], y2 = ring[(i + 1) % ring.length][1];
+                    if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+                }
+                xs.sort((a, b) => a - b);
+                for (let k = 0; k + 1 < xs.length; k += 2) {
+                    const a = Math.max(0, Math.ceil(xs[k] * sx - 0.5)), b = Math.min(w - 1, Math.floor(xs[k + 1] * sx - 0.5));
+                    for (let gx = a; gx <= b; gx++) landMask[gy * w + gx] ^= 1;
+                }
+            }
+        }
+        const grid = new Array(w * h).fill(-1);
+        for (let gy = 0; gy < h; gy++) for (let gx = 0; gx < w; gx++) {
+            if (!landMask[gy * w + gx]) continue;
+            const nx = (gx + 0.5) / w, ny = (gy + 0.5) / h;
+            let best = -1, bd = Infinity;
+            for (const n of nodes) { const dx = nx - n.lx, dy = ny - n.ly, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = n.id; } }
+            grid[gy * w + gx] = best;
+        }
+        STORY._landGrid = grid; STORY._ownerKey = null; STORY._terrainCache = null;
+        return;
+    }
     if (typeof STORY_TERRAIN !== 'undefined' && STORY_TERRAIN.land) {
         const w = STORY_TERRAIN.w, h = STORY_TERRAIN.h, mask = STORY_TERRAIN.land;
         STORY_GW = w; STORY_GH = h;

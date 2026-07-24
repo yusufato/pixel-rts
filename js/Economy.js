@@ -124,10 +124,14 @@ function storyEconAIDemand(st) {
 function storyEconFood(st) {
     const owned = STORY.nodes.filter(n => n.owner === st.id);
     if (!owned.length) return 1;
-    const capacity = owned.reduce((a, n) => a + 3 + (n.level || 1) * 2 + (n.cities || 0) * 2, 0);
+    // GERÇEK HARİTA KALİBRASYONU: 50 şehir tier'lı doğuyor (Sv.2 nüfus ~38k, Sv.3 ~66k).
+    // Eski katsayılarla (kapasite 3+2L, yük 0.12·pop) büyük şehirler kendi nüfusunu
+    // besleyemiyor, dünya kronik kıtlığa giriyordu (bench: ort. refah 30'a düştü).
+    // Büyük şehir = büyük hinterlant: kapasite seviyeyle güçlü ölçeklenir.
+    const capacity = owned.reduce((a, n) => a + 3 + (n.level || 1) * 4 + (n.cities || 0) * 2, 0);
     let army = 0;
     for (const c of storyStateCommanders(st)) army += (typeof cmdArmyCount === 'function') ? cmdArmyCount(c) : 0;
-    const popLoad = owned.reduce((a, n) => a + (n.pop || 10) * 0.12, 0);
+    const popLoad = owned.reduce((a, n) => a + (n.pop || 10) * 0.08, 0);
     return capacity / Math.max(1, army * 0.6 + popLoad);
 }
 
@@ -165,7 +169,9 @@ function storyEconomyTick(dt) {
 
         // ⚡ ELEKTRONİK: Sv.2+ şehirler + gelişmiş fabrikalar üretir
         const owned = STORY.nodes.filter(n => n.owner === st.id);
-        const chipRate = owned.reduce((a, n) => a + ((n.level || 1) >= 2 ? 0.030 * (n.level - 1) : 0) + ((n.fac | 0) >= 2 ? 0.020 : 0), 0);
+        // ⚡ üretimi gerçek haritaya göre düşürüldü (çok sayıda Sv.2+ şehir 600sn'de
+        // stoku 97'ye doyuruyordu — kapı anlamsızlaşıyordu; hedef ~15-30 bandı)
+        const chipRate = owned.reduce((a, n) => a + ((n.level || 1) >= 2 ? 0.012 * (n.level - 1) : 0) + ((n.fac | 0) >= 2 ? 0.010 : 0), 0);
         st.chips = Math.min(99, st.chips + chipRate * dt);
 
         // 🌾 GIDA: kapasite aşılırsa kıtlık (90 sn soğumalı)

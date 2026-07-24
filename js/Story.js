@@ -193,6 +193,8 @@ function storyCityNameFor(id, stId) {
 // n.names önbelleği node içinde durduğu için kaydet/yükle ile birlikte yaşar.
 function storyCityRename(n) {
     if (!n) return;
+    // GERÇEK HARİTA: gerçek şehir adı kalıcıdır (İstanbul → 'Belozavod' olmaz).
+    if (n.geo && typeof GEO_CITIES !== 'undefined' && GEO_CITIES[n.id]) { n.name = GEO_CITIES[n.id].name; return; }
     if (!n.names) n.names = {};
     if (!n.names[n.owner]) n.names[n.owner] = storyCityNameFor(n.id, n.owner);
     n.name = n.names[n.owner];
@@ -232,7 +234,43 @@ function storyPickCapitals(nodes, k) {
     }
     return caps;
 }
+// ── GERÇEK AVRUPA (design teslimi "yeni avrupa harita"): 50 gerçek şehir,
+// gerçek koridorlar, gerçek kıyı çizgisi (js/geoData.js — build adımıyla gömülü).
+// Eski prosedürel yol yedek olarak durur (geoData yoksa / eski kayıtlar).
+function storyBuildCitiesGeo() {
+    STORY._geoMap = true;
+    const nodes = GEO_CITIES.map((c, id) => ({
+        id, name: c.name, lx: c.x / GEO.W, ly: c.y / GEO.H, owner: c.st, mapId: id % MAPS_LEN(),
+        neighbors: [], cities: 1,
+        oil: c.oil ? 2 : 0, pts: Math.max(0, c.tier - 1),        // yataklar: petrol şehirleri + büyük şehir ekonomisi
+        level: c.tier, garrison: 0,                               // tier = başlangıç şehir seviyesi (organik büyüme devam eder)
+        fac: Math.min(c.fac, c.tier + 1), bar: c.tier >= 2 ? 1 : 0,   // spec'teki fabrika seviyeleri (İstanbul 3 baca!)
+        pool: {}, q: [], pop: null, wealth: 0, geo: 1, names: null
+    }));
+    // GERÇEK ADLAR KALICI: İstanbul her bayrak altında İstanbul'dur — fetih kültürel
+    // ad üretmesin diye tüm sahipler için ad önbelleği gerçek adla doldurulur.
+    for (const n of nodes) { n.names = {}; for (let s = 0; s < STORY_STATE_DEFS.length; s++) n.names[s] = n.name; }
+    for (const [a, b] of GEO_ROADS) {
+        if (nodes[a].neighbors.indexOf(b) < 0) nodes[a].neighbors.push(b);
+        if (nodes[b].neighbors.indexOf(a) < 0) nodes[b].neighbors.push(a);
+    }
+    for (const a of nodes) {                                      // yolu olmayan şehir en yakın 2'ye bağlanır
+        if (a.neighbors.length) continue;
+        const near = nodes.filter(b => b !== a).sort((x, y) => storyDist2(a, x) - storyDist2(a, y)).slice(0, 2);
+        for (const b of near) { a.neighbors.push(b.id); if (b.neighbors.indexOf(a.id) < 0) b.neighbors.push(a.id); }
+    }
+    storyConnectComponents(nodes);
+    const caps = [];                                              // başkent: devletin tier-3 şehri
+    for (let s = 0; s < STORY_STATE_DEFS.length; s++) {
+        const cap = nodes.find(n => n.owner === s && n.level === 3) || nodes.find(n => n.owner === s);
+        caps.push(cap ? cap.id : 0);
+    }
+    STORY._capitals = caps;
+    for (const capId of caps) { const c = nodes[capId]; if (c) { c.fac = Math.max(1, c.fac); c.bar = Math.max(1, c.bar); c.garrison = 2; } }
+    return nodes;
+}
 function storyBuildCities() {
+    if (typeof GEO !== 'undefined' && typeof GEO_CITIES !== 'undefined') return storyBuildCitiesGeo();
     const C = (typeof STORY_TERRAIN !== 'undefined' && STORY_TERRAIN.cities) || [];
     if (!C.length) return storyBuildEurope();     // güvenlik: şehir verisi yoksa eski ülke sistemi
     const nodes = C.map((p, id) => ({
@@ -443,6 +481,7 @@ function storyLoad() {
         const d = JSON.parse(raw);
         if (!d || !d.nodes || !d.states) return false;
         STORY.states = d.states; STORY.nodes = d.nodes;
+        STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
         storyAssignDeposits();
         // MODERN GEÇİŞ backfill: eski kayıtlarda 'Şehir N' ve eski devlet adları var.
