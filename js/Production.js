@@ -187,6 +187,13 @@ function prodEnqueue(nodeId, type) {
         storyFlash(`Sefer ordun dolu (${cmdArmyCount(cmd)}/${cmdArmyCap(cmd)}) — savaş yeteneğini yükselt ya da orduyu kullan.`);
         return false;
     }
+    // AŞAMA 3: ⚡ELEKTRONİK kapısı — tank/topçu modern sanayi ister
+    const _stE = storyState(n.owner);
+    if (typeof storyEconChipNeeds === 'function' && storyEconChipNeeds(type) > 0
+        && _stE && (_stE.chips || 0) < storyEconChipNeeds(type)) {
+        storyFlash(`⚡ Elektronik stoku yetersiz (${Math.floor(_stE.chips || 0)}/${storyEconChipNeeds(type)}) — Sv.2+ şehirler ve gelişmiş fabrikalar üretir.`);
+        return false;
+    }
     const g = UNIT_RES_GROUP[type] || 'manpower';
     const cost = (STATS[type] && STATS[type].cost) || 70;
     const w = cmd && cmd.res;
@@ -194,6 +201,7 @@ function prodEnqueue(nodeId, type) {
     w[g] -= cost;
     const t = prodTime(n, kind, type);
     n.q.push({ type, t, tot: t, cmd: cmd.id });   // cmd = birliğin teslim edileceği komutan
+    if (typeof storyEconChipGate === 'function') storyEconChipGate(storyState(n.owner), type);   // AŞAMA 3: ⚡ düşümü
     storySave();
     if (typeof storyCityUpdate === 'function') storyCityUpdate();
     return true;
@@ -425,11 +433,14 @@ function prodUnitButtons(n, kind, wallet) {
         const g = UNIT_RES_GROUP[t] || 'manpower';
         const icon = g === 'oil' ? '⛽' : g === 'points' ? '⭐' : '👥';
         const unlocked = open.indexOf(t) >= 0;
-        const afford = (wallet[g] || 0) >= s.cost;
+        const _chipNeed = (typeof storyEconChipNeeds === 'function') ? storyEconChipNeeds(t) : 0;
+        const _stB = storyState(n.owner);
+        const _chipOk = _chipNeed === 0 || (_stB && (_stB.chips || 0) >= _chipNeed);
+        const afford = (wallet[g] || 0) >= s.cost && _chipOk;
         const sec = unlocked ? prodTime(n, kind, t) : prodTime({ [kind]: lv, level: n.level }, kind, t);
         html += unlocked
-            ? `<button class="prod-btn cb-make" data-node="${n.id}" data-type="${t}" ${afford ? '' : 'disabled'} title="${s.name} — ${s.cost}${icon}, ${sec} sn">`
-              + `<b>${s.name}</b><small>${icon}${s.cost} · ${sec}sn</small></button>`
+            ? `<button class="prod-btn cb-make" data-node="${n.id}" data-type="${t}" ${afford ? '' : 'disabled'} title="${s.name} — ${s.cost}${icon}${_chipNeed ? ' + ' + _chipNeed + '⚡' : ''}, ${sec} sn${_chipOk ? '' : ' — ⚡ stok yok'}">`
+              + `<b>${s.name}</b><small>${icon}${s.cost}${_chipNeed ? ' ⚡' + _chipNeed : ''} · ${sec}sn</small></button>`
             : `<button class="prod-btn locked" disabled title="Sv.${lv} gerekli"><b>${s.name}</b><small>🔒 Sv.${lv}</small></button>`;
     }
     return html;
@@ -589,7 +600,12 @@ function aiTryBuild(n, st, payer) {
 // AI üretim doktrini: sınır şehri savunma ağırlıklı, iç şehir eldeki en iyi birim
 function aiTryProduce(n, st, cmds) {
     const isBorder = (n.neighbors || []).some(nb => { const m = storyNode(nb); return m && m.owner !== n.owner; });
-    const open = prodTypesFor(n, 'fac').concat(prodTypesFor(n, 'bar'));
+    let open = prodTypesFor(n, 'fac').concat(prodTypesFor(n, 'bar'));
+    // AŞAMA 3: ⚡ stoku yetmeyen tipler AI için de kapalı (tam simetri)
+    if (typeof storyEconChipNeeds === 'function') {
+        const _stC = storyState(n.owner);
+        open = open.filter(t => storyEconChipNeeds(t) === 0 || (_stC && (_stC.chips || 0) >= storyEconChipNeeds(t)));
+    }
     if (!open.length) return false;
     // ORDU DENGESİ: "hep en pahalıyı bas" kuralı orduyu tek tip yapıyordu — ölçümde 8 devletin
     // 8'i de yalnız piyade+tanksavar üretiyordu. Artık komutanın ELİNDEKİ eksik sınıf tercih
@@ -623,6 +639,7 @@ function aiTryProduce(n, st, cmds) {
     payer.res[g] -= cost;
     const t = prodTime(n, kind, wanted);
     n.q.push({ type: wanted, t, tot: t, cmd: payer.id });
+    if (typeof storyEconChipGate === 'function') storyEconChipGate(storyState(n.owner), wanted);   // AŞAMA 3: AI ⚡ düşümü
     return true;
 }
 

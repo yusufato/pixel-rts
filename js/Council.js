@@ -185,7 +185,8 @@ function storyCouncilTally(item, commanders, st, playerVote) {
             // AŞAMA 2: kızgın fraksiyonun sevdiği teklif konseyde ağırlaşır (yatıştırma).
             // Katsayı storyFacScore içinde ±6 ile sınırlı — konsey dengesi ölçülü kalır.
             const s = storyCouncilVoteScore(c, o.id, o.appeal, ctx, o.welfare, o.loyGain)
-                    + ((typeof storyFacScore === 'function' && o._fac) ? storyFacScore(o._fac, st) : 0);
+                    + ((typeof storyFacScore === 'function' && o._fac) ? storyFacScore(o._fac, st) : 0)
+                    + ((typeof storyEconVoteTerm === 'function') ? storyEconVoteTerm(item, o.id, st) : 0);   // AŞAMA 3: enflasyon tepkisi
             if (s > bestS) { bestS = s; best = o; }
         }
         if (best) byOption[best.id].push(c);

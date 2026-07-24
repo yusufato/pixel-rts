@@ -111,7 +111,10 @@ const FAC_EVENTS = {
     coup:     { deltas: { radicals: -10, intel: -3, business: -4 },   why: 'Darbe' },
     strike:   { deltas: { radicals: -10, workers: 4 },                 why: 'Genel grev' },
 };
-function storyFacEvent(st, type) { const e = FAC_EVENTS[type]; if (e) storyFacApply(st, e.deltas, e.why); }
+function storyFacEvent(st, type) {
+    const e = FAC_EVENTS[type]; if (e) storyFacApply(st, e.deltas, e.why);
+    if (typeof storyEconEvent === 'function') storyEconEvent(st, type);   // AŞAMA 3: güven/enflasyon da tepki verir
+}
 
 // ── ÖFKE (unrest) ve DIŞA VURUMLARI ────────────────────────────────────────
 // 0..~50. En mutsuz ana fraksiyon + radikal taşkınlık belirler.
@@ -213,7 +216,8 @@ function storyFacHtml(st) {
     const unr = Math.round(storyFacUnrest(st));
     const strike = st._strikeUntil && st._strikeUntil > STORY.clock ? ' · 🪧 <b style="color:#ff5a5a">GREV SÜRÜYOR</b>' : '';
     const logs = (st._facLog || []).slice(0, 3).map(l => `<div class="fac-log">${l}</div>`).join('');
-    return `<div class="fac-box">${rows}
+    const econ = (typeof storyEconHtml === 'function') ? storyEconHtml(st) : '';
+    return econ + `<div class="fac-box">${rows}
         <div class="fac-unrest">Huzursuzluk: <b style="color:${unr > 25 ? '#ff5a5a' : (unr > 12 ? '#ffd24c' : '#4cff7c')}">${unr}</b>${strike}</div>
         ${logs ? `<div class="fac-logs"><div class="fac-logs-t">SON TEPKİLER</div>${logs}</div>` : ''}
         <div class="fac-hint">Kanunlar, savaşlar ve refah fraksiyonları oynatır. Küskün ordu darbeyi kolaylaştırır;

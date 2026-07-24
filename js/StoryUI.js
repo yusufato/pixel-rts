@@ -23,6 +23,8 @@ function storyPanelUpdate() {
             `<div class="story-stat-chip">İNSAN<b>${Math.floor(myr.manpower)}</b></div>` +
             `<div class="story-stat-chip">PUAN<b>${Math.floor(myr.points)}</b></div>` +
             `<div class="story-stat-chip">GAZİ<b>${(STORY.veterans || []).length}</b></div>` +
+            ((me.chips != null) ? `<div class="story-stat-chip" title="Elektronik stoku — tank/topçu üretimi ister">⚡<b>${Math.floor(me.chips)}</b></div>` : '') +
+            ((me.inflation != null) ? `<div class="story-stat-chip${me.inflation > 15 ? ' urgent' : ''}" title="Enflasyon geliri kırpar, halkı yorar">ENF<b>%${me.inflation.toFixed(0)}</b></div>` : '') +
             `<div class="story-stat-chip wide">TARİH<b>${date}</b></div>` +
             ((typeof storyEra === 'function') ? (() => { const e = storyEra();
                 return `<div class="story-stat-chip wide" title="${e.desc}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`; })() : '') +

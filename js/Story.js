@@ -1045,6 +1045,12 @@ function storyAdvance(dtSec) {
         for (const st of STORY.states) {
             const cmds = storyStateCommanders(st), k = Math.max(1, cmds.length);
             const o = inc[st.id] || { oil: 0, manpower: 0, points: 0 };
+            // AŞAMA 3 MAKROEKONOMİ: enflasyon TÜM gelirleri kırpar (%30 → −%35),
+            // piyasa güveni ⭐'ı oynatır (0.85x…1.15x). Para artık iklime bağlı.
+            if (typeof storyEconIncomeMul === 'function') {
+                const _em = storyEconIncomeMul(st);
+                o.oil *= _em.all; o.manpower *= _em.all; o.points *= _em.all * _em.points;
+            }
             // 1.5 EKONOMİST: lojistik becerisi → DAHA BÜYÜK gelir payı (toplam korunur; komutanlar gerçek birey)
             // FAZ-7: Seferberlik/Hazinedar yetenekleri oyuncunun PAYINI büyütür (toplam gelir sabit)
             const _shareOf = c => (1 + (((c.skills && c.skills.economist) || 0) * 0.12))
@@ -1076,6 +1082,8 @@ function storyAdvance(dtSec) {
     }
     STORY._accLoyalty = (STORY._accLoyalty || 0) + dtSec;
     if (STORY._accLoyalty >= 0.5) { STORY._accLoyalty = 0; storyApplyLoyaltyDrift(); } // sadakat drift
+    STORY._accEcon = (STORY._accEcon || 0) + dtSec;
+    if (STORY._accEcon >= 4) { const _edt = STORY._accEcon; STORY._accEcon = 0; if (typeof storyEconomyTick === 'function') storyEconomyTick(_edt); }   // AŞAMA 3 makroekonomi
     STORY._accGrow = (STORY._accGrow || 0) + dtSec;
     if (STORY._accGrow >= 5) { const _gdt = STORY._accGrow; STORY._accGrow = 0; if (typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_gdt); }   // organik şehir büyümesi
     STORY._accFac = (STORY._accFac || 0) + dtSec;
