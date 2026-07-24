@@ -174,7 +174,10 @@ function storyCouncilTally(item, commanders, st, playerVote) {
         }
         let best = null, bestS = -Infinity;
         for (const o of item.options) {
-            const s = storyCouncilVoteScore(c, o.id, o.appeal, ctx, o.welfare, o.loyGain);
+            // AŞAMA 2: kızgın fraksiyonun sevdiği teklif konseyde ağırlaşır (yatıştırma).
+            // Katsayı storyFacScore içinde ±6 ile sınırlı — konsey dengesi ölçülü kalır.
+            const s = storyCouncilVoteScore(c, o.id, o.appeal, ctx, o.welfare, o.loyGain)
+                    + ((typeof storyFacScore === 'function' && o._fac) ? storyFacScore(o._fac, st) : 0);
             if (s > bestS) { bestS = s; best = o; }
         }
         if (best) byOption[best.id].push(c);
@@ -358,6 +361,7 @@ function storyCouncilApply(st, item, optId) {
         if (!st.laws) st.laws = {};
         st.laws[item.lawSlot] = optId;
         if (o.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + o.welfare));
+        if (typeof storyFacOnLaw === 'function') storyFacOnLaw(st, item.lawSlot, optId, o.name);   // AŞAMA 2: toplum tepkisi
         storyStateComputeTech(st);
         if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
         return `⚖️ <b>${o.name}</b> kanunlaştı`;
@@ -366,6 +370,7 @@ function storyCouncilApply(st, item, optId) {
         const c = CONSTITUTION_BY_ID[optId]; if (!c) return null;
         st.constitution = optId;
         if (c.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + c.welfare));
+        if (typeof storyFacOnConstitution === 'function') storyFacOnConstitution(st, optId, c.name);   // AŞAMA 2
         storyStateComputeTech(st);
         if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
         return `📜 Yeni anayasa: <b>${c.name}</b>`;

@@ -419,7 +419,7 @@ function storyCouncilUpdate() {
     const isAdmin = !!(me.gov && me.gov.leader === 'player');
     const banner = document.getElementById('council-admin-banner');
     if (banner) banner.innerHTML =
-        `<div class="story-res">🏛️ Yönetici: <b style="color:${isAdmin ? '#4cff7c' : '#ffd24c'}">${isAdmin ? 'SEN (Komutan)' : 'AI Cumhurbaşkanı'}</b></div>`
+        `<div class="story-res">🏛️ Cumhurbaşkanı: <b style="color:${isAdmin ? '#4cff7c' : '#ffd24c'}">${isAdmin ? (STORY.commander ? STORY.commander.name + ' (SEN)' : 'SEN') : ((typeof storyPresidentName === 'function') ? storyPresidentName(me) : 'AI')}</b></div>`
         + storyBar('Refah', me.welfare, '#54e08a')
         + `<div class="story-res">🏅 İtibar <b>${me.reputation}/6</b>${isAdmin ? '' : (me.reputation >= 6 && me.welfare >= 60 ? ' <span style="color:#4cff7c">— seçime hazırsın!</span>' : ` <span style="color:#9fb3c8">(seçim: itibar≥6 + refah≥60)</span>`)}</div>`
         + (isAdmin ? `<div class="story-res" style="color:#4cff7c;font-size:12px">🎖️ Komutan yaratabilir/dağıtabilirsin.</div>` : `<div class="story-res" style="color:#9fb3c8;font-size:12px">🔒 Yönetici olunca komutanları yönetirsin.</div>`);
@@ -464,6 +464,8 @@ function storyCouncilUpdate() {
     // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı (KANUNLAR sekmesi)
     const laws = document.getElementById('council-lawbox');
     if (laws && typeof storyCouncilLawsHtml === 'function') laws.innerHTML = storyCouncilLawsHtml(me);
+    const facbox = document.getElementById('council-facbox');
+    if (facbox && typeof storyFacHtml === 'function') facbox.innerHTML = storyFacHtml(me);   // AŞAMA 2
     storyCouncilSyncTabs();
 }
 // Aktif sekmeyi göster/gizle (komutan listesi ↔ kanun/anayasa)
@@ -472,6 +474,7 @@ function storyCouncilSyncTabs() {
     document.querySelectorAll('#council-tabs .ctab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.getElementById('council-tab-cmd')?.classList.toggle('hidden', tab !== 'cmd');
     document.getElementById('council-tab-law')?.classList.toggle('hidden', tab !== 'law');
+    document.getElementById('council-tab-fac')?.classList.toggle('hidden', tab !== 'fac');
 }
 function storyCouncilCreate() {
     const me = storyPlayerState(); if (!me || !(me.gov && me.gov.leader === 'player')) return;

@@ -230,6 +230,7 @@ app.whenReady().then(() => {
             }
             // yıl 10 panelleri: konsey çekmecesi + sohbet defteri
             await click('#story-council-btn'); await sleep(400); await shot('panel-konsey');
+            await click('.ctab[data-tab="fac"]'); await sleep(300); await shot('panel-fraksiyonlar');
             await click('#story-council-btn'); await sleep(200);
             await click('#story-army-btn'); await sleep(400); await shot('panel-ordu');
             console.log('PLAYTEST_SHOTS ' + SHOTS_DIR);

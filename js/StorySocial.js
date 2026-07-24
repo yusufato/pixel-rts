@@ -12,6 +12,8 @@ function storyApplyLoyaltyDrift() {
     for (const st of STORY.states) {
         if (!st.gov) continue;
         const wf = (st.welfare - 50) * 0.02;                     // refah yüksek→sadakat artar
+        // AŞAMA 2: GENEL HUZURSUZLUK sadakati kemirir (öfkeli toplumda subaylar da sallanır)
+        const _unr = (typeof storyFacUnrest === 'function') ? storyFacUnrest(st) : 0;
         for (const cmd of st.gov.commanders) {
             if (cmd === STORY.commander) continue;               // oyuncu jetonu sabit (100)
             const rb = cmd.recentBattles || [];
@@ -32,7 +34,7 @@ function storyApplyLoyaltyDrift() {
             // TABAN EROZYON -0.15 → -0.04: eski değerde başlangıç refahında (50, yani wf=0) net drift
             // NEGATİF kalıyordu ve komutanlar hiçbir şey yapılmasa bile 1.5-3 dakikada firar eşiğine
             // (35) iniyordu. Sadakat kaybı KÖTÜ YÖNETİMİN sonucu olmalı, varsayılan durum değil.
-            let drift = -0.04 + wf + wr + per + dip + fric;
+            let drift = -0.04 + wf + wr + per + dip + fric - _unr * 0.0012;
             // KONSEY: Propaganda/Sansür/Aristokrat Subaylık + anayasa → NEGATİF drift'i yumuşatır
             // (pozitif drift'e dokunmaz: sadakat kazanmayı ucuzlatmaz, kaybetmeyi zorlaştırır)
             const hold = (st._techBonus && st._techBonus.loyaltyHold) || 1;
@@ -49,6 +51,7 @@ function storyStateStr(st) { return st.res.oil + st.res.manpower + st.res.points
 function storyStateHealth(st) { return (st.welfare + st.reputation * 10) / 2; }
 function storyCommanderDefectTo(cmd, fromSt, toSt, atNode) {
     if (typeof storyEraEvent === 'function') storyEraEvent('firar');   // FAZ-10: çalkantı ölçümü
+    if (typeof storyFacEvent === 'function') storyFacEvent(fromSt, 'defect');   // AŞAMA 2: firar toplumu sarsar
     const i = fromSt.gov.commanders.indexOf(cmd); if (i >= 0) fromSt.gov.commanders.splice(i, 1);
     if (!toSt.gov) toSt.gov = { leader: 'ai', commanders: [] };
     cmd.st = toSt.id;   // FAZ-8: firar edince devlet bağı da taşınır
@@ -133,10 +136,13 @@ function storyApplyCoups() {
             STORY._coupWarnT = STORY.clock;                       // darbe ÖNCESİ adil uyarı (oyuncuya tepki şansı)
             storyFlash('⚠️ Komutanların huzursuz (düşük sadakat) — refahı yükselt yoksa DARBE riski!');
         }
-        if (Math.random() >= 0.2 + ((40 - avg) / 40) * 0.5) continue;   // taban %30→%20 (oyuncuya adil)
+        // AŞAMA 2: ordu fraksiyonu küskünse cunta cesaretlenir (×1.5), memnunsa yönetimi korur (×0.7)
+        const _coupP = (0.2 + ((40 - avg) / 40) * 0.5) * ((typeof storyFacCoupMul === 'function') ? storyFacCoupMul(st) : 1);
+        if (Math.random() >= _coupP) continue;
         if (st.isPlayer && st.gov.leader === 'player') {         // ── OYUNCU DARBESİ (dramatik risk) ──
             st.gov.leader = 'ai'; st.isAdmin = false;
             st.reputation = Math.max(0, st.reputation - 4); st.welfare = Math.max(0, st.welfare - 20);
+            if (typeof storyFacEvent === 'function') storyFacEvent(st, 'coup');   // AŞAMA 2
             for (const c of disloyal) c.loyalty = 50;
             storyFlash('🔥 DARBE! Komutan konseyi seni devirdi — yöneticiliği KAYBETTİN. Refahı/sadakati yükselt, yeniden seçil.');
             if (typeof storyCouncilUpdate === 'function') storyCouncilUpdate();

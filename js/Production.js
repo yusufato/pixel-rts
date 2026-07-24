@@ -265,7 +265,7 @@ function prodTick(step) {
             const k = prodBuildingFor(job.type);
             if (busy[k]) continue;          // o bina bu tick zaten bir iş işliyor
             busy[k] = 1;
-            job.t -= step;
+            job.t -= step * ((typeof storyFacStrikeMul === 'function') ? storyFacStrikeMul(n.owner) : 1);   // AŞAMA 2: grev
         }
         for (let i = n.q.length - 1; i >= 0; i--) {
             if (n.q[i].t > 0) continue;

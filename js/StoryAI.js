@@ -527,6 +527,8 @@ function storyResolveSiege(node, byState, besiegers) {
 }
 function storySiegeConquer(node, byState, lead, defState) {
     node._siege = null;
+    // AŞAMA 2: toplum fetihleri hisseder (kazanan ordu övünür, kaybeden ordu küser)
+    if (typeof storyFacEvent === 'function') { storyFacEvent(byState, 'cityWon'); storyFacEvent(defState, 'cityLost'); }
     node.owner = byState.id; storyCityRename(node); lead.node = node.id;
     if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // kuşatma düşünce şehirdeki ordu da dağılır
     byState.welfare = Math.min(100, byState.welfare + 1); if (defState) defState.welfare = Math.max(0, defState.welfare - 3);
