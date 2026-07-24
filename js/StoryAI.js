@@ -185,10 +185,16 @@ function storyExposureAt(node, st) {
 function storyEvalTarget(cmd, st, t, atk, p) {
     const ts = storyState(t.owner); if (!ts) return null;
     const win = atk / (atk + storyCalcDefenseStrength(t, ts));
-    if (win < p.minWin) return null;                                                // kişiliğin risk eşiği
+    // KİŞİLİK MOTORU (AŞAMA 1): devlet doktrini CUMHURBAŞKANINDAN türer ve asıl
+    // kaldıracı RİSK EŞİĞİDİR. İlk sürüm yalnız EV'yi çarpıyordu; ölçüm (doctrine.js)
+    // bunun etkisiz olduğunu yakaladı — hedef seçiminde mutlak eşik yok, EV çarpanı
+    // sadece SIRALAMAYI değiştiriyor, saldırı kararını değil. Şahin lider riskli
+    // hedefe de girer (minWin ×0.8), güvercin yalnız garanti işe girer (×1.2).
+    const _doc = (typeof storyDoctrineAggr === 'function') ? storyDoctrineAggr(st) : 1;
+    if (win < Math.min(0.95, p.minWin * (2 - _doc))) return null;                   // kişilik × doktrin risk eşiği
     // FAZ-10: ÇAĞ ETKİSİ — kaos/ateş çağında herkes daha atak, barışta daha çekingen
     const _eraAggr = (typeof storyEraEffects === 'function') ? (storyEraEffects().aggression || 1) : 1;
-    let ev = storyTargetValue(t) * p.valMul * win * _eraAggr;
+    let ev = storyTargetValue(t) * p.valMul * win * _eraAggr * _doc;
     // (1.2) İLERİYE-BAKIŞ — overextension cezası: alırsam karşı-saldırı gücü gücüme göre büyükse EV düşer (temkin kişiliğe bağlı)
     const exposure = storyExposureAt(t, st);
     ev /= (1 + (exposure / Math.max(atk, 1)) * (p.caution == null ? 1 : p.caution));

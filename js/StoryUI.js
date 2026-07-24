@@ -448,7 +448,7 @@ function storyCouncilUpdate() {
         return `<div class="council-row${c.isPlayer ? ' is-player' : ''}" data-node="${c.node}" data-cmd-id="${c.id}">`
             + `<span class="cr-token" style="background:${col}"></span>`
             + `<div class="cr-main"><div class="cr-name"><span title="${c.personality}">${storyPersonaIcon(c.personality)}</span> ${c.name}${self}${star}</div><div class="cr-loc">${loc}</div></div>`
-            + storyCouncilSkillBars(c.skills)
+            + ((typeof charDiceBadge === 'function') ? charDiceBadge(c.skills) : storyCouncilSkillBars(c.skills))
             + `<div class="cr-loyalty${risk}" title="Sadakat ${loy}/100"><span class="cr-loy-dot" style="background:${storyLoyColor(loy)}"></span>${loy}</div>`
             + `<button class="cr-dismiss${showX}" data-cmd-id="${c.id}" title="Kov">✖</button></div>`;
     }).join('');

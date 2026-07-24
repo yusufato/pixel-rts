@@ -64,7 +64,9 @@ function cmdrUnlocked(cmd) {
 function cmdrHas(id, cmd) { return cmdrUnlocked(cmd).indexOf(id) >= 0; }
 function cmdrTotalLP(cmd) {
     const c = cmd || STORY.commander; if (!c) return 0;
-    return Math.max(0, ((c.rank || 1) - 1) * CMDR_LP_PER_RANK + (c.victories || 0));
+    // + lpBonus: karakter ekranı zar denkleştirmesi (21 − zar toplamı) — düşük zar
+    // atan oyuncu gelişim bütçesiyle telafi edilir, "6/6/6 gelene dek bas" istismarı ölür.
+    return Math.max(0, ((c.rank || 1) - 1) * CMDR_LP_PER_RANK + (c.victories || 0) + (c.lpBonus || 0));
 }
 function cmdrSpentLP(cmd) {
     let s = 0;

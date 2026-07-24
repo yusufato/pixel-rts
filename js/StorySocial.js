@@ -18,10 +18,21 @@ function storyApplyLoyaltyDrift() {
             const wr = rb.length ? (rb.reduce((a, b) => a + b, 0) / rb.length - 0.5) * 0.3 : 0;   // galibiyet→sadakat
             const per = { agresif: -0.10, dengeli: 0, savunmacı: 0.15, fırsatçı: -0.12 }[cmd.personality] || 0;
             const dip = ((cmd.skills && cmd.skills.diplomat) || 0) * 0.05;   // DİPLOMAT: sadakat istikrarı (firar/darbe direnci)
+            // KİŞİLİK MOTORU (AŞAMA 1): İDEOLOJİK SÜRTÜNME — komutan liderin çizgisinden
+            // uzaklaştıkça yavaşça soğur. 30 birim eksen mesafesine kadar bedava (hizip
+            // değil fikir ayrılığı); 80 mesafe → -0.10/tik. Taban erozyonla aynı büyüklük
+            // sınıfında tutuldu ki tek başına firar tetiklemesin, sadece yön versin.
+            let fric = 0;
+            const _pres = st.gov.president;
+            if (cmd.axes && _pres && _pres.axes) {
+                const _d = (Math.abs(cmd.axes.hawk - _pres.axes.hawk) + Math.abs(cmd.axes.auth - _pres.axes.auth)
+                          + Math.abs(cmd.axes.pop - _pres.axes.pop) + Math.abs(cmd.axes.nat - _pres.axes.nat)) / 4;
+                fric = -Math.max(0, _d - 30) * 0.002;
+            }
             // TABAN EROZYON -0.15 → -0.04: eski değerde başlangıç refahında (50, yani wf=0) net drift
             // NEGATİF kalıyordu ve komutanlar hiçbir şey yapılmasa bile 1.5-3 dakikada firar eşiğine
             // (35) iniyordu. Sadakat kaybı KÖTÜ YÖNETİMİN sonucu olmalı, varsayılan durum değil.
-            let drift = -0.04 + wf + wr + per + dip;
+            let drift = -0.04 + wf + wr + per + dip + fric;
             // KONSEY: Propaganda/Sansür/Aristokrat Subaylık + anayasa → NEGATİF drift'i yumuşatır
             // (pozitif drift'e dokunmaz: sadakat kazanmayı ucuzlatmaz, kaybetmeyi zorlaştırır)
             const hold = (st._techBonus && st._techBonus.loyaltyHold) || 1;

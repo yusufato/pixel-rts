@@ -297,6 +297,9 @@ function storyCreateCommander(stateId, node) {
         st: stateId,                                     // FAZ-8: bağlı olduğu devlet (ordu tavanı için hızlı erişim)
         node: (node != null ? node : (cap != null ? cap : 0))
     };
+    // KİŞİLİK MOTORU (AŞAMA 1): her komutan 4 ideolojik eksen taşır — oylar,
+    // sadakat sürtünmesi ve bağ sürüklenmesi bunlardan beslenir.
+    cmd.axes = (typeof charAxesFor === 'function') ? charAxesFor(cmd.personality) : null;
     const _tb = st._techBonus;                            // TEKNOLOJİ/KANUN (Subay Okulu, Liyakat): +1 yetenek — HER devlet için
     if (_tb && _tb.officer && cmd.skills) {
         const o = _tb.officer;
@@ -375,6 +378,11 @@ function storyNewCampaign(config = {}) {
     // OYUNCUNUN KOMUTANI = kontrol-jetonu (bağımsız bir komutan-birey)
     STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {}, army: {}, st: playerStateId };
     storyInitGovernments();                            // her devlete AI komutan + hükümet iskeleti
+    // AŞAMA 1: her devlete İSİMLİ cumhurbaşkanı ("AI Cumhurbaşkanı" etiketi öldü) +
+    // oyuncunun karakter ekranı çıktısı (isim, zar, eksenler, tohumlar) uygulanır.
+    if (typeof storyEnsurePresidents === 'function') storyEnsurePresidents();
+    if (typeof charApply === 'function' && config.character) charApply(config.character);
+    if (!STORY.commander.axes && typeof charAxesDefault === 'function') STORY.commander.axes = charAxesDefault();
     STORY.veterans = [];
     // OYUNCU tech'i = kendi devletinin tech dizisi (AYNI dizi nesnesi) → storyTechPowerMul/konsey
     // oyuncu devletinde de doğru çalışır; iki ayrı liste tutmanın yol açtığı sapma biter.
@@ -450,9 +458,12 @@ function storyLoad() {
         for (const st of STORY.states) {
             if (!st.gov) st.gov = { leader: (st.isPlayer && st.isAdmin) ? 'player' : 'ai', commanders: [] };
             st._nextStaff = 0;   // 1.3: genelkurmay hemen yeniden-planlasın
-            for (const c of (st.gov.commanders || [])) { c.st = st.id; if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; if (!c.army || typeof c.army !== 'object') c.army = {}; delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
+            for (const c of (st.gov.commanders || [])) { c.st = st.id; if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; if (!c.army || typeof c.army !== 'object') c.army = {}; if (!c.axes && typeof charAxesFor === 'function') c.axes = charAxesFor(c.personality); delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
         }
         _storyCmdNextId = _mx + 1;
+        // AŞAMA 1 göçü: eski kayıtlarda eksen/cumhurbaşkanı yok → üret
+        if (typeof storyEnsurePresidents === 'function') storyEnsurePresidents();
+        if (STORY.commander && !STORY.commander.axes && typeof charAxesDefault === 'function') STORY.commander.axes = charAxesDefault();
         STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
         // FAZ-2 Adım 4 + FAZ-4: devlet tech/kanun/anayasa backfill + bonus (eski kayıtlar konsey öncesinden gelir)
         for (const st of STORY.states) {

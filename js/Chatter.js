@@ -217,6 +217,14 @@ function storyChatterTick(dtSec) {
 
     // etkileri uygula
     if (eff.bond) cmdBondAdd(a, b, eff.bond);
+    // KİŞİLİK MOTORU (AŞAMA 1): eksen yakınlığı bağı sürükler — benzer görüşler
+    // klikleşir, zıtlar her sohbette biraz soğur. Darbe koalisyonları böylece
+    // rastgele değil KİŞİLİKTEN doğar (mesafe<22 → +1, mesafe>45 → −1).
+    if (a.axes && b.axes) {
+        const _ad = (Math.abs(a.axes.hawk - b.axes.hawk) + Math.abs(a.axes.auth - b.axes.auth)
+                   + Math.abs(a.axes.pop - b.axes.pop) + Math.abs(a.axes.nat - b.axes.nat)) / 4;
+        cmdBondAdd(a, b, _ad < 22 ? 1 : (_ad > 45 ? -1 : 0));
+    }
     if (eff.loyA) a.loyalty = Math.max(0, Math.min(100, (a.loyalty == null ? 60 : a.loyalty) + eff.loyA));
     if (eff.loyB) b.loyalty = Math.max(0, Math.min(100, (b.loyalty == null ? 60 : b.loyalty) + eff.loyB));
     if (eff.rel && ctx.rival) storyRelAdd(me.id, ctx.rival.id, eff.rel);

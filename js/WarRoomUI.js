@@ -160,12 +160,16 @@ function warRoomSetupOpen() {
 
 function warRoomStartCampaign() {
     if (WAR_ROOM_SETUP.stateId == null || typeof storyNewCampaign !== 'function') return;
-    storyNewCampaign({
+    const cfg = {
         playerStateId: WAR_ROOM_SETUP.stateId,
         abundance: WAR_ROOM_SETUP.abundance,
         doctrine: WAR_ROOM_SETUP.doctrine,
         fog: WAR_ROOM_SETUP.fog
-    });
+    };
+    // AŞAMA 1: kurulumdan sonra KARAKTER EKRANI araya girer (isim + zar + 12 soru).
+    // Karakter ekranı yoksa (eski test yolu) doğrudan kampanya başlar.
+    if (typeof charOpen === 'function') { charOpen(cfg); return; }
+    storyNewCampaign(cfg);
     if (typeof storyOpen === 'function') storyOpen();
 }
 

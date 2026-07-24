@@ -139,6 +139,16 @@ function storyCouncilVoteScore(cmd, optId, appeal, ctx, wfDelta, loyDelta) {
     s += (a.diplomat  || 0) * (sk.diplomat  || 0);
     s += (a.economist || 0) * (sk.economist || 0);
     s += (a.aggr      || 0) * (aggr - 1) * 8;
+    // KİŞİLİK MOTORU (AŞAMA 1): ideolojik eksenler de oy verir. Şahin, savaşçıl
+    // teklife; otoriter, refah kırpan sert düzene; halkçı, refah artıran teklife
+    // yatkındır. Katsayılar bilinçli küçük — ölçülmüş konsey dengesini devirmesin
+    // (yön doğrulaması chartest.js'te, denge 8×900sn kıyaslamasında).
+    const ax = cmd.axes;
+    if (ax) {
+        s += ((ax.hawk - 50) / 50) * (a.aggr || 0) * 2.0;
+        s += ((ax.auth - 50) / 50) * ((wfDelta || 0) < 0 ? 1.2 : -0.6);
+        s += ((ax.pop  - 50) / 50) * ((wfDelta || 0) > 0 ? 1.2 : -0.6);
+    }
     if (ctx) {
         // Kriz baskısı: refah/sadakat ihtiyacı arttıkça o eksendeki teklif ağırlaşır.
         // Diplomat komutan halkın hâlini daha çok umursar, agresif komutan daha az.
@@ -569,7 +579,7 @@ function storyCouncilSessionRender() {
         `<div class="cs-eyebrow">${storyDateLabel()} · ${S.capName} · ${S.urgent ? '⚠️ OLAĞANÜSTÜ ÇAĞRI' : COUNCIL_PERIOD_YEARS + ' YILLIK OLAĞAN TOPLANTI'}</div>`
         + `<h2 class="cs-title">${S.urgent ? 'OLAĞANÜSTÜ KONSEY' : 'KONSEY TOPLANTISI'}</h2>`
         + (S.reason ? `<div class="cs-reason">${S.reason}</div>` : '')
-        + `<div class="cs-role">${S.isAdmin ? (S.atCapital ? '🏛️ <b style="color:#4cff7c">YÖNETİCİSİN — son sözü sen söylersin</b>' : '📡 <b style="color:#ffd24c">YÖNETİCİSİN ama başkentte değilsin — konseyi ezemezsin</b>') : '🗳️ <b style="color:#9fb3c8">Bir oyun var; kararı AI Cumhurbaşkanı verir</b>'}</div>`;
+        + `<div class="cs-role">${S.isAdmin ? (S.atCapital ? '🏛️ <b style="color:#4cff7c">YÖNETİCİSİN — son sözü sen söylersin</b>' : '📡 <b style="color:#ffd24c">YÖNETİCİSİN ama başkentte değilsin — konseyi ezemezsin</b>') : ('🗳️ <b style="color:#9fb3c8">Bir oyun var; kararı Cumhurbaşkanı ' + ((typeof storyPresidentName === 'function') ? storyPresidentName(storyPlayerState()) : '') + ' verir</b>')}</div>`;
 
     const canOverride = S.isAdmin && S.atCapital;
     const decided = canOverride ? myVote : tally.winner.id;    // fiilen ne uygulanacak
