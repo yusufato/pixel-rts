@@ -74,8 +74,12 @@ function storyEconSpawnDemand(st) {
     if (!cand.length || Math.random() > 0.5) return;
     const key = cand[0].k, d = ECON_DEMANDS[key]; if (!d) return;
     st._facDemand = { fac: key, until: (STORY.clock || 0) + 60 };
-    if (st.isPlayer && typeof storyFlash === 'function')
-        storyFlash(`${d.icon} TALEP: ${d.name}${d.cost ? ` (${d.cost}⭐ hazineden)` : ''} — Konsey ▸ Fraksiyonlar'dan karar ver (60 sn).`);
+    if (st.isPlayer) {
+        if (typeof storyFlash === 'function')
+            storyFlash(`${d.icon} TALEP: ${d.name}${d.cost ? ` (${d.cost}⭐ hazineden)` : ''} — Konsey ▸ Fraksiyonlar'dan karar ver (60 sn).`);
+        if (typeof storyLog === 'function')
+            storyLog(`${d.icon} <b>TALEP</b>: ${d.name}${d.cost ? ` (${d.cost}⭐)` : ''} — 60 sn içinde karar ver (Konsey ▸ Fraksiyonlar).`);
+    }
 }
 function storyEconResolveDemand(st, accept) {
     const dem = st._facDemand; if (!dem) return false;
@@ -93,6 +97,8 @@ function storyEconResolveDemand(st, accept) {
     } else {
         storyFacApply(st, d.reject, d.name + ' (ret)');
     }
+    if (typeof storyNews === 'function' && (st.isPlayer || Math.random() < 0.2))
+        storyNews('demand', { st: st.name, dem: d.name, res: accept ? 'kabul edildi' : 'reddedildi' });
     if (st.isPlayer && typeof storyCouncilUpdate === 'function') storyCouncilUpdate();
     return true;
 }
@@ -153,6 +159,7 @@ function storyEconomyTick(dt) {
             if (st.factions) st.factions.business = Math.max(5, st.factions.business - 5);
             st.trust += 8;                                          // kaçış sonrası kısmi rahatlama
             storyLog(`💸 <b>${st.name}</b>'de SERMAYE KAÇIŞI — hazine ⭐'ının %15'i yurt dışına çıktı.`);
+            if (typeof storyNews === 'function') storyNews('flight', { st: st.name });
             if (typeof storyEraEvent === 'function') storyEraEvent('kacis');
         }
 
@@ -168,6 +175,7 @@ function storyEconomyTick(dt) {
             st.welfare = Math.max(0, st.welfare - 5);
             if (st.factions) st.factions.radicals = Math.min(95, st.factions.radicals + 4);
             storyLog(`🌾 <b>${st.name}</b>'de KITLIK — ordu ve nüfus şehirlerin besleyebileceğinden büyük (${(food * 100 | 0)}%).`);
+            if (typeof storyNews === 'function') storyNews('famine', { st: st.name });
             if (st.isPlayer && typeof storyFlash === 'function') storyFlash('🌾 KITLIK — ordun ve nüfusun şehirlerini aştı: şehir kazan ya da orduyu küçült.');
         }
 

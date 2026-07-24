@@ -42,8 +42,19 @@ function storyTreaty(a, b) {
 }
 function storySetTreaty(a, b, t, years) {
     const r = storyRel(a, b); if (!r) return;
+    const prev = r.treaty;
     r.treaty = t;
     r.until = years ? (STORY.clock || 0) + years * YEAR_SECONDS : 0;
+    // AŞAMA 4: savaş ilanı ve barış manşetlik (oyuncu taraflıysa hep, değilse %30)
+    if (typeof storyNews === 'function' && prev !== t) {
+        const A = storyState(a), B = storyState(b);
+        const pid = STORY.playerStateId;
+        const rel = (a === pid || b === pid) || Math.random() < 0.3;
+        if (A && B && rel) {
+            if (t === 'war' && prev !== 'war') storyNews('treatyWar', { a: A.name, b: B.name });
+            else if (prev === 'war' && t !== 'war') storyNews('treatyPeace', { a: A.name, b: B.name, kind: (typeof TREATIES !== 'undefined' && TREATIES[t]) ? TREATIES[t].name : t });
+        }
+    }
 }
 // AI hedeflemesinin sorduğu tek soru: buraya saldırabilir miyim?
 function storyIsHostile(a, b) {

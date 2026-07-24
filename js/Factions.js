@@ -98,6 +98,9 @@ function storyFacApply(st, deltas, why) {
     if (why && parts.length) {
         st._facLog.unshift(`${why}: ${parts.join(' ')}`);
         if (st._facLog.length > 6) st._facLog.pop();
+        // KULLANICI İSTEĞİ: oyuncunun devletindeki fraksiyon tepkileri ANA KAYITTA
+        // görünsün — "arka planda ben görmeden olup bitiyor" şikâyetinin cevabı.
+        if (st.isPlayer && typeof storyLog === 'function') storyLog(`⚖️ ${why}: ${parts.join(' ')}`);
     }
 }
 function storyFacOnLaw(st, slotKey, optId, optName) { storyFacApply(st, FAC_LAW[slotKey + '.' + optId], optName || (slotKey + '.' + optId)); }
@@ -175,6 +178,7 @@ function storyFactionsTick(dt) {
             st.welfare = Math.max(0, st.welfare - 3);
             storyFacEvent(st, 'strike');   // buhar boşalır: radikaller iner, işçiler kazanım hisseder
             storyLog(`🪧 <b>${st.name}</b>'de GENEL GREV — üretim 40 sn yavaşlayacak.`);
+            if (typeof storyNews === 'function') storyNews('strike', { st: st.name });
             if (typeof storyEraEvent === 'function') storyEraEvent('grev');
         }
     }

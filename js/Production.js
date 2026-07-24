@@ -539,19 +539,28 @@ function storyCityUpdate() {
             ? gbar('👥 Nüfus (bin)', n.pop || 0, req.pop) + gbar('💰 Zenginlik', n.wealth || 0, req.wealth)
               + `<div class="city-hint">Şehir <b>kendiliğinden</b> büyür: refah, binalar, kaynak yatakları hızlandırır; kuşatma, grev, huzursuzluk durdurur. İki eşik dolunca <b>Sv.${lvl + 1}</b>.</div>`
             : `<div class="city-hint">Şehir en yüksek seviyede — nüfus ${Math.round(n.pop || 0)}k.</div>`)
-        + `<div class="city-acts"><button class="city-btn cb-sub" data-sub="${sub ? 'genel' : 'binalar'}">${sub ? '← ŞEHRE DÖN' : '🏗️ BİNALAR'}</button></div>`
+        + `<div class="city-acts">${STORY._citySub && STORY._citySub !== 'genel'
+            ? `<button class="city-btn cb-sub" data-sub="genel">← ŞEHRE DÖN</button>`
+            : `<button class="city-btn cb-sub" data-sub="binalar">🏗️ BİNALAR</button>
+               <button class="city-btn cb-sub" data-sub="ordu">⚔️ ORDU ÜRET</button>`}</div>`
         + `</div>`;
 
-    if (sub) {   // 🏗️ BİNALAR alt-görünümü: fabrika + kışla kur/yükselt (kullanıcı isteği)
+    if (STORY._citySub === 'binalar') {   // 🏗️ BİNALAR: fabrika + kışla kur/yükselt
         body.innerHTML = top
             + prodBuildingSection(n, 'fac', w, true)
             + prodBuildingSection(n, 'bar', w, true)
             + `<div class="city-hint">Bina seviyesi şehir seviyesini en fazla 1 aşar; şehir büyüdükçe tavan açılır.</div>`;
         return;
     }
+    if (STORY._citySub === 'ordu') {      // ⚔️ ORDU ÜRET: birim üretimi burada (kullanıcı isteği)
+        body.innerHTML = top
+            + prodBuildingSection(n, 'fac', w, false)
+            + prodBuildingSection(n, 'bar', w, false)
+            + prodQueueSection(n);
+        return;
+    }
+    // GENEL görünüm: özet — üretim ORDU ÜRET'te, binalar BİNALAR'da (panel ferahladı)
     body.innerHTML = top
-        + prodBuildingSection(n, 'fac', w, false)
-        + prodBuildingSection(n, 'bar', w, false)
         + prodQueueSection(n)
         + `<div class="prod-sec"><div class="prod-head"><span>🛡️ GARNİZON <b>${gar}/${cap}</b></span>`
         + `<button class="city-btn cb-gar" data-node="${n.id}" ${(gar >= cap || (w.manpower || 0) < CITY_GARRISON_COST) ? 'disabled' : ''}>+1 (${CITY_GARRISON_COST}👥)</button></div>`
@@ -768,6 +777,9 @@ function storyCityGrowthTick(dt) {
             if (n.owner === STORY.playerStateId) {
                 storyLog(`🏙️ <b>${n.name}</b> büyüdü — <b>Sv.${n.level}</b> (nüfus ${Math.round(n.pop)}k). Bina tavanı yükseldi.`);
                 if (typeof storyFlash === 'function') storyFlash(`🏙️ ${n.name} Sv.${n.level} oldu`);
+                if (typeof storyNews === 'function') storyNews('level', { city: n.name, pop: Math.round(n.pop) });
+            } else if (typeof storyNews === 'function' && Math.random() < 0.15) {
+                storyNews('level', { city: n.name, pop: Math.round(n.pop) });
             }
         }
     }

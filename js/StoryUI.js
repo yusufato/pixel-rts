@@ -109,7 +109,7 @@ function storyTechClose() {
 function storyTechToggle() { STORY._techOpen ? storyTechClose() : storyTechOpen(); }
 // ORDUM paneli — komutan kartı + ordu bütçesi (kasan) + gaziler
 function storyArmyOpen() {
-    storyCouncilClose(); storyTechClose(); storyCityClose();
+    storyCouncilClose(); storyTechClose(); storyCityClose(); if (typeof storyNewsClose === 'function') storyNewsClose();
     STORY._armyOpen = true;
     const p = document.getElementById('army-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -542,6 +542,8 @@ function storyInit() {
         const node = e.target.closest('.tech-node.available'); if (node && node.dataset.tech) storyTechBuy(node.dataset.tech);
     });
     document.getElementById('story-army-btn')?.addEventListener('click', storyArmyToggle);
+    document.getElementById('story-news-btn')?.addEventListener('click', () => (typeof storyNewsToggle === 'function') && storyNewsToggle());
+    document.getElementById('news-close')?.addEventListener('click', () => (typeof storyNewsClose === 'function') && storyNewsClose());
     document.getElementById('army-close')?.addEventListener('click', storyArmyClose);
     document.getElementById('story-city-btn')?.addEventListener('click', storyCityToggle);
     document.getElementById('city-close')?.addEventListener('click', storyCityClose);

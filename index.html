@@ -205,8 +205,14 @@
                 <button id="story-city-btn" class="tool-btn" title="Seçili şehri yönet: bina, üretim, garnizon, ordu"><b>04</b><span>ŞEHRE GİR</span></button>
                 <button id="story-talk-btn" class="tool-btn" title="Sohbetler ve diplomasi"><b>05</b><span>SOHBET</span><i id="story-talk-badge" class="tool-badge hidden"></i></button>
                 <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>06</b><span>KOMUTAN</span></button>
+                <button id="story-news-btn" class="tool-btn" title="Gazete — dünya manşetleri ve çarpıtma"><b>07</b><span>GAZETE</span><i id="news-badge" class="tool-badge hidden"></i></button>
             </div>
             <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
+            <aside id="news-panel" aria-hidden="true">
+                <div class="panel-header"><span class="council-title">GAZETE</span>
+                    <button id="news-close" class="council-x" aria-label="Kapat">KAPAT</button></div>
+                <div id="news-body"></div>
+            </aside>
             <aside id="council-panel" aria-hidden="true">
                 <div id="council-header">
                     <span class="council-title">KONSEY</span>
@@ -472,6 +478,7 @@
     <script src="js/Character.js"></script>
     <script src="js/Factions.js"></script>
     <script src="js/Economy.js"></script>
+    <script src="js/News.js"></script>
     <script src="js/StoryRender.js"></script>
     <script src="js/StoryUI.js"></script>
     <script src="js/Production.js"></script>

@@ -189,3 +189,77 @@ if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _p);
     else _p();
 }
+
+// ═══ AŞAMA 4: GAZETECİ + UZUN DİYALOG ═══════════════════════════════════════
+// İki yeni üretim türü, aynı sözleşme: şablon zaten basıldı, LLM yetişirse
+// zenginleştirir; her çıktı doğrulayıcıdan geçer, sayı/etki asla LLM'den gelmez.
+
+const LLM_NEWS_SYSTEM = `Sen kurgusal bir dünyada sert kalemli bir gazete editörüsün. Yıl 2030'lar.
+Sana verilen OLAYI tek cümlelik çarpıcı bir Türkçe MANŞET yap.
+KURALLAR:
+- Sadece Türkçe. En fazla 12 kelime. TEK satır.
+- Başına "Manşet:", "Başlık:" gibi etiket YAZMA. Tırnak kullanma.
+- Verilen isimleri aynen kullan; yeni isim uydurma.`;
+
+// Manşet doğrulayıcı: iskele soyulur, ilk makul satır alınır, kaçaklar elenir.
+function llmParseHeadline(text) {
+    if (!text) return null;
+    // Önek/tırnak/yıldız temizliği: model "Manşet:" etiketini bazen TIRNAK İÇİNDE
+    // veriyor ("Manşet: ..."). Tek geçişte sıra yanlıştı — tırnak etiketten sonra
+    // soyulunca etiket kalıyordu. İki kez uygula: tırnak açılır, sonra etiket düşer.
+    const strip1 = l => l.replace(/\*\*/g, '').replace(/^[-*#>\s"«»]+/, '')
+        .replace(/^(manşet|başlık|haber|headline)\s*[:—-]\s*/i, '').replace(/["«»]+$/, '').trim();
+    const strip = l => strip1(strip1(l));
+    const lines = String(text).split('\n').map(strip).filter(Boolean)
+        .filter(l => !/^(madde|işaret|not)\b/i.test(l));
+    if (!lines.length) return null;
+    const h = lines[0];
+    if (h.split(/\s+/).length > 14 || h.length > 120) return null;
+    if (LLM_EN_LEAK.test(h) || LLM_NONLATIN.test(h)) return null;
+    return h;
+}
+function llmEnrichNews(rec) {
+    if (!llmAvailable() || !rec) return;
+    const f = rec.facts || {};
+    const facts = Object.entries(f).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    const tone = rec.spun
+        ? 'TON: hükümet yanlısı devlet basını — olayı yumuşat, paniği önle, yönetimi iyi göster (ama olayı inkâr etme).'
+        : 'TON: bağımsız, keskin, gerçekçi.';
+    llmEnrich(LLM_NEWS_SYSTEM, `OLAY TÜRÜ: ${rec.arch}\nBUGÜN: ${rec.date}\nGERÇEKLER: ${facts}\nŞABLON: ${rec.headline}\n${tone}`,
+        llmParseHeadline)
+        .then(h => {
+            if (!h) return;
+            const icon = (typeof NEWS_ARCH !== 'undefined' && NEWS_ARCH[rec.arch]) ? NEWS_ARCH[rec.arch].icon : '📰';
+            rec.headline = (rec.spun ? '📢 ' : icon + ' ') + h;
+            rec.llm = true;
+            if (STORY._newsOpen && typeof storyNewsUpdate === 'function') storyNewsUpdate();
+        });
+}
+
+// UZUN DİYALOG: oyuncunun katıldığı sohbetler 3-6 replikli karşılıklı konuşmaya
+// dönüşür (kullanıcı isteği: "ben de varsam uzun karşılıklı diyalog silsilesi").
+const LLM_DIALOG_LONG = LLM_SYSTEM.replace('Tam 2 replik yaz', '4 ile 6 arasında replik yaz (karşılıklı konuşma)')
+    .replace('- Her replik en fazla 20 kelime.', '- Her replik en fazla 18 kelime. Konuşma gerçek bir alışveriş olsun: soru, itiraz, cevap.');
+function llmParseDialogLong(text, a, b) {
+    if (!text) return null;
+    const names = [a && a.name, b && b.name].filter(Boolean).map(n => n.split(' ')[0]);
+    const strip = l => l.replace(/\*\*/g, '').replace(/^[*#>\s]+/, '').replace(/\*+$/, '').trim();
+    const raw = String(text).split('\n').map(strip).filter(Boolean);
+    const dlg = raw.filter(l => names.some(n => l.startsWith(n) && l.slice(0, n.length + 12).includes(':')));
+    if (dlg.length < 3) return null;                       // uzun diyalog en az 3 replik ister
+    const picked = dlg.slice(0, 6);
+    for (const l of picked) {
+        if (l.length > 220 || l.split(/\s+/).length > 26) return null;
+        if (LLM_EN_LEAK.test(l) || LLM_NONLATIN.test(l)) return null;
+    }
+    return picked;
+}
+function llmEnrichChatterLong(rec, a, b, topicDesc) {
+    if (!llmAvailable()) return;
+    llmEnrich(LLM_DIALOG_LONG, llmChatterPrompt(rec, a, b, topicDesc), txt => llmParseDialogLong(txt, a, b))
+        .then(lines => {
+            if (!lines) return;
+            rec.lines = lines; rec.llm = true;
+            if (typeof storyTalkUpdate === 'function') storyTalkUpdate();
+        });
+}

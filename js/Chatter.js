@@ -241,9 +241,18 @@ function storyChatterTick(dtSec) {
 
     // LLM ZENGİNLEŞTİRMESİ (varsa): kayıt zaten oyuna girdi ve birleşim üreteciyle
     // yazıldı. Model yetişirse metni değiştirir, yetişmezse hiçbir şey olmaz.
+    const _rec = STORY._chatter[0];
+    const _me = STORY.commander;
+    const _involves = _me && (a.id === _me.id || b.id === _me.id);
+    const _here = _me && a.node === _me.node;
+    // KULLANICI İSTEĞİ: duyabildiğin sohbet ANA KAYITTA da görünsün (takip edilebilir)
+    if ((_involves || _here) && typeof storyLog === 'function' && _rec.lines && _rec.lines[0])
+        storyLog(`👂 ${_involves ? '<b>Seninle</b> konuştu' : 'Kulağına çalındı'}: ${String(_rec.lines[0]).replace(/<[^>]+>/g, '').slice(0, 80)}${_rec.lines.length > 1 ? '…' : ''} <small>(05 SOHBET)</small>`);
     if (typeof llmEnrichChatter === 'function') {
         const desc = (CH_TOPIC_DESC[topic.id] || topic.id);
-        llmEnrichChatter(STORY._chatter[0], a, b, desc);
+        // Oyuncunun KATILDIĞI sohbet uzun karşılıklı diyaloğa dönüşür (AŞAMA 4)
+        if (_involves && typeof llmEnrichChatterLong === 'function') llmEnrichChatterLong(_rec, a, b, desc);
+        else llmEnrichChatter(_rec, a, b, desc);
     }
 
     // dikkat çeken konuşmalar muharebe kaydına da düşer (hepsi değil — log taşmasın)

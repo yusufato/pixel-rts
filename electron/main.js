@@ -237,6 +237,8 @@ app.whenReady().then(() => {
             await click('#story-city-btn'); await sleep(200);
             await click('#story-commander-btn'); await sleep(500); await shot('panel-komutan-agaci');
             await click('#commander-back-btn'); await sleep(200);
+            await click('#story-news-btn'); await sleep(400); await shot('panel-gazete');
+            await click('#story-news-btn'); await sleep(200);
             await click('#story-army-btn'); await sleep(400); await shot('panel-ordu');
             console.log('PLAYTEST_SHOTS ' + SHOTS_DIR);
             console.log('PLAYTEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 5)));

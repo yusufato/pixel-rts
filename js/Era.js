@@ -154,6 +154,7 @@ function storyEraTick() {
     STORY._era = { id: r.era.id, since: STORY.clock || 0, cand: null, candSince: 0 };
     if (typeof storyLog === 'function')
         storyLog(`🌍 <b>ÇAĞ DEĞİŞTİ</b> — ${old.icon} ${old.name} bitti, <span style="color:${r.era.color}">${r.era.icon} ${r.era.name}</span> başladı.`);
+        if (typeof storyNews === 'function') storyNews('era', { era: r.era.name });
 }
 
 // ── OLAY KAYDI (ölçümleri besler) ──────────────────────────────────────────

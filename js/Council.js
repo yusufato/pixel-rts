@@ -371,6 +371,7 @@ function storyCouncilApply(st, item, optId) {
         st.laws[item.lawSlot] = optId;
         if (o.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + o.welfare));
         if (typeof storyFacOnLaw === 'function') storyFacOnLaw(st, item.lawSlot, optId, o.name);   // AŞAMA 2: toplum tepkisi
+        if (typeof storyNews === 'function' && (st.isPlayer || Math.random() < 0.25)) storyNews('law', { st: st.name, law: o.name });
         storyStateComputeTech(st);
         if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
         return `⚖️ <b>${o.name}</b> kanunlaştı`;
