@@ -58,6 +58,15 @@ const SMOKE = process.argv.includes('--smoke');
 // node-llama-cpp'nin doğal ikililerini (asar dışından) gerçekten yükleyip
 // üretebildiğini kanıtlar — GUI açmadan, tam da kullanıcının çalıştıracağı exe ile.
 const LLM_SELFTEST = process.argv.includes('--llm-selftest');
+// GERÇEK-ARAYÜZ TESTİ: `--uitest [--shots <klasör>]` → oyunu AÇAR, menüden karakter
+// ekranına ve dünya haritasına GERÇEKTEN tıklar, her adımın EKRAN GÖRÜNTÜSÜNÜ kaydeder.
+// Neden var: jsdom testleri DOM'u doğrular ama GÖRÜNÜRLÜĞÜ doğrulayamaz — karakter
+// ekranı CSS beyaz-listesinde olmadığı için kabuk gizlenip alttaki savaş kanvası
+// açığa çıkmıştı ve bunu yalnız oyunu gerçekten açan biri görebildi (kullanıcı gördü).
+// Bu test o sınıf hatayı otomatik yakalar; görüntüler insan gözüyle de incelenebilir.
+const UITEST = process.argv.includes('--uitest');
+const _shotsIdx = process.argv.indexOf('--shots');
+const SHOTS_DIR = _shotsIdx >= 0 ? process.argv[_shotsIdx + 1] : path.join(require('os').tmpdir(), 'pixel-uitest');
 
 app.whenReady().then(() => {
     if (LLM_SELFTEST) {
@@ -80,6 +89,66 @@ app.whenReady().then(() => {
             };
             llmChild.on('message', handler);
         }, 300);
+        return;
+    }
+
+    if (UITEST) {
+        createWindow();
+        const fsx2 = require('fs');
+        try { fsx2.mkdirSync(SHOTS_DIR, { recursive: true }); } catch (_) {}
+        const problems = [];
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) problems.push('konsol: ' + message); });
+        win.webContents.on('render-process-gone', (_e, d) => problems.push('render öldü: ' + d.reason));
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        const shot = async name => {
+            try { const img = await win.webContents.capturePage(); fsx2.writeFileSync(path.join(SHOTS_DIR, name + '.png'), img.toPNG()); }
+            catch (e) { problems.push('görüntü alınamadı ' + name + ': ' + e.message); }
+        };
+        const click = sel => js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return 'YOK ' + ${JSON.stringify(sel)}; el.click(); return 'ok'; })()`);
+        // GÖRÜNÜRLÜK: DOM'da olmak yetmez — kutusu sıfırdan büyük ve display:none olmayan ata zinciri gerekir
+        const vis = sel => js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return false;
+            const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2; })()`);
+        const screenName = () => js(`document.body.getAttribute('data-screen')`);
+
+        win.webContents.on('did-finish-load', async () => {
+            const expect = async (step, cond, info) => {
+                const okk = await cond;
+                console.log('UITEST_STEP ' + step + ' ' + (okk ? 'OK' : 'FAIL') + (info ? ' ' + info : ''));
+                if (!okk) problems.push('adım ' + step);
+                return okk;
+            };
+            await sleep(1200); await shot('01-menu');
+            await expect('menu', (async () => (await screenName()) === 'menu' && (await vis('#btn-new-story')))());
+
+            await click('#btn-new-story'); await sleep(500); await shot('02-kurulum');
+            await expect('kurulum', (async () => (await screenName()) === 'story-setup')());
+
+            await click('.wr-state-card'); await sleep(400); await shot('03-devlet-secildi');
+            await click('#btn-story-start'); await sleep(700); await shot('04-karakter-zar');
+            // ASIL DENETİM: karakter ekranı GÖRÜNÜR olmalı, savaş kanvası değil
+            await expect('karakter-görünür', (async () =>
+                (await screenName()) === 'story-character' && (await vis('#char-body')) && (await vis('#char-roll')))(),
+                'screen=' + (await screenName()));
+
+            await click('#char-roll'); await sleep(200);
+            await click('#char-next'); await sleep(400); await shot('05-soru-1');
+            await expect('sorular', vis('.char-opt'));
+            for (let i = 0; i < 12; i++) {
+                await click('.char-opt'); await sleep(150);
+                if (i === 6) await shot('06-soru-7');
+            }
+            await sleep(300); await shot('07-ozet');
+            await expect('özet', vis('#char-go'));
+
+            await click('#char-go'); await sleep(1500); await shot('08-dunya-haritasi');
+            await expect('dünya', (async () => (await screenName()) === 'story')(), 'screen=' + (await screenName()));
+
+            console.log('UITEST_SHOTS ' + SHOTS_DIR);
+            console.log('UITEST_PROBLEMS ' + JSON.stringify(problems));
+            console.log(problems.length ? 'UITEST_FAIL' : 'UITEST_OK');
+            setTimeout(() => app.exit(problems.length ? 1 : 0), 200);
+        });
         return;
     }
 

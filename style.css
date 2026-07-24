@@ -696,6 +696,11 @@ body:not([data-screen="game"]) #minimap { display: none !important; }
 
 body[data-screen="menu"] #war-room-shell,
 body[data-screen="story-setup"] #war-room-shell,
+/* story-character LİSTEDE OLMAK ZORUNDA: bu liste kabuğun görünürlük beyaz-listesi.
+   Karakter ekranı eklendiğinde buraya yazılmadığı için kabuk gizlenip ALTTAKİ SAVAŞ
+   KANVASI açığa çıkıyordu — jsdom testleri yakalayamadı (DOM doğruydu, görünürlük
+   CSS'te ölüyordu). Gerçek-arayüz tıklama testi (uitest) artık bunu da denetliyor. */
+body[data-screen="story-character"] #war-room-shell,
 body[data-screen="quickmatch"] #war-room-shell,
 body[data-screen="multiplayer"] #war-room-shell { display: flex; }
 
