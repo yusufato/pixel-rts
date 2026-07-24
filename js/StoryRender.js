@@ -30,17 +30,26 @@ function storyResize() {
     if (cv.width !== w) cv.width = w;
     if (cv.height !== h) cv.height = h;
 }
-// kamerayı dünya sınırlarında tut — WARP farkında (en geniş şerit = üst satır, sxOf(0)<1)
+// ZOOM-OUT SINIRI: tüm dünya (üst şerit dahil, sxOf(0) en geniş) ekrana ~1.15 marjla
+// sığdığında dur → harita dışını çok gösterme (kullanıcı isteği). Yüksekliği de sığdır.
+function storyMinZoom(w, h) {
+    const zW = w / (STORY_WORLD_W * storySxOf(0) * 1.12);   // genişlik kısıtı (en geniş üst şerit)
+    const zH = h / (STORY_WORLD_H * 1.06);                  // yükseklik kısıtı (vyOf(1)=h)
+    return Math.max(zW, zH);
+}
+// kamerayı sınırlarda tut — WARP farkında. Ortalama: dünya merkezi EKRAN merkezine
+// (warp yatay ölçeği W/2 etrafında olduğu için cam.x = WORLD/2 − (w/2)/z; sxOf ÇARPANI YOK
+// — eski formül sxOf(0)'ı katıp sürekli sola kaydırıyordu).
 function storyClampCam(w, h) {
     STORY._cw = w; STORY._ch = h;
-    storyCam.zoom = Math.max(0.4, Math.min(5, storyCam.zoom));
+    storyCam.zoom = Math.max(storyMinZoom(w, h), Math.min(5, storyCam.zoom));
     const z = storyCam.zoom;
-    const vw = w / z / Math.min(1, storySxOf(0));     // üst şeritte görünen dünya-genişliği (en geniş)
-    if (STORY_WORLD_W <= vw) storyCam.x = (STORY_WORLD_W - vw) / 2;
-    else storyCam.x = Math.max(-vw * 0.22, Math.min(STORY_WORLD_W - vw * 0.62, storyCam.x));
-    const vh = storyVyOf(1) / z;                       // görünen dünya-yüksekliği
-    if (STORY_WORLD_H <= vh) storyCam.y = (STORY_WORLD_H - vh) / 2;
-    else storyCam.y = Math.max(-vh * 0.14, Math.min(STORY_WORLD_H - vh * 0.72, storyCam.y));
+    const visW = w / z / storySxOf(0);                // üst (en geniş) şeritte görünen dünya-genişliği
+    if (visW >= STORY_WORLD_W) storyCam.x = STORY_WORLD_W / 2 - (w / 2) / z;   // sığıyor → dünya merkezini ekran merkezine
+    else storyCam.x = Math.max(-w * 0.04 / z, Math.min(STORY_WORLD_W - visW * 0.92, storyCam.x));
+    const visH = storyVyOf(1) / z;                    // görünen dünya-yüksekliği
+    if (visH >= STORY_WORLD_H) storyCam.y = STORY_WORLD_H / 2 - storyVyOf(0.5) / z;
+    else storyCam.y = Math.max(-visH * 0.06, Math.min(STORY_WORLD_H - visH * 0.86, storyCam.y));
 }
 function storyCenterCamOnPlayer() {
     const n = storyNode(STORY.commander.node), cv = document.getElementById('storyCanvas');
@@ -324,6 +333,36 @@ function storyRender() {
         g.fillStyle = '#000'; g.fillRect(px - sq - 1, py - sq - 1, 2 * sq + 2, 2 * sq + 2);
         g.fillStyle = st ? st.color : '#888';
         g.fillRect(px - sq, py - sq, 2 * sq, 2 * sq);
+        // ── DESIGN İKONLARI: fabrika bacası / petrol kulesi / maden kazması / kışla flaması ──
+        // Yakınlaşınca ya da büyük şehirlerde göster (uzak/küçük şehirde kalabalık yapmasın).
+        const detail = storyCam.zoom > storyMinZoom(w, h) * 1.55 || (n.level || 1) >= 2;
+        if (detail && p.u > -0.05 && p.u < 1.05 && px > -30 && px < w + 30) {
+            const ic = Math.max(0.7, sc);
+            if ((n.fac | 0) > 0) {                          // FABRİKA: gövde + baca sayısı = seviye
+                const fx = px + sq + 2, fy = py - 2;
+                g.fillStyle = 'rgba(0,0,0,.7)'; g.fillRect(fx - 1, fy - 6 * ic, 10 * ic, 7 * ic);
+                g.fillStyle = '#c8b070'; g.fillRect(fx, fy - 5 * ic, 8 * ic, 5.5 * ic);
+                for (let k = 0; k < Math.min(n.fac | 0, 3); k++) { g.fillStyle = '#c8b070'; g.fillRect(fx + (1 + k * 3) * ic, fy - 9 * ic, 2 * ic, 4 * ic); g.fillStyle = '#ffb000'; g.fillRect(fx + (1 + k * 3) * ic, fy - 10 * ic, 2 * ic, 1.4 * ic); }
+            }
+            if (n.oil) {                                    // PETROL: turuncu kule üçgeni
+                const ox = px - sq - 4 * ic, oy = py - 2;
+                g.strokeStyle = '#ff8a00'; g.lineWidth = 1.4;
+                g.beginPath(); g.moveTo(ox - 4 * ic, oy + 4 * ic); g.lineTo(ox, oy - 6 * ic); g.lineTo(ox + 4 * ic, oy + 4 * ic); g.stroke();
+                g.fillStyle = '#ff8a00'; g.fillRect(ox - 1.5, oy - 7 * ic, 3, 3);
+            }
+            if (n.mine) {                                   // MADEN (puan): yeşil çapraz kazma
+                const mx = px - sq - (n.oil ? 13 : 4) * ic, my = py - 2;
+                g.strokeStyle = '#3cdc6e'; g.lineWidth = 1.6;
+                g.beginPath(); g.moveTo(mx - 4 * ic, my - 4 * ic); g.lineTo(mx + 4 * ic, my + 4 * ic); g.moveTo(mx + 4 * ic, my - 4 * ic); g.lineTo(mx - 4 * ic, my + 4 * ic); g.stroke();
+                g.fillStyle = '#3cdc6e'; g.fillRect(mx - 1.5, my - 1.5, 3, 3);
+            }
+            if ((n.bar | 0) > 0) {                          // KIŞLA: yeşil flama
+                const kx = px + sq + 2, ky = py + 5 * ic;
+                g.strokeStyle = '#4ade80'; g.lineWidth = 1.2;
+                g.beginPath(); g.moveTo(kx, ky + 5 * ic); g.lineTo(kx, ky - 4 * ic); g.stroke();
+                g.fillStyle = '#4ade80'; g.beginPath(); g.moveTo(kx, ky - 4 * ic); g.lineTo(kx + 6 * ic, ky - 2.2 * ic); g.lineTo(kx, ky - 0.5 * ic); g.closePath(); g.fill();
+            }
+        }
         // saldırılabilir → kırmızı nabız kare-halka ; ilerlenebilir → yeşil kare-halka
         if (attackable) {
             const pulse = Math.round(3 + 2 * (1 + Math.sin(STORY.clock * 4 + n.id)));

@@ -636,7 +636,7 @@ function storyInit() {
             const my = (e.clientY - rect.top) * (cv.height / rect.height);
             STORY._cw = cv.width; STORY._ch = cv.height;
             const wpt = storyS2W(mx, my);               // imleç altındaki dünya noktası (warp)
-            storyCam.zoom = Math.max(0.4, Math.min(5, storyCam.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+            storyCam.zoom = Math.max(storyMinZoom(cv.width, cv.height), Math.min(5, storyCam.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
             // aynı ekran noktası aynı dünya noktasını göstersin: cam = dünya − vec/z
             const u = my / cv.height, vy = storyVyOf(u), vx = (mx - cv.width / 2) / storySxOf(u) + cv.width / 2;
             storyCam.x = wpt.x - vx / storyCam.zoom; storyCam.y = wpt.y - vy / storyCam.zoom;
@@ -655,7 +655,7 @@ function storyInit() {
         else if (k === 'w' || k === 'arrowup') { storyCam.y -= s; m = true; }
         else if (k === 's' || k === 'arrowdown') { storyCam.y += s; m = true; }
         else if (k === '+' || k === '=') { storyCam.zoom = Math.min(5, storyCam.zoom * 1.2); m = true; }
-        else if (k === '-' || k === '_') { storyCam.zoom = Math.max(0.4, storyCam.zoom / 1.2); m = true; }
+        else if (k === '-' || k === '_') { const c = document.getElementById('storyCanvas'); storyCam.zoom = Math.max(storyMinZoom(c ? c.width : 800, c ? c.height : 600), storyCam.zoom / 1.2); m = true; }
         if (m) { const c = document.getElementById('storyCanvas'); if (c) storyClampCam(c.width, c.height); storyRender(); e.preventDefault(); }
     });
     window.addEventListener('resize', () => {
