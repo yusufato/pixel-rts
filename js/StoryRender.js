@@ -85,7 +85,7 @@ const storyCam = { x: 0, y: 0, zoom: 1 };            // kamera: sol-üst köşe 
 //    u = ekranY/H (0=üst/uzak, 1=alt/yakın)
 //    sxOf(u): satır yatay ölçeği — üst dar (uzak), alt geniş (yakın)
 //    vyOf(u): ekran satırı → düz-görünüm y'si ; uOfVy: tersi
-const STORY_PP = 0.62;                                // eğim gücü (0=düz, prototip 0.8; oyunda okunurluk için orta)
+const STORY_PP = 0.5;                                 // eğim gücü — design v3 gerçekçi harita değeri
 function storySxOf(u) { return (1 + STORY_PP * u) * (1 + STORY_PP * u) / (1 + STORY_PP); }
 function storyVyOf(u) { const H = STORY._ch || 600; return H * (1 + STORY_PP) * u / (1 + STORY_PP * u); }
 function storyUOfVy(vy) { const H = STORY._ch || 600; const v = vy / H; return v / (1 + STORY_PP - STORY_PP * v); }
@@ -104,10 +104,11 @@ function storyS2W(X, Y) {
 }
 // perspektif ölçeği: yakın (alt) büyük, uzak (üst) küçük (jeton/etiket boyutu)
 function storyPScale(u) { return 0.62 + storySxOf(Math.max(0, Math.min(1, u))) * 0.5; }
-// bir önbellek tuvalini (STORY_GW×STORY_GH, dünya 0..STORY_WORLD) warp'lı çiz
+// bir önbellek tuvalini (kendi çözünürlüğü, dünya 0..STORY_WORLD kaplar) warp'lı çiz.
+// kx/ky KAYNAĞIN kendi boyutundan: terrain 1500px, owner overlay 300px olabilir.
 function storyBlitWarp(g, src, alpha) {
     const W = STORY._cw, H = STORY._ch, z = storyCam.zoom, band = 3;
-    const kx = STORY_GW / STORY_WORLD_W, ky = STORY_GH / STORY_WORLD_H;
+    const kx = src.width / STORY_WORLD_W, ky = src.height / STORY_WORLD_H;
     if (alpha != null) g.globalAlpha = alpha;
     for (let ys = 0; ys < H; ys += band) {
         const u0 = ys / H, u1 = Math.min(1, (ys + band) / H);
@@ -122,6 +123,119 @@ function storyBlitWarp(g, src, alpha) {
 
 // (Eski terrain.png resim-yükleyici KALDIRILDI — file:// üzerinde getImageData "tainted canvas" hatası verdi.
 //  Artık kara/deniz GÖMÜLÜ STORY_TERRAIN maskesinden okunur, terrain motorda boyanır → her yerde güvenli.)
+
+// ── DESIGN "GERÇEKÇİ HARİTA" (v3) — rölyef + hillshade + batimetri ────────────
+// Design ekibinin renderWorld tekniği (harita-yonleri.html) oyun terrain'ine taşındı:
+// yükseklik alanı (kıyı mesafesi + gürültü + dağ sıraları) → biyom renkleri (enlem
+// bantları: çöl/step/boreal + kar) → HILLSHADE (KB güneş) → batimetrik deniz (kıta
+// sahanlığı→derin→abisal). Nehirler + kıyı/cephe mesh'leri üstüne çizilir. STATİK,
+// bir kez üretilir (STORY._geoTerrain) — politik katman DİNAMİK kalır (owner overlay).
+function _geoHash2(x, y) { let n = x * 374761393 + y * 668265263; n = (n ^ (n >> 13)) * 1274126177; return ((n ^ (n >> 16)) >>> 0) / 4294967295; }
+function _geoVNoise(x, y) {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = _geoHash2(xi, yi), b = _geoHash2(xi + 1, yi), c = _geoHash2(xi, yi + 1), d = _geoHash2(xi + 1, yi + 1);
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+}
+function _geoFbm(x, y, oct) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++) { s += a * _geoVNoise(x * f, y * f); f *= 2; a *= 0.5; } return s; }
+function _geoDistT(mask, w, h, inside) {
+    const D = new Float32Array(w * h), INF = 1e9;
+    for (let i = 0; i < w * h; i++) D[i] = (mask[i] === inside) ? INF : 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; let d = D[i];
+        if (x > 0) d = Math.min(d, D[i - 1] + 1); if (y > 0) d = Math.min(d, D[i - w] + 1);
+        if (x > 0 && y > 0) d = Math.min(d, D[i - w - 1] + 1.41); if (x < w - 1 && y > 0) d = Math.min(d, D[i - w + 1] + 1.41); D[i] = d; }
+    for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) { const i = y * w + x; let d = D[i];
+        if (x < w - 1) d = Math.min(d, D[i + 1] + 1); if (y < h - 1) d = Math.min(d, D[i + w] + 1);
+        if (x < w - 1 && y < h - 1) d = Math.min(d, D[i + w + 1] + 1.41); if (x > 0 && y < h - 1) d = Math.min(d, D[i + w - 1] + 1.41); D[i] = d; }
+    return D;
+}
+// enlem tahmini (GEO-y → lat): bbox lat 22..63'e doğrusal yakınsama (biyom bantları için yeterli)
+function _geoLatAt(yGeo) { return 63 - (yGeo / GEO.H) * 41; }
+function storyGeoTerrainCache() {
+    if (STORY._geoTerrain) return STORY._geoTerrain;
+    // GÜVENLİK: gerçek canvas gerektirir (createImageData/putImageData). jsdom stub'ında
+    // ya da başarısızlıkta düz zemine düş — render çökmesin (testler + tarayıcı-dışı güvenli).
+    try {
+        const _t = document.createElement('canvas'); _t.width = 4; _t.height = 4;
+        const _c = _t.getContext('2d'); const _im = _c.createImageData(2, 2);
+        if (!_im || !_im.data || _im.data.length < 16) throw new Error('stub canvas');
+    } catch (e) {
+        const fb = document.createElement('canvas'); fb.width = 8; fb.height = 8;
+        try { const c = fb.getContext('2d'); c.fillStyle = '#12321e'; c.fillRect(0, 0, 8, 8); } catch (_) {}
+        STORY._geoTerrain = fb; return fb;
+    }
+    const GW = 820, GH = Math.round(GW * GEO.H / GEO.W), K = GW / GEO.W;
+    const lm = new Uint8Array(GW * GH);
+    // kara maskesi — GEO.land poligonları scanline (even-odd → iç denizler kendiliğinden)
+    for (const ring of GEO.land) for (let gy = 0; gy < GH; gy++) {
+        const y = (gy + 0.5) / K, xs = [];
+        for (let i = 0; i < ring.length; i++) {
+            const x1 = ring[i][0], y1 = ring[i][1], x2 = ring[(i + 1) % ring.length][0], y2 = ring[(i + 1) % ring.length][1];
+            if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+        }
+        xs.sort((a, b) => a - b);
+        for (let k = 0; k + 1 < xs.length; k += 2) { const a = Math.max(0, Math.ceil(xs[k] * K - 0.5)), b = Math.min(GW - 1, Math.floor(xs[k + 1] * K - 0.5)); for (let gx = a; gx <= b; gx++) lm[gy * GW + gx] ^= 1; }
+    }
+    const distSea = _geoDistT(lm, GW, GH, 1), distLand = _geoDistT(lm, GW, GH, 0);
+    // dağ yükseklik alanı — GEO.ranges (segment mesafesi)
+    const mtn = new Float32Array(GW * GH);
+    for (const rg of GEO.ranges) {
+        const pts = rg.pts.map(p => [p[0] * K, p[1] * K]), rr = rg.r * K, rr2 = rr * rr, peak = rg.str;
+        const segs = [];
+        for (let i = 0; i < pts.length - 1; i++) segs.push([pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]]);
+        if (!segs.length) segs.push([pts[0][0], pts[0][1], pts[0][0], pts[0][1]]);
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const s of segs) { x0 = Math.min(x0, s[0], s[2]); x1 = Math.max(x1, s[0], s[2]); y0 = Math.min(y0, s[1], s[3]); y1 = Math.max(y1, s[1], s[3]); }
+        x0 = Math.max(0, Math.floor(x0 - rr)); x1 = Math.min(GW - 1, Math.ceil(x1 + rr)); y0 = Math.max(0, Math.floor(y0 - rr)); y1 = Math.min(GH - 1, Math.ceil(y1 + rr));
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+            let best = 1e9;
+            for (const [ax, ay, bx, by] of segs) { const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy; let t = L > 0 ? ((x - ax) * dx + (y - ay) * dy) / L : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const qx = ax + dx * t - x, qy = ay + dy * t - y, d = qx * qx + qy * qy; if (d < best) best = d; }
+            if (best > rr2) continue;
+            const t = 1 - Math.sqrt(best) / rr, ridge = 0.72 + 0.28 * _geoFbm(x * 0.09, y * 0.09, 3), v = peak * Math.pow(t, 1.45) * ridge, i = y * GW + x;
+            if (v > mtn[i]) mtn[i] = v;
+        }
+    }
+    // yükseklik
+    const elev = new Float32Array(GW * GH);
+    for (let i = 0; i < GW * GH; i++) { if (!lm[i]) continue; const x = i % GW, y = (i / GW) | 0; const coastal = Math.min(1, distSea[i] / 26); elev[i] = Math.min(1, coastal * 0.16 + _geoFbm(x * 0.035, y * 0.035, 4) * 0.17 + _geoFbm(x * 0.14, y * 0.14, 2) * 0.05 + mtn[i] * 0.92); }
+    const lerp = (a, b, t) => a + (b - a) * t, mix = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
+    const small = document.createElement('canvas'); small.width = GW; small.height = GH;
+    const sc = small.getContext('2d'), img = sc.createImageData(GW, GH), px = img.data;
+    for (let y = 0; y < GH; y++) { const lat = _geoLatAt(y / K);
+        for (let x = 0; x < GW; x++) {
+            const i = y * GW + x, o = i * 4;
+            if (!lm[i]) { const d = distLand[i], shelf = Math.min(1, d / 16), deep = Math.min(1, d / 95); let c = mix([86, 150, 168], [42, 104, 140], shelf); c = mix(c, [16, 48, 84], deep * deep); c = mix(c, [10, 32, 62], Math.min(1, d / 220)); const n = (_geoFbm(x * 0.05, y * 0.05, 3) - 0.5) * 10; px[o] = c[0] + n; px[o + 1] = c[1] + n; px[o + 2] = c[2] + n; px[o + 3] = 255; continue; }
+            const e = elev[i];
+            const arid = lat < 32 ? 1 : lat < 37 ? (37 - lat) / 5 : 0, boreal = lat > 56 ? Math.min(1, (lat - 56) / 7) : 0;
+            const inland = Math.min(1, distSea[i] / 70), steppe = Math.max(0, Math.min(1, (inland - 0.35) * 1.6)) * (lat < 50 ? 0.7 : 0.3);
+            let c;
+            if (e < 0.14) c = [104, 132, 86]; else if (e < 0.30) c = mix([104, 132, 86], [126, 138, 84], (e - 0.14) / 0.16);
+            else if (e < 0.46) c = mix([126, 138, 84], [150, 138, 96], (e - 0.30) / 0.16); else if (e < 0.62) c = mix([150, 138, 96], [146, 124, 100], (e - 0.46) / 0.16);
+            else if (e < 0.76) c = mix([146, 124, 100], [140, 132, 126], (e - 0.62) / 0.14); else c = mix([140, 132, 126], [240, 242, 246], Math.min(1, (e - 0.76) / 0.16));
+            if (boreal > 0 && e < 0.6) c = mix(c, [62, 88, 66], boreal * 0.75);
+            if (steppe > 0 && e < 0.5) c = mix(c, [164, 158, 104], steppe * 0.6);
+            if (arid > 0 && e < 0.62) c = mix(c, [206, 180, 124], arid * 0.92);
+            if (distSea[i] < 2.2) c = mix(c, [186, 176, 140], 0.35);
+            const eL = elev[i - 1] || 0, eR = elev[i + 1] || 0, eU = elev[i - GW] || 0, eD = elev[i + GW] || 0;
+            const nx = (eL - eR) * 7.5, ny = (eU - eD) * 7.5; let sh = (nx * 0.62 + ny * 0.62 + 1.0) / 2.0; sh = Math.max(0.35, Math.min(1.5, sh * 1.05 + 0.28));
+            const amb = 1 + e * 0.06;
+            px[o] = Math.max(0, Math.min(255, c[0] * sh * amb)); px[o + 1] = Math.max(0, Math.min(255, c[1] * sh * amb)); px[o + 2] = Math.max(0, Math.min(255, c[2] * sh * amb)); px[o + 3] = 255;
+        }
+    }
+    sc.putImageData(img, 0, 0);
+    // tam çözünürlük worldBase (pürüzsüz upscale) + nehirler + mesh'ler
+    const BW = GEO.W, BH = GEO.H, base = document.createElement('canvas'); base.width = BW; base.height = BH;
+    const ctx = base.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(small, 0, 0, GW, GH, 0, 0, BW, BH);
+    const poly = (arr, close) => { ctx.beginPath(); for (const line of arr) { line.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); if (close) ctx.closePath(); } };
+    // nehirler
+    for (const rv of GEO.rivers) { ctx.beginPath(); rv.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(24,58,84,.55)'; ctx.lineWidth = 6; ctx.stroke(); ctx.strokeStyle = 'rgba(96,150,186,.85)'; ctx.lineWidth = 3; ctx.stroke(); }
+    // iç sınır (kesikli) + kıyı + cephe
+    ctx.setLineDash([7, 5]); poly(GEO.inner); ctx.strokeStyle = 'rgba(60,52,34,.45)'; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([]);
+    poly(GEO.coast); ctx.strokeStyle = 'rgba(28,44,58,.85)'; ctx.lineWidth = 1.8; ctx.stroke();
+    poly(GEO.front); ctx.strokeStyle = 'rgba(70,16,16,.85)'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = '#e04a4a'; ctx.lineWidth = 2.4; ctx.stroke();
+    STORY._geoTerrain = base; return base;
+}
 
 // ülke kara-yarıçapı (normalize, prosedürel yedek için): büyükler geniş, adalar küçük → kıta + deniz (36 bölge)
 const EUROPE_LAND_R = [
@@ -222,6 +336,10 @@ function storyBuildLandGrid() {
 function storyEnsureTerrainCache() {
     if (STORY._terrainCache) return STORY._terrainCache;
     if (!STORY._landGrid) storyBuildLandGrid();
+    // DESIGN "GERÇEKÇİ HARİTA" (v3): geo modda rölyef+hillshade+batimetri terrain'i kullan
+    if (STORY._geoMap && typeof GEO !== 'undefined' && typeof storyGeoTerrainCache === 'function') {
+        STORY._terrainCache = storyGeoTerrainCache(); return STORY._terrainCache;
+    }
     const cv = document.createElement('canvas'); cv.width = STORY_GW; cv.height = STORY_GH;
     const g = cv.getContext('2d'); const grid = STORY._landGrid;
     const at = (x, y) => (x < 0 || y < 0 || x >= STORY_GW || y >= STORY_GH) ? -1 : grid[y * STORY_GW + x];
@@ -255,8 +373,9 @@ function storyEnsureOwnerOverlay() {
         const oc = storyHexRgb((storyState(ow) || {}).color || '#888888');
         const bord = (ownerAt(gx + 1, gy) !== ow && ownerAt(gx + 1, gy) !== -1) || (ownerAt(gx, gy + 1) !== ow && ownerAt(gx, gy + 1) !== -1)
                   || (ownerAt(gx - 1, gy) !== ow && ownerAt(gx - 1, gy) !== -1) || (ownerAt(gx, gy - 1) !== ow && ownerAt(gx, gy - 1) !== -1);
-        if (bord) g.fillStyle = `rgba(${oc[0] * 0.45 | 0},${oc[1] * 0.45 | 0},${oc[2] * 0.45 | 0},0.95)`;  // imparatorluk sınırı
-        else g.fillStyle = `rgba(${oc[0]},${oc[1]},${oc[2]},0.40)`;                                          // iç bölge: terrain görünsün
+        // DESIGN v3: gerçekçi rölyef görünsün → politik tint HAFİF (sınır belirgin, iç bölge şeffaf)
+        if (bord) g.fillStyle = `rgba(${oc[0] * 0.5 | 0},${oc[1] * 0.5 | 0},${oc[2] * 0.5 | 0},0.9)`;  // imparatorluk sınırı
+        else g.fillStyle = `rgba(${oc[0]},${oc[1]},${oc[2]},0.20)`;                                     // iç bölge: rölyef görünsün
         g.fillRect(gx, gy, 1, 1);
     }
     STORY._ownerKey = key; return cv;
