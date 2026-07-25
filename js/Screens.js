@@ -178,12 +178,17 @@ function screensInit() {
             quickMatchUpdate();
         });
     });
-    // 10-HARİTA seçiciyi doldur (🎲 Rastgele + 10 harita adı)
+    // 10-HARİTA seçiciyi doldur — DESIGN v2 gerçekçi arena adları (varsa), varsayılan v2 arena 0.
+    // (applyMap zaten ARENAS_V2'den okur; eski MAPS adları yanıltıcıydı.) Çizilen/Rastgele opsiyonel.
     const qmMap = document.getElementById('qm-map');
-    if (qmMap && typeof MAPS !== 'undefined') {
-        qmMap.innerHTML = '<option value="-2" selected>🗺️ Çizilen Harita</option>' +
+    if (qmMap) {
+        const hasV2 = (typeof ARENAS_V2 !== 'undefined' && ARENAS_V2.length);
+        const names = hasV2 ? ARENAS_V2.map((a, i) => ({ id: i, name: a.name }))
+                            : (typeof MAPS !== 'undefined' ? MAPS.map(m => ({ id: m.id, name: m.name })) : []);
+        qmMap.innerHTML =
+            names.map((m, i) => '<option value="' + m.id + '"' + (i === 0 ? ' selected' : '') + '>' + m.name + '</option>').join('') +
             '<option value="-1">🎲 Rastgele</option>' +
-            MAPS.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
+            '<option value="-2">🗺️ Çizilen Harita</option>';
     }
     document.getElementById('btn-qm-start')?.addEventListener('click', quickMatchStart);
     document.getElementById('btn-qm-back')?.addEventListener('click', () => showScreen('menu'));
