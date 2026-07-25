@@ -1,0 +1,88 @@
+# Handoff: Pixel RTS — Gerçekçi Avrupa Sefer Haritası
+
+## Genel Bakış
+Hikâye modunun (Yeni Hikaye → dünya haritası) mevcut pixel-maske haritasının yerine geçecek
+**gerçek coğrafyalı, rölyefli, LOD'lu** sefer haritasının tasarım referansı ve çalışan prototipi.
+**Uygulama talimatı: `README-PATCH.md` (v3 — onaylanan yön).**
+
+**Bu dosyalar HTML prototiptir — üretime olduğu gibi taşınmaz.** Görev: buradaki render
+tekniğini ve veri modelini mevcut oyun ortamına (vanilla JS + Canvas, `StoryRender.js`)
+taşımak. Prototip tarayıcıda direkt açılır, tüm etkileşimler canlıdır.
+
+## Dosyalar
+- `gercekci-harita.html` — **ANA TESLİM / ONAYLANAN YÖN.** Gerçekçi kartografi: rölyef +
+  hillshade, batimetrik deniz, nehirler, gerçek şehir dokusu, modern fabrika/kışla/petrol/maden.
+- `js/StoryGeoRender.js` — bu görünümün oyun içi render katmanı (drop-in).
+- `tools/make-geodata.js` — 120 şehir + coğrafya verisi üreticisi (build adımı).
+- `README-PATCH.md` — adım adım entegrasyon + doğrulama listesi.
+- `hologram-harita.html`, `harita-yonleri.html` — önceki yön denemeleri (yalnız referans).
+
+## Mimari — mevcut koda eşleme
+
+### 1) Coğrafya verisi (→ `terrainData.js` yerine)
+Prototip Natural Earth 110m TopoJSON kullanır (`world-atlas@2.0.2/countries-110m.json`).
+Oyun `file://` üzerinde çalıştığı için fetch yerine **build adımıyla gömülü veriye** çevir:
+- Bölge bbox'ı: lon −12..50, lat 22..63, Mercator projeksiyon.
+- Ülke poligonları → tek `land` silueti (topojson.merge) + 3 mesh:
+  `coast` (a===b), `innerMesh` (aynı blok sınırı), `frontMesh` (farklı blok sınırı = CEPHE).
+- Bunları offline üret, `terrainData.js` benzeri bir `geoData.js` olarak göm (koordinat
+  dizileri; d3 çalışma zamanında GEREKMEZ — sadece üretim adımında).
+
+### 2) İki-katman offscreen dünya (→ `storyEnsureTerrainCache` / `storyEnsureOwnerOverlay` karşılığı)
+Prototipte `renderWorld()`:
+- `worldBase` (3000×~2400): deniz gradyanı → 10px kara **ekstrüzyonu** (koyu, +y ofset) →
+  arazi taban gradyanı → çöl kuşağı (lat<35) → boreal kuşak (lat>57) → dağ sıraları
+  (RANGES: amber kontur ışıması + NW ışık/SE gölge radial'ları) → pixel doku →
+  **politik boyama** (blok rengi α=.15) → nehirler → sınırlar → kıyı (amber) →
+  cephe mesh'i (kırmızı kesikli + glow). STATİK — sahiplik değişince yalnız politik
+  katman yeniden boyanır (mevcut `_ownerCache` deseninin aynısı).
+- `worldRoads`: tüm yol ağı ayrı katman (LOD alfası için ayrık).
+
+### 3) 2.5D perspektif warp (mode-7) — YENİ, `storyRender()`e eklenir
+CSS transform DEĞİL; canvas şerit-warp (hit-test tersinir kalsın diye):
+```
+p = 0.8                                  // eğim gücü
+sx(u)  = (1+p·u)² / (1+p)                // satır yatay ölçeği (u = ekranY/H, 0=üst)
+vy(u)  = H·(1+p)·u / (1+p·u)             // ekran satırı → düz görünüm y'si
+u(vy)  : v=vy/H → u = v / (1+p−p·v)      // tersi
+```
+- Çizim: 3px'lik yatay şeritler; her şerit için kaynak dikdörtgen
+  `srcX = cam.x + (W/2·(1−1/sx))/z`, `srcW = W/(sx·z)`, `srcY/H` vy'den → `drawImage`.
+- **Ekran↔dünya dönüşümü** (`s2w`/`w2s`) tıklama, sürükleme ve tekerlek-zoom'da aynen kullanılır.
+- Jetonlar/etiketler/sütunlar warp SONRASI ekran uzayında dik çizilir (hologram sütunları
+  bu yüzden hep dik durur). Ölçek: `sc = .7 + sx(u)·.5`.
+
+### 4) LOD eşikleri
+`rel = zoom / minZoom` → `rel<1.9` STRATEJİK (yalnız tier≥2 şehir + cepheler, yol α=.28) ·
+`1.9–3.6` OPERATİF (tüm şehirler, yol α=.6, büyük şehir fabrikaları) ·
+`>3.6` TAKTİK (tüm etiket/fabrika/petrol, yol α=1).
+
+### 5) Şehir modeli (→ `STORY.nodes` genişletmesi)
+```
+{ id, name, lon, lat, tier(1-3), fac(0-3), bar(0-3), oil(0/1), owner, garrison, nb[] }
+```
+- 120 gerçek şehir `CITIES` dizisinde (ad, lon/lat, tier, fabrika, petrol, blok) — birebir alınabilir.
+- Graf: manuel `CORRIDORS` (gerçek ana koridorlar) + K=2 en-yakın komşu + bileşen birleştirme
+  (mevcut `storyConnectComponents` mantığının aynısı).
+- Sahiplik: 8 blok, oyunun `STORY_STATE_DEFS` renkleriyle birebir.
+
+### 6) Etkileşimler (mevcut karşılıkları)
+- Şehre tıkla → brifing paneli (`storyPanelUpdate` karşılığı; TÜR/KONTROL/SAHA/GARNİZON/FABRİKA/KIŞLA).
+- Komşu dost → İLERLE (`storyNodeClicked` move dalı) · komşu düşman → SALDIR + onay modalı
+  (`storyLaunchBattle`; prototipte %72 zafer simülasyonu — oyunda gerçek düello).
+- ŞEHRE GİR → inşa görünümü: fabrika 120P+40petrol, kışla 90P+20insan (`Production.js`'e bağlanır).
+- YOL İNŞA (60P+20insan): 4 en-yakın bağlantısız aday mavi kesikli gösterilir; seçilen yol
+  `nb[]` grafına kalıcı eklenir → komutan hareket ağı genişler. **Yeni mekanik.**
+- Fetih nabzı: yeşil genişleyen elips halka (mevcut `_pulse` deseni).
+
+## Tasarım token'ları (War Room ile aynı)
+`--ac #ffb000 · --ac2 #4ade80 · --red #ff6b6b · panel rgba(8,12,6,.9) · zemin #060a06 ·
+metin #ffe9bf/#ffd27a/#8c7a3e/#6e6330 · fontlar Share Tech Mono + Press Start 2P`.
+CRT katmanı: scanline + amber grid + vignette + üstte horizon ışıması (hologram hissi).
+
+## Entegrasyon tuzakları
+- Warp yüzünden **hit-test asla düz `lx·W`-uzayında yapılmaz** — daima `s2w`/`w2s` çiftiyle.
+- `drawImage` kaynak dikdörtgeni dünya sınırı dışına taşabilir → önce koyu zemin doldur.
+- Politik katman yeniden boyaması mevcut `_ownerKey` (sahip imzası) önbellek deseniyle yapılmalı;
+  her karede ülke poligonu boyamak 110m veride bile pahalı.
+- Kamera clamp'i perspektif nedeniyle en-geniş şerit (üst satır, `sx(0)`) üzerinden hesaplanır.

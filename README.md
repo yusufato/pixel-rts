@@ -1,30 +1,28 @@
-# README-PATCH — Hologram Harita v2: EKSİKSİZ entegrasyon (Claude Code için)
+# README-PATCH — Gerçekçi Avrupa Haritası v3 (Claude Code için)
 
-Önceki entegrasyon geoData'yı yalnız **kara maskesi** olarak kullandı; dağ/nehir/deniz/şehir
-görselleri/yol/fabrika/kışla/maden çizimi HİÇ yazılmadı, şehir 50'de kaldı, dünya 3000px kaldı.
-Bu paket bunların TAMAMINI kod olarak içerir. **Spec değil — dosyalar commit'lenir.**
+Onaylanan görsel yön: **`gercekci-harita.html`** (bu pakette; tarayıcıda açıp hedefi gör).
+Rölyefli gerçek coğrafya + gerçek şehir dokusu + modern tesis görselleri.
+**Spec değil — buradaki dosyalar doğrudan commit'lenir.**
 
-## Dosyalar (bu paketten repoya)
-1. `tools/make-geodata.js` → **üzerine yaz** (v2: 120 şehir + maden + tam yol grafı + 1.5× çözünürlük)
-2. `js/StoryGeoRender.js` → **yeni dosya**
-3. Sonra çalıştır: `node tools/make-geodata.js` → `js/geoData.js` v2 yeniden üretilir (~500 KB)
+## Uygulama (3 adım)
+1. `tools/make-geodata.js` → **üzerine yaz** (v2: 120 şehir, maden yatakları, tam yol grafı, 1.5× çözünürlük)
+2. `js/StoryGeoRender.js` → **yeni/üzerine yaz** (v3: gerçekçi render)
+3. `node tools/make-geodata.js` → `js/geoData.js` yeniden üretilir
 
-## index.html — script sırası
+`index.html`:
 ```html
 <script src="js/StoryRender.js"></script>
-<script src="js/StoryGeoRender.js"></script>   <!-- YENİ: hemen SONRASINA -->
+<script src="js/StoryGeoRender.js"></script>   <!-- hemen SONRASINA -->
 ```
-`StoryGeoRender.js` `storyRender`'ı yeniden tanımlar (son tanım kazanır). `STORY._geoMap=true`
-ve `GEO` yüklüyse yeni akış, değilse ESKİ davranış birebir çalışır (güvenli geri dönüş).
+`StoryGeoRender.js` `storyRender`'ı yeniden tanımlar. `STORY._geoMap=true` + `GEO` varsa yeni
+akış; yoksa ESKİ davranış birebir korunur (güvenli geri dönüş, eski kayıtlar bozulmaz).
 
-## Story.js — storyBuildCities değişikliği (TEK yer)
-`storyBuildCities()` başına:
+## Story.js — `storyBuildCities()` başına
 ```js
 const seeded = (typeof storyGeoSeedNodes === 'function') ? storyGeoSeedNodes() : null;
 if (seeded) {
     const nodes = seeded;
     for (const e of storyGeoRoads()) { nodes[e[0]].neighbors.push(e[1]); nodes[e[1]].neighbors.push(e[0]); }
-    // sahiplik zaten c.st'den geldi; başkentler = tier 3 şehirler (devlet sırasıyla)
     STORY._capitals = [];
     for (let s = 0; s < STORY_STATE_DEFS.length; s++) {
         const cap = nodes.find(n => n.owner === s && n.level === 3) || nodes.find(n => n.owner === s);
@@ -34,32 +32,37 @@ if (seeded) {
     return nodes;
 }
 ```
-- **Gerçek şehir adları:** `storyGeoSeedNodes` her düğümün `names` önbelleğini 8 devlet için
-  gerçek adla doldurur → `storyCityRename` no-op olur, adlar hep gerçek kalır (Ankara, Berlin…).
-- **K-en-yakın komşuluk KULLANILMAZ** — graf `GEO_ROADS`'tan gelir (gerçek koridorlar +
-  K-2 + bileşen bağlama build adımında yapıldı).
-- Yatak ataması: `oil`/`pts` zaten şehirde geliyor → `storyAssignDeposits` çağrısı geo modunda atlanmalı
-  (ya da içinde `if (STORY._geoMap) return;`).
+- Adlar **gerçek** kalır (`names` 8 devlet için ön-doldurulmuş → `storyCityRename` no-op).
+- Yol grafı `GEO_ROADS`'tan gelir; K-en-yakın çalıştırma.
+- `storyAssignDeposits` içine `if (STORY._geoMap) return;` (yataklar şehirle geliyor).
+- `storyBuildLandGrid` içindeki `STORY_WORLD_W = 3000` → `4500`.
 
-## storyBuildLandGrid (StoryRender.js) — 1.5× dünya
-Geo dalındaki `STORY_WORLD_W = 3000` satırını `4500` yap (StoryGeoRender de render'da zorlar;
-grid dalıyla tutarlılık için kaynağı da güncelle).
+## Render katmanları (StoryGeoRender.js'te hazır)
+1. **Arazi (bir kez üretilir, önbellek):** kara maskesi → chamfer mesafe → prosedürel
+   **yükseklik alanı** (kıyı eğimi + fBm + GEO.ranges sırt bindirmesi) → **hipsometrik biyom**
+   (ova yeşili → yayla → kayalık → kar; boreal / step / çöl karışımları) → **hillshade** (KB güneş).
+2. **Deniz:** kıta sahanlığı → derin okyanus batimetri gradyanı + gürültü; kıyıda tortu şeridi.
+3. **Vektör üstü:** nehirler (çift hat), iç sınırlar (kesikli), kıyı çizgisi, **cephe hatları** (kırmızı).
+4. **Politik:** mevcut `storyEnsureOwnerOverlay()` aynen kullanılır → fetihte renk anında değişir.
+5. **Yollar:** canlı `n.neighbors` grafı; koyu kılıf + açık dolgu, ana arter/tali, zoom-LOD alfası.
+6. **Şehir:** yerleşim lekesi + sokak dokusu + gölgeli bina kümesi (kasaba 5 / büyük 10 / başkent 16
+   + kule silueti + gece ışıkları), üstünde **sahiplik pini** (kare değil).
+7. **Tesisler — canlı node verisinden:** `n.fac` modern fabrika (testere-dişli hangar + silolar +
+   Sv.2 soğutma kulesi/duman + Sv.3 solar dizi), `n.bar` kışla (çit + flama), `n.oil` tanklar + derrick,
+   `n.pts` açık ocak + headframe. Oyuncu fabrika kurunca harita anında değişir.
 
-## Ne çizilir (hepsi StoryGeoRender.js'te hazır)
-- **Deniz yapısı:** derinlik gradyanı + dalga dokusu + kıyı sığlık bandı (çift stroke)
-- **Dağlar:** GEO.ranges hillshade · **Nehirler:** GEO.rivers · **Çöl/boreal kuşaklar**
-- **Şehir görseli:** `n.level`'e göre 2/4/6 pixel bina + amber pencereler + sahip-rengi kare
-- **Fabrika:** `n.fac` kadar baca · **Kışla:** `n.bar` yeşil flama ·
-  **Petrol:** `n.oil` derik · **Maden:** `n.pts` yeşil kazma — HEPSİ CANLI node verisinden
-  (oyuncu fabrika kurunca baca haritada anında belirir)
-- **Yollar:** canlı `n.neighbors` grafından, zoom-LOD alfası (uzak .22 / orta .5 / yakın .8)
-- Kuşatma/komutan jetonu/nabız/SELECT/CMD: orijinal davranış birebir korundu.
+## Performans
+- Arazi dokusu (4500×~3600) **bir kez** üretilir → `STORY._geoTerrain`. Üretim ~0.5–1.5 sn;
+  ilk hikâye açılışında "ARAZİ VERİSİ İŞLENİYOR…" göstergesi eklemek iyi olur.
+- Yükseklik/biyom hesabı 900px gridde yapılır, sonra yumuşak büyütülür — bellek ~65 MB.
+- Her karede yeniden boyanan tek şey: sahiplik overlay'i (mevcut `_ownerKey` önbellek deseni).
 
-## Doğrulama listesi (entegrasyon sonrası)
-- [ ] Yeni Hikaye → harita gerçek kıyılar + dağ/nehir/çöl görünür (düz yeşil DEĞİL)
-- [ ] 120 şehir, GERÇEK adlar (yan panelde de)
-- [ ] Şehirlerde bina kümeleri; fabrika kur → baca sayısı artar
-- [ ] Yollar görünür, zoom'da belirginleşir; komutan yalnız yol komşusuna gider
-- [ ] Petrol derik / maden kazma ikonları ilgili şehirlerde
-- [ ] Dünya 1.5× (4500px) — kamera gezinme aynı
-- [ ] Eski kayıt yükleme: `STORY._geoMap` yoksa eski görünüm bozulmadan çalışır
+## Doğrulama listesi
+- [ ] Dağlar (Alpler/Karpatlar/Toroslar/Kafkas/Atlas) gölgeli sırt olarak görünüyor
+- [ ] Nehirler (Ren, Tuna, Nil, Volga, Dinyeper…) çizili
+- [ ] Deniz sığ→derin geçişli; Sahra kum, Kuzey boreal koyu yeşil
+- [ ] 120 gerçek şehir, kutu değil bina kümesi; başkentlerde kule
+- [ ] Fabrika kur → hangar/silo/duman haritada; kışla flaması, petrol derrick, maden ocağı
+- [ ] Yollar kılıflı çiziliyor, zoom'da belirginleşiyor
+- [ ] Dünya 4500px; kamera gezinme ve tıklama isabeti doğru
+- [ ] `STORY._geoMap` kapalıyken eski görünüm bozulmadan çalışıyor
