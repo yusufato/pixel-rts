@@ -92,9 +92,8 @@ app.whenReady().then(() => {
         return;
     }
 
-    // SAVAŞ-ARENA TESTİ: `--battletest [--shots <klasör>]` → her v2 arenaya Hızlı Maç ile
-    // girer (deploy fazı = gerçekçi zemin bake), yakın + uzak ekran görüntüsü alır.
-    // Amaç: Faz B gerçekçi arena render'ını GÖRSEL doğrulamak (hillshade/biyom/nehir/köprü/yol/köy).
+    // SAVAŞ TESTİ: `--battletest [--shots <klasör>]` → Hızlı Maç ile çizilen haritada
+    // deploy fazına girer, yakın + uzak ekran görüntüsü alır (arazi doğru render'lanıyor mu).
     if (process.argv.includes('--battletest')) {
         createWindow();
         const fsx2 = require('fs');
@@ -108,27 +107,21 @@ app.whenReady().then(() => {
         const click = sel => js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (el) el.click(); return !!el; })()`);
         win.webContents.on('did-finish-load', async () => {
             await sleep(1200);
-            const which = [0, 1, 3];   // Tuna Dirseği (nehir/köprü), Kesikköprü Bataklığı, Karataş Sırtları
-            for (const mid of which) {
-                await click('#btn-quick-match'); await sleep(400);
-                await js(`(() => { const s = document.getElementById('qm-map'); if (s) { s.value = '${mid}'; } })()`);
-                await click('#btn-qm-start'); await sleep(900);
-                const info = await js(`(() => { try {
-                    const a = (typeof STORY_ARENA_V2 !== 'undefined' && STORY_ARENA_V2) ? STORY_ARENA_V2 : null;
-                    const baked = (typeof storyBakeArena === 'function') ? !!storyBakeArena() : false;
-                    return { ad: a ? a.name : '?', biome: a ? a.biome : '?', baked,
-                        feats: (typeof terrainFeatures !== 'undefined') ? terrainFeatures.length : -1,
-                        w: (typeof WORLD_W !== 'undefined') ? WORLD_W : -1 };
-                } catch (e) { return { err: e.message }; } })()`);
-                console.log('BATTLETEST_ARENA ' + mid + ' ' + JSON.stringify(info));
-                await sleep(500);
-                await shot('arena-' + mid + '-a-deploy');
-                // uzaklaş → tüm arena görünsün (zoom'u sonra geri al ki sonraki arenaya sızmasın)
-                await js(`(() => { try { window.__z0 = zoom; for (let i=0;i<5;i++){ zoom *= 0.84; } } catch(e){} })()`);
-                await sleep(500);
-                await shot('arena-' + mid + '-b-genel');
-                await js(`(() => { try { if (window.__z0) zoom = window.__z0; showScreen('menu'); } catch(e){} })()`); await sleep(400);
-            }
+            await click('#btn-quick-match'); await sleep(400);
+            await click('#btn-qm-start'); await sleep(900);
+            const info = await js(`(() => { try {
+                return { mode: (typeof MAP_MODE !== 'undefined') ? MAP_MODE : '?',
+                    mapId: (typeof currentMapId !== 'undefined') ? currentMapId : '?',
+                    map: (typeof DRAWN_MAP !== 'undefined') ? DRAWN_MAP.name : '?',
+                    grid: (typeof terrainGrid !== 'undefined' && terrainGrid) ? terrainGrid.length : -1,
+                    feats: (typeof terrainFeatures !== 'undefined') ? terrainFeatures.length : -1 };
+            } catch (e) { return { err: e.message }; } })()`);
+            console.log('BATTLETEST_INFO ' + JSON.stringify(info));
+            await sleep(400);
+            await shot('battle-a-deploy');
+            await js(`(() => { try { window.__z0 = zoom; for (let i=0;i<5;i++){ zoom *= 0.84; } } catch(e){} })()`);
+            await sleep(500);
+            await shot('battle-b-genel');
             console.log('BATTLETEST_SHOTS ' + SHOTS_DIR);
             console.log('BATTLETEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 8)));
             console.log('BATTLETEST_OK');

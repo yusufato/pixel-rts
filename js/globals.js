@@ -63,7 +63,6 @@ const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4, MARSH: 5, 
 // 10-HARİTA SİSTEMİ: terrainFeatures artık BOŞ başlar, MapData.js'teki applyMap(id)
 // ile IN-PLACE doldurulur (length=0 + push → 8 dosyadaki canlı-dizi okumaları KIRILMAZ).
 let terrainFeatures = [];
-let STORY_ARENA_V2 = null;                          // DESIGN v2: aktif arenanın ham verisi (gerçekçi render bake'i için)
 let DEBUG_TERRAIN = false;   // grid-harita teşhis overlay'i (sorun çözüldü → kapalı)
 
 function seededRandom(seed) {

@@ -43,7 +43,7 @@ function storyPanelUpdate() {
         const type = selected ? (selected._siege ? 'KUŞATMA' : capital ? 'KARARGAH' : selected.oil > 0 ? 'PETROL MERKEZİ' : selected.pts > 0 ? 'SANAYİ MERKEZİ' : 'ŞEHİR') : '-';
         const stateText = current ? 'KOMUTA MERKEZİ' : adjacent ? (hostile ? 'AKTİF CEPHE' : 'ERİŞİLEBİLİR') : 'MENZİL DIŞI';
         const stateColor = current ? '#4ade80' : adjacent ? (hostile ? '#ff6b6b' : '#ffb000') : '#6e6330';
-        const mapName = (typeof MAPS !== 'undefined' && selected && MAPS[selected.mapId]) ? MAPS[selected.mapId].name : `Saha ${(selected?.mapId || 0) + 1}`;
+        const mapName = (typeof DRAWN_MAP !== 'undefined' && DRAWN_MAP.name) ? DRAWN_MAP.name : 'Çizilen Harita';
         const foeValue = hostile && owner ? storyEnemyForceBudget(owner.id, selected.id) : null;
         const foeTotal = foeValue ? Math.floor(foeValue.oil + foeValue.manpower + foeValue.points) : 0;
         const reward = hostile ? '+120 puan · fetih · veteran ilerlemesi' : current ? 'Komuta ve ikmal merkezi' : 'Güvenli intikal';

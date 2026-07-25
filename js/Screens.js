@@ -95,12 +95,8 @@ function quickMatchStart() {
     // PUAN → BÜTÇE: oyuncu pl ile birlik dizer; AI ai ile (aiDeploy enemy.money okur).
     if (typeof player !== 'undefined') player.money = pl;
     if (typeof enemy !== 'undefined') enemy.money = ai;
-    // 10-HARİTA: seçili haritayı uygula (ya da 🎲 rastgele) — deploy/savaş bu terrain'de geçer
-    if (typeof applyMap === 'function') {
-        let mid = +(document.getElementById('qm-map')?.value);
-        if (mid !== -2 && (isNaN(mid) || mid < 0)) mid = (typeof MAPS !== 'undefined') ? Math.floor(Math.random() * MAPS.length) : 0;   // -2=çizilen harita pas geçer
-        applyMap(mid);
-    }
+    // TEK HARİTA: çizilen ızgara-harita — deploy/savaş bu terrain'de geçer
+    if (typeof applyMap === 'function') applyMap(-2);
     if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
     // Hikaye-dışı maç → tek-para modu (kaynak-bazlı deploy KAPALI) + kaynak satırlarını gizle
     if (typeof DEPLOY_RES !== 'undefined') DEPLOY_RES = null;
@@ -178,18 +174,9 @@ function screensInit() {
             quickMatchUpdate();
         });
     });
-    // 10-HARİTA seçiciyi doldur — DESIGN v2 gerçekçi arena adları (varsa), varsayılan v2 arena 0.
-    // (applyMap zaten ARENAS_V2'den okur; eski MAPS adları yanıltıcıydı.) Çizilen/Rastgele opsiyonel.
-    const qmMap = document.getElementById('qm-map');
-    if (qmMap) {
-        const hasV2 = (typeof ARENAS_V2 !== 'undefined' && ARENAS_V2.length);
-        const names = hasV2 ? ARENAS_V2.map((a, i) => ({ id: i, name: a.name }))
-                            : (typeof MAPS !== 'undefined' ? MAPS.map(m => ({ id: m.id, name: m.name })) : []);
-        qmMap.innerHTML =
-            names.map((m, i) => '<option value="' + m.id + '"' + (i === 0 ? ' selected' : '') + '>' + m.name + '</option>').join('') +
-            '<option value="-1">🎲 Rastgele</option>' +
-            '<option value="-2">🗺️ Çizilen Harita</option>';
-    }
+    // TEK HARİTA: artık yalnız çizilen harita var → seçici satırını gizle.
+    const qmMapRow = document.getElementById('qm-map')?.closest('.qm-row');
+    if (qmMapRow) qmMapRow.style.display = 'none';
     document.getElementById('btn-qm-start')?.addEventListener('click', quickMatchStart);
     document.getElementById('btn-qm-back')?.addEventListener('click', () => showScreen('menu'));
     // Oyun-bitti ekranındaki "Ana Menü" (varsa) → menüye dön (Faz 1.5'te resetBattleState; şimdilik reload)
