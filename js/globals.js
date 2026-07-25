@@ -52,7 +52,10 @@ window.addEventListener('resize', resize);
 const WORLD_W = 3400;
 const WORLD_H = 2300;
 
-const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4 };
+// DESIGN v2 "Gerçekçi Arena": 5 yeni tip. Eski 0-4 DEĞİŞMEDİ (kayıt/MP uyumu).
+// Yeni tipler render + geçilmezlik maskesinden türetilir; sim'in tek girdisi
+// terrainFeatures kalır (spec kuralı) → AI/LOS/örtü kodu bozulmaz.
+const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4, MARSH: 5, ROCK: 6, URBAN: 7, FIELD: 8, ROAD: 9 };
 // ── SİMETRİK 3-MEVZİ HARİTASI ──
 // 3 kontrol noktası (orta hat: x=880/1700/2520, y=1150) birer AÇIK güçlü-mevzi; etrafları
 // araziyle çerçeveli. Kuzey-güney AYNA simetrik (her iki taraf için adil). Dağlar=geçit/görüş
@@ -60,6 +63,7 @@ const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4 };
 // 10-HARİTA SİSTEMİ: terrainFeatures artık BOŞ başlar, MapData.js'teki applyMap(id)
 // ile IN-PLACE doldurulur (length=0 + push → 8 dosyadaki canlı-dizi okumaları KIRILMAZ).
 let terrainFeatures = [];
+let STORY_ARENA_V2 = null;                          // DESIGN v2: aktif arenanın ham verisi (gerçekçi render bake'i için)
 let DEBUG_TERRAIN = false;   // grid-harita teşhis overlay'i (sorun çözüldü → kapalı)
 
 function seededRandom(seed) {

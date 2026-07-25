@@ -131,18 +131,45 @@ const MAPS = [
 
 let currentMapId = 0;
 
+// DESIGN v2 "Gerçekçi Arena": ARENAS_V2[id]'den KABA DAİRELER türet (spec §1).
+// Kural: terrainFeatures sim'in TEK arazi girdisi kalır → AI/LOS/örtü/MP/kayıt bozulmaz.
+// ridges/rocks → MOUNTAIN (elips ~ daire max(rx,ry)·k) · forests/villages → FOREST (örtü)
+// · marshes → MARSH (Phase B'de hız/siper etkisi; şimdilik sim'e nötr). Gerçekçi RENDER
+// aynı v2 verisinden story/arena bake katmanında çizilir (ayrı).
+function _v2Circles(a) {
+    const out = [];
+    let s = 700;
+    const push = (x, y, rx, ry, type, seed) => out.push({ x, y, r: Math.max(rx, ry || rx), type, seed: seed != null ? seed : (s++) });
+    for (const r of (a.ridges || [])) push(r[0], r[1], (r[2] || 120) * 0.85, (r[3] || r[2] || 120) * 0.85, TERRAIN.MOUNTAIN, r[4]);
+    for (const r of (a.rocks || [])) push(r[0], r[1], (r[2] || 120) * 0.72, (r[3] || r[2] || 120) * 0.72, TERRAIN.MOUNTAIN, r[4]);
+    for (const f of (a.forests || [])) push(f[0], f[1], f[2] || 180, f[2] || 180, TERRAIN.FOREST, f[3]);
+    for (const v of (a.villages || [])) push(v[0], v[1], (v[2] || 180) * 0.7, (v[3] || v[2] || 180) * 0.7, TERRAIN.FOREST, v[4]);   // köy = piyade örtüsü (AI "değerli savunma")
+    for (const m of (a.marshes || [])) push(m[0], m[1], (m[2] || 200) * 0.8, (m[3] || m[2] || 200) * 0.8, TERRAIN.MARSH, m[4]);
+    return out;
+}
+
 // HARİTA UYGULA — terrainFeatures'a IN-PLACE doldur (alias-güvenli), süsle, AI cache tazele.
 function applyMap(id) {
     if (id === -2 && typeof applyImageMap === 'function') { currentMapId = -2; return applyImageMap(); }   // çizilen ızgara-harita
     if (typeof MAP_MODE !== 'undefined') MAP_MODE = 'circle';     // eski daire-haritaya dönüş
-    if (typeof MAPS === 'undefined' || typeof terrainFeatures === 'undefined') return 0;
-    currentMapId = ((id | 0) % MAPS.length + MAPS.length) % MAPS.length;
-    if (typeof currentElevSeed !== 'undefined') { currentElevSeed = 7919 * (currentMapId + 1); _elevDirty = true; }   // T2: harita-bazlı yükselti tohumu (her harita farklı topografya)
-    const src = MAPS[currentMapId].features;
+    if (typeof terrainFeatures === 'undefined') return 0;
+    // DESIGN v2: gerçekçi arenalar varsa onlardan türet; yoksa eski MAPS (nötr fallback).
+    const useV2 = (typeof ARENAS_V2 !== 'undefined' && ARENAS_V2.length);
+    const N = useV2 ? ARENAS_V2.length : (typeof MAPS !== 'undefined' ? MAPS.length : 0);
+    if (!N) return 0;
+    currentMapId = ((id | 0) % N + N) % N;
+    if (typeof currentElevSeed !== 'undefined') { currentElevSeed = 7919 * (currentMapId + 1); _elevDirty = true; }
     terrainFeatures.length = 0;                                  // REASSIGN değil → 8-dosya canlı okuma kırılmaz
-    for (const f of src) terrainFeatures.push({ x: f.x, y: f.y, r: f.r, type: f.type, seed: f.seed });
+    if (useV2) {
+        STORY_ARENA_V2 = ARENAS_V2[currentMapId];                // gerçekçi RENDER için ham veri (globals)
+        for (const f of _v2Circles(STORY_ARENA_V2)) terrainFeatures.push(f);
+    } else {
+        STORY_ARENA_V2 = null;
+        for (const f of MAPS[currentMapId].features) terrainFeatures.push({ x: f.x, y: f.y, r: f.r, type: f.type, seed: f.seed });
+    }
     if (typeof decorateTerrain === 'function') decorateTerrain(terrainFeatures);
     if (typeof refreshSimTerrainCaches === 'function') refreshSimTerrainCaches();   // AI orman/dağ cache (AI.js)
+    if (typeof STORY !== 'undefined') STORY._arenaBaked = null;  // render bake'i tazele
     return currentMapId;
 }
 
