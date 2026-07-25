@@ -632,6 +632,74 @@ function drawAIWaypoints() {
     ctx.restore();
 }
 
+// ═══ DESIGN v2 GERÇEKÇİ ARENA BAKE (Faz B) ═══════════════════════════════════
+// Aktif v2 arenanın (STORY_ARENA_V2) zeminini BİR KEZ gerçekçi bake eder: yükseklik
+// alanı (sırt elipsleri + gürültü) → biyom paleti (ova/yayla/batak/bozkır) → hillshade
+// → nehir/dere + köprü + yol/demiryolu + tarla + köy. Sprite'lar (ağaç/dağ) üstte kalır.
+let _arenaBaked = null, _arenaBakedId = -999;
+function _ellDist(px, py, cx, cy, rx, ry, rotDeg) {   // elips merkez-mesafesi (0=merkez, 1=kenar)
+    const a = -(rotDeg || 0) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+    const dx = px - cx, dy = py - cy, ux = dx * ca - dy * sa, uy = dx * sa + dy * ca;
+    return Math.sqrt((ux / Math.max(1, rx)) ** 2 + (uy / Math.max(1, ry)) ** 2);
+}
+const _ARENA_PAL = {
+    ova:    [[82, 99, 68], [77, 96, 61], [66, 84, 56]],
+    yayla:  [[106, 106, 85], [91, 95, 76], [74, 75, 61]],
+    batak:  [[64, 80, 57], [55, 71, 47], [43, 58, 42]],
+    bozkir: [[122, 111, 74], [106, 98, 68], [90, 83, 56]],
+};
+function storyBakeArena() {
+    const a = (typeof STORY_ARENA_V2 !== 'undefined') ? STORY_ARENA_V2 : null;
+    if (!a) { _arenaBaked = null; return null; }
+    if (_arenaBaked && _arenaBakedId === currentMapId) return _arenaBaked;
+    try {
+        const HGW = 460, HGH = Math.round(HGW * WORLD_H / WORLD_W), K = HGW / WORLD_W;
+        const pal = _ARENA_PAL[a.biome] || _ARENA_PAL.ova;
+        // yükseklik alanı
+        const elev = new Float32Array(HGW * HGH);
+        for (let gy = 0; gy < HGH; gy++) for (let gx = 0; gx < HGW; gx++) {
+            const wx = gx / K, wy = gy / K; let e = 0;
+            for (const r of (a.ridges || [])) { const d = _ellDist(wx, wy, r[0], r[1], r[2], r[3] || r[2], r[4]); if (d < 1.25) { const t = Math.max(0, 1 - d / 1.25); e = Math.max(e, Math.pow(t, 1.4)); } }
+            for (const r of (a.rocks || [])) { const d = _ellDist(wx, wy, r[0], r[1], r[2], r[3] || r[2], r[4]); if (d < 1.1) { const t = Math.max(0, 1 - d / 1.1); e = Math.max(e, Math.pow(t, 1.2) * 0.85); } }
+            e += (_eNoise(wx / 240, wy / 240, 7) - 0.5) * 0.13 + (_eNoise(wx / 90, wy / 90, 13) - 0.5) * 0.05;
+            elev[gy * HGW + gx] = Math.max(0, Math.min(1, e));
+        }
+        const small = document.createElement('canvas'); small.width = HGW; small.height = HGH;
+        const scx = small.getContext('2d'), img = scx.createImageData(HGW, HGH), px = img.data;
+        const mix = (c1, c2, t) => [c1[0] + (c2[0] - c1[0]) * t, c1[1] + (c2[1] - c1[1]) * t, c1[2] + (c2[2] - c1[2]) * t];
+        for (let gy = 0; gy < HGH; gy++) for (let gx = 0; gx < HGW; gx++) {
+            const i = gy * HGW + gx, o = i * 4, e = elev[i], wx = gx / K, wy = gy / K;
+            let c = e < 0.4 ? mix(pal[0], pal[1], e / 0.4) : mix(pal[1], pal[2], (e - 0.4) / 0.6);
+            // bataklık ıslak koyu leke
+            for (const m of (a.marshes || [])) { const d = _ellDist(wx, wy, m[0], m[1], m[2], m[3] || m[2], m[4]); if (d < 1) c = mix(c, [46, 62, 46], (1 - d) * 0.7); }
+            // hillshade (KB güneş)
+            const eL = elev[i - 1] || e, eR = elev[i + 1] || e, eU = elev[i - HGW] || e, eD = elev[i + HGW] || e;
+            let sh = ((eL - eR) * 6 + (eU - eD) * 6 + 1) / 2; sh = Math.max(0.55, Math.min(1.45, sh * 1.05 + 0.3));
+            const n = (_eNoise(wx / 30, wy / 30, 3) - 0.5) * 12;
+            px[o] = Math.max(0, Math.min(255, c[0] * sh + n)); px[o + 1] = Math.max(0, Math.min(255, c[1] * sh + n)); px[o + 2] = Math.max(0, Math.min(255, c[2] * sh + n)); px[o + 3] = 255;
+        }
+        scx.putImageData(img, 0, 0);
+        const bk = document.createElement('canvas'); bk.width = WORLD_W; bk.height = WORLD_H;
+        const g = bk.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+        g.drawImage(small, 0, 0, HGW, HGH, 0, 0, WORLD_W, WORLD_H);
+        const line = (pts, w, col, dash) => { g.save(); if (dash) g.setLineDash(dash); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); g.restore(); };
+        // tarlalar (çizgi dokusu)
+        for (const f of (a.fields || [])) { g.save(); g.translate(f[0], f[1]); g.rotate((f[4] || 0) * Math.PI / 180); g.fillStyle = 'rgba(150,140,86,.13)'; g.fillRect(-f[2] / 2, -f[3] / 2, f[2], f[3]); g.strokeStyle = 'rgba(60,54,32,.22)'; g.lineWidth = 3; for (let x = -f[2] / 2; x < f[2] / 2; x += 46) { g.beginPath(); g.moveTo(x, -f[3] / 2); g.lineTo(x, f[3] / 2); g.stroke(); } g.restore(); }
+        // su ağı — nehir + dereler (banka + su)
+        const waters = []; if (a.river && a.river.length) waters.push([a.river, 1]); for (const cr of (a.creeks || [])) waters.push([cr, 0]);
+        for (const [w, major] of waters) { line(w, major ? 46 : 26, 'rgba(40,58,64,.5)'); line(w, major ? 30 : 16, 'rgba(70,120,150,.75)'); line(w, major ? 12 : 7, 'rgba(120,175,200,.55)'); }
+        // köprüler (su üstünde açık geçit bandı)
+        for (const b of (a.bridges || [])) { g.save(); g.translate(b[0], b[1]); g.rotate((b[2] || 0) * Math.PI / 180); g.fillStyle = '#5a4a30'; g.fillRect(-(b[4] || 30) / 2, -(b[3] || 120) / 2, b[4] || 30, b[3] || 120); g.strokeStyle = '#3a2e1c'; g.lineWidth = 3; g.strokeRect(-(b[4] || 30) / 2, -(b[3] || 120) / 2, b[4] || 30, b[3] || 120); g.restore(); }
+        // yollar + demiryolları
+        for (const rd of (a.roads || [])) { line(rd, 26, 'rgba(38,30,20,.6)'); line(rd, 15, 'rgba(150,128,86,.55)'); }
+        for (const rl of (a.rails || [])) { line(rl, 20, 'rgba(30,26,20,.6)'); line(rl, 10, 'rgba(110,102,86,.7)'); g.save(); g.setLineDash([6, 26]); line(rl, 20, 'rgba(20,16,12,.6)'); g.restore(); }
+        // köyler (bina kümesi + gölge)
+        for (const v of (a.villages || [])) { const [cx, cy, rx, ry] = v, rr = Math.max(rx, ry || rx); const seed = (v[4] || 3) * 131 + cx;
+            for (let k = 0; k < 14; k++) { const ang = _eNoise(k * 3.1, seed, 1) * 6.28, rad = _eNoise(k * 1.7, seed + 5, 1) * rr * 0.8; const bx = cx + Math.cos(ang) * rad, by = cy + Math.sin(ang) * rad * (ry ? ry / rx : 1); const bw = 24 + _eNoise(k, seed + 9, 1) * 26; g.fillStyle = 'rgba(20,16,12,.4)'; g.fillRect(bx - bw / 2 + 4, by - bw / 2 + 4, bw, bw); g.fillStyle = k % 2 ? '#6a5a44' : '#7a6a4e'; g.fillRect(bx - bw / 2, by - bw / 2, bw, bw); g.strokeStyle = 'rgba(40,32,22,.6)'; g.lineWidth = 2; g.strokeRect(bx - bw / 2, by - bw / 2, bw, bw); } }
+        _arenaBaked = bk; _arenaBakedId = currentMapId; return bk;
+    } catch (e) { _arenaBaked = null; return null; }
+}
+
 function drawMap() {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
@@ -643,7 +711,17 @@ function drawMap() {
     // GRID MODU: çizilen harita zemini tek blit ile (groundTiles/orman/dağ daireleri atlanır)
     const _gridMap = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
     if (_gridMap && typeof drawGridTerrain === 'function') drawGridTerrain();
-    if (!_gridMap) {
+    // DESIGN v2 GERÇEKÇİ ARENA: aktifse karo/yol bloğu yerine bir kez bake edilmiş zemini blit et.
+    const _v2Arena = !_gridMap && (typeof STORY_ARENA_V2 !== 'undefined') && STORY_ARENA_V2;
+    if (_v2Arena) {
+        const baked = storyBakeArena();
+        if (baked) {
+            const vW = canvas.width / zoom, vH = canvas.height / zoom;
+            const oe = worldToScreen(camera.x, camera.y);
+            ctx.drawImage(baked, camera.x, camera.y, vW, vH, oe.x, oe.y, canvas.width, canvas.height);
+        }
+    }
+    if (!_gridMap && !_v2Arena) {
 
     const tilePalette = ['#425438', '#485c3b', '#4d603d', '#3f5035', '#526344'];
     for (const tile of groundTiles) {
