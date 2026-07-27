@@ -358,6 +358,20 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
 - **Faz 5** — İnsan kayıtlarıyla ince ayar + **kör insan-hissi** testi (§8, §9A).
 - **Faz 6** — (gerekirse) düşük-frekanslı LLM stratejisti (§11 kısıtlarıyla).
 
+### 📍 GÜNCEL UYGULAMA DURUMU (kod + ölçümler)
+- **Faz 0 ✅** — determinizm (self-play/fork/canlı-oyuncu), `operationGrammar.v1` (64 aday), `BattleForkState.v1`,
+  precision fix (canlı-replay kök nedeni bulundu+düzeltildi). Dosyalar: BattleSession/OperationGrammar.js.
+- **Faz 1 ✅** — Oracle tavan testi (`js/BattleOracle.js`, `electron --oracletest`): enjeksiyon (intent+sektör+
+  allocation+flank+tempo) + karşı-olgusal rollout + tavan-regret. İzole/tekrarlanabilir. **GO** (tavan ~60, 5/7).
+- **Faz 3 ✅ (PoC→robust)** — `stateFeatures.v1`+`candidateFeatures.v1` (`js/BattleFeatures.js`) + seçici MLP
+  (`js/BattleSelector.js`, karşı-olgusal ödülle eğitim). **48 örnek → DEV regret 3.1** (near-oracle). GRU-128 de
+  implement+BPTT doğrulandı (veri-aç). Veri: `electron --oracledata/--oracleseq`.
+- **Faz 4 ✅ (ilk canlı)** — model controller'a bağlı (`battleSelectorEnable`, `electron --selectorlive`).
+  **Hibrit (kod-AI açılış + model temas-fazı) kod-AI'yı yeniyor: 6/6 galibiyet, ortFark 1095>916.**
+  Bulgu: full-maç override dağıtım-kaymasıyla kötü → **on-policy/DAgger** (`electron --oracledagger`) ile kapatılıyor.
+- **Sıradaki:** DAgger turu (on-policy veri → karışık eğitim → genişletilmiş-pencere full-maç test), sonra
+  lig self-play (§7, GRU hacmi). Altyapı (fork/rollout/feature/model/canlı-bağlantı) hazır.
+
 ---
 
 ## 13. Ölçülmüş yargı boşlukları (kod-AI zaten iyileşebilir; model gelene kadar temel)
