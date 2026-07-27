@@ -346,6 +346,19 @@ function startBattle() {
     if (typeof battleControllersSyncOwnership === 'function') battleControllersSyncOwnership();
     if (typeof battleCaptureInitialState === 'function') battleCaptureInitialState();
     if (typeof battleRecordEvent === 'function') battleRecordEvent('battle-start', battlefieldRulesConfig(), SIM.tick);
+    // ÖĞRENEN AI: tek-oyunculu maçta kırmızı AI, temas-fazında lig-eğitimli seçici modeli kullanır
+    // (kod-AI açılışı sürer; model tick≥MIN_TICK'te operasyon seçer). MP/replay'de KAPALI.
+    if (typeof BATTLE_SELECTOR_AUTO_ENABLE !== 'undefined' && BATTLE_SELECTOR_AUTO_ENABLE &&
+        typeof BATTLE_SELECTOR_TRAINED_MODEL !== 'undefined' && typeof battleSelectorEnable === 'function' &&
+        BATTLE_SESSION.interactive !== false &&   // yalnız gerçek oyun (headless testlerde kapalı — testler modeli kendi yönetir)
+        BATTLE_SESSION.mode === 'quick' &&        // yalnız Hızlı Maç (hikâye modu farklı kuvvet dağılımı = OOD)
+        !(typeof MP !== 'undefined' && MP.active) && !(BATTLE_REPLAY && BATTLE_REPLAY.playback)) {
+        battleSelectorEnable(BATTLE_SELECTOR_TRAINED_MODEL, 'battle-red-ai');
+        if (typeof BATTLE_SELECTOR_MIN_TICK !== 'undefined') BATTLE_SELECTOR_MIN_TICK =
+            (typeof BATTLE_SELECTOR_AUTO_MIN_TICK !== 'undefined') ? BATTLE_SELECTOR_AUTO_MIN_TICK : 500;
+    } else if (typeof battleSelectorDisable === 'function') {
+        battleSelectorDisable();
+    }
     selectedSpawnType = null;
     if (deployCarried) { deployCarried.selected = false; deployCarried = null; }   // elde birlik kalmışsa bırak
     canvas.classList.remove('ghost-cursor');

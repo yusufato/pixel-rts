@@ -799,6 +799,7 @@ function openBattlefieldSession(config = {}) {
 
     BATTLE_SESSION.active = true;
     BATTLE_SESSION.engineVersion = BATTLE_ENGINE_VERSION;
+    BATTLE_SESSION.interactive = config.show !== false;   // gerçek oyun (görünür) vs headless test — öğrenen-AI kancası buna bağlı
     BATTLE_SESSION.mode = config.mode || 'quick';
     BATTLE_SESSION.requestedMapId = Number.isFinite(config.mapId) ? config.mapId : -2;
     BATTLE_SESSION.mapId = BATTLE_SESSION.requestedMapId;
