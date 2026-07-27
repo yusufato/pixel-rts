@@ -43,6 +43,16 @@ for B in 1400 1700; do
   SEL_MIN=500 SEL_MAX=999999 BLUE_BUDGET=$B $EL --selectorlive "$NEW_MODEL" 4 1 2>&1 | grep -E "SELECTORLIVE_OZET" || true
 done
 
-# 4) Rapor
-echo "[4/4] Tur $ROUND bitti. Yeni model: $NEW_MODEL"
-echo "═══ Bir sonraki tur:  scripts/ai-train.sh $((ROUND+1)) $NEW_MODEL $SEEDS ═══"
+# 4) OTOMATİK GÖM — yeni modeli oyuna göm (BattleSelectorModel.js) + kanonik yap → sonraki derlemede oynar
+echo "[4/4] Yeni modeli oyuna gömme..."
+cp "$NEW_MODEL" "$Q/selector-model.json"
+node -e '
+const m = JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
+const js = "// OTOMATİK ÜRETİLDİ (AI-Eğit tur '"$ROUND"') — lig-eğitimli seçici model. Kırmızı AI temas-fazında kullanır.\n"
+  + "const BATTLE_SELECTOR_TRAINED_MODEL = " + JSON.stringify(m) + ";\n"
+  + "const BATTLE_SELECTOR_AUTO_ENABLE = true;\nconst BATTLE_SELECTOR_AUTO_MIN_TICK = 500;\n"
+  + "if (typeof module !== \"undefined\") module.exports = { BATTLE_SELECTOR_TRAINED_MODEL, BATTLE_SELECTOR_AUTO_ENABLE };\n";
+require("fs").writeFileSync("js/BattleSelectorModel.js", js);
+console.log("  → js/BattleSelectorModel.js güncellendi (D="+m.D+" H="+m.H+")");
+' "$NEW_MODEL"
+echo "═══ Tur $ROUND BİTTİ. Yeni model gömüldü. Sonraki tur:  scripts/ai-train.sh $((ROUND+1)) $NEW_MODEL $SEEDS ═══"
