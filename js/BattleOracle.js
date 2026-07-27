@@ -218,15 +218,30 @@ function battleOracleEvaluate(config = {}) {
     BATTLE_ORACLE_INJECTION = null;
     for (const c of BATTLE_CONTROLLERS.values()) battleOracleUninstallInjection(c);
 
+    // temas göstergesi: karar anında en yakın düşman mesafesi + rollout'larda çarpışma oldu mu
+    let minEnemyDist = Infinity;
+    const reds = SIM.units.filter(u => !u.dead && !!u.isRed === !!sideRed);
+    const blues = SIM.units.filter(u => !u.dead && !!u.isRed !== !!sideRed);
+    for (const a of reds) for (const b of blues) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < minEnemyDist) minEnemyDist = d; }
+
     // 4) oracle = en iyi aday; regret = oracle − chosen
     results.sort((a, b) => b.reward.scalar - a.reward.scalar);
     const oracle = results[0] || null;
     const regret = oracle ? (oracle.reward.scalar - chosen.scalar) : 0;
+    // "aktif" nokta = oracle veya chosen rollout'unda gerçek çarpışma oldu (aksi halde regret anlamsız)
+    const combatVolume = (oracle ? (oracle.reward.raw.enemyLost + oracle.reward.raw.ownLost) : 0) +
+        (chosen.raw.enemyLost + chosen.raw.ownLost);
+    const active = combatVolume > 0;
+    // TAVAN regret'i: mükemmel seçici varsayılanı "sürdür"meyi de seçebilir → hiç varsayılandan kötü yapmaz.
+    // regretCeiling = max(0, en_iyi_aday − chosen). İşaretli regret ise gramerin varsayılanı yendiği/kaybettiği
+    // noktaları gösterir (negatif = taze-operasyon enjeksiyonu momentum kaybettiriyor, tipik mid-icra).
+    const regretCeiling = Math.max(0, regret);
     return {
+        active, minEnemyDist: Math.round(minEnemyDist), combatVolume: Math.round(combatVolume),
         sideRed, controllerId, decisionTick: SIM.tick, rolloutTicks, candidateCount: candidates.length,
         chosen: { scalar: +chosen.scalar.toFixed(1), raw: chosen.raw, ran: chosenRan },
         oracle: oracle ? { intent: oracle.intent, mainSector: oracle.mainSector, tempo: oracle.tempo, scalar: +oracle.reward.scalar.toFixed(1), raw: oracle.reward.raw } : null,
-        regret: +regret.toFixed(1),
+        regret: +regret.toFixed(1), regretCeiling: +regretCeiling.toFixed(1),
         top5: results.slice(0, 5).map(r => ({ intent: r.intent, sector: r.mainSector, tempo: r.tempo, scalar: +r.reward.scalar.toFixed(1) })),
         worst: results.length ? { intent: results[results.length - 1].intent, scalar: +results[results.length - 1].reward.scalar.toFixed(1) } : null
     };
