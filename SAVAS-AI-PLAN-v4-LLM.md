@@ -381,7 +381,10 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
   (Δ-1121, 0/5) = tek-rakibe aşırı-uyum. **Lig self-play (§7) çözümü:** çeşitli rakiplere (blue 1100-1800,
   karışık kompozisyon, ileride kendi eski sürümleri) karşı DAgger → genelleşen model. Rakip-çeşitliliği
   altyapısı hazır (`--oracledagger <..> <blueBudget> <combat|mixed>`, `--selectorlive` BLUE_BUDGET/BLUE_COMBAT env).
-- **Sıradaki:** lig-turu (v4 = çok-rakip eğitim) → genelleme testi; sonra model-vs-model self-play +
+- **Lig turu ✅ (v4):** çok-rakip DAgger (blue 1400+1600+1800) → **v4 genelleşiyor:** vs1400 Δ+328(5/5),
+  vs1800 Δ+697(5/0, baseline zorlanırken model baskın), vs1600 Δ-324(3/5, çöküşten ~3.5× kurtuldu; baseline
+  burada en güçlü). Ortalama Δ≈+234. **Lig aşırı-uyumu kırdı** (v2 tek-rakip dışında çöküyordu). v4 = kanonik model.
+- **Sıradaki:** model-vs-model self-play (blue de model/eski-sürüm) + 1600-boşluğu için daha çok veri +
   GRU (lig hacmi hafıza avantajını açar). Altyapı (fork/rollout/feature/MLP+GRU/canlı/DAgger/lig) tam kurulu.
 
 ---
