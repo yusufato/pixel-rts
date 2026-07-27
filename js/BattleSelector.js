@@ -141,7 +141,33 @@ function selEvaluate(model, examples) {
     };
 }
 
-// ── Node CLI: dataset yükle → train/dev böl → eğit → değerlendir ──────────────
+// ── Node CLI (GRU): node js/BattleSelector.js --gru <sequences.json> <epochs> ──
+if (typeof require !== 'undefined' && require.main === module && process.argv.includes('--gru')) {
+    const fs = require('fs');
+    const gi = process.argv.indexOf('--gru');
+    const path = process.argv[gi + 1] || require('path').join(__dirname, '..', 'qa-runtime', 'oracle-sequences.json');
+    const epochs = parseInt(process.argv[gi + 2] || '200', 10);
+    const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+    const seqs = (data.sequences || []).filter(s => s.length >= 2 && s.every(st => st.rows && st.rows.length > 2));
+    console.log(`GRU dataset: ${seqs.length} sekans, ${seqs.reduce((a, s) => a + s.length, 0)} adım (${data.meta ? data.meta.stateVersion : '?'})`);
+    if (seqs.length < 4) { console.log('Yetersiz sekans (≥4). Daha çok topla: --oracleseq'); process.exit(0); }
+    const rng = selMakeRng(7);
+    const order = seqs.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; [order[i], order[j]] = [order[j], order[i]]; }
+    const cut = Math.max(3, Math.floor(seqs.length * 0.75));
+    const train = order.slice(0, cut).map(i => seqs[i]), dev = order.slice(cut).map(i => seqs[i]);
+    console.log(`Bölme: ${train.length} train, ${dev.length} dev sekans`);
+    const t0 = Date.now();
+    const { g, loss } = selGruTrain(train, { epochs, verbose: true, H: 64 });
+    console.log(`GRU eğitim bitti (${((Date.now() - t0) / 1000).toFixed(1)}s), son loss=${loss.toFixed(4)}`);
+    console.log('TRAIN  ' + JSON.stringify(selGruEvaluate(g, train)));
+    if (dev.length) console.log('DEV    ' + JSON.stringify(selGruEvaluate(g, dev)));
+    console.log('\nYORUM: GRU maç-içi karar DİZİSİNİ h(t) ile özetler (hafıza §2.3). modelRegret<defaultRegret');
+    console.log('ise hafızalı seçici de kod-AI\'dan iyi sıralıyor. (Feedforward ile kıyasla: hafıza katkısı.)');
+    process.exit(0);
+}
+
+// ── Node CLI (MLP): dataset yükle → train/dev böl → eğit → değerlendir ─────────
 if (typeof require !== 'undefined' && require.main === module) {
     const fs = require('fs');
     const path = process.argv[2] || require('path').join(__dirname, '..', 'qa-runtime', 'oracle-dataset.json');
