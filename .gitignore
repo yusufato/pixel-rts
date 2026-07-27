@@ -23,3 +23,4 @@ dist/
 # models/README.txt izlenir; yalnız model dosyaları hariç tutulur.
 *.gguf
 models/*.gguf
+models/*.gguf
