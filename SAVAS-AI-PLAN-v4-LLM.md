@@ -381,12 +381,19 @@ rollout ödülü) → DAgger + lig ile sağlamlaştır → oyuna göm → LLM ko
   (model dahil) seed'den ÇALIŞTIR → maçı `(seed+oyuncu-komut)`'tan birebir üret → oyuncunun GERÇEK maçlarında
   her karar noktasını Oracle-etiketle → **gerçek-insan-dağılımından öğren** (self-play değil). İnsanı zorlamanın
   asıl kaldıracı: AI, insanın karşılaştığı durumları ve iyi-insan cevaplarını öğrenir.
-- **Faz 7 — 8B LLM KOÇ (döngü-dışı analist).** Gerçek-zamanlı mikro DEĞİL (§11: ~15-50sn, çok yavaş). Rolü:
-  her eğitim turundan sonra **metrikleri** (regret, rakip-başına galibiyet, modelin nerede battığı,
-  reward-bileşen dökümü) LLM'e ver → LLM **JSON deney önerir**: hangi ordu/rakip eklensin, reward-ağırlığı
-  nasıl değişsin, DAgger hangi faza odaklansın, model zaafı hipotezleri. Hat her öneriyi **ÖLÇER** → iyileştiren
-  kalır. LLM ayrıca bir durum için "iyi-insan ne yapar" tarif edip **gramer önceliği / soft-etiket** üretebilir.
-  LLM modeli DEĞİL — stratejik analist + deney-tasarımcısı (credit-assignment yine Oracle'da).
+- **Faz 7 — İKİ-KATMANLI LLM KOÇ (döngü-dışı, buton-tetikli).** Gerçek-zamanlı mikro DEĞİL (§11 çok yavaş).
+  - **7a) 8B veri-koçu (`js/BattleCoach.js` ✅ iskelet):** her turdan sonra **metrikleri** (regret, rakip-başına
+    galibiyet, modelin nerede battığı) 8B yerel modele ver → **KISITLI-format deney önerir** (RAKIP/ODAK/GEREKCE;
+    8B karmaşık JSON'da zayıf → toleranslı parser). Hat öneriyi **ÖLÇER** → iyileştiren kalır. Hızlı, hafif.
+  - **7b) KOD-UZMANI LLM (yalnız "AI Eğit" butonunda devreye girer — ağır).** Metrikler + hat KODU + bulgular →
+    **KOD-seviyesi deney önerir:** yeni gramer-operasyonu (aday tipi), reward-bileşeni, feature ekleme, mimari
+    param. Kritik güvenlik (§14 "güvensiz LLM-kod-yazma" riski): **SANDBOX'ta uygula** (izole git-worktree kopyası)
+    → **ÖLÇ** (Oracle/regret/galibiyet + determinizm testleri) → yalnız iyileştiren + testi geçen kalır; riskli
+    değişiklik insan-onayı ister. Kod-uzmanı LLM modeli DEĞİL; hattı iyileştiren otonom kod-ajanı (Claude'un bu
+    oturumda yaptığının yerel/otomatik hâli). 8B çok zayıf → daha büyük kod-modeli (30B+) gerekir; buton-tetikli
+    olduğu için sürekli-açık maliyeti yok.
+  > İki LLM de MODEL DEĞİL — credit-assignment yine Oracle rollout'ta. LLM'ler stratejik yön + kod-iyileştirme
+  > önerir, hat hepsini **ölçer**; körlemesine hiçbir şey uygulanmaz.
 - **Faz 8 — "AI EĞİT" BUTONU (eğitim döngüsü UX).** Oyun-içi buton → arka planda tam döngü: **çeşitli ordu +
   rastgele rol (atak/defans) + dengeli matchup** self-play → her maçta birkaç karar noktasında Oracle-etiket
   (~1-2k etiketli nokta, 10k ham maç DEĞİL — 90 saat yerine makul) → DAgger retrain → lig → yeni model otomatik
