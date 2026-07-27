@@ -374,8 +374,15 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
   - **v2 sonuç:** genişletilmiş pencere [temas→son] → **6/6, ortFark 1258>916 (Δ+342, iyileşme ~2×)**;
     TAM override [0→son] bile baseline'ı yeniyor (Δ+131, 5/6). Dağıtım kayması **kapandı**; en iyi konfig
     v2 + temas-sonrası pencere. DAgger turu tasarlandığı gibi çalıştı.
-- **Sıradaki:** (ops.) pre-contact DAgger turu (tick 240-500) → tam override; sonra lig self-play (§7, GRU hacmi
-  + farklı doktrinler). Altyapı (fork/rollout/feature/MLP+GRU/canlı-bağlantı/DAgger) tam kurulu.
+- **Pre-contact DAgger (denendi, RED):** erken (temassız) durumlar düşük-sinyalli (tüm adaylar ~eşit ödül)
+  → gürültülü etiketler modeli HER YERDE bozdu (v3 Δ-234 temas penceresinde bile). **Ders: model rolü =
+  temas-fazı komutanı, full-maç sürücüsü DEĞİL.** Pre-contact'ı kod-AI sürsün. v2 en iyi model.
+- **Lig ihtiyacı KANITLANDI:** v2 sadece blue-1400'e karşı eğitildi → **güçlü blue-1600'e karşı çöküyor**
+  (Δ-1121, 0/5) = tek-rakibe aşırı-uyum. **Lig self-play (§7) çözümü:** çeşitli rakiplere (blue 1100-1800,
+  karışık kompozisyon, ileride kendi eski sürümleri) karşı DAgger → genelleşen model. Rakip-çeşitliliği
+  altyapısı hazır (`--oracledagger <..> <blueBudget> <combat|mixed>`, `--selectorlive` BLUE_BUDGET/BLUE_COMBAT env).
+- **Sıradaki:** lig-turu (v4 = çok-rakip eğitim) → genelleme testi; sonra model-vs-model self-play +
+  GRU (lig hacmi hafıza avantajını açar). Altyapı (fork/rollout/feature/MLP+GRU/canlı/DAgger/lig) tam kurulu.
 
 ---
 
