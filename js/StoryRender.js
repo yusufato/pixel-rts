@@ -33,8 +33,9 @@ function storyResize() {
 // ZOOM-OUT SINIRI: tüm dünya (üst şerit dahil, sxOf(0) en geniş) ekrana ~1.15 marjla
 // sığdığında dur → harita dışını çok gösterme (kullanıcı isteği). Yüksekliği de sığdır.
 function storyMinZoom(w, h) {
-    const zW = w / (STORY_WORLD_W * storySxOf(0) * 1.12);   // genişlik kısıtı (en geniş üst şerit)
-    const zH = h / (STORY_WORLD_H * 1.06);                  // yükseklik kısıtı (vyOf(1)=h)
+    // zoom-out sınırında p→0 (düz) → sxOf(0)=1. p'ye bağlanmaz (storyPP döngüsünü kırar).
+    const zW = w / (STORY_WORLD_W * 1.12);                  // genişlik kısıtı
+    const zH = h / (STORY_WORLD_H * 1.06);                  // yükseklik kısıtı
     return Math.max(zW, zH);
 }
 // kamerayı sınırlarda tut — WARP farkında. Ortalama: dünya merkezi EKRAN merkezine
@@ -42,7 +43,8 @@ function storyMinZoom(w, h) {
 // — eski formül sxOf(0)'ı katıp sürekli sola kaydırıyordu).
 function storyClampCam(w, h) {
     STORY._cw = w; STORY._ch = h;
-    storyCam.zoom = Math.max(storyMinZoom(w, h), Math.min(5, storyCam.zoom));
+    const mn = STORY._minZoom = storyMinZoom(w, h);        // storyPP bunu okur (eğim eğrisi)
+    storyCam.zoom = Math.max(mn, Math.min(5, storyCam.zoom));
     const z = storyCam.zoom;
     const visW = w / z / storySxOf(0);                // üst (en geniş) şeritte görünen dünya-genişliği
     if (visW >= STORY_WORLD_W) storyCam.x = STORY_WORLD_W / 2 - (w / 2) / z;   // sığıyor → dünya merkezini ekran merkezine
@@ -85,10 +87,19 @@ const storyCam = { x: 0, y: 0, zoom: 1 };            // kamera: sol-üst köşe 
 //    u = ekranY/H (0=üst/uzak, 1=alt/yakın)
 //    sxOf(u): satır yatay ölçeği — üst dar (uzak), alt geniş (yakın)
 //    vyOf(u): ekran satırı → düz-görünüm y'si ; uOfVy: tersi
-const STORY_PP = 0.5;                                 // eğim gücü — design v3 gerçekçi harita değeri
-function storySxOf(u) { return (1 + STORY_PP * u) * (1 + STORY_PP * u) / (1 + STORY_PP); }
-function storyVyOf(u) { const H = STORY._ch || 600; return H * (1 + STORY_PP) * u / (1 + STORY_PP * u); }
-function storyUOfVy(vy) { const H = STORY._ch || 600; const v = vy / H; return v / (1 + STORY_PP - STORY_PP * v); }
+// EĞİM ZOOM'A BAĞLI (design "Harita 2.5D"): uzak (zoom-out) → düz tepeden görünüm (p≈0,
+// tüm Avrupa okunur), yakın (zoom-in) → ~STORY_PP_MAX eğim (2.5D taktik his). p her frame
+// storyCam.zoom + STORY._minZoom'dan hesaplanır; render VE hit-test aynı p'yi kullanır →
+// tıklama doğruluğu korunur. Döngü yok: storyMinZoom p'ye bağlı değil (aşağıda sabit 1).
+const STORY_PP_MAX = 0.6;                             // en yakın zoomda eğim gücü
+function storyPP() {
+    const mn = STORY._minZoom || storyCam.zoom || 1;
+    const zt = Math.max(0, Math.min(1, (storyCam.zoom / mn - 1) / 3.5));
+    return STORY_PP_MAX * zt * zt * (3 - 2 * zt);     // smoothstep: uzak→0, yakın→tmax
+}
+function storySxOf(u) { const p = storyPP(); return (1 + p * u) * (1 + p * u) / (1 + p); }
+function storyVyOf(u) { const p = storyPP(), H = STORY._ch || 600; return H * (1 + p) * u / (1 + p * u); }
+function storyUOfVy(vy) { const p = storyPP(), H = STORY._ch || 600, v = vy / H; return v / (1 + p - p * v); }
 // dünya (px) → ekran; döner {x,y,u}. u perspektif ölçeği için (jeton boyutu).
 function storyW2S(wx, wy) {
     const W = STORY._cw || 800, z = storyCam.zoom;
