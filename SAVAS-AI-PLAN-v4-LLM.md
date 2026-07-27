@@ -358,6 +358,46 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
 - **Faz 5** — İnsan kayıtlarıyla ince ayar + **kör insan-hissi** testi (§8, §9A).
 - **Faz 6** — (gerekirse) düşük-frekanslı LLM stratejisti (§11 kısıtlarıyla).
 
+## 12A. GENEL FAZ ÖZETİ — YOL HARİTASI (uygulama, sadeleştirilmiş)
+
+**Yaklaşım:** her karar noktasında kod-gramer aday üretir → model SIRALAR (öğretmen = karşı-olgusal Oracle
+rollout ödülü) → DAgger + lig ile sağlamlaştır → oyuna göm → LLM koç ve insan-maçlarıyla derinleştir.
+
+### ✅ TAMAMLANAN FAZLAR (bu oturumda implement + ölçüldü)
+| Faz | İçerik | Kanıt |
+|---|---|---|
+| **0** | Determinizm + fork + gramer + precision fix | self-play/fork/canlı-oyuncu sıfır sapma |
+| **1** | Oracle tavan testi (dallandır-ölç + regret) | GO: tavan ~60, 5/7 |
+| **3a** | Seçici model (MLP) + feature + DAgger + lig | kod-AI'yı yeniyor (DEV regret 3.1; canlı Δ+342; lig genelleme Δ≈+234) |
+| **3b** | GRU-128 hafızalı model | implement + BPTT doğrulandı (sentetik regret 0.1; lig-hacim bekliyor) |
+| **4a** | Canlı entegrasyon (oyuna gömülü) | Hızlı Maç kırmızı AI temas-fazında modeli kullanır |
+| **4b** | Self-play altyapı (kontrolör-başına model) + defender modeli | bulgu: dengeli matchup'ta arms-race zayıf |
+
+### 🔜 KALAN FAZLAR (5 faz)
+- **Faz 5 — Dengeli-matchup self-play + GRU lig-ölçek eğitim.** Arms-race için matchup dengele (savunmaya
+  bütçe/terrain avantajı veya karşılıklı-taarruz) → iki taraf da kazanabilsin → tavan yükselsin. GRU'yu
+  lig-hacminde (çok sekans) eğit → hafıza avantajı açılsın.
+- **Faz 6 — Deterministik-replay → İNSAN-MAÇI DAgger.** (PLANLAR A-artığı temiz çözümü.) Replay'de kontrolörleri
+  (model dahil) seed'den ÇALIŞTIR → maçı `(seed+oyuncu-komut)`'tan birebir üret → oyuncunun GERÇEK maçlarında
+  her karar noktasını Oracle-etiketle → **gerçek-insan-dağılımından öğren** (self-play değil). İnsanı zorlamanın
+  asıl kaldıracı: AI, insanın karşılaştığı durumları ve iyi-insan cevaplarını öğrenir.
+- **Faz 7 — 8B LLM KOÇ (döngü-dışı analist).** Gerçek-zamanlı mikro DEĞİL (§11: ~15-50sn, çok yavaş). Rolü:
+  her eğitim turundan sonra **metrikleri** (regret, rakip-başına galibiyet, modelin nerede battığı,
+  reward-bileşen dökümü) LLM'e ver → LLM **JSON deney önerir**: hangi ordu/rakip eklensin, reward-ağırlığı
+  nasıl değişsin, DAgger hangi faza odaklansın, model zaafı hipotezleri. Hat her öneriyi **ÖLÇER** → iyileştiren
+  kalır. LLM ayrıca bir durum için "iyi-insan ne yapar" tarif edip **gramer önceliği / soft-etiket** üretebilir.
+  LLM modeli DEĞİL — stratejik analist + deney-tasarımcısı (credit-assignment yine Oracle'da).
+- **Faz 8 — "AI EĞİT" BUTONU (eğitim döngüsü UX).** Oyun-içi buton → arka planda tam döngü: **çeşitli ordu +
+  rastgele rol (atak/defans) + dengeli matchup** self-play → her maçta birkaç karar noktasında Oracle-etiket
+  (~1-2k etiketli nokta, 10k ham maç DEĞİL — 90 saat yerine makul) → DAgger retrain → lig → yeni model otomatik
+  gömülür. İlerleme çubuğu. Motor zaten kurulu (rollout/Oracle/DAgger/lig/per-controller-model); buton orkestre eder.
+- **Faz 9 — Kör insan-hissi değerlendirme (§8, §9A).** İnsan, hangi tarafın model hangi tarafın kod olduğunu
+  bilmeden oynar/izler → "insan gibi mi" + hedef galibiyet oranı (§9A: 60-70/45-55/35-45).
+
+> **NOT (bugünkü kanıt):** Kullanıcı fikri "çift-AI, farklı ordu, atak/defans, çok maç" = Faz 5+8'in özü ve
+> DOĞRU yön. Kritik: gelişme maç *sayısından* değil, her maçtan çıkan **öğrenme sinyalinden** (Oracle-etiket) +
+> **dengeli matchup**'tan gelir. Salt 10k win/loss zayıf sinyal (credit-assignment çözülmez).
+
 ### 📍 GÜNCEL UYGULAMA DURUMU (kod + ölçümler)
 - **Faz 0 ✅** — determinizm (self-play/fork/canlı-oyuncu), `operationGrammar.v1` (64 aday), `BattleForkState.v1`,
   precision fix (canlı-replay kök nedeni bulundu+düzeltildi). Dosyalar: BattleSession/OperationGrammar.js.
