@@ -439,6 +439,117 @@ function battleRestoreInitialState(initialState) {
     SIM_RNG.state = initialState.rngState >>> 0;
 }
 
+// ═══ BattleForkState.v1 — karşı-olgusal rollout için EKSİKSİZ fork ═══════════════════════
+// initialState snapshot'ından FARKLI: tik/zaman + TÜM birim iç durumu (attackTarget dahil) +
+// supports + rng korunur. Birim ref'leri (attackTarget/manualTarget) id ile serileşir, geri bağlanır.
+function battleForkUnitSnapshot(u) {
+    const s = {};
+    for (const k in u) {
+        if (!Object.prototype.hasOwnProperty.call(u, k)) continue;
+        const v = u[k];
+        if (typeof v === 'function') continue;
+        if (k === 'attackTarget') { s.__attackTargetId = (v && !v.dead) ? v.id : null; continue; }
+        if (k === 'manualTarget') { s.__manualTargetId = (v && !v.dead) ? v.id : null; continue; }
+        s[k] = (v && typeof v === 'object') ? replayClone(v) : v;
+    }
+    return s;
+}
+function battleForkRestoreUnit(s) {
+    const u = new Unit(s.type, s.x, s.y, !!s.isRed);   // ctor srandInt tüketir → rng SONRA resetlenir
+    for (const k in s) {
+        if (k === '__attackTargetId' || k === '__manualTargetId') continue;
+        u[k] = (s[k] && typeof s[k] === 'object') ? replayClone(s[k]) : s[k];
+    }
+    u.dead = false;
+    return u;
+}
+function battleForkCapture() {
+    return {
+        v: 1, tick: SIM.tick | 0,
+        simTime: (typeof simulationTime !== 'undefined') ? simulationTime : 0,
+        gTime: (typeof gameTime !== 'undefined') ? gameTime : 0,
+        accMs: (typeof battleAccumulatorMs !== 'undefined') ? battleAccumulatorMs : 0,
+        rngState: SIM_RNG.state >>> 0,
+        playerMoney: player.money || 0, enemyMoney: enemy.money || 0,
+        nextId: Unit.nextId || 0,
+        units: SIM.units.filter(u => !u.dead).map(battleForkUnitSnapshot),
+        trenches: (SIM.trenches || []).map(replayClone),
+        activeSupports: (typeof activeSupports !== 'undefined') ? replayClone(activeSupports) : null,
+        pendingSupportSpawns: (typeof pendingSupportSpawns !== 'undefined') ? replayClone(pendingSupportSpawns) : null,
+        supportCooldowns: (typeof supportCooldowns !== 'undefined') ? replayClone(supportCooldowns) : null,
+        battle: SIM.battle ? replayClone(SIM.battle) : null,
+        controllers: (typeof battleForkCaptureControllers === 'function') ? battleForkCaptureControllers() : null
+    };
+}
+function battleForkRestore(fork) {
+    SIM.units.length = 0; SIM.trenches.length = 0;
+    const byId = new Map();
+    const snaps = fork.units || [];
+    for (const s of snaps) { const u = battleForkRestoreUnit(s); SIM.units.push(u); byId.set(u.id, u); }
+    for (let i = 0; i < snaps.length; i++) {
+        const s = snaps[i], u = SIM.units[i];
+        u.attackTarget = (s.__attackTargetId != null) ? (byId.get(s.__attackTargetId) || null) : null;
+        u.manualTarget = (s.__manualTargetId != null) ? (byId.get(s.__manualTargetId) || null) : null;
+    }
+    for (const f of fork.trenches || []) SIM.trenches.push(replayClone(f));
+    const restoreArr = (live, saved) => { if (typeof live === 'undefined' || !live || !saved) return; live.length = 0; for (const x of saved) live.push(replayClone(x)); };
+    if (typeof activeSupports !== 'undefined') restoreArr(activeSupports, fork.activeSupports);
+    if (typeof pendingSupportSpawns !== 'undefined') restoreArr(pendingSupportSpawns, fork.pendingSupportSpawns);
+    if (typeof supportCooldowns !== 'undefined' && supportCooldowns && fork.supportCooldowns) { for (const k in supportCooldowns) delete supportCooldowns[k]; Object.assign(supportCooldowns, replayClone(fork.supportCooldowns)); }
+    if (SIM.battle && fork.battle) Object.assign(SIM.battle, replayClone(fork.battle));
+    player.money = fork.playerMoney || 0; enemy.money = fork.enemyMoney || 0;
+    SIM.tick = fork.tick | 0;
+    if (typeof simulationTime !== 'undefined') simulationTime = fork.simTime || 0;
+    if (typeof gameTime !== 'undefined') gameTime = fork.gTime || 0;
+    if (typeof battleAccumulatorMs !== 'undefined') battleAccumulatorMs = fork.accMs || 0;
+    Unit.nextId = fork.nextId || 0;
+    if (fork.controllers && typeof battleForkRestoreControllers === 'function') battleForkRestoreControllers(fork.controllers, byId);
+    SIM_RNG.state = fork.rngState >>> 0;   // birim yaratımının tükettiği srand'ı geri al (EN SON)
+}
+
+// Controller iç durumu (nextDecisionTick + planCommitment + perception contact-hafızası + taskExecutor safha)
+// — Map'ler entry-dizisine serileşir. Alt-sistem NESNELERİ korunur (yalnız veri alanları yüklenir → metodlar kalır).
+function _forkCloneMap(m) { const out = []; if (m instanceof Map) for (const [k, v] of m) out.push([k, replayClone(v)]); return out; }
+function _forkLoadMap(target, entries) { if (!(target instanceof Map)) return; target.clear(); for (const e of (entries || [])) target.set(e[0], replayClone(e[1])); }
+function battleForkCaptureControllers() {
+    if (typeof BATTLE_CONTROLLERS === 'undefined' || !BATTLE_CONTROLLERS) return null;
+    const out = [];
+    for (const c of BATTLE_CONTROLLERS.values()) {
+        const cs = { id: c.id, nextDecisionTick: c.nextDecisionTick,
+            currentPlan: replayClone(c.currentPlan), lastSituation: replayClone(c.lastSituation),
+            lastObservation: replayClone(c.lastObservation), operationalPlan: replayClone(c.operationalPlan),
+            candidatePlans: replayClone(c.candidatePlans), rankedPlans: replayClone(c.rankedPlans),
+            lastPlanDecision: replayClone(c.lastPlanDecision), decisionHistory: replayClone(c.decisionHistory) };
+        if (c.perception) cs.perc = { contacts: _forkCloneMap(c.perception.contacts), lastObservation: replayClone(c.perception.lastObservation), initialFriendlyValue: c.perception.initialFriendlyValue };
+        if (c.planCommitment) cs.commit = { current: replayClone(c.planCommitment.current), sequence: c.planCommitment.sequence, transitionHistory: replayClone(c.planCommitment.transitionHistory), lastDecision: replayClone(c.planCommitment.lastDecision) };
+        if (c.taskExecutor) cs.exec = { states: _forkCloneMap(c.taskExecutor.states), transitionHistory: replayClone(c.taskExecutor.transitionHistory), operation: replayClone(c.taskExecutor.operation), operationHistory: replayClone(c.taskExecutor.operationHistory), lastFireWindowTick: c.taskExecutor.lastFireWindowTick, lastTelemetry: replayClone(c.taskExecutor.lastTelemetry) };
+        const op = c.operationalPlanner;
+        if (op) cs.plan = { lastPlan: replayClone(op.lastPlan),
+            fo: op.forceOrganizer ? { cachedPlanId: op.forceOrganizer.cachedPlanId, cachedUnitSignature: op.forceOrganizer.cachedUnitSignature, cachedGroups: replayClone(op.forceOrganizer.cachedGroups) } : null,
+            tcp: op.taskContractPlanner ? { cachedKey: op.taskContractPlanner.cachedKey, cachedContracts: replayClone(op.taskContractPlanner.cachedContracts) } : null };
+        out.push(cs);
+    }
+    return out;
+}
+function battleForkRestoreControllers(saved) {
+    if (typeof BATTLE_CONTROLLERS === 'undefined' || !BATTLE_CONTROLLERS || !saved) return;
+    for (const cs of saved) {
+        const c = BATTLE_CONTROLLERS.get(cs.id); if (!c) continue;
+        c.nextDecisionTick = cs.nextDecisionTick;
+        c.currentPlan = replayClone(cs.currentPlan); c.lastSituation = replayClone(cs.lastSituation);
+        c.lastObservation = replayClone(cs.lastObservation); c.operationalPlan = replayClone(cs.operationalPlan);
+        c.candidatePlans = replayClone(cs.candidatePlans) || []; c.rankedPlans = replayClone(cs.rankedPlans) || [];
+        c.lastPlanDecision = replayClone(cs.lastPlanDecision); c.decisionHistory = replayClone(cs.decisionHistory) || [];
+        if (c.perception && cs.perc) { _forkLoadMap(c.perception.contacts, cs.perc.contacts); c.perception.lastObservation = replayClone(cs.perc.lastObservation); c.perception.initialFriendlyValue = cs.perc.initialFriendlyValue; }
+        if (c.planCommitment && cs.commit) { c.planCommitment.current = replayClone(cs.commit.current); c.planCommitment.sequence = cs.commit.sequence; c.planCommitment.transitionHistory = replayClone(cs.commit.transitionHistory) || []; c.planCommitment.lastDecision = replayClone(cs.commit.lastDecision); }
+        if (c.taskExecutor && cs.exec) { _forkLoadMap(c.taskExecutor.states, cs.exec.states); c.taskExecutor.transitionHistory = replayClone(cs.exec.transitionHistory) || []; c.taskExecutor.operation = replayClone(cs.exec.operation); c.taskExecutor.operationHistory = replayClone(cs.exec.operationHistory) || []; c.taskExecutor.lastFireWindowTick = cs.exec.lastFireWindowTick; c.taskExecutor.lastTelemetry = replayClone(cs.exec.lastTelemetry); }
+        const op = c.operationalPlanner;
+        if (op && cs.plan) { op.lastPlan = replayClone(cs.plan.lastPlan);
+            if (op.forceOrganizer && cs.plan.fo) { op.forceOrganizer.cachedPlanId = cs.plan.fo.cachedPlanId; op.forceOrganizer.cachedUnitSignature = cs.plan.fo.cachedUnitSignature; op.forceOrganizer.cachedGroups = replayClone(cs.plan.fo.cachedGroups) || []; }
+            if (op.taskContractPlanner && cs.plan.tcp) { op.taskContractPlanner.cachedKey = cs.plan.tcp.cachedKey; op.taskContractPlanner.cachedContracts = replayClone(cs.plan.tcp.cachedContracts) || []; } }
+    }
+}
+
 function battleUnitById(id) {
     for (const unit of SIM.units) if (!unit.dead && unit.id === id) return unit;
     return null;
