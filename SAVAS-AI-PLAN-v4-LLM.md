@@ -193,12 +193,15 @@ oracle'a göre **ortalama regret'i** raporlanır. Oracle testi **hiç eğitim ko
 - **İki metrik:** işaretli `regret = en_iyi_aday − chosen`; **tavan** `regretCeiling = max(0, regret)`
   (mükemmel seçici "sürdür"meyi de seçebilir → mid-icra momentum artifaktını temizler). Yalnız
   **çarpışma olan** (aktif) karar noktaları sayılır.
-- **İlk ölçüm (3 seed × 3 karar noktası, red=attacker, 9 aktif nokta):** tavan regret ort **≈41**,
-  göreli tavan **0.91**, **4/9 noktada** varsayılanı anlamlı yenme → **GO**. Headroom **temas/orta-savaş**
-  kararlarında yoğun (tick~700: +95..+122); geç-savaşta varsayılan momentum'u fresh-recommit'i geçiyor
-  (tavan onu 0'a kırpar). **Faz 1 kapısı: GEÇTİ** — seçici model eğitmek (Faz 3) gerekçeli.
-- **Açık tuning (Faz 3 öncesi opsiyonel):** enjeksiyon sadakati (flank/tempo/phases henüz icra edilmiyor),
-  reward kalibrasyonu, daha çok seed/nokta ile istatistiksel CI (§9).
+- **Sadakat (tamamlandı):** `intent`+`objective`+`allocation`+`flankSector`(→FLANK destination)+`tempo`
+  (→pursuit ölçeği) artık icra ediliyor. `phases` executor'ın sabit kind-makinesine bağlı (invaziv → ertelendi).
+- **Tekrarlanabilirlik (tamamlandı):** her (seed,karar-noktası) için TAZE izole maç + varsayılan-önce rollout
+  → iki koşu BİREBİR özdeş (eval'in fork-artığı ana zaman çizgisini kirletmiyor).
+- **Kesin ölçüm (3 seed × temas-bölgesi 3 nokta, red=attacker, 7 aktif nokta):** tavan regret ort **≈60**,
+  **5/7 noktada** varsayılanı anlamlı yenme → **GO**. Headroom **temas** kararlarında tutarlı (tick~750: 3/3
+  seed'de +40..+71); geç-savaşta varsayılan momentum'u fresh-recommit'i geçiyor (tavan 0'a kırpar).
+  **Faz 1 kapısı: GEÇTİ** — seçici model eğitmek (Faz 3) gerekçeli.
+- **Açık (Faz 3 sonrası opsiyonel):** `phases` executor-binding, reward kalibrasyonu, Wilson/bootstrap CI (§9).
 
 ---
 

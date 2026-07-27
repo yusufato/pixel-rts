@@ -139,6 +139,23 @@ function battleOracleInstallInjection(controller) {
         const taskGroups = battleOracleOrganizeByAllocation(observation.ownUnits || [], inj.allocation);
         // 4) mevcut sözleşme planlayıcısını yeniden kullan (objective + groups parametre alıyor)
         const taskContracts = this.taskContractPlanner.build(plan, objective, taskGroups, observation);
+        // 4b) SADAKAT: adayın flankSector + tempo/pursuitLimit'ini sözleşmelere işle (executor bunları tüketir)
+        const groupCentroid = {}; for (const g of taskGroups) groupCentroid[g.role] = g.centroid;
+        const clampPt = (typeof planningClampPoint === 'function') ? planningClampPoint : (p => p);
+        for (const c of taskContracts) {
+            // tempo → chase/pursuit mesafesi (agresif uzun kovalar, temkinli kısa)
+            if (typeof c.pursuitLimit === 'number' && c.pursuitLimit > 0) c.pursuitLimit = Math.round(c.pursuitLimit * inj.tempoScale);
+            if (inj.tempoLabel) c.tempo = inj.tempoLabel;
+            // FLANK grubun hedefini adayın flankSector merkezine taşı (varsayılan objective±420 yerine)
+            if (c.groupRole === TASK_GROUP_ROLE.FLANK && inj.flankPoint) {
+                const origin = groupCentroid[TASK_GROUP_ROLE.FLANK] || (c.route && c.route[0]) || c.destination;
+                c.destination = clampPt({ x: inj.flankPoint.x, y: inj.flankPoint.y });
+                if (typeof planningRoutePoints === 'function' && origin) {
+                    c.route = planningRoutePoints(origin, c.destination);
+                    if (c.route && c.route.length) c.phaseLine = c.route[1] || c.route[c.route.length - 1];
+                }
+            }
+        }
         const assignedIds = taskGroups.flatMap(g => g.unitIds).sort((a, b) => a - b);
         const ownIds = (observation.ownUnits || []).map(u => u.id).sort((a, b) => a - b);
         this.lastPlan = {
@@ -193,25 +210,30 @@ function battleOracleEvaluate(config = {}) {
     const fork = battleForkCapture();
     const baseline = battleOracleBaseline(sideRed);
 
+    // 0) VARSAYILAN (kod-AI, enjeksiyon YOK) = "chosen" — ÖNCE ve pristine fork'tan koş ki hiçbir aday
+    //    rollout'u onu perturbe etmesin (fork-izolasyon boşluğuna karşı baseline'ı temiz tut).
+    BATTLE_ORACLE_INJECTION = null;
+    battleForkRestore(fork);
+    const chosenRan = battleOracleRunTicks(rolloutTicks);
+    const chosen = battleOracleReward(sideRed, baseline);
+
     // 1) her adayı rollout et
     const results = [];
     for (let i = 0; i < candidates.length; i++) {
         battleForkRestore(fork);
         const cand = candidates[i];
         const center = (typeof opgSectorCenter === 'function') ? opgSectorCenter(cand.mainSector) : { x: 0, y: 0 };
+        const flankPoint = (cand.flankSector != null && typeof opgSectorCenter === 'function') ? opgSectorCenter(cand.flankSector) : null;
+        const tempoScale = cand.tempo === 'aggressive' ? 1.5 : cand.tempo === 'cautious' ? 0.65 : 1.0;
         BATTLE_ORACLE_INJECTION = {
             controllerId, kind: battleOracleIntentToKind(cand.intent), sector: cand.mainSector,
-            point: center, allocation: cand.allocation || { main: 0.6, fixing: 0.2, flank: 0.1, reserve: 0.1 }
+            point: center, allocation: cand.allocation || { main: 0.6, fixing: 0.2, flank: 0.1, reserve: 0.1 },
+            flankPoint, tempoScale, tempoLabel: cand.tempo, pursuitLimit: cand.pursuitLimit
         };
         const ran = battleOracleRunTicks(rolloutTicks);
         const reward = battleOracleReward(sideRed, baseline);
         results.push({ index: i, intent: cand.intent, mainSector: cand.mainSector, tempo: cand.tempo, ran, reward });
     }
-    // 2) varsayılan (kod-AI, enjeksiyon YOK) = "chosen"
-    BATTLE_ORACLE_INJECTION = null;
-    battleForkRestore(fork);
-    const chosenRan = battleOracleRunTicks(rolloutTicks);
-    const chosen = battleOracleReward(sideRed, baseline);
 
     // 3) orijinali geri yükle + temizle
     battleForkRestore(fork);
