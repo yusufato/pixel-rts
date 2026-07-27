@@ -61,6 +61,7 @@
                             <label><span>ARAYÜZ SESİ</span><input id="wr-volume" type="range" min="0" max="100" value="70"><output id="wr-volume-value">70%</output></label>
                             <label><span>YAPAY ANLATICI</span><input id="wr-llm-toggle" type="checkbox"></label>
                             <small id="wr-llm-note" class="wr-settings-note">Komutan sohbetlerini yerel bir dil modeli yazar. Kapalıyken hazır metinler kullanılır.</small>
+                            <small class="wr-settings-note">Built with Meta Llama 3 · Türkçe uyarlama: YTÜ COSMOS Turkish-Llama-8b-Instruct-v0.1</small>
                         </div>
                     </nav>
                     <div class="wr-screen-footer"><span>KIŞ HAREKÂTI · MODERN ÇAĞ</span><span>BUILD 0.9.3-mvp</span></div>
@@ -110,7 +111,7 @@
     <div id="screen-quickmatch" class="app-screen hidden">
         <div class="menu-logo small">⚡ Hızlı Maç</div>
         <div class="qm-box">
-            <div class="qm-row"><label>🤖 AI Puanı: <b id="qm-ai-val">1500</b></label>
+            <div class="qm-row"><label>Rakip Puanı: <b id="qm-ai-val">1500</b></label>
                 <input type="range" id="qm-ai" min="600" max="3000" step="100" value="1500"></div>
             <div class="qm-row"><label>🧑 Senin Puanın: <b id="qm-pl-val">1500</b></label>
                 <input type="range" id="qm-pl" min="600" max="3000" step="100" value="1500"></div>
@@ -121,13 +122,6 @@
                     <button data-role="attacker" class="selected"><b>SALDIRAN</b><small>süre dolmadan kır</small></button>
                     <button data-role="defender"><b>SAVUNAN</b><small>hattı tut, süreyi tüket</small></button>
                     <button data-role="random"><b>RASTGELE</b><small>maç başında belirlenir</small></button>
-                </div>
-            </div>
-            <div class="qm-row"><label>🎯 AI Zorluğu:</label>
-                <div id="qm-skill" class="qm-choice">
-                    <button data-skill="easy"><b>ACEMİ</b><small>yavaş tepki</small></button>
-                    <button data-skill="normal" class="selected"><b>USTA</b><small>dengeli</small></button>
-                    <button data-skill="hard"><b>GAZİ</b><small>hızlı ve agresif</small></button>
                 </div>
             </div>
             <div class="qm-row"><label>🗺️ Harita:
@@ -345,7 +339,7 @@
     <section id="battle-orders" aria-label="Komutan emirleri">
         <div>KOMUTAN EMİRLERİ</div>
         <button data-battle-order="assault"><b>TAARRUZ</b><span>Schwerpunkt</span></button>
-        <button data-battle-order="free-fire"><b>ATEŞ SERBEST</b><span>otonom temas</span></button>
+        <button data-battle-order="free-fire"><b>ATEŞ SERBEST</b><span>otomatik temas</span></button>
         <button data-battle-order="trench"><b>SİPER KAZ</b><span>tahkim</span></button>
         <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
     </section>
@@ -445,7 +439,7 @@
             </section>
             <div class="battle-report-actions">
                 <button id="copy-battle-report-btn">📋 Raporu Kopyala</button>
-                <button id="download-battle-report-btn">💾 Raporu İndir</button>
+                <button id="download-battle-report-btn">💾 Ham JSON İndir</button>
             </div>
             <button id="restart-btn">🔄 Tekrar Oyna</button>
             <button id="story-return-btn" class="hidden">🗺️ Dünyaya Dön</button>
@@ -456,16 +450,20 @@
     <img id="spriteSheet" src="icons.png" style="display:none;">
     <script src="js/globals.js"></script>
     <script src="js/BattleRules.js"></script>
+    <script src="js/BattleSession.js"></script>
+    <script src="js/BattlePerception.js"></script>
+    <script src="js/BattleSituation.js"></script>
+    <script src="js/BattlePlanning.js"></script>
+    <script src="js/BattleExecution.js"></script>
+    <script src="js/OperationGrammar.js"></script>
+    <script src="js/BattleController.js"></script>
+    <script src="js/BattleOracle.js"></script>
     <script src="js/MapData.js"></script>
     <script src="js/MapImage.js"></script>
-    <script src="js/TacticalAI.js"></script>
-    <script src="js/Telemetry.js"></script>
     <script src="js/VFX.js"></script>
     <script src="js/Support.js"></script>
     <script src="js/Unit.js"></script>
-    <script src="js/AI.js"></script>
-    <script src="js/Foresight.js"></script>
-    <script src="js/Commander.js"></script>
+    <script src="js/BattleDeployment.js"></script>
     <script src="js/main.js"></script>
     <script src="js/Net.js"></script>
     <script src="js/MP.js"></script>
