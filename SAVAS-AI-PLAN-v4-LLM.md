@@ -384,8 +384,14 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
 - **Lig turu ✅ (v4):** çok-rakip DAgger (blue 1400+1600+1800) → **v4 genelleşiyor:** vs1400 Δ+328(5/5),
   vs1800 Δ+697(5/0, baseline zorlanırken model baskın), vs1600 Δ-324(3/5, çöküşten ~3.5× kurtuldu; baseline
   burada en güçlü). Ortalama Δ≈+234. **Lig aşırı-uyumu kırdı** (v2 tek-rakip dışında çöküyordu). v4 = kanonik model.
-- **Sıradaki:** model-vs-model self-play (blue de model/eski-sürüm) + 1600-boşluğu için daha çok veri +
-  GRU (lig hacmi hafıza avantajını açar). Altyapı (fork/rollout/feature/MLP+GRU/canlı/DAgger/lig) tam kurulu.
+- **Oyuna gömüldü ✅** — Hızlı Maç kırmızı AI temas-fazında v4 lig-modelini kullanır (`js/BattleSelectorModel.js`
+  gömülü + `startBattle` kancası; interactive+mode='quick' gated, MP/replay/hikâye/headless-test'te kapalı).
+- **Sıradaki:** (1) model-vs-model self-play (blue de model/eski-sürüm) + 1600-boşluğu verisi + GRU lig-hacim;
+  (2) **⭐ Deterministik controller-replay** (PLANLAR A-artığı temiz çözümü): replay'de kontrolörleri (model dahil)
+  seed'den ÇALIŞTIR → tam maç `(seed+oyuncu-event)`'ten reprodüksiyon. **Eğitim kaldıracı:** insan-maçlarını
+  birebir üretip her karar noktasında Oracle-etiketle → **gerçek-insan-dağılımı DAgger** (self-play değil) +
+  model-maçı karşı-olgusal analiz. Faz 5 (insan kayıtları) ile eşleşir. Altyapı (fork/rollout/feature/MLP+GRU/
+  canlı/DAgger/lig/oyun-entegrasyonu) tam kurulu.
 
 ---
 

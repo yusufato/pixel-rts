@@ -30,7 +30,7 @@ karşılaştırıyor — canlı-vs-replay DEĞİL. Self-play/fork de aynı yuvar
 **Sonuç:** precision fix, sapmayı tick 20'den tick 460'a (~1sn → ~23sn birebir replay) taşıdı. Taze fix'li kayıtta
 (seed 2755142734) doğrulandı.
 
-### A-artığı) İKİNCİL sapma tick ~460 (~23sn) — controller-order replay ≠ canlı controller  ⚠️ AÇIK ama BLOKLAMIYOR
+### A-artığı) İKİNCİL sapma tick ~460 (~23sn) — controller-order replay ≠ canlı controller  📌 SONRADAN BAKILACAK (Faz 1 sonrası, non-blocking)
 
 **Belirti:** ~23sn'de TEK bir idle oyuncu birimi (id23) canlıda taramayla bir düşman bulup hareket ediyor;
 replay'de HİÇ hareket etmiyor (event YOK, simRng EŞİT, tick-440 durumu birebir aynı).
@@ -46,6 +46,22 @@ Daha basit kayıt + tam byte-replay. Ama Faz 0 mimari değişikliği → Faz 1 s
 **Neden BLOKLAMIYOR:** eğitim hattı headless AI-vs-AI (`battleControllersDrive` her iki tarafta, replay-emir
 yolu YOK) → bu sapma orada oluşmaz; fork/self-play determinizmi sağlam. Telemetri (LLM koç okur) tam kaydediliyor.
 Yalnız "canlı-oyuncu maçının byte-exact replay'i" ~23sn sonrası etkilenir — eğitim için gerekli değil.
+
+**⭐ AVANTAJ (temiz çözümün eğitim değeri — model artık canlı oyunda olduğu için ARTTI):**
+Temiz çözüm (replay'de kontrolörleri deterministik ÇALIŞTIR) sadece bir bug-fix değil, **eğitim için güçlü bir
+kaldıraç**. Kontrolörler (artık **seçici model dahil**) state+seed'den deterministik olduğundan:
+1. **Kompakt kayıt:** bir maç yalnız `(seed + oyuncu-event + deployment)`'tan birebir yeniden üretilir —
+   controller-order akışı GEREKMEZ. Kayıtlar küçülür.
+2. **İNSAN-DAĞILIMI verisi (en değerli):** oyuncunun GERÇEK maçları kompakt seed'den birebir yeniden üretilip
+   oyuncunun karşılaştığı HER karar noktasında `battleForkCapture` + Oracle rollout çalıştırılabilir →
+   "oyuncu burada ne yapmalıydı?" etiketi. Bu, DAgger/Oracle hattına **self-play değil, gerçek-insan-maç
+   dağılımından** durumlar besler → "insan gibi" hedefi için doğrudan en kıymetli veri (§8 kör-insan + §5 iki-akış).
+3. **Model-sürücülü maç analizi:** model canlı kırmızıyı sürdüğü için, replay kontrolörü çalıştırırsa
+   MODELİN kararları da birebir yeniden üretilir → model-maçları replay-edilebilir + hata-ayıklanabilir +
+   karşı-olgusal "model burada X yerine Y seçseydi" analizi mümkün.
+→ **Gelecek faza ekle:** "Deterministik controller-replay" (seed'den tam maç reprodüksiyonu) — hem A-artığını
+kapatır hem de **insan-maçı DAgger** ve **model-maçı karşı-olgusal analiz** yeteneklerini açar. Faz 5 (insan
+kayıtları / kör-insan) ile doğal eşleşir.
 
 **Bağlam / kök neden (Faz 0'da bulundu):**
 - Ölçüldü: **self-play / AI-vs-AI determinizmi SAĞLAM** (savaş, ölüm, fleeing dahil sıfır sapma).
