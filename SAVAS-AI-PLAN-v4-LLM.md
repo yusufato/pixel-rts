@@ -385,15 +385,15 @@ rollout ödülü) → DAgger + lig ile sağlamlaştır → oyuna göm → LLM ko
   - **7a) 8B veri-koçu (`js/BattleCoach.js` ✅ iskelet):** her turdan sonra **metrikleri** (regret, rakip-başına
     galibiyet, modelin nerede battığı) 8B yerel modele ver → **KISITLI-format deney önerir** (RAKIP/ODAK/GEREKCE;
     8B karmaşık JSON'da zayıf → toleranslı parser). Hat öneriyi **ÖLÇER** → iyileştiren kalır. Hızlı, hafif.
-  - **7b) KOD-UZMANI LLM (yalnız "AI Eğit" butonunda devreye girer — ağır).** Metrikler + hat KODU + bulgular →
-    **KOD-seviyesi deney önerir:** yeni gramer-operasyonu (aday tipi), reward-bileşeni, feature ekleme, mimari
-    param. Kritik güvenlik (§14 "güvensiz LLM-kod-yazma" riski): **SANDBOX'ta uygula** (izole git-worktree kopyası)
-    → **ÖLÇ** (Oracle/regret/galibiyet + determinizm testleri) → yalnız iyileştiren + testi geçen kalır; riskli
-    değişiklik insan-onayı ister. Kod-uzmanı LLM modeli DEĞİL; hattı iyileştiren otonom kod-ajanı (Claude'un bu
-    oturumda yaptığının yerel/otomatik hâli). 8B çok zayıf → daha büyük kod-modeli (30B+) gerekir; buton-tetikli
-    olduğu için sürekli-açık maliyeti yok.
-  > İki LLM de MODEL DEĞİL — credit-assignment yine Oracle rollout'ta. LLM'ler stratejik yön + kod-iyileştirme
-  > önerir, hat hepsini **ölçer**; körlemesine hiçbir şey uygulanmaz.
+  - **7b) DERİN-KOÇ LLM (yalnız "AI Eğit" butonunda — ağır, KOD YAZMAZ).** Kullanıcı kararı: **LLM kod yazmasın,
+    koçluğu daha iyi yapsın.** Daha büyük/güçlü bir model buton-tetikli devreye girer; 8B'nin yapamadığı **DERİN
+    analiz** yapar: metrik-trendleri + bulgular + (varsa) telemetri özeti → **daha iyi STRATEJİK deney önerileri**
+    (hangi rakip-müfredatı, reward-ağırlık dengesi, DAgger odak fazı, model zaaf-hipotezleri). Çıktısı yine
+    **parametre-önerisi** (kod değil): orkestratörün tur-ayarlarına çevrilir → hat **ÖLÇER** → iyileştiren kalır.
+    KOD/mimari değişikliği önerse bile **insan (geliştirici) uygular** — LLM otonom kod yazıp uygulamaz (§14
+    güvensiz-kod riski). Rol: hızlı 8B'nin sığ önerilerini, güçlü modelin derin stratejik koçluğuyla değiştirmek.
+  > İki LLM de MODEL DEĞİL, KOD DA YAZMAZ — credit-assignment yine Oracle rollout'ta. LLM'ler yalnız **koçluk
+  > yapar** (hangi deney/müfredat/ödül-dengesi); hat hepsini **ölçer**; körlemesine hiçbir şey uygulanmaz.
 - **Faz 8 — "AI EĞİT" BUTONU (eğitim döngüsü UX).** Oyun-içi buton → arka planda tam döngü: **çeşitli ordu +
   rastgele rol (atak/defans) + dengeli matchup** self-play → her maçta birkaç karar noktasında Oracle-etiket
   (~1-2k etiketli nokta, 10k ham maç DEĞİL — 90 saat yerine makul) → DAgger retrain → lig → yeni model otomatik
