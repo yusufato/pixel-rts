@@ -102,6 +102,10 @@ function battleTelemetryUnit(unit) {
         controllerId: unit.controllerId || null,
         x: battleTelemetryRound(unit.x),
         y: battleTelemetryRound(unit.y),
+        targetX: battleTelemetryRound(unit.targetX ?? unit.x),   // teşhis + karar-veri-seti (§5)
+        targetY: battleTelemetryRound(unit.targetY ?? unit.y),
+        attackTargetId: (unit.attackTarget && !unit.attackTarget.dead) ? unit.attackTarget.id : 0,
+        isMovingToManualTarget: !!unit.isMovingToManualTarget,
         hp: battleTelemetryRound(Math.max(0, unit.hp)),
         maxHp: battleTelemetryRound(unit.maxHp),
         ammo: battleTelemetryRound(unit.ammo),
@@ -172,6 +176,9 @@ function battleCaptureTelemetrySample() {
     telemetry.samples.push({
         tick: SIM.tick || 0,
         seconds: battleTelemetryRound((SIM.tick || 0) * BATTLE_TICK_SEC),
+        simRng: SIM_RNG.state >>> 0,                              // teşhis: RNG akış konumu (sapma izole için)
+        pMoney: Math.round((player.money || 0) * 100) / 100,
+        eMoney: Math.round((enemy.money || 0) * 100) / 100,
         battle: {
             elapsedSec: battleTelemetryRound(SIM.battle?.elapsedSec || 0),
             remainingSec: battleTelemetryRound(SIM.battle?.remainingSec || 0),
