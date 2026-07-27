@@ -373,14 +373,21 @@ rollout ödülü) → DAgger + lig ile sağlamlaştır → oyuna göm → LLM ko
 | **4a** | Canlı entegrasyon (oyuna gömülü) | Hızlı Maç kırmızı AI temas-fazında modeli kullanır |
 | **4b** | Self-play altyapı (kontrolör-başına model) + defender modeli | bulgu: dengeli matchup'ta arms-race zayıf |
 
-### 🔜 KALAN FAZLAR (5 faz)
+### ✅ EK TAMAMLANAN (bu oturum, devam)
+| Faz | İçerik | Kanıt |
+|---|---|---|
+| **7a** | 8B veri-koçu (metrik→deney önerisi) | `js/BattleCoach.js` iskelet + parser ✓ |
+| **8** | AI-Eğit orkestratörü (DAgger→retrain→ölç→otomatik-göm) | `scripts/ai-train.sh` VALIDATED: r1>v4 (vs1700 Δ+860), r2 DEV-regret↓ |
+| **6-çekirdek** | İnsan-maçı DAgger (karar-durumu snapshot→Oracle-etiketle) | `--snaptest`: maçta 6 durum yakalandı+etiketlendi (human=true) |
+
+### 🔜 KALAN İŞ (çoğunlukla UI + insan-döngüsü; motorlar HAZIR)
 - **Faz 5 — Dengeli-matchup self-play + GRU lig-ölçek eğitim.** Arms-race için matchup dengele (savunmaya
   bütçe/terrain avantajı veya karşılıklı-taarruz) → iki taraf da kazanabilsin → tavan yükselsin. GRU'yu
   lig-hacminde (çok sekans) eğit → hafıza avantajı açılsın.
-- **Faz 6 — Deterministik-replay → İNSAN-MAÇI DAgger.** (PLANLAR A-artığı temiz çözümü.) Replay'de kontrolörleri
-  (model dahil) seed'den ÇALIŞTIR → maçı `(seed+oyuncu-komut)`'tan birebir üret → oyuncunun GERÇEK maçlarında
-  her karar noktasını Oracle-etiketle → **gerçek-insan-dağılımından öğren** (self-play değil). İnsanı zorlamanın
-  asıl kaldıracı: AI, insanın karşılaştığı durumları ve iyi-insan cevaplarını öğrenir.
+- **Faz 6 — İNSAN-MAÇI DAgger.** ✅ ÇEKİRDEK HAZIR (snapshot yaklaşımı — replay-mimarisini riske atmadan):
+  canlı maçta kırmızının karar-durumlarını fork'la yakala → maç sonrası Oracle-etiketle → insan-dağılımı verisi.
+  **Kalan:** oyun-içi "bu maçtan öğren" tetiği + orkestratör merge (etiketleme ağır → arka planda). (Alternatif
+  tam-çözüm — deterministik-replay, PLANLAR A-artığı — daha zarif ama delikanlı; snapshot yeterli ve güvenli.)
 - **Faz 7 — İKİ-KATMANLI LLM KOÇ (döngü-dışı, buton-tetikli).** Gerçek-zamanlı mikro DEĞİL (§11 çok yavaş).
   - **7a) 8B veri-koçu (`js/BattleCoach.js` ✅ iskelet):** her turdan sonra **metrikleri** (regret, rakip-başına
     galibiyet, modelin nerede battığı) 8B yerel modele ver → **KISITLI-format deney önerir** (RAKIP/ODAK/GEREKCE;
