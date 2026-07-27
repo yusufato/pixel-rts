@@ -366,11 +366,16 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
 - **Faz 3 ✅ (PoC→robust)** — `stateFeatures.v1`+`candidateFeatures.v1` (`js/BattleFeatures.js`) + seçici MLP
   (`js/BattleSelector.js`, karşı-olgusal ödülle eğitim). **48 örnek → DEV regret 3.1** (near-oracle). GRU-128 de
   implement+BPTT doğrulandı (veri-aç). Veri: `electron --oracledata/--oracleseq`.
-- **Faz 4 ✅ (ilk canlı)** — model controller'a bağlı (`battleSelectorEnable`, `electron --selectorlive`).
-  **Hibrit (kod-AI açılış + model temas-fazı) kod-AI'yı yeniyor: 6/6 galibiyet, ortFark 1095>916.**
-  Bulgu: full-maç override dağıtım-kaymasıyla kötü → **on-policy/DAgger** (`electron --oracledagger`) ile kapatılıyor.
-- **Sıradaki:** DAgger turu (on-policy veri → karışık eğitim → genişletilmiş-pencere full-maç test), sonra
-  lig self-play (§7, GRU hacmi). Altyapı (fork/rollout/feature/model/canlı-bağlantı) hazır.
+- **Faz 4 ✅ (canlı + on-policy)** — model controller'a bağlı (`battleSelectorEnable`, `electron --selectorlive`).
+  - **v1 (off-policy):** hibrit (kod-AI açılış + model dar temas-penceresi 550-1050) → 6/6, ortFark 1095>916 (Δ+178).
+  - **Bulgu:** full-maç override dağıtım-kaymasıyla kötü (model kendi OOD trajesini ziyaret ediyor).
+  - **DAgger (on-policy, `electron --oracledagger`):** model SÜRERKEN kendi durumlarını Oracle ile etiketle →
+    48 off-policy + 43 on-policy karışık eğit → **v2**.
+  - **v2 sonuç:** genişletilmiş pencere [temas→son] → **6/6, ortFark 1258>916 (Δ+342, iyileşme ~2×)**;
+    TAM override [0→son] bile baseline'ı yeniyor (Δ+131, 5/6). Dağıtım kayması **kapandı**; en iyi konfig
+    v2 + temas-sonrası pencere. DAgger turu tasarlandığı gibi çalıştı.
+- **Sıradaki:** (ops.) pre-contact DAgger turu (tick 240-500) → tam override; sonra lig self-play (§7, GRU hacmi
+  + farklı doktrinler). Altyapı (fork/rollout/feature/MLP+GRU/canlı-bağlantı/DAgger) tam kurulu.
 
 ---
 
