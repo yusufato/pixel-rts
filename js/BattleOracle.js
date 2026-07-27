@@ -258,7 +258,27 @@ function battleOracleEvaluate(config = {}) {
     // regretCeiling = max(0, en_iyi_aday − chosen). İşaretli regret ise gramerin varsayılanı yendiği/kaybettiği
     // noktaları gösterir (negatif = taze-operasyon enjeksiyonu momentum kaybettiriyor, tipik mid-icra).
     const regretCeiling = Math.max(0, regret);
+
+    // FAZ 3 VERİSİ: seçici model eğitim tuple'ı — (stateFeatures, [her aday: candidateFeatures + rollout ödülü]).
+    // Öğretmen = karşı-olgusal rollout ödülü. Listwise: bir karar durumu, N aday, gerçek sıralama.
+    let dataset = null;
+    if (config.collectDataset && typeof battleStateFeatures === 'function') {
+        const maxTicks = Math.round(((typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.durationSec) || 240) / BATTLE_TICK_SEC);
+        const stateFeatures = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: baseline.own.count, enemyCount: baseline.enemy.count });
+        dataset = {
+            stateVersion: STATE_FEATURES_VERSION, candidateVersion: CANDIDATE_FEATURES_VERSION,
+            sideRed, decisionTick: SIM.tick, minEnemyDist: Math.round(minEnemyDist), active,
+            chosenReward: +chosen.scalar.toFixed(2), stateFeatures,
+            rows: results.map(r => ({
+                intent: r.intent, mainSector: r.mainSector, tempo: r.tempo,
+                features: battleCandidateFeatures(candidates[r.index], ctx),
+                reward: +r.reward.scalar.toFixed(2), rewardRaw: r.reward.raw
+            }))
+        };
+    }
+
     return {
+        dataset,
         active, minEnemyDist: Math.round(minEnemyDist), combatVolume: Math.round(combatVolume),
         sideRed, controllerId, decisionTick: SIM.tick, rolloutTicks, candidateCount: candidates.length,
         chosen: { scalar: +chosen.scalar.toFixed(1), raw: chosen.raw, ran: chosenRan },
