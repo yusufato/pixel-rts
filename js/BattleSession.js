@@ -179,6 +179,7 @@ function battleCaptureTelemetrySample() {
         simRng: SIM_RNG.state >>> 0,                              // teşhis: RNG akış konumu (sapma izole için)
         pMoney: Math.round((player.money || 0) * 100) / 100,
         eMoney: Math.round((enemy.money || 0) * 100) / 100,
+        hashParts: (typeof battleStateHashParts === 'function') ? battleStateHashParts() : null,   // teşhis: hangi hash-parçası sapıyor
         battle: {
             elapsedSec: battleTelemetryRound(SIM.battle?.elapsedSec || 0),
             remainingSec: battleTelemetryRound(SIM.battle?.remainingSec || 0),
@@ -382,6 +383,19 @@ function battleStateHash() {
         mix(support.payloadDropped ? 1 : 0);
     }
     return hash.toString(16).padStart(8, '0');
+}
+
+// TEŞHİS: hash'i PARÇALARA böler (hangi bölüm canlı↔replay sapıyor?). battleStateHash ile birebir
+// aynı mix'ler, ama global/battle/birimler/trench/destek ayrı hash'lenir.
+function battleStateHashParts() {
+    const h = (fn) => { let x = 2166136261 >>> 0; const mix = v => { x = battleHashMix(x, v); }; fn(mix); return (x >>> 0).toString(16).padStart(8, '0'); };
+    const battle = SIM.battle || {};
+    const g = h(mix => { mix(BATTLE_ENGINE_VERSION); mix(SIM.tick || 0); mix(SIM_RNG.state >>> 0); mix(Math.round((player.money || 0) * 100)); mix(Math.round((enemy.money || 0) * 100)); mix(Math.round((supportCooldowns?.paradrop || 0) * 1000)); });
+    const b = h(mix => { mix(battle.attackerSide ? 1 : 0); mix(Math.round((battle.elapsedSec || 0) * 1000)); mix(battle.winnerSide === null || battle.winnerSide === undefined ? '-' : battle.winnerSide ? 1 : 0); mix(battle.outcomeReason || '-'); });
+    const u = h(mix => { for (const unit of SIM.units.filter(x => !x.dead).slice().sort((a, b2) => a.id - b2.id)) { mix(unit.id); mix(unit.type); mix(unit.isRed ? 1 : 0); mix(unit.ally ? 1 : 0); mix(unit.controlOwner || '-'); mix(unit.controllerId || '-'); mix(Math.round(unit.x * 100)); mix(Math.round(unit.y * 100)); mix(Math.round(unit.hp * 100)); mix(Math.round((unit.ammo || 0) * 100)); mix(Math.round((unit.suppression || 0) * 100)); mix(unit.isFleeing ? 1 : 0); mix(unit.attackTarget && !unit.attackTarget.dead ? unit.attackTarget.id : 0); mix(Math.round((unit.targetX || 0) * 100)); mix(Math.round((unit.targetY || 0) * 100)); } });
+    const t = h(mix => { for (const f of (SIM.trenches || []).slice().sort((a, b2) => (a.x - b2.x) || (a.y - b2.y))) { mix(Math.round(f.x * 100)); mix(Math.round(f.y * 100)); mix(f.isRed ? 1 : 0); mix(Math.round((f.hp || 0) * 100)); mix(f.expiresAt || 0); } });
+    const s = h(mix => { for (const sp of pendingSupportSpawns || []) { mix(sp.spawnAt); mix(sp.type); mix(sp.isRed ? 1 : 0); mix(Math.round(sp.x * 100)); mix(Math.round(sp.y * 100)); } for (const su of activeSupports || []) { mix(su.type || '-'); mix(Math.round((su.x || 0) * 100)); mix(Math.round((su.y || 0) * 100)); mix(Math.round((su.life || 0) * 1000)); mix(su.payloadDropped ? 1 : 0); } });
+    return { g, b, u, t, s };
 }
 
 function battleMaybeRecordHash() {
