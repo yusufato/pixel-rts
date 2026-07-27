@@ -17,6 +17,61 @@
 let BATTLE_ORACLE_INJECTION = null;   // { controllerId, kind, sector, point:{x,y}, allocation:{main,fixing,flank,reserve} }
 const BATTLE_ORACLE_REWARD_WEIGHTS_VERSION = 'oracleReward.v1';
 
+// CANLI SEÇİCİ (Faz 4): eğitilmiş model gerçek maçta oynar. Null = kapalı.
+let BATTLE_SELECTOR_MODEL = null;        // selInitModel/selTrain çıktısı (weights)
+let BATTLE_SELECTOR_TARGET_ID = null;    // hangi kontrolör model kullanacak (örn. 'battle-red-ai')
+let BATTLE_SELECTOR_PICK_CACHE = { tick: -1, inj: null };   // thrash azalt: seçimi REPICK_TICKS koru
+// Commitment ufku EĞİTİM rollout ufkuyla eşleşmeli: model, ödülü "bu operasyonu ~12sn çalıştır" diye öğrendi.
+// Kısa re-pick (3sn) operasyonu oynayamadan değiştirip thrashing üretiyor → 240 tik (12sn).
+let BATTLE_SELECTOR_REPICK_TICKS = 240;
+// Model yalnız bu tik penceresinde karar verir (dışında kod-AI sürer). Eğitim dağıtımına (temas fazı) sınırla.
+let BATTLE_SELECTOR_MIN_TICK = 0, BATTLE_SELECTOR_MAX_TICK = Infinity;
+function battleSelectorSetModel(model, targetId) {
+    BATTLE_SELECTOR_MODEL = model || null;
+    BATTLE_SELECTOR_TARGET_ID = targetId || null;
+    BATTLE_SELECTOR_PICK_CACHE = { tick: -1, inj: null };
+}
+// CANLI AÇ: modeli set et + build sarmalayıcısını tüm kontrolörlere kur (hedef kontrolör model kullanır).
+function battleSelectorEnable(model, targetId) {
+    battleSelectorSetModel(model, targetId || 'battle-red-ai');
+    if (typeof BATTLE_CONTROLLERS !== 'undefined') for (const c of BATTLE_CONTROLLERS.values()) battleOracleInstallInjection(c);
+}
+function battleSelectorDisable() {
+    battleSelectorSetModel(null, null);
+    if (typeof BATTLE_CONTROLLERS !== 'undefined') for (const c of BATTLE_CONTROLLERS.values()) battleOracleUninstallInjection(c);
+}
+// Model bir karar durumunda tüm adayları skorlar → en yüksek → enjeksiyon-spec. Cache ile thrash azaltılır.
+function battleSelectorPickInjection(controller, observation, situation) {
+    if (!BATTLE_SELECTOR_MODEL || typeof selForward !== 'function' ||
+        typeof battleStateFeatures !== 'function' || typeof operationGrammarGenerate !== 'function') return null;
+    // eğitim-dağıtımı penceresi dışında kod-AI'ya bırak (OOD erken/geç durumlarda model bozuyor)
+    if (SIM.tick < BATTLE_SELECTOR_MIN_TICK || SIM.tick > BATTLE_SELECTOR_MAX_TICK) return null;
+    // cache: son seçimi REPICK_TICKS boyunca koru (sürekli re-commit momentum kaybettirir)
+    if (BATTLE_SELECTOR_PICK_CACHE.inj && (SIM.tick - BATTLE_SELECTOR_PICK_CACHE.tick) < BATTLE_SELECTOR_REPICK_TICKS)
+        return BATTLE_SELECTOR_PICK_CACHE.inj;
+    const sideRed = controller.side;
+    // EĞİTİMLE TUTARLI: aynı context kurucusu (battleOracleGrammarContext = tam-bilgi sektör görünümü).
+    // Eğitim verisi de bununla üretildi → train/inference feature dağılımı eşleşir. (Sis-savaşı hizalaması
+    // ayrı bir rafinasyon: model partial-info ile eğitilip partial-info ile oynatılabilir — sonraki adım.)
+    const ownUnits = SIM.units.filter(u => !u.dead && (!!u.isRed === !!sideRed));
+    const ctx = battleOracleGrammarContext(controller, sideRed);
+    const candidates = operationGrammarGenerate(ctx);
+    if (!candidates.length) return null;
+    let minEnemyDist = Infinity;
+    const foes = SIM.units.filter(u => !u.dead && (!!u.isRed !== !!sideRed));
+    for (const a of ownUnits) for (const b of foes) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < minEnemyDist) minEnemyDist = d; }
+    const maxTicks = Math.round(((typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.durationSec) || 240) / BATTLE_TICK_SEC);
+    const sf = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: ownUnits.length, enemyCount: foes.length });
+    let best = null, bestScore = -Infinity;
+    for (const cand of candidates) {
+        const s = selForward(BATTLE_SELECTOR_MODEL, sf.concat(battleCandidateFeatures(cand, ctx))).out;
+        if (s > bestScore) { bestScore = s; best = cand; }
+    }
+    const inj = battleCandidateToInjection(best, controller.id);
+    BATTLE_SELECTOR_PICK_CACHE = { tick: SIM.tick, inj };
+    return inj;
+}
+
 // ── Birim değeri: STATS[type].cost, sağ-kalanı hp oranıyla ağırlıklandır ──────
 function battleOracleUnitValue(unit) {
     const base = (typeof STATS !== 'undefined' && STATS[unit.type] && STATS[unit.type].cost) || 50;
@@ -115,7 +170,57 @@ function battleOracleOrganizeByAllocation(ownUnits, allocation) {
         .filter(g => g.unitIds.length > 0);
 }
 
-// operationalPlanner.build sarmalayıcısı — enjeksiyon aktifse adayı icra planına çevir.
+// PAYLAŞILAN: bir enjeksiyon-spec'ini (inj) icra planına çevir. Hem Oracle (sabit spec) hem canlı-seçici
+// (model-seçtiği spec) bunu kullanır. inj = { kind, sector, point, allocation, flankPoint, tempoScale, tempoLabel }.
+function battleBuildInjectedPlan(planner, committedPlan, observation, situation, inj) {
+    const plan = Object.assign({}, committedPlan, { kind: inj.kind });
+    let objective = planner.objectiveSelector.select(plan, observation, situation) || {};
+    objective = Object.assign({}, objective, {
+        kind: 'INJECTED_OBJECTIVE', x: inj.point.x, y: inj.point.y, sector: inj.sector,
+        confidence: 1, contactId: null, sourceContactIds: []
+    });
+    const taskGroups = battleOracleOrganizeByAllocation(observation.ownUnits || [], inj.allocation);
+    const taskContracts = planner.taskContractPlanner.build(plan, objective, taskGroups, observation);
+    // SADAKAT: flankSector + tempo/pursuit'i sözleşmelere işle (executor tüketir)
+    const groupCentroid = {}; for (const g of taskGroups) groupCentroid[g.role] = g.centroid;
+    const clampPt = (typeof planningClampPoint === 'function') ? planningClampPoint : (p => p);
+    for (const c of taskContracts) {
+        if (typeof c.pursuitLimit === 'number' && c.pursuitLimit > 0) c.pursuitLimit = Math.round(c.pursuitLimit * inj.tempoScale);
+        if (inj.tempoLabel) c.tempo = inj.tempoLabel;
+        if (c.groupRole === TASK_GROUP_ROLE.FLANK && inj.flankPoint) {
+            const origin = groupCentroid[TASK_GROUP_ROLE.FLANK] || (c.route && c.route[0]) || c.destination;
+            c.destination = clampPt({ x: inj.flankPoint.x, y: inj.flankPoint.y });
+            if (typeof planningRoutePoints === 'function' && origin) {
+                c.route = planningRoutePoints(origin, c.destination);
+                if (c.route && c.route.length) c.phaseLine = c.route[1] || c.route[c.route.length - 1];
+            }
+        }
+    }
+    const assignedIds = taskGroups.flatMap(g => g.unitIds).sort((a, b) => a - b);
+    const ownIds = (observation.ownUnits || []).map(u => u.id).sort((a, b) => a - b);
+    planner.lastPlan = {
+        planId: (committedPlan.id || 'inj') + ':inj', kind: inj.kind, generatedAtTick: observation.tick,
+        objective, taskGroups, taskContracts, reserveRatioTarget: inj.allocation.reserve,
+        allocationComplete: assignedIds.length === ownIds.length,
+        contractsComplete: taskContracts.length === taskGroups.length && taskContracts.every(c => c.unitIds.length > 0),
+        issuesOrders: false, injected: true
+    };
+    return planner.lastPlan;
+}
+
+// PAYLAŞILAN: bir gramer-adayını enjeksiyon-spec'ine çevir
+function battleCandidateToInjection(candidate, controllerId) {
+    const center = (typeof opgSectorCenter === 'function') ? opgSectorCenter(candidate.mainSector) : { x: 0, y: 0 };
+    const flankPoint = (candidate.flankSector != null && typeof opgSectorCenter === 'function') ? opgSectorCenter(candidate.flankSector) : null;
+    const tempoScale = candidate.tempo === 'aggressive' ? 1.5 : candidate.tempo === 'cautious' ? 0.65 : 1.0;
+    return {
+        controllerId, kind: battleOracleIntentToKind(candidate.intent), sector: candidate.mainSector,
+        point: center, allocation: candidate.allocation || { main: 0.6, fixing: 0.2, flank: 0.1, reserve: 0.1 },
+        flankPoint, tempoScale, tempoLabel: candidate.tempo, pursuitLimit: candidate.pursuitLimit
+    };
+}
+
+// operationalPlanner.build sarmalayıcısı — Oracle (sabit) VEYA canlı-seçici (model) modunda adayı enjekte eder.
 function battleOracleInstallInjection(controller) {
     const planner = controller.operationalPlanner;
     if (!planner || planner.__oracleWrapped) return;
@@ -123,50 +228,17 @@ function battleOracleInstallInjection(controller) {
     planner.__oracleOriginalBuild = original;
     planner.__oracleWrapped = true;
     planner.build = function (committedPlan, observation, situation) {
-        const inj = BATTLE_ORACLE_INJECTION;
-        if (!inj || !committedPlan || !observation || !situation || controller.id !== inj.controllerId) {
-            return original(committedPlan, observation, situation);
-        }
-        // 1) kind'ı adaydan zorla (objective/executor kapısı bu kind'a göre) — committedPlan'ı klonla
-        const plan = Object.assign({}, committedPlan, { kind: inj.kind });
-        // 2) objective: seçiciyi çalıştır sonra mainSector merkeziyle ez
-        let objective = this.objectiveSelector.select(plan, observation, situation) || {};
-        objective = Object.assign({}, objective, {
-            kind: 'INJECTED_OBJECTIVE', x: inj.point.x, y: inj.point.y, sector: inj.sector,
-            confidence: 1, contactId: null, sourceContactIds: []
-        });
-        // 3) gruplar: adayın allocation'ına göre böl
-        const taskGroups = battleOracleOrganizeByAllocation(observation.ownUnits || [], inj.allocation);
-        // 4) mevcut sözleşme planlayıcısını yeniden kullan (objective + groups parametre alıyor)
-        const taskContracts = this.taskContractPlanner.build(plan, objective, taskGroups, observation);
-        // 4b) SADAKAT: adayın flankSector + tempo/pursuitLimit'ini sözleşmelere işle (executor bunları tüketir)
-        const groupCentroid = {}; for (const g of taskGroups) groupCentroid[g.role] = g.centroid;
-        const clampPt = (typeof planningClampPoint === 'function') ? planningClampPoint : (p => p);
-        for (const c of taskContracts) {
-            // tempo → chase/pursuit mesafesi (agresif uzun kovalar, temkinli kısa)
-            if (typeof c.pursuitLimit === 'number' && c.pursuitLimit > 0) c.pursuitLimit = Math.round(c.pursuitLimit * inj.tempoScale);
-            if (inj.tempoLabel) c.tempo = inj.tempoLabel;
-            // FLANK grubun hedefini adayın flankSector merkezine taşı (varsayılan objective±420 yerine)
-            if (c.groupRole === TASK_GROUP_ROLE.FLANK && inj.flankPoint) {
-                const origin = groupCentroid[TASK_GROUP_ROLE.FLANK] || (c.route && c.route[0]) || c.destination;
-                c.destination = clampPt({ x: inj.flankPoint.x, y: inj.flankPoint.y });
-                if (typeof planningRoutePoints === 'function' && origin) {
-                    c.route = planningRoutePoints(origin, c.destination);
-                    if (c.route && c.route.length) c.phaseLine = c.route[1] || c.route[c.route.length - 1];
-                }
+        if (committedPlan && observation && situation) {
+            // ORACLE modu: sabit enjeksiyon (rollout değerlendirmesi)
+            if (BATTLE_ORACLE_INJECTION && controller.id === BATTLE_ORACLE_INJECTION.controllerId)
+                return battleBuildInjectedPlan(this, committedPlan, observation, situation, BATTLE_ORACLE_INJECTION);
+            // CANLI SEÇİCİ modu: model adayı seçer (gerçek maçta oynar)
+            if (BATTLE_SELECTOR_MODEL && controller.id === BATTLE_SELECTOR_TARGET_ID) {
+                const inj = battleSelectorPickInjection(controller, observation, situation);
+                if (inj) return battleBuildInjectedPlan(this, committedPlan, observation, situation, inj);
             }
         }
-        const assignedIds = taskGroups.flatMap(g => g.unitIds).sort((a, b) => a - b);
-        const ownIds = (observation.ownUnits || []).map(u => u.id).sort((a, b) => a - b);
-        this.lastPlan = {
-            planId: (committedPlan.id || 'inj') + ':oracle', kind: inj.kind, generatedAtTick: observation.tick,
-            objective, taskGroups, taskContracts, reserveRatioTarget: inj.allocation.reserve,
-            allocationComplete: assignedIds.length === ownIds.length,
-            contractsComplete: taskContracts.length === taskGroups.length &&
-                taskContracts.every(c => c.unitIds.length > 0),
-            issuesOrders: false, injected: true
-        };
-        return this.lastPlan;
+        return original(committedPlan, observation, situation);
     };
 }
 function battleOracleUninstallInjection(controller) {
@@ -222,14 +294,7 @@ function battleOracleEvaluate(config = {}) {
     for (let i = 0; i < candidates.length; i++) {
         battleForkRestore(fork);
         const cand = candidates[i];
-        const center = (typeof opgSectorCenter === 'function') ? opgSectorCenter(cand.mainSector) : { x: 0, y: 0 };
-        const flankPoint = (cand.flankSector != null && typeof opgSectorCenter === 'function') ? opgSectorCenter(cand.flankSector) : null;
-        const tempoScale = cand.tempo === 'aggressive' ? 1.5 : cand.tempo === 'cautious' ? 0.65 : 1.0;
-        BATTLE_ORACLE_INJECTION = {
-            controllerId, kind: battleOracleIntentToKind(cand.intent), sector: cand.mainSector,
-            point: center, allocation: cand.allocation || { main: 0.6, fixing: 0.2, flank: 0.1, reserve: 0.1 },
-            flankPoint, tempoScale, tempoLabel: cand.tempo, pursuitLimit: cand.pursuitLimit
-        };
+        BATTLE_ORACLE_INJECTION = battleCandidateToInjection(cand, controllerId);
         const ran = battleOracleRunTicks(rolloutTicks);
         const reward = battleOracleReward(sideRed, baseline);
         results.push({ index: i, intent: cand.intent, mainSector: cand.mainSector, tempo: cand.tempo, ran, reward });
@@ -291,5 +356,6 @@ function battleOracleEvaluate(config = {}) {
 
 if (typeof module !== 'undefined') module.exports = {
     battleOracleEvaluate, battleOracleReward, battleOracleForceValue, battleOracleRunTicks,
-    battleOracleOrganizeByAllocation, battleOracleIntentToKind
+    battleOracleOrganizeByAllocation, battleOracleIntentToKind,
+    battleSelectorEnable, battleSelectorDisable, battleSelectorSetModel, battleCandidateToInjection
 };
