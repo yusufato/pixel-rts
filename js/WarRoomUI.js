@@ -250,23 +250,23 @@ function warRoomResetBattleUI() {
 
 function warRoomIssueOrder(order) {
     if (typeof units === 'undefined') return;
-    const own = units.filter(unit => !unit.dead && !unit.isRed && !unit.ally);
+    const own = units.filter(unit => !unit.dead && !unit.isRed);
     const selected = own.filter(unit => unit.selected);
     const force = selected.length ? selected : own;
     if (!force.length) { warRoomBattleEvent('EMİR REDDEDİLDİ — DOST BİRLİK YOK', 'hostile'); return; }
-
     if (order === 'assault') {
         const foes = units.filter(unit => !unit.dead && unit.isRed);
         const tx = foes.length ? foes.reduce((sum, unit) => sum + unit.x, 0) / foes.length : (typeof WORLD_W !== 'undefined' ? WORLD_W * .8 : 2400);
         const ty = foes.length ? foes.reduce((sum, unit) => sum + unit.y, 0) / foes.length : (typeof WORLD_H !== 'undefined' ? WORLD_H * .5 : 900);
         const hasSchwerpunkt = typeof STORY !== 'undefined' && STORY.active && (STORY.commander.activePerks || []).includes('schwerpunkt');
-        force.forEach(unit => {
-            unit.manualTarget = null; unit.manualMoveTarget = { x: tx, y: ty }; unit.isMovingToManualTarget = true;
-            if (hasSchwerpunkt && !unit._schwerpunktApplied) { unit.xpBonus *= 1.10; unit._schwerpunktApplied = true; }
-        });
+        // schwerpunkt XP buff'ı hash-dışı ve tik-duyarsız → hemen uygula; hareket komutu ise tik-sınırı kuyruğuna.
+        if (hasSchwerpunkt) force.forEach(unit => { if (!unit._schwerpunktApplied) { unit.xpBonus *= 1.10; unit._schwerpunktApplied = true; } });
+        const safe = typeof terrainSafePoint === 'function' ? terrainSafePoint(tx, ty) : { x: tx, y: ty };
+        const destinations = force.map(unit => ({ id: unit.id, x: Math.round(safe.x * 100) / 100, y: Math.round(safe.y * 100) / 100 }));
+        if (typeof pendingPlayerCommands !== 'undefined') pendingPlayerCommands.push({ type: 'player-move', payload: { destinations } });
         warRoomBattleEvent(`TAARRUZ EMRİ — ${force.length} BİRLİK`, 'friendly');
     } else if (order === 'free-fire') {
-        force.forEach(unit => { unit.manualTarget = null; unit.manualMoveTarget = null; unit.isMovingToManualTarget = false; });
+        if (typeof pendingPlayerCommands !== 'undefined') pendingPlayerCommands.push({ type: 'player-free-fire', payload: { unitIds: force.map(unit => unit.id) } });
         warRoomBattleEvent(`ATEŞ SERBEST — ${force.length} BİRLİK`, 'friendly');
     } else if (order === 'trench') {
         document.getElementById('btn-trench')?.click();
@@ -351,7 +351,7 @@ function warRoomUpdateBattle() {
 
 function warRoomDrawBattleAxis(context) {
     if (typeof phase === 'undefined' || typeof PHASE === 'undefined' || phase !== PHASE.BATTLE || typeof units === 'undefined') return;
-    const force = units.filter(unit => unit.selected && !unit.dead && !unit.isRed && !unit.ally);
+    const force = units.filter(unit => unit.selected && !unit.dead && !unit.isRed);
     if (!force.length) return;
     const lead = force[0];
     const target = lead.manualMoveTarget || lead.manualTarget || lead.attackTarget;

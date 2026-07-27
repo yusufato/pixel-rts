@@ -6,6 +6,12 @@ let deployCarried = null;
 
 const DEPLOY_MIN_GAP = 30;   // iki birlik merkezi arası en az mesafe
 
+function playerCanControlBattleUnit(unit) {
+    if (!unit || unit.dead || unit.isRed !== myCanonicalSide) return false;
+    if (typeof MP !== 'undefined' && MP.active) return true;
+    return !unit.ally && unit.controlOwner === CONTROL_OWNER.PLAYER;
+}
+
 function deployUnitAt(wx, wy) {
     const mySide = (typeof myCanonicalSide !== 'undefined' ? myCanonicalSide : false);
     let best = null, bestDist = DEPLOY_MIN_GAP;
@@ -31,9 +37,9 @@ function deployDropCarried(wx, wy) {
     if (!u) return;
     // Geçersiz nokta (kendi bölgen dışı, dolu ya da geçilmez arazi) → birlik yerinde kalır
     if (isInPlayerZone(wx, wy) && deploySpotFree(wx, wy, u)) {
-        if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid' && typeof isPassableAt === 'function' && !isPassableAt(wx, wy)) {
-            const np = nearestPassable(wx, wy, 20);
-            wx = np.x; wy = np.y;
+        if (typeof terrainSafePoint === 'function') {
+            const safe = terrainSafePoint(wx, wy, 30);
+            wx = safe.x; wy = safe.y;
         }
         u.x = wx; u.y = wy;
         u.targetX = wx; u.targetY = wy;
@@ -43,6 +49,8 @@ function deployDropCarried(wx, wy) {
     canvas.classList.remove('ghost-cursor');
 }
 
+// Faz 0/1b: oyuncu komut kuyruğu — fare işleyicisi buraya iter, stepSim başında tik-sınırında uygulanır.
+let pendingPlayerCommands = [];
 canvas.addEventListener('mousemove', (e) => { const p = canvasPoint(e); mouseScreenX = p.x; mouseScreenY = p.y; });
 canvas.addEventListener('mousedown', (e) => {
     const p = canvasPoint(e);
@@ -71,7 +79,7 @@ canvas.addEventListener('mousedown', (e) => {
                 let nearestEng = null;
                 let minDist = Infinity;
                 for (const u of units) {
-                    if (!u.dead && !u.isRed && u.type === T.ENGINEER && !u.buildTrenchTarget) {
+                    if (playerCanControlBattleUnit(u) && u.type === T.ENGINEER && !u.buildTrenchTarget) {
                         const d = Math.hypot(u.x - world.x, u.y - world.y);
                         if (d < minDist) { minDist = d; nearestEng = u; }
                     }
@@ -93,7 +101,7 @@ canvas.addEventListener('mousedown', (e) => {
         const world = screenToWorld(p.x, p.y);
         let clickedType = null;
         for (const u of units) {
-            if (!u.dead && u.isRed === myCanonicalSide && Math.hypot(u.x - world.x, u.y - world.y) < 30) {
+            if (playerCanControlBattleUnit(u) && Math.hypot(u.x - world.x, u.y - world.y) < 30) {
                 clickedType = u.type;
                 break;
             }
@@ -102,7 +110,7 @@ canvas.addEventListener('mousedown', (e) => {
             const viewW = canvas.width / zoom;
             const viewH = canvas.height / zoom;
             units.forEach(u => {
-                if (!u.dead && u.isRed === myCanonicalSide && !u.ally && u.type === clickedType) {
+                if (playerCanControlBattleUnit(u) && u.type === clickedType) {
                     if (u.x >= camera.x && u.x <= camera.x + viewW && u.y >= camera.y && u.y <= camera.y + viewH) {
                         u.selected = true;
                     }
@@ -132,7 +140,7 @@ canvas.addEventListener('mouseup', (e) => {
         const world = screenToWorld(p.x, p.y);
         let bestUnit = null, bestDist = 30;
         for (const u of units) {
-            if (u.dead || u.isRed !== myCanonicalSide || u.ally) continue;   // müttefik (otonom dost-AI) seçilemez
+            if (!playerCanControlBattleUnit(u)) continue;
             const d = Math.hypot(u.x - world.x, u.y - world.y);
             if (d < bestDist) { bestUnit = u; bestDist = d; }
         }
@@ -140,7 +148,7 @@ canvas.addEventListener('mouseup', (e) => {
     } else {
         const topLeft = screenToWorld(minSX, minSY), bottomRight = screenToWorld(maxSX, maxSY);
         for (const u of units) {
-            if (u.dead || u.isRed !== myCanonicalSide || u.ally) continue;   // müttefik (otonom dost-AI) seçilemez
+            if (!playerCanControlBattleUnit(u)) continue;
             if (u.x >= topLeft.x && u.x <= bottomRight.x && u.y >= topLeft.y && u.y <= bottomRight.y) u.selected = true;
         }
     }
@@ -184,7 +192,7 @@ canvas.addEventListener('contextmenu', (e) => {
         return;
     }
     const world = screenToWorld(p.x, p.y);
-    const selectedUnits = units.filter(u => u.selected && !u.isRed && !u.ally && !u.dead);
+    const selectedUnits = units.filter(u => u.selected && playerCanControlBattleUnit(u));
     if (selectedUnits.length === 0) return;
 
     let targetEnemy = null;
@@ -192,18 +200,31 @@ canvas.addEventListener('contextmenu', (e) => {
         if (u.dead || !u.isRed || !canSee(false, u.x, u.y)) continue;
         if (Math.hypot(u.x - world.x, u.y - world.y) < 30) { targetEnemy = u; break; }
     }
+    // DETERMİNİZM (Faz 0/1b): komutun ETKİSİNİ tık anında çöz (formasyon/hedef), ama birim-mutasyonu +
+    // kaydı TİK SINIRINA ERTELE (stepSim başında flushPendingPlayerCommands). Fare işleyicisi asenkron
+    // olduğundan doğrudan uygulamak canlı↔replay zamanlama sapması üretiyordu. Kuyruğa alınan komut,
+    // replay ile AYNI kod yolundan (battleApplyRecordedEvent) uygulanır → canlı-oyuncu maçı bit-birebir.
     if (targetEnemy) {
-        selectedUnits.forEach(u => { u.manualTarget = targetEnemy; u.manualMoveTarget = null; u.isMovingToManualTarget = false; });
+        pendingPlayerCommands.push({ type: 'player-attack', payload: {
+            unitIds: selectedUnits.map(unit => unit.id),
+            targetId: targetEnemy.id
+        } });
     } else {
         const count = selectedUnits.length;
         const cols = Math.ceil(Math.sqrt(count)), spacing = UNIT_RADIUS * 2.5;
-        selectedUnits.forEach((u, i) => {
+        const destinations = selectedUnits.map((unit, i) => {
             const row = Math.floor(i / cols), col = i % cols;
             const offsetX = (col - (cols - 1) / 2) * spacing, offsetY = (row - (Math.ceil(count / cols) - 1) / 2) * spacing;
-            u.targetX = world.x + offsetX; u.targetY = world.y + offsetY;
-            u.manualTarget = null; u.manualMoveTarget = { x: world.x + offsetX, y: world.y + offsetY };
-            u.isMovingToManualTarget = true; u.attackTarget = null;
+            const desired = { x: world.x + offsetX, y: world.y + offsetY };
+            const safe = typeof terrainSafePoint === 'function' ? terrainSafePoint(desired.x, desired.y) : desired;
+            return { id: unit.id, x: Math.round(safe.x * 100) / 100, y: Math.round(safe.y * 100) / 100 };
         });
+        pendingPlayerCommands.push({ type: 'player-move', payload: {
+            unitIds: selectedUnits.map(unit => unit.id),
+            x: Math.round(world.x * 100) / 100,
+            y: Math.round(world.y * 100) / 100,
+            destinations
+        } });
     }
 });
 
@@ -292,14 +313,28 @@ document.querySelectorAll('.spawn-btn').forEach(btn => {
 function startBattle() {
     if (phase !== PHASE.DEPLOY) return;
 
-    // FAZ 0 (Determinizm): sim-RNG'yi maç başında tohumla. Canlı oyunda çeşitlilik için zaman-tabanlı;
-    // istenirse sabit bir sayı verip tekrarlanabilir maç oynanabilir (resetSimRng(12345)).
-    if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
+    // RNG ortak savaş oturumu açılırken yalnız bir kez tohumlanır.
+    // Eski/harici bir çağrı oturum açmadan buraya gelirse güvenli bir tohum oluştur.
+    if ((typeof BATTLE_SESSION === 'undefined' || !BATTLE_SESSION.active) &&
+        typeof resetSimRng === 'function') {
+        resetSimRng((Date.now() >>> 0) || 1);
+    }
 
-    savePlayerMeta(); // Yapay zeka öğrenmesi için oyuncu stratejisini kaydet
-    aiDeploy();       // Öğrenilen meta + sahaya göre karşı orduyu bas
+    // Yeni savaş denetleyicisi kurulana kadar boş kırmızı tarafla sahte zafer üretme.
+    // Multiplayer veya ilerideki denetleyici kırmızı birlikleri önceden yerleştirirse maç normal başlar.
+    if (!SIM.units.some(u => !u.dead && u.isRed)) {
+        const phaseText = document.getElementById('phase-text');
+        if (phaseText) {
+            phaseText.textContent = 'RAKİP SAVAŞ DENETLEYİCİSİ BAĞLI DEĞİL';
+            phaseText.style.color = '#ffaa00';
+        }
+        return;
+    }
+
     // HİKÂYE: şehir seviyesi tahkimatı — iki taraf da dizildikten SONRA uygulanır
-    if (typeof storyApplyCityFortification === 'function' && typeof STORY !== 'undefined' && STORY.battleCtx) {
+    if (typeof storyApplyCityFortification === 'function' &&
+        typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.mode === 'story' &&
+        typeof STORY !== 'undefined' && STORY.battleCtx) {
         storyApplyCityFortification();
     }
 
@@ -308,8 +343,9 @@ function startBattle() {
     if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     if (typeof initBattleRules === 'function') initBattleRules(battleRulesConfigForCurrentMatch());
-    battleTelemetry.start(simulationTime);
-    if (typeof commanderReset === 'function') commanderReset();          // FAZ 4: komutan histerezi state'i sıfırla
+    if (typeof battleControllersSyncOwnership === 'function') battleControllersSyncOwnership();
+    if (typeof battleCaptureInitialState === 'function') battleCaptureInitialState();
+    if (typeof battleRecordEvent === 'function') battleRecordEvent('battle-start', battlefieldRulesConfig(), SIM.tick);
     selectedSpawnType = null;
     if (deployCarried) { deployCarried.selected = false; deployCarried = null; }   // elde birlik kalmışsa bırak
     canvas.classList.remove('ghost-cursor');
@@ -334,6 +370,8 @@ document.getElementById('restart-btn').addEventListener('click', () => {
     if (typeof resetBattleState === 'function') resetBattleState();
     if (typeof showScreen === 'function') showScreen('menu');
 });
+let lastBattleDiagnosticReport = null;
+
 document.getElementById('copy-battle-report-btn')?.addEventListener('click', async () => {
     const output = document.getElementById('battle-report-output');
     if (!output) return;
@@ -345,13 +383,18 @@ document.getElementById('copy-battle-report-btn')?.addEventListener('click', asy
     }
 });
 document.getElementById('download-battle-report-btn')?.addEventListener('click', () => {
-    const output = document.getElementById('battle-report-output');
-    if (!output) return;
-    const blob = new Blob([output.value], { type: 'text/plain;charset=utf-8' });
+    if (!lastBattleDiagnosticReport) return;
+    const json = JSON.stringify(lastBattleDiagnosticReport, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `pixel-rts-canli-mac-raporu-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+    const session = lastBattleDiagnosticReport.replay?.session || {};
+    link.download = [
+        'pixel-rts-ham-savas-kaydi',
+        session.seed ?? 'seed-yok',
+        new Date().toISOString().replace(/[:.]/g, '-')
+    ].join('-') + '.json';
     link.click();
     URL.revokeObjectURL(url);
 });
@@ -373,13 +416,39 @@ function checkGameOver() {
         : null;
     if (won === null) return;
 
-    const telemetrySummary = battleTelemetry.finish(won, simulationTime);
-    telemetrySummary.outcomeReason = SIM.battle?.outcomeReason || null;
-    telemetrySummary.outcomeLabel = typeof battleOutcomeLabel === 'function'
-        ? battleOutcomeLabel(telemetrySummary.outcomeReason)
+    const battleSummary = {
+        engineVersion: typeof BATTLE_SESSION !== 'undefined' ? BATTLE_SESSION.engineVersion : 'legacy',
+        sessionMode: typeof BATTLE_SESSION !== 'undefined' ? BATTLE_SESSION.mode : null,
+        seed: typeof BATTLE_SESSION !== 'undefined' ? BATTLE_SESSION.seed : null,
+        mapId: typeof BATTLE_SESSION !== 'undefined' ? BATTLE_SESSION.mapId : null,
+        durationSeconds: Math.max(0, SIM.battle?.elapsedSec || 0),
+        outcomeReason: SIM.battle?.outcomeReason || null,
+        attackerSide: SIM.battle?.attackerSide ? 'red' : 'blue',
+        timeRemaining: Math.max(0, SIM.battle?.remainingSec || 0),
+        blueSurvivors: SIM.units.filter(u => !u.dead && !u.isRed).length,
+        redSurvivors: SIM.units.filter(u => !u.dead && u.isRed).length,
+        blueKills: player.kills,
+        redKills: enemy.kills
+    };
+    battleSummary.outcomeLabel = typeof battleOutcomeLabel === 'function'
+        ? battleOutcomeLabel(battleSummary.outcomeReason)
         : 'Savaş sona erdi';
-    telemetrySummary.attackerSide = SIM.battle?.attackerSide ? 'red' : 'blue';
-    telemetrySummary.timeRemaining = Math.max(0, SIM.battle?.remainingSec || 0);
+    battleSummary.recording = {
+        samples: BATTLE_REPLAY.telemetry?.samples?.length || 0,
+        combatEvents: BATTLE_REPLAY.telemetry?.combatEvents?.length || 0,
+        controllerDecisions: BATTLE_REPLAY.telemetry?.controllerDecisions?.length || 0,
+        playerAndAIEvents: BATTLE_REPLAY.events?.length || 0,
+        stateHashes: BATTLE_REPLAY.hashes?.length || 0
+    };
+    lastBattleDiagnosticReport = typeof exportBattleDiagnosticReport === 'function'
+        ? exportBattleDiagnosticReport(battleSummary)
+        : {
+            format: 'pixel-rts-battle-diagnostic',
+            schemaVersion: 1,
+            createdAt: new Date().toISOString(),
+            engineVersion: battleSummary.engineVersion,
+            summary: battleSummary
+        };
     const _mp = (typeof MP !== 'undefined' && MP.active);
     phase = PHASE.OVER;
     document.body.setAttribute('data-phase', PHASE.OVER);
@@ -391,131 +460,53 @@ function checkGameOver() {
     else if (shownWon) { title.textContent = '🏆 ZAFER!'; title.style.color = '#4cff7c'; }
     else { title.textContent = '💀 YENİLDİN!'; title.style.color = '#ff4444'; }
 
-    const doctrineNames = {
-        advance: 'İlerleme',
-        hunt: 'Arama',
-        encircle: 'Kuşatma',
-        breakthrough: 'Yarma',
-        attrition: 'Yıpratma',
-        cleanup: 'Temizleme',
-        last_hunt: 'Son Av',
-        anti_artillery: 'Anti-Topçu',
-        siege_break: 'Siper Kırma',
-        regroup: 'Toparlanma',
-        last_stand: 'Son Direniş'
-    };
-    const doctrineLine = Object.entries(telemetrySummary.doctrineDurations || {})
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 4)
-        .map(([name, seconds]) => `${doctrineNames[name] || name}: ${seconds.toFixed(1)} sn`)
-        .join(' | ') || '-';
-    // AI'nın maçı nasıl oynadığını tek cümleyle özetle. Varsayılan komutan (policy) makro
-    // planla oynar; eski LayeredAI fallback'i ise doktrin üretir — hangisi doluysa ondan anlat.
-    const roleSplitRaw = telemetrySummary.avgRoleSplit || [0, 0, 0, 0];
-    const flankShare = roleSplitRaw.reduce((a, b) => a + b, 0) > 0
-        ? roleSplitRaw[2] / roleSplitRaw.reduce((a, b) => a + b, 0) : 0;
-    const planThought = {
-        ATTACK: flankShare > 0.3
-            ? 'Taarruz planıyla oynadı ve kuvvetin belirgin bir kısmını kanat manevrasına ayırdı.'
-            : 'Taarruz planıyla oynadı; ana çabayı düşman ağırlık merkezine yığdı.',
-        HOLD: 'Savunma hattını tuttu; topçu/tanksavarı geride sabitleyip karşı taarruz fırsatı bekledi.',
-        RUSH: 'Düşman topçusunu açıkta gördü ve tek kütle hâlinde üstüne koştu.',
-        REGROUP: 'Kuvvet oranını aleyhte gördü; temastan çekilip menzil ve toparlanma aradı.',
-        ADVANCE: 'Düşmanı göremedi; hedefe doğru ilerleyip temas aradı.'
-    };
-    const aiThought = (telemetrySummary.pressureBreakSeconds || 0) > 20
-        ? 'Sıkıştırma sonuç vermeyince çemberi daralttı ve arka hat/destek hedeflerine baskın aradı.'
-        : (telemetrySummary.compressionSeconds || 0) > 20
-        ? 'Geri çekilen hattını sıkıştırmaya çalıştı; kanatları kaçış yönünün önüne gönderdi.'
-        : telemetrySummary.dominantDoctrine === 'anti_artillery'
-        ? 'Topçunu öncelikli tehdit gördü; keşif ve kanat baskısıyla arka hattı aradı.'
-        : telemetrySummary.dominantDoctrine === 'siege_break'
-            ? 'Siper/ikmal hattını kırmaya çalıştı; destek hedeflerini öne aldı.'
-            : telemetrySummary.dominantDoctrine === 'last_hunt'
-                ? 'Maç sonunu av moduna çevirdi; hızlı birliklerle kalanları kovalamaya çalıştı.'
-                : planThought[telemetrySummary.dominantPlan]
-                    || 'Genel savaş planı ile ilerledi; hedef değerine ve tehdit skoruna göre oynadı.';
-    const health = telemetrySummary.health || {};
-    const roleSplit = telemetrySummary.avgRoleSplit || [0, 0, 0, 0];
-    const planNames = { ATTACK: 'Taarruz', HOLD: 'Hat Tutma', RUSH: 'Baskın', REGROUP: 'Toparlanma', ADVANCE: 'İlerleme' };
-    const planLine = Object.entries(telemetrySummary.planDurations || {})
-        .sort((a, b) => b[1] - a[1])
-        .map(([name, seconds]) => `${planNames[name] || name}: ${seconds.toFixed(1)} sn`)
-        .join(' | ') || '-';
-    const skillNames = { easy: 'Acemi', normal: 'Usta', hard: 'Gazi' };
-
+    const resultLabel = won === 'draw' ? 'Berabere' : won ? 'Oyuncu kazandı' : 'Oyuncu kaybetti';
+    const roleLabel = SIM.battle?.attackerSide === false ? 'SALDIRAN' : 'SAVUNAN';
     const readableReport = [
-        'PIXEL RTS CANLI MAÇ RAPORU',
+        'PIXEL RTS MAÇ RAPORU',
         '',
-        `Sonuç: ${won === 'draw' ? 'Berabere' : won ? 'Oyuncu kazandı' : 'AI kazandı'}`,
-        `Bitiş: ${telemetrySummary.outcomeLabel}`,
-        `Rolün: ${SIM.battle?.attackerSide === false ? 'SALDIRAN' : 'SAVUNAN'}`,
-        `AI Zorluğu: ${skillNames[telemetrySummary.difficulty] || telemetrySummary.difficulty}`,
-        `Kalan süre: ${Math.ceil(telemetrySummary.timeRemaining)} sn`,
-        `Süre: ${telemetrySummary.durationSeconds.toFixed(1)} sn`,
+        `Motor: ${battleSummary.engineVersion}`,
+        `Oturum: ${battleSummary.sessionMode || '-'}`,
+        `Tohum: ${battleSummary.seed ?? '-'}`,
+        `Harita: ${battleSummary.mapId ?? '-'}`,
+        `Sonuç: ${resultLabel}`,
+        `Bitiş: ${battleSummary.outcomeLabel}`,
+        `Rolün: ${roleLabel}`,
+        `Kalan süre: ${Math.ceil(battleSummary.timeRemaining)} sn`,
+        `Süre: ${battleSummary.durationSeconds.toFixed(1)} sn`,
+        `Mavi sağ kalan: ${battleSummary.blueSurvivors}`,
+        `Kırmızı sağ kalan: ${battleSummary.redSurvivors}`,
+        `Mavi öldürme: ${battleSummary.blueKills}`,
+        `Kırmızı öldürme: ${battleSummary.redKills}`,
         '',
-        '── AI SAĞLIK ÖLÇÜMÜ ──',
-        `Not: ${health.grade || '-'}`,
-        `Takas oranı: ${health.exchangeRatio ?? '-'} (öldürdüğü değer / kaybettiği değer; 1.0 = başabaş)`,
-        `Temas oranı: %${Math.round((health.contactRatio || 0) * 100)} (sürenin ne kadarında çatışma vardı)`,
-        `Plan değişimi: ${telemetrySummary.planSwitches} kez (dakikada ${health.planChangesPerMin ?? '-'})`,
-        `Teşhis: ${(health.notes || []).join(' · ')}`,
-        '',
-        `AI Baskın Plan: ${planNames[telemetrySummary.dominantPlan] || telemetrySummary.dominantPlan}`,
-        `Plan Süreleri: ${planLine}`,
-        `Ortalama kuvvet dağılımı: Ana ${roleSplit[0]} / Sabitleme ${roleSplit[1]} / Kanat ${roleSplit[2]} / Yedek ${roleSplit[3]}`,
-        '',
-        `Hasar: AI ${Math.round(telemetrySummary.damageDealt)} / Oyuncu ${Math.round(telemetrySummary.damageTaken)}`,
-        `Değer kaybı: Oyuncu ${telemetrySummary.enemyValueDestroyed} / AI ${telemetrySummary.aiValueLost}`,
-        '',
-        `AI Yorumu: ${aiThought}`,
-        '',
-        `Keşif ölümü: ${telemetrySummary.scoutDeaths}`,
-        `Topçuya verilen hasar: ${Math.round(telemetrySummary.antiArtilleryDamage)}`,
-        `Destek / siper içi öldürme: ${telemetrySummary.supportKills} / ${telemetrySummary.fieldKills}`,
-        `Arkadan vuruş: ${telemetrySummary.rearHits} vuruş / ${Math.round(telemetrySummary.rearHitDamage)} hasar`,
-        `Boşta geçen süre: ${telemetrySummary.idleSeconds.toFixed(1)} sn`,
-        // Doktrin ölçümü yalnız eski LayeredAI arka-ucunda dolar (useCleanAI(false)).
-        ...(telemetrySummary.doctrineSwitches > 0 ? [
-            '',
-            `AI Baskın Doktrin: ${doctrineNames[telemetrySummary.dominantDoctrine] || telemetrySummary.dominantDoctrine}`,
-            `Doktrin Süreleri: ${doctrineLine}`,
-            `Doktrin Değişimi: ${telemetrySummary.doctrineSwitches}`,
-            `Keşif hedefi: ${telemetrySummary.scoutValuableSpots}`,
-            `Sıkıştırma / ateş üssü / baskı kırma: ${(telemetrySummary.compressionSeconds || 0).toFixed(1)} / ${(telemetrySummary.fireBaseWaitSeconds || 0).toFixed(1)} / ${(telemetrySummary.pressureBreakSeconds || 0).toFixed(1)} sn`
-        ] : []),
+        '── HAM KAYIT ──',
+        `Durum örneği: ${battleSummary.recording.samples}`,
+        `İsabet/ölüm olayı: ${battleSummary.recording.combatEvents}`,
+        `AI karar kaydı: ${battleSummary.recording.controllerDecisions}`,
+        `Oyuncu/AI emir olayı: ${battleSummary.recording.playerAndAIEvents}`,
+        'Tam kayıt için: Ham JSON İndir',
         '',
         'Ham JSON:',
-        JSON.stringify(telemetrySummary, null, 2)
+        JSON.stringify(battleSummary, null, 2)
     ].join('\n');
 
     document.getElementById('score-table').innerHTML = `
-        <div class="score-row"><span>Sonuç</span><span class="score-val">${won === 'draw' ? 'Berabere' : won ? 'Kazandın' : 'Kaybettin'}</span></div>
-        <div class="score-row"><span>Rolün</span><span class="score-val">${SIM.battle?.attackerSide === false ? 'SALDIRAN' : 'SAVUNAN'} · AI ${skillNames[telemetrySummary.difficulty] || telemetrySummary.difficulty}</span></div>
-        <div class="score-row"><span>Öldürdüğün Düşman</span><span class="score-val">${player.kills}</span></div>
-        <div class="score-row"><span>Ürettiğin Birim</span><span class="score-val">${player.unitsSpawned}</span></div>
-        <div class="score-row"><span>Kaybettiğin Birim</span><span class="score-val">${enemy.kills}</span></div>
-        <div class="score-row"><span>AI Sağlık Notu</span><span class="score-val">${health.grade || '-'}</span></div>
-        <div class="score-row"><span>AI Takas Oranı</span><span class="score-val">${health.exchangeRatio ?? '-'}</span></div>
-        <div class="score-row"><span>Temas Oranı</span><span class="score-val">%${Math.round((health.contactRatio || 0) * 100)}</span></div>
-        <div class="score-row"><span>AI Baskın Plan</span><span class="score-val">${planNames[telemetrySummary.dominantPlan] || telemetrySummary.dominantPlan}</span></div>
-        <div class="score-row"><span>Plan Süreleri</span><span class="score-val">${planLine}</span></div>
-        <div class="score-row"><span>Kuvvet Dağılımı (Ana/Sabit/Kanat/Yedek)</span><span class="score-val">${roleSplit.join(' / ')}</span></div>
-        <div class="score-row"><span>Topçuya verilen hasar</span><span class="score-val">${Math.round(telemetrySummary.antiArtilleryDamage)}</span></div>
-        <div class="score-row"><span>Destek / siper içi öldürme</span><span class="score-val">${telemetrySummary.supportKills} / ${telemetrySummary.fieldKills}</span></div>
-        ${telemetrySummary.doctrineSwitches > 0 ? `<div class="score-row"><span>AI Baskın Doktrin</span><span class="score-val">${doctrineNames[telemetrySummary.dominantDoctrine] || telemetrySummary.dominantDoctrine}</span></div>` : ''}
-        <div class="score-row"><span>AI Teşhisi</span><span class="score-val">${(health.notes || []).join(' · ')}</span></div>
-        <div class="score-row"><span>AI Yorumu</span><span class="score-val">${aiThought}</span></div>
+        <div class="score-row"><span>Sonuç</span><span class="score-val">${resultLabel}</span></div>
+        <div class="score-row"><span>Rolün</span><span class="score-val">${roleLabel}</span></div>
+        <div class="score-row"><span>Mavi sağ kalan</span><span class="score-val">${battleSummary.blueSurvivors}</span></div>
+        <div class="score-row"><span>Kırmızı sağ kalan</span><span class="score-val">${battleSummary.redSurvivors}</span></div>
+        <div class="score-row"><span>Mavi öldürme</span><span class="score-val">${battleSummary.blueKills}</span></div>
+        <div class="score-row"><span>Kırmızı öldürme</span><span class="score-val">${battleSummary.redKills}</span></div>
     `;
     const reportOutput = document.getElementById('battle-report-output');
     if (reportOutput) reportOutput.value = readableReport;
-    // HİKAYE: kampanya düellosuysa sonucu dünyaya işle (fetih/gazi/itibar) + "Dünyaya Dön" butonu.
-    // Varsayılan: normal "Tekrar Oyna" görünür, "Dünyaya Dön" gizli (story hook gerekirse ters çevirir).
     document.getElementById('restart-btn')?.classList.remove('hidden');
     document.getElementById('story-return-btn')?.classList.add('hidden');
     document.getElementById('campaign-result-panel')?.classList.add('hidden');
-    if (typeof STORY !== 'undefined' && STORY.active && STORY.battleCtx && typeof storyOnBattleEnd === 'function') {
-        storyOnBattleEnd(won, telemetrySummary);
+    if (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.mode === 'story' &&
+        typeof STORY !== 'undefined' && STORY.active && STORY.battleCtx &&
+        typeof storyOnBattleEnd === 'function') {
+        storyOnBattleEnd(won, battleSummary);
     }
     document.getElementById('game-over-screen').classList.remove('hidden');
 }
@@ -560,7 +551,7 @@ function updateUI() {
     }
 
     if (phase === PHASE.BATTLE) {
-        const sel = units.filter(u => u.selected && !u.isRed && !u.dead);
+        const sel = units.filter(u => u.selected && playerCanControlBattleUnit(u));
         if (sel.length === 1) {
             const u = sel[0];
             const s = STATS[u.type];
@@ -582,55 +573,6 @@ function updateUI() {
 }
 
 // ─── ÇİZİM VE SAVAŞ SİSİ (Fog of War) ───
-
-function drawAIWaypoints() {
-    if (phase !== PHASE.BATTLE) return;
-    const redUnits = units.filter(u => u.isRed && !u.dead);
-    if (redUnits.length === 0) return;
-
-    ctx.save();
-    
-    // Her kırmızı askerden hedefine ince çizgi çiz
-    for (const ru of redUnits) {
-        let from = worldToScreen(ru.x, ru.y);
-        let to = worldToScreen(ru.targetX, ru.targetY);
-        
-        ctx.strokeStyle = ru.attackTarget ? 'rgba(255,0,0,0.4)' : 'rgba(255,255,0,0.2)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(from.x, from.y);
-        ctx.lineTo(to.x, to.y);
-        ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    
-    // Debug Paneli
-    let panelX = 10, panelY = 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.75)';
-    ctx.fillRect(panelX, panelY, 200, 100);
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.strokeRect(panelX, panelY, 200, 100);
-    
-    ctx.fillStyle = '#ffcc00';
-    ctx.font = 'bold 13px Courier New';
-    ctx.fillText('🧠 AI SAVAŞ DURUMU', panelX + 10, panelY + 18);
-    
-    ctx.fillStyle = '#aaa';
-    ctx.font = '11px Courier New';
-    let y = panelY + 36;
-    
-    const phaseName = battlePhase === 1 ? 'İLERLE (ADVANCE)' : (battlePhase === 2 ? 'ÇARPIŞMA (CLASH)' : 'KUŞATMA (FLANK)');
-    ctx.fillText(`FAZ: ${phaseName}`, panelX + 10, y); y += 16;
-    
-    let attacking = redUnits.filter(u => u.attackTarget && !u.attackTarget.dead).length;
-    let retreating = redUnits.filter(u => u.aiAction === 'KITE' || u.aiAction === 'FLEE').length;
-    
-    ctx.fillText(`Savaşan Asker: ${attacking}`, panelX + 10, y); y += 16;
-    ctx.fillText(`Kite (Çekilen): ${retreating}`, panelX + 10, y); y += 16;
-    
-    ctx.restore();
-}
 
 function drawMap() {
     ctx.save();
@@ -985,7 +927,7 @@ function drawFogOfWar() {
     for (const u of units) {
         if (u.dead || u.isRed !== myCanonicalSide) continue;
         const s = worldToScreen(u.x, u.y);
-        const vRadius = STATS[u.type].vision * zoom;
+        const vRadius = (Number.isFinite(u.vision) ? u.vision : STATS[u.type].vision) * zoom;
         
         if (s.x < -vRadius || s.x > canvas.width + vRadius || s.y < -vRadius || s.y > canvas.height + vRadius) continue;
 
@@ -1072,7 +1014,8 @@ function drawMinimap() {
     for (const u of units) {
         if (u.dead) continue;
         // Düşman sis içindeyse minimap'te de gözükmez
-        if (u.isRed !== myCanonicalSide && phase === PHASE.BATTLE && !canSee(myCanonicalSide, u.x, u.y)) continue;
+        if (typeof battleUnitVisibleToViewer === 'function' &&
+            !battleUnitVisibleToViewer(u, myCanonicalSide, phase)) continue;
         // T3 PUSU: gizli düşman (ormanda saklı, yakından fark edilmemiş) minimapta da yok
         if (u.isRed !== myCanonicalSide && phase === PHASE.BATTLE && u.isConcealed && u.isConcealed() && typeof enemyDetectsConcealed === 'function' && !enemyDetectsConcealed(u, myCanonicalSide)) continue;
         
@@ -1099,6 +1042,15 @@ spriteSheet.addEventListener('load', () => {
 
 let lastFrameTime = 0;
 let simulationTime = 0;
+let battleAccumulatorMs = 0;
+let battlePerformanceWindow = {
+    startedAt: 0,
+    frames: 0,
+    totalFrameMs: 0,
+    maxFrameMs: 0,
+    simulationSteps: 0,
+    cappedFrames: 0
+};
 
 function updateTrenches(now) {
     for (let index = SIM.trenches.length - 1; index >= 0; index--) {
@@ -1111,13 +1063,27 @@ function updateTrenches(now) {
 
 // ═══ BİRLEŞİK SİMÜLASYON ADIMI ════════════════════════════════════════════════
 // Tek fizik adımı: canlı gameLoop ve çok-oyunculu lockstep aynı fonksiyonu koşar
-// → iki taraf sapmaz. Komut/AI sürücüsü step'in DIŞINDAN verilir.
-//   now           : sim saati (ms) — birim/trench/AI bu zamanı görür
+// → iki taraf sapmaz. İsteğe bağlı denetleyici step'in dışından verilir.
+//   now           : sim saati (ms)
 //   dtSec         : bu adımın saniye süresi (savaş süresi/irade/oran hesapları)
-//   driveAI(now)  : AI sürücüsü (canlı: updateLayeredAI; eğitim: 2 controller/replay)
+//   driveController(now): isteğe bağlı savaş denetleyicisi
 //   spawnDeathVfx : canlıda ölümde patlama efekti (render); headless'te false
-function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
+// Faz 0/1b: bekleyen oyuncu komutlarını tik sınırında (stepSim başı) uygula + kaydet — replay ile aynı
+// kod yolundan (battleApplyRecordedEvent). Böylece asenkron fare girdisi determinizmi bozmaz.
+function flushPendingPlayerCommands() {
+    if (!pendingPlayerCommands.length) return;
+    const cmds = pendingPlayerCommands;
+    pendingPlayerCommands = [];
+    for (const c of cmds) {
+        if (typeof battleApplyRecordedEvent === 'function') battleApplyRecordedEvent({ type: c.type, payload: c.payload });
+        if (typeof battleRecordEvent === 'function') battleRecordEvent(c.type, c.payload);
+    }
+}
+
+function stepSim(now, dtSec, driveController, spawnDeathVfx) {
     updateTrenches(now);
+    flushPendingPlayerCommands();          // oyuncu komutları: tik-sınırı, replay ile aynı nokta
+    if (driveController) driveController(now);
     SIM.spatialGrid.clear();
     for (let i = SIM.units.length - 1; i >= 0; i--) {
         if (SIM.units[i].dead) {
@@ -1134,11 +1100,30 @@ function stepSim(now, dtSec, driveAI, spawnDeathVfx) {
             SIM.spatialGrid.insert(SIM.units[i]);
         }
     }
-    SIM.units.forEach(u => u.update(now));
+    // Hasar anlık uygulandığı için sabit dizi sırası, önce oluşturulan tarafa
+    // kalıcı "ilk ateş" avantajı veriyordu (normalde mavi birlikler önce spawn olur).
+    // Dizi durumunu değiştirmeden yürütme yönünü her tick ters çevirerek iki tarafa
+    // eşit sayıda ilk icra hakkı ver. Canlı, headless, hikâye ve hızlı maç aynı
+    // stepSim yolunu kullandığından bu adalet düzeltmesi bütün motorlarda ortaktır.
+    if (((SIM.tick || 0) & 1) === 0) {
+        for (let i = 0; i < SIM.units.length; i++) {
+            SIM.units[i].update(now, dtSec);
+        }
+    } else {
+        for (let i = SIM.units.length - 1; i >= 0; i--) {
+            SIM.units[i].update(now, dtSec);
+        }
+    }
+    // Birlikler hareket ettikten sonra çarpışma komşuluğunu güncelle. Eski
+    // konumlarla çözüm yapmak dar geçitlerde görünmez kuyruk ve yanlış itme üretir.
+    SIM.spatialGrid.clear();
+    for (const unit of SIM.units) {
+        if (!unit.dead) SIM.spatialGrid.insert(unit);
+    }
     resolveCollisions();
-    if (driveAI) driveAI(now);
     if (typeof updateBattleRules === 'function') updateBattleRules(dtSec, now);
-    SIM.tick = (SIM.tick || 0) + 1;   // deterministik sim-saati (intent-yaşı için)
+    SIM.tick = (SIM.tick || 0) + 1;
+    if (typeof battleMaybeRecordHash === 'function') battleMaybeRecordHash();
 }
 
 function gameLoop(timestamp) {
@@ -1153,16 +1138,12 @@ function gameLoop(timestamp) {
     }
     
     if (!lastFrameTime) lastFrameTime = timestamp;
-    const dt = timestamp - lastFrameTime;
-    if (typeof updateCinematic === 'function') updateCinematic(dt / 1000);   // sinematik slow-mo zarfı (gerçek dt)
-    const scaledDt = dt * GAME_SPEED * timeScale;                            // timeScale<1 → slow-mo (tek-oyunculu)
+    const dt = Math.max(0, Math.min(250, timestamp - lastFrameTime));
+    if (typeof updateCinematic === 'function') updateCinematic(dt / 1000);
     lastFrameTime = timestamp;
 
-    // Hit-stop: tek-oyunculuda kısa darbe-donması (render sürer, sim donar) — MP/headless'te YOK (lockstep desync)
     const _mpActive = (typeof MP !== 'undefined' && MP.active);
-    let _frozen = false;
-    if (!_mpActive && hitStopFrames > 0) { _frozen = true; hitStopFrames--; }
-    if (!_frozen) simulationTime += scaledDt;
+    if (hitStopVisualMs > 0) hitStopVisualMs = Math.max(0, hitStopVisualMs - dt);
 
     if (screenShake > 0) {
         screenShake *= 0.9;                          // trauma decay
@@ -1172,17 +1153,60 @@ function gameLoop(timestamp) {
     updateCamera();
 
     if (phase === PHASE.BATTLE) {
+        if (!battlePerformanceWindow.startedAt) battlePerformanceWindow.startedAt = timestamp;
+        battlePerformanceWindow.frames++;
+        battlePerformanceWindow.totalFrameMs += dt;
+        battlePerformanceWindow.maxFrameMs = Math.max(battlePerformanceWindow.maxFrameMs, dt);
         if (_mpActive) {
             mpStep(timestamp);                       // ÇOK OYUNCULU: sabit-tick lockstep (kendi içinde stepSim çağırır)
-        } else if (!_frozen) {
-            gameTime += scaledDt / 1000;
-            stepSim(simulationTime, scaledDt / 1000, updateLayeredAI, true);
-            updateSupport(scaledDt / 1000, simulationTime);   // MP'de KAPALI (setTimeout = desync)
+        } else {
+            battleAccumulatorMs += dt * GAME_SPEED;
+            let steps = 0;
+            while (battleAccumulatorMs >= BATTLE_TICK_MS && steps < BATTLE_MAX_STEPS_PER_FRAME) {
+                simulationTime += BATTLE_TICK_MS;
+                gameTime += BATTLE_TICK_SEC;
+                const driveController = BATTLE_REPLAY_DRIVER.active ? battleReplayDrive : battleControllersDrive;
+                stepSim(simulationTime, BATTLE_TICK_SEC, driveController, true);
+                updateSupport(BATTLE_TICK_SEC, simulationTime);
+                battleAccumulatorMs -= BATTLE_TICK_MS;
+                steps++;
+            }
+            battlePerformanceWindow.simulationSteps += steps;
+            if (steps >= BATTLE_MAX_STEPS_PER_FRAME &&
+                battleAccumulatorMs >= BATTLE_TICK_MS) {
+                battlePerformanceWindow.cappedFrames++;
+            }
         }
-        // canlıya özgü (rollout'ta yok): VFX + telemetri + bitiş — iki modda da
-        updateParticles(scaledDt / 1000);
+        if (timestamp - battlePerformanceWindow.startedAt >= 1000) {
+            const elapsedMs = Math.max(1, timestamp - battlePerformanceWindow.startedAt);
+            if (typeof battleRecordPerformanceSample === 'function') {
+                battleRecordPerformanceSample({
+                    windowMs: Math.round(elapsedMs),
+                    fps: Math.round(
+                        battlePerformanceWindow.frames * 100000 / elapsedMs
+                    ) / 100,
+                    averageFrameMs: Math.round(
+                        battlePerformanceWindow.totalFrameMs /
+                        Math.max(1, battlePerformanceWindow.frames) * 100
+                    ) / 100,
+                    maxFrameMs: Math.round(battlePerformanceWindow.maxFrameMs * 100) / 100,
+                    simulationSteps: battlePerformanceWindow.simulationSteps,
+                    cappedFrames: battlePerformanceWindow.cappedFrames,
+                    accumulatorMs: Math.round(battleAccumulatorMs * 100) / 100
+                });
+            }
+            battlePerformanceWindow = {
+                startedAt: timestamp,
+                frames: 0,
+                totalFrameMs: 0,
+                maxFrameMs: 0,
+                simulationSteps: 0,
+                cappedFrames: 0
+            };
+        }
+        // Render efektleri gerçek frame süresini kullanır; savaş durumuna geri yazamaz.
+        updateParticles(dt / 1000);
         if (typeof updateFloatTexts === 'function') updateFloatTexts(dt / 1000);   // hasar sayıları (gerçek dt)
-        battleTelemetry.update(scaledDt / 1000, simulationTime);
         checkGameOver();
     } else if (phase === PHASE.DEPLOY) {
         resolveCollisions();
@@ -1203,7 +1227,6 @@ function gameLoop(timestamp) {
     drawParticles(ctx);
     if (typeof drawFloatTexts === 'function') drawFloatTexts(ctx);   // hasar sayıları (partiküllerin üstünde)
     drawSupport(ctx);
-    drawAIWaypoints();
     drawFogOfWar();
     drawGhost();
     if (_cz) { zoom = _sZoom; camera.x = _sCamX; camera.y = _sCamY; }   // sinematik zoom geri al → HUD/minimap doğru kalır
