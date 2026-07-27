@@ -1,0 +1,445 @@
+# Savaş AI — v6: Hafızalı Operasyon-Değerlendirici + Karşı-Olgusal Eğitim + Lig Self-Play + LLM Koç (döngü dışı)
+
+> Bu sürüm, v4 taslağına yapılan detaylı teknik review'un **tamamını** benimser. v4'ün asıl
+> zaafı: ortada gerçek öğrenen model yoktu (LLM-destekli manuel geliştirme), LLM istatistik
+> motoru gibi kullanılmıştı, self-play/ödül/kabul tanımsızdı. Bunlar düzeltildi.
+>
+> **İki referans birlikte kullanılır:** bu doküman = doğru LLM sınırları + mimari çerçeve.
+> `SAVAS_AI_TASARIM_PLANI.md` §11 (öğrenme), §12 (telemetri/replay), fitness bileşenleri,
+> şampiyon arşivi, aşırı-uyum testleri = gerçek-öğrenme ayrıntı referansı. İkisi çelişmez;
+> eskisi SİLİNMEZ, bu doküman onun üstüne LLM sınırlarını ve karşı-olgusal yöntemi koyar.
+
+---
+
+## 0. Amaç ve çıkmazdan çıkış
+
+- Amaç: insanı gerçekten zorlayan savaş AI'si. İnsan az emirle eziyor → sorun işlem gücü değil **yargı**.
+- Çıkmaz: 3 kez motor sıfırlandı, hep altyapıya takıldık. **4. sıfırlama YOK.** Mevcut `js/Battle*.js`
+  motorunun **yalnız plan-puanlama katmanı** öğrenilmiş modelle değişir; algı/planner/executor kod kalır.
+
+---
+
+## 1. İki-hat mimari (net sınır)
+
+**HAT A — Gerçek zamanlı (motor içi, hızlı, deterministik) — ÜÇ KATMAN:**
+```
+Savaş motoru
+  → Yasal gözlem/algı (sadece AI'nın hile-siz bildiği)
+  → Sektör-durum + açık yapılandırılmış hafıza (§2.1, §2.5)
+  ┌─────────────────────────────────────────────────────────┐
+  │ KATMAN 1  KOMUTAN BEYNİ  ← ÖĞRENEN (hafızalı, özyinelemeli)│  niyet · operasyon · rakip-okuma · hafıza
+  │ KATMAN 2  OPERASYON PLANLAYICI                           │  görev grupları · fazlar · tetikleyiciler · yedek
+  │ KATMAN 3  TAKTİK İCRA  ← MEVCUT HIZLI KOD                │  hareket · hedef · menzil · formasyon · yol bulma
+  └─────────────────────────────────────────────────────────┘
+  → Karar + operasyon + sonuç telemetrisi
+```
+**Asıl öğrenen kısım Katman 1'dir** (statik plan-skorlayıcı DEĞİL — hafızalı komutan, §2). Katman 2
+niyeti uygulanabilir operasyona çevirir. Katman 3 = mevcut kod (koordinat/mikro burada). Bu üçlü,
+"küçük statik plan-puanlayıcı gerekli ama YETERLİ DEĞİL" tespitinin cevabıdır.
+
+**HAT B — Çevrimdışı (LLM koç, döngü DIŞINDA):**
+```
+Ham maçlar
+  → KOD-tabanlı istatistik + karar analizi (doğruluğun kaynağı burası)
+  → küçük yapılandırılmış özet (aşağıda §6)
+  → 8B LLM koç
+  → JSON hipotez/deney önerisi (kod DEĞİL)
+  → otomatik A/B deney çalıştırıcı
+  → İSTATİSTİKSEL kabul/ret (LLM'den bağımsız)
+```
+LLM analitik doğruluğun kaynağı DEĞİL; öğretmen/yorumcu. Sayısal karşılaştırmayı KOD yapar.
+
+---
+
+## 2. Öğrenen komutan modeli (hafızalı — statik skorlayıcı DEĞİL)
+
+### 2.0 ÇELİŞKİYİ ÇÖZ — model ÜRETMEZ, SIRALAR (bu, tüm mimarinin belkemiği)
+Önceki taslakta model üç farklı iş yapıyormuş gibi yazılmıştı (plan-skorla / grup-oranı-üret / faz-dizisi
+üret / DSL-üret). Bunlar farklı problemler; belirsiz kalırsa mimari kodlanırken yeniden tartışılır. **Karar:**
+- **KOD-tabanlı taktik gramer** durumdan **16–64 GEÇERLİ operasyon ADAYI** üretir (her aday = tam operasyon
+  sözleşmesi: intent+fazlar+oranlar+tetikleyici+abort; §2.2'deki JSON = bir ADAYIN şeması).
+- **Hafızalı model** girdi olarak `durum(sektör) + açık hafıza + rakip profili + BİR aday operasyon` alır ve
+  o adaya **tek beklenen değer** verir. Model **serbest JSON ÜRETMEZ**; adayları **SIRALAR** (satranç motorunun
+  yasal hamleleri değerlendirmesi gibi).
+- Kazançlar: karmaşık taktik seçilebilir · geçersiz JSON imkânsız · mevcut planner/executor korunur ·
+  karşı-olgusal rollout doğrudan eğitim etiketi verir · açıklanabilir · eylem uzayı patlamaz.
+- Bu, "plan puanlama" (§1) ile "karmaşık operasyon" (§2.2) hedeflerini uzlaştırır: **model, kodun ürettiği
+  zengin operasyon adaylarını puanlar.**
+
+### 2.1 Durum temsili = SEKTÖRLER (ham koordinat DEĞİL)
+Model yüzlerce birim koordinatını anlamaya çalışmaz; **askeri durum** görür. Harita **8×6 sektör**
+(ya da erişilebilirlik grafiği). Sektör başına: dost gücü · tahmini düşman gücü · piyade/zırhlı/
+tanksavar/topçu **yoğunlukları** · arazi · geçit/köprü/engel · görüş güveni · son temas zamanı ·
+ateş üstünlüğü · **açık kanat riski** · hedefe stratejik uzaklık. Sisin altı kesin bilgi ASLA girmez.
+
+### 2.2 Çıktı = OPERASYON (tek atımlık plan seçimi DEĞİL)
+Yalnız `ATTACK`/`HOLD` seçmek insan gibi görünmez. **Bir aday operasyon** = zamana yayılan sözleşme:
+niyet + hipotez + ana-çaba sektörü + grup oranları + **fazlar (until-tetikleyicileriyle)** + **abort koşulları**.
+Kod-gramer bunlardan 16–64 geçerli aday üretir; **model her adayı puanlar (§2.0)**.
+```json
+{ "intent": "FIX_AND_FLANK", "hypothesis": "Oyuncu sağ kanadını erken terk ediyor",
+  "mainEffort": "RIGHT_APPROACH",
+  "groups": { "fixing": 0.25, "flank": 0.45, "support": 0.20, "reserve": 0.10 },
+  "phases": [ {"name":"PROBE","until":"enemy_reserve_revealed OR 8s"},
+              {"name":"FIX","until":"enemy_center_committed"},
+              {"name":"FLANK","until":"rear_access OR flank_failed"},
+              {"name":"EXPLOIT","until":"objective_taken OR force_ratio<0.75"} ],
+  "abort": ["flank_group_losses>35%","enemy_counterattack_on_main_objective"] }
+```
+Bu, insan komutanın çekirdeğini verir: **niyet oluştur → birkaç saniye bağlı kal → beklediği koşulları
+izle → başarısızsa NEDENİNİ anlayarak değiştir.** Koordinat/mikro üretmez; Katman 2/3 (kod) uygular.
+
+### 2.3 Model = HAFIZALI (özyinelemeli) — İLK SÜRÜM KESİN SEÇİM
+**VERİ AKIŞI (kritik — GRU her aday için ayrı ÇALIŞMAZ):**
+```
+2 Hz gözlem akışı → Observation Encoder → GRU-128 → TEK komutan gizli durumu h(t)
+h(t) + açık hafıza + rakip profili
+        └→ her aday için: Candidate Encoder → Scoring MLP → {değer, terminal değer, risk}
+```
+GRU **0.5 sn'de bir defa** güncellenir; operasyon adayları GRU'yu DEĞİŞTİRMEZ, yalnız mevcut `h(t)`
+üzerinden puanlanır (aksi halde: aynı gözlem 64× işlenir, adaylar farklı gizli durum yaratır, seçilmeyen
+adaylar hafızayı kirletir, eğitim↔canlı ayrışır). **Seçilen** operasyon sonra açık plan hafızasına (§2.5) yazılır.
+- **İlk sürüm = GRU** (LSTM/transformer/recurrent-PPO SONRAYA). Gizli durum **128**. Gözlem güncellemesi
+  **saniyede 2**. Operasyon kararı: **tetikleyici oluşunca ya da en erken 3–5 sn**. Gizli durum maç başında
+  **sıfırlanır**; açık hafıza (§2.5) ayrıca girişe verilir.
+- Çıkarım hedefi **<1 ms** — *ölçülmeden gerçek sayılmaz* (Faz 0 benchmark).
+- **Özellik sözleşmesi tek sürümlü:** `stateFeatures.v1` (sayı sabitlenip belgelenir; "60-100/100-200"
+  belirsizliği kapatılır). Ağırlıklar oyuna **binary** gömülür + küçük JS inference (ağır ML runtime YOK).
+  Model **sürüm+hash'i replay'e yazılır**.
+
+### 2.4 Rakibi OKU = Bayesçi hipotez (AI oyuncuyu düşünür)
+AI oyuncu hakkında hipotez tutar ve kanıtla günceller:
+`H1 sol-kanat %40 · H2 merkez %35 · H3 topçu %25` → *sol kanatta 3 mekanize görülür* → `H1 %72 · H2 %18 · H3 %10`.
+Planını bu inanca göre seçer; yanlış tahmin riskinde **yedek bırakır** (tamamen dağılmaz). Ayrıca oyuncu
+alışkanlığı profili (kanat/zırhlı-önce/topçu-koruması/yedek-erken/feint-takip/koridor-tekrarı) girdiye eklenir.
+Sonuç: AI ezber senaryo değil, oyuncuyu okur ve **tekrar eden davranışı maç içinde cezalandırır.**
+
+### 2.5 Açık, yapılandırılmış maç hafızası (modelin gizli durumuna TAM güvenme)
+Dört tür, küçük ve okunur:
+- **Düşman hafızası:** son görülen birlikler+güven, ana kuvvet hangi tarafta, yedek görüldü mü, topçu en son nerede, muhtemel hasarlılar, tekrar kullanılan koridorlar.
+- **Davranış hafızası:** temastan sonra yığılıyor mu, kanat tehdidine cevabı, geri çekileni takip ediyor mu, AT keşfi yapmadan zırhlı gönderiyor mu, yedeği erken mi, topçuyu koruyor mu.
+- **Kendi plan hafızası:** ne deniyorum, neden seçtim, hangi varsayım, doğrulandı mı, hangi faz, kabul ettiğim kayıp, hangi koşulda bırakırım.
+- **Sonuç hafızası:** yoklama ne gösterdi, feint çekti mi, önceki saldırı neden başarısız, hangi hedefe ateş yoğunlaştırmak işe yaradı.
+
+### 2.6 Taktik GRAMER (7 sabit plana hapsetme; serbest emir de verme)
+Model, birleştirilebilir yapı taşlarını duruma göre dizer: yokla · sabitle · yığ · kanadı reddet · yan geç ·
+geri çekil · yem bırak · pusu kur · ateş yoğunlaştır · yedeği tut · yedeği kullan · hedef değiştir · takibi
+sınırla · iki-eksenli saldır · topçu avla. Örn. *yokla → düşman yedeğini çek → merkezi sabitle → sağa yığ →
+topçuyu bastır → kanattan saldır.* **Yapı taşlarını KOD grameri fazlar hâlinde dizerek adayları üretir;
+MODEL adayları seçer** (§2.0). Önceden yazılmış tek "karmaşık taktik" yok; kombinasyonlar duruma göre çıkar.
+
+### 2.7 Karmaşıklık AMAÇ değil, SONUÇTUR
+Modeli "karmaşık ol" diye ödüllendirmek yanlış (ritüel-bot üretir). Karmaşa **problemi çözmenin sonucu**
+olmalı: basit saldırı düşük değer alır → model düşman yedeğini bağlaması gerektiğini öğrenir → küçük kuvvetle
+yoklar → tepkiyi hafızaya yazar → ana kuvveti başka sektöre taşır → uygun anda saldırır. **Düşman merkezi zaten
+çökmüşse en iyi karar: bütün ateşi merkeze yığ ve bitir.** Her durumda kanat deneyen AI zeki değil, bottur.
+
+---
+
+## 2A. Kuvvet yoğunlaştırma — TEMEL yetenek (model gelmeden de güçlendirir)
+İnsanların AI'yı ezmesinin ana nedeni genelde daha iyi mikro değil, **yerel üstünlük**. AI sürekli
+`yerel güç oranı = dost etkili güç / tahmini düşman etkili güç` hesaplar; global 1.0 olsa bile **tek
+sektörde 1.6–2.0** kurmaya çalışır. Bunun için 5 davranış:
+1. Her birim BAĞIMSIZ hedef seçmez. 2. Görev grupları ortak hedef penceresi kullanır.
+3. Ana kuvvet aynı anda menzile girer. 4. Sabitleme grubu erken ölmez.
+5. Kanat grubu, ana grup temas kurmadan saldırmaz; yedek ilk çatışmada otomatik tüketilmez.
+Bu beşi düzgün çalışırsa AI "zeki görünmeden önce bile" ciddi güçlenir.
+
+## 2B. Geri çekilme = ARAÇ (yenilgi değil)
+Kötü AI ya sürekli saldırıp ölür ya sürekli toparlanıp hiçbir şey yapmaz. Her REGROUP/DISENGAGE'in
+**tanımlı amacı** olmalı: ateş menzilinden çıkmak · düşmanı tanksavar hattına çekmek · açık kanadı
+kapatmak · iki grubu birleştirmek · topçu ateş penceresi açmak · yeni yerel üstünlük kurmak.
+Bir geri çekilme planı **10–15 sn** içinde bunlardan birini gerçekleştiremezse **iptal edilir**.
+
+---
+
+## 3. Eğitim yöntemi: KARŞI-OLGUSAL plan rollout (review'un "en güçlü yöntem"i)
+
+PPO ile başlamıyoruz. Deterministik motorun gerçek avantajını kullanıyoruz:
+
+1. Bir karar anındaki durumu **dondur** (tam sim durumu).
+2. Her **geçerli plan adayından** ayrı simülasyon dalı başlat.
+3. Her planı, **birkaç rakip politikası + gizli-durum varyasyonuyla** 20–40 sn çalıştır.
+4. Sonucu **çok bileşenli ödül vektörüyle** (§4) ölç → planların gerçek sıralaması.
+5. Küçük modeli bu **plan sıralamasını tahmin edecek** şekilde eğit (öğretmen = simülasyonun
+   karşı-olgusal sonucu, LLM'in görüşü DEĞİL).
+6. Model yalnız plan-puanlama katmanının yerine geçer.
+
+Bu, credit-assignment sorununu (review #3) doğrudan çözer: değeri "sonraki 5-10 sn" tahmininden
+değil, **o planın gerçekten dallandırılmış sonucundan** öğrenir.
+
+---
+
+## 3A. ORACLE TAVAN TESTİ — eğitimden ÖNCE GO/NO-GO (4. başarısızlığa karşı en güçlü sigorta)
+
+Model yalnız **kodun ürettiği** adaylardan birini seçebilir. Gramer kötü aday üretiyorsa dünyanın en iyi
+modeli bile başarısız olur. Bu yüzden **model eğitmeden** tavanı ölçeriz:
+1. Her karar durumunda **bütün adayları rollout** ile değerlendir.
+2. Gerçekte en iyi sonucu veren adayı seçen **kusursuz `OracleSelector`** kur.
+3. Oracle'ı **mevcut kod AI'a karşı** çalıştır.
+4. **NO-GO:** Oracle belirgin gelişim sağlayamıyorsa **ML eğitimine BAŞLANMAZ** — sorun modelde değil,
+   **taktik gramerinde veya rollout değerlendirmesinde**. Önce onlar düzeltilir.
+
+Bu üç şeyi ayırır: gramer yeterli mi · rollout sonuçları anlamlı mı · model sıralamayı öğrenebiliyor mu.
+Ana metrik (kazanma oranı yetmez): **`regret = oracle_op_değeri − model_seçtiği_op_değeri`** — modelin
+oracle'a göre **ortalama regret'i** raporlanır. Oracle testi **hiç eğitim kodu yazmadan** çalışmalı (Faz 1 kapısı).
+
+### ✅ UYGULANDI + İLK SONUÇ (`js/BattleOracle.js`, `electron --oracletest`)
+- **Enjeksiyon:** `operationalPlanner.build` sarmalayıcısı — gramer-adayının `intent`(→BATTLE_PLAN_KIND) +
+  `mainSector`(→objective) + `allocation`(→grup bölme) değerlerini icra planına çevirir; mevcut
+  `taskContractPlanner`'ı yeniden kullanır. Fork restore metodu korur (yalnız data restore).
+- **Rollout+ödül:** `battleForkCapture/Restore` → aday enjekte → 15-20sn koş → çok-bileşenli ödül
+  (`rewardWeights.v1`: takas farkı + kalan üstünlük + terminal).
+- **İki metrik:** işaretli `regret = en_iyi_aday − chosen`; **tavan** `regretCeiling = max(0, regret)`
+  (mükemmel seçici "sürdür"meyi de seçebilir → mid-icra momentum artifaktını temizler). Yalnız
+  **çarpışma olan** (aktif) karar noktaları sayılır.
+- **İlk ölçüm (3 seed × 3 karar noktası, red=attacker, 9 aktif nokta):** tavan regret ort **≈41**,
+  göreli tavan **0.91**, **4/9 noktada** varsayılanı anlamlı yenme → **GO**. Headroom **temas/orta-savaş**
+  kararlarında yoğun (tick~700: +95..+122); geç-savaşta varsayılan momentum'u fresh-recommit'i geçiyor
+  (tavan onu 0'a kırpar). **Faz 1 kapısı: GEÇTİ** — seçici model eğitmek (Faz 3) gerekçeli.
+- **Açık tuning (Faz 3 öncesi opsiyonel):** enjeksiyon sadakati (flank/tempo/phases henüz icra edilmiyor),
+  reward kalibrasyonu, daha çok seed/nokta ile istatistiksel CI (§9).
+
+---
+
+## 4. Ödül: çok bileşenli vektör (review #5)
+
+Tek gizemli skor YOK (AI saklanmayı/intiharı öğrenir). Ham bileşenler DAİMA korunur:
+- Maç sonucu (terminal), yok edilen/kaybedilen değer, görev-alanı ilerlemesi, **açık-kanat süresi**,
+  yerel kuvvet yoğunluğu, boşta geçen süre, plan/emir salınımı, korunan yedek, temas-kurma gecikmesi,
+  hilesiz-bilgi kullanımı (ihlal = ağır ceza).
+- Tek skora çeviren ağırlıklar **sürümlenir** (`rewardWeights.vN`); ham bileşenler her zaman saklanır →
+  ağırlık değişince eski veriden yeniden hesaplanabilir.
+
+---
+
+## 5. Veri sözleşmesi: İKİ AYRI AKIŞ (GRU için gözlem + ranking için karar)
+
+Ranking için "yalnız plan-değişimleri" doğru; ama **GRU aradaki gözlemleri de görmeli.** İki akış:
+
+**(a) Observation stream** — her 0.5 sn (GRU'yu besler):
+`{ episodeId, tick, stateFeatures.v1[], openMemoryFeatures[], opponentProfile[] }`
+
+**(b) Decision dataset** — yalnız karar noktalarında (ranking etiketi):
+`{ episodeId, tick, candidateOperations[], rolloutValues[], selectedOperation, terminalOutcome{},
+   sonuç_pencereleri{2,5,10,20,40} }`
+
+- Eğitimde GRU, gizli durumu **bölümün gözlem dizisinden yeniden üretir.** Eski modelden kaydedilmiş
+  gizli durum eğitim girdisi YAPILMAZ (model değişince geçersizleşir).
+- Çok-pencereli sonuç (2/5/10/20/40 sn) + terminal ayrı sütunlar. Aynı operasyonun 4/sn tekrar-değerlendirmesi
+  karar satırı SAYILMAZ (yalnız plan/operasyon değişimleri + önemli icra geçişleri).
+
+---
+
+## 6. LLM koç: yalnız özet görür, deney önerir (review #2, #6)
+
+**LLM korpusu DOĞRUDAN taramaz** (1024 token bağlam, maç ~15 MB, CPU'da yanıt ~15 sn, sayısal
+karşılaştırmada sahte-neden üretir). KOD istatistiği çıkarır; LLM yalnız küçük özeti görür:
+- En kötü 5 karar, en iyi 5 karar, plan-değişim noktaları, kuvvet/alan değişimi, kanat/yığılma/
+  hedef-önceliği göstergeleri, benzer 3 geçmiş durum, **istatistiksel güven seviyesi**.
+
+**LLM KOD YAZMAZ.** Yalnız doğrulanan JSON şemasında deney önerir:
+```json
+{ "hypothesis": "AI sağ kanatta yerel üstünlüğü kullanmıyor",
+  "parameterChanges": { "flankThreatThreshold": 0.62, "reserveCommitRatio": 0.28 },
+  "expectedMetrics": ["openFlankSeconds", "exchangeRatio"] }
+```
+Geçersiz parametre reddedilir. Deney çalıştırıcı ölçer. **Kabul mekanizması LLM'den bağımsız.**
+
+**LLM'in tam rol listesi:** yeni **taktik-gramer bileşimleri** öner · karar zincirini askerî yorumla ·
+modelin **sistematik kör noktalarını** tarif et · yeni **rakip doktrinleri** üret · insan-okunur plan
+açıklaması yaz ("sol kanatta oran 0.71 olduğu için merkezden kuvvet aktardım") · maç öncesi **komutan
+karakteri/doktrin profili** üret. Örn: *"Oyuncu geri çekileni aşırı takip ediyor → kontrollü geri çekilme +
+AT pususu senaryosu üret."* Önerinin gerçek değerini **simülasyon + öğrenen model** sınar; LLM'in dediği
+otomatik doğru sayılmaz. **YAPMAZ:** birlik sürmek · zorunlu periyodik karar · ham 15MB'ı yorumlamak · kod
+değiştirmek · kazandı/kaybetti kararını tek başına vermek.
+
+---
+
+## 7. Self-play = LİG (review #4) + şampiyon arşivi
+
+Kendiyle tek-politika oyun ~%50 verir, tek rakip taş-kâğıt-makas + aşırı uyum. **Rakip ligi:**
+- Mevcut sabit kod AI · eski şampiyon modeller (arşiv) · agresif doktrin · savunmacı doktrin ·
+  kanat-ağırlıklı · yığılma-ağırlıklı · gerçek oyuncu komut kayıtları · rastgele-ama-geçerli plan seçici.
+- Her aday model **tüm ligle**, **iki tarafı değiştirerek**, **aynı seed çiftleriyle** oynar.
+- Kazanan şampiyon arşive girer; sonraki adaylar ona karşı da ölçülür.
+
+---
+
+## 8. İnsan kayıtları: train / dev / kör (review #7)
+
+- **Eğitim** kayıtları · **geliştirme** kayıtları · **hiç dokunulmayan kör kabul** kayıtları.
+- Eğitimde/geliştirmede kullanılan kayıt, **nihai başarı kanıtı olamaz** (iki maça aşırı uyumu önler).
+
+---
+
+## 9. Kabul kapısı: İSTATİSTİKSEL (review #8)
+
+Bir model ancak **hepsinden** geçerse şampiyon olur:
+- ≥ **500 eşleştirilmiş seed** · her seed'de kırmızı/mavi **taraf değişimi** · harita+ordu **katmanlı örnekleme** ·
+  önceki şampiyona **güven aralığıyla** üstünlük · navigasyon/terrain ihlali **sıfır** ·
+  boşta-kalma ve plan-salınımında **≤%5 gerileme** · kör insan kayıtlarında **gerileme yok** ·
+  en az **birkaç yeni canlı oyuncu maçı**.
+
+---
+
+## 9A. Başarı tanımı ve HEDEF galibiyet oranı (hep kazanmak = kötü tasarım)
+
+**AI insanı ne zaman yenmeye başlar? — 4 koşul (AGI GEREKMEZ):**
+1. İnsan gibi **yerel kuvvet yığabiliyorsa**. 2. Kanat tehdidini **grup düzeyinde** okuyabiliyorsa.
+3. Bütün birlikleri **aynı hedefe aynı anda** sokabiliyorsa. 4. Oyuncunun **tekrar eden davranışını maç
+içinde cezalandırabiliyorsa.** Yeter: doğru durum temsili + küçük eylem uzayı + çok güçlü test sistemi.
+
+**Hedef galibiyet oranı (stat/bilgi hilesi YOK):**
+- Ortalama oyuncuya ~**%60–70** · iyi oyuncuya ~**%45–55** · oyunu geliştiren/açıkları bilen kişiye ~**%35–45**.
+- Mağlubiyette bile **ciddi kayıp verdirmeli**. **Hep kazanmak = kötü tasarım.** Taktik değişince sonuç değişmeli.
+
+**Gerçekçi hedef — YAPILABİLİR:** oyuncu davranışını hatırlamak · aynı numaraya ikinci kez düşmemek · sahte
+saldırı · bir kanadı sabitleyip diğerine kuvvet kaydırmak · geri çekilerek AT hattına çekmek · topçuyu susturmak
+için hızlı birlik ayırmak · yedeği görünce ekseni değiştirmek · gerekmiyorsa tüm gücü zayıf noktaya yığıp
+doğrudan kazanmak · **maçtan maça farklı stratejik kişilik** · maç-içi adaptasyon.
+**YAPILAMAZ:** her haritada her oyuncuya karşı insandan ayırt edilemeyen genel zekâ. **Hedef budur zaten değil** —
+Pixel RTS sınırında iyi oyuncuya benzeyen, adapte olan, zaman zaman yaratıcı görünen bir komutan.
+
+**İnsan-hissi ölçümü (kazanma oranı yetmez) — KÖR değerlendirme:** oyunculara bazı savaş kayıtları gösterilir
+(bir kısmı insan, bir kısmı AI); hangisi insan sorulur. Ayrıca: plan çeşitliliği · aynı taktiğe 2. kez farklı
+tepki · oyuncu davranış değiştirince adaptasyon. **Gerçek başarı:** kaybeden oyuncu "AI bonusluydu" değil,
+**"yedeklerimi yanlış yerde bağladım, sağ kanadımdan geçti"** diyorsa sistem çalışmıştır.
+
+---
+
+## 10. Determinizm: artık gerçek amacı var
+
+Karşı-olgusal rollout, tekrar-üretilebilir lig ve modelin/analizin öz-incelemesi **deterministik
+motor gerektirir.** O yüzden tutulur — ama yalnız bunun için. **Ölçülen:** canlı-oyuncu kayıtları
+replay'de ~4-5 sn'de sapıyor ve sapma tik'inde birim fiziği eşleşiyor (pozisyon/hp/ammo/suppression
+farkı = 0). **HİPOTEZ (henüz kanıtlanmadı):** görünmez bir bookkeeping (RNG akış konumu / nişan noktası)
+canlı↔headless desenkronu. Kök neden Faz 0'da kesinleştirilip tek noktadan kapatılır. Self-play headless →
+orada zaten temiz; karşı-olgusal eğitim de headless.
+
+---
+
+## 11. LLM'in gerçek-zamanlı SINIRI (review #9)
+
+- LLM gerçek-zamanlı mikro/plan YAPAMAZ (CPU'da ~15-50 sn; yanıt gelince durum değişmiş; kayıtlanmazsa
+  determinizm bozulur).
+- **Canlı LLM stratejisti (eski Faz 4) ŞİMDİLİK KALDIRILDI / en sona ertelendi.** Kullanılırsa: tek istek +
+  son-kullanma tick'i + geçerlilik kontrolü + yanıt **replay olayı olarak kaydedilir** + geç cevap atılır +
+  model hazır değilse hızlı kod kesintisiz devam eder.
+
+---
+
+## 12. Fazlar + eğitim sırası (sıfırdan rastgele RL YOK)
+
+**Eğitim sırası (kritik — her adım öncekine dayanır):**
+1. Karşı-olgusal simülasyonlarla **doğru plan/operasyon sıralamasını** öğret.
+2. Eski AI + kayıtlı insan emirlerine karşı **temel eğitim**.
+3. **Hafızalı modele operasyon sonuçlarını** öğret.
+4. Şampiyon arşivli **self-play ligine** geçir.
+5. Farklı **doktrinlere** karşı eğit.
+6. **Kör insan** maçlarıyla değerlendir.
+7. Yalnız **güvenilir** adayları oyuna terfi ettir.
+> İleride recurrent-PPO benzeri yöntem eklenebilir — ama model önce karşı-olgusal veriyle **ön-eğitilir**;
+> sıfırdan rastgele davranışla BAŞLAMAZ.
+
+**Fazlar:**
+- **Faz 0** — Veri sözleşmeleri + replay doğruluğu + throughput. **KABUL KAPILARI (hepsi geçmeden bitmez):**
+  `stateFeatures.v1` sabit · `candidateFeatures.v1` sabit · `operationGrammar.v1` şema+doğrulayıcı ·
+  `BattleForkState.v1` eksiksiz serialize/restore · **aynı fork iki koşuda aynı hash** · canlı↔headless
+  sapmasının **gerçek kök nedeni bulundu** · headless throughput ölçüldü · 10.000 örnek maliyeti hesaplandı ·
+  **Oracle tavan testi (§3A) hiç eğitim kodu olmadan çalışıyor.** (§17 açık maddeleri bu sürümlü dosyalara döner.)
+- **Faz 1** — Karşı-olgusal operasyon değerlendiricisi (dallandır-ölç) + **§3A Oracle GO/NO-GO**. Model yok.
+- **Faz 2** — LLM koç: yapılandırılmış özet + JSON hipotez (§6). Kod-A/B ile ölçülür.
+- **Faz 3** — **Hafızalı komutan modeli** eğitimi (adım 1-3): sektör-durum + hafıza → operasyon.
+- **Faz 4** — Şampiyon arşivli **lig self-play** (§7) + istatistiksel kabul (§9).
+- **Faz 5** — İnsan kayıtlarıyla ince ayar + **kör insan-hissi** testi (§8, §9A).
+- **Faz 6** — (gerekirse) düşük-frekanslı LLM stratejisti (§11 kısıtlarıyla).
+
+---
+
+## 13. Ölçülmüş yargı boşlukları (kod-AI zaten iyileşebilir; model gelene kadar temel)
+
+1. ✅ Pasiflik — düzeldi (saldıran taarruza eskale; `redAttacks` imha→kazandı).
+2. Kuşatma savunması — kayıp ≈2×; naif facing refleksi ölçümde kötüleşti→revert; grup-konumlanma gerek.
+3. Kuvvet yığma. 4. Tempo/okuma. 5. Aldatma/yemleme.
+(Bunlar hem kod-AI için erken düzeltme, hem plan-değerlendiricinin öğrenmesi gereken davranışlar.)
+
+---
+
+## 14. Yapmayacaklarımız
+
+- LLM'i gerçek-zamanlı mikro/plana sokmak. · LLM'e kod yazdırmak. · LLM'i istatistik kaynağı yapmak.
+- Sıfırdan 4. motor. · Ölçmeden değişiklik. · Tek maça aşırı-uyumu başarı sanmak. · Determinizmi self-play
+  dışında bir yük olarak tutmak.
+
+---
+
+## 15. Review skorları → hedef
+
+Yön 8/10, LLM-sınırı 8/10 korunuyor. Zayıf olanlar bu sürümde kapatıldı: gerçek-ML tanımı (§2-3),
+self-play tasarımı (§7), değerlendirme güvenilirliği (§9). Başlamaya hazırlık: **Faz 0 + Faz 1**
+(veri sözleşmesi + karşı-olgusal değerlendirici) net; oradan başlanır.
+
+---
+
+## 16. Dürüst olasılık — GEREKLİ BİRLEŞİM
+
+Hedef imkânsız değil; ama **yalnız LLM koç + büyüyen kurallarla** ulaşılamaz, **yalnız küçük statik
+plan-skorlayıcıyla** da ulaşılamaz. Gereken tam birleşim (hepsi birlikte):
+1. **Hafızalı öğrenen komutan** (§2.3) · 2. **Birleştirilebilir taktik grameri** (§2.6) ·
+3. **Zamana yayılan operasyonlar** (§2.2) · 4. **Kod-tabanlı güvenilir icra** (Katman 3) ·
+5. **Rakip modeli** (§2.4) · 6. **Şampiyon arşivli self-play ligi** (§7) · 7. **Gerçek oyuncu kayıtları**
+(§8) · 8. **LLM koç ve araştırmacı** (§6). Biri eksikse sistem "iyi oyuncu" seviyesine çıkmaz.
+
+---
+
+## 17. UYGULAMA KESİNLİĞİ (review'un 9 eksiği — kodlamadan önce netleşmeli)
+
+**(1) Model seçimi** → §2.3 (GRU-128, 2 gözlem/sn, 3–5 sn karar, binary+JS inference). **(7) Runtime** → §2.3.
+
+**(2) Operasyon gramerinin MAKİNE ŞEMASI** (fikir değil, kod sözleşmesi): izin verilen fazlar + max faz sayısı +
+faz-sırası kuralları (hangi faz hangisinden sonra) + hangi birlik kompozisyonunda hangi taktik geçerli +
+izinli tetikleyiciler + abort koşulları + grup-oranı alt/üst sınırları + operasyon azami süresi + **bir birim iki
+gruba atanamaz** kuralı. Gramer bu şemadan 16–64 geçerli aday üretir.
+
+**(3) Fork durumu EKSİKSİZ olmalı** (replay başlangıç snapshot'ı YETMEZ): tüm birim iç durumu · saldırı
+cooldown'ları · hedefler · nav rotaları · bastırma/panik · controller hafızaları · geçerli operasyon+faz ·
+görev grupları · RNG durumu · mermiler/bekleyen fizik · savaş kuralları+zaman · açık oyuncu modeli.
+**Kapı:** aynı durumu fork edip değiştirmeden iki kez çalıştır → **hash'ler eşleşmezse eğitim verisi ÜRETME.**
+**ÖLÇÜLDÜ (`--forktest`):** mevcut `battleCaptureInitialState` snapshot'ı bir fork için GEÇERSİZ — orta-savaş
+fork'u orijinalden **+20 tik'te ayrılıyor**, 20 birim sapıyor. Kaybolan: **attackTarget** (`battleRestoreUnit`
+null'lıyor → birimler dövüşmeyi bırakıyor), **controller durumu** (nextDecisionTick/plan/görev-grupları/algı).
+BattleForkState.v1 bunları eklemeli; öncelik: (a) birim attackTarget/manualTarget/combat-cooldown/combatState,
+(b) her controller'ın tam iç durumu, (c) supports/mermi. Sonra fork-iki-kez-hash kapısı geçmeli.
+**✅ YAPILDI (commit 1b28ab6):** `battleForkCapture`/`battleForkRestore` — jenerik tam birim snapshot
+(ref'ler id ile) + controller durumu (nextDecisionTick, planCommitment, perception contact-Map,
+taskExecutor, ForceOrganizer/TaskContractPlanner cache'leri). Doğrulandı: null-sürücü VE AI-sürücü
+senaryolarında fork orijinal devamıyla **SIFIR sapma** (`forkTutarli=true`) — fork-iki-kez-hash kapısından
+güçlü sadakat (fork==orijinal). Faz 1 hazır.
+
+**(4) Gizli-bilgi varyasyonu = inanç-durum örnekleme (hile ÖNLENİR):** AI'ın göremediği gerçek düşman
+konumunu öğretmene VERME. Temas hafızasından **olası gizli durumlar örnekle** (kayıp birlik için birkaç
+muhtemel sektör); her operasyonu bu olasılıkların **tümüne** karşı dene; sonucu **beklenen değer + kötü-durum
+riski** olarak sakla. Model belirsizlik altında riski de görsün.
+
+**(5) Ödül SIRALAMA kuralı** (bileşenler §4, ama karşılaştırma sırası şart): görev sonucu → yok/kayıp değer →
+alan ilerleme → korunan savaş gücü → açık-kanat+boşta cezası → plan salınımı. **Her bileşen normalize** (ör.
+"500 hasar" vs "20 sn açık kanat" hangi ölçekte? → `norm.v1` tanımlanır).
+
+**(6) Eğitim kaybı — İLK SÜRÜM SEÇİLDİ:** **listwise softmax cross-entropy** (en iyi aday üstte; pairwise
+SONRAYA). Ayrı **değer kafası** (uzun-vadeli terminal) + ayrı **risk/varyans** çıktısı.
+
+**(8) Hesap bütçesi — ÖLÇÜLDÜ (Faz 0/2, electron `--benchmark`, 24 birim + AI):**
+- Ham throughput: **2.728 tik/sn = 136× gerçek-zaman** · Fork (capture+clone+restore): **0.97 ms** (darboğaz değil) ·
+  Rollout (600 tik=30 sim-sn): **105 ms**.
+- **Bir örnek** (192 rollout = 32 aday × 6 varyasyon): **~20.2 sn** ← dominant maliyet. **10.000 örnek:** tek
+  proses **56 sa**, 8 paralel **~7 sa**.
+- **Ölçek levyeleri** (gerekirse): rollout 30→15 sn (~2×) · aday 32→16 & varyasyon 6→3 (~4×) · erken-durdurma ·
+  worker-havuzu paralelleştirme. Oracle testi (Faz 1) aynı rollout makinesini kullanır → aynı birim maliyet.
+
+**(9) Kabul CI formülü** (§9 sayısal): **kazanma oranı → Wilson %95 GA**; **eşleştirilmiş fayda/hasar farkı →
+paired bootstrap %95** (ikisi aynı şey İÇİN kullanılmaz). Önceki şampiyona fayda farkının **alt sınırı > 0** ·
+kritik güvenlik ihlali sıfır · **ağır çöküş sayısal:** hiçbir harita/doktrin alt-grubunda fayda farkı **−%10
+altına düşemez** (toplamda iyi ama tek altgrupta çöken model REDDEDİLİR).
+
+> **Not:** Dosya adı hâlâ `v4`, içerik v5→v6. `<1 ms` ve tüm süreler ölçülene kadar HEDEF'tir, kanıt değil.
