@@ -384,6 +384,14 @@ orada zaten temiz; karşı-olgusal eğitim de headless.
 - **Lig turu ✅ (v4):** çok-rakip DAgger (blue 1400+1600+1800) → **v4 genelleşiyor:** vs1400 Δ+328(5/5),
   vs1800 Δ+697(5/0, baseline zorlanırken model baskın), vs1600 Δ-324(3/5, çöküşten ~3.5× kurtuldu; baseline
   burada en güçlü). Ortalama Δ≈+234. **Lig aşırı-uyumu kırdı** (v2 tek-rakip dışında çöküyordu). v4 = kanonik model.
+- **Self-play denendi (kısıtlı) — ÖNEMLİ bulgu:** kontrolör-başına model altyapısı kuruldu
+  (`battleSelectorEnableFor`, `--selfplay`). Defender modeli eğitildi (blue-defender, kendi rol/tarafında).
+  Ama **v4-attacker vs defender-model** → red her durumda ~1250 farkla domine (defender-model kod-AI'dan
+  sadece ~75 iyi). Kök: (1) **savunma headroom'u küçük** (defender Oracle-regret ~11 — kod-AI defender zaten
+  iyi), (2) **dengeli-bütçe matchup'ta attacker yapısal baskın**. → **Bu matchup'ta self-play arms-race ZAYIF.**
+  Gerçek arms-race için **dengeli/simetrik matchup** (savunmaya terrain/bütçe avantajı, veya meeting-engagement)
+  gerekir — yoksa öğretmen-tavanı (kod-AI) aşılamaz. İnsanı zorlamak için asıl kaldıraç: **insan-maçı DAgger**
+  (aşağıdaki deterministik-replay avantajı → oyuncunun gerçek maçlarından öğren, self-play değil).
 - **Oyuna gömüldü ✅** — Hızlı Maç kırmızı AI temas-fazında v4 lig-modelini kullanır (`js/BattleSelectorModel.js`
   gömülü + `startBattle` kancası; interactive+mode='quick' gated, MP/replay/hikâye/headless-test'te kapalı).
 - **Sıradaki:** (1) model-vs-model self-play (blue de model/eski-sürüm) + 1600-boşluğu verisi + GRU lig-hacim;
