@@ -17,23 +17,26 @@
 let BATTLE_ORACLE_INJECTION = null;   // { controllerId, kind, sector, point:{x,y}, allocation:{main,fixing,flank,reserve} }
 const BATTLE_ORACLE_REWARD_WEIGHTS_VERSION = 'oracleReward.v1';
 
-// CANLI SEÇİCİ (Faz 4): eğitilmiş model gerçek maçta oynar. Null = kapalı.
-let BATTLE_SELECTOR_MODEL = null;        // selInitModel/selTrain çıktısı (weights)
-let BATTLE_SELECTOR_TARGET_ID = null;    // hangi kontrolör model kullanacak (örn. 'battle-red-ai')
-let BATTLE_SELECTOR_PICK_CACHE = { tick: -1, inj: null };   // thrash azalt: seçimi REPICK_TICKS koru
-// Commitment ufku EĞİTİM rollout ufkuyla eşleşmeli: model, ödülü "bu operasyonu ~12sn çalıştır" diye öğrendi.
-// Kısa re-pick (3sn) operasyonu oynayamadan değiştirip thrashing üretiyor → 240 tik (12sn).
+// CANLI SEÇİCİ (Faz 4/5): eğitilmiş model gerçek maçta oynar. KONTROLÖR-BAŞINA model (self-play için).
+let BATTLE_SELECTOR_MODELS = {};         // { [controllerId]: model }  — boş = kapalı
+let BATTLE_SELECTOR_CACHES = {};         // { [controllerId]: {tick, inj} }  — thrash azalt
+// Commitment ufku EĞİTİM rollout ufkuyla eşleşmeli (~12sn). Kısa re-pick thrashing üretir → 240 tik.
 let BATTLE_SELECTOR_REPICK_TICKS = 240;
 // Model yalnız bu tik penceresinde karar verir (dışında kod-AI sürer). Eğitim dağıtımına (temas fazı) sınırla.
 let BATTLE_SELECTOR_MIN_TICK = 0, BATTLE_SELECTOR_MAX_TICK = Infinity;
 function battleSelectorSetModel(model, targetId) {
-    BATTLE_SELECTOR_MODEL = model || null;
-    BATTLE_SELECTOR_TARGET_ID = targetId || null;
-    BATTLE_SELECTOR_PICK_CACHE = { tick: -1, inj: null };
+    if (model && targetId) { BATTLE_SELECTOR_MODELS[targetId] = model; BATTLE_SELECTOR_CACHES[targetId] = { tick: -1, inj: null }; }
+    else if (!model && targetId) { delete BATTLE_SELECTOR_MODELS[targetId]; delete BATTLE_SELECTOR_CACHES[targetId]; }
+    else if (!model && !targetId) { BATTLE_SELECTOR_MODELS = {}; BATTLE_SELECTOR_CACHES = {}; }
 }
-// CANLI AÇ: modeli set et + build sarmalayıcısını tüm kontrolörlere kur (hedef kontrolör model kullanır).
+// CANLI AÇ (tek kontrolör, backward-compat): modeli set et + sarmalayıcıyı tüm kontrolörlere kur.
 function battleSelectorEnable(model, targetId) {
     battleSelectorSetModel(model, targetId || 'battle-red-ai');
+    if (typeof BATTLE_CONTROLLERS !== 'undefined') for (const c of BATTLE_CONTROLLERS.values()) battleOracleInstallInjection(c);
+}
+// CANLI AÇ (belirli kontrolör — model-vs-model self-play için: red=modelA, blue=modelB)
+function battleSelectorEnableFor(controllerId, model) {
+    battleSelectorSetModel(model, controllerId);
     if (typeof BATTLE_CONTROLLERS !== 'undefined') for (const c of BATTLE_CONTROLLERS.values()) battleOracleInstallInjection(c);
 }
 function battleSelectorDisable() {
@@ -42,13 +45,14 @@ function battleSelectorDisable() {
 }
 // Model bir karar durumunda tüm adayları skorlar → en yüksek → enjeksiyon-spec. Cache ile thrash azaltılır.
 function battleSelectorPickInjection(controller, observation, situation) {
-    if (!BATTLE_SELECTOR_MODEL || typeof selForward !== 'function' ||
+    const model = BATTLE_SELECTOR_MODELS[controller.id];
+    if (!model || typeof selForward !== 'function' ||
         typeof battleStateFeatures !== 'function' || typeof operationGrammarGenerate !== 'function') return null;
     // eğitim-dağıtımı penceresi dışında kod-AI'ya bırak (OOD erken/geç durumlarda model bozuyor)
     if (SIM.tick < BATTLE_SELECTOR_MIN_TICK || SIM.tick > BATTLE_SELECTOR_MAX_TICK) return null;
     // cache: son seçimi REPICK_TICKS boyunca koru (sürekli re-commit momentum kaybettirir)
-    if (BATTLE_SELECTOR_PICK_CACHE.inj && (SIM.tick - BATTLE_SELECTOR_PICK_CACHE.tick) < BATTLE_SELECTOR_REPICK_TICKS)
-        return BATTLE_SELECTOR_PICK_CACHE.inj;
+    const cache = BATTLE_SELECTOR_CACHES[controller.id];
+    if (cache && cache.inj && (SIM.tick - cache.tick) < BATTLE_SELECTOR_REPICK_TICKS) return cache.inj;
     const sideRed = controller.side;
     // EĞİTİMLE TUTARLI: aynı context kurucusu (battleOracleGrammarContext = tam-bilgi sektör görünümü).
     // Eğitim verisi de bununla üretildi → train/inference feature dağılımı eşleşir. (Sis-savaşı hizalaması
@@ -64,11 +68,11 @@ function battleSelectorPickInjection(controller, observation, situation) {
     const sf = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: ownUnits.length, enemyCount: foes.length });
     let best = null, bestScore = -Infinity;
     for (const cand of candidates) {
-        const s = selForward(BATTLE_SELECTOR_MODEL, sf.concat(battleCandidateFeatures(cand, ctx))).out;
+        const s = selForward(model, sf.concat(battleCandidateFeatures(cand, ctx))).out;
         if (s > bestScore) { bestScore = s; best = cand; }
     }
     const inj = battleCandidateToInjection(best, controller.id);
-    BATTLE_SELECTOR_PICK_CACHE = { tick: SIM.tick, inj };
+    BATTLE_SELECTOR_CACHES[controller.id] = { tick: SIM.tick, inj };
     return inj;
 }
 
@@ -232,8 +236,8 @@ function battleOracleInstallInjection(controller) {
             // ORACLE modu: sabit enjeksiyon (rollout değerlendirmesi)
             if (BATTLE_ORACLE_INJECTION && controller.id === BATTLE_ORACLE_INJECTION.controllerId)
                 return battleBuildInjectedPlan(this, committedPlan, observation, situation, BATTLE_ORACLE_INJECTION);
-            // CANLI SEÇİCİ modu: model adayı seçer (gerçek maçta oynar)
-            if (BATTLE_SELECTOR_MODEL && controller.id === BATTLE_SELECTOR_TARGET_ID) {
+            // CANLI SEÇİCİ modu: model adayı seçer (gerçek maçta oynar; kontrolör-başına model)
+            if (BATTLE_SELECTOR_MODELS[controller.id]) {
                 const inj = battleSelectorPickInjection(controller, observation, situation);
                 if (inj) return battleBuildInjectedPlan(this, committedPlan, observation, situation, inj);
             }
@@ -357,5 +361,5 @@ function battleOracleEvaluate(config = {}) {
 if (typeof module !== 'undefined') module.exports = {
     battleOracleEvaluate, battleOracleReward, battleOracleForceValue, battleOracleRunTicks,
     battleOracleOrganizeByAllocation, battleOracleIntentToKind,
-    battleSelectorEnable, battleSelectorDisable, battleSelectorSetModel, battleCandidateToInjection
+    battleSelectorEnable, battleSelectorEnableFor, battleSelectorDisable, battleSelectorSetModel, battleCandidateToInjection
 };
