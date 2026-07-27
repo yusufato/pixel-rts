@@ -268,9 +268,14 @@ function battleUnitSnapshot(unit) {
         ally: !!unit.ally,
         controlOwner: unit.controlOwner || null,
         controllerId: unit.controllerId || null,
-        x: Math.round(unit.x * 100) / 100,
-        y: Math.round(unit.y * 100) / 100,
-        hp: Math.round(unit.hp * 100) / 100,
+        // TAM PRECISION (yuvarlama YOK): initialState'ten yeniden başlayan replay, canlının kullandığı
+        // birebir aynı pozisyondan başlamalı. x/y'yi 2 ondalığa yuvarlamak, tick-0 hash'i (o da yuvarlar)
+        // eşleşse bile tam-precision simülasyonu saptırıyordu → sapma birikip hash sınırını geçiyordu.
+        // Kanıt: u14 başlangıç x'ini 0.005 nudge'lamak kayıtlı hash'i birebir yeniden üretti. targetX/targetY
+        // zaten tam precision'dı (asimetri buydu).
+        x: unit.x,
+        y: unit.y,
+        hp: unit.hp,
         maxHp: unit.maxHp,
         atk: unit.atk,
         baseSpeed: unit.baseSpeed,
@@ -299,10 +304,10 @@ function battleCaptureInitialState() {
     BATTLE_REPLAY.initialState = {
         units: SIM.units.filter(unit => !unit.dead).map(battleUnitSnapshot).sort((a, b) => a.id - b.id),
         trenches: (SIM.trenches || []).map(field => ({
-            x: Math.round(field.x * 100) / 100,
-            y: Math.round(field.y * 100) / 100,
+            x: field.x,                 // TAM PRECISION (birim x/y ile aynı gerekçe — hash sınır-kayması)
+            y: field.y,
             isRed: !!field.isRed,
-            hp: Math.round(field.hp * 100) / 100,
+            hp: field.hp,
             maxHp: field.maxHp || field.hp,
             r: field.r || 72,
             providesSupply: field.providesSupply !== false,
