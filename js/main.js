@@ -1097,6 +1097,8 @@ function stepSim(now, dtSec, driveController, spawnDeathVfx) {
     updateTrenches(now);
     flushPendingPlayerCommands();          // oyuncu komutları: tik-sınırı, replay ile aynı nokta
     if (driveController) driveController(now);
+    // FAZ 6: "bu maçtan öğren" açıksa kırmızının karar-durumlarını yakala (insan-maçı DAgger; opt-in, gate'li)
+    if (typeof battleMaybeCaptureDecisionSnapshot === 'function') battleMaybeCaptureDecisionSnapshot(true);
     SIM.spatialGrid.clear();
     for (let i = SIM.units.length - 1; i >= 0; i--) {
         if (SIM.units[i].dead) {

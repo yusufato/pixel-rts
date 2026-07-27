@@ -117,9 +117,10 @@ function battleOracleReward(sideRed, baseline) {
 }
 
 // ── Headless rollout: N tik ilerlet (her iki taraf battleControllersDrive) ────
+let BATTLE_ORACLE_IN_ROLLOUT = false;   // rollout içinde canlı-snapshot yakalamayı engelle
 function battleOracleRunTicks(maxTicks) {
-    const prevHeadless = SIM.headless;
-    SIM.headless = true;
+    const prevHeadless = SIM.headless, prevRollout = BATTLE_ORACLE_IN_ROLLOUT;
+    SIM.headless = true; BATTLE_ORACLE_IN_ROLLOUT = true;
     let ran = 0;
     try {
         for (; ran < maxTicks && phase === PHASE.BATTLE; ran++) {
@@ -129,7 +130,7 @@ function battleOracleRunTicks(maxTicks) {
             if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, simulationTime);
             if (SIM.battle && SIM.battle.winnerSide !== null && SIM.battle.winnerSide !== undefined) { ran++; break; }
         }
-    } finally { SIM.headless = prevHeadless; }
+    } finally { SIM.headless = prevHeadless; BATTLE_ORACLE_IN_ROLLOUT = prevRollout; }
     return ran;
 }
 
@@ -262,6 +263,46 @@ function battleOracleGrammarContext(controller, sideRed) {
     let role = controller && controller.lastSituation && controller.lastSituation.role;
     if (!role && typeof battleRoleForSide === 'function') role = battleRoleForSide(sideRed);
     return opgBuildContext(sideRed, ownUnits, contacts, role);
+}
+
+// ═══ FAZ 6: İNSAN-MAÇI ÖĞRENME (karar-durumu snapshot → sonra Oracle-etiketle) ═══════════════
+// Canlı insan-maçında (blue=insan) kırmızının karar-durumlarını yakala → maç sonrası etiketle →
+// kırmızı, insanın YARATTIĞI durumlarda ne yapması gerektiğini öğrenir → o insana karşı sertleşir.
+// Replay-determinizmini RİSKE ATMAZ (snapshot canlı-yakalanır, tam-durum fork'tur).
+let BATTLE_TRAIN_CAPTURE = false;          // opt-in: "bu maçtan öğren" açıksa yakala
+let BATTLE_DECISION_SNAPSHOTS = [];        // { tick, fork, ctxSide } — bellekte, maç boyunca
+let BATTLE_SNAPSHOT_INTERVAL = 120;        // her ~6sn bir karar-durumu (bellek/işlem dengesi)
+function battleTrainCaptureReset(on) { BATTLE_TRAIN_CAPTURE = !!on; BATTLE_DECISION_SNAPSHOTS = []; }
+// stepSim/gameLoop kancasından çağrılır: temas-fazında periyodik tam-durum yakala
+function battleMaybeCaptureDecisionSnapshot(sideRed) {
+    if (!BATTLE_TRAIN_CAPTURE || BATTLE_ORACLE_IN_ROLLOUT || typeof battleForkCapture !== 'function') return;
+    if ((SIM.tick % BATTLE_SNAPSHOT_INTERVAL) !== 0) return;
+    if (SIM.tick < BATTLE_SELECTOR_MIN_TICK) return;   // temas-fazı (açılışta sinyal yok)
+    // temas var mı (ucuz kontrol): en az bir düşman görüş-menzilinde
+    const reds = SIM.units.filter(u => !u.dead && (!!u.isRed === !!sideRed));
+    const foes = SIM.units.filter(u => !u.dead && (!!u.isRed !== !!sideRed));
+    if (!reds.length || !foes.length) return;
+    let near = false;
+    for (const a of reds) { for (const b of foes) { if (Math.hypot(a.x - b.x, a.y - b.y) < 500) { near = true; break; } } if (near) break; }
+    if (!near) return;
+    if (BATTLE_DECISION_SNAPSHOTS.length >= 120) return;   // güvenlik tavanı (bir maç)
+    BATTLE_DECISION_SNAPSHOTS.push({ tick: SIM.tick, fork: battleForkCapture(), sideRed: !!sideRed });
+}
+// Maç sonrası: yakalanan snapshot'ları Oracle ile etiketle → eğitim tuple'ları (insan-dağılımı DAgger verisi)
+function battleLabelDecisionSnapshots(config = {}) {
+    const rolloutSec = config.rolloutSec || 12;
+    const snaps = BATTLE_DECISION_SNAPSHOTS.slice();
+    const examples = [];
+    // etiketleme sırasında bu maçın snapshot'larını dondur; her biri kendi fork'undan restore edilir
+    const saveModels = BATTLE_SELECTOR_MODELS; BATTLE_SELECTOR_MODELS = {};   // temiz Oracle (kod-AI baseline)
+    try {
+        for (const s of snaps) {
+            battleForkRestore(s.fork);
+            const ev = battleOracleEvaluate({ sideRed: s.sideRed, rolloutSec, collectDataset: true });
+            if (ev && ev.dataset && ev.active) { ev.dataset.human = true; ev.dataset.snapTick = s.tick; examples.push(ev.dataset); }
+        }
+    } finally { BATTLE_SELECTOR_MODELS = saveModels; }
+    return { count: examples.length, examples };
 }
 
 // ── ORACLE DEĞERLENDİRME: mevcut durumda tüm adayları + varsayılanı rollout, regret hesapla ──
