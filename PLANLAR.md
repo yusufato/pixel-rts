@@ -25,9 +25,27 @@
 
 **Neden gizli kaldı:** `verifyBattleReplayDeterminism` replay'i İKİ kez aynı (yuvarlanmış) initialState'ten koşup
 karşılaştırıyor — canlı-vs-replay DEĞİL. Self-play/fork de aynı yuvarlanmış durumdan iki kez → hep eşleşiyordu.
-**Not:** Eğitim hattı zaten bundan etkilenmiyordu (self-play iki-replay tutarlıydı); fix, canlı-oyuncu byte-replay'i
-("AI senin maçlarını bayt-bayt izlesin") artık gerçekten mümkün kılıyor.
-**Teşhis araçları (electron, dev):** `--replaycheck` (hash-birebir alan farkı), `--precisiontest`, `--fixverify`.
+**Teşhis araçları (electron, dev):** `--replaycheck` (hash-birebir alan farkı), `--precisiontest`, `--fixverify`, `--unitdump`.
+
+**Sonuç:** precision fix, sapmayı tick 20'den tick 460'a (~1sn → ~23sn birebir replay) taşıdı. Taze fix'li kayıtta
+(seed 2755142734) doğrulandı.
+
+### A-artığı) İKİNCİL sapma tick ~460 (~23sn) — controller-order replay ≠ canlı controller  ⚠️ AÇIK ama BLOKLAMIYOR
+
+**Belirti:** ~23sn'de TEK bir idle oyuncu birimi (id23) canlıda taramayla bir düşman bulup hareket ediyor;
+replay'de HİÇ hareket etmiyor (event YOK, simRng EŞİT, tick-440 durumu birebir aynı).
+**Kök neden (teşhis):** replay `battleReplayDrive` = **kayıtlı controller-order uygular**; canlı
+`battleControllersDrive` = **kırmızı AI kontrolörlerini ÇALIŞTIRIR**. Kontrolörü canlı çalıştırmak, kayıtlı
+emrin yakalamadığı **hash'siz birim/kontrolör durumunu** set ediyor → bir kırmızı birim görünmez sapıyor →
+23sn sonra idle oyuncu biriminin görüşüne farklı tick'te girip taramayı tetikliyor. (Fork bug'ının sınıfı,
+ama replay-emir yolunda: recorded order, canlı controller'ın tüm yan-etkisini taşımıyor.)
+**TEMİZ ÇÖZÜM (öneri):** replay'de kayıtlı controller-order'ı OYNATMAK yerine kontrolörleri
+`battleControllersDrive` ile **deterministik ÇALIŞTIR** (fork testi kontrolörlerin state+seed'den deterministik
+olduğunu kanıtladı). O zaman replay = canlı (AI tarafı) birebir olur, kayıt yalnız oyuncu-event + seed tutar.
+Daha basit kayıt + tam byte-replay. Ama Faz 0 mimari değişikliği → Faz 1 sonrası.
+**Neden BLOKLAMIYOR:** eğitim hattı headless AI-vs-AI (`battleControllersDrive` her iki tarafta, replay-emir
+yolu YOK) → bu sapma orada oluşmaz; fork/self-play determinizmi sağlam. Telemetri (LLM koç okur) tam kaydediliyor.
+Yalnız "canlı-oyuncu maçının byte-exact replay'i" ~23sn sonrası etkilenir — eğitim için gerekli değil.
 
 **Bağlam / kök neden (Faz 0'da bulundu):**
 - Ölçüldü: **self-play / AI-vs-AI determinizmi SAĞLAM** (savaş, ölüm, fleeing dahil sıfır sapma).
