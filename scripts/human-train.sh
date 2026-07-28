@@ -8,9 +8,11 @@ if [ ! -f "$Q/human-data.json" ]; then
   exit 0
 fi
 N=$(node -e 'try{console.log((JSON.parse(require("fs").readFileSync("qa-runtime/human-data.json","utf8")).examples||[]).length)}catch(e){console.log(0)}')
-echo "Insan-verisi: $N durum. AI sana adapte ediliyor (warm-start v4)..."
+# warm-start MEVCUT modelden (gece-eğitim gömdüyse onun üstüne bin, yoksa v4) → kazanımlar birikir
+WARM="$Q/selector-model.json"; [ -f "$WARM" ] || WARM="$Q/selector-model-v4.json"
+echo "Insan-verisi: $N durum. AI sana adapte ediliyor (warm-start: $(basename $WARM))..."
 BASE="$Q/oracle-dataset-big.json,$Q/oracle-dagger.json,$Q/dagger-blue1600.json,$Q/dagger-blue1800.json,$Q/oracle-defender.json"
-node js/BattleSelector.js "${BASE},$Q/human-data.json" 300 "$Q/selector-model-human.json" "$Q/selector-model-v4.json" 2>&1 | grep -E "Birleştir|Warm-start|DEV |MODEL_KAYDEDILDI"
+node js/BattleSelector.js "${BASE},$Q/human-data.json" 300 "$Q/selector-model-human.json" "$WARM" 2>&1 | grep -E "Birleştir|Warm-start|DEV |MODEL_KAYDEDILDI"
 # göm (oyun bunu kullanir)
 cp "$Q/selector-model-human.json" "$Q/selector-model.json"
 node -e '
