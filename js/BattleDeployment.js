@@ -57,15 +57,35 @@ function deploymentManifestHash(counts) {
     return hash.toString(16).padStart(8, '0');
 }
 
+// ORDU ÇEŞİTLİLİĞİ: her maça seed'li DOKTRİN + ince gürültü uygula → farklı ama DENGELİ ordu (öngörülemez).
+// SIM_RNG (srand) kullanır → deterministik (aynı seed=aynı ordu, replay/eğitim bozulmaz) ama maç-maç farklı.
+function battleDeploymentVariedWeights(base) {
+    const w = {}; for (const k in base) w[k] = base[k];
+    const doctrines = [
+        {},                                                                                           // DENGELİ
+        { [T.ARMOR]: 1.8, [T.ARMOR_INFANTRY]: 1.7, [T.INFANTRY]: 0.55, [T.MECH_INFANTRY]: 0.7 },       // ZIRH-AĞIR
+        { [T.INFANTRY]: 1.7, [T.MECH_INFANTRY]: 1.5, [T.ANTI_TANK]: 1.4, [T.ARMOR]: 0.5 },             // PİYADE+TANKSAVAR
+        { [T.ANTI_TANK]: 1.9, [T.ARTILLERY]: 1.6, [T.RECON]: 1.5, [T.ARMOR]: 0.6 },                    // ANTİ-ZIRH/TOPÇU
+        { [T.MECH_INFANTRY]: 1.7, [T.RECON]: 2.2, [T.ARMOR]: 1.3, [T.ARTILLERY]: 0.6 }                 // HAREKETLİ
+    ];
+    const d = doctrines[(typeof srandInt === 'function') ? srandInt(doctrines.length) : 0];
+    for (const k in d) w[k] = (w[k] || 0) * d[k];
+    const rnd = (typeof srand === 'function') ? srand : Math.random;
+    for (const k in w) w[k] = w[k] * (0.78 + rnd() * 0.44);   // ±22% ince gürültü
+    return w;
+}
+
 function battleBuildArmyManifest(rawBudget, config = {}) {
     const remaining = deploymentCloneBudget(rawBudget);
     const initial = { ...remaining };
     const types = [];
     const spent = {};
     const maxUnits = Math.max(1, config.maxUnits | 0 || 48);
-    const deployWeights = config.combatFocused === true
+    const baseWeights = config.combatFocused === true
         ? BATTLE_DEPLOY_COMBAT_WEIGHTS
         : BATTLE_DEPLOY_WEIGHTS;
+    // ÇEŞİTLİLİK: config.varied ise her maça seed'li doktrin (farklı ama dengeli ordu → öngörülemez)
+    const deployWeights = config.varied ? battleDeploymentVariedWeights(baseWeights) : baseWeights;
     const allowedTypes = Object.keys(deployWeights).map(Number)
         .filter(type => STATS[type] && config.excludeTypes?.includes(type) !== true)
         .sort((a, b) => a - b);
@@ -222,7 +242,10 @@ function battleAutoDeploySession(config = {}) {
     if (SIM.units.some(unit => !unit.dead && unit.isRed)) return null;
     const manifest = battleBuildArmyManifest(battleSessionEnemyBudget(), {
         maxUnits: config.aiMaxUnits || 48,
-        combatFocused: config.mode === 'quick'
+        combatFocused: config.mode === 'quick',
+        // ÇEŞİTLİLİK: gerçek oyunda (interactive) kırmızı AI her maça farklı-ama-dengeli ordu dizsin
+        // (öngörülemez olsun). Headless eğitimde şimdilik sabit (koşan model dağılımı bozulmasın).
+        varied: (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive === true)
     });
     battleConsumeEnemyManifest(manifest);
     const deployed = battleDeployManifest(manifest, true, {

@@ -626,6 +626,36 @@ app.whenReady().then(() => {
         return;
     }
 
+    // ORDU ÇEŞİTLİLİĞİ TESTİ: `--varietytest` → farklı seed'lerde varied ordu kompozisyonu değişiyor mu (dengeli mi)
+    if (process.argv.includes('--varietytest')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const out = await js(`(() => { try {
+                const TN = { 0:'Piy', 1:'Mek', 2:'ZPiy', 3:'Keş', 4:'İst', 5:'Sağ', 6:'Tank', 7:'TnkSvr', 8:'Topçu' };
+                const res = [];
+                for (const seed of [1001, 2002, 3003, 4004, 5005]) {
+                    resetSimRng(seed);
+                    const m = battleBuildArmyManifest(1500, { maxUnits: 16, combatFocused: true, varied: true });
+                    const comp = {}; for (const t of m.types) comp[TN[t]||t] = (comp[TN[t]||t]||0)+1;
+                    res.push({ seed, birim: m.types.length, kompozisyon: comp });
+                }
+                // sabit (varied YOK) kıyas
+                resetSimRng(1001); const fixed = battleBuildArmyManifest(1500, { maxUnits: 16, combatFocused: true });
+                const fc = {}; for (const t of fixed.types) fc[TN[t]||t] = (fc[TN[t]||t]||0)+1;
+                return { varied: res, sabit: fc };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+            if (out && out.varied) {
+                for (const v of out.varied) console.log('VT seed=' + v.seed + ' → ' + Object.entries(v.kompozisyon).map(([k, n]) => k + ':' + n).join(' '));
+                console.log('VT SABİT → ' + Object.entries(out.sabit).map(([k, n]) => k + ':' + n).join(' '));
+            } else console.log('VT ' + JSON.stringify(out));
+            console.log('VARIETYTEST_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // KOÇ (Faz 7): `--coach [metrikDosyasi]` → Coder-14B'yi (llm-host) yükle, eğitim metriklerini ver,
     // sıradaki deney önerisini al + parse et. Genel narrator (Türkçe-Llama) DEĞİL — teknik/ML uzmanı koç.
     if (process.argv.includes('--coach')) {
