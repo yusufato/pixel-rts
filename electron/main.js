@@ -626,6 +626,40 @@ app.whenReady().then(() => {
         return;
     }
 
+    // ÖĞRENME KANCASI TEŞHİSİ: `--learntest` → GERÇEK oyun yolu (quickMatchStart interactive) startBattle
+    // kancasının capture'ı açıp açmadığını + tam maçta snapshot yakalanıp yakalanmadığını + checkGameOver
+    // maç-sonu etiketle/kaydet'in çalışıp çalışmadığını doğrular.
+    if (process.argv.includes('--learntest')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const setup = await js(`(() => { try {
+                quickMatchStart();   // GERÇEK yol: interactive=true (show belirtilmedi)
+                battleDeployManifest(battleBuildArmyManifest(700, { maxUnits: 10, combatFocused: true }), false, { source: 'learntest-blue' });   // zayıf blue → maç hızlı biter → checkGameOver tetiklenir
+                startBattle();       // KANCA: model + (BATTLE_LEARN_FROM_MATCH ise) capture açılmalı
+                return { interactive: BATTLE_SESSION.interactive, mode: BATTLE_SESSION.mode, learnFlag: (typeof BATTLE_LEARN_FROM_MATCH!=='undefined'?BATTLE_LEARN_FROM_MATCH:'?'), captureOn: (typeof BATTLE_TRAIN_CAPTURE!=='undefined'?BATTLE_TRAIN_CAPTURE:'?'), modelEnabled: !!(BATTLE_SELECTOR_MODELS && BATTLE_SELECTOR_MODELS['battle-red-ai']), minTick: BATTLE_SELECTOR_MIN_TICK };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+            console.log('LEARNTEST_SETUP ' + JSON.stringify(setup));
+            // maçı gameLoop ile OYNAT (checkGameOver doğal tetiklensin) — snapshot yakalama stepSim kancasında
+            const play = await js(`(() => { try {
+                window.requestAnimationFrame = () => 0; lastFrameTime = 0;
+                let snapAtEnd = 0;
+                for (let i = 1; i <= 4000; i++) { if (phase !== PHASE.BATTLE) break; if (typeof BATTLE_DECISION_SNAPSHOTS!=='undefined') snapAtEnd = BATTLE_DECISION_SNAPSHOTS.length; gameLoop(i * 50); }
+                return { tick: SIM.tick, phase: phase, snapshotsBeforeEnd: snapAtEnd, snapshotsNow: (typeof BATTLE_DECISION_SNAPSHOTS!=='undefined'?BATTLE_DECISION_SNAPSHOTS.length:'?'), winner: (SIM.battle?SIM.battle.winnerSide:null) };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+            console.log('LEARNTEST_PLAY ' + JSON.stringify(play));
+            await sleep(4000);   // checkGameOver'ın setTimeout etiketleme+kaydet'i için bekle
+            const saved = await js(`(() => { try { return { learnMsgVar: !!document.getElementById('learn-msg'), pixelTrain: !!(window.PIXEL && window.PIXEL.train) }; } catch(e){ return { err:e.message }; } })()`);
+            console.log('LEARNTEST_SAVED ' + JSON.stringify(saved));
+            console.log('LEARNTEST_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // İNSAN-MAÇI YAKALA (Faz 6): `--humancapture <blueBudget> <macSayisi> <outFile>` → N maç oyna (rakip =
     // insan-proxy), her maçta kırmızının karar-durumlarını YAKALA + Oracle-ETİKETLE → insan-dağılımı eğitim verisi.
     // Gerçek oyunda blue=insan; burada kod-AI proxy ile TAM zinciri kanıtlar. Sonra warm-start retrain (INSAN-EGIT.bat).

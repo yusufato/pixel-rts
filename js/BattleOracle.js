@@ -295,13 +295,18 @@ function battleLabelDecisionSnapshots(config = {}) {
     const examples = [];
     // etiketleme sırasında bu maçın snapshot'larını dondur; her biri kendi fork'undan restore edilir
     const saveModels = BATTLE_SELECTOR_MODELS; BATTLE_SELECTOR_MODELS = {};   // temiz Oracle (kod-AI baseline)
+    // KRİTİK: maç sonu phase=OVER; rollout `while (phase===BATTLE)` ile gate'li → geçici BATTLE yap yoksa
+    // rollout hiç koşmaz, her snapshot "inactive" olur ve etiketlenmez.
+    const savePhase = (typeof phase !== 'undefined') ? phase : null;
     try {
+        if (typeof PHASE !== 'undefined') phase = PHASE.BATTLE;
         for (const s of snaps) {
             battleForkRestore(s.fork);
+            if (typeof PHASE !== 'undefined') phase = PHASE.BATTLE;   // fork restore sonrası da garantile
             const ev = battleOracleEvaluate({ sideRed: s.sideRed, rolloutSec, collectDataset: true });
             if (ev && ev.dataset && ev.active) { ev.dataset.human = true; ev.dataset.snapTick = s.tick; examples.push(ev.dataset); }
         }
-    } finally { BATTLE_SELECTOR_MODELS = saveModels; }
+    } finally { BATTLE_SELECTOR_MODELS = saveModels; if (savePhase !== null) phase = savePhase; }
     return { count: examples.length, examples };
 }
 
