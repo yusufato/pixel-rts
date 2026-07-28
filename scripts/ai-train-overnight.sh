@@ -19,7 +19,12 @@ BASE="$Q/oracle-dataset-big.json,$Q/oracle-dagger.json,$Q/dagger-blue1600.json,$
 ACCUM=""                          # gece boyu biriken on-policy dosyalar
 MODEL="$Q/selector-model.json"    # başlangıç = kanonik (bugünkü en iyi)
 
-echo "═══ GECE EĞİTİMİ BAŞLADI: $ROUNDS tur × $SEEDS seed ═══" | tee "$LOG"
+# ÇİFT-ÇALIŞMA KİLİDİ (aynı anda iki kez başlatılmasın → interleave/israf)
+LOCKFILE="$Q/.overnight.lock"
+if [ -f "$LOCKFILE" ]; then echo "UYARI: gece eğitimi zaten çalışıyor ($LOCKFILE). Çift-çalışma engellendi."; exit 1; fi
+touch "$LOCKFILE"; trap 'rm -f "$LOCKFILE"' EXIT
+
+echo "═══ GECE EĞİTİMİ BAŞLADI: $ROUNDS tur × $SEEDS seed (warm-start açık) ═══" | tee "$LOG"
 date | tee -a "$LOG"
 
 for ((r=START; r<START+ROUNDS; r++)); do
@@ -30,11 +35,12 @@ for ((r=START; r<START+ROUNDS; r++)); do
   $EL --oracledagger "$MODEL" 12 "$TICKS" 1 "$SEEDS" "$Q/on-r${r}-a.json" 1400 combat 2>&1 | grep -E "DAGGER_YAZILDI|JSHATA" | tee -a "$LOG" || true
   $EL --oracledagger "$MODEL" 12 "$TICKS" 1 "$SEEDS" "$Q/on-r${r}-b.json" 1700 combat 2>&1 | grep -E "DAGGER_YAZILDI|JSHATA" | tee -a "$LOG" || true
   $EL --oracledagger "$MODEL" 12 "$TICKS" 1 "$SEEDS" "$Q/on-r${r}-c.json" 1400 mixed  2>&1 | grep -E "DAGGER_YAZILDI|JSHATA" | tee -a "$LOG" || true
-  ACCUM="$ACCUM,$Q/on-r${r}-a.json,$Q/on-r${r}-b.json,$Q/on-r${r}-c.json"
+  # bu turun yeni verisi (biriktirme YOK — warm-start modeli taşır; accumulate-all bozuyordu + yavaştı)
+  ROUNDDATA="$Q/on-r${r}-a.json,$Q/on-r${r}-b.json,$Q/on-r${r}-c.json"
 
-  # 2) TÜM birikmiş veriyle retrain (base + gece boyu her tur)
+  # 2) retrain — WARM-START önceki modelden ($MODEL) + base + bu turun verisi (temiz + hızlı)
   NEW="$Q/selector-model-r${r}.json"
-  node js/BattleSelector.js "${BASE}${ACCUM}" 400 "$NEW" 2>&1 | grep -E "Birleştir|DEV |MODEL_KAYDEDILDI" | tee -a "$LOG" || true
+  node js/BattleSelector.js "${BASE},${ROUNDDATA}" 300 "$NEW" "$MODEL" 2>&1 | grep -E "Birleştir|Warm-start|DEV |MODEL_KAYDEDILDI" | tee -a "$LOG" || true
 
   # 3) ölç (kod-AI baseline'a karşı, iki rakip gücü)
   for B in 1400 1700; do

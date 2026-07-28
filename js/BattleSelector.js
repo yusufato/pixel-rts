@@ -89,7 +89,14 @@ function selTrain(examples, config = {}) {
     const rng = selMakeRng(config.seed || 12345);
     const built = examples.map(selBuildExample);
     const D = built[0].inputs[0].length, H = config.H || 48;
-    const model = selInitModel(D, H, rng);
+    // WARM-START: önceki modelden devam et (her tur sıfırdan başlamak yerine → temiz birikim).
+    // Boyutlar uyuşuyorsa ağırlıkları kopyala; küçük lr ile ince-ayar mantığı config.lr'de.
+    let model = selInitModel(D, H, rng);
+    if (config.warmStart && config.warmStart.D === D && config.warmStart.H === H) {
+        const w = config.warmStart;
+        model.W1 = w.W1.map(r => r.slice()); model.b1 = w.b1.slice();
+        model.W2 = w.W2.slice(); model.b2 = w.b2;
+    }
     let lastLoss = 0;
     for (let ep = 0; ep < epochs; ep++) {
         // örnek sırasını karıştır (listwise: örnek başına tam-batch gradyan)
@@ -170,9 +177,18 @@ if (typeof require !== 'undefined' && require.main === module && process.argv.in
 // ── Node CLI (MLP): dataset yükle → train/dev böl → eğit → değerlendir ─────────
 if (typeof require !== 'undefined' && require.main === module) {
     const fs = require('fs');
-    const path = process.argv[2] || require('path').join(__dirname, '..', 'qa-runtime', 'oracle-dataset.json');
+    const pathArg = process.argv[2] || require('path').join(__dirname, '..', 'qa-runtime', 'oracle-dataset.json');
     const epochs = parseInt(process.argv[3] || '300', 10);
-    const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+    // virgülle-ayrık birden çok dataset → birleştir (off-policy + on-policy DAgger karışımı)
+    const files = pathArg.split(',').map(p => p.trim()).filter(Boolean);
+    let data = null, mergedExamples = [];
+    for (const f of files) {
+        const d = JSON.parse(fs.readFileSync(f, 'utf8'));
+        if (!data) data = d;
+        mergedExamples = mergedExamples.concat(d.examples || []);
+    }
+    data = { meta: data.meta, examples: mergedExamples };
+    if (files.length > 1) console.log(`Birleştirilen: ${files.length} dosya → ${mergedExamples.length} örnek`);
     const all = (data.examples || []).filter(e => e.active && e.rows && e.rows.length > 2);
     console.log(`Dataset: ${all.length} aktif örnek, ${all.reduce((a, e) => a + e.rows.length, 0)} satır (${data.meta ? data.meta.stateVersion + '/' + data.meta.candidateVersion : '?'})`);
     if (all.length < 4) { console.log('Yetersiz veri (≥4 aktif örnek gerekli). Daha çok topla: --oracledata'); process.exit(0); }
@@ -185,7 +201,11 @@ if (typeof require !== 'undefined' && require.main === module) {
     const dev = order.slice(cut).map(i => all[i]);
     console.log(`Bölme: ${train.length} train, ${dev.length} dev`);
     const t0 = Date.now();
-    const { model, loss } = selTrain(train, { epochs, verbose: true });
+    // WARM-START (arg 5): önceki modelden devam → temiz birikim (her tur sıfırdan başlamaz)
+    let warmStart = null;
+    const wsPath = process.argv[5];
+    if (wsPath && wsPath !== '-') { try { warmStart = JSON.parse(fs.readFileSync(wsPath, 'utf8')); console.log('Warm-start: ' + wsPath); } catch (e) { console.log('Warm-start okunamadı: ' + e.message); } }
+    const { model, loss } = selTrain(train, { epochs, verbose: true, warmStart, lr: warmStart ? 0.01 : 0.02 });
     console.log(`Eğitim bitti (${((Date.now() - t0) / 1000).toFixed(1)}s), son loss=${loss.toFixed(4)}`);
     const trEval = selEvaluate(model, train);
     const dvEval = dev.length ? selEvaluate(model, dev) : null;
