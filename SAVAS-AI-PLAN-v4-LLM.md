@@ -378,7 +378,8 @@ rollout ödülü) → DAgger + lig ile sağlamlaştır → oyuna göm → LLM ko
 |---|---|---|
 | **7a** | 8B veri-koçu (metrik→deney önerisi) | `js/BattleCoach.js` iskelet + parser ✓ |
 | **8** | AI-Eğit orkestratörü (DAgger→retrain→ölç→otomatik-göm) | `scripts/ai-train.sh` VALIDATED: r1>v4 (vs1700 Δ+860), r2 DEV-regret↓ |
-| **6-çekirdek** | İnsan-maçı DAgger (karar-durumu snapshot→Oracle-etiketle) | `--snaptest`: maçta 6 durum yakalandı+etiketlendi (human=true) |
+| **6** | İnsan-maçı DAgger — OYUNA BAĞLI + KULLANICI DOĞRULADI | 2 maç→12 durum→adapte model gömüldü. Oyun-içi 'bu maçtan öğren' + INSAN-EGIT.bat |
+| **7** | KOÇ — Coder-14B metrikleri analiz→deney önerir (kod YAZMAZ) | `electron --coach`: 1600 zayıf noktayı bulup odaklandı. Koç-güdümlü döngü (ai-train-coach.sh) vs1600 Δ-324→+154 |
 
 ### 🔜 KALAN İŞ (çoğunlukla UI + insan-döngüsü; motorlar HAZIR)
 - **Faz 5 — Dengeli-matchup self-play + GRU lig-ölçek eğitim.** Arms-race için matchup dengele (savunmaya
