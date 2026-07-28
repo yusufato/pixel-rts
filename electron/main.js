@@ -626,6 +626,44 @@ app.whenReady().then(() => {
         return;
     }
 
+    // KOÇ (Faz 7): `--coach [metrikDosyasi]` → Coder-14B'yi (llm-host) yükle, eğitim metriklerini ver,
+    // sıradaki deney önerisini al + parse et. Genel narrator (Türkçe-Llama) DEĞİL — teknik/ML uzmanı koç.
+    if (process.argv.includes('--coach')) {
+        const ci = process.argv.indexOf('--coach');
+        const coach = require('../js/BattleCoach.js');
+        const coderPath = path.join(__dirname, '..', 'models', 'Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf');
+        if (!require('fs').existsSync(coderPath)) { console.log('COACH_HATA Coder-14B yok (KOC-INDIR.bat çalıştır): ' + coderPath); app.exit(1); return; }
+        // metrikler: dosyadan (production) veya örnek (test) — gerçek turnuva sonuçları
+        let rounds = [{ round: 'v4', devRegret: 25, opponents: [{ budget: 1400, delta: 326 }, { budget: 1700, delta: 861 }, { budget: 1600, delta: -324 }] }];
+        const mFile = process.argv[ci + 1];
+        if (mFile && !mFile.startsWith('--')) { try { rounds = JSON.parse(require('fs').readFileSync(mFile, 'utf8')).rounds || rounds; } catch (e) {} }
+        // gpuLayers: 'auto'|sayı|'cpu'. 14B 8GB VRAM'e sığmayabilir → az katman GPU + gerisi RAM, ya da CPU.
+        let gpu = process.argv[ci + 2] || 'cpu';   // varsayılan CPU (14B 8GB VRAM'e sığmıyor; 16GB RAM'e sığar, offline koç için hız kritik değil)
+        if (gpu === 'cpu') gpu = 0; else if (gpu !== 'auto') gpu = parseInt(gpu, 10);
+        console.log('COACH_YUKLENIYOR Coder-14B gpuLayers=' + gpu + ' (~1-2 dk)...');
+        const child = fork(path.join(__dirname, 'llm-host.js'), [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+        const t0 = Date.now();
+        child.on('message', m => {
+            if (!m) return;
+            if (m.t === 'error') { console.log('COACH_LLM_HATA ' + m.error); try { child.kill(); } catch (_) {} app.exit(1); }
+            else if (m.t === 'loaded') {
+                console.log('COACH_MODEL_YUKLENDI (' + ((Date.now() - t0) / 1000).toFixed(0) + 's)');
+                child.send({ t: 'gen', id: 1, system: coach.BATTLE_COACH_SYSTEM, prompt: coach.battleCoachPrompt(rounds), maxTokens: 120, temperature: 0.3 });
+            } else if (m.t === 'gen') {
+                console.log('COACH_HAM_YANIT ' + JSON.stringify((m.text || m.error || '').slice(0, 400)));
+                const proposal = coach.battleCoachParseProposal(m.text || '');
+                console.log('COACH_ONERI ' + JSON.stringify(proposal));
+                if (proposal) console.log('COACH_TUR_PARAM ' + JSON.stringify(coach.battleCoachProposalToRoundParams(proposal)));
+                console.log('COACH_OK (' + ((Date.now() - t0) / 1000).toFixed(0) + 's toplam)');
+                try { child.send({ t: 'stop' }); } catch (_) {}
+                setTimeout(() => app.exit(0), 400);
+            }
+        });
+        child.on('exit', () => { });
+        child.send({ t: 'load', modelPath: coderPath, gpuLayers: gpu });
+        return;
+    }
+
     // ÖĞRENME KANCASI TEŞHİSİ: `--learntest` → GERÇEK oyun yolu (quickMatchStart interactive) startBattle
     // kancasının capture'ı açıp açmadığını + tam maçta snapshot yakalanıp yakalanmadığını + checkGameOver
     // maç-sonu etiketle/kaydet'in çalışıp çalışmadığını doğrular.
