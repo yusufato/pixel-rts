@@ -2103,7 +2103,11 @@ ipcMain.handle('app:info', () => ({
 }));
 
 // FAZ 6: insan-maçı öğrenme verisi — oyun maç sonu etiketlenmiş örnekleri buraya APPEND eder.
-const HUMAN_DATA_FILE = path.join(__dirname, '..', 'qa-runtime', 'human-data.json');
+// PAKETLENMİŞ exe'de __dirname asar içi (READ-ONLY) → yazamaz. app.isPackaged ise exe konumundan repo'yu
+// bul: <repo>/dist-recorder/win-unpacked/exe → path.dirname(execPath)/../.. = <repo> → qa-runtime yazılabilir.
+const HUMAN_DATA_FILE = app.isPackaged
+    ? path.join(path.dirname(process.execPath), '..', '..', 'qa-runtime', 'human-data.json')
+    : path.join(__dirname, '..', 'qa-runtime', 'human-data.json');
 ipcMain.handle('train:saveHumanData', (_e, examples) => {
     try {
         if (!Array.isArray(examples) || !examples.length) return { count: 0, total: 0 };
