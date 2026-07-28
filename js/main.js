@@ -358,7 +358,10 @@ function startBattle() {
             (typeof BATTLE_SELECTOR_AUTO_MIN_TICK !== 'undefined') ? BATTLE_SELECTOR_AUTO_MIN_TICK : 500;
         // FAZ 6: "bu maçtan öğren" açıksa kırmızının karar-durumlarını yakala (maç sonu etiketlenir → AI sana adapte olur)
         if (typeof BATTLE_LEARN_FROM_MATCH !== 'undefined' && BATTLE_LEARN_FROM_MATCH &&
-            typeof battleTrainCaptureReset === 'function') battleTrainCaptureReset(true);
+            typeof battleTrainCaptureReset === 'function') {
+            battleTrainCaptureReset(true);
+            if (typeof battleLearnMessage === 'function') battleLearnMessage('🧠 AI bu maçtan öğrenecek — sonunda ~1 dk bekle (kapatmak için L)', 5000);
+        }
     } else if (typeof battleSelectorDisable === 'function') {
         battleSelectorDisable();
     }
