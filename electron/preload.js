@@ -19,4 +19,10 @@ contextBridge.exposeInMainWorld('PIXEL', {
         // null = model yok/hazır değil/zaman aşımı → oyun birleşim üretecine düşer
         generate: req => ipcRenderer.invoke('llm:generate', req),
     },
+    // FAZ 6: insan-maçı öğrenme — oyun, maç sonu etiketlenmiş karar-durumlarını disk'e ekler.
+    // main süreç qa-runtime/human-data.json'a APPEND eder (örnekler birikir). → Promise<{count}>
+    train: {
+        saveHumanData: examples => ipcRenderer.invoke('train:saveHumanData', examples),
+        humanDataCount: () => ipcRenderer.invoke('train:humanDataCount'),
+    },
 });

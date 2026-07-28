@@ -356,6 +356,9 @@ function startBattle() {
         battleSelectorEnable(BATTLE_SELECTOR_TRAINED_MODEL, 'battle-red-ai');
         if (typeof BATTLE_SELECTOR_MIN_TICK !== 'undefined') BATTLE_SELECTOR_MIN_TICK =
             (typeof BATTLE_SELECTOR_AUTO_MIN_TICK !== 'undefined') ? BATTLE_SELECTOR_AUTO_MIN_TICK : 500;
+        // FAZ 6: "bu maçtan öğren" açıksa kırmızının karar-durumlarını yakala (maç sonu etiketlenir → AI sana adapte olur)
+        if (typeof BATTLE_LEARN_FROM_MATCH !== 'undefined' && BATTLE_LEARN_FROM_MATCH &&
+            typeof battleTrainCaptureReset === 'function') battleTrainCaptureReset(true);
     } else if (typeof battleSelectorDisable === 'function') {
         battleSelectorDisable();
     }
@@ -384,6 +387,33 @@ document.getElementById('restart-btn').addEventListener('click', () => {
     if (typeof showScreen === 'function') showScreen('menu');
 });
 let lastBattleDiagnosticReport = null;
+
+// FAZ 6: "bu maçtan öğren" — tek-oyunculu Hızlı Maç'ta AI, senin maçlarından öğrenir (varsayılan AÇIK).
+// Maç sonu ~1 dk etiketleme olur. 'L' tuşu aç/kapat. Kapatırsan o maç öğrenilmez (bekleme yok).
+let BATTLE_LEARN_FROM_MATCH = true;
+function battleLearnMessage(text, autoHideMs) {
+    if (typeof document === 'undefined') return;
+    let el = document.getElementById('learn-msg');
+    if (!el) {
+        el = document.createElement('div'); el.id = 'learn-msg';
+        el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99999;' +
+            'background:rgba(18,20,32,0.94);color:#8ecbff;padding:10px 20px;border:1px solid #49f;' +
+            'border-radius:9px;font:14px system-ui,sans-serif;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,0.5)';
+        document.body.appendChild(el);
+    }
+    if (!text) { el.style.display = 'none'; return; }
+    el.textContent = text; el.style.display = 'block';
+    if (autoHideMs) setTimeout(() => { if (document.getElementById('learn-msg')) document.getElementById('learn-msg').style.display = 'none'; }, autoHideMs);
+}
+if (typeof document !== 'undefined') {
+    document.addEventListener('keydown', e => {
+        if (e.key === 'l' || e.key === 'L') {
+            if (typeof phase !== 'undefined' && phase === PHASE.BATTLE) return;   // savaşta 'L' başka işe karışmasın
+            BATTLE_LEARN_FROM_MATCH = !BATTLE_LEARN_FROM_MATCH;
+            battleLearnMessage(BATTLE_LEARN_FROM_MATCH ? '🧠 AI bu maçtan öğrenecek (L: kapat)' : '⏸️ Öğrenme kapalı (L: aç)', 2500);
+        }
+    });
+}
 
 document.getElementById('copy-battle-report-btn')?.addEventListener('click', async () => {
     const output = document.getElementById('battle-report-output');
@@ -465,6 +495,24 @@ function checkGameOver() {
     const _mp = (typeof MP !== 'undefined' && MP.active);
     phase = PHASE.OVER;
     document.body.setAttribute('data-phase', PHASE.OVER);
+    // FAZ 6: "bu maçtan öğren" açıktıysa → kırmızının karar-durumlarını etiketle + disk'e kaydet.
+    // Etiketleme (Oracle rollout) kısa dondurur → önce mesaj göster, setTimeout ile ertele (mesaj render olsun).
+    if (typeof BATTLE_TRAIN_CAPTURE !== 'undefined' && BATTLE_TRAIN_CAPTURE &&
+        typeof BATTLE_DECISION_SNAPSHOTS !== 'undefined' && BATTLE_DECISION_SNAPSHOTS.length &&
+        typeof battleLabelDecisionSnapshots === 'function') {
+        const nSnap = BATTLE_DECISION_SNAPSHOTS.length;
+        battleLearnMessage('🧠 AI senden öğreniyor... (' + nSnap + ' karar, ~1 dk bekle)');
+        setTimeout(() => {
+            let labeled = { count: 0, examples: [] };
+            try { labeled = battleLabelDecisionSnapshots({ rolloutSec: 10 }); } catch (e) {}
+            BATTLE_TRAIN_CAPTURE = false; BATTLE_DECISION_SNAPSHOTS = [];
+            if (labeled.count && typeof window !== 'undefined' && window.PIXEL && window.PIXEL.train) {
+                window.PIXEL.train.saveHumanData(labeled.examples)
+                    .then(r => battleLearnMessage('✅ AI ' + ((r && r.total) || labeled.count) + ' durumdan öğrendi. Pekiştirmek için INSAN-EGIT.bat çalıştır.', 7000))
+                    .catch(() => battleLearnMessage('', 0));
+            } else battleLearnMessage(labeled.count ? '✅ ' + labeled.count + ' durum etiketlendi (kayıt için masaüstü sürümü gerekir).' : '', 5000);
+        }, 90);
+    }
     // ÇOK OYUNCULU: 'won' MAVİ-perspektifli; ekranı BENİM tarafıma göre çevir (guest=kırmızı)
     let shownWon = won;
     if (_mp && won !== 'draw') shownWon = (won === !myCanonicalSide);
