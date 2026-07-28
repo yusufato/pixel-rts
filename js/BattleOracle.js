@@ -271,7 +271,8 @@ function battleOracleGrammarContext(controller, sideRed) {
 // Replay-determinizmini RİSKE ATMAZ (snapshot canlı-yakalanır, tam-durum fork'tur).
 let BATTLE_TRAIN_CAPTURE = false;          // opt-in: "bu maçtan öğren" açıksa yakala
 let BATTLE_DECISION_SNAPSHOTS = [];        // { tick, fork, ctxSide } — bellekte, maç boyunca
-let BATTLE_SNAPSHOT_INTERVAL = 120;        // her ~6sn bir karar-durumu (bellek/işlem dengesi)
+let BATTLE_SNAPSHOT_INTERVAL = 200;        // her ~10sn bir karar-durumu (maç-sonu etiketleme donmasını sınırla)
+const BATTLE_SNAPSHOT_MAX = 14;            // maç başına en çok (14 × ~64 rollout ≈ ~1 dk etiketleme)
 function battleTrainCaptureReset(on) { BATTLE_TRAIN_CAPTURE = !!on; BATTLE_DECISION_SNAPSHOTS = []; }
 // stepSim/gameLoop kancasından çağrılır: temas-fazında periyodik tam-durum yakala
 function battleMaybeCaptureDecisionSnapshot(sideRed) {
@@ -285,7 +286,7 @@ function battleMaybeCaptureDecisionSnapshot(sideRed) {
     let near = false;
     for (const a of reds) { for (const b of foes) { if (Math.hypot(a.x - b.x, a.y - b.y) < 500) { near = true; break; } } if (near) break; }
     if (!near) return;
-    if (BATTLE_DECISION_SNAPSHOTS.length >= 120) return;   // güvenlik tavanı (bir maç)
+    if (BATTLE_DECISION_SNAPSHOTS.length >= BATTLE_SNAPSHOT_MAX) return;   // etiketleme-donmasını sınırla
     BATTLE_DECISION_SNAPSHOTS.push({ tick: SIM.tick, fork: battleForkCapture(), sideRed: !!sideRed });
 }
 // Maç sonrası: yakalanan snapshot'ları Oracle ile etiketle → eğitim tuple'ları (insan-dağılımı DAgger verisi)
