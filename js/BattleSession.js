@@ -2,7 +2,7 @@
 // Hızlı Maç, Hikâye, Multiplayer ve QA aynı reset, harita, RNG ve kural
 // kurulumundan geçer. Modlar yalnız başlangıç verisi sağlar; motor değiştiremez.
 
-const BATTLE_ENGINE_VERSION = 'battlefield-v2-fixed50-recorder2';
+const BATTLE_ENGINE_VERSION = 'battlefield-v2-fixed50-microfix3';
 const BATTLE_TICK_MS = 50;
 const BATTLE_TICK_SEC = BATTLE_TICK_MS / 1000;
 const BATTLE_MAX_STEPS_PER_FRAME = 8;

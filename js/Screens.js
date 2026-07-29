@@ -7,39 +7,6 @@
 
 let APP_SCREEN = 'menu';
 
-// Tüm maç türleri için tek, geri-uyumlu savaş sıfırlama noktası.
-// Harita/AI yapılandırmasını korur; önceki maçın hareketli state'ini temizler.
-function resetBattleState() {
-    if (typeof units !== 'undefined') units.length = 0;
-    if (typeof trenches !== 'undefined') trenches.length = 0;
-    if (typeof particles !== 'undefined') particles.length = 0;
-    if (typeof activeSupports !== 'undefined') activeSupports.length = 0;
-    if (typeof craters !== 'undefined') craters.length = 0;
-    if (typeof decals !== 'undefined') decals.length = 0;
-    if (typeof supportCooldowns !== 'undefined') supportCooldowns.paradrop = 0;
-    if (typeof SIM !== 'undefined') {
-        SIM.tick = 0;
-    }
-    if (typeof resetBattleRules === 'function') resetBattleRules();
-    if (typeof player !== 'undefined') { player.kills = 0; player.unitsSpawned = 0; }
-    if (typeof enemy !== 'undefined') { enemy.kills = 0; enemy.unitsSpawned = 0; }
-    if (typeof gameTime !== 'undefined') gameTime = 0;
-    if (typeof simulationTime !== 'undefined') simulationTime = 0;
-    if (typeof phase !== 'undefined' && typeof PHASE !== 'undefined') phase = PHASE.DEPLOY;
-    if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
-    if (typeof deployCarried !== 'undefined') deployCarried = null;   // elde taşınan birlik ölü referans kalmasın
-    if (typeof battleTelemetry !== 'undefined' && battleTelemetry.reset) battleTelemetry.reset();
-    if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
-    if (typeof commanderReset === 'function') commanderReset();
-    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();
-    document.body.setAttribute('data-phase', 'deploy');
-    document.getElementById('game-over-screen')?.classList.add('hidden');
-    document.getElementById('start-btn')?.classList.remove('hidden');
-    document.getElementById('ui-support')?.classList.add('hidden');
-    const spawn = document.getElementById('ui-spawn-bar');
-    if (spawn) { spawn.style.opacity = '1'; spawn.style.pointerEvents = 'auto'; }
-}
-
 function showScreen(name) {
     document.body.setAttribute('data-screen', name);                       // CSS: oyun-HUD'u 'game' dışında gizlenir
     if (name === 'game' && typeof phase !== 'undefined') document.body.setAttribute('data-phase', phase);
@@ -54,6 +21,7 @@ function showScreen(name) {
 function quickMatchUpdate() {
     const ai = +(document.getElementById('qm-ai')?.value || 1500);
     const pl = +(document.getElementById('qm-pl')?.value || 1500);
+    const role = qmSelected('qm-role', 'attacker');
     const aiV = document.getElementById('qm-ai-val'), plV = document.getElementById('qm-pl-val');
     if (aiV) aiV.textContent = ai;
     if (plV) plV.textContent = pl;
@@ -68,43 +36,35 @@ function quickMatchUpdate() {
                        defender: 'Savunan sensin: hattı tut, süre dolarsa kazanırsın.',
                        random:   'Rol maç başında rastgele belirlenir.' };
     const hint = document.querySelector('#screen-quickmatch .qm-hint');
-    if (hint) hint.textContent = roleHint[qmSelected('qm-role', 'attacker')] || roleHint.attacker;
+    if (hint) hint.textContent = `Ortak savaş AI denetleyicisi etkin. ${roleHint[role] || roleHint.attacker}`;
 }
 
 // Buton grubu seçimi (rol / zorluk) — seçili değeri döndürür
 function qmSelected(groupId, fallback) {
     const el = document.querySelector(`#${groupId} button.selected`);
-    return el ? (el.dataset.role || el.dataset.skill) : fallback;
+    return el ? (el.dataset.role || el.dataset.skill || el.dataset.control) : fallback;
 }
 
 function quickMatchStart() {
     const ai = +(document.getElementById('qm-ai')?.value || 1500);
     const pl = +(document.getElementById('qm-pl')?.value || 1500);
-    resetBattleState();
 
-    // SAVAŞ ROLÜ: attackerSide true = KIRMIZI(AI) saldırır (oyuncu savunur).
-    // Oyuncu "saldıran" seçerse AI savunmaya geçer; rastgele ise maç başında atılır.
+    // SAVAŞ ROLÜ: attackerSide true = KIRMIZI saldırır (oyuncu savunur).
+    // Oyuncu "saldıran" seçerse kırmızı savunur; rastgele ise maç başında atılır.
     let role = qmSelected('qm-role', 'attacker');
     if (role === 'random') role = (Math.random() < 0.5) ? 'attacker' : 'defender';
-    QUICK_MATCH_ATTACKER_SIDE = (role === 'defender');   // oyuncu savunuyorsa saldıran AI'dır
-
-    // AI ZORLUĞU: komutan parametrelerini keskinleştirir/yumuşatır
-    QUICK_MATCH_SKILL = qmSelected('qm-skill', 'normal');
-    if (typeof commanderSetDifficulty === 'function') commanderSetDifficulty(QUICK_MATCH_SKILL);
-
-    // PUAN → BÜTÇE: oyuncu pl ile birlik dizer; AI ai ile (aiDeploy enemy.money okur).
-    if (typeof player !== 'undefined') player.money = pl;
-    if (typeof enemy !== 'undefined') enemy.money = ai;
-    // TEK HARİTA: çizilen ızgara-harita — deploy/savaş bu terrain'de geçer
-    if (typeof applyMap === 'function') applyMap(-2);
-    if (typeof resetSimRng === 'function') resetSimRng((Date.now() >>> 0) || 1);
-    // Hikaye-dışı maç → tek-para modu (kaynak-bazlı deploy KAPALI) + kaynak satırlarını gizle
-    if (typeof DEPLOY_RES !== 'undefined') DEPLOY_RES = null;
-    if (typeof DEPLOY_POOL !== 'undefined') DEPLOY_POOL = null;   // havuz modu yalnız hikayede — Hızlı Maç tek-para
-    if (typeof TECH_BONUS !== 'undefined') TECH_BONUS = null;   // teknoloji bonusu sadece hikaye → Quick Match'te kapalı
-    if (typeof TECH_BONUS_RED !== 'undefined') TECH_BONUS_RED = null;
-    ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
-    showScreen('game');   // deploy fazına gir (HUD görünür); oyuncu dizer → Savaşı Başlat
+    openBattlefieldSession({
+        mode: 'quick',
+        mapId: -2,
+        attackerSide: role === 'defender',
+        durationSec: DEFAULT_BATTLE_DURATION_SEC,
+        playerMoney: pl,
+        enemyMoney: ai,
+        deployRes: null,
+        deployPool: null,
+        techBonus: null,
+        techBonusRed: null
+    });
 }
 
 // ── Çok Oyunculu lobi bağlantıları (idempotent) ──
@@ -165,7 +125,7 @@ function screensInit() {
     document.getElementById('qm-ai')?.addEventListener('input', quickMatchUpdate);
     document.getElementById('qm-pl')?.addEventListener('input', quickMatchUpdate);
     // Rol / zorluk buton grupları: tıklanan seçili olur (tek seçim)
-    ['qm-role', 'qm-skill'].forEach(groupId => {
+    ['qm-role'].forEach(groupId => {
         document.getElementById(groupId)?.addEventListener('click', (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;

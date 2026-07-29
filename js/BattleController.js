@@ -297,6 +297,13 @@ function battleControllersSyncOwnership() {
 
 function battleControllersDrive(now) {
     battleControllersSyncOwnership();
+    // TAKTİK-VEKİLİ: bir taraf insan-gibi taktiği (konsantre+odaklı-ateş) oynuyorsa onu kontrolör yerine vekil sürer.
+    // Hem ilerlemede hem Oracle rollout'unda geçerli (bu fonksiyon her ikisinde de çağrılır) → etiketler de vekile göre.
+    const surSide = (typeof BATTLE_SURROGATE_SIDE !== 'undefined') ? BATTLE_SURROGATE_SIDE : null;
+    if (surSide !== null && typeof battleTacticalSurrogateDrive === 'function') battleTacticalSurrogateDrive(surSide);
     const ordered = [...BATTLE_CONTROLLERS.values()].sort((a, b) => a.id.localeCompare(b.id));
-    for (const controller of ordered) controller.update(now);
+    for (const controller of ordered) {
+        if (surSide !== null && controller.side === surSide) continue;   // vekil tarafının kod-kontrolörünü atla
+        controller.update(now);
+    }
 }

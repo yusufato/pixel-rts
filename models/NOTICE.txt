@@ -1,0 +1,8 @@
+Meta Llama 3 is licensed under the Meta Llama 3 Community License,
+Copyright © Meta Platforms, Inc. All Rights Reserved.
+
+Pixel RTS includes Turkish-Llama-8b-Instruct-v0.1, a Turkish instruction
+fine-tune by the Yildiz Technical University COSMOS AI Research Group:
+https://huggingface.co/ytu-ce-cosmos/Turkish-Llama-8b-Instruct-v0.1-GGUF
+
+Built with Meta Llama 3.

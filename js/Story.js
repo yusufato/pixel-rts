@@ -646,15 +646,19 @@ function storyFlash(msg) { storyLog('⚠️ ' + msg); storyPanelUpdate(); }
 function storyResBudget(stock) { return Math.max(350, Math.min(2100, Math.round(250 + (stock || 0) * 0.5))); }
 // oyuncu KENDİ KOMUTANININ KASASIYLA deploy eder (devletin tüm hazinesiyle DEĞİL!) — kaynak-kilitli
 function storySetPlayerDeployRes() {
-    // SEN sadece KENDİ jetonunun bütçesini dizip yönetirsin; MÜTTEFİK komutanlar KENDİ ordularını dizip OTONOM (dost-AI) savaşır
+    // Sen kendi jetonunun bütçesini dizersin; müttefik komutanların birlikleri de savaşta mavi tarafa katılır.
     const r = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
-    DEPLOY_RES = { blue: { oil: storyResBudget(r.oil), manpower: storyResBudget(r.manpower), points: storyResBudget(r.points) } };
+    const red = DEPLOY_RES && DEPLOY_RES.red ? DEPLOY_RES.red : null;
+    DEPLOY_RES = {
+        blue: { oil: storyResBudget(r.oil), manpower: storyResBudget(r.manpower), points: storyResBudget(r.points) },
+        ...(red ? { red } : {})
+    };
     const active = STORY.commander.activePerks || [];
     // (FAZ-7) 'logistics'/'mobilization' ARTIK BURADA DEĞİL: havuz sistemine geçince
     // DEPLOY_RES.blue null'lanıyordu ve bu iki satır hiç işlemiyordu — ölü koddu.
     // Yetenekler gelişim ağacında üretim hızı / gelir payı olarak yeniden yorumlandı.
     const cityId = STORY.battleCtx ? STORY.battleCtx.nodeId : (STORY.commander && STORY.commander.node);
-    STORY._battleAllyList = storyForceNear(STORY.playerStateId, cityId).filter(c => c !== STORY.commander);   // savaş şehri/yanındaki dost komutanlar → otonom dizilir
+    STORY._battleAllyList = storyForceNear(STORY.playerStateId, cityId).filter(c => c !== STORY.commander);
 }
 // düşman bütçesi = stage'deki YIĞILI komutanlar birleşir (yoksa ortalama); birleşik tek-para
 // DÜŞMAN bütçesi = SİMETRİK (oyuncuyla AYNI ekonomi): stage'deki düşman komutanların KENDİ kasaları toplanır.
@@ -663,7 +667,7 @@ function storySetPlayerDeployRes() {
 // Şehirdeki komutan tam, bitişikteki yarım. Milis tabanı çoğu PİYADE (insan gücü) → boş şehir anti-tank/topçu YIĞAMAZ.
 // FAZ-3: AI bütçesi artık kasadan değil ÜRETTİĞİ ORDUDAN türer — oyuncu havuzdan
 // dizerken AI'nın sınırsız kasa-bütçesiyle dizmesi adaletsiz olurdu. Fabrika kurmamış
-// devlet tank dizemez (b.oil ≈ 0). aiDeploy ve DEPLOY_RES.red dalı hiç değişmez.
+// devlet tank dizemez (b.oil ≈ 0). DEPLOY_RES.red bütçesi kaynak türlerini korur.
 function storyEnemyForceBudget(stateId, cityId) {
     const st = storyState(stateId), node = storyNode(cityId);
     if (!st || !node) return { oil: 40, manpower: 200, points: 40 };
@@ -706,7 +710,7 @@ function storyLaunchBattle(targetNodeId) {
     STORY.battleCtx = { nodeId: targetNodeId, attacker: attacker.id, defender: defender.id, enemyStateId: defender.id, mode: 'attack' };
     storySetPlayerDeployRes();                    // oyuncu YIĞIN-kaynak (yanındaki dost komutanlar birleşir)
     const _eb = storyEnemyForceBudget(defender.id, targetNodeId);   // TİPLİ: AI da OYUNCU gibi kendi kaynak havuzlarından dizer (anti-tank=puan sınırlı)
-    DEPLOY_RES.red = _eb; enemy.money = _eb.oil + _eb.manpower + _eb.points;   // enemy.money = toplam (aiDeploy heuristikleri için)
+    DEPLOY_RES.red = _eb; enemy.money = _eb.oil + _eb.manpower + _eb.points;
     storyEnterBattle(node);
 }
 // DÜŞMAN SALDIRISI (Faz-1.5): oyuncunun bölgesi savunulur (oyuncu=mavi/SAVUNAN, düşman=kırmızı/saldıran)
@@ -726,19 +730,30 @@ function storyEnterBattle(node) {
     if (typeof storyArmyClose === 'function') storyArmyClose();
     if (typeof storyCityClose === 'function') storyCityClose();
     const activePerks = STORY.commander.activePerks || [];
-    TECH_BONUS = Object.assign({}, STORY._techBonus || {});   // MAVİ = oyuncu devleti tech + komutan perkleri
-    if (activePerks.indexOf('steel-wall') >= 0) TECH_BONUS.allArmorAdd = 1;
-    if (activePerks.indexOf('ambusher') >= 0) TECH_BONUS.firstFlankMul = 1.15;
-    if (activePerks.indexOf('morale') >= 0) TECH_BONUS.panicResistance = 0.25;
-    if (STORY.commander.rewardMods?.armoredHpMul) TECH_BONUS.armoredHpMul = STORY.commander.rewardMods.armoredHpMul;
+    const blueTech = Object.assign({}, STORY._techBonus || {});
+    if (activePerks.indexOf('steel-wall') >= 0) blueTech.allArmorAdd = 1;
+    if (activePerks.indexOf('ambusher') >= 0) blueTech.firstFlankMul = 1.15;
+    if (activePerks.indexOf('morale') >= 0) blueTech.panicResistance = 0.25;
+    if (STORY.commander.rewardMods?.armoredHpMul) blueTech.armoredHpMul = STORY.commander.rewardMods.armoredHpMul;
     const _foeId = STORY.battleCtx ? (STORY.battleCtx.enemyStateId != null ? STORY.battleCtx.enemyStateId : (STORY.battleCtx.mode === 'attack' ? STORY.battleCtx.defender : STORY.battleCtx.attacker)) : null;
     const _foe = (_foeId != null) ? storyState(_foeId) : null;
-    TECH_BONUS_RED = (_foe && _foe._techBonus) || null;   // KIRMIZI = DÜŞMAN devlet tech (AI birimlerine); savaş sonu temizlenir
-    if (typeof applyMap === 'function') applyMap(node.mapId);
-    storyResetBattlefield();
+    const redTech = (_foe && _foe._techBonus) || null;
+    openBattlefieldSession({
+        mode: 'story',
+        mapId: node.mapId,
+        attackerSide: STORY.battleCtx?.mode === 'defense',
+        durationSec: STORY.battleCtx?.durationSec || DEFAULT_BATTLE_DURATION_SEC,
+        playerMoney: player.money,
+        enemyMoney: enemy.money,
+        deployRes: DEPLOY_RES,
+        deployPool: null,
+        techBonus: blueTech,
+        techBonusRed: redTech,
+        show: false
+    });
     storySetupPlayerPool(node);   // FAZ-3: şehirlerde ÜRETİLEN ordu → DEPLOY_POOL (yetersizse acil seferberlik)
-    storySpawnAllies();   // MÜTTEFİK komutanlar KENDİ ordularını dizer → OTONOM dost-AI (sen sadece KENDİ ordunu yönetirsin)
-    storySpawnGarrison();  // ADIM 6: savunmada şehir GARNİZONU ek birlik (otonom)
+    storySpawnAllies();    // Müttefik komutanların birliklerini mavi tarafa ekle
+    storySpawnGarrison();  // Savunmada şehir garnizonunu mavi tarafa ekle
     showScreen('game');
     storyCameraToDeployZone();
 }
@@ -784,42 +799,14 @@ function storySetupPlayerPool(node) {
     storyLog(`⚔️ ${total} birlik sahaya sevk edildi (şehir havuzlarından).`);
 }
 
-// SAVAŞ ALANINI DEPLOY'a SIFIRLA (startBattle'ın tersi — reload olmadan yeni maç)
-function storyResetBattlefield() {
-    units.length = 0;
-    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
-    if (typeof resetBattleRules === 'function') resetBattleRules();
-    // Hızlı Maç'ta seçilen AI zorluğu kampanyaya sızmasın: sefer daima dengeli komutanla oynanır.
-    if (typeof commanderSetDifficulty === 'function') commanderSetDifficulty('normal');
-    player.kills = 0; player.unitsSpawned = 0;
-    enemy.kills = 0; enemy.unitsSpawned = 0;
-    phase = PHASE.DEPLOY;
-    document.body.setAttribute('data-phase', PHASE.DEPLOY);
-    if (typeof selectedSpawnType !== 'undefined') selectedSpawnType = null;
-    if (typeof deployCarried !== 'undefined') deployCarried = null;   // elde taşınan birlik ölü referans kalmasın
-    // UI'yı yerleştirme durumuna geri al
-    document.getElementById('game-over-screen')?.classList.add('hidden');
-    document.getElementById('start-btn')?.classList.remove('hidden');
-    document.getElementById('mp-ready-btn')?.classList.add('hidden');
-    const sbar = document.getElementById('ui-spawn-bar');
-    if (sbar) { sbar.style.opacity = '1'; sbar.style.pointerEvents = 'auto'; }
-    document.getElementById('ui-support')?.classList.add('hidden');
-    const pt = document.getElementById('phase-text');
-    if (pt) { pt.textContent = '⚔️ ORDUNU YERLEŞTİR (şehir havuzundan)'; pt.style.color = ''; }
-    const uiPhase = document.getElementById('ui-phase'); if (uiPhase) uiPhase.style.display = '';
-    const camHint = document.getElementById('ui-camera-hint'); if (camHint) camHint.style.display = '';
-    // FAZ-2: deploy HUD'unda 3 kaynak DEPLOY BÜTÇESİNİ göster (sol üst) — değerleri updateUI canlı doldurur
-    ['res-oil', 'res-manpower', 'res-points'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
-}
-
 // GAZİLER (FAZ-3): artık bedava ayrı ordu DEĞİL — kıdem havuzdan dizilen birime yapışır.
 // Bkz. storyTagVeteran (Production.js): STORY.veterans listesi kalite katmanı olarak kullanılır.
-// MÜTTEFİK komutanlar — OTONOM dost-AI (mavi ama oyuncu komut veremez; kendi savaşır).
+// Müttefik komutan birlikleri mavi tarafta yerleştirilir ve oyuncu tarafından yönetilebilir.
 // FAZ-3: kasalarından BEDAVA ordu dizmeleri kaldırıldı. Eskiden her müttefik komutan
 // ~1050 tek-para bütçeyle 40 birime kadar diziyordu; savaş şehri + komşularındaki 3 komutan
 // oyunun ilk dakikasında ~30 bedava birim demekti. Artık aynı şehir havuzundan pay alırlar:
 // üretilmemiş hiçbir birlik sahaya çıkmaz, müttefik desteği de gerçek bir maliyete dayanır.
-const ALLY_POOL_SHARE = 0.30;   // havuzun bu oranı otonom müttefiklere, kalanı oyuncunun elinde
+const ALLY_POOL_SHARE = 0.30;   // havuzun bu oranı müttefik birliklere ayrılır
 function storySpawnAllies() {
     const allies = (STORY._battleAllyList || []).filter(Boolean);
     if (!allies.length || typeof T === 'undefined' || typeof Unit === 'undefined') return;
@@ -844,14 +831,13 @@ function storySpawnAllies() {
             DEPLOY_POOL[k]--;
             const x = 140 + (placed % 14) * 50, y = (WORLD_H - 380) - Math.floor(placed / 14) * 54;
             const u = new Unit(type, x, y, false);
-            u.ally = true;                                  // OTONOM dost-AI işareti
-            if (typeof getSquadRole === 'function') u.squad = getSquadRole(type);
+            u.ally = true;                                  // müttefik birlik işareti
             if (typeof applyTechSpawnBonus === 'function') applyTechSpawnBonus(u);
             units.push(u); player.unitsSpawned++; placed++;
         }
         if (placed >= quota) break;
     }
-    if (placed) storyLog(`🤝 ${allies.length} müttefik komutan ordunun ${placed} birliğini devraldı (otonom savaşır).`);
+    if (placed) storyLog(`🤝 ${allies.length} müttefik komutan savaşa ${placed} birlik getirdi.`);
 }
 function storyCameraToDeployZone() {
     try {
@@ -863,8 +849,8 @@ function storyCameraToDeployZone() {
 }
 
 // ── DÜELLO BİTTİ: sonucu dünyaya işle (main.js checkGameOver çağırır) ─────────
-//  won: MAVİ-perspektifli (true = oyuncu kazandı, false = AI, 'draw' = berabere)
-function storyOnBattleEnd(won, telemetrySummary) {
+//  won: MAVİ-perspektifli (true = oyuncu kazandı, false = rakip, 'draw' = berabere)
+function storyOnBattleEnd(won, battleSummary) {
     const ctx = STORY.battleCtx;
     if (!ctx) return;
     const node = storyNode(ctx.nodeId);
@@ -872,7 +858,7 @@ function storyOnBattleEnd(won, telemetrySummary) {
     const foe = storyState(ctx.defender) || { id: ctx.defender, name: '?', welfare: 50, gov: null };   // güvenlik: devlet erimiş olsa bile çökme
 
     // SAĞ KALANLAR → GAZİ (tip + seviye taşınır, cap 14)
-    const survivors = units.filter(u => !u.isRed && !u.dead && !u.ally);   // müttefik (otonom) birimler senin gazin olmaz
+    const survivors = units.filter(u => !u.isRed && !u.dead && !u.ally);   // müttefik birlikler oyuncunun gazi havuzuna yazılmaz
     const newVets = survivors.map(u => ({ type: u.type, vet: Math.max(1, (u.veteran | 0)) + 1 }));
     newVets.sort((a, b) => b.vet - a.vet);
     STORY.veterans = newVets.slice(0, 14);
@@ -902,13 +888,13 @@ function storyOnBattleEnd(won, telemetrySummary) {
     storyCommanderBackfill(STORY.commander);
     const roleBonus = winText ? 120 : 0;
     const timeBonus = winText && ctx.mode === 'defense'
-        ? Math.round(Math.max(0, telemetrySummary?.durationSeconds || 0) * 0.35)
+        ? Math.round(Math.max(0, battleSummary?.durationSeconds || 0) * 0.35)
         : winText
-            ? Math.round(Math.max(0, telemetrySummary?.timeRemaining || 0) * 0.5)
+            ? Math.round(Math.max(0, battleSummary?.timeRemaining || 0) * 0.5)
             : 0;
     const xpEarned = Math.max(0, Math.round(
-        (telemetrySummary?.aiValueLost || 0) -
-        (telemetrySummary?.enemyValueDestroyed || 0) * 0.45 +
+        (battleSummary?.blueKills || 0) * 60 -
+        (battleSummary?.redKills || 0) * 25 +
         roleBonus + timeBonus
     ));
     STORY.commander.xp += xpEarned;

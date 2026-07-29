@@ -24,5 +24,7 @@ contextBridge.exposeInMainWorld('PIXEL', {
     train: {
         saveHumanData: examples => ipcRenderer.invoke('train:saveHumanData', examples),
         humanDataCount: () => ipcRenderer.invoke('train:humanDataCount'),
+        // #5: her maçın TAM kaydını (samples+controllerDecisions) qa-runtime/last-match.json'a yaz → Claude izler.
+        saveMatchRecording: rec => ipcRenderer.invoke('train:saveMatchRecording', rec),
     },
 });

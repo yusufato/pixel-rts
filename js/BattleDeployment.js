@@ -57,6 +57,46 @@ function deploymentManifestHash(counts) {
     return hash.toString(16).padStart(8, '0');
 }
 
+// DIVERSE-SELFPLAY: eğitimde de varied ordu açmak için (gerçek oyun interactive ile açar; eğitim bunu set eder).
+let BATTLE_FORCE_VARIED = false;
+
+// TAKTİK-VEKİLİ (insan-gibi rakip): kullanıcının KAZANMA taktiklerini oynar → AI onu yenmeyi (=insanı) öğrenir.
+// Taktik: KONSANTRASYON + ODAKLI-ATEŞ (2v1) — kendi kütlesini toplar, EN YAKIN düşmanı seçip HEPSİ ona yüklenir
+// → yerel üstünlük kurup birer birer eritir (senin "sarma + iki-birlik-tek-birliğe" tarzın). Deterministik (RNG YOK).
+let BATTLE_SURROGATE_SIDE = null;        // null=kapalı, true/false = o tarafı taktik-vekili sürer (kontrolör yerine)
+let BATTLE_SURROGATE_DEFENSIVE = false;  // true → SAVUNAN-vekil (usta insan savunması): pozisyonda tut + konsantre karşı-ateş
+function battleTacticalSurrogateDrive(side) {
+    const own = [], foe = [];
+    for (const u of SIM.units) { if (u.dead) continue; (u.isRed === side ? own : foe).push(u); }
+    if (!own.length || !foe.length) return;
+    own.sort((a, b) => a.id - b.id); foe.sort((a, b) => a.id - b.id);
+    // kendi kütle-merkezi → EN YAKIN düşmanı hedefle (konsantrasyon; birer birer erit — 2v1 yerel üstünlük)
+    let cx = 0, cy = 0; for (const u of own) { cx += u.x; cy += u.y; } cx /= own.length; cy /= own.length;
+    let target = foe[0], bestD = Infinity;
+    for (const f of foe) { const d = (f.x - cx) * (f.x - cx) + (f.y - cy) * (f.y - cy); if (d < bestD) { bestD = d; target = f; } }
+    if (BATTLE_SURROGATE_DEFENSIVE) {
+        // SAVUNAN-vekil: savunma hattını (kendi objektifi) TUT, düşmana koşma; kütleyi topla, gelen en yakın
+        // düşmana HEP BİRLİKTE odaklı-ateş (senin savunma tarzın: pozisyonu koru, üzerine geleni konsantre döv).
+        const anchor = (typeof battleObjectiveForSide === 'function') ? battleObjectiveForSide(side) : { x: cx, y: cy };
+        // savunma hattı: kendi kütle-merkezi ile çıpa arasında, çıpaya yakın (geri çekilme değil, tutma)
+        const lineX = anchor.x, lineY = (anchor.y * 0.7 + cy * 0.3);
+        own.forEach((u, i) => {
+            if (u.type === T.MEDIC) return;
+            u.attackTarget = target; u.manualTarget = target;   // konsantre karşı-ateş (menzile girince motor ateşler)
+            const spread = (i - (own.length - 1) / 2) * 42;      // sıkı savunma hattı (konsantre)
+            const d = terrainSafePoint(lineX + spread, lineY);
+            u.targetX = d.x; u.targetY = d.y; u.manualMoveTarget = d; u.isMovingToManualTarget = true;
+        });
+        return;
+    }
+    // SALDIRAN-vekil: TÜM muharip birlikler hedefe konsantre yüklen + odaklı ateş
+    for (const u of own) {
+        if (u.type === T.MEDIC) continue;               // sağlıkçı geride
+        u.attackTarget = target; u.manualTarget = target;
+        u.targetX = target.x; u.targetY = target.y;
+        u.manualMoveTarget = { x: target.x, y: target.y }; u.isMovingToManualTarget = true;
+    }
+}
 // ORDU ÇEŞİTLİLİĞİ: her maça seed'li DOKTRİN + ince gürültü uygula → farklı ama DENGELİ ordu (öngörülemez).
 // SIM_RNG (srand) kullanır → deterministik (aynı seed=aynı ordu, replay/eğitim bozulmaz) ama maç-maç farklı.
 function battleDeploymentVariedWeights(base) {
@@ -244,8 +284,9 @@ function battleAutoDeploySession(config = {}) {
         maxUnits: config.aiMaxUnits || 48,
         combatFocused: config.mode === 'quick',
         // ÇEŞİTLİLİK: gerçek oyunda (interactive) kırmızı AI her maça farklı-ama-dengeli ordu dizsin
-        // (öngörülemez olsun). Headless eğitimde şimdilik sabit (koşan model dağılımı bozulmasın).
-        varied: (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive === true)
+        // (öngörülemez olsun). DIVERSE-SELFPLAY eğitiminde de BATTLE_FORCE_VARIED ile açılır → model
+        // çeşitli ordular komuta etmeyi öğrenir (gerçek oyundaki varied dağılımıyla uyumlu).
+        varied: (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive === true) || BATTLE_FORCE_VARIED === true
     });
     battleConsumeEnemyManifest(manifest);
     const deployed = battleDeployManifest(manifest, true, {

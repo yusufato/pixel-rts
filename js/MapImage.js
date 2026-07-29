@@ -49,9 +49,23 @@ function isPassableAt(wx, wy) {
     if (t === TERRAIN.WATER) return isBridgeCell(gx, gy);
     return true;
 }
+// Merkez karada olsa bile kıyı sınırına verilen emir birlik gövdesini suya
+// bindirebiliyordu. 6 px açıklık tek-hücre köprü geçişini kapatmadan kıyı
+// köşelerindeki kilitlenmeyi önler.
+function isMovementPassableAt(wx, wy, clearance = 6) {
+    if (!isPassableAt(wx, wy)) return false;
+    if (isBridgeAt(wx, wy)) return true;
+    if (MAP_MODE !== 'grid' || clearance <= 0) return true;
+    const diagonal = clearance * Math.SQRT1_2;
+    return [
+        [clearance, 0], [-clearance, 0], [0, clearance], [0, -clearance],
+        [diagonal, diagonal], [diagonal, -diagonal],
+        [-diagonal, diagonal], [-diagonal, -diagonal]
+    ].every(offset => isPassableAt(wx + offset[0], wy + offset[1]));
+}
 // En yakın geçilebilir dünya-noktası (spiral arama) — deploy/itme için
 function nearestPassable(wx, wy, maxR) {
-    if (isPassableAt(wx, wy)) return { x: wx, y: wy };
+    if (isMovementPassableAt(wx, wy)) return { x: wx, y: wy };
     const gx0 = Math.floor(wx / CELL_W), gy0 = Math.floor(wy / CELL_H);
     const R = maxR || 24;
     for (let r = 1; r <= R; r++) {
@@ -61,10 +75,25 @@ function nearestPassable(wx, wy, maxR) {
             if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) continue;
             const t = gridTypeCell(gx, gy);
             const pass = t === TERRAIN.MOUNTAIN ? false : (t === TERRAIN.WATER ? isBridgeCell(gx, gy) : true);
-            if (pass) return { x: (gx + 0.5) * CELL_W, y: (gy + 0.5) * CELL_H };
+            const x = (gx + 0.5) * CELL_W;
+            const y = (gy + 0.5) * CELL_H;
+            if (pass && isMovementPassableAt(x, y)) return { x, y };
         }
     }
     return { x: wx, y: wy };
+}
+
+// Oyuncu, AI, replay, multiplayer ve destek sistemlerinin tamamı için tek sert
+// hedef kapısı. Emir geçilemez araziyi istese bile simülasyona su/dağ hedefi girmez.
+function terrainSafePoint(wx, wy, maxR) {
+    const x = Math.max(UNIT_RADIUS, Math.min(WORLD_W - UNIT_RADIUS, Number(wx) || 0));
+    const y = Math.max(UNIT_RADIUS, Math.min(WORLD_H - UNIT_RADIUS, Number(wy) || 0));
+    if (MAP_MODE !== 'grid' || isMovementPassableAt(x, y)) return { x, y };
+    const safe = nearestPassable(x, y, maxR || Math.max(GRID_W, GRID_H));
+    return {
+        x: Math.max(UNIT_RADIUS, Math.min(WORLD_W - UNIT_RADIUS, safe.x)),
+        y: Math.max(UNIT_RADIUS, Math.min(WORLD_H - UNIT_RADIUS, safe.y))
+    };
 }
 // ── YÜKSELTİ ALANI: dağ=1 / orman=0.18, box-blur ile yumuşat → 0..1 sürekli ──
 function buildElevField() {
@@ -314,7 +343,9 @@ function findPathCells(sgx, sgy, ggx, ggy, maxExpand) {
     g.set(key(sgx, sgy), 0);
     open.push({ x: sgx, y: sgy, f: h(sgx, sgy) });
     const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-    let expand = 0; const cap = maxExpand || 6000;
+    // Harita 15.000 hücre. Uzun nehir/dağ çevresinde 6.000 düğüm sınırı
+    // erişilebilir hedefleri yanlışlıkla "rota yok" diye kesebiliyordu.
+    let expand = 0; const cap = maxExpand || (GRID_W * GRID_H + 1);
     while (open.size()) {
         const cur = open.pop();
         if (cur.x === ggx && cur.y === ggy) {                   // yol bulundu → geri izle
@@ -367,5 +398,5 @@ function applyImageMap() {
     return -2;
 }
 
-// AÇILIŞ: çizilen harita varsayılan aktif harita (MapData.js applyMap(0)'ı ezer; AI.js sonra cache tazeler)
+// AÇILIŞ: çizilen harita varsayılan aktif harita (MapData.js applyMap(0)'ı ezer)
 applyImageMap();

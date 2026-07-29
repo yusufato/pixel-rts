@@ -58,6 +58,10 @@ function resetBattleRules() {
 }
 
 function battleRulesConfigForCurrentMatch() {
+    if (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.active &&
+        typeof battlefieldRulesConfig === 'function') {
+        return battlefieldRulesConfig();
+    }
     let attackerSide = false; // Hızlı maç / MP varsayılanı: MAVİ saldırır.
     let durationSec = DEFAULT_BATTLE_DURATION_SEC;
     if (typeof STORY !== 'undefined' && STORY && STORY.active && STORY.battleCtx) {

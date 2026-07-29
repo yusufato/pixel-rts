@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  PIXEL RTS – TAKTİKSEL SAVAŞ (Öğrenen AI, Savaş Sisi, Etki Haritası)
+//  PIXEL RTS – TAKTİKSEL SAVAŞ (Savaş Sisi, Etki Haritası)
 // ═══════════════════════════════════════════════════════════════
 window.onerror = function(msg, url, lineNo, columnNo, error) {
     const errDiv = document.createElement('div');
@@ -54,7 +54,7 @@ const WORLD_H = 2300;
 
 // DESIGN v2 "Gerçekçi Arena": 5 yeni tip. Eski 0-4 DEĞİŞMEDİ (kayıt/MP uyumu).
 // Yeni tipler render + geçilmezlik maskesinden türetilir; sim'in tek girdisi
-// terrainFeatures kalır (spec kuralı) → AI/LOS/örtü kodu bozulmaz.
+// terrainFeatures LOS ve örtü hesapları için korunur.
 const TERRAIN = { NONE: 0, FOREST: 1, MOUNTAIN: 2, HILL: 3, WATER: 4, MARSH: 5, ROCK: 6, URBAN: 7, FIELD: 8, ROAD: 9 };
 // ── SİMETRİK 3-MEVZİ HARİTASI ──
 // 3 kontrol noktası (orta hat: x=880/1700/2520, y=1150) birer AÇIK güçlü-mevzi; etrafları
@@ -85,19 +85,15 @@ function seededRandom(seed) {
 // ═══════════════════════════════════════════════════════════════════════════
 const SIM = {
     rng: { state: 0x9e3779b9 },   // FAZ 0'da SIM_RNG idi → Faz 1'de SIM.rng'ye taşındı
-    tick: 0,                      // deterministik sim-saati (intent-yaşı) — maç-başı sıfırlanır
+    tick: 0,                      // deterministik sim-saati — maç başında sıfırlanır
     headless: false,              // true = render-only VFX hesaplanmaz
 };
 const SIM_RNG = SIM.rng;        // geri-uyumluluk aliası: mevcut SIM_RNG.state okuma/yazmaları SIM.rng'ye düşer
 
 // HIZLI MAÇ AYARLARI (Screens.js maç başında yazar, BattleRules/Commander okur)
-// attackerSide: true = KIRMIZI(AI) saldırır → oyuncu savunur; false = MAVİ(oyuncu) saldırır.
+// attackerSide: true = KIRMIZI saldırır; false = MAVİ saldırır.
 // Saldıran süre dolmadan kırmak zorunda, savunan süreyi tüketirse kazanır.
 let QUICK_MATCH_ATTACKER_SIDE = false;
-let QUICK_MATCH_SKILL = 'normal';   // 'easy' | 'normal' | 'hard' → commanderSetDifficulty
-
-// Savaş AI'sı tek: Commander.js (kural-tabanlı komutan). Eski katmanlı AI (LayeredAI.js,
-// ~2000 satır) ve kullanılmayan TacticalAI.js silindi; AI_BACKEND bayrağı da anlamsız kaldı.
 function resetSimRng(seed) {
     SIM.rng.state = (seed >>> 0) || 0x9e3779b9;
 }
@@ -212,18 +208,17 @@ const keys = {};
 
 // ── TRAUMA-tabanlı ekran sarsıntısı + darbe-donması + knockback (HEPSİ render-only; SIM'e GİRMEZ) ──
 let screenShake = 0;            // TRAUMA değeri (0..SHAKE_MAX); worldToScreen'de trauma² uygulanır → tüfek≠nuke
-let hitStopFrames = 0;          // darbe-donması kare sayacı (yalnız tek-oyunculu; MP/headless'te yok)
+let hitStopVisualMs = 0;        // yalnız sunum; savaş simülasyonunu asla durdurmaz
 const SHAKE_MAX = 1.25;         // tavan trauma
 const SHAKE_MAX_PX = 9;         // tam trauma'da max piksel kayma
 function triggerScreenShake(amount) {
     if (typeof SIM !== 'undefined' && SIM.headless) return;
     screenShake = Math.min(SHAKE_MAX, screenShake + amount);   // biriktir (capped)
 }
-// Darbe-donması: birkaç render karesi sim'i dondurur (yalnız tek-oyunculu; MP lockstep'i bozMAZ)
+// Darbe-donması yalnız görsel sunum verisidir. Render/FPS savaş sonucunu değiştiremez.
 function triggerHitStop(frames) {
     if (typeof SIM !== 'undefined' && SIM.headless) return;
-    if (typeof MP !== 'undefined' && MP.active) return;
-    if (frames > hitStopFrames) hitStopFrames = frames;        // en büyük kazanır (üst üste binmesin)
+    hitStopVisualMs = Math.max(hitStopVisualMs, Math.max(0, frames) * (1000 / 60));
 }
 // Knockback/recoil: SADECE görsel ofset (this.x/y'ye DOKUNMAZ → sim/determinizm/MP korunur)
 function applyKnockback(t, srcX, srcY, amt) {
@@ -250,7 +245,7 @@ function updateCinematic(dt) {
     if (cinemaTimer > 0) {
         cinemaTimer -= dt;
         const e = Math.max(0, cinemaTimer / CINEMA_DUR);   // 1→0 (tetikte en güçlü, sonra söner)
-        timeScale = 1 - 0.65 * e;                          // 0.35 slow-mo → 1.0
+        timeScale = 1 - 0.65 * e;                          // yalnız sunum değeri; simülasyon saatini etkilemez
         cinemaZoom = 1 + 0.14 * e;                         // 1.14 zoom → 1.0
     } else { timeScale = 1; cinemaZoom = 1; }
 }
@@ -344,7 +339,11 @@ const UNIT_RADIUS = Math.max(BASE_DRAW_W, BASE_DRAW_H) / 2;
 // ── BİRİM YÖNELİMİ (render-only; sim facingAngle'ı zaten hesaplıyor → eğitim/MP etkilenmez) ──
 const UNIT_ROTATE = true;            // tüm sprite facing yönüne döner (hedefe "düz" bakar)
 const UNIT_FACE_OFFSET = Math.PI / 2;// ÖN = dikdörtgenin UZUN kenarı (geniş cephe öne); kısa-kenar-ön istersen 0 yap
-const UNIT_TURN_SMOOTH = 1.0;        // GLOBAL dönüş hız çarpanı (hepsini topluca ayarla; 0.5 = yarı hız)
+const UNIT_TURN_SMOOTH = 0.5;        // GLOBAL dönüş hız çarpanı (hepsini topluca ayarla; 0.5 = yarı hız) — kullanıcı isteği: dönüş çok hızlıydı, yarıya indirildi
+// KONSANTRASYON: AI kuvvetini sektörlere BÖLMEK yerine TEK kütlede yığar + rezervi minimuma indirir → odaklı-ateşle
+// yerel üstünlük (insanın kazanma tarzı). ÖLÇÜLDÜ: savunmada -980→-327, saldırıda +15→+620, normal rakipte regresyon yok.
+// Dağılım AI'nın asıl zaafıydı; bu onu her senaryoda dramatik güçlendirir. false = eski dağıtan davranış.
+let BATTLE_FORCE_CONCENTRATE = true;
 // Tip-bazlı dönüş çevikliği (kare-başı yaklaşma oranı 0..1) — tank/topçu ağır, piyade/keşif çevik; index = tip no
 const UNIT_TURN_RATE = [
     0.11,  // 0 Piyade
@@ -368,13 +367,6 @@ const T = {
     ARMOR: 6, ANTI_TANK: 7, ARTILLERY: 8
 };
 
-const SQUAD = { VANGUARD: 0, FLANK: 1, SUPPORT: 2 };
-function getSquadRole(type) {
-    if ([T.RECON, T.ARMOR_INFANTRY, T.MECH_INFANTRY].includes(type)) return SQUAD.FLANK;
-    if ([T.ARTILLERY, T.ANTI_TANK, T.MEDIC].includes(type)) return SQUAD.SUPPORT;
-    return SQUAD.VANGUARD;
-}
-
 // Vision stat added for Fog of War
 
 const STATS = {
@@ -388,6 +380,15 @@ const STATS = {
     [T.ANTI_TANK]: { hp: 234, atk: 25, speed: 0.45, range: 320, vision: 420, atkSpeed: 5000, armor: 0, cost: 140, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli sert zırh avcısı. Zırhlılara ×4.0 hasar ve %85 zırh delme (5 sn, 25 hasar)', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
     [T.ARTILLERY]: { hp: 172, atk: 20, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 200, maxAmmo: 12, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). CAM-TOP: keşif kadar kırılgan (110 can). Görüş için Keşif ister! (10 sn, 20 alan hasarı, 12 mermi)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
 };
+
+// Muharebe temposu ayarları. Tek merkezden uygulanır; üretim ve UI aynı
+// gerçek değerleri görür. Böylece hız/görüş için birbirinden kopuk çarpanlar oluşmaz.
+const UNIT_MOVE_SPEED_MULTIPLIER = 1.25;
+const UNIT_VISION_MULTIPLIER = 1.50;
+for (const stats of Object.values(STATS)) {
+    stats.speed = +(stats.speed * UNIT_MOVE_SPEED_MULTIPLIER).toFixed(4);
+    stats.vision = Math.round(stats.vision * UNIT_VISION_MULTIPLIER);
+}
 
 // FAZ-2 KAYNAK-BAZLI DEPLOY: her birim grubu kendi kaynağından ödenir
 //  ⛽PETROL→zırhlı/araç, 👥İNSAN→piyade-ayak, ⭐PUAN→topçu/özel. (Hikaye düellosunda OYUNCU için aktif.)
@@ -489,7 +490,7 @@ let gameTime = 0;
 const player = { money: 1500, kills: 0, unitsSpawned: 0 };
 const enemy = { money: 1500, kills: 0, unitsSpawned: 0 };
 // FAZ-2: kaynak-bazlı deploy bütçesi (null = tek-para modu/Quick Match/MP). { blue: {oil,manpower,points} }
-//  Sadece OYUNCU(mavi) kaynak-kilitli; AI(kırmızı) birleşik enemy.money kullanır. Story bunu kurar.
+//  Sadece mavi kaynak-kilitli; kırmızı birleşik enemy.money kullanır. Story bunu kurar.
 let DEPLOY_RES = null;
 // FAZ-3 HAVUZ DEPLOY: { [birimTipi]: kalanAdet } — hikaye modunda ŞEHİRLERDE ÜRETİLEN ordu.
 // Para değil ADET kısıtı: "elimde tam 3 tank var" ifade edilebilsin diye DEPLOY_RES'ten ayrı tutulur.
@@ -654,178 +655,13 @@ let mouseScreenX = 500, mouseScreenY = 500;
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
 let selectedSpawnType = null;
-// ─── LOCAL STORAGE ───
-const MEMORY_KEY = 'pixelRtsMemory';
-
-// Kaldırılan öğrenen-AI'nın diskte bıraktığı kayıtları tek seferde temizle.
-// (Eski beyinler artık okunmuyor; durmaları yalnız kafa karıştırır.)
-try {
-    for (const k of ['pixelRtsGenome', 'pixelRtsLastTrainingReport', 'pixelRtsChampionArchive',
-                     'pixelRtsHallOfFame', 'pixelRtsReplays', 'nnBrain', 'cmdrGenome', 'cmdrHall']) {
-        localStorage.removeItem(k);
-    }
-} catch (e) {}
-const TACTIC_GENE_LIMITS = Object.freeze({
-    vanguardAggression: [0.55, 1.50],
-    vanguardPreferredRange: [0.50, 1.10],
-    vanguardRetreat: [0.08, 0.48],
-    flankAggression: [0.60, 1.65],
-    flankPreferredRange: [0.50, 1.10],
-    flankRetreat: [0.06, 0.45],
-    supportAggression: [0.40, 1.25],
-    supportPreferredRange: [0.65, 1.20],
-    supportRetreat: [0.12, 0.62],
-    flankRatio: [0.15, 0.65],
-    flankWidth: [220, 650],
-    cohesion: [0.25, 0.90],
-    focusFire: [0.00, 1.00],
-    targetArmorPriority: [0.40, 2.20],
-    targetSupportPriority: [0.40, 2.20],
-    executeTtk: [4.0, 14.0],
-    kiteHp: [0.25, 0.60],
-    resupplyAmmo: [0.04, 0.30],
-    tacticalRetreatForceRatio: [0.55, 1.15],
-    decisiveForceRatio: [1.05, 1.90],
-    targetValueWeight: [0.55, 1.75],
-    targetThreatWeight: [0.55, 1.85],
-    finishBias: [0.50, 1.80],
-    steeringSeparation: [0.55, 1.65],
-    threatAvoidance: [0.20, 1.60],
-    lossAversion: [1.00, 2.40],     // kuvvet ekonomisi k: 1.0 agresif (kayıp umursamaz) → 2.4 çok temkinli. Eğitim ayarlar.
-    vpPressureWeight: [0.30, 2.20], // FAZ 2/4: bölgede geride isem tempo baskısı şiddeti (turtle'ı puanla zorla)
-    punchFocus: [0.40, 2.00]        // FAZ 3/4: PUNCH'ın en ZAYIF savunulan noktayı seçme eğilimi
-});
-const DEFAULT_TACTIC_GENES = Object.freeze({
-    vanguardAggression: 1.00,
-    vanguardPreferredRange: 0.78,
-    vanguardRetreat: 0.30,
-    flankAggression: 1.10,
-    flankPreferredRange: 0.82,
-    flankRetreat: 0.25,
-    supportAggression: 0.80,
-    supportPreferredRange: 0.95,
-    supportRetreat: 0.40,
-    flankRatio: 0.35,
-    flankWidth: 400,
-    cohesion: 0.60,
-    focusFire: 0.65,
-    targetArmorPriority: 1.00,
-    targetSupportPriority: 1.00,
-    executeTtk: 7.00,
-    kiteHp: 0.42,
-    resupplyAmmo: 0.12,
-    tacticalRetreatForceRatio: 0.85,
-    decisiveForceRatio: 1.35,
-    targetValueWeight: 1.00,
-    targetThreatWeight: 1.00,
-    finishBias: 1.00,
-    steeringSeparation: 1.00,
-    threatAvoidance: 1.00,
-    lossAversion: 1.60,
-    vpPressureWeight: 1.00,
-    punchFocus: 1.00
-});
-
-function normalizeTacticGenes(genes = {}) {
-    const oldAggression = Number.isFinite(genes.aggression) ? genes.aggression : 1.00;
-    const oldRange = Number.isFinite(genes.preferredRange) ? genes.preferredRange : 0.82;
-    const oldRetreat = Number.isFinite(genes.retreatThreshold) ? genes.retreatThreshold : 0.30;
-    const migratedFallbacks = {
-        vanguardAggression: oldAggression,
-        vanguardPreferredRange: oldRange,
-        vanguardRetreat: oldRetreat,
-        flankAggression: oldAggression + 0.10,
-        flankPreferredRange: oldRange,
-        flankRetreat: oldRetreat * 0.85,
-        supportAggression: oldAggression - 0.15,
-        supportPreferredRange: oldRange + 0.08,
-        supportRetreat: oldRetreat + 0.12
-    };
-    const normalized = {};
-    for (const [name, limits] of Object.entries(TACTIC_GENE_LIMITS)) {
-        const fallback = Number.isFinite(migratedFallbacks[name]) ? migratedFallbacks[name] : DEFAULT_TACTIC_GENES[name];
-        const value = Number.isFinite(genes[name]) ? genes[name] : fallback;
-        normalized[name] = Math.max(limits[0], Math.min(limits[1], value));
-    }
-    return normalized;
-}
-
-function getRoleTacticGenes(genes, squad) {
-    const prefix = squad === SQUAD.FLANK ? 'flank' : squad === SQUAD.SUPPORT ? 'support' : 'vanguard';
-    return {
-        aggression: genes[`${prefix}Aggression`],
-        preferredRange: genes[`${prefix}PreferredRange`],
-        retreat: genes[`${prefix}Retreat`]
-    };
-}
-
-let playerMeta = {};
-
-try {
-    playerMeta = JSON.parse(localStorage.getItem(MEMORY_KEY)) || {};
-} catch (e) {
-    console.warn("LocalStorage access denied, using memory only.");
-}
-
-// ─── AI AYAR TABLOSU (elle ayarlanır — eğitim yok) ───
-// counterMatrix[düşmanTipi][benimTipim]: sahada düşmanTipi görünce benimTipim'i
-// ne kadar tercih edeyim. 1 = nötr, >1 = iyi karşılık, <1 = kötü karşılık.
-// STATS'taki strong/weak listelerinden türetilir: strong → 2.2, weak → 0.45.
-const AI_COUNTER_MATRIX = (() => {
-    const m = [];
-    for (let foe = 0; foe < 9; foe++) {
-        m[foe] = [];
-        for (let mine = 0; mine < 9; mine++) {
-            const s = STATS[mine];
-            let w = 1;
-            if (s.strong && s.strong.includes(foe)) w = 2.2;   // benimTipim foe'yu eziyor
-            if (s.weak && s.weak.includes(foe)) w = 0.45;      // benimTipim foe'ya yem
-            m[foe][mine] = w;
-        }
-    }
-    return m;
-})();
-
-// deployMatrix[tip] = [xOranı 0..1 (sol→sağ), yOranı 0..1 (ön→arka)].
-// Ateş desteği arkada, ana hat ortada, hızlı kanatçılar kenarda.
-const AI_DEPLOY_MATRIX = [
-    [0.50, 0.30],   // 0 Piyade        — merkez ana hat
-    [0.18, 0.45],   // 1 Mekanize      — sol kanat, biraz geride
-    [0.50, 0.20],   // 2 Zırhlı Piyade — merkez ön (kalkan)
-    [0.82, 0.55],   // 3 Keşif         — sağ kanat gözcü, geride
-    [0.62, 0.75],   // 4 İstihkam      — arka (siper/ikmal kurar)
-    [0.38, 0.78],   // 5 Sağlıkçı      — arka güvenli
-    [0.30, 0.25],   // 6 Tank          — merkez-sol ön (kırıcı)
-    [0.70, 0.40],   // 7 Tanksavar     — merkez-sağ, hattın az gerisi
-    [0.50, 0.92]    // 8 Topçu         — en arka (menzil avantajı)
-];
-
-const aiGenome = {
-    version: 5,
-    counterMatrix: AI_COUNTER_MATRIX,
-    deployMatrix: AI_DEPLOY_MATRIX,
-    tacticGenes: normalizeTacticGenes()   // DEFAULT_TACTIC_GENES sınırlara kırpılmış hâli
-};
-
-let battlePhase = 1; // 1: Advance (Formasyon Yürüyüşü), 2: Clash (Çatışma), 3: Flank (Kuşatma)
-let aiDoctrine = 1; // 1: Ağır Örs, 2: Zırhlı Çekiç
-
-function savePlayerMeta() {
-    for (const u of SIM.units) {
-        if (!u.isRed) {
-            playerMeta[u.type] = (playerMeta[u.type] || 0) + 1;
-        }
-    }
-    try {
-        localStorage.setItem(MEMORY_KEY, JSON.stringify(playerMeta));
-    } catch (e) {}
-}
 
 // ─── SAVAŞ SİSİ KONTROLÜ (Team Vision) ───
 function canSee(teamIsRed, targetX, targetY) {
     for (const u of SIM.units) {
         if (u.dead || u.isRed !== teamIsRed) continue;
-        if (Math.hypot(u.x - targetX, u.y - targetY) <= STATS[u.type].vision) return true;
+        const vision = Number.isFinite(u.vision) ? u.vision : STATS[u.type].vision;
+        if (Math.hypot(u.x - targetX, u.y - targetY) <= vision) return true;
     }
     // Kendi güvenli üssünü her zaman görebilir
     if (!teamIsRed && targetY > WORLD_H * 0.7) return true; 

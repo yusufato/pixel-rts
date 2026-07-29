@@ -85,20 +85,33 @@ function mpStartBattle(seed, blue, red) {
     MP.pending = {}; MP.localCmds = {}; MP.sentUpTo = -1;
     MP.myHash = {}; MP.peerHash = {};
 
+    openBattlefieldSession({
+        mode: 'multiplayer',
+        mapId: 0,
+        seed: (seed >>> 0) || 1,
+        attackerSide: false,
+        durationSec: DEFAULT_BATTLE_DURATION_SEC,
+        playerMoney: 0,
+        enemyMoney: 0,
+        deployRes: null,
+        deployPool: null,
+        techBonus: null,
+        techBonusRed: null,
+        show: false
+    });
     Unit.nextId = 0;
-    if (typeof applyMap === 'function') applyMap(0);            // MP FAZ-1: harita 0'a KİLİTLİ (iki PC aynı terrain = determinizm; harita-senkron Faz-2)
-    if (typeof resetSimRng === 'function') resetSimRng((seed >>> 0) || 1);
-    SIM.units.length = 0;                                       // ÖNİZLEME birimlerini SİL → start listesinden yeniden kur
-    if (SIM.trenches) SIM.trenches.length = 0;
-    for (const d of (blue || [])) SIM.units.push(new Unit(d.t, d.x, d.y, false));   // MAVİ önce → id 1..N
-    for (const d of (red || []))  SIM.units.push(new Unit(d.t, d.x, d.y, true));    // KIRMIZI sonra → id N+1..
-    if (typeof player !== 'undefined') player.money = 0;
-    if (typeof enemy !== 'undefined') enemy.money = 0;
-
+    for (const d of (blue || [])) {
+        const unit = new Unit(d.t, d.x, d.y, false);
+        unit.controlOwner = CONTROL_OWNER.MULTIPLAYER_REMOTE;
+        SIM.units.push(unit);
+    }
+    for (const d of (red || [])) {
+        const unit = new Unit(d.t, d.x, d.y, true);
+        unit.controlOwner = CONTROL_OWNER.MULTIPLAYER_REMOTE;
+        SIM.units.push(unit);
+    }
     phase = PHASE.BATTLE;
-    if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
-    if (typeof initBattleRules === 'function') initBattleRules({ attackerSide: false, durationSec: DEFAULT_BATTLE_DURATION_SEC });
-    if (typeof battleTelemetry !== 'undefined' && battleTelemetry.start) battleTelemetry.start(0);
+    if (typeof initBattleRules === 'function') initBattleRules(battlefieldRulesConfig());
     mpCameraToMyArmy();
     const sb = document.getElementById('ui-spawn-bar'); if (sb) { sb.style.opacity = '0.3'; sb.style.pointerEvents = 'none'; }
     const ph = document.getElementById('ui-phase'); if (ph) ph.style.display = 'none';
@@ -133,7 +146,7 @@ function mpStep(timestamp) {
     if (MP.lastTs == null) MP.lastTs = timestamp;
     let fdt = timestamp - MP.lastTs; MP.lastTs = timestamp;
     if (fdt > 250) fdt = 250;                       // sekme-değişimi koruması
-    MP.acc += fdt;
+    MP.acc += fdt * GAME_SPEED;
     mpFlushInputs();
     let steps = 0;
     while (MP.acc >= MP_TICK_MS && steps < MP_MAX_STEPS) {
@@ -143,10 +156,10 @@ function mpStep(timestamp) {
             MP.stalls++;
             break;                                  // STALL: rakibin tick komutunu bekle (acc'yi TÜKETME)
         }
-        // her tick = MP_TICK_MS gerçek-süre AMA GAME_SPEED× oyun-zamanı (tek-oyuncuyla aynı tempo).
-        // now (cooldown saati) ile dtSec TUTARLI olmalı: now-artışı(ms) === dtSec(sn)×1000.
-        const dtSec = (MP_TICK_MS / 1000) * GAME_SPEED;
-        const now = T * MP_TICK_MS * GAME_SPEED;     // = T*200ms oyun-zamanı (50ms×4)
+        // Her mod aynı sabit simülasyon adımını kullanır. GAME_SPEED adım büyüklüğünü
+        // değil, gerçek frame başına biriken simülasyon süresini değiştirir.
+        const dtSec = MP_TICK_MS / 1000;
+        const now = T * MP_TICK_MS;
         stepSim(now, dtSec, () => mpApplyTick(T), true);
         delete MP.pending[T];
         MP.tick = T + 1;
@@ -165,6 +178,9 @@ function mpStep(timestamp) {
 function mpApplyTick(T) {
     const slot = MP.pending[T];
     if (!slot) return;
+    if (typeof battleRecordEvent === 'function') {
+        battleRecordEvent('network-commands', { blue: slot.blue || [], red: slot.red || [] }, T);
+    }
     mpApplyCmds(slot.blue, false);   // MAVİ komutları ÖNCE
     mpApplyCmds(slot.red, true);     // KIRMIZI SONRA — SABİT SIRA (determinizm şartı)
 }
@@ -203,8 +219,12 @@ function mpApplyCmds(cmds, sideIsRed) {
         us.forEach((u, i) => {
             const row = Math.floor(i / cols), col = i % cols;
             const ox = (col - (cols - 1) / 2) * spacing, oy = (row - (Math.ceil(count / cols) - 1) / 2) * spacing;
-            u.targetX = c.x + ox; u.targetY = c.y + oy;
-            u.manualTarget = null; u.manualMoveTarget = { x: c.x + ox, y: c.y + oy };
+            const desired = { x: c.x + ox, y: c.y + oy };
+            const safe = typeof terrainSafePoint === 'function'
+                ? terrainSafePoint(desired.x, desired.y)
+                : desired;
+            u.targetX = safe.x; u.targetY = safe.y;
+            u.manualTarget = null; u.manualMoveTarget = { x: safe.x, y: safe.y };
             u.isMovingToManualTarget = true; u.attackTarget = null;
         });
     }

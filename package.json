@@ -1,7 +1,7 @@
 {
   "name": "pixel-rts",
   "productName": "Pixel RTS",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "Pixel RTS — yaşayan Avrupa seferi: şehir üretimi, konsey, diplomasi",
   "main": "electron/main.js",
   "scripts": {
@@ -42,7 +42,9 @@
         "from": "models",
         "to": "models",
         "filter": [
-          "**/*.gguf"
+          "**/*.gguf",
+          "**/NOTICE.txt",
+          "**/*LICENSE*.txt"
         ]
       }
     ],

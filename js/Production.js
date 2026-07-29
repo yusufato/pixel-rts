@@ -843,7 +843,7 @@ function storyCaptureNodePool(n) {
 
 // ── AI BÜTÇESİ: havuzdan türetilir ──
 // Adalet şartı: kimse kurmadığı orduyu sahaya süremez. AI hâlâ tipli bütçe harcar
-// (aiDeploy / DEPLOY_RES.red dalı değişmez) ama o bütçe artık GERÇEKTEN ürettiği ordunun değeri.
+// DEPLOY_RES.red bütçesi artık gerçekten üretilen ordunun değeridir.
 function storyPoolBudget(stateId, cityId, opts) {
     opts = opts || {};
     // SEFER ORDUSU modeli: o şehirde duran komutanların orduları (+ savunmada şehrin deposu).

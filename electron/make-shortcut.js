@@ -11,8 +11,14 @@ const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
 
-const ROOT = path.join(__dirname, '..');
-const desktop = path.join(os.homedir(), 'Desktop');
+// Bazı geliştirme/sandbox çalıştırıcıları `__dirname` ve `os.homedir()` için
+// sanal kullanıcı yolu döndürüyor. Komut proje kökünden çalıştırılıyorsa gerçek
+// çalışma dizinini, masaüstü için de Windows USERPROFILE değerini esas al.
+const invocationRoot = process.cwd();
+const ROOT = fs.existsSync(path.join(invocationRoot, 'package.json'))
+    ? invocationRoot
+    : path.join(__dirname, '..');
+const desktop = path.join(process.env.USERPROFILE || os.homedir(), 'Desktop');
 const linkPath = path.join(desktop, 'Pixel RTS.lnk');
 
 if (process.platform !== 'win32') {
@@ -24,22 +30,25 @@ if (!fs.existsSync(desktop)) {
     process.exit(1);
 }
 
-// 1) Derlenmiş sürüm var mı?
-const builtExe = path.join(ROOT, 'dist', 'win-unpacked', 'Pixel RTS.exe');
+// TEK KANONİK ÇALIŞTIRMA YERİ: CANLI KAYNAK (dev mod). Paketli exe yerine electron.exe + proje kökü çalıştırır
+// → her kod değişikliği ANINDA canlı (build YOK, bayat sürüm YOK, kilit sorunu YOK). Kullanıcı oyunu kapatıp
+// kısayoldan açar, en güncel kod gelir. (Aktif geliştirme için doğru akış; "release" istenince dist'e dönülebilir.)
+const devExe = path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe');
 let target, args, workDir, note;
-if (fs.existsSync(builtExe)) {
-    target = builtExe; args = ''; workDir = path.dirname(builtExe);
-    note = 'derlenmiş sürüm (dist/win-unpacked)';
+if (fs.existsSync(devExe)) {
+    target = devExe; args = '"' + ROOT + '"'; workDir = ROOT;
+    note = 'CANLI KAYNAK (dev mod) — hep en güncel kod, build gerekmez';
 } else {
-    // 2) Geliştirme modu: electron.exe + proje klasörü
-    const devExe = path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe');
-    if (!fs.existsSync(devExe)) {
-        console.error('Ne derlenmiş sürüm ne Electron bulundu.\n' +
-                      '  Önce:  npm install   (ve istersen  npm run dist:dir)');
+    // Yedek: derlenmiş paket (electron kurulu değilse)
+    const builtExe = path.join(ROOT, 'dist', 'win-unpacked', 'Pixel RTS.exe');
+    if (!fs.existsSync(builtExe)) {
+        console.error('Ne Electron ne derlenmiş sürüm bulundu.\n  Önce:  npm install');
         process.exit(1);
     }
-    target = devExe; args = '"' + ROOT + '"'; workDir = ROOT;
-    note = 'geliştirme modu (npm start ile aynı)';
+    target = path.join(process.env.WINDIR || 'C:\\Windows', 'explorer.exe');
+    args = '"' + builtExe + '"';
+    workDir = path.dirname(builtExe);
+    note = 'derlenmiş paket (dist/win-unpacked) — Electron bulunamadı, yedek';
 }
 
 const icon = fs.existsSync(path.join(ROOT, 'assets', 'icon.ico'))

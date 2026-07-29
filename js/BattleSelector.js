@@ -174,8 +174,24 @@ if (typeof require !== 'undefined' && require.main === module && process.argv.in
     process.exit(0);
 }
 
+// ── Node CLI (EVAL): node js/BattleSelector.js --eval <model> <dataset[,dataset...]> ──
+// Verilen modeli verilen durumlarda değerlendirir (eğitmeden). Turnuva için: modelRegret düşük=iyi.
+if (typeof require !== 'undefined' && require.main === module && process.argv.includes('--eval')) {
+    const fs = require('fs');
+    const ei = process.argv.indexOf('--eval');
+    const model = JSON.parse(fs.readFileSync(process.argv[ei + 1], 'utf8'));
+    const examples = [];
+    for (const p of (process.argv[ei + 2] || '').split(',').filter(Boolean)) {
+        try { const d = JSON.parse(fs.readFileSync(p, 'utf8')); for (const ex of (d.examples || [])) if (ex.rows && ex.rows.length > 1) examples.push(ex); }
+        catch (e) { console.log('EVAL_HATA ' + p + ' ' + e.message); }
+    }
+    if (!examples.length) { console.log('EVAL_SONUC {"n":0}'); process.exit(0); }
+    console.log('EVAL_SONUC ' + JSON.stringify(selEvaluate(model, examples)));
+    process.exit(0);
+}
+
 // ── Node CLI (MLP): dataset yükle → train/dev böl → eğit → değerlendir ─────────
-if (typeof require !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && require.main === module && !process.argv.includes('--eval')) {
     const fs = require('fs');
     const pathArg = process.argv[2] || require('path').join(__dirname, '..', 'qa-runtime', 'oracle-dataset.json');
     const epochs = parseInt(process.argv[3] || '300', 10);

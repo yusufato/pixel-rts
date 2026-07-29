@@ -498,6 +498,12 @@ function checkGameOver() {
     const _mp = (typeof MP !== 'undefined' && MP.active);
     phase = PHASE.OVER;
     document.body.setAttribute('data-phase', PHASE.OVER);
+    // #5: her maçın TAM kaydını (birim yörüngeleri + kontrolör kararları) diske yaz → Claude GERÇEK maçı izleyip
+    // donma/yana-açılma/flank'ı veriyle teşhis eder (headless vekil ≠ gerçek insan). qa-runtime/last-match.json.
+    if (typeof window !== 'undefined' && window.PIXEL && window.PIXEL.train && window.PIXEL.train.saveMatchRecording &&
+        typeof exportBattleDiagnosticReport === 'function') {
+        try { window.PIXEL.train.saveMatchRecording(exportBattleDiagnosticReport()); } catch (e) {}
+    }
     // FAZ 6: "bu maçtan öğren" açıktıysa → kırmızının karar-durumlarını etiketle + disk'e kaydet.
     // Etiketleme (Oracle rollout) kısa dondurur → önce mesaj göster, setTimeout ile ertele (mesaj render olsun).
     if (typeof BATTLE_TRAIN_CAPTURE !== 'undefined' && BATTLE_TRAIN_CAPTURE &&

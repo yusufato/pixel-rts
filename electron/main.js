@@ -568,6 +568,52 @@ app.whenReady().then(() => {
         return;
     }
 
+    // KAFA-KAFAYA: `--versus <redModel> <blueModel> <seedCount>` → red=modelA vs blue=modelB (ikisi de aktif).
+    // Kim kazanıyor + kalan-kuvvet farkı. İki yönlü çalıştır (A-B, B-A) → rol dengelenir, adil karşılaştırma.
+    if (process.argv.includes('--versus')) {
+        const vi = process.argv.indexOf('--versus');
+        const redFile = process.argv[vi + 1], blueFile = process.argv[vi + 2];
+        const seedCount = Math.max(1, Math.min(16, parseInt(process.argv[vi + 3] || '6', 10)));
+        let RED, BLUE;
+        try { RED = JSON.parse(require('fs').readFileSync(redFile, 'utf8')); BLUE = JSON.parse(require('fs').readFileSync(blueFile, 'utf8')); }
+        catch (e) { console.log('VERSUS_HATA ' + e.message); app.exit(1); return; }
+        console.log('VERSUS red=' + require('path').basename(redFile) + ' vs blue=' + require('path').basename(blueFile));
+        const SEEDS = Array.from({ length: seedCount }, (_, i) => 1001 + i * 1111);
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            let redW = 0, blueW = 0, draw = 0, sumDiff = 0, n = 0;
+            for (const SEED of SEEDS) {
+                const m = await js(`(() => { try {
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:true, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                    battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'versus-blue' });
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    battleSelectorDisable();
+                    battleSelectorEnableFor('battle-red-ai', ${JSON.stringify(RED)});
+                    battleSelectorEnableFor('battle-blue-ally-ai', ${JSON.stringify(BLUE)});
+                    BATTLE_SELECTOR_MIN_TICK = 500; BATTLE_SELECTOR_MAX_TICK = 999999;
+                    const ph=SIM.headless; SIM.headless=true; let t=0; const maxT=Math.round(240/BATTLE_TICK_SEC);
+                    try { while (t<maxT && phase===PHASE.BATTLE && !(SIM.battle && SIM.battle.winnerSide!==null && SIM.battle.winnerSide!==undefined)) { simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); t++; } } finally { SIM.headless=ph; }
+                    battleSelectorDisable();
+                    const red=battleOracleForceValue(true), blue=battleOracleForceValue(false);
+                    const w=(SIM.battle && SIM.battle.winnerSide!==undefined)?SIM.battle.winnerSide:null;
+                    return { diff: Math.round(red.effective-blue.effective), redWin: w===true, blueWin: w===false, decided: w!==null };
+                } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                if (m && m.err) { console.log('VERSUS_MAC_HATA seed=' + SEED + ' ' + m.err); continue; }
+                n++; sumDiff += m.diff;
+                if (m.redWin) redW++; else if (m.blueWin) blueW++; else draw++;
+                console.log('VERSUS seed=' + SEED + ' fark(red-blue)=' + m.diff + ' kazanan=' + (m.redWin ? 'RED' : m.blueWin ? 'BLUE' : 'karar-yok'));
+            }
+            console.log('VERSUS_OZET ' + JSON.stringify({ mac: n, redGalibiyet: redW, blueGalibiyet: blueW, kararsiz: draw, ortFark_red_blue: n ? Math.round(sumDiff / n) : 0 }));
+            console.log('VERSUS_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // SELF-PLAY TEST: `--selfplay <redModel> <blueModel> <seedCount>` → red=modelA, blue=modelB (model-vs-model).
     // Mavi-model kod-AI'dan daha zorlu bir rakip mi (red'in üstünlüğü düşüyor mu) ölçer → arms-race kanıtı.
     if (process.argv.includes('--selfplay')) {
@@ -858,7 +904,10 @@ app.whenReady().then(() => {
             // maç koştur: useModel true ise seçici KIRMIZI'ya bağlı. Tam savaşı oynat, kırmızı net değerini döndür.
             const runMatch = (SEED, useModel) => `(() => { try {
                 openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                battleDeployManifest(battleBuildArmyManifest(${parseInt(process.env.BLUE_BUDGET || '1400', 10)}, { maxUnits: 16, combatFocused: ${(process.env.BLUE_COMBAT || 'combat') !== 'mixed'} }), false, { source: 'sellive-blue' });
+                battleDeployManifest(battleBuildArmyManifest(${parseInt(process.env.BLUE_BUDGET || '1400', 10)}, { maxUnits: 16, combatFocused: ${(process.env.BLUE_COMBAT || 'combat') !== 'mixed'}, varied: ${process.env.SURROGATE === '1'} }), false, { source: 'sellive-blue' });
+                if (${process.env.SURROGATE === '1'}) { BATTLE_SURROGATE_SIDE = false; }   // mavi = insan-taktiği vekil (money-metrik: insan-gibiyi yenme)
+                BATTLE_UNIT_SELF_DEFENSE = ${process.env.NOSELFDEF === '1' ? 'false' : 'true'};   // ÖLÇÜM: mikro-fix etkisi
+                BATTLE_FORCE_CONCENTRATE = ${process.env.CONC === '1' ? 'true' : 'false'};   // ÖLÇÜM: konsantrasyon kaldıracı
                 startBattle(); window.requestAnimationFrame = () => 0;
                 if (${useModel ? 'true' : 'false'}) { battleSelectorEnable(${JSON.stringify(MODEL)}, 'battle-red-ai'); BATTLE_SELECTOR_MIN_TICK = ${process.env.SEL_MIN || 0}; BATTLE_SELECTOR_MAX_TICK = ${process.env.SEL_MAX || 999999}; } else battleSelectorDisable();
                 const ph = SIM.headless; SIM.headless = true;
@@ -1024,6 +1073,9 @@ app.whenReady().then(() => {
         // LİG: rakip (blue) çeşitliliği — bütçe + kompozisyon farklı rakiplere karşı veri
         const blueBudget = parseInt(process.argv[gi + 7] || '1400', 10);
         const blueCombat = (process.argv[gi + 8] || 'combat') !== 'mixed';   // 'mixed' → combatFocused=false
+        // TAKTİK-VEKİLİ modu: SURROGATE=1 → mavi (rakip) insan-gibi taktiği (konsantre+odaklı-ateş) oynar,
+        // kırmızı (model) VARIED ordu komuta eder → AI insan-tarzına karşı, çeşitli ordularla eğitilir.
+        const SURRO = process.env.SURROGATE === '1';
         const minTick = Math.min(...decisionTicks) - 50;
         let MODEL = null;
         try { MODEL = JSON.parse(require('fs').readFileSync(modelFile, 'utf8')); }
@@ -1039,8 +1091,10 @@ app.whenReady().then(() => {
             const examples = [];
             for (const SEED of SEEDS) {
                 const s = await js(`(() => { try {
+                    if (${SURRO}) { BATTLE_FORCE_VARIED = true; }
                     openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                    battleDeployManifest(battleBuildArmyManifest(${blueBudget}, { maxUnits: 16, combatFocused: ${blueCombat} }), false, { source: 'dagger-blue' });
+                    battleDeployManifest(battleBuildArmyManifest(${blueBudget}, { maxUnits: 16, combatFocused: ${blueCombat}, varied: ${SURRO} }), false, { source: 'dagger-blue' });
+                    if (${SURRO}) { BATTLE_SURROGATE_SIDE = false; BATTLE_SURROGATE_DEFENSIVE = ${forceRedAttacker}; }   // mavi=vekil; kırmızı saldırırsa mavi SAVUNUR (usta insan savunması)
                     startBattle(); window.requestAnimationFrame = () => 0;
                     battleSelectorEnable(${JSON.stringify(MODEL)}, 'battle-red-ai'); BATTLE_SELECTOR_MIN_TICK = ${minTick}; BATTLE_SELECTOR_MAX_TICK = 999999;
                     return { ok:true };
@@ -1076,6 +1130,57 @@ app.whenReady().then(() => {
                 console.log('DAGGER_YAZILDI ' + outFile + ' ' + JSON.stringify(meta));
             } catch (e) { console.log('DAGGER_YAZMA_HATA ' + e.message); }
             console.log('DAGGER_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
+    // TEŞHİS (vs1600 zaafı): `--diagvs <model> <blueBudget> <ticks>` → SURROGATE=1 maçta, her karar tik'inde
+    // Oracle-en-iyi aday (intent+ödül) vs kod-AI-default vs MODEL-seçimi → gramer mi yetersiz, model mi yanlış seçiyor?
+    if (process.argv.includes('--diagvs')) {
+        const di = process.argv.indexOf('--diagvs');
+        const modelFile = process.argv[di + 1] || require('path').join(__dirname, '..', 'qa-runtime', 'selector-model.json');
+        const blueBudget = parseInt(process.argv[di + 2] || '1600', 10);
+        const ticks = (process.argv[di + 3] || '700,900,1100').split(',').map(n => parseInt(n, 10));
+        let MODEL = null;
+        try { MODEL = JSON.parse(require('fs').readFileSync(modelFile, 'utf8')); } catch (e) { console.log('DIAG_HATA ' + e.message); app.exit(1); return; }
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const redDefends = process.env.DEF === '1';   // DEF=1 → kırmızı(AI) SAVUNUR, mavi(vekil) SALDIRIR (kullanıcının gerçek senaryosu)
+            await js(`(() => { BATTLE_FORCE_VARIED = true; window.__DIAGMODEL = ${JSON.stringify(MODEL)};
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2112, attackerSide:${redDefends ? 'false' : 'true'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(${blueBudget}, { maxUnits:16, combatFocused:true, varied:true }), false, { source:'diag-blue' });
+                BATTLE_SURROGATE_SIDE = false; BATTLE_SURROGATE_DEFENSIVE = ${redDefends ? 'false' : 'true'}; startBattle(); window.requestAnimationFrame = () => 0; return 1; })()`);
+            console.log('DIAG vs' + blueBudget + ' (SURROGATE=insan-taktiği). intent’ler: attack/assault=saldırı, defend/hold/screen=savunma\n');
+            for (const dt of ticks) {
+                const r = await js(`(() => { try {
+                    const ph=SIM.headless; SIM.headless=true; try { while (SIM.tick < ${dt} && phase===PHASE.BATTLE) { simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); } } finally { SIM.headless=ph; }
+                    if (phase!==PHASE.BATTLE) return { done:true };
+                    const savedModels = BATTLE_SELECTOR_MODELS; BATTLE_SELECTOR_MODELS = {};
+                    const ev = battleOracleEvaluate({ sideRed:true, rolloutSec:10, collectDataset:true });
+                    BATTLE_SELECTOR_MODELS = savedModels;
+                    if (!ev || !ev.dataset || !ev.active) return { skip:true, tick:SIM.tick };
+                    const ds = ev.dataset, rew = ds.rows.map(r=>r.reward), best = Math.max(...rew);
+                    let bs=-Infinity, pick=0; for (let c=0;c<ds.rows.length;c++){ const x=ds.stateFeatures.concat(ds.rows[c].features); const s=selForward(window.__DIAGMODEL,x).out; if(s>bs){bs=s;pick=c;} }
+                    const byIntent = {}; for (const row of ds.rows) { if (byIntent[row.intent]==null || row.reward>byIntent[row.intent]) byIntent[row.intent]=row.reward; }
+                    return { tick:SIM.tick, oracle:ev.oracle, chosen:ev.chosen, top5:ev.top5, byIntent,
+                        modelPick:{ intent:ds.rows[pick].intent, sector:ds.rows[pick].mainSector, reward:ds.rows[pick].reward },
+                        modelRegret:+(best-rew[pick]).toFixed(1) };
+                } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,200) }; } })()`);
+                if (!r || r.done) { console.log('  (maç bitti)'); break; }
+                if (r.err) { console.log('  tick=' + dt + ' HATA ' + r.err); continue; }
+                if (r.skip) { console.log('  tick=' + r.tick + ' (temas yok, aday yok)'); continue; }
+                console.log('── tick=' + r.tick + ' ──');
+                console.log('  Oracle-EN-İYİ : ' + r.oracle.intent + '/' + r.oracle.mainSector + '  ödül=' + r.oracle.scalar);
+                console.log('  kod-AI-default: ödül=' + r.chosen.scalar);
+                console.log('  MODEL-seçim   : ' + r.modelPick.intent + '/' + r.modelPick.sector + '  ödül=' + r.modelPick.reward + '  → regret=' + r.modelRegret);
+                console.log('  intent-başı-EN-İYİ: ' + Object.entries(r.byIntent).sort((a,b)=>b[1]-a[1]).map(([k,v]) => k + '(' + v.toFixed(0) + ')').join('  '));
+            }
+            console.log('\nYORUM: Oracle-en-iyi SAVUNMA ise + model SALDIRI seçiyorsa → MODEL sorunu (eğitim).');
+            console.log('       Oracle-en-iyi de düşük/saldırı + hepsi kötü ise → GRAMER sorunu (savunma operasyonu yok).');
             setTimeout(() => app.exit(0), 300);
         });
         return;
@@ -1361,7 +1466,7 @@ app.whenReady().then(() => {
                     feats: (typeof terrainFeatures !== 'undefined') ? terrainFeatures.length : -1 };
             } catch (e) { return { err: e.message }; } })()`);
             if (!info || info.sessionMode !== 'quick' ||
-                info.engineVersion !== 'battlefield-v2-fixed50-recorder2' ||
+                info.engineVersion !== 'battlefield-v2-fixed50-microfix3' ||
                 info.tickMs !== 50 || !info.sameStep || !info.hashReady || !info.replayReady) {
                 problems.push('ortak savaş motoru doğrulanamadı: ' + JSON.stringify(info));
             } else if (!info.controllerReady || !info.perceptionReady ||
@@ -2193,6 +2298,19 @@ ipcMain.handle('train:saveHumanData', (_e, examples) => {
 ipcMain.handle('train:humanDataCount', () => {
     try { const d = JSON.parse(require('fs').readFileSync(HUMAN_DATA_FILE, 'utf8')); return { total: (d.examples || []).length }; }
     catch (_) { return { total: 0 }; }
+});
+// #5: her maçın TAM kaydını qa-runtime/last-match.json'a yaz (Claude gerçek maçı izlesin: donma/flank/yana-açılma).
+const LAST_MATCH_FILE = app.isPackaged
+    ? path.join(path.dirname(process.execPath), '..', '..', 'qa-runtime', 'last-match.json')
+    : path.join(__dirname, '..', 'qa-runtime', 'last-match.json');
+ipcMain.handle('train:saveMatchRecording', (_e, rec) => {
+    try {
+        if (!rec) return { ok: false };
+        const fsx = require('fs');
+        fsx.mkdirSync(path.dirname(LAST_MATCH_FILE), { recursive: true });
+        fsx.writeFileSync(LAST_MATCH_FILE, JSON.stringify(rec));
+        return { ok: true, bytes: JSON.stringify(rec).length };
+    } catch (e) { return { error: String(e && e.message) }; }
 });
 
 // ── LLM KÖPRÜSÜ ────────────────────────────────────────────────────────────

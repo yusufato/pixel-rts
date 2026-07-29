@@ -24,3 +24,11 @@ dist/
 *.gguf
 models/*.gguf
 models/*.gguf
+
+# Eğitim verisi + kayıtlar (101MB, yeniden üretilebilir; aktif beyin js/BattleSelectorModel.js'te)
+qa-runtime/
+
+# Build artıkları (dist/ zaten üstte; recorder/release/current de)
+dist-recorder/
+dist-release/
+dist-current/
