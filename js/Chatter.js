@@ -47,8 +47,8 @@ const CH_TONE = {
     'fırsatçı': ['gülümseyerek', 'göz kırparak', 'kelimeleri seçerek', 'yan gözle bakarak'],
     oyuncu:     ['kısaca', 'net biçimde', 'düşünerek', 'sertçe'],
 };
-function chTone(c) { const a = CH_TONE[c && c.personality] || CH_TONE.dengeli; return a[(Math.random() * a.length) | 0]; }
-function chPick(a) { return a[(Math.random() * a.length) | 0]; }
+function chTone(c) { const a = CH_TONE[c && c.personality] || CH_TONE.dengeli; return a[storyRandomInt('narrative', a.length)]; }
+function chPick(a) { return a[storyRandomInt('narrative', a.length)]; }
 
 // ── KONULAR ────────────────────────────────────────────────────────────────
 // each: when(ctx,a,b) · lines(ctx,a,b) → [A repliği, B repliği] · effect(ctx,a,b)
@@ -119,7 +119,15 @@ const CH_TOPICS = [
         ],
         effect: (c, a, b) => {
             if (cmdBond(a, b) >= 20 && b.res && b.res.points > 150) {
-                b.res.points -= 120; a.res.points = (a.res.points || 0) + 120;
+                const st = storyState(a.st);
+                if (typeof storyBudgetTransfer === 'function') {
+                    const moved = storyBudgetTransfer(st, b, a, 120, 'commander.aid', {
+                        correlationId: `chatter-aid:${b.id}:${a.id}`
+                    });
+                    if (!moved.ok) return { bond: -7, msg: 'ikmal yardımı karşılanamadı' };
+                } else {
+                    b.res.points -= 120; a.res.points = (a.res.points || 0) + 120;
+                }
                 return { bond: 10, msg: `${b.name}, ${a.name}'a 120⭐ yardım etti` };
             }
             return { bond: -7, msg: 'ikmal yardımı reddedildi' };
@@ -178,7 +186,11 @@ function storyChatterTick(dtSec) {
     STORY._accChat = (STORY._accChat || 0) + dtSec;
     if (STORY._accChat < CHATTER_INTERVAL) return;
     STORY._accChat = 0;
+    storyChatterRun();
+}
 
+function storyChatterRun() {
+    if (!STORY.active || STORY._session) return;
     const me = storyPlayerState(); if (!me) return;
     const cmds = storyStateCommanders(me).filter(c => !c.isPlayer);
     if (cmds.length < 2) return;
@@ -187,7 +199,7 @@ function storyChatterTick(dtSec) {
     const a = chPick(cmds);
     const near = cmds.filter(c => c !== a && (c.node === a.node
         || ((storyNode(a.node) || {}).neighbors || []).indexOf(c.node) >= 0));
-    const b = near.length && Math.random() < 0.75 ? chPick(near) : chPick(cmds.filter(c => c !== a));
+    const b = near.length && storyRandom('narrative') < 0.75 ? chPick(near) : chPick(cmds.filter(c => c !== a));
     if (!b || a === b) return;
 
     // bağlam
@@ -209,7 +221,7 @@ function storyChatterTick(dtSec) {
     const cand = CH_TOPICS.filter(t => { try { return t.when(ctx, a, b); } catch (_) { return false; } });
     if (!cand.length) return;
     let tot = 0; const ws = cand.map(t => { tot += t.w; return t.w; });
-    let r = Math.random() * tot, topic = cand[0];
+    let r = storyRandom('narrative') * tot, topic = cand[0];
     for (let i = 0; i < cand.length; i++) { r -= ws[i]; if (r <= 0) { topic = cand[i]; break; } }
 
     let lines, eff;

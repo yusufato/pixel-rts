@@ -15,14 +15,27 @@ const STORY_START_YEAR = 2032;   // MODERN ÇAĞ: kurgusal yakın gelecek
 const SEASON_NAMES = ['İLKBAHAR', 'YAZ', 'SONBAHAR', 'KIŞ'];
 const SEASON_ICONS = ['🌱', '☀️', '🍂', '❄️'];
 
-function storyYear() { return STORY_START_YEAR + Math.floor((STORY.clock || 0) / YEAR_SECONDS); }
+function storyYear() {
+    return typeof storyCalendarNow === 'function'
+        ? storyCalendarNow().year
+        : STORY_START_YEAR + Math.floor((STORY.clock || 0) / YEAR_SECONDS);
+}
 function storyYearFloat() { return (STORY.clock || 0) / YEAR_SECONDS; }
-function storySeasonIdx() { return Math.min(3, Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / (YEAR_SECONDS / 4))); }
+function storySeasonIdx() {
+    return typeof storyCalendarNow === 'function'
+        ? storyCalendarNow().seasonIndex
+        : Math.min(3, Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / (YEAR_SECONDS / 4)));
+}
 // TARİH: kullanıcı isteğiyle SAYISAL biçim (GG.AA.YYYY). 1 yıl = 120 sn → 360 kurgu
 // günü; gün/ay oyun saatinden türer. Mevsim fonksiyonları içeride yaşamaya devam
 // eder (çağ/konsey metinleri mevsim havasını kullanabilir).
-function storyDayOfYear() { return Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / YEAR_SECONDS * 360); }
+function storyDayOfYear() {
+    return typeof storyCalendarNow === 'function'
+        ? storyCalendarNow().dayOfYear
+        : Math.floor(((STORY.clock || 0) % YEAR_SECONDS) / YEAR_SECONDS * 360);
+}
 function storyDateLabel() {
+    if (typeof storyCalendarNow === 'function') return storyCalendarNow().label;
     const d = storyDayOfYear();
     const gg = String(1 + (d % 30)).padStart(2, '0'), aa = String(1 + Math.floor(d / 30)).padStart(2, '0');
     return `${gg}.${aa}.${storyYear()}`;
@@ -97,23 +110,23 @@ function storyConstitution(st) { return CONSTITUTION_BY_ID[(st && st.constitutio
 // ── DEVLET ÖNERGELERİ (tek seferlik; gündeme çeşni katar) ────────────────────
 // apply(st): anında etki. Maliyet devlet hazinesinden (komutan kasalarından orantılı) düşer.
 const COUNCIL_MOTIONS = [
-    { id: 'winter', wf: 8, loy: 0,   icon: '🧣', name: 'Kışlık İkmal Programı',  desc: 'Refah +8 · hazineden 120⛽',        cost: { oil: 120 },      appeal: { diplomat: 1.4 },              apply: st => { st.welfare = Math.min(100, st.welfare + 8); } },
+    { id: 'winter', wf: 8, loy: 0,   icon: '🧣', name: 'Kışlık İkmal Programı',  desc: 'Refah +8 · hazineden 120⛽',        cost: { oil: 120 },      appeal: { diplomat: 1.4 },              apply: st => { storyWelfareDelta(st, 'council.motion.winter', 8); } },
     { id: 'parade', wf: 0, loy: 8,   icon: '🥁', name: 'Askerî Geçit Töreni',    desc: 'Tüm komutanlar +8 sadakat · 90⭐',  cost: { points: 90 },    appeal: { warrior: 1.2, aggr: 0.8 },    apply: st => { for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 8); } },
-    { id: 'amnesty', wf: -3, loy: 14,  icon: '🕊️', name: 'Genel Af',               desc: 'Sadakati düşük komutanlar +14 · refah −3', cost: {},        appeal: { diplomat: 1.6, aggr: -1 },    apply: st => { st.welfare = Math.max(0, st.welfare - 3); for (const c of storyStateCommanders(st)) if ((c.loyalty || 60) < 55) c.loyalty = Math.min(100, (c.loyalty || 60) + 14); } },
-    { id: 'roads', wf: 0, loy: 0,    icon: '🛤️', name: 'Otoyol Yatırım Programı', desc: 'Her şehir +1 seviye ilerleme fonu · 150⭐', cost: { points: 150 }, appeal: { economist: 1.5 },      apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.points += 40; } } },
-    { id: 'veterans', wf: 6, loy: 5, icon: '🎖️', name: 'Gazi Maaşları',          desc: 'Refah +6 · sadakat +5 · 100👥',     cost: { manpower: 100 }, appeal: { diplomat: 1.1, warrior: 0.8 }, apply: st => { st.welfare = Math.min(100, st.welfare + 6); for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 5); } },
-    { id: 'granary', wf: 5, loy: 0,  icon: '🌾', name: 'Stratejik Gıda Rezervi',    desc: 'Refah +5 · tüm komutanlara +30👥',  cost: { oil: 60 },       appeal: { economist: 1.2, diplomat: 0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 5); for (const c of storyStateCommanders(st)) { if (c.res) c.res.manpower += 30; } } },
+    { id: 'amnesty', wf: -3, loy: 14,  icon: '🕊️', name: 'Genel Af',               desc: 'Sadakati düşük komutanlar +14 · refah −3', cost: {},        appeal: { diplomat: 1.6, aggr: -1 },    apply: st => { storyWelfareDelta(st, 'council.motion.amnesty', -3); for (const c of storyStateCommanders(st)) if ((c.loyalty || 60) < 55) c.loyalty = Math.min(100, (c.loyalty || 60) + 14); } },
+    { id: 'roads', wf: 0, loy: 0,    icon: '🛤️', name: 'Otoyol Yatırım Programı', desc: 'Her şehir +1 zenginlik · gerçek bütçe gideri 150⭐', cost: { points: 150 }, appeal: { economist: 1.5 },      apply: st => { for (const n of STORY.nodes) if (n.owner === st.id) n.wealth = (Number(n.wealth) || 0) + 1; } },
+    { id: 'veterans', wf: 6, loy: 5, icon: '🎖️', name: 'Gazi Maaşları',          desc: 'Refah +6 · sadakat +5 · 100👥',     cost: { manpower: 100 }, appeal: { diplomat: 1.1, warrior: 0.8 }, apply: st => { storyWelfareDelta(st, 'council.motion.veterans', 6); for (const c of storyStateCommanders(st)) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 5); } },
+    { id: 'granary', wf: 5, loy: 0,  icon: '🌾', name: 'Stratejik Gıda Rezervi',    desc: 'Refah +5 · tüm komutanlara +30👥',  cost: { oil: 60 },       appeal: { economist: 1.2, diplomat: 0.7 }, apply: st => { storyWelfareDelta(st, 'council.motion.granary', 5); for (const c of storyStateCommanders(st)) { if (c.res) c.res.manpower += 30; } } },
     { id: 'arsenal', wf: 0, loy: 0,  icon: '🔧', name: 'Cephanelik Genişletmesi', desc: 'Başkente +1 fabrika seviyesi · 140⛽', cost: { oil: 140 },   appeal: { warrior: 1.5, aggr: 1 },      apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.fac = Math.min(3, (cap.fac | 0) + 1); } },
     { id: 'barracks', wf: 0, loy: 0, icon: '🏕️', name: 'Kışla Modernizasyonu',      desc: 'Başkente +1 kışla seviyesi · 120👥', cost: { manpower: 120 }, appeal: { warrior: 1.3 },              apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.bar = Math.min(3, (cap.bar | 0) + 1); } },
     { id: 'purge', wf: 4, loy: 0,    icon: '🗡️', name: 'Ordu Tasfiyesi',         desc: 'En sadakatsiz komutan görevden alınır · refah +4', cost: {}, appeal: { warrior: 0.6, aggr: 1.4, diplomat: -1.6 }, apply: st => {
         if (!st.gov || !st.gov.commanders.length) return;
         let worst = null; for (const c of st.gov.commanders) if (!c.isPlayer && (!worst || (c.loyalty || 60) < (worst.loyalty || 60))) worst = c;
-        if (worst) { const i = st.gov.commanders.indexOf(worst); if (i >= 0) st.gov.commanders.splice(i, 1); st.welfare = Math.min(100, st.welfare + 4); }
+        if (worst) { const i = st.gov.commanders.indexOf(worst); if (i >= 0) st.gov.commanders.splice(i, 1); storyWelfareDelta(st, 'council.motion.purge', 4); }
     }},
     { id: 'medals', wf: 0, loy: 10,   icon: '🏅', name: 'Madalya Yönetmeliği',    desc: 'Muharip komutanlar +10 sadakat · 70⭐', cost: { points: 70 }, appeal: { warrior: 1.4 },              apply: st => { for (const c of storyStateCommanders(st)) if ((c.skills && c.skills.warrior) >= 4) c.loyalty = Math.min(100, (c.loyalty == null ? 60 : c.loyalty) + 10); } },
     { id: 'census', wf: 0, loy: 0,   icon: '📋', name: 'Nüfus Sayımı',           desc: 'Tüm komutanlara +45👥 +45⛽ · 80⭐',  cost: { points: 80 },   appeal: { economist: 1.3 },             apply: st => { for (const c of storyStateCommanders(st)) { if (!c.res) continue; c.res.manpower += 45; c.res.oil += 45; } } },
-    { id: 'austerity', wf: -6, loy: 0,icon: '✂️', name: 'Tasarruf Tedbirleri',    desc: 'Refah −6 · tüm komutanlara +60⭐',   cost: {},               appeal: { economist: 0.9, diplomat: -1 }, apply: st => { st.welfare = Math.max(0, st.welfare - 6); for (const c of storyStateCommanders(st)) { if (c.res) c.res.points += 60; } } },
-    { id: 'festival', wf: 9, loy: 0, icon: '🎪', name: 'Millî Bayram',           desc: 'Refah +9 · 60⭐ 60⛽',                cost: { points: 60, oil: 60 }, appeal: { diplomat: 1.5, aggr: -0.7 }, apply: st => { st.welfare = Math.min(100, st.welfare + 9); } },
+    { id: 'austerity', wf: -6, loy: 0,icon: '✂️', name: 'Tasarruf Tedbirleri',    desc: 'Refah −6 · güven +8 · enflasyon −2; para yaratmaz', cost: {}, appeal: { economist: 0.9, diplomat: -1 }, apply: st => { storyWelfareDelta(st, 'council.motion.austerity', -6); st.marketConfidence = Math.min(100, (Number(st.marketConfidence) || 50) + 8); st.inflation = Math.max(2, (Number(st.inflation) || 2) - 2); } },
+    { id: 'festival', wf: 9, loy: 0, icon: '🎪', name: 'Millî Bayram',           desc: 'Refah +9 · 60⭐ 60⛽',                cost: { points: 60, oil: 60 }, appeal: { diplomat: 1.5, aggr: -0.7 }, apply: st => { storyWelfareDelta(st, 'council.motion.festival', 9); } },
     { id: 'reserve', wf: 0, loy: 0,  icon: '🛡️', name: 'İhtiyat Kuvvet Fonu',    desc: 'Başkent garnizonu +1 · 90👥',        cost: { manpower: 90 },  appeal: { warrior: 1.1, aggr: -0.4 },   apply: st => { const cap = storyNode((STORY._capitals || [])[st.id]); if (cap && cap.owner === st.id) cap.garrison = Math.min(6, (cap.garrison | 0) + 1); } },
 ];
 const MOTION_BY_ID = {}; COUNCIL_MOTIONS.forEach(m => { MOTION_BY_ID[m.id] = m; });
@@ -347,15 +360,40 @@ function storyCouncilPayFromState(st, cost) {
     const cmds = storyStateCommanders(st); if (!cmds.length) return false;
     for (const k in cost) { let have = 0; for (const c of cmds) have += (c.res && c.res[k]) || 0; if (have < cost[k]) return false; }
     for (const k in cost) {
+        if (k === 'points' && typeof storyBudgetDebit === 'function') {
+            const paid = storyBudgetDebit(st, cost[k], 'council', {
+                correlationId: `council:${st.id}:${STORY._councilNo || 0}`
+            });
+            if (!paid.ok) return false;
+            continue;
+        }
         let need = cost[k];
         const rich = cmds.slice().sort((a, b) => ((b.res && b.res[k]) || 0) - ((a.res && a.res[k]) || 0));
         for (const c of rich) { if (need <= 0) break; if (!c.res) continue; const take = Math.min(need, c.res[k]); c.res[k] -= take; need -= take; }
+    }
+    if (typeof storyResourceFlow === 'function') {
+        storyResourceFlow(st, 'expense.council', {
+            oil: -(Number(cost.oil) || 0),
+            manpower: -(Number(cost.manpower) || 0),
+            points: -(Number(cost.points) || 0)
+        }, {
+            correlationId: `council:${st.id}:${STORY._councilNo || 0}`
+        });
     }
     return true;
 }
 // item + seçilen option id → devlete uygula. Döner: kısa log metni (veya null)
 function storyCouncilApply(st, item, optId) {
     if (!optId || optId === '_keep' || optId === '_none') return null;
+    if (typeof storyTelemetryEvent === 'function') {
+        storyTelemetryEvent('council.decision', {
+            stateId: st && st.id,
+            itemKind: item && item.kind,
+            optionId: optId
+        }, {
+            correlationId: `council:${st && st.id}:${STORY._councilNo || 0}`
+        });
+    }
     if (item.kind === 'tech') {
         const opt = item.options.find(o => o.id === optId); if (!opt) return null;
         if (!storyCouncilPayFromState(st, { points: opt.techCost })) return `⭐ hazine yetersiz — <b>${opt.name}</b> ertelendi`;
@@ -369,9 +407,9 @@ function storyCouncilApply(st, item, optId) {
         const o = lawOption(item.lawSlot, optId); if (!o) return null;
         if (!st.laws) st.laws = {};
         st.laws[item.lawSlot] = optId;
-        if (o.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + o.welfare));
+        if (o.welfare) storyWelfareDelta(st, `council.law.${item.lawSlot}.${optId}`, o.welfare);
         if (typeof storyFacOnLaw === 'function') storyFacOnLaw(st, item.lawSlot, optId, o.name);   // AŞAMA 2: toplum tepkisi
-        if (typeof storyNews === 'function' && (st.isPlayer || Math.random() < 0.25)) storyNews('law', { st: st.name, law: o.name });
+        if (typeof storyNews === 'function' && (st.isPlayer || storyRandom('governance') < 0.25)) storyNews('law', { st: st.name, law: o.name });
         storyStateComputeTech(st);
         if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
         return `⚖️ <b>${o.name}</b> kanunlaştı`;
@@ -379,7 +417,7 @@ function storyCouncilApply(st, item, optId) {
     if (item.kind === 'constitution') {
         const c = CONSTITUTION_BY_ID[optId]; if (!c) return null;
         st.constitution = optId;
-        if (c.welfare) st.welfare = Math.max(0, Math.min(100, (st.welfare || 50) + c.welfare));
+        if (c.welfare) storyWelfareDelta(st, `council.constitution.${optId}`, c.welfare);
         if (typeof storyFacOnConstitution === 'function') storyFacOnConstitution(st, optId, c.name);   // AŞAMA 2
         storyStateComputeTech(st);
         if (st.isPlayer && typeof storyComputeTechBonus === 'function') storyComputeTechBonus();
@@ -486,7 +524,9 @@ function storyCouncilHasCapital(st) {
     return !!(cap && cap.owner === st.id);
 }
 function storyCouncilNoCapitalPenalty(st) {
-    st.welfare = Math.max(0, (st.welfare || 50) - 6);
+    storyWelfareDelta(st, 'council.no_capital', -6, {
+        correlationId: `council:no-capital:${st.id}:${STORY._councilNo || 0}`
+    });
     for (const c of storyStateCommanders(st)) c.loyalty = Math.max(0, (c.loyalty == null ? 60 : c.loyalty) - 6);
     if (st.isPlayer) storyLog(`🏛️ <b>KONSEY TOPLANAMADI</b> — başkentin elinde değil! Refah ve sadakat düştü.`);
 }

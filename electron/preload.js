@@ -27,4 +27,10 @@ contextBridge.exposeInMainWorld('PIXEL', {
         // #5: her maçın TAM kaydını (samples+controllerDecisions) qa-runtime/last-match.json'a yaz → Claude izler.
         saveMatchRecording: rec => ipcRenderer.invoke('train:saveMatchRecording', rec),
     },
+    // KOMUTAN MODU: COMMANDER=1 env ile açılır → oyun kırmızıyı dış-komutana (dosya alışverişi) bırakır.
+    commanderMode: process.env.COMMANDER === '1',
+    commander: {
+        writeState: state => ipcRenderer.invoke('commander:writeState', state),   // canlı sahayı qa-runtime/commander-state.json'a yaz
+        readOrders: turn => ipcRenderer.invoke('commander:readOrders', turn),      // qa-runtime/commander-orders.json'dan (tur eşleşirse) emirleri oku
+    },
 });

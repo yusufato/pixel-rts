@@ -1,0 +1,401 @@
+// OTOMATİK — units-modern.json global sarmalayıcı.
+const UNITS_MODERN_DB = {
+  "era": "modern",
+  "version": 1,
+  "notes": "Menzil ve gorus KARE (tile) cinsinden. Hiz kare/saniye. Hasar tek isabet basina.",
+
+  "armorTypes": ["infantry", "light", "heavy", "structure", "air"],
+  "damageTypes": ["small_arms", "he", "ap", "shaped", "frag", "sam"],
+
+  "damageMatrix": {
+    "small_arms": { "infantry": 1.00, "light": 0.35, "heavy": 0.05, "structure": 0.10, "air": 0.15 },
+    "he":         { "infantry": 1.20, "light": 0.80, "heavy": 0.30, "structure": 1.00, "air": 0.00 },
+    "ap":         { "infantry": 0.40, "light": 1.10, "heavy": 1.00, "structure": 0.60, "air": 0.00 },
+    "shaped":     { "infantry": 0.15, "light": 1.20, "heavy": 1.40, "structure": 0.90, "air": 0.00 },
+    "frag":       { "infantry": 0.90, "light": 0.50, "heavy": 0.10, "structure": 0.20, "air": 1.30 },
+    "sam":        { "infantry": 0.00, "light": 0.00, "heavy": 0.00, "structure": 0.00, "air": 1.60 }
+  },
+
+  "accuracyModel": {
+    "formula": "acc = base * rangeFalloff * movingPenalty * coverPenalty",
+    "rangeFalloff": "d <= optimalRange ? 1 : 1 - falloff * (d - optimalRange) / (range - optimalRange)",
+    "movingPenalty": "1 - vsMoving * (targetSpeed / 4)",
+    "coverPenalty": "1 - targetCover * (1 - ignoresCover)",
+    "floor": 0.15
+  },
+
+  "units": [
+    {
+      "id": "infantry", "name": "Piyade", "category": "infantry", "tier": 1,
+      "cost": { "resource": 100, "supply": 2, "buildTime": 8 },
+      "hp": 220, "armorType": "infantry", "armorValue": 0,
+      "speed": 1.0, "vision": 7, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "hafif silah", "damage": 14, "damageType": "small_arms", "range": 4, "minRange": 0,
+          "rof": 1.4, "aoe": 0, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.80, "optimalRange": 3, "falloff": 0.35, "vsMoving": 0.25, "ignoresCover": 0.0 } }
+      ],
+      "ammo": null,
+      "abilities": ["garrison", "dig_in"],
+      "roleTags": ["line_holder", "cheap_mass", "urban"]
+    },
+    {
+      "id": "at_team", "name": "Tanksavar Timi", "category": "infantry", "tier": 1,
+      "cost": { "resource": 170, "supply": 2, "buildTime": 10 },
+      "hp": 160, "armorType": "infantry", "armorValue": 0,
+      "speed": 0.9, "vision": 7, "stealth": 0.3, "detect": 0,
+      "weapons": [
+        { "name": "ATGM", "damage": 300, "damageType": "shaped", "range": 7, "minRange": 1,
+          "rof": 0.25, "aoe": 0.5, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.85, "optimalRange": 6, "falloff": 0.30, "vsMoving": 0.40, "ignoresCover": 0.0 } }
+      ],
+      "ammo": { "capacity": 4, "perShot": 1, "resupplyRate": 0.5 },
+      "abilities": ["garrison", "ambush"],
+      "roleTags": ["anti_armor", "ambush"]
+    },
+    {
+      "id": "mortar_team", "name": "Havan Timi", "category": "infantry", "tier": 1,
+      "cost": { "resource": 180, "supply": 2, "buildTime": 12 },
+      "hp": 150, "armorType": "infantry", "armorValue": 0,
+      "speed": 0.7, "vision": 6, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "havan", "damage": 40, "damageType": "he", "range": 12, "minRange": 3,
+          "rof": 0.4, "aoe": 2.0, "targets": ["ground"], "indirect": true,
+          "accuracy": { "base": 0.55, "optimalRange": 8, "falloff": 0.45, "vsMoving": 0.70, "ignoresCover": 0.8 } }
+      ],
+      "ammo": { "capacity": 14, "perShot": 1, "resupplyRate": 1.0 },
+      "abilities": ["smoke_round"],
+      "roleTags": ["indirect_fire", "cover_breaker"]
+    },
+    {
+      "id": "manpads_team", "name": "MANPADS Timi", "category": "infantry", "tier": 2,
+      "cost": { "resource": 190, "supply": 2, "buildTime": 14 },
+      "hp": 150, "armorType": "infantry", "armorValue": 0,
+      "speed": 0.9, "vision": 8, "stealth": 0.6, "detect": 0.5,
+      "weapons": [
+        { "name": "omuzdan atilan SAM", "damage": 190, "damageType": "sam", "range": 11, "minRange": 1,
+          "rof": 0.2, "aoe": 0.8, "targets": ["air"], "indirect": false, "revealsOnFire": true,
+          "accuracy": { "base": 0.75, "optimalRange": 8, "falloff": 0.35, "vsMoving": 0.15, "ignoresCover": 0.0 } }
+      ],
+      "ammo": { "capacity": 3, "perShot": 1, "resupplyRate": 0.25 },
+      "abilities": ["garrison", "ambush", "hold_fire"],
+      "roleTags": ["anti_air", "anti_drone", "ambush", "no_ground_attack"]
+    },
+    {
+      "id": "commando", "name": "Komando", "category": "infantry", "tier": 3,
+      "cost": { "resource": 320, "supply": 3, "buildTime": 22 },
+      "hp": 260, "armorType": "infantry", "armorValue": 1,
+      "speed": 1.3, "vision": 9, "stealth": 0.85, "detect": 0.4,
+      "weapons": [
+        { "name": "otomatik silah", "damage": 22, "damageType": "small_arms", "range": 5, "minRange": 0,
+          "rof": 1.6, "aoe": 0, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.92, "optimalRange": 4, "falloff": 0.25, "vsMoving": 0.15, "ignoresCover": 0.5 } },
+        { "name": "yikim carji", "damage": 260, "damageType": "he", "range": 1, "minRange": 0,
+          "rof": 0.08, "aoe": 1.5, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 1.0, "optimalRange": 1, "falloff": 0, "vsMoving": 0.9, "ignoresCover": 1.0 } }
+      ],
+      "abilities": ["infiltrate", "mark_target", "sabotage"],
+      "roleTags": ["raider", "backline_hunter", "stealth"]
+    },
+
+    {
+      "id": "mbt", "name": "Tank", "category": "armor", "tier": 2,
+      "cost": { "resource": 500, "supply": 5, "buildTime": 30 },
+      "hp": 900, "armorType": "heavy", "armorValue": 8,
+      "speed": 1.6, "vision": 8, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "ana top", "damage": 150, "damageType": "ap", "range": 6, "minRange": 0,
+          "rof": 0.35, "aoe": 0.8, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.88, "optimalRange": 5, "falloff": 0.30, "vsMoving": 0.30, "ignoresCover": 0.4 } },
+        { "name": "esgudumlu makineli", "damage": 10, "damageType": "small_arms", "range": 6, "minRange": 0,
+          "rof": 2.0, "aoe": 0, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.75, "optimalRange": 3, "falloff": 0.40, "vsMoving": 0.30, "ignoresCover": 0.2 } }
+      ],
+      "ammo": { "capacity": 22, "perShot": 1, "resupplyRate": 1.5 },
+      "armorFacing": { "front": 1.0, "side": 0.65, "rear": 0.40, "top": 0.35 },
+      "abilities": ["overrun"],
+      "roleTags": ["breakthrough", "anti_infantry", "frontline"]
+    },
+    {
+      "id": "ifv", "name": "Mekanize Piyade (ZMA)", "category": "armor", "tier": 1,
+      "cost": { "resource": 320, "supply": 4, "buildTime": 20 },
+      "hp": 480, "armorType": "light", "armorValue": 4,
+      "speed": 2.2, "vision": 8, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "otomatik top", "damage": 26, "damageType": "ap", "range": 5, "minRange": 0,
+          "rof": 1.2, "aoe": 0.3, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.78, "optimalRange": 4, "falloff": 0.35, "vsMoving": 0.35, "ignoresCover": 0.3 } }
+      ],
+      "ammo": { "capacity": 40, "perShot": 1, "resupplyRate": 3.0 },
+      "armorFacing": { "front": 1.0, "side": 0.75, "rear": 0.55, "top": 0.45 },
+      "transport": { "slots": 4, "allows": ["infantry"] },
+      "abilities": ["load", "unload"],
+      "roleTags": ["transport", "screen", "flanker"]
+    },
+    {
+      "id": "tank_destroyer", "name": "Tank Avcisi", "category": "armor", "tier": 2,
+      "cost": { "resource": 420, "supply": 4, "buildTime": 26 },
+      "hp": 520, "armorType": "heavy", "armorValue": 6,
+      "speed": 2.0, "vision": 9, "stealth": 0.2, "detect": 0,
+      "weapons": [
+        { "name": "yuksek hizli top", "damage": 290, "damageType": "ap", "range": 9, "minRange": 1,
+          "rof": 0.3, "aoe": 0.3, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.90, "optimalRange": 8, "falloff": 0.28, "vsMoving": 0.35, "ignoresCover": 0.3 } }
+      ],
+      "ammo": { "capacity": 16, "perShot": 1, "resupplyRate": 1.2 },
+      "armorFacing": { "front": 1.0, "side": 0.50, "rear": 0.30, "top": 0.25 },
+      "abilities": ["hold_fire"],
+      "roleTags": ["anti_armor", "overwatch"]
+    },
+
+    {
+      "id": "artillery", "name": "Topcu", "category": "indirect", "tier": 2,
+      "cost": { "resource": 450, "supply": 4, "buildTime": 28 },
+      "hp": 280, "armorType": "light", "armorValue": 1,
+      "speed": 1.1, "vision": 6, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "obus", "damage": 95, "damageType": "he", "range": 20, "minRange": 5,
+          "rof": 0.18, "aoe": 3.0, "targets": ["ground"], "indirect": true,
+          "accuracy": { "base": 0.45, "optimalRange": 12, "falloff": 0.50, "vsMoving": 0.85, "ignoresCover": 0.9 } }
+      ],
+      "ammo": { "capacity": 8, "perShot": 1, "resupplyRate": 0.6 },
+      "abilities": ["barrage", "smoke_barrage", "deploy"],
+      "requires": ["spotter"],
+      "roleTags": ["indirect_fire", "siege", "suppression"]
+    },
+    {
+      "id": "mlrs", "name": "CNRA", "category": "indirect", "tier": 3,
+      "cost": { "resource": 650, "supply": 5, "buildTime": 36 },
+      "hp": 260, "armorType": "light", "armorValue": 1,
+      "speed": 1.4, "vision": 6, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "roket salvosu", "damage": 55, "damageType": "he", "range": 26, "minRange": 8, "interceptable": true,
+          "rof": 0.05, "salvo": 12, "salvoInterval": 0.15, "aoe": 2.5, "targets": ["ground"], "indirect": true,
+          "accuracy": { "base": 0.35, "optimalRange": 16, "falloff": 0.55, "vsMoving": 0.90, "ignoresCover": 0.9 } }
+      ],
+      "ammo": { "capacity": 3, "perShot": 1, "resupplyRate": 0.15 },
+      "abilities": ["shoot_and_scoot"],
+      "requires": ["spotter"],
+      "roleTags": ["indirect_fire", "burst_damage", "anti_mass"]
+    },
+    {
+      "id": "ballistic_missile", "name": "Balistik Fuze Bataryasi", "category": "indirect", "tier": 4,
+      "cost": { "resource": 1050, "supply": 6, "buildTime": 60 },
+      "hp": 300, "armorType": "light", "armorValue": 1,
+      "speed": 0.9, "vision": 5, "stealth": 0, "detect": 0,
+      "weapons": [
+        { "name": "taktik fuze", "damage": 600, "damageType": "he", "range": 40, "minRange": 20,
+          "rof": 0.015, "aoe": 6.0, "targets": ["ground"], "indirect": true, "interceptable": true,
+          "accuracy": { "base": 0.70, "optimalRange": 40, "falloff": 0.30, "vsMoving": 0.95, "ignoresCover": 1.0 } }
+      ],
+      "ammo": { "capacity": 1, "perShot": 1, "resupplyRate": 0.05 },
+      "abilities": ["deploy", "relocate"],
+      "roleTags": ["strategic", "anti_structure"]
+    },
+    {
+      "id": "counter_battery_radar", "name": "Hava-Arama Radari", "category": "support", "tier": 2,
+      "cost": { "resource": 350, "supply": 3, "buildTime": 24 },
+      "hp": 200, "armorType": "light", "armorValue": 0,
+      "speed": 1.2, "vision": 12, "stealth": 0, "detect": 0.6,
+      "airRadar": true,
+      "weapons": [],
+      "ammo": null,
+      "aura": { "type": "counter_battery", "radius": 30, "effect": "reveals_indirect_shooter", "duration": 8 },
+      "emissions": 0.9,
+      "abilities": ["deploy"],
+      "roleTags": ["intel", "air_search", "fragile"]
+    },
+
+    {
+      "id": "spaag", "name": "SPAAG", "category": "air_defense", "tier": 2,
+      "cost": { "resource": 300, "supply": 3, "buildTime": 20 },
+      "hp": 380, "armorType": "light", "armorValue": 3,
+      "speed": 1.8, "vision": 8, "stealth": 0, "detect": 0.5,
+      "weapons": [
+        { "name": "namlulu HS", "damage": 34, "damageType": "frag", "range": 13, "minRange": 0,
+          "rof": 2.5, "aoe": 0.6, "targets": ["air", "ground"], "indirect": false,
+          "rangeByTarget": { "air": 13, "ground": 6.4 },
+          "accuracy": { "base": 0.72, "optimalRange": 6, "falloff": 0.40, "vsMoving": 0.10, "ignoresCover": 0.1 } }
+      ],
+      "ammo": { "capacity": 60, "perShot": 1, "resupplyRate": 5.0 },
+      "abilities": ["auto_engage_air"],
+      "roleTags": ["anti_air", "anti_drone", "escort"]
+    },
+    {
+      "id": "sam_battery", "name": "SAM Bataryasi", "category": "air_defense", "tier": 3,
+      "cost": { "resource": 700, "supply": 5, "buildTime": 34 },
+      "hp": 320, "armorType": "light", "armorValue": 2,
+      "speed": 1.0, "vision": 9, "stealth": 0, "detect": 0.8,
+      "pointDefense": { "chance": 0.6 },
+      "weapons": [
+        { "name": "SAM", "damage": 220, "damageType": "sam", "range": 22, "minRange": 3,
+          "rof": 0.3, "aoe": 1.2, "targets": ["air"], "indirect": false, "canIntercept": true,
+          "accuracy": { "base": 0.86, "optimalRange": 16, "falloff": 0.30, "vsMoving": 0.10, "ignoresCover": 0.0 } }
+      ],
+      "ammo": { "capacity": 8, "perShot": 1, "resupplyRate": 0.4 },
+      "emissions": 1.0,
+      "abilities": ["deploy", "radar_silent"],
+      "roleTags": ["anti_air", "area_denial", "no_self_defense"]
+    },
+
+    {
+      "id": "attack_helo", "name": "Taarruz Helikopteri", "category": "air", "tier": 3,
+      "cost": { "resource": 800, "supply": 6, "buildTime": 40 },
+      "hp": 420, "armorType": "air", "armorValue": 3,
+      "speed": 4.5, "vision": 12, "stealth": 0, "detect": 0.3,
+      "weapons": [
+        { "name": "ATGM podu", "damage": 200, "damageType": "shaped", "range": 12, "minRange": 1,
+          "rof": 0.5, "aoe": 0.6, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.84, "optimalRange": 7, "falloff": 0.30, "vsMoving": 0.30, "ignoresCover": 0.6 } }
+      ],
+      "ammo": { "capacity": 12, "perShot": 1, "resupplyRate": 0.8 },
+      "flight": { "altitude": "low", "hoverCapable": true, "fuel": 90, "fuelBurn": 1.0 },
+      "abilities": ["nap_of_earth", "return_to_base"],
+      "roleTags": ["anti_armor", "rapid_response", "air"]
+    },
+    {
+      "id": "transport_helo", "name": "Nakliye Helikopteri", "category": "air", "tier": 2,
+      "cost": { "resource": 400, "supply": 4, "buildTime": 26 },
+      "hp": 500, "armorType": "air", "armorValue": 1,
+      "speed": 4.0, "vision": 10, "stealth": 0, "detect": 0,
+      "weapons": [],
+      "ammo": null,
+      "flight": { "altitude": "low", "hoverCapable": true, "fuel": 120, "fuelBurn": 0.8 },
+      "transport": { "slots": 6, "allows": ["infantry"] },
+      "abilities": ["load", "unload", "fast_rope"],
+      "roleTags": ["mobility", "insertion", "unarmed"]
+    },
+
+    {
+      "id": "recon_uav", "name": "Kesif IHA", "category": "uav", "tier": 1,
+      "cost": { "resource": 150, "supply": 1, "buildTime": 12 },
+      "hp": 90, "armorType": "air", "armorValue": 0,
+      "speed": 3.0, "vision": 16, "stealth": 0.4, "detect": 0.7,
+      "weapons": [],
+      "ammo": null,
+      "flight": { "altitude": "high", "hoverCapable": true, "fuel": 180, "fuelBurn": 0.5 },
+      "jammable": 0.9,
+      "abilities": ["spot_for_artillery", "loiter"],
+      "provides": ["spotter"],
+      "roleTags": ["intel", "spotter", "unarmed"]
+    },
+    {
+      "id": "armed_uav", "name": "SIHA", "category": "uav", "tier": 3,
+      "cost": { "resource": 550, "supply": 4, "buildTime": 32 },
+      "hp": 180, "armorType": "air", "armorValue": 0,
+      "speed": 2.6, "vision": 12, "stealth": 0.25, "detect": 0.5,
+      "weapons": [
+        { "name": "hassas muhimmat", "damage": 240, "damageType": "shaped", "range": 12, "minRange": 1,
+          "rof": 0.2, "aoe": 1.0, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.90, "optimalRange": 9, "falloff": 0.25, "vsMoving": 0.35, "ignoresCover": 0.8 } }
+      ],
+      "ammo": { "capacity": 4, "perShot": 1, "resupplyRate": 0.3 },
+      "flight": { "altitude": "high", "hoverCapable": true, "fuel": 200, "fuelBurn": 0.4 },
+      "jammable": 0.8,
+      "abilities": ["loiter", "spot_for_artillery"],
+      "provides": ["spotter"],
+      "roleTags": ["anti_armor", "persistent", "intel"]
+    },
+    {
+      "id": "loitering_munition", "name": "Kamikaze Drone", "category": "uav", "tier": 2,
+      "cost": { "resource": 90, "supply": 1, "buildTime": 6 },
+      "hp": 80, "armorType": "air", "armorValue": 0,
+      "speed": 3.6, "vision": 8, "stealth": 0.5, "detect": 0,
+      "weapons": [
+        { "name": "carpma basligi", "damage": 260, "damageType": "shaped", "range": 10, "minRange": 0,
+          "rof": 0.02, "aoe": 1.5, "targets": ["ground"], "indirect": false, "consumesSelf": true,
+          "accuracy": { "base": 0.82, "optimalRange": 10, "falloff": 0.0, "vsMoving": 0.45, "ignoresCover": 0.9 } }
+      ],
+      "ammo": { "capacity": 1, "perShot": 1, "resupplyRate": 0 },
+      "flight": { "altitude": "low", "hoverCapable": true, "fuel": 60, "fuelBurn": 1.0 },
+      "jammable": 1.0,
+      "singleUse": true,
+      "abilities": ["loiter", "strike_top_armor"],
+      "roleTags": ["assassin", "anti_support", "expendable"]
+    },
+
+    {
+      "id": "scout_vehicle", "name": "Kesif Araci", "category": "recon", "tier": 1,
+      "cost": { "resource": 180, "supply": 2, "buildTime": 12 },
+      "hp": 220, "armorType": "light", "armorValue": 2,
+      "speed": 3.2, "vision": 14, "stealth": 0.5, "detect": 0.6,
+      "weapons": [
+        { "name": "makineli", "damage": 12, "damageType": "small_arms", "range": 3, "minRange": 0,
+          "rof": 2.0, "aoe": 0, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.70, "optimalRange": 2, "falloff": 0.45, "vsMoving": 0.35, "ignoresCover": 0.1 } }
+      ],
+      "ammo": { "capacity": 50, "perShot": 1, "resupplyRate": 4.0 },
+      "abilities": ["stay_hidden", "mark_target"],
+      "provides": ["spotter"],
+      "roleTags": ["intel", "spotter", "fast"]
+    },
+    {
+      "id": "ew_vehicle", "name": "EH Araci (Jammer)", "category": "support", "tier": 3,
+      "cost": { "resource": 480, "supply": 4, "buildTime": 30 },
+      "hp": 300, "armorType": "light", "armorValue": 2,
+      "speed": 1.6, "vision": 8, "stealth": 0, "detect": 0.4,
+      "weapons": [],
+      "ammo": null,
+      "aura": { "type": "jamming", "radius": 10,
+        "effects": { "uavControlLoss": 0.75, "enemyAccuracy": -0.20, "enemyCommandRange": -0.5, "revealsSelf": true } },
+      "emissions": 1.0,
+      "abilities": ["deploy", "burst_jam"],
+      "roleTags": ["anti_drone", "denial", "no_weapon"]
+    },
+
+    {
+      "id": "medic", "name": "Saglikci", "category": "support", "tier": 1,
+      "cost": { "resource": 160, "supply": 2, "buildTime": 12 },
+      "hp": 180, "armorType": "infantry", "armorValue": 0,
+      "speed": 1.0, "vision": 6, "stealth": 0, "detect": 0,
+      "weapons": [],
+      "ammo": null,
+      "aura": { "type": "heal", "radius": 3, "hpPerSecond": 6, "appliesTo": ["infantry"] },
+      "abilities": ["revive", "garrison"],
+      "roleTags": ["sustain", "infantry_support"]
+    },
+    {
+      "id": "engineer", "name": "Istihkam", "category": "support", "tier": 1,
+      "cost": { "resource": 200, "supply": 2, "buildTime": 14 },
+      "hp": 240, "armorType": "infantry", "armorValue": 1,
+      "speed": 0.9, "vision": 6, "stealth": 0, "detect": 0.3,
+      "weapons": [
+        { "name": "hafif silah", "damage": 10, "damageType": "small_arms", "range": 3, "minRange": 0,
+          "rof": 1.0, "aoe": 0, "targets": ["ground"], "indirect": false,
+          "accuracy": { "base": 0.60, "optimalRange": 2, "falloff": 0.45, "vsMoving": 0.35, "ignoresCover": 0.0 } }
+      ],
+      "ammo": null,
+      "aura": { "type": "repair", "radius": 3, "hpPerSecond": 8, "appliesTo": ["light", "heavy"] },
+      "abilities": ["lay_mines", "clear_mines", "build_bridge", "build_fortification"],
+      "roleTags": ["engineering", "terrain_shaper", "repair"]
+    },
+    {
+      "id": "supply_truck", "name": "Ikmal Araci", "category": "logistics", "tier": 1,
+      "cost": { "resource": 250, "supply": 3, "buildTime": 16 },
+      "hp": 340, "armorType": "light", "armorValue": 1,
+      "speed": 1.8, "vision": 6, "stealth": 0, "detect": 0,
+      "weapons": [],
+      "ammo": null,
+      "aura": { "type": "resupply", "radius": 4, "ammoPerSecond": 1.0, "fuelPerSecond": 2.0 },
+      "cargo": { "ammo": 40, "fuel": 200 },
+      "explodesOnDeath": { "damage": 180, "damageType": "he", "aoe": 3.5 },
+      "abilities": ["deploy_cache"],
+      "roleTags": ["logistics", "enabler", "high_value_target"]
+    },
+    {
+      "id": "command_vehicle", "name": "Komuta Araci", "category": "command", "tier": 3,
+      "cost": { "resource": 600, "supply": 4, "buildTime": 34 },
+      "hp": 400, "armorType": "light", "armorValue": 3,
+      "speed": 1.5, "vision": 10, "stealth": 0, "detect": 0.4,
+      "weapons": [],
+      "ammo": null,
+      "aura": { "type": "command", "radius": 12,
+        "effects": { "accuracy": 0.12, "range": 0.08, "orderLatency": -0.4, "suppressionResist": 0.25 } },
+      "onDeath": { "effect": "command_shock", "radius": 12, "duration": 12, "orderLatency": 1.5 },
+      "emissions": 0.8,
+      "abilities": ["call_cas", "rally"],
+      "roleTags": ["command", "force_multiplier", "high_value_target"]
+    }
+  ]
+};
+if (typeof module !== "undefined") module.exports = UNITS_MODERN_DB;

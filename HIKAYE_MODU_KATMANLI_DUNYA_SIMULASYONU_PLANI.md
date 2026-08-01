@@ -1,8 +1,8 @@
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.6  
+**Belge sürümü:** 1.37
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Uygulama öncesi mimari plan  
+**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6 ve Dalga D / Faz 15–22 tamamlandı — Dalga E / Faz 23 sırada
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
 
@@ -17,6 +17,68 @@
 **1.5 değişikliği:** Hikâye haritasının çift raster kıyı uyumsuzluğu, düşük çözünürlüklü siyasi overlay, `fillRect` rebuild maliyeti, naif region-Voronoi, şerit warp çağrıları, `_geoTerrain` invalidation eksiği ve README/ölü prototip uyuşmazlığı için kanonik raster ve render borcu planı eklendi.
 
 **1.6 değişikliği:** Mevcut çalışan dünya kodu için K0-K5 denetimi eklendi: hikâye test tezgâhı yokluğu, merkezsiz refah yazımı, faz durum uyuşmazlığı, LLM sözleşmesinin korunması, tick bütçesi/kalıcılık borcu ve belge çıpası kayması ayrı oyun-fix kabul kapılarına dönüştürüldü.
+
+**1.7 değişikliği:** Uygulama başlatıldı. Sabit tohumlu headless hikâye laboratuvarı, `npm test`, 900 saniyelik Faz 0 referans raporu ve 30 oyun yıllık soak kapısı eklendi. İlk ölçüm, dünyanın uzun koşuda tek devlete çöktüğünü kanıtladı; sonuçlar `HIKAYE_MODU_UYGULAMA_DURUMU.md` içinde kaydedildi.
+
+**1.8 değişikliği:** Faz 2’nin ilk dilimi uygulandı. Sürümlü dünya olay defteri, `storyWelfareDelta` tek yazım kapısı, sürekli kayıp tavanı, fetih/devlet ölümü/konsey/toplum sayaçları ve Faz 0 karşılaştırma aracı eklendi. İlk ham kayıt, 900 saniyede 165 sahiplik değişimiyle asıl yakınsama sorunlarından birinin aşırı fetih temposu olduğunu gösterdi.
+
+**1.9 değişikliği:** Faz 2 kabulü tamamlandı: kaynak akışları, savaş sonucu ve motor kimliği, LLM istek/kabul/ret/hata yolları, adım performansı ve motor içi durum karması aynı sürümlü telemetriye bağlandı. Faz 3 için doğrulanan özellik bayrağı sicili, bilinmeyen bayrak reddi, kayıtlı bayrak görüntüsü ve aynı tohumlu `story:ab` karşılaştırıcısı eklendi. Hedefli A/B probu refah tavanının açık/kapalı yollarını kanıtlarken 900 saniyelik standart koşuda bu tavanın fiilen tetiklenmediğini de görünür kıldı.
+
+**1.10 değişikliği:** Faz 3.1 gerçek paket modeliyle tamamlandı. Türkçe 8B model CUDA üzerinde hızlı çalıştı fakat katı niyet, gerçek koruma, JSON, karakter sesi ve uydurma-sayı kapılarında `0/5` aldı. Model kritik karar hakemi olarak reddedildi; yalnız doğrulanan yardımcı metin rolüne sınırlandı. Ölçüm ve zorunlu Faz 38 kısıtları `HIKAYE_LLM_YETERLILIK_RAPORU.md` içine kaydedildi.
+
+**1.11 değişikliği:** Faz 4 salt-okunur `StoryWorldStateV2` adaptörü, boş dünya varsayılanı, sabit kimlik kuralları ve açıklamalı katı doğrulayıcıyla tamamlandı. Faz 4.1 `PlayerVisibleFact` ve `PlayerKnowledgeService` sözleşmesini kurdu; gizli yabancı devlet değerinin projeksiyona sızmadığı ve bilinmeyen/tahmin/söylenti/doğrulanmış bilgi sınıflarının ayrıldığı otomatik testle kanıtlandı. Canlı kayıt biçimi henüz değiştirilmedi; bu Faz 5’in işidir.
+
+**1.12 değişikliği:** Faz 5 güvenli V3→V2 göç hattıyla tamamlandı. Mevcut `pixelrts_story_v3` kaydı yalnız okunuyor; kaynakla byte-byte aynı yedek doğrulandıktan sonra ayrı V2 gölge kaydı ve göç raporu yazılıyor. Devlet, bölge, sahiplik, kaynak ve oyuncu komutanı mutabakatı otomatik test edildi. Bozuk JSON, yapısal bozukluk, farklı mevcut yedek ve farklı mevcut hedef senaryolarının tümü sıfır yazmayla reddediliyor. Canlı yükleme kaynağı bilinçli olarak V3’te bırakıldı; V2’nin tek gerçek dünya kaynağı olması sonraki çekirdek fazlarının kabulünü bekliyor.
+
+**1.13 değişikliği:** Faz 6 deterministik saat ve takvim çekirdeğiyle tamamlandı. Render FPS’ine bağlı değişken dünya adımı, özellik bayrağı arkasında `0,25` saniyelik sabit tike dönüştürüldü; 1×/2×/4× hız kontrolü, duraklatma, kısmi tik kaydı ve tek takvim servisi eklendi. 30/60/144 FPS, düzensiz kare deseni ve üç hız seviyesi aynı oyun süresinde aynı dünya karmasını üretir. Eski değişken-adım A/B probu ise FPS’e göre farklı karma üreterek düzeltilen sorunu kanıtlar. Headless konsey çözümü gerçek EXE gibi tik sınırları arasına taşındı.
+
+**1.14 değişikliği:** Faz 7 adlandırılmış ve kaydedilebilir RNG akışlarıyla tamamlandı. Hikâye domainlerindeki doğrudan `Math.random()` çağrıları kaldırıldı; dünya, karakter, askerî, ekonomi, toplum, üretim, diplomasi, anlatı ve yönetim için dokuz bağımsız `mulberry32` akışı kuruldu. Kayıt/yükleme bütün akışların state ve çağrı sayaçlarını korur. Anlatıya eklenen 100 rastgele çağrının askerî diziyi değiştirmediği, akışlar kapatıldığında ise değiştirdiği karşı-testle kanıtlandı. Eski RNG kaydı deterministik fallback ve açık uyarıyla açılır.
+
+**1.15 değişikliği:** Faz 8 sürümlü sistem zamanlayıcısıyla tamamlandı. On altı periyodik dünya görevi tek sıralı sicile taşındı; periyot ilerlemesi, çalışma sayısı ve son sıra numarası kayda girdi. `scheduler.registry` eski sayaç yolunu A/B geri dönüşü için korur. AI hedefleri/cooldown’ları, kuşatmalar ve bekleyen konuşmalar artık yüklemede silinmez; konuşma kapanışları RNG ve seçim iziyle yeniden kurulur. `73,125` saniyede kaydedilip yeni süreçte sürdürülen dünya ile kesintisiz dünya `164` saniyede tam kayıt düzeyinde bire bir eşittir. Bu çalışma ayrıca güncel GEO kaydın kaynak dağılımını eski terrain koordinatlarıyla bozan yükleme hatasını düzeltti.
+
+**1.16 değişikliği:** Faz 9 sürümlü `WorldCommand → WorldEvent → Effect` nedensellik defteriyle tamamlandı. Sahiplik, refah, kaynak akışı, AI komutan hareketi ve diplomasi kalıcı yazım kapılarına bağlandı; her etki eski/yeni değer, hedef yol, kaynak komut, olay ve kök olay kimliği taşır. Dış komutlarda `idempotencyKey` aynı kararın iki kez uygulanmasını engeller. Defter V3 kayıtta kesintisiz sürer, V2 olay/teşhis projeksiyonuna girer ve etkiden kök komuta geri izlenebilir. Sürekli kaynak/refah akışları defteri boğmamak için 10 saniyelik deterministik pencerelerde toplanır. `causality.ledger` açık/kapalı 900 saniyelik A/B koşusu aynı `623ba9…e1c` dünya karmasını üretir; 30 yıllık koşu da önceki `5e8d3c…403f` sonucunu korur.
+
+**1.17 değişikliği:** Faz 10 değişmezler ve zincir sigortasıyla tamamlandı. Nedensel zincir en çok 8 derinlik ve aynı olay/hedef için 3 tekrar; komut başına 32 olay/96 etki; dünya saniyesi başına 512 komut/1024 olay/2048 etki ile sınırlandı. Limit aşımı mutatörü çalıştırmadan `BLOCKED` sonucu ve kaynak kodlu uyarı üretir. Sahiplik, refah, kaynak deltası, komutan konumu, ilişki ve antlaşma değerleri mutasyondan önce doğrulanır. Yapısal defter doğrulaması, canlı dünya–son etki mutabakatı ve bozuk defterin dünya kaydını kaybetmeden güvenli sıfırlanması eklendi. Kasıtlı döngü/taşma/geçersiz değer/kırık referans testleri geçerken normal 900 saniyelik açık/kapalı A/B sonucu yine `623ba9…e1c`, 30 yıllık sonuç `5e8d3c…403f` kaldı ve normal akış sıfır sigorta ihlali üretti.
+
+**1.18 değişikliği:** Faz 10.1 oyuncu-görünür domain projeksiyonu ve gerçek “Değişim & Neden” paneliyle tamamlandı. `StoryProjection`, V2 dünya + `PlayerKnowledgeService` + nedensellik defterini tek salt-okunur view-model’de birleştirir. `VERIFIED` gerçek kesin önce/sonra/delta gösterir; `ESTIMATED` ve `RUMOR` yalnız değişim varlığını ve oyuncunun tahminini gösterir; `UNKNOWN` etki akışa hiç girmez. Ham komut payload’ı, aktör ve hedef UI izine taşınmaz. Aynı yabancı refah etkisinin sahibi için kesin, rakip için gizli, istihbarat tahmininde ise `OPAQUE` görünmesi; kamusal sahiplik değişiminin iki oyuncuya da görünmesi; DOM’da rozet/satır/komut→olay→etki izi; kayıt/yükleme eşitliği ve salt-okunurluk otomatik test edildi. `projection.causalityUi` açık/kapalı 900 saniyelik A/B aynı `623ba9…e1c`, 30 yıllık soak aynı `5e8d3c…403f` karmasını korudu.
+
+**1.19 değişikliği:** Faz 11 mevcut 152 düğümü yeniden numaralandırmadan sürümlü `RegionModel` sözleşmesiyle tamamlandı. `STORY.nodes` canlı dinamik gerçek kaynak olarak korundu; kalıcı kimlik, normalleştirilmiş merkez, sınıflandırma ve komşuluk topolojisi ayrı, doğrulanan bir sidecar’da donduruldu. Sahiplik, ekonomi, garnizon ve kara lojistiği bu iki kaynağı çoğaltmadan canlı düğümden türetilir. Yeni ve eski kayıt, bozuk model fallback’i, V1/V2 kimlik-konum-komşuluk mutabakatı, kırık referanslar, çift yönlü bağlantı, özellik bayrağı ve kayıt/yükleme otomatik test edildi. `world.regionModel` açık/kapalı 900 saniyelik A/B aynı `623ba9…e1c`, 30 yıllık soak aynı `5e8d3c…403f` karmasını korudu.
+
+**1.20 değişikliği:** Faz 12 kamera, seçili şehir ve açık panellerden tamamen bağımsız sürümlü `HOT/WARM/COLD` bölge aktivasyon bütçeleyicisiyle tamamlandı. Dünya gerçekleri komutan, savaş, kuşatma, başkent, yakın kontrol değişimi, cephe, altyapı ve nüfus önceliğine dönüştürülür; 152 bölge deterministik olarak `12/48/92` bütçesine ayrılır. Sistem ve bölge kimliğinden türetilen faz ofseti HOT/WARM/COLD bölgeleri 20 tikte tam `20/5/1` kez seçer. Yoğun kamera/panel kullanımının 60 saniyelik dünya sonucunu değiştirmediği, kayıt/yükleme ve eski/bozuk politika fallback’leri otomatik test edildi. `world.regionActivation` açık/kapalı 900 saniyelik A/B aynı `623ba9…e1c`, 30 yıllık soak aynı `5e8d3c…403f` karmasını korudu.
+
+**1.21 değişikliği:** Faz 13 sürümlü ve checksum’lı bölge kapsülleriyle tamamlandı. Canlı 152 bölgenin nüfus, servet, garnizon, altyapı, yatak, üretim kuyruğu, eski birlik havuzu ve bekleyen olay özetleri ile ülke kaynakları için koruma imzası kuruldu; HOT→COLD→HOT geçişi tam kanonik payload’ı kayıpsız geri açar. Gelecekte eklenecek bölgesel stok/şirket alanları zengin fixture ile doğrulandı; gerçek dünyada henüz bulunmadıkları açıkça ayrıldı. Bozuk checksum, değişmiş topoloji, eski kayıt, özellik kapalı yol, kamera/panel tarafsızlığı ve deterministik sabit-ondalık dağıtım test edildi. `world.regionAggregation` açık/kapalı 900 saniyelik A/B aynı `623ba9…e1c`, 30 yıllık soak aynı `5e8d3c…403f` karmasını korudu.
+
+**1.22 değişikliği:** Faz 14 sürümlü altyapı ve ulaşım grafıyla tamamlandı. 152 bölge üzerinde 177 kara ve açıkça tanımlanmış 20 deniz koridoru; bunların üstünde 197 enerji ve 197 veri katmanı olmak üzere 591 kalıcı koridor kuruldu. Her koridor kapasite, hasar, etkin kapasite, maliyet, gecikme, uç bölge ve canlı sahip erişimi taşır. Deterministik rota, bağlı akış çözümü, kesinti izolasyonu, katı graf doğrulama, kompakt dinamik kayıt, eski/bozuk kayıt fallback’i ve V2 teşhis projeksiyonu eklendi. Tek kara koridorunun kesilmesi bağlı akışı durdururken bağımsız kara/enerji/veri akışlarını değiştirmedi. `world.infrastructureGraph` açık/kapalı 900 saniyelik A/B aynı `623ba9…e1c`, 30 yıllık soak aynı `5e8d3c…403f` karmasını korudu.
+
+**1.23 değişikliği:** Faz 14.1 bilgi filtreli şehir dosyasıyla tamamlandı. Haritadan oyuncu veya yabancı şehir açılabilir; genel, lojistik, tarih, karakterler ve kendi şehirleri için bina/ordu sekmeleri aynı dosyada çalışır. Nüfus, servet, garnizon, sanayi, yatak ve lojistik PlayerKnowledge üzerinden geçer; yabancı kesin olmayan değerler `UNKNOWN/null` kalır. Kendi koridorlarından bağlı şehre, şehir tarihinden nedensel olaya ve doğrulanmış karakterden sohbet merkezine bağlamsal geçiş eklendi. Doğrudan karakter görüşmesi, stok, şirket ve yerel kurum katmanları uydurulmaz; “sistem henüz yok” diye işaretlenir. Beş kasıtlı yabancı sentinel değerinin view-model/HTML’e sızmadığı, UI salt-okunurluğu ve `ui.cityDossier` A/B tarafsızlığı otomatik test edildi. 900 saniyelik karma `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı.
+
+**1.24 değişikliği:** Faz 14.2 sürümlü `canonical-map-raster-1` sözleşmesiyle tamamlandı. `GEO.land` artık kanonik `820×645` kara maskesine yalnız bir kez rasterize edilir; `152` bölgenin kimlik rasteri, eski normalleştirilmiş mesafe semantiğini koruyan deterministik KD-tree ile aynı kaynaktan üretilir. Terrain, siyasi overlay, kıyı örneklemesi ve harita hit-test’i bu rasteri tüketir; bozuk sürüm, boyut, kara/deniz değeri, region kimliği, kaynak karması ve checksum açıklamalı doğrulama kodlarıyla reddedilir. 300×236 gerçek overlay grid’i ile kanonik resample arasında `0` region farkı ve `0` kara/deniz sızıntısı ölçüldü; ancak düşük çözünürlüklü overlay kanonik ince kara hücrelerinin `%0,7864`’ünü kaybediyor ve çözünürlükler arası kıyı örnek farkı `153/70.800` (`%0,2161`) kalıyor. Bu, Faz 14.3’ün yüksek çözünürlüklü `ImageData` overlay borcudur. Bayrak A/B karması `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı; modern dünya yakınsaması değişmedi.
+
+**1.25 değişikliği:** Faz 14.3 `political-overlay-rgba-1` sözleşmesiyle tamamlandı. Politik renk ve devlet sınırı artık kanonik `820×645` `RegionIdRaster` üzerinden `Uint8ClampedArray RGBA` ve ayrı `Uint8Array borderMask` olarak üretilir; 300×236 çözünürlük ve hücre başına `fillRect` ana yoldan kaldırıldı. İlk çizim ve her sahiplik revizyonu tek `putImageData` kullanır; değişmeyen sahiplik aynı canvas/revision’ı korur, gerçek `storyTransferNodeOwnership` cache’i `territory-transfer` nedeniyle geçersiz kılar ve tam bir kez yeniler. Ölçümde eski fallback `47.137 fillRect`, yeni yol `0 fillRect + 1 putImageData`; `351.997` kara pikselinin tamamı renkli, `176.903` deniz pikselinin tamamı şeffaf ve denizde sınır sayısı sıfırdır. Kaynak/sahiplik/RGBA/sınır checksum’ları ile sınır topolojisi doğrulanır. jsdom gerçek Canvas/GPU maliyetini modellemediği için gerçek EXE rebuild süresi ve piksel görünümü hâlâ zorunlu manuel kapıdır; çağrı azalması kanıtlandı fakat tarayıcı hızlanması uydurulmadı. 900 saniyelik karma `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı.
+
+**1.26 değişikliği:** Faz 14.4 build-time `canonical-map-raster-asset-1` varlığıyla tamamlandı. `820×645` ve `528.900` piksellik region rasteri `10.766` adet `int16+uint16` RLE kaydına sıkıştırılarak `43.064` bayt payload içinde paketlendi. Üretici aynı girdide byte düzeyinde aynı dosyayı verir. Açılışta asset şema/adaptör/encoding, GEO+bölge kaynak checksum’ı, payload checksum’ı, run/piksel sayısı ve çözülmüş land/region checksum’larından geçer; eksik, eski veya bozuk varlık açık hata koduyla KD-tree fallback’e döner. Ölçümlerde asset yükleme+tam doğrulama yaklaşık `54–88 ms`, runtime üretim+doğrulama `111–169 ms`; iki yol aynı `f76a938c/f63d135c/2dc42a47` checksum’larını üretir. 900 saniyelik dünya karması `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı.
+
+**1.27 değişikliği:** Faz 14.5 adaptif warp planı ve render bütçesiyle tamamlandı. Sabit `3 px` şerit yerine 720p/1080p/1440p’de `4/5/7 px`, yakın 1080p zoom’da `4 px` band kullanılır. Terrain ve politik katman aynı önbelleklenmiş warp geometrisini paylaşır. 1080p iki katmanlı draw-call `720→432` (`%40`), 1440p `960→412` düştü. Döngü içi sessiz `try/catch` kaldırıldı; geçersiz kaynak çizim öncesinde kodlu teşhis üretir. Ekran↔dünya tersinim hatası sıfır, en yüksek ölçülen bant ölçek hatası `%0,2101` oldu. jsdom gerçek GPU p95’ini ölçmediği için EXE profili açık kapıdır. A/B karması `623ba9…e1c`, soak `5e8d3c…403f` kaldı.
+
+**1.28 değişikliği:** Faz 14.6 sürümlü `story-map-cache-invalidation-1` kapısıyla tamamlandı. Geometri, türetilmiş render, sahiplik, çağ, palet ve viewport invalidation kapsamları tek `storyInvalidateMapCaches` sözleşmesinde ayrıldı. Sahiplik yalnız politik katmanı yeniler; terrain/raster/warp nesnelerini korur. Gerçek çağ geçişi terrain cache’ini yeniler ve altı çağın RGB profili `paletteId/paletteKey` ile piksel çıktısına girer; çağ değişimi politik revision veya warp planını gereksiz değiştirmez. README çalışan `3000 px` mimari ve gerçek index/paket sırasıyla düzeltildi; kök `StoryGeoRender.js` paketlenmeyen prototip, `js/MapData.js` aktif taktik kaynak olarak otomatik denetime bağlandı. 900 saniyelik A/B karması `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı.
+
+**1.29 değişikliği:** Faz 15, sürümlü `story-resource-taxonomy-1` kaynak sözleşmesiyle tamamlandı. Sekiz kalıcı kaynak kimliği; açık birim, üretici, tüketici, depolama, taşıma ve faza bağlı yokluk etkileriyle tek katalogda tanımlandı. Katalog `fnv1a32:4a4ba0fe` checksum’ı ve katı doğrulayıcıyla korunur. Eski `oil/manpower/points` alanları silinmedi veya yeni ekonomi stoğuymuş gibi yeniden adlandırılmadı; yalnız `energy/labor/capital` için `LEGACY_ALIAS`, `HIGH` anlam kaybı ve eski alanın yazma yetkisini koruyan uyumluluk sınırı kuruldu. Diğer beş kaynak Faz 17’ye kadar `null / UNAVAILABLE_PHASE_17` döner. Kompakt kayıt başlığı, eski kayıt backfill’i, bozuk checksum kurtarması ve tam eski→yeni→eski dönüş otomatik test edildi. `economy.resourceTaxonomy` A/B koşusunda dünya karması `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı. Faz 15 gerçek üretim, tüketim veya stok sistemi eklemedi; modern dünya hegemonyası çözülmedi.
+
+**1.30 değişikliği:** Faz 16, sürümlü `story-production-sectors-1` üretim sözleşmesiyle tamamlandı. Tarım, enerji, hammadde çıkarımı, sivil sanayi, ileri teknoloji ve savunma sanayisi için altı sürümlü reçete; kapasite, iş gücü ve baz/minimum/maksimum verimlilik politikalarıyla tanımlandı. Tarım, enerji ve çıkarım doğal kapasite/rezerve bağlı `ENDOWMENT_BOUND`; üç sanayi sektörü malzeme eşdeğeri çıktıyı girdiden büyük yapamayan `MASS_EQUIVALENT` koruması kullanır. Bilinmeyen kaynak, birim uyuşmazlığı, sıfır girdi, doğal kapasitesiz birincil üretim, girdisiz fiziksel çıktı, kütle kazancı ve yetkisiz üretici reddedilir. Deterministik teklif motoru `READY/PARTIAL/BLOCKED` sonucu ile kapasite, stok ve doğal kapasite darboğazlarını ayrı raporlar; çağıranın verisini veya canlı dünyayı değiştirmez. Katalog checksum’ı `fnv1a32:a4007f41`; kompakt kayıt başlığı `327` bayt, tam katalog görünümü `6.982` bayttır. `economy.productionSectors` A/B karması `623ba9…e1c`, 30 yıllık soak `5e8d3c…403f` kaldı. `liveStockSystem: false` ve `proposalsCommit: false`; gerçek stok/tüketim Faz 17’ye bırakıldı, hegemonya çözülmedi.
+
+**1.31 değişikliği:** Faz 17, sürümlü `story-regional-stock-ledger-1` kanonik bölgesel stok sistemiyle tamamlandı. 152 bölgenin sekiz kaynağı, güvenli stok hedefi, doğal kapasitesi ve altı sektör kapasitesi tek defterde tutulur; eski `oil/manpower/points` sayaçları stoğa dönüştürülmez. Faz 16 teklifleri reçete/hash/stok/doğal kapasite yeniden doğrulanmadan yazılamaz ve bütün girdi/çıktı tek atomik commit olur. Hane, ordu, devlet ve şirket talepleri öncelik ve rezerv kullanma hakkına göre ayrılır; karşılanmayan talep tüketici/kaynak/neden/miktar/etki ile `ACTIVE`, stok yenilenince `RESOLVED` yaşam döngüsü taşır. Gıda bozulması, enerji tampon kaybı, parça/elektronik eskimesi, askerî ikmal kaybı ve stoklanamayan emek deterministik muhasebeye girdi. Oyuncu kendi bölgesel stoğunu doğrulanmış görür; yabancı stok istihbaratsız `UNKNOWN/null` kalır. Kayıt/yükleme, eski kayıt backfill’i, bozuk defter kurtarması, HOT/WARM/COLD kapsül aynası, kaynak koruma denklemi ve 30 yıllık ledger doğrulaması geçti. `economy.regionalStocks` 900 saniyelik A/B’de yeni dünya karmasını bilinçli olarak `491dae…f803 → a4acc6…ad1e` değiştirdi; eski refah/enflasyon/öfke/toprak/eski kaynak metriklerinin bütün deltaları sıfır kaldı. 30 yıllık soak karması `93ac47…ffa` oldu. Bu faz denge zaferi değildir: 900 saniyede gıda ve enerji toplamı sıfıra inerken `1.407` benzersiz kıtlık kaydı ve `2.268.902` sermaye stoğu oluştu; ticaret/fiyat/bütçe henüz yoktur ve devlet `3` uzun koşuda yine `152/152` bölgeye ulaşır. Bu açık borç Faz 18–20’ye taşındı.
+
+**1.32 değişikliği:** Faz 17.1 modern barış başlangıcı düzeltmesiyle tamamlandı. Önceki diplomasi kodu eksik her ilişkiyi `war` kabul ediyor, ateşkes bittiğinde otomatik savaşa dönüyor ve genelkurmay hedef üretimi diplomasi kontrolünü atlayabiliyordu. Yeni kampanya sekiz devletin 28 ikili kenarını açık `peace` durumunda kurar. Ateşkes bitişi barışa döner; AI’nin barışı bozması ciddi negatif ilişki, ortak sınır, şahin doktrin ve açık olasılık kapısı gerektirir. Genelkurmay, emir uygulama, kuşatma başlatma/çözme ve oyuncu savaş ekranı aynı düşmanlık kapısını kullanır. Oyuncu barıştaki devlete saldırmak isterse önce açık savaş ilanı ve itibar sonucu görür. 120 saniyelik A/B’de barış yolu `0`, eski tüm-savaş yolu `5` sahiplik değişimi üretti. 900 saniyelik standart koşu `8/8` devleti ve başlangıçtaki `152/152` sahiplik dağılımını korudu; karma `a1935a…7ac1`. Bu düzeltme devlet AI’sini modern yapmadı: barışta ekonomi/diplomasi/kurum/karakter hedefleri arasında ulusal gündem seçen motor hâlâ yok. Bu ve diğer açıklar `MODERN_DUNYA_EKSIKLERI.md` içinde kalıcı olarak izlenecek. Tam karakter sistemi Faz 34–38.5’tedir; mevcut isimli başkan, eksen ve komutan kişiliği yalnız kısmi ön çalışmadır.
+
+**1.33 değişikliği:** Faz 18, `story-trade-logistics-ledger-1` fiziksel ticaret defteriyle tamamlandı. Fazla stok doğrudan hedefe yazılmaz: sürümlü sözleşme ve sipariş kurulur, yük gönderici stoğundan çıkar, Faz 14 koridorlarında ayak ayak ilerler ve yalnız teslimatta alıcı stoğuna girer. Kara/deniz ve enerji ağı ayrı taşıma modlarıdır; ortak koridor kapasitesi aynı penceredeki akışlar arasında tüketilir. Hasarlı hat ilerlemeyi yavaşlatır, kapalı hat yükü `HELD` durumuna alır. Yetkili sözleşme değişikliği sevkiyatı yeni depoya yönlendirebilir; eski hedefe hayalî stok yazılmaz. Sınır ötesi yük mülkiyeti teslimata kadar satıcıda, teslimattan sonra alıcıdadır. Kayıt/yükleme yoldaki yükü birebir korur; eski veya bozuk ticaret kaydı bölgesel stoklara dokunmadan boş deftere alınır. PlayerKnowledge ve şehir dosyası yalnız oyuncunun kendi ticaret ayrıntısını doğrulanmış gösterir. 900 saniyelik A/B’de ticaret `28.844,74` kaynak birimini fiziksel olarak teslim etti ve yeni dünya karması `fabd03…7e66 → 064495…a5b` oldu; eski refah, toprak ve `oil/manpower/points` metrikleri değişmedi. Ancak gıda ve enerji yine sıfıra indi, kıtlık sayısı yalnız `1197 → 1196` düştü ve sermaye `2,20 milyon` düzeyinde kaldı. Bu sonuç taşıma zincirinin çalıştığını ama toplam üretim açığını, fiyatı, bütçeyi veya ekonomik AI’yi çözmediğini açıkça kanıtlar.
+
+**1.34 değişikliği:** Faz 19, `story-market-price-ledger-1` bölgesel piyasa defteriyle tamamlandı. Bölgesel ekonomi her tikte kaynak bazında gerçekleşen talep, teslim, karşılanamayan miktar, üretim girdisi ve çıktısını saklar; fiyat katmanı bu akışları mevcut/güvenli stok, stok günü, yoldaki yük, bekleyen yük ve koridor hasarıyla birleştirir. Altı fiziksel mal/enerji için baz `100`, sınır `25–800`, hedef çarpanı `0,35–6`, yumuşatma `0,22` ve tek-tik hareket tavanı `%10` olan endeks fiyatları üretildi. Hane ve üretici sepetleri bölge/ülke düzeyinde nüfus ağırlıklı hesaplanır. İş gücü mevcut `NON_STOCK` modeli yüzünden `DEFERRED/null`, sermaye Faz 20’ye kadar `NUMERAIRE/1` durumundadır; eski `st.inflation` alanı değiştirilmez. Ticaret için para yaratmayan `INDICATIVE_INDEX_QUOTE / PAYMENT_PENDING_PHASE_20` görünümü eklendi. 200 küçük ters yönlü şokta toplam salınım yalnız `0,1572`; sıfır stok hedefi `600`, ilk hareket `100→110`; tam kesintili bekleyen yük aynı fiziksel koşulun fiyat hedefini `52,73→63,52` yükseltti. 900 saniyelik A/B’de yalnız piyasa defteri değişti (`3ceb63…42e4 → 412e5b…548f`); fiziksel dünya birebir aynı, refah/enflasyon/huzursuzluk/toprak/eski kaynak deltaları sıfırdır. Buna rağmen `912` aktif fiyatın `671`i kritik, ortalama endeks `414,94` oldu: Faz 19 kıtlığı görünür kıldı, çözmedi. 30 yıllık soak `a08f0a…992a` karmasıyla ve fiyat sınırları korunarak geçti.
+
+**1.35 değişikliği:** Faz 20, `story-state-budget-ledger-1` devlet bütçesi ve çift taraflı muhasebe defteriyle tamamlandı. Legacy `points`, devlet parası diye yeniden adlandırılmadı; komutan cüzdanları kanonik `ASSET:CASH` hesabının alt hesapları olarak korundu ve toplamları her yazımda mutabakata bağlandı. Şehir puan geliri vergi geliri; konsey, üretim, bina, medya, fraksiyon tavizi ve sermaye kaçışı kaynak etiketli gider oldu. Tek taraflı her fiş, negatif nakit, eksik devlet hesabı ve bakiye üstü harcama reddedilir. Borç ihracı tavanlıdır; faiz ve anapara dünya günüyle işler, ödenmeyen faiz borca eklenir ve 60 gün gecikme temerrüt üretir. Para basımı ayrı karşı hesapta kalır, enflasyonu artırır ve güveni düşürür. Faz 18 ticareti kayıt uyumlu biçimde genişletildi: sınır ötesi fiyat sevkte kilitlenir, alıcı nakdi escrow’a alınır, teslimatta satıcıya aktarılır; kayıp yükte bloke çözülür. Faz 20 öncesinden yolda kalan dış ticaret yükü yüklemede ya finanse edilir ya `PAYMENT_RESERVATION_REQUIRED` ile bekler; mal silinmez veya bedava teslim edilmez. Otoyol önergesinin `150⭐` harcayıp yaklaşık `400⭐` yaratması, tasarruf önergesinin kişi başına `60⭐` basması ve yeni komutan atamasının karşılıksız `200⭐` üretmesi kaldırıldı. Oyuncunun kendi bütçesi V2/PlayerKnowledge/şehir `BÜTÇE` sekmesinde `VERIFIED`, yabancı bütçe `UNKNOWN/null` görünür. 900 saniyede defter geçerli kaldı: toplam nakit `17.903,29`, borç `2.163,03`, açık bloke ve temerrüt `0`; karma `29b96416…2acb`. 30 yıllık soak `4b1b3fa0…c9dac` karmasıyla; nakit `71.196,57`, borç `1.380,52`, temerrüt `0` ve geçerli muhasebeyle tamamlandı. Bu mali kimlik ve ödeme katmanıdır, dengeli modern ekonomi değildir: kamu hizmeti bütçeleri, şirket/banka hesapları, kur, ücret, kredi piyasası, bölgesel `capital` karşı hesabı ve kıtlığa yatırım tepkisi hâlâ Faz 21–23 borcudur.
+
+**1.36 değişikliği:** Faz 21, `story-company-bank-ledger-1` şirket/banka/mülkiyet defteriyle tamamlandı. Altı sektörde sekiz devlet için `48` ayrı şirket, `8` banka, `412` şirket mülkiyetli tesis ve `152` depo oluşturuldu; şirket nakdi devlet kasasından ayrıldı. Üretim sermayesi artık dışarıdan sınırsız eklenen bir numeraire değil, ilgili sektör şirketinin gerçek işletme nakdidir; üretim gideri ve piyasa geliri çift taraflı fişle şirket bilançosuna geçer. Sınır ötesi ticaret geliri satıcı devlete değil malın sahibi şirkete ödenir. Banka kredisi rezervi azaltıp şirket borcunu artırır; borç/özkaynak tavanı, faiz, ödeme güçlüğü, iflas ve tesis kayyımlığı durumları doğrulanır. Kapasite yatırımı şirket nakdi ile gerçek sanayi parçası/elektronik stoğunu atomik olarak tüketir, `180` dünya günü inşa bekler ve ancak tamamlanınca tesis kapasitesini artırır. Şirket başvurusu sermaye ve ruhsat tamamlanmadan kaydedilemez; lobi harcaması şirket nakdinden çıkar. WorldV2, oyuncu bilgi filtresi ve şehir `ŞİRKETLER` sekmesi yalnız yetkili/doğrulanmış veriyi gösterir. Hedefli kredi, yatırım, başvuru, lobi, bozuk kayıt, bilgi sızıntısı ve özellik-kapalı testleri; 900 saniyelik A/B ve 30 yıllık soak geçti. 900 saniyede soyut sermaye `2.190.739,69` yerine şirket likiditesine bağlı `73.138,70` oldu; şirket nakdi `73.458,70`, piyasa takas hesabı `27.686,44` ve aktif iflas `0` kaldı. 30 yılda `48` şirket/`8` banka/`412` tesis korundu; şirket nakdi `94.013,60`, banka rezervi `11.200`, şirket borcu ve otomatik proje sayısı `0` oldu. Son iki sıfır başarı değildir: ekonomik aktörlerin kendi kendine yatırım/kredi/ticaret stratejisi henüz yoktur; Faz 22 bunu aynı mali ve fiziksel kurallar altında kurmalıdır.
+
+**1.37 değişikliği:** Faz 22, `story-economic-ai-ledger-1` ekonomik karar defteriyle tamamlandı. Şirketler bölgesel stok/güvenli hedef, gerçekleşmiş dolum, fiyat primi, kâr marjı, şirket nakdi, borç tavanı, banka rezervi ve fiziksel yatırım girdilerinden deterministik aday üretir. Seçici, eşik altı veya gerçekleştirilemez adayı açık kodla reddeder; uygun olduğunda kendi nakdiyle ya da gerçek banka kredisiyle yatırım başlatır. En az `80` işletme sermayesi korunur; yatırım `140` nakit, `18` sanayi parçası ve ileri teknolojide `3` elektronik tüketip `180` dünya günü bekler. AI devletleri yalnız kendi stratejik gıda/enerji şirketlerine, özel finansman gerçekten tükenmişse ve hazinede `800` rezerv kalıyorsa hedefli destek verebilir; oyuncu hazinesi otonom AI kapsamı dışındadır. Destek devlet bütçesinden eksilir ve şirket defterine aynı tutarda girer. Adaylar, sinyaller, reddetme nedeni, seçim, uygulama ve gerçekleşen kapasite sonucu kaydedilir; eski/bozuk kayıt, bilgi filtresi ve özellik-kapalı yol doğrulanır. Hedefli koşuda `7` kredi, `7` süreli yatırım, `7` gerçekleşen kapasite artışı ve `1` bütçeli destek oluştu; iflas ve oyuncu-hazinesi müdahalesi olmadı. 900 saniyelik A/B gıda üretimini `821,04→3.046,94` yükseltti fakat gıda stoğu yine `0`, enerji `13,30→0` ve kritik fiyat `608→611` oldu. Faz karar eksikliğini kırdı; ekonomik dengeyi, emek/ücret/kur/mevduatı veya ulusal çok alanlı gündemi çözmüş sayılmayacaktır.
 
 ---
 
@@ -105,6 +167,35 @@ Hikâye modunun kimliği korunur: oyuncu önce bir **komutandır**, otomatik ola
    - Oyuncuya emir, ret, pazarlık veya destek kararı verebilir.
 
 Bu ayrım yapılmadan ekonomi ve siyaset katmanları eklenirse oyuncu rolü anlamsızlaşır. Her eylem `actorId`, `authoritySource` ve `legalBasis` taşımalıdır.
+
+### Tek dünya, altı rol merceği
+
+Ekonomi, siyaset veya bilgi sistemi her oyuncu rolü için yeniden yazılmaz. Tek kanonik `StoryWorldStateV2` üzerinde rol yalnız üç şeyi değiştirir: **yetki kümesi**, **bilgi projeksiyonu** ve **karar zaman ufku**. Aynı gıda kıtlığı altı ayrı stok hesabı üretmez; aynı fiziksel olay farklı aktörlere farklı görev, risk ve bilgi olarak görünür.
+
+| Rol merceği | Kanonik sistemle temas | Doğrudan karar döngüsü | Bilgi niteliği |
+|---|---|---|---|
+| Şirket sahibi | Şirket, tesis, stok, satış, sözleşme, banka | Ne üretilecek, kime satılacak, stok/yatırım/finansman | Kendi defteri doğrulanmış; rakip ve piyasa tahminli |
+| Belediye başkanı | Bölge, yerel bütçe, altyapı, stok ve hizmet | Yerel yatırım, dağıtım, izin, kriz müdahalesi | Yerel kurum raporu; merkez ve özel sektör kısmen gecikmeli |
+| Cumhurbaşkanı/başbakan | Devlet bütçesi, kanun, vergi, gümrük, teşvik | Mikro üretim değil politika, atama ve kaynak bütçesi | Toplu ve gecikmeli; bürokratik/medya çerçevesi taşıyabilir |
+| Komutan | Ordu, hazırlık, askerî stok ve lojistik talebi | Konuşlanma, ikmal talebi, harekât ve askerî ilişki | Kendi kuvveti doğrulanmış; düşman ve sivil ekonomi sınırlı |
+| Ajan | `ActorBelief`, kaynak güveni, paravan ağ ve gizli faaliyet | Bilgi edinme, doğrulama, sızdırma, yanıltma, sabotaj | Gerçek yerine kaynaklı iddia ve çelişkilerle oynar |
+| Sivil | Kohort ihtiyaçları, iş, fiyat, güvenlik ve yerel ağ | Geçim, hareket, örgütlenme, tanıklık ve ilişki | Kişisel deneyim güçlü; makro ve gizli sistemler zayıf |
+
+Rol değiştirmek serbest bir geliştirici kamerası değildir. Oyuncu bir aktörü kontrol eder; makam kazanma/kaybetme, atama, seçim, darbe, şirket edinimi, görev değişimi veya senaryo devri olay/komut hattından geçerse aynı kampanyada mercek değişebilir. QA aynı dünya fotoğrafını farklı rol projeksiyonlarıyla okuyabilir, fakat bu projeksiyon dünya durumunu değiştiremez. İlk yayımlanabilir yolların derinliği eşit olmak zorunda değildir: komutan ve şirket sahibi tam dikey döngüyle; ulusal/yerel yönetici daha seyrek kurumsal kararlarla; ajan bilgi sistemi olgunlaştıktan sonra; sivil ise önce sınırlı prolog/kriz senaryosuyla kanıtlanır. Bu bir kalıcı kalite sınıfı değil teslim sırasıdır.
+
+Rol bilgisinin ortak hattı:
+
+```text
+WorldFact / kanonik defter
+→ ActorBelief ve kaynak/yaş/güven kayıtları
+→ RoleAuthorityProjection
+→ DomainViewModel
+→ UI / sohbet bağlamı
+```
+
+Hiçbir rol kendi kopya enflasyon, stok veya şirket sayısını tutmaz. Aynı sayı farklı doğrulukta görülebilir: şirket sahibi kendi nakdini kesin, cumhurbaşkanı enflasyonu gecikmeli toplu rapor, ajan ise resmî rapor ile çalınmış kayıt arasındaki çelişki olarak görür. Görünür sayıların tamamı aynı gerçek kimliğine ve gözlem kaynağına geri bağlanır.
+
+**Kıtlık sözleşmesi:** Hedef “hiç kıtlık olmaması” değildir; periyodik, yerel veya sektörel, nedeni izlenebilir ve oyuncu/AI müdahalesiyle iyileştirilebilir kıtlık oynanış üretir. Buna karşılık ekonominin kalıcı olarak temel ihtiyacı karşılayamaması, bütün bölgelerin aynı kıtlığa çökmesi veya hiçbir rolün geçerli karşı hamle bulamaması tasarım değil sistem arızasıdır. Bir kıtlık oynanabilir sayılmak için başlangıç nedeni, etkilenen sahipli stok/rota, rol başına en az bir meşru müdahale, erken belirti, kötüleşme eşiği ve ölçülebilir toparlanma yolu taşımalıdır.
 
 ---
 
@@ -2819,12 +2910,16 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Referans kayıtlar veri kaybetmeden açılıyor; başarısız göç eski kaydı bozmuyor.  
 **Bağımlılık:** Faz 4.
 
+**Uygulama sonucu:** `js/StoryMigration.js`, kaynağı değiştirmeyen saf dönüştürücü ile yedek→hedef→rapor sıralı depolama kapısını kurdu. İlk başarılı göç tam üç ayrı anahtar yazar; kaynak anahtarına hiçbir zaman yazmaz. Yazılan V2 tekrar parse edilip `storyWorldV2Validate` ile doğrulanır. Geçerli referans kayıtta ülke/bölge sayısı, bölge sahipleri, ülke kaynakları ve oyuncu komutanı bire bir mutabık kaldı. Bozuk veya çakışmalı dört hata sınıfında yazma sayısı `0` olarak test edildi. Bu faz V2 gölge kopyasını üretir; canlı `storyLoad()` henüz V3 kaynağını kullanır.
+
 ### FAZ 6 — Deterministik Saat ve Takvim
 
 **Amaç:** Gerçek saniye sayaçlarını oyun takvimine bağlamak.  
 **Çıktı:** Sabit adım, hız seviyeleri, duraklatma, tarih dönüşümü.  
 **Kabul kapısı:** Farklı FPS ve hız ayarlarında aynı kararlar aynı dünya karmasını üretiyor.  
 **Bağımlılık:** Faz 4.
+
+**Uygulama sonucu:** `js/StoryClock.js`, dünya motorunu `0,25` saniyelik sabit adımlarla çalıştırır. Render yalnız gerçek süre sağlar; motor 1×/2×/4× hızda aynı tik dizisini tüketir. Saat şeması hız, toplam tik ve kısmi adım kuyruğuyla V3 kayda ve V2 zamanlayıcı görünümüne taşınır. Takvim `01.01.2032` başlangıcı, 360 günlük yıl ve 120 saniyelik oyun yılı için tek dönüşüm noktasıdır. 30/60/144 FPS, jitter ve üç hız düzeyinin 30 oyun saniyesindeki karması aynıdır; duraklatma dünyayı veya kuyruğu değiştirmez. Test konseyi artık gerçek oyun gibi tik tamamlandıktan sonra çözülür. Eski değişken-adım yolu yalnız A/B ve güvenli geri dönüş için `time.fixedStep` bayrağı arkasında tutulur.
 
 ### FAZ 7 — Tohumlu Rastgelelik
 
@@ -2833,12 +2928,18 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Kayıt/yükleme sonrası rastgele olay dizisi bozulmuyor.  
 **Bağımlılık:** Faz 6.
 
+**Uygulama sonucu:** `js/StoryRng.js`, tek kök tohumdan türeyen dokuz adlandırılmış RNG akışı sağlar: `world`, `character`, `military`, `economy`, `society`, `production`, `diplomacy`, `narrative`, `governance`. Her akış kendi 32-bit durumunu ve çağrı sayısını taşır. Hikâye domainlerinde doğrudan `Math.random()` kullanımı otomatik testle yasaktır. RNG durumu V3 kayda, V2 teşhisine ve motor içi durum karmasına girer. Kaydetme noktasından sonraki her akışın sekiz değeri yükleme sonrasında aynen devam eder. Anlatı akışına 100 ek çağrı askerî diziyi değiştirmez; `rng.streams=false` A/B yolunda değiştirmesi izolasyonun gerçek etkisini kanıtlar. RNG taşımayan eski kayıt, kayıt içeriği/tohumu üzerinden aynı fallback durumuna gelir ve uyarı üretir. Tam dünya kaydet→yükle→devam eşitliği, dağınık zamanlayıcı sayaçlarının kalıcılığını kuracak Faz 8 ile kapanacaktır.
+
 ### FAZ 8 — Sistem Zamanlayıcısı
 
 **Amaç:** Dağınık `_acc...` sayaçlarını açık bir iş sırasına taşımak.  
 **Çıktı:** Global/ülke/bölge/kriz görev kuyrukları.  
 **Kabul kapısı:** Görev sırası testle sabit; aynı sistem bir adımda iki kez çalışmıyor.  
 **Bağımlılık:** Faz 6–7.
+
+**Uygulama sonucu:** `js/StoryScheduler.js`, kaynak, üretim, komutan AI, sadakat, ekonomi, şehir büyümesi, fraksiyonlar, toplum, kuşatma, teknoloji, komutan sohbeti, oyuncu konuşmaları, diplomasi, çağ, şehir geliştirme ve komutan yenileme görevlerini aynı sürümlü sırada çalıştırır. Her görev `intervalSeconds`, `elapsedSeconds`, `runCount` ve `lastRunSequence` taşır; büyük adımda eski motorla aynı biçimde tek çalıştırma ve sayaç sıfırlama politikası uygulanır. Sicil V3 kayda, V2 projeksiyon/göç teşhisine ve durum karmasına girer. `scheduler.registry=false` eski `_acc...` yolunu korur ve 30 saniyelik hedefli A/B koşusunda dünya sonucu yenisiyle aynıdır. On dört saniyelik periyot probu bütün görev çalışma sayılarını doğrular; ek `0,25` saniye hiçbir görevi ikinci kez çalıştırmaz. Sicilsiz eski kayıt uyarılı fallback ile açılır.
+
+Tam devamlılık kapısı yalnız sayaçlarla sınırlandırılmadı. Kayıt, AI genelkurmay hedefleri, komutan hareket/firar cooldown’ları, kuşatmalar, küresel istila/darbe beklemeleri ve bekleyen konuşma kuyruğunu korur. Canlı fonksiyon taşıyan konuşmalar, oluşturma öncesi RNG fotoğrafı ile şablon içi seçim izi kullanılarak yüklemede yeni RNG tüketmeden yeniden kurulur. Headless kabul testi `73,125` saniyelik kesme noktasından `90,875` saniye devam eder ve kesintisiz `164` saniyelik koşuyla telemetri performans ölçümü dışında bütün kaydı bire bir karşılaştırır. Yüklemede güncel GEO şehirlerinin petrol/maden/şehir kaynaklarını eski `STORY_TERRAIN` koordinatlarıyla yeniden dağıtan kritik hata da bu kapı sayesinde bulundu ve kaldırıldı.
 
 ### FAZ 9 — Olay Defteri ve Komut Hattı
 
@@ -2847,12 +2948,75 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Büyük her değer değişiminin kaynak olayı bulunabiliyor.  
 **Bağımlılık:** Faz 4, 8.
 
+**Uygulama sonucu:** `js/StoryCausality.js`, `schemaVersion: 1` taşıyan sınırlı ve kaydedilebilir üç defter kurar. `WorldCommand` aktör, hedef, yük, korelasyon, kök komut ve idempotency anahtarını; `WorldEvent` kaynak komut, neden/kök olay ve durumunu; `Effect` hedef alan yolu, işlem, eski/yeni değer ve deltayı taşır. `storyCausalityTrace`, herhangi bir etki veya olay kimliğinden kaynak komut ile bütün kardeş olay/etkilere geri yürür.
+
+Canlı pencere en çok `180` komut, `360` olay ve `720` etki tutar. Sınır aşımında listeler bağımsız kırpılmaz: en eski komut ile yalnız ona bağlı olay/etkiler tek işlem olarak düşürülür. Böylece tutulan hiçbir etki yetim komut/olay referansı taşımaz. Toplam düşürülen kayıt sayıları ayrıca korunur.
+
+Canlı yazım kapıları:
+
+- `storyTransferNodeOwnership`: savaş, AI soyut savaşı, kuşatma, savaşmadan bırakma ve darbe sahipliklerini mutasyon anında kaydeder; gözlem tikindeki çift telemetriyi engeller.
+- `storyMoveCommander`: AI ilerleme, savunma, saldırı, takviye, geri çekilme, işgal ve firar hareketlerini kaydeder.
+- `storyWelfareDelta`: refahın eski/yeni değerini kaynak etiketiyle etkiye dönüştürür.
+- `storyResourceFlow`: tek seferlik harcama/iadeyi ayrı, sürekli şehir gelirini 10 saniyelik toplu kaynak etkisi olarak kaydeder.
+- `storyRelAdd`, `storySetTreaty`, `storyBreakTreaty`: ilişki, antlaşma ve süre alanlarını aynı neden zincirinde tutar.
+
+Defter V3 kayıt/yükleme yoluna eksiksiz girer; kimlik sayaçları ve idempotency geçmişi yükleme sonrasında kaldığı yerden devam eder. `StoryWorldStateV2.events` eski gözlem telemetrisiyle birlikte nedensel olayları da taşır; teşhis alanı komut/olay/etki ve düşürülen kayıt sayılarını gösterir. `causality.ledger=false` dünya mutasyonlarını aynen uygular fakat defteri boş bırakır.
+
+Otomatik kabul kanıtı:
+
+- Aynı idempotency anahtarlı `−5` refah komutu iki kez çağrıldığında yalnız ilk çağrı uygulanır.
+- Refah, sahiplik, antlaşma ve ilişki etkileri doğru `before/after` veya delta değerleriyle bulunur.
+- Sahiplik olayı mutasyon anında tam bir kez üretilir; sonraki telemetri tiki kopya üretmez.
+- Etki kimliğinden komut ve kök olaya geri yürünür.
+- Boş idempotency anahtarı reddedilir.
+- Kayıt/yükleme defteri bire bir korur ve sonraki komut kimliği kaldığı yerden devam eder.
+- AI/toplum sahipliği ve AI komutan hareketi için doğrudan alan yazımı statik testle yasaktır.
+- Açık/kapalı 900 saniyelik A/B sonucunda durum fark listesi boştur.
+
+Sınır: Bu faz bütün eski alanları bir anda merkezî komutlara taşımadı. Kabul kapsamı sahiplik, refah, kaynak akışı, AI hareketi ve diplomasiyle sınırlıdır. Ordu listesi, sadakat, itibar, üretim kuyruğu ve gelecekteki ekonomi/politika alanları kendi domain fazlarında aynı kapıya alınacaktır. Zincir derinliği, günlük olay bütçesi ve kasıtlı döngü sigortası Faz 10 kapsamıdır.
+
 ### FAZ 10 — Değişmezler ve Zincir Sigortası
 
 **Amaç:** Ekonomik/politik zincirlerin kontrolden çıkmasını engellemek.  
 **Çıktı:** Sınırlar, korunum kontrolleri, olay derinliği ve günlük olay bütçesi.  
 **Kabul kapısı:** Kasıtlı döngü enjeksiyonu oyunu kilitlemeden durduruluyor ve raporlanıyor.  
 **Bağımlılık:** Faz 9.
+
+**Uygulama sonucu:** Faz 9 defterinin önüne, mutatör çalışmadan karar veren `causality.guards` kapısı eklendi. Normal motor davranışı değişmez; yalnız sınırı aşan veya domain değişmezini ihlal eden komut/olay/etki `BLOCKED` olur.
+
+Sabit sınırlar:
+
+- nedensel derinlik: `8`,
+- aynı olay türü + hedef parmak izi: en çok `3` tekrar,
+- komut başına: `32` olay ve `96` etki,
+- bir dünya saniyesinde: `512` komut, `1024` olay ve `2048` etki,
+- uyarı döner penceresi: `120`.
+
+Mutasyon öncesi değişmezler:
+
+- bölge sahibi var olan bir devlet olmalı,
+- refah `0–100`,
+- kaynak deltalarının petrol/insan gücü/puan alanları sonlu olmalı,
+- komutan konumu var olan bir bölge olmalı,
+- ilişki `−100–100`,
+- antlaşma tanımlı türlerden biri, bitiş zamanı sonlu ve negatif olmayan değer olmalı,
+- bütün sayısal etki değerleri sonlu olmalı.
+
+`storyCausalityValidate` kimlik, sıra, komut–olay–etki referansı, bütçe ve etki değişmezlerini salt-okunur doğrular. `storyCausalityValidateWorldConsistency`, tutulan her alan yolundaki en yeni `SET` etkisini canlı sahiplik/refah/diplomasi değeriyle karşılaştırır; kapı dışı doğrudan yazım `WORLD_LEDGER_MISMATCH` üretir. Bozuk defter yüklemesi dünyayı veya ana kaydı reddetmez: nedensellik defteri güvenli boş duruma alınır, `restoredFromInvalidLedger`, sorun listesi ve `invalidRestores` sayacı saklanır. V2 teşhisi sigorta sayaçlarını taşır.
+
+Enjeksiyon kabul sonuçları:
+
+- 20 adımlık öz-döngü yalnız 3 mutatör çalıştırır, dördüncü `CYCLE_REPEAT` ile kesilir.
+- 100 alt olay isteğinin kök dâhil yalnız 32’si; 150 etki isteğinin yalnız 96’sı uygulanır.
+- aynı dünya saniyesindeki 600 komutun 512’si uygulanır, 88’i mutatör çalışmadan bloklanır.
+- `welfare=999`, bilinmeyen devlet sahipliği, `NaN` kaynak deltası ve bilinmeyen komutan bölgesi dünyaya yazılmaz.
+- doğrudan refah kaçak yazımı yapısal JSON geçerli olsa bile dünya–defter mutabakatında yakalanır.
+- kırık olay referanslı kayıt açıklamalı reddedilir ve güvenli defter fallback’i sonrası tekrar doğrulanır.
+- sigorta kapalı karşı-test eski doğrulamasız yazımı gerçekten uygular; bayrağın sahte olmadığı kanıtlanır.
+- normal 900 saniye ve 30 yıllık koşular `blockedTotal=0`, `invariantFailures=0` ile tamamlanır.
+- `causality.guards` açık/kapalı 900 saniyelik durum fark listesi boştur.
+
+Sınır: Bu sigortalar Faz 9’da kapıya alınmış alanları korur. Henüz merkezî etki kapısında olmayan sadakat, itibar, üretim kuyruğu, ordu listesi ve gelecekteki ekonomi domainleri kendi fazlarında değişmez tanımı eklemek zorundadır. Faz 10.1 bu nedenleri oyuncu bilgi filtresinden geçen view-model ve “neden değişti?” UI sözleşmesine taşıyacaktır.
 
 ### FAZ 10.1 — UI Projeksiyon ve Nedensellik Test Tezgâhı
 
@@ -2861,72 +3025,266 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Aynı dünya durumu farklı oyuncu bilgi seviyelerinde doğru farklı görünüm üretiyor; UI projeksiyonu dünya durumunu değiştirmiyor.  
 **Bağımlılık:** Faz 4.1, 9–10.
 
+**Uygulama sonucu:** `js/StoryProjection.js`, UI’nin ham `STORY`, V2 dünya veya nedensellik payload’ını okuması yerine sürümlü `PlayerDomainProjection` üretir. Görünürlük alan bazında `PlayerVisibleFact` ile belirlenir.
+
+Bilgi kesinliği:
+
+- `VERIFIED`: kesin önce/sonra veya kaynak deltası gösterilir.
+- `ESTIMATED` / `RUMOR`: kesin etki değeri kapatılır; yalnız değişim ve oyuncunun mevcut tahmin/güven değeri gösterilir.
+- `UNKNOWN`: değişim satırı, rozet ve neden izi üretilmez.
+- Diplomatik gerçekler henüz `PlayerKnowledgeService` bilgi sınıfına alınmadığı için ham ilişki/antlaşma etkileri bu fazda bilinçli olarak gösterilmez.
+
+View-model:
+
+- toplum, ekonomi, toprak, askerî, yönetim ve diplomasi domain kartları,
+- görünür değişim listesi ve son `60` dünya saniyesi rozeti,
+- güven sınıfı, bilgi kaynağı, gözlem zamanı ve kesinlik,
+- kaynak komut → neden olayları → kalıcı etki izi,
+- bilinmeyen komut/olay türleri için ham anahtarı açmayan güvenli genel etiket,
+- komut payload’ı, aktör, hedef ve doğrulanmamış gerçekleri dışarıda bırakan doğrulayıcı.
+
+Gerçek UI:
+
+- hikâye araç çubuğunda `08 DEĞİŞİM`,
+- yakın görünür değişim sayacı,
+- domain özetleri,
+- oyuncu-görünür değişim satırları,
+- seçili satır için “NEDEN DEĞİŞTİ?” komut→olay→etki zinciri,
+- kesin ve kesin olmayan bilgi için ayrı görsel dil,
+- diğer drawer’larla tek-panel davranışı, `Escape`, harita tıklaması ve mobil genişlik uyumu.
+
+Kabul kanıtı:
+
+- aynı yabancı refah etkisi oyuncu `0` için `UNKNOWN` olduğunda görünmez, sahibi oyuncu `1` için `EXACT` görünür;
+- aynı gerçeğe istihbarat tahmini eklendiğinde satır görünür fakat `before/after/delta=null` ve `precision=OPAQUE` kalır;
+- kamusal bölge kontrol değişimi iki oyuncuya da görünür;
+- tahmine kesin değer enjeksiyonu `IMPRECISE_FACT_EXACT_LEAK`, bilinmeyen gerçek enjeksiyonu `HIDDEN_FACT_LEAK` üretir;
+- projeksiyon verilen V2 dünya, defter ve canlı dünya karmasını değiştirmez;
+- gerçek jsdom paneli değişim satırı, rozet ve en az üç neden adımı üretir; ham `payload` anahtarını basmaz;
+- kayıt/yükleme sonrası view-model byte-eşdeğer yeniden üretilir;
+- `projection.causalityUi` kapalıyken güvenli boş görünüm döner;
+- açık/kapalı `900` saniyelik A/B dünya fark listesi boştur;
+- normal `900` saniye karması `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`, `3600` saniye soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Bu panel yalnız Faz 9’da kalıcı etki kapısına alınmış ve PlayerKnowledge alanı tanımlanmış gerçekleri gösterebilir. Diplomasi, sadakat, itibar değişimi, üretim kuyruğu ve ordu listesi kendi domain fazlarında bilgi sınıfı + etki bağlayıcısı eklenmeden kesin neden olarak açılmaz. Bu eksiklik UI’dan ham veri okuyarak aşılmayacaktır.
+
 ---
 
 ## DALGA C — Coğrafya ve Ayrıntı Seviyesi
 
 ### FAZ 11 — Bölge Veri Modeli
 
-**Amaç:** 36 düğümü üretim, nüfus, altyapı ve lojistik taşıyan bölgelere dönüştürmek.  
-**Çıktı:** Mevcut harita kimliklerini koruyan bölge şeması.  
-**Kabul kapısı:** Komşuluk, sahiplik ve şehir konumları eski haritayla birebir uyuşuyor.  
+**Durum:** `implemented`
+**Amaç:** Mevcut 152 düğümü yeniden numaralandırmadan üretim, nüfus, altyapı ve lojistik taşıyan sürümlü bölgelere dönüştürmek.
+**Çıktı:** `js/StoryRegions.js`; `region:N` kalıcı kimliği, `legacyId`, normalleştirilmiş merkez, sınıflandırma, komşuluk, topoloji karması, dinamik ekonomi/askerî/lojistik görünümü ve `world.regionModel` geri dönüş bayrağı.
+**Kabul kapısı:** Komşuluk, sahiplik ve şehir konumları eski haritayla birebir uyuşuyor; kimlikler tekil ve `storyNode(id)` indeks sözleşmesini koruyor; bağlantılar çift yönlü; kayıt/yükleme, eski kayıt backfill’i ve bozuk model kurtarması geçiyor.
 **Bağımlılık:** Faz 4.
+
+**Uygulama sonucu:**
+
+- `RegionModel` yalnız sabit kimlik/topoloji alanlarını saklar; canlı sahiplik, ekonomi ve garnizon için ikinci gerçek kaynak yaratmaz.
+- 152 bölgenin `region:N ↔ legacyId=N ↔ STORY.nodes[N]` eşleşmesi otomatik doğrulanır.
+- Konumlar `NORMALIZED_WORLD` uzayında `0–1` aralığına, komşular tekil/açık/çift yönlü referanslara zorlanır.
+- Faz 11 lojistiği kara komşuluğuyla başlar; gelecekteki koridor kimlikleri için sürümlü `corridorIds` alanı açıkça boştur.
+- V2 bölge kayıtları konum, `CITY_REGION` sınıfı ve lojistik sözleşmesini taşır; V3→V2 göçü aynı alanları backfill raporuyla üretir.
+- RegionModel taşımayan eski kayıt canlı düğümlerden uyarılı backfill alır; bozuk model kullanılmaz, hata listesi saklanarak güvenli biçimde yeniden kurulur.
+- Sahiplik devri bölge topoloji karmasını değiştirmez; dinamik Region görünümü ve V2 projeksiyonu aynı yeni sahibi görür.
+- `qa-runtime/story-phase11-ab.json`: açık/kapalı hash `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; durum farkı ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak hash `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Faz 11 bölge semantiği ve topoloji sözleşmesidir; kamera/panel kaynaklı aktivasyon bütçesi Faz 12’nin, kayıpsız toplulaştırma Faz 13’ün, kapasite/hasarlı gerçek ulaşım koridorları Faz 14’ün işidir. Mevcut 30 yıllık tek-devlet çöküşü bu fazda düzeltilmedi ve başarı gibi yorumlanamaz.
 
 ### FAZ 12 — Sıcak/Ilık/Soğuk Aktivasyon
 
-**Amaç:** Uzak dünyayı düşük maliyetle simüle etmek.  
-**Çıktı:** Aktivasyon kuralları, bütçeleyici, gözlem önceliği.  
-**Kabul kapısı:** Kamera hareketi veya panel açmak ekonomik sonuçları değiştirmiyor.  
+**Durum:** `implemented`
+**Amaç:** Uzak dünyayı düşük maliyetle simüle edecek deterministik ayrıntı bütçesini kurmak.
+**Çıktı:** `js/StoryActivation.js`; aktivasyon kuralları, bütçeleyici, gözlem önceliği, sistem-bölge faz ofseti ve `world.regionActivation` geri dönüş bayrağı.
+**Kabul kapısı:** Kamera hareketi, şehir seçimi veya panel açmak aktivasyon sınıfını ve ekonomik/siyasi sonucu değiştirmiyor; aynı sistem/tik aynı bölge dilimini üretiyor.
 **Bağımlılık:** Faz 8, 11.
+
+**Uygulama sonucu:**
+
+- Aktivasyon girdileri yalnız dünya durumudur: oyuncu komutanı, aktif savaş, kuşatma, başkent, son 60 saniyedeki kontrol değişimi, komutana graf uzaklığı, cephe, sahiplik, bölge seviyesi, altyapı, nüfus ve garnizon.
+- Kamera koordinatı/zoom, `selectedNodeId`, şehir/konsey/değişim paneli ve render görünürlüğü aktivasyon modülünde okunmaz.
+- Bütçe `12 HOT / 48 WARM / 92 COLD`; kadanslar sırasıyla `1 / 4 / 20` tik, ayrıntı payları `10000 / 4000 / 1000` baz puandır.
+- Oyuncu komutanının bulunduğu bölge daima HOT olur; komutan taşındığında önceden COLD olan hedef aynı dünya durumunda HOT’a yükselir.
+- Sistem kimliği + bölge kimliğinden deterministik faz ofseti türetilir. 20 tiklik tam turda her HOT/WARM/COLD bölge tam `20/5/1` çalışma dilimine girer.
+- Aktivasyon görünümü türetilmiştir; dinamik kopyası kayıt dosyasına yazılmaz. Yalnız sürümlü politika/topoloji bağı kaydedilir, aynı dünya yüklemede aynı görünümü yeniden üretir.
+- Eski kayıt güncel politikayı uyarılı backfill ile alır; yanlış topoloji karmalı politika hata listesini saklayarak güvenli yeniden kurulur.
+- 60 saniye boyunca her saniye kamera, zoom, seçili şehir ve üç panel durumu değiştirilmiş koşu ile dokunulmamış koşunun dünya karması ve alanları birebirdir.
+- 250 aktivasyon dilimi tezgâhta yaklaşık `54,8 ms` toplam, `0,219 ms/dilim` üretti. Bütçeyi kullanan gelecek sistemler için teorik göreli ayrıntı iş yükü `1136 bps` (`%11,36`) düzeyindedir.
+- `qa-runtime/story-phase12-ab.json`: açık/kapalı 900 saniyelik hash `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; ilk fark listesi ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak hash `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Mevcut ekonomi, toplum ve savaş sistemleri henüz aktivasyon dilimlerine geçirilmedi; bu nedenle Faz 12 tek başına gerçek CPU kazancı veya daha modern devlet davranışı üretmiş sayılmaz. Bölgesel toplamları kaybetmeden seyrek çalıştırma Faz 13 toplulaştırma/ayrıntılandırma sözleşmesinden sonra güvenle bağlanabilir. Devletlerin iç işlere savaş kadar önem vermesi ekonomi, toplum ve kurum dalgalarının açık kabul borcudur.
 
 ### FAZ 13 — Toplulaştırma ve Ayrıntılandırma
 
-**Amaç:** Bölge ayrıntısını kayıpsız sayılabilecek biçimde azaltıp geri açmak.  
-**Çıktı:** Stok/nüfus/şirket/olay özetleri ve deterministik dağıtım.  
-**Kabul kapısı:** Sıcak→soğuk→sıcak turunda toplam para, nüfus ve stok korunuyor.  
+**Durum:** `implemented`
+**Amaç:** Bölge ayrıntısını kayıpsız sayılabilecek biçimde azaltıp geri açmak.
+**Çıktı:** `js/StoryAggregation.js`; sürümlü bölge kapsülü, doğrulanan özet, koruma imzası, deterministik dağıtım ve `world.regionAggregation` geri dönüş bayrağı.
+**Kabul kapısı:** Sıcak→soğuk→sıcak turunda toplam para, nüfus, stok, üretim işi ve geleceğe dönük alanlar korunuyor.
 **Bağımlılık:** Faz 12.
+
+**Uygulama sonucu:**
+
+- Her COLD kapsül tam kanonik bölge payload’ı, tipli özet, payload/özet checksum’ı ve Faz 11 topoloji karmasını taşır. HOT’a dönüş ancak şema, kimlik, checksum, statik konum ve komşuluk doğrulamasından sonra yapılır.
+- Canlı 152 bölgenin tamamı HOT→COLD→HOT turunda byte-eşdeğer geri döndü. Beş dünya saniyesi sonrasındaki koruma imzası `3319,639963` nüfus, `1056,14` servet, `16` garnizon, `118` fabrika, `44` kışla ve `32/152/32` petrol/şehir/puan yatağını korudu.
+- Dünya koruma imzası ayrıca ülke düzeyi `oil`, `manpower`, `points` ve `chips` toplamlarını kapsar; toplulaştırma bu kaynaklara yazmaz.
+- Gerçek bölge modelinde henüz bölgesel şirket ve stok sistemi yoktur. Bunların kaybolmadığı; iki şirket, üç stok, iki üretim işi, iki bekleyen olay, kuşatma ve bilinmeyen gelecek alanı içeren fixture’ın kanonik olarak birebir açılmasıyla doğrulandı. Bu test, sistemlerin oyunda var olduğu iddiası değildir.
+- Sabit ondalık dağıtıcı `100,007` birimi yedi anahtara giriş sırasından bağımsız dağıttı ve toplamı tam korudu.
+- Payload veya özet checksum’ı bozulan kapsül HOT duruma açılmaz. Canlı statik komşuluğu değişmiş kapsül `STATIC_TOPOLOGY_MISMATCH` ile reddedilir.
+- Geçerli politika ve bütün bölge özeti kayıt/yüklemede birebirdir. Eski kayıt uyarılı backfill alır; bozuk politika güvenli varsayılana döner; bayrak kapalı yol eski tam ayrıntılı davranışı korur.
+- Kamera, zoom, seçili şehir ve açık panel değişiklikleri kapsülü, koruma imzasını veya dünya sonucunu değiştirmez.
+- 152 bölgelik tam gidiş-dönüş ölçümü yaklaşık `16,037 ms`; ortalama `0,105509 ms/bölge` sürdü.
+- `qa-runtime/story-phase13-ab.json`: açık/kapalı 900 saniyelik hash `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; ilk fark listesi ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak hash `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Bu faz geçiş ve veri koruma sözleşmesini kurdu; canlı ekonomi/toplum/AI sistemleri henüz COLD kapsüller üzerinden seyrek çalışmıyor. Dolayısıyla gerçek CPU kazancı, bölgesel stok/şirket davranışı veya modern iç politika üretilmiş değildir. 30 yıllık dünyada devlet `3` hâlâ `152/152` bölgeyi ele geçirir. Faz 14 akışların gerçek altyapıya bağlanmasını başlatacak; iç yönetim davranışının asıl dönüşümü ekonomi, toplum ve kurum dalgalarında yapılacaktır.
 
 ### FAZ 14 — Altyapı ve Ulaşım Grafı
 
-**Amaç:** Ticaret ve askerî ikmali gerçek bağlantılara bağlamak.  
-**Çıktı:** Kara, deniz, enerji ve veri koridorları; kapasite ve hasar.  
-**Kabul kapısı:** Kesilen tek koridorun etkisi yalnızca bağlı akışlara yansıyor.  
+**Durum:** `implemented`
+**Amaç:** Ticaret ve askerî ikmali gerçek bağlantılara bağlayacak sürümlü omurgayı kurmak.
+**Çıktı:** `js/StoryInfrastructure.js`; kara, deniz, enerji ve veri koridorları, kapasite/hasar/erişim, rota ve akış çözümleyici.
+**Kabul kapısı:** Kesilen tek koridorun etkisi yalnızca bağlı akışlara yansıyor.
 **Bağımlılık:** Faz 11.
+
+**Uygulama sonucu:**
+
+- Faz 11 komşuluklarından tekil ve çift yönlü `177` kara koridoru üretildi. GEO şehir kimliklerine bağlı, açıkça denetlenebilir `20` deniz bağlantısı eklendi; isim bulunamadığında deniz yolu uydurulmaz.
+- Her fiziksel kara/deniz koridorunun üstünde ayrı enerji ve veri bağlantısı oluşturuldu. Toplam ağ `177 LAND / 20 SEA / 197 ENERGY / 197 DATA = 591` kalıcı koridordur.
+- Koridor sözleşmesi kalıcı kimlik, iki sıralı uç bölge, mod, üst fiziksel koridor, temel kapasite, `0–10000` baz puan hasar, etkinlik, mesafe, birim maliyet, gecikme ve erişim politikası taşır.
+- Etkin kapasite temel kapasite × kalan sağlamlık olarak tamsayı hesaplanır. `10000` baz puan hasar koridoru `BLOCKED`, ara hasar `DAMAGED`, sıfır hasar `OPEN` yapar.
+- Erişilebilir ülke kimlikleri UI veya cache’den değil uç bölgelerin canlı sahiplerinden türetilir. Antlaşma/transit hakkı henüz yoktur; `ENDPOINT_OWNERS` Faz 44 yükümlülüklerine kadar dar ve açık varsayımdır.
+- Deterministik rota çözümleyici maliyet + gecikmeyle en iyi yolu seçer, etkin kapasitesi sıfır koridoru kullanmaz ve eşitlikleri kalıcı koridor kimliğiyle kırar.
+- Hedefli testte `corridor:land:0:1` kesilince ona bağlı akış `100→0` oldu. Ayrı kara, enerji ve veri akışları aynı kaldı; rota motoru kesilen hattı dışlayıp üç koridorlu alternatif yol buldu.
+- Doğrulayıcı şema/mod, yinelenen kimlik, kendine bağlantı, kırık bölge, geçersiz kapasite/hasar, kırık üst koridor, uç eşitsizliği, eksik/fazla koridor ve ağ/topoloji karmasını denetler.
+- V2 bölge lojistiği artık bağlı koridor kimliklerini taşır; V2 teşhisi ağ karması, hasar revizyonu ve mod başına kapasite/hasar özetini yayınlar.
+- Tam 591 koridor her otomatik kayda yazılmaz. Topoloji RegionModel’den yeniden türetilir; kayıt yalnız ağ karması ile değişmiş hasar/etkinlik durumlarını taşır. Tek hasarlı koridor örneğinde kompakt kayıt `367 bayt`, tam çalışma grafı yaklaşık `184231 bayt` ölçüldü.
+- Geçerli hasar kaydı/yüklemesi birebirdir. Graf taşımayan eski kayıt uyarılı backfill; yanlış ağ karmalı kayıt sorun listesini koruyan güvenli yeniden kurulum üretir.
+- Kamera, zoom, seçili şehir ve açık paneller ağ veya erişim sonucunu değiştirmez.
+- 100 komşu rota sorgusu yaklaşık `15,943 ms`, ortalama `0,159428 ms/rota` sürdü.
+- `qa-runtime/story-phase14-ab.json`: açık/kapalı 900 saniyelik hash `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; ilk fark listesi ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak hash `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Faz 14 gerçek altyapı grafını kurdu fakat mevcut ekonomi, ticaret, devlet AI ve askerî ikmal henüz bu koridorlardan kaynak taşımaz. Kesinti testi sürümlü test akışlarıyla yapılmıştır; canlı fiyat, stok veya ordu ikmali etkisi olduğu iddia edilemez. Deniz bağlantıları ilk açık katalogdur, küresel liman/boğaz modeli değildir. Dünya 30 yıllık testte hâlâ devlet `3` için `152/152` fetihe çöker; modern iç yönetim sorunu çözülmedi.
 
 ### FAZ 14.1 — Şehir Dosyası İlk Oynanabilir Sürüm
 
+**Durum:** `implemented`
 **Amaç:** Şehir katmanlarını beklemeden temel “Şehre Gir” akışını gerçek bölge verisi üzerinde kurmak.  
 **Çıktı:** Şehir üst özeti, genel/lojistik/tarih sekmeleri, son değişiklikler ve karakter giriş noktası; tamamlanmamış katmanlar açıkça kilitli/boş değil “henüz sistem yok” durumunda.  
 **Kabul kapısı:** Haritadan şehir dosyasına, şehirden bağlantılı rota/karakter/olaya gidilebiliyor; oyuncunun bilmediği bölge verisi sızmıyor.  
 **Bağımlılık:** Faz 10.1, 11–14.
 
+**Uygulama sonucu:**
+
+- `js/StoryCityDossier.js` sürümlü ve salt-okunur şehir view-model’i, doğrulayıcı, render katmanı ve rota/olay/karakter navigasyon kapılarını taşır.
+- Eski panelin yalnız oyuncu şehrini kabul eden sahiplik engeli kaldırıldı. Haritada seçilen herhangi bir geçerli bölge şehir dosyasında açılır; yabancı şehir otomatik olarak salt-okunur olur.
+- Gösterilen seviye, nüfus, servet, garnizon, sanayi, kaynak yatağı ve lojistik gerçekleri `PlayerKnowledge` üzerinden geçer. Kendi verisi `VERIFIED`; yabancı idari/askerî/ekonomik veri `UNKNOWN/null` olur.
+- Genel, lojistik, tarih ve karakter sekmeleri bütün şehirlerde görünür. Bina ve ordu yönetimi yalnız oyuncunun sahip olduğu şehirlerde görünür ve mevcut üretim işlevlerini korur.
+- Kendi lojistik ekranı koridor modu, hedef şehir, etkin kapasite, hasar ve `OPEN/DAMAGED/BLOCKED` durumunu gösterir. Koridordan hedef şehir dosyasına ve kameraya geçilebilir.
+- Faz 14.1 tesliminde lojistik ekranı grafın henüz canlı tüketicisi olmadığını açıkça söylüyordu. Faz 18 ile aynı ekran artık gerçek gelen/giden sevkiyatı ve ticaretin koridor kapasitesini tükettiğini gösterir; fiyat ve askerî ikmal hâlâ açıkça sonraki fazlara aittir.
+- Tarih yalnız `StoryProjection` içinden oyuncuya görünür nedensel etkileri bölge kimliğiyle filtreler. Olay satırı “Değişim & Neden” ayrıntısını açar.
+- Karakter listesi yalnız doğrulanmış konumu aynı şehir olan kendi karakterlerini gösterir. Giriş sohbet merkezini karakter bağlamıyla açar; karaktere özel serbest görüşme henüz bulunmadığı için mevcut konuşma kuyruğundan sahte cevap üretilmez.
+- Bölgesel stok, şirket ve yerel kurum alanları sahte `0` veya boş kart değil `NOT_IMPLEMENTED / SİSTEM HENÜZ YOK` olarak görünür.
+- Beş yabancı gizli değere `987654321` ve benzeri sentinel’ler enjekte edildi; view-model ve HTML’de hiçbir değer sızmadı. Yabancı lojistik koridoru ve bilinmeyen karakter konumu da görünmedi.
+- Rota, olay ve karakter geçişleri; tablist/aria seçimi; özellik kapalı fallback’i; view-model doğrulaması ve DOM metni otomatik teste alındı.
+- `qa-runtime/story-phase14.1-ab.json`: `ui.cityDossier` açık/kapalı 900 saniyelik karma `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; ilk fark ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korundu.
+
+Sınır: Bu faz oyuncunun mevcut dünya verisini güvenli biçimde okuyup gezmesini sağlar; stok, şirket, kurum, gerçek ticaret/ikmal etkisi veya karaktere özel serbest sohbet üretmez. Tarayıcı arayüzü çalışma ortamında bulunmadığı için piksel düzeyi görsel taşma kontrolü yapılmadı; DOM ve erişilebilirlik kapıları geçti, gerçek EXE görsel kontrolü ayrıca gereklidir. Modern iç politika sorunu çözülmedi ve 30 yıllık dünya hâlâ devlet `3` için `152/152` fetihe çöker.
+
 ### FAZ 14.2 — Kanonik Kara Maskesi ve Region Raster
 
+**Durum:** `implemented`
 **Amaç:** Terrain, siyasi overlay, kıyı ve hit-test için tek raster kaynağı oluşturmak.  
 **Çıktı:** Sürümlü `CanonicalLandMask`, `RegionIdRaster`, downsample kuralları ve kıyı fark debug görünümü.  
 **Kabul kapısı:** Terrain ve overlay ayrı `GEO.land` scanline çalıştırmıyor; kara/deniz uyumsuzluğu sıfır veya belgelenmiş ince-geometri istisnasında.  
 **Bağımlılık:** Faz 11–14.
 
+Uygulanan sözleşme ve ölçüm:
+
+- `js/StoryMapRaster.js`, `canonical-map-raster-1` adaptörüyle `820×645` boyutunda kanonik `Uint8Array landMask` ve `Int16Array regionIds` üretir.
+- `GEO.land` scanline işlemi tek üretim noktasındadır. Terrain `1350×1062`, siyasi grid `300×236` çıktısını aynı kanonik kaynaktan deterministik örnekler; iki katman artık bağımsız kıyı rasterizasyonu yapmaz.
+- Region ataması, eski kodun normalleştirilmiş koordinat mesafesini değiştirmeyen deterministik KD-tree kullanır. Bütün `152` region rasterde temsil edilir; ölçülen ilk kurulum yaklaşık `57–63 ms` aralığındadır.
+- Kaynak/maske/region karmaları sırasıyla `fnv1a32:f76a938c`, `fnv1a32:f63d135c`, `fnv1a32:2dc42a47` olarak sabitlendi. Kaynak geometrisi değiştiğinde cache anahtarı da değişir.
+- Şema sürümü, dizi uzunluğu, `0/1` dışı kara değeri, denizde region, karada eksik/bilinmeyen region, kaynak karması ve iki veri checksum’ı ayrı hata kodlarıyla doğrulanır.
+- Gerçek `storyBuildLandGrid`, terrain cache ve owner overlay cache kaynak kimliği yayınlar. Harita tıklaması da kanonik rasterden region seçer; deniz hücresi şehir seçmez. Özellik kapalı veya GEO bulunmayan haritada eski güvenli yol korunur.
+- Gerçek 300×236 overlay grid’i ile aynı çözünürlükteki kanonik region resample karşılaştırmasında `0` hücre farkı, `0` denize region sızıntısı ve `0` karada region eksiği vardır.
+- Terrain merkezi örnekleri ile 300×236 overlay kıyısı arasında `153/70.800` (`%0,2161`) sınıf farkı; 300 çözünürlüğe inerken kanonik kara hücrelerinde `2.768/351.997` (`%0,7864`) ince-geometri kaybı ölçüldü. Bu kabul edilen bir nihai kalite değildir; Faz 14.3’ün çözmesi gereken açık görsel borçtur.
+- `qa-runtime/story-phase14.2-ab.json`: `world.canonicalMapRaster` kapalı/açık 900 saniyelik karma `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; ilk fark ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Politik overlay hâlâ `300×236` ve hücre başına `fillRect` kullanır; Faz 14.2 yalnız iki bağımsız coğrafya gerçeğini kaldırdı. Yüksek çözünürlüklü RGBA overlay, sınır maskesi ve tek `putImageData` Faz 14.3’e aittir. Çalışma ortamında tarayıcı bulunmadığı için piksel ekran görüntüsü karşılaştırması yapılamadı; gerçek EXE’de kıyı/sınır görsel kontrolü zorunludur. Runtime KD-tree naif hücre×şehir taramasını kaldırdı; Faz 14.4 yine build-time varlık, açılış benchmark’ı ve checksum’lı fallback üzerinde çalışacaktır. Modern dünya sorunu çözülmedi; 30 yıllık dünya yine devlet `3` için `152/152` fetihe çöker.
+
 ### FAZ 14.3 — ImageData Politik Overlay
 
+**Durum:** `implemented`
 **Amaç:** Hücre başına `fillRect` maliyetini kaldırmak ve sınır/tint çözünürlüğünü kanonik rasterle uyumlu yapmak.  
 **Çıktı:** Typed-array RGBA overlay, sınır maskesi, tek `putImageData`, sahiplik revizyon cache’i.  
 **Kabul kapısı:** Fetihte politik katman doğru yenileniyor; denize taşma/renksiz kara yok; rebuild süresi eski sürüme göre ölçülebilir büyük oranda düşüyor.  
 **Bağımlılık:** Faz 14.2.
 
+Uygulanan sözleşme ve ölçüm:
+
+- `js/StoryPoliticalOverlay.js`, sürümlü `political-overlay-rgba-1` çıktısını kanonik `820×645` raster üzerinde üretir.
+- Her kanonik kara pikseli sahibinin paletinden RGBA alır; iç tint alfa `51`, devlet sınırı alfa `230`; deniz alfa `0` kalır. Sınır yalnız dört komşudan en az biri farklı ve kara sahibi olduğunda yazılır, kıyı devlet sınırı sayılmaz.
+- Başlangıç örneğinde `349.241` iç bölge ve `2.756` devlet sınırı pikseli üretildi. `351.997` kara pikselinde renksiz hücre, `176.903` deniz pikselinde politik alfa ve denizde sınır sayısı sıfırdır.
+- Eski 300×236 fallback `47.137` ayrı `fillRect` çağrısı yapar. Yeni 820×645 ana yol `0 fillRect` ve tek `putImageData` kullanır; böylece önceki `%0,7864` ince-kara downsample kaybı politik katmandan kaldırılmıştır.
+- Değişmeyen sahiplik aynı canvas, owner checksum ve revision’ı korur. Gerçek sahiplik transferi `territory-transfer` nedeniyle cache’i geçersiz kılar; canvas belleği yeniden kullanılır, revision yalnız bir artar ve yeni RGBA tek kez yazılır.
+- Başlangıç owner/RGBA/sınır karmaları ölçüm koşusunda `fnv1a32:196bd176`, `fnv1a32:f386e770`, `fnv1a32:89dae1e1` oldu. Fetihte owner/RGBA/sınır karmalarının üçü de değişir.
+- Doğrulayıcı şema/adaptör, kanonik boyut, RGBA/sınır uzunluğu, kaynak ve sahiplik checksum’ı, RGBA/sınır checksum’ı, deniz alfa/sınır sızıntısı, kara alfa değeri ve sahiplik-sınır topolojisini denetler.
+- Özellik bayrağı kapalıyken yeni üretici canvas oluşturmaz ve eski 300×236 yol güvenli fallback olarak çalışır.
+- Headless ölçümde saf RGBA üretim döngüsü yaklaşık `13–19 ms`, ilk toplam hazırlık yaklaşık `113–137 ms` aralığındadır. jsdom Canvas çizimini no-op yaptığı ve yeni yol 7,47 kat fazla piksel işlediği için eski/yeni gerçek render süresi hakkında güvenilir tarayıcı hükmü vermez; kanıtlanan performans sonucu Canvas çağrı sayısının `47.137→1` düşmesidir.
+- `qa-runtime/story-phase14.3-ab.json`: `render.imageDataPoliticalOverlay` kapalı/açık 900 saniyelik karma `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; `changedWorldState=false`, ilk fark ve bütün metrik deltaları sıfırdır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Otomatik test RGBA ve sınır topolojisini byte düzeyinde doğrular fakat gerçek Chromium renk birleştirmesini, warp içindeki görsel sınır kalınlığını ve GPU/Canvas süresini ölçmez. Çalışma ortamında kullanılabilir tarayıcı bulunmadığı için EXE ekran görüntüsü ve gerçek fetih-frame profili hâlâ gereklidir; bu yapılmadan görsel kalite ve cihaz hızlanması tamamlanmış sayılmaz. Faz 14.4 açılış varlığı/fallback bütçesine, Faz 14.5 warp draw-call bütçesine devam eder. Modern dünya sorunu değişmedi; devlet `3` 30 yılda yine `152/152` bölgeyi alır.
+
 ### FAZ 14.4 — Region Atama ve Açılış Performansı
 
+**Durum:** `implemented`
 **Amaç:** Hücre×şehir naif Voronoi taramasını açılış yolundan çıkarmak.  
 **Çıktı:** Build-time region raster veya doğrulanmış hızlı runtime fallback; sürüm/checksum kontrolü.  
 **Kabul kapısı:** Hedef cihazda harita açılışı hissedilir ana-thread donması üretmiyor; raster sürümü uyuşmazsa açık hata/fallback oluşuyor.  
 **Bağımlılık:** Faz 14.2.
 
+Uygulama ve kabul kanıtı:
+
+- `tools/make-story-map-raster.js`, runtime KD-tree üreticisini `world.prebuiltMapRaster=false` ile çalıştırıp `js/StoryMapRasterAsset.js` varlığını üretir. `npm run story:build-map-raster` aynı girdide aynı SHA-256 dosyasını verdi.
+- Varlık `canonical-map-raster-asset-1` / `rle-int16-le-v1` sözleşmesindedir. `528.900` ham piksel `10.766` koşuya ve `43.064` payload baytına iner; üretilen JS dosyası yaklaşık `65 KB`’tır.
+- Asset kaynak/land/region/payload karmaları `fnv1a32:f76a938c`, `fnv1a32:f63d135c`, `fnv1a32:2dc42a47`, `fnv1a32:0b4b6af6`.
+- Ana yol base64 payload’ı çözer, RLE taşma/piksel/run sayılarını ve bütün checksum’ları doğrular. Geçerli asset `loadMode=asset`; runtime KD-tree yalnız `runtime-fallback` veya özellik kapalı `runtime-disabled` yoludur.
+- Eski şema, yanlış GEO/bölge kaynağı, bilinmeyen encoding, bozuk payload checksum’ı, yanlış run sayısı ve kesilmiş payload ayrı testlerle reddedildi.
+- Eksik asset `ASSET_MISSING`, eski kaynak `ASSET_SOURCE_HASH`, bozuk payload `ASSET_PAYLOAD_HASH` teşhisi üretip oyun açılışını durdurmadan aynı kanonik rasteri runtime’da kurar.
+- Tekil ölçümlerde asset yükleme+tam doğrulama `54,1 ms`, runtime yol `111,3 ms`; paralel A/B yükünde sırasıyla `87,7 ms` ve `168,7 ms`. Asset yaklaşık iki kat hızlıdır ve iki yolun bütün raster checksum’ları aynıdır.
+- `qa-runtime/story-phase14.4-ab.json`: `world.prebuiltMapRaster` kapalı/açık 900 saniyelik karma `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; `changedWorldState=false`, ilk fark ve metrik deltaları sıfırdır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak korunur.
+
+Sınır: Bu ölçüm jsdom/Node hedefindedir; gerçek paketlenmiş EXE’nin script parse ve ilk frame süresi ayrıca profillenmelidir. Asset statik coğrafya/bölge geometrisini hızlandırır, sahiplik değişimini içermez ve kayda yazılmaz. GEO veya bölge merkezleri değiştiğinde kaynak checksum’ı eski asset’i reddeder; geliştirici üretici komutunu yeniden çalıştırmalıdır. Modern dünya dengesi değişmedi ve 30 yılda devlet `3` yine `152/152` bölgeyi alır.
+
 ### FAZ 14.5 — Adaptif Warp ve Render Bütçesi
 
+**Durum:** `implemented`
 **Amaç:** Sabit üç piksellik şerit ve kare başına yüzlerce hata-yutan çizim çağrısını azaltmak.  
 **Çıktı:** Döngü dışı doğrulama, adaptif band, önbelleklenmiş warp katsayıları, Canvas benchmark ve gerekirse WebGL textured-mesh prototipi.  
 **Kabul kapısı:** Döngü içinde sessiz `try/catch` yok; 1080p hedef cihazda p95 kare süresi bütçede; görsel fark testi perspektif ve tıklama doğruluğunu koruyor.  
 **Bağımlılık:** Faz 14.2–14.3.
+
+Uygulama ve kabul kanıtı:
+
+- `storyWarpBandSize`, ekran yüksekliği ve zoom’a göre 720p/1080p/1440p için `4/5/7 px`; yakın 1080p görünüm için `4 px` band seçer. Özellik kapalı fallback `3 px` kalır.
+- `storyWarpPlan`, perspektif katsayılarını bir kez üretir; terrain ilk cache miss’i, politik overlay aynı plan üzerinde cache hit’i kullanır.
+- İki katmanda 720p `360`, 1080p `432`, 1440p `412`, yakın 1080p `540` `drawImage` çağrısı ölçüldü. Eski 1080p yol `720`; normal 1080p azalma `%40`’tır.
+- Döngü içinde `try/catch` yoktur. Context, kaynak, viewport, dünya ve kamera çizim öncesi doğrulanır; bozuk kaynak `SOURCE_DIMENSIONS` ile çizime girmez.
+- 720p/1080p/1440p uzak görünümde bant ölçek hatası sıfır; en zor yakın zoom örneğinde `0,00210023` (`%0,2101`), kabul bütçesi `%1` altındadır.
+- Üç dünya noktasında `storyW2S→storyS2W` maksimum hata `0`; hit-test matematiği render planıyla uyumludur.
+- `qa-runtime/story-phase14.5-ab.json`: `render.adaptiveMapWarp` açık/kapalı 900 saniyelik karma `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; dünya farkı ve metrik deltaları sıfırdır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f`.
+
+Sınır: jsdom `drawImage` çağrılarını sayar ve CPU plan süresini ölçer fakat gerçek Chromium compositor/GPU p50-p95 kare süresi vermez. Bu nedenle gerçek EXE’de 720p/1080p/1440p profil ve kıyı/sınır ekran görüntüsü hâlâ zorunludur. Cache/çağ/palet invalidation ve aktif kaynak temizliği Faz 14.6’da tamamlandı. Modern dünya dengesi değişmedi; devlet `3` yine 30 yılda `152/152` bölgeyi alır.
 
 ### FAZ 14.6 — Harita Cache, Çağ/Palet ve Dokümantasyon Temizliği
 
@@ -2934,6 +3292,19 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Çıktı:** `storyInvalidateMapCaches`, cache anahtarları, çağ/palet testleri, aktif render mimarisi README’si, prototip/çift varlık denetimi.  
 **Kabul kapısı:** Çağ/palet değişimi terrain’i yeniliyor; sahiplik değişimi terrain’i gereksiz yenilemiyor; README/index/dosya yapısı uyuşuyor; yüklenmeyen prototip aktif kaynak gibi paketlenmiyor.  
 **Bağımlılık:** Faz 14.2–14.5.
+
+**Uygulama sonucu:**
+
+- `js/StoryMapCache.js`, `storyInvalidateMapCaches` ve `ownership/era/palette/derived/geometry/viewport` scope’ları eklendi.
+- Sahiplik probunda raster, terrain ve warp aynı nesne kaldı; owner canvas belleği korundu, revision yalnız `+1` arttı.
+- Çağ geçişinde terrain nesnesi ve gerçek ImageData checksum’ı değişti; owner revision ve warp planı aynı kaldı.
+- Altı çağ paleti terrain RGB çıktısına bağlandı; kaynak teşhisi sürümlü palet anahtarını taşıyor.
+- Devlet paleti değişimi terrain+politik katmanı yenilerken canvas belleğini korudu; bilinmeyen/kapalı scope mutasyonsuz kodlu hata verdi.
+- README, index, paket dosya listesi, kök prototip ve aktif `js/MapData.js` ilişkisi otomatik kaynak testiyle eşleştirildi.
+- `qa-runtime/story-phase14.6-ab.json`: açık/kapalı 900 saniyelik karma `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; dünya farkı ve metrik deltaları sıfır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f`.
+
+Sınır: Headless Canvas piksel verisini ve çağ zincirini doğrular; gerçek Chromium compositor/GPU p95’ini ve çağ paletlerinin insan gözüyle okunabilirliğini doğrulamaz. EXE ekran görüntüsü/profil kapısı açıktır. Faz 14.6 ekonomi veya iç yönetim davranışı eklemedi; devlet `3` uzun koşuda yine `152/152` bölgeyi alır.
 
 ---
 
@@ -2946,12 +3317,41 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Her kaynağın üreticisi, tüketicisi, birimi ve yokluk sonucu tanımlı.  
 **Bağımlılık:** Faz 4.
 
+**Uygulama sonucu — tamamlandı:**
+
+- `js/StoryResources.js`, sekiz kalıcı kimliği `food`, `energy`, `raw_materials`, `industrial_parts`, `electronics`, `military_supplies`, `labor`, `capital` olarak tanımlar.
+- Her tanım açık kategori, birim, üretici, tüketici, depolama politikası, taşıma modu ve `activationPhase` taşıyan yokluk etkilerine sahiptir.
+- Katalog şeması `1`, katalog sürümü `1`, adaptör kimliği `story-resource-taxonomy-1`, checksum `fnv1a32:4a4ba0fe` değeridir. Eksik, yinelenen, bilinmeyen veya checksum’ı bozuk katalog açıklamalı hata koduyla reddedilir.
+- Eski `oil → energy`, `manpower → labor`, `points → capital` ilişkileri yalnız `LEGACY_ALIAS` olarak okunur. Ölçek bire birdir fakat semantik kayıp `HIGH`; yazma yetkisi eski alanlarda kalır. Bu eşlemeler yeni ekonominin doğru fiziksel/finansal stokları sayılmaz.
+- `food`, `raw_materials`, `industrial_parts`, `electronics` ve `military_supplies` için mevcut oyundan miktar uydurulmaz; Faz 17’ye kadar değer `null`, durum `UNAVAILABLE_PHASE_17` olur.
+- Kayıt dosyası statik kataloğun kopyasını değil sürüm/checksum/teşhis başlığını taşır. Eski kayıt deterministik backfill edilir; bozuk başlık güvenli statik kataloğa döner ve kurtarma teşhisi üretir.
+- `qa-runtime/story-phase15-ab.json` içinde 900 saniyelik açık/kapalı koşular aynı `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c` dünya karmasını ve sıfır metrik farkını üretir.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f` olarak değişmeden kaldı.
+
+Kapsam sınırı: `liveStockSystem: false`. Faz 15 yalnız ortak dili ve göç sınırını kurar. Üretim reçeteleri Faz 16’da, gerçek bölgesel tüketim ve stok Faz 17’de başlayacaktır. Devlet `3` uzun koşuda yine `152/152` bölgeyi alır; bu faz iç siyaset, hegemonya veya ekonomik denge çözümü değildir.
+
 ### FAZ 16 — Altı Üretim Sektörü
 
 **Amaç:** Tarım, enerji, hammadde, sivil sanayi, ileri teknoloji ve savunma üretimini kurmak.  
 **Çıktı:** Girdi/çıktı reçeteleri, kapasite, iş gücü ve verimlilik.  
 **Kabul kapısı:** Hiçbir üretim yoktan kaynak yaratmıyor; darboğazlar raporda görülüyor.  
 **Bağımlılık:** Faz 15.
+
+**Uygulama sonucu — tamamlandı:**
+
+- `js/StoryProductionSectors.js`, `agriculture`, `energy`, `extraction`, `civil_industry`, `advanced_tech` ve `defense_industry` kimliklerini tek sürümlü katalogda tanımlar.
+- Her sektörün bir reçete sürümü, çevrim süresi, kapasite birimi, çevrim başına iş gücü, `2500–15000 BPS` verimlilik sınırı, girdileri ve tek ana çıktısı vardır.
+- Tarım `arable_capacity`, enerji `energy_potential`, çıkarım `mineral_reserve` olmadan çalışmaz. Bu üç sektör `ENDOWMENT_BOUND` ile doğal kapasite sınırını aşamaz.
+- Sivil sanayi, ileri teknoloji ve savunma sanayisi `MASS_EQUIVALENT` koruması kullanır; standartlaştırılmış malzeme eşdeğeri çıktı girdiden büyük olamaz.
+- Doğrulayıcı bilinmeyen/yinelenen sektör veya reçeteyi, bilinmeyen kaynak kimliğini, kaynak kataloğuyla uyuşmayan birimi, sıfır/negatif miktarı, iş gücü sözleşmesi farkını, doğal kapasitesiz birincil üretimi, girdisiz fiziksel çıktıyı, kütle kazancını ve kaynak kataloğunda yetkili olmayan üreticiyi reddeder.
+- `storyProductionEvaluate`, istenen çevrim, kapasite, verimlilik, kanonik stok görünümü ve doğal kapasite görünümünden salt-okunur teklif üretir. Sonuç `READY`, `PARTIAL` veya `BLOCKED`; darboğazlar `CAPACITY_LIMIT`, `INPUT_SHORTAGE`, `STOCK_UNAVAILABLE`, `ENDOWMENT_SHORTAGE` veya `ENDOWMENT_UNAVAILABLE` olarak kaynak/birim/miktar taşır.
+- Hedefli probda `0,75` ton hammadde, sivil sanayiyi tam `0,5` çevrim ve `0,5` parça lotuyla sınırladı. `1` kapasite ve `%50` verim, savunma sanayisini tam `0,5` çevrimle sınırladı. Aynı girdi aynı `proposalHash` değerini üretti ve çağıranın stok nesnesi değişmedi.
+- Katalog şeması/sürümü `1/1`, adaptör `story-production-sectors-1`, kaynak katalog bağı `fnv1a32:4a4ba0fe`, katalog checksum’ı `fnv1a32:a4007f41`.
+- Tam statik katalog kayda kopyalanmaz: kompakt başlık `327` bayt, tam katalog görünümü `6.982` bayt. Eski kayıt backfill edilir; bozuk checksum güncel statik katalogla kurtarılır.
+- `qa-runtime/story-phase16-ab.json`: 900 saniyelik açık/kapalı dünya karması aynı `623ba94260491daa9eb82c36ee817accbe9948d52d2cdd9e63a134ea9b11ee1c`; bütün metrik deltaları sıfır.
+- 30 yıllık soak karması `5e8d3c7ac4f94d82a8e78636728a3681d395a67e7f2b0370d2e9ef576062403f`.
+
+Kapsam sınırı: `liveStockSystem: false`, `proposalsCommit: false`. Faz 16 üretim sonucunu ülke veya bölge stoğuna yazmaz; eski `Production.js` askerî birlik kuyruğunu da değiştirmez. Gerçek bölgesel stok, tüketici önceliği, kıtlık ve tekliflerin atomik uygulanması Faz 17’nin işidir. Devlet `3` hâlâ `152/152` bölgeyi alır ve eski kaynaklar sınırsız büyür.
 
 ### FAZ 17 — Bölgesel Tüketim ve Stok
 
@@ -2960,12 +3360,72 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Kıtlık hangi tüketicinin neden karşılanamadığını gösteriyor.  
 **Bağımlılık:** Faz 16.
 
+**Uygulama sonucu:**
+
+- `js/StoryRegionalEconomy.js`, `story-regional-stock-ledger-1` adaptörü ve `fnv1a32:f0f3a43a` politika checksum’ıyla 152 bölgenin sekiz kanonik kaynak stoğunu, güvenli hedefini, doğal kapasitesini ve sektör kapasitesini tutar.
+- Defter tek otoritedir. `node.stocks` yalnız HOT/WARM/COLD kapsülü için doğrulanan aynadır. Eski `oil/manpower/points` alanları okunup gerçek stoğa dönüştürülmez; `legacyMaterialized: false` kalır.
+- Yeni kampanyada stoklar bölge seviyesi, tesisleri ve coğrafi yataklarından deterministik kurulur. Kayıtta tam dinamik defter saklanır; katalog/reçete/topoloji/politika hash’lerinden biri uyuşmazsa bozuk defter kullanılmaz ve eski kaynaklara dokunmadan güvenli başlangıç kurulur.
+- `storyRegionalCommitProduction`, teklif katalog/reçete sürümünü ve `proposalHash` değerini yeniden doğrular; tüketilecek/üretilecek miktarların reçeteyle tam eşleşmesini ve mevcut stok/doğal kapasiteyi commit anında tekrar kontrol eder. Herhangi bir hata bütün mutasyonu reddeder; kısmi girdi tüketimi veya negatif stok oluşmaz.
+- Hane `100`, ordu `95`, devlet `85`, şirket `70` önceliğiyle talep üretir. Yüksek öncelikli temel ihtiyaç rezervi kullanabilir; düşük öncelikli tüketici güvenli stok tabanını aşamaz.
+- Tahsis sonucu `SATISFIED/PARTIAL/UNMET`; kıtlık yaşam döngüsü ayrıca `ACTIVE/RESOLVED` olur. Kayıt hangi bölge, tüketici, kaynak, istenen/teslim edilen/eksik miktar, dolum oranı, neden ve beklenen etkileri taşır. Tekrarlanan aynı kıtlık yeni satır yağmuru yerine occurrence ve cumulativeUnmet sayaçlarında birleşir.
+- Depolama politikası gıda raf ömrünü, enerji tampon kaybını, sanayi parçası/elektronik eskimesini, askerî ikmal hazır olma kaybını ve emeğin `NON_STOCK` sona ermesini deterministik uygular. Emek hizmeti ve dış sermaye girişi koruma denkleminde ayrı `externalInflow` olarak kaydedilir.
+- Her 4 saniyelik ekonomi görevi 152 bölgeyi sabit sırada işler. 8 kaynağın tamamında `son stok = ilk stok + dış giriş + üretim − tüketim − kayıp` denklemi hedefli probda tam `0` farkla kapandı.
+- Oyuncunun kendi stokları `VERIFIED / OWN_STOCK_LEDGER`; yabancı stoklar istihbarat yoksa `UNKNOWN/null`. Şehir dosyası kendi stok/hedeflerini gösterir, yabancı için açık “stok istihbaratı yok” durumu üretir.
+- Geçerli/tahrif edilmiş/bayat teklif; tüketici önceliği; rezerv koruması; kıtlığın kapanması; negatif/eksik stok; yanlış politika/topoloji; kayıt/yükleme; eski/bozuk kayıt; özellik kapalı yolu; V2, PlayerKnowledge ve kapsül mutabakatı otomatik test edildi.
+- `qa-runtime/story-phase17-ab.json`: kontrol `491dae2d…f803`, tedavi `a4acc60e…ad1e`; yeni bölgesel durum bilinçli olarak değişti. Eski ortalama refah, enflasyon, öfke, aktif devlet, haber ve `oil/manpower/points` deltaları tam sıfırdır.
+- 30 yıllık `3.600` saniye koşu sonunda defter ve bütün bölge aynaları geçerli kaldı; karma `93ac4792…0ffa`.
+
+Kapsam sınırı: Faz 17 ekonomik akışı canlı yaptı fakat dengeyi çözmedi. 900 saniyede `225` ekonomi tiki sonunda bölgesel gıda ve enerji toplamı `0`, kıtlık kaydı `1.407`, sermaye stoğu `2.268.902,06` oldu. Bu sonuç stok/talep sisteminin çalıştığını, fakat bölgeler arası ticaret olmadan üretim fazlasının açığı kapatamadığını ve dış sermaye girişinin henüz fiyat/bütçe tarafından emilmediğini gösterir. Faz 18 fiziksel ticaret ve lojistiği, Faz 19 fiyat sinyalini, Faz 20 bütçe/para sınırını kurmadan bu sayılar dengeli ekonomi olarak kabul edilmeyecektir. Eski askerî üretim kuyruğu ve hegemonya davranışı da henüz bu stoklara bağlı değildir.
+
+### FAZ 17.1 — Modern Barış Başlangıcı ve Savaş Kapısı
+
+**Amaç:** Devletlerin savaşı varsayılan günlük faaliyet değil, açık diplomatik kırılma sonucu başlatmasını sağlamak.
+**Çıktı:** `peace` durumu, eksiksiz 28 diplomatik kenar, ortak düşmanlık kapısı, açık oyuncu savaş ilanı ve barış odaklı başlangıç A/B testi.
+**Kabul kapısı:** Yeni kampanyada 28/28 ilişki barış; savaş ilanı yokken 120 ve 900 saniyelik koşuda sıfır sahiplik değişimi; ateşkes süresi dolunca otomatik savaş yok; özellik kapalı kontrol eski savaş davranışını gerçekten üretiyor.
+**Bağımlılık:** Faz 3, 9, 17.
+
+**Uygulama sonucu:**
+
+- `diplomacy.peacefulStart` varsayılan açık özellik bayrağı eklendi.
+- `storyInitializeDiplomacy`, sekiz devletin bütün ikili ilişkilerini `v: 0 / treaty: peace` olarak somut biçimde kurar; eksik ilişki de artık barışa backfill edilir.
+- Ateşkes süresi dolduğunda ilişki `peace` olur. Süre bitişi savaş ilanı sayılmaz.
+- Genelkurmay saldırı hedefi, saldırı emri, kuşatma başlatma, devam eden kuşatma ve nihai fetih aynı `storyIsHostile` kontrolünden geçer. Barış başladıktan önce üretilmiş bayat saldırı emri bile fetih yapamaz.
+- AI yalnız güç farkı gördüğü için barışı bozamaz. Modern yol ciddi negatif ilişki (`≤ -35`), ortak sınır, şahin lider doktrini ve düşük olasılık kapısı ister. Tam kriz/casus belli/yetki modeli henüz Faz 43–49 borcudur.
+- Oyuncunun barıştaki yabancı bölgeye tıklaması doğrudan savaş açmaz; önce barışı bozup savaş ilan etmenin ilişki/itibar sonucu açıkça sorulur. `storyLaunchBattle` ve savunma girişi doğrudan çağrılsa bile düşmanlık yoksa reddedilir.
+- Diplomasi tablosu deterministik dünya karmasına eklendi. Yeni kampanyada boş haber dizisi açıkça başlatılarak barış koşusunda ortaya çıkan kayıt/yükleme asimetrisi de kapatıldı.
+- Hedefli 120 saniyelik A/B: modern barış yolu `0`, eski tüm-savaş yolu `5` sahiplik değişimi. Kayıt/yükleme 28 kenarı birebir korudu.
+- `qa-runtime/story-phase17.1-ab.json`: 900 saniyelik eski tüm-savaş kontrolü `368f7e0d…12da`, modern barış tedavisi `a1935aa5…7ac1`. Kontrolde `143` sahiplik değişimi ve `4` devlet; tedavide `0` sahiplik değişimi ve `8` devlet kaldı.
+- 900 saniyelik standart koşu: bütün `8` devlet ve başlangıç bölge dağılımı korundu; sahiplik olayı `0`, ortalama refah `65,875`, ortalama enflasyon `2,255`, ortalama huzursuzluk `2,805`, karma `a1935aa5…7ac1`.
+- 30 yıllık soak: `8/8` devlet ve başlangıç dağılımı korundu; karma `4933d411…5058`.
+
+Kapsam sınırı: Barış başlangıcı savaş saplantısının temel tetikleyicisini kapattı, fakat devlete barışta anlamlı ulusal gündem vermedi. Ekonomik AI Faz 22, kurumlar Faz 28–33.1, karakterler Faz 34–38.5 ve gerçek diplomasi AI Faz 43–46 gelmeden devletler modern aktörler gibi çok alanlı karar vermez. Bu boşluklar `MODERN_DUNYA_EKSIKLERI.md` defterinde kapanana kadar izlenecektir.
+
 ### FAZ 18 — Ticaret ve Lojistik Akışı
 
 **Amaç:** Fazla üretimin bağlantılar üzerinden taşınması.  
 **Çıktı:** Sürümlü ticari sözleşmeler, sipariş/sevkiyat manifestosu, sahiplik devri, rota, taşıma kapasitesi, maliyet, gecikme ve kesinti.  
 **Kabul kapısı:** Abluka/koridor hasarı fiyat ve stokta ölçülebilir gecikmeyle görülüyor; konuşmada yönlendirilen bir sevkiyat yalnız geçerli sözleşme değişikliği ve fiziksel teslimattan sonra hedef stokta beliriyor.  
 **Bağımlılık:** Faz 14, 17.
+
+**Uygulama sonucu:**
+
+- `js/StoryTrade.js`, sürümlü sözleşme, sipariş, sevkiyat ve değişiklik kayıtlarının tek otoritesi olan `story-trade-logistics-ledger-1` defterini kurdu.
+- Taşınabilir kaynaklar katalogdan türetilir. Gıda, hammadde, sanayi parçası, elektronik ve askerî malzeme kara/deniz; enerji enerji ağı koridorlarını kullanır. Emek fiziksel yük, sermaye ise fiyat/ödeme sistemi varmış gibi taşınmaz.
+- Otomatik açık kapatma, hedef stok ve yoldaki mevcut siparişi birlikte hesaplar; gönderici güvenli stoğunun `%125` altına indirilmez. Aynı ülke içi kaynak önce, barıştaki sınır ötesi kaynak sonra değerlendirilir.
+- Her sipariş geçerli ve etkin bir sözleşmeye bağlıdır. Faz 19–20 yokken finansal sonuç uydurulmaz; sözleşme açıkça `CLEARING_PENDING_PRICE`, maliyet yalnız `routeCostEstimate` durumundadır.
+- Sevk commit’i gönderici stoğunu atomik borçlandırır. Manifesto kalıcı rota bölge/koridor kimlikleri, ayak, kalan gecikme, kesinti süresi, hasar gecikmesi, yük sahibi ve hedef depo taşır.
+- Faz 14 rota kapısı çok taraflı yetkiye genişletildi. Sözleşme tarafları kendi toprakları ve ortak sınırları kullanabilir; imzasız üçüncü ülke transit geçişi yapılamaz.
+- Koridor kapasitesi her ticaret penceresinde ortak tüketilir. Hedefli probda ilk yük `1051` birimlik hattın tamamını ayırdı; ikinci yük `CORRIDOR_CAPACITY_EXHAUSTED` ile reddedildi.
+- `10000` baz puan hasar yükü `HELD` yaptı ve hedef stok değişmedi. Hat açıldıktan sonra aynı yük teslim edildi; `20` saniyelik kesinti manifestoda kaldı.
+- Yetkili yönlendirme sözleşme sürümünü ve amendment kaydını artırır. `5` birimlik probda eski hedef `+0`, yeni hedef yalnız fiziksel teslimattan sonra `+5` aldı.
+- Sınır ötesi probda yük sahibi `country:0 → country:7` yalnız teslimat anında değişti.
+- Yoldaki koruma denklemi her kaynak için `dispatched = delivered + lost + returned + activeCargo` biçiminde doğrulanır. Sahte `+1` yük `TRADE_CARGO_CONSERVATION`, bozuk rota `INVALID_SHIPMENT_ROUTE` ile reddedildi.
+- Kayıt/yükleme açık siparişi, yoldaki yükü, rota ayağını ve kapasite penceresini birebir korudu. Eski/bozuk ticaret kaydı bölgesel stok defterini ikinci kez borçlandırmadan güvenli boş deftere döndü.
+- V2 dünya teşhisi ticaret özetini taşır. Kendi bölgesindeki gelen/giden yükler `VERIFIED / OWN_TRADE_LEDGER`; yabancı ayrıntılar `UNKNOWN/null` kalır. Şehir lojistik sekmesi canlı yükü ve koridorların kapasite/hasar durumunu birlikte gösterir.
+- `qa-runtime/story-phase18-ab.json`: 900 saniyede `3.634,79` gıda, `23.075,16` enerji, `1.756,49` hammadde ve `378,31` sanayi parçası teslim edildi. Refah, enflasyon, huzursuzluk, toprak, haber ve eski kaynak sayaçlarında delta `0`.
+- Standart 900 saniyelik karma `0644958541c7bc4e711926744c238de32bc614d506631372219fd8b72e349a5b`; 30 yıllık soak karması `ef1624804fb638fb56fcf181efde6fd1295f82ac576533a97f157e7030199c18`. Her iki koşuda da ticaret defteri ve yük koruma denklemi geçerli kaldı.
+
+Kapsam sınırı: Bu faz fiziksel mal hareketini çözdü; ekonomik dengeyi çözmedi. 900 saniyede gıda ve enerji toplamı yine `0`, kıtlık kaydı `1196`, sermaye `2.196.477,50` oldu. Ticaret üretilemeyen malı yaratamaz. Fiyat/ödeme Faz 19–20, şirket sahibi/satıcı davranışı Faz 21, açığı görüp kapasite yatırımı seçen ekonomik AI Faz 22 kapsamındadır. Abluka için koridor kesintisi teknik olarak çalışır fakat diplomatik/askerî abluka kararı ve üçüncü ülke transit anlaşması daha sonraki diplomasi/askerî fazlara kadar yoktur.
 
 ### FAZ 19 — Piyasa ve Fiyat Oluşumu
 
@@ -2974,12 +3434,73 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Küçük şok sonsuz fiyat salınımı üretmiyor; büyük kıtlık görünür fiyat baskısı üretiyor.  
 **Bağımlılık:** Faz 18.
 
+**Durum:** `implemented`
+
+Uygulanan sözleşme:
+
+- `js/StoryMarket.js`, 152 bölge için sürümlü `story-market-price-ledger-1` defterinin tek sahibidir. Kaynak, üretim, bölgesel ekonomi, ticaret, topoloji ve altyapı checksum bağları kayıt/yükleme sırasında doğrulanır.
+- Fiyat girdisi tahminî talep değildir. `StoryRegionalEconomy`, her ekonomi tikinde kaynak bazında `demandRequested`, `demandDelivered`, `demandUnmet`, `produced` ve `productionConsumed` akışlarını kaydeder. Piyasa bunlara gerçek stok, güvenli hedef, stok günü, yoldaki/HELD yük ve koridor hasarını ekler.
+- Altı aktif kalem `food`, `energy`, `raw_materials`, `industrial_parts`, `electronics`, `military_supplies` olur. Bütün fiyatlar para miktarı değil `PRICE_INDEX_POINT` birimindedir; baz `100`, kesin sınır `25–800`, hedef çarpanı `0,35–6`, üstel baskı bileşimi, `0,22` yumuşatma ve tik başına `%10` hareket tavanı kullanılır.
+- `labor`, mevcut modelde her tik üretilip aynı tik `NON_STOCK` olarak silindiği için fiyatlandırılmaz; açıkça `DEFERRED / LABOR_MARKET_NOT_MODELED / null` kalır. Sıfır görünen emek stoğundan sahte ücret hiperenflasyonu türetilmez.
+- `capital`, bütçe, para arzı, hesap ve ödeme Faz 20’de kurulana kadar `NUMERAIRE / 1` kalır. Piyasa tiki stok, sermaye, sipariş, sevkiyat veya eski `st.inflation` alanına yazmaz.
+- Bölgesel temel hane sepeti `%60 gıda + %40 enerji`; üretici sepeti enerji/hammadde/parça/elektronik/askerî ikmalden oluşur. Ulusal endeksler sahip olunan bölgelerin nüfus ağırlığıyla hesaplanır. Eski makro enflasyonla köprü özellikle kapalıdır (`legacyInflationBridged: false`).
+- Ticaret görünümü, kaynak ve hedef piyasa endeksinden `INDICATIVE_INDEX_QUOTE` üretir. Bu teklif `createsDebt: false`, `transfersCapital: false`, `PAYMENT_PENDING_PHASE_20` taşır; fiyatı ödeme yapılmış gibi göstermez.
+- PlayerKnowledge ve şehir dosyasına ayrı `PİYASA` sekmesi eklendi. Oyuncunun kendi bölgesinde fiyat, son değişim, kıtlık bandı, stok/hedef oranı ve stok günü `VERIFIED`; yabancı ayrıntı istihbaratsız `UNKNOWN/null` kalır.
+- Lojistik sinyali sıcak döngüde her fiyat için bütün sevkiyatları taramaz; aktif gelen yükler tik başına bir kez `region|resource` indeksine toplanır.
+
+Kabul kanıtı:
+
+- 200 kez dönüşümlü `0,99/1,01` stok oranı verilen fiyat `99,9017–100,0589` aralığında kaldı; sonsuz/genişleyen salınım oluşmadı.
+- Sıfır stok, sıfır teslim ve tam açıkta hedef endeks sonlu `600`; ilk tik `100→110`. Açık arz fazlasında hedef `48,6752`, ilk tik `100→90`.
+- Gerçek sevkiyat probunda koridor `10000` baz puan hasarla `HELD`; hedef fiyat sinyali `5` birim bekleyen yük ve `10000` hasar gördü. Aynı stok/talepte risksiz hedef `52,7292`, riskli hedef `63,5241`.
+- Fiyat tiki öncesi/sonrası bölgesel stok ve ticaret defterleri byte düzeyinde aynı; eski makro enflasyon dizisi de aynı kaldı.
+- Kayıt/yükleme fiyat, sinyal, olay ve ulusal sepeti birebir korudu. Eski kayda backfill ve bozuk checksum kurtarması stok veya yoldaki yükü değiştirmedi.
+- `qa-runtime/story-phase19-ab.json`: kontrol `3ceb63fafdb26841424e3423f66fcefb0700fc60e50f580be14b69e19a742e4e`, açık `412e5b27ba52698b7234fa098948404dee361500555602417a17c00954be548f`. İlk fark yalnız `$.marketPrices`; fiziksel dünya ve bütün eski metrik deltaları sıfır.
+- 900 saniyede `912` aktif fiyatın `671`i `CRITICAL`; ortalama `414,9427`, minimum `58,2748`, maksimum `600`. Bu bir denge başarısı değil, toplam gıda/enerji açığının ölçülmüş fiyat sonucudur.
+- 30 yıllık soak `a08f0ad076cc40999e4030d9b7f59256d02cf8a98f69a0396e58bc81bb52992a` karmasıyla geçti; `728/912` fiyat kritik, ortalama `481,6425`, sınırlar `58,2748–600`.
+
+Faz 19 kapsam sınırı: Bu aşama fiyat sinyali ve görünürlüğü kurdu; ödeme, bütçe, borç, vergi, kur, faiz, banka, gerçek ücret ve kapasite yatırımını kurmamıştı. O aşamadaki `671/912` kritik fiyat, ekonominin kendi kendini düzelttiğini değil Faz 20–22’nin ölçülebilir bir sinyale sahip olduğunu gösterdi. Eski `CLEARING_PENDING_PRICE` ticaret politika kimliği kayıt uyumluluğu için korunur; Faz 20 ile yeni sevkiyat görünümü ve gerçek uzlaşma `BUDGET_ESCROW_PRICE_LOCK` durumuna geçirilmiştir.
+
 ### FAZ 20 — Devlet Bütçesi, Vergi ve Borç
 
 **Amaç:** Kararları gerçek mali sınıra bağlamak.  
 **Çıktı:** Gelir, gider, faiz, borç servisi, para basma ve temerrüt.  
 **Kabul kapısı:** Bütçe kimliği her gün sağlanıyor; bedava devlet harcaması yok.  
 **Bağımlılık:** Faz 19.
+
+**Uygulanan sözleşme:**
+
+- `js/StoryBudget.js`, sekiz devlet için sürümlü `story-state-budget-ledger-1` ve `fnv1a32:e86e7ccd` politika karmasını taşır.
+- Her işlem en az iki posting taşır ve toplamı sıfırdır. Nakit/escrow negatif olamaz; devlet ve canlı komutan cüzdanı aynaları doğrulanır.
+- `points`, yeni bir fiziksel stok veya özel şirket parası değildir. Mevcut oynanışı kırmamak için komutan alt hesaplarının toplamı devlet nakdidir; bütün kanonik yazımlar bütçe kapısından geçer.
+- Bakiye üstü isteğe bağlı harcama borçlanmayı gizlice tetiklemez; işlem `INSUFFICIENT_CASH` ile atomik reddedilir.
+- Borç yalnız açık ihraç veya dış ticaret çalışma sermayesi isteğiyle oluşur. Tavan son yıllık gelirin `2,5×` değeri ile asgari `1.200⭐` sınırının büyüğüdür.
+- Yıllık faiz tabanı `%5`, riskle en çok `%30`; yıllık anapara servisi `%2`; ödenmeyen faiz borca eklenir. Gecikme 60 dünya gününü aşarsa `DEFAULT` olur.
+- Para basımı gelir sayılmaz: `ASSET:CASH ↔ CONTRA:MONEY_ISSUED` fişi üretir; miktar/nakit oranına göre eski makro enflasyonu artırır ve güveni düşürür.
+- Sınır ötesi ticaret notionali `priceIndex × quantity × 0,01 STATE_CREDIT` olarak sevkte kilitlenir. Alıcı escrow’u teslimatta ithalat giderine, aynı settlement kimliğiyle satıcı ihracat gelirine dönüşür.
+- Aynı devlet içi lojistik para taşımaz. Kayıp dış yük title transferi gerçekleşmeden alıcı blokesini çözer.
+- Eski ticaret şema sürümü korunur. Faz 20 öncesi canlı dış yük, kayıt açılışında finansman alır; finansman alamazsa fiziksel kargo korunarak bekletilir.
+- Şehir dosyasındaki `BÜTÇE` sekmesi nakit, bloke, borç/tavan, faiz, gelir, gider, basılan para ve temerrüt durumunu gösterir. Yabancı kesin mali değerler bilgi filtresini atlayamaz.
+
+**Kapatılan ücretsiz para yolları:**
+
+- Otoyol önergesi artık komutanlara para dağıtmaz; `150⭐` gerçek gider karşılığında sahip olunan şehirlerin zenginliğine ölçülü fiziksel etki verir.
+- Tasarruf önergesi kişi başına `60⭐` üretmez; refah bedeli karşılığında güven/enflasyon etkisi yaratır.
+- Kampanya açılış kadrosu dışındaki yeni komutanlar `200⭐` başlangıç parasıyla doğmaz.
+- Tazminat ve haraç tek taraflı para yaratmak/silmek yerine iki devlet arasında aynı settlement kimliğiyle aktarılır.
+- Şehir geliri, konsey, üretim/bina, şehir yatırımı, medya çarpıtması, fraksiyon tavizi, sermaye kaçışı, ganimet ve savaş ödülü bütçe kapısına bağlıdır. Kalan kanonik kapı dışı yazım tik/kayıt mutabakatında kaynak etiketiyle yakalanır.
+
+**Ölçülen kabul sonucu:**
+
+- Hedefli örnekte `2.000⭐` açılış nakdinden `100⭐` gider ve `40⭐` gelir tam tutarda işlendi; `99.999.999⭐` harcama nakit/borç/blokeyi değiştirmeden reddedildi.
+- `200⭐` tahvil tam `200⭐` borç; `50⭐` para basımı tam `50⭐` para arzı karşı hesabı üretti. Para basımı enflasyonu `2→2,0701`, güveni `50→49,8949` değiştirdi.
+- Sınır ötesi üç birimlik yükte alıcı nakdi `2.000→1.997`, escrow `0→3`; satıcı teslimattan önce `2.000`, teslimatta `2.003` oldu.
+- Kayıt/yükleme bütçe defterini birebir korur. Bütçe taşımayan eski kayıt canlı cüzdan toplamından açık backfill teşhisiyle geçerli açılış bilançosu kurar.
+- `qa-runtime/story-phase20-ab.json`: kapalı `78407b6c…5294`, açık `29b96416…2acb`; mali sınır dünya davranışını ölçülebilir biçimde değiştirdi.
+- 900 saniyede sekiz bütçe, `224` bütçe tiki, `17.903,29⭐` nakit, `2.163,03⭐` borç, sıfır açık escrow ve sıfır temerrütle doğrulandı.
+- 30 yıllık soak `4b1b3fa0f9258a329ef3f62fb436b0062079cac3e0cc57d6ce23fca2d48c9dac`; `71.196,57⭐` nakit, `1.380,52⭐` borç, sıfır temerrüt.
+
+**Dürüst kapsam sınırı:** Bu faz bütçe kimliğini kurdu, bütçe dengesini veya modern mali devleti çözmedi. Vergi mükellefi/şirket/banka karşı hesapları yok; bölgesel `capital` hâlâ dışarıdan büyüyen fiziksel-ekonomik numeraire ve devlet bütçesine bağlı değil. Otomatik kamu hizmeti tahsisleri, kur, ücret, mevduat, kredi, tahvil piyasası, merkez bankası bağımsızlığı, risk primi aktörleri ve ekonomik AI yok. 30 yılda toplam nakdin `71 bin`e büyüyüp hiçbir devletin temerrüde düşmemesi mali baskının henüz zayıf olduğunu gösterir; Faz 21–22 bu sonucu başarı diye kabul etmemelidir.
 
 ### FAZ 21 — Şirketler ve Bankalar
 
@@ -2988,12 +3509,327 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Kabul kapısı:** Şirketler devlet kasasının kopyası değil; kâr/zarar ve kapasite üzerinden yaşıyor; konuşmada kurulacağı söylenen şirket kayıt/sermaye/ruhsat tamamlanmadan hukuken ve ekonomik olarak var sayılmıyor.  
 **Bağımlılık:** Faz 16, 19–20.
 
+**Uygulanan sözleşme ve aktör sınırı**
+
+- `js/StoryCompanies.js`, `story-company-bank-ledger-1` şema/adaptörü ve `fnv1a32:bf672f25` politika karmasıyla tek kanonik şirket defteridir.
+- Başlangıçta altı sektör × sekiz devlet olmak üzere `48` şirket ve her devlet için birer tane olmak üzere `8` banka vardır. Şirketler devlet bütçesinin alt hesabı değildir.
+- Her şirketin `10.000` baz puan ortaklığı vardır: başlangıç şirketlerinde `%88` yerli özel sahiplik, `%12` devlet payı açıkça kaydedilir. Yeni şirket sahipliği başvuru sahibine aittir.
+- `412` üretim tesisi ve `152` genel depo tek ve doğrulanan şirket sahibine bağlanır. Bir tesisin iki sahibi olamaz; eksik/yanlış sahip defteri reddedilir.
+- Şirket hesapları nakit, proje escrow’su, alacak, borç, açılış özkaynağı ve birikmiş sonuçtan oluşur. Bütün şirket fişleri toplamı sıfırdır; negatif nakit ve para koruma farkı reddedilir.
+- Banka bilançosu rezerv, kredi alacağı, mevduat ve özkaynak taşır. Faz 21’de mevduat ödeme ağı bilinçli olarak kurulmamıştır; banka, şirket kredisi veren ayrı bilanço aktörüdür.
+
+**Üretim, ticaret ve sermaye bağlantısı**
+
+- Bölgesel `capital`, özellik açıkken dışarıdan her tik büyüyen stok değildir. Bölgedeki şirketlerin harcanabilir nakdinin salt-okunur aynasıdır.
+- Üretim önerisi ilgili bölge/sektör şirketinin gerçek nakdiyle sınırlandırılır. Commit sonrasında işletme gideri şirket nakdinden piyasa takas hesabına, satış geliri takas hesabından şirkete çift taraflı kaydedilir.
+- Takas hesabı sınırsız değildir; gelir mevcut clearing bakiyesini aşamaz. Açılış para arzı, dış para girişi, şirket nakdi, banka rezervi, başvuru escrow’su ve clearing toplamıyla sürekli mutabakat edilir.
+- Faz 18–20 dış ticaretinde satıcı şirket kimliği sözleşme, sipariş ve sevkiyata bağlandı. Teslimat ödemesi artık satıcı devlet kasasına değil fiziksel malın sahibi şirkete gider; alıcı devletin escrow’su korunur.
+- Şirket katmanı kapatıldığında eski bölgesel sermaye yolu ve devletler arası ödeme yolu A/B geri dönüşü için çalışmaya devam eder.
+
+**Kredi, yatırım, kuruluş ve iflas**
+
+- Banka kredisi şirket nakdini ve borcunu aynı anda artırırken banka rezervini azaltır, kredi alacağını artırır. Yetersiz rezerv ve borç/özkaynak tavanı krediyi yazım öncesi reddeder.
+- Kapasite yatırımı için şirketin tesise sahip olması, faal/ruhsatlı olması, nakit taşıması ve bölgede `18` sanayi parçası bulunması gerekir; ileri teknoloji ayrıca `3` elektronik ister.
+- Yatırım nakdi proje escrow’suna, fiziksel girdiler bölgesel stoktan tek atomik işlemde alınır. Herhangi bir borç başarısızsa bütün yazımlar geri sarılır.
+- Proje `180` dünya günü `BUILDING` kalır; kapasite başlangıçta artmaz. Tamamlanınca tesise `+0,2` kapasite eklenir, proje gideri gerçekleşir ve bölgesel sektör kapasitesi yeniden hesaplanır.
+- Şirket başvurusu ayrı bir yaşam döngüsüdür: başvuru → doğrulanmış sermaye → yetkili ruhsat → kayıt. Sermaye veya ruhsat eksikken ekonomik aktör oluşturulmaz.
+- Lobi, etkisini şirket nakdinden satın alır; para yoktan yaratılmaz. Bu faz lobi etkisini kurum/kanun kararına bağlamaz; o bağlantı Faz 28–33 kapsamındadır.
+- Faiz dünya günüyle işler. Nakit sıkıntısı `90` günden sonra ödeme güçlüğü, `180` günden sonra iflas doğurabilir; iflas eden şirketin tesisleri kayyım durumuna geçer.
+
+**Bilgi, kayıt ve arayüz**
+
+- Şirket/banka defteri V3 kayda girer; yüklemede şema, politika, para, ortaklık ve referans değişmezleri doğrulanır. Eski kayıt deterministik başlangıç bilançosuyla backfill edilir; bozuk defter kullanılmaz.
+- WorldV2 ülke/bölge ve üst düzey aktör görünümüne şirketleri taşır. Oyuncu kendi ülke ve şehrindeki veriyi `VERIFIED`, yabancı şirket mali verisini `UNKNOWN/null` görür.
+- Şehir dosyasındaki `ŞİRKETLER` sekmesi şirket, tesis, sahiplik, nakit, borç, kapasite, proje ve banka özetini gösterir. Bu sekme salt okunurdur; tam ekonomi/şirket karar çalışma alanı Faz 60.3 kapsamındadır.
+- Dış API sonuçları kanonik canlı nesneleri yayımlamaz; kredi, yatırım, başvuru ve kayıt sonuçları anlık kopyadır. Daha sonraki tikler eski karar kanıtını geriye dönük değiştiremez.
+
+**Doğrulanan kabul kanıtı**
+
+- Açılış: `48` şirket, `8` banka, `412` tesis, `152` depo; bütün sahiplik ve para değişmezleri geçerli.
+- Kredi probu: şirket nakdi `160→260`, şirket borcu `0→100`, banka rezervi `1400→1300`, banka kredi alacağı `0→100`.
+- Yatırım probu: kapasite `0,9` olarak inşa boyunca sabit kaldı; `18` parça tüketildi ve süre tamamlanınca `1,1` oldu.
+- Kuruluş probu: eksik sermaye/ruhsatla kayıt reddedildi; iki koşuldan sonra şirket sayısı `48→49` oldu.
+- Kayıt/yükleme byte-düzeyinde eşit; eski kayıt backfill’i, bozuk politika fallback’i, özellik kapalı yolu, yabancı bilgi gizliliği ve kanonik bölgesel sermaye/HOT-WARM-COLD kapsül eşitliği geçti.
+- `qa-runtime/story-phase21-ab.json`: kapalı karma `c49859b5…dfcd`, açık karma `a668807b…ce31`. 900 saniyede soyut sermaye `2.190.739,69→73.138,70`, kıtlık kaydı `1179→1015`, kritik fiyat `654→608`; şirket nakdi `73.458,70`, clearing `27.686,44`.
+- 30 yıllık soak karması `5a4a5c2944569a41770f43f23009237a9dda5feb9ee4275ec6438aeeac76513e`; `48` şirket, `8` banka, `412` tesis, `94.013,60` şirket nakdi, `11.200` banka rezervi ve geçerli para koruması korundu.
+
+**Dürüst kapsam sınırı:** Faz 21 aktör, mülkiyet ve muhasebe temelidir; kendiliğinden işleyen modern piyasa değildir. 30 yılda şirket borcu `0`, aktif/tamamlanmış otomatik proje `0` ve iflas `0` kaldı. Bunun nedeni sistemin çok başarılı olması değil, şirketlerin henüz kredi/yatırım/ticaret adayı üretip seçen ekonomik AI taşımamasıdır. Gıda toplamı yine sıfıra inmekte, `682/912` fiyat kritik kalmakta ve devletlerin mali baskısı zayıf görünmektedir. Mevduat, hane/ücret/iş gücü piyasası, kur, merkez bankası, vergi mükellefi, özel alıcı ödemesi ve lobi–kurum etkisi de yoktur. Faz 22 bu gerçek mali/fiziksel kapılar üzerinde hilesiz karar davranışı kurmadan “modern ekonomi” iddiası yapılamaz.
+
 ### FAZ 22 — Ekonomik AI Politikaları
 
 **Amaç:** AI devletlerinin aynı mali kurallarla üretim, ticaret ve bütçe kararı vermesi.  
 **Çıktı:** Kural tabanlı aday üretici ve fayda puanlayıcı.  
 **Kabul kapısı:** AI kronik açığı görüp en az bir geçerli düzeltme uyguluyor; hile kullanmıyor.  
 **Bağımlılık:** Faz 20–21.
+
+**Uygulanan karar sözleşmesi**
+
+- `js/StoryEconomicAI.js`, `story-economic-ai-ledger-1` adaptörü ve `fnv1a32:99a680ff` politika checksum’ıyla şirket ve AI-devleti değerlendirmelerini tek açıklanabilir defterde tutar.
+- Şirket adayları gerçek bölgesel stok açığı, sipariş dolum oranı, fiyat primi, son faaliyet marjı, nakit, borç/özkaynak tavanı, banka rezervi, sanayi parçası ve elektronik girdisini aynı bağlamda puanlar.
+- Geçerli eylemler `INVEST_OWN_FUNDS`, `BORROW_AND_INVEST`, `TARGETED_CAPACITY_GRANT` ve `HOLD` ile sınırlıdır. Katalog dışı eylem, sonlu olmayan puan veya kayıttaki adayla bağlanmayan seçim doğrulamada reddedilir.
+- Yatırım skoru tek başına yetmez: şirket/tesis faal olmalı, aynı tesiste proje bulunmamalı, fiziksel girdiler mevcut olmalı ve kredi gerekiyorsa hem borç tavanı hem banka rezervi yeterli olmalıdır.
+- Şirket, `140` proje nakdine ek olarak `80` işletme sermayesi tamponu korur. Eksik likidite kadar kredi ister; krediyi yatırım başarısız olursa geriye dönük yok saymaz, gerçek borç ve başarısız karar olarak bırakır.
+- Uygulanan proje Faz 21’in gerçek yatırım kapısından geçer. Karar sonucu `PENDING`; proje tamamlanınca tesis kapasite farkıyla `REALIZED`, proje kaybolur/iptal olursa `FAILED` olur.
+- AI devleti yalnız tarım/enerji gibi stratejik sektörde, özel finansman kapısı gerçekten kapanmış ve skor daha yüksek devlet eşiğini aşmışsa destek adayı üretir. Ödeme `storyBudgetDebit → storyCompanyReceiveStateSupport` çift kapısından geçer.
+- Oyuncu ülkesinin özel şirketleri piyasa aktörü olarak karar verebilir; oyuncunun devlet hazinesi adına otomatik destek/harcama kararı verilmez.
+- Tekrarlanan `HOLD` kayıtları en güçlü reddedilen adayla kompakt tutulur; uygulanan kilometre taşı kararları dönen kayıt sınırında korunur. Böylece uzun kayıtlar neden bilgisini kaybetmeden sınırlı kalır.
+
+**Bilgi, arayüz ve kabul kanıtı**
+
+- WorldV2 ülke görünümü ekonomik karar özetini taşır. Oyuncu kendi ülkesindeki gerekçeleri `VERIFIED`, yabancı karar ayrıntısını `UNKNOWN/null` görür.
+- Şehir `ŞİRKETLER` sekmesi son şirket/devlet kararlarının eylem, durum, puan, gerekçe ve gerçekleşme sonucunu gösterir. Tam yönetim çalışma alanı yine Faz 60.3 kapsamındadır.
+- Karar defteri kayda girer; yüklemede politika ve şirket/piyasa/bütçe sözleşme bağları doğrulanır. Eski kayıt boş karar defteriyle backfill edilir, bozuk kayıt kullanılmaz.
+- Hedefli doğal koşuda dört karar çevrimi içinde `7` şirket yatırım başlattı, `7` banka kredisi aldı, projelerin tamamı `+0,2` tesis kapasitesiyle gerçekleşti; `0` yapay iflas oluştu.
+- Hedefli devlet probunda tarım şirketinin özel finansmanı borç tavanında kapandı. AI devleti `90` destek verdi: hazine `2000→1910`, şirket kasası `0→90`; bütçe ve şirket muhasebesi birlikte geçerli kaldı.
+- Oyuncu hazinesi için otonom devlet kararı `0`; yabancı karar verisi sızıntısı `0`. Seçim/adayı bağlamayan kayıt, bozuk politika, negatif sıra ve sonlu olmayan skor reddedildi.
+- 900 saniyelik A/B’de `30` karar çevrimi, `1.650` değerlendirme, `7` kredi/yatırım, `7` gerçekleşen sonuç ve `1` hedefli destek üretildi. Kontrolde otomatik proje ve kredi `0` kaldı.
+- Fiziksel sonuç çift yönlüdür: gıda üretimi `821,04→3.046,94` yükselirken enerji stoğu `13,30→0`, kıtlık `1015→1014` ve kritik fiyat `608→611` oldu. Bu faz karar üretir; ayarları otomatik olarak “doğru denge” ilan etmez.
+- 30 yıllık soak bütün ekonomik AI/şirket/bütçe/bölgesel doğrulayıcıları geçti; `7` proje tamamlandı, şirket borcu faizle `9.196,78`, aktif iflas `0` kaldı. Ancak 30 yılda yeni proje sayısının `7`de kalması sanayi parçası darboğazının ve ikinci kuşak yeniden planlamanın yetersizliğini gösterir.
+
+**Dürüst kapsam sınırı:** Faz 22 ilk hilesiz ekonomik tepkiyi kurdu; tam modern ekonomik devlet veya öğrenen ekonomi değildir. Şirketler henüz ücret, iş gücü kalitesi, kur, mevduat, risk primi, hissedar hedefi, transit/jeopolitik risk ve uzun vadeli talep tahmini görmez. Devlet tarafı hedefli kapasite desteği dışında vergi bileşimi, kamu hizmeti, stratejik rezerv, yaptırım veya kurum yetkisi seçmez. En kritik açık, yatırım girdisi olan sanayi parçaları tükendiğinde aktörlerin koordineli “önce makine üreten kapasiteyi kur” zincirini oluşturamamasıdır. Faz 23–33 toplumsal/mali/kurumsal kanalları, Faz 43–46 dış ekonomik diplomasiyi eklemeden çok alanlı ulusal gündem tamamlanmış sayılmaz.
+
+### FAZ 22.1 — Sanayi Bootstrap ve Ekonomik Stabilizasyon Kapısı
+
+**Neden araya alındı:** Faz 24, daha önce yalnız stok/fiyat raporunda görünen fiziksel çöküşü insan sonucuna bağladı. 900 saniyede gıda erişimi `%0`, enerji `%2,70`, yaşam koşulu `%35,19` oldu. Son 600 ekonomik kararın `463` adayında `PHYSICAL_INPUTS_UNAVAILABLE` görüldü; bütün kapasite yatırımları tek bölgede `18` sanayi parçası isterken ilk yedi proje ağırlıkla nihai tarım kapasitesine gitti. Sivil sanayi ve enerji üst-akışı kurulmadan kalan aktörler `HOLD` döngüsüne girdi. Faz 25’i bu kalıcı kriz üzerinde kalibre etmek yanlış şikâyet/protesto eşikleri üretir; bu nedenle Faz 22.1 geriye dönük düzeltme kapısı olarak Faz 25’in önüne alınmıştır.
+
+**Amaç:** Ekonomik aktörlerin nihai kıtlığa tek adımlı kapasite tepkisi vermek yerine gerçek reçete bağımlılıklarını izleyip, yatırım girdisini fiziksel olarak biriktirip, üst-akıştan alt-akışa uygulanabilir bir sanayileşme zinciri kurmasını sağlamak.
+
+**Yapılacak işler:**
+
+1. Karar defterinde ret nedenlerini sektör, ülke, bölge ve eksik fiziksel girdi bazında kalıcı sayaçlarla ölçmek.
+2. Şirketleri dosya/kimlik sırasıyla harcayan küresel eylem bütçesini kaldırmak; aynı çevrimdeki bütün adayları ülke portföyünde karşılaştırmak.
+3. Reçete grafından bağımlılık baskısı türetmek. Gıda açığı enerjiye; enerji açığı sanayi parçasına; sanayi parçası enerji ve hammaddeye doğru izlenmeli. Sabit “önce X” hilesi yerine darboğaz zinciri açıklanabilir olmalı.
+4. `PHYSICAL_INPUTS_UNAVAILABLE` adayı kör `HOLD` olmamalı. Uygun aktör, gerçek bölgesel üretim veya gerçek lojistik teslimattan gelen sanayi parçası/elektroniği proje hazırlık emanetinde parça parça biriktirebilmeli.
+5. Emanete alınan fiziksel girdiler bölgesel stoktan atomik olarak çıkmalı; kayıt/yüklemede korunmalı; proje iptalinde aynı bölgeye geri dönmeli. Bedava parça, negatif stok veya iki kez kullanım yasaktır.
+6. Sivil sanayi bootstrap yatırımı kendi ürettiği parçayı tüketebilir fakat kendini yoktan var edemez. İlk parça stoğu ve devam eden üretim tükenirse sistem açıkça `BOOTSTRAP_RESOURCE_EXHAUSTED` raporlamalı.
+7. Yerel arz yetersizse mevcut Faz 18 rota, kapasite, gecikme ve ödeme kapılarından yüksek öncelikli yatırım girdisi siparişi oluşturulmalı; mal hedefe ışınlanmamalı.
+8. Üst-akış kapasite sonucu gerçekleşmeden alt-akış yatırımı “tamamlandı” sayılmamalı. Plan aşamaları, bağımlı proje kimlikleri ve gerçekleşen kapasite farkı kaydedilmeli.
+9. Aynı darboğazda plan değiştirme histerezisi bulunmalı; her 90 günde sivil sanayi↔enerji↔tarım arasında savrulma olmamalı.
+10. Oyuncu şirketi/hazinesi otomatik AI yatırımından hariç kalmaya devam etmeli; AI devletleri de gerçek bütçe rezervi ve yetki kapısından geçmeli.
+
+**Çıktı:** Sürümlü bootstrap planı; girdi hazırlık/emanet kayıtları; reçete bağımlılık izi; ülke portföy seçimi; gerçek lojistik tedarik; plan→proje→kapasite→erişim sonuç zinciri.
+
+**Kabul kapıları:**
+
+- Aynı tohum ve aynı özellik bayrakları aynı karar/tedarik/proje sırasını üretir.
+- Açık/kapalı A/B’de kontrol mevcut Faz 24 karmasını yeniden üretir; treatment farkı yalnız yetkili fiziksel/mali kapılardan doğar.
+- Bölgesel stok + yoldaki yük + proje emaneti için sanayi parçası ve elektronik korunumu tamdır.
+- 900 saniyede ilk kuşaktaki `7` projede donma kırılır; en az bir sivil sanayi, bir enerji ve bir tarım kapasite sonucu gerçekleşir.
+- `PHYSICAL_INPUTS_UNAVAILABLE` ret oranı ilk ve son 300 saniye karşılaştırmasında düşer; yalnız karar geçmişini budamak başarı sayılmaz.
+- Son 300 saniyelik nüfus ağırlıklı hane erişimi gıdada en az `%60`, enerjide en az `%70` olur; hiçbir kaynak dış giriş, bedava kapasite veya doğrudan erişim yazımı kullanmaz.
+- Yaşam koşulu kontrol koşusuna göre en az `1.000` baz puan iyileşir. Eski `st.welfare` bu faz tarafından doğrudan değiştirilmez.
+- 30 oyun yılında gıda/enerji erişimi sürekli `%0` tabanına kilitlenmez; proje, sipariş ve emanet dizileri sınırsız büyümez.
+- Kayıt/yükleme, eski kayıt backfill’i, bozuk emanet kurtarması, özellik-kapalı yol ve WorldV2/PlayerKnowledge bilgi sınırı geçer.
+
+**Bağımlılık:** Faz 16–24.
+**Faz 25 geçiş şartı:** Yapısal ve fiziksel korunum kapıları pazarlıksızdır. `%60/%70` erişim bandı ilk denge hedefidir; erişim bandı geçmezse Faz 25 başlatılmaz ve başarısızlık raporu bu dosyada korunur.
+
+**31 Temmuz 2026 ara uygulama kanıtı — kabul değildir:** Reçete darboğaz telemetrisi, ülke portföy sırası, fiziksel hazırlık emaneti, gerçek rota/teslimat tedariki, yıllık nüfusa oranlı demografi ve atomik şirket takası çalışıyor. Bounded sevk denemesi ve artan retry aralığı tek 900 saniyelik simülasyon maliyetini `65,61 sn`den `34,63 sn`ye indirdi; aynı koşuda açık emir `179→151`, aktif sevkiyat `237→209` oldu. Sonraki kalıcı-yüksek-öncelikli üretim emri adayı son 300 saniyede gıda `%48,32`, enerji `%53,62`, yaşam koşulu `%57,00` ve `33` tamamlanmış proje üretti; bütün fiziksel/mali doğrulayıcılar geçti. Buna rağmen `%60/%70` kapısı geçmedi. Ayrıca özellik-kapalı kontrol `8` proje üretip beklenen Faz 24 karmasını yeniden üretmiyor ve `88` üretim ithalat emri şirket yerine devlet finansman kapısında bekliyor. Bu iki sorun kapanmadan Faz 22.1 kabul edilmez ve Faz 25 açılmaz.
+
+İki lojistik sıralama deneyi ölçümle reddedildi. Bütün üretim girdilerini normal kıtlık emirlerinden önce geçirmek son 300 saniye erişimini `%48,47/%53,17`den `%47,56/%50,46`ya düşürdü; yalnız dört parça sevkiyatına erken koridor rezervi ayırmak sonucu `%44,20/%45,30`a ve proje sayısını `18`e indirdi. Bu değişiklikler geri alındı; tek bir alt-katman metriğinin iyileşmesi sistem başarısı sayılmadı.
+
+Şirket ithalatını devlet bütçesinden ayırmak için yapılan ilk alıcı-şirket/banka-kredisi/ticaret-emaneti deneyi de kabul edilmedi. Defterler matematiksel olarak geçerli kalmasına rağmen son 300 saniye gıda/enerji erişimi `%3,94/%6,42`, proje sayısı `12`, iflas eden şirket sayısı `10` oldu. Satıcıya teslimatta ikinci kez gelir yazmayıp şirket ödemesini mevcut merkezî takas havuzuna döndüren ikinci aday da `%4,27/%4,19`, `11` proje, `9` iflas ve `marketClearingCash≈5,51` üretti. Böylece sorun yalnız çift ödeme değil, üretim anında gerçek alıcı olmadan otomatik toptan gelir tanınması olarak daraltıldı. Doğru sıra: geliri üretim anından satış anına taşımak; satış faturası + stok maliyeti + borç/alacak + nihai talep ödeyeni + şirketler arası takasla kapalı para dolaşımı kurmak; ardından şirket ithalat emanetini açmak. İki yarım uygulama da geri alındı ve Faz 22.1 kabul adayı sayılmadı.
+
+#### FAZ 22.1E — Kapalı Para Dolaşımı ve Satışta Gelir Düzeltmesi
+
+Bu alt faz yeni bir “ekonomi bonusu” değildir; Faz 21 şirket defterindeki yanlış zamanlanmış gelir sözleşmesini düzeltir. Fiziksel üretim, satış ve para hareketi aynı olaymış gibi davranmayacaktır.
+
+1. **Mülkiyet sınırı:** Bölgesel fiziksel stok ile şirketin satılabilir envanteri aynı malın iki kopyası olmayacak. Her üretim çıktısı `ownerCompanyId`, edinim maliyeti, miktar, kaynak işlem ve bölge taşıyan toplulaştırılmış envanter lotuna bağlanacak. Bölgesel toplam, lotların fiziksel aynası olarak doğrulanacak.
+2. **Üretim fişi:** `storyCompanyOnProductionCommitted` üretim anında `REVENUE:WHOLESALE` yazmayacak. Yalnız ücret/işletme gideri, tüketilen şirket envanteri ve üretilen mamul envanteri kaydedilecek. Gelir ancak mülkiyet alıcıya geçtiğinde doğacak.
+3. **Gerçek alıcı sınıfları:** Her stok tahsisi `HOUSEHOLDS`, `COMPANY`, `STATE` veya açıkça tanımlı dış alıcı taşıyacak. Hane talebi bölgesel/kohort toplu cüzdanından, şirket girdisi şirket nakdi/kredisinden, kamu alımı ilgili devlet bütçe kaleminden ödenecek. Ödeyeni olmayan tahsis ücretsiz satış sayılamaz; yardım/sübvansiyon ise ayrı yetkili transfer fişi ister.
+4. **Fatura ve teslim ayrımı:** Sipariş, sevkiyat, teslim, fatura, ödeme ve gelir ayrı durumlar olacak. Fiziksel teslim gerçekleşmeden gider/gelir kesinleşmeyecek; iptal, kayıp ve geri dönüşte emanet ve envanter atomik çözülecek.
+5. **Borç/alacak:** Peşin olmayan yasal satış `ASSET:RECEIVABLE` ve `LIABILITY:PAYABLE` üretir. Vade, temerrüt, kısmi ödeme ve zarar yazımı para yaratmadan izlenir. Aynı işlem hem satıcı hem alıcı defterinde ortak `correlationId` taşır.
+6. **Takas odasının rolü:** `marketClearingCash` sınırsız nihai alıcı olmayacak; yalnız kısa süreli netleştirme/emanet aracı olacak. Açılış bakiyesi, aktif emanet, netleşmemiş alacak ve kapanış bakiyesi için ayrı korunum denklemi kurulacak. Havuzun üretim hacmiyle tek yönlü tükenmesi veya sebepsiz büyümesi hata sayılacak.
+7. **Para geri dönüşü:** Şirketlerden hanelere ücret ve temettü; hanelerden şirketlere tüketim; şirket/devletten vergi, kamu alımı ve destek akışları aynı para arzı içinde kapanacak. Faz 22.1 için tam vergi politikası gerekmez, fakat en azından ücret–tüketim çevrimi sonsuz üretimde likiditeyi tek aktörde kilitlememeli.
+8. **İthalat finansmanı:** Yalnız 1–7 geçtikten sonra üretim ithalatına gerçek `buyerCompanyId`, banka işletme kredisi ve şirket ticaret emaneti bağlanacak. Devlet ancak açık sübvansiyon/stratejik alım kararı varsa ödeme yapabilecek; varsayılan şirket girdisini devlet borcu finanse etmeyecek.
+9. **Geçiş ve özellik kapısı:** Eski kayıtta sahiplik lotu yoksa mevcut stok kontrollü açılış envanterine tek kez dönüştürülecek. `economy.bootstrapPlanning=false` yolu yeni alanlar yüzünden davranış veya karma değiştirmeyecek.
+10. **Açıklanabilirlik:** UI ve teşhis çıktısı “kim üretti, kim aldı, kim ödedi, hangi fatura açık, nakit neden bitti?” sorularını tek zincirde cevaplayacak. Toplam nakit doğru olsa bile sektörler arası likidite kilidi ayrıca alarm üretecek.
+
+**22.1E kabul kapıları:**
+
+- Üretim tek başına şirket geliri yaratmaz; kontrollü probda satış olmadan nakit artışı tam `0`dır.
+- Tek malın üretim→yerel şirket satışı→üretimde tüketim ve üretim→hane satışı zincirlerinde fiziksel miktar, envanter maliyeti ve para ayrı ayrı korunur.
+- Aynı fatura iki kez ödenemez; kayıp/iptal senaryosu alıcı emanetini tam iade eder ve satıcıya gelir yazmaz.
+- 900 saniyelik koşuda `marketClearingCash` sıfıra kilitlenmez, hiçbir şirket yalnız muhasebe sırası nedeniyle iflas etmez ve devlet bütçesinde örtük şirket-girdisi gideri oluşmaz.
+- Şirket, banka, devlet bütçesi ve takas odası birleşik para denklemi en fazla yuvarlama toleransı kadar sapar; yalnız her defterin kendi içinde dengeli olması yeterli değildir.
+- Mevcut fiziksel adayın son 300 saniyelik gıda/enerji/yaşam koşulu sonucu gerilemez; `%60/%70` ana Faz 22.1 kapısı ayrıca geçilir.
+- Kayıt/yükleme, eski kayıt göçü, bozuk açık fatura/emanet kurtarması ve özellik-kapalı kontrol için hedefli testler bulunur.
+
+**1 Ağustos 2026 ilk 22.1E uygulama kanıtı — varsayılan kapalı, kabul değildir:** `js/StoryCommerce.js` sahipli fiziksel envanter lotu, satış faturası ve `ON_TITLE_TRANSFER` gelir tanıma sözleşmesini kurdu. Yeni `economy.saleSettlement` bayrağı varsayılan olarak `false`; çalışan Faz 22.1 dünyasına henüz davranış sızdırmıyor. İlk probda `OPERATING_CAPITAL` yanlışlıkla gider sayıldığı için tarım maliyeti `2,045` görünüyordu. Düzeltmeden sonra `2` birim sermaye yalnız likidite eşiği, gerçek fiziksel enerji maliyeti `0,045`, beklenen satış `0,42` oldu. Üretim şirket gelirini `0`da tuttu; hane `0,5` birim aldığında `0,21`, ikinci şirket `0,25` birim aldığında ek `0,105` gelir yalnız mülkiyet geçişinde doğdu. Başlangıç, üretim ve satışlar boyunca birleşik para `90.880` olarak korundu; fiziksel stok–sahipli lot ve şirket envanter maliyeti aynaları geçti. Kayıt/yükleme lotları ve faturaları birebir korudu.
+
+Mikro probdan gerçek zaman akışına geçildiğinde üç ayrı mülkiyet kaçağı ölçüldü ve kapatıldı. İlk bölgesel ekonomi tikinde (`4 sn`) `152 bölge × 5 kaynak = 760` stok–lot uyuşmazlığı depolama/bozulma kaybının yalnız fiziksel stoktan düşmesinden doğuyordu; artık FIFO lotu da yok ediyor ve şirkete ait kaybı envanter değer düşüklüğü giderine bağlıyor. `8 sn` koşusundaki `10` enerji uyuşmazlığı yoldaki ticaret kargosuydu; sevkiyat artık sahiplik ve maliyet lotlarını `shipment:<id>` emanet konumunda taşıyor, teslimatta hedef bölgeye geçiriyor, kayıpta şirket envanterini giderleştiriyor. `60 sn` koşusundaki `8` sanayi parçası uyuşmazlığı yatırım hazırlık emanetiydi; lotlar `escrow:<preparationId>` konumuna taşınıyor, iade/başlatma/gerçek tüketim zinciri aynı mülkiyetle kapanıyor. Özellik açık `60` ve `120` saniyelik birleşik koşularda fiziksel ayna, şirket, ticaret ve ekonomik AI doğrulayıcılarının tümü sıfır sorunla geçti.
+
+`STATE`, `MILITARY` ve toplu `COMPANIES` talepleri artık gerçek devlet/ordu/şirket ödeyenlerine ayrılıyor. Sınır ötesi özellik-açık siparişte kaynak lot yalnız sözleşmedeki satıcı şirkete ait olabilir; hedef ülkenin ilgili sektör şirketi gerçek `buyerCompanyId` olur, nakdi `ASSET:TRADE_ESCROW` hesabında bloke edilir, teslimatta satıcı gelir+COGS yazar ve lot toptan maliyetle ithalatçı envanterine geçer. Satıcısı olmayan açılış/takas stoğu şirket ödemesine zorlanmaz. Hedefte ödeme bekleyen yük geçerli terminal `HELD` durumudur ve tekrar kapanabilir. `20 sn` kaydı `26` aktif şirket rezervasyonu ve `307,0511` escrow ile birebir açıldı; devam eden `8 sn` sonunda şirket, bütçe ve ticaret doğrulamaları geçti.
+
+Doğru 300 saniyelik treatment `464` sınır ötesi emir, `455` şirket alıcısı ve `202` teslimat üretti; bütün bölgesel, şirket, commerce, ticaret, bütçe, pazar ve ekonomik AI doğrulayıcıları geçti. Sonuç gıda `%43,99`, enerji `%50,00`, yaşam koşulu `%54,83`, `7` proje ve sıfır iflastır. Bu mevcut fiziksel adaydan gerilediği ve `%60/%70` kapısını geçmediği için bayrak varsayılan kapalıdır. Otomatik ithalat kredisi deneyi borcu `1.010→1.737`, projeyi `7→5`, gıda/enerjiyi `%43,99/%50,00→%36,86/%40,68` yaptığı için geri alındı. Kredi ancak beklenen perakende marjı, teminat, ayrı risk bütçesi ve yatırım fonlamasını bozmama kapısıyla yeniden ele alınabilir; bedava likidite çözüm değildir. 900 saniyelik açık-treatment ve güncel tam regresyon hâlâ kabul borcudur.
+
+**1 Ağustos 2026 çift-tüketim düzeltmesi:** Settlement açıkken üretim reçeteleri enerji, sanayi parçası ve elektroniği gerçek sahiplerinden gerçek şirket faturasıyla zaten satın alıyordu; `storyRegionalDemandSpecs` aynı tesislere ayrıca `FACILITY_OPERATION`, `MAINTENANCE` ve `TECH_MAINTENANCE` vekil talebi yazarak aynı işletme girdisini ikinci kez fiziksel stoktan düşüyordu. Bu vekiller yalnız settled yolundan kaldırıldı; `60 sn`de `3.996` gerçek COMPANY faturası sürerken vekil parça/elektronik talebi sıfırlandı. Güncel doğru `300 sn` treatment gıda `%55,21`, enerji `%65,89`, yaşam koşulu `%61,47`, `6` proje ve sıfır iflas verdi; yedi defter doğrulayıcısı geçti. Enerji kapısı geçildi, ancak gıda `%60` ve yaşam koşulu `%70` kapıları geçmedi. Son tikte `64` tarım bölgesi enerji girdisi yüzünden tamamen durdu. Enerji güvenli stokunu büyütme, ayrı/ani şebeke akışı, upstream üretim sırası, ölü operasyonel bootstrap planlayıcısını bağlama ve üretim-girdisi sevkiyatını `18→24` büyütme deneylerinin tamamı genel sonucu kötüleştirdiği için geri alındı. Bayrak varsayılan kapalıdır; sıradaki iş kör kapasite değil, bölgeler arası üretim-girdisi tahsisidir.
+
+**1 Ağustos 2026 üretim-girdisi tahsis kanıtı — hâlâ kabul değildir:** Settlement yolunda kaynak bölgenin teorik kurulu kapasite talebini bütünüyle stokta tutması, başka girdisi veya parası yüzünden zaten çalışamayan bölgelerde enerji ve parçayı kilitliyordu. Kaynak rezervi yalnız önceki tikte gerçekten tüketilmiş işletme girdisine indirildi; talep kuyruğu da `parça → enerji → gıda` zincirini sektör kritikliğiyle değerlendiriyor. Bunun karşı yönündeki ping-pong açığı da kapatıldı: belirli bir kaynak `BLOCKING` darboğazıyken yeni teslim edilen stok, sonraki üretim tikinden önce yeniden “fazla” sayılıp dışarı gönderilmiyor; yalnız gözlenen karşılanmamış bir çevrim kadar dar rezerv tutuluyor. Hane gıda dolumu `%50` altına inerken sanayi parçası üretimi tüketimin `%120` üstündeyse sınırlı `DOWNSTREAM_FOOD` modu açılıyor; gıda `%65`e veya parça kapsaması `%95` altına geldiğinde `UPSTREAM_RECOVERY` moduna dönüyor. Bu histerezis yalnız `economy.saleSettlement=true` yolundadır. Faz 28 gerçek ücret/temettü/vergi çevrimini kurana kadar gerçekleşen marjın `%90`ı hane geliri, `%10`u işletme sermayesi vekili olarak iki gerçek cüzdan arasında aktarılıyor; para yaratılmıyor.
+
+Güncel `300 sn` treatment gıda `%60,73`, enerji `%72,52`, yaşam koşulu `%64,26`, `11` tamamlanan + `4` aktif proje ve sıfır iflas üretti. `900 sn` finali `%63,94/%68,41/%65,52`; `600–900 sn` dahil örnek ortalaması `%56,22/%63,61/%62,72` oldu. Bölgesel, ihtiyaç, ticaret, piyasa, bütçe, şirket, commerce ve ekonomik-AI doğrulamalarının sekizi de geçti; şirket nakdi `83.757`, takas nakdi `73.783`, tamamlanan proje `39`, aktif proje `1` kaldı. Buna rağmen son tikte `66` tarım bölgesi enerji, `38` enerji bölgesi sanayi parçası yüzünden tamamen blokeydi; ayrıca yaklaşık `1.012,9` enerji ve `108,3` parça üretim-girdisi kargosu yoldaydı. Sorun artık kör toplam kapasite değil, ülke/bölge içi stok serbest bırakma ve zincir eşzamanlamasıdır. Düz hat coğrafi kaynak seçimi, tarımı sürekli öne alma, bakım girdisini yarıya indirme ve histereziste parça çıkış eşiğini `%85`e gevşetme deneyleri sonucu bozduğu için geri alındı. Varsayılan özellik kapalıdır; değişiklik sonrası tam regresyon `230bc647481ba13e9431a92f890def5fab0a36f1510c530256874f038a64ef36` eski karmasıyla geçti. Uzun dönem gıda ortalaması `%60` ve yaşam koşulu `%70` kapıları geçmeden Faz 22.1E kabul edilmez.
+
+**1 Ağustos 2026 ülke-içi dağıtım teşhisi:** Rota gecikmesinin kök neden olduğu hipotezi yanlışlandı. `300 sn` aktif üretim-girdisi rotaları ortalama `14,44 sn`, enerji üretim-girdisi rotaları `6,91 sn`; mevcut dört üretim pencerelik boru hattı `16 sn`. Aynı tikte dünya gıda üretimi/talebi `1.073/1.780` iken enerji üretimi `4.266`, hane+kamu talebi `4.026`, fiziksel enerji stoğu `42.419` oldu. Enerji yok değildir; yanlış bölgelerde kilitlidir ve bu kilit tarım çıktısını gerçek toplam gıda açığına dönüştürür. Ülke 5’te `12.516` enerji stoğuna rağmen `7`, ülke 7’de `7.246` stoğa rağmen `5`, ülke 1’de `4.700` stoğa rağmen `11` tarım bölgesi enerji yüzünden tamamen durdu.
+
+Tik sırasını değiştirme; gerçek rota süresine göre genel, yalnız gıda ve “tek yükte kapatabilen kaynak” seçimi; kişi-ağırlıklı talep; ülke başına ilk sevkiyat; enerji kotasını `6→8` büyütme; elektronik yuvalarını hammaddeye taşıma deneylerinin tamamı gıda/enerji/yaşam koşulu veya proje toplamını düşürdü ve geri alındı. Bu sonuç, ağ veriminin sevkiyat sayısı ve büyük merkez stoklarıyla güçlü biçimde bağlı olduğunu gösterir; sosyal öncelik veya yakınlık, sevkiyat birleştirme/merkez-depo sözleşmesi olmadan eklenemez. `tools/story-sim-harness.js` artık sekiz ülke için stok, üretim, üretim girdisi, nihai talep ve bloklayıcı darboğaz kırılımını kalıcı `countryBreakdown` alanında verir; ülke enerji toplamı dünya toplamıyla regresyon testinde mutabık olmak zorundadır. Varsayılan dünya karması yeniden `230bc647…ef36` geçti.
+
+Tanı bir kademe daha derinleştirildi. Ülke satırı artık teorik stok toplamının yanında gerçek üretim+tüketim işletme rezervini, bu rezerv üstündeki yerli sevk edilebilir miktarı, sahipli commerce lot toplamını, üretim-girdisi sipariş durum/hata kırılımını ve içeri/dışarı fiziksel kargoyu verir. Blokeli tarım sayacı ayrıca bölge kimlikli listeyle birebir kapanır. `300 sn` referansında ülke 5'in `12.516` enerji stoğunun `12.067`si işletme rezervi üstündedir ve sahipli lot toplamı fiziksel stokla örtüşür; buna rağmen blokeli yedi tarım bölgesinin her birinde enerji stoğu tam `0`dır. Aynı desen diğer yüksek stoklu ülkelerde de vardır. Böylece “toplam stok aslında rezerve/defterde sahipsizdi” hipotezi reddedildi: arıza ülke toplamından sıfır stoklu tüketim bölgelerine fiziksel tahsis katmanındadır.
+
+Dört yeni aday da kabul edilmedi. Enerji kotası `6→8` büyütülürken toplam üretim-girdisi bütçesini `18→20` yapmak diğer kaynak yuvalarını koruduğu halde sonucu `%57,79/%67,62/%61,21`e düşürdü. Başarısız açık emri hayalî yoldaki yük saymamak teorik olarak doğruydu, fakat mevcut aday seçici aynı finanse edilemeyen ithalatı çoğaltıp projeyi `11→6`ya, sonucu `%60,68/%68,32/%62,67`ye indirdi. Üretim ve hane enerji açığını tek kargoda dört pencere taşımak `%56,19/%65,19/%61,34`; dört üretim + bir hane penceresi taşımak `%59,36/%70,55/%63,69` verdi. İkisi de birkaç hedefte kargo yığarak kaynak/finansman zincirini bozdu ve geri alındı.
+
+Bu kanıt, sıradaki iç dağıtım sözleşmesinin yalnız “daha büyük sipariş” olamayacağını kesinleştirir. Aday; ülke düzeyinde tek kabul kararı üretmeli, fakat her hedef bacak için gerçek rota, koridor kapasitesi, kaynak stok borcu, sahiplik lotu ve teslim fişi saklamalıdır. Aynı ülkenin küçük bölgesel taleplerini planlama açısından birleştirirken fiziksel teslimatı birleştirmemeli; hedef sayısı/admission bütçesi mevcut yüksek etkili parça-hammadde zincirini dışlamamalı; başarısız dış finansman yerli uygun kaynağı gölgeleyememelidir. Bu sözleşme ve mikro korunum probu kurulmadan yeni kota, hız veya stok bonusu denenmez.
+
+**1 Ağustos 2026 ülke-içi çok bacaklı dağıtım çekirdeği — mikro sözleşme geçti, canlı politika değildir:** `story-domestic-distribution-contract-1` tek ülke kararını `2–8` benzersiz hedef bacağına ayırıyor. Kabul kapısı herhangi bir stok hareketinden önce toplam kaynak stokunu, sahipli ticari kargoyu ve bütün bacakların aynı koridorda biriken kapasite talebini birlikte denetliyor; farklı ülkeye açılan bacağı reddediyor. Kabul edilen her bacak mevcut ticaret motorunda ayrı sipariş, gerçek altyapı rotası, kapasite rezervasyonu, sevkiyat manifestosu, sahipli lot ve teslim fişi üretiyor. Dolayısıyla planlama toplulaştırılmış olsa da fiziksel mal toplulaştırılmıyor veya hedefe ışınlanmıyor.
+
+Tohum `2032` mikro probunda tek kaynaktan iki enerji bacağı `3+2` birim kabul edildi. Kaynak stok sevkte `106,56→101,56` inerken hedefler değişmedi; teslimlerden sonra hedefler tam `+3/+2` arttı. İki farklı sevkiyat kimliği ve iki gerçek rota oluştu; dünya fiziksel toplamı ve ticari mülkiyet toplamı hem önce hem sonra `8.300,36` kaldı. Sınır aşan yerli dağıtım isteği `DISTRIBUTION_CROSS_BORDER_FORBIDDEN`, oynanmış batch toplamı `DISTRIBUTION_QUANTITY_CONSERVATION` ile reddedildi. Yoldaki iki bacaklı batch kayıt/yüklemede ticaret ve mülkiyet defterleriyle bayt-bayt aynı kaldı. Tam `npm test` geçti ve varsayılan 900 saniyelik karma değişmedi: `230bc647481ba13e9431a92f890def5fab0a36f1510c530256874f038a64ef36`.
+
+Bu sonuç Faz 22.1E denge kabulü değildir. API varsayılan akışta kendi kendine batch üretmez; opsiyonel batch alanları yalnız açık çağrıda doğar ve yeni özellik bayrağı eklenmemiştir. Sıradaki iş, gerçek bölgesel darboğazlardan bacak seçen, parça/hammadde zincirinin admission bütçesini aç bırakmayan ve hiçbir uygun plan yoksa dürüstçe bekleyen otomatik ülke-içi dağıtım politikasıdır. Bu politika önce mikro yarış/başarısızlık senaryolarını, ardından `300/900 sn` A/B kapısını geçmeden canlı üretim seçicisine bağlanmayacaktır. Admission ile dispatch arasına ileride asenkron aktör girecekse ayrıca atomik rezervasyon/geri alma sözleşmesi kurulmalıdır.
+
+**1 Ağustos 2026 seçici deneyleri — üç aday reddedildi:** İlk aday ülkeleri en uzun süredir hizmet almayan önce sıralayıp iki hedefli batch’i mevcut kaynak kotalarının içine yerleştirdi. Fiziksel sözleşme çalıştı (`1.784,20` planlanan, `661,67` teslim edilen), fakat 300 saniye sonucu referans `%60,73/%72,52/%64,26` gıda/enerji/yaşam koşulundan `%60,51/%63,13/%61,41`e düştü. İkinci aday açlık hafızasını bağlayıcı yaptı, kısa rotayı seçti ve batch’i tek üretim penceresiyle sınırladı; `643,87` planlanan ve `496,46` teslim edilene rağmen `%51,05/%43,75/%56,05` üretti. İki-hedef zorunluluğu değerli tekil sevkiyatları yerinden ettiği için her iki canlı bağlantı tamamen geri alındı. Üçüncü aday batch kullanmadan mevcut tekil taleplerin eşit kritikliğini spot fiyatla hesaplanan marjinal çıktıyla bozdu; proje sayısı `11→13` artsa da sonuç `%60,60/%69,79/%62,83` oldu. Spot fiyatın toplumsal amaç fonksiyonu olmadığı ve kıtlık fiyatını kendini besleyen önceliğe çevirdiği kanıtlandığı için bu değişiklik de geri alındı.
+
+Davranıştan ayrılmış `storyTradeProductionOpportunityView()` karşı-olgusal gözlemcisi tutuldu. Her bloke sektör için bir birim girdinin açacağı çevrim/çıktı, eşzamanlı diğer blokajlar, bekleyen kargo, kaynak bölgenin işletme rezervi, fiziksel stok, sahipli lot, rota kapasitesi ve gecikmesi salt-okunur hesaplanıyor. `60 sn` önce/sonra dünya karması aynı `b0ae18f7…f640`; yedi blokajın tamamı doğru biçimde `PIPELINE_COVERED` sınıfına girdi. `300 sn` settlement treatment’ında `107` fırsatın `72`si `IMMEDIATE`, `23`ü `PIPELINE_COVERED`, `3`ü `NO_DOMESTIC_SOURCE`, `9`u `NO_ROUTE_CAPACITY`: ana açık kaynak yokluğu değildir. Hemen uygulanabilir fırsatlar enerji girdisinde `44`, sanayi parçasında `20`, hammaddede `7`, elektronikte `1`; taşınabilir miktarlar sırasıyla `120,45 / 23,61 / 51,83 / 1,10`. Bununla birlikte spot-değer toplamı tek başına güvenli sıralama değildir. Sıradaki aday; hane gıda/enerji etkisi, zincir derinliği, eşzamanlı blokaj olasılığı, teslim gecikmesi ve ekonomik değeri ayrı bileşenler/guardrail olarak taşımalı; herhangi birini tek skora kör biçimde ezdirmemelidir.
+
+Gözlemci ve üç geri alma sonrasında tam `npm test` çıkış kodu `0` ile geçti; varsayılan 900 saniyelik karma yine tam `230bc647481ba13e9431a92f890def5fab0a36f1510c530256874f038a64ef36`. Dolayısıyla bu alt aşama davranış değişikliği değil, doğrulanmış karar kanıtı üretme altyapısıdır.
+
+**1 Ağustos 2026 açıklanabilir amaç vektörü — canlı seçiciye henüz bağlı değildir:** Karşı-olgusal gözlemci, tek spot puanı yerine beş ayrı ve denetlenebilir amaç taşıyor: doğrudan hane/kamu ihtiyacı rahatlaması, canlı aşağı-akış blokajlarını açma gücü, eşzamanlı blokajdan türetilen gerçekleştirilebilirlik, gerçek rota gecikmesi + teslim kapsamı ve ekonomik çıktı değeri. Mevcut seçicinin kaynak sırası/kritiklik/dolum sırası aynı fırsatların üzerinde ayrıca korunuyor. Adaylar bütün ölçütlerde en az eşit ve bir ölçütte kesin üstünlük kuralıyla Pareto katmanlarına ayrılıyor; ülke içi öncü küme de ayrıca raporlanıyor. Bu yapı amaçları tek ağırlıklı skorda gizlemiyor ve yalnız rapor üretir; sipariş, stok, lot, rota veya dünyaya yazmaz.
+
+Tohum `2032`, 300 saniyelik settlement treatment probu referans sonucu ve dünya karmasını birebir korudu: gıda `%60,73`, enerji `%72,52`, yaşam koşulu `%64,26`, karma `8460df44a1a3cc8f4d13a937e12d2de23bd9e95f578b4ef21bb59adc8d431d56`. `107` fırsatın `72`si hemen uygulanabilir; küresel Pareto öncüsünde `19` aday var (`18 SURVIVAL`, `1 CHAIN_RECOVERY`; `6` sanayi parçası, `13` enerji girdisi). Eski sıra ilk sekizde Pareto katmanı `2–3` olan adayları öne alırken açıklanabilir öncü küme, eski sırada `11–56.` basamaklara itilmiş enerji santrali ve tarım hedeflerini ortaya çıkardı. Örneğin eski sırada `43.` olan tarım-enerji adayı `%83,71` doğrudan gıda açığı rahatlatma potansiyeliyle Pareto-1; eski sırada `15.` olan parça→enerji adayı hane ve kamu enerjisinde `10.000/10.000` baz puan rahatlama, tam teslim kapsamı ve canlı zincir açma ile Pareto-1 çıktı. Bu kanıt, mevcut seçicinin “kaynak türü önce” sırasının hedef değerini gömdüğünü gösterir; fakat öncü olmak tek başına sevk yetkisi değildir.
+
+Sıradaki canlı aday, Pareto sırasını kör biçimde kopyalamayacak. Önce ülke/kaynak bütçesi, aynı stok için yarışan adayların karşılıklı dışlama kuralı, en az bir upstream zincir yuvası ve en az bir doğrudan ihtiyaç yuvası, admission–dispatch atomik rezervasyonu ve hiçbir uygulanabilir aday yoksa bekleme davranışı tanımlanmalıdır. Ardından yalnız özellik bayraklı tek karar penceresinde çalıştırılıp `60/300/900 sn` karşılaştırmasında referans hane sonuçlarını, proje sayısını, fiziksel/mali korunumu ve süreyi birlikte geçerse canlı üretim seçicisine aday olabilir.
+
+Pareto hesabı tik/kare yoluna veya her headless simülasyon çağrısına bağlanmaz. Üretim API’sinde salt-okunur olarak her zaman erişilebilir; `story-sim-harness` yalnız `includeTradeProductionOpportunityView: true` isteyen ana kabul/A-B raporunda hesaplar. Ülke içi Pareto katmanları önce ayrı kurulup küresel rank-1 karşılaştırması yalnız ülke öncülerinin birleşiminde yapılır. Bu hem kararın gerçek stok yetki alanını korur hem ilk tüm-dünya katmanlamasındaki kübik maliyeti kaldırır. 300 saniyelik prob aynı `19 küresel / 43 ülke-içi` öncüyü ve aynı dünya karmasını korurken duvar süresi yoğun ilk ölçümde `55,9→30,3 sn` indi.
+
+Temiz tam regresyon çıkış kodu `0` ile geçti. Varsayılan 900 saniyelik dünya karması tam `230bc647481ba13e9431a92f890def5fab0a36f1510c530256874f038a64ef36`, ana simülasyonun raporlanan duvar süresi `39.336,97 ms` kaldı. İlk yoğun koşuda bağımsız raster kapısı `526,032 ms > 500 ms` ölçerek durmuştu; aynı raster probu temiz sistemde art arda `38,675 / 34,260 / 37,312 ms`, ardından tam pakette başarılı çıktı. Eşik gevşetilmedi ve harita kodu değiştirilmedi.
+
+Tanı kapısı tam regresyona bağlandı: ülke fiziksel enerji toplamı, ülke sahipli-lot enerji toplamı ve dünya enerji toplamı tolerans içinde eşit olmak; blokaj sayacı bölge kimlikli listeyle birebir kapanmak zorundadır. Tam `npm test` geçişi varsayılan 900 saniyelik `230bc647481ba13e9431a92f890def5fab0a36f1510c530256874f038a64ef36` karmasını yeniden üretti. Bu yalnız tanının güvenilirliğini ve kapalı yolun değişmediğini kanıtlar; Faz 22.1E denge kabulü değildir.
+
+### ZORUNLU ARA KABUL — Tek Ekonomi / Şirket Sahibi Merceği
+
+Bu dikey dilim Faz 22.1E kabul edilmeden uygulanmaz; yanlış fiyat/maliyet ve sahte ödeme zincirinin üstüne arayüz kurmak yalnız hatayı oynanabilir gösterir. Ekonomik gerçek kapandıktan sonra tek bir mevcut şirketin AI karar kapısı kontrollü biçimde oyuncuya devredilir. Ayrı şirket ekonomisi veya oyuncuya özel fiyat/üretim bonusu yazılmaz.
+
+İlk döngü yalnız üç gerçek kararı kanıtlar:
+
+1. **Ne üreteyim?** Mevcut tesis, reçete, işgücü, enerji, girdi ve işletme sermayesiyle.
+2. **Kime ve hangi şartla satayım?** Gerçek alıcı, fatura, teslimat/title-transfer ve tahsilatla.
+3. **Satayım mı, stok/yatırım mı yapayım?** Bozulma, depo maliyeti, fiyat riski, borç ve fırsat maliyetiyle.
+
+Oyuncu ekranı her karar için “neden kâr/zarar ettim?” zincirini üretim fişi → lot maliyeti → satış faturası → ödeme → vergi/finansman → net sonuç olarak gösterebilmelidir. AI şirketleri aynı aday eylem ve kaynak sınırlarıyla oynamaya devam eder; oyuncu kontrolü yalnız seçiciyi değiştirir.
+
+Ara kabul kapıları:
+
+- oyuncu ve AI şirketi aynı durum/eylemde byte-eşdeğer muhasebe ve fiziksel sonuç üretir;
+- oyuncuya gizli fiyat, bedava girdi, ücretsiz kredi veya garantili alıcı verilmez;
+- üç kararın her biri en az iki savunulabilir seçenek, görünür bedel ve fırsat maliyeti taşır;
+- fiyat, stok ve nakit değişiminin ilk üç bilinen nedeni dış tablo olmadan bulunabilir;
+- aynı kıtlık şirket sahibi, belediye, yönetici, komutan, ajan ve sivil projeksiyonlarında aynı `factId`/olay zincirinden türeyen farklı fakat çelişkisiz görünümler üretir;
+- şirket sahibi dikey dilimi mevcut 900 saniyelik ekonomi sonucunu yalnız ekran açık olduğu için değiştirmez.
+
+### ZORUNLU TASARIM SÖZLEŞMESİ — Proje, Varlık, Bakım ve B2B Hizmet Omurgası
+
+Bu sözleşme dış analizden kabul edilen bina ve proje ekonomisini tek kanonik modele bağlar. **Yeni bir Faz 22.1 kabul şartı değildir ve Faz 22.1E kapanmadan kodlanmaz.** Amaç, daha sonra belediye, şirket, devlet ve savaş motorunun birbirinden kopuk “bina bonusları” üretmesini baştan engellemektir.
+
+#### 1. Tek yaşam döngüsü
+
+Her kalıcı yatırım aynı zincirden geçer:
+
+```text
+karar → ProjectV1 → tedarik/sözleşme → gerçek teslimat ve emek
+      → kesintiye açık inşa → WorldAssetV1 → işletme getirisi + bakım
+```
+
+Bir varlık ancak aşağıdaki üç koşulu sağlıyorsa simülasyona eklenir:
+
+1. para dışında en az bir fiziksel girdi, emek veya doğrulanabilir hizmet tüketir;
+2. fiziksel ürün ya da sınırları ölçülebilen kapasite/hizmet/akış/risk azaltımı üretir;
+3. arazi, işgücü, enerji, ulaştırma, ruhsat, çevre veya bakım kısıtlarından en az birine tabidir.
+
+Depolanabilir ürün üretmeyen okul, hastane, yol, liman veya mahkeme “çıktısız” değildir; eğitim kapasitesi, sağlık hizmeti kapasitesi, koridor kapasitesi, işlem kapasitesi veya risk azaltımı üretir. Fakat çıplak `+%10 refah/verim` bonusu yasaktır. Etki, önce kanonik kapasiteye; oradan erişim, üretim, vergi, güvenlik veya ihtiyaç sonucuna akar.
+
+#### 2. Kanonik nesneler
+
+- `ProjectV1`: kimlik, şablon/sürüm, sahip türü ve kimliği, bölge, gereksinimler, fiziksel mal kalemleri, emek-gün, enerji/yakıt, nakit, tedarik satırları, ilerleme, duraklama nedeni, başlangıç/bitiş zamanı ve `originEventId` taşır. Durumları en az `DRAFT → PROCUREMENT → READY → BUILDING → PAUSED → COMPLETED/CANCELLED` olur.
+- `WorldAssetV1`: proje kimliği, gerçek sahip, bölge, varlık sınıfı, kapasite, kondisyon baz puanı, işletme kısıtları, bakım planı, stratejik dayanıklılık/hedef profili ve çalışma durumu taşır. Aynı varlık savaşta hedef olduğunda ikinci bir bina kaydı doğmaz.
+- `MechanicalContractV1`: taraflar, `GOODS/SERVICE/CONSTRUCTION/LOGISTICS/INSURANCE` türü, kapsam, fiyat ve ödeme takvimi, süre, teslim/SLA ölçütü, ihlal sonucu, durum ve nedensel kimlikleri taşır. Sayı ve sonuçların tek mekanik kaynağı budur.
+- `ServiceDeliveryReceiptV1`: hizmeti veren şirketin tükettiği emek/girdiler, teslim ettiği hizmet birimi, performans, fatura ve proje/varlık/olay bağlarını kanıtlar.
+- `NegotiationCase`, mekanik sözleşmenin kendisi değildir. Yalnız doğrulanabilir bir sözleşme taslağı üzerinde müzakere akışıdır; kabul edilen sürüm deterministik doğrulayıcıdan geçerek `MechanicalContractV1` üretir. LLM dil, gerekçe ve üslup sağlar; fiyatı, kaynağı, teslimatı veya sonucu uyduramaz.
+
+#### 3. Tedarik ve kesintili inşa
+
+- Fiziksel proje kalemleri mevcut emir, kargo, mülkiyet ve escrow hattını; hizmet kalemleri mekanik hizmet sözleşmesini kullanır.
+- Söz verilmesi ilerleme sayılmaz. Proje ancak mal teslim fişi, hizmet teslim fişi ve kullanılan emek kaydıyla ilerler.
+- Mal, emek, enerji, finansman veya koridor kesildiğinde proje ücretsiz ilerlemez; açık neden koduyla `PAUSED` olur.
+- İptalde yalnız kullanılmamış emanet ve malzeme iade edilir. Yapılmış iş, tüketilmiş enerji ve teslim edilmiş hizmet batık maliyettir.
+- Toplam proje maliyeti kendi kullanılan girdileri + faturalar + finansman/vergi kalemleriyle yeniden hesaplanabilir olmalıdır.
+
+#### 4. Getiri ve bakım
+
+- Özel ticari varlıklar ürün, hizmet kapasitesi, kira veya sözleşme geliri üretir.
+- Belediye/kamu varlıkları çoğunlukla dolaylı getiri üretir: yol koridor kapasitesini, okul eğitim kapasitesini, hastane sağlık erişimini, konut barınma yuvasını, mahkeme işlem/güven kapasitesini değiştirir. Vergi tabanı ve refah sonucu bu etkilerden türetilir; gişe veya ücret varsa ayrı ve açık bir politikadır.
+- Bakım gerçek emek, nakit ve gerektiğinde parça/malzeme tüketir. Kondisyon kademeli düşer; eşiklerde kapasite, arıza riski ve güvenlik bozulur. Tek tikte “para yok, bina kapandı” sıçraması varsayılan değildir.
+- Ertelenmiş bakım birikmiş borçtur; sonradan telafi edilebilir fakat ücretsiz sıfırlanamaz.
+- Her maliyetin tek sahibi vardır. Üretim reçetesinin zaten satın aldığı enerji/parça ile varlık bakımının tükettiği kalem ikinci kez vekil taleple düşülemez. Faz 22.1E’de bulunan çift bakım tüketimi bu sözleşmenin zorunlu regresyon örneğidir.
+
+#### 5. İlk varlık dilimi ve göç
+
+İlk uygulama binlerce tekil bina üretmez. Mevcut `412` tesis ve `152` depo, toplam fiziksel kapasiteyi değiştirmeden toplulaştırılmış stratejik `WorldAssetV1` kayıtlarına göç eder. İlk dilim yalnız karar biçimi gerçekten farklı olan `8–12` şablonla sınanır:
+
+- tarla/çiftlik → gıda işleme → soğuk depo;
+- enerji santrali → şebeke/trafo düğümü;
+- maden → işleme;
+- dökümhane → makine/sanayi parçası;
+- elektronik tesisi;
+- mühimmat tesisi → askerî depo;
+- yol/köprü ile liman/istasyon;
+- konut, okul veya hastaneden bir kamu hizmeti dikey dilimi.
+
+`15–20 bina` sabit içerik hedefi değildir. Yeni şablon ancak yeni bir girdi, kısıt, karar, kırılma veya oynanış rolü getiriyorsa eklenir. Mevcut kaynak taksonomisinde bulunmayan otomobil gibi dayanıklı ürün zincirleri, kaynak ve talep sözleşmesi kurulana kadar ertelenir.
+
+#### 6. Stratejik/taktik kimlik ve ayrıntı seviyesi
+
+- Stratejik varlık kanoniktir; savaş alanındaki bina onun aynı `assetId` taşıyan taktik izdüşümüdür. Taktik hasar savaş sonunda aynı kondisyon/kapasite kaydına mutabakatla geri döner.
+- `HOT/WARM/COLD` ayrıntı kullanılır. Uzak bölgede hizmet kapasitesi toplulaştırılabilir; oyuncu ilişki kurduğunda deterministik adlarla şirket, yönetici, sözleşme ve varlık ayrıntısı açılır.
+- Ayrıntı açılması toplam kapasiteyi, parayı, tarihi veya sonucu değiştiremez. İsim üretmek simülasyon derinliği sayılmaz.
+- İlk sürümde oyuncunun doğrudan temas ettiği bir ilişki tam ayrıntıda, bir sonraki halka toplulaştırılmış çalışabilir; sınırsız kişi/şirket grafı yasaktır.
+
+#### 7. Gerçek B2B hizmet şirketleri
+
+İnşaat, bakım, lojistik ve tarımsal hizmet ilk aday hizmet sektörleridir; sigorta/hukuk daha sonra yalnız gerçek risk ve uyuşmazlık sonucu varsa açılır. Hizmet şirketi:
+
+- gerçek tüzel kimlik, sahip, nakit, borç, çalışan, kapasite, itibar ve sözleşme portföyü taşır;
+- emek ile enerji/yakıt/parça gibi işletme girdilerini tüketir;
+- depolanabilir sahte “hizmet malı” değil, süreli kapasite ve `ServiceDeliveryReceiptV1` üretir;
+- sözleşmeyi geciktirebilir, eksik teslim edebilir, ihlal edebilir, yenileyebilir veya kapasite yetersizliğinden reddedebilir;
+- hiçbir koşulda kaynak defterini atlayan sihirli bakım/lojistik/verim çarpanı vermez.
+
+#### 8. Rekabet, şirket devri ve kariyer sürekliliği
+
+- Rekabet ayrı bir dekoratif “pazar baskısı” sayacı değildir; fiyat, maliyet, kapasite, sözleşme, nakit, borç, teslim güvenilirliği ve müşteri kaybından türetilir.
+- Şirketler küçülme, yatırım, ürün/hizmet değiştirme, sözleşme arama, lobi veya çıkışla tepki verir; rakip yalnız sayısal ceza dağıtmaz.
+- Şirket değeri net varlık + doğrulanmış sözleşme/backlog değeri + risk/itibar düzeltmesinden oluşur. Satış, alıcı ve satıcı bütçelerinde dengeli mülkiyet işlemidir.
+- Varlık ve şirket sahipliği devredilebilir; oyuncu karakterinin kişisel itibarı, ilişkileri, vaatleri ve geçmişi devredilmez.
+- Şirket desteği, siyasi bağış, kamu ihalesi tercihi veya karşılıklı vaat kullanıyorsa bunlar ayrı olay/sözleşme ve `originEventId` izi bırakır. Böylece siyaset–şirket ilişkisi bedelsiz “destek bonusu” değil, daha sonra yolsuzluk ve itibar sistemlerinin inceleyebileceği kanıt olur.
+
+#### 9. Faz yönlendirmesi
+
+Bu sözleşmenin ilk şema/prob işi Faz 22.1E ve şirket sahibi merceği kabulünden sonra başlar. Faz 23–24 zaten uygulanmış olduğundan dış analistin “kohortlardan sonra” bağımlılığı kronolojik olarak sağlanmıştır; eski faz önerisi yeni engel yaratmaz.
+
+- nüfus, barınma ve işgücü etkileri: Faz 23–27;
+- kamu kapasitesi, bütçe, ruhsat ve yönetim: Faz 28–33.1;
+- müzakere dilimi: Faz 38.3–38.5, ancak yalnız `MechanicalContractV1` taslağı üzerinde;
+- stratejik/taktik varlık mutabakatı: Faz 47–51;
+- şirket satışı, makam/kariyer geçişi ve rol arayüzü: Faz 34–35 ile Faz 59–60.3.
+
+#### 10. Kabul kapıları
+
+- aynı proje/varlık kararı AI ve oyuncuda aynı kaynak, süre, muhasebe ve sonuç zincirini üretir;
+- teslim fişi veya emek kaydı olmadan proje ilerlemez; duraklama/kesinti kaydet–yüklede birebir korunur;
+- proje toplam maliyeti faturalar, kullanılan öz kaynaklar, vergi ve finansmanla mutabıktır; iptal para/malzeme yaratmaz;
+- bakımı kesilen varlık öngörülebilir biçimde kondisyon ve kapasite kaybeder; bakım geri geldiğinde sınırlı telafi yolu vardır;
+- kamu projesi faydası kanonik kapasite ve erişim üzerinden akar, doğrudan refah bonusu yazmaz;
+- hizmet sözleşmesi teslim, ihlal, yenileme ve ödeme üretir; aynı etki başka vekil taleple ikinci kez yazılmaz;
+- savaşta hasar alan izdüşüm aynı `assetId` üzerinden stratejik dünyaya geri mutabakat verir;
+- `8 devlet × 900 sn` koşusunda proje, sözleşme, hizmet şirketi veya olay sayısı sınırsız büyümez; korunum ve determinizm geçer;
+- kapalı özellik yolu mevcut ekonomi sonucunu değiştirmez, yalnız UI açılması simülasyonu etkilemez.
 
 ---
 
@@ -3012,6 +3848,8 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 **Çıktı:** Gıda/enerji erişimi, gelir, işsizlik, güvenlik ve kamu hizmeti göstergeleri.  
 **Kabul kapısı:** Kaynak şoku doğru kohortları farklı ağırlıkta etkiliyor.  
 **Bağımlılık:** Faz 17, 23.
+
+**Uygulama durumu (31 Temmuz 2026):** Tamamlandı. `js/StoryNeeds.js` gerçek hane tahsislerini, bütçe durumunu, grev ve kuşatmayı 1.824 kohort için farklı ihtiyaç ağırlıklarına çeviriyor. Fiziksel sıfır-stok stresinde çocuk kohortu `3.830`, üst-orta gelirli kamu kohortu `3.545` baz puan yaşam koşulu kaybetti; kabul kapısı geçti. Katman eski `st.welfare` alanına yazmıyor ve ücret bulunmadığı için gelir sonucu açıkça istihdam güvenliği vekili olarak işaretleniyor. Kanıt: `qa-runtime/story-phase24-ab.json`. Denge alarmı: 900 saniyede gıda erişimi `%0`, enerji `%2,70`, ortalama yaşam koşulu `%35,19`; bu açık sonraki fazlarda gizlenmeden taşınacaktır.
 
 ### FAZ 25 — Kamuoyu ve Şikâyet Hafızası
 
@@ -3094,9 +3932,13 @@ Her fazın kapanışında kod, test, kayıt göçü, telemetri ve oynanabilir ya
 ### FAZ 34 — Karakter Kimliği ve Hedefleri
 
 **Amaç:** Karakterleri yalnızca üç yetenek puanından çıkarmak.  
-**Çıktı:** Kişilik eksenleri, değerler, korkular, hırslar, kırmızı çizgiler, ses profili, görev ve kişisel hedefler.  
-**Kabul kapısı:** Aynı durumda farklı profiller ölçülebilir biçimde farklı adaylara ve farklı konuşma stratejilerine yöneliyor.  
+**Çıktı:** Kişilik eksenleri, değerler, korkular, hırslar, kırmızı çizgiler, ses profili, görev ve kişisel hedefler; oyuncu için role uyarlanır 12 bedelli karar ve nedensel geçmiş tohumu.
+**Kabul kapısı:** Aynı durumda farklı profiller ölçülebilir biçimde farklı adaylara ve farklı konuşma stratejilerine yöneliyor; hiçbir profil yetkili eylemi sırf ideolojik etiket yüzünden yasaklamıyor; her karakter yaratım seçimi gerçek kazanç, bedel, en geç 10 dakika içinde görünür ilk sonuç ve kanonik olay/inanç kaydı üretiyor.
 **Bağımlılık:** Faz 4, 29.
+
+Faz 34’ün dört kararlı çekirdek boyutu `stateMarketOrientation`, `nationalGlobalOrientation`, `popularTechnocraticStyle` ve `institutionalPosture` olur. `muhalif/yandaş` kişilik değildir; mevcut hükümet, ideolojik mesafe, patronaj, ilişki ve olay geçmişinden türetilen `currentRegimeAlignment` alanıdır. Şahinlik, özgürlük/otorite ve benzeri konu tutumları geniş değer modelinde ayrıca tutulur. Rol bazlı soru metni ve görünür etiket değişebilir, saklanan alanın semantiği değişemez.
+
+On iki kararın kanıt alanı rol bazında dağıtılır: komutan `6/3/3`, şirket sahibi `2/6/4`, belediye başkanı `1/7/4`, cumhurbaşkanı/başbakan `3/4/5`, ajan `2/3/7`, sivil `1/5/6` (`güvenlik / yönetim-ekonomi / siyaset-toplum-bilgi`). Bu dağılım sürümlü içerik politikasıdır ve telemetriyle değişebilir; toplam her zaman 12, her seçenek kazanç+bedel taşır. Geçmiş tohumu `legacy` metniyle sınırlı kalmaz: tarihli olay, `WorldFact`, bilen aktörlerde kaynaklı `ActorBelief`, ilişki/kurum etkisi ve gelecekteki tepki kancası aynı `originEventId` altında yazılır.
 
 ### FAZ 35 — Çok Boyutlu İlişkiler
 
@@ -3364,8 +4206,8 @@ Ara kabul kapısı:
 ### FAZ 59 — Oyuncu Bilgi Projeksiyonu ve Açıklanabilirlik Birleşimi
 
 **Amaç:** Erken fazlarda kurulan bilgi görünümü ve olay izini bütün tamamlanmış alanlara yaymak.  
-**Çıktı:** Ekonomi, toplum, siyaset, medya, diplomasi ve askerî domain view-modelleri; “ne değişti/neden/ne kadar eminim?” sözleşmesi.  
-**Kabul kapısı:** Test oyuncusu büyük bir değişikliğin ilk üç bilinen nedenini UI’dan bulabiliyor; gizli nedenler sızmıyor; eski/tahmini veri kesin gösterilmiyor.  
+**Çıktı:** Ekonomi, toplum, siyaset, medya, diplomasi ve askerî domain view-modelleri; altı rol için ortak `WorldFact → ActorBelief → RoleAuthorityProjection → DomainViewModel` hattı; “ne değişti/neden/ne kadar eminim?” sözleşmesi.
+**Kabul kapısı:** Test oyuncusu büyük bir değişikliğin ilk üç bilinen nedenini UI’dan bulabiliyor; gizli nedenler sızmıyor; eski/tahmini veri kesin gösterilmiyor. Aynı kıtlık/şirket/rota gerçeği altı rolde aynı `factId` ve kanonik deftere bağlanıyor, fakat yetki, kaynak, yaş ve güvene göre farklı ayrıntı/eylem sunuyor; hiçbir rol paralel ekonomi sayısı üretmiyor.
 **Bağımlılık:** Faz 4.1, 10.1, 15–58.2.
 
 ### FAZ 59.1 — Kalıcı UI Kabuğu ve Bağlamsal Navigasyon
@@ -3377,9 +4219,9 @@ Ara kabul kapısı:
 
 ### FAZ 60 — Yetki, Eylem ve Karar Kartları
 
-**Amaç:** Komutan, başkan, şirket sahibi ve gayriresmî güç rollerini bütün ekranlarda anlaşılır kılmak.  
+**Amaç:** Komutan, şirket sahibi, belediye başkanı, cumhurbaşkanı/başbakan, ajan ve sivil merceklerini bütün ekranlarda anlaşılır kılmak; gayriresmî gücü ayrıca yetki kaynağı olarak göstermek.
 **Çıktı:** Kullanılabilir eylem, gereken yetki, maliyet, süre, destek, belirsizlik ve sonuç önizlemesi için ortak kart sözleşmesi.  
-**Kabul kapısı:** Oyuncu kilitli eylemin neden kilitli olduğunu ve doğrudan, kurumsal veya sohbet yoluyla nasıl açılacağını biliyor; yüksek etkili kararın hangi sürümünü onayladığını görüyor.  
+**Kabul kapısı:** Oyuncu kilitli eylemin neden kilitli olduğunu ve doğrudan, kurumsal veya sohbet yoluyla nasıl açılacağını biliyor; yüksek etkili kararın hangi sürümünü onayladığını görüyor. Profil hiçbir yetkili eylemi tek başına kilitlemiyor; yalnız maliyet, destek, medya çerçevesi, ilişki ve risk tepkisini değiştiriyor.
 **Bağımlılık:** Faz 29, 37, 44, 59–59.1.
 
 ### FAZ 60.1 — Şehir Çalışma Alanının Tamamlanması
@@ -3400,7 +4242,7 @@ Ara kabul kapısı:
 
 **Amaç:** Kaynak, sektör, şirket, fiyat ve sevkiyat verisini karar verilebilir fakat kademeli ayrıntıyla göstermek.  
 **Çıktı:** Ekonomi özeti, akış görünümü, şirket dosyası, sözleşme/sevkiyat ekranı ve uzman tabloları.  
-**Kabul kapısı:** Oyuncu fiyat veya stok değişiminin ana nedenini, darboğazı ve ilgili şirket/rota/karakteri bulabiliyor; çelik sevkiyatı ekran zinciri eksiksiz.  
+**Kabul kapısı:** Oyuncu fiyat veya stok değişiminin ana nedenini, darboğazı ve ilgili şirket/rota/karakteri bulabiliyor; çelik sevkiyatı ekran zinciri eksiksiz. Şirket sahibi “ne üret / kime sat / sat mı stok-yatırım mı yap” döngüsünü oyuncuya özel bonus olmadan kanonik şirket defteri üzerinde oynayabiliyor; diğer roller aynı ekonomik gerçeği kendi yetki ve bilgi pencerelerinden okuyor.
 **Bağımlılık:** Faz 15–22, 59–60.
 
 ### FAZ 60.4 — Dış İlişkiler ve İstihbarat Çalışma Alanları

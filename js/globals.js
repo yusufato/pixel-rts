@@ -49,8 +49,8 @@ function resize() {
 window.addEventListener('resize', resize);
 
 // Geniş, kuzey-güney doğrultusunda oynanan savaş alanı.
-const WORLD_W = 3400;
-const WORLD_H = 2300;
+const WORLD_W = 5100;   // 1.5x büyütüldü (3400→5100) — daha çok manevra alanı; GRID sabit (150×100) → terrain/köprüler otomatik ölçeklenir, birim boyu aynı
+const WORLD_H = 3450;   // 2300→3450
 
 // DESIGN v2 "Gerçekçi Arena": 5 yeni tip. Eski 0-4 DEĞİŞMEDİ (kayıt/MP uyumu).
 // Yeni tipler render + geçilmezlik maskesinden türetilir; sim'in tek girdisi
@@ -330,7 +330,7 @@ function worldToScreen(wx, wy) {
     };
 }
 
-const SP_W = 300, SP_H = 220, SP_PAD = 30;
+const SP_W = 320, SP_H = 320, SP_PAD = 30;   // yeni 25-sütun icons.png: hücre 320×320, pad 30 (8780×730; sx=30+type×350, sy kırmızı=380)
 const BASE_DRAW_SCALE = 0.20;
 const BASE_DRAW_W = SP_W * BASE_DRAW_SCALE;
 const BASE_DRAW_H = SP_H * BASE_DRAW_SCALE;
@@ -344,6 +344,10 @@ const UNIT_TURN_SMOOTH = 0.5;        // GLOBAL dönüş hız çarpanı (hepsini 
 // yerel üstünlük (insanın kazanma tarzı). ÖLÇÜLDÜ: savunmada -980→-327, saldırıda +15→+620, normal rakipte regresyon yok.
 // Dağılım AI'nın asıl zaafıydı; bu onu her senaryoda dramatik güçlendirir. false = eski dağıtan davranış.
 let BATTLE_FORCE_CONCENTRATE = true;
+// SEKTÖR-KOMUTA (anti-blob): cepheyi sektörlere böl + her gruba sorumluluk-alanı+sınır, ana-çabayı bir sektöre yoğunlaştır,
+// ihtiyatı kutsal tut. AÇIKKEN CONCENTRATE'in tek-kütle/tek-hedef davranışını sektör-katmanıyla değiştirir (fazlı, ölçüm-güdümlü).
+// A/B KANITLANDI (düşman-uyarlamalı): saldıran 2/3→3/3, dağılım +%52, determinizm korundu → VARSAYILAN AÇIK + version bump.
+let BATTLE_SECTOR_COMMAND = true;
 // Tip-bazlı dönüş çevikliği (kare-başı yaklaşma oranı 0..1) — tank/topçu ağır, piyade/keşif çevik; index = tip no
 const UNIT_TURN_RATE = [
     0.11,  // 0 Piyade
@@ -361,42 +365,24 @@ const UNIT_FRONT_MARKER = true;      // ön/arka okunsun + kuşatmada kafa karı
 function drawW() { return BASE_DRAW_W * zoom; }
 function drawH() { return BASE_DRAW_H * zoom; }
 
-const T = {
-    INFANTRY: 0, MECH_INFANTRY: 1, ARMOR_INFANTRY: 2,
-    RECON: 3, ENGINEER: 4, MEDIC: 5,
-    ARMOR: 6, ANTI_TANK: 7, ARTILLERY: 8
-};
-
-// Vision stat added for Fog of War
-
-const STATS = {
-    [T.INFANTRY]: { hp: 312, atk: 14, speed: 0.54, range: 110, vision: 350, atkSpeed: 850, armor: 0, cost: 70, maxAmmo: 60, name: 'Piyade', desc: 'Çok yönlü ana hat askeri; sürüyle tanksavarı ezer', strong: [T.ENGINEER, T.MEDIC, T.ANTI_TANK, T.RECON], weak: [T.ARMOR, T.ARTILLERY, T.ARMOR_INFANTRY] },
-    [T.MECH_INFANTRY]: { hp: 374, atk: 16, speed: 0.90, range: 130, vision: 400, atkSpeed: 780, armor: 1, cost: 110, maxAmmo: 100, name: 'Mekanize', desc: 'Hızlı kanatçı; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.RECON, T.ENGINEER, T.ARTILLERY], weak: [T.ANTI_TANK, T.ARMOR_INFANTRY] },
-    [T.ARMOR_INFANTRY]: { hp: 468, atk: 13, speed: 0.40, range: 110, vision: 250, atkSpeed: 950, armor: 4, cost: 140, maxAmmo: 40, name: 'Zırhlı Piy.', desc: 'Ağır ön hat; teçhizatlı: tanka hafif anti (×1.6)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.RECON], weak: [T.ARTILLERY, T.ANTI_TANK] },
-    [T.RECON]: { hp: 172, atk: 8, speed: 1.35, range: 130, vision: 800, atkSpeed: 650, armor: 0, cost: 55, maxAmmo: 30, name: 'Keşif', desc: 'Sisin içini aydınlatan geniş görüşlü birim', strong: [T.ARTILLERY, T.MEDIC, T.ENGINEER], weak: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR, T.ANTI_TANK] },
-    [T.ENGINEER]: { hp: 281, atk: 6, speed: 0.45, range: 80, vision: 300, atkSpeed: 1100, armor: 0, cost: 85, maxAmmo: 20, name: 'İstihkam', desc: 'Siper+ikmal kurar; alanda araç/topçu/tanksavar onarılır', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR] },
-    [T.MEDIC]: { hp: 140, atk: 0, speed: 0.60, range: 90, vision: 300, atkSpeed: 1000, armor: 0, cost: 95, maxAmmo: 0, name: 'Sağlıkçı', desc: 'Silahsız; organik dost birlikleri iyileştirir', strong: [], weak: [T.INFANTRY, T.RECON, T.MECH_INFANTRY, T.ARMOR, T.ANTI_TANK, T.ARTILLERY] },
-    [T.ARMOR]: { hp: 936, atk: 20, speed: 0.48, range: 275, vision: 400, atkSpeed: 8000, armor: 8, cost: 280, maxAmmo: 15, name: 'Tank', desc: 'Ana Muharebe Tankı. Ağır vurur ama yavaş ateş eder (8 sn, 20 hasar)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC], weak: [T.ANTI_TANK, T.ARTILLERY] },
-    [T.ANTI_TANK]: { hp: 234, atk: 25, speed: 0.45, range: 320, vision: 420, atkSpeed: 5000, armor: 0, cost: 140, maxAmmo: 12, name: 'Tanksavar', desc: 'Uzun menzilli sert zırh avcısı. Zırhlılara ×4.0 hasar ve %85 zırh delme (5 sn, 25 hasar)', strong: [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY], weak: [T.INFANTRY, T.RECON, T.ARTILLERY] },
-    [T.ARTILLERY]: { hp: 172, atk: 20, speed: 0.27, range: 350, vision: 300, atkSpeed: 10000, armor: 0, cost: 200, maxAmmo: 12, name: 'Topçu', desc: 'SADECE geniş alan hasarı (nokta atışı yok). CAM-TOP: keşif kadar kırılgan (110 can). Görüş için Keşif ister! (10 sn, 20 alan hasarı, 12 mermi)', strong: [T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ARMOR], weak: [T.RECON] },
-};
-
-// Muharebe temposu ayarları. Tek merkezden uygulanır; üretim ve UI aynı
-// gerçek değerleri görür. Böylece hız/görüş için birbirinden kopuk çarpanlar oluşmaz.
-const UNIT_MOVE_SPEED_MULTIPLIER = 1.25;
-const UNIT_VISION_MULTIPLIER = 1.50;
-for (const stats of Object.values(STATS)) {
-    stats.speed = +(stats.speed * UNIT_MOVE_SPEED_MULTIPLIER).toFixed(4);
-    stats.vision = Math.round(stats.vision * UNIT_VISION_MULTIPLIER);
-}
+// ═══ BİRİM TİPLERİ + STATS artık VERİ-MODELİNDEN (units-modern.json via UnitLoader) üretilir ═══
+// Yükleme sırası (index.html): UnitData.js → UnitFeatures.js → UnitLoader.js → globals.js.
+// T = BÜYÜK-harf takma adlar (T.INFANTRY, T.ARMOR(mbt), T.SAM, T.MANPADS, ...); STATS[index] = motor-tanımı
+// (hp,atk,speed,range,vision,atkSpeed,armor,cost,maxAmmo,name + YENİ: armorType,weapons[],aura,flight,domain,targets,minRange...).
+// Eski UNIT_*_MULTIPLIER döngüsü KALKTI — roster mutlak değerler; loader zaten kare→px ölçekledi (TILE_PX=35).
+const __UNIT_LOAD = unitLoaderBuild(UNITS_MODERN_DB);
+const T = __UNIT_LOAD.CONST;
+const STATS = __UNIT_LOAD.STATS;
+const UNIT_ID_BY_INDEX = __UNIT_LOAD.ID_BY_INDEX;
 
 // FAZ-2 KAYNAK-BAZLI DEPLOY: her birim grubu kendi kaynağından ödenir
 //  ⛽PETROL→zırhlı/araç, 👥İNSAN→piyade-ayak, ⭐PUAN→topçu/özel. (Hikaye düellosunda OYUNCU için aktif.)
-const UNIT_RES_GROUP = {
-    [T.INFANTRY]: 'manpower', [T.RECON]: 'manpower', [T.ENGINEER]: 'manpower', [T.MEDIC]: 'manpower',
-    [T.MECH_INFANTRY]: 'oil', [T.ARMOR_INFANTRY]: 'oil', [T.ARMOR]: 'oil',
-    [T.ANTI_TANK]: 'points', [T.ARTILLERY]: 'points'
-};
+// Kaynak-grubu (hikaye modu bütçesi) kategoriden türer: infantry→insan, armor/air/uav→petrol, gerisi→puan.
+const UNIT_RES_GROUP = {};
+for (let __i = 0; __i < UNIT_ID_BY_INDEX.length; __i++) {
+    const __c = STATS[__i] ? STATS[__i].category : null;
+    UNIT_RES_GROUP[__i] = (__c === 'infantry') ? 'manpower' : (__c === 'armor' || __c === 'air' || __c === 'uav') ? 'oil' : 'points';
+}
 
 const AT_ARMOR_MULTIPLIER = 4.0;          // tanksavar → zırhlı: sert anti
 const AT_ARMOR_PENETRATION = 0.85;
@@ -404,29 +390,71 @@ const EQUIPPED_AT_MULTIPLIER = 1.6;       // teçhizatlı piyade (mekanize/zırh
 const EQUIPPED_AT_PENETRATION = 0.35;
 const ARTILLERY_SPLASH_RADIUS = 120;      // 165→135: yayık birim splash'tan kaçar, topçu yenilebilir olur
 const ARTILLERY_SPLASH_DAMAGE_RATIO = 0.95;
+// ─── TAŞIMA (nakliye helikopteri: piyade bindir-indir) ───
+const TRANSPORT_LOAD_RADIUS = 95;         // yolcuyu almak için bu kadar yakın olmalı (hover)
+const TRANSPORT_LOAD_TIME = 1.6;          // saniye/yolcu — biniş süresi (gerçekçi gecikme)
+const TRANSPORT_UNLOAD_TIME = 0.7;        // saniye/yolcu — iniş süresi
+const TRANSPORT_UNLOAD_TRIGGER = 420;     // düşman bu kadar yakınsa hemen indir (fast-rope)
 // Tank mermisi: dar ama gerçek alan hasarı (HE mermisi). Topçudan KÜÇÜK ve ZAYIF.
 const TANK_SPLASH_RADIUS = 80;            // topçunun ~yarısı
 const TANK_SPLASH_MIN = 0.30;             // kenar hasar oranı
 const TANK_SPLASH_MAX = 0.65;             // merkeze yakın hasar oranı (asla %100 değil)
 const ARTILLERY_SUPPRESSION_RADIUS = 150;
 
+// HASAR = beklenen-hasar (VERİ-GÜDÜMLÜ): silah-hasarı × damageMatrix[silah.damageType][hedef.armorType] × zırh-azaltma.
+// Counter'lar artık damageMatrix'ten (ap→heavy 1.0, shaped→heavy 1.4, sam→air 1.6, ap→air 0, ...). Hardcode YOK.
+// Matris 0 ise (ör. tank-topu→hava) hasar 0 → birim o hedefi vuramaz. Determinizm korunur (RNG yok; accuracy FAZ 1).
 function calculateUnitDamage(attackerType, targetType, baseAttack, targetArmor) {
-    const attackerStats = STATS[attackerType];
-    const armoredTarget = [T.ARMOR, T.MECH_INFANTRY, T.ARMOR_INFANTRY].includes(targetType);
-    let damage = baseAttack;
-    let effectiveArmor = targetArmor;
+    const aS = STATS[attackerType], tS = STATS[targetType];
+    if (!aS || !tS) return Math.max(1, Math.floor(baseAttack - (targetArmor || 0)));
+    const w = aS.weapons && aS.weapons[0];
+    const dmgType = w ? w.damageType : 'small_arms';
+    const armorType = tS.armorType || 'infantry';
+    const mult = (UNITS_MODERN_DB.damageMatrix[dmgType] || {})[armorType] || 0;
+    if (mult === 0) return 0;
+    const armorRed = 1 / (1 + (tS.armorValue || 0) * 0.06);   // UnitFeatures.effectiveHp ile tutarlı zırh-azaltma
+    return Math.max(1, Math.round(baseAttack * mult * armorRed));
+}
 
-    if (attackerType === T.ANTI_TANK && armoredTarget) {
-        damage = baseAttack * AT_ARMOR_MULTIPLIER;            // tanksavar: sert tank antisi
-        effectiveArmor *= 1 - AT_ARMOR_PENETRATION;
-    } else if ((attackerType === T.MECH_INFANTRY || attackerType === T.ARMOR_INFANTRY) && armoredTarget) {
-        damage = baseAttack * EQUIPPED_AT_MULTIPLIER;        // teçhizatlı piyade: yumuşak tank antisi
-        effectiveArmor *= 1 - EQUIPPED_AT_PENETRATION;
-    } else {
-        if (attackerStats.strong.includes(targetType)) damage *= 1.5;
-        if (attackerStats.weak.includes(targetType)) damage *= 0.5;
+// ── İSABET MODELİ (accuracy) — BEKLENEN-HASAR çarpanı [0.15..1], deterministik (RNG yok) ──
+// acc = base × menzil-düşüşü × hareket-cezası × örtü-cezası. optimalRange TILE→PX (×RANGE_PX). Veri yoksa 1 (tam isabet).
+function weaponAccuracy(attacker, weapon, target, dist) {
+    const acc = weapon && weapon.accuracy;
+    if (!acc) return 1;
+    let a = (acc.base != null) ? acc.base : 1;
+    const optPx = (acc.optimalRange || 0) * (typeof RANGE_PX !== 'undefined' ? RANGE_PX : 75);
+    const rng = weapon.range || 1;
+    if (dist > optPx && rng > optPx) {
+        a *= Math.max(0, 1 - (acc.falloff || 0) * (dist - optPx) / (rng - optPx));   // menzil-sonu isabet düşer
     }
-    return Math.max(1, Math.floor(damage - effectiveArmor));
+    if (acc.vsMoving) {                                              // HAREKETLİ hedefe isabet cezası (topçu vsMoving 0.85 → hızlıya ıskalar)
+        const tS = STATS[target.type];
+        const moving = Math.hypot((target.targetX != null ? target.targetX : target.x) - target.x,
+                                  (target.targetY != null ? target.targetY : target.y) - target.y) > 25;
+        const tSpd = (moving && tS) ? (tS.tileSpeed || 0) : 0;
+        a *= Math.max(0, 1 - acc.vsMoving * (tSpd / 4));
+    }
+    if (acc.ignoresCover != null) {                                 // ÖRTÜ cezası (orman/siper); ignoresCover=1 → yok say
+        const cover = (target.inForest ? 0.4 : 0) + (target.inTrench ? 0.3 : 0);
+        if (cover > 0) a *= Math.max(0, 1 - cover * (1 - acc.ignoresCover));
+    }
+    return Math.max(0.15, Math.min(1, a));   // taban 0.15
+}
+
+// ── HEDEFE GELEN HASAR ÇARPANI: siperlenme (dig_in) azaltır -%35; İŞARETLİ (mark_target) hedef +%25 (2sn=40 tik) ──
+function incomingDamageMult(target) {
+    let m = 1 - (target.entrench || 0) * 0.35;
+    if ((SIM.tick - (target._markedTick || -999)) <= 40) m *= 1.25;   // komando/keşif işaretledi → müttefikler daha sert vurur
+    return m;
+}
+
+// ── YÖNSEL ZIRH (armorFacing) — hedefin per-birim yan/arka zayıflığı: çarpan = 1/facing (TD yan 0.5→2×, arka 0.3→3.3×) ──
+// Veri yoksa (piyade/topçu/destek) hafif sabit çarpan (yumuşak hedefte yön daha az anlamlı).
+function facingDamageMult(target, zone, armored) {
+    const af = STATS[target.type] && STATS[target.type].armorFacing;
+    if (af && af[zone]) return Math.min(3.5, 1 / af[zone]);
+    if (zone === 'rear') return armored ? 2.2 : 1.8;
+    return armored ? 1.6 : 1.3;   // side
 }
 
 // ── TEKNOLOJİ AĞACI bonusları (SADECE hikaye düellosu; her birim KENDİ devletinin tech'ini alır) ──
@@ -470,17 +498,36 @@ function applyTechSpawnBonus(u) {
 }
 
 function capUnitArmor(type, armor) {
-    if (type === T.ARMOR_INFANTRY) return Math.min(armor, 8);
-    if (type === T.ARMOR) return Math.min(armor, 12);
+    const at = STATS[type] && STATS[type].armorType;
+    if (at === 'heavy') return Math.min(armor, 12);
+    if (at === 'light') return Math.min(armor, 8);
     return Math.min(armor, 10);
 }
 
+// SAĞLIKÇI organik (infantry-armor) birlikleri iyileştirir; İSTİHKAM araçları (light/heavy/air) onarır.
 function isMedicHealable(type) {
-    return [T.INFANTRY, T.ARMOR_INFANTRY, T.ENGINEER, T.MEDIC].includes(type);
+    return !!(STATS[type] && STATS[type].armorType === 'infantry');
 }
 
 function isFieldRepairable(type) {
-    return [T.MECH_INFANTRY, T.RECON, T.ARMOR, T.ANTI_TANK, T.ARTILLERY].includes(type);
+    const a = STATS[type] && STATS[type].armorType;
+    return a === 'light' || a === 'heavy' || a === 'air';
+}
+
+// AI GÖREV-ROLÜ: birim tipini roleTags/category'den kovaya eşler (25-birim). null = combat (MAIN/FIXING/FLANK).
+// TASK_GROUP_ROLE BattlePlanning.js'te tanımlı — çağrı-anında çözülür (savaşta, o dosya yüklü).
+function battleUnitRoleBucket(type) {
+    const s = STATS[type]; if (!s || typeof TASK_GROUP_ROLE === 'undefined') return null;
+    const tags = s.roleTags || [], cat = s.category, hasW = (s.weapons || []).length > 0;
+    // saldırgan roller (anti_armor/air/assassin vб.) → RECON'a atma; SİHA gibi silahlı-intel muharebede kalır.
+    const combatTag = tags.includes('anti_armor') || tags.includes('anti_air') || tags.includes('assassin') ||
+        tags.includes('breakthrough') || tags.includes('anti_infantry') || tags.includes('backline_hunter');
+    if (!combatTag && (cat === 'recon' || tags.includes('intel') || tags.includes('spotter'))) return TASK_GROUP_ROLE.RECON;
+    if (cat === 'indirect' || tags.includes('indirect_fire')) return TASK_GROUP_ROLE.FIRE_SUPPORT;
+    if (cat === 'support' || cat === 'logistics' || cat === 'command' || !hasW ||
+        tags.includes('sustain') || tags.includes('engineering') || tags.includes('logistics') ||
+        tags.includes('command') || tags.includes('no_weapon')) return TASK_GROUP_ROLE.SUPPORT;
+    return null;   // muharebe (MAIN/FIXING/FLANK)
 }
 
 const PHASE = { DEPLOY: 'deploy', BATTLE: 'battle', OVER: 'over' };
@@ -501,10 +548,55 @@ let TECH_BONUS_RED = null;   // hikaye tech bonusu — KIRMIZI (düşman devlet)
 
 const units = [];
 const trenches = [];
+const mines = [];   // MAYIN: istihkam döşer; düşman kara-birimi basınca patlar (deterministik). Gizli — yalnız sahip + yüksek-detect görür.
 // FAZ 1a: sim-dizilerini world'e alias bağla (const → asla reassign yok, alias güvenli).
 // Mevcut kod `units`/`trenches` global'lerini kullanmaya devam eder; yeni motor-kodu `SIM.units` okur. İkisi AYNI dizi.
 SIM.units = units;
 SIM.trenches = trenches;
+SIM.mines = mines;
+// MAYIN sabitleri
+const MINE_TRIGGER_R = 65;      // basma yarıçapı (birim merkezine) — geçen birimi daha güvenilir yakalar
+const MINE_BLAST_R = 95;        // patlama alan-yarıçapı
+const MINE_DAMAGE = 260;        // he tabanlı (zırhlıya alt-yön etkili); matris ile çarpılır
+// Deterministik mayın güncellemesi: düşman kara-birimi tetiklerse patla (alan-hasarı), mayını kaldır.
+function updateMines(now) {
+    if (!SIM.mines.length) return;
+    for (let i = SIM.mines.length - 1; i >= 0; i--) {
+        const m = SIM.mines[i];
+        if (!m.armed) { if (now - m.createdAt > (m.armDelay || 1500)) m.armed = true; else continue; }   // kurulum gecikmesi
+        let trig = null;
+        const near = SIM.spatialGrid.getNearby(m.x, m.y, MINE_TRIGGER_R);
+        for (const u of near) {
+            if (u.dead || u.loaded || u.isAir || u.abandoned || u.isRed === m.isRed) continue;   // yalnız DÜŞMAN kara-birimi tetikler
+            if (Math.hypot(u.x - m.x, u.y - m.y) <= MINE_TRIGGER_R) { trig = u; break; }
+        }
+        if (!trig) continue;
+        // PATLA: alan-hasarı (he), zırhlıya matris + alt-yön (mayın alttan vurur → zayıf top-armor)
+        const blast = SIM.spatialGrid.getNearby(m.x, m.y, MINE_BLAST_R);
+        for (const n of blast) {
+            if (n.dead || n.loaded || n.isAir || n.isRed === m.isRed) continue;
+            const d = Math.hypot(n.x - m.x, n.y - m.y); if (d > MINE_BLAST_R) continue;
+            const falloff = 1 - d / MINE_BLAST_R;
+            let dmg = calculateUnitDamageTyped ? calculateUnitDamageTyped('he', n, MINE_DAMAGE) : MINE_DAMAGE;
+            const af = STATS[n.type] && STATS[n.type].armorFacing;
+            if (af && af.top) dmg *= Math.min(2.0, 1 / af.top);   // alttan/üstten zayıf zırh
+            dmg = Math.max(1, Math.floor(dmg * (0.55 + falloff * 0.45)));
+            n.hp -= dmg; n.flashTimer = 6; n.suppression = Math.min(100, (n.suppression || 0) + 40);
+            if (n.hp <= 0 && !n.dead) { n.dead = true; if (n.isRed) { if (typeof player !== 'undefined') player.kills++; } else { if (typeof enemy !== 'undefined') enemy.kills++; } if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.mineKills++; }
+        }
+        if (typeof spawnExplosion !== 'undefined') spawnExplosion(m.x, m.y, 1.8);
+        if (typeof triggerScreenShake === 'function') triggerScreenShake(0.12);
+        SIM.mines.splice(i, 1);   // mayın tek-kullanım
+    }
+}
+// he-tipli mayın hasarı için yardımcı (calculateUnitDamage weapon[0]'a bağlı; mayın silahsız → tipli hesap)
+function calculateUnitDamageTyped(dmgType, target, baseDamage) {
+    const tS = STATS[target.type]; if (!tS) return baseDamage;
+    const mult = (UNITS_MODERN_DB.damageMatrix[dmgType] || {})[tS.armorType || 'infantry'] || 0;
+    if (mult === 0) return Math.max(1, Math.floor(baseDamage * 0.25));
+    const armorRed = 1 / (1 + (tS.armorValue || 0) * 0.06);
+    return Math.max(1, Math.round(baseDamage * mult * armorRed));
+}
 const SUPPLY_FIELD_DURATION_MS = 60000;
 const craters = [];
 const decals = []; // { x, y, type, size, alpha, angle }
@@ -657,9 +749,13 @@ let dragStartX = 0, dragStartY = 0;
 let selectedSpawnType = null;
 
 // ─── SAVAŞ SİSİ KONTROLÜ (Team Vision) ───
-function canSee(teamIsRed, targetX, targetY) {
+// targetIsAir verilirse: HAVA-ARAMA RADARI (airRadar) YALNIZ hava hedefini açar (görüş-desteği);
+// normal birimler her şeyi görür (eskisi gibi). Radar karayı görmez → "sadece havayı görsün".
+function canSee(teamIsRed, targetX, targetY, targetIsAir) {
     for (const u of SIM.units) {
         if (u.dead || u.isRed !== teamIsRed) continue;
+        if (u.loaded) continue;                                   // TAŞINAN piyade görüş sağlamaz (araç içinde)
+        if (u.airRadar && targetIsAir !== true) continue;         // radar yalnız havayı açar
         const vision = Number.isFinite(u.vision) ? u.vision : STATS[u.type].vision;
         if (Math.hypot(u.x - targetX, u.y - targetY) <= vision) return true;
     }
@@ -669,12 +765,42 @@ function canSee(teamIsRed, targetX, targetY) {
     return false;
 }
 
+// ─── NOKTA-SAVUNMA (SAM füze-savar): gelen interceptable mermiyi (balistik/ÇNRA) düşman SAM önler mi? ───
+// Deterministik (srand). Önleme bir SAM füzesi harcar (ammo) → doyurma saldırısı (çok füze) yine işler.
+const POINT_DEFENSE_QUERY_R = 2200;   // ızgara-sorgu yarıçapı (en uzun SAM menzilini kapsar)
+const POINT_DEFENSE_MIN_DAMAGE = 150; // SAM yalnız YÜKSEK-değerli mermiyi önler (balistik 600); ÇNRA roketi (55) gibi ucuz-çok mermiye füze harcamaz → "salvo SAM'ı boşaltma" istismarı biter
+function battlePointDefenseIntercept(shooter, x, y, incomingDamage) {
+    if ((incomingDamage || 0) < POINT_DEFENSE_MIN_DAMAGE) return false;   // eşik-altı mermiye müdahale yok (mühimmat korunur)
+    const near = SIM.spatialGrid.getNearby(x, y, POINT_DEFENSE_QUERY_R);
+    for (const d of near) {
+        if (d.dead || d.loaded || d.isRed === shooter.isRed) continue;   // yalnız DÜŞMAN savunması
+        const st = STATS[d.type];
+        if (!st || !st.pointDefense || d.ammo <= 0) continue;            // savunma yeteneği + füzesi olmalı
+        const pdRange = d.range || 1000;
+        if (Math.hypot(d.x - x, d.y - y) > pdRange) continue;            // impact SAM menzilinde mi
+        d.ammo--;                                                        // önleme denemesi bir füze harcar
+        d.lastAttackTime = SIM.tick;
+        const _hit = srand() < (st.pointDefense.chance || 0.6);          // srand TEK tüketim (determinizm) — hem sonuç hem olay
+        // ANALİST-FIX: INTERCEPT telemetri-olayı — PD oyunun en pahalı tek-atışlık etkileşimi, görünmez kalmasın (deneme/sonuç/mesafe/mühimmat)
+        if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'INTERCEPT', unitId: d.id, side: d.isRed ? 'red' : 'blue', type: d.type, result: _hit ? 'hit' : 'miss', incomingDamage: Math.round(incomingDamage || 0), dist: Math.round(Math.hypot(d.x - x, d.y - y)), ammoLeft: Math.round(d.ammo), x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 });
+        if (_hit) {
+            if (typeof spawnExplosion !== 'undefined') spawnExplosion(x, y, 0.7);   // önleme patlaması
+            return true;                                                 // MERMİ ÖNLENDİ
+        }
+        return false;                                                    // deneme ıskaladı (füze harcandı, mermi geçti)
+    }
+    return false;
+}
+
 // T3 PUSU+KEŞİF: viewerIsRed tarafı gizli u'yu fark ediyor mu — KEŞİF birimi 2× mesafeden tespit eder (pusu-karşıtı)
 function enemyDetectsConcealed(u, viewerIsRed) {
-    const nearby = SIM.spatialGrid.getNearby(u.x, u.y, AMBUSH_DETECT * 2);
+    const maxR = AMBUSH_DETECT * 2.5;
+    const nearby = SIM.spatialGrid.getNearby(u.x, u.y, maxR);
     for (const o of nearby) {
-        if (o.dead || o === u || o.isRed !== viewerIsRed) continue;
-        const r = (o.type === T.RECON) ? AMBUSH_DETECT * 2 : AMBUSH_DETECT;   // keşif önden tarar
+        if (o.dead || o === u || o.isRed !== viewerIsRed || o.loaded) continue;
+        // DETECT stat: yüksek-detect birim (keşif/scout/EH/manpads) gizli düşmanı DAHA UZAKTAN fark eder (1 + detect×1.5)
+        const det = (STATS[o.type] && STATS[o.type].detect) || 0;
+        const r = AMBUSH_DETECT * (1 + det * 1.5);
         if (Math.hypot(o.x - u.x, o.y - u.y) <= r) return true;
     }
     return false;
@@ -726,7 +852,9 @@ const spatialGrid = new SpatialGrid(WORLD_W, WORLD_H, 100);
 SIM.spatialGrid = spatialGrid;   // FAZ 1e: sim-ızgara SIM'de (fork: SIM.spatialGrid swap'lanır; canlıda aynı nesne)
 
 // ─── GÖRÜŞ AÇISI ENGELİ (LINE OF SIGHT & FRIENDLY FIRE) ───
-function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2) {
+// blockingSide (isteğe bağlı): verilirse YALNIZ o taraftaki (dost) gövdeler engel sayılır; düşman gövdeler engellemez
+// (hedef-edinmede "öndeki düşmanı vur, kendi adamının üstünden vurma" için). Verilmezse HER gövde engel (topçu-gözcü).
+function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2, blockingSide) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const len = Math.hypot(dx, dy);
@@ -740,7 +868,8 @@ function checkLineOfSight(x1, y1, x2, y2, ignoreUnit1, ignoreUnit2) {
 
     for (const u of candidates) {
         if (u.dead || u === ignoreUnit1 || u === ignoreUnit2) continue;
-        
+        if (blockingSide !== undefined && u.isRed !== blockingSide) continue;   // yalnız-dost modu: düşman gövde engel değil
+
         // Dot product kullanarak noktanın doğru üzerine izdüşümü
         const dot = ((u.x - x1) * dx + (u.y - y1) * dy) / (len * len);
         // Doğru parçasının dışındaysa (arkasında veya ötesindeyse) yoksay

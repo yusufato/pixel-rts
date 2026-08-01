@@ -1,31 +1,25 @@
 // Quick, Story ve AI laboratuvarı için ortak deterministik ordu konuşlandırıcısı.
 // Kompozisyon bütçeden saf manifest olarak üretilir; sahaya yerleştirme ayrı adımdır.
 
+// 25-BİRİM ROSTER dağıtımı — 20 KARA tipi (5 hava tipi FAZ 2'ye kadar deploy-dışı: helikopterler + drone'lar).
+// Birleşik-silah: piyade/AT/tank çekirdek, indirect/anti-air/support dengeli, pahalı (füze/HQ) düşük. ~5000 bütçeye ~20-28 birim.
 const BATTLE_DEPLOY_WEIGHTS = Object.freeze({
-    [T.INFANTRY]: 0.24,
-    [T.MECH_INFANTRY]: 0.12,
-    [T.ARMOR_INFANTRY]: 0.1,
-    [T.RECON]: 0.07,
-    [T.ENGINEER]: 0.06,
-    [T.MEDIC]: 0.05,
-    [T.ARMOR]: 0.14,
-    [T.ANTI_TANK]: 0.12,
-    [T.ARTILLERY]: 0.1
+    [T.INFANTRY]: 0.14, [T.ANTI_TANK]: 0.10, [T.MORTAR]: 0.05, [T.MANPADS]: 0.03, [T.COMMANDO]: 0.03,
+    [T.ARMOR]: 0.10, [T.MECH_INFANTRY]: 0.08, [T.TANK_HUNTER]: 0.06,
+    [T.ARTILLERY]: 0.06, [T.MLRS]: 0.03, [T.BALLISTIC]: 0.01, [T.COUNTER_BATTERY]: 0.02,
+    [T.SPAAG]: 0.04, [T.SAM]: 0.03, [T.RECON]: 0.05, [T.EW]: 0.02,
+    [T.MEDIC]: 0.03, [T.ENGINEER]: 0.035, [T.SUPPLY]: 0.03, [T.HQ]: 0.02,
+    [T.TRANSPORT_HELO]: 0.02   // nakliye-heli: piyade takviyesini hatta taşır (bindir-indir)
 });
-
-// Küçük para-bütçeli hızlı maçta mühendis+sıhhiyeci+iki keşif, ordunun üçte
-// birini doğrudan ateş gücünden çıkarıyordu. Hikâye kaynak manifesti değişmez;
-// yalnız eşit para bütçeli hızlı maç/AI laboratuvarı muharebe odaklı dağılımı kullanır.
+// Muharebe-odaklı (hızlı maç/AI): çekirdek ateş gücü + FAZ 2 HAVA (helikopter/drone). Nakliye-heli FAZ3 (load-mekaniği).
 const BATTLE_DEPLOY_COMBAT_WEIGHTS = Object.freeze({
-    [T.INFANTRY]: 0.19,
-    [T.MECH_INFANTRY]: 0.20,
-    [T.ARMOR_INFANTRY]: 0.08,
-    [T.RECON]: 0.04,
-    [T.ENGINEER]: 0.015,
-    [T.MEDIC]: 0.015,
-    [T.ARMOR]: 0.16,
-    [T.ANTI_TANK]: 0.18,
-    [T.ARTILLERY]: 0.12
+    [T.INFANTRY]: 0.14, [T.ANTI_TANK]: 0.11, [T.MORTAR]: 0.04, [T.MANPADS]: 0.04, [T.COMMANDO]: 0.03,
+    [T.ARMOR]: 0.10, [T.MECH_INFANTRY]: 0.07, [T.TANK_HUNTER]: 0.05,
+    [T.ARTILLERY]: 0.05, [T.MLRS]: 0.025, [T.BALLISTIC]: 0.01, [T.COUNTER_BATTERY]: 0.015,
+    [T.SPAAG]: 0.05, [T.SAM]: 0.025, [T.RECON]: 0.045, [T.EW]: 0.015,
+    [T.MEDIC]: 0.02, [T.ENGINEER]: 0.03, [T.SUPPLY]: 0.03, [T.HQ]: 0.02,
+    [T.ATTACK_HELO]: 0.025, [T.RECON_UAV]: 0.025, [T.UCAV]: 0.02, [T.KAMIKAZE]: 0.025,   // FAZ 2 hava
+    [T.TRANSPORT_HELO]: 0.015   // nakliye-heli: piyade takviyesini hatta taşır
 });
 
 function deploymentCloneBudget(budget) {
@@ -59,12 +53,14 @@ function deploymentManifestHash(counts) {
 
 // DIVERSE-SELFPLAY: eğitimde de varied ordu açmak için (gerçek oyun interactive ile açar; eğitim bunu set eder).
 let BATTLE_FORCE_VARIED = false;
+let BATTLE_FORCE_DOCTRINE = null;   // TURNUVA: geçerli indeks (0-8) ise o doktrini zorla (yalnız ölçüm/turnuva); null=seed'li rastgele
 
 // TAKTİK-VEKİLİ (insan-gibi rakip): kullanıcının KAZANMA taktiklerini oynar → AI onu yenmeyi (=insanı) öğrenir.
 // Taktik: KONSANTRASYON + ODAKLI-ATEŞ (2v1) — kendi kütlesini toplar, EN YAKIN düşmanı seçip HEPSİ ona yüklenir
 // → yerel üstünlük kurup birer birer eritir (senin "sarma + iki-birlik-tek-birliğe" tarzın). Deterministik (RNG YOK).
 let BATTLE_SURROGATE_SIDE = null;        // null=kapalı, true/false = o tarafı taktik-vekili sürer (kontrolör yerine)
 let BATTLE_SURROGATE_DEFENSIVE = false;  // true → SAVUNAN-vekil (usta insan savunması): pozisyonda tut + konsantre karşı-ateş
+let BATTLE_SURROGATE_ENVELOP = false;    // true → SALDIRAN-vekil KUŞATIR: ana kütle önden sabitler + hızlı kanat açık-yandan arkaya dolanır (senin sarma tarzın → anti-kuşatma headless ölçülebilir)
 function battleTacticalSurrogateDrive(side) {
     const own = [], foe = [];
     for (const u of SIM.units) { if (u.dead) continue; (u.isRed === side ? own : foe).push(u); }
@@ -89,7 +85,46 @@ function battleTacticalSurrogateDrive(side) {
         });
         return;
     }
-    // SALDIRAN-vekil: TÜM muharip birlikler hedefe konsantre yüklen + odaklı ateş
+    // SALDIRAN-vekil KUŞATMA modu (senin tarzın): ana kütle ÖNDEN sabitler, hızlı kanat AÇIK-yandan ARKAYA dolanır
+    // → savunanı arka+yan kıskaca alır (surroundedPct↑). Anti-kuşatma fix'ini headless ölçülebilir kılar. RNG YOK.
+    if (BATTLE_SURROGATE_ENVELOP && own.length >= 4) {
+        let ex = 0, ey = 0; for (const f of foe) { ex += f.x; ey += f.y; } ex /= foe.length; ey /= foe.length;
+        const dax = ex - cx, day = ey - cy, dl = Math.hypot(dax, day) || 1, fux = dax / dl, fuy = day / dl, px = -fuy, py = fux;
+        // AÇIK KANAT: düşmanın hangi yanında daha az birlik var → oraya dolan (deterministik, eşitte sol)
+        let leftN = 0, rightN = 0;
+        for (const f of foe) { const s = (f.x - ex) * px + (f.y - ey) * py; if (s < 0) leftN++; else rightN++; }
+        const dir = (leftN <= rightN) ? -1 : 1;
+        // KÜÇÜK hızlı müfreze = KANAT (arkaya sızar), ÇOĞUNLUK = SABİTLEYİCİ (önden güçlü yüklenir → front tehdit kalır).
+        // Senin tarzın: "birkaç birliğimle arkasını dolanıyorum" → sadece 2-3 hızlı birlik ayrılır, ana kütle güçlü kalır.
+        const mob = own.filter(u => u.type !== T.MEDIC).sort((a, b) => ((STATS[b.type] ? STATS[b.type].speed : 0) - (STATS[a.type] ? STATS[a.type].speed : 0)) || (a.id - b.id));
+        const nFlank = Math.min(3, Math.max(2, Math.round(mob.length * 0.2)));
+        const flankers = new Set(mob.slice(0, nFlank).map(u => u.id));
+        // kanat ara-noktası: düşmanın YANINDAN geçip ARKASINA (fux ile ileri geçer, dir·px ile yana açılır); dar tut
+        const wp = terrainSafePoint(ex + dir * px * 230 + fux * 240, ey + dir * py * 230 + fuy * 240);
+        // en ARKADAKİ düşman (kanat onu hedef alır = gerçek kuşatma)
+        let rearFoe = target, rearAlong = -Infinity;
+        for (const f of foe) { const a = (f.x - cx) * fux + (f.y - cy) * fuy; if (a > rearAlong) { rearAlong = a; rearFoe = f; } }
+        // SABİTLEYİCİLER kırmızıyı YANAL yay (sol→sağ farklı hedefler) → left+right varlık; küçük müfreze ARKA → tam kuşatma
+        const foesByLat = foe.slice().sort((a, b) => (((a.x - ex) * px + (a.y - ey) * py) - ((b.x - ex) * px + (b.y - ey) * py)) || (a.id - b.id));
+        const fixers = own.filter(u => u.type !== T.MEDIC && !flankers.has(u.id)).sort((a, b) => a.id - b.id);
+        fixers.forEach((u, i) => {
+            const tf = foesByLat[Math.floor(i * foesByLat.length / Math.max(1, fixers.length))] || target;
+            u.attackTarget = tf; u.manualTarget = tf;
+            u.targetX = tf.x; u.targetY = tf.y; u.manualMoveTarget = { x: tf.x, y: tf.y }; u.isMovingToManualTarget = true;
+        });
+        for (const u of own) {
+            if (u.type === T.MEDIC || !flankers.has(u.id)) continue;
+            if (Math.hypot(u.x - wp.x, u.y - wp.y) > 130) {   // henüz dolanmadı → ara-noktaya (ateş serbest)
+                u.attackTarget = null; u.manualTarget = null;
+                u.targetX = wp.x; u.targetY = wp.y; u.manualMoveTarget = { x: wp.x, y: wp.y }; u.isMovingToManualTarget = true;
+            } else {                                          // arkaya vardı → en arkadaki düşmanı vur (sarma tamam)
+                u.attackTarget = rearFoe; u.manualTarget = rearFoe;
+                u.targetX = rearFoe.x; u.targetY = rearFoe.y; u.manualMoveTarget = { x: rearFoe.x, y: rearFoe.y }; u.isMovingToManualTarget = true;
+            }
+        }
+        return;
+    }
+    // SALDIRAN-vekil (varsayılan): TÜM muharip birlikler hedefe konsantre yüklen + odaklı ateş
     for (const u of own) {
         if (u.type === T.MEDIC) continue;               // sağlıkçı geride
         u.attackTarget = target; u.manualTarget = target;
@@ -101,19 +136,37 @@ function battleTacticalSurrogateDrive(side) {
 // SIM_RNG (srand) kullanır → deterministik (aynı seed=aynı ordu, replay/eğitim bozulmaz) ama maç-maç farklı.
 function battleDeploymentVariedWeights(base) {
     const w = {}; for (const k in base) w[k] = base[k];
+    // 25-BİRİM ROSTER DOKTRİNLERİ — AI her maça FARKLI-ama-dengeli ordu dizer (öngörülemez; rakibe BAKMAZ = hile yok).
     const doctrines = [
-        {},                                                                                           // DENGELİ
-        { [T.ARMOR]: 1.8, [T.ARMOR_INFANTRY]: 1.7, [T.INFANTRY]: 0.55, [T.MECH_INFANTRY]: 0.7 },       // ZIRH-AĞIR
-        { [T.INFANTRY]: 1.7, [T.MECH_INFANTRY]: 1.5, [T.ANTI_TANK]: 1.4, [T.ARMOR]: 0.5 },             // PİYADE+TANKSAVAR
-        { [T.ANTI_TANK]: 1.9, [T.ARTILLERY]: 1.6, [T.RECON]: 1.5, [T.ARMOR]: 0.6 },                    // ANTİ-ZIRH/TOPÇU
-        { [T.MECH_INFANTRY]: 1.7, [T.RECON]: 2.2, [T.ARMOR]: 1.3, [T.ARTILLERY]: 0.6 }                 // HAREKETLİ
+        {},                                                                                                           // DENGELİ
+        { [T.ARMOR]: 2.0, [T.TANK_HUNTER]: 1.5, [T.MECH_INFANTRY]: 1.3, [T.INFANTRY]: 0.6, [T.ARTILLERY]: 0.7 },       // ZIRH MIZRAĞI
+        { [T.INFANTRY]: 2.2, [T.ANTI_TANK]: 1.6, [T.MORTAR]: 1.5, [T.COMMANDO]: 1.3, [T.ARMOR]: 0.5 },                 // PİYADE DALGASI
+        { [T.ARTILLERY]: 1.9, [T.MLRS]: 1.7, [T.RECON]: 1.7, [T.ANTI_TANK]: 1.3, [T.COUNTER_BATTERY]: 1.4, [T.ARMOR]: 0.6 }, // TOPÇU DOKTRİNİ
+        { [T.ATTACK_HELO]: 2.0, [T.KAMIKAZE]: 1.8, [T.UCAV]: 1.6, [T.RECON_UAV]: 1.5, [T.SPAAG]: 1.4, [T.SAM]: 1.3 },   // HAVA HAREKÂTI
+        { [T.ANTI_TANK]: 2.0, [T.TANK_HUNTER]: 1.6, [T.COMMANDO]: 1.5, [T.MANPADS]: 1.3, [T.MORTAR]: 1.3, [T.ARMOR]: 0.5 }, // TANKSAVAR PUSU
+        { [T.MECH_INFANTRY]: 1.9, [T.RECON]: 2.0, [T.ARMOR]: 1.3, [T.KAMIKAZE]: 1.4, [T.ARTILLERY]: 0.6 },             // HAREKETLİ VURKAÇ
+        { [T.SPAAG]: 1.8, [T.SAM]: 1.7, [T.MANPADS]: 1.6, [T.COUNTER_BATTERY]: 1.5, [T.INFANTRY]: 1.2 },               // HAVA-SAVUNMA AĞI
+        { [T.KAMIKAZE]: 3.0, [T.RECON_UAV]: 2.5, [T.EW]: 2.2, [T.ANTI_TANK]: 1.6, [T.MANPADS]: 1.3, [T.ARMOR]: 0.0, [T.TANK_HUNTER]: 0.0 }, // DRONE-YOĞUN YIPRATMA (Ukrayna-sonrası: ucuz kamikaze sürüsü + İHA ağı + EH, pahalı platform yok)
+        { [T.MORTAR]: 2.2, [T.MLRS]: 1.8, [T.BALLISTIC]: 1.2, [T.RECON_UAV]: 2.0, [T.RECON]: 1.5, [T.COMMANDO]: 1.7, [T.ATTACK_HELO]: 1.5, [T.INFANTRY]: 1.3, [T.ANTI_TANK]: 1.2, [T.SPAAG]: 0.7 } // OYUNCU-META (kullanıcının 5-maç profili: alan-ateşi 3.2/maç + ağır-keşif 2.8 + helo, ateş-merkezli bul-vur-bitir)
     ];
-    const d = doctrines[(typeof srandInt === 'function') ? srandInt(doctrines.length) : 0];
+    // TURNUVA: BATTLE_FORCE_DOCTRINE geçerli indeksse o doktrini zorla (RPS-turnuva taraf-başı doktrin kontrolü). Yoksa seed'li rastgele.
+    const idx = (typeof BATTLE_FORCE_DOCTRINE === 'number' && BATTLE_FORCE_DOCTRINE >= 0)
+        ? Math.min(doctrines.length - 1, BATTLE_FORCE_DOCTRINE)
+        : ((typeof srandInt === 'function') ? srandInt(doctrines.length) : 0);
+    const d = doctrines[idx];
     for (const k in d) w[k] = (w[k] || 0) * d[k];
     const rnd = (typeof srand === 'function') ? srand : Math.random;
     for (const k in w) w[k] = w[k] * (0.78 + rnd() * 0.44);   // ±22% ince gürültü
+    Object.defineProperty(w, '__doctrineId', { value: idx, enumerable: false });   // DOKTRİN-KİMLİK: seçilen doktrini taşı (for-in görmesin)
+    // DOKTRİN-İMZASI: çarpanı ≥1.4 olan tipler = bu doktrinin karakteristik birimleri (çarpan azalanı → en-imzalı önce).
+    // battleBuildArmyManifest bunları GARANTİ eder (pahalı-birim yapısal-dışlanmasını kırar). Deterministik.
+    const emphasis = Object.keys(d).map(Number).filter(t => d[t] >= 1.4).sort((a, b) => (d[b] - d[a]) || (a - b));
+    Object.defineProperty(w, '__emphasis', { value: emphasis, enumerable: false });
     return w;
 }
+// Doktrin kimlikleri (indeks battleDeploymentVariedWeights.doctrines ile HİZALI) — kimlik+posture-eşleştirme için.
+const BATTLE_DOCTRINE_NAMES = ['dengeli', 'zirh-mizragi', 'piyade-dalgasi', 'topcu', 'hava-harekati', 'tanksavar-pusu', 'hareketli-vurkac', 'hava-savunma-agi', 'drone-yogun', 'oyuncu-meta'];
+const BATTLE_DOCTRINE_PLAYER_META = 9;   // vekil-tuning: kullanıcının gerçek oynayış-profili (5-maç analizi) — bataryada mavi-vekil bunu kullanır
 
 function battleBuildArmyManifest(rawBudget, config = {}) {
     const remaining = deploymentCloneBudget(rawBudget);
@@ -165,6 +218,47 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         types.push(type);
     }
 
+    // ANALİST-FIX (kompozisyon-önyargısı, 7-maç-sıfır-helo): normalizedDeficit=hedef/maliyet metriği, hedef-payı birim-maliyetinden
+    // KÜÇÜK olan PAHALI birimi (helo 800, ÇNRA 650, SİHA, EW...) YAPISAL DIŞLAR → doktrin "hava-harekâtı" bile helo alamaz.
+    // ÇÖZÜM: doktrinin İMZA birimleri (çarpan≥1.4) hiç alınmadıysa BİRER tane garanti et — gerekirse en-çok-tekrarlanan
+    // imza-DIŞI ucuz fazlalığı takas ederek. Doktrin kimliği artık sahaya çıkar (Ukrayna-sonrası: helo uçmayı ÖĞRENDİ →
+    // SEAD-bekle+RTB micro hazır, açmak güvenli). Yalnız sayı-bütçe (money) yolunda; deterministik (RNG yok).
+    const emphasis = (config.varied && Array.isArray(deployWeights.__emphasis)) ? deployWeights.__emphasis : [];
+    if (emphasis.length && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        for (const et of emphasis) {
+            if (et == null || !STATS[et] || types.includes(et)) continue;
+            const cost = STATS[et].cost;
+            if (cost > (initial.money || 0)) continue;   // bütçeye hiç sığmıyorsa geç
+            let guard = 0;
+            while ((remaining.money || 0) < cost && guard++ < 8) {   // yer aç: en-çok-tekrarlanan imza-DIŞI ucuz fazlalığı çıkar
+                const cnt = {}; for (const t of types) cnt[t] = (cnt[t] || 0) + 1;
+                let victim = null, vCount = 1;
+                for (const t of Object.keys(cnt).map(Number).sort((a, b) => a - b)) {
+                    if (emphasis.includes(t) || t === et) continue;
+                    if (cnt[t] > vCount || (cnt[t] === vCount && victim != null && STATS[t].cost < STATS[victim].cost)) { victim = t; vCount = cnt[t]; }
+                }
+                if (victim == null) break;
+                const ix = types.lastIndexOf(victim); if (ix < 0) break;
+                remaining.money += STATS[victim].cost; spent[victim] = (spent[victim] || 0) - STATS[victim].cost; if (spent[victim] <= 0) delete spent[victim];
+                types.splice(ix, 1);
+            }
+            if ((remaining.money || 0) >= cost) { remaining.money -= cost; spent[et] = (spent[et] || 0) + cost; types.push(et); }
+        }
+    }
+    // ANALİST-FIX (SAM-tabanı): hava-savunma paketi manpads+spaag ile YETİNEMEZ — helo maks-menzil düellosunda
+    // spaag'ı yener (falloff), tek gerçek caydırıcı SAM. AA yatırımı varken SAM yoksa bir AA-birimini SAM ile değiştir.
+    if (typeof T !== 'undefined' && T.SAM != null && STATS[T.SAM] && !types.includes(T.SAM)) {
+        let aaIdx = types.indexOf(T.SPAAG);
+        if (aaIdx < 0 && T.MANPADS != null) aaIdx = types.indexOf(T.MANPADS);
+        if (aaIdx >= 0) { spent[types[aaIdx]] = (spent[types[aaIdx]] || 0) - STATS[types[aaIdx]].cost; types[aaIdx] = T.SAM; spent[T.SAM] = (spent[T.SAM] || 0) + STATS[T.SAM].cost; }
+    }
+    // ANALİST-FIX (kör-SAM): SAM RADARSIZ kördür (yalnız 900px görüşü; helo dışarıdan vurup öldürür). SAM varsa RADAR da al
+    // (350₺ radar = 700₺ SAM'ın gözü). Radar yoksa ikinci-AA/ikmal/en-ucuz-fazlalığı radar ile değiştir.
+    if (typeof T !== 'undefined' && T.COUNTER_BATTERY != null && STATS[T.COUNTER_BATTERY] && types.includes(T.SAM) && !types.includes(T.COUNTER_BATTERY)) {
+        let swapIdx = -1;   // önce ikinci-AA (spaag/manpads), sonra supply, sonra en-çok-tekrar-eden savaş-dışı
+        for (const cand of [T.SPAAG, T.MANPADS, T.SUPPLY]) { if (cand != null) { const ix = types.lastIndexOf(cand); if (ix >= 0 && (cand !== T.SAM)) { swapIdx = ix; break; } } }
+        if (swapIdx >= 0) { spent[types[swapIdx]] = (spent[types[swapIdx]] || 0) - STATS[types[swapIdx]].cost; types[swapIdx] = T.COUNTER_BATTERY; spent[T.COUNTER_BATTERY] = (spent[T.COUNTER_BATTERY] || 0) + STATS[T.COUNTER_BATTERY].cost; }
+    }
     const counts = types.reduce((result, type) => {
         result[type] = (result[type] || 0) + 1;
         return result;
@@ -176,6 +270,7 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         totalValue: types.reduce((sum, type) => sum + STATS[type].cost, 0),
         initialBudget: initial,
         remaining,
+        doctrineId: (config.varied && typeof deployWeights.__doctrineId === 'number') ? deployWeights.__doctrineId : 0,   // DOKTRİN-KİMLİK (0=dengeli)
         hash: deploymentManifestHash(counts)
     };
 }
@@ -192,13 +287,18 @@ function deploymentSpotFree(point, occupied) {
     return occupied.every(other => Math.hypot(point.x - other.x, point.y - other.y) >= 48);
 }
 
-function deploymentFindSpot(side, type, indexInDepth, occupied) {
+function deploymentFindSpot(side, type, indexInDepth, occupied, totalInDepth) {
     const depth = deploymentDepth(type);
     const forwardY = 180 + depth * 78;
     const desiredY = side ? forwardY : WORLD_H - forwardY;
-    const column = indexInDepth % 11;
-    const row = Math.floor(indexInDepth / 11);
-    const desiredX = WORLD_W * 0.5 + (column - 5) * 105;
+    // ANALİST-FIX (anti-yumak): birimleri merkez-±525px yerine CEPHEYE (0.15W–0.85W) eşit-yay → savunma hattı,
+    // alan-ateşine (ÇNRA/havan) tek-nokta mezar sunmaz. Rol-bazlı derinlik (y) korunur; yalnız x genişler. Deterministik (indeks-tabanlı).
+    const MAX_COLS = 13;
+    const cols = Math.max(1, Math.min(MAX_COLS, totalInDepth || 11));
+    const column = indexInDepth % cols;
+    const row = Math.floor(indexInDepth / cols);
+    const spacing = cols > 1 ? (WORLD_W * 0.70) / (cols - 1) : 0;
+    const desiredX = cols > 1 ? (WORLD_W * 0.15 + column * spacing) : (WORLD_W * 0.5);
     const rowY = desiredY + (side ? row * 58 : -row * 58);
     const first = typeof nearestPassable === 'function'
         ? nearestPassable(desiredX, rowY, 30)
@@ -230,21 +330,47 @@ function battleDeployManifest(manifest, side, config = {}) {
     const orderedTypes = manifest.types.slice().sort((a, b) =>
         (deploymentDepth(a) - deploymentDepth(b)) || a - b
     );
+    const depthTotals = {};   // ANALİST-FIX (anti-yumak): derinlik-başı toplam → birimleri CEPHEYE eşit-yay
+    for (const t of orderedTypes) { const d = deploymentDepth(t); depthTotals[d] = (depthTotals[d] || 0) + 1; }
     for (const type of orderedTypes) {
         const depth = deploymentDepth(type);
         const index = depthCounts[depth] || 0;
         depthCounts[depth] = index + 1;
-        const spot = deploymentFindSpot(side, type, index, occupied);
+        const spot = deploymentFindSpot(side, type, index, occupied, depthTotals[depth]);
         const unit = new Unit(type, spot.x, spot.y, side);
         unit.ally = side ? false : config.ally === true;
         unit.controlOwner = side
             ? CONTROL_OWNER.ENEMY_AI
             : unit.ally ? CONTROL_OWNER.ALLY_AI : CONTROL_OWNER.PLAYER;
         unit.deploymentSource = config.source || 'battle-deployer';
+        unit.deployDoctrine = (typeof manifest.doctrineId === 'number') ? manifest.doctrineId : 0;   // DOKTRİN-KİMLİK: birim doktrinini taşır (situation/posture okur, per-side)
         if (typeof applyTechSpawnBonus === 'function') applyTechSpawnBonus(unit);
         SIM.units.push(unit);
         occupied.push({ x: unit.x, y: unit.y });
         deployed.push(unit);
+    }
+    // ANALİST-FIX (SAM konuşlanma-geometrisi): SAM hava-hedefini kendi 900px görüşü DIŞINDA ancak bir dost-sensör
+    // ifşa ederse angaje eder (canSee). Radar(hava-arama 2000px) ile SAM(menzil 1650) bağımsız serpiştirilince balonlar
+    // örtüşmez → helo radar-balonu kıyısını traşlayarak SAM menzilinde AMA görülmeden uçar (analistin geometri-teşhisi).
+    // ÇÖZÜM: radarı en yakın SAM'ın hemen ARKASINA (~250px, kendi üssüne doğru) taşı → 2000-balon SAM'ın tüm 1650-zarfını
+    // her yönde örter, radar da SAM kalkanının gerisinde güvende. Deterministik (serpiştirme sırası, RNG yok).
+    if (typeof T !== 'undefined' && T.SAM != null) {
+        const sams = deployed.filter(u => !u.dead && u.type === T.SAM);
+        const radars = deployed.filter(u => !u.dead && ((STATS[u.type] && STATS[u.type].airRadar) || u.airRadar));
+        if (sams.length && radars.length) {
+            const fwd = side ? 1 : -1;   // düşmana doğru: kırmızı üssü üstte(+y), mavi altta(-y)
+            for (const radar of radars) {
+                let best = null, bestD = Infinity;
+                for (const s of sams) { const d = Math.hypot(radar.x - s.x, radar.y - s.y); if (d < bestD) { bestD = d; best = s; } }
+                if (!best) continue;
+                let ty = best.y - fwd * 250;   // SAM'ın ARKASI (üsse doğru): radar güvende, 2000-balon 1650-zarfı örter
+                ty = side ? Math.max(WORLD_H * 0.06, Math.min(WORLD_H * 0.5 - 30, ty))    // kırmızı: kendi üst-yarısında kal
+                          : Math.min(WORLD_H * 0.94, Math.max(WORLD_H * 0.5 + 30, ty));   // mavi: kendi alt-yarısında kal
+                const spot = (typeof nearestPassable === 'function') ? nearestPassable(best.x, ty, 30) : { x: best.x, y: ty };
+                radar.x = spot.x; radar.y = spot.y; radar.targetX = spot.x; radar.targetY = spot.y;
+                if (radar.manualMoveTarget) radar.manualMoveTarget = { x: spot.x, y: spot.y };
+            }
+        }
     }
     if (side) enemy.unitsSpawned += deployed.length;
     else player.unitsSpawned += deployed.length;
@@ -797,6 +923,10 @@ function runRecordedPlayerVsAIDiagnostics(recordingDocument) {
             'player-move',
             'player-attack',
             'player-free-fire',
+            'player-load',
+            'player-unload',
+            'player-mine',
+            'player-ability',
             'support-paradrop'
         ].includes(event.type))
         .sort((a, b) => (a.tick - b.tick));

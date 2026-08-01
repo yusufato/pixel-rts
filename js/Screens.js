@@ -19,8 +19,8 @@ function showScreen(name) {
 
 // ── HIZLI MAÇ: puan = ordu bütçesi (asimetrik puan = zorluk ayarı) ──
 function quickMatchUpdate() {
-    const ai = +(document.getElementById('qm-ai')?.value || 1500);
-    const pl = +(document.getElementById('qm-pl')?.value || 1500);
+    const ai = +(document.getElementById('qm-ai')?.value || 5000);
+    const pl = +(document.getElementById('qm-pl')?.value || 5000);
     const role = qmSelected('qm-role', 'attacker');
     const aiV = document.getElementById('qm-ai-val'), plV = document.getElementById('qm-pl-val');
     if (aiV) aiV.textContent = ai;
@@ -46,8 +46,8 @@ function qmSelected(groupId, fallback) {
 }
 
 function quickMatchStart() {
-    const ai = +(document.getElementById('qm-ai')?.value || 1500);
-    const pl = +(document.getElementById('qm-pl')?.value || 1500);
+    const ai = +(document.getElementById('qm-ai')?.value || 5000);
+    const pl = +(document.getElementById('qm-pl')?.value || 5000);
 
     // SAVAŞ ROLÜ: attackerSide true = KIRMIZI saldırır (oyuncu savunur).
     // Oyuncu "saldıran" seçerse kırmızı savunur; rastgele ise maç başında atılır.

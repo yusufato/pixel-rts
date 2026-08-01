@@ -39,7 +39,7 @@ const CHAR_PERSONA_AXES = {
 };
 function charAxesFor(persona) {
     const b = CHAR_PERSONA_AXES[persona] || CHAR_PERSONA_AXES.dengeli;
-    const j = () => (Math.random() * 24 - 12);
+    const j = () => (storyRandom('character') * 24 - 12);
     return charClampAxes({ hawk: b.hawk + j(), auth: b.auth + j(), pop: b.pop + j(), nat: b.nat + j() });
 }
 
@@ -55,7 +55,7 @@ function charArchetype(a) {
 }
 
 // ── ZAR ────────────────────────────────────────────────────────────────────
-function charRollDie() { return 1 + Math.floor(Math.random() * 6); }
+function charRollDie() { return 1 + storyRandomInt('character', 6); }
 function charRollDice() { return { warrior: charRollDie(), diplomat: charRollDie(), economist: charRollDie() }; }
 function charLpBonus(d) { return Math.max(3, 21 - (d.warrior + d.diplomat + d.economist)); }
 
@@ -359,8 +359,8 @@ const CHAR_PRES_PERSONA = { TR: 'dengeli', IB: 'fırsatçı', BK: 'savunmacı', 
 // karşılığı olmayan bir kişi izlenimi veriyordu (kullanıcı yakaladı). Ad + soyad alır.
 const PRES_SURNAMES = ['Aksoy', 'Demirel', 'Korkmaz', 'Aydoğan', 'Ertem', 'Sancak', 'Uludağ', 'Karaca', 'Tekin', 'Yalman', 'Soylu', 'Erkan'];
 function charPresidentName() {
-    return STORY_CMD_NAMES[Math.floor(Math.random() * STORY_CMD_NAMES.length)] + ' '
-         + PRES_SURNAMES[Math.floor(Math.random() * PRES_SURNAMES.length)];
+    return STORY_CMD_NAMES[storyRandomInt('character', STORY_CMD_NAMES.length)] + ' '
+         + PRES_SURNAMES[storyRandomInt('character', PRES_SURNAMES.length)];
 }
 function charMakePresident(st) {
     const flavor = (typeof WAR_ROOM_STATE_FLAVOR !== 'undefined' && WAR_ROOM_STATE_FLAVOR[st.id]) || {};
@@ -409,7 +409,11 @@ function charApply(character) {
 const CHAR_UI = { cfg: null, step: 0, name: '', dice: null, axes: null, tags: [], seeds: [], theme: 0, stage: 0, prevTag: null, qIndex: 0 };
 
 function charOpen(setupCfg) {
-    CHAR_UI.cfg = setupCfg || {};
+    CHAR_UI.cfg = Object.assign({}, setupCfg || {});
+    if (typeof storyRngReset === 'function') {
+        const rng = storyRngReset(CHAR_UI.cfg.seed);
+        CHAR_UI.cfg.seed = rng.rootSeed;
+    }
     CHAR_UI.step = 0; CHAR_UI.dice = charRollDice(); CHAR_UI.axes = charAxesDefault();
     CHAR_UI.tags = []; CHAR_UI.seeds = []; CHAR_UI.theme = 0; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; CHAR_UI.qIndex = 0;
     CHAR_UI.name = 'Komutan';

@@ -113,7 +113,7 @@ function prodPoolCount(n) {
 }
 
 // ── ESKİ KAYIT BACKFILL (storyCommanderBackfill deseni) ──
-function storyNodeBackfill(n) {
+function storyNodeBackfill(n, options) {
     if (!n) return;
     if (n.level == null) n.level = 1;
     if (n.garrison == null) n.garrison = 0;
@@ -121,7 +121,7 @@ function storyNodeBackfill(n) {
     if (n.bar == null) n.bar = 0;
     if (!n.pool || typeof n.pool !== 'object') n.pool = {};
     if (!Array.isArray(n.q)) n.q = [];
-    n._siege = null;   // kuşatma transient
+    if (!(options && options.preserveRuntime)) n._siege = null;
 }
 
 // ── ŞEHİR SEVİYESİNİN ANLAMI ──
@@ -160,7 +160,19 @@ function prodBuild(nodeId, kind) {
     const cost = prodBuildCost(kind, lvl, n);
     const w = STORY.commander && STORY.commander.res;
     if (!w || (w.points || 0) < cost) { storyFlash(`⭐ Puan yetersiz (gerekli ${cost}).`); return false; }
-    w.points -= cost;
+    if (typeof storyBudgetDebit === 'function') {
+        const paid = storyBudgetDebit(n.owner, cost, `build.${kind}`, {
+            commander: STORY.commander,
+            commanderOnly: true,
+            correlationId: `build:${n.id}:${kind}:${lvl + 1}`
+        });
+        if (!paid.ok) { storyFlash(`⭐ Puan yetersiz (gerekli ${cost}).`); return false; }
+    } else w.points -= cost;
+    if (typeof storyResourceFlow === 'function') {
+        storyResourceFlow(n.owner, `expense.build.${kind}`, { points: -cost }, {
+            correlationId: `build:${n.id}:${kind}:${lvl + 1}`
+        });
+    }
     n[kind] = lvl + 1;
     storyLog(`🏭 <b>${n.name}</b>: ${prodBuildingName(kind)} Sv.${n[kind]} kuruldu.`);
     storySave();
@@ -198,7 +210,19 @@ function prodEnqueue(nodeId, type) {
     const cost = (STATS[type] && STATS[type].cost) || 70;
     const w = cmd && cmd.res;
     if (!w || (w[g] || 0) < cost) { storyFlash(`Kaynak yetersiz (${cost} ${g}).`); return false; }
-    w[g] -= cost;
+    if (g === 'points' && typeof storyBudgetDebit === 'function') {
+        const paid = storyBudgetDebit(n.owner, cost, 'production.points', {
+            commander: cmd,
+            commanderOnly: true,
+            correlationId: `production:${n.id}:${type}:${cmd.id}`
+        });
+        if (!paid.ok) return false;
+    } else w[g] -= cost;
+    if (typeof storyResourceFlow === 'function') {
+        storyResourceFlow(n.owner, `expense.production.${g}`, { [g]: -cost }, {
+            correlationId: `production:${n.id}:${type}:${cmd.id}`
+        });
+    }
     const t = prodTime(n, kind, type);
     n.q.push({ type, t, tot: t, cmd: cmd.id });   // cmd = birliğin teslim edileceği komutan
     if (typeof storyEconChipGate === 'function') storyEconChipGate(storyState(n.owner), type);   // AŞAMA 3: ⚡ düşümü
@@ -215,7 +239,17 @@ function prodCancel(nodeId, idx) {
     const g = UNIT_RES_GROUP[job.type] || 'manpower';
     const back = Math.round(((STATS[job.type] && STATS[job.type].cost) || 70) * 0.5);
     const w = STORY.commander && STORY.commander.res;
-    if (w) w[g] = (w[g] || 0) + back;
+    if (w && g === 'points' && typeof storyBudgetCredit === 'function') {
+        storyBudgetCredit(n.owner, back, 'production.refund', {
+            commander: STORY.commander,
+            correlationId: `production-cancel:${n.id}:${job.type}:${job.cmd}`
+        });
+    } else if (w) w[g] = (w[g] || 0) + back;
+    if (w && typeof storyResourceFlow === 'function') {
+        storyResourceFlow(n.owner, `refund.production.${g}`, { [g]: back }, {
+            correlationId: `production-cancel:${n.id}:${job.type}:${job.cmd}`
+        });
+    }
     n.q.splice(idx, 1);
     storyLog(`✖ ${STATS[job.type].name} üretimi iptal (+${back} iade).`);
     storySave();
@@ -398,15 +432,17 @@ function storyReturnPool(counts, preferNode, stateId, src) {
 //  ŞEHRE GİR PANELİ  (Story.js'ten taşındı — artık tüm şehir listesi değil, TEK şehir)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Odaktaki şehir: haritada seçtiğin (senin ise), yoksa komutanının bulunduğu şehir
+// Odaktaki şehir: haritada seçtiğin herhangi bir şehir; seçim yoksa komutanının şehri.
+// Sahiplik, yeni şehir dosyasının bilgi filtresinde yönetilir. Yabancı şehri burada
+// reddetmek harita → şehir inceleme akışını tamamen kırıyordu.
 function storyCityFocus() {
     const sel = storyNode(STORY.selectedNodeId);
-    if (sel && sel.owner === STORY.playerStateId) return sel;
+    if (sel) return sel;
     return storyNode(STORY.commander && STORY.commander.node);
 }
 
 function storyCityOpen() {
-    storyCouncilClose(); storyTechClose(); storyArmyClose();
+    storyCouncilClose(); storyTechClose(); storyArmyClose(); if (typeof storyEconomyClose === 'function') storyEconomyClose();
     STORY._cityOpen = true;
     const p = document.getElementById('city-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -513,6 +549,11 @@ function prodPoolSection(n) {
 
 function storyCityUpdate() {
     if (!STORY._cityOpen) return;
+    if (typeof storyCityDossierEnabled === 'function'
+        && storyCityDossierEnabled()
+        && typeof storyCityDossierUpdate === 'function') {
+        return storyCityDossierUpdate();
+    }
     const body = document.getElementById('city-body'); if (!body) return;
     const mine = STORY.nodes.filter(x => x.owner === STORY.playerStateId);
     const n = storyCityFocus();
@@ -599,7 +640,19 @@ function aiTryBuild(n, st, payer) {
         if (lvl >= PROD_MAX_LEVEL || lvl >= prodMaxBuildLevel(n)) continue;
         const cost = prodBuildCost(kind, lvl, n);
         if (!payer || !payer.res || (payer.res.points || 0) < cost) continue;
-        payer.res.points -= cost;
+        if (typeof storyBudgetDebit === 'function') {
+            const paid = storyBudgetDebit(st, cost, `build.${kind}`, {
+                commander: payer,
+                commanderOnly: true,
+                correlationId: `build:${n.id}:${kind}:${lvl + 1}`
+            });
+            if (!paid.ok) continue;
+        } else payer.res.points -= cost;
+        if (typeof storyResourceFlow === 'function') {
+            storyResourceFlow(st, `expense.build.${kind}`, { points: -cost }, {
+                correlationId: `build:${n.id}:${kind}:${lvl + 1}`
+            });
+        }
         n[kind] = lvl + 1;
         return true;
     }
@@ -630,7 +683,7 @@ function aiTryProduce(n, st, cmds) {
         return Math.max(0.6, wgt);
     };
     let tot = 0; const ws = open.map(t => { const v = weightOf(t); tot += v; return v; });
-    let r = Math.random() * tot, wanted = open[0];
+    let r = storyRandom('production') * tot, wanted = open[0];
     for (let i = 0; i < open.length; i++) { r -= ws[i]; if (r <= 0) { wanted = open[i]; break; } }
 
     const kind = prodBuildingFor(wanted);
@@ -645,7 +698,19 @@ function aiTryProduce(n, st, cmds) {
     // ordunun doğal yedeği: şehir savunması beslenmeye devam eder.
     const armyFull = cmdArmyCount(payer) + prodPendingFor(payer) >= cmdArmyCap(payer);
     if (armyFull && (n.garrison | 0) >= storyCityGarrisonCap(n)) return false;   // ordu DA garnizon DA dolu
-    payer.res[g] -= cost;
+    if (g === 'points' && typeof storyBudgetDebit === 'function') {
+        const paid = storyBudgetDebit(st, cost, 'production.points', {
+            commander: payer,
+            commanderOnly: true,
+            correlationId: `production:${n.id}:${wanted}:${payer.id}`
+        });
+        if (!paid.ok) return false;
+    } else payer.res[g] -= cost;
+    if (typeof storyResourceFlow === 'function') {
+        storyResourceFlow(st, `expense.production.${g}`, { [g]: -cost }, {
+            correlationId: `production:${n.id}:${wanted}:${payer.id}`
+        });
+    }
     const t = prodTime(n, kind, wanted);
     n.q.push({ type: wanted, t, tot: t, cmd: payer.id });
     if (typeof storyEconChipGate === 'function') storyEconChipGate(storyState(n.owner), wanted);   // AŞAMA 3: AI ⚡ düşümü
@@ -669,7 +734,7 @@ function storyCommanderCityTick() {
         if (!st.gov) continue;
         for (const cmd of storyStateCommanders(st)) {
             if (cmd.isPlayer) continue;                       // oyuncunun kasasına karışma
-            if (Math.random() > CMD_INVEST_CHANCE) continue;
+            if (storyRandom('production') > CMD_INVEST_CHANCE) continue;
             const n = storyNode(cmd.node);
             if (!n || n.owner !== st.id || !cmd.res) continue;
             const front = (n.neighbors || []).some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; });
@@ -680,7 +745,7 @@ function storyCommanderCityTick() {
             // üretebiliyor. Ölçümde tüm dünya burada kilitlenip tek tip orduya düşüyordu,
             // bu yüzden bina yükseltmesi ordu üretiminin ÖNÜNE alındı (ucuzsa ve gerekliyse).
             const weakInfra = ((n.bar | 0) < 2 || (n.fac | 0) < 2) && (n.bar | 0) + (n.fac | 0) < 4;
-            if (weakInfra && Math.random() < 0.55 && aiTryBuild(n, st, cmd)) continue;
+            if (weakInfra && storyRandom('production') < 0.55 && aiTryBuild(n, st, cmd)) continue;
 
             // 1) ORDU EKSİK → üret (savaşan ordu her şeyden önce gelir)
             if (hungry && aiTryProduce(n, st, [cmd])) continue;
@@ -693,8 +758,15 @@ function storyCommanderCityTick() {
             if (aiTryBuild(n, st, cmd)) continue;
             // 4) ORGANİK BÜYÜME: şehir seviyesi artık SATIN ALINMAZ — komutan parası
             // şehrin zenginliğine akar, büyümeyi hızlandırır (nüfus/zenginlik eşiği bekler).
-            if ((n.level || 1) < 3 && cmd.res.points >= 120 && Math.random() < 0.4) {
-                cmd.res.points -= 120; n.wealth = (n.wealth || 0) + 6; continue;
+            if ((n.level || 1) < 3 && cmd.res.points >= 120 && storyRandom('production') < 0.4) {
+                const paid = typeof storyBudgetDebit === 'function'
+                    ? storyBudgetDebit(st, 120, 'city.investment', {
+                        commander: cmd,
+                        commanderOnly: true,
+                        correlationId: `city-investment:${n.id}:${cmd.id}`
+                    }).ok
+                    : (cmd.res.points -= 120, true);
+                if (paid) { n.wealth = (n.wealth || 0) + 6; continue; }
             }
             // 5) geride kalan garnizon boşluğu (yalnız yumuşak tavana kadar)
             if (gar < garCap && cmd.res.manpower >= CITY_GARRISON_COST) {
@@ -737,7 +809,16 @@ function storyInvestCenter(st, n, payer) {
     // parasını şehre ZENGİNLİK olarak enjekte eder — büyüme hızlanır, eşik dolunca
     // seviye kendiliğinden gelir (storyCityGrowthTick).
     if ((facBlocked || barBlocked) && (n.level || 1) < 3) {
-        if ((payer.res.points || 0) >= 120) { payer.res.points -= 120; n.wealth = (n.wealth || 0) + 6; return true; }
+        if ((payer.res.points || 0) >= 120) {
+            const paid = typeof storyBudgetDebit === 'function'
+                ? storyBudgetDebit(st, 120, 'city.investment', {
+                    commander: payer,
+                    commanderOnly: true,
+                    correlationId: `city-investment:${n.id}:${payer.id}`
+                }).ok
+                : (payer.res.points -= 120, true);
+            if (paid) { n.wealth = (n.wealth || 0) + 6; return true; }
+        }
         return false;
     }
     return aiTryBuild(n, st, payer);
@@ -757,16 +838,43 @@ function storyCityGrowthTick(dt) {
         const st = storyState(n.owner); if (!st) continue;
         if (n.pop == null) {                                   // göç: eski kayıt / yeni düğüm
             const lv = n.level || 1;
-            n.pop = 10 + (lv - 1) * 28 + Math.random() * 4;
+            n.pop = 10 + (lv - 1) * 28 + storyRandom('production') * 4;
             n.wealth = (lv - 1) * 20;
         }
         if (n._siege) continue;                                // kuşatılan şehir büyümez
         const strike = st._strikeUntil && st._strikeUntil > (STORY.clock || 0);
         const unr = (typeof storyFacUnrest === 'function') ? storyFacUnrest(st) : 0;
         const infra = (n.fac | 0) + (n.bar | 0);
-        let g = 0.012 + (st.welfare - 40) * 0.0009 + infra * 0.005 + ((n.oil || 0) + (n.pts || 0)) * 0.002 - unr * 0.0006;
-        if (strike) g *= 0.25;
-        n.pop = Math.max(4, Math.min(140, n.pop + g * dt));
+        const bootstrapPlanning = typeof storyFeatureEnabled !== 'function'
+            || storyFeatureEnabled('economy.bootstrapPlanning');
+        if (bootstrapPlanning) {
+            const needs = typeof storyNeedsRegionView === 'function'
+                ? storyNeedsRegionView(`region:${Number(n.id)}`)
+                : null;
+            const foodAccess = needs ? Math.max(0, Math.min(1,
+                Number(needs.foodAccessBps) / 10000)) : 1;
+            const energyAccess = needs ? Math.max(0, Math.min(1,
+                Number(needs.energyAccessBps) / 10000)) : 1;
+            const essentialAccess = Math.min(foodAccess, energyAccess);
+            const annualRate = Math.max(-0.025, Math.min(0.025,
+                0.008
+                + (Number(st.welfare) - 50) * 0.00015
+                - (1 - essentialAccess) * 0.03
+                - unr * 0.00008
+            ));
+            const years = Math.max(0, Number(dt) || 0)
+                / ((typeof STORY_CALENDAR !== 'undefined'
+                    && Number(STORY_CALENDAR.secondsPerYear)) || 120);
+            const strikeMultiplier = strike ? 0.25 : 1;
+            n.pop = Math.max(4, Math.min(
+                140,
+                n.pop + n.pop * annualRate * years * strikeMultiplier
+            ));
+        } else {
+            let g = 0.012 + (st.welfare - 40) * 0.0009 + infra * 0.005 + ((n.oil || 0) + (n.pts || 0)) * 0.002 - unr * 0.0006;
+            if (strike) g *= 0.25;
+            n.pop = Math.max(4, Math.min(140, n.pop + g * dt));
+        }
         // Katsayılar ölçümle kalibre: ilk değerlerde 600 sn'de yalnız 2-5 şehir Sv.2
         // olabiliyordu (hedef bant 5-20) — darboğaz zenginlik birikimindeydi.
         n.wealth = Math.max(0, Math.min(200, (n.wealth || 0)
@@ -778,7 +886,7 @@ function storyCityGrowthTick(dt) {
                 storyLog(`🏙️ <b>${n.name}</b> büyüdü — <b>Sv.${n.level}</b> (nüfus ${Math.round(n.pop)}k). Bina tavanı yükseldi.`);
                 if (typeof storyFlash === 'function') storyFlash(`🏙️ ${n.name} Sv.${n.level} oldu`);
                 if (typeof storyNews === 'function') storyNews('level', { city: n.name, pop: Math.round(n.pop) });
-            } else if (typeof storyNews === 'function' && Math.random() < 0.15) {
+            } else if (typeof storyNews === 'function' && storyRandom('production') < 0.15) {
                 storyNews('level', { city: n.name, pop: Math.round(n.pop) });
             }
         }
@@ -792,13 +900,13 @@ function storyAICityTick() {
         const owned = STORY.nodes.filter(n => n.owner === st.id); if (!owned.length) continue;
         const border = owned.filter(n => n.neighbors.some(nb => { const m = storyNode(nb); return m && m.owner !== st.id; }));
         const pick = border.length ? border : owned;
-        const n = pick[(Math.random() * pick.length) | 0];
+        const n = pick[storyRandomInt('production', pick.length)];
         const cmds = storyStateCommanders(st).filter(c => !c.isPlayer);   // oyuncunun kasasına dokunma
         if (!cmds.length) continue;
 
         // AĞIR SANAYİ: devlet bütçesinin bir kısmı sanayi merkezlerine akar (yoğunlaşma).
         // Bu olmadan yatırım 80 şehre dağılıyor ve hiçbiri tank/topçu kademesine çıkamıyordu.
-        if (Math.random() < 0.55) {
+        if (storyRandom('production') < 0.55) {
             const centers = storyIndustrialCenters(st);
             const rich = cmds.slice().sort((a, b) => ((b.res && b.res.points) || 0) - ((a.res && a.res.points) || 0))[0];
             let done = false;
@@ -807,7 +915,7 @@ function storyAICityTick() {
         }
         const rich = g => cmds.slice().sort((a, b) => ((b.res && b.res[g]) || 0) - ((a.res && a.res[g]) || 0))[0];
         // SİMETRİK MALİYET: oyuncuyla AYNI — garnizon 70👥, şehir 300/600⭐, bina FACTORY/BARRACKS_COST
-        const r = Math.random();
+        const r = storyRandom('production');
         if (r < 0.28) {
             const p = rich('manpower');
             if ((n.garrison || 0) < storyCityGarrisonCap(n) && p && p.res && p.res.manpower >= CITY_GARRISON_COST) {
@@ -816,7 +924,16 @@ function storyAICityTick() {
         } else if (r < 0.45) {
             // ORGANİK BÜYÜME: devlet parası şehrin zenginliğine akar (seviye kendiliğinden)
             const p = rich('points');
-            if ((n.level || 1) < 3 && p && p.res && p.res.points >= 120) { p.res.points -= 120; n.wealth = (n.wealth || 0) + 6; }
+            if ((n.level || 1) < 3 && p && p.res && p.res.points >= 120) {
+                const paid = typeof storyBudgetDebit === 'function'
+                    ? storyBudgetDebit(st, 120, 'city.investment', {
+                        commander: p,
+                        commanderOnly: true,
+                        correlationId: `city-investment:${n.id}:${p.id}`
+                    }).ok
+                    : (p.res.points -= 120, true);
+                if (paid) n.wealth = (n.wealth || 0) + 6;
+            }
         } else if (r < 0.68) {
             aiTryBuild(n, st, rich('points'));
         } else {

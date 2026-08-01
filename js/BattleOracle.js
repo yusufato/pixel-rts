@@ -54,18 +54,25 @@ function battleSelectorPickInjection(controller, observation, situation) {
     const cache = BATTLE_SELECTOR_CACHES[controller.id];
     if (cache && cache.inj && (SIM.tick - cache.tick) < BATTLE_SELECTOR_REPICK_TICKS) return cache.inj;
     const sideRed = controller.side;
-    // EĞİTİMLE TUTARLI: aynı context kurucusu (battleOracleGrammarContext = tam-bilgi sektör görünümü).
-    // Eğitim verisi de bununla üretildi → train/inference feature dağılımı eşleşir. (Sis-savaşı hizalaması
-    // ayrı bir rafinasyon: model partial-info ile eğitilip partial-info ile oynatılabilir — sonraki adım.)
-    const ownUnits = SIM.units.filter(u => !u.dead && (!!u.isRed === !!sideRed));
-    const ctx = battleOracleGrammarContext(controller, sideRed);
+    // ADİL (HİLE YOK): canlı selector yalnız PERCEPTION'dan (observation.contacts = görülen/hatırlanan düşman) besleyor,
+    // SIM.units full-info DEĞİL. Kullanıcı ilkesi "AI hile yapmasın". Perception boşsa (temas yok) kod-AI'ya bırak.
+    // NOT: model full-info ile eğitildi → perception'a geçişte hafif train/inference kayması olur; kalıcı çözüm
+    // perception-feature'la yeniden eğitmek (sonraki iş). Oracle/eğitim tarafı full-info kullanmaya devam eder (öğretmen).
+    const ownUnits = (observation && observation.ownUnits && observation.ownUnits.length)
+        ? observation.ownUnits
+        : SIM.units.filter(u => !u.dead && (!!u.isRed === !!sideRed));   // öz-birlik her zaman bilinir (adil)
+    const perceived = ((observation && observation.contacts) || []).filter(c => c && (c.visible || c.confidence > 0));
+    if (!perceived.length) return null;   // düşman algılanmadıysa selector karar veremez → kod-AI (o da perception kullanır)
+    const contacts = perceived.map(c => ({ x: c.x, y: c.y, confidence: c.confidence ?? 1, estimatedStrength: c.estimatedStrength || 50 }));
+    let role = controller.lastSituation && controller.lastSituation.role;
+    if (!role && typeof battleRoleForSide === 'function') role = battleRoleForSide(sideRed);
+    const ctx = opgBuildContext(sideRed, ownUnits, contacts, role);
     const candidates = operationGrammarGenerate(ctx);
     if (!candidates.length) return null;
     let minEnemyDist = Infinity;
-    const foes = SIM.units.filter(u => !u.dead && (!!u.isRed !== !!sideRed));
-    for (const a of ownUnits) for (const b of foes) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < minEnemyDist) minEnemyDist = d; }
+    for (const a of ownUnits) for (const b of contacts) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < minEnemyDist) minEnemyDist = d; }
     const maxTicks = Math.round(((typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.durationSec) || 240) / BATTLE_TICK_SEC);
-    const sf = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: ownUnits.length, enemyCount: foes.length });
+    const sf = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: ownUnits.length, enemyCount: contacts.length });
     let best = null, bestScore = -Infinity;
     for (const cand of candidates) {
         const s = selForward(model, sf.concat(battleCandidateFeatures(cand, ctx))).out;
@@ -150,9 +157,10 @@ function battleOracleOrganizeByAllocation(ownUnits, allocation) {
     };
     const combat = [];
     for (const u of ownUnits.slice().sort((a, b) => a.id - b.id)) {
-        if (u.type === T.RECON) buckets[TASK_GROUP_ROLE.RECON].push(u);
-        else if (u.type === T.ARTILLERY) buckets[TASK_GROUP_ROLE.FIRE_SUPPORT].push(u);
-        else if (u.type === T.ENGINEER || u.type === T.MEDIC) buckets[TASK_GROUP_ROLE.SUPPORT].push(u);
+        const r = battleUnitRoleBucket(u.type);   // roleTags/category-güdümlü (25-birim)
+        if (r === TASK_GROUP_ROLE.RECON) buckets[TASK_GROUP_ROLE.RECON].push(u);
+        else if (r === TASK_GROUP_ROLE.FIRE_SUPPORT) buckets[TASK_GROUP_ROLE.FIRE_SUPPORT].push(u);
+        else if (r === TASK_GROUP_ROLE.SUPPORT) buckets[TASK_GROUP_ROLE.SUPPORT].push(u);
         else combat.push(u);
     }
     const uv = (typeof planningUnitValue === 'function') ? planningUnitValue : battleOracleUnitValue;

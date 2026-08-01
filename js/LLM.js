@@ -152,6 +152,37 @@ function llmEnrich(system, prompt, validate) {
     const b = llmBridge();
     if (!llmAvailable() || LLM.inFlight >= LLM.maxInFlight) return Promise.resolve(null);
     LLM.inFlight++; LLM.stats.asked++;
+    const telemetryActive = typeof STORY !== 'undefined' && STORY.active
+        && typeof storyTelemetryEvent === 'function';
+    const telemetryClock = typeof STORY !== 'undefined' ? Number(STORY.clock) || 0 : 0;
+    const requestId = `llm:${typeof storyTelemetryRound === 'function' ? storyTelemetryRound(telemetryClock) : telemetryClock}:${LLM.stats.asked}`;
+    const startedAt = (typeof performance !== 'undefined' && performance.now)
+        ? performance.now()
+        : Date.now();
+    let finalized = false;
+    const finish = (type, payload) => {
+        if (!finalized) {
+            finalized = true;
+            LLM.inFlight = Math.max(0, LLM.inFlight - 1);
+        }
+        if (!telemetryActive) return;
+        const endedAt = (typeof performance !== 'undefined' && performance.now)
+            ? performance.now()
+            : Date.now();
+        storyTelemetryEvent(type, Object.assign({
+            requestId,
+            latencyMs: typeof storyTelemetryRound === 'function'
+                ? storyTelemetryRound(endedAt - startedAt, 2)
+                : Math.round((endedAt - startedAt) * 100) / 100
+        }, payload || {}), { correlationId: requestId });
+    };
+    if (telemetryActive) {
+        storyTelemetryEvent('llm.requested', {
+            requestId,
+            systemChars: String(system || LLM_SYSTEM).length,
+            promptChars: String(prompt || '').length
+        }, { correlationId: requestId });
+    }
     // maxTokens 160 → 70 → 110. Önce 160'tan 70'e indirdik: Qwen'de kalan jeton
     // "devam et" alanıydı ve kaçaklar orada başlıyordu. Ama Türkçe modeli seçince
     // yeni bir kısıt çıktı: Türkçe-Llama her çıktıya **Başlık:**/**Madde:** iskelesi
@@ -161,14 +192,14 @@ function llmEnrich(system, prompt, validate) {
     // varsayılan olduğu için kabul edilebilir (saf CPU'da ~0.8 jeton/sn).
     return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 110, temperature: LLM_TEMPERATURE })
         .then(txt => {
-            LLM.inFlight--;
-            if (!txt) { LLM.stats.failed++; return null; }
+            if (!txt) { LLM.stats.failed++; finish('llm.failed', { reason: 'empty' }); return null; }
             const v = validate ? validate(txt) : txt;
-            if (!v) { LLM.stats.rejected++; return null; }
+            if (!v) { LLM.stats.rejected++; finish('llm.rejected', { reason: 'validation' }); return null; }
             LLM.stats.used++;
+            finish('llm.used', { outputChars: Array.isArray(v) ? v.join('\n').length : String(v).length });
             return v;
         })
-        .catch(() => { LLM.inFlight--; LLM.stats.failed++; return null; });
+        .catch(() => { LLM.stats.failed++; finish('llm.failed', { reason: 'exception' }); return null; });
 }
 
 // Chatter kaydını arka planda zenginleştir (kayıt zaten oyunda; metni değiştiririz)

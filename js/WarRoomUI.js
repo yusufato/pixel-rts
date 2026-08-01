@@ -216,7 +216,7 @@ function warRoomUpdateDeploy() {
     const rows = typeIds.map(type => ({ count: counts[type], type, stat: STATS[type] })).filter(row => row.count > 0);
     list.innerHTML = rows.length ? rows.map(row => `
         <div class="deploy-comp-row">
-            <span class="deploy-unit-sprite" style="background-position:${row.type * 12.5}% 0%"></span>
+            <span class="deploy-unit-sprite" style="background-position:${row.type * (100/24)}% 0%"></span>
             <span>${row.stat.name}</span><b>×${row.count}</b><em>${row.stat.cost * row.count}</em>
         </div>`).join('') : '<div class="deploy-empty">HENÜZ BİRLİK YERLEŞTİRİLMEDİ</div>';
     const count = own.length;
@@ -325,7 +325,7 @@ function warRoomUpdateBattle() {
     if (name) name.textContent = stat?.name?.toUpperCase() || 'BİRİM SEÇ';
     if (role) role.textContent = selected ? (selected.isPanicking ? 'PANİK' : selected.inTrench ? 'TAHKİMLİ' : 'SAHA BİRLİĞİ') : 'SAHA TEMASI YOK';
     if (sprite) {
-        sprite.style.backgroundPosition = selected ? `${selected.type * 12.5}% ${selected.isRed ? '100%' : '0%'}` : '0% 0%';
+        sprite.style.backgroundPosition = selected ? `${selected.type * (100 / 24)}% ${selected.isRed ? '100%' : '0%'}` : '0% 0%';
         sprite.style.opacity = selected ? '1' : '.2';
     }
     const hullPct = selected ? Math.max(0, Math.min(100, selected.hp / Math.max(1, selected.maxHp) * 100)) : 0;

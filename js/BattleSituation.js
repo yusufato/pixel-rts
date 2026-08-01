@@ -51,6 +51,117 @@ function postureFromRatio(ratio, confidence) {
     return FORCE_POSTURE.PARITY;
 }
 
+// FAZ 7 — OPERASYONEL DURUŞ (SHAPE/POSITION/STRIKE/PRESERVE) + TAARRUZ-KAPISI.
+// Modern doktrin: varsayılan STRIKE değil SHAPE'tir. AI "STRIKE'ta doğmaz"; taarruz sayılabilir koşullar
+// sağlanınca AÇILIR (kuvvet-oranı ≥ eşik + bilgi-tazeliği + mühimmat). Eşik role+urgency ile sönümlenir:
+// SALDIRAN'ın eşiği süre ilerledikçe düşer (saatı boşa harcarsa savunan kazanır); SAVUNAN yüksek tutar
+// (kuvvet-koru + süreyi tüket). Deterministik: yalnız situation'daki yuvarlanmış alanlardan türer, RNG yok.
+const OPERATIONAL_POSTURE = Object.freeze({
+    SHAPE: 'SHAPE',           // temas yok: keşif/ilerle+sondaj, kendini gösterme
+    POSITION: 'POSITION',     // temas var ama kapı kapalı (saldıran): menzilde şekillendir, pencereyi bekle
+    STRIKE: 'STRIKE',         // kapı açık: konsantre kapat-ez
+    CONSOLIDATE: 'CONSOLIDATE',// baskın+mühimmat-düşük+zaman-var: DORUK-noktası — dur, ikmal et, aşırı-uzanma
+    PRESERVE: 'PRESERVE'      // temas var ama kapı kapalı (savunan): hattı tut, kuvvet-koru, saati tüket
+});
+const STRIKE_GATE = Object.freeze({
+    ATTACKER_BASE: 1.15,        // saldıran temel eşik (yerel üstünlük ara)
+    ATTACKER_URGENCY_DROP: 0.75,// ANALİST-FIX (assault-takvim): urgency 1'e giderken eşik 1.15→0.40 (0.5→0.75; saldıran zamanla mecbur-saldır). Felç yerine takvim.
+    MAX_POSITION_TICKS: 1600,   // ANALİST-FIX: saldıran POSITION'da en çok ~80s bekler → sonra MECBUR taarruz (assembly'de erime yerine en-az-kötü-eksen)
+    COMMIT_DEADLINE_TP: 0.36,   // ANALİST-KRİTER: ilk-STRIKE t<90 → deadline t≈86 (backstop bile <90). Stance-osilasyonu felce sokamaz.
+    DEFENDER_BASE: 2.0,         // ANALİST-FIX(b): savunan HAZIR-MEVZİYİ ancak ~2:1 net-üstünlükte terk eder (taarruzdan yüksek kanıt ister)
+    DEFENDER_VIS_MIN: 0.7,      // + görünürlük şartı: temasların ≥%70'i GÖRÜNÜR olmadan mevziden çıkma (bayat-temasa güvenme)
+    PRESERVE_RATIO: 0.6,        // savunan bu oranın altında → erken PRESERVE (mevziyi tut, 0.01'e kadar bekleme)
+    DEFENDER_URGENCY_DROP: 0.1, // savunan saati istiyor; urgency eşiği az kıpırdatır
+    MIN_CONFIDENCE: 0.35,       // bilgi-tazeliği: kör taarruz etme (urgency override eder)
+    MIN_AMMO: 0.2,              // kuru orduyla taarruz etme
+    DESPERATION_TP: 0.55,       // ANALİST-FIX: saldıran daha ERKEN koşulsuz-taarruz (0.8→0.55; t=209 "ölmüş hastaya defibrilatör"du → ~t=130'a çek)
+    HYSTERESIS: 0.28            // HİSTEREZİS: aç ≥eşik, ama açıkken yalnız (eşik-0.28) altında KAPAT → titreme biter + STRIKE-penceresi oluşur (aç-kapa flicker yerine sürekli pencere)
+});
+// DOKTRİN↔POSTURE: doktrine göre taarruz-eşiği bias'ı → "her maç farklı RİTİM" (indeks BATTLE_DOCTRINE_NAMES ile hizalı).
+// NEGATİF=daha erken/agresif taarruz, POZİTİF=daha uzun şekillendir/yıprat (nadir STRIKE). Analist: topçu şekillendirir,
+// manevra fırsatçı vurur, drone/hava-savunma yıpratıp bekler, zırh-mızrağı erken ezer.
+const DOCTRINE_STRIKE_BIAS = [
+    0.00,   // 0 dengeli
+   -0.15,   // 1 zirh-mizragi: erken ez (zırh kütlesiyle dal)
+   -0.06,   // 2 piyade-dalgasi: hafif agresif (dalga)
+   +0.22,   // 3 topcu: dolaylı-ateşle YIPRAT, geç taarruz
+   +0.10,   // 4 hava-harekati: önce SEAD/hava-hakimiyeti, sonra vur
+   +0.14,   // 5 tanksavar-pusu: bekle-pusu, reaktif
+   -0.18,   // 6 hareketli-vurkac: fırsatçı hızlı vuruşlar
+   +0.20,   // 7 hava-savunma-agi: alan-inkarı, taarruzu reddet
+   +0.18    // 8 drone-yogun: sürüyle yıprat, doğrudan-taarruzdan kaçın
+];
+function computeOperationalPosture(o) {
+    const ATT = (typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.ATTACKER : 'attacker';
+    const isAtt = o.role === ATT;
+    const base = isAtt ? STRIKE_GATE.ATTACKER_BASE : STRIKE_GATE.DEFENDER_BASE;
+    const drop = isAtt ? STRIKE_GATE.ATTACKER_URGENCY_DROP : STRIKE_GATE.DEFENDER_URGENCY_DROP;
+    const dBias = DOCTRINE_STRIKE_BIAS[(o.doctrine | 0)] || 0;   // DOKTRİN↔POSTURE: eşik bias'ı (farklı ritim)
+    const threshold = base - drop * (o.timePressure || 0) + dBias;
+    // ASSAULT-TAKVİM (analist, 2-kez-doğrulandı): saldıranın MUTLAK-ZAMAN commit-deadline'ı — stance-osilasyonundan (SHAPE↔POSITION
+    // temas-söndükçe) BAĞIMSIZ. POSITION-timer osilasyonda sıfırlanıp felç üretiyordu; artık timeProgress-tabanlı mecbur-taarruz.
+    const commitDeadline = isAtt && (o.timeProgress || 0) >= STRIKE_GATE.COMMIT_DEADLINE_TP;   // ~t=91: en-az-kötü-eksenden taarruz
+    const positionStuck = isAtt && o.prevStance === OPERATIONAL_POSTURE.POSITION &&
+        ((o.now || 0) - (o.prevStanceTick || 0)) >= STRIKE_GATE.MAX_POSITION_TICKS;
+    const desperate = isAtt && ((o.timePressure || 0) >= STRIKE_GATE.DESPERATION_TP || positionStuck || commitDeadline);
+    const hasContact = o.contactState === CONTACT_STATE.CONTACT;
+    // SÖMÜRÜ-TETİĞİ (şok-penceresi): son ~4s'de düşman-değeri ani düştü (kamikaze/komando/topçu bir yığını sildi) →
+    // fırsat penceresini YAKALA: gate-aç + duruş-kilidini aş. Kritik-zayıf değilsek (oran≥0.85) — savunanda da geçerli (yerel kontra).
+    // Analist: "AI şok YARATABİLİYOR ama HARCAYAMIYOR" → izleyenden CEVAP-VERENe geçişin vidası.
+    const shock = !!o.shockWindow && hasContact && (o.ammoReadiness || 0) >= STRIKE_GATE.MIN_AMMO && Number.isFinite(o.forceRatio) && o.forceRatio >= 0.85;
+    // HİSTEREZİS: açıkken eşik DÜŞER (yalnız net-dezavantajda kapat) → 500ms'lik aç-kapa flicker biter, STRIKE bir PENCERE olur
+    const effThreshold = o.prevGateOpen ? (threshold - STRIKE_GATE.HYSTERESIS) : threshold;
+    const ratioOK = Number.isFinite(o.forceRatio) && o.forceRatio >= effThreshold;
+    // ERKEN-KEŞİF-KİLİDİ (analist "önce sensörle savaş"): ilk fazda (recon shaping) daha YÜKSEK bilgi iste →
+    // AI sisten sahte-güvenle körlemesine dalmasın; önce tarasın. Yakın-temas (düşman kapıda) veya urgency bunu geçer.
+    const early = isAtt && !o.prevGateOpen && (o.timeProgress || 0) < 0.30 && !desperate;
+    const infoFloor = early ? 0.55 : STRIKE_GATE.MIN_CONFIDENCE;
+    const infoOK = o.prevGateOpen || (o.contactConfidence || 0) >= infoFloor || desperate;   // açıkken confidence-dip taarruzu iptal etmesin (zaten temastasın)
+    const ammoOK = (o.ammoReadiness || 0) >= STRIKE_GATE.MIN_AMMO;   // kuruyunca DUR (histerezissiz — ikmal penceresi doğru)
+    // ANALİST-FIX(b): SAVUNAN hazır-mevzi terk için GÖRÜNÜRLÜK şartı — temasların ≥%70'i görünmeden mevziden çıkma (bayat-temas yalanına kanma)
+    const visOK = isAtt || o.visibleRatio == null || (o.visibleRatio >= STRIKE_GATE.DEFENDER_VIS_MIN);
+    let gateOpen = desperate || shock || (hasContact && ratioOK && infoOK && ammoOK && visOK);
+    // ANALİST-FIX(c): SAVUNAN kaybediyorsa (oran<0.6) kapıyı ZORLA-KAPAT → erken PRESERVE (mevziyi tut, 0.01'e kadar çökme bekleme)
+    const losing = !isAtt && Number.isFinite(o.forceRatio) && o.forceRatio < STRIKE_GATE.PRESERVE_RATIO;
+    if (losing) gateOpen = false;
+    // DORUK-NOKTASI (culminating point): saldıran baskın (oran>2) ama YIPRANMIŞ (mühimmat VEYA can düşük) ve zaman VAR →
+    // ezmeyi sürdürmek yerine DUR + ikmal/tamir et (aşırı-uzanan kuvvet imha olur). desperate ile çakışmaz (tp aralıkları ayrık).
+    const worn = (o.ammoReadiness || 0) < 0.4 || (o.hpReadiness || 1) < 0.55;
+    const consolidate = isAtt && !desperate && Number.isFinite(o.forceRatio) && o.forceRatio > 2.0
+        && worn && (o.timePressure || 0) < 0.6;
+    let stance;
+    if (losing) stance = OPERATIONAL_POSTURE.PRESERVE;   // kaybeden savunan: mevziyi tut
+    else if (consolidate) { stance = OPERATIONAL_POSTURE.CONSOLIDATE; gateOpen = false; }
+    else if (gateOpen) stance = OPERATIONAL_POSTURE.STRIKE;
+    else if (!hasContact) stance = OPERATIONAL_POSTURE.SHAPE;
+    else stance = isAtt ? OPERATIONAL_POSTURE.POSITION : OPERATIONAL_POSTURE.PRESERVE;
+    // ANALİST-FIX: STANCE HİSTEREZİSİ (titreme=saniyede-bir-duruş bug'ı). non-STRIKE duruşlar (SHAPE/POSITION/PRESERVE)
+    // arası flicker'ı kilitle: min-süre önceki duruşu tut. STRIKE giriş/çıkış gate-histerezisiyle zaten korunur;
+    // losing (kriz) hemen PRESERVE'e geçer (kilit dinlemez). gateOpen non-STRIKE'ta zaten false → tutarlılık bozulmaz.
+    let stanceTick = o.now || 0;
+    const STANCE_LOCK = 400;   // ~20s: deliberate duruş sabit kalır, sub-saniye flicker biter (main-effort 70s kilidin muadili)
+    if (o.prevStance && o.prevStance !== OPERATIONAL_POSTURE.STRIKE && stance !== OPERATIONAL_POSTURE.STRIKE
+        && stance !== o.prevStance && !losing && !shock && (( o.now || 0) - (o.prevStanceTick || 0)) < STANCE_LOCK) {
+        stance = o.prevStance; stanceTick = o.prevStanceTick || (o.now || 0);   // kilitli: önceki non-STRIKE duruşu koru
+    } else if (stance === o.prevStance) {
+        stanceTick = o.prevStanceTick || (o.now || 0);   // aynı duruş → giriş-tik'ini koru
+    }
+    return {
+        stance,
+        stanceTick,
+        strikeGateOpen: gateOpen,
+        strikeThreshold: Math.round(threshold * 100) / 100,
+        gateReason: losing ? 'kaybediyor-preserve'
+                  : consolidate ? 'doruk-konsolide'
+                  : gateOpen ? (shock ? 'sok-somuru' : desperate ? 'urgency' : 'kosul-sagli')
+                  : !hasContact ? 'temas-yok'
+                  : !ratioOK ? 'kuvvet-orani'
+                  : !visOK ? 'gorunurluk-dusuk'
+                  : !infoOK ? 'kesif-bayat'
+                  : !ammoOK ? 'muhimmat-dusuk' : 'tut'
+    };
+}
+
 class SituationAnalyzer {
     constructor(controller) {
         this.controller = controller;
@@ -136,6 +247,17 @@ class SituationAnalyzer {
             )))
             : null;
 
+        // SÖMÜRÜ-TETİĞİ verisi (şok-penceresi): düşman-değerinin son ~4s'deki DORUĞUNA göre ani-düşüşünü izle.
+        // estimatedEnemyValue TEYİTLİ-imha-tabanlı (intel-fix) → kamikaze/komando/topçu bir yığını silince ANİ düşer = ŞOK.
+        // AI şoku YARATABİLİYOR ama HARCAYAMIYORDU (analist: t112 PRESERVE→t117 kamikaze 5-öldürdü→sömürü GELMEDİ).
+        const SHOCK_WINDOW_TICKS = 80;   // ~4s
+        this._evHist = this._evHist || [];
+        this._evHist.push({ t: observation.tick, v: estimatedEnemyValue });
+        while (this._evHist.length && (observation.tick - this._evHist[0].t) > SHOCK_WINDOW_TICKS) this._evHist.shift();
+        let _evPeak = estimatedEnemyValue;
+        for (const _e of this._evHist) if (_e.v > _evPeak) _evPeak = _e.v;
+        const shockWindow = _evPeak > 0 && ((_evPeak - estimatedEnemyValue) / _evPeak) >= 0.12;
+
         const finiteSectorEntries = Object.entries(sectors).filter(([, sector]) => Number.isFinite(sector.ratio));
         const weakestFriendlySector = finiteSectorEntries.length
             ? finiteSectorEntries.slice().sort((a, b) => a[1].ratio - b[1].ratio)[0][0]
@@ -156,6 +278,23 @@ class SituationAnalyzer {
             estimatedEnemyValue: Math.round(estimatedEnemyValue * 100) / 100,
             forceRatio: Number.isFinite(forceRatio) ? Math.round(forceRatio * 100) / 100 : null,
             forcePosture: postureFromRatio(forceRatio, avgConfidence),
+            operationalPosture: computeOperationalPosture({
+                role,
+                forceRatio,
+                contactState,
+                contactConfidence: avgConfidence,
+                visibleRatio: contacts.length ? (visibleContacts.length / contacts.length) : 1,   // ANALİST-FIX(b): görünür/toplam temas oranı (savunan mevzi-terk şartı)
+                ammoReadiness: ownUnits.length ? (ammoReadiness / ownUnits.length) : 0,
+                hpReadiness: ownUnits.length ? (hpReadiness / ownUnits.length) : 1,
+                timePressure,
+                timeProgress,
+                doctrine: (ownUnits[0] && typeof ownUnits[0].deployDoctrine === 'number') ? ownUnits[0].deployDoctrine : 0,   // DOKTRİN-KİMLİK: kendi birimlerinden (hepsi aynı doktrin), per-side
+                prevGateOpen: !!(this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.strikeGateOpen),
+                prevStance: this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.stance,   // STANCE-HİSTEREZİS
+                prevStanceTick: this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.stanceTick,
+                shockWindow,   // SÖMÜRÜ-TETİĞİ: şok anı → gate-aç + duruş-kilidini aş (şoku HARCA)
+                now: observation.tick
+            }),
             readiness: {
                 hp: ownUnits.length ? Math.round((hpReadiness / ownUnits.length) * 1000) / 1000 : 0,
                 ammo: ownUnits.length ? Math.round((ammoReadiness / ownUnits.length) * 1000) / 1000 : 0
@@ -398,6 +537,16 @@ class CourseOfActionEvaluator {
             score -= isAttacker ? situation.timePressure * 24 : 0;
         }
 
+        // FAZ 3: KUŞATMA yanlılığı — yanlardan/arkadan sarılıyorsa çekilme/toparlanmayı öne çıkar, saldırıyı bastır.
+        // recommendedResponse: 'SCREEN_AND_WITHDRAW'→DISENGAGE, 'CONSOLIDATE'→REGROUP. Bayrakla A/B (varsayılan açık).
+        const env = situation.envelopment;
+        if ((typeof BATTLE_ANTI_ENVELOP === 'undefined' || BATTLE_ANTI_ENVELOP) && env && env.risk >= 0.5) {
+            const r = env.risk;
+            if (candidate.kind === BATTLE_PLAN_KIND.DISENGAGE) score += r * (env.recommendedResponse === 'SCREEN_AND_WITHDRAW' ? 60 : 35);
+            else if (candidate.kind === BATTLE_PLAN_KIND.REGROUP) score += r * (env.recommendedResponse === 'CONSOLIDATE' ? 55 : 30);
+            else if (candidate.kind === BATTLE_PLAN_KIND.MAIN_ATTACK || candidate.kind === BATTLE_PLAN_KIND.FIX_AND_FLANK || candidate.kind === BATTLE_PLAN_KIND.ADVANCE) score -= r * 45;
+        }
+
         reasons.push(`base=${candidate.baseScore || 0}`);
         reasons.push(`force=${Math.round(forceRatio * 100) / 100}`);
         reasons.push(`readiness=${Math.round(readiness * 100) / 100}`);
@@ -499,6 +648,15 @@ function evaluatePlanAbort(kind, situation) {
         situation.role === BATTLE_ROLE.ATTACKER && situation.timePressure >= 0.78) {
         return { abort: true, emergency: false, reason: 'MISSION_TIME_PRESSURE' };
     }
+    // FAZ 3: KUŞATMA — yüksek riskte (yanlardan/arkadan sarılıyor) mevcut planı BIRAK. emergency: hemen
+    // çekilme/toparlanmaya geç. DISENGAGE/REGROUP min-duration'ı geri-flip'i önler (cephe genişlerken salınım yok).
+    // Saldıran: offensive'i bırak. SAVUNAN: HOLD'da 240-tik oturup sarılmasın (gerçek maç: savunma %36-60 sarıldı,
+    // risk hep 0'dı → hiç tetiklemedi; artık savunan-kuşatma açık). Zaten toparlanan/çekilen planı yeniden abort etme.
+    if ((typeof BATTLE_ANTI_ENVELOP === 'undefined' || BATTLE_ANTI_ENVELOP) &&
+        situation.envelopment && situation.envelopment.risk >= 0.6 &&
+        kind !== BATTLE_PLAN_KIND.REGROUP && kind !== BATTLE_PLAN_KIND.DISENGAGE) {
+        return { abort: true, emergency: true, reason: 'ENVELOPMENT_RISK' };
+    }
     return { abort: false, emergency: false, reason: null };
 }
 
@@ -528,7 +686,10 @@ class PlanCommitmentManager {
             id: `${this.controller.id}:${this.sequence}`,
             kind: candidate.kind,
             selectedAtTick: tick,
-            minUntilTick: tick + this.minimumDuration(candidate.kind),
+            // FAZ 6: son ~30sn (timePressure≥0.82) planı KİLİTLE (min süre ×2.2) → all-in ya da düzenli çekilme;
+            // yarım-saniye kararsızlık yok. İnsan da son anda ya riske girer ya bırakır.
+            minUntilTick: tick + Math.round(this.minimumDuration(candidate.kind) *
+                (((typeof BATTLE_ENDGAME_LOCK === 'undefined' || BATTLE_ENDGAME_LOCK) && situation && situation.timePressure >= 0.82) ? 2.2 : 1)),
             scoreAtCommit: candidate.score,
             lastScore: candidate.score,
             reason: candidate.reason,
@@ -609,6 +770,18 @@ class PlanCommitmentManager {
         if (!challenger || challenger.kind === previous.kind) {
             return this.buildDecision(false, null, challenger, tick, abort);
         }
+        // FAZ 6 ANTİ-FLIP: gerçek-acil (kuvvet-yok / durum-kayıp) HARİÇ, emergency abort'lar bile bir MİN süreye uyar
+        // → 0.5sn'lik "saldır/toparlan" spazmı biter. Ayrıca son ~6sn içinde TERK edilen plana hemen geri dönme (spam
+        // kilidi: MAIN_ATTACK↔FIX_AND_FLANK / ↔REGROUP salınımını keser). Endgame'de min süre uzar (aşağıda commit).
+        if ((typeof BATTLE_ENDGAME_LOCK === 'undefined' || BATTLE_ENDGAME_LOCK)) {
+            const trueEmergency = abort.reason === 'NO_COMBAT_POWER' || abort.reason === 'SITUATION_LOST' || abort.reason === 'NO_ELIGIBLE_PLAN';
+            if (!trueEmergency) {
+                if (tick - previous.selectedAtTick < 8) return this.buildDecision(false, null, challenger, tick, abort);
+                if (this._recentlyLeft && this._recentlyLeft.kind === challenger.kind && tick - this._recentlyLeft.tick < 120)
+                    return this.buildDecision(false, null, challenger, tick, abort);
+            }
+        }
+        if (challenger.kind !== previous.kind) this._recentlyLeft = { kind: previous.kind, tick };
         if (abort.emergency) {
             return this.commit(
                 challenger,

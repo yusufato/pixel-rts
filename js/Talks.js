@@ -13,43 +13,136 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── DİPLOMASİ ZEMİNİ ────────────────────────────────────────────────────────
-// Antlaşma katmanı. Varsayılan 'war': oyunun bugünkü davranışı korunur, diplomasi
-// bunu yumuşatmak için kullanılır (aksi hâlde tüm dünya bir anda barışçı olurdu).
+// Antlaşma katmanı. Modern dünya başlangıcında devletler barıştadır; savaş,
+// kriz/ilişki bozulması ve açık bir savaş ilanı sonucu başlamalıdır.
 const TREATIES = {
     war:      { name: 'Savaş',            icon: '⚔️', hostile: true,  color: '#ff5a5a' },
+    peace:    { name: 'Barış',             icon: '🕊️', hostile: false, color: '#cfd8d2' },
     truce:    { name: 'Ateşkes',          icon: '🤍', hostile: false, color: '#ffd24c' },
     pact:     { name: 'Saldırmazlık',     icon: '📜', hostile: false, color: '#9fd2ff' },
     alliance: { name: 'İttifak',          icon: '🤝', hostile: false, color: '#4cff7c' },
 };
 const TRUCE_YEARS = 3;                 // ateşkes süresi (yıl)
 function storyRelKey(a, b) { return Math.min(a, b) + '|' + Math.max(a, b); }
+function storyInitialTreaty() {
+    return (typeof storyFeatureEnabled === 'function' && storyFeatureEnabled('diplomacy.peacefulStart'))
+        ? 'peace'
+        : 'war';
+}
+function storyInitializeDiplomacy() {
+    STORY.rel = {};
+    const treaty = storyInitialTreaty();
+    const states = Array.isArray(STORY.states) ? STORY.states : [];
+    for (let i = 0; i < states.length; i++) {
+        for (let j = i + 1; j < states.length; j++) {
+            STORY.rel[storyRelKey(states[i].id, states[j].id)] = {
+                v: 0,
+                treaty,
+                until: 0,
+                since: 0,
+                reason: 'campaign_start'
+            };
+        }
+    }
+    return Object.keys(STORY.rel).length;
+}
 function storyRel(a, b) {
     if (a === b) return null;
     if (!STORY.rel) STORY.rel = {};
     const k = storyRelKey(a, b);
-    return STORY.rel[k] || (STORY.rel[k] = { v: 0, treaty: 'war', until: 0 });
+    return STORY.rel[k] || (STORY.rel[k] = {
+        v: 0,
+        treaty: storyInitialTreaty(),
+        until: 0,
+        since: STORY.clock || 0,
+        reason: 'lazy_backfill'
+    });
 }
 function storyRelValue(a, b) { const r = storyRel(a, b); return r ? r.v : 0; }
-function storyRelAdd(a, b, d) {
+function storyRelAdd(a, b, d, meta) {
     const r = storyRel(a, b); if (!r) return 0;
-    r.v = Math.max(-100, Math.min(100, r.v + d));
-    return r.v;
+    meta = meta || {};
+    const before = Number(r.v) || 0;
+    const after = Math.max(-100, Math.min(100, before + (Number(d) || 0)));
+    if (typeof storyCausalityRun !== 'function') { r.v = after; return r.v; }
+    const receipt = storyCausalityRun({
+        type: 'diplomacy.relation_adjust',
+        eventType: 'diplomacy.relation_changed',
+        actor: meta.actor || { type: 'state', id: a },
+        target: { type: 'relation', id: storyRelKey(a, b) },
+        payload: { stateA: a, stateB: b, delta: after - before, reason: meta.reason || 'diplomacy' },
+        idempotencyKey: meta.idempotencyKey,
+        correlationId: meta.correlationId || null
+    }, () => {
+        storyCausalitySet(r, 'v', after, {
+            target: { type: 'relation', id: storyRelKey(a, b) },
+            path: `relation:${storyRelKey(a, b)}.value`,
+            source: meta.reason || 'diplomacy'
+        });
+        return after;
+    });
+    return receipt.duplicate ? before : receipt.result;
 }
 function storyTreaty(a, b) {
     const r = storyRel(a, b); if (!r) return 'alliance';
-    if (r.treaty === 'truce' && (STORY.clock || 0) > (r.until || 0)) { r.treaty = 'war'; r.until = 0; }   // süresi doldu
+    if (r.treaty === 'truce' && (STORY.clock || 0) > (r.until || 0)) {
+        storySetTreaty(a, b, storyInitialTreaty(), 0, { reason: 'truce.expired', silent: true });
+    }   // ateşkes bitişi otomatik savaş ilanı değildir
     return r.treaty;
 }
-function storySetTreaty(a, b, t, years) {
+function storySetTreaty(a, b, t, years, meta) {
     const r = storyRel(a, b); if (!r) return;
+    if (!Object.prototype.hasOwnProperty.call(TREATIES, t)) return;
+    meta = meta || {};
     const prev = r.treaty;
-    r.treaty = t;
-    r.until = years ? (STORY.clock || 0) + years * YEAR_SECONDS : 0;
+    const until = years ? (STORY.clock || 0) + years * YEAR_SECONDS : 0;
+    if (typeof storyCausalityRun === 'function') {
+        const receipt = storyCausalityRun({
+            type: 'diplomacy.treaty_set',
+            eventType: 'diplomacy.treaty_changed',
+            actor: meta.actor || { type: 'state', id: a },
+            target: { type: 'relation', id: storyRelKey(a, b) },
+            payload: {
+                stateA: a,
+                stateB: b,
+                fromTreaty: prev,
+                toTreaty: t,
+                until,
+                reason: meta.reason || 'diplomacy'
+            },
+            idempotencyKey: meta.idempotencyKey,
+            correlationId: meta.correlationId || null
+        }, () => {
+            storyCausalitySet(r, 'treaty', t, {
+                target: { type: 'relation', id: storyRelKey(a, b) },
+                path: `relation:${storyRelKey(a, b)}.treaty`,
+                source: meta.reason || 'diplomacy'
+            });
+            storyCausalitySet(r, 'until', until, {
+                target: { type: 'relation', id: storyRelKey(a, b) },
+                path: `relation:${storyRelKey(a, b)}.until`,
+                source: meta.reason || 'diplomacy'
+            });
+            storyCausalitySet(r, 'since', STORY.clock || 0, {
+                target: { type: 'relation', id: storyRelKey(a, b) },
+                path: `relation:${storyRelKey(a, b)}.since`,
+                source: meta.reason || 'diplomacy'
+            });
+            r.reason = meta.reason || 'diplomacy';
+            return t;
+        });
+        if (receipt.duplicate) return receipt.result;
+    } else {
+        r.treaty = t;
+        r.until = until;
+        r.since = STORY.clock || 0;
+        r.reason = meta.reason || 'diplomacy';
+    }
     // AŞAMA 4: savaş ilanı ve barış manşetlik (oyuncu taraflıysa hep, değilse %30)
-    if (typeof storyNews === 'function' && prev !== t) {
+    if (!meta.silent && typeof storyNews === 'function' && prev !== t) {
         const A = storyState(a), B = storyState(b);
         const pid = STORY.playerStateId;
-        const rel = (a === pid || b === pid) || Math.random() < 0.3;
+        const rel = (a === pid || b === pid) || storyRandom('diplomacy') < 0.3;
         if (A && B && rel) {
             if (t === 'war' && prev !== 'war') storyNews('treatyWar', { a: A.name, b: B.name });
             else if (prev === 'war' && t !== 'war') storyNews('treatyPeace', { a: A.name, b: B.name, kind: (typeof TREATIES !== 'undefined' && TREATIES[t]) ? TREATIES[t].name : t });
@@ -66,13 +159,37 @@ function storyIsHostile(a, b) {
 function storyBreakTreaty(a, b, whoBroke) {
     const t = storyTreaty(a, b);
     if (t === 'war') return false;
-    storySetTreaty(a, b, 'war', 0);
-    storyRelAdd(a, b, -45);
-    const A = storyState(whoBroke), B = storyState(whoBroke === a ? b : a);
-    if (A && B) storyLog(`💥 <span style="color:${A.color}">${A.name}</span> antlaşmayı bozdu — <span style="color:${B.color}">${B.name}</span> ile yeniden SAVAŞ.`);
-    // dünyanın geri kalanı ahdine sadakatsizliği görür
-    for (const st of STORY.states) if (st.id !== whoBroke) storyRelAdd(whoBroke, st.id, -8);
-    return true;
+    if (typeof storyCausalityRun !== 'function') {
+        storySetTreaty(a, b, 'war', 0);
+        storyRelAdd(a, b, -45);
+        const A = storyState(whoBroke), B = storyState(whoBroke === a ? b : a);
+        if (A && B) storyLog(`💥 <span style="color:${A.color}">${A.name}</span> antlaşmayı bozdu — <span style="color:${B.color}">${B.name}</span> ile yeniden SAVAŞ.`);
+        for (const st of STORY.states) if (st.id !== whoBroke) storyRelAdd(whoBroke, st.id, -8);
+        return true;
+    }
+    return !!storyCausalityRun({
+        type: 'diplomacy.break_treaty',
+        eventType: 'diplomacy.treaty_broken',
+        actor: { type: 'state', id: whoBroke },
+        target: { type: 'relation', id: storyRelKey(a, b) },
+        payload: { stateA: a, stateB: b, previousTreaty: t }
+    }, () => {
+        storySetTreaty(a, b, 'war', 0, { actor: { type: 'state', id: whoBroke }, reason: 'treaty.broken' });
+        storyRelAdd(a, b, -45, { actor: { type: 'state', id: whoBroke }, reason: 'treaty.broken' });
+        const A = storyState(whoBroke), B = storyState(whoBroke === a ? b : a);
+        if (A && B) storyLog(`💥 <span style="color:${A.color}">${A.name}</span> antlaşmayı bozdu — <span style="color:${B.color}">${B.name}</span> ile yeniden SAVAŞ.`);
+        // dünyanın geri kalanı ahdine sadakatsizliği görür
+        for (const st of STORY.states) if (st.id !== whoBroke) {
+            storyRelAdd(whoBroke, st.id, -8, { actor: { type: 'state', id: whoBroke }, reason: 'treaty.reputation_cost' });
+        }
+        return true;
+    }).result;
+}
+function storyStatesShareBorder(a, b) {
+    return STORY.nodes.some(node => node.owner === a && node.neighbors.some(id => {
+        const neighbor = storyNode(id);
+        return neighbor && neighbor.owner === b;
+    }));
 }
 function storyRelLabel(v) {
     if (v >= 60) return { t: 'Kardeş', c: '#4cff7c' };
@@ -88,7 +205,34 @@ const TALK_EXPIRE = 150;               // cevaplanmayan konuşma bu sürede dü�
 const TALK_INTERVAL = 14;              // deneme aralığı (sn)
 
 function _talkHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; }
-function talkPick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+function talkPick(arr) {
+    if (!arr || !arr.length) return undefined;
+    const trace = STORY._talkPickTrace;
+    const rolledIndex = storyRandomInt('diplomacy', arr.length);
+    if (trace && trace.mode === 'replay') {
+        const token = trace.picks[trace.index++];
+        if (token) {
+            if (token.kind === 'id') {
+                const found = arr.find(item => item && typeof item === 'object' && item.id === token.value);
+                if (found) return found;
+            } else if (token.kind === 'value') {
+                const found = arr.find(item => item === token.value);
+                if (found !== undefined) return found;
+            } else if (Number.isInteger(token.index) && arr[token.index] !== undefined) {
+                return arr[token.index];
+            }
+        }
+    }
+    const picked = arr[rolledIndex];
+    if (trace && trace.mode === 'record') {
+        trace.picks.push(
+            picked && typeof picked === 'object' && picked.id != null
+                ? { kind: 'id', value: picked.id, index: rolledIndex }
+                : { kind: 'value', value: picked, index: rolledIndex }
+        );
+    }
+    return picked;
+}
 function talkCmdName(c) { return c ? c.name : 'Bir komutan'; }
 function talkLoy(c) { return c && c.loyalty != null ? c.loyalty : 60; }
 // FAZ-7 'Hami' yeteneği: sohbetlerde SADAKAT KAZANIMLARI çarpanı (kayıplara dokunmaz).
@@ -205,7 +349,13 @@ const TALK_TEMPLATES = [
                       return { msg: `${nd ? nd.name : 'Şehir'} valiliği ${who.name}'a verildi (sadakat +30).` }; } },
                 { text: 'Kasandan rüşvet ver (300⭐)', tip: 'Sadakat +18 · 300⭐',
                   run: t => { const w = STORY.commander.res; if ((w.points || 0) < 300) return { fail: '⭐ Puanın yetmiyor.' };
-                      w.points -= 300; who.res.points = (who.res.points || 0) + 300; who.loyalty = Math.min(100, talkLoy(who) + talkGain(18));
+                      if (typeof storyBudgetTransfer === 'function') {
+                          const moved = storyBudgetTransfer(c.me, STORY.commander, who, 300, 'political.bribe', {
+                              correlationId: `talk-bribe:${who.id}`
+                          });
+                          if (!moved.ok) return { fail: '⭐ Puanın yetmiyor.' };
+                      } else { w.points -= 300; who.res.points = (who.res.points || 0) + 300; }
+                      who.loyalty = Math.min(100, talkLoy(who) + talkGain(18));
                       return { msg: `${who.name} sustu (sadakat +18, −300⭐).` }; } },
                 { text: '"Git o zaman." (meydan oku)', tip: 'Firar riski · diğerlerine gözdağı',
                   run: t => { const others = c.mine.filter(x => x !== who);
@@ -251,8 +401,12 @@ const TALK_TEMPLATES = [
                 `Bölgemin geliri konseyde eriyor."`,
             ], options: [
                 { text: 'Devlet hazinesinden fon aktar', tip: 'Diğer komutanlardan 250⭐ toplanır',
-                  run: t => { if (!storyCouncilPayFromState(c.me, { points: 250 })) return { fail: 'Devlet hazinesi yetersiz.' };
-                      who.res.points = (who.res.points || 0) + 250; who.loyalty = Math.min(100, talkLoy(who) + talkGain(9));
+                  run: t => { const funded = typeof storyBudgetFundCommander === 'function'
+                          ? storyBudgetFundCommander(c.me, who, 250, 'commander.funding', { correlationId: `talk-fund:${who.id}` })
+                          : null;
+                      if (funded ? !funded.ok : !storyCouncilPayFromState(c.me, { points: 250 })) return { fail: 'Devlet hazinesi yetersiz.' };
+                      if (!funded) who.res.points = (who.res.points || 0) + 250;
+                      who.loyalty = Math.min(100, talkLoy(who) + talkGain(9));
                       return { msg: `${who.name}'a 250⭐ aktarıldı (sadakat +9).` }; } },
                 { text: '"Kendi bölgeni kendin kalkındır."', tip: 'Sadakat −7',
                   run: t => { who.loyalty = Math.max(0, talkLoy(who) - 7); return { msg: `${who.name} eli boş döndü (sadakat −7).` }; } },
@@ -368,7 +522,11 @@ const TALK_TEMPLATES = [
                 { text: 'Şart koş: ateşkes + 300⭐ tazminat', tip: 'Riskli — ilişkiye ve güce bağlı',
                   run: t => { const strong = storyStateStrength(c.me) > storyStateStrength(foe);
                       if (strong) { storySetTreaty(c.me.id, foe.id, 'truce', TRUCE_YEARS); storyRelAdd(c.me.id, foe.id, 8);
-                          for (const cm of storyStateCommanders(c.me)) { cm.res.points = (cm.res.points || 0) + Math.round(300 / storyStateCommanders(c.me).length); }
+                          const paid = typeof storyBudgetCountryTransfer === 'function'
+                              ? storyBudgetCountryTransfer(foe, c.me, 300, 'diplomacy.reparation', { correlationId: `reparation:${foe.id}:${c.me.id}` })
+                              : null;
+                          if (paid && !paid.ok) return { fail: 'Karşı taraf tazminatı ödeyemiyor.' };
+                          if (!paid) for (const cm of storyStateCommanders(c.me)) { cm.res.points = (cm.res.points || 0) + Math.round(300 / storyStateCommanders(c.me).length); }
                           return { msg: `Güçlü taraf sensin — ateşkes + 300⭐ tazminat alındı.` }; }
                       storyRelAdd(c.me.id, foe.id, -20);
                       return { msg: `Küstahlık say���ldı — elçi masayı terk etti (ilişki −20).` }; } },
@@ -435,7 +593,10 @@ const TALK_TEMPLATES = [
                 `Ödemezseniz... bahar taarruzumuzu görürsünüz."`,
             ], options: [
                 { text: 'Haracı öde (400⭐)', tip: '2 yıl ateşkes · refah −4 · onur kaybı',
-                  run: t => { if (!storyCouncilPayFromState(c.me, { points: 400 })) return { fail: 'Hazine yetersiz — ödeyemezsin.' };
+                  run: t => { const paid = typeof storyBudgetCountryTransfer === 'function'
+                          ? storyBudgetCountryTransfer(c.me, foe, 400, 'diplomacy.tribute', { correlationId: `tribute:${c.me.id}:${foe.id}` })
+                          : null;
+                      if (paid ? !paid.ok : !storyCouncilPayFromState(c.me, { points: 400 })) return { fail: 'Hazine yetersiz — ödeyemezsin.' };
                       storySetTreaty(c.me.id, foe.id, 'truce', 2); storyRelAdd(c.me.id, foe.id, 10);
                       c.me.welfare = Math.max(0, c.me.welfare - 4);
                       for (const cm of c.mine) cm.loyalty = Math.max(0, talkLoy(cm) - 5);
@@ -626,6 +787,11 @@ function storyTalkTick(dtSec) {
     STORY._accTalk = (STORY._accTalk || 0) + dtSec;
     if (STORY._accTalk < TALK_INTERVAL) return;
     STORY._accTalk = 0;
+    storyTalkRun();
+}
+
+function storyTalkRun() {
+    if (!STORY.active || STORY._session) return;
     if (!STORY._talks) STORY._talks = [];
     // süresi geçenleri düşür
     STORY._talks = STORY._talks.filter(t => (STORY.clock || 0) - t.born < TALK_EXPIRE);
@@ -636,10 +802,15 @@ function storyTalkTick(dtSec) {
     if (!cand.length) return;
     // ağırlıklı seçim
     let tot = 0; const ws = cand.map(tp => { const w = (typeof tp.weight === 'function' ? tp.weight(ctx) : 1) || 1; tot += w; return w; });
-    let r = Math.random() * tot, pick = cand[0];
+    let r = storyRandom('diplomacy') * tot, pick = cand[0];
     for (let i = 0; i < cand.length; i++) { r -= ws[i]; if (r <= 0) { pick = cand[i]; break; } }
+    const buildRng = typeof storyRngForSave === 'function' ? storyRngForSave() : null;
+    const previousTrace = STORY._talkPickTrace;
+    const buildTrace = { mode: 'record', picks: [] };
+    STORY._talkPickTrace = buildTrace;
     let built = null;
     try { built = pick.build(ctx); } catch (_) { built = null; }
+    finally { STORY._talkPickTrace = previousTrace; }
     if (!built || !built.options || !built.options.length) return;
     // aynı şablon üst üste kuyruğa girmesin
     if (STORY._talks.some(t => t.tpl === pick.id)) return;
@@ -654,13 +825,99 @@ function storyTalkTick(dtSec) {
         tpl: pick.id, kind: pick.kind, born: STORY.clock || 0,
         title: built.who ? built.who.name : 'Haber',
         foreignId: built.foreign ? built.foreign.id : null,
-        lines: built.lines, options: built.options,
+        lines: built.lines, options: built.options, buildRng, buildPicks: buildTrace.picks,
     });
     storyTalkBadge();
     if (typeof storyFlash === 'function') {
         const ic = pick.kind === 'foreign' ? '🕊️' : (pick.kind === 'clique' ? '👁️' : '🗣️');
         storyFlash(`${ic} ${built.who ? built.who.name : 'Bir haberci'} seninle konuşmak istiyor.`);
     }
+}
+
+// Bekleyen konuşmalar canlı `run` kapanışları taşır ve doğrudan JSON'a
+// yazılamaz. Şablon kurulmadan hemen önceki RNG fotoğrafını saklarız; yüklemede
+// aynı kapanışları yeniden kurup ardından kampanyanın kayıtlı RNG durumuna geri
+// döneriz. Böylece hem seçenekler çalışır kalır hem de yükleme yeni rastgele
+// sayı tüketmez.
+function storyTalkRuntimeForSave() {
+    return {
+        schemaVersion: 1,
+        nextUid: Math.max(0, Math.floor(Number(STORY._talkUid) || 0)),
+        queue: (STORY._talks || []).map(talk => ({
+            uid: talk.uid,
+            tpl: talk.tpl,
+            kind: talk.kind,
+            born: talk.born,
+            title: talk.title,
+            foreignId: talk.foreignId == null ? null : talk.foreignId,
+            lines: Array.isArray(talk.lines) ? talk.lines.slice() : [],
+            options: (talk.options || []).map(option => ({
+                text: option.text || '',
+                tip: option.tip || ''
+            })),
+            buildRng: talk.buildRng || null,
+            buildPicks: Array.isArray(talk.buildPicks) ? talk.buildPicks : []
+        }))
+    };
+}
+
+function storyTalkRuntimeRestore(saved) {
+    const source = saved && typeof saved === 'object' ? saved : {};
+    const queue = Array.isArray(source.queue) ? source.queue : [];
+    const currentRng = typeof storyRngForSave === 'function' ? storyRngForSave() : null;
+    const restored = [];
+
+    for (const item of queue) {
+        const template = TALK_TEMPLATES.find(candidate => candidate.id === item.tpl);
+        let built = null;
+        if (template && item.buildRng && typeof storyRngRestore === 'function') {
+            const previousTrace = STORY._talkPickTrace;
+            try {
+                storyRngRestore(item.buildRng, item.buildRng.rootSeed);
+                STORY._talkPickTrace = {
+                    mode: 'replay',
+                    picks: Array.isArray(item.buildPicks) ? item.buildPicks : [],
+                    index: 0
+                };
+                const ctx = storyTalkContext();
+                if (ctx) built = template.build(ctx);
+            } catch (_) {
+                built = null;
+            } finally {
+                STORY._talkPickTrace = previousTrace;
+                if (currentRng) storyRngRestore(currentRng, currentRng.rootSeed);
+            }
+        }
+        const fallbackOptions = Array.isArray(item.options) ? item.options.map(option => ({
+            text: option.text || 'Kullanılamayan seçenek',
+            tip: option.tip || '',
+            run: () => ({ fail: 'Bu eski konuşma yeniden kurulamadı; süresi dolunca yenisi gelecektir.' })
+        })) : [];
+        const rebuiltOptions = built && Array.isArray(built.options) && built.options.length
+            ? built.options.map((option, index) => Object.assign({}, option, {
+                text: item.options && item.options[index] ? item.options[index].text : option.text,
+                tip: item.options && item.options[index] ? item.options[index].tip : option.tip
+            }))
+            : null;
+        restored.push({
+            uid: Math.max(1, Math.floor(Number(item.uid) || 1)),
+            tpl: item.tpl || 'legacy',
+            kind: item.kind || (template && template.kind) || 'internal',
+            born: Number.isFinite(Number(item.born)) ? Number(item.born) : (STORY.clock || 0),
+            title: item.title || (built && built.who && built.who.name) || 'Haber',
+            foreignId: item.foreignId == null ? null : item.foreignId,
+            lines: Array.isArray(item.lines) ? item.lines.slice() : ((built && built.lines) || []),
+            options: rebuiltOptions || fallbackOptions,
+            buildRng: item.buildRng || null,
+            buildPicks: Array.isArray(item.buildPicks) ? item.buildPicks : []
+        });
+    }
+    STORY._talks = restored;
+    STORY._talkUid = Math.max(
+        Math.max(0, Math.floor(Number(source.nextUid) || 0)),
+        ...restored.map(talk => talk.uid)
+    );
+    return restored.length;
 }
 
 // AI devletleri de kendi aralarında diplomasi yürütür (oyuncu görmese de dünya işler)
@@ -673,12 +930,30 @@ function storyAIDiplomacyTick() {
     const sa = storyStateStrength(a), sb = storyStateStrength(b);
     // güçler dengeliyse ve ilişki fena değilse yakınlaşırlar; biri çok güçlüyse zayıfı ezer
     const balance = Math.min(sa, sb) / Math.max(1, Math.max(sa, sb));
-    if (t === 'war' && balance > 0.7 && rel > -30 && Math.random() < 0.35) {
+    if (t === 'war' && balance > 0.7 && rel > -30 && storyRandom('diplomacy') < 0.35) {
         storySetTreaty(a.id, b.id, 'truce', TRUCE_YEARS); storyRelAdd(a.id, b.id, 20);
-        if (Math.random() < 0.4) storyLog(`🤍 <span style="color:${a.color}">${a.name}</span> ile <span style="color:${b.color}">${b.name}</span> ateşkes imzaladı.`);
-    } else if (t === 'truce' && rel >= 35 && Math.random() < 0.3) {
+        if (storyRandom('diplomacy') < 0.4) storyLog(`🤍 <span style="color:${a.color}">${a.name}</span> ile <span style="color:${b.color}">${b.name}</span> ateşkes imzaladı.`);
+    } else if (t === 'truce' && rel >= 35 && storyRandom('diplomacy') < 0.3) {
         storySetTreaty(a.id, b.id, 'pact', 0); storyRelAdd(a.id, b.id, 10);
-    } else if (t !== 'war' && balance < 0.45 && Math.random() < 0.25) {
+    } else if (
+        t !== 'war'
+        && balance < 0.45
+        && (
+            typeof storyFeatureEnabled !== 'function'
+            || !storyFeatureEnabled('diplomacy.peacefulStart')
+            || (
+                rel <= -35
+                && storyStatesShareBorder(a.id, b.id)
+                && Math.max(
+                    typeof storyDoctrineAggr === 'function' ? storyDoctrineAggr(a) : 1,
+                    typeof storyDoctrineAggr === 'function' ? storyDoctrineAggr(b) : 1
+                ) >= 1.05
+            )
+        )
+        && storyRandom('diplomacy') < (
+            typeof storyFeatureEnabled === 'function' && storyFeatureEnabled('diplomacy.peacefulStart') ? 0.12 : 0.25
+        )
+    ) {
         const strong = sa > sb ? a : b;
         storyBreakTreaty(a.id, b.id, strong.id);        // güçlü olan fırsatçılık eder
     } else {
@@ -697,6 +972,7 @@ function storyTalkOpen() {
     if (typeof storyTechClose === 'function') storyTechClose();
     if (typeof storyArmyClose === 'function') storyArmyClose();
     if (typeof storyCityClose === 'function') storyCityClose();
+    if (typeof storyEconomyClose === 'function') storyEconomyClose();
     STORY._talkOpen = true;
     const p = document.getElementById('talk-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -705,6 +981,9 @@ function storyTalkOpen() {
 }
 function storyTalkClose() {
     STORY._talkOpen = false;
+    STORY._talkFocusCharacterId = null;
+    STORY._talkFocusCharacterName = null;
+    STORY._talkFocusRegionId = null;
     const p = document.getElementById('talk-panel');
     if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
     document.getElementById('story-talk-btn')?.classList.remove('active');
@@ -722,8 +1001,15 @@ function storyTalkUpdate() {
     const me = storyPlayerState(); if (!me) return;
     const talks = STORY._talks || [];
 
-    // 0) DÜNYANIN HÂLİ (Era.js) — her şeyin bağlamı
-    let eraHtml = (typeof storyEraHtml === 'function') ? storyEraHtml() : '';
+    let focusHtml = '';
+    if (STORY._talkFocusCharacterId && STORY._talkFocusCharacterName) {
+        const safeName = typeof storyCityDossierEscape === 'function'
+            ? storyCityDossierEscape(STORY._talkFocusCharacterName)
+            : String(STORY._talkFocusCharacterName);
+        focusHtml = `<div class="talk-sec talk-focus"><div class="talk-h">⌖ ŞEHİR DOSYASINDAN GELEN BAĞLAM</div>`
+            + `<div class="talk-note"><b>${safeName}</b> için sohbet merkezi açıldı. `
+            + `Karaktere özel serbest görüşme sözleşmesi <b>henüz sistemde yok</b>; aşağıdaki mevcut konuşmalar bu karakter adına uydurulmaz.</div></div>`;
+    }
     // 1) DİPLOMASİ TABLOSU — ilişkiler ve antlaşmalar
     const others = STORY.states.filter(s => s.id !== me.id && STORY.nodes.some(n => n.owner === s.id));
     const diploRows = others.map(s => {
@@ -734,7 +1020,7 @@ function storyTalkUpdate() {
             + `<span class="dip-bar"><b style="width:${pct}%;background:${lab.c}"></b></span>`
             + `<span class="dip-v" style="color:${lab.c}">${lab.t}</span></div>`;
     }).join('');
-    let html = eraHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
+    let html = focusHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
         + `<div class="talk-note">İlişkiler <b>sohbetlerle</b> değişir — elçileri dinle, söz ver, ahdine sadık kal.</div>`
         + (diploRows || `<div class="talk-note">Sahnede başka devlet yok.</div>`) + `</div>`;
 

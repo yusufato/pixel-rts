@@ -64,18 +64,29 @@ function storyNewsSpin(idx) {
     storyNewsCredBackfill(me);
     const w = STORY.commander && STORY.commander.res;
     if (!w || w.points < NEWS_SPIN_COST) { storyFlash(`⭐ yetersiz (${NEWS_SPIN_COST} gerekli).`); return; }
-    w.points -= NEWS_SPIN_COST;
+    if (typeof storyBudgetDebit === 'function') {
+        const paid = storyBudgetDebit(me, NEWS_SPIN_COST, 'media.spin', {
+            commander: STORY.commander,
+            commanderOnly: true,
+            correlationId: `news-spin:${rec.id || STORY.clock}`
+        });
+        if (!paid.ok) { storyFlash(`⭐ yetersiz (${NEWS_SPIN_COST} gerekli).`); return; }
+    } else w.points -= NEWS_SPIN_COST;
     rec.spun = true;
     // Aydınlar çarpıtmayı HER durumda görür (o yüzden bedava değil)
     if (me.factions) me.factions.intel = Math.max(5, me.factions.intel - 3);
-    if (Math.random() < me.pressCred / 100) {
-        me.welfare = Math.min(100, me.welfare + 3);
+    if (storyRandom('narrative') < me.pressCred / 100) {
+        storyWelfareDelta(me, 'news.public_confidence', 3, {
+            correlationId: `news:${rec.arch || 'spin'}:${Math.floor(STORY.clock || 0)}`
+        });
         if (me.trust != null) me.trust = Math.min(100, me.trust + 3);
         me.pressCred = Math.max(5, me.pressCred - 5);
         rec.headline = '📢 ' + storyNewsSpinText(rec);
         storyLog(`📢 Devlet basını devrede: haber çarpıtıldı (halk yumuşadı, güvenilirlik ${Math.round(me.pressCred)}).`);
     } else {
-        me.welfare = Math.max(0, me.welfare - 2);
+        storyWelfareDelta(me, 'news.public_anxiety', -2, {
+            correlationId: `news:${rec.arch || 'spin'}:${Math.floor(STORY.clock || 0)}`
+        });
         me.pressCred = Math.max(5, me.pressCred - 9);
         storyLog(`🤥 Çarpıtma ELE ALINDI — kimse inanmadı (güvenilirlik ${Math.round(me.pressCred)}, refah −2).`);
     }
@@ -101,7 +112,7 @@ function storyNewsConquest(node, winnerSt, loserSt) {
 
 // ── PANEL ──────────────────────────────────────────────────────────────────
 function storyNewsOpen() {
-    storyCouncilClose(); storyTechClose(); storyCityClose(); if (typeof storyArmyClose === 'function') storyArmyClose();
+    storyCouncilClose(); storyTechClose(); storyCityClose(); if (typeof storyArmyClose === 'function') storyArmyClose(); if (typeof storyEconomyClose === 'function') storyEconomyClose();
     STORY._newsOpen = true;
     const p = document.getElementById('news-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }

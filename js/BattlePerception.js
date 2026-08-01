@@ -52,6 +52,8 @@ class BattlePerception {
         const dtTicks = previous ? Math.max(1, tick - previous.lastSeenTick) : 1;
         const velocityX = previous ? (target.x - previous.x) / dtTicks : 0;
         const velocityY = previous ? (target.y - previous.y) / dtTicks : 0;
+        const band = perceptionHealthBand(target);
+        const hf = band === 'HEALTHY' ? 1 : band === 'DAMAGED' ? 0.66 : 0.33;
         const contact = {
             id: target.id,
             typeEstimate: target.type,
@@ -59,7 +61,10 @@ class BattlePerception {
             y: Math.round(target.y * 100) / 100,
             velocityX,
             velocityY,
-            healthBand: perceptionHealthBand(target),
+            healthBand: band,
+            // FAZ 2a: kuvvet tahmini (tip-maliyeti × sağlık). OPG/Oracle/Blackboard bunu okur (eskiden ||1 = sayı-bazlı).
+            // Görünmezken (decay) band donuk kalır → hatırlanan tank hâlâ tank olarak değerlenir.
+            estimatedStrength: Math.round((STATS[target.type]?.cost || 1) * hf * 100) / 100,
             lastSeenTick: tick,
             confidence: 1,
             uncertaintyRadius: 0,
@@ -94,9 +99,14 @@ class BattlePerception {
         const enemies = SIM.units
             .filter(unit => !unit.dead && unit.isRed !== this.controller.side)
             .sort((a, b) => a.id - b.id);
+        if (!this._seenEnemyRefs) { this._seenEnemyRefs = new Map(); this._confirmedKilledValue = 0; this._killedCounted = new Set(); }
         for (const target of enemies) {
             const observers = ownUnits.filter(observer => perceptionObserverCanSee(observer, target));
-            if (observers.length) this.observeContact(target, observers, tick);
+            if (observers.length) { this.observeContact(target, observers, tick); this._seenEnemyRefs.set(target.id, target); }   // TEYİT-İSTİHBARAT: gördüğümüz düşmanları hatırla
+        }
+        // TEYİTLİ İMHA: gördüğümüz düşmanlardan ölenlerin ₺'sini say (görülmeyen düşman ölü DEĞİL, görünmeyendir).
+        for (const [id, ref] of this._seenEnemyRefs) {
+            if (ref.dead && !this._killedCounted.has(id)) { this._killedCounted.add(id); this._confirmedKilledValue += (STATS[ref.type]?.cost || 0); }
         }
 
         let friendlyValue = 0;
@@ -114,13 +124,10 @@ class BattlePerception {
             observedEnemyValue += (STATS[contact.typeEstimate]?.cost || 0) *
                 healthFactor * contact.confidence;
         }
-        // Görülmeyen birlikleri yok saymak, ilk temasta eşit bütçeli rakibe karşı
-        // sahte 1.5x üstünlük üretiyordu. Bu, gizli konum/kompozisyon okumaz:
-        // yalnız kendi başlangıç kuvvetinden türetilen ve 90 saniyede sıfırlanan
-        // muhafazakâr bir görev-istihbarat tabanıdır.
-        const elapsedSec = Math.max(0, SIM.battle?.elapsedSec || 0);
-        const priorFactor = Math.max(0, 1 - elapsedSec / 90);
-        const intelligenceFloor = (this.initialFriendlyValue || 0) * priorFactor;
+        // ANALİST-FIX (a): görülmeyen düşman ölü DEĞİLDİR. Taban ZAMANLA çürümez (eski bug: 90s'de sıfır →
+        // AI görmediğini unutup sahte-avantaj sanıp mevziden çıkıyordu). Taban = başlangıç-tahmini(parite) − TEYİTLİ imha ₺.
+        // Yalnız gördüğümüz-ve-ölen düşmanı düşeriz; görünmeyen kuvvet tabanda kalır → savunan hazır-mevzide oturur.
+        const intelligenceFloor = Math.max(0, (this.initialFriendlyValue || 0) - (this._confirmedKilledValue || 0));
         const estimatedEnemyValue = Math.max(observedEnemyValue, intelligenceFloor);
 
         this.lastObservation = {

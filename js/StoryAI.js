@@ -52,7 +52,15 @@ function storyCityUpgrade(nodeId) {
     const cost = CITY_UPGRADE_COST[lvl] || 300;
     const pts = (STORY.commander && STORY.commander.res) ? STORY.commander.res.points : 0;
     if (pts < cost) { storyFlash(`⭐ Puan yetersiz (gerekli ${cost}, var ${Math.floor(pts)}).`); return; }
-    STORY.commander.res.points -= cost; n.level = lvl + 1;
+    if (typeof storyBudgetDebit === 'function') {
+        const paid = storyBudgetDebit(storyPlayerState(), cost, 'city.upgrade', {
+            commander: STORY.commander,
+            commanderOnly: true,
+            correlationId: `city-upgrade:${n.id}:${lvl + 1}`
+        });
+        if (!paid.ok) { storyFlash(`⭐ Puan yetersiz (gerekli ${cost}).`); return; }
+    } else STORY.commander.res.points -= cost;
+    n.level = lvl + 1;
     storyLog(`🏗️ <b>${n.name}</b> seviye ${n.level} (gelir +%${Math.round((n.level - 1) * 40)}, garnizon kapasitesi ${storyCityGarrisonCap(n)}).`);
     storySave(); if (typeof storyCityUpdate === 'function') storyCityUpdate();
 }
@@ -154,7 +162,7 @@ function storyCommanderSeekArmy(cmd, st) {
     if (!home) return false;
     if (cmd.node === home.id) return true;                                   // zaten üretim merkezindeyim → bekle, ordu birikiyor
     const step = storyStepToward(cmd.node, home.id, st);
-    if (step >= 0 && step !== cmd.node) { cmd.node = step; return true; }
+    if (step >= 0 && step !== cmd.node) { storyMoveCommander(cmd, step, { reason: 'ai.return_to_production' }); return true; }
     return true;                                                             // yol yok ama saldırmaya da kalkma
 }
 // hedef şehrin DEĞERİ: kaynak/şehir + başkent + zayıf-devlet fırsatı
@@ -218,14 +226,14 @@ function storyCommanderRecover(cmd, st) {
     }
     if (goal == null) return;
     let step = goal; while (parent[step] !== start) step = parent[step];
-    if (step !== start) cmd.node = step;
+    if (step !== start) storyMoveCommander(cmd, step, { reason: 'ai.advance_to_front' });
 }
 function storyCommanderDecide(cmd, st) {
     const node = storyNode(cmd.node); if (!node) return;
     const onFront = node.neighbors.some(nb => { const nn = storyNode(nb); return nn && nn.owner !== st.id; });
     // 1) ÖZ-KORUMA: kasası bitmişse SALDIRMA → cephedeyse güvenli şehre çekilip toparlan (plan dinlemez)
     if (storyCommanderWeak(cmd)) {
-        if (onFront) { storyCommanderRecover(cmd, st); if (Math.random() < 0.12) storyLog(`🛡️ ${cmd.name} (${st.name}) yıpranmış — geri çekilip toparlanıyor.`); }
+        if (onFront) { storyCommanderRecover(cmd, st); if (storyRandom('military') < 0.12) storyLog(`🛡️ ${cmd.name} (${st.name}) yıpranmış — geri çekilip toparlanıyor.`); }
         return;
     }
     // 1.5) ORDU YOKSA SALDIRMA: havuzunda yeterli birlik yoksa üretim merkezine yürü.
@@ -237,7 +245,7 @@ function storyCommanderDecide(cmd, st) {
     // 3) FALLBACK (emir yok/uygulanamadı) — bireysel mantık: takviye → ilerle → derin-EV
     const rein = storyReinforceStep(cmd, st);
     if (rein === cmd.node) return;                              // zaten kuşatılan dost şehirdeyim → savun (kal)
-    if (rein >= 0) { cmd.node = rein; return; }                 // dost kuşatmasına doğru 1 adım ilerle
+    if (rein >= 0) { storyMoveCommander(cmd, rein, { reason: 'ai.reinforce_siege' }); return; }                 // dost kuşatmasına doğru 1 adım ilerle
     if (!onFront) { storyCommanderAdvance(cmd, st); return; }   // cephe yoksa cepheye ilerle
     // DERİN BEKLENEN-DEĞER hedef seç → KUŞAT (değer × kazanma × ileriye-bakış-riski × konsolidasyon; açgözlü tek-adım DEĞİL)
     // FAZ-6 DİPLOMASİ: ateşkes/pakt/ittifak olan devlete saldırılmaz (antlaşma bozmak ayrı bir karardır)
@@ -264,7 +272,7 @@ function storyCommanderAdvance(cmd, st) {
     }
     if (goal == null) return false;
     let step = goal; while (parent[step] !== start) step = parent[step];   // start'tan sonraki İLK adım
-    cmd.node = step; return true;
+    storyMoveCommander(cmd, step, { reason: 'ai.advance' }); return true;
 }
 // ── ADIM 1.3 KOORDİNASYON: yön-bulma + GENELKURMAY (devlet komutanlarını TEK planda hedeflere dağıtır) ──
 // fromId'den toId'ye İLK adım (BFS; SADECE kendi toprağından geçer, hedefin kendisi düşman olabilir)
@@ -337,6 +345,7 @@ function storyStaffPlan(st) {
         const cn = storyNode(c.node); if (!cn) continue;
         for (const nb of cn.neighbors) {
             const t = storyNode(nb); if (!t || t.owner === st.id || seen[t.id]) continue;
+            if (typeof storyIsHostile === 'function' && !storyIsHostile(st.id, t.owner)) continue;
             const ts = storyState(t.owner); if (!ts) continue;
             seen[t.id] = true;
             const pri = storyTargetValue(t) / (1 + storyExposureAt(t, st) / 200);   // maruziyet-ayarlı öncelik (1.1/1.2 ruhu: riskli salient = düşük)
@@ -369,14 +378,15 @@ function storyExecuteObjective(cmd, st) {
         if (tgt.owner !== st.id) return false;                 // şehir artık bizde değil → emir geçersiz (fallback)
         if (cmd.node === obj.node) return true;                // savunmadayım → KAL
         const step = storyStepToward(cmd.node, obj.node, st);  // TEK ADIM (zıplama yok); hız acil-savunma sık-kararıyla (2s) sağlanır
-        if (step >= 0 && step !== cmd.node) { cmd.node = step; return true; }
+        if (step >= 0 && step !== cmd.node) { storyMoveCommander(cmd, step, { reason: 'ai.objective_defend' }); return true; }
         return false;
     }
     if (obj.kind === 'attack') {
         if (tgt.owner === st.id) return false;                 // hedef alınmış → emir geçersiz
+        if (typeof storyIsHostile === 'function' && !storyIsHostile(st.id, tgt.owner)) return false;
         if (node.neighbors.indexOf(obj.node) >= 0) { storyBeginSiege(st, tgt); return true; }   // bitişik → KUŞAT
         const step = storyStepToward(cmd.node, obj.node, st);  // kendi toprağından yaklaş
-        if (step >= 0 && step !== cmd.node) { cmd.node = step; return true; }
+        if (step >= 0 && step !== cmd.node) { storyMoveCommander(cmd, step, { reason: 'ai.objective_attack' }); return true; }
         return false;
     }
     return false;
@@ -388,7 +398,7 @@ function storyAICommanderTick() {
         if ((st._nextStaff || 0) <= STORY.clock) { st._nextStaff = STORY.clock + STAFF_REPLAN; storyStaffPlan(st); }   // 1.3 GENELKURMAY: komutanları hedeflere dağıt
         for (const cmd of st.gov.commanders.slice()) {           // slice: tick içinde dizi değişse de güvenli
             if ((cmd._nextT || 0) > STORY.clock) continue;
-            cmd._nextT = STORY.clock + 6 + Math.random() * 3;     // 6-9s kişisel cooldown → hepsi aynı anda saldırmaz
+            cmd._nextT = STORY.clock + 6 + storyRandom('military') * 3;     // 6-9s kişisel cooldown → hepsi aynı anda saldırmaz
             storyCommanderDecide(cmd, st);
             if (cmd._objective && cmd._objective.kind === 'defend' && cmd.node !== cmd._objective.node) cmd._nextT = STORY.clock + 2;   // ACİL SAVUNMA: yolda → hızlı tekrar (yetişsin)
             if (STORY.battleCtx) return;                          // oyuncu düellosu açıldı → tick'i durdur
@@ -414,22 +424,27 @@ function storyResolveAIBattle(cmd, st, target) {
     const atk = storyCalcCommanderPower(cmd, st), def = storyCalcDefenseStrength(target, tgtSt);
     const win = Math.max(0.25, Math.min(0.90, atk / (atk + def * 1.15)));
     if (cmd.res) cmd.res.manpower = Math.max(0, cmd.res.manpower - 30);   // savaş maliyeti (kasa erir → snowball freni)
-    const hit = Math.random() < win;
+    const hit = storyRandom('military') < win;
     storyPushBattle(cmd, hit);
     if (hit) {
-        target.owner = st.id; storyCityRename(target); cmd.node = target.id;              // node.owner tek-gerçek-kaynak + jeton senkron
-        st.welfare = Math.min(100, st.welfare + 1); tgtSt.welfare = Math.max(0, tgtSt.welfare - 3);
+        storyTransferNodeOwnership(target, st.id, {
+            actor: { type: 'character', id: cmd.id },
+            reason: 'ai.abstract_battle_won',
+            correlationId: `ai-battle:${cmd.id}:${target.id}:${Math.round(STORY.clock || 0)}`
+        });
+        storyMoveCommander(cmd, target.id, { reason: 'ai.occupy_captured_region' });              // node.owner tek-gerçek-kaynak + jeton senkron
+        storyWelfareDelta(st, 'battle.ai_victory', 1); storyWelfareDelta(tgtSt, 'battle.ai_city_lost', -3);
         cmd.loyalty = Math.min(100, (cmd.loyalty == null ? 60 : cmd.loyalty) + 3);
         for (const dc of ((tgtSt.gov ? tgtSt.gov.commanders : []).slice())) if (dc.node === target.id) {   // savunan komutan: ÖLÜR ya da kaçar
-            if (Math.random() < CMD_DEATH_ON_LOSS) { storyKillCommander(dc, tgtSt); if (Math.random() < 0.5) storyLog(`☠️ ${dc.name} (${tgtSt.name}), ${target.name} savunmasında düştü.`); }
-            else { const safe = target.neighbors.filter(n => { const sn = storyNode(n); return sn && sn.owner === tgtSt.id; }); if (safe.length) dc.node = safe[Math.floor(Math.random() * safe.length)]; dc.loyalty = Math.max(20, (dc.loyalty == null ? 60 : dc.loyalty) - 8); }
+            if (storyRandom('military') < CMD_DEATH_ON_LOSS) { storyKillCommander(dc, tgtSt); if (storyRandom('military') < 0.5) storyLog(`☠️ ${dc.name} (${tgtSt.name}), ${target.name} savunmasında düştü.`); }
+            else { const safe = target.neighbors.filter(n => { const sn = storyNode(n); return sn && sn.owner === tgtSt.id; }); if (safe.length) storyMoveCommander(dc, safe[storyRandomInt('military', safe.length)], { reason: 'ai.retreat_after_defeat' }); dc.loyalty = Math.max(20, (dc.loyalty == null ? 60 : dc.loyalty) - 8); }
         }
-        if (Math.random() < 0.5) storyLog(`⚔️ ${cmd.name} (${st.name}) <b>${target.name}</b>'i fethetti.`);
+        if (storyRandom('military') < 0.5) storyLog(`⚔️ ${cmd.name} (${st.name}) <b>${target.name}</b>'i fethetti.`);
         storySave();
     } else {                                                     // SALDIRAN YENİLDİ → ÖLÜR ya da yaralı çekilir
-        if (Math.random() < CMD_DEATH_ON_LOSS) { storyKillCommander(cmd, st); if (Math.random() < 0.5) storyLog(`☠️ ${cmd.name} (${st.name}), ${target.name} önünde bozguna uğrayıp düştü.`); }
-        else { const safe = target.neighbors.filter(n => { const sn = storyNode(n); return sn && sn.owner === st.id; }); if (safe.length) cmd.node = safe[Math.floor(Math.random() * safe.length)]; cmd.loyalty = Math.max(0, (cmd.loyalty == null ? 60 : cmd.loyalty) - 5); }
-        st.welfare = Math.max(0, st.welfare - 1);
+        if (storyRandom('military') < CMD_DEATH_ON_LOSS) { storyKillCommander(cmd, st); if (storyRandom('military') < 0.5) storyLog(`☠️ ${cmd.name} (${st.name}), ${target.name} önünde bozguna uğrayıp düştü.`); }
+        else { const safe = target.neighbors.filter(n => { const sn = storyNode(n); return sn && sn.owner === st.id; }); if (safe.length) storyMoveCommander(cmd, safe[storyRandomInt('military', safe.length)], { reason: 'ai.retreat_after_failed_attack' }); cmd.loyalty = Math.max(0, (cmd.loyalty == null ? 60 : cmd.loyalty) - 5); }
+        storyWelfareDelta(st, 'battle.ai_attack_defeat', -1);
     }
 }
 // AI komutan OYUNCUYA saldırır → SAVUNMA düellosu (tek kapı + 90s throttle, spam önleme)
@@ -446,10 +461,13 @@ function storyTriggerPlayerDefense(cmd, st, pNode, force) {
         const nb = pNode.neighbors.map(storyNode).find(x => x && x.owner === me.id);   // kaybedilen şehirden komşu dost şehre çekil
         const fb = STORY.nodes.find(n => n.owner === me.id);
         const safe = nb ? nb.id : (fb ? fb.id : pNode.id);
-        if (STORY.commander.node === pNode.id) STORY.commander.node = safe;
-        for (const c of (me.gov ? me.gov.commanders : [])) if (c.node === pNode.id) c.node = safe;   // takviye eden dost komutanlar da çekilir
-        pNode.owner = st.id; storyCityRename(pNode); cmd.node = pNode.id; pNode._siege = null;
-        me.reputation = Math.max(0, me.reputation - 1); me.welfare = Math.max(0, me.welfare - 4);
+        if (STORY.commander.node === pNode.id) storyMoveCommander(STORY.commander, safe, { reason: 'player.abandon_region' });
+        for (const c of (me.gov ? me.gov.commanders : [])) if (c.node === pNode.id) storyMoveCommander(c, safe, { reason: 'ai.retreat_from_abandoned_region' });   // takviye eden dost komutanlar da çekilir
+        storyTransferNodeOwnership(pNode, st.id, {
+            actor: { type: 'character', id: cmd.id },
+            reason: 'player.abandoned_region'
+        }); storyMoveCommander(cmd, pNode.id, { reason: 'ai.occupy_abandoned_region' }); pNode._siege = null;
+        me.reputation = Math.max(0, me.reputation - 1); storyWelfareDelta(me, 'battle.region_abandoned', -4);
         storyLog(`🏳️ ${pNode.name} savaşmadan ${st.name}'e bırakıldı (-itibar, -refah).`);
         storySave();
     }
@@ -476,10 +494,12 @@ function storyReinforceStep(cmd, st) {
     return step;
 }
 function storyBeginSiege(st, target) {
+    if (!st || !target || (typeof storyIsHostile === 'function' && !storyIsHostile(st.id, target.owner))) return false;
     if (target._siege) return;                                  // zaten kuşatma altında
     target._siege = { by: st.id, since: STORY.clock };
     storyLog(`🏰 ${st.name}, <b>${target.name}</b> (${(storyState(target.owner) || {}).name || '?'}) şehrini KUŞATMAYA aldı! — savunmaya koşun.`);
     storySave();
+    return true;
 }
 // olgunlaşan kuşatmaları çöz (storyAdvance her ~2.5sn çağırır)
 function storySiegeTick() {
@@ -489,6 +509,7 @@ function storySiegeTick() {
         const byState = storyState(node._siege.by);
         const besiegers = byState ? storyStateCommanders(byState).filter(c => c.node === node.id || node.neighbors.indexOf(c.node) >= 0) : [];
         if (!byState || !besiegers.length || node.owner === node._siege.by) { node._siege = null; continue; }   // kuşatan kalmadı/şehir alındı → kalk
+        if (typeof storyIsHostile === 'function' && !storyIsHostile(byState.id, node.owner)) { node._siege = null; continue; }
         if (STORY.clock - node._siege.since < SIEGE_TIME) continue;   // olgunlaşmadı (takviye penceresi)
         storyResolveSiege(node, byState, besiegers);
         if (STORY.battleCtx) return;
@@ -496,6 +517,7 @@ function storySiegeTick() {
 }
 function storyResolveSiege(node, byState, besiegers) {
     if (!node || !node.neighbors || !byState) { if (node) node._siege = null; return; }   // bozuk düğüm güvenliği
+    if (typeof storyIsHostile === 'function' && !storyIsHostile(byState.id, node.owner)) { node._siege = null; return; }
     const atk = besiegers.reduce((a, c) => a + storyCalcCommanderPower(c, byState), 0);
     const defState = storyState(node.owner);
     const def = storyCalcDefenseStrength(node, defState);
@@ -527,17 +549,23 @@ function storyResolveSiege(node, byState, besiegers) {
 }
 function storySiegeConquer(node, byState, lead, defState) {
     node._siege = null;
+    if (!node || !byState || (typeof storyIsHostile === 'function' && !storyIsHostile(byState.id, node.owner))) return false;
     // AŞAMA 2: toplum fetihleri hisseder (kazanan ordu övünür, kaybeden ordu küser)
     if (typeof storyFacEvent === 'function') { storyFacEvent(byState, 'cityWon'); storyFacEvent(defState, 'cityLost'); }
-    if (typeof storyNewsConquest === 'function' && (byState.isPlayer || (defState && defState.isPlayer) || Math.random() < 0.45)) storyNewsConquest(node, byState, defState);
-    node.owner = byState.id; storyCityRename(node); lead.node = node.id;
+    if (typeof storyNewsConquest === 'function' && (byState.isPlayer || (defState && defState.isPlayer) || storyRandom('military') < 0.45)) storyNewsConquest(node, byState, defState);
+    storyTransferNodeOwnership(node, byState.id, {
+        actor: { type: 'character', id: lead.id },
+        reason: 'siege.conquest',
+        correlationId: `siege:${node.id}:${Math.round(STORY.clock || 0)}`
+    }); storyMoveCommander(lead, node.id, { reason: 'ai.occupy_after_siege' });
     if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // kuşatma düşünce şehirdeki ordu da dağılır
-    byState.welfare = Math.min(100, byState.welfare + 1); if (defState) defState.welfare = Math.max(0, defState.welfare - 3);
+    storyWelfareDelta(byState, 'battle.siege_victory', 1); if (defState) storyWelfareDelta(defState, 'battle.siege_city_lost', -3);
     lead.loyalty = Math.min(100, (lead.loyalty == null ? 60 : lead.loyalty) + 4);
     if (defState && defState.gov) for (const dc of defState.gov.commanders.slice()) if (dc.node === node.id) {   // savunan: ÖLÜR ya da kaçar
-        if (Math.random() < CMD_DEATH_ON_LOSS) { storyKillCommander(dc, defState); }
-        else { const safe = node.neighbors.filter(n => { const sn = storyNode(n); return sn && sn.owner === defState.id; }); if (safe.length) dc.node = safe[Math.floor(Math.random() * safe.length)]; dc.loyalty = Math.max(20, (dc.loyalty == null ? 60 : dc.loyalty) - 6); }
+        if (storyRandom('military') < CMD_DEATH_ON_LOSS) { storyKillCommander(dc, defState); }
+        else { const safe = node.neighbors.filter(n => { const sn = storyNode(n); return sn && sn.owner === defState.id; }); if (safe.length) storyMoveCommander(dc, safe[storyRandomInt('military', safe.length)], { reason: 'ai.retreat_after_siege' }); dc.loyalty = Math.max(20, (dc.loyalty == null ? 60 : dc.loyalty) - 6); }
     }
     storyLog(`🏰 ${byState.name}, <b>${node.name}</b>'i kuşatmayla DÜŞÜRDÜ.`);
     storySave();
+    return true;
 }

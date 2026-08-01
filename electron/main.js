@@ -510,8 +510,8 @@ app.whenReady().then(() => {
             // Böylece bir eval'in fork/restore artığı sonraki eval'i perturbe etmez (ana zaman çizgisi tekrar
             // kullanılmaz) → tekrarlanabilir, izole regret ölçümü.
             const setupJs = (SEED) => `(() => { try {
-                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                const blueManifest = battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true });
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                const blueManifest = battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true });
                 battleDeployManifest(blueManifest, false, { source: 'oracle-blue' });
                 startBattle();
                 window.requestAnimationFrame = () => 0;
@@ -588,8 +588,8 @@ app.whenReady().then(() => {
             let redW = 0, blueW = 0, draw = 0, sumDiff = 0, n = 0;
             for (const SEED of SEEDS) {
                 const m = await js(`(() => { try {
-                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:true, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                    battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'versus-blue' });
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:true, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                    battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'versus-blue' });
                     startBattle(); window.requestAnimationFrame = () => 0;
                     battleSelectorDisable();
                     battleSelectorEnableFor('battle-red-ai', ${JSON.stringify(RED)});
@@ -634,8 +634,8 @@ app.whenReady().then(() => {
             await sleep(1400);
             // blueUsesModel: true → blue de model; false → blue kod-AI (kıyas baz)
             const runMatch = (SEED, blueUsesModel) => `(() => { try {
-                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:true, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'selfplay-blue' });
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:true, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'selfplay-blue' });
                 startBattle(); window.requestAnimationFrame = () => 0;
                 battleSelectorDisable();
                 battleSelectorEnableFor('battle-red-ai', ${JSON.stringify(RED)});
@@ -740,6 +740,61 @@ app.whenReady().then(() => {
         return;
     }
 
+    // KOÇ İZLE: `--coachwatch [matchFile]` → maçı KARE-KARE özete çevir + Coder-14B'ye 3.şahıs izlet → taktik analiz.
+    // matchFile yoksa qa-runtime/last-match.json. Kullanıcı: "koç tüm oyunu 3.şahıs kare-kare izlesin".
+    if (process.argv.includes('--coachwatch')) {
+        const wi = process.argv.indexOf('--coachwatch');
+        const watch = require('../js/BattleWatch.js');
+        const coderPath = path.join(__dirname, '..', 'models', 'Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf');
+        if (!require('fs').existsSync(coderPath)) { console.log('COACHWATCH_HATA Coder-14B yok (KOC-INDIR.bat): ' + coderPath); app.exit(1); return; }
+        let matchFile = process.argv[wi + 1];
+        if (!matchFile || matchFile.startsWith('--')) matchFile = path.join(__dirname, '..', 'qa-runtime', 'last-match.json');
+        // ÇOKLU-MAÇ: `--coachwatch all` (veya bir klasör) → qa-runtime/matches/ içindeki SON N maçı birden izle
+        // (kullanıcı: "koç sadece son maçı izliyor"). Toplu analiz + en-öğretici maçın kare-kare açılımı.
+        const fs0 = require('fs');
+        let digest, isMulti = false;
+        const matchesDir = path.join(__dirname, '..', 'qa-runtime', 'matches');
+        const wantAll = (matchFile === 'all') || (() => { try { return fs0.statSync(matchFile).isDirectory(); } catch (_) { return false; } })();
+        if (wantAll) {
+            const dir = (matchFile === 'all') ? matchesDir : matchFile;
+            let files = [];
+            try { files = fs0.readdirSync(dir).filter(f => /^match-\d+\.json$/.test(f)).sort(); } catch (_) {}
+            if (!files.length) { console.log('COACHWATCH_HATA maç geçmişi boş: ' + dir + ' (birkaç maç oyna, sonra tekrar dene)'); app.exit(1); return; }
+            const recs = [];
+            for (const f of files) { try { recs.push(JSON.parse(fs0.readFileSync(path.join(dir, f), 'utf8'))); } catch (_) {} }
+            digest = watch.battleMultiMatchDigest(recs); isMulti = true;
+            console.log('COACHWATCH_COKLU ' + recs.length + ' maç yüklendi (' + dir + ')');
+        } else {
+            let recording = null;
+            try { recording = JSON.parse(fs0.readFileSync(matchFile, 'utf8')); }
+            catch (e) { console.log('COACHWATCH_HATA maç okunamadı: ' + matchFile + ' ' + e.message); app.exit(1); return; }
+            digest = watch.battleMatchDigest(recording);
+        }
+        console.log('═══ KOÇA GİDEN KARE-KARE ÖZET ═══\n' + digest + '\n═══════════════════════════════\n');
+        let gpu = process.argv[wi + 2] || 'cpu';
+        if (gpu === 'cpu') gpu = 0; else if (gpu !== 'auto') gpu = parseInt(gpu, 10);
+        console.log('COACHWATCH_YUKLENIYOR Coder-14B gpuLayers=' + gpu + ' (~1-2 dk yükleme + ~2-4 dk analiz)...');
+        const child = fork(path.join(__dirname, 'llm-host.js'), [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+        const t0 = Date.now();
+        child.on('message', m => {
+            if (!m) return;
+            if (m.t === 'error') { console.log('COACHWATCH_LLM_HATA ' + m.error); try { child.kill(); } catch (_) {} app.exit(1); }
+            else if (m.t === 'loaded') {
+                console.log('COACHWATCH_MODEL_YUKLENDI (' + ((Date.now() - t0) / 1000).toFixed(0) + 's), analiz ediliyor...');
+                child.send({ t: 'gen', id: 1, system: watch.BATTLE_WATCH_SYSTEM, prompt: (isMulti ? watch.battleMultiMatchPrompt(digest) : watch.battleWatchPrompt(digest)), maxTokens: 350, temperature: 0.4 });
+            } else if (m.t === 'gen') {
+                console.log('\n═══ KOÇUN ANALİZİ (3.şahıs) ═══\n' + (m.text || m.error || '(boş)') + '\n═══════════════════════════════');
+                console.log('COACHWATCH_OK (' + ((Date.now() - t0) / 1000).toFixed(0) + 's toplam)');
+                try { child.send({ t: 'stop' }); } catch (_) {}
+                setTimeout(() => app.exit(0), 400);
+            }
+        });
+        child.on('exit', () => { });
+        // contextSize koçun uzun digest'ini (~1500 kelime) + 350 çıktı için: 2560. Çoklu-maç özet+kare-kare için 3072. gpuLayers ~28.
+        child.send({ t: 'load', modelPath: coderPath, gpuLayers: gpu, contextSize: (isMulti ? 3072 : 2560) });
+        return;
+    }
+
     // ÖĞRENME KANCASI TEŞHİSİ: `--learntest` → GERÇEK oyun yolu (quickMatchStart interactive) startBattle
     // kancasının capture'ı açıp açmadığını + tam maçta snapshot yakalanıp yakalanmadığını + checkGameOver
     // maç-sonu etiketle/kaydet'in çalışıp çalışmadığını doğrular.
@@ -792,7 +847,7 @@ app.whenReady().then(() => {
             for (let m = 0; m < matches; m++) {
                 const seed = 3000 + m * 777;
                 const res = await js(`(() => { try {
-                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
                     battleDeployManifest(battleBuildArmyManifest(${blueBudget}, { maxUnits: 16, combatFocused: true }), false, { source: 'human-blue' });
                     startBattle(); window.requestAnimationFrame = () => 0;
                     battleSelectorEnableFor('battle-red-ai', BATTLE_SELECTOR_TRAINED_MODEL); BATTLE_SELECTOR_MIN_TICK = 500; BATTLE_SELECTOR_MAX_TICK = 999999;
@@ -828,8 +883,8 @@ app.whenReady().then(() => {
         win.webContents.on('did-finish-load', async () => {
             await sleep(1400);
             const out = await js(`(() => { try {
-                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2024, attackerSide:true, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'snaptest-blue' });
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2024, attackerSide:true, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'snaptest-blue' });
                 startBattle(); window.requestAnimationFrame = () => 0;
                 battleSelectorEnableFor('battle-red-ai', BATTLE_SELECTOR_TRAINED_MODEL); BATTLE_SELECTOR_MIN_TICK = 500; BATTLE_SELECTOR_MAX_TICK = 999999;
                 battleTrainCaptureReset(true);    // "bu maçtan öğren" AÇIK → karar-durumları yakalanır
@@ -854,6 +909,151 @@ app.whenReady().then(() => {
         return;
     }
 
+    // DOKTRİN RPS-TURNUVASI: `--doctrinetournament` → her doktrin her doktrine karşı (9×9), kısa maçlar → taş-kağıt-makas matrisi.
+    // "Farklı-ama-dengeli" iddiasını ölçer: bir doktrin hepsini yeniyorsa denge-vidası orada. RED=doktrin-a(saldıran), BLUE=doktrin-b.
+    if (process.argv.includes('--doctrinetournament')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                const N = (typeof BATTLE_DOCTRINE_NAMES !== 'undefined') ? BATTLE_DOCTRINE_NAMES.length : 9;
+                const names = (typeof BATTLE_DOCTRINE_NAMES !== 'undefined') ? BATTLE_DOCTRINE_NAMES : [];
+                const CAP = 2400;   // TAM 120s (durationSec) → maç çözülür (elenme/süre-dolması); dereceli kuvvet-oranı metriği
+                const seeds = [2024];   // ilk-okuma 1 tohum (81 maç); gürültülü ama RPS-yönü verir
+                const adv = []; for (let a=0;a<N;a++){ adv[a]=[]; for(let b=0;b<N;b++) adv[a][b]=0; }
+                for (let a=0;a<N;a++){
+                    for (let b=0;b<N;b++){
+                        BATTLE_FORCE_VARIED = true; BATTLE_FORCE_DOCTRINE = a;   // RED = doktrin a (oto-deploy içinde)
+                        openBattlefieldSession({ mode:'quick', mapId:-2, seed:seeds[0], attackerSide:true, durationSec:120, playerMoney:5000, enemyMoney:5000, show:false });
+                        BATTLE_FORCE_DOCTRINE = b;   // BLUE = doktrin b
+                        battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true, varied: true }), false, { source:'tourney-blue' });
+                        BATTLE_FORCE_DOCTRINE = null; BATTLE_FORCE_VARIED = false;
+                        startBattle(); window.requestAnimationFrame = () => 0;
+                        const ph = SIM.headless; SIM.headless = true;
+                        try { while (SIM.tick < CAP && phase === PHASE.BATTLE) { simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); } } finally { SIM.headless = ph; }
+                        // DERECELİ METRİK: maç-sonu kalan kuvvet-oranı (red-doktrini a avantajı; >1 = a baskın, <1 = b baskın)
+                        let rv=0, bv=0;
+                        for (const u of SIM.units) { if (u.dead || u.abandoned) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if (u.isRed) rv+=c; else bv+=c; }
+                        adv[a][b] = +(rv/(bv||1)).toFixed(2);
+                    }
+                }
+                // Sıralama: doktrinin saldıran-olarak ORTALAMA avantajı (satır ortalaması, yüksek=güçlü doktrin)
+                const totals = adv.map((row,a)=>({ d:names[a]||a, avg:+(row.reduce((s,v)=>s+v,0)/row.length).toFixed(2) })).sort((x,y)=>y.avg-x.avg);
+                return { names, adv, totals, seedsPerCell: seeds.length, metric: 'red-kalan/blue-kalan (maç-sonu, >1=red-doktrini baskın)' };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,400) }; } })()`);
+            console.log('TOURNAMENT ' + JSON.stringify(out));
+            console.log('TOURNAMENT_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
+    // GEÇİCİ: --compcheck → 10 doktrinin ordu-kompozisyonunu dök (imza-birim garantisi doğrulama)
+    if (process.argv.includes('--compcheck')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                const R = [];
+                for (let dcx = 0; dcx < 10; dcx++) {
+                    if (typeof resetSimRng === 'function') resetSimRng(2024);
+                    BATTLE_FORCE_DOCTRINE = dcx;
+                    const m = battleBuildArmyManifest(5000, { maxUnits: 48, combatFocused: true, varied: true });
+                    BATTLE_FORCE_DOCTRINE = null;
+                    const comp = {};
+                    for (const t in m.counts) { comp[(STATS[t] && STATS[t].id) || t] = m.counts[t]; }
+                    R.push({ d: BATTLE_DOCTRINE_NAMES[dcx], units: m.totalUnits, val: m.totalValue, comp });
+                }
+                return JSON.stringify(R);
+            } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+            console.log('COMPCHECK ' + out);
+            app.quit();
+        });
+        return;
+    }
+    // AI KABUL-BATARYASI: `--aibattery` → 3 seed × TAM-EKONOMİ maçı (5000v5000) → tip-başı hasar dağılımı +
+    // takas-oranı + KIRMIZI-BAYRAK (savaş birimi ama katkı~sıfır). Her AI değişikliğinin sabit kabul-testi.
+    if (process.argv.includes('--aibattery')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                const seeds = [2024, 777, 5150];
+                const CAP = 7300;   // tam 360s (KULLANICI-KARARI 6dk) + küçük marj → süre-dolması + margin-zaferi tetiklensin (yoksa maç çözülmeden kesilir, kazanan BOŞ)
+                function runBattery(gateOn, redAttacks, sectorOn) {
+                    if (redAttacks === undefined) redAttacks = true;
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = gateOn;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = !!sectorOn;
+                    const agg = {}; const trade = { red:0, blue:0 }; const winners = [];
+                    const ctr = { abandoned:0, capRed:0, capBlue:0, vehDestroyed:0, kamiDep:0, kamiVal:0, assTicks:0, assSupp:0, sorties:0, fields:0, minesLaid:0, mineKills:0,
+                        posR:{SHAPE:0,POSITION:0,STRIKE:0,CONSOLIDATE:0,PRESERVE:0}, posB:{SHAPE:0,POSITION:0,STRIKE:0,CONSOLIDATE:0,PRESERVE:0}, fsRed:[], fsBlue:[], endTicks:[],
+                        intByMin:{}, strikeWinRed:0, strikeWinBlue:0,
+                        dispRed:0, dispBlue:0, soRed:{left:0,center:0,right:0}, soBlue:{left:0,center:0,right:0}, shiftR:0, shiftB:0 };
+                    for (const seed of seeds) {
+                        openBattlefieldSession({ mode:'quick', mapId:-2, seed, attackerSide:redAttacks, durationSec:360, playerMoney:5000, enemyMoney:5000, show:false });   // KULLANICI-KARARI: 6dk (saldıran imhayı bitirsin)
+                        BATTLE_FORCE_DOCTRINE = (typeof BATTLE_DOCTRINE_PLAYER_META !== 'undefined') ? BATTLE_DOCTRINE_PLAYER_META : null;   // VEKİL=OYUNCU-META (kullanıcının 5-maç profili → gerçekçi rakip)
+                        battleDeployManifest(battleBuildArmyManifest(6000, { maxUnits: 48, combatFocused: true, varied: true }), false, { source:'aibattery-blue', ally: true });   // KULLANICI-KRİTER: VEKİL 6000₺ (intel3pro 5000 vs vekil 6000; AI 3/3 yenerse BAŞARILI — handikap-testi)
+                        BATTLE_FORCE_DOCTRINE = null;
+                        startBattle(); window.requestAnimationFrame = () => 0;
+                        battleBalanceReset(true);
+                        const ph = SIM.headless; SIM.headless = true;
+                        try { while (SIM.tick < CAP && phase === PHASE.BATTLE) { simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); } } finally { SIM.headless = ph; }
+                        const rep = battleBalanceReport();
+                        winners.push(rep.winner); ctr.endTicks.push(SIM.tick); trade.red += rep.tradeRatio.redDestroyed; trade.blue += rep.tradeRatio.blueDestroyed;
+                        for (const r of rep.rows) { const a = agg[r.id] || (agg[r.id]={dep:0,dmg:0,kills:0,deaths:0,cost:r.cost,combat:r.combat}); a.dep+=r.dep; a.dmg+=r.dmg; a.kills+=r.kills; a.deaths+=r.deaths; }
+                        ctr.abandoned += BATTLE_BALANCE.abandoned; ctr.capRed += BATTLE_BALANCE.captured.red; ctr.capBlue += BATTLE_BALANCE.captured.blue;
+                        ctr.assTicks += BATTLE_BALANCE.assaultTicks; ctr.assSupp += BATTLE_BALANCE.assaultSuppTicks; ctr.sorties += BATTLE_BALANCE.heloSorties; ctr.fields += BATTLE_BALANCE.fieldsBuilt;
+                        ctr.vehDestroyed += rep.grayVehicle.vehDestroyed; ctr.kamiDep += rep.kamikaze.deployed; ctr.kamiVal += rep.kamikaze.valueDestroyed;
+                        ctr.minesLaid += BATTLE_BALANCE.minesLaid; ctr.mineKills += BATTLE_BALANCE.mineKills;
+                        for (const k in ctr.posR) ctr.posR[k]+=BATTLE_BALANCE.posture.red[k]; for (const k in ctr.posB) ctr.posB[k]+=BATTLE_BALANCE.posture.blue[k];
+                        ctr.fsRed.push(BATTLE_BALANCE.firstStrikeTick.red); ctr.fsBlue.push(BATTLE_BALANCE.firstStrikeTick.blue);
+                        for (const c of rep.intensityCurve) { const b = ctr.intByMin[c.min] || (ctr.intByMin[c.min]={sum:0,n:0}); b.sum+=c.pct; b.n++; }
+                        ctr.strikeWinRed += BATTLE_BALANCE.strikeWindows.red; ctr.strikeWinBlue += BATTLE_BALANCE.strikeWindows.blue;
+                        ctr.dispRed += rep.dispersalIndex.red; ctr.dispBlue += rep.dispersalIndex.blue;
+                        for (const k of ['left','center','right']) { ctr.soRed[k] += rep.sectorOccupancy.red[k]; ctr.soBlue[k] += rep.sectorOccupancy.blue[k]; }
+                        ctr.shiftR += rep.mainEffortShifts.red; ctr.shiftB += rep.mainEffortShifts.blue;
+                        battleBalanceReset(false);
+                    }
+                    const rows = Object.keys(agg).map(id => { const a=agg[id]; return { id, dep:a.dep, dmg:a.dmg, kills:a.kills, deaths:a.deaths, combat:a.combat, cost:a.cost, dmgPerCost:+(a.dmg/((a.dep*a.cost)||1)).toFixed(3), killsPer100:+(a.kills/((a.dep*a.cost/100)||1)).toFixed(2) }; }).sort((x,y)=>y.dmgPerCost-x.dmgPerCost);
+                    const redFlags = rows.filter(r=>r.combat && r.dep>0 && r.dmg < r.dep*r.cost*0.002).map(r=>r.id);
+                    return { gate:gateOn, redAttacks, seeds, winners, endTicks:ctr.endTicks,
+                        redWins: winners.filter(w=>w==='red').length, blueWins: winners.filter(w=>w==='blue').length,
+                        tradeRatio:{ red:Math.round(trade.red), blue:Math.round(trade.blue), ratio:+((trade.red||0)/(trade.blue||1)).toFixed(2) },
+                        firstStrike:{ red:ctr.fsRed, blue:ctr.fsBlue }, posture:{ red:ctr.posR, blue:ctr.posB },
+                        strikeWindows:{ red:ctr.strikeWinRed, blue:ctr.strikeWinBlue },
+                        intensityCurve: Object.keys(ctr.intByMin).sort((a,b)=>a-b).map(mi=>({ min:+mi, pct:+(ctr.intByMin[mi].sum/ctr.intByMin[mi].n).toFixed(2) })),
+                        grayVehicle:{ abandoned:ctr.abandoned, captured:{red:ctr.capRed,blue:ctr.capBlue}, vehDestroyed:ctr.vehDestroyed, abandonRatio:(ctr.vehDestroyed+ctr.abandoned)>0?+(ctr.abandoned/(ctr.vehDestroyed+ctr.abandoned)).toFixed(2):0 },
+                        kamikaze:{ deployed:ctr.kamiDep, valueDestroyed:ctr.kamiVal, valuePerUnit:ctr.kamiDep?+(ctr.kamiVal/ctr.kamiDep).toFixed(2):0 },
+                        assaultSuppressedPct:ctr.assTicks?+(ctr.assSupp/ctr.assTicks).toFixed(2):0, heloSorties:ctr.sorties, fieldsBuilt:ctr.fields,
+                        mines:{ laid:ctr.minesLaid, kills:ctr.mineKills },
+                        dispersalIndex:{ red:+(ctr.dispRed/seeds.length).toFixed(3), blue:+(ctr.dispBlue/seeds.length).toFixed(3) },
+                        sectorOccupancy:{ red:{left:+(ctr.soRed.left/seeds.length).toFixed(2),center:+(ctr.soRed.center/seeds.length).toFixed(2),right:+(ctr.soRed.right/seeds.length).toFixed(2)},
+                                          blue:{left:+(ctr.soBlue.left/seeds.length).toFixed(2),center:+(ctr.soBlue.center/seeds.length).toFixed(2),right:+(ctr.soBlue.right/seeds.length).toFixed(2)} },
+                        mainEffortShifts:{ red:+(ctr.shiftR/seeds.length).toFixed(1), blue:+(ctr.shiftB/seeds.length).toFixed(1) },
+                        redFlags };
+                }
+                const on = runBattery(true, true, false);    // saldıran-kırmızı, kapı-açık, sektör-KAPALI (blob baseline)
+                const sec = runBattery(true, true, true);     // saldıran-kırmızı, kapı-açık, sektör-AÇIK (anti-blob A/B)
+                const def = runBattery(true, false, true);   // SAVUNAN-kırmızı, SEKTÖR-AÇIK (savunan-yayılma testi — off'ta yayılma devreye girmiyordu)
+                if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = false;
+                return { on, sec, def };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,500) }; } })()`);
+            console.log('AIBATTERY ' + JSON.stringify(out));
+            console.log('AIBATTERY_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // MODEL SMOKE: `--modelsmoke` → GERÇEK oyun yolu (quickMatchStart→startBattle→otomatik-kanca) modeli
     // etkinleştiriyor mu + savaş çalışıyor mu doğrular (exe'ye gömülü model entegrasyonu testi).
     if (process.argv.includes('--modelsmoke')) {
@@ -866,7 +1066,7 @@ app.whenReady().then(() => {
             const out = await js(`(() => { try {
                 const modelVar = (typeof BATTLE_SELECTOR_TRAINED_MODEL !== 'undefined');
                 quickMatchStart();   // gerçek yol: interactive=true
-                battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'smoke-blue' });
+                battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'smoke-blue' });
                 startBattle();       // KANCA burada tetiklenir
                 const enabledAtStart = (typeof BATTLE_SELECTOR_MODELS !== 'undefined' && !!BATTLE_SELECTOR_MODELS['battle-red-ai']);
                 const target = Object.keys(BATTLE_SELECTOR_MODELS || {}).join(',');
@@ -903,29 +1103,48 @@ app.whenReady().then(() => {
             await sleep(1400);
             // maç koştur: useModel true ise seçici KIRMIZI'ya bağlı. Tam savaşı oynat, kırmızı net değerini döndür.
             const runMatch = (SEED, useModel) => `(() => { try {
-                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                battleDeployManifest(battleBuildArmyManifest(${parseInt(process.env.BLUE_BUDGET || '1400', 10)}, { maxUnits: 16, combatFocused: ${(process.env.BLUE_COMBAT || 'combat') !== 'mixed'}, varied: ${process.env.SURROGATE === '1'} }), false, { source: 'sellive-blue' });
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(${parseInt(process.env.BLUE_BUDGET || '5000', 10)}, { maxUnits: 40, combatFocused: ${(process.env.BLUE_COMBAT || 'combat') !== 'mixed'}, varied: ${process.env.SURROGATE === '1'} }), false, { source: 'sellive-blue' });
                 if (${process.env.SURROGATE === '1'}) { BATTLE_SURROGATE_SIDE = false; }   // mavi = insan-taktiği vekil (money-metrik: insan-gibiyi yenme)
+                BATTLE_SURROGATE_ENVELOP = ${process.env.ENVELOP === '1' ? 'true' : 'false'};   // ÖLÇÜM: vekil KUŞATIR (saldıran) → anti-kuşatma etkisi ölçülebilir
                 BATTLE_UNIT_SELF_DEFENSE = ${process.env.NOSELFDEF === '1' ? 'false' : 'true'};   // ÖLÇÜM: mikro-fix etkisi
                 BATTLE_FORCE_CONCENTRATE = ${process.env.CONC === '1' ? 'true' : 'false'};   // ÖLÇÜM: konsantrasyon kaldıracı
                 startBattle(); window.requestAnimationFrame = () => 0;
                 if (${useModel ? 'true' : 'false'}) { battleSelectorEnable(${JSON.stringify(MODEL)}, 'battle-red-ai'); BATTLE_SELECTOR_MIN_TICK = ${process.env.SEL_MIN || 0}; BATTLE_SELECTOR_MAX_TICK = ${process.env.SEL_MAX || 999999}; } else battleSelectorDisable();
                 const ph = SIM.headless; SIM.headless = true;
                 let ticks = 0; const maxT = Math.round(240 / BATTLE_TICK_SEC);
-                try { while (ticks < maxT && phase === PHASE.BATTLE && !(SIM.battle && SIM.battle.winnerSide !== null && SIM.battle.winnerSide !== undefined)) { simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); ticks++; } } finally { SIM.headless = ph; }
+                let surrTot = 0, surrN = 0, maxRedRisk = 0;   // ÖLÇÜM: KIRMIZI(savunan) sarılma-karesi + tespit-riski
+                let fireTot = 0, notFiring = 0, blockedC = 0, redSamp = 0;   // ÖLÇÜM: menzilde-AMA-ateşsiz + 'Hat Kapalı' (ateş-fix)
+                try { while (ticks < maxT && phase === PHASE.BATTLE && !(SIM.battle && SIM.battle.winnerSide !== null && SIM.battle.winnerSide !== undefined)) { simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); ticks++;
+                    if (ticks % 10 === 0) {
+                        const R=[],B=[]; for(const u of SIM.units){ if(u.dead)continue; (u.isRed?R:B).push(u); }
+                        for(const u of R){ redSamp++; if(u.combatState==='Hat Kapalı')blockedC++; let inR=false; for(const f of B){const dx=f.x-u.x,dy=f.y-u.y; if(dx*dx+dy*dy<=u.range*u.range){inR=true;break;}} if(inR){fireTot++; if(!u.attackTarget)notFiring++;} }
+                        if (R.length>=2 && B.length){
+                            let rcx=0,rcy=0; for(const u of R){rcx+=u.x;rcy+=u.y;} rcx/=R.length;rcy/=R.length;
+                            let bcx=0,bcy=0; for(const u of B){bcx+=u.x;bcy+=u.y;} bcx/=B.length;bcy/=B.length;
+                            const ax=bcx-rcx,ay=bcy-rcy,al=Math.hypot(ax,ay)||1,ux=ax/al,uy=ay/al,pxx=-uy,pyy=ux;
+                            let back=0,lft=0,rgt=0;
+                            for(const f of B){const dx=f.x-rcx,dy=f.y-rcy,a2=dx*ux+dy*uy,sd=dx*pxx+dy*pyy; if(a2<-80)back++; if(sd<-120)lft++; else if(sd>120)rgt++;}
+                            surrN++; if(back>0&&(lft>0||rgt>0)) surrTot++;
+                        }
+                        const ctrl = (typeof BATTLE_CONTROLLERS!=='undefined')?BATTLE_CONTROLLERS.get('battle-red-ai'):null;
+                        const rk = ctrl && ctrl.blackboard && ctrl.blackboard.envelopment ? (ctrl.blackboard.envelopment.risk||0) : 0;
+                        if (rk>maxRedRisk) maxRedRisk=rk;
+                    }
+                } } finally { SIM.headless = ph; }
                 battleSelectorDisable();
                 const red = battleOracleForceValue(true), blue = battleOracleForceValue(false);
                 const winner = (SIM.battle && SIM.battle.winnerSide !== undefined) ? SIM.battle.winnerSide : null;
-                return { ticks, redVal: Math.round(red.effective), blueVal: Math.round(blue.effective), redCount: red.count, blueCount: blue.count, diff: Math.round(red.effective - blue.effective), winnerRed: winner === true, winnerBlue: winner === false, decided: winner !== null };
+                return { ticks, redVal: Math.round(red.effective), blueVal: Math.round(blue.effective), redCount: red.count, blueCount: blue.count, diff: Math.round(red.effective - blue.effective), winnerRed: winner === true, winnerBlue: winner === false, decided: winner !== null, surroundedPct: surrN?Math.round(100*surrTot/surrN):0, maxRedRisk: +maxRedRisk.toFixed(2), inRangeNotFiringPct: fireTot?Math.round(100*notFiring/fireTot):0, blockedPct: redSamp?Math.round(100*blockedC/redSamp):0 };
             } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`;
             const rows = [];
             for (const SEED of SEEDS) {
                 const m = await js(runMatch(SEED, true));
                 const b = await js(runMatch(SEED, false));
                 if ((m && m.err) || (b && b.err)) { console.log('SELECTORLIVE_HATA seed=' + SEED + ' ' + JSON.stringify(m && m.err ? m : b)); continue; }
-                const row = { seed: SEED, modelDiff: m.diff, baseDiff: b.diff, delta: m.diff - b.diff, modelWin: m.winnerRed, baseWin: b.winnerRed, modelRed: m.redVal, modelBlue: m.blueVal, baseRed: b.redVal, baseBlue: b.blueVal };
+                const row = { seed: SEED, modelDiff: m.diff, baseDiff: b.diff, delta: m.diff - b.diff, modelWin: m.winnerRed, baseWin: b.winnerRed, modelRed: m.redVal, modelBlue: m.blueVal, baseRed: b.redVal, baseBlue: b.blueVal, modelSurr: m.surroundedPct, baseSurr: b.surroundedPct, modelRisk: m.maxRedRisk, baseRisk: b.maxRedRisk };
                 rows.push(row);
-                console.log('SELECTORLIVE seed=' + SEED + ' model(red-blue)=' + m.diff + ' baseline=' + b.diff + ' Δ=' + row.delta + ' modelKazandı=' + m.winnerRed + ' baseKazandı=' + b.winnerRed);
+                console.log('SELECTORLIVE seed=' + SEED + ' model(red-blue)=' + m.diff + ' baseline=' + b.diff + ' Δ=' + row.delta + ' modelKazandı=' + m.winnerRed + ' baseKazandı=' + b.winnerRed + ' | sarılma% m=' + m.surroundedPct + ' b=' + b.surroundedPct + ' | menzilde-ateşsiz% m=' + m.inRangeNotFiringPct + ' b=' + b.inRangeNotFiringPct + ' | Hat-Kapalı% m=' + m.blockedPct + ' b=' + b.blockedPct);
             }
             if (rows.length) {
                 const avgDelta = rows.reduce((a, r) => a + r.delta, 0) / rows.length;
@@ -965,8 +1184,8 @@ app.whenReady().then(() => {
             await sleep(1400);
             const examples = [];
             const setupJs = (SEED) => `(() => { try {
-                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'oracledata-blue' });
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'oracledata-blue' });
                 startBattle(); window.requestAnimationFrame = () => 0; return { ok:true };
             } catch(e){ return { err:e.message }; } })()`;
             let nActive = 0;
@@ -1026,8 +1245,8 @@ app.whenReady().then(() => {
             const sequences = [];
             for (const SEED of SEEDS) {
                 const s = await js(`(() => { try {
-                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
-                    battleDeployManifest(battleBuildArmyManifest(1400, { maxUnits: 16, combatFocused: true }), false, { source: 'oracleseq-blue' });
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                    battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'oracleseq-blue' });
                     startBattle(); window.requestAnimationFrame = () => 0; return { ok:true };
                 } catch(e){ return { err:e.message }; } })()`);
                 if (s && s.err) { console.log('ORACLESEQ_SETUP_HATA seed=' + SEED + ' ' + s.err); continue; }
@@ -1092,7 +1311,7 @@ app.whenReady().then(() => {
             for (const SEED of SEEDS) {
                 const s = await js(`(() => { try {
                     if (${SURRO}) { BATTLE_FORCE_VARIED = true; }
-                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${SEED}, attackerSide:${forceRedAttacker ? 'true' : 'false'}, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
                     battleDeployManifest(battleBuildArmyManifest(${blueBudget}, { maxUnits: 16, combatFocused: ${blueCombat}, varied: ${SURRO} }), false, { source: 'dagger-blue' });
                     if (${SURRO}) { BATTLE_SURROGATE_SIDE = false; BATTLE_SURROGATE_DEFENSIVE = ${forceRedAttacker}; }   // mavi=vekil; kırmızı saldırırsa mavi SAVUNUR (usta insan savunması)
                     startBattle(); window.requestAnimationFrame = () => 0;
@@ -1151,7 +1370,7 @@ app.whenReady().then(() => {
             await sleep(1400);
             const redDefends = process.env.DEF === '1';   // DEF=1 → kırmızı(AI) SAVUNUR, mavi(vekil) SALDIRIR (kullanıcının gerçek senaryosu)
             await js(`(() => { BATTLE_FORCE_VARIED = true; window.__DIAGMODEL = ${JSON.stringify(MODEL)};
-                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2112, attackerSide:${redDefends ? 'false' : 'true'}, durationSec:240, playerMoney:1500, enemyMoney:1500, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2112, attackerSide:${redDefends ? 'false' : 'true'}, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
                 battleDeployManifest(battleBuildArmyManifest(${blueBudget}, { maxUnits:16, combatFocused:true, varied:true }), false, { source:'diag-blue' });
                 BATTLE_SURROGATE_SIDE = false; BATTLE_SURROGATE_DEFENSIVE = ${redDefends ? 'false' : 'true'}; startBattle(); window.requestAnimationFrame = () => 0; return 1; })()`);
             console.log('DIAG vs' + blueBudget + ' (SURROGATE=insan-taktiği). intent’ler: attack/assault=saldırı, defend/hold/screen=savunma\n');
@@ -2291,9 +2510,32 @@ ipcMain.handle('train:saveHumanData', (_e, examples) => {
         if (!Array.isArray(data.examples)) data.examples = [];
         for (const ex of examples) data.examples.push(ex);
         data.meta = data.meta || {}; data.meta.exampleCount = data.examples.length;
+        // dosyanın motor-sürüm dağılımı (INSAN-EGIT bunu görüp yalnız güncel-motoru adapte eder)
+        const evTail = examples[examples.length - 1] && examples[examples.length - 1].engineVersion;
+        if (evTail) data.meta.lastEngineVersion = evTail;
         fsx.writeFileSync(HUMAN_DATA_FILE, JSON.stringify(data));
         return { count: examples.length, total: data.examples.length };
     } catch (e) { return { error: String(e && e.message) }; }
+});
+// KOMUTAN MODU: canlı saha ↔ emir dosya alışverişi. Renderer sahayı yazar + emir okur; dış-komutan (Claude) tersini yapar.
+const COMMANDER_DIR = path.dirname(HUMAN_DATA_FILE);   // qa-runtime
+ipcMain.handle('commander:writeState', (_e, state) => {
+    try {
+        const fsx = require('fs');
+        fsx.mkdirSync(COMMANDER_DIR, { recursive: true });
+        fsx.writeFileSync(path.join(COMMANDER_DIR, 'commander-state.json'), JSON.stringify(state));
+        return { ok: true };
+    } catch (e) { return { error: String(e && e.message) }; }
+});
+ipcMain.handle('commander:readOrders', (_e, turn) => {
+    try {
+        const fsx = require('fs');
+        const f = path.join(COMMANDER_DIR, 'commander-orders.json');
+        if (!fsx.existsSync(f)) return null;
+        const data = JSON.parse(fsx.readFileSync(f, 'utf8'));
+        if (data && data.turn === turn) return data;   // yalnız İSTENEN turun emirleri (eski/erken emir yok)
+        return null;
+    } catch (e) { return null; }
 });
 ipcMain.handle('train:humanDataCount', () => {
     try { const d = JSON.parse(require('fs').readFileSync(HUMAN_DATA_FILE, 'utf8')); return { total: (d.examples || []).length }; }
@@ -2303,13 +2545,24 @@ ipcMain.handle('train:humanDataCount', () => {
 const LAST_MATCH_FILE = app.isPackaged
     ? path.join(path.dirname(process.execPath), '..', '..', 'qa-runtime', 'last-match.json')
     : path.join(__dirname, '..', 'qa-runtime', 'last-match.json');
+const MATCHES_DIR = path.join(path.dirname(LAST_MATCH_FILE), 'matches');   // koç SON N maçı birden izlesin diye geçmiş
 ipcMain.handle('train:saveMatchRecording', (_e, rec) => {
     try {
         if (!rec) return { ok: false };
         const fsx = require('fs');
+        const json = JSON.stringify(rec);
         fsx.mkdirSync(path.dirname(LAST_MATCH_FILE), { recursive: true });
-        fsx.writeFileSync(LAST_MATCH_FILE, JSON.stringify(rec));
-        return { ok: true, bytes: JSON.stringify(rec).length };
+        fsx.writeFileSync(LAST_MATCH_FILE, json);
+        // GEÇMİŞ: döngüsel matches/ klasörüne de yaz (koç --coachwatch all → son N maçı birden görür). Son 8'i tut.
+        try {
+            fsx.mkdirSync(MATCHES_DIR, { recursive: true });
+            const existing = fsx.readdirSync(MATCHES_DIR).filter(f => /^match-\d+\.json$/.test(f)).sort();
+            const nextIdx = existing.length ? (parseInt(existing[existing.length - 1].match(/\d+/)[0], 10) + 1) : 1;
+            fsx.writeFileSync(path.join(MATCHES_DIR, 'match-' + String(nextIdx).padStart(4, '0') + '.json'), json);
+            const after = fsx.readdirSync(MATCHES_DIR).filter(f => /^match-\d+\.json$/.test(f)).sort();
+            for (const old of after.slice(0, Math.max(0, after.length - 8))) { try { fsx.unlinkSync(path.join(MATCHES_DIR, old)); } catch (_) {} }
+        } catch (_) {}
+        return { ok: true, bytes: json.length };
     } catch (e) { return { error: String(e && e.message) }; }
 });
 

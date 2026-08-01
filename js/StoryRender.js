@@ -15,7 +15,7 @@ function storyWorldFrame(timestamp) {
     if (dt > 0.5) dt = 0.5;          // sekme arka plandayken sıçramayı engelle
     storyAdvance(dt);
     // KONSEY açıkken ~0.5sn'de bir paneli tazele (yaşayan-dünya değerleri; render-throttle'a binmesin, titremesin)
-    if (STORY._councilOpen || STORY._armyOpen || STORY._techOpen || STORY._cityOpen) { STORY._accCouncil = (STORY._accCouncil || 0) + dt; if (STORY._accCouncil >= 0.5) { STORY._accCouncil = 0; if (STORY._councilOpen) storyCouncilUpdate(); if (STORY._armyOpen) storyArmyUpdate(); if (STORY._techOpen) storyTechUpdate(); if (STORY._cityOpen) storyCityUpdate(); } }
+    if (STORY._councilOpen || STORY._armyOpen || STORY._techOpen || STORY._cityOpen || STORY._changesOpen) { STORY._accCouncil = (STORY._accCouncil || 0) + dt; if (STORY._accCouncil >= 0.5) { STORY._accCouncil = 0; if (STORY._councilOpen) storyCouncilUpdate(); if (STORY._armyOpen) storyArmyUpdate(); if (STORY._techOpen) storyTechUpdate(); if (STORY._cityOpen) storyCityUpdate(); if (STORY._changesOpen) storyChangesUpdate(); } }
     // ~20fps render throttle (harita çoğunlukla durağan; pulse animasyonu için sürekli)
     if (timestamp - (STORY._lastRenderT || 0) >= 50) {
         STORY._lastRenderT = timestamp;
@@ -115,21 +115,113 @@ function storyS2W(X, Y) {
 }
 // perspektif ölçeği: yakın (alt) büyük, uzak (üst) küçük (jeton/etiket boyutu)
 function storyPScale(u) { return 0.62 + storySxOf(Math.max(0, Math.min(1, u))) * 0.5; }
-// bir önbellek tuvalini (kendi çözünürlüğü, dünya 0..STORY_WORLD kaplar) warp'lı çiz.
-// kx/ky KAYNAĞIN kendi boyutundan: terrain 1500px, owner overlay 300px olabilir.
-function storyBlitWarp(g, src, alpha) {
-    const W = STORY._cw, H = STORY._ch, z = storyCam.zoom, band = 3;
-    const kx = src.width / STORY_WORLD_W, ky = src.height / STORY_WORLD_H;
-    if (alpha != null) g.globalAlpha = alpha;
+function storyAdaptiveWarpEnabled() {
+    return typeof storyFeatureEnabled !== 'function'
+        || storyFeatureEnabled('render.adaptiveMapWarp');
+}
+
+function storyWarpBandSize(height) {
+    if (!storyAdaptiveWarpEnabled()) return 3;
+    const h = Math.max(1, Number(height) || 1);
+    const base = Math.max(4, Math.min(7, Math.round(h / 220)));
+    const minZoom = Math.max(0.0001, Number(STORY._minZoom) || Number(storyCam.zoom) || 1);
+    const zoomRatio = Math.max(1, (Number(storyCam.zoom) || 1) / minZoom);
+    return Math.max(4, base - (zoomRatio >= 3 ? 1 : 0));
+}
+
+function storyWarpValidate(g, src) {
+    if (!g || typeof g.drawImage !== 'function') return { ok: false, code: 'CONTEXT_REQUIRED' };
+    if (!src || !(Number(src.width) > 0) || !(Number(src.height) > 0)) return { ok: false, code: 'SOURCE_DIMENSIONS' };
+    if (!(Number(STORY._cw) > 0) || !(Number(STORY._ch) > 0)) return { ok: false, code: 'VIEWPORT_DIMENSIONS' };
+    if (!(Number(STORY_WORLD_W) > 0) || !(Number(STORY_WORLD_H) > 0)) return { ok: false, code: 'WORLD_DIMENSIONS' };
+    if (!(Number(storyCam.zoom) > 0) || !Number.isFinite(storyCam.x) || !Number.isFinite(storyCam.y)) {
+        return { ok: false, code: 'CAMERA_STATE' };
+    }
+    return { ok: true, code: null };
+}
+
+function storyWarpPlan() {
+    const W = STORY._cw, H = STORY._ch, band = storyWarpBandSize(H);
+    const key = [
+        storyAdaptiveWarpEnabled() ? 'adaptive' : 'fixed',
+        W, H, band,
+        Math.round((Number(storyCam.zoom) || 0) * 1e6),
+        Math.round((Number(STORY._minZoom) || 0) * 1e6)
+    ].join('|');
+    if (storyAdaptiveWarpEnabled() && STORY._warpPlanCache && STORY._warpPlanCache.key === key) {
+        STORY._warpPlanStats = STORY._warpPlanStats || { hits: 0, misses: 0 };
+        STORY._warpPlanStats.hits++;
+        return STORY._warpPlanCache;
+    }
+    const rows = [];
+    let maxScaleError = 0;
     for (let ys = 0; ys < H; ys += band) {
-        const u0 = ys / H, u1 = Math.min(1, (ys + band) / H);
-        const wy0 = storyCam.y + storyVyOf(u0) / z, wy1 = storyCam.y + storyVyOf(u1) / z;
-        const sxc = storySxOf((u0 + u1) / 2);
-        const srcXw = storyCam.x + (W / 2 * (1 - 1 / sxc)) / z, srcWw = W / (sxc * z);
+        const u0 = ys / H;
+        const u1 = Math.min(1, (ys + band) / H);
+        const um = (u0 + u1) / 2;
+        const scale = storySxOf(um);
+        const edge0 = storySxOf(u0);
+        const edge1 = storySxOf(u1);
+        maxScaleError = Math.max(
+            maxScaleError,
+            Math.abs(edge0 - scale) / Math.max(0.0001, edge0),
+            Math.abs(edge1 - scale) / Math.max(0.0001, edge1)
+        );
+        rows.push({
+            ys,
+            drawHeight: Math.min(band, H - ys) + 0.6,
+            vy0: storyVyOf(u0),
+            vy1: storyVyOf(u1),
+            scale
+        });
+    }
+    const plan = {
+        key,
+        width: W,
+        height: H,
+        band,
+        rows,
+        drawCallsPerLayer: rows.length,
+        maxScaleError
+    };
+    STORY._warpPlanStats = STORY._warpPlanStats || { hits: 0, misses: 0 };
+    STORY._warpPlanStats.misses++;
+    if (storyAdaptiveWarpEnabled()) STORY._warpPlanCache = plan;
+    return plan;
+}
+
+// bir önbellek tuvalini (kendi çözünürlüğü, dünya 0..STORY_WORLD kaplar) warp'lı çiz.
+// Plan terrain ve politik overlay arasında paylaşılır; çizim döngüsü hata yutmaz.
+function storyBlitWarp(g, src, alpha) {
+    const validation = storyWarpValidate(g, src);
+    if (!validation.ok) {
+        STORY._warpLastError = validation;
+        return false;
+    }
+    const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    const W = STORY._cw, z = storyCam.zoom;
+    const kx = src.width / STORY_WORLD_W, ky = src.height / STORY_WORLD_H;
+    const plan = storyWarpPlan();
+    if (alpha != null) g.globalAlpha = alpha;
+    for (const row of plan.rows) {
+        const wy0 = storyCam.y + row.vy0 / z;
+        const wy1 = storyCam.y + row.vy1 / z;
+        const srcXw = storyCam.x + (W / 2 * (1 - 1 / row.scale)) / z;
+        const srcWw = W / (row.scale * z);
         const sh = Math.max(0.01, (wy1 - wy0) * ky);
-        try { g.drawImage(src, srcXw * kx, wy0 * ky, srcWw * kx, sh, 0, ys, W, band + 0.6); } catch (e) {}
+        g.drawImage(src, srcXw * kx, wy0 * ky, srcWw * kx, sh, 0, row.ys, W, row.drawHeight);
     }
     if (alpha != null) g.globalAlpha = 1;
+    const ended = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    STORY._warpLastFrame = {
+        band: plan.band,
+        drawCallsPerLayer: plan.drawCallsPerLayer,
+        maxScaleError: plan.maxScaleError,
+        durationMs: Math.max(0, Math.round((ended - started) * 1000) / 1000),
+        cache: Object.assign({}, STORY._warpPlanStats)
+    };
+    STORY._warpLastError = null;
+    return true;
 }
 
 // (Eski terrain.png resim-yükleyici KALDIRILDI — file:// üzerinde getImageData "tainted canvas" hatası verdi.
@@ -214,7 +306,16 @@ function storyDrawGeoSettlements(ctx, S) {
         rect(x - 3, y - 2, 7, 5, 'rgba(20,16,12,.5)'); rect(x - 4, y - 3, 7, 5, '#7d7466'); rect(x - 4, y - 3, 7, 1, '#a39a88'); rect(x - 1, y - 6, 2, 4, '#8e8375'); }
 }
 function storyGeoTerrainCache() {
-    if (STORY._geoTerrain) return STORY._geoTerrain;
+    const mapPalette = typeof storyMapPaletteDescriptor === 'function'
+        ? storyMapPaletteDescriptor()
+        : { id: 'neutral', rgb: [1, 1, 1], lift: [0, 0, 0] };
+    const mapPaletteKey = typeof storyMapPaletteKey === 'function'
+        ? storyMapPaletteKey()
+        : 'palette:neutral';
+    if (STORY._geoTerrain && STORY._geoTerrainSource
+        && STORY._geoTerrainSource.paletteKey === mapPaletteKey) {
+        return STORY._geoTerrain;
+    }
     // GÜVENLİK: gerçek canvas gerektirir (createImageData/putImageData). jsdom stub'ında düz zemine düş.
     try {
         const _t = document.createElement('canvas'); _t.width = 4; _t.height = 4;
@@ -223,21 +324,42 @@ function storyGeoTerrainCache() {
     } catch (e) {
         const fb = document.createElement('canvas'); fb.width = 8; fb.height = 8;
         try { const c = fb.getContext('2d'); c.fillStyle = '#12321e'; c.fillRect(0, 0, 8, 8); } catch (_) {}
+        STORY._geoTerrainSource = {
+            adapterVersion: 'stub-canvas-fallback',
+            paletteId: mapPalette.id,
+            paletteKey: mapPaletteKey,
+            width: fb.width,
+            height: fb.height
+        };
         STORY._geoTerrain = fb; return fb;
     }
     const S = 0.9;                                          // GEO(1500×1180) → tampon ölçeği
     const W = Math.round(GEO.W * S), H = Math.round(GEO.H * S), f = S / 0.95;   // f: prototip S=0.95 eşiklerini oranla
     const fbm = (x, y, o) => _geoFbm(x, y, o || 5);
-    // 1) kara maskesi — scanline even-odd (iç denizler kendiliğinden oyulur)
-    const land = new Uint8Array(W * H);
-    for (const ring of GEO.land) for (let gy = 0; gy < H; gy++) {
-        const y = (gy + 0.5) / S, xs = [];
-        for (let i = 0; i < ring.length; i++) {
-            const x1 = ring[i][0], y1 = ring[i][1], x2 = ring[(i + 1) % ring.length][0], y2 = ring[(i + 1) % ring.length][1];
-            if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+    // 1) kara maskesi. Faz 14.2 açıkken GEO.land burada ikinci kez scanline
+    // edilmez; terrain, politik overlay ve hit-test aynı kanonik maskeyi örnekler.
+    let land = null;
+    let terrainRaster = null;
+    if (typeof storyMapRasterEnabled === 'function' && storyMapRasterEnabled()
+        && typeof storyMapRasterResampleLand === 'function') {
+        terrainRaster = storyMapRasterEnsure();
+        land = storyMapRasterResampleLand(W, H);
+    }
+    if (!land) {
+        land = new Uint8Array(W * H);
+        for (const ring of GEO.land) for (let gy = 0; gy < H; gy++) {
+            const y = (gy + 0.5) / S, xs = [];
+            for (let i = 0; i < ring.length; i++) {
+                const x1 = ring[i][0], y1 = ring[i][1], x2 = ring[(i + 1) % ring.length][0], y2 = ring[(i + 1) % ring.length][1];
+                if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + (y - y1) / (y2 - y1) * (x2 - x1));
+            }
+            xs.sort((a, b) => a - b);
+            for (let k = 0; k + 1 < xs.length; k += 2) {
+                const a = Math.max(0, Math.ceil(xs[k] * S - 0.5));
+                const b = Math.min(W - 1, Math.floor(xs[k + 1] * S - 0.5));
+                for (let gx = a; gx <= b; gx++) land[gy * W + gx] ^= 1;
+            }
         }
-        xs.sort((a, b) => a - b);
-        for (let k = 0; k + 1 < xs.length; k += 2) { const a = Math.max(0, Math.ceil(xs[k] * S - 0.5)), b = Math.min(W - 1, Math.floor(xs[k + 1] * S - 0.5)); for (let gx = a; gx <= b; gx++) land[gy * W + gx] ^= 1; }
     }
     // 2) chamfer mesafeleri (karada kıyıya, denizde karaya)
     const dLand = _geoDistT(land, W, H, 1), dSea = _geoDistT(land, W, H, 0);
@@ -316,7 +438,10 @@ function storyGeoTerrainCache() {
             const dense = h > .62 ? 1.45 : dLand[i] < 10 * f ? 1.25 : pal === PL.forest ? .85 : .45;
             col = pick(pal, Math.max(0, Math.min(1, t)) + shade * (h > .7 ? .3 : .16), x, y, dense);
         }
-        o[k] = col[0]; o[k + 1] = col[1]; o[k + 2] = col[2]; o[k + 3] = 255;
+        o[k] = Math.max(0, Math.min(255, Math.round(col[0] * mapPalette.rgb[0] + mapPalette.lift[0])));
+        o[k + 1] = Math.max(0, Math.min(255, Math.round(col[1] * mapPalette.rgb[1] + mapPalette.lift[1])));
+        o[k + 2] = Math.max(0, Math.min(255, Math.round(col[2] * mapPalette.rgb[2] + mapPalette.lift[2])));
+        o[k + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
     // nehirler — çift hat
@@ -324,6 +449,21 @@ function storyGeoTerrainCache() {
     for (const rv of rivers0) { ctx.beginPath(); ctx.moveTo(rv[0][0], rv[0][1]); for (let i = 1; i < rv.length; i++) ctx.lineTo(rv[i][0], rv[i][1]); ctx.strokeStyle = '#20364e'; ctx.lineWidth = Math.max(1, 3 * S); ctx.stroke(); ctx.strokeStyle = '#3e7096'; ctx.lineWidth = Math.max(1, 1.4 * S); ctx.stroke(); }
     // yerleşim / yol / maden / fabrika / petrol / kale (tampon ölçeğinde)
     storyDrawGeoSettlements(ctx, S);
+    STORY._geoTerrainSource = terrainRaster ? {
+        adapterVersion: STORY_MAP_RASTER_ADAPTER_VERSION,
+        sourceHash: terrainRaster.sourceHash,
+        landHash: storyMapRasterHashBytes(land),
+        paletteId: mapPalette.id,
+        paletteKey: mapPaletteKey,
+        width: W,
+        height: H
+    } : {
+        adapterVersion: 'legacy-geo-scanline',
+        paletteId: mapPalette.id,
+        paletteKey: mapPaletteKey,
+        width: W,
+        height: H
+    };
     STORY._geoTerrain = cv; return cv;
 }
 
@@ -360,6 +500,31 @@ function storyBuildLandGrid() {
         const w = 300, h = Math.round(300 * GEO.H / GEO.W);
         STORY_GW = w; STORY_GH = h;
         STORY_WORLD_W = 3000; STORY_WORLD_H = Math.round(3000 * h / w);
+        if (typeof storyMapRasterEnabled === 'function' && storyMapRasterEnabled()
+            && typeof storyMapRasterResample === 'function') {
+            const canonical = storyMapRasterResample(w, h);
+            if (canonical) {
+                STORY._landGrid = Array.from(canonical.regionIds);
+                STORY._landGridSource = {
+                    adapterVersion: STORY_MAP_RASTER_ADAPTER_VERSION,
+                    sourceHash: canonical.sourceHash,
+                    landHash: canonical.landHash,
+                    regionHash: canonical.regionHash,
+                    width: w,
+                    height: h
+                };
+                if (typeof storyInvalidateMapCaches === 'function'
+                    && storyInvalidateMapCaches('derived', 'land-grid-rebuilt').ok) {
+                    // Merkezî kapı, mevcut kara gridini koruyup türetilmiş render cache'lerini temizledi.
+                } else {
+                    STORY._ownerKey = null;
+                    STORY._ownerCache = null;
+                    STORY._terrainCache = null;
+                    STORY._geoTerrain = null;
+                }
+                return;
+            }
+        }
         const landMask = new Uint8Array(w * h);
         const sx = w / GEO.W, sy = h / GEO.H;
         for (const ring of GEO.land) {
@@ -386,7 +551,11 @@ function storyBuildLandGrid() {
             for (const n of nodes) { const dx = nx - n.lx, dy = ny - n.ly, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = n.id; } }
             grid[gy * w + gx] = best;
         }
-        STORY._landGrid = grid; STORY._ownerKey = null; STORY._terrainCache = null;
+        STORY._landGrid = grid; STORY._landGridSource = { adapterVersion: 'legacy-geo-scanline' };
+        if (!(typeof storyInvalidateMapCaches === 'function'
+            && storyInvalidateMapCaches('derived', 'land-grid-rebuilt').ok)) {
+            STORY._ownerKey = null; STORY._ownerCache = null; STORY._terrainCache = null; STORY._geoTerrain = null;
+        }
         return;
     }
     if (typeof STORY_TERRAIN !== 'undefined' && STORY_TERRAIN.land) {
@@ -403,7 +572,11 @@ function storyBuildLandGrid() {
                 grid[gy * w + gx] = best;
             }
         }
-        STORY._landGrid = grid; STORY._ownerKey = null; STORY._terrainCache = null;
+        STORY._landGrid = grid;
+        if (!(typeof storyInvalidateMapCaches === 'function'
+            && storyInvalidateMapCaches('derived', 'land-grid-rebuilt').ok)) {
+            STORY._ownerKey = null; STORY._terrainCache = null; STORY._geoTerrain = null;
+        }
         return;
     }
     // PROSEDÜREL yedek (gömülü harita yoksa): ülke radius-blob → kıta + deniz
@@ -419,7 +592,11 @@ function storyBuildLandGrid() {
             if (Math.sqrt(bestD) <= r + jitter) grid[gy * STORY_GW + gx] = best;
         }
     }
-    STORY._landGrid = grid; STORY._ownerKey = null; STORY._terrainCache = null;
+    STORY._landGrid = grid;
+    if (!(typeof storyInvalidateMapCaches === 'function'
+        && storyInvalidateMapCaches('derived', 'land-grid-rebuilt').ok)) {
+        STORY._ownerKey = null; STORY._terrainCache = null; STORY._geoTerrain = null;
+    }
 }
 
 // (1) TERRAIN tabanı — prosedürel (terrain.png yoksa). STATİK (arazi rengi, sahip YOK).
@@ -448,11 +625,22 @@ function storyEnsureTerrainCache() {
 // (2) DİNAMİK POLİTİK katman — her kara hücresi SAHİBİNİN rengiyle yarı-saydam; imparatorluk sınırı koyu+opak;
 //  deniz şeffaf (terrain görünür). Sahiplik değişince yeniden çizilir (fetih → renk anında değişir).
 function storyEnsureOwnerOverlay() {
+    if (typeof storyPoliticalOverlayEnabled === 'function'
+        && storyPoliticalOverlayEnabled()
+        && typeof storyPoliticalOverlayEnsureCanvas === 'function') {
+        const canonicalCanvas = storyPoliticalOverlayEnsureCanvas();
+        if (canonicalCanvas) return canonicalCanvas;
+    }
     if (!STORY._landGrid) storyBuildLandGrid();
     const key = STORY.nodes.map(n => n.owner).join(',');
     if (STORY._ownerCache && STORY._ownerKey === key) return STORY._ownerCache;
     let cv = STORY._ownerCache;
-    if (!cv) { cv = document.createElement('canvas'); cv.width = STORY_GW; cv.height = STORY_GH; STORY._ownerCache = cv; }
+    if (!cv || cv.width !== STORY_GW || cv.height !== STORY_GH) {
+        cv = document.createElement('canvas');
+        cv.width = STORY_GW;
+        cv.height = STORY_GH;
+        STORY._ownerCache = cv;
+    }
     const g = cv.getContext('2d'); g.clearRect(0, 0, STORY_GW, STORY_GH);
     const grid = STORY._landGrid;
     const ownerAt = (x, y) => { if (x < 0 || y < 0 || x >= STORY_GW || y >= STORY_GH) return -1; const id = grid[y * STORY_GW + x]; return id < 0 ? -1 : STORY.nodes[id].owner; };
@@ -574,7 +762,10 @@ function storyRender() {
         }
         // saldırılabilir → kırmızı nabız kare-halka ; ilerlenebilir → yeşil kare-halka
         if (attackable) {
-            const pulse = Math.round(3 + 2 * (1 + Math.sin(STORY.clock * 4 + n.id)));
+            const visualSeconds = Number.isFinite(STORY._lastFrameT)
+                ? STORY._lastFrameT / 1000
+                : STORY.clock;
+            const pulse = Math.round(3 + 2 * (1 + Math.sin(visualSeconds * 4 + n.id)));
             g.strokeStyle = 'rgba(255,70,70,0.95)'; g.lineWidth = 2;
             g.strokeRect(px - sq - pulse, py - sq - pulse, 2 * (sq + pulse), 2 * (sq + pulse));
         } else if (moveable) {

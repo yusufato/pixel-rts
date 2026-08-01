@@ -122,7 +122,14 @@ function executionMoveOrder(contract, units, point, reason) {
     const forwardX = dx / distance;
     const forwardY = dy / distance;
     const occupied = [];
-    const destinations = units.map((unit, index) => {
+    // MENZİL-KATMANLI KOL (kombine kol): KISA-menzil ÖNE (düşük index=ön slot), UZUN-menzil ARKAYA.
+    // → MBT/piyade önde temas eder, AT/TD/topçu arkadan üzerinden ateşler. Deterministik (id-tiebreak).
+    const ordered = units.slice().sort((a, b) => {
+        const ra = (typeof STATS !== 'undefined' && STATS[a.type]) ? (STATS[a.type].range || 0) : 0;
+        const rb = (typeof STATS !== 'undefined' && STATS[b.type]) ? (STATS[b.type].range || 0) : 0;
+        return ra - rb || a.id - b.id;
+    });
+    const destinations = ordered.map((unit, index) => {
         const offset = executionFormationOffset(
             index,
             units.length,
@@ -179,6 +186,13 @@ function executionVisibleTarget(contract, units, observation, options = {}) {
     );
     if (!candidates.length) return null;
 
+    // ORTAK FOCUS-FIRE: operasyon tek bir öncelikli hedef seçtiyse ve o hedef bu grubun menzilindeyse, HERKES ona
+    // yüklensin → dağınık tek-tek vuruş yerine konsantre yıkım (insanın kazanma tarzı; "kağıtta değil mermide konsantrasyon").
+    if (options.focusTargetId != null) {
+        const focus = candidates.find(item => item.contact.id === options.focusTargetId);
+        if (focus) return focus.contact;
+    }
+
     const nearestDistance = Math.min(...candidates.map(item => item.unitDistance));
     const localBand = options.localBand ?? Math.max(140, contract.pursuitLimit || 0);
     const localCandidates = candidates.filter(item =>
@@ -219,7 +233,8 @@ function executionSelfDefenseTarget(contract, units, observation, options = {}) 
     );
     return executionVisibleTarget(contract, units, observation, {
         maxUnitDistance: defensiveRange,
-        localBand: 90
+        localBand: 90,
+        focusTargetId: options.focusTargetId   // ortak focus'u ilet (menzildeyse herkes aynı hedefe)
     });
 }
 
@@ -494,7 +509,7 @@ class TaskExecutionManager {
                     contract,
                     units,
                     observation,
-                    { engagementFactor }
+                    { engagementFactor, focusTargetId: this.focusForContract(contract) }
                 );
                 if (threat && (state.lastTargetId !== threat.id ||
                     this.shouldRefresh(state, tick, TASK_ACTION_REFRESH_TICKS))) {
@@ -580,7 +595,7 @@ class TaskExecutionManager {
                     contract,
                     units,
                     observation,
-                    { engagementFactor: 1.45 }
+                    { engagementFactor: 1.45, focusTargetId: this.focusForContract(contract) }
                 );
                 if (threat && (state.lastTargetId !== threat.id ||
                     this.shouldRefresh(state, tick, TASK_ACTION_REFRESH_TICKS))) {
@@ -788,8 +803,8 @@ class TaskExecutionManager {
             const canAttack = contract.engagementRule !== 'HOLD_FIRE';
             const target = !canAttack ? null :
                 selfDefenseOnly
-                    ? executionSelfDefenseTarget(contract, units, observation)
-                    : executionVisibleTarget(contract, units, observation);
+                    ? executionSelfDefenseTarget(contract, units, observation, { focusTargetId: this.focusForContract(contract) })
+                    : executionVisibleTarget(contract, units, observation, { focusTargetId: this.focusForContract(contract) });
             if (target && (state.lastTargetId !== target.id ||
                 this.shouldRefresh(state, tick, TASK_ACTION_REFRESH_TICKS))) {
                 const order = selfDefenseOnly
@@ -814,8 +829,8 @@ class TaskExecutionManager {
             const canAttack = contract.engagementRule !== 'HOLD_FIRE';
             const target = !canAttack ? null :
                 selfDefenseOnly
-                    ? executionSelfDefenseTarget(contract, units, observation)
-                    : executionVisibleTarget(contract, units, observation);
+                    ? executionSelfDefenseTarget(contract, units, observation, { focusTargetId: this.focusForContract(contract) })
+                    : executionVisibleTarget(contract, units, observation, { focusTargetId: this.focusForContract(contract) });
             if (target) {
                 this.transition(state, TASK_EXECUTION_PHASE.ACTION, tick, 'VISIBLE_TARGET_ACQUIRED');
                 const order = selfDefenseOnly
@@ -862,6 +877,18 @@ class TaskExecutionManager {
                     tick
                 );
             }
+            // ANALİST-FIX (savunan-yayılma icra): mustSearch değil ama SAVUNAN grubu sektör-savunma-pozisyonuna VARMADIYSA
+            // oraya YAY (yumak→geniş hat; ÇNRA/havan alan-ateşi mezarı çözülür). Varınca durur → dig_in oto-siperlenir.
+            if (!target && searchCapable && contract.destination &&
+                this.controller?.lastSituation?.role === BATTLE_ROLE.DEFENDER &&
+                !executionArrived(units, contract.destination, 150) &&
+                this.shouldRefresh(state, tick, TASK_ACTION_REFRESH_TICKS)) {
+                return this.markOrder(
+                    state,
+                    executionMoveOrder(contract, units, contract.destination, `TASK:${contract.id}:DEFENSE_SPREAD`),
+                    tick
+                );
+            }
         }
         return null;
     }
@@ -873,6 +900,7 @@ class TaskExecutionManager {
             if (!activeIds.has(id)) this.states.delete(id);
         }
         const operation = this.updateOperation(operationalPlan, observation, tick);
+        this.focusContactId = this.updateFocusContact(observation);   // ORTAK FOCUS: tüm muharip gruplar aynı hedefe
         const orders = operationalPlan.taskContracts
             .slice()
             .sort((a, b) => a.groupRole.localeCompare(b.groupRole))
@@ -899,5 +927,61 @@ class TaskExecutionManager {
             orders,
             telemetry: replayClone(this.lastTelemetry)
         } : null;
+    }
+
+    // ORTAK FOCUS-FIRE hedefi: tüm muharip gruplar aynı önceliği döver → konsantre yıkım.
+    // Sadece PERCEPTION (görünür contacts) — adil, sis-savaşına saygılı. Histerezis: mevcut focus görünür+canlı ise
+    // koru (odak savrulmasını önle); ölünce/kaybolunca hepsi AYNI ANDA yeni önceliğe döner. Öncelik: kendi kütle-
+    // merkezine EN YAKIN (ulaşılabilir) görünür düşman + yaralıya bonus (bitirici darbe).
+    // SEKTÖR-KOMUTA: grup kendi sektörünün odağını kullanır (mainSector'daki KÜTLE aynı düşmana odaklanır = kazanan
+    // konsantrasyon sektör-İÇİNDE korunur; FLANK kendi sektörüne). Sektör-off veya sektör yoksa global focus'a düşer.
+    focusForContract(contract) {
+        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND && contract && contract.sector && this.focusBySector) {
+            const f = this.focusBySector[contract.sector];
+            if (f != null) return f;
+        }
+        return this.focusContactId;
+    }
+    updateFocusContact(observation) {
+        const visible = (observation.contacts || []).filter(c => c.visible);
+        // SEKTÖR-KOMUTA: sektör-başına odak (contact'ın x-band'ına göre). Her sektörde en iyi hedef (scoreTarget / en-yakın).
+        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND) {
+            const own0 = observation.ownUnits || [];
+            const bb0 = this.controller && this.controller.blackboard;
+            const tw0 = (this.controller && this.controller.profile) ? this.controller.profile.targetingWeights : null;
+            const byS = { left: null, center: null, right: null };
+            const scoreS = { left: -Infinity, center: -Infinity, right: -Infinity };
+            for (const c of visible) {
+                const sec = (typeof situationSectorForX === 'function') ? situationSectorForX(c.x) : 'center';
+                const s = (typeof scoreTarget === 'function') ? scoreTarget(c, own0, bb0, tw0) : -Math.hypot(c.x, c.y);
+                if (s > scoreS[sec] || (s === scoreS[sec] && byS[sec] != null && c.id < byS[sec])) { scoreS[sec] = s; byS[sec] = c.id; }
+            }
+            this.focusBySector = byS;
+        } else {
+            this.focusBySector = null;
+        }
+        if (!visible.length) return null;
+        if (this.focusContactId != null && visible.some(c => c.id === this.focusContactId)) return this.focusContactId;   // histerezis: mevcut odak görünürse koru
+        const own = observation.ownUnits || [];
+        // FAZ 4: tam hedef-skorlama (TTK + sınıf + yaralı + menzildeki-dost + korunma). Yüksek=iyi. Bayrakla A/B.
+        if ((typeof BATTLE_TARGET_SCORING === 'undefined' || BATTLE_TARGET_SCORING) && typeof scoreTarget === 'function') {
+            const bb = this.controller && this.controller.blackboard;
+            const tw = (this.controller && this.controller.profile) ? this.controller.profile.targetingWeights : null;   // FAZ 7: profil ağırlıkları
+            let best = null, bestScore = -Infinity;
+            for (const c of visible) { const s = scoreTarget(c, own, bb, tw); if (s > bestScore || (s === bestScore && best && c.id < best.id)) { bestScore = s; best = c; } }
+            return best ? best.id : null;
+        }
+        // Eski (en-yakın öz-merkeze + yaralı bonusu):
+        let cx = 0, cy = 0;
+        for (const u of own) { cx += u.x; cy += u.y; }
+        if (own.length) { cx /= own.length; cy /= own.length; }
+        let best = null, bestScore = Infinity;
+        for (const c of visible) {
+            const d = Math.hypot(c.x - cx, c.y - cy);
+            const woundedBonus = c.healthBand === 'CRITICAL' ? 260 : c.healthBand === 'DAMAGED' ? 130 : 0;
+            const score = d - woundedBonus;
+            if (score < bestScore) { bestScore = score; best = c; }
+        }
+        return best ? best.id : null;
     }
 }

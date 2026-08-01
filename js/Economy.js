@@ -25,7 +25,7 @@ const ECON_CHIP_COST = 2;                       // tank/topçu başına ⚡
 const ECON_CHIP_TYPES = () => (typeof T !== 'undefined') ? [T.ARMOR, T.ARTILLERY] : [];
 
 function storyEconBackfill(st) {
-    if (st.inflation == null) st.inflation = 3 + Math.random() * 3;
+    if (st.inflation == null) st.inflation = 3 + storyRandom('economy') * 3;
     if (st.trust == null) st.trust = 55;
     if (st.chips == null) st.chips = 8;
 }
@@ -71,7 +71,7 @@ function storyEconSpawnDemand(st) {
     // en küskün fraksiyon konuşur (radikaller tersine: taşkınlık konuşturur)
     const cand = FAC_KEYS.map(k => ({ k, anger: k === 'radicals' ? (f[k] - 45) : (52 - f[k]) }))
         .filter(x => x.anger > 6).sort((a, b) => b.anger - a.anger);
-    if (!cand.length || Math.random() > 0.5) return;
+    if (!cand.length || storyRandom('economy') > 0.5) return;
     const key = cand[0].k, d = ECON_DEMANDS[key]; if (!d) return;
     st._facDemand = { fac: key, until: (STORY.clock || 0) + 60 };
     if (st.isPlayer) {
@@ -91,13 +91,20 @@ function storyEconResolveDemand(st, accept) {
             const cmds = storyStateCommanders(st).filter(c => c.res);
             const tot = cmds.reduce((a, c) => a + c.res.points, 0);
             if (tot < d.cost) { storyFacApply(st, d.reject, d.name + ' (hazine yetersiz — RET)'); return false; }
-            for (const c of cmds) c.res.points -= d.cost * (c.res.points / Math.max(1, tot));
+            if (typeof storyBudgetDebit === 'function') {
+                const paid = storyBudgetDebit(st, d.cost, 'faction.concession', {
+                    correlationId: `faction-demand:${st.id}:${d.id || d.name}`
+                });
+                if (!paid.ok) { storyFacApply(st, d.reject, d.name + ' (hazine yetersiz — RET)'); return false; }
+            } else {
+                for (const c of cmds) c.res.points -= d.cost * (c.res.points / Math.max(1, tot));
+            }
         }
         storyFacApply(st, d.accept, d.name + ' (kabul)');
     } else {
         storyFacApply(st, d.reject, d.name + ' (ret)');
     }
-    if (typeof storyNews === 'function' && (st.isPlayer || Math.random() < 0.2))
+    if (typeof storyNews === 'function' && (st.isPlayer || storyRandom('economy') < 0.2))
         storyNews('demand', { st: st.name, dem: d.name, res: accept ? 'kabul edildi' : 'reddedildi' });
     if (st.isPlayer && typeof storyCouncilUpdate === 'function') storyCouncilUpdate();
     return true;
@@ -117,7 +124,7 @@ function storyEconAIDemand(st) {
         if (dem.fac === 'radicals') want += (50 - p.auth) / 120;
     }
     const affordable = d.cost === 0 || treasury > d.cost * 2.2;
-    storyEconResolveDemand(st, affordable && Math.random() < want);
+    storyEconResolveDemand(st, affordable && storyRandom('economy') < want);
 }
 
 // ── GIDA ENDEKSİ — şehirler ordu+nüfusu beslemeli ─────────────────────────
@@ -149,7 +156,10 @@ function storyEconomyTick(dt) {
         if (st.trust < 35) infDrift += 0.006;                       // güvensizlik pahalandırır
         st.inflation = Math.max(2, Math.min(30, st.inflation + infDrift * dt));
         if (st.inflation > 14) {                                    // yüksek enflasyonun toplumsal bedeli
-            st.welfare = Math.max(0, st.welfare - (st.inflation - 14) * 0.003 * dt);
+            storyWelfareDelta(st, 'economy.inflation', -(st.inflation - 14) * 0.003 * dt, {
+                continuous: true,
+                correlationId: `systemic-pressure:${st.id}`
+            });
             if (st.factions) st.factions.workers = Math.max(5, st.factions.workers - (st.inflation - 14) * 0.004 * dt);
         }
 
@@ -159,7 +169,14 @@ function storyEconomyTick(dt) {
         // SERMAYE KAÇIŞI: güven dipte → para ülkeyi terk eder (120 sn soğumalı)
         if (st.trust < 30 && (STORY.clock - (st._lastFlight || -999)) > 120) {
             st._lastFlight = STORY.clock;
-            for (const c of storyStateCommanders(st)) if (c.res) c.res.points *= 0.85;
+            const flight = storyStateCommanders(st).reduce((sum, c) => sum + Number(c.res && c.res.points || 0), 0) * 0.15;
+            if (typeof storyBudgetDebit === 'function') {
+                storyBudgetDebit(st, flight, 'capital.flight', {
+                    correlationId: `capital-flight:${st.id}:${Math.floor(STORY.clock)}`
+                });
+            } else {
+                for (const c of storyStateCommanders(st)) if (c.res) c.res.points *= 0.85;
+            }
             if (st.factions) st.factions.business = Math.max(5, st.factions.business - 5);
             st.trust += 8;                                          // kaçış sonrası kısmi rahatlama
             storyLog(`💸 <b>${st.name}</b>'de SERMAYE KAÇIŞI — hazine ⭐'ının %15'i yurt dışına çıktı.`);
@@ -178,7 +195,9 @@ function storyEconomyTick(dt) {
         const food = storyEconFood(st);
         if (food < 0.85 && (STORY.clock - (st._lastFamine || -999)) > 90) {
             st._lastFamine = STORY.clock;
-            st.welfare = Math.max(0, st.welfare - 5);
+            storyWelfareDelta(st, 'economy.crisis', -5, {
+                correlationId: `economic-crisis:${st.id}:${Math.floor(STORY.clock || 0)}`
+            });
             if (st.factions) st.factions.radicals = Math.min(95, st.factions.radicals + 4);
             storyLog(`🌾 <b>${st.name}</b>'de KITLIK — ordu ve nüfus şehirlerin besleyebileceğinden büyük (${(food * 100 | 0)}%).`);
             if (typeof storyNews === 'function') storyNews('famine', { st: st.name });
@@ -214,9 +233,13 @@ function storyEconVoteTerm(item, optId, st) {
 // ── UI: FRAKSİYONLAR sekmesine EKONOMİ bölümü + talep kartı ───────────────
 function storyEconHtml(st) {
     if (!st) return '';
-    storyEconBackfill(st);
-    const infCol = st.inflation > 15 ? '#ff5a5a' : (st.inflation > 8 ? '#ffd24c' : '#4cff7c');
-    const trCol = st.trust < 30 ? '#ff5a5a' : (st.trust < 50 ? '#ffd24c' : '#4cff7c');
+    // Salt-okunur UI dünya durumunu başlatmamalı veya RNG tüketmemeli.
+    // Eksik alan ilk ekonomi tikinde motor tarafından backfill edilir; o ana dek kesinlik uydurulmaz.
+    const inflation = st.inflation != null && Number.isFinite(Number(st.inflation)) ? Number(st.inflation) : null;
+    const trust = st.trust != null && Number.isFinite(Number(st.trust)) ? Number(st.trust) : null;
+    const chips = st.chips != null && Number.isFinite(Number(st.chips)) ? Number(st.chips) : null;
+    const infCol = inflation == null ? '#718078' : (inflation > 15 ? '#ff5a5a' : (inflation > 8 ? '#ffd24c' : '#4cff7c'));
+    const trCol = trust == null ? '#718078' : (trust < 30 ? '#ff5a5a' : (trust < 50 ? '#ffd24c' : '#4cff7c'));
     const food = storyEconFood(st);
     const foodCol = food < 0.85 ? '#ff5a5a' : (food < 1.1 ? '#ffd24c' : '#4cff7c');
     let dem = '';
@@ -230,9 +253,9 @@ function storyEconHtml(st) {
              · Ret: ${Object.entries(d.reject).map(([k, v]) => (FACTIONS.find(f => f.k === k) || {}).icon + (v > 0 ? '+' : '') + v).join(' ')}</div></div>`;
     }
     return `<div class="fac-box econ-box"><div class="fac-logs-t">EKONOMİ</div>
-        <div class="econ-row"><span>📈 Enflasyon</span><b style="color:${infCol}">%${st.inflation.toFixed(1)}</b><small>geliri kırpar, halkı yorar</small></div>
-        <div class="econ-row"><span>🤝 Piyasa güveni</span><b style="color:${trCol}">${Math.round(st.trust)}</b><small>⭐ gelirini oynatır; dipte sermaye kaçar</small></div>
-        <div class="econ-row"><span>⚡ Elektronik stoku</span><b>${Math.floor(st.chips)}</b><small>tank/topçu üretimi ${ECON_CHIP_COST}⚡ ister</small></div>
+        <div class="econ-row"><span>📈 Enflasyon</span><b style="color:${infCol}">${inflation == null ? '—' : `%${inflation.toFixed(1)}`}</b><small>geliri kırpar, halkı yorar</small></div>
+        <div class="econ-row"><span>🤝 Piyasa güveni</span><b style="color:${trCol}">${trust == null ? '—' : Math.round(trust)}</b><small>⭐ gelirini oynatır; dipte sermaye kaçar</small></div>
+        <div class="econ-row"><span>⚡ Elektronik stoku</span><b>${chips == null ? '—' : Math.floor(chips)}</b><small>tank/topçu üretimi ${ECON_CHIP_COST}⚡ ister</small></div>
         <div class="econ-row"><span>🌾 Gıda dengesi</span><b style="color:${foodCol}">%${Math.round(food * 100)}</b><small>&lt;%85 kıtlık: şehirler orduyu beslemeli</small></div>
         ${dem}</div>`;
 }

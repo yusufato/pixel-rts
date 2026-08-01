@@ -6,8 +6,8 @@
 //  Kaynak (petrol/insan/puan) → ordu bütçesi. Refah+itibar → seçim → yönetici.
 //  localStorage kalıcılık (bağışlayıcı roguelite). Tek-oyuncu/Hızlı-Maç/MP BOZULMADAN.
 //
-//  Determinizm NOTU: Hikaye META katmanı tek-oyunculu → Math.random/Date.now SERBEST
-//  (lockstep sim DEĞİL). Sadece DÜELLO içi (stepSim) deterministik kalır.
+//  Determinizm: hikâye meta katmanı adlandırılmış StoryRng akışlarını kullanır.
+//  Date.now yalnız gerçek UI/LLM süre ölçümünde kalabilir; dünya kararı üretemez.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_SAVE_KEY = 'pixelrts_story_v3';   // v3: 82-ŞEHİR hareket ağı (v1 ızgara / v2 36-ülke kayıtları yok sayılır)
@@ -94,6 +94,13 @@ const STORY = {
     battleCtx: null,      // düello sürerken: { nodeId, attacker, defender }  (null = düello yok)
     states: [],           // [{ id, name, color, isPlayer, res:{oil,manpower,points}, welfare, reputation, isAdmin }]
     nodes: [],            // [{ id, name, gx, gy, lx, ly, owner, mapId, neighbors:[ids] }]
+    regionModel: null,    // Faz 11: kalıcı kimlik/topoloji sidecar'ı; dinamik değerler nodes'tan türetilir
+    activationPolicy: null, // Faz 12: türetilmiş HOT/WARM/COLD görünümünün sürümlü politikası
+    aggregationPolicy: null, // Faz 13: HOT↔COLD kayıpsız kapsül ve korunum sözleşmesi
+    infrastructureGraph: null, // Faz 14: kara/deniz/enerji/veri koridorları, kapasite ve hasar
+    tradeLogistics: null, // Faz 18: sözleşme, sipariş, yoldaki yük, teslimat ve kapasite
+    marketPrices: null, // Faz 19: fiziksel arz/talep ve lojistik riskten türeyen bölgesel fiyat endeksleri
+    economicAI: null, // Faz 22: şirket ve AI devletlerinin açıklanabilir ekonomik karar defteri
     playerStateId: 0,
     commander: { node: 0 },   // oyuncunun komutan-jetonu (hangi düğümde)
     veterans: [],         // [{ type, vet }] sağ kalan gazi-çekirdek (savaştan savaşa taşınır)
@@ -319,18 +326,20 @@ const STORY_CMD_NAMES = ['Demir', 'Kaya', 'Aslan', 'Yıldırım', 'Bozkurt', 'Tu
 const STORY_CMD_TITLES = ['Paşa', 'Komutan'];   // MODERN: Bey/Ağa düştü; 'Paşa' çağdaş orduda hâlâ yaşar
 const STORY_CMD_PERSONA = ['dengeli', 'agresif', 'savunmacı', 'fırsatçı'];
 let _storyCmdNextId = 1;
-function storyCommanderName() { return STORY_CMD_NAMES[Math.floor(Math.random() * STORY_CMD_NAMES.length)] + ' ' + STORY_CMD_TITLES[Math.floor(Math.random() * STORY_CMD_TITLES.length)]; }
-function storyPickPersonality() { return STORY_CMD_PERSONA[Math.floor(Math.random() * STORY_CMD_PERSONA.length)]; }
-function storyRollSkill() { return Math.floor(Math.random() * 7); }   // 0..6
+function storyCommanderName() { return STORY_CMD_NAMES[storyRandomInt('character', STORY_CMD_NAMES.length)] + ' ' + STORY_CMD_TITLES[storyRandomInt('character', STORY_CMD_TITLES.length)]; }
+function storyPickPersonality() { return STORY_CMD_PERSONA[storyRandomInt('character', STORY_CMD_PERSONA.length)]; }
+function storyRollSkill() { return storyRandomInt('character', 7); }   // 0..6
 // bir devlete yeni KOMUTAN-BİREY yarat (şehirde). 3 YETENEK: savaşçı/diplomat/ekonomist (0-6). Bağımsız akıl (mekanik sonra).
-function storyCreateCommander(stateId, node) {
+function storyCreateCommander(stateId, node, options) {
     const st = storyState(stateId); if (!st || !st.gov) return null;
+    options = options || {};
+    const opening = options.openingResources ? 200 : 0;
     const cap = (STORY._capitals && STORY._capitals[stateId]);
     const cmd = {
         id: _storyCmdNextId++, name: storyCommanderName(), isPlayer: false,
-        personality: storyPickPersonality(), loyalty: 55 + Math.floor(Math.random() * 40),
+        personality: storyPickPersonality(), loyalty: 55 + storyRandomInt('character', 40),
         skills: { warrior: storyRollSkill(), diplomat: storyRollSkill(), economist: storyRollSkill() },
-        res: { oil: 200, manpower: 200, points: 200 },   // FAZ-2: komutanın KENDİ kasası (gelir payı birikir, savaşta bununla diziler)
+        res: { oil: opening, manpower: opening, points: opening }, // yeni atama para yaratmaz; yalnız kampanya açılış kadrosu sermayelidir
         recentBattles: [],                               // FAZ-2 Adım 5: son ≤3 savaş (1=galip/0=mağlup) — sadakat formülü
         army: {},                                        // FAZ-5: SEFER ORDUSU — komutanla birlikte gezer
         st: stateId,                                     // FAZ-8: bağlı olduğu devlet (ordu tavanı için hızlı erişim)
@@ -365,9 +374,9 @@ function storyInitGovernments() {
     for (const st of STORY.states) {
         st.gov = { leader: 'ai', commanders: [] };       // başta AI cumhurbaşkanı yönetir
         const cityIds = STORY.nodes.filter(n => n.owner === st.id).map(n => n.id);
-        const pick = () => cityIds.length ? cityIds[Math.floor(Math.random() * cityIds.length)] : ((STORY._capitals && STORY._capitals[st.id]) || 0);
+        const pick = () => cityIds.length ? cityIds[storyRandomInt('character', cityIds.length)] : ((STORY._capitals && STORY._capitals[st.id]) || 0);
         const count = st.isPlayer ? 9 : 10;              // oyuncu devleti: +STORY.commander = 10
-        for (let i = 0; i < count; i++) storyCreateCommander(st.id, pick());
+        for (let i = 0; i < count; i++) storyCreateCommander(st.id, pick(), { openingResources: true });
     }
 }
 // bir devletin TÜM komutanları (oyuncu devletinde kontrol-jetonu da dahil)
@@ -400,6 +409,12 @@ function storySumRes(cmds) {
 }
 
 function storyNewCampaign(config = {}) {
+    const requestedFeatureFlags = typeof storyFeatureNormalize === 'function'
+        ? storyFeatureNormalize(config.featureFlags || STORY.cfg.featureFlags)
+        : (config.featureFlags || STORY.cfg.featureFlags || {});
+    if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(requestedFeatureFlags);
+    const rng = typeof storyRngReset === 'function' ? storyRngReset(config.seed) : null;
+    if (rng) config.seed = rng.rootSeed;
     const requestedState = Number.isInteger(config.playerStateId) ? config.playerStateId : (STORY.playerStateId | 0);
     const playerStateId = Math.max(0, Math.min(STORY_STATE_DEFS.length - 1, requestedState));
     const abundance = Math.max(0.5, Math.min(1.5, Number.isFinite(+config.abundance) ? +config.abundance : (STORY.cfg.abundance || 1)));
@@ -432,24 +447,71 @@ function storyNewCampaign(config = {}) {
     STORY._nextCouncil = (typeof COUNCIL_PERIOD_YEARS !== 'undefined') ? COUNCIL_PERIOD_YEARS * YEAR_SECONDS : 240;   // FAZ-4: ilk konsey 2. yılda
     STORY._councilNo = 0;
     STORY._session = null;
-    STORY.rel = {};                                     // FAZ-6: diplomasi ilişki/antlaşma tablosu
+    STORY.rel = {};                                     // diplomasi ilişki/antlaşma tablosu
+    if (typeof storyInitializeDiplomacy === 'function') storyInitializeDiplomacy();
     STORY._era = null; STORY._eraEvents = []; STORY._eraFlips = []; STORY._accEra = 0;   // FAZ-10 dünya çağı
     STORY._lastUrgent = null;
     STORY._talks = []; STORY._accTalk = 0; STORY._talkUid = 0;
     STORY.cfg = {
         abundance,
         doctrine: config.doctrine || STORY.cfg.doctrine || 'combined',
-        fog: config.fog !== false
+        fog: config.fog !== false,
+        featureFlags: requestedFeatureFlags
     };
+    if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
     STORY.paused = false;
     STORY._gameOver = false;   // ADIM 6: yenilgi bayrağı sıfırla
     STORY.clock = 0;
+    if (typeof storyRegionReset === 'function') storyRegionReset({ generatedAt: 0 });
+    if (typeof storyActivationReset === 'function') storyActivationReset();
+    if (typeof storyAggregationReset === 'function') storyAggregationReset();
+    if (typeof storyInfrastructureReset === 'function') storyInfrastructureReset({ generatedAt: 0 });
+    if (typeof storyResourceTaxonomyReset === 'function') storyResourceTaxonomyReset();
+    if (typeof storyProductionReset === 'function') storyProductionReset();
+    if (typeof storyPopulationReset === 'function') storyPopulationReset();
+    if (typeof storyRegionalReset === 'function') storyRegionalReset();
+    if (typeof storyTradeReset === 'function') storyTradeReset();
+    if (typeof storyMarketReset === 'function') storyMarketReset();
+    if (typeof storyBudgetReset === 'function') storyBudgetReset();
+    if (typeof storyNeedsReset === 'function') storyNeedsReset();
+    if (typeof storyCompanyReset === 'function') storyCompanyReset();
+    if (typeof storyEconomicAIReset === 'function') storyEconomicAIReset();
+    if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
+    if (typeof storySchedulerReset === 'function') storySchedulerReset();
+    // A/B geri dönüş yolu da yeni kampanyaya önceki koşunun kısmi sayaçlarını
+    // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
+    for (const key of [
+        '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
+        '_accGrow', '_accPopulation', '_accNeeds', '_accFac', '_accSocial', '_accSiege', '_accTech',
+        '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
+        '_accChat'
+    ]) STORY[key] = 0;
+    STORY._lastPlayerInvasion = 0;
+    STORY._coupWarnT = null;
+    STORY._promises = 0;
+    STORY._chatter = [];
+    STORY._news = [];
+    STORY._newsSeen = 0;
     STORY.log = [];
     STORY.battleCtx = null;
     STORY.pendingReward = null;
     STORY.selectedNodeId = STORY.commander.node;
     STORY.active = true;
-    storyLog(`${storyPlayerState().name} harekâtı başladı. Komşu düşman şehirlere saldırarak genişle.`);
+    if (typeof storyTelemetryReset === 'function') {
+        storyTelemetryReset({
+            campaignSeed: rng ? rng.rootSeed : (Number.isFinite(config.seed) ? config.seed : null),
+            playerStateId,
+            abundance
+        });
+    }
+    if (typeof storyCausalityReset === 'function') {
+        storyCausalityReset({
+            campaignSeed: rng ? rng.rootSeed : (Number.isFinite(config.seed) ? config.seed : null),
+            playerStateId,
+            abundance
+        });
+    }
+    storyLog(`${storyPlayerState().name} barış dönemine başladı. Ekonomiyi, kurumları ve ilişkileri geliştir; savaş ancak açık bir diplomatik kırılmayla başlayabilir.`);
     storySave();
 }
 
@@ -459,16 +521,72 @@ function MAPS_LEN() { return (typeof MAPS !== 'undefined' && MAPS.length) ? MAPS
 function storySave() {
     try {
         const data = {
-            v: 2, states: STORY.states, nodes: STORY.nodes, playerStateId: STORY.playerStateId,
+            v: 2, states: STORY.states, nodes: STORY.nodes,
+            regionModel: (typeof storyRegionForSave === 'function') ? storyRegionForSave() : STORY.regionModel,
+            activationPolicy: (typeof storyActivationForSave === 'function')
+                ? storyActivationForSave()
+                : STORY.activationPolicy,
+            aggregationPolicy: (typeof storyAggregationForSave === 'function')
+                ? storyAggregationForSave()
+                : STORY.aggregationPolicy,
+            infrastructureGraph: (typeof storyInfrastructureForSave === 'function')
+                ? storyInfrastructureForSave()
+                : STORY.infrastructureGraph,
+            resourceTaxonomy: (typeof storyResourceTaxonomyForSave === 'function')
+                ? storyResourceTaxonomyForSave()
+                : STORY.resourceTaxonomy,
+            productionSectors: (typeof storyProductionForSave === 'function')
+                ? storyProductionForSave()
+                : STORY.productionSectors,
+            population: (typeof storyPopulationForSave === 'function')
+                ? storyPopulationForSave()
+                : STORY.population,
+            regionalEconomy: (typeof storyRegionalForSave === 'function')
+                ? storyRegionalForSave()
+                : STORY.regionalEconomy,
+            tradeLogistics: (typeof storyTradeForSave === 'function')
+                ? storyTradeForSave()
+                : STORY.tradeLogistics,
+            marketPrices: (typeof storyMarketForSave === 'function')
+                ? storyMarketForSave()
+                : STORY.marketPrices,
+            stateBudget: (typeof storyBudgetForSave === 'function')
+                ? storyBudgetForSave()
+                : STORY.stateBudget,
+            needsWelfare: (typeof storyNeedsForSave === 'function')
+                ? storyNeedsForSave()
+                : STORY.needsWelfare,
+            companyEconomy: (typeof storyCompanyForSave === 'function')
+                ? storyCompanyForSave()
+                : STORY.companyEconomy,
+            economicAI: (typeof storyEconomicAIForSave === 'function')
+                ? storyEconomicAIForSave()
+                : STORY.economicAI,
+            playerStateId: STORY.playerStateId,
             commander: STORY.commander, veterans: STORY.veterans, tech: STORY.tech, cfg: STORY.cfg, pendingReward: STORY.pendingReward,
-            clock: STORY.clock, log: STORY.log,
+            clock: STORY.clock,
+            time: (typeof storyClockForSave === 'function') ? storyClockForSave() : null,
+            rng: (typeof storyRngForSave === 'function') ? storyRngForSave() : null,
+            scheduler: (typeof storySchedulerForSave === 'function') ? storySchedulerForSave() : null,
+            runtime: {
+                lastPlayerInvasion: STORY._lastPlayerInvasion || 0,
+                coupWarnT: STORY._coupWarnT == null ? null : STORY._coupWarnT,
+                promises: Math.max(0, Math.floor(Number(STORY._promises) || 0)),
+                chatter: Array.isArray(STORY._chatter) ? STORY._chatter : [],
+                talks: (typeof storyTalkRuntimeForSave === 'function')
+                    ? storyTalkRuntimeForSave()
+                    : null
+            },
+            log: STORY.log,
             caps: STORY._capitals,  // başkentler: kaydedilmezse yüklemede undefined kalıp AI başkent-hedeflemesi sessizce bozuluyordu
             nextCouncil: STORY._nextCouncil, councilNo: STORY._councilNo,  // FAZ-4: konsey takvimi (kanun/anayasa states içinde)
             era: STORY._era, eraEvents: STORY._eraEvents, eraFlips: STORY._eraFlips,   // FAZ-10 dünya çağı
             lastUrgent: STORY._lastUrgent,
             news: STORY._news,   // AŞAMA 4: gazete arşivi
-            rel: STORY.rel   // FAZ-6: diplomasi (ilişki + antlaşma). Sohbet kuyruğu KAYDEDİLMEZ:
-                             // seçenekler canlı fonksiyon taşır, serileşemez — yükleyince yenileri üretilir.
+            telemetry: (typeof storyTelemetryForSave === 'function') ? storyTelemetryForSave() : STORY.telemetry,
+            causality: (typeof storyCausalityForSave === 'function') ? storyCausalityForSave() : STORY.causality,
+            rel: STORY.rel   // FAZ-6: diplomasi (ilişki + antlaşma).
+                             // Sohbet kapanışları runtime.talks içindeki şablon iziyle yeniden kurulur.
         };
         localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(data));
         STORY._lastSaveOk = true;
@@ -480,10 +598,43 @@ function storyLoad() {
         if (!raw) return false;
         const d = JSON.parse(raw);
         if (!d || !d.nodes || !d.states) return false;
+        const exactResume = !!(
+            d.scheduler
+            && d.scheduler.schemaVersion === 1
+            && d.rng
+            && d.runtime
+        );
+        if (typeof storyFeatureConfigure === 'function') {
+            storyFeatureConfigure(d.cfg && d.cfg.featureFlags);
+        }
+        if (typeof storyRngRestore === 'function') {
+            const savedSeed = d.telemetry && d.telemetry.meta ? d.telemetry.meta.campaignSeed : null;
+            storyRngRestore(d.rng, Number.isFinite(Number(savedSeed)) ? savedSeed : storyRngHashText(raw));
+        }
         STORY.states = d.states; STORY.nodes = d.nodes;
+        if (typeof storyRegionRestore === 'function') storyRegionRestore(d.regionModel);
+        if (typeof storyActivationRestore === 'function') storyActivationRestore(d.activationPolicy);
+        if (typeof storyAggregationRestore === 'function') storyAggregationRestore(d.aggregationPolicy);
+        if (typeof storyInfrastructureRestore === 'function') storyInfrastructureRestore(d.infrastructureGraph);
+        if (typeof storyResourceTaxonomyRestore === 'function') storyResourceTaxonomyRestore(d.resourceTaxonomy);
+        if (typeof storyProductionRestore === 'function') storyProductionRestore(d.productionSectors);
+        if (typeof storyPopulationRestore === 'function') storyPopulationRestore(d.population);
+        if (typeof storyRegionalRestore === 'function') storyRegionalRestore(d.regionalEconomy);
+        if (typeof storyTradeRestore === 'function') storyTradeRestore(d.tradeLogistics);
+        if (typeof storyMarketRestore === 'function') storyMarketRestore(d.marketPrices);
+        if (typeof storyNeedsRestore === 'function') storyNeedsRestore(d.needsWelfare);
+        // Faz 22.1E: Sirket tarafindan bloke edilen ithalat uzlasmalari butce
+        // defterinde saklanir. Butce dogrulamasi gercek sirket escrow aynasini
+        // gorebilmek icin sirket/commerce defterinden sonra yuklenmelidir.
+        if (typeof storyCompanyRestore === 'function') storyCompanyRestore(d.companyEconomy);
+        if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
+        if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
         STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
-        storyAssignDeposits();
+        // Güncel GEO kaydı kendi şehir/petrol/maden dağılımını zaten taşır.
+        // STORY_TERRAIN koordinatlarıyla tekrar rasterize etmek kayıtlı ekonomiyi
+        // sessizce değiştiriyordu. Yalnız eski, GEO olmayan kayıtta backfill yap.
+        if (!exactResume && !STORY._geoMap) storyAssignDeposits();
         // MODERN GEÇİŞ backfill: eski kayıtlarda 'Şehir N' ve eski devlet adları var.
         // Devlet adı statik çeşnidir (kullanıcı verisi değil) → tanımdan tazelenir.
         for (const st of STORY.states) if (STORY_STATE_DEFS[st.id]) st.name = STORY_STATE_DEFS[st.id].name;
@@ -500,23 +651,42 @@ function storyLoad() {
         if (STORY.commander && !STORY.commander.res) STORY.commander.res = { oil: 200, manpower: 200, points: 200 };
         for (const st of STORY.states) {
             if (!st.gov) st.gov = { leader: (st.isPlayer && st.isAdmin) ? 'player' : 'ai', commanders: [] };
-            st._nextStaff = 0;   // 1.3: genelkurmay hemen yeniden-planlasın
-            for (const c of (st.gov.commanders || [])) { c.st = st.id; if ((c.id || 0) > _mx) _mx = c.id; if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 }; if (!c.recentBattles) c.recentBattles = []; if (!c.army || typeof c.army !== 'object') c.army = {}; if (!c.axes && typeof charAxesFor === 'function') c.axes = charAxesFor(c.personality); delete c._nextT; delete c._lastDefect; delete c._objective; }   // FAZ-2 Adım 5/6: transient temizlik (+1.3 emir)
+            if (!exactResume) st._nextStaff = 0;   // eski kayıt: genelkurmay hemen yeniden planlasın
+            for (const c of (st.gov.commanders || [])) {
+                c.st = st.id;
+                if ((c.id || 0) > _mx) _mx = c.id;
+                if (!c.res) c.res = { oil: 200, manpower: 200, points: 200 };
+                if (!c.recentBattles) c.recentBattles = [];
+                if (!c.army || typeof c.army !== 'object') c.army = {};
+                if (!c.axes && typeof charAxesFor === 'function') c.axes = charAxesFor(c.personality);
+                if (!exactResume) {
+                    delete c._nextT;
+                    delete c._lastDefect;
+                    delete c._objective;
+                }
+            }
         }
         _storyCmdNextId = _mx + 1;
+        if (typeof storyBudgetReconcileAll === 'function') storyBudgetReconcileAll('save.restore');
+        if (typeof storyBudgetAttachLegacyTradeReservations === 'function') storyBudgetAttachLegacyTradeReservations();
         // AŞAMA 1 göçü: eski kayıtlarda eksen/cumhurbaşkanı yok → üret
         if (typeof storyEnsurePresidents === 'function') storyEnsurePresidents();
         if (STORY.commander && !STORY.commander.axes && typeof charAxesDefault === 'function') STORY.commander.axes = charAxesDefault();
         if (typeof storyFacBackfill === 'function') for (const st of STORY.states) storyFacBackfill(st);   // AŞAMA 2 göçü
         STORY._news = Array.isArray(d.news) ? d.news : [];   // AŞAMA 4: gazete arşivi
-        STORY._lastPlayerInvasion = 0; STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;   // komutan-AI sayaçları sıfırla
+        const runtime = d.runtime && typeof d.runtime === 'object' ? d.runtime : {};
+        STORY._lastPlayerInvasion = exactResume ? (Number(runtime.lastPlayerInvasion) || 0) : 0;
+        STORY._coupWarnT = exactResume && runtime.coupWarnT != null ? Number(runtime.coupWarnT) : null;
+        STORY._promises = exactResume ? Math.max(0, Math.floor(Number(runtime.promises) || 0)) : 0;
+        STORY._chatter = exactResume && Array.isArray(runtime.chatter) ? runtime.chatter : [];
+        STORY._accCmdAI = 0; STORY._accLoyalty = 0; STORY._accSocial = 0;
         // FAZ-2 Adım 4 + FAZ-4: devlet tech/kanun/anayasa backfill + bonus (eski kayıtlar konsey öncesinden gelir)
         for (const st of STORY.states) {
             if (!st.tech) st.tech = []; if (st.techPoints == null) st.techPoints = 0;
             if (!st.laws) st.laws = {}; if (!st.constitution) st.constitution = 'monarchy';
             storyStateComputeTech(st);
         }
-        for (const n of STORY.nodes) storyNodeBackfill(n);   // kuşatma temizliği + seviye/garnizon/bina/kuyruk backfill (Production.js)
+        for (const n of STORY.nodes) storyNodeBackfill(n, { preserveRuntime: exactResume });
         // FAZ-8 GÖÇÜ: şehir deposu kaldırıldı. Eski kayıtta depoda bekleyen birlikler
         // o şehirdeki dost komutanın ordusuna, yer yoksa garnizona aktarılır — kaybolmaz.
         for (const n of STORY.nodes) {
@@ -560,7 +730,10 @@ function storyLoad() {
         } else STORY.tech = d.tech || [];
         storyComputeTechBonus();
         STORY.cfg = Object.assign({ abundance: 1.0, doctrine: 'combined', fog: true }, d.cfg || {});
+        if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
         STORY.clock = d.clock || 0;
+        if (typeof storyClockRestore === 'function') storyClockRestore(d.time);
+        if (typeof storySchedulerRestore === 'function') storySchedulerRestore(d.scheduler);
         // FAZ-4 konsey takvimi: eski kayıtta yoksa "bir sonraki 2-yıl sınırı"na hizala
         const _per = (typeof COUNCIL_PERIOD_YEARS !== 'undefined') ? COUNCIL_PERIOD_YEARS * YEAR_SECONDS : 240;
         STORY._nextCouncil = (d.nextCouncil != null) ? d.nextCouncil : (Math.floor(STORY.clock / _per) + 1) * _per;
@@ -569,9 +742,16 @@ function storyLoad() {
         STORY.rel = (d.rel && typeof d.rel === 'object') ? d.rel : {};   // FAZ-6 diplomasi
         STORY._era = d.era || null; STORY._eraEvents = d.eraEvents || []; STORY._eraFlips = d.eraFlips || [];   // FAZ-10
         STORY._lastUrgent = d.lastUrgent == null ? null : d.lastUrgent;
-        STORY._talks = []; STORY._accTalk = 0;
+        STORY._talks = []; STORY._accTalk = 0; STORY._accChat = 0;
+        if (exactResume && runtime.talks && typeof storyTalkRuntimeRestore === 'function') {
+            storyTalkRuntimeRestore(runtime.talks);
+        } else {
+            STORY._talkUid = 0;
+        }
         STORY.log = d.log || [];
         STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
+        if (typeof storyTelemetryRestore === 'function') storyTelemetryRestore(d.telemetry);
+        if (typeof storyCausalityRestore === 'function') storyCausalityRestore(d.causality);
         return true;
     } catch (_) { return false; }
 }
@@ -590,6 +770,7 @@ function storyOpen() {
 
 function storyEnterWorld() {
     if (STORY.selectedNodeId == null || !storyNode(STORY.selectedNodeId)) STORY.selectedNodeId = STORY.commander.node;
+    STORY._lastFrameT = 0;
     showScreen('story');
     storyResize();
     storyCenterCamOnPlayer();
@@ -634,7 +815,12 @@ function storyNodeClicked(id) {
         storySave(); storyRender();
     } else {
         const def = storyState(node.owner);
-        if (confirm(`⚔️ ${node.name} (${def.name}) bölgesine SALDIR?\n\nHaritada düello başlayacak. Sağ kalan birlikler gazi olur.`)) {
+        const hostile = typeof storyIsHostile !== 'function' || storyIsHostile(STORY.playerStateId, def.id);
+        const prompt = hostile
+            ? `⚔️ ${node.name} (${def.name}) bölgesine SALDIR?\n\nHaritada düello başlayacak. Sağ kalan birlikler gazi olur.`
+            : `⚠️ ${def.name} ile BARIŞI BOZUP SAVAŞ İLAN ET?\n\nBu karar ilişki ve itibar kaybı doğurur; ardından ${node.name} bölgesine saldırı başlar.`;
+        if (confirm(prompt)) {
+            if (!hostile && (typeof storyBreakTreaty !== 'function' || !storyBreakTreaty(STORY.playerStateId, def.id, STORY.playerStateId))) return;
             storyLaunchBattle(id);
         }
     }
@@ -706,22 +892,27 @@ function storyLaunchBattle(targetNodeId) {
     const node = storyNode(targetNodeId);
     const attacker = storyPlayerState();
     const defender = storyState(node.owner);
+    if (!node || !attacker || !defender) return false;
+    if (typeof storyIsHostile === 'function' && !storyIsHostile(attacker.id, defender.id)) return false;
     node._siege = null;                            // oyuncu bizzat saldırıyor → varsa kuşatma çözülür
     STORY.battleCtx = { nodeId: targetNodeId, attacker: attacker.id, defender: defender.id, enemyStateId: defender.id, mode: 'attack' };
     storySetPlayerDeployRes();                    // oyuncu YIĞIN-kaynak (yanındaki dost komutanlar birleşir)
     const _eb = storyEnemyForceBudget(defender.id, targetNodeId);   // TİPLİ: AI da OYUNCU gibi kendi kaynak havuzlarından dizer (anti-tank=puan sınırlı)
     DEPLOY_RES.red = _eb; enemy.money = _eb.oil + _eb.manpower + _eb.points;
     storyEnterBattle(node);
+    return true;
 }
 // DÜŞMAN SALDIRISI (Faz-1.5): oyuncunun bölgesi savunulur (oyuncu=mavi/SAVUNAN, düşman=kırmızı/saldıran)
 function storyLaunchDefense(playerNodeId, enemyStateId, enemyStageNode) {
     const node = storyNode(playerNodeId);
     const me = storyPlayerState();
+    if (!node || !me || (typeof storyIsHostile === 'function' && !storyIsHostile(me.id, enemyStateId))) return false;
     STORY.battleCtx = { nodeId: playerNodeId, attacker: enemyStateId, defender: me.id, enemyStateId: enemyStateId, enemyStageNode: (enemyStageNode != null ? enemyStageNode : null), mode: 'defense' };
     storySetPlayerDeployRes();                    // savunan oyuncu YIĞIN-kaynak (mavi)
     const _eb = storyAttackerForceBudget(enemyStateId, playerNodeId);   // TİPLİ: saldıran AI kendi kaynak havuzlarından (milis/garnizon yok)
     DEPLOY_RES.red = _eb; enemy.money = _eb.oil + _eb.manpower + _eb.points;
     storyEnterBattle(node);
+    return true;
 }
 // ORTAK: bölgenin haritasında DEPLOY'a gir (oyuncu hep mavi/güney, gaziler ön-yerleşir)
 function storyEnterBattle(node) {
@@ -856,6 +1047,27 @@ function storyOnBattleEnd(won, battleSummary) {
     const node = storyNode(ctx.nodeId);
     const me = storyPlayerState();
     const foe = storyState(ctx.defender) || { id: ctx.defender, name: '?', welfare: 50, gov: null };   // güvenlik: devlet erimiş olsa bile çökme
+    if (typeof storyTelemetryEvent === 'function') {
+        const summary = battleSummary || {};
+        storyTelemetryEvent('battle.completed', {
+            won: won === 'draw' ? 'draw' : !!won,
+            mode: ctx.mode || null,
+            nodeId: ctx.nodeId,
+            attackerStateId: ctx.attacker,
+            defenderStateId: ctx.defender,
+            durationSeconds: storyTelemetryRound(summary.durationSeconds),
+            timeRemaining: storyTelemetryRound(summary.timeRemaining),
+            blueKills: Number(summary.blueKills) || 0,
+            redKills: Number(summary.redKills) || 0,
+            blueSurvivors: Number(summary.blueSurvivors) || 0,
+            redSurvivors: Number(summary.redSurvivors) || 0,
+            outcomeReason: summary.outcomeReason || null,
+            engineVersion: summary.engineVersion || null,
+            seed: Number.isFinite(summary.seed) ? summary.seed : null
+        }, {
+            correlationId: `battle:${ctx.nodeId}:${storyTelemetryRound(STORY.clock)}`
+        });
+    }
 
     // SAĞ KALANLAR → GAZİ (tip + seviye taşınır, cap 14)
     const survivors = units.filter(u => !u.isRed && !u.dead && !u.ally);   // müttefik birlikler oyuncunun gazi havuzuna yazılmaz
@@ -906,14 +1118,19 @@ function storyOnBattleEnd(won, battleSummary) {
         // SAVUNMA: düşman (ctx.attacker) oyuncunun node'una saldırdı
         const inv = storyState(ctx.attacker) || { id: ctx.attacker, name: '?', welfare: 50, gov: null };   // güvenlik: null-deref önle
         if (winText) {
-            me.reputation += 1; me.welfare = Math.min(100, me.welfare + 3);
-            inv.welfare = Math.max(0, inv.welfare - 3);
+            me.reputation += 1;
+            storyWelfareDelta(me, 'battle.defense_victory', 3, { correlationId: `battle:${ctx.nodeId || node.id}` });
+            storyWelfareDelta(inv, 'battle.attack_defeat', -3, { correlationId: `battle:${ctx.nodeId || node.id}` });
             if (ctx.enemyStageNode != null && inv.gov) { const ec = inv.gov.commanders.find(c => c.node === ctx.enemyStageNode); if (ec) ec.loyalty = Math.max(0, (ec.loyalty == null ? 60 : ec.loyalty) - 5); }   // püskürtülen saldıran → sadakat düşer
             storyLog(`🛡️ ${node.name} SAVUNULDU! ${inv.name} püskürtüldü (+itibar). Gazi: ${STORY.veterans.length}`);
         } else if (won === 'draw') {
             storyLog(`🤝 ${node.name} savunmasında berabere — bölge sende kaldı. Gazi: ${STORY.veterans.length}`);
         } else {
-            node.owner = inv.id; storyCityRename(node); if (typeof storyFacEvent === 'function') { storyFacEvent(me, 'cityLost'); storyFacEvent(inv, 'cityWon'); } if (typeof storyNewsConquest === 'function') storyNewsConquest(node, inv, me);                  // KAYBET → bölge düşmana geçer
+            storyTransferNodeOwnership(node, inv.id, {
+                actor: { type: 'state', id: inv.id },
+                reason: 'battle.defense_lost',
+                correlationId: `battle:${ctx.nodeId || node.id}`
+            }); if (typeof storyFacEvent === 'function') { storyFacEvent(me, 'cityLost'); storyFacEvent(inv, 'cityWon'); } if (typeof storyNewsConquest === 'function') storyNewsConquest(node, inv, me);                  // KAYBET → bölge düşmana geçer
             if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // şehirdeki havuz imha, %25'i fatihe
             const nbOwn = node.neighbors.map(storyNode).find(x => x && x.owner === me.id);   // komşu dost şehre çekil
             const fb = STORY.nodes.find(n => n.owner === me.id);
@@ -925,28 +1142,40 @@ function storyOnBattleEnd(won, battleSummary) {
                 storyFlash('💀 Son bölgeni de kaybettin! Komşu bir şehri geri alarak toparlanmaya çalış.');   // 0-bölge tam yenilgi: Adım 6
             }
             if (ctx.enemyStageNode != null && inv.gov) { const ec = inv.gov.commanders.find(c => c.node === ctx.enemyStageNode); if (ec) ec.node = node.id; }   // galip saldıran şehre ilerler
-            me.reputation = Math.max(0, me.reputation - 1); me.welfare = Math.max(0, me.welfare - 4);
+            me.reputation = Math.max(0, me.reputation - 1);
+            storyWelfareDelta(me, 'battle.city_lost', -4, { correlationId: `battle:${ctx.nodeId || node.id}` });
             storyLog(`💀 ${node.name} DÜŞTÜ! ${inv.name} bölgeyi aldı (-itibar, -refah). Gazi: ${STORY.veterans.length}`);
         }
     } else {
         // SALDIRI: oyuncu komşu düşman node'una saldırdı (ctx.defender = düşman)
         if (winText) {
-            node.owner = me.id; storyCityRename(node); if (typeof storyFacEvent === 'function') { storyFacEvent(me, 'cityWon'); storyFacEvent(storyState(STORY.battleCtx && STORY.battleCtx.enemyStateId), 'cityLost'); } if (typeof storyNewsConquest === 'function') storyNewsConquest(node, me, storyState(STORY.battleCtx && STORY.battleCtx.enemyStateId));                   // FETHET
+            storyTransferNodeOwnership(node, me.id, {
+                actor: { type: 'state', id: me.id },
+                reason: 'battle.attack_won',
+                correlationId: `battle:${ctx.nodeId || node.id}`
+            }); if (typeof storyFacEvent === 'function') { storyFacEvent(me, 'cityWon'); storyFacEvent(storyState(STORY.battleCtx && STORY.battleCtx.enemyStateId), 'cityLost'); } if (typeof storyNewsConquest === 'function') storyNewsConquest(node, me, storyState(STORY.battleCtx && STORY.battleCtx.enemyStateId));                   // FETHET
             if (typeof storyCaptureNodePool === 'function') storyCaptureNodePool(node);   // savunanın havuzu imha, %25'i sana
             STORY.commander.node = node.id;       // komutan ilerler
-            me.reputation += 1; me.welfare = Math.min(100, me.welfare + 3);
-            if (STORY.commander.res) STORY.commander.res.points += 120;   // ganimet → fetheden komutanın KENDİ kasası
+            me.reputation += 1;
+            storyWelfareDelta(me, 'battle.conquest_victory', 3, { correlationId: `battle:${ctx.nodeId || node.id}` });
+            if (typeof storyBudgetCredit === 'function') {
+                storyBudgetCredit(me, 120, 'battle.loot', {
+                    commander: STORY.commander,
+                    correlationId: `battle:${ctx.nodeId || node.id}`
+                });
+            } else if (STORY.commander.res) STORY.commander.res.points += 120;
             if (STORY._techBonus && STORY._techBonus.conquestVets) {      // TEKNOLOJİ (Halk Ordusu): fetihte +gazi piyade
                 for (let i = 0; i < STORY._techBonus.conquestVets; i++) STORY.veterans.push({ type: T.INFANTRY, vet: 1 });
                 STORY.veterans = STORY.veterans.slice(0, 14);
             }
-            foe.welfare = Math.max(0, foe.welfare - 4);
+            storyWelfareDelta(foe, 'battle.city_lost', -4, { correlationId: `battle:${ctx.nodeId || node.id}` });
             storyLog(`🏆 ${node.name} fethedildi! (+itibar, +120 puan)  Gazi: ${STORY.veterans.length}`);
         } else if (won === 'draw') {
-            me.welfare = Math.max(0, me.welfare - 1);
+            storyWelfareDelta(me, 'battle.attack_draw', -1, { correlationId: `battle:${ctx.nodeId || node.id}` });
             storyLog(`🤝 ${node.name} önünde berabere. Bölge ${foe.name}'de kaldı. Gazi: ${STORY.veterans.length}`);
         } else {
-            me.reputation = Math.max(0, me.reputation - 1); me.welfare = Math.max(0, me.welfare - 3);
+            me.reputation = Math.max(0, me.reputation - 1);
+            storyWelfareDelta(me, 'battle.attack_defeat', -3, { correlationId: `battle:${ctx.nodeId || node.id}` });
             storyLog(`💀 ${node.name} saldırısı başarısız. Gazi: ${STORY.veterans.length} (kalanlar geri çekildi)`);
         }
     }
@@ -963,10 +1192,10 @@ function storyOnBattleEnd(won, battleSummary) {
     const eLead = (eSt && eSt.gov && ctx.enemyStageNode != null) ? eSt.gov.commanders.find(c => c.node === ctx.enemyStageNode) : null;
     warDebit(eLead);
     // KOMUTAN ÖLÜMÜ (düello stake): KAZANDIYSAN düşman komutanı düşer (düşman ordusu kalıcı erir); KAYBEDERSEN savaşan müttefik düşebilir (JETON ölmez)
-    if (winText && eLead && eSt && Math.random() < CMD_DEATH_ON_LOSS) { const nm = eLead.name; storyKillCommander(eLead, eSt); storyLog(`☠️ ${nm} (${eSt.name}) düelloda öldürüldü.`); }
+    if (winText && eLead && eSt && storyRandom('military') < CMD_DEATH_ON_LOSS) { const nm = eLead.name; storyKillCommander(eLead, eSt); storyLog(`☠️ ${nm} (${eSt.name}) düelloda öldürüldü.`); }
     else if (won === false) {
         const meSt = storyPlayerState();
-        for (const a of (STORY._battleAllyList || [])) if (a && Math.random() < CMD_DEATH_ON_LOSS * 0.7) { const nm = a.name; storyKillCommander(a, meSt); storyLog(`☠️ Müttefik komutan ${nm}, ${node.name} savaşında düştü.`); }
+        for (const a of (STORY._battleAllyList || [])) if (a && storyRandom('military') < CMD_DEATH_ON_LOSS * 0.7) { const nm = a.name; storyKillCommander(a, meSt); storyLog(`☠️ Müttefik komutan ${nm}, ${node.name} savaşında düştü.`); }
     }
 
     // SEÇİM: itibar + refah eşiği → yönetici ol (Faz-1 kilometre taşı; çok-komutan Faz-2)
@@ -990,7 +1219,13 @@ function storyClaimReward(reward) {
     if (!STORY.pendingReward || !reward) return false;
     storyCommanderBackfill(STORY.commander);
     if (reward === 'logistics') {
-        STORY.commander.res.oil += 150; STORY.commander.res.manpower += 150; STORY.commander.res.points += 150;
+        STORY.commander.res.oil += 150; STORY.commander.res.manpower += 150;
+        if (typeof storyBudgetCredit === 'function') {
+            storyBudgetCredit(storyPlayerState(), 150, 'battle.reward', {
+                commander: STORY.commander,
+                correlationId: 'battle-reward:logistics'
+            });
+        } else STORY.commander.res.points += 150;
     } else if (reward === 'veterans') {
         STORY.veterans.push({ type: T.ARMOR, vet: 2 }, { type: T.ARMOR, vet: 2 });
         STORY.veterans = STORY.veterans.slice(0, 14);
@@ -1013,6 +1248,7 @@ function storyReturnToWorld() {
     document.getElementById('story-return-btn')?.classList.add('hidden');
     document.getElementById('restart-btn')?.classList.remove('hidden');   // normal mod için geri-aç
     phase = PHASE.OVER;   // sim duruyor; dünya ekranı devralır
+    STORY._lastFrameT = 0;   // savaş/menu süresi dünya saatine hayalet kare olarak eklenmesin
     showScreen('story');
     storyResize();
     storyCenterCamOnPlayer();
@@ -1036,19 +1272,34 @@ function storyAssignDeposits() {
 }
 
 // ── DÜNYA SİMÜLASYONU (gerçek-zaman, duraklatılabilir) ────────────────────────
-function storyAdvance(dtSec) {
+function storyAdvanceStep(dtSec) {
     if (STORY.paused) return;
     if (STORY._session) {         // FAZ-4: KONSEY TOPLANTIDA — dünya durur (olay)
         if (typeof storyCouncilAfkCheck === 'function') storyCouncilAfkCheck();   // ama süresiz değil
         return;
     }
+    const _storyPerfStart = (typeof performance !== 'undefined' && performance.now)
+        ? performance.now()
+        : Date.now();
     STORY.clock += dtSec;
     // FAZ-4: KONSEY TAKVİMİ — her 2 yılda bir TÜM devletlerde toplanır (AI sessiz, oyuncu modal)
     if (typeof storyCouncilTick === 'function') { storyCouncilTick(); if (STORY._session) return; }
+    const _storyRegistryOn = typeof storyFeatureEnabled === 'function'
+        && storyFeatureEnabled('scheduler.registry')
+        && typeof storySchedulerBeginStep === 'function';
+    const _storyDueSet = _storyRegistryOn ? storySchedulerBeginStep(dtSec) : null;
+    const _storyDue = (taskId, legacyField, intervalSeconds) => {
+        if (_storyRegistryOn) return storySchedulerDue(_storyDueSet, taskId);
+        STORY[legacyField] = (STORY[legacyField] || 0) + dtSec;
+        if (STORY[legacyField] < intervalSeconds) return 0;
+        const elapsed = STORY[legacyField];
+        STORY[legacyField] = 0;
+        return elapsed;
+    };
     // KAYNAK: her sahip olunan düğüm → sahibine petrol/insan/puan biriktirir
-    STORY._accResource += dtSec;
-    if (STORY._accResource >= 1.0) {
-        const step = STORY._accResource; STORY._accResource = 0;
+    const _resourceDt = _storyDue('resource', '_accResource', 1);
+    if (_resourceDt > 0) {
+        const step = _resourceDt;
         const ab = STORY.cfg.abundance || 1;
         // 1) Her devletin GELİRİNİ topla (sahip olduğu şehirlerden): 🟠petrol/🔴şehir-insan/🟢puan
         const inc = {};
@@ -1078,6 +1329,9 @@ function storyAdvance(dtSec) {
                 const _em = storyEconIncomeMul(st);
                 o.oil *= _em.all; o.manpower *= _em.all; o.points *= _em.all * _em.points;
             }
+            if (typeof storyResourceFlow === 'function') {
+                storyResourceFlow(st, 'income.city', o, { continuous: true });
+            }
             // 1.5 EKONOMİST: lojistik becerisi → DAHA BÜYÜK gelir payı (toplam korunur; komutanlar gerçek birey)
             // FAZ-7: Seferberlik/Hazinedar yetenekleri oyuncunun PAYINI büyütür (toplam gelir sabit)
             const _shareOf = c => (1 + (((c.skills && c.skills.economist) || 0) * 0.12))
@@ -1086,11 +1340,25 @@ function storyAdvance(dtSec) {
             for (const c of cmds) {
                 if (!c.res) c.res = { oil: 0, manpower: 0, points: 0 };
                 const w = _shareOf(c) / wsum;
-                c.res.oil += o.oil * w; c.res.manpower += o.manpower * w; c.res.points += o.points * w;
+                c.res.oil += o.oil * w; c.res.manpower += o.manpower * w;
+            }
+            if (typeof storyBudgetCredit === 'function' && o.points > 0) {
+                storyBudgetCredit(st, o.points, 'tax.city', {
+                    continuous: true,
+                    correlationId: `city-income:${st.id}`,
+                    weight: _shareOf
+                });
+            } else {
+                for (const c of cmds) {
+                    const w = _shareOf(c) / wsum;
+                    c.res.points += o.points * w;
+                }
             }
             st.res.oil = cmds.reduce((a, c) => a + (c.res ? c.res.oil : 0), 0);
             st.res.manpower = cmds.reduce((a, c) => a + (c.res ? c.res.manpower : 0), 0);
-            st.res.points = cmds.reduce((a, c) => a + (c.res ? c.res.points : 0), 0);
+            st.res.points = typeof storyBudgetSyncMirror === 'function'
+                ? storyBudgetSyncMirror(st)
+                : cmds.reduce((a, c) => a + (c.res ? c.res.points : 0), 0);
             if (st.isPlayer) STORY._incPerCmd = { oil: o.oil / k / step, manpower: o.manpower / k / step, points: o.points / k / step };
             // AR-GE BÜTÇESİ: puan gelirinin %60'ı, HER devlet için (oyuncu dahil).
             // Eskiden yalnız AI biriktiriyordu; oyuncu tech'i elle satın alıyordu → asimetriydi.
@@ -1099,40 +1367,62 @@ function storyAdvance(dtSec) {
         }
     }
     // FAZ-3: ŞEHİR ÜRETİMİ — kuyruktaki birlikler ilerler, bitenler havuza düşer (oyuncu + AI aynı motor)
-    STORY._accProd = (STORY._accProd || 0) + dtSec;
-    if (STORY._accProd >= 1.0) { const s = STORY._accProd; STORY._accProd = 0; if (typeof prodTick === 'function') prodTick(s); }
+    const _prodDt = _storyDue('production', '_accProd', 1);
+    if (_prodDt > 0 && typeof prodTick === 'function') prodTick(_prodDt);
     // FAZ-2 Adım 5: KOMUTAN AI — rastgele drift/invade KALDIRILDI; komutanlar kendi konum/güç/kişilikleriyle davranır
-    STORY._accCmdAI = (STORY._accCmdAI || 0) + dtSec;
-    if (STORY._accCmdAI >= 1.0) {
-        STORY._accCmdAI = 0;
+    if (_storyDue('commander-ai', '_accCmdAI', 1) > 0) {
         storyAICommanderTick();                                                 // hareket/fetih/oyuncuya saldırı
     }
-    STORY._accLoyalty = (STORY._accLoyalty || 0) + dtSec;
-    if (STORY._accLoyalty >= 0.5) { STORY._accLoyalty = 0; storyApplyLoyaltyDrift(); } // sadakat drift
-    STORY._accEcon = (STORY._accEcon || 0) + dtSec;
-    if (STORY._accEcon >= 4) { const _edt = STORY._accEcon; STORY._accEcon = 0; if (typeof storyEconomyTick === 'function') storyEconomyTick(_edt); }   // AŞAMA 3 makroekonomi
-    STORY._accGrow = (STORY._accGrow || 0) + dtSec;
-    if (STORY._accGrow >= 5) { const _gdt = STORY._accGrow; STORY._accGrow = 0; if (typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_gdt); }   // organik şehir büyümesi
-    STORY._accFac = (STORY._accFac || 0) + dtSec;
-    if (STORY._accFac >= 2) { const _fdt = STORY._accFac; STORY._accFac = 0; if (typeof storyFactionsTick === 'function') storyFactionsTick(_fdt); }   // AŞAMA 2 fraksiyonlar
-    STORY._accSocial = (STORY._accSocial || 0) + dtSec;
-    if (STORY._accSocial >= 4) { STORY._accSocial = 0; storyDissolveDeadStates(); storyApplyDefections(); storyApplyCoups(); }   // ölü-devlet + firar + darbe (seyrek)
-    STORY._accSiege = (STORY._accSiege || 0) + dtSec;
-    if (STORY._accSiege >= 2.5) { STORY._accSiege = 0; storySiegeTick(); }   // olgunlaşan kuşatmaları çöz
+    if (_storyDue('loyalty', '_accLoyalty', 0.5) > 0) storyApplyLoyaltyDrift(); // sadakat drift
+    const _economyDt = _storyDue('economy', '_accEcon', 4);
+    if (_economyDt > 0) {
+        if (typeof storyEconomyTick === 'function') storyEconomyTick(_economyDt); // AŞAMA 3 makroekonomi
+        if (typeof storyRegionalEconomyTick === 'function') storyRegionalEconomyTick(_economyDt); // Faz 17 kanonik bölgesel ekonomi
+        if (typeof storyTradeLogisticsTick === 'function') storyTradeLogisticsTick(_economyDt); // Faz 18 fiziksel ticaret/lojistik
+        if (typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_economyDt); // Faz 19 bölgesel piyasa/fiyat
+        if (typeof storyBudgetTick === 'function') storyBudgetTick(_economyDt); // Faz 20 devlet bütçesi/borç/faiz
+        if (typeof storyCompanyTick === 'function') storyCompanyTick(_economyDt); // Faz 21 şirket/banka/tesis/yatırım
+        if (typeof storyEconomicAITick === 'function') storyEconomicAITick(_economyDt); // Faz 22 hilesiz ekonomik aday/seçim
+    }
+    const _growthDt = _storyDue('city-growth', '_accGrow', 5);
+    if (_growthDt > 0 && typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_growthDt); // organik şehir büyümesi
+    const _populationDt = _storyDue('population', '_accPopulation', 5);
+    if (_populationDt > 0 && typeof storyPopulationTick === 'function') storyPopulationTick(_populationDt); // Faz 23 nüfus kohort uzlaştırması
+    const _needsDt = _storyDue('population-needs', '_accNeeds', 5);
+    if (_needsDt > 0 && typeof storyNeedsTick === 'function') storyNeedsTick(_needsDt); // Faz 24 kohort ihtiyaç/refah/güvenlik sonuçları
+    const _factionsDt = _storyDue('factions', '_accFac', 2);
+    if (_factionsDt > 0 && typeof storyFactionsTick === 'function') storyFactionsTick(_factionsDt); // AŞAMA 2 fraksiyonlar
+    if (_storyDue('society', '_accSocial', 4) > 0) {
+        storyDissolveDeadStates(); storyApplyDefections(); storyApplyCoups();
+    }
+    if (_storyDue('siege', '_accSiege', 2.5) > 0) storySiegeTick();
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
-    STORY._accTech = (STORY._accTech || 0) + dtSec;
-    if (STORY._accTech >= 8) { STORY._accTech = 0; storyAIResearch(); }
+    if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();
     // FAZ-6: SOHBET (komutan/kulis/elçi) + AI'ler arası diplomasi
-    if (typeof storyTalkTick === 'function') storyTalkTick(dtSec);
-    STORY._accDip = (STORY._accDip || 0) + dtSec;
-    if (STORY._accDip >= 11) { STORY._accDip = 0; if (typeof storyAIDiplomacyTick === 'function') storyAIDiplomacyTick(); }
+    if (_storyRegistryOn) {
+        if (_storyDue('chatter', '_accChat', 9) > 0 && typeof storyChatterRun === 'function') storyChatterRun();
+        if (_storyDue('talks', '_accTalk', 14) > 0 && typeof storyTalkRun === 'function') storyTalkRun();
+    } else if (typeof storyTalkTick === 'function') {
+        storyTalkTick(dtSec);
+    }
+    if (
+        _storyDue('diplomacy', '_accDip', 11) > 0
+        && typeof storyAIDiplomacyTick === 'function'
+    ) storyAIDiplomacyTick();
     // FAZ-10: DÜNYA ÇAĞI — dünyanın karakteri ölçülür, AI ve sohbet ona göre davranır
-    STORY._accEra = (STORY._accEra || 0) + dtSec;
-    if (STORY._accEra >= 6) { STORY._accEra = 0; if (typeof storyEraTick === 'function') storyEraTick(); }
-    STORY._accCityDev = (STORY._accCityDev || 0) + dtSec;
-    if (STORY._accCityDev >= 10) { STORY._accCityDev = 0; if (typeof storyAICityTick === 'function') storyAICityTick(); }   // AI: garnizon/şehir/bina geliştirir + ordu üretir
-    STORY._accReplenish = (STORY._accReplenish || 0) + dtSec;
-    if (STORY._accReplenish >= 12) { STORY._accReplenish = 0; storyReplenishCommanders(); }   // ölen komutanları YAVAŞ telafi (dünya boşalmasın)
+    if (_storyDue('era', '_accEra', 6) > 0 && typeof storyEraTick === 'function') storyEraTick();
+    if (
+        _storyDue('city-development', '_accCityDev', 10) > 0
+        && typeof storyAICityTick === 'function'
+    ) storyAICityTick();
+    if (_storyDue('replenishment', '_accReplenish', 12) > 0) storyReplenishCommanders();
+    if (typeof storyTelemetryTick === 'function') storyTelemetryTick();
+    if (typeof storyTelemetryRecordStepDuration === 'function') {
+        const _storyPerfEnd = (typeof performance !== 'undefined' && performance.now)
+            ? performance.now()
+            : Date.now();
+        storyTelemetryRecordStepDuration(_storyPerfEnd - _storyPerfStart);
+    }
     if (storyCheckPlayerDefeat()) return;   // ADIM 6: 0-bölge → kampanya bitti
 }
 

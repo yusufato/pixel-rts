@@ -50,14 +50,31 @@ function storyApplyLoyaltyDrift() {
 function storyStateStr(st) { return st.res.oil + st.res.manpower + st.res.points; }
 function storyStateHealth(st) { return (st.welfare + st.reputation * 10) / 2; }
 function storyCommanderDefectTo(cmd, fromSt, toSt, atNode) {
-    if (typeof storyEraEvent === 'function') storyEraEvent('firar');   // FAZ-10: çalkantı ölçümü
-    if (typeof storyFacEvent === 'function') storyFacEvent(fromSt, 'defect');   // AŞAMA 2: firar toplumu sarsar
-    const i = fromSt.gov.commanders.indexOf(cmd); if (i >= 0) fromSt.gov.commanders.splice(i, 1);
-    if (!toSt.gov) toSt.gov = { leader: 'ai', commanders: [] };
-    cmd.st = toSt.id;   // FAZ-8: firar edince devlet bağı da taşınır
-    toSt.gov.commanders.push(cmd);
-    cmd.loyalty = 55; cmd.recentBattles = []; cmd._nextT = 0; cmd._lastDefect = STORY.clock;
-    if (atNode != null) cmd.node = atNode;
+    const run = () => {
+        if (typeof storyEraEvent === 'function') storyEraEvent('firar');   // FAZ-10: çalkantı ölçümü
+        if (typeof storyFacEvent === 'function') storyFacEvent(fromSt, 'defect');   // AŞAMA 2: firar toplumu sarsar
+        const i = fromSt.gov.commanders.indexOf(cmd); if (i >= 0) fromSt.gov.commanders.splice(i, 1);
+        if (!toSt.gov) toSt.gov = { leader: 'ai', commanders: [] };
+        if (typeof storyCausalitySet === 'function') {
+            storyCausalitySet(cmd, 'st', toSt.id, {
+                target: { type: 'character', id: cmd.id },
+                path: `character:${cmd.id}.stateId`,
+                source: 'society.defection'
+            });
+        } else cmd.st = toSt.id;   // FAZ-8: firar edince devlet bağı da taşınır
+        toSt.gov.commanders.push(cmd);
+        cmd.loyalty = 55; cmd.recentBattles = []; cmd._nextT = 0; cmd._lastDefect = STORY.clock;
+        if (atNode != null) storyMoveCommander(cmd, atNode, { reason: 'society.defection' });
+        return true;
+    };
+    if (typeof storyCausalityRun !== 'function') return run();
+    return storyCausalityRun({
+        type: 'society.commander_defection',
+        eventType: 'society.commander_defected',
+        actor: { type: 'character', id: cmd.id },
+        target: { type: 'state', id: toSt.id },
+        payload: { commanderId: cmd.id, fromStateId: fromSt.id, toStateId: toSt.id, atNode }
+    }, run).result;
 }
 // 0 ŞEHİRLİK devlet → komutanları teslim olur (bulundukları şehrin sahibine katılır) / sahipsizse dağılır
 // KOMUTAN TAKVİYESİ: ölümle tükenmesin — şehri olan devletler YAVAŞ yeni komutan yetiştirir (infinite değil: tavanlı + seyrek + refah-kapılı)
@@ -85,13 +102,13 @@ function storyReplenishCommanders() {
         const critical = cur < Math.ceil(cap / 2);
         if (!critical) {
             if (st.welfare < 20) continue;              // sağlıklı kadroda çöken devlet mobilize edemez
-            if (Math.random() > 0.5) continue;          // seyrek takviye
+            if (storyRandom('society') > 0.5) continue;          // seyrek takviye
         }
         const capId = (STORY._capitals && STORY._capitals[st.id] != null) ? STORY._capitals[st.id] : null;
         const at = (capId != null && owned.some(n => n.id === capId)) ? capId : owned[0].id;
         const nc = storyCreateCommander(st.id, at);
         if (nc && st.isPlayer) storyLog(`🎖️ Konsey yeni komutan atadı: <b>${nc.name}</b> (kadro ${cur + 1}/${cap}).`);
-        else if (nc && Math.random() < 0.4) storyLog(`🎖️ ${st.name} yeni komutan yetiştirdi: ${nc.name}.`);
+        else if (nc && storyRandom('society') < 0.4) storyLog(`🎖️ ${st.name} yeni komutan yetiştirdi: ${nc.name}.`);
     }
 }
 function storyDissolveDeadStates() {
@@ -138,10 +155,10 @@ function storyApplyCoups() {
         }
         // AŞAMA 2: ordu fraksiyonu küskünse cunta cesaretlenir (×1.5), memnunsa yönetimi korur (×0.7)
         const _coupP = (0.2 + ((40 - avg) / 40) * 0.5) * ((typeof storyFacCoupMul === 'function') ? storyFacCoupMul(st) : 1);
-        if (Math.random() >= _coupP) continue;
+        if (storyRandom('society') >= _coupP) continue;
         if (st.isPlayer && st.gov.leader === 'player') {         // ── OYUNCU DARBESİ (dramatik risk) ──
             st.gov.leader = 'ai'; st.isAdmin = false;
-            st.reputation = Math.max(0, st.reputation - 4); st.welfare = Math.max(0, st.welfare - 20);
+            st.reputation = Math.max(0, st.reputation - 4); storyWelfareDelta(st, 'society.player_coup', -20);
             if (typeof storyFacEvent === 'function') storyFacEvent(st, 'coup');   // AŞAMA 2
             for (const c of disloyal) c.loyalty = 50;
             storyFlash('🔥 DARBE! Komutan konseyi seni devirdi — yöneticiliği KAYBETTİN. Refahı/sadakati yükselt, yeniden seçil.');
@@ -152,10 +169,15 @@ function storyApplyCoups() {
             for (const n of STORY.nodes) {
                 if (n.owner !== st.id || flipped >= 2) continue;
                 const nb = n.neighbors.map(storyNode).find(m => m && m.owner !== st.id && !((storyState(m.owner) || {}).isPlayer));
-                if (nb) { n.owner = nb.owner; storyCityRename(n); flipped++; }
+                if (nb) {
+                    if (storyTransferNodeOwnership(n, nb.owner, {
+                        actor: { type: 'state', id: st.id },
+                        reason: 'society.ai_coup'
+                    })) flipped++;
+                }
             }
             for (const c of disloyal) c.loyalty = 50;
-            st.welfare = Math.max(0, st.welfare - 8);
+            storyWelfareDelta(st, 'society.ai_coup', -8);
             if (flipped) storyLog(`⚔️ ${st.name}'de DARBE — kaos, ${flipped} bölge kontrolden çıktı.`);
         }
         storySave();

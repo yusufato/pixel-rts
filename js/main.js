@@ -91,6 +91,16 @@ canvas.addEventListener('mousedown', (e) => {
                     nearestEng.attackTarget = null;
                 }
                 cancelSupportMode();
+            } else if (selectedSupportMode.indexOf('ability:') === 0) {
+                // SOL-PANEL HEDEFLİ YETENEK: haritaya tık → seçili uygun birimler için player-ability kuyruğa (replay-güvenli)
+                const abId = selectedSupportMode.slice(8);
+                const meta = (typeof ABILITY_META !== 'undefined') ? ABILITY_META[abId] : null;
+                const ids = units.filter(u => u.selected && playerCanControlBattleUnit(u) && (!meta || !meta.need || meta.need(u))).map(u => u.id);
+                if (ids.length && typeof pendingPlayerCommands !== 'undefined') {
+                    pendingPlayerCommands.push({ type: 'player-ability', payload: { ability: abId, unitIds: ids, x: Math.round(world.x * 100) / 100, y: Math.round(world.y * 100) / 100 } });
+                    if (typeof battleLearnMessage === 'function') battleLearnMessage((meta ? meta.icon + ' ' + meta.label : abId) + ' emri verildi', 1500);
+                }
+                cancelSupportMode();
             }
             return;
         }
@@ -195,6 +205,25 @@ canvas.addEventListener('contextmenu', (e) => {
     const selectedUnits = units.filter(u => u.selected && playerCanControlBattleUnit(u));
     if (selectedUnits.length === 0) return;
 
+    // ── TAŞIMA BİNDİR: seçili boş-slotlu taşıyıcı + imleç altında DOST binebilir piyade → yükle emri ──
+    const loaders = selectedUnits.filter(u => u.transportSlots > 0 && u.cargo.length < u.transportSlots);
+    if (loaders.length) {
+        const side = loaders[0].isRed;
+        let loadTarget = null;
+        for (const u of units) {
+            if (u.dead || u.loaded || u.isRed !== side || u.transportSlots > 0) continue;
+            const st = STATS[u.type];
+            if (!st || st.armorType !== 'infantry') continue;   // yalnız yaya piyade binebilir
+            if (Math.hypot(u.x - world.x, u.y - world.y) < 34) { loadTarget = u; break; }
+        }
+        if (loadTarget) {
+            pendingPlayerCommands.push({ type: 'player-load', payload: {
+                transportIds: loaders.map(u => u.id), targetId: loadTarget.id
+            } });
+            return;
+        }
+    }
+
     let targetEnemy = null;
     for (const u of units) {
         if (u.dead || !u.isRed || !canSee(false, u.x, u.y)) continue;
@@ -263,52 +292,166 @@ document.getElementById('btn-trench').addEventListener('click', (e) => {
         cancelSupportMode();
     }
 });
-document.querySelectorAll('.spawn-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (phase !== PHASE.DEPLOY) return;
-        const type = parseInt(btn.dataset.type);
-        if (selectedSpawnType === type) {
-            selectedSpawnType = null;
-            btn.classList.remove('selected-btn');
-            canvas.classList.remove('ghost-cursor');
-            return;
+// ═══ SOL-PANEL YETENEK-SEÇİCİ ═══
+// Birime tıkla → sol-panel o birimin yeteneklerini gösterir → aktif olanı tıkla (hedefli ise haritaya tık) → tetikle.
+// AKTİF = oyuncu-tetikli (player-ability kuyruğu, replay-güvenli). PASİF = motor otomatik tetikler (bilgi-çipi).
+// need(u): birim bu yeteneği kullanabilir mi. targeted: haritada yer seçmeli mi.
+const ABILITY_META = {
+    lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: false, need: u => u.type === T.ENGINEER },
+    build_fortification: { label: 'SİPER KAZ',  icon: '⛏',  active: true,  targeted: true,  need: u => u.type === T.ENGINEER },
+    unload:              { label: 'İNDİR',      icon: '🪖', active: true,  targeted: false, need: u => u.transportSlots > 0 && u.cargo && u.cargo.length > 0 },
+    // PASİF (otomatik) — panelde bilgi-çipi:
+    dig_in:          { label: 'Siperlen',    icon: '⛏',  active: false },
+    garrison:        { label: 'Mevzilen',    icon: '🏚',  active: false },
+    ambush:          { label: 'Pusu',        icon: '🌿', active: false },
+    stay_hidden:     { label: 'Gizlen',      icon: '🌿', active: false },
+    infiltrate:      { label: 'Sız',         icon: '🥷', active: false },
+    overrun:         { label: 'Ez-geç',      icon: '⚡', active: false },
+    sabotage:        { label: 'Sabotaj',     icon: '💥', active: false },
+    mark_target:     { label: 'Hedef-işaretle', icon: '🎯', active: false },
+    shoot_and_scoot: { label: 'Vur-kaç',     icon: '🏃', active: false },
+    deploy:          { label: 'Kurulum',     icon: '🔧', active: false },
+    hold_fire:       { label: 'Ateş-disiplini', icon: '✋', active: false },
+    barrage:         { label: 'Baraj',       icon: '💥', active: false },
+    smoke_barrage:   { label: 'Duman',       icon: '🌫', active: false },
+    clear_mines:     { label: 'Mayın-temizle', icon: '🧹', active: false },
+    build_bridge:    { label: 'Köprü',       icon: '🌉', active: false }
+};
+let _abilityPanelSig = null;
+function _abilitySelectedUnits() {
+    return units.filter(u => u.selected && playerCanControlBattleUnit(u));
+}
+function renderAbilityPanel() {
+    const panel = document.getElementById('ui-abilities');
+    if (!panel) return;
+    const sel = (typeof phase !== 'undefined' && phase === PHASE.BATTLE) ? _abilitySelectedUnits() : [];
+    if (!sel.length) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+    const abilitySet = new Set();
+    for (const u of sel) { const st = STATS[u.type]; if (st && st.abilities) for (const a of st.abilities) abilitySet.add(a); }
+    const actives = [], passives = [];
+    for (const a of abilitySet) {
+        const m = ABILITY_META[a]; if (!m) continue;
+        if (m.active) { if (sel.some(u => !m.need || m.need(u))) actives.push({ id: a, m }); }
+        else passives.push({ id: a, m });
+    }
+    if (!actives.length && !passives.length) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+    let html = '<div class="ability-head">YETENEKLER · ' + sel.length + ' birim</div>';
+    if (actives.length) {
+        html += '<div class="ability-row">';
+        for (const { id, m } of actives) {
+            const on = (selectedSupportMode === 'ability:' + id) ? ' active' : '';
+            html += '<button class="ability-btn' + on + '" data-ability="' + id + '"><b>' + m.icon + '</b><span>' + m.label + (m.targeted ? ' ▸yer' : '') + '</span></button>';
         }
-        selectedSpawnType = type;
-        document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('selected-btn'));
-        btn.classList.add('selected-btn');
-        canvas.classList.add('ghost-cursor');
-    });
-
-    // Sürükle-Bırak hissiyatı için mousedown olayını da dinleyelim
-    btn.addEventListener('mousedown', (e) => {
-        if (phase !== PHASE.DEPLOY) return;
-        const type = parseInt(btn.dataset.type);
-        selectedSpawnType = type;
-        document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('selected-btn'));
-        btn.classList.add('selected-btn');
-        canvas.classList.add('ghost-cursor');
-    });
-
-    btn.addEventListener('mouseenter', () => {
-        const type = parseInt(btn.dataset.type);
-        const s = STATS[type];
-        const strongNames = s.strong.map(t => STATS[t].name).join(', ') || '-';
-        const weakNames = s.weak.map(t => STATS[t].name).join(', ') || '-';
-        document.getElementById('info-content').innerHTML = `
-            <b style="color:#aaddff">${s.name}</b><br>
-            ${s.desc}<br><br>
-            ❤️ HP: ${s.hp} | ⚔️ ATK: ${s.atk}<br>
-            🏃 Hız: ${(s.speed*2).toFixed(2)} | 📏 Menzil: ${s.range}<br>
-            👁️ Görüş: ${s.vision} | 🛡️ Zırh: ${s.armor} | 💰 ${s.cost}<br><br>
-            <span style="color:#4cff7c">✅ Güçlü: ${strongNames}</span><br>
-            <span style="color:#ff6666">❌ Zayıf: ${weakNames}</span>
-        `;
-    });
-    btn.addEventListener('mouseleave', () => {
-        document.getElementById('info-content').innerHTML = 'Bir birim seç veya üzerine gel';
-    });
+        html += '</div>';
+    }
+    if (passives.length) {
+        html += '<div class="ability-chips">';
+        for (const { id, m } of passives) html += '<span class="ability-chip">' + m.icon + ' ' + m.label + '<em>oto</em></span>';
+        html += '</div>';
+    }
+    panel.innerHTML = html;
+    panel.style.display = 'flex';
+}
+// Seçim/mod değişince yeniden çiz (her karede imza kontrolü — DOM'u boşuna kurma, hedefleme-vurgusu kaybolmasın).
+function refreshAbilityPanelIfChanged() {
+    const inBattle = (typeof phase !== 'undefined' && phase === PHASE.BATTLE);
+    const sel = inBattle ? _abilitySelectedUnits() : [];
+    const sig = inBattle ? (sel.map(u => u.id).sort().join(',') + '|' + (selectedSupportMode || '')) : 'off';
+    if (sig === _abilityPanelSig) return;
+    _abilityPanelSig = sig;
+    renderAbilityPanel();
+}
+document.getElementById('ui-abilities')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ability]'); if (!btn) return;
+    e.stopPropagation();
+    const id = btn.dataset.ability;
+    const m = ABILITY_META[id]; if (!m || !m.active) return;
+    if (m.targeted) {
+        // Hedefli: hedefleme-moduna gir; haritaya tık mousedown'da kuyruğa yazar (trench deseni).
+        selectedSupportMode = (selectedSupportMode === 'ability:' + id) ? null : ('ability:' + id);
+        canvas.classList.toggle('ghost-cursor', !!selectedSupportMode);
+        _abilityPanelSig = null; refreshAbilityPanelIfChanged();
+    } else {
+        // Anlık: seçili uygun birimler için hemen kuyruğa (M/U tuşlarının panel karşılığı).
+        const ids = _abilitySelectedUnits().filter(u => !m.need || m.need(u)).map(u => u.id);
+        if (ids.length && typeof pendingPlayerCommands !== 'undefined') {
+            pendingPlayerCommands.push({ type: 'player-ability', payload: { ability: id, unitIds: ids } });
+            if (typeof battleLearnMessage === 'function') battleLearnMessage(m.icon + ' ' + m.label + ' emri verildi', 1500);
+        }
+        cancelSupportMode();
+    }
 });
+// SPAWN-BAR: 25 tipi STATS'tan DİNAMİK üret (roster sırası, doğru indeks+sprite+isim+maliyet). Event-delegation ile wiring.
+function renderSpawnIcons() {
+    if (typeof spriteSheet === 'undefined' || !spriteSheet.complete || !spriteSheet.naturalWidth) return;
+    document.querySelectorAll('.btn-icon').forEach(c => {
+        const col = parseInt(c.dataset.col);
+        c.width = 44; c.height = 32;
+        const bctx = c.getContext('2d'); bctx.imageSmoothingEnabled = false; bctx.clearRect(0, 0, 44, 32);
+        bctx.drawImage(spriteSheet, SP_PAD + col * (SP_W + SP_PAD), SP_PAD, SP_W, SP_H, 0, 0, 44, 32);
+    });
+}
+// KATEGORİLİ SPAWN-BAR: 7 grup butonu; tıkla → o kategorinin birimleri flyout'ta açılır → seç+yerleştir.
+const SPAWN_CATEGORIES = [
+    { id: 'inf',     label: '👣 Piyade',    ids: ['infantry', 'at_team', 'mortar_team', 'manpads_team', 'commando'] },
+    { id: 'armor',   label: '🛡️ Zırhlı',    ids: ['mbt', 'ifv', 'tank_destroyer'] },
+    { id: 'arty',    label: '💥 Dolaylı',   ids: ['artillery', 'mlrs', 'ballistic_missile'] },
+    { id: 'aa',      label: '🎯 Hava-Sav.', ids: ['spaag', 'sam_battery'] },
+    { id: 'air',     label: '✈️ Hava',      ids: ['attack_helo', 'transport_helo', 'recon_uav', 'armed_uav', 'loitering_munition'] },
+    { id: 'recon',   label: '📡 Keşif/EH',  ids: ['scout_vehicle', 'counter_battery_radar', 'ew_vehicle'] },
+    { id: 'support', label: '🚑 Destek',    ids: ['medic', 'engineer', 'supply_truck', 'command_vehicle'] }
+];
+let _openSpawnCat = null;
+function _typeIdx(id) { return (typeof UNIT_ID_BY_INDEX !== 'undefined') ? UNIT_ID_BY_INDEX.indexOf(id) : -1; }
+function _spawnUnitBtnHTML(i) {
+    const s = STATS[i]; if (!s) return '';
+    const RES_ICON = { manpower: '👣', oil: '⛽', points: '⭐' };
+    const icon = RES_ICON[(typeof UNIT_RES_GROUP !== 'undefined' && UNIT_RES_GROUP[i]) || 'points'] || '⭐';
+    return `<button class="spawn-btn" data-type="${i}" title="${s.name}"><canvas class="btn-icon" data-col="${i}"></canvas><div class="btn-label">${s.name}</div><div class="btn-cost">${icon}${s.cost}</div></button>`;
+}
+function buildSpawnBar() {
+    const bar = document.getElementById('ui-spawn-bar'); if (!bar) return;
+    let cats = '';
+    for (const c of SPAWN_CATEGORIES) cats += `<button class="spawn-cat" data-cat="${c.id}">${c.label}</button>`;
+    bar.innerHTML = `<div id="spawn-flyout" class="spawn-flyout hidden"></div><div class="spawn-cats">${cats}</div>`;
+    _openSpawnCat = null;
+}
+function openSpawnCategory(catId) {
+    const fly = document.getElementById('spawn-flyout'); if (!fly) return;
+    if (_openSpawnCat === catId) { fly.classList.add('hidden'); _openSpawnCat = null; document.querySelectorAll('.spawn-cat').forEach(b => b.classList.remove('cat-open')); return; }
+    const cat = SPAWN_CATEGORIES.find(c => c.id === catId); if (!cat) return;
+    let html = '';
+    for (const id of cat.ids) { const i = _typeIdx(id); if (i >= 0) html += _spawnUnitBtnHTML(i); }
+    fly.innerHTML = html; fly.classList.remove('hidden'); _openSpawnCat = catId;
+    document.querySelectorAll('.spawn-cat').forEach(b => b.classList.toggle('cat-open', b.dataset.cat === catId));
+    renderSpawnIcons();
+}
+function _spawnSelect(btn, toggle) {
+    if (phase !== PHASE.DEPLOY) return;
+    const type = parseInt(btn.dataset.type);
+    if (toggle && selectedSpawnType === type) { selectedSpawnType = null; btn.classList.remove('selected-btn'); canvas.classList.remove('ghost-cursor'); return; }
+    selectedSpawnType = type;
+    document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('selected-btn'));
+    btn.classList.add('selected-btn'); canvas.classList.add('ghost-cursor');
+}
+(function wireSpawnBar() {
+    const bar = document.getElementById('ui-spawn-bar'); if (!bar) return;
+    bar.addEventListener('click', e => {
+        const cat = e.target.closest('.spawn-cat'); if (cat) { e.stopPropagation(); openSpawnCategory(cat.dataset.cat); return; }
+        const b = e.target.closest('.spawn-btn'); if (b) { e.stopPropagation(); _spawnSelect(b, true); }
+    });
+    bar.addEventListener('mousedown', e => { const b = e.target.closest('.spawn-btn'); if (b) _spawnSelect(b, false); });
+    bar.addEventListener('mouseover', e => {
+        const b = e.target.closest('.spawn-btn'); if (!b) return; const s = STATS[parseInt(b.dataset.type)]; if (!s) return;
+        const el = document.getElementById('info-content'); if (!el) return;
+        el.innerHTML = `<b style="color:#aaddff">${s.name}</b><br>${(s.roleTags || []).join(', ')}<br><br>`
+            + `❤️ HP: ${s.hp} | ⚔️ ATK: ${s.atk}<br>🏃 Hız: ${(s.speed * 20)}px/sn | 📏 Menzil: ${s.range}${s.minRange ? ' (min ' + s.minRange + ')' : ''}<br>`
+            + `👁️ Görüş: ${s.vision} | 🛡️ ${s.armorType}/${s.armorValue} | 💰 ${s.cost}<br>`
+            + `🎯 <b style="color:${s.domain === 'air' ? '#7cf' : '#cf9'}">${s.domain === 'air' ? 'HAVA' : 'KARA'}</b> · vurur: ${s.targets}${s.aura ? ' · aura: ' + s.aura.type : ''}`;
+    });
+    bar.addEventListener('mouseout', e => { if (e.target.closest('.spawn-btn')) { const el = document.getElementById('info-content'); if (el) el.innerHTML = 'Bir birim seç veya üzerine gel'; } });
+})();
+buildSpawnBar();
 
 function startBattle() {
     if (phase !== PHASE.DEPLOY) return;
@@ -415,6 +558,22 @@ if (typeof document !== 'undefined') {
             BATTLE_LEARN_FROM_MATCH = !BATTLE_LEARN_FROM_MATCH;
             battleLearnMessage(BATTLE_LEARN_FROM_MATCH ? '🧠 AI bu maçtan öğrenecek (L: kapat)' : '⏸️ Öğrenme kapalı (L: aç)', 2500);
         }
+        if ((e.key === 'u' || e.key === 'U') && typeof phase !== 'undefined' && phase === PHASE.BATTLE) {
+            // TAŞIMA İNDİR: seçili dolu taşıyıcı(lar) bulunduğu yere yolcuları indirsin
+            const sel = units.filter(u => u.selected && playerCanControlBattleUnit(u) && u.transportSlots > 0 && u.cargo.length > 0);
+            if (sel.length && typeof pendingPlayerCommands !== 'undefined') {
+                pendingPlayerCommands.push({ type: 'player-unload', payload: { transportIds: sel.map(u => u.id) } });
+                if (typeof battleLearnMessage === 'function') battleLearnMessage('🪂 İndir emri verildi', 1500);
+            }
+        }
+        if ((e.key === 'm' || e.key === 'M') && typeof phase !== 'undefined' && phase === PHASE.BATTLE) {
+            // MAYIN DÖŞE: seçili istihkam(lar) bulunduğu yere mayın koysun
+            const eng = units.filter(u => u.selected && playerCanControlBattleUnit(u) && u.type === T.ENGINEER);
+            if (eng.length && typeof pendingPlayerCommands !== 'undefined') {
+                pendingPlayerCommands.push({ type: 'player-mine', payload: { engineerIds: eng.map(u => u.id) } });
+                if (typeof battleLearnMessage === 'function') battleLearnMessage('💣 Mayın döşendi', 1500);
+            }
+        }
     });
 }
 
@@ -514,6 +673,10 @@ function checkGameOver() {
         setTimeout(() => {
             let labeled = { count: 0, examples: [] };
             try { labeled = battleLabelDecisionSnapshots({ rolloutSec: 10 }); } catch (e) {}
+            // Her örneği MOTOR-SÜRÜMÜYLE etiketle → INSAN-EGIT yalnız GÜNCEL-motor durumlarını adapte eder.
+            // Eski-motor durumları farklı dinamik + farklı Oracle-ödülüyle yakalandı → dağılım kayması; sürüm
+            // değişince otomatik dışlanır (kullanıcı: "eski oyun ile şimdiki oyun çok farklı boyutta").
+            try { const _ev = (typeof BATTLE_ENGINE_VERSION !== 'undefined') ? BATTLE_ENGINE_VERSION : null; if (labeled && labeled.examples) labeled.examples.forEach(e => { e.engineVersion = _ev; }); } catch (e) {}
             BATTLE_TRAIN_CAPTURE = false; BATTLE_DECISION_SNAPSHOTS = [];
             if (labeled.count && typeof window !== 'undefined' && window.PIXEL && window.PIXEL.train) {
                 window.PIXEL.train.saveHumanData(labeled.examples)
@@ -973,6 +1136,27 @@ function drawMap() {
         }
     }
 
+    // MAYIN: sahip her zaman görür; düşman mayını yalnız yakında yüksek-detect dost varsa görünür (bilgi-savaşı)
+    const _mySide = (typeof myCanonicalSide !== 'undefined' ? myCanonicalSide : false);
+    for (const m of mines) {
+        const s = worldToScreen(m.x, m.y);
+        if (s.x < -20 || s.x > canvas.width + 20 || s.y < -20 || s.y > canvas.height + 20) continue;
+        const own = (m.isRed === _mySide);
+        let visible = own;
+        if (!own) {
+            for (const u of units) {
+                if (u.dead || u.isRed !== _mySide) continue;
+                const det = (STATS[u.type] && STATS[u.type].detect) || 0;
+                if (det >= 0.4 && Math.hypot(u.x - m.x, u.y - m.y) < 220 * (1 + det)) { visible = true; break; }
+            }
+        }
+        if (!visible) continue;
+        const r = 6 * zoom;
+        ctx.fillStyle = own ? 'rgba(120,200,255,0.9)' : 'rgba(255,90,70,0.95)';
+        ctx.beginPath(); ctx.moveTo(s.x, s.y - r); ctx.lineTo(s.x + r, s.y + r * 0.7); ctx.lineTo(s.x - r, s.y + r * 0.7); ctx.closePath(); ctx.fill();
+        if (!m.armed) { ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = zoom; ctx.stroke(); }   // kurulum sürüyor
+    }
+
     // Haritanın fiziksel sınırı kameranın nerede olduğunu netleştirir.
     const topLeft = worldToScreen(0, 0);
     const bottomRight = worldToScreen(WORLD_W, WORLD_H);
@@ -1100,15 +1284,7 @@ function drawMinimap() {
     minimapCtx.strokeRect(vx, vy, vw, vh);
 }
 
-spriteSheet.addEventListener('load', () => {
-    document.querySelectorAll('.btn-icon').forEach(c => {
-        const col = parseInt(c.dataset.col);
-        c.width = 44; c.height = 32;
-        const bctx = c.getContext('2d');
-        bctx.imageSmoothingEnabled = false;
-        bctx.drawImage(spriteSheet, SP_PAD + col * (SP_W + SP_PAD), SP_PAD, SP_W, SP_H, 0, 0, 44, 32);   // 'load' olayı içinde: sprite kesin hazır
-    });
-});
+spriteSheet.addEventListener('load', () => { if (typeof renderSpawnIcons === 'function') renderSpawnIcons(); });
 
 let lastFrameTime = 0;
 let simulationTime = 0;
@@ -1168,8 +1344,8 @@ function stepSim(now, dtSec, driveController, spawnDeathVfx) {
                 }
             }
             SIM.units.splice(i, 1);
-        } else {
-            SIM.spatialGrid.insert(SIM.units[i]);
+        } else if (!SIM.units[i].loaded) {
+            SIM.spatialGrid.insert(SIM.units[i]);   // TAŞINAN piyade grid'e girmez (hedeflenmez/çarpışmaz)
         }
     }
     // Hasar anlık uygulandığı için sabit dizi sırası, önce oluşturulan tarafa
@@ -1190,12 +1366,14 @@ function stepSim(now, dtSec, driveController, spawnDeathVfx) {
     // konumlarla çözüm yapmak dar geçitlerde görünmez kuyruk ve yanlış itme üretir.
     SIM.spatialGrid.clear();
     for (const unit of SIM.units) {
-        if (!unit.dead) SIM.spatialGrid.insert(unit);
+        if (!unit.dead && !unit.loaded) SIM.spatialGrid.insert(unit);   // TAŞINAN piyade grid dışı
     }
     resolveCollisions();
+    if (typeof updateMines === 'function') updateMines(now);   // MAYIN: düşman basınca patla (grid güncel — hedefleme sonrası)
     if (typeof updateBattleRules === 'function') updateBattleRules(dtSec, now);
     SIM.tick = (SIM.tick || 0) + 1;
     if (typeof battleMaybeRecordHash === 'function') battleMaybeRecordHash();
+    if (typeof battleBalanceSample === 'function') battleBalanceSample();   // kabul-bataryası per-tik örnekleyici (gate'li)
 }
 
 function gameLoop(timestamp) {
@@ -1232,9 +1410,12 @@ function gameLoop(timestamp) {
         if (_mpActive) {
             mpStep(timestamp);                       // ÇOK OYUNCULU: sabit-tick lockstep (kendi içinde stepSim çağırır)
         } else {
-            battleAccumulatorMs += dt * GAME_SPEED;
+            // KOMUTAN MODU: dış-komutan turu gelince sim DURUR (adım atma, zaman biriktirme) — emir bekle.
+            const _cmdrMayStep = (typeof commanderPreStep !== 'function') || commanderPreStep();
+            battleAccumulatorMs += _cmdrMayStep ? dt * GAME_SPEED : 0;
             let steps = 0;
-            while (battleAccumulatorMs >= BATTLE_TICK_MS && steps < BATTLE_MAX_STEPS_PER_FRAME) {
+            while (_cmdrMayStep && battleAccumulatorMs >= BATTLE_TICK_MS && steps < BATTLE_MAX_STEPS_PER_FRAME
+                   && !(typeof commanderShouldStopStepping === 'function' && commanderShouldStopStepping())) {
                 simulationTime += BATTLE_TICK_MS;
                 gameTime += BATTLE_TICK_SEC;
                 const driveController = BATTLE_REPLAY_DRIVER.active ? battleReplayDrive : battleControllersDrive;
@@ -1305,6 +1486,7 @@ function gameLoop(timestamp) {
     drawSelectionBox();
     drawMinimap();
     updateUI();
+    if (typeof refreshAbilityPanelIfChanged === 'function') refreshAbilityPanelIfChanged();   // sol-panel yetenek-seçici (seçim/mod değişince)
 
     requestAnimationFrame(gameLoop);
 }

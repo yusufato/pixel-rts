@@ -32,3 +32,6 @@ qa-runtime/
 dist-recorder/
 dist-release/
 dist-current/
+
+# CUDA runtime DLL (600MB, yerel; llm-host self-heal ile electron.exe dizinine kopyalar)
+cuda-runtime/

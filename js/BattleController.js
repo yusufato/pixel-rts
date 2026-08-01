@@ -117,6 +117,9 @@ class BattleController {
         this.owner = config.owner || (this.side ? CONTROL_OWNER.ENEMY_AI : CONTROL_OWNER.ALLY_AI);
         this.mission = config.mission || null;
         this.doctrine = config.doctrine || 'combined';
+        // FAZ 7: komutan profili (varsa) → doctrine + targetingWeights + envelopBias (mevcut düğmeleri besler).
+        this.profile = (config.profile && typeof commanderProfile === 'function') ? commanderProfile(config.profile) : null;
+        if (this.profile) { this.doctrine = this.profile.doctrine || this.doctrine; this.profileName = config.profile; }
         this.personality = config.personality || 'balanced';
         this.decisionIntervalTicks = Math.max(1, config.decisionIntervalTicks | 0 || 10);
         this.nextDecisionTick = 0;
@@ -194,6 +197,13 @@ class BattleController {
         this.lastSituation = this.situationAnalyzer
             ? this.situationAnalyzer.analyze(this.lastObservation)
             : null;
+        // FAZ 2: taktik blackboard (paylaşımlı okuma-modeli + uzay-zaman). Salt-okuma, yan-etkisiz → davranış-nötr.
+        // Sonraki fazlar (3 anti-kuşatma, 4 hedef-skor) bunu okur. Bayrakla A/B (varsayılan açık).
+        if ((typeof BATTLE_BLACKBOARD === 'undefined' || BATTLE_BLACKBOARD) && typeof battleBuildBlackboard === 'function')
+            this.blackboard = battleBuildBlackboard(this, this.lastObservation, this.lastSituation);
+        else this.blackboard = null;
+        // FAZ 3: kuşatma bilgisini situation'a iliştir → plan-commitment (evaluatePlanAbort) okur, anti-kuşatma tetikler.
+        if (this.lastSituation && this.blackboard) this.lastSituation.envelopment = this.blackboard.envelopment;
         this.candidatePlans = this.courseOfActionGenerator
             ? this.courseOfActionGenerator.generate(this.lastSituation)
             : [];
@@ -304,6 +314,7 @@ function battleControllersDrive(now) {
     const ordered = [...BATTLE_CONTROLLERS.values()].sort((a, b) => a.id.localeCompare(b.id));
     for (const controller of ordered) {
         if (surSide !== null && controller.side === surSide) continue;   // vekil tarafının kod-kontrolörünü atla
+        if (typeof BATTLE_COMMANDER_MODE !== 'undefined' && BATTLE_COMMANDER_MODE && controller.side === BATTLE_COMMANDER_SIDE) continue;   // KOMUTAN kırmızıyı sürüyor → kod-AI'yı atla
         controller.update(now);
     }
 }

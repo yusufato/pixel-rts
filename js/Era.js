@@ -130,15 +130,37 @@ function storyEraEval() {
 function storyEra() {
     if (!STORY._era) {
         const r = storyEraEval();
-        STORY._era = { id: r.era.id, since: STORY.clock || 0, cand: null, candSince: 0 };
+        storyEraTransitionTo(r.era.id, 'era-initialized');
     }
     return ERA_BY_ID[STORY._era.id] || ERA_BY_ID.gray;
 }
 function storyEraEffects() { return (storyEra() || {}).effects || ERA_BY_ID.gray.effects; }
 
+function storyEraTransitionTo(eraId, reason) {
+    const next = ERA_BY_ID[String(eraId || '')];
+    if (!next) return { ok: false, code: 'ERA_UNKNOWN', eraId: String(eraId || '') };
+    const old = STORY._era ? (ERA_BY_ID[STORY._era.id] || ERA_BY_ID.gray) : null;
+    if (old && old.id === next.id) return { ok: true, changed: false, from: old.id, to: next.id };
+    STORY._era = { id: next.id, since: STORY.clock || 0, cand: null, candSince: 0 };
+    let invalidation = null;
+    if (typeof storyInvalidateMapCaches === 'function') {
+        invalidation = storyInvalidateMapCaches('era', reason || 'era-change', {
+            from: old ? old.id : null,
+            to: next.id
+        });
+    }
+    return {
+        ok: true,
+        changed: true,
+        from: old ? old.id : null,
+        to: next.id,
+        invalidation
+    };
+}
+
 function storyEraTick() {
     const r = storyEraEval();
-    if (!STORY._era) { STORY._era = { id: r.era.id, since: STORY.clock || 0, cand: null, candSince: 0 }; return; }
+    if (!STORY._era) { storyEraTransitionTo(r.era.id, 'era-initialized'); return; }
     const cur = ERA_BY_ID[STORY._era.id] || ERA_BY_ID.gray;
     const curS = cur.score(r.shape);
     STORY._eraMetrics = r.metrics;
@@ -151,7 +173,7 @@ function storyEraTick() {
     if ((STORY.clock || 0) - STORY._era.candSince < ERA_SWITCH_HOLD) return;
 
     const old = cur;
-    STORY._era = { id: r.era.id, since: STORY.clock || 0, cand: null, candSince: 0 };
+    storyEraTransitionTo(r.era.id, 'era-change');
     if (typeof storyLog === 'function')
         storyLog(`🌍 <b>ÇAĞ DEĞİŞTİ</b> — ${old.icon} ${old.name} bitti, <span style="color:${r.era.color}">${r.era.icon} ${r.era.name}</span> başladı.`);
         if (typeof storyNews === 'function') storyNews('era', { era: r.era.name });

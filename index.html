@@ -111,10 +111,10 @@
     <div id="screen-quickmatch" class="app-screen hidden">
         <div class="menu-logo small">⚡ Hızlı Maç</div>
         <div class="qm-box">
-            <div class="qm-row"><label>Rakip Puanı: <b id="qm-ai-val">1500</b></label>
-                <input type="range" id="qm-ai" min="600" max="3000" step="100" value="1500"></div>
-            <div class="qm-row"><label>🧑 Senin Puanın: <b id="qm-pl-val">1500</b></label>
-                <input type="range" id="qm-pl" min="600" max="3000" step="100" value="1500"></div>
+            <div class="qm-row"><label>Rakip Puanı: <b id="qm-ai-val">5000</b></label>
+                <input type="range" id="qm-ai" min="1000" max="8000" step="250" value="5000"></div>
+            <div class="qm-row"><label>🧑 Senin Puanın: <b id="qm-pl-val">5000</b></label>
+                <input type="range" id="qm-pl" min="1000" max="8000" step="250" value="5000"></div>
             <div id="qm-difficulty" class="qm-diff">Denge: Eşit ⚖️</div>
             <div class="qm-hint">Puan = ordu bütçesi. Asimetrik puan = zorluk ayarı.</div>
             <div class="qm-row" style="margin-top:20px;"><label>⚔️ Savaş Rolün:</label>
@@ -169,6 +169,7 @@
                 <div class="story-command-title"><span>PIXEL</span><b>AVRUPA</b><small>YAŞAYAN HAREKÂT AĞI · MODERN ÇAĞ</small></div>
                 <div id="story-stats" aria-live="polite"></div>
                 <div id="story-topright">
+                    <button id="story-speed-btn" class="ctrl-btn" title="Dünya hızı">1× HIZ</button>
                     <button id="story-pause-btn" class="ctrl-btn" title="Duraklat / Devam">DURAKLAT</button>
                     <button id="story-save-btn" class="ctrl-btn" title="Kaydet">KAYDET</button>
                     <button id="story-menu-btn" class="ctrl-btn" title="Ana Menü">MENÜ</button>
@@ -200,6 +201,7 @@
                 <button id="story-talk-btn" class="tool-btn" title="Sohbetler ve diplomasi"><b>05</b><span>SOHBET</span><i id="story-talk-badge" class="tool-badge hidden"></i></button>
                 <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>06</b><span>KOMUTAN</span></button>
                 <button id="story-news-btn" class="tool-btn" title="Gazete — dünya manşetleri ve çarpıtma"><b>07</b><span>GAZETE</span><i id="news-badge" class="tool-badge hidden"></i></button>
+                <button id="story-economy-btn" class="tool-btn" title="Bütçe, piyasa, şirketler, lojistik ve toplumsal denge"><b>08</b><span>EKONOMİ</span><i id="story-economy-badge" class="tool-badge hidden"></i></button>
             </div>
             <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
             <aside id="news-panel" aria-hidden="true">
@@ -216,7 +218,6 @@
                 <div id="council-tabs">
                     <button class="ctab active" data-tab="cmd">🎖️ KOMUTANLAR</button>
                     <button class="ctab" data-tab="law">📜 KANUNLAR</button>
-                    <button class="ctab" data-tab="fac">⚖️ FRAKSİYONLAR</button>
                 </div>
                 <div id="council-tab-cmd">
                     <div id="council-treasury"></div>
@@ -229,9 +230,6 @@
                 </div>
                 <div id="council-tab-law" class="hidden">
                     <div id="council-lawbox"></div>
-                </div>
-                <div id="council-tab-fac" class="hidden">
-                    <div id="council-facbox"></div>
                 </div>
             </aside>
             <!-- TEKNOLOJİ — SOLDAN kayar drawer (placeholder: Adım 4'te uygulanacak) -->
@@ -258,6 +256,14 @@
                 </div>
                 <div id="city-body"></div>
             </aside>
+            <!-- EKONOMİ — şehir, devlet ve toplumsal ekonomi aynı bilgi yüzeyinde -->
+            <aside id="economy-panel" aria-hidden="true">
+                <div id="economy-header">
+                    <span class="council-title" id="economy-title">EKONOMİ</span>
+                    <button id="economy-close" class="council-x" aria-label="Kapat">KAPAT</button>
+                </div>
+                <div id="economy-body"></div>
+            </aside>
             <!-- SOHBET & DİPLOMASİ — SOLDAN kayar drawer (dünyayı durdurmaz) -->
             <aside id="talk-panel" aria-hidden="true">
                 <div id="talk-header">
@@ -266,6 +272,18 @@
                 </div>
                 <div id="talk-body"></div>
             </aside>
+            <!-- FRAKSİYON OLAYI — arka planda kaybolmayan, sıraya alınan oyuncu bildirimi -->
+            <div id="faction-event-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="faction-event-title">
+                <div class="faction-event-card">
+                    <div class="faction-event-kicker" id="faction-event-kicker">TOPLUMSAL OLAY</div>
+                    <h2 id="faction-event-title">FRAKSİYON TEPKİSİ</h2>
+                    <div id="faction-event-body"></div>
+                    <div class="faction-event-actions">
+                        <button id="faction-event-economy" class="story-btn">EKONOMİDE İNCELE</button>
+                        <button id="faction-event-close" class="story-btn">ANLADIM</button>
+                    </div>
+                </div>
+            </div>
             <!-- KONSEY TOPLANTISI — 2 yılda bir, başkentte. DÜNYAYI DURDURUR (olay). -->
             <div id="council-session" class="hidden">
                 <div class="cs-shell">
@@ -343,6 +361,7 @@
         <button data-battle-order="trench"><b>SİPER KAZ</b><span>tahkim</span></button>
         <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
     </section>
+    <section id="ui-abilities" aria-label="Seçili birim yetenekleri"></section>
     <aside id="battle-feed"><div class="battle-feed-head">MUHAREBE KAYDI <b>CANLI</b></div><div id="battle-feed-list"></div></aside>
     <div id="game-war-overlay" aria-hidden="true"></div>
 
@@ -353,54 +372,8 @@
     <button id="start-btn">⚔️ SAVAŞI BAŞLAT!</button>
     <button id="mp-ready-btn" class="hidden">✅ HAZIR — Ordunu Gönder</button>
 
-    <!-- Birim Üretim Paneli (Alt) -->
-    <div id="ui-spawn-bar">
-        <button class="spawn-btn" data-type="0" title="Piyade">
-            <canvas class="btn-icon" data-col="0"></canvas>
-            <div class="btn-label">Piyade</div>
-            <div class="btn-cost">👥70</div>
-        </button>
-        <button class="spawn-btn" data-type="1" title="Mekanize Piyade">
-            <canvas class="btn-icon" data-col="1"></canvas>
-            <div class="btn-label">Mekanize</div>
-            <div class="btn-cost">⛽110</div>
-        </button>
-        <button class="spawn-btn" data-type="2" title="Zırhlı Piyade">
-            <canvas class="btn-icon" data-col="2"></canvas>
-            <div class="btn-label">Zırhlı Piy.</div>
-            <div class="btn-cost">⛽140</div>
-        </button>
-        <button class="spawn-btn" data-type="3" title="Keşif">
-            <canvas class="btn-icon" data-col="3"></canvas>
-            <div class="btn-label">Keşif</div>
-            <div class="btn-cost">👥55</div>
-        </button>
-        <button class="spawn-btn" data-type="4" title="İstihkam">
-            <canvas class="btn-icon" data-col="4"></canvas>
-            <div class="btn-label">İstihkam</div>
-            <div class="btn-cost">👥85</div>
-        </button>
-        <button class="spawn-btn" data-type="5" title="Sağlıkçı">
-            <canvas class="btn-icon" data-col="5"></canvas>
-            <div class="btn-label">Sağlıkçı</div>
-            <div class="btn-cost">👥95</div>
-        </button>
-        <button class="spawn-btn" data-type="6" title="Tank">
-            <canvas class="btn-icon" data-col="6"></canvas>
-            <div class="btn-label">Tank</div>
-            <div class="btn-cost">⛽280</div>
-        </button>
-        <button class="spawn-btn" data-type="7" title="Tanksavar">
-            <canvas class="btn-icon" data-col="7"></canvas>
-            <div class="btn-label">Tanksavar</div>
-            <div class="btn-cost">⭐140</div>
-        </button>
-        <button class="spawn-btn" data-type="8" title="Topçu">
-            <canvas class="btn-icon" data-col="8"></canvas>
-            <div class="btn-label">Topçu</div>
-            <div class="btn-cost">⭐200</div>
-        </button>
-    </div>
+    <!-- Birim Üretim Paneli (Alt) — 25 tip JS ile dinamik doldurulur (buildSpawnBar, STATS'tan) -->
+    <div id="ui-spawn-bar"></div>
 
     <!-- Taktik Destek Paneli (Sol Orta) -->
     <div id="ui-support" class="hidden">
@@ -448,6 +421,10 @@
 
     <canvas id="gameCanvas"></canvas>
     <img id="spriteSheet" src="icons.png" style="display:none;">
+    <!-- VERİ-MODELİ: globals.js'ten ÖNCE (T/STATS bunlardan üretilir) -->
+    <script src="js/UnitData.js"></script>
+    <script src="js/UnitFeatures.js"></script>
+    <script src="js/UnitLoader.js"></script>
     <script src="js/globals.js"></script>
     <script src="js/BattleRules.js"></script>
     <script src="js/BattleSession.js"></script>
@@ -456,7 +433,12 @@
     <script src="js/BattlePlanning.js"></script>
     <script src="js/BattleExecution.js"></script>
     <script src="js/OperationGrammar.js"></script>
+    <script src="js/BattleSpaceTime.js"></script>
+    <script src="js/BattleBlackboard.js"></script>
+    <script src="js/BattleTargeting.js"></script>
+    <script src="js/CommanderProfiles.js"></script>
     <script src="js/BattleController.js"></script>
+    <script src="js/BattleCommander.js"></script>
     <script src="js/BattleFeatures.js"></script>
     <script src="js/BattleSelector.js"></script>
     <script src="js/BattleOracle.js"></script>
@@ -476,6 +458,36 @@
     <script src="js/techTree.js"></script>
     <script src="js/geoData.js"></script>
     <script src="js/Story.js"></script>
+    <script src="js/StoryFeatures.js"></script>
+    <script src="js/StoryRegions.js"></script>
+    <script src="js/StoryActivation.js"></script>
+    <script src="js/StoryAggregation.js"></script>
+    <script src="js/StoryInfrastructure.js"></script>
+    <script src="js/StoryResources.js"></script>
+    <script src="js/StoryProductionSectors.js"></script>
+    <script src="js/StoryPopulation.js"></script>
+    <script src="js/StoryRegionalEconomy.js"></script>
+    <script src="js/StoryTrade.js"></script>
+    <script src="js/StoryMarket.js"></script>
+    <script src="js/StoryBudget.js"></script>
+    <script src="js/StoryNeeds.js"></script>
+    <script src="js/StoryCompanies.js"></script>
+    <script src="js/StoryCommerce.js"></script>
+    <script src="js/StoryEconomicAI.js"></script>
+    <script src="js/StoryMapRasterAsset.js"></script>
+    <script src="js/StoryMapRaster.js"></script>
+    <script src="js/StoryPoliticalOverlay.js"></script>
+    <script src="js/StoryMapCache.js"></script>
+    <script src="js/StoryRng.js"></script>
+    <script src="js/StoryClock.js"></script>
+    <script src="js/StoryScheduler.js"></script>
+    <script src="js/StoryCausality.js"></script>
+    <script src="js/StoryWorldV2.js"></script>
+    <script src="js/PlayerKnowledge.js"></script>
+    <script src="js/StoryProjection.js"></script>
+    <script src="js/StoryCityDossier.js"></script>
+    <script src="js/StoryMigration.js"></script>
+    <script src="js/StoryTelemetry.js"></script>
     <script src="js/StoryAI.js"></script>
     <script src="js/StorySocial.js"></script>
     <script src="js/Character.js"></script>

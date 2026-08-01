@@ -44,7 +44,7 @@ function storyFacInit(st) {
         business: facClamp(50 - (ax.pop - 50) * 0.30 - (ax.nat - 50) * 0.15 + (ax.auth - 50) * 0.05),
         military: facClamp(50 + (ax.hawk - 50) * 0.35 + (ax.auth - 50) * 0.15),
         intel:    facClamp(50 - (ax.auth - 50) * 0.40 + (50 - ax.hawk) * 0.10),
-        radicals: facClamp(20 + Math.random() * 8),
+        radicals: facClamp(20 + storyRandom('society') * 8),
     };
     st._facLog = [];
 }
@@ -114,8 +114,131 @@ const FAC_EVENTS = {
     coup:     { deltas: { radicals: -10, intel: -3, business: -4 },   why: 'Darbe' },
     strike:   { deltas: { radicals: -10, workers: 4 },                 why: 'Genel grev' },
 };
+const FAC_EVENT_NOTICE = Object.freeze({
+    cityLost: {
+        severity: 'high', title: 'ŞEHİR KAYBI TOPLUMU SARSTI',
+        summary: 'Ordu yönetimin yeterliliğini sorguluyor; radikal gruplar kaybı propaganda malzemesine çevirdi.',
+        consequence: 'Ordu desteği düşer, radikaller güçlenir ve huzursuzluk baskısı artabilir.'
+    },
+    cityWon: {
+        severity: 'positive', title: 'FETİH DESTEĞİ YÜKSELTTİ',
+        summary: 'Zafer, güvenlik kurumlarının ve iş çevrelerinin yönetime desteğini güçlendirdi.',
+        consequence: 'Ordu ve sermaye desteği kısa vadede yükselir.'
+    },
+    defect: {
+        severity: 'high', title: 'KOMUTAN FİRARI GÜVENİ SARSTI',
+        summary: 'Bir komutanın saf değiştirmesi devlet içindeki güç gruplarına yönetimin denetimini sorgulattı.',
+        consequence: 'Radikal hareketler cesaretlenir; bilgi kurumlarının güveni aşınır.'
+    },
+    coup: {
+        severity: 'critical', title: 'DARBE SİYASİ DENGEYİ DEĞİŞTİRDİ',
+        summary: 'İktidarın zorla değişmesi toplumsal blokları yeniden hizaladı.',
+        consequence: 'Radikaller geçici olarak bastırılır; aydınlar ve sermaye güven kaybeder.'
+    },
+    strike: {
+        severity: 'critical', title: 'GENEL GREV BAŞLADI',
+        summary: 'Radikal örgütlenme ile işçi hoşnutsuzluğu birleşti; üretim hatları yavaşladı.',
+        consequence: 'Üretim 40 saniye boyunca %55 düşer; refah doğrudan zarar görür.'
+    }
+});
+
+function storyFactionNoticeBadgeUpdate() {
+    const badge = document.getElementById('story-economy-badge');
+    if (!badge) return;
+    const count = (STORY._factionNoticeQueue || []).length + (STORY._factionNoticeCurrent ? 1 : 0);
+    badge.textContent = count > 9 ? '9+' : (count ? String(count) : '');
+    badge.classList.toggle('hidden', count === 0);
+    badge.title = count ? `${count} okunmamış toplumsal olay` : '';
+}
+
+function storyFactionDeltaText(deltas) {
+    return Object.entries(deltas || {}).map(([key, value]) => {
+        const faction = FACTIONS.find(item => item.k === key);
+        return `${faction ? `${faction.icon} ${faction.name}` : key}: ${value > 0 ? '+' : ''}${value}`;
+    }).join(' · ');
+}
+
+function storyFactionNotice(notice) {
+    if (!notice || !storyPlayerState()) return false;
+    if (!STORY._factionNoticeQueue) STORY._factionNoticeQueue = [];
+    const normalized = {
+        id: String(notice.id || `fac-${Math.floor(STORY.clock || 0)}-${STORY._factionNoticeQueue.length}`),
+        key: String(notice.key || 'faction'),
+        severity: String(notice.severity || 'medium'),
+        title: String(notice.title || 'FRAKSİYON TEPKİSİ'),
+        summary: String(notice.summary || ''),
+        consequence: String(notice.consequence || ''),
+        deltas: Object.assign({}, notice.deltas || {}),
+        observedAt: Number(STORY.clock) || 0
+    };
+    const duplicate = STORY._factionNoticeCurrent && STORY._factionNoticeCurrent.id === normalized.id
+        || STORY._factionNoticeQueue.some(item => item.id === normalized.id);
+    if (duplicate) return false;
+    STORY._factionNoticeQueue.push(normalized);
+    if (STORY._factionNoticeQueue.length > 20) STORY._factionNoticeQueue.splice(0, STORY._factionNoticeQueue.length - 20);
+    storyFactionNoticeShowNext();
+    return true;
+}
+
+function storyFactionNoticeShowNext() {
+    if (!STORY._factionNoticeCurrent && STORY._factionNoticeQueue && STORY._factionNoticeQueue.length) {
+        STORY._factionNoticeCurrent = STORY._factionNoticeQueue.shift();
+    }
+    const notice = STORY._factionNoticeCurrent;
+    const modal = document.getElementById('faction-event-modal');
+    if (!modal || !notice) {
+        if (modal) modal.classList.add('hidden');
+        storyFactionNoticeBadgeUpdate();
+        return;
+    }
+    modal.className = `faction-event-modal severity-${notice.severity}`;
+    const kicker = document.getElementById('faction-event-kicker');
+    const title = document.getElementById('faction-event-title');
+    const body = document.getElementById('faction-event-body');
+    if (kicker) kicker.textContent = notice.severity === 'critical' ? 'ACİL TOPLUMSAL KRİZ' : 'TOPLUMSAL OLAY';
+    if (title) title.textContent = notice.title;
+    if (body) {
+        const esc = typeof storyProjectionEscape === 'function' ? storyProjectionEscape : value => String(value || '');
+        body.innerHTML = `<p>${esc(notice.summary)}</p>`
+            + (notice.consequence ? `<div class="faction-event-effect"><span>OYUNA ETKİSİ</span><b>${esc(notice.consequence)}</b></div>` : '')
+            + (Object.keys(notice.deltas).length ? `<div class="faction-event-deltas">${esc(storyFactionDeltaText(notice.deltas))}</div>` : '');
+    }
+    storyFactionNoticeBadgeUpdate();
+    setTimeout(() => document.getElementById('faction-event-close')?.focus(), 0);
+}
+
+function storyFactionNoticeClose() {
+    STORY._factionNoticeCurrent = null;
+    const modal = document.getElementById('faction-event-modal');
+    if (modal) modal.classList.add('hidden');
+    storyFactionNoticeShowNext();
+}
+
+function storyFactionNoticeOpenEconomy() {
+    STORY._factionNoticeCurrent = null;
+    const modal = document.getElementById('faction-event-modal');
+    if (modal) modal.classList.add('hidden');
+    if (typeof storyEconomyOpen === 'function') storyEconomyOpen('fraksiyonlar');
+    storyFactionNoticeBadgeUpdate();
+}
+
 function storyFacEvent(st, type) {
+    if (typeof storyTelemetryEvent === 'function' && st) {
+        storyTelemetryEvent(`society.${type}`, { stateId: st.id });
+    }
     const e = FAC_EVENTS[type]; if (e) storyFacApply(st, e.deltas, e.why);
+    if (st && st.isPlayer && e) {
+        const notice = FAC_EVENT_NOTICE[type] || {};
+        storyFactionNotice({
+            id: `fac-event-${type}-${Math.floor(STORY.clock || 0)}`,
+            key: type,
+            severity: notice.severity,
+            title: notice.title || e.why,
+            summary: notice.summary || e.why,
+            consequence: notice.consequence || '',
+            deltas: e.deltas
+        });
+    }
     if (typeof storyEconEvent === 'function') storyEconEvent(st, type);   // AŞAMA 3: güven/enflasyon da tepki verir
 }
 
@@ -161,21 +284,46 @@ function storyFactionsTick(dt) {
 
         // ÖFKE → REFAH SIZINTISI (eşikli: mutlu toplumda sıfır maliyet)
         const unr = storyFacUnrest(st);
-        if (unr > 18) st.welfare = Math.max(0, st.welfare - (unr - 18) * 0.004 * dt);
+        if (unr > 18) storyWelfareDelta(st, 'society.unrest', -(unr - 18) * 0.004 * dt, {
+            continuous: true,
+            correlationId: `systemic-pressure:${st.id}`
+        });
 
         // OYUNCUYA SES: eşik aşımlarında uyarı (yalnız oyuncu devleti, anahtar başına 90 sn)
-        if (st.isPlayer && typeof storyFlash === 'function') {
+        if (st.isPlayer) {
             if (!st._facWarn) st._facWarn = {};
-            const warn = (key, msg) => { if ((STORY.clock - (st._facWarn[key] || -999)) > 90) { st._facWarn[key] = STORY.clock; storyFlash(msg); } };
-            if (f.military <= 35) warn('mil', '🎖️ Ordu küskün (' + Math.round(f.military) + ') — DARBE riski ×1.5. Zafer, geçit töreni ya da savunma kanunları yatıştırır.');
-            if (f.radicals >= 58 && f.workers <= 45) warn('rad', '🔥 Grev kazanı kaynıyor — refahı yükselt ya da işçi dostu kanun geçir.');
-            if (f.intel <= 30) warn('int', '📰 Basın karşında — sansürü gevşetmek ya da eğitim yatırımı aydınları yumuşatır.');
+            const warn = (key, payload) => {
+                if ((STORY.clock - (st._facWarn[key] || -999)) <= 90) return;
+                st._facWarn[key] = STORY.clock;
+                storyFactionNotice(Object.assign({
+                    id: `fac-warning-${key}-${Math.floor(STORY.clock || 0)}`,
+                    key,
+                    severity: 'high'
+                }, payload));
+            };
+            if (f.military <= 35) warn('mil', {
+                title: 'ORDU YÖNETİMDEN UZAKLAŞIYOR',
+                summary: `Ordu desteği ${Math.round(f.military)} seviyesine düştü.`,
+                consequence: 'Darbe olasılığı ×1.5. Zafer veya güvenlik kurumlarını gözeten bir kanun baskıyı azaltabilir.'
+            });
+            if (f.radicals >= 58 && f.workers <= 45) warn('rad', {
+                title: 'GENEL GREV EŞİĞİNE YAKLAŞILDI',
+                summary: 'Radikal hareketler güçlenirken işçi desteği kritik eşiğin altına indi.',
+                consequence: 'Koşullar sürerse genel grev üretimi %55 yavaşlatacak. Refah veya işçi desteği yükseltilmeli.'
+            });
+            if (f.intel <= 30) warn('int', {
+                title: 'BASIN VE AYDINLAR MUHALEFETE GEÇTİ',
+                summary: `Aydınlar ve basın desteği ${Math.round(f.intel)} seviyesine düştü.`,
+                consequence: 'Sansürün gevşetilmesi veya eğitim yatırımı bu bloğu yumuşatabilir.'
+            });
         }
         // GENEL GREV: radikal taşkınlık + küskün işçi sınıfı → üretim durur (soğumalı)
         if (f.radicals >= 62 && f.workers <= 42 && (STORY.clock - (st._lastStrike || -999)) > 120) {
             st._lastStrike = STORY.clock;
             st._strikeUntil = STORY.clock + 40;
-            st.welfare = Math.max(0, st.welfare - 3);
+            storyWelfareDelta(st, 'society.general_strike', -3, {
+                correlationId: `strike:${st.id}:${Math.floor(STORY.clock || 0)}`
+            });
             storyFacEvent(st, 'strike');   // buhar boşalır: radikaller iner, işçiler kazanım hisseder
             storyLog(`🪧 <b>${st.name}</b>'de GENEL GREV — üretim 40 sn yavaşlayacak.`);
             if (typeof storyNews === 'function') storyNews('strike', { st: st.name });
@@ -207,21 +355,18 @@ function storyFacScore(optFac, st) {
 function storyFacHtml(st) {
     if (!st) return '';
     storyFacBackfill(st);
-    if (!st._facPrev) st._facPrev = Object.assign({}, st.factions);
     const rows = FACTIONS.map(fd => {
-        const v = st.factions[fd.k], pv = st._facPrev[fd.k] ?? v;
-        const trend = v - pv > 0.5 ? '<span style="color:#4cff7c">▲</span>' : (v - pv < -0.5 ? '<span style="color:#ff5a5a">▼</span>' : '<span style="color:#556">•</span>');
+        const v = st.factions[fd.k];
+        const trend = '<span style="color:#556">•</span>';
         const col = v < 35 ? '#ff5a5a' : (v < 48 ? '#ffd24c' : '#4cff7c');
         return `<div class="fac-row"><span class="fac-name">${fd.icon} ${fd.name}</span>`
             + `<div class="fac-track"><div class="fac-fill" style="width:${v}%;background:${col}"></div></div>`
             + `<b class="fac-val" style="color:${col}">${Math.round(v)}</b>${trend}</div>`;
     }).join('');
-    st._facPrev = Object.assign({}, st.factions);
     const unr = Math.round(storyFacUnrest(st));
     const strike = st._strikeUntil && st._strikeUntil > STORY.clock ? ' · 🪧 <b style="color:#ff5a5a">GREV SÜRÜYOR</b>' : '';
     const logs = (st._facLog || []).slice(0, 3).map(l => `<div class="fac-log">${l}</div>`).join('');
-    const econ = (typeof storyEconHtml === 'function') ? storyEconHtml(st) : '';
-    return econ + `<div class="fac-box">${rows}
+    return `<div class="fac-box">${rows}
         <div class="fac-unrest">Huzursuzluk: <b style="color:${unr > 25 ? '#ff5a5a' : (unr > 12 ? '#ffd24c' : '#4cff7c')}">${unr}</b>${strike}</div>
         ${logs ? `<div class="fac-logs"><div class="fac-logs-t">SON TEPKİLER</div>${logs}</div>` : ''}
         <div class="fac-hint">Kanunlar, savaşlar ve refah fraksiyonları oynatır. Küskün ordu darbeyi kolaylaştırır;

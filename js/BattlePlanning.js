@@ -259,6 +259,10 @@ class OperationalObjectiveSelector {
 }
 
 function planningReserveRatio(situation, planKind) {
+    // SEKTÖR-KOMUTA: "kutsal ihtiyat" — bir sektöre bağlanmaz, karar-noktasında sürülür (analist %20-25). CONCENTRATE'i geçersizler.
+    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND === true) {
+        return situation?.role === BATTLE_ROLE.DEFENDER ? 0.25 : 0.20;
+    }
     // KONSANTRASYON: rezervi minimuma indir (tüm kuvveti çatışmaya sok) — insan-konsantrasyonuna karşı.
     if (typeof BATTLE_FORCE_CONCENTRATE !== 'undefined' && BATTLE_FORCE_CONCENTRATE === true) return 0.1;
     let ratio = situation?.role === BATTLE_ROLE.DEFENDER ? 0.27 : 0.2;
@@ -293,6 +297,10 @@ function planningCombatAffinity(unit, role) {
 }
 
 function planningRoleShares(planKind) {
+    // SEKTÖR-KOMUTA: Schwerpunkt dağılımı — MAIN ana-çaba (bir sektöre), FIXING ekonomi-of-force (geniş cephe), FLANK yardımcı.
+    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND === true) {
+        return { [TASK_GROUP_ROLE.MAIN]: 0.55, [TASK_GROUP_ROLE.FIXING]: 0.30, [TASK_GROUP_ROLE.FLANK]: 0.15 };
+    }
     // KONSANTRASYON: tüm kuvveti MAIN'e yığ (dağılımı kapat) — insan-konsantrasyonuna karşı test/kaldıraç.
     if (typeof BATTLE_FORCE_CONCENTRATE !== 'undefined' && BATTLE_FORCE_CONCENTRATE === true) {
         return { [TASK_GROUP_ROLE.MAIN]: 1, [TASK_GROUP_ROLE.FIXING]: 0, [TASK_GROUP_ROLE.FLANK]: 0 };
@@ -352,9 +360,10 @@ class ForceOrganizer {
         for (const role of Object.values(TASK_GROUP_ROLE)) buckets[role] = [];
         const combat = [];
         for (const unit of units) {
-            if (unit.type === T.RECON) buckets[TASK_GROUP_ROLE.RECON].push(unit);
-            else if (unit.type === T.ARTILLERY) buckets[TASK_GROUP_ROLE.FIRE_SUPPORT].push(unit);
-            else if (unit.type === T.ENGINEER || unit.type === T.MEDIC) buckets[TASK_GROUP_ROLE.SUPPORT].push(unit);
+            const r = battleUnitRoleBucket(unit.type);   // roleTags/category-güdümlü (25-birim)
+            if (r === TASK_GROUP_ROLE.RECON) buckets[TASK_GROUP_ROLE.RECON].push(unit);
+            else if (r === TASK_GROUP_ROLE.FIRE_SUPPORT) buckets[TASK_GROUP_ROLE.FIRE_SUPPORT].push(unit);
+            else if (r === TASK_GROUP_ROLE.SUPPORT) buckets[TASK_GROUP_ROLE.SUPPORT].push(unit);
             else combat.push(unit);
         }
 
@@ -510,22 +519,114 @@ function planningChooseFlankPoint(objective, origin) {
     return rightCost < leftCost ? right : left;
 }
 
+// DEBRIEF (arazi): ön-hat/tutan gruplar ORMAN-örtüsü arasın (+3 zırh + gizlenme/pusu). Topçu/keşif/flank HARİÇ
+// (topçu/keşif LOS/görüş ister, flank hız ister). Az yarıçap → yalnız ZATEN yakın ormana snap (saldırıyı saptırmaz).
+function planningCoverPoint(point, role) {
+    if (typeof terrainFeatures === 'undefined' || !Array.isArray(terrainFeatures) || typeof TERRAIN === 'undefined') return point;
+    if (role === TASK_GROUP_ROLE.FIRE_SUPPORT || role === TASK_GROUP_ROLE.RECON || role === TASK_GROUP_ROLE.FLANK) return point;
+    let best = null, bestD = 170;
+    for (const t of terrainFeatures) {
+        if (t.type !== TERRAIN.FOREST) continue;
+        const d = Math.hypot(t.x - point.x, t.y - point.y);
+        if (d < bestD) { bestD = d; best = t; }
+    }
+    if (!best) return point;
+    const dx = best.x - point.x, dy = best.y - point.y, dl = Math.hypot(dx, dy) || 1;
+    const pull = Math.min(bestD, (best.r || 60) * 0.6);   // orman kenarına gir (tam ortaya gömülme)
+    return planningSafePoint({ x: point.x + (dx / dl) * pull, y: point.y + (dy / dl) * pull });
+}
+
+// SEKTÖR-KOMUTA (anti-blob): cephe 3 x-band'a bölünür (left/center/right, situationSectorForX ile IDENTIK eşik).
+const SECTOR_NAMES = ['left', 'center', 'right'];
+function sectorBand(name) {
+    if (name === 'left') return { xMin: 0, xMax: WORLD_W / 3 };
+    if (name === 'right') return { xMin: WORLD_W * 2 / 3, xMax: WORLD_W };
+    return { xMin: WORLD_W / 3, xMax: WORLD_W * 2 / 3 };
+}
+function sectorCenterX(name) {
+    if (name === 'left') return WORLD_W / 6;
+    if (name === 'right') return WORLD_W * 5 / 6;
+    return WORLD_W / 2;
+}
+// DÜŞMAN-UYARLAMALI KONSANTRASYON (anti-blob AMA gücü koru): ana-çaba = düşmanın EN ÇOK olduğu sektör (dövüş orada);
+// MAIN+FIXING oraya YIĞILIR (~%85, konsantrasyon korunur), FLANK bitişikten SARAR (pincer), RECON üçüncüyü perdeler.
+// Boş sektöre kütle GÖNDERMEZ (yoğunlaşan rakibe karşı dağılmayı önler). group.sector davranış-nötr ek-alan.
+function assignSectors(taskGroups, situation, controller) {
+    if (!(typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND)) return;
+    const st = controller && (controller.sectorState || (controller.sectorState = { mainSector: null, mainSectorLockUntilTick: 0, reserveCommittedTick: -1, mainEffortShiftCount: 0 }));
+    // Aday ana-çaba = düşman kütlesinin en çok olduğu sektör. Temas yoksa center. Tiebreak: SECTOR_NAMES sırası.
+    let candidate = 'center', bestEnemy = 0;
+    if (situation && situation.sectors) {
+        for (const name of SECTOR_NAMES) {
+            const s = situation.sectors[name];
+            if (s && s.enemyValue > bestEnemy) { bestEnemy = s.enemyValue; candidate = name; }
+        }
+    }
+    // FAZ 4 HİSTEREZİS: mevcut ana-çaba 70s kilitli kalır (titreme/kuvvet-savurma önlenir); ancak kilit bitince VEYA
+    // düşman belirgin-kaydıysa (aday-sektör mevcudun 1.5×'i) kayar. Deterministik (SIM.tick, RNG yok).
+    const now = (typeof SIM !== 'undefined' && SIM.tick) || 0;
+    let mainSector = (st && SECTOR_NAMES.includes(st.mainSector)) ? st.mainSector : candidate;
+    if (candidate !== mainSector) {
+        const curVal = (situation && situation.sectors && situation.sectors[mainSector] && situation.sectors[mainSector].enemyValue) || 0;
+        const strongShift = bestEnemy > curVal * 1.5;
+        if (now >= ((st && st.mainSectorLockUntilTick) || 0) || strongShift) mainSector = candidate;
+    }
+    if (st && st.mainSector !== mainSector) { st.mainSector = mainSector; st.mainSectorLockUntilTick = now + 1400; st.mainEffortShiftCount = (st.mainEffortShiftCount || 0) + 1; }
+    const adj = mainSector === 'right' ? 'center' : (mainSector === 'center' ? 'left' : 'center');   // ana-çabaya bitişik
+    const third = SECTOR_NAMES.find(s => s !== mainSector && s !== adj) || adj;
+    const DEF = (typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.DEFENDER : 'defender';
+    const isDefender = situation && situation.role === DEF;
+    // ASSEMBLY-AREA DOKTRİNİ (analist anti-yumak): SAVUNAN her zaman YAYILIR (geniş hat). SALDIRAN hazırlıkta (STRIKE-DIŞI)
+    // YAYILIR (assembly, alan-ateşine=ÇNRA mezar sunmaz), yalnız HÜCUM anında (STRIKE) konsantre olur.
+    const striking = situation && situation.operationalPosture && situation.operationalPosture.stance === 'STRIKE';
+    const spread = isDefender || !striking;
+    for (const g of taskGroups) {
+        if (spread) {
+            // GENİŞ HAT / ASSEMBLY: grupları AYRI sektörlere yay (yumak→alan-ateşi mezarı çözülür)
+            if (g.role === TASK_GROUP_ROLE.MAIN) g.sector = mainSector;
+            else if (g.role === TASK_GROUP_ROLE.FIXING) g.sector = adj;
+            else if (g.role === TASK_GROUP_ROLE.FLANK) g.sector = third;
+            else if (g.role === TASK_GROUP_ROLE.RECON) g.sector = third;
+            else g.sector = null;
+        } else {
+            // SALDIRAN STRIKE: enemy-adaptif KONSANTRASYON (kütle düşman-sektörüne + FLANK ±420 pincer) — hücum anı
+            if (g.role === TASK_GROUP_ROLE.MAIN || g.role === TASK_GROUP_ROLE.FIXING || g.role === TASK_GROUP_ROLE.FLANK) g.sector = mainSector;
+            else if (g.role === TASK_GROUP_ROLE.RECON) g.sector = adj;
+            else g.sector = null;
+        }
+    }
+}
 function planningContractDestination(controller, group, objective, friendlyCentroid) {
     const origin = group.centroid || friendlyCentroid || objective;
-    if (group.role === TASK_GROUP_ROLE.FLANK) return planningChooseFlankPoint(objective, origin);
-    if (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) {
-        return planningPointBetween(origin, objective, 0.45);
+    // SEKTÖR-KOMUTA: grup kendi sektörünün ORTASINA nişan alır (tek-global objektif yerine) → gruplar 3 ayrı x'e yayılır.
+    let aim = objective;
+    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND && group.sector) {
+        let ax = sectorCenterX(group.sector), ay = objective.y;
+        // KONUŞLANMA (kullanıcı): STRIKE DEĞİLKEN yığılma yerine kendi bölgesinde DAĞINIK savunma-konuşlanması.
+        const sit = controller && controller.lastSituation;
+        const stance = sit && sit.operationalPosture && sit.operationalPosture.stance;
+        const isAtt = !sit || sit.role !== (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.DEFENDER : 'defender');
+        if (stance && stance !== 'STRIKE') {
+            // MAIN/FIXING sektör içinde AYRI x → cepheyi kapla (aynı noktaya blob'lanma). STRIKE'ta tekrar yığılır (3/3 korunur).
+            if (group.role === TASK_GROUP_ROLE.MAIN) ax -= 240;
+            else if (group.role === TASK_GROUP_ROLE.FIXING) ax += 240;
+            // y-DERİNLİK (kapı-kapalı): SAVUNAN kendi-hattına çekilir; SALDIRAN ise ANALİST-FIX (POSITION'da erime):
+            // toplanma-bölgesi düşman ateş-zarfından GERİDE (temas hattında değil) → STRIKE'a kadar hayatta kalır, STRIKE'ta ileri.
+            const homeY = controller.side ? WORLD_H * 0.30 : WORLD_H * 0.70;
+            if (!isAtt) ay = objective.y * 0.4 + homeY * 0.6;   // savunma-hattı (mostly geri)
+            else ay = objective.y * 0.42 + homeY * 0.58;        // ANALİST-FIX2: saldıran assembly ATEŞ-ZARFI DIŞINA (~%58 geri) — STRIKE-öncesi erime biter, STRIKE'ta ileri-hücum
+        }
+        aim = { x: ax, y: ay };
     }
-    if (group.role === TASK_GROUP_ROLE.RECON) {
-        return planningPointBetween(origin, objective, 0.72);
-    }
-    if (group.role === TASK_GROUP_ROLE.SUPPORT) {
-        return planningPointBetween(origin, objective, 0.3);
-    }
-    if (group.role === TASK_GROUP_ROLE.RESERVE) {
-        return planningPointBetween(origin, objective, 0.2);
-    }
-    return planningSafePoint(objective);
+    objective = aim;
+    let dest;
+    if (group.role === TASK_GROUP_ROLE.FLANK) dest = planningChooseFlankPoint(objective, origin);
+    else if (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) dest = planningPointBetween(origin, objective, 0.55);   // topçu erken destek
+    else if (group.role === TASK_GROUP_ROLE.RECON) dest = planningPointBetween(origin, objective, 0.72);          // keşif ÖNDE tarar+gözcülük eder (topçunun 0.55'inin önünde → dolaylı ateşe göz olur), ama hedefe tam dalmaz
+    else if (group.role === TASK_GROUP_ROLE.SUPPORT) dest = planningPointBetween(origin, objective, 0.3);
+    else if (group.role === TASK_GROUP_ROLE.RESERVE) dest = planningPointBetween(origin, objective, 0.2);
+    else dest = planningSafePoint(objective);
+    return planningCoverPoint(dest, group.role);   // arazi: uygun roller orman-örtüsüne çekilir
 }
 
 function planningAbortCondition(role) {
@@ -634,6 +735,27 @@ class BattleOperationalPlanner {
         this.lastPlan = null;
     }
 
+    // FAZ 2d: bu tikin rol-gruplarını geçen tikin gruplarıyla birim-ID Jaccard örtüşmesiyle eşle → kararlı groupId.
+    // Deterministik (RNG yok). groupId sim'i etkilemez (yalnız ek alan); Faz 3'te screen-grubu kimliği için tüketilir.
+    assignPersistentGroupIds(taskGroups) {
+        const prev = this._groupRegistry || [];
+        const used = new Set();
+        for (const g of taskGroups) {
+            const ids = new Set(g.unitIds);
+            let best = null, bestJ = 0.34;
+            for (const p of prev) {
+                if (used.has(p.groupId) || p.role !== g.role) continue;
+                let inter = 0; for (const id of p.unitIds) if (ids.has(id)) inter++;
+                const uni = (p.unitIds.length + g.unitIds.length - inter) || 1;
+                const j = inter / uni;
+                if (j > bestJ) { bestJ = j; best = p; }
+            }
+            if (best) { g.groupId = best.groupId; used.add(best.groupId); }
+            else g.groupId = (this._nextGroupId = (this._nextGroupId || 0) + 1);
+        }
+        this._groupRegistry = taskGroups.map(g => ({ groupId: g.groupId, role: g.role, unitIds: g.unitIds.slice() }));
+    }
+
     build(committedPlan, observation, situation) {
         if (!committedPlan || !observation || !situation) {
             this.lastPlan = null;
@@ -641,12 +763,15 @@ class BattleOperationalPlanner {
         }
         const objective = this.objectiveSelector.select(committedPlan, observation, situation);
         const taskGroups = this.forceOrganizer.organize(committedPlan, observation, situation);
+        this.assignPersistentGroupIds(taskGroups);   // FAZ 2d: kalıcı groupId (plan değişse de grup kimliği korunur)
+        assignSectors(taskGroups, situation, this.controller);   // SEKTÖR-KOMUTA: muharip grupları sektörlere ata (group.sector)
         const taskContracts = this.taskContractPlanner.build(
             committedPlan,
             objective,
             taskGroups,
             observation
         );
+        for (const c of taskContracts) { const g = taskGroups.find(tg => tg.role === c.groupRole); if (g) { c.groupId = g.groupId; c.sector = g.sector; } }
         const assignedIds = taskGroups.flatMap(group => group.unitIds).sort((a, b) => a - b);
         const ownIds = observation.ownUnits.map(unit => unit.id).sort((a, b) => a - b);
         this.lastPlan = {

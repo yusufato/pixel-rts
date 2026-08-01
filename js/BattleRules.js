@@ -14,10 +14,11 @@ const BATTLE_OUTCOME = Object.freeze({
     ATTACKER_ELIMINATED: 'attacker_eliminated',
     ATTACKER_WITHDREW: 'attacker_withdrew',
     TIME_EXPIRED: 'time_expired',
+    ATTACKER_DOMINANT: 'attacker_dominant',   // KULLANICI: süre-sonu saldıran DAHA GÜÇLÜ bitirdi (savunmayı kırdı) → saldıran kazanır
     MUTUAL_COLLAPSE: 'mutual_collapse'
 });
 
-const DEFAULT_BATTLE_DURATION_SEC = 240;
+const DEFAULT_BATTLE_DURATION_SEC = 360;   // KULLANICI-KARARI: 4dk→6dk — saldıran imhayı bitirsin (margin-zaferle birlikte); analist: süre+margin birlikte gelmeli
 const BATTLE_SURRENDER_HOLD_SEC = Object.freeze({ attacker: 6, defender: 8 });
 
 function makeEmptyBattleArmyState() {
@@ -94,7 +95,7 @@ function battleArmyObservation(side) {
     let supplyCut = 0;
     let unitCount = 0;
     for (const unit of SIM.units) {
-        if (unit.dead || unit.isRed !== side) continue;
+        if (unit.dead || unit.isRed !== side || unit.abandoned) continue;   // TERK-EDİLMİŞ araç NÖTR: hiçbir tarafın kuvvet-sayımına girmez (ele geçirilene dek)
         unitCount++;
         const hpRatio = Math.max(0, Math.min(1, unit.hp / Math.max(1, unit.maxHp)));
         const ammoRatio = (unit.maxAmmo || 0) > 0
@@ -213,6 +214,12 @@ function updateBattleRules(dtSec, now) {
     const attacker = state[state.attackerSide ? 'red' : 'blue'];
     const defender = state[state.defenderSide ? 'red' : 'blue'];
 
+    // TEST MERHAMET KURALI (yalnız KOMUTAN modu): bir taraf diğerinden %75 daha güçlüyse (etkili-değer ≥1.75×) maç biter.
+    if (typeof BATTLE_COMMANDER_MODE !== 'undefined' && BATTLE_COMMANDER_MODE && redObs.combatUnits > 0 && blueObs.combatUnits > 0) {
+        if (redObs.effectiveValue >= 1.75 * Math.max(1, blueObs.effectiveValue)) battleSetOutcome(true, 'MERCY_75_RED', now);
+        else if (blueObs.effectiveValue >= 1.75 * Math.max(1, redObs.effectiveValue)) battleSetOutcome(false, 'MERCY_75_BLUE', now);
+        if (state.winnerSide !== null) return;
+    }
     // Beraber çöküş saldırana fetih sayılmaz: işgal edecek organize kuvvet kalmamıştır.
     if (attackerObs.combatUnits <= 0 && defenderObs.combatUnits <= 0) {
         battleSetOutcome(state.defenderSide, BATTLE_OUTCOME.MUTUAL_COLLAPSE, now);
@@ -225,7 +232,11 @@ function updateBattleRules(dtSec, now) {
     } else if (attacker.surrenderPressure >= BATTLE_SURRENDER_HOLD_SEC.attacker) {
         battleSetOutcome(state.defenderSide, BATTLE_OUTCOME.ATTACKER_WITHDREW, now);
     } else if (state.remainingSec <= 1e-6) {
-        battleSetOutcome(state.defenderSide, BATTLE_OUTCOME.TIME_EXPIRED, now);
+        // KULLANICI-KURAL: süre-sonu artık "savunan OTOMATİK kazanır" DEĞİL. Kim daha GÜÇLÜ bitirdiyse (etkili-değer) o kazanır.
+        // Savunan yalnız hayatta-kalmakla değil KUVVETİNİ KORUYARAK kazanır (kamp bitti); saldıran savunmayı KIRIP domine
+        // ederse kazanır (saldıran-blokajı bitti). Beraberlik/savunan-önde → savunan (hazır-mevzi + belirsizlik-avantajı korunur).
+        if (attackerObs.effectiveValue > defenderObs.effectiveValue) battleSetOutcome(state.attackerSide, BATTLE_OUTCOME.ATTACKER_DOMINANT, now);
+        else battleSetOutcome(state.defenderSide, BATTLE_OUTCOME.TIME_EXPIRED, now);
     }
 }
 

@@ -2,7 +2,7 @@
 // Hızlı Maç, Hikâye, Multiplayer ve QA aynı reset, harita, RNG ve kural
 // kurulumundan geçer. Modlar yalnız başlangıç verisi sağlar; motor değiştiremez.
 
-const BATTLE_ENGINE_VERSION = 'battlefield-v2-fixed50-microfix3';
+const BATTLE_ENGINE_VERSION = 'battlefield-v3-roster25-intel4';
 const BATTLE_TICK_MS = 50;
 const BATTLE_TICK_SEC = BATTLE_TICK_MS / 1000;
 const BATTLE_MAX_STEPS_PER_FRAME = 8;
@@ -15,7 +15,7 @@ const BATTLE_SESSION = {
     mapId: -2,
     seed: 1,
     attackerSide: false,
-    durationSec: 240
+    durationSec: 360
 };
 
 const BATTLE_REPLAY = {
@@ -30,6 +30,7 @@ const BATTLE_REPLAY = {
         sampleIntervalTicks: 10,
         samples: [],
         combatEvents: [],
+        lifeEvents: [],
         controllerDecisions: [],
         performance: [],
         finalSummary: null
@@ -60,6 +61,7 @@ function battleResetReplay() {
         sampleIntervalTicks: 10,
         samples: [],
         combatEvents: [],
+        lifeEvents: [],
         controllerDecisions: [],
         performance: [],
         finalSummary: null
@@ -196,7 +198,179 @@ function battleCaptureTelemetrySample() {
     });
 }
 
+// ── AI KABUL-BATARYASI: hafif, gate'li per-tip savaş-katkısı toplayıcı (deterministik; hash-dışı) ──
+// battleBalanceEnable() ile açılır (yalnız ölçüm-harness'i). Kapalıyken normal oyunu HİÇ etkilemez.
+const BATTLE_BALANCE = { on: false, dmg: {}, kills: {}, deaths: {}, killValue: { red: 0, blue: 0 },
+    destroyedByType: {}, abandoned: 0, captured: { red: 0, blue: 0 },   // analist-sayaçları: gri-araç + ele-geçirme + kamikaze-₺
+    assaultTicks: 0, assaultSuppTicks: 0, heloSorties: 0, fieldsBuilt: 0, minesLaid: 0, mineKills: 0,   // + inşa/mayın
+    posture: { red: { SHAPE: 0, POSITION: 0, STRIKE: 0, CONSOLIDATE: 0, PRESERVE: 0 }, blue: { SHAPE: 0, POSITION: 0, STRIKE: 0, CONSOLIDATE: 0, PRESERVE: 0 } },   // FAZ 7 duruş histogramı
+    firstStrikeTick: { red: -1, blue: -1 },   // saldıranın ilk taarruz-tik'i (donuyor mu / geç mi kapatıyor)
+    intensity: {}, strikeWindows: { red: 0, blue: 0 }, _prevStance: {},   // ANALİST: dakika-başı aktif-çatışma% eğrisi (düz=posture çalışmıyor, dalgalı=çalışıyor) + STRIKE-pencere sayısı
+    dispersal: { red: { sum: 0, n: 0 }, blue: { sum: 0, n: 0 } },   // ANTI-BLOB: dağılım-endeksi (centroid'e ort.uzaklık/WORLD_W — düşük=blob)
+    sectorOcc: { red: { left: 0, center: 0, right: 0, n: 0 }, blue: { left: 0, center: 0, right: 0, n: 0 } },   // sektör-doluluk (x-band ₺%)
+    mainEffortShifts: { red: 0, blue: 0 } };   // FAZ 4: ana-çaba kayma sayısı (histerezis çalışıyor mu — düşük=iyi, <5)
+function battleBalanceReset(on) {
+    BATTLE_BALANCE.on = !!on; BATTLE_BALANCE.dmg = {}; BATTLE_BALANCE.kills = {}; BATTLE_BALANCE.deaths = {};
+    BATTLE_BALANCE.killValue = { red: 0, blue: 0 };
+    BATTLE_BALANCE.destroyedByType = {}; BATTLE_BALANCE.abandoned = 0; BATTLE_BALANCE.captured = { red: 0, blue: 0 };
+    BATTLE_BALANCE.assaultTicks = 0; BATTLE_BALANCE.assaultSuppTicks = 0; BATTLE_BALANCE.heloSorties = 0; BATTLE_BALANCE.fieldsBuilt = 0;
+    BATTLE_BALANCE.minesLaid = 0; BATTLE_BALANCE.mineKills = 0;
+    BATTLE_BALANCE.posture = { red: { SHAPE: 0, POSITION: 0, STRIKE: 0, CONSOLIDATE: 0, PRESERVE: 0 }, blue: { SHAPE: 0, POSITION: 0, STRIKE: 0, CONSOLIDATE: 0, PRESERVE: 0 } };
+    BATTLE_BALANCE.firstStrikeTick = { red: -1, blue: -1 };
+    BATTLE_BALANCE.intensity = {}; BATTLE_BALANCE.strikeWindows = { red: 0, blue: 0 }; BATTLE_BALANCE._prevStance = {};
+    BATTLE_BALANCE.dispersal = { red: { sum: 0, n: 0 }, blue: { sum: 0, n: 0 } };
+    BATTLE_BALANCE.sectorOcc = { red: { left: 0, center: 0, right: 0, n: 0 }, blue: { left: 0, center: 0, right: 0, n: 0 } };
+    BATTLE_BALANCE.mainEffortShifts = { red: 0, blue: 0 };
+}
+// Per-tik örnekleyici (yalnız gate açıkken): taarruz eden birimlerin bastırılmış-süre oranı
+function battleBalanceSample() {
+    if (!BATTLE_BALANCE.on) return;
+    let engaged = 0, aliveCombat = 0;
+    for (const u of SIM.units) {
+        if (u.dead || u.abandoned) continue;
+        if ((SIM.tick - (u._pressingAssault || -99)) <= 2) {
+            BATTLE_BALANCE.assaultTicks++;
+            if ((u.suppression || 0) > 50) BATTLE_BALANCE.assaultSuppTicks++;
+        }
+        // ANALİST çatışma-yoğunluğu: savaş birimi aktif firefight'ta mı (hedefi menzilde VEYA ateş yiyor)
+        if (u.atk > 0) {
+            aliveCombat++;
+            const inFight = (u.attackTarget && !u.attackTarget.dead) || (u.suppression || 0) > 20;
+            if (inFight) engaged++;
+        }
+    }
+    // dakika-başı ortalama aktif-çatışma oranı (eğri düz mü dalgalı mı → posture tempo-evreliyor mu)
+    const minute = Math.floor(((SIM.battle && SIM.battle.elapsedSec) || 0) / 60);
+    const bucket = BATTLE_BALANCE.intensity[minute] || (BATTLE_BALANCE.intensity[minute] = { sum: 0, n: 0 });
+    bucket.sum += aliveCombat ? (engaged / aliveCombat) : 0; bucket.n++;
+    // ANTI-BLOB (FAZ 0): dağılım-endeksi (centroid'e ort.uzaklık/WORLD_W) + sektör-doluluk (x-band ₺%) — her 10 tik (yavaş-metrik)
+    if (SIM.tick % 10 === 0) {
+        for (const side of ['red', 'blue']) {
+            const isRed = side === 'red';
+            let cx = 0, cy = 0, cnt = 0, vL = 0, vC = 0, vR = 0, vTot = 0;
+            for (const u of SIM.units) {
+                if (u.dead || u.abandoned || u.isRed !== isRed || !(u.atk > 0)) continue;
+                cx += u.x; cy += u.y; cnt++;
+                const val = (STATS[u.type] && STATS[u.type].cost) || 1; vTot += val;
+                if (u.x < WORLD_W / 3) vL += val; else if (u.x > WORLD_W * 2 / 3) vR += val; else vC += val;
+            }
+            if (cnt === 0) continue;
+            cx /= cnt; cy /= cnt;
+            let dsum = 0;
+            for (const u of SIM.units) {
+                if (u.dead || u.abandoned || u.isRed !== isRed || !(u.atk > 0)) continue;
+                dsum += Math.hypot(u.x - cx, u.y - cy);
+            }
+            const disp = BATTLE_BALANCE.dispersal[side];
+            disp.sum += (dsum / cnt) / WORLD_W; disp.n++;
+            if (vTot > 0) { const so = BATTLE_BALANCE.sectorOcc[side]; so.left += vL / vTot; so.center += vC / vTot; so.right += vR / vTot; so.n++; }
+        }
+    }
+    // FAZ 7: duruş histogramı + ilk-taarruz + STRIKE-pencere sayısı (kontrolör-başına, per-tik örnek)
+    if (typeof BATTLE_CONTROLLERS !== 'undefined') {
+        for (const ctrl of BATTLE_CONTROLLERS.values()) {
+            const p = ctrl.lastSituation && ctrl.lastSituation.operationalPosture;
+            if (!p) continue;
+            const sk = ctrl.side ? 'red' : 'blue';
+            const h = BATTLE_BALANCE.posture[sk];
+            if (h && h[p.stance] != null) h[p.stance]++;
+            if (p.strikeGateOpen && BATTLE_BALANCE.firstStrikeTick[sk] < 0) BATTLE_BALANCE.firstStrikeTick[sk] = SIM.tick;
+            const prev = BATTLE_BALANCE._prevStance[ctrl.id];   // STRIKE-penceresi = non-STRIKE→STRIKE geçişi sayısı
+            if (p.stance === 'STRIKE' && prev !== 'STRIKE') BATTLE_BALANCE.strikeWindows[sk]++;
+            BATTLE_BALANCE._prevStance[ctrl.id] = p.stance;
+            if (ctrl.sectorState) BATTLE_BALANCE.mainEffortShifts[sk] = ctrl.sectorState.mainEffortShiftCount || 0;   // FAZ 4: kümülatif kayma (histerezis metriği)
+        }
+    }
+}
+function battleSectorOccAvg(side) {   // ANTI-BLOB: sektör-doluluk ortalaması (left/center/right ₺%)
+    const so = BATTLE_BALANCE.sectorOcc[side];
+    if (!so || !so.n) return { left: 0, center: 0, right: 0 };
+    return { left: +(so.left / so.n).toFixed(2), center: +(so.center / so.n).toFixed(2), right: +(so.right / so.n).toFixed(2) };
+}
+function battleBalanceReport() {
+    const alive = {};
+    for (const u of SIM.units) if (!u.dead) alive[u.type] = (alive[u.type] || 0) + 1;
+    const types = new Set([...Object.keys(BATTLE_BALANCE.dmg), ...Object.keys(BATTLE_BALANCE.deaths), ...Object.keys(alive)].map(Number));
+    const rows = [];
+    for (const t of types) {
+        const st = STATS[t]; if (!st) continue;
+        const dep = (alive[t] || 0) + (BATTLE_BALANCE.deaths[t] || 0);
+        const cost = st.cost || 1;
+        const dmg = Math.round(BATTLE_BALANCE.dmg[t] || 0);
+        const kills = BATTLE_BALANCE.kills[t] || 0;
+        const combat = !!(st.weapons && st.weapons.length);
+        rows.push({
+            id: st.id, dep, dmg, kills, deaths: BATTLE_BALANCE.deaths[t] || 0, cost, combat,
+            dmgPerCost: dep ? +(dmg / (dep * cost)).toFixed(3) : 0,
+            killsPer100: dep ? +(kills / (dep * cost / 100)).toFixed(2) : 0
+        });
+    }
+    rows.sort((a, b) => b.dmgPerCost - a.dmgPerCost);
+    // KIRMIZI BAYRAK: HASAR-ROLLÜ savaş birimi ama katkısı ~sıfır. Utility (istihkam/keşif/destek/lojistik/komuta/anti-air-only) hariç — onlar hasarla değil işle katkı verir.
+    const utilCats = new Set(['support', 'logistics', 'command', 'recon']);
+    const redFlags = rows.filter(r => {
+        if (!r.combat || r.dep <= 0) return false;
+        const st = Object.values(STATS).find(x => x && x.id === r.id);
+        if (st && (utilCats.has(st.category) || (st.roleTags || []).includes('anti_air'))) return false;   // rol-gereği düşük-hasar
+        return r.dmg < r.dep * r.cost * 0.001;
+    }).map(r => r.id);
+    const kv = BATTLE_BALANCE.killValue;
+    // ANALİST 4 SAYACI: gri-araç, ele-geçirme, kamikaze-₺, taarruz-bastırılmış%, helo-sorti
+    let vehDestroyed = 0;
+    for (const t of types) {
+        const st = STATS[t]; if (!st) continue;
+        const crewed = st.domain !== 'air' && (st.armorType === 'heavy' || st.armorType === 'light') && !!(st.weapons && st.weapons.length);
+        if (crewed) vehDestroyed += (BATTLE_BALANCE.deaths[t] || 0);
+    }
+    const kamiId = Object.keys(STATS).find(k => STATS[k] && STATS[k].id === 'loitering_munition');
+    const kamiDep = kamiId != null ? ((alive[kamiId] || 0) + (BATTLE_BALANCE.deaths[kamiId] || 0)) : 0;
+    const kamiVal = kamiId != null ? (BATTLE_BALANCE.destroyedByType[kamiId] || 0) : 0;
+    return {
+        tick: SIM.tick || 0,
+        winner: SIM.battle ? (SIM.battle.winnerSide === true ? 'red' : SIM.battle.winnerSide === false ? 'blue' : null) : null,
+        tradeRatio: { redDestroyed: Math.round(kv.red), blueDestroyed: Math.round(kv.blue), ratio: +((kv.red || 0) / (kv.blue || 1)).toFixed(2) },
+        grayVehicle: { abandoned: BATTLE_BALANCE.abandoned, captured: BATTLE_BALANCE.captured, vehDestroyed, abandonRatio: vehDestroyed + BATTLE_BALANCE.abandoned > 0 ? +(BATTLE_BALANCE.abandoned / (vehDestroyed + BATTLE_BALANCE.abandoned)).toFixed(2) : 0 },
+        kamikaze: { deployed: kamiDep, valueDestroyed: Math.round(kamiVal), valuePerUnit: kamiDep ? +(kamiVal / kamiDep).toFixed(2) : 0 },
+        assaultSuppressedPct: BATTLE_BALANCE.assaultTicks ? +(BATTLE_BALANCE.assaultSuppTicks / BATTLE_BALANCE.assaultTicks).toFixed(2) : 0,
+        heloSorties: BATTLE_BALANCE.heloSorties, fieldsBuilt: BATTLE_BALANCE.fieldsBuilt,
+        minesLaid: BATTLE_BALANCE.minesLaid, mineKills: BATTLE_BALANCE.mineKills,
+        posture: BATTLE_BALANCE.posture, firstStrikeTick: BATTLE_BALANCE.firstStrikeTick,
+        strikeWindows: BATTLE_BALANCE.strikeWindows,
+        intensityCurve: Object.keys(BATTLE_BALANCE.intensity).sort((a, b) => a - b).map(mi => {
+            const b = BATTLE_BALANCE.intensity[mi]; return { min: +mi, pct: b.n ? +(b.sum / b.n).toFixed(2) : 0 };
+        }),
+        dispersalIndex: {   // ANTI-BLOB: düşük=blob, yüksek=yayılmış
+            red: BATTLE_BALANCE.dispersal.red.n ? +(BATTLE_BALANCE.dispersal.red.sum / BATTLE_BALANCE.dispersal.red.n).toFixed(3) : 0,
+            blue: BATTLE_BALANCE.dispersal.blue.n ? +(BATTLE_BALANCE.dispersal.blue.sum / BATTLE_BALANCE.dispersal.blue.n).toFixed(3) : 0
+        },
+        sectorOccupancy: { red: battleSectorOccAvg('red'), blue: battleSectorOccAvg('blue') },
+        mainEffortShifts: BATTLE_BALANCE.mainEffortShifts,
+        redFlags, rows
+    };
+}
+
+// YAŞAM-DÖNGÜSÜ OLAYLARI (analist için): panik/ikmal/iyileşme/ölüm/terk — combat-akışından ayrı (tüketiciler bozulmasın).
+// Sürekli süreçler (ikmal/heal) çağıran tarafta throttle'lanır. Determinizm-güvenli (yalnız telemetri, sim-etkisiz).
+function battleRecordLifeEvent(details = {}) {
+    if (!BATTLE_SESSION.active || BATTLE_REPLAY.playback || !BATTLE_REPLAY.telemetry) return;
+    if (BATTLE_REPLAY.telemetry.lifeEvents.length >= 50000) return;
+    BATTLE_REPLAY.telemetry.lifeEvents.push({
+        tick: SIM.tick || 0,
+        seconds: battleTelemetryRound((SIM.tick || 0) * BATTLE_TICK_SEC),
+        ...details
+    });
+}
 function battleRecordCombatEvent(details = {}) {
+    if (BATTLE_BALANCE.on) {   // KABUL-BATARYASI toplayıcı (gate'li)
+        const at = details.attackerType, tt = details.targetType;
+        if (at != null) { BATTLE_BALANCE.dmg[at] = (BATTLE_BALANCE.dmg[at] || 0) + (details.damage || 0); if (details.lethal) BATTLE_BALANCE.kills[at] = (BATTLE_BALANCE.kills[at] || 0) + 1; }
+        if (tt != null && details.lethal) {
+            BATTLE_BALANCE.deaths[tt] = (BATTLE_BALANCE.deaths[tt] || 0) + 1;
+            const side = details.attackerSide; const c = (STATS[tt] && STATS[tt].cost) || 0;
+            if (side === 'red') BATTLE_BALANCE.killValue.red += c; else if (side === 'blue') BATTLE_BALANCE.killValue.blue += c;
+            if (at != null) BATTLE_BALANCE.destroyedByType[at] = (BATTLE_BALANCE.destroyedByType[at] || 0) + c;   // kamikaze-₺ için
+        }
+    }
     if (!BATTLE_SESSION.active || BATTLE_REPLAY.playback || !BATTLE_REPLAY.telemetry) return;
     if (BATTLE_REPLAY.telemetry.combatEvents.length >= 50000) return;
     BATTLE_REPLAY.telemetry.combatEvents.push({
@@ -398,7 +572,7 @@ function battleStateHashParts() {
     const g = h(mix => { mix(BATTLE_ENGINE_VERSION); mix(SIM.tick || 0); mix(SIM_RNG.state >>> 0); mix(Math.round((player.money || 0) * 100)); mix(Math.round((enemy.money || 0) * 100)); mix(Math.round((supportCooldowns?.paradrop || 0) * 1000)); });
     const b = h(mix => { mix(battle.attackerSide ? 1 : 0); mix(Math.round((battle.elapsedSec || 0) * 1000)); mix(battle.winnerSide === null || battle.winnerSide === undefined ? '-' : battle.winnerSide ? 1 : 0); mix(battle.outcomeReason || '-'); });
     const u = h(mix => { for (const unit of SIM.units.filter(x => !x.dead).slice().sort((a, b2) => a.id - b2.id)) { mix(unit.id); mix(unit.type); mix(unit.isRed ? 1 : 0); mix(unit.ally ? 1 : 0); mix(unit.controlOwner || '-'); mix(unit.controllerId || '-'); mix(Math.round(unit.x * 100)); mix(Math.round(unit.y * 100)); mix(Math.round(unit.hp * 100)); mix(Math.round((unit.ammo || 0) * 100)); mix(Math.round((unit.suppression || 0) * 100)); mix(unit.isFleeing ? 1 : 0); mix(unit.attackTarget && !unit.attackTarget.dead ? unit.attackTarget.id : 0); mix(Math.round((unit.targetX || 0) * 100)); mix(Math.round((unit.targetY || 0) * 100)); } });
-    const t = h(mix => { for (const f of (SIM.trenches || []).slice().sort((a, b2) => (a.x - b2.x) || (a.y - b2.y))) { mix(Math.round(f.x * 100)); mix(Math.round(f.y * 100)); mix(f.isRed ? 1 : 0); mix(Math.round((f.hp || 0) * 100)); mix(f.expiresAt || 0); } });
+    const t = h(mix => { for (const f of (SIM.trenches || []).slice().sort((a, b2) => (a.x - b2.x) || (a.y - b2.y))) { mix(Math.round(f.x * 100)); mix(Math.round(f.y * 100)); mix(f.isRed ? 1 : 0); mix(Math.round((f.hp || 0) * 100)); mix(f.expiresAt || 0); } for (const m of (SIM.mines || []).slice().sort((a, b2) => (a.x - b2.x) || (a.y - b2.y))) { mix(Math.round(m.x * 100)); mix(Math.round(m.y * 100)); mix(m.isRed ? 1 : 0); mix(m.armed ? 1 : 0); } });
     const s = h(mix => { for (const sp of pendingSupportSpawns || []) { mix(sp.spawnAt); mix(sp.type); mix(sp.isRed ? 1 : 0); mix(Math.round(sp.x * 100)); mix(Math.round(sp.y * 100)); } for (const su of activeSupports || []) { mix(su.type || '-'); mix(Math.round((su.x || 0) * 100)); mix(Math.round((su.y || 0) * 100)); mix(Math.round((su.life || 0) * 1000)); mix(su.payloadDropped ? 1 : 0); } });
     return { g, b, u, t, s };
 }
@@ -444,7 +618,7 @@ function battleRestoreUnit(snapshot) {
 
 function battleRestoreInitialState(initialState) {
     SIM.units.length = 0;
-    SIM.trenches.length = 0;
+    SIM.trenches.length = 0; if (SIM.mines) SIM.mines.length = 0;
     Unit.nextId = 0;
     let maxId = 0;
     for (const snapshot of initialState.units || []) {
@@ -508,7 +682,7 @@ function battleForkCapture() {
     };
 }
 function battleForkRestore(fork) {
-    SIM.units.length = 0; SIM.trenches.length = 0;
+    SIM.units.length = 0; SIM.trenches.length = 0; if (SIM.mines) SIM.mines.length = 0;
     const byId = new Map();
     const snaps = fork.units || [];
     for (const s of snaps) { const u = battleForkRestoreUnit(s); SIM.units.push(u); byId.set(u.id, u); }
@@ -616,6 +790,46 @@ function battleApplyRecordedEvent(event) {
             unit.manualTarget = null;
             unit.manualMoveTarget = null;
             unit.isMovingToManualTarget = false;
+        }
+    } else if (event.type === 'player-load') {   // TAŞIMA: seçili taşıyıcı(lar) hedef piyadeyi BİNDİRSİN (oyuncu emri)
+        const target = battleUnitById(payload.targetId);
+        if (!target) return;
+        for (const id of payload.transportIds || []) {
+            const u = battleUnitById(id);
+            if (!u || !u.transportSlots) continue;
+            u._loadOrderTargetId = target.id;
+            u._unloadFlag = false;
+            u.manualTarget = null; u.attackTarget = null;
+        }
+    } else if (event.type === 'player-unload') {   // TAŞIMA: seçili taşıyıcı(lar) yolcuları bulunduğu yere İNDİRSİN
+        for (const id of payload.transportIds || []) {
+            const u = battleUnitById(id);
+            if (!u || !u.transportSlots) continue;
+            u._unloadFlag = true;
+            u._loadOrderTargetId = null;
+        }
+    } else if (event.type === 'player-mine') {   // MAYIN: seçili istihkam bulunduğu yere mayın döşer
+        for (const id of payload.engineerIds || []) {
+            const u = battleUnitById(id);
+            if (!u || u.dead || u.type !== T.ENGINEER) continue;
+            SIM.mines.push({ x: u.x, y: u.y, r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46), isRed: u.isRed, armed: false, createdAt: SIM.tick * BATTLE_TICK_MS, armDelay: 1500 });
+        }
+    } else if (event.type === 'player-ability') {   // SOL-PANEL YETENEK: seçili uygun birimler aktif-yeteneği tetikler (replay-güvenli, RNG/mutasyon BURADA)
+        const ab = payload.ability;
+        for (const id of payload.unitIds || []) {
+            const u = battleUnitById(id);
+            if (!u || u.dead) continue;
+            if (ab === 'lay_mines') {
+                if (u.type !== T.ENGINEER) continue;
+                SIM.mines.push({ x: u.x, y: u.y, r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46), isRed: u.isRed, armed: false, createdAt: SIM.tick * BATTLE_TICK_MS, armDelay: 1500 });
+            } else if (ab === 'build_fortification') {
+                if (u.type !== T.ENGINEER) continue;
+                u.buildTrenchTarget = { x: payload.x, y: payload.y };
+                u.manualTarget = null; u.manualMoveTarget = null; u.attackTarget = null;
+            } else if (ab === 'unload') {
+                if (!u.transportSlots) continue;
+                u._unloadFlag = true; u._loadOrderTargetId = null;
+            }
         }
     } else if (event.type === 'support-paradrop') {
         triggerParadrop(payload.x, payload.y);
@@ -756,7 +970,7 @@ function verifyBattleReplayDeterminism(replay, tickLimit = null) {
 
 function resetBattleState() {
     if (typeof units !== 'undefined') units.length = 0;
-    if (typeof trenches !== 'undefined') trenches.length = 0;
+    if (typeof trenches !== 'undefined') trenches.length = 0; if (typeof mines !== 'undefined') mines.length = 0;
     if (typeof particles !== 'undefined') particles.length = 0;
     if (typeof activeSupports !== 'undefined') activeSupports.length = 0;
     if (typeof pendingSupportSpawns !== 'undefined') pendingSupportSpawns.length = 0;

@@ -230,6 +230,14 @@ html {
 }
 
 /* ─── SPAWN BAR ─── */
+/* KATEGORİLİ SPAWN-BAR (25 tip): grup butonları + tıkla-açılan flyout */
+#ui-spawn-bar .spawn-cats { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#ui-spawn-bar .spawn-cat { padding: 7px 11px; background: rgba(20,32,16,.92); color: #cfe3d0; border: 1px solid rgba(120,200,140,.35); border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; }
+#ui-spawn-bar .spawn-cat:hover { background: rgba(40,70,40,.95); }
+#ui-spawn-bar .spawn-cat.cat-open { background: rgba(70,140,70,.95); color: #fff; border-color: rgba(150,255,170,.6); }
+#ui-spawn-bar .spawn-flyout { position: absolute; bottom: 100%; left: 8px; margin-bottom: 8px; display: flex; gap: 5px; flex-wrap: wrap; max-width: 80vw; background: rgba(6,12,6,.97); padding: 8px; border: 1px solid rgba(120,200,140,.4); border-radius: 8px; box-shadow: 0 -10px 26px rgba(0,0,0,.5); z-index: 60; }
+#ui-spawn-bar .spawn-flyout.hidden { display: none; }
+
 #ui-spawn-bar {
     position: absolute;
     bottom: 0;
@@ -1005,11 +1013,11 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 #story-return-btn:hover { background: linear-gradient(135deg,#267a4a,#1d5e3a); }
 
 /* ── KONSEY (hükümet) — sağdan kayar drawer (Faz-2 Adım 3) ── */
-#council-panel, #tech-panel, #army-panel, #city-panel, #news-panel { position: fixed; top: 0; left: 0; height: 100vh; width: 380px; max-width: 42vw;
+#council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel { position: fixed; top: 0; left: 0; height: 100vh; width: 380px; max-width: 42vw;
     background: rgba(12,18,28,0.96); border-right: 2px solid #4cff7c; box-shadow: 12px 0 28px rgba(0,0,0,0.45);
     transform: translateX(-100%); transition: transform 0.22s ease; z-index: 4500;
     display: flex; flex-direction: column; font-family: 'Segoe UI', system-ui, sans-serif; color: #dfe7ef; }
-#council-panel.open, #tech-panel.open, #army-panel.open, #city-panel.open, #news-panel.open { transform: translateX(0); }
+#council-panel.open, #tech-panel.open, #army-panel.open, #city-panel.open, #news-panel.open, #economy-panel.open { transform: translateX(0); }
 /* 🏗️ ŞEHİRLER paneli (Adım 6) */
 #city-body { padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .city-top { font-size: 13px; color: #eaf2fb; background: rgba(255,200,90,0.1); border: 1px solid rgba(255,200,90,0.3); border-radius: 8px; padding: 9px 11px; }
@@ -1164,6 +1172,39 @@ body[data-screen="story"] { background: #060a06; }
 .story-stat-chip b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; }
 .story-stat-chip.identity { min-width: 170px; border-left-color: var(--state-color); }
 .story-stat-chip.identity b { color: var(--state-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-hover { position: relative; }
+.detail-hover::after {
+    content: attr(data-story-tooltip);
+    position: absolute;
+    left: 0;
+    top: calc(100% + 7px);
+    z-index: 7000;
+    width: max-content;
+    max-width: min(390px, 75vw);
+    padding: 9px 10px;
+    border: 1px solid rgba(74,222,128,.55);
+    border-radius: 4px;
+    background: rgba(3,8,4,.98);
+    box-shadow: 0 10px 28px rgba(0,0,0,.62);
+    color: #d9ffe6;
+    font: 10px/1.5 'Share Tech Mono', monospace;
+    letter-spacing: .25px;
+    white-space: pre-line;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-3px);
+    transition: opacity .12s ease, transform .12s ease, visibility .12s ease;
+}
+.detail-hover:hover::after, .detail-hover:focus-visible::after, .detail-hover:focus-within::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.detail-hover:focus-visible { outline: 1px solid var(--wr-green); outline-offset: 2px; }
+.world-state { cursor: help; }
+.world-state::after { left: auto; right: 0; min-width: 310px; }
+.detail-tooltip-source { display: none !important; }
 #story-topright { position: static; display: flex; gap: 6px; }
 #story-topright .ctrl-btn {
     width: auto;
@@ -1249,7 +1290,7 @@ body[data-screen="story"] { background: #060a06; }
 #story-tools .tool-btn span { font-size: 10px; letter-spacing: 1px; }
 #story-tools .tool-btn:hover, #story-tools .tool-btn.active { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); transform: none; }
 
-#council-panel, #tech-panel, #army-panel, #city-panel, #news-panel {
+#council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel {
     top: 64px;
     height: calc(100vh - 64px);
     width: 390px;
@@ -1260,7 +1301,7 @@ body[data-screen="story"] { background: #060a06; }
     color: var(--wr-amber-bright);
     font-family: 'Share Tech Mono', monospace;
 }
-#council-header, #tech-header, #army-header, #city-header, .panel-header { background: rgba(255,176,0,.05); border-bottom-color: var(--wr-line); }
+#council-header, #tech-header, #army-header, #city-header, #economy-header, .panel-header { background: rgba(255,176,0,.05); border-bottom-color: var(--wr-line); }
 .council-title { color: var(--wr-amber); font-size: 13px; letter-spacing: 2px; }
 .council-x { color: var(--wr-muted); font: 9px 'Share Tech Mono', monospace; letter-spacing: 1px; }
 .council-x:hover { color: var(--wr-amber-bright); }
@@ -1285,8 +1326,249 @@ body[data-screen="story"] { background: #060a06; }
     #story-tools { bottom: calc(45% + 8px); left: 8px; }
     #story-tools .tool-btn { height: 34px; padding: 0 7px; }
     #story-tools .tool-btn span { display: none; }
-    #council-panel, #tech-panel, #army-panel, #city-panel, #news-panel { top: 58px; height: calc(100vh - 58px); width: 100vw; max-width: 100vw; }
+    #council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel { top: 58px; height: calc(100vh - 58px); width: 100vw; max-width: 100vw; }
 }
+
+/* ── Faz 10.1: oyuncu-görünür değişim ve neden izi ─────────────────────── */
+#story-change-header { min-height: 48px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--wr-line); }
+#story-change-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+.change-summary { display: flex; align-items: center; justify-content: space-between; padding: 9px 10px; border: 1px solid rgba(255,176,0,.28); background: rgba(255,176,0,.045); }
+.change-summary span { color: var(--wr-muted); font-size: 8px; letter-spacing: 1.4px; }
+.change-summary b { color: var(--wr-amber); font-size: 11px; font-weight: 400; }
+.change-domains { display: flex; flex-wrap: wrap; gap: 5px; }
+.change-domains span { padding: 4px 6px; border: 1px solid var(--wr-line); color: var(--wr-muted); font-size: 8px; letter-spacing: .6px; }
+.change-domains b { color: var(--wr-green); font-weight: 400; }
+.change-list { display: flex; flex-direction: column; gap: 4px; }
+.change-row { width: 100%; min-height: 51px; display: grid; grid-template-columns: 4px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 7px 8px; border: 1px solid rgba(255,176,0,.13); background: rgba(0,0,0,.18); color: var(--wr-amber-bright); font-family: 'Share Tech Mono', monospace; text-align: left; cursor: pointer; }
+
+/* ── Faz 14.1: bilgi filtreli şehir dosyası ─────────────────────────────── */
+#city-panel {
+    width: 610px;
+    max-width: min(58vw, 610px);
+}
+#economy-panel {
+    width: 650px;
+    max-width: min(62vw, 650px);
+}
+#economy-header {
+    min-height: 48px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--wr-line);
+}
+#economy-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.economy-dossier-head { border-left: 3px solid var(--wr-green); }
+.economy-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.city-dossier-head {
+    padding: 13px 14px;
+    border: 1px solid rgba(255,176,0,.32);
+    background: linear-gradient(135deg, rgba(255,176,0,.09), rgba(74,222,128,.035));
+}
+.city-dossier-kicker, .city-dossier-source, .city-dossier-neighbors > span {
+    color: var(--wr-muted);
+    font-size: 8px;
+    letter-spacing: 1.35px;
+}
+.city-dossier-name {
+    margin: 4px 0 3px;
+    color: var(--wr-amber-bright);
+    font-size: 21px;
+    letter-spacing: 1px;
+}
+.city-dossier-neighbors { margin-top: 11px; }
+.city-dossier-neighbors .city-chips { margin-top: 5px; }
+.city-dossier-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+}
+.city-dossier-tabs button {
+    min-height: 32px;
+    padding: 6px 5px;
+    border: 1px solid rgba(255,176,0,.18);
+    background: rgba(0,0,0,.22);
+    color: var(--wr-muted);
+    font: 8px 'Share Tech Mono', monospace;
+    letter-spacing: .75px;
+    cursor: pointer;
+}
+.city-dossier-tabs button:hover, .city-dossier-tabs button.active {
+    border-color: var(--wr-green);
+    background: rgba(74,222,128,.08);
+    color: var(--wr-amber-bright);
+}
+.city-dossier-sec {
+    padding: 10px;
+    border: 1px solid rgba(255,176,0,.17);
+    background: rgba(0,0,0,.17);
+}
+.city-dossier-sec h3 {
+    margin: 0 0 9px;
+    color: var(--wr-amber);
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 1.25px;
+}
+.city-fact-grid, .city-missing-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+.city-fact-grid > div, .city-missing-grid > div {
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid rgba(255,176,0,.11);
+    background: rgba(255,176,0,.025);
+}
+.city-fact-grid span, .city-missing-grid b {
+    display: block;
+    color: var(--wr-muted);
+    font-size: 7.5px;
+    font-weight: 400;
+    letter-spacing: .9px;
+}
+.city-fact-grid b {
+    display: block;
+    margin-top: 4px;
+    color: var(--wr-amber-bright);
+    font-size: 14px;
+    font-weight: 400;
+}
+.city-fact-grid .city-unknown {
+    margin-top: 4px;
+    color: #d28b72;
+    font-size: 9px;
+}
+.city-missing-grid span {
+    display: block;
+    margin-top: 4px;
+    color: #d28b72;
+    font-size: 8px;
+}
+.city-route-list, .city-history-list, .city-character-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.city-route-row {
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) minmax(180px, 1.25fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid rgba(74,222,128,.2);
+    background: rgba(74,222,128,.025);
+}
+.city-route-row.damaged { border-color: rgba(255,176,0,.42); }
+.city-route-row.blocked { border-color: rgba(220,95,80,.46); }
+.city-route-row > div:first-child span,
+.city-character-row span {
+    display: block;
+    color: var(--wr-muted);
+    font-size: 8px;
+}
+.city-route-row > div:first-child b,
+.city-character-row b {
+    display: block;
+    margin-top: 3px;
+    color: var(--wr-amber-bright);
+    font-size: 10px;
+}
+.city-route-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.city-route-metrics span {
+    padding: 3px 5px;
+    border: 1px solid rgba(255,176,0,.13);
+    color: var(--wr-muted);
+    font-size: 7px;
+}
+.city-history-row {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 7px 8px;
+    border: 1px solid rgba(255,176,0,.14);
+    background: rgba(0,0,0,.17);
+    color: var(--wr-amber-bright);
+    font-family: 'Share Tech Mono', monospace;
+    text-align: left;
+    cursor: pointer;
+}
+.city-history-row span, .city-history-row em {
+    color: var(--wr-muted);
+    font-size: 7.5px;
+    font-style: normal;
+}
+.city-history-row b { font-size: 9px; font-weight: 400; }
+.city-history-row:hover { border-color: var(--wr-green); }
+.city-character-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px;
+    border: 1px solid rgba(255,176,0,.14);
+}
+.city-character-row .city-btn, .city-route-row .city-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+}
+.city-dossier-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 22px 16px;
+    border: 1px dashed rgba(255,176,0,.24);
+    background: rgba(0,0,0,.15);
+    text-align: center;
+}
+.city-dossier-empty b { color: var(--wr-amber); font-size: 10px; letter-spacing: 1px; }
+.city-dossier-empty span { color: var(--wr-muted); font-size: 9px; line-height: 1.55; }
+.talk-focus { border-color: rgba(74,222,128,.42); background: rgba(74,222,128,.04); }
+
+@media (max-width: 700px) {
+    #city-panel, #economy-panel { width: 100vw; max-width: 100vw; }
+    .city-route-row { grid-template-columns: 1fr auto; }
+    .city-route-metrics { grid-column: 1 / -1; grid-row: 2; }
+}
+.change-row:hover, .change-row.selected { border-color: rgba(74,222,128,.58); background: rgba(74,222,128,.055); }
+.change-tone { width: 3px; height: 32px; background: var(--wr-muted); }
+.change-tone.positive { background: var(--wr-green); }
+.change-tone.negative { background: #ff6868; }
+.change-main { min-width: 0; }
+.change-main b, .change-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.change-main b { color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; }
+.change-main small { margin-top: 4px; color: var(--wr-muted); font-size: 8px; }
+.change-row em { max-width: 116px; color: var(--wr-green); font-size: 8px; font-style: normal; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.change-detail { border: 1px solid rgba(74,222,128,.3); background: rgba(74,222,128,.03); padding: 10px; }
+.change-detail header span, .change-detail header b { display: block; }
+.change-detail header span { color: var(--wr-green); font-size: 8px; letter-spacing: 1.5px; }
+.change-detail header b { margin-top: 5px; color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; }
+.change-knowledge { margin: 9px 0; padding: 5px 7px; border-left: 2px solid var(--wr-green); color: var(--wr-green); background: rgba(74,222,128,.05); font-size: 8px; letter-spacing: 1px; }
+.change-knowledge.uncertain { border-left-color: var(--wr-amber); color: var(--wr-amber); background: rgba(255,176,0,.05); }
+.change-trace { display: flex; flex-direction: column; }
+.change-step { min-height: 30px; display: grid; grid-template-columns: 27px 1fr; align-items: center; position: relative; color: var(--wr-muted); font-size: 9px; }
+.change-step:not(:last-child)::after { content: ''; position: absolute; left: 11px; top: 22px; bottom: -7px; width: 1px; background: rgba(74,222,128,.35); }
+.change-step i { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgba(74,222,128,.4); border-radius: 50%; color: var(--wr-green); font-style: normal; font-size: 7px; background: #050904; z-index: 1; }
+.change-detail p { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid rgba(255,176,0,.13); color: var(--wr-muted); font-size: 8px; }
+.change-detail p b { color: var(--wr-amber-bright); font-weight: 400; }
+.change-empty { padding: 22px 12px; border: 1px dashed var(--wr-line); color: var(--wr-muted); font-size: 9px; line-height: 1.5; text-align: center; }
+.change-empty small { display: block; margin-top: 7px; color: #d77; }
 
 /* ═══════════════ WAR ROOM — FAZ 3: DEPLOY ═══════════════ */
 #deploy-sidebar, #game-war-overlay { display: none; }
@@ -1322,7 +1604,7 @@ body[data-screen="game"][data-phase="deploy"] #deploy-sidebar {
 .deploy-comp-row { min-height: 45px; display: grid; grid-template-columns: 44px 1fr 34px 46px; align-items: center; gap: 7px; padding: 5px 8px; border-bottom: 1px solid rgba(255,176,0,.08); color: var(--wr-amber-bright); font-size: 10px; }
 .deploy-comp-row b { color: var(--wr-green); font-weight: 400; text-align: right; }
 .deploy-comp-row em { color: var(--wr-muted); font-style: normal; text-align: right; }
-.deploy-unit-sprite { width: 38px; height: 30px; display: block; background-image: url('icons.png'); background-size: 900% 200%; background-repeat: no-repeat; image-rendering: pixelated; }
+.deploy-unit-sprite { width: 38px; height: 30px; display: block; background-image: url('icons.png'); background-size: 2500% 200%; background-repeat: no-repeat; image-rendering: pixelated; }
 .deploy-empty { padding: 22px 12px; color: var(--wr-dim); font-size: 9px; text-align: center; letter-spacing: 1px; }
 .deploy-side-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .deploy-side-summary div { padding: 9px; border: 1px solid var(--wr-line); background: rgba(255,176,0,.025); }
@@ -1407,7 +1689,7 @@ body[data-screen="game"][data-phase="deploy"] #start-btn:hover { transform: none
 }
 
 /* ═══════════════ WAR ROOM — FAZ 4: SAVAŞ HUD ═══════════════ */
-#battle-vp-hud, #battle-target-card, #battle-orders, #battle-feed { display: none; }
+#battle-vp-hud, #battle-target-card, #battle-orders, #battle-feed, #ui-abilities { display: none; }
 body[data-screen="game"][data-phase="battle"] #battle-vp-hud,
 body[data-screen="game"][data-phase="battle"] #battle-target-card,
 body[data-screen="game"][data-phase="battle"] #battle-orders,
@@ -1439,7 +1721,7 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
 .hostile .battle-target-head { color: var(--wr-red); }
 .battle-target-head b { font-weight: 400; }
 .battle-target-main { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
-.battle-target-sprite { width: 56px; height: 42px; flex: none; background-image: url('icons.png'); background-size: 900% 200%; background-repeat: no-repeat; image-rendering: pixelated; }
+.battle-target-sprite { width: 56px; height: 42px; flex: none; background-image: url('icons.png'); background-size: 2500% 200%; background-repeat: no-repeat; image-rendering: pixelated; }
 .battle-target-main h3 { margin: 0; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; letter-spacing: 1px; }
 .battle-target-main small { display: block; margin-top: 4px; color: var(--wr-muted); font-size: 8px; }
 .battle-meter { display: grid; grid-template-columns: 34px 1fr 64px; align-items: center; gap: 6px; margin: 5px 0; color: var(--wr-muted); font-size: 8px; }
@@ -1460,6 +1742,19 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
 #battle-orders button b, #battle-orders button span { display: block; font-weight: 400; }
 #battle-orders button b { color: var(--wr-amber-bright); font-size: 10px; }
 #battle-orders button span { margin-top: 3px; font-size: 7px; }
+
+/* SOL-PANEL YETENEK-SEÇİCİ: seçili birimin aktif-yetenekleri (buton) + pasif (oto-çip). JS display:flex ile açar. */
+#ui-abilities { position: fixed; z-index: 18; left: 14px; bottom: 232px; width: 280px; padding: 8px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1px; flex-direction: column; gap: 4px; }
+#ui-abilities .ability-head { font-size: 8px; color: var(--wr-muted); margin-bottom: 2px; }
+#ui-abilities .ability-row { display: flex; flex-wrap: wrap; gap: 4px; }
+#ui-abilities .ability-btn { flex: 1 1 calc(50% - 4px); min-height: 40px; padding: 5px 7px; border: 1px solid var(--wr-line); border-radius: 3px; background: rgba(255,176,0,.05); color: var(--wr-muted); font-family: inherit; text-align: left; cursor: pointer; }
+#ui-abilities .ability-btn:hover, #ui-abilities .ability-btn:focus-visible { border-color: var(--wr-amber); background: rgba(255,176,0,.14); color: var(--wr-amber-bright); outline: none; }
+#ui-abilities .ability-btn.active { border-color: #4cff7c; background: rgba(76,255,124,.16); color: #cfffdd; }
+#ui-abilities .ability-btn b { display: block; font-size: 12px; font-weight: 400; }
+#ui-abilities .ability-btn span { display: block; margin-top: 2px; font-size: 7px; }
+#ui-abilities .ability-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+#ui-abilities .ability-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border: 1px dashed rgba(255,176,0,.28); border-radius: 8px; font-size: 7px; color: var(--wr-muted); }
+#ui-abilities .ability-chip em { font-style: normal; color: rgba(120,200,140,.75); font-size: 6px; }
 
 #battle-feed { top: 290px; right: 14px; width: 268px; max-height: calc(100vh - 430px); border: 1px solid var(--wr-line); background: rgba(5,9,4,.9); color: var(--wr-muted); overflow: hidden; }
 .battle-feed-head { display: flex; justify-content: space-between; padding: 8px 9px; border-bottom: 1px solid var(--wr-line); color: var(--wr-amber); font-size: 8px; letter-spacing: 1px; }
@@ -1781,6 +2076,48 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .fac-logs-t { font-size: 9px; letter-spacing: .14em; color: var(--wr-dim); margin-bottom: 4px; }
 .fac-log { font-size: 11px; color: #d9ffe9; line-height: 1.5; }
 .fac-hint { font-size: 10.5px; color: var(--wr-dim); line-height: 1.5; }
+
+/* Fraksiyon olayları kayıt satırına gömülmez; oyuncunun önünde sıraya girer. */
+#faction-event-modal, .faction-event-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(0,0,0,.72);
+    backdrop-filter: blur(3px);
+}
+#faction-event-modal.hidden { display: none; }
+.faction-event-card {
+    width: min(540px, 94vw);
+    padding: 22px;
+    border: 1px solid var(--wr-amber);
+    border-left: 4px solid var(--wr-amber);
+    border-radius: 6px;
+    background: #071009;
+    box-shadow: 0 24px 70px rgba(0,0,0,.72);
+    color: var(--wr-amber-bright);
+    font-family: 'Share Tech Mono', monospace;
+}
+.severity-critical .faction-event-card { border-color: #ff5a5a; }
+.severity-high .faction-event-card { border-color: #ffd24c; }
+.severity-positive .faction-event-card { border-color: var(--wr-green); }
+.faction-event-kicker { color: var(--wr-amber); font-size: 9px; letter-spacing: 2px; }
+.faction-event-card h2 { margin: 8px 0 13px; color: #ffe9bf; font-size: 20px; font-weight: 400; letter-spacing: 1px; }
+#faction-event-body p { margin: 0; color: #bfd3c4; font-size: 12px; line-height: 1.65; }
+.faction-event-effect {
+    margin-top: 14px;
+    padding: 10px;
+    border-left: 2px solid currentColor;
+    background: rgba(255,176,0,.05);
+}
+.faction-event-effect span, .faction-event-effect b { display: block; }
+.faction-event-effect span { color: var(--wr-muted); font-size: 8px; letter-spacing: 1.4px; }
+.faction-event-effect b { margin-top: 5px; color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; line-height: 1.5; }
+.faction-event-deltas { margin-top: 10px; color: var(--wr-green); font-size: 10px; line-height: 1.5; }
+.faction-event-actions { display: flex; gap: 9px; margin-top: 18px; }
+.faction-event-actions .story-btn { border-radius: 4px; font: 10px 'Share Tech Mono', monospace; letter-spacing: .8px; }
 
 /* ═══ GERİ BİLDİRİM PAKETİ: başkan kartı + şehir büyüme çubukları + ağaç taşması ═══ */
 .pres-card { padding: 9px 12px; margin-bottom: 8px; border: 1px solid var(--wr-line); border-left: 3px solid var(--wr-amber);

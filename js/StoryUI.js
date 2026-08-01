@@ -8,6 +8,40 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── PANEL (HTML, throttled innerHTML) ────────────────────────────────────────
+function storyEraForUi() {
+    if (STORY._era && typeof ERA_BY_ID !== 'undefined' && ERA_BY_ID[STORY._era.id]) return ERA_BY_ID[STORY._era.id];
+    if (typeof storyEraEval === 'function') return storyEraEval().era;
+    return typeof storyEra === 'function' ? storyEra() : null;
+}
+
+function storyWorldStateTooltip() {
+    const era = storyEraForUi();
+    if (!era) return '';
+    const metrics = STORY._eraMetrics || (typeof storyEraMetrics === 'function' ? storyEraMetrics() : {});
+    const since = typeof YEAR_SECONDS !== 'undefined'
+        ? ((STORY.clock || 0) - ((STORY._era && STORY._era.since) || 0)) / YEAR_SECONDS
+        : 0;
+    const pct = value => Number.isFinite(Number(value)) ? `%${Math.round(Number(value) * 100)}` : '—';
+    return `${era.icon} ${era.name}\n${era.desc}\n\n`
+        + `Savaş ${pct(metrics.war)} · Refah ${pct(metrics.welfare)}\n`
+        + `Çalkantı ${pct(metrics.turmoil)} · Oynaklık ${pct(metrics.volatility)}\n`
+        + `Teknoloji ${pct(metrics.tech)} · ${since.toFixed(1)} yıldır sürüyor`;
+}
+
+function storyActivateDetailTooltips(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+    root.querySelectorAll('.city-fact-grid > div small, .city-route-metrics').forEach(detail => {
+        const host = detail.parentElement;
+        const text = String(detail.textContent || '').trim();
+        if (!host || !text || host.dataset.storyTooltip) return;
+        host.dataset.storyTooltip = text;
+        host.classList.add('detail-hover');
+        if (!host.hasAttribute('tabindex')) host.setAttribute('tabindex', '0');
+        host.setAttribute('aria-label', `${String(host.textContent || '').trim()} — ${text}`);
+        detail.classList.add('detail-tooltip-source');
+    });
+}
+
 function storyPanelUpdate() {
     const me = storyPlayerState(); if (!me) return;
     const stats = document.getElementById('story-stats');
@@ -17,7 +51,7 @@ function storyPanelUpdate() {
         const date = (typeof storyDateLabel === 'function') ? storyDateLabel() : `GÜN ${1 + Math.floor((STORY.clock || 0) / 60)}`;
         const toCouncil = (typeof YEAR_SECONDS !== 'undefined') ? Math.max(0, (STORY._nextCouncil || 0) - (STORY.clock || 0)) : null;
         const cSoon = toCouncil != null && toCouncil <= 30;
-        stats.innerHTML =
+        const nextStatsHtml =
             `<div class="story-stat-chip identity" style="--state-color:${me.color}">DEVLET<b>${me.name}</b></div>` +
             `<div class="story-stat-chip">PETROL<b>${Math.floor(myr.oil)}</b></div>` +
             `<div class="story-stat-chip">İNSAN<b>${Math.floor(myr.manpower)}</b></div>` +
@@ -26,9 +60,21 @@ function storyPanelUpdate() {
             ((me.chips != null) ? `<div class="story-stat-chip" title="Elektronik stoku — tank/topçu üretimi ister">⚡<b>${Math.floor(me.chips)}</b></div>` : '') +
             ((me.inflation != null) ? `<div class="story-stat-chip${me.inflation > 15 ? ' urgent' : ''}" title="Enflasyon geliri kırpar, halkı yorar">ENF<b>%${me.inflation.toFixed(0)}</b></div>` : '') +
             `<div class="story-stat-chip wide">TARİH<b>${date}</b></div>` +
-            ((typeof storyEra === 'function') ? (() => { const e = storyEra();
-                return `<div class="story-stat-chip wide" title="${e.desc}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`; })() : '') +
+            ((typeof storyEra === 'function') ? (() => {
+                const e = storyEraForUi();
+                const detail = storyProjectionEscape(storyWorldStateTooltip());
+                return `<div class="story-stat-chip wide world-state detail-hover" tabindex="0" data-story-tooltip="${detail}" aria-label="${storyProjectionEscape(`${e.name}. Dünya durumu ayrıntıları için odaklan.`)}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`;
+            })() : '') +
             '';   // KONSEY geri-sayım çipi kaldırıldı (kullanıcı isteği) — takvim konsey panelinde
+        const worldChip = stats.querySelector('.world-state');
+        const tooltipHeld = !!(worldChip && (
+            document.activeElement === worldChip
+            || (typeof worldChip.matches === 'function' && worldChip.matches(':hover'))
+        ));
+        // Üst çubuk çok sık güncellenir. Aynı HTML'yi yeniden yazmak hover düğümünü
+        // her karede yok edip tooltip'i 50 Hz titretiyordu. Hover/focus boyunca mevcut
+        // düğüm korunur; ayrılınca ilk tikte güncel değerler tek seferde uygulanır.
+        if (!tooltipHeld && stats.innerHTML !== nextStatsHtml) stats.innerHTML = nextStatsHtml;
     }
     const info = document.getElementById('story-node-info');
     const action = document.getElementById('story-action-btn');
@@ -67,6 +113,13 @@ function storyPanelUpdate() {
     if (log) log.innerHTML = STORY.log.map(l => `<div class="story-log-row">${l}</div>`).join('');
     const pb = document.getElementById('story-pause-btn');
     if (pb) { pb.textContent = STORY.paused ? 'DEVAM' : 'DURAKLAT'; pb.title = STORY.paused ? 'Devam' : 'Duraklat'; }
+    const sb = document.getElementById('story-speed-btn');
+    if (sb) {
+        const speed = typeof storyClockSnapshot === 'function' ? storyClockSnapshot().speed : 1;
+        sb.textContent = `${speed}× HIZ`;
+        sb.title = `Dünya hızı: ${speed}×`;
+    }
+    if (typeof storyFactionNoticeBadgeUpdate === 'function') storyFactionNoticeBadgeUpdate();
 }
 function storyBar(label, val, color) {
     const v = Math.max(0, Math.min(100, val));
@@ -76,7 +129,7 @@ function storyBar(label, val, color) {
 // ══ FAZ-2 ADIM 3: KONSEY (hükümet) DRAWER ═══════════════════════════════════
 const STORY_CMD_COST = 120;   // yeni komutan maliyeti (her kaynaktan)
 function storyCouncilOpen() {
-    storyTechClose(); storyArmyClose(); storyCityClose();   // tek panel açık kalsın
+    storyTechClose(); storyArmyClose(); storyCityClose(); storyEconomyClose();   // tek panel açık kalsın
     STORY._councilOpen = true;
     const p = document.getElementById('council-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -93,7 +146,7 @@ function storyCouncilClose() {
 function storyCouncilToggle() { STORY._councilOpen ? storyCouncilClose() : storyCouncilOpen(); }
 // TEKNOLOJİ paneli (placeholder — Adım 4'te dolacak)
 function storyTechOpen() {
-    storyCouncilClose(); storyArmyClose(); storyCityClose();
+    storyCouncilClose(); storyArmyClose(); storyCityClose(); storyEconomyClose();
     STORY._techOpen = true;
     const p = document.getElementById('tech-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -109,7 +162,7 @@ function storyTechClose() {
 function storyTechToggle() { STORY._techOpen ? storyTechClose() : storyTechOpen(); }
 // ORDUM paneli — komutan kartı + ordu bütçesi (kasan) + gaziler
 function storyArmyOpen() {
-    storyCouncilClose(); storyTechClose(); storyCityClose(); if (typeof storyNewsClose === 'function') storyNewsClose();
+    storyCouncilClose(); storyTechClose(); storyCityClose(); storyEconomyClose(); if (typeof storyNewsClose === 'function') storyNewsClose();
     STORY._armyOpen = true;
     const p = document.getElementById('army-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -123,6 +176,172 @@ function storyArmyClose() {
     document.getElementById('story-army-btn')?.classList.remove('active');
 }
 function storyArmyToggle() { STORY._armyOpen ? storyArmyClose() : storyArmyOpen(); }
+
+// EKONOMİ — şehir dosyasındaki ekonomik gerçekler ve fraksiyonlar tek yerde.
+function storyEconomyOpen(sub) {
+    storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose();
+    if (typeof storyNewsClose === 'function') storyNewsClose();
+    if (typeof storyTalkClose === 'function') storyTalkClose();
+    STORY._economyOpen = true;
+    if (sub && typeof STORY_ECONOMY_TABS !== 'undefined' && STORY_ECONOMY_TABS.includes(sub)) STORY._economySub = sub;
+    const panel = document.getElementById('economy-panel');
+    if (panel) { panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false'); }
+    document.getElementById('story-economy-btn')?.classList.add('active');
+    if (typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
+}
+function storyEconomyClose() {
+    STORY._economyOpen = false;
+    const panel = document.getElementById('economy-panel');
+    if (panel) { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
+    document.getElementById('story-economy-btn')?.classList.remove('active');
+}
+function storyEconomyToggle() { STORY._economyOpen ? storyEconomyClose() : storyEconomyOpen(); }
+
+// ══ FAZ 10.1: OYUNCU-GÖRÜNÜR DEĞİŞİM VE NEDEN PANELİ ═══════════════════════
+function storyProjectionEscape(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function storyChangesProjection() {
+    if (!STORY || !Array.isArray(STORY.states) || !STORY.states.length
+        || typeof storyPlayerProjectionCurrent !== 'function') return null;
+    const sequence = STORY.causality ? Number(STORY.causality.nextSequence) || 0 : 0;
+    const key = `${STORY.playerStateId}|${sequence}|${Math.floor((Number(STORY.clock) || 0) * 2)}`;
+    if (STORY._changeProjectionCache && STORY._changeProjectionCache.key === key) {
+        return STORY._changeProjectionCache.value;
+    }
+    try {
+        const value = storyPlayerProjectionCurrent({ maxItems: 40, recentSeconds: 60 });
+        STORY._changeProjectionCache = { key, value };
+        return value;
+    } catch (error) {
+        const value = {
+            schemaVersion: 1,
+            error: String(error && error.message ? error.message : error),
+            badgeCount: 0,
+            domains: {},
+            domainCards: [],
+            items: []
+        };
+        STORY._changeProjectionCache = { key, value };
+        return value;
+    }
+}
+
+function storyChangesBadgeUpdate() {
+    const badge = document.getElementById('story-change-badge');
+    if (!badge) return;
+    const projection = storyChangesProjection();
+    const count = projection && !projection.disabled ? Math.max(0, Number(projection.badgeCount) || 0) : 0;
+    badge.textContent = count > 99 ? '99+' : String(count || '');
+    badge.classList.toggle('hidden', count === 0);
+    badge.title = count ? `Son ${projection.recentSeconds || 60} saniyede ${count} görünür değişim` : '';
+}
+
+function storyChangesOpen() {
+    storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose();
+    if (typeof storyNewsClose === 'function') storyNewsClose();
+    if (typeof storyTalkClose === 'function') storyTalkClose();
+    STORY._changesOpen = true;
+    const panel = document.getElementById('story-change-panel');
+    if (panel) { panel.classList.add('open'); panel.setAttribute('aria-hidden', 'false'); }
+    document.getElementById('story-change-btn')?.classList.add('active');
+    storyChangesUpdate();
+}
+
+function storyChangesClose() {
+    STORY._changesOpen = false;
+    const panel = document.getElementById('story-change-panel');
+    if (panel) { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
+    document.getElementById('story-change-btn')?.classList.remove('active');
+}
+
+function storyChangesToggle() {
+    STORY._changesOpen ? storyChangesClose() : storyChangesOpen();
+}
+
+function storyChangesFormatValue(value) {
+    if (value == null) return '—';
+    if (typeof value === 'number') return Math.abs(value) >= 100 ? Math.round(value).toLocaleString('tr-TR') : Number(value.toFixed(2)).toLocaleString('tr-TR');
+    if (typeof value === 'string') {
+        let match = /^country:(-?\d+)$/.exec(value);
+        if (match) return (storyState(Number(match[1])) || {}).name || 'Bilinmeyen devlet';
+        match = /^region:(-?\d+)$/.exec(value);
+        if (match) return (storyNode(Number(match[1])) || {}).name || 'Bilinmeyen bölge';
+        return value;
+    }
+    if (typeof value === 'object') {
+        if (Number.isFinite(Number(value.min)) && Number.isFinite(Number(value.max))) {
+            return `${storyChangesFormatValue(Number(value.min))}–${storyChangesFormatValue(Number(value.max))}`;
+        }
+        const resourceLabels = { oil: '⛽', manpower: '👥', points: '⭐' };
+        const resourceParts = Object.keys(resourceLabels)
+            .filter(key => Number(value[key]) !== 0 && Number.isFinite(Number(value[key])))
+            .map(key => `${resourceLabels[key]}${Number(value[key]) > 0 ? '+' : ''}${storyChangesFormatValue(Number(value[key]))}`);
+        if (resourceParts.length) return resourceParts.join(' ');
+    }
+    return 'Güncellendi';
+}
+
+function storyChangesItemValue(item) {
+    if (item.precision !== 'EXACT') {
+        return `KESİNLİK %${Math.round((item.knowledge.confidenceBps || 0) / 100)} · ${storyChangesFormatValue(item.visibleValue)}`;
+    }
+    if (item.delta != null) return storyChangesFormatValue(item.delta);
+    return `${storyChangesFormatValue(item.before)} → ${storyChangesFormatValue(item.after)}`;
+}
+
+function storyChangesUpdate() {
+    if (!STORY._changesOpen) return;
+    const body = document.getElementById('story-change-body');
+    if (!body) return;
+    const projection = storyChangesProjection();
+    if (!projection || projection.error) {
+        body.innerHTML = `<div class="change-empty">Projeksiyon kurulamadı.<small>${storyProjectionEscape(projection && projection.error || 'Dünya hazır değil.')}</small></div>`;
+        return;
+    }
+    if (projection.disabled) {
+        body.innerHTML = '<div class="change-empty">Nedensellik görünümü özellik bayrağıyla kapalı.</div>';
+        return;
+    }
+
+    const domainHtml = Object.values(projection.domains || {})
+        .filter(domain => domain.itemCount > 0)
+        .map(domain => `<span title="${storyProjectionEscape(domain.title)}">${storyProjectionEscape(domain.icon)} ${storyProjectionEscape(domain.title)} <b>${domain.itemCount}</b></span>`)
+        .join('');
+    const items = projection.items || [];
+    if (!STORY._changeDetailId || !items.some(item => item.id === STORY._changeDetailId)) {
+        STORY._changeDetailId = items.length ? items[0].id : null;
+    }
+    const selected = items.find(item => item.id === STORY._changeDetailId) || null;
+    const rows = items.map(item => {
+        const age = Math.max(0, Math.round((projection.generatedAt || 0) - item.observedAt));
+        const cls = item.id === STORY._changeDetailId ? ' selected' : '';
+        return `<button class="change-row${cls}" data-change-id="${storyProjectionEscape(item.id)}">`
+            + `<span class="change-tone ${item.badge.tone.toLowerCase()}"></span>`
+            + `<span class="change-main"><b>${storyProjectionEscape(item.subjectName)}</b><small>${storyProjectionEscape(item.badge.text)} · ${age} sn önce</small></span>`
+            + `<em>${storyProjectionEscape(storyChangesItemValue(item))}</em></button>`;
+    }).join('');
+    const detail = selected
+        ? `<section class="change-detail"><header><span>NEDEN DEĞİŞTİ?</span><b>${storyProjectionEscape(selected.subjectName)} · ${storyProjectionEscape(selected.label)}</b></header>`
+            + `<div class="change-knowledge ${selected.precision === 'EXACT' ? 'verified' : 'uncertain'}">${selected.precision === 'EXACT' ? 'DOĞRULANMIŞ BİLGİ' : `KESİN OLMAYAN BİLGİ · %${Math.round((selected.knowledge.confidenceBps || 0) / 100)}`}</div>`
+            + `<div class="change-trace">${selected.cause.steps.map((step, index) => (
+                `<div class="change-step"><i>${String(index + 1).padStart(2, '0')}</i><span>${storyProjectionEscape(step.label)}</span></div>`
+            )).join('')}</div>`
+            + `<p>SONUÇ: <b>${storyProjectionEscape(storyChangesItemValue(selected))}</b></p></section>`
+        : '<div class="change-empty">Henüz oyuncunun doğrulayabildiği kalıcı bir değişim yok.</div>';
+
+    body.innerHTML = `<div class="change-summary"><span>SON ${projection.recentSeconds} SN</span><b>${projection.badgeCount} DEĞİŞİM</b></div>`
+        + `<div class="change-domains">${domainHtml || '<span>GÖRÜNÜR KAYIT YOK</span>'}</div>`
+        + `<div class="change-list">${rows || '<div class="change-empty">Dünya ilerledikçe doğrulanmış değişiklikler burada görünecek.</div>'}</div>`
+        + detail;
+}
+
 // 🏗️ ŞEHRE GİR paneli → js/Production.js (storyCityOpen/Close/Toggle/Update + üretim UI'ı)
 // ORDUM paneli — DEVLETİN TAMAMI: senin sefer ordun, diğer komutanların orduları,
 // şehir depoları ve gaziler. (Eskiden yalnız kasa + gazi listesi vardı; "tüm ordum görünsün".)
@@ -351,7 +570,7 @@ function storyAIResearch() {
             st.tech.push(best.id);
             storyStateComputeTech(st);
             if (st.isPlayer) { storyComputeTechBonus(); storyLog(`🔬 Yönetim Ar-Ge kararı: <b>${best.name}</b> (−${bestCost}⭐ araştırma fonu)`); }
-            else if (Math.random() < 0.45) storyLog(`⚙️ ${st.name} teknoloji geliştirdi: <b>${best.name}</b>`);
+            else if (storyRandom('governance') < 0.45) storyLog(`⚙️ ${st.name} teknoloji geliştirdi: <b>${best.name}</b>`);
         }
     }
 }
@@ -469,17 +688,16 @@ function storyCouncilUpdate() {
     // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı (KANUNLAR sekmesi)
     const laws = document.getElementById('council-lawbox');
     if (laws && typeof storyCouncilLawsHtml === 'function') laws.innerHTML = storyCouncilLawsHtml(me);
-    const facbox = document.getElementById('council-facbox');
-    if (facbox && typeof storyFacHtml === 'function') facbox.innerHTML = storyFacHtml(me);   // AŞAMA 2
     storyCouncilSyncTabs();
 }
 // Aktif sekmeyi göster/gizle (komutan listesi ↔ kanun/anayasa)
 function storyCouncilSyncTabs() {
-    const tab = STORY._councilTab || 'cmd';
+    const requested = STORY._councilTab || 'cmd';
+    const tab = requested === 'law' ? 'law' : 'cmd';
+    STORY._councilTab = tab;
     document.querySelectorAll('#council-tabs .ctab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.getElementById('council-tab-cmd')?.classList.toggle('hidden', tab !== 'cmd');
     document.getElementById('council-tab-law')?.classList.toggle('hidden', tab !== 'law');
-    document.getElementById('council-tab-fac')?.classList.toggle('hidden', tab !== 'fac');
 }
 function storyCouncilCreate() {
     const me = storyPlayerState(); if (!me || !(me.gov && me.gov.leader === 'player')) return;
@@ -493,7 +711,14 @@ function storyCouncilCreate() {
         const m2 = storyPlayerState();   // state objesi araya yeniden atanmış olabilir → taze çöz (stale-ref fix)
         if (!m2 || !(m2.gov && m2.gov.leader === 'player')) { cc.classList.add('hidden'); return; }
         if (m2.res.oil < C || m2.res.manpower < C || m2.res.points < C) { cc.classList.add('hidden'); return; }
-        m2.res.oil -= C; m2.res.manpower -= C; m2.res.points -= C;
+        if (typeof storyCouncilPayFromState === 'function') {
+            if (!storyCouncilPayFromState(m2, { oil: C, manpower: C, points: C })) {
+                cc.classList.add('hidden');
+                return;
+            }
+        } else {
+            m2.res.oil -= C; m2.res.manpower -= C; m2.res.points -= C;
+        }
         const cmd = storyCreateCommander(m2.id, (STORY._capitals && STORY._capitals[m2.id] != null) ? STORY._capitals[m2.id] : 0);
         storyLog('➕ Yeni komutan: ' + (cmd ? cmd.name : '?'));
         storySave(); cc.classList.add('hidden'); storyCouncilUpdate(); storyRender();
@@ -515,7 +740,7 @@ function storyCouncilDismiss(cmdId) {
             // kovulan komutan EN YAKIN düşman devlete KÜSKÜN katılır (iyi komutanı kovmak = düşmanı güçlendirmek)
             const node = storyNode(cmd.node); let dest = null;
             if (node) for (const nb of node.neighbors) { const nn = storyNode(nb); if (nn && nn.owner !== m2.id) { const ts = storyState(nn.owner); if (ts && !ts.isPlayer && ts.gov) { dest = { ts, node: nb }; break; } } }
-            if (!dest) { const others = STORY.states.filter(s => !s.isPlayer && s.gov && STORY.nodes.some(n => n.owner === s.id)); if (others.length) { const ts = others[Math.floor(Math.random() * others.length)], c2 = STORY.nodes.find(n => n.owner === ts.id); dest = { ts, node: c2 ? c2.id : cmd.node }; } }
+            if (!dest) { const others = STORY.states.filter(s => !s.isPlayer && s.gov && STORY.nodes.some(n => n.owner === s.id)); if (others.length) { const ts = others[storyRandomInt('society', others.length)], c2 = STORY.nodes.find(n => n.owner === ts.id); dest = { ts, node: c2 ? c2.id : cmd.node }; } }
             if (dest) { storyCommanderDefectTo(cmd, m2, dest.ts, dest.node); cmd.loyalty = 40; storyLog(`✖ ${name} kovuldu → küskün, <b>${dest.ts.name}</b>'e katıldı!`); }
             else { const i = m2.gov.commanders.findIndex(c => c.id === cmdId); if (i >= 0) m2.gov.commanders.splice(i, 1); storyLog('✖ ' + name + ' dağıtıldı.'); }
         } else storyFlash('Komutan artık konseyde değil.');
@@ -528,6 +753,10 @@ function storyInit() {
     if (STORY._inited) return;
     STORY._inited = true;
     document.getElementById('story-pause-btn')?.addEventListener('click', () => { STORY.paused = !STORY.paused; storyRender(); });
+    document.getElementById('story-speed-btn')?.addEventListener('click', () => {
+        if (typeof storyClockCycleSpeed === 'function') storyClockCycleSpeed();
+        storyPanelUpdate();
+    });
     document.getElementById('story-save-btn')?.addEventListener('click', () => { storySave(); storyFlash(STORY._lastSaveOk ? 'Kaydedildi 💾' : 'Kaydedilemedi (localStorage?)'); });
     document.getElementById('story-menu-btn')?.addEventListener('click', () => { storySave(); showScreen('menu'); });
     document.getElementById('story-action-btn')?.addEventListener('click', () => {
@@ -545,11 +774,36 @@ function storyInit() {
     document.getElementById('story-army-btn')?.addEventListener('click', storyArmyToggle);
     document.getElementById('story-news-btn')?.addEventListener('click', () => (typeof storyNewsToggle === 'function') && storyNewsToggle());
     document.getElementById('news-close')?.addEventListener('click', () => (typeof storyNewsClose === 'function') && storyNewsClose());
+    document.getElementById('story-economy-btn')?.addEventListener('click', storyEconomyToggle);
+    document.getElementById('economy-close')?.addEventListener('click', storyEconomyClose);
+    document.getElementById('faction-event-close')?.addEventListener('click', () => {
+        if (typeof storyFactionNoticeClose === 'function') storyFactionNoticeClose();
+    });
+    document.getElementById('faction-event-economy')?.addEventListener('click', () => {
+        if (typeof storyFactionNoticeOpenEconomy === 'function') storyFactionNoticeOpenEconomy();
+    });
+    document.getElementById('economy-body')?.addEventListener('click', (e) => {
+        const button = e.target.closest('button'); if (!button || button.disabled) return;
+        if (button.classList.contains('economy-sub')) {
+            STORY._economySub = button.dataset.sub;
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('city-route')) {
+            const legacy = typeof storyCityDossierLegacyId === 'function' ? storyCityDossierLegacyId(button.dataset.region) : null;
+            const node = legacy == null ? null : storyNode(legacy);
+            if (!node) return;
+            STORY.selectedNodeId = node.id;
+            if (typeof storyCamCenterOn === 'function') storyCamCenterOn(node);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+    });
     document.getElementById('army-close')?.addEventListener('click', storyArmyClose);
     document.getElementById('story-city-btn')?.addEventListener('click', storyCityToggle);
     document.getElementById('city-close')?.addEventListener('click', storyCityClose);
     document.getElementById('city-body')?.addEventListener('click', (e) => {   // ŞEHRE GİR: navigasyon + şehir/bina/üretim/garnizon
         const b = e.target.closest('button'); if (!b || b.disabled) return;
+        if (b.classList.contains('city-route')) return storyCityDossierOpenRegion(b.dataset.region);
+        if (b.classList.contains('city-character')) return storyCityDossierOpenCharacter(b.dataset.character);
         if (b.classList.contains('city-chip')) {   // şeritten şehir seç → odağı değiştir + kamerayı götür
             STORY.selectedNodeId = +b.dataset.node;
             storyCityUpdate();
@@ -588,6 +842,7 @@ function storyInit() {
             return storyS2W(mx, my);                    // 2.5D warp tersinimi (düz bölme değil)
         };
         const pickNode = (wx, wy) => {
+            if (typeof storyMapPickNode === 'function') return storyMapPickNode(wx, wy);
             let hit = -1, hd = 34 * 34;
             for (const n of STORY.nodes) {
                 const dx = n.lx * STORY_WORLD_W - wx, dy = n.ly * STORY_WORLD_H - wy;
@@ -614,9 +869,15 @@ function storyInit() {
             if (dragging && !moved) {
                 // ŞEHRE GİR paneli açıkken harita tıklaması paneli KAPATMAZ, odağı o şehre taşır
                 // (şehir seçmek panelin doğal kullanımı — kapatmak akışı bozardı).
-                if (STORY._cityOpen) {
+                if (STORY._cityOpen || STORY._economyOpen) {
                     const w = worldFromEvent(e), hit = pickNode(w.x, w.y);
-                    if (hit >= 0) storySelectNode(hit); else storyCityClose();
+                    if (hit >= 0) {
+                        storySelectNode(hit);
+                        if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
+                    } else {
+                        if (STORY._cityOpen) storyCityClose();
+                        if (STORY._economyOpen) storyEconomyClose();
+                    }
                 }
                 else if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); }   // diğer paneller: haritaya tık = kapat
                 else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); }
@@ -647,7 +908,7 @@ function storyInit() {
     // KAMERA: WASD / ok tuşları (yalnız story ekranındayken)
     window.addEventListener('keydown', (e) => {
         if (typeof APP_SCREEN === 'undefined' || APP_SCREEN !== 'story') return;
-        if (e.key === 'Escape') { if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen || STORY._cityOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose(); e.preventDefault(); } return; }
+        if (e.key === 'Escape') { if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen || STORY._cityOpen || STORY._economyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose(); storyEconomyClose(); e.preventDefault(); } return; }
         const s = 90 / storyCam.zoom; let m = false;
         const k = e.key.toLowerCase();
         if (k === 'a' || k === 'arrowleft') { storyCam.x -= s; m = true; }

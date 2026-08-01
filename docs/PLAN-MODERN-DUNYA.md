@@ -82,6 +82,12 @@ o yüzden fraksiyonlardan ÖNCE gelir.
 `Kurulum (devlet & çağ → brifing) → KARAKTER → sefer başlar` — `screen-story-setup`
 adımlarının arasına yeni ekran (`screen-story-character`).
 
+İlk canlı kampanya yolu mevcut kimliği korur ve komutanla başlar. Aşağıdaki altı rol
+dağılımı, aynı karakter-yaratım motorunun gelecekteki şirket sahibi/yönetici/ajan/sivil
+senaryo girişleri içindir; oynanabilir döngüsü ve yetki projeksiyonu bitmeyen rol seçim
+ekranında sahte seçenek olarak gösterilmez. Aynı kampanyada rol değişimi serbest menü
+değil, aktörün gerçek makam/görev/şirket değişimiyle oluşur.
+
 - **İsim** girişi (varsayılan öneri: mevcut isim havuzundan).
 - **Üç yetenek zarı**: ⚔ Savaş / 🕊 Diplomasi / ⚙ İktisat — **1-6** (mevcut 0-6
   ölçeğinin oynanır aralığı; `Math.min(6,…)` boru hattı aynen çalışır).
@@ -92,26 +98,72 @@ adımlarının arasına yeni ekran (`screen-story-character`).
   (komutan ağacından erken düğüm), yüksek zar = hazır yetenek ama yavaş gelişim.
   Her atış oynanabilir; seçim zevk meselesi olur, istismar kapanır.
 
-### 1B. Yol Ayrımları — uyarlanır 12 soru
+### 1B. Yol Ayrımları — role uyarlanır 12 bedelli karar
 
 Kullanıcının tarifi: A/B/C ağacı, 12 soru, **bir sonraki soru önceki cevaba göre
-değişsin**; 4 seçenek × 12 derinlik = 4¹² ≈ **16.7 milyon farklı sonuç**.
+değişsin**; 4 seçenek × 12 derinlik = 4¹² ≈ **16.7 milyon seçim dizisi**. Bu sayı
+16,7 milyon mekanik olarak benzersiz karakter veya elle yazılmış sonuç demek değildir;
+benzersizlik iddiası yalnız gerçekten farklı başlangıç olayı, ilişki, bilgi ve tepki
+kancalarıyla kanıtlanır.
 
 *Mimari dürüstlük:* 16.7M sonuç kombinasyonu evet; ama 16.7M **elle yazılmış soru**
 fiziksel olarak imkânsız (ve gereksiz). Aynı hissi veren doğru yapı:
 
-- **Tema = komutan ağacının 3 dalı** (A=HARP, B=İDARE, C=SİYASET; `CommanderTree.js`
-  ile birebir hizalı). Her temadan 4 soru → koşuda 12 soru.
-- **Zincirleme kural: N+1'inci soru, N'inci CEVABIN etiketine göre seçilir** (tüm
-  geçmişe göre değil). Yazım modeli tema başına: 1 kök + 4+4+4 takip = **13 soru/tema,
-  toplam 39 yazılı soru · 156 seçenek.** Yazılabilir; ve oyuncunun yaşadığı şey aynen
-  istenen: 1. soruda 2. şıkkı seçtiysen 2. soru o şıkkın DEVAMI olarak gelir
-  ("Madem gazeteciyi tutuklattın — şimdi yabancı ajanslar süreci soruyor…").
-  Sonuç uzayı yine 4¹²: profil, eksenler, tohum etiketleri kombinasyonu.
+- Kanıt alanları **GÜVENLİK/HARP**, **YÖNETİM/EKONOMİ** ve
+  **SİYASET/TOPLUM-BİLGİ** olarak kalır; fakat sabit `4/4/4` dağılımı yalnız komutan
+  merkezli eski prototiptir. Her rol yine tam 12 karar görür, dağılım role göre eğilir:
+
+| Başlangıç rolü | Güvenlik/Harp | Yönetim/Ekonomi | Siyaset/Toplum-Bilgi |
+|---|---:|---:|---:|
+| Komutan | 6 | 3 | 3 |
+| Şirket sahibi | 2 | 6 | 4 |
+| Belediye başkanı | 1 | 7 | 4 |
+| Cumhurbaşkanı/başbakan | 3 | 4 | 5 |
+| Ajan | 2 | 3 | 7 |
+| Sivil | 1 | 5 | 6 |
+
+Bu sayılar ilk içerik bütçesidir; telemetri “neden bana bunu soruyor?” veya karar
+çeşitliliği sorunu gösterirse sürümlü içerik politikasıyla değişebilir. Dört profil
+boyutunun tamamı her rolde çıkar; yalnız kanıt farklı olay alanlarından gelir.
+- **Zincirleme kural: N+1'inci soru, N'inci cevabın etiketi + rol + mevcut kanıt
+  alanına göre seçilir.** Tüm geçmiş serbest metin olarak prompta verilmez; sürümlü
+  düğüm kimliği ve önceki sonuç etiketleri kullanılır. Komutan için eski
+  `1 kök + 4+4+4 takip = 13 soru/tema` topolojisi kullanılabilir, fakat diğer roller
+  aynı metnin üniforma değiştirmiş kopyası olmaz; role özgü içerik havuzu taşır.
 - Sorular modern vinyetler: sınır karakoluna dron saldırısı, grev dalgası, sızdırılmış
   ses kaydı, ambargo ültimatomu, ordu içi hizip…
 - **Otomatik ağaç doğrulaması** (test): her düğüm erişilebilir, çıkmaz yok, her yol
   tam 12 soru — jsdom testi graf üzerinde gezer.
+
+Her soru öz-bildirim değil **bedelli karar** olmak zorundadır. “Devlet müdahale
+etmeli mi?” geçersizdir; “kıtlık stokunu karneyle dağıtıp sermaye çevresini mi
+soğutursun, fiyatı serbest bırakıp sokak öfkesini mi göze alırsın?” geçerlidir.
+Seçeneklerin hiçbiri bütün bağlamlarda bariz doğru olamaz.
+
+Her seçenek şu yürütülebilir sözleşmeyi taşır:
+
+```text
+CharacterChoiceOption
+├── id / questionId / roleId
+├── immediateBenefit[]
+├── immediateCost[]
+├── profileEvidence[]
+├── relationshipSeeds[]
+├── worldFactSeeds[]
+├── actorBeliefSeeds[]
+├── causalEventSeeds[]
+├── reactionHooks[]
+├── firstVisibleOutcome
+│   ├── domain
+│   ├── expectedByGameMinute   // en geç 10
+│   └── playerFacingExplanation
+└── longTermRiskHooks[]
+```
+
+Her cevap en az bir gerçek kazanç, bir gerçek bedel ve en geç ilk 10 oyun dakikasında
+görülen bir sonuç taşır. Yalnız yıllar sonra LLM'in anacağı gizli etiket, tek başına
+geçerli seçenek değildir. Uzun vadeli sonuç ayrıca bulunabilir fakat ilk geri bildirim
+yerine geçmez.
 
 ### 1C. Cevapların dünyaya bağlanması (etkiler — hepsi motor, sayı LLM'den gelmez)
 
@@ -119,22 +171,64 @@ Her seçenek şu alanlara yazar:
 
 | Alan | Ne yapar |
 |---|---|
-| **4 ideolojik eksen (0-100)** | Şahin↔Güvercin · Otoriter↔Özgürlükçü · Halkçı↔Teknokrat · Milliyetçi↔Küreselci — taslaktaki spektrumun kendisi. Profilin kalbi. |
+| **4 kararlı profil boyutu (0-100)** | Devletçi↔Piyasa yönelimli · Ulusalcı↔Küreselci · Halkçı↔Teknokrat · Kurumsal süreklilik↔Kopuşçu. Saklanan anlam rol değişince değişmez. |
 | Yetenek düzeltmesi | Tema ağırlıklı küçük +1'ler (zarı ezmez, renklendirir) |
 | **Fraksiyon ön-tavrı** | AŞAMA 2 açılış değerleri: halkçı cevaplar işçiyi ısındırır, sermayeyi soğutur… |
 | **Arketip unvanı** | Baskın eksen kombinasyonundan: Halkın Adamı / Gölge Teknokrat / Demir Yumruk / Oligark Dostu (taslaktaki 4 profil). Profil kartında, haber dilinde, LLM bağlamında görünür. |
-| **Geçmiş tohumları** | 1-2 `legacy` etiketi ("darbe bastırdı", "sürgünden döndü") → AŞAMA 7 hafızasına doğar; LLM ve haberler sana geçmişinle hitap eder. |
+| **Geçmiş tohumları** | Kozmetik `legacy` etiketi değil; tarihli nedensel olay + `WorldFact` + yalnız bilen aktörlerde `ActorBelief` + ilişki/kurum izi. |
 | Başlangıç kaynağı/perki | Tek küçük somut avantaj (örn. İDARE ağırlıklı yol → başkentte +1 bina seviyesi) |
+
+**Muhalif↔yandaş kalıcı kişilik ekseni değildir.** Hükümet değişince karakter aynı
+kalır fakat mevcut rejimle ilişkisi değişebilir. Saklanan dördüncü boyut
+`institutionalPosture` (süreklilik↔kopuş) olur; görünür `regimeAlignment` ise mevcut
+iktidar, ortak ideoloji, kişisel ilişki, patronaj, geçmiş olay ve çıkar üzerinden
+türetilir. Cumhurbaşkanında “eski düzeni sürdürme↔kopuş”, şirkette “ihale ağına
+yakınlık”, komutanda “sivil iktidara sadakat”, ajanda “sponsor/örgüt bağlılığı” gibi
+rol dili kullanılabilir; fakat bunlar aynı sayının anlamsız yeniden adlandırılması
+değil farklı türetilmiş ilişkilerdir.
+
+Şahin↔Güvercin ve Otoriter↔Özgürlükçü tutumlar kaybolmaz; askerî/sivil özgürlük
+konularındaki değer ve karar kanıtları olarak daha geniş karakter modelinde tutulur.
+Dört çekirdek profil boyutuna zorla sıkıştırılmaz.
+
+Profil **tanımlayıcıdır, yasaklayıcı değildir**. Milliyetçi/ulusalcı aktör ithalat
+anlaşması yapabilir; eylem kilitlenmez. Bunun yerine kendi tabanı, medya, ilişkiler ve
+güvenilirlik farklı tepki verir. Oyuncunun profile ters eylemleri meşrudur ve zamanla
+kamusal itibarını değiştirebilir. `privateDisposition`, `publicReputation` ve
+`currentRegimeAlignment` ayrı alanlardır.
+
+Geçmiş ağacı karakter sayfasına yazılmış biyografi değildir. Örneğin “askerî okuldan
+atıldı” seçimi:
+
+1. kampanya başlangıcından önce tarihli bir nedensel olay oluşturur;
+2. karakterin eğitim/kurum ilişkisini gerçekten değiştirir;
+3. olayı bilen okul, kişi ve kurumlara kaynaklı `ActorBelief` yazar;
+4. olayı bilmeyen NPC'ye veya LLM bağlamına gerçeği sızdırmaz;
+5. ileride soruşturma, şantaj, terfi, sohbet veya medya kancasına aynı `eventId` ile bağlanır.
+
+Her soru için zorunlu turnusol tablosu tutulur:
+
+| Alan | Zorunlu cevap |
+|---|---|
+| Oyuncunun ödediği bedel | Hangi kaynak, ilişki, yetki, risk veya fırsat kaybedildi? |
+| İlk görünür sonuç | Hangi ekran/karakter/olayda görünecek? |
+| Süre | En geç kaçıncı oyun dakikasında? (`≤10`) |
+| Kanonik sahip | Sonucu hangi sistem uygulayacak? |
+| Nedensellik | Hangi `originEventId`/seçim kimliğine bağlanacak? |
+| Bilgi yayılımı | Kim başlangıçta biliyor, kim bilmiyor, nasıl öğrenilebilir? |
+
+Bu tabloyu dolduramayan soru, metni iyi olsa bile içerik havuzuna alınmaz.
 
 ### 1D. KİŞİLİK MOTORU — "etkisi zayıftı"nın cevabı, tüm dünya için
 
 Eksen/zar profili yalnız oyuncuya değil **tüm komutanlara ve 7 AI devletin
 liderlerine** atanır. Kişilik artık davranış üretir:
 
-- **AI devlet doktrini liderinden türer**: Şahin lider → saldırı eşiği düşük, geç
-  çekilir (`storyEvalTarget`'a eksen terimi); Güvercin → tampon/pakt arar
-  (`Talks` ağırlıkları); Teknokrat → Ar-Ge/sanayi önceliği (`storyCouncilContext` +
-  yatırım tiki); Otoriter → sansür/baskı kanunlarına oy. **Lider değişince (darbe,
+- **AI devlet doktrini liderinden türer**: Askerî şahinlik/güvercinlik ayrı değer
+  kanıtından saldırı ve pakt eşiğine; devletçi/piyasa yönelimi bütçe, teşvik ve
+  kamulaştırma adaylarına; ulusalcı/küreselci yönelim ticaret ve diplomasiye;
+  teknokrat/halkçı yönelim yatırım ve dağıtım önceliğine; özgürlük/otorite tutumu
+  sansür/baskı adaylarına bağlanır. **Lider değişince (darbe,
   seçim, ölüm) devletin karakteri gözle görülür değişir** — dinamik dünyanın
   bel kemiği: aynı harita, farklı liderler, farklı tarih.
 - **Konsey**: `storyCouncilVoteScore`'daki `appeal` sistemi eksenlere oturtulur
@@ -161,6 +255,12 @@ liderlerine** atanır. Kişilik artık davranış üretir:
 ### Ölçüm
 
 - Soru ağacı graf testi (erişilebilirlik, çıkmazsızlık, 12-derinlik).
+- Altı rol için soru alanı dağılımı ve role aykırı vinyet bulunmaması.
+- Her seçenek için kazanç + bedel + `≤10` dakika ilk görünür sonuç + kanonik sistem sahibi.
+- “Herkesin seçeceği cevap” alarmı: çoklu tohum simülasyonu ve oyuncu testinde tek seçeneğin hem kısa hem uzun vadede ötekileri baskılamaması.
+- Profilin yasaklayıcı olmaması: profile ters fakat yetkili eylem uygulanabilir, yalnız tepki/maliyet değişir.
+- Geçmiş tohumu olay/gerçek/inanç mutabakatı; bilmeyen NPC ve LLM geçmişi kullanamaz.
+- Hükümet değişiminde `privateDisposition` sabit kalırken `currentRegimeAlignment` yeniden türetilir.
 - Eksen dağılımı: 1000 rastgele koşuda arketiplerin hepsi çıkabiliyor mu (tekele düşmemeli).
 - **AI doktrin çeşitliliği ölçümü**: aynı haritada Şahin-ağırlıklı vs Güvercin-ağırlıklı
   lider kadrosuyla 900 sn — saldırı sayısı/pakt sayısı anlamlı ayrışmalı (bu, "kişilik

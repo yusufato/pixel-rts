@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "phase0-summary",
+  "seed": 2032,
+  "simulatedSeconds": 900,
+  "stateHash": "c03e2c5459748bbebcf66e0c16201bef682349937a9c3db887dd56c930bb71a4",
+  "final": {
+    "clock": 900,
+    "averageWelfare": 29.0664,
+    "minWelfare": 0,
+    "maxWelfare": 97.9932,
+    "averageInflation": 16.5486,
+    "averageUnrest": 20.9787,
+    "totalResources": {
+      "oil": 43233.4761,
+      "manpower": 27300.1164,
+      "points": 11377.9356
+    },
+    "territoryByState": {
+      "0": 5,
+      "1": 1,
+      "2": 12,
+      "3": 62,
+      "5": 8,
+      "6": 64
+    },
+    "activeStates": 6,
+    "newsCount": 30
+  }
+}
+
