@@ -951,27 +951,51 @@ app.whenReady().then(() => {
         return;
     }
 
-    // GEÇİCİ: --compcheck → 10 doktrinin ordu-kompozisyonunu dök (imza-birim garantisi doğrulama)
-    if (process.argv.includes('--compcheck')) {
+    // HANDİKAP-KAYIT: `--handicaprec` → intel4-5000 (kırmızı, VARIED=gerçek-oyun-gibi) vs OYUNCU-META-vekil-6000 (mavi)
+    // maçlarını CANLI-MAÇ ile AYNI ham-JSON formatında (samples+combatEvents+lifeEvents) qa-runtime/handicap-matches/ altına
+    // yazar → kullanıcı uzman-analiste götürür ("asıl beceri kendinden üstün birini yendiğinde başlar", handikap KORUNUR).
+    if (process.argv.includes('--handicaprec')) {
         createWindow();
         const sleep = ms => new Promise(r => setTimeout(r, ms));
         const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        const outDir = path.join(__dirname, '..', 'qa-runtime', 'handicap-matches');
         win.webContents.on('did-finish-load', async () => {
             await sleep(1400);
-            const out = await js(`(() => { try {
-                const R = [];
-                for (let dcx = 0; dcx < 10; dcx++) {
-                    if (typeof resetSimRng === 'function') resetSimRng(2024);
-                    BATTLE_FORCE_DOCTRINE = dcx;
-                    const m = battleBuildArmyManifest(5000, { maxUnits: 48, combatFocused: true, varied: true });
+            const scenarios = [
+                { role: 'saldiran', redAttacks: true, seed: 5150 },
+                { role: 'saldiran', redAttacks: true, seed: 2024 },
+                { role: 'saldiran', redAttacks: true, seed: 777 },
+                { role: 'savunan', redAttacks: false, seed: 2024 },
+                { role: 'savunan', redAttacks: false, seed: 777 },
+            ];
+            try { fsx.mkdirSync(outDir, { recursive: true }); } catch (_) {}
+            for (const sc of scenarios) {
+                const json = await js(`(() => { try {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;   // kırmızı GERÇEK-OYUNDAKİ gibi varied (doktrin+imza-floor+rol-farkında)
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${sc.seed}, attackerSide:${sc.redAttacks}, durationSec:360, playerMoney:5000, enemyMoney:5000, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    BATTLE_FORCE_DOCTRINE = (typeof BATTLE_DOCTRINE_PLAYER_META !== 'undefined') ? BATTLE_DOCTRINE_PLAYER_META : null;   // VEKİL=oyuncu-meta 6000
+                    battleDeployManifest(battleBuildArmyManifest(6000, { maxUnits: 48, combatFocused: true, varied: true }), false, { source:'handicap-blue', ally: true });
                     BATTLE_FORCE_DOCTRINE = null;
-                    const comp = {};
-                    for (const t in m.counts) { comp[(STATS[t] && STATS[t].id) || t] = m.counts[t]; }
-                    R.push({ d: BATTLE_DOCTRINE_NAMES[dcx], units: m.totalUnits, val: m.totalValue, comp });
-                }
-                return JSON.stringify(R);
-            } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
-            console.log('COMPCHECK ' + out);
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    const ph = SIM.headless; SIM.headless = true;
+                    let simulationTime = 0;
+                    try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { simulationTime += BATTLE_TICK_MS; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); } } finally { SIM.headless = ph; }
+                    const b = SIM.battle || {};
+                    const summary = { winnerSide: b.winnerSide ?? null, outcomeReason: b.outcomeReason || null, elapsedSec: b.elapsedSec || 0, endTick: SIM.tick,
+                        redUnits: SIM.units.filter(u=>!u.dead && u.isRed).length, blueUnits: SIM.units.filter(u=>!u.dead && !u.isRed).length };
+                    return JSON.stringify(exportBattleDiagnosticReport(summary));
+                } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+                if (typeof json === 'string' && json.startsWith('ERR')) { console.log('HANDICAPREC_ERR ' + sc.role + '/' + sc.seed + ': ' + json.slice(0, 300)); continue; }
+                const file = path.join(outDir, `handicap-${sc.role}-seed${sc.seed}.json`);
+                try { fsx.writeFileSync(file, json); const w = JSON.parse(json).replay?.telemetry?.finalSummary; console.log('HANDICAPREC ' + file + ' (' + (json.length/1024/1024).toFixed(2) + ' MB) kazanan=' + (w ? (w.winnerSide===true?'KIRMIZI':w.winnerSide===false?'MAVİ':'-') : '?') + ' ' + (w?w.outcomeReason:'') + ' redSag=' + (w?w.redUnits:'?') + ' blueSag=' + (w?w.blueUnits:'?')); }
+                catch (e) { console.log('HANDICAPREC_WRITE_ERR ' + file + ': ' + e.message); }
+            }
+            console.log('HANDICAPREC_DONE ' + outDir);
             app.quit();
         });
         return;
@@ -998,7 +1022,9 @@ app.whenReady().then(() => {
                         intByMin:{}, strikeWinRed:0, strikeWinBlue:0,
                         dispRed:0, dispBlue:0, soRed:{left:0,center:0,right:0}, soBlue:{left:0,center:0,right:0}, shiftR:0, shiftB:0 };
                     for (const seed of seeds) {
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;   // ÖLÇÜM-GERÇEKÇİLİĞİ: kırmızı AI (auto-deploy) GERÇEK-OYUNDAKİ gibi VARIED ordu dizsin (doktrin+imza-floor+rol-farkında) — yoksa batarya base-army'yi ölçer, gerçek AI'ı değil
                         openBattlefieldSession({ mode:'quick', mapId:-2, seed, attackerSide:redAttacks, durationSec:360, playerMoney:5000, enemyMoney:5000, show:false });   // KULLANICI-KARARI: 6dk (saldıran imhayı bitirsin)
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
                         BATTLE_FORCE_DOCTRINE = (typeof BATTLE_DOCTRINE_PLAYER_META !== 'undefined') ? BATTLE_DOCTRINE_PLAYER_META : null;   // VEKİL=OYUNCU-META (kullanıcının 5-maç profili → gerçekçi rakip)
                         battleDeployManifest(battleBuildArmyManifest(6000, { maxUnits: 48, combatFocused: true, varied: true }), false, { source:'aibattery-blue', ally: true });   // KULLANICI-KRİTER: VEKİL 6000₺ (intel3pro 5000 vs vekil 6000; AI 3/3 yenerse BAŞARILI — handikap-testi)
                         BATTLE_FORCE_DOCTRINE = null;

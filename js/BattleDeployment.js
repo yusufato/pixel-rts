@@ -223,19 +223,25 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     // ÇÖZÜM: doktrinin İMZA birimleri (çarpan≥1.4) hiç alınmadıysa BİRER tane garanti et — gerekirse en-çok-tekrarlanan
     // imza-DIŞI ucuz fazlalığı takas ederek. Doktrin kimliği artık sahaya çıkar (Ukrayna-sonrası: helo uçmayı ÖĞRENDİ →
     // SEAD-bekle+RTB micro hazır, açmak güvenli). Yalnız sayı-bütçe (money) yolunda; deterministik (RNG yok).
-    const emphasis = (config.varied && Array.isArray(deployWeights.__emphasis)) ? deployWeights.__emphasis : [];
+    // ROL-FARKINDA imza-floor: SAVUNAN (AA-şemsiyeli, hava-kullanabilir) → TAM çeşitlilik: pahalı imza-birimi (helo/ÇNRA)
+    // için gereken fazlalığı SÖK (guard 8, herhangi imza-dışı). SALDIRAN (fakir, air'i düşman-AA'ya hediye eder) → YALIN:
+    // yalnız artık-bütçe + GERÇEK-fazlalık (count≥3→2 koru, guard 3); etkili çekirdeği sökme (analist: 800₺-helo=manpads'e hediye).
+    const lean = config.forAttacker === true;
+    const emphasis = (config.varied && Array.isArray(deployWeights.__emphasis)) ? deployWeights.__emphasis.slice() : [];
+    emphasis.sort((a, b) => (STATS[a] && STATS[b]) ? ((STATS[a].cost - STATS[b].cost) || (a - b)) : 0);   // ucuz-imza-önce (bütçe darsa en çok imza-tipi çıksın)
     if (emphasis.length && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
         for (const et of emphasis) {
             if (et == null || !STATS[et] || types.includes(et)) continue;
             const cost = STATS[et].cost;
             if (cost > (initial.money || 0)) continue;   // bütçeye hiç sığmıyorsa geç
             let guard = 0;
-            while ((remaining.money || 0) < cost && guard++ < 8) {   // yer aç: en-çok-tekrarlanan imza-DIŞI ucuz fazlalığı çıkar
+            while ((remaining.money || 0) < cost && guard++ < (lean ? 3 : 8)) {   // yer aç: imza-DIŞI kurban seç (imza+AA korunur)
                 const cnt = {}; for (const t of types) cnt[t] = (cnt[t] || 0) + 1;
-                let victim = null, vCount = 1;
+                let victim = null;
                 for (const t of Object.keys(cnt).map(Number).sort((a, b) => a - b)) {
-                    if (emphasis.includes(t) || t === et) continue;
-                    if (cnt[t] > vCount || (cnt[t] === vCount && victim != null && STATS[t].cost < STATS[victim].cost)) { victim = t; vCount = cnt[t]; }
+                    if (emphasis.includes(t) || t === et || t === T.SAM || t === T.COUNTER_BATTERY) continue;   // imza + hava-savunma çekirdeği korunur
+                    if (lean && cnt[t] < 3) continue;   // YALIN(saldıran): yalnız gerçek-fazlalık (≥3, 2-koru) — etkili çekirdek sökülmez
+                    if (victim == null || cnt[t] > cnt[victim] || (cnt[t] === cnt[victim] && STATS[t].cost > STATS[victim].cost)) victim = t;
                 }
                 if (victim == null) break;
                 const ix = types.lastIndexOf(victim); if (ix < 0) break;
@@ -412,7 +418,10 @@ function battleAutoDeploySession(config = {}) {
         // ÇEŞİTLİLİK: gerçek oyunda (interactive) kırmızı AI her maça farklı-ama-dengeli ordu dizsin
         // (öngörülemez olsun). DIVERSE-SELFPLAY eğitiminde de BATTLE_FORCE_VARIED ile açılır → model
         // çeşitli ordular komuta etmeyi öğrenir (gerçek oyundaki varied dağılımıyla uyumlu).
-        varied: (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive === true) || BATTLE_FORCE_VARIED === true
+        varied: (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive === true) || BATTLE_FORCE_VARIED === true,
+        // ROL-FARKINDA KOMPOZİSYON: saldıran AI (fakir, koruyamadığı pahalı-air'i düşman-AA'ya hediye eder) YALIN kalsın;
+        // savunan AI (kendi AA-şemsiyesi altında hava kullanabilir) TAM çeşitlilik alsın (helo/ÇNRA sahaya çıkar).
+        forAttacker: config.attackerSide === true
     });
     battleConsumeEnemyManifest(manifest);
     const deployed = battleDeployManifest(manifest, true, {
