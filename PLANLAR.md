@@ -2,6 +2,9 @@
 
 > Bu dosya, ana plandan ([SAVAS-AI-PLAN-v4-LLM.md](SAVAS-AI-PLAN-v4-LLM.md)) çıkan ama şimdilik
 > ertelenen seçenekleri tutar. **Kural: FAZ 1'e geçmeden önce buradaki açık maddeler halledilir.**
+>
+> **📌 2026-08-03 DENETİMİ:** Bu dosyadaki tüm maddeler koda karşı doğrulandı. **A ve A-artığı KAPANDI.**
+> Bir madde bitince bu dosya **aynı commit'te** güncellenir — aksi halde plan bayatlıyor ve yanlış yöne iş yapılıyor.
 
 ---
 
@@ -30,9 +33,36 @@ karşılaştırıyor — canlı-vs-replay DEĞİL. Self-play/fork de aynı yuvar
 **Sonuç:** precision fix, sapmayı tick 20'den tick 460'a (~1sn → ~23sn birebir replay) taşıdı. Taze fix'li kayıtta
 (seed 2755142734) doğrulandı.
 
-### A-artığı) İKİNCİL sapma tick ~460 (~23sn) — controller-order replay ≠ canlı controller  📌 SONRADAN BAKILACAK (Faz 1 sonrası, non-blocking)
+### A-artığı) İKİNCİL sapma tick ~460 (~23sn) — controller-order replay ≠ canlı controller  ✅ **KAPANDI (2026-08-03)**
 
-**Belirti:** ~23sn'de TEK bir idle oyuncu birimi (id23) canlıda taramayla bir düşman bulup hareket ediyor;
+> **ÇÖZÜLDÜ.** Aşağıdaki teşhis DOĞRUYDU ("kayıtlı emrin yakalamadığı hash'siz kontrolör durumu") ama mekanizma
+> tam olarak şuydu: **`Unit.update` — saf sim kodu — CANLI kontrolör nesnesini okuyordu**
+> (`BATTLE_CONTROLLERS.get(this.controllerId).lastSituation.operationalPosture.strikeGateOpen` / `role`, ayrıca
+> istihkam AI'ında `stance`/`forceRatio`). Replay'de `battleDefaultControllerConfigs({mode:'replay'})` boş dizi
+> döndürdüğü için kontrolör HİÇ yok → `gate` undefined → birim `standOff=false` dalına düşüp hedefin üstüne
+> yürüyordu; canlıda 0.9×menzil stand-off noktasına.
+>
+> **Kanıt:** `--divdiag` (tik-tik iz, 44 birim) ilk sapmayı tik 451'de `targetX` canlı 2531 ↔ replay 3145 olarak
+> gösterdi (3145 = hedefin konumu = "üstüne yürü" dalı). `--divdiag --nomicro` ile sapma SIFIR. Arazi parmak-izi
+> aynı, `terrainSafePoint` masum (ikisi de elendi).
+>
+> **Düzeltme:** duruş sim-durumuna taşındı → `SIM.ctrlPosture[controllerId] = {open, role, stance, win}`.
+> `battlePublishControllerPosture` kontrolör güncellendikten HEMEN SONRA yazar (canlı değer birebir korunur),
+> değiştiğinde `controller-posture` replay olayı kaydeder; hash + fork + reset + replay-apply bağlandı.
+> Motor sürümü `...-deferdmg-s2-posture`. Commit `cbedc06`.
+>
+> **Sonuç:** `--defertest` canlı↔replay **201/201 hash eşit, sapma yok** (öncesi 24/201, tik 460 sapma).
+> `--liverepro` replay artık **tam 1600 tik** koşuyor (öncesi tik 220'de duruyordu). `--vstournament` sonucu
+> BİREBİR aynı (9/12) → düzeltme davranışı değiştirmedi, yalnız determinizmi onardı.
+>
+> **Aşağıda önerilen "TEMİZ ÇÖZÜM" (replay'de kontrolörleri deterministik ÇALIŞTIR) ARTIK GEREKMİYOR** — sorun
+> kontrolörü replay'de çalıştırmadan, okunan durumu sim-durumuna taşıyarak çözüldü. (O öneri hâlâ *eğitim*
+> kaldıracı olarak değerli olabilir — kompakt kayıt + insan-maçı DAgger — ama determinizm için şart değil.)
+>
+> **GENEL KURAL (bu hatadan çıkan):** sim kodu (Unit/globals) AI kontrolör nesnelerini **ASLA** okumamalı.
+> Kontrolörden birime giden her şey ya kaydedilen emir ya serileştirilen sim-durumu olmalı.
+
+**Belirti (tarihsel kayıt):** ~23sn'de TEK bir idle oyuncu birimi (id23) canlıda taramayla bir düşman bulup hareket ediyor;
 replay'de HİÇ hareket etmiyor (event YOK, simRng EŞİT, tick-440 durumu birebir aynı).
 **Kök neden (teşhis):** replay `battleReplayDrive` = **kayıtlı controller-order uygular**; canlı
 `battleControllersDrive` = **kırmızı AI kontrolörlerini ÇALIŞTIRIR**. Kontrolörü canlı çalıştırmak, kayıtlı

@@ -413,7 +413,24 @@ rollout ödülü) → DAgger + lig ile sağlamlaştır → oyuna göm → LLM ko
 > DOĞRU yön. Kritik: gelişme maç *sayısından* değil, her maçtan çıkan **öğrenme sinyalinden** (Oracle-etiket) +
 > **dengeli matchup**'tan gelir. Salt 10k win/loss zayıf sinyal (credit-assignment çözülmez).
 
-### 📍 GÜNCEL UYGULAMA DURUMU (kod + ölçümler)
+### ⚠️ 2026-08-03 DENETİMİ — aşağıdaki durum listesi KISMEN BAYAT
+
+Koda karşı doğrulandı; iki madde artık **yanlış**:
+
+1. **"Oyuna gömüldü ✅ — Hızlı Maç kırmızı AI v4 lig-modelini kullanır"** → **ARTIK DEĞİL.**
+   `js/BattleSelectorModel.js:3` → `const BATTLE_SELECTOR_AUTO_ENABLE = false;`
+   Gerekçe (kodun kendi yorumu): *"v3-roster25: eski 9-tip model BAYAT → kapalı, AI kod-mantığını kullanır.
+   Retrain sonrası tekrar açılır."* 25-birim roster geçişi modeli geçersiz kıldı. **Şu an oyunda öğrenen model YOK**,
+   kod-AI (kural + intel4-deltaları) sürüyor.
+2. **"Sıradaki: (2) ⭐ Deterministik controller-replay"** → **gerekmiyor.** Hedeflediği canlı↔replay sapması
+   başka yolla çözüldü (`SIM.ctrlPosture`, bkz. [PLANLAR.md](PLANLAR.md) A-artığı). Eğitim kaldıracı olarak
+   (kompakt kayıt + insan-maçı DAgger) hâlâ değerli olabilir ama determinizm gerekçesi düştü.
+
+**Bütçe notu:** güncel Hızlı Maç varsayılanı **6500₺ ve iki taraf EŞİT** (`js/Screens.js:22-23,49-50`).
+Belgede/ölçümlerde geçen 1400/1600/1800 ve 5000 rakamları eski eğitim-lig bütçeleridir; güncel dengeye
+uygulanamaz. Kayıp/verim hedefleri 6500'e normalize edilmeli.
+
+### 📍 GÜNCEL UYGULAMA DURUMU (kod + ölçümler) — *aşağısı yazıldığı tarihteki durumdur, yukarıdaki denetimle oku*
 - **Faz 0 ✅** — determinizm (self-play/fork/canlı-oyuncu), `operationGrammar.v1` (64 aday), `BattleForkState.v1`,
   precision fix (canlı-replay kök nedeni bulundu+düzeltildi). Dosyalar: BattleSession/OperationGrammar.js.
 - **Faz 1 ✅** — Oracle tavan testi (`js/BattleOracle.js`, `electron --oracletest`): enjeksiyon (intent+sektör+

@@ -60,7 +60,9 @@
 ### FAZ 2 — Görev/rol sistemi · **KISMEN**
 - ✅ Rol sistemi var: `TASK_GROUP_ROLE` = MAIN / FIXING / **FLANK** / FIRE_SUPPORT / RECON / SUPPORT / RESERVE ([BattlePlanning.js:4](../js/BattlePlanning.js#L4)).
 - ✅ Omurga-tabanı `backbone`-delta yazılmış ([BattleDeployment.js:383](../js/BattleDeployment.js#L383)) — **ama varsayılan KAPALI**, 5000₺'de net zararlı ölçülmüş (bütçe-adaptif olana dek kapalı).
-- ❌ **KALAN:** kabul metrikleri (maç-başı kayıp ~820₺ bandı, kamikaze başına ≥150₺ imha, HVT-sağkalım) **hiç ölçülmedi**. `battleBalanceReport()` bu verileri zaten üretiyor → self-play taramasında toplanacak.
+- ⚠️ **KABUL METRİĞİ BAYAT — bütçe değişti.** "~820₺/maç" hedefi eski bir bütçeden türetilmişti. **Güncel Hızlı Maç varsayılanı 6500₺ ve iki taraf EŞİT** ([Screens.js:22-23](../js/Screens.js#L22)). Hedef bandı 6500'e yeniden türetilmeli (oyuncunun %16'lık payı kabul edilirse ~1040₺). **Ham 820 rakamını kullanma.**
+- ✅ **Kamikaze ≥150₺ ÖLÇÜLDÜ ve GEÇTİ:** 32 maçta 204₺/birim imha (`--intel4selfplay`).
+- ❌ **KALAN:** HVT-sağkalım oranı ölçülmedi. Kayıp bandı ölçüldü (saldıran 4997₺ / savunan 3840₺, 6500₺ bütçede) ama **hedef bandı tanımlı değil** → önce hedefi türet.
 
 ### FAZ 3 — Savunma yerleşimi · **YAZILDI, ÖLÇÜLMEDİ**
 - ✅ `defense`-delta gerçek: tam-cephe garnizon ([BattleExecution.js:111](../js/BattleExecution.js#L111)), XWIDE savunma yerleşimi ([BattlePlanning.js:629,733](../js/BattlePlanning.js#L629)). İnteraktif oyunda AÇIK.
