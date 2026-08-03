@@ -435,8 +435,12 @@ app.whenReady().then(() => {
                         return { seed:${seed}, redAttacks:${redAttacks}, kazanan:(b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'),
                             sebep:b.outcomeReason||null, bitisTick:SIM.tick,
                             kalanDeger:canli, takas:kv, durus, ilkStrike:{ red:ilkStrikeRed, blue:ilkStrikeBlue },
-                            yogunluk: rep.localDensity || null, dagilim: rep.dispersal || null,
-                            kamikaze: rep.kamikaze || null, terkEdilen: rep.abandoned != null ? rep.abandoned : null,
+                            // ALAN ADLARI battleBalanceReport ile BİREBİR olmalı (ilk sürümde 'dispersal'/'abandoned' yazılmıştı →
+                            // sessizce null/0 dönüyordu ve "terk mekaniği ölü" gibi SAHTE bulgu üretti).
+                            yogunluk: rep.localDensity || null, dagilim: rep.dispersalIndex || null,
+                            kamikaze: rep.kamikaze || null, griArac: rep.grayVehicle || null,
+                            sektorDoluluk: rep.sectorOccupancy || null, anaCabaKaymasi: rep.mainEffortShifts || null,
+                            taarruzBastirilmisPct: rep.assaultSuppressedPct, mayinOldurme: rep.mineKills, heloSorti: rep.heloSorties,
                             birim: (rep.rows||[]).map(x=>({ id:x.id, dep:x.dep, dmg:x.dmg, kills:x.kills, deaths:x.deaths, cost:x.cost, dpc:x.dmgPerCost })),
                             kirmiziBayrak: rep.redFlags || [] };
                     } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
