@@ -30,38 +30,55 @@
 
 ---
 
-## ÇIKARIM: kök-neden zinciri
+## ⛔ ÇÜRÜTÜLEN ÇIKARIM (önce ben iddia ettim, sonra ölçüp yanlışladım)
 
-```
-BLOB (L medyan-tepe 16, hedef 8)
-   └─> tek aoe600 salvosu 16 birimi birden buluyor
-         └─> KAYIP HACMİ 4997₺/maç (oyuncu 820₺)
-               └─> saldıran daha sık siliniyor (attacker_eliminated 12)
-                     └─> saldıran galibiyeti %41
-```
-Kayıp hacmi ve rol dengesizliği **bağımsız kusurlar değil**, blob'un türevleri. `defense`-delta (XWIDE garnizon) yazılmış ve açık olmasına rağmen **yerel yoğunluğu düşürmemiş** — FAZ 3 kabulü (L≤8) ölçülmüş ve **düşmüş**.
+İlk yazdığım zincir şuydu: *blob → aoe600 hasadı → kayıp hacmi → saldıranın silinmesi → %41*.
+**Veri bunu DESTEKLEMİYOR.** 64 taraf-maç üzerinde korelasyonlar:
+
+| İlişki | r | Yorum |
+|---|---|---|
+| tepe-yoğunluk ↔ kayıp ₺ | **−0.02** | ilişki YOK |
+| tepe-yoğunluk ↔ galibiyet | **+0.05** | ilişki YOK |
+| merkez-payı ↔ galibiyet | **−0.01** | ilişki YOK (kazanan da kaybeden de %82 merkez) |
+| ort-yoğunluk ↔ galibiyet | +0.42 | **ters yönde** — yoğun olan KAZANIYOR |
+| dağılım endeksi ↔ galibiyet | +0.46 | yayılan kazanıyor |
+| kayıp ₺ ↔ galibiyet | −0.90 | totolojik (az kaybeden kazanır) |
+
+Tepe-yoğunluğu ≤12 olan taraflar **daha ÇOK** kaybetti (5094₺), ≥18 olanlar daha az (4464₺).
+Son iki satırdaki pozitif korelasyonlar büyük olasılıkla **sağkalım yanlılığı**: kazanan tarafın birimleri hayatta kaldığı için hem ortalama yoğunluğu hem yayılımı yüksek kalıyor. Yani bu metrikler nedeni değil **sonucu** ölçüyor.
+
+**Sonuç: bu tarama nedensel bir kaldıraç BULAMADI.** Blob gerçekten var (L medyan-tepe 16) ama kazanmayla/kaybetmeyle ölçülebilir bir ilişkisi yok.
+
+### Ayrıca: FAZ 3 kabulünü aslında ÖLÇMEDİM
+Plan "**t=20'de** yerel-tepe L≤8" diyor; ben **maç-boyu tepe**yi ölçtüm. İkisi aynı şey değil — erken yığılma ile maç ortası temas yığılması farklı olgular. FAZ 3 kabulü hâlâ **ölçülmemiş** sayılmalı.
+
+### Erken-STRIKE (P5) bu konfigürasyonda YOK
+32 maçın **hiçbirinde** saldıranın ilk STRIKE'ı t<30s değil (hepsi ≥t30). `--intel4exam`'da görülen t=17.1s anomalisi **o tezgâhın "tüm deltalar açık" kurulumuna özgü** görünüyor (backbone/profile dahil). Gerçek-oyun beyninde üremiyor.
 
 ---
 
-## GELİŞTİRME PLANI (ölçüme dayalı, öncelik sırası)
+## GELİŞTİRME PLANI (düzeltilmiş — kaldıraç bulunamadığı için önce ÖLÇÜM)
 
-### P1 — Blob'u kır: yerel yoğunluk tavanı (FAZ 3'ün gerçek kalanı)
-`defense`-delta cepheyi genişletiyor ama **birim-yoğunluğunu sınırlamıyor**. Gereken: her birimin 600px komşuluğundaki dost sayısı L>eşik ise dağılma vektörü (mevcut `deblob` mekaniğinin savunmaya + garnizona da uygulanması).
-- **Kabul:** medyan-tepe L ≤ 10 (ara hedef), sonra ≤8. `--intel4selfplay` ile ölç.
-- **Beklenen türev:** kayıp ₺ düşer, saldıran/savunan dengesi %50'ye yaklaşır.
-- Bayraklı (`BATTLE_INTEL4_DELTAS`), det-korumalı, `--vstournament` ile regresyon kontrolü.
+Kaldıraç bulunamadı; körlemesine "blob'u kır" yapmak veriye dayanmayan iş olur. Sıra bu yüzden **doğru metriği ölçmekle** başlıyor.
 
-### P2 — Kayıp hacmi bandı (FAZ 2(d) kabul metriği)
-4997₺ → hedef bandı belirsiz; oyuncunun 820₺'si 5000₺ bütçeyle alınmıştı, burada 6500₺ var. **Önce hedefi bütçeye göre normalize et** (%16 → 6500₺'de ~1040₺), sonra P1 sonrası yeniden ölç. P1'den bağımsız iş yapmadan önce türev etkisini gör.
+### P0 — Sağkalım-yanlılığı olmayan metrikler (ÖNCE BU)
+Mevcut metriklerin çoğu maç-sonu durumunu ölçüyor → kazanan iyi görünüyor çünkü kazanmış. Gereken:
+- **Erken pencere** ölçümü: t=20s / t=60s'de yerel-tepe L, sektör dağılımı, cephe genişliği (FAZ 3'ün kabulü zaten t=20 diyor).
+- **Birim-başına normalize** kayıp (canlı birim sayısına bölünmüş), ham ₺ değil.
+- **Maç kararının verildiği tik**e kadar ölçüm (şu an tüm maçlar 7300 tik tavanına koşuyor; karar sonrası öğütme sayıları şişiriyor).
+- **Kabul:** en az bir metrik galibiyetle |r| ≥ 0.4 ilişki göstermeli. Göstermezse doğru şeyi ölçmüyoruz demektir.
 
-### P3 — `armed_uav` (SİHA) ekonomisi
-550₺, hasar/maliyet 0.127, %100 kayıp oranı, 32 maçta 4 kez kırmızı-bayrak. Ya kullanım doktrini yanlış (menzil dışından vurmalı, dalmamalı) ya fiyat/istatistik dengesiz. **Not:** yalnız 5 konuşlanma → küçük örneklem, önce konuşlanma sayısını artıran bir tohum taraması gerekir.
+### P1 — Rol dengesizliği (%41) — tek sağlam bulgu
+Aynada saldıran 13/32 kazanıyor. Bu **ölçülmüş ve gerçek**; ama sürücüsü bilinmiyor (yoğunluk/merkez-payı ile ilişkisiz çıktı). P0'ın erken-pencere metrikleriyle sürücüyü ara; bulunmadan doktrin değiştirme.
 
-### P4 — Rol dengesi (%41)
-P1 sonrası yeniden ölç. Hâlâ ≤%45 ise saldıran doktrinine (yumuşatma penceresi / ana-çaba yoğunluğu) bak. **P1'den önce dokunma** — türev olabilir.
+### P2 — `armed_uav` (SİHA) ekonomisi
+550₺, hasar/maliyet 0.127, %100 kayıp, 4× kırmızı-bayrak. **Ama 32 maçta yalnız 5 konuşlanma** → örneklem çok küçük, tek başına karar verdirmez. Önce SİHA'yı zorunlu konuşlandıran bir tohum taraması.
 
-### P5 — Erken-STRIKE latch'i (FAZ 0 kalanı)
-`--intel4exam`'daki tek kaybın imzası (t=17'de kısa ömürlü gerekçe → maçın %95'i STRIKE kilidi). Ayna taramasında duruş dağılımı toplanıyor; **birden fazla maçta doğrulanırsa** ele al. Tek tohum anekdotuyla dokunma.
+### P3 — FAZ 3 kabulünü gerçekten ölç (t=20, L≤8)
+Ölçüldüğünde düşerse `defense`-delta'nın yoğunluk tavanı eksikliği gerçek bir iş olur. **Şu an ölçülmemiş durumda.**
+
+### ~~P5 — Erken-STRIKE latch'i~~ — DÜŞTÜ
+Gerçek-oyun beyninde 32 maçta üremiyor (hepsinde ilk STRIKE ≥t30s). `--intel4exam`'ın tüm-deltalar kurulumuna özgü.
 
 ---
 
