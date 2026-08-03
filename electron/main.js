@@ -385,6 +385,95 @@ app.whenReady().then(() => {
         return;
     }
 
+    // INTEL4 AYNA SELF-PLAY: `--intel4selfplay [--seeds n]` → intel4 KENDİNE karşı, 16 tohum × 2 rol (saldıran taraf
+    // takaslanır) = 32 maç. Ayna olduğu için galibiyet farkı BEYİN farkı değil ROL/HARİTA yanlılığıdır; asıl ürün
+    // `battleBalanceReport()` toplamlarıdır: hangi birim parasını kazanıyor, kayıp-₺ bandı, blob (yerel-yoğunluk),
+    // kamikaze verimi, duruş dağılımı. Bundan FAZ 2/3/4 kabul metrikleri ve geliştirme planı çıkar.
+    // KONFİGÜRASYON: GERÇEK OYUNDAKİ beyin (varsayılan deltalar + defense/range/drone) — vsrec'in "tüm deltalar" kurulumu DEĞİL.
+    if (process.argv.includes('--intel4selfplay')) {
+        const _si = process.argv.indexOf('--seeds');
+        const N_SEED = (_si >= 0 && /^\d+$/.test(process.argv[_si + 1] || '')) ? parseInt(process.argv[_si + 1], 10) : 16;
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const SEEDS = [2024, 777, 909, 3141, 2718, 5150, 1453, 1071, 8080, 4242, 1234, 6789, 31337, 9001, 555, 12321].slice(0, N_SEED);
+            const maclar = [];
+            for (const seed of SEEDS) {
+                for (const redAttacks of [true, false]) {
+                    const r = await js(`(() => { try {
+                        if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                        BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;              // AYNA: iki taraf da intel4
+                        BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;   // gerçek-oyun beyni
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                        openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${redAttacks}, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'selfplay-blue', ally:true });
+                        startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                        const ph = SIM.headless; SIM.headless = true; let st = 0;
+                        const durus = { red:{}, blue:{} }; let ilkStrikeRed = null, ilkStrikeBlue = null;
+                        try {
+                            while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
+                                st += BATTLE_TICK_MS;
+                                stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+                                if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+                                const pr = SIM.ctrlPosture ? SIM.ctrlPosture['battle-red-ai'] : null;
+                                const pb = SIM.ctrlPosture ? SIM.ctrlPosture['battle-blue-ally-ai'] : null;
+                                if (pr && pr.stance) { durus.red[pr.stance] = (durus.red[pr.stance]||0)+1; if (pr.stance==='STRIKE' && ilkStrikeRed==null) ilkStrikeRed = SIM.tick; }
+                                if (pb && pb.stance) { durus.blue[pb.stance] = (durus.blue[pb.stance]||0)+1; if (pb.stance==='STRIKE' && ilkStrikeBlue==null) ilkStrikeBlue = SIM.tick; }
+                            }
+                        } finally { SIM.headless = ph; }
+                        const rep = battleBalanceReport(); battleBalanceReset(false);
+                        const b = SIM.battle || {};
+                        // kayıp ₺: her tarafın KAYBETTİĞİ değer = karşı tarafın killValue'su
+                        const kv = rep.tradeRatio || {};
+                        const canli = { red:0, blue:0 };
+                        for (const u of SIM.units) { if (u.dead) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if (u.isRed) canli.red+=c; else canli.blue+=c; }
+                        return { seed:${seed}, redAttacks:${redAttacks}, kazanan:(b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'),
+                            sebep:b.outcomeReason||null, bitisTick:SIM.tick,
+                            kalanDeger:canli, takas:kv, durus, ilkStrike:{ red:ilkStrikeRed, blue:ilkStrikeBlue },
+                            yogunluk: rep.localDensity || null, dagilim: rep.dispersal || null,
+                            kamikaze: rep.kamikaze || null, terkEdilen: rep.abandoned != null ? rep.abandoned : null,
+                            birim: (rep.rows||[]).map(x=>({ id:x.id, dep:x.dep, dmg:x.dmg, kills:x.kills, deaths:x.deaths, cost:x.cost, dpc:x.dmgPerCost })),
+                            kirmiziBayrak: rep.redFlags || [] };
+                    } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                    if (r && r.err) { console.log('SELFPLAY_ERR seed=' + seed + ' redAtk=' + redAttacks + ' ' + r.err); continue; }
+                    maclar.push(r);
+                    console.log('SELFPLAY_MAC ' + maclar.length + '/' + (SEEDS.length*2) + ' seed=' + seed + ' redAtk=' + redAttacks +
+                        ' kazanan=' + r.kazanan + ' (' + r.sebep + ') tick=' + r.bitisTick);
+                }
+            }
+            // ── TOPLAM ÇIKARIM ──
+            const sald = maclar.filter(m => (m.kazanan === 'red') === m.redAttacks && m.kazanan !== '-').length;
+            const sav = maclar.filter(m => m.kazanan !== '-' && ((m.kazanan === 'red') !== m.redAttacks)).length;
+            const berabere = maclar.filter(m => m.kazanan === '-').length;
+            const birimToplam = {};
+            for (const m of maclar) for (const b of (m.birim || [])) {
+                const a = birimToplam[b.id] || (birimToplam[b.id] = { dep:0, dmg:0, kills:0, deaths:0, cost:b.cost });
+                a.dep += b.dep; a.dmg += b.dmg; a.kills += b.kills; a.deaths += b.deaths;
+            }
+            const birimSirali = Object.entries(birimToplam).map(([id,a]) => ({ id, dep:a.dep, cost:a.cost,
+                dmgPerCost: a.dep ? +(a.dmg/(a.dep*a.cost)).toFixed(3) : 0,
+                killsPer100: a.dep ? +(a.kills/(a.dep*a.cost/100)).toFixed(2) : 0,
+                olumOrani: a.dep ? +(a.deaths/a.dep).toFixed(2) : 0 })).sort((x,y) => x.dmgPerCost - y.dmgPerCost);
+            const bayrakSay = {};
+            for (const m of maclar) for (const f of (m.kirmiziBayrak || [])) bayrakSay[f] = (bayrakSay[f]||0)+1;
+            const ozet = { mac: maclar.length, saldiranGalibiyet: sald, savunanGalibiyet: sav, berabere,
+                saldiranKazanmaYuzdesi: maclar.length ? +(sald/(maclar.length-berabere)*100).toFixed(1) : 0,
+                enVerimsizBirimler: birimSirali.slice(0, 8), enVerimliBirimler: birimSirali.slice(-5).reverse(),
+                kirmiziBayrakSikligi: bayrakSay };
+            console.log('SELFPLAY_OZET ' + JSON.stringify(ozet));
+            try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync('qa-runtime/intel4-selfplay.json', JSON.stringify({ ozet, maclar }, null, 1));
+                console.log('SELFPLAY_DOSYA qa-runtime/intel4-selfplay.json'); } catch(e) { console.log('SELFPLAY_YAZMA_HATA ' + e.message); }
+            console.log('SELFPLAY_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // INTEL4-PRO ARA-SINAV: `--intel4exam` → planın 4 tohumunu (2 saldırı + 2 savunma, 6500₺) koşar ve FAZ-kabul
     // ölçütlerini TEK ÇIKTIDA verir: (1) intel4 galibiyet kaydı, (2) FAZ-0 kabulü "tek-tik duruş devrilmesi = 0",
     // (3) FAZ-1 kabulü "saldıranın ilk STRIKE'ı ≤ t=90s", (4) duruş histogramı + gerekçe dağılımı.
