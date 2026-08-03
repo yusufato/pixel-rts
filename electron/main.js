@@ -385,6 +385,101 @@ app.whenReady().then(() => {
         return;
     }
 
+    // MAÇ ZAMAN-SERİSİ: `--matchtimeline [--seeds a,b]` → maçı AN BE AN çözer. Toplamlar sağkalım-yanlılığıyla
+    // kirli olduğu için (kazanan iyi görünür çünkü kazanmıştır) burada 10sn'lik kovalarda AKIŞ ölçülür:
+    // taraf-başı canlı-₺, o kovada kaybedilen ₺, atış/öldürme sayısı, TOPLAM HASAR ve **ORTALAMA ANGAJMAN MESAFESİ**
+    // (FAZ-4 R1 doktrininin doğrudan ölçüsü). Ayrıca KARAR-TİKİ: üstünlüğün işaretinin bir daha dönmediği an.
+    // Veriyi BATTLE_FORENSIC'ten DEĞİL (2048 halka-tampon erken evreyi düşürür) canlı olay-kancasından toplar.
+    if (process.argv.includes('--matchtimeline')) {
+        const _si = process.argv.indexOf('--seeds');
+        const SEEDS = (_si >= 0 && process.argv[_si + 1] && !process.argv[_si + 1].startsWith('--'))
+            ? process.argv[_si + 1].split(',').map(s => parseInt(s, 10)).filter(Number.isFinite) : [2024, 777];
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const hepsi = [];
+            for (const seed of SEEDS) {
+                for (const redAttacks of [true, false]) {
+                    const r = await js(`(() => { try {
+                        const KOVA = 200;   // 10 sn
+                        BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                        BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                        if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                        openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${redAttacks}, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'timeline-blue', ally:true });
+                        startBattle(); window.requestAnimationFrame = () => 0;
+                        // OLAY KANCASI: hasar/mesafe/öldürme akışını kovalara topla (halka-tampona bağımlı DEĞİL)
+                        const kova = {};
+                        const K = (t) => { const i = Math.floor(t/KOVA); return kova[i] || (kova[i] = {
+                            red:{ ev:0, kill:0, dmg:0, distSum:0, tip:{} }, blue:{ ev:0, kill:0, dmg:0, distSum:0, tip:{} } }); };
+                        const oRec = battleRecordCombatEvent;
+                        window.battleRecordCombatEvent = function (d) {
+                            try {
+                                const s = d.attackerSide === 'red' ? 'red' : 'blue';
+                                const b = K(SIM.tick || 0)[s];
+                                b.ev++; if (d.lethal) b.kill++; b.dmg += (d.damage || 0);
+                                if (d.attackerX != null && d.targetX != null) b.distSum += Math.hypot(d.targetX-d.attackerX, d.targetY-d.attackerY);
+                                const tn = (typeof UNIT_ID_BY_INDEX !== 'undefined' && UNIT_ID_BY_INDEX[d.attackerType]) || ('t'+d.attackerType);
+                                b.tip[tn] = (b.tip[tn]||0)+1;
+                            } catch(_) {}
+                            return oRec(d);
+                        };
+                        const ph = SIM.headless; SIM.headless = true; let st = 0;
+                        const seri = [];
+                        const deger = (isRed) => { let v=0; for (const u of SIM.units) if (!u.dead && u.isRed===isRed) v += (STATS[u.type]&&STATS[u.type].cost)||0; return v; };
+                        // MÜHİMMAT/BASTIRMA durumu: "ordusu sağ ama ateşi kesildi" hipotezini sınamak için
+                        const durum = (isRed) => { let n=0, amoN=0, amoSum=0, bos=0, supSum=0;
+                            for (const u of SIM.units) { if (u.dead || u.isRed!==isRed) continue; n++; supSum += (u.suppression||0);
+                                if (u.maxAmmo > 0) { amoN++; amoSum += (u.ammo||0)/u.maxAmmo; if ((u.ammo||0) <= 0) bos++; } }
+                            return { n, amo: amoN ? +(amoSum/amoN).toFixed(2) : null, bosMuh: bos, sup: n ? Math.round(supSum/n) : 0 }; };
+                        try {
+                            while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
+                                st += BATTLE_TICK_MS;
+                                stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+                                if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+                                if ((SIM.tick % KOVA) === 0) {
+                                    const i = SIM.tick/KOVA - 1, b = kova[i] || { red:{ev:0,kill:0,dmg:0,distSum:0,tip:{}}, blue:{ev:0,kill:0,dmg:0,distSum:0,tip:{}} };
+                                    const rp = SIM.ctrlPosture ? SIM.ctrlPosture['battle-red-ai'] : null;
+                                    const bp = SIM.ctrlPosture ? SIM.ctrlPosture['battle-blue-ally-ai'] : null;
+                                    seri.push({ sn: Math.round(SIM.tick*BATTLE_TICK_SEC), redVal: deger(true), blueVal: deger(false),
+                                        rD: durum(true), bD: durum(false),
+                                        r:{ ev:b.red.ev, kill:b.red.kill, dmg:Math.round(b.red.dmg), dist: b.red.ev ? Math.round(b.red.distSum/b.red.ev) : 0, durus: rp?rp.stance:null },
+                                        b:{ ev:b.blue.ev, kill:b.blue.kill, dmg:Math.round(b.blue.dmg), dist: b.blue.ev ? Math.round(b.blue.distSum/b.blue.ev) : 0, durus: bp?bp.stance:null } });
+                                }
+                            }
+                        } finally { SIM.headless = ph; window.battleRecordCombatEvent = oRec; }
+                        // KARAR-TİKİ: farkın işaretinin bir daha DÖNMEDİĞİ ilk an
+                        const fark = seri.map(x => x.redVal - x.blueVal);
+                        const sonIsaret = Math.sign(fark[fark.length-1] || 0);
+                        let karar = null;
+                        for (let i = fark.length-1; i >= 0; i--) { if (Math.sign(fark[i]) !== sonIsaret) { karar = seri[Math.min(i+1, seri.length-1)].sn; break; } }
+                        // genel angajman mesafesi (R1 doktrini)
+                        let rd=0,re=0,bd=0,be=0;
+                        for (const i in kova) { rd+=kova[i].red.distSum; re+=kova[i].red.ev; bd+=kova[i].blue.distSum; be+=kova[i].blue.ev; }
+                        const bt = SIM.battle||{};
+                        return { seed:${seed}, redAttacks:${redAttacks}, kazanan:(bt.winnerSide===true?'red':bt.winnerSide===false?'blue':'-'), sebep:bt.outcomeReason||null,
+                            kararSn: karar, ortMesafe:{ red: re?Math.round(rd/re):0, blue: be?Math.round(bd/be):0 }, seri };
+                    } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                    if (r && r.err) { console.log('TIMELINE_ERR ' + r.err); continue; }
+                    hepsi.push(r);
+                    console.log('TIMELINE seed=' + r.seed + ' redAtk=' + r.redAttacks + ' kazanan=' + r.kazanan + ' (' + r.sebep + ') kararSn=' + r.kararSn +
+                        ' ortMesafe red=' + r.ortMesafe.red + ' blue=' + r.ortMesafe.blue);
+                }
+            }
+            try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync('qa-runtime/match-timeline.json', JSON.stringify(hepsi, null, 1));
+                console.log('TIMELINE_DOSYA qa-runtime/match-timeline.json'); } catch(e) { console.log('TIMELINE_YAZMA_HATA ' + e.message); }
+            console.log('TIMELINE_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // INTEL4 AYNA SELF-PLAY: `--intel4selfplay [--seeds n]` → intel4 KENDİNE karşı, 16 tohum × 2 rol (saldıran taraf
     // takaslanır) = 32 maç. Ayna olduğu için galibiyet farkı BEYİN farkı değil ROL/HARİTA yanlılığıdır; asıl ürün
     // `battleBalanceReport()` toplamlarıdır: hangi birim parasını kazanıyor, kayıp-₺ bandı, blob (yerel-yoğunluk),
