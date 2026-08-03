@@ -385,6 +385,101 @@ app.whenReady().then(() => {
         return;
     }
 
+    // INTEL4-PRO ARA-SINAV: `--intel4exam` → planın 4 tohumunu (2 saldırı + 2 savunma, 6500₺) koşar ve FAZ-kabul
+    // ölçütlerini TEK ÇIKTIDA verir: (1) intel4 galibiyet kaydı, (2) FAZ-0 kabulü "tek-tik duruş devrilmesi = 0",
+    // (3) FAZ-1 kabulü "saldıranın ilk STRIKE'ı ≤ t=90s", (4) duruş histogramı + gerekçe dağılımı.
+    // --vsrec'in hafif ikizi: aynı kurulum ama 145 MB ham-JSON YAZMAZ (ara-sınav sık koşulacak).
+    // Duruşu SIM.ctrlPosture'dan okur (sim-durumu) → kontrolör nesnesine dokunmadan, replay-güvenli ölçüm.
+    if (process.argv.includes('--intel4exam')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const out = await js(`(() => { try {
+                const SENARYO = [
+                    { rol:'intel4-saldiri', intel4IsRed:true,  seed:2024 },
+                    { rol:'intel4-saldiri', intel4IsRed:true,  seed:777  },
+                    { rol:'intel4-savunma', intel4IsRed:false, seed:2024 },
+                    { rol:'intel4-savunma', intel4IsRed:false, seed:777  }
+                ];
+                const STRIKE_LIMIT_TICK = 1800;   // FAZ-1 kabulü: ilk STRIKE <= t=90s
+                const sonuc = [];
+                for (const sc of SENARYO) {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;   // tam intel4-beyni (vsrec ile aynı)
+                    BATTLE_INTEL4_RED = sc.intel4IsRed; BATTLE_INTEL4_BLUE = !sc.intel4IsRed;
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:sc.seed, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4: BATTLE_INTEL4_BLUE, isAttacker:false }), false, { source:'exam-blue', ally:true });
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    // kırmızı DAİMA saldıran (vsrec ile aynı) → saldıranın kontrolörü 'battle-red-ai'
+                    const izle = { 'battle-red-ai':{ son:null, uzunluk:0, tekTik:0, ilkStrike:null, ilkStrikeSebep:null, hist:{}, sebepHist:{}, gecis:0 },
+                                   'battle-blue-ally-ai':{ son:null, uzunluk:0, tekTik:0, ilkStrike:null, ilkStrikeSebep:null, hist:{}, sebepHist:{}, gecis:0 } };
+                    try {
+                        while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
+                            st += BATTLE_TICK_MS;
+                            stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+                            if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+                            for (const cid in izle) {
+                                const p = SIM.ctrlPosture ? SIM.ctrlPosture[cid] : null;
+                                const s = p ? (p.stance || null) : null;
+                                const z = izle[cid];
+                                if (s) z.hist[s] = (z.hist[s] || 0) + 1;
+                                if (s === 'STRIKE' && z.ilkStrike == null) {
+                                    z.ilkStrike = SIM.tick;
+                                    // NEDEN STRIKE? gateReason yalnız ÖLÇÜM için canlı kontrolörden okunur (sim'e dokunmaz).
+                                    const c = (typeof BATTLE_CONTROLLERS !== 'undefined') ? BATTLE_CONTROLLERS.get(cid) : null;
+                                    z.ilkStrikeSebep = (c && c.lastSituation && c.lastSituation.operationalPosture) ? c.lastSituation.operationalPosture.gateReason : null;
+                                }
+                                if (s === 'STRIKE') {
+                                    const c2 = (typeof BATTLE_CONTROLLERS !== 'undefined') ? BATTLE_CONTROLLERS.get(cid) : null;
+                                    const gr = (c2 && c2.lastSituation && c2.lastSituation.operationalPosture) ? c2.lastSituation.operationalPosture.gateReason : null;
+                                    if (gr) z.sebepHist[gr] = (z.sebepHist[gr] || 0) + 1;
+                                }
+                                if (s !== z.son) {
+                                    if (z.son != null) { z.gecis++; if (z.uzunluk === 1) z.tekTik++; }   // önceki duruş TEK TİK sürdüyse = devrilme
+                                    z.son = s; z.uzunluk = 1;
+                                } else z.uzunluk++;
+                            }
+                        }
+                    } finally { SIM.headless = ph; }
+                    const b = SIM.battle || {};
+                    const intel4Kazandi = (b.winnerSide === true) === sc.intel4IsRed;
+                    const sald = izle['battle-red-ai'];   // saldıran daima kırmızı
+                    sonuc.push({ rol: sc.rol, seed: sc.seed,
+                        kazanan: (b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'),
+                        intel4Kazandi: (b.winnerSide == null) ? null : intel4Kazandi,
+                        sebep: b.outcomeReason || null, bitisTick: SIM.tick,
+                        saldiranIlkStrikeTick: sald.ilkStrike, saldiranIlkStrikeSn: sald.ilkStrike == null ? null : +(sald.ilkStrike*BATTLE_TICK_SEC).toFixed(1),
+                        saldiranIlkStrikeSebep: sald.ilkStrikeSebep, saldiranSebepHist: sald.sebepHist,
+                        tekTikDevrilme: { kirmizi: izle['battle-red-ai'].tekTik, mavi: izle['battle-blue-ally-ai'].tekTik },
+                        durusGecisi: { kirmizi: izle['battle-red-ai'].gecis, mavi: izle['battle-blue-ally-ai'].gecis },
+                        durusHist: { kirmizi: izle['battle-red-ai'].hist, mavi: izle['battle-blue-ally-ai'].hist },
+                        kalan: { kirmizi: SIM.units.filter(u=>!u.dead&&u.isRed).length, mavi: SIM.units.filter(u=>!u.dead&&!u.isRed).length } });
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;
+                    BATTLE_INTEL4_RED = false; BATTLE_INTEL4_BLUE = false;
+                }
+                const galip = sonuc.filter(r => r.intel4Kazandi === true).length;
+                const tekTikToplam = sonuc.reduce((s,r) => s + r.tekTikDevrilme.kirmizi + r.tekTikDevrilme.mavi, 0);
+                // FAZ-1 kabulü YALNIZ intel4 SALDIRIRKEN geçerli (savunma maçlarında saldıran intel3pro'dur — onun geç
+                // STRIKE'ı intel4'ün kusuru değildir). İlk sürümde bu ayrım yoktu → metrik yanıltıcıydı.
+                const saldiriMaclari = sonuc.filter(r => r.rol === 'intel4-saldiri');
+                const gecStrike = saldiriMaclari.filter(r => r.saldiranIlkStrikeTick == null || r.saldiranIlkStrikeTick > STRIKE_LIMIT_TICK).length;
+                return { ozet: { intel4Galibiyet: galip + '/' + sonuc.length,
+                    faz0_tekTikDevrilme: tekTikToplam, faz0_kabul: tekTikToplam === 0,
+                    faz1_gecKalanStrike: gecStrike, faz1_kabul: gecStrike === 0 }, mac: sonuc };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,500) }; } })()`);
+            console.log('INTEL4EXAM ' + JSON.stringify(out));
+            console.log('INTEL4EXAM_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // HAVADA ÖNLEME KAPISI: `--pdtest` → ÇNRA salvosu SAM kapsamına atılır. Doğrulanan: önlenen roket UÇAR ve
     // kesişme tik'inde kuyruktan düşer (hasar YOK), kesişme noktası fırlatma↔çarpma DOĞRUSU ÜZERİNDE ve varıştan ÖNCEDİR.
     if (process.argv.includes('--pdtest')) {
