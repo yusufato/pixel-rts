@@ -26,6 +26,8 @@ const STORY_SOURCES = [
     'js/StoryBudget.js',
     'js/StoryNeeds.js',
     'js/StoryCompanies.js',
+    'js/StoryOpinion.js',
+    'js/StoryCollectiveAction.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -121,7 +123,8 @@ function createRuntime(seed) {
         + '<div id="talk-body"></div></aside>'
         + '<div id="faction-event-modal" class="hidden" role="dialog" aria-modal="true">'
         + '<span id="faction-event-kicker"></span><h2 id="faction-event-title"></h2>'
-        + '<div id="faction-event-body"></div><button id="faction-event-economy"></button>'
+        + '<div id="faction-event-body"></div><div id="faction-event-responses" class="hidden"></div>'
+        + '<button id="faction-event-economy"></button>'
         + '<button id="faction-event-close"></button></div>'
         + '</body></html>';
     const dom = new JSDOM(html, {
@@ -556,6 +559,35 @@ function createRuntime(seed) {
             needsCountryView: countryId => storyNeedsCountryView(countryId),
             needsCohortView: cohortId => storyNeedsCohortView(cohortId),
             needsTick: dt => storyNeedsTick(dt),
+            opinionSummary: options => storyOpinionSummary(options),
+            opinionLedger: () => storyOpinionClone(STORY.publicOpinion),
+            opinionExpandSaved: saved => storyOpinionExpandSaved(saved),
+            validateOpinionLedger: ledger => storyOpinionValidate(ledger),
+            opinionForSave: () => storyOpinionForSave(),
+            opinionRegionView: regionId => storyOpinionRegionView(regionId),
+            opinionCountryView: countryId => storyOpinionCountryView(countryId),
+            opinionCohortView: cohortId => storyOpinionCohortView(cohortId),
+            opinionTick: dt => storyOpinionTick(dt),
+            opinionAdvanceRecord: (previous, sample) => storyOpinionAdvanceRecord(previous, sample),
+            collectiveSummary: () => storyCollectiveSummary(),
+            collectiveLedger: () => storyCollectiveClone(STORY.collectiveAction),
+            validateCollectiveLedger: ledger => storyCollectiveValidate(ledger),
+            collectiveForSave: () => storyCollectiveForSave(),
+            collectiveCountryView: countryId => storyCollectiveCountryView(countryId),
+            collectiveRegionView: regionId => storyCollectiveRegionView(regionId),
+            collectiveTick: dt => storyCollectiveTick(dt),
+            collectiveRespond: (movementId, mode, options) => storyCollectiveRespond(movementId, mode, options),
+            collectiveAdvanceMovement: (previous, sample) => storyCollectiveAdvanceMovement(previous, sample),
+            collectiveApplyResponsePure: (movement, mode, at) => storyCollectiveApplyResponsePure(movement, mode, at),
+            factionNoticeCurrent: () => storyCollectiveClone(STORY._factionNoticeCurrent),
+            factionNotices: () => storyCollectiveClone([
+                ...(STORY._factionNoticeCurrent ? [STORY._factionNoticeCurrent] : []),
+                ...(STORY._factionNoticeQueue || [])
+            ]),
+            factionNoticeHtml: () => {
+                const modal = document.getElementById('faction-event-modal');
+                return modal ? { text: modal.textContent || '', html: modal.innerHTML || '' } : null;
+            },
             productionCatalogInvalidCase: kind => {
                 const candidate = storyProductionCatalogSnapshot();
                 if (kind === 'duplicate') {
@@ -607,7 +639,8 @@ function createRuntime(seed) {
             tradeDispatchOrder: (orderId, maxQuantity) => storyTradeDispatchOrder(orderId, maxQuantity),
             tradePlanDomesticDistribution: spec => storyTradePlanDomesticDistribution(spec),
             tradeCommitDomesticDistribution: spec => storyTradeCommitDomesticDistribution(spec),
-            tradeProductionOpportunityView: () => storyTradeProductionOpportunityView(),
+            tradeProductionOpportunityView: options => storyTradeProductionOpportunityView(options),
+            tradeProductionAdmissionPlan: options => storyTradeProductionAdmissionPlan(options),
             tradeRedirectShipment: (shipmentId, targetRegionId, options) => storyTradeRedirectShipment(shipmentId, targetRegionId, options),
             tradeLoseShipment: (shipmentId, reason) => storyTradeLoseShipment(shipmentId, reason),
             tradeTick: (dt, options) => storyTradeLogisticsTick(dt, options),
@@ -1407,6 +1440,64 @@ function stateSnapshot(story) {
                 }];
             }))
         } : null,
+        publicOpinion: story.publicOpinion ? {
+            schemaVersion: story.publicOpinion.schemaVersion,
+            policyHash: story.publicOpinion.policyHash,
+            populationRevision: story.publicOpinion.populationRevision,
+            tickSequence: story.publicOpinion.tickSequence,
+            cohorts: Object.fromEntries(Object.keys(story.publicOpinion.cohorts || {}).sort().map(cohortId => {
+                const cohort = story.publicOpinion.cohorts[cohortId];
+                return [cohortId, {
+                    regionId: cohort.regionId,
+                    countryId: cohort.countryId,
+                    membersPeople: cohort.membersPeople,
+                    rememberedSeverityBps: cohort.rememberedSeverityBps,
+                    dominantProblemType: cohort.dominantProblemType,
+                    dominantBlamedActorId: cohort.dominantBlamedActorId,
+                    records: cohort.records.map(record => ({
+                        id: record.id,
+                        state: record.state,
+                        episodeCount: record.episodeCount,
+                        currentPressureBps: record.currentPressureBps,
+                        rememberedSeverityBps: record.rememberedSeverityBps,
+                        peakSeverityBps: record.peakSeverityBps
+                    }))
+                }];
+            }))
+        } : null,
+        collectiveAction: story.collectiveAction ? {
+            schemaVersion: story.collectiveAction.schemaVersion,
+            policyHash: story.collectiveAction.policyHash,
+            tickSequence: story.collectiveAction.tickSequence,
+            sourceOpinionTick: story.collectiveAction.sourceOpinionTick,
+            movements: Object.fromEntries(Object.keys(story.collectiveAction.movements || {}).sort().map(movementId => {
+                const movement = story.collectiveAction.movements[movementId];
+                return [movementId, {
+                    countryId: movement.countryId,
+                    problemType: movement.problemType,
+                    blamedActorId: movement.blamedActorId,
+                    affectedShareBps: movement.affectedShareBps,
+                    severityBps: movement.severityBps,
+                    organizationBps: movement.organizationBps,
+                    mobilizationBps: movement.mobilizationBps,
+                    radicalizationBps: movement.radicalizationBps,
+                    suppressionMemoryBps: movement.suppressionMemoryBps,
+                    concessionTrustBps: movement.concessionTrustBps,
+                    stage: movement.stage,
+                    actionCount: movement.actionCount,
+                    pendingResponse: movement.pendingResponse,
+                    lastResponse: movement.lastResponse
+                }];
+            })),
+            events: (story.collectiveAction.events || []).map(event => ({
+                id: event.id,
+                sequence: event.sequence,
+                type: event.type,
+                movementId: event.movementId,
+                stage: event.stage,
+                responseMode: event.responseMode || null
+            }))
+        } : null,
         diplomacy: Object.fromEntries(Object.keys(story.rel || {}).sort().map(key => {
             const relation = story.rel[key] || {};
             return [key, {
@@ -1923,14 +2014,53 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateNeedsLedger(needsLedger)
             : { ok: true, disabled: true, issues: [] };
         const needsSummary = runtime.api.needsSummary();
+        const opinionLedger = runtime.api.opinionLedger();
+        const opinionValidation = opinionLedger
+            ? runtime.api.validateOpinionLedger(opinionLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const opinionSummary = runtime.api.opinionSummary({
+            includeStorageMetrics: options.includeOpinionStorageMetrics === true
+        });
+        const collectiveLedger = runtime.api.collectiveLedger();
+        const collectiveValidation = collectiveLedger
+            ? runtime.api.validateCollectiveLedger(collectiveLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const collectiveSummary = runtime.api.collectiveSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
         // mandatory cost of every small harness probe. Production remains
         // directly callable through runtime.api; callers opt in when they need
         // the decision audit.
-        const tradeProductionOpportunityView = options.includeTradeProductionOpportunityView === true
-            ? runtime.api.tradeProductionOpportunityView()
+        const includeTradeDecisionObserver = options.includeTradeProductionOpportunityView === true;
+        const tradeDecisionObserverBeforeHash = includeTradeDecisionObserver
+            ? hashSnapshot(stateSnapshot(story))
+            : null;
+        const fullTradeProductionOpportunityView = includeTradeDecisionObserver
+            ? runtime.api.tradeProductionOpportunityView({ includeAll: true })
+            : null;
+        const tradeProductionAdmissionPlan = includeTradeDecisionObserver
+            ? runtime.api.tradeProductionAdmissionPlan({
+                opportunityView: fullTradeProductionOpportunityView
+            })
+            : {
+                disabled: true,
+                skipped: true,
+                reason: 'NOT_REQUESTED',
+                selected: [],
+                actions: [],
+                summary: {}
+            };
+        const tradeDecisionObserverAfterHash = includeTradeDecisionObserver
+            ? hashSnapshot(stateSnapshot(story))
+            : null;
+        const tradeDecisionObserverNeutral = includeTradeDecisionObserver
+            ? tradeDecisionObserverBeforeHash === tradeDecisionObserverAfterHash
+            : null;
+        const tradeProductionOpportunityView = includeTradeDecisionObserver
+            ? Object.assign({}, fullTradeProductionOpportunityView, {
+                opportunities: (fullTradeProductionOpportunityView.opportunities || []).slice(0, 120)
+            })
             : {
                 disabled: true,
                 skipped: true,
@@ -2084,9 +2214,15 @@ function runStorySimulation(options = {}) {
             populationSummary,
             needsValidation,
             needsSummary,
+            opinionValidation,
+            opinionSummary,
+            collectiveValidation,
+            collectiveSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
+            tradeProductionAdmissionPlan,
+            tradeDecisionObserverNeutral,
             tradeOperationalSummary,
             marketValidation,
             marketSummary,
@@ -3255,7 +3391,11 @@ function probeRegionModel(seed = 2032) {
 
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
+        const savedPayload = JSON.parse(savedRaw);
         main = {
+            saveOk: story._lastSaveOk === true,
+            savedNodeOwner: savedPayload.nodes[transferNode.id].owner,
+            opinionValidation: runtime.api.validateOpinionLedger(runtime.api.opinionLedger()),
             count: story.nodes.length,
             validation,
             topologyHashBefore,
@@ -3283,7 +3423,7 @@ function probeRegionModel(seed = 2032) {
                 )
             )),
             v2Validation: runtime.api.validateWorldV2(worldAfter),
-            savedModel: JSON.parse(savedRaw).regionModel
+            savedModel: savedPayload.regionModel
         };
     } finally {
         runtime.dom.window.close();
@@ -4610,7 +4750,17 @@ function probeRegionalEconomy(seed = 2032) {
     let main;
     let savedRaw;
     try {
-        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            // Faz 17'nin kaynak korunumu sözleşmesi, sonraki fazların satış
+            // mutabakatından bağımsız ölçülmelidir. Varsayılan oyun akışı ayrı
+            // uçtan uca simülasyonlarda bütün özellikler açıkken sınanır.
+            featureFlags: { 'economy.saleSettlement': false }
+        });
         const story = runtime.api.state();
         const legacyResourcesBefore = story.states.map(state => Object.assign({}, state.res));
         // The Phase 17 contract must test shortage recording explicitly, not
@@ -4684,7 +4834,14 @@ function probeRegionalEconomy(seed = 2032) {
     const atomicRuntime = createRuntime(seed >>> 0);
     let atomic;
     try {
-        atomicRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        atomicRuntime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
         const ledger = atomicRuntime.api.regionalLedger();
         const regionId = Object.keys(ledger.regions).find(id => ledger.regions[id].sectorCapacity.civil_industry > 0);
         for (const resourceId of ['energy', 'raw_materials', 'industrial_parts', 'electronics', 'military_supplies', 'labor', 'capital']) {
@@ -4895,6 +5052,8 @@ function probeRegionalEconomy(seed = 2032) {
         // Faz 24 yaşam koşulları bölgesel tahsislerin türetilmiş yeni çıktısıdır;
         // eski oynanış eşitliği karşılaştırmasına dahil edilmez.
         delete copy.needsWelfare;
+        // Faz 25 de yalnız Faz 24 sonucunun türetilmiş, salt-okunur hafızasıdır.
+        delete copy.publicOpinion;
         return copy;
     };
     return {
@@ -4922,7 +5081,17 @@ function probeTradeLogistics(seed = 2032) {
     let savedRaw;
     let legacyActiveRaw;
     try {
-        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            // Faz 18–20 lojistik/escrow sözleşmesi, Faz 22.1E'nin sahipli
+            // fiziksel lot katmanından bağımsız sınanır. Faz 22.1E lot ve satış
+            // korunumunu kendi probunda ve varsayılan uçtan uca koşuda sınar.
+            featureFlags: { 'economy.saleSettlement': false }
+        });
         const story = runtime.api.state();
         const sourceNode = story.nodes.find(node => (node.neighbors || []).some(
             neighborId => story.nodes[neighborId] && story.nodes[neighborId].owner === node.owner
@@ -5062,11 +5231,17 @@ function probeTradeLogistics(seed = 2032) {
             quantity: 3,
             source: 'TEST_CROSS_BORDER'
         });
+        if (!borderOrder.ok) {
+            throw new Error(`Sınır ticareti test siparişi kurulamadı: ${JSON.stringify(borderOrder)}`);
+        }
         const borderSellerCompanyId = borderOrder.order.sellerCompanyId;
         const borderSellerCompanyBefore = borderSellerCompanyId
             ? runtime.api.companyLedger().companies[borderSellerCompanyId]
             : null;
         const borderDispatch = runtime.api.tradeDispatchOrder(borderOrder.order.id, 3);
+        if (!borderDispatch.ok) {
+            throw new Error(`Sınır ticareti test sevkiyatı kurulamadı: ${JSON.stringify(borderDispatch)}`);
+        }
         const borderBuyerBudgetReserved = runtime.api.budgetCountryView(borderTargetCountryId);
         const borderSellerBudgetReserved = runtime.api.budgetCountryView(borderSourceCountryId);
         const borderTitleBefore = borderDispatch.shipment.titleOwnerCountryId;
@@ -5487,7 +5662,10 @@ function probeMarketPrices(seed = 2032) {
             abundance: 1,
             doctrine: 'combined',
             fog: true,
-            featureFlags: { 'economy.stateBudget': false }
+            featureFlags: {
+                'economy.stateBudget': false,
+                'economy.saleSettlement': false
+            }
         });
         const story = runtime.api.state();
         runtime.api.regionalTick(4);
@@ -5518,7 +5696,13 @@ function probeMarketPrices(seed = 2032) {
             quantity: 5,
             source: 'TEST_MARKET_ROUTE_RISK'
         });
+        if (!order.ok) {
+            throw new Error(`Faz 19 rota-riski siparişi kurulamadı: ${JSON.stringify(order)}`);
+        }
         const dispatch = runtime.api.tradeDispatchOrder(order.order.id, 5);
+        if (!dispatch.ok) {
+            throw new Error(`Faz 19 rota-riski sevkiyatı kurulamadı: ${JSON.stringify(dispatch)}`);
+        }
         const corridorId = dispatch.shipment.corridorIds[0];
         runtime.api.infrastructureSetDamage(corridorId, 10000);
         runtime.api.tradeTick(20, { autoBalance: false, dispatchOpen: false });
@@ -5710,14 +5894,18 @@ function probeMarketPrices(seed = 2032) {
     const on = runStorySimulation({
         seed,
         seconds: 120,
-        featureFlags: { 'economy.stateBudget': false }
+        featureFlags: {
+            'economy.stateBudget': false,
+            'economy.saleSettlement': false
+        }
     });
     const off = runStorySimulation({
         seed,
         seconds: 120,
         featureFlags: {
             'economy.marketPrices': false,
-            'economy.stateBudget': false
+            'economy.stateBudget': false,
+            'economy.saleSettlement': false
         }
     });
     const stripMarket = snapshot => {
@@ -5747,7 +5935,14 @@ function probeStateBudget(seed = 2032) {
     let savedRaw;
     let main;
     try {
-        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
         const story = runtime.api.state();
         const stateId = 0;
         const countryId = 'country:0';
@@ -5868,11 +6063,18 @@ function probeStateBudget(seed = 2032) {
         disabledRuntime.dom.window.close();
     }
 
-    const on = runStorySimulation({ seed, seconds: 120 });
+    const on = runStorySimulation({
+        seed,
+        seconds: 120,
+        featureFlags: { 'economy.saleSettlement': false }
+    });
     const off = runStorySimulation({
         seed,
         seconds: 120,
-        featureFlags: { 'economy.stateBudget': false }
+        featureFlags: {
+            'economy.stateBudget': false,
+            'economy.saleSettlement': false
+        }
     });
     return {
         main,
@@ -5895,7 +6097,14 @@ function probeCompaniesBanks(seed = 2032) {
     let savedRaw;
     let main;
     try {
-        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
         const story = runtime.api.state();
         const opening = runtime.api.companySummary();
         const node = story.nodes.find(candidate => candidate.owner === 0
@@ -6074,11 +6283,18 @@ function probeCompaniesBanks(seed = 2032) {
         disabledRuntime.dom.window.close();
     }
 
-    const on = runStorySimulation({ seed, seconds: 120 });
+    const on = runStorySimulation({
+        seed,
+        seconds: 120,
+        featureFlags: { 'economy.saleSettlement': false }
+    });
     const off = runStorySimulation({
         seed,
         seconds: 120,
-        featureFlags: { 'economy.companiesBanks': false }
+        featureFlags: {
+            'economy.companiesBanks': false,
+            'economy.saleSettlement': false
+        }
     });
     return {
         main,
@@ -6322,6 +6538,11 @@ function probeSaleSettlement(seed = 2032) {
         }
 
         const control = runStorySimulation({ seed, seconds: 20 });
+        const enabledExplicit = runStorySimulation({
+            seed,
+            seconds: 20,
+            featureFlags: { 'economy.saleSettlement': true }
+        });
         const disabledExplicit = runStorySimulation({
             seed,
             seconds: 20,
@@ -6370,8 +6591,10 @@ function probeSaleSettlement(seed = 2032) {
             restored,
             ab: {
                 defaultHash: control.stateHash,
+                explicitOnHash: enabledExplicit.stateHash,
                 explicitOffHash: disabledExplicit.stateHash,
-                defaultUnchanged: control.stateHash === disabledExplicit.stateHash
+                defaultMatchesExplicitOn: control.stateHash === enabledExplicit.stateHash,
+                explicitOffDiffers: control.stateHash !== disabledExplicit.stateHash
             }
         };
     } finally {
@@ -7467,7 +7690,14 @@ function probeNeedsWelfare(seed = 2032) {
     let savedRaw;
     let savedLedger;
     try {
-        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
         const story = runtime.api.state();
         const ownNode = story.nodes.find(node => node.owner === story.playerStateId);
         const foreignNode = story.nodes.find(node => node.owner !== story.playerStateId);
@@ -7489,8 +7719,14 @@ function probeNeedsWelfare(seed = 2032) {
         const welfareAfter = story.states.map(state => state.welfare);
 
         const regional = story.regionalEconomy.regions[regionId];
-        regional.stocks.food = 0;
-        regional.stocks.energy = 0;
+        runtime.api.regionalStockDelta(regionId, 'food', -Math.max(0, Number(regional.stocks.food) || 0), {
+            type: 'TEST_FIXTURE',
+            source: 'probe.needs.food-shock'
+        });
+        runtime.api.regionalStockDelta(regionId, 'energy', -Math.max(0, Number(regional.stocks.energy) || 0), {
+            type: 'TEST_FIXTURE',
+            source: 'probe.needs.energy-shock'
+        });
         for (const sectorId of Object.keys(regional.sectorCapacity || {})) regional.sectorCapacity[sectorId] = 0;
         runtime.api.regionalTick(4);
         runtime.api.needsTick(5);
@@ -7517,14 +7753,17 @@ function probeNeedsWelfare(seed = 2032) {
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
         savedLedger = runtime.api.needsLedger();
+        const savedPayloadLedger = JSON.parse(savedRaw).needsWelfare;
         const migrated = runtime.api.migrateRaw(savedRaw);
         const migratedRegion = migrated.ok ? migrated.world.regions.find(region => region.id === regionId) : null;
         const migratedChild = migrated.ok ? migrated.world.populationCohorts.find(cohort => cohort.id === childId) : null;
         main = {
             validation: runtime.api.validateNeedsLedger(savedLedger),
+            saveOk: story._lastSaveOk === true,
             worldValidation: runtime.api.validateWorldV2(world),
             knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
             summary: runtime.api.needsSummary(),
+            saveExact: JSON.stringify(savedPayloadLedger) === JSON.stringify(savedLedger),
             baseline: {
                 region: baselineRegion,
                 child: baselineChild,
@@ -7574,9 +7813,26 @@ function probeNeedsWelfare(seed = 2032) {
     let restored;
     try {
         restoredRuntime.api.putSavedRaw(savedRaw);
-        restored = { loaded: restoredRuntime.api.loadNow(), validation: null, exact: false };
-        restored.validation = restoredRuntime.api.validateNeedsLedger(restoredRuntime.api.needsLedger());
-        restored.exact = JSON.stringify(restoredRuntime.api.needsLedger()) === JSON.stringify(savedLedger);
+        restored = { loaded: restoredRuntime.api.loadNow(), validation: null, exact: false, firstDifference: null };
+        const restoredLedger = restoredRuntime.api.needsLedger();
+        restored.validation = restoredRuntime.api.validateNeedsLedger(restoredLedger);
+        restored.diagnostics = restoredLedger && restoredLedger.diagnostics;
+        restored.exact = JSON.stringify(restoredLedger) === JSON.stringify(savedLedger);
+        if (!restored.exact) {
+            const firstDifference = (left, right, path) => {
+                if (Object.is(left, right)) return null;
+                if (left == null || right == null || typeof left !== 'object' || typeof right !== 'object') {
+                    return { path, saved: left, restored: right };
+                }
+                const keys = [...new Set([...Object.keys(left), ...Object.keys(right)])].sort();
+                for (const key of keys) {
+                    const difference = firstDifference(left[key], right[key], `${path}.${key}`);
+                    if (difference) return difference;
+                }
+                return null;
+            };
+            restored.firstDifference = firstDifference(savedLedger, restoredLedger, 'needsWelfare');
+        }
     } finally {
         restoredRuntime.dom.window.close();
     }
@@ -7624,9 +7880,269 @@ function probeNeedsWelfare(seed = 2032) {
         disabledRuntime.dom.window.close();
     }
 
-    const on = runStorySimulation({ seed, seconds: 20 });
-    const off = runStorySimulation({ seed, seconds: 20, featureFlags: { 'population.needsWelfare': false } });
+    const on = runStorySimulation({
+        seed,
+        seconds: 20,
+        featureFlags: { 'economy.saleSettlement': false }
+    });
+    const off = runStorySimulation({
+        seed,
+        seconds: 20,
+        featureFlags: {
+            'population.needsWelfare': false,
+            'economy.saleSettlement': false
+        }
+    });
     return { main, restored, legacy, corrupt, disabled, ab: { onHash: on.stateHash, offHash: off.stateHash, changed: on.stateHash !== off.stateHash } };
+}
+
+function probePublicOpinion(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
+        const story = runtime.api.state();
+        const ownNode = story.nodes.find(node => node.owner === story.playerStateId);
+        const foreignNode = story.nodes.find(node => node.owner !== story.playerStateId);
+        if (!ownNode || !foreignNode) throw new Error('Faz 25 probu icin kendi/yabanci bolge bulunamadi.');
+        const regionId = `region:${ownNode.id}`;
+        const childId = `cohort:${ownNode.id}:children`;
+        const adultPublicId = `cohort:${ownNode.id}:adult_public`;
+
+        runtime.api.regionalTick(4);
+        runtime.api.needsTick(5);
+        const needsBeforeOpinion = hashSnapshot(runtime.api.needsLedger());
+        const welfareBefore = JSON.stringify(story.states.map(state => state.welfare));
+        const factionsBefore = JSON.stringify(story.states.map(state => state.factions || null));
+        runtime.api.opinionTick(5);
+        const baselineChild = runtime.api.opinionCohortView(childId);
+        const needsAfterOpinion = hashSnapshot(runtime.api.needsLedger());
+
+        const regional = story.regionalEconomy.regions[regionId];
+        runtime.api.regionalStockDelta(regionId, 'food', -Math.max(0, Number(regional.stocks.food) || 0), {
+            type: 'TEST_FIXTURE', source: 'probe.opinion.food-shock'
+        });
+        runtime.api.regionalStockDelta(regionId, 'energy', -Math.max(0, Number(regional.stocks.energy) || 0), {
+            type: 'TEST_FIXTURE', source: 'probe.opinion.energy-shock'
+        });
+        for (const sectorId of Object.keys(regional.sectorCapacity || {})) regional.sectorCapacity[sectorId] = 0;
+        for (let index = 0; index < 3; index++) {
+            runtime.api.regionalTick(4);
+            runtime.api.needsTick(5);
+            runtime.api.opinionTick(5);
+        }
+        const shockedChild = runtime.api.opinionCohortView(childId);
+        const shockedAdultPublic = runtime.api.opinionCohortView(adultPublicId);
+        const childFood = shockedChild.records.find(record => record.problemType === 'food');
+        const adultFood = shockedAdultPublic.records.find(record => record.problemType === 'food');
+        const baselineFood = baselineChild && baselineChild.records.find(record => record.problemType === 'food');
+
+        const sampleBase = {
+            cohortId: childId,
+            regionId,
+            countryId: `country:${story.playerStateId}`,
+            membersPeople: 1000,
+            problemType: 'food',
+            blamedActorId: `company:${story.playerStateId}:agriculture`,
+            blamedActorKind: 'COMPANY',
+            blameBasisCode: 'FOOD_SUPPLY_PROVIDER',
+            blameConfidenceBps: 7600,
+            sourceAccessBps: 4000,
+            salienceWeightBps: 2800,
+            sourceNeedsTick: 1
+        };
+        let trajectoryRecord = null;
+        for (let index = 0; index < 3; index++) trajectoryRecord = runtime.api.opinionAdvanceRecord(
+            trajectoryRecord,
+            Object.assign({}, sampleBase, { pressureBps: 6000, at: (index + 1) * 5 })
+        );
+        const firstPeak = trajectoryRecord.rememberedSeverityBps;
+        for (let index = 0; index < 4; index++) trajectoryRecord = runtime.api.opinionAdvanceRecord(
+            trajectoryRecord,
+            Object.assign({}, sampleBase, { pressureBps: 0, sourceAccessBps: 10000, at: 20 + index * 5 })
+        );
+        const afterPartialRecovery = trajectoryRecord.rememberedSeverityBps;
+        const recoveryState = trajectoryRecord.state;
+        for (let index = 0; index < 3; index++) trajectoryRecord = runtime.api.opinionAdvanceRecord(
+            trajectoryRecord,
+            Object.assign({}, sampleBase, { pressureBps: 6000, at: 40 + index * 5 })
+        );
+        const secondPeak = trajectoryRecord.rememberedSeverityBps;
+        const repeatedEpisodeCount = trajectoryRecord.episodeCount;
+        let forgettingTicks = 0;
+        while (trajectoryRecord && forgettingTicks < 400) {
+            forgettingTicks++;
+            trajectoryRecord = runtime.api.opinionAdvanceRecord(
+                trajectoryRecord,
+                Object.assign({}, sampleBase, {
+                    pressureBps: 0,
+                    sourceAccessBps: 10000,
+                    at: 60 + forgettingTicks * 5
+                })
+            );
+        }
+
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, `country:${story.playerStateId}`);
+        const ownKnowledge = knowledge.regions.find(region => region.id === regionId);
+        const foreignKnowledge = knowledge.regions.find(region => region.id === `region:${foreignNode.id}`);
+        const populationUi = runtime.api.renderCityDossier(ownNode.id, 'nufus');
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = runtime.api.opinionLedger();
+        const savedPayloadLedger = JSON.parse(savedRaw).publicOpinion;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        const migratedRegion = migrated.ok ? migrated.world.regions.find(region => region.id === regionId) : null;
+        const migratedChild = migrated.ok ? migrated.world.populationCohorts.find(cohort => cohort.id === childId) : null;
+        main = {
+            validation: runtime.api.validateOpinionLedger(savedLedger),
+            saveOk: story._lastSaveOk === true,
+            saveExact: JSON.stringify(runtime.api.opinionExpandSaved(savedPayloadLedger))
+                === JSON.stringify(savedLedger),
+            compactStorage: savedPayloadLedger.storageFormat,
+            compactCharacters: JSON.stringify(savedPayloadLedger).length,
+            worldValidation: runtime.api.validateWorldV2(world),
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
+            summary: runtime.api.opinionSummary(),
+            sourceReadOnly: needsBeforeOpinion === needsAfterOpinion,
+            legacyWelfareUntouched: welfareBefore === JSON.stringify(story.states.map(state => state.welfare)),
+            factionsUntouched: factionsBefore === JSON.stringify(story.states.map(state => state.factions || null)),
+            shock: {
+                baselineFoodSeverityBps: baselineFood ? baselineFood.rememberedSeverityBps : 0,
+                childFood,
+                adultFood,
+                expectedActorId: `company:${story.playerStateId}:agriculture`
+            },
+            trajectory: {
+                firstPeak,
+                afterPartialRecovery,
+                recoveryState,
+                secondPeak,
+                repeatedEpisodeCount,
+                forgettingTicks,
+                fullyForgotten: trajectoryRecord === null
+            },
+            knowledge: {
+                own: ownKnowledge.publicOpinion,
+                foreign: foreignKnowledge.publicOpinion
+            },
+            ui: {
+                hasComplaintMemory: populationUi.text.includes('B\u0130R\u0130KEN \u015e\u0130K\u00c2YETLER'),
+                hasPerceivedResponsibility: populationUi.text.includes('SORUMLU G\u00d6R\u00dcLEN')
+            },
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                regionOpinionPreserved: !!(migratedRegion && migratedRegion.publicOpinion),
+                cohortOpinionPreserved: !!(migratedChild && migratedChild.publicOpinion),
+                unmappedOpinion: !!(migrated.ok
+                    && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('publicOpinion'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        restored = { loaded: restoredRuntime.api.loadNow(), validation: null, exact: false };
+        const ledger = restoredRuntime.api.opinionLedger();
+        restored.validation = restoredRuntime.api.validateOpinionLedger(ledger);
+        restored.exact = JSON.stringify(ledger) === JSON.stringify(savedLedger);
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.publicOpinion;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacy = { loaded: legacyRuntime.api.loadNow(), validation: null, diagnostics: null, recordCount: null };
+        const ledger = legacyRuntime.api.opinionLedger();
+        legacy.validation = legacyRuntime.api.validateOpinionLedger(ledger);
+        legacy.diagnostics = ledger.diagnostics;
+        legacy.recordCount = legacyRuntime.api.opinionSummary().rememberedRecordCount;
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptCohort = Object.values(corruptSave.publicOpinion.cohorts)
+        .find(row => Array.isArray(row.records) && row.records.length);
+    // COMPACT_RECORD_ARRAY_V1 alan 11 = rememberedSeverityBps.
+    corruptCohort.records[0][11] = 10001;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corrupt = { loaded: corruptRuntime.api.loadNow(), validation: null, diagnostics: null };
+        const ledger = corruptRuntime.api.opinionLedger();
+        corrupt.validation = corruptRuntime.api.validateOpinionLedger(ledger);
+        corrupt.diagnostics = ledger.diagnostics;
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'society.publicOpinionMemory': false }
+        });
+        const world = disabledRuntime.api.worldV2();
+        disabled = {
+            summary: disabledRuntime.api.opinionSummary(),
+            ledger: disabledRuntime.api.opinionLedger(),
+            worldRegionOpinionCount: world.regions.filter(region => region.publicOpinion != null).length,
+            worldCohortOpinionCount: world.populationCohorts.filter(cohort => cohort.publicOpinion != null).length
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const on = runStorySimulation({
+        seed, seconds: 20, featureFlags: { 'economy.saleSettlement': false }
+    });
+    const off = runStorySimulation({
+        seed,
+        seconds: 20,
+        featureFlags: {
+            'society.publicOpinionMemory': false,
+            'economy.saleSettlement': false
+        }
+    });
+    const stripOpinion = snapshot => {
+        const copy = JSON.parse(JSON.stringify(snapshot));
+        delete copy.publicOpinion;
+        return copy;
+    };
+    return {
+        main,
+        restored,
+        legacy,
+        corrupt,
+        disabled,
+        ab: {
+            onHash: on.stateHash,
+            offHash: off.stateHash,
+            changed: on.stateHash !== off.stateHash,
+            physicalEqual: hashSnapshot(stripOpinion(on.snapshot)) === hashSnapshot(stripOpinion(off.snapshot))
+        }
+    };
 }
 
 function buildStoryMapRasterAssetData(seed = 2032) {
@@ -7656,6 +8172,245 @@ function buildStoryMapRasterAssetData(seed = 2032) {
     } finally {
         runtime.dom.window.close();
     }
+}
+
+function probeCollectiveAction(seed = 2032) {
+    const sampleFor = (tick, severityBps) => ({
+        id: 'movement:country:0|publicServices|country:0',
+        countryId: 'country:0',
+        problemType: 'publicServices',
+        blamedActorId: 'country:0',
+        blamedActorKind: 'COUNTRY',
+        blameBasisCode: 'PUBLIC_SERVICE_AUTHORITY',
+        affectedPeople: 700000,
+        affectedShareBps: severityBps > 0 ? 7200 : 0,
+        activeCohortShareBps: severityBps > 0 ? 8500 : 0,
+        severityBps,
+        peakSeverityBps: 9800,
+        averageEpisodesBps: severityBps > 0 ? 3000 : 0,
+        recurrenceBps: severityBps > 0 ? 3600 : 0,
+        organizationTargetBps: severityBps > 0 ? 9000 : 0,
+        actionEligible: true,
+        sourceOpinionTick: tick,
+        at: tick * 5
+    });
+
+    const pureRuntime = createRuntime(seed >>> 0);
+    let pure;
+    try {
+        pureRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
+        let quiet = null;
+        for (let tick = 1; tick <= 50; tick++) {
+            quiet = pureRuntime.api.collectiveAdvanceMovement(quiet, sampleFor(tick, 0));
+        }
+        let movement = null;
+        const firstTick = { PROTEST: null, STRIKE: null, UPRISING: null };
+        let protestFixture = null;
+        for (let tick = 1; tick <= 120; tick++) {
+            movement = pureRuntime.api.collectiveAdvanceMovement(movement, sampleFor(tick, 9800));
+            if (movement && movement.stage !== 'NONE' && firstTick[movement.stage] == null) {
+                firstTick[movement.stage] = tick;
+                if (movement.stage === 'PROTEST' && !protestFixture) protestFixture = JSON.parse(JSON.stringify(movement));
+            }
+        }
+        const conceded = pureRuntime.api.collectiveApplyResponsePure(protestFixture, 'CONCEDE', 500);
+        const suppressed = pureRuntime.api.collectiveApplyResponsePure(protestFixture, 'SUPPRESS', 500);
+        let concededAfter = conceded;
+        let suppressedAfter = suppressed;
+        for (let offset = 1; offset <= 24; offset++) {
+            const tick = protestFixture.sourceOpinionTick + offset;
+            concededAfter = pureRuntime.api.collectiveAdvanceMovement(concededAfter, sampleFor(tick, 9800));
+            suppressedAfter = pureRuntime.api.collectiveAdvanceMovement(suppressedAfter, sampleFor(tick, 9800));
+        }
+        // Salt uzun sureli sikayet ayaklanma uretmemeli. Ayaklanma kanitini,
+        // ayni cozulmemis kriz grev asamasinda ikinci kez bastirildiktan sonra
+        // ariyoruz: kisa vadeli dagilma + kalici baski hafizasi + geri tepme.
+        const secondSuppression = pureRuntime.api.collectiveApplyResponsePure(
+            suppressedAfter, 'SUPPRESS', 625
+        );
+        let suppressionCycle = secondSuppression;
+        let suppressionDrivenUprisingTick = null;
+        for (let offset = 25; offset <= 120; offset++) {
+            const tick = protestFixture.sourceOpinionTick + offset;
+            suppressionCycle = pureRuntime.api.collectiveAdvanceMovement(
+                suppressionCycle, sampleFor(tick, 9800)
+            );
+            if (suppressionCycle.stage === 'UPRISING') {
+                suppressionDrivenUprisingTick = tick;
+                break;
+            }
+        }
+        pure = {
+            quietNoAction: quiet === null || quiet.stage === 'NONE',
+            firstTick,
+            orderedEscalation: firstTick.PROTEST != null
+                && firstTick.STRIKE > firstTick.PROTEST,
+            noUnprovokedUprising: firstTick.UPRISING == null,
+            concession: conceded,
+            suppression: suppressed,
+            afterSameUnresolvedCrisis: {
+                conceded: concededAfter,
+                suppressed: suppressedAfter,
+                suppressionBackfire: suppressedAfter.radicalizationBps > concededAfter.radicalizationBps
+            },
+            repeatedSuppression: {
+                secondSuppression,
+                final: suppressionCycle,
+                uprisingTick: suppressionDrivenUprisingTick,
+                suppressionDrivenUprising: suppressionDrivenUprisingTick != null
+            }
+        };
+    } finally {
+        pureRuntime.dom.window.close();
+    }
+
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(180);
+        const story = runtime.api.state();
+        const ledger = runtime.api.collectiveLedger();
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, `country:${story.playerStateId}`);
+        const ownNode = story.nodes.find(node => node.owner === story.playerStateId);
+        const foreignNode = story.nodes.find(node => node.owner !== story.playerStateId);
+        const ownRegionId = `region:${ownNode.id}`;
+        const foreignRegionId = `region:${foreignNode.id}`;
+        const ownKnowledge = knowledge.regions.find(region => region.id === ownRegionId);
+        const foreignKnowledge = knowledge.regions.find(region => region.id === foreignRegionId);
+        const ownPopulation = runtime.api.renderCityDossier(ownNode.id, 'nufus');
+        const foreignPopulation = runtime.api.renderCityDossier(foreignNode.id, 'nufus');
+        const notices = runtime.api.factionNotices();
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = runtime.api.collectiveLedger();
+        const savedPayload = JSON.parse(savedRaw).collectiveAction;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        const migratedCountry = migrated.ok
+            ? migrated.world.countries.find(country => country.id === `country:${story.playerStateId}`)
+            : null;
+        const migratedRegion = migrated.ok
+            ? migrated.world.regions.find(region => region.id === ownRegionId)
+            : null;
+        main = {
+            validation: runtime.api.validateCollectiveLedger(ledger),
+            saveOk: story._lastSaveOk === true,
+            saveExact: JSON.stringify(savedPayload) === JSON.stringify(savedLedger),
+            summary: runtime.api.collectiveSummary(),
+            worldValidation: runtime.api.validateWorldV2(world),
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
+            ownKnowledge: ownKnowledge.collectiveAction,
+            foreignKnowledge: foreignKnowledge.collectiveAction,
+            foreignSecretsHidden: !/mobilizationBps|radicalizationBps|organizationBps|suppressionMemoryBps/.test(
+                JSON.stringify(foreignKnowledge.collectiveAction.value)
+            ),
+            ui: {
+                ownHasCollectiveActions: ownPopulation.text.includes('TOPLUMSAL EYLEMLER'),
+                foreignHasCollectiveActions: foreignPopulation.text.includes('TOPLUMSAL EYLEMLER'),
+                foreignSecretLeak: /seferberlik %|radikalleşme %/.test(foreignPopulation.text),
+                responseNoticeCount: notices.filter(notice => notice.collectiveActionId).length,
+                responseOptionsValid: notices.filter(notice => notice.collectiveActionId)
+                    .every(notice => JSON.stringify(notice.responseOptions) === JSON.stringify([
+                        'CONCEDE', 'NEGOTIATE', 'SUPPRESS', 'IGNORE'
+                    ]))
+            },
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                countryPreserved: !!(migratedCountry && migratedCountry.collectiveAction),
+                regionPreserved: !!(migratedRegion && migratedRegion.collectiveAction),
+                unmapped: !!(migrated.ok
+                    && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('collectiveAction'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        restored = { loaded: restoredRuntime.api.loadNow(), validation: null, exact: false };
+        const ledger = restoredRuntime.api.collectiveLedger();
+        restored.validation = restoredRuntime.api.validateCollectiveLedger(ledger);
+        restored.exact = JSON.stringify(ledger) === JSON.stringify(savedLedger);
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.collectiveAction;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacy = { loaded: legacyRuntime.api.loadNow(), validation: null, summary: null, diagnostics: null };
+        const ledger = legacyRuntime.api.collectiveLedger();
+        legacy.validation = legacyRuntime.api.validateCollectiveLedger(ledger);
+        legacy.summary = legacyRuntime.api.collectiveSummary();
+        legacy.diagnostics = ledger.diagnostics;
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptMovement = Object.values(corruptSave.collectiveAction.movements)[0];
+    if (corruptMovement) corruptMovement.mobilizationBps = 10001;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corrupt = { loaded: corruptRuntime.api.loadNow(), validation: null, diagnostics: null };
+        const ledger = corruptRuntime.api.collectiveLedger();
+        corrupt.validation = corruptRuntime.api.validateCollectiveLedger(ledger);
+        corrupt.diagnostics = ledger.diagnostics;
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'society.collectiveAction': false }
+        });
+        disabledRuntime.api.advance(30);
+        const ledger = disabledRuntime.api.collectiveLedger();
+        disabled = {
+            ledger,
+            summary: disabledRuntime.api.collectiveSummary(),
+            validation: ledger
+                ? disabledRuntime.api.validateCollectiveLedger(ledger)
+                : { ok: true, disabled: true, issues: [] }
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const on = runStorySimulation({ seed, seconds: 180 });
+    const off = runStorySimulation({
+        seed, seconds: 180, featureFlags: { 'society.collectiveAction': false }
+    });
+    return {
+        pure, main, restored, legacy, corrupt, disabled,
+        ab: {
+            onHash: on.stateHash,
+            offHash: off.stateHash,
+            changed: on.stateHash !== off.stateHash,
+            onValidation: on.collectiveValidation,
+            offValidation: off.collectiveValidation,
+            onSummary: on.collectiveSummary,
+            offSummary: off.collectiveSummary
+        }
+    };
 }
 
 module.exports = {
@@ -7689,6 +8444,8 @@ module.exports = {
     probeEconomicAI,
     probePopulationCohorts,
     probeNeedsWelfare,
+    probePublicOpinion,
+    probeCollectiveAction,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

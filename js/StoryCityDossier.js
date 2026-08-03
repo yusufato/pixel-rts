@@ -142,7 +142,7 @@ function storyCityDossierBuild(nodeId) {
     const facts = {};
     for (const field of [
         'name', 'ownerId', 'neighborIds', 'level', 'garrison', 'infrastructure',
-        'population', 'populationCohorts', 'needsWelfare', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
+        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
     ]) facts[field] = storyCityDossierFactCopy(region[field]);
     const ownerCountry = (knowledge.countries || []).find(candidate => candidate.id === ownerId);
     facts.budget = storyCityDossierFactCopy(ownerCountry && ownerCountry.budget);
@@ -222,7 +222,7 @@ function storyCityDossierValidate(view) {
         }
     }
     if (!view.isOwn) {
-        for (const field of ['level', 'garrison', 'infrastructure', 'population', 'populationCohorts', 'needsWelfare', 'wealth', 'deposits', 'trade', 'market', 'logistics', 'budget']) {
+        for (const field of ['level', 'garrison', 'infrastructure', 'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'wealth', 'deposits', 'trade', 'market', 'logistics', 'budget']) {
             const fact = view.facts && view.facts[field];
             if (!fact || fact.status !== PLAYER_FACT_STATUS.UNKNOWN || fact.value !== null) {
                 add('FOREIGN_SECRET_LEAK', `$.facts.${field}`, `Yabancı ${field} bilgisi gizli kalmalı.`);
@@ -230,6 +230,11 @@ function storyCityDossierValidate(view) {
         }
         if ((view.corridors || []).length) add('FOREIGN_LOGISTICS_LEAK', '$.corridors', 'Yabancı lojistik ayrıntısı gösterilemez.');
         if ((view.characters || []).length) add('FOREIGN_CHARACTER_LOCATION_LEAK', '$.characters', 'Bilinmeyen yabancı karakter konumu gösterilemez.');
+        const collective = view.facts && view.facts.collectiveAction;
+        const collectiveText = collective && collective.value ? JSON.stringify(collective.value) : '';
+        if (/mobilizationBps|radicalizationBps|organizationBps|suppressionMemoryBps/.test(collectiveText)) {
+            add('FOREIGN_COLLECTIVE_INTELLIGENCE_LEAK', '$.facts.collectiveAction', 'Yabancı hareketin gizli örgütlenme/radikalleşme ölçüleri sızamaz.');
+        }
     }
     if (!Array.isArray(view.missingSystems)
         || view.missingSystems.some(item => item.status !== 'NOT_IMPLEMENTED')) {
@@ -532,11 +537,34 @@ function storyCityDossierRenderCharacters(view) {
         + `</div><p class="city-hint">Karaktere özel serbest sohbet sözleşmesi henüz yoktur; düğme mevcut sohbet merkezini bu karakter bağlamıyla açar.</p></section>`;
 }
 
+function storyCityDossierRenderCollective(view) {
+    const fact = view.facts.collectiveAction;
+    if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !fact.value) return '';
+    const value = fact.value;
+    const rows = Array.isArray(value.participations) ? value.participations : [];
+    const problemLabels = {
+        food: 'Gıda erişimi', energy: 'Enerji erişimi', income: 'Gelir güvencesi',
+        employment: 'İşsizlik', security: 'Fiziksel güvenlik', publicServices: 'Kamu hizmetleri'
+    };
+    const stageLabels = { NONE: 'ÖRGÜTLENME', PROTEST: 'PROTESTO', STRIKE: 'GREV', UPRISING: 'AYAKLANMA' };
+    const visible = view.isOwn ? rows : rows.filter(row => row.stage !== 'NONE');
+    return `<section class="city-dossier-sec"><h3>TOPLUMSAL EYLEMLER</h3>`
+        + (visible.length
+            ? `<div class="city-character-list">${visible.slice(0, 4).map(row => `<article class="city-character-row"><div>`
+                + `<b>${storyCityDossierEscape(stageLabels[row.stage] || row.stage)} · ${storyCityDossierEscape(problemLabels[row.problemType] || row.problemType)}</b>`
+                + `<span>SORUMLU GÖRÜLEN: ${storyCityDossierEscape(typeof storyOpinionActorLabel === 'function' ? storyOpinionActorLabel(row.blamedActorId) : row.blamedActorId)}</span>`
+                + (view.isOwn ? `<small>Yerel şiddet %${storyCityDossierNumber(row.localSeverityBps / 100)} · seferberlik %${storyCityDossierNumber(row.mobilizationBps / 100)} · radikalleşme %${storyCityDossierNumber(row.radicalizationBps / 100)}</small>` : '<small>Kamuya açık eylem; örgütlenme gücü ve radikalleşme bilinmiyor.</small>')
+                + `</div></article>`).join('')}</div>`
+            : `<div class="city-dossier-empty"><b>AKTİF KAMUSAL EYLEM YOK</b><span>${view.isOwn ? 'Şikâyetler henüz kalıcı seferberlik eşiğini aşmadı.' : 'Bu bölgede kamuya yansımış protesto, grev veya ayaklanma gözlenmedi.'}</span></div>`)
+        + `<p class="city-hint">Protesto anlık şikâyetten doğmaz; süre, tekrar, etkilenen nüfus ve örgütlenme birlikte eşik aşar. Yabancı gizli radikal ağlar kesin sayı olarak gösterilmez.</p></section>`;
+}
+
 function storyCityDossierRenderPopulation(view) {
     const fact = view.facts.populationCohorts;
     if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !Array.isArray(fact.value)) {
         return `<section class="city-dossier-empty"><b>NÜFUS SAYIMI DOĞRULANMADI</b>`
-            + `<span>Yabancı bölgenin yaş, gelir, meslek, eğitim ve kimlik dağılımı istihbarat olmadan gösterilmez.</span></section>`;
+            + `<span>Yabancı bölgenin yaş, gelir, meslek, eğitim ve kimlik dağılımı istihbarat olmadan gösterilmez.</span></section>`
+            + storyCityDossierRenderCollective(view);
     }
     const rows = fact.value;
     const total = rows.reduce((sum, row) => sum + (Number(row.membersPeople) || 0), 0);
@@ -572,12 +600,31 @@ function storyCityDossierRenderPopulation(view) {
         + `<div><span>FİZİKSEL GÜVENLİK</span><b>%${storyCityDossierNumber(needs.securityBps / 100)}</b></div>`
         + `<div><span>KAMU HİZMETİ</span><b>%${storyCityDossierNumber(needs.publicServicesBps / 100)}</b></div>`
         + `<div><span>TOPLAM YAŞAM KOŞULU</span><b>%${storyCityDossierNumber(needs.wellbeingBps / 100)}</b></div>`
-        + `</div><p class="city-hint">Aynı kaynak şoku bütün toplumu eşit etkilemez; aşağıdaki kohortların ihtiyaç ağırlıkları farklıdır. Bu sonuçlar Faz 25'te şikâyet hafızasına dönüşecek.</p></section>` : '';
+        + `</div><p class="city-hint">Aynı kaynak şoku bütün toplumu eşit etkilemez; aşağıdaki kohortların ihtiyaç ağırlıkları farklıdır. Bu anlık sonuçlar şikâyet hafızasına kaynak olur, fakat geçmiş tepkiyi tek başına silmez.</p></section>` : '';
+    const opinionFact = view.facts.publicOpinion;
+    const opinion = opinionFact && opinionFact.status === PLAYER_FACT_STATUS.VERIFIED
+        ? opinionFact.value
+        : null;
+    const problemLabels = {
+        food: 'Gıda erişimi', energy: 'Enerji erişimi', income: 'Gelir güvencesi',
+        employment: 'İşsizlik', security: 'Fiziksel güvenlik', publicServices: 'Kamu hizmetleri'
+    };
+    const complaints = opinion ? `<section class="city-dossier-sec"><h3>BİRİKEN ŞİKÂYETLER</h3>`
+        + `<div class="city-fact-grid"><div><span>TOPLUMSAL HAFIZA</span><b>%${storyCityDossierNumber(opinion.rememberedSeverityBps / 100)}</b>`
+        + `<small>${opinion.affectedCohortCount}/${opinion.cohortCount} kohort etkileniyor</small></div></div>`
+        + ((opinion.topIssues || []).length
+            ? `<div class="city-character-list">${opinion.topIssues.slice(0, 4).map(issue => `<article class="city-character-row"><div>`
+                + `<b>${storyCityDossierEscape(problemLabels[issue.problemType] || issue.problemType)} · %${storyCityDossierNumber(issue.severityBps / 100)}</b>`
+                + `<span>SORUMLU GÖRÜLEN: ${storyCityDossierEscape(typeof storyOpinionActorLabel === 'function' ? storyOpinionActorLabel(issue.blamedActorId) : issue.blamedActorId)}</span>`
+                + `<small>${Math.round(issue.affectedPeople).toLocaleString('tr-TR')} kişi · ${issue.activeCohortCount} aktif / ${issue.recoveringCohortCount} iyileşen kohort</small>`
+                + `</div></article>`).join('')}</div>`
+            : `<div class="city-dossier-empty"><b>BİRİKMİŞ ŞİKÂYET YOK</b><span>Anlık baskı hafıza eşiğini aşmadı veya tamamen unutuldu.</span></div>`)
+        + `<p class="city-hint">Sorumluluk bir mahkeme gerçeği değil, mevcut doğrudan sağlayıcı veya kamu yetkisine dayanan toplumsal atıftır. Medya ve söylenti katmanları ileride bu algıyı değiştirebilir; temel fiziksel olay kaydı değişmez.</p></section>` : '';
     return `<section class="city-dossier-sec"><h3>NÜFUS SAYIMI</h3><div class="city-fact-grid">`
         + `<div><span>TOPLAM</span><b>${Math.round(total).toLocaleString('tr-TR')}</b><small>tam kişi uzlaştırması</small></div>`
         + `<div><span>ÇALIŞMA ÇAĞI</span><b>${labor ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
         + `<div><span>KULLANILABİLİR ÇALIŞAN</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>ücret modeli henüz yok</small></div>`
-        + `</div><p class="city-hint">Bu değerler dekoratif değildir: bölgesel üretimin iş gücü tavanını doğrudan belirler. Ücret endeksi Faz 28'e kadar kesin değer olarak gösterilmez.</p></section>${conditions}${sections}`;
+        + `</div><p class="city-hint">Bu değerler dekoratif değildir: bölgesel üretimin iş gücü tavanını doğrudan belirler. Ücret endeksi Faz 28'e kadar kesin değer olarak gösterilmez.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${sections}`;
 }
 
 function storyCityDossierRender(view, active, node) {

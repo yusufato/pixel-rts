@@ -89,6 +89,12 @@ function storyWorldV2Countries() {
             economicPolicy: typeof storyEconomicAICountryView === 'function'
                 ? storyWorldV2Clone(storyEconomicAICountryView(storyWorldV2CountryId(state.id)))
                 : null,
+            publicOpinion: typeof storyOpinionCountryView === 'function'
+                ? storyWorldV2Clone(storyOpinionCountryView(storyWorldV2CountryId(state.id)))
+                : null,
+            collectiveAction: typeof storyCollectiveCountryView === 'function'
+                ? storyWorldV2Clone(storyCollectiveCountryView(storyWorldV2CountryId(state.id)))
+                : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
                 manpower: storyWorldV2Round(state.res && state.res.manpower),
@@ -131,6 +137,12 @@ function storyWorldV2Regions() {
                         : null,
                     needsWelfare: typeof storyNeedsRegionSummaryView === 'function'
                         ? storyWorldV2Clone(storyNeedsRegionSummaryView(region.id))
+                        : null,
+                    publicOpinion: typeof storyOpinionRegionView === 'function'
+                        ? storyWorldV2Clone(storyOpinionRegionView(region.id))
+                        : null,
+                    collectiveAction: typeof storyCollectiveRegionView === 'function'
+                        ? storyWorldV2Clone(storyCollectiveRegionView(region.id))
                         : null
                 }
             );
@@ -189,6 +201,12 @@ function storyWorldV2Regions() {
                 : null,
             needsWelfare: typeof storyNeedsRegionSummaryView === 'function'
                 ? storyWorldV2Clone(storyNeedsRegionSummaryView(storyWorldV2RegionId(node.id)))
+                : null,
+            publicOpinion: typeof storyOpinionRegionView === 'function'
+                ? storyWorldV2Clone(storyOpinionRegionView(storyWorldV2RegionId(node.id)))
+                : null,
+            collectiveAction: typeof storyCollectiveRegionView === 'function'
+                ? storyWorldV2Clone(storyCollectiveRegionView(storyWorldV2RegionId(node.id)))
                 : null,
             position: {
                 coordinateSpace: 'NORMALIZED_WORLD',
@@ -252,6 +270,9 @@ function storyWorldV2PopulationCohorts() {
             membersPeople: row.membersPeople,
             needsWelfare: typeof storyNeedsCohortView === 'function'
                 ? storyWorldV2Clone(storyNeedsCohortView(row.id))
+                : null,
+            publicOpinion: typeof storyOpinionCohortView === 'function'
+                ? storyWorldV2Clone(storyOpinionCohortView(row.id))
                 : null
         }
     ));

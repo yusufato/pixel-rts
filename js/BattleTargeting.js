@@ -62,7 +62,9 @@ function scoreTarget(contact, ownUnits, blackboard, weights) {
     // (d) KARŞI-BATARYA ("bataryayı sustur"): grup DOLAYLI-ateş içeriyorsa düşman topçusu/ÇNRA/havanı öncelikli hedef.
     // Düşman-topçusu ancak KESKİN (radar counter_battery aurası dolaylı-atıcıyı ifşa eder) → contact olarak görülür; bu bonus radar-ifşaya doğal bağlanır.
     const tIndirect = (tSt && tSt.weapons && tSt.weapons[0] && tSt.weapons[0].indirect) || tRoles.includes('artillery') || (typeof T !== 'undefined' && (tType === T.ARTILLERY || tType === T.MLRS || tType === T.MORTAR || tType === T.BALLISTIC));
-    if (hasArea && tIndirect) score += W.counterBattery;
+    // INTEL4-delta (flag-kapılı, grup-tarafına göre): karşı-batarya öncelendirmesi intel3pro'da yok.
+    const _cbBrain = (typeof battleDelta === 'function') && ownUnits[0] && battleDelta(ownUnits[0].isRed, 'micro');
+    if (hasArea && tIndirect && _cbBrain) score += W.counterBattery;
     return score * (contact.confidence != null ? contact.confidence : 1);
 }
 

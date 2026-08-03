@@ -2116,6 +2116,11 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .faction-event-effect span { color: var(--wr-muted); font-size: 8px; letter-spacing: 1.4px; }
 .faction-event-effect b { margin-top: 5px; color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; line-height: 1.5; }
 .faction-event-deltas { margin-top: 10px; color: var(--wr-green); font-size: 10px; line-height: 1.5; }
+.faction-event-responses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
+.faction-event-responses.hidden { display: none; }
+.faction-event-responses .story-btn { min-height: 34px; white-space: normal; line-height: 1.25; }
+.faction-event-responses .response-concede { border-color: #4cff7c; }
+.faction-event-responses .response-suppress { border-color: #ff5a5a; }
 .faction-event-actions { display: flex; gap: 9px; margin-top: 18px; }
 .faction-event-actions .story-btn { border-radius: 4px; font: 10px 'Share Tech Mono', monospace; letter-spacing: .8px; }
 

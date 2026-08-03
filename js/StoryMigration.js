@@ -294,6 +294,24 @@ function storyMigrationV3RawToV2(raw, options) {
     const populationCohorts = [];
     const savedPopulationRegions = storyMigrationObject(storyMigrationObject(save.population).regions);
     const savedNeedsRegions = storyMigrationObject(storyMigrationObject(save.needsWelfare).regions);
+    const expandedOpinion = typeof storyOpinionExpandSaved === 'function'
+        ? storyOpinionExpandSaved(save.publicOpinion)
+        : storyMigrationObject(save.publicOpinion);
+    const savedOpinionRegions = storyMigrationObject(storyMigrationObject(expandedOpinion).regions);
+    const savedOpinionCohorts = storyMigrationObject(storyMigrationObject(expandedOpinion).cohorts);
+    const savedCollective = storyMigrationObject(save.collectiveAction);
+    const savedCollectiveMovements = storyMigrationObject(savedCollective.movements);
+    const savedCollectiveCountries = storyMigrationObject(savedCollective.countries);
+    const savedCollectiveRegions = storyMigrationObject(savedCollective.regions);
+    for (const countryId of Object.keys(savedCollectiveCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (migratedCountry) {
+            const summary = storyMigrationClone(savedCollectiveCountries[countryId]);
+            summary.movements = (summary.movementIds || []).map(id => storyMigrationClone(savedCollectiveMovements[id])).filter(Boolean);
+            delete summary.movementIds;
+            migratedCountry.collectiveAction = summary;
+        }
+    }
     const migratedNeedsByCohort = new Map();
     for (const regionId of Object.keys(savedNeedsRegions)) {
         const needsRegion = storyMigrationObject(savedNeedsRegions[regionId]);
@@ -308,6 +326,14 @@ function storyMigrationV3RawToV2(raw, options) {
             delete summary.cohorts;
             migratedRegion.needsWelfare = summary;
         }
+    }
+    for (const regionId of Object.keys(savedOpinionRegions)) {
+        const migratedRegion = regions.find(region => region.id === regionId);
+        if (migratedRegion) migratedRegion.publicOpinion = storyMigrationClone(savedOpinionRegions[regionId]);
+    }
+    for (const regionId of Object.keys(savedCollectiveRegions)) {
+        const migratedRegion = regions.find(region => region.id === regionId);
+        if (migratedRegion) migratedRegion.collectiveAction = storyMigrationClone(savedCollectiveRegions[regionId]);
     }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
@@ -324,7 +350,10 @@ function storyMigrationV3RawToV2(raw, options) {
                     identity: String(cohort.identity || ''),
                     shareBps: Math.max(0, Math.round(Number(cohort.shareBps) || 0)),
                     membersPeople: Math.max(0, Math.round(Number(cohort.membersPeople) || 0)),
-                    needsWelfare: migratedNeedsByCohort.get(String(cohort.id)) || null
+                    needsWelfare: migratedNeedsByCohort.get(String(cohort.id)) || null,
+                    publicOpinion: savedOpinionCohorts[String(cohort.id)]
+                        ? storyMigrationClone(savedOpinionCohorts[String(cohort.id)])
+                        : null
                 }
             ));
         }
@@ -335,7 +364,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);

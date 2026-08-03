@@ -73,6 +73,41 @@ function storyPlayerUnknownFact(subjectId, field, gameTime) {
     });
 }
 
+// Protesto/grev/ayaklanma kamusal olaydır; yabancı oyuncudan gizlenmez. Ancak
+// örgütlenme, seferberlik, radikalleşme ve hükümet yanıt eşiği iç veridir.
+function storyPlayerCollectivePublicView(value) {
+    if (!value || typeof value !== 'object') return null;
+    if (Array.isArray(value.movements)) {
+        const movements = value.movements.filter(row => row.stage && row.stage !== 'NONE').map(row => ({
+            id: row.id,
+            problemType: row.problemType,
+            blamedActorId: row.blamedActorId,
+            stage: row.stage,
+            stageSince: row.stageSince
+        }));
+        return {
+            countryId: value.countryId,
+            activeActionCount: movements.length,
+            protestCount: movements.filter(row => row.stage === 'PROTEST').length,
+            strikeCount: movements.filter(row => row.stage === 'STRIKE').length,
+            uprisingCount: movements.filter(row => row.stage === 'UPRISING').length,
+            movements
+        };
+    }
+    const participations = (value.participations || []).filter(row => row.stage && row.stage !== 'NONE').map(row => ({
+        movementId: row.movementId,
+        problemType: row.problemType,
+        blamedActorId: row.blamedActorId,
+        stage: row.stage
+    }));
+    return {
+        regionId: value.regionId,
+        countryId: value.countryId,
+        activeActionCount: participations.length,
+        participations
+    };
+}
+
 function storyPlayerKnowledgeProject(world, playerCountryId) {
     if (typeof storyFeatureEnabled === 'function' && !storyFeatureEnabled('knowledge.playerProjection')) {
         throw new Error('Oyuncu bilgi projeksiyonu özellik bayrağıyla kapalı.');
@@ -112,6 +147,16 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
             economicPolicy: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'economicPolicy', country.economicPolicy, gameTime, 'OWN_ECONOMIC_DECISION_LEDGER')
                 : storyPlayerUnknownFact(country.id, 'economicPolicy', gameTime)),
+            publicOpinion: fact(own
+                ? storyPlayerVerifiedFact(country.id, 'publicOpinion', country.publicOpinion, gameTime, 'OWN_SOCIAL_RESEARCH')
+                : storyPlayerUnknownFact(country.id, 'publicOpinion', gameTime)),
+            collectiveAction: fact(storyPlayerVerifiedFact(
+                country.id,
+                'collectiveAction',
+                own ? country.collectiveAction : storyPlayerCollectivePublicView(country.collectiveAction),
+                gameTime,
+                own ? 'OWN_SOCIAL_ADMINISTRATION' : 'PUBLIC_COLLECTIVE_EVENT'
+            )),
             resources: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'resources', country.resources, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(country.id, 'resources', gameTime))
@@ -144,6 +189,16 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
             needsWelfare: fact(own
                 ? storyPlayerVerifiedFact(region.id, 'needsWelfare', region.needsWelfare, gameTime, 'OWN_SOCIAL_SERVICES')
                 : storyPlayerUnknownFact(region.id, 'needsWelfare', gameTime)),
+            publicOpinion: fact(own
+                ? storyPlayerVerifiedFact(region.id, 'publicOpinion', region.publicOpinion, gameTime, 'OWN_SOCIAL_RESEARCH')
+                : storyPlayerUnknownFact(region.id, 'publicOpinion', gameTime)),
+            collectiveAction: fact(storyPlayerVerifiedFact(
+                region.id,
+                'collectiveAction',
+                own ? region.collectiveAction : storyPlayerCollectivePublicView(region.collectiveAction),
+                gameTime,
+                own ? 'OWN_SOCIAL_ADMINISTRATION' : 'PUBLIC_COLLECTIVE_EVENT'
+            )),
             wealth: fact(own
                 ? storyPlayerVerifiedFact(region.id, 'wealth', region.wealth, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(region.id, 'wealth', gameTime)),

@@ -41,7 +41,7 @@ function situationSectorForX(x) {
 }
 
 function emptySector() {
-    return { friendlyValue: 0, enemyValue: 0, ratio: null, contactConfidence: 0 };
+    return { friendlyValue: 0, enemyValue: 0, ratio: null, contactConfidence: 0, softenedValue: 0, softening: 0 };
 }
 
 function postureFromRatio(ratio, confidence) {
@@ -75,7 +75,11 @@ const STRIKE_GATE = Object.freeze({
     MIN_CONFIDENCE: 0.35,       // bilgi-tazeliği: kör taarruz etme (urgency override eder)
     MIN_AMMO: 0.2,              // kuru orduyla taarruz etme
     DESPERATION_TP: 0.55,       // ANALİST-FIX: saldıran daha ERKEN koşulsuz-taarruz (0.8→0.55; t=209 "ölmüş hastaya defibrilatör"du → ~t=130'a çek)
-    HYSTERESIS: 0.28            // HİSTEREZİS: aç ≥eşik, ama açıkken yalnız (eşik-0.28) altında KAPAT → titreme biter + STRIKE-penceresi oluşur (aç-kapa flicker yerine sürekli pencere)
+    HYSTERESIS: 0.28,           // HİSTEREZİS: aç ≥eşik, ama açıkken yalnız (eşik-0.28) altında KAPAT → titreme biter + STRIKE-penceresi oluşur (aç-kapa flicker yerine sürekli pencere)
+    STRIKE_DWELL: 320,          // ANALİST-FIX(intel4): STRIKE min-kalış ~16s → şok/urgency STRIKE'ı 1-tik forceRatio-dip'i çökertmesin (t50→t51 osilasyonu bitir)
+    STRIKE_ABORT_RATIO: 0.7,    // dwell içinde bile: kuvvet bu oranın altına çökerse STRIKE'ı BIRAK (kilitli-ölüm yok)
+    URGENCY_ABORT_RATIO: 0.35,  // ANALİST-FIX(Suçlu-1): urgency/şok COMMIT'i oran-vetosuna KAPALI — yalnız UMUTSUZ (oran<0.35) commit'i kırar. "urgency=oran-kötü-ama-mecbur" → 0.7-veto mantıksal-çelişkiydi (t100:STRIKE→t101:POSITION 30s-askı)
+    SHOCK_HOLD_TICKS: 60        // şok-sinyali min-hold ~3s (anlık-tepe-düşüş testinin tik-tik titremesini yumuşat)
 });
 // DOKTRİN↔POSTURE: doktrine göre taarruz-eşiği bias'ı → "her maç farklı RİTİM" (indeks BATTLE_DOCTRINE_NAMES ile hizalı).
 // NEGATİF=daha erken/agresif taarruz, POZİTİF=daha uzun şekillendir/yıprat (nadir STRIKE). Analist: topçu şekillendirir,
@@ -105,10 +109,15 @@ function computeOperationalPosture(o) {
         ((o.now || 0) - (o.prevStanceTick || 0)) >= STRIKE_GATE.MAX_POSITION_TICKS;
     const desperate = isAtt && ((o.timePressure || 0) >= STRIKE_GATE.DESPERATION_TP || positionStuck || commitDeadline);
     const hasContact = o.contactState === CONTACT_STATE.CONTACT;
+    // FAZ-C (analist 777): TEMAS-SOLMASI GRACE — STRIKE/gate-açıkken anlık-temas-kaybı (≤3s) STRIKE-korumasını düşürmesin (pinpon-bitir).
+    // Yalnız STRIKE-TUTMA yollarında (commit/dwell/stance-SHAPE) kullanılır; STRIKE-AÇMA hâlâ GERÇEK temas ister.
+    const CONTACT_GRACE_TICKS = 60;   // ~3s
+    const hasContactGraced = hasContact || ((o.prevGateOpen || o.prevStance === OPERATIONAL_POSTURE.STRIKE) && (o.ticksSinceContact || 99999) <= CONTACT_GRACE_TICKS);
     // SÖMÜRÜ-TETİĞİ (şok-penceresi): son ~4s'de düşman-değeri ani düştü (kamikaze/komando/topçu bir yığını sildi) →
     // fırsat penceresini YAKALA: gate-aç + duruş-kilidini aş. Kritik-zayıf değilsek (oran≥0.85) — savunanda da geçerli (yerel kontra).
     // Analist: "AI şok YARATABİLİYOR ama HARCAYAMIYOR" → izleyenden CEVAP-VERENe geçişin vidası.
-    const shock = !!o.shockWindow && hasContact && (o.ammoReadiness || 0) >= STRIKE_GATE.MIN_AMMO && Number.isFinite(o.forceRatio) && o.forceRatio >= 0.85;
+    const _dShock = (typeof BATTLE_INTEL4_DELTAS === 'undefined' || BATTLE_INTEL4_DELTAS.shock !== false);
+    const shock = !!o.intel4 && _dShock && !!o.shockWindow && hasContact && (o.ammoReadiness || 0) >= STRIKE_GATE.MIN_AMMO && Number.isFinite(o.forceRatio) && o.forceRatio >= 0.85;   // INTEL4-delta 'shock': şok-sömürü tetiği (flag-off=intel3pro'da yok)
     // HİSTEREZİS: açıkken eşik DÜŞER (yalnız net-dezavantajda kapat) → 500ms'lik aç-kapa flicker biter, STRIKE bir PENCERE olur
     const effThreshold = o.prevGateOpen ? (threshold - STRIKE_GATE.HYSTERESIS) : threshold;
     const ratioOK = Number.isFinite(o.forceRatio) && o.forceRatio >= effThreshold;
@@ -120,7 +129,31 @@ function computeOperationalPosture(o) {
     const ammoOK = (o.ammoReadiness || 0) >= STRIKE_GATE.MIN_AMMO;   // kuruyunca DUR (histerezissiz — ikmal penceresi doğru)
     // ANALİST-FIX(b): SAVUNAN hazır-mevzi terk için GÖRÜNÜRLÜK şartı — temasların ≥%70'i görünmeden mevziden çıkma (bayat-temas yalanına kanma)
     const visOK = isAtt || o.visibleRatio == null || (o.visibleRatio >= STRIKE_GATE.DEFENDER_VIS_MIN);
-    let gateOpen = desperate || shock || (hasContact && ratioOK && infoOK && ammoOK && visOK);
+    // ── FAZ-T1 (taarruz-doktrini, 'attack'-delta): YUMUŞATMA-KOŞULLU STRIKE ──
+    // T0-ölçümü: intel4-saldıran maxDom>1.0'a ULAŞIYOR ama ERİYOR (çıplak/erken taarruz → over-extend→imha). Çözüm: kapıyı
+    // SAATTEN değil HEDEF-SEKTÖR-YUMUŞATMASINDAN aç. Eşik dinamik (ana-çaba/hedef-sektör oranına göre): zayıf-sektör→az-törpü iste,
+    // güçlü→çok. Urgency (t≥150) yalnız SON-ÇARE (barajla senkron T3'te; burada çıplak-mecbur kapısı). intel3pro/flag-off = eski davranış.
+    let t1Active = false, t1Softened = false, t1Urgency = false, t1Threshold = 0;
+    if (o.attackDelta && isAtt) {
+        t1Active = true;
+        const _tr = o.targetRatio || 0;
+        t1Threshold = _tr >= 1.5 ? 0.20 : (_tr >= 1.0 ? 0.30 : 0.40);   // dinamik yumuşatma-eşiği (kilitli-tablo)
+        t1Softened = (o.targetSoftening || 0) >= t1Threshold && hasContact && ammoOK && infoOK;
+        t1Urgency = (o.timeProgress || 0) >= 0.417 && hasContact && ammoOK;   // t≈150/360 son-çare (çıplak-mecbur)
+    }
+    // ── FAZ-A (analist 909): ŞOK-SÖMÜRÜ R-T1'i DELMESİN ──
+    // 909'da t=36 yerel-küçük-şok tüm taarruzu yumuşamamış hatta açtı → eridi (17-28). 2024'te şok BÜYÜKtü (drone 3857 hasar) → kazandı.
+    // Kural: attack-delta'da şok TAM-taarruz açar ANCAK (yumuşatma ≥ eşiğin %65'i) VEYA (şok BÜYÜK: değer-kaybı ≥%25). Aksi halde şok
+    // yerel kalır (gate açma → POSITION'da yumuşatmayı beklemeye devam). "Şok gördüm→herkes hücum" değil "şok kadar kuvvet".
+    let shockFull = shock;
+    if (t1Active && shock) {
+        const _softEnough = (o.targetSoftening || 0) >= 0.65 * t1Threshold;
+        const _bigShock = (o.shockMagnitude || 0) >= 0.25;
+        shockFull = _softEnough || _bigShock;
+    }
+    let gateOpen = t1Active
+        ? (t1Softened || t1Urgency || shockFull)
+        : (desperate || shock || (hasContact && ratioOK && infoOK && ammoOK && visOK));
     // ANALİST-FIX(c): SAVUNAN kaybediyorsa (oran<0.6) kapıyı ZORLA-KAPAT → erken PRESERVE (mevziyi tut, 0.01'e kadar çökme bekleme)
     const losing = !isAtt && Number.isFinite(o.forceRatio) && o.forceRatio < STRIKE_GATE.PRESERVE_RATIO;
     if (losing) gateOpen = false;
@@ -129,11 +162,41 @@ function computeOperationalPosture(o) {
     const worn = (o.ammoReadiness || 0) < 0.4 || (o.hpReadiness || 1) < 0.55;
     const consolidate = isAtt && !desperate && Number.isFinite(o.forceRatio) && o.forceRatio > 2.0
         && worn && (o.timePressure || 0) < 0.6;
+    // ANALİST-FIX(intel4, flag-kapılı): STRIKE min-kalış (dwell). Şok/urgency STRIKE sıfır-kalışlıydı → 1-tik forceRatio-dip
+    // (veya shockWindow/vis titremesi) STRIKE'ı çökertip osilasyon yapıyordu (t50→t51, t85-96 arası 23 geçiş). Dwell içinde
+    // gate'i TUT — ama gerçek dur-koşulları (mühimmat-bitişi, savunan-kaybı, doruk-konsolide, kuvvet-çöküşü<0.7) override eder.
+    let dwellHold = false;
+    let strikeCommit = false;
+    if (o.intel4 && (typeof BATTLE_INTEL4_DELTAS === 'undefined' || BATTLE_INTEL4_DELTAS.stance !== false)) {   // INTEL4-delta 'stance'
+        // ── ANALİST-FIX Suçlu-1: URGENCY-COMMIT KİLİDİ ──
+        // urgency(desperate)/şok STRIKE'ı AÇTIĞINDA, kuvvet-oranı bir-tik-dip'iyle GERİ KAPANMASIN. "urgency" zaten
+        // "oran kötü ama mecbursun" demek → oranla (STRIKE_ABORT_RATIO=0.7) veto etmek mantıksal çelişki (t100:STRIKE(urgency)
+        // →t101:POSITION(kuvvet-orani)→t130:STRIKE, taarruz 30s ateş-altında askıda). Commit, GERÇEK-stop'a dek STRIKE'ı tutar:
+        // mühimmat-bitişi / doruk-konsolide / savunan-kaybı / oran UMUTSUZ(<0.35) / temas-yok. desperate flicker'ından bağımsız latch.
+        const urgencyDrive = desperate || shockFull || t1Softened || t1Urgency;   // T1: yumuşatma/urgency/BÜYÜK-şok STRIKE'ı commit-latch'le tut (sınırlı-şok latch'lemez → FAZ-A)
+        const wasCommitted = !!o.prevStrikeCommit && o.prevStance === OPERATIONAL_POSTURE.STRIKE && hasContactGraced;   // FAZ-C: grace ile anlık-temas-solmasında commit düşmez
+        // FAZ0+FAZ1 (analist): urgency-commit'te KUVVET-ORANI VETOSU DEVRE-DIŞI (urgency=oran-kötü-ama-mecbur → oranla kırmak çelişki).
+        // Askıya-alma YALNIZ İPTAL-KRİTERİYLE: mühimmat-bitişi / doruk-konsolide / savunan-kaybı / temas-yok / + FAZ1 KAYIP-TABANLI-İPTAL
+        // (kilitli-karar "iptal=role-göre-dinamik"): kuvvet ~%70'ten çok yıprandıysa (hpReadiness<eşik) taarruzu bırak (kıyma-makinesine
+        // asker atma). Oran DEĞİL kendi-kaybı bozar → "anlık-okuma planı devirmez, yalnız iptal-kriteri devirir" (operasyon-nesnesi ilkesi).
+        const lossFloor = isAtt ? 0.30 : 0.22;   // saldıran daha çok yıpranmaya dayanır; savunan mevzi-kaybında zaten 'losing'→PRESERVE
+        const lossAbort = Number.isFinite(o.hpReadiness) && o.hpReadiness < lossFloor;
+        const commitBroken = !ammoOK || consolidate || losing || !hasContactGraced || lossAbort;   // FAZ-C: temas-yok grace'li (anlık-solma commit'i kırmaz)
+        const committedHold = (urgencyDrive || wasCommitted) && !commitBroken;
+        if (committedHold) { gateOpen = true; strikeCommit = true; }   // KİLİT: urgency-commit oran-vetosunu geçer
+
+        // STRIKE min-kalış (dwell): şok/urgency-DIŞI STRIKE'ın 1-tik dip'e karşı ~16s korunması (osilasyon-bitir).
+        const inStrikeDwell = o.prevStance === OPERATIONAL_POSTURE.STRIKE &&
+            ((o.now || 0) - (o.prevStanceTick || 0)) < STRIKE_GATE.STRIKE_DWELL;
+        const dwellHardStop = !ammoOK || losing || consolidate ||
+            (Number.isFinite(o.forceRatio) && o.forceRatio < STRIKE_GATE.STRIKE_ABORT_RATIO);
+        if (!gateOpen && inStrikeDwell && hasContactGraced && !dwellHardStop) { gateOpen = true; dwellHold = true; }   // FAZ-C: grace'li
+    }
     let stance;
     if (losing) stance = OPERATIONAL_POSTURE.PRESERVE;   // kaybeden savunan: mevziyi tut
     else if (consolidate) { stance = OPERATIONAL_POSTURE.CONSOLIDATE; gateOpen = false; }
     else if (gateOpen) stance = OPERATIONAL_POSTURE.STRIKE;
-    else if (!hasContact) stance = OPERATIONAL_POSTURE.SHAPE;
+    else if (!hasContactGraced) stance = OPERATIONAL_POSTURE.SHAPE;   // FAZ-C: anlık-temas-solmasında SHAPE'e düşme (grace) → POSITION'da kal
     else stance = isAtt ? OPERATIONAL_POSTURE.POSITION : OPERATIONAL_POSTURE.PRESERVE;
     // ANALİST-FIX: STANCE HİSTEREZİSİ (titreme=saniyede-bir-duruş bug'ı). non-STRIKE duruşlar (SHAPE/POSITION/PRESERVE)
     // arası flicker'ı kilitle: min-süre önceki duruşu tut. STRIKE giriş/çıkış gate-histerezisiyle zaten korunur;
@@ -150,11 +213,18 @@ function computeOperationalPosture(o) {
         stance,
         stanceTick,
         strikeGateOpen: gateOpen,
+        strikeCommit,   // ANALİST-FIX Suçlu-1: urgency-commit latch (sonraki tik prevStrikeCommit olur)
         strikeThreshold: Math.round(threshold * 100) / 100,
+        // FAZ-T1 telemetri (attack-delta): kabul-testi "STRIKE-anı ort-yumuşatma ≥ eşik" bunlardan ölçülür
+        t1Threshold: t1Active ? t1Threshold : null,
+        t1Softening: t1Active ? (o.targetSoftening || 0) : null,
+        t1Ratio: t1Active ? (o.targetRatio || 0) : null,
         gateReason: losing ? 'kaybediyor-preserve'
                   : consolidate ? 'doruk-konsolide'
-                  : gateOpen ? (shock ? 'sok-somuru' : desperate ? 'urgency' : 'kosul-sagli')
+                  : gateOpen ? (t1Active ? (t1Softened ? 'yumusatma-hazir' : t1Urgency ? 'urgency-t150' : shock ? 'sok-somuru' : strikeCommit ? 'urgency-commit' : dwellHold ? 'strike-dwell' : 'kosul-sagli')
+                                       : (desperate ? 'urgency' : shock ? 'sok-somuru' : strikeCommit ? 'urgency-commit' : dwellHold ? 'strike-dwell' : 'kosul-sagli'))
                   : !hasContact ? 'temas-yok'
+                  : t1Active ? 'yumusatma-bekle'   // T1: kapı açık değilse sebep = hedef-sektör yeterince törpülenmedi
                   : !ratioOK ? 'kuvvet-orani'
                   : !visOK ? 'gorunurluk-dusuk'
                   : !infoOK ? 'kesif-bayat'
@@ -179,6 +249,9 @@ class SituationAnalyzer {
         const contactState = visibleContacts.length
             ? CONTACT_STATE.CONTACT
             : contacts.length ? CONTACT_STATE.UNCERTAIN : CONTACT_STATE.NO_CONTACT;
+        // FAZ-C (analist 777): TEMAS-SOLMASI GRACE — STRIKE-sömürü ortasında anlık-temas-kaybı duruşu düşürmesin. Son-temas tik'ini izle.
+        if (contactState === CONTACT_STATE.CONTACT) this._lastContactTick = observation.tick;
+        const ticksSinceContact = (this._lastContactTick != null) ? (observation.tick - this._lastContactTick) : 99999;
 
         const categories = {
             friendly: { armor: 0, fireSupport: 0, recon: 0, support: 0, line: 0 },
@@ -212,11 +285,16 @@ class SituationAnalyzer {
             const sector = sectors[situationSectorForX(contact.x)];
             sector.enemyValue += value;
             sector.contactConfidence = Math.max(sector.contactConfidence, contact.confidence);
+            // T0-TELEMETRİ (analist): SEKTÖR-YUMUŞATMA — hasar-görmüş(görev-dışı/imhaya-yakın) düşman değeri. healthBand intelligenceFloor'lu
+            // gözlemden → hilesiz. suppressed-effekt forensik-ring'te (T1'de eklenir); şimdilik sağlık-tabanlı yumuşatma (imha/ağır-hasar).
+            if (contact.healthBand && contact.healthBand !== 'HEALTHY') sector.softenedValue += value;
         }
 
         for (const sector of Object.values(sectors)) {
             sector.friendlyValue = Math.round(sector.friendlyValue * 100) / 100;
             sector.enemyValue = Math.round(sector.enemyValue * 100) / 100;
+            sector.softening = sector.enemyValue > 0 ? Math.round((sector.softenedValue / sector.enemyValue) * 100) / 100 : 0;   // yumuşatma-oranı (0-1)
+            sector.softenedValue = Math.round(sector.softenedValue * 100) / 100;
             sector.ratio = sector.enemyValue > 0
                 ? Math.round((sector.friendlyValue / sector.enemyValue) * 100) / 100
                 : sector.friendlyValue > 0 ? Infinity : null;
@@ -256,7 +334,22 @@ class SituationAnalyzer {
         while (this._evHist.length && (observation.tick - this._evHist[0].t) > SHOCK_WINDOW_TICKS) this._evHist.shift();
         let _evPeak = estimatedEnemyValue;
         for (const _e of this._evHist) if (_e.v > _evPeak) _evPeak = _e.v;
-        const shockWindow = _evPeak > 0 && ((_evPeak - estimatedEnemyValue) / _evPeak) >= 0.12;
+        // ANALİST-KORKULUĞU: t=0'da algı-init spike'ı yerleşince sahte "tepe-düşüş" → şoksuz-STRIKE tetikliyordu. Şok ancak
+        // TAM-pencere kadar geçmişse (tick≥window) + ≥3 örnekle ateşlenir (maç-başı sahte-şok önlenir). Determinist (tick-tabanlı).
+        // FAZ0 (analist): şok-sömürüye t<15s KORKULUĞU — maç-açılışının algı-init/taciz-gürültüsü sahte-şok üretip erken-dalış tetiklemesin.
+        const MIN_SHOCK_TICK = 300;   // ~15s
+        const shockMagnitude = (_evPeak > 0) ? Math.max(0, (_evPeak - estimatedEnemyValue) / _evPeak) : 0;   // FAZ-A: şok-BÜYÜKLÜĞÜ (düşman değer-kaybı oranı) — küçük-şok tam-taarruz açmasın
+        const shockWindow = observation.tick >= MIN_SHOCK_TICK && observation.tick >= SHOCK_WINDOW_TICKS && this._evHist.length >= 3 &&
+            _evPeak > 0 && shockMagnitude >= 0.12;
+        // INTEL4 (flag-kapılı): şok-sinyali min-hold — anlık-tepe-düşüş testinin tik-tik titremesini yumuşat (STRIKE-osilasyonunu besliyordu).
+        const _brainIntel4 = (typeof battleBrainIntel4 === 'function') && battleBrainIntel4(this.controller.side);
+        this._shockHoldUntil = this._shockHoldUntil || 0;
+        if (shockWindow) this._shockHoldUntil = observation.tick + STRIKE_GATE.SHOCK_HOLD_TICKS;
+        const _dStance = (typeof BATTLE_INTEL4_DELTAS === 'undefined' || BATTLE_INTEL4_DELTAS.stance !== false);   // şok-smoothing 'stance'-deltası
+        // ANALİST-FIX (t=0 STRIKE savunma-bug'ı, 2 insan-maçı): _shockHoldUntil=0 + tick=0 → "0<=0"=TRUE → maç-başı SAHTE-şok (oyuncu
+        // konuşlanınca hasContact→şok-sömürü t=0'da açılıyordu, savunma mevzisini bırakıp açık-karşılamaya çıkıyordu). MIN_SHOCK_TICK(300)
+        // korkuluğu ham-shockWindow'daydı ama smoothed onu atlıyordu. Şart: _shockHoldUntil>0 (gerçek-şok onu SET etmeden smoothed true olamaz).
+        const shockSmoothed = (_brainIntel4 && _dStance) ? (this._shockHoldUntil > 0 && observation.tick <= this._shockHoldUntil) : shockWindow;
 
         const finiteSectorEntries = Object.entries(sectors).filter(([, sector]) => Number.isFinite(sector.ratio));
         const weakestFriendlySector = finiteSectorEntries.length
@@ -270,6 +363,7 @@ class SituationAnalyzer {
             tick: observation.tick,
             side: this.controller.side,
             role,
+            threatProfile: observation && observation.threatProfile || null,   // TEHDİT-PROFİLİ: forensik-inanç (perception'dan); reaksiyon/telemetri okur
             contactState,
             contactCount: contacts.length,
             visibleContactCount: visibleContacts.length,
@@ -292,7 +386,15 @@ class SituationAnalyzer {
                 prevGateOpen: !!(this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.strikeGateOpen),
                 prevStance: this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.stance,   // STANCE-HİSTEREZİS
                 prevStanceTick: this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.stanceTick,
-                shockWindow,   // SÖMÜRÜ-TETİĞİ: şok anı → gate-aç + duruş-kilidini aş (şoku HARCA)
+                prevStrikeCommit: !!(this.lastAnalysis && this.lastAnalysis.operationalPosture && this.lastAnalysis.operationalPosture.strikeCommit),   // ANALİST-FIX Suçlu-1: urgency-commit latch geri-besleme
+                shockWindow: shockSmoothed,   // SÖMÜRÜ-TETİĞİ: şok anı → gate-aç + duruş-kilidini aş (intel4'te min-hold yumuşatılmış)
+                shockMagnitude,   // FAZ-A (analist 909): şok-büyüklüğü — R-T1'i delen küçük-şoku sınırlamak için
+                ticksSinceContact,   // FAZ-C (analist 777): temas-solması grace için son-temastan beri geçen tik
+                intel4: _brainIntel4,          // INTEL4 beyin-flag: STRIKE-dwell yalnız bu tarafın beyni intel4'se
+                // FAZ-T1 (taarruz-doktrini): STRIKE kapısı saatten değil HEDEF-SEKTÖR YUMUŞATMA'sından açılır. Girdiler:
+                attackDelta: (typeof battleDelta === 'function') && battleDelta(this.controller.side, 'attack'),
+                targetSoftening: (weakestEnemySector && sectors[weakestEnemySector]) ? sectors[weakestEnemySector].softening : 0,   // hedef(en-zayıf düşman)-sektör yumuşatma-oranı
+                targetRatio: (weakestEnemySector && sectors[weakestEnemySector] && sectors[weakestEnemySector].enemyValue > 0) ? Math.round((friendlyValue / sectors[weakestEnemySector].enemyValue) * 100) / 100 : (friendlyValue > 0 ? 9 : 0),   // ana-çaba / hedef-sektör düşman = dinamik-eşik girdisi
                 now: observation.tick
             }),
             readiness: {

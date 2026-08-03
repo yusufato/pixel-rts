@@ -476,6 +476,8 @@ function storyNewCampaign(config = {}) {
     if (typeof storyNeedsReset === 'function') storyNeedsReset();
     if (typeof storyCompanyReset === 'function') storyCompanyReset();
     if (typeof storyEconomicAIReset === 'function') storyEconomicAIReset();
+    if (typeof storyOpinionReset === 'function') storyOpinionReset();
+    if (typeof storyCollectiveReset === 'function') storyCollectiveReset();
     if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
     if (typeof storySchedulerReset === 'function') storySchedulerReset();
     // A/B geri dönüş yolu da yeni kampanyaya önceki koşunun kısmi sayaçlarını
@@ -556,6 +558,12 @@ function storySave() {
             needsWelfare: (typeof storyNeedsForSave === 'function')
                 ? storyNeedsForSave()
                 : STORY.needsWelfare,
+            publicOpinion: (typeof storyOpinionForSave === 'function')
+                ? storyOpinionForSave()
+                : STORY.publicOpinion,
+            collectiveAction: (typeof storyCollectiveForSave === 'function')
+                ? storyCollectiveForSave()
+                : STORY.collectiveAction,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -629,6 +637,8 @@ function storyLoad() {
         if (typeof storyCompanyRestore === 'function') storyCompanyRestore(d.companyEconomy);
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
+        if (typeof storyOpinionRestore === 'function') storyOpinionRestore(d.publicOpinion);
+        if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
         STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
         // Güncel GEO kaydı kendi şehir/petrol/maden dağılımını zaten taşır.
@@ -733,6 +743,7 @@ function storyLoad() {
         if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
         STORY.clock = d.clock || 0;
         if (typeof storyClockRestore === 'function') storyClockRestore(d.time);
+        if (typeof storyCollectiveReissuePendingNotices === 'function') storyCollectiveReissuePendingNotices();
         if (typeof storySchedulerRestore === 'function') storySchedulerRestore(d.scheduler);
         // FAZ-4 konsey takvimi: eski kayıtta yoksa "bir sonraki 2-yıl sınırı"na hizala
         const _per = (typeof COUNCIL_PERIOD_YEARS !== 'undefined') ? COUNCIL_PERIOD_YEARS * YEAR_SECONDS : 240;
@@ -1389,7 +1400,11 @@ function storyAdvanceStep(dtSec) {
     const _populationDt = _storyDue('population', '_accPopulation', 5);
     if (_populationDt > 0 && typeof storyPopulationTick === 'function') storyPopulationTick(_populationDt); // Faz 23 nüfus kohort uzlaştırması
     const _needsDt = _storyDue('population-needs', '_accNeeds', 5);
-    if (_needsDt > 0 && typeof storyNeedsTick === 'function') storyNeedsTick(_needsDt); // Faz 24 kohort ihtiyaç/refah/güvenlik sonuçları
+    if (_needsDt > 0) {
+        if (typeof storyNeedsTick === 'function') storyNeedsTick(_needsDt); // Faz 24 kohort ihtiyaç/refah/güvenlik sonuçları
+        if (typeof storyOpinionTick === 'function') storyOpinionTick(_needsDt); // Faz 25 biriken kamuoyu ve şikâyet hafızası
+        if (typeof storyCollectiveTick === 'function') storyCollectiveTick(_needsDt); // Faz 26 kolektif eylem ve radikalleşme
+    }
     const _factionsDt = _storyDue('factions', '_accFac', 2);
     if (_factionsDt > 0 && typeof storyFactionsTick === 'function') storyFactionsTick(_factionsDt); // AŞAMA 2 fraksiyonlar
     if (_storyDue('society', '_accSocial', 4) > 0) {

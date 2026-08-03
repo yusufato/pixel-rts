@@ -34,6 +34,7 @@ const {
     probeEconomicAI,
     probePopulationCohorts,
     probeNeedsWelfare,
+    probePublicOpinion,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -46,7 +47,17 @@ function run() {
     const first = runStorySimulation({
         seed: 2032,
         seconds: 900,
-        includeTradeProductionOpportunityView: true
+        includeTradeProductionOpportunityView: true,
+        includeOpinionStorageMetrics: true
+    });
+    const paretoVolumeTreatment = runStorySimulation({
+        seed: 2032,
+        seconds: 300,
+        featureFlags: {
+            'economy.saleSettlement': true,
+            'economy.paretoVolumeAdmission': true,
+            'economy.householdDistributionAdmission': true
+        }
     });
     const repeat = runStorySimulation({ seed: 2032, seconds: 900 });
     const alternate = runStorySimulation({ seed: 2033, seconds: 900 });
@@ -135,6 +146,74 @@ function run() {
     assert.equal(first.causality.guard.invariantFailures, 0, 'Normal dünya geçersiz kalıcı değer üretmemeli.');
     assert.equal(first.regionalValidation.ok, true, 'Normal 900 saniyelik dünya geçerli bölgesel stok defteri korumalı.');
     assert.equal(first.tradeValidation.ok, true, 'Normal 900 saniyelik dünya geçerli ticaret defteri korumalı.');
+    assert.equal(first.opinionValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli kamuoyu hafıza defteri korumalı.');
+    assert.equal(first.opinionSummary.cohortCount, 152 * 12,
+        'Normal 900 saniyelik dünyada bütün kohortlar kamuoyu taşıyıcısı olarak izlenmeli.');
+    assert.ok(first.opinionSummary.averageRememberedSeverityBps < 9500,
+        'Sabit orta düzey baskı uzun koşuda bütün kamuoyunu kaçınılmaz olarak tavana kilitlememeli.');
+    assert.ok(first.opinionSummary.saturatedCohortCount < first.opinionSummary.cohortCount,
+        '900 saniyede bütün kohortlar aynı maksimum şikâyet şiddetine doymamalı.');
+    assert.ok(first.opinionSummary.rememberedRecordCount <= 152 * 12 * 12,
+        'Şikâyet hafızası kohort başı kayıt tavanını aşarak sınırsız büyümemeli.');
+    assert.ok(first.opinionSummary.serializedCharacters > 0
+        && first.opinionSummary.serializedCharacters < 2000000,
+    'Faz 25 kompakt kaydı 900 saniyelik kabul dünyasında 2 milyon karakteri aşmamalı.');
+    assert.equal(paretoVolumeTreatment.regionalValidation.ok, true,
+        'Pareto hacim adayı bölgesel fizik defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.needsValidation.ok, true,
+        'Pareto hacim adayı ihtiyaç defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.opinionValidation.ok, true,
+        'Pareto hacim adayı kamuoyu hafıza defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.tradeValidation.ok, true,
+        'Pareto hacim adayı ticaret defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.marketValidation.ok, true,
+        'Pareto hacim adayı piyasa defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.budgetValidation.ok, true,
+        'Pareto hacim adayı bütçe defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.companyValidation.ok, true,
+        'Pareto hacim adayı şirket defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.commerceValidation.ok, true,
+        'Pareto hacim adayı sahiplik/ticaret defterini korumalı.');
+    assert.equal(paretoVolumeTreatment.economicAIValidation.ok, true,
+        'Pareto hacim adayı ekonomik AI defterini korumalı.');
+    assert.ok(paretoVolumeTreatment.final.needs.foodAccessBps >= 7900,
+        'Canlı hane boru hattı 300 saniyede gıda erişimini en az %79 bandında tutmalı.');
+    assert.ok(paretoVolumeTreatment.final.needs.energyAccessBps >= 8300,
+        'Canlı hane boru hattı 300 saniyede enerji erişimini en az %83 bandında tutmalı.');
+    assert.ok(paretoVolumeTreatment.final.needs.wellbeingBps >= 7100,
+        'Canlı hane boru hattı 300 saniyede yaşam koşulunu en az %71 bandında tutmalı.');
+    assert.ok(Object.entries(paretoVolumeTreatment.tradeOperationalSummary.ordersBySourceStatus)
+        .some(([key, count]) => key.startsWith('AUTO_PRODUCTION_INPUT_PARETO_VOLUME|')
+            && count > 0),
+    'Özellik açık treatment gerçek Pareto hacim siparişleri üretmeli.');
+    assert.ok(Object.entries(paretoVolumeTreatment.tradeOperationalSummary.ordersBySourceStatus)
+        .some(([key, count]) => key.startsWith('AUTO_HOUSEHOLD_PIPELINE_CLEARING|')
+            && count > 0),
+    'Özellik açık treatment canlı nüfus talebine bağlı gerçek hane sevkiyatları üretmeli.');
+    assert.equal(
+        paretoVolumeTreatment.tradeSummary.diagnostics
+            .householdDistributionAdmissionTotals.failed,
+        0,
+        'Hane dağıtım kabulü fizik veya koridor yarışında sevk kaybetmemeli.'
+    );
+    const stabilizedTail = first.samples.filter(sample => Number(sample.clock) >= 600);
+    const stabilizedTailAverage = key => stabilizedTail.reduce(
+        (sum, sample) => sum + Number(sample.needs && sample.needs[key] || 0),
+        0
+    ) / Math.max(1, stabilizedTail.length);
+    assert.ok(first.final.needs.foodAccessBps >= 7500,
+        'Varsayılan ekonomi 900 saniye sonunda gıda erişimini en az %75 bandında tutmalı.');
+    assert.ok(first.final.needs.energyAccessBps >= 7700,
+        'Varsayılan ekonomi 900 saniye sonunda enerji erişimini en az %77 bandında tutmalı.');
+    assert.ok(first.final.needs.wellbeingBps >= 7000,
+        'Varsayılan ekonomi 900 saniye sonunda yaşam koşulu %70 kabul kapısını geçmeli.');
+    assert.ok(stabilizedTailAverage('foodAccessBps') >= 7500,
+        'Son 300 saniyelik örneklerde ortalama gıda erişimi %75 altına düşmemeli.');
+    assert.ok(stabilizedTailAverage('energyAccessBps') >= 7700,
+        'Son 300 saniyelik örneklerde ortalama enerji erişimi %77 altına düşmemeli.');
+    assert.ok(stabilizedTailAverage('wellbeingBps') >= 7000,
+        'Son 300 saniyelik örneklerde ortalama yaşam koşulu %70 altına düşmemeli.');
     assert.equal(first.tradeProductionOpportunityView.disabled, false,
         'Üretim-girdisi karşı-olgusal gözlemcisi canlı ticaret dünyasında çalışmalı.');
     assert.ok(first.tradeProductionOpportunityView.opportunityCount > 0,
@@ -170,6 +249,51 @@ function run() {
             .every(opportunity => opportunity.dominatedByCount === 0),
         'Pareto öncüsü ilan edilen hiçbir fırsat başka bir sevk edilebilir fırsatça ezilmemeli.');
     }
+    const productionAdmission = first.tradeProductionAdmissionPlan;
+    assert.equal(first.tradeDecisionObserverNeutral, true,
+        'Üretim karar gözlemcisi salt-okunur olmalı; dünya durum hashini değiştirmemeli.');
+    assert.equal(productionAdmission.disabled, false,
+        'Üretim kabul planlayıcısı canlı ticaret dünyasında çalışmalı.');
+    assert.equal(productionAdmission.validation.ok, true,
+        'Kabul planı ortak stok, sahiplik, talep veya koridor kapasitesini aşmamalı.');
+    assert.equal(productionAdmission.summary.conflictFree, true,
+        'Kabul planı aynı karar penceresinde çifte kaynak ayırmamalı.');
+    assert.ok(productionAdmission.summary.selectedCount
+        <= productionAdmission.guardrails.maxDispatches,
+    'Kabul planı küresel sevkiyat bütçesini aşmamalı.');
+    assert.ok(productionAdmission.selected.every(selection => (
+        selection.quantity > 0
+            && selection.volume
+            && selection.quantity <= selection.volume.pipelineUncoveredNeed + 1e-6
+            && selection.volume.plannedWindowCoverageBps >= 10000
+            && selection.volume.plannedWindowCoverageBps
+                <= productionAdmission.guardrails.pipelineWindows * 10000 + 1
+            && ['SURVIVAL', 'CHAIN_RECOVERY'].includes(selection.policyLane)
+    )), 'Canlı adayı yalnız pozitif, 1–4 pencere hacimli ve açıklanabilir politika şeritlerinden seçmeli.');
+    assert.ok(Object.values(productionAdmission.summary.byCountry).every(count => (
+        count <= productionAdmission.guardrails.maxPerCountry
+    )), 'Tek devlet karar penceresini tekeline alamamalı.');
+    assert.ok(Object.entries(productionAdmission.summary.byResource).every(([resourceId, count]) => (
+        count <= Number(productionAdmission.guardrails.resourceDispatchLimits[resourceId] || 0)
+    )), 'Kaynak başına sevkiyat bütçesi aşılmamalı.');
+    assert.equal(productionAdmission.guardrails.laneMinimumsSatisfied, true,
+        'Mevcutsa hem yaşam hem zincir kurtarma şeridi karar penceresinde temsil edilmeli.');
+    const selectedQuantity = productionAdmission.selected.reduce(
+        (sum, selection) => sum + Number(selection.quantity || 0),
+        0
+    );
+    const actionQuantity = productionAdmission.actions.reduce(
+        (sum, action) => sum + Number(action.quantity || 0),
+        0
+    );
+    assert.ok(Math.abs(selectedQuantity - actionQuantity) <= 1e-6,
+        'Planlanan eylemlerin miktarı seçilen sevkiyat miktarını birebir korumalı.');
+    assert.ok(productionAdmission.actions.every(action => (
+        Math.abs(Number(action.quantity || 0) - action.legs.reduce(
+            (sum, leg) => sum + Number(leg.quantity || 0),
+            0
+        )) <= 1e-6
+    )), 'Her toplu/tekil eylem kendi bacak toplamını birebir korumalı.');
     assert.equal(first.marketValidation.ok, true, 'Normal 900 saniyelik dünya geçerli piyasa/fiyat defteri korumalı.');
     assert.equal(first.budgetValidation.ok, true, 'Normal 900 saniyelik dünya dengeli devlet bütçesi defteri korumalı.');
     assert.equal(first.companyValidation.ok, true, 'Normal 900 saniyelik dünya geçerli şirket/banka defteri korumalı.');
@@ -1275,8 +1399,10 @@ function run() {
         'Yuklenen satis kaydi sirket muhasebesini korumali.');
     assert.equal(saleProbe.restored.commerceValidation.ok, true,
         'Yuklenen satis kaydi fiziksel lot aynasini korumali.');
-    assert.equal(saleProbe.ab.defaultUnchanged, true,
-        'Varsayilan kapali Faz 22.1E bayragi mevcut calisan dunya karmasini degistirmemeli.');
+    assert.equal(saleProbe.ab.defaultMatchesExplicitOn, true,
+        'Faz 22.1E varsayilan yolu acik bayrakla ayni dunya karmasini uretmeli.');
+    assert.equal(saleProbe.ab.explicitOffDiffers, true,
+        'Faz 22.1E acikca kapatildiginda yeni satis ve sahiplik akisi dunya karmasindan cikmali.');
     const saleFlow = runStorySimulation({
         seed: 2032,
         seconds: 60,
@@ -1549,6 +1675,10 @@ function run() {
     const needsProbe = probeNeedsWelfare();
     assert.equal(needsProbe.main.validation.ok, true,
         'Faz 24 ihtiyac ve yasam kosulu defteri gecerli kalmali.');
+    assert.equal(needsProbe.main.saveOk, true,
+        'Faz 24 kaydi dogrulama hatasini yutup onceki kaydi birakmamali.');
+    assert.equal(needsProbe.main.saveExact, true,
+        'Faz 24 kaydi sessizce eski kayitta kalmamali; yazilan ve canli yasam kosulu defterleri birebir olmali.');
     assert.equal(needsProbe.main.worldValidation.ok, true,
         'Ihtiyac sonuclari V2 dunya sozlesmesini bozmamali.');
     assert.equal(needsProbe.main.knowledgeValidation.ok, true,
@@ -1616,6 +1746,112 @@ function run() {
         'Kapali ihtiyac katmani V2 dunyasina sonuc sizdirmamali.');
     assert.equal(needsProbe.ab.changed, true,
         'Faz 24 acik-kapali A/B kosusu olculebilir durum farki uretmeli.');
+
+    const opinionProbe = probePublicOpinion();
+    assert.equal(opinionProbe.main.validation.ok, true,
+        'Faz 25 kamuoyu ve sikayet hafizasi defteri gecerli kalmali.');
+    assert.equal(opinionProbe.main.saveOk, true,
+        'Faz 25 kaydi dogrulama hatasini yutup onceki kaydi birakmamali.');
+    assert.equal(opinionProbe.main.saveExact, true,
+        'Yazilan ve canli kamuoyu defteri birebir olmali.');
+    assert.equal(opinionProbe.main.compactStorage, 'COMPACT_RECORD_ARRAY_V1',
+        'Faz 25 kaydi uzun alan adlarini her sikayet kaydinda tekrar etmemeli.');
+    assert.ok(opinionProbe.main.compactCharacters > 0,
+        'Kompakt Faz 25 kaydinin boyutu olculebilir olmali.');
+    assert.ok(opinionProbe.main.compactCharacters < 1500000,
+        'Hedefli Faz 25 kaydi 1,5 milyon karakterlik mikro butceyi asmamali.');
+    assert.equal(opinionProbe.main.worldValidation.ok, true,
+        'Kamuoyu ozetleri V2 dunya sozlesmesini bozmamali.');
+    assert.equal(opinionProbe.main.knowledgeValidation.ok, true,
+        'Kamuoyu ozetleri oyuncu bilgi sinirini bozmamali.');
+    assert.equal(opinionProbe.main.summary.cohortCount, 152 * 12,
+        'Faz 25 her kanonik kohortu ayri hafiza tasiyicisi olarak izlemeli.');
+    assert.ok(opinionProbe.main.summary.rememberedRecordCount > 0,
+        'Gercek ihtiyac baskilari aciklanabilir sikayet kaydi uretmeli.');
+    assert.equal(opinionProbe.main.sourceReadOnly, true,
+        'Kamuoyu tiki Faz 24 ihtiyac defterini degistirmemeli.');
+    assert.equal(opinionProbe.main.legacyWelfareUntouched, true,
+        'Faz 25 eski welfare alanina yeni ceza yazmamali.');
+    assert.equal(opinionProbe.main.factionsUntouched, true,
+        'Faz 25, Faz 26 gelmeden fraksiyon/protesto sonucu yazmamali.');
+    assert.ok(opinionProbe.main.shock.childFood,
+        'Fiziksel gida soku cocuk kohortunda gida sikayeti uretmeli.');
+    assert.ok(opinionProbe.main.shock.adultFood,
+        'Fiziksel gida soku karsilastirma kohortunda gida sikayeti uretmeli.');
+    assert.ok(opinionProbe.main.shock.childFood.rememberedSeverityBps
+        > opinionProbe.main.shock.baselineFoodSeverityBps,
+    'Tekrarlanan fiziksel gida baskisi mevcut hafizada birikmeli.');
+    assert.ok(opinionProbe.main.shock.childFood.rememberedSeverityBps
+        > opinionProbe.main.shock.adultFood.rememberedSeverityBps,
+    'Ayni gida soku Faz 24 salience agirligi yuksek cocuk kohortunda daha sert birikmeli.');
+    assert.equal(opinionProbe.main.shock.childFood.blamedActorId,
+        opinionProbe.main.shock.expectedActorId,
+    'Gida sikayeti hayali aktore degil gercek ulke tarim sirketine baglanmali.');
+    assert.ok(opinionProbe.main.trajectory.afterPartialRecovery
+        < opinionProbe.main.trajectory.firstPeak,
+    'Iyilesme sikayet hafizasini azaltmali.');
+    assert.ok(opinionProbe.main.trajectory.afterPartialRecovery > 0,
+        'Kisa iyilesme gecmisi bir anda silmemeli.');
+    assert.equal(opinionProbe.main.trajectory.recoveryState, 'RECOVERING',
+        'Baski kalkinca kayit aninda yok olmak yerine iyilesme durumuna gecmeli.');
+    assert.ok(opinionProbe.main.trajectory.secondPeak > opinionProbe.main.trajectory.firstPeak,
+        'Ayni kotu olay kismi iyilesmeden sonra tekrarlandiginda tepki ilkinden buyuk olmali.');
+    assert.equal(opinionProbe.main.trajectory.repeatedEpisodeCount, 2,
+        'Ayrik tekrar ikinci olay bolumu olarak sayilmali.');
+    assert.equal(opinionProbe.main.trajectory.fullyForgotten, true,
+        'Yeterince uzun iyilesme sonunda sifir hafiza kaydi budanmali.');
+    assert.ok(opinionProbe.main.trajectory.forgettingTicks > 4,
+        'Unutma tek tikte gerceklesmemeli.');
+    assert.equal(opinionProbe.main.knowledge.own.status, 'VERIFIED',
+        'Kendi bolgesinin kamuoyu idari arastirma verisi olarak gorunmeli.');
+    assert.equal(opinionProbe.main.knowledge.foreign.status, 'UNKNOWN',
+        'Yabanci bolgenin sikayet hafizasi istihbaratsiz sizmamali.');
+    assert.equal(opinionProbe.main.ui.hasComplaintMemory, true,
+        'Nufus ekrani biriken sikayetleri gostermeli.');
+    assert.equal(opinionProbe.main.ui.hasPerceivedResponsibility, true,
+        'UI sikayetin sorumlu gorulen aktorunu acikca gostermeli.');
+    assert.equal(opinionProbe.main.migration.ok, true,
+        'Faz 25 kaydi V3-V2 golge gocunu tamamlamali.');
+    assert.equal(opinionProbe.main.migration.validation.ok, true,
+        'Kamuoyu tasiyan golge dunya gecerli olmali.');
+    assert.equal(opinionProbe.main.migration.regionOpinionPreserved, true,
+        'Goc bolge kamuoyu ozetini sessizce dusurmemeli.');
+    assert.equal(opinionProbe.main.migration.cohortOpinionPreserved, true,
+        'Goc kohort sikayet hafizasini sessizce dusurmemeli.');
+    assert.equal(opinionProbe.main.migration.unmappedOpinion, false,
+        'publicOpinion bilinen kayit alani olarak islenmeli.');
+    assert.equal(opinionProbe.restored.loaded, true,
+        'Kamuoyu defteri tasiyan kayit acilabilmeli.');
+    assert.equal(opinionProbe.restored.validation.ok, true,
+        'Yuklenen kamuoyu defteri gecerli kalmali.');
+    assert.equal(opinionProbe.restored.exact, true,
+        'Sikayet siddeti, olay sayisi ve unutma durumu kayitta birebir korunmali.');
+    assert.equal(opinionProbe.legacy.loaded, true,
+        'Faz 25 oncesi kayit guvenle acilabilmeli.');
+    assert.equal(opinionProbe.legacy.validation.ok, true,
+        'Eski kayit icin gecerli bos kamuoyu hafizasi kurulabilmeli.');
+    assert.equal(opinionProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayitta gecmis uydurulmadigi acik teshis olmali.');
+    assert.equal(opinionProbe.legacy.recordCount, 0,
+        'Eski kaydin bulunmayan sikayet gecmisi anlik durumdan uydurulmamali.');
+    assert.equal(opinionProbe.corrupt.loaded, true,
+        'Bozuk kamuoyu defteri dunya kaybi olmadan acilabilmeli.');
+    assert.equal(opinionProbe.corrupt.validation.ok, true,
+        'Bozuk kamuoyu defteri guvenli bos hafizaya alinmali.');
+    assert.equal(opinionProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk kamuoyu kurtarmasi sessiz olmamali.');
+    assert.equal(opinionProbe.disabled.summary.disabled, true,
+        'Faz 25 ozellik bayragiyla kapanabilmeli.');
+    assert.equal(opinionProbe.disabled.ledger, null,
+        'Kapali Faz 25 sahte sikayet defteri uretmemeli.');
+    assert.equal(opinionProbe.disabled.worldRegionOpinionCount, 0,
+        'Kapali Faz 25 bolge projeksiyonuna kamuoyu sizdirmamali.');
+    assert.equal(opinionProbe.disabled.worldCohortOpinionCount, 0,
+        'Kapali Faz 25 kohort projeksiyonuna kamuoyu sizdirmamali.');
+    assert.equal(opinionProbe.ab.changed, true,
+        'Faz 25 acik-kapali A/B kosusunda olculebilir yeni durum uretmeli.');
+    assert.equal(opinionProbe.ab.physicalEqual, true,
+        'Kamuoyu hafizasi fiziksel ekonomi veya eski oynanis sonucunu degistirmemeli.');
 
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
@@ -2472,7 +2708,8 @@ function run() {
         simulatedSeconds: first.simulatedSeconds,
         stateHash: first.stateHash,
         wallTimeMs: first.wallTimeMs,
-        final: first.final
+        final: first.final,
+        publicOpinion: first.opinionSummary
     }, null, 2));
 }
 

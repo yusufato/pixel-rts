@@ -854,10 +854,17 @@ function storyRegionalEconomyTick(dtSec) {
         }
         storyRegionalAddToMap(ledger.totals.externalInflow, 'capital', capitalInflow);
 
+        // Faz 26: protesto/grev/ayaklanma mevcut uretim cevrimini azaltir;
+        // girdi veya cikti sonradan carpilmaz. Boylece tuketilmeyen mal ve emek
+        // stokta kalir, fiziksel defter korunur ve etki tek kez uygulanir.
+        const collectiveProductionMultiplier = typeof storyCollectiveCountryProductionMultiplier === 'function'
+            ? storyCollectiveCountryProductionMultiplier(node.owner)
+            : 1;
+
         for (const sectorId of sectorOrder) {
             const capacity = Math.max(0, Number(region.sectorCapacity[sectorId]) || 0);
             if (capacity <= 0) continue;
-            const requestedCycles = storyRegionalRound(capacity * worldDays);
+            const requestedCycles = storyRegionalRound(capacity * worldDays * collectiveProductionMultiplier);
             const viability = companyCapital && typeof storyCompanyProductionViability === 'function'
                 ? storyCompanyProductionViability(regionId, sectorId)
                 : { approved: true, code: 'NO_COMPANY_GATE' };
@@ -956,6 +963,7 @@ function storyRegionalEconomyTick(dtSec) {
             sequence: ledger.tickSequence,
             at: ledger.lastTickAt,
             worldDays,
+            collectiveProductionMultiplierBps: Math.round(collectiveProductionMultiplier * 10000),
             labor: laborView && laborView.status === 'COHORT_DERIVED'
                 ? storyRegionalClone(laborView)
                 : { status: 'LEGACY_FALLBACK', laborLots: laborSupply, wageIndex: null },

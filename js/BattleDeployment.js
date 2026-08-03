@@ -18,7 +18,7 @@ const BATTLE_DEPLOY_COMBAT_WEIGHTS = Object.freeze({
     [T.ARTILLERY]: 0.05, [T.MLRS]: 0.025, [T.BALLISTIC]: 0.01, [T.COUNTER_BATTERY]: 0.015,
     [T.SPAAG]: 0.05, [T.SAM]: 0.025, [T.RECON]: 0.045, [T.EW]: 0.015,
     [T.MEDIC]: 0.02, [T.ENGINEER]: 0.03, [T.SUPPLY]: 0.03, [T.HQ]: 0.02,
-    [T.ATTACK_HELO]: 0.025, [T.RECON_UAV]: 0.025, [T.UCAV]: 0.02, [T.KAMIKAZE]: 0.025,   // FAZ 2 hava
+    [T.ATTACK_HELO]: 0.025, [T.RECON_UAV]: 0.025, [T.UCAV]: 0.02, [T.DRONE_OPERATOR]: 0.03,   // FAZ 2 hava (drone-operatör: 2 kamikaze SALAR — redesign, tek-tek kamikaze yerine)
     [T.TRANSPORT_HELO]: 0.015   // nakliye-heli: piyade takviyesini hatta taşır
 });
 
@@ -142,11 +142,11 @@ function battleDeploymentVariedWeights(base) {
         { [T.ARMOR]: 2.0, [T.TANK_HUNTER]: 1.5, [T.MECH_INFANTRY]: 1.3, [T.INFANTRY]: 0.6, [T.ARTILLERY]: 0.7 },       // ZIRH MIZRAĞI
         { [T.INFANTRY]: 2.2, [T.ANTI_TANK]: 1.6, [T.MORTAR]: 1.5, [T.COMMANDO]: 1.3, [T.ARMOR]: 0.5 },                 // PİYADE DALGASI
         { [T.ARTILLERY]: 1.9, [T.MLRS]: 1.7, [T.RECON]: 1.7, [T.ANTI_TANK]: 1.3, [T.COUNTER_BATTERY]: 1.4, [T.ARMOR]: 0.6 }, // TOPÇU DOKTRİNİ
-        { [T.ATTACK_HELO]: 2.0, [T.KAMIKAZE]: 1.8, [T.UCAV]: 1.6, [T.RECON_UAV]: 1.5, [T.SPAAG]: 1.4, [T.SAM]: 1.3 },   // HAVA HAREKÂTI
+        { [T.ATTACK_HELO]: 2.0, [T.DRONE_OPERATOR]: 1.8, [T.UCAV]: 1.6, [T.RECON_UAV]: 1.5, [T.SPAAG]: 1.4, [T.SAM]: 1.3 },   // HAVA HAREKÂTI
         { [T.ANTI_TANK]: 2.0, [T.TANK_HUNTER]: 1.6, [T.COMMANDO]: 1.5, [T.MANPADS]: 1.3, [T.MORTAR]: 1.3, [T.ARMOR]: 0.5 }, // TANKSAVAR PUSU
-        { [T.MECH_INFANTRY]: 1.9, [T.RECON]: 2.0, [T.ARMOR]: 1.3, [T.KAMIKAZE]: 1.4, [T.ARTILLERY]: 0.6 },             // HAREKETLİ VURKAÇ
+        { [T.MECH_INFANTRY]: 1.9, [T.RECON]: 2.0, [T.ARMOR]: 1.3, [T.DRONE_OPERATOR]: 1.4, [T.ARTILLERY]: 0.6 },             // HAREKETLİ VURKAÇ
         { [T.SPAAG]: 1.8, [T.SAM]: 1.7, [T.MANPADS]: 1.6, [T.COUNTER_BATTERY]: 1.5, [T.INFANTRY]: 1.2 },               // HAVA-SAVUNMA AĞI
-        { [T.KAMIKAZE]: 3.0, [T.RECON_UAV]: 2.5, [T.EW]: 2.2, [T.ANTI_TANK]: 1.6, [T.MANPADS]: 1.3, [T.ARMOR]: 0.0, [T.TANK_HUNTER]: 0.0 }, // DRONE-YOĞUN YIPRATMA (Ukrayna-sonrası: ucuz kamikaze sürüsü + İHA ağı + EH, pahalı platform yok)
+        { [T.DRONE_OPERATOR]: 3.0, [T.RECON_UAV]: 2.5, [T.EW]: 2.2, [T.ANTI_TANK]: 1.6, [T.MANPADS]: 1.3, [T.ARMOR]: 0.0, [T.TANK_HUNTER]: 0.0 }, // DRONE-YOĞUN YIPRATMA (drone-operatör sürüsü: her operatör 2 kamikaze salar + İHA ağı + EH, pahalı platform yok)
         { [T.MORTAR]: 2.2, [T.MLRS]: 1.8, [T.BALLISTIC]: 1.2, [T.RECON_UAV]: 2.0, [T.RECON]: 1.5, [T.COMMANDO]: 1.7, [T.ATTACK_HELO]: 1.5, [T.INFANTRY]: 1.3, [T.ANTI_TANK]: 1.2, [T.SPAAG]: 0.7 } // OYUNCU-META (kullanıcının 5-maç profili: alan-ateşi 3.2/maç + ağır-keşif 2.8 + helo, ateş-merkezli bul-vur-bitir)
     ];
     // TURNUVA: BATTLE_FORCE_DOCTRINE geçerli indeksse o doktrini zorla (RPS-turnuva taraf-başı doktrin kontrolü). Yoksa seed'li rastgele.
@@ -190,6 +190,11 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         });
         if (!affordable.length) break;
 
+        // ANALİST-FIX (çeşitlilik-çöküşü, 2 insan-maçı aynı-ordu): floor'lar bütçeyi domine edince açgözlü-fill tek-çözüme sıkışıyordu
+        // (2 tohum → ~özdeş kadro → anti-dizen oyuncu ödevini kolaylaştırıyor + 6-stil değersizleşiyor). ÇÖZÜM: varied'de çekirdek-seçime
+        // TOHUM-GÜRÜLTÜSÜ (±%25 çarpımsal jitter, SIM_RNG) → yakın-denk adaylar seed'le farklı çözülür (güçlü-açık ORDER'ı korunur, bantlar
+        // içinde serbestlik geri gelir). Determinist (srand). Floor'lar/imza değişmez → doktrin-dengesi + zorunlu-çekirdek korunur.
+        const _jit = (config.varied && typeof srand === 'function');
         const choice = affordable.map(type => {
             const group = deploymentBudgetGroup(type, remaining);
             const peers = allowedTypes.filter(candidate =>
@@ -199,11 +204,11 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
                 sum + deployWeights[candidate], 0) || 1;
             const target = (initial[group] || 0) *
                 (deployWeights[type] / weightTotal);
+            const _nd = (target - (spent[type] || 0)) / Math.max(1, STATS[type].cost);
             return {
                 type,
                 deficit: target - (spent[type] || 0),
-                normalizedDeficit: (target - (spent[type] || 0)) /
-                    Math.max(1, STATS[type].cost)
+                normalizedDeficit: _jit ? _nd * (0.75 + srand() * 0.5) : _nd   // ±%25 tohum-gürültü (yakın-denkleri karıştır)
             };
         }).sort((a, b) =>
             (b.normalizedDeficit - a.normalizedDeficit) ||
@@ -223,24 +228,24 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     // ÇÖZÜM: doktrinin İMZA birimleri (çarpan≥1.4) hiç alınmadıysa BİRER tane garanti et — gerekirse en-çok-tekrarlanan
     // imza-DIŞI ucuz fazlalığı takas ederek. Doktrin kimliği artık sahaya çıkar (Ukrayna-sonrası: helo uçmayı ÖĞRENDİ →
     // SEAD-bekle+RTB micro hazır, açmak güvenli). Yalnız sayı-bütçe (money) yolunda; deterministik (RNG yok).
-    // ROL-FARKINDA imza-floor: SAVUNAN (AA-şemsiyeli, hava-kullanabilir) → TAM çeşitlilik: pahalı imza-birimi (helo/ÇNRA)
-    // için gereken fazlalığı SÖK (guard 8, herhangi imza-dışı). SALDIRAN (fakir, air'i düşman-AA'ya hediye eder) → YALIN:
-    // yalnız artık-bütçe + GERÇEK-fazlalık (count≥3→2 koru, guard 3); etkili çekirdeği sökme (analist: 800₺-helo=manpads'e hediye).
-    const lean = config.forAttacker === true;
-    const emphasis = (config.varied && Array.isArray(deployWeights.__emphasis)) ? deployWeights.__emphasis.slice() : [];
-    emphasis.sort((a, b) => (STATS[a] && STATS[b]) ? ((STATS[a].cost - STATS[b].cost) || (a - b)) : 0);   // ucuz-imza-önce (bütçe darsa en çok imza-tipi çıksın)
+    // INTEL4-delta (flag-kapılı: config.brainIntel4). intel3pro'da imza-floor YOK → base-weight hat-ağır ordu (7-maç-sıfır-helo).
+    // intel4: doktrin İMZA birimleri (çarpan≥1.4) hiç alınmadıysa BİRER tane garanti (pahalı-birim yapısal-dışlanmasını kır).
+    // TAM-AÇ (kullanıcı-kararı): saldıran/savunan AYNI floor (guard 8, imza-dışı herhangi kurban; SAM/COUNTER_BATTERY korunur).
+    // Helo yaşatma-güvencesi = helo-neşter-micro (Unit.js). ucuz-imza-önce (bütçe darsa en çok imza-tipi çıksın).
+    const _dComp = (typeof BATTLE_INTEL4_DELTAS === 'undefined' || BATTLE_INTEL4_DELTAS.comp !== false);   // INTEL4-delta 'comp'
+    const emphasis = (config.varied && config.brainIntel4 && _dComp && Array.isArray(deployWeights.__emphasis)) ? deployWeights.__emphasis.slice() : [];
+    emphasis.sort((a, b) => (STATS[a] && STATS[b]) ? ((STATS[a].cost - STATS[b].cost) || (a - b)) : 0);
     if (emphasis.length && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
         for (const et of emphasis) {
             if (et == null || !STATS[et] || types.includes(et)) continue;
             const cost = STATS[et].cost;
             if (cost > (initial.money || 0)) continue;   // bütçeye hiç sığmıyorsa geç
             let guard = 0;
-            while ((remaining.money || 0) < cost && guard++ < (lean ? 3 : 8)) {   // yer aç: imza-DIŞI kurban seç (imza+AA korunur)
+            while ((remaining.money || 0) < cost && guard++ < 8) {   // yer aç: imza-DIŞI en-çok-tekrarlanan (eşitse en-pahalı) kurbanı sök
                 const cnt = {}; for (const t of types) cnt[t] = (cnt[t] || 0) + 1;
                 let victim = null;
                 for (const t of Object.keys(cnt).map(Number).sort((a, b) => a - b)) {
                     if (emphasis.includes(t) || t === et || t === T.SAM || t === T.COUNTER_BATTERY) continue;   // imza + hava-savunma çekirdeği korunur
-                    if (lean && cnt[t] < 3) continue;   // YALIN(saldıran): yalnız gerçek-fazlalık (≥3, 2-koru) — etkili çekirdek sökülmez
                     if (victim == null || cnt[t] > cnt[victim] || (cnt[t] === cnt[victim] && STATS[t].cost > STATS[victim].cost)) victim = t;
                 }
                 if (victim == null) break;
@@ -265,10 +270,164 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         for (const cand of [T.SPAAG, T.MANPADS, T.SUPPLY]) { if (cand != null) { const ix = types.lastIndexOf(cand); if (ix >= 0 && (cand !== T.SAM)) { swapIdx = ix; break; } } }
         if (swapIdx >= 0) { spent[types[swapIdx]] = (spent[types[swapIdx]] || 0) - STATS[types[swapIdx]].cost; types[swapIdx] = T.COUNTER_BATTERY; spent[T.COUNTER_BATTERY] = (spent[T.COUNTER_BATTERY] || 0) + STATS[T.COUNTER_BATTERY].cost; }
     }
+    // ANALİST-ŞABLON (39-maç damıtması, SIRA-KURALI ÖNCE ÇEKİRDEK): SERT TABANLAR → degenerate-çekiliş (14-piyade, topçusuz, ikmalsiz,
+    // kör) YAPISAL-İMKANSIZ. "Bantlar geniş, tabanlar sert." Zorunlu-çekirdek (ikmal/spaag/keşif/sıhhiye/istihkam) + indirect(havan≥2,
+    // analistin %100-sinyali) + hat(piyade≥4,AT≥2) + drone(operatör≥1). MIZRAK/rol-tabanından ÖNCE rezerve edilir (çekirdek mızrağa yem-olmaz).
+    // Eksik-tipi ekle; yer gerekirse HAT-FAZLASI piyadeden (piyade-min 4 korunur → omurga sağlam).
+    if (Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        // SIRA = analist-frekans: en-güçlü değişmezler ÖNCE (bütçe darsa en-kritik-olmayanlar eksik kalsın, çekirdek değil).
+        // 2havan+ikmal=%100, spaag=%80. Sonra hat/AT/drone tabanları, en son 2.keşif/istihkam (lüks-çekirdek).
+        const HARD_FLOORS = [
+            [T.MORTAR, 2], [T.SUPPLY, 1], [T.SPAAG, 1], [T.ANTI_TANK, 2], [T.INFANTRY, 4], [T.DRONE_OPERATOR, 1],   // güçlü-değişmezler
+            [T.RECON, 1], [T.MEDIC, 1], [T.ENGINEER, 1], [T.RECON_UAV, 1]                                            // ikincil-çekirdek
+        ];
+        for (const [ty, minN] of HARD_FLOORS) {
+            if (ty == null || !STATS[ty]) continue;
+            let guard = 0;
+            while (types.filter(t => t === ty).length < minN && guard++ < 12) {
+                if (STATS[ty].cost <= (remaining.money || 0)) { remaining.money -= STATS[ty].cost; spent[ty] = (spent[ty] || 0) + STATS[ty].cost; types.push(ty); continue; }
+                const infCount = types.filter(t => t === T.INFANTRY).length;   // yer aç: yalnız HAT-FAZLASI piyade (piyade-min 4 korunur)
+                if (ty === T.INFANTRY || infCount <= 4) break;
+                const ix = types.lastIndexOf(T.INFANTRY); if (ix < 0) break;
+                remaining.money += STATS[T.INFANTRY].cost; spent[T.INFANTRY] = (spent[T.INFANTRY] || 0) - STATS[T.INFANTRY].cost; if (spent[T.INFANTRY] <= 0) delete spent[T.INFANTRY];
+                types.splice(ix, 1);
+            }
+        }
+    }
+    // ANALİST-FIX (MIZRAKSIZ-TAARRUZ, deneysel-kanıt): TAARRUZ ordusu asgari ZIRH-MIZRAĞI olmadan kurulamaz. Deterministik-üretici
+    // seed2024'te kırmızı-taarruza %5-zırh (0 MBT/TD, 9 piyade+6 AT) çekti → BEYİN-BAĞIMSIZ ölü-ordu (ayna-maçta eski-beyin de aynı
+    // kadroyla 3-31 kaybetti; tek-yenilgi zar'ın suçu). Zırh-tabanı: MBT/TD/mekanize ≥ %18 bütçe (analistin galip-ordusu %29'du,
+    // mızraksızı %5). Eksikse en-ucuz zırh al, en-PAHALI non-zırh fazlalığı takas (imza≥1 + SAM + radar korunur). İki-taraf, deterministik.
+    // YALNIZ TAARRUZ (config.isAttacker): analistin reçetesi "TAARRUZ rolü mızraksız kadro kuramaz". Savunanı ZORLAMA (savunma
+    // doktrini mızrak istemeyebilir → zorlarsan regresyon: ölçümde savunma-777 flip oldu). Kırmızı-AI attacker'sa floor devrede.
+    if (config.isAttacker === true && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        // MIZRAK = AĞIR zırh: MBT(T.ARMOR) + TD(T.TANK_HUNTER) YALNIZ. IFV(MECH_INFANTRY) HARİÇ — analist "0 MBT/TD, tek ZMA(IFV)"yi
+        // mızraksız saydı → IFV mızrak sayılırsa floor IFV'lerle dolup gerçek-mızrak eklemez (seed2024 tam bu tuzağa düştü).
+        const SPEAR = [T.ARMOR, T.TANK_HUNTER].filter(t => t != null && STATS[t]);
+        const isSpear = t => SPEAR.includes(t);
+        const spearValue = () => types.reduce((s, t) => s + (isSpear(t) ? STATS[t].cost : 0), 0);
+        const target = 0.18 * (initial.money || 0);
+        const buyOrder = [T.ARMOR, T.TANK_HUNTER].filter(t => t != null && STATS[t]);   // MBT-ÖNCELİKLİ (yarma-mızrağı; TD=tanksavar ikincil)
+        let guard = 0;
+        while (spearValue() < target && guard++ < 24) {
+            let buy = null;
+            for (const t of buyOrder) { if (STATS[t].cost <= (remaining.money || 0)) { buy = t; break; } }
+            if (buy == null) {   // ANALİST-FIX (omurga-yeme bug'ı): mızrak YALNIZ HAT-FAZLASI piyadeden beslenir. OMURGA KORUNUR:
+                // topçu/havan/ÇNRA (ateş-desteği) + ikmal (lojistik) + AT + hava-savunma + destek ASLA sökülmez (o kadro savaşamaz kalırsa
+                // mızrak boş). Kurban = fazla PİYADE (hat-min ≥4 korunur). Serbest-bütçe+piyade-fazlası bitince DUR (omurga sağlam kalsın).
+                const infCount = types.filter(t => t === T.INFANTRY).length;
+                if (infCount <= 4) break;   // hat-minimumu koru → omurga sökmeden dur (mızrak eksik kalsa da kadro sağlam)
+                const ix = types.lastIndexOf(T.INFANTRY); if (ix < 0) break;
+                remaining.money += STATS[T.INFANTRY].cost; spent[T.INFANTRY] = (spent[T.INFANTRY] || 0) - STATS[T.INFANTRY].cost; if (spent[T.INFANTRY] <= 0) delete spent[T.INFANTRY];
+                types.splice(ix, 1); continue;
+            }
+            remaining.money -= STATS[buy].cost; spent[buy] = (spent[buy] || 0) + STATS[buy].cost; types.push(buy);
+        }
+    }
+    // ANALİST-FIX (reçete-2, SAVUNAN-TABANI): savunan da omurgasız kurulamaz — ANTI-TANK kapasitesi (AT+TD) ≥ %15 bütçe. "14-piyade"
+    // savunması hiçbir doktrinde meşru değil (small_arms→ağır ×0.05 → mızrağı matematiksel durduramaz). Hat-fazlası piyadeden beslenir
+    // (omurga=topçu/ikmal/hava-sav KORUNUR). Yalnız SAVUNAN (config.isAttacker===false). Deterministik.
+    if (config.isAttacker === false && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        const AT = [T.ANTI_TANK, T.TANK_HUNTER].filter(t => t != null && STATS[t]);
+        const isAT = t => AT.includes(t);
+        const atValue = () => types.reduce((s, t) => s + (isAT(t) ? STATS[t].cost : 0), 0);
+        const target = 0.15 * (initial.money || 0);
+        const buyOrder = [T.ANTI_TANK, T.TANK_HUNTER].filter(t => t != null && STATS[t]);   // ucuz AT-timi önce, sonra TD
+        let guard = 0;
+        while (atValue() < target && guard++ < 24) {
+            let buy = null;
+            for (const t of buyOrder) { if (STATS[t].cost <= (remaining.money || 0)) { buy = t; break; } }
+            if (buy == null) {   // yer aç: yalnız hat-fazlası piyade (omurga korunur, hat-min ≥4)
+                const infCount = types.filter(t => t === T.INFANTRY).length;
+                if (infCount <= 4) break;
+                const ix = types.lastIndexOf(T.INFANTRY); if (ix < 0) break;
+                remaining.money += STATS[T.INFANTRY].cost; spent[T.INFANTRY] = (spent[T.INFANTRY] || 0) - STATS[T.INFANTRY].cost; if (spent[T.INFANTRY] <= 0) delete spent[T.INFANTRY];
+                types.splice(ix, 1); continue;
+            }
+            remaining.money -= STATS[buy].cost; spent[buy] = (spent[buy] || 0) + STATS[buy].cost; types.push(buy);
+        }
+    }
+    // ANALİST-FIX (reçete-3, SAVUNAN ATEŞ-DESTEĞİ ALT-TÜR TABANI): savunan-3141 "topçu-yok/ÇNRA-yok/spaag-yok, dolaylı=yalnız-2-havan"
+    // ile sahaya çıktı → ATEŞSİZ savunma ŞOK üretemedi (kazanılan savunmalar t=78/135'te şok-sömürü ateşlemişti) → PRESERVE'de oturup
+    // ezme-paketine (AT2227+TD2088+MBT1872) yuvarlandı. Doğrulama alt-tür şartı: dolaylı = havan(HARD_FLOOR) ARTI ≥1 (topçu|ÇNRA);
+    // AA = ≥1 (spaag|manpads). Eksik alt-türü EN-UCUZUNDAN al (hat-fazlası piyadeden besle, omurga korunur). YALNIZ SAVUNAN. Determinist.
+    if (config.isAttacker === false && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        // KORUNAN-ÇEKİRDEK: ateş-desteği/AT/AA/lojistik/destek ASLA sökülmez (onları eklemeye çalışıyoruz zaten). Kurban = en-PAHALI
+        // korunmayan fazlalık (fazla armor/helo/İHA/mekanize/komando/EW/hat-fazlası-piyade) → topçu(450)/spaag(300) için yeterli bütçe açar.
+        const PROTECT = [T.ARTILLERY, T.MLRS, T.SPAAG, T.SAM, T.MANPADS, T.MORTAR, T.SUPPLY, T.ANTI_TANK, T.TANK_HUNTER, T.DRONE_OPERATOR, T.COUNTER_BATTERY, T.RECON, T.MEDIC, T.ENGINEER, T.RECON_UAV].filter(t => t != null);
+        const _ensureOneOf = (opts) => {
+            const order = opts.filter(t => t != null && STATS[t]).sort((a, b) => STATS[a].cost - STATS[b].cost);   // en-ucuz alt-tür önce
+            if (!order.length) return;
+            let guard = 0;
+            while (!order.some(t => types.includes(t)) && guard++ < 30) {
+                const buy = order.find(t => STATS[t].cost <= (remaining.money || 0));
+                if (buy != null) { remaining.money -= STATS[buy].cost; spent[buy] = (spent[buy] || 0) + STATS[buy].cost; types.push(buy); break; }
+                // BÜTÇE AÇ: en-PAHALI korunmayan-fazlalığı sök (hat-min ≥4 korunur). Zayıf hat-fazlası-piyade takası yetmezdi (450>fazla-piyade).
+                let vIdx = -1, vCost = -1; const infCount = types.filter(t => t === T.INFANTRY).length;
+                for (let i = 0; i < types.length; i++) {
+                    const t = types[i];
+                    if (PROTECT.includes(t)) continue;
+                    if (t === T.INFANTRY && infCount <= 4) continue;   // hat-minimumu koru
+                    const c = STATS[t] ? STATS[t].cost : 0;
+                    if (c > vCost) { vCost = c; vIdx = i; }
+                }
+                if (vIdx < 0) break;   // sökülecek korunmayan-fazlalık yok → dur
+                const vt = types[vIdx];
+                remaining.money += STATS[vt].cost; spent[vt] = (spent[vt] || 0) - STATS[vt].cost; if (spent[vt] <= 0) delete spent[vt];
+                types.splice(vIdx, 1);
+            }
+        };
+        _ensureOneOf([T.ARTILLERY, T.MLRS]);   // AĞIR-DOLAYLI: havan tek başına şok-üreten-ateş değil (topçu|ÇNRA şart)
+        _ensureOneOf([T.SPAAG, T.MANPADS]);    // KISA-AA: SAM tek-katman kalmasın (drone/helo cevabı)
+    }
+    // FAZ2 OMURGA-TABANI (analist Suçlu-2/görev-rol, `backbone`-delta): comp-floor pahalı-imzayı garantiler ama HATTI aç bırakabiliyor
+    // (maç-kanıtı savunma-777: 930₺ drone/EW + hat yalnız 2-piyade → ucuz-simetrik cevaba yenildi). KURAL: hat+AT karması ≥ %30 bütçe —
+    // "ana çabanın ucu asla çıplak değil". Eksikse en-ucuz omurga al, en-PAHALI non-omurga fazlalığı takas ederek (imza≥1 + SAM + radar korunur).
+    // Her iki tarafa (saldıran+savunan). Deterministik (sıralı, RNG yok). Gated default-false → byte-aynı.
+    const _dBackbone = (typeof BATTLE_INTEL4_DELTAS !== 'undefined' && BATTLE_INTEL4_DELTAS.backbone === true);
+    if (_dBackbone && config.brainIntel4 && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        const BACKBONE = [T.ARMOR, T.INFANTRY, T.MECH_INFANTRY, T.ARMOR_INFANTRY, T.ANTI_TANK].filter(t => t != null && STATS[t]);
+        const isBb = t => BACKBONE.includes(t);
+        const bbValue = () => types.reduce((s, t) => s + (isBb(t) ? STATS[t].cost : 0), 0);
+        const target = 0.30 * (initial.money || 0);
+        const buyOrder = BACKBONE.slice().sort((a, b) => (STATS[a].cost - STATS[b].cost) || (a - b));   // en ucuz omurga önce
+        let guard = 0;
+        while (bbValue() < target && guard++ < 24) {
+            let buy = null;
+            for (const t of buyOrder) { if (STATS[t].cost <= (remaining.money || 0)) { buy = t; break; } }
+            if (buy == null) {   // yer aç: en-PAHALI non-omurga fazlalık kurbanı (imza son-kopyası + SAM + radar KORUNUR)
+                const cnt = {}; for (const t of types) cnt[t] = (cnt[t] || 0) + 1;
+                let victim = null;
+                for (const t of Object.keys(cnt).map(Number)) {
+                    if (isBb(t) || t === T.SAM || t === T.COUNTER_BATTERY) continue;
+                    if (emphasis.includes(t) && cnt[t] <= 1) continue;   // imza son-kopyasını koru (çeşitlilik bozulmasın)
+                    if (victim == null || STATS[t].cost > STATS[victim].cost || (STATS[t].cost === STATS[victim].cost && t < victim)) victim = t;
+                }
+                if (victim == null) break;
+                const ix = types.lastIndexOf(victim); if (ix < 0) break;
+                remaining.money += STATS[victim].cost; spent[victim] = (spent[victim] || 0) - STATS[victim].cost; if (spent[victim] <= 0) delete spent[victim];
+                types.splice(ix, 1);
+                continue;   // artık omurga sığabilir → tekrar dene
+            }
+            remaining.money -= STATS[buy].cost; spent[buy] = (spent[buy] || 0) + STATS[buy].cost; types.push(buy);
+        }
+    }
     const counts = types.reduce((result, type) => {
         result[type] = (result[type] || 0) + 1;
         return result;
     }, {});
+    // ANALİST-FIX (reçete-3, KADRO-DOĞRULAMA): taraf-başı kategori-payı dökümü (₺). "fire-support %0" = kırmızı-bayrak → degenerate
+    // çekilişler maç KOŞULMADAN tek-satırdan görünür (deterministik-üreticide bedava kontrol). fireSupport/logistics/at/armor/infantry.
+    const _tv = types.reduce((s, t) => s + STATS[t].cost, 0) || 1;
+    const _catCost = (pred) => Math.round(types.reduce((s, t) => s + (pred(t) ? STATS[t].cost : 0), 0) / _tv * 100);
+    const composition = {
+        fireSupport: _catCost(t => STATS[t] && (STATS[t].category === 'indirect' || (STATS[t].roleTags || []).includes('indirect_fire'))),
+        logistics: _catCost(t => t === T.SUPPLY),
+        antiTank: _catCost(t => t === T.ANTI_TANK || t === T.TANK_HUNTER),
+        armor: _catCost(t => t === T.ARMOR || t === T.TANK_HUNTER || t === T.MECH_INFANTRY),
+        infantry: _catCost(t => t === T.INFANTRY),
+        airDefense: _catCost(t => t === T.SAM || t === T.SPAAG || t === T.MANPADS || t === T.COUNTER_BATTERY)
+    };
     return {
         types,
         counts,
@@ -276,6 +435,7 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         totalValue: types.reduce((sum, type) => sum + STATS[type].cost, 0),
         initialBudget: initial,
         remaining,
+        composition,   // kategori-payı (kadro-doğrulama; degenerate-çekiliş kırmızı-bayrağı)
         doctrineId: (config.varied && typeof deployWeights.__doctrineId === 'number') ? deployWeights.__doctrineId : 0,   // DOKTRİN-KİMLİK (0=dengeli)
         hash: deploymentManifestHash(counts)
     };
@@ -360,7 +520,8 @@ function battleDeployManifest(manifest, side, config = {}) {
     // örtüşmez → helo radar-balonu kıyısını traşlayarak SAM menzilinde AMA görülmeden uçar (analistin geometri-teşhisi).
     // ÇÖZÜM: radarı en yakın SAM'ın hemen ARKASINA (~250px, kendi üssüne doğru) taşı → 2000-balon SAM'ın tüm 1650-zarfını
     // her yönde örter, radar da SAM kalkanının gerisinde güvende. Deterministik (serpiştirme sırası, RNG yok).
-    if (typeof T !== 'undefined' && T.SAM != null) {
+    // INTEL4-delta (flag-kapılı): SAM-radar konuşlanma-geometrisi intel3pro'da yok (radar rastgele serpiştirilir).
+    if (typeof T !== 'undefined' && T.SAM != null && (typeof battleDelta === 'function') && battleDelta(side, 'comp')) {
         const sams = deployed.filter(u => !u.dead && u.type === T.SAM);
         const radars = deployed.filter(u => !u.dead && ((STATS[u.type] && STATS[u.type].airRadar) || u.airRadar));
         if (sams.length && radars.length) {
@@ -380,6 +541,11 @@ function battleDeployManifest(manifest, side, config = {}) {
     }
     if (side) enemy.unitsSpawned += deployed.length;
     else player.unitsSpawned += deployed.length;
+    // KADRO-DOĞRULAMA (analist reçete-3): taraf-başı kategori-payını session'a yaz → kayıttan (features.composition) okunur, degenerate yakalanır
+    if (typeof BATTLE_SESSION !== 'undefined' && manifest && manifest.composition) {
+        BATTLE_SESSION.composition = BATTLE_SESSION.composition || {};
+        BATTLE_SESSION.composition[side ? 'red' : 'blue'] = manifest.composition;
+    }
     if (typeof battleControllersSyncOwnership === 'function') battleControllersSyncOwnership();
     return {
         units: deployed,
@@ -419,9 +585,11 @@ function battleAutoDeploySession(config = {}) {
         // (öngörülemez olsun). DIVERSE-SELFPLAY eğitiminde de BATTLE_FORCE_VARIED ile açılır → model
         // çeşitli ordular komuta etmeyi öğrenir (gerçek oyundaki varied dağılımıyla uyumlu).
         varied: (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive === true) || BATTLE_FORCE_VARIED === true,
-        // ROL-FARKINDA KOMPOZİSYON: saldıran AI (fakir, koruyamadığı pahalı-air'i düşman-AA'ya hediye eder) YALIN kalsın;
-        // savunan AI (kendi AA-şemsiyesi altında hava kullanabilir) TAM çeşitlilik alsın (helo/ÇNRA sahaya çıkar).
-        forAttacker: config.attackerSide === true
+        // INTEL4 BEYİN-FLAG: kırmızı-AI (side=true) intel4-beyni ise imza-floor+SAM-koloc devrede (flag-off=intel3pro base-ordu).
+        brainIntel4: (typeof battleBrainIntel4 === 'function') && battleBrainIntel4(true),
+        // ANALİST-FIX (mızraksız-taarruz): kırmızı-AI SALDIRAN ise zırh-mızrağı-tabanı devrede (savunanda değil). NOT: SIM.battle.attackerSide
+        // autoDeploy anında HENÜZ set-edilmemiş (initBattleRules startBattle'da) → session-CONFIG'in attackerSide'ını oku (doğru kaynak).
+        isAttacker: (config.attackerSide === true)
     });
     battleConsumeEnemyManifest(manifest);
     const deployed = battleDeployManifest(manifest, true, {

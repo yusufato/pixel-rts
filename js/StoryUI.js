@@ -782,6 +782,13 @@ function storyInit() {
     document.getElementById('faction-event-economy')?.addEventListener('click', () => {
         if (typeof storyFactionNoticeOpenEconomy === 'function') storyFactionNoticeOpenEconomy();
     });
+    document.getElementById('faction-event-responses')?.addEventListener('click', (e) => {
+        const button = e.target.closest('button[data-collective-response]');
+        if (!button || button.disabled) return;
+        if (typeof storyFactionNoticeRespond === 'function') {
+            storyFactionNoticeRespond(button.dataset.collectiveResponse);
+        }
+    });
     document.getElementById('economy-body')?.addEventListener('click', (e) => {
         const button = e.target.closest('button'); if (!button || button.disabled) return;
         if (button.classList.contains('economy-sub')) {

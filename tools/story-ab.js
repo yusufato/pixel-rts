@@ -19,7 +19,8 @@ const {
     probeCompaniesBanks,
     probeEconomicAI,
     probePopulationCohorts,
-    probeNeedsWelfare
+    probeNeedsWelfare,
+    probePublicOpinion
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -364,6 +365,7 @@ function targetedProbeFor(flag, seed) {
     if (flag === 'economy.economicAI') return compactEconomicAIProbe(seed);
     if (flag === 'population.cohorts') return probePopulationCohorts(seed);
     if (flag === 'population.needsWelfare') return probeNeedsWelfare(seed);
+    if (flag === 'society.publicOpinionMemory') return probePublicOpinion(seed);
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }
@@ -401,8 +403,12 @@ const report = {
         regionalSummary: control.regionalSummary,
         populationSummary: control.populationSummary,
         needsSummary: control.needsSummary,
+        opinionSummary: control.opinionSummary,
+        opinionValidation: control.opinionValidation,
         tradeSummary: control.tradeSummary,
         tradeProductionOpportunityView: control.tradeProductionOpportunityView,
+        tradeProductionAdmissionPlan: control.tradeProductionAdmissionPlan,
+        tradeDecisionObserverNeutral: control.tradeDecisionObserverNeutral,
         marketSummary: control.marketSummary,
         budgetSummary: control.budgetSummary,
         companySummary: control.companySummary,
@@ -419,8 +425,12 @@ const report = {
         regionalSummary: treatment.regionalSummary,
         populationSummary: treatment.populationSummary,
         needsSummary: treatment.needsSummary,
+        opinionSummary: treatment.opinionSummary,
+        opinionValidation: treatment.opinionValidation,
         tradeSummary: treatment.tradeSummary,
         tradeProductionOpportunityView: treatment.tradeProductionOpportunityView,
+        tradeProductionAdmissionPlan: treatment.tradeProductionAdmissionPlan,
+        tradeDecisionObserverNeutral: treatment.tradeDecisionObserverNeutral,
         marketSummary: treatment.marketSummary,
         budgetSummary: treatment.budgetSummary,
         companySummary: treatment.companySummary,

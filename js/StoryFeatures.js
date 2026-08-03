@@ -31,9 +31,13 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'economy.companiesBanks': true,
     'economy.economicAI': true,
     'economy.bootstrapPlanning': true,
-    'economy.saleSettlement': false,
+    'economy.saleSettlement': true,
+    'economy.paretoVolumeAdmission': true,
+    'economy.householdDistributionAdmission': true,
     'population.cohorts': true,
     'population.needsWelfare': true,
+    'society.publicOpinionMemory': true,
+    'society.collectiveAction': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -67,6 +71,25 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'economy.regionalStocks',
         'economy.marketPrices',
         'economy.companiesBanks'
+    ]),
+    'economy.paretoVolumeAdmission': Object.freeze([
+        'economy.bootstrapPlanning',
+        'economy.saleSettlement',
+        'economy.tradeLogistics',
+        'world.infrastructureGraph'
+    ]),
+    'economy.householdDistributionAdmission': Object.freeze([
+        'economy.bootstrapPlanning',
+        'economy.saleSettlement',
+        'economy.tradeLogistics',
+        'world.infrastructureGraph'
+    ]),
+    'society.publicOpinionMemory': Object.freeze([
+        'population.cohorts',
+        'population.needsWelfare'
+    ]),
+    'society.collectiveAction': Object.freeze([
+        'society.publicOpinionMemory'
     ])
 });
 

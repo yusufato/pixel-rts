@@ -196,7 +196,7 @@ const UNITS_MODERN_DB = {
       "id": "counter_battery_radar", "name": "Hava-Arama Radari", "category": "support", "tier": 2,
       "cost": { "resource": 350, "supply": 3, "buildTime": 24 },
       "hp": 200, "armorType": "light", "armorValue": 0,
-      "speed": 1.2, "vision": 12, "stealth": 0, "detect": 0.6,
+      "speed": 1.2, "vision": 20, "stealth": 0, "detect": 0.6,
       "airRadar": true,
       "weapons": [],
       "ammo": null,
@@ -302,7 +302,7 @@ const UNITS_MODERN_DB = {
       "hp": 80, "armorType": "air", "armorValue": 0,
       "speed": 3.6, "vision": 8, "stealth": 0.5, "detect": 0,
       "weapons": [
-        { "name": "carpma basligi", "damage": 260, "damageType": "shaped", "range": 10, "minRange": 0,
+        { "name": "carpma basligi", "damage": 195, "damageType": "shaped", "range": 10, "minRange": 0,
           "rof": 0.02, "aoe": 1.5, "targets": ["ground"], "indirect": false, "consumesSelf": true,
           "accuracy": { "base": 0.82, "optimalRange": 10, "falloff": 0.0, "vsMoving": 0.45, "ignoresCover": 0.9 } }
       ],
@@ -336,7 +336,7 @@ const UNITS_MODERN_DB = {
       "speed": 1.6, "vision": 8, "stealth": 0, "detect": 0.4,
       "weapons": [],
       "ammo": null,
-      "aura": { "type": "jamming", "radius": 10,
+      "aura": { "type": "jamming", "radius": 11.43,
         "effects": { "uavControlLoss": 0.75, "enemyAccuracy": -0.20, "enemyCommandRange": -0.5, "revealsSelf": true } },
       "emissions": 1.0,
       "abilities": ["deploy", "burst_jam"],
@@ -395,6 +395,18 @@ const UNITS_MODERN_DB = {
       "emissions": 0.8,
       "abilities": ["call_cas", "rally"],
       "roleTags": ["command", "force_multiplier", "high_value_target"]
+    },
+    {
+      "id": "drone_operator", "name": "Drone Operatoru", "category": "support", "tier": 2,
+      "cost": { "resource": 240, "supply": 2, "buildTime": 14 },
+      "hp": 160, "armorType": "light", "armorValue": 2,
+      "speed": 1.6, "vision": 11, "stealth": 0, "detect": 0.3,
+      "weapons": [],
+      "ammo": null,
+      "payload": { "type": "loitering_munition", "count": 2, "reloadMs": 25000 },
+      "emissions": 0.6,
+      "abilities": ["launch_drone"],
+      "roleTags": ["drone_control", "anti_support", "fragile"]
     }
   ]
 };

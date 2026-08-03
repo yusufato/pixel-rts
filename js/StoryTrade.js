@@ -22,6 +22,13 @@ const STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS = 4;
 const STORY_TRADE_DISTRIBUTION_ADAPTER_VERSION = 'story-domestic-distribution-contract-1';
 const STORY_TRADE_DISTRIBUTION_MAX_LEGS = 8;
 const STORY_TRADE_DISTRIBUTION_BATCH_LIMIT = 40;
+const STORY_TRADE_PRODUCTION_ADMISSION_ADAPTER_VERSION = 'story-production-admission-plan-1';
+const STORY_TRADE_PRODUCTION_ADMISSION_MAX_PER_COUNTRY = 3;
+const STORY_TRADE_HOUSEHOLD_PIPELINE_WINDOWS = 4;
+const STORY_TRADE_HOUSEHOLD_DISPATCH_LIMITS = Object.freeze({
+    food: 24,
+    energy: 24
+});
 const STORY_TRADE_PRODUCTION_INPUT_DISPATCH_LIMITS = Object.freeze({
     industrial_parts: 6,
     energy: 6,
@@ -253,6 +260,8 @@ function storyTradeValidate(ledger) {
         const authorizedDomesticReserveRelease = [
             'ECONOMIC_AI_OPERATIONAL_BOOTSTRAP',
             'AUTO_PRODUCTION_INPUT_CLEARING',
+            'AUTO_PRODUCTION_INPUT_PARETO_VOLUME',
+            'AUTO_HOUSEHOLD_PIPELINE_CLEARING',
             'DOMESTIC_DISTRIBUTION_BATCH'
         ].includes(order.source) && order.sellerCountryId === order.buyerCountryId;
         if (reserveBps < STORY_TRADE_POLICY.exportReserveBps
@@ -1439,7 +1448,8 @@ function storyTradeProductionInputCriticality(lastTick, resourceId, priorityMode
 // physical unit would unlock before any order is created. A simultaneous
 // second blocker is kept explicit instead of pretending that delivery alone
 // guarantees production.
-function storyTradeProductionOpportunityView() {
+function storyTradeProductionOpportunityView(options) {
+    options = options || {};
     const ledger = STORY.tradeLogistics;
     const regional = STORY.regionalEconomy;
     if (!ledger || !regional || !regional.regions) {
@@ -1498,7 +1508,8 @@ function storyTradeProductionOpportunityView() {
             operatingReserve: storyTradeRound(localProductionNeed + consumerNeed),
             physical,
             owned,
-            transferable: storyTradeRound(Math.min(physical, owned))
+            transferable: storyTradeRound(Math.min(physical, owned)),
+            pipelineTransferable: storyTradeRound(Math.min(physical, owned))
         };
     };
 
@@ -1560,6 +1571,13 @@ function storyTradeProductionOpportunityView() {
             const inputRequired = storyTradeRound(missingCycles * Number(input.quantity));
             const inbound = storyTradeRound(pending.get(`${region.regionId}|${resourceId}`) || 0);
             const uncoveredNeed = storyTradeRound(Math.max(0, inputRequired - inbound));
+            const pipelineInputRequired = storyTradeRound(
+                inputRequired * STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS
+            );
+            const pipelineUncoveredNeed = storyTradeRound(Math.max(
+                0,
+                pipelineInputRequired - inbound
+            ));
 
             const sourceCandidates = [];
             let sourcesWithStock = 0;
@@ -1582,6 +1600,11 @@ function storyTradeProductionOpportunityView() {
                     routeCapacity
                 ));
                 if (transferable <= 1e-6) continue;
+                const pipelineTransferable = storyTradeRound(Math.min(
+                    pipelineUncoveredNeed,
+                    availability.pipelineTransferable,
+                    routeCapacity
+                ));
                 const latencySeconds = storyTradeRound(route.totalLatencySeconds);
                 sourceCandidates.push({
                     sourceRegionId: source.regionId,
@@ -1591,6 +1614,7 @@ function storyTradeProductionOpportunityView() {
                     ownedAvailable: availability.owned,
                     routeCapacity: storyTradeRound(routeCapacity),
                     transferable,
+                    pipelineTransferable,
                     latencySeconds,
                     routeRegionIds: route.regionIds.slice(),
                     corridorIds: route.corridorIds.slice(),
@@ -1673,6 +1697,11 @@ function storyTradeProductionOpportunityView() {
                 inputRequired,
                 pendingInbound: inbound,
                 uncoveredNeed,
+                pipeline: {
+                    windows: STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS,
+                    inputRequired: pipelineInputRequired,
+                    uncoveredNeed: pipelineUncoveredNeed
+                },
                 simultaneousBlockers,
                 marginal: {
                     inputQuantity: 1,
@@ -1683,6 +1712,7 @@ function storyTradeProductionOpportunityView() {
                     realizedValueIndex
                 },
                 bestSource,
+                sourceCandidates: sourceCandidates.slice(0, 5),
                 score,
                 objectives: {
                     directNeedReliefBps,
@@ -1939,7 +1969,524 @@ function storyTradeProductionOpportunityView() {
             .reduce((sum, opportunity) => (
                 sum + Number(opportunity.bestSource && opportunity.bestSource.transferable || 0)
             ), 0)),
-        opportunities: opportunities.slice(0, 120)
+        opportunities: options.includeAll === true
+            ? opportunities
+            : opportunities.slice(0, 120)
+    };
+}
+
+// Read-only admission planner. Pareto answers "which candidates are not
+// obviously worse"; it does not answer whether those candidates can consume
+// the same source stock or corridor at the same time. This layer reserves a
+// virtual decision window across source stock, owned cargo, target demand,
+// corridor capacity and country/resource dispatch budgets. It creates no
+// order, batch, shipment or ledger mutation.
+function storyTradeProductionAdmissionPlan(options) {
+    options = options || {};
+    const ledger = STORY.tradeLogistics;
+    if (!ledger) return {
+        disabled: true,
+        adapterVersion: STORY_TRADE_PRODUCTION_ADMISSION_ADAPTER_VERSION,
+        selected: [],
+        actions: [],
+        summary: {}
+    };
+    const opportunityView = options.opportunityView
+        && options.opportunityView.disabled === false
+        ? options.opportunityView
+        : storyTradeProductionOpportunityView({ includeAll: true });
+    const maxDispatches = Math.max(1, Math.min(
+        STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES,
+        Math.floor(Number(options.maxDispatches)
+            || STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES)
+    ));
+    const maxPerCountry = Math.max(1, Math.min(
+        STORY_TRADE_PRODUCTION_ADMISSION_MAX_PER_COUNTRY,
+        Math.floor(Number(options.maxPerCountry)
+            || STORY_TRADE_PRODUCTION_ADMISSION_MAX_PER_COUNTRY)
+    ));
+    const requestedLanes = Array.isArray(options.allowedLanes)
+        ? options.allowedLanes.filter(lane => ['SURVIVAL', 'CHAIN_RECOVERY'].includes(lane))
+        : ['SURVIVAL', 'CHAIN_RECOVERY'];
+    const allowedLanes = new Set(requestedLanes.length
+        ? requestedLanes
+        : ['SURVIVAL', 'CHAIN_RECOVERY']);
+    const resourceDispatchLimits = Object.assign(
+        {},
+        STORY_TRADE_PRODUCTION_INPUT_DISPATCH_LIMITS
+    );
+    for (const [resourceId, requestedLimit] of Object.entries(
+        options.resourceDispatchLimits || {}
+    )) {
+        if (!Object.prototype.hasOwnProperty.call(resourceDispatchLimits, resourceId)) continue;
+        resourceDispatchLimits[resourceId] = Math.max(
+            0,
+            Math.min(maxDispatches, Math.floor(Number(requestedLimit) || 0))
+        );
+    }
+    const candidates = (opportunityView.opportunities || []).filter(candidate => (
+        candidate.status === 'IMMEDIATE'
+            && candidate.countryParetoFrontier === true
+            && allowedLanes.has(candidate.policyLane)
+            && Array.isArray(candidate.sourceCandidates)
+            && candidate.sourceCandidates.length > 0
+    ));
+    const laneOrder = { SURVIVAL: 0, CHAIN_RECOVERY: 1 };
+    const stableCandidateKey = candidate => [
+        candidate.countryId,
+        candidate.regionId,
+        candidate.sectorId,
+        candidate.inputResourceId
+    ].join('|');
+    const compareCandidates = (left, right) => {
+        const lane = (laneOrder[left.policyLane] || 0) - (laneOrder[right.policyLane] || 0);
+        if (lane) return lane;
+        const leftPrimary = left.policyLane === 'SURVIVAL'
+            ? Number(left.objectives.directNeedReliefBps || 0)
+            : Number(left.objectives.chainReliefBps || 0);
+        const rightPrimary = right.policyLane === 'SURVIVAL'
+            ? Number(right.objectives.directNeedReliefBps || 0)
+            : Number(right.objectives.chainReliefBps || 0);
+        return Number(left.countryParetoRank || 9999) - Number(right.countryParetoRank || 9999)
+            || rightPrimary - leftPrimary
+            || Number(right.objectives.realizationBps || 0)
+                - Number(left.objectives.realizationBps || 0)
+            || Number(right.objectives.deliveryCoverageBps || 0)
+                - Number(left.objectives.deliveryCoverageBps || 0)
+            || (Number.isFinite(Number(left.objectives.latencySeconds))
+                ? Number(left.objectives.latencySeconds)
+                : Infinity)
+                - (Number.isFinite(Number(right.objectives.latencySeconds))
+                    ? Number(right.objectives.latencySeconds)
+                    : Infinity)
+            || Number(right.objectives.economicValueIndex || 0)
+                - Number(left.objectives.economicValueIndex || 0)
+            || stableCandidateKey(left).localeCompare(stableCandidateKey(right));
+    };
+
+    const selected = [];
+    const attempted = new Set();
+    const rejectedCounts = {};
+    const countryCounts = {};
+    const resourceCounts = {};
+    const sourceReserved = {};
+    const sourcePhysicalCapacity = {};
+    const sourceOwnedCapacity = {};
+    const targetReserved = {};
+    const targetDemandCapacity = {};
+    const corridorReserved = {};
+    const corridorCapacity = {};
+    const reject = code => {
+        rejectedCounts[code] = (rejectedCounts[code] || 0) + 1;
+        return false;
+    };
+    const availableCorridorCapacity = corridorId => {
+        if (!Object.prototype.hasOwnProperty.call(corridorCapacity, corridorId)) {
+            const corridor = storyInfrastructureGetCorridor(corridorId);
+            corridorCapacity[corridorId] = storyTradeRound(Math.max(
+                0,
+                (corridor ? storyInfrastructureEffectiveCapacity(corridor) : 0)
+                    - Number(ledger.capacityWindow.usedByCorridor[corridorId] || 0)
+            ));
+        }
+        return Math.max(
+            0,
+            Number(corridorCapacity[corridorId] || 0)
+                - Number(corridorReserved[corridorId] || 0)
+        );
+    };
+    const tryAdmit = (candidate, forcedLaneSlot) => {
+        const countryId = candidate.countryId;
+        const resourceId = candidate.inputResourceId;
+        const countryCount = Number(countryCounts[countryId] || 0);
+        const resourceCount = Number(resourceCounts[resourceId] || 0);
+        const resourceLimit = Number(resourceDispatchLimits[resourceId]) || 0;
+        if (countryCount >= maxPerCountry) return reject('COUNTRY_BUDGET');
+        if (resourceCount >= resourceLimit) return reject('RESOURCE_BUDGET');
+        const targetKey = `${candidate.regionId}|${resourceId}`;
+        const pipelineUncoveredNeed = Math.max(
+            0,
+            Number(candidate.pipeline && candidate.pipeline.uncoveredNeed)
+                || Number(candidate.uncoveredNeed || 0)
+        );
+        targetDemandCapacity[targetKey] = Math.max(
+            Number(targetDemandCapacity[targetKey] || 0),
+            pipelineUncoveredNeed
+        );
+        const targetRemaining = storyTradeRound(Math.max(
+            0,
+            Number(targetDemandCapacity[targetKey] || 0)
+                - Number(targetReserved[targetKey] || 0)
+        ));
+        if (targetRemaining <= 1e-6) return reject('TARGET_DEMAND_RESERVED');
+        const desired = storyTradeRound(targetRemaining);
+        const minimumUsefulQuantity = storyTradeRound(Math.min(
+            Number(candidate.inputRequired || 0),
+            targetRemaining
+        ));
+        const choices = [];
+        for (const source of candidate.sourceCandidates) {
+            const sourceKey = `${source.sourceRegionId}|${resourceId}`;
+            sourcePhysicalCapacity[sourceKey] = Math.max(
+                Number(sourcePhysicalCapacity[sourceKey] || 0),
+                Number(source.physicalAvailable || 0)
+            );
+            sourceOwnedCapacity[sourceKey] = Math.max(
+                Number(sourceOwnedCapacity[sourceKey] || 0),
+                Number(source.ownedAvailable || 0)
+            );
+            const alreadyReserved = Number(sourceReserved[sourceKey] || 0);
+            const physicalRemaining = Math.max(
+                0,
+                Number(sourcePhysicalCapacity[sourceKey] || 0) - alreadyReserved
+            );
+            const ownedRemaining = Math.max(
+                0,
+                Number(sourceOwnedCapacity[sourceKey] || 0) - alreadyReserved
+            );
+            const routeRemaining = (source.corridorIds || []).reduce(
+                (minimum, corridorId) => Math.min(
+                    minimum,
+                    availableCorridorCapacity(corridorId)
+                ),
+                Infinity
+            );
+            const quantity = storyTradeRound(Math.min(
+                desired,
+                Number(source.pipelineTransferable || source.transferable || 0),
+                physicalRemaining,
+                ownedRemaining,
+                routeRemaining
+            ));
+            if (quantity <= 1e-6) continue;
+            if (quantity + 1e-6 < minimumUsefulQuantity) continue;
+            choices.push({
+                source,
+                sourceKey,
+                quantity,
+                physicalRemaining: storyTradeRound(physicalRemaining),
+                ownedRemaining: storyTradeRound(ownedRemaining),
+                routeRemaining: storyTradeRound(routeRemaining)
+            });
+        }
+        choices.sort((left, right) => right.quantity - left.quantity
+            || (Number.isFinite(Number(left.source.latencySeconds))
+                ? Number(left.source.latencySeconds)
+                : Infinity)
+                - (Number.isFinite(Number(right.source.latencySeconds))
+                    ? Number(right.source.latencySeconds)
+                    : Infinity)
+            || left.source.sourceRegionId.localeCompare(right.source.sourceRegionId));
+        const choice = choices[0];
+        if (!choice) return reject('SHARED_RESERVATION_CONFLICT');
+        const quantity = choice.quantity;
+        sourceReserved[choice.sourceKey] = storyTradeRound(
+            Number(sourceReserved[choice.sourceKey] || 0) + quantity
+        );
+        targetReserved[targetKey] = storyTradeRound(
+            Number(targetReserved[targetKey] || 0) + quantity
+        );
+        for (const corridorId of choice.source.corridorIds || []) {
+            corridorReserved[corridorId] = storyTradeRound(
+                Number(corridorReserved[corridorId] || 0) + quantity
+            );
+        }
+        countryCounts[countryId] = countryCount + 1;
+        resourceCounts[resourceId] = resourceCount + 1;
+        selected.push({
+            sequence: selected.length + 1,
+            candidateKey: stableCandidateKey(candidate),
+            countryId,
+            sourceRegionId: choice.source.sourceRegionId,
+            targetRegionId: candidate.regionId,
+            sectorId: candidate.sectorId,
+            resourceId,
+            quantity,
+            policyLane: candidate.policyLane,
+            forcedLaneSlot: forcedLaneSlot || null,
+            countryParetoRank: candidate.countryParetoRank,
+            routeRegionIds: choice.source.routeRegionIds.slice(),
+            corridorIds: choice.source.corridorIds.slice(),
+            routeLatencySeconds: choice.source.latencySeconds,
+            volume: {
+                pipelineWindows: Number(candidate.pipeline && candidate.pipeline.windows)
+                    || STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS,
+                currentWindowInputRequired: storyTradeRound(candidate.inputRequired || 0),
+                pipelineInputRequired: storyTradeRound(
+                    candidate.pipeline && candidate.pipeline.inputRequired
+                        || candidate.inputRequired
+                        || 0
+                ),
+                pendingInbound: storyTradeRound(candidate.pendingInbound || 0),
+                pipelineUncoveredNeed: storyTradeRound(pipelineUncoveredNeed),
+                plannedWindowCoverageBps: Number(candidate.inputRequired || 0) > 1e-6
+                    ? Math.round(quantity / Number(candidate.inputRequired) * 10000)
+                    : 0
+            },
+            objectives: Object.assign({}, candidate.objectives)
+        });
+        return true;
+    };
+
+    // Guardrail slots are lexicographic, not weighted: if a live upstream and
+    // a live household candidate exist, one of each is attempted before the
+    // remaining fair-share window is filled.
+    for (const lane of ['CHAIN_RECOVERY', 'SURVIVAL']) {
+        const laneCandidates = candidates.filter(candidate => candidate.policyLane === lane)
+            .sort(compareCandidates);
+        for (const candidate of laneCandidates) {
+            const key = stableCandidateKey(candidate);
+            if (attempted.has(key)) continue;
+            attempted.add(key);
+            if (tryAdmit(candidate, lane)) break;
+        }
+    }
+    while (selected.length < maxDispatches) {
+        const remaining = candidates.filter(candidate => !attempted.has(stableCandidateKey(candidate)));
+        if (!remaining.length) break;
+        remaining.sort((left, right) => (
+            Number(countryCounts[left.countryId] || 0)
+                - Number(countryCounts[right.countryId] || 0)
+                || compareCandidates(left, right)
+        ));
+        let admitted = false;
+        for (const candidate of remaining) {
+            const key = stableCandidateKey(candidate);
+            attempted.add(key);
+            if (tryAdmit(candidate, null)) {
+                admitted = true;
+                break;
+            }
+        }
+        if (!admitted) break;
+    }
+
+    const actionGroups = new Map();
+    for (const selection of selected) {
+        const key = `${selection.countryId}|${selection.sourceRegionId}|${selection.resourceId}`;
+        if (!actionGroups.has(key)) actionGroups.set(key, {
+            countryId: selection.countryId,
+            sourceRegionId: selection.sourceRegionId,
+            resourceId: selection.resourceId,
+            selections: []
+        });
+        actionGroups.get(key).selections.push(selection);
+    }
+    const actions = [...actionGroups.values()].map((group, index) => ({
+        id: `production-admission-action:${index + 1}`,
+        type: group.selections.length >= 2
+            ? 'DISTRIBUTION_BATCH'
+            : 'SINGLE_ORDER',
+        countryId: group.countryId,
+        sourceRegionId: group.sourceRegionId,
+        resourceId: group.resourceId,
+        quantity: storyTradeRound(group.selections.reduce(
+            (sum, selection) => sum + Number(selection.quantity || 0),
+            0
+        )),
+        legs: group.selections.map(selection => ({
+            candidateKey: selection.candidateKey,
+            targetRegionId: selection.targetRegionId,
+            sectorId: selection.sectorId,
+            quantity: selection.quantity,
+            routeRegionIds: selection.routeRegionIds.slice(),
+            corridorIds: selection.corridorIds.slice(),
+            routeLatencySeconds: selection.routeLatencySeconds
+        }))
+    }));
+    const violations = [];
+    for (const [key, quantity] of Object.entries(sourceReserved)) {
+        if (quantity > Number(sourcePhysicalCapacity[key] || 0) + 1e-6) {
+            violations.push({ code: 'SOURCE_PHYSICAL_OVERBOOKED', key, quantity });
+        }
+        if (quantity > Number(sourceOwnedCapacity[key] || 0) + 1e-6) {
+            violations.push({ code: 'SOURCE_OWNERSHIP_OVERBOOKED', key, quantity });
+        }
+    }
+    for (const [key, quantity] of Object.entries(targetReserved)) {
+        if (quantity > Number(targetDemandCapacity[key] || 0) + 1e-6) {
+            violations.push({ code: 'TARGET_DEMAND_OVERBOOKED', key, quantity });
+        }
+    }
+    for (const [key, quantity] of Object.entries(corridorReserved)) {
+        if (quantity > Number(corridorCapacity[key] || 0) + 1e-6) {
+            violations.push({ code: 'CORRIDOR_OVERBOOKED', key, quantity });
+        }
+    }
+    const countBy = (rows, key) => rows.reduce((counts, row) => {
+        const value = row[key];
+        counts[value] = (counts[value] || 0) + 1;
+        return counts;
+    }, {});
+    const laneAvailable = {
+        SURVIVAL: candidates.some(candidate => candidate.policyLane === 'SURVIVAL'),
+        CHAIN_RECOVERY: candidates.some(candidate => candidate.policyLane === 'CHAIN_RECOVERY')
+    };
+    const byLane = countBy(selected, 'policyLane');
+    const quantityByResource = selected.reduce((totals, selection) => {
+        totals[selection.resourceId] = storyTradeRound(
+            Number(totals[selection.resourceId] || 0) + Number(selection.quantity || 0)
+        );
+        return totals;
+    }, {});
+    const plannedWindowCoverageBps = selected.length
+        ? Math.round(selected.reduce((sum, selection) => (
+            sum + Number(selection.volume && selection.volume.plannedWindowCoverageBps || 0)
+        ), 0) / selected.length)
+        : 0;
+    return {
+        disabled: false,
+        adapterVersion: STORY_TRADE_PRODUCTION_ADMISSION_ADAPTER_VERSION,
+        generatedAt: storyTradeRound(STORY.clock),
+        sourceOpportunityCount: Number(opportunityView.opportunityCount || 0),
+        eligibleCandidateCount: candidates.length,
+        selected,
+        actions,
+        rejectedCounts,
+        reservations: {
+            sourceReserved,
+            sourcePhysicalCapacity,
+            sourceOwnedCapacity,
+            targetReserved,
+            targetDemandCapacity,
+            corridorReserved,
+            corridorCapacity
+        },
+        validation: {
+            ok: violations.length === 0,
+            violations
+        },
+        guardrails: {
+            conditionalCandidatesAllowed: false,
+            economicOnlyCandidatesAllowed: false,
+            allowedLanes: [...allowedLanes],
+            maxDispatches,
+            maxPerCountry,
+            pipelineWindows: STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS,
+            minimumOneWindowPerSelection: true,
+            resourceDispatchLimits: Object.assign(
+                {},
+                resourceDispatchLimits
+            ),
+            laneAvailable,
+            laneMinimumsSatisfied: Object.keys(laneAvailable).every(lane => (
+                !laneAvailable[lane] || Number(byLane[lane] || 0) > 0
+            ))
+        },
+        summary: {
+            selectedCount: selected.length,
+            selectedQuantity: storyTradeRound(selected.reduce(
+                (sum, selection) => sum + Number(selection.quantity || 0),
+                0
+            )),
+            actionCount: actions.length,
+            distributionBatchActions: actions.filter(action => (
+                action.type === 'DISTRIBUTION_BATCH'
+            )).length,
+            singleOrderActions: actions.filter(action => action.type === 'SINGLE_ORDER').length,
+            byLane,
+            byResource: countBy(selected, 'resourceId'),
+            quantityByResource,
+            byCountry: countBy(selected, 'countryId'),
+            averagePlannedWindowCoverageBps: plannedWindowCoverageBps,
+            conflictFree: violations.length === 0
+        }
+    };
+}
+
+function storyTradeCommitProductionVolumeAdmission(ledger) {
+    const opportunityView = storyTradeProductionOpportunityView({ includeAll: true });
+    const admission = storyTradeProductionAdmissionPlan({
+        opportunityView,
+        allowedLanes: ['SURVIVAL']
+    });
+    if (admission.disabled || !admission.validation || !admission.validation.ok) {
+        return {
+            productionAdmissionSelected: 0,
+            productionAdmissionFailed: 0,
+            productionAdmissionOrdersCreated: 0,
+            productionAdmissionShipmentsDispatched: 0,
+            productionAdmissionQuantity: 0,
+            productionAdmissionCode: admission.disabled
+                ? 'ADMISSION_DISABLED'
+                : 'ADMISSION_INVALID'
+        };
+    }
+    let ordersCreated = 0;
+    let shipmentsDispatched = 0;
+    let failed = 0;
+    let dispatchedQuantity = 0;
+    const failureCodes = {};
+    for (const selection of admission.selected) {
+        const created = storyTradeCreateOrder({
+            sourceRegionId: selection.sourceRegionId,
+            targetRegionId: selection.targetRegionId,
+            resourceId: selection.resourceId,
+            quantity: selection.quantity,
+            priority: selection.policyLane === 'SURVIVAL' ? 160 : 150,
+            source: 'AUTO_PRODUCTION_INPUT_PARETO_VOLUME',
+            exportReserveBps: 0
+        });
+        if (!created.ok) {
+            failed++;
+            const code = created.code || 'ADMISSION_ORDER_FAILED';
+            failureCodes[code] = (failureCodes[code] || 0) + 1;
+            continue;
+        }
+        ordersCreated++;
+        const dispatched = storyTradeDispatchOrder(created.order, selection.quantity);
+        if (!dispatched.ok) {
+            failed++;
+            const code = dispatched.code || 'ADMISSION_DISPATCH_FAILED';
+            failureCodes[code] = (failureCodes[code] || 0) + 1;
+            storyTradeRecordDispatchFailure(created.order, dispatched);
+            created.order.status = 'CANCELLED';
+            continue;
+        }
+        shipmentsDispatched++;
+        const actual = Number(dispatched.shipment.quantity || 0);
+        dispatchedQuantity = storyTradeRound(dispatchedQuantity + actual);
+        if (Math.abs(actual - Number(selection.quantity || 0)) > 1e-6) {
+            failed++;
+            failureCodes.ADMISSION_PARTIAL_DISPATCH =
+                (failureCodes.ADMISSION_PARTIAL_DISPATCH || 0) + 1;
+            created.order.status = 'CANCELLED';
+        }
+    }
+    const previousTotals = ledger.diagnostics.productionVolumeAdmissionTotals || {};
+    ledger.diagnostics.productionVolumeAdmissionTotals = {
+        windows: Number(previousTotals.windows || 0) + 1,
+        selected: Number(previousTotals.selected || 0) + admission.summary.selectedCount,
+        selectedQuantity: storyTradeRound(
+            Number(previousTotals.selectedQuantity || 0) + admission.summary.selectedQuantity
+        ),
+        ordersCreated: Number(previousTotals.ordersCreated || 0) + ordersCreated,
+        shipmentsDispatched: Number(previousTotals.shipmentsDispatched || 0)
+            + shipmentsDispatched,
+        dispatchedQuantity: storyTradeRound(
+            Number(previousTotals.dispatchedQuantity || 0) + dispatchedQuantity
+        ),
+        failed: Number(previousTotals.failed || 0) + failed
+    };
+    ledger.diagnostics.lastProductionVolumeAdmission = {
+        adapterVersion: admission.adapterVersion,
+        generatedAt: admission.generatedAt,
+        selectedCount: admission.summary.selectedCount,
+        selectedQuantity: admission.summary.selectedQuantity,
+        dispatchedQuantity,
+        failed,
+        failureCodes,
+        quantityByResource: Object.assign({}, admission.summary.quantityByResource),
+        averagePlannedWindowCoverageBps:
+            admission.summary.averagePlannedWindowCoverageBps
+    };
+    return {
+        productionAdmissionSelected: admission.summary.selectedCount,
+        productionAdmissionFailed: failed,
+        productionAdmissionOrdersCreated: ordersCreated,
+        productionAdmissionShipmentsDispatched: shipmentsDispatched,
+        productionAdmissionQuantity: dispatchedQuantity,
+        productionAdmissionCode: failed ? 'ADMISSION_PARTIAL' : 'ADMISSION_COMMITTED'
     };
 }
 
@@ -2224,6 +2771,192 @@ function storyTradeAutoBalance(ledger) {
     return { ordersCreated, shipmentsDispatched, attempts };
 }
 
+// Faz 22.1E: the legacy reserve balancer uses safe targets frozen at campaign
+// creation. Population growth can therefore raise one live consumption window
+// above the whole inbound target. This optional domestic supplement observes
+// the previous physical allocation receipt, keeps one complete local operating
+// and final-consumption window at every source, and fills a bounded four-window
+// food/energy pipeline at the worst-served regions. It creates no stock, never
+// crosses a border, and route/corridor capacity remains authoritative.
+function storyTradeHouseholdDistributionBalance(ledger) {
+    const regional = storyRegionalEnsure();
+    if (!regional) return {
+        householdPipelineOrdersCreated: 0,
+        householdPipelineShipmentsDispatched: 0,
+        householdPipelineQuantity: 0,
+        householdPipelineFailed: 0,
+        householdPipelineCode: 'REGIONAL_LEDGER_MISSING'
+    };
+    const pending = storyTradePendingInbound(ledger);
+    let ordersCreated = 0;
+    let shipmentsDispatched = 0;
+    let dispatchedQuantity = 0;
+    let failed = 0;
+    const byResource = {};
+    const failureCodes = {};
+    const finalConsumerTypes = {
+        food: new Set(['HOUSEHOLDS', 'MILITARY']),
+        energy: new Set(['HOUSEHOLDS', 'MILITARY', 'STATE'])
+    };
+    const requestedFor = (region, resourceId) => (region.lastTick && region.lastTick.allocations || [])
+        .filter(allocation => allocation.resourceId === resourceId
+            && finalConsumerTypes[resourceId].has(allocation.consumerType))
+        .reduce((sum, allocation) => sum + Math.max(0, Number(allocation.requested) || 0), 0);
+    const householdFillFor = (region, resourceId) => {
+        const allocation = (region.lastTick && region.lastTick.allocations || []).find(item => (
+            item.consumerType === 'HOUSEHOLDS' && item.resourceId === resourceId
+        ));
+        return allocation ? Math.max(0, Math.min(10000, Number(allocation.fillBps) || 0)) : 10000;
+    };
+
+    for (const resourceId of ['food', 'energy']) {
+        const demands = [];
+        const supplies = [];
+        let resourceDispatches = 0;
+        const dispatchLimit = STORY_TRADE_HOUSEHOLD_DISPATCH_LIMITS[resourceId] || 0;
+        for (const region of Object.values(regional.regions)) {
+            const stock = Math.max(0, Number(region.stocks[resourceId]) || 0);
+            const liveConsumerWindow = requestedFor(region, resourceId);
+            if (liveConsumerWindow <= 1e-6) continue;
+            const inbound = pending.get(`${region.regionId}|${resourceId}`) || 0;
+            const pipelineTarget = storyTradeRound(
+                liveConsumerWindow * STORY_TRADE_HOUSEHOLD_PIPELINE_WINDOWS
+            );
+            const deficit = storyTradeRound(Math.max(0, pipelineTarget - stock - inbound));
+            const productionWindow = Math.max(0, Number(
+                region.lastTick && region.lastTick.productionConsumedByResource
+                    && region.lastTick.productionConsumedByResource[resourceId]
+            ) || 0);
+            const localReserve = storyTradeRound(liveConsumerWindow + productionWindow);
+            const surplus = storyTradeRound(Math.max(0, stock - localReserve));
+            const countryId = storyTradeCountryIdForRegion(region.regionId);
+            if (deficit > 1e-6) demands.push({
+                regionId: region.regionId,
+                countryId,
+                quantity: deficit,
+                householdFillBps: householdFillFor(region, resourceId)
+            });
+            if (surplus > 1e-6) supplies.push({
+                regionId: region.regionId,
+                countryId,
+                quantity: surplus
+            });
+        }
+        demands.sort((a, b) => a.householdFillBps - b.householdFillBps
+            || b.quantity - a.quantity
+            || a.regionId.localeCompare(b.regionId));
+        supplies.sort((a, b) => b.quantity - a.quantity
+            || a.regionId.localeCompare(b.regionId));
+
+        for (const demand of demands) {
+            if (resourceDispatches >= dispatchLimit) break;
+            const candidates = supplies
+                .filter(supply => supply.quantity > 1e-6
+                    && supply.countryId === demand.countryId
+                    && supply.regionId !== demand.regionId)
+                .map(supply => {
+                    const route = storyInfrastructureFindRoute(
+                        supply.regionId,
+                        demand.regionId,
+                        {
+                            modes: storyTradeModes(resourceId),
+                            authorizedCountryIds: [demand.countryId],
+                            minCapacity: 0
+                        }
+                    );
+                    return {
+                        supply,
+                        route,
+                        capacity: route.ok ? storyTradeCapacityAvailable(route, ledger) : 0,
+                        latencySeconds: route.ok
+                            ? (route.corridorIds || []).reduce((sum, corridorId) => {
+                                const corridor = storyInfrastructureGetCorridor(corridorId);
+                                return sum + Math.max(0, Number(corridor && corridor.latencySeconds) || 0);
+                            }, 0)
+                            : Infinity
+                    };
+                })
+                .filter(candidate => candidate.route.ok && candidate.capacity > 1e-6)
+                .sort((a, b) => a.latencySeconds - b.latencySeconds
+                    || b.supply.quantity - a.supply.quantity
+                    || a.supply.regionId.localeCompare(b.supply.regionId));
+            for (const candidate of candidates) {
+                if (demand.quantity <= 1e-6 || resourceDispatches >= dispatchLimit) break;
+                const quantity = storyTradeRound(Math.min(
+                    demand.quantity,
+                    candidate.supply.quantity,
+                    candidate.capacity
+                ));
+                if (quantity <= 1e-6) continue;
+                const created = storyTradeCreateOrder({
+                    sourceRegionId: candidate.supply.regionId,
+                    targetRegionId: demand.regionId,
+                    resourceId,
+                    quantity,
+                    priority: 170,
+                    source: 'AUTO_HOUSEHOLD_PIPELINE_CLEARING',
+                    exportReserveBps: 0
+                });
+                if (!created.ok) {
+                    failed++;
+                    const code = created.code || 'ORDER_FAILED';
+                    failureCodes[code] = (failureCodes[code] || 0) + 1;
+                    continue;
+                }
+                ordersCreated++;
+                const dispatched = storyTradeDispatchOrder(created.order, quantity);
+                if (!dispatched.ok) {
+                    failed++;
+                    const code = dispatched.code || 'DISPATCH_FAILED';
+                    failureCodes[code] = (failureCodes[code] || 0) + 1;
+                    storyTradeRecordDispatchFailure(created.order, dispatched);
+                    created.order.status = 'CANCELLED';
+                    continue;
+                }
+                const actual = Math.max(0, Number(dispatched.shipment.quantity) || 0);
+                if (actual + 1e-6 < quantity) created.order.status = 'CANCELLED';
+                shipmentsDispatched++;
+                resourceDispatches++;
+                dispatchedQuantity = storyTradeRound(dispatchedQuantity + actual);
+                byResource[resourceId] = storyTradeRound((byResource[resourceId] || 0) + actual);
+                demand.quantity = storyTradeRound(Math.max(0, demand.quantity - actual));
+                candidate.supply.quantity = storyTradeRound(Math.max(
+                    0,
+                    candidate.supply.quantity - actual
+                ));
+            }
+        }
+    }
+    const previousTotals = ledger.diagnostics.householdDistributionAdmissionTotals || {};
+    ledger.diagnostics.householdDistributionAdmissionTotals = {
+        windows: Math.max(0, Number(previousTotals.windows) || 0) + 1,
+        ordersCreated: Math.max(0, Number(previousTotals.ordersCreated) || 0) + ordersCreated,
+        shipmentsDispatched: Math.max(0, Number(previousTotals.shipmentsDispatched) || 0)
+            + shipmentsDispatched,
+        dispatchedQuantity: storyTradeRound(
+            Math.max(0, Number(previousTotals.dispatchedQuantity) || 0) + dispatchedQuantity
+        ),
+        failed: Math.max(0, Number(previousTotals.failed) || 0) + failed
+    };
+    ledger.diagnostics.lastHouseholdDistributionAdmission = {
+        generatedAt: storyTradeRound(STORY.clock),
+        pipelineWindows: STORY_TRADE_HOUSEHOLD_PIPELINE_WINDOWS,
+        ordersCreated,
+        shipmentsDispatched,
+        dispatchedQuantity,
+        byResource,
+        failed,
+        failureCodes
+    };
+    return {
+        householdPipelineOrdersCreated: ordersCreated,
+        householdPipelineShipmentsDispatched: shipmentsDispatched,
+        householdPipelineQuantity: dispatchedQuantity,
+        householdPipelineFailed: failed,
+        householdPipelineCode: failed ? 'HOUSEHOLD_PIPELINE_PARTIAL' : 'HOUSEHOLD_PIPELINE_COMMITTED'
+    };
+}
+
 function storyTradeGarbageCollect(ledger) {
     if (Array.isArray(ledger.distributionBatches)
         && ledger.distributionBatches.length > STORY_TRADE_DISTRIBUTION_BATCH_LIMIT) {
@@ -2338,6 +3071,31 @@ function storyTradeLogisticsTick(dtSec, options) {
     const balance = options.autoBalance === false
         ? { ordersCreated: 0, shipmentsDispatched: 0, attempts: 0 }
         : storyTradeAutoBalance(ledger);
+    const paretoVolumeAdmission = options.autoBalance !== false
+        && typeof storyFeatureEnabled === 'function'
+        && storyFeatureEnabled('economy.paretoVolumeAdmission');
+    const volumeAdmission = paretoVolumeAdmission
+        ? storyTradeCommitProductionVolumeAdmission(ledger)
+        : {
+            productionAdmissionSelected: 0,
+            productionAdmissionFailed: 0,
+            productionAdmissionOrdersCreated: 0,
+            productionAdmissionShipmentsDispatched: 0,
+            productionAdmissionQuantity: 0,
+            productionAdmissionCode: 'ADMISSION_DISABLED'
+        };
+    const householdDistributionAdmission = options.autoBalance !== false
+        && typeof storyFeatureEnabled === 'function'
+        && storyFeatureEnabled('economy.householdDistributionAdmission');
+    const householdDistribution = householdDistributionAdmission
+        ? storyTradeHouseholdDistributionBalance(ledger)
+        : {
+            householdPipelineOrdersCreated: 0,
+            householdPipelineShipmentsDispatched: 0,
+            householdPipelineQuantity: 0,
+            householdPipelineFailed: 0,
+            householdPipelineCode: 'HOUSEHOLD_PIPELINE_DISABLED'
+        };
     storyTradeRefreshDistributionBatches(ledger);
     storyTradeGarbageCollect(ledger);
     return Object.assign({
@@ -2348,5 +3106,5 @@ function storyTradeLogisticsTick(dtSec, options) {
         held,
         dispatchAttempts,
         retryDeferred
-    }, productionInputs, balance);
+    }, productionInputs, balance, volumeAdmission, householdDistribution);
 }

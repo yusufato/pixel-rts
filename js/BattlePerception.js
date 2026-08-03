@@ -108,6 +108,7 @@ class BattlePerception {
         for (const [id, ref] of this._seenEnemyRefs) {
             if (ref.dead && !this._killedCounted.has(id)) { this._killedCounted.add(id); this._confirmedKilledValue += (STATS[ref.type]?.cost || 0); }
         }
+        this.updateThreatProfile(tick);   // TEHDİT-PROFİLİ: forensik-çıkarım (kill-defterinden SONRA → bu-tick imha taze)
 
         let friendlyValue = 0;
         for (const unit of ownUnits) {
@@ -145,9 +146,55 @@ class BattlePerception {
             friendlyValue: Math.round(friendlyValue * 100) / 100,
             observedEnemyValue: Math.round(observedEnemyValue * 100) / 100,
             intelligenceFloor: Math.round(intelligenceFloor * 100) / 100,
-            estimatedEnemyValue: Math.round(estimatedEnemyValue * 100) / 100
+            estimatedEnemyValue: Math.round(estimatedEnemyValue * 100) / 100,
+            threatProfile: this._threatProfile || null   // TEHDİT-PROFİLİ (Set-yok, replayClone-güvenli): sınıf-başı inanç
         };
         return this.lastObservation;
+    }
+
+    // TEHDİT-PROFİLİ (forensik-inanç): etkiden çıkarım. Flag-kapılı 'profile'. Davranış-nötr (Faz A) — yalnız inanç+telemetri.
+    // BATTLE_FORENSIC ring'ini (canlı+playback aynı dolar) tick-ile okur; bizim-tarafa isabet eden event'lerden tehdit-sınıfı çıkarır.
+    // sourceIds = obje (numeric-string anahtar → Object.keys determinist artan). Set YOK → replayClone-güvenli.
+    updateThreatProfile(tick) {
+        if (typeof battleDelta !== 'function' || !battleDelta(this.controller.side, 'profile')) { this._threatProfile = null; return; }
+        if (!this._threatProfile) this._threatProfile = { classes: {}, _lastForensicTick: -1 };
+        const tp = this._threatProfile;
+        const ourSide = this.controller.side ? 'red' : 'blue';
+        const feed = (typeof BATTLE_FORENSIC !== 'undefined') ? BATTLE_FORENSIC.buf : [];
+        const fresh = [];
+        for (const e of feed) if (e.tick > tp._lastForensicTick && e.tick <= tick && e.targetSide === ourSide) fresh.push(e);
+        fresh.sort((a, b) => a.seq - b.seq);
+        tp._lastForensicTick = tick;
+        for (const e of fresh) {
+            const classes = (typeof battleThreatClassOf === 'function') ? battleThreatClassOf(e.attackerType) : [];
+            if (!classes.length) continue;
+            const visible = this.contacts.has(e.attackerId);
+            for (const cn of classes) {
+                let c = tp.classes[cn];
+                if (!c) c = tp.classes[cn] = { detected: false, confidence: 0, firstSignalTick: null, lastSignalTick: null, _firstEffectTick: null, _detectedTick: null, _firstReactionTick: null, estPos: null, sourceIds: {}, reactionsTriggered: [] };
+                if (c._firstEffectTick == null) c._firstEffectTick = e.tick;   // ilk-ETKİ (sıyrık dahil) → detection-latency tabanı
+                if (c.firstSignalTick == null) c.firstSignalTick = e.tick;
+                c.lastSignalTick = e.tick;
+                c.confidence = Math.min(1, c.confidence + (e.lethal ? 0.5 : 0.15) + (visible ? 0.1 : 0));
+                if (!c.detected && c.confidence >= 0.3) { c.detected = true; if (c._detectedTick == null) c._detectedTick = e.tick; }   // eşik → robust (tek-sıyrık false-tetiklemez)
+                if (e.attackerId != null) c.sourceIds[e.attackerId] = 1;
+                // estPos: sızmacı → kurbanın yeri (sızmacı orada); area/recon/air → atıcı-pozu (event'te, görülmese de)
+                c.estPos = (cn === 'infiltrator')
+                    ? { x: Math.round(e.targetX || 0), y: Math.round(e.targetY || 0) }
+                    : { x: Math.round(e.attackerX || 0), y: Math.round(e.attackerY || 0) };
+            }
+        }
+        // KALICILIK (intel-floor aynası): sınıf, sourceIds'in HER birimi TEYİTLİ-imha olana dek detected kalır — ZAMANLA çürümez
+        // (200s-sessiz balistik = "doldurup bekliyor"). Teyitli-ölen kaynağı çıkar; hepsi ölünce detected=false.
+        for (const cn of Object.keys(tp.classes)) {
+            const c = tp.classes[cn];
+            for (const idStr of Object.keys(c.sourceIds)) {
+                const id = +idStr;
+                const ref = this._seenEnemyRefs && this._seenEnemyRefs.get(id);
+                if (ref && ref.dead && this._killedCounted.has(id)) delete c.sourceIds[idStr];
+            }
+            if (Object.keys(c.sourceIds).length === 0 && c.detected) { c.detected = false; c.estPos = null; c._detectedTick = null; }   // hepsi teyitli-öldü → tespit düşer (yeniden-tespit taze latency alır)
+        }
     }
 
     snapshot() {

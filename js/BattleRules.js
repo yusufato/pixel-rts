@@ -48,6 +48,7 @@ function makeBattleRuleState() {
         winnerSide: null,
         outcomeReason: null,
         endedAt: null,
+        maxDominanceRatio: 0,   // T0-TELEMETRİ: saldıran/savunan etkili-değer oranının maç-boyu tepesi (taarruz-aciz mi eşik-ulaşılmaz mı)
         red: makeEmptyBattleArmyState(),
         blue: makeEmptyBattleArmyState()
     };
@@ -213,6 +214,11 @@ function updateBattleRules(dtSec, now) {
     const defenderObs = state.defenderSide ? redObs : blueObs;
     const attacker = state[state.attackerSide ? 'red' : 'blue'];
     const defender = state[state.defenderSide ? 'red' : 'blue'];
+
+    // T0-TELEMETRİ (analist): DOMINANCE-YAKLAŞMA — saldıran/savunan etkili-değer oranının maç-boyu TEPESİ. Süre-sonu eşiği (>1.0)
+    // hiç aşılmadıysa: maxDom<1.0 = "taarruz ACİZ" (yaklaşamadı bile); maxDom≈0.95-1.0 = "eşik ULAŞILMAZ" (yaklaştı, geçemedi). İki hastalığı ayırır.
+    const _dom = defenderObs.effectiveValue > 0 ? (attackerObs.effectiveValue / defenderObs.effectiveValue) : (attackerObs.effectiveValue > 0 ? 9 : 0);
+    if (_dom > (state.maxDominanceRatio || 0)) state.maxDominanceRatio = Math.round(_dom * 1000) / 1000;
 
     // TEST MERHAMET KURALI (yalnız KOMUTAN modu): bir taraf diğerinden %75 daha güçlüyse (etkili-değer ≥1.75×) maç biter.
     if (typeof BATTLE_COMMANDER_MODE !== 'undefined' && BATTLE_COMMANDER_MODE && redObs.combatUnits > 0 && blueObs.combatUnits > 0) {

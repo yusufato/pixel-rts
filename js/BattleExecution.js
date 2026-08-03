@@ -13,6 +13,9 @@ const TASK_EXECUTION_PHASE = Object.freeze({
 const TASK_ORDER_REFRESH_TICKS = 60;
 const TASK_ACTION_REFRESH_TICKS = 30;
 const TASK_ARRIVAL_RADIUS = 95;
+const DEFENSE_RESPREAD_TICKS = 200;   // INTEL4 anti-blob: savunan-re-spread throttle ~10s (>8s dig_in-siperlenme → pulse entrench'i sıfırlamasın; DISPERSED_LINE asıl yayan)
+const DEFENSE_RESPREAD_RADIUS = 100;  // yalnız CİDDİ yumakta (bounding-radius<100) re-spread; yayılınca dur → sabit-kal → siperlen
+const FOCUS_HYST_MARGIN = 12;         // INTEL4 hedef-histerezisi: yeni-hedef eskisini bu kadar geçmezse ODAĞI KORU (savrulma önle)
 const OPERATION_EXECUTION_PHASE = Object.freeze({
     ASSEMBLE: 'ASSEMBLE',
     FIRE_WINDOW: 'FIRE_WINDOW',
@@ -65,6 +68,15 @@ function executionArrived(units, point, radius = TASK_ARRIVAL_RADIUS) {
     return Math.hypot(centroid.x - point.x, centroid.y - point.y) <= radius;
 }
 
+// INTEL4 ANTI-BLOB: grup dağılımı = centroid'e en-uzak-birim mesafesi (bounding-radius). Küçük=yumak. Deterministik (RNG yok).
+function executionGroupDispersion(units) {
+    if (!units || units.length < 2) return Infinity;
+    const c = executionCentroid(units);
+    let r = 0;
+    for (const u of units) { const d = Math.hypot(u.x - c.x, u.y - c.y); if (d > r) r = d; }
+    return r;
+}
+
 function executionFormationOffset(index, count, formation, forwardX, forwardY) {
     const sideX = -forwardY;
     const sideY = forwardX;
@@ -85,6 +97,24 @@ function executionFormationOffset(index, count, formation, forwardX, forwardY) {
             x: -forwardX * index * 32 + sideX * index * 48,
             y: -forwardY * index * 32 + sideY * index * 48
         };
+    }
+    if (formation === 'DEFENSE_GRID' || formation === 'DEFENSE_GRID_WIDE') {
+        // INTEL4 (analist #4-metrik): YEREL-YOĞUNLUK karşıtı geniş ızgara. Yaygın alan-silahına (topçu 300/ÇNRA 250/havan 200px)
+        // aoe-güvenli. _WIDE = TEHDİT-PROFİLİ areaAlpha-teyit reaksiyonu: 340→480px → balistik-600px-çemberde bile ≤2-3 birim.
+        const cols = Math.max(2, Math.round(Math.sqrt(Math.max(1, count) * 1.6)));   // hafif geniş-cephe
+        const col = index % cols, rowN = Math.floor(index / cols);
+        const S = (formation === 'DEFENSE_GRID_WIDE') ? 480 : 340;
+        const cx = col - (cols - 1) / 2;
+        return { x: sideX * cx * S - forwardX * rowN * S, y: sideY * cx * S - forwardY * rowN * S };
+    }
+    if (formation === 'DEFENSE_GRID_XWIDE') {
+        // FAZ3 (analist Suçlu-2, 'defense'-delta): TAM-CEPHE GARNİZON. Analist t=20'de L=22 (22 birim tek aoe600-çemberinde) gördü.
+        // aoe600'ü KIRMAK için yerel-ayrım ≥600px (600px'de komşu çemberin DIŞINDA → L≤~6). GENİŞ-SIĞ: çok kolon (cephe-boyu), az sıra.
+        const cols = Math.max(3, Math.round(Math.sqrt(Math.max(1, count) * 2.4)));   // DEFENSE_GRID'den geniş-cephe (sığ derinlik)
+        const col = index % cols, rowN = Math.floor(index / cols);
+        const S = 600;
+        const cx = col - (cols - 1) / 2;
+        return { x: sideX * cx * S - forwardX * rowN * S, y: sideY * cx * S - forwardY * rowN * S };
     }
     const spacing = formation === 'DISPERSED_LINE' ? 82 : formation === 'SCREEN' ? 68 : 50;
     return { x: sideX * centered * spacing, y: sideY * centered * spacing };
@@ -812,6 +842,19 @@ class TaskExecutionManager {
                     : executionAttackOrder(contract, units, target);
                 if (order) return this.markOrder(state, order, tick);
             }
+            // INTEL4 (flag-kapılı) ANTI-BLOB: SAVUNAN grubu TEMAS-ALTINDA yumaklandıysa (odak-ateş tek-noktaya yığıyor) periyodik
+            // olarak dispersed sektör-hedefine geri YAY. MOVE attackTarget'ı siler ama menzile-giren düşmana self-defense-ateşi sürer
+            // (ateş-gücü korunur). Throttle+yumak-şartı → sürekli-iptal değil, pulse (aç → sektör-içi odak yeniden kurulur).
+            const _defRespread = this.controller && typeof battleDelta === 'function' && battleDelta(this.controller.side, 'deblob') &&
+                this.controller.lastSituation && this.controller.lastSituation.role === BATTLE_ROLE.DEFENDER &&
+                typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND &&
+                contract.destination && executionGroupDispersion(units) < DEFENSE_RESPREAD_RADIUS &&
+                !executionArrived(units, contract.destination, 150) &&
+                (tick - (state._lastRespreadTick || 0)) >= DEFENSE_RESPREAD_TICKS;
+            if (_defRespread) {
+                state._lastRespreadTick = tick;
+                return this.markOrder(state, executionMoveOrder(contract, units, contract.destination, `TASK:${contract.id}:DEFENSE_RESPREAD`), tick);
+            }
             if (!target && state.lastOrderKind !== BATTLE_ORDER_KIND.HOLD) {
                 this.transition(state, TASK_EXECUTION_PHASE.HOLD, tick, 'NO_VISIBLE_TARGET');
                 return this.markOrder(
@@ -939,6 +982,12 @@ class TaskExecutionManager {
         if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND && contract && contract.sector && this.focusBySector) {
             const f = this.focusBySector[contract.sector];
             if (f != null) return f;
+            // INTEL4 (flag-kapılı) ANTI-BLOB: SAVUNAN boş-sektör grubu GLOBAL focus'a düşmesin (birden çok grup tek-contact'a
+            // piling = tam-blob). null → grup kendi en-yakın-menzildeki contact'ını seçer (sektör-içi kazanan-odak korunur).
+            const ctrl = this.controller;
+            const DEF = (typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.DEFENDER : 'defender';
+            if (ctrl && typeof battleDelta === 'function' && battleDelta(ctrl.side, 'deblob') &&
+                ctrl.lastSituation && ctrl.lastSituation.role === DEF) return null;
         }
         return this.focusContactId;
     }
@@ -951,10 +1000,21 @@ class TaskExecutionManager {
             const tw0 = (this.controller && this.controller.profile) ? this.controller.profile.targetingWeights : null;
             const byS = { left: null, center: null, right: null };
             const scoreS = { left: -Infinity, center: -Infinity, right: -Infinity };
+            const prevByS = this.focusBySector || null;   // INTEL4 'micro': önceki-eval sektör-odağı (histerezis için)
+            const prevScore = { left: -Infinity, center: -Infinity, right: -Infinity };
             for (const c of visible) {
                 const sec = (typeof situationSectorForX === 'function') ? situationSectorForX(c.x) : 'center';
                 const s = (typeof scoreTarget === 'function') ? scoreTarget(c, own0, bb0, tw0) : -Math.hypot(c.x, c.y);
                 if (s > scoreS[sec] || (s === scoreS[sec] && byS[sec] != null && c.id < byS[sec])) { scoreS[sec] = s; byS[sec] = c.id; }
+                if (prevByS && c.id === prevByS[sec]) prevScore[sec] = s;   // önceki-odağın GÜNCEL skoru (hâlâ görünür mü)
+            }
+            // INTEL4-delta 'micro' HEDEF-HİSTEREZİSİ (analist #3): sektör-odağı her eval'de sıfırlanıp hedef-savruluyordu (savunan
+            // şok-karşı-taarruzunda %85 hedef-değişimi). Önceki-odak hâlâ görünür VE yeni-en-iyi onu MARJİN kadar geçmiyorsa KORU.
+            if (typeof battleDelta === 'function' && this.controller && battleDelta(this.controller.side, 'micro')) {
+                for (const sec of ['left', 'center', 'right']) {
+                    if (prevByS && prevByS[sec] != null && Number.isFinite(prevScore[sec]) &&
+                        scoreS[sec] < prevScore[sec] + FOCUS_HYST_MARGIN) byS[sec] = prevByS[sec];   // eski-odağı koru
+                }
             }
             this.focusBySector = byS;
         } else {

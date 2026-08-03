@@ -111,10 +111,10 @@
     <div id="screen-quickmatch" class="app-screen hidden">
         <div class="menu-logo small">⚡ Hızlı Maç</div>
         <div class="qm-box">
-            <div class="qm-row"><label>Rakip Puanı: <b id="qm-ai-val">5000</b></label>
-                <input type="range" id="qm-ai" min="1000" max="8000" step="250" value="5000"></div>
-            <div class="qm-row"><label>🧑 Senin Puanın: <b id="qm-pl-val">5000</b></label>
-                <input type="range" id="qm-pl" min="1000" max="8000" step="250" value="5000"></div>
+            <div class="qm-row"><label>Rakip Puanı: <b id="qm-ai-val">6500</b></label>
+                <input type="range" id="qm-ai" min="4000" max="8000" step="250" value="6500"></div>
+            <div class="qm-row"><label>🧑 Senin Puanın: <b id="qm-pl-val">6500</b></label>
+                <input type="range" id="qm-pl" min="4000" max="8000" step="250" value="6500"></div>
             <div id="qm-difficulty" class="qm-diff">Denge: Eşit ⚖️</div>
             <div class="qm-hint">Puan = ordu bütçesi. Asimetrik puan = zorluk ayarı.</div>
             <div class="qm-row" style="margin-top:20px;"><label>⚔️ Savaş Rolün:</label>
@@ -278,6 +278,7 @@
                     <div class="faction-event-kicker" id="faction-event-kicker">TOPLUMSAL OLAY</div>
                     <h2 id="faction-event-title">FRAKSİYON TEPKİSİ</h2>
                     <div id="faction-event-body"></div>
+                    <div id="faction-event-responses" class="faction-event-responses hidden"></div>
                     <div class="faction-event-actions">
                         <button id="faction-event-economy" class="story-btn">EKONOMİDE İNCELE</button>
                         <button id="faction-event-close" class="story-btn">ANLADIM</button>
@@ -472,6 +473,8 @@
     <script src="js/StoryBudget.js"></script>
     <script src="js/StoryNeeds.js"></script>
     <script src="js/StoryCompanies.js"></script>
+    <script src="js/StoryOpinion.js"></script>
+    <script src="js/StoryCollectiveAction.js"></script>
     <script src="js/StoryCommerce.js"></script>
     <script src="js/StoryEconomicAI.js"></script>
     <script src="js/StoryMapRasterAsset.js"></script>

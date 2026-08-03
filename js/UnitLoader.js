@@ -29,7 +29,8 @@ function unitLoaderBuild(db) {
         mlrs: 'MLRS', ballistic_missile: 'BALLISTIC', counter_battery_radar: 'COUNTER_BATTERY',
         manpads_team: 'MANPADS', spaag: 'SPAAG', sam_battery: 'SAM', attack_helo: 'ATTACK_HELO', transport_helo: 'TRANSPORT_HELO',
         recon_uav: 'RECON_UAV', armed_uav: 'UCAV', loitering_munition: 'KAMIKAZE',
-        ew_vehicle: 'EW', supply_truck: 'SUPPLY', command_vehicle: 'HQ'
+        ew_vehicle: 'EW', supply_truck: 'SUPPLY', command_vehicle: 'HQ',
+        drone_operator: 'DRONE_OPERATOR'
     };
 
     db.units.forEach((u, i) => {
@@ -80,6 +81,7 @@ function unitLoaderBuild(db) {
             domain, targets: anyAirTarget && anyGroundTarget ? 'both' : anyAirTarget ? 'air' : 'ground',
             weapons, minRange: (minRange === Infinity ? 0 : minRange),
             ammo: u.ammo || null, aura: u.aura || null, flight: u.flight || null,
+            payload: u.payload || null,   // KRİTİK-FIX: drone-operatör payload'ı (loitering_munition ×2) — eksikti → operatör HİÇ drone salmıyordu
             transport: u.transport || null, stealth: u.stealth || 0, detect: u.detect || 0,
             airRadar: !!u.airRadar,   // hava-arama radarı: görüşü YALNIZ hava hedeflerini açar (görüş-desteği)
             pointDefense: u.pointDefense || null,   // NOKTA-SAVUNMA (SAM): gelen interceptable mermiyi olasılıkla önler
@@ -101,6 +103,13 @@ function unitCanEngage(attackerStats, targetStats) {
     const tDomain = targetStats.domain || 'ground';
     for (const w of attackerStats.weapons) {
         if ((w.targets || []).includes(tDomain)) return true;
+    }
+    // KULLANICI-FIX: small_arms'lı kara-birim (piyade/komando + tüfekli) ALÇAK KAMİKAZE-DRONE'a (air+singleUse) ateş edebilir →
+    // dron artık ground-bağışık değil (small_arms vs air ×0.15 = zayıf-ama-sayıca-söker). Helo/İHA (singleUse-değil) etkilenmez.
+    if (tDomain === 'air' && targetStats.singleUse) {
+        for (const w of attackerStats.weapons) {
+            if (w.damageType === 'small_arms') return true;
+        }
     }
     return false;
 }

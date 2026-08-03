@@ -296,7 +296,13 @@ function planningCombatAffinity(unit, role) {
     return 10;
 }
 
-function planningRoleShares(planKind) {
+function planningRoleShares(planKind, defenderWide) {
+    // INTEL4 GENİŞ-CEPHE SAVUNMA (analist+kullanıcı: aoe600-tepe düşürmenin GERÇEK yolu): SAVUNAN kuvveti tehdit-sektörüne
+    // YIĞMAK yerine 3 sektöre ~eşit-böl → her sektör ~1/3 → yerel-yoğunluk-tepesi 15→~5-6. (Konsantrasyon-tavizi: ihtiyat
+    // tehdit-sektörünü takviye eder.) Kullanıcının ~%0.10-geniş-cephe savunma-stilinin AI karşılığı.
+    if (defenderWide) {
+        return { [TASK_GROUP_ROLE.MAIN]: 0.40, [TASK_GROUP_ROLE.FIXING]: 0.34, [TASK_GROUP_ROLE.FLANK]: 0.26 };
+    }
     // SEKTÖR-KOMUTA: Schwerpunkt dağılımı — MAIN ana-çaba (bir sektöre), FIXING ekonomi-of-force (geniş cephe), FLANK yardımcı.
     if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND === true) {
         return { [TASK_GROUP_ROLE.MAIN]: 0.55, [TASK_GROUP_ROLE.FIXING]: 0.30, [TASK_GROUP_ROLE.FLANK]: 0.15 };
@@ -400,7 +406,11 @@ class ForceOrganizer {
 
         const available = combat.filter(unit => !reserveIds.has(unit.id));
         const availableValue = available.reduce((sum, unit) => sum + planningUnitValue(unit), 0);
-        const shares = planningRoleShares(plan?.kind);
+        // INTEL4 geniş-cephe savunma (gated 'deblob'): SAVUNAN → eşit-böl (yerel-yoğunluk-tepesini düşür)
+        const _DEFW = (typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.DEFENDER : 'defender';
+        const _defenderWide = situation && situation.role === _DEFW &&
+            typeof battleDelta === 'function' && this.controller && battleDelta(this.controller.side, 'deblob');
+        const shares = planningRoleShares(plan?.kind, _defenderWide);
         const unassigned = new Set(available.map(unit => unit.id));
         for (const role of [TASK_GROUP_ROLE.FIXING, TASK_GROUP_ROLE.FLANK]) {
             const target = availableValue * shares[role];
@@ -467,7 +477,12 @@ function planningTaskFor(role, planKind) {
     return TASK_CONTRACT_KIND.REMAIN_IN_RESERVE;
 }
 
-function planningFormation(role, planKind) {
+function planningFormation(role, planKind, defenderSpread, areaAlphaThreat, defenseXwide) {
+    // FAZ3 'defense' (analist Suçlu-2): SAVUNAN ana/sabitleme → TAM-CEPHE garnizon (≥600px yerel-ayrım, L≤~6). 'deblob'-WIDE'dan güçlü.
+    if (defenseXwide && (role === TASK_GROUP_ROLE.MAIN || role === TASK_GROUP_ROLE.FIXING)) return 'DEFENSE_GRID_XWIDE';
+    // INTEL4 'deblob' (analist #4): SAVUNAN ana/sabitleme grupları GENİŞ ızgara → yumak yerine savunma-hattı.
+    // areaAlphaThreat (TEHDİT-PROFİLİ 'profile' reaksiyonu): balistik/topçu teyit → DAHA geniş ızgara (aoe600'de ≤2-3).
+    if (defenderSpread && (role === TASK_GROUP_ROLE.MAIN || role === TASK_GROUP_ROLE.FIXING)) return areaAlphaThreat ? 'DEFENSE_GRID_WIDE' : 'DEFENSE_GRID';
     if (role === TASK_GROUP_ROLE.MAIN) {
         return planKind === BATTLE_PLAN_KIND.HOLD ? 'LINE' : 'WEDGE';
     }
@@ -562,6 +577,9 @@ function assignSectors(taskGroups, situation, controller) {
             if (s && s.enemyValue > bestEnemy) { bestEnemy = s.enemyValue; candidate = name; }
         }
     }
+    // NOT (FAZ-T2 ölçümü): schwerpunkt'u "en-zayıf düşman sektörü"ne kaydırma DENENDİ → yapısal NO-OP. Bu harita tek-eksenli
+    // cephe-çatışması: weakestEnemySector (en-yüksek dost/düşman oranı) DAİMA = düşman-kütlesinin-olduğu-sektör = saldıranın-zaten-
+    // yığıldığı center. Kaçılacak açık-flank yok → kaydırma byte-aynı. Erime maneuver-değil CEPHEDEN-SÖMÜRÜ sorunu (T2-fire/T3/T4).
     // FAZ 4 HİSTEREZİS: mevcut ana-çaba 70s kilitli kalır (titreme/kuvvet-savurma önlenir); ancak kilit bitince VEYA
     // düşman belirgin-kaydıysa (aday-sektör mevcudun 1.5×'i) kayar. Deterministik (SIM.tick, RNG yok).
     const now = (typeof SIM !== 'undefined' && SIM.tick) || 0;
@@ -600,6 +618,7 @@ function planningContractDestination(controller, group, objective, friendlyCentr
     const origin = group.centroid || friendlyCentroid || objective;
     // SEKTÖR-KOMUTA: grup kendi sektörünün ORTASINA nişan alır (tek-global objektif yerine) → gruplar 3 ayrı x'e yayılır.
     let aim = objective;
+    let _defDeep = false;   // FAZ3 omurga-geri: savunan ateş-destek/AA/lojistik düşman-zarfı DIŞINDA (dest'te derin tutulur)
     if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND && group.sector) {
         let ax = sectorCenterX(group.sector), ay = objective.y;
         // KONUŞLANMA (kullanıcı): STRIKE DEĞİLKEN yığılma yerine kendi bölgesinde DAĞINIK savunma-konuşlanması.
@@ -607,23 +626,32 @@ function planningContractDestination(controller, group, objective, friendlyCentr
         const stance = sit && sit.operationalPosture && sit.operationalPosture.stance;
         const isAtt = !sit || sit.role !== (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.DEFENDER : 'defender');
         if (stance && stance !== 'STRIKE') {
+            // FAZ3 'defense'-delta (analist Suçlu-2): SAVUNAN ana/sabitleme garnizonu TAM-CEPHE merkezine oturur (sektör-kenarına
+            // sıkışıp XWIDE-yayılımı dünya-sınırına çarpmasın) → 600px-ızgara cepheyi baştan-sona kaplar (L≤~6). MAIN sola, FIXING sağa hafif kayık.
+            const _defX = !isAtt && typeof battleDelta === 'function' && battleDelta(controller.side, 'defense');
+            if (_defX && (group.role === TASK_GROUP_ROLE.MAIN || group.role === TASK_GROUP_ROLE.FIXING)) {
+                ax = WORLD_W / 2 + (group.role === TASK_GROUP_ROLE.MAIN ? -120 : 120);
+            }
             // MAIN/FIXING sektör içinde AYRI x → cepheyi kapla (aynı noktaya blob'lanma). STRIKE'ta tekrar yığılır (3/3 korunur).
-            if (group.role === TASK_GROUP_ROLE.MAIN) ax -= 240;
+            else if (group.role === TASK_GROUP_ROLE.MAIN) ax -= 240;
             else if (group.role === TASK_GROUP_ROLE.FIXING) ax += 240;
             // y-DERİNLİK (kapı-kapalı): SAVUNAN kendi-hattına çekilir; SALDIRAN ise ANALİST-FIX (POSITION'da erime):
             // toplanma-bölgesi düşman ateş-zarfından GERİDE (temas hattında değil) → STRIKE'a kadar hayatta kalır, STRIKE'ta ileri.
             const homeY = controller.side ? WORLD_H * 0.30 : WORLD_H * 0.70;
             if (!isAtt) ay = objective.y * 0.4 + homeY * 0.6;   // savunma-hattı (mostly geri)
             else ay = objective.y * 0.42 + homeY * 0.58;        // ANALİST-FIX2: saldıran assembly ATEŞ-ZARFI DIŞINA (~%58 geri) — STRIKE-öncesi erime biter, STRIKE'ta ileri-hücum
+            // FAZ3 OMURGA-GERİ (analist 42.7-dersi): SAVUNAN ateş-desteği/AA/lojistik en-uzun düşman doğrudan-ateş-zarfı(~675)+tampon
+            // DIŞINDA → topçu/SAM TD menziline girip 50s'de sökülmesin. Bu roller tam-derinliğe (homeY) çekilir.
+            if (_defX && (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT || group.role === TASK_GROUP_ROLE.SUPPORT)) { ay = homeY; _defDeep = true; }
         }
         aim = { x: ax, y: ay };
     }
     objective = aim;
     let dest;
     if (group.role === TASK_GROUP_ROLE.FLANK) dest = planningChooseFlankPoint(objective, origin);
-    else if (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) dest = planningPointBetween(origin, objective, 0.55);   // topçu erken destek
+    else if (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) dest = _defDeep ? planningSafePoint(objective) : planningPointBetween(origin, objective, 0.55);   // savunan: derin-mevzi; saldıran: erken-destek
     else if (group.role === TASK_GROUP_ROLE.RECON) dest = planningPointBetween(origin, objective, 0.72);          // keşif ÖNDE tarar+gözcülük eder (topçunun 0.55'inin önünde → dolaylı ateşe göz olur), ama hedefe tam dalmaz
-    else if (group.role === TASK_GROUP_ROLE.SUPPORT) dest = planningPointBetween(origin, objective, 0.3);
+    else if (group.role === TASK_GROUP_ROLE.SUPPORT) dest = _defDeep ? planningSafePoint(objective) : planningPointBetween(origin, objective, 0.3);
     else if (group.role === TASK_GROUP_ROLE.RESERVE) dest = planningPointBetween(origin, objective, 0.2);
     else dest = planningSafePoint(objective);
     return planningCoverPoint(dest, group.role);   // arazi: uygun roller orman-örtüsüne çekilir
@@ -697,6 +725,14 @@ class TaskContractPlanner {
             const pursuitLimit = group.role === TASK_GROUP_ROLE.FLANK ? 420 :
                 group.role === TASK_GROUP_ROLE.MAIN ? 260 :
                     group.role === TASK_GROUP_ROLE.FIXING ? 120 : 0;
+            // TEHDİT-PROFİLİ reaksiyon-girdileri (savunan-yayılma + areaAlpha-teyit → daha-geniş ızgara)
+            const _defSpread = (typeof battleDelta === 'function' && this.controller && battleDelta(this.controller.side, 'deblob') &&
+                this.controller.lastSituation && this.controller.lastSituation.role === (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.DEFENDER : 'defender'));
+            const _areaAlpha = _defSpread && (typeof battleThreatActive === 'function') && battleThreatActive(this.controller, 'areaAlpha');
+            if (_areaAlpha && typeof battleProfileMarkReaction === 'function') battleProfileMarkReaction(this.controller, 'areaAlpha', 'grid_wide', SIM.tick);
+            // FAZ3 'defense'-delta (analist Suçlu-2): SAVUNAN → tam-cephe garnizon (XWIDE). deblob'dan bağımsız gated anahtar.
+            const _defXwide = (typeof battleDelta === 'function' && this.controller && battleDelta(this.controller.side, 'defense') &&
+                this.controller.lastSituation && this.controller.lastSituation.role === (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.DEFENDER : 'defender'));
             return {
                 id: `${plan.id}:${group.role}`,
                 planId: plan.id,
@@ -706,7 +742,7 @@ class TaskContractPlanner {
                 task,
                 objective: replayClone(objective),
                 destination,
-                formation: planningFormation(group.role, plan.kind),
+                formation: planningFormation(group.role, plan.kind, _defSpread, _areaAlpha, _defXwide),
                 route,
                 engagementRule: planningEngagementRule(group.role, objective),
                 preferredRange: planningGroupPreferredRange(group),

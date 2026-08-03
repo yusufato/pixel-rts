@@ -169,6 +169,13 @@ function storyFactionNotice(notice) {
         summary: String(notice.summary || ''),
         consequence: String(notice.consequence || ''),
         deltas: Object.assign({}, notice.deltas || {}),
+        collectiveActionId: notice.collectiveActionId == null ? null : String(notice.collectiveActionId),
+        responseOptions: Array.isArray(notice.responseOptions)
+            ? notice.responseOptions.map(String).filter(mode => (
+                typeof STORY_COLLECTIVE_RESPONSES !== 'undefined'
+                && STORY_COLLECTIVE_RESPONSES.includes(mode)
+            ))
+            : [],
         observedAt: Number(STORY.clock) || 0
     };
     const duplicate = STORY._factionNoticeCurrent && STORY._factionNoticeCurrent.id === normalized.id
@@ -203,6 +210,22 @@ function storyFactionNoticeShowNext() {
             + (notice.consequence ? `<div class="faction-event-effect"><span>OYUNA ETKİSİ</span><b>${esc(notice.consequence)}</b></div>` : '')
             + (Object.keys(notice.deltas).length ? `<div class="faction-event-deltas">${esc(storyFactionDeltaText(notice.deltas))}</div>` : '');
     }
+    const responses = document.getElementById('faction-event-responses');
+    if (responses) {
+        const labels = {
+            CONCEDE: ['TALEBİ KABUL ET', 'Kısa vadede tansiyonu düşürür; sorun çözülmezse verilen taviz güven kaybına döner.'],
+            NEGOTIATE: ['MÜZAKERE ET', 'Hareketi bitirmez; radikalleşmeyi yavaşlatır ve çözüm için zaman kazandırır.'],
+            SUPPRESS: ['BASTIR', 'Eylemi dağıtır; bastırma hafızası sonraki sefer radikalleşmeyi büyütür.'],
+            IGNORE: ['GÖRMEZDEN GEL', 'Anlık siyasi bedel ödemez; alttaki sorun ve örgütlenme olduğu gibi sürer.']
+        };
+        responses.innerHTML = notice.collectiveActionId
+            ? notice.responseOptions.map(mode => {
+                const row = labels[mode] || [mode, ''];
+                return `<button class="story-btn collective-response response-${mode.toLowerCase()}" data-collective-response="${mode}" title="${row[1]}">${row[0]}</button>`;
+            }).join('')
+            : '';
+        responses.classList.toggle('hidden', !responses.innerHTML);
+    }
     storyFactionNoticeBadgeUpdate();
     setTimeout(() => document.getElementById('faction-event-close')?.focus(), 0);
 }
@@ -214,12 +237,49 @@ function storyFactionNoticeClose() {
     storyFactionNoticeShowNext();
 }
 
+// Zaman asimina ugrayan toplumsal yanit penceresi artik eylem defterinde
+// gecersizdir. Kuyrukta veya ekranda birakilirsa oyuncuya calismayan secenekler
+// sunar; kimlik uzerinden atomik olarak temizle ve siradaki gercek olayi ac.
+function storyFactionNoticeExpireCollective(movementId) {
+    const id = String(movementId || '');
+    if (!id) return false;
+    let removed = false;
+    if (Array.isArray(STORY._factionNoticeQueue)) {
+        const before = STORY._factionNoticeQueue.length;
+        STORY._factionNoticeQueue = STORY._factionNoticeQueue.filter(
+            notice => String(notice && notice.collectiveActionId || '') !== id
+        );
+        removed = STORY._factionNoticeQueue.length !== before;
+    }
+    if (STORY._factionNoticeCurrent
+        && String(STORY._factionNoticeCurrent.collectiveActionId || '') === id) {
+        STORY._factionNoticeCurrent = null;
+        const modal = document.getElementById('faction-event-modal');
+        if (modal) modal.classList.add('hidden');
+        removed = true;
+        storyFactionNoticeShowNext();
+    } else {
+        storyFactionNoticeBadgeUpdate();
+    }
+    return removed;
+}
+
 function storyFactionNoticeOpenEconomy() {
     STORY._factionNoticeCurrent = null;
     const modal = document.getElementById('faction-event-modal');
     if (modal) modal.classList.add('hidden');
     if (typeof storyEconomyOpen === 'function') storyEconomyOpen('fraksiyonlar');
     storyFactionNoticeBadgeUpdate();
+}
+
+function storyFactionNoticeRespond(mode) {
+    const notice = STORY._factionNoticeCurrent;
+    if (!notice || !notice.collectiveActionId || typeof storyCollectiveRespond !== 'function') return false;
+    const result = storyCollectiveRespond(notice.collectiveActionId, String(mode), { actor: 'PLAYER_GOVERNMENT' });
+    if (!result || !result.ok) return false;
+    if (typeof storyLog === 'function') storyLog(`⚖️ Toplumsal eyleme yanıt: <b>${String(mode)}</b>.`);
+    storyFactionNoticeClose();
+    return true;
 }
 
 function storyFacEvent(st, type) {
@@ -248,7 +308,11 @@ function storyFacUnrest(st) {
     if (!st || !st.factions) return 0;
     const f = st.factions;
     const worst = Math.min(f.workers, f.business, f.military, f.intel);
-    return Math.max(0, (50 - worst) * 0.6 + Math.max(0, f.radicals - 50) * 0.5);
+    const legacy = Math.max(0, (50 - worst) * 0.6 + Math.max(0, f.radicals - 50) * 0.5);
+    const collective = typeof storyCollectiveCountryUnrest === 'function'
+        ? storyCollectiveCountryUnrest(st.id)
+        : 0;
+    return Math.max(0, legacy + collective);
 }
 // Darbe olasılığı çarpanı: ordu küskünse cunta cesaretlenir, ordu memnunsa yönetimi korur.
 function storyFacCoupMul(st) {
@@ -260,6 +324,10 @@ function storyFacCoupMul(st) {
 }
 // Grev üretim çarpanı (prodTick her iş için çağırır)
 function storyFacStrikeMul(ownerId) {
+    if (typeof storyCollectiveEnabled === 'function' && storyCollectiveEnabled()
+        && typeof storyCollectiveCountryProductionMultiplier === 'function') {
+        return storyCollectiveCountryProductionMultiplier(ownerId);
+    }
     const st = (typeof storyState === 'function') ? storyState(ownerId) : null;
     return (st && st._strikeUntil && st._strikeUntil > (STORY.clock || 0)) ? 0.45 : 1;
 }
@@ -318,7 +386,8 @@ function storyFactionsTick(dt) {
             });
         }
         // GENEL GREV: radikal taşkınlık + küskün işçi sınıfı → üretim durur (soğumalı)
-        if (f.radicals >= 62 && f.workers <= 42 && (STORY.clock - (st._lastStrike || -999)) > 120) {
+        const _collectiveOwnsStrike = typeof storyCollectiveEnabled === 'function' && storyCollectiveEnabled();
+        if (!_collectiveOwnsStrike && f.radicals >= 62 && f.workers <= 42 && (STORY.clock - (st._lastStrike || -999)) > 120) {
             st._lastStrike = STORY.clock;
             st._strikeUntil = STORY.clock + 40;
             storyWelfareDelta(st, 'society.general_strike', -3, {
