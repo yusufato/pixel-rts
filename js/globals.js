@@ -331,6 +331,12 @@ function worldToScreen(wx, wy) {
 }
 
 const SP_W = 320, SP_H = 320, SP_PAD = 30;   // yeni 25-sütun icons.png: hücre 320×320, pad 30 (8780×730; sx=30+type×350, sy kırmızı=380)
+// SPRITE-SÜTUN: icons.png yalnız 25-sütun (indeks 0-24). 25+ eklenen birim mevcut bir sprite'a eşlenir → boş-ikon olmaz.
+// drone_operator(25) → kamikaze-drone(18) ikonu (redesign: operatör kamikazenin yerini aldı → eski drone-görünümü kalsın).
+function battleSpriteCol(type) {
+    if (typeof T !== 'undefined' && type === T.DRONE_OPERATOR && T.KAMIKAZE != null) return T.KAMIKAZE;
+    return type;
+}
 const BASE_DRAW_SCALE = 0.20;
 const BASE_DRAW_W = SP_W * BASE_DRAW_SCALE;
 const BASE_DRAW_H = SP_H * BASE_DRAW_SCALE;
@@ -348,6 +354,55 @@ let BATTLE_FORCE_CONCENTRATE = true;
 // ihtiyatı kutsal tut. AÇIKKEN CONCENTRATE'in tek-kütle/tek-hedef davranışını sektör-katmanıyla değiştirir (fazlı, ölçüm-güdümlü).
 // A/B KANITLANDI (düşman-uyarlamalı): saldıran 2/3→3/3, dağılım +%52, determinizm korundu → VARSAYILAN AÇIK + version bump.
 let BATTLE_SECTOR_COMMAND = true;
+// PER-SIDE BEYİN-FLAG (intel4-delta kapısı): "selefini yenemeyen sürüm yayınlanmaz" metodolojisi. intel4-BEYİN-deltaları
+// (şok-tetiği, karşı-batarya, kompozisyon-floor, SAM-koloc, sabırlı-örümcek + yeni: STRIKE-dwell, savunan-de-blob, helo-neşter,
+// hava-unlock) YALNIZ ilgili tarafın flag'i AÇIKken devreye girer = intel4-beyni; KAPALI = intel3pro-beyni (selef). Motor
+// (radar-2000/margin/6dk) İKİ TARAFTA da paylaşılır → --vstournament AYNI motorda intel3pro-vs-intel4 BEYİN-farkını ölçer.
+// Yeni-fixler için default-false (snaptest byte-aynı doğrulanır); turnuvada bir taraf açık/diğer kapalı.
+let BATTLE_INTEL4_RED = false;
+let BATTLE_INTEL4_BLUE = false;
+function battleBrainIntel4(isRed) { return isRed ? BATTLE_INTEL4_RED : BATTLE_INTEL4_BLUE; }
+// PER-DELTA ABLATION: intel4-beyni açıkken hangi deltaların DEVREDE olduğunu süz. Default hepsi-true=tam-intel4.
+// --ablation her deltayı TEK açıp intel3pro'ya karşı ölçer → yardım-eden tut, zarar-veren at. (Global; beyin-flag'i kapalı tarafı etkilemez.)
+// profile: TEHDİT-PROFİLİ sistemi (default-FALSE → default-off byte-aynı; diğerleri default-true=tam-intel4).
+const BATTLE_INTEL4_DELTAS = { stance: true, shock: true, deblob: true, helo: true, comp: true, micro: true, profile: false, drone: false, defense: false, backbone: false, range: false, attack: true };   // attack=ON (kullanıcı-kararı): saldıran dron AT-perdesini temizler → 2/6→6/6, DET ✓ (yalnız AI-hedefleme, hash-yapı değişmez)
+function battleDelta(isRed, key) { return battleBrainIntel4(isRed) && BATTLE_INTEL4_DELTAS[key] !== false; }
+
+// TEHDİT-PROFİLİ FORENSİK-RİNG (her-zaman-açık): battleRecordCombatEvent'in TEPESİNDE, telemetri-kapısından ÖNCE doldurulur —
+// çünkü replay-playback'te telemetry.combatEvents doldurulMAZ; inanç-katmanı onu okursa canlı≠playback → replay kırılır.
+// Bu ring Unit.js-emisyonuyla canlı+playback AYNI dolar. Saf-veri (sim-mutasyon yok) → determinist. Tüketiciler tick-ile okur.
+const BATTLE_FORENSIC = { buf: [], cap: 2048, seq: 0 };
+function battleForensicReset() { BATTLE_FORENSIC.buf.length = 0; BATTLE_FORENSIC.seq = 0; }
+
+// TEHDİT-SINIFI taksonomisi (saf, statesiz): STATS[type]'tan tehdit-sınıf(lar)ını çıkar. Sıralı-dizi döner (bir birim çok-sınıf olabilir).
+function battleThreatClassOf(type) {
+    const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+    if (!s) return [];
+    const tags = s.roleTags || [];
+    const w0 = (s.weapons && s.weapons[0]) || {};
+    const out = {};
+    // areaAlpha: stratejik/topçu VEYA dolaylı-ateş+büyük-aoe (balistik aoe=6, çnra/topçu/havan)
+    if (tags.includes('strategic') || tags.includes('artillery') || tags.includes('anti_structure') ||
+        (w0.indirect && (w0.aoe || 0) >= 2)) out.areaAlpha = 1;
+    if (s.domain === 'air') out.air = 1;
+    if (tags.includes('raider') || tags.includes('backline_hunter') || tags.includes('stealth') || tags.includes('infiltrate') || tags.includes('assassin')) out.infiltrator = 1;
+    if (tags.includes('intel') || tags.includes('spotter')) out.recon = 1;
+    return Object.keys(out).sort();
+}
+// TEHDİT-PROFİLİ sınıf-AKTİF mi (gated 'profile' + detected): reaksiyonlar bunu sorar.
+function battleThreatActive(controller, className) {
+    if (!controller || typeof battleDelta !== 'function' || !battleDelta(controller.side, 'profile')) return false;
+    const cls = controller.perception && controller.perception._threatProfile && controller.perception._threatProfile.classes;
+    return !!(cls && cls[className] && cls[className].detected);
+}
+// TEHDİT-PROFİLİ reaksiyon-İŞARETLE (reaction-latency kabul-metriği + telemetri): ilk-aktivasyonda _firstReactionTick + reactionsTriggered.
+function battleProfileMarkReaction(controller, className, reactionName, tick) {
+    const cls = controller && controller.perception && controller.perception._threatProfile && controller.perception._threatProfile.classes;
+    const c = cls && cls[className]; if (!c) return;
+    if (c._firstReactionTick == null) c._firstReactionTick = tick;
+    if (!c.reactionsTriggered) c.reactionsTriggered = [];
+    if (!c.reactionsTriggered.includes(reactionName)) c.reactionsTriggered.push(reactionName);
+}
 // Tip-bazlı dönüş çevikliği (kare-başı yaklaşma oranı 0..1) — tank/topçu ağır, piyade/keşif çevik; index = tip no
 const UNIT_TURN_RATE = [
     0.11,  // 0 Piyade
@@ -400,6 +455,47 @@ const TANK_SPLASH_RADIUS = 80;            // topçunun ~yarısı
 const TANK_SPLASH_MIN = 0.30;             // kenar hasar oranı
 const TANK_SPLASH_MAX = 0.65;             // merkeze yakın hasar oranı (asla %100 değil)
 const ARTILLERY_SUPPRESSION_RADIUS = 150;
+
+// ─── MERMİ HIZLARI (px/sn) — DEFERRED-DAMAGE uçuş-süresi = mesafe/hız ───
+// Aynı hız hem HASAR-varış-tik'ini hem VFX-projektilini besler → görsel ve hasar EŞZAMANLI (kullanıcı: "mermi ulaşmadan hasar olmasın").
+// Güdümlü füze (SAM/MANPADS/taarruz-helo/SİHA) yavaş+takipli; namlu-mermisi (top/ap/makineli) hızlı. Stage-3'te hissiyata göre ayarlanır.
+const PROJECTILE_SPEED_GUN = 1900;          // varsayılan namlu-mermisi
+const PROJECTILE_SPEED_TANK = 2200;         // tank topu / tank-avcısı (en hızlı sabo)
+const PROJECTILE_SPEED_MG = 2200;           // makineli/tüfek (piyade/komando/istihkam/keşif)
+const PROJECTILE_SPEED_AUTOCANNON = 2000;   // ZMA / SPAAG namlu tazyiki
+const PROJECTILE_SPEED_ATGM = 1600;         // AT-timi tanksavar füzesi
+const PROJECTILE_SPEED_HOMING_GROUND = 800; // güdümlü füze — kara hedef (VFX ile birebir aynı)
+const PROJECTILE_SPEED_HOMING_AIR = 1150;   // güdümlü füze — hava hedef
+const PROJECTILE_MAX_FLIGHT_TICKS = 60;     // uçuş tavanı (3sn) — VFX maxLife ile hizalı, kuyruk şişmesin
+
+// Güdümlü mi (hedefi takip eden füze)? Görsel homing + yavaş hız bu listeden.
+function battleIsHomingWeapon(atkType) {
+    return atkType === T.SAM || atkType === T.MANPADS || atkType === T.ATTACK_HELO || atkType === T.UCAV;
+}
+// Fırlatan tipe (ve hedefin hava olup olmadığına) göre mermi hızı.
+function battleProjectileSpeed(atkType, targetIsAir) {
+    if (battleIsHomingWeapon(atkType)) return targetIsAir ? PROJECTILE_SPEED_HOMING_AIR : PROJECTILE_SPEED_HOMING_GROUND;
+    if (atkType === T.ARMOR || atkType === T.TANK_HUNTER) return PROJECTILE_SPEED_TANK;
+    if (atkType === T.MECH_INFANTRY || atkType === T.SPAAG) return PROJECTILE_SPEED_AUTOCANNON;
+    if (atkType === T.ANTI_TANK) return PROJECTILE_SPEED_ATGM;
+    if (atkType === T.INFANTRY || atkType === T.COMMANDO || atkType === T.ENGINEER || atkType === T.RECON) return PROJECTILE_SPEED_MG;
+    return PROJECTILE_SPEED_GUN;
+}
+// MERMİ GÖRSEL PROFİLİ (render-only): füze duman-izi bırakıp varışta patlar; namlu mermisi iz bırakmaz, varışta kıvılcım;
+// hafif silah ince iz-mermi (efekt yok — kıvılcımı hasar-tarafı zaten üretir). Tüfek mermisi "patlamasın" diye ayrıldı.
+function battleProjectileVisual(atkType) {
+    if (battleIsHomingWeapon(atkType) || atkType === T.ANTI_TANK)
+        return { trail: true, impact: 'explosion', scale: 1.05, color: '#ffd27f' };
+    if (atkType === T.ARMOR || atkType === T.TANK_HUNTER || atkType === T.MECH_INFANTRY || atkType === T.SPAAG)
+        return { trail: false, impact: 'spark', scale: 0.8, color: '#ffe9a8', width: 2.0 };
+    return { trail: false, impact: 'none', scale: 0.5, color: '#fff2a0', width: 1.2 };
+}
+// Uçuş süresi TİK cinsinden (≥1 → hasar asla fırlatma-tik'inde inmez). Determinist: yalnız skalerlerden.
+function battleFlightTicks(dist, speed) {
+    const ts = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+    const t = Math.round(dist / Math.max(1, speed * ts));
+    return Math.max(1, Math.min(PROJECTILE_MAX_FLIGHT_TICKS, t));
+}
 
 // HASAR = beklenen-hasar (VERİ-GÜDÜMLÜ): silah-hasarı × damageMatrix[silah.damageType][hedef.armorType] × zırh-azaltma.
 // Counter'lar artık damageMatrix'ten (ap→heavy 1.0, shaped→heavy 1.4, sam→air 1.6, ap→air 0, ...). Hardcode YOK.
@@ -554,6 +650,16 @@ const mines = [];   // MAYIN: istihkam döşer; düşman kara-birimi basınca pa
 SIM.units = units;
 SIM.trenches = trenches;
 SIM.mines = mines;
+// DEFERRED-DAMAGE (mermi-varışta): fırlatma-anında hesaplanıp VARIŞ-tik'inde uygulanan bekleyen-vuruşlar. Determinist (sabit-sıra
+// (arriveTick,seq), srand-YOK, canlı-ref-YOK → yalnız skaler). pendingSupportSpawns analogu: fork+hash'te serialize, initialState'te t0-boş.
+const pendingHits = [];
+SIM.pendingHits = pendingHits;
+SIM.pendingHitSeq = 0;   // monoton sıra-sayacı (deterministik push-sırası → sabit işleme-sırası). resetBattleState + restoreInitialState'te sıfırlanır.
+// KONTROLÖR DURUŞU (SİM-DURUMU): { [controllerId]: { open, role, stance } }. Unit.update taarruz-kapısını/rolünü BURADAN okur.
+// KÖK-NEDEN DÜZELTMESİ: eskiden sim kodu CANLI kontrolör nesnesini (BATTLE_CONTROLLERS.get(...).lastSituation) okuyordu; replay'de
+// kontrolör HİÇ yok → aynı birim farklı hareket ediyordu (ölçüldü: sapma tik 451, mikro kapatılınca sapma SIFIR). Artık duruş
+// sim-durumuna yazılıyor: hash'lenir, fork'lanır ve DEĞİŞTİĞİNDE replay'e olay olarak kaydedilir → canlı=replay=fork.
+SIM.ctrlPosture = {};
 // MAYIN sabitleri
 const MINE_TRIGGER_R = 65;      // basma yarıçapı (birim merkezine) — geçen birimi daha güvenilir yakalar
 const MINE_BLAST_R = 95;        // patlama alan-yarıçapı
@@ -769,8 +875,27 @@ function canSee(teamIsRed, targetX, targetY, targetIsAir) {
 // Deterministik (srand). Önleme bir SAM füzesi harcar (ammo) → doyurma saldırısı (çok füze) yine işler.
 const POINT_DEFENSE_QUERY_R = 2200;   // ızgara-sorgu yarıçapı (en uzun SAM menzilini kapsar)
 const POINT_DEFENSE_MIN_DAMAGE = 150; // SAM yalnız YÜKSEK-değerli mermiyi önler (balistik 600); ÇNRA roketi (55) gibi ucuz-çok mermiye füze harcamaz → "salvo SAM'ı boşaltma" istismarı biter
-function battlePointDefenseIntercept(shooter, x, y, incomingDamage) {
-    if ((incomingDamage || 0) < POINT_DEFENSE_MIN_DAMAGE) return false;   // eşik-altı mermiye müdahale yok (mühimmat korunur)
+const POINT_DEFENSE_AIR_RESERVE = 3;  // KULLANICI-KURALI: rakibin BİLİNEN hava kuvveti varsa son 3 füze hava savunmasına saklanır (mermiye harcanmaz)
+
+// HAVA TEHDİDİ (savunucu d'nin gözünden): known = d'nin tarafının GÖRDÜĞÜ düşman uçağı var mı; inRange = o an d'nin menzilinde mi.
+// Determinist: canSee (sis) + sabit birim-sırası, RNG yok. Kontrolör/AI durumu OKUNMAZ (sim ↔ AI sınırı korunur).
+function battleAirThreatFor(d) {
+    const pdRange = d.range || 1000;
+    let known = false, inRange = false;
+    for (const u of SIM.units) {
+        if (u.dead || u.loaded || !u.isAir || u.isRed === d.isRed) continue;
+        if (typeof canSee === 'function' && !canSee(d.isRed, u.x, u.y, true)) continue;   // yalnız BİLİNEN (görülen) hava kuvveti
+        known = true;
+        if (Math.hypot(u.x - d.x, u.y - d.y) <= pdRange) { inRange = true; break; }        // menzilde → angaje edilebilir
+    }
+    return { known, inRange };
+}
+// Döner: 1=önlendi(engage+isabet), -1=engage+ıska(füze harcandı), 0=hiç PD-engage yok. salvoMode=true → eşik-altı mermiye de müdahale
+// (ÇNRA salvo-PD; çağıran SALVO-BÜTÇESİ ile atış-sayısını sınırlar → SAM-mühimmatı boşaltma-istismarı yok).
+// `out` (opsiyonel) verilirse ateşleyen savunucunun FIRLATMA-ANI skalerleri yazılır ({id,x,y}) → çağıran önleyici-füze
+// görselini ve HAVADA kesişme noktasını bundan kurar (canlı-ref taşımaz).
+function battlePointDefenseIntercept(shooter, x, y, incomingDamage, salvoMode, out) {
+    if (!salvoMode && (incomingDamage || 0) < POINT_DEFENSE_MIN_DAMAGE) return 0;   // eşik-altı + salvo-modu-değil → müdahale yok (mühimmat korunur)
     const near = SIM.spatialGrid.getNearby(x, y, POINT_DEFENSE_QUERY_R);
     for (const d of near) {
         if (d.dead || d.loaded || d.isRed === shooter.isRed) continue;   // yalnız DÜŞMAN savunması
@@ -778,18 +903,311 @@ function battlePointDefenseIntercept(shooter, x, y, incomingDamage) {
         if (!st || !st.pointDefense || d.ammo <= 0) continue;            // savunma yeteneği + füzesi olmalı
         const pdRange = d.range || 1000;
         if (Math.hypot(d.x - x, d.y - y) > pdRange) continue;            // impact SAM menzilinde mi
+        // ── KULLANICI-DOKTRİNİ: SAM'in ÖNCELİĞİ UÇAKTIR ──
+        // (1) Menzilinde angaje edilebilir düşman uçağı VARSA füzeyi mermiye harcama (uçak+mermi aynı anda sınırı ihlal
+        //     ediyorsa uçak önce). (2) Rakibin BİLİNEN hava kuvveti varsa son POINT_DEFENSE_AIR_RESERVE füze saklanır.
+        const _air = battleAirThreatFor(d);
+        if (_air.inRange || (_air.known && d.ammo <= POINT_DEFENSE_AIR_RESERVE)) {
+            // ANALİST: neden önlemedi (görünmez karar olmasın) — savunucu-başı throttle, sim-durumuna dokunmaz
+            if (typeof battleRecordLifeEvent === 'function' && (SIM.tick - (d._lastPdHold || -999)) >= 40) {
+                d._lastPdHold = SIM.tick;
+                battleRecordLifeEvent({ kind: 'PD_HOLD', unitId: d.id, side: d.isRed ? 'red' : 'blue', type: d.type,
+                    reason: _air.inRange ? 'air_priority' : 'air_reserve', ammoLeft: Math.round(d.ammo),
+                    x: Math.round(d.x * 100) / 100, y: Math.round(d.y * 100) / 100 });
+            }
+            continue;   // bu savunucu mermiye ateş etmez → sıradaki aday savunucuya bak
+        }
         d.ammo--;                                                        // önleme denemesi bir füze harcar
         d.lastAttackTime = SIM.tick;
+        if (out) { out.id = d.id; out.x = d.x; out.y = d.y; }            // önleyici-füzenin çıkış noktası (fırlatma-anı skaleri)
         const _hit = srand() < (st.pointDefense.chance || 0.6);          // srand TEK tüketim (determinizm) — hem sonuç hem olay
         // ANALİST-FIX: INTERCEPT telemetri-olayı — PD oyunun en pahalı tek-atışlık etkileşimi, görünmez kalmasın (deneme/sonuç/mesafe/mühimmat)
-        if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'INTERCEPT', unitId: d.id, side: d.isRed ? 'red' : 'blue', type: d.type, result: _hit ? 'hit' : 'miss', incomingDamage: Math.round(incomingDamage || 0), dist: Math.round(Math.hypot(d.x - x, d.y - y)), ammoLeft: Math.round(d.ammo), x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 });
+        if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'INTERCEPT', unitId: d.id, side: d.isRed ? 'red' : 'blue', type: d.type, shooterType: shooter ? shooter.type : null, salvo: !!salvoMode, result: _hit ? 'hit' : 'miss', incomingDamage: Math.round(incomingDamage || 0), dist: Math.round(Math.hypot(d.x - x, d.y - y)), ammoLeft: Math.round(d.ammo), x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 });
         if (_hit) {
-            if (typeof spawnExplosion !== 'undefined') spawnExplosion(x, y, 0.7);   // önleme patlaması
-            return true;                                                 // MERMİ ÖNLENDİ
+            // NOT: patlama artık BURADA değil — mermi HAVADA yol alır ve kesişme tik'inde (killTick) orada patlar
+            // (battleProcessPendingHits). Eskiden hedefin üstünde patlıyordu; mermi hiç uçmuyordu.
+            return 1;                                                    // MERMİ ÖNLENDİ (uçuş ortasında düşürülecek)
         }
-        return false;                                                    // deneme ıskaladı (füze harcandı, mermi geçti)
+        return -1;                                                       // deneme ıskaladı (füze harcandı, mermi geçti)
     }
-    return false;
+    return 0;                                                            // hiç PD engage etmedi (ammo harcanmadı)
+}
+
+// ONDEATH-EFEKTLERİ (kullanıcı-kararı: command_shock uygula): yeni-ölen onDeath'li birim → tek-seferlik efekt. command_shock =
+// komuta-aracı ölünce yarıçap-içi dostlara emir-felci (bastırma-şoku + 12sn koordinesiz-ateş −%28). Getiri-dengeli: güçlü halenin
+// yüksek-risk dezavantajı. Determinist (mesafe+tik, RNG-yok). _deathFxDone yalnız onDeath'li birimde işaretlenir (serialize edilir).
+// DEFERRED-DAMAGE VARIŞ-İŞLEYİCİSİ: fırlatma-anında push edilen bekleyen-vuruşlar arriveTick geldiğinde uygulanır. Determinist:
+// (arriveTick,seq) sıralı, srand-YOK (tüm zar fire-time'da atıldı), skaler-snapshot'tan çalışır. stepSim'de battleApplyDeathEffects'ten
+// HEMEN ÖNCE çağrılır (varışta-ölen birim aynı-tik onDeath-sweep'i alsın). Stage-0: kuyruk hep boş → davranış-değişmez.
+function battleProcessPendingHits(now) {
+    if (typeof SIM === 'undefined' || !SIM.pendingHits || !SIM.pendingHits.length) return;
+    const q = SIM.pendingHits;
+    const now2 = SIM.tick || 0;
+    // ── HAVADA ÖNLEME (nokta-savunma): killTick'i gelen mermi UÇUŞ ORTASINDA düşürülür — hasar UYGULANMAZ,
+    // patlama kesişme noktasında (önleyici füze görseli fırlatma-anında oraya yollandı → havada çarpışma görünür).
+    // Varış işlemesinden ÖNCE: killTick == arriveTick olsa bile mermi hedefe ULAŞMAZ.
+    for (let i = q.length - 1; i >= 0; i--) {
+        const h = q[i];
+        if (h.killTick != null && h.killTick <= now2) {
+            q.splice(i, 1);
+            if (!SIM.headless && typeof spawnExplosion === 'function') spawnExplosion(h.killX, h.killY, 0.9);   // görsel-only
+        }
+    }
+    if (!q.length) return;
+    const due = [];
+    for (let i = q.length - 1; i >= 0; i--) {
+        if (q[i].arriveTick <= now2) { due.push(q[i]); q.splice(i, 1); }
+    }
+    if (!due.length) return;
+    due.sort((a, b) => (a.arriveTick - b.arriveTick) || (a.seq - b.seq));   // SABİT sıra: aynı-tik varışlar fırlatma-sırasıyla iner
+    for (const hit of due) {
+        if (hit.kind === 'direct') applyDirectHit(hit, now);
+        else if (hit.kind === 'blast') applyBlast(hit, now);
+    }
+}
+
+// Kimlikten canlı-birim çözümü (fork/replay güvenli: pending-hit yalnız id taşır, canlı-referans TAŞIMAZ).
+function battleUnitById(id) {
+    if (id == null || typeof SIM === 'undefined' || !SIM.units) return null;
+    for (const u of SIM.units) { if (u.id === id) return u; }
+    return null;
+}
+
+// ─── DEFERRED-DAMAGE: TEK-HEDEF vuruşunun VARIŞ-anı uygulaması ───
+// srand KULLANMAZ — kritik/terk zarları fırlatma-anında atıldı, sonuçları hit'te taşınıyor. Hasar, fırlatma-skalerleri
+// ile VARIŞ-anı hedef-durumunun saf fonksiyonu. Hedef uçuşta öldüyse mermi boşa gider (fizzle); ATICI öldüyse mermi
+// yine iner (yan-skoru işler, per-birim XP atlanır).
+function applyDirectHit(hit, now) {
+    const tgt = battleUnitById(hit.tgtId);
+    if (!tgt || tgt.dead) return;                       // hedef fırlatma↔varış arasında öldü → mermi boşa
+    const atk = battleUnitById(hit.atkId);
+    const atkAlive = !!(atk && !atk.dead);
+    const dmg = hit.dmg;
+    const hpBefore = tgt.hp;
+    const actual = Math.min(tgt.hp, dmg);
+    tgt.hp -= dmg;
+
+    // MISSION-KILL: zar fırlatmada atıldı (willAbandon); burada YALNIZ canlı-önkoşul yeniden doğrulanır.
+    // Boşa çıkan zar determinizm-güvenli (srand tüketimi fırlatma-anında zaten oldu).
+    if (hit.willAbandon && !tgt.dead && !tgt.abandoned && tgt._crewed && tgt.hp > 0 && tgt.hp < tgt.maxHp * 0.30) {
+        tgt.abandoned = true; tgt.abandonedTick = SIM.tick;
+        tgt.attackTarget = null; tgt.manualTarget = null;
+        tgt.isFleeing = false; tgt.isMovingToManualTarget = false;
+        tgt.suppression = 0; tgt.panic = 0;
+        tgt.combatState = 'Terk Edildi';
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.abandoned++;
+        if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'ABANDON', unitId: tgt.id, side: tgt.isRed ? 'red' : 'blue', type: tgt.type, byId: hit.atkId, crit: !!hit.isCrit, x: Math.round(tgt.x * 100) / 100, y: Math.round(tgt.y * 100) / 100 });
+    }
+
+    if (typeof battleRecordCombatEvent === 'function') {
+        battleRecordCombatEvent({
+            kind: hit.evt || 'DIRECT_FIRE',
+            attackerId: hit.atkId, attackerSide: hit.atkIsRed ? 'red' : 'blue', attackerType: hit.atkType,
+            targetId: tgt.id, targetSide: tgt.isRed ? 'red' : 'blue', targetType: tgt.type,
+            damage: Math.round(actual * 100) / 100,
+            hpBefore: Math.round(hpBefore * 100) / 100,
+            hpAfter: Math.round(Math.max(0, tgt.hp) * 100) / 100,
+            lethal: tgt.hp <= 0,
+            rearHit: !!hit.isRear, flankHit: !!hit.isFlank,
+            attackerX: Math.round(hit.atkX * 100) / 100, attackerY: Math.round(hit.atkY * 100) / 100,   // FIRLATMA konumu
+            targetX: Math.round(tgt.x * 100) / 100, targetY: Math.round(tgt.y * 100) / 100              // VARIŞ konumu
+        });
+    }
+
+    tgt.flashTimer = hit.isCrit ? 8 : (hit.flash || 6);
+    if (typeof addDamageNumber === 'function') addDamageNumber(tgt, actual, !!(hit.isCrit || hit.isRear));
+    if (hit.knock && typeof applyKnockback === 'function') applyKnockback(tgt, hit.atkX, hit.atkY, hit.knock);
+    tgt.panic += (dmg / tgt.maxHp) * (hit.panicMul || 150);
+    if (hit.isFlank) tgt.panic += hit.isRear ? 18 : 9;   // yandan/arkadan vurulmak = moral ŞOKU
+    if (hit.supp) tgt.suppression += hit.supp;
+    if (hit.sparks !== false && tgt.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(tgt.x, tgt.y);
+    if (tgt.isRed) {
+        tgt.lastHitTime = now;
+        if (hit.distress !== false) { tgt.distressX = hit.atkX; tgt.distressY = hit.atkY; }
+    }
+
+    // TANK MERMİSİ = dar HE alanı: birincil tam vuruşunu aldı, ÇEVREDEKİLER varış-anı konumlarına göre splash yer.
+    if (hit.splashR > 0) applyTankSplash(hit, tgt, now, atk, atkAlive);
+
+    if (tgt.hp <= 0 && !tgt.dead) {
+        tgt.dead = true;
+        if (hit.atkIsRed) enemy.kills++; else player.kills++;
+        battlePushDeathDecal(tgt);
+        if (atkAlive) {
+            atk.kills++;
+            if (hit.xp !== false) {
+                if (atk.kills === 3 && atk.level === 0) { atk.level = 1; atk.xpBonus = 1.15; atk.maxHp *= 1.15; atk.hp += atk.maxHp * 0.15; }
+                else if (atk.kills === 7 && atk.level === 1) { atk.level = 2; atk.xpBonus = 1.30; atk.maxHp *= 1.15; atk.hp += atk.maxHp * 0.15; }
+            }
+            if (atk.attackTarget === tgt) { atk.attackTarget = null; atk.manualTarget = null; }
+        }
+    }
+}
+
+// Tank mermisinin dar HE halkası — VARIŞ noktasındaki (impact) birimlere. srand YOK; hasar fırlatma-skalerlerinden.
+function applyTankSplash(hit, impactUnit, now, atk, atkAlive) {
+    const cx = impactUnit.x, cy = impactUnit.y, R = hit.splashR;
+    for (const n of SIM.spatialGrid.getNearby(cx, cy, R)) {
+        if (n.dead) continue;
+        if (n.isRed === hit.atkIsRed) {                        // dost: sadece baskı
+            if (Math.hypot(n.x - cx, n.y - cy) <= R) n.suppression += 40;
+            continue;
+        }
+        if (n === impactUnit) continue;                        // tam vuruşu aldı
+        const distance = Math.hypot(n.x - cx, n.y - cy);
+        if (distance > R) continue;
+        const falloff = 1 - distance / R;
+        const ratio = TANK_SPLASH_MIN + falloff * (TANK_SPLASH_MAX - TANK_SPLASH_MIN);
+        const blastDmg = Math.max(1, Math.floor(calculateUnitDamage(hit.atkType, n.type, hit.atkPower, n.armor) * ratio));
+        const hpBefore = n.hp;
+        const blastActual = Math.min(n.hp, blastDmg);
+        n.hp -= blastDmg;
+        if (typeof battleRecordCombatEvent === 'function') {
+            battleRecordCombatEvent({
+                kind: 'TANK_SPLASH',
+                attackerId: hit.atkId, attackerSide: hit.atkIsRed ? 'red' : 'blue', attackerType: hit.atkType,
+                targetId: n.id, targetSide: n.isRed ? 'red' : 'blue', targetType: n.type,
+                damage: Math.round(blastActual * 100) / 100,
+                hpBefore: Math.round(hpBefore * 100) / 100,
+                hpAfter: Math.round(Math.max(0, n.hp) * 100) / 100,
+                lethal: n.hp <= 0,
+                attackerX: Math.round(hit.atkX * 100) / 100, attackerY: Math.round(hit.atkY * 100) / 100,
+                targetX: Math.round(n.x * 100) / 100, targetY: Math.round(n.y * 100) / 100
+            });
+        }
+        n.panic += (blastDmg / n.maxHp) * 120;
+        n.flashTimer = 5;
+        if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.8);
+        n.suppression += 25;
+        if (n.isRed) { n.lastHitTime = now; n.distressX = hit.atkX; n.distressY = hit.atkY; }
+        if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
+        if (n.hp <= 0 && !n.dead) {
+            n.dead = true;
+            if (hit.atkIsRed) enemy.kills++; else player.kills++;
+            battlePushDeathDecal(n);
+            if (atkAlive) {
+                atk.kills++;
+                if (atk.kills === 3 && atk.level === 0) { atk.level = 1; atk.xpBonus = 1.15; atk.maxHp *= 1.15; atk.hp += atk.maxHp * 0.15; }
+                else if (atk.kills === 7 && atk.level === 1) { atk.level = 2; atk.xpBonus = 1.30; atk.maxHp *= 1.15; atk.hp += atk.maxHp * 0.15; }
+            }
+        }
+    }
+}
+
+// ─── DEFERRED-DAMAGE: DOLAYLI ATEŞ (AoE) mermisinin VARIŞ-anı patlaması ───
+// Saçılım ve nokta-savunma zarları FIRLATMADA atıldı; burada srand YOK. Mermi (cx,cy)'ye iner ve O ANDA orada olan
+// birimleri vurur — hedef uçuşta yer değiştirmişse mermi boş araziye düşer (fiziksel olarak doğru).
+// Hasar VARIŞ-anı hedef-durumuna göre yeniden hesaplanır (zırh/siper/işaretli), atıcının fırlatma-skalerleriyle.
+function applyBlast(hit, now) {
+    const atk = battleUnitById(hit.atkId);
+    const atkAlive = !!(atk && !atk.dead);
+    const atkShim = { type: hit.atkType, isRed: hit.atkIsRed };   // tech-bonusu için saf skaler vekil (canlı-ref YOK)
+    const cx = hit.cx, cy = hit.cy, blastR = hit.blastR, suppR = hit.suppR;
+    for (const n of SIM.spatialGrid.getNearby(cx, cy, suppR)) {
+        if (n.dead || n.isRed === hit.atkIsRed || n.abandoned) continue;   // sadece düşman (terk-edilmiş nötr atlanır)
+        const distance = Math.hypot(n.x - cx, n.y - cy);
+        if (distance > suppR) continue;
+        if (distance > blastR) {   // hasar-dışı ama BASTIRMA halkası: pinler (isabet almadan sindirir)
+            n.suppression = Math.min(100, n.suppression + 16);
+            if (n.isRed) n.lastHitTime = now;
+            continue;
+        }
+        const falloff = 1 - distance / blastR;
+        const blastDmg = Math.max(1, Math.floor(
+            applyTechCombatBonus(atkShim, n, calculateUnitDamage(hit.atkType, n.type, hit.atkPower, n.armor)) *
+            (0.5 + falloff * 0.5) * hit.indAcc * incomingDamageMult(n)
+        ));
+        const hpBefore = n.hp;
+        const blastActual = Math.min(n.hp, blastDmg);
+        n.hp -= blastDmg;
+        if (typeof battleRecordCombatEvent === 'function') {
+            battleRecordCombatEvent({
+                kind: hit.evt || 'ARTILLERY_SPLASH',
+                attackerId: hit.atkId, attackerSide: hit.atkIsRed ? 'red' : 'blue', attackerType: hit.atkType,
+                targetId: n.id, targetSide: n.isRed ? 'red' : 'blue', targetType: n.type,
+                damage: Math.round(blastActual * 100) / 100,
+                hpBefore: Math.round(hpBefore * 100) / 100,
+                hpAfter: Math.round(Math.max(0, n.hp) * 100) / 100,
+                lethal: n.hp <= 0,
+                attackerX: Math.round(hit.atkX * 100) / 100, attackerY: Math.round(hit.atkY * 100) / 100,
+                targetX: Math.round(n.x * 100) / 100, targetY: Math.round(n.y * 100) / 100
+            });
+        }
+        n.panic += (blastDmg / n.maxHp) * 120;
+        n.flashTimer = 5;
+        if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.6);
+        n.suppression += 30;                                  // alan baskısı
+        if (n.isRed) { n.lastHitTime = now; n.distressX = hit.atkX; n.distressY = hit.atkY; }
+        if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
+        if (n.hp <= 0 && !n.dead) {
+            n.dead = true;
+            if (hit.atkIsRed) enemy.kills++; else player.kills++;
+            battlePushDeathDecal(n);
+            if (atkAlive) {
+                atk.kills++;
+                if (atk.kills === 3 && atk.level === 0) { atk.level = 1; atk.xpBonus = 1.15; atk.maxHp *= 1.15; atk.hp += atk.maxHp * 0.15; }
+                else if (atk.kills === 7 && atk.level === 1) { atk.level = 2; atk.xpBonus = 1.30; atk.maxHp *= 1.15; atk.hp += atk.maxHp * 0.15; }
+                if (atk.attackTarget === n) { atk.attackTarget = null; atk.manualTarget = null; }
+            }
+        }
+    }
+}
+
+// Ölüm izi (kozmetik — Math.random SADECE görsel boyutta; sim-durumuna girmez).
+function battlePushDeathDecal(u) {
+    if (typeof decals === 'undefined') return;
+    decals.push(isMedicHealable(u.type)
+        ? { x: u.x, y: u.y, type: 'blood', size: 10 + Math.random() * 15, alpha: 0.7 }
+        : { x: u.x, y: u.y, type: 'wreck', size: 25, alpha: 1.0 });
+    if (decals.length > 5000) decals.shift();
+}
+
+function battleApplyDeathEffects(now) {
+    if (typeof SIM === 'undefined' || !SIM.units) return;
+    const _DM = (typeof UNITS_MODERN_DB !== 'undefined') ? UNITS_MODERN_DB.damageMatrix : null;
+    for (const u of SIM.units) {
+        if (!u.dead) continue;
+        const st = STATS[u.type];
+        const od = st && st.onDeath;
+        const ex = st && st.explodesOnDeath;
+        if ((!od && !ex) || u._deathFxDone) continue;
+        u._deathFxDone = true;                                            // tek-seferlik (ölü kalır, tekrar-işlenmez)
+        // İKMAL-ARACI PATLAMASI (kullanıcı-kararı: explodesOnDeath bağla): kaza-cephane-tutuşması → IFF-YOK ("yakınına risk"): dost+düşman
+        // yarıçap-içi herkes he-hasarı yer (kendi kütleni ikmal-aracının yanına yığma + point-blank killer'ı cezalandır). Determinist.
+        if (ex) {
+            const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 35;
+            const R = (ex.aoe || 3) * TP, R2 = R * R;
+            const dtype = ex.damageType || 'he';
+            for (const n of SIM.spatialGrid.getNearby(u.x, u.y, R)) {
+                if (n.dead || n === u || n.loaded || n.abandoned) continue;   // IFF-yok: dost da vurulur
+                const dx = n.x - u.x, dy = n.y - u.y, d2 = dx * dx + dy * dy; if (d2 > R2) continue;
+                const dist = Math.sqrt(d2), falloff = 1 - dist / R;
+                const arm = STATS[n.type] ? STATS[n.type].armorType : 'infantry';
+                const eff = (_DM && _DM[dtype]) ? (_DM[dtype][arm] || 0) : 1;
+                const dmg = Math.max(1, Math.floor((ex.damage || 150) * eff * (0.5 + falloff * 0.5)));
+                const hpBefore = n.hp; const actual = Math.min(n.hp, dmg);
+                n.hp -= dmg; n.suppression = Math.min(100, (n.suppression || 0) + 30); n.flashTimer = 5;
+                if (typeof battleRecordCombatEvent === 'function') battleRecordCombatEvent({ kind: 'SUPPLY_EXPLOSION', attackerId: u.id, attackerSide: u.isRed ? 'red' : 'blue', attackerType: u.type, targetId: n.id, targetSide: n.isRed ? 'red' : 'blue', targetType: n.type, damage: Math.round(actual * 100) / 100, hpBefore: Math.round(hpBefore * 100) / 100, hpAfter: Math.round(Math.max(0, n.hp) * 100) / 100, lethal: n.hp <= 0, attackerX: Math.round(u.x * 100) / 100, attackerY: Math.round(u.y * 100) / 100, targetX: Math.round(n.x * 100) / 100, targetY: Math.round(n.y * 100) / 100 });
+                if (n.hp <= 0 && !n.dead) { n.dead = true; if (u.isRed) { if (typeof enemy !== 'undefined') enemy.kills++; } else if (typeof player !== 'undefined') player.kills++; }
+            }
+            if (typeof spawnExplosion !== 'undefined') spawnExplosion(u.x, u.y, 2.0);
+        }
+        if (od && od.effect === 'command_shock') {
+            const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 35;
+            const R = (od.radius || 12) * TP, R2 = R * R;
+            const _ts = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+            const durTicks = Math.round((od.duration || 12) / _ts);        // 12sn → 240 tik
+            let hit = 0;
+            for (const f of SIM.units) {
+                if (f.dead || f.isRed !== u.isRed || f === u || f.loaded) continue;
+                const dx = f.x - u.x, dy = f.y - u.y; if (dx * dx + dy * dy > R2) continue;
+                f._cmdShockUntil = (SIM.tick || 0) + durTicks;             // emir-felci penceresi (performAttack'ta ×0.72)
+                f.suppression = Math.min(100, (f.suppression || 0) + 45);  // ani bastırma-şoku
+                hit++;
+            }
+            if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'COMMAND_SHOCK', unitId: u.id, side: u.isRed ? 'red' : 'blue', type: u.type, affected: hit, durationSec: od.duration || 12, x: Math.round(u.x * 100) / 100, y: Math.round(u.y * 100) / 100 });
+        }
+    }
 }
 
 // T3 PUSU+KEŞİF: viewerIsRed tarafı gizli u'yu fark ediyor mu — KEŞİF birimi 2× mesafeden tespit eder (pusu-karşıtı)

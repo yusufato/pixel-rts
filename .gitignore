@@ -28,6 +28,9 @@ models/*.gguf
 # Eğitim verisi + kayıtlar (101MB, yeniden üretilebilir; aktif beyin js/BattleSelectorModel.js'te)
 qa-runtime/
 
+# Turnuva/analist ham çıktıları (145MB, --vstournament vb. ile yeniden üretilebilir)
+INTEL3PRO-vs-INTEL4-analiste/
+
 # Build artıkları (dist/ zaten üstte; recorder/release/current de)
 dist-recorder/
 dist-release/

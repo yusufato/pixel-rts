@@ -300,6 +300,7 @@ const ABILITY_META = {
     lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: false, need: u => u.type === T.ENGINEER },
     build_fortification: { label: 'SİPER KAZ',  icon: '⛏',  active: true,  targeted: true,  need: u => u.type === T.ENGINEER },
     unload:              { label: 'İNDİR',      icon: '🪖', active: true,  targeted: false, need: u => u.transportSlots > 0 && u.cargo && u.cargo.length > 0 },
+    launch_drone:        { label: 'DRONE SAL',  icon: '🛩', active: true,  targeted: true,  need: u => u.type === T.DRONE_OPERATOR && (u.payloadCount == null || u.payloadCount > 0) },
     // PASİF (otomatik) — panelde bilgi-çipi:
     dig_in:          { label: 'Siperlen',    icon: '⛏',  active: false },
     garrison:        { label: 'Mevzilen',    icon: '🏚',  active: false },
@@ -388,7 +389,7 @@ function renderSpawnIcons() {
         const col = parseInt(c.dataset.col);
         c.width = 44; c.height = 32;
         const bctx = c.getContext('2d'); bctx.imageSmoothingEnabled = false; bctx.clearRect(0, 0, 44, 32);
-        bctx.drawImage(spriteSheet, SP_PAD + col * (SP_W + SP_PAD), SP_PAD, SP_W, SP_H, 0, 0, 44, 32);
+        bctx.drawImage(spriteSheet, SP_PAD + (typeof battleSpriteCol === 'function' ? battleSpriteCol(col) : col) * (SP_W + SP_PAD), SP_PAD, SP_W, SP_H, 0, 0, 44, 32);
     });
 }
 // KATEGORİLİ SPAWN-BAR: 7 grup butonu; tıkla → o kategorinin birimleri flyout'ta açılır → seç+yerleştir.
@@ -397,7 +398,7 @@ const SPAWN_CATEGORIES = [
     { id: 'armor',   label: '🛡️ Zırhlı',    ids: ['mbt', 'ifv', 'tank_destroyer'] },
     { id: 'arty',    label: '💥 Dolaylı',   ids: ['artillery', 'mlrs', 'ballistic_missile'] },
     { id: 'aa',      label: '🎯 Hava-Sav.', ids: ['spaag', 'sam_battery'] },
-    { id: 'air',     label: '✈️ Hava',      ids: ['attack_helo', 'transport_helo', 'recon_uav', 'armed_uav', 'loitering_munition'] },
+    { id: 'air',     label: '✈️ Hava',      ids: ['attack_helo', 'transport_helo', 'recon_uav', 'armed_uav', 'drone_operator'] },   // redesign: tek-tek kamikaze YERİNE drone-operatör (2 drone SALAR → DRONE SAL yeteneği)
     { id: 'recon',   label: '📡 Keşif/EH',  ids: ['scout_vehicle', 'counter_battery_radar', 'ew_vehicle'] },
     { id: 'support', label: '🚑 Destek',    ids: ['medic', 'engineer', 'supply_truck', 'command_vehicle'] }
 ];
@@ -483,6 +484,15 @@ function startBattle() {
 
     phase = PHASE.BATTLE;
     document.body.setAttribute('data-phase', PHASE.BATTLE);
+    // INTEL4-BEYİN: GERÇEK OYUNDA (interactive) rakip-AI + müttefik-AI intel4-deltalarını kullansın → kullanıcı intel4'e karşı oynar.
+    // (Headless testler/turnuva flag'i kendileri set eder; snaptest default-kapalı byte-aynı kalır.)
+    if (typeof BATTLE_INTEL4_RED !== 'undefined' && typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.interactive !== false &&
+        !(typeof BATTLE_REPLAY !== 'undefined' && BATTLE_REPLAY.playback)) {
+        BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+        // İZOLASYON-DOĞRULANMIŞ yeni-deltalar GERÇEK OYUNDA açık: defense(XWIDE+omurga-geri)/range(menzil-standoff)/drone(av-paketi-HVT)
+        // ablation'da 1/4→2/4 YARDIM etti. backbone HARİÇ (5000'de 2/4→0/4 net-zararlı; bütçe-adaptif olana dek kapalı). Yalnız interaktif → headless-baseline'lar byte-aynı kalır.
+        if (typeof BATTLE_INTEL4_DELTAS !== 'undefined') { BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true; }
+    }
     if (typeof warRoomResetBattleUI === 'function') warRoomResetBattleUI();
     if (typeof resetGroundCanvas === 'function') resetGroundCanvas();   // önceki maçın savaş izlerini temizle
     if (typeof initBattleRules === 'function') initBattleRules(battleRulesConfigForCurrentMatch());
@@ -1210,7 +1220,7 @@ function drawGhost() {
     // Bırakılamaz nokta (dolu) kırmızı, geçerli nokta normal → tık öncesi geri bildirim
     const blocked = !deploySpotFree(world.x, world.y, deployCarried);
     ctx.globalAlpha = blocked ? 0.28 : 0.45;
-    const sx = SP_PAD + ghostType * (SP_W + SP_PAD);
+    const sx = SP_PAD + (typeof battleSpriteCol === 'function' ? battleSpriteCol(ghostType) : ghostType) * (SP_W + SP_PAD);
     spriteReady() && ctx.drawImage(spriteSheet, sx, SP_PAD, SP_W, SP_H, mouseScreenX - dw / 2, mouseScreenY - dh / 2, dw, dh);
     ctx.globalAlpha = 1.0;
     if (blocked) {
@@ -1362,6 +1372,10 @@ function stepSim(now, dtSec, driveController, spawnDeathVfx) {
             SIM.units[i].update(now, dtSec);
         }
     }
+    // DEFERRED-DAMAGE: bekleyen-vuruşları (arriveTick gelenleri) uygula — onDeath-sweep'ten ÖNCE (varışta-ölen aynı-tik command_shock/patlama alsın)
+    if (typeof battleProcessPendingHits === 'function') battleProcessPendingHits(now);
+    // ONDEATH-EFEKTLERİ (command_shock): tüm birimler güncellendikten sonra yeni-ölenlerin ölüm-efektlerini uygula (tek-seferlik)
+    if (typeof battleApplyDeathEffects === 'function') battleApplyDeathEffects(now);
     // Birlikler hareket ettikten sonra çarpışma komşuluğunu güncelle. Eski
     // konumlarla çözüm yapmak dar geçitlerde görünmez kuyruk ve yanlış itme üretir.
     SIM.spatialGrid.clear();

@@ -114,6 +114,9 @@ class Unit {
         this._needsDeploy = _ab.includes('deploy');          // hareket sonrası ~2sn kurulum: isabet düşük
         this._canScoot = _ab.includes('shoot_and_scoot');    // ateş sonrası geri çekil (karşı-batarya kaç)
         this._topStrike = _ab.includes('strike_top_armor');  // kamikaze üstten dalar → zırhlıya üst-yön çarpanı
+        const _rt0 = s.roleTags || [];   // FAZ2 AV-PAKETİ: kamikaze/komando/arka-avcısı → ana-hatta değil HVT'ye (destek/topçu/radar/AA) yönelir
+        this._hvtHunter = _rt0.includes('assassin') || _rt0.includes('backline_hunter') || _rt0.includes('anti_support') || !!s.singleUse;
+        this.jammable = s.jammable || 0;                     // KULLANICI-FIX: EH-karıştırmasına açıklık (drone/İHA 0.8-1.0) — EKSİKTİ → jamming ölü-koddu, artık aktif
         this._detect = s.detect || 0;                        // gizli düşmanı tespit yarıçapı çarpanı
         this._stationaryT = 0;   // kaç sn hareketsiz (siperlenme + pusu için)
         this.entrench = 0;       // 0..1 siperlenme (dig_in): gelen hasarı azaltır
@@ -123,7 +126,7 @@ class Unit {
         // Rütbe çarpanları (HP ve Atk için)
         this.xpBonus = 1.0;
 
-        this.sx = SP_PAD + type * (SP_W + SP_PAD);
+        this.sx = SP_PAD + (typeof battleSpriteCol === 'function' ? battleSpriteCol(type) : type) * (SP_W + SP_PAD);
         this.sy = isRed ? (SP_PAD * 2 + SP_H) : SP_PAD;
         this.flashTimer = 0;
         this.scanTimer = srandInt(30);
@@ -163,6 +166,11 @@ class Unit {
                     if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'CAPTURE', unitId: this.id, side: repSide ? 'red' : 'blue', type: this.type, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
                 }
             }
+            return;
+        }
+        if (this._retired) {   // ONURLU-EMEKLİ HELO: yakıtsız ama dost-kenarda indi → donmuş (savaşmaz/uçmaz/çökmez), maç-sonuna dek sağ kalır
+            this.targetX = this.x; this.targetY = this.y; this.manualMoveTarget = null; this.isMovingToManualTarget = false;
+            this.attackTarget = null; this.manualTarget = null; this.fuel = 0;
             return;
         }
         // Eski denge 60 FPS kare adımına göre kuruluydu. frameScale, aynı oranları
@@ -320,6 +328,8 @@ class Unit {
         }
 
         if (this.type === T.ENGINEER && this.controlOwner !== 'PLAYER') this.updateEngineerAI(now, dtSec);   // AI istihkam: terk-araç KAP + ileri SİPER/HELİPAD kur (aktif-yetenek → insan-simetrisi)
+        if (this.type === T.DRONE_OPERATOR) this.updateOperatorPayload();   // DRONE-OPERATÖR: dost ikmal-alanında drone-bataryası dolar (oyuncu+AI ortak, koşulsuz-mekanik)
+        if (this.type === T.DRONE_OPERATOR && this.controlOwner !== 'PLAYER') this.updateOperatorAI(now);   // AI operatör: HVT-görürse drone-sal (gated 'drone'-delta)
 
         const isConstructing = this.updateTerrainBonuses(now, frameScale);
         this.updateEngineerBonus();
@@ -351,6 +361,9 @@ class Unit {
             this.engageCombat(now);
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
         }
+
+        // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
+        // zaten ~optimum yayılır) + ayrışma dig_in-siperlenmeyi bozuyordu (net-zararlı). Alan-ateşinin karşılığı = FAZ C balistiği-öldür.
 
         const _gridMode = (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid');
         // Hedef hangi sistemden gelirse gelsin (oyuncu/AI/replay/MP), su veya dağ
@@ -469,7 +482,12 @@ class Unit {
         const distToTarget = Math.sqrt(desiredX * desiredX + desiredY * desiredY);
         const movementSpeed = this.speed * frameScale;
 
-        if (distToTarget > movementSpeed + 1) {
+        // KULLANICI-FIX (hareket-titremesi "sağa-sola pinpon"): birim varınca DURUR; çarpışma-itmesi onu küçük-oynatınca YENİDEN-HAREKET
+        // ETMESİN (arrived→push→re-move→push osilasyonu, çoklu-birim tek-noktaya kümelenince). HİSTEREZİS: holding'de yeniden-hareket
+        // eşiği BÜYÜK (2.6×yarıçap) → küçük-itme absorbe; gerçek-yeni-emir (targetX belirgin-kayar → distToTarget büyür) eşiği aşar.
+        const _reThreshold = this._holdingPos ? Math.max(movementSpeed + 1, UNIT_RADIUS * 2.6) : (movementSpeed + 1);
+        if (distToTarget > _reThreshold) {
+            this._holdingPos = false;
             const _sdx = _steerX - this.x, _sdy = _steerY - this.y;
             const _sd = Math.hypot(_sdx, _sdy) || 1;
             let moveX = (_sdx / _sd) * movementSpeed;
@@ -531,8 +549,9 @@ class Unit {
             }
         } else {
             this.isMovingToManualTarget = false;
+            this._holdingPos = true;   // vardı → holding (küçük-itmelere histerezisle direnir, titreme biter)
         }
-        
+
         if (this.attackTarget && !this.isFleeing) {
             this.facingAngle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
         }
@@ -608,7 +627,8 @@ class Unit {
                         hp: 320,
                         maxHp: 320,
                         providesSupply: true,
-                        providesAir: true,            // HELİPAD: hava birimi de burada yakıt + mühimmat alır (helo ikmal noktası)
+                        providesAir: true,            // HELO-ÜSSÜ: hava birimi burada yakıt+mühimmat+TAMİR alır
+                        refuelsLeft: null,            // KULLANICI-FIX: SINIRSIZ dolum — "üs kurulu olduğu sürece yakıt doldurabilir + tamir olabilir" (refuelsLeft=null → capLeft=Infinity, hak-tüketimi yok)
                         createdAt: now,
                         expiresAt: now + SUPPLY_FIELD_DURATION_MS
                     });
@@ -666,6 +686,110 @@ class Unit {
         }
     }
 
+    // DRONE-OPERATÖR ikmal-dolumu: operatör dost ikmal-kaynağı (resupply-aura=ikmal-kamyonu VEYA providesSupply-siper)
+    // menzilindeyse drone-bataryası dolar (payloadCount<max, reloadMs'de +1). Koşulsuz-mekanik (oyuncu+AI ortak),
+    // RNG-yok, u.fuel'e ASLA dokunmaz, tik-bazlı (BATTLE_TICK_SEC) → determinist. payloadCount+_reloadTimer hash'lenir.
+    updateOperatorPayload() {
+        const pc = STATS[this.type] && STATS[this.type].payload;
+        if (!pc) return;
+        const max = pc.count | 0;
+        if (this.payloadCount == null) this.payloadCount = max;
+        if (this.payloadCount >= max) { this._reloadTimer = 0; return; }
+        const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 35;
+        let inSupply = false;
+        for (const u of SIM.units) {   // dost resupply-aura kaynağı (ikmal-kamyonu) menzili
+            if (u.dead || u === this || u.isRed !== this.isRed) continue;
+            const a = STATS[u.type] && STATS[u.type].aura;
+            if (!a || a.type !== 'resupply') continue;
+            const rr = (a.radius || 3) * TP;
+            const dx = u.x - this.x, dy = u.y - this.y;
+            if (dx * dx + dy * dy <= rr * rr) { inSupply = true; break; }
+        }
+        if (!inSupply && SIM.trenches) {   // dost providesSupply-siper (ikmal-deposu) menzili
+            for (const t of SIM.trenches) {
+                if (t.isRed !== this.isRed || t.providesSupply === false || t.destroyed) continue;
+                const rr = t.r || (t.radius ? t.radius * TP : 3 * TP);
+                const dx = t.x - this.x, dy = t.y - this.y;
+                if (dx * dx + dy * dy <= rr * rr) { inSupply = true; break; }
+            }
+        }
+        if (!inSupply) { this._reloadTimer = 0; return; }
+        const dt = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+        this._reloadTimer = (this._reloadTimer || 0) + dt * 1000;
+        if (this._reloadTimer >= pc.reloadMs) {
+            this.payloadCount++;
+            this._reloadTimer -= pc.reloadMs;
+            if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'RELOAD', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, payload: this.payloadCount, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+        }
+    }
+
+    // AI DRONE-OPERATÖR: mühimmatı varsa görüş-alanındaki EN DEĞERLİ düşmanı (radar/destek/topçu = anti_support neşter-rolü)
+    // bul → oraya kamikaze-drone SAL, yoksa HOLD (dolum bekle). Gated 'drone'-delta (default-false → dormant, byte-aynı).
+    // Piyade-yığınına harcamaz (değer-eşiği). Determinist (dist+id tiebreak, RNG-yok). updateEngineerAI-şablonu.
+    updateOperatorAI(now) {
+        // gated: 'drone' (jenerik) VEYA 'attack' = MUHARİP-DRONE doktrini (intel4). Saldıran-tarafta → anti-AT (perde-temizle);
+        // savunan-tarafta → anti-armor (saldıranın mızrağını vur, _defHold). İkisi de off = davranış-yok = byte-aynı.
+        const _droneDoctrine = typeof battleDelta === 'function' && battleDelta(this.isRed, 'attack');
+        const _atkDrone = _droneDoctrine &&
+            (typeof SIM !== 'undefined' && SIM.battle && (this.isRed === (SIM.battle.attackerSide === true)));   // operatör SALDIRAN-tarafta → AT-perde önceliği
+        if (typeof battleDelta === 'function' && !battleDelta(this.isRed, 'drone') && !_droneDoctrine) return;
+        const pc = STATS[this.type] && STATS[this.type].payload;
+        const have = this.payloadCount != null ? this.payloadCount : (pc ? (pc.count | 0) : 0);
+        if (have <= 0) return;   // mühimmat yok → ikmal bekle
+        const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 35;
+        // KULLANICI-FIX ("drone salmıyor"): eski scanR=vision×35=385px ÇOK dardı → HVT'ler (radar/topçu backline'da) hep uzakta →
+        // AI hiç salmıyordu. Fırlatma-menzili SERBEST (v1) → GÖRÜLEN (canSee) HVT'ye ~1800px'e dek sal (drone oraya uçar).
+        const scanR = 1800;
+        // FAZ-SAVUNMA (analist: operatör = savunmanın ANTI-MIZRAK ası): SAVUNAN-operatör dronu erken-taciz için HARCAMAZ,
+        // düşman MIZRAĞI (MBT/TD) taahhüt edene dek TUTAR, sonra dalgayı mızrağın üstüne BOCA eder (strike_top ×2.2 → MBT'ye 540-800).
+        const _defHold = (typeof SIM !== 'undefined' && SIM.battle && (this.isRed !== (SIM.battle.attackerSide === true)) &&
+            (_droneDoctrine || (typeof battleDelta === 'function' && battleDelta(this.isRed, 'defense'))));   // muharip-drone doktrini: savunan dronu DİSİPLİNLİ (mızrak taahhüt edene dek tut, sonra boca) — serbest-fırlatma israfını önle
+        // FAZ-SEAD-ADAPTİF (kayıp-atfı-2): saldıran-dronu AA-önce mi AT-önce mi? Sabit-öncelik iki savunma-tipini birden çözemedi
+        // (AA-öncelik 909/777-crush ama 3141/2718-kayıp). Hedef-bölgedeki AA-değeri vs AT-değerini tart: AA-ağır→gök-aç(AA-önce),
+        // AT-ağır→mızrak-koru(AT-önce). Determinist (değer-tabanlı tarama). Yalnız saldıran-drone (_atkDrone).
+        let _aaFirst = false;
+        if (_atkDrone) {
+            let _aaThreat = 0, _atThreat = 0;
+            for (const u of SIM.units) {
+                if (u.dead || u.loaded || u.isRed === this.isRed || u.isAir) continue;
+                const dx = u.x - this.x, dy = u.y - this.y; if (dx * dx + dy * dy > scanR * scanR) continue;
+                const c = (STATS[u.type] && STATS[u.type].cost) || 0;
+                if (u.type === T.SAM || u.type === T.MANPADS || u.type === T.SPAAG) _aaThreat += c;
+                else if (u.type === T.ANTI_TANK || u.type === T.TANK_HUNTER) _atThreat += c;
+            }
+            _aaFirst = _aaThreat >= _atThreat && _aaThreat > 0;   // AA-değeri ≥ AT → önce gökyüzünü aç (ölçüm: bu basit-eşik 10/12; 1.25×-eşik 2024'ü bozdu 9/12)
+        }
+        let best = null, bestKey = -Infinity, bestIsSpear = false;
+        for (const u of SIM.units) {
+            if (u.dead || u.loaded || u.isRed === this.isRed || u.abandoned || u.isAir) continue;   // kara-warhead → hava vurmaz
+            const d = Math.hypot(u.x - this.x, u.y - this.y);
+            if (d > scanR) continue;
+            if (d > this.vision * TP && typeof canSee === 'function' && !canSee(this.isRed, u.x, u.y, false)) continue;   // öz-görüş dışıysa dost-sensör görmeli
+            const su = STATS[u.type] || {};
+            const rt = su.roleTags || [];
+            const isSpear = (u.type === T.ARMOR || u.type === T.TANK_HUNTER);   // MBT/TD = mızrak
+            const isAT = (u.type === T.ANTI_TANK || u.type === T.TANK_HUNTER);   // AT-perde: Tanksavar Timi + Tank Avcısı
+            const isAA = (u.type === T.SAM || u.type === T.MANPADS || u.type === T.SPAAG);   // AA-şemsiyesi: drone/hava avcısı
+            const isIndirect = rt.includes('indirect_fire') || su.category === 'indirect';   // topçu/havan/ÇNRA (kara-biçen backline)
+            let val = 0;   // MIZRAK(6) > radar(4) > destek(3.5) > topçu(3). Gövde/piyade = 0 (drone oraya harcanmaz).
+            // FAZ-T2 (kayıp-atfı): SALDIRAN erimesi merkez-AT (Tank Avcısı+Tanksavar) → drone AT-perdesini temizler (val 7 > mızrak 6).
+            // FAZ-SEAD (kayıp-atfı-2, FIX-B-sonrası): savunan AA (SAM 14+MANPADS 9/maç) saldıran-DRONLARINI düşürüp doktrini counter'lıyordu →
+            // drone önce AA'yı sök (val 8: drone-avcısını kaldır→gök-açar+drone-attrition-durur), sonra AT-perde, sonra topçu (kara-biçen).
+            if (_atkDrone && isAA) val = _aaFirst ? 8 : 7;          // adaptif: AA-ağır savunmada AA-önce (8), AT-ağırda AT'nin altında (7)
+            else if (_atkDrone && isAT) val = _aaFirst ? 7 : 8;     // adaptif: AT-ağır savunmada AT-önce (8)
+            else if (_atkDrone && isIndirect) val = 6;
+            else if (isSpear) val = 6;   // pahalı-zırhı avla (strike_top ×2.2 mızrağı söker; savunmada anti-mızrak)
+            else if (rt.includes('intel') || rt.includes('air_search')) val = 4;
+            else if (su.category === 'support') val = 3.5;
+            else if (su.category === 'artillery' || rt.includes('indirect')) val = 3;
+            if (val < 3) continue;   // HVT değilse atla (piyade-yığınına dalış YOK)
+            const key = val * 100000 - d;   // değer BİRİNCİL, yakınlık ikincil-tiebreak
+            if (key > bestKey || (key === bestKey && best && u.id < best.id)) { bestKey = key; best = u; bestIsSpear = isSpear; }
+        }
+        if (_defHold && !bestIsSpear) return;   // SAVUNAN: mızrak taahhüt etmedi → TUT (support/harassment'a drone harcama)
+        if (best) battleLaunchDrones(this, best.x, best.y);   // görülen en-değerli hedefe SAL (savunmada mızrağa boca)
+    }
+
     // JENERİK AURA (veri-güdümlü, units-modern.json STATS.aura): her tik yakın birimlere etki.
     // heal/repair/resupply → doğrudan; command/jamming → tik-damgası (tüketim FAZ 2: accuracy/drone). Radius KARE→×TILE_PX. RNG yok.
     applyUnitAura(now) {
@@ -718,9 +842,9 @@ class Unit {
                 }
             }
         } else if (aura.type === 'jamming') {
-            for (const u of nearby) {   // JAMMING: yakın DÜŞMANLARI damgala (drone etkisiz + isabet cezası → FAZ 2)
+            for (const u of nearby) {   // JAMMING: yakın DÜŞMAN UAV/drone'u damgala → engageCombat'ta ateş/dalış-iptali (jammable birim)
                 if (u.dead || u.isRed === this.isRed) continue;
-                const dx = u.x - this.x, dy = u.y - this.y; if (dx * dx + dy * dy <= r2) u.jammedTick = SIM.tick;
+                const dx = u.x - this.x, dy = u.y - this.y; if (dx * dx + dy * dy <= r2) { u.jammedTick = SIM.tick; u.jammedBy = this.id; u.jammedBySide = this.isRed ? 'red' : 'blue'; }   // JAM-telemetri: kim (id+taraf) jamladı
             }
         }
     }
@@ -833,10 +957,9 @@ class Unit {
         if (this.buildTrenchTarget) return;   // zaten inşa ediyor
         // DURUŞ-BAĞI (analist): CONSOLIDATE (kazandık+lull) → kapma/tamir penceresi AÇIK; sahayı kontrol ettiğimiz için geometri gevşer.
         let _stance = null, _winning = false;
-        if (typeof BATTLE_CONTROLLERS !== 'undefined' && this.controllerId) {
-            const _c = BATTLE_CONTROLLERS.get(this.controllerId);
-            const _s = _c && _c.lastSituation;
-            if (_s) { _stance = _s.operationalPosture && _s.operationalPosture.stance; _winning = (_s.forceRatio || 0) > 1.6; }
+        {   // DETERMİNİZM: duruş SİM-durumundan (canlı kontrolör nesnesi replay'de YOK → sapma kaynağıydı)
+            const _p = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
+            if (_p) { _stance = _p.stance; _winning = !!_p.win; }
         }
         const _consolidate = _stance === 'CONSOLIDATE';
         // (1) ELE GEÇİR (ÖNCELİK): terk-edilmiş araç (nötr, dost VEYA düşman-enkazı) → üstüne git; yanına varınca capture-logic onarıp taraf yapar
@@ -889,39 +1012,55 @@ class Unit {
     updateFuel(now, dtSec) {
         const oneWay = STATS[this.type] && STATS[this.type].singleUse;   // kamikaze impact'e gider, dönmez
         const busyTransport = this.transportSlots > 0 && this.cargo && this.cargo.length > 0;   // yüklü taşıma önce teslim eder
-        const atBaseEdge = this.isRed ? (this.y <= WORLD_H * 0.18) : (this.y >= WORLD_H * 0.82);
-        // HELİPAD: dost ikmal-alanı (istihkam trench, providesAir) → helo orada yakıt+mühimmat alır; en yakınını da bul (dönüş hedefi)
-        let overField = false, fieldX = null, fieldY = null, fieldD = Infinity;
+        // HELO-ÜSSÜ (kullanıcı-redesign): KENAR-BEDAVA-DOLUM KALDIRILDI. Helo YALNIZ inşa-edilmiş dost üste (providesAir)
+        // ve o üssün DOLUM-HAKKI (refuelsLeft) kaldığında yakıt alır. Her dock 1 hak tüketir → üs 2-kez doldurur, sonra kesilir.
+        let overBase = null, overKey = null, overMine = false;   // şu an üzerinde olduğumuz kullanılabilir üs
+        let baseX = null, baseY = null, baseD = Infinity;         // dönüş-hedefi: kapasitesi-kalan en-yakın üs
         for (const t of SIM.trenches) {
             if (t.isRed !== this.isRed || t.providesSupply === false || !t.providesAir) continue;
+            const capLeft = (t.refuelsLeft == null) ? Infinity : t.refuelsLeft;
+            const key = t.x + '|' + t.y;   // üs-kimliği (statik konum → determinist+serialize-edilebilir; trench-id gerektirmez)
+            const mineReserved = (this._refuelBaseKey === key);
+            const usable = capLeft > 0 || mineReserved;
             const d = Math.hypot(this.x - t.x, this.y - t.y);
-            if (d < t.r) overField = true;
-            if (d < fieldD) { fieldD = d; fieldX = t.x; fieldY = t.y; }
+            if (usable && d < baseD) { baseD = d; baseX = t.x; baseY = t.y; }
+            if (usable && d < t.r && !overBase) { overBase = t; overKey = key; overMine = mineReserved; }
         }
-        const atBase = atBaseEdge || overField;
 
-        if (atBase && this.fuel < this.maxFuel) {   // ÜSTE/HELİPAD'DA İKMAL (~18sn tam dolum)
+        if (!oneWay && overBase && this.fuel < this.maxFuel) {   // ÜSTE İKMAL (~18sn tam dolum). KULLANICI-FIX: KAMİKAZE(oneWay) İKMAL ALMAZ (tek-yön) → dost-üs üstünden geçince dolup hiç-düşmeme + üs-hakkı-yeme bug'ı çözülür
+            if (!overMine) {   // YENİ rezervasyon → 1 dolum-hakkı tüket (dock başına tek-hak)
+                if (overBase.refuelsLeft != null) overBase.refuelsLeft--;
+                this._refuelBaseKey = overKey;
+                if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'REFUEL_DOCK', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, refuelsLeft: overBase.refuelsLeft == null ? -1 : overBase.refuelsLeft, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+            }
             this.fuel = Math.min(this.maxFuel, this.fuel + (this.maxFuel / 18) * dtSec);
+            if (this.maxHp > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + (this.maxHp / 22) * dtSec);   // KULLANICI-FIX: üste TAMİR de (~22sn tam-onarım)
             if (this.fuel >= this.maxFuel * 0.9) this._returningToBase = false;   // doldu → göreve dön
+            if (this.fuel >= this.maxFuel) this._refuelBaseKey = null;            // tam-doldu → rezervasyon biter (sonraki dock = yeni hak)
             return;
         }
+        if (this._refuelBaseKey != null && !overBase) this._refuelBaseKey = null;   // üsten ayrıldı → rezervasyonu bırak
+
         this.fuel -= this.fuelBurn * dtSec;   // uçarken yakıt yanar
         if (this.fuel <= 0) {
-            this.fuel = 0;
-            if (!oneWay) { this.hp = 0; this.dead = true; return; }   // yakıt bitti → düşer
+            // KULLANICI-FIX: "üssüz de olsa DONMAMALI". Onurlu-emeklilik (donma) KALDIRILDI → yakıt bitince DÜŞER (helo+drone),
+            // üs-var/yok fark etmez. Üs varsa zaten aşağıdaki RTB oraya götürür + ikmal eder (donma yok).
+            this.fuel = 0; this.hp = 0; this.dead = true; return;
         }
-        if (!oneWay && !busyTransport && this.fuel <= this.maxFuel * 0.30 && !this._returningToBase) {   // düşük → dön (sortı tamamlandı)
+        if (!oneWay && !busyTransport && baseX != null && this.fuel <= this.maxFuel * 0.30 && !this._returningToBase) {   // düşük + ÜS-VAR → dön. KULLANICI-FIX: üs-YOKSA RTB-etme (kenara-gidip-donma yok) → emir almaya devam et, yakıt bitince düşer
             this._returningToBase = true;
             if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.heloSorties++;
             if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'RTB', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, fuel: Math.round((this.fuel || 0) * 100) / 100, maxFuel: Math.round((this.maxFuel || 0) * 100) / 100, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
         }
-        if (this._returningToBase) {   // en yakın HELİPAD'a (yoksa üs-kenarına) dön
-            const baseEdgeY = this.isRed ? WORLD_H * 0.14 : WORLD_H * 0.86;
-            const useField = (fieldX != null && fieldD < Math.abs(this.y - baseEdgeY));   // helipad daha yakınsa oraya
-            this.attackTarget = null; this.manualTarget = null;
-            this.targetX = useField ? fieldX : this.x;
-            this.targetY = useField ? fieldY : baseEdgeY;
-            this.manualMoveTarget = { x: this.targetX, y: this.targetY }; this.isMovingToManualTarget = true;
+        if (this._returningToBase) {
+            // KULLANICI-FIX: üs VARSA ona git (tek ikmal-noktası). Üs YOKSA (hiç yok / RTB sırasında yıkıldı) → RTB-İPTAL, emir almaya
+            // devam et (kenara-gidip-donma YOK). Üssüz helo görevine devam eder, yakıtı biterse düşer.
+            if (baseX == null) { this._returningToBase = false; }
+            else {
+                this.attackTarget = null; this.manualTarget = null;
+                this.targetX = baseX; this.targetY = baseY;
+                this.manualMoveTarget = { x: baseX, y: baseY }; this.isMovingToManualTarget = true;
+            }
         }
     }
 
@@ -929,8 +1068,111 @@ class Unit {
         // SİLAHSIZ birimler savaşmaz (sağlıkçı/istihkam*/ikmal/HQ/EH/radar/nakliye-heli/keşif-İHA). *istihkamın hafif silahı var.
         const __w = STATS[this.type] && STATS[this.type].weapons;
         if (!__w || !__w.length) return;
-        // JAMMING: EH-aracı alanındaki jammable drone bağlantısını kaybeder → ateş edemez (bu ve geçen tik damgalıysa).
-        if (this.jammable && typeof SIM !== 'undefined' && (SIM.tick - (this.jammedTick || -99)) <= 1) { this.combatState = 'Karıştırıldı'; return; }
+        // JAMMING (kullanıcı: "jammer↔drone counter'ını devreye sok"): EH-aracının jamming-alanındaki jammable UAV/drone
+        // KONTROL-BAĞINI kaybeder → ateş/dalış YAPAMAZ (bu ve geçen tik damgalıysa). Kamikaze alan içinde dalamaz → hedefe
+        // ulaşamadan yakıtı biter/düşer → EH = drone-red bölgesi. Determinist (RNG-yok, sadece tik-damgası). Artık this.jammable yüklü.
+        if (this.jammable && typeof SIM !== 'undefined' && (SIM.tick - (this.jammedTick || -99)) <= 1) {
+            this.combatState = 'Karıştırıldı';
+            // JAM-TELEMETRİ (analist: INTERCEPT'in kardeşi — kim/kimi/kaç-sn/kaç-atış). jam-periyodu takibi:
+            if (this._jamLastTick == null || (SIM.tick - this._jamLastTick) > 2) { this._jamStartTick = SIM.tick; this._jamBlocked = 0; }   // yeni jam-periyodu başladı
+            this._jamLastTick = SIM.tick; this._jamBlocked = (this._jamBlocked || 0) + 1;   // engellenen angajman-fırsatı (tik)
+            if (typeof battleRecordLifeEvent === 'function' && (SIM.tick - (this._lastJamEvt || -999)) >= 20) {   // ~1s throttle
+                this._lastJamEvt = SIM.tick;
+                const _ts = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+                battleRecordLifeEvent({ kind: 'JAMMED', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type,
+                    jammerId: this.jammedBy != null ? this.jammedBy : null, jammerSide: this.jammedBySide || null,   // ANALİST: kim/kimi (jammer-taraf + jamlanan-taraf) → drone↔jammer atfı netleşir
+                    durationSec: Math.round((SIM.tick - (this._jamStartTick || SIM.tick)) * _ts * 100) / 100,
+                    blockedShots: this._jamBlocked, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+            }
+            // JAMMER↔DRONE (kullanıcı-spec): karıştırılan drone YÖNÜ SAPITILIP donar (kontrol-bağı kopar); tek-kullanımlık (kamikaze)
+            // 5sn sürekli-jam'de BOŞ-NOKTADA infilak eder. Kontrol-dışı sayacını (_ctrlLostTick) paylaşır → jam+menzil-dışı birikir.
+            this.targetX = this.x; this.targetY = this.y; this.isMovingToManualTarget = false;   // donuk (yön sapıtıldı)
+            if (STATS[this.type] && STATS[this.type].singleUse) {
+                if (!this._ctrlLostTick) this._ctrlLostTick = SIM.tick;
+                if ((SIM.tick - this._ctrlLostTick) >= 100) {   // 5sn sürekli-jam → BOŞ-PATLA
+                    if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'DRONE_LOST', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, reason: 'jam-bos', jammerId: this.jammedBy != null ? this.jammedBy : null, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+                    this.hp = 0; this.dead = true; this.lastAttackTime = now; if (typeof spawnExplosion !== 'undefined') spawnExplosion(this.x, this.y, 1.6);
+                }
+            }
+            return;
+        }
+
+        // KAMİKAZE FIRE-AND-FORGET (kullanıcı: "dalıyor ama çarptığı yerde patlamıyor"): singleUse drone controlOwner/oyuncu-vision/
+        // manualTarget'a BAĞLI OLMADAN en-yakın CANLI düşmana kararlı dalar. Eski playerControlled-yolu canSee-dip'inde manualTarget'ı
+        // nullluyor → drone hedefi kaybedip bayat-noktaya uçuyor, hiç patlamıyordu. Bu blok hem oyuncu hem AI için tek-tip güvenilir dalış.
+        if (STATS[this.type] && STATS[this.type].singleUse) {
+            // ── OPERATÖR KONTROL-BÖLGESİ (900px, kullanıcı-spec) ──
+            // Drone operatöre ≤900px iken KONTROLLÜ (oyuncu+AI: avlanır, hareket eder, hedefe kilitlenir). >900px (veya operatör ölü) →
+            // KONTROL-KAYBI: en-yakın hedefi seç+dal; hedef yoksa 5sn SABİT bekle → patla. 5sn içinde operatör 900px'e yaklaşırsa
+            // kontrol geri gelir (sayaç sıfırlanır). Determinist (mesafe+tik, RNG-yok). operatorId'siz (sağ-tık/eski-kamikaze)=daima kontrollü.
+            const CTRL_R = 900;
+            const _isPlayerDrone = this.controlOwner === 'PLAYER';
+            let controlled = true, operatorAlive = (this.operatorId == null);   // operatörsüz (sağ-tık kamikaze) = daima kontrollü/canlı
+            if (this.operatorId != null) {
+                controlled = false;
+                for (const op of SIM.units) { if (op.id === this.operatorId) { operatorAlive = !op.dead; if (!op.dead && Math.hypot(op.x - this.x, op.y - this.y) <= CTRL_R) controlled = true; break; } }
+            }
+            // ── OYUNCU-KOMUT ÖNCELİĞİ (kullanıcı-bug: "dronlar kontrolüme geçmiyor") ──
+            // Kontrol-bölgesindeki OYUNCU dronu, fire-and-forget'ten ÖNCE oyuncunun emrini uygular: saldır-emri(manualTarget)→o hedefe dal;
+            // git-emri(manualMoveTarget)→oraya uç (varınca aşağı hunt/bekle). Böylece dronlar seçilip komuta edilebilir (operatör yakınken).
+            if (_isPlayerDrone && controlled) {
+                if (this.manualTarget && !this.manualTarget.dead && !this.manualTarget.loaded) {
+                    this._ctrlLostTick = 0; this.attackTarget = this.manualTarget;
+                    const dM = Math.hypot(this.manualTarget.x - this.x, this.manualTarget.y - this.y);
+                    if (dM <= 70) { this.targetX = this.x; this.targetY = this.y; this.performAttack(now); }
+                    else { this.targetX = this.manualTarget.x; this.targetY = this.manualTarget.y; this.manualMoveTarget = { x: this.manualTarget.x, y: this.manualTarget.y }; this.isMovingToManualTarget = true; }
+                    return;
+                }
+                if (this.isMovingToManualTarget && this.manualMoveTarget) {
+                    const dG = Math.hypot(this.manualMoveTarget.x - this.x, this.manualMoveTarget.y - this.y);
+                    if (dG > 40) { this._ctrlLostTick = 0; this.targetX = this.manualMoveTarget.x; this.targetY = this.manualMoveTarget.y; return; }   // git-emri: oraya uç
+                }
+            }
+            let tgt = (this.attackTarget && !this.attackTarget.dead && !this.attackTarget.loaded) ? this.attackTarget : null;
+            if (tgt) { this._diveLastX = tgt.x; this._diveLastY = tgt.y; }   // taahhüt-hedefin SON-KONUMU (her tik güncel)
+            // KULLANICI-FIX (kontrol-dışı re-target YOK): drone taahhüt-hedefi ÖLÜNCE (kontrol-dışıyken) yeni-hedef SEÇMEZ →
+            // hedefin son-konumuna git + varınca (~70px) PATLA (orada kimse yoksa hasarsız). Kontrollü drone normal re-target (operatör yönetir).
+            if (!tgt && !controlled && this._diveLastX != null) {
+                const dL = Math.hypot(this._diveLastX - this.x, this._diveLastY - this.y);
+                if (dL <= 70) {
+                    if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'DRONE_LOST', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, reason: 'hedef-oldu-son-konum', operatorId: this.operatorId != null ? this.operatorId : null, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+                    this.hp = 0; this.dead = true; this.lastAttackTime = now; if (typeof spawnExplosion !== 'undefined') spawnExplosion(this.x, this.y, 1.6);
+                } else { this.targetX = this._diveLastX; this.targetY = this._diveLastY; this.manualMoveTarget = { x: this._diveLastX, y: this._diveLastY }; this.isMovingToManualTarget = true; }
+                return;
+            }
+            if (!tgt) {   // taahhüt-yok (taze) VEYA kontrollü → en yakın canlı KARA düşman (tarama-yarıçapı range×1.5). Determinist (dist+id).
+                let bd = Infinity;
+                for (const o of SIM.spatialGrid.getNearby(this.x, this.y, this.range * 1.5)) {
+                    if (o.dead || o.loaded || o.isRed === this.isRed || o.abandoned || o.isAir) continue;
+                    const d = Math.hypot(o.x - this.x, o.y - this.y);
+                    if (d < bd || (d === bd && tgt && o.id < tgt.id)) { bd = d; tgt = o; }
+                }
+                if (tgt) { this._diveLastX = tgt.x; this._diveLastY = tgt.y; }   // yeni taahhüt → son-konumu başlat
+            }
+            if (tgt) {   // hedef var (kontrollü VEYA kontrol-dışı "en-yakını-seç") → dal; TEMAS-mesafesinde(~70px) patla (menzilden değil)
+                this._ctrlLostTick = 0;
+                this.attackTarget = tgt;
+                const d = Math.hypot(tgt.x - this.x, tgt.y - this.y);
+                if (d <= 70) { this.targetX = this.x; this.targetY = this.y; this.performAttack(now); }   // TEMAS → DAL/PATLA
+                else { this.targetX = tgt.x; this.targetY = tgt.y; this.manualMoveTarget = { x: tgt.x, y: tgt.y }; this.isMovingToManualTarget = true; }   // dal-yaklaş
+            } else if (controlled) {   // KONTROLLÜ + hedef-yok → atıldığı noktaya doğru ilerle (avlanmaya devam, operatör yakın)
+                this._ctrlLostTick = 0;
+                if (this.launchX != null && this.launchY != null) { this.targetX = this.launchX; this.targetY = this.launchY; this.manualMoveTarget = { x: this.launchX, y: this.launchY }; this.isMovingToManualTarget = true; }
+            } else {   // KONTROL-DIŞI (operatör >900px veya ölü) + hedef-yok → SABİT bekle
+                this.targetX = this.x; this.targetY = this.y; this.manualMoveTarget = { x: this.x, y: this.y }; this.isMovingToManualTarget = false;
+                // SELF-İNFİLAK yalnız operatör ÖLÜ ise (kullanıcı-bug: operatör canlıyken dron patlıyordu → staging+kontrol bozuluyordu).
+                // Operatör CANLI ama uzak → dron BEKLER (oyuncu operatörü getirip kontrol alabilir; AI'da da operatör yaklaşınca döner).
+                // Operatör ÖLÜ → kontrol imkânsız → 5sn sonra boş-patla (kontrol-bağı gerçekten koptu).
+                if (!operatorAlive) {
+                    if (!this._ctrlLostTick) this._ctrlLostTick = SIM.tick;
+                    if ((SIM.tick - this._ctrlLostTick) >= 100) {   // 5sn = 100 tik → BOŞ-PATLA (operatör öldü)
+                        if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'DRONE_LOST', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, reason: 'operator-oldu', operatorId: this.operatorId != null ? this.operatorId : null, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+                        this.hp = 0; this.dead = true; this.lastAttackTime = now; if (typeof spawnExplosion !== 'undefined') spawnExplosion(this.x, this.y, 1.6);
+                    }
+                } else { this._ctrlLostTick = 0; }   // operatör canlı → sayaç sıfır, bekle (patlamaz)
+            }
+            return;   // kamikaze kendi mantığını yürütür (normal combat-dalına girmez)
+        }
 
         const playerControlled = this.controlOwner === 'PLAYER';
         if (playerControlled) {
@@ -970,7 +1212,34 @@ class Unit {
             // Denetleyici hedef SEÇER; birim yalnız emri icra eder. Burada karar/target scoring yoktur.
             this.attackTarget = this.manualTarget;
             const d = Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y);
-            if (d <= this.range) {
+            // INTEL4 (flag-kapılı) HELO-NEŞTER: helo düşman-AA ZARFINA dalmasın (analist: "hat-yarma"=şemsiye-göbeği→400HP-cam ölür;
+            // helo neşterdir, AA'sız yerde cerrahi iş). Helo VEYA emredilen-hedef bir AA-zarfının içindeyse → DIŞA kır (break-off).
+            // Emergent: fire-brigade (zarf-dışı bekle), traş (zarf-dışı hedef vur), sömürü (AA ölünce zarf-yok→serbest av).
+            let _heloBreak = false;
+            if (this.isAir && typeof battleDelta === 'function' && battleDelta(this.isRed, 'helo') &&
+                STATS[this.type] && STATS[this.type].weapons && STATS[this.type].weapons.length) {
+                let aa = null, aaR = 0, aaD = Infinity;
+                for (const o of SIM.spatialGrid.getNearby(this.x, this.y, 2200)) {
+                    if (o.dead || o.loaded || o.isRed === this.isRed) continue;
+                    const s = STATS[o.type]; if (!s || !(s.roleTags || []).includes('anti_air')) continue;
+                    const dd = Math.hypot(o.x - this.x, o.y - this.y);
+                    if (aa == null || dd < aaD || (dd === aaD && o.id < aa.id)) { aa = o; aaD = dd; aaR = (s.range || 0); }
+                }
+                if (aa) {
+                    const env = aaR + 120;   // AA-zarfı + emniyet payı
+                    const tInEnv = Math.hypot(this.attackTarget.x - aa.x, this.attackTarget.y - aa.y) <= env;
+                    if (aaD <= env || tInEnv) {   // helo zarfta VEYA hedef zarfta → AA'dan DIŞA kır (env+60'a)
+                        const bx = this.x - aa.x, by = this.y - aa.y, bd = Math.hypot(bx, by) || 1;
+                        this.targetX = aa.x + (bx / bd) * (env + 60);
+                        this.targetY = aa.y + (by / bd) * (env + 60);
+                        this.attackTarget = null; this.isMovingToManualTarget = true;
+                        _heloBreak = true;
+                    }
+                }
+            }
+            if (_heloBreak) {
+                // zarf-dışına kırıldı (yukarıda targetX/Y ayarlandı) — bu tik angaje etme
+            } else if (d <= this.range) {
                 this.targetX = this.x;
                 this.targetY = this.y;
                 this.performAttack(now);
@@ -980,20 +1249,23 @@ class Unit {
                 // toparlanır → saldırı boğulur). Ölçüldü: savunma -26→+295, saldırıda stand-off zararlı. Bayraklı.
                 let standOff = false;
                 if (typeof BATTLE_UNIT_MICRO === 'undefined' || BATTLE_UNIT_MICRO) {
-                    const ctrl = (typeof BATTLE_CONTROLLERS !== 'undefined' && this.controllerId) ? BATTLE_CONTROLLERS.get(this.controllerId) : null;
-                    const sit = ctrl && ctrl.lastSituation;
-                    const gate = sit && sit.operationalPosture;
-                    if ((typeof BATTLE_POSTURE_GATE === 'undefined' || BATTLE_POSTURE_GATE) && gate && typeof gate.strikeGateOpen === 'boolean') {
+                    // DETERMİNİZM: duruş SİM-durumundan okunur (canlı kontrolör nesnesinden DEĞİL) → replay/fork birebir.
+                    const gate = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
+                    if ((typeof BATTLE_POSTURE_GATE === 'undefined' || BATTLE_POSTURE_GATE) && gate && typeof gate.open === 'boolean') {
                         // TAARRUZ-KAPISI: kapı KAPALIYSA (koşullar/urgency STRIKE demiyorsa) role fark etmez —
                         // birim menzilde durup ŞEKİLLENDİRİR (menzilden ateşle yıprat). Kapı AÇILINCA kapat-ez.
                         // "AI STRIKE'ta doğmaz"; saldıran da koşullar sağlanana/urgency zorlayana dek kötü-takasa dalmaz.
-                        standOff = !gate.strikeGateOpen;
+                        standOff = !gate.open;
                     } else {
                         // Fallback (kapı kapalı/yok): eski davranış — savunan stand-off, saldıran press.
-                        const role = sit && sit.role;
+                        const role = gate && gate.role;
                         standOff = role != null && role !== (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.ATTACKER : 'attacker');
                     }
                 }
+                // FAZ4 R1 (analist damıtma, 'range'-delta): UZUN-menzilli birim (AT/TD/topçu/ÇNRA/helo, range≥520) STRIKE'ta bile
+                // 0.9×menzilde durup vurur → menzil-üstünlüğünü İSRAF ETMEZ ("menzil-farkı katliamı" tersine; kullanıcı imzası:
+                // her sınıf azami-menzilinin %85-96'sında ateşler). KISA-menzilli ana-çaba ucu (MBT450/piyade300) kapatıp EZER (değişmez).
+                if (!standOff && this.range >= 520 && typeof battleDelta === 'function' && battleDelta(this.isRed, 'range')) standOff = true;
                 if (standOff && d > this.range) {
                     const t = Math.max(0, (d - this.range * 0.9) / d);
                     this.targetX = this.x + (this.attackTarget.x - this.x) * t;
@@ -1018,10 +1290,9 @@ class Unit {
                 // Kapı kapalıysa donmaz ama körlemesine de dalmaz — özsavunma (menzildekine ateş) sürer, hattı tutar.
                 let selfCloseOK = true;
                 if (typeof BATTLE_POSTURE_GATE === 'undefined' || BATTLE_POSTURE_GATE) {
-                    const ctrl2 = (typeof BATTLE_CONTROLLERS !== 'undefined' && this.controllerId) ? BATTLE_CONTROLLERS.get(this.controllerId) : null;
-                    const gate2 = ctrl2 && ctrl2.lastSituation && ctrl2.lastSituation.operationalPosture;
-                    if (gate2 && typeof gate2.strikeGateOpen === 'boolean') {
-                        selfCloseOK = gate2.strikeGateOpen;
+                    const gate2 = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;   // SİM-durumu (replay/fork güvenli)
+                    if (gate2 && typeof gate2.open === 'boolean') {
+                        selfCloseOK = gate2.open;
                         // SONDAJ (probe): SHAPE'te KEŞİF birimi öne sokulup temas kurar (yoklama/aydınlatma) —
                         // ana kuvvet beklerken keşif düşmanı bulur → controller CONTACT'a geçer → kapı değerlendirir.
                         if (!selfCloseOK && gate2.stance === 'SHAPE' && typeof T !== 'undefined' && this.type === T.RECON) selfCloseOK = true;
@@ -1037,6 +1308,7 @@ class Unit {
                 // kovalayan SAM hep 4-kat-hızlı avın BİR-ÖNCEKİ konumuna yürür. Sabit kal: helo iş yapmak için dost-kümenin
                 // 900px'ine girmek zorunda → av kendi ayağıyla zarfa gelir. (Kara-hedefe self-close serbest.)
                 if (selfCloseOK && !this.isAir && nearby && nearby.unit && nearby.unit.isAir &&
+                    (typeof battleDelta === 'function' && battleDelta(this.isRed, 'micro')) &&   // INTEL4-delta 'micro': sabırlı-örümcek
                     STATS[this.type] && (STATS[this.type].roleTags || []).includes('anti_air')) selfCloseOK = false;
                 if (nearby && nearby.dist <= this.range) {
                     this.attackTarget = nearby.unit; this.performAttack(now);
@@ -1073,6 +1345,10 @@ class Unit {
 
         const nearby = SIM.spatialGrid.getNearby(this.x, this.y, this.range * 1.5);
         const __as = STATS[this.type], __minR = __as ? (__as.minRange || 0) : 0;
+        // FAZ-SAVUNMA (analist anti-mızrak): SAVUNAN, gelen MBT/TD-mızrağına ODAKLANIR (2-3 MBT ≈ 2500-3000₺ yoğun-değer;
+        // dağılmak yerine kilitlen → mission-kill: HP<%30+kritik = %55 terk → öldürmek şart değil, terk-ettir). Gated 'defense'.
+        const _spearFocus = (typeof SIM !== 'undefined' && SIM.battle && (this.isRed !== (SIM.battle.attackerSide === true)) &&
+            typeof battleDelta === 'function' && battleDelta(this.isRed, 'defense'));
         for (const u of nearby) {
             if (u.dead || u.isRed === this.isRed || u.abandoned) continue;   // terk-edilmiş araç NÖTR → hedeflenmez
             // HAVA/KARA UYGUNLUĞU: vuramayacağın hedefi hiç edinme (tank→hava=0, SAM→kara=0). Veri-güdümlü (weapon.targets).
@@ -1101,6 +1377,14 @@ class Unit {
                 const dmg = (typeof calculateUnitDamage === 'function') ? calculateUnitDamage(this.type, u.type, this.atk, arm) : this.atk;
                 sc = dmg / (1 + d * 0.012);   // counter-hasarı / yakınlık (yüksek=iyi eşleşme+yakın)
                 if (this._autoAir && u.isAir) sc *= 2.5;   // AUTO_ENGAGE_AIR: SPAAG önce havayı vurur (hava-savunma önceliği)
+                if (_spearFocus && (u.type === T.ARMOR || u.type === T.TANK_HUNTER)) sc *= 2.8;   // SAVUNMA anti-mızrak: gelen MBT/TD'ye kilitlen
+                // FAZ2 AV-PAKETİ ('drone'-delta): kamikaze/komando/arka-avcısı HVT'yi (destek/topçu/radar/AA/lojistik) ×3 tercih eder →
+                // pahalı tek-kullanım varlığı ana-hatta harcanmaz (analist: kamikaze "yumak-cezalandırıcı"→"tekil-HVT-avcısı").
+                if (this._hvtHunter && typeof battleDelta === 'function' && battleDelta(this.isRed, 'drone')) {
+                    const _su = STATS[u.type] || {}, _rt = _su.roleTags || [];
+                    if (_su.category === 'support' || _su.category === 'indirect' || _su.category === 'logistics' ||
+                        _rt.includes('intel') || _rt.includes('air_search') || _rt.includes('anti_air')) sc *= 3;
+                }
             }
             if (sc > bestScore) {
                 bestScore = sc;
@@ -1185,30 +1469,27 @@ class Unit {
             const _bd = Math.hypot(best.x - this.x, best.y - this.y);
             let dmg = Math.max(1, Math.floor(w.damage * (w.salvo || 1) * eff * (this.xpBonus || 1) * weaponAccuracy(this, w, best, _bd) * incomingDamageMult(best)));
             if ((SIM.tick - (this.commandHaloTick || -999)) <= 1) dmg = Math.floor(dmg * 1.12);   // komuta-halesi
-            const hpBefore = best.hp;
-            best.hp -= dmg;
-            best.flashTimer = 4;
-            best.panic += (dmg / best.maxHp) * 80;
-            if (best.isRed) best.lastHitTime = now;
-            if (typeof battleRecordCombatEvent === 'function') {
-                battleRecordCombatEvent({
-                    kind: 'SECONDARY_FIRE', attackerId: this.id, attackerSide: this.isRed ? 'red' : 'blue', attackerType: this.type,
-                    targetId: best.id, targetSide: best.isRed ? 'red' : 'blue', targetType: best.type,
-                    damage: Math.round(Math.min(hpBefore, dmg) * 100) / 100, hpBefore: Math.round(hpBefore * 100) / 100,
-                    hpAfter: Math.round(Math.max(0, best.hp) * 100) / 100, lethal: best.hp <= 0,
-                    attackerX: Math.round(this.x * 100) / 100, attackerY: Math.round(this.y * 100) / 100,
-                    targetX: Math.round(best.x * 100) / 100, targetY: Math.round(best.y * 100) / 100
-                });
-            }
-            if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, best.x, best.y, false);
+            if (this._cmdShockUntil && SIM.tick < this._cmdShockUntil) dmg = Math.floor(dmg * 0.72);   // komuta-şoku (HQ öldü → emir-felci)
+            // DEFERRED-DAMAGE: ikincil silahın mermisi de HAVADA yol alır; hasar VARIŞ-tik'inde iner (skaler-snapshot, srand-yok).
+            const _sDist = Math.hypot(best.x - this.x, best.y - this.y);
+            const _sSpeed = battleProjectileSpeed(this.type, !!best.isAir);
+            const _sTicks = battleFlightTicks(_sDist, _sSpeed);
+            SIM.pendingHits.push({
+                kind: 'direct', evt: 'SECONDARY_FIRE',
+                fireTick: (SIM.tick || 0), arriveTick: (SIM.tick || 0) + _sTicks, seq: SIM.pendingHitSeq++,
+                atkId: this.id, atkType: this.type, atkIsRed: !!this.isRed, atkPower: this.atk * (this.xpBonus || 1),
+                atkX: this.x, atkY: this.y,
+                tgtId: best.id, dmg: dmg,
+                isCrit: false, willAbandon: false, isRear: false, isFlank: false,
+                flash: 4, panicMul: 80, supp: 0, knock: 0, splashR: 0,
+                sparks: false, distress: false, xp: false   // ikincil silah: kıvılcım/imdat-çağrısı/seviye-atlama yok (eski davranış)
+            });
             this[cdKey] = w.rof > 0 ? 1 / w.rof : 999;
-            if (best.hp <= 0 && !best.dead) {
-                best.dead = true;
-                if (this.isRed) enemy.kills++; else player.kills++;
-                this.kills++;
-                decals.push(best.armor > 0 ? { x: best.x, y: best.y, type: 'wreck', size: 25, alpha: 1.0 }
-                    : { x: best.x, y: best.y, type: 'blood', size: 12, alpha: 0.7 });
-                if (decals.length > 5000) decals.shift();
+            if (!SIM.headless && typeof spawnProjectile === 'function') {
+                const _tickSec = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+                spawnProjectile(this.x, this.y, { x: best.x, y: best.y },   // ikincil silah (MBT makinelisi/komando şarjı) → hafif iz-mermi
+                    { trail: false, impact: 'none', scale: 0.5, color: '#fff2a0', width: 1.2, homing: false, speed: _sSpeed, maxLife: _sTicks * _tickSec + 0.6 });
+                if (typeof spawnTracer === 'function') spawnTracer(this.x, this.y, this.x + (best.x - this.x) * 0.06, this.y + (best.y - this.y) * 0.06, false);   // kısa namlu-alevi
             }
         }
     }
@@ -1216,6 +1497,11 @@ class Unit {
     performAttack(now) {
         if (!this.attackTarget || this.attackTarget.dead || this.isFleeing) return;
         if (this.maxAmmo > 0 && this.ammo <= 0 && this.type !== T.MEDIC) {   // maxAmmo=0 → mühimmat-sistemi YOK = SINIRSIZ (piyade/komando/istihkam tüfeği hep ateş eder); yalnız kapasiteli birim cephanesiz kalır
+            // ANALİST-TELEMETRİ: AMMO_EMPTY — cephanesiz-kalış anı (AT-timi 4-atış + ÇNRA-salvo + topçu ekonomisi görünür; ikmal-muhasebesi altyapısı). Geçişte + throttle.
+            if (this.combatState !== 'Cephanesiz' && typeof battleRecordLifeEvent === 'function' && (SIM.tick - (this._lastAmmoEvt || -999)) >= 40) {
+                this._lastAmmoEvt = SIM.tick;
+                battleRecordLifeEvent({ kind: 'AMMO_EMPTY', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, maxAmmo: this.maxAmmo, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
+            }
             this.combatState = 'Cephanesiz';
             return;
         }
@@ -1250,7 +1536,9 @@ class Unit {
         let currentAtkSpeed = this.isPanicking ? this.atkSpeed * 1.5 : this.atkSpeed; 
         if (this.suppression > PINNED_SUPPRESSION) currentAtkSpeed *= 2.4;   // PINNED: ateş edemez gibi (çok nadir)
         else if (this.suppression > 50) currentAtkSpeed *= 1.5;             // baskı altında ateş yavaşlar
-        if (now - this.lastAttackTime < currentAtkSpeed) return;
+        // KULLANICI-FIX ("drone dokunuyor ama patlamıyor"): KAMİKAZE tek-kullanım → atış-cooldown'ı BYPASS. rof=0.02→atkSpeed=50s;
+        // lastAttackTime=0 başlangıç → maçın ilk 50s'inde salınan drone `now<50000` iken cooldown-dolmamış sanılıp DALAMIYORDU.
+        if (now - this.lastAttackTime < currentAtkSpeed && !(STATS[this.type] && STATS[this.type].singleUse)) return;
 
         const _wasConcealed = this.isConcealed();   // T3 PUSU: gizliyken ateş → sürpriz bonusu + açığa çıkma
 
@@ -1292,6 +1580,7 @@ class Unit {
         if (_wasConcealed && !this.isIndirect) dmg *= AMBUSH_DMG_MULT;   // T3 PUSU: gizliden ilk atış sürprizi (dolaylı ateş melee-pusu yapmaz)
 
         if ((SIM.tick - (this.commandHaloTick || -999)) <= 1) dmg *= 1.12;   // KOMUTA-HALESİ: HQ menzilindeki birim +%12 koordineli vuruş (komuta-aracı artık gerçek güç-çarpanı)
+        if (this._cmdShockUntil && SIM.tick < this._cmdShockUntil) dmg *= 0.72;   // KOMUTA-ŞOKU: HQ öldü → 12sn emir-felci, koordinesiz-ateş −%28 (getiri-dengeli dezavantaj)
 
         // İSABET MODELİ (direct fire): menzil-sonu + hareketli-hedef + örtü → beklenen-hasar (deterministik). Dolaylı ateş kendi bloğunda uygular.
         if (!this.isIndirect) {
@@ -1320,10 +1609,18 @@ class Unit {
             const salvo = Math.max(1, _pw.salvo || 1);
             const blastR = _pw.aoe > 0 ? _pw.aoe : ARTILLERY_SPLASH_RADIUS;
             const beatenZone = salvo > 1 ? blastR * 1.3 : 0;   // salvo>1 → roketler "dövülen bölgeye" saçılır (tek birim hepsini yemez)
+            // SALVO-PD (kullanıcı-kararı): ÇNRA gibi çok-mermili interceptable silahta SAM salvoyu KISMEN önler — ama SALVO-BÜTÇESİ (max 3 roket)
+            // ile SAM-mühimmatı boşaltma-istismarı engellenir. Balistik (salvo1) eski eşik-kapılı yolda kalır.
+            const _salvoPD = (salvo > 1 && _pw.interceptable);
+            let _pdBudget = _salvoPD ? 3 : 0;
             const tcx = primaryTarget.x, tcy = primaryTarget.y;
             // İSABET (dolaylı): topçu/ÇNRA HAREKETLİ hedefe ıskalar (vsMoving 0.85) + menzil-sonu düşüşü → salvo-başı tek çarpan
             let _indAcc = weaponAccuracy(this, _pw, primaryTarget, Math.hypot(tcx - this.x, tcy - this.y));
             if (this._needsDeploy && this._stationaryT < 1.5) _indAcc *= 0.4;   // DEPLOY: topçu/balistik hareket sonrası kurulmadan zayıf ateş
+            const _indSpeed = (this.type === T.MLRS ? 1150 : 850);              // roket uçuş hızı — hem hasar-varışı hem görsel bunu kullanır
+            const _fxScale = Math.min(3, blastR / 180) * (salvo > 3 ? 1.4 : 1); // patlama görseli splash büyüklüğüne göre
+            const _visScale = Math.min(1.5, 0.85 + _fxScale * 0.35);
+            let _visLeft = 12;                                                  // görsel roket tavanı (12 salvo üstü çizilmez)
             for (let r = 0; r < salvo; r++) {
                 let cx = tcx, cy = tcy;
                 if (beatenZone > 0) {                          // deterministik düzgün-disk saçılım (SIM_RNG)
@@ -1331,63 +1628,53 @@ class Unit {
                     const dd = Math.sqrt(srand()) * beatenZone;
                     cx = tcx + Math.cos(ang) * dd; cy = tcy + Math.sin(ang) * dd;
                 }
-                // NOKTA-SAVUNMA: interceptable mermi (balistik/ÇNRA) düşman SAM menzilindeyse olasılıkla ÖNLENİR (füze harcar → doyurma işler)
-                if (_pw.interceptable && typeof battlePointDefenseIntercept === 'function' && battlePointDefenseIntercept(this, cx, cy, _pw.damage)) continue;
-                const suppR = blastR * 1.8;   // BASTIRMA-BÖLGESİ hasar-yarıçapından geniş → dolaylı ateş "alan-inkârı" yapar
-                const splashNearby = SIM.spatialGrid.getNearby(cx, cy, suppR);
-                for (const n of splashNearby) {
-                    if (n.dead || n.isRed === this.isRed || n.abandoned) continue;       // sadece düşman (terk-edilmiş nötr atlanır)
-                    const distance = Math.hypot(n.x - cx, n.y - cy);
-                    if (distance > suppR) continue;
-                    if (distance > blastR) {   // hasar-dışı ama BASTIRMA halkası: pinler (isabet almadan sindirir → havan/topçu değeri)
-                        n.suppression = Math.min(100, n.suppression + 16);
-                        if (n.isRed) n.lastHitTime = now;
-                        continue;
+                // NOKTA-SAVUNMA: interceptable mermi düşman SAM menzilindeyse olasılıkla ÖNLENİR (füze harcar → doyurma işler).
+                // ZAR FIRLATMADA atılır (srand-sırası korunur) ama SONUÇ HAVADA uygulanır: roket uçar, kesişme tik'inde vurulur.
+                let _pdRes = 0; const _pdOut = {};
+                if (_pw.interceptable && typeof battlePointDefenseIntercept === 'function') {
+                    if (_salvoPD) {
+                        if (_pdBudget > 0) {
+                            _pdRes = battlePointDefenseIntercept(this, cx, cy, _pw.damage, true, _pdOut);   // salvo-modu: eşik-altı da önle
+                            if (_pdRes !== 0) _pdBudget--;   // PD engage etti (ammo harcandı) → salvo-bütçesi düş (max 3 → SAM boşalmaz)
+                        }
+                    } else {
+                        _pdRes = battlePointDefenseIntercept(this, cx, cy, _pw.damage, false, _pdOut);   // balistik: eşik-kapılı tek-mermi
                     }
-                    const falloff = 1 - distance / blastR;
-                    const blastDmg = Math.max(1, Math.floor(
-                        applyTechCombatBonus(this, n, calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus, n.armor)) *
-                        (0.5 + falloff * 0.5) * _indAcc * incomingDamageMult(n)
-                    ));
-                    const hpBefore = n.hp;
-                    const blastActual = Math.min(n.hp, blastDmg);
-                    n.hp -= blastDmg;
-                    if (typeof battleRecordCombatEvent === 'function') {
-                        battleRecordCombatEvent({
-                            kind: 'ARTILLERY_SPLASH',
-                            attackerId: this.id,
-                            attackerSide: this.isRed ? 'red' : 'blue',
-                            attackerType: this.type,
-                            targetId: n.id,
-                            targetSide: n.isRed ? 'red' : 'blue',
-                            targetType: n.type,
-                            damage: Math.round(blastActual * 100) / 100,
-                            hpBefore: Math.round(hpBefore * 100) / 100,
-                            hpAfter: Math.round(Math.max(0, n.hp) * 100) / 100,
-                            lethal: n.hp <= 0,
-                            attackerX: Math.round(this.x * 100) / 100,
-                            attackerY: Math.round(this.y * 100) / 100,
-                            targetX: Math.round(n.x * 100) / 100,
-                            targetY: Math.round(n.y * 100) / 100
-                        });
+                }
+                // DEFERRED-DAMAGE: roket (cx,cy)'ye UÇAR; patlama varış-tik'inde, O ANDA orada olan birimlere iner.
+                // Kuyruğa yalnız skaler gider; hasar varışta yeniden hesaplanır (hedef kaçtıysa mermi boş araziye düşer).
+                const _tickSec = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+                const _iFlight = battleFlightTicks(Math.hypot(cx - this.x, cy - this.y), _indSpeed);
+                // ÖNLEME KESİŞMESİ: roket yolunun ~%60'ında vurulur (varıştan KESİN önce). Tümü fırlatma-anı skalerlerinden → determinist.
+                const _killIn = (_pdRes === 1) ? Math.max(1, Math.min(_iFlight, Math.round(_iFlight * 0.6))) : 0;
+                const _kf = _killIn / _iFlight;
+                const _killX = this.x + (cx - this.x) * _kf, _killY = this.y + (cy - this.y) * _kf;
+                SIM.pendingHits.push({
+                    kind: 'blast', evt: 'ARTILLERY_SPLASH',
+                    fireTick: (SIM.tick || 0), arriveTick: (SIM.tick || 0) + _iFlight, seq: SIM.pendingHitSeq++,
+                    atkId: this.id, atkType: this.type, atkIsRed: !!this.isRed, atkPower: this.atk * this.xpBonus,
+                    atkX: this.x, atkY: this.y,
+                    cx: cx, cy: cy, blastR: blastR, suppR: blastR * 1.8, indAcc: _indAcc,   // suppR: bastırma-bölgesi hasar-yarıçapından geniş
+                    killTick: _killIn ? (SIM.tick || 0) + _killIn : null, killX: _killX, killY: _killY   // önlendiyse: havada düşürülme tik'i + noktası
+                });
+                if (!SIM.headless && typeof spawnProjectile === 'function') {
+                    // ROKET UÇUŞU: görsel GERÇEK çarpma noktasına gider ve hasarla AYNI anda patlar. Önlenen roket
+                    // kesişme anında SÖNER (impact yok) — patlamayı kuyruk-işleyicisi tam o noktada üretir.
+                    if (_visLeft > 0) {
+                        _visLeft--;
+                        spawnProjectile(this.x, this.y, { x: cx, y: cy }, _killIn
+                            ? { homing: false, speed: _indSpeed, scale: _visScale, impact: 'none', maxLife: _killIn * _tickSec }
+                            : { homing: false, speed: _indSpeed, scale: _visScale, maxLife: _iFlight * _tickSec + 0.6 });
                     }
-                    n.panic += (blastDmg / n.maxHp) * 120;
-                    n.flashTimer = 5;
-                    if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.6);
-                    n.suppression += 30;                                  // alan baskısı
-                    if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
-                    if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
-                    if (n.hp <= 0 && !n.dead) {
-                        n.dead = true;
-                        if (this.isRed) enemy.kills++; else player.kills++;
-                        decals.push(n.armor > 0
-                            ? { x: n.x, y: n.y, type: 'wreck', size: 25, alpha: 1.0 }
-                            : { x: n.x, y: n.y, type: 'blood', size: 10 + Math.random() * 15, alpha: 0.7 });
-                        if (decals.length > 5000) decals.shift();
-                        this.kills++;
-                        if (this.kills === 3 && this.level === 0) { this.level = 1; this.xpBonus = 1.15; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
-                        else if (this.kills === 7 && this.level === 1) { this.level = 2; this.xpBonus = 1.30; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
-                        if (n === primaryTarget) { this.attackTarget = null; this.manualTarget = null; }
+                    // ÖNLEYİCİ FÜZE: SAM'den kesişme noktasına — hızı, gelen roketle AYNI ANDA orada olacak şekilde ayarlı
+                    // (havada bizzat çarpışma görünür). Iskada da füze çıkar ama çarpışma olmaz (yanından geçip söner).
+                    if (_pdRes !== 0 && _pdOut.id != null) {
+                        const _mf = _pdRes === 1 ? _kf : 0.6;                       // ıskada da yolun ~%60'ına kadar git
+                        const _mx = this.x + (cx - this.x) * _mf, _my = this.y + (cy - this.y) * _mf;
+                        const _mt = Math.max(_tickSec, (_pdRes === 1 ? _killIn : Math.round(_iFlight * 0.6)) * _tickSec);
+                        spawnProjectile(_pdOut.x, _pdOut.y, { x: _mx, y: _my },
+                            { homing: false, trail: true, impact: 'none', color: '#9fd8ff', scale: 0.9,
+                              speed: Math.hypot(_mx - _pdOut.x, _my - _pdOut.y) / _mt, maxLife: _mt });
                     }
                 }
             }
@@ -1399,10 +1686,11 @@ class Unit {
                 const _sp = (typeof terrainSafePoint === 'function') ? terrainSafePoint(this.x, _by) : { x: this.x, y: _by };
                 this.targetX = _sp.x; this.targetY = _sp.y; this.manualMoveTarget = _sp; this.isMovingToManualTarget = true;
             }
-            const _fxScale = Math.min(3, blastR / 180) * (salvo > 3 ? 1.4 : 1);   // patlama görseli splash büyüklüğüne göre
-            if (typeof spawnTracer !== 'undefined') spawnTracer(this.x, this.y, tcx, tcy, true);
-            if (typeof spawnExplosion !== 'undefined') spawnExplosion(tcx, tcy, 1.7 * _fxScale);
-            if (typeof triggerScreenShake === 'function') triggerScreenShake(Math.min(0.2, 0.09 * _fxScale));
+            // Roket görselleri artık salvo döngüsünde, GERÇEK çarpma noktalarına gönderiliyor (yukarıda) — burada yalnız namlu-alevi.
+            if (!SIM.headless && typeof spawnTracer === 'function') {
+                spawnTracer(this.x, this.y, this.x + (tcx - this.x) * 0.05, this.y + (tcy - this.y) * 0.05, true);   // fırlatma namlu-alevi
+            }
+            if (typeof triggerScreenShake === 'function') triggerScreenShake(Math.min(0.2, 0.09 * _fxScale));   // fırlatma geri-tepmesi (patlama-sarsıntısı varışta spawnExplosion'da)
             if (typeof triggerHitStop === 'function') triggerHitStop(3);
             return;
         }
@@ -1413,9 +1701,21 @@ class Unit {
             // Piyade 1.2 / hafif 1.2 / ağır 1.4 → dmg420 ile 504/504/588. Vurunca yok olur (tek-kullanım).
             const _pw = STATS[this.type].weapons[0];
             const blastR = _pw.aoe > 0 ? _pw.aoe : 100;
+            // OPERATÖR-BAĞI: operatör-fırlatmalı drone'un kontrol-bağı kopmuşsa (operatör imha) → KÖR-DALIŞ ×0.6 (çökme-değil).
+            // Anlık-hesap (mutable-cache YOK → hash-gerekmez), determinist tarama. operatorId yoksa (sağ-tık/eski-kamikaze) ceza-yok.
+            let linkMult = 1;
+            if (this.operatorId != null) {
+                let opAlive = false;
+                for (const op of SIM.units) { if (op.id === this.operatorId) { opAlive = !op.dead; break; } }
+                if (!opAlive) linkMult = 0.6;
+            }
             const DM = (typeof UNITS_MODERN_DB !== 'undefined') ? UNITS_MODERN_DB.damageMatrix : null;
             const kcx = primaryTarget.x, kcy = primaryTarget.y;
             const kNearby = SIM.spatialGrid.getNearby(kcx, kcy, blastR);
+            // KULLANICI-FIX (drone splash-overkill "mezbaha"): tek-warhead ÇOĞALMASIN. TOPLAM-HASAR HAVUZU = warhead'in EN-YAKIN(dalış)
+            // hedefe tam-hasarı; yakından-uzağa dağıt, her hedef payını alır, HAVUZ tükenince DUR. Overkill sonraki hedefe akar (yalnız
+            // absorbe-edilen tüketir → israf yok). Tek-tank'a tam-hasar KORUNUR (anti-zırh); 5-piyade-kütlesinde ~2 birim alır (topçu-değil).
+            const _kt = [];
             for (const n of kNearby) {
                 if (n.dead || n.isRed === this.isRed || n.abandoned) continue;
                 if (typeof unitCanEngage === "function" && !unitCanEngage(STATS[this.type], STATS[n.type])) continue;  // hava hedefe çarpmaz (kara warhead'i)
@@ -1423,16 +1723,24 @@ class Unit {
                 if (distance > blastR) continue;
                 const arm = STATS[n.type] ? STATS[n.type].armorType : 'infantry';
                 let eff = DM ? Math.max(0.7, DM.he?.[arm] || 0, DM.shaped?.[arm] || 0) : 1;
-                // STRIKE_TOP_ARMOR: kamikaze üstten dalar → zırhlının en zayıf üst-yönünü bulur (armorFacing.top düşük→çarpan yüksek)
-                const _af = STATS[n.type] && STATS[n.type].armorFacing;
+                const _af = STATS[n.type] && STATS[n.type].armorFacing;   // STRIKE_TOP_ARMOR: üstten dalış zayıf üst-zırhı bulur
                 if (this._topStrike && _af && _af.top) eff *= Math.min(2.2, 1 / _af.top);
                 const falloff = 1 - distance / blastR;
-                const blastDmg = Math.max(1, Math.floor(
-                    applyTechCombatBonus(this, n, this.atk * this.xpBonus * eff * incomingDamageMult(n)) * (0.6 + falloff * 0.4)
+                const fullDmg = Math.max(1, Math.floor(
+                    applyTechCombatBonus(this, n, this.atk * this.xpBonus * eff * incomingDamageMult(n)) * (0.6 + falloff * 0.4) * linkMult
                 ));
+                _kt.push({ n, distance, fullDmg });
+            }
+            _kt.sort((a, b) => (a.distance - b.distance) || (a.n.id - b.n.id));   // yakından-uzağa (determinist)
+            let _pool = _kt.length ? _kt[0].fullDmg : 0;   // HAVUZ = en-yakın(dalış)-hedefin tam-hasarı
+            for (const _e of _kt) {
+                if (_pool <= 0) break;
+                const n = _e.n;
+                const blastDmg = Math.min(_pool, _e.fullDmg);   // bu hedefin payı (havuzla sınırlı)
                 const hpBefore = n.hp;
                 const blastActual = Math.min(n.hp, blastDmg);
                 n.hp -= blastDmg;
+                _pool -= blastActual;   // yalnız absorbe-edilen havuzu tüketir (overkill sonrakine akar)
                 if (typeof battleRecordCombatEvent === 'function') {
                     battleRecordCombatEvent({
                         kind: 'KAMIKAZE_IMPACT', attackerId: this.id, attackerSide: this.isRed ? 'red' : 'blue',
@@ -1472,172 +1780,56 @@ class Unit {
         let _critChance = 0.06;
         if (isRearHit) _critChance += 0.25; else if (isFlankHit) _critChance += 0.12;
         const _isCrit = srand() < _critChance;
-        if (_isCrit) { dmg = Math.round(dmg * 1.8); primaryTarget.flashTimer = 8; if (typeof addDamageNumber === 'function') addDamageNumber(primaryTarget, dmg, true); }
+        if (_isCrit) dmg = Math.round(dmg * 1.8);
 
-        const primaryHpBefore = primaryTarget.hp;
-        const actualDamage = Math.min(primaryTarget.hp, dmg);
-        primaryTarget.hp -= dmg;
-
-        // ── MISSION-KILL: hasarlı zırhlı araç (patlamadı) → mürettebat TERK → nötr/gri → tamir eden ele geçirir ──
-        if (!primaryTarget.dead && !primaryTarget.abandoned && primaryTarget._crewed &&
-            primaryTarget.hp > 0 && primaryTarget.hp < primaryTarget.maxHp * 0.30) {
-            const _bail = _isCrit ? 0.55 : 0.14;   // kritik vuruşta terk şansı yüksek
-            if (srand() < _bail) {
-                primaryTarget.abandoned = true; primaryTarget.abandonedTick = SIM.tick;
-                primaryTarget.attackTarget = null; primaryTarget.manualTarget = null;
-                primaryTarget.isFleeing = false; primaryTarget.isMovingToManualTarget = false;
-                primaryTarget.suppression = 0; primaryTarget.panic = 0;
-                primaryTarget.combatState = 'Terk Edildi';
-                if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.abandoned++;
-                if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'ABANDON', unitId: primaryTarget.id, side: primaryTarget.isRed ? 'red' : 'blue', type: primaryTarget.type, byId: this.id, crit: !!_isCrit, x: Math.round(primaryTarget.x * 100) / 100, y: Math.round(primaryTarget.y * 100) / 100 });
-            }
+        // ── MISSION-KILL zarı FIRLATMA-anında atılır (srand-sırası korunur), UYGULAMA varışta ──
+        // Öngörülen varış-sonrası hp (hedef.hp − dmg) ile zar; varışta canlı-önkoşul tutmazsa zar boşa çıkar (determinizm-güvenli).
+        let _willAbandon = false;
+        const _predHp = primaryTarget.hp - dmg;
+        if (!primaryTarget.abandoned && primaryTarget._crewed && _predHp > 0 && _predHp < primaryTarget.maxHp * 0.30) {
+            if (srand() < (_isCrit ? 0.55 : 0.14)) _willAbandon = true;   // kritik vuruşta terk şansı yüksek
         }
 
-        if (typeof battleRecordCombatEvent === 'function') {
-            battleRecordCombatEvent({
-                kind: 'DIRECT_FIRE',
-                attackerId: this.id,
-                attackerSide: this.isRed ? 'red' : 'blue',
-                attackerType: this.type,
-                targetId: primaryTarget.id,
-                targetSide: primaryTarget.isRed ? 'red' : 'blue',
-                targetType: primaryTarget.type,
-                damage: Math.round(actualDamage * 100) / 100,
-                hpBefore: Math.round(primaryHpBefore * 100) / 100,
-                hpAfter: Math.round(Math.max(0, primaryTarget.hp) * 100) / 100,
-                lethal: primaryTarget.hp <= 0,
-                rearHit: isRearHit,
-                flankHit: isFlankHit,
-                attackerX: Math.round(this.x * 100) / 100,
-                attackerY: Math.round(this.y * 100) / 100,
-                targetX: Math.round(primaryTarget.x * 100) / 100,
-                targetY: Math.round(primaryTarget.y * 100) / 100
-            });
-        }
-        primaryTarget.flashTimer = 6;
-        if (typeof addDamageNumber === 'function') addDamageNumber(primaryTarget, actualDamage, isRearHit);
-        // İMPACT his (render-only): hedef knockback + atıcı geri-tepme; ağır silah → trauma + darbe-donması
-        if (typeof applyKnockback === 'function') {
-            applyKnockback(primaryTarget, this.x, this.y, this.type === T.ARMOR ? 4.5 : this.type === T.ANTI_TANK ? 3.5 : 2);
-            applyKnockback(this, primaryTarget.x, primaryTarget.y, 1.1);
-        }
+        // ── DEFERRED-DAMAGE (kullanıcı: "mermi ulaşmadan hasar olmamalı"): hasar BURADA hesaplanır, VARIŞ-tik'inde iner ──
+        // Kuyruğa yalnız SKALER gider (canlı-referans YOK → fork/replay güvenli). Aynı hız VFX'e de verilir → görsel↔hasar eşzamanlı.
+        const _fDist = Math.hypot(primaryTarget.x - this.x, primaryTarget.y - this.y);
+        const _fSpeed = battleProjectileSpeed(this.type, !!primaryTarget.isAir);
+        const _fTicks = battleFlightTicks(_fDist, _fSpeed);
+        SIM.pendingHits.push({
+            kind: 'direct', evt: 'DIRECT_FIRE',
+            fireTick: (SIM.tick || 0), arriveTick: (SIM.tick || 0) + _fTicks, seq: SIM.pendingHitSeq++,
+            atkId: this.id, atkType: this.type, atkIsRed: !!this.isRed, atkPower: this.atk * this.xpBonus,
+            atkX: this.x, atkY: this.y,
+            tgtId: primaryTarget.id, dmg: dmg,
+            isCrit: _isCrit, willAbandon: _willAbandon, isRear: isRearHit, isFlank: isFlankHit,
+            flash: 6, panicMul: 150,
+            supp: this.type === T.ARMOR ? 0 : 15,   // tank alan-baskısını splash halkası yapar (eski davranış korunur)
+            knock: this.type === T.ARMOR ? 4.5 : this.type === T.ANTI_TANK ? 3.5 : 2,
+            splashR: this.type === T.ARMOR ? TANK_SPLASH_RADIUS : 0
+        });
+
+        // ── ATICI TARAFI (fırlatma-anı): mühimmat / cooldown / açığa-çıkma / geri-tepme ──
+        if (this.maxAmmo > 0 && this.type !== T.MEDIC) this.ammo--;   // SINIRSIZ birim (maxAmmo=0) mühimmat tüketmez
+        this.lastAttackTime = now;
+        this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık (gizlilik bozulur)
+        if (typeof applyKnockback === 'function') applyKnockback(this, primaryTarget.x, primaryTarget.y, 1.1);   // namlu geri-tepmesi (render-only)
         if (this.type === T.ARMOR || this.type === T.ANTI_TANK) {
-            if (typeof triggerScreenShake === 'function') triggerScreenShake(this.type === T.ARMOR ? 0.08 : 0.06);   // tank/tanksavar isabet (%80 azaltıldı)
+            if (typeof triggerScreenShake === 'function') triggerScreenShake(this.type === T.ARMOR ? 0.08 : 0.06);   // atış geri-tepmesi
             if (typeof triggerHitStop === 'function') triggerHitStop(2);
         }
 
-        primaryTarget.panic += (dmg / primaryTarget.maxHp) * 150;
-        if (isFlankHit) primaryTarget.panic += isRearHit ? 18 : 9;   // yandan/arkadan vurulmak = moral ŞOKU (bozguna iter)
-
-        // Baskı Ateşi (sadece tank alan baskısı yapar; diğerleri tekil)
-        if (this.type === T.ARMOR) {
-            // Tank mermisi = dar HE alan hasarı. Birincil hedef tam vuruşunu zaten aldı;
-            // çevredeki DİĞER düşmanlara ölçülü splash + baskı uygula.
-            const cx = primaryTarget.x, cy = primaryTarget.y;
-            const blastNearby = SIM.spatialGrid.getNearby(cx, cy, TANK_SPLASH_RADIUS);
-            for (let n of blastNearby) {
-                if (n.dead) continue;
-                if (n.isRed === this.isRed) {                            // dost: sadece baskı
-                    if (Math.hypot(n.x - cx, n.y - cy) <= TANK_SPLASH_RADIUS) n.suppression += 40;
-                    continue;
-                }
-                if (n === primaryTarget) continue;                       // tam vuruşu aldı
-                const distance = Math.hypot(n.x - cx, n.y - cy);
-                if (distance > TANK_SPLASH_RADIUS) continue;
-                const falloff = 1 - distance / TANK_SPLASH_RADIUS;
-                const ratio = TANK_SPLASH_MIN + falloff * (TANK_SPLASH_MAX - TANK_SPLASH_MIN);
-                const blastDmg = Math.max(1, Math.floor(
-                    calculateUnitDamage(this.type, n.type, this.atk * this.xpBonus, n.armor) * ratio
-                ));
-                const hpBefore = n.hp;
-                const blastActual = Math.min(n.hp, blastDmg);
-                n.hp -= blastDmg;
-                if (typeof battleRecordCombatEvent === 'function') {
-                    battleRecordCombatEvent({
-                        kind: 'TANK_SPLASH',
-                        attackerId: this.id,
-                        attackerSide: this.isRed ? 'red' : 'blue',
-                        attackerType: this.type,
-                        targetId: n.id,
-                        targetSide: n.isRed ? 'red' : 'blue',
-                        targetType: n.type,
-                        damage: Math.round(blastActual * 100) / 100,
-                        hpBefore: Math.round(hpBefore * 100) / 100,
-                        hpAfter: Math.round(Math.max(0, n.hp) * 100) / 100,
-                        lethal: n.hp <= 0,
-                        attackerX: Math.round(this.x * 100) / 100,
-                        attackerY: Math.round(this.y * 100) / 100,
-                        targetX: Math.round(n.x * 100) / 100,
-                        targetY: Math.round(n.y * 100) / 100
-                    });
-                }
-                n.panic += (blastDmg / n.maxHp) * 120;
-                n.flashTimer = 5;
-                if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.8);
-                n.suppression += 25;
-                if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
-                if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
-                if (n.hp <= 0 && !n.dead) {
-                    n.dead = true;
-                    if (this.isRed) enemy.kills++; else player.kills++;
-                    if ([T.INFANTRY, T.MECH_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC, T.ANTI_TANK].includes(n.type)) {
-                        decals.push({ x: n.x, y: n.y, type: 'blood', size: 10 + Math.random() * 15, alpha: 0.7 });
-                    } else {
-                        decals.push({ x: n.x, y: n.y, type: 'wreck', size: 25, alpha: 1.0 });
-                    }
-                    if (decals.length > 5000) decals.shift();
-                    this.kills++;
-                    if (this.kills === 3 && this.level === 0) { this.level = 1; this.xpBonus = 1.15; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
-                    else if (this.kills === 7 && this.level === 1) { this.level = 2; this.xpBonus = 1.30; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15; }
-                }
-            }
-        } else {
-            primaryTarget.suppression += 15;
-        }
-        
-        if (this.maxAmmo > 0 && this.type !== T.MEDIC) this.ammo--;   // SINIRSIZ birim (maxAmmo=0) mühimmat tüketmez
-
-        // KAMİKAZE (tek-kullanım): vurunca kendini imha eder.
-        if (STATS[this.type] && STATS[this.type].singleUse) { this.hp = 0; this.dead = true; }
-
-        this.lastAttackTime = now;
-        this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık (gizlilik bozulur)
-        
-        if (typeof spawnTracer !== 'undefined') {
-            spawnTracer(this.x, this.y, this.attackTarget.x, this.attackTarget.y, this.isIndirect);
-        }
-        if (primaryTarget.armor > 0 && typeof spawnHitSparks !== 'undefined') {
-            spawnHitSparks(primaryTarget.x, primaryTarget.y);
-        }
-        
-        if (primaryTarget.isRed) {
-            primaryTarget.lastHitTime = now;
-            primaryTarget.distressX = this.x;
-            primaryTarget.distressY = this.y;
-        }
-
-        if (primaryTarget.hp <= 0) {
-            primaryTarget.dead = true;
-            if(this.isRed) enemy.kills++; else player.kills++;
-            
-            // Kan ve Savaş Kalıntısı (Decals)
-            if ([T.INFANTRY, T.MECH_INFANTRY, T.RECON, T.ENGINEER, T.MEDIC, T.ANTI_TANK].includes(primaryTarget.type)) {
-                decals.push({ x: primaryTarget.x, y: primaryTarget.y, type: 'blood', size: 10 + Math.random()*15, alpha: 0.7 });
-            } else {
-                decals.push({ x: primaryTarget.x, y: primaryTarget.y, type: 'wreck', size: 25, alpha: 1.0 });
-                // Enkaz siper olarak işlev görebilir (gelecekte trenches arrayine de eklenebilir)
-            }
-            if (decals.length > 5000) decals.shift();
-            
-            this.kills++;
-            if (this.kills === 3 && this.level === 0) {
-                this.level = 1; this.xpBonus = 1.15; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15;
-            } else if (this.kills === 7 && this.level === 1) {
-                this.level = 2; this.xpBonus = 1.30; this.maxHp *= 1.15; this.hp += this.maxHp * 0.15;
-            }
-            
-            this.attackTarget = null;
-            this.manualTarget = null;
+        // MERMİ GÖRSELİ: artık TÜM direct-fire silahlarında mermi HAVADA yol alır — hız hasar-varışıyla AYNI.
+        // GÜDÜMLÜ füze (SAM/MANPADS/taarruz-helo/SİHA) hedefe kitlenir (kaçarsa kıvrılır); namlu-mermisi fırlatma-anı
+        // nişan noktasına düz uçar. Tracer artık yalnız kısa NAMLU-ALEVİ (asıl mermi projektil).
+        if (!SIM.headless && typeof spawnProjectile === 'function') {
+            const _homing = battleIsHomingWeapon(this.type);
+            const _tickSec = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+            const _fx = battleProjectileVisual(this.type);
+            spawnProjectile(this.x, this.y, _homing ? primaryTarget : { x: primaryTarget.x, y: primaryTarget.y },
+                Object.assign({}, _fx, { homing: _homing, speed: _fSpeed, maxLife: _fTicks * _tickSec + 0.6 }));
+            const _isMG = this.type === T.INFANTRY || this.type === T.MECH_INFANTRY || this.type === T.ARMOR_INFANTRY;
+            if (_isMG && typeof spawnMGTracer === 'function') spawnMGTracer(this.x, this.y, primaryTarget.x, primaryTarget.y);
+            else if (!_homing && typeof spawnTracer === 'function') spawnTracer(this.x, this.y, this.x + (primaryTarget.x - this.x) * 0.06, this.y + (primaryTarget.y - this.y) * 0.06, false);   // kısa namlu-alevi
         }
     }
 
@@ -1966,6 +2158,52 @@ function resolveCollisions() {
             unit._lastPassableY = unit.y;
         }
     }
+}
+
+// DRONE-OPERATÖR: operatör mühimmatını (kamikaze-drone) FIRLAT — payloadCount drone, batarya FIRLATMADA başlar (spawn=tam-yakıt +
+// 0-yakıtta-düşme Faz0'da koşulsuz). manualTarget=(tx,ty)'ye en-yakın CANLI düşman (garanti-dalış) yoksa noktaya-uç+oto-dalış.
+// operatorId=kontrol-bağı (ölünce ×0.6 kör-dalış, dive'da hesaplanır). Determinist (srand-scatter, dist+id-tiebreak). Oyuncu+AI ortak.
+function battleLaunchDrones(operator, tx, ty) {
+    if (!operator || operator.dead) return false;
+    const pc = STATS[operator.type] && STATS[operator.type].payload;
+    if (!pc) return false;
+    const max = pc.count | 0;
+    if (operator.payloadCount == null) operator.payloadCount = max;   // ilk-kullanımda dolu
+    if (operator.payloadCount <= 0) return false;                     // mühimmat yok
+    // KRİTİK-FIX (kullanıcı: "drone salınmıyor"): global T yalnız BÜYÜK-harf takma-ad (T.KAMIKAZE) → T['loitering_munition'](id) UNDEFINED
+    // → droneType null → spawn OLMUYORDU. payload.type bir ID-string; sayısal tipi STATS'tan id ile bul (fallback: T büyük-harf).
+    let droneType = (typeof T !== 'undefined' && T[pc.type] != null) ? T[pc.type] : null;
+    if (droneType == null) { for (const k in STATS) { if (STATS[k] && STATS[k].id === pc.type) { droneType = +k; break; } } }
+    if (droneType == null || !STATS[droneType]) return false;
+    let tgt = null, tgtD = Infinity;   // hedef-noktaya en-yakın canlı düşman (determinist)
+    for (const o of SIM.units) {
+        if (o.dead || o.loaded || o.isRed === operator.isRed) continue;
+        const d = Math.hypot(o.x - tx, o.y - ty);
+        if (d < tgtD || (d === tgtD && tgt && o.id < tgt.id)) { tgtD = d; tgt = o; }
+    }
+    // KULLANICI-FIX ("benim dronlarım çarpmıyor"): oyuncu-drone playerControlled-dalı manualTarget+HAREKET ister (AI-drone
+    // manualTarget'ı null'layıp oto-dalar → etkilenmezdi). ÇÖZÜM: bir düşman varsa DAİMA hedefle (900px-kilit kalktı → tıklama
+    // düşmandan uzağa düşse de en-yakına kamikaze) + tam hareket-alanı (targetX/Y + manualMoveTarget + isMovingToManualTarget) kur.
+    const useTgt = !!tgt;   // sahada düşman varsa daima dal (kamikaze); yoksa noktaya-uç (oto-savunma dalışı)
+    const n = operator.payloadCount;
+    for (let k = 0; k < n; k++) {
+        const ang = (typeof srand === 'function' ? srand() : 0) * Math.PI * 2;
+        const rad = 20 + (typeof srand === 'function' ? srand() : 0) * 30;
+        const drone = new Unit(droneType, operator.x + Math.cos(ang) * rad, operator.y + Math.sin(ang) * rad, operator.isRed);
+        drone.controlOwner = operator.controlOwner;
+        drone.controllerId = operator.controllerId;
+        drone.operatorId = operator.id;   // kontrol-bağı
+        drone.launchX = tx; drone.launchY = ty;   // SON-ATILAN KONUM: hedef-yoksa oraya-uç, varınca (kimse yoksa) self-infilak
+        if (useTgt) {
+            drone.manualTarget = tgt; drone.attackTarget = tgt;
+            drone.targetX = tgt.x; drone.targetY = tgt.y;
+            drone.manualMoveTarget = { x: tgt.x, y: tgt.y }; drone.isMovingToManualTarget = true;
+        } else { drone.targetX = tx; drone.targetY = ty; drone.manualMoveTarget = { x: tx, y: ty }; drone.isMovingToManualTarget = true; }
+        SIM.units.push(drone);
+    }
+    operator.payloadCount = 0;
+    if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'LAUNCH', unitId: operator.id, side: operator.isRed ? 'red' : 'blue', type: operator.type, count: n, targetId: useTgt ? tgt.id : null, x: Math.round(operator.x * 100) / 100, y: Math.round(operator.y * 100) / 100 });
+    return true;
 }
 
 function placeUnit(type, worldX, worldY, isRed) {

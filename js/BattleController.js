@@ -316,5 +316,28 @@ function battleControllersDrive(now) {
         if (surSide !== null && controller.side === surSide) continue;   // vekil tarafının kod-kontrolörünü atla
         if (typeof BATTLE_COMMANDER_MODE !== 'undefined' && BATTLE_COMMANDER_MODE && controller.side === BATTLE_COMMANDER_SIDE) continue;   // KOMUTAN kırmızıyı sürüyor → kod-AI'yı atla
         controller.update(now);
+        battlePublishControllerPosture(controller);   // duruşu SİM-durumuna yaz (+ değiştiyse replay'e kaydet)
+    }
+}
+
+// ── KONTROLÖR DURUŞUNU SİM-DURUMUNA YAYINLA (determinizm kök-düzeltmesi) ──
+// Unit.update taarruz-kapısını/rolünü artık canlı kontrolör nesnesinden DEĞİL, SIM.ctrlPosture'dan okur. Burada her tik
+// kontrolörün güncel duruşu oraya yazılır; DEĞİŞTİĞİNDE replay olayı kaydedilir → replay'de kontrolör olmasa da aynı değer okunur.
+// Değer, controller.update'ten HEMEN SONRA alınır → canlı davranış birebir korunur (eskiden birim aynı anı okuyordu).
+function battlePublishControllerPosture(controller) {
+    if (typeof SIM === 'undefined' || !SIM.ctrlPosture || !controller) return;
+    const sit = controller.lastSituation;
+    const gate = sit && sit.operationalPosture;
+    const next = {
+        open: (gate && typeof gate.strikeGateOpen === 'boolean') ? gate.strikeGateOpen : null,
+        role: (sit && sit.role != null) ? sit.role : null,
+        stance: (gate && gate.stance) ? gate.stance : null,
+        win: !!(sit && (sit.forceRatio || 0) > 1.6)   // istihkam AI'ı "kazanıyoruz" penceresini bundan okur (eşik burada sabitlenir → ayrık/hash-dostu)
+    };
+    const prev = SIM.ctrlPosture[controller.id];
+    if (prev && prev.open === next.open && prev.role === next.role && prev.stance === next.stance && prev.win === next.win) return;   // değişmedi → olay yok
+    SIM.ctrlPosture[controller.id] = next;
+    if (typeof battleRecordEvent === 'function') {
+        battleRecordEvent('controller-posture', { controllerId: controller.id, open: next.open, role: next.role, stance: next.stance, win: next.win });
     }
 }

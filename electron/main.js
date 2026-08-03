@@ -385,6 +385,397 @@ app.whenReady().then(() => {
         return;
     }
 
+    // HAVADA ÖNLEME KAPISI: `--pdtest` → ÇNRA salvosu SAM kapsamına atılır. Doğrulanan: önlenen roket UÇAR ve
+    // kesişme tik'inde kuyruktan düşer (hasar YOK), kesişme noktası fırlatma↔çarpma DOĞRUSU ÜZERİNDE ve varıştan ÖNCEDİR.
+    if (process.argv.includes('--pdtest')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const out = await js(`(() => { try {
+                // Tek senaryo koşucusu: kırmızı ÇNRA mavi hedefe salvo atar, mavi SAM kapsamdadır.
+                // opts.helo: 'yakin' (SAM menzilinde) | 'uzak' (görünür ama menzil dışı) | yok. opts.samAmmo: başlangıç füzesi.
+                const senaryo = (ad, opts) => {
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:2024, attackerSide:true, durationSec:300, playerMoney:0, enemyMoney:0, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                    startBattle(); window.requestAnimationFrame = () => 0; SIM.headless = true;
+                    artilleryHasSight = () => true;              // gözcü koşulu test konusu DEĞİL (PD mekaniği sınanıyor)
+                    SIM.units.length = 0;                        // kontrollü saha
+                    const mk = (t,x,y,r) => { const u = new Unit(t,x,y,r); SIM.units.push(u); return u; };
+                    const mlrs = mk(T.MLRS, 1200, 600, true);    // kırmızı ÇNRA (salvo 12, interceptable)
+                    mlrs.vision = 4000;                          // hedefi kendi görsün (görüş test konusu değil)
+                    const sam  = mk(T.SAM, 1200, 2050, false);   // mavi SAM (çarpma noktası menzilinde)
+                    sam.vision = 4000;                           // hava tehdidini BİLSİN (bilinen-hava-kuvveti koşulu)
+                    if (opts.samAmmo != null) sam.ammo = opts.samAmmo;
+                    const tgt  = mk(T.INFANTRY, 1200, 2100, false);
+                    let helo = null;
+                    // 'yakin': SAM menzilinde (1650) ama helikopterin KENDİ menzili (ATGM 900) dışında → SAM'i öldüremez,
+                    // böylece "SAM öldüğü için önleme olmadı" yanılgısı elenir; ölçülen şey gerçekten uçak-önceliğidir.
+                    if (opts.helo === 'yakin') helo = mk(T.ATTACK_HELO, 2400, 2050, true);
+                    if (opts.helo === 'uzak')  helo = mk(T.ATTACK_HELO, 1200, 5200, true);   // görünür ama SAM menzili DIŞINDA
+                    if (helo) { helo.manualMoveTarget = { x: helo.x, y: helo.y }; helo.isMovingToManualTarget = true; helo.speed = 0; helo.baseSpeed = 0; }
+                    mlrs.lastAttackTime = -9e9; mlrs.attackTarget = tgt; mlrs.manualTarget = tgt;
+                    phase = PHASE.BATTLE;                        // startBattle boş sahada deploy'da kalıyor → savaşı elle aç
+                    const q = SIM.pendingHits;
+                    const gorulen = new Map(), silinen = new Map(), patlayan = new Set();
+                    const oB = applyBlast; window.applyBlast = function(h,n){ patlayan.add(h.seq); return oB(h,n); };
+                    for (let i = 0; i < 130 && phase === PHASE.BATTLE; i++) {   // SAM'in uçağa ateş etmesine yetecek süre (rof 0.3 → ~67 tik)
+                        const once = new Set(q.map(h=>h.seq));
+                        simulationTime += BATTLE_TICK_MS; gameTime += BATTLE_TICK_SEC;
+                        mlrs.attackTarget = tgt; mlrs.manualTarget = tgt;   // hedefi sabit tut (yeniden-hedefleme testi bozmasın)
+                        if (helo && !helo.dead) { helo.x = helo.targetX = opts.helo === 'yakin' ? 2400 : 1200; helo.y = helo.targetY = opts.helo === 'yakin' ? 2050 : 5200; }
+                        stepSim(simulationTime, BATTLE_TICK_SEC, null, false);
+                        updateSupport(BATTLE_TICK_SEC, simulationTime);
+                        for (const h of q) if (!gorulen.has(h.seq)) gorulen.set(h.seq, { seq:h.seq, fireTick:h.fireTick, arriveTick:h.arriveTick,
+                            killTick:h.killTick, ax:h.atkX, ay:h.atkY, cx:h.cx, cy:h.cy, kx:h.killX, ky:h.killY });
+                        const sonra = new Set(q.map(h=>h.seq));
+                        for (const s of once) if (!sonra.has(s)) silinen.set(s, SIM.tick - 1);
+                    }
+                    window.applyBlast = oB;
+                    const hepsi = [...gorulen.values()];
+                    const onlenen = hepsi.filter(h => h.killTick != null);
+                    const ihlal = { yanlisTiktaDusme:0, onlenenPatladi:0, kesismeDogruDisi:0, kesismeVaristanSonra:0, silinmedi:0 };
+                    const ornek = [];
+                    for (const h of onlenen) {
+                        const sil = silinen.get(h.seq);
+                        if (sil == null) ihlal.silinmedi++; else if (sil !== h.killTick) ihlal.yanlisTiktaDusme++;
+                        if (patlayan.has(h.seq)) ihlal.onlenenPatladi++;
+                        if (h.killTick > h.arriveTick || h.killTick <= h.fireTick) ihlal.kesismeVaristanSonra++;
+                        const dTam = Math.hypot(h.cx-h.ax, h.cy-h.ay), dKes = Math.hypot(h.kx-h.ax, h.ky-h.ay);
+                        const f = dTam > 0 ? dKes/dTam : 0;
+                        const capraz = Math.abs((h.cx-h.ax)*(h.ky-h.ay) - (h.cy-h.ay)*(h.kx-h.ax)) / (dTam || 1);   // doğrudan sapma (px)
+                        if (capraz > 1 || f <= 0 || f > 1.0001) ihlal.kesismeDogruDisi++;
+                        if (ornek.length < 2) ornek.push({ fireTick:h.fireTick, killTick:h.killTick, arriveTick:h.arriveTick,
+                            yolOrani:+f.toFixed(3), dogrudanSapma:+capraz.toFixed(3), silindigiTick:sil, patladiMi:patlayan.has(h.seq) });
+                    }
+                    return { ad, salvoKuyruk: hepsi.length, havadaOnlenen: onlenen.length,
+                        samMuhimmatBas: opts.samAmmo != null ? opts.samAmmo : 8, samMuhimmatSon: Math.round(sam.ammo),
+                        heloOldu: helo ? !!helo.dead : null, hedefHp: Math.round(tgt.hp), ihlal, ornek,
+                        sam: { cs: sam.combatState, hedef: sam.attackTarget ? sam.attackTarget.id : 0, dead: sam.dead,
+                               heloMesafe: helo ? Math.round(Math.hypot(helo.x-sam.x, helo.y-sam.y)) : null, menzil: sam.range,
+                               heloHp: helo ? Math.round(helo.hp) : null } };
+                };
+                return [
+                    senaryo('A_hava_yok', {}),                                  // taban: önleme OLMALI
+                    senaryo('B_hava_menzilde', { helo:'yakin' }),               // uçak önceliği: önleme OLMAMALI
+                    senaryo('C_hava_bilinir_yedek3', { helo:'uzak', samAmmo:3 }),// yedek kuralı: önleme OLMAMALI
+                    senaryo('D_hava_bilinir_bol_muhimmat', { helo:'uzak', samAmmo:8 })  // yedek üstünde: önleme OLMALI
+                ];
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,500) }; } })()`);
+            console.log('PDTEST ' + JSON.stringify(out));
+            const bek = { A_hava_yok: 'var', B_hava_menzilde: 'yok', C_hava_bilinir_yedek3: 'yok', D_hava_bilinir_bol_muhimmat: 'var' };
+            const ok = Array.isArray(out) && out.length === 4 && out.every(r =>
+                r.ihlal && Object.values(r.ihlal).every(v => v === 0) && r.salvoKuyruk > 0 &&
+                r.sam && r.sam.dead === false &&                                   // SAM ölmemiş olmalı (yoksa "önleme yok" sonucu anlamsız)
+                (bek[r.ad] === 'var' ? r.havadaOnlenen > 0 : r.havadaOnlenen === 0)) &&
+                // B: uçak önceliği KANITI — SAM füzelerini mermiye değil UÇAĞA harcamış olmalı
+                out.find(r => r.ad === 'B_hava_menzilde').samMuhimmatSon < out.find(r => r.ad === 'B_hava_menzilde').samMuhimmatBas &&
+                // C: yedek kuralı KANITI — füze HİÇ harcanmamış (3 yedek dokunulmadan durmalı)
+                out.find(r => r.ad === 'C_hava_bilinir_yedek3').samMuhimmatSon === 3;
+            console.log(ok ? 'PDTEST_OK' : 'PDTEST_FAIL');
+            setTimeout(() => app.exit(ok ? 0 : 1), 300);
+        });
+        return;
+    }
+
+    // SAPMA TİK-TİK İZ SÜRÜCÜ: `--divdiag` → canlı ve replay'i AYNI tik sayısı koşturur, izlenen birimlerin
+    // her tikteki durumunu kaydeder ve İLK ayrışan tik'i + o tik civarındaki iki izi yan yana döker.
+    // (Hash yalnız 20 tikte bir örneklendiğinden gerçek ilk-sapma tik'i hash'in gösterdiğinden ERKEN olabilir.)
+    if (process.argv.includes('--divdiag')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const out = await js(`(() => { try {
+                const N = 470;
+                // HİPOTEZ TESTİ: --nomicro ile Unit.update'in KONTROLÖR-OKUYAN mikro bloğu kapatılır.
+                // Sapma kayboluyorsa kök-neden kanıtlanır (sim, replay'de var olmayan canlı kontrolör durumunu okuyor).
+                if (${process.argv.includes('--nomicro')}) { BATTLE_UNIT_MICRO = false; BATTLE_POSTURE_GATE = false; }   // let-bağlantısı: window'a yazmak İŞE YARAMAZ
+                const izle = (u) => ({ id:u.id, tx:Math.round((u.targetX??u.x)*100)/100, ty:Math.round((u.targetY??u.y)*100)/100,
+                    x:Math.round(u.x*100)/100, y:Math.round(u.y*100)/100, ammo:Math.round((u.ammo||0)*100)/100,
+                    mm:!!u.isMovingToManualTarget, mt:(u.manualTarget?u.manualTarget.id:0),
+                    at:(u.attackTarget&&!u.attackTarget.dead)?u.attackTarget.id:0, cs:u.combatState||null,
+                    lat:Math.round(u.lastAttackTime||0), rev:Math.round(u.revealTimer||0) });
+                const trace = (WATCH) => { const m = {}; for (const u of SIM.units) if (WATCH.includes(u.id) && !u.dead) m[u.id] = izle(u); return m; };
+                // ── 1) CANLI ──
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2024, attackerSide:true, durationSec:300, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source:'divdiag-blue' });
+                startBattle(); window.requestAnimationFrame = () => 0; SIM.headless = true;
+                const WATCH = SIM.units.map(u => u.id);   // TÜM birimler — dar liste gerçek ilk-sapmayı kaçırıyordu
+                const canliIz = {};
+                for (let i = 0; i < N && phase === PHASE.BATTLE; i++) {
+                    simulationTime += BATTLE_TICK_MS; gameTime += BATTLE_TICK_SEC;
+                    stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false);
+                    updateSupport(BATTLE_TICK_SEC, simulationTime);
+                    canliIz[SIM.tick] = trace(WATCH);
+                }
+                const rec = exportBattleReplay();
+                const canliSonTick = SIM.tick;
+                // ── 2) REPLAY (aynı tik sayısı, aynı iz) ──
+                startBattleReplay(replayClone({ version:rec.version, engineVersion:rec.engineVersion, session:rec.session, initialState:rec.initialState, events:rec.events, hashes:rec.hashes }));
+                const repIz = {};
+                for (let i = 0; i < N && phase === PHASE.BATTLE; i++) {
+                    simulationTime += BATTLE_TICK_MS; gameTime += BATTLE_TICK_SEC;
+                    stepSim(simulationTime, BATTLE_TICK_SEC, battleReplayDrive, false);
+                    updateSupport(BATTLE_TICK_SEC, simulationTime);
+                    repIz[SIM.tick] = trace(WATCH);
+                }
+                // ── 3) İLK AYRIŞAN TİK ──
+                const alanlar = ['tx','ty','x','y','ammo','mm','mt','at','cs','lat','rev'];
+                let ilk = null;
+                for (let t = 1; t <= Math.min(canliSonTick, N) && !ilk; t++) {
+                    const a = canliIz[t], b = repIz[t]; if (!a || !b) continue;
+                    for (const id of WATCH) {
+                        const ua = a[id], ub = b[id];
+                        if (!ua !== !ub) { ilk = { tick:t, id, fark:'varlik' }; break; }
+                        if (!ua) continue;
+                        for (const f of alanlar) if (ua[f] !== ub[f]) { ilk = { tick:t, id, alan:f, canli:ua[f], replay:ub[f] }; break; }
+                        if (ilk) break;
+                    }
+                }
+                const pencere = [];
+                if (ilk) for (let t = Math.max(1, ilk.tick - 3); t <= Math.min(canliSonTick, ilk.tick + 2); t++) {
+                    pencere.push({ tick:t, canli: canliIz[t] ? canliIz[t][ilk.id] : null, replay: repIz[t] ? repIz[t][ilk.id] : null });
+                }
+                const emirler = (rec.events || []).filter(e => ilk && e.tick >= ilk.tick - 25 && e.tick <= ilk.tick + 2)
+                    .map(e => ({ tick:e.tick, tur:e.type, emir:(e.payload||{}).kind||null, veren:(e.payload||{}).issuedBy||null,
+                        birimler:((e.payload||{}).unitIds||[]).filter(x => WATCH.includes(x)),
+                        hedefler:((e.payload||{}).destinations||[]).filter(x => WATCH.includes(x.id)).map(x=>({id:x.id,x:Math.round(x.x),y:Math.round(x.y)})) }))
+                    .filter(e => e.birimler.length || e.hedefler.length);
+                return { izlenen: WATCH, canliSonTick, ilkAyrisma: ilk, pencere, emirler };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,500) }; } })()`);
+            console.log('DIVDIAG ' + JSON.stringify(out));
+            console.log('DIVDIAG_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
+    // DEFERRED-DAMAGE SOAK: `--defersoak [--seeds a,b,c]` → ÇOKLU-TOHUM determinizm + invaryant taraması.
+    // Her tohumda: (1) kuyruk invaryantları, (2) UÇUŞTAKİ-MERMİLİ FORK-EŞİTLİĞİ (fork sınırı kuyruk DOLUYKEN alınır →
+    // pendingHits serialize/restore doğru mu), (3) hedefin uçuşta kaçtığı AoE sayısı (mermi boş araziye düşüyor mu).
+    if (process.argv.includes('--defersoak')) {
+        const _si = process.argv.indexOf('--seeds');
+        const SEEDS = (_si >= 0 && process.argv[_si + 1] && !process.argv[_si + 1].startsWith('--'))
+            ? process.argv[_si + 1].split(',').map(s => parseInt(s, 10)).filter(n => Number.isFinite(n))
+            : [2024, 777, 909, 3141, 5150];
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const out = await js(`(() => { try {
+                const SEEDS = ${JSON.stringify(SEEDS)};
+                const rapor = [];
+                for (const seed of SEEDS) {
+                    // FORK-TEMİZ senaryo (--forktest ile aynı: ai-lab) — quick-match+manifest yolunda fork-eşitliği
+                    // deferred-damage'tan BAĞIMSIZ olarak zaten bozuk (kuyruk boşken de sapıyor: kontrolör/oturum durumu
+                    // fork'a girmiyor). Burada pendingHits'in fork-serileştirmesini TEMİZ zeminde sınıyoruz.
+                    openAIVsAILab({ start:true, show:false, durationSec:300, seed, budget:3000 }); SIM.headless = true;
+                    window.requestAnimationFrame = () => 0;
+                    const S = { denetim:true, giren:0, inen:0, bosaGiden:0, patlayan:0, bosAlan:0, badEarly:0, badSameTick:0, badLate:0, maxKuyruk:0 };
+                    const arr = SIM.pendingHits;
+                    const origPush = Array.prototype.push.bind(arr);
+                    arr.push = (...hs) => {
+                        if (S.denetim) for (const h of hs) {
+                            S.giren++;
+                            const f = h.arriveTick - (SIM.tick || 0);
+                            if (f < 1) S.badEarly++;
+                            if (h.arriveTick <= h.fireTick) S.badSameTick++;
+                        }
+                        return origPush(...hs);
+                    };
+                    const oD = applyDirectHit, oB = applyBlast;
+                    window.applyDirectHit = function (hit, now) {
+                        if (S.denetim) { if ((SIM.tick||0) !== hit.arriveTick) S.badLate++; const t = battleUnitById(hit.tgtId); if (!t || t.dead) S.bosaGiden++; else S.inen++; }
+                        return oD(hit, now);
+                    };
+                    window.applyBlast = function (hit, now) {
+                        if (S.denetim) {
+                            if ((SIM.tick||0) !== hit.arriveTick) S.badLate++;
+                            S.patlayan++;
+                            let n = 0;   // hasar-yarıçapında düşman var mı? yoksa mermi BOŞ ARAZİYE düştü (hedef uçuşta kaçtı)
+                            for (const u of SIM.spatialGrid.getNearby(hit.cx, hit.cy, hit.blastR)) {
+                                if (u.dead || u.isRed === hit.atkIsRed || u.abandoned) continue;
+                                if (Math.hypot(u.x - hit.cx, u.y - hit.cy) <= hit.blastR) { n++; break; }
+                            }
+                            if (!n) S.bosAlan++;
+                        }
+                        return oB(hit, now);
+                    };
+                    // KONTROLÖR NOTU: battleForkCapture SİM durumunu kaydeder, AI-kontrolörünün İÇ HAFIZASINI değil.
+                    // Bu yüzden fork-eşitliği (--forktest ile aynı yöntem) kontrolör KAPALI pompalanır — ölçülen şey
+                    // sim-durumunun (birimler + uçuştaki mermiler) fork sınırından birebir geçip geçmediği.
+                    const pump = (n, useAi) => { const drv = useAi ? battleControllersDrive : null; for (let i=0;i<n && phase===PHASE.BATTLE;i++){ simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, drv, false); updateSupport(BATTLE_TICK_SEC, simulationTime); if (arr.length > S.maxKuyruk) S.maxKuyruk = arr.length; if (SIM.battle && SIM.battle.winnerSide !== null) return false; } return true; };
+                    // FORK-EŞİTLİĞİ ölçer: A) orijinal devam  B) fork'tan devam → hash dizileri birebir olmalı
+                    const forkParity = () => {
+                        S.denetim = false;                          // fork/restore sayaçları kirletmesin
+                        const fork = battleForkCapture();
+                        const hA = []; for (let i=0;i<400;i+=20){ pump(20, false); hA.push(battleStateHash()); }
+                        battleForkRestore(replayClone(fork));
+                        const hB = []; for (let i=0;i<400;i+=20){ pump(20, false); hB.push(battleStateHash()); }
+                        S.denetim = true;
+                        for (let k=0;k<hA.length;k++) if (hA[k] !== hB[k]) return { adim:k, A:hA[k], B:hB[k] };
+                        return null;
+                    };
+                    // 1) Kuyruk DOLUYKEN fork (asıl sınav: uçuştaki mermi fork sınırından geçiyor mu)
+                    let bekle = 0; while (arr.length === 0 && bekle < 2000 && phase === PHASE.BATTLE) { pump(10, true); bekle += 10; }
+                    const forkKuyruk = arr.length, forkTick = SIM.tick;
+                    const forkSapma = forkParity();
+                    // 2) İZOLASYON: kuyruk BOŞKEN fork — burada da sapıyorsa sorun deferred-damage'ta DEĞİL (senaryo/kontrolör)
+                    let bos = 0; while (arr.length > 0 && bos < 300 && phase === PHASE.BATTLE) { pump(5, true); bos += 5; }
+                    const bosForkKuyruk = arr.length, bosForkTick = SIM.tick;
+                    const bosForkSapma = (bosForkKuyruk === 0) ? forkParity() : 'kuyruk-bosalmadi';
+                    // 3) Kalan savaşı invaryant denetimiyle koştur
+                    // SAYAÇ NOTU: fork fazlarında denetim kapalı olduğundan inen+patlayanAoE toplamı giren'i birkaç adım aşabilir
+                    // (fork-restore, denetim kapalıyken kuyruğa geri koyduğu vuruşlar sonra sayılan bir varış üretir). Kaçak değil.
+                    pump(1500, true);
+                    delete arr.push; window.applyDirectHit = oD; window.applyBlast = oB;
+                    rapor.push({ seed, forkTick, forkKuyrukDolu: forkKuyruk, forkEsit: !forkSapma, forkSapma,
+                        bosKuyrukFork: { tick: bosForkTick, kuyruk: bosForkKuyruk, esit: bosForkSapma === null, sapma: bosForkSapma },
+                        giren: S.giren, inen: S.inen, bosaGiden: S.bosaGiden, patlayanAoE: S.patlayan, bosAraziyeDusen: S.bosAlan,
+                        ihlal: { firlatmaTikindeHasar: S.badEarly + S.badSameTick, yanlisTiktaVaris: S.badLate }, maxKuyruk: S.maxKuyruk, sonTick: SIM.tick });
+                }
+                return rapor;
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,400) }; } })()`);
+            console.log('DEFERSOAK ' + JSON.stringify(out));
+            const ok = Array.isArray(out) && out.length > 0 && out.every(r =>
+                r.forkEsit && r.forkKuyrukDolu > 0 && r.giren > 0 && r.ihlal.firlatmaTikindeHasar === 0 && r.ihlal.yanlisTiktaVaris === 0);
+            console.log(ok ? 'DEFERSOAK_OK' : 'DEFERSOAK_FAIL');
+            setTimeout(() => app.exit(ok ? 0 : 1), 300);
+        });
+        return;
+    }
+
+    // DEFERRED-DAMAGE KAPISI: `--defertest` → "mermi ulaşmadan HİÇBİR birimde hasar olmasın" iddiasını ÖLÇER.
+    // Kuyruğa giren her vuruşun uçuş-süresi ≥1 tik mi (badEarly), varış tam arriveTick'te mi (badLate), fırlatma-tik'inde
+    // hasar var mı (badSameTick); ayrıca uçuş-tik dağılımı + fizzle (hedef uçuşta öldü) + kuyruk derinliği raporlanır.
+    if (process.argv.includes('--defertest')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const res = await js(`(() => { try {
+                // TAM ORDU (40 birim, 5000₺) → tank/ZMA/topçu/helo dahil YOĞUN temas: her silah sınıfı kuyruktan geçsin
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:2024, attackerSide:true, durationSec:240, playerMoney:5000, enemyMoney:5000, deployRes:null, deployPool:null, techBonus:null, techBonusRed:null, show:false });
+                battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits: 40, combatFocused: true }), false, { source: 'defertest-blue' });
+                startBattle(); window.requestAnimationFrame = () => 0; SIM.headless = true;
+                const S = { kuyrugaGiren:0, inen:0, bosaGiden:0, patlayan:0, onlenen:0, badKill:0, badOnlenenPatladi:0, badEarly:0, badSameTick:0, badLate:0, maxKuyruk:0,
+                            ucusMin:1e9, ucusMax:0, ucusToplam:0, tipDagilim:{} };
+                const arr = SIM.pendingHits || [];
+                const origPush = Array.prototype.push.bind(arr);
+                arr.push = (h) => {                                   // FIRLATMA denetimi
+                    S.kuyrugaGiren++;
+                    const f = h.arriveTick - (SIM.tick || 0);
+                    if (f < 1) S.badEarly++;                          // aynı tik'te inecek mermi = İHLAL
+                    if (h.arriveTick <= h.fireTick) S.badSameTick++;
+                    if (h.killTick != null) { S.onlenen++; if (h.killTick <= (SIM.tick||0) || h.killTick > h.arriveTick) S.badKill++; }   // kesişme fırlatmadan SONRA, varıştan ÖNCE/EŞİT olmalı
+                    S.ucusToplam += f; if (f < S.ucusMin) S.ucusMin = f; if (f > S.ucusMax) S.ucusMax = f;
+                    const k = (typeof UNIT_ID_BY_INDEX !== 'undefined' && UNIT_ID_BY_INDEX[h.atkType]) || ('t' + h.atkType);
+                    (S.tipDagilim[k] = S.tipDagilim[k] || { n:0, ucus:0 }).n++; S.tipDagilim[k].ucus += f;
+                    return origPush(h);
+                };
+                const origApply = (typeof applyDirectHit === 'function') ? applyDirectHit : null;
+                if (origApply) window.applyDirectHit = function (hit, now) {          // TEK-HEDEF varış denetimi
+                    if ((SIM.tick || 0) !== hit.arriveTick) S.badLate++;   // erken/geç uygulama = İHLAL
+                    const t = battleUnitById(hit.tgtId);
+                    if (!t || t.dead) S.bosaGiden++; else S.inen++;
+                    return origApply(hit, now);
+                };
+                const origBlast = (typeof applyBlast === 'function') ? applyBlast : null;
+                if (origBlast) window.applyBlast = function (hit, now) {              // AoE varış denetimi
+                    if ((SIM.tick || 0) !== hit.arriveTick) S.badLate++;
+                    if (hit.killTick != null) S.badOnlenenPatladi++;                  // ÖNLENEN mermi hasar veremez = İHLAL
+                    S.patlayan++;
+                    return origBlast(hit, now);
+                };
+                const bas = { mavi: SIM.units.filter(u=>!u.dead&&!u.isRed).length, kirmizi: SIM.units.filter(u=>!u.dead&&u.isRed).length };
+                for (let i = 0; i < 4000 && phase === PHASE.BATTLE; i++) {
+                    simulationTime += BATTLE_TICK_MS; gameTime += BATTLE_TICK_SEC;
+                    stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false);
+                    updateSupport(BATTLE_TICK_SEC, simulationTime);
+                    if (arr.length > S.maxKuyruk) S.maxKuyruk = arr.length;
+                    if (SIM.battle && SIM.battle.winnerSide !== null) break;
+                }
+                const tip = {}; for (const k in S.tipDagilim) tip[k] = { atis: S.tipDagilim[k].n, ortUcusTik: +(S.tipDagilim[k].ucus / S.tipDagilim[k].n).toFixed(2) };
+                const olay = {}; for (const e of ((typeof BATTLE_FORENSIC!=='undefined'&&BATTLE_FORENSIC.buf)||[])) olay[e.kind] = (olay[e.kind]||0)+1;
+                // DETERMİNİZM ÖLÇÜMÜ (RAPOR, kapı DEĞİL): aynı ağır-savaşı replay et. NOT: bu senaryoda canlı↔replay
+                // sapması deferred-damage'tan ÖNCE de vardı (ölçüldü: taban ~tik 480) → ayrı bir hata; burada yalnız
+                // GERİLEME takibi için raporlanır. Sıkı determinizm kapısı --forktest (fork-eşitliği, temiz).
+                delete arr.push;   // enstrümantasyonu kaldır (replay temiz koşsun)
+                if (origApply) window.applyDirectHit = origApply;
+                if (origBlast) window.applyBlast = origBlast;
+                // ARAZİ PARMAK-İZİ: replay AYNI haritayı mı üretiyor? (terrainSafePoint araziye bağlı → arazi saparsa hedefler sapar)
+                const araziIzi = () => { try { if (typeof terrainGrid === 'undefined' || !terrainGrid) return 'yok';
+                    let h = 2166136261 >>> 0; for (let i = 0; i < terrainGrid.length; i++) { h ^= terrainGrid[i]; h = Math.imul(h, 16777619) >>> 0; }
+                    return (h >>> 0).toString(16) + ':' + terrainGrid.length + ':' + (typeof MAP_MODE !== 'undefined' ? MAP_MODE : '?'); } catch(e){ return 'hata'; } };
+                const canliArazi = araziIzi();
+                const rec = exportBattleReplay();
+                const canliHash = (rec.hashes || []).map(h => ({ tick: h.tick, hash: h.hash }));
+                const rr = runBattleReplayTicks({ version: rec.version, engineVersion: rec.engineVersion, session: rec.session, initialState: rec.initialState, events: rec.events, hashes: rec.hashes });
+                const repMap = new Map((rr.hashes || []).map(h => [h.tick, h.hash]));
+                let sapma = null;
+                for (const h of canliHash) { if (repMap.has(h.tick) && repMap.get(h.tick) !== h.hash) { sapma = { tick: h.tick, canli: h.hash, replay: repMap.get(h.tick) }; break; } }
+                // TEŞHİS: sapma tik'inde hangi hash-PARÇASI (g=global/rng, b=savaş, u=birimler, t=arazi/mayın, s=destek+uçuştaki-mermiler)
+                // ayrışıyor + o tik'te hangi birim alanları farklı. Replay sapma anında durduğu için canlı durum SIM'de duruyor.
+                let parcaFark = null, birimFark = null;
+                if (sapma) {
+                    const smp = ((rec.telemetry && rec.telemetry.samples) || []).find(s => s.tick === sapma.tick);
+                    if (smp && smp.hashParts && typeof battleStateHashParts === 'function') {
+                        const lp = battleStateHashParts(); parcaFark = {};
+                        for (const k of ['g','b','u','t','s']) if (smp.hashParts[k] !== lp[k]) parcaFark[k] = { canli: smp.hashParts[k], replay: lp[k] };
+                    }
+                    if (smp && smp.units) {
+                        const recU = new Map(smp.units.map(u => [u.id, u])); birimFark = []; const sapanIds = [];
+                        for (const u of SIM.units) {
+                            const r = recU.get(u.id); if (!r) { birimFark.push({ id: u.id, fark: 'replay-fazla' }); continue; }
+                            const d = {}; const c = (k, rv, lv) => { const a = Math.round((rv ?? 0) * 100), b = Math.round((lv ?? 0) * 100); if (a !== b) d[k] = { canli: a / 100, replay: b / 100 }; };
+                            const e = (k, rv, lv) => { if ((rv ?? null) !== (lv ?? null)) d[k] = { canli: rv, replay: lv }; };
+                            c('x', r.x, u.x); c('y', r.y, u.y); c('hp', r.hp, u.hp); c('ammo', r.ammo, u.ammo); c('suppression', r.suppression, u.suppression);
+                            c('targetX', r.targetX, u.targetX); c('targetY', r.targetY, u.targetY);
+                            e('owner', r.owner || null, u.controlOwner || null); e('controllerId', r.controllerId || null, u.controllerId || null);
+                            e('attackTargetId', r.attackTargetId || 0, (u.attackTarget && !u.attackTarget.dead) ? u.attackTarget.id : 0);
+                            e('manuelHareket', !!r.isMovingToManualTarget, !!u.isMovingToManualTarget); e('combatState', r.combatState || null, u.combatState || null);
+                            if (Object.keys(d).length) { sapanIds.push(u.id); birimFark.push({ id: u.id, tip: (typeof UNIT_ID_BY_INDEX !== 'undefined' ? UNIT_ID_BY_INDEX[u.type] : u.type), taraf: u.isRed?'red':'blue', ...d }); }
+                        }
+                        // SAPAN BİRİMLERE AİT KAYITLI EMİRLER (sapma penceresinde): emir var mı, hedefi ne, hangi kontrolör verdi
+                        const pencere = (rec.events || []).filter(ev => ev.tick >= sapma.tick - 80 && ev.tick <= sapma.tick).map(ev => {
+                            const p = ev.payload || {};
+                            const ilgili = (p.destinations || []).filter(x => sapanIds.includes(x.id)).map(x => ({ id:x.id, x:Math.round(x.x), y:Math.round(x.y) }));
+                            const idler = (p.unitIds || []).filter(x => sapanIds.includes(x));
+                            if (!ilgili.length && !idler.length) return null;
+                            return { tick: ev.tick, tur: ev.type, emir: p.kind || null, veren: p.issuedBy || null, hedefler: ilgili, birimler: idler };
+                        }).filter(Boolean);
+                        birimFark = { sapanBirim: birimFark.length, ornek: birimFark.slice(0, 4), sapanIds, pencereEmirleri: pencere.slice(-8), pencereEmirSayisi: pencere.length };
+                    }
+                }
+                const replayArazi = araziIzi();
+                // Replay bağlamında, kayıtlı emir-hedeflerinin terrainSafePoint sonucu ne? (canlı değerle karşılaştır)
+                let safePointDeneme = null;
+                if (sapma && birimFark && birimFark.pencereEmirleri) {
+                    const son = [...birimFark.pencereEmirleri].reverse().find(e => e.hedefler && e.hedefler.length);
+                    if (son) safePointDeneme = son.hedefler.map(h => { const s = terrainSafePoint(h.x, h.y); return { id: h.id, istenen: [h.x, h.y], replaySafe: [Math.round(s.x), Math.round(s.y)] }; });
+                }
+                const determinizm = { hashSayisi: canliHash.length, karsilastirilan: canliHash.filter(h => repMap.has(h.tick)).length, ilkSapma: sapma,
+                    arazi: { canli: canliArazi, replay: replayArazi, ayni: canliArazi === replayArazi }, safePointDeneme, parcaFark, birimFark };
+                return { tick: SIM.tick, ordu: bas, son: { mavi: SIM.units.filter(u=>!u.dead&&!u.isRed).length, kirmizi: SIM.units.filter(u=>!u.dead&&u.isRed).length }, olay,
+                    kuyrugaGiren: S.kuyrugaGiren, inen: S.inen, bosaGiden: S.bosaGiden, patlayanAoE: S.patlayan, havadaOnlenen: S.onlenen,
+                    ihlal: { firlatmaTikindeHasar: S.badEarly + S.badSameTick, yanlisTiktaVaris: S.badLate,
+                             gecersizKesisme: S.badKill, onlenenMermiPatladi: S.badOnlenenPatladi },
+                    ucusTik: { min: S.kuyrugaGiren ? S.ucusMin : 0, max: S.ucusMax, ort: S.kuyrugaGiren ? +(S.ucusToplam / S.kuyrugaGiren).toFixed(2) : 0 },
+                    maxKuyruk: S.maxKuyruk, kuyrukKalan: arr.length, tipDagilim: tip, determinizm };
+            } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,400) }; } })()`);
+            console.log('DEFERTEST ' + JSON.stringify(res));
+            const ok = res && !res.err && res.ihlal && res.ihlal.firlatmaTikindeHasar === 0 && res.ihlal.yanlisTiktaVaris === 0 &&
+                res.ihlal.gecersizKesisme === 0 && res.ihlal.onlenenMermiPatladi === 0 && res.kuyrugaGiren > 0;
+            console.log(ok ? 'DEFERTEST_OK' : 'DEFERTEST_FAIL');
+            setTimeout(() => app.exit(ok ? 0 : 1), 300);
+        });
+        return;
+    }
+
     // THROUGHPUT BENCHMARK: `--benchmark` → headless tick hızı + fork(capture/restore) maliyeti ölçer,
     // karşı-olgusal eğitim örneğinin gerçek maliyetini ve 10k örnek süresini türetir (Faz 0/2).
     if (process.argv.includes('--benchmark')) {
@@ -975,11 +1366,13 @@ app.whenReady().then(() => {
                 const json = await js(`(() => { try {
                     if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
                     if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;   // TAM intel4-beyni (iki taraf da) — gerçek-oyundaki gibi
+                    BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
                     if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;   // kırmızı GERÇEK-OYUNDAKİ gibi varied (doktrin+imza-floor+rol-farkında)
                     openBattlefieldSession({ mode:'quick', mapId:-2, seed:${sc.seed}, attackerSide:${sc.redAttacks}, durationSec:360, playerMoney:5000, enemyMoney:5000, show:false });
                     if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
                     BATTLE_FORCE_DOCTRINE = (typeof BATTLE_DOCTRINE_PLAYER_META !== 'undefined') ? BATTLE_DOCTRINE_PLAYER_META : null;   // VEKİL=oyuncu-meta 6000
-                    battleDeployManifest(battleBuildArmyManifest(6000, { maxUnits: 48, combatFocused: true, varied: true }), false, { source:'handicap-blue', ally: true });
+                    battleDeployManifest(battleBuildArmyManifest(6000, { maxUnits: 48, combatFocused: true, varied: true, brainIntel4: true }), false, { source:'handicap-blue', ally: true });
                     BATTLE_FORCE_DOCTRINE = null;
                     startBattle(); window.requestAnimationFrame = () => 0;
                     const ph = SIM.headless; SIM.headless = true;
@@ -996,6 +1389,349 @@ app.whenReady().then(() => {
                 catch (e) { console.log('HANDICAPREC_WRITE_ERR ' + file + ': ' + e.message); }
             }
             console.log('HANDICAPREC_DONE ' + outDir);
+            app.quit();
+        });
+        return;
+    }
+    // MEZUNİYET-KAYIT: `--gradrec [--half-att|--half-def]` → MEZUNİYET-CONFIG'inde (intel3pro-beyni vs intel4-beyni, 6500v6500,
+    // attack default-ON, VARIED) 12 base-seri maçını CANLI-MAÇ ile AYNI ham-JSON (samples+combatEvents+lifeEvents) döker →
+    // analist an-an izler. Her maç tamamlandıkça yazılır (timeout'ta kısmi kayıt kalır). qa-runtime/graduation-matches/ altına.
+    if (process.argv.includes('--gradrec')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        const outDir = path.join(__dirname, '..', 'qa-runtime', 'graduation-matches');
+        const SEEDS = [909, 3141, 2718, 2024, 777, 5150];
+        let scenarios = [];
+        for (const seed of SEEDS) {
+            scenarios.push({ seed, intel4IsRed: true, role: 'saldiran' });    // intel4=kırmızı SALDIRAN
+            scenarios.push({ seed, intel4IsRed: false, role: 'savunan' });    // intel4=mavi SAVUNAN (kırmızı=intel3pro saldırır)
+        }
+        if (process.argv.includes('--half-att')) scenarios = scenarios.filter(s => s.intel4IsRed);   // süre: yalnız 6 saldıran
+        if (process.argv.includes('--half-def')) scenarios = scenarios.filter(s => !s.intel4IsRed);  // süre: yalnız 6 savunan
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            try { fsx.mkdirSync(outDir, { recursive: true }); } catch (_) {}
+            for (const sc of scenarios) {
+                const json = await js(`(() => { try {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    BATTLE_INTEL4_RED = ${sc.intel4IsRed} === true; BATTLE_INTEL4_BLUE = ${sc.intel4IsRed} !== true;   // intel3pro-vs-intel4 (deltalar VARSAYILAN: attack=ON)
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${sc.seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });   // kırmızı DAİMA saldırır
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4: BATTLE_INTEL4_BLUE, isAttacker:false }), false, { source:'gradrec-blue', ally:true });   // mavi=savunan (kırmızı saldırır)
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    const ph = SIM.headless; SIM.headless = true;
+                    let simulationTime = 0;
+                    try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { simulationTime += BATTLE_TICK_MS; stepSim(simulationTime, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, simulationTime); } } finally { SIM.headless = ph; }
+                    const b = SIM.battle || {};
+                    const summary = { winnerSide: b.winnerSide ?? null, outcomeReason: b.outcomeReason || null, elapsedSec: b.elapsedSec || 0, endTick: SIM.tick,
+                        intel4Side: ${sc.intel4IsRed} === true ? 'red' : 'blue', intel4Role: '${sc.role}',
+                        redUnits: SIM.units.filter(u=>!u.dead && u.isRed).length, blueUnits: SIM.units.filter(u=>!u.dead && !u.isRed).length };
+                    return JSON.stringify(exportBattleDiagnosticReport(summary));
+                } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+                if (typeof json === 'string' && json.startsWith('ERR')) { console.log('GRADREC_ERR ' + sc.role + '/' + sc.seed + ': ' + json.slice(0, 300)); continue; }
+                const file = path.join(outDir, `grad-intel4-${sc.role}-seed${sc.seed}.json`);
+                try { fsx.writeFileSync(file, json); const w = JSON.parse(json).replay?.telemetry?.finalSummary; console.log('GRADREC ' + file + ' (' + (json.length/1024/1024).toFixed(2) + ' MB) kazanan=' + (w ? (w.winnerSide===true?'KIRMIZI':w.winnerSide===false?'MAVİ':'-') : '?') + ' ' + (w?w.outcomeReason:'') + ' redSag=' + (w?w.redUnits:'?') + ' blueSag=' + (w?w.blueUnits:'?')); }
+                catch (e) { console.log('GRADREC_WRITE_ERR ' + file + ': ' + e.message); }
+            }
+            console.log('GRADREC_DONE ' + outDir);
+            app.quit();
+        });
+        return;
+    }
+    // TEHDİT-PROFİLİ KONTROL: `--profilecheck` → red=intel4+profile SAVUNUR, vekil(area-alpha'lı) SALDIRIR → red areaAlpha tespit etmeli.
+    // Ölçer: detection-latency, tespit-edilen-sınıflar, VE flag-ON determinizm (aynı-seed 2 koşu → battleStateHash aynı mı).
+    if (process.argv.includes('--profilecheck')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                function runOnce(seed, intel4On) {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;
+                    BATTLE_INTEL4_RED = !!intel4On; BATTLE_INTEL4_BLUE = false;   // red=intel4(geniş-cephe+profil) vs intel3pro(konsantre)
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed, attackerSide:false, durationSec:360, playerMoney:5000, enemyMoney:5000, show:false });  // red SAVUNUR
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    BATTLE_FORCE_DOCTRINE = (typeof BATTLE_DOCTRINE_PLAYER_META !== 'undefined') ? BATTLE_DOCTRINE_PLAYER_META : null;
+                    battleDeployManifest(battleBuildArmyManifest(6000, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:false }), false, { source:'profilecheck-blue', ally:true });
+                    BATTLE_FORCE_DOCTRINE = null;
+                    startBattle(); window.requestAnimationFrame = () => 0; if (typeof battleBalanceReset === 'function') battleBalanceReset(true);
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                    const redCtrl = [...BATTLE_CONTROLLERS.values()].find(c => c.side === true);
+                    const tp = redCtrl && redCtrl.perception && redCtrl.perception._threatProfile;
+                    const prof = (typeof threatProfileToTelemetry === 'function') ? threatProfileToTelemetry(tp) : null;
+                    const rep = (typeof battleBalanceReport === 'function') ? battleBalanceReport() : null;
+                    const ld = rep && rep.localDensity ? rep.localDensity.red : null;   // kırmızı(savunan) yerel-yoğunluk
+                    if (typeof battleBalanceReset === 'function') battleBalanceReset(false);
+                    const hash = (typeof battleStateHash === 'function') ? battleStateHash() : '?';
+                    return { prof, hash, endTick: SIM.tick, ld };
+                }
+                const on = runOnce(2024, true);    // intel4 (geniş-cephe savunma)
+                const off = runOnce(2024, false);  // intel3pro (konsantre)
+                for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = (k !== 'profile'); BATTLE_INTEL4_RED = false; BATTLE_INTEL4_BLUE = false;
+                return JSON.stringify({ hash: on.hash, endTick: on.endTick, profile: on.prof, localDensityIntel4: on.ld, localDensityIntel3pro: off.ld });
+            } catch (e) { return 'ERR ' + e.message + ' | ' + (e.stack||''); } })()`);
+            console.log('PROFILECHECK ' + out);
+            console.log('PROFILECHECK_OK');
+            app.quit();
+        });
+        return;
+    }
+    // HANDİKAP-AYRIŞTIRICI: `--vshandicap` → full-intel4 kırpık-bütçe vs intel3pro-5000. Paritede coin-flip; handikapta
+    // beyin-farkı belirginleşir. intel4 -X₺'de bile ~%50 tutuyorsa GERÇEKTEN daha iyi (sürüm-farkının ₺-fiyatı = düştüğü nokta).
+    if (process.argv.includes('--vshandicap')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                const CAP = 7300;
+                function runMatch(seed, intel4IsRed, i4Budget) {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;
+                    BATTLE_INTEL4_RED = (intel4IsRed === true); BATTLE_INTEL4_BLUE = (intel4IsRed !== true);
+                    const redBudget = intel4IsRed ? i4Budget : 5000, blueBudget = intel4IsRed ? 5000 : i4Budget;
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed, attackerSide:true, durationSec:360, playerMoney:5000, enemyMoney:redBudget, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(blueBudget, { maxUnits:48, combatFocused:true, varied:true, brainIntel4: BATTLE_INTEL4_BLUE }), false, { source:'vsh-blue', ally:true });
+                    startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    try { while (SIM.tick < CAP && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                    const rep = battleBalanceReport(); battleBalanceReset(false);
+                    const wRed = rep.winner === 'red', wBlue = rep.winner === 'blue';
+                    return { i4Won: (wRed || wBlue) ? (wRed === intel4IsRed) : null };
+                }
+                const rows = [];
+                for (const b of [4750, 4500, 4250]) {
+                    let w = 0, t = 0;
+                    for (const seed of [2024, 777]) for (const A of [true, false]) {
+                        const r = runMatch(seed, A, b);
+                        if (r.i4Won !== null) { t++; if (r.i4Won) w++; }
+                    }
+                    rows.push({ intel4Budget: b, deficit: b - 5000, intel4Wins: w, of: t, winPct: t ? Math.round(w/t*1000)/10 : 0 });
+                    if (w * 3 < t) break;   // intel4 <%33'e düştü → alt-eşik bulundu
+                }
+                for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true; BATTLE_INTEL4_RED = false; BATTLE_INTEL4_BLUE = false;
+                return JSON.stringify(rows);
+            } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+            console.log('VSHANDICAP ' + out);
+            console.log('VSHANDICAP_OK');
+            app.quit();
+        });
+        return;
+    }
+    // SÜRÜM-KAYIT: `--vsrec` → intel3pro-beyni vs intel4-beyni (tam-deltalar) 4 maçı CANLI-MAÇ ham-JSON formatında kaydeder
+    // (2 intel4-saldırı, 2 intel4-savunma; 5000v5000 adil = beyin-karşılaştırması). Kullanıcı analiste götürür.
+    if (process.argv.includes('--vsrec')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        const outDir = path.join(__dirname, '..', 'qa-runtime', 'vs-matches');
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const scenarios = [
+                { role: 'intel4-saldiri', intel4IsRed: true, seed: 2024 },
+                { role: 'intel4-saldiri', intel4IsRed: true, seed: 777 },
+                { role: 'intel4-savunma', intel4IsRed: false, seed: 2024 },
+                { role: 'intel4-savunma', intel4IsRed: false, seed: 777 },
+            ];
+            try { fsx.mkdirSync(outDir, { recursive: true }); } catch (_) {}
+            for (const sc of scenarios) {
+                const json = await js(`(() => { try {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;   // tam intel4-beyni
+                    BATTLE_INTEL4_RED = ${sc.intel4IsRed};  BATTLE_INTEL4_BLUE = ${!sc.intel4IsRed};
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${sc.seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4: BATTLE_INTEL4_BLUE, isAttacker:false }), false, { source:'vsrec-blue', ally:true });   // --vsrec: kırmızı DAİMA saldıran → mavi=savunan → savunan-AT-tabanı devrede
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                    const b = SIM.battle || {};
+                    const intel4IsRed = ${sc.intel4IsRed};
+                    const winnerIsIntel4 = (b.winnerSide === true) === intel4IsRed;
+                    const summary = { winnerSide: b.winnerSide ?? null, winner: (b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'), winnerIsIntel4, outcomeReason: b.outcomeReason || null, elapsedSec: b.elapsedSec || 0, endTick: SIM.tick,
+                        intel4Side: intel4IsRed?'red':'blue', redUnits: SIM.units.filter(u=>!u.dead&&u.isRed).length, blueUnits: SIM.units.filter(u=>!u.dead&&!u.isRed).length };
+                    for (const k in BATTLE_INTEL4_DELTAS) BATTLE_INTEL4_DELTAS[k] = true;
+                    BATTLE_INTEL4_RED = false; BATTLE_INTEL4_BLUE = false;
+                    return JSON.stringify(exportBattleDiagnosticReport(summary));
+                } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+                if (typeof json === 'string' && json.startsWith('ERR')) { console.log('VSREC_ERR ' + sc.role + '/' + sc.seed + ': ' + json.slice(0, 300)); continue; }
+                const file = path.join(outDir, 'vs-intel3pro-vs-intel4-' + sc.role + '-seed' + sc.seed + '.json');
+                try { fsx.writeFileSync(file, json); const w = JSON.parse(json).replay?.telemetry?.finalSummary; console.log('VSREC ' + file + ' (' + (json.length/1024/1024).toFixed(2) + ' MB) kazanan=' + (w?w.winner:'?') + ' intel4-kazandı=' + (w?w.winnerIsIntel4:'?') + ' ' + (w?w.outcomeReason:'')); }
+                catch (e) { console.log('VSREC_WRITE_ERR ' + file + ': ' + e.message); }
+            }
+            console.log('VSREC_DONE ' + outDir);
+            app.quit();
+        });
+        return;
+    }
+    // PER-DELTA ABLATION: `--ablation [delta1,delta2,...]` → her intel4-deltasını TEK açıp intel3pro'ya karşı ölçer
+    // (intel3pro + yalnız-delta-X vs intel3pro) → yardım-eden tut, zarar-veren at. Default tüm 6 delta.
+    if (process.argv.includes('--ablation')) {
+        const _ai = process.argv.indexOf('--ablation');
+        const _darg = (process.argv[_ai + 1] && !process.argv[_ai + 1].startsWith('--')) ? process.argv[_ai + 1] : 'stance,shock,deblob,helo,comp,micro';
+        const _deltas = JSON.stringify(_darg.split(','));
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                const CAP = 7300, DELTAS = ${_deltas}, ALL = Object.keys(BATTLE_INTEL4_DELTAS);   // tüm deltalar (yeni: defense/backbone/range/drone dahil)
+                function runMatch(seed, intel4IsRed, redAttacks) {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    BATTLE_INTEL4_RED = (intel4IsRed === true); BATTLE_INTEL4_BLUE = (intel4IsRed !== true);
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed, attackerSide:redAttacks, durationSec:360, playerMoney:5000, enemyMoney:5000, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(5000, { maxUnits:48, combatFocused:true, varied:true, brainIntel4: BATTLE_INTEL4_BLUE }), false, { source:'ablation-blue', ally:true });
+                    startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    try { while (SIM.tick < CAP && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                    const rep = battleBalanceReport(); battleBalanceReset(false);
+                    return { winner: rep.winner, tr: rep.tradeRatio };
+                }
+                const SEEDS = [2024, 777];   // 2 tohum ×2 rol/taraf = 4 maç (izolasyon hızı)
+                const results = [];
+                for (const dk of DELTAS) {
+                    const _on = dk.split('+');   // 'a+b+c' = combo (hepsi açık); tek 'a' = yalnız-a
+                    for (const k of ALL) BATTLE_INTEL4_DELTAS[k] = _on.includes(k);
+                    let w = 0, l = 0, tI4 = 0, tI3 = 0;
+                    for (const seed of SEEDS) {
+                        for (const A of [true, false]) {
+                            const m = runMatch(seed, A, true);
+                            const wRed = m.winner === 'red', wBlue = m.winner === 'blue';
+                            if (wRed || wBlue) { ((wRed === A) ? w++ : l++); }
+                            tI4 += A ? (m.tr.redDestroyed||0) : (m.tr.blueDestroyed||0);
+                            tI3 += A ? (m.tr.blueDestroyed||0) : (m.tr.redDestroyed||0);
+                        }
+                    }
+                    const tot = w + l;
+                    results.push({ delta: dk, deltaWins: w, intel3proWins: l, of: tot, winPct: tot ? Math.round(w/tot*1000)/10 : 0, takas: tI3 > 0 ? Math.round(tI4/tI3*100)/100 : null,
+                        verdict: tot ? (w > l ? 'YARDIM' : w < l ? 'ZARAR' : 'NÖTR') : '-' });
+                }
+                for (const k of ALL) BATTLE_INTEL4_DELTAS[k] = true; BATTLE_INTEL4_RED = false; BATTLE_INTEL4_BLUE = false;
+                return JSON.stringify(results);
+            } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+            console.log('ABLATION ' + out);
+            console.log('ABLATION_OK');
+            app.quit();
+        });
+        return;
+    }
+    // SÜRÜM-TURNUVASI: `--vstournament` → intel3pro-beyni (flag-off) vs intel4-beyni (flag-on) AYNI motorda.
+    // "Selefini yenemeyen sürüm yayınlanmaz" regresyon-kapısı. 3 katman: temel-seri (role-swap) + handikap-merdiveni + ayna-teşhis.
+    if (process.argv.includes('--vstournament')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const out = await js(`(() => { try {
+                const CAP = 7300, STD = 6500;   // MEZUNİYET-BÜTÇESİ: 6500 (dizilim-şablonu bununla kalibre; slider-varsayılanı da 6500)
+                if (${process.argv.includes('--attack')}) { BATTLE_INTEL4_DELTAS.attack = true; }   // FAZ-T1 ÖLÇÜMÜ: taarruz-doktrini ON (battleDelta gate'i sayesinde YALNIZ intel4-beyinli taraf alır)
+                // Tek maç: intel4IsRed=intel4-beyni hangi tarafta; bothIntel4=ayna (iki taraf da intel4). redBudget/blueBudget ₺.
+                function runMatch(seed, intel4IsRed, redAttacks, redBudget, blueBudget, bothIntel4) {
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    BATTLE_INTEL4_RED = bothIntel4 ? true : (intel4IsRed === true);
+                    BATTLE_INTEL4_BLUE = bothIntel4 ? true : (intel4IsRed !== true);
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;   // her iki taraf da varied-doktrin ordu (floor yalnız intel4-tarafında)
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed, attackerSide:redAttacks, durationSec:360, playerMoney:blueBudget, enemyMoney:redBudget, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    // blue isAttacker: kırmızı-saldırmıyorsa mavi-saldıran (savunan-AT-tabanı doğru tarafa uygulansın; red-floor autoDeploy'da config.attackerSide ile)
+                    battleDeployManifest(battleBuildArmyManifest(blueBudget, { maxUnits:48, combatFocused:true, varied:true, brainIntel4: BATTLE_INTEL4_BLUE, isAttacker: !redAttacks }), false, { source:'vstourney-blue', ally:true });
+                    startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    try { while (SIM.tick < CAP && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                    const rep = battleBalanceReport();
+                    // TEŞHİS (erime-mekanizması): FORENSIC-buf son-kuyruğu (~son 2048 olay = maç-sonu erime-fazı). SALDIRANIN ölen
+                    // birimlerini ÖLDÜREN-tipe + öldüren-x-bandına (L/C/R sektör) göre dök → saldıran cepheden-takasla mı (C) yoksa
+                    // açık-flank enfilade'ıyla mı (L/R) eriyor. Saf-okuma (sim-mutasyon yok, determinizm etkilenmez).
+                    const attSide = intel4IsRed ? 'red' : 'blue';   // INTEL4-tarafın kayıpları (saldıran-maç=saldıran, savunan-maç=savunan → her iki erimeyi de dök)
+                    const WW = (typeof WORLD_W !== 'undefined') ? WORLD_W : 6000;
+                    const attr = {};
+                    try { for (const e of BATTLE_FORENSIC.buf) {
+                        if (!e.lethal || e.targetSide !== attSide) continue;
+                        const kt = e.attackerType, kx = (e.attackerX != null ? e.attackerX : (e.targetX || 0));
+                        const band = kx < WW/3 ? 'L' : (kx < 2*WW/3 ? 'C' : 'R');
+                        const nm = (typeof STATS !== 'undefined' && STATS[kt] && STATS[kt].name) ? STATS[kt].name : ('t'+kt);
+                        const a = attr[nm] || (attr[nm] = { n:0, L:0, C:0, R:0 }); a.n++; a[band]++;
+                    } } catch(e) {}
+                    battleBalanceReset(false);
+                    return { winner: rep.winner, tr: rep.tradeRatio, endTick: SIM.tick, outcome: rep.outcomeReason, maxDom: rep.maxDominanceRatio, attr,
+                        redSurv: SIM.units.filter(u=>!u.dead&&u.isRed).length, blueSurv: SIM.units.filter(u=>!u.dead&&!u.isRed).length };
+                }
+                // ── 1) TEMEL-SERİ: her tohum 2 maç — (A) intel4=kırmızı-saldıran, (B) intel4=mavi-savunan → rol+taraf dengeli, 5000v5000
+                const SEEDS = [909, 3141, 2718, 2024, 777, 5150];   // T0-ÖLÇÜM: 12-maç base + maxDom (taarruz-aciz<1.0 mi eşik-ulaşılmaz≈1.0 mi)
+                let i4w = 0, i3w = 0; const series = []; let trI4 = 0, trI3 = 0;
+                const _runBase = ${!process.argv.includes('--ladder') && !process.argv.includes('--mirror')};   // MEZUNİYET: base yalnız bayraksız; --ladder/--mirror kendi chunk'ında base'i atlar (süre)
+                for (const seed of (_runBase ? SEEDS : [])) {
+                    for (const A of [true, false]) {   // A=true: intel4=kırmızı-saldıran; A=false: intel4=mavi-savunan
+                        const m = runMatch(seed, A, true, STD, STD, false);
+                        const wRed = m.winner === 'red', wBlue = m.winner === 'blue';
+                        const i4Won = wRed === A;   // intel4=kırmızıysa A=true → kırmızı-kazanç intel4-kazanç
+                        if (wRed || wBlue) { i4Won ? i4w++ : i3w++; }
+                        const i4Destroyed = A ? (m.tr.redDestroyed||0) : (m.tr.blueDestroyed||0);
+                        const i3Destroyed = A ? (m.tr.blueDestroyed||0) : (m.tr.redDestroyed||0);
+                        trI4 += i4Destroyed; trI3 += i3Destroyed;
+                        series.push({ seed, intel4:(A?'red':'blue'), winner:(m.winner||'-'), i4Won:(wRed||wBlue)?i4Won:null, outcome:m.outcome, maxDom:m.maxDom, att:m.attr });
+                    }
+                }
+                const total = i4w + i3w;
+                const winPct = total ? Math.round((i4w / total) * 1000) / 10 : 0;
+                // ── 2) HANDİKAP-MERDİVENİ: intel4 kazanıyorsa (winPct≥60) bütçesini kırp → yenilmeye-başladığı ₺ = sürüm-farkı
+                const ladder = [];
+                if (${process.argv.includes('--ladder')}) {   // MEZUNİYET CHUNK-2: handikap-merdiveni (ayrı chunk, base atlanır)
+                    for (const b of [5800, 5000, 4200, 3400, 2600]) {   // intel4-bütçesi kırpılır (STD=6500'e göre -700/-1500/-2300/-3100/-3900); yenilmeye-başladığı ₺ = sürüm-üstünlüğü
+                        let lw = 0, lt = 0;
+                        for (const seed of [909, 3141, 2718]) {
+                            // intel4=kırmızı-saldıran, kırpılmış bütçe; intel3pro=mavi STD (tam-doktrin dahil, attack default-ON)
+                            const m = runMatch(seed, true, true, b, STD, false);
+                            if (m.winner === 'red' || m.winner === 'blue') { lt++; if (m.winner === 'red') lw++; }   // intel4=kırmızı
+                        }
+                        ladder.push({ intel4Budget: b, handicap: STD - b, intel4Wins: lw, of: lt });
+                        if (lw * 2 < lt) break;   // çoğunluğu kaybetti → ₺-eşiği bulundu
+                    }
+                }
+                // ── 3) AYNA-TEŞHİS: intel4-vs-intel4, eşit 5000, roller sabit (kırmızı hep saldırır) → savunan sistematik mi kazanıyor
+                let mirrorDef = 0, mirrorAtt = 0, mirrorTot = 0;
+                for (const seed of ${JSON.stringify(process.argv.includes('--mirror') ? [909, 3141, 2718, 2024, 777, 5150] : [])}) {   // MEZUNİYET CHUNK-3: ayna (intel4-vs-intel4, denge-kontrolü)
+                    const m = runMatch(seed, true, true, STD, STD, true);   // both intel4; red attacks
+                    if (m.winner === 'red') { mirrorAtt++; mirrorTot++; } else if (m.winner === 'blue') { mirrorDef++; mirrorTot++; }
+                }
+                BATTLE_INTEL4_RED = false; BATTLE_INTEL4_BLUE = false;
+                return JSON.stringify({
+                    series: { matches: total, intel4Wins: i4w, intel3proWins: i3w, winPct,
+                        tradeRatio: trI3 > 0 ? Math.round((trI4/trI3)*100)/100 : null, gate: (winPct >= 65 ? 'GECTI(≥65)' : winPct >= 60 ? 'SINIRDA(60-65)' : 'KALDI(<60)'), detail: series },
+                    ladder, mirror: { defenderWins: mirrorDef, attackerWins: mirrorAtt, of: mirrorTot,
+                        note: (mirrorTot && mirrorDef > mirrorAtt) ? 'SAVUNAN-SİSTEMATİK → zafer-koşulu sorunu (bölge-puanı aciliyeti)' : 'dengeli' }
+                });
+            } catch (e) { return 'ERR ' + e.message + ' | ' + e.stack; } })()`);
+            console.log('VSTOURNAMENT ' + out);
+            console.log('VSTOURNAMENT_OK');
             app.quit();
         });
         return;

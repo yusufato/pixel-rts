@@ -124,7 +124,102 @@ function spawnTracer(x1, y1, x2, y2, isArtillery = false) {
     }
 }
 
+// ROKET/FÜZE (kullanıcı: "roket sıkan birimlerin roketlerini HAVADA görmek istiyorum"): fırlatma→hedef arası UÇAN parlak mermi +
+// kuyruk + duman-pufu. Görsel-only (headless atlar → determinizm etkilenmez). ÇNRA/balistik/ATGM için.
+function spawnRocket(x1, y1, x2, y2, scale = 1) {
+    if (SIM.headless) return;
+    const dx = x2 - x1, dy = y2 - y1, dist = Math.hypot(dx, dy);
+    if (dist === 0) return;
+    const dirX = dx / dist, dirY = dy / dist;
+    const vpf = 16;                                   // px/kare (~960px/s) — havada görünür roket hızı
+    const travel = Math.min(1.3, dist / (vpf * 60));  // uçuş süresi (s): fırlatmadan hedefe
+    particles.push(new Particle(x1 + dirX * 12, y1 + dirY * 12, dirX * vpf, dirY * vpf, travel, 2.8 * scale, '#ffd27f', true, { x: x2, y: y2 }, true));   // UÇAN roket gövdesi (parlak, kuyruklu)
+    particles.push(new Particle(x1 + dirX * 10, y1 + dirY * 10, 0, 0, 0.06, 6 * scale, '#ff8800', false, null, true));                                      // namlu alevi
+    for (let i = 0; i < 3; i++)                        // fırlatma dumanı-pufu (iz başlangıcı)
+        particles.push(new Particle(x1 + dirX * (10 + i * 9), y1 + dirY * (10 + i * 9), (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4 - 0.2, 0.4 + Math.random() * 0.3, 3 + Math.random() * 3, '#8a8a8a'));
+}
+
+// MAKİNELİ MERMİ İZİ (kullanıcı: "makineli birimler atış yaptıklarında SİLİK bir mermi izi çıkarsınlar"): ince, kısa, silik tracer +
+// küçük namlu-parıltısı — her atışta (piyade/mekanize). Görsel-only.
+function spawnMGTracer(x1, y1, x2, y2) {
+    if (SIM.headless) return;
+    const dx = x2 - x1, dy = y2 - y1, dist = Math.hypot(dx, dy);
+    if (dist === 0) return;
+    const dirX = dx / dist, dirY = dy / dist;
+    particles.push(new Particle(x1 + dirX * 8, y1 + dirY * 8, 0, 0, 0.035, 1.6, '#ffee88', false, null, true));   // silik namlu-parıltısı
+    const len = Math.min(dist * 0.55, 70);
+    particles.push(new Particle(x1 + dirX * 8, y1 + dirY * 8, dirX * 24, dirY * 24, 0.05, 0.9, '#fff2a0', true, { x: x1 + dirX * (8 + len), y: y1 + dirY * (8 + len) }, true));   // ince kısa tracer (silik)
+}
+
+// ── PROJEKTİL SİSTEMİ (kullanıcı: "roket havada uçsun, hedefe ULAŞINCA patlasın") ──
+// Görsel-only (headless atlar → determinizm ETKİLENMEZ; sim-hasarı zaten anlık uygulanır, bu yalnız patlama-görselini uçuş-varışına erteler).
+// GÜDÜMLÜ (homing): hedef-birime kitlenir, o hareket edince peşinden kıvrılır (SAM/MANPADS/helo/SİHA). GÜDÜMSÜZ: sabit noktaya (havan/topçu/ÇNRA/balistik).
+const projectiles = [];
+class Projectile {
+    constructor(x1, y1, target, opts = {}) {
+        this.x = x1; this.y = y1;
+        this.homingUnit = (opts.homing && target && typeof target === 'object' && ('hp' in target)) ? target : null;   // canlı-birim → takip
+        this.tx = target.x; this.ty = target.y;
+        this.speed = opts.speed || 720;        // px/s
+        this.scale = opts.scale || 1;
+        this.color = opts.color || '#ffd27f';
+        this.maxLife = opts.maxLife || 3.0;    // güvenlik-tavanı (hedef kaçarsa)
+        this.trailT = 0;
+        // KARA-MERMİSİ AYRIMI (deferred-damage): namlu mermisi roket DEĞİL — duman-izi bırakmaz, varışta patlamaz.
+        // trail: duman-izi bırakır mı; impact: varış efekti ('explosion' roket/füze | 'spark' namlu mermisi | 'none' hafif silah).
+        this.trail = opts.trail !== false;
+        this.impact = opts.impact || 'explosion';
+        this.width = opts.width || (this.impact === 'none' ? 1.2 : 2.4);
+    }
+    update(dt) {
+        if (this.homingUnit && !this.homingUnit.dead) { this.tx = this.homingUnit.x; this.ty = this.homingUnit.y; }   // GÜDÜM: canlı hedefi izle
+        const dx = this.tx - this.x, dy = this.ty - this.y, dist = Math.hypot(dx, dy);
+        const step = this.speed * dt;
+        this.maxLife -= dt;
+        if (dist <= step || dist < 14 || this.maxLife <= 0) {   // VARIŞ → tipine göre efekt (hedefe ULAŞINCA)
+            if (this.impact === 'explosion' && typeof spawnExplosion === 'function') spawnExplosion(this.tx, this.ty, this.scale);
+            else if (this.impact === 'spark' && typeof spawnHitSparks === 'function') spawnHitSparks(this.tx, this.ty);
+            return true;
+        }
+        this.x += dx / dist * step; this.y += dy / dist * step;
+        if (!this.trail) return false;   // namlu mermisi: duman-izi YOK
+        this.trailT -= dt;
+        if (this.trailT <= 0) {   // duman-izi (arka)
+            this.trailT = 0.028;
+            particles.push(new Particle(this.x, this.y, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, 0.35, 2 + Math.random() * 2, '#9a9a9a'));
+        }
+        return false;
+    }
+    draw(ctx) {
+        const s = worldToScreen(this.x, this.y);
+        const dd = Math.hypot(this.tx - this.x, this.ty - this.y) || 1;
+        const bx = (this.tx - this.x) / dd, by = (this.ty - this.y) / dd;   // yön (kuyruk için)
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = this.color; ctx.lineWidth = this.width * zoom;
+        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - bx * 12 * zoom, s.y - by * 12 * zoom); ctx.stroke();   // roket-gövde+kuyruk
+        ctx.fillStyle = '#fff3c0';
+        ctx.beginPath(); ctx.arc(s.x, s.y, 1.8 * zoom, 0, Math.PI * 2); ctx.fill();   // parlak burun
+        ctx.globalAlpha = 1;
+    }
+}
+function spawnProjectile(x1, y1, target, opts) {
+    if (SIM.headless || !target) return;
+    projectiles.push(new Projectile(x1, y1, target, opts || {}));
+    if (projectiles.length > 400) projectiles.splice(0, projectiles.length - 400);
+}
+function updateProjectiles(dt) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        if (projectiles[i].update(dt)) projectiles.splice(i, 1);
+    }
+}
+function drawProjectiles(ctx) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of projectiles) { if (canSee(false, p.x, p.y)) p.draw(ctx); }
+    ctx.globalCompositeOperation = 'source-over';
+}
+
 function updateParticles(dt) {
+    updateProjectiles(dt);   // projektiller (roket/füze uçuşu) — parçacıklarla aynı döngüde
     for (let i = particles.length - 1; i >= 0; i--) {
         particles[i].update(dt);
         if (particles[i].life <= 0) {
@@ -150,6 +245,7 @@ function drawParticles(ctx) {
         p.draw(ctx);
     }
     ctx.globalCompositeOperation = 'source-over';
+    if (typeof drawProjectiles === 'function') drawProjectiles(ctx);   // uçan roket/füzeler (görünür-alan)
 }
 
 // ── HASAR SAYILARI (yükselip sönen; AYNI hedefte BİRİKTİRİR → kalabalık olmaz) ──
