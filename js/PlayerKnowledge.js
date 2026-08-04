@@ -157,6 +157,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                 gameTime,
                 own ? 'OWN_SOCIAL_ADMINISTRATION' : 'PUBLIC_COLLECTIVE_EVENT'
             )),
+            humanMigration: fact(storyPlayerVerifiedFact(
+                country.id,
+                'humanMigration',
+                own ? country.humanMigration : (typeof storyHumanMigrationPublicView === 'function'
+                    ? storyHumanMigrationPublicView(country.humanMigration) : null),
+                gameTime,
+                own ? 'OWN_MIGRATION_ADMINISTRATION' : 'PUBLIC_MIGRATION_RECORD'
+            )),
             resources: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'resources', country.resources, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(country.id, 'resources', gameTime))
@@ -198,6 +206,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                 own ? region.collectiveAction : storyPlayerCollectivePublicView(region.collectiveAction),
                 gameTime,
                 own ? 'OWN_SOCIAL_ADMINISTRATION' : 'PUBLIC_COLLECTIVE_EVENT'
+            )),
+            humanMigration: fact(storyPlayerVerifiedFact(
+                region.id,
+                'humanMigration',
+                own ? region.humanMigration : (typeof storyHumanMigrationPublicView === 'function'
+                    ? storyHumanMigrationPublicView(region.humanMigration) : null),
+                gameTime,
+                own ? 'OWN_MIGRATION_ADMINISTRATION' : 'PUBLIC_MIGRATION_RECORD'
             )),
             wealth: fact(own
                 ? storyPlayerVerifiedFact(region.id, 'wealth', region.wealth, gameTime, 'OWN_TREASURY')

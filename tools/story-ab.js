@@ -20,7 +20,9 @@ const {
     probeEconomicAI,
     probePopulationCohorts,
     probeNeedsWelfare,
-    probePublicOpinion
+    probePublicOpinion,
+    probeCollectiveAction,
+    probeHumanMigration
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -366,6 +368,8 @@ function targetedProbeFor(flag, seed) {
     if (flag === 'population.cohorts') return probePopulationCohorts(seed);
     if (flag === 'population.needsWelfare') return probeNeedsWelfare(seed);
     if (flag === 'society.publicOpinionMemory') return probePublicOpinion(seed);
+    if (flag === 'society.collectiveAction') return probeCollectiveAction(seed);
+    if (flag === 'population.humanMigration') return probeHumanMigration(seed);
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }
@@ -405,6 +409,10 @@ const report = {
         needsSummary: control.needsSummary,
         opinionSummary: control.opinionSummary,
         opinionValidation: control.opinionValidation,
+        collectiveSummary: control.collectiveSummary,
+        collectiveValidation: control.collectiveValidation,
+        humanMigrationSummary: control.humanMigrationSummary,
+        humanMigrationValidation: control.humanMigrationValidation,
         tradeSummary: control.tradeSummary,
         tradeProductionOpportunityView: control.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: control.tradeProductionAdmissionPlan,
@@ -427,6 +435,10 @@ const report = {
         needsSummary: treatment.needsSummary,
         opinionSummary: treatment.opinionSummary,
         opinionValidation: treatment.opinionValidation,
+        collectiveSummary: treatment.collectiveSummary,
+        collectiveValidation: treatment.collectiveValidation,
+        humanMigrationSummary: treatment.humanMigrationSummary,
+        humanMigrationValidation: treatment.humanMigrationValidation,
         tradeSummary: treatment.tradeSummary,
         tradeProductionOpportunityView: treatment.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: treatment.tradeProductionAdmissionPlan,

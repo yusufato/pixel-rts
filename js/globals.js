@@ -394,7 +394,11 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // atışla savunanın topçusunu sustur." SALDIRANIN dolaylı ateşi, düşmanın DOLAYLI birimlerini öncelikler
     // (karşı-batarya). NOT: korelasyon bunu doğrulaMADI (erken pencerede r=0.077) — ama hiçbir AI bu doktrini
     // uygulamadığı için korelasyon test EDEMEZ (tedavide varyans yok). Bu yüzden uygulanıp A/B ile sınanıyor.
-    counterBattery: true
+    counterBattery: true,
+    // P5 (KÖK NEDEN — docs/KUVVET-ORANI-HATASI.md): kuvvet-oranı istihbarat tabanı, AI'ın KENDİ başlangıç değeri
+    // yerine DÜŞMANIN İLAN EDİLMİŞ BÜTÇESİNDEN kurulur. Eskiden t=0'da oran daima tam 1.00 çıkıyor ve yalnızca
+    // düşüyordu → forceRatio fiilen "kendi sağkalım yüzdem" idi ve STRIKE kapısı savunan için ULAŞILAMAZDI.
+    trueForceRatio: true
 };
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;

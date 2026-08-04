@@ -95,6 +95,9 @@ function storyWorldV2Countries() {
             collectiveAction: typeof storyCollectiveCountryView === 'function'
                 ? storyWorldV2Clone(storyCollectiveCountryView(storyWorldV2CountryId(state.id)))
                 : null,
+            humanMigration: typeof storyHumanMigrationCountryView === 'function'
+                ? storyWorldV2Clone(storyHumanMigrationCountryView(storyWorldV2CountryId(state.id)))
+                : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
                 manpower: storyWorldV2Round(state.res && state.res.manpower),
@@ -143,6 +146,9 @@ function storyWorldV2Regions() {
                         : null,
                     collectiveAction: typeof storyCollectiveRegionView === 'function'
                         ? storyWorldV2Clone(storyCollectiveRegionView(region.id))
+                        : null,
+                    humanMigration: typeof storyHumanMigrationRegionView === 'function'
+                        ? storyWorldV2Clone(storyHumanMigrationRegionView(region.id))
                         : null
                 }
             );
@@ -207,6 +213,9 @@ function storyWorldV2Regions() {
                 : null,
             collectiveAction: typeof storyCollectiveRegionView === 'function'
                 ? storyWorldV2Clone(storyCollectiveRegionView(storyWorldV2RegionId(node.id)))
+                : null,
+            humanMigration: typeof storyHumanMigrationRegionView === 'function'
+                ? storyWorldV2Clone(storyHumanMigrationRegionView(storyWorldV2RegionId(node.id)))
                 : null,
             position: {
                 coordinateSpace: 'NORMALIZED_WORLD',

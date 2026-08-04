@@ -1152,6 +1152,11 @@ function openBattlefieldSession(config = {}) {
     BATTLE_SESSION.seed = seed;
     BATTLE_SESSION.attackerSide = config.attackerSide === true;
     BATTLE_SESSION.durationSec = durationSec;
+    // İLAN EDİLMİŞ BÜTÇELER: maç kuralı, iki taraf da bilir (hile değil — puan sınırı gibi). intel4-pro
+    // 'trueForceRatio' istihbarat-tabanını buradan kurar; eskiden AI kendi başlangıç değerini düşman
+    // sanıyordu ve kuvvet-oranı fiilen "kendi sağkalım yüzdesi" oluyordu (docs/KUVVET-ORANI-HATASI.md).
+    BATTLE_SESSION.blueBudget = Math.max(0, Number(config.playerMoney) || 0);
+    BATTLE_SESSION.redBudget = Math.max(0, Number(config.enemyMoney) || 0);
     BATTLE_REPLAY.session = replayClone(BATTLE_SESSION);
 
     if (typeof QUICK_MATCH_ATTACKER_SIDE !== 'undefined') {

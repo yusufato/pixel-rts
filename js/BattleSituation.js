@@ -303,7 +303,9 @@ class SituationAnalyzer {
 
         const friendlyValue = Math.max(0, observation.friendlyValue || 0);
         const estimatedEnemyValue = Math.max(0, observation.estimatedEnemyValue || 0);
-        const forceRatio = estimatedEnemyValue > 0 ? friendlyValue / estimatedEnemyValue : null;
+        // Düşman neredeyse tamamen doğrulanmış-ölü iken payda 1-2₺'ye düşüp oran binlere fırlıyordu
+        // (ölçüldü: 4798). Tüm eşikler <2 olduğu için 20'de doyurmak davranışı değiştirmez, log'u temizler.
+        const forceRatio = estimatedEnemyValue > 0 ? Math.min(20, friendlyValue / estimatedEnemyValue) : null;
         const battle = SIM.battle || {};
         const role = typeof battleRoleForSide === 'function'
             ? battleRoleForSide(this.controller.side)

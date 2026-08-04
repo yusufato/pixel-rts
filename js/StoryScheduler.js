@@ -16,6 +16,7 @@ const STORY_SCHEDULER_TASKS = Object.freeze([
     Object.freeze({ id: 'economy', intervalSeconds: 4 }),
     Object.freeze({ id: 'city-growth', intervalSeconds: 5 }),
     Object.freeze({ id: 'population', intervalSeconds: 5 }),
+    Object.freeze({ id: 'human-migration', intervalSeconds: 5 }),
     Object.freeze({ id: 'population-needs', intervalSeconds: 5 }),
     Object.freeze({ id: 'factions', intervalSeconds: 2 }),
     Object.freeze({ id: 'society', intervalSeconds: 4 }),

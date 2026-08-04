@@ -128,7 +128,20 @@ class BattlePerception {
         // ANALİST-FIX (a): görülmeyen düşman ölü DEĞİLDİR. Taban ZAMANLA çürümez (eski bug: 90s'de sıfır →
         // AI görmediğini unutup sahte-avantaj sanıp mevziden çıkıyordu). Taban = başlangıç-tahmini(parite) − TEYİTLİ imha ₺.
         // Yalnız gördüğümüz-ve-ölen düşmanı düşeriz; görünmeyen kuvvet tabanda kalır → savunan hazır-mevzide oturur.
-        const intelligenceFloor = Math.max(0, (this.initialFriendlyValue || 0) - (this._confirmedKilledValue || 0));
+        // ── INTEL4-PRO 'trueForceRatio': istihbarat tabanı DÜŞMANIN İLAN EDİLMİŞ BÜTÇESİNDEN ──
+        // ESKİ HATA (docs/KUVVET-ORANI-HATASI.md): taban KENDİ başlangıç değerimdi → t=0'da oran DAİMA 1.00
+        // çıkıyordu (düşman yarı da olsa iki katı da olsa) ve sonra yalnız düşüyordu; yani forceRatio bir
+        // kuvvet oranı değil "kendi sağkalım yüzdem" oluyordu. Ölçüm: AI 6460₺ ile 4410₺'ye karşı kendini
+        // 1.00 sanıyordu (gerçek 1.46) → STRIKE kapısı (≥1.15) savunan için MATEMATİKSEL OLARAK ulaşılamaz.
+        // Bütçe maç kuralıdır (iki taraf da bilir) → hile değil; ordu BİLEŞİMİ hâlâ gizli kalır.
+        let _pariteTaban = this.initialFriendlyValue || 0;
+        if (typeof battleProDelta === 'function' && battleProDelta(this.controller.side, 'trueForceRatio') &&
+            typeof BATTLE_SESSION !== 'undefined') {
+            // controller.side: true=kırmızı → düşmanı mavi
+            const _db = this.controller.side ? BATTLE_SESSION.blueBudget : BATTLE_SESSION.redBudget;
+            if (Number.isFinite(_db) && _db > 0) _pariteTaban = _db;
+        }
+        const intelligenceFloor = Math.max(0, _pariteTaban - (this._confirmedKilledValue || 0));
         const estimatedEnemyValue = Math.max(observedEnemyValue, intelligenceFloor);
 
         this.lastObservation = {

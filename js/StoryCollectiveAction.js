@@ -25,6 +25,8 @@ const STORY_COLLECTIVE_POLICY = Object.freeze({
     radicalizationDecayRateBps: 360,
     protestStartBps: 6200,
     protestEndBps: 4600,
+    protestMinimumSeverityBps: 6000,
+    protestEndSeverityBps: 5000,
     protestAffectedShareBps: 1000,
     protestGateTicks: 3,
     strikeStartBps: 7300,
@@ -44,7 +46,16 @@ const STORY_COLLECTIVE_POLICY = Object.freeze({
     maximumActiveMovementsPerCountry: 1,
     maximumMovementsPerCountry: 12,
     maximumEvents: 256,
-    maximumRegionParticipations: 4
+    maximumRegionParticipations: 4,
+    productionMultiplierBps: Object.freeze({
+        countryProtest: 10000,
+        countryStrike: 4500,
+        countryUprising: 3000,
+        regionProtest: 10000,
+        regionLaborStrike: 6500,
+        regionPublicServiceStrike: 9500,
+        regionUprising: 3000
+    })
 });
 const STORY_COLLECTIVE_POLICY_HASH = storyProductionHash({
     schemaVersion: STORY_COLLECTIVE_SCHEMA_VERSION,
@@ -183,7 +194,7 @@ function storyCollectiveDesiredStage(movement) {
     if (
         movement.stage === 'PROTEST'
         && movement.stageTicks >= 5
-        && [...STORY_COLLECTIVE_LABOR_PROBLEMS, 'publicServices'].includes(movement.problemType)
+        && STORY_COLLECTIVE_LABOR_PROBLEMS.includes(movement.problemType)
         && movement.mobilizationBps >= STORY_COLLECTIVE_POLICY.strikeStartBps
         && movement.organizationBps >= STORY_COLLECTIVE_POLICY.strikeOrganizationBps
         && movement.affectedShareBps >= STORY_COLLECTIVE_POLICY.strikeAffectedShareBps
@@ -191,6 +202,7 @@ function storyCollectiveDesiredStage(movement) {
     ) return 'STRIKE';
     if (
         movement.mobilizationBps >= STORY_COLLECTIVE_POLICY.protestStartBps
+        && movement.severityBps >= STORY_COLLECTIVE_POLICY.protestMinimumSeverityBps
         && movement.affectedShareBps >= STORY_COLLECTIVE_POLICY.protestAffectedShareBps
         && gate.PROTEST >= STORY_COLLECTIVE_POLICY.protestGateTicks
     ) return 'PROTEST';
@@ -203,7 +215,8 @@ function storyCollectiveCanEndStage(movement) {
     if (age < minimum) return false;
     if (movement.stage === 'UPRISING') return movement.mobilizationBps < STORY_COLLECTIVE_POLICY.uprisingEndBps;
     if (movement.stage === 'STRIKE') return movement.mobilizationBps < STORY_COLLECTIVE_POLICY.strikeEndBps;
-    if (movement.stage === 'PROTEST') return movement.mobilizationBps < STORY_COLLECTIVE_POLICY.protestEndBps;
+    if (movement.stage === 'PROTEST') return movement.mobilizationBps < STORY_COLLECTIVE_POLICY.protestEndBps
+        || movement.severityBps < STORY_COLLECTIVE_POLICY.protestEndSeverityBps;
     return false;
 }
 
@@ -312,9 +325,10 @@ function storyCollectiveAdvanceMovement(previous, sample) {
     );
 
     movement.gateTicks.PROTEST = movement.mobilizationBps >= STORY_COLLECTIVE_POLICY.protestStartBps
+        && movement.severityBps >= STORY_COLLECTIVE_POLICY.protestMinimumSeverityBps
         && movement.affectedShareBps >= STORY_COLLECTIVE_POLICY.protestAffectedShareBps
         ? movement.gateTicks.PROTEST + 1 : 0;
-    movement.gateTicks.STRIKE = [...STORY_COLLECTIVE_LABOR_PROBLEMS, 'publicServices'].includes(movement.problemType)
+    movement.gateTicks.STRIKE = STORY_COLLECTIVE_LABOR_PROBLEMS.includes(movement.problemType)
         && movement.mobilizationBps >= STORY_COLLECTIVE_POLICY.strikeStartBps
         && movement.organizationBps >= STORY_COLLECTIVE_POLICY.strikeOrganizationBps
         && movement.affectedShareBps >= STORY_COLLECTIVE_POLICY.strikeAffectedShareBps
@@ -418,6 +432,8 @@ function storyCollectiveLedgerCreate(options) {
                 : [],
             organizationModel: STORY_COLLECTIVE_POLICY.organizationModel,
             legacyStrikeGateDisabled: true,
+            legacyFactionWrites: false,
+            legacyUnrestBridge: false,
             directWelfareWrites: false,
             randomDecisions: false
         }
@@ -460,8 +476,11 @@ function storyCollectiveCountrySummary(countryId, movements) {
         maximumMobilizationBps: rows.reduce((max, row) => Math.max(max, row.mobilizationBps), 0),
         maximumRadicalizationBps: rows.reduce((max, row) => Math.max(max, row.radicalizationBps), 0),
         productionMultiplierBps: active.some(row => row.stage === 'UPRISING')
-            ? 3000 : (active.some(row => row.stage === 'STRIKE')
-                ? 4500 : (active.some(row => row.stage === 'PROTEST') ? 9800 : 10000)),
+            ? STORY_COLLECTIVE_POLICY.productionMultiplierBps.countryUprising
+            : (active.some(row => row.stage === 'STRIKE')
+                ? STORY_COLLECTIVE_POLICY.productionMultiplierBps.countryStrike
+                : (active.some(row => row.stage === 'PROTEST')
+                    ? STORY_COLLECTIVE_POLICY.productionMultiplierBps.countryProtest : 10000)),
         unrestContribution: active.reduce((sum, row) => sum + ({ PROTEST: 2, STRIKE: 7, UPRISING: 15 })[row.stage], 0),
         movementIds: rows.map(row => row.id)
     };
@@ -488,10 +507,26 @@ function storyCollectiveRegionSummaries(opinion, movements) {
         }).filter(Boolean).sort((a, b) => storyCollectiveStageRank(b.stage) - storyCollectiveStageRank(a.stage)
             || b.localSeverityBps - a.localSeverityBps)
             .slice(0, STORY_COLLECTIVE_POLICY.maximumRegionParticipations);
+        const active = participations.filter(row => row.stage !== 'NONE');
+        const hasUprising = active.some(row => row.stage === 'UPRISING');
+        const strikes = active.filter(row => row.stage === 'STRIKE');
+        const hasProtest = active.some(row => row.stage === 'PROTEST');
+        // Ulusal bir eylem bütün ülkenin fabrikalarını sihirli biçimde durdurmaz.
+        // Yalnız aynı sorun/aktör zincirini yerel top-issue olarak taşıyan bölge
+        // katılır. Kamu hizmeti grevi fiziksel üretime zayıf, emek grevi güçlü
+        // yansır; ayaklanma ise yerel üretimi ağır biçimde keser.
+        const productionMultiplierBps = hasUprising
+            ? STORY_COLLECTIVE_POLICY.productionMultiplierBps.regionUprising
+            : (strikes.length
+                ? (strikes.some(row => STORY_COLLECTIVE_LABOR_PROBLEMS.includes(row.problemType))
+                    ? STORY_COLLECTIVE_POLICY.productionMultiplierBps.regionLaborStrike
+                    : STORY_COLLECTIVE_POLICY.productionMultiplierBps.regionPublicServiceStrike)
+                : (hasProtest ? STORY_COLLECTIVE_POLICY.productionMultiplierBps.regionProtest : 10000));
         out[regionId] = {
             regionId,
             countryId: region.countryId,
-            activeActionCount: participations.filter(row => row.stage !== 'NONE').length,
+            activeActionCount: active.length,
+            productionMultiplierBps,
             participations
         };
     }
@@ -563,6 +598,13 @@ function storyCollectiveValidate(ledger) {
             add('COLLECTIVE_PRODUCTION_MULTIPLIER', `$.countries.${countryId}.productionMultiplierBps`, 'Üretim çarpanı geçersiz.');
         }
     }
+    for (const [regionId, summary] of Object.entries(ledger.regions || {})) {
+        if (summary.regionId !== regionId) add('COLLECTIVE_REGION_SUMMARY_ID', `$.regions.${regionId}`, 'Bölge özeti kimliği uyuşmuyor.');
+        if (!Number.isInteger(summary.productionMultiplierBps)
+            || summary.productionMultiplierBps < 0 || summary.productionMultiplierBps > 10000) {
+            add('COLLECTIVE_REGION_PRODUCTION_MULTIPLIER', `$.regions.${regionId}.productionMultiplierBps`, 'Bölgesel üretim çarpanı geçersiz.');
+        }
+    }
     const opinion = STORY.publicOpinion;
     if (opinion && ledger.countries && ledger.regions) {
         const expected = storyCollectiveClone(ledger);
@@ -612,6 +654,11 @@ function storyCollectiveEnsure() {
 function storyCollectiveForSave() {
     const ledger = storyCollectiveEnsure();
     if (!ledger) return null;
+    // Opinion save/reconcile sahiplik degisiminde bolge baglarini hemen once
+    // guncelleyebilir. Ulke/bolge ozetleri kanonik hareketlerden turetilmistir;
+    // kayit dogrulamasindan once guncel opinion baglariyla yeniden kur.
+    const opinion = typeof storyOpinionEnsure === 'function' ? storyOpinionEnsure() : null;
+    if (opinion) storyCollectiveBuildSummaries(ledger, opinion);
     const validation = storyCollectiveValidate(ledger);
     ledger.diagnostics.issues = validation.ok ? [] : validation.issues.slice(0, 50);
     if (!validation.ok) throw new Error(`Geçersiz kolektif eylem defteri: ${validation.issues[0].code}`);
@@ -631,13 +678,6 @@ function storyCollectiveAIResponseMode(movement) {
     return 'NEGOTIATE';
 }
 
-function storyCollectiveResponseDeltas(mode) {
-    if (mode === 'CONCEDE') return { workers: 3, intel: 1, business: -1 };
-    if (mode === 'NEGOTIATE') return { workers: 1, intel: 1 };
-    if (mode === 'SUPPRESS') return { workers: -3, intel: -3, military: 2, radicals: 4 };
-    return { workers: -1, radicals: 1 };
-}
-
 function storyCollectiveRespond(movementId, mode, options) {
     options = options || {};
     const ledger = storyCollectiveEnsure();
@@ -651,10 +691,6 @@ function storyCollectiveRespond(movementId, mode, options) {
     });
     updated.transition = null;
     ledger.movements[updated.id] = updated;
-    const state = storyCollectiveStateForCountry(updated.countryId);
-    if (state && typeof storyFacApply === 'function') {
-        storyFacApply(state, storyCollectiveResponseDeltas(mode), `Toplumsal yanıt: ${mode}`);
-    }
     const opinion = typeof storyOpinionEnsure === 'function' ? storyOpinionEnsure() : null;
     if (opinion) storyCollectiveBuildSummaries(ledger, opinion);
     return { ok: true, movement: storyCollectiveClone(updated) };
@@ -812,6 +848,31 @@ function storyCollectiveCountryProductionMultiplier(countryId) {
     const ledger = storyCollectiveEnsure();
     const summary = ledger && ledger.countries[storyCollectiveCountryId(countryId)];
     return summary ? summary.productionMultiplierBps / 10000 : 1;
+}
+
+function storyCollectiveRegionProductionMultiplier(regionId) {
+    const ledger = storyCollectiveEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    const summary = ledger && ledger.regions[id];
+    return summary ? Math.max(0, Math.min(1, Number(summary.productionMultiplierBps) / 10000)) : 1;
+}
+
+function storyCollectiveRegionStrikeActive(regionId) {
+    const ledger = storyCollectiveEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    const summary = ledger && ledger.regions[id];
+    return !!(summary && (summary.participations || []).some(
+        row => row.stage === 'STRIKE' || row.stage === 'UPRISING'
+    ));
+}
+
+function storyCollectiveRegionStrikeProblems(regionId) {
+    const ledger = storyCollectiveEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    const summary = ledger && ledger.regions[id];
+    return summary ? [...new Set((summary.participations || [])
+        .filter(row => row.stage === 'STRIKE' || row.stage === 'UPRISING')
+        .map(row => row.problemType))].sort() : [];
 }
 
 function storyCollectiveCountryUnrest(countryId) {

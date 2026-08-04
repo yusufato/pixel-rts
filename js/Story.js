@@ -478,13 +478,14 @@ function storyNewCampaign(config = {}) {
     if (typeof storyEconomicAIReset === 'function') storyEconomicAIReset();
     if (typeof storyOpinionReset === 'function') storyOpinionReset();
     if (typeof storyCollectiveReset === 'function') storyCollectiveReset();
+    if (typeof storyHumanMigrationReset === 'function') storyHumanMigrationReset();
     if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
     if (typeof storySchedulerReset === 'function') storySchedulerReset();
     // A/B geri dönüş yolu da yeni kampanyaya önceki koşunun kısmi sayaçlarını
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accNeeds', '_accFac', '_accSocial', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accNeeds', '_accFac', '_accSocial', '_accSiege', '_accTech',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
     ]) STORY[key] = 0;
@@ -564,6 +565,9 @@ function storySave() {
             collectiveAction: (typeof storyCollectiveForSave === 'function')
                 ? storyCollectiveForSave()
                 : STORY.collectiveAction,
+            humanMigration: (typeof storyHumanMigrationForSave === 'function')
+                ? storyHumanMigrationForSave()
+                : STORY.humanMigration,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -598,7 +602,11 @@ function storySave() {
         };
         localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(data));
         STORY._lastSaveOk = true;
-    } catch (_) { STORY._lastSaveOk = false; }
+        STORY._lastSaveError = null;
+    } catch (error) {
+        STORY._lastSaveOk = false;
+        STORY._lastSaveError = String(error && error.message || error || 'UNKNOWN_SAVE_ERROR');
+    }
 }
 function storyLoad() {
     try {
@@ -639,6 +647,7 @@ function storyLoad() {
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
         if (typeof storyOpinionRestore === 'function') storyOpinionRestore(d.publicOpinion);
         if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
+        if (typeof storyHumanMigrationRestore === 'function') storyHumanMigrationRestore(d.humanMigration);
         STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
         // Güncel GEO kaydı kendi şehir/petrol/maden dağılımını zaten taşır.
@@ -1399,6 +1408,8 @@ function storyAdvanceStep(dtSec) {
     if (_growthDt > 0 && typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_growthDt); // organik şehir büyümesi
     const _populationDt = _storyDue('population', '_accPopulation', 5);
     if (_populationDt > 0 && typeof storyPopulationTick === 'function') storyPopulationTick(_populationDt); // Faz 23 nüfus kohort uzlaştırması
+    const _humanMigrationDt = _storyDue('human-migration', '_accHumanMigration', 5);
+    if (_humanMigrationDt > 0 && typeof storyHumanMigrationTick === 'function') storyHumanMigrationTick(_humanMigrationDt); // Faz 27 rotalı göç ve mülteci akışı
     const _needsDt = _storyDue('population-needs', '_accNeeds', 5);
     if (_needsDt > 0) {
         if (typeof storyNeedsTick === 'function') storyNeedsTick(_needsDt); // Faz 24 kohort ihtiyaç/refah/güvenlik sonuçları

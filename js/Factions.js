@@ -308,11 +308,7 @@ function storyFacUnrest(st) {
     if (!st || !st.factions) return 0;
     const f = st.factions;
     const worst = Math.min(f.workers, f.business, f.military, f.intel);
-    const legacy = Math.max(0, (50 - worst) * 0.6 + Math.max(0, f.radicals - 50) * 0.5);
-    const collective = typeof storyCollectiveCountryUnrest === 'function'
-        ? storyCollectiveCountryUnrest(st.id)
-        : 0;
-    return Math.max(0, legacy + collective);
+    return Math.max(0, (50 - worst) * 0.6 + Math.max(0, f.radicals - 50) * 0.5);
 }
 // Darbe olasılığı çarpanı: ordu küskünse cunta cesaretlenir, ordu memnunsa yönetimi korur.
 function storyFacCoupMul(st) {
@@ -323,10 +319,10 @@ function storyFacCoupMul(st) {
     return 1;
 }
 // Grev üretim çarpanı (prodTick her iş için çağırır)
-function storyFacStrikeMul(ownerId) {
+function storyFacStrikeMul(ownerId, regionId) {
     if (typeof storyCollectiveEnabled === 'function' && storyCollectiveEnabled()
-        && typeof storyCollectiveCountryProductionMultiplier === 'function') {
-        return storyCollectiveCountryProductionMultiplier(ownerId);
+        && typeof storyCollectiveRegionProductionMultiplier === 'function') {
+        return storyCollectiveRegionProductionMultiplier(regionId);
     }
     const st = (typeof storyState === 'function') ? storyState(ownerId) : null;
     return (st && st._strikeUntil && st._strikeUntil > (STORY.clock || 0)) ? 0.45 : 1;

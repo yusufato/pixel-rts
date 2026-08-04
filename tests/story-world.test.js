@@ -35,6 +35,8 @@ const {
     probePopulationCohorts,
     probeNeedsWelfare,
     probePublicOpinion,
+    probeCollectiveAction,
+    probeHumanMigration,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -56,7 +58,12 @@ function run() {
         featureFlags: {
             'economy.saleSettlement': true,
             'economy.paretoVolumeAdmission': true,
-            'economy.householdDistributionAdmission': true
+            'economy.householdDistributionAdmission': true,
+            // Bu 300 sn kabul koşusu Faz 22.1E'nin hane boru hattını izole eder.
+            // Faz 27'nin küçük nüfus aktarımı bile Pareto aday sırasını değiştirip
+            // aynı anda lojistik dalı çatallayabilir; göç kendi 900 sn A/B ve kriz
+            // problarında ayrıca sınanır. Buradaki %83 eşiğini gevşetmiyoruz.
+            'population.humanMigration': false
         }
     });
     const repeat = runStorySimulation({ seed: 2032, seconds: 900 });
@@ -148,6 +155,18 @@ function run() {
     assert.equal(first.tradeValidation.ok, true, 'Normal 900 saniyelik dünya geçerli ticaret defteri korumalı.');
     assert.equal(first.opinionValidation.ok, true,
         'Normal 900 saniyelik dünya geçerli kamuoyu hafıza defteri korumalı.');
+    assert.equal(first.collectiveValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli kolektif eylem defteri korumalı.');
+    assert.ok(first.collectiveSummary.movementCount <= 8 * 12,
+        'Kolektif eylem hafizasi ulke basi kayit tavanini asmamali.');
+    assert.ok(first.collectiveSummary.activeActionCount <= 8,
+        'Ulusal dikkat butcesi ulke basi tek etkin hareket sinirini korumali.');
+    assert.equal(first.humanMigrationValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli göç ve mülteci defteri korumalı.');
+    assert.ok(first.humanMigrationSummary.flowCount <= 256,
+        'Göç geçmişi sınırlı kayıt tavanını aşmamalı.');
+    assert.ok(first.humanMigrationSummary.activeFlowCount <= 152,
+        'Bölge başına tek etkin çıkış ilkesi aktif akışları bölge sayısının altında tutmalı.');
     assert.equal(first.opinionSummary.cohortCount, 152 * 12,
         'Normal 900 saniyelik dünyada bütün kohortlar kamuoyu taşıyıcısı olarak izlenmeli.');
     assert.ok(first.opinionSummary.averageRememberedSeverityBps < 9500,
@@ -667,7 +686,12 @@ function run() {
     assert.equal(infrastructureProbe.disabled.damage.reason, 'FEATURE_DISABLED', 'Kapalı graf hasar mutasyonunu reddetmeli.');
     assert.equal(infrastructureProbe.disabled.corridorIds.length, 0, 'Kapalı graf V2 bölgesine sahte koridor kimliği vermemeli.');
     assert.equal(infrastructureProbe.disabled.worldValidation.ok, true, 'Altyapı kapalıyken V2 dünya geçerli kalmalı.');
-    assert.equal(infrastructureProbe.ab.equal, true, 'Altyapı açık/kapalı normal dünya karmasını değiştirmemeli.');
+    assert.equal(infrastructureProbe.ab.changed, true,
+        'Altyapı, Faz 27 göç rotalarının fiziksel girdisi olduğu için açık/kapalı dünya karmasını değiştirmeli.');
+    assert.equal(infrastructureProbe.ab.onMigrationValidation.ok, true,
+        'Altyapı açık A/B kolunda göç defteri geçerli kalmalı.');
+    assert.equal(infrastructureProbe.ab.offMigrationValidation.disabled, true,
+        'Altyapı kapalı A/B kolunda bağımlı göç katmanı sahte rota üretmeden kapanmalı.');
 
     const resourceProbe = probeResourceTaxonomy();
     const resourceCatalog = resourceProbe.main.snapshot;
@@ -1853,6 +1877,173 @@ function run() {
     assert.equal(opinionProbe.ab.physicalEqual, true,
         'Kamuoyu hafizasi fiziksel ekonomi veya eski oynanis sonucunu degistirmemeli.');
 
+    const collectiveProbe = probeCollectiveAction();
+    assert.equal(collectiveProbe.pure.quietNoAction, true,
+        'Sakin toplum salt zaman gecti diye protesto uretmemeli.');
+    assert.equal(collectiveProbe.pure.orderedEscalation, true,
+        'Agir kriz protestodan greve asamali ve histerezisli gecmeli.');
+    assert.equal(collectiveProbe.pure.noUnprovokedUprising, true,
+        'Salt kronik sikayet, baski hafizasi olmadan otomatik ayaklanmaya donusmemeli.');
+    assert.equal(collectiveProbe.pure.afterSameUnresolvedCrisis.suppressionBackfire, true,
+        'Bastirma kisa vadede dagitsa da ayni cozulmemis krizde tavizden daha cok radikallesme biriktirmeli.');
+    assert.equal(collectiveProbe.pure.repeatedSuppression.suppressionDrivenUprising, true,
+        'Tekrarlanan baski ve cozulmeyen kriz kanitli olarak ayaklanmaya donebilmeli.');
+    assert.ok(collectiveProbe.pure.repeatedSuppression.uprisingTick
+        > collectiveProbe.pure.firstTick.STRIKE,
+    'Baski kaynakli ayaklanma protesto ve grevden sonra gelmeli.');
+    assert.equal(collectiveProbe.main.validation.ok, true,
+        'Faz 26 kolektif eylem defteri kendi sozlesmesini gecmeli.');
+    assert.equal(collectiveProbe.main.saveOk, true,
+        'Faz 26 kaydi dogrulama hatasini yutmamali.');
+    assert.equal(collectiveProbe.main.saveExact, true,
+        'Canli ve kaydedilen kolektif eylem defteri birebir olmali.');
+    assert.equal(collectiveProbe.main.worldValidation.ok, true,
+        'Kolektif eylem ozetleri V2 dunya sozlesmesini bozmamali.');
+    assert.equal(collectiveProbe.main.knowledgeValidation.ok, true,
+        'Kolektif eylem oyuncu bilgi sinirini bozmamali.');
+    assert.ok(collectiveProbe.main.summary.activeActionCount <= 8,
+        'Ulusal dikkat butcesi sekiz devlette birden fazla etkin hareketi ayni anda tasimamali.');
+    assert.ok(collectiveProbe.main.summary.activeActionCount > 0,
+        'Gercek 180 saniyelik dunya kanitli toplumsal eylem uretebilmeli.');
+    assert.equal(collectiveProbe.main.ownKnowledge.status, 'VERIFIED',
+        'Oyuncu kendi ulkesindeki eylemin idari ayrintisini dogrulanmis gormeli.');
+    assert.equal(collectiveProbe.main.foreignKnowledge.status, 'VERIFIED',
+        'Kamusal yabanci protesto/grev varligi gozlenebilir olmali.');
+    assert.equal(collectiveProbe.main.foreignSecretsHidden, true,
+        'Yabanci seferberlik, orgutlenme ve radikallesme puanlari kamusal olaydan sizmamali.');
+    assert.equal(collectiveProbe.main.ui.ownHasCollectiveActions, true,
+        'Kendi sehir nufus ekrani toplumsal eylem mercegini tasimali.');
+    assert.equal(collectiveProbe.main.ui.foreignHasCollectiveActions, true,
+        'Yabanci sehir ekrani kamusal eylem mercegini tasimali.');
+    assert.equal(collectiveProbe.main.ui.foreignSecretLeak, false,
+        'Yabanci sehir HTML gizli radikallesme/seferberlik oranini sizdirmamali.');
+    assert.ok(collectiveProbe.main.ui.responseNoticeCount > 0,
+        'Oyuncu eylem dogdugunda ayri bir karar penceresi gormeli.');
+    assert.equal(collectiveProbe.main.ui.responseOptionsValid, true,
+        'Karar penceresi taviz, muzakere, bastirma ve gormezden gelme yollarini sunmali.');
+    assert.equal(collectiveProbe.main.ui.staleResponseNoticeCount, 0,
+        'Suresi dolan karar penceresi calismayan dugmelerle ekranda kalmamali.');
+    assert.equal(collectiveProbe.main.migration.ok, true,
+        'Faz 26 kaydi V3-V2 golge gocunu tamamlamali.');
+    assert.equal(collectiveProbe.main.migration.validation.ok, true,
+        'Kolektif eylem tasiyan golge dunya gecerli olmali.');
+    assert.equal(collectiveProbe.main.migration.countryPreserved, true,
+        'Goc ulke kolektif eylem ozetini korumali.');
+    assert.equal(collectiveProbe.main.migration.regionPreserved, true,
+        'Goc bolge kolektif eylem ozetini korumali.');
+    assert.equal(collectiveProbe.main.migration.unmapped, false,
+        'collectiveAction bilinen kayit alani olarak islenmeli.');
+    assert.equal(collectiveProbe.restored.loaded, true,
+        'Kolektif eylem defteri tasiyan kayit acilabilmeli.');
+    assert.equal(collectiveProbe.restored.validation.ok, true,
+        'Yuklenen kolektif eylem defteri gecerli kalmali.');
+    assert.equal(collectiveProbe.restored.exact, true,
+        'Hareket asamasi ve baski hafizasi kayitta birebir korunmali.');
+    assert.equal(collectiveProbe.legacy.validation.ok, true,
+        'Faz 26 oncesi kayit icin gecerli bos eylem defteri kurulabilmeli.');
+    assert.equal(collectiveProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayitta eylem gecmisi uydurulmadigi acik teshis olmali.');
+    assert.equal(collectiveProbe.corrupt.validation.ok, true,
+        'Bozuk eylem defteri dunya kaybi olmadan guvenli bos deftere alinmali.');
+    assert.equal(collectiveProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk eylem defteri kurtarmasi sessiz olmamali.');
+    assert.equal(collectiveProbe.disabled.ledger, null,
+        'Kapali Faz 26 sahte eylem defteri uretmemeli.');
+    assert.equal(collectiveProbe.prerequisiteDisabled.ledger, null,
+        'Faz 25 kapaliyken Faz 26 istense bile etkinlesmemeli.');
+    assert.equal(collectiveProbe.ab.changed, true,
+        'Faz 26 acik-kapali A/B kosusunda fiziksel grev etkisi olculebilir durum farki uretmeli.');
+
+    const humanMigrationProbe = probeHumanMigration();
+    assert.equal(humanMigrationProbe.atomic.result.ok, true,
+        'Faz 27 kanonik nüfus mutasyon kapısı kohort aktarımını kabul etmeli.');
+    assert.equal(humanMigrationProbe.atomic.exactWorldConservation, true,
+        'İki bölge arasındaki göç dünya toplam nüfusunu tam kişi düzeyinde korumalı.');
+    assert.equal(humanMigrationProbe.atomic.originDelta, -17,
+        'Atomik göç probunda kaynak bölgeden tam 17 kişi çıkmalı.');
+    assert.equal(humanMigrationProbe.atomic.destinationDelta, 17,
+        'Atomik göç probunda hedef bölgeye tam 17 kişi girmeli.');
+    assert.equal(humanMigrationProbe.atomic.nodePopulationSynchronized, true,
+        'Kohort toplamı ile canlı node.pop aynı atomik işlemde kapanmalı.');
+    assert.equal(humanMigrationProbe.atomic.validation.ok, true,
+        'Atomik transfer sonrası nüfus defteri geçerli kalmalı.');
+    assert.equal(humanMigrationProbe.crisis.refugeeCreated, true,
+        'Ağır güvenlik krizi rastgele zar olmadan mülteci akışı üretmeli.');
+    assert.equal(humanMigrationProbe.crisis.capacityBlocked, true,
+        'Dolu hedefe mülteci akışı yerleşememeli ve kapasite nedeniyle beklemeli.');
+    assert.equal(humanMigrationProbe.crisis.completedAfterCapacity, true,
+        'Kabul kapasitesi açıldığında bekleyen mülteci akışı tamamlanabilmeli.');
+    assert.equal(humanMigrationProbe.crisis.completedPopulationDelta, 0,
+        'Mülteci varışı nüfus yaratmamalı veya silmemeli.');
+    assert.equal(humanMigrationProbe.crisis.exactWorldConservation, true,
+        'Kapasite beklemesi ve varış boyunca dünya nüfusu korunmalı.');
+    assert.equal(humanMigrationProbe.crisis.populationValidation.ok, true,
+        'Mülteci varışı sonrası nüfus defteri geçerli kalmalı.');
+    assert.equal(humanMigrationProbe.crisis.migrationValidation.ok, true,
+        'Mülteci varışı sonrası göç defteri geçerli kalmalı.');
+    assert.equal(humanMigrationProbe.noRoute.createdFromIsolatedOrigin, false,
+        'Bütün kara/deniz yolları kapalı bölgeden nüfus ışınlanmamalı.');
+    assert.equal(humanMigrationProbe.noRoute.validation.ok, true,
+        'Rota bulunamayan senaryo geçerli ve boş göç kararı üretmeli.');
+    assert.equal(humanMigrationProbe.main.validation.ok, true,
+        'Faz 27 canlı göç defteri kendi sözleşmesini geçmeli.');
+    assert.equal(humanMigrationProbe.main.populationValidation.ok, true,
+        'Canlı göçler kanonik nüfus defterini bozmamalı.');
+    assert.equal(humanMigrationProbe.main.needsValidation.ok, true,
+        'Göç sonrası ihtiyaç sonuçları güncel kohort sayılarıyla uyuşmalı.');
+    assert.equal(humanMigrationProbe.main.completedConservation, true,
+        'Tamamlanan her canlı akış sıfır nüfus deltası kaydetmeli.');
+    assert.equal(humanMigrationProbe.main.saveOk, true,
+        'Faz 27 kaydı downstream kohort hatasını yutmamalı.');
+    assert.equal(humanMigrationProbe.main.saveExact, true,
+        'Canlı ve kaydedilen göç defteri birebir olmalı.');
+    assert.equal(humanMigrationProbe.main.worldValidation.ok, true,
+        'Göç özetleri V2 dünya sözleşmesini bozmamalı.');
+    assert.equal(humanMigrationProbe.main.knowledgeValidation.ok, true,
+        'Göç projeksiyonu oyuncu bilgi sözleşmesini bozmamalı.');
+    assert.equal(humanMigrationProbe.main.foreignSecretsHidden, true,
+        'Yabancı göç görünümünde kohort, rota, kapasite ve karar kanıtı sızmamalı.');
+    assert.equal(humanMigrationProbe.main.ui.ownHasMigration, true,
+        'Kendi şehir nüfus ekranı göç bölümünü göstermeli.');
+    assert.equal(humanMigrationProbe.main.ui.foreignHasMigration, true,
+        'Yabancı şehir nüfus ekranı kamuya açık göç özetini göstermeli.');
+    assert.equal(humanMigrationProbe.main.ui.foreignSecretLeak, false,
+        'Yabancı şehir göç ekranı gizli kapasite veya koridor sayısını göstermemeli.');
+    assert.equal(humanMigrationProbe.main.migration.ok, true,
+        'V3→V2 göç adaptörü Faz 27 özetlerini taşımalı.');
+    assert.equal(humanMigrationProbe.main.migration.validation.ok, true,
+        'Faz 27 özetli V2 dünya geçerli olmalı.');
+    assert.equal(humanMigrationProbe.main.migration.countryPreserved, true,
+        'V3→V2 göçü ülke göç özetini korumalı.');
+    assert.equal(humanMigrationProbe.main.migration.regionPreserved, true,
+        'V3→V2 göçü bölge göç özetini korumalı.');
+    assert.equal(humanMigrationProbe.main.migration.unmapped, false,
+        'humanMigration bilinen kayıt alanı olarak işlenmeli.');
+    assert.equal(humanMigrationProbe.restored.loaded, true,
+        'Faz 27 kaydı yeni süreçte yüklenebilmeli.');
+    assert.equal(humanMigrationProbe.restored.validation.ok, true,
+        'Yüklenen Faz 27 defteri geçerli olmalı.');
+    assert.equal(humanMigrationProbe.restored.exact, true,
+        'Göç defteri kayıt/yüklemede birebir korunmalı.');
+    assert.equal(humanMigrationProbe.legacy.validation.ok, true,
+        'Faz 27 öncesi kayıt güvenli boş göç geçmişiyle açılmalı.');
+    assert.equal(humanMigrationProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayıt backfill durumu açıklamalı olmalı.');
+    assert.equal(humanMigrationProbe.corrupt.validation.ok, true,
+        'Bozuk göç defteri kanonik nüfusu silmeden güvenli sıfırlanmalı.');
+    assert.equal(humanMigrationProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk göç kurtarması teşhiste görünmeli.');
+    assert.equal(humanMigrationProbe.disabled.ledger, null,
+        'Faz 27 özellik bayrağı kapalıyken göç defteri ve davranışı oluşmamalı.');
+    assert.equal(humanMigrationProbe.prerequisiteDisabled.ledger, null,
+        'Faz 26 öncülü kapalıysa Faz 27 etkinleşmemeli.');
+    assert.equal(humanMigrationProbe.ab.changed, true,
+        'Faz 27 açık/kapalı A/B dünyası gerçek nüfus dağılımı nedeniyle farklı olmalı.');
+    assert.equal(humanMigrationProbe.ab.onValidation.ok, true,
+        'Faz 27 açık A/B yolu geçerli göç defteri üretmeli.');
+    assert.equal(humanMigrationProbe.ab.offValidation.ok, true,
+        'Faz 27 kapalı A/B yolu geçersiz defter bırakmamalı.');
+
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
@@ -2366,6 +2557,7 @@ function run() {
         economy: 3,
         'city-growth': 2,
         population: 2,
+        'human-migration': 2,
         'population-needs': 2,
         factions: 7,
         society: 3,
@@ -2709,7 +2901,9 @@ function run() {
         stateHash: first.stateHash,
         wallTimeMs: first.wallTimeMs,
         final: first.final,
-        publicOpinion: first.opinionSummary
+        publicOpinion: first.opinionSummary,
+        collectiveAction: first.collectiveSummary,
+        humanMigration: first.humanMigrationSummary
     }, null, 2));
 }
 

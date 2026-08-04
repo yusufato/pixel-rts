@@ -303,6 +303,9 @@ function storyMigrationV3RawToV2(raw, options) {
     const savedCollectiveMovements = storyMigrationObject(savedCollective.movements);
     const savedCollectiveCountries = storyMigrationObject(savedCollective.countries);
     const savedCollectiveRegions = storyMigrationObject(savedCollective.regions);
+    const savedHumanMigration = storyMigrationObject(save.humanMigration);
+    const savedHumanMigrationCountries = storyMigrationObject(savedHumanMigration.countries);
+    const savedHumanMigrationRegions = storyMigrationObject(savedHumanMigration.regions);
     for (const countryId of Object.keys(savedCollectiveCountries)) {
         const migratedCountry = countries.find(country => country.id === countryId);
         if (migratedCountry) {
@@ -335,6 +338,14 @@ function storyMigrationV3RawToV2(raw, options) {
         const migratedRegion = regions.find(region => region.id === regionId);
         if (migratedRegion) migratedRegion.collectiveAction = storyMigrationClone(savedCollectiveRegions[regionId]);
     }
+    for (const countryId of Object.keys(savedHumanMigrationCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (migratedCountry) migratedCountry.humanMigration = storyMigrationClone(savedHumanMigrationCountries[countryId]);
+    }
+    for (const regionId of Object.keys(savedHumanMigrationRegions)) {
+        const migratedRegion = regions.find(region => region.id === regionId);
+        if (migratedRegion) migratedRegion.humanMigration = storyMigrationClone(savedHumanMigrationRegions[regionId]);
+    }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
         for (const cohort of (Array.isArray(savedRegion.cohorts) ? savedRegion.cohorts : [])) {
@@ -364,7 +375,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);

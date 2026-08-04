@@ -662,7 +662,16 @@ function storyOpinionTick() {
 function storyOpinionForSave() {
     const ledger = storyOpinionEnsure();
     if (!ledger) return null;
-    const validation = storyOpinionValidate(ledger);
+    // Save zincirinde PopulationForSave ve NeedsForSave bu cagriya hemen once
+    // kanonik uye sayilarini uzlastirmis olabilir. Salt revision/toplam kontrolu
+    // iki-bolge transferinde yeterli degildir; tam validator kohort uye ve bolge
+    // baglarini denetler. Gecerli defteri save aliniyor diye degistirme; aksi
+    // halde linkReconciliations sayaci kesintisiz/save-devam hash'ini ayirir.
+    let validation = storyOpinionValidate(ledger);
+    if (!validation.ok) {
+        storyOpinionReconcilePopulationLinks(ledger);
+        validation = storyOpinionValidate(ledger);
+    }
     ledger.diagnostics.issues = validation.ok ? [] : validation.issues.slice(0, 50);
     if (!validation.ok) throw new Error(`Geçersiz kamuoyu defteri: ${validation.issues[0].code}`);
     return storyOpinionCompactForSave(ledger);

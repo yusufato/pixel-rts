@@ -142,7 +142,7 @@ function storyCityDossierBuild(nodeId) {
     const facts = {};
     for (const field of [
         'name', 'ownerId', 'neighborIds', 'level', 'garrison', 'infrastructure',
-        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
+        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
     ]) facts[field] = storyCityDossierFactCopy(region[field]);
     const ownerCountry = (knowledge.countries || []).find(candidate => candidate.id === ownerId);
     facts.budget = storyCityDossierFactCopy(ownerCountry && ownerCountry.budget);
@@ -234,6 +234,11 @@ function storyCityDossierValidate(view) {
         const collectiveText = collective && collective.value ? JSON.stringify(collective.value) : '';
         if (/mobilizationBps|radicalizationBps|organizationBps|suppressionMemoryBps/.test(collectiveText)) {
             add('FOREIGN_COLLECTIVE_INTELLIGENCE_LEAK', '$.facts.collectiveAction', 'Yabancı hareketin gizli örgütlenme/radikalleşme ölçüleri sızamaz.');
+        }
+        const migration = view.facts && view.facts.humanMigration;
+        const migrationText = migration && migration.value ? JSON.stringify(migration.value) : '';
+        if (/cohorts|route|evidence|originPushBps|qualityGainBps|receptionCapacityPeople/.test(migrationText)) {
+            add('FOREIGN_MIGRATION_INTELLIGENCE_LEAK', '$.facts.humanMigration', 'Yabancı göçün kohort, rota, kapasite ve karar kanıtı sızamaz.');
         }
     }
     if (!Array.isArray(view.missingSystems)
@@ -559,12 +564,46 @@ function storyCityDossierRenderCollective(view) {
         + `<p class="city-hint">Protesto anlık şikâyetten doğmaz; süre, tekrar, etkilenen nüfus ve örgütlenme birlikte eşik aşar. Yabancı gizli radikal ağlar kesin sayı olarak gösterilmez.</p></section>`;
 }
 
+function storyCityDossierRenderMigration(view) {
+    const fact = view.facts.humanMigration;
+    if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !fact.value) return '';
+    const value = fact.value;
+    const flows = Array.isArray(value.recentFlows) ? value.recentFlows : [];
+    const kindLabels = {
+        INTERNAL_MIGRATION: 'İÇ GÖÇ',
+        CROSS_BORDER_MIGRATION: 'SINIR ÖTESİ GÖÇ',
+        REFUGEE: 'MÜLTECİ AKIŞI'
+    };
+    const causeLabels = {
+        SECURITY: 'Güvenlik', UPRISING: 'Ayaklanma', EMPLOYMENT: 'İstihdam', WELLBEING: 'Yaşam koşulu'
+    };
+    return `<section class="city-dossier-sec"><h3>GÖÇ VE MÜLTECİ AKIŞI</h3><div class="city-fact-grid">`
+        + `<div><span>GELEN</span><b>${Math.round(Number(value.incomingPeople) || 0).toLocaleString('tr-TR')}</b><small>tamamlanan akış</small></div>`
+        + `<div><span>GİDEN</span><b>${Math.round(Number(value.outgoingPeople) || 0).toLocaleString('tr-TR')}</b><small>tamamlanan akış</small></div>`
+        + `<div><span>MÜLTECİ GİRİŞİ</span><b>${Math.round(Number(value.refugeeInPeople) || 0).toLocaleString('tr-TR')}</b></div>`
+        + `<div><span>MÜLTECİ ÇIKIŞI</span><b>${Math.round(Number(value.refugeeOutPeople) || 0).toLocaleString('tr-TR')}</b></div>`
+        + (view.isOwn ? `<div><span>YOLDA GELEN</span><b>${Math.round(Number(value.activeInboundPeople) || 0).toLocaleString('tr-TR')}</b></div>`
+            + `<div><span>YOLDA GİDEN</span><b>${Math.round(Number(value.activeOutboundPeople) || 0).toLocaleString('tr-TR')}</b></div>`
+            + `<div><span>KABUL KAPASİTESİ</span><b>${Math.round(Number(value.receptionCapacityPeople) || 0).toLocaleString('tr-TR')}</b><small>konut varlığı öncesi vekil</small></div>` : '')
+        + `</div>`
+        + (flows.length ? `<div class="city-character-list">${flows.slice(-6).reverse().map(flow => `<article class="city-character-row"><div>`
+            + `<b>${storyCityDossierEscape(kindLabels[flow.kind] || flow.kind)} · ${Math.round(Number(flow.people) || 0).toLocaleString('tr-TR')} kişi</b>`
+            + `<span>${storyCityDossierEscape(causeLabels[flow.cause] || flow.cause)} · ${storyCityDossierEscape(flow.originRegionId)} → ${storyCityDossierEscape(flow.destinationRegionId)}</span>`
+            + (view.isOwn
+                ? `<small>${storyCityDossierEscape(flow.status)} · ${Math.max(0, (flow.route && flow.route.corridorIds || []).length)} koridor</small>`
+                : '<small>Kamuya açık tamamlanmış akış; kohort ve rota ayrıntısı gizli.</small>')
+            + `</div></article>`).join('')}</div>`
+            : `<div class="city-dossier-empty"><b>KAYITLI GÖÇ AKIŞI YOK</b><span>Bu bölge için tamamlanmış veya yolda bir nüfus hareketi bulunmuyor.</span></div>`)
+        + `<p class="city-hint">Göç yalnız hedef daha iyi göründüğü için ışınlanmaz: güvenlik/yaşam baskısı, ulaşılabilir kara-deniz rotası, koridor darboğazı ve bölgesel kabul kapasitesi birlikte gerekir. Konut varlıkları henüz kurulmadığı için kapasite açıkça geçici altyapı vekilidir.</p></section>`;
+}
+
 function storyCityDossierRenderPopulation(view) {
     const fact = view.facts.populationCohorts;
     if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !Array.isArray(fact.value)) {
         return `<section class="city-dossier-empty"><b>NÜFUS SAYIMI DOĞRULANMADI</b>`
             + `<span>Yabancı bölgenin yaş, gelir, meslek, eğitim ve kimlik dağılımı istihbarat olmadan gösterilmez.</span></section>`
-            + storyCityDossierRenderCollective(view);
+            + storyCityDossierRenderCollective(view)
+            + storyCityDossierRenderMigration(view);
     }
     const rows = fact.value;
     const total = rows.reduce((sum, row) => sum + (Number(row.membersPeople) || 0), 0);
@@ -624,7 +663,7 @@ function storyCityDossierRenderPopulation(view) {
         + `<div><span>TOPLAM</span><b>${Math.round(total).toLocaleString('tr-TR')}</b><small>tam kişi uzlaştırması</small></div>`
         + `<div><span>ÇALIŞMA ÇAĞI</span><b>${labor ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
         + `<div><span>KULLANILABİLİR ÇALIŞAN</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>ücret modeli henüz yok</small></div>`
-        + `</div><p class="city-hint">Bu değerler dekoratif değildir: bölgesel üretimin iş gücü tavanını doğrudan belirler. Ücret endeksi Faz 28'e kadar kesin değer olarak gösterilmez.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${sections}`;
+        + `</div><p class="city-hint">Bu değerler dekoratif değildir: bölgesel üretimin iş gücü tavanını doğrudan belirler. Ücret endeksi Faz 28'e kadar kesin değer olarak gösterilmez.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${storyCityDossierRenderMigration(view)}${sections}`;
 }
 
 function storyCityDossierRender(view, active, node) {

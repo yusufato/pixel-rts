@@ -28,6 +28,7 @@ const STORY_SOURCES = [
     'js/StoryCompanies.js',
     'js/StoryOpinion.js',
     'js/StoryCollectiveAction.js',
+    'js/StoryHumanMigration.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -579,6 +580,16 @@ function createRuntime(seed) {
             collectiveRespond: (movementId, mode, options) => storyCollectiveRespond(movementId, mode, options),
             collectiveAdvanceMovement: (previous, sample) => storyCollectiveAdvanceMovement(previous, sample),
             collectiveApplyResponsePure: (movement, mode, at) => storyCollectiveApplyResponsePure(movement, mode, at),
+            humanMigrationSummary: () => storyHumanMigrationSummary(),
+            humanMigrationLedger: () => storyHumanMigrationClone(STORY.humanMigration),
+            validateHumanMigrationLedger: ledger => storyHumanMigrationValidate(ledger),
+            humanMigrationForSave: () => storyHumanMigrationForSave(),
+            humanMigrationCountryView: countryId => storyHumanMigrationCountryView(countryId),
+            humanMigrationRegionView: regionId => storyHumanMigrationRegionView(regionId),
+            humanMigrationTick: dt => storyHumanMigrationTick(dt),
+            populationTransferCohorts: (origin, destination, requested, options) => (
+                storyPopulationTransferCohorts(origin, destination, requested, options)
+            ),
             factionNoticeCurrent: () => storyCollectiveClone(STORY._factionNoticeCurrent),
             factionNotices: () => storyCollectiveClone([
                 ...(STORY._factionNoticeCurrent ? [STORY._factionNoticeCurrent] : []),
@@ -1363,6 +1374,23 @@ function createRuntime(seed) {
         };
     `, context, { filename: 'story-harness-adapters.js' });
 
+    // Uzun kabul paketi yuzlerce yalitilmis jsdom/VM dunyasi kurar. window.close
+    // kaynaklari kapatir fakat V8 eski baglamlari 4 GB sinirina dek toplamayi
+    // erteleyebilir. npm test --expose-gc ile calistiginda yalniz yuksek heap
+    // basincinda kapatilmis dunyalari topla; oyun runtime'ina dokunmaz.
+    const jsdomClose = window.close.bind(window);
+    let runtimeClosed = false;
+    window.close = () => {
+        if (!runtimeClosed) {
+            runtimeClosed = true;
+            jsdomClose();
+        }
+        if (typeof global.gc === 'function'
+            && process.memoryUsage().heapUsed >= 768 * 1024 * 1024) {
+            global.gc();
+        }
+    };
+
     return { dom, api: window.__storyHarness };
 }
 
@@ -1496,6 +1524,39 @@ function stateSnapshot(story) {
                 movementId: event.movementId,
                 stage: event.stage,
                 responseMode: event.responseMode || null
+            }))
+        } : null,
+        humanMigration: story.humanMigration ? {
+            schemaVersion: story.humanMigration.schemaVersion,
+            policyHash: story.humanMigration.policyHash,
+            tickSequence: story.humanMigration.tickSequence,
+            nextFlowSequence: story.humanMigration.nextFlowSequence,
+            flows: (story.humanMigration.flows || []).map(flow => ({
+                id: flow.id,
+                status: flow.status,
+                kind: flow.kind,
+                cause: flow.cause,
+                originRegionId: flow.originRegionId,
+                destinationRegionId: flow.destinationRegionId,
+                originCountryId: flow.originCountryId,
+                destinationCountryId: flow.destinationCountryId,
+                people: flow.people,
+                cohorts: flow.cohorts,
+                departedAt: round(flow.departedAt),
+                arrivalAt: round(flow.arrivalAt),
+                completedAt: flow.completedAt == null ? null : round(flow.completedAt),
+                attempts: flow.attempts,
+                route: flow.route,
+                evidence: flow.evidence,
+                populationDelta: flow.populationDelta == null ? null : flow.populationDelta
+            })),
+            events: (story.humanMigration.events || []).map(event => ({
+                id: event.id,
+                type: event.type,
+                at: round(event.at),
+                flowId: event.flowId,
+                people: event.people,
+                reason: event.reason
             }))
         } : null,
         diplomacy: Object.fromEntries(Object.keys(story.rel || {}).sort().map(key => {
@@ -2026,6 +2087,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateCollectiveLedger(collectiveLedger)
             : { ok: true, disabled: true, issues: [] };
         const collectiveSummary = runtime.api.collectiveSummary();
+        const humanMigrationLedger = runtime.api.humanMigrationLedger();
+        const humanMigrationValidation = humanMigrationLedger
+            ? runtime.api.validateHumanMigrationLedger(humanMigrationLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const humanMigrationSummary = runtime.api.humanMigrationSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2218,6 +2284,8 @@ function runStorySimulation(options = {}) {
             opinionSummary,
             collectiveValidation,
             collectiveSummary,
+            humanMigrationValidation,
+            humanMigrationSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -2759,7 +2827,8 @@ function storyDiffPaths(left, right, pathName = '$', result = []) {
 function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
-        'city-growth', 'population', 'population-needs', 'factions', 'society', 'siege', 'technology',
+        'city-growth', 'population', 'human-migration', 'population-needs',
+        'factions', 'society', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -3389,11 +3458,21 @@ function probeRegionModel(seed = 2032) {
             structuredClone(story.states)
         );
 
+        const collectiveValidationBeforeSave = runtime.api.validateCollectiveLedger(
+            runtime.api.collectiveLedger()
+        );
+        let collectiveForSaveError = null;
+        try { runtime.api.collectiveForSave(); } catch (error) {
+            collectiveForSaveError = String(error && error.message || error);
+        }
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
         const savedPayload = JSON.parse(savedRaw);
         main = {
             saveOk: story._lastSaveOk === true,
+            saveError: story._lastSaveError || null,
+            collectiveValidationBeforeSave,
+            collectiveForSaveError,
             savedNodeOwner: savedPayload.nodes[transferNode.id].owner,
             opinionValidation: runtime.api.validateOpinionLedger(runtime.api.opinionLedger()),
             count: story.nodes.length,
@@ -4230,7 +4309,11 @@ function probeInfrastructureGraph(seed = 2032) {
         ab: {
             onHash: normalOn.stateHash,
             offHash: normalOff.stateHash,
-            equal: normalOn.stateHash === normalOff.stateHash
+            changed: normalOn.stateHash !== normalOff.stateHash,
+            onMigrationValidation: normalOn.humanMigrationValidation,
+            offMigrationValidation: normalOff.humanMigrationValidation,
+            onMigrationSummary: normalOn.humanMigrationSummary,
+            offMigrationSummary: normalOff.humanMigrationSummary
         }
     };
 }
@@ -5054,6 +5137,12 @@ function probeRegionalEconomy(seed = 2032) {
         delete copy.needsWelfare;
         // Faz 25 de yalnız Faz 24 sonucunun türetilmiş, salt-okunur hafızasıdır.
         delete copy.publicOpinion;
+        // Faz 26, Faz 25 kapandiginda bagimlilik geregi kapanan yeni turetilmis
+        // durumdur; Faz 17'nin eski oynanis esitligi karsilastirmasina girmez.
+        delete copy.collectiveAction;
+        // Faz 27 de yukaridaki zincirin ardilidir; bolgesel ekonomi kapaliyken
+        // bagimlilik geregi kapanan bu defter eski Faz 17 fiziksel durumuna ait degildir.
+        delete copy.humanMigration;
         return copy;
     };
     return {
@@ -7696,7 +7785,12 @@ function probeNeedsWelfare(seed = 2032) {
             abundance: 1,
             doctrine: 'combined',
             fog: true,
-            featureFlags: { 'economy.saleSettlement': false }
+            // Faz 24 kendi legacy ulke-capli _strikeUntil vekilini sinar.
+            // Faz 26 acikken canli oyun yalniz kanitli bolgesel grevi kabul eder.
+            featureFlags: {
+                'economy.saleSettlement': false,
+                'society.collectiveAction': false
+            }
         });
         const story = runtime.api.state();
         const ownNode = story.nodes.find(node => node.owner === story.playerStateId);
@@ -8128,6 +8222,13 @@ function probePublicOpinion(seed = 2032) {
     const stripOpinion = snapshot => {
         const copy = JSON.parse(JSON.stringify(snapshot));
         delete copy.publicOpinion;
+        // Faz 26, Faz 25 kapaninca bagimlilik geregi kapanir; Faz 25'in
+        // salt-okunur fiziksel esitlik karsilastirmasinda turetilmis ardil alan
+        // da kapsam disinda kalmalidir.
+        delete copy.collectiveAction;
+        // Faz 27, kamuoyu ve kolektif eylem kanitindan beslendigi icin ayni
+        // bagimlilik kapanisinda yok olur; Faz 25 fiziksel esitligine dahil edilmez.
+        delete copy.humanMigration;
         return copy;
     };
     return {
@@ -8176,12 +8277,12 @@ function buildStoryMapRasterAssetData(seed = 2032) {
 
 function probeCollectiveAction(seed = 2032) {
     const sampleFor = (tick, severityBps) => ({
-        id: 'movement:country:0|publicServices|country:0',
+        id: 'movement:country:0|income|country:0',
         countryId: 'country:0',
-        problemType: 'publicServices',
+        problemType: 'income',
         blamedActorId: 'country:0',
         blamedActorKind: 'COUNTRY',
-        blameBasisCode: 'PUBLIC_SERVICE_AUTHORITY',
+        blameBasisCode: 'INCOME_PROVIDER',
         affectedPeople: 700000,
         affectedShareBps: severityBps > 0 ? 7200 : 0,
         activeCohortShareBps: severityBps > 0 ? 8500 : 0,
@@ -8273,7 +8374,15 @@ function probeCollectiveAction(seed = 2032) {
     let savedLedger;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
-        runtime.api.advance(180);
+        let observedResponseNotices = [];
+        for (let elapsed = 0; elapsed < 180; elapsed += 5) {
+            runtime.api.advance(5);
+            if (!observedResponseNotices.length) {
+                observedResponseNotices = runtime.api.factionNotices().filter(
+                    notice => notice.collectiveActionId
+                );
+            }
+        }
         const story = runtime.api.state();
         const ledger = runtime.api.collectiveLedger();
         const world = runtime.api.worldV2();
@@ -8299,7 +8408,11 @@ function probeCollectiveAction(seed = 2032) {
             ? migrated.world.regions.find(region => region.id === ownRegionId)
             : null;
         main = {
-            validation: runtime.api.validateCollectiveLedger(ledger),
+            // Save, opinion bolge baglarini guncelleyip kolektif turetilmis
+            // ozetlerini ayni atomik sirada uzlastirabilir. Save-oncesi klonu
+            // save-sonrasi canli opinion'a karsi dogrulamak sahte aggregate
+            // hatasi uretir; kayda giren guncel defteri dogrula.
+            validation: runtime.api.validateCollectiveLedger(savedLedger),
             saveOk: story._lastSaveOk === true,
             saveExact: JSON.stringify(savedPayload) === JSON.stringify(savedLedger),
             summary: runtime.api.collectiveSummary(),
@@ -8314,11 +8427,13 @@ function probeCollectiveAction(seed = 2032) {
                 ownHasCollectiveActions: ownPopulation.text.includes('TOPLUMSAL EYLEMLER'),
                 foreignHasCollectiveActions: foreignPopulation.text.includes('TOPLUMSAL EYLEMLER'),
                 foreignSecretLeak: /seferberlik %|radikalleşme %/.test(foreignPopulation.text),
-                responseNoticeCount: notices.filter(notice => notice.collectiveActionId).length,
-                responseOptionsValid: notices.filter(notice => notice.collectiveActionId)
+                responseNoticeCount: observedResponseNotices.length,
+                responseOptionsValid: observedResponseNotices.length > 0
+                    && observedResponseNotices
                     .every(notice => JSON.stringify(notice.responseOptions) === JSON.stringify([
                         'CONCEDE', 'NEGOTIATE', 'SUPPRESS', 'IGNORE'
-                    ]))
+                    ])),
+                staleResponseNoticeCount: notices.filter(notice => notice.collectiveActionId).length
             },
             migration: {
                 ok: migrated.ok,
@@ -8395,12 +8510,31 @@ function probeCollectiveAction(seed = 2032) {
         disabledRuntime.dom.window.close();
     }
 
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: {
+                'society.publicOpinionMemory': false,
+                'society.collectiveAction': true
+            }
+        });
+        prerequisiteRuntime.api.advance(30);
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.collectiveLedger(),
+            summary: prerequisiteRuntime.api.collectiveSummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+
     const on = runStorySimulation({ seed, seconds: 180 });
     const off = runStorySimulation({
         seed, seconds: 180, featureFlags: { 'society.collectiveAction': false }
     });
     return {
-        pure, main, restored, legacy, corrupt, disabled,
+        pure, main, restored, legacy, corrupt, disabled, prerequisiteDisabled,
         ab: {
             onHash: on.stateHash,
             offHash: off.stateHash,
@@ -8409,6 +8543,280 @@ function probeCollectiveAction(seed = 2032) {
             offValidation: off.collectiveValidation,
             onSummary: on.collectiveSummary,
             offSummary: off.collectiveSummary
+        }
+    };
+}
+
+function probeHumanMigration(seed = 2032) {
+    const atomicRuntime = createRuntime(seed >>> 0);
+    let atomic;
+    try {
+        atomicRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = atomicRuntime.api.state();
+        const originNode = story.nodes.find(node => Array.isArray(node.neighbors) && node.neighbors.length);
+        const destinationNode = story.nodes.find(node => node.id === originNode.neighbors[0]);
+        const originId = `region:${originNode.id}`;
+        const destinationId = `region:${destinationNode.id}`;
+        const originBefore = atomicRuntime.api.populationRegionView(originId);
+        const destinationBefore = atomicRuntime.api.populationRegionView(destinationId);
+        const profile = originBefore.cohorts.find(row => row.membersPeople >= 17);
+        const worldBefore = atomicRuntime.api.populationSummary().populationPeople;
+        const result = atomicRuntime.api.populationTransferCohorts(
+            originId,
+            destinationId,
+            { [profile.profileKey]: 17 },
+            { minimumOriginPopulationPeople: 1000 }
+        );
+        const originAfter = atomicRuntime.api.populationRegionView(originId);
+        const destinationAfter = atomicRuntime.api.populationRegionView(destinationId);
+        const worldAfter = atomicRuntime.api.populationSummary().populationPeople;
+        atomic = {
+            result,
+            worldBefore,
+            worldAfter,
+            exactWorldConservation: worldBefore === worldAfter && result.populationDelta === 0,
+            originDelta: originAfter.populationPeople - originBefore.populationPeople,
+            destinationDelta: destinationAfter.populationPeople - destinationBefore.populationPeople,
+            nodePopulationSynchronized: Math.round(originNode.pop * 1000) === originAfter.populationPeople
+                && Math.round(destinationNode.pop * 1000) === destinationAfter.populationPeople,
+            validation: atomicRuntime.api.validatePopulationLedger(atomicRuntime.api.populationLedger())
+        };
+    } finally {
+        atomicRuntime.dom.window.close();
+    }
+
+    const crisisRuntime = createRuntime((seed + 1) >>> 0);
+    let crisis;
+    try {
+        crisisRuntime.api.newCampaign({ seed: seed + 1, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = crisisRuntime.api.state();
+        const originNode = story.nodes.find(node => Array.isArray(node.neighbors) && node.neighbors.length);
+        const originId = `region:${originNode.id}`;
+        const needs = story.needsWelfare.regions[originId];
+        needs.securityBps = 900;
+        needs.wellbeingBps = 1800;
+        needs.unemploymentRiskBps = 9000;
+        for (const row of needs.cohorts || []) {
+            row.securityBps = 900;
+            row.wellbeingBps = Math.min(row.wellbeingBps, 1800);
+            row.unemploymentRiskBps = Math.max(row.unemploymentRiskBps, 9000);
+        }
+        const beforePeople = crisisRuntime.api.populationSummary().populationPeople;
+        crisisRuntime.api.humanMigrationTick(5);
+        const ledger = story.humanMigration;
+        const flow = ledger.flows.find(row => row.originRegionId === originId && row.kind === 'REFUGEE');
+        let capacityBlocked = false;
+        let completedAfterCapacity = false;
+        let completedPopulationDelta = null;
+        if (flow) {
+            const destination = crisisRuntime.api.populationRegionView(flow.destinationRegionId);
+            ledger.receptionCapacityPeopleByRegion[flow.destinationRegionId] = destination.populationPeople;
+            flow.arrivalAt = story.clock;
+            crisisRuntime.api.humanMigrationTick(5);
+            capacityBlocked = flow.status === 'BLOCKED' && flow.lastFailureReason === 'RECEPTION_CAPACITY';
+            ledger.receptionCapacityPeopleByRegion[flow.destinationRegionId] = destination.populationPeople + flow.people + 200;
+            flow.arrivalAt = story.clock;
+            crisisRuntime.api.humanMigrationTick(5);
+            completedAfterCapacity = flow.status === 'COMPLETED';
+            completedPopulationDelta = flow.populationDelta;
+        }
+        const afterPeople = crisisRuntime.api.populationSummary().populationPeople;
+        crisis = {
+            flow: flow ? JSON.parse(JSON.stringify(flow)) : null,
+            refugeeCreated: !!flow,
+            capacityBlocked,
+            completedAfterCapacity,
+            completedPopulationDelta,
+            exactWorldConservation: beforePeople === afterPeople,
+            populationValidation: crisisRuntime.api.validatePopulationLedger(crisisRuntime.api.populationLedger()),
+            migrationValidation: crisisRuntime.api.validateHumanMigrationLedger(crisisRuntime.api.humanMigrationLedger())
+        };
+    } finally {
+        crisisRuntime.dom.window.close();
+    }
+
+    const noRouteRuntime = createRuntime((seed + 2) >>> 0);
+    let noRoute;
+    try {
+        noRouteRuntime.api.newCampaign({ seed: seed + 2, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = noRouteRuntime.api.state();
+        const originNode = story.nodes.find(node => Array.isArray(node.neighbors) && node.neighbors.length);
+        const originId = `region:${originNode.id}`;
+        const needs = story.needsWelfare.regions[originId];
+        needs.securityBps = 500;
+        needs.wellbeingBps = 1000;
+        for (const corridor of noRouteRuntime.api.infrastructureGraph().corridors) {
+            if (corridor.mode === 'LAND' || corridor.mode === 'SEA') {
+                noRouteRuntime.api.infrastructureSetDamage(corridor.id, 10000, { enabled: false });
+            }
+        }
+        noRouteRuntime.api.humanMigrationTick(5);
+        noRoute = {
+            originRegionId: originId,
+            createdFromIsolatedOrigin: noRouteRuntime.api.humanMigrationLedger().flows
+                .some(flow => flow.originRegionId === originId),
+            validation: noRouteRuntime.api.validateHumanMigrationLedger(noRouteRuntime.api.humanMigrationLedger())
+        };
+    } finally {
+        noRouteRuntime.dom.window.close();
+    }
+
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(180);
+        const story = runtime.api.state();
+        const ledger = runtime.api.humanMigrationLedger();
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, `country:${story.playerStateId}`);
+        const ownNode = story.nodes.find(node => node.owner === story.playerStateId);
+        const foreignNode = story.nodes.find(node => node.owner !== story.playerStateId);
+        const ownRegionId = `region:${ownNode.id}`;
+        const foreignRegionId = `region:${foreignNode.id}`;
+        const ownKnowledge = knowledge.regions.find(region => region.id === ownRegionId);
+        const foreignKnowledge = knowledge.regions.find(region => region.id === foreignRegionId);
+        const ownPopulation = runtime.api.renderCityDossier(ownNode.id, 'nufus');
+        const foreignPopulation = runtime.api.renderCityDossier(foreignNode.id, 'nufus');
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = runtime.api.humanMigrationLedger();
+        const savedPayload = JSON.parse(savedRaw).humanMigration;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        const migratedCountry = migrated.ok
+            ? migrated.world.countries.find(country => country.id === `country:${story.playerStateId}`)
+            : null;
+        const migratedRegion = migrated.ok
+            ? migrated.world.regions.find(region => region.id === ownRegionId)
+            : null;
+        main = {
+            validation: runtime.api.validateHumanMigrationLedger(ledger),
+            populationValidation: runtime.api.validatePopulationLedger(runtime.api.populationLedger()),
+            needsValidation: runtime.api.validateNeedsLedger(runtime.api.needsLedger()),
+            saveOk: story._lastSaveOk === true,
+            saveError: story._lastSaveError || null,
+            saveExact: JSON.stringify(savedPayload) === JSON.stringify(savedLedger),
+            summary: runtime.api.humanMigrationSummary(),
+            completedConservation: ledger.flows.filter(flow => flow.status === 'COMPLETED')
+                .every(flow => flow.populationDelta === 0),
+            worldValidation: runtime.api.validateWorldV2(world),
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
+            ownKnowledge: ownKnowledge.humanMigration,
+            foreignKnowledge: foreignKnowledge.humanMigration,
+            foreignSecretsHidden: !/cohorts|route|evidence|originPushBps|qualityGainBps|receptionCapacityPeople/.test(
+                JSON.stringify(foreignKnowledge.humanMigration.value)
+            ),
+            ui: {
+                ownHasMigration: ownPopulation.text.includes('GÖÇ VE MÜLTECİ AKIŞI'),
+                foreignHasMigration: foreignPopulation.text.includes('GÖÇ VE MÜLTECİ AKIŞI'),
+                foreignSecretLeak: /KABUL KAPASİTESİ|\d+ koridor/.test(foreignPopulation.text)
+            },
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                countryPreserved: !!(migratedCountry && migratedCountry.humanMigration),
+                regionPreserved: !!(migratedRegion && migratedRegion.humanMigration),
+                unmapped: !!(migrated.ok
+                    && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('humanMigration'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        restored = { loaded: restoredRuntime.api.loadNow(), validation: null, exact: false };
+        const ledger = restoredRuntime.api.humanMigrationLedger();
+        restored.validation = restoredRuntime.api.validateHumanMigrationLedger(ledger);
+        restored.exact = JSON.stringify(ledger) === JSON.stringify(savedLedger);
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.humanMigration;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacy = { loaded: legacyRuntime.api.loadNow(), validation: null, summary: null, diagnostics: null };
+        const ledger = legacyRuntime.api.humanMigrationLedger();
+        legacy.validation = legacyRuntime.api.validateHumanMigrationLedger(ledger);
+        legacy.summary = legacyRuntime.api.humanMigrationSummary();
+        legacy.diagnostics = ledger.diagnostics;
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    if (corruptSave.humanMigration.flows[0]) corruptSave.humanMigration.flows[0].people++;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corrupt = { loaded: corruptRuntime.api.loadNow(), validation: null, diagnostics: null };
+        const ledger = corruptRuntime.api.humanMigrationLedger();
+        corrupt.validation = corruptRuntime.api.validateHumanMigrationLedger(ledger);
+        corrupt.diagnostics = ledger.diagnostics;
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'population.humanMigration': false }
+        });
+        disabledRuntime.api.advance(30);
+        disabled = {
+            ledger: disabledRuntime.api.humanMigrationLedger(),
+            summary: disabledRuntime.api.humanMigrationSummary()
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: {
+                'society.collectiveAction': false,
+                'population.humanMigration': true
+            }
+        });
+        prerequisiteRuntime.api.advance(30);
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.humanMigrationLedger(),
+            summary: prerequisiteRuntime.api.humanMigrationSummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+
+    const on = runStorySimulation({ seed, seconds: 180 });
+    const off = runStorySimulation({
+        seed, seconds: 180, featureFlags: { 'population.humanMigration': false }
+    });
+    return {
+        atomic, crisis, noRoute, main, restored, legacy, corrupt, disabled, prerequisiteDisabled,
+        ab: {
+            onHash: on.stateHash,
+            offHash: off.stateHash,
+            changed: on.stateHash !== off.stateHash,
+            onValidation: on.humanMigrationValidation,
+            offValidation: off.humanMigrationValidation,
+            onSummary: on.humanMigrationSummary,
+            offSummary: off.humanMigrationSummary,
+            populationDelta: on.populationSummary.populationPeople - off.populationSummary.populationPeople
         }
     };
 }
@@ -8446,6 +8854,7 @@ module.exports = {
     probeNeedsWelfare,
     probePublicOpinion,
     probeCollectiveAction,
+    probeHumanMigration,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

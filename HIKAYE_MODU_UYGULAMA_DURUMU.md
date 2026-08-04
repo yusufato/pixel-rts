@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 25 — Kamuoyu ve Şikâyet Hafızası
+**Son kapanan faz:** Faz 26 — Protesto, Grev ve Radikalleşme
 
-**Aktif uygulama sırası:** Faz 26 — Protesto, Grev ve Radikalleşme
+**Aktif uygulama sırası:** Faz 28 — Güç Merkezleri
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -49,8 +49,10 @@
 | Faz 24 — İhtiyaç, refah ve güvenlik | `implemented` | `js/StoryNeeds.js`; fiziksel tahsisten türeyen 1.824 kohort sonucu, farklı ihtiyaç ağırlıkları, grev/kuşatma etkisi, bilgi filtreli UI ve `qa-runtime/story-phase24-ab.json` |
 | Ara tasarım sözleşmesi — Proje, varlık, bakım ve B2B hizmet | `planned` | Dış analiz kabul edildi; `ProjectV1 → WorldAssetV1`, gerçek bakım, mekanik sözleşme ve hizmet teslim fişi omurgası ana plana işlendi. Faz 22.1E kapısı geçti; şirket sahibi merceği kabulünden sonra kodlanacak, `NegotiationCase` mekanik sözleşme sayılmayacak. |
 | Faz 25 — Kamuoyu ve Şikâyet Hafızası | `implemented` | `js/StoryOpinion.js`; 1.824 kohortta sorun/algılanan aktör/dayanak/tekrar/iyileşme taşıyan sınırlı hafıza, bilgi filtreli UI, kompakt kayıt ve `qa-runtime/story-phase25-ab.json` |
-| Faz 26 — Protesto, Grev ve Radikalleşme | `next` | Faz 25'in açıklanabilir birikimini sebepli, aşamalı kolektif eyleme dönüştürecek; Faz 25 içinde erken davranış sonucu yazılmadı |
-| Faz 27+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 26 — Protesto, Grev ve Radikalleşme | `implemented` | `js/StoryCollectiveAction.js`; eşik+histerezisli protesto/grev/ayaklanma, bölgesel fiziksel etki, bastırma hafızası, devlet cevabı, bilgi filtreli UI ve `qa-runtime/story-phase26-ab.json` |
+| Faz 27 — Göç ve Mülteci Akışı | `complete` | İç/dış göç ve mülteci akışı gerçek rota, gecikme, kapasite ve atomik kohort aktarımıyla çalışıyor |
+| Faz 28 — Güç Merkezleri | `next` | Şirket, sendika, ordu, medya, bürokrasi ve örgütlü hareketleri kimlikli güç aktörlerine dönüştürecek |
+| Faz 29+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -815,9 +817,36 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - `qa-runtime/story-phase25-ab.json` kalıcı kanıtı kapalı `9af31ad5…fdf5`, açık `b813d8a7…a664` karmasını kaydetti. İlk durum farkı yalnız `$.publicOpinion`; eski refah, enflasyon, huzursuzluk, etkin devlet, haber ve üç eski kaynak deltasının tamamı `0`.
 - Yüksek ortalama şikâyet gerçek bir sonraki tasarım baskısıdır: Faz 26 eylem eşiklerini yalnız anlık şiddetten değil süre, tekrar, yayılım, aktör, örgütlenme kapasitesi ve devlet tepkisinden türetmeli; aksi halde 900 saniyelik normal dünyada otomatik sürekli isyan döngüsü doğar.
 
-## Faz 22.1 çalışma günlüğü ve sıradaki uygulama
+## Faz 26 — Protesto, Grev ve Radikalleşme kabul sonucu
 
-**Güncel karar (2 Ağustos 2026):** Aşağıdaki 1–20 maddeleri Faz 22.1E'nin teşhis ve deney günlüğüdür. Son hane dağıtım kabulü bütün fiziksel, mali, deterministik ve uzun dönem denge kapılarını geçti; Faz 22.1E tamamlandı. Sıradaki uygulama **Faz 25 — Kamuoyu ve Şikâyet Hafızası**dır.
+- `js/StoryCollectiveAction.js`, Faz 25'in gerçek aktör kimlikli şikâyetlerini ülke + sorun + algılanan sorumlu ekseninde sınırlı hareketlere topluyor. Anlık duygu zarı yok; yayılım, süre, tekrar, etkilenen nüfus, örgütlenme vekili, mobilizasyon, radikalleşme, devlet cevabı ve geçmiş bastırma birlikte karar veriyor.
+- Aşama sırası `NONE → PROTEST → STRIKE → UPRISING`. Protesto `6.200` mobilizasyon / `6.000` şiddet / üç ardışık tik; grev yalnız `income|employment` sorununda `7.300` mobilizasyon / `5.200` örgütlenme / dört tik; ayaklanma `9.300` mobilizasyon / `9.000` radikalleşme, yeterli tekrar ve sekiz tik ister. Alt kapanış eşikleri, cooldown ve kapı sayaçları eşik titreşimini kesiyor.
+- Hedefli ağır gelir krizinde ilk protesto 11., ilk grev 16. tikte oluştu; kronik kriz tek başına ayaklanma üretmedi. İlk bastırma, tavize göre mobilizasyon/radikalleşmeyi daha yüksek bıraktı; ikinci bastırma sonrası aynı çözülmemiş kriz 55. tikte ayaklanmaya dönüştü. Sessiz toplum sıfır yanlış eylem üretti.
+- Protesto fiziksel üretim cezası değildir. Gelir/istihdam grevi yalnız katılan bölgede üretimi `%65`e, ayaklanma `%30`a indirir. `publicServices` şikâyeti grev etiketi alamaz. Ülke geneli çarpan kaldırıldı; eski `st.welfare`, fraksiyon yazımı ve eski huzursuzluk köprüsü kapalıdır.
+- İlk uygulama denemesinde bütün ülkeye grev cezası verilmesi 900 saniyede gıda/enerji/yaşamı yaklaşık `%36,39/%57,03/%52,03`e düşürüp 7 grev üretti; aynı fiziksel krizi iki kez saydığı için reddedildi. Etki bölgeye indirilince `%73,06` gıda / `%67,14` yaşam görüldü fakat kamu hizmeti protestosunun grev sayılması hâlâ yanlıştı. Grev semantiği emek kanallarına daraltıldı ve eski genel sayaç köprüleri tamamen kaldırıldı.
+- Oyuncu `CONCEDE/NEGOTIATE/SUPPRESS/IGNORE` cevabı alır; bildirim zaman aşımında eski seçenek UI kuyruğundan gerçekten silinir. AI aynı doğrulanmış durumdan seçim yapar. LLM sayı, eşik veya karar üretmez; rastgele karar yoktur.
+- Kayıt/yükleme birebir, eski kayıt boş/açıklamalı backfill, bozuk defter dünya korunarak güvenli sıfırlama, sahiplik sonrası türetilmiş özet yenileme, V3→V2 göç ve özellik/prerequisite kapalı yollar geçti. Kendi bölgesi tam doğrulanmış; yabancı bölgede yalnız kamusal eylem görünür, mobilizasyon/radikalleşme/örgütlenme sızmaz.
+- Tam 900 saniyelik `npm test` çıkış kodu `0`; politika karması `fnv1a32:bd78ac61`, dünya karması `7a42d4d6e955f996be269880c9691acdaf33ee1ebc5476872a4df119e2554b14`. 56 hareket, 5 aktif protesto, 0 grev, 0 ayaklanma, 22 olay; ortalama mobilizasyon `5.774`, radikalleşme `4.590` baz puan. Normal koşuda nadir dallar zorlanmadı; ağır hedefli prob bunları ayrıca kanıtladı.
+- `qa-runtime/story-phase26-ab.json`: kapalı `ebd87ca106eb4c02b4f63d2f5e3bf2a071ba3c0e4d32772d90f3e47678183bde`, açık `7a42d4d6e955f996be269880c9691acdaf33ee1ebc5476872a4df119e2554b14`. İlk fark yalnız `$.collectiveAction`; refah, enflasyon, huzursuzluk, etkin devlet, haber, petrol, insan gücü ve puan deltaları `0`.
+- Faz 28 öncesi örgütlenme modeli bilerek `COHORT_NETWORK_PROXY_PRE_PHASE_28` olarak etiketlidir. Gerçek sendika, lider, kaynak ve güç merkezi henüz yoktur; bunları varmış gibi sunmak yerine Faz 28'de kanonik aktöre göç ettirilecektir.
+
+## Faz 27 — Göç ve Mülteci Akışı kabul sonucu
+
+- `js/StoryHumanMigration.js`, `story-human-migration-ledger-1` şemasıyla ülke içi göç, sınır ötesi göç ve mülteci akışını aynı sınırlı defterde yürütüyor. Karar yalnız kanonik nüfus/iş/gelir/gıda/enerji/güvenlik sonuçlarından türetiliyor; LLM ve rastgele zar kullanılmıyor.
+- Göç ışınlanma değildir. Her akış gerçek `StoryInfrastructure` koridor rotası, yolculuk süresi, ortak akış kapasitesi, `PLANNED/IN_TRANSIT/BLOCKED/COMPLETED/CANCELLED` durumu, sınırlı retry ve açıklanabilir neden kodları taşır. Kara ve deniz koridorları kapalı zorlamada sıfır akış üretildi.
+- Nüfus sahipliği `StoryPopulation.storyPopulationTransferCohorts` atomik kapısından değişiyor. Hedefli probda 17 kişi bölge 0'dan 6'ya tam taşındı ve dünya nüfus deltası `0` kaldı. Zorlanmış güvenlik krizinde 90 kişilik mülteci akışı bölge 0'dan 106'ya gerçek beş koridorlu rotada önce kapasite yüzünden bloklandı, sonra tamamlandı; toplam nüfus yine korundu.
+- Kayıt/yükleme yoldaki akışları, kapasite rezervlerini ve sayaçları birebir geri kuruyor. Faz 27 öncesi kayıt güvenli boş defterle açılıyor; bozuk defter dünyayı silmeden sıfırlanıyor. Kayıt alma artık geçerli ihtiyaç/kamuoyu defterini gereksiz uzlaştırarak canlı durumu değiştirmiyor; uzlaştırma yalnız doğrulama başarısızsa çalışıyor.
+- Bilgi sınırı korunuyor: oyuncunun kendi ülkesindeki akışlar tam doğrulanmış görünür; yabancı ülkede yalnız tamamlanmış ve kamusal sonuçlar gösterilir. Aktif rota, niyet, aday hedef ve hassas nüfus ayrıntısı yabancı şehir UI'sine sızmaz.
+- 900 saniyelik tam koşuda `231` akış oluştu: `46` aktif, `167` tamamlanmış, `18` iptal; toplam `3.955` kişi taşındı (`1.706` sınır ötesi, `2.249` ülke içi), `256` olay kaydedildi. Normal koşuda mülteci oluşmaması eksik dal sayılmadı; nadir güvenlik yolu hedefli deterministik probla kanıtlandı.
+- Tam `npm test` çıkış kodu `0`; dünya karması `880b861ba56e9954cf5c319db5ce96835c606205e4c7d5af08157dc4a5c33cb6`. Final gıda `%85,13`, enerji `%85,36`, yaşam koşulu `%73,33`; sekiz devlet hayatta kaldı. 19 görevli scheduler kayıt/devam koşusunda birebir aynı sıra ve sonuç üretildi.
+- `qa-runtime/story-phase27-ab.json` kontrol/treatment kanıtını ve atomik nüfus, mülteci, kapasite, kayıt/yükleme kapılarını saklıyor. Faz 27 açık dünyada huzursuzluk `3,285→3,090`; gıda/enerji/yaşam `%76,55/%77,56/%70,82→%85,13/%85,36/%73,33` oldu. Bu fark fiziksel nüfusun gerçekten yer değiştirmesinden doğuyor; eski Faz 22 salt dağıtım benchmark'ı Faz 27'yi açık bırakıp artık aynı sonucu beklemiyor.
+- İlk dilim konut varlığı, sınır politikası ve ticaretle ortak koridor kapasitesi varmış gibi davranmıyor. Çekim/itme içinde `HOUSING_PROXY_PRE_ASSET_SYSTEM`, sınır kabulünde açık politika yerine güvenli deterministik vekil ve yalnız göçe ait kapasite bütçesi kullanılıyor. Bunlar sonraki fazların gerçek sahipleri geldiğinde göç ettirilecek.
+- Monolitik 46 problu test dosyası sonuç nesnelerini uzun süre tuttuğu için Node'un 4 GB heap sınırına ulaştı. Test komutu davranışı azaltmadan `--max-old-space-size=8192 --expose-gc` ile tam kapsamı koruyor; bu oyun çalışma zamanı gereksinimi değil, QA tezgâhı borcudur. Kalıcı çözüm probları ayrı süreçlere bölmektir.
+- Sıradaki uygulama **Faz 28 — Güç Merkezleri ve Kurumsal Aktörler**dir. Faz 26'nın örgütlenme vekilleri ve Faz 27'nin kurumsal çekim/sınır vekilleri, gerçek kimlikli aktörlere ancak bu fazın kanonik sözleşmeleriyle bağlanacaktır.
+
+## Faz 22.1 çalışma günlüğü (arşiv)
+
+**Arşiv kapanış kararı (2 Ağustos 2026):** Aşağıdaki maddeler Faz 22.1E'nin teşhis ve deney günlüğüdür. Son hane dağıtım kabulü bütün fiziksel, mali, deterministik ve uzun dönem denge kapılarını geçti; Faz 22.1E tamamlandı. O tarihte sıradaki uygulama **Faz 25 — Kamuoyu ve Şikâyet Hafızası** idi; güncel sıra belgenin üstündeki faz tablosundadır.
 
 1. Faz 22.1A–D aday uygulamasını sertleştirmek: reçete darboğaz sayacı, ülke portföyü, fiziksel yatırım emaneti ve gerçek rota/ödeme tedariki kodlandı; henüz kabul edilmedi.
 2. Faz 22.1 kapalı kontrol yolundaki karma ve davranış sızıntısını bulmak. Gereksiz sipariş şema alanı kaldırıldı fakat kontrol hâlâ `8` proje üretiyor; beklenen Faz 24 karması sağlanmadan A/B kanıtı geçerli sayılmaz.

@@ -339,6 +339,135 @@ function storyPopulationLaborSupply(regionId, worldDays) {
     };
 }
 
+// Faz 27'nin tek nüfus mutasyon kapısı. Göç katmanı kendi nüfus kopyasını
+// tutmaz; doğrulanmış bir profil dağılımını iki kanonik bölge arasında atomik
+// taşır. node.pop ve kohort toplamları aynı işlemde kapanır.
+function storyPopulationSharesFromMembers(cohorts) {
+    const total = (cohorts || []).reduce((sum, row) => sum + Math.max(0, Math.floor(Number(row.membersPeople) || 0)), 0);
+    if (total <= 0) return STORY_POPULATION_PROFILES.map((profile, index) => ({
+        profileKey: profile.key,
+        shareBps: index === 0 ? 10000 : 0
+    }));
+    const exact = (cohorts || []).map(row => Math.max(0, Math.floor(Number(row.membersPeople) || 0)) * 10000 / total);
+    const shares = exact.map(Math.floor);
+    let remainder = 10000 - shares.reduce((sum, value) => sum + value, 0);
+    exact.map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+        .sort((a, b) => b.fraction - a.fraction || a.index - b.index)
+        .slice(0, remainder)
+        .forEach(row => { shares[row.index]++; });
+    return (cohorts || []).map((row, index) => ({ profileKey: row.profileKey, shareBps: shares[index] }));
+}
+
+function storyPopulationRegionApplyMembers(region, membersByProfile, countryId) {
+    const shares = storyPopulationSharesFromMembers(region.cohorts.map(row => ({
+        profileKey: row.profileKey,
+        membersPeople: Math.max(0, Math.floor(Number(membersByProfile[row.profileKey]) || 0))
+    })));
+    const shareByProfile = Object.fromEntries(shares.map(row => [row.profileKey, row.shareBps]));
+    for (const cohort of region.cohorts) {
+        cohort.membersPeople = Math.max(0, Math.floor(Number(membersByProfile[cohort.profileKey]) || 0));
+        cohort.shareBps = shareByProfile[cohort.profileKey];
+        cohort.countryId = countryId;
+    }
+    region.countryId = countryId;
+    region.populationPeople = region.cohorts.reduce((sum, row) => sum + row.membersPeople, 0);
+}
+
+function storyPopulationScaleTransfer(entries, maximumPeople) {
+    const total = entries.reduce((sum, row) => sum + row.people, 0);
+    const limit = Math.max(0, Math.min(total, Math.floor(Number(maximumPeople) || 0)));
+    if (limit >= total) return entries.map(row => ({ profileKey: row.profileKey, people: row.people }));
+    if (limit <= 0 || total <= 0) return [];
+    const exact = entries.map(row => row.people * limit / total);
+    const values = exact.map(Math.floor);
+    let remainder = limit - values.reduce((sum, value) => sum + value, 0);
+    exact.map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+        .sort((a, b) => b.fraction - a.fraction || entries[a.index].profileKey.localeCompare(entries[b.index].profileKey))
+        .slice(0, remainder)
+        .forEach(row => { values[row.index]++; });
+    return entries.map((row, index) => ({ profileKey: row.profileKey, people: values[index] }))
+        .filter(row => row.people > 0);
+}
+
+function storyPopulationTransferCohorts(originRegionId, destinationRegionId, requestedByProfile, options) {
+    options = options || {};
+    const ledger = storyPopulationEnsure();
+    if (!ledger) return { ok: false, reason: 'FEATURE_DISABLED' };
+    const originId = String(originRegionId).startsWith('region:') ? String(originRegionId) : `region:${Number(originRegionId)}`;
+    const destinationId = String(destinationRegionId).startsWith('region:') ? String(destinationRegionId) : `region:${Number(destinationRegionId)}`;
+    if (originId === destinationId) return { ok: false, reason: 'SAME_REGION' };
+    const origin = ledger.regions[originId];
+    const destination = ledger.regions[destinationId];
+    if (!origin || !destination) return { ok: false, reason: 'REGION_NOT_FOUND' };
+    const originNode = (STORY.nodes || []).find(node => `region:${Number(node.id)}` === originId);
+    const destinationNode = (STORY.nodes || []).find(node => `region:${Number(node.id)}` === destinationId);
+    if (!originNode || !destinationNode) return { ok: false, reason: 'NODE_NOT_FOUND' };
+
+    const requested = requestedByProfile && typeof requestedByProfile === 'object' ? requestedByProfile : {};
+    const originByProfile = Object.fromEntries(origin.cohorts.map(row => [row.profileKey, row]));
+    const entries = STORY_POPULATION_PROFILES.map(profile => ({
+        profileKey: profile.key,
+        people: Math.min(
+            Math.max(0, Math.floor(Number(requested[profile.key]) || 0)),
+            Math.max(0, Number(originByProfile[profile.key] && originByProfile[profile.key].membersPeople) || 0)
+        )
+    })).filter(row => row.people > 0);
+    const minimumOriginPopulationPeople = Math.max(0, Math.floor(Number(options.minimumOriginPopulationPeople) || 1000));
+    const maximumPeople = Math.max(0, origin.populationPeople - minimumOriginPopulationPeople);
+    const transfer = storyPopulationScaleTransfer(entries, maximumPeople);
+    const movedPeople = transfer.reduce((sum, row) => sum + row.people, 0);
+    if (movedPeople <= 0) return { ok: false, reason: 'NO_MOVABLE_POPULATION' };
+
+    const before = {
+        origin: storyPopulationClone(origin),
+        destination: storyPopulationClone(destination),
+        countries: storyPopulationClone(ledger.countries),
+        revision: ledger.revision,
+        originPop: originNode.pop,
+        destinationPop: destinationNode.pop
+    };
+    const originMembers = Object.fromEntries(origin.cohorts.map(row => [row.profileKey, row.membersPeople]));
+    const destinationMembers = Object.fromEntries(destination.cohorts.map(row => [row.profileKey, row.membersPeople]));
+    for (const row of transfer) {
+        originMembers[row.profileKey] -= row.people;
+        destinationMembers[row.profileKey] += row.people;
+    }
+    const originCountryId = storyPopulationCountryId(originNode.owner);
+    const destinationCountryId = storyPopulationCountryId(destinationNode.owner);
+    storyPopulationRegionApplyMembers(origin, originMembers, originCountryId);
+    storyPopulationRegionApplyMembers(destination, destinationMembers, destinationCountryId);
+    originNode.pop = origin.populationPeople / 1000;
+    destinationNode.pop = destination.populationPeople / 1000;
+    ledger.countries = storyPopulationAggregateCountries(ledger.regions);
+    ledger.lastReconciledAt = Number(STORY.clock) || 0;
+    ledger.revision++;
+    const validation = storyPopulationValidate(ledger);
+    if (!validation.ok) {
+        ledger.regions[originId] = before.origin;
+        ledger.regions[destinationId] = before.destination;
+        ledger.countries = before.countries;
+        ledger.revision = before.revision;
+        originNode.pop = before.originPop;
+        destinationNode.pop = before.destinationPop;
+        return { ok: false, reason: 'POPULATION_VALIDATION_FAILED', issues: validation.issues.slice(0, 20) };
+    }
+    return {
+        ok: true,
+        originRegionId: originId,
+        destinationRegionId: destinationId,
+        originCountryId,
+        destinationCountryId,
+        movedPeople,
+        cohorts: transfer,
+        originPopulationBefore: before.origin.populationPeople,
+        originPopulationAfter: origin.populationPeople,
+        destinationPopulationBefore: before.destination.populationPeople,
+        destinationPopulationAfter: destination.populationPeople,
+        populationDelta: (origin.populationPeople + destination.populationPeople)
+            - (before.origin.populationPeople + before.destination.populationPeople)
+    };
+}
+
 function storyPopulationWorldEntities() {
     const ledger = storyPopulationEnsure();
     if (!ledger) return [];

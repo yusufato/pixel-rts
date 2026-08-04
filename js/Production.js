@@ -307,7 +307,7 @@ function prodTick(step) {
             const k = prodBuildingFor(job.type);
             if (busy[k]) continue;          // o bina bu tick zaten bir iş işliyor
             busy[k] = 1;
-            job.t -= step * ((typeof storyFacStrikeMul === 'function') ? storyFacStrikeMul(n.owner) : 1);   // AŞAMA 2: grev
+            job.t -= step * ((typeof storyFacStrikeMul === 'function') ? storyFacStrikeMul(n.owner, n.id) : 1);   // AŞAMA 2: grev
         }
         for (let i = n.q.length - 1; i >= 0; i--) {
             if (n.q[i].t > 0) continue;
@@ -842,7 +842,10 @@ function storyCityGrowthTick(dt) {
             n.wealth = (lv - 1) * 20;
         }
         if (n._siege) continue;                                // kuşatılan şehir büyümez
-        const strike = st._strikeUntil && st._strikeUntil > (STORY.clock || 0);
+        const strike = typeof storyCollectiveEnabled === 'function' && storyCollectiveEnabled()
+            && typeof storyCollectiveRegionStrikeActive === 'function'
+            ? storyCollectiveRegionStrikeActive(n.id)
+            : st._strikeUntil && st._strikeUntil > (STORY.clock || 0);
         const unr = (typeof storyFacUnrest === 'function') ? storyFacUnrest(st) : 0;
         const infra = (n.fac | 0) + (n.bar | 0);
         const bootstrapPlanning = typeof storyFeatureEnabled !== 'function'

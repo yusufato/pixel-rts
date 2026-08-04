@@ -128,7 +128,18 @@ function storyNeedsRegionSignals(regionId) {
         : (hostileCount > 0 ? STORY_NEEDS_POLICY.warSecurityBps : STORY_NEEDS_POLICY.peaceSecurityBps);
     securityBps = storyNeedsClampBps(securityBps + Math.min(700, Math.max(0, Number(node && node.garrison) || 0) * 70));
     const state = node && typeof storyState === 'function' ? storyState(node.owner) : null;
-    const strikeActive = !!(state && state._strikeUntil && state._strikeUntil > (Number(STORY.clock) || 0));
+    const collectiveActionsActive = typeof storyCollectiveEnabled === 'function'
+        && storyCollectiveEnabled();
+    const legacyStrikeActive = !collectiveActionsActive
+        && !!(state && state._strikeUntil && state._strikeUntil > (Number(STORY.clock) || 0));
+    const strikeProblems = collectiveActionsActive
+        && typeof storyCollectiveRegionStrikeProblems === 'function'
+        ? storyCollectiveRegionStrikeProblems(regionId)
+        : (legacyStrikeActive ? ['LEGACY_GENERAL_STRIKE'] : []);
+    const strikeActive = collectiveActionsActive
+        && typeof storyCollectiveRegionStrikeActive === 'function'
+        ? storyCollectiveRegionStrikeActive(regionId)
+        : legacyStrikeActive;
     return {
         foodAccessBps,
         energyAccessBps,
@@ -138,6 +149,7 @@ function storyNeedsRegionSignals(regionId) {
         hostileCount,
         underSiege: !!(node && node._siege),
         strikeActive,
+        strikeProblems,
         fiscalStatus: budget ? budget.status : 'UNAVAILABLE',
         sourceRegionalTick: regional && regional.lastTick ? regional.lastTick.sequence : null,
         sourceBudgetTick: STORY.stateBudget ? STORY.stateBudget.tickSequence : null
@@ -146,7 +158,15 @@ function storyNeedsRegionSignals(regionId) {
 
 function storyNeedsCohortOutcome(cohort, signals) {
     let incomeSecurityBps = STORY_NEEDS_POLICY.incomeByOccupation[cohort.occupation] || 4000;
-    if (signals.strikeActive && ['AGRICULTURE', 'INDUSTRY', 'SERVICES'].includes(cohort.occupation)) {
+    const laborStrike = (signals.strikeProblems || []).some(
+        problem => problem === 'income' || problem === 'employment'
+    );
+    const publicServiceStrike = (signals.strikeProblems || []).includes('publicServices');
+    const legacyGeneralStrike = (signals.strikeProblems || []).includes('LEGACY_GENERAL_STRIKE');
+    if (signals.strikeActive && ((laborStrike
+        && ['AGRICULTURE', 'INDUSTRY', 'SERVICES', 'PUBLIC'].includes(cohort.occupation))
+        || (publicServiceStrike && cohort.occupation === 'PUBLIC')
+        || (legacyGeneralStrike && ['AGRICULTURE', 'INDUSTRY', 'SERVICES'].includes(cohort.occupation)))) {
         incomeSecurityBps -= STORY_NEEDS_POLICY.strikeIncomePenaltyBps;
     }
     incomeSecurityBps = storyNeedsClampBps(incomeSecurityBps);
@@ -370,9 +390,30 @@ function storyNeedsTick() {
 function storyNeedsForSave() {
     const ledger = storyNeedsEnsure();
     if (!ledger) return null;
-    const validation = storyNeedsValidate(ledger);
-    ledger.diagnostics.issues = validation.ok ? [] : validation.issues.slice(0, 50);
-    return storyNeedsClone(ledger);
+    // Geçerli projeksiyonu sırf save alınıyor diye yeniden hesaplama: bölgesel
+    // stok tahsisi ihtiyaç tikinden sonra değişmiş olabilir ve bu, davranış
+    // zamanı ilerlemeden 295. saniye gözlemini 300. saniye sonucuymuş gibi
+    // yeniden yazar. Doğrulayıcı nüfus/kohort/sahiplik bağını zaten tam kontrol
+    // eder; yalnız bu bağ gerçekten koptuysa (şehir büyümesi veya tamamlanan göç)
+    // salt yapısal uzlaştırma gerekir.
+    const currentValidation = storyNeedsValidate(ledger);
+    if (currentValidation.ok) {
+        ledger.diagnostics.issues = [];
+        return storyNeedsClone(ledger);
+    }
+    // PopulationForSave, son 5 saniyelik ihtiyac tikinden sonra calisan sehir
+    // buyumesini kanonik kohortlara uzlastirabilir. Kayitta eski uye sayisini
+    // tutmamak icin ihtiyac projeksiyonunu yeni bir davranis tiki saymadan
+    // guncel nufustan yeniden kur.
+    const reconciled = storyNeedsLedgerCreate();
+    reconciled.tickSequence = Math.max(0, Number(ledger.tickSequence) || 0);
+    reconciled.lastTickAt = Number(ledger.lastTickAt) || 0;
+    reconciled.diagnostics = storyNeedsClone(ledger.diagnostics);
+    STORY.needsWelfare = reconciled;
+    const validation = storyNeedsValidate(reconciled);
+    reconciled.diagnostics.issues = validation.ok ? [] : validation.issues.slice(0, 50);
+    if (!validation.ok) throw new Error(`Geçersiz ihtiyaç defteri: ${validation.issues[0].code}`);
+    return storyNeedsClone(reconciled);
 }
 
 function storyNeedsRegionView(regionId) {

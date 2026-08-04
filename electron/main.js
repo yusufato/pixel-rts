@@ -385,6 +385,61 @@ app.whenReady().then(() => {
         return;
     }
 
+    // KUVVET-ORANI KAPISI: `--ratiotest [--pro]` → SAVUNANIN kuvvet-oranı gerçeği yansıtıyor mu ve
+    // STRIKE kapısı açılabiliyor mu? Handikap kurulumu (savunan ZENGİN, saldıran fakir) ile sınar:
+    // eski hatada savunan +%46 üstünlükle bile kendini 1.00 sanıyor ve hiç taarruz etmiyordu.
+    if (process.argv.includes('--ratiotest')) {
+        const _pi = process.argv.indexOf('--pro');
+        const PROARG = _pi >= 0 ? (process.argv[_pi + 1] || 'both') : 'none';
+        const PRO_RED = PROARG === 'red' || PROARG === 'both';
+        const PRO_BLUE = PROARG === 'blue' || PROARG === 'both';
+        const PRO = PRO_RED;
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            for (const seed of [2024, 777, 909]) {
+                const out = await js(`(() => { try {
+                    BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                    BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                    BATTLE_INTEL4PRO_RED = ${PRO_RED}; BATTLE_INTEL4PRO_BLUE = ${PRO_BLUE};
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    // HANDİKAP: mavi saldıran 4410₺ (fakir), kırmızı savunan 6460₺ (zengin) — kullanıcının maçıyla aynı oran
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:false, durationSec:360, playerMoney:4410, enemyMoney:6460, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(4410, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:true, pro:${PRO_BLUE} }), false, { source:'ratiotest-blue', ally:true });
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    let ilkOran = null, maxOran = -1, strikeVar = false, ilkStrike = null;
+                    const gercek = () => { let b=0,r2=0; for (const u of SIM.units){ if(u.dead)continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if(u.isRed)r2+=c; else b+=c;} return r2/(b||1); };
+                    let ilkGercek = null;
+                    try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
+                        st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+                        if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st);
+                        const c = BATTLE_CONTROLLERS.get('battle-red-ai');
+                        const fr = c && c.lastSituation ? c.lastSituation.forceRatio : null;
+                        if (fr != null) { if (ilkOran == null) { ilkOran = fr; ilkGercek = gercek(); } if (fr > maxOran) maxOran = fr; }
+                        const p = SIM.ctrlPosture ? SIM.ctrlPosture['battle-red-ai'] : null;
+                        if (p && p.stance === 'STRIKE') { if (!strikeVar) ilkStrike = SIM.tick; strikeVar = true; }
+                    } } finally { SIM.headless = ph; }
+                    const b2 = SIM.battle || {};
+                    return { seed:${seed}, ilkOran, ilkGercek: +ilkGercek.toFixed(2), maxOran: +maxOran.toFixed(2),
+                        savunanSTRIKE: strikeVar, ilkStrikeSn: ilkStrike!=null?Math.round(ilkStrike*BATTLE_TICK_SEC):null,
+                        kazanan:(b2.winnerSide===true?'red(savunan)':b2.winnerSide===false?'blue(saldiran)':'-'), sebep:b2.outcomeReason||null };
+                } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                if (!out || out.err) { console.log('RATIO_ERR ' + (out && out.err)); continue; }
+                console.log('RATIO seed' + out.seed + ' | savunanın t0 oranı ' + out.ilkOran + ' (GERÇEK ' + out.ilkGercek + ')' +
+                    ' | max ' + out.maxOran + ' | STRIKE ' + (out.savunanSTRIKE ? 'VAR t=' + out.ilkStrikeSn + 'sn' : 'YOK') +
+                    ' | kazanan ' + out.kazanan + ' (' + out.sebep + ')');
+            }
+            console.log('RATIOTEST_OK (pro=' + PROARG + ')');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // KOMPOZİSYON TEST ALANI: `--comptest [--list dosya.json] [--seeds 2024,777]`
     // Kullanıcının verdiği ordu listelerini SABİT DÜŞMANA karşı koşar. KONTROL: düşman (kırmızı) her koşuda
     // AYNI tohumla otomatik dizilir ve bizim listemizden ETKİLENMEZ (kırmızı önce dizilir). Ayrıca savaş
@@ -408,6 +463,7 @@ app.whenReady().then(() => {
             const sonuc = [];
             for (const seed of SEEDS) {
                 for (const komp of LISTE) {
+                    if (komp.seed != null && komp.seed !== seed) continue;   // tohum-basi liste destegi
                     const r = await js(`(() => { try {
                         const KOMP = ${JSON.stringify(komp)};
                         BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
@@ -422,7 +478,24 @@ app.whenReady().then(() => {
                         for (const u of SIM.units) { if (u.dead || !u.isRed) continue; const s = STATS[u.type] || {};
                             kirmizi[s.id || u.type] = (kirmizi[s.id || u.type] || 0) + 1; kTut += (s.cost || 0); }
                         const kIz = Object.keys(kirmizi).sort().map(k => k + ':' + kirmizi[k]).join(',');
-                        // MAVİ = kullanıcının listesi
+                        // MAVİ = kullanıcının listesi (ya da taban:true ise AI'ın kendi manifesti = KONTROL)
+                        if (KOMP.taban === true) {
+                            const _mf = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:true });
+                            battleDeployManifest(_mf, false, { source:'comptest-taban', ally:true });
+                            SIM_RNG.state = 123456789;
+                            startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                            const ph0 = SIM.headless; SIM.headless = true; let st0 = 0;
+                            try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st0 += BATTLE_TICK_MS; stepSim(st0, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st0); } } finally { SIM.headless = ph0; }
+                            const rep0 = battleBalanceReport(); battleBalanceReset(false);
+                            const b0 = SIM.battle || {};
+                            let rv0=0, bv0=0; for (const u of SIM.units) { if (u.dead) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if (u.isRed) rv0+=c; else bv0+=c; }
+                            const kat0 = {}; for (const ti of _mf.types) { const s = STATS[ti]; kat0[s.category] = (kat0[s.category]||0) + s.cost; }
+                            return { ad: KOMP.ad, seed:${seed}, maliyet: _mf.totalValue, birim: _mf.totalUnits,
+                                kategori: Object.fromEntries(Object.entries(kat0).map(([k,v]) => [k, +(v/_mf.totalValue*100).toFixed(1)])),
+                                kirmiziIz: kIz, kirmiziTut: kTut,
+                                kazanan: (b0.winnerSide===true?'red':b0.winnerSide===false?'blue':'-'), sebep: b0.outcomeReason||null,
+                                bizKazandik: b0.winnerSide === false, kalanBiz: bv0, kalanDusman: rv0, takas: rep0.tradeRatio || null };
+                        }
                         const types = []; let bTut = 0; const eksik = [];
                         for (const [uid, adet] of Object.entries(KOMP.birimler || {})) {
                             const ti = (typeof UNIT_ID_BY_INDEX !== 'undefined') ? UNIT_ID_BY_INDEX.indexOf(uid) : -1;
@@ -601,13 +674,19 @@ app.whenReady().then(() => {
     // İki taraf da intel4-beyni + gerçek-oyun deltaları; tek fark pro-katmanı (ammoDiscipline vb.).
     // Mühimmat akışı da ölçülür (P1'in hedeflediği mekanizma gerçekten değişti mi).
     if (process.argv.includes('--intel4pro')) {
+        // `--only <delta>` → TEK DELTA İZOLE A/B: pro tarafta yalnız o delta açık, ötekiler kapalı; ayrıca
+        // ordu dizilimi İKİ TARAFTA DA pro-suz kurulur (kompozisyon farkı karışmasın) → tek değişken kalır.
+        const _oi = process.argv.indexOf('--only');
+        const ONLY = _oi >= 0 ? String(process.argv[_oi + 1] || '') : null;
+        const _si = process.argv.indexOf('--seeds');
+        const SEEDARG = _si >= 0 ? String(process.argv[_si + 1] || '').split(',').map(Number).filter(Boolean) : null;
         createWindow();
         const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
         win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
         const fsx = require('fs');
         win.webContents.on('did-finish-load', async () => {
             await new Promise(r => setTimeout(r, 1400));
-            const SEEDS = [2024, 777, 909, 3141, 2718, 5150];
+            const SEEDS = SEEDARG && SEEDARG.length ? SEEDARG : [2024, 777, 909, 3141, 2718, 5150];
             const maclar = [];
             for (const seed of SEEDS) {
                 for (const proIsRed of [true, false]) {
@@ -615,12 +694,19 @@ app.whenReady().then(() => {
                         BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;                 // iki taraf da intel4
                         BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
                         BATTLE_INTEL4PRO_RED = ${proIsRed}; BATTLE_INTEL4PRO_BLUE = ${!proIsRed};   // tek fark: pro-katmanı
+                        const _only = ${ONLY ? "'" + ONLY + "'" : 'null'};
+                        if (_only) { for (const k of Object.keys(BATTLE_INTEL4PRO_DELTAS)) BATTLE_INTEL4PRO_DELTAS[k] = (k === _only); }
+                        // İZOLE modda kırmızının OTO-dizilimi de pro-suz olmalı (BattleDeployment BATTLE_INTEL4PRO_RED'i okur):
+                        // bunu açılış anında geçici kapatıp oturum kurulduktan sonra geri veriyoruz → tek değişken runtime deltası.
+                        const _proRedGercek = BATTLE_INTEL4PRO_RED;
+                        if (_only) BATTLE_INTEL4PRO_RED = false;
                         if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
                         if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
                         openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
-                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro: BATTLE_INTEL4PRO_BLUE }), false, { source:'pro-blue', ally:true });
+                        BATTLE_INTEL4PRO_RED = _proRedGercek;
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro: _only ? false : BATTLE_INTEL4PRO_BLUE }), false, { source:'pro-blue', ally:true });
                         startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
                         const ph = SIM.headless; SIM.headless = true; let st = 0;
                         // MÜHİMMAT AKIŞI: P1'in hedefi savunanın erken tükenmesini önlemek → t=60'ta oran + kuru birim
@@ -655,9 +741,9 @@ app.whenReady().then(() => {
             const g = karar.filter(m => m.proKazandi).length;
             const pct = karar.length ? +(g / karar.length * 100).toFixed(1) : 0;
             const ozet = { mac: maclar.length, kararli: karar.length, proGalibiyet: g, yuzde: pct,
-                mezun: pct >= 75, esik: '>=75% (9/12)' };
+                mezun: pct >= 75, esik: '>=75% (9/12)', izole: ONLY || 'tum-pro-katmani' };
             console.log('INTEL4PRO_OZET ' + JSON.stringify(ozet));
-            try { fsx.mkdirSync('qa-runtime', { recursive:true }); fsx.writeFileSync('qa-runtime/intel4pro-gate.json', JSON.stringify({ ozet, maclar }, null, 1)); } catch(e) {}
+            try { fsx.mkdirSync('qa-runtime', { recursive:true }); fsx.writeFileSync((ONLY ? 'qa-runtime/intel4pro-ab-' + ONLY + '.json' : 'qa-runtime/intel4pro-gate.json'), JSON.stringify({ ozet, maclar }, null, 1)); } catch(e) {}
             console.log(ozet.mezun ? 'INTEL4PRO_MEZUN' : 'INTEL4PRO_HENUZ_DEGIL');
             setTimeout(() => app.exit(0), 300);
         });

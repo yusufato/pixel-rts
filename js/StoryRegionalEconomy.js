@@ -857,8 +857,8 @@ function storyRegionalEconomyTick(dtSec) {
         // Faz 26: protesto/grev/ayaklanma mevcut uretim cevrimini azaltir;
         // girdi veya cikti sonradan carpilmaz. Boylece tuketilmeyen mal ve emek
         // stokta kalir, fiziksel defter korunur ve etki tek kez uygulanir.
-        const collectiveProductionMultiplier = typeof storyCollectiveCountryProductionMultiplier === 'function'
-            ? storyCollectiveCountryProductionMultiplier(node.owner)
+        const collectiveProductionMultiplier = typeof storyCollectiveRegionProductionMultiplier === 'function'
+            ? storyCollectiveRegionProductionMultiplier(regionId)
             : 1;
 
         for (const sectorId of sectorOrder) {
