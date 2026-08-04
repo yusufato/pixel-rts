@@ -637,12 +637,22 @@ function planningContractDestination(controller, group, objective, friendlyCentr
             else if (group.role === TASK_GROUP_ROLE.FIXING) ax += 240;
             // y-DERİNLİK (kapı-kapalı): SAVUNAN kendi-hattına çekilir; SALDIRAN ise ANALİST-FIX (POSITION'da erime):
             // toplanma-bölgesi düşman ateş-zarfından GERİDE (temas hattında değil) → STRIKE'a kadar hayatta kalır, STRIKE'ta ileri.
-            const homeY = controller.side ? WORLD_H * 0.30 : WORLD_H * 0.70;
-            if (!isAtt) ay = objective.y * 0.4 + homeY * 0.6;   // savunma-hattı (mostly geri)
+            let homeY = controller.side ? WORLD_H * 0.30 : WORLD_H * 0.70;
+            // PRO 'holdZone': savunanın ev-derinliği ÖLÇÜLEBİLİR bir derinlik olur (bkz. globals PRO_HOLD_*).
+            // Eski homeY'nin kendisi derinlik 0.60'a denkti ve objektifle harmanlanınca ~1.04'e (orta hattın
+            // ötesine) çıkıyordu; savunan 0.24'te konuşlanıp emirle düşman yarısına yürüyordu.
+            const _hold = !isAtt && typeof battleProDelta === 'function' && battleProDelta(controller.side, 'holdZone');
+            if (_hold) homeY = proDepthToY(controller.side, PRO_HOLD_LINE_DEPTH);
+            if (!isAtt) ay = _hold ? homeY : (objective.y * 0.4 + homeY * 0.6);   // savunma-hattı (holdZone: objektife harmanlama YOK)
             else ay = objective.y * 0.42 + homeY * 0.58;        // ANALİST-FIX2: saldıran assembly ATEŞ-ZARFI DIŞINA (~%58 geri) — STRIKE-öncesi erime biter, STRIKE'ta ileri-hücum
             // FAZ3 OMURGA-GERİ (analist 42.7-dersi): SAVUNAN ateş-desteği/AA/lojistik en-uzun düşman doğrudan-ateş-zarfı(~675)+tampon
             // DIŞINDA → topçu/SAM TD menziline girip 50s'de sökülmesin. Bu roller tam-derinliğe (homeY) çekilir.
             if (_defX && (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT || group.role === TASK_GROUP_ROLE.SUPPORT)) { ay = homeY; _defDeep = true; }
+            // holdZone: omurga (ateş-desteği/lojistik/AA) ana hattın da GERİSİNDE, derin mevzide
+            if (_hold && (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT || group.role === TASK_GROUP_ROLE.SUPPORT ||
+                (PRO_HOLD_RESERVE_DEEP && group.role === TASK_GROUP_ROLE.RESERVE))) {
+                ay = proDepthToY(controller.side, PRO_HOLD_DEEP_DEPTH); _defDeep = true;
+            }
         }
         aim = { x: ax, y: ay };
     }
@@ -654,6 +664,35 @@ function planningContractDestination(controller, group, objective, friendlyCentr
     else if (group.role === TASK_GROUP_ROLE.SUPPORT) dest = _defDeep ? planningSafePoint(objective) : planningPointBetween(origin, objective, 0.3);
     else if (group.role === TASK_GROUP_ROLE.RESERVE) dest = planningPointBetween(origin, objective, 0.2);
     else dest = planningSafePoint(objective);
+    // PRO 'holdZone' SERT TAVAN: hiçbir savunan grubun VARIŞ noktası bölge-tavanını aşamaz. Yukarıdaki ay-hesabı
+    // yalnız STRIKE-DIŞI dalda çalışıyor; bu tavan STRIKE'ta da geçerli (karşı-taarruz orta hatta durur, istila etmez).
+    // KEŞİF muaf: gözcülük ileri taramak zorunda ve ucuz.
+    {
+        const _sit = controller && controller.lastSituation;
+        const _isDef = _sit && _sit.role === ((typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.DEFENDER : 'defender');
+        if (_isDef && group.role !== TASK_GROUP_ROLE.RECON &&
+            typeof battleProDelta === 'function' && battleProDelta(controller.side, 'holdZone')) {
+            const _st = _sit.operationalPosture && _sit.operationalPosture.stance;
+            const _cap = _st === 'STRIKE' ? PRO_HOLD_STRIKE_DEPTH : PRO_HOLD_MAX_DEPTH;
+            if (proYToDepth(controller.side, dest.y) > _cap) dest = { x: dest.x, y: proDepthToY(controller.side, _cap) };
+            // HAZIRLANMIŞ MEVZİ (1/2): ana direniş hattı ÖRTÜYE oturur. Ölçüm: yer tutmanın tek karşılığı siperlenmeydi
+            // ve ordunun ancak %0-30'u siperlenebiliyor (ort. entrench 0.17 → ~%6 hasar azalması) — yani yer tutmak
+            // BEDAVA DEĞİL, bedelsiz de değildi. Orman ise HERKESE +3 zırh ve 0.30 örtü verir (globals accuracy/armor).
+            // planningCoverPoint yalnız 170px tarar; savunma hattı için arama yarıçapı genişletilir.
+            if (PRO_HOLD_COVER_R > 0 && (group.role === TASK_GROUP_ROLE.MAIN || group.role === TASK_GROUP_ROLE.FIXING) &&
+                typeof terrainFeatures !== 'undefined' && Array.isArray(terrainFeatures) && typeof TERRAIN !== 'undefined') {
+                let en = null, enD = PRO_HOLD_COVER_R;
+                for (const t of terrainFeatures) {
+                    if (t.type !== TERRAIN.FOREST) continue;
+                    // yalnız KENDİ yarımızdaki örtü (öne çıkıp düşman yarısındaki ormana oturma)
+                    if (proYToDepth(controller.side, t.y) > _cap) continue;
+                    const d = Math.hypot(t.x - dest.x, t.y - dest.y);
+                    if (d < enD) { enD = d; en = t; }
+                }
+                if (en) dest = planningSafePoint({ x: en.x, y: en.y });
+            }
+        }
+    }
     return planningCoverPoint(dest, group.role);   // arazi: uygun roller orman-örtüsüne çekilir
 }
 

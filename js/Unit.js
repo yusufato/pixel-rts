@@ -993,6 +993,32 @@ class Unit {
         const _cn = SIM.spatialGrid.getNearby(this.x, this.y, 360);
         for (const o of _cn) { if (!o.dead && !o.abandoned && o.isRed !== this.isRed) { closeThreat = true; break; } }
         if (!inOwnHalf || closeThreat || this.isFleeing || (this.suppression || 0) >= 25) return;
+        // HAZIRLANMIŞ MEVZİ (2/2) — PRO 'holdZone': SAVUNAN istihkâmı siperi bulunduğu yere değil
+        // ANA DİRENİŞ HATTINA, cephe boyunca ARALIKLI diker. Siper her birime +6 zırh + 0.30 örtü verir
+        // (r=105) — yer tutmanın gerçek karşılığı budur; ölçümde savunanın yalnız %0-30'u siperlenebiliyordu.
+        // İkmal mantığı (520px'te alan yoksa kur) savunma hattını değil lojistiği optimize ediyordu.
+        {
+            const _p2 = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
+            const _rolDef = _p2 && _p2.role === 'defender';
+            if (PRO_HOLD_ENGINEER_LINE && _rolDef && typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'holdZone') &&
+                typeof proDepthToY === 'function') {
+                const hatY = proDepthToY(this.isRed, PRO_HOLD_TRENCH_DEPTH);   // ana hattın GERİSİ (temas dışı, r=105 yine kapsar)
+                let zincirVar = false;   // hattımda yakınımda zaten siper var mı? (yoksa zincirin bir halkasını ben dikerim)
+                for (const t of SIM.trenches) {
+                    if (t.isRed !== this.isRed) continue;
+                    if (Math.hypot(t.x - this.x, t.y - hatY) < PRO_HOLD_TRENCH_GAP) { zincirVar = true; break; }
+                }
+                if (!zincirVar) {
+                    if (Math.abs(this.y - hatY) > 70) {   // önce hatta in
+                        this.targetX = this.x; this.targetY = hatY;
+                        this.manualMoveTarget = { x: this.x, y: hatY }; this.isMovingToManualTarget = true;
+                        return;
+                    }
+                    this.buildTrenchTarget = { x: this.x, y: hatY };
+                    return;
+                }
+            }
+        }
         // (2) İLERİ SİPER/HELİPAD: yakında dost supply-field YOKSA → kur (kara-ikmal + helo yakıt)
         let hasField = false;
         for (const t of SIM.trenches) { if (t.isRed === this.isRed && t.providesSupply !== false && Math.hypot(t.x - this.x, t.y - this.y) < 520) { hasField = true; break; } }

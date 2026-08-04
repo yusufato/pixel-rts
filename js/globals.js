@@ -398,7 +398,14 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // P5 (KÖK NEDEN — docs/KUVVET-ORANI-HATASI.md): kuvvet-oranı istihbarat tabanı, AI'ın KENDİ başlangıç değeri
     // yerine DÜŞMANIN İLAN EDİLMİŞ BÜTÇESİNDEN kurulur. Eskiden t=0'da oran daima tam 1.00 çıkıyor ve yalnızca
     // düşüyordu → forceRatio fiilen "kendi sağkalım yüzdem" idi ve STRIKE kapısı savunan için ULAŞILAMAZDI.
-    trueForceRatio: true
+    trueForceRatio: true,
+    // P6 (kullanıcı gözlemi, --zonedrift ile doğrulandı): SAVUNAN kendi bölgesini tutar, düşman hattına
+    // yürümez. Eski emir-hattı derinlik ~1.04 (orta hattın ötesi) idi → savunan hiç savunmuyordu.
+    // MEKANİK ÇALIŞIYOR (orta hat geçişi 3/6 → 0/6) ama VARSAYILAN KAPALI: mevcut savunan ordusu yer TUTAMIYOR
+    // (₺'sinin yalnız %0-30'u siperlenebiliyor → ort. entrench 0.17 → ~%6 hasar azalması; tek istihkâm; %30+ dolaylı).
+    // Yer tutmak inisiyatifi verip karşılığında ~hiçbir şey kazandırmıyor: savunan 6/6 → 4/6.
+    // AÇILMADAN ÖNCE GEREKEN: savunan-rolüne özgü SAVUNMA KOMPOZİSYONU (siperlenebilen piyade + istihkâm + AT).
+    holdZone: false
 };
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
@@ -421,6 +428,33 @@ const PRO_COHESION_MIN = 5;
 const PRO_RALLY_R = 1200;           // toplanma arama yarıçapı — bu mesafedeki muharip dostların merkezine git
 const PRO_AT_CAP = 4;                // SALDIRANDA tanksavar timi tavani (kullanici: "7 fazla, 3-4 yeter"); ustu sokulup para iade edilir
 const PRO_RALLY_MIN_D = 150;        // merkez bu kadar yakınsa zaten toplanmışız (gereksiz salınım yapma)         // yüksek eşik orduyu dondurup süre-doldu beraberliği üretebilir → A/B ile izlenir.
+
+// ── PRO 'holdZone': SAVUNAN KENDİ BÖLGESİNİ TUTAR (kullanıcı gözlemi + --zonedrift ölçümü) ──
+// DERİNLİK birimi: 0 = kendi arka kenarı, 1 = orta hat, >1 = düşman yarısı. Konuşlanma derinliği ~0.24.
+// ÖLÇÜLEN HATA: eski "savunma hattı" (homeY=0.30/0.70 + objektife %40 harman) derinlik ~1.04 veriyordu —
+// yani savunanın emredilen hattı ORTA HATTIN ÖTESİNDEYDİ. Sonuç: 6/6 tohumda savunan ileri gitti,
+// 3/6'da orta hattı geçti (seed5150'de 5450₺ düşman yarısında). Savunan zamana oynar: yer tutmak kazandırır.
+let PRO_HOLD_LINE_DEPTH = 0.70;   // ana direniş hattı (MAIN/FIXING) — kendi yarısında, temas kurmaya yetecek kadar ileri
+let PRO_HOLD_DEEP_DEPTH = 0.40;   // ateş-desteği/lojistik/AA omurgası — düşman doğrudan-ateş zarfının dışında
+let PRO_HOLD_MAX_DEPTH = 0.88;    // hiçbir savunan grup bunu aşamaz (STRIKE dışı)
+let PRO_HOLD_STRIKE_DEPTH = 1.00; // karşı-taarruzda tavan = ORTA HAT; savunan düşman yarısını istila etmez
+// derinlik → dünya-y (kırmızı üstte y-küçük, mavi altta y-büyük). Saf fonksiyon → determinist.
+let PRO_HOLD_RESERVE_DEEP = true;   // ihtiyat da derin mevzide mi? (A/B ile süpürülür)
+// ── ÖLÇÜLDÜ ve KAPATILDI: "hazırlanmış mevzi" denemeleri (kod duruyor, varsayılan kapalı) ──
+// Örtü-çıpası (hattı ormana oturt): savunan 4/6 → 1/6. Orman gruplarını kümeleyip cepheyi boşaltıyor + hız ×0.7.
+// İstihkâm siper-zinciri: savunan 4/6 → 2/6 ve 6 tohumda TOPLAM 2 siper dikilebildi. Kök sebep: savunanın
+// TEK istihkâmı aynı zamanda İKMAL AĞI (siper providesSupply); onu hatta zincir dikmeye yollayınca ordu
+// mühimmatsız kalıyor — ki süre-sonu hazır-olma çarpanını (0.65+0.35×amo) kaybettiren mekanizma tam da buydu.
+let PRO_HOLD_COVER_R = 0;           // >0 ise ana direniş hattı bu yarıçaptaki ormana oturur. ÖLÇÜM: zararlı → 0.
+let PRO_HOLD_ENGINEER_LINE = false; // savunan istihkâmı hat boyunca siper zinciri diksin mi?
+// DÜZELTME (kullanıcı): ikmal aracının KENDİ resupply-aurası var (r=4→300px, 1.0 mühimmat/sn) → istihkâm ikmal
+// ağının tek kaynağı DEĞİL, siper dikmekte serbest. İlk deneme başarısızdı çünkü siperi ANA DİRENİŞ HATTINA
+// diktirdim: oradaki closeThreat koruması inşayı iptal ediyor ve tek istihkâm temas hattında ölüyor (6 tohum, 2 siper).
+// Siper hattın GERİSİNE alınır — r=105 örtüsü geri yamaçtaki mevziyi yine kapsar, istihkâm ateş altında kalmaz.
+let PRO_HOLD_TRENCH_GAP = 300;      // zincir aralığı (siper: +6 zırh, 0.30 örtü, r=105)
+let PRO_HOLD_TRENCH_DEPTH = 0.58;   // siperlerin derinliği — ana hattın (0.70) GERİSİ, temas dışı
+function proDepthToY(side, d) { return side ? (WORLD_H * 0.5) * d : WORLD_H - (WORLD_H * 0.5) * d; }
+function proYToDepth(side, y) { return side ? (y / (WORLD_H * 0.5)) : ((WORLD_H - y) / (WORLD_H * 0.5)); }
 
 // TEHDİT-PROFİLİ FORENSİK-RİNG (her-zaman-açık): battleRecordCombatEvent'in TEPESİNDE, telemetri-kapısından ÖNCE doldurulur —
 // çünkü replay-playback'te telemetry.combatEvents doldurulMAZ; inanç-katmanı onu okursa canlı≠playback → replay kırılır.

@@ -385,6 +385,112 @@ app.whenReady().then(() => {
         return;
     }
 
+    // BÖLGE-KAYMASI: `--zonedrift [--seeds a,b]` → KULLANICI İDDİASI'nın ölçümü: "AI her iki rolde de
+    // BENİM hattıma yaklaşıyor; savunma rolünde kendi bölgesinde konuşlanıp zamana oynamalı".
+    // Taraflar Y'de ayrık (kırmızı üst y-küçük, mavi alt y-büyük), orta hat WORLD_H/2.
+    // derinlik = birimin KENDİ arka kenarından orta hatta olan yolun kaçta kaçında (0=kendi dip, 1=orta hat, >1=düşman yarısı).
+    // Ağırlık ₺ ile alınır (bir piyade ile bir MBT aynı ağırlıkta sayılmasın).
+    if (process.argv.includes('--zonedrift')) {
+        const _zi = process.argv.indexOf('--seeds');
+        const ZSEEDS = _zi >= 0 ? String(process.argv[_zi + 1] || '').split(',').map(Number).filter(Boolean) : [2024, 777, 909, 3141, 2718, 5150];
+        // --pro <delta> → SAVUNAN tarafta (mavi) yalnız o pro-deltası açık; ordu dizilimi yine pro-suz (tek değişken).
+        const _zp = process.argv.indexOf('--pro');
+        const ZONLY = _zp >= 0 ? String(process.argv[_zp + 1] || '') : null;
+        // --hold hat,derin,tavan,ihtiyatDerin  → PRO_HOLD_* süpürmesi (ör: --hold 0.85,0.60,1.0,0)
+        const _zh = process.argv.indexOf('--hold');
+        const ZHOLD = _zh >= 0 ? String(process.argv[_zh + 1] || '').split(',') : null;
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const hepsi = [];
+            for (const seed of ZSEEDS) {
+                const r = await js(`(() => { try {
+                    BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                    BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                    const _zonly = ${ZONLY ? "'" + ZONLY + "'" : 'null'};
+                    if (_zonly) { for (const k of Object.keys(BATTLE_INTEL4PRO_DELTAS)) BATTLE_INTEL4PRO_DELTAS[k] = (k === _zonly); }
+                    const _zh2 = ${ZHOLD ? JSON.stringify(ZHOLD) : 'null'};
+                    if (_zh2) { PRO_HOLD_LINE_DEPTH = +_zh2[0]; PRO_HOLD_DEEP_DEPTH = +_zh2[1]; PRO_HOLD_MAX_DEPTH = +_zh2[2]; PRO_HOLD_RESERVE_DEEP = _zh2[3] === '1'; if (_zh2[4] != null) PRO_HOLD_COVER_R = +_zh2[4]; if (_zh2[5] != null) PRO_HOLD_TRENCH_GAP = +_zh2[5]; if (_zh2[6] != null) { PRO_HOLD_ENGINEER_LINE = _zh2[6] !== '0'; PRO_HOLD_TRENCH_DEPTH = Math.abs(+_zh2[6]) || PRO_HOLD_TRENCH_DEPTH; } }
+                    BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = !!_zonly;   // savunan = mavi
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro:false }), false, { source:'zone-blue', ally:true });
+                    startBattle(); window.requestAnimationFrame = () => 0;
+                    const mid = WORLD_H / 2;
+                    // attackerSide:true => KIRMIZI saldıran, MAVİ savunan
+                    const derinlik = (u) => u.isRed ? (u.y / mid) : ((WORLD_H - u.y) / mid);
+                    const olc = (isRed) => {
+                        let w = 0, sd = 0, gecen = 0, gecenW = 0, enIleri = 0;
+                        for (const u of SIM.units) {
+                            if (u.dead || u.isRed !== isRed) continue;
+                            const c = (STATS[u.type] && STATS[u.type].cost) || 1;
+                            const d = derinlik(u);
+                            w += c; sd += c * d;
+                            if (d > 1) { gecen++; gecenW += c; }
+                            if (d > enIleri) enIleri = d;
+                        }
+                        return { w, d: w ? sd / w : null, gecen, gecenW, enIleri };
+                    };
+                    // SİPERLENME: ₺-ağırlıklı ortalama entrench (0..1). Yalnız dig_in/garrison'lu birimler >0 olabilir.
+                    const sip = (isRed) => { let w=0,t=0; for (const u of SIM.units) { if (u.dead||u.isRed!==isRed) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||1; w+=c; t+=c*(u.entrench||0); } return w?t/w:0; };
+                    // SİPER-KABİLİYETİ: ordunun ne kadarlık ₺'si hiç siperlenebiliyor?
+                    const sipKab = (isRed) => { let w=0,k=0; for (const u of SIM.units) { if (u.dead||u.isRed!==isRed) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||1; w+=c; if (u._canDigIn) k+=c; } return w?k/w:0; };
+                    // ÖRTÜ: ₺-ağırlıklı, orman/siper içindeki birim payı (hazırlanmış-mevzi doktrininin doğrudan ölçüsü)
+                    const ortu = (isRed) => { let w=0,t=0; for (const u of SIM.units) { if (u.dead||u.isRed!==isRed) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||1; w+=c; if (u.inForest||u.inTrench) t+=c; } return w?t/w:0; };
+                    const amo = (isRed) => { let n=0,t=0; for (const u of SIM.units) { if (u.dead||u.isRed!==isRed||!(u.maxAmmo>0)) continue; n++; t+=(u.ammo||0)/u.maxAmmo; } return n?t/n:1; };
+                    const ph = SIM.headless; SIM.headless = true; let st = 0;
+                    const kova = [];
+                    let baslangic = null;
+                    try {
+                        while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
+                            st += BATTLE_TICK_MS;
+                            stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+                            if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+                            if (SIM.tick === 1) baslangic = { sal: olc(true), sav: olc(false) };
+                            if (SIM.tick % 400 === 0) {   // her 20sn
+                                const sal = olc(true), sav = olc(false);
+                                const oSal = battleArmyObservation(true), oSav = battleArmyObservation(false);
+                                kova.push({ sn: Math.round(SIM.tick * BATTLE_TICK_SEC),
+                                    salD: sal.d != null ? +sal.d.toFixed(3) : null, savD: sav.d != null ? +sav.d.toFixed(3) : null,
+                                    savGecenW: sav.gecenW, salGecenW: sal.gecenW,
+                                    savIleri: +sav.enIleri.toFixed(2), salKalan: sal.w, savKalan: sav.w,
+                                    salEff: Math.round(oSal.effectiveValue), savEff: Math.round(oSav.effectiveValue),
+                                    salAmo: +amo(true).toFixed(2), savAmo: +amo(false).toFixed(2),
+                                    savSiper: +sip(false).toFixed(3), salSiper: +sip(true).toFixed(3),
+                                    savOrtu: +ortu(false).toFixed(3), savSiperYapi: SIM.trenches.filter(t => !t.isRed).length });
+                            }
+                        }
+                    } finally { SIM.headless = ph; }
+                    const b = SIM.battle || {};
+                    return { seed:${seed}, baslangic:{ sal:+baslangic.sal.d.toFixed(3), sav:+baslangic.sav.d.toFixed(3) }, kova,
+                        siperKabiliyet:{ sav:+sipKab(false).toFixed(3), sal:+sipKab(true).toFixed(3) },
+                        kazanan:(b.winnerSide===true?'saldiran(red)':b.winnerSide===false?'savunan(blue)':'-'), sebep:b.outcomeReason||null };
+                } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                if (!r || r.err) { console.log('ZONE_ERR seed=' + seed + ' ' + (r && r.err)); continue; }
+                hepsi.push(r);
+                const zirve = r.kova.reduce((a, k) => (k.savD || 0) > (a.savD || 0) ? k : a, r.kova[0] || { savD: 0 });
+                const gecTik = r.kova.find(k => k.savD > 1);
+                const gecW = r.kova.reduce((m, k) => Math.max(m, k.savGecenW), 0);
+                console.log('ZONE seed=' + r.seed + ' | savunan derinlik t0=' + r.baslangic.sav + ' -> ZİRVE ' + (zirve.savD) + ' (t=' + zirve.sn + 'sn)' +
+                    ' | orta hattı GEÇTİ: ' + (gecTik ? 'EVET t=' + gecTik.sn + 'sn' : 'hayır') +
+                    ' | düşman yarısındaki max ₺: ' + gecW + ' | kazanan ' + r.kazanan + ' (' + r.sebep + ')');
+                console.log('     ÖRTÜ: savunan ₺-payı orman/siperde ' + r.kova.filter((_, i) => i % 3 === 0).map(k => k.sn + ':' + k.savOrtu).join(' ') + ' | kurulu siper ' + (r.kova[r.kova.length-1] || {}).savSiperYapi);
+                console.log('     seyir(sn:savD/salD): ' + r.kova.filter((_, i) => i % 2 === 0).map(k => k.sn + ':' + k.savD + '/' + k.salD).join('  '));
+            }
+            try { fsx.mkdirSync('qa-runtime', { recursive:true }); fsx.writeFileSync('qa-runtime/zonedrift.json', JSON.stringify(hepsi, null, 1)); } catch(e) {}
+            const kaz = hepsi.filter(r => r.kazanan.indexOf('savunan') === 0).length;
+            console.log('ZONEDRIFT_OK  savunan ' + kaz + '/' + hepsi.length + (ZHOLD ? '  hold=' + ZHOLD.join(',') : '') + (ZONLY ? '  delta=' + ZONLY : '  TABAN'));
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // KUVVET-ORANI KAPISI: `--ratiotest [--pro]` → SAVUNANIN kuvvet-oranı gerçeği yansıtıyor mu ve
     // STRIKE kapısı açılabiliyor mu? Handikap kurulumu (savunan ZENGİN, saldıran fakir) ile sınar:
     // eski hatada savunan +%46 üstünlükle bile kendini 1.00 sanıyor ve hiç taarruz etmiyordu.
