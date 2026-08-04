@@ -544,7 +544,7 @@ app.whenReady().then(() => {
                         // OLAY KANCASI: hasar/mesafe/öldürme akışını kovalara topla (halka-tampona bağımlı DEĞİL)
                         const kova = {};
                         const K = (t) => { const i = Math.floor(t/KOVA); return kova[i] || (kova[i] = {
-                            red:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0 }, blue:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0 } }); };
+                            red:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0, yerelN:0, yerelDost:0, yerelDusman:0 }, blue:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0, yerelN:0, yerelDost:0, yerelDusman:0 } }); };
                         // DOLAYLI/DOĞRUDAN AYRIMI: "yumuşatma ateşi gerçekte ne kadar iş yapıyor" sorusunu ayırt eder
                         const _indTip = new Set(); for (const k in STATS) { const s = STATS[k];
                             if (s && (s.category === 'indirect' || (s.weapons && s.weapons[0] && s.weapons[0].indirect))) _indTip.add(+k); }
@@ -555,6 +555,19 @@ app.whenReady().then(() => {
                                 const b = K(SIM.tick || 0)[s];
                                 b.ev++; if (d.lethal) b.kill++; b.dmg += (d.damage || 0);
                                 if (_indTip.has(d.attackerType)) { b.indEv++; b.indDmg += (d.damage || 0); }
+                                // YEREL KUVVET ORANI (KURBANIN gözünden): vurulan birimin 600px çevresinde kaç DOST, kaç DÜŞMAN?
+                                // Global bütçe eşitken bile kurban sürekli yerel olarak azsa kusur YOĞUNLAŞMA'dır.
+                                if (d.targetX != null) {
+                                    const vs = d.targetSide === 'red';   // kurbanın tarafı
+                                    let dost = 0, dusman = 0;
+                                    for (const q of SIM.spatialGrid.getNearby(d.targetX, d.targetY, 600)) {
+                                        if (q.dead || q.loaded) continue;
+                                        if (Math.hypot(q.x - d.targetX, q.y - d.targetY) > 600) continue;
+                                        if (q.isRed === vs) dost++; else dusman++;
+                                    }
+                                    const kb = K(SIM.tick || 0)[vs ? 'red' : 'blue'];   // KURBAN tarafına yaz
+                                    kb.yerelN++; kb.yerelDost += dost; kb.yerelDusman += dusman;
+                                }
                                 if (d.attackerX != null && d.targetX != null) b.distSum += Math.hypot(d.targetX-d.attackerX, d.targetY-d.attackerY);
                                 const tn = (typeof UNIT_ID_BY_INDEX !== 'undefined' && UNIT_ID_BY_INDEX[d.attackerType]) || ('t'+d.attackerType);
                                 b.tip[tn] = (b.tip[tn]||0)+1;
@@ -584,13 +597,13 @@ app.whenReady().then(() => {
                                 stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
                                 if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
                                 if ((SIM.tick % KOVA) === 0) {
-                                    const i = SIM.tick/KOVA - 1, b = kova[i] || { red:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0}, blue:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0} };
+                                    const i = SIM.tick/KOVA - 1, b = kova[i] || { red:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0,yerelN:0,yerelDost:0,yerelDusman:0}, blue:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0,yerelN:0,yerelDost:0,yerelDusman:0} };
                                     const rp = SIM.ctrlPosture ? SIM.ctrlPosture['battle-red-ai'] : null;
                                     const bp = SIM.ctrlPosture ? SIM.ctrlPosture['battle-blue-ally-ai'] : null;
                                     seri.push({ sn: Math.round(SIM.tick*BATTLE_TICK_SEC), redVal: deger(true), blueVal: deger(false),
                                         rD: durum(true), bD: durum(false),
-                                        r:{ ev:b.red.ev, kill:b.red.kill, dmg:Math.round(b.red.dmg), dist: b.red.ev ? Math.round(b.red.distSum/b.red.ev) : 0, durus: rp?rp.stance:null, ind: Math.round(b.red.indDmg), indEv: b.red.indEv },
-                                        b:{ ev:b.blue.ev, kill:b.blue.kill, dmg:Math.round(b.blue.dmg), dist: b.blue.ev ? Math.round(b.blue.distSum/b.blue.ev) : 0, durus: bp?bp.stance:null, ind: Math.round(b.blue.indDmg), indEv: b.blue.indEv } });
+                                        r:{ ev:b.red.ev, kill:b.red.kill, dmg:Math.round(b.red.dmg), dist: b.red.ev ? Math.round(b.red.distSum/b.red.ev) : 0, durus: rp?rp.stance:null, ind: Math.round(b.red.indDmg), indEv: b.red.indEv, yN: b.red.yerelN, yD: b.red.yerelDost, yE: b.red.yerelDusman },
+                                        b:{ ev:b.blue.ev, kill:b.blue.kill, dmg:Math.round(b.blue.dmg), dist: b.blue.ev ? Math.round(b.blue.distSum/b.blue.ev) : 0, durus: bp?bp.stance:null, ind: Math.round(b.blue.indDmg), indEv: b.blue.indEv, yN: b.blue.yerelN, yD: b.blue.yerelDost, yE: b.blue.yerelDusman } });
                                 }
                             }
                         } finally { SIM.headless = ph; window.battleRecordCombatEvent = oRec; }

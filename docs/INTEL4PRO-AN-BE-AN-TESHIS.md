@@ -152,9 +152,32 @@ Ayrım yok — kazananlar aralığın hem altında hem üstünde. **(a) ve (c) b
 temasa sokamıyor** (tipik %32-53). Yani ordunun yarısı sürekli boşta. Bu, parça-parça saldırı (c) lehine bir
 gösterge ama **galibiyetle ilişkisiz** olduğu için tek başına kaldıraç sayılmaz.
 
-**Sıradaki doğru ölçüm (öneri):** tepe-temas oranı yerine **temas anındaki YEREL kuvvet oranı** —
-saldıran birim ateş altındayken kaç savunan ona ateş ediyor? Global eşitlikte bile yerel olarak sürekli
-sayıca az kalıyorsa asıl kusur **yoğunlaşma**dır ve kaldıraç oradadır.
+#### ⭐⭐ YEREL KUVVET ORANI — İLK GÜÇLÜ SİNYAL (r = 0.72)
+Ölçüm: bir birim **vurulduğu anda** 600px çevresinde kaç DOST / kaç DÜŞMAN var (kurbanın gözünden).
+12 maç, ayna, iki taraf da pro:
+
+| saldıranın yerel oranı | KAZANAN saldırı | KAYBEDEN saldırı | r |
+|---|---|---|---|
+| tüm maç | **7.86** | **2.23** | 0.720 |
+| ilk 60sn | **10.75** | **3.43** | **0.748** |
+| ilk 80sn | 8.82 | 3.15 | 0.678 |
+| ilk 40sn | 13.93 | 5.72 | 0.417 |
+
+**Sağkalım yanlılığı testi geçildi:** ilişki **t=60'ta** zaten en güçlü (r=0.748) — maçlar 130-360sn'de bitiyor
+ve t=60'ta iki taraf da kuvvetinin ~%70-80'ini koruyor. Yani bu, kazanmanın *sonucu* değil **öncülü**.
+
+**Yorum:** saldırı, birimleri vurulduğu anda **yerel olarak 3× üstün** olduğunda kazanıyor; 2:1 civarında kaybediyor.
+Global bütçe eşitken bile fark eden şey **yoğunlaşma**.
+
+**Diğer bulgularla tutarlı:**
+- Saldıran ordu kuvvetinin en fazla ~%57'sini aynı anda temasa sokabiliyor (yarısı boşta) → yoğunlaşma eksikliği.
+- Bütçe sondajı: %10-15'lik verim kazanımı rolü çeviriyor. Yerel 3:1 dövüşmek tam olarak böyle bir çarpan.
+- → Aday **(c) eş-zamanlı/yoğunlaşmış taahhüt** destekleniyor; (a) yaklaşma-mesafesi kısıtı desteklenmiyor.
+
+**Gerilim (dikkat):** `deblob`/sektör-komuta yığılmayı DAĞITIYOR (topçudan korunmak için), yoğunlaşma ise
+tersini istiyor. Doğru çözüm muhtemelen "her yerde dağıl" değil **ana-çabada yoğunlaş, gerisinde dağıl**.
+
+**Uyarı:** n=12, korelasyon nedensellik değildir. Uygulama yine bayraklı + A/B ile sınanmalı.
 
 #### Yapısal bulgu: ayna maçta saldıran **6/20 = %30**
 İki taraf da aynı beyin ve **eşit 6500₺** iken saldıran yalnız %30 kazanıyor
