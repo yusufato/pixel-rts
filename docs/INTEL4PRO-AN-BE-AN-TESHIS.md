@@ -69,6 +69,49 @@ Etkisi: kurumuş birim ikmalle 0'ın üstüne çıkmak için fazladan mühimmat 
 
 ## PLAN (bu teşhise dayalı)
 
+### P1b — KÜTLE-HEDEFLEMESİ: ÇALIŞIYOR ✅ (2026-08-04)
+
+**Kök neden (birim-tipi kırılımı):** savunanın kuruyan birimleri **yalnızca dolaylı ateş** (topçu 1 + havan 2-3 + ÇNRA 1);
+saldıranda hiç kuru birim yok. Sebep [Unit.js:1374](../js/Unit.js#L1374): `if (this.isIndirect) { sc = -d; }`
+→ dolaylı ateş **en yakın** düşmana atıyor ("splash zaten alan" varsayımı) → 3-8 mermilik şarjör tek gezen keşif aracına gidiyor.
+
+**Çözüm:** pro-delta `indirectMassing` — hedef, patlama yarıçapındaki düşman **kütlesine** göre seçilir (mermi başına değer).
+
+**A/B (4 tohum × 2 rol = 8 maç, pro yalnız mavide):**
+
+| | taban | pro |
+|---|---|---|
+| mavi toplam | **1/8** | **4/8** |
+| mavi SAVUNANKEN | 1/4 | **3/4** |
+| mavi SALDIRANKEN | 0/4 | **1/4** |
+
+Felaket tohumunda (777 savunma) t=60: mühimmat 0.53→0.58, birim 17→20, kuru `[topçu:1 havan:2]`→**boş**;
+t=50 atış 67 olay/673 hasar → **124 olay/1618 hasar** (aynı mühimmatla **2.4× hasar** — kısıtlama değil verim).
+Sonuç: savunan t=130'da imha → **maç sonuna kadar ayakta**.
+
+### ⭐ SIRADAKİ DARBOĞAZ: SALDIRAN (saldıranken hâlâ 1/4)
+
+An-be-an (seed777, mavi saldıran, pro, **imha edildi**):
+
+| sn | mavi ₺ | birim | mühimmat | bastırma | mesafe | kırmızı hasar |
+|---|---|---|---|---|---|---|
+| 30 | 6040 | 23 | 0.93 | 0 | 1516 | 514 |
+| 40 | **4750** | **16** | 0.82 | 6 | **605** | **1585** |
+| 50 | 3330 | 13 | 0.85 | 0 | 341 | 707 |
+| 80 | 2220 | 6 | 0.88 | **50** | 156 | 491 |
+| 100 | 240 | 1 | — | — | — | 616 |
+
+**Mekanizma bambaşka:** saldıran **dolu şarjörle** ölüyor (mühimmat 0.82-0.91 boyunca yüksek) — bu bir mühimmat sorunu DEĞİL.
+Angajman mesafesi 1516 → 605 → 341'e çöküyor: saldıran, savunanın hazırlanmış ateş bölgesine **yürüyor** ve
+**t=30-40 arasında 10 saniyede 7 birim** kaybediyor. Üstelik bunu **POSITION duruşundayken** yapıyor (STRIKE'a ancak
+t=60'ta, 12 birime düştükten sonra geçiyor). Yani duruş-kapısı STRIKE'ı yönetiyor ama **yaklaşma POSITION'da
+denetimsiz** — kısa menzilli kütle (MBT 450 / piyade 300) savunanın uzun menzilli zarfını (AT 525, topçu 900+)
+yumuşatmadan geçmek zorunda kalıyor.
+
+**Aday kaldıraçlar (henüz sınanmadı):** (a) POSITION'da yaklaşma mesafesini savunanın etkili zarfına göre kısıtla
+(yumuşatma tamamlanana dek kütleyi eşikte tut), (b) yaklaşmayı bastırma-örtüsüne bağla (dolaylı ateş hazır değilse ilerleme),
+(c) yaklaşma hızını/eş-zamanlılığını artır (damla damla değil tek hamlede). **Ölçmeden seçme.**
+
 ### P1 — 1. DENEME: ÖLÇÜLDÜ, ETKİSİZ ❌ (2026-08-04)
 `ammoDiscipline` deltası yazıldı (`PRO_AMMO_RESERVE=0.45`, `PRO_AMMO_CLOSE_FRAC=0.60`) ve mezuniyet kapısında ölçüldü:
 **pro 6/12 = %50** (eşik %75) → mezun değil. Determinizm kapıları temiz (`--forktest`, `--liverepro`).
