@@ -44,3 +44,44 @@ Daha önce denenen iki müdahale bunu KURAMADIĞI için başarısız oldu:
 - pasif kohezyon (bekle) → kütle toplanmıyor,
 - aktif toplanma (kendi merkezine git) → dostu artırıyor ama düşmanı da artırıyor, oran sabit.
 Gereken **düşman-zayıflığına göre yönelme** (schwerpunkt), yani sektör/ana-çaba seviyesinde bir karar.
+
+---
+
+# AN-BE-AN İZLEME (toplam veri değil) — bulunan asıl kalıp: **MÜHİMMAT ROTASYONU**
+
+Kullanıcı uyardı: *"sadece genel verileri inceledin, bu işi genel veriyle çözemezsin."* Haklıydı.
+Birim-birim izleyince asıl fark ortaya çıktı.
+
+## Örnek olay: SPAAG #60 (300₺) — oyuncunun en verimli birimi, 2623 hasar / 18 öldürme
+
+| faz | sn | ne yaptı |
+|---|---|---|
+| bekleme | 0-60 | mevzide, temas yok |
+| **dron perdesi** | 70-100 | Kamikaze Drone ×12 vurdu (253 hasar, 2 öldürme) — tasarım görevi |
+| **piyade kıyımı** | 130-180 | Piyade ×25 + dron ×15 + komando ×3 → **985 hasar, 10 öldürme**; iki terfi (380→437→503 maxHP) |
+| **GERİ ÇEKİLME** | 190-230 | mühimmat **0** → oyuncu geri çekti (2306,2684 → 2079,2747); HP 276→428 (iyileşme) |
+| **İKMAL** | 240-280 | mühimmat 19→40→**60**, HP **503/503** — tam dolu |
+| **AKIN** | 290-320 | ileri sürüldü (2269,2549 → 2492,867 = ~1700px derine); hedefler: **İkmal ×11, Drone Operatörü ×7, MANPADS ×5** → 1037 hasar |
+
+Yani oyuncu 300₺'lik bir aracı: önce dron perdesi → sonra piyade kıyıcısı → **boşalınca geri çekip doldurdu** →
+sonra düşman lojistiğini avlayan akıncı olarak yeniden sürdü. **Aynı birim, üç farklı rol, bir ikmal döngüsü.**
+
+## Ölçüm: rotasyon insanla AI arasında kategorik fark
+
+"Mühimmatı biten ve sonra ≥%50 dolu olarak dönen birim" sayısı:
+
+| maç | OYUNCU | AI |
+|---|---|---|
+| seed2024 | **7 / 8 kuruyan birim (%88)** | **0 / 2 (%0)** |
+| seed777 | **4 / 5 (%80)** | 1 / 3 (%33) |
+
+Örnekler: AT Timi #39 kuru t=191 → dolu t=197 (6sn); Havan #54 kuru t=135 → dolu t=149; SPAAG #60 kuru t=181 → dolu t=246.
+
+**AI mühimmatı bitince birimi orada bırakıyor.** Daha önce ölçtüğüm "savunanın topçu/havan/ÇNRA'sı t=60'ta kuruyor
+ve atış hacmi 4× düşüyor" bulgusunun cevabı bu: insan **daha az ateş etmiyor**, boşalınca **geri çekip dolduruyor**.
+
+## Bunun anlamı (başarısız denememi açıklıyor)
+`ammoDiscipline` (yedek tut, uzak hedefe ateş etme) **yanlış çözümdü** — insan tam tersini yapıyor:
+mühimmatı **cömertçe harcıyor**, sonra rotasyona sokuyor. Doğru delta: **`ammoRotation`** —
+mühimmatı biten birim en yakın ikmal kaynağına çekilsin, dolunca görevine dönsün.
+Ateş gücünü kısmaz (ammoDiscipline kısıyordu), ölçülebilir (rotasyon sayısı), ve insan kalıbıyla birebir.
