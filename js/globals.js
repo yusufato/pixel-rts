@@ -445,6 +445,11 @@ let PRO_HOLD_RESERVE_DEEP = true;   // ihtiyat da derin mevzide mi? (A/B ile sü
 // İstihkâm siper-zinciri: savunan 4/6 → 2/6 ve 6 tohumda TOPLAM 2 siper dikilebildi. Kök sebep: savunanın
 // TEK istihkâmı aynı zamanda İKMAL AĞI (siper providesSupply); onu hatta zincir dikmeye yollayınca ordu
 // mühimmatsız kalıyor — ki süre-sonu hazır-olma çarpanını (0.65+0.35×amo) kaybettiren mekanizma tam da buydu.
+// TARİF MODU (FAZ 0, docs/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md): doluysa o tarafın ordusu kategori-paylarından
+// deterministik kurulur ve konuşlandırma sezgiselleri (ağırlık/jitter/imza-floor/takas/taban/mızrak/artık) DEVRE DIŞI.
+let BATTLE_RECIPE_RED = null;
+let BATTLE_RECIPE_BLUE = null;
+
 let PRO_HOLD_COVER_R = 0;           // >0 ise ana direniş hattı bu yarıçaptaki ormana oturur. ÖLÇÜM: zararlı → 0.
 let PRO_HOLD_ENGINEER_LINE = false; // savunan istihkâmı hat boyunca siper zinciri diksin mi?
 // DÜZELTME (kullanıcı): ikmal aracının KENDİ resupply-aurası var (r=4→300px, 1.0 mühimmat/sn) → istihkâm ikmal

@@ -168,7 +168,224 @@ function battleDeploymentVariedWeights(base) {
 const BATTLE_DOCTRINE_NAMES = ['dengeli', 'zirh-mizragi', 'piyade-dalgasi', 'topcu', 'hava-harekati', 'tanksavar-pusu', 'hareketli-vurkac', 'hava-savunma-agi', 'drone-yogun', 'oyuncu-meta'];
 const BATTLE_DOCTRINE_PLAYER_META = 9;   // vekil-tuning: kullanıcının gerçek oynayış-profili (5-maç analizi) — bataryada mavi-vekil bunu kullanır
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  TARİF (RECIPE) İLE ORDU KURMA — FAZ 0, docs/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md
+//  GEREKÇE: "süpüremediğin şeyi çaprazlayamazsın." Bugün kompozisyon, aşağıdaki
+//  ağırlık/jitter/imza-floor/takas/sert-taban/mızrak/artık zincirinden ORTAYA ÇIKAN
+//  bir yan etki; tek bir payı değiştirmek ötekileri habersiz kaydırıyor. Tarif modu
+//  kompozisyonu VERİ yapar: kategori payları + zorunlu/tavan/artık.
+//  Tarif modunda YUKARIDAKİ SEZGİSELLERİN HİÇBİRİ ÇALIŞMAZ (plan §11: ikisi karışmaz).
+//  RNG YOK → aynı tarif + aynı bütçe = byte-aynı ordu (tohumdan bağımsız).
+// ═══════════════════════════════════════════════════════════════════════════
+const RECIPE_CATEGORIES = ['infantry', 'armor', 'indirect', 'support', 'air_defense', 'air', 'uav', 'recon', 'logistics', 'command'];
+
+function deploymentTypeCategory(type) {
+    const s = STATS[type];
+    return (s && s.category) ? s.category : null;
+}
+
+// Tarifi kanonik hâle getirir: paylar 1'e normalize edilir, bilinmeyen kategori atılır (RAPORLANIR, sessizce yutulmaz).
+function battleRecipeNormalize(recipe) {
+    const paylar = {};
+    let toplam = 0;
+    const bilinmeyen = [];
+    for (const k of Object.keys(recipe.paylar || {}).sort()) {
+        const v = Number(recipe.paylar[k]) || 0;
+        if (v <= 0) continue;
+        if (RECIPE_CATEGORIES.indexOf(k) < 0) { bilinmeyen.push(k); continue; }
+        paylar[k] = v; toplam += v;
+    }
+    if (toplam > 0) for (const k of Object.keys(paylar)) paylar[k] /= toplam;
+    return {
+        ad: String(recipe.ad || 'isimsiz'),
+        rol: recipe.rol || null,
+        paylar,
+        tipPaylari: recipe.tipPaylari || null,   // {tipAdı|tipNo: ağırlık} — kategori İÇİ dağılım (yoksa eşit)
+        zorunlu: recipe.zorunlu || {},
+        tavan: recipe.tavan || {},
+        artik: Array.isArray(recipe.artik) ? recipe.artik.slice() : [],
+        bilinmeyenKategori: bilinmeyen
+    };
+}
+
+// Tip adı ("mbt") veya sayı → tip numarası. Deterministik.
+function deploymentResolveType(anahtar) {
+    if (anahtar == null) return null;
+    if (typeof anahtar === 'number') return STATS[anahtar] ? anahtar : null;
+    const ad = String(anahtar);
+    if (typeof T !== 'undefined' && T[ad] != null && STATS[T[ad]]) return T[ad];          // T.MBT gibi
+    for (const k of Object.keys(STATS).map(Number).sort((a, b) => a - b)) {               // units-modern id'si ("mbt")
+        if (STATS[k] && (STATS[k].id === ad || STATS[k].key === ad)) return k;
+    }
+    return null;
+}
+
+function battleBuildArmyFromRecipe(rawBudget, config) {
+    const tarif = battleRecipeNormalize(config.recipe);
+    const remaining = deploymentCloneBudget(rawBudget);
+    const initial = { ...remaining };
+    const butce = initial.money || 0;
+    const maxUnits = Math.max(1, config.maxUnits | 0 || 48);
+    const types = [];
+    const spent = {};
+    const uyarilar = tarif.bilinmeyenKategori.map(k => 'bilinmeyen kategori: ' + k);
+
+    const hepsi = Object.keys(STATS).map(Number)
+        .filter(t => STATS[t] && STATS[t].cost > 0 && deploymentTypeCategory(t) &&
+            (config.excludeTypes || []).indexOf(t) < 0)
+        .sort((a, b) => a - b);
+
+    // TAVAN: tip başına adet sınırı
+    const tavan = {};
+    for (const k of Object.keys(tarif.tavan)) {
+        const t = deploymentResolveType(k);
+        if (t == null) { uyarilar.push('tavan: bilinmeyen tip ' + k); continue; }
+        tavan[t] = Math.max(0, tarif.tavan[k] | 0);
+    }
+    const adet = (t) => types.reduce((n, x) => n + (x === t ? 1 : 0), 0);
+    const alinabilir = (t) => STATS[t].cost <= (remaining.money || 0) &&
+        (tavan[t] == null || adet(t) < tavan[t]) && types.length < maxUnits;
+    const al = (t) => { remaining.money -= STATS[t].cost; spent[t] = (spent[t] || 0) + STATS[t].cost; types.push(t); };
+
+    // (1) ZORUNLU çekirdek — tariften önce rezerve edilir (çekirdek, pay-doldurmaya yem olmaz)
+    for (const k of Object.keys(tarif.zorunlu).sort()) {
+        const t = deploymentResolveType(k);
+        if (t == null) { uyarilar.push('zorunlu: bilinmeyen tip ' + k); continue; }
+        const n = Math.max(0, tarif.zorunlu[k] | 0);
+        for (let i = 0; i < n; i++) {
+            if (!alinabilir(t)) { uyarilar.push('zorunlu KARŞILANAMADI: ' + k + ' (' + adet(t) + '/' + n + ')'); break; }
+            al(t);
+        }
+    }
+
+    // (2) TİP HEDEFLERİ: kategori payı → kategori içi ağırlıkla tiplere dağıtılır (ağırlık yoksa eşit)
+    const tipAgirlik = {};
+    if (tarif.tipPaylari) {
+        for (const k of Object.keys(tarif.tipPaylari)) {
+            const t = deploymentResolveType(k);
+            if (t == null) { uyarilar.push('tipPaylari: bilinmeyen tip ' + k); continue; }
+            tipAgirlik[t] = Math.max(0, Number(tarif.tipPaylari[k]) || 0);
+        }
+    }
+    const hedef = {};
+    for (const kat of Object.keys(tarif.paylar).sort()) {
+        const katTipleri = hepsi.filter(t => deploymentTypeCategory(t) === kat);
+        if (!katTipleri.length) { uyarilar.push('kategoride tip yok: ' + kat); continue; }
+        let wTop = 0;
+        for (const t of katTipleri) wTop += (tipAgirlik[t] != null ? tipAgirlik[t] : 1);
+        if (wTop <= 0) continue;
+        const katHedef = tarif.paylar[kat] * butce;
+        for (const t of katTipleri) hedef[t] = katHedef * ((tipAgirlik[t] != null ? tipAgirlik[t] : 1) / wTop);
+    }
+
+    // (3) PAY-DOLDURMA — KATEGORİ ÖNCELİKLİ. RNG YOK, tüm eşitlik bozucular sabit.
+    //
+    //   NEDEN KATEGORİ ÖNCE: ilk sürüm tüm tipler arasında küresel açgözlüydü (açık/maliyet) ve PAHALI
+    //   birimi YAPISAL OLARAK DIŞLIYORDU — motorun kendi kodunun da uyardığı hata. Ölçüldü: air_defense
+    //   hedefi 650₺ iken 300₺'lik SPAAG alınıp %5.4 eksik kalıyordu; oysa 700₺'lik SAM alınsa sapma
+    //   %0.8'e düşüyordu. Yani çözücü, sapmayı AZALTAN alımı reddediyordu.
+    //
+    //   YENİ KURAL: (a) ₺ açığı en büyük kategori seçilir — tarifin sözleşmesi kategori payıdır;
+    //   (b) kategori içinde tip-açığı/maliyet en yüksek tip alınır (ağırlıklara göre yayılım);
+    //   (c) hiçbir tip eşiği geçmiyorsa "yığın geri-düşüşü": |katAçığı − maliyet| en küçük tip alınır —
+    //       yalnız sapmayı azaltıyorsa (maliyet < 2×katAçığı). Aşırı-alım BİLEREK serbest: 650₺ hedefe
+    //       700₺ harcamak (+50), 300₺ harcamaktan (−350) daha az sapmadır.
+    const katHedefi = {};
+    for (const kat of Object.keys(tarif.paylar)) katHedefi[kat] = tarif.paylar[kat] * butce;
+    const katHarcanan = (kat) => types.reduce((s, t) => s + (deploymentTypeCategory(t) === kat ? STATS[t].cost : 0), 0);
+    let guard = 0;
+    while (types.length < maxUnits && guard++ < 400) {
+        // (a) en büyük ₺ açığına sahip, alınabilir tipi olan kategori
+        let kat = null, katD = 0;
+        for (const k of Object.keys(katHedefi).sort()) {
+            const d = katHedefi[k] - katHarcanan(k);
+            if (d <= 0) continue;
+            if (!hepsi.some(t => deploymentTypeCategory(t) === k && hedef[t] != null && alinabilir(t))) continue;
+            if (d > katD) { katD = d; kat = k; }
+        }
+        if (kat == null) break;
+        const katTipleri = hepsi.filter(t => deploymentTypeCategory(t) === kat && hedef[t] != null && alinabilir(t));
+        // (b) tip-açığı/maliyet ≥ 0.5 (en-büyük-kalan kuralı) → ağırlıklara göre yayılım
+        let sec = null, secND = -Infinity, secD = -Infinity;
+        for (const t of katTipleri) {
+            const d = hedef[t] - (spent[t] || 0);
+            const nd = d / STATS[t].cost;
+            if (nd > secND || (nd === secND && (d > secD || (d === secD && sec != null && t < sec)))) { sec = t; secND = nd; secD = d; }
+        }
+        if (sec != null && secND >= 0.5) { al(sec); continue; }
+        // (c) yığın geri-düşüşü: sapmayı azaltan, açığa en yakın maliyetli tip
+        let yig = null, yigFark = Infinity;
+        for (const t of katTipleri) {
+            const c = STATS[t].cost;
+            if (c >= 2 * katD) continue;                       // bu alım sapmayı BÜYÜTÜR → alma
+            const fark = Math.abs(katD - c);
+            const wT = (tipAgirlik[t] != null ? tipAgirlik[t] : 1);
+            const wY = yig == null ? -1 : (tipAgirlik[yig] != null ? tipAgirlik[yig] : 1);
+            if (fark < yigFark || (fark === yigFark && (wT > wY || (wT === wY && (STATS[t].cost > STATS[yig].cost || (STATS[t].cost === STATS[yig].cost && t < yig)))))) { yig = t; yigFark = fark; }
+        }
+        if (yig != null) { al(yig); continue; }
+        // bu kategoride sapmayı azaltan alım kalmadı → hedefini kapat ve diğerlerine geç
+        katHedefi[kat] = katHarcanan(kat);
+    }
+
+    // (4) ARTIK: kalan para tarifin `artik` listesine (en pahalıdan). Liste boşsa para İADE EDİLMEZ, öylece kalır
+    //     ve denetimde "harcanmayan" olarak RAPORLANIR (sessiz kırpma yasak — plan §8.8).
+    if (tarif.artik.length) {
+        const artikTip = tarif.artik.map(deploymentResolveType).filter(t => t != null && STATS[t]);
+        let g2 = 0;
+        while (types.length < maxUnits && g2++ < 48) {
+            const uygun = artikTip.filter(alinabilir);
+            if (!uygun.length) break;
+            let pick = uygun[0];
+            for (const t of uygun) { if (STATS[t].cost > STATS[pick].cost || (STATS[t].cost === STATS[pick].cost && t < pick)) pick = t; }
+            al(pick);
+        }
+    }
+
+    const counts = types.reduce((r, t) => { r[t] = (r[t] || 0) + 1; return r; }, {});
+    const toplamDeger = types.reduce((s, t) => s + STATS[t].cost, 0);
+
+    // (5) DENETİM: hedef pay ↔ gerçek pay, harcanmayan para, uyarılar. Her koşuda okunur (plan §0.3).
+    const gercekPay = {};
+    for (const kat of RECIPE_CATEGORIES) {
+        const v = types.reduce((s, t) => s + (deploymentTypeCategory(t) === kat ? STATS[t].cost : 0), 0);
+        if (v > 0 || tarif.paylar[kat]) gercekPay[kat] = toplamDeger ? +(v / toplamDeger).toFixed(4) : 0;
+    }
+    const sapma = {};
+    let maxSapma = 0;
+    for (const kat of Object.keys(gercekPay)) {
+        const s = +((gercekPay[kat] - (tarif.paylar[kat] || 0))).toFixed(4);
+        sapma[kat] = s;
+        if (Math.abs(s) > Math.abs(maxSapma)) maxSapma = s;
+    }
+    const denetim = {
+        tarif: tarif.ad, butce, harcanan: toplamDeger, harcanmayan: butce - toplamDeger,
+        kacak: toplamDeger - (butce - (remaining.money || 0)),   // 0 olmalı: defter ↔ gerçek değer (560₺ vakası)
+        hedefPay: tarif.paylar, gercekPay, sapma, maxSapma: +maxSapma.toFixed(4), uyarilar
+    };
+
+    return {
+        types, counts, totalUnits: types.length, totalValue: toplamDeger,
+        initialBudget: initial, remaining,
+        composition: {
+            fireSupport: Math.round((gercekPay.indirect || 0) * 100),
+            logistics: Math.round((gercekPay.logistics || 0) * 100),
+            antiTank: Math.round(types.reduce((s, t) => s + ((t === T.ANTI_TANK || t === T.TANK_HUNTER) ? STATS[t].cost : 0), 0) / (toplamDeger || 1) * 100),
+            armor: Math.round((gercekPay.armor || 0) * 100),
+            infantry: Math.round((gercekPay.infantry || 0) * 100),
+            airDefense: Math.round((gercekPay.air_defense || 0) * 100)
+        },
+        doctrineId: 0,
+        tarifDenetim: denetim,
+        hash: deploymentManifestHash(counts)
+    };
+}
+
 function battleBuildArmyManifest(rawBudget, config = {}) {
+    // TARİF MODU: kompozisyon veri olarak verildiyse sezgisel zincir TAMAMEN atlanır.
+    if (config.recipe && Object.prototype.hasOwnProperty.call(deploymentCloneBudget(rawBudget), 'money')) {
+        return battleBuildArmyFromRecipe(rawBudget, config);
+    }
     const remaining = deploymentCloneBudget(rawBudget);
     const initial = { ...remaining };
     const types = [];
@@ -655,7 +872,9 @@ function battleAutoDeploySession(config = {}) {
         // autoDeploy anında HENÜZ set-edilmemiş (initBattleRules startBattle'da) → session-CONFIG'in attackerSide'ını oku (doğru kaynak).
         isAttacker: (config.attackerSide === true),
         // INTEL4-PRO kompozisyon katmanı (kırmızı taraf): AT-tavanı vb. yalnız pro-beyinli tarafta.
-        pro: (typeof BATTLE_INTEL4PRO_RED !== 'undefined') && BATTLE_INTEL4PRO_RED === true
+        pro: (typeof BATTLE_INTEL4PRO_RED !== 'undefined') && BATTLE_INTEL4PRO_RED === true,
+        // TARİF MODU (FAZ 0): doluysa yukarıdaki sezgisel alanların HİÇBİRİ kullanılmaz — ordu tariften kurulur.
+        recipe: (typeof BATTLE_RECIPE_RED !== 'undefined') ? BATTLE_RECIPE_RED : null
     });
     battleConsumeEnemyManifest(manifest);
     const deployed = battleDeployManifest(manifest, true, {
