@@ -385,6 +385,62 @@ app.whenReady().then(() => {
         return;
     }
 
+    // BÜTÇE SONDAJI: `--budgetprobe [--mults 1,1.25,1.5]` → AYNA maçta saldırana kademeli bütçe üstünlüğü verip
+    // DENGE NOKTASINI bulur. Amaç TEŞHİS: saldıranın %30'luk kazanma oranı bir AI kusuru mu yoksa senaryo/kural
+    // yapısı mı? (Tarihsel 3:1 kuralı gerçekçi olabilir.) Denge 1.0'a yakınsa doktrin, uzaksa yapısal.
+    // NOT: MEZUNİYET her zaman EŞİT bütçeyle koşulur (kullanıcı kuralı) — bu yalnız teşhis aracıdır.
+    if (process.argv.includes('--budgetprobe')) {
+        const _mi = process.argv.indexOf('--mults');
+        const MULTS = (_mi >= 0 && process.argv[_mi + 1] && !process.argv[_mi + 1].startsWith('--'))
+            ? process.argv[_mi + 1].split(',').map(Number).filter(n => n > 0) : [1.0, 1.25, 1.5];
+        const SEEDS = [2024, 777, 909, 3141];
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const sonuc = [];
+            for (const mult of MULTS) {
+                let kaz = 0, n = 0; const detay = [];
+                for (const seed of SEEDS) {
+                    for (const redAttacks of [true, false]) {
+                        const atkB = Math.round(6500 * mult), defB = 6500;
+                        const redB = redAttacks ? atkB : defB, blueB = redAttacks ? defB : atkB;
+                        const r = await js(`(() => { try {
+                            BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                            BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                            BATTLE_INTEL4PRO_RED = true; BATTLE_INTEL4PRO_BLUE = true;   // ayna: iki taraf da pro
+                            if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                            if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                            if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                            openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${redAttacks}, durationSec:360, playerMoney:${blueB}, enemyMoney:${redB}, show:false });
+                            if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                            battleDeployManifest(battleBuildArmyManifest(${blueB}, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'probe-blue', ally:true });
+                            startBattle(); window.requestAnimationFrame = () => 0;
+                            const ph = SIM.headless; SIM.headless = true; let st = 0;
+                            try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                            const b = SIM.battle || {};
+                            let rv=0,bv=0; for (const u of SIM.units) { if (u.dead) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if (u.isRed) rv+=c; else bv+=c; }
+                            return { kazanan:(b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'), sebep:b.outcomeReason||null,
+                                saldiranKazandi: b.winnerSide==null?null:((b.winnerSide===true)===${redAttacks}),
+                                kalanSaldiran: ${redAttacks}?rv:bv, kalanSavunan: ${redAttacks}?bv:rv };
+                        } catch(e){ return { err:e.message }; } })()`);
+                        if (!r || r.err) { console.log('PROBE_ERR ' + (r && r.err)); continue; }
+                        n++; if (r.saldiranKazandi) kaz++;
+                        detay.push({ seed, saldiran: redAttacks ? 'red' : 'blue', kazandi: r.saldiranKazandi, sebep: r.sebep });
+                    }
+                }
+                const pct = n ? +(kaz / n * 100).toFixed(1) : 0;
+                sonuc.push({ mult, saldiranButce: Math.round(6500 * mult), mac: n, saldiranGalibiyet: kaz, yuzde: pct });
+                console.log('PROBE mult=' + mult + ' (saldiran ' + Math.round(6500 * mult) + '₺ vs savunan 6500₺) -> saldiran ' + kaz + '/' + n + ' = %' + pct);
+            }
+            console.log('BUDGETPROBE ' + JSON.stringify(sonuc));
+            console.log('BUDGETPROBE_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // INTEL4-PRO MEZUNİYET KAPISI: `--intel4pro` → intel4-pro vs intel4 (MEZUN sürüm), 6 tohum × 2 rol = 12 maç.
     // KULLANICI ÖLÇÜTÜ: pro ≥%75 (9/12) üstünlük sağlarsa MEZUN olur. Her maçta yalnız BİR taraf pro (adil).
     // İki taraf da intel4-beyni + gerçek-oyun deltaları; tek fark pro-katmanı (ammoDiscipline vb.).
@@ -515,7 +571,13 @@ app.whenReady().then(() => {
                                     const tn = (typeof UNIT_ID_BY_INDEX !== 'undefined' && UNIT_ID_BY_INDEX[u.type]) || ('t'+u.type);
                                     if ((u.ammo||0) <= 0) { bos++; bosTip[tn]=(bosTip[tn]||0)+1; }
                                     else if (f <= 0.34) dusukTip[tn]=(dusukTip[tn]||0)+1; } }
-                            return { n, amo: amoN ? +(amoSum/amoN).toFixed(2) : null, bosMuh: bos, sup: n ? Math.round(supSum/n) : 0, bosTip, dusukTip }; };
+                            // TEMASTA: kendi silah menzilinde CANLI düşmanı olan birim sayısı. (a) "kütle zarfa yürüyor" ile
+                            // (c) "damla damla varıyor" hipotezlerini ayırt eder: temas eğrisi sıçrıyorsa toplu, sürünüyorsa parça parça.
+                            let temas = 0;
+                            for (const u of SIM.units) { if (u.dead || u.isRed!==isRed || !(u.range>0)) continue;
+                                for (const e of SIM.units) { if (e.dead || e.isRed===isRed || e.loaded) continue;
+                                    if (Math.hypot(e.x-u.x, e.y-u.y) <= u.range) { temas++; break; } } }
+                            return { n, amo: amoN ? +(amoSum/amoN).toFixed(2) : null, bosMuh: bos, sup: n ? Math.round(supSum/n) : 0, bosTip, dusukTip, temas }; };
                         try {
                             while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
                                 st += BATTLE_TICK_MS;

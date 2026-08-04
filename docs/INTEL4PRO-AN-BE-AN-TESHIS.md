@@ -123,6 +123,39 @@ mesafesi <700) önce savunana verdiği hasar ölçüldü:
 **Korelasyon r = 0.131** → ilişki yok. En yüksek yumuşatmayı yapan (%36.1) **kaybetti**; kazananlardan ikisi
 **%0.1 ve %1.4** yumuşatmayla kazandı. → Yaklaşmayı bastırma-örtüsüne bağlamak veri tarafından **desteklenmiyor**.
 
+#### BÜTÇE SONDAJI — savunma üstünlüğü HAFİF, doktrinle kapatılabilir ✅
+`--budgetprobe` (ayna, 4 tohum × 2 rol = 8 maç/kademe, iki taraf da pro):
+
+| saldıran bütçesi | saldıran galibiyeti |
+|---|---|
+| 6500 (1.0×, eşit) | %37.5 |
+| 8125 (1.25×) | **%75** |
+| 9750 (1.5×) | **%100** |
+
+**Denge noktası ≈ 1.10–1.15×.** Yani saldıranın açığı yalnızca **%10-15 bütçe eşdeğeri** — tarihsel 3:1'in çok altında.
+İki sonuç: (1) bu bir kural-düzeyi dengesizliği DEĞİL, **doktrinle kapatılabilir** bir açık;
+(2) duyarlılık dik (+%25 bütçe → +37.5 puan galibiyet) → **kompozisyon verimliliğinde %10-15'lik bir kazanım rolü çevirir.**
+Kullanıcının "AI'lar daha iyi bütçe takası yapmalı" sezgisi bu tabloyla destekleniyor.
+*(Mezuniyet her zaman eşit bütçeyle koşulur; bu yalnız teşhistir.)*
+
+#### (a) vs (c) AYIRT EDİCİ ÖLÇÜM — SONUÇSUZ ⚠️
+Saldıranın **eşzamanlı temas oranı** (kendi menzilinde canlı düşmanı olan birim / toplam birim) ölçüldü (8 maç):
+
+| | tepe temas oranı |
+|---|---|
+| KAZANAN saldırı | %32, %57 |
+| KAYBEDEN saldırı | %36, %45, %48, %48, %50, %53 |
+
+Ayrım yok — kazananlar aralığın hem altında hem üstünde. **(a) ve (c) bu ölçümle ayrışmadı.**
+
+**Yine de sağlam bir yapısal gözlem:** saldıran ordu kuvvetinin **hiçbir zaman ~%57'sinden fazlasını aynı anda
+temasa sokamıyor** (tipik %32-53). Yani ordunun yarısı sürekli boşta. Bu, parça-parça saldırı (c) lehine bir
+gösterge ama **galibiyetle ilişkisiz** olduğu için tek başına kaldıraç sayılmaz.
+
+**Sıradaki doğru ölçüm (öneri):** tepe-temas oranı yerine **temas anındaki YEREL kuvvet oranı** —
+saldıran birim ateş altındayken kaç savunan ona ateş ediyor? Global eşitlikte bile yerel olarak sürekli
+sayıca az kalıyorsa asıl kusur **yoğunlaşma**dır ve kaldıraç oradadır.
+
 #### Yapısal bulgu: ayna maçta saldıran **6/20 = %30**
 İki taraf da aynı beyin ve **eşit 6500₺** iken saldıran yalnız %30 kazanıyor
 (`attacker_eliminated` 7, `attacker_withdrew` 3 → saldıran maçların **yarısında** kırılıyor).
