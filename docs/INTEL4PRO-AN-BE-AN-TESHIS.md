@@ -213,10 +213,28 @@ birim duruyor, ama ordunun geri kalanı ona gelmiyor.
 saldırı hiç gerçekleşmiyor. Sonuç `attacker_eliminated` → `time_expired`e döndü:
 **pasif kohezyon kaybı beraberliğe çeviriyor, galibiyete değil.**
 
-**Doğru yön (bir sonraki iş):** pasif "bekle" yerine **aktif yoğunlaşma** — taarruz grubunu ortak bir
-taarruz eksenine ÇEK (ana-çabaya toplanma noktası), böylece yerel dost sayısı gerçekten artsın.
-Mevcut ana-çaba/sektör-komuta altyapısı bunun doğal yeri. `assaultCohesion` tek başına yetersiz;
-ya aktif toplanmayla birlikte kullanılmalı ya da kaldırılmalı.
+#### AKTİF TOPLANMA — DENENDİ, ÖLÇÜLDÜ, **GERİ ALINDI** ❌
+Pasif "bekle" yerine: desteksiz saldıran birim, yakın dost kütlesinin **merkezine** gitsin (centroid, determinist).
+
+| | mavi toplam | savunanken | SALDIRANKEN | ort. yakın dost | BIND% |
+|---|---|---|---|---|---|
+| yalnız massing | 4/8 | 3/4 | 1/4 | — | — |
+| + pasif kohezyon | **5/8** | 3/4 | **2/4** | 1.05–4.82 | %37 |
+| + aktif toplanma | 4/8 | 3/4 | **1/4** | **4.63–4.85** | %14-24 |
+
+**Mekanizma ÇALIŞTI ama sonuç KÖTÜLEŞTİ.** Ortalama yakın dost gerçekten arttı (seed3141: 1.05 → **4.7**),
+bağlama oranı düştü (%100 → %24) — yani birimler artık yalnız değil. Buna rağmen saldıran 2/4 → 1/4.
+
+**SEBEP (asıl ders):** yerel-oran = dost / **DÜŞMAN**. Kendi merkezine yığılmak dostu artırıyor ama
+o kütle düşman kütlesiyle burun buruna geldiği için **oranı değiştirmiyor** —
+seed3141: ort-dost 1.05→4.7 iken t=60 yerel-oran **0.71'de sabit kaldı**.
+
+→ Kazananların 10.8'lik oranı *"çok dost"* değil, **"düşmanın ZAYIF olduğu yerde çok dost"** demek.
+Yani aranan şey kör yığılma değil **schwerpunkt**: düşmanın zayıf sektörüne yoğunlaşmak.
+Bu, mevcut **sektör-komuta / ana-çaba** altyapısının işi — birim-seviyesi bir kural değil.
+
+**Durum:** aktif toplanma geri alındı; pasif `assaultCohesion` (5/8) korundu ama hâlâ **doğrulanmamış**
+(tek maçlık fark, n=4). Determinizm temiz.
 
 **Karar:** delta varsayılan açık ama **doğrulanmamış** olarak işaretli; determinizm temiz.
 

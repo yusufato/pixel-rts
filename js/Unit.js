@@ -1287,6 +1287,14 @@ class Unit {
                             }
                             BATTLE_BALANCE.proCohesionDostSum = (BATTLE_BALANCE.proCohesionDostSum || 0) + _dost;
                         }
+                        // ÖLÇÜLDÜ ve GERİ ALINDI — "aktif toplanma" (dost kütlesinin merkezine git) denendi:
+                        // mekanizma ÇALIŞTI (ort. yakın dost 1.05→4.7, bind %100→%24) ama SONUÇ KÖTÜLEŞTİ
+                        // (saldıran 2/4→1/4, toplam 5/8→4/8). Sebep: yerel-oran = dost/DÜŞMAN. Kendi merkezine
+                        // yığılmak dostu artırıyor ama düşman kütlesiyle burun buruna geldiği için ORANI
+                        // değiştirmiyor (seed3141: ort-dost 1.05→4.7 ama t60 yerel-oran 0.71'de sabit).
+                        // DERS: kazananların 10.8'lik oranı "çok dost" değil, "DÜŞMANIN ZAYIF OLDUĞU YERDE çok dost"
+                        // demek — yani schwerpunkt. Doğru kaldıraç: düşmanın ZAYIF sektörüne yoğunlaşmak
+                        // (mevcut sektör-komuta/ana-çaba altyapısının işi), kör yığılma değil.
                         if (_dost < PRO_COHESION_MIN) standOff = true;   // desteksiz: kapatma, menzilde tut
                     }
                 }

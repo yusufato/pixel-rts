@@ -403,7 +403,9 @@ const PRO_AMMO_CLOSE_FRAC = 0.60;   // "kararlı menzil" = kendi menzilinin %60'
 // ~3.4 dost, kazananlarda ~10.8 dost vardı. R=420/min=3 denendi → kural ateşlendi ama SONUÇ DEĞİŞMEDİ (4/8→4/8):
 // eşik zaten neredeyse hep sağlanıyordu. Ölçümün yarıçapına geçildi ve eşik kaybeden-bandının üstüne alındı.
 const PRO_COHESION_R = 600;
-const PRO_COHESION_MIN = 5;         // yüksek eşik orduyu dondurup süre-doldu beraberliği üretebilir → A/B ile izlenir.
+const PRO_COHESION_MIN = 5;
+const PRO_RALLY_R = 1200;           // toplanma arama yarıçapı — bu mesafedeki muharip dostların merkezine git
+const PRO_RALLY_MIN_D = 150;        // merkez bu kadar yakınsa zaten toplanmışız (gereksiz salınım yapma)         // yüksek eşik orduyu dondurup süre-doldu beraberliği üretebilir → A/B ile izlenir.
 
 // TEHDİT-PROFİLİ FORENSİK-RİNG (her-zaman-açık): battleRecordCombatEvent'in TEPESİNDE, telemetri-kapısından ÖNCE doldurulur —
 // çünkü replay-playback'te telemetry.combatEvents doldurulMAZ; inanç-katmanı onu okursa canlı≠playback → replay kırılır.
