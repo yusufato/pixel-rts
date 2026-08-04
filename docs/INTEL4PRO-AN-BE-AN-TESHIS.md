@@ -108,9 +108,30 @@ t=60'ta, 12 birime düştükten sonra geçiyor). Yani duruş-kapısı STRIKE'ı 
 denetimsiz** — kısa menzilli kütle (MBT 450 / piyade 300) savunanın uzun menzilli zarfını (AT 525, topçu 900+)
 yumuşatmadan geçmek zorunda kalıyor.
 
-**Aday kaldıraçlar (henüz sınanmadı):** (a) POSITION'da yaklaşma mesafesini savunanın etkili zarfına göre kısıtla
-(yumuşatma tamamlanana dek kütleyi eşikte tut), (b) yaklaşmayı bastırma-örtüsüne bağla (dolaylı ateş hazır değilse ilerleme),
-(c) yaklaşma hızını/eş-zamanlılığını artır (damla damla değil tek hamlede). **Ölçmeden seçme.**
+**Aday kaldıraçlar:** (a) POSITION'da yaklaşma mesafesini savunanın etkili zarfına göre kısıtla,
+(b) yaklaşmayı bastırma-örtüsüne bağla, (c) yaklaşmayı tek hamlede eş-zamanlı yap.
+
+#### (b) ÖLÇÜLDÜ ve ÇÜRÜDÜ ❌ — "yumuşatma yetersizliği" saldırıyı açıklamıyor
+20 maçlık ayna örneklemi (10 tohum × 2 rol, **iki taraf da pro**), saldıranın kütlesi kapanmadan (ort. angajman
+mesafesi <700) önce savunana verdiği hasar ölçüldü:
+
+| | yumuşatma % | bunun dolaylı payı | kapanma anı |
+|---|---|---|---|
+| KAZANAN saldırı (6) | %11.0 | %7.1 | 48.3sn |
+| KAYBEDEN saldırı (14) | %8.1 | %3.1 | 38.6sn |
+
+**Korelasyon r = 0.131** → ilişki yok. En yüksek yumuşatmayı yapan (%36.1) **kaybetti**; kazananlardan ikisi
+**%0.1 ve %1.4** yumuşatmayla kazandı. → Yaklaşmayı bastırma-örtüsüne bağlamak veri tarafından **desteklenmiyor**.
+
+#### Yapısal bulgu: ayna maçta saldıran **6/20 = %30**
+İki taraf da aynı beyin ve **eşit 6500₺** iken saldıran yalnız %30 kazanıyor
+(`attacker_eliminated` 7, `attacker_withdrew` 3 → saldıran maçların **yarısında** kırılıyor).
+Bu bir **AI kusuru mu yoksa senaryo/kural yapısı mı** ayırt edilmedi. Ayırt etmenin ucuz yolu:
+saldırana kademeli bütçe üstünlüğü verip **denge noktasını** bulmak (tarihsel 3:1 kuralı gerçekçi olabilir).
+
+**Mezuniyet açısından not:** kapı rolleri takasladığı için yapısal savunma eğilimi **sadeleşir**;
+pro'nun mezun olması için gereken şey "saldırıyı mutlak olarak düzeltmek" değil,
+**pro-saldıranın intel4-saldırandan iyi olması** (şu an A/B'de 1/4 vs 0/4 — zayıf).
 
 ### P1 — 1. DENEME: ÖLÇÜLDÜ, ETKİSİZ ❌ (2026-08-04)
 `ammoDiscipline` deltası yazıldı (`PRO_AMMO_RESERVE=0.45`, `PRO_AMMO_CLOSE_FRAC=0.60`) ve mezuniyet kapısında ölçüldü:
