@@ -407,7 +407,7 @@ app.whenReady().then(() => {
                     openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
                     if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
                     // MANIFEST MUHASEBESI: builder kendi defterine gore ne harcadi, gercek deger ne?
-                    const _mf = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false });
+                    const _mf = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro: BATTLE_INTEL4PRO_BLUE });
                     const _mfDenetim = { baslangic: _mf.initialBudget && _mf.initialBudget.money,
                         kalan: _mf.remaining && _mf.remaining.money,
                         defterHarcama: (_mf.initialBudget && _mf.initialBudget.money) - (_mf.remaining && _mf.remaining.money),
@@ -489,7 +489,7 @@ app.whenReady().then(() => {
                             if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
                             openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${redAttacks}, durationSec:360, playerMoney:${blueB}, enemyMoney:${redB}, show:false });
                             if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
-                            battleDeployManifest(battleBuildArmyManifest(${blueB}, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'probe-blue', ally:true });
+                            battleDeployManifest(battleBuildArmyManifest(${blueB}, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !, pro: BATTLE_INTEL4PRO_BLUE }), false, { source:'probe-blue', ally:true });
                             startBattle(); window.requestAnimationFrame = () => 0;
                             const ph = SIM.headless; SIM.headless = true; let st = 0;
                             try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
@@ -539,7 +539,7 @@ app.whenReady().then(() => {
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
                         openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
-                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:'pro-blue', ally:true });
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro: BATTLE_INTEL4PRO_BLUE }), false, { source:'pro-blue', ally:true });
                         startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
                         const ph = SIM.headless; SIM.headless = true; let st = 0;
                         // MÜHİMMAT AKIŞI: P1'in hedefi savunanın erken tükenmesini önlemek → t=60'ta oran + kuru birim
@@ -613,7 +613,7 @@ app.whenReady().then(() => {
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
                         openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${redAttacks}, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
-                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'timeline-blue', ally:true });
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !, pro: BATTLE_INTEL4PRO_BLUE }), false, { source:'timeline-blue', ally:true });
                         startBattle(); window.requestAnimationFrame = () => 0;
                         battleBalanceReset(true);   // kohezyon teşhis sayaçları için (hash-dışı)
                         // OLAY KANCASI: hasar/mesafe/öldürme akışını kovalara topla (halka-tampona bağımlı DEĞİL)
@@ -741,7 +741,7 @@ app.whenReady().then(() => {
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
                         openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${redAttacks}, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
-                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'selfplay-blue', ally:true });
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !, pro: BATTLE_INTEL4PRO_BLUE }), false, { source:'selfplay-blue', ally:true });
                         startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
                         const ph = SIM.headless; SIM.headless = true; let st = 0;
                         const durus = { red:{}, blue:{} }; let ilkStrikeRed = null, ilkStrikeBlue = null;

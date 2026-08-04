@@ -415,6 +415,7 @@ const PRO_AMMO_CLOSE_FRAC = 0.60;   // "kararlı menzil" = kendi menzilinin %60'
 const PRO_COHESION_R = 600;
 const PRO_COHESION_MIN = 5;
 const PRO_RALLY_R = 1200;           // toplanma arama yarıçapı — bu mesafedeki muharip dostların merkezine git
+const PRO_AT_CAP = 4;                // SALDIRANDA tanksavar timi tavani (kullanici: "7 fazla, 3-4 yeter"); ustu sokulup para iade edilir
 const PRO_RALLY_MIN_D = 150;        // merkez bu kadar yakınsa zaten toplanmışız (gereksiz salınım yapma)         // yüksek eşik orduyu dondurup süre-doldu beraberliği üretebilir → A/B ile izlenir.
 
 // TEHDİT-PROFİLİ FORENSİK-RİNG (her-zaman-açık): battleRecordCombatEvent'in TEPESİNDE, telemetri-kapısından ÖNCE doldurulur —

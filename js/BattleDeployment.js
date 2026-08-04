@@ -318,6 +318,23 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     // mızraksızı %5). Eksikse en-ucuz zırh al, en-PAHALI non-zırh fazlalığı takas (imza≥1 + SAM + radar korunur). İki-taraf, deterministik.
     // YALNIZ TAARRUZ (config.isAttacker): analistin reçetesi "TAARRUZ rolü mızraksız kadro kuramaz". Savunanı ZORLAMA (savunma
     // doktrini mızrak istemeyebilir → zorlarsan regresyon: ölçümde savunma-777 flip oldu). Kırmızı-AI attacker'sa floor devrede.
+    // ── INTEL4-PRO 'atCap': SALDIRANDA TANKSAVAR TİMİ TAVANI (kullanıcı gözlemi, 2026-08-04) ──
+    // Ölçüldü: saldıran ordunun EN BÜYÜK kalemi 7 AT timi (1190₺ = %18.3) iken mızrağı (MBT+TD) %14.2'de
+    // kalıyor ve kodun kendi %18 mızrak-tabanı TUTMUYOR. Kullanıcı: "7 AT fazla; canları az, dolaylı ateş
+    // karşısında etkisiz; 3-4 fazlasıyla yeter, kalan para daha iyi değerlendirilir (ÇNRA/drone-operatör/helo)."
+    // Tavanın ÜSTÜ sökülür ve para İADE EDİLİR → hemen ardından gelen MIZRAK TABANI o parayı MBT/TD'ye çevirir
+    // (yani bu tavan, tutmayan mızrak-tabanını da besler). Yalnız SALDIRAN + pro. Deterministik.
+    if (config.pro === true && config.isAttacker === true && T.ANTI_TANK != null && STATS[T.ANTI_TANK] &&
+        Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        let guard = 0;
+        while (types.filter(t => t === T.ANTI_TANK).length > PRO_AT_CAP && guard++ < 24) {
+            const ix = types.lastIndexOf(T.ANTI_TANK); if (ix < 0) break;
+            remaining.money += STATS[T.ANTI_TANK].cost;
+            spent[T.ANTI_TANK] = (spent[T.ANTI_TANK] || 0) - STATS[T.ANTI_TANK].cost;
+            if (spent[T.ANTI_TANK] <= 0) delete spent[T.ANTI_TANK];
+            types.splice(ix, 1);
+        }
+    }
     if (config.isAttacker === true && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
         // MIZRAK = AĞIR zırh: MBT(T.ARMOR) + TD(T.TANK_HUNTER) YALNIZ. IFV(MECH_INFANTRY) HARİÇ — analist "0 MBT/TD, tek ZMA(IFV)"yi
         // mızraksız saydı → IFV mızrak sayılırsa floor IFV'lerle dolup gerçek-mızrak eklemez (seed2024 tam bu tuzağa düştü).
@@ -428,6 +445,35 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
                 continue;   // artık omurga sığabilir → tekrar dene
             }
             remaining.money -= STATS[buy].cost; spent[buy] = (spent[buy] || 0) + STATS[buy].cost; types.push(buy);
+        }
+    }
+    // INTEL4-PRO: AT-tavanından ve tabanlardan ARTAN parayı boşa bırakma — kullanıcı: "kalan para daha iyi
+    // değerlendirilebilir (ÇNRA / bir drone operatörü daha / helikopter), AI nasıl dizmek isterse."
+    // Burada AI'ın KENDİ tercihine bırakılır: uygun tipler arasından en YÜKSEK doktrin-ağırlıklısı alınır
+    // (eşitlikte pahalı olan, sonra küçük indeks) → doktrin karakteri korunur. Deterministik, RNG yok.
+    if (config.pro === true && Object.prototype.hasOwnProperty.call(remaining, 'money')) {
+        // KABİLİYET LİSTESİ (kullanıcının kendi örnekleri + mızrak): artan para BUNLARA gider.
+        // `allowedTypes` kullanılmıyordu çünkü doktrin ağırlık-haritasında olmayan tip (ör. tank) aday olamıyor
+        // ve para PİYADEYE akıyordu (ilk denemede 900₺ → 9 piyade). Liste boşsa hiç harcama YAPMA (spam yok).
+        const PRO_ARTIK = [T.MLRS, T.ATTACK_HELO, T.ARMOR, T.TANK_HUNTER, T.ARTILLERY, T.DRONE_OPERATOR, T.UCAV]
+            .filter(t => t != null && STATS[t]);
+        let guard = 0;
+        while (types.length < maxUnits && guard++ < 24) {
+            const uygun = PRO_ARTIK.filter(t => STATS[t].cost <= (remaining.money || 0));
+            if (!uygun.length) break;
+            // KABİLİYET ÖNCELİĞİ: en PAHALI uygun tip alınır (eşitlikte doktrin-ağırlığı, sonra küçük indeks).
+            // İlk sürüm "en yüksek ağırlık" seçiyordu → 900₺'yi 9 PİYADEYE harcadı (kodun kendi uyardığı
+            // degenerate "piyade spam"ı). Kullanıcının kastı kabiliyetti: "ÇNRA / bir drone operatörü daha /
+            // helikopter". Pahalıdan başlamak doğal olarak bunları alır, artık kuruş piyadeye kalır.
+            let pick = null;
+            for (const t of uygun) {
+                if (pick == null) { pick = t; continue; }
+                const ct = STATS[t].cost, cp = STATS[pick].cost;
+                const wt = deployWeights[t] || 0, wp = deployWeights[pick] || 0;
+                if (ct > cp || (ct === cp && (wt > wp || (wt === wp && t < pick)))) pick = t;
+            }
+            if (pick == null) break;
+            remaining.money -= STATS[pick].cost; spent[pick] = (spent[pick] || 0) + STATS[pick].cost; types.push(pick);
         }
     }
     const counts = types.reduce((result, type) => {
@@ -607,7 +653,9 @@ function battleAutoDeploySession(config = {}) {
         brainIntel4: (typeof battleBrainIntel4 === 'function') && battleBrainIntel4(true),
         // ANALİST-FIX (mızraksız-taarruz): kırmızı-AI SALDIRAN ise zırh-mızrağı-tabanı devrede (savunanda değil). NOT: SIM.battle.attackerSide
         // autoDeploy anında HENÜZ set-edilmemiş (initBattleRules startBattle'da) → session-CONFIG'in attackerSide'ını oku (doğru kaynak).
-        isAttacker: (config.attackerSide === true)
+        isAttacker: (config.attackerSide === true),
+        // INTEL4-PRO kompozisyon katmanı (kırmızı taraf): AT-tavanı vb. yalnız pro-beyinli tarafta.
+        pro: (typeof BATTLE_INTEL4PRO_RED !== 'undefined') && BATTLE_INTEL4PRO_RED === true
     });
     battleConsumeEnemyManifest(manifest);
     const deployed = battleDeployManifest(manifest, true, {
