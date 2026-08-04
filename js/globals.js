@@ -376,7 +376,14 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // P1: SAVUNAN MÜHİMMAT DİSİPLİNİ. An-be-an teşhis (docs/INTEL4PRO-AN-BE-AN-TESHIS.md): savunan ilk 50sn'de
     // uzak menzilden aşırı ateşle mühimmatını yarılıyor, atış hacmi 4× düşüyor (ordusunun %70'i sağken) ve
     // yaklaşan saldırganı durduramayıp siliniyor. Çare: yedek eşiğinin altında UZAK hedefe ateş etme.
-    ammoDiscipline: true
+    // 1. DENEME — ÖLÇÜLDÜ, ETKİSİZ (pro 6/12=%50). Eşik (%45) yanma penceresinden (0.85→0.61) SONRA açılıyordu.
+    // Temiz ölçüm için VARSAYILAN KAPALI bırakıldı; indirectMassing tek başına sınanıyor.
+    ammoDiscipline: false,
+    // P1b: DOLAYLI ATEŞ KÜTLE-HEDEFLEMESİ. An-be-an teşhis: savunanın kuruyan birimleri YALNIZCA dolaylı ateş
+    // (topçu 1 + havan 2-3 + ÇNRA 1) ve t=60'ta hepsi boş; saldıranda hiç kuru birim yok. Sebep: dolaylı ateş
+    // EN YAKIN görülen düşmana atıyor ("splash zaten alan" varsayımı) → 3-8 mermilik şarjör tek gezen keşif
+    // aracına harcanıyor. Çare: mermiyi patlama yarıçapındaki düşman KÜTLESİNE göre seç (mermi başına değer).
+    indirectMassing: true
 };
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;

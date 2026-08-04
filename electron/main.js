@@ -475,6 +475,9 @@ app.whenReady().then(() => {
                         const KOVA = 200;   // 10 sn
                         BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
                         BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                        // --pro red|blue|both : pro-katmanını seçilen tarafta aç (ucuz yineleme; mezuniyet kapısı ayrı)
+                        BATTLE_INTEL4PRO_RED = ${JSON.stringify(process.argv.includes('--pro') ? (process.argv[process.argv.indexOf('--pro') + 1] || 'both') : 'none')} === 'red' || ${JSON.stringify(process.argv.includes('--pro') ? (process.argv[process.argv.indexOf('--pro') + 1] || 'both') : 'none')} === 'both';
+                        BATTLE_INTEL4PRO_BLUE = ${JSON.stringify(process.argv.includes('--pro') ? (process.argv[process.argv.indexOf('--pro') + 1] || 'both') : 'none')} === 'blue' || ${JSON.stringify(process.argv.includes('--pro') ? (process.argv[process.argv.indexOf('--pro') + 1] || 'both') : 'none')} === 'both';
                         if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
                         if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
@@ -502,10 +505,13 @@ app.whenReady().then(() => {
                         const seri = [];
                         const deger = (isRed) => { let v=0; for (const u of SIM.units) if (!u.dead && u.isRed===isRed) v += (STATS[u.type]&&STATS[u.type].cost)||0; return v; };
                         // MÜHİMMAT/BASTIRMA durumu: "ordusu sağ ama ateşi kesildi" hipotezini sınamak için
-                        const durum = (isRed) => { let n=0, amoN=0, amoSum=0, bos=0, supSum=0;
+                        const durum = (isRed) => { let n=0, amoN=0, amoSum=0, bos=0, supSum=0; const bosTip={}, dusukTip={};
                             for (const u of SIM.units) { if (u.dead || u.isRed!==isRed) continue; n++; supSum += (u.suppression||0);
-                                if (u.maxAmmo > 0) { amoN++; amoSum += (u.ammo||0)/u.maxAmmo; if ((u.ammo||0) <= 0) bos++; } }
-                            return { n, amo: amoN ? +(amoSum/amoN).toFixed(2) : null, bosMuh: bos, sup: n ? Math.round(supSum/n) : 0 }; };
+                                if (u.maxAmmo > 0) { amoN++; const f=(u.ammo||0)/u.maxAmmo; amoSum += f;
+                                    const tn = (typeof UNIT_ID_BY_INDEX !== 'undefined' && UNIT_ID_BY_INDEX[u.type]) || ('t'+u.type);
+                                    if ((u.ammo||0) <= 0) { bos++; bosTip[tn]=(bosTip[tn]||0)+1; }
+                                    else if (f <= 0.34) dusukTip[tn]=(dusukTip[tn]||0)+1; } }
+                            return { n, amo: amoN ? +(amoSum/amoN).toFixed(2) : null, bosMuh: bos, sup: n ? Math.round(supSum/n) : 0, bosTip, dusukTip }; };
                         try {
                             while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
                                 st += BATTLE_TICK_MS;

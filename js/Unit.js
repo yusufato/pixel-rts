@@ -1371,7 +1371,21 @@ class Unit {
             // COUNTER-AĞIRLIKLI SEÇİM: "hangi birim hangiye" — counter'ladığın hedefi tercih et, yakınlık ikincil.
             // Tanksavar mek/zırhı (×4), piyade yumuşağı seçer; piyade mekanizeye boşuna erimez. Topçu sabit (nearest).
             let sc;
-            if (this.isIndirect) { sc = -d; }   // dolaylı ateş: en yakın/görülene (splash zaten alan)
+            if (this.isIndirect) {
+                // INTEL4-PRO 'indirectMassing': mermi başına DEĞER. Varsayılan davranış en-yakın hedefe atmaktı
+                // ("splash zaten alan") — ama şarjör 3-8 mermi ve ölçüldü ki savunanın topçu/havan/ÇNRA'sı t=60'ta
+                // KURUYOR. Kütle-hedeflemesi: patlama yarıçapındaki düşman sayısını maksimize et, eşitlikte yakını seç.
+                if (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'indirectMassing')) {
+                    const _pwm = STATS[this.type] && STATS[this.type].weapons && STATS[this.type].weapons[0];
+                    const _R = (_pwm && _pwm.aoe > 0) ? _pwm.aoe : ARTILLERY_SPLASH_RADIUS;
+                    let _kutle = 0;
+                    for (const n of SIM.spatialGrid.getNearby(u.x, u.y, _R)) {
+                        if (n.dead || n.loaded || n.abandoned || n.isRed === this.isRed) continue;
+                        if (Math.hypot(n.x - u.x, n.y - u.y) <= _R) _kutle++;
+                    }
+                    sc = _kutle * 100000 - d;   // önce kütle, eşitlikte yakınlık (determinist; RNG yok)
+                } else sc = -d;   // intel4 davranışı: en yakın/görülene
+            }
             else {
                 const arm = (typeof STATS !== 'undefined' && STATS[u.type]) ? STATS[u.type].armor : 0;
                 const dmg = (typeof calculateUnitDamage === 'function') ? calculateUnitDamage(this.type, u.type, this.atk, arm) : this.atk;
