@@ -1416,6 +1416,13 @@ class Unit {
                         if (Math.hypot(n.x - u.x, n.y - u.y) <= _R) _kutle++;
                     }
                     sc = _kutle * 100000 - d;   // önce kütle, eşitlikte yakınlık (determinist; RNG yok)
+                    // KARŞI-BATARYA (kullanıcı doktrini): SALDIRANIN dolaylı ateşi, savunanın DOLAYLI birimlerini
+                    // öncelikler — "toplu yürüyen saldırıyı yıpratan şey savunanın topçusu; önce onu sustur".
+                    // Yalnız saldıran rolde: savunanın kendi topçusunu kovalaması hattı boş bırakır.
+                    if (battleProDelta(this.isRed, 'counterBattery') && battleIsIndirectType(u.type)) {
+                        const _cbp = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
+                        if (_cbp && _cbp.role === (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.ATTACKER : 'attacker')) sc += 400000;
+                    }
                 } else sc = -d;   // intel4 davranışı: en yakın/görülene
             }
             else {

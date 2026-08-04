@@ -389,10 +389,20 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // Yani saldırı, yerel üstünlük kurabildiğinde kazanıyor. Kural: DESTEKSİZ İLERLEME YOK — yakınında yeterli
     // dost yoksa saldıran birim kapatmaz, menzilde bekler (kütle toplansın). deblob'u iptal etmez: yalnız
     // ana-çabanın ucundaki tekil ilerlemeyi keser ("ana-çabada yoğunlaş, gerisinde dağıl").
-    assaultCohesion: true
+    assaultCohesion: true,
+    // P4 (KULLANICI DOKTRİNİ): "toplu yürüyen saldırı, savunanın dolaylı ateşiyle yıpranır → önce karşılıklı dolaylı
+    // atışla savunanın topçusunu sustur." SALDIRANIN dolaylı ateşi, düşmanın DOLAYLI birimlerini öncelikler
+    // (karşı-batarya). NOT: korelasyon bunu doğrulaMADI (erken pencerede r=0.077) — ama hiçbir AI bu doktrini
+    // uygulamadığı için korelasyon test EDEMEZ (tedavide varyans yok). Bu yüzden uygulanıp A/B ile sınanıyor.
+    counterBattery: true
 };
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
+// Birim tipi DOLAYLI ateş mi (topçu/havan/ÇNRA/balistik)? Karşı-batarya hedeflemesi bunu kullanır.
+function battleIsIndirectType(t) {
+    const s = STATS[t];
+    return !!(s && (s.category === 'indirect' || (s.weapons && s.weapons[0] && s.weapons[0].indirect)));
+}
 function battleProDelta(isRed, key) {
     if (!BATTLE_INTEL4PRO_DELTAS[key]) return false;
     return isRed ? BATTLE_INTEL4PRO_RED : BATTLE_INTEL4PRO_BLUE;

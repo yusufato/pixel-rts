@@ -385,6 +385,59 @@ app.whenReady().then(() => {
         return;
     }
 
+    // ORDU DÖKÜMÜ: `--armydump [--seeds a,b]` → maçın kurulumunu yapıp İKİ TARAFIN ordusunu birim-birim döker
+    // (adet, birim maliyeti, toplam ₺, bütçe payı). Amaç: insanın aynı orduyla oynayıp "neden kaybediyor"u görmesi.
+    if (process.argv.includes('--armydump')) {
+        const _si = process.argv.indexOf('--seeds');
+        const SEEDS = (_si >= 0 && process.argv[_si + 1] && !process.argv[_si + 1].startsWith('--'))
+            ? process.argv[_si + 1].split(',').map(Number).filter(Number.isFinite) : [3141, 909];
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            for (const seed of SEEDS) {
+                const out = await js(`(() => { try {
+                    BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                    BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                    BATTLE_INTEL4PRO_RED = true; BATTLE_INTEL4PRO_BLUE = true;
+                    if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                    openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                    if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                    battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:'dump-blue', ally:true });
+                    startBattle();
+                    const dok = (isRed) => { const m = {};
+                        for (const u of SIM.units) { if (u.dead || u.isRed !== isRed) continue;
+                            const s = STATS[u.type] || {}; const key = s.name || s.id || ('t'+u.type);
+                            const a = m[key] || (m[key] = { adet:0, birim: s.cost||0, kategori: s.category, menzil: s.range, id: s.id });
+                            a.adet++; }
+                        const rows = Object.entries(m).map(([ad,v]) => ({ ad, ...v, toplam: v.adet*v.birim }))
+                            .sort((a,b) => b.toplam - a.toplam);
+                        const tut = rows.reduce((s,r)=>s+r.toplam,0);
+                        return { rows, tut, birimSayisi: rows.reduce((s,r)=>s+r.adet,0) }; };
+                    return { kirmizi: dok(true), mavi: dok(false) };
+                } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                if (!out || out.err) { console.log('ARMYDUMP_ERR ' + (out && out.err)); continue; }
+                for (const [taraf, etiket] of [['kirmizi', 'KIRMIZI = SALDIRAN'], ['mavi', 'MAVI = SAVUNAN']]) {
+                    const d = out[taraf];
+                    console.log('\n=== seed ' + seed + ' · ' + etiket + ' · ' + d.birimSayisi + ' birim · ' + d.tut + '₺ ===');
+                    console.log('  adet  birim                         kategori     menzil  birim₺   toplam₺   pay');
+                    for (const r of d.rows) {
+                        console.log('  ' + String(r.adet).padStart(3) + '   ' + String(r.ad).padEnd(28) +
+                            String(r.kategori || '-').padEnd(12) + String(r.menzil || 0).padStart(6) +
+                            String(r.birim).padStart(8) + String(r.toplam).padStart(10) +
+                            '   %' + (r.toplam / d.tut * 100).toFixed(1));
+                    }
+                }
+            }
+            console.log('\nARMYDUMP_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // BÜTÇE SONDAJI: `--budgetprobe [--mults 1,1.25,1.5]` → AYNA maçta saldırana kademeli bütçe üstünlüğü verip
     // DENGE NOKTASINI bulur. Amaç TEŞHİS: saldıranın %30'luk kazanma oranı bir AI kusuru mu yoksa senaryo/kural
     // yapısı mı? (Tarihsel 3:1 kuralı gerçekçi olabilir.) Denge 1.0'a yakınsa doktrin, uzaksa yapısal.
@@ -545,7 +598,7 @@ app.whenReady().then(() => {
                         // OLAY KANCASI: hasar/mesafe/öldürme akışını kovalara topla (halka-tampona bağımlı DEĞİL)
                         const kova = {};
                         const K = (t) => { const i = Math.floor(t/KOVA); return kova[i] || (kova[i] = {
-                            red:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0, yerelN:0, yerelDost:0, yerelDusman:0 }, blue:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0, yerelN:0, yerelDost:0, yerelDusman:0 } }); };
+                            red:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0, cbDmg:0, yerelN:0, yerelDost:0, yerelDusman:0 }, blue:{ ev:0, kill:0, dmg:0, distSum:0, tip:{}, indEv:0, indDmg:0, cbDmg:0, yerelN:0, yerelDost:0, yerelDusman:0 } }); };
                         // DOLAYLI/DOĞRUDAN AYRIMI: "yumuşatma ateşi gerçekte ne kadar iş yapıyor" sorusunu ayırt eder
                         const _indTip = new Set(); for (const k in STATS) { const s = STATS[k];
                             if (s && (s.category === 'indirect' || (s.weapons && s.weapons[0] && s.weapons[0].indirect))) _indTip.add(+k); }
@@ -556,6 +609,9 @@ app.whenReady().then(() => {
                                 const b = K(SIM.tick || 0)[s];
                                 b.ev++; if (d.lethal) b.kill++; b.dmg += (d.damage || 0);
                                 if (_indTip.has(d.attackerType)) { b.indEv++; b.indDmg += (d.damage || 0); }
+                                // KARŞI-BATARYA: DÜŞMANIN DOLAYLI birimlerine verilen hasar (kullanıcı doktrini:
+                                // "savunanın dolaylı ateşi toplanmış saldırı hattını yıpratır" → önce onu sustur).
+                                if (_indTip.has(d.targetType)) b.cbDmg += (d.damage || 0);
                                 // YEREL KUVVET ORANI (KURBANIN gözünden): vurulan birimin 600px çevresinde kaç DOST, kaç DÜŞMAN?
                                 // Global bütçe eşitken bile kurban sürekli yerel olarak azsa kusur YOĞUNLAŞMA'dır.
                                 if (d.targetX != null) {
@@ -598,13 +654,13 @@ app.whenReady().then(() => {
                                 stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
                                 if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
                                 if ((SIM.tick % KOVA) === 0) {
-                                    const i = SIM.tick/KOVA - 1, b = kova[i] || { red:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0,yerelN:0,yerelDost:0,yerelDusman:0}, blue:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0,yerelN:0,yerelDost:0,yerelDusman:0} };
+                                    const i = SIM.tick/KOVA - 1, b = kova[i] || { red:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0,cbDmg:0,yerelN:0,yerelDost:0,yerelDusman:0}, blue:{ev:0,kill:0,dmg:0,distSum:0,tip:{},indEv:0,indDmg:0,cbDmg:0,yerelN:0,yerelDost:0,yerelDusman:0} };
                                     const rp = SIM.ctrlPosture ? SIM.ctrlPosture['battle-red-ai'] : null;
                                     const bp = SIM.ctrlPosture ? SIM.ctrlPosture['battle-blue-ally-ai'] : null;
                                     seri.push({ sn: Math.round(SIM.tick*BATTLE_TICK_SEC), redVal: deger(true), blueVal: deger(false),
                                         rD: durum(true), bD: durum(false),
-                                        r:{ ev:b.red.ev, kill:b.red.kill, dmg:Math.round(b.red.dmg), dist: b.red.ev ? Math.round(b.red.distSum/b.red.ev) : 0, durus: rp?rp.stance:null, ind: Math.round(b.red.indDmg), indEv: b.red.indEv, yN: b.red.yerelN, yD: b.red.yerelDost, yE: b.red.yerelDusman },
-                                        b:{ ev:b.blue.ev, kill:b.blue.kill, dmg:Math.round(b.blue.dmg), dist: b.blue.ev ? Math.round(b.blue.distSum/b.blue.ev) : 0, durus: bp?bp.stance:null, ind: Math.round(b.blue.indDmg), indEv: b.blue.indEv, yN: b.blue.yerelN, yD: b.blue.yerelDost, yE: b.blue.yerelDusman } });
+                                        r:{ ev:b.red.ev, kill:b.red.kill, dmg:Math.round(b.red.dmg), dist: b.red.ev ? Math.round(b.red.distSum/b.red.ev) : 0, durus: rp?rp.stance:null, ind: Math.round(b.red.indDmg), indEv: b.red.indEv, cb: Math.round(b.red.cbDmg), yN: b.red.yerelN, yD: b.red.yerelDost, yE: b.red.yerelDusman },
+                                        b:{ ev:b.blue.ev, kill:b.blue.kill, dmg:Math.round(b.blue.dmg), dist: b.blue.ev ? Math.round(b.blue.distSum/b.blue.ev) : 0, durus: bp?bp.stance:null, ind: Math.round(b.blue.indDmg), indEv: b.blue.indEv, cb: Math.round(b.blue.cbDmg), yN: b.blue.yerelN, yD: b.blue.yerelDost, yE: b.blue.yerelDusman } });
                                 }
                             }
                         } finally { SIM.headless = ph; window.battleRecordCombatEvent = oRec; }
