@@ -1,5 +1,27 @@
 # intel4-pro — An-be-an maç teşhisi (güncel motor)
 
+> ## ⛔ 2026-08-04 — BÜTÇE KAÇAĞI DÜZELTİLDİ, AŞAĞIDAKİ ÖLÇÜMLERİN ÇOĞU GEÇERSİZ
+> Kullanıcı ordu dökümünde 6860₺ görüp sordu. Ölçüldü: her ordu **560₺ bedava** alıyordu
+> (SAM ve radar "takas" blokları `remaining.money`'e dokunmuyordu; commit `1967f5e`).
+> 6500 tavanı fiilen 7060'tı ve iki tarafın aşımı farklıydı (ort. kırmızı +413, mavi +198) → **maçlar adil değildi.**
+>
+> **Düzeltme SONRASI yeniden ölçüldü (aynı 4 tohum × 2 rol):**
+> | | mavi toplam | savunanken | saldıranken |
+> |---|---|---|---|
+> | pro YOK (taban) | **6/8** | **4/4** | 2/4 |
+> | pro katmanı açık | **4/8** | **2/4** | 2/4 |
+>
+> **Yani pro katmanı düzeltilmiş motorda NET ZARARLI** — savunanı 4/4'ten 2/4'e düşürüyor.
+> Daha önce "doğrulanmış kazanç" diye raporladığım `indirectMassing` (1/8 → 4/8) **bütçe kaçağının
+> ürettiği bir yanılsamaymış**; temiz motorda üremiyor. **Geri alıyorum.**
+>
+> **Mezuniyet kapısı (düzeltme sonrası): 6/12 = %50, MEZUN DEĞİL.** Pro'nun sonucu tamamen tarafla
+> açıklanıyor (pro=saldıran 2/6 = %33, pro=savunan 4/6 = %67 — ikisi de taban oranlarla aynı) → pro'nun
+> ölçülebilir bir katkısı YOK.
+>
+> **Sonuç:** pro deltaları sıfırdan, temiz motorda, TEK TEK izole edilerek yeniden türetilmeli.
+> Aşağıdaki teşhisler (mekanizma gözlemleri) hâlâ okunabilir ama **sayısal sonuçların hiçbirine güvenilmemeli.**
+
 **Tezgâh:** `--matchtimeline [--seeds a,b]` — maçı **10 saniyelik kovalara** böler; taraf-başı canlı-₺, birim sayısı,
 **mühimmat oranı**, boş-mühimmatlı birim sayısı, bastırma, atış/öldürme/hasar ve **ortalama angajman mesafesi**.
 Veriyi `BATTLE_FORENSIC`'ten değil (2048'lik halka tampon erken evreyi düşürür) **canlı olay kancasından** toplar.
