@@ -385,6 +385,74 @@ app.whenReady().then(() => {
         return;
     }
 
+    // INTEL4-PRO MEZUNİYET KAPISI: `--intel4pro` → intel4-pro vs intel4 (MEZUN sürüm), 6 tohum × 2 rol = 12 maç.
+    // KULLANICI ÖLÇÜTÜ: pro ≥%75 (9/12) üstünlük sağlarsa MEZUN olur. Her maçta yalnız BİR taraf pro (adil).
+    // İki taraf da intel4-beyni + gerçek-oyun deltaları; tek fark pro-katmanı (ammoDiscipline vb.).
+    // Mühimmat akışı da ölçülür (P1'in hedeflediği mekanizma gerçekten değişti mi).
+    if (process.argv.includes('--intel4pro')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const SEEDS = [2024, 777, 909, 3141, 2718, 5150];
+            const maclar = [];
+            for (const seed of SEEDS) {
+                for (const proIsRed of [true, false]) {
+                    const r = await js(`(() => { try {
+                        BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;                 // iki taraf da intel4
+                        BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                        BATTLE_INTEL4PRO_RED = ${proIsRed}; BATTLE_INTEL4PRO_BLUE = ${!proIsRed};   // tek fark: pro-katmanı
+                        if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                        openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                        if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                        battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:'pro-blue', ally:true });
+                        startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                        const ph = SIM.headless; SIM.headless = true; let st = 0;
+                        // MÜHİMMAT AKIŞI: P1'in hedefi savunanın erken tükenmesini önlemek → t=60'ta oran + kuru birim
+                        const muh = (isRed) => { let n=0,s=0,bos=0; for (const u of SIM.units) { if (u.dead||u.isRed!==isRed||!(u.maxAmmo>0)) continue; n++; s+=(u.ammo||0)/u.maxAmmo; if ((u.ammo||0)<=0) bos++; } return { amo:n?+(s/n).toFixed(2):null, bos }; };
+                        let t60 = null, bitisTick = null;
+                        try {
+                            while (SIM.tick < 7300 && phase === PHASE.BATTLE) {
+                                st += BATTLE_TICK_MS;
+                                stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+                                if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+                                if (SIM.tick === 1200) t60 = { red: muh(true), blue: muh(false) };   // t=60sn
+                                if (bitisTick == null && SIM.battle && SIM.battle.winnerSide !== null) bitisTick = SIM.tick;
+                            }
+                        } finally { SIM.headless = ph; }
+                        const rep = battleBalanceReport(); battleBalanceReset(false);
+                        const b = SIM.battle || {};
+                        const proKazandi = (b.winnerSide === true) === ${proIsRed};
+                        let rv=0, bv=0; for (const u of SIM.units) { if (u.dead) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if (u.isRed) rv+=c; else bv+=c; }
+                        return { seed:${seed}, proTaraf:${proIsRed}?'red':'blue', kazanan:(b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'),
+                            proKazandi: b.winnerSide==null?null:proKazandi, sebep:b.outcomeReason||null,
+                            gercekBitisSn: bitisTick!=null?Math.round(bitisTick*BATTLE_TICK_SEC):null,
+                            kalan:{ pro:${proIsRed}?rv:bv, intel4:${proIsRed}?bv:rv }, muh60:t60,
+                            yogunluk: rep.localDensity||null };
+                    } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                    if (r && r.err) { console.log('PRO_ERR seed=' + seed + ' ' + r.err); continue; }
+                    maclar.push(r);
+                    console.log('PRO_MAC ' + maclar.length + '/12 seed=' + seed + ' pro=' + r.proTaraf + ' kazanan=' + r.kazanan +
+                        ' proKazandi=' + r.proKazandi + ' (' + r.sebep + ') bitis=' + r.gercekBitisSn + 'sn');
+                }
+            }
+            const karar = maclar.filter(m => m.proKazandi !== null);
+            const g = karar.filter(m => m.proKazandi).length;
+            const pct = karar.length ? +(g / karar.length * 100).toFixed(1) : 0;
+            const ozet = { mac: maclar.length, kararli: karar.length, proGalibiyet: g, yuzde: pct,
+                mezun: pct >= 75, esik: '>=75% (9/12)' };
+            console.log('INTEL4PRO_OZET ' + JSON.stringify(ozet));
+            try { fsx.mkdirSync('qa-runtime', { recursive:true }); fsx.writeFileSync('qa-runtime/intel4pro-gate.json', JSON.stringify({ ozet, maclar }, null, 1)); } catch(e) {}
+            console.log(ozet.mezun ? 'INTEL4PRO_MEZUN' : 'INTEL4PRO_HENUZ_DEGIL');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // MAÇ ZAMAN-SERİSİ: `--matchtimeline [--seeds a,b]` → maçı AN BE AN çözer. Toplamlar sağkalım-yanlılığıyla
     // kirli olduğu için (kazanan iyi görünür çünkü kazanmıştır) burada 10sn'lik kovalarda AKIŞ ölçülür:
     // taraf-başı canlı-₺, o kovada kaybedilen ₺, atış/öldürme sayısı, TOPLAM HASAR ve **ORTALAMA ANGAJMAN MESAFESİ**

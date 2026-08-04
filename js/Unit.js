@@ -1519,6 +1519,19 @@ class Unit {
             Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y) > this.groundRange) {
             this.combatState = 'Çok Uzak'; return;
         }
+        // ── INTEL4-PRO 'ammoDiscipline': SAVUNANIN MÜHİMMAT YEDEĞİ ──
+        // An-be-an teşhis: savunan ilk 50sn'de uzak menzilden aşırı ateşle mühimmatını yarılıyor; 3-5 birim kuruyor;
+        // atış hacmi 4× düşüyor (ordusunun %70'i SAĞKEN) ve yaklaşan saldırganı durduramayıp siliniyor.
+        // Kural: mühimmat yedek eşiğinin ALTINDAYKEN yalnız "kararlı menzil" içindeki hedefe ateş et — uzak tacizi kes.
+        // Determinist (RNG yok); rol SİM-durumundan okunur (canlı kontrolör nesnesi OKUNMAZ).
+        if (this.maxAmmo > 0 && typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'ammoDiscipline') &&
+            (this.ammo / this.maxAmmo) <= PRO_AMMO_RESERVE) {
+            const _p = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
+            const _savunan = !!(_p && _p.role && _p.role !== (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.ATTACKER : 'attacker'));
+            if (_savunan && Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y) > this.range * PRO_AMMO_CLOSE_FRAC) {
+                this.combatState = 'Mühimmat Tasarrufu'; return;
+            }
+        }
         // ATIŞ HATTI: önünde DOST varsa kendi adamının üstünden vuramaz (topçu hariç — dolaylı ateş).
         // En yakın TEMİZ (dost-engelsiz) düşmana geç = öndekini vur. Temiz düşman yoksa BOŞ BEKLEME —
         // küçük, İLERİ-ağırlıklı TEMİZ ADIM'la ateş-hattına sokul (arka-sıra öne dolar). Saçma yana-fan-out yok.
@@ -1678,7 +1691,7 @@ class Unit {
                     }
                 }
             }
-            if (this.maxAmmo > 0) this.ammo--;
+            if (this.maxAmmo > 0) this.ammo = Math.max(0, this.ammo - 1);   // P2: ikmal KESİRLİ verebiliyor (0.5) + tüketim tam 1 → negatif mühimmat oluşuyordu; kelepçelendi
             this.lastAttackTime = now;
             this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık
             if (this._canScoot) {   // SHOOT-AND-SCOOT: ateş sonrası kendi tarafına ~180px geri çekil (karşı-batarya kaçış)
@@ -1809,7 +1822,7 @@ class Unit {
         });
 
         // ── ATICI TARAFI (fırlatma-anı): mühimmat / cooldown / açığa-çıkma / geri-tepme ──
-        if (this.maxAmmo > 0 && this.type !== T.MEDIC) this.ammo--;   // SINIRSIZ birim (maxAmmo=0) mühimmat tüketmez
+        if (this.maxAmmo > 0 && this.type !== T.MEDIC) this.ammo = Math.max(0, this.ammo - 1);   // SINIRSIZ birim (maxAmmo=0) tüketmez; P2: negatif-mühimmat kelepçesi
         this.lastAttackTime = now;
         this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık (gizlilik bozulur)
         if (typeof applyKnockback === 'function') applyKnockback(this, primaryTarget.x, primaryTarget.y, 1.1);   // namlu geri-tepmesi (render-only)

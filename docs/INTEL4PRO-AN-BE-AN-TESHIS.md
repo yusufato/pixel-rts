@@ -69,7 +69,27 @@ Etkisi: kurumuş birim ikmalle 0'ın üstüne çıkmak için fazladan mühimmat 
 
 ## PLAN (bu teşhise dayalı)
 
-### P1 — Savunan için MÜHİMMAT DİSİPLİNİ (ana iş)
+### P1 — 1. DENEME: ÖLÇÜLDÜ, ETKİSİZ ❌ (2026-08-04)
+`ammoDiscipline` deltası yazıldı (`PRO_AMMO_RESERVE=0.45`, `PRO_AMMO_CLOSE_FRAC=0.60`) ve mezuniyet kapısında ölçüldü:
+**pro 6/12 = %50** (eşik %75) → mezun değil. Determinizm kapıları temiz (`--forktest`, `--liverepro`).
+
+**Neden etkisiz olduğu — iki ayrı kusur:**
+
+1. **Eşik ÇOK GEÇ tetikleniyor.** Kural mühimmat ≤%45'e inince devreye giriyor; ama teşhisteki yanma
+   **t=30-50 arasında 0.85 → 0.61** aralığında oluyor. Yani kural, mühimmatın yarısı zaten harcandıktan
+   *sonra* açılıyor. Ölçüm: t=60'ta ortalama mühimmat **pro 0.785 vs intel4 0.760** — fark %2.5, gürültü seviyesinde.
+   (Tek istisna felaket tohumu 777: pro 0.70 / 0 kuru vs intel4 0.53 / **3 kuru** → orada mekanizma çalıştı ve pro kazandı.)
+
+2. **ÖLÇÜM KUSURU (bende):** kapı `attackerSide: true` sabitliyor → **mavi DAİMA savunan**. Kural yalnız savunana
+   uygulandığı için `pro=red` olan 6 maçta pro-katmanı **tamamen etkisiz** (kırmızı saldıran). O 6 maç
+   pro'yu değil yalnız **taraf yanlılığını** ölçtü (kırmızı 12 maçın 8'ini kazandı).
+   Anlamlı alt-küme `pro=blue` (6 maç): disiplinli savunan **2/6**, disiplinsiz savunan da **2/6** → **fark yok.**
+
+**Sonraki deneme (P1b):** erken yanmayı hedefle — eşiği yükseltmek yerine **uzak-menzil tacizini baştan oranla**
+(ör. düşman kararlı banda girene dek uzak hedefe atış hız-sınırı), ve kapıyı **saldıran tarafı da takaslayacak**
+şekilde düzelt. Ucuz yineleme `--matchtimeline` ile yapılır; mezuniyet kapısı yalnız kullanıcı isteyince koşulur.
+
+### P1 (özgün tasarım) — Savunan için MÜHİMMAT DİSİPLİNİ
 Planın "ihtiyat" kavramının mühimmat karşılığı. Fikir: savunan, düşman **kararlı menzile** girmeden mühimmatının
 belirli bir oranından fazlasını harcamasın (ör. temas öncesi ≤%40); uzun menzilli taciz ateşi **oran-sınırlı** olsun.
 - Bayraklı yeni delta (`ammoDiscipline`), varsayılan kapalı.

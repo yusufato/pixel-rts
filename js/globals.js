@@ -368,6 +368,25 @@ function battleBrainIntel4(isRed) { return isRed ? BATTLE_INTEL4_RED : BATTLE_IN
 const BATTLE_INTEL4_DELTAS = { stance: true, shock: true, deblob: true, helo: true, comp: true, micro: true, profile: false, drone: false, defense: false, backbone: false, range: false, attack: true };   // attack=ON (kullanıcı-kararı): saldıran dron AT-perdesini temizler → 2/6→6/6, DET ✓ (yalnız AI-hedefleme, hash-yapı değişmez)
 function battleDelta(isRed, key) { return battleBrainIntel4(isRed) && BATTLE_INTEL4_DELTAS[key] !== false; }
 
+// ─── INTEL4-PRO KATMANI ───────────────────────────────────────────────────────────────────────────
+// intel4-pro = intel4 + aşağıdaki deltalar. intel4 MEZUN OLDU (intel3pro'yu geçti); pro artık intel4'e karşı ölçülür.
+// Mezuniyet ölçütü (kullanıcı): 6 tohum × 2 rol = 12 maç, **≥%75 (9/12)** üstünlük → `--intel4pro`.
+// Taraf-başı bayrak: bir maçta YALNIZ bir taraf pro olur (adil karşılaştırma). Varsayılan ikisi de kapalı.
+const BATTLE_INTEL4PRO_DELTAS = {
+    // P1: SAVUNAN MÜHİMMAT DİSİPLİNİ. An-be-an teşhis (docs/INTEL4PRO-AN-BE-AN-TESHIS.md): savunan ilk 50sn'de
+    // uzak menzilden aşırı ateşle mühimmatını yarılıyor, atış hacmi 4× düşüyor (ordusunun %70'i sağken) ve
+    // yaklaşan saldırganı durduramayıp siliniyor. Çare: yedek eşiğinin altında UZAK hedefe ateş etme.
+    ammoDiscipline: true
+};
+let BATTLE_INTEL4PRO_RED = false;
+let BATTLE_INTEL4PRO_BLUE = false;
+function battleProDelta(isRed, key) {
+    if (!BATTLE_INTEL4PRO_DELTAS[key]) return false;
+    return isRed ? BATTLE_INTEL4PRO_RED : BATTLE_INTEL4PRO_BLUE;
+}
+const PRO_AMMO_RESERVE = 0.45;      // mühimmat bu oranın altındayken tasarruf kipi (yedek = yakın savunma için)
+const PRO_AMMO_CLOSE_FRAC = 0.60;   // "kararlı menzil" = kendi menzilinin %60'ı; bunun ötesine tasarruf kipinde ateş yok
+
 // TEHDİT-PROFİLİ FORENSİK-RİNG (her-zaman-açık): battleRecordCombatEvent'in TEPESİNDE, telemetri-kapısından ÖNCE doldurulur —
 // çünkü replay-playback'te telemetry.combatEvents doldurulMAZ; inanç-katmanı onu okursa canlı≠playback → replay kırılır.
 // Bu ring Unit.js-emisyonuyla canlı+playback AYNI dolar. Saf-veri (sim-mutasyon yok) → determinist. Tüketiciler tick-ile okur.
@@ -917,7 +936,7 @@ function battlePointDefenseIntercept(shooter, x, y, incomingDamage, salvoMode, o
             }
             continue;   // bu savunucu mermiye ateş etmez → sıradaki aday savunucuya bak
         }
-        d.ammo--;                                                        // önleme denemesi bir füze harcar
+        d.ammo = Math.max(0, d.ammo - 1);                                // önleme denemesi bir füze harcar (P2: negatif-mühimmat kelepçesi)
         d.lastAttackTime = SIM.tick;
         if (out) { out.id = d.id; out.x = d.x; out.y = d.y; }            // önleyici-füzenin çıkış noktası (fırlatma-anı skaleri)
         const _hit = srand() < (st.pointDefense.chance || 0.6);          // srand TEK tüketim (determinizm) — hem sonuç hem olay
