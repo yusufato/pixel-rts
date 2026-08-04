@@ -406,7 +406,15 @@ app.whenReady().then(() => {
                     if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
                     openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
                     if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
-                    battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:'dump-blue', ally:true });
+                    // MANIFEST MUHASEBESI: builder kendi defterine gore ne harcadi, gercek deger ne?
+                    const _mf = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false });
+                    const _mfDenetim = { baslangic: _mf.initialBudget && _mf.initialBudget.money,
+                        kalan: _mf.remaining && _mf.remaining.money,
+                        defterHarcama: (_mf.initialBudget && _mf.initialBudget.money) - (_mf.remaining && _mf.remaining.money),
+                        gercekDeger: _mf.totalValue, birim: _mf.totalUnits,
+                        defterToplam: Object.values(_mf.spent||{}).reduce((s,v)=>s+v,0),
+                        spentVar: !!_mf.spent };
+                    battleDeployManifest(_mf, false, { source:'dump-blue', ally:true });
                     startBattle();
                     const dok = (isRed) => { const m = {};
                         for (const u of SIM.units) { if (u.dead || u.isRed !== isRed) continue;
@@ -417,9 +425,22 @@ app.whenReady().then(() => {
                             .sort((a,b) => b.toplam - a.toplam);
                         const tut = rows.reduce((s,r)=>s+r.toplam,0);
                         return { rows, tut, birimSayisi: rows.reduce((s,r)=>s+r.adet,0) }; };
-                    return { kirmizi: dok(true), mavi: dok(false) };
+                    // MOTORUN KENDI MUHASEBESI: dagitimdan sonra kalan para. Eger 0/negatif degilse motor
+                    // "6500 harcadim" saniyor ama konuslanan deger daha yuksek demektir (muhasebe kacagi).
+                    return { kirmizi: dok(true), mavi: dok(false), butce: 6500, mfDenetim: _mfDenetim,
+                        kalanPara: { kirmizi: Math.round(enemy.money), mavi: Math.round(player.money) },
+                        asim: { kirmizi: dok(true).tut - 6500, mavi: dok(false).tut - 6500 } };
                 } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
                 if (!out || out.err) { console.log('ARMYDUMP_ERR ' + (out && out.err)); continue; }
+                console.log('\n### seed ' + seed + ' BÜTÇE DENETİMİ (tavan 6500₺): kırmızı ' + out.kirmizi.tut +
+                    '₺ (' + (out.asim.kirmizi >= 0 ? '+' : '') + out.asim.kirmizi + ') · mavi ' + out.mavi.tut +
+                    '₺ (' + (out.asim.mavi >= 0 ? '+' : '') + out.asim.mavi + ')' +
+                    (out.asim.kirmizi > 0 || out.asim.mavi > 0 ? '   ⚠️ AŞIM VAR' : '') +
+                    '  | motorun kalan parası: kırmızı ' + out.kalanPara.kirmizi + '₺, mavi ' + out.kalanPara.mavi + '₺');
+                console.log('    MANIFEST DENETİMİ (mavi): başlangıç ' + out.mfDenetim.baslangic + '₺, kalan ' +
+                    out.mfDenetim.kalan + '₺ → defter-harcama ' + out.mfDenetim.defterHarcama +
+                    '₺  ama GERÇEK DEĞER ' + out.mfDenetim.gercekDeger + '₺  | spent-defteri toplam ' + out.mfDenetim.defterToplam + '₺ (var mı: ' + out.mfDenetim.spentVar + ')  (KAÇAK ' +
+                    (out.mfDenetim.gercekDeger - out.mfDenetim.defterHarcama) + '₺)');
                 for (const [taraf, etiket] of [['kirmizi', 'KIRMIZI = SALDIRAN'], ['mavi', 'MAVI = SAVUNAN']]) {
                     const d = out[taraf];
                     console.log('\n=== seed ' + seed + ' · ' + etiket + ' · ' + d.birimSayisi + ' birim · ' + d.tut + '₺ ===');

@@ -261,14 +261,32 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     if (typeof T !== 'undefined' && T.SAM != null && STATS[T.SAM] && !types.includes(T.SAM)) {
         let aaIdx = types.indexOf(T.SPAAG);
         if (aaIdx < 0 && T.MANPADS != null) aaIdx = types.indexOf(T.MANPADS);
-        if (aaIdx >= 0) { spent[types[aaIdx]] = (spent[types[aaIdx]] || 0) - STATS[types[aaIdx]].cost; types[aaIdx] = T.SAM; spent[T.SAM] = (spent[T.SAM] || 0) + STATS[T.SAM].cost; }
+        // BÜTÇE-KAÇAĞI DÜZELTMESİ: bu takas `spent` defterini güncelliyordu ama `remaining.money`'e HİÇ dokunmuyordu →
+        // SPAAG(300)→SAM(700) farkı 400₺ BEDAVA geliyordu. Ölçüldü: SAM+radar takasları birlikte her orduya sabit
+        // +560₺ katıyordu (6500 tavanı fiilen 7060 oluyordu). Artık fark bütçeden düşülür; para yetmezse takas YAPILMAZ.
+        if (aaIdx >= 0) {
+            const _fark = STATS[T.SAM].cost - STATS[types[aaIdx]].cost;
+            if (_fark <= (remaining.money || 0)) {
+                remaining.money -= _fark;
+                spent[types[aaIdx]] = (spent[types[aaIdx]] || 0) - STATS[types[aaIdx]].cost;
+                types[aaIdx] = T.SAM; spent[T.SAM] = (spent[T.SAM] || 0) + STATS[T.SAM].cost;
+            }
+        }
     }
     // ANALİST-FIX (kör-SAM): SAM RADARSIZ kördür (yalnız 900px görüşü; helo dışarıdan vurup öldürür). SAM varsa RADAR da al
     // (350₺ radar = 700₺ SAM'ın gözü). Radar yoksa ikinci-AA/ikmal/en-ucuz-fazlalığı radar ile değiştir.
     if (typeof T !== 'undefined' && T.COUNTER_BATTERY != null && STATS[T.COUNTER_BATTERY] && types.includes(T.SAM) && !types.includes(T.COUNTER_BATTERY)) {
         let swapIdx = -1;   // önce ikinci-AA (spaag/manpads), sonra supply, sonra en-çok-tekrar-eden savaş-dışı
         for (const cand of [T.SPAAG, T.MANPADS, T.SUPPLY]) { if (cand != null) { const ix = types.lastIndexOf(cand); if (ix >= 0 && (cand !== T.SAM)) { swapIdx = ix; break; } } }
-        if (swapIdx >= 0) { spent[types[swapIdx]] = (spent[types[swapIdx]] || 0) - STATS[types[swapIdx]].cost; types[swapIdx] = T.COUNTER_BATTERY; spent[T.COUNTER_BATTERY] = (spent[T.COUNTER_BATTERY] || 0) + STATS[T.COUNTER_BATTERY].cost; }
+        // BÜTÇE-KAÇAĞI DÜZELTMESİ (yukarıdakiyle aynı sınıf): fark artık bütçeden düşülür, yetmezse takas yapılmaz.
+        if (swapIdx >= 0) {
+            const _fark = STATS[T.COUNTER_BATTERY].cost - STATS[types[swapIdx]].cost;
+            if (_fark <= (remaining.money || 0)) {
+                remaining.money -= _fark;
+                spent[types[swapIdx]] = (spent[types[swapIdx]] || 0) - STATS[types[swapIdx]].cost;
+                types[swapIdx] = T.COUNTER_BATTERY; spent[T.COUNTER_BATTERY] = (spent[T.COUNTER_BATTERY] || 0) + STATS[T.COUNTER_BATTERY].cost;
+            }
+        }
     }
     // ANALİST-ŞABLON (39-maç damıtması, SIRA-KURALI ÖNCE ÇEKİRDEK): SERT TABANLAR → degenerate-çekiliş (14-piyade, topçusuz, ikmalsiz,
     // kör) YAPISAL-İMKANSIZ. "Bantlar geniş, tabanlar sert." Zorunlu-çekirdek (ikmal/spaag/keşif/sıhhiye/istihkam) + indirect(havan≥2,
