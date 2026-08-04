@@ -383,7 +383,13 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // (topçu 1 + havan 2-3 + ÇNRA 1) ve t=60'ta hepsi boş; saldıranda hiç kuru birim yok. Sebep: dolaylı ateş
     // EN YAKIN görülen düşmana atıyor ("splash zaten alan" varsayımı) → 3-8 mermilik şarjör tek gezen keşif
     // aracına harcanıyor. Çare: mermiyi patlama yarıçapındaki düşman KÜTLESİNE göre seç (mermi başına değer).
-    indirectMassing: true
+    indirectMassing: true,
+    // P3: SALDIRI BÜTÜNLÜĞÜ (yoğunlaşma). Ölçüm: saldıran birim VURULDUĞU ANDA çevresindeki dost/düşman oranı
+    // kazanan saldırılarda ~10.8, kaybedenlerde ~3.4 (t=60'ta r=0.748; sağkalım-yanlılığı testi geçildi).
+    // Yani saldırı, yerel üstünlük kurabildiğinde kazanıyor. Kural: DESTEKSİZ İLERLEME YOK — yakınında yeterli
+    // dost yoksa saldıran birim kapatmaz, menzilde bekler (kütle toplansın). deblob'u iptal etmez: yalnız
+    // ana-çabanın ucundaki tekil ilerlemeyi keser ("ana-çabada yoğunlaş, gerisinde dağıl").
+    assaultCohesion: true
 };
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
@@ -393,6 +399,11 @@ function battleProDelta(isRed, key) {
 }
 const PRO_AMMO_RESERVE = 0.45;      // mühimmat bu oranın altındayken tasarruf kipi (yedek = yakın savunma için)
 const PRO_AMMO_CLOSE_FRAC = 0.60;   // "kararlı menzil" = kendi menzilinin %60'ı; bunun ötesine tasarruf kipinde ateş yok
+// ÖLÇÜMLE HİZALI eşik: yerel-oran ölçümü 600px yarıçapta yapıldı ve kaybeden saldırılarda kurbanın çevresinde
+// ~3.4 dost, kazananlarda ~10.8 dost vardı. R=420/min=3 denendi → kural ateşlendi ama SONUÇ DEĞİŞMEDİ (4/8→4/8):
+// eşik zaten neredeyse hep sağlanıyordu. Ölçümün yarıçapına geçildi ve eşik kaybeden-bandının üstüne alındı.
+const PRO_COHESION_R = 600;
+const PRO_COHESION_MIN = 5;         // yüksek eşik orduyu dondurup süre-doldu beraberliği üretebilir → A/B ile izlenir.
 
 // TEHDİT-PROFİLİ FORENSİK-RİNG (her-zaman-açık): battleRecordCombatEvent'in TEPESİNDE, telemetri-kapısından ÖNCE doldurulur —
 // çünkü replay-playback'te telemetry.combatEvents doldurulMAZ; inanç-katmanı onu okursa canlı≠playback → replay kırılır.

@@ -1266,6 +1266,20 @@ class Unit {
                 // 0.9×menzilde durup vurur → menzil-üstünlüğünü İSRAF ETMEZ ("menzil-farkı katliamı" tersine; kullanıcı imzası:
                 // her sınıf azami-menzilinin %85-96'sında ateşler). KISA-menzilli ana-çaba ucu (MBT450/piyade300) kapatıp EZER (değişmez).
                 if (!standOff && this.range >= 520 && typeof battleDelta === 'function' && battleDelta(this.isRed, 'range')) standOff = true;
+                // INTEL4-PRO 'assaultCohesion': DESTEKSİZ İLERLEME YOK. Ölçüldü: saldıran birim vurulduğu anda yerel
+                // dost/düşman oranı kazanan saldırılarda ~10.8, kaybedenlerde ~3.4 (t=60'ta r=0.748). Yalnız kalan
+                // birim kapatmaz — menzilde bekler, kütle toplanınca birlikte girer. Determinist (RNG yok).
+                if (!standOff && typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'assaultCohesion')) {
+                    const _cp = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
+                    if (_cp && _cp.role === (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.ATTACKER : 'attacker')) {
+                        let _dost = 0;
+                        for (const f of SIM.spatialGrid.getNearby(this.x, this.y, PRO_COHESION_R)) {
+                            if (f.dead || f === this || f.loaded || f.abandoned || f.isRed !== this.isRed) continue;
+                            if (Math.hypot(f.x - this.x, f.y - this.y) <= PRO_COHESION_R && ++_dost >= PRO_COHESION_MIN) break;
+                        }
+                        if (_dost < PRO_COHESION_MIN) standOff = true;   // desteksiz: kapatma, menzilde tut
+                    }
+                }
                 if (standOff && d > this.range) {
                     const t = Math.max(0, (d - this.range * 0.9) / d);
                     this.targetX = this.x + (this.attackTarget.x - this.x) * t;

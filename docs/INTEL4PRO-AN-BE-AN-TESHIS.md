@@ -179,6 +179,25 @@ tersini istiyor. Doğru çözüm muhtemelen "her yerde dağıl" değil **ana-ça
 
 **Uyarı:** n=12, korelasyon nedensellik değildir. Uygulama yine bayraklı + A/B ile sınanmalı.
 
+#### P3 `assaultCohesion` — UYGULANDI, KANIT YETERSİZ ⚠️
+Kural: saldıran birim, destek yarıçapında yeterli dost yoksa **kapatmaz** (menzilde bekler, kütle toplansın).
+`standOff` mekanizması yeniden kullanıldı → deblob iptal edilmedi.
+
+| eşik | mavi toplam | savunanken | SALDIRANKEN |
+|---|---|---|---|
+| yalnız `indirectMassing` | 4/8 | 3/4 | **1/4** |
+| + kohezyon R=420 / min=3 | 4/8 | 3/4 | **1/4** (kural ateşlendi ama sonuç aynı — eşik zaten hep sağlanıyordu) |
+| + kohezyon **R=600 / min=5** | **5/8** | 3/4 | **2/4** |
+
+**Ama mekanizma metriği ikna edici DEĞİL:** kohezyonlu saldıranın t=60 yerel oranı 0.71 / 1.83 / 4.29 / 9.06
+(ort ~4.0) — kaybeden bandının (3.43) hafif üstünde, kazanan bandının (10.75) çok altında. Yani kural
+**yerel üstünlüğü güvenilir biçimde kurmuyor**; tek maçlık çevrilme (909 saldırı) gürültü olabilir.
+Yerel-oran ↔ galibiyet ilişkisi bu koşuda da sürüyor (kazananlar 4.29/9.06, kaybedenler 1.83/0.71).
+
+**Karar:** delta varsayılan açık bırakıldı (zarar yok, determinizm temiz) ama **doğrulanmış sayılmıyor**.
+Kesin cevap için gereken: 8+ tohumda çift-kollu A/B (yalnız-massing vs massing+kohezyon) — n=4 saldırı maçı yetersiz.
+Alternatif: kuralın gerçekte kaç tik bağladığını enstrümante edip "eşik mi yanlış, tasarım mı" ayrımını yapmak.
+
 #### Yapısal bulgu: ayna maçta saldıran **6/20 = %30**
 İki taraf da aynı beyin ve **eşit 6500₺** iken saldıran yalnız %30 kazanıyor
 (`attacker_eliminated` 7, `attacker_withdrew` 3 → saldıran maçların **yarısında** kırılıyor).
