@@ -385,6 +385,87 @@ app.whenReady().then(() => {
         return;
     }
 
+    // KOMPOZİSYON TEST ALANI: `--comptest [--list dosya.json] [--seeds 2024,777]`
+    // Kullanıcının verdiği ordu listelerini SABİT DÜŞMANA karşı koşar. KONTROL: düşman (kırmızı) her koşuda
+    // AYNI tohumla otomatik dizilir ve bizim listemizden ETKİLENMEZ (kırmızı önce dizilir). Ayrıca savaş
+    // başlamadan SIM_RNG sabit bir değere kilitlenir → farklı birim sayıları RNG akışını kaydırmasın.
+    // Böylece TEK DEĞİŞKEN bizim kompozisyonumuz olur.
+    // NOT: iki tarafı da AI komuta eder (insan mikrosu yok) → ölçülen şey KOMPOZİSYON, komuta değil.
+    if (process.argv.includes('--comptest')) {
+        const _li = process.argv.indexOf('--list');
+        const listPath = (_li >= 0 && process.argv[_li + 1] && !process.argv[_li + 1].startsWith('--')) ? process.argv[_li + 1] : 'qa-runtime/kompozisyonlar.json';
+        const _si = process.argv.indexOf('--seeds');
+        const SEEDS = (_si >= 0 && process.argv[_si + 1] && !process.argv[_si + 1].startsWith('--'))
+            ? process.argv[_si + 1].split(',').map(Number).filter(Number.isFinite) : [2024, 777];
+        let LISTE;
+        try { LISTE = JSON.parse(require('fs').readFileSync(listPath, 'utf8')); }
+        catch (e) { console.log('COMPTEST_HATA liste okunamadı: ' + listPath + ' — ' + e.message); app.exit(1); return; }
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const sonuc = [];
+            for (const seed of SEEDS) {
+                for (const komp of LISTE) {
+                    const r = await js(`(() => { try {
+                        const KOMP = ${JSON.stringify(komp)};
+                        BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                        BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                        BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;   // saf karşılaştırma: pro katmanı KAPALI
+                        if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                        // attackerSide:false → MAVİ saldıran (kullanıcının oynadığı kurulumla aynı), kırmızı savunan AI
+                        openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:false, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+                        // KIRMIZI KONTROL PARMAK-İZİ (bizim listemizden bağımsız olmalı)
+                        const kirmizi = {}; let kTut = 0;
+                        for (const u of SIM.units) { if (u.dead || !u.isRed) continue; const s = STATS[u.type] || {};
+                            kirmizi[s.id || u.type] = (kirmizi[s.id || u.type] || 0) + 1; kTut += (s.cost || 0); }
+                        const kIz = Object.keys(kirmizi).sort().map(k => k + ':' + kirmizi[k]).join(',');
+                        // MAVİ = kullanıcının listesi
+                        const types = []; let bTut = 0; const eksik = [];
+                        for (const [uid, adet] of Object.entries(KOMP.birimler || {})) {
+                            const ti = (typeof UNIT_ID_BY_INDEX !== 'undefined') ? UNIT_ID_BY_INDEX.indexOf(uid) : -1;
+                            if (ti < 0 || !STATS[ti]) { eksik.push(uid); continue; }
+                            for (let i = 0; i < adet; i++) { types.push(ti); bTut += STATS[ti].cost; }
+                        }
+                        if (eksik.length) return { err: 'bilinmeyen birim: ' + eksik.join(',') };
+                        battleDeployManifest({ types, counts:{}, totalUnits: types.length, totalValue: bTut }, false, { source:'comptest', ally:true });
+                        // RNG KİLİDİ: birim sayısı farklı olsa da savaş aynı akışla koşsun (tek değişken = kompozisyon)
+                        SIM_RNG.state = 123456789;
+                        startBattle(); window.requestAnimationFrame = () => 0; battleBalanceReset(true);
+                        const ph = SIM.headless; SIM.headless = true; let st = 0;
+                        try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport==='function') updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }
+                        const rep = battleBalanceReport(); battleBalanceReset(false);
+                        const b = SIM.battle || {};
+                        let rv=0, bv=0; for (const u of SIM.units) { if (u.dead) continue; const c=(STATS[u.type]&&STATS[u.type].cost)||0; if (u.isRed) rv+=c; else bv+=c; }
+                        // kategori payları
+                        const kat = {}; for (const ti of types) { const s = STATS[ti]; kat[s.category] = (kat[s.category]||0) + s.cost; }
+                        return { ad: KOMP.ad, seed:${seed}, maliyet: bTut, birim: types.length,
+                            kategori: Object.fromEntries(Object.entries(kat).map(([k,v]) => [k, +(v/bTut*100).toFixed(1)])),
+                            kirmiziIz: kIz, kirmiziTut: kTut,
+                            kazanan: (b.winnerSide===true?'red':b.winnerSide===false?'blue':'-'), sebep: b.outcomeReason||null,
+                            bizKazandik: b.winnerSide === false, kalanBiz: bv, kalanDusman: rv,
+                            takas: rep.tradeRatio || null };
+                    } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
+                    if (!r || r.err) { console.log('COMPTEST_ERR ' + komp.ad + ' seed' + seed + ': ' + (r && r.err)); continue; }
+                    sonuc.push(r);
+                    console.log('COMP seed' + seed + ' | ' + String(r.ad).padEnd(18) + ' | ' + String(r.maliyet).padStart(4) + '₺/' + String(r.birim).padStart(2) + 'birim | ' +
+                        (r.bizKazandik ? 'KAZANDIK' : 'kaybettik') + ' (' + r.sebep + ') | kalan biz ' + r.kalanBiz + ' düşman ' + r.kalanDusman);
+                }
+            }
+            // KONTROL DOĞRULAMASI: aynı tohumda kırmızı her koşuda AYNI mı?
+            const izler = {};
+            for (const s of sonuc) { (izler[s.seed] = izler[s.seed] || new Set()).add(s.kirmiziIz); }
+            for (const sd in izler) console.log('KONTROL seed' + sd + ': düşman ordusu ' + (izler[sd].size === 1 ? 'SABİT ✓' : '⚠️ DEĞİŞMİŞ (' + izler[sd].size + ' farklı)'));
+            console.log('COMPTEST ' + JSON.stringify(sonuc.map(s => ({ ad: s.ad, seed: s.seed, kaz: s.bizKazandik, kat: s.kategori, maliyet: s.maliyet }))));
+            try { require('fs').writeFileSync('qa-runtime/comptest-sonuc.json', JSON.stringify(sonuc, null, 1)); } catch(e) {}
+            console.log('COMPTEST_OK');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
     // ORDU DÖKÜMÜ: `--armydump [--seeds a,b]` → maçın kurulumunu yapıp İKİ TARAFIN ordusunu birim-birim döker
     // (adet, birim maliyeti, toplam ₺, bütçe payı). Amaç: insanın aynı orduyla oynayıp "neden kaybediyor"u görmesi.
     if (process.argv.includes('--armydump')) {

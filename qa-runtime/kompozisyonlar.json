@@ -1,0 +1,23 @@
+[
+  {
+    "ad": "TABAN-AI-2024",
+    "aciklama": "AI'in seed2024'te kurdugu ordu (karsilastirma tabani)",
+    "birimler": {
+      "at_team": 7, "ew_vehicle": 1, "drone_operator": 2, "artillery": 1,
+      "tank_destroyer": 1, "infantry": 4, "manpads_team": 2, "mortar_team": 2,
+      "scout_vehicle": 2, "commando": 1, "ifv": 1, "spaag": 1,
+      "recon_uav": 2, "supply_truck": 1, "engineer": 1, "medic": 1
+    }
+  },
+  {
+    "ad": "ORNEK-ZIRH-AGIR",
+    "aciklama": "ornek: AT azaltilip zirh+dolayli artirildi (SENIN LISTEN BUNUN YERINE GELECEK)",
+    "birimler": {
+      "at_team": 4, "mbt": 2, "tank_destroyer": 1, "ifv": 1,
+      "artillery": 1, "mlrs": 1, "mortar_team": 2,
+      "infantry": 4, "commando": 1, "manpads_team": 1, "spaag": 1,
+      "scout_vehicle": 1, "recon_uav": 1, "drone_operator": 1,
+      "supply_truck": 1, "engineer": 1, "medic": 1
+    }
+  }
+]
