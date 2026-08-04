@@ -1277,6 +1277,16 @@ class Unit {
                             if (f.dead || f === this || f.loaded || f.abandoned || f.isRed !== this.isRed) continue;
                             if (Math.hypot(f.x - this.x, f.y - this.y) <= PRO_COHESION_R && ++_dost >= PRO_COHESION_MIN) break;
                         }
+                        // TEŞHİS SAYAÇLARI (BATTLE_BALANCE gate'li, hash-dışı, sim'i etkilemez): kural kaç kez
+                        // değerlendirildi / kaç kez bağladı / kaç kez GERÇEKTEN davranış değiştirdi (d>menzil iken).
+                        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+                            BATTLE_BALANCE.proCohesionEval = (BATTLE_BALANCE.proCohesionEval || 0) + 1;
+                            if (_dost < PRO_COHESION_MIN) {
+                                BATTLE_BALANCE.proCohesionHold = (BATTLE_BALANCE.proCohesionHold || 0) + 1;
+                                if (d > this.range) BATTLE_BALANCE.proCohesionBind = (BATTLE_BALANCE.proCohesionBind || 0) + 1;
+                            }
+                            BATTLE_BALANCE.proCohesionDostSum = (BATTLE_BALANCE.proCohesionDostSum || 0) + _dost;
+                        }
                         if (_dost < PRO_COHESION_MIN) standOff = true;   // desteksiz: kapatma, menzilde tut
                     }
                 }

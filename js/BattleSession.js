@@ -245,6 +245,8 @@ function battleBalanceReset(on) {
     BATTLE_BALANCE.localDensity = { red: { sum: 0, n: 0, max: 0 }, blue: { sum: 0, n: 0, max: 0 } };
     BATTLE_BALANCE.sectorOcc = { red: { left: 0, center: 0, right: 0, n: 0 }, blue: { left: 0, center: 0, right: 0, n: 0 } };
     BATTLE_BALANCE.mainEffortShifts = { red: 0, blue: 0 };
+    BATTLE_BALANCE.proCohesionEval = 0; BATTLE_BALANCE.proCohesionHold = 0;   // intel4-pro kohezyon teşhis sayaçları
+    BATTLE_BALANCE.proCohesionBind = 0; BATTLE_BALANCE.proCohesionDostSum = 0;
 }
 // Per-tik örnekleyici (yalnız gate açıkken): taarruz eden birimlerin bastırılmış-süre oranı
 function battleBalanceSample() {

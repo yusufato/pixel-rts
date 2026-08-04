@@ -194,9 +194,31 @@ Kural: saldıran birim, destek yarıçapında yeterli dost yoksa **kapatmaz** (m
 **yerel üstünlüğü güvenilir biçimde kurmuyor**; tek maçlık çevrilme (909 saldırı) gürültü olabilir.
 Yerel-oran ↔ galibiyet ilişkisi bu koşuda da sürüyor (kazananlar 4.29/9.06, kaybedenler 1.83/0.71).
 
-**Karar:** delta varsayılan açık bırakıldı (zarar yok, determinizm temiz) ama **doğrulanmış sayılmıyor**.
-Kesin cevap için gereken: 8+ tohumda çift-kollu A/B (yalnız-massing vs massing+kohezyon) — n=4 saldırı maçı yetersiz.
-Alternatif: kuralın gerçekte kaç tik bağladığını enstrümante edip "eşik mi yanlış, tasarım mı" ayrımını yapmak.
+#### 🔍 TEŞHİS SONUCU: **TASARIM sorunu, eşik değil**
+Kuralın gerçekte ne kadar bağladığı enstrümante edildi (`BATTLE_BALANCE.proCohesion*`, hash-dışı):
+
+| maç (mavi saldıran) | eval | hold | **BIND** | **ort. yakın dost** |
+|---|---|---|---|---|
+| seed2024 | 1866 | 761 | **%41** | **3.99** |
+| seed909 | 553 | 99 | %18 | **4.82** |
+| seed3141 | 56 | 56 | **%100** | **1.05** |
+| seed777 | 0 | 0 | — | — (kural hiç değerlendirilmedi) |
+| **toplam** | 2475 | 916 | **%37** | |
+
+**Sonuç:** kural **sık bağlıyor** (%37) — yani eşik "çok gevşek" değil. Ama **ortalama yakın dost sayısı 1-4.8
+aralığında kalıyor**, kazanan bandına (10.75) hiç yaklaşmıyor. Yani **beklemek kütleyi TOPLAMIYOR** —
+birim duruyor, ama ordunun geri kalanı ona gelmiyor.
+
+**En açık kanıt seed3141:** BIND %100, ort-dost 1.05 → birimler tamamen yalnız, sürekli bekletiliyor,
+saldırı hiç gerçekleşmiyor. Sonuç `attacker_eliminated` → `time_expired`e döndü:
+**pasif kohezyon kaybı beraberliğe çeviriyor, galibiyete değil.**
+
+**Doğru yön (bir sonraki iş):** pasif "bekle" yerine **aktif yoğunlaşma** — taarruz grubunu ortak bir
+taarruz eksenine ÇEK (ana-çabaya toplanma noktası), böylece yerel dost sayısı gerçekten artsın.
+Mevcut ana-çaba/sektör-komuta altyapısı bunun doğal yeri. `assaultCohesion` tek başına yetersiz;
+ya aktif toplanmayla birlikte kullanılmalı ya da kaldırılmalı.
+
+**Karar:** delta varsayılan açık ama **doğrulanmamış** olarak işaretli; determinizm temiz.
 
 #### Yapısal bulgu: ayna maçta saldıran **6/20 = %30**
 İki taraf da aynı beyin ve **eşit 6500₺** iken saldıran yalnız %30 kazanıyor

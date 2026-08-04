@@ -541,6 +541,7 @@ app.whenReady().then(() => {
                         if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
                         battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker: !${redAttacks} }), false, { source:'timeline-blue', ally:true });
                         startBattle(); window.requestAnimationFrame = () => 0;
+                        battleBalanceReset(true);   // kohezyon teşhis sayaçları için (hash-dışı)
                         // OLAY KANCASI: hasar/mesafe/öldürme akışını kovalara topla (halka-tampona bağımlı DEĞİL)
                         const kova = {};
                         const K = (t) => { const i = Math.floor(t/KOVA); return kova[i] || (kova[i] = {
@@ -616,7 +617,11 @@ app.whenReady().then(() => {
                         let rd=0,re=0,bd=0,be=0;
                         for (const i in kova) { rd+=kova[i].red.distSum; re+=kova[i].red.ev; bd+=kova[i].blue.distSum; be+=kova[i].blue.ev; }
                         const bt = SIM.battle||{};
-                        return { seed:${seed}, redAttacks:${redAttacks}, kazanan:(bt.winnerSide===true?'red':bt.winnerSide===false?'blue':'-'), sebep:bt.outcomeReason||null,
+                        const _bb = (typeof BATTLE_BALANCE !== 'undefined') ? BATTLE_BALANCE : {};
+                        const kohezyon = { eval: _bb.proCohesionEval||0, hold: _bb.proCohesionHold||0, bind: _bb.proCohesionBind||0,
+                            ortDost: _bb.proCohesionEval ? +((_bb.proCohesionDostSum||0)/_bb.proCohesionEval).toFixed(2) : null };
+                        battleBalanceReset(false);
+                        return { seed:${seed}, redAttacks:${redAttacks}, kazanan:(bt.winnerSide===true?'red':bt.winnerSide===false?'blue':'-'), sebep:bt.outcomeReason||null, kohezyon,
                             kararSn: karar, ortMesafe:{ red: re?Math.round(rd/re):0, blue: be?Math.round(bd/be):0 }, seri };
                     } catch(e){ return { err:e.message, stack:(e.stack||'').slice(0,300) }; } })()`);
                     if (r && r.err) { console.log('TIMELINE_ERR ' + r.err); continue; }
