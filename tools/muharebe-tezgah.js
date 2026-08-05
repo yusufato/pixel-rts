@@ -188,6 +188,7 @@ function tezgahKur() {
 // A/B koşularında ham telemetri hiç okunmuyor; kapatmak %22 hız kazandırıyor
 // (12 maç 69.7sn → 54.3sn) ve sonuçlar BİREBİR aynı kalıyor (5/12, marj −1032).
 const TELEMETRISIZ = process.argv.includes('--telemetrisiz');
+const GC_ZORLA = process.argv.includes('--gc');   // `node --expose-gc` ile birlikte anlamlı
 function macKos(ctx, tSal, tSav, seed) {
     const kod = '(() => {' +
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
@@ -277,6 +278,10 @@ function main() {
                 n++;
                 try {
                     macs.push(macKos(ctx, tSal, tSav, seed));
+                    // ZORLAMALI GC (`--gc`, node --expose-gc ile anlamlı): her maçtan sonra
+                    // belleği işletim sistemine geri ver. Amaç işçi başı zirveyi düşürüp
+                    // aynı RAM'e daha çok işçi sığdırmak.
+                    if (GC_ZORLA && typeof global.gc === 'function') global.gc();
                 } catch (e) {
                     console.log('MAC_HATA ' + n + ' seed=' + seed + ': ' + e.message);
                 }

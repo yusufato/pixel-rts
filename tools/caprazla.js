@@ -82,7 +82,9 @@ const MOTOR = String(arg('--motor', 'tezgah'));
 const TEZGAH = MOTOR !== 'electron';
 // Ölçüldü: jsdom tezgâhı 12 maçlık bir süreçte ZİRVE 451MB (maç sayısıyla büyümüyor).
 // 0.5GB pay ile 13 işçi ≈ 6.5GB → 16 çekirdekli / ~9GB boş makinede rahat sığar.
-const ISCI_GB = Number(arg('--isci-gb', TEZGAH ? 0.5 : 2.0));   // tezgah 451MB, electron 1.83GB
+// İşçi belleği PARTİ BOYUNA bağlı (ölçüldü): 1 maç 227MB, 2 maç 237MB, 3 maç ~260MB,
+// 12 maç 407MB. Varsayılan parti ≤3 olduğu için 0.3GB bütçe gerçekçidir.
+const ISCI_GB = Number(arg('--isci-gb', TEZGAH ? 0.3 : 2.0));
 // REZERV 4GB: taze-süreç kipinde bile kullanılabilir bellek koşu boyunca yavaşça iniyor
 // (Windows dosya önbelleği + Electron ikilisinin tekrar tekrar yüklenmesi). 24 maçlık koşuda
 // 3 işçi 15. maçta eşiğe dayandı → rezerv yükseltildi, tavan bu makinede 2-3 işçiye oturuyor.
@@ -143,11 +145,38 @@ if (SEEDARG.indexOf(',') < 0 && Number(SEEDARG) > HAVUZ.length) {
 // bellek maç sayısından tamamen bağımsız. Süreç açılışı ~8sn ek maliyet, karşılığı güvenlik.
 // jsdom tezgâhında bellek maç sayısıyla büyümüyor (12 maç tek süreçte 451MB) → parti büyük
 // olabilir, süreç açılış maliyeti amorti edilir. Electron'da 1 kalır (maç başı ~1.4GB bırakıyordu).
-// Varsayılan parti boyu, tüm işçileri DOLDURACAK şekilde seçilir: parti = ceil(tohum / işçi).
-// (Sabit 6 verilince 24 tohum yalnız 4 parti üretiyor ve 7 işçinin 3'ü boş kalıyordu.)
-const PARTI = Math.max(1, Number(arg('--parti', TEZGAH ? Math.ceil(TOHUMLAR.length / Math.max(1, TAVAN)) : 1)) || 1);
+// PARTİ BOYU = BELLEK AYARI. Ölçülen eğri (tek süreç, zirve RSS):
+//   1 maç 227MB · 2 maç 237MB · 4 maç 278MB · 8 maç 294MB · 12 maç 407MB
+// (Zorlamalı GC denendi, İŞE YARAMADI: 12 maçta 401 vs 407 — bellek geri alınabilir
+//  çöp değil, V8'in tuttuğu yığın.) Küçük parti = düşük bellek = DAHA ÇOK İŞÇİ.
+// Süreç açılışı ~1.75sn, maç başı ~3.65sn → parti 2-3 iyi denge.
+// Varsayılan: işçileri dolduracak kadar ama EN ÇOK 3 (bellek patlamasın).
+const PARTI_TAVAN = Math.max(1, Number(arg('--parti-tavan', 3)) || 3);
+const PARTI = Math.max(1, Number(arg('--parti',
+    TEZGAH ? Math.min(PARTI_TAVAN, Math.ceil(TOHUMLAR.length / Math.max(1, TAVAN))) : 1)) || 1);
+// PARÇA BAŞINA HEDEF MAÇ: iş yalnız TOHUMA göre bölünürse aday listesi uzadığında
+// parça sayısı sabit kalır (ör. 256 aday × 12 tohum, parti 3 → yalnız 4 parça, her biri
+// 768 maç → hem paralellik ölür hem bellek patlar). Bu yüzden ADAY LİSTESİ DE bölünür.
+const HEDEF_MAC = Math.max(1, Number(arg('--parca-mac', 6)) || 6);
+// İŞ = (aday dilimi × tohum dilimi). Önce tohumlar PARTI'lik dilimlere ayrılır; sonra
+// aday listesi, bir parçanın maç sayısı HEDEF_MAC'i aşmayacak şekilde bölünür.
+// Böylece 256 aday × 12 tohum → 4 parça değil, ~128 parça olur: paralellik ve düşük bellek.
+const SAL_ADLAR = SAL === '*' ? null : SAL.split(',').filter(Boolean);
+const SAV_SAYI = (SAV === '*' ? 0 : SAV.split(',').filter(Boolean).length) || 1;
+const tohumDilim = [];
+for (let i = 0; i < TOHUMLAR.length; i += PARTI) tohumDilim.push(TOHUMLAR.slice(i, i + PARTI));
 const dilimler = [];
-for (let i = 0; i < TOHUMLAR.length; i += PARTI) dilimler.push(TOHUMLAR.slice(i, i + PARTI));
+if (!SAL_ADLAR || SAL_ADLAR.length <= 1) {
+    for (const td of tohumDilim) dilimler.push({ tohum: td, sal: SAL });
+} else {
+    // bir parçada: adaySayisi × SAV_SAYI × tohumDilimBoyu ≤ HEDEF_MAC
+    const adayBasi = Math.max(1, Math.floor(HEDEF_MAC / Math.max(1, SAV_SAYI * PARTI)));
+    for (const td of tohumDilim) {
+        for (let i = 0; i < SAL_ADLAR.length; i += adayBasi) {
+            dilimler.push({ tohum: td, sal: SAL_ADLAR.slice(i, i + adayBasi).join(',') });
+        }
+    }
+}
 
 fs.mkdirSync(GECICI, { recursive: true });
 for (const f of fs.readdirSync(GECICI)) fs.unlinkSync(path.join(GECICI, f));
@@ -182,10 +211,10 @@ const KROM_BAYRAK = ['--disable-gpu', '--disable-software-rasterizer', '--disabl
     '--disable-extensions', '--disable-background-timer-throttling', '--in-process-gpu'];
 
 function partiKosu(dilim, i) { return new Promise((cozum) => {
-    if (!dilim.length) return cozum({ i, ok: true, dosya: null, bos: true });
+    if (!dilim || !dilim.tohum.length) return cozum({ i, ok: true, dosya: null, bos: true });
     const dosya = path.join(GECICI, 'parca-' + i + '.json');
-    const ortak = ['--tarifler', TARIFLER, '--sal', SAL, '--sav', SAV,
-        '--seeds', dilim.join(','), '--out', dosya, '--sessiz'];
+    const ortak = ['--tarifler', TARIFLER, '--sal', dilim.sal, '--sav', SAV,
+        '--seeds', dilim.tohum.join(','), '--out', dosya, '--sessiz'];
     // A/B'de telemetri okunmuyor → varsayılan KAPALI (%22 hız). --telemetrili ile açılır.
     if (TEZGAH && !process.argv.includes('--telemetrili')) ortak.push('--telemetrisiz');
     const env = { ...process.env };
@@ -210,10 +239,10 @@ function partiKosu(dilim, i) { return new Promise((cozum) => {
         biten++;
         const sure = ((Date.now() - t0) / 1000).toFixed(0);
         const ok = kod === 0 && fs.existsSync(dosya);
-        console.log('  [' + biten + '/' + dilimler.length + '] parti ' + i + ' bitti (' + dilim.length + ' tohum, ' + sure + 'sn)' +
+        console.log('  [' + biten + '/' + dilimler.length + '] parça ' + i + ' bitti (' + dilim.tohum.length + ' tohum, ' + sure + 'sn)' +
             (ok ? '' : '  ✗ KOD ' + kod + ' — ' + son.split('\n').filter(Boolean).slice(-2).join(' | ')));
         const ix = cocuklar.indexOf(c); if (ix >= 0) cocuklar.splice(ix, 1);
-        cozum({ i, ok, dosya, tohum: dilim });
+        cozum({ i, ok, dosya, tohum: dilim.tohum });
     });
     cocuklar.push(c);
 }); }
