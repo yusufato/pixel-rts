@@ -219,7 +219,6 @@ function storyInstitutionRoute(countryId, constitutionId, actionType) {
     let mode = requiredTypes.length > 1 ? 'JOINT' : (requiredTypes.length === 1 ? 'DIRECT' : 'DIRECT');
     if (action.externalDomain) mode = 'EXTERNAL_DOMAIN';
     if (action.prohibited) mode = 'PROHIBITED';
-    if (!action.centerDirect && (action.centers || []).length && requiredTypes.length) mode = 'PETITION';
     return {
         actionType,
         mode,
@@ -487,7 +486,6 @@ function storyInstitutionResolveActor(country, input) {
 function storyInstitutionActorCanPropose(route, actor) {
     return actor.sourceKind === 'INSTITUTION'
         ? route.proposerInstitutionTypes.includes(actor.institutionType)
-            || route.requiredInstitutionTypes.includes(actor.institutionType)
         : route.proposerPowerCenterTypes.includes(actor.powerCenterType);
 }
 function storyInstitutionDenied(ledger, input, reason) {
@@ -532,7 +530,8 @@ function storyInstitutionSubmitAction(input) {
         actionType,
         targetRegionId: input.targetRegionId == null ? null : storyInstitutionRegionId(input.targetRegionId),
         proposer: actor,
-        routeMode: route.mode,
+        routeMode: actor.sourceKind === 'POWER_CENTER'
+            && !STORY_INSTITUTION_ACTIONS[actionType].centerDirect ? 'PETITION' : route.mode,
         legalBasis: route.legalBasis,
         authoritySignature: ledger.sourceSignature,
         requiredInstitutionIds: route.requiredInstitutionIds.slice(),
@@ -660,8 +659,8 @@ function storyInstitutionPowerCenterActionLimits(countryId, centerType, declared
     for (const actionType of (declaredActions || [])) {
         const route = country.authorityByAction[actionType];
         if (!route || !route.proposerPowerCenterTypes.includes(centerType)) { prohibited.push(actionType); continue; }
-        if (route.mode === 'DIRECT') direct.push(actionType);
-        else if (route.mode === 'PETITION' || route.mode === 'JOINT') conditional.push(actionType);
+        if (STORY_INSTITUTION_ACTIONS[actionType].centerDirect && route.mode === 'DIRECT') direct.push(actionType);
+        else if (route.mode === 'DIRECT' || route.mode === 'JOINT') conditional.push(actionType);
         else prohibited.push(actionType);
     }
     return {

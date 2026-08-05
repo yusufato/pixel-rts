@@ -30,6 +30,7 @@ const STORY_SOURCES = [
     'js/StoryCollectiveAction.js',
     'js/StoryHumanMigration.js',
     'js/StoryPowerCenters.js',
+    'js/StoryInstitutions.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -599,6 +600,17 @@ function createRuntime(seed) {
                 storyPowerCenterOrganizationForProblem(countryId, problemType)
             ),
             powerCenterTick: dt => storyPowerCenterTick(dt),
+            institutionSummary: () => storyInstitutionSummary(),
+            institutionLedger: () => storyInstitutionClone(STORY.institutions),
+            validateInstitutionLedger: ledger => storyInstitutionValidate(ledger),
+            institutionForSave: () => storyInstitutionForSave(),
+            institutionCountryView: countryId => storyInstitutionCountryView(countryId),
+            institutionRegionView: regionId => storyInstitutionRegionView(regionId),
+            institutionPublicView: value => storyInstitutionPublicView(value),
+            institutionSubmit: input => storyInstitutionSubmitAction(input),
+            institutionApprove: (requestId, input) => storyInstitutionApproveAction(requestId, input),
+            institutionExecute: (requestId, input) => storyInstitutionExecuteAction(requestId, input),
+            institutionTick: dt => storyInstitutionTick(dt),
             populationTransferCohorts: (origin, destination, requested, options) => (
                 storyPopulationTransferCohorts(origin, destination, requested, options)
             ),
@@ -1605,6 +1617,15 @@ function stateSnapshot(story) {
                 nextInfluenceBps: event.nextInfluenceBps == null ? null : event.nextInfluenceBps
             }))
         } : null,
+        institutions: story.institutions ? {
+            schemaVersion: story.institutions.schemaVersion,
+            policyHash: story.institutions.policyHash,
+            tickSequence: story.institutions.tickSequence,
+            sourceSignature: story.institutions.sourceSignature,
+            countries: story.institutions.countries,
+            requests: story.institutions.requests,
+            events: story.institutions.events
+        } : null,
         diplomacy: Object.fromEntries(Object.keys(story.rel || {}).sort().map(key => {
             const relation = story.rel[key] || {};
             return [key, {
@@ -2143,6 +2164,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validatePowerCenterLedger(powerCenterLedger)
             : { ok: true, disabled: true, issues: [] };
         const powerCenterSummary = runtime.api.powerCenterSummary();
+        const institutionLedger = runtime.api.institutionLedger();
+        const institutionValidation = institutionLedger
+            ? runtime.api.validateInstitutionLedger(institutionLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const institutionSummary = runtime.api.institutionSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2339,6 +2365,8 @@ function runStorySimulation(options = {}) {
             humanMigrationSummary,
             powerCenterValidation,
             powerCenterSummary,
+            institutionValidation,
+            institutionSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -8915,8 +8943,13 @@ function probePowerCenters(seed = 2032) {
                 && center.supportBase && Number.isInteger(center.supportBase.supportPeople)
                 && center.resources && center.capabilities
                 && Array.isArray(center.goals) && center.goals.length === 3
-                && center.actionLimits && center.actionLimits.maximumConcurrentActions === 0
-                && center.actionLimits.executableActionTypes.length === 0
+                && center.actionLimits && center.actionLimits.maximumConcurrentActions === 1
+                && center.actionLimits.authorityModel === 'INSTITUTION_SCHEMA_PHASE_29'
+                && center.actionLimits.declaredActionTypes.length === (
+                    center.actionLimits.executableActionTypes.length
+                    + center.actionLimits.conditionalActionTypes.length
+                    + center.actionLimits.prohibitedActionTypes.length
+                )
             )),
             businessCashExact: !!business && Math.abs(business.resources.treasuryCash - company.totals.cash) < 1e-6,
             laborOrganization,
@@ -9050,6 +9083,197 @@ function probePowerCenters(seed = 2032) {
     };
 }
 
+function probeInstitutions(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(10);
+        const story = runtime.api.state();
+        const countryId = 'country:0';
+        const ledger = runtime.api.institutionLedger();
+        const country = ledger.countries[countryId];
+        const institutionOf = type => Object.values(country.institutions).find(row => row.type === type);
+        const actorFor = institution => ({
+            institutionId: institution.id,
+            actorId: institution.officeHolder.actorId
+        });
+
+        const judiciary = institutionOf('JUDICIARY');
+        const directSubmitted = runtime.api.institutionSubmit(Object.assign({
+            countryId, actionType: 'REVIEW_LEGALITY'
+        }, actorFor(judiciary)));
+        const directExecuted = directSubmitted.ok
+            ? runtime.api.institutionExecute(directSubmitted.request.id, actorFor(judiciary)) : directSubmitted;
+
+        const business = Object.values(story.powerCenters.centers)
+            .find(row => row.countryId === countryId && row.type === 'BUSINESS_COUNCIL');
+        const centerActor = { powerCenterId: business.id, actorId: business.leader.actorId };
+        const centerDirectSubmitted = runtime.api.institutionSubmit(Object.assign({
+            countryId, actionType: 'COORDINATE_INVESTMENT'
+        }, centerActor));
+        const centerDirectExecuted = centerDirectSubmitted.ok
+            ? runtime.api.institutionExecute(centerDirectSubmitted.request.id, centerActor)
+            : centerDirectSubmitted;
+
+        const petitionSubmitted = runtime.api.institutionSubmit(Object.assign({
+            countryId, actionType: 'LOBBY_POLICY'
+        }, centerActor));
+        let petitionCurrent = petitionSubmitted;
+        if (petitionSubmitted.ok) {
+            for (const institutionId of petitionSubmitted.request.requiredInstitutionIds) {
+                const institution = country.institutions[institutionId];
+                petitionCurrent = runtime.api.institutionApprove(
+                    petitionSubmitted.request.id,
+                    actorFor(institution)
+                );
+            }
+        }
+        const petitionRequest = petitionCurrent.request || (petitionSubmitted && petitionSubmitted.request);
+        const petitionExecutor = petitionRequest && petitionRequest.executorInstitutionId
+            ? country.institutions[petitionRequest.executorInstitutionId] : null;
+        const petitionExecuted = petitionExecutor
+            ? runtime.api.institutionExecute(petitionRequest.id, actorFor(petitionExecutor))
+            : { ok: false, reason: 'NO_EXECUTOR_FIXTURE' };
+
+        const fakeActor = runtime.api.institutionSubmit({
+            countryId, actionType: 'REVIEW_LEGALITY',
+            institutionId: judiciary.id, actorId: 'character:forged'
+        });
+        const radical = Object.values(story.powerCenters.centers)
+            .find(row => row.countryId === countryId && row.type === 'RADICAL_NETWORK');
+        const prohibited = runtime.api.institutionSubmit({
+            countryId, actionType: 'RECRUIT_GRIEVANCE',
+            powerCenterId: radical.id, actorId: radical.leader.actorId
+        });
+        const local = institutionOf('LOCAL_ADMINISTRATION');
+        const foreignNode = story.nodes.find(node => node.owner !== 0);
+        const outsideJurisdiction = runtime.api.institutionSubmit(Object.assign({
+            countryId, actionType: 'ISSUE_LOCAL_ORDER', targetRegionId: `region:${foreignNode.id}`
+        }, actorFor(local)));
+
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, countryId);
+        const ownCountry = knowledge.countries.find(row => row.id === countryId);
+        const foreignCountry = knowledge.countries.find(row => row.id === 'country:1');
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = JSON.parse(savedRaw).institutions;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            validation: runtime.api.validateInstitutionLedger(runtime.api.institutionLedger()),
+            powerCenterValidation: runtime.api.validatePowerCenterLedger(runtime.api.powerCenterLedger()),
+            summary: runtime.api.institutionSummary(),
+            direct: { submitted: directSubmitted, executed: directExecuted },
+            centerDirect: { submitted: centerDirectSubmitted, executed: centerDirectExecuted },
+            petition: { submitted: petitionSubmitted, approved: petitionCurrent, executed: petitionExecuted },
+            denied: { fakeActor, prohibited, outsideJurisdiction },
+            worldValidation: runtime.api.validateWorldV2(world),
+            worldInstitutionCount: world.institutions.length,
+            ownKnowledge: ownCountry.institutions,
+            foreignKnowledge: foreignCountry.institutions,
+            foreignSecretsHidden: !/actorId|authoritySignature|requiredInstitutionIds|approvalInstitutionIds|requests/.test(
+                JSON.stringify(foreignCountry.institutions.value)
+            ),
+            savedExact: JSON.stringify(savedLedger) === JSON.stringify(runtime.api.institutionLedger()),
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                topLevelCount: migrated.ok ? migrated.world.institutions.length : 0,
+                countryPreserved: !!(migrated.ok && migrated.world.countries[0].institutions),
+                regionPreserved: !!(migrated.ok && migrated.world.regions[0].institutions),
+                unmapped: !!(migrated.ok && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('institutions'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.institutionLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateInstitutionLedger(ledger),
+            exact: JSON.stringify(ledger) === JSON.stringify(savedLedger)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.institutions;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.institutionLedger();
+        legacy = {
+            validation: legacyRuntime.api.validateInstitutionLedger(ledger),
+            diagnostics: ledger.diagnostics,
+            summary: legacyRuntime.api.institutionSummary()
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptCountry = corruptSave.institutions.countries['country:0'];
+    const corruptInstitution = Object.values(corruptCountry.institutions)[0];
+    corruptInstitution.officeHolder.actorId = '';
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corruptRuntime.api.loadNow();
+        const ledger = corruptRuntime.api.institutionLedger();
+        corrupt = {
+            validation: corruptRuntime.api.validateInstitutionLedger(ledger),
+            diagnostics: ledger.diagnostics
+        };
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.institutionsAuthority': false }
+        });
+        disabled = {
+            ledger: disabledRuntime.api.institutionLedger(),
+            summary: disabledRuntime.api.institutionSummary(),
+            powerCenterValidation: disabledRuntime.api.validatePowerCenterLedger(disabledRuntime.api.powerCenterLedger())
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'society.powerCenters': false, 'government.institutionsAuthority': true }
+        });
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.institutionLedger(),
+            summary: prerequisiteRuntime.api.institutionSummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+    return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -9085,6 +9309,7 @@ module.exports = {
     probeCollectiveAction,
     probeHumanMigration,
     probePowerCenters,
+    probeInstitutions,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

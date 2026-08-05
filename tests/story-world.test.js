@@ -38,6 +38,7 @@ const {
     probeCollectiveAction,
     probeHumanMigration,
     probePowerCenters,
+    probeInstitutions,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -2130,6 +2131,74 @@ function run() {
         'Faz 28 açık kolektif eylem yolu güç merkezi referanslarını doğrulamalı.');
     assert.equal(powerCenterProbe.ab.offCollectiveValidation.ok, true,
         'Faz 28 kapalı kolektif eylem yolu açık legacy vekille geçerli kalmalı.');
+
+    const institutionProbe = probeInstitutions();
+    assert.equal(institutionProbe.main.validation.ok, true,
+        'Faz 29 kurum ve yetki defteri kendi sözleşmesini geçmeli.');
+    assert.equal(institutionProbe.main.powerCenterValidation.ok, true,
+        'Faz 29 yetki rotaları Faz 28 güç merkezlerini geçersiz kılmamalı.');
+    assert.equal(institutionProbe.main.summary.institutionCount, 40,
+        'Sekiz devletin her biri beş temel kurum taşımalı.');
+    assert.equal(institutionProbe.main.direct.submitted.request.status, 'AUTHORIZED',
+        'Tek makamlı anayasal eylem doğru makam tarafından doğrudan yetkilendirilmeli.');
+    assert.equal(institutionProbe.main.direct.executed.ok, true,
+        'Doğrudan yetkili makam karar kaydını yürütebilmeli.');
+    assert.equal(institutionProbe.main.centerDirect.executed.ok, true,
+        'Güç merkezinin kendi alanındaki doğrudan eylemi ikinci bir sahte makam istememeli.');
+    assert.equal(institutionProbe.main.petition.submitted.request.status, 'PENDING_APPROVAL',
+        'Lobi başvurusu anayasal makam onayı gelmeden yürütülememeli.');
+    assert.equal(institutionProbe.main.petition.executed.ok, true,
+        'Gerekli makam onayı tamamlanan dilekçe yalnız yetkili yürütücüyle sonuçlanmalı.');
+    assert.equal(institutionProbe.main.denied.fakeActor.reason, 'ACTOR_SOURCE_MISMATCH',
+        'İstemci payload’ı sahte makam sahibi uyduramamalı.');
+    assert.equal(institutionProbe.main.denied.prohibited.reason, 'NO_LAWFUL_ROUTE',
+        'Yasal rotası olmayan eylem açıkça reddedilmeli.');
+    assert.equal(institutionProbe.main.denied.outsideJurisdiction.reason, 'TARGET_OUTSIDE_JURISDICTION',
+        'Yerel kurum yabancı yetki alanına karar yazamamalı.');
+    assert.equal(institutionProbe.main.worldValidation.ok, true,
+        'Faz 29 kurumlarını taşıyan WorldV2 geçerli olmalı.');
+    assert.equal(institutionProbe.main.worldInstitutionCount, 40,
+        'WorldV2 bütün kanonik kurumları tekil varlıklar olarak taşımalı.');
+    assert.equal(institutionProbe.main.ownKnowledge.status, 'VERIFIED',
+        'Kendi anayasal yetki defteri doğrulanmış bilgi olmalı.');
+    assert.equal(institutionProbe.main.foreignKnowledge.status, 'VERIFIED',
+        'Yabancı kurumların kamusal şeması doğrulanmış bilgi olmalı.');
+    assert.equal(institutionProbe.main.foreignSecretsHidden, true,
+        'Yabancı kurum görünümü aktör kimliği ve bekleyen onayları sızdırmamalı.');
+    assert.equal(institutionProbe.main.savedExact, true,
+        'Kurum defteri kayıt sırasında değişmeden yazılmalı.');
+    assert.equal(institutionProbe.main.migration.ok, true,
+        'V3→V2 adaptörü Faz 29 kurumlarını taşımalı.');
+    assert.equal(institutionProbe.main.migration.validation.ok, true,
+        'Göç ettirilmiş kurumlu V2 dünya geçerli olmalı.');
+    assert.equal(institutionProbe.main.migration.topLevelCount, 40,
+        'V3→V2 üst düzey kurum sayısını korumalı.');
+    assert.equal(institutionProbe.main.migration.countryPreserved, true,
+        'V3→V2 ülke yetki şemasını korumalı.');
+    assert.equal(institutionProbe.main.migration.regionPreserved, true,
+        'V3→V2 yerel idare kaydını bölgeye taşımalı.');
+    assert.equal(institutionProbe.main.migration.unmapped, false,
+        'institutions bilinen kayıt alanı olarak işlenmeli.');
+    assert.equal(institutionProbe.restored.loaded, true,
+        'Faz 29 kaydı yeni süreçte yüklenebilmeli.');
+    assert.equal(institutionProbe.restored.validation.ok, true,
+        'Yüklenen Faz 29 defteri geçerli olmalı.');
+    assert.equal(institutionProbe.restored.exact, true,
+        'Kurum defteri doğru bağımlılık sırasıyla birebir geri yüklenmeli.');
+    assert.equal(institutionProbe.legacy.validation.ok, true,
+        'Faz 29 öncesi kayıt canlı anayasa ve makamlardan güvenli şema kurmalı.');
+    assert.equal(institutionProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayıt kurum backfill durumunu açıklamalı.');
+    assert.equal(institutionProbe.corrupt.validation.ok, true,
+        'Bozuk kurum defteri dünyayı silmeden güvenli yeniden kurulmalı.');
+    assert.equal(institutionProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk Faz 29 kurtarması teşhiste görünmeli.');
+    assert.equal(institutionProbe.disabled.ledger, null,
+        'Faz 29 özellik bayrağı kapalıyken kurum defteri oluşmamalı.');
+    assert.equal(institutionProbe.disabled.powerCenterValidation.ok, true,
+        'Faz 29 kapalıyken Faz 28 güvenli kilit modeli geçerli kalmalı.');
+    assert.equal(institutionProbe.prerequisiteDisabled.ledger, null,
+        'Güç merkezi öncülü kapalıysa Faz 29 etkinleşmemeli.');
 
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
