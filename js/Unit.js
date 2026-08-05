@@ -60,6 +60,7 @@ class Unit {
         this.manualTarget = null;
         this.manualMoveTarget = null;
         this.lastAttackTime = 0;
+        this._hicAtesEtmedi = true;   // BATTLE_SPAWN_LOADED: ilk atış dolum beklemez (birim namluda mermiyle konuşlanır)
         this.isMovingToManualTarget = false;
         
         this.combatState = 'READY';
@@ -1685,7 +1686,15 @@ class Unit {
         else if (this.suppression > 50) currentAtkSpeed *= 1.5;             // baskı altında ateş yavaşlar
         // KULLANICI-FIX ("drone dokunuyor ama patlamıyor"): KAMİKAZE tek-kullanım → atış-cooldown'ı BYPASS. rof=0.02→atkSpeed=50s;
         // lastAttackTime=0 başlangıç → maçın ilk 50s'inde salınan drone `now<50000` iken cooldown-dolmamış sanılıp DALAMIYORDU.
-        if (now - this.lastAttackTime < currentAtkSpeed && !(STATS[this.type] && STATS[this.type].singleUse)) return;
+        // ── KONUŞLANMIŞ BİRİM NAMLUSUNDA MERMİYLE GELİR (BATTLE_SPAWN_LOADED) ──
+        // ÖLÇÜLDÜ (tools/gozcu-teshis.js): balistik füzenin atış bandında GÖRÜNÜR hedefi t=6sn'den beri vardı
+        // (canlı tiklerinin %90.6'sı) ama ilk atışı ancak 67sn'de yaptı. Sebep AI değil: rof 0.015 → atkSpeed
+        // 66.7sn ve lastAttackTime=0 başlangıcı, birimi maçın başında "daha doldurmadı" sayıyor. Yani birim
+        // sahaya BOŞ namluyla çıkıyor. Etkilenenler: taktik füze 66.7sn · ÇNRA 20sn · yıkım şarjı 12.5sn ·
+        // obüs 5.6sn (kalan silahlar ≤5sn, pratikte etkisiz). Yukarıdaki singleUse istisnası aynı hatanın
+        // dron için zaten fark edilmiş dar bir yaması — bu, kuralın genel hâli.
+        const _ilkAtisSerbest = (typeof BATTLE_SPAWN_LOADED === 'undefined' || BATTLE_SPAWN_LOADED) && this._hicAtesEtmedi;
+        if (!_ilkAtisSerbest && now - this.lastAttackTime < currentAtkSpeed && !(STATS[this.type] && STATS[this.type].singleUse)) return;
 
         const _wasConcealed = this.isConcealed();   // T3 PUSU: gizliyken ateş → sürpriz bonusu + açığa çıkma
 
@@ -1826,7 +1835,7 @@ class Unit {
                 }
             }
             if (this.maxAmmo > 0) this.ammo = Math.max(0, this.ammo - 1);   // P2: ikmal KESİRLİ verebiliyor (0.5) + tüketim tam 1 → negatif mühimmat oluşuyordu; kelepçelendi
-            this.lastAttackTime = now;
+            this.lastAttackTime = now; this._hicAtesEtmedi = false;   // ilk atış yapıldı → bundan sonra normal dolum süresi
             this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık
             if (this._canScoot) {   // SHOOT-AND-SCOOT: ateş sonrası kendi tarafına ~180px geri çekil (karşı-batarya kaçış)
                 const _by = this.isRed ? this.y - 180 : this.y + 180;
@@ -1957,7 +1966,7 @@ class Unit {
 
         // ── ATICI TARAFI (fırlatma-anı): mühimmat / cooldown / açığa-çıkma / geri-tepme ──
         if (this.maxAmmo > 0 && this.type !== T.MEDIC) this.ammo = Math.max(0, this.ammo - 1);   // SINIRSIZ birim (maxAmmo=0) tüketmez; P2: negatif-mühimmat kelepçesi
-        this.lastAttackTime = now;
+        this.lastAttackTime = now; this._hicAtesEtmedi = false;   // ilk atış yapıldı → bundan sonra normal dolum süresi
         this.revealTimer = AMBUSH_REVEAL_TICKS;   // T3 PUSU: ateş → açığa çık (gizlilik bozulur)
         if (typeof applyKnockback === 'function') applyKnockback(this, primaryTarget.x, primaryTarget.y, 1.1);   // namlu geri-tepmesi (render-only)
         if (this.type === T.ARMOR || this.type === T.ANTI_TANK) {

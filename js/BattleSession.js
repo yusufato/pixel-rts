@@ -536,6 +536,9 @@ function battleUnitSnapshot(unit) {
         targetY: unit.targetY,
         scanTimer: unit.scanTimer,
         lastAttackTime: unit.lastAttackTime || 0,
+        // BATTLE_SPAWN_LOADED: "henüz hiç ateş etmedi" (ilk atış dolum beklemez). Fork/replay'e YAZILMAK ZORUNDA —
+        // aksi halde geri yüklenen birim yapıcıdan true alıp BEDAVA bir atış kazanır ve fork eşitliği bozulur.
+        _hicAtesEtmedi: unit._hicAtesEtmedi !== false,
         // DRONE-OPERATÖR/DRONE (fork-güvenli): operatör-bağı + mühimmat-sayısı + ikmal-sayacı + fırlatma-noktası
         operatorId: unit.operatorId != null ? unit.operatorId : null,
         payloadCount: unit.payloadCount != null ? unit.payloadCount : null,
@@ -704,7 +707,7 @@ function battleRestoreUnit(snapshot) {
         'maxHp', 'hp', 'atk', 'baseSpeed', 'speed', 'range', 'vision', 'atkSpeed',
         'baseArmor', 'armor', 'maxAmmo', 'ammo', 'veteran', 'level', 'xpBonus',
         'panicResistance', 'facingAngle', 'targetX', 'targetY', 'scanTimer', 'lastAttackTime',
-        '_reloadTimer'
+        '_reloadTimer', '_hicAtesEtmedi'
     ]) {
         if (snapshot[key] !== undefined) unit[key] = snapshot[key];
     }

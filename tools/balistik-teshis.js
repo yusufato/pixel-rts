@@ -12,6 +12,7 @@ const tarif = JSON.parse(require('fs').readFileSync('qa-runtime/adaylar-duman.js
 // Boylece fark TEK degiskene (standoff) atfedilebilir. --pro'yu acip kapamak TUM deltalari degistirir.
 const PRO = process.argv.includes('--pro');
 const NOSTAND = process.argv.includes('--nostandoff');
+const NOLOADED = process.argv.includes('--noloaded');   // BATTLE_SPAWN_LOADED kapali kol (mekanik A/B)
 const _si = process.argv.indexOf('--seed');
 const SEED = _si >= 0 ? Number(process.argv[_si + 1]) : 2024;
 
@@ -20,6 +21,7 @@ const kod = '(() => {' +
     'BATTLE_INTEL4PRO_RED = ' + PRO + '; BATTLE_INTEL4PRO_BLUE = false;' +
     'BATTLE_BALANCE.on = true;' +
     'BATTLE_INTEL4PRO_DELTAS.standoff = ' + (!NOSTAND) + ';' +
+    'BATTLE_SPAWN_LOADED = ' + (!NOLOADED) + ';' +
     'BATTLE_RECIPE_RED = ' + JSON.stringify(tarif) + ';' +
     'openBattlefieldSession({ mode:"quick", mapId:-2, seed:' + SEED + ', attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
     'const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false });' +

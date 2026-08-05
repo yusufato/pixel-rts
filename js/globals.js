@@ -423,6 +423,15 @@ let PRO_STANDOFF_TRIP = 1.15;    // tehdit minRange×TRIP içine girdiyse çekil
 let PRO_STANDOFF_HEDEF = 1.35;   // hedeflenen standoff = minRange×HEDEF (atış bandının rahat içi)
 let PRO_STANDOFF_TAVAN = 0.92;   // menzil×TAVAN'dan geriye kaçma — kendi azami menzilinden çıkmak atışı yine keser
 let PRO_STANDOFF_ADIM = 300;     // tek değerlendirmede verilecek en fazla geri-hedef (px): sıçrama değil sürüklenme
+
+// ── MEKANİK DÜZELTMESİ (AI becerisi DEĞİL, iki tarafa+oyuncuya simetrik) ──
+// Konuşlanan birim namlusunda mermiyle gelir: İLK atış dolum süresi beklemez.
+// ÖLÇÜLDÜ (tools/gozcu-teshis.js): balistik füzenin atış bandında GÖRÜNÜR hedefi t=6sn'den beri vardı
+// (canlı tiklerinin %90.6'sı) ama ilk atışı 67sn'de yaptı — rof 0.015 → atkSpeed 66.7sn ve lastAttackTime=0
+// başlangıcı birimi "daha doldurmadı" sayıyordu. Yani birim sahaya BOŞ namluyla çıkıyordu.
+// Etkilenen: taktik füze 66.7sn · ÇNRA 20sn · yıkım şarjı 12.5sn · obüs 5.6sn (kalanlar ≤5sn, pratikte etkisiz).
+// Unit.js'teki singleUse istisnası aynı hatanın dron için zaten fark edilmiş dar bir yamasıydı.
+let BATTLE_SPAWN_LOADED = true;
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
 // Birim tipi DOLAYLI ateş mi (topçu/havan/ÇNRA/balistik)? Karşı-batarya hedeflemesi bunu kullanır.
