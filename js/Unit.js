@@ -362,7 +362,7 @@ class Unit {
             this.engageCombat(now);
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
-            if (!this._ikmaleGit()) this._standoffKac();   // ikisi de ateşten SONRA çalışır → atışı kesmez, yalnız hareketi ezer
+            if (!this._heloAvlan() && !this._ikmaleGit()) this._standoffKac();   // hepsi ateşten SONRA çalışır → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1387,6 +1387,75 @@ class Unit {
                 this.attackTarget = null;   // ÖLÇÜM: özsavunma KAPALI (eski davranış) — fix'in etkisini ölçmek için
             }
         }
+    }
+
+    // ── INTEL4-PRO 'heloHunt': HAVA VURUCU AVLANIR (AA'nın örtmediği hedefe gider) ──
+    // TEŞHİS (tools/helo-teshis.js, 3 tohum, pro AÇIK): SALDIRAN taarruz helosu ömrünün yalnız
+    // %3-12'sinde menzilinde hedef buluyor (savunan helo %46-62) ve 12/12 mühimmatla, yani TAM YÜKLE
+    // ölüyor. 800₺'lik birim maçta 1-2 atış yapıyor. Konumlandırma sorunu DEĞİL: ateşlerinin ortalaması
+    // menzilinin %92'sinden ve AA zarfında geçirdiği süre %0-1 (yani standoff/SEAD zaten çalışıyor).
+    // Eksik olan AVLANMA: helo ana kuvvetle birlikte oyalanıyor, hedefin bulunduğu yere GİTMİYOR.
+    // Kural: menzilinde hedef yokken, düşman AA'sının ÖRTMEDİĞİ en yakın düşmana yaklaş.
+    // AA örtüsü hem hedefin hem kendi konumunun çevresinde kontrol edilir → SEAD disiplini bozulmaz.
+    // Dönüş: true ise hareketi devraldı.
+    _heloAvlan() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'heloHunt')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.isAir || this._returningToBase) return false;
+        const st = STATS[this.type];
+        if (!st || st.singleUse || !st.weapons || !st.weapons.length) return false;   // kamikaze/nakliye bu kuralın konusu değil
+        if (this.maxAmmo > 0 && this.ammo <= 0) return false;                          // kuru helo avlanmaz, üsse döner
+
+        // Menzilinde vurabileceği hedef VARSA avlanma — zaten iş başında.
+        for (const e of SIM.spatialGrid.getNearby(this.x, this.y, this.range)) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            if (typeof unitCanEngage === 'function' && !unitCanEngage(st, STATS[e.type])) continue;
+            if (Math.hypot(e.x - this.x, e.y - this.y) <= this.range) { this._avBekle = 0; return false; }
+        }
+        // Kısa boşluklarda hemen fırlama (hedef yeni öldü, bir sonraki tikte yenisi girebilir).
+        this._avBekle = (this._avBekle || 0) + 1;
+        if (this._avBekle < PRO_HELO_BEKLE_TIK) return false;
+
+        // Düşman AA'sının canlı listesi (bir kez topla — hem hedef hem kendi konumu için kullanılır).
+        const aa = [];
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            const es = STATS[e.type];
+            if (es && (es.roleTags || []).includes('anti_air')) aa.push(e);
+        }
+        const aaOrtuyor = (x, y) => {
+            for (const a of aa) if (Math.hypot(a.x - x, a.y - y) <= PRO_HELO_AA_KACIN) return true;
+            return false;
+        };
+        if (aaOrtuyor(this.x, this.y)) return false;   // SEAD: kendi üstümde AA varsa avlanma, mevcut kaçış davranışı sürsün
+
+        // AA'nın örtmediği EN YAKIN vurulabilir düşman. Eşitlikte id küçük olan (determinist).
+        let hx = null, hy = null, hd = Infinity, hid = Infinity;
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            if (typeof unitCanEngage === 'function' && !unitCanEngage(st, STATS[e.type])) continue;
+            const d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d >= hd && !(d === hd && e.id < hid)) continue;
+            if (aaOrtuyor(e.x, e.y)) continue;
+            hd = d; hx = e.x; hy = e.y; hid = e.id;
+        }
+        if (hx == null) return false;   // her hedef AA örtüsünde → mevcut davranış (bekle/SEAD) sürsün
+
+        // Hedefin üstüne binme: kendi menzilinin PRO_HELO_YAKLAS kesrine kadar yaklaş.
+        const dur = this.range * PRO_HELO_YAKLAS;
+        if (hd > dur) {
+            const t = (hd - dur) / hd;
+            this.targetX = this.x + (hx - this.x) * t;
+            this.targetY = this.y + (hy - this.y) * t;
+        } else {
+            this.targetX = this.x; this.targetY = this.y;
+        }
+        this.isMovingToManualTarget = true;
+
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.heloHuntBind = (BATTLE_BALANCE.heloHuntBind || 0) + 1;
+        }
+        return true;
     }
 
     // ── INTEL4-PRO 'resupplyRun': KURUYAN BİRİM İKMALE GİDER ──

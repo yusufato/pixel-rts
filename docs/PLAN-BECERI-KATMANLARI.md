@@ -306,3 +306,44 @@ yeniden değerlendirilebilir — intel4'te sorun %5-19 ve orada değer taşıyab
 
 **Maliyet:** ~5 dakika ölçüm. Bu beceri Katman 4'e (37+ tohumluk maç kapısı, ~3 dk × parametre başına)
 gitseydi gürültünün içinde "belki kazanıyor" görünecekti. Kapı sisteminin varlık sebebi budur.
+
+---
+
+## 9. #20 HELO — teşhis beceriyi DEĞİŞTİRDİ, sonra beceri geçti
+
+Kataloğa "#20 helo standoff — ATGM menzilinden vur" yazmıştım. Teşhis onu da çürüttü.
+
+**Katman 1 teşhis (`tools/helo-teshis.js`, 3 tohum, pro AÇIK — #5'in dersi uygulandı):**
+
+| ölçüm | saldıran helo | savunan helo |
+|---|---|---|
+| ateş mesafesi (kendi menzilinin) | **%92** | %86 |
+| AA zarfında geçen süre | **%0-1** | %1-2 |
+| **menzilinde hedef bulunan süre** | **%3-12** | %46-62 |
+| ölürken mühimmat | **12/12 (TAM YÜKLE)** | 10-12/12 |
+
+Standoff zaten mükemmel (%92 menzil), SEAD zaten çalışıyor (%0-1 AA zarfı). Eksik olan bunlar değil:
+**helo hedefin bulunduğu yere gitmiyor.** 800₺'lik birim ana kuvvetle oyalanıyor, maçta 1-2 atış
+yapıyor ve dolu şarjörle ölüyor. Savunan helo aynı sorunu yaşamıyor çünkü düşman ona geliyor.
+
+**Beceri yeniden tanımlandı → `heloHunt`** (`js/Unit.js` `_heloAvlan`): menzilinde hedef yokken,
+düşman AA'sının **örtmediği** en yakın vurulabilir düşmana yaklaş (kendi menzilinin `PRO_HELO_YAKLAS`
+kesrine kadar). AA örtüsü hem hedefin hem **kendi konumunun** çevresinde kontrol edilir → SEAD
+disiplini bozulmaz. `PRO_HELO_BEKLE_TIK` kısa boşluklarda fırlamayı engeller.
+
+**Katman 1 GEÇTİ** — saldıran helo atış sayısı (izole A/B, yalnız `heloHunt` değişti):
+
+| tohum | kapalı | açık |
+|---|---|---|
+| 2024 | 2, 1 | **10, 10** |
+| 3141 | 2, 2 | **18, 17** |
+| 777 | 3, 2 | **11, 9** |
+
+~5×. Ve bunu **disiplini bozmadan** yapıyor: ateş mesafesi hâlâ menzilin %74-92'si, AA zarfı %0-5.
+
+**Determinizm:** `--forktest --withpro` `forkTutarli: true` · `--liverepro` `divergenceVarMi: false`.
+
+**Sıradaki:** Katman 2 (hasar ÷ maliyet — atış sayısı yalnız vekil metrik) ve Katman 3 (yan etki:
+SİHA/nakliye helo bozuldu mu). Katman 4 maç kapısı demet hâlinde, `standoff` ile birlikte.
+
+**Parametreler (aranabilir):** `PRO_HELO_AA_KACIN=1200` · `PRO_HELO_YAKLAS=0.85` · `PRO_HELO_BEKLE_TIK=20`

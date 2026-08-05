@@ -428,8 +428,18 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // pro yapılandırmasında sorun zaten küçük (%0.1-3.9). Yani doğru sorun, yanlış yapılandırma.
     // Kod ve parametreler DURUYOR: determinizm doğrulandı (forktest forkTutarli:true), ileride
     // parametre araması (Katman 5) veya intel4 tabanı için yeniden değerlendirilebilir.
-    resupplyRun: false
+    resupplyRun: false,
+    // P9 — HAVA VURUCU AVLANIR (BECERİ #20'). TEŞHİS (tools/helo-teshis.js, 3 tohum, pro AÇIK):
+    // SALDIRAN taarruz helosu ömrünün yalnız %3-12'sinde menzilinde hedef buluyor (savunan helo
+    // %46-62) ve 12/12 mühimmatla — TAM YÜKLE — ölüyor. 800₺'lik birim maçta 1-2 atış yapıyor.
+    // Konumlandırma sorunu DEĞİL: atışlarının ortalaması menzilinin %92'sinden, AA zarfında
+    // geçirdiği süre %0-1. Eksik olan AVLANMA: helo ana kuvvetle oyalanıyor, hedefe GİTMİYOR.
+    heloHunt: true
 };
+// ── 'heloHunt' PARAMETRELERİ (aranabilir) ──
+let PRO_HELO_AA_KACIN = 1200;   // düşman AA'sının bu yarıçapı içindeki hedefe gitme (SEAD disiplini)
+let PRO_HELO_YAKLAS = 0.85;     // kendi menzilinin bu kesrine kadar yaklaş (hedefin üstüne binme)
+let PRO_HELO_BEKLE_TIK = 20;    // menzilde hedef yokken bu kadar tik bekle, sonra avlan (1sn — thrash önler)
 // ── 'resupplyRun' PARAMETRELERİ (aranabilir) ──
 let PRO_RESUPPLY_ESIK = 0;          // bu mühimmat ORANINDA (ve altında) ikmale git. 0 = tamamen kuruyunca.
 let PRO_RESUPPLY_BIRAK = 0.9;       // bu orana dolunca göreve dön (histerezis: salınımı keser)
