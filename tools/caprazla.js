@@ -65,11 +65,19 @@ const CEKIRDEK = os.cpus().length;
 //   2.0GB (Win32_PerfRawData_PerfOS_Memory.AvailableMBytes: 4 işçi 8.91GB→1.59GB = işçi başı 1.83GB)
 // Electron'un kendi muhasebesi de uyumlu: Browser 119MB + GPU 704MB + Tab 192MB + Utility 49MB ≈ 1.06GB
 // (aradaki fark sayfa tabloları ve paylaşılan kitaplıklar).
-const ISCI_GB = Number(arg('--isci-gb', 2.0));      // ölçülen 1.83 + pay
+// MOTOR: 'tezgah' (jsdom, varsayılan) ya da 'electron' (eski yol, karşılaştırma için).
+// jsdom tezgâhı DOĞRULANDI: aynı tohumlarda Electron ile BİREBİR aynı sonuç (12 tohum,
+// 5/12 ve marj -1032 iki motorda da aynı), ama 12 maç 55sn / zirve 451MB —
+// Electron'da TEK maç 1.8GB tutuyordu. Bellek 4 kat değil, işçi başına ~4 kat AZ.
+const MOTOR = String(arg('--motor', 'tezgah'));
+const TEZGAH = MOTOR !== 'electron';
+const ISCI_GB = Number(arg('--isci-gb', TEZGAH ? 0.7 : 2.0));   // ölçüldü: tezgah 451MB, electron 1.83GB
 // REZERV 4GB: taze-süreç kipinde bile kullanılabilir bellek koşu boyunca yavaşça iniyor
 // (Windows dosya önbelleği + Electron ikilisinin tekrar tekrar yüklenmesi). 24 maçlık koşuda
 // 3 işçi 15. maçta eşiğe dayandı → rezerv yükseltildi, tavan bu makinede 2-3 işçiye oturuyor.
-const REZERV_GB = Number(arg('--rezerv-gb', 4));    // sisteme ve kullanıcıya bırakılan bellek
+// Rezerv motora göre: Electron'da koşu boyunca kullanılabilir bellek yavaşça iniyordu (4GB
+// rezerv gerekti); jsdom tezgâhı sabit ~451MB tutuyor ve inişe yol açmıyor → 3GB yeter.
+const REZERV_GB = Number(arg('--rezerv-gb', TEZGAH ? 3 : 4));
 // KULLANILABİLİR BELLEK — os.freemem() Windows'ta YANLIŞ SİNYAL: bekleme-önbelleğini saymadığı
 // için 4 işçide "0.04GB" diyordu, gerçek kullanılabilir ise ~1.6GB idi ve gözcüyü boş yere
 // tetikliyordu. Windows'ta dile bağımsız performans sayacı okunur; başka platformda os.freemem().
@@ -116,7 +124,11 @@ if (SEEDARG.indexOf(',') < 0 && Number(SEEDARG) > HAVUZ.length) {
 // VARSAYILAN 1: ölçüldü ki her ek maç süreçte ~1.4GB bırakıyor (1 maç 1.8GB, 2 maç 3.2GB,
 // 4 maç 3.3GB) — yani maç başına bellek geri verilmiyor. Parti=1 → her maç taze süreçte,
 // bellek maç sayısından tamamen bağımsız. Süreç açılışı ~8sn ek maliyet, karşılığı güvenlik.
-const PARTI = Math.max(1, Number(arg('--parti', 1)) || 1);
+// jsdom tezgâhında bellek maç sayısıyla büyümüyor (12 maç tek süreçte 451MB) → parti büyük
+// olabilir, süreç açılış maliyeti amorti edilir. Electron'da 1 kalır (maç başı ~1.4GB bırakıyordu).
+// Varsayılan parti boyu, tüm işçileri DOLDURACAK şekilde seçilir: parti = ceil(tohum / işçi).
+// (Sabit 6 verilince 24 tohum yalnız 4 parti üretiyor ve 7 işçinin 3'ü boş kalıyordu.)
+const PARTI = Math.max(1, Number(arg('--parti', TEZGAH ? Math.ceil(TOHUMLAR.length / Math.max(1, TAVAN)) : 1)) || 1);
 const dilimler = [];
 for (let i = 0; i < TOHUMLAR.length; i += PARTI) dilimler.push(TOHUMLAR.slice(i, i + PARTI));
 
@@ -131,7 +143,9 @@ console.log('  tohum    : ' + TOHUMLAR.length + ' adet' + (DISORNEK ? ' (DIŞÖR
 console.log('  işçi     : ' + ISCI + ' süreç  (çekirdek ' + CEKIRDEK + ', RAM ' + TOPLAM_GB.toFixed(1) +
     'GB, boşta ' + BOS_GB.toFixed(1) + 'GB → güvenli tavan ' + TAVAN + ')');
 console.log('  parti    : ' + PARTI + ' tohum/süreç, ' + dilimler.length + ' parti (her parti TAZE süreç → bellek sınırlı)');
-console.log('  tahmini bellek: ~' + (ISCI * ISCI_GB).toFixed(1) + 'GB (ölçüldü: 1 maç ~1.8GB, 4 maç ~3.3GB/süreç)');
+console.log('  motor    : ' + (TEZGAH ? 'jsdom tezgâh (hafif)' : 'electron (eski)') +
+    '  ·  tahmini bellek ~' + (ISCI * ISCI_GB).toFixed(1) + 'GB' +
+    (TEZGAH ? '  (ölçüldü: 12 maç tek süreçte 451MB)' : '  (ölçüldü: 1 maç 1.8GB, +1.4GB/maç)'));
 console.log('  tohumlar : ' + TOHUMLAR.join(','));
 console.log('');
 
@@ -151,13 +165,20 @@ const KROM_BAYRAK = ['--disable-gpu', '--disable-software-rasterizer', '--disabl
 function partiKosu(dilim, i) { return new Promise((cozum) => {
     if (!dilim.length) return cozum({ i, ok: true, dosya: null, bos: true });
     const dosya = path.join(GECICI, 'parca-' + i + '.json');
-    const isArgv = ['.', '--recipeab', '--tarifler', TARIFLER,
-        '--sal', SAL, '--sav', SAV, '--seeds', dilim.join(','), '--out', dosya, '--sessiz'].concat(KROM_BAYRAK);
+    const ortak = ['--tarifler', TARIFLER, '--sal', SAL, '--sav', SAV,
+        '--seeds', dilim.join(','), '--out', dosya, '--sessiz'];
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;   // electron'u node kipinde başlatmayı engelle
-    const c = ELECTRON_BIN
-        ? spawn(ELECTRON_BIN, isArgv, { env, stdio: ['ignore', 'pipe', 'pipe'] })
-        : spawn(npxCmd, ['electron'].concat(isArgv), { env, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+    let c;
+    if (TEZGAH) {
+        c = spawn(process.execPath, [path.join(__dirname, 'muharebe-tezgah.js')].concat(ortak),
+            { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    } else {
+        const isArgv = ['.', '--recipeab'].concat(ortak).concat(KROM_BAYRAK);
+        c = ELECTRON_BIN
+            ? spawn(ELECTRON_BIN, isArgv, { env, stdio: ['ignore', 'pipe', 'pipe'] })
+            : spawn(npxCmd, ['electron'].concat(isArgv), { env, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+    }
     let son = '';
     c.stdout.on('data', d => { son += d.toString(); });
     c.stderr.on('data', () => {});
