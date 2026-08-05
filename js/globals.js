@@ -472,9 +472,13 @@ let BATTLE_SPAWN_LOADED = true;
 //   recon_uav 0.75×0.9=0.68 · armed_uav 0.75×0.8=0.60 · kamikaze 0.75×1.0=0.75
 let BATTLE_JAM_PARTIAL = true;
 // KEŞİF İHA'sını da karıştır. ÖLÜ TASARIM bulundu: recon_uav'ın silahı olmadığı için engageCombat
-// erken dönüyor ve jam bloğuna hiç ulaşmıyordu (baloncukta 75 tik, karıştırılan 0). VARSAYILAN
-// KAPALI — açmak jammer'ı güçlendirir, kullanıcı raporu ters yönde. Denge kararı kullanıcının.
-let BATTLE_JAM_RECON = false;
+// erken dönüyor ve jam bloğuna hiç ulaşmıyordu (baloncukta 75 tik, karıştırılan 0) — EH aracının
+// en doğal işi (düşman gözünü kör etmek) hiç çalışmıyordu.
+// KULLANICI KARARI (2026-08-05): AÇILDI. Gerekçe: jammer küresel ölçümde net YÜK çıkıyor
+// (yarıçap haritanın %2.9'u + konumlandırma becerisi yok); "fazla güçlü" hissi YEREL mutlaklıktan
+// geliyordu ve o BATTLE_JAM_PARTIAL ile ayrıca giderildi. Yani bu iki değişiklik zıt yönde:
+// kısmi-etki yerel gücü kırpar, keşif-jamı ölü tasarımı diriltir.
+let BATTLE_JAM_RECON = true;
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
 // Birim tipi DOLAYLI ateş mi (topçu/havan/ÇNRA/balistik)? Karşı-batarya hedeflemesi bunu kullanır.
@@ -1022,6 +1026,12 @@ function canSee(teamIsRed, targetX, targetY, targetIsAir) {
     for (const u of SIM.units) {
         if (u.dead || u.isRed !== teamIsRed) continue;
         if (u.loaded) continue;                                   // TAŞINAN piyade görüş sağlamaz (araç içinde)
+        // KARIŞTIRILAN İHA GÖRÜŞ SAĞLAMAZ (BATTLE_JAM_RECON). ÖLÇÜLDÜ: keşif İHA'sını karıştırmayı
+        // açmak maç sonucunu HİÇ değiştirmedi (marj birebir aynı) — çünkü jamming yalnız ATEŞ ve
+        // HAREKET'i kesiyordu; silahsız gözcü donuk hâlde bile görmeye devam ediyordu. Halenin
+        // ilan ettiği şey ise KONTROL BAĞININ kopması. Bağ koptuysa görüntü de akmaz.
+        if (u.jammable && typeof BATTLE_JAM_RECON !== 'undefined' && BATTLE_JAM_RECON &&
+            typeof SIM !== 'undefined' && (SIM.tick - (u.jammedTick || -99)) <= 1) continue;
         if (u.airRadar && targetIsAir !== true) continue;         // radar yalnız havayı açar
         const vision = Number.isFinite(u.vision) ? u.vision : STATS[u.type].vision;
         if (Math.hypot(u.x - targetX, u.y - targetY) <= vision) return true;

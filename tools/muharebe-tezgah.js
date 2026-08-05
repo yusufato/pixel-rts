@@ -215,7 +215,7 @@ function macKos(ctx, tSal, tSav, seed) {
         // Bunlar TARAF-BASI DEGIL, mac genelindedir; A/B'de iki kola da ayni deger verilmelidir
         // (farkli verilirse SALDIRANINKI kazanir - test kurgusu hatasi olur).
         ((tSal.kurallar || tSav.kurallar) ? (() => {
-            const IZIN = ['BATTLE_JAM_PARTIAL', 'BATTLE_SPAWN_LOADED', 'BATTLE_POSTURE_GATE', 'BATTLE_SECTOR_COMMAND'];
+            const IZIN = ['BATTLE_JAM_PARTIAL', 'BATTLE_JAM_RECON', 'BATTLE_SPAWN_LOADED', 'BATTLE_POSTURE_GATE', 'BATTLE_SECTOR_COMMAND'];
             const _k = Object.assign({}, tSav.kurallar || {}, tSal.kurallar || {});
             let out = '';
             for (const k in _k) {

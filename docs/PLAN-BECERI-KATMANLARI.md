@@ -530,3 +530,27 @@ Yeni birim durumu (`_jamAcc`, `_jamTik`, `jammedLoss`) fork anlık görüntüsü
 **Turnuva sonucuna etkisi:** §10'daki jammer şampiyonluğu bu ölçümlerle daha da şüpheli —
 jammer bu testlerde net yük çıktı ve şampiyon zaten takipçilerinden ayırt edilemiyordu.
 Muhtemelen gürültü. Jammer konumlandırma becerisi (#29) yazılırsa tablo değişebilir.
+
+### 13b. `BATTLE_JAM_RECON` AÇILDI (kullanıcı kararı) — ve üçüncü bir ölü katman çıktı
+
+Kullanıcı: *"çok garip, aslında güçlü bir araç ama jammeri iyi konuşlandıramıyor muhtemelen.
+evet jammer için BATTLE_JAM_RECON açabilirsin."* Bu teşhis ölçümle birebir uyuştu.
+
+**Açıldı — ve İLK HÂLİYLE HİÇBİR ŞEY DEĞİŞTİRMEDİ.** Marj birebir aynı (seed2024: −24 = −24;
+48 tohumda 794 = 794). Sebep üçüncü bir ölü katmandı: **jamming yalnız ATEŞ ve HAREKET'i kesiyor,
+GÖRÜŞÜ kesmiyordu.** Silahsız gözcü donuk hâlde bile görmeye devam ediyordu — oysa halenin ilan
+ettiği şey `uavControlLoss`, yani **kontrol bağının kopması**. Bağ koptuysa görüntü de akmaz.
+
+**Düzeltme (`js/globals.js` `canSee`):** karıştırılan `jammable` birim takım görüşüne katkı vermez.
+
+**Mekanizma doğrulandı:** Kamikaze %74 (hedef %75) · Keşif İHA %65 (hedef %68) · görüş kesiliyor.
+
+**Maç etkisi hâlâ küçük:** 794 → 851 (33/48 → 34/48), hata payı ±615 içinde. Ve bu **beklenen**
+sonuç: jam baloncuğu haritanın %2.9'u; seed2024'te keşif İHA'sı maçın ~%1'ini baloncukta geçiriyor.
+
+> **Kullanıcının teşhisi ölçümle onaylandı:** jammer güçlü bir araç, sorun onu KONUŞLANDIRAMAMAK.
+> Mekanizma artık doğru olduğuna göre beceri **#29 jammer konumlandırma** ilk sıraya çıkıyor —
+> ve artık ölçülebilir bir tavanı var: baloncuk kapsamını %2.9'dan yukarı taşıyan her beceri,
+> doğrudan karşılığını görecek.
+
+**Kapılar:** forktest `true` · liverepro `false` · pdtest OK · defertest OK.
