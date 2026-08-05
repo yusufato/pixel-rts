@@ -420,3 +420,52 @@ Turnuva `intel4` gövdesiyle koşuyor (`govde=intel4pro` olan aday YOK) → `sta
 
 Bu tam olarak §0'daki tez: turnuva *"bu AI'ın kullanabildiği kompozisyonlar"* ı ölçüyor.
 Beceriler kalıcılaşınca turnuva YENİDEN koşulmalı — asıl ilginç sonuç iki sıralamanın farkı olacak.
+
+---
+
+## 11. KATMAN 4 DEMET KAPISI — GEÇTİ (ayrılmış havuzda doğrulandı)
+
+Demet: `standoff` + `heloHunt`. İki kol AYNI kompozisyon (`attack_helo:2` + `mlrs:1` zorunlu),
+AYNI gövde (`intel4pro`), AYNI rakip (`REF-H0-sezgisel`). Tek fark iki beceri anahtarı.
+
+| havuz | DEMET-AÇIK | DEMET-KAPALI | fark |
+|---|---|---|---|
+| dışörneklem (48) | 19/48 · −593 ±645 | 12/48 · −1326 ±583 | 733 |
+| **FİNAL (48, ayrılmış)** | **23/48 · −133 ±633** | 15/48 · −1548 ±703 | **1415** |
+| birleşik (96) | 42/96 · ≈−363 | 27/96 · ≈−1437 | ≈1074 |
+
+Dışörneklem havuzunda fark **anlamlı değildi** (p≈0.10-0.13). Ayrılmış FİNAL havuzunda
+**z≈2.9 (p≈0.003)**; birleşikte galibiyet oranı 42/96 vs 27/96 (p≈0.024), marj p≈0.001.
+Üç-havuz tasarımının varlık sebebi tam buydu: tarama havuzunda "belki" olan şey, hiç
+kullanılmamış havuzda tekrarlandı.
+
+**Dürüst absolüt okuma:** demet açıkken kompozisyon HÂLÂ KAZANMIYOR (−133). Beceriler
+kompozisyonu kazandırmıyor, **açığı kapatıyor**: "anlamlı kaybeden" → "beraberlikten ayırt
+edilemez". Bu kompozisyon helo+ÇNRA içerecek şekilde ÖZELLİKLE seçildi; sonuç tüm
+kompozisyonlara genellenemez.
+
+**Yapılmadı:** demet içi geri-çıkarma (hangi beceri ne kadar taşıyor). `standoff` burada yalnız
+ÇNRA'ya (600px ölü bölge) bağlıyor, `heloHunt` iki heloya. Ayrıştırmak ayrı bir koşu ister.
+
+**Durum:** `standoff` ✅ · `heloHunt` ✅ (K1-K4 tamam) — ikisi de varsayılan AÇIK.
+
+---
+
+## 12. JAMMER UYARISI (kullanıcı gözlemi — ÖLÇÜLMEDİ, hipotez olarak kayıtta)
+
+> **Kullanıcı:** "jammer dronlara karşı fazla güçlü; beceri geliştirmede sıra ona geldiğinde fark edersin."
+
+Bu, turnuvanın manşet bulgusuyla doğrudan çelişebilir: `ew_vehicle` zorunlu aday İKİ bağımsız
+koşuda da tepede çıktı (§10). Eğer jammer dronları sert biçimde etkisizleştiriyorsa, o şampiyonluk
+bir **strateji keşfi değil DENGE ARTEFAKTI** olabilir — jammer "iyi bir seçim" olduğu için değil,
+dron içeren rakip kompozisyonları kırdığı için kazanıyor olabilir.
+
+**Test edilebilir ve ucuz** (mekanizma metriği, gürültüsüz):
+1. Jammer başına etkisizleştirilen dron **değeri (₺)** ÷ jammer maliyeti — `JAMMED` ve `DRONE_LOST`
+   lifeEvent'leri zaten kayıtlı, atfı `jammerId` taşıyor.
+2. Rakip kompozisyonda dron **olmadığında** jammer'in getirisi ne oluyor? Artefakt ise sıfıra düşer.
+3. Şampiyon adayı dronsuz rakibe karşı yeniden koştur — üstünlüğü kayboluyorsa hüküm kesinleşir.
+
+**Karar:** jammer becerisi (#29 konumlandırma) yazılmadan ÖNCE bu ölçüm yapılacak. Denge artefaktı
+çıkarsa doğru müdahale beceri değil, jamming gücünün ayarıdır — ve turnuva sonucu o düzeltmeden
+SONRA yeniden okunmalıdır.
