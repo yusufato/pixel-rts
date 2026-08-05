@@ -93,7 +93,9 @@
       "PowerShell(node --check js/BattleDeployment.js; if \\($LASTEXITCODE -ne 0\\) { \"SYNTAX_FAIL\"; exit 1 }; Get-Process electron -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; $env:ELECTRON_RUN_AS_NODE=$null; & \"$PWD\\\\node_modules\\\\.bin\\\\electron.cmd\" . --armydump --seeds 3141,2024,777 2>&1 | Where-Object { $_ -notmatch \"^\\\\[\" -and $_ -notmatch \"MANIFEST\" } | Select-String -Pattern \"SALDIRAN|^    \\\\d\" -Context 0,0 | Select-Object -First 45 | Out-String)",
       "PowerShell(Get-Process electron -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; $env:ELECTRON_RUN_AS_NODE=$null; & \"$PWD\\\\node_modules\\\\.bin\\\\electron.cmd\" . --armydump --seeds 2024,777,909,3141 2>&1 | Where-Object { $_ -notmatch \"^\\\\[\" -and $_ -notmatch \"MANIFEST\" } | Select-String -Pattern \"seed 3141 . KIRMIZI|^    \\\\d\" -Context 0,0 | Select-Object -Last 18 | Out-String)",
       "Bash(python \"C:/Users/osman/AppData/Local/Temp/claude/c--Users-osman-Documents-GitHub-pixel-rts/16191b85-d8e6-4564-8bb1-a3c1377223af/scratchpad/add_recipebase.py\")",
-      "Bash(npx electron *)"
+      "Bash(npx electron *)",
+      "Bash(node --check tools/caprazla.js)",
+      "Bash(node tools/caprazla.js --tarifler qa-runtime/tarifler-taban.json --sal H0-sezgisel --sav H0-sezgisel --seeds 12 --workers 6 --out qa-runtime/hiz-testi.json)"
     ],
     "additionalDirectories": [
       "C:\\Users\\osman\\AppData\\Local\\Temp\\claude\\c--Users-osman-Documents-GitHub-pixel-rts\\1ad8a69a-bb33-4162-a8ea-a6bcbfa0b56c\\tasks"

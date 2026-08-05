@@ -19,13 +19,23 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 let win = null;
 
+// ── BAŞSIZ TEST KİPİ (bellek düzeltmesi) ───────────────────────────
+// ÖLÇÜLDÜ: başsız bir test koşusu 5.5-5.9GB tutuyordu ve bunun 4.9GB'i RENDERER DEĞİL
+// ANA (browser) SÜRECİNDEYDİ — renderer yalnız 411MB, sayfanın JS yığını 54MB, canvas 6MB.
+// Sebep: createWindow TAM EKRAN pencere açıyor ve ready-to-show'da GERÇEKTEN gösteriyordu;
+// GPU kapalı olduğu için tam-ekran yüzey yazılımla sistem RAM'inde besleniyordu. Testte hiç
+// çizim gerekmiyor (SIM.headless=true, rAF iptal) → pencere küçük ve GİZLİ kalır.
+// Kullanıcının makinesi 12 paralel işçiyle bu yüzden dondu.
+const TEST_BAYRAKLARI = new Set(["--smoke","--uitest","--battletest","--maptest","--ailab","--realrepro","--grammartest","--forktest","--recipeab","--recipebase","--membreak","--recipeaudit","--zonedrift","--ratiotest","--comptest","--armydump","--budgetprobe","--intel4pro","--matchtimeline","--intel4selfplay","--intel4exam","--pdtest","--divdiag","--defersoak","--defertest","--benchmark","--liverepro","--oracletest","--versus","--selfplay","--varietytest","--coach","--coachwatch","--learntest","--humancapture","--snaptest","--doctrinetournament","--handicaprec","--gradrec","--profilecheck","--vshandicap","--vsrec","--ablation","--vstournament","--ladder","--aibattery","--modelsmoke","--selectorlive","--oracledata","--oracleseq","--oracledagger","--diagvs","--unitdump","--fixverify","--precisiontest","--replaycheck","--playtest"]);
+const TEST_KIPI = process.argv.some(a => TEST_BAYRAKLARI.has(a));
+
 function createWindow() {
     win = new BrowserWindow({
         width: 1600,
         height: 900,
         minWidth: 1024,
         minHeight: 640,
-        fullscreen: true,
+        fullscreen: !TEST_KIPI,          // testte tam ekran YOK (4.9GB'lik ana-süreç yüzeyi)
         backgroundColor: '#07100c',      // yükleme anında beyaz parlama olmasın
         show: false,                     // hazır olunca göster (ani siyah kare yok)
         autoHideMenuBar: true,
@@ -42,7 +52,7 @@ function createWindow() {
 
     Menu.setApplicationMenu(null);
     win.loadFile(path.join(ROOT, 'index.html'));
-    win.once('ready-to-show', () => win.show());
+    if (!TEST_KIPI) win.once('ready-to-show', () => win.show());   // testte pencere hiç gösterilmez
 
     // Dış bağlantılar sistem tarayıcısında açılsın, oyun penceresi kaçırılmasın
     win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
@@ -395,6 +405,8 @@ app.whenReady().then(() => {
         const TARIF_YOL = _ai('--tarifler', 'qa-runtime/tarifler.json');
         const AB_SEEDS = _ai('--seeds', '2024,777,909').split(',').map(Number).filter(Boolean);
         const SAL_F = _ai('--sal', '*'), SAV_F = _ai('--sav', '*');
+        const AB_OUT = _ai('--out', 'qa-runtime/recipe-ab.json');   // paralel kosucu icin: her surec kendi dosyasina yazar
+        const AB_SESSIZ = process.argv.includes('--sessiz');        // paralel modda hucre satirlarini bastirma
         createWindow();
         const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
         win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
@@ -456,7 +468,7 @@ app.whenReady().then(() => {
                         ordu: { sal: macs[0] ? macs[0].salDeger : null, sav: macs[0] ? macs[0].savDeger : null },
                         siperKab: macs[0] ? macs[0].siperKab : null, maclar: macs };
                     hucreler.push(h);
-                    console.log('  [' + n + '/' + TOPLAM + '] SAL ' + h.sal + '  vs  SAV ' + h.sav +
+                    if (!AB_SESSIZ) console.log('  [' + n + '/' + TOPLAM + '] SAL ' + h.sal + '  vs  SAV ' + h.sav +
                         '  -> saldiran ' + gal + '/' + macs.length + '  marj ' + (marjOrt >= 0 ? '+' : '') + marjOrt +
                         '  (erken ' + (erkenOrt == null ? '-' : (erkenOrt >= 0 ? '+' : '') + erkenOrt) + ')  ordu ' + h.ordu.sal + '/' + h.ordu.sav + ' TL');
                 }
@@ -491,7 +503,7 @@ app.whenReady().then(() => {
                 const enKotu = hs.length ? Math.min.apply(null, hs.map(h => -h.marj)) : 0;
                 console.log('  ' + String(sv).padEnd(26) + 'galibiyet ' + g + '/' + m + '   ort.marj ' + (mj >= 0 ? '+' : '') + mj + '   EN KOTU hucre ' + (enKotu >= 0 ? '+' : '') + enKotu);
             }
-            try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync('qa-runtime/recipe-ab.json', JSON.stringify(hucreler, null, 1)); } catch (e) {}
+            try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync(AB_OUT, JSON.stringify(hucreler, null, 1)); } catch (e) {}
             console.log('');
             console.log('RECIPEAB_OK ' + hucreler.length + ' hucre / ' + n + ' mac');
             setTimeout(() => app.exit(0), 300);
@@ -592,6 +604,75 @@ app.whenReady().then(() => {
             try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync('qa-runtime/tarifler-taban.json', JSON.stringify(tarifler, null, 1)); } catch (e) {}
             console.log('');
             console.log('RECIPEBASE_OK -> qa-runtime/tarifler-taban.json (' + tarifler.length + ' tarif)');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
+    // BELLEK TESHISI: `--membreak` -> bir mac kosar ve bellegin NEREDE oldugunu doker.
+    // Gerekce: bassiz tek isci ZIRVE 5.8GB olculdu (kullanici makinesi 12 isciyle dondu).
+    // V8 yigin siniri (--max-old-space-size=768) hic etkilemedi -> bellek V8 YIGINININ DISINDA.
+    // Buyuk supheliler: dunya-cozunurluklu canvas'lar (5100x3450x4B = 70MB/adet) ve typed array'ler.
+    if (process.argv.includes('--membreak')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const olc = async (etiket) => {
+                const r = await js('(() => { const m = performance.memory || {};' +
+                    'let cn = 0, cpx = 0, big = [];' +
+                    'const say = (c, ad) => { if (!c || !c.width) return; cn++; const px = c.width*c.height; cpx += px;' +
+                    '  if (px*4 > 20e6) big.push(ad + " " + c.width + "x" + c.height + " ~" + Math.round(px*4/1e6) + "MB"); };' +
+                    'for (const c of document.querySelectorAll("canvas")) say(c, "dom:" + (c.id || "?"));' +
+                    'for (const k of Object.keys(window)) { try { const v = window[k];' +
+                    '  if (v && v.nodeName === "CANVAS") say(v, "win:" + k);' +
+                    '  else if (v && typeof v === "object" && v.canvas && v.canvas.nodeName === "CANVAS") say(v.canvas, "ctx:" + k);' +
+                    '  else if (ArrayBuffer.isView(v) && v.byteLength > 20e6) big.push("TA:" + k + " ~" + Math.round(v.byteLength/1e6) + "MB");' +
+                    '} catch(e){} }' +
+                    'return { yigin: Math.round((m.usedJSHeapSize||0)/1e6), yiginToplam: Math.round((m.totalJSHeapSize||0)/1e6),' +
+                    '  yiginSinir: Math.round((m.jsHeapSizeLimit||0)/1e6), canvasSayisi: cn, canvasMB: Math.round(cpx*4/1e6), buyuk: big };' +
+                    '})()');
+                const rss = process.memoryUsage ? 0 : 0;
+                void rss;
+                console.log(etiket.padEnd(22) + 'JS yigin ' + String(r.yigin).padStart(5) + 'MB (toplam ' + r.yiginToplam +
+                    ', sinir ' + r.yiginSinir + ')   canvas ' + r.canvasSayisi + ' adet ~' + r.canvasMB + 'MB');
+                if (r.buyuk && r.buyuk.length) console.log('    BUYUK: ' + r.buyuk.join(' | '));
+                return r;
+            };
+            await olc('1) sayfa yuklendi');
+            await js('(() => { BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
+                'openBattlefieldSession({ mode:"quick", mapId:-2, seed:2024, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
+                'battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:"mem", ally:true });' +
+                'startBattle(); window.requestAnimationFrame = () => 0; return 1; })()');
+            await olc('2) mac basladi');
+            await js('(() => { const ph = SIM.headless; SIM.headless = true; let st = 0;' +
+                'try { while (SIM.tick < 3600 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS;' +
+                '  stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);' +
+                '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; } return SIM.tick; })()');
+            await olc('3) 180sn simule');
+            const t = await js('(() => { const T = BATTLE_REPLAY.telemetry || {};' +
+                'const say = (a) => Array.isArray(a) ? a.length : 0;' +
+                'return { ornek: say(T.samples), muharebe: say(T.combatEvents), yasam: say(T.lifeEvents),' +
+                '  karar: say(T.controllerDecisions), perf: say(T.performance), olay: say(BATTLE_REPLAY.events),' +
+                '  bekleyen: (SIM.pendingHits||[]).length, dekal: (SIM.decals||[]).length, mermi: (SIM.projectiles||[]).length,' +
+                '  jsonMB: Math.round(JSON.stringify(T).length/1e6) }; })()');
+            console.log('    TELEMETRI: ornek ' + t.ornek + ', muharebe-olay ' + t.muharebe + ', yasam-olay ' + t.yasam +
+                ', karar ' + t.karar + ', replay-olay ' + t.olay + ', dekal ' + t.dekal + '  -> JSON ~' + t.jsonMB + 'MB');
+            await js('(() => { const ph = SIM.headless; SIM.headless = true; let st = SIM.tick*BATTLE_TICK_MS;' +
+                'try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS;' +
+                '  stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);' +
+                '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; } return SIM.tick; })()');
+            await olc('4) mac bitti');
+            const mu = process.memoryUsage();
+            console.log('    ANA SUREC V8: rss ' + Math.round(mu.rss / 1e6) + 'MB, heap ' + Math.round(mu.heapUsed / 1e6) +
+                'MB, external ' + Math.round((mu.external || 0) / 1e6) + 'MB, arrayBuffers ' + Math.round((mu.arrayBuffers || 0) / 1e6) + 'MB');
+            for (const m of app.getAppMetrics()) {
+                const w = m.memory || {};
+                console.log('    METRIK ' + String(m.type).padEnd(12) + 'pid ' + String(m.pid).padEnd(8) +
+                    'workingSet ' + Math.round((w.workingSetSize || 0) / 1024) + 'MB  zirve ' + Math.round((w.peakWorkingSetSize || 0) / 1024) + 'MB');
+            }
+            console.log('MEMBREAK_OK');
             setTimeout(() => app.exit(0), 300);
         });
         return;
