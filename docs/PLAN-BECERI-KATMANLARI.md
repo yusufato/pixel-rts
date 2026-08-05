@@ -596,3 +596,29 @@ ikmal kümesinin üstüne şemsiye kurmak. Dron oraya zaten geliyor; jammer güv
 kapıdan geçmek üzere ayrı bir beceri olarak sıraya alındı.
 
 **Durum:** `jammerPost` varsayılan KAPALI. Kod+parametreler duruyor (Katman 5 araması için).
+
+### 14b. Jam yarıçapı 1143px → 700px (kullanıcı denge kararı)
+
+> **Kullanıcı:** "jammer çok büyük alana sahip olmaz; gerçek jammerlar da uzun menzilli ama biraz
+> daha kısa olsa iyi olur, 700 px gibi."
+
+`UnitData` jamming halesi `radius: 11.43` → **7.0** (1143px → 700px).
+
+**Ölçülen sonuç (izole, pro her iki kolda açık):**
+
+| | 1143px | **700px** |
+|---|---|---|
+| dron kapsaması | %13.0 | **%2.4** |
+| jammer ömrü | 120/127sn | 151/213sn |
+| dron-ağırlıklı saldıranın marjı (jammerli savunana karşı) | +794 (33/48) | **+1645 (40/48)** |
+| (kıyas) jammersiz savunana karşı | −1520 (8/48) | −1520 (8/48) |
+
+Oyuncu tarafındaki hedef sağlandı: dronlar artık çok daha az kısılıyor. **Bedeli:** AI-vs-AI'da
+jammer neredeyse ölü birim — 2×480₺ silahsız birim %2.4 kapsama karşılığında taşınıyor ve
+jammerli savunan, jammersiz savunandan **3165 marj** daha kötü durumda.
+
+**Bu, "dronun hedefini örtme" fikrini zorunlu kılıyor.** 700px'lik baloncukla dron kovalamak
+imkânsız; ama kendi topçu/komuta/ikmal kümesinin üstünde durmak 700px'e RAHAT sığar ve dron
+zaten oraya geliyor. §14'te "gelecek yönü" olarak not edilen beceri artık tek makul seçenek.
+
+**Kapılar:** forktest `true` · liverepro `false` · pdtest OK · defertest OK.

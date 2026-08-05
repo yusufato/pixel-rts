@@ -336,7 +336,7 @@ const UNITS_MODERN_DB = {
       "speed": 1.6, "vision": 8, "stealth": 0, "detect": 0.4,
       "weapons": [],
       "ammo": null,
-      "aura": { "type": "jamming", "radius": 11.43,
+      "aura": { "type": "jamming", "radius": 7.0,
         "effects": { "uavControlLoss": 0.75, "enemyAccuracy": -0.20, "enemyCommandRange": -0.5, "revealsSelf": true } },
       "emissions": 1.0,
       "abilities": ["deploy", "burst_jam"],

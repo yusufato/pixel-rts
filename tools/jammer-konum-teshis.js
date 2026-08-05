@@ -63,7 +63,7 @@ const kod = '(() => {' +
     'return JSON.stringify({ dronTik, kapsanan, ortMesafe: mesafeN ? mesafeSum / mesafeN : null,' +
     '  ortKutleMesafe: jamKutleN ? jamKutleSum / jamKutleN : null,' +
     '  ortDerinlik: jamDerinlikN ? jamDerinlikSum / jamDerinlikN : null,' +
-    '  jamSayi: jamIds.size, jamOlum, bitisTik: SIM.tick, yaricap: 11.43 * TP,' +
+    '  jamSayi: jamIds.size, jamOlum, bitisTik: SIM.tick, yaricap: (STATS[Object.keys(STATS).find(k => STATS[k].aura && STATS[k].aura.type === "jamming")].aura.radius) * TP,' +
     '  bind: (typeof BATTLE_BALANCE !== "undefined" && BATTLE_BALANCE.jammerPostBind) || 0 });' +
     '})()';
 
