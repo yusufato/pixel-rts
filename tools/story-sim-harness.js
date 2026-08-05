@@ -31,6 +31,7 @@ const STORY_SOURCES = [
     'js/StoryHumanMigration.js',
     'js/StoryPowerCenters.js',
     'js/StoryInstitutions.js',
+    'js/StoryStateCapacity.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -611,6 +612,14 @@ function createRuntime(seed) {
             institutionApprove: (requestId, input) => storyInstitutionApproveAction(requestId, input),
             institutionExecute: (requestId, input) => storyInstitutionExecuteAction(requestId, input),
             institutionTick: dt => storyInstitutionTick(dt),
+            stateCapacitySummary: () => storyStateCapacitySummary(),
+            stateCapacityLedger: () => storyStateCapacityClone(STORY.stateCapacity),
+            validateStateCapacityLedger: ledger => storyStateCapacityValidate(ledger),
+            stateCapacityForSave: () => storyStateCapacityForSave(),
+            stateCapacityCountryView: countryId => storyStateCapacityCountryView(countryId),
+            stateCapacityRegionView: regionId => storyStateCapacityRegionView(regionId),
+            stateCapacityPublicView: value => storyStateCapacityPublicView(value),
+            stateCapacityTick: dt => storyStateCapacityTick(dt),
             populationTransferCohorts: (origin, destination, requested, options) => (
                 storyPopulationTransferCohorts(origin, destination, requested, options)
             ),
@@ -1626,6 +1635,16 @@ function stateSnapshot(story) {
             requests: story.institutions.requests,
             events: story.institutions.events
         } : null,
+        stateCapacity: story.stateCapacity ? {
+            schemaVersion: story.stateCapacity.schemaVersion,
+            policyHash: story.stateCapacity.policyHash,
+            institutionPolicyHash: story.stateCapacity.institutionPolicyHash,
+            tickSequence: story.stateCapacity.tickSequence,
+            countries: story.stateCapacity.countries,
+            regions: story.stateCapacity.regions,
+            tickets: story.stateCapacity.tickets,
+            events: story.stateCapacity.events
+        } : null,
         diplomacy: Object.fromEntries(Object.keys(story.rel || {}).sort().map(key => {
             const relation = story.rel[key] || {};
             return [key, {
@@ -2169,6 +2188,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateInstitutionLedger(institutionLedger)
             : { ok: true, disabled: true, issues: [] };
         const institutionSummary = runtime.api.institutionSummary();
+        const stateCapacityLedger = runtime.api.stateCapacityLedger();
+        const stateCapacityValidation = stateCapacityLedger
+            ? runtime.api.validateStateCapacityLedger(stateCapacityLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const stateCapacitySummary = runtime.api.stateCapacitySummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2367,6 +2391,8 @@ function runStorySimulation(options = {}) {
             powerCenterSummary,
             institutionValidation,
             institutionSummary,
+            stateCapacityValidation,
+            stateCapacitySummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -9299,6 +9325,267 @@ function probeInstitutions(seed = 2032) {
     return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
 }
 
+function probeStateCapacity(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(10);
+        const story = runtime.api.state();
+        const countryId = 'country:0';
+        const institutionLedger = runtime.api.institutionLedger();
+        const country = institutionLedger.countries[countryId];
+        const judiciary = Object.values(country.institutions).find(row => row.type === 'JUDICIARY');
+        const judiciaryActor = { institutionId: judiciary.id, actorId: judiciary.officeHolder.actorId };
+        const submitAndExecuteReview = () => {
+            const submitted = runtime.api.institutionSubmit(Object.assign({
+                countryId, actionType: 'REVIEW_LEGALITY'
+            }, judiciaryActor));
+            const executed = submitted.ok
+                ? runtime.api.institutionExecute(submitted.request.id, judiciaryActor) : submitted;
+            return { submitted, executed };
+        };
+
+        const normalDecision = submitAndExecuteReview();
+        for (let index = 0; index < 20; index++) {
+            runtime.api.stateCapacityTick(5);
+            const ticket = runtime.api.stateCapacityLedger().tickets[
+                `implementation:${normalDecision.executed.request.id}`
+            ];
+            if (ticket && ['COMPLETED', 'DEGRADED', 'PAPER_ONLY'].includes(ticket.status)) break;
+        }
+        const normalTicket = runtime.api.stateCapacityLedger().tickets[
+            `implementation:${normalDecision.executed.request.id}`
+        ];
+
+        const lowDecision = submitAndExecuteReview();
+        const playerState = story.states.find(state => state.id === 0);
+        const canonicalBeforeLow = {
+            welfare: playerState.welfare,
+            factions: JSON.parse(JSON.stringify(playerState.factions || {})),
+            needsWelfare: JSON.parse(JSON.stringify(story.needsWelfare)),
+            publicOpinion: JSON.parse(JSON.stringify(story.publicOpinion)),
+            powerCenters: JSON.parse(JSON.stringify(story.powerCenters)),
+            stateBudget: JSON.parse(JSON.stringify(story.stateBudget)),
+            infrastructureGraph: JSON.parse(JSON.stringify(story.infrastructureGraph)),
+            garrisons: Object.fromEntries(story.nodes.map(node => [node.id, node.garrison]))
+        };
+        playerState.welfare = 0;
+        playerState.factions = Object.assign({}, playerState.factions, {
+            workers: 0, business: 0, military: 0, intel: 0, radicals: 100
+        });
+        if (story.needsWelfare && story.needsWelfare.countries[countryId]) {
+            Object.assign(story.needsWelfare.countries[countryId], {
+                publicServicesBps: 0, securityBps: 0, wellbeingBps: 0
+            });
+        }
+        for (const [regionId, row] of Object.entries(story.needsWelfare && story.needsWelfare.regions || {})) {
+            if (row.countryId === countryId) Object.assign(row, {
+                publicServicesBps: 0, securityBps: 0, wellbeingBps: 0
+            });
+        }
+        if (story.publicOpinion && story.publicOpinion.countries[countryId]) {
+            story.publicOpinion.countries[countryId].rememberedSeverityBps = 10000;
+        }
+        const civilService = Object.values(story.powerCenters.centers).find(row =>
+            row.countryId === countryId && row.type === 'CIVIL_SERVICE');
+        Object.assign(civilService, { organizationBps: 0, influenceBps: 0, independenceBps: 0 });
+        civilService.capabilities.administrationBps = 0;
+        const business = Object.values(story.powerCenters.centers).find(row =>
+            row.countryId === countryId && row.type === 'BUSINESS_COUNCIL');
+        business.influenceBps = 10000;
+        if (story.stateBudget && story.stateBudget.countries[countryId]) {
+            story.stateBudget.countries[countryId].status = 'DEFAULT';
+            story.stateBudget.countries[countryId].missedPaymentDays = 100;
+        }
+        for (const corridor of story.infrastructureGraph && story.infrastructureGraph.corridors || []) {
+            if ((corridor.endpointRegionIds || []).some(regionId => {
+                const nodeId = Number(String(regionId).split(':').pop());
+                const node = story.nodes.find(row => row.id === nodeId);
+                return node && node.owner === 0;
+            })) corridor.damageBps = 10000;
+        }
+        for (const node of story.nodes.filter(row => row.owner === 0)) node.garrison = 0;
+
+        runtime.api.stateCapacityTick(5);
+        const lowTicketId = `implementation:${lowDecision.executed.request.id}`;
+        const lowStart = runtime.api.stateCapacityLedger().tickets[lowTicketId];
+        story.clock = lowStart.deadlineAt + 0.1;
+        runtime.api.stateCapacityTick(5);
+        const lowFinished = runtime.api.stateCapacityLedger().tickets[lowTicketId];
+
+        // Çöküş senaryosu yalnız Faz 30 davranışını sınar. Başka defterlerin
+        // doğrulayıcılarını bilerek bozuk bırakmak kayıt/yükleme testini sahte
+        // biçimde başarısız gösterir; kapasite fişini koruyup kaynakları geri al.
+        playerState.welfare = canonicalBeforeLow.welfare;
+        playerState.factions = JSON.parse(JSON.stringify(canonicalBeforeLow.factions));
+        story.needsWelfare = JSON.parse(JSON.stringify(canonicalBeforeLow.needsWelfare));
+        story.publicOpinion = JSON.parse(JSON.stringify(canonicalBeforeLow.publicOpinion));
+        story.powerCenters = JSON.parse(JSON.stringify(canonicalBeforeLow.powerCenters));
+        story.stateBudget = JSON.parse(JSON.stringify(canonicalBeforeLow.stateBudget));
+        story.infrastructureGraph = JSON.parse(JSON.stringify(canonicalBeforeLow.infrastructureGraph));
+        for (const node of story.nodes) node.garrison = canonicalBeforeLow.garrisons[node.id];
+
+        // Kapasite çalışacak kadar yüksek, fakat denetim ve bağımsızlık zayıf:
+        // karar bitmeli ancak saptırma riski nedeniyle DEGRADED olmalı.
+        const degradedDecision = submitAndExecuteReview();
+        const restoredCivilService = Object.values(story.powerCenters.centers).find(row =>
+            row.countryId === countryId && row.type === 'CIVIL_SERVICE');
+        const restoredBusiness = Object.values(story.powerCenters.centers).find(row =>
+            row.countryId === countryId && row.type === 'BUSINESS_COUNCIL');
+        restoredCivilService.independenceBps = 0;
+        restoredCivilService.organizationBps = 0;
+        restoredCivilService.influenceBps = 0;
+        restoredBusiness.influenceBps = 10000;
+        const degradedTicketId = `implementation:${degradedDecision.executed.request.id}`;
+        for (let index = 0; index < 30; index++) {
+            runtime.api.stateCapacityTick(5);
+            const ticket = runtime.api.stateCapacityLedger().tickets[degradedTicketId];
+            if (ticket && ['COMPLETED', 'DEGRADED', 'PAPER_ONLY'].includes(ticket.status)) break;
+        }
+        const degradedTicket = runtime.api.stateCapacityLedger().tickets[degradedTicketId];
+        story.powerCenters = JSON.parse(JSON.stringify(canonicalBeforeLow.powerCenters));
+
+        const beforeProjectionHash = hashSnapshot(stateSnapshot(story));
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, countryId);
+        const ownCountry = knowledge.countries.find(row => row.id === countryId);
+        const foreignCountry = knowledge.countries.find(row => row.id === 'country:1');
+        const ownNode = story.nodes.find(node => node.owner === 0);
+        const foreignNode = story.nodes.find(node => node.owner !== 0);
+        const ownUi = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        const foreignUi = runtime.api.renderCityDossier(foreignNode.id, 'kurumlar');
+        const afterProjectionHash = hashSnapshot(stateSnapshot(story));
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = JSON.parse(savedRaw).stateCapacity;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            validation: runtime.api.validateStateCapacityLedger(runtime.api.stateCapacityLedger()),
+            summary: runtime.api.stateCapacitySummary(),
+            normalDecision,
+            normalTicket,
+            lowDecision,
+            lowStart,
+            lowFinished,
+            degradedDecision,
+            degradedTicket,
+            capacityContrast: {
+                normal: normalTicket && normalTicket.startCapacity,
+                low: lowStart && lowStart.latestCapacity
+            },
+            worldValidation: runtime.api.validateWorldV2(world),
+            worldTicketCount: world.implementationTickets.length,
+            ownKnowledge: ownCountry.stateCapacity,
+            foreignKnowledge: foreignCountry.stateCapacity,
+            foreignSecretsHidden: !/bureaucraticCapacityBps|institutionalIntegrityBps|corruptionRiskBps|implementationCapacityBps|implementationTickets|sources/.test(
+                JSON.stringify(foreignCountry.stateCapacity.value)
+            ),
+            projectionReadOnly: beforeProjectionHash === afterProjectionHash,
+            ui: {
+                ownHasCapacity: /MEŞRUİYET VE UYGULAMA KAPASİTESİ|BÜROKRATİK KAPASİTE/.test(ownUi.text),
+                ownHasPaperOnly: /KÂĞITTA KALDI/.test(ownUi.text),
+                foreignHasPublicCapacity: /MEŞRUİYET VE UYGULAMA KAPASİTESİ|BÖLGESEL DENETİM/.test(foreignUi.text),
+                foreignSecretLeak: /BÜROKRATİK KAPASİTE|KURUMSAL BÜTÜNLÜK|SAPTIRMA RİSKİ|UYGULAMA FİŞLERİ/.test(foreignUi.text)
+            },
+            savedExact: JSON.stringify(savedLedger) === JSON.stringify(runtime.api.stateCapacityLedger()),
+            saveOk: story._lastSaveOk,
+            saveError: story._lastSaveError,
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                ticketCount: migrated.ok ? migrated.world.implementationTickets.length : 0,
+                countryPreserved: !!(migrated.ok && migrated.world.countries[0].stateCapacity),
+                regionPreserved: !!(migrated.ok && migrated.world.regions[0].stateCapacity),
+                unmapped: !!(migrated.ok && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('stateCapacity'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.stateCapacityLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateStateCapacityLedger(ledger),
+            exact: JSON.stringify(ledger) === JSON.stringify(savedLedger)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.stateCapacity;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.stateCapacityLedger();
+        legacy = {
+            validation: legacyRuntime.api.validateStateCapacityLedger(ledger),
+            diagnostics: ledger.diagnostics,
+            summary: legacyRuntime.api.stateCapacitySummary()
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    corruptSave.stateCapacity.countries['country:0'].legitimacyBps = -1;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corruptRuntime.api.loadNow();
+        const ledger = corruptRuntime.api.stateCapacityLedger();
+        corrupt = {
+            validation: corruptRuntime.api.validateStateCapacityLedger(ledger),
+            diagnostics: ledger.diagnostics
+        };
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.stateCapacity': false }
+        });
+        disabled = {
+            ledger: disabledRuntime.api.stateCapacityLedger(),
+            summary: disabledRuntime.api.stateCapacitySummary()
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.institutionsAuthority': false, 'government.stateCapacity': true }
+        });
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.stateCapacityLedger(),
+            summary: prerequisiteRuntime.api.stateCapacitySummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+    return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -9335,6 +9622,7 @@ module.exports = {
     probeHumanMigration,
     probePowerCenters,
     probeInstitutions,
+    probeStateCapacity,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

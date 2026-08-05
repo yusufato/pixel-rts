@@ -6,11 +6,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_WORLD_V2_SCHEMA_VERSION = 2;
-const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-2';
+const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-3';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
     'meta', 'clock', 'countries', 'regions', 'characters',
-    'populationCohorts', 'powerCenters', 'institutions', 'companies', 'mediaOutlets',
+    'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'companies', 'mediaOutlets',
     'diplomaticEdges', 'markets', 'militaryForces', 'crises',
     'events', 'decisions', 'memory', 'diagnostics'
 ]);
@@ -104,6 +104,9 @@ function storyWorldV2Countries() {
             institutions: typeof storyInstitutionCountryView === 'function'
                 ? storyWorldV2Clone(storyInstitutionCountryView(storyWorldV2CountryId(state.id)))
                 : null,
+            stateCapacity: typeof storyStateCapacityCountryView === 'function'
+                ? storyWorldV2Clone(storyStateCapacityCountryView(storyWorldV2CountryId(state.id)))
+                : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
                 manpower: storyWorldV2Round(state.res && state.res.manpower),
@@ -161,6 +164,9 @@ function storyWorldV2Regions() {
                         : null,
                     institutions: typeof storyInstitutionRegionView === 'function'
                         ? storyWorldV2Clone(storyInstitutionRegionView(region.id))
+                        : null,
+                    stateCapacity: typeof storyStateCapacityRegionView === 'function'
+                        ? storyWorldV2Clone(storyStateCapacityRegionView(region.id))
                         : null
                 }
             );
@@ -234,6 +240,9 @@ function storyWorldV2Regions() {
                 : null,
             institutions: typeof storyInstitutionRegionView === 'function'
                 ? storyWorldV2Clone(storyInstitutionRegionView(storyWorldV2RegionId(node.id)))
+                : null,
+            stateCapacity: typeof storyStateCapacityRegionView === 'function'
+                ? storyWorldV2Clone(storyStateCapacityRegionView(storyWorldV2RegionId(node.id)))
                 : null,
             position: {
                 coordinateSpace: 'NORMALIZED_WORLD',
@@ -331,6 +340,24 @@ function storyWorldV2Institutions() {
         }
     }
     return rows.sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
+function storyWorldV2ImplementationTickets() {
+    // Uygulama görünümü de salt-okunurdur; snapshot almak yeni karar fişi
+    // üretmez ve ilerlemeyi değiştirmez.
+    const ledger = typeof storyStateCapacityEnabled === 'function'
+        && storyStateCapacityEnabled() ? STORY.stateCapacity : null;
+    if (!ledger) return [];
+    return Object.values(ledger.tickets || {}).map(ticket => Object.assign(
+        storyWorldV2EntityBase(
+            ticket.id,
+            ticket.countryId,
+            Number(ticket.createdAt) || 0,
+            null
+        ),
+        storyWorldV2Clone(ticket),
+        { entityType: 'IMPLEMENTATION_TICKET' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
 function storyWorldV2Forces() {
@@ -434,6 +461,7 @@ function storyWorldV2CreateEmpty(options) {
         populationCohorts: [],
         powerCenters: [],
         institutions: [],
+        implementationTickets: [],
         companies: [],
         mediaOutlets: [],
         diplomaticEdges: [],
@@ -490,6 +518,7 @@ function storyWorldV2Snapshot() {
         populationCohorts: storyWorldV2PopulationCohorts(),
         powerCenters: storyWorldV2PowerCenters(),
         institutions: storyWorldV2Institutions(),
+        implementationTickets: storyWorldV2ImplementationTickets(),
         companies: typeof storyCompanyEnsure === 'function'
             ? (() => {
                 const ledger = storyCompanyEnsure();
@@ -702,7 +731,7 @@ function storyWorldV2Validate(world, options) {
     }
 
     const collectionNames = STORY_WORLD_V2_TOP_LEVEL.filter(key => [
-        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions',
+        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets',
         'companies', 'mediaOutlets', 'diplomaticEdges', 'markets', 'militaryForces',
         'crises', 'events', 'decisions'
     ].includes(key));

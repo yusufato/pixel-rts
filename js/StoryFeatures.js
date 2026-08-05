@@ -41,6 +41,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'population.humanMigration': true,
     'society.powerCenters': true,
     'government.institutionsAuthority': true,
+    'government.stateCapacity': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -106,6 +107,12 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
     ]),
     'government.institutionsAuthority': Object.freeze([
         'society.powerCenters'
+    ]),
+    'government.stateCapacity': Object.freeze([
+        'government.institutionsAuthority',
+        'population.needsWelfare',
+        'society.publicOpinionMemory',
+        'world.infrastructureGraph'
     ])
 });
 

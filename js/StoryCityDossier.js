@@ -143,7 +143,7 @@ function storyCityDossierBuild(nodeId) {
     const facts = {};
     for (const field of [
         'name', 'ownerId', 'neighborIds', 'level', 'garrison', 'infrastructure',
-        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
+        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
     ]) facts[field] = storyCityDossierFactCopy(region[field]);
     const ownerCountry = (knowledge.countries || []).find(candidate => candidate.id === ownerId);
     facts.budget = storyCityDossierFactCopy(ownerCountry && ownerCountry.budget);
@@ -151,6 +151,7 @@ function storyCityDossierBuild(nodeId) {
     facts.economicPolicy = storyCityDossierFactCopy(ownerCountry && ownerCountry.economicPolicy);
     facts.countryPowerCenters = storyCityDossierFactCopy(ownerCountry && ownerCountry.powerCenters);
     facts.countryInstitutions = storyCityDossierFactCopy(ownerCountry && ownerCountry.institutions);
+    facts.countryStateCapacity = storyCityDossierFactCopy(ownerCountry && ownerCountry.stateCapacity);
 
     const characters = (knowledge.characters || [])
         .filter(character => character.regionId
@@ -252,6 +253,11 @@ function storyCityDossierValidate(view) {
         const institutionText = institutions && institutions.value ? JSON.stringify(institutions.value) : '';
         if (/actorId|authoritySignature|requiredInstitutionIds|approvalInstitutionIds|requests/.test(institutionText)) {
             add('FOREIGN_INSTITUTION_INTELLIGENCE_LEAK', '$.facts.countryInstitutions', 'Yabancı kurumların aktör kimliği ve iç onay kayıtları sızamaz.');
+        }
+        const capacity = view.facts && view.facts.countryStateCapacity;
+        const capacityText = capacity && capacity.value ? JSON.stringify(capacity.value) : '';
+        if (/bureaucraticCapacityBps|institutionalIntegrityBps|corruptionRiskBps|implementationCapacityBps|implementationTickets|sources/.test(capacityText)) {
+            add('FOREIGN_STATE_CAPACITY_INTELLIGENCE_LEAK', '$.facts.countryStateCapacity', 'Yabancı bürokrasi, bütünlük, sızıntı riski ve uygulama fişleri sızamaz.');
         }
     }
     if (!Array.isArray(view.missingSystems)
@@ -415,6 +421,58 @@ function storyCityDossierRenderInstitutions(view) {
         + `<div class="city-character-list">${rows}</div>`
         + requestSummary
         + `<p class="city-hint">Başvuru hakkı, onay yetkisi ve fiziksel yürütme birbirinden ayrıdır. Makam veya anayasa değişirse tamamlanmamış eski kararlar geçersizleşir; sohbet ya da LLM yeni yetki uyduramaz.</p></section>`;
+}
+
+function storyCityDossierRenderStateCapacity(view) {
+    const countryFact = view.facts.countryStateCapacity;
+    const localFact = view.facts.stateCapacity;
+    if (!countryFact || countryFact.status === PLAYER_FACT_STATUS.UNKNOWN || !countryFact.value) {
+        return `<section class="city-dossier-empty"><b>DEVLET KAPASİTESİ KAYDI YOK</b>`
+            + `<span>Kararların uygulanabilirliği hakkında doğrulanmış bilgi bulunmuyor.</span></section>`;
+    }
+    const country = countryFact.value;
+    const local = localFact && localFact.value;
+    const pct = value => storyCityDossierNumber((Number(value) || 0) / 100);
+    const metric = (label, value, detail) => `<div class="detail-hover" tabindex="0" data-story-tooltip="${storyCityDossierEscape(detail)}">`
+        + `<span>${storyCityDossierEscape(label)}</span><b>%${pct(value)}</b></div>`;
+    let grid = metric('MEŞRUİYET', country.legitimacyBps,
+        'Refah, temel fraksiyon desteği, hatırlanan toplumsal zarar ve kamu hizmetinden türetilir. Tek bir popülerlik puanı değildir.')
+        + metric('BÖLGESEL DENETİM', local ? local.regionalControlBps : country.regionalControlBps,
+            'İdari erişim, fiziksel güvenlik, koridor durumu ve garnizon mevcudunun birleşimidir.');
+    if (view.isOwn) {
+        grid += metric('BÜROKRATİK KAPASİTE', country.bureaucraticCapacityBps,
+            'Kamu idaresinin örgütü ve idari yeteneği, kamu hizmeti sonucu ve mali süreklilikten türetilir.')
+            + metric('KURUMSAL BÜTÜNLÜK', country.institutionalIntegrityBps,
+                'Hukuki denetim, kamu idaresi bağımsızlığı/örgütlülüğü ve mali süreklilik bileşimidir.')
+            + metric('SAPTIRMA RİSKİ', country.corruptionRiskBps,
+                'Kanıtlanmış suç değildir. Zayıf kurumsal bütünlük, mali gecikme ve güç yoğunlaşmasının uygulamayı saptırma riskidir.')
+            + metric('UYGULAMA GÜCÜ', country.implementationCapacityBps,
+                'Meşruiyet, bürokrasi, bütünlük ve bölgesel denetimin karar uygulamasında kullanılan birleşik kapasitesidir.');
+    }
+    let tickets = '';
+    if (view.isOwn) {
+        const labels = {
+            QUEUED: 'SIRADA', IMPLEMENTING: 'UYGULANIYOR', COMPLETED: 'TAMAMLANDI',
+            DEGRADED: 'EKSİK/SIZINTILI', PAPER_ONLY: 'KÂĞITTA KALDI'
+        };
+        const rows = (country.implementationTickets || []).slice(0, 6).map(ticket => {
+            const result = ticket.result || {};
+            const detail = result.reasonCodes && result.reasonCodes.length
+                ? result.reasonCodes.join(' · ')
+                : `Gerekli kapasite %${pct(ticket.requiredCapacityBps)} · son ölçüm %${pct(ticket.latestCapacity && ticket.latestCapacity.implementationCapacityBps)}`;
+            return `<article class="city-character-row detail-hover" tabindex="0" data-story-tooltip="${storyCityDossierEscape(detail)}"><div>`
+                + `<b>${storyCityDossierEscape(ticket.actionType)} · ${storyCityDossierEscape(labels[ticket.status] || ticket.status)}</b>`
+                + `<span>İLERLEME %${pct(ticket.progressBps)} · ${storyCityDossierEscape(ticket.complexity)}</span>`
+                + `<small>tahmini saptırma %${pct(ticket.latestCapacity && ticket.latestCapacity.leakageRiskBps)} · fiziksel sonuç bu katmanda yazılmaz</small>`
+                + `</div></article>`;
+        }).join('');
+        tickets = `<h3>UYGULAMA FİŞLERİ</h3>` + (rows
+            ? `<div class="city-character-list">${rows}</div>`
+            : `<div class="city-dossier-empty"><b>UYGULAMA BEKLEMİYOR</b><span>Faz 29’dan aktarılmış yürütülmüş karar yok.</span></div>`);
+    }
+    return `<section class="city-dossier-sec"><h3>MEŞRUİYET VE UYGULAMA KAPASİTESİ</h3>`
+        + `<div class="city-fact-grid">${grid}</div>${tickets}`
+        + `<p class="city-hint">Hukuken onaylanmış karar otomatik olarak dünya sonucu değildir. Düşük kapasite kararı geciktirir; zayıf bütünlük ve bölgesel denetim eksik/sızdırılmış uygulama veya kâğıtta kalma üretir.</p></section>`;
 }
 
 function storyCityDossierGeneral(view, node) {
@@ -790,6 +848,7 @@ function storyCityDossierRender(view, active, node) {
     let content = '';
     if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
     else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
+        + storyCityDossierRenderStateCapacity(view)
         + storyCityDossierRenderPowerCenters(view);
     else if (active === 'tarih') content = storyCityDossierRenderHistory(view);
     else if (active === 'karakterler') content = storyCityDossierRenderCharacters(view);

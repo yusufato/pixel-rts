@@ -24,7 +24,8 @@ const {
     probeCollectiveAction,
     probeHumanMigration,
     probePowerCenters,
-    probeInstitutions
+    probeInstitutions,
+    probeStateCapacity
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -374,6 +375,36 @@ function targetedProbeFor(flag, seed) {
     if (flag === 'population.humanMigration') return probeHumanMigration(seed);
     if (flag === 'society.powerCenters') return probePowerCenters(seed);
     if (flag === 'government.institutionsAuthority') return probeInstitutions(seed);
+    if (flag === 'government.stateCapacity') {
+        const probe = probeStateCapacity(seed);
+        return {
+            main: {
+                validation: probe.main.validation,
+                summary: probe.main.summary,
+                normal: probe.main.normalTicket,
+                degraded: probe.main.degradedTicket,
+                paperOnly: probe.main.lowFinished,
+                capacityContrast: probe.main.capacityContrast,
+                worldValidation: probe.main.worldValidation,
+                worldTicketCount: probe.main.worldTicketCount,
+                foreignSecretsHidden: probe.main.foreignSecretsHidden,
+                projectionReadOnly: probe.main.projectionReadOnly,
+                ui: probe.main.ui,
+                saveOk: probe.main.saveOk,
+                savedExact: probe.main.savedExact,
+                migration: probe.main.migration
+            },
+            restored: probe.restored,
+            legacy: {
+                validation: probe.legacy.validation,
+                diagnostics: probe.legacy.diagnostics,
+                summary: probe.legacy.summary
+            },
+            corrupt: probe.corrupt,
+            disabled: probe.disabled,
+            prerequisiteDisabled: probe.prerequisiteDisabled
+        };
+    }
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }
@@ -421,6 +452,8 @@ const report = {
         powerCenterValidation: control.powerCenterValidation,
         institutionSummary: control.institutionSummary,
         institutionValidation: control.institutionValidation,
+        stateCapacitySummary: control.stateCapacitySummary,
+        stateCapacityValidation: control.stateCapacityValidation,
         tradeSummary: control.tradeSummary,
         tradeProductionOpportunityView: control.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: control.tradeProductionAdmissionPlan,
@@ -451,6 +484,8 @@ const report = {
         powerCenterValidation: treatment.powerCenterValidation,
         institutionSummary: treatment.institutionSummary,
         institutionValidation: treatment.institutionValidation,
+        stateCapacitySummary: treatment.stateCapacitySummary,
+        stateCapacityValidation: treatment.stateCapacityValidation,
         tradeSummary: treatment.tradeSummary,
         tradeProductionOpportunityView: treatment.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: treatment.tradeProductionAdmissionPlan,

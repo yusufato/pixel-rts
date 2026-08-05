@@ -313,6 +313,10 @@ function storyMigrationV3RawToV2(raw, options) {
     const savedInstitutions = storyMigrationObject(save.institutions);
     const savedInstitutionCountries = storyMigrationObject(savedInstitutions.countries);
     const savedInstitutionRequests = storyMigrationObject(savedInstitutions.requests);
+    const savedStateCapacity = storyMigrationObject(save.stateCapacity);
+    const savedStateCapacityCountries = storyMigrationObject(savedStateCapacity.countries);
+    const savedStateCapacityRegions = storyMigrationObject(savedStateCapacity.regions);
+    const savedImplementationTickets = storyMigrationObject(savedStateCapacity.tickets);
     for (const countryId of Object.keys(savedCollectiveCountries)) {
         const migratedCountry = countries.find(country => country.id === countryId);
         if (migratedCountry) {
@@ -387,6 +391,24 @@ function storyMigrationV3RawToV2(raw, options) {
             };
         }
     }
+    for (const countryId of Object.keys(savedStateCapacityCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (!migratedCountry) continue;
+        const capacity = storyMigrationClone(savedStateCapacityCountries[countryId]);
+        capacity.implementationTickets = Object.values(savedImplementationTickets)
+            .filter(ticket => ticket && ticket.countryId === countryId)
+            .map(storyMigrationClone);
+        migratedCountry.stateCapacity = capacity;
+    }
+    for (const regionId of Object.keys(savedStateCapacityRegions)) {
+        const migratedRegion = regions.find(region => region.id === regionId);
+        if (!migratedRegion) continue;
+        const capacity = storyMigrationClone(savedStateCapacityRegions[regionId]);
+        capacity.implementationTickets = Object.values(savedImplementationTickets)
+            .filter(ticket => ticket && ticket.targetRegionId === regionId)
+            .map(storyMigrationClone);
+        migratedRegion.stateCapacity = capacity;
+    }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
         for (const cohort of (Array.isArray(savedRegion.cohorts) ? savedRegion.cohorts : [])) {
@@ -416,7 +438,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -433,7 +455,7 @@ function storyMigrationV3RawToV2(raw, options) {
     const world = {
         meta: {
             schemaVersion: STORY_WORLD_V2_SCHEMA_VERSION,
-            adapterVersion: 'legacy-save-v3-to-v2-2',
+            adapterVersion: 'legacy-save-v3-to-v2-3',
             campaignId: `story:${seed == null ? 'legacy' : seed}:${playerStateId}`,
             seed,
             engineVersions: {
@@ -484,6 +506,11 @@ function storyMigrationV3RawToV2(raw, options) {
                 storyMigrationClone(institution),
                 { entityType: 'INSTITUTION' }
             ))
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        implementationTickets: Object.values(savedImplementationTickets).map(ticket => Object.assign(
+            storyMigrationBase(String(ticket.id), ticket.countryId == null ? null : String(ticket.countryId), storyMigrationNumber(ticket.createdAt, 0)),
+            storyMigrationClone(ticket),
+            { entityType: 'IMPLEMENTATION_TICKET' }
         )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         companies: [],
         mediaOutlets: [],

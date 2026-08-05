@@ -39,6 +39,7 @@ const {
     probeHumanMigration,
     probePowerCenters,
     probeInstitutions,
+    probeStateCapacity,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -181,6 +182,14 @@ function run() {
         'Her devlet beş kanonik anayasal kurum taşımalı.');
     assert.ok(first.institutionSummary.eventCount <= 512,
         'Kurum ve yetki olay geçmişi sınırlı kayıt tavanını aşmamalı.');
+    assert.equal(first.stateCapacityValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli meşruiyet ve devlet kapasitesi defteri korumalı.');
+    assert.equal(first.stateCapacitySummary.countryCount, 8,
+        'Faz 30 bütün canlı devletler için ayrı kapasite fotoğrafı taşımalı.');
+    assert.equal(first.stateCapacitySummary.regionCount, 152,
+        'Faz 30 bölgesel denetimi bütün kanonik bölgelerde izlemeli.');
+    assert.ok(first.stateCapacitySummary.eventCount <= 512,
+        'Devlet kapasitesi olay geçmişi sınırlı kayıt tavanını aşmamalı.');
     assert.equal(first.opinionSummary.cohortCount, 152 * 12,
         'Normal 900 saniyelik dünyada bütün kohortlar kamuoyu taşıyıcısı olarak izlenmeli.');
     assert.ok(first.opinionSummary.averageRememberedSeverityBps < 9500,
@@ -2220,6 +2229,88 @@ function run() {
     assert.equal(institutionProbe.prerequisiteDisabled.ledger, null,
         'Güç merkezi öncülü kapalıysa Faz 29 etkinleşmemeli.');
 
+    const stateCapacityProbe = probeStateCapacity();
+    assert.equal(stateCapacityProbe.main.validation.ok, true,
+        'Faz 30 meşruiyet ve devlet kapasitesi defteri kendi sözleşmesini geçmeli.');
+    assert.equal(stateCapacityProbe.main.normalTicket.status, 'COMPLETED',
+        'Yeterli kapasitedeki yetkili karar uygulama fişini tamamlamalı.');
+    assert.equal(stateCapacityProbe.main.normalTicket.result.physicalMutation, false,
+        'Faz 30 alan sahipleri adına yasa, para, stok veya savaş sonucu yazmamalı.');
+    assert.equal(stateCapacityProbe.main.lowStart.status, 'QUEUED',
+        'Asgari idari kapasite altındaki karar uygulamaya başlamamalı.');
+    assert.equal(stateCapacityProbe.main.lowFinished.status, 'PAPER_ONLY',
+        'Kapasitesi çöken devletin kararı son tarihte açıkça kâğıtta kalmalı.');
+    assert.equal(stateCapacityProbe.main.degradedTicket.status, 'DEGRADED',
+        'Çalışan fakat bütünlüğü zayıf bürokrasi kararı eksik/sızdırılmış tamamlamalı.');
+    assert.ok(stateCapacityProbe.main.degradedTicket.result.leakageBps >= 4600,
+        'DEGRADED uygulama ölçülmüş yüksek saptırma riski taşımalı.');
+    assert.deepEqual(stateCapacityProbe.main.degradedTicket.result.reasonCodes,
+        ['HIGH_DIVERSION_RISK', 'LOW_IMPLEMENTATION_QUALITY'],
+    'Eksik/sızdırılmış uygulamanın nedeni sabit ve açıklanabilir olmalı.');
+    assert.ok(stateCapacityProbe.main.capacityContrast.low.implementationCapacityBps
+        < stateCapacityProbe.main.capacityContrast.normal.implementationCapacityBps,
+    'Çökmüş kaynak senaryosu normal devletten daha düşük uygulama kapasitesi üretmeli.');
+    assert.ok(stateCapacityProbe.main.capacityContrast.low.leakageRiskBps
+        > stateCapacityProbe.main.capacityContrast.normal.leakageRiskBps,
+    'Zayıf bütünlük ve denetim açıklanabilir biçimde daha yüksek saptırma riski üretmeli.');
+    assert.deepEqual(stateCapacityProbe.main.lowFinished.result.reasonCodes,
+        ['IMPLEMENTATION_DEADLINE_EXCEEDED', 'CAPACITY_BELOW_REQUIREMENT'],
+    'Kâğıtta kalan kararın neden zinciri sabit ve açıklanabilir olmalı.');
+    assert.equal(stateCapacityProbe.main.worldValidation.ok, true,
+        'Faz 30 uygulama fişlerini taşıyan WorldV2 geçerli olmalı.');
+    assert.equal(stateCapacityProbe.main.worldTicketCount, 3,
+        'WorldV2 tamamlanan, bozulan ve kâğıtta kalan uygulama fişlerini tekil varlık olarak taşımalı.');
+    assert.equal(stateCapacityProbe.main.ownKnowledge.status, 'VERIFIED',
+        'Kendi devlet kapasitesi doğrulanmış yönetim bilgisi olmalı.');
+    assert.equal(stateCapacityProbe.main.foreignKnowledge.status, 'VERIFIED',
+        'Yabancı kamusal meşruiyet/denetim görünümü doğrulanmış bilgi olmalı.');
+    assert.equal(stateCapacityProbe.main.foreignSecretsHidden, true,
+        'Yabancı bürokrasi, bütünlük, saptırma riski ve uygulama fişleri sızmamalı.');
+    assert.equal(stateCapacityProbe.main.projectionReadOnly, true,
+        'WorldV2, bilgi görünümü ve şehir UI’si kapasite defterini değiştirmemeli.');
+    assert.equal(stateCapacityProbe.main.ui.ownHasCapacity, true,
+        'Kurumlar sekmesi oyuncuya meşruiyet ve uygulama kapasitesini göstermeli.');
+    assert.equal(stateCapacityProbe.main.ui.ownHasPaperOnly, true,
+        'Kurumlar sekmesi kâğıtta kalan kararı görünür kılmalı.');
+    assert.equal(stateCapacityProbe.main.ui.foreignHasPublicCapacity, true,
+        'Yabancı ülkenin kamusal meşruiyet ve bölgesel denetimi gösterilebilmeli.');
+    assert.equal(stateCapacityProbe.main.ui.foreignSecretLeak, false,
+        'Yabancı şehir UI’si iç kapasite ve uygulama ayrıntısı sızdırmamalı.');
+    assert.equal(stateCapacityProbe.main.saveOk, true,
+        'Faz 30 içeren tam kampanya kaydı reddedilmemeli.');
+    assert.equal(stateCapacityProbe.main.savedExact, true,
+        'Devlet kapasitesi defteri kayıt sırasında değişmeden yazılmalı.');
+    assert.equal(stateCapacityProbe.restored.loaded, true,
+        'Faz 30 kaydı yeni süreçte yüklenebilmeli.');
+    assert.equal(stateCapacityProbe.restored.validation.ok, true,
+        'Yüklenen Faz 30 defteri geçerli olmalı.');
+    assert.equal(stateCapacityProbe.restored.exact, true,
+        'Devlet kapasitesi ve uygulama fişleri birebir geri yüklenmeli.');
+    assert.equal(stateCapacityProbe.main.migration.ok, true,
+        'V3→V2 adaptörü Faz 30 kayıtlarını taşımalı.');
+    assert.equal(stateCapacityProbe.main.migration.validation.ok, true,
+        'Göç ettirilmiş Faz 30 WorldV2 dünyası geçerli olmalı.');
+    assert.equal(stateCapacityProbe.main.migration.ticketCount, 3,
+        'V3→V2 göçü uygulama fişlerini kaybetmemeli.');
+    assert.equal(stateCapacityProbe.main.migration.countryPreserved, true,
+        'V3→V2 ülke kapasite fotoğrafını korumalı.');
+    assert.equal(stateCapacityProbe.main.migration.regionPreserved, true,
+        'V3→V2 bölgesel denetim fotoğrafını korumalı.');
+    assert.equal(stateCapacityProbe.main.migration.unmapped, false,
+        'stateCapacity bilinen kayıt alanı olarak işlenmeli.');
+    assert.equal(stateCapacityProbe.legacy.validation.ok, true,
+        'Faz 30 öncesi kayıt canlı kaynaklardan güvenli kapasite backfill’i kurmalı.');
+    assert.equal(stateCapacityProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayıt kapasite backfill durumunu açıklamalı.');
+    assert.equal(stateCapacityProbe.corrupt.validation.ok, true,
+        'Bozuk kapasite defteri dünyayı silmeden güvenli yeniden kurulmalı.');
+    assert.equal(stateCapacityProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk Faz 30 kurtarması teşhiste görünmeli.');
+    assert.equal(stateCapacityProbe.disabled.ledger, null,
+        'Faz 30 özellik bayrağı kapalıyken kapasite defteri oluşmamalı.');
+    assert.equal(stateCapacityProbe.prerequisiteDisabled.ledger, null,
+        'Faz 29 öncülü kapalıysa Faz 30 etkinleşmemeli.');
+
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
@@ -2740,6 +2831,7 @@ function run() {
         'population-needs': 2,
         factions: 7,
         society: 3,
+        'state-capacity': 2,
         siege: 5,
         technology: 1,
         chatter: 1,
@@ -3062,7 +3154,7 @@ function run() {
         'js/Production.js', 'js/Council.js', 'js/Era.js', 'js/Chatter.js',
         'js/Talks.js', 'js/CommanderTree.js', 'js/StoryProductionSectors.js',
         'js/StoryRegionalEconomy.js', 'js/StoryMarket.js',
-        'js/StoryInstitutions.js'
+        'js/StoryInstitutions.js', 'js/StoryStateCapacity.js'
     ];
     const directStoryRandomCalls = storyRandomDomains.flatMap(relativePath => {
         const source = fs.readFileSync(path.resolve(__dirname, '..', relativePath), 'utf8');

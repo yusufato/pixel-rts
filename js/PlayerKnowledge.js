@@ -181,6 +181,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                 gameTime,
                 own ? 'OWN_CONSTITUTIONAL_AUTHORITY_LEDGER' : 'PUBLIC_CONSTITUTIONAL_RECORD'
             )),
+            stateCapacity: fact(storyPlayerVerifiedFact(
+                country.id,
+                'stateCapacity',
+                own ? country.stateCapacity : (typeof storyStateCapacityPublicView === 'function'
+                    ? storyStateCapacityPublicView(country.stateCapacity) : null),
+                gameTime,
+                own ? 'OWN_STATE_CAPACITY_LEDGER' : 'PUBLIC_GOVERNANCE_RECORD'
+            )),
             resources: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'resources', country.resources, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(country.id, 'resources', gameTime))
@@ -246,6 +254,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                     ? storyInstitutionPublicView(region.institutions) : null),
                 gameTime,
                 own ? 'OWN_LOCAL_AUTHORITY_LEDGER' : 'PUBLIC_LOCAL_AUTHORITY_RECORD'
+            )),
+            stateCapacity: fact(storyPlayerVerifiedFact(
+                region.id,
+                'stateCapacity',
+                own ? region.stateCapacity : (typeof storyStateCapacityPublicView === 'function'
+                    ? storyStateCapacityPublicView(region.stateCapacity) : null),
+                gameTime,
+                own ? 'OWN_LOCAL_CAPACITY_LEDGER' : 'PUBLIC_REGIONAL_CONTROL_RECORD'
             )),
             wealth: fact(own
                 ? storyPlayerVerifiedFact(region.id, 'wealth', region.wealth, gameTime, 'OWN_TREASURY')
