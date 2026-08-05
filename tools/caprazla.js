@@ -182,6 +182,8 @@ function partiKosu(dilim, i) { return new Promise((cozum) => {
     const dosya = path.join(GECICI, 'parca-' + i + '.json');
     const ortak = ['--tarifler', TARIFLER, '--sal', SAL, '--sav', SAV,
         '--seeds', dilim.join(','), '--out', dosya, '--sessiz'];
+    // A/B'de telemetri okunmuyor → varsayılan KAPALI (%22 hız). --telemetrili ile açılır.
+    if (TEZGAH && !process.argv.includes('--telemetrili')) ortak.push('--telemetrisiz');
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;   // electron'u node kipinde başlatmayı engelle
     let c;

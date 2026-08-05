@@ -25,7 +25,20 @@ const DRAWN_MAP = {
 };
 
 function _gi(gx, gy) { return gy * GRID_W + gx; }
+
+// ── YOL ÖNBELLEĞİ (hız) ────────────────────────────────────────────────────
+// findPathCells, _navPass üzerinden YALNIZ terrainGrid + bridgeSet okur; ikisi de bir maç
+// boyunca SABİTTİR. Dolayısıyla (başlangıç, hedef, maxExpand) üçlüsü için sonuç değişmez →
+// belleğe alınabilir ve bu DAVRANIŞI DEĞİŞTİRMEZ (aynı girdiye aynı çıktı).
+// Profil: A* zinciri (findPathCells+findPath+_navPass+MinHeap) toplam CPU'nun ~%32'siydi.
+// Önbellek arazi her yeniden kurulduğunda (yeni maç/harita) temizlenir.
+const _YOL_ONBELLEK_TAVAN = 40000;   // sınırsız büyümesin; aşınca tamamen boşalt
+let _yolOnbellek = new Map();
+let _yolOnbellekIsabet = 0, _yolOnbellekKacir = 0;
+
 function buildTerrainGrid(def) {
+    _yolOnbellek = new Map();          // arazi değişti → önbellek geçersiz
+    _yolOnbellekIsabet = 0; _yolOnbellekKacir = 0;
     terrainGrid = new Uint8Array(GRID_W * GRID_H);
     const M = { '.': 0, 'F': 1, 'M': 2, 'W': 4 };
     const s = def.grid;
@@ -327,6 +340,19 @@ _MinHeap.prototype.pop = function () { const a = this.a; const top = a[0], last 
 _MinHeap.prototype.size = function () { return this.a.length; };
 
 function findPathCells(sgx, sgy, ggx, ggy, maxExpand) {
+    // ÖNBELLEK: saf fonksiyon (bkz. _yolOnbellek notu). Sonuç KOPYALANARAK döner —
+    // çağıranlar diziyi değiştirebilir, önbellekteki asıl bozulmasın.
+    const _anahtar = sgx + ',' + sgy + '|' + ggx + ',' + ggy + '|' + (maxExpand || 0);
+    const _hazir = _yolOnbellek.get(_anahtar);
+    if (_hazir !== undefined) { _yolOnbellekIsabet++; return _hazir === null ? null : _hazir.map(c => [c[0], c[1]]); }
+    const _sonuc = _findPathCellsHesapla(sgx, sgy, ggx, ggy, maxExpand);
+    _yolOnbellekKacir++;
+    if (_yolOnbellek.size >= _YOL_ONBELLEK_TAVAN) _yolOnbellek.clear();
+    _yolOnbellek.set(_anahtar, _sonuc === null ? null : _sonuc.map(c => [c[0], c[1]]));
+    return _sonuc;
+}
+
+function _findPathCellsHesapla(sgx, sgy, ggx, ggy, maxExpand) {
     if (!_navPass(ggx, ggy)) {                                  // hedef geçilemezse en yakın geçilebilire
         let best = null, bd = 1e9;
         for (let r = 1; r <= 6 && !best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {

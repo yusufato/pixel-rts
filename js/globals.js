@@ -1330,17 +1330,26 @@ class SpatialGrid {
         this.cols = Math.ceil(width / cellSize);
         this.rows = Math.ceil(height / cellSize);
         this.cells = new Array(this.cols * this.rows).fill(null).map(() => []);
+        // DOLU HÜCRE İZİ (hız): clear() eskiden TÜM hücreleri geziyordu. Profil: her tik
+        // çağrıldığı için toplam CPU'nun %9.2'siydi. Oysa dolu hücre sayısı en fazla birim
+        // sayısı kadardır (~50), hücre sayısı ise binlerce. Davranış AYNI — boş hücrenin
+        // uzunluğunu sıfırlamak zaten işlemsizdi.
+        this.dolu = [];
     }
-    
+
     clear() {
-        for(let i = 0; i < this.cells.length; i++) this.cells[i].length = 0;
+        for (let i = 0; i < this.dolu.length; i++) this.cells[this.dolu[i]].length = 0;
+        this.dolu.length = 0;
     }
-    
+
     insert(unit) {
         let cx = Math.floor(unit.x / this.cellSize);
         let cy = Math.floor(unit.y / this.cellSize);
         if (cx < 0 || cx >= this.cols || cy < 0 || cy >= this.rows) return;
-        this.cells[cy * this.cols + cx].push(unit);
+        const ix = cy * this.cols + cx;
+        const cell = this.cells[ix];
+        if (cell.length === 0) this.dolu.push(ix);   // ilk giren hücreyi izle (tekrar eklemez)
+        cell.push(unit);
     }
     
     getNearby(x, y, radius) {

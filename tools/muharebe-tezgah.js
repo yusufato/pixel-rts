@@ -147,6 +147,9 @@ function tezgahKur() {
 // bağlamın SÖZCÜKSEL kapsamında oluşturur, global nesneye YAZMAZ → `window.SIM` gibi
 // erişimler undefined döner. Bu yüzden maç, Electron'daki executeJavaScript ile aynı
 // mantıkla BAĞLAMIN İÇİNDE değerlendirilir ve düz veri döndürür.
+// A/B koşularında ham telemetri hiç okunmuyor; kapatmak %22 hız kazandırıyor
+// (12 maç 69.7sn → 54.3sn) ve sonuçlar BİREBİR aynı kalıyor (5/12, marj −1032).
+const TELEMETRISIZ = process.argv.includes('--telemetrisiz');
 function macKos(ctx, tSal, tSav, seed) {
     const kod = '(() => {' +
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
@@ -159,6 +162,10 @@ function macKos(ctx, tSal, tSav, seed) {
         'BATTLE_RECIPE_RED = sezSal ? null : tSal;' +
         'if (sezSal && typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = (tSal.varied !== false);' +
         'openBattlefieldSession({ mode:"quick", mapId:-2, seed:seed, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
+        // TELEMETRİSİZ KİP: A/B koşularında ham telemetri (her 10 tikte tüm birimlerin durumu +
+        // muharebe/yaşam olayları) hiç okunmuyor. Kayıt fonksiyonları null telemetriyi zaten
+        // atlıyor (battleCaptureTelemetrySample vb. `if (!telemetry) return`), yani kapatmak güvenli.
+        (TELEMETRISIZ ? 'BATTLE_REPLAY.telemetry = null;' : '') +
         'let mv;' +
         'if (sezSav) {' +
         '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = (tSav.varied !== false);' +
