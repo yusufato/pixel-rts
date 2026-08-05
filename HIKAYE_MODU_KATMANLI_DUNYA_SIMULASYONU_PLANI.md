@@ -1,8 +1,8 @@
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.43
+**Belge sürümü:** 1.44
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28–30 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 31 sırada
+**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28–31 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 32 sırada
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
 
@@ -91,6 +91,8 @@
 **1.42 değişikliği:** Faz 28, `story-power-center-ledger-1` ile sekiz devletin her birinde silahlı kuvvetler, iş dünyası konseyi, emek konfederasyonu, kamu idaresi, medya ağı, iç güvenlik ağı ve radikal ağ olmak üzere 56 kimlikli güç merkezi kurdu. Destek tabanı kanonik 1.824 nüfus kohortundan; mali ve fiziksel kaynaklar şirket/banka, bütçe, komutan ve garnizon defterlerinden gelir. Faz 26 örgütlenmesi kimlikli merkez referanslarına göç etti, fakat ilk doğrudan kapasite bağlantısının yarattığı kelebek etkisi reddedildi; nötr referans, `1.200` baz puan ölü bölge ve yalnız aşırı kurumsal sapmaya `%25` ağırlık getirildi. 900 saniyelik A/B’de bütün eski makro/kaynak deltaları `0`, kontrol `f9ce09…c4bfc`, açık dünya `52bd56…6607a`; açık yol 56 merkez ve 26 olay üretti. Tam `npm test` `1.645 sn`de çıkış kodu `0` verdi. Güç merkezleri Faz 29 öncesinde eylem icra etmez; medya, güvenlik ve beş makam lideri açık vekildir ve gerçek sahiplerine sırasıyla Faz 39, 47 ve 34’te göç edecektir. Faz 29 açıldı.
 
 **1.43 değişikliği:** Faz 29'un ülke-bazlı anayasal yetki fişleri Faz 30'da `story-state-capacity-ledger-1` uygulama zincirine bağlandı. Meşruiyet, bürokratik kapasite, hukuk devleti, kurumsal bütünlük, yapısal yolsuzluk riski, bölgesel denetim ve uygulama kapasitesi ayrı ölçülerdir; “yolsuzluk riski” kanıtlanmış suç veya fail değildir. Yalnız gerçek kurum önericisi ve yürütücüsü olan `EXECUTED` Faz 29 kararları kimlikli uygulama bileti doğurur. Sağlıklı devlette karar `COMPLETED`, çalışan bürokrasi fakat zayıf bütünlükte `DEGRADED`, kapasitesi çökmüş devlette süre sonunda `PAPER_ONLY` olur. Sonuç fişleri henüz fiziksel ekonomi/dünya mutasyonu yapmaz; sonraki domain sahibi yalnız `effectReady` ve değişmez yetki makbuzunu tüketebilir. Hedefli prob normal/tahrip olmuş/zayıf bütünlük yollarını, gizlilik, salt-okunur UI, kayıt/yükleme, V3→V2 göç, bozuk kayıt kurtarma ve özellik/öncül kapalı yokluk sözleşmesini geçti. 900 saniyelik A/B'de eski makro ve üç kaynak deltasının tamamı `0`; açık dünya `6ab5c579…fd50`, kontrol `8f99c8f0…8d21`. Tam `npm test` kapsam azaltılmadan `1.947,9 sn`de çıkış kodu `0` verdi. Faz 31 açıldı.
+
+**1.44 değişikliği:** Faz 31, `story-election-mandate-ledger-1` ile sekiz devletin anayasal rejimine göre oransal parlamento, halk oylu liberal yürütme, meclis seçimi veya sınırlı yürütme yarışını kurdu; askerî rejimde seçim uydurulmaz ve haleflik Faz 33'e bırakılır. Oylar kanonik yetişkin nüfus kohortlarından tam kişi düzeyinde; katılım yaş/eğitim/şikâyet/meşruiyet, tercih ise iş/kimlik/gelir, mesele hafızası, kamusal güç merkezi desteği ve ülke siyasi yönelimiyle açıklanır. Dar sonuç + zayıf hukuk itiraz üretir; sertifikalı sonuç yeni mandat ve makam kimliği doğurur, fakat Faz 34 öncesinde adaylar açıkça `POLITICAL_SLATE_PROXY_PRE_PHASE_34` listesidir. 900 saniyelik A/B'de açık yol `24` seçim kaydı, `11` sertifika ve `11` barışçıl devir üretirken refah, enflasyon, huzursuzluk, devlet/haber ve üç kaynak deltası `0` kaldı; açık karma `f7cfa97e…230d1`, kontrol `20ccfde1…d2a2`. Save/load sırasında makam imzasının iki kez değişip sahte olay üretmesi ve Faz 25'in eski A/B filtresinin yeni yönetişim defterlerini kapsamaması tam regresyonda yakalanıp düzeltildi. Tam `npm test` kapsam azaltılmadan `1.867,8 sn`de çıkış kodu `0` verdi. Faz 32 açıldı.
 
 ---
 
@@ -3975,6 +3977,12 @@ Hedefli kabul probunda sağlıklı karar `COMPLETED` (`implementationCapacityBps
 **Çıktı:** Seçmen tercihleri, adaylar, katılım, sonuç ve itiraz.  
 **Kabul kapısı:** Sonuç kohortlar ve gerçek olaylarla açıklanıyor; tek rastgele zar değil.  
 **Bağımlılık:** Faz 25, 28–30.
+
+**Kapanış — 5 Ağustos 2026:** Bu faz tamamlandı. Her ülke için seçim modeli, takvim, kampanya, tam kişi tahsisli kohort oyları, koalisyon, dar sonuç itirazı, sertifika, mandat ve barışçıl yürütme devri aynı sürümlü defterde tutulur. Sonuç tek rastgele zar veya LLM kararı değildir; RNG ve LLM seçim hakemi değildir. Dünya/oyuncu bilgisi/şehir `KURUMLAR` görünümü kendi ülkenin doğrulanmış ayrıntısını, yabancı ülkenin yalnız kamusal sonucunu taşır; kohort pusulası, puan bileşenleri, kaynak tikleri ve etki eğilimleri sızmaz. Projeksiyon salt-okunur; kayıt/yükleme birebir, kesintisiz-kayıttan devam sonucu aynı, V3→V2 göçü, eski kayıt backfill'i, bozuk kayıt kurtarma ve özellik/öncül kapalı `null` yolu geçmiştir.
+
+Kapsam sınırı açıktır: `MANDATE_RECORD_ONLY_PHASE_31` sonucu fiziksel ekonomi, kaynak, refah, toprak veya politika mutasyonu yapmaz. Aday “insanları” Faz 34 gelmeden uydurulmaz; dört siyasi liste, ülke yönelimi ve seçilmiş makam için açık vekildir. Kampanya medyası/dezenformasyon Faz 39'un, gerçek karakter hedefi ve sesi Faz 34–38'in, patronaj/ihale/soruşturma Faz 32'nin, askerî haleflik ve darbe Faz 33'ün sahibidir.
+
+Hedefli prob `16` seçim kaydı, `8` sertifika, `8` devir, `2.862.026` seçmen ve `2.022.822` kullanılan oyu tam kohort toplamıyla kapattı; iki farklı kazanan liste ve sekiz koalisyon üretti. İtiraz kuralı `150 bp + hukuk 3000 → evet`, `500 bp + hukuk 3000 → hayır`, `150 bp + hukuk 7000 → hayır` verdi. 900 saniyelik A/B açık koşusu `24` kayıt, `11` sertifika, `19` mandat ve `11` devir üretti; sekiz eski makro/kaynak deltası sıfırdır. Scheduler `23` görev taşır ve seçimleri toplum/devlet kapasitesinden sonra, kuşatmadan önce her `5 sn` çalıştırır. Tam regresyon `1.867,8 sn`, ana koşu `143.630,69 ms`, karma `f7cfa97e39511a10a6bdd691d29eedeb9abd67f4c1be8a8992d3da065e8230d1` ile geçti.
 
 ### FAZ 32 — Patronaj, Yolsuzluk ve Soruşturma
 

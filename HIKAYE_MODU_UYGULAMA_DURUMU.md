@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 30 — Meşruiyet ve Devlet Kapasitesi
+**Son kapanan faz:** Faz 31 — Seçim ve İktidar Değişimi
 
-**Aktif uygulama sırası:** Faz 31 — Seçim ve İktidar Değişimi
+**Aktif uygulama sırası:** Faz 32 — Patronaj, Yolsuzluk ve Soruşturma
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -54,8 +54,9 @@
 | Faz 28 — Güç Merkezleri | `complete` | `js/StoryPowerCenters.js`; 8 devlet × 7 kimlikli merkez, kanonik destek/kaynak kanıtı, Faz 26 örgüt bağlantısı, bilgi filtreli UI ve `qa-runtime/story-phase28-ab.json` |
 | Faz 29 — Rejim ve Kurum Şeması | `complete` | `js/StoryInstitutions.js`; 8 devlet × 5 kurum, 29 eylemde DIRECT/JOINT/PETITION/yasak rotası, makam doğrulama, bilgi filtreli UI ve `qa-runtime/story-phase29-ab.json` |
 | Faz 30 — Meşruiyet ve Devlet Kapasitesi | `complete` | `js/StoryStateCapacity.js`; ayrı meşruiyet/bürokrasi/hukuk/bütünlük/yapısal risk/bölgesel denetim, açıklanabilir uygulama bileti yaşam döngüsü ve `qa-runtime/story-phase30-ab.json` |
-| Faz 31 — Seçim ve İktidar Değişimi | `next` | Kohort tercihi, aday, katılım, kampanya, sonuç/itiraz ve barışçıl makam devrini kanıtlı olay zincirine bağlayacak |
-| Faz 32+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 31 — Seçim ve İktidar Değişimi | `complete` | `js/StoryElections.js`; rejime bağlı model/takvim, tam kişi kohort oyu, koalisyon, itiraz, sertifika, mandat, makam devri, bilgi filtreli UI ve `qa-runtime/story-phase31-ab.json` |
+| Faz 32 — Patronaj, Yolsuzluk ve Soruşturma | `next` | Atama/ihale/rüşvet/sızıntı/soruşturmayı kanıt, kurum kapasitesi ve fail kimliğiyle kuracak; suçlama otomatik gerçek olmayacak |
+| Faz 33+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -883,6 +884,18 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - WorldV2 üst düzey biletleri ve ülke/bölge kapasitesini taşıyor. Kayıt/yükleme birebir, V3→V2 göç, eski kayıt backfill'i, bozuk kayıt kurtarma, özellik veya kurum öncülü kapalı `null` yolu ve salt-okunur projeksiyon geçti.
 - `qa-runtime/story-phase30-ab.json`: kontrol `8f99c8f0…8d21`, açık `6ab5c579…fd50`; ilk fark yalnız `$.stateCapacity`. Refah, enflasyon, huzursuzluk, etkin devlet/haber ve petrol/insan gücü/puan deltalarının tamamı `0`. Doğal koşu sahte karar üretmedi: `179` tik, `8` ülke, `152` bölge, `0` bilet.
 - Scheduler artık `22` görev taşır; devlet kapasitesi her `5 sn` toplumdan sonra, kuşatmadan önce çalışır. Tam kapsamlı `npm test` çıkış kodu `0`; toplam duvar süresi `1.947,9 sn`, ana 900 saniyelik simülasyon `135.999,11 ms`, dünya karması `6ab5c57982878f71bd7c8cb0a4c41025d095ea21ed8db40806aba1b9c906fd50`. Sıradaki uygulama **Faz 31 — Seçim ve İktidar Değişimi**dir.
+
+## Faz 31 — Seçim ve İktidar Değişimi kabul sonucu
+
+- `js/StoryElections.js`, sekiz ülke için `story-election-mandate-ledger-1` kurdu. Rejime göre oransal parlamento, liberal halk oyu, meclis seçimi veya sınırlı yürütme yarışı kullanılıyor; askerî rejimde seçim uydurulmuyor ve haleflik Faz 33'e bırakılıyor.
+- Oy hakkı çocuklar çıkarılmış gerçek Faz 23 kohortlarından tam kişi olarak hesaplanıyor. Katılım yaş/eğitim/şikâyet/meşruiyet; tercih iş/kimlik/gelir, Faz 25 mesele hafızası, kamusal Faz 28 desteği, ülke siyasi yönelimi ve yönetim kanıtından türetiliyor. RNG/LLM karar vermiyor.
+- Dört liste `POLITICAL_SLATE_PROXY_PRE_PHASE_34` olarak açıkça vekildir; gerçek aday karakteri, hedefi, ilişkisi veya sesi uydurulmaz. Oransal modelde çoğunluk yoksa oy sırasına göre koalisyon kurulur.
+- Dar marj ve zayıf hukuk birlikte itiraz açar; süre sonunda yargısal/idari onayla sertifika oluşur. Sertifika yeni mandat ve makam kimliği üretir; kurumun ülke-bazlı yetki imzası değişir ve eski bekleyen karar bayatlar. Sonuç `MANDATE_RECORD_ONLY_PHASE_31`, `physicalMutation:false` olduğu için politika/ekonomi iki kez uygulanmaz.
+- Kendi ülke görünümü kohort ve hesap kanıtını doğrulanmış taşır. Yabancı görünüm yalnız kamusal yarış, katılım, sonuç, koalisyon ve makam devrini gösterir; pusula, puan bileşenleri, kaynak tikleri ve örgüt etkisi sızmaz. Şehir `KURUMLAR` sekmesi aynı filtreyi kullanır ve ekran açılışı dünyayı değiştirmez.
+- Hedefli prob `16` seçim, `8` sertifika, `8` barışçıl devir, `2.862.026` seçmen ve `2.022.822` tam tahsisli oy üretti; iki farklı kazanan liste ve sekiz koalisyon oluştu. İtiraz eşik karşı-testleri, makam imza değişimi, WorldV2/knowledge/UI gizliliği ve salt-okunurluk geçti.
+- Kayıt/yükleme birebir, kesintisiz koşu ile checkpoint'ten devam aynı, V3→V2 göç, eski kayıt backfill'i, bozuk kayıt kurtarma, özellik/öncül kapalı `null` yolu geçti. Yüklemede seçim mandatını kurumdan sonra bağlayan ilk sıra iki sahte yetki olayı üretiyordu; seçim görüntüsü kurum restore'undan önce hazırlanarak düzeltildi.
+- `qa-runtime/story-phase31-ab.json`: kontrol `20ccfde1…d2a2`, açık `f7cfa97e…230d1`; ilk fark `$.elections`. Açık 900 saniyelik koşu `24` seçim kaydı, `11` sertifika, `19` mandat ve `11` devir üretti. Refah, enflasyon, huzursuzluk, etkin devlet, haber, petrol, insan gücü ve puan deltalarının tamamı `0`.
+- Scheduler artık `23` görev taşır; seçim her `5 sn` devlet kapasitesinden sonra ve kuşatmadan önce çalışır. Tam kapsamlı `npm test` çıkış kodu `0`; toplam süre `1.867,8 sn`, ana 900 saniyelik simülasyon `143.630,69 ms`, dünya karması `f7cfa97e39511a10a6bdd691d29eedeb9abd67f4c1be8a8992d3da065e8230d1`. Sıradaki uygulama **Faz 32 — Patronaj, Yolsuzluk ve Soruşturma**dır.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)
 
