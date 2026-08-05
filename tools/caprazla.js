@@ -122,6 +122,10 @@ if (ISCI > TAVAN && !ZORLA) {
 // os.freemem() Windows'ta zaman zaman FreePhysical gibi davranıp gerçekte olmayan bir darlık
 // gösteriyor → eşik düşürüldü ve gözcü ÜÇ ardışık ihlal istiyor (anlık sıçrama koşuyu kesmesin).
 const KRITIK_GB = Number(arg('--kritik-gb', 0.7));
+// NAZİK KİP (varsayılan AÇIK): işçiler DÜŞÜK ÖNCELİKLE koşar. Kullanıcı aynı makinede
+// başka iş yaparken (ör. hikâye modu testi) onun işi hep önce gelsin. CPU boşken hız
+// aynıdır — öncelik yalnız çekişme anında devreye girer. `--kaba` ile kapatılır.
+const NAZIK = !process.argv.includes('--kaba');
 const CIKTI = arg('--out', 'qa-runtime/caprazlama-sonuc.json');
 const GECICI = path.join('qa-runtime', 'caprazla-parca');
 
@@ -190,6 +194,9 @@ function partiKosu(dilim, i) { return new Promise((cozum) => {
     if (TEZGAH) {
         c = spawn(process.execPath, [path.join(__dirname, 'muharebe-tezgah.js')].concat(ortak),
             { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        // NAZİK KİP: kullanıcı aynı makinede başka iş koşarken (ör. hikâye testi) işçiler
+        // DÜŞÜK ÖNCELİKLE çalışsın — CPU boşsa hız aynı kalır, dolduğunda öncelik onun olur.
+        if (NAZIK) { try { os.setPriority(c.pid, os.constants.priority.PRIORITY_BELOW_NORMAL); } catch (e) {} }
     } else {
         const isArgv = ['.', '--recipeab'].concat(ortak).concat(KROM_BAYRAK);
         c = ELECTRON_BIN

@@ -36,6 +36,8 @@ const TOHUMLAR = SEEDARG.indexOf(',') >= 0
 const KARAR_ARALIGI = Math.max(100, Number(arg('--karar-araligi', 700)) || 700);
 const ROLLOUT = Math.max(5, Number(arg('--rollout', 12)) || 12);
 const MIN_TICK = Math.max(0, Number(arg('--min-tick', 500)) || 500);
+// NAZİK KİP (varsayılan AÇIK) — bkz. caprazla.js: işçiler düşük öncelikle koşar.
+const NAZIK = !process.argv.includes('--kaba');
 const CIKTI = arg('--out', 'qa-runtime/beonai-veri.jsonl');
 const GECICI = path.join('qa-runtime', 'beonai-parca');
 
@@ -122,6 +124,7 @@ function partiKosu(dilim, i) { return new Promise(cozum => {
         const ix = cocuklar.indexOf(c); if (ix >= 0) cocuklar.splice(ix, 1);
         cozum({ ok, dosya, tohum: dilim });
     });
+    if (NAZIK) { try { os.setPriority(c.pid, os.constants.priority.PRIORITY_BELOW_NORMAL); } catch (e) {} }
     cocuklar.push(c);
 }); }
 

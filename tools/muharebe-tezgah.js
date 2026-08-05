@@ -21,7 +21,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { JSDOM } = require('jsdom');
+// jsdom TEMBEL yüklenir: mini kipte hiç require edilmez — 107MB tasarrufun kaynağı budur
+// (ölçüldü: `require('jsdom')` tek başına +102MB, örnek yalnız +5MB).
+let JSDOM = null;
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -63,8 +65,39 @@ const HTML = '<!doctype html><html><body>'
     + '<div id="toast"></div><div id="tooltip"></div><div id="log"></div>'
     + '</body></html>';
 
+// ── MİNİ DOM DENENDİ ve KAYBETTİ (negatif sonuç, kayda geçirildi) ──────────
+// Hipotez: jsdom işçi belleğinin %41'i (katman ölçümü: require +102MB, örnek +5MB,
+// oyun +71MB, 1 maç +21MB = 262MB) → atarsak aynı bellekte ~3 kat işçi.
+// ÖLÇÜM (12 maç, aynı tohumlar):
+//     mini-DOM : zirve 348MB, süre 147sn
+//     jsdom    : zirve 338MB, süre  40sn
+// Sonuçlar BİREBİR aynı (5/12, marj −1032) yani mini-DOM doğru — ama ne bellek
+// kazandırıyor ne hız; üstelik 3.6 KAT YAVAŞ. Nedenleri:
+//   1) jsdom'un sabit maliyeti, 12 maçlık koşuda V8'in kendi büyümesinin ALTINDA kalıyor
+//      (katman ölçümü tek maç içindi — yanıltıcı genelleme yapmışım).
+//   2) vm.createContext(düz nesne) her GLOBAL erişimi yavaşlatıyor; oyun kodu sürekli
+//      global okuyor (SIM, STATS, WORLD_W...). jsdom'un iç bağlamı bunu yaşamıyor.
+// KARAR: varsayılan jsdom. mini-DOM `--minidom` ile durur (tekrar denenmesin diye kayıt).
+const JSDOM_KIPI = !process.argv.includes('--minidom');
+
+function tezgahKurMini() {
+    const { pencereKur } = require('./mini-dom.js');
+    const g = pencereKur();
+    const ctx = vm.createContext(g);
+    const hatalar = [];
+    const kaynaklar = MUHAREBE_KAYNAK.slice();
+    if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
+    for (const rel of kaynaklar) {
+        try { vm.runInContext(fs.readFileSync(path.resolve(ROOT, rel), 'utf8'), ctx, { filename: rel }); }
+        catch (e) { hatalar.push(rel + ': ' + e.message); }
+    }
+    return { dom: null, window: g, ctx, hatalar };
+}
+
 function tezgahKur() {
-    const dom = new JSDOM(HTML, { url: 'https://pixel-rts.invalid/', runScripts: 'outside-only', pretendToBeVisual: false });
+    if (!JSDOM_KIPI) return tezgahKurMini();
+    if (!JSDOM) ({ JSDOM } = require('jsdom'));
+    const dom = new JSDOM(HTML,{ url: 'https://pixel-rts.invalid/', runScripts: 'outside-only', pretendToBeVisual: false });
     const { window } = dom;
 
     // Canvas: jsdom'da getContext yok → sahte 2B bağlam

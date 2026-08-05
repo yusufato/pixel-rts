@@ -2248,8 +2248,8 @@ function run() {
         'Çalışan fakat bütünlüğü zayıf bürokrasi kararı eksik/sızdırılmış tamamlamalı.');
     assert.ok(stateCapacityProbe.main.degradedTicket.result.leakageBps >= 4600,
         'DEGRADED uygulama ölçülmüş yüksek saptırma riski taşımalı.');
-    assert.deepEqual(stateCapacityProbe.main.degradedTicket.result.reasonCodes,
-        ['HIGH_DIVERSION_RISK', 'LOW_IMPLEMENTATION_QUALITY'],
+    assert.equal(JSON.stringify(stateCapacityProbe.main.degradedTicket.result.reasonCodes),
+        JSON.stringify(['HIGH_DIVERSION_RISK', 'LOW_IMPLEMENTATION_QUALITY']),
     'Eksik/sızdırılmış uygulamanın nedeni sabit ve açıklanabilir olmalı.');
     assert.ok(stateCapacityProbe.main.capacityContrast.low.implementationCapacityBps
         < stateCapacityProbe.main.capacityContrast.normal.implementationCapacityBps,
@@ -2257,8 +2257,8 @@ function run() {
     assert.ok(stateCapacityProbe.main.capacityContrast.low.leakageRiskBps
         > stateCapacityProbe.main.capacityContrast.normal.leakageRiskBps,
     'Zayıf bütünlük ve denetim açıklanabilir biçimde daha yüksek saptırma riski üretmeli.');
-    assert.deepEqual(stateCapacityProbe.main.lowFinished.result.reasonCodes,
-        ['IMPLEMENTATION_DEADLINE_EXCEEDED', 'CAPACITY_BELOW_REQUIREMENT'],
+    assert.equal(JSON.stringify(stateCapacityProbe.main.lowFinished.result.reasonCodes),
+        JSON.stringify(['IMPLEMENTATION_DEADLINE_EXCEEDED', 'CAPACITY_BELOW_REQUIREMENT']),
     'Kâğıtta kalan kararın neden zinciri sabit ve açıklanabilir olmalı.');
     assert.equal(stateCapacityProbe.main.worldValidation.ok, true,
         'Faz 30 uygulama fişlerini taşıyan WorldV2 geçerli olmalı.');
