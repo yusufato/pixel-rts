@@ -310,6 +310,9 @@ function storyMigrationV3RawToV2(raw, options) {
     const savedPowerCenterRows = storyMigrationObject(savedPowerCenters.centers);
     const savedPowerCenterCountries = storyMigrationObject(savedPowerCenters.countries);
     const savedPowerCenterRegions = storyMigrationObject(savedPowerCenters.regions);
+    const savedInstitutions = storyMigrationObject(save.institutions);
+    const savedInstitutionCountries = storyMigrationObject(savedInstitutions.countries);
+    const savedInstitutionRequests = storyMigrationObject(savedInstitutions.requests);
     for (const countryId of Object.keys(savedCollectiveCountries)) {
         const migratedCountry = countries.find(country => country.id === countryId);
         if (migratedCountry) {
@@ -362,6 +365,28 @@ function storyMigrationV3RawToV2(raw, options) {
         const migratedRegion = regions.find(region => region.id === regionId);
         if (migratedRegion) migratedRegion.powerCenters = storyMigrationClone(savedPowerCenterRegions[regionId]);
     }
+    for (const countryId of Object.keys(savedInstitutionCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (!migratedCountry) continue;
+        const summary = storyMigrationClone(savedInstitutionCountries[countryId]);
+        summary.requests = Object.values(savedInstitutionRequests)
+            .filter(request => request && request.countryId === countryId)
+            .map(storyMigrationClone);
+        migratedCountry.institutions = summary;
+    }
+    for (const migratedRegion of regions) {
+        const country = savedInstitutionCountries[migratedRegion.ownerId];
+        const local = Object.values(storyMigrationObject(country && country.institutions))
+            .find(institution => institution && institution.type === 'LOCAL_ADMINISTRATION');
+        if (local) {
+            migratedRegion.institutions = {
+                regionId: migratedRegion.id,
+                countryId: migratedRegion.ownerId,
+                institutionId: local.id,
+                institution: storyMigrationClone(local)
+            };
+        }
+    }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
         for (const cohort of (Array.isArray(savedRegion.cohorts) ? savedRegion.cohorts : [])) {
@@ -391,7 +416,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -452,6 +477,13 @@ function storyMigrationV3RawToV2(raw, options) {
         powerCenters: Object.values(savedPowerCenterRows).map(center => Object.assign(
             storyMigrationBase(String(center.id), center.countryId == null ? null : String(center.countryId), storyMigrationNumber(center.foundedAt, 0)),
             storyMigrationClone(center)
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        institutions: Object.values(savedInstitutionCountries).flatMap(country => (
+            Object.values(storyMigrationObject(country && country.institutions)).map(institution => Object.assign(
+                storyMigrationBase(String(institution.id), institution.countryId == null ? null : String(institution.countryId), 0),
+                storyMigrationClone(institution),
+                { entityType: 'INSTITUTION' }
+            ))
         )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         companies: [],
         mediaOutlets: [],

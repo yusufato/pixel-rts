@@ -173,6 +173,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                 gameTime,
                 own ? 'OWN_INSTITUTIONAL_REGISTRY' : 'PUBLIC_INSTITUTIONAL_RECORD'
             )),
+            institutions: fact(storyPlayerVerifiedFact(
+                country.id,
+                'institutions',
+                own ? country.institutions : (typeof storyInstitutionPublicView === 'function'
+                    ? storyInstitutionPublicView(country.institutions) : null),
+                gameTime,
+                own ? 'OWN_CONSTITUTIONAL_AUTHORITY_LEDGER' : 'PUBLIC_CONSTITUTIONAL_RECORD'
+            )),
             resources: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'resources', country.resources, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(country.id, 'resources', gameTime))
@@ -230,6 +238,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                     ? storyPowerCenterPublicView(region.powerCenters) : null),
                 gameTime,
                 own ? 'OWN_INSTITUTIONAL_REGISTRY' : 'PUBLIC_INSTITUTIONAL_RECORD'
+            )),
+            institutions: fact(storyPlayerVerifiedFact(
+                region.id,
+                'institutions',
+                own ? region.institutions : (typeof storyInstitutionPublicView === 'function'
+                    ? storyInstitutionPublicView(region.institutions) : null),
+                gameTime,
+                own ? 'OWN_LOCAL_AUTHORITY_LEDGER' : 'PUBLIC_LOCAL_AUTHORITY_RECORD'
             )),
             wealth: fact(own
                 ? storyPlayerVerifiedFact(region.id, 'wealth', region.wealth, gameTime, 'OWN_TREASURY')

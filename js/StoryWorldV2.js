@@ -10,7 +10,7 @@ const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-2';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
     'meta', 'clock', 'countries', 'regions', 'characters',
-    'populationCohorts', 'powerCenters', 'companies', 'mediaOutlets',
+    'populationCohorts', 'powerCenters', 'institutions', 'companies', 'mediaOutlets',
     'diplomaticEdges', 'markets', 'militaryForces', 'crises',
     'events', 'decisions', 'memory', 'diagnostics'
 ]);
@@ -101,6 +101,9 @@ function storyWorldV2Countries() {
             powerCenters: typeof storyPowerCenterCountryView === 'function'
                 ? storyWorldV2Clone(storyPowerCenterCountryView(storyWorldV2CountryId(state.id)))
                 : null,
+            institutions: typeof storyInstitutionCountryView === 'function'
+                ? storyWorldV2Clone(storyInstitutionCountryView(storyWorldV2CountryId(state.id)))
+                : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
                 manpower: storyWorldV2Round(state.res && state.res.manpower),
@@ -155,6 +158,9 @@ function storyWorldV2Regions() {
                         : null,
                     powerCenters: typeof storyPowerCenterRegionView === 'function'
                         ? storyWorldV2Clone(storyPowerCenterRegionView(region.id))
+                        : null,
+                    institutions: typeof storyInstitutionRegionView === 'function'
+                        ? storyWorldV2Clone(storyInstitutionRegionView(region.id))
                         : null
                 }
             );
@@ -225,6 +231,9 @@ function storyWorldV2Regions() {
                 : null,
             powerCenters: typeof storyPowerCenterRegionView === 'function'
                 ? storyWorldV2Clone(storyPowerCenterRegionView(storyWorldV2RegionId(node.id)))
+                : null,
+            institutions: typeof storyInstitutionRegionView === 'function'
+                ? storyWorldV2Clone(storyInstitutionRegionView(storyWorldV2RegionId(node.id)))
                 : null,
             position: {
                 coordinateSpace: 'NORMALIZED_WORLD',
@@ -303,6 +312,22 @@ function storyWorldV2PowerCenters() {
         storyWorldV2EntityBase(center.id, center.countryId, center.foundedAt, null),
         storyWorldV2Clone(center)
     )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
+function storyWorldV2Institutions() {
+    const ledger = typeof storyInstitutionEnsure === 'function' ? storyInstitutionEnsure() : null;
+    if (!ledger) return [];
+    const rows = [];
+    for (const country of Object.values(ledger.countries || {})) {
+        for (const institution of Object.values(country.institutions || {})) {
+            rows.push(Object.assign(
+                storyWorldV2EntityBase(institution.id, institution.countryId, 0, null),
+                storyWorldV2Clone(institution),
+                { entityType: 'INSTITUTION' }
+            ));
+        }
+    }
+    return rows.sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
 function storyWorldV2Forces() {
@@ -405,6 +430,7 @@ function storyWorldV2CreateEmpty(options) {
         characters: [],
         populationCohorts: [],
         powerCenters: [],
+        institutions: [],
         companies: [],
         mediaOutlets: [],
         diplomaticEdges: [],
@@ -460,6 +486,7 @@ function storyWorldV2Snapshot() {
         characters: storyWorldV2Characters(),
         populationCohorts: storyWorldV2PopulationCohorts(),
         powerCenters: storyWorldV2PowerCenters(),
+        institutions: storyWorldV2Institutions(),
         companies: typeof storyCompanyEnsure === 'function'
             ? (() => {
                 const ledger = storyCompanyEnsure();
@@ -672,7 +699,7 @@ function storyWorldV2Validate(world, options) {
     }
 
     const collectionNames = STORY_WORLD_V2_TOP_LEVEL.filter(key => [
-        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters',
+        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions',
         'companies', 'mediaOutlets', 'diplomaticEdges', 'markets', 'militaryForces',
         'crises', 'events', 'decisions'
     ].includes(key));

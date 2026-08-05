@@ -32,7 +32,8 @@ const MUHAREBE_KAYNAK = [
     'js/BattlePlanning.js', 'js/BattleExecution.js', 'js/OperationGrammar.js', 'js/BattleSpaceTime.js',
     'js/BattleBlackboard.js', 'js/BattleTargeting.js', 'js/CommanderProfiles.js', 'js/BattleController.js',
     'js/BattleCommander.js', 'js/BattleFeatures.js', 'js/BattleSelector.js', 'js/BattleOracle.js',
-    'js/BattleSelectorModel.js', 'js/BattleCoach.js', 'js/MapData.js', 'js/MapImage.js',
+    'js/BattleSelectorModel.js', 'js/BattleCoach.js', 'js/BattleBeonai.js',
+    'js/MapData.js', 'js/MapImage.js',
     'js/VFX.js', 'js/Support.js', 'js/Unit.js', 'js/BattleDeployment.js', 'js/main.js'
 ];
 
@@ -130,7 +131,11 @@ function tezgahKur() {
 
     const ctx = dom.getInternalVMContext();
     const hatalar = [];
-    for (const rel of MUHAREBE_KAYNAK) {
+    // beonai model dosyası VARSA yüklenir (yoksa sorun değil: beyin belirtilmedikçe kullanılmaz).
+    // Eğitim çıktısı olduğu için repoda bulunmayabilir → listeye koşullu eklenir.
+    const kaynaklar = MUHAREBE_KAYNAK.slice();
+    if (fs.existsSync(path.join(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
+    for (const rel of kaynaklar) {
         const p = path.join(ROOT, rel);
         const kod = fs.readFileSync(p, 'utf8');
         try {
@@ -155,6 +160,11 @@ function macKos(ctx, tSal, tSav, seed) {
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
         'BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;' +
         'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
+        // BEYİN SEÇİMİ: tarifte `beyin` alanı varsa o taraf beonai sürümüyle koşar
+        // (ör. { ad:"H0+beonai-v1", heuristik:true, beyin:"beonai-v1" }). Böylece öğrenen
+        // beyin, kod-AI ile TAM AYNI çok-tohumlu değerlendirmeden geçer — ayrı tezgâh yok.
+        'BATTLE_BEONAI_RED = ' + (tSal.beyin ? JSON.stringify(tSal.beyin) : 'null') + ';' +
+        'BATTLE_BEONAI_BLUE = ' + (tSav.beyin ? JSON.stringify(tSav.beyin) : 'null') + ';' +
         'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;' +
         'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;' +
         'const tSal = ' + JSON.stringify(tSal) + ', tSav = ' + JSON.stringify(tSav) + ', seed = ' + seed + ';' +
@@ -191,7 +201,8 @@ function macKos(ctx, tSal, tSav, seed) {
         '  kazanan:(b.winnerSide===true?"sal":b.winnerSide===false?"sav":"-"), sebep:b.outcomeReason||null,' +
         '  marj: Math.round(oS.effectiveValue - oD.effectiveValue), erken: erken, salDeger: salDeger,' +
         '  savDeger: mv.totalValue, savSapma: mv.tarifDenetim ? mv.tarifDenetim.maxSapma : null,' +
-        '  siperKab: { sal:+kabSal.toFixed(3), sav:+kabSav.toFixed(3) }, bitisSn: Math.round(SIM.tick*BATTLE_TICK_SEC) });' +
+        '  siperKab: { sal:+kabSal.toFixed(3), sav:+kabSav.toFixed(3) }, bitisSn: Math.round(SIM.tick*BATTLE_TICK_SEC),' +
+        '  beyin: (typeof battleBeonaiDurum === "function") ? battleBeonaiDurum() : null });' +
         '})()';
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'mac-' + seed + '.js' }));
 }
@@ -254,4 +265,7 @@ function main() {
     if (!SESSIZ) console.log('TEZGAH_OK ' + hucreler.length + ' hucre / ' + n + ' mac -> ' + CIKTI);
 }
 
-main();
+// Başka araçlar (beonai veri üretimi/değerlendirmesi) bu tezgâhı YENİDEN KULLANIR:
+// require edildiğinde main() KOŞMAZ, yalnız parçalar dışa verilir.
+if (require.main === module) main();
+module.exports = { tezgahKur, macKos, MUHAREBE_KAYNAK };

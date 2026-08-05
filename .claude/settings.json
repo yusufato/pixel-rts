@@ -95,7 +95,9 @@
       "Bash(python \"C:/Users/osman/AppData/Local/Temp/claude/c--Users-osman-Documents-GitHub-pixel-rts/16191b85-d8e6-4564-8bb1-a3c1377223af/scratchpad/add_recipebase.py\")",
       "Bash(npx electron *)",
       "Bash(node --check tools/caprazla.js)",
-      "Bash(node tools/caprazla.js --tarifler qa-runtime/tarifler-taban.json --sal H0-sezgisel --sav H0-sezgisel --seeds 12 --workers 6 --out qa-runtime/hiz-testi.json)"
+      "Bash(node tools/caprazla.js --tarifler qa-runtime/tarifler-taban.json --sal H0-sezgisel --sav H0-sezgisel --seeds 12 --workers 6 --out qa-runtime/hiz-testi.json)",
+      "Bash(rm -f qa-runtime/beonai-smoke.jsonl)",
+      "Bash(node tools/beonai-uret.js --maclar 1 --tohum 2024 --karar-araligi 2000 --rollout 10 --out qa-runtime/beonai-smoke.jsonl)"
     ],
     "additionalDirectories": [
       "C:\\Users\\osman\\AppData\\Local\\Temp\\claude\\c--Users-osman-Documents-GitHub-pixel-rts\\1ad8a69a-bb33-4162-a8ea-a6bcbfa0b56c\\tasks"

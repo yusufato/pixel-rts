@@ -350,6 +350,20 @@ function storyPowerCenterGoals(type, signals, alignmentBps) {
     })).sort((a, b) => b.priorityBps - a.priorityBps || a.code.localeCompare(b.code, 'en'));
 }
 
+function storyPowerCenterActionLimits(countryId, type) {
+    const declared = STORY_POWER_CENTER_DEFS[type].declaredActions.slice();
+    const institutionLimits = typeof storyInstitutionPowerCenterActionLimits === 'function'
+        ? storyInstitutionPowerCenterActionLimits(countryId, type, declared)
+        : null;
+    return institutionLimits || {
+        authorityModel: STORY_POWER_CENTER_POLICY.authorityModel,
+        declaredActionTypes: declared,
+        executableActionTypes: [],
+        blockedUntilPhase: 29,
+        maximumConcurrentActions: 0
+    };
+}
+
 function storyPowerCenterBuild(countryId, type, previous) {
     const support = storyPowerCenterSupport(countryId, type);
     const companies = storyPowerCenterCompanySignals(countryId);
@@ -409,13 +423,7 @@ function storyPowerCenterBuild(countryId, type, previous) {
         independenceBps: storyPowerCenterClampBps(4200 + Math.abs(5000 - alignmentBps) * 0.42),
         capabilities: target.capabilities,
         goals: storyPowerCenterGoals(type, signals, alignmentBps),
-        actionLimits: {
-            authorityModel: STORY_POWER_CENTER_POLICY.authorityModel,
-            declaredActionTypes: STORY_POWER_CENTER_DEFS[type].declaredActions.slice(),
-            executableActionTypes: [],
-            blockedUntilPhase: 29,
-            maximumConcurrentActions: 0
-        },
+        actionLimits: storyPowerCenterActionLimits(countryId, type),
         diagnostics: {
             supportModel: 'WEIGHTED_CANONICAL_COHORTS',
             leaderModel: type === 'ARMED_FORCES' || type === 'BUSINESS_COUNCIL'
@@ -586,12 +594,11 @@ function storyPowerCenterValidate(ledger) {
             || center.goals.some(goal => !goal.code || !Number.isInteger(goal.priorityBps))) {
             add('POWER_CENTER_GOALS', `${path}.goals`, 'Her merkez üç açıklanabilir amaç taşımalı.');
         }
-        if (!center.actionLimits || center.actionLimits.authorityModel !== STORY_POWER_CENTER_POLICY.authorityModel
-            || !Array.isArray(center.actionLimits.declaredActionTypes)
-            || !Array.isArray(center.actionLimits.executableActionTypes)
-            || center.actionLimits.executableActionTypes.length !== 0
-            || center.actionLimits.maximumConcurrentActions !== 0) {
-            add('POWER_CENTER_ACTION_LIMITS', `${path}.actionLimits`, 'Faz 29 öncesi eylem sınırı ihlal edildi.');
+        const expectedLimits = STORY_POWER_CENTER_TYPES.includes(center.type)
+            ? storyPowerCenterActionLimits(center.countryId, center.type) : null;
+        if (!center.actionLimits || !expectedLimits
+            || JSON.stringify(center.actionLimits) !== JSON.stringify(expectedLimits)) {
+            add('POWER_CENTER_ACTION_LIMITS', `${path}.actionLimits`, 'Güç merkezi eylemleri canlı anayasal yetki rotasıyla uyuşmuyor.');
         }
         for (const [field, value] of Object.entries(center.resources || {})) {
             if (!Number.isFinite(Number(value)) || Number(value) < 0) add('POWER_CENTER_RESOURCE', `${path}.resources.${field}`, 'Kaynak negatif veya sonlu değil.');

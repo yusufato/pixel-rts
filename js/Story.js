@@ -479,6 +479,7 @@ function storyNewCampaign(config = {}) {
     if (typeof storyOpinionReset === 'function') storyOpinionReset();
     if (typeof storyCollectiveReset === 'function') storyCollectiveReset();
     if (typeof storyHumanMigrationReset === 'function') storyHumanMigrationReset();
+    if (typeof storyInstitutionReset === 'function') storyInstitutionReset();
     if (typeof storyPowerCenterReset === 'function') storyPowerCenterReset();
     if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
     if (typeof storySchedulerReset === 'function') storySchedulerReset();
@@ -486,7 +487,7 @@ function storyNewCampaign(config = {}) {
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accHumanMigration', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accSiege', '_accTech',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
     ]) STORY[key] = 0;
@@ -569,6 +570,9 @@ function storySave() {
             humanMigration: (typeof storyHumanMigrationForSave === 'function')
                 ? storyHumanMigrationForSave()
                 : STORY.humanMigration,
+            institutions: (typeof storyInstitutionForSave === 'function')
+                ? storyInstitutionForSave()
+                : STORY.institutions,
             powerCenters: (typeof storyPowerCenterForSave === 'function')
                 ? storyPowerCenterForSave()
                 : STORY.powerCenters,
@@ -650,6 +654,7 @@ function storyLoad() {
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
         if (typeof storyOpinionRestore === 'function') storyOpinionRestore(d.publicOpinion);
+        if (typeof storyInstitutionRestore === 'function') storyInstitutionRestore(d.institutions);
         if (typeof storyPowerCenterRestore === 'function') storyPowerCenterRestore(d.powerCenters);
         if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
         if (typeof storyHumanMigrationRestore === 'function') storyHumanMigrationRestore(d.humanMigration);
@@ -1415,6 +1420,8 @@ function storyAdvanceStep(dtSec) {
     if (_populationDt > 0 && typeof storyPopulationTick === 'function') storyPopulationTick(_populationDt); // Faz 23 nüfus kohort uzlaştırması
     const _humanMigrationDt = _storyDue('human-migration', '_accHumanMigration', 5);
     if (_humanMigrationDt > 0 && typeof storyHumanMigrationTick === 'function') storyHumanMigrationTick(_humanMigrationDt); // Faz 27 rotalı göç ve mülteci akışı
+    const _institutionDt = _storyDue('institutions', '_accInstitutions', 5);
+    if (_institutionDt > 0 && typeof storyInstitutionTick === 'function') storyInstitutionTick(_institutionDt); // Faz 29 anayasa, kurum ve yasal yetki rotalari
     const _powerCenterDt = _storyDue('power-centers', '_accPowerCenters', 5);
     if (_powerCenterDt > 0 && typeof storyPowerCenterTick === 'function') storyPowerCenterTick(_powerCenterDt); // Faz 28 kaynaklı güç merkezleri
     const _needsDt = _storyDue('population-needs', '_accNeeds', 5);

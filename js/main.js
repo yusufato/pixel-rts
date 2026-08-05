@@ -501,7 +501,14 @@ function startBattle() {
     if (typeof battleRecordEvent === 'function') battleRecordEvent('battle-start', battlefieldRulesConfig(), SIM.tick);
     // ÖĞRENEN AI: tek-oyunculu maçta kırmızı AI, temas-fazında lig-eğitimli seçici modeli kullanır
     // (kod-AI açılışı sürer; model tick≥MIN_TICK'te operasyon seçer). MP/replay'de KAPALI.
-    if (typeof BATTLE_SELECTOR_AUTO_ENABLE !== 'undefined' && BATTLE_SELECTOR_AUTO_ENABLE &&
+    // beonai (öğrenen beyin soyu) AÇIKÇA seçilmişse önceliklidir: taraf-başı sürüm bağlanır.
+    // Replay/MP'de battleBeonaiBagla kendisi kapatır. Uyumsuz (bayat) sürüm bağlanmaz, uyarır.
+    const _beonaiVar = (typeof BATTLE_BEONAI_RED !== 'undefined' && BATTLE_BEONAI_RED) ||
+        (typeof BATTLE_BEONAI_BLUE !== 'undefined' && BATTLE_BEONAI_BLUE);
+    if (_beonaiVar && typeof battleBeonaiBagla === 'function') {
+        const _b = battleBeonaiBagla();
+        if (_b.uyari && _b.uyari.length) console.warn('beonai: ' + _b.uyari.join(' | '));
+    } else if (typeof BATTLE_SELECTOR_AUTO_ENABLE !== 'undefined' && BATTLE_SELECTOR_AUTO_ENABLE &&
         typeof BATTLE_SELECTOR_TRAINED_MODEL !== 'undefined' && typeof battleSelectorEnable === 'function' &&
         BATTLE_SESSION.interactive !== false &&   // yalnız gerçek oyun (headless testlerde kapalı — testler modeli kendi yönetir)
         BATTLE_SESSION.mode === 'quick' &&        // yalnız Hızlı Maç (hikâye modu farklı kuvvet dağılımı = OOD)
