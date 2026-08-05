@@ -60,7 +60,10 @@ def veri_yukle(yol):
                 elenen["varyans_sifir"] += 1
                 continue
             ornekler.append({"seed": o.get("seed"), "tick": o.get("tick"),
-                             "state": v["stateFeatures"], "rows": v["rows"]})
+                             "state": v["stateFeatures"], "rows": v["rows"],
+                             # chosenReward = KOD-AI'ın kendi seçtiği operasyonun gerçek rollout ödülü.
+                             # Karşılaştırma tabanı budur: model bunu yenemiyorsa beonai işe yaramıyor.
+                             "chosenReward": v.get("chosenReward")})
     return ornekler, elenen, s_ver, c_ver
 
 def main():
@@ -143,18 +146,33 @@ def main():
     opt = torch.optim.Adam(model.parameters(), lr=a.lr, weight_decay=a.wd)
     kayip_f = torch.nn.MSELoss()
 
+    # ERKEN DURDURMA: veri kucuk (yuzlerce karar), model kolayca ezberliyor. Olculdu:
+    # dev kaybi ~80. epokta dibe vurup 399'da 1.94'e cikti (egitim 0.59) = asiri-uyum.
+    # Her epokta dev kaybi olculur ve EN IYI agirliklar saklanir; sonunda onlar yazilir.
+    # Egitim GPU'da saniyeler surdugu icin bu bedava.
     t0 = time.time()
+    en_iyi = {"ep": -1, "dev": float("inf"), "agirlik": None}
     for ep in range(a.epok):
         opt.zero_grad(set_to_none=True)
         kayip = kayip_f(model(Xe), Ye)
         kayip.backward()
         opt.step()
-        if ep % max(1, a.epok // 5) == 0 or ep == a.epok - 1:
+        if Xd is not None:
             with torch.no_grad():
-                dk = kayip_f(model(Xd), Yd).item() if Xd is not None else float("nan")
+                dk = kayip_f(model(Xd), Yd).item()
+            if dk < en_iyi["dev"]:
+                en_iyi = {"ep": ep, "dev": dk,
+                          "agirlik": {k: v.detach().clone() for k, v in model.state_dict().items()}}
+        else:
+            dk = float("nan")
+        if ep % max(1, a.epok // 5) == 0 or ep == a.epok - 1:
             log("    epok %4d  egitim %.4f  dev %.4f" % (ep, kayip.item(), dk))
     sure = time.time() - t0
-    log("  egitim suresi: %.1f sn  (%d epok)" % (sure, a.epok))
+    if en_iyi["agirlik"] is not None:
+        model.load_state_dict(en_iyi["agirlik"])
+        log("  ERKEN DURDURMA: en iyi dev epok %d (dev %.4f) -> o agirliklar kullanildi"
+            % (en_iyi["ep"], en_iyi["dev"]))
+    log("  egitim suresi: %.1f sn  (%d epok tarandi)" % (sure, a.epok))
 
     # DEV OLCUSU: karar basina top-1 isabet + regret (JS selEvaluate ile ayni fikir).
     # NOT: bunlar KARAR SECME olculeridir, MAC SONUCU DEGIL.
@@ -165,6 +183,9 @@ def main():
             skor = model(X).squeeze(1).cpu().tolist()
         top1 = 0
         model_regret = 0.0
+        kod_regret = 0.0
+        rastgele_regret = 0.0
+        kod_n = 0
         for (bas, son), o in zip(gruplar, kume):
             od = [r["reward"] for r in o["rows"]]
             sk = skor[bas:son]
@@ -173,8 +194,17 @@ def main():
             if secilen == en_iyi:
                 top1 += 1
             model_regret += od[en_iyi] - od[secilen]
+            rastgele_regret += od[en_iyi] - (sum(od) / len(od))
+            if o.get("chosenReward") is not None:
+                kod_regret += od[en_iyi] - o["chosenReward"]
+                kod_n += 1
         n = len(gruplar)
-        return {"n": n, "top1": round(top1 / n, 3), "ortRegret": round(model_regret / n, 2)}
+        return {"n": n, "top1": round(top1 / n, 3),
+                "modelRegret": round(model_regret / n, 2),
+                # TABANLAR: kod-AI'ın kendi seçimi ve rastgele seçim. Model ancak
+                # kodRegret'in ALTINA inerse gerçekten bir şey öğrenmiş olur.
+                "kodRegret": round(kod_regret / kod_n, 2) if kod_n else None,
+                "rastgeleRegret": round(rastgele_regret / n, 2)}
 
     e_skor = degerlendir(Xe, Ge, egitim)
     d_skor = degerlendir(Xd, Gd, dev)

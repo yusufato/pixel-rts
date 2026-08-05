@@ -144,7 +144,10 @@ kuyruguKostur().then(sonuclar => {
     clearInterval(gozcu);
     const hedef = path.resolve(CIKTI);
     fs.mkdirSync(path.dirname(hedef), { recursive: true });
-    const akis = fs.createWriteStream(hedef, { flags: 'a' });
+    // SENKRON BİRLEŞTİRME: createWriteStream + process.exit() kombinasyonu tamponu
+    // boşaltmadan çıkıyordu → parça dosyaları dolu olmasına rağmen birleşik dosya BOŞ
+    // kalıyordu (beonai-uret'te düzelttiğim hatanın ikizi). Artık senkron yazılır.
+    const toplananSatirlar = [];
     let satir = 0, aktif = 0, kismi = 0;
     for (const r of sonuclar) {
         // KESİLEN İŞÇİNİN VERİSİ DE ALINIR: eskiden yalnız r.ok olanlar birleştiriliyordu,
@@ -154,11 +157,11 @@ kuyruguKostur().then(sonuclar => {
         if (!r.ok) kismi++;
         for (const s of fs.readFileSync(r.dosya, 'utf8').split('\n')) {
             if (!s.trim()) continue;
-            akis.write(s + '\n'); satir++;
+            toplananSatirlar.push(s); satir++;
             try { if (JSON.parse(s).aktif) aktif++; } catch (e) {}
         }
     }
-    akis.end();
+    if (toplananSatirlar.length) fs.appendFileSync(hedef, toplananSatirlar.join('\n') + '\n');
     const sure = (Date.now() - t0) / 1000;
     const dusen = sonuclar.filter(r => !r.ok && !r.bos).flatMap(r => r.tohum || []);
     console.log('');
