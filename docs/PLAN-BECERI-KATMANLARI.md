@@ -347,3 +347,29 @@ disiplini bozulmaz. `PRO_HELO_BEKLE_TIK` kısa boşluklarda fırlamayı engeller
 SİHA/nakliye helo bozuldu mu). Katman 4 maç kapısı demet hâlinde, `standoff` ile birlikte.
 
 **Parametreler (aranabilir):** `PRO_HELO_AA_KACIN=1200` · `PRO_HELO_YAKLAS=0.85` · `PRO_HELO_BEKLE_TIK=20`
+
+### 9b. `heloHunt` — Katman 2 ve 3
+
+**Katman 2 (birim ekonomisi):** metrik = *imha edilen düşman değeri ÷ birim maliyeti*, forensik
+akıştan `attackerId` + `lethal` ile atfedildi (atış sayısı yalnız vekildi; bu gerçek ekonomi).
+
+| tohum | 2024 | 3141 | 777 | 11 | 202 | 333 | 4242 | 5150 | 6060 | **ort** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| kapalı | 0.13 | 0.41 | 0.74 | 0.32 | 0.49 | 0.92 | 0.44 | 0 | 0 | **0.38** |
+| açık | 0.18 | 1.52 | 1.28 | 0.99 | 1.21 | 1.00 | **0.11** | 0.43 | 0.42 | **0.79** |
+
+9 tohumun 8'inde daha iyi; helo zarar eden birimden (<1.0) başabaşa geçiyor.
+**Dürüst hata payı:** eşleştirilmiş testte fark anlamlı (t≈2.9), ama bu sim kaotik ve
+eşleştirme varyansı düşürmüyor — eşleştirilmemiş bakışta p≈0.06, yani **sınırda**.
+Yön 8/9 tutarlı, büyüklük geniş hata payında. Katman 2 GEÇTİ, ama "2× getiri" demek için
+daha çok tohum gerekir.
+
+**Katman 3 (yan etki):**
+- **Nakliye helo:** kural silahsız birimi dışlıyor (`!st.weapons.length` → false). Etkilenmiyor. ✓
+- **Kamikaze dron:** `singleUse` dışlanıyor. Etkilenmiyor. ✓
+- **SİHA (armed_uav):** karışık ama net zararsız.
+  seed3141 açık iyileşme (atış 3,0 → 4,4; hiç ateş etmeyen 2 → 0; ölen 2 → 1).
+  seed2024 hafif düşüş (atış 6,6 → 4,4) ama ikisi de sağ ve ateş mesafesi %84 → %97 (daha güvenli).
+  Kayıt için: SİHA'nın kendi teşhisi ayrıca yapılmalı — bu delta ona göre ayarlanmadı.
+
+**Durum:** Katman 1 ✓ · Katman 2 ✓ (sınırda) · Katman 3 ✓ · Katman 4 BEKLİYOR (demet: `standoff` + `heloHunt`).

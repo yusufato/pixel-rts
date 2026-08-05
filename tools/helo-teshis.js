@@ -36,11 +36,16 @@ const kod = '(() => {' +
     '  if (s.singleUse) continue;' +                       // kamikaze drone ayri bir vaka
     '  izle.set(u.id, { tip: s.name || s.id, kirmizi: !!u.isRed, menzil: Math.round(u.range), oncekiAmmo: u.ammo,' +
     '    atis: 0, mesafeSum: 0, mesafeN: 0, enYakinAtis: Infinity, canliTik: 0, olduTik: null,' +
-    '    aaYakinTik: 0, hpBas: u.hp, rtbTik: 0, hedefliTik: 0, menzildeHedefTik: 0, sonAmmo: u.ammo, maxAmmo: u.maxAmmo, yakitBitTik: 0 }); }' +
+    '    aaYakinTik: 0, hpBas: u.hp, rtbTik: 0, hedefliTik: 0, menzildeHedefTik: 0, imhaDeger: 0, imhaSayi: 0, maliyet: s.cost || 0, sonAmmo: u.ammo, maxAmmo: u.maxAmmo, yakitBitTik: 0 }); }' +
+    'let sonSeq = -1;' +
     'const ph = SIM.headless; SIM.headless = true; let st = 0;' +
     'try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) {' +
     '  st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);' +
     '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);' +
+    '  if (typeof BATTLE_FORENSIC !== "undefined" && BATTLE_FORENSIC.buf) {' +
+    '    for (const ev of BATTLE_FORENSIC.buf) { if (ev.seq <= sonSeq) continue; sonSeq = ev.seq;' +
+    '      if (!ev.lethal) continue; const rr = izle.get(ev.attackerId); if (!rr) continue;' +
+    '      const cs = STATS[ev.targetType]; rr.imhaDeger += (cs && cs.cost) || 0; rr.imhaSayi++; } }' +
     '  for (const u of SIM.units) { const r = izle.get(u.id); if (!r) continue;' +
     '    if (u.dead) { if (r.olduTik == null) r.olduTik = SIM.tick; continue; }' +
     '    r.canliTik++;' +
@@ -88,6 +93,19 @@ const ortOran = tumMes.length ? tumMes.reduce((s, h) => s + (h.mesafeSum / h.mes
 console.log('');
 console.log('  hava vurucu       : ' + r.helo.length + '   olen: ' + olen.length + '   HIC ATES ETMEYEN: ' + atmayan.length);
 console.log('  heloHunt baglama  : ' + r.huntBind + ' tik');
+console.log('');
+console.log('  KATMAN 2 — BIRIM EKONOMISI (imha edilen dusman degeri / birim maliyeti):');
+let toplamImha = 0, toplamMaliyet = 0, kToplamImha = 0, kToplamMaliyet = 0;
+for (const h of r.helo) {
+    toplamImha += h.imhaDeger; toplamMaliyet += h.maliyet;
+    if (h.kirmizi) { kToplamImha += h.imhaDeger; kToplamMaliyet += h.maliyet; }
+    console.log('    ' + ((h.kirmizi ? 'KIRMIZI ' : 'mavi    ') + h.tip).padEnd(28) +
+        ('imha ' + h.imhaDeger + '₺').padStart(13) + ('  (' + h.imhaSayi + ' birim)').padStart(12) +
+        ('  maliyet ' + h.maliyet + '₺').padStart(16) +
+        ('  getiri x' + (h.maliyet ? Math.round(h.imhaDeger / h.maliyet * 100) / 100 : '-')).padStart(14));
+}
+console.log('    TOPLAM getiri  x' + (toplamMaliyet ? Math.round(toplamImha / toplamMaliyet * 100) / 100 : '-') +
+    '   |  SALDIRAN(kirmizi) getiri x' + (kToplamMaliyet ? Math.round(kToplamImha / kToplamMaliyet * 100) / 100 : '-'));
 console.log('  ort. atis mesafesi: ' + (ortOran != null ? '%' + Math.round(ortOran * 100) + ' (kendi menzilinin)' : '-'));
 console.log('  -> %70 alti = DUSMANIN USTUNE GIRIYOR (standoff gerekli, #20)');
 console.log('');
