@@ -163,9 +163,13 @@ Durum: ✅ mevcut · 🔨 yeni yazılacak · ⏸ ölçüldü, etkisiz
 
 ## 4. SIRA (etki × maliyet)
 
-1. **#2 gözcü bağı** — standoff'un ikizi. Balistik geri çekilse bile 1500-3000px bandını *göremezse*
-   yine ateş edemez. Bu ikisi birlikte tek bir yetenek oluşturur. **İLK SIRADA.**
-2. **#5 ikmal bağı + #27 ikmal güvenliği** — teşhis "savunanın mühimmat disiplini yok" demişti.
+> **DÜZELTME (ölçüm hipotezi çürüttü).** Bu listede #2 gözcü bağı ilk sıradaydı. `tools/gozcu-teshis.js`
+> ölçtü: balistiğin ateş edemediği tiklerin yalnız **%9.4'ü** görüş kaynaklı; **%90.6'sında bantta
+> GÖRÜNÜR hedefi vardı.** Gözcü darboğaz değil. Gerçek sebep bir AI becerisi bile değildi — mekanik
+> hataydı (bkz. §7). #2 sırasını kaybetti; ölçülene kadar hiçbir beceri "önemli" ilan edilmeyecek.
+> **Ders: her beceriden ÖNCE teşhis aracı yaz. Sıralama sezgiyle değil ölçümle kurulur.**
+
+1. **#5 ikmal bağı + #27 ikmal güvenliği** — teşhis "savunanın mühimmat disiplini yok" demişti.
 3. **#9/#10 zırh mevzii** — MBT bütçenin en büyük kalemi; küçük oran iyileşmesi büyük ₺ değeri.
 4. **#20 helo standoff** — kullanıcının özellikle işaret ettiği birim.
 5. **#29 jammer konumlandırma** — turnuva turu 1'de ilk 5'te iki jammer adayı çıktı; birim değerli
@@ -215,3 +219,42 @@ Katman 4 demet ölçümünü bekliyor.
 
 **Parametreler (aranabilir):** `PRO_STANDOFF_MIN_PX=600` · `TRIP=1.15` · `HEDEF=1.35` ·
 `TAVAN=0.92` · `ADIM=300`
+
+---
+
+## 7. AYNI GÜN BULUNAN MEKANİK HATA: birim boş namluyla sahaya çıkıyordu
+
+#2'yi (gözcü bağı) yazmadan önce teşhis aracı koştum — ve beceri hiç gerekmedi.
+
+**Ölçüm (`tools/gozcu-teshis.js`, balistik, seed2024):** ateş edemediği tiklerin dağılımı
+(a) bantta hedef yok %0 · (b) bantta var görünmez **%9.4** · (c) bantta var **GÖRÜNÜR %90.6**.
+İlk görünür hedef **6sn**'de; ilk atış **67sn**'de. Yani 61 saniye boyunca ateş edebilirdi.
+
+**Kök neden — AI değil mekanik:** `rof 0.015 → atkSpeed 66.7sn` ve `lastAttackTime = 0` başlangıcı,
+birimi maçın başında "daha doldurmadı" sayıyor. Birim sahaya **boş namluyla** çıkıyor.
+`Unit.js`'teki `singleUse` istisnası aynı hatanın dron için zaten fark edilmiş dar bir yamasıydı.
+
+| silah | kaybedilen ilk-atış süresi |
+|---|---|
+| taktik füze (balistik) | 66.7 sn |
+| roket salvosu (ÇNRA) | 20.0 sn |
+| yıkım şarjı (komando) | 12.5 sn |
+| obüs | 5.6 sn |
+
+**Düzeltme:** `BATTLE_SPAWN_LOADED` + `_hicAtesEtmedi` bayrağı (yapıcıda true, ilk atışta false).
+`lastAttackTime`'ı negatif başlatmak yerine bayrak kullanıldı — öyle yapılsaydı `panicDecay`'in
+"3sn'dir ateş etmedi" kontrolü de yan etkilenirdi.
+Bayrak `battleSnapshotUnit` + `battleRestoreUnit` beyaz-listesine **eklenmek zorundaydı**; aksi hâlde
+fork'tan dönen birim yapıcıdan `true` alıp bedava atış kazanır ve fork eşitliği bozulurdu.
+
+**İzole A/B (seed2024):** ilk atış 67sn → **6sn**.
+**Kapılar:** forktest `true` · liverepro `false` · defertest 201/201, ihlal 0.
+
+**Bu bir denge değişikliğidir:** iki tarafa ve oyuncuya simetrik uygulanır, dolaylı ateşi güçlendirir.
+Varsayılan açık — konuşlanan batarya namlusunda mermiyle gelir.
+
+**Turnuva sonucu:** koşan sürüm turnuvası durduruldu ve yeniden başlatıldı. Mekanik koşulsuz ve
+turnuva işçileri her parçada dosyaları yeniden yüklüyor → tur 3 kod değişikliğinin üstüne denk gelmişti,
+aynı turdaki adaylar farklı kurallarla ölçülüyordu. Zaten yeniden koşulmalıydı: **balistik ve ÇNRA
+adayları bozuk bir mekanik altında elenmişti.** Tur 1-2 sonuçları (tutarlı kod) kayıt için geçerli:
+tur 1 lider `KESIF2-jammer+sam` +2385±1074 · tur 2 lider `KESIF-jammer-1` +2534±721 (15/16).
