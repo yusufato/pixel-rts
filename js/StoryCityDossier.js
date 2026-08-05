@@ -334,8 +334,8 @@ function storyCityDossierRenderPowerCenters(view) {
             ? local.centers.find(item => item.centerId === center.id) : null;
         return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[center.type] || center.type)} · ETKİ %${storyCityDossierNumber(center.influenceBps / 100)}</b>`
             + `<span>${storyCityDossierEscape(center.name)} · LİDER: ${storyCityDossierEscape(leader.name || '—')}</span>`
-            + `<small>örgüt %${storyCityDossierNumber(center.organizationBps / 100)} · destek ${Math.round(Number(center.supportBase && center.supportBase.membersPeople) || 0).toLocaleString('tr-TR')} kişi`
-            + `${localRow ? ` · bu bölgede ${Math.round(Number(localRow.membersPeople) || 0).toLocaleString('tr-TR')}` : ''}`
+            + `<small>örgüt %${storyCityDossierNumber(center.organizationBps / 100)} · ağırlıklı destek ${Math.round(Number(center.supportBase && center.supportBase.supportPeople) || 0).toLocaleString('tr-TR')} kişi`
+            + `${localRow ? ` · bu bölgede ${Math.round(Number(localRow.supportPeople) || 0).toLocaleString('tr-TR')}` : ''}`
             + ` · mali ${storyCityDossierNumber(capabilities.financeBps / 100)} / seferberlik ${storyCityDossierNumber(capabilities.mobilizationBps / 100)} / zorlama ${storyCityDossierNumber(capabilities.coercionBps / 100)}`
             + `${resources.facilityCount ? ` · ${storyCityDossierNumber(resources.facilityCount)} tesis` : ''}`
             + `${topGoal ? ` · öncelik ${storyCityDossierEscape(topGoal.code)} %${storyCityDossierNumber(topGoal.priorityBps / 100)}` : ''}</small></div></article>`;

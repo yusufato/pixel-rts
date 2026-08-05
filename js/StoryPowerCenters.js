@@ -58,6 +58,7 @@ const STORY_POWER_CENTER_POLICY = Object.freeze({
     organizationDecayRateBps: 900,
     influenceRiseRateBps: 2000,
     influenceDecayRateBps: 1100,
+    organizationReferenceBps: Object.freeze({ LABOR: 4700, PUBLIC: 5450, GENERAL: 3100 }),
     leaderModel: 'OFFICEHOLDER_PROXY_PRE_PHASE_34',
     authorityModel: 'DECLARED_LIMITS_PRE_PHASE_29',
     mediaCapacityModel: 'EDUCATED_SERVICE_REACH_PROXY_PRE_PHASE_39',
@@ -210,6 +211,7 @@ function storyPowerCenterStateSignals(countryId) {
     const collective = STORY.collectiveAction && STORY.collectiveAction.countries
         ? STORY.collectiveAction.countries[countryId] : null;
     const needs = typeof storyNeedsCountryView === 'function' ? storyNeedsCountryView(countryId) : null;
+    const budget = typeof storyBudgetCountryView === 'function' ? storyBudgetCountryView(countryId) : null;
     return {
         stateId,
         state,
@@ -222,7 +224,8 @@ function storyPowerCenterStateSignals(countryId) {
         maximumMobilizationBps: storyPowerCenterClampBps(collective && collective.maximumMobilizationBps),
         wellbeingBps: storyPowerCenterClampBps(needs && needs.wellbeingBps),
         publicServicesBps: storyPowerCenterClampBps(needs && needs.publicServicesBps),
-        unemploymentRiskBps: storyPowerCenterClampBps(needs && needs.unemploymentRiskBps)
+        unemploymentRiskBps: storyPowerCenterClampBps(needs && needs.unemploymentRiskBps),
+        budgetCash: storyPowerCenterRound(Math.max(0, Number(budget && budget.cash) || 0))
     };
 }
 
@@ -291,15 +294,16 @@ function storyPowerCenterTarget(type, support, companies, stateSignals) {
     const organization = {
         ARMED_FORCES: 5600 + forceScale * 0.32 + support.supportShareBps * 0.10,
         BUSINESS_COUNCIL: 5000 + facilityScale * 0.25 + companyScale * 0.22,
-        LABOR_CONFEDERATION: 3200 + support.supportShareBps * 0.43 + stateSignals.maximumMobilizationBps * 0.10,
+        LABOR_CONFEDERATION: 3200 + support.supportShareBps * 0.43,
         CIVIL_SERVICE: 4700 + administrationScale * 0.35,
         MEDIA_NETWORK: 3000 + support.supportShareBps * 0.38,
         SECURITY_SERVICE: 5000 + forceScale * 0.22 + administrationScale * 0.12,
-        RADICAL_NETWORK: 900 + radicalScale * 0.72 + stateSignals.activeActions * 350
+        RADICAL_NETWORK: 900 + support.supportShareBps * 0.60
+            + stateSignals.unemploymentRiskBps * 0.20
     }[type] || 0;
     const capabilities = {
         financeBps: type === 'BUSINESS_COUNCIL' ? companyScale
-            : (type === 'CIVIL_SERVICE' ? storyPowerCenterClampBps(companies.bankReserves / 2200 * 10000) : 0),
+            : (type === 'CIVIL_SERVICE' ? storyPowerCenterClampBps(stateSignals.budgetCash / 1200 * 10000) : 0),
         mobilizationBps: storyPowerCenterClampBps(organization * 0.58 + support.supportShareBps * 0.42),
         coercionBps: type === 'ARMED_FORCES' ? forceScale
             : (type === 'SECURITY_SERVICE' ? storyPowerCenterClampBps(forceScale * 0.68)
@@ -375,16 +379,17 @@ function storyPowerCenterBuild(countryId, type, previous) {
         leader: storyPowerCenterLeader(countryId, type, companies, signals),
         supportBase: {
             populationPeople: support.populationPeople,
-            membersPeople: support.supportPeople,
+            supportPeople: support.supportPeople,
             shareBps: support.supportShareBps,
             profileKeys: support.profileKeys,
             regionalPeople: support.regions
         },
         resources: {
-            membershipPeople: support.supportPeople,
+            supportBasePeople: support.supportPeople,
             treasuryCash: type === 'BUSINESS_COUNCIL' ? companies.cash : 0,
             bankReserves: type === 'BUSINESS_COUNCIL' ? companies.bankReserves : 0,
             debtExposure: type === 'BUSINESS_COUNCIL' ? companies.debt : 0,
+            stateBudgetCash: type === 'CIVIL_SERVICE' ? signals.budgetCash : 0,
             facilityCount: type === 'BUSINESS_COUNCIL' ? companies.facilities.length : 0,
             commanderCount: type === 'ARMED_FORCES' ? signals.commanders.length : 0,
             forceUnits: type === 'ARMED_FORCES' ? storyPowerCenterRound(signals.forceUnits) : 0,
@@ -393,7 +398,7 @@ function storyPowerCenterBuild(countryId, type, previous) {
             regionalPresenceCount: Object.values(support.regions).filter(value => value > 0).length
         },
         resourceEvidence: {
-            populationTick: STORY.population ? STORY.population.tickSequence : null,
+            populationRevision: STORY.population ? STORY.population.revision : null,
             companyTick: STORY.companyEconomy ? STORY.companyEconomy.tickSequence : null,
             collectiveTick: STORY.collectiveAction ? STORY.collectiveAction.tickSequence : null,
             canonicalSources: ['POPULATION_COHORTS', 'COMPANY_LEDGER', 'COMMANDERS_AND_GARRISONS', 'COLLECTIVE_ACTION']
@@ -445,10 +450,10 @@ function storyPowerCenterRegionSummaries(centers) {
         const rows = centers.filter(center => center.countryId === countryId).map(center => ({
             centerId: center.id,
             type: center.type,
-            membersPeople: Math.max(0, Math.round(Number(center.supportBase.regionalPeople[regionId]) || 0)),
+            supportPeople: Math.max(0, Math.round(Number(center.supportBase.regionalPeople[regionId]) || 0)),
             influenceBps: center.influenceBps
-        })).filter(row => row.membersPeople > 0)
-            .sort((a, b) => b.membersPeople - a.membersPeople || a.centerId.localeCompare(b.centerId, 'en'));
+        })).filter(row => row.supportPeople > 0)
+            .sort((a, b) => b.supportPeople - a.supportPeople || a.centerId.localeCompare(b.centerId, 'en'));
         regions[regionId] = {
             regionId,
             countryId,
@@ -468,6 +473,30 @@ function storyPowerCenterBuildSummaries(ledger) {
         ledger.countries[countryId] = storyPowerCenterCountrySummary(countryId, rows);
     }
     ledger.regions = storyPowerCenterRegionSummaries(rows);
+}
+
+// Bolge sahipligi bir savas/antlasma komutuyla guc merkezi tikleri arasinda
+// degisebilir. countries/regions alanlari kanonik veri degil, merkezler ve
+// canli node sahipliginden turetilen onbellektir. Eski onbellek yuzunden tum
+// kampanya kaydini reddetmek yerine yalniz bu turetilmis katmani uzlastir.
+// Merkezlerin organizasyon/etki degerlerine dokunulmaz; onlar normal tikte
+// ilerler. Boylece kaydetmek simülasyon zamanini ilerletmez.
+function storyPowerCenterReconcileDerivedOwnership(ledger) {
+    if (!ledger) return ledger;
+    const regionIds = Object.keys(ledger.regions || {});
+    let stale = regionIds.length !== (STORY.nodes || []).length;
+    if (!stale) {
+        for (const node of (STORY.nodes || [])) {
+            const regionId = storyPowerCenterRegionId(node.id);
+            const row = ledger.regions[regionId];
+            if (!row || row.countryId !== storyPowerCenterCountryId(node.owner)) {
+                stale = true;
+                break;
+            }
+        }
+    }
+    if (stale) storyPowerCenterBuildSummaries(ledger);
+    return ledger;
 }
 
 function storyPowerCenterLedgerCreate(options) {
@@ -532,8 +561,8 @@ function storyPowerCenterValidate(ledger) {
             add('POWER_CENTER_LEADER', `${path}.leader`, 'Her merkez kaynaklı bir lider/ofis taşımalı.');
         }
         const support = center.supportBase || {};
-        if (!Number.isInteger(support.membersPeople) || support.membersPeople < 0
-            || !Number.isInteger(support.populationPeople) || support.populationPeople < support.membersPeople) {
+        if (!Number.isInteger(support.supportPeople) || support.supportPeople < 0
+            || !Number.isInteger(support.populationPeople) || support.populationPeople < support.supportPeople) {
             add('POWER_CENTER_SUPPORT', `${path}.supportBase`, 'Destek tabanı geçersiz.');
         }
         if (!support.regionalPeople || typeof support.regionalPeople !== 'object' || Array.isArray(support.regionalPeople)) {
@@ -545,7 +574,7 @@ function storyPowerCenterValidate(ledger) {
                 if (!Number.isInteger(people) || people < 0) add('POWER_CENTER_REGION_PEOPLE', `${path}.supportBase.regionalPeople.${regionId}`, 'Bölgesel destek tamsayı olmalı.');
                 sum += Math.max(0, Number(people) || 0);
             }
-            if (sum !== support.membersPeople) add('POWER_CENTER_SUPPORT_SUM', `${path}.supportBase`, 'Bölgesel destek toplamı merkez toplamıyla uyuşmuyor.');
+            if (sum !== support.supportPeople) add('POWER_CENTER_SUPPORT_SUM', `${path}.supportBase`, 'Bölgesel destek toplamı merkez toplamıyla uyuşmuyor.');
         }
         for (const field of ['organizationBps', 'influenceBps', 'alignmentBps', 'independenceBps']) {
             if (!Number.isInteger(center[field]) || center[field] < 0 || center[field] > 10000) add('POWER_CENTER_BPS', `${path}.${field}`, 'Baz puan 0–10.000 tamsayı olmalı.');
@@ -603,7 +632,8 @@ function storyPowerCenterRestore(saved) {
 
 function storyPowerCenterEnsure() {
     if (!storyPowerCenterEnabled()) return null;
-    return STORY.powerCenters || storyPowerCenterReset({ backfilled: true });
+    const ledger = STORY.powerCenters || storyPowerCenterReset({ backfilled: true });
+    return storyPowerCenterReconcileDerivedOwnership(ledger);
 }
 
 function storyPowerCenterForSave() {
@@ -732,9 +762,15 @@ function storyPowerCenterOrganizationForProblem(countryId, problemType) {
     const rows = types.map(type => ledger.centers[storyPowerCenterId(countryId, type)]).filter(Boolean);
     if (!rows.length) return null;
     const organizationBps = storyPowerCenterClampBps(rows.reduce((sum, row) => sum + row.organizationBps, 0) / rows.length);
+    const referenceBps = (problemType === 'income' || problemType === 'employment')
+        ? STORY_POWER_CENTER_POLICY.organizationReferenceBps.LABOR
+        : (problemType === 'publicServices'
+            ? STORY_POWER_CENTER_POLICY.organizationReferenceBps.PUBLIC
+            : STORY_POWER_CENTER_POLICY.organizationReferenceBps.GENERAL);
     return {
         model: 'POWER_CENTER_CAPACITY_PHASE_28',
         organizationBps,
+        referenceBps,
         centerIds: rows.map(row => row.id)
     };
 }
@@ -753,7 +789,7 @@ function storyPowerCenterSummary() {
         const typed = rows.filter(row => row.type === type);
         byType[type] = {
             count: typed.length,
-            membersPeople: typed.reduce((sum, row) => sum + row.supportBase.membersPeople, 0),
+            supportPeople: typed.reduce((sum, row) => sum + row.supportBase.supportPeople, 0),
             averageInfluenceBps: typed.length
                 ? Math.round(typed.reduce((sum, row) => sum + row.influenceBps, 0) / typed.length) : 0
         };

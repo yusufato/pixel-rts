@@ -421,9 +421,9 @@ app.whenReady().then(() => {
                             'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
                             'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;' +
                             'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;' +
-                            (tSal.heuristik ? 'BATTLE_RECIPE_RED = null; if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;' : 'BATTLE_RECIPE_RED = ' + JSON.stringify(tSal) + ';') +
+                            (tSal.heuristik ? ('BATTLE_RECIPE_RED = null; if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = ' + (tSal.varied === false ? 'false' : 'true') + ';') : 'BATTLE_RECIPE_RED = ' + JSON.stringify(tSal) + ';') +
                             'openBattlefieldSession({ mode:"quick", mapId:-2, seed:' + seed + ', attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
-                            (tSav.heuristik ? "if (typeof BATTLE_FORCE_VARIED !== \"undefined\") BATTLE_FORCE_VARIED = true; const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro:false });" : 'const mv = battleBuildArmyManifest(6500, { maxUnits:48, recipe: ' + JSON.stringify(tSav) + ' });') +
+                            (tSav.heuristik ? ('if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = ' + (tSav.varied === false ? 'false' : 'true') + '; const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:' + (tSav.varied === false ? 'false' : 'true') + ', brainIntel4:true, isAttacker:false, pro:false });') : 'const mv = battleBuildArmyManifest(6500, { maxUnits:48, recipe: ' + JSON.stringify(tSav) + ' });') +
                             'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
                             'battleDeployManifest(mv, false, { source:"recipeab-sav", ally:true });' +
                             'const salDeger = SIM.units.filter(u => u.isRed).reduce((s,u)=>s+((STATS[u.type]&&STATS[u.type].cost)||0),0);' +
@@ -646,6 +646,8 @@ app.whenReady().then(() => {
                 if (!r.tekrarlanabilir) { console.log('     ✗ TEKRARLANABİLİRLİK KIRIK'); hata++; }
                 if (d.kacak !== 0) { console.log('     ✗ BÜTÇE KAÇAĞI ' + d.kacak + '₺'); hata++; }
                 if (Math.abs(d.maxSapma) > 0.05) console.log('     ! pay sapması %5 üstü (rapor edildi, hata sayılmaz)');
+                const ikiz = rapor.find(x => x.hash === r.hash);
+                if (ikiz) console.log('     ! KOR EKSEN: kadro ' + ikiz.ad + ' ile BIREBIR AYNI -> bu eksen olculmemis sayilir');
                 rapor.push(r);
             }
             try { fsx.mkdirSync('qa-runtime', { recursive:true }); fsx.writeFileSync('qa-runtime/recipe-audit.json', JSON.stringify(rapor, null, 1)); } catch(e) {}

@@ -422,6 +422,8 @@ function run() {
     assert.equal(regionProbe.main.identityMatches, true, 'Kalıcı bölge kimliği legacy dizi indeksi ve konumuyla birebir eşleşmeli.');
     assert.equal(regionProbe.main.topologyMatches, true, 'RegionModel komşuluğu canlı düğüm topolojisiyle birebir eşleşmeli.');
     assert.equal(regionProbe.main.transferApplied, true, 'Bölge sahipliği canlı mutasyon kapısından değişebilmeli.');
+    assert.equal(regionProbe.main.saveOk, true, 'Sahiplik değişimi türetilmiş katmanları bayat bırakarak kaydı engellememeli.');
+    assert.equal(regionProbe.main.savedNodeOwner, 1, 'Yeni bölge sahibi gerçek kayıt yüküne yazılmalı.');
     assert.equal(regionProbe.main.dynamicOwnerAfter, 'country:1', 'Dinamik bölge görünümü yeni sahipliği tek kaynaktan okumalı.');
     assert.equal(regionProbe.main.worldOwnerAfter, 'country:1', 'V2 projeksiyonu aynı canlı sahipliği görmeli.');
     assert.equal(

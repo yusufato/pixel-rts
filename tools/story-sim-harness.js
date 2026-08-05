@@ -8282,6 +8282,11 @@ function probePublicOpinion(seed = 2032) {
         // Faz 27, kamuoyu ve kolektif eylem kanitindan beslendigi icin ayni
         // bagimlilik kapanisinda yok olur; Faz 25 fiziksel esitligine dahil edilmez.
         delete copy.humanMigration;
+        // Faz 28 fiziksel ekonomi degil, yukaridaki toplumsal sinyalleri de
+        // okuyan turetilmis kurumsal durumdur. Kamuoyu kapaliyken merkezlerin
+        // kapasite fotografi farkli olabilir; bu Faz 25'in "eski oynanis ve
+        // fiziksel sonuc esitligi" kapisinin parcasi degildir.
+        delete copy.powerCenters;
         return copy;
     };
     return {
@@ -8907,7 +8912,7 @@ function probePowerCenters(seed = 2032) {
             summary: runtime.api.powerCenterSummary(),
             everyCenterComplete: Object.values(ledger.centers).every(center => (
                 center.leader && center.leader.actorId && center.leader.name
-                && center.supportBase && Number.isInteger(center.supportBase.membersPeople)
+                && center.supportBase && Number.isInteger(center.supportBase.supportPeople)
                 && center.resources && center.capabilities
                 && Array.isArray(center.goals) && center.goals.length === 3
                 && center.actionLimits && center.actionLimits.maximumConcurrentActions === 0
@@ -8932,7 +8937,7 @@ function probePowerCenters(seed = 2032) {
             savedExact: JSON.stringify(savedLedger) === JSON.stringify(ledger),
             migration: {
                 ok: migrated.ok,
-                validation: migrated.targetValidation,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
                 topLevelCount: migrated.ok ? migrated.world.powerCenters.length : 0,
                 countryPreserved: !!(migrated.ok && migrated.world.countries[0].powerCenters),
                 regionPreserved: !!(migrated.ok && migrated.world.regions[0].powerCenters),

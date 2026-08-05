@@ -22,7 +22,8 @@ const {
     probeNeedsWelfare,
     probePublicOpinion,
     probeCollectiveAction,
-    probeHumanMigration
+    probeHumanMigration,
+    probePowerCenters
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -370,6 +371,7 @@ function targetedProbeFor(flag, seed) {
     if (flag === 'society.publicOpinionMemory') return probePublicOpinion(seed);
     if (flag === 'society.collectiveAction') return probeCollectiveAction(seed);
     if (flag === 'population.humanMigration') return probeHumanMigration(seed);
+    if (flag === 'society.powerCenters') return probePowerCenters(seed);
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }
@@ -413,6 +415,8 @@ const report = {
         collectiveValidation: control.collectiveValidation,
         humanMigrationSummary: control.humanMigrationSummary,
         humanMigrationValidation: control.humanMigrationValidation,
+        powerCenterSummary: control.powerCenterSummary,
+        powerCenterValidation: control.powerCenterValidation,
         tradeSummary: control.tradeSummary,
         tradeProductionOpportunityView: control.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: control.tradeProductionAdmissionPlan,
@@ -439,6 +443,8 @@ const report = {
         collectiveValidation: treatment.collectiveValidation,
         humanMigrationSummary: treatment.humanMigrationSummary,
         humanMigrationValidation: treatment.humanMigrationValidation,
+        powerCenterSummary: treatment.powerCenterSummary,
+        powerCenterValidation: treatment.powerCenterValidation,
         tradeSummary: treatment.tradeSummary,
         tradeProductionOpportunityView: treatment.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: treatment.tradeProductionAdmissionPlan,

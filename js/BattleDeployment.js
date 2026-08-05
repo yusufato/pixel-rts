@@ -271,11 +271,26 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
     for (const kat of Object.keys(tarif.paylar).sort()) {
         const katTipleri = hepsi.filter(t => deploymentTypeCategory(t) === kat);
         if (!katTipleri.length) { uyarilar.push('kategoride tip yok: ' + kat); continue; }
+        // VARSAYILAN AĞIRLIK: tarif `tipPaylari` VERMİŞSE listede olmayan tip 0 alır (tarif onu istemiyor demektir);
+        // hiç liste yoksa kategori içi eşit dağıtılır. Eskiden liste varken bile eksik tip 1 alıyordu → tarifin hiç
+        // istemediği birim satın alınabiliyordu (ölçüldü: R0'ın tip listesinde transport_helo YOK ama her orduda
+        // 1× Nakliye Helikopteri çıkıyordu; 300₺'lik muharip-olmayan ölü ağırlık her hücreyi kirletiyordu).
+        const _vars = tarif.tipPaylari ? 0 : 1;
+        const _w = (t) => (tipAgirlik[t] != null ? tipAgirlik[t] : _vars);
         let wTop = 0;
-        for (const t of katTipleri) wTop += (tipAgirlik[t] != null ? tipAgirlik[t] : 1);
+        for (const t of katTipleri) wTop += _w(t);
         if (wTop <= 0) continue;
         const katHedef = tarif.paylar[kat] * butce;
-        for (const t of katTipleri) hedef[t] = katHedef * ((tipAgirlik[t] != null ? tipAgirlik[t] : 1) / wTop);
+        for (const t of katTipleri) {
+            const w = _w(t);
+            // ÇÖZÜCÜ HATASI DÜZELTMESİ: ağırlığı SIFIR olan tip hiç aday olmamalı. Eskiden hedef[t]=0 kuruluyordu
+            // ama `hedef[t] != null` testini geçtiği için (c) yığın-geri-düşüşü onu satın alabiliyordu. Ölçülen sonuç:
+            // R0'ın %4.2'lik `air` payı TAARRUZ helikopterinden (800₺) geliyordu; 271₺'lik hedefe helo sığmayınca
+            // çözücü ağırlığı 0 olan NAKLİYE helikopterini alıyordu → her orduda muharip olmayan 300₺ ölü ağırlık.
+            // Bu, "hava payını düşür iyi geliyor" diye YANLIŞ bir doktrin bulgusu üretmişti.
+            if (w <= 0) continue;
+            hedef[t] = katHedef * (w / wTop);
+        }
     }
 
     // (3) PAY-DOLDURMA — KATEGORİ ÖNCELİKLİ. RNG YOK, tüm eşitlik bozucular sabit.
