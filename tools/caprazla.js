@@ -33,6 +33,14 @@ const path = require('path');
 // her rapordan yanıtlanabilsin (plan: her iddia tohum kümesiyle birlikte raporlanır).
 const TARAMA_TOHUM = [2024, 777, 909, 3141, 2718, 5150, 111, 222, 333, 444, 555, 666,
     1234, 4321, 8080, 6060, 7, 42, 99, 1001, 2222, 3333, 4444, 5555];
+// ÜÇÜNCÜ HAVUZ (`--final`): eksen seçimi TARAMA+DIŞÖRNEKLEM havuzları kullanılarak yapıldığı
+// için birleşim tarifleri o iki havuza karşı seçim-yanlılığı taşır. Nihai karar bu TAZE
+// havuzda verilir — hiçbir seçim kararında kullanılmamıştır.
+const FINAL_TOHUM = [
+    9001, 9007, 9011, 9013, 9029, 9041, 9043, 9049, 9059, 9067, 9091, 9103,
+    17389, 17393, 17401, 17417, 17419, 17431, 17443, 17449, 17467, 17471, 17477, 17483,
+    250, 750, 1250, 1750, 2250, 2750, 3250, 3750, 4250, 4750, 5250, 5750,
+    611, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673];
 const DISORNEK_TOHUM = [90210, 31337, 65535, 10007, 20011, 30013, 40009, 50021,
     60013, 70003, 80021, 90001, 12007, 24001, 36007, 48017,
     13, 17, 23, 29, 31, 37, 41, 43,
@@ -49,7 +57,8 @@ const TARIFLER = arg('--tarifler', 'qa-runtime/tarifler-taban.json');
 const SAL = arg('--sal', '*');
 const SAV = arg('--sav', '*');
 const DISORNEK = process.argv.includes('--disornek');
-const HAVUZ = DISORNEK ? DISORNEK_TOHUM : TARAMA_TOHUM;
+const FINAL = process.argv.includes('--final');
+const HAVUZ = FINAL ? FINAL_TOHUM : (DISORNEK ? DISORNEK_TOHUM : TARAMA_TOHUM);
 const SEEDARG = String(arg('--seeds', '12'));
 const TOHUMLAR = SEEDARG.indexOf(',') >= 0
     ? SEEDARG.split(',').map(Number).filter(Boolean)
@@ -71,13 +80,15 @@ const CEKIRDEK = os.cpus().length;
 // Electron'da TEK maç 1.8GB tutuyordu. Bellek 4 kat değil, işçi başına ~4 kat AZ.
 const MOTOR = String(arg('--motor', 'tezgah'));
 const TEZGAH = MOTOR !== 'electron';
-const ISCI_GB = Number(arg('--isci-gb', TEZGAH ? 0.7 : 2.0));   // ölçüldü: tezgah 451MB, electron 1.83GB
+// Ölçüldü: jsdom tezgâhı 12 maçlık bir süreçte ZİRVE 451MB (maç sayısıyla büyümüyor).
+// 0.5GB pay ile 13 işçi ≈ 6.5GB → 16 çekirdekli / ~9GB boş makinede rahat sığar.
+const ISCI_GB = Number(arg('--isci-gb', TEZGAH ? 0.5 : 2.0));   // tezgah 451MB, electron 1.83GB
 // REZERV 4GB: taze-süreç kipinde bile kullanılabilir bellek koşu boyunca yavaşça iniyor
 // (Windows dosya önbelleği + Electron ikilisinin tekrar tekrar yüklenmesi). 24 maçlık koşuda
 // 3 işçi 15. maçta eşiğe dayandı → rezerv yükseltildi, tavan bu makinede 2-3 işçiye oturuyor.
 // Rezerv motora göre: Electron'da koşu boyunca kullanılabilir bellek yavaşça iniyordu (4GB
 // rezerv gerekti); jsdom tezgâhı sabit ~451MB tutuyor ve inişe yol açmıyor → 3GB yeter.
-const REZERV_GB = Number(arg('--rezerv-gb', TEZGAH ? 3 : 4));
+const REZERV_GB = Number(arg('--rezerv-gb', TEZGAH ? 2.5 : 4));
 // KULLANILABİLİR BELLEK — os.freemem() Windows'ta YANLIŞ SİNYAL: bekleme-önbelleğini saymadığı
 // için 4 işçide "0.04GB" diyordu, gerçek kullanılabilir ise ~1.6GB idi ve gözcüyü boş yere
 // tetikliyordu. Windows'ta dile bağımsız performans sayacı okunur; başka platformda os.freemem().
@@ -95,7 +106,9 @@ function bosBellekGB() {
 const BOS_GB = bosBellekGB();
 const TOPLAM_GB = os.totalmem() / 1e9;
 const GUVENLI = Math.max(1, Math.floor((BOS_GB - REZERV_GB) / ISCI_GB));
-const TAVAN = Math.min(GUVENLI, Math.max(1, CEKIRDEK - 2), TOHUMLAR.length);
+// Çekirdek tavanı: kullanıcı 16 çekirdeğin 13'ünü tam kapasite kullanmak istiyor →
+// 3 çekirdek sisteme/kullanıcıya bırakılır. Gerçek sınır yine bellek tarafı.
+const TAVAN = Math.min(GUVENLI, Math.max(1, CEKIRDEK - 3), TOHUMLAR.length);
 const ISTENEN = Number(arg('--workers', TAVAN)) || TAVAN;
 const ZORLA = process.argv.includes('--zorla');
 let ISCI = Math.min(ISTENEN, TOHUMLAR.length);
@@ -139,7 +152,9 @@ console.log('PARALEL ÇAPRAZLAMA');
 console.log('  tarifler : ' + TARIFLER);
 console.log('  saldıran : ' + SAL);
 console.log('  savunan  : ' + SAV);
-console.log('  tohum    : ' + TOHUMLAR.length + ' adet' + (DISORNEK ? ' (DIŞÖRNEKLEM havuzu)' : ' (tarama havuzu)'));
+console.log('  tohum    : ' + TOHUMLAR.length + ' adet' +
+    (FINAL ? ' (FİNAL havuzu — hiçbir seçim kararında kullanılmadı)'
+        : DISORNEK ? ' (DIŞÖRNEKLEM havuzu)' : ' (tarama havuzu)'));
 console.log('  işçi     : ' + ISCI + ' süreç  (çekirdek ' + CEKIRDEK + ', RAM ' + TOPLAM_GB.toFixed(1) +
     'GB, boşta ' + BOS_GB.toFixed(1) + 'GB → güvenli tavan ' + TAVAN + ')');
 console.log('  parti    : ' + PARTI + ' tohum/süreç, ' + dilimler.length + ' parti (her parti TAZE süreç → bellek sınırlı)');
@@ -285,7 +300,7 @@ kuyruguKostur().then((sonuclar) => {
     }
     const rapor = {
         tarifler: TARIFLER, sal: SAL, sav: SAV,
-        tohumHavuzu: DISORNEK ? 'disornek' : 'tarama',
+        tohumHavuzu: FINAL ? 'final' : DISORNEK ? 'disornek' : 'tarama',
         tohumlar: TOHUMLAR, istenenTohum: TOHUMLAR.length,
         dusenTohumlar: basarisiz.flatMap(r => r.tohum),
         isci: ISCI, bellekKesildi, sureSn: +sure.toFixed(1), toplamMac, hucreler
