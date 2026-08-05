@@ -25,7 +25,8 @@ const {
     probeHumanMigration,
     probePowerCenters,
     probeInstitutions,
-    probeStateCapacity
+    probeStateCapacity,
+    probeElections
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -405,6 +406,39 @@ function targetedProbeFor(flag, seed) {
             prerequisiteDisabled: probe.prerequisiteDisabled
         };
     }
+    if (flag === 'government.electionsTransfer') {
+        const probe = probeElections(seed);
+        return {
+            main: {
+                validation: probe.main.validation,
+                summary: probe.main.summary,
+                certifiedCount: probe.main.certifiedCount,
+                exactCohortVotes: probe.main.exactCohortVotes,
+                eligibleMatchesPopulation: probe.main.eligibleMatchesPopulation,
+                distinctWinnerSlateCount: probe.main.distinctWinnerSlateCount,
+                coalitionCount: probe.main.coalitionCount,
+                authoritySignatureChanged: probe.main.authoritySignatureChanged,
+                contestRule: probe.main.contestRule,
+                worldValidation: probe.main.worldValidation,
+                knowledgeValidation: probe.main.knowledgeValidation,
+                foreignSecretsHidden: probe.main.foreignSecretsHidden,
+                readOnly: probe.main.readOnly,
+                ui: probe.main.ui,
+                saveOk: probe.main.saveOk,
+                saveExact: probe.main.saveExact,
+                migration: probe.main.migration
+            },
+            restored: probe.restored,
+            legacy: {
+                validation: probe.legacy.validation,
+                diagnostics: probe.legacy.diagnostics,
+                summary: probe.legacy.summary
+            },
+            corrupt: probe.corrupt,
+            disabled: probe.disabled,
+            prerequisiteDisabled: probe.prerequisiteDisabled
+        };
+    }
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }
@@ -454,6 +488,8 @@ const report = {
         institutionValidation: control.institutionValidation,
         stateCapacitySummary: control.stateCapacitySummary,
         stateCapacityValidation: control.stateCapacityValidation,
+        electionSummary: control.electionSummary,
+        electionValidation: control.electionValidation,
         tradeSummary: control.tradeSummary,
         tradeProductionOpportunityView: control.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: control.tradeProductionAdmissionPlan,
@@ -486,6 +522,8 @@ const report = {
         institutionValidation: treatment.institutionValidation,
         stateCapacitySummary: treatment.stateCapacitySummary,
         stateCapacityValidation: treatment.stateCapacityValidation,
+        electionSummary: treatment.electionSummary,
+        electionValidation: treatment.electionValidation,
         tradeSummary: treatment.tradeSummary,
         tradeProductionOpportunityView: treatment.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: treatment.tradeProductionAdmissionPlan,

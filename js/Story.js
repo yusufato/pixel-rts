@@ -479,16 +479,19 @@ function storyNewCampaign(config = {}) {
     if (typeof storyOpinionReset === 'function') storyOpinionReset();
     if (typeof storyCollectiveReset === 'function') storyCollectiveReset();
     if (typeof storyHumanMigrationReset === 'function') storyHumanMigrationReset();
+    // Kurum reseti onceki kampanyanin secilmis makam vekilini okuyamaz.
+    STORY.elections = null;
     if (typeof storyInstitutionReset === 'function') storyInstitutionReset();
     if (typeof storyPowerCenterReset === 'function') storyPowerCenterReset();
     if (typeof storyStateCapacityReset === 'function') storyStateCapacityReset();
+    if (typeof storyElectionReset === 'function') storyElectionReset();
     if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
     if (typeof storySchedulerReset === 'function') storySchedulerReset();
     // A/B geri dönüş yolu da yeni kampanyaya önceki koşunun kısmi sayaçlarını
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accSiege', '_accTech',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
     ]) STORY[key] = 0;
@@ -580,6 +583,9 @@ function storySave() {
             stateCapacity: (typeof storyStateCapacityForSave === 'function')
                 ? storyStateCapacityForSave()
                 : STORY.stateCapacity,
+            elections: (typeof storyElectionForSave === 'function')
+                ? storyElectionForSave()
+                : STORY.elections,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -678,9 +684,18 @@ function storyLoad() {
         // yetkiyi, kolektif hareketler de güç merkezi kimliklerini okur. Tam
         // kayıt önce bu kimlik zinciriyle açılır; türetilmiş kapasite ilk canlı
         // tikte güncellenir. Aksi sıra aynı kaydı gereksiz backfill eder.
+        // Seçilmiş makam sahibi kurum yetki imzasının girdisidir. Doğrulanmış
+        // seçim görüntüsünü kurum restore'undan önce hazırla; tam seçim
+        // uzlaştırması kurumlar ve kapasite geri geldikten sonra yapılır.
+        if (typeof storyElectionPrimeRestore === 'function') storyElectionPrimeRestore(d.elections);
+        else STORY.elections = null;
         if (typeof storyInstitutionRestore === 'function') storyInstitutionRestore(d.institutions);
         if (typeof storyPowerCenterRestore === 'function') storyPowerCenterRestore(d.powerCenters);
         if (typeof storyStateCapacityRestore === 'function') storyStateCapacityRestore(d.stateCapacity);
+        if (typeof storyElectionRestore === 'function') storyElectionRestore(d.elections);
+        // Secilmis yeni mandat kurumun yürütme makam kimligini degistirir. Eski
+        // bekleyen yetki istekleri bu uzlastirmada STALE_AUTHORITY olur.
+        if (typeof storyInstitutionEnsure === 'function') storyInstitutionEnsure();
         if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
         if (typeof storyHumanMigrationRestore === 'function') storyHumanMigrationRestore(d.humanMigration);
         STORY.commander.st = STORY.playerStateId;   // FAZ-8: ordu tavanı için devlet bağı
@@ -1446,6 +1461,8 @@ function storyAdvanceStep(dtSec) {
     }
     const _stateCapacityDt = _storyDue('state-capacity', '_accStateCapacity', 5);
     if (_stateCapacityDt > 0 && typeof storyStateCapacityTick === 'function') storyStateCapacityTick(_stateCapacityDt); // Faz 30 kararın idari uygulanabilirliği
+    const _electionDt = _storyDue('elections', '_accElections', 5);
+    if (_electionDt > 0 && typeof storyElectionTick === 'function') storyElectionTick(_electionDt); // Faz 31 kohort oyu ve barışçıl makam devri
     if (_storyDue('siege', '_accSiege', 2.5) > 0) storySiegeTick();
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
     if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();

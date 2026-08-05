@@ -317,6 +317,10 @@ function storyMigrationV3RawToV2(raw, options) {
     const savedStateCapacityCountries = storyMigrationObject(savedStateCapacity.countries);
     const savedStateCapacityRegions = storyMigrationObject(savedStateCapacity.regions);
     const savedImplementationTickets = storyMigrationObject(savedStateCapacity.tickets);
+    const savedElections = storyMigrationObject(save.elections);
+    const savedElectionCountries = storyMigrationObject(savedElections.countries);
+    const savedElectionRows = storyMigrationObject(savedElections.elections);
+    const savedMandates = storyMigrationObject(savedElections.mandates);
     for (const countryId of Object.keys(savedCollectiveCountries)) {
         const migratedCountry = countries.find(country => country.id === countryId);
         if (migratedCountry) {
@@ -409,6 +413,17 @@ function storyMigrationV3RawToV2(raw, options) {
             .map(storyMigrationClone);
         migratedRegion.stateCapacity = capacity;
     }
+    for (const countryId of Object.keys(savedElectionCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (!migratedCountry) continue;
+        const electionView = storyMigrationClone(savedElectionCountries[countryId]);
+        electionView.currentMandate = storyMigrationClone(savedMandates[electionView.currentMandateId] || null);
+        electionView.elections = (electionView.electionIds || [])
+            .map(id => storyMigrationClone(savedElectionRows[id]))
+            .filter(Boolean)
+            .sort((a, b) => Number(b.scheduledAt) - Number(a.scheduledAt));
+        migratedCountry.elections = electionView;
+    }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
         for (const cohort of (Array.isArray(savedRegion.cohorts) ? savedRegion.cohorts : [])) {
@@ -438,7 +453,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -455,7 +470,7 @@ function storyMigrationV3RawToV2(raw, options) {
     const world = {
         meta: {
             schemaVersion: STORY_WORLD_V2_SCHEMA_VERSION,
-            adapterVersion: 'legacy-save-v3-to-v2-3',
+            adapterVersion: 'legacy-save-v3-to-v2-4',
             campaignId: `story:${seed == null ? 'legacy' : seed}:${playerStateId}`,
             seed,
             engineVersions: {
@@ -511,6 +526,16 @@ function storyMigrationV3RawToV2(raw, options) {
             storyMigrationBase(String(ticket.id), ticket.countryId == null ? null : String(ticket.countryId), storyMigrationNumber(ticket.createdAt, 0)),
             storyMigrationClone(ticket),
             { entityType: 'IMPLEMENTATION_TICKET' }
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        elections: Object.values(savedElectionRows).map(election => Object.assign(
+            storyMigrationBase(String(election.id), election.countryId == null ? null : String(election.countryId), storyMigrationNumber(election.campaignStartsAt, 0)),
+            storyMigrationClone(election),
+            { entityType: 'ELECTION' }
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        mandates: Object.values(savedMandates).map(mandate => Object.assign(
+            storyMigrationBase(String(mandate.id), mandate.countryId == null ? null : String(mandate.countryId), storyMigrationNumber(mandate.startedAt, 0)),
+            storyMigrationClone(mandate),
+            { entityType: 'GOVERNMENT_MANDATE' }
         )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         companies: [],
         mediaOutlets: [],

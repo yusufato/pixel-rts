@@ -380,6 +380,9 @@ function storyEnsurePresidents() {
 function storyPresidentName(st) {
     if (!st) return 'Cumhurbaşkanı';
     if (st.isPlayer && st.isAdmin && STORY.commander) return STORY.commander.name;
+    const elected = typeof storyElectionExecutiveHolder === 'function'
+        ? storyElectionExecutiveHolder(st.id) : null;
+    if (elected && elected.name) return elected.name;
     return (st.gov && st.gov.president && st.gov.president.name) || 'Cumhurbaşkanı';
 }
 // Devlet doktrini: liderin şahinliği saldırı iştahını sürer (0.7x güvercin … 1.3x şahin).

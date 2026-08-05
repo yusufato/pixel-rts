@@ -32,6 +32,7 @@ const STORY_SOURCES = [
     'js/StoryPowerCenters.js',
     'js/StoryInstitutions.js',
     'js/StoryStateCapacity.js',
+    'js/StoryElections.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -620,6 +621,15 @@ function createRuntime(seed) {
             stateCapacityRegionView: regionId => storyStateCapacityRegionView(regionId),
             stateCapacityPublicView: value => storyStateCapacityPublicView(value),
             stateCapacityTick: dt => storyStateCapacityTick(dt),
+            electionSummary: () => storyElectionSummary(),
+            electionLedger: () => storyElectionClone(STORY.elections),
+            validateElectionLedger: ledger => storyElectionValidate(ledger),
+            electionForSave: () => storyElectionForSave(),
+            electionCountryView: countryId => storyElectionCountryView(countryId),
+            electionPublicView: value => storyElectionPublicView(value),
+            electionExecutiveHolder: countryId => storyElectionExecutiveHolder(countryId),
+            electionShouldContest: (marginBps, ruleOfLawBps) => storyElectionShouldContest(marginBps, ruleOfLawBps),
+            electionTick: dt => storyElectionTick(dt),
             populationTransferCohorts: (origin, destination, requested, options) => (
                 storyPopulationTransferCohorts(origin, destination, requested, options)
             ),
@@ -1645,6 +1655,17 @@ function stateSnapshot(story) {
             tickets: story.stateCapacity.tickets,
             events: story.stateCapacity.events
         } : null,
+        elections: story.elections ? {
+            schemaVersion: story.elections.schemaVersion,
+            policyHash: story.elections.policyHash,
+            tickSequence: story.elections.tickSequence,
+            nextElectionSequence: story.elections.nextElectionSequence,
+            nextMandateSequence: story.elections.nextMandateSequence,
+            countries: story.elections.countries,
+            elections: story.elections.elections,
+            mandates: story.elections.mandates,
+            events: story.elections.events
+        } : null,
         diplomacy: Object.fromEntries(Object.keys(story.rel || {}).sort().map(key => {
             const relation = story.rel[key] || {};
             return [key, {
@@ -2193,6 +2214,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateStateCapacityLedger(stateCapacityLedger)
             : { ok: true, disabled: true, issues: [] };
         const stateCapacitySummary = runtime.api.stateCapacitySummary();
+        const electionLedger = runtime.api.electionLedger();
+        const electionValidation = electionLedger
+            ? runtime.api.validateElectionLedger(electionLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const electionSummary = runtime.api.electionSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2393,6 +2419,8 @@ function runStorySimulation(options = {}) {
             institutionSummary,
             stateCapacityValidation,
             stateCapacitySummary,
+            electionValidation,
+            electionSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -2935,7 +2963,7 @@ function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
         'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'siege', 'technology',
+        'factions', 'society', 'state-capacity', 'elections', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -5250,6 +5278,13 @@ function probeRegionalEconomy(seed = 2032) {
         // Faz 27 de yukaridaki zincirin ardilidir; bolgesel ekonomi kapaliyken
         // bagimlilik geregi kapanan bu defter eski Faz 17 fiziksel durumuna ait degildir.
         delete copy.humanMigration;
+        // Faz 28-31 aynı toplumsal kanıt zincirinin yönetişim çıktılarıdır.
+        // Bölgesel stok kapısı kapandığında bağımlılık çözümleyicisi bu defterleri de
+        // kapatır; Faz 17'nin eski fiziksel sonuç karşılaştırmasına dahil edilmezler.
+        delete copy.powerCenters;
+        delete copy.institutions;
+        delete copy.stateCapacity;
+        delete copy.elections;
         return copy;
     };
     return {
@@ -8346,6 +8381,10 @@ function probePublicOpinion(seed = 2032) {
         // türetilmiş yönetişim durumu Faz 25'in eski fiziksel eşitlik kapısı
         // değildir ve ayrıca aşağıdaki özetlerle doğrulanır.
         delete copy.stateCapacity;
+        // Faz 31 seçimleri devlet kapasitesi ve kurum zincirinin salt-okunur
+        // ardılıdır. Kamuoyu kapalı A/B yolunda seçim defterinin kapanması, Faz
+        // 25'in fiziksel dünya sonucunda bir fark değildir.
+        delete copy.elections;
         return copy;
     };
     return {
@@ -9593,6 +9632,171 @@ function probeStateCapacity(seed = 2032) {
     return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
 }
 
+function probeElections(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(330);
+        const beforeSignature = runtime.api.institutionCountryView('country:0').authoritySignature;
+        runtime.api.advance(90);
+        const story = runtime.api.state();
+        const ledger = runtime.api.electionLedger();
+        const validation = runtime.api.validateElectionLedger(ledger);
+        const certified = Object.values(ledger.elections).filter(row => row.status === 'CERTIFIED');
+        const counted = certified.filter(row => row.castVotes > 0);
+        const exactCohortVotes = counted.every(election => (
+            election.cohortBallots.reduce((sum, ballot) => (
+                sum + Object.values(ballot.votesBySlate || {}).reduce((out, votes) => out + votes, 0)
+            ), 0) === election.castVotes
+            && election.totals.reduce((sum, row) => sum + row.votes, 0) === election.castVotes
+        ));
+        const eligibleMatchesPopulation = counted.every(election => (
+            election.cohortBallots.reduce((sum, ballot) => sum + ballot.eligiblePeople, 0)
+                === election.eligiblePeople
+        ));
+        const afterSignature = runtime.api.institutionCountryView('country:0').authoritySignature;
+        const worldBeforeHash = hashSnapshot(stateSnapshot(story));
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, 'country:0');
+        const own = knowledge.countries.find(row => row.id === 'country:0');
+        const foreign = knowledge.countries.find(row => row.id !== 'country:0');
+        const ownNode = story.nodes.find(node => Number(node.owner) === 0);
+        const foreignNode = story.nodes.find(node => Number(node.owner) !== 0);
+        const ownUi = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        const foreignUi = runtime.api.renderCityDossier(foreignNode.id, 'kurumlar');
+        const worldAfterHash = hashSnapshot(stateSnapshot(story));
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = runtime.api.electionLedger();
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            validation,
+            summary: runtime.api.electionSummary(),
+            certifiedCount: certified.length,
+            exactCohortVotes,
+            eligibleMatchesPopulation,
+            distinctWinnerSlateCount: new Set(certified.map(row => row.winnerSlateId.split(':').pop())).size,
+            coalitionCount: certified.filter(row => row.coalitionSlateIds.length > 1).length,
+            authoritySignatureChanged: beforeSignature !== afterSignature,
+            mandateHolder: runtime.api.electionExecutiveHolder('country:0'),
+            contestRule: {
+                narrowWeak: runtime.api.electionShouldContest(150, 3000),
+                wideWeak: runtime.api.electionShouldContest(500, 3000),
+                narrowStrong: runtime.api.electionShouldContest(150, 7000)
+            },
+            worldValidation: runtime.api.validateWorldV2(world),
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
+            ownKnowledge: own.elections,
+            foreignKnowledge: foreign.elections,
+            foreignSecretsHidden: !/cohortBallots|scoreComponentsBySlate|sourceTicks|influenceBps|affinityBps/.test(
+                JSON.stringify(foreign.elections.value)
+            ),
+            readOnly: worldBeforeHash === worldAfterHash,
+            ui: {
+                ownVisible: ownUi.text.includes('SEÇİM VE BARIŞÇIL İKTİDAR DEVRİ'),
+                foreignVisible: foreignUi.text.includes('SEÇİM VE BARIŞÇIL İKTİDAR DEVRİ'),
+                foreignSecretLeak: /gerçek kohort sayımı|scoreComponentsBySlate|influenceBps/.test(foreignUi.text)
+            },
+            saveOk: story._lastSaveOk === true,
+            saveExact: JSON.stringify(JSON.parse(savedRaw).elections) === JSON.stringify(savedLedger),
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                elections: migrated.ok ? migrated.world.elections.length : 0,
+                mandates: migrated.ok ? migrated.world.mandates.length : 0,
+                countryPreserved: !!(migrated.ok && migrated.world.countries[0].elections),
+                unmapped: !!(migrated.ok && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('elections'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.electionLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateElectionLedger(ledger),
+            exact: JSON.stringify(ledger) === JSON.stringify(savedLedger)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.elections;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.electionLedger();
+        legacy = {
+            validation: legacyRuntime.api.validateElectionLedger(ledger),
+            diagnostics: ledger.diagnostics,
+            summary: legacyRuntime.api.electionSummary()
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptElection = Object.values(corruptSave.elections.elections).find(row => row.status === 'CERTIFIED');
+    if (corruptElection && corruptElection.totals[0]) corruptElection.totals[0].votes++;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corruptRuntime.api.loadNow();
+        const ledger = corruptRuntime.api.electionLedger();
+        corrupt = {
+            validation: corruptRuntime.api.validateElectionLedger(ledger),
+            diagnostics: ledger.diagnostics
+        };
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.electionsTransfer': false }
+        });
+        disabled = {
+            ledger: disabledRuntime.api.electionLedger(),
+            summary: disabledRuntime.api.electionSummary()
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'society.publicOpinionMemory': false, 'government.electionsTransfer': true }
+        });
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.electionLedger(),
+            summary: prerequisiteRuntime.api.electionSummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+
+    return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -9630,6 +9834,7 @@ module.exports = {
     probePowerCenters,
     probeInstitutions,
     probeStateCapacity,
+    probeElections,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

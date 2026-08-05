@@ -152,6 +152,7 @@ function storyCityDossierBuild(nodeId) {
     facts.countryPowerCenters = storyCityDossierFactCopy(ownerCountry && ownerCountry.powerCenters);
     facts.countryInstitutions = storyCityDossierFactCopy(ownerCountry && ownerCountry.institutions);
     facts.countryStateCapacity = storyCityDossierFactCopy(ownerCountry && ownerCountry.stateCapacity);
+    facts.countryElections = storyCityDossierFactCopy(ownerCountry && ownerCountry.elections);
 
     const characters = (knowledge.characters || [])
         .filter(character => character.regionId
@@ -258,6 +259,11 @@ function storyCityDossierValidate(view) {
         const capacityText = capacity && capacity.value ? JSON.stringify(capacity.value) : '';
         if (/bureaucraticCapacityBps|institutionalIntegrityBps|corruptionRiskBps|implementationCapacityBps|implementationTickets|sources/.test(capacityText)) {
             add('FOREIGN_STATE_CAPACITY_INTELLIGENCE_LEAK', '$.facts.countryStateCapacity', 'Yabancı bürokrasi, bütünlük, sızıntı riski ve uygulama fişleri sızamaz.');
+        }
+        const elections = view.facts && view.facts.countryElections;
+        const electionText = elections && elections.value ? JSON.stringify(elections.value) : '';
+        if (/cohortBallots|scoreComponentsBySlate|sourceTicks|influenceBps|affinityBps/.test(electionText)) {
+            add('FOREIGN_ELECTION_INTELLIGENCE_LEAK', '$.facts.countryElections', 'Yabancı seçimin kohort tercih hesabı ve iç destek ağı sızamaz.');
         }
     }
     if (!Array.isArray(view.missingSystems)
@@ -473,6 +479,44 @@ function storyCityDossierRenderStateCapacity(view) {
     return `<section class="city-dossier-sec"><h3>MEŞRUİYET VE UYGULAMA KAPASİTESİ</h3>`
         + `<div class="city-fact-grid">${grid}</div>${tickets}`
         + `<p class="city-hint">Hukuken onaylanmış karar otomatik olarak dünya sonucu değildir. Düşük kapasite kararı geciktirir; zayıf bütünlük ve bölgesel denetim eksik/sızdırılmış uygulama veya kâğıtta kalma üretir.</p></section>`;
+}
+
+function storyCityDossierRenderElections(view) {
+    const fact = view.facts.countryElections;
+    if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !fact.value) {
+        return `<section class="city-dossier-empty"><b>SEÇİM KAYDI YOK</b>`
+            + `<span>Bu ülkenin seçim takvimi veya iktidar devri hakkında doğrulanmış bilgi bulunmuyor.</span></section>`;
+    }
+    const value = fact.value;
+    const pct = bps => storyCityDossierNumber((Number(bps) || 0) / 100);
+    const date = seconds => typeof storyCalendarAt === 'function' && seconds != null
+        ? storyCalendarAt(seconds).label : '—';
+    const mandate = value.currentMandate || {};
+    const mandateName = mandate.officeHolderName
+        || (mandate.officeHolder && mandate.officeHolder.name)
+        || 'Makam bilgisi yok';
+    const mandateGrid = `<div class="city-fact-grid">`
+        + `<div><span>YÜRÜTME MANDATI</span><b>${storyCityDossierEscape(mandateName)}</b>`
+        + `<small>${storyCityDossierEscape(mandate.officeHolderModel || (mandate.officeHolder && mandate.officeHolder.model) || '')}</small></div>`
+        + `<div><span>SEÇİM MODELİ</span><b>${storyCityDossierEscape(value.electionModel || '—')}</b></div>`
+        + `<div><span>SONRAKİ SEÇİM</span><b>${value.competitive ? date(value.nextElectionAt) : 'SEÇİM YOK'}</b></div>`
+        + `<div><span>KOALİSYON</span><b>${(mandate.coalitionSlateIds || []).length}</b><small>mandat ortağı</small></div></div>`;
+    const elections = (value.elections || []).slice(0, 4);
+    const rows = elections.map(election => {
+        const totals = (election.totals || []).map(row => `<small>${storyCityDossierEscape(row.name || row.slateKey || row.slateId)}: `
+            + `${Math.round(Number(row.votes) || 0).toLocaleString('tr-TR')} oy · %${pct(row.voteShareBps)}</small>`).join('');
+        const contest = election.contest
+            ? `<span>İTİRAZ: ${storyCityDossierEscape(election.contest.resolutionCode || election.contest.reasonCode || 'İnceleniyor')}</span>` : '';
+        const internal = view.isOwn && Array.isArray(election.cohortBallots)
+            ? `<small>${election.cohortBallots.length} gerçek kohort sayımı · tercih bileşenleri denetlenebilir</small>` : '';
+        return `<article class="city-character-row"><div><b>${date(election.scheduledAt)} · ${storyCityDossierEscape(election.status)}</b>`
+            + `<span>KATILIM %${pct(election.turnoutBps)} · ${Math.round(Number(election.castVotes) || 0).toLocaleString('tr-TR')} / ${Math.round(Number(election.eligiblePeople) || 0).toLocaleString('tr-TR')}</span>`
+            + contest + totals + internal + `</div></article>`;
+    }).join('');
+    return `<section class="city-dossier-sec"><h3>SEÇİM VE BARIŞÇIL İKTİDAR DEVRİ</h3>${mandateGrid}`
+        + (rows ? `<div class="city-character-list">${rows}</div>`
+            : `<div class="city-dossier-empty"><b>HENÜZ SEÇİM YOK</b><span>İlk kampanya takvimde bekliyor.</span></div>`)
+        + `<p class="city-hint">Oylar çocuklar hariç gerçek nüfus kohortlarından tam kişi hesabıyla çıkar. Adaylar Faz 34'e kadar insan değil, açık siyasi liste vekilleridir. Güç merkezleri oy yaratmaz; yalnız sınırlı kamusal destek sinyali verir. Sonuç ekonomi bonusu değil, yeni ve izlenebilir bir makam mandası üretir.</p></section>`;
 }
 
 function storyCityDossierGeneral(view, node) {
@@ -849,6 +893,7 @@ function storyCityDossierRender(view, active, node) {
     if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
     else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
         + storyCityDossierRenderStateCapacity(view)
+        + storyCityDossierRenderElections(view)
         + storyCityDossierRenderPowerCenters(view);
     else if (active === 'tarih') content = storyCityDossierRenderHistory(view);
     else if (active === 'karakterler') content = storyCityDossierRenderCharacters(view);

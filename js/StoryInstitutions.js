@@ -183,6 +183,9 @@ function storyInstitutionHolder(countryId, type, st) {
                 actorType: 'CHARACTER', name: String(STORY.commander.name), model: 'CANONICAL_PLAYER_EXECUTIVE'
             };
         }
+        const elected = typeof storyElectionExecutiveHolder === 'function'
+            ? storyElectionExecutiveHolder(countryId) : null;
+        if (elected) return elected;
         return {
             actorId: `officeholder:${countryId}:president`, actorType: 'OFFICEHOLDER_PROXY',
             name: typeof storyPresidentName === 'function' ? storyPresidentName(st) : 'Cumhurbaşkanı',

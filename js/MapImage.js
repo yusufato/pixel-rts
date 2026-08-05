@@ -57,6 +57,7 @@ function buildTerrainGrid(def) {
         terrainGrid = _hazir.terrainGrid;
         bridgeSet = _hazir.bridgeSet;
         elevField = _hazir.elevField;
+        _bridgeBitmap = _hazir.bridgeBitmap;
         _yolOnbellek = _hazir.yolOnbellek;   // yol önbelleği araziyle BİRLİKTE geri gelir
         return;
     }
@@ -67,13 +68,14 @@ function buildTerrainGrid(def) {
     const s = def.grid;
     for (let i = 0; i < GRID_W * GRID_H; i++) terrainGrid[i] = M[s[i]] != null ? M[s[i]] : 0;
     bridgeSet = new Set((def.bridges || []).map(b => b[0] + ',' + b[1]));
+    _bridgeBitmapKur();
     buildElevField();
     // kurulan araziyi sakla (yol önbelleğiyle birlikte). Tavan aşılırsa en eski girdi atılır.
     if (_araziOnbellek.size >= _ARAZI_ONBELLEK_TAVAN) {
         const ilk = _araziOnbellek.keys().next();
         if (!ilk.done) _araziOnbellek.delete(ilk.value);
     }
-    _araziOnbellek.set(_anahtar, { terrainGrid, bridgeSet, elevField, yolOnbellek: _yolOnbellek });
+    _araziOnbellek.set(_anahtar, { terrainGrid, bridgeSet, elevField, bridgeBitmap: _bridgeBitmap, yolOnbellek: _yolOnbellek });
 }
 function gridTypeCell(gx, gy) {
     if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) return TERRAIN.MOUNTAIN;   // harita dışı = duvar
@@ -82,7 +84,25 @@ function gridTypeCell(gx, gy) {
 function terrainTypeAt(wx, wy) {
     return gridTypeCell(Math.floor(wx / CELL_W), Math.floor(wy / CELL_H));
 }
-function isBridgeCell(gx, gy) { return bridgeSet != null && bridgeSet.has(gx + ',' + gy); }
+// KÖPRÜ ARAMA BİTMAP'İ (hız): bridgeSet'in anahtarları "gx,gy" STRING'i olduğu için her
+// sorguda yeni string üretiliyordu. _navPass ve isBridgeCell yol bulmanın en sıcak
+// yollarında (profil: %3.5 + %1.4 + GC baskısı). Bitmap O(1) ve TAHSİSSİZ.
+// bridgeSet'e DOKUNULMUYOR — replay anlık görüntüsü ve çizim onu kullanmaya devam eder,
+// yani serileştirme biçimi ve hash aynı kalır.
+let _bridgeBitmap = null;
+function _bridgeBitmapKur() {
+    _bridgeBitmap = new Uint8Array(GRID_W * GRID_H);
+    if (!bridgeSet) return;
+    for (const key of bridgeSet) {
+        const v = String(key).split(',');
+        const gx = +v[0], gy = +v[1];
+        if (gx >= 0 && gy >= 0 && gx < GRID_W && gy < GRID_H) _bridgeBitmap[gy * GRID_W + gx] = 1;
+    }
+}
+function isBridgeCell(gx, gy) {
+    if (!_bridgeBitmap) return bridgeSet != null && bridgeSet.has(gx + ',' + gy);
+    return gx >= 0 && gy >= 0 && gx < GRID_W && gy < GRID_H && _bridgeBitmap[gy * GRID_W + gx] === 1;
+}
 function isBridgeAt(wx, wy) { return isBridgeCell(Math.floor(wx / CELL_W), Math.floor(wy / CELL_H)); }
 function isPassableAt(wx, wy) {
     const gx = Math.floor(wx / CELL_W), gy = Math.floor(wy / CELL_H);
@@ -348,7 +368,7 @@ function _navPass(gx, gy) {
     if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) return false;
     const t = terrainGrid[_gi(gx, gy)];
     if (t === TERRAIN.MOUNTAIN) return false;
-    if (t === TERRAIN.WATER) return bridgeSet && bridgeSet.has(gx + ',' + gy);
+    if (t === TERRAIN.WATER) return isBridgeCell(gx, gy);   // bitmap (tahsissiz) — davranış aynı
     return true;
 }
 // düz-hat boyunca geçilemez hücre var mı (örnekleme) → pathfinding gerekiyor mu

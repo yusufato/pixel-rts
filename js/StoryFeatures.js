@@ -42,6 +42,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'society.powerCenters': true,
     'government.institutionsAuthority': true,
     'government.stateCapacity': true,
+    'government.electionsTransfer': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -113,6 +114,13 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'population.needsWelfare',
         'society.publicOpinionMemory',
         'world.infrastructureGraph'
+    ]),
+    'government.electionsTransfer': Object.freeze([
+        'government.stateCapacity',
+        'government.institutionsAuthority',
+        'population.cohorts',
+        'society.publicOpinionMemory',
+        'society.powerCenters'
     ])
 });
 

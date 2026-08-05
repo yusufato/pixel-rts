@@ -40,6 +40,7 @@ const {
     probePowerCenters,
     probeInstitutions,
     probeStateCapacity,
+    probeElections,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -190,6 +191,14 @@ function run() {
         'Faz 30 bölgesel denetimi bütün kanonik bölgelerde izlemeli.');
     assert.ok(first.stateCapacitySummary.eventCount <= 512,
         'Devlet kapasitesi olay geçmişi sınırlı kayıt tavanını aşmamalı.');
+    assert.equal(first.electionValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli seçim ve mandat defteri korumalı.');
+    assert.equal(first.electionSummary.countryCount, 8,
+        'Faz 31 bütün devletlerin seçim rejimi ve mevcut mandatını izlemeli.');
+    assert.ok(first.electionSummary.certifiedCount >= 8,
+        '900 saniyelik dünyada ilk seçim dönemi bütün rekabetçi devletlerde tamamlanmalı.');
+    assert.ok(first.electionSummary.electionCount <= 96,
+        'Seçim geçmişi uzun dönem kayıt tavanını aşmamalı.');
     assert.equal(first.opinionSummary.cohortCount, 152 * 12,
         'Normal 900 saniyelik dünyada bütün kohortlar kamuoyu taşıyıcısı olarak izlenmeli.');
     assert.ok(first.opinionSummary.averageRememberedSeverityBps < 9500,
@@ -2315,6 +2324,73 @@ function run() {
     assert.equal(stateCapacityProbe.prerequisiteDisabled.ledger, null,
         'Faz 29 öncülü kapalıysa Faz 30 etkinleşmemeli.');
 
+    const electionProbe = probeElections();
+    assert.equal(electionProbe.main.validation.ok, true,
+        'Faz 31 seçim ve mandat defteri kendi sözleşmesini geçmeli.');
+    assert.equal(electionProbe.main.certifiedCount, 8,
+        'İlk seçim takviminde sekiz rekabetçi devlet sonucu sertifikalandırmalı.');
+    assert.equal(electionProbe.main.exactCohortVotes, true,
+        'Her kohortun dağıtılan oyları ve ülke liste toplamları kullanılan oyla tam uyuşmalı.');
+    assert.equal(electionProbe.main.eligibleMatchesPopulation, true,
+        'Uygun seçmen sayısı çocuklar hariç kanonik nüfus kohortlarından gelmeli.');
+    assert.ok(electionProbe.main.distinctWinnerSlateCount >= 2,
+        'Aynı fiziksel dünyada ülke siyasi eksenleri en az iki farklı kazanan üretebilmeli.');
+    assert.ok(electionProbe.main.coalitionCount > 0,
+        'Çoğunluksuz parlamenter sonuç açık koalisyon mandası üretmeli.');
+    assert.equal(electionProbe.main.authoritySignatureChanged, true,
+        'Sertifikalı iktidar devri yürütme makam kimliğini ve Faz 29 yetki imzasını değiştirmeli.');
+    assert.deepEqual(electionProbe.main.contestRule,
+        { narrowWeak: true, wideWeak: false, narrowStrong: false },
+        'İtiraz yalnız dar fark ile zayıf hukuk birlikteyken açılmalı.');
+    assert.equal(electionProbe.main.worldValidation.ok, true,
+        'Seçim ve mandat varlıklarını taşıyan WorldV2 geçerli olmalı.');
+    assert.equal(electionProbe.main.knowledgeValidation.ok, true,
+        'Faz 31 oyuncu bilgi görünümü geçerli olmalı.');
+    assert.equal(electionProbe.main.foreignSecretsHidden, true,
+        'Yabancı kohort oy hesabı, tercih bileşenleri ve iç güç merkezi ölçüleri sızmamalı.');
+    assert.equal(electionProbe.main.readOnly, true,
+        'WorldV2, bilgi projeksiyonu ve şehir UI’si seçim dünyasını değiştirmemeli.');
+    assert.equal(electionProbe.main.ui.ownVisible, true,
+        'Kurumlar sekmesi kendi seçim ve iktidar devri kaydını göstermeli.');
+    assert.equal(electionProbe.main.ui.foreignVisible, true,
+        'Kurumlar sekmesi yabancı kamusal seçim sonucunu göstermeli.');
+    assert.equal(electionProbe.main.ui.foreignSecretLeak, false,
+        'Yabancı şehir UI’si kohort tercih hesabını sızdırmamalı.');
+    assert.equal(electionProbe.main.saveOk, true,
+        'Faz 31 içeren tam kampanya kaydı reddedilmemeli.');
+    assert.equal(electionProbe.main.saveExact, true,
+        'Seçim defteri kayıt sırasında değişmeden yazılmalı.');
+    assert.equal(electionProbe.restored.loaded, true,
+        'Faz 31 kaydı yeni süreçte yüklenebilmeli.');
+    assert.equal(electionProbe.restored.validation.ok, true,
+        'Yüklenen Faz 31 defteri geçerli olmalı.');
+    assert.equal(electionProbe.restored.exact, true,
+        'Seçim, kohort sayımı ve mandatlar birebir geri yüklenmeli.');
+    assert.equal(electionProbe.main.migration.ok, true,
+        'V3→V2 adaptörü Faz 31 kayıtlarını taşımalı.');
+    assert.equal(electionProbe.main.migration.validation.ok, true,
+        'Göç ettirilmiş Faz 31 WorldV2 dünyası geçerli olmalı.');
+    assert.equal(electionProbe.main.migration.elections, 16,
+        'V3→V2 göçü tamamlanan ve sonraki zamanlanmış seçimleri kaybetmemeli.');
+    assert.equal(electionProbe.main.migration.mandates, 16,
+        'V3→V2 göçü başlangıç ve seçilmiş mandatları kaybetmemeli.');
+    assert.equal(electionProbe.main.migration.countryPreserved, true,
+        'V3→V2 ülke seçim görünümünü korumalı.');
+    assert.equal(electionProbe.main.migration.unmapped, false,
+        'elections bilinen kayıt alanı olarak işlenmeli.');
+    assert.equal(electionProbe.legacy.validation.ok, true,
+        'Faz 31 öncesi kayıt mevcut yürütmeden güvenli mandat backfill’i kurmalı.');
+    assert.equal(electionProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayıt seçim backfill durumunu açıklamalı.');
+    assert.equal(electionProbe.corrupt.validation.ok, true,
+        'Bozuk oy toplamı dünyayı silmeden güvenli seçim defterine dönmeli.');
+    assert.equal(electionProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk Faz 31 kurtarması teşhiste görünmeli.');
+    assert.equal(electionProbe.disabled.ledger, null,
+        'Faz 31 özellik bayrağı kapalıyken seçim defteri oluşmamalı.');
+    assert.equal(electionProbe.prerequisiteDisabled.ledger, null,
+        'Kamuoyu öncülü kapalıysa Faz 31 sahte oy üretmemeli.');
+
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
@@ -2836,6 +2912,7 @@ function run() {
         factions: 7,
         society: 3,
         'state-capacity': 2,
+        elections: 2,
         siege: 5,
         technology: 1,
         chatter: 1,
@@ -3158,7 +3235,7 @@ function run() {
         'js/Production.js', 'js/Council.js', 'js/Era.js', 'js/Chatter.js',
         'js/Talks.js', 'js/CommanderTree.js', 'js/StoryProductionSectors.js',
         'js/StoryRegionalEconomy.js', 'js/StoryMarket.js',
-        'js/StoryInstitutions.js', 'js/StoryStateCapacity.js'
+        'js/StoryInstitutions.js', 'js/StoryStateCapacity.js', 'js/StoryElections.js'
     ];
     const directStoryRandomCalls = storyRandomDomains.flatMap(relativePath => {
         const source = fs.readFileSync(path.resolve(__dirname, '..', relativePath), 'utf8');

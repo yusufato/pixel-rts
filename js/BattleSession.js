@@ -484,7 +484,14 @@ function exportBattleDiagnosticReport(summary = null) {
     };
 }
 
+// A/B ve veri-üretim koşularında replay KAYDI hiç okunmuyor ama her olayda payload
+// derin kopyalanıyor (profil: replayClone %5.3). Bu bayrak kaydı kapatır.
+// GÜVENLİ: BATTLE_REPLAY.events yalnız TEŞHİS/RAPOR fonksiyonlarında okunuyor
+// (BattleDeployment.js:1244/1464 — sim döngüsünden SONRA özet üretirler), karar
+// yolunda DEĞİL. Determinizm kapıları replay'i kullandığı için orada AÇIK kalmalı.
+let BATTLE_REPLAY_KAYITSIZ = false;
 function battleRecordEvent(type, payload = {}, tick = null) {
+    if (BATTLE_REPLAY_KAYITSIZ) return;
     if (!BATTLE_SESSION.active || BATTLE_REPLAY.playback) return;
     BATTLE_REPLAY.events.push({
         tick: Number.isFinite(tick) ? tick : (SIM.tick || 0),

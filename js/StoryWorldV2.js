@@ -6,11 +6,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_WORLD_V2_SCHEMA_VERSION = 2;
-const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-3';
+const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-4';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
     'meta', 'clock', 'countries', 'regions', 'characters',
-    'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'companies', 'mediaOutlets',
+    'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'companies', 'mediaOutlets',
     'diplomaticEdges', 'markets', 'militaryForces', 'crises',
     'events', 'decisions', 'memory', 'diagnostics'
 ]);
@@ -106,6 +106,9 @@ function storyWorldV2Countries() {
                 : null,
             stateCapacity: typeof storyStateCapacityCountryView === 'function'
                 ? storyWorldV2Clone(storyStateCapacityCountryView(storyWorldV2CountryId(state.id)))
+                : null,
+            elections: typeof storyElectionCountryView === 'function'
+                ? storyWorldV2Clone(storyElectionCountryView(storyWorldV2CountryId(state.id)))
                 : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
@@ -360,6 +363,28 @@ function storyWorldV2ImplementationTickets() {
     )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
+function storyWorldV2Elections() {
+    const ledger = typeof storyElectionEnabled === 'function'
+        && storyElectionEnabled() ? STORY.elections : null;
+    if (!ledger) return [];
+    return Object.values(ledger.elections || {}).map(election => Object.assign(
+        storyWorldV2EntityBase(election.id, election.countryId, election.campaignStartsAt, null),
+        storyWorldV2Clone(election),
+        { entityType: 'ELECTION' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
+function storyWorldV2Mandates() {
+    const ledger = typeof storyElectionEnabled === 'function'
+        && storyElectionEnabled() ? STORY.elections : null;
+    if (!ledger) return [];
+    return Object.values(ledger.mandates || {}).map(mandate => Object.assign(
+        storyWorldV2EntityBase(mandate.id, mandate.countryId, mandate.startedAt, mandate.sourceElectionId),
+        storyWorldV2Clone(mandate),
+        { entityType: 'GOVERNMENT_MANDATE' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
 function storyWorldV2Forces() {
     const forces = [];
     for (const state of (STORY.states || [])) {
@@ -462,6 +487,8 @@ function storyWorldV2CreateEmpty(options) {
         powerCenters: [],
         institutions: [],
         implementationTickets: [],
+        elections: [],
+        mandates: [],
         companies: [],
         mediaOutlets: [],
         diplomaticEdges: [],
@@ -519,6 +546,8 @@ function storyWorldV2Snapshot() {
         powerCenters: storyWorldV2PowerCenters(),
         institutions: storyWorldV2Institutions(),
         implementationTickets: storyWorldV2ImplementationTickets(),
+        elections: storyWorldV2Elections(),
+        mandates: storyWorldV2Mandates(),
         companies: typeof storyCompanyEnsure === 'function'
             ? (() => {
                 const ledger = storyCompanyEnsure();
@@ -731,7 +760,7 @@ function storyWorldV2Validate(world, options) {
     }
 
     const collectionNames = STORY_WORLD_V2_TOP_LEVEL.filter(key => [
-        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets',
+        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates',
         'companies', 'mediaOutlets', 'diplomaticEdges', 'markets', 'militaryForces',
         'crises', 'events', 'decisions'
     ].includes(key));

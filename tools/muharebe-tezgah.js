@@ -215,6 +215,9 @@ function macKos(ctx, tSal, tSav, seed) {
         // muharebe/yaşam olayları) hiç okunmuyor. Kayıt fonksiyonları null telemetriyi zaten
         // atlıyor (battleCaptureTelemetrySample vb. `if (!telemetry) return`), yani kapatmak güvenli.
         (TELEMETRISIZ ? 'BATTLE_REPLAY.telemetry = null;' : '') +
+        // Replay olay kaydı da A/B'de okunmuyor (profil: replayClone %5.3) → telemetriyle
+        // birlikte kapanır. Determinizm kapıları replay kullandığı için orada açık kalır.
+        (TELEMETRISIZ ? 'if (typeof BATTLE_REPLAY_KAYITSIZ !== "undefined") BATTLE_REPLAY_KAYITSIZ = true;' : '') +
         'let mv;' +
         'if (sezSav) {' +
         '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = (tSav.varied !== false);' +

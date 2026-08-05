@@ -189,6 +189,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                 gameTime,
                 own ? 'OWN_STATE_CAPACITY_LEDGER' : 'PUBLIC_GOVERNANCE_RECORD'
             )),
+            elections: fact(storyPlayerVerifiedFact(
+                country.id,
+                'elections',
+                own ? country.elections : (typeof storyElectionPublicView === 'function'
+                    ? storyElectionPublicView(country.elections) : null),
+                gameTime,
+                own ? 'OWN_ELECTION_ADMINISTRATION' : 'PUBLIC_ELECTION_RECORD'
+            )),
             resources: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'resources', country.resources, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(country.id, 'resources', gameTime))
