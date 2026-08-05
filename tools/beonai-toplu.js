@@ -54,7 +54,9 @@ function bosBellekGB() {
 // ÖLÇÜLDÜ (canlı koşuda): veri üretimi işçisi ~1.1-1.2 GB tutuyor, düz maç işçisi 451 MB.
 // Fark oracle'dan: her karar noktasında fork alınıp 65 rollout koşuluyor → tam sim anlık
 // görüntüsü + rollout durumu bellekte. caprazla'nın 0.5GB varsayılanı BURAYA UYMAZ.
-const ISCI_GB = Number(arg('--isci-gb', 1.3));
+// PARTİ (taze süreç) ile birlikte işçi belleği 1.1-1.2 GB'den ~0.4-0.5 GB'ye iner
+// (ölçüm: tek tohumluk iş yükünde 364 MB). Pay ile 0.6 GB.
+const ISCI_GB = Number(arg('--isci-gb', 0.6));
 const REZERV_GB = Number(arg('--rezerv-gb', 2.5));
 const KRITIK_GB = Number(arg('--kritik-gb', 1.0));
 const BOS_GB = bosBellekGB();
@@ -68,9 +70,15 @@ if (ISCI > TAVAN && !ZORLA) {
     ISCI = TAVAN;
 }
 
-// tohumları serpiştirerek dağıt (harita zorluğu işçiler arasında dengelensin)
-const dilimler = Array.from({ length: ISCI }, () => []);
-TOHUMLAR.forEach((s, i) => dilimler[i % ISCI].push(s));
+// ── PARTİ: her parti TAZE SÜREÇ ────────────────────────────────────────────
+// ÖLÇÜLDÜ: tek tohumluk küçük iş yükünde işçi 364 MB; 12 tohumu tek süreçte işleyince
+// 1.1-1.2 GB'ye çıkıyor. Yani bellek SÜREÇ ÖMRÜ boyunca birikiyor (V8 yığını işletim
+// sistemine geri vermiyor); yığın sınırı işe yaramadı (384MB sınırıyla 332 MB).
+// Çözüm caprazla.js'teki ile aynı: işi küçük partilere böl, her parti taze süreçte koşsun
+// → bellek TOPLAM tohum sayısından bağımsız kalır ve çok daha fazla işçi sığar.
+const PARTI = Math.max(1, Number(arg('--parti', 2)) || 2);
+const dilimler = [];
+for (let i = 0; i < TOHUMLAR.length; i += PARTI) dilimler.push(TOHUMLAR.slice(i, i + PARTI));
 
 fs.mkdirSync(GECICI, { recursive: true });
 for (const f of fs.readdirSync(GECICI)) fs.unlinkSync(path.join(GECICI, f));
@@ -83,6 +91,7 @@ console.log('  UYARI : karar başı ~5sn ölçüldü; maliyet (aday+1)×rollout,
 console.log('');
 
 const t0 = Date.now();
+let biten = 0;
 const cocuklar = [];
 let kesildi = false, ihlal = 0;
 const gozcu = setInterval(() => {
@@ -95,7 +104,7 @@ const gozcu = setInterval(() => {
     }
 }, 6000);
 
-const isler = dilimler.map((dilim, i) => new Promise(cozum => {
+function partiKosu(dilim, i) { return new Promise(cozum => {
     if (!dilim.length) return cozum({ ok: true, bos: true });
     const dosya = path.join(GECICI, 'parca-' + i + '.jsonl');
     const c = spawn(process.execPath, [path.join(__dirname, 'beonai-uret.js'),
@@ -109,14 +118,29 @@ const isler = dilimler.map((dilim, i) => new Promise(cozum => {
         const ok = kod === 0 && fs.existsSync(dosya);
         const sn = Math.round((Date.now() - t0) / 1000);
         const ozet = (son.match(/BEONAI_URET_OK[^\n]*/) || [''])[0];
-        console.log('  işçi ' + i + ' bitti (' + dilim.length + ' tohum, ' + sn + 'sn)  ' + (ok ? ozet : '✗ KOD ' + kod));
+        console.log('  [' + (++biten) + '/' + dilimler.length + '] parti ' + i + ' (' + dilim.length + ' tohum, ' + sn + 'sn)  ' + (ok ? ozet : '✗ KOD ' + kod));
         const ix = cocuklar.indexOf(c); if (ix >= 0) cocuklar.splice(ix, 1);
         cozum({ ok, dosya, tohum: dilim });
     });
     cocuklar.push(c);
-}));
+}); }
 
-Promise.all(isler).then(sonuclar => {
+// Sınırlı eşzamanlılıkla kuyruğu tüket: aynı anda en çok ISCI süreç yaşar,
+// her biri yalnız PARTI tohum işleyip kapanır → bellek sabit kalır.
+async function kuyruguKostur() {
+    const sonuc = [];
+    let sira = 0;
+    const kanal = async () => {
+        while (sira < dilimler.length && !kesildi) {
+            const i = sira++;
+            sonuc[i] = await partiKosu(dilimler[i], i);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(ISCI, dilimler.length) }, kanal));
+    return sonuc.filter(Boolean);
+}
+
+kuyruguKostur().then(sonuclar => {
     clearInterval(gozcu);
     const hedef = path.resolve(CIKTI);
     fs.mkdirSync(path.dirname(hedef), { recursive: true });
