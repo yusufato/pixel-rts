@@ -362,7 +362,8 @@ class Unit {
             this.engageCombat(now);
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
-            if (!this._heloAvlan() && !this._ikmaleGit()) this._standoffKac();   // hepsi ateşten SONRA çalışır → atışı kesmez, yalnız hareketi ezer
+            // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
+            if (!this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1424,6 +1425,65 @@ class Unit {
                 this.attackTarget = null;   // ÖLÇÜM: özsavunma KAPALI (eski davranış) — fix'in etkisini ölçmek için
             }
         }
+    }
+
+    // ── INTEL4-PRO 'jammerPost': JAMMER KENDİNİ DRON TRAFİĞİNE KONUŞLANDIRIR ──
+    // KULLANICI TEŞHİSİ ("güçlü bir araç ama jammeri iyi konuşlandıramıyor") ÖLÇÜMLE ONAYLANDI
+    // (tools/jammer-konum-teshis.js, seed2024): düşman dron örneklerinin yalnız %5.2'si jam
+    // baloncuğunda; jammer en yakın düşman drona ortalama 1749px uzakta, oysa baloncuk 1143px.
+    // Yani ~600px yanlış yerde duruyor. Üstelik hiç ölmüyor (derinlik 0.42, kendi yarısı) —
+    // öne çıkmak için hem yer hem güvenlik var.
+    // Kural: GÖRÜLEN düşman jammable birimlerin merkezini baloncuğa al; düşman ateşinden uzak dur;
+    // kendi yarısının ötesine tavan koy. Determinist: yalnız mesafe + canSee (RNG yok).
+    // Dönüş: true ise hareketi devraldı.
+    _jammerKonuslan() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'jammerPost')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.speed || this._returningToBase) return false;
+        const st = STATS[this.type];
+        const aura = st && st.aura;
+        if (!aura || aura.type !== 'jamming') return false;
+        const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 100;
+        const R = (aura.radius || 3) * TP;
+
+        // HEDEF: GÖRÜLEN düşman jammable birimlerin (dron/İHA) merkezi. Görülmeyeni kullanmak
+        // kusursuz-bilgi olurdu — canSee ile sınırlı tutuluyor (AI'ın geri kalanıyla tutarlı).
+        let cx = 0, cy = 0, n = 0;
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || !e.jammable) continue;
+            if (typeof canSee === 'function' && !canSee(this.isRed, e.x, e.y, e.isAir)) continue;
+            cx += e.x; cy += e.y; n++;
+        }
+        if (!n) return false;   // görünür dron yok → mevcut davranış sürsün
+        cx /= n; cy /= n;
+
+        // GÜVENLİK: jammer SİLAHSIZ (300hp). Görülen düşman ATEŞLİ KARA birimine PRO_JAM_TEHDIT'ten
+        // yakınsa ilerlemez — 480₺'yi bedavaya vermek kapsamadan daha pahalı.
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || e.isAir) continue;
+            const es = STATS[e.type];
+            if (!es || !es.weapons || !es.weapons.length) continue;
+            if (Math.hypot(e.x - this.x, e.y - this.y) <= PRO_JAM_TEHDIT) return false;
+        }
+
+        const d = Math.hypot(cx - this.x, cy - this.y);
+        if (d <= R * PRO_JAM_ICERI) {   // merkez zaten baloncukta → dur, sürüklenme
+            this.targetX = this.x; this.targetY = this.y;
+            this.isMovingToManualTarget = true;
+            if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.jammerPostBind = (BATTLE_BALANCE.jammerPostBind || 0) + 1;
+            return true;
+        }
+        // Merkezi baloncuğa alacak kadar yaklaş (üstüne gitme).
+        const t = (d - R * PRO_JAM_ICERI) / d;
+        let hx = this.x + (cx - this.x) * t, hy = this.y + (cy - this.y) * t;
+        // DERİNLİK TAVANI: kendi üssünden düşman üssüne doğru bu kesri aşma (silahsız birim istila etmez).
+        const derin = this.isRed ? hy / WORLD_H : 1 - hy / WORLD_H;
+        if (derin > PRO_JAM_DERINLIK) hy = this.isRed ? WORLD_H * PRO_JAM_DERINLIK : WORLD_H * (1 - PRO_JAM_DERINLIK);
+        this.targetX = hx; this.targetY = hy;
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.jammerPostBind = (BATTLE_BALANCE.jammerPostBind || 0) + 1;
+        return true;
     }
 
     // ── INTEL4-PRO 'heloHunt': HAVA VURUCU AVLANIR (AA'nın örtmediği hedefe gider) ──

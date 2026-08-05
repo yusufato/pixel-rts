@@ -434,8 +434,30 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // %46-62) ve 12/12 mühimmatla — TAM YÜKLE — ölüyor. 800₺'lik birim maçta 1-2 atış yapıyor.
     // Konumlandırma sorunu DEĞİL: atışlarının ortalaması menzilinin %92'sinden, AA zarfında
     // geçirdiği süre %0-1. Eksik olan AVLANMA: helo ana kuvvetle oyalanıyor, hedefe GİTMİYOR.
-    heloHunt: true
+    heloHunt: true,
+    // P10 — JAMMER KONUŞLANDIRMA (BECERİ #29). KULLANICI TEŞHİSİ ölçümle onaylandı: düşman dron
+    // örneklerinin yalnız %5.2'si jam baloncuğunda; jammer en yakın drona ort. 1749px uzakta,
+    // baloncuk ise 1143px → ~600px yanlış yerde. Hiç ölmüyor (derinlik 0.42) → öne çıkmak için
+    // hem yer hem güvenlik var. Jamming mekanizmasının üç ölü katmanı düzeltildikten SONRA
+    // yazıldı; artık kapsamayı artıran her adım gerçek karşılık üretebilir.
+    //
+    // ÖLÇÜLDÜ ve **KATMAN 1'DE ELENDİ** → VARSAYILAN KAPALI. İzole A/B (pro her iki kolda açık,
+    // yalnız bu anahtar değişti), dron-ağırlıklı saldırgana karşı 2 jammerli savunan:
+    //   KONTROL (kapalı)          kapsama %13.0   jammer ölümü 120sn, 127sn
+    //   tehdit 900  / derinlik .75 kapsama  %6.8  jammer ölümü  45sn,  69sn
+    //   tehdit 1500 / derinlik .45 kapsama  %8.0  jammer ölümü  63sn,  97sn
+    //   tehdit 2000 / derinlik .35 kapsama %13.0  (hiç bağlamadı = kontrolün aynısı)
+    // Jammer'ı HAREKET ETTİREN her ayar kapsamayı DÜŞÜRÜYOR ve onu daha erken öldürüyor.
+    // KÖK NEDEN — hipotez yanlıştı: dron trafiği DÜŞMAN KUVVETİNİN yanında; oraya yaklaşan
+    // silahsız 300hp'lik birim ölüyor ve ölü jammer hiçbir şey örtmüyor.
+    // GELECEK YÖNÜ (yazılmadı): dronu KOVALAMAK yerine dronun HEDEFİNİ örtmek — kendi topçu/
+    // komuta/ikmal kümesinin üstüne şemsiye kurmak. Dron oraya zaten geliyor; jammer güvende kalır.
+    jammerPost: false
 };
+// ── 'jammerPost' PARAMETRELERİ (aranabilir) ──
+let PRO_JAM_ICERI = 0.70;      // dron merkezini baloncuğun bu kesrine al (kenarında değil, içinde)
+let PRO_JAM_TEHDIT = 900;      // görülen düşman ateşli KARA birimi bu kadar yakınsa ilerleme (silahsız 300hp)
+let PRO_JAM_DERINLIK = 0.75;   // kendi üssünden düşman üssüne doğru bu kesri aşma
 // ── 'heloHunt' PARAMETRELERİ (aranabilir) ──
 let PRO_HELO_AA_KACIN = 1200;   // düşman AA'sının bu yarıçapı içindeki hedefe gitme (SEAD disiplini)
 let PRO_HELO_YAKLAS = 0.85;     // kendi menzilinin bu kesrine kadar yaklaş (hedefin üstüne binme)
@@ -589,7 +611,7 @@ function drawH() { return BASE_DRAW_H * zoom; }
 // Yükleme sırası (index.html): UnitData.js → UnitFeatures.js → UnitLoader.js → globals.js.
 // T = BÜYÜK-harf takma adlar (T.INFANTRY, T.ARMOR(mbt), T.SAM, T.MANPADS, ...); STATS[index] = motor-tanımı
 // (hp,atk,speed,range,vision,atkSpeed,armor,cost,maxAmmo,name + YENİ: armorType,weapons[],aura,flight,domain,targets,minRange...).
-// Eski UNIT_*_MULTIPLIER döngüsü KALKTI — roster mutlak değerler; loader zaten kare→px ölçekledi (TILE_PX=35).
+// Eski UNIT_*_MULTIPLIER döngüsü KALKTI — roster mutlak değerler; loader zaten kare→px ölçekledi (TILE_PX=100, bkz. UnitLoader.js:10).
 const __UNIT_LOAD = unitLoaderBuild(UNITS_MODERN_DB);
 const T = __UNIT_LOAD.CONST;
 const STATS = __UNIT_LOAD.STATS;

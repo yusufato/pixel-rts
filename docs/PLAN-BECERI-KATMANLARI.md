@@ -554,3 +554,45 @@ sonuç: jam baloncuğu haritanın %2.9'u; seed2024'te keşif İHA'sı maçın ~%
 > doğrudan karşılığını görecek.
 
 **Kapılar:** forktest `true` · liverepro `false` · pdtest OK · defertest OK.
+
+---
+
+## 14. #29 JAMMER KONUMLANDIRMA — KATMAN 1'DE ELENDİ (ikinci eleme)
+
+Kullanıcının teşhisi ("jammeri iyi konuşlandıramıyor") doğruydu ama **benim çözümüm yanlıştı.**
+
+**Önce iki ölçüm hatası düzeltildi (ikisi de kendi hatam):**
+1. `TILE_PX` = **100**, 35 değil (globals.js'deki yorum bayattı). Jam yarıçapı 400px değil **1143px**,
+   haritanın %2.9'u değil **%23'ü**. §13'teki "yarıçap küçük" açıklaması YANLIŞTI — düzeltildi.
+2. Teşhis aracı tarifleri hiç uygulamıyordu (`battleBuildArmyManifest`'e `recipe:` geçilmemişti) ve
+   kırmızıyı ÇİFT konuşlandırıyordu (`openBattlefieldSession` zaten `BATTLE_RECIPE_RED`'den kurar).
+   İlk "kapsama %5.2" rakamı bu bozuk kurulumdan geliyordu.
+3. İlk A/B'de kontrol kolunda pro TAMAMEN kapalıydı → fark tüm deltalara aitti. Kanıt: `bağlama:0`
+   olan koşu bile tabandan farklı çıkmıştı. İzole edildi.
+
+**Düzeltilmiş teşhis (izole, pro her iki kolda açık):** kapsama %13, jammerlar 120/127sn yaşıyor.
+
+**Kural yazıldı** (`js/Unit.js` `_jammerKonuslan`): görülen düşman dronlarının merkezini baloncuğa al;
+düşman ateşinden `PRO_JAM_TEHDIT` uzak dur; `PRO_JAM_DERINLIK` derinlik tavanı.
+
+**KATMAN 1 ELEDİ:**
+
+| kol | kapsama | jammer ölümü |
+|---|---|---|
+| KONTROL | **%13.0** | 120sn, 127sn |
+| tehdit 900 / derinlik 0.75 | %6.8 | 45sn, 69sn |
+| tehdit 1500 / derinlik 0.45 | %8.0 | 63sn, 97sn |
+| tehdit 2000 / derinlik 0.35 | %13.0 (hiç bağlamadı) | 120sn, 127sn |
+
+Jammer'ı hareket ettiren **her** ayar kapsamayı düşürüyor. Tek "güvenli" ayar beceriyi hiç
+çalıştırmayan ayar.
+
+**Kök neden — hipotez yanlıştı:** dron trafiği düşman kuvvetinin yanında. Oraya yaklaşan silahsız
+300hp'lik birim ölüyor ve ölü jammer hiçbir şey örtmüyor. AI'ın mevcut "kütleyle kal" davranışı,
+bu birim için zaten daha iyi.
+
+**GELECEK YÖNÜ (yazılmadı):** dronu KOVALAMAK yerine dronun HEDEFİNİ örtmek — kendi topçu/komuta/
+ikmal kümesinin üstüne şemsiye kurmak. Dron oraya zaten geliyor; jammer güvende kalır. Bu, aynı
+kapıdan geçmek üzere ayrı bir beceri olarak sıraya alındı.
+
+**Durum:** `jammerPost` varsayılan KAPALI. Kod+parametreler duruyor (Katman 5 araması için).
