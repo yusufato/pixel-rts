@@ -51,7 +51,10 @@ function bosBellekGB() {
     return os.freemem() / 1e9;
 }
 
-const ISCI_GB = Number(arg('--isci-gb', 0.5));
+// ÖLÇÜLDÜ (canlı koşuda): veri üretimi işçisi ~1.1-1.2 GB tutuyor, düz maç işçisi 451 MB.
+// Fark oracle'dan: her karar noktasında fork alınıp 65 rollout koşuluyor → tam sim anlık
+// görüntüsü + rollout durumu bellekte. caprazla'nın 0.5GB varsayılanı BURAYA UYMAZ.
+const ISCI_GB = Number(arg('--isci-gb', 1.3));
 const REZERV_GB = Number(arg('--rezerv-gb', 2.5));
 const KRITIK_GB = Number(arg('--kritik-gb', 1.0));
 const BOS_GB = bosBellekGB();
