@@ -3936,6 +3936,20 @@ WorldV2, V3→V2 göçü, kayıt/yükleme, eski/bozuk kayıt kurtarma, scheduler
 **Kabul kapısı:** Oyuncu/AI yetkisiz eylemi doğrudan uygulayamıyor.  
 **Bağımlılık:** Faz 28.
 
+**Uygulama durumu (5 Ağustos 2026):** Tamamlandı. `js/StoryInstitutions.js`, `story-institution-authority-ledger-1` sözleşmesiyle sekiz devletin her birinde yürütme, yasama, yargı, silahlı kuvvetler komutası ve yerel idare olmak üzere toplam `40` kanonik kurum kurar. Mevcut `st.constitution` etiketi beş rejim profiline çevrilir: parlamenter denge, yürütme ağırlıklı otokrasi, liberal demokrasi, askerî yönetim ve meclis yönetimi. Kurumlar fiziksel gücü veya meşruiyeti uydurmaz; yalnız 29 eylem türü için başvuru, onay ve yürütme yetkisini sürümlü yasal rotaya bağlar.
+
+Karar zinciri `DIRECT / JOINT / PETITION / PROHIBITED / EXTERNAL_DOMAIN` ayrımını korur. Başvuru hakkı ile onay hakkı aynı değildir. Kurum içi ortak karar `JOINT`, güç merkezinden kuruma talep `PETITION` olur; merkezin kendi bildirim/koordinasyon eylemi ikinci bir sahte makam imzası istemez. Zorunlu kurumların tamamı onay vermeden istek `AUTHORIZED` olamaz ve yalnız kayıtlı yürütücü `EXECUTED` durumuna geçirebilir. Sahte aktör kimliği `ACTOR_SOURCE_MISMATCH`, yasal rotasız eylem `NO_LAWFUL_ROUTE`, yabancı yerel yetki alanı `TARGET_OUTSIDE_JURISDICTION` ile reddedildi. LLM, istemci payload'ı, fraksiyon puanı veya rastgele zar makam/yetki üretemez.
+
+Makam imzası ülke bazındadır. Bir başka devletin rejim değişimi oyuncunun bekleyen dilekçesini bozmaz; aynı ülkenin anayasası, doğrulanmış makam sahibi veya yerel yetki alanı değişirse tamamlanmamış istek `STALE_AUTHORITY` olur. Sadakat gibi akışkan kişilik değeri makam kimliğine katılmaz. Bu ayrım hedefli probda yabancı değişim sonrası `PENDING_APPROVAL`, kendi değişimi sonrası `STALE_AUTHORITY` olarak kanıtlandı.
+
+Faz 28'in kilitli eylem bildirimi canlı anayasal sınıra göç etti: her güç merkezi için eylemler doğrudan, onaya bağlı veya yasak kümelerine ayrılır. WorldV2 kurumları 40 tekil varlık, ülke yetki görünümü ve bölgesel yerel idare olarak taşır. Oyuncu kendi ülkesinde makam sahibi, yetki grant'leri, karar rotaları ve bekleyen onayları görür; yabancı ülkede yalnız kamusal rejim, makam adı ve kamusal yetki alanı görünür. Şehir `KURUMLAR` sekmesi anayasal düzeni gösterirken ekonomi/fraksiyon görünümü güç merkezlerini ayrı mercek olarak korur.
+
+Kayıt/yükleme ve UI saflığı iki ayrı regresyon yakaladı. İlk yükleme sırası kolektif hareket defterini güç merkezi kimlikleri kurulmadan açarak Faz 26'nın birebir devam kapısını bozuyordu; kesin sıra `komutan → kurum → güç merkezi → kolektif hareket → göç` olarak düzeltildi. İkinci hata WorldV2/UI okumasının gecikmiş rejim uzlaştırmasını çalıştırıp dünya karmasını değiştirmesiydi; bütün kurum görünüm API'leri salt-okunur yapıldı, uzlaştırma yalnız scheduler/kayıt kapısında kaldı. Hedefli projeksiyon önce/sonra `44af8086…4224` karmasını birebir korudu.
+
+`qa-runtime/story-phase29-ab.json`, aynı tohumlu 900 saniyede kapalı `a32befd176c0aba3c8def9eab9e3fdf22f244483ae8c5140b5b70afad5b41a45` ve açık `4a7b34ade1039f0f44ce00fa2f82a59ab9677af92709a92016525d4f361323a0` karmalarını saklar. İlk fark yalnız `$.institutions`, sonraki farklar güç merkezi eylem sınırlarıdır; refah, enflasyon, huzursuzluk, devlet/haber sayısı ve petrol/insan gücü/puan deltalarının tamamı `0`dır. Açık dünya `40` kurum, `179` kurum tiki ve normal koşuda `1` rejim/makam uzlaştırma olayı taşır. Final gıda `%85,13`, enerji `%85,36`, yaşam `%73,33`; sekiz devlet hayattadır. Tam `npm test` çıkış kodu `0`, toplam duvar süresi `1.734,8 sn`, ana 900 saniyelik koşu `134.268,9 ms`dir.
+
+Kapsam sınırı açıktır: `AUTHORIZATION_RECORD_ONLY_PHASE_29` kararın fiziksel sonucunu uygulamaz. Bürokratik gecikme, kapasite, yolsuzluk, bölgesel sızıntı ve kararın kâğıtta kalması Faz 30'un; seçimle makam değişimi Faz 31'in; ideolojik politika üretimi Faz 32'nin sahibidir. Faz 29 bunları varmış gibi simüle etmez, fakat sonraki katmanların aşamayacağı tek yetki kapısını sağlar.
+
 ### FAZ 30 — Meşruiyet ve Devlet Kapasitesi
 
 **Amaç:** Kâğıt üzerindeki karar ile uygulanabilen karar arasındaki farkı kurmak.  

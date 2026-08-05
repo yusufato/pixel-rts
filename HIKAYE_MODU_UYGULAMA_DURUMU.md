@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 28 — Güç Merkezleri
+**Son kapanan faz:** Faz 29 — Rejim ve Kurum Şeması
 
-**Aktif uygulama sırası:** Faz 29 — Rejim ve Kurum Şeması
+**Aktif uygulama sırası:** Faz 30 — Meşruiyet ve Devlet Kapasitesi
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -52,8 +52,9 @@
 | Faz 26 — Protesto, Grev ve Radikalleşme | `implemented` | `js/StoryCollectiveAction.js`; eşik+histerezisli protesto/grev/ayaklanma, bölgesel fiziksel etki, bastırma hafızası, devlet cevabı, bilgi filtreli UI ve `qa-runtime/story-phase26-ab.json` |
 | Faz 27 — Göç ve Mülteci Akışı | `complete` | İç/dış göç ve mülteci akışı gerçek rota, gecikme, kapasite ve atomik kohort aktarımıyla çalışıyor |
 | Faz 28 — Güç Merkezleri | `complete` | `js/StoryPowerCenters.js`; 8 devlet × 7 kimlikli merkez, kanonik destek/kaynak kanıtı, Faz 26 örgüt bağlantısı, bilgi filtreli UI ve `qa-runtime/story-phase28-ab.json` |
-| Faz 29 — Rejim ve Kurum Şeması | `next` | Merkezlerin ilan edilmiş fakat kilitli eylemlerini gerçek yürütme/yasama/yargı/ordu/yerel idare yetkilerine bağlayacak |
-| Faz 30+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 29 — Rejim ve Kurum Şeması | `complete` | `js/StoryInstitutions.js`; 8 devlet × 5 kurum, 29 eylemde DIRECT/JOINT/PETITION/yasak rotası, makam doğrulama, bilgi filtreli UI ve `qa-runtime/story-phase29-ab.json` |
+| Faz 30 — Meşruiyet ve Devlet Kapasitesi | `next` | Yetkili karar ile uygulanabilen karar arasına kapasite, gecikme, yolsuzluk ve bölgesel denetim koyacak |
+| Faz 31+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -857,6 +858,19 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Nihai 900 saniyede 56 etkin merkez ve 26 olay vardır. Gıda `%85,13`, enerji `%85,36`, yaşam `%73,33`; ortalama refah `65,375`, enflasyon `2,255`, huzursuzluk `3,09`; sekiz devlet hayatta. Normal dünyada 6 protesto, 0 grev, 0 ayaklanma ile Faz 27 sonuçları korunmuştur.
 - `qa-runtime/story-phase28-ab.json`: kapalı `f9ce09a7…c4bfc`, açık `52bd56c2…6607a`; dünya durumu yeni ledger nedeniyle farklıdır fakat refah, enflasyon, huzursuzluk, devlet/haber ve petrol/insan gücü/puan deltalarının tamamı `0`. Açık/kapalı doğrulayıcılar, kayıt/yükleme ve gizlilik kapısı geçti.
 - Tam `npm test` çıkış kodu `0`; toplam duvar süresi `1.645 sn`, test içi ana 900 saniyelik simülasyon `132.280,69 ms`. Önceki 30 dakikalık zaman aşımı eşzamanlı 12-worker savaş benchmark’ıyla CPU rekabetiydi; kapsam veya eşik azaltılmadan temiz koşu tamamlandı. Sıradaki uygulama **Faz 29 — Rejim ve Kurum Şeması**dır.
+
+## Faz 29 — Rejim ve Kurum Şeması kabul sonucu
+
+- `js/StoryInstitutions.js`, sekiz devlette yürütme, yasama, yargı, silahlı kuvvetler komutası ve yerel idare olmak üzere `40` kimlikli kurum kuruyor. Beş mevcut anayasa etiketi farklı onay zincirlerine sahip rejim profillerine dönüştürülüyor; toplam `29` eylem türü sürümlü rotaya bağlı.
+- `DIRECT`, `JOINT`, `PETITION`, `PROHIBITED` ve dış-domain ayrımı gerçek davranış taşıyor. Başvuru hakkı onay hakkına eşitlenmiyor; bütün zorunlu makamlar imzalamadan karar yetkilendirilmiyor ve yalnız kayıtlı yürütücü tamamlayabiliyor. Sahte aktör, yasal rotasız eylem ve yabancı yerel yetki alanı hedefli probda ayrı ret kodlarıyla durduruldu.
+- Faz 28 merkezlerinin eski `DECLARED_LIMITS_PRE_PHASE_29` kilidi canlı anayasal sınıra göç etti. Merkez eylemleri doğrudan, kurumsal onaya bağlı veya yasak olarak bölünüyor; merkezin kendi koordinasyonu sahte ikinci makam istemiyor, lobi/dilekçe kurumsal onaysız yürümüyor.
+- Makam imzası küresel değil ülke bazında. Başka devletin rejim değişimi bekleyen oyuncu kararını etkilemedi; kendi devletinin rejim/makam zinciri değiştiğinde istek `STALE_AUTHORITY` oldu. Sadakat gibi akışkan değerler makam imzasından çıkarıldı.
+- WorldV2 `40` tekil kurum, ülke yetki şeması ve bölgesel yerel idare taşıyor. Kendi görünüm tam yetki/onay kaydını, yabancı görünüm yalnız kamusal rejim/makam/yetki alanını gösteriyor; aktör kimliği ve bekleyen onaylar sızmadı. Şehir `KURUMLAR` sekmesi anayasal düzeni gösteriyor, ekonomi/fraksiyon görünümü güç merkezlerini ayrı tutuyor.
+- Kayıt/yükleme birebir; eski kayıt canlı anayasa ve makamlardan açıklamalı backfill alıyor; bozuk makam sahibi kaydı güvenli yeniden kurulumla reddediliyor; özellik veya güç merkezi öncülü kapalı yol `null`. Scheduler 21 görevli sicilde kurumu göçten sonra, güç merkezinden önce 5 saniyelik ritimde çalıştırıyor.
+- Tam regresyon iki gerçek hatayı buldu ve düzeltme sonrası sıfırdan yeniden geçti. Yükleme sırası `komutan → kurum → güç merkezi → kolektif hareket → göç` yapıldı; Faz 26 hareket kaydı tekrar birebir oldu. WorldV2/UI görünümü salt-okunur yapıldı; hedefli projeksiyon `44af8086…4224` karmasını önce/sonra korudu.
+- `qa-runtime/story-phase29-ab.json`: kapalı `a32befd1…1a45`, açık `4a7b34ad…23a0`. İlk fark yalnız `$.institutions`; refah, enflasyon, huzursuzluk, devlet/haber ve üç kaynak deltasının tamamı `0`. Açık koşuda `40` kurum, `179` tik ve `1` uzlaştırma olayı vardır.
+- Nihai 900 saniyede gıda `%85,13`, enerji `%85,36`, yaşam `%73,33`; ortalama refah `65,375`, enflasyon `2,255`, huzursuzluk `3,09`; sekiz devlet hayatta. Tam `npm test` çıkış kodu `0`, toplam süre `1.734,8 sn`, ana koşu `134.268,9 ms`, dünya karması `4a7b34ade1039f0f44ce00fa2f82a59ab9677af92709a92016525d4f361323a0`.
+- Faz 29 fiziksel karar uygulaması değildir. `AUTHORIZATION_RECORD_ONLY_PHASE_29` yalnız geçerli yetki fişi üretir. Kapasite, gecikme, yolsuzluk ve bölgesel uygulama farkı uydurulmadı; sıradaki uygulama **Faz 30 — Meşruiyet ve Devlet Kapasitesi**dir.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)
 
