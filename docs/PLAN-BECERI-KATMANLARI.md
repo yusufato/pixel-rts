@@ -706,3 +706,56 @@ Yani kullanıcının gözlemi de, AI'ın mevcut davranışı da tutarlı; eksik 
 **AI-vs-AI tezgâhı bu senaryoyu üretemiyor** — ölçüm sınırı olarak kayda geçti.
 
 **Durum:** `jammerUmbrella` varsayılan KAPALI (gereksiz). Kod duruyor.
+
+---
+
+## 17. ZIRHLI KONUŞLANDIRMA — teşhis müdahale KATMANINI değiştirdi
+
+> **Kullanıcı:** "zırhlı birliklere gelirsek ön zırhlarını göstermeleri çok daha mantıklı; AI
+> muhtemelen öylesine kötü bir konuma sokuyor ki zırhın bir anlamı kalmıyor."
+
+Bu tespit **doğru çıktı** ve `armorFace`'in neden karşılık vermediğini açıkladı.
+
+### (a) Hasar kaynağı — benim hipotezim YANLIŞTI
+
+`armorFace` elenirken "hasarın çoğu dolaylı/patlama, o yüzden yön önemsiz" diye tahmin etmiştim.
+Ölçüm (`tools/zirh-hasar-teshis.js`) bunu çürüttü:
+
+| kaynak | vuruş payı | öldüren payı |
+|---|---|---|
+| **DIRECT_FIRE** | **%76** | %67 |
+| ARTILLERY_SPLASH | %22 | %0 |
+| KAMIKAZE_IMPACT | %2 | %33 |
+
+Yön çarpanı hasarın **dörtte üçünde zaten okunuyor.** Sorun 'yön' değil.
+
+### (b) Ölüm bağlamı — kullanıcı haklı
+
+| zırhlı öldüğü an | 600px dost | 1200px düşman |
+|---|---|---|
+| M 24sn (derinlik 0.47) | 2 | **14** |
+| M 52sn (derinlik 0.46) | 4 | **17** |
+| M 69sn (derinlik 0.44) | 6 | 6 |
+| **ORT.** | **4** | **12.3** |
+
+**1:3 yerel dezavantaj.** O oranda ×1.5'lik yan-zırh çarpanının hiçbir önemi yok — nitekim
+`armorFace` maruziyeti %37→%4 düşürdüğü hâlde ömrü değiştirmedi.
+
+### (c) Yazılan kural HİÇ BAĞLAMADI — ve bu asıl bulgu
+
+`localRatio` (yerel dost/düşman oranı eşiğin altındaysa kapatma) yazıldı: **0 tik bağladı.**
+Sebep: kural `!standOff` koşuluna bağlıydı, ama o noktada `standOff` ZATEN true oluyor
+(duruş kapısı `standOff = !gate.open` veya `range` deltası menzil≥520 için).
+
+> **Zırhlı ilerlediği için ölmüyor. Zaten menzilde duruyor; DÜŞMAN onun üstüne geliyor.**
+
+Ölüm derinlikleri (0.44-0.47 = orta hat) bunu doğruluyor: savunan zırhlı kendi bölgesinde değil,
+ortada ve 1:3'te ölüyor. Bu, kapalı duran `holdZone` deltasıyla aynı kök soruna bakıyor.
+
+**MÜDAHALE KATMANI DEĞİŞTİ:** birim-içi "kapatma kapısı" bu sorunu çözemez. Doğru katman
+**kontrolör seviyesinde KUVVET DAĞILIMI** — savunan kütlesini nereye koyuyor, neden ince yayılıyor,
+düşman yığınağı karşısında neden yoğunlaşmıyor. Bu, birim becerisi değil operasyon becerisidir ve
+`holdZone` + sektör-komuta altyapısıyla birlikte ele alınmalı.
+
+**Durum:** `localRatio` varsayılan KAPALI (hiç bağlamıyor). `armorFace` de kapalı.
+Zırhlı için sıradaki iş birim katmanında DEĞİL.

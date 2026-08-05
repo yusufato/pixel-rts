@@ -482,11 +482,29 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // MUHTEMEL SEBEP (sınanmadı): zırhlıya gelen hasarın çoğu yönün ÖNEMSİZ olduğu kaynaklardan —
     // dolaylı ateş//patlama alanı, hava, shaped-charge AT. facingDamageMult yalnız doğrudan-ateş
     // yolunda okunuyor. Sınamak için hasar kaynağı kırılımı gerekir (ayrı teşhis).
-    armorFace: false
+    armorFace: false,
+    // P13 — YEREL ORAN KAPISI (BECERİ: zırhlı konuşlandırma). TEŞHİS: zırhlılar ölürken çevrelerinde
+    // ort. 4 dost / 12.3 düşman vardı (1:3 dezavantaj). Hasarın %76'sı DIRECT_FIRE — yani sorun
+    // 'yön' değil 'YER'. Mevcut assaultCohesion bunu kaçırıyor: yalnız SALDIRAN rolüne bakıyor
+    // (ölenler savunandı) ve yalnız DOSTU sayıyor. Kural: yerel dost/düşman oranı eşiğin
+    // altındaysa kapatma, menzilde tut. Birimi HAREKET ETTİRMEZ (eski 'aktif toplanma' zararlıydı).
+    //
+    // ÖLÇÜLDÜ: **HİÇ BAĞLAMADI (0 tik)** → VARSAYILAN KAPALI, ama teşhisi TERSİNE ÇEVİRDİ.
+    // Kural `!standOff` koşuluna bağlıydı; o noktaya gelindiğinde standOff ZATEN true oluyor
+    // (duruş kapısı `standOff = !gate.open` veya 'range' deltası menzil≥520 için). Yani zırhlı
+    // İLERLEDİĞİ İÇİN ÖLMÜYOR — zaten menzilde duruyor, DÜŞMAN onun üstüne geliyor.
+    // Ölüm derinlikleri bunu doğruluyor: 0.44-0.47, yani ORTA HAT civarı. Savunan zırhlı kendi
+    // bölgesinde değil, ortada ve 1:3 dezavantajda ölüyor (bkz. holdZone deltası, o da kapalı).
+    // DOĞRU MÜDAHALE KATMANI DEĞİŞTİ: birim-içi "kapatma kapısı" değil, KONTROLÖR seviyesinde
+    // KUVVET DAĞILIMI — savunan kütlesini nereye koyuyor ve neden ince yayılıyor.
+    localRatio: false
 };
 // ── 'armorFace' PARAMETRELERİ (aranabilir) ──
 let PRO_ARMORFACE_R = 2200;              // tehdit taraması yarıçapı (en uzun doğrudan-ateş menzilini kapsar)
 let PRO_ARMORFACE_MIN_BASKINLIK = 0.35;  // tehdit vektörü bu kadar yönlü değilse (her yönden) dönme
+// ── 'localRatio' PARAMETRELERİ (aranabilir) ──
+let PRO_RATIO_R = 600;      // yerel oran yarıçapı (ölçüm bu yarıçapta yapıldı: kazanan 10.8 / kaybeden 3.4)
+let PRO_RATIO_MIN = 1.0;    // (dost+1)/düşman bunun altındaysa ilerleme — yerel dezavantajda kapatma
 // ── 'jammerPost' PARAMETRELERİ (aranabilir) ──
 let PRO_JAM_ICERI = 0.70;      // dron merkezini baloncuğun bu kesrine al (kenarında değil, içinde)
 let PRO_JAM_TEHDIT = 900;      // görülen düşman ateşli KARA birimi bu kadar yakınsa ilerleme (silahsız 300hp)

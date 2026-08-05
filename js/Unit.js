@@ -1366,6 +1366,34 @@ class Unit {
                         if (_dost < PRO_COHESION_MIN) standOff = true;   // desteksiz: kapatma, menzilde tut
                     }
                 }
+                // ── INTEL4-PRO 'localRatio': YEREL ORAN KAPISI (rol farketmez) ──
+                // TEŞHİS (tools/zirh-hasar-teshis.js, seed2024): zırhlılar ölürken çevrelerinde
+                // ort. 4 dost / 12.3 DÜŞMAN vardı — yani 1:3 yerel dezavantaj (2/14, 4/17, 6/6).
+                // O oranda yan-zırh çarpanının (×1.5) hiçbir önemi yok; nitekim armorFace
+                // maruziyeti %37→%4 düşürdüğü hâlde ömrü değiştirmedi. Hasarın %76'sı zaten
+                // DIRECT_FIRE, yani sorun 'yön' değil 'yer'.
+                // Üstteki assaultCohesion bu vakayı KAÇIRIYOR: (a) yalnız SALDIRAN rolüne bakıyor —
+                // ölenler savunandı, (b) yalnız DOSTU sayıyor, düşmanı saymıyor.
+                // Bellekteki ders de buydu: "kazananların 10.8'lik oranı 'çok dost' değil,
+                // DÜŞMANIN ZAYIF OLDUĞU YERDE çok dost demek" — kütle değil ORAN.
+                // Kural: yerel dost/düşman oranı eşiğin altındaysa KAPATMA, menzilde tut.
+                // Not: 'aktif toplanma' denenmiş ve zararlı çıkmıştı; bu onun aksine birimi
+                // HAREKET ETTİRMEZ, yalnız ilerlemeyi keser (standOff).
+                if (!standOff && !this.isIndirect && typeof battleProDelta === 'function' &&
+                    battleProDelta(this.isRed, 'localRatio')) {
+                    let _d = 0, _e = 0;
+                    for (const o of SIM.spatialGrid.getNearby(this.x, this.y, PRO_RATIO_R)) {
+                        if (o.dead || o.loaded || o.abandoned || o === this) continue;
+                        if (Math.hypot(o.x - this.x, o.y - this.y) > PRO_RATIO_R) continue;
+                        if (o.isRed === this.isRed) _d++; else _e++;
+                    }
+                    if (_e > 0 && (_d + 1) / _e < PRO_RATIO_MIN) {   // +1 = kendisi
+                        standOff = true;
+                        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+                            BATTLE_BALANCE.localRatioBind = (BATTLE_BALANCE.localRatioBind || 0) + 1;
+                        }
+                    }
+                }
                 if (standOff && d > this.range) {
                     const t = Math.max(0, (d - this.range * 0.9) / d);
                     this.targetX = this.x + (this.attackTarget.x - this.x) * t;
