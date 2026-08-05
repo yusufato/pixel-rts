@@ -6,11 +6,22 @@ const { ctx } = tezgahKur();
 const tarif = JSON.parse(require('fs').readFileSync('qa-runtime/adaylar-duman.json', 'utf8'))
     .find(t => t.ad === 'KESIF-balistik-1');
 
+// --pro : 'standoff' deltasi ACIK kosar (beceri deltasinin mekanizma olcumu)
+// --seed N : tohum
+// IZOLE A/B: iki kolda da --pro verilir; yalniz --nostandoff kolu 'standoff' anahtarini kapatir.
+// Boylece fark TEK degiskene (standoff) atfedilebilir. --pro'yu acip kapamak TUM deltalari degistirir.
+const PRO = process.argv.includes('--pro');
+const NOSTAND = process.argv.includes('--nostandoff');
+const _si = process.argv.indexOf('--seed');
+const SEED = _si >= 0 ? Number(process.argv[_si + 1]) : 2024;
+
 const kod = '(() => {' +
     'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
-    'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
+    'BATTLE_INTEL4PRO_RED = ' + PRO + '; BATTLE_INTEL4PRO_BLUE = false;' +
+    'BATTLE_BALANCE.on = true;' +
+    'BATTLE_INTEL4PRO_DELTAS.standoff = ' + (!NOSTAND) + ';' +
     'BATTLE_RECIPE_RED = ' + JSON.stringify(tarif) + ';' +
-    'openBattlefieldSession({ mode:"quick", mapId:-2, seed:2024, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
+    'openBattlefieldSession({ mode:"quick", mapId:-2, seed:' + SEED + ', attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
     'const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false });' +
     'battleDeployManifest(mv, false, { source:"teshis", ally:true });' +
     'startBattle();' +
@@ -42,11 +53,13 @@ const kod = '(() => {' +
     '  sonAtisSn: sonAtis!=null?Math.round(sonAtis*BATTLE_TICK_SEC):null,' +
     '  olduSn: oldu!=null?Math.round(oldu*BATTLE_TICK_SEC):null,' +
     '  muhimmatBas, muhimmatSon, mesafeKayit, minRangePx: STATS[BT] ? null : null,' +
-    '  bitisSn: Math.round(SIM.tick*BATTLE_TICK_SEC), sebep: b2.outcomeReason });' +
+    '  bitisSn: Math.round(SIM.tick*BATTLE_TICK_SEC), sebep: b2.outcomeReason,' +
+    '  standoffBind: BATTLE_BALANCE.standoffBind||0, standoffOluBolge: BATTLE_BALANCE.standoffOluBolge||0 });' +
     '})()';
 
 const r = JSON.parse(vm.runInContext(kod, ctx, { filename: 'balistik.js' }));
-console.log('BALISTIK FUZE — seed2024, tek mac');
+console.log('BALISTIK FUZE — seed' + SEED + ', tek mac   [pro:' + (PRO ? 'acik' : 'kapali') + '  standoff:' + (PRO && !NOSTAND ? 'ACIK' : 'kapali') + ']');
+console.log('  standoff baglama : ' + r.standoffBind + ' tik   (fiilen ölü-bölgedeyken: ' + r.standoffOluBolge + ')');
 console.log('  ATIS SAYISI      : ' + r.atis + '   (mühimmat ' + r.muhimmatBas + ' -> ' + r.muhimmatSon + ')');
 console.log('  ilk atis         : ' + (r.ilkAtisSn != null ? r.ilkAtisSn + 'sn' : 'HIC ATES ETMEDI'));
 console.log('  son atis         : ' + (r.sonAtisSn != null ? r.sonAtisSn + 'sn' : '-'));

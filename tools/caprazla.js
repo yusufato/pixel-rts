@@ -215,8 +215,15 @@ function partiKosu(dilim, i) { return new Promise((cozum) => {
     const dosya = path.join(GECICI, 'parca-' + i + '.json');
     const ortak = ['--tarifler', TARIFLER, '--sal', dilim.sal, '--sav', SAV,
         '--seeds', dilim.tohum.join(','), '--out', dosya, '--sessiz'];
-    // A/B'de telemetri okunmuyor → varsayılan KAPALI (%22 hız). --telemetrili ile açılır.
+    // A/B'de telemetri ve replay kaydı okunmuyor → varsayılan KAPALI (ölçüldü %9).
     if (TEZGAH && !process.argv.includes('--telemetrili')) ortak.push('--telemetrisiz');
+    // ERKEN DUR: kazanan belli olunca kes. GALİBİYET/MAĞLUBİYET AYNI kalır (winnerSide
+    // zaten kayıtlı), yalnız marj değişir — ve tüm adaylar AYNI ölçüyle ölçüldüğü için
+    // karşılaştırma tutarlı. Ölçüldü: %10 kazanç. `--tammac` ile kapatılır.
+    if (TEZGAH && !process.argv.includes('--tammac')) ortak.push('--erkendur');
+    // Tarama turlarında kısa maç (opsiyonel): --maxtik <tik>
+    const _mtIx = process.argv.indexOf('--maxtik');
+    if (TEZGAH && _mtIx >= 0) ortak.push('--maxtik', String(process.argv[_mtIx + 1]));
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;   // electron'u node kipinde başlatmayı engelle
     let c;

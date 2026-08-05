@@ -360,6 +360,7 @@ class Unit {
             if (this.transportSlots) this.updateTransport(now, dtSec);   // TAŞIMA: nakliye-heli piyade bindir-taşı-indir
             this.engageCombat(now);
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
+            this._standoffKac();                     // INTEL4-PRO 'standoff': ölü-bölgeye giren tehditten geri çekil (ateşten SONRA → atışı kesmez)
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1383,6 +1384,60 @@ class Unit {
             } else {
                 this.attackTarget = null;   // ÖLÇÜM: özsavunma KAPALI (eski davranış) — fix'in etkisini ölçmek için
             }
+        }
+    }
+
+    // ── INTEL4-PRO 'standoff': ÖLÜ-BÖLGE YÖNETİMİ ──
+    // Uzun ölü-bölgeli ateş-desteği birimi (ÇNRA 600px, balistik 1500px) tehdit ölü-bölgeye girdiğinde ateş
+    // EDEMEZ hale gelir ve orada ölür. TEŞHİS: balistik 0 atışla 125sn'de öldü (bkz. BATTLE_INTEL4PRO_DELTAS.standoff).
+    // Bu metot engageCombat'tan SONRA çalışır → bu tikin atışı zaten yapıldı, yalnız HAREKET hedefi ezilir.
+    // Determinist: yalnız mesafe aritmetiği, RNG yok, canlı kontrolör nesnesi okunmaz.
+    _standoffKac() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'standoff')) return;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return;
+        if (this.controlOwner === 'PLAYER') return;   // oyuncunun emrini ezmeyiz
+        if (!this.speed || this.isAir) return;        // yürüyemeyen/uçan bu kuralın konusu değil
+        const st = STATS[this.type];
+        const minR = st ? (st.minRange || 0) : 0;
+        if (minR < PRO_STANDOFF_MIN_PX) return;       // kısa ölü-bölge (havan/obüs) zaten sorunsuz ateş ediyor
+
+        // TEHDİT KÜTLESİ: ölü bölgeye girmiş (veya girmek üzere olan) düşmanların merkezi. Tekil "en yakın"
+        // yerine kütle kullanılır → iki yönden gelen baskıda salınım (bir o yana bir bu yana) olmaz.
+        const trip = minR * PRO_STANDOFF_TRIP;
+        let tx = 0, ty = 0, n = 0, enYakin = Infinity;
+        for (const e of SIM.spatialGrid.getNearby(this.x, this.y, trip)) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            const d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d > trip) continue;
+            tx += e.x; ty += e.y; n++;
+            if (d < enYakin) enYakin = d;
+        }
+        if (!n) { this._standoffAktif = false; return; }
+
+        // Geri çekilme yönü: tehdit kütlesinden UZAĞA. Merkez tam üstümüzdeyse (dejenere) hareket etme.
+        const cx = tx / n, cy = ty / n;
+        let vx = this.x - cx, vy = this.y - cy;
+        let vl = Math.hypot(vx, vy);
+        if (vl < 1e-6) { this._standoffAktif = false; return; }
+        vx /= vl; vy /= vl;
+
+        // Ne kadar geri? Kütleye olan mesafeyi minR×HEDEF'e çıkaracak kadar — ama menzil×TAVAN'ı aşmadan
+        // (kendi azami menzilinden geriye kaçmak atışı yine keser) ve tek seferde ADIM'dan fazla değil.
+        const dKutle = Math.hypot(this.x - cx, this.y - cy);
+        const istenen = Math.min(minR * PRO_STANDOFF_HEDEF, this.range * PRO_STANDOFF_TAVAN);
+        if (dKutle >= istenen) { this._standoffAktif = false; return; }
+        const geri = Math.min(istenen - dKutle, PRO_STANDOFF_ADIM);
+
+        this.targetX = this.x + vx * geri;
+        this.targetY = this.y + vy * geri;
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;          // taarruz değil, mevzi değiştirme
+        this._standoffAktif = true;
+
+        // TEŞHİS SAYAÇLARI (BATTLE_BALANCE gate'li, hash-dışı — sim'i etkilemez)
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.standoffBind = (BATTLE_BALANCE.standoffBind || 0) + 1;
+            if (enYakin < minR) BATTLE_BALANCE.standoffOluBolge = (BATTLE_BALANCE.standoffOluBolge || 0) + 1;   // fiilen ateş edemez durumdaydı
         }
     }
 

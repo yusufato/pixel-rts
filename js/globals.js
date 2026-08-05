@@ -405,8 +405,24 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // (₺'sinin yalnız %0-30'u siperlenebiliyor → ort. entrench 0.17 → ~%6 hasar azalması; tek istihkâm; %30+ dolaylı).
     // Yer tutmak inisiyatifi verip karşılığında ~hiçbir şey kazandırmıyor: savunan 6/6 → 4/6.
     // AÇILMADAN ÖNCE GEREKEN: savunan-rolüne özgü SAVUNMA KOMPOZİSYONU (siperlenebilen piyade + istihkâm + AT).
-    holdZone: false
+    holdZone: false,
+    // P7 — ÖLÜ-BÖLGE YÖNETİMİ (BECERİ AÇIĞI; kullanıcı: "balistik ile sonuncu olmak beceri ister").
+    // TEŞHİS (tools/balistik-teshis.js, seed2024): balistik füze 1050₺ (bütçenin %16'sı) ile alındı ve
+    // TEK ATIŞ bile yapmadan 125sn'de öldü. Mekanik SAĞLAM — sorun AI'ın birimi kullanamaması:
+    // minRange 1500px, düşman 40sn'de içeri girip bir daha çıkmıyor, AI birimde `relocate` yeteneği
+    // OLMASINA RAĞMEN geri çekmiyor. İnsan oyuncu standoff mesafesini korur. Genel sorun DEĞİL:
+    // aynı maçta havan 14/26/25, topçu 23, ÇNRA 8 atış yaptı — açık BÜYÜK ölü-bölgeye özgü.
+    // Kural: tehdit ölü-bölgeye girerse tehdit kütlesinden uzaklaş, atış bandına geri dön.
+    standoff: true
 };
+// ── 'standoff' PARAMETRELERİ (elle yazıldı ama ARANABILIR: hepsi tek sayı, A/B süpürmesine açık) ──
+let PRO_STANDOFF_MIN_PX = 600;   // bu ölü-bölgenin altındaki birim kural-dışı. 600px=8 grid → ÇNRA+balistik.
+                                 // Havan (225) ve obüs (375) HARİÇ: onlar zaten sorunsuz ateş ediyor, geri
+                                 // çekmek onları savaştan koparır. Eşik büyütülüp küçültülerek süpürülebilir.
+let PRO_STANDOFF_TRIP = 1.15;    // tehdit minRange×TRIP içine girdiyse çekil (ölü bölgeye GİRMEDEN önce davran)
+let PRO_STANDOFF_HEDEF = 1.35;   // hedeflenen standoff = minRange×HEDEF (atış bandının rahat içi)
+let PRO_STANDOFF_TAVAN = 0.92;   // menzil×TAVAN'dan geriye kaçma — kendi azami menzilinden çıkmak atışı yine keser
+let PRO_STANDOFF_ADIM = 300;     // tek değerlendirmede verilecek en fazla geri-hedef (px): sıçrama değil sürüklenme
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
 // Birim tipi DOLAYLI ateş mi (topçu/havan/ÇNRA/balistik)? Karşı-batarya hedeflemesi bunu kullanır.

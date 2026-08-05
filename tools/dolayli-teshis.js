@@ -6,8 +6,15 @@ const { ctx } = tezgahKur();
 const tarif = JSON.parse(require('fs').readFileSync('qa-runtime/adaylar-duman.json', 'utf8'))
     .find(t => t.ad === 'KESIF-balistik-1');
 
+// IZOLE A/B: pro deltalari HER IKI KOLDA da acik; yalnizca 'standoff' anahtari degisir.
+// (Yanlis kurulum: "--pro yok" vs "--pro var" TUM deltalari birden degistirir -> fark standoff'a yazilamaz.)
+const PRO = process.argv.includes('--pro');            // pro deltalari acik mi (izole A/B icin ikisinde de --pro verilir)
+const NOSTAND = process.argv.includes('--nostandoff'); // pro acik ama standoff KAPALI (kontrol kolu)
+
 const kod = '(() => {' +
     'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
+    'BATTLE_INTEL4PRO_RED = ' + PRO + '; BATTLE_INTEL4PRO_BLUE = ' + PRO + ';' +
+    'BATTLE_INTEL4PRO_DELTAS.standoff = ' + (!NOSTAND) + ';' +
     'BATTLE_RECIPE_RED = ' + JSON.stringify(tarif) + ';' +
     'openBattlefieldSession({ mode:"quick", mapId:-2, seed:2024, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
     'battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:"t", ally:true });' +

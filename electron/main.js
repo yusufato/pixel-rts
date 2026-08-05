@@ -367,10 +367,15 @@ app.whenReady().then(() => {
         win.webContents.on('did-finish-load', async () => {
             await new Promise(r => setTimeout(r, 1400));
             const drvArg = process.argv.includes('--withai') ? 'ai' : 'null';
+            const withPro = process.argv.includes('--withpro');   // intel4-pro deltalari (standoff dahil) ACIKKEN fork-esitligi
             const res = await js(`(() => { try {
                 const DRV = ${JSON.stringify(drvArg)};
                 const pump = (n, useAi) => { const drv = useAi ? battleControllersDrive : null; for (let i=0;i<n && phase===PHASE.BATTLE;i++){ simulationTime+=BATTLE_TICK_MS; gameTime+=BATTLE_TICK_SEC; stepSim(simulationTime, BATTLE_TICK_SEC, drv, false); updateSupport(BATTLE_TICK_SEC, simulationTime); } };
                 openAIVsAILab({ start:true, show:false, durationSec:240 }); SIM.headless = true;
+                // NOT: bayraklar lab AÇILDIKTAN SONRA kurulur — openAIVsAILab beyin bayraklarini kendi atiyor,
+                // once kurulursa eziliyordu (uc kolda da ayni hash cikmasi bunu ele verdi).
+                if (${withPro}) { BATTLE_INTEL4PRO_RED = true; BATTLE_INTEL4PRO_BLUE = true; }
+                if (${process.argv.includes('--nostandoff')}) BATTLE_INTEL4PRO_DELTAS.standoff = false;   // izole kontrol kolu
                 pump(300, true);                                  // orta-savaşa AI ile ilerle (temas + hedefler)
                 const fork = battleForkCapture(); const useAi = DRV==='ai';
                 // A) ORİJİNAL devam (BattleForkState.v1 ile fork)
