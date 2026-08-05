@@ -41,6 +41,7 @@ const {
     probeInstitutions,
     probeStateCapacity,
     probeElections,
+    probeIntegrity,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -2391,6 +2392,30 @@ function run() {
     assert.equal(electionProbe.prerequisiteDisabled.ledger, null,
         'Kamuoyu öncülü kapalıysa Faz 31 sahte oy üretmemeli.');
 
+    const integrityProbe = probeIntegrity();
+    assert.equal(integrityProbe.initial.caseCount, 0,
+        'Faz 32 yapısal yolsuzluk riskinden kendiliğinden suç dosyası uydurmamalı.');
+    assert.equal(integrityProbe.transfer.ok, true,
+        'Hedefli Faz 32 probu gerçek çift taraflı rüşvet fişi üretmeli.');
+    assert.equal(integrityProbe.afterReceipt.caseCount, 1,
+        'Açıkça rüşvet sınıflandırılmış gerçek bütçe fişi tek iddia dosyası açmalı.');
+    assert.equal(integrityProbe.afterReceipt.evidenceCount, 1,
+        'Rüşvet dosyasının kanıtı kaynak bütçe işlemiyle birebir izlenebilmeli.');
+    assert.equal(integrityProbe.withoutAuthority.reason, 'EXECUTED_JUDICIAL_AUTHORITY_REQUIRED',
+        'Yürütülmüş yargı yetkisi olmadan resmî soruşturma açılamamalı.');
+    assert.equal(integrityProbe.judiciary.executed.ok, true,
+        'Faz 29 yargı rotası Faz 32 soruşturmasına geçerli yetki fişi verebilmeli.');
+    assert.equal(integrityProbe.opened.ok, true,
+        'Yeterli ön kanıt ve yargı yetkisi resmî soruşturmayı açabilmeli.');
+    assert.equal(integrityProbe.resolved.case.status, 'SUBSTANTIATED',
+        'Tam gerçek rüşvet fişi deterministik ispat eşiğini geçmeli.');
+    assert.equal(integrityProbe.resolved.case.physicalMutation, false,
+        'Faz 32 bulgusu ekonomi veya dünyaya doğrudan ikinci kez yazmamalı.');
+    assert.equal(integrityProbe.deduplicated, true,
+        'Aynı kaynak fişi sonraki tiklerde ikinci dosya veya kanıt üretmemeli.');
+    assert.equal(integrityProbe.validation.ok, true,
+        'Faz 32 bütünlük ve soruşturma defteri kendi sözleşmesini geçmeli.');
+
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
@@ -2913,6 +2938,7 @@ function run() {
         society: 3,
         'state-capacity': 2,
         elections: 2,
+        integrity: 2,
         siege: 5,
         technology: 1,
         chatter: 1,
@@ -3235,7 +3261,8 @@ function run() {
         'js/Production.js', 'js/Council.js', 'js/Era.js', 'js/Chatter.js',
         'js/Talks.js', 'js/CommanderTree.js', 'js/StoryProductionSectors.js',
         'js/StoryRegionalEconomy.js', 'js/StoryMarket.js',
-        'js/StoryInstitutions.js', 'js/StoryStateCapacity.js', 'js/StoryElections.js'
+        'js/StoryInstitutions.js', 'js/StoryStateCapacity.js', 'js/StoryElections.js',
+        'js/StoryIntegrity.js'
     ];
     const directStoryRandomCalls = storyRandomDomains.flatMap(relativePath => {
         const source = fs.readFileSync(path.resolve(__dirname, '..', relativePath), 'utf8');

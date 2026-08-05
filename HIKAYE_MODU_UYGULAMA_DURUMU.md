@@ -55,7 +55,7 @@
 | Faz 29 — Rejim ve Kurum Şeması | `complete` | `js/StoryInstitutions.js`; 8 devlet × 5 kurum, 29 eylemde DIRECT/JOINT/PETITION/yasak rotası, makam doğrulama, bilgi filtreli UI ve `qa-runtime/story-phase29-ab.json` |
 | Faz 30 — Meşruiyet ve Devlet Kapasitesi | `complete` | `js/StoryStateCapacity.js`; ayrı meşruiyet/bürokrasi/hukuk/bütünlük/yapısal risk/bölgesel denetim, açıklanabilir uygulama bileti yaşam döngüsü ve `qa-runtime/story-phase30-ab.json` |
 | Faz 31 — Seçim ve İktidar Değişimi | `complete` | `js/StoryElections.js`; rejime bağlı model/takvim, tam kişi kohort oyu, koalisyon, itiraz, sertifika, mandat, makam devri, bilgi filtreli UI ve `qa-runtime/story-phase31-ab.json` |
-| Faz 32 — Patronaj, Yolsuzluk ve Soruşturma | `next` | Atama/ihale/rüşvet/sızıntı/soruşturmayı kanıt, kurum kapasitesi ve fail kimliğiyle kuracak; suçlama otomatik gerçek olmayacak |
+| Faz 32 — Patronaj, Yolsuzluk ve Soruşturma | `in_progress` | Ara kayıt: `js/StoryIntegrity.js` kanıt/dosya/soruşturma çekirdeği, gerçek rüşvet fişi ve yargı yetkisi probu çalışıyor; WorldV2/UI/göç/A-B/tam regresyon henüz eksik |
 | Faz 33+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
@@ -896,6 +896,30 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Kayıt/yükleme birebir, kesintisiz koşu ile checkpoint'ten devam aynı, V3→V2 göç, eski kayıt backfill'i, bozuk kayıt kurtarma, özellik/öncül kapalı `null` yolu geçti. Yüklemede seçim mandatını kurumdan sonra bağlayan ilk sıra iki sahte yetki olayı üretiyordu; seçim görüntüsü kurum restore'undan önce hazırlanarak düzeltildi.
 - `qa-runtime/story-phase31-ab.json`: kontrol `20ccfde1…d2a2`, açık `f7cfa97e…230d1`; ilk fark `$.elections`. Açık 900 saniyelik koşu `24` seçim kaydı, `11` sertifika, `19` mandat ve `11` devir üretti. Refah, enflasyon, huzursuzluk, etkin devlet, haber, petrol, insan gücü ve puan deltalarının tamamı `0`.
 - Scheduler artık `23` görev taşır; seçim her `5 sn` devlet kapasitesinden sonra ve kuşatmadan önce çalışır. Tam kapsamlı `npm test` çıkış kodu `0`; toplam süre `1.867,8 sn`, ana 900 saniyelik simülasyon `143.630,69 ms`, dünya karması `f7cfa97e39511a10a6bdd691d29eedeb9abd67f4c1be8a8992d3da065e8230d1`. Sıradaki uygulama **Faz 32 — Patronaj, Yolsuzluk ve Soruşturma**dır.
+
+## Faz 32 ara kayıt — kanıt ve soruşturma çekirdeği
+
+**Durum:** `in_progress`; faz kabul edilmedi ve tam regresyon henüz çalıştırılmadı.
+
+Tamamlanan ilk dilim:
+
+- `js/StoryIntegrity.js` içinde `story-integrity-investigation-ledger-1` çekirdeği kuruldu. `ALLEGATION → PRELIMINARY_REVIEW → FORMAL_INVESTIGATION → SUBSTANTIATED/UNSUBSTANTIATED/CLOSED` durum sözleşmesi, sınırlı dosya/kanıt/olay bütçesi ve katı doğrulayıcı var.
+- `government.patronageIntegrity` bayrağı Faz 21 bütçe/şirket, Faz 29 kurum ve Faz 30 kapasite öncüllerine bağlandı. Scheduler görevi seçimden sonra ve kuşatmadan önce `5 sn` aralıkla eklendi; toplam görev sayısı ara kaynakta `24`.
+- Yapısal `corruptionRiskBps` tek başına dosya açmıyor. Kısa 20 saniyelik gerçek tezgâh koşusunda sekiz ülke, dört bütünlük tiki, `0` dosya ve geçerli defter üretildi.
+- `political.bribe` sınıflı gerçek bütçe işlemi kaynak kimliğiyle tek dosya ve tek kanıt üretiyor. Aynı fiş sonraki tikte ikinci dosya/kanıt üretmiyor.
+- Resmî soruşturma için aynı ülkenin Faz 29 `EXECUTED/REVIEW_LEGALITY` yargı fişi zorunlu. Sahte istek `EXECUTED_JUDICIAL_AUTHORITY_REQUIRED` ile reddedildi; gerçek fiş soruşturmayı açtı ve tam rüşvet makbuzu deterministik eşikle `SUBSTANTIATED` oldu.
+- Kamu ihalesi kayıt API'si gerçek `AUTHORIZE_BUDGET` kararı + `institutional.procurement` bütçe fişi + kanonik şirket olmadan çalışmıyor. Tek teklif, fiyat sapması ve yüksek lobi gücü yalnız kırmızı bayraktır; otomatik suç değildir.
+- Sonuç `INTEGRITY_FINDING_RECORD_ONLY_PHASE_32`, `physicalMutation:false`; ekonomi, refah, kaynak, toprak veya kuruma ikinci kez yazmıyor. RNG ve LLM hüküm vermiyor.
+
+Devam noktası — sırasıyla yapılacaklar:
+
+1. WorldV2 üst düzey `integrityCases/evidence` ve ülke özetini ekle; şema doğrulaması ve salt-okunur projeksiyonu kapat.
+2. `PlayerKnowledge` ile kendi ülkenin kanıtını, yabancı ülkenin yalnız kamusal soruşturma/kararını ayır; kaynak kimliği ve gizli delil sızıntı testini ekle.
+3. Şehir `KURUMLAR` görünümüne iddia–soruşturma–hüküm merceği ekle; “risk”, “iddia” ve “kanıtlandı” ifadelerini görsel olarak ayır.
+4. V3 kayıt, V3→V2 göç, eski kayıt backfill'i, bozuk defter kurtarma, özellik/öncül kapalı `null` ve kayıt/yükleme birebir testlerini tamamla.
+5. Hedefli kamu ihalesi karşı-testini gerçek yetki/bütçe/şirket fişleriyle kur; yetersiz kanıtın `UNSUBSTANTIATED` kalmasını ve kırmızı bayrağın suç sayılmamasını test et.
+6. Faz 25 ve diğer eski A/B filtrelerine yeni downstream defteri gerektiği yerde ekle; Faz 32 açık/kapalı `900 sn` A/B artefaktını üret.
+7. Kapsamı azaltılmamış `npm test` çalıştır; ancak bundan sonra Faz 32 kapanış belgelerini ve nihai commitini oluştur.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)
 

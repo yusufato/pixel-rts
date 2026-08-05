@@ -3991,6 +3991,8 @@ Hedefli prob `16` seçim kaydı, `8` sertifika, `8` devir, `2.862.026` seçmen v
 **Kabul kapısı:** Suçlama otomatik gerçek sayılmıyor; kanıt, medya ve kurum kapasitesi etkili.  
 **Bağımlılık:** Faz 21, 29–30.
 
+**Ara uygulama kaydı — 5 Ağustos 2026:** Faz tamamlanmadı. `story-integrity-investigation-ledger-1` kanıt/dosya/soruşturma çekirdeği; gerçek `political.bribe` bütçe fişi taraması, kaynak deduplikasyonu, yargı yetkisi zorunluluğu, deterministik ispat eşiği, ihale kırmızı bayrak API'si, özellik bayrağı, kayıt alanı ve 24. scheduler görevi eklendi. Hedefli prob yapısal riskten sıfır sahte dosya, gerçek rüşvet fişinden bir dosya/bir kanıt, yetkisiz soruşturma reddi, yetkili soruşturma ve `SUBSTANTIATED` sonuç verdi. WorldV2, oyuncu bilgi filtresi, şehir UI, göç, bozuk/eski kayıt testleri, ihale karşı-fixture'ı, 900 sn A/B ve tam regresyon eksiktir. Kesin devam sırası `HIKAYE_MODU_UYGULAMA_DURUMU.md` içindeki “Faz 32 ara kayıt” bölümündedir.
+
 ### FAZ 33 — Darbe, Bölünme ve İç Çatışma
 
 **Amaç:** Devlet çöküşünü tek eşikli rastgele olay olmaktan çıkarmak.  

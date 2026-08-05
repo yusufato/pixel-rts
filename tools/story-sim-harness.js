@@ -33,6 +33,7 @@ const STORY_SOURCES = [
     'js/StoryInstitutions.js',
     'js/StoryStateCapacity.js',
     'js/StoryElections.js',
+    'js/StoryIntegrity.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -630,6 +631,16 @@ function createRuntime(seed) {
             electionExecutiveHolder: countryId => storyElectionExecutiveHolder(countryId),
             electionShouldContest: (marginBps, ruleOfLawBps) => storyElectionShouldContest(marginBps, ruleOfLawBps),
             electionTick: dt => storyElectionTick(dt),
+            integritySummary: () => storyIntegritySummary(),
+            integrityLedger: () => storyIntegrityClone(STORY.integrity),
+            validateIntegrityLedger: ledger => storyIntegrityValidate(ledger),
+            integrityForSave: () => storyIntegrityForSave(),
+            integrityCountryView: countryId => storyIntegrityCountryView(countryId),
+            integrityPublicView: value => storyIntegrityPublicView(value),
+            integrityRegisterProcurement: spec => storyIntegrityRegisterProcurement(spec),
+            integrityOpenInvestigation: (caseId, requestId) => storyIntegrityOpenInvestigation(caseId, requestId),
+            integrityResolveInvestigation: caseId => storyIntegrityResolveInvestigation(caseId),
+            integrityTick: dt => storyIntegrityTick(dt),
             populationTransferCohorts: (origin, destination, requested, options) => (
                 storyPopulationTransferCohorts(origin, destination, requested, options)
             ),
@@ -746,6 +757,9 @@ function createRuntime(seed) {
             budgetForSave: () => storyBudgetForSave(),
             budgetCountryView: countryId => storyBudgetCountryView(countryId),
             budgetDebit: (stateId, amount, source, options) => storyBudgetDebit(stateId, amount, source, options),
+            budgetTransfer: (stateId, from, to, amount, source, options) => (
+                storyBudgetTransfer(stateId, from, to, amount, source, options)
+            ),
             budgetCredit: (stateId, amount, source, options) => storyBudgetCredit(stateId, amount, source, options),
             budgetDebt: (stateId, amount, source, options) => storyBudgetIssueDebt(stateId, amount, source, options),
             budgetPrint: (stateId, amount, source, options) => storyBudgetPrintMoney(stateId, amount, source, options),
@@ -2219,6 +2233,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateElectionLedger(electionLedger)
             : { ok: true, disabled: true, issues: [] };
         const electionSummary = runtime.api.electionSummary();
+        const integrityLedger = runtime.api.integrityLedger();
+        const integrityValidation = integrityLedger
+            ? runtime.api.validateIntegrityLedger(integrityLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const integritySummary = runtime.api.integritySummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2421,6 +2440,8 @@ function runStorySimulation(options = {}) {
             stateCapacitySummary,
             electionValidation,
             electionSummary,
+            integrityValidation,
+            integritySummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -2963,7 +2984,7 @@ function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
         'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'elections', 'siege', 'technology',
+        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -9801,6 +9822,63 @@ function probeElections(seed = 2032) {
     return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
 }
 
+function probeIntegrity(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(5);
+        const story = runtime.api.state();
+        const initial = runtime.api.integritySummary();
+        const state = story.states.find(row => Number(row.id) === 0);
+        const from = story.commander;
+        const to = (state.gov && state.gov.commanders || []).find(row => row !== from);
+        const transfer = to ? runtime.api.budgetTransfer(0, from, to, 50, 'political.bribe', {
+            correlationId: `integrity-fixture:${to.id}`
+        }) : { ok: false, code: 'NO_TARGET_COMMANDER' };
+        runtime.api.integrityTick(5);
+        const afterReceipt = runtime.api.integrityLedger();
+        const caseRow = Object.values(afterReceipt.cases || {})[0] || null;
+        const withoutAuthority = caseRow
+            ? runtime.api.integrityOpenInvestigation(caseRow.id, 'institution-request:forged')
+            : { ok: false, reason: 'NO_CASE' };
+
+        const country = runtime.api.institutionCountryView('country:0');
+        const judiciary = Object.values(country.institutions).find(row => row.type === 'JUDICIARY');
+        const actor = { institutionId: judiciary.id, actorId: judiciary.officeHolder.actorId };
+        const submitted = runtime.api.institutionSubmit({
+            countryId: 'country:0', actionType: 'REVIEW_LEGALITY', ...actor
+        });
+        const executed = submitted.ok
+            ? runtime.api.institutionExecute(submitted.request.id, actor) : submitted;
+        const opened = caseRow && executed.ok
+            ? runtime.api.integrityOpenInvestigation(caseRow.id, executed.request.id)
+            : { ok: false, reason: 'JUDICIAL_FIXTURE_FAILED' };
+        const resolved = opened.ok
+            ? runtime.api.integrityResolveInvestigation(caseRow.id) : opened;
+        runtime.api.integrityTick(5);
+        const finalLedger = runtime.api.integrityLedger();
+        return {
+            initial,
+            transfer,
+            afterReceipt: {
+                caseCount: Object.keys(afterReceipt.cases || {}).length,
+                evidenceCount: Object.keys(afterReceipt.evidence || {}).length,
+                case: caseRow
+            },
+            withoutAuthority,
+            judiciary: { submitted, executed },
+            opened,
+            resolved,
+            finalSummary: runtime.api.integritySummary(),
+            validation: runtime.api.validateIntegrityLedger(finalLedger),
+            deduplicated: Object.keys(finalLedger.cases || {}).length === 1
+                && Object.keys(finalLedger.evidence || {}).length === 1
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -9839,6 +9917,7 @@ module.exports = {
     probeInstitutions,
     probeStateCapacity,
     probeElections,
+    probeIntegrity,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
