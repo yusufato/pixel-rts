@@ -71,8 +71,11 @@ function warRoomApplyLLM(on) {
     if (!on) { note.textContent = 'Kapalı — komutan sohbetleri hazır metinlerden yazılıyor.'; return; }
     if (!bridge) { note.textContent = 'Tarayıcı sürümünde yapay anlatıcı yok; masaüstü sürümü gerekir. Hazır metinler kullanılıyor.'; return; }
     note.textContent = 'Model yükleniyor…';
-    if (typeof llmProbe === 'function') {
-        Promise.resolve(llmProbe()).then(() => {
+    // BELLEK DÜZELTMESİ: yükleme artık YALNIZ buradan (kullanıcı anlatıcıyı açınca) ya da
+    // ilk metin üretiminden tetiklenir. llmProbe() salt bilgi verir, model yüklemez.
+    const _yukle = (typeof llmEnsure === 'function') ? llmEnsure : llmProbe;
+    if (typeof _yukle === 'function') {
+        Promise.resolve(_yukle()).then(() => {
             if (!LLM.enabled) return;                   // arada kapatılmış olabilir
             note.textContent = LLM.ready
                 ? 'Açık — sohbetleri ' + (LLM.model || 'yerel model') + ' yazıyor.'

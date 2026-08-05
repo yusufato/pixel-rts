@@ -613,6 +613,70 @@ app.whenReady().then(() => {
     // Gerekce: bassiz tek isci ZIRVE 5.8GB olculdu (kullanici makinesi 12 isciyle dondu).
     // V8 yigin siniri (--max-old-space-size=768) hic etkilemedi -> bellek V8 YIGINININ DISINDA.
     // Buyuk supheliler: dunya-cozunurluklu canvas'lar (5100x3450x4B = 70MB/adet) ve typed array'ler.
+    // MAC-BASI BELLEK BIRIKIMI: `--memleak [--maclar N] [--render]` -> ayni surecte N mac kosar ve
+    // HER MACTAN SONRA surec-basi bellegi doker. Amac: birikim RENDERER'da mi, GPU'da mi, BROWSER'da mi?
+    // Olculen sorun: Electron'da her ek mac ~1.4GB birakiyor; ayni kod jsdom'da HIC buyumuyor
+    // (12 mac 451MB) -> sizinti JS mantiginda degil. --render ile cizim ACIK kosulur (gercek oyun kosulu).
+    if (process.argv.includes('--memleak')) {
+        const _mi = process.argv.indexOf('--maclar');
+        const MAC_SAYISI = _mi >= 0 ? Math.max(1, Number(process.argv[_mi + 1]) || 3) : 3;
+        const RENDER = process.argv.includes('--render');
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const dok = async (etiket) => {
+                const r = await js('(() => { const m = performance.memory || {};' +
+                    'return { yigin: Math.round((m.usedJSHeapSize||0)/1e6),' +
+                    '  birim: (typeof SIM !== "undefined" && SIM.units) ? SIM.units.length : -1,' +
+                    '  mermi: (typeof SIM !== "undefined" && SIM.projectiles) ? SIM.projectiles.length : -1,' +
+                    '  dekal: (typeof SIM !== "undefined" && SIM.decals) ? SIM.decals.length : -1,' +
+                    '  parca: (typeof particles !== "undefined" && particles) ? particles.length : -1,' +
+                    '  siper: (typeof SIM !== "undefined" && SIM.trenches) ? SIM.trenches.length : -1,' +
+                    '  olay: (typeof BATTLE_REPLAY !== "undefined" && BATTLE_REPLAY.events) ? BATTLE_REPLAY.events.length : -1,' +
+                    '  ornek: (typeof BATTLE_REPLAY !== "undefined" && BATTLE_REPLAY.telemetry) ? BATTLE_REPLAY.telemetry.samples.length : -1,' +
+                    '  canvas: document.querySelectorAll("canvas").length,' +
+                    '  canvasMB: Math.round([...document.querySelectorAll("canvas")].reduce((s,c)=>s+c.width*c.height*4,0)/1e6) };' +
+                    '})()');
+                const met = {};
+                for (const m of app.getAppMetrics()) {
+                    const t = String(m.type);
+                    met[t] = (met[t] || 0) + Math.round((m.memory && m.memory.workingSetSize || 0) / 1024);
+                }
+                const mu = process.memoryUsage();
+                console.log(etiket.padEnd(16) +
+                    'JSyigin ' + String(r.yigin).padStart(4) + 'MB | ' +
+                    Object.keys(met).sort().map(k => k + ' ' + met[k] + 'MB').join('  ') +
+                    ' | anaRSS ' + Math.round(mu.rss / 1e6) + 'MB');
+                console.log('                 birim ' + r.birim + ' mermi ' + r.mermi + ' dekal ' + r.dekal +
+                    ' parcacik ' + r.parca + ' siper ' + r.siper + ' replayOlay ' + r.olay + ' telemetriOrnek ' + r.ornek +
+                    ' | canvas ' + r.canvas + ' adet ~' + r.canvasMB + 'MB');
+                return met;
+            };
+            await dok('0) acilis');
+            const TOHUM = [2024, 777, 909, 3141, 2718, 5150, 111, 222, 333, 444, 555, 666];
+            for (let i = 0; i < MAC_SAYISI; i++) {
+                const seed = TOHUM[i % TOHUM.length];
+                const hata = await js('(() => { try {' +
+                    'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
+                    'openBattlefieldSession({ mode:"quick", mapId:-2, seed:' + seed + ', attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
+                    'battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:"memleak", ally:true });' +
+                    'startBattle();' +
+                    (RENDER ? '' : 'window.requestAnimationFrame = () => 0;') +
+                    'const ph = SIM.headless; SIM.headless = ' + (RENDER ? 'false' : 'true') + '; let st = 0;' +
+                    'try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) { st += BATTLE_TICK_MS;' +
+                    '  stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, ' + (RENDER ? 'true' : 'false') + ');' +
+                    '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st); } } finally { SIM.headless = ph; }' +
+                    'return null; } catch(e){ return e.message; } })()');
+                if (hata) console.log('  MAC HATASI: ' + hata);
+                await dok((i + 1) + ') mac' + (i + 1));
+            }
+            console.log('MEMLEAK_OK (render=' + RENDER + ')');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
     if (process.argv.includes('--membreak')) {
         createWindow();
         const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
@@ -4510,6 +4574,9 @@ function findModel() {
 
 function llmStart() {
     if (llmChild || llmError) return;
+    // Testlerde model ASLA yüklenmez: başsız koşularda anlatıcı kullanılmıyor ve
+    // 4.9GB'lik model paralel işçi sayısını tek başına çökertiyordu.
+    if (typeof TEST_KIPI !== 'undefined' && TEST_KIPI) { llmError = 'test kipinde LLM kapalı'; return; }
     llmPath = findModel();
     if (!llmPath) { llmError = 'model bulunamadı'; return; }
     try {
@@ -4533,7 +4600,24 @@ function llmStart() {
     llmChild.send({ t: 'load', modelPath: llmPath, gpuLayers: 'auto' });
 }
 
-ipcMain.handle('llm:status', () => {
+// ── BELLEK DÜZELTMESİ: durum yoklaması ARTIK MODELİ YÜKLEMEZ ────────────────
+// ÖLÇÜLDÜ: oyun açılıp menüde beklerken 5.38GB tüketiyordu. Süreç dağılımı:
+//   llm-host 4900MB · gpu 496MB · renderer 129MB · ana 94MB
+// Yani yükün %85'i dil modeliydi ve KULLANICI ANLATICIYI HİÇ AÇMASA BİLE yükleniyordu:
+// js/LLM.js açılışta llmProbe() → llm:status → llmStart() → GGUF modeli belleğe.
+// Artık durum yoklaması saf bilgi döndürür; model YALNIZ gerçekten kullanılacağı an
+// yüklenir (llm:generate) ya da kullanıcı anlatıcıyı açınca (llm:start).
+ipcMain.handle('llm:status', () => ({
+    ready: llmReady,
+    error: llmError,
+    model: llmPath ? path.basename(llmPath) : null,
+    yuklendi: !!llmChild,                 // model süreci ayakta mı
+    modelVar: !!(llmPath || findModel())  // diskte model var mı (yüklemeden)
+}));
+
+// Açık istek: kullanıcı yapay anlatıcıyı açtı → modeli şimdi yükle.
+ipcMain.handle('llm:start', () => {
+    if (TEST_KIPI) return { ready: false, error: 'test kipinde LLM kapalı', model: null };
     if (!llmChild && !llmError) llmStart();
     return { ready: llmReady, error: llmError, model: llmPath ? path.basename(llmPath) : null };
 });

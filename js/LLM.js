@@ -28,11 +28,31 @@ function llmBridge() {
 }
 function llmAvailable() { return !!(LLM.enabled && llmBridge() && LLM.ready); }
 
-// Durum yoklaması — modeli TEMBEL başlatır (ilk çağrıda yüklenir)
+// Durum yoklaması — SALT BİLGİ, model YÜKLEMEZ.
+// BELLEK DÜZELTMESİ: eskiden bu çağrı modeli yüklüyordu ve açılıştaki sessiz yoklama
+// yüzünden oyun, anlatıcı hiç kullanılmasa bile 4.9GB alıyordu (ölçüm: llm-host 4900MB,
+// oyunun geri kalanı toplam ~770MB). Model artık yalnız gerçekten gerektiğinde yüklenir.
 function llmProbe() {
     const b = llmBridge();
     if (!b) { LLM.error = 'masaüstü değil'; return Promise.resolve(LLM); }
     return b.status().then(s => {
+        LLM.ready = !!(s && s.ready);
+        LLM.model = s && s.model;
+        LLM.error = s && s.error;
+        LLM.yuklendi = !!(s && s.yuklendi);
+        LLM.modelVar = !!(s && s.modelVar);
+        return LLM;
+    }).catch(e => { LLM.error = String(e); return LLM; });
+}
+
+// Modeli AÇIKÇA yükle (kullanıcı anlatıcıyı açtı ya da ilk üretim gerekti).
+// Birkaç saniye sürer ve ~5GB bellek alır — bu yüzden asla kendiliğinden çağrılmaz.
+function llmEnsure() {
+    const b = llmBridge();
+    if (!b) { LLM.error = 'masaüstü değil'; return Promise.resolve(LLM); }
+    if (LLM.ready) return Promise.resolve(LLM);
+    const cagri = b.start ? b.start() : b.status();   // eski köprüyle geriye uyumlu
+    return Promise.resolve(cagri).then(s => {
         LLM.ready = !!(s && s.ready);
         LLM.model = s && s.model;
         LLM.error = s && s.error;
@@ -214,7 +234,8 @@ function llmEnrichChatter(rec, a, b, topicDesc) {
         });
 }
 
-// Oyun açılışında sessizce yokla (model varsa yüklenmeye başlar)
+// Oyun açılışında sessizce yokla — YALNIZ DURUM OKUR, model YÜKLEMEZ.
+// (Bu satır eskiden modeli yüklüyordu: oyun her açılışta 4.9GB alıyordu.)
 if (typeof document !== 'undefined') {
     const _p = () => { if (llmBridge()) llmProbe(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _p);

@@ -13,8 +13,11 @@ contextBridge.exposeInMainWorld('PIXEL', {
     desktop: true,
     info: () => ipcRenderer.invoke('app:info'),
     llm: {
-        // { ready, error, model } — model tembel yüklenir, ilk çağrıda başlar
+        // { ready, error, model, yuklendi, modelVar } — SALT BİLGİ, model YÜKLEMEZ.
+        // (Eskiden bu çağrı modeli yüklüyordu → oyun açılışta 4.9GB alıyordu.)
         status: () => ipcRenderer.invoke('llm:status'),
+        // Kullanıcı yapay anlatıcıyı açtığında çağrılır → modeli ŞİMDİ yükle.
+        start: () => ipcRenderer.invoke('llm:start'),
         // { system, prompt, maxTokens, temperature } → Promise<string|null>
         // null = model yok/hazır değil/zaman aşımı → oyun birleşim üretecine düşer
         generate: req => ipcRenderer.invoke('llm:generate', req),
