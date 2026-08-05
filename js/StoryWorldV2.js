@@ -315,7 +315,10 @@ function storyWorldV2PowerCenters() {
 }
 
 function storyWorldV2Institutions() {
-    const ledger = typeof storyInstitutionEnsure === 'function' ? storyInstitutionEnsure() : null;
+    // Dünya projeksiyonu salt-okunurdur. Rejim/makam uzlaştırması scheduler
+    // veya kayıt kapısında yapılır; UI açmak simülasyon olayına dönüşemez.
+    const ledger = typeof storyInstitutionEnabled === 'function'
+        && storyInstitutionEnabled() ? STORY.institutions : null;
     if (!ledger) return [];
     const rows = [];
     for (const country of Object.values(ledger.countries || {})) {

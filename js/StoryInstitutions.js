@@ -622,7 +622,7 @@ function storyInstitutionExecuteAction(requestId, input) {
 }
 
 function storyInstitutionCountryView(countryId) {
-    const ledger = storyInstitutionEnsure();
+    const ledger = storyInstitutionEnabled() ? STORY.institutions : null;
     const id = storyInstitutionCountryId(countryId);
     if (!ledger || !ledger.countries[id]) return null;
     const out = storyInstitutionClone(ledger.countries[id]);
@@ -630,7 +630,7 @@ function storyInstitutionCountryView(countryId) {
     return out;
 }
 function storyInstitutionRegionView(regionId) {
-    const ledger = storyInstitutionEnsure();
+    const ledger = storyInstitutionEnabled() ? STORY.institutions : null;
     if (!ledger) return null;
     const id = storyInstitutionRegionId(regionId);
     const node = (STORY.nodes || []).find(row => storyInstitutionRegionId(row.id) === id);
@@ -690,7 +690,7 @@ function storyInstitutionPowerCenterActionLimits(countryId, centerType, declared
     };
 }
 function storyInstitutionSummary() {
-    const ledger = storyInstitutionEnsure();
+    const ledger = storyInstitutionEnabled() ? STORY.institutions : null;
     if (!ledger) return {
         schemaVersion: STORY_INSTITUTION_SCHEMA_VERSION,
         adapterVersion: STORY_INSTITUTION_ADAPTER_VERSION,
