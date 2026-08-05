@@ -86,7 +86,12 @@ function main() {
     if (!egitim.length) { console.log('EĞİTİM KÜMESİ BOŞ — daha çok tohumdan veri üretin.'); process.exit(1); }
 
     const t0 = Date.now();
-    const model = sel.selTrain(egitim, { epochs: EPOK, lr: LR, H, seed: 12345 });
+    // DİKKAT: selTrain { model, loss } SARMALAYICISI döndürür. Sarmalayıcıyı model sanıp
+    // kaydedersek model.D undefined olur, selForward NaN üretir ve canlı seçici hiçbir adayı
+    // seçemez. (Ölçüldü: "64/64 aday geçersiz skor aldı, model D=undefined".)
+    const egitimSonuc = sel.selTrain(egitim, { epochs: EPOK, lr: LR, H, seed: 12345 });
+    const model = (egitimSonuc && egitimSonuc.model) ? egitimSonuc.model : egitimSonuc;
+    if (!model || !Number.isFinite(model.D)) { console.log('EĞİTİM ÇIKTISI GEÇERSİZ (model.D yok) — durduruldu.'); process.exit(1); }
     const sure = ((Date.now() - t0) / 1000).toFixed(1);
 
     const olc = (kume) => {

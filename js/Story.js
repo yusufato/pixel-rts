@@ -654,8 +654,6 @@ function storyLoad() {
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
         if (typeof storyOpinionRestore === 'function') storyOpinionRestore(d.publicOpinion);
-        if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
-        if (typeof storyHumanMigrationRestore === 'function') storyHumanMigrationRestore(d.humanMigration);
         STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
         // Güncel GEO kaydı kendi şehir/petrol/maden dağılımını zaten taşır.
@@ -672,11 +670,14 @@ function storyLoad() {
         STORY.commander = d.commander || { node: 0 };
         storyCommanderBackfill(STORY.commander);
         if (typeof cmdrMigrate === 'function') cmdrMigrate(STORY.commander);   // FAZ-7: eski 3-slot perk → ağaç düğümü
-        // Kurum makamları oyuncu/komutan kimliğini; güç merkezleri de kurum ve
-        // kolektif defterlerini okur. Geri yükleme bu bağımlılık sırasından önce
-        // yapılırsa aynı kayıt yetki imzasını gereksiz yere değiştirir.
+        // Kurum makamları oyuncu/komutan kimliğini, güç merkezleri kurumsal
+        // yetkiyi, kolektif hareketler de güç merkezi kimliklerini okur. Tam
+        // kayıt önce bu kimlik zinciriyle açılır; türetilmiş kapasite ilk canlı
+        // tikte güncellenir. Aksi sıra aynı kaydı gereksiz backfill eder.
         if (typeof storyInstitutionRestore === 'function') storyInstitutionRestore(d.institutions);
         if (typeof storyPowerCenterRestore === 'function') storyPowerCenterRestore(d.powerCenters);
+        if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
+        if (typeof storyHumanMigrationRestore === 'function') storyHumanMigrationRestore(d.humanMigration);
         STORY.commander.st = STORY.playerStateId;   // FAZ-8: ordu tavanı için devlet bağı
         // FAZ-2: hükümet backfill (eksik kayıt güvenliği) + komutan-id sayacını ilerlet
         let _mx = (STORY.commander && STORY.commander.id) || 0;

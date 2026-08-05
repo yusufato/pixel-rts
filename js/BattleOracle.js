@@ -44,6 +44,7 @@ function battleSelectorDisable() {
     if (typeof BATTLE_CONTROLLERS !== 'undefined') for (const c of BATTLE_CONTROLLERS.values()) battleOracleUninstallInjection(c);
 }
 // Model bir karar durumunda tüm adayları skorlar → en yüksek → enjeksiyon-spec. Cache ile thrash azaltılır.
+let BATTLE_SELECTOR_UYARDI = false;   // tek seferlik uyari (log spam yok)
 function battleSelectorPickInjection(controller, observation, situation) {
     const model = BATTLE_SELECTOR_MODELS[controller.id];
     if (!model || typeof selForward !== 'function' ||
@@ -73,10 +74,26 @@ function battleSelectorPickInjection(controller, observation, situation) {
     for (const a of ownUnits) for (const b of contacts) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < minEnemyDist) minEnemyDist = d; }
     const maxTicks = Math.round(((typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.durationSec) || 240) / BATTLE_TICK_SEC);
     const sf = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: ownUnits.length, enemyCount: contacts.length });
-    let best = null, bestScore = -Infinity;
+    let best = null, bestScore = -Infinity, gecersizSkor = 0;
     for (const cand of candidates) {
         const s = selForward(model, sf.concat(battleCandidateFeatures(cand, ctx))).out;
+        // SAĞLAMLIK: skor NaN/Infinity ise bu aday atlanır. Eskiden NaN skorlarda hiçbir
+        // karşılaştırma doğru olmuyordu (NaN > x her zaman false) → best null kalıyor ve
+        // battleCandidateToInjection(null) "Cannot read properties of null (reading
+        // 'mainSector')" ile ÇÖKÜYORDU. Model boyutu/özellik uzunluğu uyuşmazsa tam bu olur.
+        if (!Number.isFinite(s)) { gecersizSkor++; continue; }
         if (s > bestScore) { bestScore = s; best = cand; }
+    }
+    if (!best) {
+        // Hiçbir aday geçerli skor almadı → sessizce kod-AI'ya bırak (çökme YOK).
+        if (gecersizSkor && typeof console !== 'undefined' && !BATTLE_SELECTOR_UYARDI) {
+            BATTLE_SELECTOR_UYARDI = true;
+            console.warn('selector: ' + gecersizSkor + '/' + candidates.length +
+                ' aday geçersiz skor aldı (model D=' + model.D + ', özellik=' +
+                (sf.length + battleCandidateFeatures(candidates[0], ctx).length) + ') → kod-AI kullanılıyor');
+        }
+        BATTLE_SELECTOR_CACHES[controller.id] = { tick: SIM.tick, inj: null };
+        return null;
     }
     const inj = battleCandidateToInjection(best, controller.id);
     BATTLE_SELECTOR_CACHES[controller.id] = { tick: SIM.tick, inj };

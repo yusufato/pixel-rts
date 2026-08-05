@@ -67,18 +67,24 @@ function battleBeonaiUyumlu(ad) {
 // Maç başında çağrılır: etkin sürümleri kontrolörlere bağlar.
 // REPLAY/MP'de hiçbir şey yapmaz (kural 1).
 function battleBeonaiBagla() {
-    if (typeof battleSelectorSetModel !== 'function') return { bagli: [], uyari: ['BattleSelector yok'] };
+    // DİKKAT: battleSelectorSetModel modeli YALNIZCA KAYDEDER. Kararları yakalayan sarmalayıcıyı
+    // battleOracleInstallInjection kurar; onsuz model sessizce HİÇBİR ŞEY YAPMAZ. (Ölçüldü: beonai
+    // "bağlı" görünürken sonuçlar modelsiz koşuyla BİREBİR aynı çıkıyordu.) Bu yüzden burada
+    // battleSelectorEnableFor / battleSelectorDisable kullanılır — ikisi de sarmalayıcıyı yönetir.
+    if (typeof battleSelectorEnableFor !== 'function' || typeof battleSelectorDisable !== 'function') {
+        return { bagli: [], uyari: ['BattleSelector/Oracle yok'] };
+    }
     const oynatim = (typeof BATTLE_REPLAY !== 'undefined' && BATTLE_REPLAY && BATTLE_REPLAY.playback);
     const mp = (typeof MP !== 'undefined' && MP && MP.active);
-    if (oynatim || mp) { battleSelectorSetModel(null, null); return { bagli: [], uyari: ['replay/MP → beonai kapalı'] }; }
+    if (oynatim || mp) { battleSelectorDisable(); return { bagli: [], uyari: ['replay/MP → beonai kapalı'] }; }
 
-    battleSelectorSetModel(null, null);   // önce temizle: önceki maçtan model sızmasın
+    battleSelectorDisable();   // önce temizle: önceki maçtan model VE sarmalayıcı sızmasın
     const bagli = [], uyari = [];
     const kur = (ad, ctrlId, taraf) => {
         if (!ad) return;
         const u = battleBeonaiUyumlu(ad);
         if (!u.uyumlu) { uyari.push(taraf + ': ' + u.sebep + ' → kod-AI kullanılıyor'); return; }
-        battleSelectorSetModel(BATTLE_BEONAI_SURUMLER[ad].model, ctrlId);
+        battleSelectorEnableFor(ctrlId, BATTLE_BEONAI_SURUMLER[ad].model);
         bagli.push(taraf + '=' + ad);
     };
     kur(BATTLE_BEONAI_RED, BEONAI_KONTROLOR.kirmizi, 'kırmızı');
