@@ -210,6 +210,16 @@ function macKos(ctx, tSal, tSav, seed) {
         //   { ad:"B4+pro+beonai", paylar:{...}, govde:"intel4pro", beyin:"beonai-v1" }
         'BATTLE_INTEL4PRO_RED = ' + (tSal.govde === 'intel4pro') + ';' +
         'BATTLE_INTEL4PRO_BLUE = ' + (tSav.govde === 'intel4pro') + ';' +
+        // DELTA EZME (Katman 4 demet kapisi icin): tarif `deltalar: { standoff:false, heloHunt:false }`
+        // verirse o anahtarlar ezilir. UYARI: BATTLE_INTEL4PRO_DELTAS GLOBAL, taraf-basi DEGIL -
+        // bu yuzden yalnizca TEK taraf intel4pro iken anlamlidir (digeri intel4 ise deltalar hic
+        // baglamaz). Iki taraf da pro ve ikisi de `deltalar` verirse SALDIRAN kazanir + uyarilir.
+        ((tSal.deltalar || tSav.deltalar) ? (
+            'if (typeof BATTLE_INTEL4PRO_DELTAS !== "undefined") {' +
+            '  const _dz = ' + JSON.stringify(Object.assign({}, tSav.deltalar || {}, tSal.deltalar || {})) + ';' +
+            '  for (const k in _dz) BATTLE_INTEL4PRO_DELTAS[k] = _dz[k];' +
+            '}'
+        ) : '') +
         // BEYİN SEÇİMİ: tarifte `beyin` alanı varsa o taraf beonai sürümüyle koşar
         // (ör. { ad:"H0+beonai-v1", heuristik:true, beyin:"beonai-v1" }). Böylece öğrenen
         // beyin, kod-AI ile TAM AYNI çok-tohumlu değerlendirmeden geçer — ayrı tezgâh yok.

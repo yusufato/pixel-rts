@@ -373,3 +373,50 @@ daha çok tohum gerekir.
   Kayıt için: SİHA'nın kendi teşhisi ayrıca yapılmalı — bu delta ona göre ayarlanmadı.
 
 **Durum:** Katman 1 ✓ · Katman 2 ✓ (sınırda) · Katman 3 ✓ · Katman 4 BEKLİYOR (demet: `standoff` + `heloHunt`).
+
+---
+
+## 10. SÜRÜM TURNUVASI SONUCU (255 aday, düzeltilmiş mekanikle)
+
+**Şampiyon: `KESIF-jammer-1` +1335 ±582 (35/48)** — sabit ölçü çubuğunu (REF-H0-sezgisel) anlamlı
+biçimde yeniyor ("sıfırdan ayırt edilebilir: EVET").
+
+**Ama şampiyon takipçilerinden AYIRT EDİLEMİYOR:**
+
+| aday | marj | galibiyet | zorunlu birim |
+|---|---|---|---|
+| KESIF-jammer-1 | +1335 ±582 | 35/48 | **ew_vehicle** |
+| ORN-244 | +1296 ±701 | **36/48** | — |
+| ORN-180 | +1234 ±604 | **36/48** | — |
+| SUP-armor-x2 | +1162 ±647 | 35/48 | — |
+| ORN-176 | +915 ±571 | 34/48 | command_vehicle |
+
+Güven aralıkları örtüşüyor ve iki aday daha ÇOK maç kazandı (36 vs 35) — şampiyonluk marjdan geldi.
+**Desteklenen:** "beş adaylık bir üst grup referansı yeniyor." **Desteklenmeyen:** "KESIF-jammer-1 en iyisi."
+
+**Bütçe kesintisi:** final turu 6×96=576 maç planlanmıştı; aday başına 48 tohum koşuldu ve
+5 elemenin 4'ü kanıtla değil BÜTÇEYLE yapıldı. Bilgi kaybı kayda geçti.
+
+### Kör-nokta birimleri (kullanıcı isteği: "AI'nin hiç kullanmadığı birimleri de denemesini istiyorum")
+
+| birim | ulaştığı en ileri tur |
+|---|---|
+| **ew_vehicle (jammer)** | **4 — ŞAMPİYON** |
+| **command_vehicle** | **4** |
+| armed_uav (SİHA) | 3 |
+| sam_battery · mlrs · attack_helo · counter_battery_radar | 2 |
+| **ballistic_missile** | **1** (11 kombinasyonunun tamamı) |
+| transport_helo | 1 |
+
+Jammer iki BAĞIMSIZ koşuda da tepede çıktı (iptal edilen koşuda tur 2 lideri +2534±678,
+bu koşuda +2562±678) — tekrarlanabilirlik güçlü sinyal.
+
+### ÖNEMLİ ÇEKİNCE: turnuva becerileri KAPALI koşuyor
+
+Turnuva `intel4` gövdesiyle koşuyor (`govde=intel4pro` olan aday YOK) → `standoff` ve `heloHunt`
+**hiç bağlamadı.** Yani:
+- **Balistik**, onu ateş ettiren beceri kapalıyken elendi.
+- **Taarruz helosu**, atışını 5× artıran beceri kapalıyken tur 2'de düştü.
+
+Bu tam olarak §0'daki tez: turnuva *"bu AI'ın kullanabildiği kompozisyonlar"* ı ölçüyor.
+Beceriler kalıcılaşınca turnuva YENİDEN koşulmalı — asıl ilginç sonuç iki sıralamanın farkı olacak.
