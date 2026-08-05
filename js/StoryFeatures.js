@@ -39,6 +39,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'society.publicOpinionMemory': true,
     'society.collectiveAction': true,
     'population.humanMigration': true,
+    'society.powerCenters': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -97,6 +98,10 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'population.needsWelfare',
         'society.collectiveAction',
         'world.infrastructureGraph'
+    ]),
+    'society.powerCenters': Object.freeze([
+        'population.cohorts',
+        'economy.companiesBanks'
     ])
 });
 

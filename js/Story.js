@@ -568,6 +568,9 @@ function storySave() {
             humanMigration: (typeof storyHumanMigrationForSave === 'function')
                 ? storyHumanMigrationForSave()
                 : STORY.humanMigration,
+            powerCenters: (typeof storyPowerCenterForSave === 'function')
+                ? storyPowerCenterForSave()
+                : STORY.powerCenters,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -646,6 +649,7 @@ function storyLoad() {
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
         if (typeof storyOpinionRestore === 'function') storyOpinionRestore(d.publicOpinion);
+        if (typeof storyPowerCenterRestore === 'function') storyPowerCenterRestore(d.powerCenters);
         if (typeof storyCollectiveRestore === 'function') storyCollectiveRestore(d.collectiveAction);
         if (typeof storyHumanMigrationRestore === 'function') storyHumanMigrationRestore(d.humanMigration);
         STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
@@ -1410,6 +1414,8 @@ function storyAdvanceStep(dtSec) {
     if (_populationDt > 0 && typeof storyPopulationTick === 'function') storyPopulationTick(_populationDt); // Faz 23 nüfus kohort uzlaştırması
     const _humanMigrationDt = _storyDue('human-migration', '_accHumanMigration', 5);
     if (_humanMigrationDt > 0 && typeof storyHumanMigrationTick === 'function') storyHumanMigrationTick(_humanMigrationDt); // Faz 27 rotalı göç ve mülteci akışı
+    const _powerCenterDt = _storyDue('power-centers', '_accPowerCenters', 5);
+    if (_powerCenterDt > 0 && typeof storyPowerCenterTick === 'function') storyPowerCenterTick(_powerCenterDt); // Faz 28 kaynaklı güç merkezleri
     const _needsDt = _storyDue('population-needs', '_accNeeds', 5);
     if (_needsDt > 0) {
         if (typeof storyNeedsTick === 'function') storyNeedsTick(_needsDt); // Faz 24 kohort ihtiyaç/refah/güvenlik sonuçları

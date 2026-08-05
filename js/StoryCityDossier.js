@@ -8,13 +8,13 @@
 //  Kapsam sınırı:
 //   • mevcut şehir üretim/bina/garnizon işlemleri yalnız oyuncunun şehrinde;
 //   • yabancı şehir salt-okunur ve gizli idari/askerî değerleri göstermez;
-//   • şirket/tesis/banka verisi bilgi filtresinden geçer; yerel kurum ve
+//   • şirket/tesis/banka ve Faz 28 güç merkezi verisi bilgi filtresinden geçer;
 //     doğrudan karakter görüşmesi henüz simüle edilmez.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_CITY_DOSSIER_SCHEMA_VERSION = 1;
 const STORY_CITY_DOSSIER_TABS = Object.freeze([
-    'genel', 'nufus', 'tarih', 'karakterler', 'binalar', 'ordu'
+    'genel', 'nufus', 'kurumlar', 'tarih', 'karakterler', 'binalar', 'ordu'
 ]);
 const STORY_ECONOMY_TABS = Object.freeze([
     'genel', 'butce', 'sirketler', 'piyasa', 'lojistik', 'fraksiyonlar'
@@ -142,12 +142,13 @@ function storyCityDossierBuild(nodeId) {
     const facts = {};
     for (const field of [
         'name', 'ownerId', 'neighborIds', 'level', 'garrison', 'infrastructure',
-        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
+        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
     ]) facts[field] = storyCityDossierFactCopy(region[field]);
     const ownerCountry = (knowledge.countries || []).find(candidate => candidate.id === ownerId);
     facts.budget = storyCityDossierFactCopy(ownerCountry && ownerCountry.budget);
     facts.countryCompanies = storyCityDossierFactCopy(ownerCountry && ownerCountry.companyEconomy);
     facts.economicPolicy = storyCityDossierFactCopy(ownerCountry && ownerCountry.economicPolicy);
+    facts.countryPowerCenters = storyCityDossierFactCopy(ownerCountry && ownerCountry.powerCenters);
 
     const characters = (knowledge.characters || [])
         .filter(character => character.regionId
@@ -187,9 +188,8 @@ function storyCityDossierBuild(nodeId) {
         corridors: storyCityDossierCorridors(regionId, facts.logistics, world),
         history: storyCityDossierCollectHistory(regionId),
         characters,
-        missingSystems: [
-            { id: 'institutions', label: 'YEREL KURUMLAR', status: 'NOT_IMPLEMENTED' }
-        ]
+        missingSystems: facts.countryPowerCenters && facts.countryPowerCenters.value
+            ? [] : [{ id: 'institutions', label: 'GÜÇ MERKEZLERİ', status: 'NOT_IMPLEMENTED' }]
     };
     const validation = storyCityDossierValidate(view);
     if (!validation.ok) throw new Error(`Geçersiz şehir dosyası: ${validation.issues[0].code}`);
@@ -240,6 +240,11 @@ function storyCityDossierValidate(view) {
         if (/cohorts|route|evidence|originPushBps|qualityGainBps|receptionCapacityPeople/.test(migrationText)) {
             add('FOREIGN_MIGRATION_INTELLIGENCE_LEAK', '$.facts.humanMigration', 'Yabancı göçün kohort, rota, kapasite ve karar kanıtı sızamaz.');
         }
+        const powerCenters = view.facts && view.facts.countryPowerCenters;
+        const powerText = powerCenters && powerCenters.value ? JSON.stringify(powerCenters.value) : '';
+        if (/supportBase|resources|resourceEvidence|organizationBps|influenceBps|alignmentBps|independenceBps|capabilities|priorityBps|actorId/.test(powerText)) {
+            add('FOREIGN_POWER_CENTER_INTELLIGENCE_LEAK', '$.facts.countryPowerCenters', 'Yabancı güç merkezinin gizli kaynak, kapasite, hizalanma ve lider kimliği sızamaz.');
+        }
     }
     if (!Array.isArray(view.missingSystems)
         || view.missingSystems.some(item => item.status !== 'NOT_IMPLEMENTED')) {
@@ -269,6 +274,7 @@ function storyCityDossierTabs(view, active) {
     const tabs = [
         ['genel', 'GENEL'],
         ['nufus', 'NÜFUS'],
+        ['kurumlar', 'GÜÇ MERKEZLERİ'],
         ['tarih', 'TARİH'],
         ['karakterler', 'KARAKTERLER']
     ];
@@ -292,10 +298,52 @@ function storyCityDossierHeader(view, active) {
 }
 
 function storyCityDossierMissing(view) {
+    if (!view.missingSystems.length) return '';
     return `<section class="city-dossier-sec"><h3>HENÜZ BAĞLANMAYAN KATMANLAR</h3>`
         + `<div class="city-missing-grid">${view.missingSystems.map(item => (
             `<div><b>${storyCityDossierEscape(item.label)}</b><span>SİSTEM HENÜZ YOK</span></div>`
         )).join('')}</div></section>`;
+}
+
+function storyCityDossierRenderPowerCenters(view) {
+    const fact = view.facts.countryPowerCenters;
+    if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !fact.value) {
+        return `<section class="city-dossier-empty"><b>GÜÇ MERKEZİ KAYDI YOK</b>`
+            + `<span>Bu ülkenin kurumsal aktörleri hakkında doğrulanmış bilgi bulunmuyor.</span></section>`;
+    }
+    const typeLabels = {
+        ARMED_FORCES: 'SİLAHLI KUVVETLER', BUSINESS_COUNCIL: 'İŞ DÜNYASI',
+        LABOR_CONFEDERATION: 'EMEK KONFEDERASYONU', CIVIL_SERVICE: 'KAMU İDARESİ',
+        MEDIA_NETWORK: 'MEDYA AĞI', SECURITY_SERVICE: 'İÇ GÜVENLİK',
+        RADICAL_NETWORK: 'RADİKAL AĞLAR'
+    };
+    const centers = Array.isArray(fact.value.centers) ? fact.value.centers : [];
+    const rows = centers.map(center => {
+        const leader = center.leader || {};
+        if (!view.isOwn) {
+            return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[center.type] || center.type)}</b>`
+                + `<span>${storyCityDossierEscape(center.name || '')}</span>`
+                + `<small>KAMUSAL TEMSİL: ${storyCityDossierEscape(leader.name || 'Bilinmiyor')} · kesin kaynak ve kapasite bilinmiyor</small></div></article>`;
+        }
+        const resources = center.resources || {};
+        const capabilities = center.capabilities || {};
+        const goals = Array.isArray(center.goals) ? center.goals : [];
+        const topGoal = goals[0];
+        const local = view.facts.powerCenters && view.facts.powerCenters.value;
+        const localRow = local && Array.isArray(local.centers)
+            ? local.centers.find(item => item.centerId === center.id) : null;
+        return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[center.type] || center.type)} · ETKİ %${storyCityDossierNumber(center.influenceBps / 100)}</b>`
+            + `<span>${storyCityDossierEscape(center.name)} · LİDER: ${storyCityDossierEscape(leader.name || '—')}</span>`
+            + `<small>örgüt %${storyCityDossierNumber(center.organizationBps / 100)} · destek ${Math.round(Number(center.supportBase && center.supportBase.membersPeople) || 0).toLocaleString('tr-TR')} kişi`
+            + `${localRow ? ` · bu bölgede ${Math.round(Number(localRow.membersPeople) || 0).toLocaleString('tr-TR')}` : ''}`
+            + ` · mali ${storyCityDossierNumber(capabilities.financeBps / 100)} / seferberlik ${storyCityDossierNumber(capabilities.mobilizationBps / 100)} / zorlama ${storyCityDossierNumber(capabilities.coercionBps / 100)}`
+            + `${resources.facilityCount ? ` · ${storyCityDossierNumber(resources.facilityCount)} tesis` : ''}`
+            + `${topGoal ? ` · öncelik ${storyCityDossierEscape(topGoal.code)} %${storyCityDossierNumber(topGoal.priorityBps / 100)}` : ''}</small></div></article>`;
+    }).join('');
+    return `<section class="city-dossier-sec"><h3>ÜLKEDEKİ GÜÇ MERKEZLERİ</h3>`
+        + (rows ? `<div class="city-character-list">${rows}</div>`
+            : `<div class="city-dossier-empty"><b>ETKİN MERKEZ YOK</b><span>Kayıtlı kurumsal aktör bulunmuyor.</span></div>`)
+        + `<p class="city-hint">Destek ve kapasite dekoratif puan değildir: nüfus kohortları, şirket kasaları/tesisleri, komutanlar, garnizonlar ve kolektif hareketlerden türetilir. Faz 29 yetki şeması gelene kadar merkezler doğrudan karar uygulayamaz. Medya, güvenlik ve bazı lider ofisleri sonraki kanonik sistemlere kadar açıkça etiketli vekildir.</p></section>`;
 }
 
 function storyCityDossierGeneral(view, node) {
@@ -670,6 +718,7 @@ function storyCityDossierRender(view, active, node) {
     if (view.disabled) return '<div class="city-hint">Şehir dosyası özellik bayrağıyla kapalı.</div>';
     let content = '';
     if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
+    else if (active === 'kurumlar') content = storyCityDossierRenderPowerCenters(view);
     else if (active === 'tarih') content = storyCityDossierRenderHistory(view);
     else if (active === 'karakterler') content = storyCityDossierRenderCharacters(view);
     else if (active === 'binalar' && view.isOwn && node) {
@@ -705,9 +754,11 @@ function storyEconomyRender(view, active) {
     else if (active === 'fraksiyonlar') {
         const match = /^country:(-?\d+)$/.exec(String(view.ownerId || ''));
         const ownerState = match && typeof storyState === 'function' ? storyState(Number(match[1])) : null;
-        content = view.isOwn && ownerState && typeof storyFacHtml === 'function'
-            ? storyFacHtml(ownerState)
-            : `<section class="city-dossier-empty"><b>TOPLUMSAL DENGE DOĞRULANMADI</b><span>Yabancı devletin fraksiyon bağlılıkları açık bilgi değildir.</span></section>`;
+        content = view.facts.countryPowerCenters && view.facts.countryPowerCenters.value
+            ? storyCityDossierRenderPowerCenters(view)
+            : (view.isOwn && ownerState && typeof storyFacHtml === 'function'
+                ? storyFacHtml(ownerState)
+                : `<section class="city-dossier-empty"><b>TOPLUMSAL DENGE DOĞRULANMADI</b><span>Yabancı devletin fraksiyon bağlılıkları açık bilgi değildir.</span></section>`);
     } else content = storyEconomyRenderOverview(view);
     return `<section class="city-dossier-head economy-dossier-head">`
         + `<div class="city-dossier-kicker">${view.isOwn ? 'ULUSAL VE BÖLGESEL DEFTER' : 'KAMUYA AÇIK EKONOMİK GÖRÜNÜM'}</div>`

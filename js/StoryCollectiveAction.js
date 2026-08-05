@@ -5,9 +5,8 @@
 //  Bu katman yeni bir fiziksel gercek uydurmaz: sorun, etkilenen kisi, tekrar ve
 //  sorumlu gorulen aktor daima publicOpinion defterinden gelir. LLM karar vermez.
 //
-//  Faz 28 orgutleri henuz yoktur. Bu nedenle orgutlenme kapasitesi acikca
-//  COHORT_NETWORK_PROXY_PRE_PHASE_28 olarak etiketlenir; gercek sendika veya
-//  gizli orgut sayisiymis gibi sunulmaz.
+//  Faz 28 acikken orgutlenme kapasitesi kanonik guc merkezlerinden gelir.
+//  Ozellik kapali/legacy A-B yolunda eski kohort vekili acik etiketle korunur.
 // ============================================================================
 
 const STORY_COLLECTIVE_SCHEMA_VERSION = 1;
@@ -16,7 +15,7 @@ const STORY_COLLECTIVE_STAGES = Object.freeze(['NONE', 'PROTEST', 'STRIKE', 'UPR
 const STORY_COLLECTIVE_RESPONSES = Object.freeze(['CONCEDE', 'NEGOTIATE', 'SUPPRESS', 'IGNORE']);
 const STORY_COLLECTIVE_LABOR_PROBLEMS = Object.freeze(['income', 'employment']);
 const STORY_COLLECTIVE_POLICY = Object.freeze({
-    organizationModel: 'COHORT_NETWORK_PROXY_PRE_PHASE_28',
+    organizationModel: 'POWER_CENTER_OR_EXPLICIT_LEGACY_PROXY_V1',
     mobilizationRiseRateBps: 1800,
     mobilizationDecayRateBps: 900,
     organizationRiseRateBps: 1200,
@@ -64,6 +63,7 @@ const STORY_COLLECTIVE_POLICY_HASH = storyProductionHash({
     responses: STORY_COLLECTIVE_RESPONSES,
     policy: STORY_COLLECTIVE_POLICY
 });
+const STORY_COLLECTIVE_PRE_POWER_CENTER_POLICY_HASH = 'fnv1a32:bd78ac61';
 
 function storyCollectiveEnabled() {
     return (typeof storyFeatureEnabled !== 'function'
@@ -126,8 +126,14 @@ function storyCollectiveSample(countryOpinion, issue, at, sourceOpinionTick, act
         : 0;
     const activeCohortShareBps = storyCollectiveClampBps(activeCohorts * 10000 / cohortCount);
     const recurrenceBps = storyCollectiveClampBps(Math.max(0, averageEpisodes - 1) * 1800);
+    const powerCenterOrganization = typeof storyPowerCenterOrganizationForProblem === 'function'
+        ? storyPowerCenterOrganizationForProblem(countryOpinion.countryId, issue.problemType)
+        : null;
+    const organizationBaseBps = powerCenterOrganization
+        ? powerCenterOrganization.organizationBps
+        : storyCollectiveProblemOrganizationBase(issue.problemType);
     const organizationTargetBps = storyCollectiveClampBps(
-        storyCollectiveProblemOrganizationBase(issue.problemType)
+        organizationBaseBps
         + affectedShareBps * 0.22
         + activeCohortShareBps * 0.12
         + recurrenceBps * 0.08
@@ -147,6 +153,10 @@ function storyCollectiveSample(countryOpinion, issue, at, sourceOpinionTick, act
         averageEpisodesBps: storyCollectiveClampBps(averageEpisodes * 1000),
         recurrenceBps,
         organizationTargetBps,
+        organizationModel: powerCenterOrganization
+            ? powerCenterOrganization.model : 'COHORT_NETWORK_PROXY_PRE_PHASE_28',
+        organizationCenterIds: powerCenterOrganization
+            ? powerCenterOrganization.centerIds.slice() : [],
         actionEligible: !!actionEligible,
         sourceOpinionTick: Math.max(0, Math.floor(Number(sourceOpinionTick) || 0)),
         at: storyCollectiveRound(at)
@@ -169,6 +179,9 @@ function storyCollectiveEmptySample(movement, at, sourceOpinionTick) {
         averageEpisodesBps: movement.averageEpisodesBps,
         recurrenceBps: 0,
         organizationTargetBps: 0,
+        organizationModel: movement.organizationModel || 'COHORT_NETWORK_PROXY_PRE_PHASE_28',
+        organizationCenterIds: Array.isArray(movement.organizationCenterIds)
+            ? movement.organizationCenterIds.slice() : [],
         actionEligible: false,
         sourceOpinionTick,
         at
@@ -271,6 +284,9 @@ function storyCollectiveAdvanceMovement(previous, sample) {
     movement.averageEpisodesBps = storyCollectiveClampBps(sample.averageEpisodesBps);
     movement.lastUpdatedAt = storyCollectiveRound(sample.at);
     movement.sourceOpinionTick = Math.max(0, Math.floor(Number(sample.sourceOpinionTick) || 0));
+    movement.organizationModel = String(sample.organizationModel || 'COHORT_NETWORK_PROXY_PRE_PHASE_28');
+    movement.organizationCenterIds = Array.isArray(sample.organizationCenterIds)
+        ? sample.organizationCenterIds.map(String) : [];
     if (movement.severityBps > 0) {
         movement.issueTicks++;
         movement.calmTicks = 0;
@@ -577,6 +593,19 @@ function storyCollectiveValidate(ledger) {
         }
         if (movement.pendingResponse && movement.stage === 'NONE') add('COLLECTIVE_PENDING_WITHOUT_ACTION', path, 'Eylemsiz hareket yanıt bekleyemez.');
         if (typeof movement.actionEligible !== 'boolean') add('COLLECTIVE_ACTION_ELIGIBILITY', `${path}.actionEligible`, 'Eylem uygunluğu boolean olmalı.');
+        if (!['POWER_CENTER_CAPACITY_PHASE_28', 'COHORT_NETWORK_PROXY_PRE_PHASE_28'].includes(movement.organizationModel)) {
+            add('COLLECTIVE_ORGANIZATION_MODEL', `${path}.organizationModel`, 'Örgütlenme kaynağı açıkça tanımlanmalı.');
+        }
+        if (!Array.isArray(movement.organizationCenterIds)) {
+            add('COLLECTIVE_ORGANIZATION_CENTERS', `${path}.organizationCenterIds`, 'Örgütlenme güç merkezi listesi zorunlu.');
+        } else if (movement.organizationModel === 'POWER_CENTER_CAPACITY_PHASE_28') {
+            const powerLedger = STORY.powerCenters;
+            for (const centerId of movement.organizationCenterIds) {
+                if (!powerLedger || !powerLedger.centers || !powerLedger.centers[centerId]) {
+                    add('COLLECTIVE_ORGANIZATION_CENTER_REFERENCE', `${path}.organizationCenterIds`, 'Hareket bilinmeyen güç merkezine bağlı.');
+                }
+            }
+        }
         if (movement.lastResponse && !STORY_COLLECTIVE_RESPONSES.includes(movement.lastResponse.mode)) {
             add('COLLECTIVE_RESPONSE_MODE', `${path}.lastResponse.mode`, 'Hareket yanıt türü geçersiz.');
         }
@@ -631,6 +660,21 @@ function storyCollectiveRestore(saved) {
     if (!storyCollectiveEnabled()) { STORY.collectiveAction = null; return null; }
     if (!saved) return storyCollectiveReset({ backfilled: true });
     const candidate = storyCollectiveClone(saved);
+    if (candidate.policyHash === STORY_COLLECTIVE_PRE_POWER_CENTER_POLICY_HASH) {
+        candidate.policyHash = STORY_COLLECTIVE_POLICY_HASH;
+        candidate.diagnostics = candidate.diagnostics || {};
+        candidate.diagnostics.organizationModel = STORY_COLLECTIVE_POLICY.organizationModel;
+        candidate.diagnostics.warnings = Array.isArray(candidate.diagnostics.warnings)
+            ? candidate.diagnostics.warnings : [];
+        candidate.diagnostics.warnings.push('Faz 26 örgütlenme vekili Faz 28 güç merkezi bağlantısına güvenli biçimde yükseltildi.');
+        for (const movement of Object.values(candidate.movements || {})) {
+            const organization = typeof storyPowerCenterOrganizationForProblem === 'function'
+                ? storyPowerCenterOrganizationForProblem(movement.countryId, movement.problemType) : null;
+            movement.organizationModel = organization
+                ? organization.model : 'COHORT_NETWORK_PROXY_PRE_PHASE_28';
+            movement.organizationCenterIds = organization ? organization.centerIds.slice() : [];
+        }
+    }
     const validation = storyCollectiveValidate(candidate);
     if (!validation.ok) {
         const ledger = storyCollectiveLedgerCreate({ backfilled: true });

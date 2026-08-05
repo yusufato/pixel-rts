@@ -421,9 +421,10 @@ app.whenReady().then(() => {
                             'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
                             'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;' +
                             'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;' +
-                            'BATTLE_RECIPE_RED = ' + JSON.stringify(tSal) + ';' +
+                            (tSal.heuristik ? 'BATTLE_RECIPE_RED = null; if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;' : 'BATTLE_RECIPE_RED = ' + JSON.stringify(tSal) + ';') +
                             'openBattlefieldSession({ mode:"quick", mapId:-2, seed:' + seed + ', attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
-                            'const mv = battleBuildArmyManifest(6500, { maxUnits:48, recipe: ' + JSON.stringify(tSav) + ' });' +
+                            (tSav.heuristik ? "if (typeof BATTLE_FORCE_VARIED !== \"undefined\") BATTLE_FORCE_VARIED = true; const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false, pro:false });" : 'const mv = battleBuildArmyManifest(6500, { maxUnits:48, recipe: ' + JSON.stringify(tSav) + ' });') +
+                            'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
                             'battleDeployManifest(mv, false, { source:"recipeab-sav", ally:true });' +
                             'const salDeger = SIM.units.filter(u => u.isRed).reduce((s,u)=>s+((STATS[u.type]&&STATS[u.type].cost)||0),0);' +
                             'startBattle(); window.requestAnimationFrame = () => 0;' +
@@ -493,6 +494,104 @@ app.whenReady().then(() => {
             try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync('qa-runtime/recipe-ab.json', JSON.stringify(hucreler, null, 1)); } catch (e) {}
             console.log('');
             console.log('RECIPEAB_OK ' + hucreler.length + ' hucre / ' + n + ' mac');
+            setTimeout(() => app.exit(0), 300);
+        });
+        return;
+    }
+
+    // FAZ 1 TABAN HARITASI: `--recipebase` -> mevcut AI'in FIILI kategori paylarini rol basina cikarir (R0)
+    // ve kullanicinin kendi listelerini (qa-runtime/kompozisyonlar.json) ayni birimle olcer (RU).
+    // Cikti dogrudan tarif formatinda yazilir -> qa-runtime/tarifler-taban.json (FAZ 2/3 girdisi).
+    // Kod degil OLCUM: mevcut sezgisel uretici 6 tohum x 2 rol kosulup TL-agirlikli ortalama alinir.
+    if (process.argv.includes('--recipebase')) {
+        createWindow();
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        const fsx = require('fs');
+        win.webContents.on('did-finish-load', async () => {
+            await new Promise(r => setTimeout(r, 1400));
+            const SEEDS = [2024, 777, 909, 3141, 2718, 5150];
+            const out = await js('(() => { try {' +
+                'const KATS = RECIPE_CATEGORIES;' +
+                'const paySay = (types) => { const tv = types.reduce((s,t)=>s+STATS[t].cost,0)||1; const o={};' +
+                '  for (const k of KATS) { const v = types.reduce((s,t)=>s+(deploymentTypeCategory(t)===k?STATS[t].cost:0),0); if (v>0) o[k]=v/tv; } return o; };' +
+                'const tipSay = (types) => { const tv = types.reduce((s,t)=>s+STATS[t].cost,0)||1; const o={};' +
+                '  for (const t of types) { const id = STATS[t].id || String(t); o[id] = (o[id]||0) + STATS[t].cost/tv; } return o; };' +
+                'const roller = {};' +
+                'const seeds = ' + JSON.stringify(SEEDS) + ';' +
+                'for (const rol of ["attacker","defender"]) {' +
+                '  const toplam = {}, tipToplam = {}, adetToplam = {}; let n = 0, degerToplam = 0;' +
+                '  for (const seed of seeds) {' +
+                '    SIM_RNG.state = 0x9e3779b9;' +
+                '    BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
+                '    BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
+                '    if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;' +
+                '    openBattlefieldSession({ mode:"quick", mapId:-2, seed:seed, attackerSide:(rol==="attacker"), durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });' +
+                '    if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
+                '    const m = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:(rol==="attacker"), pro:false });' +
+                '    const pay = paySay(m.types), tp = tipSay(m.types);' +
+                '    for (const k in pay) toplam[k] = (toplam[k]||0) + pay[k];' +
+                '    for (const k in tp) tipToplam[k] = (tipToplam[k]||0) + tp[k];' +
+                '    for (const t of m.types) { const id = STATS[t].id || String(t); adetToplam[id] = (adetToplam[id]||0) + 1; }' +
+                '    degerToplam += m.totalValue; n++;' +
+                '  }' +
+                '  const paylar = {}; for (const k in toplam) paylar[k] = +(toplam[k]/n).toFixed(4);' +
+                '  const tipPaylari = {}; for (const k in tipToplam) tipPaylari[k] = +(tipToplam[k]/n).toFixed(4);' +
+                '  const adet = {}; for (const k in adetToplam) adet[k] = +(adetToplam[k]/n).toFixed(2);' +
+                '  roller[rol] = { paylar, tipPaylari, adet, ortDeger: Math.round(degerToplam/n), n };' +
+                '}' +
+                'return { roller };' +
+                '} catch(e){ return { err:e.message, stack:(e.stack||"").slice(0,400) }; } })()');
+            if (!out || out.err) { console.log('BASE_HATA ' + (out && out.err) + ' ' + (out && out.stack)); app.exit(1); return; }
+            // kullanici listeleri node tarafindan gonderilir (window.__KOMP yerine dogrudan)
+            let komp = [];
+            try { komp = JSON.parse(fsx.readFileSync('qa-runtime/kompozisyonlar.json', 'utf8')); } catch (e) {}
+            const ru = await js('(() => { try {' +
+                'const KATS = RECIPE_CATEGORIES;' +
+                'const paySay = (types) => { const tv = types.reduce((s,t)=>s+STATS[t].cost,0)||1; const o={};' +
+                '  for (const k of KATS) { const v = types.reduce((s,t)=>s+(deploymentTypeCategory(t)===k?STATS[t].cost:0),0); if (v>0) o[k]=+(v/tv).toFixed(4); } return o; };' +
+                'const tipSay = (types) => { const tv = types.reduce((s,t)=>s+STATS[t].cost,0)||1; const o={};' +
+                '  for (const t of types) { const id = STATS[t].id || String(t); o[id] = +(((o[id]||0) + STATS[t].cost/tv)).toFixed(4); } return o; };' +
+                'const komp = ' + JSON.stringify(komp) + ';' +
+                'const res = [];' +
+                'for (const K of komp) { if (!K.birimler) continue;' +
+                '  const types = []; const eksik = [];' +
+                '  for (const id of Object.keys(K.birimler).sort()) { const t = deploymentResolveType(id); if (t == null) { eksik.push(id); continue; }' +
+                '    for (let i=0;i<K.birimler[id];i++) types.push(t); }' +
+                '  res.push({ ad: K.ad, deger: types.reduce((s,t)=>s+STATS[t].cost,0), birim: types.length, paylar: paySay(types), tipPaylari: tipSay(types), eksik });' +
+                '}' +
+                'return res;' +
+                '} catch(e){ return { err:e.message }; } })()');
+            const yaz = (baslik, paylar, ek) => {
+                const ks = Object.keys(paylar).sort((a, b) => paylar[b] - paylar[a]);
+                console.log(baslik + (ek || ''));
+                console.log('     ' + ks.map(k => k + ' %' + (paylar[k] * 100).toFixed(1)).join('  '));
+            };
+            console.log('=== R0: MEVCUT AI (6 tohum ortalamasi, 6500 TL) ===');
+            for (const rol of ['attacker', 'defender']) {
+                const r = out.roller[rol];
+                yaz('  R0-' + rol, r.paylar, '  (ort. deger ' + r.ortDeger + ' TL)');
+                const enCok = Object.keys(r.adet).sort((a, b) => r.adet[b] - r.adet[a]).slice(0, 10);
+                console.log('     adet/mac: ' + enCok.map(k => k + ' ' + r.adet[k]).join('  '));
+            }
+            console.log('');
+            console.log('=== RU: KULLANICI LISTELERI ===');
+            if (ru && !ru.err) for (const k of ru) {
+                yaz('  ' + k.ad, k.paylar, '  (' + k.deger + ' TL, ' + k.birim + ' birim)');
+                if (k.eksik.length) console.log('     TANIMSIZ: ' + k.eksik.join(', '));
+            } else console.log('  RU_HATA ' + (ru && ru.err));
+            // TARIF DOSYASI YAZ
+            const tarifler = [];
+            for (const rol of ['attacker', 'defender']) {
+                const r = out.roller[rol];
+                tarifler.push({ ad: 'R0-' + rol, rol, paylar: r.paylar, tipPaylari: r.tipPaylari, zorunlu: {}, tavan: {}, artik: [] });
+            }
+            if (ru && !ru.err) for (const k of ru) {
+                tarifler.push({ ad: 'RU-' + k.ad, rol: null, paylar: k.paylar, tipPaylari: k.tipPaylari, zorunlu: {}, tavan: {}, artik: [] });
+            }
+            try { fsx.mkdirSync('qa-runtime', { recursive: true }); fsx.writeFileSync('qa-runtime/tarifler-taban.json', JSON.stringify(tarifler, null, 1)); } catch (e) {}
+            console.log('');
+            console.log('RECIPEBASE_OK -> qa-runtime/tarifler-taban.json (' + tarifler.length + ' tarif)');
             setTimeout(() => app.exit(0), 300);
         });
         return;

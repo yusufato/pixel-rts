@@ -29,6 +29,7 @@ const STORY_SOURCES = [
     'js/StoryOpinion.js',
     'js/StoryCollectiveAction.js',
     'js/StoryHumanMigration.js',
+    'js/StoryPowerCenters.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -587,6 +588,17 @@ function createRuntime(seed) {
             humanMigrationCountryView: countryId => storyHumanMigrationCountryView(countryId),
             humanMigrationRegionView: regionId => storyHumanMigrationRegionView(regionId),
             humanMigrationTick: dt => storyHumanMigrationTick(dt),
+            powerCenterSummary: () => storyPowerCenterSummary(),
+            powerCenterLedger: () => storyPowerCenterClone(STORY.powerCenters),
+            validatePowerCenterLedger: ledger => storyPowerCenterValidate(ledger),
+            powerCenterForSave: () => storyPowerCenterForSave(),
+            powerCenterCountryView: countryId => storyPowerCenterCountryView(countryId),
+            powerCenterRegionView: regionId => storyPowerCenterRegionView(regionId),
+            powerCenterPublicView: value => storyPowerCenterPublicView(value),
+            powerCenterOrganizationForProblem: (countryId, problemType) => (
+                storyPowerCenterOrganizationForProblem(countryId, problemType)
+            ),
+            powerCenterTick: dt => storyPowerCenterTick(dt),
             populationTransferCohorts: (origin, destination, requested, options) => (
                 storyPopulationTransferCohorts(origin, destination, requested, options)
             ),
@@ -1559,6 +1571,40 @@ function stateSnapshot(story) {
                 reason: event.reason
             }))
         } : null,
+        powerCenters: story.powerCenters ? {
+            schemaVersion: story.powerCenters.schemaVersion,
+            policyHash: story.powerCenters.policyHash,
+            tickSequence: story.powerCenters.tickSequence,
+            centers: Object.fromEntries(Object.keys(story.powerCenters.centers || {}).sort().map(centerId => {
+                const center = story.powerCenters.centers[centerId];
+                return [centerId, {
+                    countryId: center.countryId,
+                    type: center.type,
+                    status: center.status,
+                    leader: center.leader,
+                    supportBase: center.supportBase,
+                    resources: center.resources,
+                    organizationBps: center.organizationBps,
+                    influenceBps: center.influenceBps,
+                    alignmentBps: center.alignmentBps,
+                    independenceBps: center.independenceBps,
+                    capabilities: center.capabilities,
+                    goals: center.goals,
+                    actionLimits: center.actionLimits
+                }];
+            })),
+            events: (story.powerCenters.events || []).map(event => ({
+                id: event.id,
+                type: event.type,
+                at: round(event.at),
+                centerId: event.centerId,
+                countryId: event.countryId,
+                previousLeaderId: event.previousLeaderId || null,
+                nextLeaderId: event.nextLeaderId || null,
+                previousInfluenceBps: event.previousInfluenceBps == null ? null : event.previousInfluenceBps,
+                nextInfluenceBps: event.nextInfluenceBps == null ? null : event.nextInfluenceBps
+            }))
+        } : null,
         diplomacy: Object.fromEntries(Object.keys(story.rel || {}).sort().map(key => {
             const relation = story.rel[key] || {};
             return [key, {
@@ -2092,6 +2138,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateHumanMigrationLedger(humanMigrationLedger)
             : { ok: true, disabled: true, issues: [] };
         const humanMigrationSummary = runtime.api.humanMigrationSummary();
+        const powerCenterLedger = runtime.api.powerCenterLedger();
+        const powerCenterValidation = powerCenterLedger
+            ? runtime.api.validatePowerCenterLedger(powerCenterLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const powerCenterSummary = runtime.api.powerCenterSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2286,6 +2337,8 @@ function runStorySimulation(options = {}) {
             collectiveSummary,
             humanMigrationValidation,
             humanMigrationSummary,
+            powerCenterValidation,
+            powerCenterSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -2827,7 +2880,7 @@ function storyDiffPaths(left, right, pathName = '$', result = []) {
 function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
-        'city-growth', 'population', 'human-migration', 'population-needs',
+        'city-growth', 'population', 'human-migration', 'power-centers', 'population-needs',
         'factions', 'society', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
@@ -8821,6 +8874,177 @@ function probeHumanMigration(seed = 2032) {
     };
 }
 
+function probePowerCenters(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(30);
+        const story = runtime.api.state();
+        const ledger = runtime.api.powerCenterLedger();
+        const validation = runtime.api.validatePowerCenterLedger(ledger);
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, 'country:0');
+        const ownCountry = knowledge.countries.find(row => row.id === 'country:0');
+        const foreignCountry = knowledge.countries.find(row => row.id === 'country:1');
+        const ownNode = story.nodes.find(node => node.owner === 0);
+        const foreignNode = story.nodes.find(node => node.owner !== 0);
+        const ownDossier = runtime.api.cityDossierBuild(ownNode.id);
+        const foreignDossier = runtime.api.cityDossierBuild(foreignNode.id);
+        const ownUi = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        const foreignUi = runtime.api.renderCityDossier(foreignNode.id, 'kurumlar');
+        const company = runtime.api.companyCountryView('country:0');
+        const ownCenters = Object.values(ledger.centers).filter(center => center.countryId === 'country:0');
+        const business = ownCenters.find(center => center.type === 'BUSINESS_COUNCIL');
+        const laborOrganization = runtime.api.powerCenterOrganizationForProblem('country:0', 'employment');
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const savedLedger = JSON.parse(savedRaw).powerCenters;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            validation,
+            summary: runtime.api.powerCenterSummary(),
+            everyCenterComplete: Object.values(ledger.centers).every(center => (
+                center.leader && center.leader.actorId && center.leader.name
+                && center.supportBase && Number.isInteger(center.supportBase.membersPeople)
+                && center.resources && center.capabilities
+                && Array.isArray(center.goals) && center.goals.length === 3
+                && center.actionLimits && center.actionLimits.maximumConcurrentActions === 0
+                && center.actionLimits.executableActionTypes.length === 0
+            )),
+            businessCashExact: !!business && Math.abs(business.resources.treasuryCash - company.totals.cash) < 1e-6,
+            laborOrganization,
+            worldPowerCenterCount: world.powerCenters.length,
+            ownKnowledge: ownCountry.powerCenters,
+            foreignKnowledge: foreignCountry.powerCenters,
+            foreignSecretsHidden: !/supportBase|resources|resourceEvidence|organizationBps|influenceBps|alignmentBps|independenceBps|capabilities|priorityBps|actorId/.test(
+                JSON.stringify(foreignCountry.powerCenters.value)
+            ),
+            ownDossierValidation: runtime.api.validateCityDossier(ownDossier),
+            foreignDossierValidation: runtime.api.validateCityDossier(foreignDossier),
+            ui: {
+                ownHasCenters: /GÜÇ MERKEZLERİ|SİLAHLI KUVVETLER/.test(ownUi.text),
+                ownHasCapacity: /ETKİ|örgüt|seferberlik/i.test(ownUi.text),
+                foreignHasPublicCenters: /GÜÇ MERKEZLERİ|SİLAHLI KUVVETLER/.test(foreignUi.text),
+                foreignSecretLeak: /ETKİ %|örgüt %|mali \d|seferberlik \d|zorlama \d/i.test(foreignUi.text)
+            },
+            savedExact: JSON.stringify(savedLedger) === JSON.stringify(ledger),
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.targetValidation,
+                topLevelCount: migrated.ok ? migrated.world.powerCenters.length : 0,
+                countryPreserved: !!(migrated.ok && migrated.world.countries[0].powerCenters),
+                regionPreserved: !!(migrated.ok && migrated.world.regions[0].powerCenters),
+                unmapped: !!(migrated.ok && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('powerCenters'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.powerCenterLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validatePowerCenterLedger(ledger),
+            exact: JSON.stringify(ledger) === JSON.stringify(JSON.parse(savedRaw).powerCenters)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.powerCenters;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.powerCenterLedger();
+        legacy = {
+            validation: legacyRuntime.api.validatePowerCenterLedger(ledger),
+            diagnostics: ledger.diagnostics,
+            summary: legacyRuntime.api.powerCenterSummary()
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptId = Object.keys(corruptSave.powerCenters.centers)[0];
+    corruptSave.powerCenters.centers[corruptId].influenceBps = 20000;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corruptRuntime.api.loadNow();
+        const ledger = corruptRuntime.api.powerCenterLedger();
+        corrupt = {
+            validation: corruptRuntime.api.validatePowerCenterLedger(ledger),
+            diagnostics: ledger.diagnostics
+        };
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'society.powerCenters': false }
+        });
+        disabledRuntime.api.advance(30);
+        disabled = {
+            ledger: disabledRuntime.api.powerCenterLedger(),
+            summary: disabledRuntime.api.powerCenterSummary(),
+            fallbackOrganization: disabledRuntime.api.powerCenterOrganizationForProblem('country:0', 'employment')
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'economy.companiesBanks': false, 'society.powerCenters': true }
+        });
+        prerequisiteRuntime.api.advance(30);
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.powerCenterLedger(),
+            summary: prerequisiteRuntime.api.powerCenterSummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+
+    const on = runStorySimulation({ seed, seconds: 180 });
+    const off = runStorySimulation({
+        seed, seconds: 180, featureFlags: { 'society.powerCenters': false }
+    });
+    return {
+        main, restored, legacy, corrupt, disabled, prerequisiteDisabled,
+        ab: {
+            onHash: on.stateHash,
+            offHash: off.stateHash,
+            changed: on.stateHash !== off.stateHash,
+            onValidation: on.powerCenterValidation,
+            offValidation: off.powerCenterValidation,
+            onSummary: on.powerCenterSummary,
+            offSummary: off.powerCenterSummary,
+            onCollectiveValidation: on.collectiveValidation,
+            offCollectiveValidation: off.collectiveValidation
+        }
+    };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -8855,6 +9079,7 @@ module.exports = {
     probePublicOpinion,
     probeCollectiveAction,
     probeHumanMigration,
+    probePowerCenters,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

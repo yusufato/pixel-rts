@@ -98,6 +98,9 @@ function storyWorldV2Countries() {
             humanMigration: typeof storyHumanMigrationCountryView === 'function'
                 ? storyWorldV2Clone(storyHumanMigrationCountryView(storyWorldV2CountryId(state.id)))
                 : null,
+            powerCenters: typeof storyPowerCenterCountryView === 'function'
+                ? storyWorldV2Clone(storyPowerCenterCountryView(storyWorldV2CountryId(state.id)))
+                : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
                 manpower: storyWorldV2Round(state.res && state.res.manpower),
@@ -149,6 +152,9 @@ function storyWorldV2Regions() {
                         : null,
                     humanMigration: typeof storyHumanMigrationRegionView === 'function'
                         ? storyWorldV2Clone(storyHumanMigrationRegionView(region.id))
+                        : null,
+                    powerCenters: typeof storyPowerCenterRegionView === 'function'
+                        ? storyWorldV2Clone(storyPowerCenterRegionView(region.id))
                         : null
                 }
             );
@@ -216,6 +222,9 @@ function storyWorldV2Regions() {
                 : null,
             humanMigration: typeof storyHumanMigrationRegionView === 'function'
                 ? storyWorldV2Clone(storyHumanMigrationRegionView(storyWorldV2RegionId(node.id)))
+                : null,
+            powerCenters: typeof storyPowerCenterRegionView === 'function'
+                ? storyWorldV2Clone(storyPowerCenterRegionView(storyWorldV2RegionId(node.id)))
                 : null,
             position: {
                 coordinateSpace: 'NORMALIZED_WORLD',
@@ -285,6 +294,15 @@ function storyWorldV2PopulationCohorts() {
                 : null
         }
     ));
+}
+
+function storyWorldV2PowerCenters() {
+    const ledger = typeof storyPowerCenterEnsure === 'function' ? storyPowerCenterEnsure() : null;
+    if (!ledger) return [];
+    return Object.values(ledger.centers || {}).map(center => Object.assign(
+        storyWorldV2EntityBase(center.id, center.countryId, center.foundedAt, null),
+        storyWorldV2Clone(center)
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
 function storyWorldV2Forces() {
@@ -441,7 +459,7 @@ function storyWorldV2Snapshot() {
         regions: storyWorldV2Regions(),
         characters: storyWorldV2Characters(),
         populationCohorts: storyWorldV2PopulationCohorts(),
-        powerCenters: [],
+        powerCenters: storyWorldV2PowerCenters(),
         companies: typeof storyCompanyEnsure === 'function'
             ? (() => {
                 const ledger = storyCompanyEnsure();

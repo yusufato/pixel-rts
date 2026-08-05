@@ -37,6 +37,7 @@ const {
     probePublicOpinion,
     probeCollectiveAction,
     probeHumanMigration,
+    probePowerCenters,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -167,6 +168,12 @@ function run() {
         'Göç geçmişi sınırlı kayıt tavanını aşmamalı.');
     assert.ok(first.humanMigrationSummary.activeFlowCount <= 152,
         'Bölge başına tek etkin çıkış ilkesi aktif akışları bölge sayısının altında tutmalı.');
+    assert.equal(first.powerCenterValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli güç merkezi defteri korumalı.');
+    assert.equal(first.powerCenterSummary.centerCount, 8 * 7,
+        'Her devlet yedi kaynaklı güç merkezi taşımalı.');
+    assert.ok(first.powerCenterSummary.eventCount <= 256,
+        'Güç merkezi olay geçmişi sınırlı kayıt tavanını aşmamalı.');
     assert.equal(first.opinionSummary.cohortCount, 152 * 12,
         'Normal 900 saniyelik dünyada bütün kohortlar kamuoyu taşıyıcısı olarak izlenmeli.');
     assert.ok(first.opinionSummary.averageRememberedSeverityBps < 9500,
@@ -2044,6 +2051,84 @@ function run() {
     assert.equal(humanMigrationProbe.ab.offValidation.ok, true,
         'Faz 27 kapalı A/B yolu geçersiz defter bırakmamalı.');
 
+    const powerCenterProbe = probePowerCenters();
+    assert.equal(powerCenterProbe.main.validation.ok, true,
+        'Faz 28 güç merkezi defteri kendi sözleşmesini geçmeli.');
+    assert.equal(powerCenterProbe.main.summary.centerCount, 56,
+        'Sekiz devletin her biri yedi güç merkezi taşımalı.');
+    assert.equal(powerCenterProbe.main.everyCenterComplete, true,
+        'Her güç merkezi lider, destek, kaynak, amaç, kapasite ve eylem sınırı taşımalı.');
+    assert.equal(powerCenterProbe.main.businessCashExact, true,
+        'İş dünyası kaynağı şirket defterindeki gerçek nakitle birebir uyuşmalı.');
+    assert.equal(powerCenterProbe.main.laborOrganization.model, 'POWER_CENTER_CAPACITY_PHASE_28',
+        'Emek hareketinin örgütlenme kapasitesi gerçek Faz 28 merkezinden gelmeli.');
+    assert.ok(powerCenterProbe.main.laborOrganization.centerIds.some(id => id.includes('labor_confederation')),
+        'Emek örgütlenmesi kanonik konfederasyon kimliğine bağlanmalı.');
+    assert.equal(powerCenterProbe.main.worldPowerCenterCount, 56,
+        'WorldV2 bütün kanonik güç merkezlerini taşımalı.');
+    assert.equal(powerCenterProbe.main.ownKnowledge.status, 'VERIFIED',
+        'Kendi güç merkezleri doğrulanmış kurumsal kayıt olmalı.');
+    assert.equal(powerCenterProbe.main.foreignKnowledge.status, 'VERIFIED',
+        'Yabancı güç merkezlerinin yalnız kamusal varlığı görünür olmalı.');
+    assert.equal(powerCenterProbe.main.foreignSecretsHidden, true,
+        'Yabancı güç merkezinin kaynak, kapasite, hizalanma ve lider kimliği sızmamalı.');
+    assert.equal(powerCenterProbe.main.ownDossierValidation.ok, true,
+        'Kendi şehir kurum görünümü bilgi sözleşmesini geçmeli.');
+    assert.equal(powerCenterProbe.main.foreignDossierValidation.ok, true,
+        'Yabancı şehir kurum görünümü gizlilik sözleşmesini geçmeli.');
+    assert.equal(powerCenterProbe.main.ui.ownHasCenters, true,
+        'Kendi şehir dosyası güç merkezlerini göstermeli.');
+    assert.equal(powerCenterProbe.main.ui.ownHasCapacity, true,
+        'Kendi güç merkezi ekranı gerçek örgüt ve kapasite ölçülerini göstermeli.');
+    assert.equal(powerCenterProbe.main.ui.foreignHasPublicCenters, true,
+        'Yabancı şehir ekranı kamusal kurumsal varlığı gösterebilmeli.');
+    assert.equal(powerCenterProbe.main.ui.foreignSecretLeak, false,
+        'Yabancı kurum ekranı kesin etki, örgüt ve zorlama kapasitesi sızdırmamalı.');
+    assert.equal(powerCenterProbe.main.savedExact, true,
+        'Güç merkezi defteri kayıt anında canlı durumu değiştirmeden birebir yazılmalı.');
+    assert.equal(powerCenterProbe.main.migration.ok, true,
+        'V3→V2 adaptörü Faz 28 güç merkezlerini taşımalı.');
+    assert.equal(powerCenterProbe.main.migration.validation.ok, true,
+        'Faz 28 güç merkezli V2 dünya geçerli olmalı.');
+    assert.equal(powerCenterProbe.main.migration.topLevelCount, 56,
+        'V3→V2 üst düzey güç merkezi sayısını korumalı.');
+    assert.equal(powerCenterProbe.main.migration.countryPreserved, true,
+        'V3→V2 ülke güç merkezi özetini korumalı.');
+    assert.equal(powerCenterProbe.main.migration.regionPreserved, true,
+        'V3→V2 bölgesel güç merkezi varlığını korumalı.');
+    assert.equal(powerCenterProbe.main.migration.unmapped, false,
+        'powerCenters bilinen kayıt alanı olarak işlenmeli.');
+    assert.equal(powerCenterProbe.restored.loaded, true,
+        'Faz 28 kaydı yeni süreçte yüklenebilmeli.');
+    assert.equal(powerCenterProbe.restored.validation.ok, true,
+        'Yüklenen Faz 28 defteri geçerli olmalı.');
+    assert.equal(powerCenterProbe.restored.exact, true,
+        'Güç merkezi defteri kayıt/yüklemede birebir korunmalı.');
+    assert.equal(powerCenterProbe.legacy.validation.ok, true,
+        'Faz 28 öncesi kayıt mevcut kanonik kaynaklardan güvenli merkez fotoğrafı kurmalı.');
+    assert.equal(powerCenterProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayıt güç merkezi backfill durumunu açıklamalı.');
+    assert.equal(powerCenterProbe.corrupt.validation.ok, true,
+        'Bozuk güç merkezi defteri dünyayı silmeden güvenli yeniden kurulmalı.');
+    assert.equal(powerCenterProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk Faz 28 kurtarması teşhiste görünmeli.');
+    assert.equal(powerCenterProbe.disabled.ledger, null,
+        'Faz 28 özellik bayrağı kapalıyken güç merkezi defteri oluşmamalı.');
+    assert.equal(powerCenterProbe.disabled.fallbackOrganization, null,
+        'Faz 28 kapalıyken güç merkezi API’si sahte kapasite üretmemeli.');
+    assert.equal(powerCenterProbe.prerequisiteDisabled.ledger, null,
+        'Şirket öncülü kapalıysa Faz 28 etkinleşmemeli.');
+    assert.equal(powerCenterProbe.ab.changed, true,
+        'Faz 28 açık/kapalı A/B dünyası gerçek örgütlenme kaynağı nedeniyle farklı olmalı.');
+    assert.equal(powerCenterProbe.ab.onValidation.ok, true,
+        'Faz 28 açık A/B yolu geçerli güç merkezi defteri üretmeli.');
+    assert.equal(powerCenterProbe.ab.offValidation.ok, true,
+        'Faz 28 kapalı A/B yolu geçersiz defter bırakmamalı.');
+    assert.equal(powerCenterProbe.ab.onCollectiveValidation.ok, true,
+        'Faz 28 açık kolektif eylem yolu güç merkezi referanslarını doğrulamalı.');
+    assert.equal(powerCenterProbe.ab.offCollectiveValidation.ok, true,
+        'Faz 28 kapalı kolektif eylem yolu açık legacy vekille geçerli kalmalı.');
+
     const cityDossierProbe = probeCityDossier();
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
@@ -2082,13 +2167,14 @@ function run() {
     assert.match(cityDossierProbe.main.foreignLogistics.text, /ALTYAPI İSTİHBARATI YOK/, 'Yabancı lojistik açık eksik-bilgi durumu göstermeli.');
     assert.ok(cityDossierProbe.main.ownView.corridors.length > 0, 'Kendi şehir dosyası doğrulanmış altyapı koridorlarını göstermeli.');
     assert.match(cityDossierProbe.main.ownLogistics.text, /Ticaret bu kapasiteyi tüketir/i, 'Lojistik ekranı canlı kapasite tüketimini açıklamalı.');
-    assert.match(cityDossierProbe.main.ownGeneral.text, /SİSTEM HENÜZ YOK/, 'Eksik katmanlar sahte boş değer yerine açık durum taşımalı.');
+    assert.doesNotMatch(cityDossierProbe.main.ownGeneral.text, /GÜÇ MERKEZLERİ.*SİSTEM HENÜZ YOK/s,
+        'Faz 28 tamamlandıktan sonra güç merkezleri eksik sistem diye gösterilmemeli.');
     assert.doesNotMatch(cityDossierProbe.main.ownGeneral.text, /ZENGİNLİK|BÖLGESEL STOKLAR|BÜTÇE|PİYASA/,
         'Şehir paneli ekonomik veri kalabalığını tekrar etmemeli.');
     assert.match(cityDossierProbe.main.ownEconomy.text, /BÖLGESEL EKONOMİ ÖZETİ/,
         'Şehirden kaldırılan ekonomik gerçekler ekonomi panelinde korunmalı.');
-    assert.match(cityDossierProbe.main.ownFactions.text, /Huzursuzluk/,
-        'Fraksiyon dengesi konsey yerine ekonomi panelinde görünmeli.');
+    assert.match(cityDossierProbe.main.ownFactions.text, /GÜÇ MERKEZLERİ|SİLAHLI KUVVETLER/,
+        'Eski fraksiyon sekmesi destek puanı yerine gerçek güç merkezi kaydını göstermeli.');
     assert.match(cityDossierProbe.main.ownGeneral.html, /role="tablist"/, 'Şehir bölümleri erişilebilir tablist semantiği taşımalı.');
     assert.match(cityDossierProbe.main.ownGeneral.html, /aria-selected="true"/, 'Etkin şehir sekmesi erişilebilir seçim durumu taşımalı.');
     assert.equal(cityDossierProbe.main.routeOpened, true, 'Koridordan bağlı şehir dosyasına gidilebilmeli.');
@@ -2558,6 +2644,7 @@ function run() {
         'city-growth': 2,
         population: 2,
         'human-migration': 2,
+        'power-centers': 2,
         'population-needs': 2,
         factions: 7,
         society: 3,
