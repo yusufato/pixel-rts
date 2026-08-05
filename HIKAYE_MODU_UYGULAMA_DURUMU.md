@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 26 — Protesto, Grev ve Radikalleşme
+**Son kapanan faz:** Faz 28 — Güç Merkezleri
 
-**Aktif uygulama sırası:** Faz 28 — Güç Merkezleri
+**Aktif uygulama sırası:** Faz 29 — Rejim ve Kurum Şeması
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -51,8 +51,9 @@
 | Faz 25 — Kamuoyu ve Şikâyet Hafızası | `implemented` | `js/StoryOpinion.js`; 1.824 kohortta sorun/algılanan aktör/dayanak/tekrar/iyileşme taşıyan sınırlı hafıza, bilgi filtreli UI, kompakt kayıt ve `qa-runtime/story-phase25-ab.json` |
 | Faz 26 — Protesto, Grev ve Radikalleşme | `implemented` | `js/StoryCollectiveAction.js`; eşik+histerezisli protesto/grev/ayaklanma, bölgesel fiziksel etki, bastırma hafızası, devlet cevabı, bilgi filtreli UI ve `qa-runtime/story-phase26-ab.json` |
 | Faz 27 — Göç ve Mülteci Akışı | `complete` | İç/dış göç ve mülteci akışı gerçek rota, gecikme, kapasite ve atomik kohort aktarımıyla çalışıyor |
-| Faz 28 — Güç Merkezleri | `next` | Şirket, sendika, ordu, medya, bürokrasi ve örgütlü hareketleri kimlikli güç aktörlerine dönüştürecek |
-| Faz 29+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 28 — Güç Merkezleri | `complete` | `js/StoryPowerCenters.js`; 8 devlet × 7 kimlikli merkez, kanonik destek/kaynak kanıtı, Faz 26 örgüt bağlantısı, bilgi filtreli UI ve `qa-runtime/story-phase28-ab.json` |
+| Faz 29 — Rejim ve Kurum Şeması | `next` | Merkezlerin ilan edilmiş fakat kilitli eylemlerini gerçek yürütme/yasama/yargı/ordu/yerel idare yetkilerine bağlayacak |
+| Faz 30+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -842,7 +843,20 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - `qa-runtime/story-phase27-ab.json` kontrol/treatment kanıtını ve atomik nüfus, mülteci, kapasite, kayıt/yükleme kapılarını saklıyor. Faz 27 açık dünyada huzursuzluk `3,285→3,090`; gıda/enerji/yaşam `%76,55/%77,56/%70,82→%85,13/%85,36/%73,33` oldu. Bu fark fiziksel nüfusun gerçekten yer değiştirmesinden doğuyor; eski Faz 22 salt dağıtım benchmark'ı Faz 27'yi açık bırakıp artık aynı sonucu beklemiyor.
 - İlk dilim konut varlığı, sınır politikası ve ticaretle ortak koridor kapasitesi varmış gibi davranmıyor. Çekim/itme içinde `HOUSING_PROXY_PRE_ASSET_SYSTEM`, sınır kabulünde açık politika yerine güvenli deterministik vekil ve yalnız göçe ait kapasite bütçesi kullanılıyor. Bunlar sonraki fazların gerçek sahipleri geldiğinde göç ettirilecek.
 - Monolitik 46 problu test dosyası sonuç nesnelerini uzun süre tuttuğu için Node'un 4 GB heap sınırına ulaştı. Test komutu davranışı azaltmadan `--max-old-space-size=8192 --expose-gc` ile tam kapsamı koruyor; bu oyun çalışma zamanı gereksinimi değil, QA tezgâhı borcudur. Kalıcı çözüm probları ayrı süreçlere bölmektir.
-- Sıradaki uygulama **Faz 28 — Güç Merkezleri ve Kurumsal Aktörler**dir. Faz 26'nın örgütlenme vekilleri ve Faz 27'nin kurumsal çekim/sınır vekilleri, gerçek kimlikli aktörlere ancak bu fazın kanonik sözleşmeleriyle bağlanacaktır.
+- Faz 28 bu örgütlenme vekilini kimlikli güç merkezi referansına bağladı. Faz 27'nin konut, sınır rejimi ve ortak kapasite vekilleri ise Faz 28 kapsamında uydurulmadı; kendi varlık/politika sahiplerini bekliyor.
+
+## Faz 28 — Güç Merkezleri kabul sonucu
+
+- `js/StoryPowerCenters.js`, sekiz devlet için yedi türde toplam `56` kimlikli merkez kuruyor: silahlı kuvvetler, iş dünyası konseyi, emek konfederasyonu, kamu idaresi, medya ağı, iç güvenlik ağı ve radikal ağ. Defter şeması `story-power-center-ledger-1`, politika karması `fnv1a32:436a24d1`.
+- Destek tabanı kayıtlı üyelik iddiası değildir; 1.824 kanonik kohortun meslek/gelir/eğitim/yaş profillerinden ağırlıklı kişi desteğidir. İş dünyası nakdi şirket defteriyle birebir, kamu idaresi bütçesi devlet bütçesiyle, ordu kapasitesi gerçek komutan/garnizon/birlikle kaynaklanır.
+- Her merkez lider/ofis, üç açıklanabilir amaç, destek, kaynak kanıtı, örgütlenme, etki, hizalanma, bağımsızlık ve kapasite taşır. Ordu/iş dünyası gerçek aktöre bağlıdır; beş lider açık `OFFICEHOLDER_PROXY_PRE_PHASE_34`, medya ve güvenlik kapasitesi sırasıyla Faz 39/47 vekilidir.
+- Merkezler henüz eylem uygulamaz. Faz 29 öncesi `executableActionTypes: []`, eşzamanlı eylem tavanı `0` ve `blockedUntilPhase: 29`; böylece kurum varlığı ile anayasal/yasal yetki birbirine karıştırılmaz.
+- Faz 26 hareketleri merkez kimliklerine göç etti. İlk ham bağlantı örgütlenme kapasitesini doğrudan davranış tabanına koyup gıda/enerji/yaşamı yaklaşık `%74,40/%76,08/%69,62`ye indirdiği için reddedildi. Nihai bağlantı nötr referans + `1.200` baz puan ölü bölge + yalnız aşırı sapmaya `%25` ağırlık kullanır; kolektif çıktı kendi merkez girdisine geri bağlanmaz.
+- Kendi ülke/şehir görünümü tam doğrulanmış kapasiteyi, yabancı görünüm yalnız kamusal merkez/lider/amaç bilgisini taşır. Yabancı destek, kaynak, örgütlenme, etki, kapasite, öncelik ve aktör kimliği sızmadı. Şehir dosyasındaki `KURUMLAR` sekmesi gerçek defteri gösteriyor; ekonomi içindeki eski fraksiyon görünümü de aynı kaynağa yönlendirildi.
+- Kayıt/yükleme birebir; Faz 28 öncesi kayıt açıklamalı backfill; bozuk defter dünya kaybı olmadan yeniden kurulum; özellik veya şirket öncülü kapalıyken açık `null`; V3→V2 ülke/bölge/üst düzey projeksiyonu ve scheduler sırası geçti. Toprak devrinde bayat türetilmiş özet kaydı engellemiyor ve yeni sahip gerçekten yükleniyor.
+- Nihai 900 saniyede 56 etkin merkez ve 26 olay vardır. Gıda `%85,13`, enerji `%85,36`, yaşam `%73,33`; ortalama refah `65,375`, enflasyon `2,255`, huzursuzluk `3,09`; sekiz devlet hayatta. Normal dünyada 6 protesto, 0 grev, 0 ayaklanma ile Faz 27 sonuçları korunmuştur.
+- `qa-runtime/story-phase28-ab.json`: kapalı `f9ce09a7…c4bfc`, açık `52bd56c2…6607a`; dünya durumu yeni ledger nedeniyle farklıdır fakat refah, enflasyon, huzursuzluk, devlet/haber ve petrol/insan gücü/puan deltalarının tamamı `0`. Açık/kapalı doğrulayıcılar, kayıt/yükleme ve gizlilik kapısı geçti.
+- Tam `npm test` çıkış kodu `0`; toplam duvar süresi `1.645 sn`, test içi ana 900 saniyelik simülasyon `132.280,69 ms`. Önceki 30 dakikalık zaman aşımı eşzamanlı 12-worker savaş benchmark’ıyla CPU rekabetiydi; kapsam veya eşik azaltılmadan temiz koşu tamamlandı. Sıradaki uygulama **Faz 29 — Rejim ve Kurum Şeması**dır.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)
 

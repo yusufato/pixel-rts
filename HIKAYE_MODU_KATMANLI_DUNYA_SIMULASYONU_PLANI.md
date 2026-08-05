@@ -1,8 +1,8 @@
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.41
+**Belge sürümü:** 1.42
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22 ve Dalga E / Faz 23–27 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga E / Faz 28 sırada
+**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 29 sırada
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
 
@@ -87,6 +87,8 @@
 **1.40 değişikliği:** Faz 26, şikâyet hafızasını rastgele zar atmadan ve eski genel refah/fraksiyon sayaçlarına ikinci kez ceza yazmadan aşamalı kolektif eyleme dönüştürdü. `story-collective-action-ledger-1`; sorun, algılanan sorumlu, yayılım, süre, tekrar, örgütlenme vekili, mobilizasyon, radikalleşme, bastırma hafızası ve devlet tepkisini tek nedensel kayıtta tutuyor. Protesto fiziksel üretimi düşürmez; yalnız gerçek gelir/istihdam grevi ilgili bölgede üretimi `%65`e, ayaklanma `%30`a indirir. Normal 900 saniyelik dünya 56 sınırlı hareket, 5 aktif protesto, 0 zorlanmış grev ve 0 zorlanmış ayaklanma üretirken ağır kriz probu protestoyu 11., grevi 16. tikte başlattı; tekrarlanan bastırma 55. tikte nedensel ayaklanma üretti. Tam karma `7a42d4d6…4b14`, politika karması `fnv1a32:bd78ac61`, A/B ilk farkı yalnız `$.collectiveAction` ve eski bütün makro/kaynak deltaları `0`; Faz 27 açıldı.
 
 **1.41 değişikliği:** Faz 27, `story-human-migration-ledger-1` ile iç göç, sınır ötesi göç ve mülteci akışını kanıtlı itme/çekme sinyali, gerçek kara/deniz rotası, rota darboğazı, seyahat gecikmesi ve kabul kapasitesine bağladı. Nüfus yalnız varışta `StoryPopulation` üzerinden tam kişi/kohort korunumu ile atomik taşınır; ulaşılamayan hedefe ışınlanma, üçüncü ülke transit geçişi ve hileli kaynak üretimi yoktur. Zorlanmış güvenlik krizinde 90 kişilik mülteci akışı kapasite doluyken bloke oldu, kapasite açılınca sıfır nüfus farkıyla tamamlandı. Nihai 900 saniyelik koşuda 231 sınırlı akış, 167 tamamlanma ve 3.955 taşınan kişi; `%85,13/%85,36/%73,33` gıda/enerji/yaşam sonucu ve `880b861b…cb6` karma üretildi. `qa-runtime/story-phase27-ab.json` açık/kapalı dünyanın farklı olduğunu; refahın aynı, huzursuzluğun `-0,195`, kaynakların ise fiziksel dağılım nedeniyle farklı olduğunu kaydeder. Tam test 23,5 dakikada çıkış kodu `0` ile geçti. Konut varlığı, sınır politikası ve ticaretle ortak taşıma kapasitesi henüz gerçek model değildir; Faz 28 açıldı.
+
+**1.42 değişikliği:** Faz 28, `story-power-center-ledger-1` ile sekiz devletin her birinde silahlı kuvvetler, iş dünyası konseyi, emek konfederasyonu, kamu idaresi, medya ağı, iç güvenlik ağı ve radikal ağ olmak üzere 56 kimlikli güç merkezi kurdu. Destek tabanı kanonik 1.824 nüfus kohortundan; mali ve fiziksel kaynaklar şirket/banka, bütçe, komutan ve garnizon defterlerinden gelir. Faz 26 örgütlenmesi kimlikli merkez referanslarına göç etti, fakat ilk doğrudan kapasite bağlantısının yarattığı kelebek etkisi reddedildi; nötr referans, `1.200` baz puan ölü bölge ve yalnız aşırı kurumsal sapmaya `%25` ağırlık getirildi. 900 saniyelik A/B’de bütün eski makro/kaynak deltaları `0`, kontrol `f9ce09…c4bfc`, açık dünya `52bd56…6607a`; açık yol 56 merkez ve 26 olay üretti. Tam `npm test` `1.645 sn`de çıkış kodu `0` verdi. Güç merkezleri Faz 29 öncesinde eylem icra etmez; medya, güvenlik ve beş makam lideri açık vekildir ve gerçek sahiplerine sırasıyla Faz 39, 47 ve 34’te göç edecektir. Faz 29 açıldı.
 
 ---
 
@@ -3916,6 +3918,16 @@ Kapsam sınırı dürüstçe açıktır: kabul kapasitesi gerçek konut varlığ
 **Çıktı:** Ordu, iş dünyası, sendikalar, bürokrasi, medya, güvenlik ve radikal ağlar.  
 **Kabul kapısı:** Her merkezin kaynak, amaç, lider, destek tabanı ve eylem sınırı bulunuyor.  
 **Bağımlılık:** Faz 21, 23.
+
+**Uygulama durumu (5 Ağustos 2026):** Tamamlandı. `js/StoryPowerCenters.js`, `story-power-center-ledger-1` sözleşmesiyle sekiz devlet × yedi tür = 56 kalıcı merkez üretir. Destek, kayıtlı üyelik diye uydurulmaz; kanonik nüfus kohortlarının meslek, gelir, eğitim ve yaş profillerinden türetilen `WEIGHTED_CANONICAL_COHORTS` destek tabanıdır. İş dünyası nakdi ve rezervi gerçek şirket/banka defterine, kamu idaresi bütçesi gerçek devlet bütçesine, askerî kapasite gerçek komutan/garnizon/birlik varlığına bağlıdır. Her merkez üç amaç, lider/ofis, örgütlenme, etki, hizalanma, bağımsızlık, kaynak kanıtı ve kapasite taşır.
+
+Faz 26'nın eski `COHORT_NETWORK_PROXY_PRE_PHASE_28` hareketleri kimlikli merkez kimliklerine göç eder. İlk denemede merkez örgütlenmesini eski tabanın yerine doğrudan koymak 900 saniyelik gıda/enerji/yaşamı `%85,13/%85,36/%73,33→%74,40/%76,08/%69,62` bandına düşürdü; kolektif eylemin kendi çıktısını radikal merkez girdisine geri vermesi de pozitif döngüydü. Bu aday reddedildi. Nihai sözleşme eski nötr davranış tabanını korur; problem türüne göre `4.700/5.450/3.100` kurumsal referans, `1.200` baz puan ölü bölge ve ölü bölge dışındaki sapmaya `%25` ağırlık uygular. Kolektif eylem çıktısı merkez örgütlenmesine doğrudan geri beslenmez.
+
+Faz 28 merkez varlığıdır, kurum yetkisi değildir. `DECLARED_LIMITS_PRE_PHASE_29` altında bildirilen eylemler görünür ama `executableActionTypes: []`, `maximumConcurrentActions: 0` ve `blockedUntilPhase: 29` ile icra kapalıdır. Ordu ve iş dünyası gerçek kanonik aktöre bağlanır; diğer beş lider `OFFICEHOLDER_PROXY_PRE_PHASE_34`, medya kapasitesi `...PRE_PHASE_39`, güvenlik kapasitesi `...PRE_PHASE_47` olarak açıkça etiketlidir. LLM sayı, lider, amaç, kapasite veya karar üretmez.
+
+WorldV2, V3→V2 göçü, kayıt/yükleme, eski/bozuk kayıt kurtarma, scheduler, özellik/prerequisite kapalı yolları ve şehir `KURUMLAR` görünümü tamamlandı. Oyuncu kendi merkezinin tam kapasitesini görür; yabancı merkezde yalnız kamusal kimlik/lider/amaç görünür ve destek, kaynak, örgütlenme, etki veya aktör kimliği sızmaz. Toprak devrinde ülke/bölge özetleri kayıt öncesi kanonik sahiplikten yeniden türetilir; bu uzlaştırma simülasyon zamanını veya merkez puanlarını ilerletmez.
+
+`qa-runtime/story-phase28-ab.json` aynı tohumlu 900 saniyelik kontrol `f9ce09a769f9696d80c09192fbcb3bf7e620f23936026e0f521512bcdd6c4bfc` ve açık `52bd56c280cf9c2a22a0fb2698c49b059b5ab92a8d5cc86f6c83243dd8c6607a` karmalarını saklar. Refah, enflasyon, huzursuzluk, devlet/haber sayısı ve üç eski kaynak deltasının tamamı `0`; açık yol 56 etkin merkez ve 26 olay üretir. Final gıda `%85,13`, enerji `%85,36`, yaşam `%73,33`; bütün güç merkezi ve kolektif eylem doğrulayıcıları geçerlidir. Tam `npm test` çıkış kodu `0`, toplam duvar süresi `1.645 sn`, ana 900 saniyelik simülasyon süresi `132.280,69 ms`dir. Monolitik test süresi açık QA altyapı borcudur, oyun çalışma zamanı ölçüsü değildir.
 
 ### FAZ 29 — Rejim ve Kurum Şeması
 
