@@ -188,7 +188,18 @@ function tezgahKur() {
 // A/B koşularında ham telemetri hiç okunmuyor; kapatmak %22 hız kazandırıyor
 // (12 maç 69.7sn → 54.3sn) ve sonuçlar BİREBİR aynı kalıyor (5/12, marj −1032).
 const TELEMETRISIZ = process.argv.includes('--telemetrisiz');
-const GC_ZORLA = process.argv.includes('--gc');   // `node --expose-gc` ile birlikte anlamlı
+const GC_ZORLA = process.argv.includes('--gc');
+// ERKEN DUR: kazanan belli olunca simulasyonu kes. OLCULDU: kazanan 172-271sn arasi belli
+// oluyor ama sim 365sn ye kadar donuyor -> %29 israf. Galibiyet/maglubiyet AYNI kalir
+// (winnerSide zaten kayitli); yalnizca MARJ degisir cunku birimler dovusmeye devam ediyordu.
+const ERKEN_DUR = process.argv.includes('--erkendur');
+// KISA MAÇ (tarama turları için): maçı erken kes ve o andaki marjı kullan.
+// GEREKÇE ÖLÇÜLDÜ (1281 maç): t=120sn'deki marj ile nihai marj arasında r = 0.885;
+// işaret uyumu %82, ve |erken marj| büyüdükçe güvenilirlik artıyor:
+//   0-500 → %54 (yazı-tura) · 500-1500 → %75 · 1500-3000 → %95 · 3000+ → %100
+// Yani ELEME turlarında tam maç koşmak israf; NİHAİ karar yine tam maçla verilir.
+const _mt = process.argv.indexOf('--maxtik');
+const MAX_TIK = _mt >= 0 ? Math.max(200, Number(process.argv[_mt + 1]) || 7300) : 7300;   // `node --expose-gc` ile birlikte anlamlı
 function macKos(ctx, tSal, tSav, seed) {
     const kod = '(() => {' +
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
@@ -231,7 +242,8 @@ function macKos(ctx, tSal, tSav, seed) {
         '  const c=(STATS[u.type]&&STATS[u.type].cost)||1; w+=c; if (u._canDigIn) k+=c; } return w?k/w:0; };' +
         'const kabSal = sipKab(true), kabSav = sipKab(false);' +
         'const ph = SIM.headless; SIM.headless = true; let st = 0, erken = null;' +
-        'try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) {' +
+        'try { while (SIM.tick < ' + MAX_TIK + ' && phase === PHASE.BATTLE) {' +
+        (ERKEN_DUR ? '  if (SIM.battle && SIM.battle.winnerSide !== null) break;' : '') +
         '  st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);' +
         '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);' +
         '  if (SIM.tick === 2400) { const a=battleArmyObservation(true), d=battleArmyObservation(false);' +

@@ -8376,6 +8376,10 @@ function probePublicOpinion(seed = 2032) {
         // kapasite fotografi farkli olabilir; bu Faz 25'in "eski oynanis ve
         // fiziksel sonuc esitligi" kapisinin parcasi degildir.
         delete copy.powerCenters;
+        // Faz 29 kurum yetki şeması güç merkezi aktör kimliklerini imzasında
+        // taşır. Kamuoyu kapalıyken güç merkezleri kapanınca bu türetilmiş imza
+        // da doğal olarak farklıdır; Faz 25 fiziksel dünyasına ait değildir.
+        delete copy.institutions;
         // Faz 30 kamuoyu şikâyetini meşruiyet kanıtı olarak okur. Kamuoyu
         // kapalı A/B yolunda bu ardıl defter bağımlılık gereği kapanır; yeni
         // türetilmiş yönetişim durumu Faz 25'in eski fiziksel eşitlik kapısı
