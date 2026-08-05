@@ -175,6 +175,12 @@ function run() {
         'Her devlet yedi kaynaklı güç merkezi taşımalı.');
     assert.ok(first.powerCenterSummary.eventCount <= 256,
         'Güç merkezi olay geçmişi sınırlı kayıt tavanını aşmamalı.');
+    assert.equal(first.institutionValidation.ok, true,
+        'Normal 900 saniyelik dünya geçerli kurum ve yetki defteri korumalı.');
+    assert.equal(first.institutionSummary.institutionCount, 8 * 5,
+        'Her devlet beş kanonik anayasal kurum taşımalı.');
+    assert.ok(first.institutionSummary.eventCount <= 512,
+        'Kurum ve yetki olay geçmişi sınırlı kayıt tavanını aşmamalı.');
     assert.equal(first.opinionSummary.cohortCount, 152 * 12,
         'Normal 900 saniyelik dünyada bütün kohortlar kamuoyu taşıyıcısı olarak izlenmeli.');
     assert.ok(first.opinionSummary.averageRememberedSeverityBps < 9500,
@@ -2155,6 +2161,10 @@ function run() {
         'Yasal rotası olmayan eylem açıkça reddedilmeli.');
     assert.equal(institutionProbe.main.denied.outsideJurisdiction.reason, 'TARGET_OUTSIDE_JURISDICTION',
         'Yerel kurum yabancı yetki alanına karar yazamamalı.');
+    assert.equal(institutionProbe.main.authorityIsolation.afterForeignChange, 'PENDING_APPROVAL',
+        'Başka bir ülkenin rejim değişimi oyuncunun bekleyen kararını bayatlatmamalı.');
+    assert.equal(institutionProbe.main.authorityIsolation.afterOwnChange, 'STALE_AUTHORITY',
+        'Kendi anayasal makam zinciri değişince eski onay isteği bayatlatılmalı.');
     assert.equal(institutionProbe.main.worldValidation.ok, true,
         'Faz 29 kurumlarını taşıyan WorldV2 geçerli olmalı.');
     assert.equal(institutionProbe.main.worldInstitutionCount, 40,
@@ -2165,6 +2175,16 @@ function run() {
         'Yabancı kurumların kamusal şeması doğrulanmış bilgi olmalı.');
     assert.equal(institutionProbe.main.foreignSecretsHidden, true,
         'Yabancı kurum görünümü aktör kimliği ve bekleyen onayları sızdırmamalı.');
+    assert.equal(institutionProbe.main.ui.ownHasRegime, true,
+        'Kurumlar sekmesi oyuncuya canlı anayasal rejimi göstermeli.');
+    assert.equal(institutionProbe.main.ui.ownHasInstitutions, true,
+        'Kurumlar sekmesi beş makamı anlaşılır adlarla göstermeli.');
+    assert.equal(institutionProbe.main.ui.ownHasAuthorityRoutes, true,
+        'Kendi kurum görünümü kararların tek makam/ortak karar ayrımını göstermeli.');
+    assert.equal(institutionProbe.main.ui.foreignHasPublicInstitutions, true,
+        'Yabancı kurumların kamusal rejim ve makamları görünür olmalı.');
+    assert.equal(institutionProbe.main.ui.foreignSecretLeak, false,
+        'Yabancı kurum ekranı iç onay zinciri ve aktör kimliği sızdırmamalı.');
     assert.equal(institutionProbe.main.savedExact, true,
         'Kurum defteri kayıt sırasında değişmeden yazılmalı.');
     assert.equal(institutionProbe.main.migration.ok, true,
@@ -2715,6 +2735,7 @@ function run() {
         'city-growth': 2,
         population: 2,
         'human-migration': 2,
+        institutions: 2,
         'power-centers': 2,
         'population-needs': 2,
         factions: 7,
@@ -3040,7 +3061,8 @@ function run() {
         'js/Factions.js', 'js/Economy.js', 'js/News.js', 'js/StoryUI.js',
         'js/Production.js', 'js/Council.js', 'js/Era.js', 'js/Chatter.js',
         'js/Talks.js', 'js/CommanderTree.js', 'js/StoryProductionSectors.js',
-        'js/StoryRegionalEconomy.js', 'js/StoryMarket.js'
+        'js/StoryRegionalEconomy.js', 'js/StoryMarket.js',
+        'js/StoryInstitutions.js'
     ];
     const directStoryRandomCalls = storyRandomDomains.flatMap(relativePath => {
         const source = fs.readFileSync(path.resolve(__dirname, '..', relativePath), 'utf8');

@@ -159,7 +159,12 @@ function macKos(ctx, tSal, tSav, seed) {
     const kod = '(() => {' +
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
         'BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;' +
-        'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
+        // GÖVDE SEÇİMİ: tarifin `govde` alanı hangi kod-AI gövdesinin koşacağını belirler
+        // ('intel4' varsayılan, 'intel4pro' = pro-delta katmanı açık). beonai bir GÖVDE DEĞİL,
+        // gövdenin üstünde operasyon seçen beyindir → ikisi birlikte kullanılır:
+        //   { ad:"B4+pro+beonai", paylar:{...}, govde:"intel4pro", beyin:"beonai-v1" }
+        'BATTLE_INTEL4PRO_RED = ' + (tSal.govde === 'intel4pro') + ';' +
+        'BATTLE_INTEL4PRO_BLUE = ' + (tSav.govde === 'intel4pro') + ';' +
         // BEYİN SEÇİMİ: tarifte `beyin` alanı varsa o taraf beonai sürümüyle koşar
         // (ör. { ad:"H0+beonai-v1", heuristik:true, beyin:"beonai-v1" }). Böylece öğrenen
         // beyin, kod-AI ile TAM AYNI çok-tohumlu değerlendirmeden geçer — ayrı tezgâh yok.
@@ -202,7 +207,8 @@ function macKos(ctx, tSal, tSav, seed) {
         '  marj: Math.round(oS.effectiveValue - oD.effectiveValue), erken: erken, salDeger: salDeger,' +
         '  savDeger: mv.totalValue, savSapma: mv.tarifDenetim ? mv.tarifDenetim.maxSapma : null,' +
         '  siperKab: { sal:+kabSal.toFixed(3), sav:+kabSav.toFixed(3) }, bitisSn: Math.round(SIM.tick*BATTLE_TICK_SEC),' +
-        '  beyin: (typeof battleBeonaiDurum === "function") ? battleBeonaiDurum() : null });' +
+        '  beyin: (typeof battleBeonaiDurum === "function") ? battleBeonaiDurum() : null,' +
+        '  govde: { sal: BATTLE_INTEL4PRO_RED ? "intel4pro" : "intel4", sav: BATTLE_INTEL4PRO_BLUE ? "intel4pro" : "intel4" } });' +
         '})()';
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'mac-' + seed + '.js' }));
 }

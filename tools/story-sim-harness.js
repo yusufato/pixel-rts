@@ -2908,7 +2908,7 @@ function storyDiffPaths(left, right, pathName = '$', result = []) {
 function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
-        'city-growth', 'population', 'human-migration', 'power-centers', 'population-needs',
+        'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
         'factions', 'society', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
@@ -9154,10 +9154,27 @@ function probeInstitutions(seed = 2032) {
             countryId, actionType: 'ISSUE_LOCAL_ORDER', targetRegionId: `region:${foreignNode.id}`
         }, actorFor(local)));
 
+        const isolationSubmitted = runtime.api.institutionSubmit(Object.assign({
+            countryId, actionType: 'LOBBY_POLICY'
+        }, centerActor));
+        story.states[1].constitution = 'republic';
+        runtime.api.institutionTick(5);
+        const afterForeignChange = runtime.api.institutionLedger()
+            .requests[isolationSubmitted.request.id].status;
+        story.states[0].constitution = 'republic';
+        runtime.api.institutionTick(5);
+        runtime.api.powerCenterTick(5);
+        const afterOwnChange = runtime.api.institutionLedger()
+            .requests[isolationSubmitted.request.id].status;
+
         const world = runtime.api.worldV2();
         const knowledge = runtime.api.playerKnowledge(world, countryId);
         const ownCountry = knowledge.countries.find(row => row.id === countryId);
         const foreignCountry = knowledge.countries.find(row => row.id === 'country:1');
+        const ownNode = story.nodes.find(node => node.owner === 0);
+        const foreignKnowledgeNode = story.nodes.find(node => node.owner !== 0);
+        const ownUi = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        const foreignUi = runtime.api.renderCityDossier(foreignKnowledgeNode.id, 'kurumlar');
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
         savedLedger = JSON.parse(savedRaw).institutions;
@@ -9170,6 +9187,7 @@ function probeInstitutions(seed = 2032) {
             centerDirect: { submitted: centerDirectSubmitted, executed: centerDirectExecuted },
             petition: { submitted: petitionSubmitted, approved: petitionCurrent, executed: petitionExecuted },
             denied: { fakeActor, prohibited, outsideJurisdiction },
+            authorityIsolation: { afterForeignChange, afterOwnChange },
             worldValidation: runtime.api.validateWorldV2(world),
             worldInstitutionCount: world.institutions.length,
             ownKnowledge: ownCountry.institutions,
@@ -9177,6 +9195,13 @@ function probeInstitutions(seed = 2032) {
             foreignSecretsHidden: !/actorId|authoritySignature|requiredInstitutionIds|approvalInstitutionIds|requests/.test(
                 JSON.stringify(foreignCountry.institutions.value)
             ),
+            ui: {
+                ownHasRegime: /ANAYASAL DÜZEN|LİBERAL DEMOKRASİ/.test(ownUi.text),
+                ownHasInstitutions: /YÜRÜTME|YASAMA|YARGI/.test(ownUi.text),
+                ownHasAuthorityRoutes: /TEK MAKAM|ORTAK KARAR/.test(ownUi.text),
+                foreignHasPublicInstitutions: /ANAYASAL DÜZEN|YÜRÜTME|YASAMA/.test(foreignUi.text),
+                foreignSecretLeak: /actorId|authoritySignature|requiredInstitutionIds|approvalInstitutionIds|MAKAM ONAYI/i.test(foreignUi.html)
+            },
             savedExact: JSON.stringify(savedLedger) === JSON.stringify(runtime.api.institutionLedger()),
             migration: {
                 ok: migrated.ok,

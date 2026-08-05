@@ -36,8 +36,31 @@ const _YOL_ONBELLEK_TAVAN = 40000;   // sınırsız büyümesin; aşınca tamame
 let _yolOnbellek = new Map();
 let _yolOnbellekIsabet = 0, _yolOnbellekKacir = 0;
 
+// ── ARAZİ ÖNBELLEĞİ (süreç ömrü boyunca) ───────────────────────────────────
+// Arazi bir maç boyunca DEĞİŞMEZ (terrainGrid/bridgeSet yalnız burada yazılır, elevField
+// buildElevField'da). Çapraz koşularda AYNI TOHUM defalarca oynanır (ör. 7 tarif × 48 tohum)
+// → aynı arazi ve aynı yollar tekrar tekrar hesaplanıyordu. Arazi kimliğine göre saklanırsa
+// hem kurulum hem YOL ÖNBELLEĞİ maçlar arası taşınır. Aynı girdiye aynı çıktı → DETERMİNİST.
+const _ARAZI_ONBELLEK_TAVAN = 8;     // işçi başına birkaç harita yeter; bellek sınırlı kalsın
+const _araziOnbellek = new Map();
+function _araziAnahtar(def) {
+    const g = String(def && def.grid || '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < g.length; i++) { h ^= g.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+    return g.length + ':' + h + ':' + ((def && def.bridges || []).length);
+}
+
 function buildTerrainGrid(def) {
-    _yolOnbellek = new Map();          // arazi değişti → önbellek geçersiz
+    const _anahtar = _araziAnahtar(def);
+    const _hazir = _araziOnbellek.get(_anahtar);
+    if (_hazir) {                       // aynı arazi daha önce kuruldu → referansları geri ver
+        terrainGrid = _hazir.terrainGrid;
+        bridgeSet = _hazir.bridgeSet;
+        elevField = _hazir.elevField;
+        _yolOnbellek = _hazir.yolOnbellek;   // yol önbelleği araziyle BİRLİKTE geri gelir
+        return;
+    }
+    _yolOnbellek = new Map();          // yeni arazi → yeni yol önbelleği
     _yolOnbellekIsabet = 0; _yolOnbellekKacir = 0;
     terrainGrid = new Uint8Array(GRID_W * GRID_H);
     const M = { '.': 0, 'F': 1, 'M': 2, 'W': 4 };
@@ -45,6 +68,12 @@ function buildTerrainGrid(def) {
     for (let i = 0; i < GRID_W * GRID_H; i++) terrainGrid[i] = M[s[i]] != null ? M[s[i]] : 0;
     bridgeSet = new Set((def.bridges || []).map(b => b[0] + ',' + b[1]));
     buildElevField();
+    // kurulan araziyi sakla (yol önbelleğiyle birlikte). Tavan aşılırsa en eski girdi atılır.
+    if (_araziOnbellek.size >= _ARAZI_ONBELLEK_TAVAN) {
+        const ilk = _araziOnbellek.keys().next();
+        if (!ilk.done) _araziOnbellek.delete(ilk.value);
+    }
+    _araziOnbellek.set(_anahtar, { terrainGrid, bridgeSet, elevField, yolOnbellek: _yolOnbellek });
 }
 function gridTypeCell(gx, gy) {
     if (gx < 0 || gy < 0 || gx >= GRID_W || gy >= GRID_H) return TERRAIN.MOUNTAIN;   // harita dışı = duvar

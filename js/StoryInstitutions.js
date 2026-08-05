@@ -275,7 +275,7 @@ function storyInstitutionCountryBuild(st) {
             }
         };
     }
-    return {
+    const country = {
         countryId,
         constitutionId,
         regimeKey: profile.regimeKey,
@@ -284,22 +284,27 @@ function storyInstitutionCountryBuild(st) {
         institutions,
         authorityByAction
     };
+    country.authoritySignature = storyInstitutionCountryAuthoritySignature(country);
+    return country;
 }
 
-function storyInstitutionSourceSignature() {
-    return storyProductionHash((STORY.states || []).map(st => ({
-        id: st.id,
-        constitution: st.constitution || 'monarchy',
-        leader: st.gov && st.gov.leader || null,
-        president: st.gov && st.gov.president && st.gov.president.name || null,
-        regions: (STORY.nodes || []).filter(node => Number(node.owner) === Number(st.id)).map(node => node.id),
-        // Sadakat ve benzeri akiskan nitelikler makam kimligini degistirmez.
-        // Imza yalniz kurum rotasini veya gercek makam sahibini etkileyen
-        // kanonik alanlari kapsar; aksi halde her sosyal tik bekleyen karar
-        // fislerini gereksiz yere STALE_AUTHORITY yapardi.
-        commanders: (typeof storyStateCommanders === 'function' ? storyStateCommanders(st) : []).map(c => ({
-            id: c.id, name: c.name, warrior: c.skills && c.skills.warrior
-        }))
+function storyInstitutionCountryAuthoritySignature(country) {
+    return storyProductionHash({
+        countryId: country.countryId,
+        constitutionId: country.constitutionId,
+        institutions: Object.values(country.institutions || {}).map(institution => ({
+            id: institution.id,
+            type: institution.type,
+            holderActorId: institution.officeHolder && institution.officeHolder.actorId,
+            regionIds: (institution.regionIds || []).slice().sort((a, b) => a.localeCompare(b, 'en'))
+        })).sort((a, b) => a.id.localeCompare(b.id, 'en'))
+    });
+}
+function storyInstitutionSourceSignature(countries) {
+    const source = countries || storyInstitutionBuildCountries();
+    return storyProductionHash(Object.keys(source).sort((a, b) => a.localeCompare(b, 'en')).map(countryId => ({
+        countryId,
+        authoritySignature: source[countryId].authoritySignature
     })));
 }
 function storyInstitutionBuildCountries() {
@@ -325,16 +330,17 @@ function storyInstitutionRecordEvent(ledger, type, extra) {
 }
 function storyInstitutionLedgerCreate(options) {
     options = options || {};
+    const countries = storyInstitutionBuildCountries();
     return {
         schemaVersion: STORY_INSTITUTION_SCHEMA_VERSION,
         adapterVersion: STORY_INSTITUTION_ADAPTER_VERSION,
         policyHash: STORY_INSTITUTION_POLICY_HASH,
         tickSequence: 0,
         lastTickAt: storyInstitutionRound(STORY.clock),
-        sourceSignature: storyInstitutionSourceSignature(),
+        sourceSignature: storyInstitutionSourceSignature(countries),
         nextRequestSequence: 1,
         nextEventSequence: 1,
-        countries: storyInstitutionBuildCountries(),
+        countries,
         requests: {},
         events: [],
         diagnostics: {
@@ -367,6 +373,7 @@ function storyInstitutionValidate(ledger) {
         if (!country) { add('INSTITUTION_COUNTRY_REQUIRED', `$.countries.${countryId}`, 'Ülke kurum şeması eksik.'); continue; }
         const st = storyInstitutionState(countryId);
         if (country.constitutionId !== String(st && st.constitution || 'monarchy')) add('INSTITUTION_CONSTITUTION_STALE', `$.countries.${countryId}.constitutionId`, 'Kurum şeması canlı anayasayla uyuşmuyor.');
+        if (country.authoritySignature !== storyInstitutionCountryAuthoritySignature(country)) add('INSTITUTION_COUNTRY_SIGNATURE', `$.countries.${countryId}.authoritySignature`, 'Ülke makam imzası kurum şemasıyla uyuşmuyor.');
         const institutionRows = Object.values(country.institutions || {});
         if (institutionRows.length !== STORY_INSTITUTION_POLICY.institutionsPerCountry) add('INSTITUTION_COUNTRY_COUNT', `$.countries.${countryId}.institutions`, 'Her ülke beş temel kurum taşımalı.');
         for (const type of STORY_INSTITUTION_TYPES) {
@@ -414,18 +421,27 @@ function storyInstitutionReset(options) {
 }
 function storyInstitutionReconcile(ledger) {
     if (!ledger) return ledger;
-    const signature = storyInstitutionSourceSignature();
+    const nextCountries = storyInstitutionBuildCountries();
+    const signature = storyInstitutionSourceSignature(nextCountries);
     if (ledger.sourceSignature === signature) return ledger;
     const previousSignature = ledger.sourceSignature;
-    ledger.countries = storyInstitutionBuildCountries();
+    const changedCountries = new Set(Object.keys(nextCountries).filter(countryId => (
+        !ledger.countries[countryId]
+        || ledger.countries[countryId].authoritySignature !== nextCountries[countryId].authoritySignature
+    )));
+    ledger.countries = nextCountries;
     ledger.sourceSignature = signature;
     for (const request of Object.values(ledger.requests || {})) {
-        if (request.status === 'PENDING_APPROVAL' || request.status === 'AUTHORIZED') {
+        if (changedCountries.has(request.countryId)
+            && (request.status === 'PENDING_APPROVAL' || request.status === 'AUTHORIZED')) {
             request.status = 'STALE_AUTHORITY';
             request.updatedAt = storyInstitutionRound(STORY.clock);
         }
     }
-    storyInstitutionRecordEvent(ledger, 'AUTHORITY_SCHEMA_RECONCILED', { previousSignature, nextSignature: signature });
+    storyInstitutionRecordEvent(ledger, 'AUTHORITY_SCHEMA_RECONCILED', {
+        previousSignature, nextSignature: signature,
+        changedCountryIds: Array.from(changedCountries).sort((a, b) => a.localeCompare(b, 'en'))
+    });
     return ledger;
 }
 function storyInstitutionEnsure() {
@@ -533,7 +549,7 @@ function storyInstitutionSubmitAction(input) {
         routeMode: actor.sourceKind === 'POWER_CENTER'
             && !STORY_INSTITUTION_ACTIONS[actionType].centerDirect ? 'PETITION' : route.mode,
         legalBasis: route.legalBasis,
-        authoritySignature: ledger.sourceSignature,
+        authoritySignature: country.authoritySignature,
         requiredInstitutionIds: route.requiredInstitutionIds.slice(),
         approvalInstitutionIds: approvals,
         // Kuruma dilekce veren bir merkez son karari ilgili makamdan bekler.
@@ -560,7 +576,7 @@ function storyInstitutionApproveAction(requestId, input) {
     const request = ledger.requests[String(requestId)];
     if (!request) return { ok: false, status: 'DENIED', reason: 'UNKNOWN_REQUEST' };
     if (request.status !== 'PENDING_APPROVAL') return { ok: false, status: request.status, reason: 'REQUEST_NOT_PENDING' };
-    if (request.authoritySignature !== ledger.sourceSignature) {
+    if (request.authoritySignature !== ledger.countries[request.countryId].authoritySignature) {
         request.status = 'STALE_AUTHORITY';
         return { ok: false, status: request.status, reason: 'AUTHORITY_SCHEMA_CHANGED' };
     }
@@ -583,7 +599,7 @@ function storyInstitutionExecuteAction(requestId, input) {
     const request = ledger.requests[String(requestId)];
     if (!request) return { ok: false, status: 'DENIED', reason: 'UNKNOWN_REQUEST' };
     if (request.status !== 'AUTHORIZED') return { ok: false, status: request.status, reason: 'REQUEST_NOT_AUTHORIZED' };
-    if (request.authoritySignature !== ledger.sourceSignature) {
+    if (request.authoritySignature !== ledger.countries[request.countryId].authoritySignature) {
         request.status = 'STALE_AUTHORITY';
         return { ok: false, status: request.status, reason: 'AUTHORITY_SCHEMA_CHANGED' };
     }

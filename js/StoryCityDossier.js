@@ -8,7 +8,8 @@
 //  Kapsam sınırı:
 //   • mevcut şehir üretim/bina/garnizon işlemleri yalnız oyuncunun şehrinde;
 //   • yabancı şehir salt-okunur ve gizli idari/askerî değerleri göstermez;
-//   • şirket/tesis/banka ve Faz 28 güç merkezi verisi bilgi filtresinden geçer;
+//   • şirket/tesis/banka, Faz 28 güç merkezi ve Faz 29 kurum/yetki verisi
+//     bilgi filtresinden geçer;
 //     doğrudan karakter görüşmesi henüz simüle edilmez.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -142,13 +143,14 @@ function storyCityDossierBuild(nodeId) {
     const facts = {};
     for (const field of [
         'name', 'ownerId', 'neighborIds', 'level', 'garrison', 'infrastructure',
-        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
+        'population', 'populationCohorts', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'wealth', 'deposits', 'stocks', 'trade', 'market', 'companyEconomy', 'logistics'
     ]) facts[field] = storyCityDossierFactCopy(region[field]);
     const ownerCountry = (knowledge.countries || []).find(candidate => candidate.id === ownerId);
     facts.budget = storyCityDossierFactCopy(ownerCountry && ownerCountry.budget);
     facts.countryCompanies = storyCityDossierFactCopy(ownerCountry && ownerCountry.companyEconomy);
     facts.economicPolicy = storyCityDossierFactCopy(ownerCountry && ownerCountry.economicPolicy);
     facts.countryPowerCenters = storyCityDossierFactCopy(ownerCountry && ownerCountry.powerCenters);
+    facts.countryInstitutions = storyCityDossierFactCopy(ownerCountry && ownerCountry.institutions);
 
     const characters = (knowledge.characters || [])
         .filter(character => character.regionId
@@ -189,7 +191,8 @@ function storyCityDossierBuild(nodeId) {
         history: storyCityDossierCollectHistory(regionId),
         characters,
         missingSystems: facts.countryPowerCenters && facts.countryPowerCenters.value
-            ? [] : [{ id: 'institutions', label: 'GÜÇ MERKEZLERİ', status: 'NOT_IMPLEMENTED' }]
+            && facts.countryInstitutions && facts.countryInstitutions.value
+            ? [] : [{ id: 'institutions', label: 'KURUMLAR VE GÜÇ MERKEZLERİ', status: 'NOT_IMPLEMENTED' }]
     };
     const validation = storyCityDossierValidate(view);
     if (!validation.ok) throw new Error(`Geçersiz şehir dosyası: ${validation.issues[0].code}`);
@@ -245,6 +248,11 @@ function storyCityDossierValidate(view) {
         if (/supportBase|resources|resourceEvidence|organizationBps|influenceBps|alignmentBps|independenceBps|capabilities|priorityBps|actorId/.test(powerText)) {
             add('FOREIGN_POWER_CENTER_INTELLIGENCE_LEAK', '$.facts.countryPowerCenters', 'Yabancı güç merkezinin gizli kaynak, kapasite, hizalanma ve lider kimliği sızamaz.');
         }
+        const institutions = view.facts && view.facts.countryInstitutions;
+        const institutionText = institutions && institutions.value ? JSON.stringify(institutions.value) : '';
+        if (/actorId|authoritySignature|requiredInstitutionIds|approvalInstitutionIds|requests/.test(institutionText)) {
+            add('FOREIGN_INSTITUTION_INTELLIGENCE_LEAK', '$.facts.countryInstitutions', 'Yabancı kurumların aktör kimliği ve iç onay kayıtları sızamaz.');
+        }
     }
     if (!Array.isArray(view.missingSystems)
         || view.missingSystems.some(item => item.status !== 'NOT_IMPLEMENTED')) {
@@ -274,7 +282,7 @@ function storyCityDossierTabs(view, active) {
     const tabs = [
         ['genel', 'GENEL'],
         ['nufus', 'NÜFUS'],
-        ['kurumlar', 'GÜÇ MERKEZLERİ'],
+        ['kurumlar', 'KURUMLAR'],
         ['tarih', 'TARİH'],
         ['karakterler', 'KARAKTERLER']
     ];
@@ -343,7 +351,70 @@ function storyCityDossierRenderPowerCenters(view) {
     return `<section class="city-dossier-sec"><h3>ÜLKEDEKİ GÜÇ MERKEZLERİ</h3>`
         + (rows ? `<div class="city-character-list">${rows}</div>`
             : `<div class="city-dossier-empty"><b>ETKİN MERKEZ YOK</b><span>Kayıtlı kurumsal aktör bulunmuyor.</span></div>`)
-        + `<p class="city-hint">Destek ve kapasite dekoratif puan değildir: nüfus kohortları, şirket kasaları/tesisleri, komutanlar, garnizonlar ve kolektif hareketlerden türetilir. Faz 29 yetki şeması gelene kadar merkezler doğrudan karar uygulayamaz. Medya, güvenlik ve bazı lider ofisleri sonraki kanonik sistemlere kadar açıkça etiketli vekildir.</p></section>`;
+        + `<p class="city-hint">Destek ve kapasite dekoratif puan değildir: nüfus kohortları, şirket kasaları/tesisleri, komutanlar, garnizonlar ve kolektif hareketlerden türetilir. Merkezlerin doğrudan, onaya bağlı ve yasak eylemleri yukarıdaki anayasal şema tarafından belirlenir. Medya, güvenlik ve bazı lider ofisleri sonraki kanonik sistemlere kadar açıkça etiketli vekildir.</p></section>`;
+}
+
+function storyCityDossierRenderInstitutions(view) {
+    const fact = view.facts.countryInstitutions;
+    if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !fact.value) {
+        return `<section class="city-dossier-empty"><b>KURUMSAL YETKİ KAYDI YOK</b>`
+            + `<span>Bu ülkenin anayasal makamları hakkında doğrulanmış bilgi bulunmuyor.</span></section>`;
+    }
+    const value = fact.value;
+    const typeLabels = {
+        EXECUTIVE: 'YÜRÜTME', LEGISLATURE: 'YASAMA', JUDICIARY: 'YARGI',
+        ARMED_FORCES: 'SİLAHLI KUVVETLER KOMUTASI', LOCAL_ADMINISTRATION: 'YEREL İDARELER'
+    };
+    const institutionRows = Array.isArray(value.institutions)
+        ? value.institutions : Object.values(value.institutions || {});
+    const localFact = view.facts.institutions && view.facts.institutions.value;
+    const localInstitutionId = localFact && localFact.institutionId;
+    const rows = institutionRows.map(institution => {
+        const holder = institution.officeHolder || {};
+        const officeName = institution.officeName || holder.name || 'Makam bilgisi yok';
+        const localMark = institution.id === localInstitutionId ? ' · BU ŞEHRİN YEREL MAKAMI' : '';
+        if (!view.isOwn) {
+            const publicActions = Array.isArray(institution.publicActionTypes)
+                ? institution.publicActionTypes.length : 0;
+            return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[institution.type] || institution.type)}${localMark}</b>`
+                + `<span>${storyCityDossierEscape(officeName)}</span>`
+                + `<small>KAMUSAL YETKİ ALANI: ${publicActions} eylem türü · iç onay ve aktör kimliği gizli</small></div></article>`;
+        }
+        const grants = Array.isArray(institution.authorityGrants) ? institution.authorityGrants : [];
+        const propose = grants.filter(grant => grant.canPropose).length;
+        const approve = grants.filter(grant => grant.canApprove).length;
+        const execute = grants.filter(grant => grant.canExecute).length;
+        return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[institution.type] || institution.type)}${localMark}</b>`
+            + `<span>${storyCityDossierEscape(institution.name || '')} · MAKAM: ${storyCityDossierEscape(officeName)}</span>`
+            + `<small>başvuru ${propose} · onay ${approve} · yürütme ${execute} eylem türü</small></div></article>`;
+    }).join('');
+    let routeSummary = '';
+    let requestSummary = '';
+    if (view.isOwn) {
+        const routes = Object.values(value.authorityByAction || {});
+        const routeCounts = routes.reduce((out, route) => {
+            out[route.mode] = (out[route.mode] || 0) + 1;
+            return out;
+        }, {});
+        routeSummary = `<div class="city-fact-grid">`
+            + `<div><span>TEK MAKAM</span><b>${routeCounts.DIRECT || 0}</b></div>`
+            + `<div><span>ORTAK KARAR</span><b>${routeCounts.JOINT || 0}</b></div>`
+            + `<div><span>YASAK ROTA</span><b>${routeCounts.PROHIBITED || 0}</b></div>`
+            + `<div><span>DIŞ SİSTEME BAĞLI</span><b>${routeCounts.EXTERNAL_DOMAIN || 0}</b></div></div>`;
+        const requests = Array.isArray(value.requests) ? value.requests : [];
+        const active = requests.filter(request => ['PENDING_APPROVAL', 'AUTHORIZED', 'STALE_AUTHORITY'].includes(request.status));
+        requestSummary = active.length
+            ? `<div class="city-character-list">${active.slice(-6).reverse().map(request => `<article class="city-character-row"><div>`
+                + `<b>${storyCityDossierEscape(request.actionType)} · ${storyCityDossierEscape(request.status)}</b>`
+                + `<span>${storyCityDossierEscape(request.routeMode)} · ${request.approvalInstitutionIds.length}/${request.requiredInstitutionIds.length} makam onayı</span>`
+                + `<small>${storyCityDossierEscape(request.legalBasis)}</small></div></article>`).join('')}</div>`
+            : `<div class="city-dossier-empty"><b>BEKLEYEN KARAR YOK</b><span>Onay bekleyen veya makam değişimiyle bayatlayan karar kaydı bulunmuyor.</span></div>`;
+    }
+    return `<section class="city-dossier-sec"><h3>ANAYASAL DÜZEN · ${storyCityDossierEscape(value.regimeName || value.regimeKey || 'Bilinmiyor')}</h3>`
+        + routeSummary
+        + `<div class="city-character-list">${rows}</div>`
+        + requestSummary
+        + `<p class="city-hint">Başvuru hakkı, onay yetkisi ve fiziksel yürütme birbirinden ayrıdır. Makam veya anayasa değişirse tamamlanmamış eski kararlar geçersizleşir; sohbet ya da LLM yeni yetki uyduramaz.</p></section>`;
 }
 
 function storyCityDossierGeneral(view, node) {
@@ -718,7 +789,8 @@ function storyCityDossierRender(view, active, node) {
     if (view.disabled) return '<div class="city-hint">Şehir dosyası özellik bayrağıyla kapalı.</div>';
     let content = '';
     if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
-    else if (active === 'kurumlar') content = storyCityDossierRenderPowerCenters(view);
+    else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
+        + storyCityDossierRenderPowerCenters(view);
     else if (active === 'tarih') content = storyCityDossierRenderHistory(view);
     else if (active === 'karakterler') content = storyCityDossierRenderCharacters(view);
     else if (active === 'binalar' && view.isOwn && node) {
