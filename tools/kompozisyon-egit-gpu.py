@@ -24,6 +24,10 @@ with open(VERI, encoding='utf-8') as f:
         if not line: continue
         r = json.loads(line)
         ad.append(r['ad']); seed.append(r['seed']); X.append(r['x']); Y.append(r['y'])
+# BOS/AZ VERI KORUMASI: gece dongusu turnuvadan ONCE de kosabilir (veya parcalar yeni
+# temizlenmis olabilir) -> X bos kalir ve X.shape[1] IndexError verirdi. Sessizce cik.
+if not Y:
+    print('veri yok - turnuva parcalari henuz olusmadi, bu tur atlandi'); sys.exit(0)
 X = np.array(X, dtype=np.float32); Y = np.array(Y, dtype=np.float32)
 ad = np.array(ad); seed = np.array(seed)
 print(f'veri: {len(Y)} mac, {len(set(ad))} aday, {len(set(seed))} tohum, ozellik {X.shape[1]}')
