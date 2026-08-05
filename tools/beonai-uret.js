@@ -92,18 +92,25 @@ function main() {
 
     const t0 = Date.now();
     let toplamOrnek = 0, toplamKarar = 0, toplamRollout = 0;
-    const akis = fs.createWriteStream(path.join(ROOT, CIKTI), { flags: 'a' });
+    // DAYANIKLI YAZIM: createWriteStream TAMPONLU yazıyordu ve süreç öldürüldüğünde
+    // (bellek gözcüsü) tampondaki her şey UÇUYORDU — 10 dakikalık üretim sıfır kayıtla
+    // sonuçlandı. Artık her tohum bitince DİSKE SENKRON eklenir; kesilme olsa bile
+    // o ana kadarki veri gerçekten korunur.
+    const hedef = path.join(ROOT, CIKTI);
+    fs.mkdirSync(path.dirname(hedef), { recursive: true });
     for (const seed of SECILEN) {
         const m0 = Date.now();
         const r = macVerisi(ctx, seed);
         if (r.err) { console.log('  seed' + seed + ' HATA: ' + r.err); continue; }
-        for (const o of r.ornekler) { akis.write(JSON.stringify(o) + '\n'); toplamOrnek++; }
+        if (r.ornekler.length) {
+            fs.appendFileSync(hedef, r.ornekler.map(o => JSON.stringify(o)).join('\n') + '\n');
+            toplamOrnek += r.ornekler.length;
+        }
         toplamKarar += r.kararSayisi; toplamRollout += r.rolloutSayisi;
         console.log('  seed' + String(seed).padEnd(6) + r.kararSayisi + ' karar, ' + r.rolloutSayisi + ' rollout, ' +
             r.ornekler.length + ' örnek, ' + Math.round((Date.now() - m0) / 1000) + 'sn' +
             (r.hata ? '   (oracle notu: ' + r.hata + ')' : ''));
     }
-    akis.end();
     const sure = (Date.now() - t0) / 1000;
     console.log('');
     console.log('BEONAI_URET_OK  ' + toplamOrnek + ' örnek / ' + toplamKarar + ' karar / ' + toplamRollout +

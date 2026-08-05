@@ -145,9 +145,13 @@ kuyruguKostur().then(sonuclar => {
     const hedef = path.resolve(CIKTI);
     fs.mkdirSync(path.dirname(hedef), { recursive: true });
     const akis = fs.createWriteStream(hedef, { flags: 'a' });
-    let satir = 0, aktif = 0;
+    let satir = 0, aktif = 0, kismi = 0;
     for (const r of sonuclar) {
-        if (!r.ok || !r.dosya || !fs.existsSync(r.dosya)) continue;
+        // KESİLEN İŞÇİNİN VERİSİ DE ALINIR: eskiden yalnız r.ok olanlar birleştiriliyordu,
+        // yani gözcü bir işçiyi kestiğinde o ana kadar DİSKE YAZILMIŞ veri de çöpe gidiyordu.
+        // Artık dosya varsa okunur; kısmi olduğu RAPORLANIR.
+        if (!r.dosya || !fs.existsSync(r.dosya)) continue;
+        if (!r.ok) kismi++;
         for (const s of fs.readFileSync(r.dosya, 'utf8').split('\n')) {
             if (!s.trim()) continue;
             akis.write(s + '\n'); satir++;
@@ -162,6 +166,7 @@ kuyruguKostur().then(sonuclar => {
         (satir ? (aktif / satir * 100).toFixed(0) : 0) + ' verim ===');
     console.log('süre ' + sure.toFixed(0) + 'sn  →  ' + (satir / sure * 3600).toFixed(0) + ' karar/saat, ' +
         (aktif / sure * 3600).toFixed(0) + ' KULLANILABİLİR örnek/saat');
+    if (kismi) console.log('! ' + kismi + ' parti yarıda kesildi; DİSKE YAZILMIŞ kısmi verileri yine de alındı.');
     if (kesildi) console.log('!! Koşu bellek nedeniyle KESİLDİ — veri eksiktir.');
     if (dusen.length) console.log('✗ düşen tohumlar: ' + dusen.join(',') + ' (bu tohumlardan veri YOK)');
     console.log('-> ' + CIKTI);
