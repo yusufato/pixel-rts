@@ -469,3 +469,64 @@ dron içeren rakip kompozisyonları kırdığı için kazanıyor olabilir.
 **Karar:** jammer becerisi (#29 konumlandırma) yazılmadan ÖNCE bu ölçüm yapılacak. Denge artefaktı
 çıkarsa doğru müdahale beceri değil, jamming gücünün ayarıdır — ve turnuva sonucu o düzeltmeden
 SONRA yeniden okunmalıdır.
+
+---
+
+## 13. JAMMER ÖLÇÜMÜ — kullanıcı hipotezi KISMEN doğru, kısmen TERS
+
+Kullanıcı: *"jammer dronlara karşı fazla güçlü."* Ölçüm iki ayrı gerçek buldu.
+
+### (a) Kod-veri uyuşmazlığı — kullanıcı HAKLI (yerel etki)
+
+`UnitData` jamming halesi `uavControlLoss: 0.75`, birim başına duyarlılık `jammable` 0.8-1.0 ilan
+ediyor. Kod ikisini de yok sayıyordu: `if (this.jammable && ...)` yalnız **truthy** bakıyor →
+baloncuğa giren dron **%100 felç**. Halenin `enemyAccuracy: -0.20` ve `enemyCommandRange: -0.5`
+etkileri ise **hiç uygulanmamış** (js'de tek atıf yok).
+
+**Düzeltme (`BATTLE_JAM_PARTIAL`, varsayılan açık):** RNG'siz görev-döngüsü — her tik
+`uavControlLoss × jammable` kadar birikir, 1'i aşınca o tik karıştırılır. Uzun vadede
+karıştırılan tik oranı tam olarak o değer olur.
+
+| kol | Kamikaze Drone | Keşif İHA |
+|---|---|---|
+| TAM (eski) | %98 (hedef %100) | — |
+| **KISMİ** | **%74** (hedef %75) ✓ | %0 |
+
+Kamikaze boş-patlaması artık **karıştırılan tikleri** sayıyor, duvar saatini değil — aksi hâlde
+%60 güçle karıştırılan dron da tam-felç gibi 5sn'de patlardı ve kısmilik anlamsızlaşırdı.
+
+### (b) Küresel tablo — hipotezin TERSİ
+
+| dron-ağırlıklı saldıran → | galibiyet | marj |
+|---|---|---|
+| SAV-**JAMMERLİ** | 27/48 | **+524** |
+| SAV-JAMMERSİZ | 8/48 | **−1520** |
+
+Savunan jammer aldığında dronlara karşı **çok daha kötü** oluyor (~2044 marj). Sebep: yarıçap
+400px (11.43 kare × 35) = haritanın **%2.9'u**, üstelik konumlandırma becerisi yok → 2×480₺
+silahsız birim net yük. Ayrıca 2×2 testi (jammer saldırıda): dronlu savunana karşı jammer'lı
+saldıran +1140, jammer'sız +1731 — jammer taşımak burada da zarar.
+
+**Çelişki yok:** etki *kademeli ve geniş* tasarlanmış, *ikili ve dar* kodlanmış. Oyuncu YEREL
+mutlaklığı hissediyor; AI-vs-AI ise KÜRESEL etkisizliği ölçüyor.
+
+**Kısmi düzeltmenin maç etkisi:** dron-ağırlıklı saldıran TAM'da +524 (27/48, anlamsız),
+KISMİ'de +794 (33/48, anlamlı). Yön doğru; kollar arası fark 48 tohumda anlamlı değil (z≈0.6) —
+beklendiği gibi, çünkü baloncuk zaten haritanın %2.9'u.
+
+### (c) ÖLÜ TASARIM: keşif İHA'sı hiç karıştırılmıyordu
+
+`recon_uav`'ın silahı yok (`"weapons": []`) → `engageCombat` jam bloğundan **önce** erken dönüyor.
+Ölçüm: baloncukta 75 tik, karıştırılan **0**. Yani EH aracının en doğal hedefi (düşman gözünü
+kör etmek) hiç çalışmıyordu.
+
+**`BATTLE_JAM_RECON` eklendi ama VARSAYILAN KAPALI.** Açıldığında çalıştığı doğrulandı
+(Keşif İHA %65, hedef %68). Açmak jammer'ı **güçlendirir** ve kullanıcı raporu ters yönde —
+bu bir denge kararıdır, tek taraflı alınmadı.
+
+**Kapılar:** forktest `true` · liverepro `false` · pdtest OK · defertest OK.
+Yeni birim durumu (`_jamAcc`, `_jamTik`, `jammedLoss`) fork anlık görüntüsüne eklendi.
+
+**Turnuva sonucuna etkisi:** §10'daki jammer şampiyonluğu bu ölçümlerle daha da şüpheli —
+jammer bu testlerde net yük çıktı ve şampiyon zaten takipçilerinden ayırt edilemiyordu.
+Muhtemelen gürültü. Jammer konumlandırma becerisi (#29) yazılırsa tablo değişebilir.

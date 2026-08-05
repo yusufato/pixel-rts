@@ -847,7 +847,12 @@ class Unit {
         } else if (aura.type === 'jamming') {
             for (const u of nearby) {   // JAMMING: yakın DÜŞMAN UAV/drone'u damgala → engageCombat'ta ateş/dalış-iptali (jammable birim)
                 if (u.dead || u.isRed === this.isRed) continue;
-                const dx = u.x - this.x, dy = u.y - this.y; if (dx * dx + dy * dy <= r2) { u.jammedTick = SIM.tick; u.jammedBy = this.id; u.jammedBySide = this.isRed ? 'red' : 'blue'; }   // JAM-telemetri: kim (id+taraf) jamladı
+                const dx = u.x - this.x, dy = u.y - this.y;
+                if (dx * dx + dy * dy <= r2) {
+                    u.jammedTick = SIM.tick; u.jammedBy = this.id; u.jammedBySide = this.isRed ? 'red' : 'blue';   // JAM-telemetri: kim (id+taraf) jamladı
+                    // KISMİ ETKİ: halenin ilan ettiği kontrol-kaybı oranı hedefe taşınır (varsayılan 1 = eski tam-felç).
+                    u.jammedLoss = (aura.effects && aura.effects.uavControlLoss != null) ? aura.effects.uavControlLoss : 1;
+                }
             }
         }
     }
@@ -1096,12 +1101,39 @@ class Unit {
     engageCombat(now) {
         // SİLAHSIZ birimler savaşmaz (sağlıkçı/istihkam*/ikmal/HQ/EH/radar/nakliye-heli/keşif-İHA). *istihkamın hafif silahı var.
         const __w = STATS[this.type] && STATS[this.type].weapons;
-        if (!__w || !__w.length) return;
+        // ÖLÇÜLDÜ (tools/jam-teshis.js): Keşif İHA baloncukta 75 tik geçirip HİÇ karıştırılmadı.
+        // Sebep: recon_uav'ın silahı YOK ("weapons": []) → bu erken dönüş jam bloğundan ÖNCE çalışıyor,
+        // yani EH aracının en doğal hedefi (düşman gözünü kör etmek) hiç karıştırılmıyor. Ölü tasarım.
+        // Düzeltme HAZIR ama VARSAYILAN KAPALI: açmak jammer'ı GÜÇLENDİRİR ve kullanıcı raporu
+        // ("jammer dronlara karşı fazla güçlü") ters yönde — denge kararı kullanıcınındır.
+        if (!__w || !__w.length) {
+            if (!(typeof BATTLE_JAM_RECON !== 'undefined' && BATTLE_JAM_RECON) || !this.jammable) return;
+        }
         // JAMMING (kullanıcı: "jammer↔drone counter'ını devreye sok"): EH-aracının jamming-alanındaki jammable UAV/drone
         // KONTROL-BAĞINI kaybeder → ateş/dalış YAPAMAZ (bu ve geçen tik damgalıysa). Kamikaze alan içinde dalamaz → hedefe
         // ulaşamadan yakıtı biter/düşer → EH = drone-red bölgesi. Determinist (RNG-yok, sadece tik-damgası). Artık this.jammable yüklü.
+        // ── KISMİ KARIŞTIRMA (BATTLE_JAM_PARTIAL) ──
+        // ÖLÇÜLDÜ ve KOD-VERİ UYUŞMAZLIĞI bulundu: UnitData'nın jamming halesi `uavControlLoss: 0.75`,
+        // birim başına duyarlılık ise `jammable` 0.8-1.0 diyor. Kod ikisini de YOK SAYIYORDU —
+        // `if (this.jammable && ...)` yalnız TRUTHY bakıyor → baloncuğa giren dron %100 felç.
+        // Kullanıcı gözlemi ("jammer dronlara karşı fazla güçlü") bu YEREL mutlaklıktan geliyor.
+        // (Küresel tablo tersi: yarıçap 400px = haritanın %2.9'u ve konumlandırma becerisi yok →
+        //  ölçümde 2 jammer alan savunan, dron-ağırlıklı saldırgana karşı 2044 marj KAYBEDİYOR.
+        //  Bunlar çelişmiyor: etki kademeli-geniş tasarlanmış, ikili-dar kodlanmış.)
+        // ÇÖZÜM: RNG'siz görev-döngüsü. Her tik `guc` kadar birikir; 1'i aşınca O TİK karıştırılır.
+        // Uzun vadede karıştırılan tik oranı tam olarak `guc` olur → determinist ve veriye sadık.
+        let _jamAktif = false;
         if (this.jammable && typeof SIM !== 'undefined' && (SIM.tick - (this.jammedTick || -99)) <= 1) {
+            const _kismi = (typeof BATTLE_JAM_PARTIAL === 'undefined' || BATTLE_JAM_PARTIAL);
+            const _guc = _kismi ? Math.max(0, Math.min(1, (this.jammedLoss != null ? this.jammedLoss : 1) * this.jammable)) : 1;
+            this._jamAcc = (this._jamAcc || 0) + _guc;
+            if (this._jamAcc >= 1) { this._jamAcc -= 1; _jamAktif = true; }
+        } else {
+            this._jamAcc = 0;   // hale dışına çıktı → birikim sıfırlanır
+        }
+        if (_jamAktif) {
             this.combatState = 'Karıştırıldı';
+            this._jamTik = (this._jamTik || 0) + 1;   // KARIŞTIRILAN tik sayacı (kamikaze boş-patlaması bunu sayar, duvar saatini değil)
             // JAM-TELEMETRİ (analist: INTERCEPT'in kardeşi — kim/kimi/kaç-sn/kaç-atış). jam-periyodu takibi:
             if (this._jamLastTick == null || (SIM.tick - this._jamLastTick) > 2) { this._jamStartTick = SIM.tick; this._jamBlocked = 0; }   // yeni jam-periyodu başladı
             this._jamLastTick = SIM.tick; this._jamBlocked = (this._jamBlocked || 0) + 1;   // engellenen angajman-fırsatı (tik)
@@ -1118,13 +1150,18 @@ class Unit {
             this.targetX = this.x; this.targetY = this.y; this.isMovingToManualTarget = false;   // donuk (yön sapıtıldı)
             if (STATS[this.type] && STATS[this.type].singleUse) {
                 if (!this._ctrlLostTick) this._ctrlLostTick = SIM.tick;
-                if ((SIM.tick - this._ctrlLostTick) >= 100) {   // 5sn sürekli-jam → BOŞ-PATLA
+                // KISMİ KARIŞTIRMA: boş-patlama artık DUVAR SAATİNİ değil KARIŞTIRILAN TİKLERİ sayar.
+                // Aksi hâlde %60 güçle karıştırılan dron da tam-felç gibi 5sn'de patlardı (kısmilik anlamsızlaşır).
+                const _sayac = (typeof BATTLE_JAM_PARTIAL === 'undefined' || BATTLE_JAM_PARTIAL)
+                    ? (this._jamTik || 0) : (SIM.tick - this._ctrlLostTick);
+                if (_sayac >= 100) {   // 100 karıştırılmış tik (tam güçte = 5sn) → BOŞ-PATLA
                     if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'DRONE_LOST', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, reason: 'jam-bos', jammerId: this.jammedBy != null ? this.jammedBy : null, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
                     this.hp = 0; this.dead = true; this.lastAttackTime = now; if (typeof spawnExplosion !== 'undefined') spawnExplosion(this.x, this.y, 1.6);
                 }
             }
             return;
         }
+        if (!__w || !__w.length) return;   // silahsız birim (keşif İHA): jam değerlendirildi, savaş mantığı yok
 
         // KAMİKAZE FIRE-AND-FORGET (kullanıcı: "dalıyor ama çarptığı yerde patlamıyor"): singleUse drone controlOwner/oyuncu-vision/
         // manualTarget'a BAĞLI OLMADAN en-yakın CANLI düşmana kararlı dalar. Eski playerControlled-yolu canSee-dip'inde manualTarget'ı

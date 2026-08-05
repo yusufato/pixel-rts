@@ -210,6 +210,20 @@ function macKos(ctx, tSal, tSav, seed) {
         //   { ad:"B4+pro+beonai", paylar:{...}, govde:"intel4pro", beyin:"beonai-v1" }
         'BATTLE_INTEL4PRO_RED = ' + (tSal.govde === 'intel4pro') + ';' +
         'BATTLE_INTEL4PRO_BLUE = ' + (tSav.govde === 'intel4pro') + ';' +
+        // DENGE-ANAHTARI EZME: tarif `kurallar: { BATTLE_JAM_PARTIAL:false }` verirse o global ezilir.
+        // BEYAZ LISTE ile sinirli - keyfi global yazimi determinizmi ve olcumu sessizce bozabilir.
+        // Bunlar TARAF-BASI DEGIL, mac genelindedir; A/B'de iki kola da ayni deger verilmelidir
+        // (farkli verilirse SALDIRANINKI kazanir - test kurgusu hatasi olur).
+        ((tSal.kurallar || tSav.kurallar) ? (() => {
+            const IZIN = ['BATTLE_JAM_PARTIAL', 'BATTLE_SPAWN_LOADED', 'BATTLE_POSTURE_GATE', 'BATTLE_SECTOR_COMMAND'];
+            const _k = Object.assign({}, tSav.kurallar || {}, tSal.kurallar || {});
+            let out = '';
+            for (const k in _k) {
+                if (!IZIN.includes(k)) { console.warn('UYARI: kural beyaz-listede degil, yok sayildi: ' + k); continue; }
+                out += k + ' = ' + JSON.stringify(_k[k]) + ';';
+            }
+            return out;
+        })() : '') +
         // DELTA EZME (Katman 4 demet kapisi icin): tarif `deltalar: { standoff:false, heloHunt:false }`
         // verirse o anahtarlar ezilir. UYARI: BATTLE_INTEL4PRO_DELTAS GLOBAL, taraf-basi DEGIL -
         // bu yuzden yalnizca TEK taraf intel4pro iken anlamlidir (digeri intel4 ise deltalar hic

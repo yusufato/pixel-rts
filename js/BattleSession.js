@@ -539,6 +539,11 @@ function battleUnitSnapshot(unit) {
         // BATTLE_SPAWN_LOADED: "henüz hiç ateş etmedi" (ilk atış dolum beklemez). Fork/replay'e YAZILMAK ZORUNDA —
         // aksi halde geri yüklenen birim yapıcıdan true alıp BEDAVA bir atış kazanır ve fork eşitliği bozulur.
         _hicAtesEtmedi: unit._hicAtesEtmedi !== false,
+        // KISMİ KARIŞTIRMA görev-döngüsü durumu: birikim + karıştırılan-tik sayacı. Fork'a YAZILMAK ZORUNDA —
+        // yoksa geri yüklenen dron temiz birikimle başlar (jam fazı kayar) ve fork eşitliği bozulur.
+        _jamAcc: unit._jamAcc || 0,
+        _jamTik: unit._jamTik || 0,
+        jammedLoss: unit.jammedLoss != null ? unit.jammedLoss : null,
         // DRONE-OPERATÖR/DRONE (fork-güvenli): operatör-bağı + mühimmat-sayısı + ikmal-sayacı + fırlatma-noktası
         operatorId: unit.operatorId != null ? unit.operatorId : null,
         payloadCount: unit.payloadCount != null ? unit.payloadCount : null,
@@ -707,7 +712,7 @@ function battleRestoreUnit(snapshot) {
         'maxHp', 'hp', 'atk', 'baseSpeed', 'speed', 'range', 'vision', 'atkSpeed',
         'baseArmor', 'armor', 'maxAmmo', 'ammo', 'veteran', 'level', 'xpBonus',
         'panicResistance', 'facingAngle', 'targetX', 'targetY', 'scanTimer', 'lastAttackTime',
-        '_reloadTimer', '_hicAtesEtmedi'
+        '_reloadTimer', '_hicAtesEtmedi', '_jamAcc', '_jamTik'
     ]) {
         if (snapshot[key] !== undefined) unit[key] = snapshot[key];
     }
@@ -715,6 +720,7 @@ function battleRestoreUnit(snapshot) {
     if (snapshot.launchX != null) unit.launchX = snapshot.launchX;   // drone fırlatma-noktası
     if (snapshot.launchY != null) unit.launchY = snapshot.launchY;
     if (snapshot._ctrlLostTick != null) unit._ctrlLostTick = snapshot._ctrlLostTick;   // drone kontrol-kaybı/jam sayacı
+    if (snapshot.jammedLoss != null) unit.jammedLoss = snapshot.jammedLoss;   // kısmi-karıştırma: halenin ilan ettiği kontrol-kaybı oranı
     if (snapshot._cmdShockUntil != null) unit._cmdShockUntil = snapshot._cmdShockUntil;   // komuta-şoku penceresi
     if (snapshot._deathFxDone) unit._deathFxDone = true;   // onDeath-efekti işlendi (tek-seferlik)
     if (snapshot._diveLastX != null) unit._diveLastX = snapshot._diveLastX;   // drone taahhüt-hedef son-konumu

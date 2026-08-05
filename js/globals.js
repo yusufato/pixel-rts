@@ -462,6 +462,19 @@ let PRO_STANDOFF_ADIM = 300;     // tek değerlendirmede verilecek en fazla geri
 // Etkilenen: taktik füze 66.7sn · ÇNRA 20sn · yıkım şarjı 12.5sn · obüs 5.6sn (kalanlar ≤5sn, pratikte etkisiz).
 // Unit.js'teki singleUse istisnası aynı hatanın dron için zaten fark edilmiş dar bir yamasıydı.
 let BATTLE_SPAWN_LOADED = true;
+
+// ── KISMİ KARIŞTIRMA (kullanıcı: "jammer dronlara karşı fazla güçlü") ──
+// KOD-VERİ UYUŞMAZLIĞI: UnitData jamming halesi `uavControlLoss: 0.75` ve birim başına
+// `jammable` 0.8-1.0 ilan ediyor; kod ikisini de yok sayıp %100 tam-felç uyguluyordu
+// (`if (this.jammable && ...)` yalnız truthy bakıyor). Halenin `enemyAccuracy: -0.20` ve
+// `enemyCommandRange: -0.5` etkileri ise HİÇ uygulanmamış (js'de tek atıf yok) — kayıtta.
+// Açık: karıştırılan tik oranı = uavControlLoss × jammable (RNG'siz görev-döngüsü).
+//   recon_uav 0.75×0.9=0.68 · armed_uav 0.75×0.8=0.60 · kamikaze 0.75×1.0=0.75
+let BATTLE_JAM_PARTIAL = true;
+// KEŞİF İHA'sını da karıştır. ÖLÜ TASARIM bulundu: recon_uav'ın silahı olmadığı için engageCombat
+// erken dönüyor ve jam bloğuna hiç ulaşmıyordu (baloncukta 75 tik, karıştırılan 0). VARSAYILAN
+// KAPALI — açmak jammer'ı güçlendirir, kullanıcı raporu ters yönde. Denge kararı kullanıcının.
+let BATTLE_JAM_RECON = false;
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
 // Birim tipi DOLAYLI ateş mi (topçu/havan/ÇNRA/balistik)? Karşı-batarya hedeflemesi bunu kullanır.
