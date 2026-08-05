@@ -1,8 +1,8 @@
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.42
+**Belge sürümü:** 1.43
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 29 sırada
+**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28–30 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 31 sırada
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
 
@@ -89,6 +89,8 @@
 **1.41 değişikliği:** Faz 27, `story-human-migration-ledger-1` ile iç göç, sınır ötesi göç ve mülteci akışını kanıtlı itme/çekme sinyali, gerçek kara/deniz rotası, rota darboğazı, seyahat gecikmesi ve kabul kapasitesine bağladı. Nüfus yalnız varışta `StoryPopulation` üzerinden tam kişi/kohort korunumu ile atomik taşınır; ulaşılamayan hedefe ışınlanma, üçüncü ülke transit geçişi ve hileli kaynak üretimi yoktur. Zorlanmış güvenlik krizinde 90 kişilik mülteci akışı kapasite doluyken bloke oldu, kapasite açılınca sıfır nüfus farkıyla tamamlandı. Nihai 900 saniyelik koşuda 231 sınırlı akış, 167 tamamlanma ve 3.955 taşınan kişi; `%85,13/%85,36/%73,33` gıda/enerji/yaşam sonucu ve `880b861b…cb6` karma üretildi. `qa-runtime/story-phase27-ab.json` açık/kapalı dünyanın farklı olduğunu; refahın aynı, huzursuzluğun `-0,195`, kaynakların ise fiziksel dağılım nedeniyle farklı olduğunu kaydeder. Tam test 23,5 dakikada çıkış kodu `0` ile geçti. Konut varlığı, sınır politikası ve ticaretle ortak taşıma kapasitesi henüz gerçek model değildir; Faz 28 açıldı.
 
 **1.42 değişikliği:** Faz 28, `story-power-center-ledger-1` ile sekiz devletin her birinde silahlı kuvvetler, iş dünyası konseyi, emek konfederasyonu, kamu idaresi, medya ağı, iç güvenlik ağı ve radikal ağ olmak üzere 56 kimlikli güç merkezi kurdu. Destek tabanı kanonik 1.824 nüfus kohortundan; mali ve fiziksel kaynaklar şirket/banka, bütçe, komutan ve garnizon defterlerinden gelir. Faz 26 örgütlenmesi kimlikli merkez referanslarına göç etti, fakat ilk doğrudan kapasite bağlantısının yarattığı kelebek etkisi reddedildi; nötr referans, `1.200` baz puan ölü bölge ve yalnız aşırı kurumsal sapmaya `%25` ağırlık getirildi. 900 saniyelik A/B’de bütün eski makro/kaynak deltaları `0`, kontrol `f9ce09…c4bfc`, açık dünya `52bd56…6607a`; açık yol 56 merkez ve 26 olay üretti. Tam `npm test` `1.645 sn`de çıkış kodu `0` verdi. Güç merkezleri Faz 29 öncesinde eylem icra etmez; medya, güvenlik ve beş makam lideri açık vekildir ve gerçek sahiplerine sırasıyla Faz 39, 47 ve 34’te göç edecektir. Faz 29 açıldı.
+
+**1.43 değişikliği:** Faz 29'un ülke-bazlı anayasal yetki fişleri Faz 30'da `story-state-capacity-ledger-1` uygulama zincirine bağlandı. Meşruiyet, bürokratik kapasite, hukuk devleti, kurumsal bütünlük, yapısal yolsuzluk riski, bölgesel denetim ve uygulama kapasitesi ayrı ölçülerdir; “yolsuzluk riski” kanıtlanmış suç veya fail değildir. Yalnız gerçek kurum önericisi ve yürütücüsü olan `EXECUTED` Faz 29 kararları kimlikli uygulama bileti doğurur. Sağlıklı devlette karar `COMPLETED`, çalışan bürokrasi fakat zayıf bütünlükte `DEGRADED`, kapasitesi çökmüş devlette süre sonunda `PAPER_ONLY` olur. Sonuç fişleri henüz fiziksel ekonomi/dünya mutasyonu yapmaz; sonraki domain sahibi yalnız `effectReady` ve değişmez yetki makbuzunu tüketebilir. Hedefli prob normal/tahrip olmuş/zayıf bütünlük yollarını, gizlilik, salt-okunur UI, kayıt/yükleme, V3→V2 göç, bozuk kayıt kurtarma ve özellik/öncül kapalı yokluk sözleşmesini geçti. 900 saniyelik A/B'de eski makro ve üç kaynak deltasının tamamı `0`; açık dünya `6ab5c579…fd50`, kontrol `8f99c8f0…8d21`. Tam `npm test` kapsam azaltılmadan `1.947,9 sn`de çıkış kodu `0` verdi. Faz 31 açıldı.
 
 ---
 
@@ -3956,6 +3958,16 @@ Kapsam sınırı açıktır: `AUTHORIZATION_RECORD_ONLY_PHASE_29` kararın fizik
 **Çıktı:** Meşruiyet, bürokratik kapasite, yolsuzluk ve bölgesel denetim.  
 **Kabul kapısı:** Düşük kapasiteli devletin kararı gecikiyor/sızdırılıyor; sonuç açıklanabiliyor.  
 **Bağımlılık:** Faz 29.
+
+**Kapanış — 5 Ağustos 2026:** `js/StoryStateCapacity.js`, Faz 29'un yetkilendirme kaydı ile gerçek alan etkisi arasına sürümlü ve deterministik bir uygulama defteri koydu. Ülke düzeyinde meşruiyet, bürokratik kapasite, hukuk devleti, kurumsal bütünlük, yapısal yolsuzluk riski ve birleşik uygulama kapasitesi; 152 bölge düzeyinde idari erişim, denetim, güvenlik, kamu hizmeti, altyapı erişimi, garnizon ve kuşatma sinyali tutulur. Altyapı erişimi her tikte tek harita geçişiyle hesaplanır; bölge × koridor karesel taraması yapılmaz.
+
+Karar zinciri `QUEUED → IMPLEMENTING → COMPLETED/DEGRADED/PAPER_ONLY` durumlarıyla çalışır. Yalnız gerçek kurumsal önerici/yürütücüye ve aynı ülke/bölge yetki alanına sahip Faz 29 `EXECUTED` kayıtları bilet doğurur; özel güç merkezi eylemi kendiliğinden devlet uygulaması sayılmaz. Bilet, değişmez yetki makbuzunu kopyalar; eylem karmaşıklığı sabit süre ve asgari kapasite ister. Düşük kapasite kararı başlatamaz ve son tarihte kâğıt üzerinde bırakır; yeterli bürokrasi ile zayıf bütünlük/sızıntı tamamlanmayı düşürür; sağlıklı zincir tamamlanır. Sonuç gerekçeleri, kalite ve sızıntı oranı kaydedilir.
+
+Faz sınırı özellikle korunmuştur: `CAPACITY_IMPLEMENTATION_RECORD_ONLY_PHASE_30` fiziksel mutasyon yapmaz. `physicalMutation: false` zorunludur; ekonomi, refah, kaynak, toprak veya kurum alanına doğrudan yazılmaz. Bu defter “uygulanabilir sonuç fişi” üretir; ilgili sonraki domain ancak açık tüketici sözleşmesiyle `effectReady` sonucunu işler. Yapısal yolsuzluk riski fail, rüşvet veya suç kanıtı değildir; kişi, ihale, soruşturma ve skandal Faz 32'nin sahibidir.
+
+Bilgi sınırı oyuncunun kendi devletinde kapasite kaynakları ve biletleri doğrulanmış gösterir; yabancı devlet için yalnız kamusal meşruiyet ve bölgesel denetim görünür. Yabancı bürokrasi, bütünlük, yolsuzluk riski, kaynaklar ve uygulama biletleri sızmaz. WorldV2, şehir dosyası, kaydet/yükle, V3→V2 göç, eski kayıt backfill'i, bozuk defter kurtarma ve özellik/öncül kapalı `null` yolu doğrulandı; görünüm çağrıları dünya karmasını değiştirmedi.
+
+Hedefli kabul probunda sağlıklı karar `COMPLETED` (`implementationCapacityBps: 6223`), çökmüş devlet kararı `PAPER_ONLY` (`231`, `IMPLEMENTATION_DEADLINE_EXCEEDED + CAPACITY_BELOW_REQUIREMENT`), zayıf bütünlüklü fakat çalışan bürokrasi kararı `DEGRADED` (`qualityBps: 4999`, `leakageBps: 5590`) oldu. 900 saniyelik doğal koşu sahte karar üretmedi: sekiz ülke ve 152 bölge ölçüldü, doğal bilet sayısı `0`. Kontrol `8f99c8f0…8d21`, açık yol `6ab5c579…fd50`; refah, enflasyon, huzursuzluk, etkin devlet, haber, petrol, insan gücü ve puan deltalarının tamamı `0`. Tam regresyon `1.947,9 sn`de çıkış kodu `0` ile geçti; scheduler 22 görev içinde devlet kapasitesini toplumdan sonra, kuşatmadan önce her 5 saniyede çalıştırıyor. Faz 31 açıldı.
 
 ### FAZ 31 — Seçim ve İktidar Değişimi
 

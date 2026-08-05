@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 29 — Rejim ve Kurum Şeması
+**Son kapanan faz:** Faz 30 — Meşruiyet ve Devlet Kapasitesi
 
-**Aktif uygulama sırası:** Faz 30 — Meşruiyet ve Devlet Kapasitesi
+**Aktif uygulama sırası:** Faz 31 — Seçim ve İktidar Değişimi
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -53,8 +53,9 @@
 | Faz 27 — Göç ve Mülteci Akışı | `complete` | İç/dış göç ve mülteci akışı gerçek rota, gecikme, kapasite ve atomik kohort aktarımıyla çalışıyor |
 | Faz 28 — Güç Merkezleri | `complete` | `js/StoryPowerCenters.js`; 8 devlet × 7 kimlikli merkez, kanonik destek/kaynak kanıtı, Faz 26 örgüt bağlantısı, bilgi filtreli UI ve `qa-runtime/story-phase28-ab.json` |
 | Faz 29 — Rejim ve Kurum Şeması | `complete` | `js/StoryInstitutions.js`; 8 devlet × 5 kurum, 29 eylemde DIRECT/JOINT/PETITION/yasak rotası, makam doğrulama, bilgi filtreli UI ve `qa-runtime/story-phase29-ab.json` |
-| Faz 30 — Meşruiyet ve Devlet Kapasitesi | `next` | Yetkili karar ile uygulanabilen karar arasına kapasite, gecikme, yolsuzluk ve bölgesel denetim koyacak |
-| Faz 31+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 30 — Meşruiyet ve Devlet Kapasitesi | `complete` | `js/StoryStateCapacity.js`; ayrı meşruiyet/bürokrasi/hukuk/bütünlük/yapısal risk/bölgesel denetim, açıklanabilir uygulama bileti yaşam döngüsü ve `qa-runtime/story-phase30-ab.json` |
+| Faz 31 — Seçim ve İktidar Değişimi | `next` | Kohort tercihi, aday, katılım, kampanya, sonuç/itiraz ve barışçıl makam devrini kanıtlı olay zincirine bağlayacak |
+| Faz 32+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -871,6 +872,17 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - `qa-runtime/story-phase29-ab.json`: kapalı `a32befd1…1a45`, açık `4a7b34ad…23a0`. İlk fark yalnız `$.institutions`; refah, enflasyon, huzursuzluk, devlet/haber ve üç kaynak deltasının tamamı `0`. Açık koşuda `40` kurum, `179` tik ve `1` uzlaştırma olayı vardır.
 - Nihai 900 saniyede gıda `%85,13`, enerji `%85,36`, yaşam `%73,33`; ortalama refah `65,375`, enflasyon `2,255`, huzursuzluk `3,09`; sekiz devlet hayatta. Tam `npm test` çıkış kodu `0`, toplam süre `1.734,8 sn`, ana koşu `134.268,9 ms`, dünya karması `4a7b34ade1039f0f44ce00fa2f82a59ab9677af92709a92016525d4f361323a0`.
 - Faz 29 fiziksel karar uygulaması değildir. `AUTHORIZATION_RECORD_ONLY_PHASE_29` yalnız geçerli yetki fişi üretir. Kapasite, gecikme, yolsuzluk ve bölgesel uygulama farkı uydurulmadı; sıradaki uygulama **Faz 30 — Meşruiyet ve Devlet Kapasitesi**dir.
+
+## Faz 30 — Meşruiyet ve Devlet Kapasitesi kabul sonucu
+
+- `js/StoryStateCapacity.js`, sekiz ülke ve 152 bölge için `story-state-capacity-ledger-1` defterini kurdu. Meşruiyet, bürokratik kapasite, hukuk devleti, kurumsal bütünlük, yapısal yolsuzluk riski, bölgesel denetim ve birleşik uygulama kapasitesi ayrı kaynaklarla açıklanıyor; risk kanıtlanmış suç sayılmıyor.
+- Yalnız Faz 29'da gerçek kurum önericisi/yürütücüsüyle `EXECUTED` olmuş yetki kayıtları uygulama bileti doğuruyor. `QUEUED`, `IMPLEMENTING`, `COMPLETED`, `DEGRADED`, `PAPER_ONLY` durumları; eylem karmaşıklığı, sabit süre, kapasite eşiği, son tarih, kalite, sızıntı ve neden kodlarıyla deterministik ilerliyor.
+- Hedefli probda normal devlet `COMPLETED` (`6223` kapasite), çökmüş devlet `PAPER_ONLY` (`231` kapasite), çalışan bürokrasi/zayıf bütünlük `DEGRADED` (`4999` kalite, `5590` sızıntı) verdi. Kaybedilmiş bölge ve son tarih aşımı ayrıca kâğıt-üzeri sonuç üretir; RNG veya LLM kararı yoktur.
+- `CAPACITY_IMPLEMENTATION_RECORD_ONLY_PHASE_30` fiziksel etki uygulamaz. Ekonomi, refah, kaynak, toprak ve kurum alanına doğrudan yazma yasaktır; terminal fiş `physicalMutation: false` taşır. Sonraki domain yalnız açık sözleşmeyle `effectReady` sonucunu tüketebilir.
+- Kendi ülke görünümü kapasite kaynakları ile uygulama biletlerini doğrulanmış gösterir. Yabancı görünüm yalnız kamusal meşruiyet ve bölgesel denetimi taşır; bürokrasi, bütünlük, yapısal risk, kaynaklar ve biletler sızmaz. Şehir `KURUMLAR` sekmesi aynı bilgi filtresini kullanır ve ekran açılışı dünya durumunu değiştirmez.
+- WorldV2 üst düzey biletleri ve ülke/bölge kapasitesini taşıyor. Kayıt/yükleme birebir, V3→V2 göç, eski kayıt backfill'i, bozuk kayıt kurtarma, özellik veya kurum öncülü kapalı `null` yolu ve salt-okunur projeksiyon geçti.
+- `qa-runtime/story-phase30-ab.json`: kontrol `8f99c8f0…8d21`, açık `6ab5c579…fd50`; ilk fark yalnız `$.stateCapacity`. Refah, enflasyon, huzursuzluk, etkin devlet/haber ve petrol/insan gücü/puan deltalarının tamamı `0`. Doğal koşu sahte karar üretmedi: `179` tik, `8` ülke, `152` bölge, `0` bilet.
+- Scheduler artık `22` görev taşır; devlet kapasitesi her `5 sn` toplumdan sonra, kuşatmadan önce çalışır. Tam kapsamlı `npm test` çıkış kodu `0`; toplam duvar süresi `1.947,9 sn`, ana 900 saniyelik simülasyon `135.999,11 ms`, dünya karması `6ab5c57982878f71bd7c8cb0a4c41025d095ea21ed8db40806aba1b9c906fd50`. Sıradaki uygulama **Faz 31 — Seçim ve İktidar Değişimi**dir.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)
 
