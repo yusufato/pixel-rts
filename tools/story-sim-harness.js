@@ -8341,6 +8341,11 @@ function probePublicOpinion(seed = 2032) {
         // kapasite fotografi farkli olabilir; bu Faz 25'in "eski oynanis ve
         // fiziksel sonuc esitligi" kapisinin parcasi degildir.
         delete copy.powerCenters;
+        // Faz 30 kamuoyu şikâyetini meşruiyet kanıtı olarak okur. Kamuoyu
+        // kapalı A/B yolunda bu ardıl defter bağımlılık gereği kapanır; yeni
+        // türetilmiş yönetişim durumu Faz 25'in eski fiziksel eşitlik kapısı
+        // değildir ve ayrıca aşağıdaki özetlerle doğrulanır.
+        delete copy.stateCapacity;
         return copy;
     };
     return {
@@ -8353,7 +8358,9 @@ function probePublicOpinion(seed = 2032) {
             onHash: on.stateHash,
             offHash: off.stateHash,
             changed: on.stateHash !== off.stateHash,
-            physicalEqual: hashSnapshot(stripOpinion(on.snapshot)) === hashSnapshot(stripOpinion(off.snapshot))
+            physicalEqual: hashSnapshot(stripOpinion(on.snapshot)) === hashSnapshot(stripOpinion(off.snapshot)),
+            onStateCapacity: on.stateCapacitySummary,
+            offStateCapacity: off.stateCapacitySummary
         }
     };
 }

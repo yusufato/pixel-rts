@@ -134,9 +134,9 @@ function tezgahKur() {
     // beonai model dosyası VARSA yüklenir (yoksa sorun değil: beyin belirtilmedikçe kullanılmaz).
     // Eğitim çıktısı olduğu için repoda bulunmayabilir → listeye koşullu eklenir.
     const kaynaklar = MUHAREBE_KAYNAK.slice();
-    if (fs.existsSync(path.join(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
+    if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
     for (const rel of kaynaklar) {
-        const p = path.join(ROOT, rel);
+        const p = path.resolve(ROOT, rel);
         const kod = fs.readFileSync(p, 'utf8');
         try {
             vm.runInContext(kod, ctx, { filename: rel });
@@ -222,7 +222,7 @@ function main() {
     const CIKTI = bayrak('--out', 'qa-runtime/tezgah-sonuc.json');
     const SESSIZ = process.argv.includes('--sessiz');
 
-    const tarifler = JSON.parse(fs.readFileSync(path.join(ROOT, TARIF_YOL), 'utf8'));
+    const tarifler = JSON.parse(fs.readFileSync(path.resolve(ROOT, TARIF_YOL), 'utf8'));
     const sec = f => (f === '*' ? tarifler : tarifler.filter(t => f.split(',').indexOf(t.ad) >= 0));
     const SAL = sec(SAL_F), SAV = sec(SAV_F);
     if (!SAL.length || !SAV.length) { console.log('TARIF_SECIMI_BOS'); process.exit(1); }
@@ -266,8 +266,8 @@ function main() {
             }
         }
     }
-    fs.mkdirSync(path.dirname(path.join(ROOT, CIKTI)), { recursive: true });
-    fs.writeFileSync(path.join(ROOT, CIKTI), JSON.stringify(hucreler, null, 1));
+    fs.mkdirSync(path.dirname(path.resolve(ROOT, CIKTI)), { recursive: true });
+    fs.writeFileSync(path.resolve(ROOT, CIKTI), JSON.stringify(hucreler, null, 1));
     if (!SESSIZ) console.log('TEZGAH_OK ' + hucreler.length + ' hucre / ' + n + ' mac -> ' + CIKTI);
 }
 

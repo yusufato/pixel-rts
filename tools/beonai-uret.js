@@ -96,7 +96,7 @@ function main() {
     // (bellek gözcüsü) tampondaki her şey UÇUYORDU — 10 dakikalık üretim sıfır kayıtla
     // sonuçlandı. Artık her tohum bitince DİSKE SENKRON eklenir; kesilme olsa bile
     // o ana kadarki veri gerçekten korunur.
-    const hedef = path.join(ROOT, CIKTI);
+    const hedef = path.resolve(ROOT, CIKTI);
     fs.mkdirSync(path.dirname(hedef), { recursive: true });
     for (const seed of SECILEN) {
         const m0 = Date.now();

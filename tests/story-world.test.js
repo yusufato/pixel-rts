@@ -1901,6 +1901,10 @@ function run() {
         'Faz 25 acik-kapali A/B kosusunda olculebilir yeni durum uretmeli.');
     assert.equal(opinionProbe.ab.physicalEqual, true,
         'Kamuoyu hafizasi fiziksel ekonomi veya eski oynanis sonucunu degistirmemeli.');
+    assert.equal(opinionProbe.ab.onStateCapacity.disabled, false,
+        'Faz 30 açık kamuoyu kanıtından meşruiyet ve kapasite fotoğrafı üretebilmeli.');
+    assert.equal(opinionProbe.ab.offStateCapacity.disabled, true,
+        'Kamuoyu öncülü kapalıyken Faz 30 sahte meşruiyet defteri üretmemeli.');
 
     const collectiveProbe = probeCollectiveAction();
     assert.equal(collectiveProbe.pure.quietNoAction, true,
