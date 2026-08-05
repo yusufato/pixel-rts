@@ -559,6 +559,7 @@ class Unit {
         if (this.attackTarget && !this.isFleeing) {
             this.facingAngle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
         }
+        this._zirhYonlendir();   // INTEL4-PRO 'armorFace': burnu HEDEFE değil BASKIN TEHDİDE dön (hareket+hedef yönünden SONRA)
 
         this.x = Math.max(UNIT_RADIUS, Math.min(WORLD_W - UNIT_RADIUS, this.x));
         this.y = Math.max(UNIT_RADIUS, Math.min(WORLD_H - UNIT_RADIUS, this.y));
@@ -1424,6 +1425,44 @@ class Unit {
             } else {
                 this.attackTarget = null;   // ÖLÇÜM: özsavunma KAPALI (eski davranış) — fix'in etkisini ölçmek için
             }
+        }
+    }
+
+    // ── INTEL4-PRO 'armorFace': YÖNLÜ ZIRHI KORU (burnu baskın tehdide dön) ──
+    // TEŞHİS (tools/zirh-teshis.js, seed2024, izole): yönlü-zırhlı birimlerin maruziyeti
+    // ÖN %63 / YAN %27 / ARKA %10 — yani %37'si zırhın zayıf tarafından. Savunan MBT en kötüsü:
+    // %42 / %56 / %1, yani zamanın YARIDAN FAZLASINDA yanını gösteriyor. MBT yan çarpanı ×1.5,
+    // tanksavar arka çarpanı ×3.3 → bu doğrudan ₺ kaybı.
+    // SEBEP: facingAngle önce HAREKET yönüne (satır 548), sonra ATIŞ HEDEFİNE (satır 560) kuruluyor.
+    // İkisi de "beni kim vuruyor" sorusunu sormuyor: A'ya ateş ederken B yandan vuruyor.
+    // Kural: burnu, o an SENİ VURABİLEN düşmanların hasar-ağırlıklı merkezine dön.
+    // BEDAVA BECERİ: yalnız yön değişir, birim yerinden oynamaz — bugün elenen konumlandırma
+    // becerilerinin (jammerPost/resupplyRun) aksine hareket maliyeti YOK. Ateşi de engellemez
+    // (namlu-arkı kontrolü yok; hasar yalnız facingAngle'dan okunuyor).
+    _zirhYonlendir() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'armorFace')) return;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return;
+        if (this.controlOwner === 'PLAYER') return;   // oyuncunun birimini döndürmeyiz
+        const st = STATS[this.type];
+        if (!st || !st.armorFacing) return;           // yalnız yönlü-zırhı OLAN birim
+
+        // BASKIN TEHDİT: beni ŞU AN vurabilen düşmanlar, hasar potansiyeline göre ağırlıklı.
+        let vx = 0, vy = 0, agirlikTop = 0;
+        for (const e of SIM.spatialGrid.getNearby(this.x, this.y, PRO_ARMORFACE_R)) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            const es = STATS[e.type];
+            if (!es || !es.weapons || !es.weapons.length) continue;
+            if (typeof unitCanEngage === 'function' && !unitCanEngage(es, st)) continue;   // bana vuramayan tehdit değil
+            const d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d > e.range || d < 1e-6) continue;                                          // menzilinde değilse şu an tehdit değil
+            const w = (es.weapons[0].damage || 1);
+            vx += ((e.x - this.x) / d) * w; vy += ((e.y - this.y) / d) * w; agirlikTop += w;
+        }
+        if (!agirlikTop) return;                       // vurabilen kimse yok → mevcut yön kalsın
+        if (Math.hypot(vx, vy) < agirlikTop * PRO_ARMORFACE_MIN_BASKINLIK) return;   // tehdit HER YÖNDEN → dönmek anlamsız
+        this.facingAngle = Math.atan2(vy, vx);
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.armorFaceBind = (BATTLE_BALANCE.armorFaceBind || 0) + 1;
         }
     }
 

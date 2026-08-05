@@ -452,8 +452,25 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // silahsız 300hp'lik birim ölüyor ve ölü jammer hiçbir şey örtmüyor.
     // GELECEK YÖNÜ (yazılmadı): dronu KOVALAMAK yerine dronun HEDEFİNİ örtmek — kendi topçu/
     // komuta/ikmal kümesinin üstüne şemsiye kurmak. Dron oraya zaten geliyor; jammer güvende kalır.
-    jammerPost: false
+    jammerPost: false,
+    // P11 — YÖNLÜ ZIRHI KORU (BECERİ #10). TEŞHİS: yönlü-zırhlı maruziyeti ÖN %63 / YAN %27 /
+    // ARKA %10; savunan MBT %42/%56/%1 (yarıdan fazlasında yanını gösteriyor). MBT yan ×1.5,
+    // TD arka ×3.3. Sebep: facingAngle önce HAREKET yönüne, sonra ATIŞ HEDEFİNE kuruluyor —
+    // ikisi de "beni kim vuruyor" sorusunu sormuyor. BEDAVA beceri: yalnız yön, hareket YOK.
+    //
+    // ÖLÇÜLDÜ ve **KATMAN 2'DE ELENDİ** → VARSAYILAN KAPALI.
+    // KATMAN 1 ÇARPICI biçimde geçti: zayıf-taraf maruziyeti %37 → %4 (ÖN %63→%96, YAN %27→%4,
+    // ARKA %10→%0) ve bedeli SIFIR (yalnız dönüş, hareket yok).
+    // KATMAN 2 GEÇMEDİ: zırhlı birim ömrü 6 tohumda ort. 107sn → 105sn (113→142, 144→44, 124→124,
+    // 90→89, 98→98, 73→132) — yön ilerlemesi hayatta kalmaya DÖNÜŞMÜYOR ve varyans çok yüksek.
+    // MUHTEMEL SEBEP (sınanmadı): zırhlıya gelen hasarın çoğu yönün ÖNEMSİZ olduğu kaynaklardan —
+    // dolaylı ateş//patlama alanı, hava, shaped-charge AT. facingDamageMult yalnız doğrudan-ateş
+    // yolunda okunuyor. Sınamak için hasar kaynağı kırılımı gerekir (ayrı teşhis).
+    armorFace: false
 };
+// ── 'armorFace' PARAMETRELERİ (aranabilir) ──
+let PRO_ARMORFACE_R = 2200;              // tehdit taraması yarıçapı (en uzun doğrudan-ateş menzilini kapsar)
+let PRO_ARMORFACE_MIN_BASKINLIK = 0.35;  // tehdit vektörü bu kadar yönlü değilse (her yönden) dönme
 // ── 'jammerPost' PARAMETRELERİ (aranabilir) ──
 let PRO_JAM_ICERI = 0.70;      // dron merkezini baloncuğun bu kesrine al (kenarında değil, içinde)
 let PRO_JAM_TEHDIT = 900;      // görülen düşman ateşli KARA birimi bu kadar yakınsa ilerleme (silahsız 300hp)

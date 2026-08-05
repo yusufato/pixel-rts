@@ -622,3 +622,56 @@ imkânsız; ama kendi topçu/komuta/ikmal kümesinin üstünde durmak 700px'e RA
 zaten oraya geliyor. §14'te "gelecek yönü" olarak not edilen beceri artık tek makul seçenek.
 
 **Kapılar:** forktest `true` · liverepro `false` · pdtest OK · defertest OK.
+
+---
+
+## 15. #10 YÖNLÜ ZIRH (`armorFace`) — KATMAN 1 ÇARPICI, KATMAN 2 ELEDİ (üçüncü eleme)
+
+**Teşhis (`tools/zirh-teshis.js`, izole, pro her iki kolda açık):** yönlü-zırhlı birimlerin maruziyeti
+ÖN %63 / YAN %27 / ARKA %10 — **%37'si zırhın zayıf tarafından.** Savunan MBT en kötüsü:
+%42 / %56 / %1, yani zamanın yarıdan fazlasında yanını gösteriyor. MBT yan ×1.5, TD arka ×3.3.
+
+**Sebep:** `facingAngle` önce HAREKET yönüne (`Unit.js:548`), sonra ATIŞ HEDEFİNE (`:560`) kuruluyor.
+İkisi de *"beni kim vuruyor"* sorusunu sormuyor: A'ya ateş ederken B yandan vuruyor.
+
+**Kural** (`_zirhYonlendir`, hareket+hedef yönünden SONRA çalışır): burnu, o an seni VURABİLEN
+düşmanların hasar-ağırlıklı merkezine dön. Tehdit her yöndense dönme (`PRO_ARMORFACE_MIN_BASKINLIK`).
+
+**KATMAN 1 — çarpıcı geçiş:**
+
+| | ÖN | YAN | ARKA |
+|---|---|---|---|
+| kapalı | %63 | %27 | %10 |
+| açık | **%96** | **%4** | **%0** |
+
+Ve bedeli **sıfır**: yalnız yön değişiyor, birim yerinden oynamıyor — bugün elenen konumlandırma
+becerilerinin (jammerPost, resupplyRun) aksine hareket maliyeti yok.
+
+**KATMAN 2 — ELEDİ.** Zırhlı birim ömrü (yalnız MAVI'de pro, tek taraflı izolasyon):
+
+| tohum | 2024 | 3141 | 777 | 11 | 202 | 333 | **ort** |
+|---|---|---|---|---|---|---|---|
+| kapalı | 113 | 144 | 124 | 90 | 98 | 73 | **107sn** |
+| açık | 142 | **44** | 124 | 89 | 98 | 132 | **105sn** |
+
+Sağ kalan zırhlı sayısı da değişmedi (5 tohumun 4'ünde birebir aynı, birinde kötüleşti).
+
+**Muhtemel sebep (SINANMADI):** zırhlıya gelen hasarın çoğu yönün önemsiz olduğu kaynaklardan —
+dolaylı ateş/patlama alanı, hava, shaped-charge AT. `facingDamageMult` yalnız doğrudan-ateş yolunda
+okunuyor. Sınamak için **hasar kaynağı kırılımı** gerekir (ayrı teşhis, sıraya alındı).
+
+**Durum:** varsayılan KAPALI. Kod+parametreler duruyor.
+
+### Günün deseni: mekanizma kolay, ekonomi zor
+
+| beceri | Katman 1 (mekanizma) | Katman 2 (ekonomi) | sonuç |
+|---|---|---|---|
+| `standoff` | ✅ 0→1 atış | ✅ | **AÇIK** (K4 de geçti) |
+| `heloHunt` | ✅ atış ~5× | ✅ getiri 0.38→0.79 | **AÇIK** (K4 de geçti) |
+| `resupplyRun` | ✅ kuruluk −%75 | ❌ atış artmadı | kapalı |
+| `jammerPost` | ❌ kapsama düştü | — | kapalı |
+| `armorFace` | ✅ zayıf-taraf %37→%4 | ❌ ömür değişmedi | kapalı |
+
+**Mekanizma metriğini oynatmak kolay; birim ekonomisine dönüştürmek zor.** Katman 2 bugün üç
+beceriden ikisini eledi ve her seferinde sebebi farklıydı (maliyet, hareket, yanlış hasar kaynağı).
+Bu, kapı sisteminin en çok iş gören katmanı.
