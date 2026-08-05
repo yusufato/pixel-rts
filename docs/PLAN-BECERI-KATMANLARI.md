@@ -759,3 +759,77 @@ düşman yığınağı karşısında neden yoğunlaşmıyor. Bu, birim becerisi 
 
 **Durum:** `localRatio` varsayılan KAPALI (hiç bağlamıyor). `armorFace` de kapalı.
 Zırhlı için sıradaki iş birim katmanında DEĞİL.
+
+---
+
+## 18. OPERASYON KATMANI: kuvvet dağılımı — mekanizma metriği MAÇI TERS TAHMİN ETTİ
+
+Zırhlı teşhisi buraya işaret etmişti (birim değil kütle sorunu). Kullanıcı (a) şıkkını seçti.
+
+### (a) Teşhis: savunan, saldıranın ana çabasıyla eşleşmiyor
+
+Sektör = X-bandı (3 sütun; taarruz ekseni Y). Değer = ₺.
+*(İlk kurulumum 3×2 idi ve erken oyunda "düşman kendi yarısında"yı "eşleşemedik" sanıyordu — düzeltildi.)*
+
+| an (seed2024) | saldıran yoğunlaşma | savunan yoğunlaşma | ana-sektör oranı | savunan ₺ |
+|---|---|---|---|---|
+| t=10 | **0.598** | 0.374 | 0.67 | 6490 |
+| t=70 | 0.602 | 0.606 | 0.96 | 5040 |
+| t=130 | **0.867** | 0.505 | **0** | **600** |
+
+Saldıran daha **temas olmadan** yoğunlaşmış; savunan yayılmış. Saldıran ağırlığını tek sütuna
+yığdıkça savunanın ana-sektör oranı 0.96 → 0'a düşüyor ve hemen ardından kuvveti eriyor.
+
+### (b) Altyapı: sektör-komuta TARAF-BAŞI yapıldı
+
+A/B imkânsızdı çünkü `BATTLE_SECTOR_COMMAND` **global**: kapatınca iki taraf birden bloblaşıyor.
+Diğer tüm beyin bayrakları (INTEL4/INTEL4PRO/BEONAI/RECIPE) zaten taraf-başıydı; bu da hizalandı:
+`BATTLE_SECTOR_COMMAND_RED/BLUE` + `battleSectorCommand(isRed)` (null = global).
+7 çağrı noktası güncellendi; `planningRoleShares` taraf parametresi almıyordu, eklendi.
+**Regresyon kontrolü:** varsayılanlarda taban birebir yeniden üretildi (0.772 / 0.58 / 1051px / 0.47).
+
+### (c) Tek taraflı izolasyon: kapatmak savunanı YOĞUNLAŞTIRIYOR
+
+| tohum | savunan sektör AÇIK | savunan sektör KAPALI |
+|---|---|---|
+| 2024 | yoğunlaşma 0.58 · ana-sektör oranı **0.47** | 0.961 · **2.88** |
+| 3141 | 0.698 · **0.20** | 0.787 · **1.60** |
+| 777 | 0.538 · **0.58** | 0.864 · **2.15** |
+
+Kapatınca savunan yoğunlaşıyor ve saldıranın ana çabasında **3-8× daha iyi yerel oran** kuruyor.
+Mekanizma metriği "yoğunlaş" diyor.
+
+### (d) MAÇ KAPISI TERSİNİ SÖYLEDİ
+
+| savunan | saldıranın marjı | saldıran galibiyeti |
+|---|---|---|
+| sektör AÇIK | +1731 ±604 | 39/48 |
+| sektör **KAPALI** (yoğunlaşan) | **+2715 ±334** | **46/48** |
+
+Savunan yoğunlaştığında — ana-sektörde 3-8× daha iyi yerel orana rağmen — **belirgin biçimde
+daha kötü**. Yoğunlaşmak 2 sütunu boş bırakıyor ve maç yalnız "düşman kütlesiyle eşleşme"yle
+kazanılmıyor.
+
+**Hipotezim yanlıştı; mevcut tasarım doğruymuş.** Sektör-komuta savunan için DOĞRU ve bu, ilk kez
+TARAF-BAŞI temiz izolasyonla doğrulandı (bellekteki "3/3 vs 2/3" ölçümü global ve eskiydi).
+
+### ⚠ METODOLOJİK DERS — plana kalıcı olarak eklendi
+
+**Bir mekanizma metriği maç sonucunu TERS tahmin edebilir.** "Ana-sektör oranı" makul, ölçülebilir
+ve gürültüsüzdü — ve tam ters yönü işaret etti. Katman 1'in ucuzluğu, metriğin doğru amacı ölçtüğü
+varsayımına dayanıyor.
+
+> **Yeni kural:** her yeni metrik ailesi, ilk kullanımında BİR KEZ maç kapısına karşı
+> doğrulanmalı ("bu metrik yükselince maç da kazanılıyor mu?"). Doğrulanmamış metrik ailesiyle
+> beceri elemek, yanlış yöne hızlı koşmaktır.
+
+Bugün geçen iki beceri (`standoff`, `heloHunt`) bu riski taşımıyor çünkü metrikleri
+(atış sayısı, imha değeri) doğrudan sonuçla bağlantılıydı ve ikisi de Katman 4'ü ayrıca geçti.
+
+### (e) ASIL AÇIK PROBLEM
+
+Savunan, sektör-komuta AÇIKKEN bile **39/48 kaybediyor**. Kuvvet dağılımı buradaki kaldıraç değil.
+Bu, bellekteki "saldıran üstünlüğü" krizinin devamı ve `holdZone`'un kapalı olmasıyla aynı aileden.
+Sıradaki soru: savunan neden kaybediyor — kompozisyon mu, duruş mu, hedef/arazi mi?
+
+**Kapılar:** forktest `true` · liverepro `false` · defertest OK · pdtest OK.

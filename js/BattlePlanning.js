@@ -260,7 +260,7 @@ class OperationalObjectiveSelector {
 
 function planningReserveRatio(situation, planKind) {
     // SEKTÖR-KOMUTA: "kutsal ihtiyat" — bir sektöre bağlanmaz, karar-noktasında sürülür (analist %20-25). CONCENTRATE'i geçersizler.
-    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND === true) {
+    if (typeof battleSectorCommand === 'function' && battleSectorCommand(situation?.side)) {
         return situation?.role === BATTLE_ROLE.DEFENDER ? 0.25 : 0.20;
     }
     // KONSANTRASYON: rezervi minimuma indir (tüm kuvveti çatışmaya sok) — insan-konsantrasyonuna karşı.
@@ -296,7 +296,7 @@ function planningCombatAffinity(unit, role) {
     return 10;
 }
 
-function planningRoleShares(planKind, defenderWide) {
+function planningRoleShares(planKind, defenderWide, side) {   // `side`: taraf-başı sektör-komuta için (bkz. battleSectorCommand)
     // INTEL4 GENİŞ-CEPHE SAVUNMA (analist+kullanıcı: aoe600-tepe düşürmenin GERÇEK yolu): SAVUNAN kuvveti tehdit-sektörüne
     // YIĞMAK yerine 3 sektöre ~eşit-böl → her sektör ~1/3 → yerel-yoğunluk-tepesi 15→~5-6. (Konsantrasyon-tavizi: ihtiyat
     // tehdit-sektörünü takviye eder.) Kullanıcının ~%0.10-geniş-cephe savunma-stilinin AI karşılığı.
@@ -304,7 +304,7 @@ function planningRoleShares(planKind, defenderWide) {
         return { [TASK_GROUP_ROLE.MAIN]: 0.40, [TASK_GROUP_ROLE.FIXING]: 0.34, [TASK_GROUP_ROLE.FLANK]: 0.26 };
     }
     // SEKTÖR-KOMUTA: Schwerpunkt dağılımı — MAIN ana-çaba (bir sektöre), FIXING ekonomi-of-force (geniş cephe), FLANK yardımcı.
-    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND === true) {
+    if (typeof battleSectorCommand === 'function' && battleSectorCommand(side)) {
         return { [TASK_GROUP_ROLE.MAIN]: 0.55, [TASK_GROUP_ROLE.FIXING]: 0.30, [TASK_GROUP_ROLE.FLANK]: 0.15 };
     }
     // KONSANTRASYON: tüm kuvveti MAIN'e yığ (dağılımı kapat) — insan-konsantrasyonuna karşı test/kaldıraç.
@@ -410,7 +410,7 @@ class ForceOrganizer {
         const _DEFW = (typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.DEFENDER : 'defender';
         const _defenderWide = situation && situation.role === _DEFW &&
             typeof battleDelta === 'function' && this.controller && battleDelta(this.controller.side, 'deblob');
-        const shares = planningRoleShares(plan?.kind, _defenderWide);
+        const shares = planningRoleShares(plan?.kind, _defenderWide, this.controller && this.controller.side);
         const unassigned = new Set(available.map(unit => unit.id));
         for (const role of [TASK_GROUP_ROLE.FIXING, TASK_GROUP_ROLE.FLANK]) {
             const target = availableValue * shares[role];
@@ -567,7 +567,7 @@ function sectorCenterX(name) {
 // MAIN+FIXING oraya YIĞILIR (~%85, konsantrasyon korunur), FLANK bitişikten SARAR (pincer), RECON üçüncüyü perdeler.
 // Boş sektöre kütle GÖNDERMEZ (yoğunlaşan rakibe karşı dağılmayı önler). group.sector davranış-nötr ek-alan.
 function assignSectors(taskGroups, situation, controller) {
-    if (!(typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND)) return;
+    if (!(typeof battleSectorCommand === 'function' && battleSectorCommand(controller && controller.side))) return;
     const st = controller && (controller.sectorState || (controller.sectorState = { mainSector: null, mainSectorLockUntilTick: 0, reserveCommittedTick: -1, mainEffortShiftCount: 0 }));
     // Aday ana-çaba = düşman kütlesinin en çok olduğu sektör. Temas yoksa center. Tiebreak: SECTOR_NAMES sırası.
     let candidate = 'center', bestEnemy = 0;
@@ -619,7 +619,7 @@ function planningContractDestination(controller, group, objective, friendlyCentr
     // SEKTÖR-KOMUTA: grup kendi sektörünün ORTASINA nişan alır (tek-global objektif yerine) → gruplar 3 ayrı x'e yayılır.
     let aim = objective;
     let _defDeep = false;   // FAZ3 omurga-geri: savunan ateş-destek/AA/lojistik düşman-zarfı DIŞINDA (dest'te derin tutulur)
-    if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND && group.sector) {
+    if (typeof battleSectorCommand === 'function' && battleSectorCommand(controller && controller.side) && group.sector) {
         let ax = sectorCenterX(group.sector), ay = objective.y;
         // KONUŞLANMA (kullanıcı): STRIKE DEĞİLKEN yığılma yerine kendi bölgesinde DAĞINIK savunma-konuşlanması.
         const sit = controller && controller.lastSituation;

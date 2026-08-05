@@ -354,6 +354,16 @@ let BATTLE_FORCE_CONCENTRATE = true;
 // ihtiyatı kutsal tut. AÇIKKEN CONCENTRATE'in tek-kütle/tek-hedef davranışını sektör-katmanıyla değiştirir (fazlı, ölçüm-güdümlü).
 // A/B KANITLANDI (düşman-uyarlamalı): saldıran 2/3→3/3, dağılım +%52, determinizm korundu → VARSAYILAN AÇIK + version bump.
 let BATTLE_SECTOR_COMMAND = true;
+// TARAF-BAŞI SEKTÖR-KOMUTA (null = global değeri kullan). GEREKÇE: kuvvet-dağılımı ölçümü
+// (tools/kuvvet-dagilim-teshis.js) sektör-komutayı A/B'ye sokamadı çünkü bayrak GLOBAL —
+// kapatınca İKİ taraf birden bloblaşıyor ve fark hangi tarafa ait bilinemiyor. Diğer tüm
+// beyin bayrakları (INTEL4/INTEL4PRO/BEONAI/RECIPE) zaten taraf-başı; bu da hizalandı.
+let BATTLE_SECTOR_COMMAND_RED = null;
+let BATTLE_SECTOR_COMMAND_BLUE = null;
+function battleSectorCommand(isRed) {
+    const o = isRed ? BATTLE_SECTOR_COMMAND_RED : BATTLE_SECTOR_COMMAND_BLUE;
+    return o == null ? (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && !!BATTLE_SECTOR_COMMAND) : !!o;
+}
 // PER-SIDE BEYİN-FLAG (intel4-delta kapısı): "selefini yenemeyen sürüm yayınlanmaz" metodolojisi. intel4-BEYİN-deltaları
 // (şok-tetiği, karşı-batarya, kompozisyon-floor, SAM-koloc, sabırlı-örümcek + yeni: STRIKE-dwell, savunan-de-blob, helo-neşter,
 // hava-unlock) YALNIZ ilgili tarafın flag'i AÇIKken devreye girer = intel4-beyni; KAPALI = intel3pro-beyni (selef). Motor

@@ -847,7 +847,7 @@ class TaskExecutionManager {
             // (ateş-gücü korunur). Throttle+yumak-şartı → sürekli-iptal değil, pulse (aç → sektör-içi odak yeniden kurulur).
             const _defRespread = this.controller && typeof battleDelta === 'function' && battleDelta(this.controller.side, 'deblob') &&
                 this.controller.lastSituation && this.controller.lastSituation.role === BATTLE_ROLE.DEFENDER &&
-                typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND &&
+                typeof battleSectorCommand === 'function' && battleSectorCommand(this.controller && this.controller.side) &&
                 contract.destination && executionGroupDispersion(units) < DEFENSE_RESPREAD_RADIUS &&
                 !executionArrived(units, contract.destination, 150) &&
                 (tick - (state._lastRespreadTick || 0)) >= DEFENSE_RESPREAD_TICKS;
@@ -979,7 +979,7 @@ class TaskExecutionManager {
     // SEKTÖR-KOMUTA: grup kendi sektörünün odağını kullanır (mainSector'daki KÜTLE aynı düşmana odaklanır = kazanan
     // konsantrasyon sektör-İÇİNDE korunur; FLANK kendi sektörüne). Sektör-off veya sektör yoksa global focus'a düşer.
     focusForContract(contract) {
-        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND && contract && contract.sector && this.focusBySector) {
+        if (typeof battleSectorCommand === 'function' && battleSectorCommand(this.controller && this.controller.side) && contract && contract.sector && this.focusBySector) {
             const f = this.focusBySector[contract.sector];
             if (f != null) return f;
             // INTEL4 (flag-kapılı) ANTI-BLOB: SAVUNAN boş-sektör grubu GLOBAL focus'a düşmesin (birden çok grup tek-contact'a
@@ -994,7 +994,7 @@ class TaskExecutionManager {
     updateFocusContact(observation) {
         const visible = (observation.contacts || []).filter(c => c.visible);
         // SEKTÖR-KOMUTA: sektör-başına odak (contact'ın x-band'ına göre). Her sektörde en iyi hedef (scoreTarget / en-yakın).
-        if (typeof BATTLE_SECTOR_COMMAND !== 'undefined' && BATTLE_SECTOR_COMMAND) {
+        if (typeof battleSectorCommand === 'function' && battleSectorCommand(this.controller && this.controller.side)) {
             const own0 = observation.ownUnits || [];
             const bb0 = this.controller && this.controller.blackboard;
             const tw0 = (this.controller && this.controller.profile) ? this.controller.profile.targetingWeights : null;
