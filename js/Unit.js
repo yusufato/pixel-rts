@@ -363,7 +363,7 @@ class Unit {
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
-            if (!this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
+            if (!this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1464,6 +1464,66 @@ class Unit {
         if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
             BATTLE_BALANCE.armorFaceBind = (BATTLE_BALANCE.armorFaceBind || 0) + 1;
         }
+    }
+
+    // ── INTEL4-PRO 'jammerUmbrella': JAMMER KENDİ DEĞERLİ KÜMESİNİN ÜSTÜNE ŞEMSİYE KURAR ──
+    // KULLANICI DOKTRİNİ ("şemsiye taktiğini uygulaması en iyisi, ben de onu uyguluyorum").
+    // #29 jammerPost ELENDİ çünkü dronu KOVALAMAK jammer'ı öldürüyordu (kapsama %13→%6.8,
+    // ölüm 120sn→45sn). Bu, tersi: dron zaten BİZİM yumuşak-değerli kümemize geliyor —
+    // topçu/ÇNRA/havan, komuta aracı, ikmal, radar. Jammer oraya oturursa dron KENDİ AYAĞIYLA
+    // baloncuğa girer; jammer da kendi hattının gerisinde güvende kalır.
+    // 700px'lik yeni yarıçap (kullanıcı denge kararı) dron kovalamaya YETMEZ ama kendi
+    // kümesini örtmeye RAHAT yeter — bu yüzden tek makul tasarım budur.
+    // Determinist: maliyet-ağırlıklı merkez, RNG yok. Dönüş: true ise hareketi devraldı.
+    _jammerSemsiye() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'jammerUmbrella')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.speed || this._returningToBase) return false;
+        const st = STATS[this.type];
+        const aura = st && st.aura;
+        if (!aura || aura.type !== 'jamming') return false;
+        const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 100;
+        const R = (aura.radius || 3) * TP;
+
+        // KORUNACAK KÜME: dronun hedef aldığı YUMUŞAK-DEĞERLİ dostlar —
+        // dolaylı ateş (topçu/ÇNRA/havan) + silahsız destek (komuta/ikmal/radar/EH). Maliyetle ağırlıklı.
+        let cx = 0, cy = 0, w = 0;
+        for (const f of SIM.units) {
+            if (f.dead || f.loaded || f.abandoned || f.isRed !== this.isRed || f === this) continue;
+            const fs = STATS[f.type];
+            if (!fs) continue;
+            const silahsiz = !fs.weapons || !fs.weapons.length;
+            const dolayli = !!(fs.weapons && fs.weapons[0] && fs.weapons[0].indirect);
+            if (!silahsiz && !dolayli) continue;                    // muharip hattı korumak jammer'ın işi değil
+            const m = fs.cost || 0;
+            if (m < PRO_JAM_HVT_MIN_TL) continue;                   // ucuz birim için mevzi bozulmaz
+            cx += f.x * m; cy += f.y * m; w += m;
+        }
+        if (!w) return false;                                       // korunacak küme yok → mevcut davranış
+        cx /= w; cy /= w;
+
+        // GÜVENLİK: silahsız 300hp. Görülen düşman ateşli KARA birimi çok yakınsa ilerleme.
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || e.isAir) continue;
+            const es = STATS[e.type];
+            if (!es || !es.weapons || !es.weapons.length) continue;
+            if (Math.hypot(e.x - this.x, e.y - this.y) <= PRO_JAM_TEHDIT) return false;
+        }
+
+        const d = Math.hypot(cx - this.x, cy - this.y);
+        if (d <= R * PRO_JAM_SEMSIYE_ICERI) {                       // küme zaten örtülü → dur (sürüklenme yok)
+            this.targetX = this.x; this.targetY = this.y;
+        } else {
+            const t = (d - R * PRO_JAM_SEMSIYE_ICERI) / d;
+            this.targetX = this.x + (cx - this.x) * t;
+            this.targetY = this.y + (cy - this.y) * t;
+        }
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.jammerUmbrellaBind = (BATTLE_BALANCE.jammerUmbrellaBind || 0) + 1;
+        }
+        return true;
     }
 
     // ── INTEL4-PRO 'jammerPost': JAMMER KENDİNİ DRON TRAFİĞİNE KONUŞLANDIRIR ──

@@ -453,6 +453,22 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // GELECEK YÖNÜ (yazılmadı): dronu KOVALAMAK yerine dronun HEDEFİNİ örtmek — kendi topçu/
     // komuta/ikmal kümesinin üstüne şemsiye kurmak. Dron oraya zaten geliyor; jammer güvende kalır.
     jammerPost: false,
+    // P12 — JAMMER ŞEMSİYESİ (KULLANICI DOKTRİNİ). jammerPost'un TERSİ: dronu kovalama, dronun
+    // GELDİĞİ YERİ ört. Kendi yumuşak-değerli kümemiz (topçu/ÇNRA/havan + komuta/ikmal/radar)
+    // zaten dronun hedefi; jammer oraya oturursa dron kendi ayağıyla baloncuğa girer ve jammer
+    // kendi hattının gerisinde güvende kalır. 700px'lik yarıçap dron kovalamaya yetmez ama
+    // kendi kümesini örtmeye rahat yeter.
+    //
+    // ÖLÇÜLDÜ ve **GEREKSİZ ÇIKTI** → VARSAYILAN KAPALI. AI jammer'ı ZATEN şemsiye konumunda
+    // tutuyor: kendi yumuşak-değerli kümesinin merkezine ortalama **146-165px** mesafede duruyor
+    // ve baloncuk 700px — yani küme zaten tam örtülü. Beceri onu maliyet-ağırlıklı merkeze
+    // çekerek biraz UZAKLAŞTIRDI (246/208px) ve kapsamayı iyileştirmedi
+    // (seed2024 %2.4→%1.9 · seed3141 %1.3→%1.2 · seed777 %1.0→%0.5).
+    // ASIL SINIR BAŞKA: düşman AI'ın dronları bizim geri bölgemize yeterince gelmiyor, o yüzden
+    // %1-2'lik kapsama tavanı konumlandırmayla değil DÜŞMANIN DAVRANIŞIYLA belirleniyor.
+    // NOT (kullanıcı deneyimiyle uyum): oyuncu dronlarını değerli hedeflere sürdüğü için AI'ın
+    // hazır şemsiyesine giriyor — jammer'ın "güçlü" hissedilmesinin sebebi büyük olasılıkla bu.
+    jammerUmbrella: false,
     // P11 — YÖNLÜ ZIRHI KORU (BECERİ #10). TEŞHİS: yönlü-zırhlı maruziyeti ÖN %63 / YAN %27 /
     // ARKA %10; savunan MBT %42/%56/%1 (yarıdan fazlasında yanını gösteriyor). MBT yan ×1.5,
     // TD arka ×3.3. Sebep: facingAngle önce HAREKET yönüne, sonra ATIŞ HEDEFİNE kuruluyor —
@@ -475,6 +491,9 @@ let PRO_ARMORFACE_MIN_BASKINLIK = 0.35;  // tehdit vektörü bu kadar yönlü de
 let PRO_JAM_ICERI = 0.70;      // dron merkezini baloncuğun bu kesrine al (kenarında değil, içinde)
 let PRO_JAM_TEHDIT = 900;      // görülen düşman ateşli KARA birimi bu kadar yakınsa ilerleme (silahsız 300hp)
 let PRO_JAM_DERINLIK = 0.75;   // kendi üssünden düşman üssüne doğru bu kesri aşma
+// ── 'jammerUmbrella' PARAMETRELERİ (aranabilir) ──
+let PRO_JAM_HVT_MIN_TL = 300;        // korunacak dost bu değerin altındaysa mevzi bozulmaz
+let PRO_JAM_SEMSIYE_ICERI = 0.45;    // kümenin merkezini baloncuğun bu kesrine al (merkeze otur)
 // ── 'heloHunt' PARAMETRELERİ (aranabilir) ──
 let PRO_HELO_AA_KACIN = 1200;   // düşman AA'sının bu yarıçapı içindeki hedefe gitme (SEAD disiplini)
 let PRO_HELO_YAKLAS = 0.85;     // kendi menzilinin bu kesrine kadar yaklaş (hedefin üstüne binme)

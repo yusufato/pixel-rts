@@ -675,3 +675,34 @@ okunuyor. Sınamak için **hasar kaynağı kırılımı** gerekir (ayrı teşhis
 **Mekanizma metriğini oynatmak kolay; birim ekonomisine dönüştürmek zor.** Katman 2 bugün üç
 beceriden ikisini eledi ve her seferinde sebebi farklıydı (maliyet, hareket, yanlış hasar kaynağı).
 Bu, kapı sisteminin en çok iş gören katmanı.
+
+---
+
+## 16. JAMMER ŞEMSİYESİ — taktik DOĞRU, ama AI bunu ZATEN yapıyor
+
+> **Kullanıcı:** "jammer şemsiye taktiğini uygulaması en iyisi, ben de onu uyguluyorum."
+
+Taktik doğru; #29'un (dron kovala) elenmesinden sonra 700px'lik yarıçapa uyan tek makul tasarım da
+buydu. Yazıldı (`_jammerSemsiye`, gate `jammerUmbrella`): kendi yumuşak-değerli kümemizin
+(dolaylı ateş + silahsız destek, maliyet-ağırlıklı) merkezine otur.
+
+**Ölçüm gereksiz olduğunu gösterdi:**
+
+| | KONTROL | ŞEMSİYE |
+|---|---|---|
+| jammer → yumuşak küme merkezi (seed2024) | **165px** | 246px |
+| jammer → yumuşak küme merkezi (seed3141) | **146px** | 208px |
+| kapsama seed2024 / 3141 / 777 | %2.4 / %1.3 / %1.0 | %1.9 / %1.2 / %0.5 |
+
+Baloncuk 700px; jammer zaten kümenin **146-165px** yakınında duruyor, yani şemsiye ZATEN kurulu.
+Beceri onu maliyet-ağırlıklı merkeze çekerek biraz uzaklaştırdı ve kapsamayı düşürdü.
+
+**Asıl sınır konumlandırma değil, DÜŞMANIN DAVRANIŞI:** rakip AI'ın dronları bizim geri bölgemize
+yeterince gelmiyor. %1-2'lik kapsama tavanını belirleyen şey bu.
+
+**Kullanıcı deneyimiyle uyum (önemli):** oyuncu dronlarını değerli hedeflere sürdüğü için AI'ın
+HAZIR şemsiyesine giriyor — jammer'ın "fazla güçlü" hissedilmesinin sebebi büyük olasılıkla budur.
+Yani kullanıcının gözlemi de, AI'ın mevcut davranışı da tutarlı; eksik olan bir beceri değildi.
+**AI-vs-AI tezgâhı bu senaryoyu üretemiyor** — ölçüm sınırı olarak kayda geçti.
+
+**Durum:** `jammerUmbrella` varsayılan KAPALI (gereksiz). Kod duruyor.

@@ -10,7 +10,8 @@ const vm = require('node:vm');
 const { ctx } = tezgahKur();
 const _si = process.argv.indexOf('--seed');
 const SEED = _si >= 0 ? Number(process.argv[_si + 1]) : 2024;
-const KONUM = process.argv.includes('--konum');   // beceri ACIK mi
+const KONUM = process.argv.includes('--konum');       // eski #29 (dron kovala)
+const SEMSIYE = !process.argv.includes('--nosemsiye');   // yeni: kendi kumesini ort (varsayilan ACIK)
 const _pa = (b, v) => { const i = process.argv.indexOf(b); return i >= 0 ? Number(process.argv[i + 1]) : v; };
 const TEHDIT = _pa('--tehdit', null), DERIN = _pa('--derinlik', null), ICERI = _pa('--iceri', null);
 const t = JSON.parse(require('fs').readFileSync('qa-runtime/jammer-test2.json', 'utf8'));
@@ -22,7 +23,7 @@ const kod = '(() => {' +
     // (Onceki kurulum pro'yu KONUM ile birlikte aciyordu -> fark tum deltalara aitti. Kanit:
     //  baglama:0 olan kosu bile tabandan farkli cikmisti.)
     'BATTLE_INTEL4PRO_BLUE = true; BATTLE_BALANCE.on = true;' +          // savunan = jammer sahibi
-    'BATTLE_INTEL4PRO_DELTAS.jammerPost = ' + KONUM + ';' +
+    'BATTLE_INTEL4PRO_DELTAS.jammerPost = ' + KONUM + '; BATTLE_INTEL4PRO_DELTAS.jammerUmbrella = ' + SEMSIYE + ';' +
     (TEHDIT != null ? 'PRO_JAM_TEHDIT = ' + TEHDIT + ';' : '') +
     (DERIN != null ? 'PRO_JAM_DERINLIK = ' + DERIN + ';' : '') +
     (ICERI != null ? 'PRO_JAM_ICERI = ' + ICERI + ';' : '') +
@@ -34,7 +35,7 @@ const kod = '(() => {' +
     'startBattle();' +
     'const TP = (typeof TILE_PX !== "undefined") ? TILE_PX : 35;' +
     'let dronTik = 0, kapsanan = 0, mesafeSum = 0, mesafeN = 0;' +
-    'let jamKutleSum = 0, jamKutleN = 0, jamDerinlikSum = 0, jamDerinlikN = 0;' +
+    'let jamKutleSum = 0, jamKutleN = 0, jamDerinlikSum = 0, jamDerinlikN = 0, hvtSum = 0, hvtN = 0;' +
     'const jamOlum = []; const jamIds = new Set();' +
     'for (const u of SIM.units) { const a = STATS[u.type] && STATS[u.type].aura; if (a && a.type === "jamming") jamIds.add(u.id); }' +
     'const ph = SIM.headless; SIM.headless = true; let st = 0;' +
@@ -58,17 +59,26 @@ const kod = '(() => {' +
     '    for (const f of SIM.units) { if (f.dead || f.loaded || f.isRed !== j.isRed || f === j) continue;' +
     '      dostSum += Math.hypot(f.x - j.x, f.y - j.y); dostN++; }' +
     '    if (dostN) { jamKutleSum += dostSum / dostN; jamKutleN++; }' +
-    '    jamDerinlikSum += (j.isRed ? j.y / WORLD_H : 1 - j.y / WORLD_H); jamDerinlikN++; }' +
+    '    jamDerinlikSum += (j.isRed ? j.y / WORLD_H : 1 - j.y / WORLD_H); jamDerinlikN++;' +
+    '    { let hx = 0, hy = 0, hw = 0;' +
+    '      for (const f of SIM.units) { if (f.dead || f.loaded || f.isRed !== j.isRed || f === j) continue;' +
+    '        const fs = STATS[f.type]; if (!fs) continue;' +
+    '        const silahsiz = !fs.weapons || !fs.weapons.length;' +
+    '        const dolayli = !!(fs.weapons && fs.weapons[0] && fs.weapons[0].indirect);' +
+    '        if ((!silahsiz && !dolayli) || (fs.cost||0) < 300) continue;' +
+    '        hx += f.x * fs.cost; hy += f.y * fs.cost; hw += fs.cost; }' +
+    '      if (hw) { hvtSum += Math.hypot(hx/hw - j.x, hy/hw - j.y); hvtN++; } } }' +
     '} } finally { SIM.headless = ph; }' +
     'return JSON.stringify({ dronTik, kapsanan, ortMesafe: mesafeN ? mesafeSum / mesafeN : null,' +
     '  ortKutleMesafe: jamKutleN ? jamKutleSum / jamKutleN : null,' +
     '  ortDerinlik: jamDerinlikN ? jamDerinlikSum / jamDerinlikN : null,' +
+    '  ortHvtMesafe: hvtN ? hvtSum / hvtN : null,' +
     '  jamSayi: jamIds.size, jamOlum, bitisTik: SIM.tick, yaricap: (STATS[Object.keys(STATS).find(k => STATS[k].aura && STATS[k].aura.type === "jamming")].aura.radius) * TP,' +
-    '  bind: (typeof BATTLE_BALANCE !== "undefined" && BATTLE_BALANCE.jammerPostBind) || 0 });' +
+    '  bind: (typeof BATTLE_BALANCE !== "undefined" && ((BATTLE_BALANCE.jammerPostBind||0) + (BATTLE_BALANCE.jammerUmbrellaBind||0))) || 0 });' +
     '})()';
 
 const r = JSON.parse(vm.runInContext(kod, ctx, { filename: 'jamkonum.js' }));
-console.log('JAMMER KONUM TESHISI — seed' + SEED + '   [beceri: ' + (KONUM ? 'ACIK' : 'kapali') + ']   mac ' + Math.round(r.bitisTik * 0.05) + 'sn');
+console.log('JAMMER KONUM TESHISI — seed' + SEED + '   [kovala:' + (KONUM?'A':'k') + ' semsiye:' + (SEMSIYE?'A':'k') + ']   mac ' + Math.round(r.bitisTik * 0.05) + 'sn');
 console.log('  jammerPost baglama   : ' + r.bind + ' tik');
 console.log('  jammer sayisi        : ' + r.jamSayi + '   yaricap ' + Math.round(r.yaricap) + 'px');
 console.log('  olen jammer          : ' + (r.jamOlum.length ? r.jamOlum.map(o => Math.round(o.tik * 0.05) + 'sn').join(', ') : 'yok'));
@@ -78,4 +88,5 @@ console.log('  (a) KAPSAMA          : ' + r.kapsanan + '/' + r.dronTik + ' dusma
 console.log('  (b) jammer->en yakin dusman dron ort. mesafe: ' + (r.ortMesafe != null ? Math.round(r.ortMesafe) + 'px' : '-') +
     '   (baloncuk ' + Math.round(r.yaricap) + 'px)');
 console.log('  (c) jammer->kendi kutlesi ort. mesafe       : ' + (r.ortKutleMesafe != null ? Math.round(r.ortKutleMesafe) + 'px' : '-'));
+console.log('  (e) jammer->YUMUSAK KUME merkezi ort. mesafe : ' + (r.ortHvtMesafe != null ? Math.round(r.ortHvtMesafe) + 'px' : '-') + '   (baloncuk ' + Math.round(r.yaricap) + 'px)');
 console.log('  (d) jammer derinligi (0=kendi ussu, 1=dusman): ' + (r.ortDerinlik != null ? (Math.round(r.ortDerinlik * 100) / 100) : '-'));
