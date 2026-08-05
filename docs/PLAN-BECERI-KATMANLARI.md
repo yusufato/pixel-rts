@@ -169,7 +169,7 @@ Durum: ✅ mevcut · 🔨 yeni yazılacak · ⏸ ölçüldü, etkisiz
 > hataydı (bkz. §7). #2 sırasını kaybetti; ölçülene kadar hiçbir beceri "önemli" ilan edilmeyecek.
 > **Ders: her beceriden ÖNCE teşhis aracı yaz. Sıralama sezgiyle değil ölçümle kurulur.**
 
-1. **#5 ikmal bağı + #27 ikmal güvenliği** — teşhis "savunanın mühimmat disiplini yok" demişti.
+1. ~~**#5 ikmal bağı**~~ — **YAZILDI, KATMAN 2'DE ELENDİ** (bkz. §8). Kod duruyor, varsayılan kapalı.
 3. **#9/#10 zırh mevzii** — MBT bütçenin en büyük kalemi; küçük oran iyileşmesi büyük ₺ değeri.
 4. **#20 helo standoff** — kullanıcının özellikle işaret ettiği birim.
 5. **#29 jammer konumlandırma** — turnuva turu 1'de ilk 5'te iki jammer adayı çıktı; birim değerli
@@ -258,3 +258,51 @@ turnuva işçileri her parçada dosyaları yeniden yüklüyor → tur 3 kod değ
 aynı turdaki adaylar farklı kurallarla ölçülüyordu. Zaten yeniden koşulmalıydı: **balistik ve ÇNRA
 adayları bozuk bir mekanik altında elenmişti.** Tur 1-2 sonuçları (tutarlı kod) kayıt için geçerli:
 tur 1 lider `KESIF2-jammer+sam` +2385±1074 · tur 2 lider `KESIF-jammer-1` +2534±721 (15/16).
+
+---
+
+## 8. #5 İKMAL BAĞI — kapı sistemi ilk kez bir beceriyi ELEDİ
+
+Bu bölüm bir başarısızlığın kaydı ve tam da bu yüzden değerli: **kapı sistemi çalıştı.**
+
+**Katman 1 — teşhis (`tools/muhimmat-teshis.js`, pro KAPALI, seed2024):**
+8 tanksavar timi ömrünün **%71-77'sini KURU** geçiriyor (84sn'de kuruyup maç sonuna kadar boş
+şarjörle geziyorlar). Toplam kuru-tik oranı %19.2. Kuruyken en yakın ikmal aracı **1100-1600px**
+uzakta, kamyon halesi ise yalnız 400px → ikmal **pasif**: kimse kimseye gitmiyor.
+Mavi ikmal aracı 103sn'de öldü. Sorun gerçek ve büyük görünüyordu.
+
+**Kural yazıldı** (`js/Unit.js` `_ikmaleGit`, gate `resupplyRun`): kuruyan birim en yakın canlı dost
+ikmal kaynağına yürür, `PRO_RESUPPLY_BIRAK` oranına dolunca göreve döner. Histerezis (`_ikmalYolunda`)
+salınımı keser. Kuru birim zaten ateş edemediği için bu kural `standoff`'u ezer.
+
+**Katman 1 geçti** — mekanizma bağlıyor ve hedef metriği doğru yöne taşıyor:
+
+| tohum | pro kapalı | pro, resup kapalı | pro, resup açık |
+|---|---|---|---|
+| 2024 | 19.2% | 0.1% | 0.1% |
+| 3141 | 11.3% | 3.9% | **0.9%** |
+| 777 | 4.8% | 2.7% | **0.2%** |
+
+Kalan kuruluğun ~%75'i silindi.
+
+**Katman 2 ELEDİ** — ordu daha çok ateş etmiyor:
+
+| tohum | atış kapalı | atış açık |
+|---|---|---|
+| 2024 | 192 | 195 |
+| 3141 | 318 | 329 |
+| 777 | 226 | 191 |
+
+Parametre süpürmesi de kurtaramadı (toplam atış): **kapalı 736** · 800px 730 · 1200px 721 · 2500px 715.
+Yola çıkma maliyeti, kazanılan mühimmatı yiyor.
+
+**Kök neden — kendi hatam:** teşhisi **pro KAPALI** yaptım (%19.2 kuruluk) ama deltayı **pro'ya**
+bağladım. Pro yapılandırmasında sorun zaten küçüktü (%0.1-3.9). *Doğru sorun, yanlış yapılandırma.*
+**Ders: teşhis, deltanın ÇALIŞACAĞI yapılandırmada yapılmalı.**
+
+**Karar:** varsayılan KAPALI. Kod ve parametreler duruyor; determinizm doğrulandı
+(`--forktest --withpro` `forkTutarli: true`). Katman 5 parametre araması veya intel4 tabanı için
+yeniden değerlendirilebilir — intel4'te sorun %5-19 ve orada değer taşıyabilir.
+
+**Maliyet:** ~5 dakika ölçüm. Bu beceri Katman 4'e (37+ tohumluk maç kapısı, ~3 dk × parametre başına)
+gitseydi gürültünün içinde "belki kazanıyor" görünecekti. Kapı sisteminin varlık sebebi budur.

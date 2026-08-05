@@ -361,7 +361,8 @@ class Unit {
             if (this.transportSlots) this.updateTransport(now, dtSec);   // TAŞIMA: nakliye-heli piyade bindir-taşı-indir
             this.engageCombat(now);
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
-            this._standoffKac();                     // INTEL4-PRO 'standoff': ölü-bölgeye giren tehditten geri çekil (ateşten SONRA → atışı kesmez)
+            // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
+            if (!this._ikmaleGit()) this._standoffKac();   // ikisi de ateşten SONRA çalışır → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1386,6 +1387,60 @@ class Unit {
                 this.attackTarget = null;   // ÖLÇÜM: özsavunma KAPALI (eski davranış) — fix'in etkisini ölçmek için
             }
         }
+    }
+
+    // ── INTEL4-PRO 'resupplyRun': KURUYAN BİRİM İKMALE GİDER ──
+    // TEŞHİS (tools/muhimmat-teshis.js, seed2024): 8 tanksavar timi ÖMRÜNÜN %71-77'sini KURU geçiriyor
+    // (84sn'de kuruyup maçın sonuna kadar boş şarjörle geziyorlar); toplam kuru-tik oranı %19.2.
+    // Kuruyken en yakın ikmal aracı 1100-1600px uzakta ve kamyonun ikmal halesi yalnız 400px —
+    // yani ikmal PASİF: kimse kimseye gitmiyor, birim rastgele yaklaşırsa doluyor.
+    // Kural: kuruyan birim en yakın CANLI dost ikmal kaynağına yürür, dolunca göreve döner.
+    // Histerezis (_ikmalYolunda) salınımı engeller. Determinist: yalnız mesafe + id-eşitlik bozucu.
+    // Dönüş: true ise hareketi devraldı (standoff'u ezer — kuru birim zaten ateş edemez).
+    _ikmaleGit() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'resupplyRun')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER') return false;
+        if (!this.speed || !this.maxAmmo) return false;
+        const st = STATS[this.type];
+        if (st && st.aura && st.aura.type === 'resupply') return false;   // ikmal aracının kendisi gitmez
+
+        const oran = this.ammo / this.maxAmmo;
+        if (this._ikmalYolunda && oran >= PRO_RESUPPLY_BIRAK) { this._ikmalYolunda = false; return false; }   // doldu → göreve dön
+        if (!this._ikmalYolunda && oran > PRO_RESUPPLY_ESIK) return false;                                    // henüz kurumadı
+
+        // En yakın CANLI dost ikmal kaynağı (araç halesi VEYA ikmal veren siper). Eşitlikte id küçük olan.
+        const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 35;
+        let hx = null, hy = null, hd = Infinity, hr = 0, hid = Infinity;
+        for (const u of SIM.units) {
+            if (u.dead || u === this || u.isRed !== this.isRed) continue;
+            const a = STATS[u.type] && STATS[u.type].aura;
+            if (!a || a.type !== 'resupply') continue;
+            const d = Math.hypot(u.x - this.x, u.y - this.y);
+            if (d < hd || (d === hd && u.id < hid)) { hd = d; hx = u.x; hy = u.y; hr = (a.radius || 3) * TP; hid = u.id; }
+        }
+        if (SIM.trenches) {
+            for (const t of SIM.trenches) {
+                if (t.isRed !== this.isRed || t.providesSupply === false || t.destroyed) continue;
+                const d = Math.hypot(t.x - this.x, t.y - this.y);
+                if (d < hd) { hd = d; hx = t.x; hy = t.y; hr = t.r || (t.radius ? t.radius * TP : 3 * TP); hid = Infinity; }
+            }
+        }
+        if (hx == null || hd > PRO_RESUPPLY_MAX_MESAFE) { this._ikmalYolunda = false; return false; }   // ulaşılabilir kaynak yok
+
+        this._ikmalYolunda = true;
+        if (hd <= hr * PRO_RESUPPLY_ICERI) {   // halenin içindeyiz → dur ve dol (kaynağın üstüne binme)
+            this.targetX = this.x; this.targetY = this.y;
+        } else {
+            this.targetX = hx; this.targetY = hy;
+        }
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;
+
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.resupplyBind = (BATTLE_BALANCE.resupplyBind || 0) + 1;
+        }
+        return true;
     }
 
     // ── INTEL4-PRO 'standoff': ÖLÜ-BÖLGE YÖNETİMİ ──

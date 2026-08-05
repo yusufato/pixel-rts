@@ -413,8 +413,28 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // OLMASINA RAĞMEN geri çekmiyor. İnsan oyuncu standoff mesafesini korur. Genel sorun DEĞİL:
     // aynı maçta havan 14/26/25, topçu 23, ÇNRA 8 atış yaptı — açık BÜYÜK ölü-bölgeye özgü.
     // Kural: tehdit ölü-bölgeye girerse tehdit kütlesinden uzaklaş, atış bandına geri dön.
-    standoff: true
+    standoff: true,
+    // P8 — KURUYAN BİRİM İKMALE GİDER (BECERİ #5). TEŞHİS (tools/muhimmat-teshis.js, seed2024):
+    // 8 tanksavar timi ÖMRÜNÜN %71-77'sini KURU geçiriyor (84sn'de kuruyorlar, maç 365sn);
+    // toplam kuru-tik oranı %19.2. Kuruyken en yakın ikmal aracı 1100-1600px uzakta, kamyon
+    // halesi ise yalnız 400px → ikmal PASİF, kimse kimseye gitmiyor. Kural: kuruyan birim
+    // en yakın canlı dost ikmal kaynağına yürür, dolunca göreve döner.
+    //
+    // ÖLÇÜLDÜ ve **KATMAN 2'DE ELENDİ** → VARSAYILAN KAPALI. Mekanizma çalışıyor (kuru-tik oranı
+    // pro altında %3.9→%0.9 ve %2.7→%0.2, yani kalan kuruluğun ~%75'i silindi) AMA ordu daha çok
+    // ateş ETMİYOR — yola çıkma maliyeti kazancı yiyor. Toplam atış (3 tohum): kapalı 736 ·
+    // 800px 730 · 1200px 721 · 2500px 715. Hiçbir parametre kontrolü geçemedi.
+    // ASIL SEBEP: teşhis pro-KAPALI yapılmıştı (kuru-tik %19.2/%11.3/%4.8) ama delta pro'ya bağlı;
+    // pro yapılandırmasında sorun zaten küçük (%0.1-3.9). Yani doğru sorun, yanlış yapılandırma.
+    // Kod ve parametreler DURUYOR: determinizm doğrulandı (forktest forkTutarli:true), ileride
+    // parametre araması (Katman 5) veya intel4 tabanı için yeniden değerlendirilebilir.
+    resupplyRun: false
 };
+// ── 'resupplyRun' PARAMETRELERİ (aranabilir) ──
+let PRO_RESUPPLY_ESIK = 0;          // bu mühimmat ORANINDA (ve altında) ikmale git. 0 = tamamen kuruyunca.
+let PRO_RESUPPLY_BIRAK = 0.9;       // bu orana dolunca göreve dön (histerezis: salınımı keser)
+let PRO_RESUPPLY_MAX_MESAFE = 2500; // bundan uzaktaki kaynağa gitme (haritayı boydan boya yürüme)
+let PRO_RESUPPLY_ICERI = 0.75;      // halenin bu kesrine girince DUR ve dol (kaynağın üstüne binme)
 // ── 'standoff' PARAMETRELERİ (elle yazıldı ama ARANABILIR: hepsi tek sayı, A/B süpürmesine açık) ──
 let PRO_STANDOFF_MIN_PX = 600;   // bu ölü-bölgenin altındaki birim kural-dışı. 600px=8 grid → ÇNRA+balistik.
                                  // Havan (225) ve obüs (375) HARİÇ: onlar zaten sorunsuz ateş ediyor, geri
