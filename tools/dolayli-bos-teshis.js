@@ -30,7 +30,7 @@ const kod = '(() => {' +
     '    if (u.isRed || u.dead || u.loaded || !u.isIndirect) continue;' +
     '    const s = STATS[u.type]; if (!s) continue;' +
     '    const ad = s.name || s.id;' +
-    '    let r = say.get(ad); if (!r) { r = { ornek:0, hedefli:0, kuru:0, aMenzilYok:0, bOluBolge:0, cGorunmez:0, dFiltre:0, eBilinmez:0, muhTasarruf:0, menzil:Math.round(u.range), mesafeSum:0, mesafeN:0, hattaMesafeSum:0, hattaMesafeN:0 }; say.set(ad, r); }' +
+    '    let r = say.get(ad); if (!r) { r = { ornek:0, hedefli:0, kuru:0, aMenzilYok:0, bOluBolge:0, cGorunmez:0, dFiltre:0, eBilinmez:0, muhTasarruf:0, ayniSutun:0, farkliSutun:0, menzil:Math.round(u.range), mesafeSum:0, mesafeN:0, hattaMesafeSum:0, hattaMesafeN:0 }; say.set(ad, r); }' +
     '    r.ornek++;' +
     // KONUM: en yakin dusmana mesafe + KENDI on hattina (en ileri dost muharip) mesafe
     '    { let enD = Infinity;' +
@@ -61,7 +61,13 @@ const kod = '(() => {' +
     '      if (typeof unitCanEngage === "function" && !unitCanEngage(s, STATS[e.type])) continue;' +
     '      uygunVar++;' +
     '    }' +
-    '    if (!menzildeAma) r.aMenzilYok++;' +
+    '    if (!menzildeAma) { r.aMenzilYok++;' +
+    // KULLANICI SORUSU: "nasil hedefsiz kalabiliyor?" -> dusman AYNI SUTUNDA mi, baska sutunda mi?
+    '      const SX = 3; const benimSutun = Math.min(SX-1, Math.floor(u.x / WORLD_W * SX));' +
+    '      let sutundaDusman = false;' +
+    '      for (const e of SIM.units) { if (e.dead || e.loaded || !e.isRed) continue;' +
+    '        if (Math.min(SX-1, Math.floor(e.x / WORLD_W * SX)) === benimSutun) { sutundaDusman = true; break; } }' +
+    '      if (sutundaDusman) r.ayniSutun++; else r.farkliSutun++; }' +
     '    else if (!bandaVar) r.bOluBolge++;' +
     '    else if (!gorunurVar) r.cGorunmez++;' +
     '    else if (!uygunVar) r.dFiltre++;' +
@@ -91,6 +97,11 @@ console.log('     (b) ölü bölgede           ' + P(T.bOluBolge) + '   -> stand
 console.log('     (c) görünmez              ' + P(T.cGorunmez) + '   -> GÖZCÜ');
 console.log('     (d) uygunluk filtresi     ' + P(T.dFiltre) + '   -> hedefleme');
 console.log('     (e) sebep bilinmiyor      ' + P(T.eBilinmez) + '   -> mekanik engel');
+console.log('');
+const TA = r.reduce((a,x)=>a+x.ayniSutun,0), TF = r.reduce((a,x)=>a+x.farkliSutun,0);
+console.log('  "MENZILDE DUSMAN YOK" ANININ DAGILIMI (kullanici sorusu):');
+console.log('     dusman AYNI sutunda ama menzil disi : ' + TA + '  %' + (TA+TF?Math.round(TA/(TA+TF)*100):0) + '   -> menzil/mesafe sorunu');
+console.log('     dusman BASKA sutunda               : ' + TF + '  %' + (TA+TF?Math.round(TF/(TA+TF)*100):0) + '   -> SEKTOR sorunu (bos sutunda bekliyor)');
 console.log('');
 console.log('  KONUM (menzil sorununu buyuten sey):');
 console.log('  ' + 'birim'.padEnd(20) + 'menzil'.padStart(8) + '  en yakin dusman'.padStart(17) + '  kendi on hattinin GERISINDE'.padStart(29));

@@ -936,3 +936,53 @@ bu kural yeniden anlam kazanır — sıraya alındı.
 **Kompozisyon öngörüsü (turnuva sınayacak):** savunan bütçesinin %7'si dolaylı. Dolaylı birimler
 zamanın %48'inde hedefsizken **daha çok dolaylı almak israf olmalı.** Akşamki turnuva bu öngörüyü
 doğrudan test edecek: `SUP-indirect-*` aileleri hem artırılmış hem azaltılmış payları taşıyor.
+
+---
+
+## 21. DOLAYLI ATEŞ BECERİ AĞACI — kapanış: tek bağlayıcı kısıt MESAFE
+
+Kullanıcı bu dizinin bir "beceri ağacı" olduğunu isabetle adlandırdı. Ağaç artık büyük ölçüde
+taranmış durumda ve tek bir kısıta indirgeniyor.
+
+### (a) "Nasıl hedefsiz kalıyorlar?" — sektör hipotezi ÇÜRÜDÜ
+
+> **Kullanıcı:** "nasıl hedefsiz kalabiliyor, saldıran birimler direkt savunmaya saldırıyorsa?"
+
+Hipotezim: savunan 3 sütuna yayılıyor, saldıran 1 sütuna yığılıyor → dolaylının 2/3'ü boş sütunda.
+**Ölçüm %100 çürüttü** (3 tohum): "menzilde düşman yok" anlarının **%100'ünde düşman AYNI SÜTUNDA**,
+yalnızca menzil dışında. Boşta değiller — **erişemiyorlar**. Havan menzili 900px, düşman 1165px'te,
+havan kendi hattının 760px gerisinde. Saldıran savunanın HATTINA saldırıyor; havan hattın gerisinde.
+
+### (b) Kompozisyon: dolaylı payı %4 ↔ %18 arası HİÇBİR FARK yaratmıyor
+
+Kullanıcı isteği: "dolaylı gücünü savunmada %12 seviyesine çıkarmayı da test et."
+
+| savunan dolaylı payı | dışörneklem havuzu | **FİNAL havuzu (ayrılmış)** |
+|---|---|---|
+| %4 | +903 ±741 (29/48) | **+1055 ±666 (32/48)** |
+| %12.6 (taban) | +1731 ±604 (39/48) | **+1162 ±693 (33/48)** |
+| %18 | +996 ±835 (30/48) | **+1041 ±722 (32/48)** |
+
+*(saldıranın marjı — düşük olan savunan için iyi)*
+
+Tarama havuzu %4'ü belirgin iyi gösteriyordu (828 marj farkı, "anlamlı"). **Ayrılmış havuzda
+tamamen kayboldu.** Üç-havuz disiplini bir kez daha sahte bulgu yakaladı.
+
+**Sebep tutarlı:** dolaylı birim zamanın %48'inde hedefsiz. Kaç tane aldığın önemli değilse,
+onları BESLEMEK de (§20 ikmal refakati) önemli değil. İkisi de aynı kısıta çarpıyor.
+
+### (c) Ağacın kapanış tablosu
+
+| müdahale | katman | sonuç |
+|---|---|---|
+| **boş namlu mekanik hatası** | mekanik | ✅ **düzeltildi** (ilk atış 67sn→6sn) |
+| **`standoff`** (ölü bölge) | birim | ✅ **K1-K4 geçti** |
+| gözcü bağı | birim | ✗ gerek yok (görüş kaynaklı yalnız %9.4) |
+| `indirectCreep` (öne al) | birim | ✗ K1 (menzil sorununu görüşe takas etti) |
+| `resupplyRun` (topçu ikmale gitsin) | birim | ✗ K2 (mevzi maliyeti) |
+| `supplyEscort` (araç topçuya gelsin) | birim | ✗ mühimmat bağlayıcı kısıt değil |
+| dolaylı payı %4/%12/%18 | kompozisyon | ✗ fark yok (FİNAL havuzunda doğrulandı) |
+
+**Ağaçtan çıkan tek gerçek kazanç mekanik düzeltmesi ve `standoff` oldu.** Kalan her şey
+aynı duvara çarpıyor: **dolaylı ateşin menzilinde düşman yok** — ve bu, dolaylı biriminin
+kendi sorunu değil, savunan kuvvetin nerede durduğunun sonucu.
