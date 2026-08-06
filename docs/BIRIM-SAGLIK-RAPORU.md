@@ -399,3 +399,54 @@ Kompozisyon katmanı **yalnız saldırana (kırmızı)** uygulanıyordu: tezgâh
 `pro: BATTLE_INTEL4PRO_RED`. Savunan yapısal olarak dışarıdaydı. Tezgâhta düzeltildi
 (`pro: BATTLE_INTEL4PRO_BLUE === true`). ORN-244 savunanında etkisi yok — o orduda ÇNRA/SAM
 bulunmuyor, yani kuralın tamamlayacağı eksik yok — ama ÇNRA/SAM taşıyan savunanlarda bağlayacak.
+
+---
+
+# PLAN (kullanıcı, turnuva sonrası sıralama)
+
+1. **Beceri ağacını bitir** — 25 birimin *hepsi* en az bir kez incelenmiş olacak.
+2. **Turnuvanın çıkardığı kompozisyonu deterministik testlerden geçir**, birim türü yüzdelerine
+   göre yeniden dağıt (→ AI'ın varsayılan doktrini).
+3. **Gece koşusu beonai için** — durum-değer ağı verisi + eğitim.
+
+## 1. maddenin durumu: hangi birim incelendi
+
+**İncelenmiş (teşhis + müdahale ya da gerekçeli hüküm):**
+
+| birim | sonuç |
+|---|---|
+| ballistic_missile | `spotterRequirement` — gözcüsüz kullanılamaz |
+| sam_battery | hava radarı şartı — `airRadar` olmadan menzilinin %45'i ölü |
+| mlrs | `logisticsRequirement` — **oturumun en büyük kazancı** (16/48 → 37/48) |
+| ifv | müdahale yok; **metrik yanlıştı** → `EMİLEN` sütunu eklendi |
+| attack_helo | `heloHunt` — atış ~5×, K1-K4 geçti |
+| mortar / artillery | `standoff` geçti; `indirectCreep` elendi |
+| ew_vehicle | 3 ölü katman düzeltildi (kısmi jam, keşif jamı, görüş kesme) |
+| supply_truck | `supplyEscort` elendi (o bağlamda mühimmat bağlayıcı değildi) |
+| mbt / tank_destroyer | `armorFace` ve `localRatio` elendi — sorun yön değil YER |
+
+**Hiç incelenmemiş (11 birim):**
+
+| birim | ₺ | sağlık kontrolündeki işaret |
+|---|---|---|
+| transport_helo | 400 | **80sn'de ölüyor**; hiç taşıma yapıyor mu bilinmiyor |
+| command_vehicle | 600 | 123-166sn'de ölüyor (geri bölge birimi) |
+| counter_battery_radar | 350 | hiç ölmüyor (EMİLEN 0.02) — ama işe yarıyor mu? |
+| commando | 320 | %92 boşta, getiri x0.60 |
+| manpads_team | 190 | %94 boşta, %20 tam yükle ölüyor |
+| engineer | 200 | getiri x0 ama **EMİLEN 1.19** → IFV vakası olabilir |
+| scout_vehicle | 180 | getiri x0, **%45 tam yükle** ölüyor |
+| infantry | 100 | **EMİLEN 2.01** (rosterin en yükseği) — muhtemelen sağlıklı |
+| spaag | 300 | getiri **x1.13** + EMİLEN 1.25 → muhtemelen sağlıklı |
+| at_team | 170 | getiri **x1.18** → muhtemelen sağlıklı |
+| recon_uav / drone_operator | 150/240 | jam işinde kısmen bakıldı, kendi teşhisi yok |
+
+**Triyaj:** yeşil olanlar (spaag, at_team, infantry) tek koşuluk doğrulamayla kapanır;
+kırmızı bayraklılar (transport_helo, command_vehicle, scout_vehicle, manpads) derin teşhis ister.
+
+## 2. maddenin yöntemi
+
+Turnuva şampiyonunu doğrudan doktrin yapmak yerine **birim türü yüzdelerine ayrıştırıp**
+yeniden dağıtmak doğru yaklaşım: tek bir tarif tek bir rakibe göre şekillenmiş olabilir
+(taş-kağıt-makas bulgusu), ama *pay dağılımı* daha genellenebilir bir sinyal.
+Deterministik testler: `--forktest`, `--liverepro` + kompozisyon A/B (iki havuz).
