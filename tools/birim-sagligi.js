@@ -51,7 +51,7 @@ const kod = [
     '  const izle = new Map();',
     '  for (const u of SIM.units) { if (!u.isRed) continue; const s = STATS[u.type]; if (!s) continue;',
     '    izle.set(u.id, { id:s.id, mal:s.cost||0, maxAmmo:u.maxAmmo||0, onceki:u.ammo,',
-    '      atis:0, canli:0, hedefli:0, bosta:0, imha:0, oldu:null, sonAmmo:u.ammo }); }',
+    '      atis:0, canli:0, hedefli:0, bosta:0, imha:0, oldu:null, sonAmmo:u.ammo, hp:u.hp, maxHp:u.maxHp, emilen:0 }); }',
     '  let sonSeq = -1;',
     '  const ph = SIM.headless; SIM.headless = true; let st = 0;',
     '  try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) {',
@@ -67,6 +67,8 @@ const kod = [
     '      r.canli++;',
     '      if (r.onceki != null && u.ammo < r.onceki) r.atis += (r.onceki - u.ammo);',
     '      r.onceki = u.ammo; r.sonAmmo = u.ammo;',
+    '      if (u.hp < r.hp) r.emilen += (r.hp - u.hp);',
+    '      r.hp = u.hp;',
     '      if (SIM.tick % 10) continue;',
     '      const s = STATS[u.type];',
     '      if (!s || !s.weapons || !s.weapons.length) continue;',
@@ -82,9 +84,9 @@ const kod = [
     '  } } finally { SIM.headless = ph; }',
     '  for (const [, r] of izle) {',
     '    const k = r.id;',
-    '    if (!say[k]) say[k] = { mal:r.mal, n:0, atis:0, canli:0, hedefli:0, bosta:0, imha:0, omurTik:0, tamYukle:0, maxAmmo:r.maxAmmo, silahli:0 };',
+    '    if (!say[k]) say[k] = { mal:r.mal, n:0, atis:0, canli:0, hedefli:0, bosta:0, imha:0, omurTik:0, tamYukle:0, maxAmmo:r.maxAmmo, silahli:0, emilen:0 };',
     '    const a = say[k]; a.n++; a.atis += r.atis; a.canli += r.canli; a.hedefli += r.hedefli; a.bosta += r.bosta;',
-    '    a.imha += r.imha; a.omurTik += (r.oldu != null ? r.oldu : SIM.tick);',
+    '    a.imha += r.imha; a.omurTik += (r.oldu != null ? r.oldu : SIM.tick); a.emilen += r.emilen;',
     '    if (r.oldu != null && r.maxAmmo > 0 && r.sonAmmo >= r.maxAmmo) a.tamYukle++; }',
     '}',
     'const silahli = {};',
@@ -101,14 +103,18 @@ const satir = Object.entries(say).map(([id, a]) => ({
     bosta: (a.hedefli + a.bosta) ? a.bosta / (a.hedefli + a.bosta) : null,
     omur: a.omurTik / a.n * 0.05,
     getiri: a.mal ? a.imha / (a.mal * a.n) : null,
+    emilen: a.emilen / a.n,
+    emilenBirimTL: a.mal ? a.emilen / (a.mal * a.n) : null,
     tamYukle: a.n ? a.tamYukle / a.n : 0,
     maxAmmo: a.maxAmmo
 }));
 
 console.log('BIRIM SAGLIK KONTROLU — ' + TOHUMLAR.length + ' tohum, ' + satir.length + ' birim' + (ZORUNLU.length ? '   [zorunlu: ' + ZORUNLU.join(',') + ']' : '   [normal ordular]'));
-console.log('  (saldiran taraf, TUM birimler zorunlu; getiri = imha edilen dusman degeri / kendi maliyeti)');
+console.log('  getiri = imha edilen dusman degeri / maliyet   |   EMILEN = ustune cektigi hasar / maliyet');
+console.log('  (EMILEN sutunu, PERDE/ekran birimlerini olculebilir kilar - IFV getiri x0.05 ama onu');
+console.log('   orduDAN CIKARMAK kompozisyon testinde KOTU cikti: 35/48 -> 29-34/48.)');
 console.log('');
-console.log('  birim'.padEnd(26) + 'maliyet'.padStart(8) + '   ATIS'.padStart(7) + ' hedefli'.padStart(9) + '  bosta'.padStart(7) + '   omur'.padStart(7) + '  GETIRI'.padStart(8) + ' tamYuk'.padStart(8));
+console.log('  birim'.padEnd(26) + 'maliyet'.padStart(8) + '   ATIS'.padStart(7) + ' hedefli'.padStart(9) + '  bosta'.padStart(7) + '   omur'.padStart(7) + '  GETIRI'.padStart(8) + '  EMILEN'.padStart(9) + ' tamYuk'.padStart(8));
 const sirali = satir.sort((a, b) => {
     if (a.silahli !== b.silahli) return a.silahli ? -1 : 1;
     return (a.getiri == null ? 9 : a.getiri) - (b.getiri == null ? 9 : b.getiri);
@@ -126,6 +132,7 @@ for (const x of sirali) {
         (x.bosta != null ? '%' + Math.round(x.bosta * 100) : '-').padStart(7) +
         (Math.round(x.omur) + 'sn').padStart(7) +
         (x.silahli && x.getiri != null ? 'x' + (Math.round(x.getiri * 100) / 100) : '-').padStart(8) +
+        (x.emilenBirimTL != null ? (Math.round(x.emilenBirimTL * 100) / 100).toString() : '-').padStart(9) +
         (x.maxAmmo > 0 ? '%' + Math.round(x.tamYukle * 100) : '-').padStart(8) +
         (bayrak.length ? '   << ' + bayrak.join(', ') : ''));
 }

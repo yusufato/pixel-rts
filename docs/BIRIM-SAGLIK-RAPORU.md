@@ -291,3 +291,55 @@ Kompozisyon kuralları kaybeden orduyu kazanan orduya çeviriyor.
 Üç birimin üçünde de sorun birimin kendi davranışı değil **ordunun kompozisyonu** çıktı:
 balistik/ÇNRA gözcüsüz, SAM radarsız, ÇNRA ikmalsiz. Birim-içi beceriler (7 tanesi) üst üste
 elenirken, iki kompozisyon kuralı tek başına maçı çevirdi.
+
+---
+
+# BİRİM #4 — IFV / ZMA (320₺, getiri x0.05, ömür 57-66sn) · ELE ALINDI
+## Bulgu: **metrik yanlıştı, birim değil**
+
+## Teşhis
+
+IFV, UnitData'da 4 kişilik taşıma kapasitesine sahip (`transport: { slots: 4, allows: ["infantry"] }`)
+ve `load`/`unload` yetenekleri tanımlı. Ama `js/Unit.js:95`:
+
+```js
+this.transportSlots = (s.transport && s.transport.slots && this.isAir) ? s.transport.slots : 0;
+```
+
+**`&& this.isAir`** → taşıma yalnız HAVA birimlerine veriliyor. IFV'nin taşıma kapasitesi kasıtlı
+olarak devre dışı (kod yorumu: *"ZMA taşıma-verisi var ama savaşçı olduğu için oto-taşımaz"*).
+Yani 320₺'lik taşıyıcı hiç taşımıyor; 375px'lik topuyla zayıf bir tank gibi kullanılıyor.
+
+## Kompozisyon testi — sezgimi ÇÜRÜTTÜ (iki havuzda da)
+
+| IFV payı | dışörneklem | FİNAL (ayrılmış) |
+|---|---|---|
+| **taban %7.4** | **35/48 · +1140 ±645** | **34/48 · +1061 ±649** |
+| sıfır (%0) | 34/48 · +670 ±594 | 29/48 · +411 ±686 |
+| çift (%14.8) | 23/48 · −572 ±732 | 21/48 · −538 ±682 |
+
+IFV'yi **çıkarmak da, iki katına çıkarmak da kötü.** Mevcut pay doğru.
+
+## Asıl ders: `getiri` metriği PERDE birimlerini yanlış değerlendiriyor
+
+IFV'nin getirisi x0.05 (imha/maliyet) — rosterin en kötülerinden. Ama onu ordudan çıkarmak
+maçı kötüleştiriyor. Çünkü rol etiketleri **`screen, flanker`**: işi öldürmek değil **hasar emmek**.
+
+Sağlık kontrolüne yeni sütun eklendi: **EMİLEN** = üstüne çektiği hasar ÷ maliyeti.
+
+| birim | getiri | **EMİLEN** | okuma |
+|---|---|---|---|
+| infantry | x0.31 | **2.01** | ucuz perde — asıl işi bu |
+| spaag | x1.13 | 1.25 | hem vuruyor hem emiyor |
+| engineer | x0 | **1.19** | "x0 getiri" yanıltıcıydı |
+| mbt | x0.39 | 1.07 | mızrak + emici |
+| **ifv** | **x0.05** | **1.01** | **kendi parası kadar hasar emiyor** |
+| supply_truck | — | 0.92 | (istenmeyen: ikmal aracı ateş çekiyor) |
+| tank_destroyer | x1.45 | 0.43 | saf katil — emmiyor |
+| counter_battery_radar | — | **0.02** | tam güvende, doğru konumlanmış |
+
+**Kural:** bir birimi "kötü" ilan etmeden önce `getiri + EMİLEN` birlikte okunur. Yalnız getiriye
+bakmak `infantry`, `engineer`, `ifv` gibi perde birimlerini haksız yere mahkûm eder.
+
+**Durum:** IFV'ye müdahale YOK — mevcut payı optimal. Taşıma yeteneğini açmak ayrı ve büyük bir iş
+(yükle-taşı-indir davranışı + AI kararı); sıraya alındı, bu oturumda yapılmadı.
