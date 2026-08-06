@@ -450,3 +450,70 @@ Turnuva şampiyonunu doğrudan doktrin yapmak yerine **birim türü yüzdelerine
 yeniden dağıtmak doğru yaklaşım: tek bir tarif tek bir rakibe göre şekillenmiş olabilir
 (taş-kağıt-makas bulgusu), ama *pay dağılımı* daha genellenebilir bir sinyal.
 Deterministik testler: `--forktest`, `--liverepro` + kompozisyon A/B (iki havuz).
+
+---
+
+# TURNUVA SONUCU ve AŞIRI UYUM — şampiyon doktrin OLMADI
+
+## Turnuva temiz bitti
+
+```
+TUR 1: 1399 → 34   1365'i GÜVEN kuralıyla (bütçe tavanı HİÇ kullanılmadı)
+TUR 2:   34 →  9   panel (3 rakip)
+TUR 3:    9 →  8
+TUR 4:    8 →  1   ŞAMPİYON ORN-590  +2249 ±334  (122/144)
+```
+
+Tur 1'de kısa maç + tek rakip ekonomisi işe yaradı: 1365 aday **kanıtla** elendi.
+
+## Şampiyonun kompozisyonu ve ilk 5'in ortak deseni
+
+| kategori | günboyu taban (ORN-244) | ilk 5 ort. | fark |
+|---|---|---|---|
+| support | %7.7 | %15.3 | **+7.5** |
+| air | %1.2 | %6.6 | **+5.4** |
+| armor | %39.3 | %41.3 | +2.1 |
+| infantry | %24.0 | %12.4 | **−11.5** |
+| air_defense | %11.6 | %5.9 | −5.6 |
+
+İlk 5 içindeki dağılım, hangi sinyalin sağlam olduğunu ayırdı: **dar** olanlar
+air (%4.8-7.3), uav (%2.0-4.7), armor (%37.5-47.6); **geniş** olanlar infantry (%6.7-22.2),
+air_defense (%3.1-11.5), indirect (%1.6-8.0) → son üçü 5 örnekte gürültü.
+
+## ⚠ AŞIRI UYUM TESTİ — şampiyon panel dışında ÇÖKÜYOR
+
+Aynı üç doktrin, üç farklı rakip kümesi:
+
+| rakip kümesi | SAMPİYON | İLK5-ORT | TABAN-244 |
+|---|---|---|---|
+| dar panel (3 — turnuvanın seçtiği) | **+2249** | +1378 | +770 |
+| **geniş panel (12 çeşitli)** | **+2330** | **+2268** | **+2277** |
+| **güçlü panel dışı (2)** | **−1679** | −673 | −914 |
+
+**Üç ayrı sonuç, üç ayrı ders:**
+
+1. **Dar panelde şampiyon çok önde görünüyor** — ama tam da o üç rakibe karşı SEÇİLDİ.
+   Bu, seçim artefaktı.
+2. **Geniş panelde (12 çeşitli rakip) üçü de EŞİT** (+2330 / +2277 / +2268, 246-251/288).
+   Yani 33.576 maçlık tur 1, günboyu kullandığım tabandan **daha iyi bir şey bulamadı.**
+3. **Güçlü panel dışı rakiplere karşı üçü de kaybediyor** — ve en çok şampiyon kaybediyor.
+   `ORN-1287` savunan olarak üç doktrini de eziyor (−1475, −2957, −2762).
+
+## Metodolojik ders: panel ÇEŞİTLİ ama GÜÇLÜ olmalı
+
+Geniş paneli "kompozisyon uzayında en yayılmış" diye seçtim (greedy max-min). Sonuç: panel
+**çeşitli ama zayıf** çıktı — herkes %86 kazanıyor, dolayısıyla ayırt etmiyor. Ayırt eden şey
+zayıf-çeşitli rakipler değil, **güçlü sayaçlar**.
+
+> **Kural:** rakip paneli iki eksende birden seçilmeli — kompozisyon çeşitliliği VE ölçülmüş güç.
+> Yalnız çeşitlilik kolay panel, yalnız güç dar panel üretir.
+
+## Planın 2. maddesi için sonuç: tek doktrin BENİMSENMEDİ
+
+Şampiyonu doktrin yapmak yanlış olurdu. Uzay geçişsiz (taş-kağıt-makas): "en iyi kompozisyon"
+yok, "şuna karşı en iyi" var. Doğru yön **uyarlanabilir kompozisyon** — keşfedilen düşmana göre
+ordu kurmak. Altyapı kısmen mevcut (tehdit-profili / rakip-inanç).
+
+**Kaydedilen tek sağlam sinyal:** ilk 5'in hepsi zırh ağırlıklı (%37-48) ve hepsinde hava var
+(%4.8-7.3) — bu iki eksen 5 adayın hepsinde tutarlı. Taban zaten zırh %39; hava payı ise
+%1.2 → %6.6, tek gerçek fark burada olabilir. Ayrıca sınanmalı.
