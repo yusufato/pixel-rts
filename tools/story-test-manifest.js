@@ -1,0 +1,64 @@
+'use strict';
+
+// Full story regression task inventory. Every entry is isolated because each
+// harness function creates and closes its own deterministic runtime.
+const STORY_TEST_TASKS = Object.freeze([
+    { key: 'first', fn: 'runStorySimulation', weight: 180, args: [{ seed: 2032, seconds: 900, includeTradeProductionOpportunityView: true, includeOpinionStorageMetrics: true }] },
+    { key: 'paretoVolumeTreatment', fn: 'runStorySimulation', weight: 70, args: [{ seed: 2032, seconds: 300, featureFlags: { 'economy.saleSettlement': true, 'economy.paretoVolumeAdmission': true, 'economy.householdDistributionAdmission': true, 'population.humanMigration': false } }] },
+    { key: 'repeat', fn: 'runStorySimulation', weight: 150, args: [{ seed: 2032, seconds: 900 }] },
+    { key: 'alternate', fn: 'runStorySimulation', weight: 150, args: [{ seed: 2033, seconds: 900 }] },
+    { key: 'telemetryOff', fn: 'runStorySimulation', weight: 145, args: [{ seed: 2032, seconds: 900, featureFlags: { 'telemetry.world': false, 'telemetry.resources': false, 'telemetry.performance': false, 'welfare.continuousCap': true, 'world.v2Projection': false, 'knowledge.playerProjection': false } }] },
+    { key: 'welfareCapOff', fn: 'runStorySimulation', weight: 145, args: [{ seed: 2032, seconds: 900, featureFlags: { 'welfare.continuousCap': false } }] },
+    { key: 'saleFlow', fn: 'runStorySimulation', weight: 15, args: [{ seed: 2032, seconds: 60, featureFlags: { 'economy.saleSettlement': true } }] },
+
+    { key: 'peaceProbe', fn: 'probePeacefulDiplomacy', weight: 20, args: [] },
+    { key: 'battleProbe', fn: 'probeBattleTelemetry', weight: 3, args: [] },
+    { key: 'worldV2Probe', fn: 'probeWorldV2', weight: 4, args: [] },
+    { key: 'regionProbe', fn: 'probeRegionModel', weight: 10, args: [] },
+    { key: 'activationProbe', fn: 'probeRegionActivation', weight: 10, args: [] },
+    { key: 'aggregationProbe', fn: 'probeRegionAggregation', weight: 12, args: [] },
+    { key: 'infrastructureProbe', fn: 'probeInfrastructureGraph', weight: 12, args: [] },
+    { key: 'resourceProbe', fn: 'probeResourceTaxonomy', weight: 8, args: [] },
+    { key: 'productionProbe', fn: 'probeProductionSectors', weight: 12, args: [] },
+    { key: 'regionalProbe', fn: 'probeRegionalEconomy', weight: 28, args: [] },
+    { key: 'tradeProbe', fn: 'probeTradeLogistics', weight: 35, args: [] },
+    { key: 'distributionProbe', fn: 'probeDomesticDistributionContract', weight: 12, args: [] },
+    { key: 'marketProbe', fn: 'probeMarketPrices', weight: 20, args: [] },
+    { key: 'budgetProbe', fn: 'probeStateBudget', weight: 20, args: [] },
+    { key: 'companyProbe', fn: 'probeCompaniesBanks', weight: 25, args: [] },
+    { key: 'unitEconomics', fn: 'probeProductionUnitEconomics', weight: 18, args: [] },
+    { key: 'saleProbe', fn: 'probeSaleSettlement', weight: 45, args: [] },
+    { key: 'saleResume', fn: 'probeSaleSettlementResume', weight: 20, args: [] },
+    { key: 'economicAIProbe', fn: 'probeEconomicAI', weight: 35, args: [] },
+    { key: 'populationProbe', fn: 'probePopulationCohorts', weight: 22, args: [] },
+    { key: 'needsProbe', fn: 'probeNeedsWelfare', weight: 28, args: [] },
+    { key: 'opinionProbe', fn: 'probePublicOpinion', weight: 35, args: [] },
+    { key: 'collectiveProbe', fn: 'probeCollectiveAction', weight: 35, args: [] },
+    { key: 'humanMigrationProbe', fn: 'probeHumanMigration', weight: 45, args: [] },
+    { key: 'powerCenterProbe', fn: 'probePowerCenters', weight: 35, args: [] },
+    { key: 'institutionProbe', fn: 'probeInstitutions', weight: 25, args: [] },
+    { key: 'stateCapacityProbe', fn: 'probeStateCapacity', weight: 30, args: [] },
+    { key: 'electionProbe', fn: 'probeElections', weight: 80, args: [] },
+    { key: 'integrityProbe', fn: 'probeIntegrity', weight: 5, args: [] },
+    { key: 'cityDossierProbe', fn: 'probeCityDossier', weight: 12, args: [] },
+    { key: 'mapRasterProbe', fn: 'probeCanonicalMapRaster', weight: 18, args: [] },
+    { key: 'prebuiltRasterProbe', fn: 'probePrebuiltMapRaster', weight: 12, args: [] },
+    { key: 'politicalOverlayProbe', fn: 'probePoliticalOverlay', weight: 15, args: [] },
+    { key: 'warpProbe', fn: 'probeAdaptiveMapWarp', weight: 12, args: [] },
+    { key: 'mapCacheProbe', fn: 'probeMapCacheInvalidation', weight: 15, args: [] },
+    { key: 'migrationProbe', fn: 'probeMigration', weight: 8, args: [] },
+    { key: 'clockProbe', fn: 'probeDeterministicClock', weight: 25, args: [] },
+    { key: 'schedulerProbe', fn: 'probeSchedulerRegistry', weight: 45, args: [] },
+    { key: 'rngProbe', fn: 'probeRngStreams', weight: 10, args: [] },
+    { key: 'causalityProbe', fn: 'probeCausalityLedger', weight: 15, args: [] },
+    { key: 'guardProbe', fn: 'probeCausalityGuards', weight: 12, args: [] },
+    { key: 'projectionProbe', fn: 'probeStoryProjection', weight: 12, args: [] },
+    { key: 'welfareProbe', fn: 'probeWelfareGate', weight: 5, args: [] },
+    { key: 'welfareProbeOff', fn: 'probeWelfareGate', weight: 5, args: [2032, { 'welfare.continuousCap': false }] }
+]);
+
+function storyTestTaskByKey(key) {
+    return STORY_TEST_TASKS.find(task => task.key === String(key)) || null;
+}
+
+module.exports = { STORY_TEST_TASKS, storyTestTaskByKey };

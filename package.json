@@ -5,8 +5,10 @@
   "description": "Pixel RTS — yaşayan Avrupa seferi: şehir üretimi, konsey, diplomasi",
   "main": "electron/main.js",
   "scripts": {
-    "test": "node --max-old-space-size=8192 --expose-gc tests/story-world.test.js",
-    "test:story": "node --max-old-space-size=8192 --expose-gc tests/story-world.test.js",
+    "test": "node tools/story-test-parallel.js",
+    "test:story": "node tools/story-test-parallel.js",
+    "test:story:serial": "node --max-old-space-size=8192 --expose-gc tests/story-world.test.js",
+    "test:story:profile": "node tools/story-test-profile.js",
     "test:story:soak": "node tests/story-soak.test.js",
     "story:baseline": "node tools/story-baseline.js",
     "story:report": "node tools/story-baseline.js",

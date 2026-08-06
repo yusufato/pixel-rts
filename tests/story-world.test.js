@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { storyTestResult } = require('../tools/story-test-results');
 const {
     runStorySimulation,
     probeWelfareGate,
@@ -51,13 +52,13 @@ const {
 } = require('../tools/story-sim-harness');
 
 function run() {
-    const first = runStorySimulation({
+    const first = storyTestResult('first', runStorySimulation, {
         seed: 2032,
         seconds: 900,
         includeTradeProductionOpportunityView: true,
         includeOpinionStorageMetrics: true
     });
-    const paretoVolumeTreatment = runStorySimulation({
+    const paretoVolumeTreatment = storyTestResult('paretoVolumeTreatment', runStorySimulation, {
         seed: 2032,
         seconds: 300,
         featureFlags: {
@@ -71,9 +72,9 @@ function run() {
             'population.humanMigration': false
         }
     });
-    const repeat = runStorySimulation({ seed: 2032, seconds: 900 });
-    const alternate = runStorySimulation({ seed: 2033, seconds: 900 });
-    const telemetryOff = runStorySimulation({
+    const repeat = storyTestResult('repeat', runStorySimulation, { seed: 2032, seconds: 900 });
+    const alternate = storyTestResult('alternate', runStorySimulation, { seed: 2033, seconds: 900 });
+    const telemetryOff = storyTestResult('telemetryOff', runStorySimulation, {
         seed: 2032,
         seconds: 900,
         featureFlags: {
@@ -85,7 +86,7 @@ function run() {
             'knowledge.playerProjection': false
         }
     });
-    const welfareCapOff = runStorySimulation({
+    const welfareCapOff = storyTestResult('welfareCapOff', runStorySimulation, {
         seed: 2032,
         seconds: 900,
         featureFlags: { 'welfare.continuousCap': false }
@@ -369,7 +370,7 @@ function run() {
         assert.ok(retainedEventIds.has(effect.eventId), `Tutulan etkinin olayı bulunmalı: ${effect.id}`);
     }
 
-    const peaceProbe = probePeacefulDiplomacy();
+    const peaceProbe = storyTestResult('peaceProbe', probePeacefulDiplomacy);
     assert.equal(peaceProbe.main.initialCount, 28, 'Sekiz devletin bütün 28 ikili diplomatik kenarı başlangıçta kurulmalı.');
     assert.deepEqual(peaceProbe.main.initialTreaties, { peace: 28 }, 'Yeni kampanyada bütün devletler barışta başlamalı.');
     assert.equal(peaceProbe.main.initialAllNonHostile, true, 'Barış başlangıcında hiçbir devlet çifti düşman sayılmamalı.');
@@ -385,12 +386,12 @@ function run() {
     assert.equal(peaceProbe.ab.onOwnerChanges, 0, 'Barış açıkken 120 saniyelik koşuda fetih olmamalı.');
     assert.ok(peaceProbe.ab.offOwnerChanges > 0, 'Eski tüm-savaş kontrolü fetih üretmeli ve A/B karşı-testi sağlamalı.');
 
-    const battleProbe = probeBattleTelemetry();
+    const battleProbe = storyTestResult('battleProbe', probeBattleTelemetry);
     assert.equal(battleProbe.counter, 1, 'Tamamlanan savaş tek bir ham olay üretmeli.');
     assert.equal(battleProbe.event.payload.engineVersion, 'battlefield-v2-fixed50', 'Savaş motor sürümü telemetride korunmalı.');
     assert.equal(battleProbe.event.payload.seed, 424242, 'Savaş tohumu telemetride korunmalı.');
 
-    const worldV2Probe = probeWorldV2();
+    const worldV2Probe = storyTestResult('worldV2Probe', probeWorldV2);
     assert.equal(worldV2Probe.validation.ok, true, 'V1 adaptörü geçerli StoryWorldStateV2 üretmeli.');
     assert.equal(worldV2Probe.world.meta.schemaVersion, 2, 'V2 şema sürümü açıkça yazılmalı.');
     assert.ok(
@@ -442,7 +443,7 @@ function run() {
     assert.equal(worldV2Probe.knowledge.estimatedFact.status, 'ESTIMATED', 'Tahmin ayrı bilgi sınıfı olmalı.');
     assert.equal(worldV2Probe.knowledge.rumorFact.status, 'RUMOR', 'Söylenti ayrı bilgi sınıfı olmalı.');
 
-    const regionProbe = probeRegionModel();
+    const regionProbe = storyTestResult('regionProbe', probeRegionModel);
     assert.equal(regionProbe.main.count, 152, 'Kanonik dünya tam 152 bölge taşımalı.');
     assert.equal(regionProbe.main.validation.ok, true, 'Yeni kampanya RegionModel sözleşmesini geçmeli.');
     assert.equal(regionProbe.main.identityMatches, true, 'Kalıcı bölge kimliği legacy dizi indeksi ve konumuyla birebir eşleşmeli.');
@@ -479,7 +480,7 @@ function run() {
     assert.equal(regionProbe.disabled.regionCount, 152, 'Bayrak kapalıyken oynanış bölgeleri kaybolmamalı.');
     assert.equal(regionProbe.ab.equal, true, 'RegionModel açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const activationProbe = probeRegionActivation();
+    const activationProbe = storyTestResult('activationProbe', probeRegionActivation);
     assert.equal(activationProbe.main.validation.ok, true, 'Aktivasyon görünümü kendi sözleşmesini geçmeli.');
     assert.deepEqual(
         {
@@ -532,7 +533,7 @@ function run() {
     assert.deepEqual(activationProbe.uiOutcome.differences, [], 'UI tarafsızlık koşusunda hiçbir dünya alanı ayrışmamalı.');
     assert.equal(activationProbe.ab.equal, true, 'Aktivasyon açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const aggregationProbe = probeRegionAggregation();
+    const aggregationProbe = storyTestResult('aggregationProbe', probeRegionAggregation);
     assert.equal(aggregationProbe.main.validation.ok, true, 'Toplulaştırma görünümü kendi sözleşmesini geçmeli.');
     assert.equal(aggregationProbe.main.snapshot.regions.length, 152, 'Her bölge bir korunum özeti taşımalı.');
     assert.ok(aggregationProbe.main.liveConservation.population > 0, 'Korunum testi sıfır olmayan gerçek nüfus üzerinde çalışmalı.');
@@ -608,7 +609,7 @@ function run() {
     assert.equal(aggregationProbe.disabled.worldValidation.ok, true, 'Toplulaştırma kapalıyken V2 dünya geçerli kalmalı.');
     assert.equal(aggregationProbe.ab.equal, true, 'Toplulaştırma açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const infrastructureProbe = probeInfrastructureGraph();
+    const infrastructureProbe = storyTestResult('infrastructureProbe', probeInfrastructureGraph);
     assert.equal(infrastructureProbe.main.validation.ok, true, 'Altyapı görünümü kendi sözleşmesini geçmeli.');
     assert.equal(infrastructureProbe.main.worldValidation.ok, true, 'Altyapı koridorlu V2 dünya geçerli kalmalı.');
     assert.ok(infrastructureProbe.main.snapshotBefore.summary.byMode.LAND > 0, 'Kara koridorları üretilmeli.');
@@ -728,7 +729,7 @@ function run() {
     assert.equal(infrastructureProbe.ab.offMigrationValidation.disabled, true,
         'Altyapı kapalı A/B kolunda bağımlı göç katmanı sahte rota üretmeden kapanmalı.');
 
-    const resourceProbe = probeResourceTaxonomy();
+    const resourceProbe = storyTestResult('resourceProbe', probeResourceTaxonomy);
     const resourceCatalog = resourceProbe.main.snapshot;
     assert.equal(resourceProbe.main.validation.ok, true, 'Kaynak kataloğu kendi sözleşmesini geçmeli.');
     assert.equal(resourceProbe.main.worldValidation.ok, true, 'Kaynak katalog teşhisli V2 dünya geçerli kalmalı.');
@@ -809,7 +810,7 @@ function run() {
     assert.equal(resourceProbe.disabled.worldValidation.ok, true, 'Kaynak taksonomisi kapalıyken V2 dünya geçerli kalmalı.');
     assert.equal(resourceProbe.ab.equal, true, 'Kaynak taksonomisi açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const productionProbe = probeProductionSectors();
+    const productionProbe = storyTestResult('productionProbe', probeProductionSectors);
     const productionCatalog = productionProbe.main.snapshot;
     assert.equal(productionProbe.main.validation.ok, true, 'Üretim sektörü kataloğu kendi sözleşmesini geçmeli.');
     assert.equal(productionProbe.main.worldValidation.ok, true, 'Üretim teşhisli V2 dünya geçerli kalmalı.');
@@ -900,7 +901,7 @@ function run() {
     assert.equal(productionProbe.disabled.worldValidation.ok, true, 'Üretim kapalıyken V2 dünya geçerli kalmalı.');
     assert.equal(productionProbe.ab.equal, true, 'Üretim sözleşmesi açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const regionalProbe = probeRegionalEconomy();
+    const regionalProbe = storyTestResult('regionalProbe', probeRegionalEconomy);
     const regionalSummary = regionalProbe.main.finalSummary;
     assert.equal(regionalProbe.main.validation.ok, true, 'Kanonik bölgesel stok defteri kendi sözleşmesini geçmeli.');
     assert.equal(regionalProbe.main.worldValidation.ok, true, 'Bölgesel stoklu V2 dünya geçerli kalmalı.');
@@ -987,7 +988,7 @@ function run() {
     assert.equal(regionalProbe.ab.regionalChanged, true, 'Canlı stok sistemi açıldığında yeni dünya durumu gerçekten değişmeli.');
     assert.equal(regionalProbe.ab.legacyGameplayEqual, true, 'Yeni stok sistemi eski oynanış metriklerini değiştirmemeli.');
 
-    const tradeProbe = probeTradeLogistics();
+    const tradeProbe = storyTestResult('tradeProbe', probeTradeLogistics);
     assert.equal(tradeProbe.main.validation.ok, true, 'Ticaret/sevkiyat defteri kendi sözleşmesini geçmeli.');
     assert.equal(tradeProbe.main.dispatched.ok, true, 'Geçerli sözleşmeye bağlı sipariş fiziksel sevkiyata dönüşmeli.');
     assert.equal(
@@ -1100,7 +1101,7 @@ function run() {
     assert.equal(tradeProbe.ab.changed, true, 'Ticaret açık/kapalı A/B koşusu gerçek fiziksel dünya farkı üretmeli.');
     assert.ok(tradeProbe.ab.onTrade.totals.delivered.food > 0, 'Canlı barış dünyasında gıda ticareti gerçekten teslimat yapmalı.');
 
-    const distributionProbe = probeDomesticDistributionContract();
+    const distributionProbe = storyTestResult('distributionProbe', probeDomesticDistributionContract);
     assert.equal(distributionProbe.main.admission.ok, true,
         'Tek ulke dagitim karari butun fiziksel bacaklar birlikte dogrulandiktan sonra kabul edilmeli.');
     assert.equal(distributionProbe.main.committed.ok, true,
@@ -1155,7 +1156,7 @@ function run() {
     assert.equal(distributionProbe.restored.commerceValidation.ok, true,
         'Yuklenen sahipli dagitim kargosu fiziksel stok aynasini korumali.');
 
-    const marketProbe = probeMarketPrices();
+    const marketProbe = storyTestResult('marketProbe', probeMarketPrices);
     assert.equal(marketProbe.main.validation.ok, true, 'Bölgesel fiyat defteri kendi sözleşmesini geçmeli.');
     assert.equal(marketProbe.main.worldValidation.ok, true, 'Piyasa kayıtlı V2 dünya geçerli kalmalı.');
     assert.equal(marketProbe.main.summary.adapterVersion, 'story-market-price-ledger-1',
@@ -1238,7 +1239,7 @@ function run() {
     assert.equal(marketProbe.ab.physicalEqual, true,
         'Piyasa defteri çıkarıldığında açık/kapalı koşuların fiziksel dünyası birebir aynı kalmalı.');
 
-    const budgetProbe = probeStateBudget();
+    const budgetProbe = storyTestResult('budgetProbe', probeStateBudget);
     assert.equal(budgetProbe.main.validation.ok, true, 'Devlet bütçesi çift taraflı muhasebe sözleşmesini geçmeli.');
     assert.equal(budgetProbe.main.debit.ok, true, 'Bakiyesi olan devlet gerçek bütçe gideri yapabilmeli.');
     assert.equal(budgetProbe.main.afterDebit.cash, budgetProbe.main.opening.cash - 100,
@@ -1280,7 +1281,7 @@ function run() {
     assert.equal(budgetProbe.disabled.ledger, null, 'Kapalı bütçe motoru sahte hesap üretmemeli.');
     assert.equal(budgetProbe.ab.changed, true, 'Bütçe açık/kapalı A/B koşusu gerçek mali sınır farkı üretmeli.');
 
-    const companyProbe = probeCompaniesBanks();
+    const companyProbe = storyTestResult('companyProbe', probeCompaniesBanks);
     assert.equal(companyProbe.main.validation.ok, true,
         'Şirket, banka, tesis ve para koruma defteri kendi sözleşmesini geçmeli.');
     assert.equal(companyProbe.main.opening.companyCount, 48,
@@ -1361,7 +1362,7 @@ function run() {
     assert.equal(companyProbe.ab.changed, true,
         'Şirket/banka açık-kapalı A/B koşusu gerçek ekonomik dünya farkı üretmeli.');
 
-    const unitEconomics = probeProductionUnitEconomics();
+    const unitEconomics = storyTestResult('unitEconomics', probeProductionUnitEconomics);
     const civilianEconomics = unitEconomics.rows.filter(
         row => row.sectorId !== 'defense_industry'
     );
@@ -1383,7 +1384,7 @@ function run() {
     assert.equal(defenseEconomics.currentViability.approved, true,
         'Maliyeti ve sozlesme marjini odeyen askeri tedarik, savunma uretimini planlama kapisindan gecirmeli.');
 
-    const saleProbe = probeSaleSettlement();
+    const saleProbe = storyTestResult('saleProbe', probeSaleSettlement);
     assert.equal(saleProbe.production.ok, true,
         'Faz 22.1E mikro uretimi fiziksel ve mali on kapilardan gecmeli.');
     assert.equal(
@@ -1462,7 +1463,7 @@ function run() {
         'Faz 22.1E varsayilan yolu acik bayrakla ayni dunya karmasini uretmeli.');
     assert.equal(saleProbe.ab.explicitOffDiffers, true,
         'Faz 22.1E acikca kapatildiginda yeni satis ve sahiplik akisi dunya karmasindan cikmali.');
-    const saleFlow = runStorySimulation({
+    const saleFlow = storyTestResult('saleFlow', runStorySimulation, {
         seed: 2032,
         seconds: 60,
         featureFlags: { 'economy.saleSettlement': true }
@@ -1539,7 +1540,7 @@ function run() {
         'Ithalat blokesi devlet hazinesi yerine gercek alici sirket hesabinda tutulmali.');
     assert.ok(saleFlow.budgetSummary.companyTradeEscrow > 0,
         'Aktif sirket ithalat siparislerinin nakit blokesi raporda gorunmeli.');
-    const saleResume = probeSaleSettlementResume();
+    const saleResume = storyTestResult('saleResume', probeSaleSettlementResume);
     assert.equal(saleResume.loaded, true,
         'Aktif sirket ithalat blokesi tasiyan Faz 22.1E kaydi yeniden acilabilmeli.');
     assert.ok(saleResume.before.tradeEscrow > 0 && saleResume.before.companyReservations > 0,
@@ -1555,7 +1556,7 @@ function run() {
     assert.equal(saleResume.after.tradeValidation.ok, true,
         'Yuklenen ithalat blokeleri ilerledikten sonra fiziksel yuk defteri gecerli kalmali.');
 
-    const economicAIProbe = probeEconomicAI();
+    const economicAIProbe = storyTestResult('economicAIProbe', probeEconomicAI);
     assert.equal(economicAIProbe.main.validation.ok, true,
         'Ekonomik AI karar defteri kendi yapisal sozlesmesini gecmeli.');
     assert.equal(economicAIProbe.main.companyValidation.ok, true,
@@ -1646,7 +1647,7 @@ function run() {
     assert.equal(economicAIProbe.ab.offEconomicAI.disabled, true,
         'A/B control kosusunda ekonomik AI tamamen kapali kalmali.');
 
-    const populationProbe = probePopulationCohorts();
+    const populationProbe = storyTestResult('populationProbe', probePopulationCohorts);
     assert.equal(populationProbe.main.validation.ok, true,
         'Nüfus kohort defteri yapısal ve muhasebesel sözleşmesini geçmeli.');
     assert.equal(populationProbe.main.worldValidation.ok, true,
@@ -1731,7 +1732,7 @@ function run() {
     assert.equal(populationProbe.ab.changed, true,
         'Nüfus kohortları açık/kapalı A/B koşusunda gerçek işgücü farkı üretmeli.');
 
-    const needsProbe = probeNeedsWelfare();
+    const needsProbe = storyTestResult('needsProbe', probeNeedsWelfare);
     assert.equal(needsProbe.main.validation.ok, true,
         'Faz 24 ihtiyac ve yasam kosulu defteri gecerli kalmali.');
     assert.equal(needsProbe.main.saveOk, true,
@@ -1806,7 +1807,7 @@ function run() {
     assert.equal(needsProbe.ab.changed, true,
         'Faz 24 acik-kapali A/B kosusu olculebilir durum farki uretmeli.');
 
-    const opinionProbe = probePublicOpinion();
+    const opinionProbe = storyTestResult('opinionProbe', probePublicOpinion);
     assert.equal(opinionProbe.main.validation.ok, true,
         'Faz 25 kamuoyu ve sikayet hafizasi defteri gecerli kalmali.');
     assert.equal(opinionProbe.main.saveOk, true,
@@ -1916,7 +1917,7 @@ function run() {
     assert.equal(opinionProbe.ab.offStateCapacity.disabled, true,
         'Kamuoyu öncülü kapalıyken Faz 30 sahte meşruiyet defteri üretmemeli.');
 
-    const collectiveProbe = probeCollectiveAction();
+    const collectiveProbe = storyTestResult('collectiveProbe', probeCollectiveAction);
     assert.equal(collectiveProbe.pure.quietNoAction, true,
         'Sakin toplum salt zaman gecti diye protesto uretmemeli.');
     assert.equal(collectiveProbe.pure.orderedEscalation, true,
@@ -1993,7 +1994,7 @@ function run() {
     assert.equal(collectiveProbe.ab.changed, true,
         'Faz 26 acik-kapali A/B kosusunda fiziksel grev etkisi olculebilir durum farki uretmeli.');
 
-    const humanMigrationProbe = probeHumanMigration();
+    const humanMigrationProbe = storyTestResult('humanMigrationProbe', probeHumanMigration);
     assert.equal(humanMigrationProbe.atomic.result.ok, true,
         'Faz 27 kanonik nüfus mutasyon kapısı kohort aktarımını kabul etmeli.');
     assert.equal(humanMigrationProbe.atomic.exactWorldConservation, true,
@@ -2083,7 +2084,7 @@ function run() {
     assert.equal(humanMigrationProbe.ab.offValidation.ok, true,
         'Faz 27 kapalı A/B yolu geçersiz defter bırakmamalı.');
 
-    const powerCenterProbe = probePowerCenters();
+    const powerCenterProbe = storyTestResult('powerCenterProbe', probePowerCenters);
     assert.equal(powerCenterProbe.main.validation.ok, true,
         'Faz 28 güç merkezi defteri kendi sözleşmesini geçmeli.');
     assert.equal(powerCenterProbe.main.summary.centerCount, 56,
@@ -2161,7 +2162,7 @@ function run() {
     assert.equal(powerCenterProbe.ab.offCollectiveValidation.ok, true,
         'Faz 28 kapalı kolektif eylem yolu açık legacy vekille geçerli kalmalı.');
 
-    const institutionProbe = probeInstitutions();
+    const institutionProbe = storyTestResult('institutionProbe', probeInstitutions);
     assert.equal(institutionProbe.main.validation.ok, true,
         'Faz 29 kurum ve yetki defteri kendi sözleşmesini geçmeli.');
     assert.equal(institutionProbe.main.powerCenterValidation.ok, true,
@@ -2243,7 +2244,7 @@ function run() {
     assert.equal(institutionProbe.prerequisiteDisabled.ledger, null,
         'Güç merkezi öncülü kapalıysa Faz 29 etkinleşmemeli.');
 
-    const stateCapacityProbe = probeStateCapacity();
+    const stateCapacityProbe = storyTestResult('stateCapacityProbe', probeStateCapacity);
     assert.equal(stateCapacityProbe.main.validation.ok, true,
         'Faz 30 meşruiyet ve devlet kapasitesi defteri kendi sözleşmesini geçmeli.');
     assert.equal(stateCapacityProbe.main.normalTicket.status, 'COMPLETED',
@@ -2325,7 +2326,7 @@ function run() {
     assert.equal(stateCapacityProbe.prerequisiteDisabled.ledger, null,
         'Faz 29 öncülü kapalıysa Faz 30 etkinleşmemeli.');
 
-    const electionProbe = probeElections();
+    const electionProbe = storyTestResult('electionProbe', probeElections);
     assert.equal(electionProbe.main.validation.ok, true,
         'Faz 31 seçim ve mandat defteri kendi sözleşmesini geçmeli.');
     assert.equal(electionProbe.main.certifiedCount, 8,
@@ -2392,7 +2393,7 @@ function run() {
     assert.equal(electionProbe.prerequisiteDisabled.ledger, null,
         'Kamuoyu öncülü kapalıysa Faz 31 sahte oy üretmemeli.');
 
-    const integrityProbe = probeIntegrity();
+    const integrityProbe = storyTestResult('integrityProbe', probeIntegrity);
     assert.equal(integrityProbe.initial.caseCount, 0,
         'Faz 32 yapısal yolsuzluk riskinden kendiliğinden suç dosyası uydurmamalı.');
     assert.equal(integrityProbe.transfer.ok, true,
@@ -2416,7 +2417,7 @@ function run() {
     assert.equal(integrityProbe.validation.ok, true,
         'Faz 32 bütünlük ve soruşturma defteri kendi sözleşmesini geçmeli.');
 
-    const cityDossierProbe = probeCityDossier();
+    const cityDossierProbe = storyTestResult('cityDossierProbe', probeCityDossier);
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.uiNeutral, true, 'Şehir dosyasını açmak dünya durumunu değiştirmemeli.');
@@ -2501,7 +2502,7 @@ function run() {
     assert.equal(cityDossierProbe.disabled.disabled, true, 'ui.cityDossier kapalıyken yeni görünüm güvenle kapanmalı.');
     assert.equal(cityDossierProbe.ab.equal, true, 'Şehir dosyası açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const mapRasterProbe = probeCanonicalMapRaster();
+    const mapRasterProbe = storyTestResult('mapRasterProbe', probeCanonicalMapRaster);
     assert.equal(mapRasterProbe.main.validation.ok, true, 'Kanonik harita rasterı kendi sözleşmesini geçmeli.');
     assert.equal(mapRasterProbe.main.uiNeutral, true, 'Raster üretmek kalıcı dünya durumunu değiştirmemeli.');
     assert.equal(mapRasterProbe.main.raster.width, 820, 'Kanonik raster planlanan 820 piksel taban genişliği kullanmalı.');
@@ -2585,7 +2586,7 @@ function run() {
     assert.equal(mapRasterProbe.disabled.raster, null, 'Bayrak kapalıyken kanonik raster üretilmemeli.');
     assert.equal(mapRasterProbe.ab.equal, true, 'Kanonik raster açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const prebuiltRasterProbe = probePrebuiltMapRaster();
+    const prebuiltRasterProbe = storyTestResult('prebuiltRasterProbe', probePrebuiltMapRaster);
     assert.equal(prebuiltRasterProbe.asset.uiNeutral, true, 'Build-time raster yüklemek kalıcı dünyayı değiştirmemeli.');
     assert.equal(prebuiltRasterProbe.asset.diagnostics.loadMode, 'asset', 'Normal açılış build-time raster varlığını kullanmalı.');
     assert.equal(prebuiltRasterProbe.generated.diagnostics.loadMode, 'runtime-disabled', 'Bayrak kapalıyken KD-tree runtime üreticisi çalışmalı.');
@@ -2643,7 +2644,7 @@ function run() {
     );
     assert.equal(prebuiltRasterProbe.ab.equal, true, 'Build-time raster açık/kapalı dünya karmasını değiştirmemeli.');
 
-    const politicalOverlayProbe = probePoliticalOverlay();
+    const politicalOverlayProbe = storyTestResult('politicalOverlayProbe', probePoliticalOverlay);
     assert.equal(politicalOverlayProbe.main.uiNeutral, true, 'Politik ImageData üretimi kalıcı dünya durumunu değiştirmemeli.');
     assert.equal(politicalOverlayProbe.main.audit.validation.ok, true, 'Politik RGBA/sınır çıktısı kendi sözleşmesini geçmeli.');
     assert.equal(politicalOverlayProbe.main.first.width, 820, 'Politik overlay kanonik 820 piksel genişliği kullanmalı.');
@@ -2726,7 +2727,7 @@ function run() {
     assert.equal(politicalOverlayProbe.disabled.render.putImageDataCalls, 0, 'Eski fallback putImageData kullanmamalı.');
     assert.equal(politicalOverlayProbe.ab.equal, true, 'Politik ImageData açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const warpProbe = probeAdaptiveMapWarp();
+    const warpProbe = storyTestResult('warpProbe', probeAdaptiveMapWarp);
     assert.equal(warpProbe.main.uiNeutral, true, 'Warp planı/çizimi kalıcı dünya durumunu değiştirmemeli.');
     assert.equal(warpProbe.main.adaptive720.band, 4, '720p adaptif warp 4 px band kullanmalı.');
     assert.equal(warpProbe.main.adaptive1080.band, 5, '1080p adaptif warp 5 px band kullanmalı.');
@@ -2760,7 +2761,7 @@ function run() {
     assert.ok(warpStart >= 0 && warpEnd > warpStart, 'Warp çizim gövdesi kaynak denetimine bulunmalı.');
     assert.doesNotMatch(warpBody, /\btry\s*\{/, 'Warp draw döngüsü hataları sessiz try/catch ile yutmamalı.');
 
-    const mapCacheProbe = probeMapCacheInvalidation();
+    const mapCacheProbe = storyTestResult('mapCacheProbe', probeMapCacheInvalidation);
     const mapCache = mapCacheProbe.main.contract;
     assert.equal(mapCacheProbe.main.uiNeutral, true, 'Hedefli cache probu kalıcı dünya durumunu test sonunda geri yüklemeli.');
     assert.equal(mapCache.ownership.event.ok, true, 'Sahiplik invalidation olayı kabul edilmeli.');
@@ -2831,7 +2832,7 @@ function run() {
         && !packageSource.build.files.includes('StoryGeoRender.js'),
     'Paket aktif js kaynaklarını almalı, kök prototipi açıkça dahil etmemeli.');
 
-    const migrationProbe = probeMigration();
+    const migrationProbe = storyTestResult('migrationProbe', probeMigration);
     assert.equal(migrationProbe.prepared.ok, true, 'Geçerli V3 kayıt saf V2 dönüşümüne hazırlanmalı.');
     assert.equal(migrationProbe.success.ok, true, 'Geçerli V3 kayıt güvenli gölge V2 kopyasına göçebilmeli.');
     assert.equal(migrationProbe.success.stage, 'complete', 'Başarılı göç bütün doğrulama kapılarını tamamlamalı.');
@@ -2883,7 +2884,7 @@ function run() {
     assert.equal(migrationProbe.targetConflict.writes, 0, 'Hedef çakışmasında hiçbir şey yazılmamalı.');
     assert.equal(migrationProbe.targetConflict.sourceUnchanged, true, 'Hedef çakışması kaynak kaydı değiştirmemeli.');
 
-    const clockProbe = probeDeterministicClock();
+    const clockProbe = storyTestResult('clockProbe', probeDeterministicClock);
     const fixedHashes = Object.values(clockProbe.patterns).map(result => result.hash);
     assert.equal(new Set(fixedHashes).size, 1, '30/60/144 FPS ve jitter aynı dünya karmasını üretmeli.');
     const speedHashes = Object.values(clockProbe.speeds).map(result => result.hash);
@@ -2916,7 +2917,7 @@ function run() {
     assert.equal(clockProbe.calendar.nextYear.label, '01.01.2033', '120. saniye yeni yıla geçmeli.');
     assert.equal(clockProbe.calendar.tenYears.label, '01.01.2042', 'On yıllık takvim dönüşümü kaymamalı.');
 
-    const schedulerProbe = probeSchedulerRegistry();
+    const schedulerProbe = storyTestResult('schedulerProbe', probeSchedulerRegistry);
     assert.equal(
         JSON.stringify(schedulerProbe.cadence.atBoundary.taskOrder),
         JSON.stringify(schedulerProbe.expectedOrder),
@@ -2981,7 +2982,7 @@ function run() {
         'Eski kayıt görev sicili fallback’i sessiz olmamalı.'
     );
 
-    const rngProbe = probeRngStreams();
+    const rngProbe = storyTestResult('rngProbe', probeRngStreams);
     assert.equal(rngProbe.initialSnapshot.rootSeed, 2032, 'Kampanya RNG kök tohumu açıkça saklanmalı.');
     assert.equal(rngProbe.initialSnapshot.schemaVersion, 1, 'RNG durumu sürümlü olmalı.');
     assert.equal(Object.keys(rngProbe.initialSnapshot.streams).length, 9, 'Dokuz bağımsız RNG akışı bulunmalı.');
@@ -3029,7 +3030,7 @@ function run() {
     );
     assert.equal(rngProbe.unknownRejected, true, 'Bilinmeyen RNG akışı sessizce kabul edilmemeli.');
 
-    const causalityProbe = probeCausalityLedger();
+    const causalityProbe = storyTestResult('causalityProbe', probeCausalityLedger);
     assert.equal(causalityProbe.enabled.firstWelfare, -5, 'İlk idempotent refah komutu uygulanmalı.');
     assert.equal(causalityProbe.enabled.duplicateWelfare, 0, 'Aynı idempotencyKey ikinci kez uygulanmamalı.');
     assert.equal(
@@ -3097,7 +3098,7 @@ function run() {
         'causality.ledger kapalı A/B yolunda defter boş kalmalı.'
     );
 
-    const guardProbe = probeCausalityGuards();
+    const guardProbe = storyTestResult('guardProbe', probeCausalityGuards);
     assert.equal(guardProbe.guarded.cycle.executed, 3, 'Aynı nedensel adım üç uygulamadan sonra kesilmeli.');
     assert.ok(
         guardProbe.guarded.cycle.blocked.includes('CYCLE_REPEAT'),
@@ -3146,7 +3147,7 @@ function run() {
     assert.equal(guardProbe.disabled.guard.invariantFailures, 0, 'Sigorta kapalıyken değişmez kapısı çalışmamalı.');
     assert.equal(guardProbe.ab.equal, true, 'Normal dünyada sigorta açık/kapalı aynı karma üretmeli.');
 
-    const projectionProbe = probeStoryProjection();
+    const projectionProbe = storyTestResult('projectionProbe', probeStoryProjection);
     assert.equal(projectionProbe.main.beforeHash, projectionProbe.main.afterHash, 'UI projeksiyonu canlı dünya durumunu değiştirmemeli.');
     assert.equal(projectionProbe.main.worldUnchanged, true, 'UI projeksiyonu verilen V2 dünya nesnesini değiştirmemeli.');
     assert.equal(projectionProbe.main.ledgerUnchanged, true, 'UI projeksiyonu nedensellik defterini değiştirmemeli.');
@@ -3198,8 +3199,8 @@ function run() {
     assert.equal(projectionProbe.disabled.items.length, 0, 'Kapalı projeksiyon olay veya etki açmamalı.');
     assert.equal(projectionProbe.ab.equal, true, 'Projeksiyon açık/kapalı normal dünya karmasını değiştirmemeli.');
 
-    const welfareProbe = probeWelfareGate();
-    const welfareProbeOff = probeWelfareGate(2032, { 'welfare.continuousCap': false });
+    const welfareProbe = storyTestResult('welfareProbe', probeWelfareGate);
+    const welfareProbeOff = storyTestResult('welfareProbeOff', probeWelfareGate, 2032, { 'welfare.continuousCap': false });
     assert.ok(welfareProbe.applied >= -0.360001, 'Sürekli refah kaybı burst tavanını aşmamalı.');
     assert.ok(
         Object.values(welfareProbe.welfareTotals || {}).some(total => total.suppressed > 0),
