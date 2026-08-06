@@ -8,6 +8,9 @@
 const { tezgahKur } = require('./muharebe-tezgah.js');
 const vm = require('node:vm');
 const { ctx } = tezgahKur();
+// GERCEKCI ORDU: `zorunlu`-only tarif orduyu DOLDURMUYOR (olculdu: yalnizca 5 birim, butcenin
+// cogu harcanmadan kaliyor) -> olcum temsili olmuyor. Gercek paylar tabana eklenir.
+const GERCEKCI_TABAN = JSON.parse(require('fs').readFileSync('qa-runtime/gercekci-taban.json','utf8'));
 const fs = require('fs');
 
 // --kesif N : orduya N adet kesif birimi ZORUNLU kil (gozcu hipotezini sinamak icin)
@@ -24,7 +27,7 @@ const kod = [
     'BATTLE_INTEL4PRO_DELTAS.spotterRequirement = ' + (!NOSPOT) + ';',
     'const cikti = [];',
     'for (const seed of ' + JSON.stringify(TOHUMLAR) + ') {',
-    '  BATTLE_RECIPE_RED = { ad:"BAL", rol:"attacker", zorunlu: ' + JSON.stringify(Object.assign({ ballistic_missile: 1 }, KESIF > 0 ? { recon_uav: KESIF, scout_vehicle: KESIF } : {})) + ', tavan:{}, artik:[] };',
+    '  BATTLE_RECIPE_RED = Object.assign({ ad:"BAL", rol:"attacker", zorunlu: ' + JSON.stringify(Object.assign({ ballistic_missile: 1 }, KESIF > 0 ? { recon_uav: KESIF, scout_vehicle: KESIF } : {})) + ', tavan:{}, artik:[] }, ' + JSON.stringify(GERCEKCI_TABAN) + ');',
     '  openBattlefieldSession({ mode:"quick", mapId:-2, seed, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });',
     '  battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:"bm", ally:true });',
     '  startBattle();',

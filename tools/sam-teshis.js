@@ -8,6 +8,9 @@
 const { tezgahKur } = require('./muharebe-tezgah.js');
 const vm = require('node:vm');
 const { ctx } = tezgahKur();
+// GERCEKCI ORDU: `zorunlu`-only tarif orduyu DOLDURMUYOR (olculdu: yalnizca 5 birim, butcenin
+// cogu harcanmadan kaliyor) -> olcum temsili olmuyor. Gercek paylar tabana eklenir.
+const GERCEKCI_TABAN = JSON.parse(require('fs').readFileSync('qa-runtime/gercekci-taban.json','utf8'));
 
 const _si = process.argv.indexOf('--seeds');
 const TOHUMLAR = _si >= 0 ? process.argv[_si + 1].split(',').map(Number) : [2024, 3141, 777, 11, 202, 333];
@@ -27,7 +30,7 @@ const kod = [
     'const cikti = [];',
     'for (const seed of ' + JSON.stringify(TOHUMLAR) + ') {',
     // KIRMIZI = SAM sahibi (saldiran). MAVI = rakip; hipotez (a) icin hava zorunlu kilinabilir.
-    '  BATTLE_RECIPE_RED = { ad:"SAMTEST", rol:"attacker", zorunlu: ' + JSON.stringify(Object.assign({ sam_battery: 2 }, RADAR > 0 ? { counter_battery_radar: RADAR } : {})) + ', tavan:{}, artik:[] };',
+    '  BATTLE_RECIPE_RED = Object.assign({ ad:"SAMTEST", rol:"attacker", zorunlu: ' + JSON.stringify(Object.assign({ sam_battery: 2 }, RADAR > 0 ? { counter_battery_radar: RADAR } : {})) + ', tavan:{}, artik:[] }, ' + JSON.stringify(GERCEKCI_TABAN) + ');',
     '  openBattlefieldSession({ mode:"quick", mapId:-2, seed, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });',
     '  const savTarif = ' + (DHAVA > 0 ? 'JSON.stringify({ ad:"RAKIP-HAVA", rol:"defender", zorunlu:{ attack_helo:' + DHAVA + ' }, tavan:{}, artik:[] })' : 'null') + ';',
     '  battleDeployManifest(battleBuildArmyManifest(6500, savTarif ? { maxUnits:48, recipe: JSON.parse(savTarif) } : { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:"sam", ally:true });',

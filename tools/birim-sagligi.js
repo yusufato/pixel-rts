@@ -27,7 +27,11 @@ const TUM = JSON.parse(vm.runInContext(
 const NOSPOT = process.argv.includes('--nospotter');   // gozcu kurali KAPALI kolu
 const _zi = process.argv.indexOf('--zorunlu');
 const ZORUNLU = _zi >= 0 ? process.argv[_zi + 1].split(',').filter(Boolean) : [];
-const tarif = ZORUNLU.length ? { ad: 'TARAMA', rol: 'attacker', zorunlu: {}, tavan: {}, artik: [] } : null;
+// KURGU HATASI 2 (olculdu ve duzeltildi): `zorunlu`-only tarif orduyu DOLDURMUYOR - 6500 TL ile
+// yalnizca 5 birim kuruluyor (2 sinanan + 3 gozcu), butcenin cogu harcanmadan kaliyor ve HER birim
+// bozuk gorunuyor. Gercek paylar (ORN-244) tabana eklenir.
+const GERCEKCI_TABAN = JSON.parse(require('fs').readFileSync('qa-runtime/gercekci-taban.json', 'utf8'));
+const tarif = ZORUNLU.length ? Object.assign({ ad: 'TARAMA', rol: 'attacker', zorunlu: {}, tavan: {}, artik: [] }, GERCEKCI_TABAN) : null;
 if (tarif) for (const id of ZORUNLU) tarif.zorunlu[id] = 1;
 
 const kod = [

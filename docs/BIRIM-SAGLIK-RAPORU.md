@@ -185,3 +185,52 @@ kara birimlerine yem oluyor (11/12 ölüyor). Hava savunması geri bölgede olma
 konumlandırma becerisi ve sıraya alındı.
 
 **Kapılar:** forktest `true` · liverepro `false` · pdtest OK.
+
+---
+
+# ⚠ DÜZELTME — #1, #2 ve #3'ün SAYILARI GEÇERSİZ (ölçüm kurgusu hatası)
+
+**Hata:** Bu üç birimi `zorunlu`-only tarifle ölçtüm (`{ zorunlu: { mlrs: 2 } }` gibi, `paylar`/
+`tipPaylari` YOK). Böyle bir tarif orduyu **doldurmuyor**: 6500₺ ile yalnızca **5 birim** kuruluyor
+(2 sınanan + gözcü kuralının aldığı 3 keşif) ve bütçenin çoğu harcanmadan kalıyor. Neredeyse boş bir
+orduda ölçüm yaptım; her birim doğal olarak bozuk göründü.
+
+*(Aynı hatanın kardeşini bir gün önce yapmıştım: 26 birimi 6500₺'ye zorlamak. Kurgu, ölçümün kendisi
+kadar ölçülmeli.)*
+
+**Düzeltme:** `qa-runtime/gercekci-taban.json` (ORN-244 payları) tüm teşhis araçlarına taban olarak
+eklendi. Yeniden ölçüm:
+
+| birim | ₺ | getiri (BOZUK) | **getiri (DOĞRU)** | değişim |
+|---|---|---|---|---|
+| sam_battery | 700 | x0.04 | **x0.55** | 13× |
+| attack_helo | 800 | x0.28 | **x0.88** | 3× |
+| ballistic_missile | 1050 | x0 | **x0.15** | — |
+| mlrs | 650 | x0.15 | x0.09 | — |
+| ifv | 320 | x0.10 | **x0.05** | daha kötü |
+
+**Geçersiz olan iddialar (geri çekiliyor):**
+- ~~"SAM 12 birim 6 tohum TOPLAM 0 ATIŞ"~~ → gerçekçi orduda **39 atış**, ölen 8→3, tam-yükle 8→1
+- ~~"Balistik 4/6 tohumda hiç ateş etmiyor"~~ → gerçekçi orduda **0/6**, 16 imha
+- ~~"ÇNRA hasar/₺ 0.51, gözcü kuralı 6.8× kazandırıyor"~~ → gerçekçi orduda **hasar/₺ 1.07** ve
+  gözcü kuralının etkisi **SIFIR**
+
+**`spotterRequirement` kuralı hakkında dürüst durum:** gerçekçi ordularda **hiçbir etkisi yok**
+(üç birimde de iki kol birebir aynı) — çünkü gerçek kompozisyonlar zaten keşif ve radar içeriyor.
+Kural yalnız keşif/radar-fakiri ordularda bağlar. Varsayılan AÇIK kalıyor çünkü bağlamadığında
+maliyeti sıfır ve turnuva bu tür kompozisyonları da deniyor — ama onu "büyük kazanç" olarak
+sunmam yanlıştı.
+
+## Düzeltilmiş öncelik listesi (gerçekçi ordu)
+
+| # | birim | ₺ | getiri | asıl sorun |
+|---|---|---|---|---|
+| 1 | **mlrs** | 650 | **x0.09** | %82 hedefli ve ateş ediyor ama **%85 KURU**, hiç ikmal almıyor, ikmal halesinde %0 |
+| 2 | **ifv** | 320 | **x0.05** | **66sn — en kısa ömür**, %88 boşta |
+| 3 | **ballistic_missile** | 1050 | x0.15 | tek atış; pahalı ve etkisi sınırlı |
+| 4 | **mbt** | 500 | x0.26 | %55 boşta |
+| 5 | **transport_helo** | 400 | — | **80sn'de ölüyor** |
+| 6 | **command_vehicle** | 600 | — | 166sn |
+
+**Sağlıklı çıkanlar:** tank_destroyer x1.35 · at_team x1.18 · attack_helo x0.88 ·
+sam_battery x0.55 · armed_uav x0.55
