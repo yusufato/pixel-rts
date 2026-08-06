@@ -523,8 +523,30 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // DAHA DERİN SEBEP: havanın menzilinde düşman olmamasının kaynağı havanın kendi konumu değil,
     // SAVUNAN KUVVETİN TAMAMININ geride ve yayılmış durması. Bu birim katmanında çözülmüyor —
     // zırhlı teşhisinin (§17) vardığı yerin aynısı: doğru katman KUVVET DAĞILIMI.
-    indirectCreep: false
+    indirectCreep: false,
+    // P15 — İKMAL ARACI ATEŞ DESTEĞİNİN YANINDA DURUR (KULLANICI DOKTRİNİ: "topçuların yakınında
+    // sürekli bir ikmal aracı şart"). ÖLÇÜLDÜ: savunan dolaylısı ikmal halesinde yalnız %16 geçiriyor,
+    // %12 kuru; araç dolaylı-kümeye ort. 712px uzakta, hale 400px. Elenen `resupplyRun`un TERSİ —
+    // orada topçu mevziini terk ediyordu, burada ARAÇ geliyor.
+    //
+    // ÖLÇÜLDÜ ve **ELENDİ** → VARSAYILAN KAPALI — ama doktrin YANLIŞ DEĞİL, kısıt BAŞKA YERDE.
+    // MEKANİZMA ÇALIŞTI: araç→dolaylı-küme mesafesi 712px → 442px, hale içinde geçen süre
+    // %16 → %27 (yer olan tohumlarda %23→%64, %24→%56).
+    // AMA ATIŞA DÖNMEDİ (9 tohum, toplam dolaylı atış):
+    //   kapalı 33 32 20 16 16 59 40  25  2   (ort 27.0)
+    //   açık   81 20 10 27 11 38 17 106 24   (ort 37.1)
+    //   4 tohum iyi / 5 tohum kötü; fark +10.1 ama SE ±11.7 → sıfırdan ayırt edilemiyor.
+    // SEBEP: mühimmat BAĞLAYICI KISIT DEĞİL. Dolaylı birim KURU geçen süre %12, HEDEFSİZ geçen
+    // süre %48 (tools/dolayli-bos-teshis.js). Mermi yetiştirmek, ateş edecek hedef yokken atış
+    // üretmiyor. Zaten kapsaması %83-85 olan tohumlarda bile atış 16-20'de kalıyor — kanıt bu.
+    // Kod duruyor: hedef sorunu çözülürse (savunan duruşu/kompozisyonu) bu kural yeniden anlam kazanır.
+    supplyEscort: false
 };
+// ── 'supplyEscort' PARAMETRELERİ (aranabilir) ──
+let PRO_SUPPLY_MIN_EKSIK = 0.15;    // mühimmat eksikliği bunun altındaki birim müşteri sayılmaz
+let PRO_SUPPLY_DOLAYLI_KAT = 3;     // dolaylı ateşe ağırlık katı (mermisi bitince tamamen işlevsiz)
+let PRO_SUPPLY_ICERI = 0.60;        // küme merkezini halenin bu kesrine al
+let PRO_SUPPLY_TEHDIT = 900;        // görülen düşman ateşli kara birimi bu kadar yakınsa ilerleme
 // ── 'indirectCreep' PARAMETRELERİ (aranabilir) ──
 let PRO_ICREEP_MAX_MENZIL = 1200;   // bu menzilin ÜSTÜNDEKİ dolaylı birim kural-dışı (topçu 1500 hariç)
 let PRO_ICREEP_HEDEF = 0.80;        // düşmanı menzilin bu kesrine al (kenarında değil, rahat içinde)

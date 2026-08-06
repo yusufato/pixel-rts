@@ -894,3 +894,45 @@ savunanın kaybetmesinin sebebi birim davranışı değil. Ve kuvvet dağılım�
 "yoğunlaş" çözümünü de eledi — savunan yoğunlaşınca DAHA KÖTÜ oluyor.
 Geriye kalan adaylar: **kompozisyon** (savunan bütçesinin yalnız %7'si dolaylı) ve
 **kazanma koşulu/arazi** (savunanı ileri çeken bir şey var mı).
+
+---
+
+## 20. İKMAL REFAKATİ — doktrin DOĞRU, kısıt BAŞKA YERDE (7. eleme)
+
+> **Kullanıcı:** "hem kompozisyon sorunu hem de mühimmat sorunu; topçuların yakınında sürekli bir
+> ikmal aracı şart."
+
+Bu, elenen `resupplyRun`un **tersi**: orada topçu ikmale gidiyordu (mevziini terk etti, K2'de düştü);
+burada **araç topçuya gelir**. Doğru tasarım — ve ölçüm boşluğun gerçek olduğunu doğruladı:
+
+| ölçüm (kapalı) | değer |
+|---|---|
+| dolaylı birim ikmal halesinde geçen süre | **%16** |
+| kuru geçen süre | %12 |
+| araç → dolaylı-küme merkezi mesafe | **712px** (hale 400px) |
+
+**Kural yazıldı** (`_ikmalRefakat`, gate `supplyEscort`): ihtiyaç-ağırlıklı müşteri merkezine otur
+(dolaylıya ×3 ağırlık), düşman ateşinden uzak dur.
+
+**Mekanizma çalıştı:** mesafe 712px → **442px**, hale içinde süre %16 → %27
+(yer olan tohumlarda %23→%64, %24→%56).
+
+**Ama atışa dönmedi** (9 tohum, toplam dolaylı atış):
+
+| tohum | 2024 | 3141 | 777 | 11 | 202 | 333 | 4242 | 5150 | 6060 | **ort** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| kapalı | 33 | 32 | 20 | 16 | 16 | 59 | 40 | 25 | 2 | **27.0** |
+| açık | **81** | 20 | 10 | 27 | 11 | 38 | 17 | **106** | 24 | **37.1** |
+
+4 tohum iyi / 5 tohum kötü. Fark +10.1 ama **SE ±11.7 → sıfırdan ayırt edilemiyor.**
+
+**SEBEP — ve bu bulgu deltadan daha değerli:** mühimmat **bağlayıcı kısıt değil.**
+Dolaylı birim KURU geçen süre %12, **HEDEFSİZ** geçen süre %48. Mermi yetiştirmek, ateş edecek
+hedef yokken atış üretmez. Kanıt: kapsaması zaten %83-85 olan tohumlarda bile atış 16-20'de kalıyor.
+
+**Durum:** varsayılan KAPALI, kod duruyor. Hedef sorunu (savunan duruşu/kompozisyonu) çözülürse
+bu kural yeniden anlam kazanır — sıraya alındı.
+
+**Kompozisyon öngörüsü (turnuva sınayacak):** savunan bütçesinin %7'si dolaylı. Dolaylı birimler
+zamanın %48'inde hedefsizken **daha çok dolaylı almak israf olmalı.** Akşamki turnuva bu öngörüyü
+doğrudan test edecek: `SUP-indirect-*` aileleri hem artırılmış hem azaltılmış payları taşıyor.

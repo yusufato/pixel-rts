@@ -363,7 +363,7 @@ class Unit {
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
-            if (!this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
+            if (!this._ikmalRefakat() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1544,6 +1544,63 @@ class Unit {
         this._pressingAssault = 0;
         if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
             BATTLE_BALANCE.icreepBind = (BATTLE_BALANCE.icreepBind || 0) + 1;
+        }
+        return true;
+    }
+
+    // ── INTEL4-PRO 'supplyEscort': İKMAL ARACI ATEŞ DESTEĞİNİN YANINDA DURUR ──
+    // KULLANICI DOKTRİNİ: "topçuların yakınında sürekli bir ikmal aracı şart."
+    // ÖLÇÜLDÜ (tools/ikmal-konum-teshis.js, seed2024): savunanın dolaylı birimleri ikmal halesinin
+    // içinde yalnız %16 geçiriyor, %12 KURU duruyor ve ikmal aracı dolaylı-kümenin merkezine
+    // ortalama 712px uzakta — hale ise 400px. Yani araç çoğu zaman menzil dışında.
+    // Bu, elenen `resupplyRun`un TERSİ: orada topçu ikmale gidiyordu (mevziini terk edip Katman 2'de
+    // düştü); burada ARAÇ topçuya geliyor. Topçu mevziinde kalır, aracın zaten tek işi budur.
+    // Determinist: ihtiyaç-ağırlıklı merkez, RNG yok. Dönüş: true ise hareketi devraldı.
+    _ikmalRefakat() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'supplyEscort')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.speed || this._returningToBase) return false;
+        const st = STATS[this.type];
+        const aura = st && st.aura;
+        if (!aura || aura.type !== 'resupply') return false;
+        const TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 100;
+        const R = (aura.radius || 3) * TP;
+
+        // MÜŞTERİ KÜMESİ: mühimmatı EKSİLEN dostlar; eksiklik × maliyet ile ağırlıklı.
+        // Dolaylı ateşe ek ağırlık — mermisi bitince tamamen işlevsiz kalan sınıf odur.
+        let cx = 0, cy = 0, w = 0;
+        for (const f of SIM.units) {
+            if (f.dead || f.loaded || f.abandoned || f.isRed !== this.isRed || f === this) continue;
+            if (!f.maxAmmo) continue;
+            const eksik = 1 - (f.ammo / f.maxAmmo);
+            if (eksik <= PRO_SUPPLY_MIN_EKSIK) continue;
+            const fs = STATS[f.type];
+            const agirlik = eksik * ((fs && fs.cost) || 1) * (f.isIndirect ? PRO_SUPPLY_DOLAYLI_KAT : 1);
+            cx += f.x * agirlik; cy += f.y * agirlik; w += agirlik;
+        }
+        if (!w) return false;   // kimsenin mühimmatı eksik değil → mevcut davranış
+        cx /= w; cy /= w;
+
+        // GÜVENLİK: ikmal aracı zırhsız ve silahsız. Görülen düşman ateşli KARA birimi yakınsa gitme.
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || e.isAir) continue;
+            const es = STATS[e.type];
+            if (!es || !es.weapons || !es.weapons.length) continue;
+            if (Math.hypot(e.x - this.x, e.y - this.y) <= PRO_SUPPLY_TEHDIT) return false;
+        }
+
+        const d = Math.hypot(cx - this.x, cy - this.y);
+        if (d <= R * PRO_SUPPLY_ICERI) {   // küme zaten halede → dur (sürüklenme yok, ikmal aksamasın)
+            this.targetX = this.x; this.targetY = this.y;
+        } else {
+            const t = (d - R * PRO_SUPPLY_ICERI) / d;
+            this.targetX = this.x + (cx - this.x) * t;
+            this.targetY = this.y + (cy - this.y) * t;
+        }
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.supplyEscortBind = (BATTLE_BALANCE.supplyEscortBind || 0) + 1;
         }
         return true;
     }
