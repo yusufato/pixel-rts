@@ -53,16 +53,24 @@ function tarifleriYaz(adaylar, yol) {
     fs.writeFileSync(yol, JSON.stringify(adaylar, null, 1));
 }
 
+// KISA MAC yalniz TUR 1'de: olculdu (1281 mac) t=120sn marji ile nihai marj r=0.885, isaret uyumu
+// %82 ve |erken| buyudukce guvenilirlik artiyor (1500-3000 -> %95, 3000+ -> %100). Yani ELEME icin
+// gecerli, SIRALAMA icin degil. Tur 1 zaten eleme; sonraki turlar tam mac kosar.
+const KISA_TUR1 = Number(arg('--kisa-tur1', 2400)) || 0;
+// RAKIP PANELI yalniz TUR 2'den itibaren: panel maliyeti rakip sayisiyla CARPAR (1399 aday x 24
+// tohum x 3 rakip = 100k mac). Tur 1 tek olcu cubuguyla ELER, sonraki turlar panelle DOGRULAR.
 function turKos(adaylar, rakipTarifler, tohumSayisi, sonTur, turNo) {
+    const turRakipler = (turNo === 1 && rakipTarifler.length > 1) ? [rakipTarifler[0]] : rakipTarifler;
     const dosya = path.join(ROOT, 'qa-runtime', 'turnuva-tur-' + turNo + '.json');
     const tarifDosya = path.join(ROOT, 'qa-runtime', 'turnuva-tarifler-' + turNo + '.json');
-    tarifleriYaz(adaylar.concat(rakipTarifler), tarifDosya);
+    tarifleriYaz(adaylar.concat(turRakipler), tarifDosya);
     const argv = ['tools/caprazla.js', '--tarifler', tarifDosya,
-        '--sal', adaylar.map(a => a.ad).join(','), '--sav', rakipTarifler.map(r => r.ad).join(','),
+        '--sal', adaylar.map(a => a.ad).join(','), '--sav', turRakipler.map(r => r.ad).join(','),
         '--seeds', String(tohumSayisi), '--out', dosya];
     if (sonTur) argv.push('--final');               // NİHAİ TUR: dışörneklem havuzu
     else if (turNo >= 2) argv.push('--disornek');   // ara turlar tarama dışı havuzda
     if (ISCI) argv.push('--workers', ISCI);
+    if (turNo === 1 && KISA_TUR1 > 0) argv.push('--maxtik', String(KISA_TUR1));   // yalniz eleme turu
     const r = spawnSync(process.execPath, argv, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     if (!fs.existsSync(dosya)) {
         console.log('  ✗ tur çıktısı yok. caprazla son satırlar:');
@@ -98,6 +106,8 @@ function main() {
         console.log('── TUR ' + (i + 1) + ': ' + yasayan.length + ' aday × ' + tohum + ' tohum' +
             (sonTur ? '  (FİNAL havuzu — dışörneklem)' : '') + ' ──');
         const t0 = Date.now();
+        const _turRakipSayi = (i === 0 && rakipler.length > 1) ? 1 : rakipler.length;
+        console.log('  (rakip ' + _turRakipSayi + (i === 0 && KISA_TUR1 ? ', KISA MAC ' + KISA_TUR1 + ' tik' : '') + ')');
         const sonuc = turKos(yasayan, rakipler, tohum, sonTur, i + 1);
         if (!sonuc) { console.log('TUR BAŞARISIZ — duruldu.'); break; }
         const sure = Math.round((Date.now() - t0) / 1000);
