@@ -265,8 +265,12 @@ function macKos(ctx, tSal, tSav, seed) {
         'let mv;' +
         'if (sezSav) {' +
         '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = (tSav.varied !== false);' +
-        '  mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:(tSav.varied !== false), brainIntel4:true, isAttacker:false, pro:false });' +
-        '} else { mv = battleBuildArmyManifest(6500, { maxUnits:48, recipe: tSav }); }' +
+        // SAVUNAN da pro KOMPOZISYON katmanini alabilmeli. Eskiden `pro:false` (sezgisel yol) ve
+        // `pro` alani HIC verilmemis (tarif yolu) idi -> gozcu/lojistik kurallari savunana ULASMIYORDU.
+        // Oyunun kendi yolunda da (BattleDeployment ~1021) `pro: BATTLE_INTEL4PRO_RED` ile yalniz
+        // KIRMIZI taraf pro kompozisyonu aliyor; savunan yapisal olarak disaridaydi.
+        '  mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:(tSav.varied !== false), brainIntel4:true, isAttacker:false, pro: BATTLE_INTEL4PRO_BLUE === true });' +
+        '} else { mv = battleBuildArmyManifest(6500, { maxUnits:48, recipe: tSav, pro: BATTLE_INTEL4PRO_BLUE === true }); }' +
         'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
         'battleDeployManifest(mv, false, { source:"tezgah-sav", ally:true });' +
         'const salDeger = SIM.units.filter(u => u.isRed).reduce((s,u)=>s+((STATS[u.type]&&STATS[u.type].cost)||0),0);' +

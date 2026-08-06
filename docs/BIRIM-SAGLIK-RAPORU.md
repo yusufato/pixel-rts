@@ -343,3 +343,59 @@ bakmak `infantry`, `engineer`, `ifv` gibi perde birimlerini haksız yere mahkûm
 
 **Durum:** IFV'ye müdahale YOK — mevcut payı optimal. Taşıma yeteneğini açmak ayrı ve büyük bir iş
 (yükle-taşı-indir davranışı + AI kararı); sıraya alındı, bu oturumda yapılmadı.
+
+---
+
+# INTEL4-PRO vs INTEL4 — bugünkü işten sonra nerede duruyoruz
+
+Kullanıcı sorusu: *"intel4 pro vs intel4 değişmiş olmalı bu becerilerle."*
+Aynı kompozisyon, tek fark gövde. Dört hücre, iki havuz.
+
+| saldıran | savunan | dışörneklem | FİNAL |
+|---|---|---|---|
+| INTEL4 | INTEL4 | 39/48 · +1731 | 33/48 · +1162 |
+| INTEL4 | **PRO** | 21/48 · **−471** | 31/48 · +630 |
+| **PRO** | INTEL4 | 31/48 · +789 | 36/48 · +1188 |
+| PRO | PRO | 26/48 · +78 | 26/48 · +281 |
+
+**Özet (96 tohum, iki havuz birleşik):**
+
+| rol | saldıranın gördüğü ortalama marj |
+|---|---|
+| savunan **INTEL4** | **+1217** |
+| savunan **PRO** | **+130** |
+
+→ **Savunma tarafında pro ~1090 marj daha iyi.** Saldıran tarafında ~179 daha kötü (gürültü içinde).
+
+**Bütün oturum boyunca kovaladığımız "savunan kaybediyor" sorunu büyük ölçüde kapanmış** —
+ama bu bugünkü becerilerden DEĞİL.
+
+## Atıf: bugünkü beceriler bu kazancı vermedi
+
+`standoff` + `heloHunt` savunanda açık/kapalı: **birebir aynı sonuç** (21/48, −471).
+Sebep basit: bu kompozisyonda bağlamıyorlar — `standoff` ≥600px ölü bölge ister (ÇNRA/balistik),
+`heloHunt` taarruz helosu ister. Savunanın ordusunda ikisi de yok.
+
+Pro'nun savunma üstünlüğü **önceden var olan** deltalardan geliyor (assaultCohesion, counterBattery,
+indirectMassing, trueForceRatio) ve muhtemelen bugünkü **global** mekanik düzeltmelerinden
+(boş namlu, kısmi jam) — ikisi de her iki tarafa uygulanıyor.
+
+## Bugünkü işin gerçekte ödediği yer
+
+Kompozisyon kuralları, **ihtiyaç duyan** bir orduda ölçüldüğünde (ÇNRA-zorunlu):
+
+| havuz | kurallar KAPALI | kurallar AÇIK |
+|---|---|---|
+| dışörneklem | 16/48 · −1265 | **39/48 · +1816** |
+| FİNAL | 16/48 · −1040 | **37/48 · +1717** |
+
+**Yani beceriler KOŞULLU:** ilgili birim orduda varsa çok değerli, yoksa sıfır. Bu bir kusur değil —
+kural yalnız eksik olanı tamamlıyor.
+
+## Yol boyunca bulunan yapısal kısıt (düzeltildi)
+
+Kompozisyon katmanı **yalnız saldırana (kırmızı)** uygulanıyordu: tezgâh savunanın ordusunu
+`pro:false` (sezgisel) veya `pro` alanı hiç verilmeden (tarif) kuruyordu; oyunun kendi yolunda da
+`pro: BATTLE_INTEL4PRO_RED`. Savunan yapısal olarak dışarıdaydı. Tezgâhta düzeltildi
+(`pro: BATTLE_INTEL4PRO_BLUE === true`). ORN-244 savunanında etkisi yok — o orduda ÇNRA/SAM
+bulunmuyor, yani kuralın tamamlayacağı eksik yok — ama ÇNRA/SAM taşıyan savunanlarda bağlayacak.
