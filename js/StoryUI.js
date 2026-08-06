@@ -42,8 +42,146 @@ function storyActivateDetailTooltips(root) {
     });
 }
 
+const STORY_BRIEF_TABS = Object.freeze(['agenda', 'region', 'flow']);
+const STORY_AGENDA_SEVERITY = Object.freeze({ critical: 0, high: 1, watch: 2, stable: 3 });
+
+function storyBriefSetTab(tab) {
+    const selected = STORY_BRIEF_TABS.includes(tab) ? tab : 'agenda';
+    STORY._briefTab = selected;
+    for (const name of STORY_BRIEF_TABS) {
+        const button = document.querySelector(`[data-story-brief-tab="${name}"]`);
+        const panel = document.getElementById(name === 'agenda' ? 'story-agenda' : name === 'region' ? 'story-hud' : 'story-news');
+        const active = name === selected;
+        if (button) {
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.setAttribute('tabindex', active ? '0' : '-1');
+        }
+        if (panel) panel.classList.toggle('hidden', !active);
+    }
+}
+
+function storyAgendaCollect(me) {
+    const items = [];
+    const add = (severity, title, detail, action, actionLabel, sub) => items.push({
+        severity, title, detail, action, actionLabel, sub
+    });
+    const noticeCount = (STORY._factionNoticeQueue || []).length + (STORY._factionNoticeCurrent ? 1 : 0);
+    if (noticeCount > 0) add(
+        'critical', 'Toplumsal olay yanıt bekliyor',
+        `${noticeCount} olay okunmadan veya yanıtlanmadan bekliyor.`,
+        'economy', 'TOPLUMU AÇ', 'fraksiyonlar'
+    );
+    if (me._strikeUntil && me._strikeUntil > (STORY.clock || 0)) add(
+        'critical', 'Grev üretimi baskılıyor',
+        `Eylem yaklaşık ${Math.max(1, Math.ceil(me._strikeUntil - (STORY.clock || 0)))} sn daha sürecek.`,
+        'economy', 'ETKİYİ İNCELE', 'fraksiyonlar'
+    );
+    const welfare = Number(me.welfare);
+    if (Number.isFinite(welfare) && welfare < 45) add(
+        welfare < 25 ? 'critical' : 'high', 'Refah aşınıyor',
+        `Refah ${Math.round(welfare)}/100. Kaynak katkılarını ve toplumsal baskıyı incele.`,
+        'economy', 'NEDENLERİ AÇ', 'genel'
+    );
+    const inflation = Number(me.inflation);
+    if (Number.isFinite(inflation) && inflation >= 15) add(
+        inflation >= 28 ? 'critical' : 'high', 'Enflasyon kritik eşiğe yaklaşıyor',
+        `Yıllık gösterge %${Math.round(inflation)}; gelir ve halk desteği aynı anda baskılanıyor.`,
+        'economy', 'PİYASAYI AÇ', 'piyasa'
+    );
+    const capacity = typeof storyStateCapacityCountryView === 'function'
+        ? storyStateCapacityCountryView(me.id) : null;
+    if (capacity) {
+        const failed = (capacity.implementationTickets || []).filter(ticket => (
+            ticket.status === 'PAPER_ONLY' || ticket.status === 'DEGRADED'
+        ));
+        const queued = (capacity.implementationTickets || []).filter(ticket => ticket.status === 'QUEUED');
+        if (failed.length) add(
+            'high', 'Kararlar sahada eksik uygulanıyor',
+            `${failed.length} uygulama kâğıt üzerinde kaldı veya düşük kaliteyle tamamlandı.`,
+            'council', 'YÖNETİMİ AÇ'
+        );
+        else if (queued.length) add(
+            'watch', 'Uygulama kuyruğu oluştu',
+            `${queued.length} yetkili karar idari kapasite bekliyor.`,
+            'council', 'KAPASİTEYİ İNCELE'
+        );
+    }
+    const integrity = typeof storyIntegrityPublicView === 'function' && typeof storyIntegrityCountryView === 'function'
+        ? storyIntegrityPublicView(storyIntegrityCountryView(me.id)) : null;
+    if (integrity && integrity.openInvestigationCount > 0) add(
+        'high', 'Resmî soruşturma açık',
+        `${integrity.openInvestigationCount} dosya sonuç bekliyor; meşruiyet ve kurum güveni etkilenebilir.`,
+        'council', 'KURUMLARI AÇ'
+    );
+    const election = typeof storyElectionPublicView === 'function' && typeof storyElectionCountryView === 'function'
+        ? storyElectionPublicView(storyElectionCountryView(me.id)) : null;
+    if (election) {
+        const active = (election.elections || []).find(row => row.status === 'CAMPAIGN');
+        const contested = (election.elections || []).find(row => row.contest && !row.contest.resolved);
+        if (contested) add(
+            'high', 'Seçim sonucuna itiraz edildi',
+            'Yetki devri kesinleşmeden kurumların kararı bekleniyor.',
+            'council', 'YÖNETİMİ AÇ'
+        );
+        else if (active) add(
+            'watch', 'Seçim kampanyası sürüyor',
+            `${active.candidates.length} aday listesi iktidar için yarışıyor.`,
+            'council', 'YÖNETİMİ AÇ'
+        );
+    }
+    const cmd = STORY.commander ? storyNode(STORY.commander.node) : null;
+    const selected = storyNode(STORY.selectedNodeId);
+    if (cmd && selected && selected.owner !== me.id && cmd.neighbors.includes(selected.id)) add(
+        'watch', `${selected.name} aktif cephede`,
+        'Seçili komşu bölge için kuvvet ve beklenen sonuç brifingi hazır.',
+        'region', 'BRİFİNGİ AÇ'
+    );
+    if (!items.length) add(
+        'stable', 'Acil karar yok',
+        'Dünya akıyor. Bir şehir seçebilir veya uzun vadeli panellerden birini açabilirsin.',
+        'region', 'BÖLGEYE BAK'
+    );
+    return items.sort((a, b) => STORY_AGENDA_SEVERITY[a.severity] - STORY_AGENDA_SEVERITY[b.severity]).slice(0, 5);
+}
+
+function storyAgendaUpdate(me) {
+    const summary = document.getElementById('story-agenda-summary');
+    const list = document.getElementById('story-agenda-list');
+    if (!summary || !list) return;
+    const noticeCount = (STORY._factionNoticeQueue || []).length + (STORY._factionNoticeCurrent ? 1 : 0);
+    const renderKey = [
+        STORY.playerStateId, Math.floor((Number(STORY.clock) || 0) * 2), noticeCount,
+        Math.round(Number(me.welfare) || 0), Math.round(Number(me.inflation) || 0),
+        me._strikeUntil && me._strikeUntil > (STORY.clock || 0) ? 1 : 0
+    ].join('|');
+    if (storyAgendaUpdate._lastKey === renderKey && list.childElementCount) return;
+    storyAgendaUpdate._lastKey = renderKey;
+    const items = storyAgendaCollect(me);
+    const urgent = items.filter(item => item.severity === 'critical' || item.severity === 'high').length;
+    const nextSummary = `<span class="story-kicker">ŞİMDİ</span>`
+        + `<b>${urgent ? `${urgent} KONU DİKKAT İSTİYOR` : 'DURUM KONTROL ALTINDA'}</b>`
+        + `<small>En önemli konular önce gösterilir. Ayrıntı ilgili çalışma alanında açılır.</small>`;
+    const nextList = items.map(item => `<article class="story-agenda-item severity-${item.severity}">`
+        + `<span>${item.severity === 'critical' ? 'ACİL' : item.severity === 'high' ? 'ÖNEMLİ' : item.severity === 'watch' ? 'İZLE' : 'SAKİN'}</span>`
+        + `<h3>${storyProjectionEscape(item.title)}</h3>`
+        + `<p>${storyProjectionEscape(item.detail)}</p>`
+        + `<button data-story-agenda-action="${item.action}"${item.sub ? ` data-story-agenda-sub="${item.sub}"` : ''}>${storyProjectionEscape(item.actionLabel)}</button>`
+        + `</article>`).join('');
+    if (summary.innerHTML !== nextSummary) summary.innerHTML = nextSummary;
+    if (list.innerHTML !== nextList) list.innerHTML = nextList;
+}
+
+function storyAgendaNavigate(action, sub) {
+    if (action === 'economy') return storyEconomyOpen(sub);
+    if (action === 'council') return storyCouncilOpen();
+    if (action === 'region') return storyBriefSetTab('region');
+    if (action === 'flow') return storyBriefSetTab('flow');
+}
+
 function storyPanelUpdate() {
     const me = storyPlayerState(); if (!me) return;
+    storyAgendaUpdate(me);
     const stats = document.getElementById('story-stats');
     if (stats) {
         const myr = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
@@ -752,6 +890,24 @@ function storyCouncilDismiss(cmdId) {
 function storyInit() {
     if (STORY._inited) return;
     STORY._inited = true;
+    storyBriefSetTab(STORY._briefTab || 'agenda');
+    document.getElementById('story-brief-tabs')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-story-brief-tab]');
+        if (button) storyBriefSetTab(button.dataset.storyBriefTab);
+    });
+    document.getElementById('story-brief-tabs')?.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const current = STORY_BRIEF_TABS.indexOf(STORY._briefTab || 'agenda');
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? STORY_BRIEF_TABS.length - 1
+            : (current + (event.key === 'ArrowRight' ? 1 : -1) + STORY_BRIEF_TABS.length) % STORY_BRIEF_TABS.length;
+        event.preventDefault();
+        storyBriefSetTab(STORY_BRIEF_TABS[next]);
+        document.querySelector(`[data-story-brief-tab="${STORY_BRIEF_TABS[next]}"]`)?.focus();
+    });
+    document.getElementById('story-agenda-list')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-story-agenda-action]');
+        if (button) storyAgendaNavigate(button.dataset.storyAgendaAction, button.dataset.storyAgendaSub);
+    });
     document.getElementById('story-pause-btn')?.addEventListener('click', () => { STORY.paused = !STORY.paused; storyRender(); });
     document.getElementById('story-speed-btn')?.addEventListener('click', () => {
         if (typeof storyClockCycleSpeed === 'function') storyClockCycleSpeed();

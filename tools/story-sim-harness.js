@@ -118,6 +118,14 @@ function createRuntime(seed) {
     const html = '<!doctype html><html><body>'
         + '<canvas id="storyCanvas"></canvas>'
         + '<div id="story-stats"></div>'
+        + '<aside id="story-brief-panel">'
+        + '<nav id="story-brief-tabs" role="tablist">'
+        + '<button id="story-tab-agenda" class="story-brief-tab active" data-story-brief-tab="agenda" role="tab" aria-selected="true"></button>'
+        + '<button id="story-tab-region" class="story-brief-tab" data-story-brief-tab="region" role="tab" aria-selected="false"></button>'
+        + '<button id="story-tab-flow" class="story-brief-tab" data-story-brief-tab="flow" role="tab" aria-selected="false"></button></nav>'
+        + '<section id="story-agenda"><div id="story-agenda-summary"></div><div id="story-agenda-list"></div></section>'
+        + '<div id="story-hud" class="hidden"><span id="story-era"></span><div id="story-node-info"></div><button id="story-action-btn"></button></div>'
+        + '<div id="story-news" class="hidden"><div id="story-log"></div></div></aside>'
         + '<button id="story-city-btn"></button>'
         + '<aside id="city-panel" aria-hidden="true"><span id="city-title"></span>'
         + '<button id="city-close"></button><div id="city-body"></div></aside>'
@@ -1421,6 +1429,33 @@ function createRuntime(seed) {
                     html: stats ? stats.innerHTML : '',
                     eraAvailable: typeof storyEra === 'function',
                     stableWhileFocused
+                };
+            },
+            commandCenter: () => {
+                __storyPanelUpdateReal();
+                const items = storyAgendaCollect(storyPlayerState());
+                const summary = document.getElementById('story-agenda-summary');
+                const list = document.getElementById('story-agenda-list');
+                const agendaTab = document.getElementById('story-tab-agenda');
+                const regionTab = document.getElementById('story-tab-region');
+                storyBriefSetTab('region');
+                const regionState = {
+                    selected: regionTab && regionTab.getAttribute('aria-selected'),
+                    agendaHidden: document.getElementById('story-agenda')?.classList.contains('hidden'),
+                    regionHidden: document.getElementById('story-hud')?.classList.contains('hidden')
+                };
+                storyBriefSetTab('agenda');
+                return {
+                    tabCount: document.querySelectorAll('[data-story-brief-tab]').length,
+                    tablistRole: document.getElementById('story-brief-tabs')?.getAttribute('role'),
+                    agendaSelected: agendaTab && agendaTab.getAttribute('aria-selected'),
+                    itemCount: items.length,
+                    severities: items.map(item => item.severity),
+                    summaryText: summary ? summary.textContent : '',
+                    listText: list ? list.textContent : '',
+                    html: list ? list.innerHTML : '',
+                    actionCount: list ? list.querySelectorAll('[data-story-agenda-action]').length : 0,
+                    regionState
                 };
             },
             savedRaw: () => localStorage.getItem(STORY_SAVE_KEY),
@@ -7198,6 +7233,8 @@ function probeCityDossier(seed = 2032) {
         const topBarWorldState = runtime.api.topBarWorldState();
         const afterUiSnapshot = stateSnapshot(story);
         const afterUiHash = hashSnapshot(afterUiSnapshot);
+        const factionNotice = runtime.api.factionNoticeProbe('cityLost');
+        const commandCenter = runtime.api.commandCenter();
 
         const corridor = ownView.corridors[0];
         const routeOpened = corridor
@@ -7259,8 +7296,6 @@ function probeCityDossier(seed = 2032) {
                 changePanelAbsent: !runtime.dom.window.document.getElementById('story-change-panel')
             };
         }
-        const factionNotice = runtime.api.factionNoticeProbe('cityLost');
-
         const hiddenTexts = Object.values(foreignSentinels).map(String);
         main = {
             ownNodeId: ownNode.id,
@@ -7279,6 +7314,7 @@ function probeCityDossier(seed = 2032) {
             ownFactions,
             ownCharacters,
             topBarWorldState,
+            commandCenter,
             factionNotice,
             routeOpened,
             routeState,

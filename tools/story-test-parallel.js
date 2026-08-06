@@ -50,17 +50,19 @@ function determineWorkerCount(cpuBusy) {
     const explicitRaw = argValue('--workers') || process.env.STORY_TEST_WORKERS;
     const explicit = explicitRaw == null || explicitRaw === 'auto' ? null : Math.max(1, Number(explicitRaw) || 1);
     const logical = typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length;
-    const reserveBytes = Math.max(2.5 * 1024 ** 3, Number(process.env.STORY_TEST_RESERVE_MB || 3072) * 1024 ** 2);
-    const perWorkerBytes = Math.max(1024, Number(process.env.STORY_TEST_WORKER_MB || 2200)) * 1024 ** 2;
+    // Planlama tahmini ile V8 heap tavanı aynı şey değildir. Eski sürüm her
+    // işçiyi 2.2 GiB varsayıp ayrıca 3 GiB ayırdığı için 6.1 GiB boş RAM'de
+    // gerçek RSS 0.3-1.1 GiB olsa bile havuzu tek işçiye düşürüyordu.
+    const reserveBytes = Math.max(768, Number(process.env.STORY_TEST_RESERVE_MB || 1024)) * 1024 ** 2;
+    const perWorkerBytes = Math.max(256, Number(process.env.STORY_TEST_WORKER_ESTIMATE_MB || 640)) * 1024 ** 2;
     const memoryCap = Math.max(1, Math.floor(Math.max(0, os.freemem() - reserveBytes) / perWorkerBytes));
     const cpuCap = Math.max(1, logical - 1);
-    let automatic = Math.max(1, Math.min(10, memoryCap, cpuCap));
-    if (cpuBusy >= 85) automatic = 1;
-    else if (cpuBusy >= 70) automatic = Math.min(automatic, 2);
+    const target = Math.max(1, Number(process.env.STORY_TEST_TARGET_WORKERS || 6) || 6);
+    const automatic = Math.max(1, Math.min(target, memoryCap, cpuCap));
     return {
         count: explicit == null ? automatic : Math.min(explicit, cpuCap),
         explicit: explicit != null,
-        logical, memoryCap, reserveBytes, perWorkerBytes
+        logical, memoryCap, reserveBytes, perWorkerBytes, target, cpuBusy
     };
 }
 
@@ -92,20 +94,19 @@ async function main() {
         Number(timings[b.key] && timings[b.key].elapsedMs || b.weight * 1000)
         - Number(timings[a.key] && timings[a.key].elapsedMs || a.weight * 1000)
     ));
+    console.log(`[story-parallel] tasks=${selected.length} workers=${config.count} cpu=${cpuBusy}% freeRam=${bytesGiB(os.freemem())}GiB memoryCap=${config.memoryCap}${config.explicit ? ' explicit' : ' auto'} target=${config.target} estimate=${Math.round(config.perWorkerBytes / 1024 ** 2)}MiB reserve=${Math.round(config.reserveBytes / 1024 ** 2)}MiB`);
+    if (process.argv.includes('--plan')) return;
+
     const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-rts-story-test-'));
-    const workerHeapMb = Math.max(1024, Number(process.env.STORY_TEST_WORKER_MB || 2200));
+    const workerHeapMb = Math.max(1024, Number(process.env.STORY_TEST_WORKER_HEAP_MB || 2200));
     const recycleRss = workerHeapMb * 1024 ** 2 * 0.9;
     const states = new Map();
     let completed = 0;
     let failed = null;
     let sequence = 1;
 
-    console.log(`[story-parallel] tasks=${selected.length} workers=${config.count} cpu=${cpuBusy}% freeRam=${bytesGiB(os.freemem())}GiB memoryCap=${config.memoryCap}${config.explicit ? ' explicit' : ' auto'}`);
     if (config.explicit && config.count > config.memoryCap) {
         console.warn(`[story-parallel] WARNING: explicit workers=${config.count} exceeds current memory-aware cap=${config.memoryCap}.`);
-    }
-    if (!config.explicit && cpuBusy >= 85) {
-        console.log('[story-parallel] CPU is already saturated; auto mode reduced the pool to one worker.');
     }
 
     function createWorker() {
@@ -211,7 +212,11 @@ async function main() {
     process.exitCode = exitCode;
 }
 
-main().catch(error => {
-    console.error(error.stack || error);
-    process.exitCode = 1;
-});
+if (require.main === module) {
+    main().catch(error => {
+        console.error(error.stack || error);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = { determineWorkerCount };

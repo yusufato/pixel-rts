@@ -2583,6 +2583,31 @@ function run() {
         'Çağ ayrıntısı fareye ek olarak klavyeyle de erişilebilir olmalı.');
     assert.equal(cityDossierProbe.main.topBarWorldState.stableWhileFocused, true,
         'Çağ tooltip düğümü odak/hover sırasında yeniden yaratılıp titreşmemeli.');
+    assert.equal(cityDossierProbe.main.commandCenter.tabCount, 3,
+        'Sağ bilgi alanı Gündem, Bölge ve Akış olmak üzere üç açık bağlam sunmalı.');
+    assert.equal(cityDossierProbe.main.commandCenter.tablistRole, 'tablist',
+        'Sağ bilgi bağlamları erişilebilir sekme semantiği taşımalı.');
+    assert.equal(cityDossierProbe.main.commandCenter.agendaSelected, 'true',
+        'Komuta merkezinin varsayılan ve geri dönülen bağlamı Gündem olmalı.');
+    assert.equal(cityDossierProbe.main.commandCenter.regionState.selected, 'true',
+        'Bölge bağlamı programatik ve oyuncu seçimiyle gerçekten etkinleşebilmeli.');
+    assert.equal(cityDossierProbe.main.commandCenter.regionState.agendaHidden, true,
+        'Bölge açıldığında gündem bilgi yığını ekranda kalmamalı.');
+    assert.equal(cityDossierProbe.main.commandCenter.regionState.regionHidden, false,
+        'Bölge açıldığında harekât brifingi görünür olmalı.');
+    assert.ok(cityDossierProbe.main.commandCenter.itemCount >= 1 && cityDossierProbe.main.commandCenter.itemCount <= 5,
+        'Gündem boş kalmamalı ve oyuncuya aynı anda beşten fazla öncelik yüklememeli.');
+    assert.equal(cityDossierProbe.main.commandCenter.severities[0], 'critical',
+        'Bekleyen toplumsal olay gündemin ilk sırasında acil olarak görünmeli.');
+    assert.match(cityDossierProbe.main.commandCenter.listText, /Toplumsal olay yanıt bekliyor/,
+        'Gündem gerçek fraksiyon olay kuyruğunu oyuncuya açık dille aktarmalı.');
+    assert.equal(
+        cityDossierProbe.main.commandCenter.actionCount,
+        cityDossierProbe.main.commandCenter.itemCount,
+        'Her gündem konusu oyuncuyu ilgili çalışma alanına götüren tek bir eylem sunmalı.'
+    );
+    assert.doesNotMatch(cityDossierProbe.main.commandCenter.html, /<table/i,
+        'Komuta özeti yeni bir tablo duvarına dönüşmemeli.');
     assert.equal(cityDossierProbe.main.factionNotice.visible, true,
         'Fraksiyon olayı oyuncu görmeden geçmek yerine ayrı pencerede açılmalı.');
     assert.equal(cityDossierProbe.main.factionNotice.role, 'dialog',

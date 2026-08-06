@@ -853,6 +853,7 @@ function storyAreAdjacent(aId, bId) {
 function storySelectNode(id) {
     if (!storyNode(id)) return;
     STORY.selectedNodeId = id;
+    if (typeof storyBriefSetTab === 'function') storyBriefSetTab('region');
     if (STORY._cityOpen && typeof storyCityUpdate === 'function') storyCityUpdate();   // ŞEHRE GİR açıksa panel yeni şehre döner
     storyRender();
 }

@@ -908,6 +908,14 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - `qa-runtime/story-phase32-ab.json`: `government.patronageIntegrity` açık/kapalı iki `900 sn` koşunun fiziksel karması aynı `dd4ea4786ddfdc10b26ed949213a2c2bddadc5782f1b2aa5b7d104ab0081f42c`; `changedWorldState:false`, ilk fark yok, refah/enflasyon/huzursuzluk/devlet/haber ve üç kaynak deltası `0`.
 - Scheduler `24` görev taşır; bütünlük her `5 sn` seçimden sonra ve kuşatmadan önce çalışır. Kapsamı azaltılmamış `npm test` `52/52` görevle çıkış kodu `0` verdi; otomatik bellek tavanı `1` işçi seçti, toplam süre `1.664,7 sn`, ana 900 saniyelik koşu `118.958,65 ms` oldu. Sıradaki uygulama **Faz 33 — Darbe, Bölünme ve İç Çatışma**dır.
 
+## Faz 32 sonrası arayüz ve test tezgâhı ara teslimi
+
+- Dünya ekranının sağ bilgi yığını `GÜNDEM / BÖLGE / AKIŞ` bağlamlarına ayrıldı. Varsayılan `GÜNDEM`, aynı anda en fazla beş konuyu önem sırasıyla gösterir; `BÖLGE` mevcut harekât brifingini, `AKIŞ` dünya günlüğünü korur. Haritada düğüm seçimi doğrudan bölge bağlamına geçer.
+- Gündem yeni veya sahte bir yönetim durumu üretmez. Bekleyen fraksiyon olayı, grev, refah, enflasyon, Faz 30 uygulama bileti, Faz 31 seçim/itirazı, Faz 32 kamusal soruşturması ve seçili aktif cephe mevcut salt-okunur görünümlerden türetilir. Her konu ekonomi, konsey veya bölge çalışma alanına tek eylemle gider.
+- Sekmeler `tablist/tab/tabpanel`, `aria-selected`, klavye sol/sağ/Home/End dolaşımı ve görünür odak taşır. Gündem 2 Hz simülasyon çözünürlüğünde güncellenir; 50 Hz panel döngüsünde ağır ülke/kurum görünümü yeniden klonlanmaz.
+- `probeCityDossier`, gündemin simülasyon karmasını değiştirmediğini; bekleyen toplumsal olayın ilk sırada `critical` çıktığını; üç sekmenin görünürlük ve erişilebilirlik sözleşmesini ve beş maddelik yük tavanını doğruluyor. Görsel tarayıcı bu oturumda kullanılamadığı için piksel/viewport kabulü gerçek EXE üzerinde oyuncu kontrolüne açıktır.
+- Paralel tezgâhın heap tavanı ile gerçek işçi planlama tahmini ayrıldı. Tam `npm test -- --workers=6` koşusu aynı `52/52` sonuç ve `dd4ea4786ddfdc10b26ed949213a2c2bddadc5782f1b2aa5b7d104ab0081f42c` karmasıyla `489,1 sn` sürdü; seri `1.664,7 sn` referansa göre `3,40×` hızlanma ve `%70,6` süre azalmasıdır. Kabul ayrıntısı `docs/HIKAYE-TEST-PARALEL.md` içindedir.
+
 ## Faz 22.1 çalışma günlüğü (arşiv)
 
 **Arşiv kapanış kararı (2 Ağustos 2026):** Aşağıdaki maddeler Faz 22.1E'nin teşhis ve deney günlüğüdür. Son hane dağıtım kabulü bütün fiziksel, mali, deterministik ve uzun dönem denge kapılarını geçti; Faz 22.1E tamamlandı. O tarihte sıradaki uygulama **Faz 25 — Kamuoyu ve Şikâyet Hafızası** idi; güncel sıra belgenin üstündeki faz tablosundadır.

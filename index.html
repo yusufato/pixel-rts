@@ -182,14 +182,23 @@
                 <div class="story-map-legend"><span class="friendly">DOST HAT</span><span class="open">ERİŞİLEBİLİR</span><span class="hostile">DÜŞMAN</span></div>
             </div>
             <aside id="story-brief-panel">
-                <div id="story-hud">
+                <nav id="story-brief-tabs" role="tablist" aria-label="Dünya bilgi bağlamı">
+                    <button class="story-brief-tab active" id="story-tab-agenda" data-story-brief-tab="agenda" role="tab" aria-selected="true" aria-controls="story-agenda">GÜNDEM</button>
+                    <button class="story-brief-tab" id="story-tab-region" data-story-brief-tab="region" role="tab" aria-selected="false" aria-controls="story-hud">BÖLGE</button>
+                    <button class="story-brief-tab" id="story-tab-flow" data-story-brief-tab="flow" role="tab" aria-selected="false" aria-controls="story-news">AKIŞ</button>
+                </nav>
+                <section id="story-agenda" class="story-brief-view" role="tabpanel" aria-labelledby="story-tab-agenda">
+                    <div id="story-agenda-summary"></div>
+                    <div id="story-agenda-list"></div>
+                </section>
+                <div id="story-hud" class="story-brief-view hidden" role="tabpanel" aria-labelledby="story-tab-region">
                     <span class="story-kicker">HAREKÂT BRİFİNGİ</span>
                     <h2 class="story-title"><span id="story-era">MODERN ÇAĞ</span></h2>
                     <div id="story-node-info"></div>
                     <button id="story-action-btn" class="story-action-btn" disabled>ERİŞİLEBİLİR BİR DÜĞÜM SEÇ</button>
                 </div>
-                <div id="story-news">
-                    <div class="news-title">MUHAREBE KAYDI</div>
+                <div id="story-news" class="story-brief-view hidden" role="tabpanel" aria-labelledby="story-tab-flow">
+                    <div class="news-title">DÜNYA AKIŞI</div>
                     <div id="story-log"></div>
                 </div>
             </aside>
