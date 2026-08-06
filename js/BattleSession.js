@@ -45,9 +45,23 @@ const BATTLE_REPLAY_DRIVER = {
     divergence: null
 };
 
+// SICAK YOL — PROFILDE %8.6 ama IKI OPTIMIZASYON DENENDI VE IKISI DE DAHA YAVAS CIKTI.
+// Bu fonksiyon replay icin DEGIL: AI planlama/yurutme katmani her kontrolor tikinde onbellegi
+// savunma amacli derin kopyaliyor (BattlePlanning cachedGroups/cachedContracts,
+// BattleController decisionHistory, BattlePerception lastObservation, ...).
+// OLCULDU (10 tohum, ayni is):
+//   JSON.parse(JSON.stringify())        29.4 sn   <- MEVCUT, en hizlisi
+//   structuredClone                     38.4 sn   (%31 YAVAS)
+//   elle yazilmis JSON-semantikli klon  36.7 sn   (%25 YAVAS)
+// Ikisinde de sonuclar 10/10 BIREBIR ayniydi; sorun dogruluk degil HIZ idi.
+// SEBEP: V8'de JSON.stringify/parse C++ hizli-yoluna sahip ve elle yazilmis JS ozyinelemesini
+// yeniyor. Yani KLONU HIZLANDIRMAK mumkun degil; tek yol DAHA AZ KLONLAMAK (cagri yerlerinde
+// savunma kopyasi gercekten gerekli mi diye denetim - riskli, yapilmadi).
 function replayClone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
 }
+
+
 
 function battleResetReplay() {
     BATTLE_REPLAY.version = 1;

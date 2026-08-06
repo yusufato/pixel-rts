@@ -193,6 +193,15 @@ const GC_ZORLA = process.argv.includes('--gc');
 // oluyor ama sim 365sn ye kadar donuyor -> %29 israf. Galibiyet/maglubiyet AYNI kalir
 // (winnerSide zaten kayitli); yalnizca MARJ degisir cunku birimler dovusmeye devam ediyordu.
 const ERKEN_DUR = process.argv.includes('--erkendur');
+// ── MARJ-KESME (--marjkes N): |deger marji| N'i astigi anda dur ──
+// OLCULDU (tools/erken-kesme-olc.js, 12 mac): esik 1500'de sure %60 kisaliyor ve o andaki
+// marj ISARETI nihai kazananla 12/12 ORTUSUYOR. Daha dusuk esikler cok daha fazla kazandiriyor
+// ama isaret guvenilmez (1000 -> %73, 500 -> %67) - yani kullanilamaz.
+// DETERMINIZMI BOZMAZ: sim aynen kosar, yalnizca NE ZAMAN OKUMAYI BIRAKTIGIMIZ degisir.
+// KULLANIM: yalniz ELEME turlarinda. Nihai turda tam mac kosulur (marj DEGERI kesmede
+// nihai degerinden farkli olur; kazanan ayni kalir).
+const _mkIx = process.argv.indexOf('--marjkes');
+const MARJ_KES = _mkIx >= 0 ? Math.max(0, Number(process.argv[_mkIx + 1]) || 0) : 0;
 // KISA MAÇ (tarama turları için): maçı erken kes ve o andaki marjı kullan.
 // GEREKÇE ÖLÇÜLDÜ (1281 maç): t=120sn'deki marj ile nihai marj arasında r = 0.885;
 // işaret uyumu %82, ve |erken marj| büyüdükçe güvenilirlik artıyor:
@@ -265,18 +274,27 @@ function macKos(ctx, tSal, tSav, seed) {
         'const sipKab = (isRed) => { let w=0,k=0; for (const u of SIM.units) { if (u.dead||u.isRed!==isRed) continue;' +
         '  const c=(STATS[u.type]&&STATS[u.type].cost)||1; w+=c; if (u._canDigIn) k+=c; } return w?k/w:0; };' +
         'const kabSal = sipKab(true), kabSav = sipKab(false);' +
-        'const ph = SIM.headless; SIM.headless = true; let st = 0, erken = null;' +
+        'const ph = SIM.headless; SIM.headless = true; let st = 0, erken = null, marjKesildi = false;' +
         'try { while (SIM.tick < ' + MAX_TIK + ' && phase === PHASE.BATTLE) {' +
         (ERKEN_DUR ? '  if (SIM.battle && SIM.battle.winnerSide !== null) break;' : '') +
         '  st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);' +
         '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);' +
         '  if (SIM.tick === 2400) { const a=battleArmyObservation(true), d=battleArmyObservation(false);' +
         '    erken = { sal:Math.round(a.effectiveValue), sav:Math.round(d.effectiveValue) }; }' +
+        // UCUZ MARJ: battleArmyObservation PAHALI (ilk deneme kesmeyi %18 YAVASLATTI - 126sn -> 149sn).
+        // Kesme karari icin ham maliyet toplami yeter; esik (1500) zaten bu olcuyle kalibre edildi.
+        (MARJ_KES > 0 ?
+        '  if (SIM.tick % 40 === 0) { let _k=0,_m=0;' +
+        '    for (const u of SIM.units) { if (u.dead || u.loaded) continue; const _s=STATS[u.type]; if(!_s) continue;' +
+        '      if (u.isRed) _k += _s.cost||0; else _m += _s.cost||0; }' +
+        '    if (Math.abs(_k - _m) >= ' + MARJ_KES + ') { marjKesildi = true; break; } }' : '') +
         '} } finally { SIM.headless = ph; }' +
         'const oS = battleArmyObservation(true), oD = battleArmyObservation(false);' +
         'const b = SIM.battle || {}; BATTLE_RECIPE_RED = null;' +
         'return JSON.stringify({ seed: seed,' +
-        '  kazanan:(b.winnerSide===true?"sal":b.winnerSide===false?"sav":"-"), sebep:b.outcomeReason||null,' +
+        '  kazanan:(b.winnerSide===true?"sal":b.winnerSide===false?"sav":' +
+        '           (marjKesildi ? ((oS.effectiveValue-oD.effectiveValue)>0?"sal":"sav") : "-")), sebep:(marjKesildi&&b.winnerSide===null?"marj_kesme":(b.outcomeReason||null)),' +
+        '  marjKesildi: marjKesildi,' +
         '  marj: Math.round(oS.effectiveValue - oD.effectiveValue), erken: erken, salDeger: salDeger,' +
         '  savDeger: mv.totalValue, savSapma: mv.tarifDenetim ? mv.tarifDenetim.maxSapma : null,' +
         '  siperKab: { sal:+kabSal.toFixed(3), sav:+kabSav.toFixed(3) }, bitisSn: Math.round(SIM.tick*BATTLE_TICK_SEC),' +
