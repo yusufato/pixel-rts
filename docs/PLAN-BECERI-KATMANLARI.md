@@ -833,3 +833,64 @@ Bu, bellekteki "saldıran üstünlüğü" krizinin devamı ve `holdZone`'un kapa
 Sıradaki soru: savunan neden kaybediyor — kompozisyon mu, duruş mu, hedef/arazi mi?
 
 **Kapılar:** forktest `true` · liverepro `false` · defertest OK · pdtest OK.
+
+---
+
+## 19. SAVUNANIN DOLAYLI ATEŞİ — teşhis kesin, çözüm birim katmanında DEĞİL
+
+> **Kullanıcı:** "savunmanın dolaylıları ne güne duruyor."
+
+**Teşhis (`tools/dolayli-bos-teshis.js`) beş sebebi ayırdı ve tek bir sebebe indirdi:**
+
+| sebep | pay |
+|---|---|
+| **(a) menzilde düşman YOK** | **%48** |
+| kuru (mühimmat bitmiş) | %12 |
+| (b) ölü bölge · (c) görünmez · (d) hedefleme filtresi | **%0** |
+| (e) bilinmeyen mekanik engel | %4 |
+| hedefli (çalışıyor) | %36 |
+
+Görüş değil, ölü bölge değil, hedefleme değil — **konum**. Ve birim kırılımı iki AYRI sorun gösterdi:
+
+| birim | menzil | en yakın düşman | hattının gerisinde | asıl sorunu |
+|---|---|---|---|---|
+| **Havan** | 900px | **1165px (menzil DIŞI)** | 760px | **konum** |
+| Topçu | 1500px | 1216px (menzil içi ✓) | 890px | **mühimmat** (%35 kuru) |
+
+**Kural yazıldı** (`_dolayliYaklas`, gate `indirectCreep`): kısa menzilli dolaylı ateş, düşmanı
+menzilin %80'ine alacak kadar ilerler — ama **kendi ön hattının gerisinde kalır** (bugün elenen
+`jammerPost` tam da öne çıkıp öldüğü için düşmüştü).
+
+**KATMAN 1 ELEDİ.** Mekanizma çalıştı (havan 760px → 350px), hedef metriği oynamadı:
+
+| tohum | kapalı | açık |
+|---|---|---|
+| 2024 | 445 örnek, %65 menzil-yok | 170 örnek (2.6× erken öldü), %65 |
+| 3141 | 288 örnek, %26 | 151 örnek, %26 |
+| 777 | 166 örnek, %48 | 1460 örnek, %12 — ama **%54 GÖRÜNMEZ** |
+
+Öne çıkmak menzil sorununu **görüş sorununa takas ediyor** ve hayatta kalma savruluyor.
+
+**DAHA DERİN SEBEP — ve günün ikinci kez aynı yere varması:** havanın menzilinde düşman
+olmamasının kaynağı havanın kendi konumu değil, **savunan kuvvetin tamamının geride ve yayılmış
+durması.** Zırhlı teşhisi (§17) de tam buraya varmıştı. Savunan tarafta birim-katmanı becerileri
+üst üste eleniyor çünkü sorun beceri değil **duruş/yapı**.
+
+### Günün deseni netleşti: saldıran becerileri geçiyor, savunan becerileri elenmiyor
+
+| beceri | taraf | sonuç |
+|---|---|---|
+| `standoff` | saldıran/genel | ✅ K1-K4 geçti |
+| `heloHunt` | saldıran | ✅ K1-K4 geçti |
+| `resupplyRun` | savunan ağırlıklı | ❌ K2 |
+| `jammerPost` | savunan | ❌ K1 |
+| `jammerUmbrella` | savunan | ❌ zaten yapılıyor |
+| `armorFace` | savunan ağırlıklı | ❌ K2 |
+| `localRatio` | savunan | ❌ hiç bağlamadı |
+| `indirectCreep` | savunan | ❌ K1 |
+
+**Altı savunan becerisi arka arkaya elendi.** Bu artık tesadüf değil, bir bulgu:
+savunanın kaybetmesinin sebebi birim davranışı değil. Ve kuvvet dağılımı ölçümü (§18)
+"yoğunlaş" çözümünü de eledi — savunan yoğunlaşınca DAHA KÖTÜ oluyor.
+Geriye kalan adaylar: **kompozisyon** (savunan bütçesinin yalnız %7'si dolaylı) ve
+**kazanma koşulu/arazi** (savunanı ileri çeken bir şey var mı).

@@ -363,7 +363,7 @@ class Unit {
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
-            if (!this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
+            if (!this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1492,6 +1492,60 @@ class Unit {
         if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
             BATTLE_BALANCE.armorFaceBind = (BATTLE_BALANCE.armorFaceBind || 0) + 1;
         }
+    }
+
+    // ── INTEL4-PRO 'indirectCreep': KISA MENZİLLİ DOLAYLI ATEŞ MENZİLE GİRER ──
+    // TEŞHİS (tools/dolayli-bos-teshis.js, seed2024): savunanın dolaylı ateşi mühimmatı varken
+    // tiklerin %48'inde MENZİLİNDE DÜŞMAN OLMADIĞI için boş duruyor. Görüş %0, ölü bölge %0,
+    // hedefleme filtresi %0 — sebep tek başına KONUM.
+    //   Havan  menzil  900px · en yakın düşman ort. 1165px (MENZİL DIŞI) · kendi hattının 760px gerisinde
+    //   Topçu  menzil 1500px · en yakın düşman ort. 1216px (menzil içi)  → onun sorunu mühimmat, konum değil
+    // Bu kural `standoff`un AYNADAKİ HÂLİ: o, uzun ölü bölgeli birimi geri çeker; bu, kısa menzilli
+    // dolayı ateşi öne alır. GÜVENLİK ŞARTI: kendi ÖN HATTININ gerisinde kalır — bugün elenen
+    // konumlandırma becerileri (jammerPost) tam da öne çıkıp öldükleri için düşmüştü.
+    // Determinist: mesafe aritmetiği, RNG yok. Dönüş: true ise hareketi devraldı.
+    _dolayliYaklas() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'indirectCreep')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.speed || !this.isIndirect) return false;
+        if (this.range > PRO_ICREEP_MAX_MENZIL) return false;   // uzun menzilli (topçu/ÇNRA/balistik) bu kuralın konusu değil
+        if (this.maxAmmo > 0 && this.ammo <= 0) return false;   // kuru birim öne gitmez
+
+        // En yakın düşman: zaten menzildeyse dokunma (iş başında).
+        let ex = 0, ey = 0, ed = Infinity;
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            const d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d < ed) { ed = d; ex = e.x; ey = e.y; }
+        }
+        if (ed === Infinity || ed <= this.range * PRO_ICREEP_HEDEF) return false;
+
+        // ÖN HAT: en ileri dost DOĞRUDAN-ateş birimi. Onun gerisinde kalırız — havan hattın önüne geçmez.
+        let hatY = null;
+        for (const f of SIM.units) {
+            if (f.dead || f.loaded || f.abandoned || f.isRed !== this.isRed || f === this) continue;
+            const fs = STATS[f.type];
+            if (!fs || !fs.weapons || !fs.weapons.length) continue;
+            if (fs.weapons[0].indirect) continue;
+            if (hatY === null) hatY = f.y;
+            else hatY = this.isRed ? Math.max(hatY, f.y) : Math.min(hatY, f.y);
+        }
+        if (hatY === null) return false;   // muharip hat yok → tek başına ilerlemez
+
+        // Hedef: düşmanı menzilin PRO_ICREEP_HEDEF kesrine alacak nokta, ama hattın gerisinde.
+        const t = (ed - this.range * PRO_ICREEP_HEDEF) / ed;
+        let hx = this.x + (ex - this.x) * t, hy = this.y + (ey - this.y) * t;
+        const sinir = this.isRed ? hatY - PRO_ICREEP_HAT_GERI : hatY + PRO_ICREEP_HAT_GERI;
+        if (this.isRed ? hy > sinir : hy < sinir) hy = sinir;
+        if (this.isRed ? hy <= this.y : hy >= this.y) return false;   // ileri gitmiyorsa dokunma
+
+        this.targetX = hx; this.targetY = hy;
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.icreepBind = (BATTLE_BALANCE.icreepBind || 0) + 1;
+        }
+        return true;
     }
 
     // ── INTEL4-PRO 'jammerUmbrella': JAMMER KENDİ DEĞERLİ KÜMESİNİN ÜSTÜNE ŞEMSİYE KURAR ──

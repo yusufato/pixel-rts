@@ -507,8 +507,28 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // bölgesinde değil, ortada ve 1:3 dezavantajda ölüyor (bkz. holdZone deltası, o da kapalı).
     // DOĞRU MÜDAHALE KATMANI DEĞİŞTİ: birim-içi "kapatma kapısı" değil, KONTROLÖR seviyesinde
     // KUVVET DAĞILIMI — savunan kütlesini nereye koyuyor ve neden ince yayılıyor.
-    localRatio: false
+    localRatio: false,
+    // P14 — KISA MENZİLLİ DOLAYLI ATEŞ MENZİLE GİRER (BECERİ). TEŞHİS: savunan dolaylısı mühimmatı
+    // varken tiklerin %48'inde MENZİLİNDE DÜŞMAN OLMADIĞI için boş duruyor (görüş %0, ölü bölge %0,
+    // filtre %0 — sebep tek başına KONUM). Havan menzil 900px, en yakın düşman ort. 1165px.
+    // `standoff`un aynadaki hâli; güvenlik şartı: kendi ön hattının gerisinde kalır.
+    //
+    // ÖLÇÜLDÜ ve **KATMAN 1'DE ELENDİ** → VARSAYILAN KAPALI.
+    // MEKANİZMA ÇALIŞTI: havan kendi hattının 760px gerisinden 350px'e ilerledi (tam tasarlandığı gibi).
+    // AMA HEDEF METRİĞİ OYNAMADI ve varyans devasa (izole A/B, havan örnek sayısı ve menzil-yok oranı):
+    //   seed2024  445 örn %65 menzil-yok  →  170 örn %65   (2.6× erken öldü, oran aynı)
+    //   seed3141  288 örn %26             →  151 örn %26   (erken öldü, oran aynı)
+    //   seed777   166 örn %48             → 1460 örn %12   (çok yaşadı, oran düzeldi — ama %54 GÖRÜNMEZ)
+    // Yani öne çıkmak menzil sorununu GÖRÜŞ sorununa takas ediyor ve hayatta kalma savruluyor.
+    // DAHA DERİN SEBEP: havanın menzilinde düşman olmamasının kaynağı havanın kendi konumu değil,
+    // SAVUNAN KUVVETİN TAMAMININ geride ve yayılmış durması. Bu birim katmanında çözülmüyor —
+    // zırhlı teşhisinin (§17) vardığı yerin aynısı: doğru katman KUVVET DAĞILIMI.
+    indirectCreep: false
 };
+// ── 'indirectCreep' PARAMETRELERİ (aranabilir) ──
+let PRO_ICREEP_MAX_MENZIL = 1200;   // bu menzilin ÜSTÜNDEKİ dolaylı birim kural-dışı (topçu 1500 hariç)
+let PRO_ICREEP_HEDEF = 0.80;        // düşmanı menzilin bu kesrine al (kenarında değil, rahat içinde)
+let PRO_ICREEP_HAT_GERI = 250;      // kendi ön hattının en az bu kadar gerisinde kal
 // ── 'armorFace' PARAMETRELERİ (aranabilir) ──
 let PRO_ARMORFACE_R = 2200;              // tehdit taraması yarıçapı (en uzun doğrudan-ateş menzilini kapsar)
 let PRO_ARMORFACE_MIN_BASKINLIK = 0.35;  // tehdit vektörü bu kadar yönlü değilse (her yönden) dönme
