@@ -14,6 +14,7 @@ def arg(a, d=None):
     return sys.argv[sys.argv.index(a) + 1] if a in sys.argv else d
 
 VERI = arg('--veri', 'qa-runtime/kompozisyon-veri.jsonl')
+KAYDET = arg('--kaydet')          # egitilen modeli diske yaz (on-eleme icin)
 EPOK = int(arg('--epok', 400))
 dev = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -98,6 +99,13 @@ print('  yorum: rho>=0.45 ise vekil model ON-ELEME icin kullanilabilir (BEONAI-V
 # OZELLIK ONEMI: girdi gradyaninin mutlak ortalamasi (tum tutulan veri uzerinde)
 xv.requires_grad_(True)
 model(xv).sum().backward()
+if KAYDET:
+    import os
+    os.makedirs(os.path.dirname(KAYDET) or '.', exist_ok=True)
+    torch.save({'model': model.state_dict(), 'mu': mu, 'sd': sd, 'ys': float(ys),
+                'boyut': int(X.shape[1]), 'rho': float(rho), 'mac': int(len(Y))}, KAYDET)
+    print(f'model kaydedildi: {KAYDET}  (rho {rho:.3f}, {len(Y)} mac)')
+
 # ONEM = normalize girdiye gore gradyanin mutlak ortalamasi x hedef olcegi
 # -> "ozellik 1 STANDART SAPMA degisirse marj kac TL degisir" (yorumlanabilir birim).
 # ONCEKI HATA: ayrica /sd yapiliyordu; zorunlu-bayraklarin sd'si kucuk oldugu icin 1e9'luk
