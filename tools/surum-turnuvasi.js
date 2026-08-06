@@ -30,7 +30,18 @@ function arg(ad, vars) { const i = process.argv.indexOf(ad); return i >= 0 ? pro
 const ADAY_YOL = arg('--adaylar', 'qa-runtime/adaylar.json');
 const HIZLI = process.argv.includes('--hizli');
 const TURLAR = String(arg('--turlar', HIZLI ? '4,8' : '12,24,48,96')).split(',').map(Number).filter(Boolean);
-const RAKIP = arg('--rakip', 'REF-H0-sezgisel');
+// ── RAKIP PANELI (TEK RAKIP OLCUMU GECERSIZ) ──
+// OLCULDU (4 aday x 3 rakip x 24 tohum): SIRALAMA RAKIBE GORE TAMAMEN DEGISIYOR.
+//   REF-R0        rakip A -671 (SONUNCU)  |  rakip B +1876 (BIRINCI)   -> 2547 savrulma
+//   SUP-armor-x2  rakip A +1813 (BIRINCI) |  rakip B  +211 (UCUNCU)
+//   KESIF-jammer-1 rakip A  +46 (UCUNCU)  |  rakip B  +981 (BIRINCI)
+// Bu bir tas-kagit-makas uzayi; tek olcu cubugu "sampiyon" degil "O RAKIBE karsi sampiyon" verir.
+// Artik --rakip virgullu liste alir ve aday skoru PANELIN TAMAMI uzerinden hesaplanir.
+const RAKIPLER = String(arg('--rakip', 'REF-H0-sezgisel')).split(',').map(x => x.trim()).filter(Boolean);
+const RAKIP = RAKIPLER[0];
+// Panel birlestirme: 'ort' = panel ortalamasi (genel guc), 'enkotu' = en kotu rakibe karsi
+// (saglamlik; tek bir rakibe karsi cokmeyi cezalandirir).
+const BIRLESTIR = arg('--birlestir', 'ort');
 const CIKTI = arg('--out', 'qa-runtime/turnuva-sonuc.json');
 const ISCI = arg('--workers', '');
 // Tur başına hayatta kalacak ÜST SINIR (bütçe kontrolü). Güven kuralı bundan önce gelir;
@@ -42,12 +53,12 @@ function tarifleriYaz(adaylar, yol) {
     fs.writeFileSync(yol, JSON.stringify(adaylar, null, 1));
 }
 
-function turKos(adaylar, rakipTarif, tohumSayisi, sonTur, turNo) {
+function turKos(adaylar, rakipTarifler, tohumSayisi, sonTur, turNo) {
     const dosya = path.join(ROOT, 'qa-runtime', 'turnuva-tur-' + turNo + '.json');
     const tarifDosya = path.join(ROOT, 'qa-runtime', 'turnuva-tarifler-' + turNo + '.json');
-    tarifleriYaz(adaylar.concat([rakipTarif]), tarifDosya);
+    tarifleriYaz(adaylar.concat(rakipTarifler), tarifDosya);
     const argv = ['tools/caprazla.js', '--tarifler', tarifDosya,
-        '--sal', adaylar.map(a => a.ad).join(','), '--sav', rakipTarif.ad,
+        '--sal', adaylar.map(a => a.ad).join(','), '--sav', rakipTarifler.map(r => r.ad).join(','),
         '--seeds', String(tohumSayisi), '--out', dosya];
     if (sonTur) argv.push('--final');               // NİHAİ TUR: dışörneklem havuzu
     else if (turNo >= 2) argv.push('--disornek');   // ara turlar tarama dışı havuzda
@@ -64,12 +75,18 @@ function turKos(adaylar, rakipTarif, tohumSayisi, sonTur, turNo) {
 
 function main() {
     const havuz = JSON.parse(fs.readFileSync(path.join(ROOT, ADAY_YOL), 'utf8'));
-    const rakip = havuz.find(a => a.ad === RAKIP);
-    if (!rakip) { console.log('rakip bulunamadı: ' + RAKIP); process.exit(1); }
-    let yasayan = havuz.filter(a => a.ad !== RAKIP);
+    const rakipler = RAKIPLER.map(ad => havuz.find(a => a.ad === ad)).filter(Boolean);
+    if (rakipler.length !== RAKIPLER.length) {
+        console.log('rakip bulunamadı: ' + RAKIPLER.filter(ad => !havuz.find(a => a.ad === ad)).join(', '));
+        process.exit(1);
+    }
+    const rakipAdSet = new Set(RAKIPLER);
+    let yasayan = havuz.filter(a => !rakipAdSet.has(a.ad));
 
     console.log('SÜRÜM TURNUVASI');
-    console.log('  aday   : ' + yasayan.length + '   rakip (sabit ölçü çubuğu): ' + RAKIP);
+    console.log('  aday   : ' + yasayan.length + '   RAKİP PANELİ (' + rakipler.length + '): ' + RAKIPLER.join(', '));
+    console.log('  birleştirme: ' + (BIRLESTIR === 'enkotu' ? 'EN KÖTÜ rakip (sağlamlık)' : 'panel ORTALAMASI'));
+    if (rakipler.length === 1) console.log('  ! UYARI: tek rakip. Ölçüldü ki sıralama rakibe göre TAMAMEN değişiyor — panel önerilir.');
     console.log('  turlar : ' + TURLAR.map((t, i) => 'T' + (i + 1) + '=' + t + ' tohum').join(', '));
     console.log('  ELEME  : güven aralığı kuralı — "açıkça kötüleri at", "ilk N'.replace("'", "'") + "'i al\" DEĞİL");
     console.log('');
@@ -81,11 +98,27 @@ function main() {
         console.log('── TUR ' + (i + 1) + ': ' + yasayan.length + ' aday × ' + tohum + ' tohum' +
             (sonTur ? '  (FİNAL havuzu — dışörneklem)' : '') + ' ──');
         const t0 = Date.now();
-        const sonuc = turKos(yasayan, rakip, tohum, sonTur, i + 1);
+        const sonuc = turKos(yasayan, rakipler, tohum, sonTur, i + 1);
         if (!sonuc) { console.log('TUR BAŞARISIZ — duruldu.'); break; }
         const sure = Math.round((Date.now() - t0) / 1000);
 
-        const hucre = new Map(sonuc.hucreler.map(h => [h.sal, h]));
+        // PANEL BIRLESTIRME: bir adayin birden cok rakibe karsi hucresi olur -> tek skora indir.
+        // 'ort' panel ortalamasi (hata birlesik), 'enkotu' en dusuk marj (saglamlik olcusu).
+        const _grup = new Map();
+        for (const h of sonuc.hucreler) { if (!_grup.has(h.sal)) _grup.set(h.sal, []); _grup.get(h.sal).push(h); }
+        const hucre = new Map([..._grup.entries()].map(([ad, hs]) => {
+            if (hs.length === 1) return [ad, hs[0]];
+            const macTop = hs.reduce((s, h) => s + h.mac, 0);
+            const galTop = hs.reduce((s, h) => s + h.salGalibiyet, 0);
+            if (BIRLESTIR === 'enkotu') {
+                const k = hs.reduce((a, b) => (a.marj <= b.marj ? a : b));
+                return [ad, { sal: ad, marj: k.marj, marjHata: k.marjHata, salGalibiyet: galTop, mac: macTop, panel: hs.length }];
+            }
+            const marj = Math.round(hs.reduce((s, h) => s + h.marj * h.mac, 0) / Math.max(1, macTop));
+            // Birlesik hata: bagimsiz hucrelerin karelerinin agirlikli ortalamasinin koku
+            const hata = Math.round(Math.sqrt(hs.reduce((s, h) => s + Math.pow(h.marjHata * h.mac, 2), 0)) / Math.max(1, macTop));
+            return [ad, { sal: ad, marj, marjHata: hata, salGalibiyet: galTop, mac: macTop, panel: hs.length }];
+        }));
         // SONUÇSUZ ADAY = ÖLÇÜM HATASI, "kötü aday" DEĞİL. Eskiden -Infinity verilip
         // sessizce eleniyordu; bir turda tüm hücreler boş gelince araç "şampiyon" bile
         // ilan etti. Artık ölçülemeyen adaylar AYRI raporlanır ve tur GEÇERSİZ sayılır.
@@ -140,7 +173,7 @@ function main() {
         const anlamli = Math.abs(son.lider.marj) > son.lider.hata;
         console.log('  sıfırdan ayırt edilebilir mi: ' + (anlamli ? 'EVET' : 'HAYIR — gürültüden ayrılamıyor'));
     }
-    fs.writeFileSync(path.join(ROOT, CIKTI), JSON.stringify({ rakip: RAKIP, turlar: TURLAR, gecmis }, null, 1));
+    fs.writeFileSync(path.join(ROOT, CIKTI), JSON.stringify({ rakip: RAKIPLER, birlestir: BIRLESTIR, turlar: TURLAR, gecmis }, null, 1));
     console.log('-> ' + CIKTI);
 }
 
