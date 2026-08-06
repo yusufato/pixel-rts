@@ -549,7 +549,11 @@ const BATTLE_INTEL4PRO_DELTAS = {
 };
 // ── 'spotterRequirement' PARAMETRELERİ (aranabilir) ──
 let PRO_SPOTTER_KAT = 3;    // menzil > görüş × bu kat ise "gözcü gerektiren" birim sayılır
-let PRO_SPOTTER_MIN = 3;    // orduda bulunması gereken en az keşif birimi sayısı
+let PRO_SPOTTER_MIN = 3;    // orduda bulunması gereken en az keşif birimi sayısı (KARA hedefi)
+// HAVA tarafı ayrı: hava hedefini YALNIZ airRadar açar (rosterde tek taşıyıcı counter_battery_radar).
+// SAM menzil 1650 / görüş 900 = 1.83 → kara eşiği (3) onu yakalamıyor, bu yüzden ayrı ve düşük eşik.
+let PRO_SPOTTER_HAVA_KAT = 1.5;
+let PRO_SPOTTER_HAVA_MIN = 1;
 // ── 'supplyEscort' PARAMETRELERİ (aranabilir) ──
 let PRO_SUPPLY_MIN_EKSIK = 0.15;    // mühimmat eksikliği bunun altındaki birim müşteri sayılmaz
 let PRO_SUPPLY_DOLAYLI_KAT = 3;     // dolaylı ateşe ağırlık katı (mermisi bitince tamamen işlevsiz)

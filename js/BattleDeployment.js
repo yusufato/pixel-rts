@@ -412,25 +412,46 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
     if (typeof battleProDelta === 'function' && typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' &&
         !BATTLE_INTEL4PRO_DELTAS.spotterRequirement) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
-    const gozcuTipleri = [T.RECON, T.RECON_UAV].filter(t => t != null && STATS[t]);
-    if (!gozcuTipleri.length) return;
-    const uzakGoz = types.some(t => {
-        const st = STATS[t];
+    // İKİ AYRI GÖZCÜ SINIFI — çünkü görüş de iki ayrı kanal:
+    //  KARA hedefi: normal keşif (scout/İHA) aydınlatır.
+    //  HAVA hedefi: YALNIZ hava-arama radarı (airRadar) açar — canSee(…, isAir=true) böyle çalışır
+    //               ve rosterde bu bayrağı taşıyan TEK birim counter_battery_radar'dır.
+    // ÖLÇÜLDÜ (tools/sam-teshis.js, 6 tohum): SAM menzili 1650px, görüşü 900px. Düşman uçağı
+    // zamanın %21'inde menzilde ama %0'ında GÖRÜNÜR → 12 SAM, 6 tohum, TOPLAM 0 ATIŞ; 8'i tam
+    // yükle ölüyor. Orduya 1 hava radarı eklenince: atış 0→8, tam-yükle ölen 8→4 ve düşmanın
+    // uçak bulundurma süresi %100→%58 (yani SAM uçak düşürüyor).
+    const yerGozcu = [T.RECON, T.RECON_UAV].filter(t => t != null && STATS[t]);
+    const havaGozcu = [];
+    for (const t in STATS) { const st = STATS[t]; if (st && st.airRadar) havaGozcu.push(Number(t)); }
+
+    const uzakMenzil = (st, havaMi) => {
         if (!st || !st.weapons || !st.weapons.length) return false;
+        const w = st.weapons[0];
+        const havaSilahi = Array.isArray(w.targets) && w.targets.includes('air') && !w.targets.includes('ground');
+        if (havaMi !== havaSilahi) return false;
         const menzil = st.range || 0, gorus = st.vision || 0;
-        return gorus > 0 && menzil > gorus * PRO_SPOTTER_KAT;
-    });
-    if (!uzakGoz) return;
-    let gozcu = types.filter(t => gozcuTipleri.includes(t)).length;
-    let guard = 0;
-    while (gozcu < PRO_SPOTTER_MIN && guard++ < 8) {
-        const aday = gozcuTipleri.filter(t => STATS[t].cost <= remaining.money)
-            .sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
-        if (aday == null) break;
-        types.push(aday);
-        remaining.money -= STATS[aday].cost;
-        spent[aday] = (spent[aday] || 0) + STATS[aday].cost;
-        gozcu++;
+        return gorus > 0 && menzil > gorus * (havaMi ? PRO_SPOTTER_HAVA_KAT : PRO_SPOTTER_KAT);
+    };
+
+    const al = (tipler, mevcut, hedef) => {
+        if (!tipler.length) return;
+        let n = mevcut, guard = 0;
+        while (n < hedef && guard++ < 8) {
+            const aday = tipler.filter(t => STATS[t].cost <= remaining.money)
+                .sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+            if (aday == null) break;
+            types.push(aday);
+            remaining.money -= STATS[aday].cost;
+            spent[aday] = (spent[aday] || 0) + STATS[aday].cost;
+            n++;
+        }
+    };
+
+    if (types.some(t => uzakMenzil(STATS[t], false))) {
+        al(yerGozcu, types.filter(t => yerGozcu.includes(t)).length, PRO_SPOTTER_MIN);
+    }
+    if (types.some(t => uzakMenzil(STATS[t], true))) {
+        al(havaGozcu, types.filter(t => havaGozcu.includes(t)).length, PRO_SPOTTER_HAVA_MIN);
     }
 }
 

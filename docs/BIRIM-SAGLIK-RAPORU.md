@@ -130,3 +130,58 @@ balistiği çöpe atmasını engeller. Turnuva keşifsiz kompozisyonları da den
 üretir. Varsayılan AÇIK; maliyeti bağlamadığında sıfır.
 
 **Kapılar:** forktest `true` · liverepro `false`.
+
+---
+
+# BİRİM #2 — SAM BATARYASI (700₺, getiri x0.04) · ELE ALINDI
+
+## Teşhis: 12 birim, 6 tohum, **TOPLAM 0 ATIŞ**
+
+| ölçüm (kural kapalı) | değer |
+|---|---|
+| düşmanda uçak bulunan süre | **%100** |
+| uçak **menzilde** olan süre | %21 |
+| uçak menzilde **ve GÖRÜNÜR** | **%0** |
+| uçak kendi görüşünde (900px) | **%0** |
+| **toplam atış** | **0** |
+| ölen / tam yükle ölen | 8/12 · **8/8** |
+| ortalama derinlik | **0.67** (düşman yarısı) |
+| SAM'i öldürenler | tank_destroyer 4, ifv 3, artillery 1 — **hepsi KARA** |
+
+Düşman uçakları hep **900px ile 1650px arasında**: menzilde ama görüşün ötesinde ve hiçbir dost
+onları görmüyor. SAM menzilinin **%45'ini kullanamıyor** ve mühimmatını hiç harcamadan ölüyor.
+
+**Kök neden balistikle aynı aileden ama kanal farklı:** hava hedefini normal keşif AÇMAZ —
+`canSee(…, isAir=true)` yalnız **`airRadar`** taşıyan birimi dinler ve rosterde bu bayrağı taşıyan
+tek birim `counter_battery_radar`'dır (350₺).
+
+*(Yan bulgu: SAM'in `radar_silent` yeteneği UnitData'da ilan edilmiş ama kodda **hiç uygulanmamış** —
+jamming etkileri gibi bir ölü yetenek daha.)*
+
+## Kural genişletildi: `spotterRequirement` artık İKİ gözcü sınıfı tanıyor
+
+| hedef | gözcü | eşik | asgari |
+|---|---|---|---|
+| KARA (balistik vb.) | keşif aracı / keşif İHA | menzil > görüş × **3** | 3 |
+| **HAVA (SAM vb.)** | **hava-arama radarı** | menzil > görüş × **1.5** | **1** |
+
+SAM oranı 1650/900 = **1.83** — kara eşiği (3) onu yakalamıyordu, bu yüzden hava tarafı ayrı ve
+düşük eşikle tanımlandı.
+
+## Sonuçlar (izole A/B, 6 tohum, 12 SAM)
+
+| | kural KAPALI | kural AÇIK |
+|---|---|---|
+| **toplam atış** | **0** | **8** |
+| tam yükle ölen | 8 | **4** |
+| **düşmanda uçak bulunan süre** | %100 | **%58** |
+| menzilde görünür | %0 | %1 |
+
+Son satır en anlamlısı: SAM ateş edebildiğinde **düşmanın uçakları düşüyor** — uçak bulundurma
+süresi %100'den %58'e iniyor. Birim işini yapmaya başlıyor.
+
+**Kalan sorun (ayrı iş):** SAM ortalama **0.67 derinlikte**, yani düşman yarısında duruyor ve
+kara birimlerine yem oluyor (11/12 ölüyor). Hava savunması geri bölgede olmalı — bu bir
+konumlandırma becerisi ve sıraya alındı.
+
+**Kapılar:** forktest `true` · liverepro `false` · pdtest OK.
