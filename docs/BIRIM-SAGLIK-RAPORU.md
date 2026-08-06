@@ -75,3 +75,58 @@ Bu birimler mühimmatlarını kullanmadan ölüyor — ya menzile giremiyorlar y
 **`hedefli` sütunu iki ayrı hastalığı ayırıyor:**
 - *Hedefi var ama iş çıkmıyor* (ballistic %100, mlrs %58, artillery %51) → atış/etki sorunu
 - *Hedefi hiç yok* (sam %5, ifv %7, scout %2, engineer %2, mbt %14) → konum/menzil sorunu
+
+---
+
+# BİRİM #1 — BALİSTİK FÜZE (1050₺, getiri x0) · ELE ALINDI
+
+## Teşhis: sorun mesafe değil GÖRÜŞ — ve önceki hükmüm yanlıştı
+
+| ölçüm (6 tohum, normal ordu) | değer |
+|---|---|
+| hedef geometrik olarak menzilde | **%100** |
+| hedef **görünür** | **%0-3** |
+| hiç ateş etmeyen tohum | **4/6** |
+| ateş edenlerde ilk atış | 156sn / 192sn |
+
+**Dün "gözcü sorunu değil (%9.4)" demiştim — o ölçüm `KESIF-balistik-1` tarifiyle, yani
+keşif-AĞIRLIKLI bir orduyla yapılmıştı.** Ölçüm kurgusu bulguyu tersine çevirmiş. Normal orduda
+balistik hedefini göremiyor.
+
+**Doğrudan kanıt** (orduya 2 keşif İHA + 2 keşif aracı zorunlu kılınca):
+
+| | keşif YOK | keşif VAR |
+|---|---|---|
+| hiç ateş etmeyen | 4/6 | **1/6** |
+| ilk atış | 156-192sn | **11-20sn** |
+
+## Kural: `spotterRequirement` — "gözcüsüz keskin nişancı alınmaz"
+
+`js/BattleDeployment.js` `battleGozcuKuraliUygula` — menzili kendi görüşünün `PRO_SPOTTER_KAT`(3)
+katından fazla olan silahlı birim varsa, orduda en az `PRO_SPOTTER_MIN`(3) keşif bulunur; yoksa
+**en ucuz** gözcü satın alınır (mızrak bütçesini az bozsun). Para yetmezse vazgeçilir.
+**Her iki kurucu yola da uygulanır** — tarif modu sezgisel zinciri tamamen atlıyor (ilk sürümde
+yalnız sezgisel yola koymuştum ve kural hiç bağlamadı).
+
+## Sonuçlar
+
+| | kural KAPALI | kural AÇIK |
+|---|---|---|
+| hiç ateş etmeyen | **4/6** | **0/6** |
+| ilk atış | 156sn / 192sn | **10-13sn** |
+| toplam atış (6 tohum) | 2 | **6** |
+| **verdiği hasar** | 516 | **2243** |
+| öldürdüğü birim | 2 | 0 |
+
+**Hasar 4.3× arttı.** Öldürme sayısı gürültülü — 600 hasarlık patlama çok birime dağılıyor,
+öldürücü darbe başkasına yazılıyor; bu yüzden ekonomik ölçü olarak HASAR alındı.
+
+**Maç kapısı: FARK YOK** — ve sebebi öğretici. Test ettiğim gerçekçi kompozisyon (`ORN-244`)
+zaten keşif içeriyor (İHA %3.5 + keşif aracı %5.1 → 3+ birim), yani kural bağlamıyor ve iki kol
+birebir aynı çıkıyor.
+
+**Dolayısıyla bu bir GÜVENLİK AĞI:** normal orduları değiştirmez, keşif-fakiri orduların 1050₺'lik
+balistiği çöpe atmasını engeller. Turnuva keşifsiz kompozisyonları da denediği için orada değer
+üretir. Varsayılan AÇIK; maliyeti bağlamadığında sıfır.
+
+**Kapılar:** forktest `true` · liverepro `false`.

@@ -540,8 +540,16 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // süre %48 (tools/dolayli-bos-teshis.js). Mermi yetiştirmek, ateş edecek hedef yokken atış
     // üretmiyor. Zaten kapsaması %83-85 olan tohumlarda bile atış 16-20'de kalıyor — kanıt bu.
     // Kod duruyor: hedef sorunu çözülürse (savunan duruşu/kompozisyonu) bu kural yeniden anlam kazanır.
-    supplyEscort: false
+    supplyEscort: false,
+    // P16 — GÖZCÜSÜZ KESKİN NİŞANCI ALINMAZ (kompozisyon katmanı). ÖLÇÜLDÜ: balistik füzenin hedefi
+    // geometrik olarak zamanın %100'ünde menzilinde ama GÖRÜNÜR oranı %0-3; keşifsiz orduda 4/6
+    // tohumda HİÇ ateş etmiyor. 2 keşif İHA + 2 keşif aracı zorunlu kılınınca 1/6'ya iniyor ve
+    // ilk atış 156-192sn → 11-20sn. Menzili görüşünün katından fazla olan birim varsa gözcü şart.
+    spotterRequirement: true
 };
+// ── 'spotterRequirement' PARAMETRELERİ (aranabilir) ──
+let PRO_SPOTTER_KAT = 3;    // menzil > görüş × bu kat ise "gözcü gerektiren" birim sayılır
+let PRO_SPOTTER_MIN = 3;    // orduda bulunması gereken en az keşif birimi sayısı
 // ── 'supplyEscort' PARAMETRELERİ (aranabilir) ──
 let PRO_SUPPLY_MIN_EKSIK = 0.15;    // mühimmat eksikliği bunun altındaki birim müşteri sayılmaz
 let PRO_SUPPLY_DOLAYLI_KAT = 3;     // dolaylı ateşe ağırlık katı (mermisi bitince tamamen işlevsiz)

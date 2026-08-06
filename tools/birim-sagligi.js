@@ -24,6 +24,7 @@ const TUM = JSON.parse(vm.runInContext(
 // "her tipten bir tane" gibi anlamsiz bir ordu cikiyor (kutle yok) ve HER birim kotu gorunuyor
 // (MBT bile getiri x0). Gercekci olcum icin ordular NORMAL kurulur; nadir birimler ise
 // --zorunlu ile normal bir ordunun icine 1-2 adet sokulur.
+const NOSPOT = process.argv.includes('--nospotter');   // gozcu kurali KAPALI kolu
 const _zi = process.argv.indexOf('--zorunlu');
 const ZORUNLU = _zi >= 0 ? process.argv[_zi + 1].split(',').filter(Boolean) : [];
 const tarif = ZORUNLU.length ? { ad: 'TARAMA', rol: 'attacker', zorunlu: {}, tavan: {}, artik: [] } : null;
@@ -33,6 +34,7 @@ const kod = [
     '(() => {',
     'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;',
     'BATTLE_INTEL4PRO_RED = true; BATTLE_INTEL4PRO_BLUE = true;',
+    'BATTLE_INTEL4PRO_DELTAS.spotterRequirement = ' + (!NOSPOT) + ';',
     'const tarif = ' + JSON.stringify(tarif) + ';',
     'const say = {};',
     'for (const seed of ' + JSON.stringify(TOHUMLAR) + ') {',

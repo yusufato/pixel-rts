@@ -357,6 +357,7 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
         }
     }
 
+    battleGozcuKuraliUygula(types, spent, remaining, config);   // gözcü kuralı: tarif yolu (spent = bu kapsamdaki harcama defteri)
     const counts = types.reduce((r, t) => { r[t] = (r[t] || 0) + 1; return r; }, {});
     const toplamDeger = types.reduce((s, t) => s + STATS[t].cost, 0);
 
@@ -394,6 +395,43 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
         tarifDenetim: denetim,
         hash: deploymentManifestHash(counts)
     };
+}
+
+// ── INTEL4-PRO 'spotterRequirement': GÖZCÜSÜZ KESKİN NİŞANCI ALINMAZ ──
+// ÖLÇÜLDÜ (tools/balistik-mermi-teshis.js, 6 tohum, normal ordu): balistik füzenin hedefi GEOMETRİK
+// olarak zamanın %100'ünde menzilinde — ama GÖRÜNÜR oranı %0-3. Keşifsiz orduda 4/6 tohumda HİÇ ateş
+// etmiyor. 2 keşif İHA + 2 keşif aracı zorunlu kılınınca: 1/6 ve ilk atış 156-192sn → 11-20sn.
+// KURAL: menzili kendi görüşünün PRO_SPOTTER_KAT katından fazla olan SİLAHLI birim varsa, orduda
+// en az PRO_SPOTTER_MIN keşif birimi bulunur; yoksa EN UCUZ gözcü satın alınır (mızrak bütçesini
+// az bozsun diye). Para yetmezse vazgeçilir — ordu asla bütçeyi aşmaz.
+// NOT: dün "gözcü sorunu değil (%9.4)" ölçümü KEŞİF-AĞIRLIKLI bir tarifle yapılmıştı; kurgu bulguyu
+// tersine çevirmişti. Bu kural normal orduda ölçülerek türetildi.
+// HER İKİ KURUCU YOLA da uygulanır (tarif modu sezgisel zinciri tamamen atlıyor).
+function battleGozcuKuraliUygula(types, spent, remaining, config) {
+    if (!(config && config.pro === true)) return;
+    if (typeof battleProDelta === 'function' && typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' &&
+        !BATTLE_INTEL4PRO_DELTAS.spotterRequirement) return;
+    if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
+    const gozcuTipleri = [T.RECON, T.RECON_UAV].filter(t => t != null && STATS[t]);
+    if (!gozcuTipleri.length) return;
+    const uzakGoz = types.some(t => {
+        const st = STATS[t];
+        if (!st || !st.weapons || !st.weapons.length) return false;
+        const menzil = st.range || 0, gorus = st.vision || 0;
+        return gorus > 0 && menzil > gorus * PRO_SPOTTER_KAT;
+    });
+    if (!uzakGoz) return;
+    let gozcu = types.filter(t => gozcuTipleri.includes(t)).length;
+    let guard = 0;
+    while (gozcu < PRO_SPOTTER_MIN && guard++ < 8) {
+        const aday = gozcuTipleri.filter(t => STATS[t].cost <= remaining.money)
+            .sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+        if (aday == null) break;
+        types.push(aday);
+        remaining.money -= STATS[aday].cost;
+        spent[aday] = (spent[aday] || 0) + STATS[aday].cost;
+        gozcu++;
+    }
 }
 
 function battleBuildArmyManifest(rawBudget, config = {}) {
@@ -708,6 +746,7 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
             remaining.money -= STATS[pick].cost; spent[pick] = (spent[pick] || 0) + STATS[pick].cost; types.push(pick);
         }
     }
+    battleGozcuKuraliUygula(types, spent, remaining, config);   // gözcü kuralı: sezgisel yol
     const counts = types.reduce((result, type) => {
         result[type] = (result[type] || 0) + 1;
         return result;
