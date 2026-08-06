@@ -9824,11 +9824,81 @@ function probeElections(seed = 2032) {
 
 function probeIntegrity(seed = 2032) {
     const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         runtime.api.advance(5);
         const story = runtime.api.state();
         const initial = runtime.api.integritySummary();
+        const countryId = 'country:0';
+        const institutionCountry = runtime.api.institutionCountryView(countryId);
+        const institutionOf = type => Object.values(institutionCountry.institutions).find(row => row.type === type);
+        const actorFor = institution => ({
+            institutionId: institution.id,
+            actorId: institution.officeHolder.actorId
+        });
+        const authorize = (actionType, proposerType) => {
+            const proposer = institutionOf(proposerType);
+            const submitted = runtime.api.institutionSubmit({ countryId, actionType, ...actorFor(proposer) });
+            if (!submitted.ok) return { submitted, executed: submitted };
+            let current = submitted;
+            if (submitted.request.status === 'PENDING_APPROVAL') {
+                for (const institutionId of submitted.request.requiredInstitutionIds || []) {
+                    if ((submitted.request.approvalInstitutionIds || []).includes(institutionId)) continue;
+                    current = runtime.api.institutionApprove(submitted.request.id, actorFor(institutionCountry.institutions[institutionId]));
+                    if (!current.ok) return { submitted, approved: current, executed: current };
+                }
+            }
+            const request = current.request || submitted.request;
+            const executor = institutionCountry.institutions[request.executorInstitutionId];
+            const executed = executor
+                ? runtime.api.institutionExecute(request.id, actorFor(executor))
+                : { ok: false, reason: 'NO_EXECUTOR_FIXTURE' };
+            return { submitted, approved: current, executed };
+        };
+        const judiciaryAuthority = () => authorize('REVIEW_LEGALITY', 'JUDICIARY');
+        const company = Object.values(runtime.api.companyLedger().companies || {})
+            .find(row => row.countryId === countryId);
+
+        const cleanAuthority = authorize('AUTHORIZE_BUDGET', 'LEGISLATURE');
+        const cleanPayment = cleanAuthority.executed.ok
+            ? runtime.api.budgetDebit(0, 10, 'institutional.procurement', { correlationId: 'integrity-clean-procurement' })
+            : cleanAuthority.executed;
+        const cleanProcurement = cleanPayment.ok && company
+            ? runtime.api.integrityRegisterProcurement({
+                authorityRequestId: cleanAuthority.executed.request.id,
+                budgetTransactionId: cleanPayment.transaction.id,
+                companyId: company.id,
+                benchmarkAmount: 10,
+                competitiveBidCount: 3
+            }) : { ok: false, reason: 'CLEAN_PROCUREMENT_FIXTURE_FAILED' };
+        const afterClean = runtime.api.integritySummary();
+
+        const suspectAuthority = authorize('AUTHORIZE_BUDGET', 'LEGISLATURE');
+        const suspectPayment = suspectAuthority.executed.ok
+            ? runtime.api.budgetDebit(0, 15, 'institutional.procurement', { correlationId: 'integrity-suspect-procurement' })
+            : suspectAuthority.executed;
+        const suspectProcurement = suspectPayment.ok && company
+            ? runtime.api.integrityRegisterProcurement({
+                authorityRequestId: suspectAuthority.executed.request.id,
+                budgetTransactionId: suspectPayment.transaction.id,
+                companyId: company.id,
+                benchmarkAmount: 10,
+                competitiveBidCount: 1
+            }) : { ok: false, reason: 'SUSPECT_PROCUREMENT_FIXTURE_FAILED' };
+        const suspectCase = suspectProcurement.case || null;
+        const suspectWithoutAuthority = suspectCase
+            ? runtime.api.integrityOpenInvestigation(suspectCase.id, 'institution-request:forged')
+            : { ok: false, reason: 'NO_SUSPECT_CASE' };
+        const weakJudiciary = judiciaryAuthority();
+        const suspectOpened = suspectCase && weakJudiciary.executed.ok
+            ? runtime.api.integrityOpenInvestigation(suspectCase.id, weakJudiciary.executed.request.id)
+            : { ok: false, reason: 'WEAK_JUDICIARY_FIXTURE_FAILED' };
+        const suspectResolved = suspectOpened.ok
+            ? runtime.api.integrityResolveInvestigation(suspectCase.id) : suspectOpened;
+
         const state = story.states.find(row => Number(row.id) === 0);
         const from = story.commander;
         const to = (state.gov && state.gov.commanders || []).find(row => row !== from);
@@ -9837,28 +9907,45 @@ function probeIntegrity(seed = 2032) {
         }) : { ok: false, code: 'NO_TARGET_COMMANDER' };
         runtime.api.integrityTick(5);
         const afterReceipt = runtime.api.integrityLedger();
-        const caseRow = Object.values(afterReceipt.cases || {})[0] || null;
+        const caseRow = Object.values(afterReceipt.cases || {}).find(row => row.kind === 'EXPLICIT_BRIBE_TRANSFER') || null;
         const withoutAuthority = caseRow
             ? runtime.api.integrityOpenInvestigation(caseRow.id, 'institution-request:forged')
             : { ok: false, reason: 'NO_CASE' };
-
-        const country = runtime.api.institutionCountryView('country:0');
-        const judiciary = Object.values(country.institutions).find(row => row.type === 'JUDICIARY');
-        const actor = { institutionId: judiciary.id, actorId: judiciary.officeHolder.actorId };
-        const submitted = runtime.api.institutionSubmit({
-            countryId: 'country:0', actionType: 'REVIEW_LEGALITY', ...actor
-        });
-        const executed = submitted.ok
-            ? runtime.api.institutionExecute(submitted.request.id, actor) : submitted;
-        const opened = caseRow && executed.ok
-            ? runtime.api.integrityOpenInvestigation(caseRow.id, executed.request.id)
+        const reusedAuthority = caseRow && weakJudiciary.executed.ok
+            ? runtime.api.integrityOpenInvestigation(caseRow.id, weakJudiciary.executed.request.id)
+            : { ok: false, reason: 'NO_REUSED_AUTHORITY_FIXTURE' };
+        const judiciary = judiciaryAuthority();
+        const opened = caseRow && judiciary.executed.ok
+            ? runtime.api.integrityOpenInvestigation(caseRow.id, judiciary.executed.request.id)
             : { ok: false, reason: 'JUDICIAL_FIXTURE_FAILED' };
         const resolved = opened.ok
             ? runtime.api.integrityResolveInvestigation(caseRow.id) : opened;
         runtime.api.integrityTick(5);
         const finalLedger = runtime.api.integrityLedger();
-        return {
+        const beforeProjection = JSON.stringify(finalLedger);
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, countryId);
+        const own = knowledge.countries.find(row => row.id === countryId);
+        const foreignKnowledge = runtime.api.playerKnowledge(world, 'country:1');
+        const foreign = foreignKnowledge.countries.find(row => row.id === countryId);
+        const ownNode = story.nodes.find(node => Number(node.owner) === 0);
+        const ownUi = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        story.playerStateId = 1;
+        const foreignUi = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        story.playerStateId = 0;
+        const projectionReadOnly = beforeProjection === JSON.stringify(runtime.api.integrityLedger());
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = JSON.parse(savedRaw).integrity;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
             initial,
+            clean: { authority: cleanAuthority, payment: cleanPayment, procurement: cleanProcurement, after: afterClean },
+            suspect: {
+                authority: suspectAuthority, payment: suspectPayment, procurement: suspectProcurement,
+                withoutAuthority: suspectWithoutAuthority, judiciary: weakJudiciary,
+                opened: suspectOpened, resolved: suspectResolved
+            },
             transfer,
             afterReceipt: {
                 caseCount: Object.keys(afterReceipt.cases || {}).length,
@@ -9866,17 +9953,123 @@ function probeIntegrity(seed = 2032) {
                 case: caseRow
             },
             withoutAuthority,
-            judiciary: { submitted, executed },
+            reusedAuthority,
+            judiciary,
             opened,
             resolved,
             finalSummary: runtime.api.integritySummary(),
             validation: runtime.api.validateIntegrityLedger(finalLedger),
-            deduplicated: Object.keys(finalLedger.cases || {}).length === 1
-                && Object.keys(finalLedger.evidence || {}).length === 1
+            deduplicated: Object.values(finalLedger.cases || {}).filter(row => row.kind === 'EXPLICIT_BRIBE_TRANSFER').length === 1,
+            subjectCanonical: !!(caseRow && /^character:0:/.test(String(caseRow.subjectActorId))),
+            worldValidation: runtime.api.validateWorldV2(world),
+            worldCaseCount: world.integrityCases.length,
+            worldEvidenceCount: world.integrityEvidence.length,
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
+            foreignKnowledgeValidation: runtime.api.validatePlayerKnowledge(foreignKnowledge),
+            ownKnowledge: own.integrity,
+            foreignKnowledge: foreign.integrity,
+            foreignSecretsHidden: !/evidence|evidenceScoreBps|sourceId|sourceKind|subjectActorId|beneficiaryCompanyId|authorityRequestId|investigationRequestId|redFlags/.test(
+                JSON.stringify(foreign.integrity.value)
+            ),
+            projectionReadOnly,
+            ui: {
+                ownVisible: /ETİK, İDDİA VE SORUŞTURMA|KANIT SKORU/.test(ownUi.text),
+                ownSeparatesRisk: /Saptırma riski yalnız yapısal bir göstergedir|İddia suç değildir/.test(ownUi.text),
+                foreignVisible: /ETİK, İDDİA VE SORUŞTURMA|KANITLANDI|KANITLANAMADI/.test(foreignUi.text),
+                foreignSecretLeak: /KANIT SKORU|sourceId|sourceKind|authorityRequestId|investigationRequestId|EXPLICIT_BRIBE_RECEIPT/.test(foreignUi.text)
+            },
+            saveOk: story._lastSaveOk === true,
+            saveExact: JSON.stringify(savedLedger) === JSON.stringify(runtime.api.integrityLedger()),
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                caseCount: migrated.ok ? migrated.world.integrityCases.length : 0,
+                evidenceCount: migrated.ok ? migrated.world.integrityEvidence.length : 0,
+                countryPreserved: !!(migrated.ok && migrated.world.countries[0].integrity),
+                unmapped: !!(migrated.ok && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('integrity'))
+            }
         };
     } finally {
         runtime.dom.window.close();
     }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.integrityLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateIntegrityLedger(ledger),
+            exact: JSON.stringify(ledger) === JSON.stringify(savedLedger)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.integrity;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.integrityLedger();
+        legacy = {
+            validation: legacyRuntime.api.validateIntegrityLedger(ledger),
+            diagnostics: ledger.diagnostics,
+            summary: legacyRuntime.api.integritySummary()
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptEvidence = Object.values(corruptSave.integrity.evidence || {})[0];
+    if (corruptEvidence) corruptEvidence.direction = 'FORGED_DIRECTION';
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corruptRuntime.api.loadNow();
+        const ledger = corruptRuntime.api.integrityLedger();
+        corrupt = {
+            validation: corruptRuntime.api.validateIntegrityLedger(ledger),
+            diagnostics: ledger.diagnostics
+        };
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.patronageIntegrity': false }
+        });
+        disabled = { ledger: disabledRuntime.api.integrityLedger(), summary: disabledRuntime.api.integritySummary() };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'economy.companiesBanks': false, 'government.patronageIntegrity': true }
+        });
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.integrityLedger(),
+            summary: prerequisiteRuntime.api.integritySummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+
+    return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
 }
 
 module.exports = {

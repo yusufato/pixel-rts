@@ -9,6 +9,7 @@ const STORY_TEST_TASKS = Object.freeze([
     { key: 'alternate', fn: 'runStorySimulation', weight: 150, args: [{ seed: 2033, seconds: 900 }] },
     { key: 'telemetryOff', fn: 'runStorySimulation', weight: 145, args: [{ seed: 2032, seconds: 900, featureFlags: { 'telemetry.world': false, 'telemetry.resources': false, 'telemetry.performance': false, 'welfare.continuousCap': true, 'world.v2Projection': false, 'knowledge.playerProjection': false } }] },
     { key: 'welfareCapOff', fn: 'runStorySimulation', weight: 145, args: [{ seed: 2032, seconds: 900, featureFlags: { 'welfare.continuousCap': false } }] },
+    { key: 'integrityOff900', fn: 'runStorySimulation', weight: 150, args: [{ seed: 2032, seconds: 900, featureFlags: { 'government.patronageIntegrity': false } }] },
     { key: 'saleFlow', fn: 'runStorySimulation', weight: 15, args: [{ seed: 2032, seconds: 60, featureFlags: { 'economy.saleSettlement': true } }] },
 
     { key: 'peaceProbe', fn: 'probePeacefulDiplomacy', weight: 20, args: [] },
@@ -39,7 +40,7 @@ const STORY_TEST_TASKS = Object.freeze([
     { key: 'institutionProbe', fn: 'probeInstitutions', weight: 25, args: [] },
     { key: 'stateCapacityProbe', fn: 'probeStateCapacity', weight: 30, args: [] },
     { key: 'electionProbe', fn: 'probeElections', weight: 80, args: [] },
-    { key: 'integrityProbe', fn: 'probeIntegrity', weight: 5, args: [] },
+    { key: 'integrityProbe', fn: 'probeIntegrity', weight: 35, args: [] },
     { key: 'cityDossierProbe', fn: 'probeCityDossier', weight: 12, args: [] },
     { key: 'mapRasterProbe', fn: 'probeCanonicalMapRaster', weight: 18, args: [] },
     { key: 'prebuiltRasterProbe', fn: 'probePrebuiltMapRaster', weight: 12, args: [] },

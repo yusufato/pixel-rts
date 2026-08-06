@@ -28,14 +28,14 @@ function storyMigrationChecksum(raw) {
     return `fnv2:${text.length}:${hex(a)}${hex(b)}`;
 }
 
-function storyMigrationBase(id, ownerId, clock) {
+function storyMigrationBase(id, ownerId, clock, sourceEventId) {
     return {
         id: String(id),
         createdAt: 0,
         updatedAt: Number.isFinite(Number(clock)) ? Number(clock) : 0,
         version: 1,
         ownerId: ownerId == null ? null : String(ownerId),
-        sourceEventId: null
+        sourceEventId: sourceEventId == null ? null : String(sourceEventId)
     };
 }
 
@@ -321,6 +321,10 @@ function storyMigrationV3RawToV2(raw, options) {
     const savedElectionCountries = storyMigrationObject(savedElections.countries);
     const savedElectionRows = storyMigrationObject(savedElections.elections);
     const savedMandates = storyMigrationObject(savedElections.mandates);
+    const savedIntegrity = storyMigrationObject(save.integrity);
+    const savedIntegrityCountries = storyMigrationObject(savedIntegrity.countries);
+    const savedIntegrityCases = storyMigrationObject(savedIntegrity.cases);
+    const savedIntegrityEvidence = storyMigrationObject(savedIntegrity.evidence);
     for (const countryId of Object.keys(savedCollectiveCountries)) {
         const migratedCountry = countries.find(country => country.id === countryId);
         if (migratedCountry) {
@@ -424,6 +428,18 @@ function storyMigrationV3RawToV2(raw, options) {
             .sort((a, b) => Number(b.scheduledAt) - Number(a.scheduledAt));
         migratedCountry.elections = electionView;
     }
+    for (const countryId of Object.keys(savedIntegrityCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (!migratedCountry) continue;
+        const integrityView = storyMigrationClone(savedIntegrityCountries[countryId]);
+        integrityView.cases = (integrityView.caseIds || [])
+            .map(id => savedIntegrityCases[id])
+            .filter(Boolean)
+            .map(row => Object.assign(storyMigrationClone(row), {
+                evidence: (row.evidenceIds || []).map(id => storyMigrationClone(savedIntegrityEvidence[id])).filter(Boolean)
+            }));
+        migratedCountry.integrity = integrityView;
+    }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
         for (const cohort of (Array.isArray(savedRegion.cohorts) ? savedRegion.cohorts : [])) {
@@ -453,7 +469,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -470,7 +486,7 @@ function storyMigrationV3RawToV2(raw, options) {
     const world = {
         meta: {
             schemaVersion: STORY_WORLD_V2_SCHEMA_VERSION,
-            adapterVersion: 'legacy-save-v3-to-v2-4',
+            adapterVersion: 'legacy-save-v3-to-v2-5',
             campaignId: `story:${seed == null ? 'legacy' : seed}:${playerStateId}`,
             seed,
             engineVersions: {
@@ -536,6 +552,16 @@ function storyMigrationV3RawToV2(raw, options) {
             storyMigrationBase(String(mandate.id), mandate.countryId == null ? null : String(mandate.countryId), storyMigrationNumber(mandate.startedAt, 0)),
             storyMigrationClone(mandate),
             { entityType: 'GOVERNMENT_MANDATE' }
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        integrityCases: Object.values(savedIntegrityCases).map(row => Object.assign(
+            storyMigrationBase(String(row.id), row.countryId == null ? null : String(row.countryId), storyMigrationNumber(row.openedAt, 0)),
+            storyMigrationClone(row),
+            { entityType: 'INTEGRITY_CASE' }
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        integrityEvidence: Object.values(savedIntegrityEvidence).map(row => Object.assign(
+            storyMigrationBase(String(row.id), row.countryId == null ? null : String(row.countryId), storyMigrationNumber(row.createdAt, 0), row.caseId),
+            storyMigrationClone(row),
+            { entityType: 'INTEGRITY_EVIDENCE' }
         )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         companies: [],
         mediaOutlets: [],

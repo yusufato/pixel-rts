@@ -26,7 +26,8 @@ const {
     probePowerCenters,
     probeInstitutions,
     probeStateCapacity,
-    probeElections
+    probeElections,
+    probeIntegrity
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -439,6 +440,7 @@ function targetedProbeFor(flag, seed) {
             prerequisiteDisabled: probe.prerequisiteDisabled
         };
     }
+    if (flag === 'government.patronageIntegrity') return probeIntegrity(seed);
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }

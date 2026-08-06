@@ -74,6 +74,11 @@ function run() {
     });
     const repeat = storyTestResult('repeat', runStorySimulation, { seed: 2032, seconds: 900 });
     const alternate = storyTestResult('alternate', runStorySimulation, { seed: 2033, seconds: 900 });
+    const integrityOff900 = storyTestResult('integrityOff900', runStorySimulation, {
+        seed: 2032,
+        seconds: 900,
+        featureFlags: { 'government.patronageIntegrity': false }
+    });
     const telemetryOff = storyTestResult('telemetryOff', runStorySimulation, {
         seed: 2032,
         seconds: 900,
@@ -2394,28 +2399,118 @@ function run() {
         'Kamuoyu öncülü kapalıysa Faz 31 sahte oy üretmemeli.');
 
     const integrityProbe = storyTestResult('integrityProbe', probeIntegrity);
-    assert.equal(integrityProbe.initial.caseCount, 0,
+    assert.equal(integrityProbe.main.initial.caseCount, 0,
         'Faz 32 yapısal yolsuzluk riskinden kendiliğinden suç dosyası uydurmamalı.');
-    assert.equal(integrityProbe.transfer.ok, true,
+    assert.equal(integrityProbe.main.clean.authority.executed.ok, true,
+        'Temiz ihale gerçek yürütülmüş bütçe yetkisi taşımalı.');
+    assert.equal(integrityProbe.main.clean.payment.ok, true,
+        'Temiz ihale gerçek bütçe fişi üretmeli.');
+    assert.equal(integrityProbe.main.clean.procurement.noCase, true,
+        'Rekabetçi ve piyasa fiyatındaki ihale sırf incelendi diye iddia üretmemeli.');
+    assert.equal(integrityProbe.main.clean.procurement.reason, 'NO_INTEGRITY_RED_FLAGS',
+        'Temiz ihale sonucu açıklamalı ve deterministik olmalı.');
+    assert.equal(integrityProbe.main.clean.after.caseCount, 0,
+        'Temiz ihale bütünlük defterini değiştirmemeli.');
+    assert.equal(integrityProbe.main.suspect.procurement.ok, true,
+        'Tek teklifli ve pahalı ihale ön inceleme dosyası açabilmeli.');
+    assert.equal(integrityProbe.main.suspect.procurement.case.status, 'PRELIMINARY_REVIEW',
+        'Kırmızı bayrak doğrudan suç veya resmî soruşturma değil, ön inceleme olmalı.');
+    assert.ok(integrityProbe.main.suspect.procurement.case.evidenceScoreBps >= 2500,
+        'Şüpheli ihale resmî inceleme için açıklanan ön kanıt eşiğini geçmeli.');
+    assert.ok(integrityProbe.main.suspect.procurement.case.evidenceScoreBps < 6000,
+        'Şüpheli ihale tek başına kanıtlandı eşiğine ulaşmamalı.');
+    assert.equal(integrityProbe.main.suspect.withoutAuthority.reason, 'EXECUTED_JUDICIAL_AUTHORITY_REQUIRED',
+        'Ön inceleme sahte yargı kimliğiyle resmî soruşturmaya dönüşmemeli.');
+    assert.equal(integrityProbe.main.suspect.opened.ok, true,
+        'Yetkili yargı kararı şüpheli ihale soruşturmasını açabilmeli.');
+    assert.equal(integrityProbe.main.suspect.resolved.case.status, 'UNSUBSTANTIATED',
+        'Eşik altı ihale kanıtı suç üretmemeli; kanıtlanamadı diye kapanmalı.');
+    assert.equal(integrityProbe.main.transfer.ok, true,
         'Hedefli Faz 32 probu gerçek çift taraflı rüşvet fişi üretmeli.');
-    assert.equal(integrityProbe.afterReceipt.caseCount, 1,
-        'Açıkça rüşvet sınıflandırılmış gerçek bütçe fişi tek iddia dosyası açmalı.');
-    assert.equal(integrityProbe.afterReceipt.evidenceCount, 1,
-        'Rüşvet dosyasının kanıtı kaynak bütçe işlemiyle birebir izlenebilmeli.');
-    assert.equal(integrityProbe.withoutAuthority.reason, 'EXECUTED_JUDICIAL_AUTHORITY_REQUIRED',
+    assert.equal(integrityProbe.main.afterReceipt.caseCount, 2,
+        'Şüpheli ihale ve gerçek rüşvet birbirinden ayrı iki dosya üretmeli.');
+    assert.equal(integrityProbe.main.subjectCanonical, true,
+        'Rüşvet öznesi muhasebe hesabı değil kanonik karakter kimliği olmalı.');
+    assert.equal(integrityProbe.main.withoutAuthority.reason, 'EXECUTED_JUDICIAL_AUTHORITY_REQUIRED',
         'Yürütülmüş yargı yetkisi olmadan resmî soruşturma açılamamalı.');
-    assert.equal(integrityProbe.judiciary.executed.ok, true,
+    assert.equal(integrityProbe.main.reusedAuthority.reason, 'JUDICIAL_AUTHORITY_ALREADY_CONSUMED',
+        'Aynı yargı yetki fişi ikinci dosyada tekrar kullanılamamalı.');
+    assert.equal(integrityProbe.main.judiciary.executed.ok, true,
         'Faz 29 yargı rotası Faz 32 soruşturmasına geçerli yetki fişi verebilmeli.');
-    assert.equal(integrityProbe.opened.ok, true,
+    assert.equal(integrityProbe.main.opened.ok, true,
         'Yeterli ön kanıt ve yargı yetkisi resmî soruşturmayı açabilmeli.');
-    assert.equal(integrityProbe.resolved.case.status, 'SUBSTANTIATED',
+    assert.equal(integrityProbe.main.resolved.case.status, 'SUBSTANTIATED',
         'Tam gerçek rüşvet fişi deterministik ispat eşiğini geçmeli.');
-    assert.equal(integrityProbe.resolved.case.physicalMutation, false,
+    assert.equal(integrityProbe.main.resolved.case.physicalMutation, false,
         'Faz 32 bulgusu ekonomi veya dünyaya doğrudan ikinci kez yazmamalı.');
-    assert.equal(integrityProbe.deduplicated, true,
+    assert.equal(integrityProbe.main.deduplicated, true,
         'Aynı kaynak fişi sonraki tiklerde ikinci dosya veya kanıt üretmemeli.');
-    assert.equal(integrityProbe.validation.ok, true,
+    assert.equal(integrityProbe.main.validation.ok, true,
         'Faz 32 bütünlük ve soruşturma defteri kendi sözleşmesini geçmeli.');
+    assert.equal(integrityProbe.main.worldValidation.ok, true,
+        'Bütünlük dosyaları eklenmiş Dünya V2 sözleşmesini geçmeli.');
+    assert.equal(integrityProbe.main.worldCaseCount, 2,
+        'Dünya V2 bütünlük dosyalarını üst koleksiyonda taşımalı.');
+    assert.ok(integrityProbe.main.worldEvidenceCount >= 5,
+        'Dünya V2 kaynaklı ihale ve rüşvet kanıtlarını taşımalı.');
+    assert.equal(integrityProbe.main.knowledgeValidation.ok, true,
+        'Bütünlük bilgisi eklenmiş oyuncu görünümü doğrulanmalı.');
+    assert.equal(integrityProbe.main.foreignKnowledgeValidation.ok, true,
+        'Bütünlük ülkesine yabancı oyuncu görünümü de doğrulanmalı.');
+    assert.equal(integrityProbe.main.foreignSecretsHidden, true,
+        'Yabancı ülke görünümü kanıt, özne, şirket ve yetki kimliklerini sızdırmamalı.');
+    assert.equal(integrityProbe.main.projectionReadOnly, true,
+        'Dünya, oyuncu bilgisi ve şehir arayüzü bütünlük defterini değiştirmemeli.');
+    assert.equal(integrityProbe.main.ui.ownVisible, true,
+        'Oyuncu kendi ülkesinde kanıt ve soruşturma bölümünü görebilmeli.');
+    assert.equal(integrityProbe.main.ui.ownSeparatesRisk, true,
+        'Arayüz yapısal risk, iddia ve kanıtlanmış sonucu açıkça ayırmalı.');
+    assert.equal(integrityProbe.main.ui.foreignVisible, true,
+        'Yabancı ülkenin kamusal soruşturma sonucu görünür olmalı.');
+    assert.equal(integrityProbe.main.ui.foreignSecretLeak, false,
+        'Yabancı şehir arayüzü iç kanıt ve kaynak kimliklerini göstermemeli.');
+    assert.equal(integrityProbe.main.saveOk, true,
+        'Bütünlük defteri taşıyan kayıt yazılabilmeli.');
+    assert.equal(integrityProbe.main.saveExact, true,
+        'Kaydedilen bütünlük defteri canlı defterle birebir aynı olmalı.');
+    assert.equal(integrityProbe.restored.loaded, true,
+        'Bütünlük defteri taşıyan kayıt yeniden yüklenebilmeli.');
+    assert.equal(integrityProbe.restored.validation.ok, true,
+        'Yeniden yüklenen bütünlük defteri doğrulanmalı.');
+    assert.equal(integrityProbe.restored.exact, true,
+        'Kayıt/yükleme bütünlük defterini birebir korumalı.');
+    assert.equal(integrityProbe.main.migration.ok, true,
+        'Bütünlük defteri taşıyan V3 kayıt V2 kopyasına göçebilmeli.');
+    assert.equal(integrityProbe.main.migration.validation.ok, true,
+        'Göçmüş bütünlük varlıkları Dünya V2 sözleşmesini geçmeli.');
+    assert.equal(integrityProbe.main.migration.caseCount, 2,
+        'Göç bütünlük dosyalarını korumalı.');
+    assert.ok(integrityProbe.main.migration.evidenceCount >= 5,
+        'Göç bütünlük kanıtlarını korumalı.');
+    assert.equal(integrityProbe.main.migration.countryPreserved, true,
+        'Göç ülke bütünlük özetini korumalı.');
+    assert.equal(integrityProbe.main.migration.unmapped, false,
+        'Göç bütünlük alanını eşlenmemiş diye raporlamamalı.');
+    assert.equal(integrityProbe.legacy.validation.ok, true,
+        'Faz 32 öncesi kayıt güvenli boş bütünlük defteriyle açılmalı.');
+    assert.equal(integrityProbe.legacy.diagnostics.backfilled, true,
+        'Eski kayıt bütünlük backfill durumunu açıklamalı.');
+    assert.equal(integrityProbe.corrupt.validation.ok, true,
+        'Bozuk bütünlük kaydı güvenli sıfırlama sonrası doğrulanmalı.');
+    assert.equal(integrityProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'Bozuk bütünlük kaydı sessizce kabul edilmemeli.');
+    assert.equal(integrityProbe.disabled.ledger, null,
+        'Faz 32 bayrağı kapalıyken bütünlük defteri oluşmamalı.');
+    assert.equal(integrityProbe.prerequisiteDisabled.ledger, null,
+        'Şirket önkoşulu kapalıyken bütünlük katmanı yanlışlıkla çalışmamalı.');
+    assert.equal(repeat.integrityValidation.ok, true,
+        '900 sn açık Faz 32 defteri doğrulanmalı.');
+    assert.equal(integrityOff900.integrityValidation.ok, true,
+        '900 sn kapalı Faz 32 koşusu diğer katman doğrulamalarını bozmamalı.');
+    assert.equal(integrityOff900.integritySummary.disabled, true,
+        'A/B kontrolünde Faz 32 gerçekten kapalı olmalı.');
+    assert.equal(repeat.stateHash, integrityOff900.stateHash,
+        'Kayıt-only Faz 32, 900 sn fiziksel dünya karmasını değiştirmemeli.');
 
     const cityDossierProbe = storyTestResult('cityDossierProbe', probeCityDossier);
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');

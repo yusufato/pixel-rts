@@ -153,6 +153,7 @@ function storyCityDossierBuild(nodeId) {
     facts.countryInstitutions = storyCityDossierFactCopy(ownerCountry && ownerCountry.institutions);
     facts.countryStateCapacity = storyCityDossierFactCopy(ownerCountry && ownerCountry.stateCapacity);
     facts.countryElections = storyCityDossierFactCopy(ownerCountry && ownerCountry.elections);
+    facts.countryIntegrity = storyCityDossierFactCopy(ownerCountry && ownerCountry.integrity);
 
     const characters = (knowledge.characters || [])
         .filter(character => character.regionId
@@ -264,6 +265,11 @@ function storyCityDossierValidate(view) {
         const electionText = elections && elections.value ? JSON.stringify(elections.value) : '';
         if (/cohortBallots|scoreComponentsBySlate|sourceTicks|influenceBps|affinityBps/.test(electionText)) {
             add('FOREIGN_ELECTION_INTELLIGENCE_LEAK', '$.facts.countryElections', 'Yabancı seçimin kohort tercih hesabı ve iç destek ağı sızamaz.');
+        }
+        const integrity = view.facts && view.facts.countryIntegrity;
+        const integrityText = integrity && integrity.value ? JSON.stringify(integrity.value) : '';
+        if (/evidence|evidenceScoreBps|sourceId|sourceKind|subjectActorId|beneficiaryCompanyId|authorityRequestId|investigationRequestId|redFlags/.test(integrityText)) {
+            add('FOREIGN_INTEGRITY_INTELLIGENCE_LEAK', '$.facts.countryIntegrity', 'Yabancı soruşturmanın gizli kanıtı, öznesi ve iç kaynak kimlikleri sızamaz.');
         }
     }
     if (!Array.isArray(view.missingSystems)
@@ -517,6 +523,42 @@ function storyCityDossierRenderElections(view) {
         + (rows ? `<div class="city-character-list">${rows}</div>`
             : `<div class="city-dossier-empty"><b>HENÜZ SEÇİM YOK</b><span>İlk kampanya takvimde bekliyor.</span></div>`)
         + `<p class="city-hint">Oylar çocuklar hariç gerçek nüfus kohortlarından tam kişi hesabıyla çıkar. Adaylar Faz 34'e kadar insan değil, açık siyasi liste vekilleridir. Güç merkezleri oy yaratmaz; yalnız sınırlı kamusal destek sinyali verir. Sonuç ekonomi bonusu değil, yeni ve izlenebilir bir makam mandası üretir.</p></section>`;
+}
+
+function storyCityDossierRenderIntegrity(view) {
+    const fact = view.facts.countryIntegrity;
+    if (!fact || fact.status === PLAYER_FACT_STATUS.UNKNOWN || !fact.value) {
+        return `<section class="city-dossier-empty"><b>ETİK VE SORUŞTURMA KAYDI YOK</b>`
+            + `<span>Bu ülke hakkında doğrulanmış iddia veya kamusal soruşturma kaydı bulunmuyor.</span></section>`;
+    }
+    const value = fact.value;
+    const pct = bps => storyCityDossierNumber((Number(bps) || 0) / 100);
+    const statusLabels = {
+        ALLEGATION: 'İDDİA', PRELIMINARY_REVIEW: 'ÖN İNCELEME',
+        FORMAL_INVESTIGATION: 'RESMÎ SORUŞTURMA', SUBSTANTIATED: 'KANITLANDI',
+        UNSUBSTANTIATED: 'KANITLANAMADI', CLOSED: 'KAPANDI'
+    };
+    const metrics = `<div class="city-fact-grid">`
+        + `<div><span>İDDİA DOSYASI</span><b>${storyCityDossierNumber(value.allegationCount)}</b></div>`
+        + `<div><span>AÇIK SORUŞTURMA</span><b>${storyCityDossierNumber(value.openInvestigationCount)}</b></div>`
+        + `<div><span>KANITLANAN</span><b>${storyCityDossierNumber(value.substantiatedCount)}</b></div>`
+        + (view.isOwn ? `<div><span>KANITLANAMAYAN</span><b>${storyCityDossierNumber(value.unsubstantiatedCount)}</b></div>` : '')
+        + `</div>`;
+    const rows = (value.cases || []).slice().sort((a, b) => Number(b.openedAt) - Number(a.openedAt)).slice(0, 8).map(row => {
+        const evidence = view.isOwn ? (row.evidence || []) : [];
+        const evidenceRows = evidence.slice(0, 6).map(item => `<small>${storyCityDossierEscape(item.summaryCode || item.type)} · `
+            + `${storyCityDossierEscape(item.direction)} · güven %${pct(item.authenticityBps)} · ilgi %${pct(item.relevanceBps)}`
+            + ` · kaynak ${storyCityDossierEscape(item.sourceKind)} / ${storyCityDossierEscape(item.sourceId)}</small>`).join('');
+        const internal = view.isOwn
+            ? `<span>KANIT SKORU %${pct(row.evidenceScoreBps)} · BAYRAK ${(row.redFlags || []).length}</span>${evidenceRows}`
+            : '';
+        return `<article class="city-character-row"><div><b>${storyCityDossierEscape(row.kind)} · ${storyCityDossierEscape(statusLabels[row.status] || row.status)}</b>`
+            + internal + `</div></article>`;
+    }).join('');
+    return `<section class="city-dossier-sec"><h3>ETİK, İDDİA VE SORUŞTURMA</h3>${metrics}`
+        + (rows ? `<div class="city-character-list">${rows}</div>`
+            : `<div class="city-dossier-empty"><b>DOSYA YOK</b><span>Yapısal risk tek başına iddia veya suç üretmez.</span></div>`)
+        + `<p class="city-hint">Saptırma riski yalnız yapısal bir göstergedir. İddia suç değildir; resmî soruşturma yetkili yargı kararı ve kaynaklı ön kanıt ister. “Kanıtlandı” sonucu yalnız kanıt eşiği aşıldığında kullanılır.</p></section>`;
 }
 
 function storyCityDossierGeneral(view, node) {
@@ -893,6 +935,7 @@ function storyCityDossierRender(view, active, node) {
     if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
     else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
         + storyCityDossierRenderStateCapacity(view)
+        + storyCityDossierRenderIntegrity(view)
         + storyCityDossierRenderElections(view)
         + storyCityDossierRenderPowerCenters(view);
     else if (active === 'tarih') content = storyCityDossierRenderHistory(view);

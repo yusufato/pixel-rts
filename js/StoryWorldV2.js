@@ -6,11 +6,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_WORLD_V2_SCHEMA_VERSION = 2;
-const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-4';
+const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-5';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
     'meta', 'clock', 'countries', 'regions', 'characters',
-    'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'companies', 'mediaOutlets',
+    'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence', 'companies', 'mediaOutlets',
     'diplomaticEdges', 'markets', 'militaryForces', 'crises',
     'events', 'decisions', 'memory', 'diagnostics'
 ]);
@@ -109,6 +109,9 @@ function storyWorldV2Countries() {
                 : null,
             elections: typeof storyElectionCountryView === 'function'
                 ? storyWorldV2Clone(storyElectionCountryView(storyWorldV2CountryId(state.id)))
+                : null,
+            integrity: typeof storyIntegrityCountryView === 'function'
+                ? storyWorldV2Clone(storyIntegrityCountryView(storyWorldV2CountryId(state.id)))
                 : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
@@ -385,6 +388,28 @@ function storyWorldV2Mandates() {
     )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
+function storyWorldV2IntegrityCases() {
+    const ledger = typeof storyIntegrityEnabled === 'function'
+        && storyIntegrityEnabled() ? STORY.integrity : null;
+    if (!ledger) return [];
+    return Object.values(ledger.cases || {}).map(row => Object.assign(
+        storyWorldV2EntityBase(row.id, row.countryId, row.openedAt, null),
+        storyWorldV2Clone(row),
+        { entityType: 'INTEGRITY_CASE' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
+function storyWorldV2IntegrityEvidence() {
+    const ledger = typeof storyIntegrityEnabled === 'function'
+        && storyIntegrityEnabled() ? STORY.integrity : null;
+    if (!ledger) return [];
+    return Object.values(ledger.evidence || {}).map(row => Object.assign(
+        storyWorldV2EntityBase(row.id, row.countryId, row.createdAt, row.caseId),
+        storyWorldV2Clone(row),
+        { entityType: 'INTEGRITY_EVIDENCE' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
 function storyWorldV2Forces() {
     const forces = [];
     for (const state of (STORY.states || [])) {
@@ -489,6 +514,8 @@ function storyWorldV2CreateEmpty(options) {
         implementationTickets: [],
         elections: [],
         mandates: [],
+        integrityCases: [],
+        integrityEvidence: [],
         companies: [],
         mediaOutlets: [],
         diplomaticEdges: [],
@@ -548,6 +575,8 @@ function storyWorldV2Snapshot() {
         implementationTickets: storyWorldV2ImplementationTickets(),
         elections: storyWorldV2Elections(),
         mandates: storyWorldV2Mandates(),
+        integrityCases: storyWorldV2IntegrityCases(),
+        integrityEvidence: storyWorldV2IntegrityEvidence(),
         companies: typeof storyCompanyEnsure === 'function'
             ? (() => {
                 const ledger = storyCompanyEnsure();
@@ -760,7 +789,7 @@ function storyWorldV2Validate(world, options) {
     }
 
     const collectionNames = STORY_WORLD_V2_TOP_LEVEL.filter(key => [
-        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates',
+        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence',
         'companies', 'mediaOutlets', 'diplomaticEdges', 'markets', 'militaryForces',
         'crises', 'events', 'decisions'
     ].includes(key));

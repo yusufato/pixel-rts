@@ -111,6 +111,7 @@ function storyIntegrityEvidenceScore(ledger, caseRow) {
     let rebuttal = 0;
     for (const row of rows) {
         const score = Math.round(row.authenticityBps * row.relevanceBps / 10000);
+        if (row.direction === 'NEUTRAL') continue;
         if (row.direction === 'REBUTS') rebuttal += score;
         else support += score;
     }
@@ -124,12 +125,15 @@ function storyIntegrityAddEvidence(ledger, caseRow, spec) {
     const dedupeId = `${caseRow.id}|${sourceId}|${String(spec.type)}`;
     const existing = Object.values(ledger.evidence).find(row => row.dedupeId === dedupeId);
     if (existing) return existing;
+    if (Object.keys(ledger.evidence).length >= STORY_INTEGRITY_POLICY.maximumEvidence) return null;
+    const direction = ['SUPPORTS', 'REBUTS', 'NEUTRAL'].includes(spec.direction)
+        ? spec.direction : 'SUPPORTS';
     const row = {
         id: `integrity-evidence:${ledger.nextEvidenceSequence++}`,
         dedupeId, caseId: caseRow.id, countryId: caseRow.countryId,
         type: String(spec.type), sourceId,
         sourceKind: String(spec.sourceKind),
-        direction: spec.direction === 'REBUTS' ? 'REBUTS' : 'SUPPORTS',
+        direction,
         authenticityBps: storyIntegrityClampBps(spec.authenticityBps),
         relevanceBps: storyIntegrityClampBps(spec.relevanceBps),
         public: !!spec.public, createdAt: storyIntegrityRound(STORY.clock),
@@ -151,6 +155,9 @@ function storyIntegrityCreateCase(ledger, spec) {
     if (!sourceKey) return { ok: false, reason: 'SOURCE_KEY_REQUIRED' };
     const existingId = ledger.consumedSourceIds[sourceKey];
     if (existingId && ledger.cases[existingId]) return { ok: true, duplicate: true, case: storyIntegrityClone(ledger.cases[existingId]) };
+    if (Object.keys(ledger.cases).length >= STORY_INTEGRITY_POLICY.maximumCases) {
+        return { ok: false, reason: 'CASE_BUDGET_EXHAUSTED' };
+    }
     const row = {
         id: `integrity-case:${ledger.nextCaseSequence++}`,
         countryId, kind: String(spec.kind), subjectActorId: spec.subjectActorId ? String(spec.subjectActorId) : null,
@@ -207,6 +214,14 @@ function storyIntegrityRegisterProcurement(spec) {
     if (bidCount < 2) redFlags.push('SINGLE_BID_OR_NO_COMPETITION');
     if (priceDeviationBps >= 2000) redFlags.push('PRICE_ABOVE_BENCHMARK');
     if ((Number(company.lobbyInfluence) || 0) >= 25) redFlags.push('HIGH_BENEFICIARY_LOBBY_INFLUENCE');
+    if (!redFlags.length) {
+        return {
+            ok: true,
+            noCase: true,
+            reason: 'NO_INTEGRITY_RED_FLAGS',
+            receipt: { authorityRequestId: request.id, budgetTransactionId: tx.id, companyId: company.id }
+        };
+    }
     const created = storyIntegrityCreateCase(ledger, {
         countryId: request.countryId, kind: 'PROCUREMENT_REVIEW',
         beneficiaryCompanyId: company.id, authorityRequestId: request.id,
@@ -214,13 +229,16 @@ function storyIntegrityRegisterProcurement(spec) {
     });
     if (!created.ok) return created;
     const row = ledger.cases[created.case.id];
+    row.status = 'PRELIMINARY_REVIEW';
     storyIntegrityAddEvidence(ledger, row, {
         type: 'AUTHORITY_RECEIPT', sourceId: request.id, sourceKind: 'INSTITUTION_REQUEST',
-        authenticityBps: 10000, relevanceBps: 1800, public: true, summaryCode: 'LAWFUL_BUDGET_AUTHORITY_EXISTS'
+        direction: 'NEUTRAL', authenticityBps: 10000, relevanceBps: 1800,
+        public: true, summaryCode: 'LAWFUL_BUDGET_AUTHORITY_EXISTS'
     });
     storyIntegrityAddEvidence(ledger, row, {
         type: 'PAYMENT_RECEIPT', sourceId: tx.id, sourceKind: 'BUDGET_TRANSACTION',
-        authenticityBps: 10000, relevanceBps: 2200, public: false, summaryCode: 'PROCUREMENT_PAYMENT_EXISTS'
+        direction: 'NEUTRAL', authenticityBps: 10000, relevanceBps: 2200,
+        public: false, summaryCode: 'PROCUREMENT_PAYMENT_EXISTS'
     });
     if (bidCount < 2) storyIntegrityAddEvidence(ledger, row, {
         type: 'COMPETITION_RED_FLAG', sourceId: `${tx.id}:bids:${bidCount}`, sourceKind: 'PROCUREMENT_ANALYTIC',
@@ -233,6 +251,12 @@ function storyIntegrityRegisterProcurement(spec) {
         relevanceBps: Math.min(STORY_INTEGRITY_POLICY.priceDeviationRiskBps, priceDeviationBps),
         public: false, summaryCode: 'PRICE_ABOVE_BENCHMARK'
     });
+    if ((Number(company.lobbyInfluence) || 0) >= 25) storyIntegrityAddEvidence(ledger, row, {
+        type: 'LOBBY_INFLUENCE_RED_FLAG', sourceId: `${company.id}:lobby:${storyIntegrityRound(company.lobbyInfluence)}`,
+        sourceKind: 'COMPANY_REGISTRY', authenticityBps: 10000,
+        relevanceBps: storyIntegrityClampBps(Number(company.lobbyInfluence) * 100 * STORY_INTEGRITY_POLICY.lobbyRiskScale),
+        public: false, summaryCode: 'HIGH_BENEFICIARY_LOBBY_INFLUENCE'
+    });
     storyIntegrityRecount(ledger);
     return { ok: true, duplicate: !!created.duplicate, case: storyIntegrityClone(row) };
 }
@@ -241,9 +265,15 @@ function storyIntegrityScanExplicitBribes(ledger) {
     for (const [countryId, country] of Object.entries(STORY.stateBudget && STORY.stateBudget.countries || {})) {
         for (const tx of (country.journal || [])) {
             if (tx.source !== 'political.bribe') continue;
+            const transfer = tx.postings.find(row => row.account.startsWith('MEMO:TRANSFER_TO:'));
+            const recipient = transfer ? transfer.account.slice('MEMO:TRANSFER_TO:'.length) : '';
+            const legacyCountryId = Number(String(countryId).replace(/^country:/, ''));
+            const subjectActorId = recipient
+                ? (recipient.startsWith('character:') ? recipient : `character:${legacyCountryId}:${recipient}`)
+                : null;
             const created = storyIntegrityCreateCase(ledger, {
                 countryId, kind: 'EXPLICIT_BRIBE_TRANSFER', sourceKey: `bribe:${tx.id}`,
-                subjectActorId: (tx.postings.find(row => row.account.startsWith('MEMO:TRANSFER_TO:')) || {}).account,
+                subjectActorId,
                 redFlags: ['EXPLICIT_BRIBE_CLASSIFICATION']
             });
             if (!created.ok || created.duplicate) continue;
@@ -264,6 +294,10 @@ function storyIntegrityOpenInvestigation(caseId, judiciaryRequestId) {
     if (!['ALLEGATION', 'PRELIMINARY_REVIEW'].includes(row.status)) return { ok: false, reason: 'CASE_NOT_OPENABLE' };
     const request = storyIntegrityInstitutionRequest(judiciaryRequestId, ['REVIEW_LEGALITY']);
     if (!request || request.countryId !== row.countryId) return { ok: false, reason: 'EXECUTED_JUDICIAL_AUTHORITY_REQUIRED' };
+    const authorityUsed = Object.values(ledger.cases || {}).some(candidate => (
+        candidate.id !== row.id && candidate.investigationRequestId === request.id
+    ));
+    if (authorityUsed) return { ok: false, reason: 'JUDICIAL_AUTHORITY_ALREADY_CONSUMED' };
     if (row.evidenceScoreBps < STORY_INTEGRITY_POLICY.formalInvestigationMinimumEvidenceBps) {
         return { ok: false, reason: 'INSUFFICIENT_PRELIMINARY_EVIDENCE', evidenceScoreBps: row.evidenceScoreBps };
     }
@@ -301,12 +335,41 @@ function storyIntegrityValidate(ledger) {
     if (ledger.policyHash !== STORY_INTEGRITY_POLICY_HASH) add('INTEGRITY_POLICY_HASH', '$.policyHash', 'Politika karması uyuşmuyor.');
     const knownCountries = new Set((STORY.states || []).map(row => storyIntegrityCountryId(row.id)));
     for (const countryId of knownCountries) if (!ledger.countries || !ledger.countries[countryId]) add('INTEGRITY_COUNTRY', `$.countries.${countryId}`, 'Ülke özeti eksik.');
+    for (const [countryId, country] of Object.entries(ledger.countries || {})) {
+        if (!knownCountries.has(countryId) || country.countryId !== countryId) {
+            add('INTEGRITY_COUNTRY_IDENTITY', `$.countries.${countryId}`, 'Ülke özetinin kimliği geçersiz.');
+        }
+        for (const caseId of (country.caseIds || [])) {
+            if (!ledger.cases[caseId] || ledger.cases[caseId].countryId !== countryId) {
+                add('INTEGRITY_COUNTRY_CASE_REF', `$.countries.${countryId}.caseIds`, 'Ülke dosya referansı eksik veya başka ülkeye ait.');
+            }
+        }
+    }
+    const usedInvestigationRequests = new Set();
     for (const [id, row] of Object.entries(ledger.cases || {})) {
         if (row.id !== id || !knownCountries.has(row.countryId)) add('INTEGRITY_CASE_IDENTITY', `$.cases.${id}`, 'Dosya kimliği veya ülkesi geçersiz.');
         if (!STORY_INTEGRITY_CASE_STATUSES.includes(row.status)) add('INTEGRITY_CASE_STATUS', `$.cases.${id}.status`, 'Dosya durumu geçersiz.');
         if (!Number.isInteger(row.evidenceScoreBps) || row.evidenceScoreBps < 0 || row.evidenceScoreBps > 10000) add('INTEGRITY_EVIDENCE_SCORE', `$.cases.${id}.evidenceScoreBps`, 'Kanıt skoru 0–10.000 tamsayı olmalı.');
         if (row.physicalMutation !== false || row.resultModel !== STORY_INTEGRITY_POLICY.resultModel) add('INTEGRITY_PHYSICAL_RESULT', `$.cases.${id}`, 'Faz 32 sonucu fiziksel dünyaya doğrudan yazamaz.');
+        if (['FORMAL_INVESTIGATION', 'SUBSTANTIATED', 'UNSUBSTANTIATED'].includes(row.status)) {
+            if (!row.investigationRequestId) add('INTEGRITY_INVESTIGATION_AUTHORITY', `$.cases.${id}.investigationRequestId`, 'Resmî veya sonuçlanmış soruşturma yargı yetki fişi taşımalı.');
+            else if (usedInvestigationRequests.has(row.investigationRequestId)) add('INTEGRITY_INVESTIGATION_AUTHORITY_REUSED', `$.cases.${id}.investigationRequestId`, 'Yargı yetki fişi birden fazla dosyada kullanılamaz.');
+            else usedInvestigationRequests.add(row.investigationRequestId);
+        }
+        if (['SUBSTANTIATED', 'UNSUBSTANTIATED'].includes(row.status) && row.resolvedAt == null) {
+            add('INTEGRITY_RESOLUTION_TIME', `$.cases.${id}.resolvedAt`, 'Sonuçlanmış soruşturma çözüm zamanı taşımalı.');
+        }
         for (const evidenceId of (row.evidenceIds || [])) if (!ledger.evidence[evidenceId]) add('INTEGRITY_EVIDENCE_REF', `$.cases.${id}.evidenceIds`, 'Kanıt referansı eksik.');
+    }
+    for (const [id, row] of Object.entries(ledger.evidence || {})) {
+        const caseRow = ledger.cases[row.caseId];
+        if (row.id !== id || !caseRow || !knownCountries.has(row.countryId)
+            || (caseRow && (caseRow.countryId !== row.countryId || !(caseRow.evidenceIds || []).includes(id)))) {
+            add('INTEGRITY_EVIDENCE_IDENTITY', `$.evidence.${id}`, 'Kanıt kimliği, dosyası veya ülkesi geçersiz.');
+        }
+        if (!['SUPPORTS', 'REBUTS', 'NEUTRAL'].includes(row.direction)) {
+            add('INTEGRITY_EVIDENCE_DIRECTION', `$.evidence.${id}.direction`, 'Kanıt yönü geçersiz.');
+        }
     }
     if (Object.keys(ledger.cases || {}).length > STORY_INTEGRITY_POLICY.maximumCases) add('INTEGRITY_CASE_LIMIT', '$.cases', 'Dosya bütçesi aşıldı.');
     if (Object.keys(ledger.evidence || {}).length > STORY_INTEGRITY_POLICY.maximumEvidence) add('INTEGRITY_EVIDENCE_LIMIT', '$.evidence', 'Kanıt bütçesi aşıldı.');
@@ -358,16 +421,19 @@ function storyIntegrityCountryView(countryId) {
 }
 function storyIntegrityPublicView(value) {
     if (!value) return null;
+    const cases = (value.cases || []).filter(row => (
+        row.status === 'FORMAL_INVESTIGATION'
+        || row.status === 'SUBSTANTIATED'
+        || row.status === 'UNSUBSTANTIATED'
+        || (row.evidence || []).some(evidence => evidence.public && evidence.direction === 'SUPPORTS')
+    ));
     return {
         countryId: value.countryId,
-        allegationCount: value.allegationCount,
-        openInvestigationCount: value.openInvestigationCount,
-        substantiatedCount: value.substantiatedCount,
-        cases: (value.cases || []).filter(row => (
-            row.status === 'SUBSTANTIATED'
-            || row.status === 'FORMAL_INVESTIGATION'
-            || (row.evidence || []).some(evidence => evidence.public)
-        )).map(row => ({
+        allegationCount: cases.length,
+        openInvestigationCount: cases.filter(row => row.status === 'FORMAL_INVESTIGATION').length,
+        substantiatedCount: cases.filter(row => row.status === 'SUBSTANTIATED').length,
+        unsubstantiatedCount: cases.filter(row => row.status === 'UNSUBSTANTIATED').length,
+        cases: cases.map(row => ({
             id: row.id, kind: row.kind, status: row.status,
             openedAt: row.openedAt, resolvedAt: row.resolvedAt,
             resolutionCode: row.resolutionCode

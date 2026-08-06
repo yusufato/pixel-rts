@@ -197,6 +197,14 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
                 gameTime,
                 own ? 'OWN_ELECTION_ADMINISTRATION' : 'PUBLIC_ELECTION_RECORD'
             )),
+            integrity: fact(storyPlayerVerifiedFact(
+                country.id,
+                'integrity',
+                own ? country.integrity : (typeof storyIntegrityPublicView === 'function'
+                    ? storyIntegrityPublicView(country.integrity) : null),
+                gameTime,
+                own ? 'OWN_INTEGRITY_INVESTIGATION_LEDGER' : 'PUBLIC_INTEGRITY_RECORD'
+            )),
             resources: fact(own
                 ? storyPlayerVerifiedFact(country.id, 'resources', country.resources, gameTime, 'OWN_TREASURY')
                 : storyPlayerUnknownFact(country.id, 'resources', gameTime))
