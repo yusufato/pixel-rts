@@ -517,3 +517,23 @@ ordu kurmak. Altyapı kısmen mevcut (tehdit-profili / rakip-inanç).
 **Kaydedilen tek sağlam sinyal:** ilk 5'in hepsi zırh ağırlıklı (%37-48) ve hepsinde hava var
 (%4.8-7.3) — bu iki eksen 5 adayın hepsinde tutarlı. Taban zaten zırh %39; hava payı ise
 %1.2 → %6.6, tek gerçek fark burada olabilir. Ayrıca sınanmalı.
+
+## ⭐ KULLANICI İÇGÖRÜSÜ: "%41 zırh" bir keşif değil, BECERİ PROFİLİ ölçümü
+
+> "Bu kadar zırhlı kullanmasının sebebi çok beceriksiz olması — çünkü kullanması en kolay tür zırhlı."
+
+Bugünün her ölçümü bunu doğruluyor: balistik **gözcü** ister, SAM **radar** ister, ÇNRA **ikmal**
+ister, havan **konum** ister, helo **avlanma** ister. Zırhlı hiçbir şey istemez — yürü ve vur.
+Beceriksiz bir AI doğal olarak zırha yakınsar.
+
+**Sonuç:** sabit ve becerisiz bir AI altında kompozisyon optimizasyonu "en iyi ordu"yu değil
+**"en az beceri isteyen ordu"yu** bulur. Turnuvanın bulduğu şey buydu.
+
+**Bu, beceri ağacına ölçülebilir bir başarı kriteri veriyor:**
+
+> Beceriler eklendikçe kazanan kompozisyonun **zırh payı DÜŞMELİ**, dolaylı/hava/destek payı
+> yükselmeli. Zırh payı düşmüyorsa beceri gerçekten eklenmemiş demektir.
+
+Şu anki taban ölçüm (turnuva, mevcut beceri seviyesi): **zırh %41.3** (ilk 5 ort.),
+dolaylı %4.0, hava %6.6, destek %15.3. Beceri ağacı bitince aynı turnuva tekrar koşulup
+bu dört sayı karşılaştırılacak.
