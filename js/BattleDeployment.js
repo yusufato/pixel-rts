@@ -358,6 +358,7 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
     }
 
     battleGozcuKuraliUygula(types, spent, remaining, config);   // gözcü kuralı: tarif yolu (spent = bu kapsamdaki harcama defteri)
+    battleLojistikKuraliUygula(types, spent, remaining, config); // lojistik kuralı: tarif yolu
     const counts = types.reduce((r, t) => { r[t] = (r[t] || 0) + 1; return r; }, {});
     const toplamDeger = types.reduce((s, t) => s + STATS[t].cost, 0);
 
@@ -437,6 +438,10 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
         if (!tipler.length) return;
         let n = mevcut, guard = 0;
         while (n < hedef && guard++ < 8) {
+            const enUcuz = tipler.slice().sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+            if (enUcuz != null && STATS[enUcuz].cost > remaining.money) {
+                battleDestekIcinYerAc(types, spent, remaining, STATS[enUcuz].cost, tipler);
+            }
             const aday = tipler.filter(t => STATS[t].cost <= remaining.money)
                 .sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
             if (aday == null) break;
@@ -452,6 +457,71 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
     }
     if (types.some(t => uzakMenzil(STATS[t], true))) {
         al(havaGozcu, types.filter(t => havaGozcu.includes(t)).length, PRO_SPOTTER_HAVA_MIN);
+    }
+}
+
+// ── ORTAK: ZORUNLU DESTEK BİRİMİ İÇİN YER AÇ ──
+// ÖLÇÜLDÜ: tarif çözücüsü bütçenin ~%99'unu harcıyor (6410/6500, kalan 90₺). Gözcü ve lojistik
+// kuralları "en ucuz gözcüyü/aracı al" derken parayı BULAMIYORDU — ikisi de sessizce bağlamıyordu
+// (bind 0). Mevcut `atCap` kuralı aynı sorunu ters yönde çözüyor: fazlalığı söküp parayı İADE ediyor.
+// Bu yardımcı da gerekirse EN UCUZ muharip birimi satıp zorunlu destek birimine yer açar.
+// GEREKÇE: %15 çalışma oranıyla duran 650₺'lik ÇNRA, 250₺'lik ikmal aracından daha pahalı bir israftır.
+// Koruma: tetikleyen tip ve destek/lojistik sınıfı SATILMAZ; en fazla PRO_DESTEK_SATIS_TAVAN birim.
+function battleDestekIcinYerAc(types, spent, remaining, maliyet, korunanTipler) {
+    let guard = 0;
+    while (remaining.money < maliyet && guard++ < PRO_DESTEK_SATIS_TAVAN) {
+        let ucuzIx = -1, ucuzMal = Infinity;
+        for (let i = 0; i < types.length; i++) {
+            const t = types[i];
+            if (korunanTipler.includes(t)) continue;
+            const st = STATS[t];
+            if (!st || !st.weapons || !st.weapons.length) continue;   // destek birimi satılmaz
+            if (st.cost < ucuzMal) { ucuzMal = st.cost; ucuzIx = i; }
+        }
+        if (ucuzIx < 0) break;
+        const t = types[ucuzIx];
+        remaining.money += STATS[t].cost;
+        spent[t] = (spent[t] || 0) - STATS[t].cost;
+        if (spent[t] <= 0) delete spent[t];
+        types.splice(ucuzIx, 1);
+    }
+}
+
+// ── INTEL4-PRO 'logisticsRequirement': KÜÇÜK ŞARJÖRLÜ BİRİM İKMALSİZ ALINMAZ ──
+// GÖZCÜ KURALININ KARDEŞİ. ÖLÇÜLDÜ (tools/cnra-teshis.js, gerçekçi ordu, 6 tohum): ÇNRA mühimmatı
+// yalnız 3; ilk 60-85sn'de üçünü de atıyor ve ömrünün **%85'ini KURU** geçiriyor. İkmal aldığı: 0.
+// Sebep basit: orduda HİÇ İKMAL ARACI YOK (22 birim, 0 ikmal aracı) — refakat kuralı da bu yüzden
+// hiç bağlamıyordu (bind 0). Şarjörü küçük ve pahalı birim, ikmal kaynağı olmadan tek-atımlıktır.
+// KURAL: şarjörü PRO_LOJISTIK_KUCUK_SARJOR'dan küçük-eşit VE maliyeti PRO_LOJISTIK_MIN_TL'den
+// büyük-eşit silahlı birim varsa, orduda en az PRO_LOJISTIK_MIN adet resupply-aura birimi bulunur.
+function battleLojistikKuraliUygula(types, spent, remaining, config) {
+    if (!(config && config.pro === true)) return;
+    if (typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' && !BATTLE_INTEL4PRO_DELTAS.logisticsRequirement) return;
+    if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
+    const kaynakTipleri = [];
+    for (const t in STATS) { const st = STATS[t]; if (st && st.aura && st.aura.type === 'resupply') kaynakTipleri.push(Number(t)); }
+    if (!kaynakTipleri.length) return;
+    const kucukSarjor = types.some(t => {
+        const st = STATS[t];
+        if (!st || !st.weapons || !st.weapons.length) return false;
+        const ammo = st.maxAmmo || 0;
+        return ammo > 0 && ammo <= PRO_LOJISTIK_KUCUK_SARJOR && (st.cost || 0) >= PRO_LOJISTIK_MIN_TL;
+    });
+    if (!kucukSarjor) return;
+    let kaynak = types.filter(t => kaynakTipleri.includes(t)).length;
+    let guard = 0;
+    while (kaynak < PRO_LOJISTIK_MIN && guard++ < 4) {
+        const enUcuz = kaynakTipleri.slice().sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+        if (enUcuz != null && STATS[enUcuz].cost > remaining.money) {
+            battleDestekIcinYerAc(types, spent, remaining, STATS[enUcuz].cost, kaynakTipleri);
+        }
+        const aday = kaynakTipleri.filter(t => STATS[t].cost <= remaining.money)
+            .sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+        if (aday == null) break;
+        types.push(aday);
+        remaining.money -= STATS[aday].cost;
+        spent[aday] = (spent[aday] || 0) + STATS[aday].cost;
+        kaynak++;
     }
 }
 
@@ -768,6 +838,7 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         }
     }
     battleGozcuKuraliUygula(types, spent, remaining, config);   // gözcü kuralı: sezgisel yol
+    battleLojistikKuraliUygula(types, spent, remaining, config); // lojistik kuralı: sezgisel yol
     const counts = types.reduce((result, type) => {
         result[type] = (result[type] || 0) + 1;
         return result;

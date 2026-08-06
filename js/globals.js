@@ -545,8 +545,20 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // geometrik olarak zamanın %100'ünde menzilinde ama GÖRÜNÜR oranı %0-3; keşifsiz orduda 4/6
     // tohumda HİÇ ateş etmiyor. 2 keşif İHA + 2 keşif aracı zorunlu kılınınca 1/6'ya iniyor ve
     // ilk atış 156-192sn → 11-20sn. Menzili görüşünün katından fazla olan birim varsa gözcü şart.
-    spotterRequirement: true
+    spotterRequirement: true,
+    // P17 — KÜÇÜK ŞARJÖRLÜ BİRİM İKMALSİZ ALINMAZ (gözcü kuralının kardeşi). ÖLÇÜLDÜ: ÇNRA
+    // mühimmatı 3; ilk 60-85sn'de bitiyor ve ömrünün %85'i KURU geçiyor, ikmal aldığı 0.
+    // Sebep: orduda HİÇ ikmal aracı yok (22 birim, 0 araç) — ikmal-refakat kuralı da bu yüzden
+    // hiç bağlamıyordu. Şarjörü küçük ve pahalı birim, ikmal kaynağı olmadan tek-atımlıktır.
+    logisticsRequirement: true
 };
+// ── 'logisticsRequirement' PARAMETRELERİ (aranabilir) ──
+let PRO_LOJISTIK_KUCUK_SARJOR = 4;   // şarjörü bu değere kadar olan birim "ikmale bağımlı" sayılır
+let PRO_LOJISTIK_MIN_TL = 300;       // ucuz birim için ordu bozulmaz
+let PRO_LOJISTIK_MIN = 1;            // orduda bulunması gereken en az ikmal kaynağı
+// Zorunlu destek birimi için en fazla kaç muharip satılabilir (tarif çözücüsü bütçenin ~%99'unu
+// harcadığı için kurallar aksi hâlde parayı bulamıyor ve sessizce bağlamıyordu).
+let PRO_DESTEK_SATIS_TAVAN = 3;   // 2 iken lojistik kurali 240 TL ile 250 TL"lik araca ULASAMIYORDU (olculdu)
 // ── 'spotterRequirement' PARAMETRELERİ (aranabilir) ──
 let PRO_SPOTTER_KAT = 3;    // menzil > görüş × bu kat ise "gözcü gerektiren" birim sayılır
 let PRO_SPOTTER_MIN = 3;    // orduda bulunması gereken en az keşif birimi sayısı (KARA hedefi)

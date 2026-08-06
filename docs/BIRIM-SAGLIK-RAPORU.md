@@ -234,3 +234,60 @@ sunmam yanlıştı.
 
 **Sağlıklı çıkanlar:** tank_destroyer x1.35 · at_team x1.18 · attack_helo x0.88 ·
 sam_battery x0.55 · armed_uav x0.55
+
+---
+
+# BİRİM #3 — ÇNRA (650₺, getiri x0.09) · ELE ALINDI · **EN BÜYÜK KAZANÇ**
+
+## Teşhis (gerçekçi ordu)
+
+ÇNRA aslında iyi nişan alıyor: **%82 hedefli**, 36 atış, 0 ölüm, hasar/₺ 1.07.
+Tek sorunu **mühimmat**: şarjörü 3, ilk 60-85sn'de bitiyor ve ömrünün **%85'ini KURU** geçiriyor.
+İkmal aldığı: **0**. Sebep tek satırda: **orduda hiç ikmal aracı yok** (22 birim, 0 araç).
+
+Bu yüzden daha önce elenen `supplyEscort` (araç topçuya gelsin) burada da bağlamıyordu —
+taşıyacak araç yoktu (bind 0).
+
+## İki kompozisyon kuralı + bir bütçe düzeltmesi
+
+**`logisticsRequirement`** (gözcü kuralının kardeşi): şarjörü ≤4 ve maliyeti ≥300₺ olan silahlı
+birim varsa, orduda en az 1 ikmal kaynağı bulunur.
+
+**`battleDestekIcinYerAc`** — kritik ara adım. Tarif çözücüsü bütçenin **%99'unu** harcıyor
+(6410/6500, kalan 90₺); iki kural da "en ucuzunu al" derken parayı **bulamıyordu** ve sessizce
+bağlamıyordu. Mevcut `atCap` kuralının tersi: gerekirse en ucuz muharibi satıp zorunlu destek
+birimine yer açar. *(Satış tavanı 2 iken 240₺'de takılıyordu; 3 yapıldı.)*
+
+## Sonuçlar
+
+| | kural KAPALI | kural AÇIK |
+|---|---|---|
+| ikmal aracı | 0 | **1** |
+| keşif | 2 | **3** |
+| ikmal halesinde geçen süre | %0 | **%69** |
+| **ÇNRA toplam hasarı** | 9655 | **11872** |
+| hasar/₺ | 1.24 | **1.52** |
+
+### MAÇ KAPISI — oturumun en büyük etkisi, İKİ HAVUZDA DA
+
+| havuz | kural KAPALI | kural AÇIK |
+|---|---|---|
+| dışörneklem (48) | 16/48 · −1265 ±629 | **39/48 · +1816 ±605** |
+| **FİNAL (48, ayrılmış)** | 16/48 · −1040 ±603 | **37/48 · +1717 ±630** |
+
+Marj farkı **~2800-3100**, hata payının 3+ katı (z≈3.2-3.5) ve **ayrılmış havuzda tekrarlandı**.
+Kompozisyon kuralları kaybeden orduyu kazanan orduya çeviriyor.
+
+**Dürüst çekinceler:**
+- Bu bir **DEMET** sonucu: `spotterRequirement` + `logisticsRequirement` birlikte açıldı,
+  hangisinin ne kadar taşıdığı ayrıştırılmadı.
+- Kompozisyon ÇNRA-zorunlu; her orduya genellenemez. Ama kurallar yalnız ihtiyaç olduğunda
+  bağladığı için genel orduda maliyeti sıfır.
+
+**Kapılar:** forktest `true` · liverepro `false`.
+
+## Dersin özeti — "birim bozuk" değil, "ordu eksik"
+
+Üç birimin üçünde de sorun birimin kendi davranışı değil **ordunun kompozisyonu** çıktı:
+balistik/ÇNRA gözcüsüz, SAM radarsız, ÇNRA ikmalsiz. Birim-içi beceriler (7 tanesi) üst üste
+elenirken, iki kompozisyon kuralı tek başına maçı çevirdi.

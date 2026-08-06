@@ -48,6 +48,12 @@ kurucuya konmuştu ama test tarif yolundan geçiyordu, (c) bayrak `openAIVsAILab
 birden değişir ve fark kimseye atfedilemez. → **Kural:** A/B'ye girecek her şey taraf-başı olmalı
 (`_RED`/`_BLUE`), yoksa önce o refactor yapılır.
 
+**B5 — Aynı vm bağlamında iki kol koşturma (DURUM SIZINTISI).**
+İki kolu tek `tezgahKur()` bağlamında art arda koşturdum; ilk kolda kapattığım
+`BATTLE_INTEL4PRO_DELTAS.*` bayrakları ikinci kola **sızdı** ve "kural hiç çalışmıyor" sandım —
+oysa çalışıyordu. → **Kural:** her kol KENDİ taze bağlamında koşar (ayrı süreç ya da yeni
+`tezgahKur()`), veya kol başında tüm bayraklar açıkça yeniden kurulur.
+
 **B4 — Doğru tabana karşı mı ölçüyorsun?**
 Marj-kesmenin "%60 kazancı" `--erkendur`SİZ tam maça karşıydı; tezgâh zaten erkendur ile koşuyordu
 ve gerçek kazanç sıfır çıktı. → **Kural:** taban = **varsayılan koşu yapılandırması**, teorik en kötü hâl değil.
