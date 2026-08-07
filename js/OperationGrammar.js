@@ -67,8 +67,15 @@ const OPERATION_GRAMMAR_V1 = Object.freeze({
         COUNTERATTACK: ['ASSEMBLE', 'ASSAULT', 'EXPLOIT']
     },
     phaseTriggers: ['enemy_reserve_revealed', 'enemy_center_committed', 'rear_access', 'flank_failed', 'objective_taken', 'assembled', 'fire_effect_achieved', 'timeout'],
-    abortConditions: ['flank_group_losses>35%', 'enemy_counterattack_on_main_objective', 'force_ratio<0.5', 'ammo<0.25', 'group_isolated'],
+    abortConditions: ['flank_group_losses>35%', 'enemy_counterattack_on_main_objective', 'force_ratio<0.5', 'ammo<0.25', 'group_isolated',
+        // v2: tempo'ya GERCEK sonuc — agresif kotu oranda da doguser, temkinli erken cekilir.
+        'force_ratio<0.35', 'force_ratio<0.7', 'ammo<0.15', 'ammo<0.4'],
     allocationBounds: { main: [0.30, 0.70], fixing: [0.00, 0.35], flank: [0.00, 0.55], reserve: [0.10, 0.35] },
+    // v2 GENIS SINIRLAR — ASIL DARLIK BURADAYDI. Eski kutu "her seyi ana eksene ver" (main>0.70) ve
+    // "yedek tutma" (reserve<0.10) gibi secenekleri TANIM GEREGI yasakliyordu; uc onayar da zaten
+    // bu kucuk kutunun icindeydi. Olculdu: allocation ekseni varyansin %34.4'unu tasiyor, yani
+    // en cok is goren knob en dar kutuya hapsedilmis.
+    allocationBoundsV2: { main: [0.20, 0.85], fixing: [0.00, 0.50], flank: [0.00, 0.60], reserve: [0.00, 0.40] },
     allocationSumTolerance: 0.001,
     maxPhases: 5,
     maxDurationTicks: 1200,        // 60 sn
@@ -87,7 +94,8 @@ function operationGrammarValidate(c, ctx) {
     if (c.flankSector != null && (!Number.isInteger(c.flankSector) || c.flankSector < 0 || c.flankSector >= G.sectors)) errs.push('flankSector aralık dışı');
     if (!G.pursuitLimits.includes(c.pursuitLimit)) errs.push('geçersiz pursuitLimit');
     const a = c.allocation || {}; let sum = 0;
-    for (const g of G.groups) { const v = a[g]; if (typeof v !== 'number' || v < 0) { errs.push('allocation.' + g + ' geçersiz'); continue; } const [lo, hi] = G.allocationBounds[g]; if (v < lo - 1e-6 || v > hi + 1e-6) errs.push('allocation.' + g + '=' + v + ' [' + lo + ',' + hi + '] dışında'); sum += v; }
+    for (const g of G.groups) { const v = a[g]; if (typeof v !== 'number' || v < 0) { errs.push('allocation.' + g + ' geçersiz'); continue; } const _v2b = ((typeof BATTLE_GRAMMAR_V2 !== 'undefined') && BATTLE_GRAMMAR_V2 && G.allocationBoundsV2) ? G.allocationBoundsV2 : G.allocationBounds;
+        const [lo, hi] = _v2b[g]; if (v < lo - 1e-6 || v > hi + 1e-6) errs.push('allocation.' + g + '=' + v + ' [' + lo + ',' + hi + '] dışında'); sum += v; }
     if (Math.abs(sum - 1) > G.allocationSumTolerance) errs.push('allocation toplamı 1 değil: ' + sum.toFixed(3));
     const phases = c.phases || [];
     if (!phases.length || phases.length > G.maxPhases) errs.push('faz sayısı 1..' + G.maxPhases + ' değil: ' + phases.length);
@@ -100,41 +108,116 @@ function operationGrammarValidate(c, ctx) {
 
 // ── Üreteç: durumdan 16–64 geçerli aday ──────────────────────────────────────
 function _opgPhases(intent) { return (OPERATION_GRAMMAR_V1.phasesByIntent[intent] || ['HOLD']).map((name, i, arr) => ({ name, until: i < arr.length - 1 ? 'timeout' : 'objective_taken OR timeout' })); }
+// ── GRAMER v2: KARAR UZAYINI GENISLET (varsayilan KAPALI, BATTLE_GRAMMAR_V2) ──
+// OLCULDU (1641 karar, tools/beonai-* hatti): aday-ici odul varyansinin kaynagi
+//   intent %43.3 (6 deger) · allocation %34.4 (YALNIZ 3 onayar) · mainSector %17.3 (karar basina 1-3)
+//   · tempo %2.7 (3 deger) -> OLU
+// Ve TAVAN olculdu: her karar noktasinda 64 adayi gercekten yuvarlayip en iyisini oynayan
+// MUKEMMEL secici bile kod-AI'yi ancak +771 geciyor (t 1.80, anlamsiz). Yani sorun ogrenmede
+// degil, secilecek sey azliginda. v2 dort seyi degistirir:
+//   (1) tempo'ya GERCEK sonuc: yalniz pursuitLimit degil ABORT esikleri de degisir
+//       (agresif kotu oranda da doguser, temkinli erken cekilir) — bu oturumda cekilme/durusun
+//       maci degistirdigi olculmustu.
+//   (2) allocation 3 -> 7 onayar: sürekli bir buyuklugun uc noktaya sikistirilmasi tavanı kirpiyordu.
+//   (3) mainSector kaynaklari genisler: dusman CoG + en zayif/guclu + CoG komsulari + dusman gerisi.
+//   (4) 64 kotasi ADIL dagitilir: eski kod ic ice dongude erken donuyordu ve SON intent'ler hic
+//       aday uretemiyordu (kodun kendi yorumu da bunu soyluyordu). Artik intent'ler sirayla dolar.
+const OPG_ALLOC_V2 = [
+    { main: 0.55, fixing: 0.20, flank: 0.15, reserve: 0.10 },   // dengeli (v1)
+    { main: 0.65, fixing: 0.15, flank: 0.05, reserve: 0.15 },   // ana-agir (v1)
+    { main: 0.35, fixing: 0.25, flank: 0.30, reserve: 0.10 },   // kanat-agir (v1)
+    { main: 0.85, fixing: 0.10, flank: 0.05, reserve: 0.00 },   // TEK-YUMRUK (yedek YOK — v1'de yasakti)
+    { main: 0.30, fixing: 0.50, flank: 0.10, reserve: 0.10 },   // SABITLEME-agir (tut, kanattan bekle)
+    { main: 0.40, fixing: 0.10, flank: 0.10, reserve: 0.40 },   // YEDEK-agir (gec taahhut — v1'de yasakti)
+    { main: 0.20, fixing: 0.15, flank: 0.60, reserve: 0.05 },   // DERIN KANAT (v1'de yasakti)
+];
+const OPG_TEMPO_V2 = {
+    aggressive: { pursuit: 500, abort: ['force_ratio<0.35', 'ammo<0.15'] },   // kotu oranda da doguser
+    normal:     { pursuit: 300, abort: ['force_ratio<0.5', 'ammo<0.25'] },
+    cautious:   { pursuit: 150, abort: ['force_ratio<0.7', 'ammo<0.4'] },     // erken cekilir
+};
+
 function operationGrammarGenerate(ctx) {
     const G = OPERATION_GRAMMAR_V1;
+    const V2 = (typeof BATTLE_GRAMMAR_V2 !== 'undefined') && BATTLE_GRAMMAR_V2;
+    const KOTA = (typeof BATTLE_GRAMMAR_KOTA !== 'undefined') ? BATTLE_GRAMMAR_KOTA : 64;
     const role = ctx.role || 'ATTACKER';
-    // rol'e uygun intent'ler — statik/savunma yedekleri ÖNCE (64 cap'inde starve olmasın),
-    // sonra çok-varyantlı taarruz intent'leri.
     const order = ['HOLD', 'REGROUP', 'DISENGAGE', 'COUNTERATTACK', 'ADVANCE', 'FIX_AND_FLANK', 'MAIN_ATTACK'];
     const intents = order.filter(k => G.intents.includes(k) && (!G.intentRoles[k] || G.intentRoles[k].includes(role)));
-    // hedef sektör adayları: düşman ağırlık merkezi, en zayıf/güçlü düşman sektörü + kendi ön hattı
-    const targets = [...new Set([ctx.enemyCoG, ctx.weakestEnemySector, ctx.strongestEnemySector].filter(s => s != null))];
-    if (!targets.length) { // temas yok → görev yönünde ileri sektör
+
+    let targets = [...new Set([ctx.enemyCoG, ctx.weakestEnemySector, ctx.strongestEnemySector].filter(s => s != null))];
+    if (V2 && ctx.enemyCoG != null) {
+        // (3) CoG komsulari + dusman gerisi -> sektor ekseni karar basina 1-3'ten cikar
+        for (const k of opgSectorAdjacent(ctx.enemyCoG)) if (k != null) targets.push(k);
+        const geriSatir = ctx.side ? OPG_ROWS - 1 : 0;
+        const cogSut = ctx.enemyCoG % OPG_COLS;
+        targets.push(geriSatir * OPG_COLS + cogSut);
+    }
+    targets = [...new Set(targets)];
+    if (!targets.length) {
         const fwdRow = ctx.side ? OPG_ROWS - 2 : 1;
         for (let cc = 1; cc < OPG_COLS - 1; cc += 2) targets.push(fwdRow * OPG_COLS + cc);
     }
-    // allocation önayarları (dengeli / ana-ağır / kanat-ağır)
-    const allocs = [
+    const allocs = V2 ? OPG_ALLOC_V2 : [
         { main: 0.55, fixing: 0.20, flank: 0.15, reserve: 0.10 },
         { main: 0.65, fixing: 0.15, flank: 0.05, reserve: 0.15 },
         { main: 0.35, fixing: 0.25, flank: 0.30, reserve: 0.10 },
     ];
-    const out = [], seen = new Set();
+
+    // (4) ADIL KOTA: her intent icin kendi aday listesi kurulur, sonra SIRAYLA cekilir.
+    const kovalar = [];
     for (const intent of intents) {
-        // sabit-postür intent'ler tek aday (sektör/allocation önemsiz)
         const staticIntent = (intent === 'HOLD' || intent === 'REGROUP' || intent === 'DISENGAGE');
         const tgtList = staticIntent ? [targets[0] ?? 0] : targets;
         const allocList = staticIntent ? [{ main: 0.40, fixing: 0.20, flank: 0.10, reserve: 0.30 }] : allocs;
         const tempoList = staticIntent ? ['normal'] : G.tempos;
-        for (const mainSector of tgtList) for (const alloc of allocList) for (const tempo of tempoList) {
-            const flankSector = staticIntent ? null : (opgSectorAdjacent(mainSector).sort((a, b) => (ctx.enemy[a] || 0) - (ctx.enemy[b] || 0))[0] ?? null);
-            const pursuitLimit = tempo === 'aggressive' ? 500 : tempo === 'cautious' ? 150 : 300;
-            const cand = { intent, mainSector, flankSector, allocation: alloc, tempo, pursuitLimit, phases: _opgPhases(intent), abort: ['force_ratio<0.5', 'ammo<0.25'], maxDurationTicks: G.maxDurationTicks };
-            const key = intent + ':' + mainSector + ':' + flankSector + ':' + tempo + ':' + alloc.main;
-            if (seen.has(key)) continue; seen.add(key);
-            if (operationGrammarValidate(cand, ctx).valid) out.push(cand);
-            if (out.length >= 64) return out;
+        // CESITLILIK-ONCE SIRALAMA: ic ice dongu once hedefi sabitleyip allocation'lari tuketiyordu,
+        // bu yuzden 64'luk kota TEK hedefle doluyordu (olculdu: sektor cesidi 2 -> 1). Capraz carpim
+        // "indis toplamina" gore siralanir: (0,0,0) sonra (0,0,1)/(0,1,0)/(1,0,0) ... boylece kotanin
+        // ILK slotlari UC EKSENI birden tarar.
+        // GERCEK CAPRAZ TARAMA. Onceki surum "indis toplamina" gore siraliyordu; bu DUSUK indisleri
+        // kayiriyor ve 64'luk kota EN CESUR onayarlari (derin kanat, yedek-agir, sabitleme-agir)
+        // tamamen kesiyordu — olculdu: bir onayar 27 adayla listeyi dolduruyor, uc onayar SIFIR
+        // aday aliyordu. Yani "genis uzay" olcumu aslinda genis uzayi hic denememisti.
+        // Dogrusu: her turda UC EKSENI birden bir adim ilerlet (r%T, r%A, r%P) -> ilk turlar tum
+        // allocation'lari, tum hedefleri ve tum tempolari kapsar. Sonra kalan kombinasyonlar eklenir.
+        const _kombin = []; const _gorK = new Set();
+        const T = tgtList.length, A = allocList.length, P = tempoList.length;
+        for (let r = 0; r < T * A * P; r++) {
+            const it = r % T, ia = r % A, ip = r % P, kk = it + ':' + ia + ':' + ip;
+            if (_gorK.has(kk)) continue; _gorK.add(kk);
+            _kombin.push({ it, ia, ip });
         }
+        for (let it = 0; it < T; it++) for (let ia = 0; ia < A; ia++) for (let ip = 0; ip < P; ip++) {
+            const kk = it + ':' + ia + ':' + ip;
+            if (_gorK.has(kk)) continue; _gorK.add(kk);
+            _kombin.push({ it, ia, ip });
+        }
+        const kova = [], gorulen = new Set();
+        for (const _c of _kombin) {
+            const mainSector = tgtList[_c.it], alloc = allocList[_c.ia], tempo = tempoList[_c.ip];
+            const flankSector = staticIntent ? null : (opgSectorAdjacent(mainSector).sort((a, b) => (ctx.enemy[a] || 0) - (ctx.enemy[b] || 0))[0] ?? null);
+            // (1) tempo artik ABORT esiklerini de degistirir — yalniz takip mesafesini degil
+            const tv = (V2 && OPG_TEMPO_V2[tempo]) ? OPG_TEMPO_V2[tempo] : null;
+            const pursuitLimit = tv ? tv.pursuit : (tempo === 'aggressive' ? 500 : tempo === 'cautious' ? 150 : 300);
+            const abort = tv ? tv.abort.slice() : ['force_ratio<0.5', 'ammo<0.25'];
+            const cand = { intent, mainSector, flankSector, allocation: alloc, tempo, pursuitLimit,
+                phases: _opgPhases(intent), abort, maxDurationTicks: G.maxDurationTicks };
+            const key = intent + ':' + mainSector + ':' + flankSector + ':' + tempo + ':' + alloc.main + ':' + alloc.flank;
+            if (gorulen.has(key)) continue; gorulen.add(key);
+            if (operationGrammarValidate(cand, ctx).valid) kova.push(cand);
+        }
+        if (kova.length) kovalar.push(kova);
+    }
+    const out = [];
+    for (let i = 0; out.length < KOTA; i++) {
+        let eklendi = false;
+        for (const kova of kovalar) {
+            if (i >= kova.length) continue;
+            out.push(kova[i]); eklendi = true;
+            if (out.length >= KOTA) break;
+        }
+        if (!eklendi) break;
     }
     return out;
 }

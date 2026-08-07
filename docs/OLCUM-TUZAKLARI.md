@@ -83,6 +83,36 @@ elendi. → **Kural:** K1 geçmek "çalışıyor" demek değildir; K2 ayrı bir 
 
 ---
 
+**C5 — Tek sayı iki farklı olguyu topluyorsa hipotez üretir, kanıt üretmez.**
+Helo "titremesi" için yön-tersine-dönme oranını 0.5px eşiğiyle saydım; bu metrik *mikro sarsıntı*
+(ayırma itmesi, ~2px) ile *tam hızlı pinpon* (~30px) ayrımını yapmıyordu. Yanlış hipoteze
+(hedef-referansı) götürdü; uyguladığım "düzeltme" oranı %82→%90 **kötüleştirdi**. Adım büyüklüğüne
+göre ayırınca ve tik-tik iz alınca (`tools/helo-titreme-iz.js`) gerçek sebep 3 dakikada çıktı:
+ayırma fiziği `loaded` yolcuyu elemiyordu, helo kendi kargosuyla itişiyordu.
+→ **Kural:** bir metrik iki mekanizmayı toplayabiliyorsa önce onu ayrıştır. **Tik-tik iz almak
+hipotez kurmaktan ucuzdur** — "hangi yazıcı eziyor" sorusu tahminle değil dökümle çözülür.
+
+**C6 — Düzeltmenin ölçüsünü DÜZELTMEDEN önce al, sonra da AYNI kurulumda tekrarla.**
+Ferry düzeltmesini 3 tohumda ölçüp "kargo ölümleri 6→0" dedim; 6 tohumda aynı ölçüm 8→12 çıktı
+(oran %25→%27, yani değişmemiş). E3'ün somut tekrarı: 3 tohum kanıt değil, **hele de sayaç küçükse**.
+→ **Kural:** birim-teşhisi sonucu rapor edilecekse en az 6 tohum; "sıfırlandı" gibi mutlak iddialar
+yalnız oranla birlikte yazılır.
+
+**A5 — Tarama aracının KENDİ kurgusu bulguyu üretebilir.**
+`tools/birim-sagligi.js` tarif verilmediğinde sessizce `BATTLE_FORCE_VARIED = true` yapıyordu:
+"her tipten biraz" ordusu → kütle yok, birimler ince yayılıyor ve **hepsi** sorunlu görünüyor.
+Bu kipte IFV ömrü 57sn/getiri x0.1 çıktı ve "ordunun en büyük deliği" sandım; AI'nin GERÇEK
+ordusunda aynı birim 228sn/x0.42. Tablodaki `ew_vehicle`/`counter_battery_radar` satırları da
+ipucuydu — AI o birimleri normalde almıyor.
+→ **Kural:** toplu tarama tablosunu okumadan önce **hangi orduyu kurduğunu** doğrula; karar
+AI'nin gerçekten kurduğu orduda (`--cesitsiz`) verilir. A2'nin araç içine gömülmüş hâli.
+
+**A6 — İki araç çelişirse önce KURGULARI karşılaştır, sonucu değil.**
+Öncü teşhisi IFV için 228sn, sağlık taraması 57sn dedi. İkisi de doğruydu — farklı ordulardı.
+→ **Kural:** çelişkide ilk soru "hangisi haklı" değil, **"aynı şeyi mi ölçüyorlar"**.
+
+---
+
 ## D. SAYILAR VE SABİTLER
 
 **D1 — Sabitleri yorumdan okuma.**
@@ -129,3 +159,19 @@ değişiklik yapılır; koşulsuz mekanik değişikliği turnuvayı geçersiz k�
 **F3 — Sözdizimi kırığı sessizce her şeyi bozar.**
 `DELTAS` nesnesinin kapanış `};`'ı yutulunca tüm deltalar tanımsız kaldı ve testler anlamsız çıktı.
 → **Kural:** her düzenlemeden sonra `node --check`.
+
+---
+
+## G. MOTOR TUZAKLARI (ölçüm değil, ölçülen sistemin kendisi)
+
+**G1 — Bir düzeltme, uykuda duran başka bir hatayı UYANDIRABİLİR.**
+Ferry düzeltmesi helolara gerçekten yük taşıttı; o güne kadar `cargo` çoğunlukla boş olduğu için
+kapanmayan `cargo → yolcu → carrier → helo` **dairesel referansı** artık kapanıyordu ve
+`battleForkCapture` (JSON tabanlı `replayClone`) çöküyordu. Oracle, replay ve fork tabanlı TÜM
+ölçümler etkileniyordu; hata ancak yüklü helo içeren tohumlarda görünüyordu.
+→ **Kural:** bir mekanik "artık gerçekten çalışıyor" hâle geldiğinde, o mekaniğe dokunan
+**serileştirme/fork/replay** yollarını ayrıca sına. `--forktest` yeşil olması yetmez; kapının
+kullandığı ordu o mekaniği içermiyor olabilir (bu vakada içermiyordu).
+→ **Düzeltme kalıbı:** birim-referansı taşıyan alanlar snapshot'ta **kimliğe** çevrilir
+(`attackTarget` zaten öyleydi; `cargo`/`carrier` unutulmuştu) ve restore'da tüm birimler
+kurulduktan SONRA çözülür.

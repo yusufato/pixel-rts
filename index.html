@@ -124,6 +124,17 @@
                     <button data-role="random"><b>RASTGELE</b><small>maç başında belirlenir</small></button>
                 </div>
             </div>
+            <div class="qm-row" style="margin-top:16px;"><label>🧠 Rakip AI:</label>
+                <div id="qm-brain" class="qm-choice">
+                    <button data-brain="intel3pro"><b>intel3-pro</b><small>taban beyin</small></button>
+                    <button data-brain="intel4"><b>intel4</b><small>mezun sürüm</small></button>
+                    <button data-brain="intel4pro" class="selected"><b>intel4-pro</b><small>en güçlü kod-AI</small></button>
+                    <button data-brain="beonai"><b>beonai</b><small>öğrenen model</small></button>
+                </div>
+            </div>
+            <div class="qm-row"><label>🎲 Tohum (boş = rastgele):
+                <input type="number" id="qm-seed" class="qm-select" placeholder="ör. 202" style="width:140px;"></label></div>
+            <div class="qm-hint">Aynı tohum = aynı harita, aynı ordular. Dört AI'yı adil kıyaslamak için aynı tohumu kullan.</div>
             <div class="qm-row"><label>🗺️ Harita:
                 <select id="qm-map" class="qm-select"></select></label></div>
         </div>
@@ -449,6 +460,7 @@
     <script src="js/CommanderProfiles.js"></script>
     <script src="js/BattleController.js"></script>
     <script src="js/BattleCommander.js"></script>
+    <script src="js/BattleStateFeatures.js"></script>
     <script src="js/BattleFeatures.js"></script>
     <script src="js/BattleSelector.js"></script>
     <script src="js/BattleOracle.js"></script>

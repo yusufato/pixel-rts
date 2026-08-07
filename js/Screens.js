@@ -42,7 +42,43 @@ function quickMatchUpdate() {
 // Buton grubu seçimi (rol / zorluk) — seçili değeri döndürür
 function qmSelected(groupId, fallback) {
     const el = document.querySelector(`#${groupId} button.selected`);
-    return el ? (el.dataset.role || el.dataset.skill || el.dataset.control) : fallback;
+    return el ? (el.dataset.role || el.dataset.skill || el.dataset.control || el.dataset.brain) : fallback;
+}
+
+// ── RAKIP AI SECIMI (kullanici istegi: "hangi ai ile mac yapacagimi secebilecegim bir buton") ──
+// Rakip KIRMIZI taraftir (controller `battle-red-ai`, owner ENEMY_AI); oyuncu mavidir.
+// intel3-pro AYRI bir bayrak DEGIL: intel4 kapaliyken elde edilen TABAN beyindir.
+// Secim telemetriye de yazilir (`rakipBeyin`) — ham JSON'dan hangi beyinle oynandigi anlasilsin.
+const QM_BEYIN = {
+    intel3pro: { intel4: false, pro: false, beonai: null,  ad: 'intel3-pro' },
+    intel4:    { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
+    intel4pro: { intel4: true,  pro: true,  beonai: null,  ad: 'intel4-pro' },
+    beonai:    { intel4: true,  pro: false, beonai: 'beonai-karisim', ad: 'beonai' },
+};
+function quickMatchApplyBrain(anahtar) {
+    const b = QM_BEYIN[anahtar] || QM_BEYIN.intel4pro;
+    if (typeof BATTLE_INTEL4_RED !== 'undefined') BATTLE_INTEL4_RED = b.intel4;
+    if (typeof BATTLE_INTEL4PRO_RED !== 'undefined') BATTLE_INTEL4PRO_RED = b.pro;
+    if (typeof BATTLE_BEONAI_RED !== 'undefined') BATTLE_BEONAI_RED = b.beonai;
+    // Oyuncu tarafi (mavi) hicbir beyin almaz — dost AI kendi varsayilaniyla kalir.
+    if (typeof BATTLE_INTEL4PRO_BLUE !== 'undefined') BATTLE_INTEL4PRO_BLUE = false;
+    if (typeof BATTLE_BEONAI_BLUE !== 'undefined') BATTLE_BEONAI_BLUE = null;
+    // beonai modelinin gercekten kayitli olup olmadigini DOGRULA — yoksa sessizce kod-AI oynar
+    // ve kullanici "beonai ile oynadim" sanir (bu oturumda ayni sinif hata iki kez yasandi).
+    // UYUMLULUK DA KONTROL EDILIR: surum kayitli ama BAYAT olabilir (baska motor surumunde
+    // egitilmis). O durumda battleBeonaiBagla sessizce baglamaz ve yalniz konsola yazar —
+    // kullanici "beonai ile oynadim" sanir. Burada GORULUR bir uyari veririz.
+    let uyari = null;
+    if (b.beonai) {
+        if (typeof battleBeonaiUyumlu === 'function') {
+            const u = battleBeonaiUyumlu(b.beonai);
+            if (!u.uyumlu) uyari = u.sebep;
+        } else if (typeof BATTLE_BEONAI_SURUMLER !== 'undefined' && !BATTLE_BEONAI_SURUMLER[b.beonai]) {
+            uyari = 'model bulunamadi: ' + b.beonai;
+        }
+        if (uyari && typeof BATTLE_BEONAI_RED !== 'undefined') BATTLE_BEONAI_RED = null;
+    }
+    return { ad: b.ad, uyari };
 }
 
 function quickMatchStart() {
@@ -53,9 +89,25 @@ function quickMatchStart() {
     // Oyuncu "saldıran" seçerse kırmızı savunur; rastgele ise maç başında atılır.
     let role = qmSelected('qm-role', 'attacker');
     if (role === 'random') role = (Math.random() < 0.5) ? 'attacker' : 'defender';
+    // RAKIP AI: oturum ACILMADAN once kurulur (openBattlefieldSession beyin-bayraklarini okur)
+    const beyin = quickMatchApplyBrain(qmSelected('qm-brain', 'intel4pro'));
+    // Etiket KALICI bayrakta tutulur; telemetri her sifirlamada bunu yeniden okur.
+    if (typeof BATTLE_RAKIP_BEYIN !== 'undefined') BATTLE_RAKIP_BEYIN = beyin.ad;
+    // Kullanilan tohumu ekranda goster (rastgele ise de) — tekrar oynanabilirlik icin.
+    setTimeout(() => {
+        const t = (typeof BATTLE_SESSION !== 'undefined') ? BATTLE_SESSION.seed : null;
+        if (t != null) console.log('[hizli mac] rakip beyin: ' + beyin.ad + '   TOHUM: ' + t);
+    }, 0);
+    if (beyin.uyari) alert('UYARI: ' + beyin.uyari + '\nMaç kod-AI ile oynanacak.');
+    // TOHUM: bos birakilirsa motor Date.now() kullanir (her mac FARKLI ordu/harita). Dort AI'yi
+    // "ayni birliklerle" kiyaslamak icin ayni tohum girilmelidir — kullanici istegi.
+    const _tohumHam = document.getElementById('qm-seed')?.value;
+    const _tohum = (_tohumHam !== undefined && _tohumHam !== null && String(_tohumHam).trim() !== '')
+        ? (Number(_tohumHam) >>> 0) : null;
     openBattlefieldSession({
         mode: 'quick',
         mapId: -2,
+        seed: _tohum != null && _tohum > 0 ? _tohum : undefined,
         attackerSide: role === 'defender',
         durationSec: DEFAULT_BATTLE_DURATION_SEC,
         playerMoney: pl,
@@ -117,6 +169,11 @@ function mpInit() {
 
 function screensInit() {
     document.getElementById('btn-quick-match')?.addEventListener('click', () => { showScreen('quickmatch'); quickMatchUpdate(); });
+    // RAKIP AI buton grubu: tek secim (rol grubuyla ayni davranis)
+    document.querySelectorAll('#qm-brain button').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('#qm-brain button').forEach(x => x.classList.remove('selected'));
+        b.classList.add('selected');
+    }));
     document.getElementById('btn-new-story')?.addEventListener('click', () => {
         showScreen('story-setup');
         if (typeof warRoomSetupOpen === 'function') warRoomSetupOpen();

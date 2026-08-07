@@ -550,8 +550,27 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // mühimmatı 3; ilk 60-85sn'de bitiyor ve ömrünün %85'i KURU geçiyor, ikmal aldığı 0.
     // Sebep: orduda HİÇ ikmal aracı yok (22 birim, 0 araç) — ikmal-refakat kuralı da bu yüzden
     // hiç bağlamıyordu. Şarjörü küçük ve pahalı birim, ikmal kaynağı olmadan tek-atımlıktır.
-    logisticsRequirement: true
+    logisticsRequirement: true,
+    // P18 — YAKITLI HAVA BİRİMİ ÜSSÜZ ALINMAZ (kural ailesinin ÜÇÜNCÜ üyesi). ÖLÇÜLDÜ: nakliye
+    // helosu gerçekten taşıyor (24 piyade, ömrünün %92'si yüklü) ama 12 helonun 10'u YAKITI BİTİP
+    // DÜŞTÜ ve kargosundaki 10 piyadeyi de öldürdü. Helo yalnız `providesAir` siperinde yakıt alır,
+    // o siperi İSTİHKÂM kurar, orduda istihkâm YOK (0) → hiçbir üs kurulmuyor.
+    airBaseRequirement: true,
+    // P19 — İLERİ ÜS. Kullanıcı sordu: "helolar yakıtsızlıktan düşüyorsa istihkâm neden siper
+    // kazmıyor". ÖLÇÜLDÜ: helipad kapsaması maçın yalnız %40'ı; istihkâm tiklerinin %38.6'sı
+    // "kendi yarısında değil" hâlinde geçiyor ve o hâlde HİÇBİR ŞEY kurmuyor.
+    engineerForward: false,   // ÖLÇÜLMEDEN AÇILMAZ
+    // P20 — KOMUTA MERKEZİ. ÖLÇÜLDÜ: komuta aracı (speed 1.5) kütle merkezinin 436px ARKASINDA
+    // kalıyor; hale dost değerin %83'ünü tutuyor, tam merkezde %92 tutardı. 500px daha geri
+    // çekmek ise %48'e düşürüyordu (ilk sezgim yanlıştı, karşı-olgu yalanladı).
+    commandCenter: false,   // K2'DE ELENDİ (6 tohum): kapsama %84→%94 ama kazandırdığı hasar 0.98→0.97 ₺ (değişmedi)
+    // P21 — KOMUTA MENZİLİ. Veride `range: 0.08` tanımlıydı ama kodda karşılığı YOKTU (ölü veri).
+    // Kullanıcı kararı: "ne işe yarıyor ona göre silelim veya işleyelim" → uygulandı, ölçülecek.
+    commandRange: false   // ÖLÇÜLMEDEN AÇILMAZ
 };
+// ── 'airBaseRequirement' PARAMETRELERİ (aranabilir) ──
+let PRO_USSU_MIN_TL = 300;   // bu değerin altındaki hava birimi için ordu bozulmaz
+let PRO_USSU_MIN = 1;        // orduda bulunması gereken en az üs-kurucu (istihkâm)
 // ── 'logisticsRequirement' PARAMETRELERİ (aranabilir) ──
 let PRO_LOJISTIK_KUCUK_SARJOR = 4;   // şarjörü bu değere kadar olan birim "ikmale bağımlı" sayılır
 let PRO_LOJISTIK_MIN_TL = 300;       // ucuz birim için ordu bozulmaz
@@ -631,6 +650,25 @@ let BATTLE_JAM_PARTIAL = true;
 // geliyordu ve o BATTLE_JAM_PARTIAL ile ayrıca giderildi. Yani bu iki değişiklik zıt yönde:
 // kısmi-etki yerel gücü kırpar, keşif-jamı ölü tasarımı diriltir.
 let BATTLE_JAM_RECON = true;
+
+// ── KRİTİK YAKIT TABANI (mekanik düzeltmesi, iki tarafa+oyuncuya simetrik) ──
+// Yüklü nakliye helosu "önce teslim et" kuralı yüzünden yakıt için üsse DÖNMÜYORDU (`!busyTransport`).
+// ÖLÇÜLDÜ: 12 helonun 10'u yakıtı bitip düştü ve kargosundaki 10 piyadeyi de öldürdü; düşman
+// yalnız 1 tanesini vurdu. Yakıt bu kesrin altına inince kargo şartı düşer ve üsse dönülür.
+let BATTLE_HELO_KRITIK_YAKIT = 0.12;
+// TARAF-BASI ferry bayraklari (tuzak B3: global bayrak A/B'de iki tarafi birden degistirir).
+// null = global degeri kullan.
+let BATTLE_FERRY_FIX_RED = null, BATTLE_FERRY_FIX_BLUE = null;
+let BATTLE_HELO_KRITIK_RED = null, BATTLE_HELO_KRITIK_BLUE = null;
+function battleFerryFix(isRed) {
+    const v = isRed ? BATTLE_FERRY_FIX_RED : BATTLE_FERRY_FIX_BLUE;
+    return v == null ? ((typeof BATTLE_FERRY_FIX === 'undefined') || BATTLE_FERRY_FIX) : !!v;
+}
+function battleHeloKritikYakit(isRed) {
+    const v = isRed ? BATTLE_HELO_KRITIK_RED : BATTLE_HELO_KRITIK_BLUE;
+    if (v != null) return v;
+    return (typeof BATTLE_HELO_KRITIK_YAKIT !== 'undefined') ? BATTLE_HELO_KRITIK_YAKIT : 0.12;
+}
 let BATTLE_INTEL4PRO_RED = false;
 let BATTLE_INTEL4PRO_BLUE = false;
 // Birim tipi DOLAYLI ateş mi (topçu/havan/ÇNRA/balistik)? Karşı-batarya hedeflemesi bunu kullanır.
@@ -638,8 +676,14 @@ function battleIsIndirectType(t) {
     const s = STATS[t];
     return !!(s && (s.category === 'indirect' || (s.weapons && s.weapons[0] && s.weapons[0].indirect)));
 }
+// TARAF-BASI DELTA GECERSIZ KILMA (tuzak B3): BATTLE_INTEL4PRO_DELTAS tek NESNEDIR; bir deltayi
+// acinca IKI TARAF da alir ve A/B'de fark kimseye atfedilemez. Bu iki nesne yalniz o tarafta
+// gecerli olan degerleri tasir (null = global degeri kullan). Demet savasi bunu kullanir.
+let BATTLE_INTEL4PRO_DELTAS_RED = null, BATTLE_INTEL4PRO_DELTAS_BLUE = null;
 function battleProDelta(isRed, key) {
-    if (!BATTLE_INTEL4PRO_DELTAS[key]) return false;
+    const _ov = isRed ? BATTLE_INTEL4PRO_DELTAS_RED : BATTLE_INTEL4PRO_DELTAS_BLUE;
+    const _v = (_ov && Object.prototype.hasOwnProperty.call(_ov, key)) ? _ov[key] : BATTLE_INTEL4PRO_DELTAS[key];
+    if (!_v) return false;
     return isRed ? BATTLE_INTEL4PRO_RED : BATTLE_INTEL4PRO_BLUE;
 }
 const PRO_AMMO_RESERVE = 0.45;      // mühimmat bu oranın altındayken tasarruf kipi (yedek = yakın savunma için)
@@ -689,6 +733,42 @@ function proYToDepth(side, y) { return side ? (y / (WORLD_H * 0.5)) : ((WORLD_H 
 // çünkü replay-playback'te telemetry.combatEvents doldurulMAZ; inanç-katmanı onu okursa canlı≠playback → replay kırılır.
 // Bu ring Unit.js-emisyonuyla canlı+playback AYNI dolar. Saf-veri (sim-mutasyon yok) → determinist. Tüketiciler tick-ile okur.
 const BATTLE_FORENSIC = { buf: [], cap: 2048, seq: 0 };
+// ── BİRİM KREDİ DEFTERİ (kullanıcı: "her birimin kendi ödül mekanizması olmalı") ──
+// NEDEN: bu oturumda tek bir `getiri` (imha değeri ÷ maliyet) lensi kullandık ve ÜÇ KEZ yanlış
+// hedef gösterdi — topçu (x0.21), keşif (x0), IFV (x0.05; orduDAN ÇIKARINCA sonuç KÖTÜLEŞTİ).
+// Sebep: her birimin işi farklı. Topçunun ürünü ölü değil PANİK'tir; istihkâmınki siperde tutulan
+// dost-saniyesi ve doldurduğu helo yakıtıdır; keşfinki TEKİL görüştür.
+// Defter bunları AYRI AYRI biriktirir. beonai'nin kredi-atama (credit assignment) sorununun da
+// girdisi budur: "kim kazandırdı" sorusu tek sayıyla cevaplanamaz.
+// DETERMİNİZM: yalnız toplama yapar, sim durumuna DOKUNMAZ, RNG kullanmaz. Varsayılan KAPALI.
+const BATTLE_CREDIT = { on: false, birim: {} };
+function battleKrediSifirla() { BATTLE_CREDIT.birim = {}; }
+function battleKrediKayit(u) {
+    if (!BATTLE_CREDIT.on || !u) return null;
+    let r = BATTLE_CREDIT.birim[u.id];
+    if (!r) {
+        r = BATTLE_CREDIT.birim[u.id] = { tip: u.type, isRed: !!u.isRed,
+            maliyet: (STATS[u.type] && STATS[u.type].cost) || 0,
+            // HER BIRIMIN KENDI ISI AYRI SUTUN. Bir birim tek sutunla yargilanmaz.
+            hasar: 0, panik: 0, baski: 0, imhaDeger: 0, emilen: 0,   // muharip
+            siperTik: 0, yakitDolum: 0, mayin: 0, kapma: 0,          // istihkam
+            gorusTekil: 0, tespit: 0,                                // kesif (gorus payi + ILK tespit)
+            jamTik: 0,                                               // EH araci
+            iyilestirme: 0, kurtarma: 0,                             // saglikci
+            muhimmat: 0, kuruEngel: 0,                               // ikmal araci
+            tasinan: 0, tasimaMesafe: 0,                             // nakliye helo
+            droneHasar: 0,                                           // drone operatoru (cocugun hasari)
+            haleTik: 0, rally: 0,                                    // komuta araci
+            havaCaydirma: 0, havaHasar: 0 };                         // hava savunmasi (caydirma + UCAGA verilen hasar)
+    }
+    return r;
+}
+function battleKredi(u, alan, miktar) {
+    if (!BATTLE_CREDIT.on || !u || !miktar) return;
+    const r = battleKrediKayit(u);
+    if (r) r[alan] = (r[alan] || 0) + miktar;
+}
+
 function battleForensicReset() { BATTLE_FORENSIC.buf.length = 0; BATTLE_FORENSIC.seq = 0; }
 
 // TEHDİT-SINIFI taksonomisi (saf, statesiz): STATS[type]'tan tehdit-sınıf(lar)ını çıkar. Sıralı-dizi döner (bir birim çok-sınıf olabilir).
@@ -767,6 +847,27 @@ const TRANSPORT_LOAD_RADIUS = 95;         // yolcuyu almak için bu kadar yakın
 const TRANSPORT_LOAD_TIME = 1.6;          // saniye/yolcu — biniş süresi (gerçekçi gecikme)
 const TRANSPORT_UNLOAD_TIME = 0.7;        // saniye/yolcu — iniş süresi
 const TRANSPORT_UNLOAD_TRIGGER = 420;     // düşman bu kadar yakınsa hemen indir (fast-rope)
+const PRO_IST_ILERI_DERINLIK = 0.75;   // 'engineerForward' acikken istihkamin kurabildigi en derin nokta (harita orani)
+let PRO_KOMUTA_OLU_BOLGE = 200;   // 'commandCenter': merkeze bu kadar yakinsa DUR (titreme onleyici olu bolge)
+let PRO_KOMUTA_MENZIL = 0.08;   // 'commandRange': komuta halesindeki dostun menzil carpani (UnitData'daki aura.range)
+
+// ── FERRY DUZELTMESI (kullanici raporu + olcum; iki tarafa ve oyuncuya simetrik) ──
+// "nakliye helolari birim tasirken cok titriyordu" + "her seyi tasimaya calisiyor, surekli bir sey
+// tasimasina gerek yok". Kapatilirsa ESKI davranis geri gelir (A/B icin).
+let BATTLE_FERRY_FIX = true;
+
+// ── GRAMER v2: KARAR UZAYI GENISLETMESI (olculmeden acilmaz) ──
+// Tavan olculdu: mukemmel secici bile kod-AI'yi ancak +771 geciyor (t 1.80). Sorun ogrenmede degil
+// secilecek sey azliginda. v2 tempo'ya gercek sonuc verir, allocation'i 3->7 yapar, sektor
+// kaynaklarini genisletir ve 64 kotasini intent'ler arasinda ADIL dagitir.
+// HIZLI MAC'ta secilen RAKIP BEYIN etiketi. Telemetriye her sifirlamada yeniden yazilir —
+// `resetBattleState()` hem oturum acilisinda HEM startBattle'da cagriliyor, dolayisiyla oturum
+// acildiktan sonra telemetriye dogrudan yazmak SILINIYORDU (yakalandi).
+let BATTLE_RAKIP_BEYIN = null;
+let BATTLE_GRAMMAR_V2 = false;
+let BATTLE_GRAMMAR_KOTA = 64;
+const FERRY_MIN_KAZANC = 0.22;      // yolcu cepheye harita-yuksekliginin %22'sinden yakinsa TASIMA (yuruyerek gider)
+const FERRY_TOPLA_YARICAP = 520;    // yari-doluyken yeni yolcu icin bu mesafeden uzaga sapma (sefer butunlugu)
 // Tank mermisi: dar ama gerçek alan hasarı (HE mermisi). Topçudan KÜÇÜK ve ZAYIF.
 const TANK_SPLASH_RADIUS = 80;            // topçunun ~yarısı
 const TANK_SPLASH_MIN = 0.30;             // kenar hasar oranı
@@ -1340,9 +1441,24 @@ function applyDirectHit(hit, now) {
     tgt.flashTimer = hit.isCrit ? 8 : (hit.flash || 6);
     if (typeof addDamageNumber === 'function') addDamageNumber(tgt, actual, !!(hit.isCrit || hit.isRear));
     if (hit.knock && typeof applyKnockback === 'function') applyKnockback(tgt, hit.atkX, hit.atkY, hit.knock);
+    // KREDİ: panik ve baskı ATIŞI YAPANA yazılır — topçunun asıl ürünü budur, ölü sayısı değil.
+    const _pOnce = tgt.panic, _sOnce = tgt.suppression;
     tgt.panic += (dmg / tgt.maxHp) * (hit.panicMul || 150);
     if (hit.isFlank) tgt.panic += hit.isRear ? 18 : 9;   // yandan/arkadan vurulmak = moral ŞOKU
     if (hit.supp) tgt.suppression += hit.supp;
+    if (BATTLE_CREDIT.on) {
+        const _atk = atk || null;
+        if (_atk) {
+            battleKredi(_atk, 'hasar', actual);
+            if (tgt.isAir) battleKredi(_atk, 'havaHasar', actual);   // AA birimlerinin ASIL urunu: ucaga verilen hasar
+            battleKredi(_atk, 'panik', Math.max(0, tgt.panic - _pOnce));
+            battleKredi(_atk, 'baski', Math.max(0, tgt.suppression - _sOnce));
+            if (tgt.hp <= 0) battleKredi(_atk, 'imhaDeger', (STATS[tgt.type] && STATS[tgt.type].cost) || 0);
+            // DRONE ATFI: sarf-malzemesi drone'un hasari onu SALAN operatore de yazilir
+            if (_atk.operatorId != null) { const _op = battleUnitById(_atk.operatorId); if (_op) battleKredi(_op, 'droneHasar', actual); }
+        }
+        battleKredi(tgt, 'emilen', actual);
+    }
     if (hit.sparks !== false && tgt.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(tgt.x, tgt.y);
     if (tgt.isRed) {
         tgt.lastHitTime = now;
@@ -1398,10 +1514,20 @@ function applyTankSplash(hit, impactUnit, now, atk, atkAlive) {
                 targetX: Math.round(n.x * 100) / 100, targetY: Math.round(n.y * 100) / 100
             });
         }
+        const _pO = n.panic, _sO = n.suppression;
         n.panic += (blastDmg / n.maxHp) * 120;
         n.flashTimer = 5;
         if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.8);
         n.suppression += 25;
+        if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) {   // KREDI: alan hasari da atisi yapana
+            const _a = atk;   // HIZ: battleUnitById DOGRUSAL tarama; atk zaten parametre olarak geliyor
+            if (_a) { battleKredi(_a, 'hasar', blastActual);
+                battleKredi(_a, 'panik', Math.max(0, n.panic - _pO));
+                battleKredi(_a, 'baski', Math.max(0, n.suppression - _sO));
+                if (n.hp <= 0) battleKredi(_a, 'imhaDeger', (STATS[n.type] && STATS[n.type].cost) || 0); }
+            if (_a && _a.operatorId != null) { const _op2 = battleUnitById(_a.operatorId); if (_op2) battleKredi(_op2, 'droneHasar', blastActual); }
+            battleKredi(n, 'emilen', blastActual);
+        }
         if (n.isRed) { n.lastHitTime = now; n.distressX = hit.atkX; n.distressY = hit.atkY; }
         if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
         if (n.hp <= 0 && !n.dead) {
@@ -1456,10 +1582,20 @@ function applyBlast(hit, now) {
                 targetX: Math.round(n.x * 100) / 100, targetY: Math.round(n.y * 100) / 100
             });
         }
+        const _pB = n.panic, _sB = n.suppression;
         n.panic += (blastDmg / n.maxHp) * 120;
         n.flashTimer = 5;
         if (typeof applyKnockback === 'function') applyKnockback(n, cx, cy, 1.6);
         n.suppression += 30;                                  // alan baskısı
+        if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) {   // KREDI: DOLAYLI atesin asil urunu burada
+            const _a = atk;   // HIZ: battleUnitById DOGRUSAL tarama; atk zaten parametre olarak geliyor
+            if (_a) { battleKredi(_a, 'hasar', blastActual);
+                battleKredi(_a, 'panik', Math.max(0, n.panic - _pB));
+                battleKredi(_a, 'baski', Math.max(0, n.suppression - _sB));
+                if (n.hp <= 0) battleKredi(_a, 'imhaDeger', (STATS[n.type] && STATS[n.type].cost) || 0); }
+            if (_a && _a.operatorId != null) { const _op2 = battleUnitById(_a.operatorId); if (_op2) battleKredi(_op2, 'droneHasar', blastActual); }
+            battleKredi(n, 'emilen', blastActual);
+        }
         if (n.isRed) { n.lastHitTime = now; n.distressX = hit.atkX; n.distressY = hit.atkY; }
         if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
         if (n.hp <= 0 && !n.dead) {

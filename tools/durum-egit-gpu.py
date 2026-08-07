@@ -22,18 +22,52 @@ import torch, torch.nn as nn
 def arg(a, d=None):
     return sys.argv[sys.argv.index(a) + 1] if a in sys.argv else d
 
+# COKLU DOSYA (gece kosusu): 9 isci 9 ayri dosyaya yazar. Onlari TEK dosyada birlestirmek
+# 3+ GB'lik senkron kopyalama demek ve orkestratoru OLDURDU (bellek). Egitim dosyalari
+# DOGRUDAN okur: birlestirme adimi tamamen kaldirildi. Virgulle ayrilmis liste ya da glob.
+import glob as _glob
 VERI = arg('--veri', 'qa-runtime/durum-veri.jsonl')
+DOSYALAR = []
+for _p in VERI.split(','):
+    _p = _p.strip()
+    DOSYALAR.extend(sorted(_glob.glob(_p)) if ('*' in _p or '?' in _p) else [_p])
+DOSYALAR = [d for d in DOSYALAR if os.path.exists(d)]
+if not DOSYALAR:
+    print(f'veri dosyasi bulunamadi: {VERI}'); sys.exit(1)
 EPOK = int(arg('--epok', 300))
 KAYDET = arg('--kaydet')
 GX = int(arg('--gx', 16)); GY = int(arg('--gy', 10)); KANAL = 8
 dev = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+# BELLEK KAPISI (gece kosusu): 6 isci 5+ saat toplayinca veri 7-11 GB olur ve TUM dosyayi
+# belege okumak egitimi oldurur. ARALIKLI ORNEKLEME: dosya once sayilir, sonra her k'inci satir
+# alinir. Ornekleme MAC-BAZLI degil satir-bazli oldugu icin mac-basli bolme yine gecerli kalir.
+MAKS = int(arg('--maxsatir', 300000))
+_n = 0
+for _d in DOSYALAR:
+    with open(_d, encoding='utf-8') as f:
+        for _ in f: _n += 1
+ADIM = max(1, _n // MAKS) if MAKS > 0 else 1
+if ADIM > 1:
+    print(f'veri {_n} satir -> her {ADIM}. satir alinacak (bellek kapisi {MAKS})')
+
+_bozuk = 0
 R, S, Y, W, MAC, TIK, BITIS = [], [], [], [], [], [], []
-with open(VERI, encoding='utf-8') as f:
+_i = -1
+for _d in DOSYALAR:
+  with open(_d, encoding='utf-8') as f:
     for line in f:
+        _i += 1
+        if _i % ADIM: continue
         line = line.strip()
         if not line: continue
-        d = json.loads(line)
+        # BOZUK SATIR KORUMASI: isciler oldurulunce son satir YARIM kalabilir; tek bir bozuk
+        # satir tum egitimi dusurmemeli (gece kosusu sabaha bos donmesin).
+        try:
+            d = json.loads(line)
+        except Exception:
+            _bozuk += 1
+            continue
         R.append(d['r']); S.append(d['s']); Y.append(d['y']); W.append(d['kazandi'])
         MAC.append(d['ad'] + '#' + str(d['seed'])); TIK.append(d['tik']); BITIS.append(d['bitisTik'])
 
@@ -47,6 +81,7 @@ Y = np.array(Y, dtype=np.float32)
 W = np.array(W, dtype=np.float32)
 MAC = np.array(MAC); TIK = np.array(TIK, dtype=np.float32); BITIS = np.array(BITIS, dtype=np.float32)
 maclar = sorted(set(MAC.tolist()))
+if _bozuk: print(f'atlanan bozuk satir: {_bozuk}')
 print(f'veri: {len(Y)} anlik goruntu, {len(maclar)} mac, raster {KANAL}x{GY}x{GX}, skaler {S.shape[1]}')
 if len(maclar) < 20:
     print(f'UYARI: yalnizca {len(maclar)} mac - mac-bazli bolme anlamli olmaz, daha cok mac toplayin.')

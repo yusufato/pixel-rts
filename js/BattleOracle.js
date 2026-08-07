@@ -45,7 +45,29 @@ function battleSelectorDisable() {
 }
 // Model bir karar durumunda tüm adayları skorlar → en yüksek → enjeksiyon-spec. Cache ile thrash azaltılır.
 let BATTLE_SELECTOR_UYARDI = false;   // tek seferlik uyari (log spam yok)
+// TAVAN KIPI: bu kontrolor icin secim MODEL yerine ORACLE tarafindan yapilir (her karar noktasinda
+// tum adaylar gercekten yuvarlanir). Pahali ama "mukemmel secici" ust sinirini olcer.
+let BATTLE_SELECTOR_ORACLE = {};        // { [controllerId]: rolloutSec }
+function battleSelectorOracleEnableFor(controllerId, rolloutSec) {
+    BATTLE_SELECTOR_ORACLE[controllerId] = rolloutSec || 25;
+    BATTLE_SELECTOR_CACHES[controllerId] = { tick: -1, inj: null };
+    if (typeof BATTLE_CONTROLLERS !== 'undefined') for (const c of BATTLE_CONTROLLERS.values()) battleOracleInstallInjection(c);
+}
+function battleSelectorOracleDisable() { BATTLE_SELECTOR_ORACLE = {}; }
+
 function battleSelectorPickInjection(controller, observation, situation) {
+    // ORACLE KIPI — ozyineleme korumasi: oracle kendi yuvarlamasi icindeyken TEKRAR oracle cagirmaz
+    // (BATTLE_ORACLE_IN_ROLLOUT), kod-AI'ya birakir. Yoksa sonsuz ic ice yuvarlama olur.
+    const _orcSn = BATTLE_SELECTOR_ORACLE[controller.id];
+    if (_orcSn && !BATTLE_ORACLE_IN_ROLLOUT) {
+        const _c = BATTLE_SELECTOR_CACHES[controller.id];
+        if (_c && _c.inj && (SIM.tick - _c.tick) < BATTLE_SELECTOR_REPICK_TICKS) return _c.inj;
+        const _r = battleOracleEvaluate({ sideRed: controller.side, controllerId: controller.id,
+            rolloutSec: _orcSn, returnInjection: true });
+        const _inj = (_r && _r.bestInjection) || null;
+        if (_c) { _c.tick = SIM.tick; _c.inj = _inj; }
+        return _inj;
+    }
     const model = BATTLE_SELECTOR_MODELS[controller.id];
     if (!model || typeof selForward !== 'function' ||
         typeof battleStateFeatures !== 'function' || typeof operationGrammarGenerate !== 'function') return null;
@@ -214,7 +236,22 @@ function battleBuildInjectedPlan(planner, committedPlan, observation, situation,
     // SADAKAT: flankSector + tempo/pursuit'i sözleşmelere işle (executor tüketir)
     const groupCentroid = {}; for (const g of taskGroups) groupCentroid[g.role] = g.centroid;
     const clampPt = (typeof planningClampPoint === 'function') ? planningClampPoint : (p => p);
+    // ── SEKTOR ETIKETI (KOK NEDEN DUZELTMESI) ──────────────────────────────────────────────
+    // OLCULDU: kod-AI'nin KENDI plani sozlesmelere `sector` yaziyor ('center' vb.), enjekte edilen
+    // planda bu alan HIC YOKTU. Yurutmedeki focusForContract, sector yoksa GLOBAL ortak hedefe
+    // duser -> secicinin urettigi HER planda tum gruplar ayni dusmana yuklenir ve MAIN/FLANK/FIXING
+    // ayrimi buharlasir. Bu, dogrulanmis anti-blob sektor-komutasini da sessizce devre disi
+    // birakiyordu. Sonuc: karar uzayi dardi cunku PLAN ICRAYA BAGLANMIYORDU —
+    //   iki UC plan (main 0.85 vs flank 0.60) 30sn sonra birimleri ortalama 169px ayiriyordu
+    //   (5100px'lik haritada %3.3; bir tohumda sektor dagilimi BIREBIR ayniydi).
+    const _sektorAdi = (typeof planningSector === 'function') ? planningSector : null;
+    const _mainAd = _sektorAdi ? _sektorAdi(inj.point.x) : null;
+    const _flankAd = (_sektorAdi && inj.flankPoint) ? _sektorAdi(inj.flankPoint.x) : _mainAd;
     for (const c of taskContracts) {
+        if (c.sector === undefined || c.sector === null) {
+            if (c.groupRole === TASK_GROUP_ROLE.FLANK) c.sector = _flankAd;
+            else if (c.groupRole === TASK_GROUP_ROLE.MAIN || c.groupRole === TASK_GROUP_ROLE.FIXING) c.sector = _mainAd;
+        }
         if (typeof c.pursuitLimit === 'number' && c.pursuitLimit > 0) c.pursuitLimit = Math.round(c.pursuitLimit * inj.tempoScale);
         if (inj.tempoLabel) c.tempo = inj.tempoLabel;
         if (c.groupRole === TASK_GROUP_ROLE.FLANK && inj.flankPoint) {
@@ -263,7 +300,8 @@ function battleOracleInstallInjection(controller) {
             if (BATTLE_ORACLE_INJECTION && controller.id === BATTLE_ORACLE_INJECTION.controllerId)
                 return battleBuildInjectedPlan(this, committedPlan, observation, situation, BATTLE_ORACLE_INJECTION);
             // CANLI SEÇİCİ modu: model adayı seçer (gerçek maçta oynar; kontrolör-başına model)
-            if (BATTLE_SELECTOR_MODELS[controller.id]) {
+            // TAVAN KIPI de buradan gecer (model YOK ama oracle secer) — yoksa sessizce hic calismaz
+            if (BATTLE_SELECTOR_MODELS[controller.id] || BATTLE_SELECTOR_ORACLE[controller.id]) {
                 const inj = battleSelectorPickInjection(controller, observation, situation);
                 if (inj) return battleBuildInjectedPlan(this, committedPlan, observation, situation, inj);
             }
@@ -348,7 +386,31 @@ function battleOracleEvaluate(config = {}) {
     if (!controller) return { err: 'kontrolör yok (side=' + sideRed + ')' };
 
     // adayları mevcut durumdan üret
-    const ctx = battleOracleGrammarContext(controller, sideRed);
+    // ── ÖĞRETMEN TAM-BİLGİ, ÖĞRENCİ PERCEPTION (config.perceptionFeatures) ────────────────────
+    // ÖLÇÜLDÜ (tools/perception-kayma-teshis.js, 92 karar): model TAM BİLGİYLE eğitilip canlı
+    // maçta PERCEPTION ile oynayınca kararların **%79'unda farklı adayı** en iyi buluyor; aday
+    // listesi bile %33 farklı. Yani model eğitildiği dünyadan başka bir dünyada oynuyor.
+    // Kodun eski notu bunu "hafif kayma" diyordu (satır ~82); ölçülünce hafif değil.
+    // ÇÖZÜM: ÖĞRETMEN (rollout + ödül) tam bilgi kullanmaya DEVAM eder — yargı doğru kalsın.
+    // Ama ADAY ÜRETİMİ ve MODELE VERİLEN ÖZNİTELİKLER canlı maçtaki gibi perception'dan üretilir.
+    const ctxTam = battleOracleGrammarContext(controller, sideRed);
+    let ctx = ctxTam;
+    if (config.perceptionFeatures) {
+        const obs = controller.lastObservation;
+        const own = (obs && obs.ownUnits && obs.ownUnits.length)
+            ? obs.ownUnits : SIM.units.filter(u => !u.dead && (!!u.isRed === !!sideRed));
+        const alg = ((obs && obs.contacts) || []).filter(c => c && (c.visible || c.confidence > 0));
+        if (alg.length) {
+            const contacts = alg.map(c => ({ x: c.x, y: c.y,
+                confidence: c.confidence != null ? c.confidence : 1,
+                estimatedStrength: c.estimatedStrength || 50 }));
+            let role = controller.lastSituation && controller.lastSituation.role;
+            if (!role && typeof battleRoleForSide === 'function') role = battleRoleForSide(sideRed);
+            ctx = opgBuildContext(sideRed, own, contacts, role);
+        } else {
+            return { err: 'algi bos (perception)', ctxRole: ctxTam.role };
+        }
+    }
     const candidates = operationGrammarGenerate(ctx);
     if (!candidates.length) return { err: '0 aday', ctxRole: ctx.role, ownTotal: ctx.ownTotal, enemyTotal: ctx.enemyTotal };
 
@@ -357,6 +419,15 @@ function battleOracleEvaluate(config = {}) {
 
     const fork = battleForkCapture();
     const baseline = battleOracleBaseline(sideRed);
+    // ── DEĞER-FONKSİYONU ÖZNİTELİKLERİ (ölçüldü: ödül tek başına oracle olmamalı) ──
+    // ÖLÇÜM (tools/odul-karsilastir.py, 2976 ayrılmış maç): oracle'ın skalarında `forceLead` var,
+    // bu yüzden nihai marjla korelasyonu yüksek görünüyor (0.808) — ama o, kararın katkısı değil
+    // konumun kendisi. Model-bağımsız ARTIK hedefte oracle 0.363, ΔV 0.447, KARIŞIM 0.463.
+    // Oracle 200sn+ bandında NEGATİFE düşüyor (−0.191). Bu yüzden ödül = zamana göre ağırlıklı
+    // w·ΔV + (1−w)·oracle olacak; ΔV için aday yuvarlamasının SONUNDAKİ durum gerekir.
+    // Öznitelik üretimi PAHALI değil ama gereksizken de yapılmaz → bayrakla açılır.
+    const _ozTopla = !!config.collectStateFeatures && typeof battleDurumOzellik === 'function';
+    const stateStart = _ozTopla ? battleDurumOzellik(16, 10) : null;
 
     // 0) VARSAYILAN (kod-AI, enjeksiyon YOK) = "chosen" — ÖNCE ve pristine fork'tan koş ki hiçbir aday
     //    rollout'u onu perturbe etmesin (fork-izolasyon boşluğuna karşı baseline'ı temiz tut).
@@ -364,6 +435,7 @@ function battleOracleEvaluate(config = {}) {
     battleForkRestore(fork);
     const chosenRan = battleOracleRunTicks(rolloutTicks);
     const chosen = battleOracleReward(sideRed, baseline);
+    const chosenStateEnd = _ozTopla ? battleDurumOzellik(16, 10) : null;
 
     // 1) her adayı rollout et
     const results = [];
@@ -373,7 +445,8 @@ function battleOracleEvaluate(config = {}) {
         BATTLE_ORACLE_INJECTION = battleCandidateToInjection(cand, controllerId);
         const ran = battleOracleRunTicks(rolloutTicks);
         const reward = battleOracleReward(sideRed, baseline);
-        results.push({ index: i, intent: cand.intent, mainSector: cand.mainSector, tempo: cand.tempo, ran, reward });
+        const stateEnd = _ozTopla ? battleDurumOzellik(16, 10) : null;
+        results.push({ index: i, intent: cand.intent, mainSector: cand.mainSector, tempo: cand.tempo, ran, reward, stateEnd });
     }
 
     // 3) orijinali geri yükle + temizle
@@ -391,6 +464,11 @@ function battleOracleEvaluate(config = {}) {
     results.sort((a, b) => b.reward.scalar - a.reward.scalar);
     const oracle = results[0] || null;
     const regret = oracle ? (oracle.reward.scalar - chosen.scalar) : 0;
+    // TAVAN OLCUMU: en iyi adayin enjeksiyon-spec'i. "Mukemmel secici" (oracle'in KENDISI) politika
+    // olarak kosturulunca kod-AI'yi maçta yenebiliyor mu? Yenemiyorsa OGRENILMIS hicbir secici
+    // yenemez — tavan sifirdir ve daha fazla veri toplamak bosunadir.
+    const bestInjection = (oracle && config.returnInjection)
+        ? battleCandidateToInjection(candidates[oracle.index], controllerId) : null;
     // "aktif" nokta = oracle veya chosen rollout'unda gerçek çarpışma oldu (aksi halde regret anlamsız)
     const combatVolume = (oracle ? (oracle.reward.raw.enemyLost + oracle.reward.raw.ownLost) : 0) +
         (chosen.raw.enemyLost + chosen.raw.ownLost);
@@ -405,21 +483,39 @@ function battleOracleEvaluate(config = {}) {
     let dataset = null;
     if (config.collectDataset && typeof battleStateFeatures === 'function') {
         const maxTicks = Math.round(((typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.durationSec) || 240) / BATTLE_TICK_SEC);
-        const stateFeatures = battleStateFeatures(ctx, { minEnemyDist, tick: SIM.tick, maxTicks, ownCount: baseline.own.count, enemyCount: baseline.enemy.count });
+        // TUTARLILIK: perception kipinde `minEnemyDist` ve sayilar da PERCEPTION'dan gelmeli —
+        // yoksa oznitelik vektorunun bir kismi tam-bilgi, bir kismi perception olur (karisik dunya).
+        let _md = minEnemyDist, _oc = baseline.own.count, _ec = baseline.enemy.count;
+        if (config.perceptionFeatures) {
+            const _obs = controller.lastObservation;
+            const _own = (_obs && _obs.ownUnits && _obs.ownUnits.length) ? _obs.ownUnits
+                : SIM.units.filter(u => !u.dead && (!!u.isRed === !!sideRed));
+            const _alg = ((_obs && _obs.contacts) || []).filter(c => c && (c.visible || c.confidence > 0));
+            _md = Infinity;
+            for (const a of _own) for (const b of _alg) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < _md) _md = d; }
+            _oc = _own.length; _ec = _alg.length;
+        }
+        const stateFeatures = battleStateFeatures(ctx, { minEnemyDist: _md, tick: SIM.tick, maxTicks, ownCount: _oc, enemyCount: _ec });
         dataset = {
             stateVersion: STATE_FEATURES_VERSION, candidateVersion: CANDIDATE_FEATURES_VERSION,
             sideRed, decisionTick: SIM.tick, minEnemyDist: Math.round(minEnemyDist), active,
             chosenReward: +chosen.scalar.toFixed(2), stateFeatures,
+            // DEĞER-FONKSİYONU GİRDİSİ: ödül çevrimdışı yeniden hesaplanacak (w·ΔV + (1−w)·oracle).
+            // Değer ağı OYUN ANINDA gerekmez — yalnız etiketlemede. Bu yüzden model JS'e taşınmaz
+            // ve determinizm riske girmez. Öznitelikler `js/BattleStateFeatures.js` ile üretilir
+            // (biçim eşitliği byte-karşılaştırmasıyla kanıtlandı).
+            durumBas: stateStart, chosenDurumSon: chosenStateEnd,
             rows: results.map(r => ({
                 intent: r.intent, mainSector: r.mainSector, tempo: r.tempo,
                 features: battleCandidateFeatures(candidates[r.index], ctx),
-                reward: +r.reward.scalar.toFixed(2), rewardRaw: r.reward.raw
+                reward: +r.reward.scalar.toFixed(2), rewardRaw: r.reward.raw,
+                durumSon: r.stateEnd
             }))
         };
     }
 
     return {
-        dataset,
+        dataset, bestInjection,
         active, minEnemyDist: Math.round(minEnemyDist), combatVolume: Math.round(combatVolume),
         sideRed, controllerId, decisionTick: SIM.tick, rolloutTicks, candidateCount: candidates.length,
         chosen: { scalar: +chosen.scalar.toFixed(1), raw: chosen.raw, ran: chosenRan },

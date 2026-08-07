@@ -359,6 +359,7 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
 
     battleGozcuKuraliUygula(types, spent, remaining, config);   // gözcü kuralı: tarif yolu (spent = bu kapsamdaki harcama defteri)
     battleLojistikKuraliUygula(types, spent, remaining, config); // lojistik kuralı: tarif yolu
+    battleUssuKuraliUygula(types, spent, remaining, config);     // üs kuralı: tarif yolu
     const counts = types.reduce((r, t) => { r[t] = (r[t] || 0) + 1; return r; }, {});
     const toplamDeger = types.reduce((s, t) => s + STATS[t].cost, 0);
 
@@ -522,6 +523,54 @@ function battleLojistikKuraliUygula(types, spent, remaining, config) {
         remaining.money -= STATS[aday].cost;
         spent[aday] = (spent[aday] || 0) + STATS[aday].cost;
         kaynak++;
+    }
+}
+
+// ── INTEL4-PRO 'airBaseRequirement': YAKITLI HAVA BIRIMI USSUZ ALINMAZ ──
+// KURAL AILESININ UCUNCU UYESI (gozcu / lojistik / us). AYNI DESEN: birim bozuk degil ORDU EKSIK.
+// OLCULDU (tools/nakliye-teshis.js, gercekci ordu, 6 tohum): nakliye helosu 6 slotuyla GERCEKTEN
+// tasiyor (24 piyade yukledi, omrunun %92'sini yuklu gecirdi) AMA 12 helonun 10'u YAKITI BITIP
+// DUSTU ve kargosundaki 10 piyadeyi de oldurdu. Dusman yalnizca 1 tanesini vurdu.
+// KOK NEDEN: helo YALNIZ `providesAir` siperinde yakit alir; o siperi ISTIHKAM kurar; orduda
+// ISTIHKAM YOK (0) -> hicbir us kurulmuyor -> tum hava birimleri yakit bitiminden oluyor.
+// (Ilk olcumumde t=10sn'de bakip "0 helipad" demistim - istihkam kurmaya zaman bulamamisti;
+//  tum mac boyunca olcunce sebep netlesti: istihkamin kendisi yok.)
+// KURAL: yakiti sinirli (maxFuel>0) ve pahali hava birimi varsa, orduda en az PRO_USSU_MIN
+// us-kurabilen birim (engineer) bulunur.
+function battleUssuKuraliUygula(types, spent, remaining, config) {
+    if (!(config && config.pro === true)) return;
+    if (typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' && !BATTLE_INTEL4PRO_DELTAS.airBaseRequirement) return;
+    if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
+    // Us kurabilen = 'build_trench'/'fortify' yetenegi olan (rosterde engineer)
+    const kurucu = [];
+    for (const t in STATS) {
+        const st = STATS[t];
+        if (!st) continue;
+        const ab = st.abilities || [];
+        if (ab.includes('build_trench') || ab.includes('fortify') || st.id === 'engineer') kurucu.push(Number(t));
+    }
+    if (!kurucu.length) return;
+    const yakitliHava = types.some(t => {
+        const st = STATS[t];
+        if (!st || !st.flight || !st.flight.fuel) return false;
+        if (st.singleUse) return false;                       // kamikaze zaten donmez
+        return (st.cost || 0) >= PRO_USSU_MIN_TL;
+    });
+    if (!yakitliHava) return;
+    let n = types.filter(t => kurucu.includes(t)).length;
+    let guard = 0;
+    while (n < PRO_USSU_MIN && guard++ < 4) {
+        const enUcuz = kurucu.slice().sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+        if (enUcuz != null && STATS[enUcuz].cost > remaining.money) {
+            battleDestekIcinYerAc(types, spent, remaining, STATS[enUcuz].cost, kurucu);
+        }
+        const aday = kurucu.filter(t => STATS[t].cost <= remaining.money)
+            .sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
+        if (aday == null) break;
+        types.push(aday);
+        remaining.money -= STATS[aday].cost;
+        spent[aday] = (spent[aday] || 0) + STATS[aday].cost;
+        n++;
     }
 }
 
@@ -839,6 +888,7 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     }
     battleGozcuKuraliUygula(types, spent, remaining, config);   // gözcü kuralı: sezgisel yol
     battleLojistikKuraliUygula(types, spent, remaining, config); // lojistik kuralı: sezgisel yol
+    battleUssuKuraliUygula(types, spent, remaining, config);     // üs kuralı: sezgisel yol
     const counts = types.reduce((result, type) => {
         result[type] = (result[type] || 0) + 1;
         return result;

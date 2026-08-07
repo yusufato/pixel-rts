@@ -986,3 +986,644 @@ onları BESLEMEK de (§20 ikmal refakati) önemli değil. İkisi de aynı kısı
 **Ağaçtan çıkan tek gerçek kazanç mekanik düzeltmesi ve `standoff` oldu.** Kalan her şey
 aynı duvara çarpıyor: **dolaylı ateşin menzilinde düşman yok** — ve bu, dolaylı biriminin
 kendi sorunu değil, savunan kuvvetin nerede durduğunun sonucu.
+
+
+---
+
+## 22. transport_helo (nakliye helikopteri) — İNCELENDİ
+
+**Tetikleyen:** kullanıcı oyundan iki gözlem bildirdi — *"nakliye heloları birim taşırken çok
+titriyordu"* ve *"her şeyi taşımaya çalışıyor, sürekli bir şey taşımasına gerek yok"*. İkisi de
+doğru çıktı; ölçüm (`tools/nakliye-teshis.js`, 6 tohum, gerçekçi ordu + `zorunlu:{transport_helo:2}`)
+tabanı şöyleydi: 12 helo ömrünün **%68'ini yüklü** geçirdi, **11'i öldü** (7'si yakıtı bitip
+düşerek), helo başına yalnız ~2.7 yolcu taşındı ve hareketli tiklerin **%74.8'i yön-tersine-dönüş**.
+
+### Dört ayrı kusur
+
+1. **Ayırma fiziği `loaded` yolcuyu elemiyordu** (`js/Unit.js`, çarpışma döngüsü). Yolcular her tik
+   taşıyıcının tam aynı koordinatına konuyor (`p.x = this.x`), mesafe ~0 olunca `dist <= 0.01`
+   dalı devreye girip **helo ile kendi kargosunu** `MIN_DIST/2` kadar itiyordu. Titreme bu yüzden
+   *yalnız yük varken* görülüyordu — kullanıcının tarifi birebir buydu. **Asıl kök-neden budur.**
+2. **Kabul listesi çok geniş:** `armorType === 'infantry'` olan her şey alınıyordu — havan (dolaylı,
+   mevzi ister), MANPADS (hava savunması), sıhhiyeci ve **istihkâm**. İstihkâm helipadi kuran
+   birimdir; ferry onu cepheye taşıyınca helonun ikmal üssü hiç kurulmuyordu (kapalı döngü).
+   → `_ferryUygun()`: yalnız `infantry` / `at_team` / `commando`. Oyuncunun manuel emri etkilenmez.
+3. **Tek yolcuyla sefer:** `cargo.length > 0` olur olmaz teslime kalkıyordu; 6 slotun 5'i boş
+   gidiyordu. → slotlar dolana ya da yakında aday kalmayana kadar topla (`_ferryKalkti`).
+4. **Amaçsız sürekli taşıma:** yolcu cepheye zaten yakınken de sırtlanıyordu. → `FERRY_MIN_KAZANC`
+   (harita yüksekliğinin %22'sinden yakınsa taşıma) + boşta en yakın helipada dönüp bekleme.
+
+Ek olarak `updateFuel`'deki `!busyTransport` koşulu yüklü helonun yakıt için **asla** üsse
+dönmemesine yol açıyordu (taban yok); `BATTLE_HELO_KRITIK_YAKIT = 0.12` ile kargo şartı kritik
+yakıtta düşüyor. Tek başına etkisi küçüktü (YAKIT ölümü 10→9), asıl fayda ferry düzeltmesindendi.
+
+### Ölçülen sonuç (6 tohum, izole A/B — `--eskiferry`)
+
+| | eski | yeni |
+|---|---|---|
+| titreme (yön-tersine-dönüş) | %74.8 | **%3.9** |
+| yüklenen / indirilen piyade | 32 / 24 | **44 / 32** |
+| yüklü geçen süre | %68 | %45 |
+| içeride ölen piyade | 8 | 12 |
+| **kayıp oranı (içeride ölen ÷ yüklenen)** | %25 | %27 |
+
+**Dürüst okuma:** titreme kökten çözüldü ve teslimat +%33 arttı; **kargo kayıp oranı değişmedi**,
+mutlak sayı arttı çünkü helo artık gerçekten taşıyor. İlk raporladığım "kargo ölümleri 6→0" ifadesi
+3 tohumluk bir koşuya dayanıyordu ve **yanlıştı** (bkz. `OLCUM-TUZAKLARI.md` C6).
+
+**Determinizm:** `--forktest` → `forkTutarli: true`, sapma yok. Yeni birim alanları
+(`_ferryKalkti`, `_ferryPickId`, `_ferryHover`, `_ferryBosaltiyor`, `_ferryTeslimX/Y`) anlık-durum
+beyaz listesine eklendi.
+
+**Bayraklar:** `BATTLE_FERRY_FIX` (varsayılan açık, kapatınca eski davranış), `FERRY_MIN_KAZANC`,
+`FERRY_TOPLA_YARICAP`, `BATTLE_HELO_KRITIK_YAKIT`.
+
+### Açık kalan (K2'ye girmeden önce karar gerektirir)
+
+- **Helipad 60 saniyede siliniyor** (`SUPPLY_FIELD_DURATION_MS = 60000`, `main.js` temizliği).
+  360sn'lik maçta kalıcı hava ikmali imkânsız; helo ölümlerinin 10'da 8'i hâlâ yakıt. İstihkâmın
+  kurduğu `providesAir` alanına ayrı (uzun) ömür vermek bir **denge** kararıdır, beceri değil.
+- **K2 (birim ekonomisi) yapılmadı:** transport_helo'nun 400₺'sinin hasar/₺ ve emilen-hasar
+  karşılığı ölçülmedi. Mekanizma kapısı (K1) geçildi, ekonomi kapısı açık.
+
+### Yeni araç
+
+`tools/helo-titreme-iz.js` — yüklü bir helonun ardışık tiklerini (konum, adım, targetX/Y,
+manualMoveTarget, hold, unstick, kargo) aynen döker. "Hangi yazıcı hedefi eziyor" sorusunu
+tahminle değil dökümle çözer; ilerideki hareket hatalarında ilk başvurulacak araç.
+
+### 22b. "İstihkâm neden siper kazmıyor?" — kullanıcı sorusu, ölçüldü
+
+Helolar yakıtsızlıktan düşerken istihkâmın niye çalışmadığı soruldu. `tools/istihkam-teshis.js`
+(3 tohum) üç ayrı şeyi ayırdı: **kapsama** (maçın ne kadarında yaşayan helipad var), **engel**
+(istihkâm kurmuyorsa neden) ve **erişim** (helo düşük yakıttayken üs var mıydı, kaç px ötede).
+
+**Taban:** kapsama maçın yalnız **%40'ı**; istihkâm ölmüyor (0/3) ve 3 maçta 11 kez kuruyor —
+yani tembel değil. Engel dağılımı: `KENDI-YARISINDA-DEGIL` **%38.6**, `ZATEN-ALAN-VAR` %51.7,
+`INSA-EDIYOR` %5.3, `BASTIRILMIS` %3.2. Yani saldıran orduda istihkâm orduyla birlikte orta hattı
+geçiyor ve `inOwnHalf` kapısı yüzünden **tam da helonun ikmale ihtiyaç duyduğu bölgede** kurmayı
+reddediyor. Güvenliği zaten 360px'lik `closeThreat` kapısı sağlıyordu; yarı-saha çizgisi fazladan.
+
+**Denenen:** taraf-başı pro-delta `engineerForward` (+ `PRO_IST_ILERI_DERINLIK = 0.75`).
+
+| | kapalı | açık |
+|---|---|---|
+| `KENDI-YARISINDA-DEGIL` | %38.6 | **%0.3** |
+| helo düşük yakıttayken üs vardı | %16 | **%31** |
+| en yakın üs mesafesi | 694px | **506px** |
+| helipad kapsaması | %40 | %46 |
+| istihkâm ölümü | 0/3 | 0/3 |
+
+**Durum: K1 geçti, VARSAYILAN KAPALI.** Erişim ikiye katlandı ve istihkâm ölmüyor, ama bu yalnız
+mekanizma kapısı (3 tohum) — maç kapısına (K4) girmeden açılmaz. Ayrıca kapsamanın %46'da
+takılmasının sebebi delta değil: helipad 60sn'de siliniyor ve istihkâm yalnız **kendi çevresinde**
+520px'te alan yoksa yeniden kuruyor. Kalıcı hava ikmali istiyorsak `SUPPLY_FIELD_DURATION_MS`
+ayrımı (istihkâm-yapımı alana ayrı ömür) gerekir — bu bir **denge** kararıdır, kullanıcıya aittir.
+
+**Geri alınan iddia:** "kurma kapısı `providesAir` aramıyor, herhangi bir ikmal alanı yeterli
+sayılıyor" dedim — YANLIŞ. `SIM.trenches.push` tek yerde (istihkâm) ve her alan `providesAir: true`.
+
+---
+
+## 23. command_vehicle (komuta aracı) — İNCELENDİ
+
+600₺, silahsız, `hp 400 / light / armor 3 / speed 1.5`, hale yarıçapı 12 kare = **1200px**,
+`roleTags: high_value_target`. Ölçüm aracı: `tools/komuta-teshis.js` (3 tohum, gerçekçi ordu +
+`zorunlu:{command_vehicle:1}`).
+
+### Ölü veri (kodda karşılığı YOK)
+
+Aura verisinde dört etki tanımlı: `accuracy +0.12`, `range +0.08`, `orderLatency -0.4`,
+`suppressionResist 0.25`. Kodda karşılığı olan: **+%12 hasar** (`commandHaloTick`, `performAttack`),
+baskı −12/sn, panik −9/−22/sn ve **rally** (kaçanı durdurma). **`range +0.08` ve
+`orderLatency -0.4` hiçbir yerde okunmuyor** — menzil çarpanı hiç uygulanmıyor. Bu bir denge
+değişikliği olacağı için uygulanmadı, açık madde olarak kaydedildi.
+
+### Taban ölçümü
+
+| | değer |
+|---|---|
+| hale dost DEĞERİN | %83'ünü tutuyor |
+| dost hasarın | %73'ü hale içinde veriliyor |
+| halenin kazandırdığı hasar | ~1379 / 3 maç → **0.77 hasar/₺** |
+| kütle merkezine uzaklık | 539px |
+| ölüm | **2/3** (74sn ve 185sn); öldüren: tank_destroyer, mbt |
+| rally | 4 |
+
+Aracın kendisi silahsız olduğu için tüm doğrudan getirisi bu +%12'lik paydır: 0.77 hasar/₺, bir
+muharebe biriminin doğrudan getirisinin yaklaşık beşte biri — üstüne rally + baskı/panik giderme
+ve ölünce dostlara `command_shock` cezası biner.
+
+### Yanlışlanan sezgi (karşı-olgu ölçümü)
+
+İlk hipotez: "HVT, geriye çekilsin, ölmesin." **Karşı-olgu bunu yalanladı:** 500px daha geri
+çekilse kapsama **%83 → %48**'e düşüyordu. Üstelik işaretli konum ölçümü aracın zaten kütle
+merkezinin **436px ARKASINDA** olduğunu gösterdi — geri değil, ileri gitmesi gerekiyordu:
+tam merkezde otursa kapsama **%92** olurdu.
+
+### Denenen beceri: `commandCenter` (pro-delta, taraf-başı)
+
+`_komutaMerkez()` — komuta halesi taşıyan birim dost değer-ağırlıklı kütle merkezine yönelir;
+`PRO_KOMUTA_OLU_BOLGE = 200` ölü bölgesi içindeyse **durur** (ferry titreme dersi uygulandı).
+
+| | kapalı | açık |
+|---|---|---|
+| kapsama | %83 | **%93** |
+| merkeze uzaklık | 539px | **178px** |
+| hale içi hasar payı | %73 | **%87** |
+| halenin kazandırdığı hasar | 1379 (0.77/₺) | **1585 (0.88/₺)** |
+| rally | 4 | **9** |
+| ölüm | 2/3 | 2/3 |
+| ortalama marj | −484 | **−1368** |
+
+**Durum: K1 geçti, VARSAYILAN KAPALI.** Dört mekanizma metriği de düzeldi, maç marjı ise düştü —
+tuzak C1'in aynısı. Ancak fark 884, marj std'si ~3114: 3 tohumda bu **ne iyileşme ne kötüleşme
+kanıtıdır** (E3). Karar K4'e (37+ tohum, demet) bırakıldı.
+
+### Araç tarafında düzeltilen ölçüm hatası
+
+İlk koşuda "toplam hasar 0" çıktı ve bunu bulgu sanmadım — `BATTLE_FORENSIC` tamponu `damage`
+alanı taşımıyordu (yalnız kimlik/tip/öldürücü/konum). `battleRecordCombatEvent` içine `damage`
+eklendi (saf telemetri, sim'e dokunmaz). SAM'deki "0 atış" hatasının tekrarı önlendi.
+
+### Açık maddeler
+
+- `range +0.08` ve `orderLatency -0.4` uygulanmıyor (ölü veri) — denge kararı.
+- K2 (birim ekonomisi) kısmen var (0.77-0.88 hasar/₺) ama emilen-hasar ve `command_shock` maliyeti
+  ölçülmedi.
+
+---
+
+## 24. DEMET SAVAŞI — 6 güçlendirmenin toplu kapısı (K4)
+
+Kullanıcı: *"şimdiye kadar 6 şeyi güçlendirdik, bu 6 şeyin güçlenmiş hali ile güçlenmemiş hali olan
+deterministik bir savaş ortamı hazırla."* → `tools/demet-savas.js`.
+
+**Demet üyeleri:** `spotterRequirement` (gözcü), `logisticsRequirement` (ikmal),
+`airBaseRequirement` (üs), ferry düzeltmesi + kritik yakıt (nakliye helo), `engineerForward`
+(istihkâm), `commandRange` (komuta menzili). `commandCenter` demete ALINMADI — K2'de elendi.
+
+### Ortamın üç tasarım kararı
+
+1. **Eşleştirilmiş fark:** aynı tohumda iki kol koşar, fark tohum-içi alınır. Marj std'si ~3114
+   iken **eşleştirilmiş fark std'si 427** ölçüldü (doğal orduda 214). Bu olmadan 24 maçta hiçbir
+   şey görülemezdi.
+2. **Taraf-başı izolasyon (B3):** `battleProDelta` delta nesnesini GLOBAL okuyordu — demeti açınca
+   mavi de alıyordu. `BATTLE_INTEL4PRO_DELTAS_RED/_BLUE` geçersiz kılma eklendi; ferry bayrakları
+   da (`BATTLE_FERRY_FIX_RED/_BLUE`, `BATTLE_HELO_KRITIK_RED/_BLUE`) taraf-başı yapıldı.
+3. **Bind kanıtı (B2) ve determinizm:** her koşu kırmızı kadronun kol-arası farkını yazdırır;
+   `--determinizm` aynı kolu iki kez koşup birebir aynılığı kanıtlar (geçti).
+
+### Bind kanıtının ortaya çıkardığı ASIL BULGU
+
+Doğal (AI'nın kendi kurduğu) orduda demet **hiçbir şeyi değiştirmiyor** — çünkü o orduda
+**ne nakliye helosu ne komuta aracı var**, gözcü/ikmal/istihkâm ise zaten mevcut:
+`infantry 6, at_team 4, mortar_team 2, manpads_team 2, ifv 2, tank_destroyer 2, scout_vehicle 2,
+artillery 1, medic 1, engineer 1, commando 1, mbt 1, spaag 1, recon_uav 1, supply_truck 1,
+drone_operator 1`. Kurallar bağlamıyor değil, **düzeltecek bir şey bulamıyor**.
+
+Bu, kullanıcının *"bu kadar zırhlı kullanmasının sebebi çok beceriksiz olması"* tespitiyle birebir
+örtüşüyor: birimleri düzeltmek yetmiyor, AI onları **satın almıyor**.
+
+### Sonuçlar (12 tohum × 2 rol × 2 kol)
+
+| senaryo | eşl. fark | std.hata | t | demet lehine | KIRMIZI galibiyet |
+|---|---|---|---|---|---|
+| **birimli** (tarama havuzu) | **+3350** | 631 | **5.31** | 21/24 | **6/24 → 18/24** |
+| **birimli** (AYRILMIŞ final havuzu) | **+2880** | 690 | **4.18** | 18/24 | **5/24 → 15/24** |
+| doğal ordu (AI'nın kendi kurduğu) | +36 | 44 | 0.83 | 7/24 | 17/24 → 17/24 |
+
+**Okuma — dürüst çerçeve:** birimli senaryoda "kapalı" kol, helo+komuta+MLRS içerip **destek
+birimlerinden yoksun** bir ordudur; demet onu onarır (2 keşif İHA + 1 istihkâm + 1 ikmal aracı
+ekler, karşılığında 2 tanksavar + 5 piyade satar). Yani ölçülen şey "iyi ordu → daha iyi ordu"
+değil, **"desteksiz ordu → desteklenmiş ordu"**. Kuralların sigorta olarak çalıştığı kanıtlanmıştır
+ve etki ayrılmış havuzda doğrulanmıştır. Ama demet, AI'nın **normal oyununu güçlendirmez** —
+çünkü orada bağlayacak bir şey yok.
+
+**Sıradaki doğal adım:** kompozisyon. Bu birimler artık çalıştığına göre AI'nın onları satın alması
+değerlendirilmeli; bu, beceri katmanından **kompozisyon katmanına** geçiş demektir.
+
+---
+
+## 25. counter_battery_radar (Hava-Arama Radarı) — İNCELENDİ
+
+350₺, silahsız, `hp 200 / light / armor 0`, görüş 20 kare, `airRadar: true`, `roleTags: fragile`.
+Ölçüm: `tools/radar-teshis.js` (3 tohum, gerçekçi ordu + `zorunlu:{counter_battery_radar:1, mlrs:1}`).
+
+### İkinci ölü veri — ama bu sefer SİLİNMEDİ, İŞARETLENDİ
+
+Birimin aura'sı `{ type:"counter_battery", radius:30, effect:"reveals_indirect_shooter", duration:8 }`.
+`updateAura` yalnız **heal / repair / resupply / command / jamming** tiplerini işliyor;
+`counter_battery` hiç işlenmiyor. Komuta aracındaki `range: 0.08` ile aynı sınıf.
+
+**İsim çakışması (dikkat):** `counterBattery` pro-deltası bu radarla İLGİSİZ — o, saldıranın kendi
+dolaylı ateşinin düşman dolaylısını önceliklemesi (`Unit.js`, hedef skoru +400000). Ama
+öncelikleyebilmek için görmek gerekir; görüntüyü sağlayacak radar aurası ise işlemiyor.
+
+### Ölçüm: ifşa gerekli mi?
+
+| soru | sonuç |
+|---|---|
+| düşman dolaylısı genel olarak görünür mü | %67 |
+| **ateş ettiği ANDA görünür mü** | **%100** (176 dolaylı atış olayı) |
+| radar 3000px kapsamında geçen süre | %95 |
+| düşman dolaylısı kırmızı dolaylı MENZİLİNDE mi | %75 |
+| radar ömrü | 295sn / 365sn (öldüren: mbt 1) |
+
+**Karar: aura UYGULANMADI.** İfşa edeceği bilgi, tam da işe yarayacağı anda zaten mevcut. Bunu
+uygulamak sıfır etki üretirdi — kompozisyon kurallarının doğal orduda hiçbir şeyi değiştirmemesiyle
+aynı ders.
+
+**Ama SİLİNMEDİ de.** `UnitFeatures.js` öznitelik 25 (`aura.type ? 1 : 0`) ve 26
+(`norm(aura.radius, 0, 30)`) alanlarını okuyor; aura bloğunu silmek radarın öznitelik vektörünü
+kaydırır ve eğitilmiş modellerin (kompozisyon vekili, beonai seçici) girdisini **sessizce** bozardı.
+Veriye ölçümü açıklayan bir yorum eklendi. *(Not: komuta aracındaki `orderLatency` silinmesi
+güvenliydi — `aura.effects` öznitelik kodlamasına girmiyor, yalnız `type` ve `radius` giriyor.)*
+
+**Radar "fragile" değil:** roleTag öyle diyor ama ömrü 365sn'nin 295'i. Kırılganlığı bir sorun
+olarak ele almaya gerek yok.
+
+**Birimin gerçek değeri `airRadar`:** daha önce ölçülmüştü — orduya 1 hava radarı eklenince SAM
+atışı 0→8, tam yükle ölen SAM 8→4, düşmanın uçak bulundurma süresi %100→%58. Bu birim
+"karşı-batarya radarı" adıyla anılsa da işlevi hava aramadır.
+
+
+---
+
+## 26. KALAN BİRİMLER — doğru triaj (AI'nin GERÇEK ordusu)
+
+İlk triaj tablosu `BATTLE_FORCE_VARIED` kipinde alınmıştı ve yanlış hedef gösterdi (bkz.
+`OLCUM-TUZAKLARI.md` A5/A6). `--cesitsiz` ile AI'nin gerçekten kurduğu orduda, 6 tohum:
+
+| birim | maliyet | ATIŞ | hedefli | ömür | GETİRİ | EMİLEN |
+|---|---|---|---|---|---|---|
+| scout_vehicle | 180 | 1.8 | %2 | 159sn | **x0** | 0.72 |
+| mortar_team | 180 | 6.2 | %46 | 122sn | **x0.15** | 0.67 |
+| **artillery** | **450** | 11.1 | **%82** | 125sn | **x0.21** | 0.51 |
+| engineer | 200 | 9.2 | %4 | 365sn | x0.32 | 0.35 |
+| ifv | 320 | 23.1 | %16 | 228sn | x0.42 | 1.14 |
+| mbt | 500 | 8.4 | %11 | 262sn | x0.69 | 1.11 |
+| manpads_team | 190 | 2.2 | %11 | **365sn** | x0.75 | 0.16 |
+| spaag | 300 | 39.2 | %51 | 329sn | x0.82 | 0.44 |
+| infantry | 100 | 13.8 | %7 | 220sn | x0.88 | **1.57** |
+| commando | 320 | 20.7 | %7 | 288sn | x1.12 | 0.47 |
+| at_team | 170 | 4.1 | %24 | 259sn | **x1.82** | 0.47 |
+| tank_destroyer | 420 | 9.1 | %20 | 210sn | **x2.4** | 0.48 |
+
+**Geri alınan iddia:** "IFV 57sn ömürle ordunun en büyük deliği" — o sayı çeşitlilik-zorlamalı
+kurgudan geliyordu. Gerçek orduda IFV sağlıklı (228sn, 23 atış, x0.42, tam-yükle ölüm %0).
+
+**Geri alınan ikinci iddia:** "infantry ve commando HİÇ ateş etmiyor" — `ATIŞ` sütunu mühimmat
+azalmasından sayılıyordu, ikisinin de mühimmatı SINIRSIZ (`ammo: null`). Sayaç `lastAttackTime`
+değişimine bağlandı: infantry 13.8, commando 20.7 atış. SAM'deki "0 atış" hatasının aynı sınıfı,
+üçüncü tekrarı — bu yüzden sayaç kalıcı olarak düzeltildi.
+
+**Gerçek hedef: DOLAYLI ATEŞ EKONOMİSİ.** Topçu hedefinin %82'sinde hedefi varken 11 atış yapıp
+x0.21 getiriyor; havan x0.15. Birlikte 810₺ ordunun en pahalı verimsizliği. Karşılaştırma:
+tank_destroyer x2.4, at_team x1.82 (yani sorun "AI ateş etmiyor" değil, **atışın karşılığı yok**).
+
+**scout_vehicle için not:** getiri x0 beklenen — keşif biriminin işi imha değil görüş. Bu birim
+`getiri` lensiyle değerlendirilemez; ayrı bir görüş-katkısı metriği gerekir (açık madde).
+
+### Yeni araç
+
+`tools/birim-oncu-teshis.js --birim <id>` — herhangi bir birim için ölüm anı ve ömür boyu:
+kütle merkezine göre işaretli derinlik, **yerel dost/düşman oranı** (600px), en yakın düşman,
+atış/hedefli oranı, öldüren tipler. "Erken ölüyor" şikâyetlerinde ilk başvurulacak araç.
+
+---
+
+## 27. BİRİM ÖDÜL DEFTERİ — tek-lens hatasının kökü
+
+**Kullanıcı:** *"hataya düşme nedenimiz ödül sorunuydu. Her birimin kendi ödül mekanizması olmalı,
+çünkü her birimin görevi farklı — topçu hasar veya panik yarattıkça ödül almalı, istihkâm ne kadar
+birimi siperde tutarsa veya helo yakıt ikmali aldıysa ödül almalı."*
+
+Bu teşhis doğru ve bu oturumdaki hataların **ortak kökü**. Tek bir `getiri` (imha değeri ÷ maliyet)
+lensi kullandım ve üç kez yanlış hedef gösterdi:
+- topçu x0.21 → "ordunun en pahalı verimsizliği" sandım
+- keşif x0 → "hiçbir işe yaramıyor" göründü
+- IFV x0.05 → daha önce ölçülmüştü; **orduDAN ÇIKARINCA sonuç kötüleşti** (35/48 → 29-34/48)
+
+### Mekanizma (`BATTLE_CREDIT`, `globals.js`)
+
+Maç boyunca her birime **kendi işini** yazan deterministik defter. Sim durumuna dokunmaz, RNG
+kullanmaz, varsayılan KAPALI. Bağlandığı yerler:
+- `applyDirectHit` → hasar / panik / baskı / imhaDeger **atışı yapana**, emilen hedefe
+- `applyTankSplash` + **`applyBlast`** → alan hasarı da aynı şekilde. *(İlk sürümde yalnız doğrudan
+  vuruş bağlanmıştı ve topçu 0 hasar/0 panik görünüyordu — dolaylı ateş ayrı yoldan geçiyor.)*
+- siper `builderId` → kurduğu siperde geçen **dost-saniye** istihkâma
+- `REFUEL_DOCK` → kurduğu üste yapılan **helo dolumu** istihkâma
+- görüş payı → bir düşmanı gören her dost **1/N** pay alır *(ilk sürüm "yalnız o gördü" idi;
+  16 birimlik orduda hiç gerçekleşmiyor, tüm birimler 0.00 veriyordu)*
+
+### İlk tablo (3 tohum, AI doğal ordusu, birim başına ve maliyete bölünmüş)
+
+| birim | ₺ | imha/₺ | hasar/₺ | PANİK | **BASKI** | EMİLEN | siper | dolum | GÖRÜŞ |
+|---|---|---|---|---|---|---|---|---|---|
+| tank_destroyer | 420 | **2.46** | 2.40 | 260.7 | 29.8 | 0.47 | 0 | — | 0.25 |
+| at_team | 170 | 1.50 | 1.63 | 168.0 | 36.0 | 0.53 | 0 | — | 0.62 |
+| spaag | 300 | 1.00 | 1.23 | 202.5 | 283.3 | 0.38 | 0 | — | 0.45 |
+| engineer | 200 | 0.63 | 0.21 | 27.1 | 115.0 | 0.38 | 0.5 | **39.3** | 0.68 |
+| manpads_team | 190 | 0.47 | 0.30 | **286.9** | 7.9 | 0.10 | 0 | — | 0.72 |
+| infantry | 100 | 0.41 | 0.61 | 76.3 | 174.2 | **1.86** | 0 | — | **1.01** |
+| **artillery** | 450 | **0.36** | 1.54 | 89.0 | **415.6** | 0.47 | 0 | — | 0.21 |
+| mortar_team | 180 | 0.30 | 0.48 | 24.3 | 177.8 | 0.82 | 0 | — | 0.26 |
+| scout_vehicle | 180 | 0.00 | 0.03 | 1.1 | 13.9 | 0.97 | 0 | — | 0.52 |
+
+**Okuma:** topçu ordunun **baskı üreteci** (415.6, spaag'ın 1.5 katı) — imha sütunuyla yargılanamaz.
+Infantry ne öldürür ne vurur; **perde (1.86) ve göz (1.01)**. Tank avcısının x2.46'sı büyük
+ihtimalle o baskının üstüne biniyor — yani kullanıcının hipotezi ("topçu panik yaratmasa tank
+avcıları daha erken ölürdü") defterle tutarlı. Nedensellik ayrıca test edilmeli (çıkar-ve-bak).
+
+### Açık maddeler
+
+- **Metrik yanlılığı:** GÖRÜŞ ve EMİLEN maliyete bölündüğü için UCUZ ve KALABALIK birimleri
+  kayırıyor (infantry 100₺ × 6). Karar verirken sütunlar arası kıyas değil, **aynı sütunda
+  birim-içi kıyas** yapılmalı.
+- Kalan ödül kanalları (25 birim için): SAM/manpads **hava caydırma** (düşmanın menzilde geçirdiği
+  süre), ew_vehicle **jam-tik**, medic **iyileştirilen HP**, supply_truck **teslim edilen mühimmat
+  + önlenen kuru-süre**, transport_helo **teslim edilen yolcu × kazandırılan mesafe**,
+  drone_operator **salınan drone hasarı**, command_vehicle **hale kapsaması × rally**.
+- Bu defter aynı zamanda **beonai'nin kredi-atama girdisidir**: "kim kazandırdı" sorusu tek sayıyla
+  cevaplanamaz; miyop oracle'ın yerine geçecek ödül şekillendirmesi buradan beslenecek.
+
+### 27b. Ödül kanalları TAMAMLANDI — 20 kanal, her birim kendi işinde
+
+Kullanıcı: *"baskı/emilen/görüş/imha/dolum üzerine başka tip ödüller de ekle ki birimler özelleşsin;
+beonai'nin ihtiyaç duyduğu şey başından beri ödül sorunuymuş. Kalan birlikleri tek tek ödüle bağla."*
+
+**Eklenen kanallar (motor bağlantılı):** `iyilestirme` + `kurtarma` (sağlıkçı — ölüm eşiğinden
+çıkarma), `muhimmat` + `kuruEngel` (ikmal — kuru birimi tekrar atar hale getirme), `jamTik` (EH),
+`haleTik` + `rally` (komuta), `tasinan` + `tasimaMesafe` (nakliye helo), `mayin` (istihkâm),
+`droneHasar` (operatör — **çocuğunun** hasarı ona da yazılır), `tespit` (ilk tespit payı),
+`havaCaydirma` (düşman uçağının AA menzilinde geçirdiği süre).
+
+**ÜÇ AYRI HASAR YOLU** — bu, defterin en önemli tuzağıydı ve iki kez yakalandı:
+`applyDirectHit` (doğrudan), `applyTankSplash` + `applyBlast` (alan), ve **Unit.js'teki KAMİKAZE
+IMPACT** bloğu. Yalnız birincisini bağlamak topçuyu 0 hasar/0 panik gösterdi; üçüncüsünü bağlamamak
+sarf-drone'u 11 kez fırlatılıp 0 hasar yazar hâlde bıraktı. **Yeni bir kredi kanalı eklerken önce
+"bu hasar hangi yoldan geçiyor" sorulmalı.**
+
+### Uzmanlık haritası (kanal-içi z-skoru, 3 tohum, AI doğal ordusu)
+
+| birim | 1. kanal | 2. kanal |
+|---|---|---|
+| drone_operator | **droneHasar (z+4.0)** | imha/₺ (z+3.2) |
+| engineer | **mayın / siper / dolum (z+4.0)** | — |
+| supply_truck | **mühimmat / kuruEngel (z+4.0)** | — |
+| medic | **kurtarma (z+3.9)** | iyileştirme (z+1.8) |
+| **artillery** | **BASKI (z+2.8)** | hasar/₺ (z+1.1) |
+| infantry | **emilen (z+2.7)** | GÖRÜŞ (z+2.2) |
+| tank_destroyer | hasar/₺ (z+2.3) | imha/₺ (z+1.6) |
+| manpads_team | PANİK (z+2.3) | GÖRÜŞ (z+1.0) |
+| spaag | BASKI (z+1.7) | PANİK (z+1.3) |
+| mbt | emilen (z+1.1) | hasar/₺ (z+0.3) |
+| at_team | hasar/₺ (z+1.2) | PANİK (z+0.9) |
+| ifv | hasar/₺ (z+1.0) | emilen (z+0.8) |
+| mortar_team | BASKI (z+0.8) | emilen (z+0.5) |
+| **scout_vehicle** | **emilen (z+1.3)** ← keşif birimi, ürünü hasar yemek | GÖRÜŞ (z+0.2) |
+| **recon_uav** | **GÖRÜŞ (z+0.4)** ← keşif İHA'sı görüşte lider bile değil | tespit (z+0.1) |
+| **commando** | **tespit (z+0.3)** ← 320₺, hiçbir kanalda öne çıkmıyor | imha/₺ (z+0.2) |
+
+**Doğrulanan kullanıcı hipotezi:** *"topçu atışları panik yaratmasa belki tank avcıları daha erken
+ölecek"* — topçu BASKI'da z+2.8 ile açık ara lider; imha sütunuyla yargılanamaz. Nedensellik
+(çıkar-ve-bak) ayrıca test edilecek.
+
+**Sıradaki derin teşhis hedefleri (artık doğru lensle):** scout_vehicle ve recon_uav — iki adanmış
+keşif birimi de GÖRÜŞ kanalında lider değil; lider 100₺'lik piyade (z+2.2). Ve commando: 320₺ ile
+hiçbir kanalda uzmanlık göstermiyor.
+
+**Doğrulanan sıfır:** HAVA (caydırma) sütunu boş çıktı — ölçüm hatası DEĞİL: düşmanın yalnız 1 hava
+birimi var ve kırmızının AA menziline hiç girmiyor. Yani manpads'in bu maçlarda gerçekten işi yok.
+
+---
+
+## 28. GECE KOŞUSU + ÖDÜL SİNYALİ — değer fonksiyonu kapıyı geçti, ama oracle ATILMIYOR
+
+### Gece koşusu (2026-08-06 → 07)
+
+9 işçi, ~8.6 saat, **14.876 maç / 813.712 anlık görüntü / 3.25 GB**. Hedef 33.700 maçtı; makine
+gece birkaç saat **uyudu** (RAM kaydının 15 dakikalık aralığı 238 → 437 → 509. dakikaya atladı —
+`setInterval` uykuda tetiklenmez). Uyanınca hız normale döndü (1.09 maç/sn).
+
+**İki çökme, aynı kök neden (senkron döngüde tamponlu yazma):**
+1. `durum-veri.js` `createWriteStream` kullanıyordu → olay döngüsü hiç çalışamadığı için **tek satır
+   bile diske düşmüyordu**; veri bellekte birikiyordu. Geçmişteki gece koşusunun 0.17 maç/sn'ye
+   düşmesinin sebebi de buydu. → maç başına tek `fs.writeSync`.
+2. Orkestratörün **birleştirme adımı** 9 dosyayı senkron döngüde belleğe okuyup akışa yazıyordu →
+   3.2 GB tampon → süreç öldü (dosya tam 4 GB = 2³²'de dondu). → birleştirme tamamen kaldırıldı,
+   eğitim 9 dosyayı doğrudan okuyor.
+
+**Kullanıcı kararı:** %95 erken bitiş (bir tarafın kalan değer payı eşiği aşınca maç kesilir).
+Maçlar 7300 yerine 2100-3700 tikte bitiyor.
+
+**İşçi sayısı RAM'e göre seçilir, çekirdeğe göre değil:** işçi başına 456 MB; 12 işçi 1.44 maç/sn
+ama boş RAM 0.79 GB (sayfalama riski), **9 işçi 1.17 maç/sn ve 2.26 GB boş** ← seçildi.
+
+### Değer fonksiyonu — KAPI GEÇTİ
+
+| | kapı | sonuç |
+|---|---|---|
+| Spearman ρ | ≥ 0.45 | **0.830** |
+| kazanan ayrımı | ≥ %70 | **%86** |
+
+Maç-bazlı bölme (11.900 eğitim / 2.976 test maçı). Zamana göre: 0-30sn ρ 0.397 · 30-70sn 0.629 ·
+70-120sn 0.858 · 120-200sn 0.942 · 200sn+ 0.973. *(Geç bantlardaki yükseklik kısmen bedavadır —
+maç zaten bitmek üzeredir; anlamlı olan erken bantlardır.)*
+
+### Ödül karşılaştırması — "yeni olan daha iyidir" YİNE yanlış çıktı
+
+`tools/odul-karsilastir.py`, ayrılmış test maçlarında, oracle'ın kendi penceresiyle (30sn):
+
+| hedef | oracle | ΔV |
+|---|---|---|
+| (A) nihai marj `y` | **0.808** | 0.310 |
+| (B) artık `y − V(t)` | 0.315 | **0.546** |
+| (C) artık `y − kuvvetFarkı(t)` — **model-bağımsız** | 0.363 | **0.447** |
+
+**(A)'yı oracle'ın kazanması yanıltıcıdır:** skalarında `forceLead` var, yani "zaten öndeyim"
+bilgisi — kararın kattığı değer değil, konumun kendisi. Doğru hedef artık sonuçtur. (B)'nin tabanı
+`V(t)`'nin kendisi olduğu için ΔV lehine yanlı olabilir; bu yüzden **(C)** model-bağımsız tabanla
+eklendi ve karar ona göre verildi.
+
+**Bant başına:** oracle 30-120sn arasında daha iyi (0.615 / 0.596), ΔV 120sn sonrasında daha iyi ve
+**200sn+ bandında oracle NEGATİFE düşüyor (−0.191)** — yani maç sonunda aktif olarak yanlış
+yönlendiriyor. Miyop teşhisinin en somut hâli budur.
+
+### KARAR: zamana göre ağırlıklı KARIŞIM (oracle atılmıyor)
+
+`karisim = w·ΔV + (1−w)·oracle` (ikisi de z-skorlanır). Tarama sonucu:
+
+| | genel ρ |
+|---|---|
+| yalnız oracle (w=0) | 0.363 |
+| yalnız ΔV (w=1) | 0.447 |
+| **w=0.7 (en iyi sabit)** | **0.463** |
+
+Bant başına en iyi ağırlık **zamanla düzenli artıyor** — fiziksel olarak anlamlı (erken oyunda takas
+somut/V belirsiz, geç oyunda V sonucu bilir/takas gürültü):
+
+| an | en iyi w | karışım ρ | oracle tek başına |
+|---|---|---|---|
+| 0-30sn | 0.4 | 0.501 | 0.454 |
+| 30-70sn | 0.3 | 0.643 | 0.615 |
+| 70-120sn | 0.4 | 0.641 | 0.596 |
+| 120-200sn | 0.7 | 0.436 | 0.332 |
+| 200sn+ | 1.0 | 0.326 | **−0.191** |
+
+Karışım **her bantta** oracle'ı geçiyor ve son bantta işaretin yönünü düzeltiyor.
+
+### Sıradaki adım
+
+beonai'nin etiketleme hattı (`tools/beonai-uret.js`) aday yuvarlamalarının **başında ve sonunda**
+durum öznitelikleri (raster + skaler) dökecek; ödül çevrimdışı Python'da bu karışımla hesaplanacak.
+Değer ağı yalnız **etiketleme** için gerekli, oyun anında değil → JS'e model taşımaya gerek yok,
+determinizm riski yok.
+
+---
+
+## 29. BEONAI MAÇ KAPISI ve TAVAN — "veri mi az, yoksa kazanılacak şey mi az?"
+
+### Yapılanlar
+
+`js/BattleStateFeatures.js` (paylaşılan öznitelik çıkarımı — eski satır-içi sürümle **byte-birebir**
+aynı olduğu kanıtlandı), oracle'a yuvarlama-sonu durum yakalama, `tools/beonai-odul.py` (ödül =
+zamana göre ağırlıklı `w·ΔV + (1−w)·oracle`), `tools/beonai-mac-kapisi.js` (eşleştirilmiş fark,
+taraf-başı, bağlanma kanıtı, determinizm kontrolü).
+
+**Üretim:** 179 maç, 2.544 karar → 1.761 ödül-hesaplanabilir karar. Karışım, kararların **%48'inde**
+oracle'dan FARKLI bir adayı en iyi buluyor (etiket değişimi gerçek).
+
+**Eğitim (dev):** karışım top1 %4.9 / oracle-etiketi %2.3 — karışım modeli en iyi adayı iki kat sık
+buluyor.
+
+### MAÇ KAPISI (48 eşleştirilmiş maç, eğitimde KULLANILMAYAN tohumlar)
+
+| kol | eşl. fark | std.hata | t | galibiyet | McNemar |
+|---|---|---|---|---|---|
+| **ORACLE (mükemmel seçici)** | **+771** | 430 | **1.80** | 20→25 / 48 | — |
+| beonai karışım | +350 | 490 | 0.71 | 20→26 / 48 | χ² 1.25 anlamsız |
+| beonai oracle-etiketi | +305 | 493 | 0.62 | 20→23 / 48 | χ² 0.19 anlamsız |
+
+### SONUÇ: TAVAN DÜŞÜK — beonai kötü öğrenmiyor
+
+Her karar noktasında 64 adayı GERÇEKTEN yuvarlayıp en iyisini oynayan **mükemmel seçici** bile
+yalnız +771 kazanıyor ve bu bile anlamlılığa ulaşmıyor. beonai tavanın ~yarısını (+350/+771) zaten
+alıyor. Yani daha fazla veri toplamak en iyi ihtimalle +350'yi +771'e taşır — o da gürültüde kalır.
+
+**Kullanıcı bunu önceden gördü:** *"o kadar maç yaptık, GB'larca veri biriktirdik, bunların hiçbiri
+işe yaramadıysa (c)'yi öncelikli tutmak şart."* Doğru öncelik buydu; tavan ölçümü veri toplamadan
+ÖNCE yapılmalıydı.
+
+### ÇEKİNCE: bu tavan KOŞULLU
+
+Oracle kendi **miyop** hedefini mükemmel optimize ediyor (12sn'lik yuvarlamadaki takas farkı).
+Yani ölçülen şey "mükemmel oyunun tavanı" değil, **"miyop hedefi mükemmel optimize etmenin
+tavanı"**. Aynı gün bu hedefin geç oyunda NEGATİFE düştüğünü ölçmüştük (−0.191).
+→ Ufuk 40sn'ye çıkarılıp tavan yeniden ölçülüyor: yükselirse bağlayıcı kısıt MİYOPLUK (V-güdümü
+işe yarar), yükselmezse KARAR UZAYI dar (yön değişikliği gerekir — örneğin gramerin daha ayrık,
+daha cesur adaylar üretmesi).
+
+### Yan ürün: üç gerçek motor hatası
+
+Gecenin asıl kazancı değer fonksiyonu (ρ 0.830) ve bu ölçüm aygıtı oldu. Yol boyunca çıkanlar:
+ferry titremesi (ayırma fiziği `loaded` yolcuyu elemiyordu), **fork'un yüklü taşıyıcıda çökmesi**
+(`cargo`/`carrier` dairesel referansı — ferry düzeltmesi uyandırdı), ve gece koşusunun **diske hiç
+yazmaması** (senkron döngüde tamponlu akış).
+
+### 29b. UFUK BAĞLAYICI KISIT DEĞİL — ve "uzayı büyütmek" sayı büyütmek değildir
+
+**Ölçüldü (aynı 24 tohum × 2 rol, ORACLE = mükemmel seçici):**
+
+| yuvarlama ufku | eşl. fark | t |
+|---|---|---|
+| 12sn | +771 | 1.80 |
+| **40sn** | **+662** | 1.22 |
+
+Ufuk 3.3× uzatıldı, tavan **yükselmedi**. Bu, "oracle miyop hedefini optimize ediyor, gerçek tavan
+daha yüksek olabilir" çekincesini ÇÜRÜTÜR. Sorun hedefin kısalığı değil: **adayların hepsi benzer
+sonuca götürüyor.**
+
+### Kullanıcı içgörüsü: "uzayı 10 kat büyütmek için sayıları büyütmek yetmiyor gibi"
+
+Doğru ve kendi verimiz kanıtlıyor: **tempo ve allocation'ın İKİSİNİN DE 3 seçeneği vardı**, ama
+allocation varyansın %34.4'ünü, tempo %2.7'sini açıkladı — **aynı sayı, 12× farklı etki**. Fark
+seçenek sayısında değil, seçeneğin bağlı olduğu MEKANİZMADA: allocation gerçekten kuvvet dağıtıyor,
+tempo yalnız bir takip mesafesi değiştiriyordu.
+
+→ **Kural:** aday sayısını 64'ten 640'a çıkarmak uzayı büyütmez, yalnız maliyeti 10× artırır
+(her aday = bir yuvarlama). Uzayı büyüten üç şey:
+1. **Düğmeyi daha çok mekanizmaya bağlamak** (tempo → abort eşikleri; yapıldı).
+2. **Kanıtlanmış mekanizmaları karar değişkenine çevirmek** — sektör-komuta, operasyonel duruş,
+   standoff bu oturumda maçı değiştirdi ama hepsi GLOBAL BAYRAK, duruma göre seçilen şey değil.
+3. **Bir kat aşağı inmek: birim görevlendirmesi.** Plan "kuvvetin %55'i ana sektöre" diyor ama
+   HANGİ birimler olduğunu söylemiyor. Ödül defteri her birimin işinin farklı olduğunu gösterdi
+   (topçu baskı, piyade perde+göz, tank avcısı imha) — kullanılmamış en büyük menzil burada.
+
+**Ayrıca bulundu — asıl darlık ŞEMADAYDI:** `allocationBounds` main ≤ 0.70, reserve ≥ 0.10,
+fixing ≤ 0.35 diyordu. Yani "her şeyi ana eksene ver" ve "yedek tutma" **tanım gereği yasaktı**;
+en çok iş gören knob (varyansın %34'ü) en dar kutuya hapsedilmişti. v2'de kutu genişletildi.
+
+---
+
+## 30. FAZ 0 — beonai blob teşhisi ÇÜRÜTÜLDÜ, gerçek sebep DAĞILIM KAYMASI
+
+Kullanıcı dört AI'ya karşı canlı oynadı; beonai 240px yumağa büzülüp 87.6 baskıyla eridi. Bundan
+"beonai blob yapmayı öğrendi" sonucunu çıkardım. **FAZ 0 bunu çürüttü.**
+
+### 0.1 — beonai headless'ta blob YAPMIYOR (24 maç, 12 tohum × 2 rol)
+
+| kol | yayılım | 600px yoğunluk | öz baskı |
+|---|---|---|---|
+| kod-AI (taban) | 775px | 11.2 | 5.5 |
+| ORACLE (mükemmel seçici) | 797px | 10.5 | 4.1 |
+| **beonai** | **823px** | 10.5 | **3.7** |
+
+AI rakibe karşı beonai kod-AI'dan **daha yayılı** ve **daha az bastırılmış**. Canlı maçtaki blob
+beonai'nin öğrendiği bir davranış değil.
+
+### 0.4 — ANA BULGU: eğitim ve oyun farklı dünyalarda
+
+| ölçü | sonuç |
+|---|---|
+| tam-bilgi ↔ perception arasında **farklı aday seçimi** | **%79** (92 kararın 73'ü) |
+| aday listesi bile farklı | %33 |
+
+Model **tam bilgiyle** eğitildi (`battleOracleGrammarContext` → `SIM.units`, confidence 1), canlı
+maçta **perception** ile oynuyor (`observation.contacts`). Kodun kendi notu bunu "hafif kayma"
+diye geçiştirmiş (`js/BattleOracle.js:82-83`); ölçülünce hafif değil.
+
+Canlı maçta beonai'nin baskısı 87.6 iken aynı oyuncuya karşı intel4-pro 34.7'de kaldı — yani
+beonai insan karşısında kendini fazla açtı. Eğitim verisi **tamamen AI-vs-AI**; insanın
+ateş-merkezli oyunu (ölçülmüş oyuncu profili) o dağılımın dışında.
+
+### 0.3 — ÇÜRÜTÜLDÜ: enjekte planın hedefleri zaten ayrık
+
+| kol | gruplar arası ort. mesafe |
+|---|---|
+| kod-AI | 569-607px |
+| **ENJEKTE** | **710-717px** |
+
+"MAIN ve FIXING aynı `inj.point`'i paylaşıyor" hipotezi yanlış — enjekte plan kod-AI'dan daha
+ayrık hedefler veriyor. Plan maddesi 1b düştü.
+
+### 0.2 — DOĞRULANDI ama ikincil: kanat manevrası kendini iptal ediyor
+
+Saldıran olarak FLANK grubunun sektör odağını kaybedip **global yığına** düşme oranı:
+**beonai %55, kod-AI %20.** Sebep zincirin iki ucunda:
+- `OperationGrammar`: `flankSector` = ana sektörün komşuları arasından **en AZ düşman olanı**.
+- `js/BattleExecution.js:981-993`: o sektörde görünür düşman yoksa `focusBySector[sector]` null →
+  grup **global ortak hedefe** döner. Anti-blob dalı yalnız `role === DEFENDER` için açık.
+
+Yani kanat, boş olduğu için seçiliyor; boş olduğu için de oraya gidilmiyor. Gerçek bir kusur ama
+AI rakibe karşı blob üretmiyor — önceliği ikinci sıraya düşer.
+
+**Ayrıca:** `RESERVE` ve `FIRE_SUPPORT` sözleşmelerinde sektör hiç yok (%100) — bugünkü sektör
+etiketi düzeltmesi yalnız MAIN/FIXING/FLANK'i kapsıyor.
+
+### Yön değişikliği
+
+Öncelik artık ödül terimleri değil **eğitim/oyun dağılım uyumu**: öğretmen (oracle) tam bilgi
+kullanmaya devam etsin, ama modele verilen ÖZNİTELİKLER perception'dan üretilsin. Aksi hâlde ödül
+ne kadar düzeltilirse düzeltilsin model oynadığı dünyayı görmüyor.

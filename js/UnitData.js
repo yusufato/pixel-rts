@@ -200,6 +200,12 @@ const UNITS_MODERN_DB = {
       "airRadar": true,
       "weapons": [],
       "ammo": null,
+      // UYGULANMIYOR (bilerek). updateAura yalnız heal/repair/resupply/command/jamming işler;
+      // `counter_battery` hiç işlenmez. ÖLÇÜLDÜ (tools/radar-teshis.js, 3 tohum): düşman dolaylısı
+      // ATEŞ ETTİĞİ ANDA zaten %100 görünür (176 atış olayı) — ifşa aurasını uygulamak HİÇBİR ŞEY
+      // değiştirmezdi. Blok SİLİNMEDİ çünkü UnitFeatures.js `aura.type` (25) ve `aura.radius` (26)
+      // özniteliklerini okur; silmek eğitilmiş modellerin girdisini sessizce kaydırırdı.
+      // Birimin gerçekten çalışan özelliği aşağıdaki `airRadar: true`'dur (SAM'in uçak görmesi).
       "aura": { "type": "counter_battery", "radius": 30, "effect": "reveals_indirect_shooter", "duration": 8 },
       "emissions": 0.9,
       "abilities": ["deploy"],
@@ -390,7 +396,7 @@ const UNITS_MODERN_DB = {
       "weapons": [],
       "ammo": null,
       "aura": { "type": "command", "radius": 12,
-        "effects": { "accuracy": 0.12, "range": 0.08, "orderLatency": -0.4, "suppressionResist": 0.25 } },
+        "effects": { "accuracy": 0.12, "range": 0.08, "suppressionResist": 0.25 } },
       "onDeath": { "effect": "command_shock", "radius": 12, "duration": 12, "orderLatency": 1.5 },
       "emissions": 0.8,
       "abilities": ["call_cas", "rally"],

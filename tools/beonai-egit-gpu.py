@@ -26,6 +26,13 @@ import argparse, json, math, os, sys, time
 
 def log(*a): print(*a, flush=True)
 
+def _etiket_turu(ornekler):
+    """Veri HAM oracle etiketi mi, KARISIM mi? (v['odulKarisim'] alani karisimda yazilir)"""
+    kar = sum(1 for o in ornekler if isinstance(o, dict) and o.get("odulKarisim"))
+    perc = sum(1 for o in ornekler if isinstance(o, dict) and o.get("perception"))
+    return kar, perc
+
+
 def veri_yukle(yol):
     """JSONL -> (durum, aday-ozellikleri, hedefler). beonai-egit.js ile AYNI filtreler."""
     ornekler = []
@@ -68,6 +75,9 @@ def veri_yukle(yol):
 
 def main():
     ap = argparse.ArgumentParser()
+    # NOT: varsayilan HAM oracle etiketli dosyadir. Karisim odulu ayri dosyaya yazilir
+    # (tools/beonai-odul.py --cikti). Hangi etiketin okundugu asagida ACIKCA raporlanir —
+    # dun "odul duzeltildi" denip ham etiketle egitilmesi tam bu sessizlikten kaynaklandi.
     ap.add_argument("--veri", default="qa-runtime/beonai-veri.jsonl")
     ap.add_argument("--surum", default="beonai-v1")
     ap.add_argument("--epok", type=int, default=300)
@@ -104,6 +114,17 @@ def main():
     log("  veri  : " + a.veri)
     log("  kullanilan: %d karar   ELENEN -> aktif degil %d, varyans sifir %d, surum uyusmaz %d, bozuk %d"
         % (len(ornekler), elenen["aktif_degil"], elenen["varyans_sifir"], elenen["surum_uyusmaz"], elenen["bozuk"]))
+    # HANGI ETIKETLE EGITIYORUZ — acikca soyle (sessiz hatanin panzehiri)
+    _kar, _perc = _etiket_turu(ornekler)
+    if _kar == len(ornekler):
+        log("  ETIKET: KARISIM odulu (w*dV + (1-w)*oracle)  [tum kararlar]")
+    elif _kar == 0:
+        log("  ETIKET: *** HAM ORACLE odulu *** — karisim UYGULANMAMIS.")
+        log("          Karisim istiyorsan once: python tools/beonai-odul.py --girdi <ham> --cikti <karisim>")
+    else:
+        log("  ETIKET: *** KARISIK *** %d/%d karar karisim, digerleri ham — TEK dosya kullan!" % (_kar, len(ornekler)))
+    log("  OZNITELIK: %s" % ("PERCEPTION (canli maçla ayni dunya)" if _perc == len(ornekler) and _perc
+        else ("TAM-BILGI (canli maçta %79 farkli secim olcuuldu!)" if _perc == 0 else "KARISIK — %d/%d perception" % (_perc, len(ornekler)))))
     if not ornekler:
         log("EGITILECEK ORNEK YOK.")
         sys.exit(1)

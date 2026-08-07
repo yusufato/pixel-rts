@@ -24,6 +24,11 @@ const TUM = JSON.parse(vm.runInContext(
 // "her tipten bir tane" gibi anlamsiz bir ordu cikiyor (kutle yok) ve HER birim kotu gorunuyor
 // (MBT bile getiri x0). Gercekci olcum icin ordular NORMAL kurulur; nadir birimler ise
 // --zorunlu ile normal bir ordunun icine 1-2 adet sokulur.
+// DOGAL ORDU KOLU: bu arac kendi TARIFINI kuruyordu; o kurgu birim omurlerini carpitiyor
+// (IFV omru tarifte 57sn, AI'nin DOGAL ordusunda 228sn olculdu). Karar verilecekse AI'nin
+// gercekten kurdugu ordu esas alinmali.
+const DOGAL = process.argv.includes('--dogal');
+const CESITSIZ = process.argv.includes('--cesitsiz');   // cesitlilik ZORLAMASI kapali (AI'nin gercek ordusu)
 const NOSPOT = process.argv.includes('--nospotter');   // gozcu kurali KAPALI kolu
 const _zi = process.argv.indexOf('--zorunlu');
 const ZORUNLU = _zi >= 0 ? process.argv[_zi + 1].split(',').filter(Boolean) : [];
@@ -42,8 +47,12 @@ const kod = [
     'const tarif = ' + JSON.stringify(tarif) + ';',
     'const say = {};',
     'for (const seed of ' + JSON.stringify(TOHUMLAR) + ') {',
-    '  BATTLE_RECIPE_RED = tarif;',
-    '  if (!tarif && typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;',
+    DOGAL ? '  BATTLE_RECIPE_RED = null;' : '  BATTLE_RECIPE_RED = tarif;',
+    // KURGU UYARISI (olculdu): tarif yokken BATTLE_FORCE_VARIED=true "her tipten biraz" ordusu
+    // kuruyor -> kutle yok, birimler ince yayiliyor ve SORUNLU gorunuyor. IFV omru bu kipte 57sn,
+    // AI'nin GERCEK ordusunda 228sn. --cesitsiz ile zorlama kapatilir (karar bu kolda verilmeli).
+    (CESITSIZ ? '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;'
+              : '  if (!tarif && typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;'),
     '  openBattlefieldSession({ mode:"quick", mapId:-2, seed, attackerSide:true, durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });',
     '  battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false }), false, { source:"bs", ally:true });',
     '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;',
@@ -51,7 +60,7 @@ const kod = [
     '  const izle = new Map();',
     '  for (const u of SIM.units) { if (!u.isRed) continue; const s = STATS[u.type]; if (!s) continue;',
     '    izle.set(u.id, { id:s.id, mal:s.cost||0, maxAmmo:u.maxAmmo||0, onceki:u.ammo,',
-    '      atis:0, canli:0, hedefli:0, bosta:0, imha:0, oldu:null, sonAmmo:u.ammo, hp:u.hp, maxHp:u.maxHp, emilen:0 }); }',
+    '      atis:0, sonAtisT:u.lastAttackTime||0, canli:0, hedefli:0, bosta:0, imha:0, oldu:null, sonAmmo:u.ammo, hp:u.hp, maxHp:u.maxHp, emilen:0 }); }',
     '  let sonSeq = -1;',
     '  const ph = SIM.headless; SIM.headless = true; let st = 0;',
     '  try { while (SIM.tick < 7300 && phase === PHASE.BATTLE) {',
@@ -66,6 +75,10 @@ const kod = [
     '      if (u.dead) { if (r.oldu === null) r.oldu = SIM.tick; continue; }',
     '      r.canli++;',
     '      if (r.onceki != null && u.ammo < r.onceki) r.atis += (r.onceki - u.ammo);',
+    // OLCUM DUZELTMESI: ATIS muhimmat AZALMASINDAN sayiliyordu; infantry/commando/engineer
+    // muhimmati SINIRSIZ (ammo null) -> farki hep 0 -> "hic ates etmiyor" YANILSAMASI (SAM'deki
+    // "0 atis" hatasinin ayni sinifi). Gercek sayac: lastAttackTime degisimi.
+    '      if ((u.lastAttackTime||0) !== r.sonAtisT) { r.sonAtisT = u.lastAttackTime||0; if (!(r.maxAmmo > 0)) r.atis++; }',
     '      r.onceki = u.ammo; r.sonAmmo = u.ammo;',
     '      if (u.hp < r.hp) r.emilen += (r.hp - u.hp);',
     '      r.hp = u.hp;',

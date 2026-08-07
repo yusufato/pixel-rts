@@ -32,6 +32,9 @@ const KARAR_ARALIGI = Math.max(100, Number(arg('--karar-araligi', 900)) || 900);
 const ROLLOUT_SN = Math.max(5, Number(arg('--rollout', 25)) || 25);
 const MIN_TICK = Math.max(0, Number(arg('--min-tick', 500)) || 500);
 const KIRMIZI = arg('--taraf', 'kirmizi') !== 'mavi';
+// PERCEPTION OZNITELIKLERI (olculdu: tam-bilgi ile egitilen model canli maçta %79 farkli aday
+// seciyor). Ogretmen (rollout+odul) TAM BILGI kalir; modele verilen oznitelikler perception'dan.
+const PERCEPTION = !process.argv.includes('--tambilgi');
 const CIKTI = arg('--out', 'qa-runtime/beonai-veri.jsonl');
 
 // Tohum havuzu — caprazla ile AYNI tarama havuzu (veri ve değerlendirme aynı dünyalardan gelsin,
@@ -61,7 +64,7 @@ function macVerisi(ctx, seed) {
         '    if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);' +
         '    if (SIM.tick >= ' + MIN_TICK + ' && (SIM.tick % ' + KARAR_ARALIGI + ') === 0) {' +
         // collectDataset:true → (stateFeatures, [aday: candidateFeatures + rollout ödülü]) listwise tuple'ı
-        '      const r = battleOracleEvaluate({ sideRed: ' + KIRMIZI + ', rolloutSec: ' + ROLLOUT_SN + ', collectDataset: true });' +
+        '      const r = battleOracleEvaluate({ sideRed: ' + KIRMIZI + ', rolloutSec: ' + ROLLOUT_SN + ', collectDataset: true, collectStateFeatures: true, perceptionFeatures: ' + PERCEPTION + ' });' +
         '      if (r && !r.err) {' +
         '        kararSayisi++; rolloutSayisi += (r.candidateCount || 0) + 1;' +
         '        ornekler.push({ seed: ' + seed + ', tick: SIM.tick, sideRed: ' + KIRMIZI + ', veri: r.dataset || null,' +

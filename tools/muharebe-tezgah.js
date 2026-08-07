@@ -32,7 +32,7 @@ const MUHAREBE_KAYNAK = [
     'js/UnitData.js', 'js/UnitFeatures.js', 'js/UnitLoader.js', 'js/globals.js',
     'js/BattleRules.js', 'js/BattleSession.js', 'js/BattlePerception.js', 'js/BattleSituation.js',
     'js/BattlePlanning.js', 'js/BattleExecution.js', 'js/OperationGrammar.js', 'js/BattleSpaceTime.js',
-    'js/BattleBlackboard.js', 'js/BattleTargeting.js', 'js/CommanderProfiles.js', 'js/BattleController.js',
+    'js/BattleStateFeatures.js', 'js/BattleBlackboard.js', 'js/BattleTargeting.js', 'js/CommanderProfiles.js', 'js/BattleController.js',
     'js/BattleCommander.js', 'js/BattleFeatures.js', 'js/BattleSelector.js', 'js/BattleOracle.js',
     'js/BattleSelectorModel.js', 'js/BattleCoach.js', 'js/BattleBeonai.js',
     'js/MapData.js', 'js/MapImage.js',

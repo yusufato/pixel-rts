@@ -78,7 +78,10 @@ function battleResetReplay() {
         lifeEvents: [],
         controllerDecisions: [],
         performance: [],
-        finalSummary: null
+        finalSummary: null,
+        // HANGI RAKIP BEYINLE OYNANDI (ham JSON'dan analiz icin). Sifirlamaya dayanikli.
+        rakipBeyin: (typeof BATTLE_RAKIP_BEYIN !== 'undefined') ? BATTLE_RAKIP_BEYIN : null,
+        rakipTaraf: 'kirmizi'
     };
     if (typeof battleForensicReset === 'function') battleForensicReset();   // TEHDİT-PROFİLİ: forensik-ring maç-başı sıfırla (maçlar-arası sızma yok)
     BATTLE_REPLAY.playback = false;
@@ -417,6 +420,7 @@ function battleRecordCombatEvent(details = {}) {
         _b.buf.push({ seq: _b.seq++, tick: SIM.tick || 0, kind: details.kind,
             attackerId: details.attackerId, attackerSide: details.attackerSide, attackerType: details.attackerType,
             targetId: details.targetId, targetSide: details.targetSide, targetType: details.targetType, lethal: !!details.lethal,
+            damage: details.damage || 0,   // EKLENDİ: hasar-atfı ölçümleri için (komuta halesi vb.). Saf veri; sim'e dokunmaz, hash'e girmez.
             attackerX: details.attackerX, attackerY: details.attackerY, targetX: details.targetX, targetY: details.targetY });
         if (_b.buf.length > _b.cap) _b.buf.shift();
     }
@@ -726,7 +730,8 @@ function battleRestoreUnit(snapshot) {
         'maxHp', 'hp', 'atk', 'baseSpeed', 'speed', 'range', 'vision', 'atkSpeed',
         'baseArmor', 'armor', 'maxAmmo', 'ammo', 'veteran', 'level', 'xpBonus',
         'panicResistance', 'facingAngle', 'targetX', 'targetY', 'scanTimer', 'lastAttackTime',
-        '_reloadTimer', '_hicAtesEtmedi', '_jamAcc', '_jamTik'
+        '_reloadTimer', '_hicAtesEtmedi', '_jamAcc', '_jamTik',
+        '_ferryKalkti', '_ferryPickId', '_ferryHover', '_ferryBosaltiyor', '_ferryTeslimX', '_ferryTeslimY'
     ]) {
         if (snapshot[key] !== undefined) unit[key] = snapshot[key];
     }
@@ -789,6 +794,12 @@ function battleForkUnitSnapshot(u) {
         if (typeof v === 'function') continue;
         if (k === 'attackTarget') { s.__attackTargetId = (v && !v.dead) ? v.id : null; continue; }
         if (k === 'manualTarget') { s.__manualTargetId = (v && !v.dead) ? v.id : null; continue; }
+        // TAŞIMA BAĞI — KİMLİĞE ÇEVRİLİR (yoksa fork ÇÖKER). `cargo` yolcu Unit'lerini, yolcunun
+        // `carrier`'ı da taşıyıcıyı işaret eder → DAİRESEL yapı; replayClone (JSON.stringify)
+        // bunu klonlayamaz. Hata ferry düzeltmesinden SONRA görünür oldu: eskiden helo yükü
+        // hemen bırakıyordu, artık gerçekten taşıyor ve döngü kapanıyor.
+        if (k === 'cargo') { s.__cargoIds = Array.isArray(v) ? v.filter(z => z && !z.dead).map(z => z.id) : []; continue; }
+        if (k === 'carrier') { s.__carrierId = (v && !v.dead) ? v.id : null; continue; }
         s[k] = (v && typeof v === 'object') ? replayClone(v) : v;
     }
     return s;
@@ -797,6 +808,7 @@ function battleForkRestoreUnit(s) {
     const u = new Unit(s.type, s.x, s.y, !!s.isRed);   // ctor srandInt tüketir → rng SONRA resetlenir
     for (const k in s) {
         if (k === '__attackTargetId' || k === '__manualTargetId') continue;
+        if (k === '__cargoIds' || k === '__carrierId') continue;
         u[k] = (s[k] && typeof s[k] === 'object') ? replayClone(s[k]) : s[k];
     }
     u.dead = false;
@@ -832,6 +844,13 @@ function battleForkRestore(fork) {
         const s = snaps[i], u = SIM.units[i];
         u.attackTarget = (s.__attackTargetId != null) ? (byId.get(s.__attackTargetId) || null) : null;
         u.manualTarget = (s.__manualTargetId != null) ? (byId.get(s.__manualTargetId) || null) : null;
+        // TAŞIMA BAĞI geri kurulur: kimlikler ancak TÜM birimler yaratıldıktan sonra çözülebilir.
+        if (Object.prototype.hasOwnProperty.call(s, '__cargoIds')) {
+            u.cargo = (s.__cargoIds || []).map(id => byId.get(id)).filter(Boolean);
+        }
+        if (Object.prototype.hasOwnProperty.call(s, '__carrierId')) {
+            u.carrier = (s.__carrierId != null) ? (byId.get(s.__carrierId) || null) : null;
+        }
     }
     for (const f of fork.trenches || []) SIM.trenches.push(replayClone(f));
     const restoreArr = (live, saved) => { if (typeof live === 'undefined' || !live || !saved) return; live.length = 0; for (const x of saved) live.push(replayClone(x)); };

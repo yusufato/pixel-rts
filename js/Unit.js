@@ -38,6 +38,7 @@ class Unit {
         this.baseSpeed = s.speed;
         this.speed = s.speed;
         this.range = s.range;
+        this._baseRange = s.range;   // KOMUTA MENZILI: hale carpani her tik TABAN uzerinden uygulanir (birikme olmaz)
         this.groundRange = s.groundRange || 0;   // >0: KARA hedefe azami menzil (SPAAG: hava 975 / kara 480)
         this.vision = s.vision;
         this.atkSpeed = s.atkSpeed;
@@ -354,6 +355,14 @@ class Unit {
             this.entrench = this._canDigIn ? Math.min(1, this._stationaryT / 8) : 0;   // ~8sn tam siper → gelen hasara -%35 (incomingDamageMult)
         }
 
+        // KOMUTA MENZILI (pro-delta 'commandRange') — veride TANIMLI ama kodda KARSILIGI YOKTU:
+        // command_vehicle aura'sinda `range: 0.08` yaziyordu, hicbir yerde okunmuyordu (olu veri).
+        // Taban menzil uzerinden uygulanir; birikme yok. Tazelik kurali +%12 hasarla ayni (<=1 tik).
+        if (this._baseRange != null) {
+            const _haloR = (SIM.tick - (this.commandHaloTick || -999)) <= 1;
+            const _mAcik = _haloR && typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'commandRange');
+            this.range = _mAcik ? this._baseRange * (1 + PRO_KOMUTA_MENZIL) : this._baseRange;
+        }
         if (this.isAir && this.maxFuel > 0) this.updateFuel(now, dtSec);   // YAKIT: uçarken yak, düşük→üsse dön, biter→düş
         if (this.dead) return;                                             // yakıt bitip düştüyse
 
@@ -363,7 +372,7 @@ class Unit {
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
-            if (!this._ikmalRefakat() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
+            if (!this._komutaMerkez() && !this._ikmalRefakat() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -633,6 +642,7 @@ class Unit {
                         maxHp: 320,
                         providesSupply: true,
                         providesAir: true,            // HELO-ÜSSÜ: hava birimi burada yakıt+mühimmat+TAMİR alır
+                        builderId: this.id,           // KREDİ: siperde tutulan dost-saniyesi ve dolum bu istihkâma yazılır
                         refuelsLeft: null,            // KULLANICI-FIX: SINIRSIZ dolum — "üs kurulu olduğu sürece yakıt doldurabilir + tamir olabilir" (refuelsLeft=null → capLeft=Infinity, hak-tüketimi yok)
                         createdAt: now,
                         expiresAt: now + SUPPLY_FIELD_DURATION_MS
@@ -817,6 +827,10 @@ class Unit {
             if (low) {
                 const _hpBefore = low.hp;
                 low.hp = Math.min(low.maxHp, low.hp + (aura.hpPerSecond || 6) * dt);
+                if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) {
+                    battleKredi(this, 'iyilestirme', low.hp - _hpBefore);
+                    if (_hpBefore < low.maxHp * 0.2 && low.hp >= low.maxHp * 0.2) battleKredi(this, 'kurtarma', 1);   // olum esiginden cikardi
+                }
                 // ANALİST OLAYI (throttle ~1s/birim): iyileşme/tamir
                 if (typeof battleRecordLifeEvent === 'function' && (SIM.tick - (low._lastHealEvt || -999)) >= 20) {
                     low._lastHealEvt = SIM.tick;
@@ -830,6 +844,10 @@ class Unit {
                 const dx = u.x - this.x, dy = u.y - this.y; if (dx * dx + dy * dy > r2) continue;
                 const _aBefore = u.ammo;
                 u.ammo = Math.min(u.maxAmmo, u.ammo + rate * dt);
+                if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) {
+                    battleKredi(this, 'muhimmat', u.ammo - _aBefore);
+                    if (_aBefore <= 0 && u.ammo > 0) battleKredi(this, 'kuruEngel', 1);   // KURU birimi tekrar atar hale getirdi
+                }
                 if (typeof battleRecordLifeEvent === 'function' && (SIM.tick - (u._lastSupplyEvt || -999)) >= 20) {
                     u._lastSupplyEvt = SIM.tick;
                     battleRecordLifeEvent({ kind: 'RESUPPLY', unitId: u.id, side: u.isRed ? 'red' : 'blue', type: u.type, sourceId: this.id, x: Math.round(u.x * 100) / 100, y: Math.round(u.y * 100) / 100, ammo: Math.round(_aBefore * 100) / 100, maxAmmo: Math.round(u.maxAmmo * 100) / 100 });
@@ -841,9 +859,11 @@ class Unit {
                 const dx = u.x - this.x, dy = u.y - this.y;
                 if (dx * dx + dy * dy <= r2) {
                     u.commandHaloTick = SIM.tick;
+                    if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) battleKredi(this, 'haleTik', 1);
                     if (u.suppression > 0) u.suppression = Math.max(0, u.suppression - 12 * dt);   // komuta = soğukkanlılık
                     if (u.panic > 0) u.panic = Math.max(0, u.panic - (this._canRally ? 22 : 9) * dt);   // RALLY: komuta-aracı kaçan dostu HIZLA toplar
-                    if (this._canRally && u.isFleeing && u.panic < 45) { u.isFleeing = false; u.combatState = 'READY'; }   // RALLY: paniği düşene "dur, savaş"
+                    if (this._canRally && u.isFleeing && u.panic < 45) { u.isFleeing = false; u.combatState = 'READY';
+                        if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) battleKredi(this, 'rally', 1); }   // RALLY: paniği düşene "dur, savaş"
                 }
             }
         } else if (aura.type === 'jamming') {
@@ -854,6 +874,7 @@ class Unit {
                     u.jammedTick = SIM.tick; u.jammedBy = this.id; u.jammedBySide = this.isRed ? 'red' : 'blue';   // JAM-telemetri: kim (id+taraf) jamladı
                     // KISMİ ETKİ: halenin ilan ettiği kontrol-kaybı oranı hedefe taşınır (varsayılan 1 = eski tam-felç).
                     u.jammedLoss = (aura.effects && aura.effects.uavControlLoss != null) ? aura.effects.uavControlLoss : 1;
+                    if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) battleKredi(this, 'jamTik', 1);
                 }
             }
         }
@@ -866,10 +887,27 @@ class Unit {
         const st = STATS[o.type];
         return !!st && st.armorType === 'infantry';   // yaya birimleri (piyade/tanksavar/havan/manpads/komando/medic/istihkam)
     }
+    _ferryUygun(o) {
+        // AI-FERRY KABULU - _transportAccepts'ten DAR. KULLANICI RAPORU: "nakliye helolari her seyi
+        // tasimaya calisiyor". Genis kural (armorType==='infantry') havan (dolayli, mevzi ister),
+        // MANPADS (hava savunmasi, geriyi korur), sihhiyeci ve ISTIHKAM'i da aliyordu. Istihkam
+        // helipadi KURAN birimdir; ferry onu cepheye tasiyinca helonun ikmal ussu hic kurulmuyor.
+        // OYUNCU emri bu daraltmadan etkilenmez (manuel yol _transportAccepts kullanir).
+        if (!this._transportAccepts(o)) return false;
+        if (battleFerryFix(this.isRed)) {
+            const id = (STATS[o.type] || {}).id;
+            return id === 'infantry' || id === 'at_team' || id === 'commando';   // yalniz HAT piyadesi
+        }
+        return true;
+    }
     _transportDropOne() {   // bir yolcuyu araç çevresine bırak (deterministik saçılım)
         const p = this.cargo.shift();
         if (!p) return;
         const ang = srand() * Math.PI * 2, dd = 35 + srand() * 45;
+        if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) {
+            battleKredi(this, 'tasinan', 1);
+            if (p._bindigiY != null) battleKredi(this, 'tasimaMesafe', Math.abs(this.y - p._bindigiY));
+        }
         p.loaded = false; p.carrier = null;
         p.x = this.x + Math.cos(ang) * dd; p.y = this.y + Math.sin(ang) * dd;
         p.targetX = p.x; p.targetY = p.y; p.manualMoveTarget = null; p.isMovingToManualTarget = false;
@@ -898,7 +936,7 @@ class Unit {
                 this._loadTimer = (this._loadTimer == null ? TRANSPORT_LOAD_TIME : this._loadTimer) - dtSec;
                 if (this._loadTimer <= 0) {
                     this._loadTimer = TRANSPORT_LOAD_TIME;
-                    t.loaded = true; t.carrier = this; t.attackTarget = null; t.isFleeing = false; this.cargo.push(t);
+                    t.loaded = true; t.carrier = this; t.attackTarget = null; t.isFleeing = false; t._bindigiY = t.y; this.cargo.push(t);
                     this._loadOrderTargetId = null;   // bir emir = bir yolcu; oyuncu tekrar sağ-tıklar
                 }
             }
@@ -913,52 +951,116 @@ class Unit {
         if (this.controlOwner === 'PLAYER') { this._updateTransportManual(now, dtSec); return; }   // OYUNCU: yalnız emirle
         if (!isFerry) return;   // AI: YALNIZ nakliye-heli OTO-ferry (aşağıda). Kara-araç taşıması YOK (transportSlots zaten 0).
 
-        const deliverY = this.isRed ? WORLD_H * 0.60 : WORLD_H * 0.40;   // düşman hattına doğru orta-ileri (intihar değil)
+        const deliverY = this.isRed ? WORLD_H * 0.60 : WORLD_H * 0.40;   // dusman hattina dogru orta-ileri (intihar degil)
+        const FIX = battleFerryFix(this.isRed);
+
+        // ── FERRY AI - KULLANICI RAPORU + OLCUM (tools/nakliye-teshis.js, 6 tohum) ──
+        // Kullanici (oyundan): "nakliye helolari birim tasirken cok titriyordu" ve "her seyi tasimaya
+        // calisiyor, surekli bir sey tasimasina gerek yok". Olcum ayni tabloyu verdi: 12 helo omrunun
+        // %92'sini YUKLU gecirdi, 10'u yakiti bitip KARGOSUYLA dustu (dusman yalniz 1'ini vurdu) ve
+        // helo basina yalniz 2 yolcu tasindi. UC AYRI KUSUR:
+        //   (1) KABUL COK GENIS  -> _ferryUygun (yukarida)
+        //   (2) TEK YOLCUYLA SEFER: cargo>0 olur olmaz teslime kalkiyordu; 6 slotun 5'i bos gidiyordu.
+        //       -> slotlar dolana / yakinda aday kalmayana kadar TOPLA, sonra kalk (_ferryKalkti).
+        //   (3) TITREME: aday her tik yeniden seciliyor + esiklerde histerezis yok -> hover<->uc
+        //       salinimi. -> aday kilidi (_ferryPickId, %30 mesafe indirimi), hover histerezisi
+        //       (_ferryHover ile 1.6x yaricap) ve bosaltma mandali (_ferryBosaltiyor).
+        // BOSTA: tasinacak sey yokken sahada dolasmak yakit yakar -> en yakin dost helipada don
+        // (ustundeyken ikmal + tamir alir). Yakit-olumlerinin asil caresi budur.
+
+        let cand = null, best = 1e9;
+        if (this.cargo.length < this.transportSlots && !(FIX && this._ferryKalkti)) {
+            for (const o of SIM.units) {
+                if (o.dead || o.loaded || o === this || o.isRed !== this.isRed) continue;
+                if (FIX ? !this._ferryUygun(o) : !this._transportAccepts(o)) continue;
+                if (o.attackTarget || o.enemyInVision || o.isFleeing) continue;   // savasan/kacan piyadeyi cekme (cepheyi bozma)
+                const ownHalf = this.isRed ? (o.y < WORLD_H * 0.5) : (o.y > WORLD_H * 0.5);
+                if (!ownHalf) continue;                                          // yalniz geri-bolgedeki takviyeyi tasi
+                if (FIX) {
+                    // AMAC KAPISI: yolcu cepheye zaten yakinsa yuruyerek gider; tasimanin kazanci yok.
+                    if (Math.abs(o.y - deliverY) < WORLD_H * FERRY_MIN_KAZANC) continue;
+                    // SEFER BUTUNLUGU: yari-doluyken uzaktaki yolcu icin rotadan sapma.
+                    if (this.cargo.length > 0 && Math.hypot(o.x - this.x, o.y - this.y) > FERRY_TOPLA_YARICAP) continue;
+                }
+                const d = Math.hypot(o.x - this.x, o.y - this.y);
+                const dd = (FIX && this._ferryPickId === o.id) ? d * 0.7 : d;   // TITREME-FIX: kilitli adaya oncelik
+                if (dd < best) { best = dd; cand = o; }
+            }
+        }
+        if (FIX) this._ferryPickId = cand ? cand.id : null;
+
+        if (cand) {
+            const d = Math.hypot(cand.x - this.x, cand.y - this.y);
+            const hoverR = (FIX && this._ferryHover) ? TRANSPORT_LOAD_RADIUS * 1.6 : TRANSPORT_LOAD_RADIUS;   // histerezis
+            if (d > hoverR) {
+                if (FIX) this._ferryHover = false;
+                this.targetX = cand.x; this.targetY = cand.y;   // yolcuya uc
+                this.manualMoveTarget = { x: cand.x, y: cand.y }; this.isMovingToManualTarget = true;
+                this._loadTimer = TRANSPORT_LOAD_TIME;
+            } else {
+                if (FIX) this._ferryHover = true;
+                this.targetX = this.x; this.targetY = this.y; this.manualMoveTarget = null; this.isMovingToManualTarget = false;   // hover
+                this._loadTimer = (this._loadTimer == null ? TRANSPORT_LOAD_TIME : this._loadTimer) - dtSec;
+                if (this._loadTimer <= 0) {
+                    this._loadTimer = TRANSPORT_LOAD_TIME;
+                    if (this.cargo.length < this.transportSlots) {
+                        cand.loaded = true; cand.carrier = this; cand.attackTarget = null; cand.isFleeing = false;
+                        cand._bindigiY = cand.y;   // KREDI: tasimanin kazandirdigi mesafe icin binis noktasi
+                        this.cargo.push(cand);
+                    }
+                }
+            }
+            return;
+        }
+        if (FIX) this._ferryHover = false;
 
         if (this.cargo.length > 0) {
-            // ── TESLİM: hatta yaklaş, düşman yakınında veya hatta varınca İNDİR ──
+            // ── TESLIM: hatta yaklas, dusman yakininda veya hatta varinca INDIR ──
+            if (FIX) this._ferryKalkti = true;   // aday kalmadi -> SEFER BASLADI
             let enemyNear = false;
             const near = SIM.spatialGrid.getNearby(this.x, this.y, TRANSPORT_UNLOAD_TRIGGER);
             for (const o of near) { if (!o.dead && !o.loaded && o.isRed !== this.isRed) { enemyNear = true; break; } }
             const atFront = this.isRed ? (this.y >= deliverY) : (this.y <= deliverY);
-            if (enemyNear || atFront) {
+            if (enemyNear || atFront || (FIX && this._ferryBosaltiyor)) {
+                if (FIX) this._ferryBosaltiyor = true;   // TITREME-FIX: bosaltma basladiysa bitene kadar surer
                 this.targetX = this.x; this.targetY = this.y; this.manualMoveTarget = null; this.isMovingToManualTarget = false;
                 this._unloadTimer = (this._unloadTimer == null ? TRANSPORT_UNLOAD_TIME : this._unloadTimer) - dtSec;
                 if (this._unloadTimer <= 0) { this._unloadTimer = TRANSPORT_UNLOAD_TIME; this._transportDropOne(); }
+            } else if (FIX) {
+                // SABIT TESLIM NOKTASI. DURUSTLUK NOTU: bunu once "titremenin kok nedeni" sanip
+                // ekledim ve OLCUM beni YALANLADI (UCUS-teslim ters-donus %82 -> %90, yani KOTULESTI).
+                // Gercek kok-neden ayirma fizigiydi (asagida, ~satir 2766: `loaded` yolcu elenmiyordu).
+                // Kilit yine de duruyor cunku: (a) sefer basinda id-turevli yanal ayrim veriyor, iki
+                // helo ayni noktaya yiginlanmiyor, (b) hedef her tik yeniden yazilmadigi icin satir
+                // 492'deki varis histerezisi calisabiliyor. Katkisi OLCULMEDI, notr kabul edilmeli.
+                if (this._ferryTeslimX == null) {
+                    const _ofs = ((this.id % 3) - 1) * 140;   // determinist yanal ayrim (helolar ust uste binmesin)
+                    this._ferryTeslimX = Math.max(60, Math.min(WORLD_W - 60, this.x + _ofs));
+                    this._ferryTeslimY = deliverY;
+                }
+                this.targetX = this._ferryTeslimX; this.targetY = this._ferryTeslimY;
+                this.manualMoveTarget = { x: this._ferryTeslimX, y: this._ferryTeslimY }; this.isMovingToManualTarget = true;
             } else {
-                this.targetX = this.x; this.targetY = deliverY;   // hatta doğru uç
+                this.targetX = this.x; this.targetY = deliverY;   // hatta dogru uc
                 this.manualMoveTarget = { x: this.x, y: deliverY }; this.isMovingToManualTarget = true;
             }
             return;
         }
 
-        // ── BOŞ: kendi yarısındaki, ateş-etmeyen (boşta) en yakın piyadeyi al ──
-        let cand = null, best = 1e9;
-        for (const o of SIM.units) {
-            if (o.dead || o.loaded || o === this || o.isRed !== this.isRed) continue;
-            if (!this._transportAccepts(o)) continue;
-            if (o.attackTarget || o.enemyInVision || o.isFleeing) continue;   // savaşan/kaçan piyadeyi çekme (cepheyi bozma)
-            const ownHalf = this.isRed ? (o.y < WORLD_H * 0.5) : (o.y > WORLD_H * 0.5);
-            if (!ownHalf) continue;                                          // yalnız geri-bölgedeki takviyeyi taşı
-            const d = Math.hypot(o.x - this.x, o.y - this.y);
-            if (d < best) { best = d; cand = o; }
-        }
-        if (!cand) { this._loadTimer = TRANSPORT_LOAD_TIME; return; }
-        const d = Math.hypot(cand.x - this.x, cand.y - this.y);
-        if (d > TRANSPORT_LOAD_RADIUS) {
-            this.targetX = cand.x; this.targetY = cand.y;   // yolcuya uç
-            this.manualMoveTarget = { x: cand.x, y: cand.y }; this.isMovingToManualTarget = true;
-            this._loadTimer = TRANSPORT_LOAD_TIME;
-        } else {
-            this.targetX = this.x; this.targetY = this.y; this.manualMoveTarget = null; this.isMovingToManualTarget = false;   // hover
-            this._loadTimer = (this._loadTimer == null ? TRANSPORT_LOAD_TIME : this._loadTimer) - dtSec;
-            if (this._loadTimer <= 0) {
-                this._loadTimer = TRANSPORT_LOAD_TIME;
-                if (this.cargo.length < this.transportSlots) {
-                    cand.loaded = true; cand.carrier = this; cand.attackTarget = null; cand.isFleeing = false;
-                    this.cargo.push(cand);                }
+        if (FIX) {
+            this._ferryKalkti = false; this._ferryBosaltiyor = false;   // sefer bitti
+            this._ferryTeslimX = null; this._ferryTeslimY = null;   // teslim-noktasi kilidi birakilir
+            // BOSTA -> en yakin dost helipada don (ikmal+tamir). Us yoksa oldugun yerde bekle.
+            let ux = null, uy = null, ud = Infinity;
+            for (const t of SIM.trenches) {
+                if (t.isRed !== this.isRed || t.providesSupply === false || !t.providesAir) continue;
+                const d = Math.hypot(this.x - t.x, this.y - t.y);
+                if (d < ud) { ud = d; ux = t.x; uy = t.y; }
             }
+            if (ux != null && ud > 40) { this.targetX = ux; this.targetY = uy; this.manualMoveTarget = { x: ux, y: uy }; this.isMovingToManualTarget = true; }
+            else { this.targetX = this.x; this.targetY = this.y; this.manualMoveTarget = null; this.isMovingToManualTarget = false; }
         }
+        this._loadTimer = TRANSPORT_LOAD_TIME;
     }
 
     // ── YAKIT/SORTİ (hava birimleri): uçarken yak → %30 altı üsse dön → üste ikmal → biter DÜŞER (kamikaze tek-yön hariç) ──
@@ -998,7 +1100,15 @@ class Unit {
             }
             if (rep && repD > 60) { this.targetX = rep.x; this.targetY = rep.y; this.manualMoveTarget = { x: rep.x, y: rep.y }; this.isMovingToManualTarget = true; return; }
         }
-        const inOwnHalf = this.isRed ? (this.y < WORLD_H * 0.55) : (this.y > WORLD_H * 0.45);
+        // ILERI US (pro-delta 'engineerForward') — KULLANICI SORUSU: "helolar yakitsizliktan dusuyorsa
+        // istihkam neden siper kazmiyor". OLCULDU (tools/istihkam-teshis.js, 3 tohum): helipad kapsamasi
+        // macin yalnizca %40'i; istihkam tiklerinin %38.6'si "KENDI-YARISINDA-DEGIL" halinde geciyor ve
+        // o halde HICBIR SEY kurmuyor. Saldiran orduda istihkam orduyla birlikte orta hatti geciyor ->
+        // tam da helonun ikmale ihtiyac duydugu bolgede us kurmayi reddediyor. Guvenligi zaten 360px'lik
+        // YAKIN-TEHDIT kapisi sagliyor; yari-saha cizgisi ayrica gerekli degil. Taraf-basi delta.
+        const _ileriUs = (typeof battleProDelta === 'function') && battleProDelta(this.isRed, 'engineerForward');
+        const _yariSinir = _ileriUs ? PRO_IST_ILERI_DERINLIK : 0.55;
+        const inOwnHalf = this.isRed ? (this.y < WORLD_H * _yariSinir) : (this.y > WORLD_H * (1 - _yariSinir));
         let closeThreat = false;   // yakın-tehdit yoksa çalış (uzaktan görmek engel değil)
         const _cn = SIM.spatialGrid.getNearby(this.x, this.y, 360);
         for (const o of _cn) { if (!o.dead && !o.abandoned && o.isRed !== this.isRed) { closeThreat = true; break; } }
@@ -1041,6 +1151,7 @@ class Unit {
         if (this._mineTimer <= 0) {
             this._mineTimer = 3.0;
             SIM.mines.push({ x: this.x, y: this.y, r: MINE_TRIGGER_R, isRed: this.isRed, armed: false, createdAt: now, armDelay: 1500 });
+            if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) battleKredi(this, 'mayin', 1);
             if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.minesLaid++;
         }
     }
@@ -1066,6 +1177,10 @@ class Unit {
         if (!oneWay && overBase && this.fuel < this.maxFuel) {   // ÜSTE İKMAL (~18sn tam dolum). KULLANICI-FIX: KAMİKAZE(oneWay) İKMAL ALMAZ (tek-yön) → dost-üs üstünden geçince dolup hiç-düşmeme + üs-hakkı-yeme bug'ı çözülür
             if (!overMine) {   // YENİ rezervasyon → 1 dolum-hakkı tüket (dock başına tek-hak)
                 if (overBase.refuelsLeft != null) overBase.refuelsLeft--;
+                if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on && overBase.builderId != null) {
+                    const _b = SIM.units.find(z => z.id === overBase.builderId);   // KREDİ: dolumu üssü KURAN alır
+                    if (_b) battleKredi(_b, 'yakitDolum', 1);
+                }
                 this._refuelBaseKey = overKey;
                 if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'REFUEL_DOCK', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, refuelsLeft: overBase.refuelsLeft == null ? -1 : overBase.refuelsLeft, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
             }
@@ -1083,7 +1198,16 @@ class Unit {
             // üs-var/yok fark etmez. Üs varsa zaten aşağıdaki RTB oraya götürür + ikmal eder (donma yok).
             this.fuel = 0; this.hp = 0; this.dead = true; return;
         }
-        if (!oneWay && !busyTransport && baseX != null && this.fuel <= this.maxFuel * 0.30 && !this._returningToBase) {   // düşük + ÜS-VAR → dön. KULLANICI-FIX: üs-YOKSA RTB-etme (kenara-gidip-donma yok) → emir almaya devam et, yakıt bitince düşer
+        // ── KRİTİK YAKIT TABANI (BATTLE_HELO_KRITIK_YAKIT) ──
+        // ÖLÇÜLDÜ (tools/nakliye-teshis.js, 6 tohum): nakliye helosu 6 slotuyla GERÇEKTEN taşıyor
+        // (24 piyade yükledi, ömrünün %92'sini yüklü geçirdi) ama 12 helonun 10'u YAKITI BİTİP DÜŞTÜ
+        // ve kargosundaki 10 piyadeyi de öldürdü. Düşman yalnız 1 tanesini vurdu.
+        // KÖK NEDEN: aşağıdaki `!busyTransport` koşulu "önce teslim et" demek için konmuş — niyet
+        // doğru ama TABANI YOK. Teslim noktası hiç bulunmazsa helo yakıtı bitene kadar uçuyor.
+        // ÇÖZÜM: yakıt kritik eşiğin altına inince kargo şartı DÜŞER; üs varsa dönülür.
+        // Kargoyla birlikte düşmektense kargoyu geri götürmek her hâlükârda daha iyidir.
+        const kritikYakit = this.fuel <= this.maxFuel * battleHeloKritikYakit(this.isRed);
+        if (!oneWay && (!busyTransport || kritikYakit) && baseX != null && this.fuel <= this.maxFuel * 0.30 && !this._returningToBase) {   // düşük + ÜS-VAR → dön. KULLANICI-FIX: üs-YOKSA RTB-etme (kenara-gidip-donma yok) → emir almaya devam et, yakıt bitince düşer
             this._returningToBase = true;
             if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.heloSorties++;
             if (typeof battleRecordLifeEvent === 'function') battleRecordLifeEvent({ kind: 'RTB', unitId: this.id, side: this.isRed ? 'red' : 'blue', type: this.type, fuel: Math.round((this.fuel || 0) * 100) / 100, maxFuel: Math.round((this.maxFuel || 0) * 100) / 100, x: Math.round(this.x * 100) / 100, y: Math.round(this.y * 100) / 100 });
@@ -1852,6 +1976,38 @@ class Unit {
     // EDEMEZ hale gelir ve orada ölür. TEŞHİS: balistik 0 atışla 125sn'de öldü (bkz. BATTLE_INTEL4PRO_DELTAS.standoff).
     // Bu metot engageCombat'tan SONRA çalışır → bu tikin atışı zaten yapıldı, yalnız HAREKET hedefi ezilir.
     // Determinist: yalnız mesafe aritmetiği, RNG yok, canlı kontrolör nesnesi okunmaz.
+    _komutaMerkez() {
+        // KOMUTA MERKEZI (pro-delta 'commandCenter') — OLCULDU (tools/komuta-teshis.js, 3 tohum):
+        // komuta araci hizi 1.5 oldugu icin dost kutle merkezinin ort. 436px ARKASINDA kaliyor.
+        // Ilk sezgim "geri cekelim, HVT korunsun" idi; KARSI-OLGU beni yalanladi: 500px daha geri
+        // cekmek kapsamayi %83 -> %48 dusuruyordu. Tersi dogru: tam merkezde otursa kapsama
+        // %83 -> %92 olurdu ve arac kendi birliklerinin ICINDE, yalniz degil, kalirdi (onu
+        // tanksavar+MBT, yani DOGRUDAN atis zirhlisi olduruyor).
+        // TITREME DERSI (bkz. ferry): olu bolge disinda hedef her tik yeniden yazilmaz.
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'commandCenter')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER') return false;   // oyuncunun emrini ezmeyiz
+        const _a = STATS[this.type] && STATS[this.type].aura;
+        if (!_a || _a.type !== 'command') return false;
+        let cx = 0, cy = 0, cn = 0;
+        for (const u of SIM.units) {
+            if (u.dead || u.loaded || u.abandoned || u.isRed !== this.isRed || u === this) continue;
+            const v = (STATS[u.type] && STATS[u.type].cost) || 0;
+            if (!v) continue;
+            cx += u.x * v; cy += u.y * v; cn += v;
+        }
+        if (!cn) return false;
+        const gx = cx / cn, gy = cy / cn;
+        const d = Math.hypot(gx - this.x, gy - this.y);
+        if (d <= PRO_KOMUTA_OLU_BOLGE) {   // yeterince merkezdeyiz -> DUR (titreme yok)
+            this.targetX = this.x; this.targetY = this.y;
+            this.manualMoveTarget = null; this.isMovingToManualTarget = false;
+            return true;
+        }
+        this.targetX = gx; this.targetY = gy;
+        this.manualMoveTarget = { x: gx, y: gy }; this.isMovingToManualTarget = true;
+        return true;
+    }
     _standoffKac() {
         if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'standoff')) return;
         if (this.dead || this.loaded || this.abandoned || this.isFleeing) return;
@@ -2366,10 +2522,28 @@ class Unit {
                         targetX: Math.round(n.x * 100) / 100, targetY: Math.round(n.y * 100) / 100
                     });
                 }
+                // KREDI: KAMIKAZE ucuncu bir hasar yolu — applyDirectHit/applyBlast'tan GECMEZ.
+                // (Ilk surumde topcu ayni sebeple 0 gorunmustu; sarf-drone da 11 kez firlatilip
+                // 0 hasar yaziyordu.) Hasar+panik+baski hem drone'a hem onu SALAN operatore yazilir.
+                const _pK = n.panic, _sK = n.suppression;
                 n.panic += (blastDmg / n.maxHp) * 140;
                 n.flashTimer = 5;
                 if (typeof applyKnockback === 'function') applyKnockback(n, kcx, kcy, 2.2);
                 n.suppression += 35;
+                if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) {
+                    battleKredi(this, 'hasar', blastActual);
+                    battleKredi(this, 'panik', Math.max(0, n.panic - _pK));
+                    battleKredi(this, 'baski', Math.max(0, n.suppression - _sK));
+                    if (n.hp <= 0) battleKredi(this, 'imhaDeger', (STATS[n.type] && STATS[n.type].cost) || 0);
+                    if (this.operatorId != null) {
+                        const _opK = SIM.units.find(z => z.id === this.operatorId);
+                        if (_opK) {
+                            battleKredi(_opK, 'droneHasar', blastActual);
+                            if (n.hp <= 0) battleKredi(_opK, 'imhaDeger', (STATS[n.type] && STATS[n.type].cost) || 0);
+                        }
+                    }
+                    battleKredi(n, 'emilen', blastActual);
+                }
                 if (n.isRed) { n.lastHitTime = now; n.distressX = this.x; n.distressY = this.y; }
                 if (n.armor > 0 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(n.x, n.y);
                 if (n.hp <= 0 && !n.dead) {
@@ -2679,13 +2853,20 @@ function resolveCollisions() {
         }
     }
 
+    // TITREME KOK-NEDENI (KULLANICI: "nakliye helolari birim tasirken cok titriyordu") — OLCULDU:
+    // ayirma dongusu yalniz `dead`'i eliyordu, `loaded`'i DEGIL. Yolcular her tik tasiyicinin TAM AYNI
+    // koordinatina konur (updateTransport: p.x = this.x) -> mesafe ~0 -> asagidaki `dist <= 0.01` dali
+    // devreye girip helo ile kendi kargosunu tam MIN_DIST/2 kadar birbirinden iter. Izde (tools/
+    // helo-titreme-iz.js) helo "hold=1, mov=0" iken bile tik basina ~30px savruluyordu ve evre
+    // kirilimi teslim ucusunda %90 yon-tersine-donus verdi. Aract icindeki yolcu fizige gorunmemeli
+    // (hedeflemede zaten gorunmuyor). BATTLE_FERRY_FIX ile kapatilabilir (A-B izolasyonu).
     for (let i = 0; i < SIM.units.length; i++) {
-        if (SIM.units[i].dead) continue;
+        if (SIM.units[i].dead || (SIM.units[i].loaded && battleFerryFix(SIM.units[i].isRed))) continue;
         const a = SIM.units[i];
         const nearby = SIM.spatialGrid.getNearby(a.x, a.y, MIN_DIST);
         for (let j = 0; j < nearby.length; j++) {
             const b = nearby[j];
-            if (b.dead || a === b) continue;
+            if (b.dead || a === b || (b.loaded && battleFerryFix(b.isRed))) continue;
             // Her çifti yalnız bir kez çöz. İki yönlü çözüm dar geçitlerde gereksiz
             // itme biriktiriyor ve birlikleri engel hücresine taşıyabiliyordu.
             if (b.id <= a.id) continue;
