@@ -51,20 +51,26 @@ function opgBuildContext(side, ownUnits, contacts, role) {
 // ── Şema (versiyonlu makine sözleşmesi) ──────────────────────────────────────
 const OPERATION_GRAMMAR_V1 = Object.freeze({
     version: 1,
-    intents: ['HOLD', 'ADVANCE', 'MAIN_ATTACK', 'FIX_AND_FLANK', 'COUNTERATTACK', 'REGROUP', 'DISENGAGE'],
+    // FIRE_PREPARATION (2026-08-07): kod-AI bunu KULLANIYOR (kararlarin %3'u) ama aday sozlugunde
+    // YOKTU -> davranis klonlamasi o kararlarda zorunlu olarak yanlis etiket uretiyordu (405 "zayif").
+    // Karar uzayi darliginin en somut kaniti; eklenmesi bedava.
+    intents: ['HOLD', 'ADVANCE', 'MAIN_ATTACK', 'FIX_AND_FLANK', 'COUNTERATTACK', 'REGROUP', 'DISENGAGE', 'FIRE_PREPARATION'],
     tempos: ['cautious', 'normal', 'aggressive'],
     groups: ['main', 'fixing', 'flank', 'reserve'],
     // rol kısıtı: hangi intent hangi rolde geçerli
     intentRoles: {
         HOLD: ['ATTACKER', 'DEFENDER'], ADVANCE: ['ATTACKER'], MAIN_ATTACK: ['ATTACKER', 'DEFENDER'],
-        FIX_AND_FLANK: ['ATTACKER', 'DEFENDER'], COUNTERATTACK: ['DEFENDER'], REGROUP: ['ATTACKER', 'DEFENDER'], DISENGAGE: ['ATTACKER', 'DEFENDER']
+        FIX_AND_FLANK: ['ATTACKER', 'DEFENDER'], COUNTERATTACK: ['DEFENDER'], REGROUP: ['ATTACKER', 'DEFENDER'], DISENGAGE: ['ATTACKER', 'DEFENDER'],
+        FIRE_PREPARATION: ['ATTACKER', 'DEFENDER']
     },
     // intent → izinli faz dizisi (safha makinesi)
     phasesByIntent: {
         HOLD: ['HOLD'], ADVANCE: ['ADVANCE', 'ACTION'], REGROUP: ['REGROUP'], DISENGAGE: ['WITHDRAW'],
         MAIN_ATTACK: ['ASSEMBLE', 'FIRE_WINDOW', 'ASSAULT', 'EXPLOIT'],
         FIX_AND_FLANK: ['PROBE', 'FIX', 'FLANK', 'EXPLOIT'],
-        COUNTERATTACK: ['ASSEMBLE', 'ASSAULT', 'EXPLOIT']
+        COUNTERATTACK: ['ASSEMBLE', 'ASSAULT', 'EXPLOIT'],
+        // ates hazirligi: kutleyi yaklastirmadan ONCE dolayli ateşle yumusat, sonra harekete gec
+        FIRE_PREPARATION: ['ASSEMBLE', 'FIRE_WINDOW']
     },
     phaseTriggers: ['enemy_reserve_revealed', 'enemy_center_committed', 'rear_access', 'flank_failed', 'objective_taken', 'assembled', 'fire_effect_achieved', 'timeout'],
     abortConditions: ['flank_group_losses>35%', 'enemy_counterattack_on_main_objective', 'force_ratio<0.5', 'ammo<0.25', 'group_isolated',
@@ -142,7 +148,10 @@ function operationGrammarGenerate(ctx) {
     const V2 = (typeof BATTLE_GRAMMAR_V2 !== 'undefined') && BATTLE_GRAMMAR_V2;
     const KOTA = (typeof BATTLE_GRAMMAR_KOTA !== 'undefined') ? BATTLE_GRAMMAR_KOTA : 64;
     const role = ctx.role || 'ATTACKER';
-    const order = ['HOLD', 'REGROUP', 'DISENGAGE', 'COUNTERATTACK', 'ADVANCE', 'FIX_AND_FLANK', 'MAIN_ATTACK'];
+    // SIRA = adil kotada cekilis sirasi (asagida sirayla cekiliyor). FIRE_PREPARATION buraya da
+    // yazilmaliydi: `G.intents`e eklemek TEK BASINA yetmiyor, uretec bu listeden geciyor.
+    // Kod-AI bu plani kararlarinin %3'unde kullaniyordu ve aday listesinde karsiligi yoktu.
+    const order = ['HOLD', 'REGROUP', 'DISENGAGE', 'FIRE_PREPARATION', 'COUNTERATTACK', 'ADVANCE', 'FIX_AND_FLANK', 'MAIN_ATTACK'];
     const intents = order.filter(k => G.intents.includes(k) && (!G.intentRoles[k] || G.intentRoles[k].includes(role)));
 
     let targets = [...new Set([ctx.enemyCoG, ctx.weakestEnemySector, ctx.strongestEnemySector].filter(s => s != null))];

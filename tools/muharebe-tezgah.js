@@ -87,6 +87,7 @@ function tezgahKurMini() {
     const hatalar = [];
     const kaynaklar = MUHAREBE_KAYNAK.slice();
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
+    if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBC.js'))) kaynaklar.push('js/BattleBeonaiModelBC.js');
     for (const rel of kaynaklar) {
         try { vm.runInContext(fs.readFileSync(path.resolve(ROOT, rel), 'utf8'), ctx, { filename: rel }); }
         catch (e) { hatalar.push(rel + ': ' + e.message); }
@@ -168,6 +169,7 @@ function tezgahKur() {
     // Eğitim çıktısı olduğu için repoda bulunmayabilir → listeye koşullu eklenir.
     const kaynaklar = MUHAREBE_KAYNAK.slice();
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
+    if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBC.js'))) kaynaklar.push('js/BattleBeonaiModelBC.js');
     for (const rel of kaynaklar) {
         const p = path.resolve(ROOT, rel);
         const kod = fs.readFileSync(p, 'utf8');

@@ -176,21 +176,40 @@ for (const s of SURUMLER) {
 //   * oz baski tabani %25'ten fazla ASMAMALI (civilenme yok)
 // Canli macta beonai: yayilim 240px (taban ~1100), oz baski 87.6 (taban ~35) -> bu kapi onu
 // KESINLIKLE elerdi. Kapi gecilmeden mac kapisina guvenilmez.
+// ── KAPI DUZELTMESI (2026-08-07, kullanici yakaladi) ──────────────────────────────────────────
+// ESKI KAPI YANLISTI, iki sebeple:
+//  1) ORAN TUZAGI: "oz baski <= taban %125" dedi ve klonu eledi — ama MUTLAK deger 5.7 idi.
+//     Kapinin kurulma sebebi olan canli cokus 87.6'ydi. Sifira yakin tabana yuzde konmus.
+//  2) KAVRAM HATASI: yayilmayi AMAC saydi. Kullanici: "yogunluk iyi derken yumak olmaktan
+//     bahsetmiyorum; onlarca birim BIR FUZE ALANININ icine giriyorsa toplu hasat olur."
+//     Ayrica oyuncunun OLCULEN ustunlugu zaten yogunlasmak (temas aninda 8.9/1.2 vs AI 6.9/3.4).
+// DOGRU OLCUT: soyut yayilim degil, TEK BIR DUSMAN AoE AYAK IZINE giren birim sayisi.
+//     CNRA 250px · topcu 300px · BALISTIK 600px (bastirma halkasi patlama x1.8).
+//     `yogModel` zaten 600px cemberdeki en kalabalik birim sayisidir = balistigin ayak izi.
+// YENI KURAL:
+//   * AoE HASADI: 600px'te birim sayisi mutlak tavani asmamali (AOE_TAVAN)
+//   * CIVILENME : oz baski MUTLAK esigi asmamali (PINNED_SUPPRESSION/2 = 40)
+//   * KURESEL YUMAK: yayilim tabanin %60'inin altina dusmemeli (canli cokus %22'ydi)
+//   * Yogunluk TEK BASINA eleme sebebi DEGILDIR: mac sonucu iyilesiyorsa yerel ustunluk sayilir.
+const AOE_TAVAN = 14;        // 600px cemberde birim — bunun ustu "tek namlunun altinda yigin"
+const BASKI_MUTLAK = 40;     // PINNED_SUPPRESSION 80'in yarisi
+const YUMAK_ORAN = 0.60;     // yayilim tabanin bu kesrinin altina duserse KURESEL yumak
 console.log('');
-console.log('  DAVRANIS KAPISI (FAZ 3/2) — olcut: yayilim >= taban %85, yogunluk <= %115, baski <= %125');
+console.log('  DAVRANIS KAPISI (duzeltildi) — olcut: AoE-600px <= ' + AOE_TAVAN + ' birim (MUTLAK), ' +
+    'oz baski <= ' + BASKI_MUTLAK + ' (MUTLAK), yayilim >= taban %' + Math.round(YUMAK_ORAN * 100));
+console.log('    NOT: yogunluk TEK BASINA eleme sebebi degil — yerel ustunluk istenen seydir.');
 for (const s of SURUMLER) {
     const r = sonuc[s];
     const o = (f) => (r.reduce((a, x) => a + x[f], 0) / Math.max(1, r.length));
     const yO = o('yayTaban') ? o('yayModel') / o('yayTaban') : 1;
-    const gO = o('yogTaban') ? o('yogModel') / o('yogTaban') : 1;
-    const bO = o('bskTaban') > 0.5 ? o('bskModel') / o('bskTaban') : 1;
-    const gecti = (yO >= 0.85) && (gO <= 1.15) && (bO <= 1.25);
-    // ORNEKLEM UYARISI: yayilim tohumdan tohuma cok oynuyor. Ayni model 2 tohumda %76 (KALDI),
-    // 24 macta %106 (GECTI) verdi. Hukum ancak >=24 macla anlamlidir.
+    const aoe = o('yogModel');
+    const bsk = o('bskModel');
+    const gecti = (aoe <= AOE_TAVAN) && (bsk <= BASKI_MUTLAK) && (yO >= YUMAK_ORAN);
+    // ORNEKLEM UYARISI: yayilim tohumdan tohuma cok oynuyor; hukum ancak >=24 macla anlamlidir.
     console.log('  ' + s.padEnd(24) +
+        ('AoE-600px ' + aoe.toFixed(1) + '/' + AOE_TAVAN).padStart(20) +
+        ('oz baski ' + bsk.toFixed(1) + '/' + BASKI_MUTLAK).padStart(20) +
         ('yayilim %' + Math.round(yO * 100)).padStart(14) +
-        ('yogunluk %' + Math.round(gO * 100)).padStart(15) +
-        ('baski %' + Math.round(bO * 100)).padStart(13) +
         '   ' + (r.length < 24 ? '(orneklem<24 — HUKUM YOK)' : (gecti ? 'GECTI' : '*** KALDI ***')));
 }
 console.log('');

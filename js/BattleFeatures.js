@@ -8,8 +8,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STATE_FEATURES_VERSION = 'stateFeatures.v1';
-const CANDIDATE_FEATURES_VERSION = 'candidateFeatures.v1';
-const FEATURE_INTENTS = ['HOLD', 'ADVANCE', 'MAIN_ATTACK', 'FIX_AND_FLANK', 'COUNTERATTACK', 'REGROUP', 'DISENGAGE'];
+// v2 (2026-08-07): YEREL USTUNLUK oznitelikleri eklendi (projeksiyonlu yerel oran + hedef kutle
+// payi + kanat orani). Surum ARTIRILMALI: eski modeller yeni vektorle calisamaz, uyumluluk
+// kontrolu onlari eler. Bkz docs/KARAR-UZAYI-3.md
+const CANDIDATE_FEATURES_VERSION = 'candidateFeatures.v2';
+// FIRE_PREPARATION burada da olmali: yoksa o adaylar TUM-SIFIR intent one-hot alir ve model onlari
+// ayirt edemez (gramere ekleyip burayi unutmak sessiz bir hata olurdu).
+const FEATURE_INTENTS = ['HOLD', 'ADVANCE', 'MAIN_ATTACK', 'FIX_AND_FLANK', 'COUNTERATTACK', 'REGROUP', 'DISENGAGE', 'FIRE_PREPARATION'];
 const FEATURE_TEMPOS = ['cautious', 'normal', 'aggressive'];
 
 // ── Durum özellikleri: bir karar anında komutanın gördüğü (sektör dağılımı + global) ──
@@ -72,6 +77,24 @@ function battleCandidateFeatures(candidate, ctx) {
     // tempo one-hot + pursuit
     for (const tp of FEATURE_TEMPOS) f.push(candidate.tempo === tp ? 1 : 0);
     f.push(Math.min(1, (candidate.pursuitLimit || 300) / 500));
+
+    // ── YEREL ÜSTÜNLÜK ÖZNİTELİKLERİ (v2) — ÖLÇÜLMÜŞ EKSİK ──
+    // Oyuncunun ustunlugu OLCULDU: temas aninda 8.9 dost / 1.2 dusman; AI 6.9 / 3.4.
+    // Yani oyuncu "hangi sektor" degil "orada USTUN muyum" sorusuna gore oynuyor.
+    // Yukaridaki oznitelikler dusman ve oz yogunlugu AYRI AYRI (toplama bolunmus) veriyordu;
+    // ORAN yoktu. Model bu haliyle "oraya gidersem ustun olur muyum" sorusunu GOREMIYORDU.
+    // Buradaki uc oznitelik tam onu verir; adayin taahhut ettigi MAIN payi hesaba katilir.
+    const _eps = 1e-6;
+    const _dusMain = (ctx.enemy ? (ctx.enemy[ms] || 0) : 0);
+    const _ozMain = (ctx.own ? (ctx.own[ms] || 0) : 0);
+    const _taahhut = (a.main || 0) * (ctx.ownTotal || 0);          // MAIN'e ayrilan mutlak guc
+    const _projeOran = (_ozMain + _taahhut) / (_dusMain + _eps);   // varista beklenen YEREL oran
+    f.push(Math.min(3, _projeOran) / 3);                           // 0..1 kelepceli (3 = ezici ustunluk)
+    f.push(Math.min(1, _dusMain / ((ctx.enemyTotal || 0) + _eps))); // hedefteki dusman KUTLESI (payi)
+    // kanat icin ayni oran (kanat yoksa 0) — FIX_AND_FLANK kararlarinda kanadin gucu onemli
+    const _dusFlank = hasFlank ? (ctx.enemy ? (ctx.enemy[fs] || 0) : 0) : 0;
+    const _flankTaahhut = (a.flank || 0) * (ctx.ownTotal || 0);
+    f.push(hasFlank ? Math.min(3, ((ctx.own ? (ctx.own[fs] || 0) : 0) + _flankTaahhut) / (_dusFlank + _eps)) / 3 : 0);
     return f;
 }
 function battleCandidateFeatureNames() {
@@ -82,6 +105,8 @@ function battleCandidateFeatureNames() {
         'allocMain', 'allocFixing', 'allocFlank', 'allocReserve');
     for (const tp of FEATURE_TEMPOS) names.push('tempo_' + tp);
     names.push('pursuit');
+    // v2 — yerel ustunluk (isim listesi vektorle AYNI uzunlukta kalmali)
+    names.push('projeYerelOran', 'hedefKutlePayi', 'flankYerelOran');
     return names;
 }
 
