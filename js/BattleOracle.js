@@ -414,10 +414,11 @@ function battleOracleEvaluate(config = {}) {
     const candidates = operationGrammarGenerate(ctx);
     if (!candidates.length) return { err: '0 aday', ctxRole: ctx.role, ownTotal: ctx.ownTotal, enemyTotal: ctx.enemyTotal };
 
-    // enjeksiyon sarmalayıcısını tüm kontrolörlere kur (fork restore metod'u korur)
-    for (const c of BATTLE_CONTROLLERS.values()) battleOracleInstallInjection(c);
+    // ROLLOUT'SUZ KIPTE (bcOnly) enjeksiyon da fork da GEREKSIZ: hicbir aday kosulmaz, sim durumu
+    // DEGISMEZ. Fork yakalamak karar basina tum sahnenin kopyasini cikarir — bosuna bellek ve zaman.
+    if (!config.bcOnly) for (const c of BATTLE_CONTROLLERS.values()) battleOracleInstallInjection(c);
 
-    const fork = battleForkCapture();
+    const fork = config.bcOnly ? null : battleForkCapture();
     const baseline = battleOracleBaseline(sideRed);
     // ── DEĞER-FONKSİYONU ÖZNİTELİKLERİ (ölçüldü: ödül tek başına oracle olmamalı) ──
     // ÖLÇÜM (tools/odul-karsilastir.py, 2976 ayrılmış maç): oracle'ın skalarında `forceLead` var,
@@ -429,16 +430,56 @@ function battleOracleEvaluate(config = {}) {
     const _ozTopla = !!config.collectStateFeatures && typeof battleDurumOzellik === 'function';
     const stateStart = _ozTopla ? battleDurumOzellik(16, 10) : null;
 
+    // ── DAVRANIŞ KLONLAMA ETİKETİ: KOD-AI'IN O ANKİ PLANI ──
+    // Neden gerekli: `chosen` kolu "enjeksiyon YOK" demek — kod-AI kendi planlayıcısını çalıştırır,
+    // gramerin aday uzayından SEÇİM YAPMAZ. Dolayısıyla veride kod-AI'ın SONUCU (chosenReward) vardı
+    // ama EYLEMİ yoktu; klonlamanın etiketi tam da eylemdir.
+    // İki uzay aynı sözlüğü paylaşıyor: aday `intent` ↔ plan `kind` (ADVANCE/MAIN_ATTACK/FIX_AND_FLANK/
+    // REGROUP/DISENGAGE/HOLD), aday `mainSector` ↔ MAIN sözleşmesinin `sector`'ü, `tempo` ↔ `tempo`.
+    // ZAMANLAMA KRİTİK: burada, roll-out'lar BAŞLAMADAN okunur. Aşağıda fork defalarca geri yüklenir
+    // ve `controller.operationalPlan` bir ADAYIN planına dönüşür — sonra okusaydık etiket kirlenirdi.
+    // Eşleştirme (hangi aday bu plana en yakın) ÇEVRİMDIŞI yapılır: burada ham tanım yazılır.
+    let _kodPlan = null;
+    if (config.collectDataset) {
+        const _op = controller && controller.operationalPlan;
+        const _tc = (_op && _op.taskContracts) || [];
+        const _main = _tc.find(c => c && c.groupRole === 'MAIN') || _tc[0] || null;
+        _kodPlan = {
+            kind: (_main && _main.planKind) || (_op && _op.planKind) || null,
+            sector: _main ? (_main.sector != null ? _main.sector
+                   : (_main.objective && _main.objective.sector != null ? _main.objective.sector : null)) : null,
+            tempo: _main ? (_main.tempo || null) : null,
+            // yedek eşleştirme kancası: MAIN grubunun gittiği nokta (sektör kodlaması değişirse de eşleşir)
+            hedefX: (_main && _main.destination) ? Math.round(_main.destination.x) : null,
+            hedefY: (_main && _main.destination) ? Math.round(_main.destination.y) : null,
+            rolSayisi: _tc.length
+        };
+    }
+
+    // ── ROLLOUT'SUZ KİP (`config.bcOnly`) — DAVRANIŞ KLONLAMA VERİSİ ──
+    // ÖLÇÜLDÜ: bu fonksiyonun maliyetinin neredeyse tamamı karşı-olgusal rollout'lar (aday başına
+    // `rolloutTicks` tik sim). Klonlamanın etiketi ise `kodPlan`'dan gelir — yani rollout'a HİÇ ihtiyacı
+    // yoktur. Ödül etiketi (rows[].reward) gerekmediğinde hepsini atlarız: karar başına ~57 rollout →
+    // 0. Üretim hızı 18 karar/dk'da doymuştu (6/9/12 işçide AYNI — makine doygun, işçi eklemek
+    // kazandırmıyor); darboğaz işçi sayısı değil rollout'un kendisiydi.
+    let chosen = null, chosenStateEnd = null, chosenRan = 0;
+    const results = [];
+    if (config.bcOnly) {
+        for (let i = 0; i < candidates.length; i++) {
+            const cand = candidates[i];
+            results.push({ index: i, intent: cand.intent, mainSector: cand.mainSector, tempo: cand.tempo,
+                ran: 0, reward: null, stateEnd: null });
+        }
+    } else {
     // 0) VARSAYILAN (kod-AI, enjeksiyon YOK) = "chosen" — ÖNCE ve pristine fork'tan koş ki hiçbir aday
     //    rollout'u onu perturbe etmesin (fork-izolasyon boşluğuna karşı baseline'ı temiz tut).
     BATTLE_ORACLE_INJECTION = null;
     battleForkRestore(fork);
-    const chosenRan = battleOracleRunTicks(rolloutTicks);
-    const chosen = battleOracleReward(sideRed, baseline);
-    const chosenStateEnd = _ozTopla ? battleDurumOzellik(16, 10) : null;
+    chosenRan = battleOracleRunTicks(rolloutTicks);
+    chosen = battleOracleReward(sideRed, baseline);
+    chosenStateEnd = _ozTopla ? battleDurumOzellik(16, 10) : null;
 
     // 1) her adayı rollout et
-    const results = [];
     for (let i = 0; i < candidates.length; i++) {
         battleForkRestore(fork);
         const cand = candidates[i];
@@ -448,11 +489,14 @@ function battleOracleEvaluate(config = {}) {
         const stateEnd = _ozTopla ? battleDurumOzellik(16, 10) : null;
         results.push({ index: i, intent: cand.intent, mainSector: cand.mainSector, tempo: cand.tempo, ran, reward, stateEnd });
     }
+    }
 
-    // 3) orijinali geri yükle + temizle
-    battleForkRestore(fork);
-    BATTLE_ORACLE_INJECTION = null;
-    for (const c of BATTLE_CONTROLLERS.values()) battleOracleUninstallInjection(c);
+    // 3) orijinali geri yükle + temizle  (bcOnly: durum hic degismedi -> geri yukleme YOK)
+    if (!config.bcOnly) {
+        battleForkRestore(fork);
+        BATTLE_ORACLE_INJECTION = null;
+        for (const c of BATTLE_CONTROLLERS.values()) battleOracleUninstallInjection(c);
+    }
 
     // temas göstergesi: karar anında en yakın düşman mesafesi + rollout'larda çarpışma oldu mu
     let minEnemyDist = Infinity;
@@ -461,9 +505,11 @@ function battleOracleEvaluate(config = {}) {
     for (const a of reds) for (const b of blues) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d < minEnemyDist) minEnemyDist = d; }
 
     // 4) oracle = en iyi aday; regret = oracle − chosen
-    results.sort((a, b) => b.reward.scalar - a.reward.scalar);
-    const oracle = results[0] || null;
-    const regret = oracle ? (oracle.reward.scalar - chosen.scalar) : 0;
+    // ROLLOUT'SUZ KİPTE ödül YOKTUR → sıralama/regret/aktiflik hesaplanamaz ve hesaplanmamalıdır.
+    // (Aksi halde `reward.scalar` okuması patlar; sessizce 0 yazmak da sahte etiket üretirdi.)
+    if (!config.bcOnly) results.sort((a, b) => b.reward.scalar - a.reward.scalar);
+    const oracle = config.bcOnly ? null : (results[0] || null);
+    const regret = (oracle && chosen) ? (oracle.reward.scalar - chosen.scalar) : 0;
     // TAVAN OLCUMU: en iyi adayin enjeksiyon-spec'i. "Mukemmel secici" (oracle'in KENDISI) politika
     // olarak kosturulunca kod-AI'yi maçta yenebiliyor mu? Yenemiyorsa OGRENILMIS hicbir secici
     // yenemez — tavan sifirdir ve daha fazla veri toplamak bosunadir.
@@ -471,8 +517,10 @@ function battleOracleEvaluate(config = {}) {
         ? battleCandidateToInjection(candidates[oracle.index], controllerId) : null;
     // "aktif" nokta = oracle veya chosen rollout'unda gerçek çarpışma oldu (aksi halde regret anlamsız)
     const combatVolume = (oracle ? (oracle.reward.raw.enemyLost + oracle.reward.raw.ownLost) : 0) +
-        (chosen.raw.enemyLost + chosen.raw.ownLost);
-    const active = combatVolume > 0;
+        (chosen ? (chosen.raw.enemyLost + chosen.raw.ownLost) : 0);
+    // ROLLOUT'SUZ KİPTE "aktif" rollout-çarpışmasından okunamaz → temas ölçütü olarak minEnemyDist
+    // kullanılır (klonlamada zaten amaç kod-AI'ın kararını taklit etmek; regret filtresi geçerli değil).
+    const active = config.bcOnly ? (minEnemyDist < 2000) : (combatVolume > 0);
     // TAVAN regret'i: mükemmel seçici varsayılanı "sürdür"meyi de seçebilir → hiç varsayılandan kötü yapmaz.
     // regretCeiling = max(0, en_iyi_aday − chosen). İşaretli regret ise gramerin varsayılanı yendiği/kaybettiği
     // noktaları gösterir (negatif = taze-operasyon enjeksiyonu momentum kaybettiriyor, tipik mid-icra).
@@ -499,7 +547,9 @@ function battleOracleEvaluate(config = {}) {
         dataset = {
             stateVersion: STATE_FEATURES_VERSION, candidateVersion: CANDIDATE_FEATURES_VERSION,
             sideRed, decisionTick: SIM.tick, minEnemyDist: Math.round(minEnemyDist), active,
-            chosenReward: +chosen.scalar.toFixed(2), stateFeatures,
+            chosenReward: chosen ? +chosen.scalar.toFixed(2) : null, stateFeatures,
+            bcOnly: !!config.bcOnly,   // ödül alanları YOK demektir (rollout koşulmadı) — eğitim bunu görsün
+            kodPlan: _kodPlan,   // DAVRANIŞ KLONLAMA ETİKETİ (kod-AI'ın EYLEMİ; sonucu chosenReward'da)
             // DEĞER-FONKSİYONU GİRDİSİ: ödül çevrimdışı yeniden hesaplanacak (w·ΔV + (1−w)·oracle).
             // Değer ağı OYUN ANINDA gerekmez — yalnız etiketlemede. Bu yüzden model JS'e taşınmaz
             // ve determinizm riske girmez. Öznitelikler `js/BattleStateFeatures.js` ile üretilir
@@ -507,8 +557,15 @@ function battleOracleEvaluate(config = {}) {
             durumBas: stateStart, chosenDurumSon: chosenStateEnd,
             rows: results.map(r => ({
                 intent: r.intent, mainSector: r.mainSector, tempo: r.tempo,
+                // KODLAMADAN BAĞIMSIZ EŞLEŞTİRME KANCASI (davranış klonlama): adayın MAIN hedef noktası.
+                // Kod-AI planı sektörü "center" gibi ETİKETLE, aday ise sayısal hücreyle söylüyor; iki
+                // sözlük birbirine çevrilmiyor. Nokta ise ortak dil: eşleştirme = aynı intent + en yakın nokta.
+                nokta: (typeof opgSectorCenter === 'function')
+                    ? (function (c) { const p = opgSectorCenter(c.mainSector); return p ? [Math.round(p.x), Math.round(p.y)] : null; })(candidates[r.index])
+                    : null,
                 features: battleCandidateFeatures(candidates[r.index], ctx),
-                reward: +r.reward.scalar.toFixed(2), rewardRaw: r.reward.raw,
+                reward: r.reward ? +r.reward.scalar.toFixed(2) : null,
+                rewardRaw: r.reward ? r.reward.raw : null,
                 durumSon: r.stateEnd
             }))
         };
@@ -518,11 +575,12 @@ function battleOracleEvaluate(config = {}) {
         dataset, bestInjection,
         active, minEnemyDist: Math.round(minEnemyDist), combatVolume: Math.round(combatVolume),
         sideRed, controllerId, decisionTick: SIM.tick, rolloutTicks, candidateCount: candidates.length,
-        chosen: { scalar: +chosen.scalar.toFixed(1), raw: chosen.raw, ran: chosenRan },
+        // ROLLOUT'SUZ KIPTE odul yok -> null dondurulur (sahte 0 yazmak yanlis etiket olurdu)
+        chosen: chosen ? { scalar: +chosen.scalar.toFixed(1), raw: chosen.raw, ran: chosenRan } : null,
         oracle: oracle ? { intent: oracle.intent, mainSector: oracle.mainSector, tempo: oracle.tempo, scalar: +oracle.reward.scalar.toFixed(1), raw: oracle.reward.raw } : null,
         regret: +regret.toFixed(1), regretCeiling: +regretCeiling.toFixed(1),
-        top5: results.slice(0, 5).map(r => ({ intent: r.intent, sector: r.mainSector, tempo: r.tempo, scalar: +r.reward.scalar.toFixed(1) })),
-        worst: results.length ? { intent: results[results.length - 1].intent, scalar: +results[results.length - 1].reward.scalar.toFixed(1) } : null
+        top5: config.bcOnly ? [] : results.slice(0, 5).map(r => ({ intent: r.intent, sector: r.mainSector, tempo: r.tempo, scalar: +r.reward.scalar.toFixed(1) })),
+        worst: (!config.bcOnly && results.length) ? { intent: results[results.length - 1].intent, scalar: +results[results.length - 1].reward.scalar.toFixed(1) } : null
     };
 }
 

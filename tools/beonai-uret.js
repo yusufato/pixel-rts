@@ -36,6 +36,10 @@ const KIRMIZI = arg('--taraf', 'kirmizi') !== 'mavi';
 // seciyor). Ogretmen (rollout+odul) TAM BILGI kalir; modele verilen oznitelikler perception'dan.
 const PERCEPTION = !process.argv.includes('--tambilgi');
 const CIKTI = arg('--out', 'qa-runtime/beonai-veri.jsonl');
+// ROLLOUT'SUZ KIP (davranis klonlama): karsi-olgusal rollout KOSULMAZ. Etiket `kodPlan`'dan gelir,
+// odul (rows[].reward) uretilmez. Maliyetin ~%99'u rollout oldugu icin uretim kat kat hizlanir.
+// Deger-fonksiyonu oznitelikleri de gereksizdir (odul yeniden hesaplanmayacak) -> collectStateFeatures kapali.
+const BC_ONLY = process.argv.includes('--bconly');
 
 // Tohum havuzu — caprazla ile AYNI tarama havuzu (veri ve değerlendirme aynı dünyalardan gelsin,
 // ama değerlendirme dışörneklem/final havuzlarında yapılır → eğitim verisine sızma olmaz).
@@ -64,7 +68,7 @@ function macVerisi(ctx, seed) {
         '    if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);' +
         '    if (SIM.tick >= ' + MIN_TICK + ' && (SIM.tick % ' + KARAR_ARALIGI + ') === 0) {' +
         // collectDataset:true → (stateFeatures, [aday: candidateFeatures + rollout ödülü]) listwise tuple'ı
-        '      const r = battleOracleEvaluate({ sideRed: ' + KIRMIZI + ', rolloutSec: ' + ROLLOUT_SN + ', collectDataset: true, collectStateFeatures: true, perceptionFeatures: ' + PERCEPTION + ' });' +
+        '      const r = battleOracleEvaluate({ sideRed: ' + KIRMIZI + ', rolloutSec: ' + ROLLOUT_SN + ', collectDataset: true, collectStateFeatures: ' + (BC_ONLY ? 'false' : 'true') + ', bcOnly: ' + BC_ONLY + ', perceptionFeatures: ' + PERCEPTION + ' });' +
         '      if (r && !r.err) {' +
         '        kararSayisi++; rolloutSayisi += (r.candidateCount || 0) + 1;' +
         '        ornekler.push({ seed: ' + seed + ', tick: SIM.tick, sideRed: ' + KIRMIZI + ', veri: r.dataset || null,' +
