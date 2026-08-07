@@ -29,6 +29,14 @@ kurgunun kendisidir. Tarif içeriğini ölçümden önce yazdır.
 `resupplyRun` pro-KAPALI ölçüldü (%19 kuruluk) ama delta pro-AÇIK'a bağlandı; pro'da sorun zaten
 %0.1-3.9'du. → **Kural:** teşhis, deltanın koşacağı bayrak setiyle yapılır.
 
+**A7 — Tarif/ordu YALNIZ BİR TARAFA mı uygulandı?** *(2026-08-07, aynı gün İKİ kez)*
+Hava-hava mekanizmasını ölçerken tarif yalnız MAVİYE verildi; kırmızıda tek silahsız keşif İHA'sı
+vardı → "kilit %0.4" çıktı ve mekanizma **hiç sınanmamış** oldu. Aynı gün ikinci vaka: hedef-uygunluk
+ölçümünde MAVİ ordusu `battleDeployManifest` ile HİÇ kurulmadı → kırmızı 12/12 kazandı, marj 6428.
+→ **Kural:** her ölçüm, **her iki tarafın** kadrosunu (birim sayısı + sınanan tipin adedi) BAŞLIKTA
+yazdırır. Kırmızı için `BATTLE_RECIPE_RED`, mavi için `battleDeployManifest(..., { ally: true })`.
+Bağlanma kanıtı görünmeden tablo okunmaz. *(Bkz. B2 — aynı kuralın delta tarafı.)*
+
 ---
 
 ## B. İZOLASYON (A/B kurulumu)

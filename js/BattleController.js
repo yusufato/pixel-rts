@@ -62,12 +62,29 @@ function normalizeBattleOrder(order) {
     };
 }
 
+// TITREME KOK-NEDENI (KULLANICI: "birlik titremeleri cok sinir bozucu; kamikazenin her cikisinda oluyor")
+// OLCULDU (tools/titreme-tik.js, tik cozunurlugu): kamikaze dron IKI KOMUTANLI idi. AI kontroloru onu bir
+// manevra birligi sayip grup hedefine MOVE emri veriyor; dronun kendi dalis mantigi ise dusman hedefine
+// cekiyor. Ikisi tik tik birbirini eziyordu -> dron iki nokta arasinda TAM salinim yapiyor:
+//   (2616.91,3027.65) <-> (2603.42,3028.06), her tik 180 derece, adim 13.5px (azami hiz), std SIFIR.
+// Saniyede 5.28 ters donus; ayni macta diger TUM birimler <0.6. Cevre birim 80px uzakta (carpisma DEGIL),
+// yakit dolu, RTB kapali, baski sifir -> tek aciklama komut cakismasi.
+// Kamikaze tek-kullanimlik MUHIMMATTIR, manevra birligi degil: yolunu kendi dalis mantigi belirler.
+function battleKamikazeMi(unit) {
+    const s = unit && STATS[unit.type];
+    return !!(s && s.singleUse && s.domain === 'air');
+}
+
 function applyBattleOrder(rawOrder) {
     const order = normalizeBattleOrder(rawOrder);
     if (order.kind === BATTLE_ORDER_KIND.MOVE) {
         for (const destination of order.destinations) {
             const unit = battleUnitById(destination.id);
             if (!unit) continue;
+            // KAMIKAZE: AI'nin hareket emri onu KAPSAMAZ (yukaridaki titreme kok-nedeni).
+            // Oyuncu emri ayri yoldan (player-move) gelir ve etkilenmez.
+            if (typeof battleHedefUygun === 'function' && battleHedefUygun(unit.isRed) &&
+                battleKamikazeMi(unit)) continue;
             const safe = typeof terrainSafePoint === 'function'
                 ? terrainSafePoint(destination.x, destination.y)
                 : destination;
@@ -81,9 +98,25 @@ function applyBattleOrder(rawOrder) {
     } else if (order.kind === BATTLE_ORDER_KIND.ATTACK) {
         const target = battleUnitById(order.targetId);
         if (!target) return false;
+        // TESLİM OLMUŞ (terk edilmiş) hedefe AI saldır emri VERMEZ. Ateş kesme `performAttack`'te de var;
+        // burası emir kilidinin hiç kurulmamasını sağlar (bayat emir sonradan ateş açtırmasın).
+        // Oyuncunun kendi saldır emri ayrı yoldan gelir (`player-attack`) ve etkilenmez.
+        // GEREKÇE varsa emir GEÇERLİ (düşman istihkâmı tamire geliyor / zemin düşmanın).
+        if (target.abandoned && typeof battleTeslimAtesKes === 'function' && battleTeslimAtesKes() &&
+            !(typeof battleTeslimImhaGerekce === 'function' && battleTeslimImhaGerekce(!target.isRed, target))) return false;
         for (const id of order.unitIds) {
             const unit = battleUnitById(id);
             if (!unit || unit.isRed === target.isRed) continue;
+            // KAMIKAZE: hedefini KENDİ dalış mantığı seçer (taahhüt + son-konum takibi). AI'nın SALDIR
+            // emri manualTarget'ı ezip her karar turunda başka hedefe çevirdiğinde dron salınıma girer.
+            if (typeof battleHedefUygun === 'function' && battleHedefUygun(unit.isRed) &&
+                battleKamikazeMi(unit)) continue;
+            // HEDEF UYGUNLUĞU: vuramayacağı hedefe emir verme (havan→İHA, MANPADS→kara birliği).
+            // Emir atlanır → birim kendi otomatik hedef edinmesine döner (o yol uygunluğu zaten süzer).
+            // Ölçüldü: emirsiz hâlde kilitlerin %44.6'sı vurulamaz hedefteydi; birim nişan alıp bekliyordu.
+            if (typeof battleHedefUygun === 'function' && battleHedefUygun(unit.isRed) &&
+                typeof unitCanEngage === 'function' &&
+                !unitCanEngage(STATS[unit.type], STATS[target.type])) continue;
             unit.manualTarget = target;
             unit.manualMoveTarget = null;
             unit.isMovingToManualTarget = false;

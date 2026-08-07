@@ -46,6 +46,8 @@ function unitLoaderBuild(db) {
             rof: w.rof, salvo: w.salvo || 1, aoe: (w.aoe || 0) * TILE_PX,
             targets: w.targets || ['ground'], indirect: !!w.indirect,
             interceptable: !!w.interceptable,   // nokta-savunma (SAM) bu mermiyi önleyebilir mi
+            airToAir: !!w.airToAir,             // HAVA-HAVA: BATTLE_HAVA_HAVA kapalıyken yok sayılır (A/B anahtarı)
+            perShot: w.perShot || 0,            // >0 ise İKİNCİL silah da mühimmat tüketir (sınırsız füze olmasın)
             consumesSelf: !!w.consumesSelf, accuracy: w.accuracy || null,
             rangeByTarget: w.rangeByTarget
                 ? { air: Math.round((w.rangeByTarget.air || 0) * RANGE_PX), ground: Math.round((w.rangeByTarget.ground || 0) * RANGE_PX) }
@@ -97,12 +99,31 @@ function unitLoaderBuild(db) {
     return { T, STATS, ID_BY_INDEX, CONST, TILE_PX };
 }
 
+// HAVA-HAVA anahtarı: airToAir işaretli silah, BATTLE_HAVA_HAVA kapalıyken YOK sayılır (temiz A/B kolu).
+function weaponAktif(w) {
+    if (!w) return false;
+    if (w.airToAir && typeof BATTLE_HAVA_HAVA !== 'undefined' && !BATTLE_HAVA_HAVA) return false;
+    return true;
+}
+
+// BİRİNCİL silah bu hedefi vurabiliyor mu? (calculateUnitDamage YALNIZ weapons[0]'ı okur — bu yüzden
+// "herhangi silah vurabiliyor" ile "birincil ateş anlamlı" AYNI SORU DEĞİL. İkincisi olmadan helo, hava
+// hedefine kilitlenip ATGM'ini sıfır hasarla boşaltır.) small_arms→alçak-kamikaze istisnası KORUNUR.
+function unitPrimaryCanEngage(attackerStats, targetStats) {
+    if (!attackerStats || !targetStats || !attackerStats.weapons || !attackerStats.weapons.length) return false;
+    const w = attackerStats.weapons[0];
+    const tDomain = targetStats.domain || 'ground';
+    if (weaponAktif(w) && (w.targets || []).includes(tDomain)) return true;
+    if (tDomain === 'air' && targetStats.singleUse && w.damageType === 'small_arms') return true;
+    return false;
+}
+
 // hava/kara uygunluk: attacker'ın herhangi bir silahı target'ın domain'ini vurabiliyor mu?
 function unitCanEngage(attackerStats, targetStats) {
     if (!attackerStats || !targetStats || !attackerStats.weapons) return false;
     const tDomain = targetStats.domain || 'ground';
     for (const w of attackerStats.weapons) {
-        if ((w.targets || []).includes(tDomain)) return true;
+        if (weaponAktif(w) && (w.targets || []).includes(tDomain)) return true;
     }
     // KULLANICI-FIX: small_arms'lı kara-birim (piyade/komando + tüfekli) ALÇAK KAMİKAZE-DRONE'a (air+singleUse) ateş edebilir →
     // dron artık ground-bağışık değil (small_arms vs air ×0.15 = zayıf-ama-sayıca-söker). Helo/İHA (singleUse-değil) etkilenmez.

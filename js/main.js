@@ -297,8 +297,11 @@ document.getElementById('btn-trench').addEventListener('click', (e) => {
 // AKTİF = oyuncu-tetikli (player-ability kuyruğu, replay-güvenli). PASİF = motor otomatik tetikler (bilgi-çipi).
 // need(u): birim bu yeteneği kullanabilir mi. targeted: haritada yer seçmeli mi.
 const ABILITY_META = {
-    lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: false, need: u => u.type === T.ENGINEER },
+    // KEŞİF ARACI da mayın döşer (kullanıcı isteği): hızlı, gizli ve ileride olan birim — geçiş noktasını
+    // erken kapatmak doğal işi. İstihkâm hâlâ mayın temizleyen tek birim.
+    lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: false, need: u => u.type === T.ENGINEER || u.type === T.RECON },
     build_fortification: { label: 'SİPER KAZ',  icon: '⛏',  active: true,  targeted: true,  need: u => u.type === T.ENGINEER },
+    build_hospital:      { label: 'HASTANE KUR', icon: '🏥', active: true, targeted: true,  need: u => u.type === T.MEDIC },
     unload:              { label: 'İNDİR',      icon: '🪖', active: true,  targeted: false, need: u => u.transportSlots > 0 && u.cargo && u.cargo.length > 0 },
     launch_drone:        { label: 'DRONE SAL',  icon: '🛩', active: true,  targeted: true,  need: u => u.type === T.DRONE_OPERATOR && (u.payloadCount == null || u.payloadCount > 0) },
     // PASİF (otomatik) — panelde bilgi-çipi:
@@ -1116,6 +1119,20 @@ function drawMap() {
         const zr = t.r * zoom;
         if (s.x < -zr || s.x > canvas.width + zr || s.y < -zr || s.y > canvas.height + zr) continue;
         
+        // ── SAHRA HASTANESİ: siperden AYRI görünür (beyaz halka + kızılhaç). Mühimmat vermez, iyileştirir.
+        if (t.isHospital) {
+            ctx.strokeStyle = t.isRed ? 'rgba(235,180,180,0.9)' : 'rgba(235,235,245,0.9)';
+            ctx.lineWidth = 5 * zoom;
+            ctx.beginPath(); ctx.arc(s.x, s.y, zr, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = t.isRed ? 'rgba(90,40,40,0.22)' : 'rgba(210,225,235,0.16)';
+            ctx.fill();
+            const c = 10 * zoom;
+            ctx.fillStyle = 'rgba(225,60,60,0.95)';
+            ctx.fillRect(Math.round(s.x - c * 0.28), Math.round(s.y - c), Math.round(c * 0.56), Math.round(c * 2));
+            ctx.fillRect(Math.round(s.x - c), Math.round(s.y - c * 0.28), Math.round(c * 2), Math.round(c * 0.56));
+            continue;
+        }
+
         // Kum torbası ve mühimmat ikmal halkası.
         ctx.strokeStyle = t.isRed ? 'rgba(205, 105, 95, 0.9)' : 'rgba(178, 151, 84, 0.95)';
         ctx.lineWidth = 6 * zoom;
@@ -1150,6 +1167,32 @@ function drawMap() {
             ctx.fillRect(s.x - 15*zoom, s.y - zr - 10*zoom, 30*zoom, 4*zoom);
             ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
             ctx.fillRect(s.x - 15*zoom, s.y - zr - 10*zoom, (30*zoom) * (t.hp / fieldMaxHp), 4*zoom);
+        }
+    }
+
+    // ── HALE YARIÇAPLARI GÖRÜNÜR (kullanıcı: "ikmal aracının ne kadar alana ikmal verdiğini görmek
+    // istiyorum, şu an tahmini yaklaştırıp ikmal yaptırıyorum") ──
+    // KENDİ destek araçlarının etki alanı çizilir: ikmal (mühimmat/yakıt), sağlıkçı (iyileştirme),
+    // istihkâm (tamir). Yarıçap VERİDEN okunur (STATS.aura.radius × TILE_PX) — sabit kopyalanmaz,
+    // veri değişirse çizim de değişir. Yalnız görsel: simülasyona dokunmaz, determinizmi etkilemez.
+    {
+        const _TP = (typeof TILE_PX !== 'undefined') ? TILE_PX : 100;
+        const _renk = { resupply: 'rgba(120,200,255,', heal: 'rgba(120,255,170,', repair: 'rgba(255,200,110,' };
+        for (const u of SIM.units) {
+            if (u.dead || u.loaded || u.isRed) continue;              // yalnız KENDİ birimlerin
+            const a = STATS[u.type] && STATS[u.type].aura;
+            if (!a || !_renk[a.type]) continue;
+            const R = (a.radius || 3) * _TP;
+            const p = worldToScreen(u.x, u.y);
+            const zr2 = R * zoom;
+            if (p.x < -zr2 || p.x > canvas.width + zr2 || p.y < -zr2 || p.y > canvas.height + zr2) continue;
+            ctx.setLineDash([10 * zoom, 8 * zoom]);
+            ctx.strokeStyle = _renk[a.type] + '0.40)';
+            ctx.lineWidth = Math.max(1, 1.6 * zoom);
+            ctx.beginPath(); ctx.arc(p.x, p.y, zr2, 0, Math.PI * 2); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = _renk[a.type] + '0.05)';
+            ctx.fill();
         }
     }
 

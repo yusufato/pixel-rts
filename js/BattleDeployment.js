@@ -66,6 +66,16 @@ function battleTacticalSurrogateDrive(side) {
     for (const u of SIM.units) { if (u.dead) continue; (u.isRed === side ? own : foe).push(u); }
     if (!own.length || !foe.length) return;
     own.sort((a, b) => a.id - b.id); foe.sort((a, b) => a.id - b.id);
+    // HEDEF UYGUNLUĞU (vekil kolu): vekil de vuramayacağı hedefi göstermesin. Emir katmanında ölçülen
+    // kusurun aynısı burada da vardı (havan→İHA, MANPADS→kara). `null` dönerse birim kendi otomatik
+    // hedef edinmesine bırakılır — o yol uygunluğu zaten süzer. Determinist (RNG yok).
+    const _uygunHedef = (u, tercih) => {
+        if (!u || !tercih) return tercih || null;
+        if (typeof battleHedefUygun !== 'function' || !battleHedefUygun(u.isRed)) return tercih;
+        if (typeof unitCanEngage !== 'function') return tercih;
+        if (unitCanEngage(STATS[u.type], STATS[tercih.type])) return tercih;
+        return null;
+    };
     // kendi kütle-merkezi → EN YAKIN düşmanı hedefle (konsantrasyon; birer birer erit — 2v1 yerel üstünlük)
     let cx = 0, cy = 0; for (const u of own) { cx += u.x; cy += u.y; } cx /= own.length; cy /= own.length;
     let target = foe[0], bestD = Infinity;
@@ -78,7 +88,8 @@ function battleTacticalSurrogateDrive(side) {
         const lineX = anchor.x, lineY = (anchor.y * 0.7 + cy * 0.3);
         own.forEach((u, i) => {
             if (u.type === T.MEDIC) return;
-            u.attackTarget = target; u.manualTarget = target;   // konsantre karşı-ateş (menzile girince motor ateşler)
+            const _h = _uygunHedef(u, target);
+            u.attackTarget = _h; u.manualTarget = _h;   // konsantre karşı-ateş (menzile girince motor ateşler)
             const spread = (i - (own.length - 1) / 2) * 42;      // sıkı savunma hattı (konsantre)
             const d = terrainSafePoint(lineX + spread, lineY);
             u.targetX = d.x; u.targetY = d.y; u.manualMoveTarget = d; u.isMovingToManualTarget = true;
@@ -109,7 +120,8 @@ function battleTacticalSurrogateDrive(side) {
         const fixers = own.filter(u => u.type !== T.MEDIC && !flankers.has(u.id)).sort((a, b) => a.id - b.id);
         fixers.forEach((u, i) => {
             const tf = foesByLat[Math.floor(i * foesByLat.length / Math.max(1, fixers.length))] || target;
-            u.attackTarget = tf; u.manualTarget = tf;
+            const _htf = _uygunHedef(u, tf);
+            u.attackTarget = _htf; u.manualTarget = _htf;
             u.targetX = tf.x; u.targetY = tf.y; u.manualMoveTarget = { x: tf.x, y: tf.y }; u.isMovingToManualTarget = true;
         });
         for (const u of own) {
@@ -118,7 +130,8 @@ function battleTacticalSurrogateDrive(side) {
                 u.attackTarget = null; u.manualTarget = null;
                 u.targetX = wp.x; u.targetY = wp.y; u.manualMoveTarget = { x: wp.x, y: wp.y }; u.isMovingToManualTarget = true;
             } else {                                          // arkaya vardı → en arkadaki düşmanı vur (sarma tamam)
-                u.attackTarget = rearFoe; u.manualTarget = rearFoe;
+                const _hr = _uygunHedef(u, rearFoe);
+                u.attackTarget = _hr; u.manualTarget = _hr;
                 u.targetX = rearFoe.x; u.targetY = rearFoe.y; u.manualMoveTarget = { x: rearFoe.x, y: rearFoe.y }; u.isMovingToManualTarget = true;
             }
         }
@@ -127,7 +140,8 @@ function battleTacticalSurrogateDrive(side) {
     // SALDIRAN-vekil (varsayılan): TÜM muharip birlikler hedefe konsantre yüklen + odaklı ateş
     for (const u of own) {
         if (u.type === T.MEDIC) continue;               // sağlıkçı geride
-        u.attackTarget = target; u.manualTarget = target;
+        const _ht = _uygunHedef(u, target);
+        u.attackTarget = _ht; u.manualTarget = _ht;
         u.targetX = target.x; u.targetY = target.y;
         u.manualMoveTarget = { x: target.x, y: target.y }; u.isMovingToManualTarget = true;
     }

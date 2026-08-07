@@ -2,7 +2,7 @@
 // Hızlı Maç, Hikâye, Multiplayer ve QA aynı reset, harita, RNG ve kural
 // kurulumundan geçer. Modlar yalnız başlangıç verisi sağlar; motor değiştiremez.
 
-const BATTLE_ENGINE_VERSION = 'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair';   // + nokta-savunma HAVADA önliyor (kesişme tik'i)
+const BATTLE_ENGINE_VERSION = 'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair-a2a';   // + HAVA-HAVA: helo/SİHA hava hedefi vurur
 const BATTLE_TICK_MS = 50;
 const BATTLE_TICK_SEC = BATTLE_TICK_MS / 1000;
 const BATTLE_MAX_STEPS_PER_FRAME = 8;
@@ -983,10 +983,14 @@ function battleApplyRecordedEvent(event) {
             const u = battleUnitById(id);
             if (!u || u.dead) continue;
             if (ab === 'lay_mines') {
-                if (u.type !== T.ENGINEER) continue;
+                if (u.type !== T.ENGINEER && u.type !== T.RECON) continue;   // keşif aracı da döşer (kullanıcı isteği)
                 SIM.mines.push({ x: u.x, y: u.y, r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46), isRed: u.isRed, armed: false, createdAt: SIM.tick * BATTLE_TICK_MS, armDelay: 1500 });
             } else if (ab === 'build_fortification') {
                 if (u.type !== T.ENGINEER) continue;
+                u.buildTrenchTarget = { x: payload.x, y: payload.y };
+                u.manualTarget = null; u.manualMoveTarget = null; u.attackTarget = null;
+            } else if (ab === 'build_hospital') {   // SAHRA HASTANESİ: sağlıkçı sabit tesis kurar (siperle aynı listeye)
+                if (u.type !== T.MEDIC) continue;
                 u.buildTrenchTarget = { x: payload.x, y: payload.y };
                 u.manualTarget = null; u.manualMoveTarget = null; u.attackTarget = null;
             } else if (ab === 'unload') {

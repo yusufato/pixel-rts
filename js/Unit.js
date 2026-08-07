@@ -158,6 +158,11 @@ class Unit {
             }
             if (repSide !== null) {
                 this.hp = Math.min(this.maxHp, this.hp + 0.55 * (dtSec * 60));   // istihkam sahada tamir eder
+                // İMHA GEREKÇESİ İÇİN OLAY İŞARETİ: araç FİİLEN tamir ediliyor. Karşı taraf bunu görüp
+                // ganimeti inkâr edebilir. Konuma dayalı gerekçe (yakında istihkâm var / etraf kalabalık)
+                // ÖLÇÜLDÜ ve kural hâline geliyordu (teslim-sonrası atış 0.0 → 7.9-12.1); tamir OLAYI ise
+                // nadir ve kesin: tamir yoksa araç zaten ele geçirilemez.
+                this._tamirTick = SIM.tick; this._tamirSide = repSide;
                 if (this.hp >= this.maxHp * 0.45) {   // yeterince onarıldı → ELE GEÇİRİLDİ (tamir eden tarafın olur)
                     this.abandoned = false; this.isRed = repSide;
                     this.controlOwner = repIsPlayer ? 'PLAYER' : (typeof CONTROL_OWNER !== 'undefined' ? CONTROL_OWNER.ENEMY_AI : 'ENEMY_AI');
@@ -459,7 +464,15 @@ class Unit {
             this._motionProbeX = this.x;
             this._motionProbeY = this.y;
             this._motionProbeTick = SIM.tick;
-            if (this._motionStalls >= 1 && _gridMode) {
+            // TITREME KOK-NEDENI (KULLANICI: "birlik titremeleri cok sinir bozucu... onunde birsey
+            // olmamasina ragmen sola veya saga aciliyor"). Sikisma-cozme manevrasi 92px YANA adim attirir
+            // ve tarafi HER DENEMEDE degistirir. Yan adim da ilerleme uretmezse yeni deneme gelir, taraf
+            // ters doner -> tam gaz sag-sol pinpon. Kendini besleyen dongu.
+            // HAVA: ucan birim araziye SIKISAMAZ (dag/su uzerinden ucar) -> bu manevra ona hic uygulanmamali.
+            // OLCULDU (tools/titreme-tik.js): dron tam salinimda 13.49px'lik adimlarla ±yon degistiriyordu;
+            // katki dagilimi hareket %100 / carpisma %0 -> kaynak bu manevra.
+            if (this._motionStalls >= 1 && _gridMode &&
+                !(battleUnstickFix() && this.isAir)) {
                 const _goalAngle = Math.atan2(
                     this.targetY - this.y,
                     this.targetX - this.x
@@ -467,7 +480,17 @@ class Unit {
                 this._unstickAttempts = (this._unstickAttempts || 0) + 1;
                 // Aynı taraftaki engel boyunca aynı başarısız yan-adımı
                 // tekrarlama; her denemede tarafı deterministik olarak değiştir.
-                const _side = ((this.id + this._unstickAttempts) & 1) ? 1 : -1;
+                // ── TARAF YAPIŞKANLIĞI (kullanıcı: kalabalıkta / emir sonrası titreme) ──
+                // Tarafı HER denemede ters çevirmek, engelin etrafından dolaşmayı değil SALINIMI üretiyor:
+                // sağa 92px → ilerleme yok → sola 92px → ilerleme yok → ... Gerçek engel-aşma tek yönde
+                // ISRAR ister (duvar takibi). Bu yüzden taraf EPİZOT boyunca sabit kalır ve ancak 3
+                // başarısız denemeden sonra değişir. Epizot, birim gerçekten ilerleyince sıfırlanır (aşağıda).
+                if (!this._unstickPoint) this._unstickEpisodeTries = 0;
+                this._unstickEpisodeTries = (this._unstickEpisodeTries || 0) + 1;
+                const _sideBase = battleUnstickFix()
+                    ? (this.id + Math.floor((this._unstickEpisodeTries - 1) / 3))
+                    : (this.id + this._unstickAttempts);
+                const _side = (_sideBase & 1) ? 1 : -1;
                 const _escape = {
                     x: this.x + Math.cos(_goalAngle + _side * Math.PI / 2) * 92,
                     y: this.y + Math.sin(_goalAngle + _side * Math.PI / 2) * 92
@@ -586,12 +609,22 @@ class Unit {
             }
         }
         this.elevation = (typeof elevationAt === 'function') ? elevationAt(this.x, this.y) : 0.5;   // T2: harita-geneli sürekli yükselti
+        this.inHospital = false;
         for (const t of SIM.trenches) {
-            if (t.isRed === this.isRed && Math.hypot(this.x - t.x, this.y - t.y) < t.r) {
-                this.inTrench = true;
-                this.inSupply = t.providesSupply !== false;
-                break;
-            }
+            if (t.isRed !== this.isRed || Math.hypot(this.x - t.x, this.y - t.y) >= t.r) continue;
+            if (t.isHospital) { this.inHospital = true; continue; }   // hastane siper ÖRTÜSÜ saymaz (tesis, mevzi değil)
+            this.inTrench = true;
+            this.inSupply = t.providesSupply !== false;
+            break;
+        }
+        // SAHRA HASTANESİ: içindeki dost PİYADE iyileşir (sağlıkçı halesiyle aynı hedef kitlesi).
+        // Sağlıkçı gezerken hale taşır; hastane SABİT kalır — asıl farkı budur.
+        // ÖLÇEK: saniye-başı, `applyUnitAura` ile AYNI (BATTLE_TICK_SEC). Buradaki eski `frameScale`
+        // kullanımları (0.18 * frameScale) farklı bir ölçek — hastaneyi ona uydurursak hp/sn tutmaz.
+        if (this.inHospital && this.hp < this.maxHp && this.hp > 0 && !this.dead &&
+            STATS[this.type] && STATS[this.type].armorType === 'infantry') {
+            const _dt = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
+            this.hp = Math.min(this.maxHp, this.hp + HASTANE_HEAL_SN * _dt);
         }
 
         if (this.inSupply && !this.supplyCut && this.ammo < this.maxAmmo) {   // T3 LOJİSTİK: hat kesikse siperde bile ikmal gelmez
@@ -612,6 +645,44 @@ class Unit {
             this.hp = Math.min(this.maxHp, this.hp + 0.18 * frameScale);
         }
         
+        // ── SAHRA HASTANESİ (kullanıcı: "sağlık aracı da hastane kursun, sipere göre biraz daha büyük") ──
+        // Sağlıkçının HALESİ 300px ve kendisiyle birlikte gezer; hastane ise SABİT bir tesis: kurulduğu yerde
+        // kalır, sağlıkçı ölse/gitse de çalışır. Yapı olarak siperle aynı listeye (SIM.trenches) yazılır —
+        // böylece replay/fork/hash yolları zaten destekler (yeni koleksiyon = yeni determinizm riski).
+        if (this.type === T.MEDIC && this.buildTrenchTarget) {
+            const _hs = typeof terrainSafePoint === 'function'
+                ? terrainSafePoint(this.buildTrenchTarget.x, this.buildTrenchTarget.y)
+                : this.buildTrenchTarget;
+            this.buildTrenchTarget = _hs;
+            const _hd = Math.hypot(this.x - _hs.x, this.y - _hs.y);
+            if (_hd > 10) {
+                this.targetX = _hs.x; this.targetY = _hs.y;
+                this.manualMoveTarget = { x: _hs.x, y: _hs.y };
+                this.isMovingToManualTarget = true;
+            } else {
+                this.buildTrenchTimer += frameScale / 60;
+                if (this.buildTrenchTimer > HASTANE_KURMA_SN) {
+                    SIM.trenches.push({
+                        x: this.x, y: this.y,
+                        r: HASTANE_R,                 // siperden (SIPER_R) belirgin ama abartısız büyük
+                        isRed: this.isRed,
+                        hp: 260, maxHp: 260,
+                        providesSupply: false,        // hastane MÜHİMMAT vermez — yalnız iyileştirir
+                        providesAir: false,
+                        isHospital: true,
+                        healPerSec: HASTANE_HEAL_SN,
+                        builderId: this.id,
+                        refuelsLeft: null,
+                        createdAt: now,
+                        expiresAt: now + SUPPLY_FIELD_DURATION_MS
+                    });
+                    this.buildTrenchTarget = null;
+                    this.buildTrenchTimer = 0;
+                    this.lastFieldBuiltAt = now;
+                }
+            }
+        }
+
         if (this.type === T.ENGINEER && this.buildTrenchTarget) {
             const safeBuild = typeof terrainSafePoint === 'function'
                 ? terrainSafePoint(this.buildTrenchTarget.x, this.buildTrenchTarget.y)
@@ -636,7 +707,7 @@ class Unit {
                     SIM.trenches.push({
                         x: this.x,
                         y: this.y,
-                        r: 105,                       // 72→105: ikmal alanı genişletildi (kullanıcı "çok küçük")
+                        r: SIPER_R,                   // 72→105→130 (kullanıcı: "siper alanını da biraz büyüt")
                         isRed: this.isRed,
                         hp: 320,
                         maxHp: 320,
@@ -2079,7 +2150,11 @@ class Unit {
         const _spearFocus = (typeof SIM !== 'undefined' && SIM.battle && (this.isRed !== (SIM.battle.attackerSide === true)) &&
             typeof battleDelta === 'function' && battleDelta(this.isRed, 'defense'));
         for (const u of nearby) {
-            if (u.dead || u.isRed === this.isRed || u.abandoned) continue;   // terk-edilmiş araç NÖTR → hedeflenmez
+            if (u.dead || u.isRed === this.isRed) continue;
+            // TERK EDİLMİŞ araç NÖTR → normalde hedeflenmez. İSTİSNA: imha GEREKÇESİ varsa (düşman
+            // istihkâmı tamire geliyor / zemin düşmanın) hedeflenebilir — yoksa AI, oyuncunun bilerek
+            // patlatabildiği ganimeti hiç savunamaz (kullanıcı: "AI dezavantajlı olurdu").
+            if (u.abandoned && !(battleTeslimAtesKes() && battleTeslimImhaGerekce(this.isRed, u))) continue;
             // HAVA/KARA UYGUNLUĞU: vuramayacağın hedefi hiç edinme (tank→hava=0, SAM→kara=0). Veri-güdümlü (weapon.targets).
             if (typeof unitCanEngage === 'function' && !unitCanEngage(__as, STATS[u.type])) continue;
 
@@ -2124,7 +2199,11 @@ class Unit {
             }
             else {
                 const arm = (typeof STATS !== 'undefined' && STATS[u.type]) ? STATS[u.type].armor : 0;
-                const dmg = (typeof calculateUnitDamage === 'function') ? calculateUnitDamage(this.type, u.type, this.atk, arm) : this.atk;
+                let dmg = (typeof calculateUnitDamage === 'function') ? calculateUnitDamage(this.type, u.type, this.atk, arm) : this.atk;
+                // HAVA-HAVA: calculateUnitDamage YALNIZ weapons[0]'ı okur. Helonun ATGM'i havaya 0 verir →
+                // hava hedefi 0 puan alıp listenin sonuna düşerdi (kara hedefi bittiğinde ancak fark ederdi).
+                // Birincil vuramıyorsa puanı vurabilen İKİNCİL silahtan hesapla → helo heloyu gerçekten AVLAR.
+                if (dmg <= 0) dmg = this._ikincilHasar(u);
                 sc = dmg / (1 + d * 0.012);   // counter-hasarı / yakınlık (yüksek=iyi eşleşme+yakın)
                 if (this._autoAir && u.isAir) sc *= 2.5;   // AUTO_ENGAGE_AIR: SPAAG önce havayı vurur (hava-savunma önceliği)
                 if (_spearFocus && (u.type === T.ARMOR || u.type === T.TANK_HUNTER)) sc *= 2.8;   // SAVUNMA anti-mızrak: gelen MBT/TD'ye kilitlen
@@ -2186,6 +2265,27 @@ class Unit {
     // ÇOKLU-SİLAH: 2.+ silahlar (MBT eşgüdümlü makineli, komando yıkım-şarjı) BİRİNCİL saldırıdan bağımsız,
     // kendi menzil/rof/hedefiyle ateş eder → MBT tanka ana-topla + piyadeye makineliyle aynı anda vurur (birleşik-silah).
     // Beklenen-hasar (deterministik, RNG yok). Hedef seçimi id-eşitliğiyle deterministik.
+    // İKİNCİL silahların bu hedefe karşı EN İYİ ham hasarı (0 = hiçbiri vuramaz). Determinist, RNG yok.
+    // Hedef PUANLAMASI için: birincil silahın vuramadığı hedefin değeri buradan gelir.
+    _ikincilHasar(target) {
+        const ws = STATS[this.type] && STATS[this.type].weapons;
+        const DM = (typeof UNITS_MODERN_DB !== 'undefined') ? UNITS_MODERN_DB.damageMatrix : null;
+        if (!ws || ws.length < 2 || !DM) return 0;
+        const dom = target.isAir ? 'air' : 'ground';
+        const arm = STATS[target.type] ? STATS[target.type].armorType : 'infantry';
+        let en = 0;
+        for (let i = 1; i < ws.length; i++) {
+            const w = ws[i];
+            if (typeof weaponAktif === 'function' && !weaponAktif(w)) continue;
+            if (!(w.targets || ['ground']).includes(dom)) continue;
+            const eff = (DM[w.damageType] || {})[arm] || 0;
+            if (eff <= 0) continue;
+            const v = w.damage * (w.salvo || 1) * eff;
+            if (v > en) en = v;
+        }
+        return en;
+    }
+
     fireSecondaryWeapons(now, dtSec) {
         const ws = STATS[this.type] && STATS[this.type].weapons;
         if (!ws || ws.length < 2 || this.isFleeing || this.dead) return;
@@ -2193,9 +2293,13 @@ class Unit {
         if (!DM) return;
         for (let wi = 1; wi < ws.length; wi++) {
             const w = ws[wi];
+            if (typeof weaponAktif === 'function' && !weaponAktif(w)) continue;   // HAVA-HAVA kapalıysa o silah yok sayılır
             const cdKey = '_secCd' + wi;
             this[cdKey] = (this[cdKey] || 0) - dtSec;
             if (this[cdKey] > 0) continue;
+            // MÜHİMMAT: perShot tanımlı ikincil silah depodan yer (helo hava-hava füzesi ATGM ile aynı 12'lik
+            // depoyu paylaşır → hava muharebesi kara görevinden çalar). perShot yoksa eski davranış (MBT makinelisi bedava).
+            if (w.perShot > 0 && this.maxAmmo > 0 && this.ammo < w.perShot) continue;
             const wr = w.range || 0; if (wr <= 0) continue;
             const near = SIM.spatialGrid.getNearby(this.x, this.y, wr);
             let best = null, bestScore = -1;
@@ -2235,6 +2339,7 @@ class Unit {
                 sparks: false, distress: false, xp: false   // ikincil silah: kıvılcım/imdat-çağrısı/seviye-atlama yok (eski davranış)
             });
             this[cdKey] = w.rof > 0 ? 1 / w.rof : 999;
+            if (w.perShot > 0 && this.maxAmmo > 0) this.ammo = Math.max(0, this.ammo - w.perShot);
             if (!SIM.headless && typeof spawnProjectile === 'function') {
                 const _tickSec = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
                 spawnProjectile(this.x, this.y, { x: best.x, y: best.y },   // ikincil silah (MBT makinelisi/komando şarjı) → hafif iz-mermi
@@ -2246,6 +2351,23 @@ class Unit {
 
     performAttack(now) {
         if (!this.attackTarget || this.attackTarget.dead || this.isFleeing) return;
+        // ── TESLİM OLMUŞ (terk edilmiş) HEDEFE ATEŞ ETME (kullanıcı hatası) ──
+        // Mission-kill'de mürettebat aracı terk eder (`abandoned`, gri/nötr, "Terk Edildi"). Otomatik
+        // hedefleme onu ZATEN dışlıyor (findBestVisibleEnemy) — ama o an ona KİLİTLİ olan birim kilidini
+        // bırakmıyordu: tek kontrol `dead` idi. Sonuç: teslim olmuş araca ateş sürüyordu.
+        // OYUNCUNUN ELİNDEN ALINMAZ: oyuncu bilerek "şuna saldır" dediyse (manualTarget) ateş DEVAM eder —
+        // ele geçirilmesini engellemek meşru bir tercih. Yalnız OTOMATİK kilit bırakılır.
+        if (this.attackTarget.abandoned && battleTeslimAtesKes()) {
+            const _oyuncuEmri = (this.controlOwner === 'PLAYER' && this.manualTarget === this.attackTarget);
+            // AI de GEREKÇEYLE patlatabilir (düşman istihkâmı tamire geliyor / zemin düşmanın) —
+            // aksi halde ganimeti yalnız oyuncu koruyabilir/inkâr edebilirdi.
+            const _gerekce = battleTeslimImhaGerekce(this.isRed, this.attackTarget);
+            if (!_oyuncuEmri && !_gerekce) {
+                this.attackTarget = null;
+                this.combatState = 'Teslim Olmuş';
+                return;
+            }
+        }
         if (this.maxAmmo > 0 && this.ammo <= 0 && this.type !== T.MEDIC) {   // maxAmmo=0 → mühimmat-sistemi YOK = SINIRSIZ (piyade/komando/istihkam tüfeği hep ateş eder); yalnız kapasiteli birim cephanesiz kalır
             // ANALİST-TELEMETRİ: AMMO_EMPTY — cephanesiz-kalış anı (AT-timi 4-atış + ÇNRA-salvo + topçu ekonomisi görünür; ikmal-muhasebesi altyapısı). Geçişte + throttle.
             if (this.combatState !== 'Cephanesiz' && typeof battleRecordLifeEvent === 'function' && (SIM.tick - (this._lastAmmoEvt || -999)) >= 40) {
@@ -2258,6 +2380,14 @@ class Unit {
         // HAVA/KARA UYGUNLUĞU: vuramayacağın hedefe ATEŞ ETME (mühimmat/cooldown boşa gitmesin). Emirli hedef de olabilir.
         if (typeof unitCanEngage === 'function' && !unitCanEngage(STATS[this.type], STATS[this.attackTarget.type])) {
             this.combatState = 'Vuramaz'; return;
+        }
+        // BİRİNCİL SİLAH KAPISI: hedefi yalnız İKİNCİL silah vurabiliyorsa birincil ateşi ATLA — hasar
+        // hesabı (calculateUnitDamage) weapons[0]'ı okur, yani atış sıfır hasar verir ama cooldown/mühimmat
+        // yakardı. Hedef KORUNUR (birim yaklaşmaya devam eder); vuruşu fireSecondaryWeapons yapar.
+        // Bu kusur hava-hava öncesinde de vardı: MBT, alçak kamikaze dronu ap mermisiyle boşuna dövüyordu.
+        if (typeof unitPrimaryCanEngage === 'function' &&
+            !unitPrimaryCanEngage(STATS[this.type], STATS[this.attackTarget.type])) {
+            this.combatState = 'İkincil Silah'; return;
         }
         // MİN-MENZİL ölü-bölge: havan/topçu/ÇNRA çok yakına ateş edemez.
         const __mr = STATS[this.type] ? (STATS[this.type].minRange || 0) : 0;
@@ -2867,6 +2997,10 @@ function resolveCollisions() {
         for (let j = 0; j < nearby.length; j++) {
             const b = nearby[j];
             if (b.dead || a === b || (b.loaded && battleFerryFix(b.isRed))) continue;
+            // ÇÜRÜTÜLEN HİPOTEZ (2026-08-07): "ayırma fiziği hava↔kara birimini itiyor, dron titremesi
+            // bundan" denendi (`a.isAir !== b.isAir` → atla). Titreme AZALMADI, ARTTI (ort. ters/sn
+            // 0.32 → 0.59). Yani dron salınımı çarpışma itmesinden DEĞİL. Kanıt: adım std'si SIFIR ve
+            // her adım tam 13.5px (azami hız) — itme olsaydı adım boyu düzensiz olurdu. Geri alındı.
             // Her çifti yalnız bir kez çöz. İki yönlü çözüm dar geçitlerde gereksiz
             // itme biriktiriyor ve birlikleri engel hücresine taşıyabiliyordu.
             if (b.id <= a.id) continue;

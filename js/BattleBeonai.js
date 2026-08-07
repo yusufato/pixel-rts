@@ -53,13 +53,28 @@ function battleBeonaiSurum(ad) {
     return ad ? BATTLE_BEONAI_SURUMLER[ad] || null : null;
 }
 
+// ÖZNİTELİK-DENK MOTOR SÜRÜMLERİ: modelin gördüğü öznitelik ŞEMASI aynı kaldıysa, motor sürümü
+// değişmiş olsa da model çalışabilir. Buraya YALNIZ şemayı değiştirmeyen sürümler elle yazılır —
+// otomatik gevşetme YOK, çünkü asıl amaç bayat modeli yakalamaktır.
+//   -a2a (2026-08-07): hava-hava silahı + hedef-uygunluk emri. Öznitelik şeması (1280 raster + 59 skaler)
+//   AYNI; yalnız muharebe dinamiği değişti. Modeller kullanılabilir ama a2a ÖNCESİ dinamikle eğitildi.
+const BATTLE_BEONAI_DENK_SURUMLER = {
+    'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair-a2a': [
+        'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair'
+    ]
+};
+
 // Bu sürüm mevcut motorla uyumlu mu? Uyumsuzsa model dağılım-dışıdır (bayat).
 function battleBeonaiUyumlu(ad) {
     const s = battleBeonaiSurum(ad);
     if (!s) return { uyumlu: false, sebep: 'sürüm kayıtlı değil: ' + ad };
     const simdi = (typeof BATTLE_ENGINE_VERSION !== 'undefined') ? BATTLE_ENGINE_VERSION : null;
     if (s.meta.motorSurumu && simdi && s.meta.motorSurumu !== simdi) {
-        return { uyumlu: false, sebep: 'BAYAT: ' + s.meta.motorSurumu + ' ile eğitildi, motor şimdi ' + simdi };
+        const denk = BATTLE_BEONAI_DENK_SURUMLER[simdi] || [];
+        if (denk.indexOf(s.meta.motorSurumu) < 0) {
+            return { uyumlu: false, sebep: 'BAYAT: ' + s.meta.motorSurumu + ' ile eğitildi, motor şimdi ' + simdi };
+        }
+        return { uyumlu: true, sebep: 'öznitelik-denk: ' + s.meta.motorSurumu + ' (dinamik değişti, şema aynı)' };
     }
     return { uyumlu: true, sebep: null };
 }

@@ -252,7 +252,11 @@ const UNITS_MODERN_DB = {
       "weapons": [
         { "name": "ATGM podu", "damage": 200, "damageType": "shaped", "range": 12, "minRange": 1,
           "rof": 0.5, "aoe": 0.6, "targets": ["ground"], "indirect": false,
-          "accuracy": { "base": 0.84, "optimalRange": 7, "falloff": 0.30, "vsMoving": 0.30, "ignoresCover": 0.6 } }
+          "accuracy": { "base": 0.84, "optimalRange": 7, "falloff": 0.30, "vsMoving": 0.30, "ignoresCover": 0.6 } },
+        { "name": "hava-hava fuzesi", "damage": 110, "damageType": "sam", "range": 9, "minRange": 0,
+          "rof": 0.4, "aoe": 0, "targets": ["air"], "indirect": false,
+          "airToAir": true, "perShot": 1,
+          "accuracy": { "base": 0.80, "optimalRange": 6, "falloff": 0.30, "vsMoving": 0.20, "ignoresCover": 1 } }
       ],
       "ammo": { "capacity": 12, "perShot": 1, "resupplyRate": 0.8 },
       "flight": { "altitude": "low", "hoverCapable": true, "fuel": 90, "fuelBurn": 1.0 },
@@ -293,7 +297,11 @@ const UNITS_MODERN_DB = {
       "weapons": [
         { "name": "hassas muhimmat", "damage": 240, "damageType": "shaped", "range": 12, "minRange": 1,
           "rof": 0.2, "aoe": 1.0, "targets": ["ground"], "indirect": false,
-          "accuracy": { "base": 0.90, "optimalRange": 9, "falloff": 0.25, "vsMoving": 0.35, "ignoresCover": 0.8 } }
+          "accuracy": { "base": 0.90, "optimalRange": 9, "falloff": 0.25, "vsMoving": 0.35, "ignoresCover": 0.8 } },
+        { "name": "hava-hava fuzesi (hafif)", "damage": 70, "damageType": "sam", "range": 8, "minRange": 0,
+          "rof": 0.15, "aoe": 0, "targets": ["air"], "indirect": false,
+          "airToAir": true, "perShot": 1,
+          "accuracy": { "base": 0.75, "optimalRange": 6, "falloff": 0.35, "vsMoving": 0.30, "ignoresCover": 1 } }
       ],
       "ammo": { "capacity": 4, "perShot": 1, "resupplyRate": 0.3 },
       "flight": { "altitude": "high", "hoverCapable": true, "fuel": 200, "fuelBurn": 0.4 },
@@ -331,7 +339,7 @@ const UNITS_MODERN_DB = {
           "accuracy": { "base": 0.70, "optimalRange": 2, "falloff": 0.45, "vsMoving": 0.35, "ignoresCover": 0.1 } }
       ],
       "ammo": { "capacity": 50, "perShot": 1, "resupplyRate": 4.0 },
-      "abilities": ["stay_hidden", "mark_target"],
+      "abilities": ["stay_hidden", "mark_target", "lay_mines"],
       "provides": ["spotter"],
       "roleTags": ["intel", "spotter", "fast"]
     },
@@ -356,8 +364,8 @@ const UNITS_MODERN_DB = {
       "speed": 1.0, "vision": 6, "stealth": 0, "detect": 0,
       "weapons": [],
       "ammo": null,
-      "aura": { "type": "heal", "radius": 3, "hpPerSecond": 6, "appliesTo": ["infantry"] },
-      "abilities": ["revive", "garrison"],
+      "aura": { "type": "heal", "radius": 2, "hpPerSecond": 6, "appliesTo": ["infantry"] },
+      "abilities": ["revive", "garrison", "build_hospital"],
       "roleTags": ["sustain", "infantry_support"]
     },
     {
@@ -371,7 +379,7 @@ const UNITS_MODERN_DB = {
           "accuracy": { "base": 0.60, "optimalRange": 2, "falloff": 0.45, "vsMoving": 0.35, "ignoresCover": 0.0 } }
       ],
       "ammo": null,
-      "aura": { "type": "repair", "radius": 3, "hpPerSecond": 8, "appliesTo": ["light", "heavy"] },
+      "aura": { "type": "repair", "radius": 2, "hpPerSecond": 8, "appliesTo": ["light", "heavy"] },
       "abilities": ["lay_mines", "clear_mines", "build_bridge", "build_fortification"],
       "roleTags": ["engineering", "terrain_shaper", "repair"]
     },
@@ -382,7 +390,7 @@ const UNITS_MODERN_DB = {
       "speed": 1.8, "vision": 6, "stealth": 0, "detect": 0,
       "weapons": [],
       "ammo": null,
-      "aura": { "type": "resupply", "radius": 4, "ammoPerSecond": 1.0, "fuelPerSecond": 2.0 },
+      "aura": { "type": "resupply", "radius": 3, "ammoPerSecond": 1.0, "fuelPerSecond": 2.0 },
       "cargo": { "ammo": 40, "fuel": 200 },
       "explodesOnDeath": { "damage": 180, "damageType": "he", "aoe": 3.5 },
       "abilities": ["deploy_cache"],

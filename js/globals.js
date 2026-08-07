@@ -634,6 +634,76 @@ let PRO_STANDOFF_ADIM = 300;     // tek değerlendirmede verilecek en fazla geri
 // Unit.js'teki singleUse istisnası aynı hatanın dron için zaten fark edilmiş dar bir yamasıydı.
 let BATTLE_SPAWN_LOADED = true;
 
+// ── HAVA-HAVA MUHAREBESİ (kullanıcı hatası: "helo, heloyu vuramıyor") ──
+// ÖLÇÜLDÜ: havaya ateş edebilen YALNIZ üç birim vardı (manpads/spaag/sam_battery). Taarruz helosunun
+// ATGM podu ve SİHA'nın hassas mühimmatı `targets:["ground"]` — üstelik damageMatrix'te shaped→air = 0.
+// Yani iki hava birimi birbirini HEDEF BİLE EDİNEMİYORDU; gökyüzü tamamen yer-tabanlı AA'ya bırakılmıştı.
+// DÜZELTME veri-güdümlü: her ikisine `airToAir` işaretli İKİNCİL silah (sam tipi, hedef yalnız 'air',
+// mühimmat tüketir). Motor tarafında üç kusur da kapatıldı (Unit.js):
+//   1) hedef PUANLAMASI birincil silaha bakıyordu → hava hedefi 0 puan alıp en sona düşüyordu
+//   2) birincil ATEŞ kapısı `unitCanEngage` (HERHANGİ silah) idi → helo ATGM'ini sıfır hasarla boşaltırdı
+//   3) ikincil silah mühimmat tüketmiyordu → sınırsız füze olurdu
+// Simetrik mekanik (iki tarafa + oyuncuya aynı), determinist (RNG yok). A/B için tek anahtar.
+let BATTLE_HAVA_HAVA = true;
+
+// ── SIKISMA-COZME DÜZELTMESİ (kullanıcı: "birlik titremeleri çok sinir bozucu") ──
+// `Unit.update` sıkışma sezince 92px YANA adım attırır ve tarafı her denemede ters çevirir. Yan adım
+// da ilerleme üretmezse yeni deneme gelir → sağa-sola tam gaz salınım. Uçan birim araziye sıkışamaz,
+// yine de manevrayı yiyordu. Ölçüldü: dron salınımında katkı hareket %100 / çarpışma %0.
+// Simetrik mekanik (iki tarafa + oyuncuya aynı), determinist (RNG yok).
+// ── TESLİM OLMUŞ HEDEFE ATEŞ KESME (kullanıcı: "beyaz bayrak çekmiş birimlere atış ediyorlar") ──
+// Mission-kill'de mürettebat aracı terk eder → araç `abandoned` (gri/nötr, hiçbir tarafın kuvvet
+// sayımına girmez, istihkâm tamir edip ele geçirebilir). Otomatik hedefleme onu zaten dışlıyordu ama
+// `performAttack` yalnız `dead` kontrolü yapıyordu → o an kilitli olan birim ateşe devam ediyordu.
+// OYUNCU EMRİ KORUNUR (kullanıcı şartı): manuel saldır-emri verilmişse ateş sürer.
+let BATTLE_TESLIM_ATES_KES = true;
+function battleTeslimAtesKes() {
+    return (typeof BATTLE_TESLIM_ATES_KES === 'undefined') || BATTLE_TESLIM_ATES_KES;
+}
+
+// ── AI'IN "İMHA GEREKÇESİ" (kullanıcı: "yoksa AI dezavantajlı olurdu") ──
+// Oyuncu teslim olmuş aracı bilerek patlatabiliyorsa AI da patlatabilmeli — ama KEYFÎ değil, GEREKÇEYLE.
+// Terk edilmiş araç, düşman İSTİHKÂMI 82px'te tamir edip %45 canda ELE GEÇİRDİĞİ için gerçek bir
+// ganimettir. İki somut gerekçe (deterministik, RNG yok):
+//   1. TAMİR TEHDİDİ  — düşman istihkâmı 140px içinde (82px'lik yakalama menziline girmek üzere)
+//   2. ZEMİN DÜŞMANIN — 300px'te düşman birimi bizden en az 2 fazla (araç büyük olasılıkla onların olur)
+// Gerekçe yoksa ateş kesilir; yani "boş yere teslim olanı vurma" davranışı korunur.
+// ÖLÇÜLDÜ — eşikler GEVŞEK olamaz: ilk deneme (istihkâm 140px, zemin 300px, fark ≥2) teslim-sonrası
+// atışı 0.0'dan 12.1'e fırlattı (tabandaki 6.3'ten bile kötü), çünkü cephe hattında "düşman biraz daha
+// kalabalık" koşulu neredeyse HEP sağlanıyor. Gerekçe İSTİSNA olmalı, kural değil:
+// yoğunluk = düşman ≥3 VE fark ≥3, ve yarıçap 300 değil 200px (aracın gerçekten dibinde).
+const TESLIM_IMHA_TAMIR_TIK = 20;   // 1 saniye: tamir kesilince gerekçe de düşer
+function battleTeslimImhaGerekce(isRed, tgt) {
+    if (!tgt || !tgt.abandoned || typeof SIM === 'undefined') return false;
+    // TEK GEREKÇE: araç FİİLEN karşı tarafça tamir ediliyor (son TESLIM_IMHA_TAMIR_TIK tik içinde).
+    // Tamir yoksa araç ele geçirilemez — yani imha için savunulabilir bir sebep de yoktur.
+    if (tgt._tamirTick == null || tgt._tamirSide == null) return false;
+    if (tgt._tamirSide === isRed) return false;                       // kendi tarafımız tamir ediyorsa vurmayız
+    return (SIM.tick - tgt._tamirTick) <= TESLIM_IMHA_TAMIR_TIK;
+}
+
+let BATTLE_UNSTICK_FIX = true;
+function battleUnstickFix() {
+    return (typeof BATTLE_UNSTICK_FIX === 'undefined') || BATTLE_UNSTICK_FIX;
+}
+
+
+// ── HEDEF UYGUNLUĞU: AI, VURAMAYACAĞI hedefe SALDIR emri vermesin ──
+// Hava-hava ölçümü sırasında çıktı: AI'nın SALDIR emri hedefin vurulabilir olup olmadığına HİÇ bakmıyordu
+// (`js/BattleController.js` yalnız "düşman tarafta mı" diye soruyordu). ÖLÇÜLDÜ: tüm hedef kilitlerinin
+// %44.6'sı birimin hiç vuramayacağı hedefe — havan→İHA 92, MBT→SİHA 58, MANPADS→kara birliği 19 örnek.
+// Böyle bir birim nişan alıp BEKLER (combatState 'Vuramaz'), ateş etmez. Yani ordunun yarıya yakın
+// kilit-tik'i boşa gidiyordu. Emir atlanınca birim KENDİ otomatik hedef edinmesine döner — o yol
+// uygunluğu zaten süzüyor (Unit.findBestVisibleEnemy → unitCanEngage).
+// OYUNCU emri KAPSAM DIŞI: `player-attack` bilerek verilmiş bir emirdir, sessizce yutulmaz.
+// Taraf-başı (tuzak B3: global bayrak A/B'de iki tarafı birden değiştirir). null = global değeri kullan.
+let BATTLE_HEDEF_UYGUN = true;
+let BATTLE_HEDEF_UYGUN_RED = null, BATTLE_HEDEF_UYGUN_BLUE = null;
+function battleHedefUygun(isRed) {
+    const v = isRed ? BATTLE_HEDEF_UYGUN_RED : BATTLE_HEDEF_UYGUN_BLUE;
+    return v == null ? ((typeof BATTLE_HEDEF_UYGUN === 'undefined') || BATTLE_HEDEF_UYGUN) : !!v;
+}
+
 // ── KISMİ KARIŞTIRMA (kullanıcı: "jammer dronlara karşı fazla güçlü") ──
 // KOD-VERİ UYUŞMAZLIĞI: UnitData jamming halesi `uavControlLoss: 0.75` ve birim başına
 // `jammable` 0.8-1.0 ilan ediyor; kod ikisini de yok sayıp %100 tam-felç uyguluyordu
@@ -1079,6 +1149,15 @@ SIM.pendingHitSeq = 0;   // monoton sıra-sayacı (deterministik push-sırası �
 // sim-durumuna yazılıyor: hash'lenir, fork'lanır ve DEĞİŞTİĞİNDE replay'e olay olarak kaydedilir → canlı=replay=fork.
 SIM.ctrlPosture = {};
 // MAYIN sabitleri
+// ── SİPER / SAHRA HASTANESİ YARIÇAPLARI (kullanıcı isteği) ──
+// Kıyas için ölçülen mevcut haleler (TILE_PX=100): sağlıkçı 300px · ikmal 400px · istihkâm tamir 300px.
+// Siper 105px ile bunların yanında dardı → 130. Hastane siperden BİRAZ büyük (165), ama sağlıkçının
+// gezici 300px halesinin altında: hastanenin üstünlüğü alan değil KALICILIK (sağlıkçı ölse de durur).
+const SIPER_R = 130;            // eski 105 (ondan önce 72)
+const HASTANE_R = 165;
+const HASTANE_HEAL_SN = 5;      // hp/sn — sağlıkçı halesi 6/sn; hastane biraz düşük ama sabit ve sürekli
+const HASTANE_KURMA_SN = 4.0;   // siper 3.0sn; hastane biraz daha uzun
+
 const MINE_TRIGGER_R = 65;      // basma yarıçapı (birim merkezine) — geçen birimi daha güvenilir yakalar
 const MINE_BLAST_R = 95;        // patlama alan-yarıçapı
 const MINE_DAMAGE = 260;        // he tabanlı (zırhlıya alt-yön etkili); matris ile çarpılır
