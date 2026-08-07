@@ -68,6 +68,20 @@ const BATTLE_BEONAI_DENK_SURUMLER = {
 function battleBeonaiUyumlu(ad) {
     const s = battleBeonaiSurum(ad);
     if (!s) return { uyumlu: false, sebep: 'sürüm kayıtlı değil: ' + ad };
+    // ── ÖZNİTELİK SÜRÜMÜ KONTROLÜ (2026-08-08, sessiz hata yakalandı) ──
+    // Motor sürümü kontrolü TEK BAŞINA yetmiyor: `candidateFeatures` v1 → v2'ye çıkınca vektör
+    // 24→27 boyut oldu ama eski model (D=128) hâlâ "uyumlu" görünüyordu. Yanlış uzunlukta vektörle
+    // skorlama sessizce çöp üretir — bu projede en pahalı hata sınıfı budur.
+    // Model dosyası kendi `stateVersion`/`candidateVersion`'ını taşır; motorunkiyle EŞLEŞMELİ.
+    const m = s.model || {};
+    const sv = (typeof STATE_FEATURES_VERSION !== 'undefined') ? STATE_FEATURES_VERSION : null;
+    const cv = (typeof CANDIDATE_FEATURES_VERSION !== 'undefined') ? CANDIDATE_FEATURES_VERSION : null;
+    if (m.stateVersion && sv && m.stateVersion !== sv) {
+        return { uyumlu: false, sebep: 'ÖZNİTELİK UYUMSUZ (durum): model ' + m.stateVersion + ', motor ' + sv };
+    }
+    if (m.candidateVersion && cv && m.candidateVersion !== cv) {
+        return { uyumlu: false, sebep: 'ÖZNİTELİK UYUMSUZ (aday): model ' + m.candidateVersion + ', motor ' + cv };
+    }
     const simdi = (typeof BATTLE_ENGINE_VERSION !== 'undefined') ? BATTLE_ENGINE_VERSION : null;
     if (s.meta.motorSurumu && simdi && s.meta.motorSurumu !== simdi) {
         const denk = BATTLE_BEONAI_DENK_SURUMLER[simdi] || [];

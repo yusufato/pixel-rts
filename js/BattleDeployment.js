@@ -1330,7 +1330,12 @@ function runAIVsAILabDiagnostics(config = {}) {
             if ((SIM.tick % 20) === 0) {
                 for (const unit of SIM.units) {
                     if (unit.dead) continue;
-                    if (typeof isPassableAt === 'function' && !isPassableAt(unit.x, unit.y)) {
+                    // HAVA MUAFIYETI (olculdu 2026-08-08): ucan birim su/dag ustunden GECER —
+                    // motor bunu her yerde `unit.isAir || isPassableAt(...)` diye ifade eder
+                    // (Unit.js geri-itme ve snap kontrolleri). Bu denetim muafiyeti atlamisti ve
+                    // --battletest'i KIRMIZI tutuyordu. Olculdu: tek ihlalci kamikaze dron [HAVA].
+                    // Yani kusur motorda degil, DENETIMDEYDI.
+                    if (!unit.isAir && typeof isPassableAt === 'function' && !isPassableAt(unit.x, unit.y)) {
                         terrainViolationIds.add(unit.id);
                     }
                     const previous = trackers.get(unit.id);
@@ -1626,7 +1631,7 @@ function runRecordedPlayerVsAIDiagnostics(recordingDocument) {
             updateSupport(BATTLE_TICK_SEC, simulationTime);
             if ((SIM.tick % 20) === 0) {
                 for (const unit of SIM.units) {
-                    if (!unit.dead && !isPassableAt(unit.x, unit.y)) {
+                    if (!unit.dead && !unit.isAir && !isPassableAt(unit.x, unit.y)) {   // HAVA MUAF (ucar)
                         terrainViolationIds.add(unit.id);
                     }
                 }

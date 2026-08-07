@@ -3659,8 +3659,22 @@ app.whenReady().then(() => {
                     grid: (typeof terrainGrid !== 'undefined' && terrainGrid) ? terrainGrid.length : -1,
                     feats: (typeof terrainFeatures !== 'undefined') ? terrainFeatures.length : -1 };
             } catch (e) { return { err: e.message }; } })()`);
+            // ── MOTOR SURUMU KONTROLU (bayat sabit duzeltildi, 2026-08-08) ──
+            // ESKI: `info.engineVersion !== 'battlefield-v2-fixed50-microfix3'` — ANTIK bir dizge
+            // SABIT yazilmisti. Motor o gunden beri v4'e gecti ve surumu davranis degisikliklerini
+            // isaretlemek icin BILEREK yukseltiyoruz. Yani bu kapi her surum yukseltmesinde
+            // kendiliginden KIRMIZIYA donuyordu ve gercek regresyonlari gizliyordu.
+            // YENI: sabit dizge yerine, SAYFANIN bildirdigi surum DISKTEKI kaynakla eslesiyor mu
+            // diye bakilir. Kontrolun asil amaci buydu: "yuklenen motor, sandigimiz motor mu?"
+            // Boylece surum yukseltmek kapiyi kirmizilastirmaz ama BAYAT/yanlis build yakalanir.
+            let _beklenenMotor = null;
+            try {
+                const _src = fsx2.readFileSync(path.join(__dirname, '..', 'js', 'BattleSession.js'), 'utf8');
+                const _m = /BATTLE_ENGINE_VERSION\s*=\s*'([^']+)'/.exec(_src);
+                if (_m) _beklenenMotor = _m[1];
+            } catch (e) { /* okunamazsa asagida raporlanir */ }
             if (!info || info.sessionMode !== 'quick' ||
-                info.engineVersion !== 'battlefield-v2-fixed50-microfix3' ||
+                !info.engineVersion || !_beklenenMotor || info.engineVersion !== _beklenenMotor ||
                 info.tickMs !== 50 || !info.sameStep || !info.hashReady || !info.replayReady) {
                 problems.push('ortak savaş motoru doğrulanamadı: ' + JSON.stringify(info));
             } else if (!info.controllerReady || !info.perceptionReady ||
@@ -3767,11 +3781,19 @@ app.whenReady().then(() => {
                         { kind: BATTLE_PLAN_KIND.DISENGAGE, score: 70, reason: 'test' }
                     ], {
                         ...stableSituation,
-                        tick: 241,
+                        // BAYAT BEKLENTI DUZELTMESI (olculdu 2026-08-08): eskiden tik 241 soruluyordu,
+                        // yani plan tik 240'ta baglandiktan 1 TIK SONRA. FAZ 6'da eklenen ANTI-FLIP
+                        // korumasi, gercek-acil olmayan iptallerde asgari sure dayatir ("0.5sn'lik
+                        // saldir/toparlan spazmi biter"). OLCULDU: degisim 1/4/8 tikte ENGELLI,
+                        // 16 tikte serbest. Yani test, korumanin BILEREK engelledigi ani sinayip
+                        // "DISENGAGE gelmedi" diyordu -> kusur AI'da degil, beklentinin tarihinde.
+                        // Artik pencere disindan (256) soruluyor: acil-durumda DISENGAGE davranisi
+                        // gercekten sinanir, anti-flip penceresi degil.
+                        tick: 256,
                         forceRatio: 0.4,
                         forcePosture: FORCE_POSTURE.DISADVANTAGE,
                         readiness: { hp: 0.2, ammo: 0.2 }
-                    }, 241);
+                    }, 256);
                     const syntheticPlanner = new BattleOperationalPlanner({
                         id: 'planning-test',
                         side: true

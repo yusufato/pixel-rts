@@ -682,6 +682,17 @@ function battleTeslimImhaGerekce(isRed, tgt) {
     return (SIM.tick - tgt._tamirTick) <= TESLIM_IMHA_TAMIR_TIK;
 }
 
+// ── KANAT ACLIGI DUZELTMESI (olculdu 2026-08-08) ──
+// Kuvvet bolusumu rolleri SIRAYLA doyuruyordu (once FIXING, sonra FLANK) ve FIXING havuzu tuketince
+// FLANK'a hic sira gelmiyordu (`unassigned.size <= 1` korumasi dongusu kiriyordu). --battletest'in
+// sentetik kurgusunda (8 birim) FLANK UC yapilandirmada da BOS kaldi, payi 0.30 iken bile.
+// Yani "kucuk kuvvet kanat acmaz" bir tasarim tercihi degil, tahsis SIRASININ yan etkisiydi.
+// Yeni: tek gecis, her adimda oransal acigi en buyuk role ver (en-buyuk-kalan). Determinist.
+let BATTLE_FLANK_FIX = true;
+function battleFlankFix() {
+    return (typeof BATTLE_FLANK_FIX === 'undefined') || BATTLE_FLANK_FIX;
+}
+
 let BATTLE_UNSTICK_FIX = true;
 function battleUnstickFix() {
     return (typeof BATTLE_UNSTICK_FIX === 'undefined') || BATTLE_UNSTICK_FIX;

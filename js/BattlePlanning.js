@@ -412,6 +412,43 @@ class ForceOrganizer {
             typeof battleDelta === 'function' && this.controller && battleDelta(this.controller.side, 'deblob');
         const shares = planningRoleShares(plan?.kind, _defenderWide, this.controller && this.controller.side);
         const unassigned = new Set(available.map(unit => unit.id));
+        if (battleFlankFix()) {
+            // ── KANAT AÇLIĞI DÜZELTMESİ (ölçüldü, 2026-08-08) ──
+            // ESKİ DAVRANIŞ: roller SIRAYLA doyuruluyordu — önce FIXING, sonra FLANK. FIXING hedefini
+            // aşana kadar birim ekliyor (bir birim hedefi tek başına aşsa bile en az bir tane alır),
+            // sonra FLANK'a sıra geldiğinde `unassigned.size <= 1` koruması döngüyü HİÇ BAŞLAMADAN kırıyor.
+            // ÖLÇÜLDÜ (--battletest sentetik kurgusu, 8 birim): FLANK ÜÇ yapılandırmada da BOŞ kaldı —
+            // payı 0.30 olduğunda bile. Sektör-komuta açıkken FIXING 4 birimin 3'ünü alıyordu.
+            // Yani "küçük kuvvet hiç kanat açamaz" bir denge tercihi değil, tahsis sırasının yan etkisiydi.
+            // YENİ: tek geçiş, her adımda AÇIĞI EN BÜYÜK olan role ver (en-büyük-kalan yöntemi).
+            // MAIN'e en az bir birim kalması korunur; paylar aynen onurlandırılır.
+            const roller = [TASK_GROUP_ROLE.FIXING, TASK_GROUP_ROLE.FLANK].filter(r => shares[r] > 0);
+            if (roller.length) {
+                const hedef = {}, verilen = {};
+                for (const r of roller) { hedef[r] = availableValue * shares[r]; verilen[r] = 0; }
+                // Determinist sıra: değer büyükten küçüğe, eşitlikte id.
+                const sirali = available.slice().sort((a, b) =>
+                    (planningUnitValue(b) - planningUnitValue(a)) || (a.id - b.id));
+                for (const unit of sirali) {
+                    if (unassigned.size <= 1) break;              // MAIN'e en az bir birim kalsın
+                    if (!unassigned.has(unit.id)) continue;
+                    // en büyük ORANSAL açık (verilen/hedef en küçük olan) — eşitlikte rol adı (determinist)
+                    let sec = null, enAz = Infinity;
+                    for (const r of roller) {
+                        if (verilen[r] >= hedef[r]) continue;
+                        const doluluk = hedef[r] > 0 ? verilen[r] / hedef[r] : 1;
+                        // aynı doluluk → uyumu yüksek olan rol kazanır, o da eşitse rol adı
+                        const uyum = planningCombatAffinity(unit, r);
+                        const anahtar = doluluk - uyum * 1e-6;
+                        if (anahtar < enAz || (anahtar === enAz && sec && r < sec)) { enAz = anahtar; sec = r; }
+                    }
+                    if (!sec) break;                              // tüm roller doydu
+                    buckets[sec].push(unit);
+                    unassigned.delete(unit.id);
+                    verilen[sec] += planningUnitValue(unit);
+                }
+            }
+        } else {
         for (const role of [TASK_GROUP_ROLE.FIXING, TASK_GROUP_ROLE.FLANK]) {
             const target = availableValue * shares[role];
             let assignedValue = 0;
@@ -427,6 +464,7 @@ class ForceOrganizer {
                 unassigned.delete(unit.id);
                 assignedValue += planningUnitValue(unit);
             }
+        }
         }
         buckets[TASK_GROUP_ROLE.MAIN] = available.filter(unit => unassigned.has(unit.id));
 

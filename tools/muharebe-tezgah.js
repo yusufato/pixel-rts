@@ -88,6 +88,7 @@ function tezgahKurMini() {
     const kaynaklar = MUHAREBE_KAYNAK.slice();
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBC.js'))) kaynaklar.push('js/BattleBeonaiModelBC.js');
+    if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBCv2.js'))) kaynaklar.push('js/BattleBeonaiModelBCv2.js');
     for (const rel of kaynaklar) {
         try { vm.runInContext(fs.readFileSync(path.resolve(ROOT, rel), 'utf8'), ctx, { filename: rel }); }
         catch (e) { hatalar.push(rel + ': ' + e.message); }
@@ -170,6 +171,7 @@ function tezgahKur() {
     const kaynaklar = MUHAREBE_KAYNAK.slice();
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBC.js'))) kaynaklar.push('js/BattleBeonaiModelBC.js');
+    if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBCv2.js'))) kaynaklar.push('js/BattleBeonaiModelBCv2.js');
     for (const rel of kaynaklar) {
         const p = path.resolve(ROOT, rel);
         const kod = fs.readFileSync(p, 'utf8');
