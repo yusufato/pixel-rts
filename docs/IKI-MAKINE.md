@@ -8,9 +8,10 @@ Bu dosya tek gerçek kaynaktır: kim ne yapıyor, hangi tohum havuzu kimin.
 | ad | çekirdek | rol |
 |---|---|---|
 | **CYBORG** | 16 | bu oturum — savaş AI hattı (klonlama → eğitim → kapılar) |
-| *(ikinci makine — adını buraya yazsın)* | 20 | veri üretimi + ikinci kol |
+| *(ikinci makine — adını buraya yazsın)* | 20 | **GÖREVİ: `docs/GOREV-MAKINE2.md`** — tavan karşılaştırması |
 
 > İkinci makine ilk iş olarak bu tabloya adını ve o an ne yaptığını yazsın.
+> **Görev tanımı ayrı dosyada: `docs/GOREV-MAKINE2.md`** (oku ve uygula).
 
 ## ALTIN KURAL — tohum havuzları AYRIK
 
