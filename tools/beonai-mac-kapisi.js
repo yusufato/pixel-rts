@@ -30,9 +30,16 @@ const GV2 = process.argv.includes('--gramer-v2');   // GENISLETILMIS karar uzayi
 const KOTA = Math.max(16, Number(arg('--kota', 64)) || 64);
 
 // EGITIM TOHUMLARI 7000-7899 idi -> kapi BASKA tohumlar kullanir (ezberi olcmeyelim)
+// HAVUZ 36 -> 72 tohum (2026-08-07). Sebep: `--rol her` ile azami mac sayisi = tohum x 2 idi,
+// yani 72. Tavan olcumu icin bu az kaldi. Yeni blok 4243-4549; EGITIM tohumlarina (7000-7899),
+// veri-uretim bloklarina (20000+/40000+/50000+/70000+/100000+) ve kullanicinin kendi mac
+// tohumlarina (9001-9012, 9101-9112) DOKUNMAZ -> ezberi olcmeyiz, is bolumu cakismaz.
 const HAVUZ = [2024, 3141, 777, 11, 202, 333, 4001, 4003, 4007, 4013, 4019, 4021,
                4027, 4049, 4051, 4057, 4073, 4079, 4091, 4093, 4099, 4111, 4127, 4129,
-               4133, 4139, 4157, 4159, 4177, 4201, 4211, 4217, 4219, 4229, 4231, 4241];
+               4133, 4139, 4157, 4159, 4177, 4201, 4211, 4217, 4219, 4229, 4231, 4241,
+               4243, 4253, 4259, 4261, 4271, 4273, 4283, 4289, 4297, 4327, 4337, 4339,
+               4349, 4357, 4363, 4373, 4391, 4397, 4409, 4421, 4423, 4441, 4447, 4451,
+               4457, 4463, 4481, 4483, 4493, 4507, 4513, 4517, 4519, 4523, 4547, 4549];
 const TOHUMLAR = HAVUZ.slice(ATLA, ATLA + N);
 
 const { ctx } = tezgahKur();
