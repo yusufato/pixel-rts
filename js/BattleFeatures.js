@@ -85,7 +85,14 @@ function battleCandidateFeatures(candidate, ctx) {
     // ORAN yoktu. Model bu haliyle "oraya gidersem ustun olur muyum" sorusunu GOREMIYORDU.
     // Buradaki uc oznitelik tam onu verir; adayin taahhut ettigi MAIN payi hesaba katilir.
     const _eps = 1e-6;
-    const _dusMain = (ctx.enemy ? (ctx.enemy[ms] || 0) : 0);
+    // HEDEF KÜTLE (BATTLE_GRAMMAR_KUTLE): aday bir düşman KÜTLESİNİ hedefliyorsa oran, ızgara
+    // hücresinin toplamı yerine O KÜTLENİN gücüne göre hesaplanır. Sebep: 8x6 ızgara bir yığını
+    // ikiye bölebilir ya da iki ayrı grubu tek hücrede toplayabilir; kütle gerçek yakınlıktan gelir.
+    // SLOT SAYISI DEĞİŞMEZ (vektör uzunluğu aynı) — yalnız bu üç alanın ANLAMI keskinleşir.
+    // Bayrak kapalıyken `hedefKume` yoktur ve davranış v2 ile birebir aynıdır.
+    const _dusMain = (candidate.hedefKumeGuc != null)
+        ? candidate.hedefKumeGuc
+        : (ctx.enemy ? (ctx.enemy[ms] || 0) : 0);
     const _ozMain = (ctx.own ? (ctx.own[ms] || 0) : 0);
     const _taahhut = (a.main || 0) * (ctx.ownTotal || 0);          // MAIN'e ayrilan mutlak guc
     const _projeOran = (_ozMain + _taahhut) / (_dusMain + _eps);   // varista beklenen YEREL oran

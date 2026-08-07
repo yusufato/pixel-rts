@@ -37,6 +37,15 @@ vardı → "kilit %0.4" çıktı ve mekanizma **hiç sınanmamış** oldu. Aynı
 yazdırır. Kırmızı için `BATTLE_RECIPE_RED`, mavi için `battleDeployManifest(..., { ally: true })`.
 Bağlanma kanıtı görünmeden tablo okunmaz. *(Bkz. B2 — aynı kuralın delta tarafı.)*
 
+**A8 — Sayaç AÇIK mı? (`BATTLE_BALANCE.on`)** *(2026-08-08)*
+"Terk edilen araç HİÇ ele geçirilmiyor (19 teslim, 0 kapma)" diye bir teknik borç kaydedildi.
+Sonra doğrudan bayrak değişimi izlendi: mekanizma **ÇALIŞIYOR** — tik 767'de tank avcısı (hp 234/234)
+ve tik 2081'de SPAAG (hp 172/171) gerçekten el değiştirdi. Sayaç `BATTLE_BALANCE.captured` ise
+`BATTLE_BALANCE.on` kapalı olduğu için hiç artmamıştı.
+→ **Kural:** `BATTLE_BALANCE.*` alanlarını okumadan önce `.on` durumunu YAZDIR. Kapalıysa sayı
+"olay olmadı" değil "sayılmadı" demektir. Mümkünse olayı **doğrudan** ölç (durum değişimini izle),
+sayaca güvenme. *(Aynı sınıf: A5/A6 — araç sessizce bayrak değiştiriyordu.)*
+
 ---
 
 ## B. İZOLASYON (A/B kurulumu)

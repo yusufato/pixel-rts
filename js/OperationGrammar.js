@@ -28,6 +28,43 @@ function opgSectorAdjacent(i) {
 }
 function _opgUnitPower(u) { return (u.atk || 0) * ((u.hp || 0) / Math.max(1, u.maxHp || 1)); }
 
+// ── DÜŞMAN KÜTLELERİ (adım 3, madde 1) ────────────────────────────────────────
+// NEDEN: bugün aday "hangi SEKTÖRE gideyim" diyor (bir kararda ~3 ayrık nokta). Oyuncunun ölçülen
+// üstünlüğü ise "hangi DÜŞMAN YIĞININI ezeyim": temas anında 8.9 dost / 1.2 düşman (AI 6.9 / 3.4).
+// Sektör toplamı bu soruyu cevaplayamaz — 8x6 ızgara düşmanı yapay sınırlardan böler; iki ayrı grup
+// aynı hücreye düşebilir ya da tek grup iki hücreye bölünebilir.
+// Bu fonksiyon temasları GERÇEK yakınlığa göre kümeler ve her kümenin gücünü verir.
+// DETERMİNİST: temaslar (x, y) sırasına konur, açgözlü tek-bağ kümeleme, RNG yok.
+const OPG_KUME_R = 700;      // bu yarıçaptaki temaslar aynı kütle sayılır (~2 sektör genişliği)
+const OPG_KUME_AZAMI = 4;    // en güçlü N kütle (aday sayısı patlamasın)
+function opgEnemyClusters(contacts) {
+    const liste = (contacts || []).filter(c => c && (c.confidence == null || c.confidence >= 0.15));
+    if (!liste.length) return [];
+    const sirali = liste.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y) ||
+        ((b.estimatedStrength || 1) - (a.estimatedStrength || 1)));
+    const kumeler = [];
+    for (const c of sirali) {
+        const g = c.estimatedStrength || 1;
+        let hedef = null, enYakin = Infinity;
+        for (const k of kumeler) {
+            const d = Math.hypot(k.x - c.x, k.y - c.y);
+            if (d <= OPG_KUME_R && d < enYakin) { enYakin = d; hedef = k; }
+        }
+        if (hedef) {
+            const yeniG = hedef.guc + g;
+            hedef.x = (hedef.x * hedef.guc + c.x * g) / yeniG;   // güç-ağırlıklı merkez
+            hedef.y = (hedef.y * hedef.guc + c.y * g) / yeniG;
+            hedef.guc = yeniG; hedef.n++;
+        } else {
+            kumeler.push({ x: c.x, y: c.y, guc: g, n: 1 });
+        }
+    }
+    kumeler.sort((a, b) => (b.guc - a.guc) || (a.x - b.x) || (a.y - b.y));
+    return kumeler.slice(0, OPG_KUME_AZAMI).map(k => ({
+        x: k.x, y: k.y, guc: k.guc, n: k.n, sektor: opgSectorOf(k.x, k.y)
+    }));
+}
+
 // ── Bağlam: kendi birlikler (gerçek) + algılanan düşman temasları (sis-güvenli) → sektör özellikleri ──
 // contacts: [{x, y, estimatedStrength, confidence}] — controller.lastObservation.contacts biçimi.
 function opgBuildContext(side, ownUnits, contacts, role) {
@@ -44,8 +81,11 @@ function opgBuildContext(side, ownUnits, contacts, role) {
     // en zayıf / en güçlü DÜŞMAN sektörü (temas olan sektörler arasında)
     let weakest = null, strongest = null, wv = Infinity, sv = -1;
     for (let s = 0; s < OPG_SECTORS; s++) { if (enemy[s] <= 0) continue; if (enemy[s] < wv) { wv = enemy[s]; weakest = s; } if (enemy[s] > sv) { sv = enemy[s]; strongest = s; } }
+    // DUSMAN KUTLELERI: sektor toplamlarindan BAGIMSIZ, gercek yakinliga gore (adim 3 / madde 1)
+    const kumeler = opgEnemyClusters(contacts);
     return { side, role: roleNorm,
-        own, enemy, ownTotal, enemyTotal, enemyCoG, weakestEnemySector: weakest, strongestEnemySector: strongest, homeRow: homeR };
+        own, enemy, ownTotal, enemyTotal, enemyCoG, weakestEnemySector: weakest, strongestEnemySector: strongest,
+        kumeler, homeRow: homeR };
 }
 
 // ── Şema (versiyonlu makine sözleşmesi) ──────────────────────────────────────
@@ -162,6 +202,23 @@ function operationGrammarGenerate(ctx) {
         const cogSut = ctx.enemyCoG % OPG_COLS;
         targets.push(geriSatir * OPG_COLS + cogSut);
     }
+    // ── HEDEF KÜTLE (adım 3 / madde 1; BATTLE_GRAMMAR_KUTLE) ──
+    // Sektör adayları düşmanı ızgara sınırlarından böler ve GERÇEK yığınları kaçırabilir.
+    // ÖLÇÜLDÜ (tohum 202, tik 1800): sahada 780 güçlü, 3 birimlik ZAYIF bir grup (sektör 43) vardı
+    // ama aday listesi 36/44/27 öneriyordu — o grup menüde HİÇ YOKTU. "Zayıf yığını ez" seçeneği
+    // bugün AI'ın karar dilinde bulunmuyor; oyuncunun ölçülen üstünlüğü ise tam bu (8.9/1.2).
+    // Kütle merkezlerinin sektörleri hedef listesine EKLENİR; hangi kütleye gidildiği adaya yazılır
+    // (`hedefKume`), böylece öznitelikler SEKTÖR TOPLAMI yerine O KÜTLENİN gücüne göre oran hesaplar.
+    const KUTLE = (typeof BATTLE_GRAMMAR_KUTLE !== 'undefined') && BATTLE_GRAMMAR_KUTLE;
+    const kumeSektor = new Map();   // sektor -> kume indeksi (oznitelik icin)
+    if (KUTLE && ctx.kumeler && ctx.kumeler.length) {
+        for (let i = 0; i < ctx.kumeler.length; i++) {
+            const s = ctx.kumeler[i].sektor;
+            if (s == null) continue;
+            targets.push(s);
+            if (!kumeSektor.has(s)) kumeSektor.set(s, i);
+        }
+    }
     targets = [...new Set(targets)];
     if (!targets.length) {
         const fwdRow = ctx.side ? OPG_ROWS - 2 : 1;
@@ -212,6 +269,15 @@ function operationGrammarGenerate(ctx) {
             const abort = tv ? tv.abort.slice() : ['force_ratio<0.5', 'ammo<0.25'];
             const cand = { intent, mainSector, flankSector, allocation: alloc, tempo, pursuitLimit,
                 phases: _opgPhases(intent), abort, maxDurationTicks: G.maxDurationTicks };
+            // HEDEF KÜTLE etiketi: bu sektör bir düşman kütlesinin merkeziyse hangisi olduğunu yaz.
+            // Öznitelik tarafı bunu görünce oranı SEKTÖR TOPLAMI yerine KÜTLENİN gücüne göre hesaplar
+            // (ızgara sınırı bir yığını ikiye bölse de doğru kalır).
+            if (KUTLE && kumeSektor.has(mainSector)) {
+                const ki = kumeSektor.get(mainSector);
+                cand.hedefKume = ki;
+                cand.hedefKumeGuc = ctx.kumeler[ki].guc;
+                cand.hedefKumeN = ctx.kumeler[ki].n;
+            }
             const key = intent + ':' + mainSector + ':' + flankSector + ':' + tempo + ':' + alloc.main + ':' + alloc.flank;
             if (gorulen.has(key)) continue; gorulen.add(key);
             if (operationGrammarValidate(cand, ctx).valid) kova.push(cand);

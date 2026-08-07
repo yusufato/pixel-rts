@@ -688,6 +688,14 @@ function battleTeslimImhaGerekce(isRed, tgt) {
 // sentetik kurgusunda (8 birim) FLANK UC yapilandirmada da BOS kaldi, payi 0.30 iken bile.
 // Yani "kucuk kuvvet kanat acmaz" bir tasarim tercihi degil, tahsis SIRASININ yan etkisiydi.
 // Yeni: tek gecis, her adimda oransal acigi en buyuk role ver (en-buyuk-kalan). Determinist.
+// ── HEDEF KUTLE (adim 3 / madde 1) ──
+// Aday "hangi SEKTORE gideyim" diyor; oyuncunun olculen ustunlugu ise "hangi DUSMAN YIGININI ezeyim"
+// (temas aninda 8.9 dost / 1.2 dusman; AI 6.9 / 3.4). Sektor toplami bu soruyu cevaplayamaz —
+// 8x6 izgara yigini bolebilir. Kumeler gercek yakinliga gore hesaplanir ve hedef listesine eklenir.
+// OLCULDU (tohum 202, tik 1800): 780 guclu 3-birimlik zayif grup (sektor 43) aday listesinde YOKTU.
+// VARSAYILAN KAPALI: kendi kapisini gecene kadar acilmaz (kosan tavan olcumleri de bozulmasin).
+let BATTLE_GRAMMAR_KUTLE = false;
+
 let BATTLE_FLANK_FIX = true;
 function battleFlankFix() {
     return (typeof BATTLE_FLANK_FIX === 'undefined') || BATTLE_FLANK_FIX;
