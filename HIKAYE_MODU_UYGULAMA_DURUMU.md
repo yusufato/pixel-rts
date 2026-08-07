@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 32 — Patronaj, Yolsuzluk ve Soruşturma
+**Son kapanan faz:** Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm
 
-**Aktif uygulama sırası:** Faz 33 — Darbe, Bölünme ve İç Çatışma
+**Aktif uygulama sırası:** Faz 34 — Karakter Kimliği ve Hedefleri
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -56,7 +56,9 @@
 | Faz 30 — Meşruiyet ve Devlet Kapasitesi | `complete` | `js/StoryStateCapacity.js`; ayrı meşruiyet/bürokrasi/hukuk/bütünlük/yapısal risk/bölgesel denetim, açıklanabilir uygulama bileti yaşam döngüsü ve `qa-runtime/story-phase30-ab.json` |
 | Faz 31 — Seçim ve İktidar Değişimi | `complete` | `js/StoryElections.js`; rejime bağlı model/takvim, tam kişi kohort oyu, koalisyon, itiraz, sertifika, mandat, makam devri, bilgi filtreli UI ve `qa-runtime/story-phase31-ab.json` |
 | Faz 32 — Patronaj, Yolsuzluk ve Soruşturma | `complete` | `js/StoryIntegrity.js`; gerçek yetki/bütçe/şirket kanıtı, iddia→ön inceleme→soruşturma→bulgu, bilgi filtreli WorldV2/UI, kayıt/göç ve `qa-runtime/story-phase32-ab.json` |
-| Faz 33+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 33 — Darbe, Bölünme ve İç Çatışma | `complete` | `js/StoryPoliticalCrisis.js`; isimli aktör, hazırlık/koalisyon/karşı-güç, dört bedelli oyuncu hamlesi, deterministik teşebbüs, bilgi filtreli WorldV2/UI ve `qa-runtime/story-phase33-ab.json` |
+| Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm | `complete` | `js/StoryGovernance.js`; gerçek rol/makam görünümü, yetki kilidi ve alternatif yol, iki bedelli karar, kurum onayı → Faz 30 kapasite fişi → fiziksel şehir sonucu, kayıt/yükleme ve hedefli UI probu |
+| Faz 34+ | `missing` | Bağımlılık sırasıyla uygulanacak |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -907,6 +909,26 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Kayıt/yükleme birebir, V3→V2 göç, eski kayıt backfill'i, bozuk yön/referans kurtarması, özellik ve şirket öncülü kapalı `null` yolu geçti. Dünya/knowledge/UI projeksiyonu bütünlük defterini değiştirmedi.
 - `qa-runtime/story-phase32-ab.json`: `government.patronageIntegrity` açık/kapalı iki `900 sn` koşunun fiziksel karması aynı `dd4ea4786ddfdc10b26ed949213a2c2bddadc5782f1b2aa5b7d104ab0081f42c`; `changedWorldState:false`, ilk fark yok, refah/enflasyon/huzursuzluk/devlet/haber ve üç kaynak deltası `0`.
 - Scheduler `24` görev taşır; bütünlük her `5 sn` seçimden sonra ve kuşatmadan önce çalışır. Kapsamı azaltılmamış `npm test` `52/52` görevle çıkış kodu `0` verdi; otomatik bellek tavanı `1` işçi seçti, toplam süre `1.664,7 sn`, ana 900 saniyelik koşu `118.958,65 ms` oldu. Sıradaki uygulama **Faz 33 — Darbe, Bölünme ve İç Çatışma**dır.
+
+## Faz 33 — Darbe, Bölünme ve İç Çatışma kabul sonucu
+
+- `story-political-crisis-ledger-1`, darbeyi rastgele tek olaydan çıkarıp `ORGANIZING → COALITION → ULTIMATUM → ATTEMPT → FAILED/SUCCESS/SPLIT/DISSOLVED` zincirine dönüştürdü. Kriz ancak en az iki gerçek sadakatsiz komutan ve ölçülen yapısal risk varsa açılır; isimli komplo lideri, koalisyonu, karşı gücü, istihbarat düzeyi, bölgesel kontrolü, olayları, eylemleri ve kaynak fişleri aynı sürümlü defterde tutulur.
+- Darbe sonucu RNG veya LLM ile seçilmez. Komutan sadakati/yetenekleri, fraksiyon ve huzursuzluk, refah, devlet kapasitesi, güç merkezleri, seçim mandatı ve bütünlük dosyaları açıklanabilir faktörlere çevrilir. Hedefli probda zorlanan aynı durum deterministik olarak `SUCCESS / GOVERNMENT_SEIZED` verdi; doğal 900 saniyelik dünyada üç teşebbüsün üçü de başarısız oldu. Yabancı toprağı veya gizli komplo bilgisi uydurulmadı.
+- Oyuncu ilk kez siyasi veriyi yalnız izlemiyor: isimli komplo lideriyle görüşme (`25` komuta puanı), isimli sadık komutanla komuta zincirini güvenceye alma (`45` puan), kamuya açıklama (`2` itibar) veya bekleyip izleme seçenekleri gerçek bedel ve karşı sonuç üretir. Eylemler Talk ekranında karakter adıyla açılır ve kanonik deftere yazılır. AI de aynı API ve kaynakları kullanır; bedava avantajı yoktur ve kriz başına en fazla bir karşı hamle yapabilir.
+- WorldV2, PlayerKnowledge ve UI kendi ülkenin tam kriz kaydıyla yabancı ülkenin yalnız kamusal kriz görünümünü ayırır. Gündem isimli krizi sohbet çalışma alanına taşır. Kayıt/yükleme birebir, V3→V2 göç, eski kayıt backfill'i, bozuk defter güvenli sıfırlaması, özellik/öncül kapalı yokluk ve salt-okunur projeksiyon kapıları geçti.
+- `qa-runtime/story-phase33-ab.json`: kapalı karma `d6ec566b…31bc`, açık karma `34ef8ff9…d838`; 900 saniyede `7` kriz, `3` teşebbüs, `3` başarısızlık, `4` dağılma, `5` eylem ve `43` olay üretildi. Refah deltası `-0,75`; enflasyon, huzursuzluk, etkin devlet ve haber deltaları `0`. Son erişim gıda `%80,23`, enerji `%80,34`, yaşam koşulu `%72,24`; sekiz devlet hayatta ve başlangıç toprak dağılımı korunuyor.
+- Scheduler `25` görev taşır; siyasi kriz her `5 sn` bütünlükten sonra ve kuşatmadan önce çalışır. Kapsamı azaltılmamış `npm test -- --workers=6` `54/54` görevle, `487,4 sn` toplam sürede ve çıkış kodu `0` ile geçti; ana 900 saniyelik koşu `190.852,31 ms` sürdü. Sıradaki uygulama **Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm**dür.
+- Yeni kalıcı kabul kuralı: yalnız veri/tablo/bildirim üreten katman oynanabilir sayılmaz. Oyuncuya en az bir yetkili, bedelli ve dünya defterine yazılan eylem verilmelidir; karakter bulunan alanda bu eylem isimli karakter ve ilişki üzerinden kurulmalıdır. Henüz uygulanmayan hedefli sohbet açıkça “henüz sistemde yok” der; genel konuşmayı o karakterin cevabı gibi sunmaz.
+
+## Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm kabul sonucu
+
+- Konsey çekmecesine `YÖNETİM` sekmesi eklendi. Görünüm oyuncunun kanonik karakter kimliğini Faz 29 makam sahipleriyle eşleştiriyor; cumhurbaşkanı, genelkurmay başkanı ve kurumsal makamı olmayan komutan aynı rolü veya aynı eylemi görmüyor. Oyuncu hiçbir kolektif makamı ya da AI makam sahibini taklit edemiyor.
+- İlk iki gerçek karar `Kamu yatırım programı` ve `Yerel ihtiyatı seferber et`tir. Kamu yatırımı yalnız yürütme makamına, seferberlik yalnız silahlı kuvvetler makamına açıktır. Kilitli kart gereken makamı ve mevcut dürüst alternatif yolu açıklar; uygulanmamış hedefli sohbet varmış gibi gösterilmez.
+- Kamu yatırımı başvuruda devlet bütçesinden `120` puanı gerçekten ayırır. Seferberlik oyuncunun komuta havuzundan `70` insan gücü ayırır. Karar, Faz 29’un gerçek başvuru/onay/yürütme API’sinden ve ilgili makam sahiplerinden geçer; sonra Faz 30’un `QUEUED → IMPLEMENTING → COMPLETED/DEGRADED/PAPER_ONLY` fişini bekler.
+- `COMPLETED/DEGRADED` kamu yatırımı hedef şehrin kanonik `level` alanını bir artırır; seferberlik garnizon tavanına uyarak kanonik `garrison` alanını bir artırır. Yetki zinciri bayatlarsa ayrılan kaynak iade edilir; karar kâğıtta kalırsa harcama yapılmış fakat fiziksel sonuç alınamamış olarak açıkça kaydedilir. Uygulama idempotent nedensellik anahtarı taşır ve kayıt/yüklemede tekrar uygulanmaz.
+- Gündemdeki kapasite, seçim ve bütünlük maddeleri artık genel konsey ekranına değil doğrudan yönetim çalışma alanına gider. Aynı ekranda rol, uygulama kapasitesi, hedef şehir, eylem maliyeti, onay ilerlemesi, makam sahipleri ve güç merkezleri bulunur. Kalıcı karakter sözleri Faz 38’den önce uydurulmaz.
+- Hedefli probda genelkurmay oyuncusu seferberlik yetkisini gördü fakat kamu yatırımını kullanamadı; yürütme makamına geçen aynı oyuncu yatırımı başlattı. `120` puan gerçekten eksildi, kapasite fişi `COMPLETED` oldu ve hedef şehir seviye `2 → 3` yükseldi. Kurum ve kapasite doğrulayıcıları, özellik-kapalı yol ve kayıt/yükleme geçti.
+- Kapsamı azaltılmamış `npm test -- --workers=6`, arşive taşınmış renderer için bayat kök-yol assertion’ı gerçek `_arsiv/kok-olu-kopyalar` yoluna düzeltildikten sonra `55/55` görevle, `681,1 sn` toplam sürede ve çıkış kodu `0` ile geçti. Ana 900 saniyelik koşu `262.191,86 ms`; dünya karması önceki Faz 33 ile aynı `34ef8ff959c39d0564a088679d3cc40f02f8c28261ade5f0498e11c89029d838` kaldı. Oyuncu karar vermediğinde Faz 33.1 otomatik dünya mutasyonu üretmiyor. Görsel tarayıcı bağlantısı bu oturumda mevcut değildi; 1366×768 ve paketlenmiş EXE piksel kabulü ayrıca oyuncu kontrolüne açıktır. Sıradaki uygulama **Faz 34 — Karakter Kimliği ve Hedefleri**dir.
 
 ## Faz 32 sonrası arayüz ve test tezgâhı ara teslimi
 

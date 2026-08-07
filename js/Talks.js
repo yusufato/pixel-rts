@@ -1004,6 +1004,7 @@ const TALK_KIND_META = {
     internal: { ic: '🗣️', name: 'KOMUTANIN', c: '#4cff7c' },
     clique:   { ic: '👁️', name: 'KULİS',     c: '#c78cff' },
     foreign:  { ic: '🕊️', name: 'DIŞ TEMAS', c: '#9fd2ff' },
+    crisis:   { ic: '⚠️', name: 'İÇ SİYASİ KRİZ', c: '#ff8f66' },
 };
 function storyTalkUpdate() {
     if (!STORY._talkOpen) return;
@@ -1017,8 +1018,8 @@ function storyTalkUpdate() {
             ? storyCityDossierEscape(STORY._talkFocusCharacterName)
             : String(STORY._talkFocusCharacterName);
         focusHtml = `<div class="talk-sec talk-focus"><div class="talk-h">⌖ ŞEHİR DOSYASINDAN GELEN BAĞLAM</div>`
-            + `<div class="talk-note"><b>${safeName}</b> için sohbet merkezi açıldı. `
-            + `Bekleyen gündemler bu karakterin görevi ve bulunduğu şehir bağlamında gösterilir.</div></div>`;
+            + `<div class="talk-note"><b>${safeName}</b> için şehir bağlamı korundu; ancak bu karakterle hedefli sohbet henüz sistemde yok. `
+            + `Aşağıdaki genel görüşmeler bu karakterin cevabı gibi gösterilmez.</div></div>`;
     }
     // 1) DİPLOMASİ TABLOSU — ilişkiler ve antlaşmalar
     const others = STORY.states.filter(s => s.id !== me.id && STORY.nodes.some(n => n.owner === s.id));
@@ -1033,6 +1034,35 @@ function storyTalkUpdate() {
     let html = focusHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
         + `<div class="talk-note">İlişkiler <b>sohbetlerle</b> değişir — elçileri dinle, söz ver, ahdine sadık kal.</div>`
         + (diploRows || `<div class="talk-note">Sahnede başka devlet yok.</div>`) + `</div>`;
+
+    // Faz 33: kriz bir tabloya bakılarak cozulmez. Kanonik komplo lideri ve
+    // sadik komutan adiyla konusur; her cevap kayitli bir bedel ve karsi hamle
+    // yaratir. Bu blok talk kuyruğundan bağımsızdır, dolayısıyla kaydet/yükle
+    // sonrasında kapanış fonksiyonu kaybetmez.
+    const crisisView = typeof storyPoliticalCrisisPlayerView === 'function'
+        ? storyPoliticalCrisisPlayerView() : null;
+    if (crisisView && crisisView.activeCrisis) {
+        const crisis = crisisView.activeCrisis;
+        const leadName = storyPoliticalCrisisActorName(me, crisis.leadActorId);
+        const loyalName = crisis.loyalistActorIds && crisis.loyalistActorIds.length
+            ? storyPoliticalCrisisActorName(me, crisis.loyalistActorIds[0]) : 'Genelkurmay nöbetçi subayı';
+        const esc = typeof storyProjectionEscape === 'function' ? storyProjectionEscape : value => String(value);
+        const pct = value => `%${Math.round((Number(value) || 0) / 100)}`;
+        html += `<div class="talk-sec political-crisis-workspace"><div class="talk-h">⚠️ İÇ SİYASİ KRİZ — ${esc(crisis.status)}</div>`
+            + `<div class="talk-card crisis-card">`
+            + `<div class="talk-card-h"><span style="color:${TALK_KIND_META.crisis.c}">👁️ ${esc(leadName)} ÇEVRESİ</span>`
+            + `<span class="talk-age">Hazırlık ${pct(crisis.preparationBps)}</span></div>`
+            + `<div class="talk-lines">`
+            + `<div><b>${esc(loyalName)}:</b> “Komuta zincirinde emirlerinizi tartışan bir çevre var. İsimler ve hareketler artık aynı dosyada.”</div>`
+            + `<div><b>${esc(leadName)}:</b> “Bizi yalnız sadakat puanıyla yargılamayın. Taleplerimizi dinlerseniz hâlâ konuşabiliriz.”</div>`
+            + `<div class="talk-note">Koalisyon ${pct(crisis.coalitionBps)} · Karşı güç ${pct(crisis.counterBps)} · Bilgi ${pct(crisis.intelligenceBps)}. Sonuç zarla değil bu kaydın ilerleyişiyle belirlenir.</div>`
+            + `</div><div class="talk-opts">`
+            + `<button class="talk-opt" data-political-crisis-action="NEGOTIATE"><b>${esc(leadName)} ile doğrudan görüş</b><span class="talk-tip">25 komuta puanı · lider sadakati +7 · hazırlık ve koalisyon geriler</span></button>`
+            + `<button class="talk-opt" data-political-crisis-action="SECURE_COMMAND"><b>${esc(loyalName)} ile komuta zincirini güvenceye al</b><span class="talk-tip">45 komuta puanı · kalıcı karşı güç oluşturur</span></button>`
+            + `<button class="talk-opt" data-political-crisis-action="PUBLIC_ACCOUNT"><b>Kamu önünde açıklama yap</b><span class="talk-tip">2 itibar · bilgi ve karşı güç artar; komplo da sertleşebilir</span></button>`
+            + `<button class="talk-opt" data-political-crisis-action="WAIT_AND_WATCH"><b>Müdahale etmeden izle</b><span class="talk-tip">Bedava · bilgi artar; karşı taraf 280 hazırlık kazanır</span></button>`
+            + `</div></div></div>`;
+    }
 
     // 2) BEKLEYEN KONUŞMALAR
     html += `<div class="talk-sec"><div class="talk-h">💬 BEKLEYEN KONUŞMALAR <b>${talks.length}</b></div>`;
@@ -1075,6 +1105,15 @@ function storyTalkBind() {
     document.getElementById('story-talk-btn')?.addEventListener('click', storyTalkToggle);
     document.getElementById('talk-close')?.addEventListener('click', storyTalkClose);
     document.getElementById('talk-body')?.addEventListener('click', e => {
+        const crisisButton = e.target.closest('[data-political-crisis-action]');
+        if (crisisButton && typeof storyPoliticalCrisisAct === 'function') {
+            const result = storyPoliticalCrisisAct(STORY.playerStateId, crisisButton.dataset.politicalCrisisAction);
+            storyFlash(storyPoliticalCrisisActionMessage(crisisButton.dataset.politicalCrisisAction, result));
+            storyTalkUpdate();
+            if (typeof storyPanelUpdate === 'function') storyPanelUpdate();
+            if (typeof storyRender === 'function') storyRender();
+            return;
+        }
         const b = e.target.closest('.talk-opt'); if (!b) return;
         storyTalkAnswer(+b.dataset.talk, +b.dataset.opt);
     });

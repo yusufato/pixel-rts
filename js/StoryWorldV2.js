@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_WORLD_V2_SCHEMA_VERSION = 2;
-const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-5';
+const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-6';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
     'meta', 'clock', 'countries', 'regions', 'characters',
@@ -112,6 +112,9 @@ function storyWorldV2Countries() {
                 : null,
             integrity: typeof storyIntegrityCountryView === 'function'
                 ? storyWorldV2Clone(storyIntegrityCountryView(storyWorldV2CountryId(state.id)))
+                : null,
+            politicalCrisis: typeof storyPoliticalCrisisCountryView === 'function'
+                ? storyWorldV2Clone(storyPoliticalCrisisCountryView(storyWorldV2CountryId(state.id)))
                 : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
@@ -410,6 +413,17 @@ function storyWorldV2IntegrityEvidence() {
     )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
+function storyWorldV2PoliticalCrises() {
+    const ledger = typeof storyPoliticalCrisisEnabled === 'function'
+        && storyPoliticalCrisisEnabled() ? STORY.politicalCrises : null;
+    if (!ledger) return [];
+    return Object.values(ledger.crises || {}).map(row => Object.assign(
+        storyWorldV2EntityBase(row.id, row.countryId, row.openedAt, null),
+        storyWorldV2Clone(row),
+        { entityType: 'POLITICAL_CRISIS' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
 function storyWorldV2Forces() {
     const forces = [];
     for (const state of (STORY.states || [])) {
@@ -618,7 +632,7 @@ function storyWorldV2Snapshot() {
         diplomaticEdges: [],
         markets: [],
         militaryForces: storyWorldV2Forces(),
-        crises: [],
+        crises: storyWorldV2PoliticalCrises(),
         events,
         decisions: events.filter(event => event.eventType === 'council.decision').map(event => Object.assign(
             storyWorldV2Clone(event),

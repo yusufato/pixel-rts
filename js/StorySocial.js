@@ -143,6 +143,9 @@ function storyApplyDefections() {
     }
 }
 function storyApplyCoups() {
+    // Faz 33 acikken eski dort saniyelik rastgele darbe zari tamamen kapanir.
+    // Bu yol yalniz A/B ve eski kayit geri donusu icin tutulur.
+    if (typeof storyPoliticalCrisisEnabled === 'function' && storyPoliticalCrisisEnabled()) return;
     for (const st of STORY.states) {
         if (!st.gov) continue;
         const disloyal = st.gov.commanders.filter(c => c !== STORY.commander && (c.loyalty == null ? 60 : c.loyalty) < 40);

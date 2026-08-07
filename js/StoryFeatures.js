@@ -44,6 +44,8 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'government.stateCapacity': true,
     'government.electionsTransfer': true,
     'government.patronageIntegrity': true,
+    'government.politicalCrisis': true,
+    'government.playerGovernance': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -128,6 +130,23 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'government.stateCapacity',
         'economy.stateBudget',
         'economy.companiesBanks'
+    ]),
+    'government.politicalCrisis': Object.freeze([
+        'society.collectiveAction',
+        'society.powerCenters',
+        'government.institutionsAuthority',
+        'government.stateCapacity',
+        'government.electionsTransfer',
+        'government.patronageIntegrity'
+    ]),
+    'government.playerGovernance': Object.freeze([
+        'society.powerCenters',
+        'government.institutionsAuthority',
+        'government.stateCapacity',
+        'government.electionsTransfer',
+        'government.patronageIntegrity',
+        'government.politicalCrisis',
+        'economy.stateBudget'
     ])
 });
 

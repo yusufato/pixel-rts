@@ -100,6 +100,10 @@ Yeni kampanyada sekiz devletin bütün 28 ikili ilişkisi `peace` başlar. Ateş
 
 Bu yalnız temel başlangıç düzeltmesidir. Casus belli, kriz basamakları, yaptırım, kurum onayı ve çok hedefli diplomasi AI’si sonraki fazlardadır. Modern dünya hedefiyle çalışan kod arasındaki güncel farklar [MODERN_DUNYA_EKSIKLERI.md](MODERN_DUNYA_EKSIKLERI.md) içinde izlenir. Tam karakter ve hafıza dalgası Faz 34–38.5’tir.
 
+## Hikâye yönetim çalışma alanı
+
+`js/StoryGovernance.js`, Konsey içindeki `YÖNETİM` sekmesini Faz 29 kurum yetkisi ve Faz 30 devlet kapasitesiyle bağlar. Oyuncu yalnız gerçekten tuttuğu makamın kararını başlatabilir. Kamu yatırımı devlet bütçesinden, yerel seferberlik komuta insan gücünden gerçek maliyet ayırır; kurum onayı ve uygulama fişi tamamlanmadan şehir seviyesi veya garnizon değişmez. Oyuncu karar vermediğinde bu katman dünyayı otomatik olarak değiştirmez.
+
 ## Aktif hikâye haritası mimarisi
 
 Aktif script sırası `index.html` ile `tools/story-sim-harness.js` içinde aynıdır:
@@ -144,7 +148,7 @@ Tüm aktif geçersiz kılmalar `storyInvalidateMapCaches(scope, reason, details)
 
 - `js/StoryRender.js` aktif hikâye renderer’ıdır; `index.html` tarafından yüklenir ve pakete girer.
 - `js/MapData.js` aktif taktik savaş harita verisidir; `index.html` tarafından yüklenir ve pakete girer. Hikâye renderer’ının kopyası değildir.
-- Kökteki `StoryGeoRender.js` tarihî, bağımsız bir prototiptir. `index.html` tarafından yüklenmez ve Electron `build.files` yalnız `js/**/*` aldığı için dağıtım paketine girmez. Aktif kaynak olarak düzenlenmemelidir.
+- `_arsiv/kok-olu-kopyalar/StoryGeoRender.js` tarihî, bağımsız bir prototiptir. `index.html` tarafından yüklenmez ve Electron `build.files` yalnız `js/**/*` aldığı için dağıtım paketine girmez. Aktif kaynak olarak düzenlenmemelidir.
 - Eski `MapData.v2.js` / `js/mapDataV2.js` çiftleri mevcut çalışma ağacında yoktur.
 
 Arşiv prototipi bilerek tutulmaktadır; çalışan renderer üzerine override olarak bağlanmamalıdır. Kaldırılacaksa ayrı bir kaynak temizliği değişikliği olarak silinmelidir.

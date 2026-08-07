@@ -34,6 +34,8 @@ const STORY_SOURCES = [
     'js/StoryStateCapacity.js',
     'js/StoryElections.js',
     'js/StoryIntegrity.js',
+    'js/StoryPoliticalCrisis.js',
+    'js/StoryGovernance.js',
     'js/StoryCommerce.js',
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
@@ -135,6 +137,16 @@ function createRuntime(seed) {
         + '<button id="story-talk-btn"></button>'
         + '<aside id="talk-panel" aria-hidden="true"><button id="talk-close"></button>'
         + '<div id="talk-body"></div></aside>'
+        + '<button id="story-council-btn"></button>'
+        + '<aside id="council-panel" aria-hidden="true"><button id="council-close"></button>'
+        + '<div id="council-admin-banner"></div><div id="council-tabs">'
+        + '<button class="ctab active" data-tab="cmd"></button><button class="ctab" data-tab="law"></button>'
+        + '<button class="ctab" data-tab="gov"></button></div>'
+        + '<div id="council-tab-cmd"><div id="council-treasury"></div><div id="council-list"></div>'
+        + '<div id="council-confirm" class="hidden"></div><div id="council-actions">'
+        + '<button id="council-create-btn"></button><button id="council-dismiss-btn"></button></div></div>'
+        + '<div id="council-tab-law" class="hidden"><div id="council-lawbox"></div></div>'
+        + '<div id="council-tab-gov" class="hidden"><div id="governance-body"></div></div></aside>'
         + '<div id="faction-event-modal" class="hidden" role="dialog" aria-modal="true">'
         + '<span id="faction-event-kicker"></span><h2 id="faction-event-title"></h2>'
         + '<div id="faction-event-body"></div><div id="faction-event-responses" class="hidden"></div>'
@@ -649,6 +661,29 @@ function createRuntime(seed) {
             integrityOpenInvestigation: (caseId, requestId) => storyIntegrityOpenInvestigation(caseId, requestId),
             integrityResolveInvestigation: caseId => storyIntegrityResolveInvestigation(caseId),
             integrityTick: dt => storyIntegrityTick(dt),
+            politicalCrisisSummary: () => storyPoliticalCrisisSummary(),
+            politicalCrisisLedger: () => storyPoliticalCrisisClone(STORY.politicalCrises),
+            validatePoliticalCrisisLedger: ledger => storyPoliticalCrisisValidate(ledger),
+            politicalCrisisForSave: () => storyPoliticalCrisisForSave(),
+            politicalCrisisCountryView: countryId => storyPoliticalCrisisCountryView(countryId),
+            politicalCrisisPublicView: value => storyPoliticalCrisisPublicView(value),
+            politicalCrisisAct: (countryId, actionId, options) => storyPoliticalCrisisAct(countryId, actionId, options),
+            politicalCrisisTick: dt => storyPoliticalCrisisTick(dt),
+            governanceView: () => storyGovernancePlayerView(),
+            governanceActionView: (actionId, regionId) => storyGovernanceActionView(actionId, regionId),
+            governanceSubmit: (actionId, regionId) => storyGovernanceSubmit(actionId, regionId),
+            governanceTick: dt => storyGovernanceTick(dt),
+            governanceHtml: () => {
+                const view = storyGovernanceUpdate();
+                const body = document.getElementById('governance-body');
+                return { view, text: body ? body.textContent || '' : '', html: body ? body.innerHTML || '' : '' };
+            },
+            politicalCrisisTalkHtml: () => {
+                STORY._talkOpen = true;
+                storyTalkUpdate();
+                const body = document.getElementById('talk-body');
+                return body ? { text: body.textContent || '', html: body.innerHTML || '' } : null;
+            },
             populationTransferCohorts: (origin, destination, requested, options) => (
                 storyPopulationTransferCohorts(origin, destination, requested, options)
             ),
@@ -2273,6 +2308,11 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validateIntegrityLedger(integrityLedger)
             : { ok: true, disabled: true, issues: [] };
         const integritySummary = runtime.api.integritySummary();
+        const politicalCrisisLedger = runtime.api.politicalCrisisLedger();
+        const politicalCrisisValidation = politicalCrisisLedger
+            ? runtime.api.validatePoliticalCrisisLedger(politicalCrisisLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const politicalCrisisSummary = runtime.api.politicalCrisisSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2477,6 +2517,8 @@ function runStorySimulation(options = {}) {
             electionSummary,
             integrityValidation,
             integritySummary,
+            politicalCrisisValidation,
+            politicalCrisisSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -3019,7 +3061,7 @@ function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
         'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'siege', 'technology',
+        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -10108,6 +10150,328 @@ function probeIntegrity(seed = 2032) {
     return { main, restored, legacy, corrupt, disabled, prerequisiteDisabled };
 }
 
+function probePoliticalCrisis(seed = 2032) {
+    const prime = runtime => {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(5);
+        const story = runtime.api.state();
+        const state = story.states.find(row => Number(row.id) === 0);
+        state.welfare = 12;
+        if (state.factions) {
+            state.factions.workers = 22;
+            state.factions.business = 28;
+            state.factions.military = 12;
+            state.factions.intel = 20;
+            state.factions.radicals = 82;
+        }
+        const plotters = (state.gov && state.gov.commanders || []).slice(0, 3);
+        for (const [index, commander] of plotters.entries()) {
+            commander.loyalty = 20 + index * 3;
+            commander._lastDefect = story.clock;
+            commander.skills.warrior = Math.max(4, commander.skills.warrior || 0);
+            commander.skills.diplomat = Math.max(3, commander.skills.diplomat || 0);
+        }
+        runtime.api.politicalCrisisTick(5);
+        return { story, state, plotters };
+    };
+
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    let savedLedger;
+    try {
+        const fixture = prime(runtime);
+        const opened = runtime.api.politicalCrisisCountryView('country:0');
+        const active = opened && opened.activeCrisis;
+        const beforeAction = active ? {
+            preparationBps: active.preparationBps,
+            coalitionBps: active.coalitionBps,
+            counterBps: active.counterBps
+        } : null;
+        const talkUi = runtime.api.politicalCrisisTalkHtml();
+        const negotiate = runtime.api.politicalCrisisAct('country:0', 'NEGOTIATE');
+        runtime.api.advance(20);
+        const secure = runtime.api.politicalCrisisAct('country:0', 'SECURE_COMMAND');
+        const finalLedger = runtime.api.politicalCrisisLedger();
+        const world = runtime.api.worldV2();
+        const ownKnowledge = runtime.api.playerKnowledge(world, 'country:0');
+        const foreignKnowledge = runtime.api.playerKnowledge(world, 'country:1');
+        const own = ownKnowledge.countries.find(row => row.id === 'country:0');
+        const foreign = foreignKnowledge.countries.find(row => row.id === 'country:0');
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        savedLedger = JSON.parse(savedRaw).politicalCrises;
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            opened: !!active,
+            status: active && active.status,
+            leadCanonical: !!(active && /^character:0:\d+$/.test(String(active.leadActorId))),
+            plotterCount: active ? active.plotterActorIds.length : 0,
+            beforeAction,
+            negotiate,
+            secure,
+            actionChangedPreparation: !!(negotiate.ok && negotiate.action.after.preparationBps < negotiate.action.before.preparationBps),
+            actionRaisedCounter: !!(secure.ok && secure.action.after.counterBps > secure.action.before.counterBps),
+            resourceReceiptsRecorded: !!(negotiate.ok && negotiate.action.resourceReceipts.length),
+            ui: {
+                characterNamesVisible: !!(talkUi && active && talkUi.text.includes(fixture.plotters[0].name)),
+                fourActionsVisible: !!(talkUi && /doğrudan görüş/.test(talkUi.text)
+                    && /komuta zincirini güvenceye al/.test(talkUi.text)
+                    && /Kamu önünde açıklama yap/.test(talkUi.text)
+                    && /Müdahale etmeden izle/.test(talkUi.text))
+            },
+            validation: runtime.api.validatePoliticalCrisisLedger(finalLedger),
+            summary: runtime.api.politicalCrisisSummary(),
+            worldValidation: runtime.api.validateWorldV2(world),
+            worldCrisisCount: world.crises.length,
+            ownKnowledgeValidation: runtime.api.validatePlayerKnowledge(ownKnowledge),
+            foreignKnowledgeValidation: runtime.api.validatePlayerKnowledge(foreignKnowledge),
+            ownKnowledge: own.politicalCrisis,
+            foreignKnowledge: foreign.politicalCrisis,
+            foreignSecretsHidden: !/leadActorId|plotterActorIds|loyalistActorIds|preparationBps|coalitionBps|counterBps|actionHistory|resourceReceipts/.test(
+                JSON.stringify(foreign.politicalCrisis.value)
+            ),
+            saveOk: fixture.story._lastSaveOk === true,
+            saveExact: JSON.stringify(savedLedger) === JSON.stringify(runtime.api.politicalCrisisLedger()),
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                crisisCount: migrated.ok ? migrated.world.crises.length : 0,
+                countryPreserved: !!(migrated.ok && migrated.world.countries[0].politicalCrisis),
+                unmapped: !!(migrated.ok && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('politicalCrises'))
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const outcomeRuntime = createRuntime(seed >>> 0);
+    let deterministicOutcome;
+    try {
+        const fixture = prime(outcomeRuntime);
+        for (const commander of (fixture.state.gov && fixture.state.gov.commanders || []).slice(0, 8)) {
+            commander.loyalty = 8;
+            commander._lastDefect = fixture.story.clock;
+            commander.skills.warrior = 6;
+            commander.skills.diplomat = 6;
+        }
+        const ledger = outcomeRuntime.api.politicalCrisisLedger();
+        const activeId = ledger.countries['country:0'].activeCrisisId;
+        outcomeRuntime.api.state().politicalCrises.crises[activeId].preparationBps = 8999;
+        outcomeRuntime.api.politicalCrisisTick(5);
+        const resolvedLedger = outcomeRuntime.api.politicalCrisisLedger();
+        const resolved = resolvedLedger.crises[activeId];
+        deterministicOutcome = {
+            status: resolved.status,
+            resultCode: resolved.resultCode,
+            resolvedAt: resolved.resolvedAt,
+            randomOutcome: resolved.randomOutcome,
+            llmOutcome: resolved.llmOutcome,
+            territorialMutation: resolvedLedger.events
+                .filter(event => event.crisisId === activeId && event.type === 'CRISIS_RESOLVED')
+                .some(event => event.physicalTerritorialMutation === true),
+            validation: outcomeRuntime.api.validatePoliticalCrisisLedger(resolvedLedger)
+        };
+    } finally {
+        outcomeRuntime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.politicalCrisisLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validatePoliticalCrisisLedger(ledger),
+            exact: JSON.stringify(ledger) === JSON.stringify(savedLedger)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacySave = JSON.parse(savedRaw);
+    delete legacySave.politicalCrises;
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.politicalCrisisLedger();
+        legacy = {
+            validation: legacyRuntime.api.validatePoliticalCrisisLedger(ledger),
+            diagnostics: ledger.diagnostics,
+            summary: legacyRuntime.api.politicalCrisisSummary()
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const corruptSave = JSON.parse(savedRaw);
+    const corruptCrisis = Object.values(corruptSave.politicalCrises.crises || {})[0];
+    if (corruptCrisis) corruptCrisis.randomOutcome = true;
+    const corruptRuntime = createRuntime(seed >>> 0);
+    let corrupt;
+    try {
+        corruptRuntime.api.putSavedRaw(JSON.stringify(corruptSave));
+        corruptRuntime.api.loadNow();
+        const ledger = corruptRuntime.api.politicalCrisisLedger();
+        corrupt = {
+            validation: corruptRuntime.api.validatePoliticalCrisisLedger(ledger),
+            diagnostics: ledger.diagnostics
+        };
+    } finally {
+        corruptRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.politicalCrisis': false }
+        });
+        disabled = {
+            ledger: disabledRuntime.api.politicalCrisisLedger(),
+            summary: disabledRuntime.api.politicalCrisisSummary()
+        };
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const prerequisiteRuntime = createRuntime(seed >>> 0);
+    let prerequisiteDisabled;
+    try {
+        prerequisiteRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.patronageIntegrity': false, 'government.politicalCrisis': true }
+        });
+        prerequisiteDisabled = {
+            ledger: prerequisiteRuntime.api.politicalCrisisLedger(),
+            summary: prerequisiteRuntime.api.politicalCrisisSummary()
+        };
+    } finally {
+        prerequisiteRuntime.dom.window.close();
+    }
+    return { main, deterministicOutcome, restored, legacy, corrupt, disabled, prerequisiteDisabled };
+}
+
+function probeGovernanceWorkspace(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        runtime.api.advance(5);
+        const story = runtime.api.state();
+        const state = story.states.find(row => Number(row.id) === 0);
+        const target = story.nodes.find(node => Number(node.owner) === 0
+            && Number(node.level || 1) < 3
+            && Number(node.garrison || 0) < (Number(node.level || 1) * 4));
+        state.gov.leader = 'ai';
+        story.commander.skills.warrior = 99;
+        runtime.api.institutionTick(5);
+        const commanderView = runtime.api.governanceView();
+        const commanderHtml = runtime.api.governanceHtml();
+        const commanderPublicWorks = commanderView.actions.find(row => row.actionId === 'PUBLIC_WORKS');
+        const commanderMobilize = commanderView.actions.find(row => row.actionId === 'MOBILIZE_RESERVE');
+
+        state.gov.leader = 'player';
+        runtime.api.institutionTick(5);
+        const presidentView = runtime.api.governanceView();
+        const presidentPublicWorks = runtime.api.governanceActionView('PUBLIC_WORKS', `region:${target.id}`);
+        const cashBefore = story.states.filter(row => Number(row.id) === 0)
+            .flatMap(row => [story.commander].concat(row.gov && row.gov.commanders || []))
+            .filter(Boolean).reduce((sum, commander) => sum + (Number(commander.res && commander.res.points) || 0), 0);
+        const levelBefore = Number(target.level || 1);
+        const submitted = runtime.api.governanceSubmit('PUBLIC_WORKS', `region:${target.id}`);
+        const cashAfterSubmit = [story.commander].concat(state.gov.commanders || [])
+            .filter(Boolean).reduce((sum, commander) => sum + (Number(commander.res && commander.res.points) || 0), 0);
+        for (let index = 0; index < 60; index++) {
+            story.clock += 5;
+            runtime.api.stateCapacityTick(5);
+            runtime.api.governanceTick(5);
+            const request = submitted.ok && story.institutions.requests[submitted.request.id];
+            if (request && request.domainDecision && request.domainDecision.result) break;
+        }
+        const request = submitted.ok && story.institutions.requests[submitted.request.id];
+        const ticket = submitted.ok && story.stateCapacity.tickets[`implementation:${submitted.request.id}`];
+        const finalHtml = runtime.api.governanceHtml();
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        main = {
+            targetRegionId: target && `region:${target.id}`,
+            commander: {
+                role: commanderView.role,
+                mobilizeAllowed: !!(commanderMobilize && commanderMobilize.allowed),
+                publicWorksLocked: !!(commanderPublicWorks && !commanderPublicWorks.allowed),
+                alternativePathVisible: !!(commanderPublicWorks && commanderPublicWorks.alternativePath),
+                htmlHasAlternative: /ALTERNATIF/.test(commanderHtml.text)
+            },
+            president: {
+                role: presidentView.role,
+                publicWorksAllowed: presidentPublicWorks.allowed,
+                holdsExecutive: presidentView.heldInstitutions.some(row => row.type === 'EXECUTIVE')
+            },
+            submitted,
+            costSpent: Math.round((cashBefore - cashAfterSubmit) * 1e6) / 1e6,
+            request: request ? JSON.parse(JSON.stringify(request)) : null,
+            ticket: ticket ? JSON.parse(JSON.stringify(ticket)) : null,
+            physicalResult: {
+                levelBefore,
+                levelAfter: Number(target.level || 1),
+                applied: !!(request && request.domainDecision && request.domainDecision.result
+                    && request.domainDecision.result.status === 'APPLIED'),
+                physicalMutation: !!(request && request.domainDecision && request.domainDecision.result
+                    && request.domainDecision.result.physicalMutation)
+            },
+            ui: {
+                roleVisible: /CUMHURBAŞKANI/.test(finalHtml.text),
+                actionVisible: /Kamu yatırım programı/.test(finalHtml.text),
+                pipelineVisible: /SAHADA UYGULANDI/.test(finalHtml.text),
+                officesVisible: /MAKAMLAR/.test(finalHtml.text),
+                centersVisible: /GÜÇ MERKEZLERİ/.test(finalHtml.text)
+            },
+            institutionValidation: runtime.api.validateInstitutionLedger(runtime.api.institutionLedger()),
+            stateCapacityValidation: runtime.api.validateStateCapacityLedger(runtime.api.stateCapacityLedger()),
+            saveOk: story._lastSaveOk === true
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const view = restoredRuntime.api.governanceView();
+        const decision = view.decisions[0];
+        restored = {
+            loaded,
+            decisionStatus: decision && decision.status,
+            physicalResultPreserved: !!(decision && decision.result && decision.result.physicalMutation),
+            institutionValidation: restoredRuntime.api.validateInstitutionLedger(restoredRuntime.api.institutionLedger())
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'government.playerGovernance': false }
+        });
+        disabled = disabledRuntime.api.governanceView();
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+    return { main, restored, disabled };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -10147,6 +10511,8 @@ module.exports = {
     probeStateCapacity,
     probeElections,
     probeIntegrity,
+    probePoliticalCrisis,
+    probeGovernanceWorkspace,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

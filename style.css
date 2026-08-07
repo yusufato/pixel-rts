@@ -1310,6 +1310,7 @@ body[data-screen="story"] { background: #060a06; }
 #story-news #story-log { overflow-y: auto; }
 #story-brief-panel > .hidden { display: none !important; }
 .news-title { padding: 10px 14px; border-bottom: 1px solid var(--wr-line); color: var(--wr-amber); font-size: 9px; font-weight: 400; letter-spacing: 2px; }
+.story-flow-hint { padding: 7px 13px 3px; color: var(--wr-dim); font-size: 7.5px; letter-spacing: 1px; }
 #story-log { padding: 8px 13px; color: #7fae90; font-size: 10px; line-height: 1.45; }
 .story-log-row { padding: 5px 0; border-bottom: 1px solid rgba(255,176,0,.08); }
 
@@ -1576,6 +1577,23 @@ body[data-screen="story"] { background: #060a06; }
     gap: 10px;
     padding: 9px;
     border: 1px solid rgba(255,176,0,.14);
+}
+.city-character-main { min-width: 0; flex: 1 1 auto; }
+.city-character-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+}
+.city-character-skills i {
+    padding: 3px 6px;
+    border: 1px solid rgba(74,222,128,.18);
+    border-radius: 2px;
+    background: rgba(74,222,128,.035);
+    color: #a8c7b1;
+    font-size: 7.5px;
+    font-style: normal;
+    letter-spacing: .45px;
 }
 .city-character-row .city-btn, .city-route-row .city-btn {
     flex: 0 0 auto;
@@ -1974,7 +1992,35 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     font: 10px 'Share Tech Mono', monospace; letter-spacing: 1.2px; transition: color .12s, border-color .12s; }
 .ctab:hover { color: var(--wr-amber-bright); }
 .ctab.active { color: var(--wr-amber-bright); border-bottom-color: var(--wr-amber); background: rgba(255,176,0,.06); }
-#council-tab-cmd.hidden, #council-tab-law.hidden { display: none; }
+#council-tab-cmd.hidden, #council-tab-law.hidden, #council-tab-gov.hidden { display: none; }
+
+/* Faz 33.1 — yönetim çalışma alanı */
+#governance-body { overflow-y: auto; max-height: calc(100vh - 178px); padding: 0 12px 18px; }
+.governance-workspace h3 { margin: 16px 0 7px; color: var(--wr-amber); font: 10px 'Share Tech Mono', monospace; letter-spacing: 1px; }
+.governance-role { margin: 8px 0; padding: 10px; border: 1px solid var(--wr-line); background: rgba(255,176,0,.04); display: flex; flex-direction: column; gap: 3px; }
+.governance-role span, .governance-region-label { color: var(--wr-muted); font: 9px 'Share Tech Mono', monospace; letter-spacing: 1px; }
+.governance-role b { color: var(--wr-amber-bright); font-size: 13px; }
+.governance-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; }
+.governance-metrics span { padding: 7px; border: 1px solid var(--wr-line); color: var(--wr-muted); font: 9px 'Share Tech Mono', monospace; }
+.governance-metrics b { float: right; color: #e8efe9; }
+.governance-region-label { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+#governance-region-select { width: 100%; padding: 8px; color: #e8efe9; background: #101714; border: 1px solid var(--wr-line); font: 10px 'Share Tech Mono', monospace; }
+.governance-actions { display: grid; gap: 7px; }
+.governance-action { padding: 10px; border: 1px solid rgba(89,133,110,.45); background: rgba(27,48,37,.45); }
+.governance-action.locked { border-color: rgba(130,130,130,.25); background: rgba(40,40,40,.3); }
+.governance-action h4 { margin: 0 0 5px; color: #e8efe9; font-size: 12px; }
+.governance-action p { margin: 0 0 7px; color: #b9c7bd; font-size: 11px; line-height: 1.35; }
+.governance-action small { display: block; margin-bottom: 8px; color: var(--wr-amber); }
+.governance-action .story-btn { width: 100%; }
+.governance-lock { color: #d7a276; font-size: 10px; line-height: 1.35; }
+.governance-path { margin-top: 5px; color: #9ca9a0; font-size: 9px; line-height: 1.35; }
+.governance-decision, .governance-office, .governance-center { display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; border-bottom: 1px solid rgba(110,145,125,.2); }
+.governance-decision b, .governance-office b, .governance-center b { color: #e8efe9; font-size: 11px; }
+.governance-decision span, .governance-office span, .governance-center span { color: #aab8ae; font-size: 10px; }
+.governance-decision small { color: var(--wr-amber); font-size: 9px; }
+.governance-office.is-player { border-left: 2px solid #4cff7c; background: rgba(76,255,124,.05); }
+.governance-empty, .governance-promises { padding: 9px; color: #89958d; font-size: 10px; line-height: 1.4; border: 1px dashed rgba(110,145,125,.25); }
+.governance-promises { margin-top: 14px; }
 
 /* ══ ORDUM paneli — sefer ordusu / diğer komutanlar / depolar ════════════════ */
 .army-list, .army-cmds { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }

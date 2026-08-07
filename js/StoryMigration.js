@@ -325,6 +325,9 @@ function storyMigrationV3RawToV2(raw, options) {
     const savedIntegrityCountries = storyMigrationObject(savedIntegrity.countries);
     const savedIntegrityCases = storyMigrationObject(savedIntegrity.cases);
     const savedIntegrityEvidence = storyMigrationObject(savedIntegrity.evidence);
+    const savedPoliticalCrises = storyMigrationObject(save.politicalCrises);
+    const savedPoliticalCrisisCountries = storyMigrationObject(savedPoliticalCrises.countries);
+    const savedPoliticalCrisisRows = storyMigrationObject(savedPoliticalCrises.crises);
     for (const countryId of Object.keys(savedCollectiveCountries)) {
         const migratedCountry = countries.find(country => country.id === countryId);
         if (migratedCountry) {
@@ -440,6 +443,17 @@ function storyMigrationV3RawToV2(raw, options) {
             }));
         migratedCountry.integrity = integrityView;
     }
+    for (const countryId of Object.keys(savedPoliticalCrisisCountries)) {
+        const migratedCountry = countries.find(country => country.id === countryId);
+        if (!migratedCountry) continue;
+        const crisisView = storyMigrationClone(savedPoliticalCrisisCountries[countryId]);
+        crisisView.activeCrisis = crisisView.activeCrisisId
+            ? storyMigrationClone(savedPoliticalCrisisRows[crisisView.activeCrisisId] || null) : null;
+        crisisView.crises = (crisisView.crisisIds || [])
+            .map(id => storyMigrationClone(savedPoliticalCrisisRows[id]))
+            .filter(Boolean);
+        migratedCountry.politicalCrisis = crisisView;
+    }
     for (const regionId of Object.keys(savedPopulationRegions).sort()) {
         const savedRegion = storyMigrationObject(savedPopulationRegions[regionId]);
         for (const cohort of (Array.isArray(savedRegion.cohorts) ? savedRegion.cohorts : [])) {
@@ -469,7 +483,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -568,7 +582,11 @@ function storyMigrationV3RawToV2(raw, options) {
         diplomaticEdges: [],
         markets: [],
         militaryForces: forces,
-        crises: [],
+        crises: Object.values(savedPoliticalCrisisRows).map(row => Object.assign(
+            storyMigrationBase(String(row.id), row.countryId == null ? null : String(row.countryId), storyMigrationNumber(row.openedAt, 0)),
+            storyMigrationClone(row),
+            { entityType: 'POLITICAL_CRISIS' }
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         events,
         decisions,
         memory: {

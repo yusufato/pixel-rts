@@ -470,8 +470,8 @@ function storyCityDossierRenderInstitutions(view) {
             return out;
         }, {});
         routeSummary = `<div class="city-fact-grid">`
-            + `<div><span>TEK İMZAYLA KARAR</span><b>${routeCounts.DIRECT || 0}</b></div>`
-            + `<div><span>ORTAK ONAY GEREKEN</span><b>${routeCounts.JOINT || 0}</b></div>`
+            + `<div><span>TEK MAKAM KARARI</span><b>${routeCounts.DIRECT || 0}</b></div>`
+            + `<div><span>ORTAK KARAR / ONAY</span><b>${routeCounts.JOINT || 0}</b></div>`
             + `<div><span>YETKİ DIŞI</span><b>${routeCounts.PROHIBITED || 0}</b></div>`
             + `<div><span>BAŞKA KURUMA BAĞLI</span><b>${routeCounts.EXTERNAL_DOMAIN || 0}</b></div></div>`;
         const requests = Array.isArray(value.requests) ? value.requests : [];
@@ -864,11 +864,19 @@ function storyCityDossierRenderCharacters(view) {
     }
     const roleLabels = { COMMANDER: 'KOMUTAN', PRESIDENT: 'CUMHURBAŞKANI', MINISTER: 'BAKAN', MAYOR: 'BELEDİYE BAŞKANI', EXECUTIVE: 'YÖNETİCİ' };
     return `<section class="city-dossier-sec"><h3>ŞEHİRDEKİ KARAKTERLER</h3><div class="city-character-list">`
-        + view.characters.map(character => `<article class="city-character-row"><div>`
-            + `<b>${storyCityDossierEscape(character.name.value)}</b>`
-            + `<span>${storyCityDossierEscape(roleLabels[character.role.value] || character.role.value)}</span></div>`
-            + `<button class="city-btn city-character" data-character="${storyCityDossierEscape(character.id)}">SOHBET GİRİŞİ</button></article>`).join('')
-        + `</div><p class="city-hint">Bir karakter seçerek görüşmeye onun görevi ve bulunduğu şehir bağlamında başlayabilirsin.</p></section>`;
+        + view.characters.map(character => {
+            const skills = character.skills && character.skills.value || {};
+            const loyalty = character.loyalty && Number(character.loyalty.value);
+            return `<article class="city-character-row"><div class="city-character-main">`
+                + `<b>${storyCityDossierEscape(character.name.value)}</b>`
+                + `<span>${storyCityDossierEscape(roleLabels[character.role.value] || character.role.value)}`
+                + `${Number.isFinite(loyalty) ? ` · SADAKAT ${Math.round(loyalty)}` : ''}</span>`
+                + `<div class="city-character-skills"><i>SAVAŞ ${Math.max(0, Number(skills.warrior) || 0)}</i>`
+                + `<i>DİPLOMASİ ${Math.max(0, Number(skills.diplomat) || 0)}</i>`
+                + `<i>İKTİSAT ${Math.max(0, Number(skills.economist) || 0)}</i></div></div>`
+                + `<button class="city-btn city-character" data-character="${storyCityDossierEscape(character.id)}">GÖRÜŞMEYİ AÇ</button></article>`;
+        }).join('')
+        + `</div><p class="city-hint">Görüşme, karakterin görevi ve bulunduğu şehir bağlamıyla açılır. Bekleyen gündemler sohbet merkezinde gösterilir.</p></section>`;
 }
 
 function storyCityDossierRenderCollective(view) {
@@ -963,7 +971,7 @@ function storyCityDossierRenderPopulation(view) {
     const conditions = needs ? `<section class="city-dossier-sec"><h3>YAŞAM KOŞULLARI</h3><div class="city-fact-grid">`
         + `<div><span>GIDA ERİŞİMİ</span><b>%${storyCityDossierNumber(needs.foodAccessBps / 100)}</b></div>`
         + `<div><span>ENERJİ ERİŞİMİ</span><b>%${storyCityDossierNumber(needs.energyAccessBps / 100)}</b></div>`
-        + `<div><span>GELİR GÜVENLİĞİ</span><b>%${storyCityDossierNumber(needs.incomeSecurityBps / 100)}</b><small>düzenli işe erişim</small></div>`
+        + `<div><span>GELİR GÜVENLİĞİ</span><b>%${storyCityDossierNumber(needs.incomeSecurityBps / 100)}</b><small>ücret değil, istihdam vekili · düzenli işe erişim</small></div>`
         + `<div><span>İŞSİZLİK RİSKİ</span><b>%${storyCityDossierNumber(needs.unemploymentRiskBps / 100)}</b></div>`
         + `<div><span>FİZİKSEL GÜVENLİK</span><b>%${storyCityDossierNumber(needs.securityBps / 100)}</b></div>`
         + `<div><span>KAMU HİZMETİ</span><b>%${storyCityDossierNumber(needs.publicServicesBps / 100)}</b></div>`
@@ -991,7 +999,7 @@ function storyCityDossierRenderPopulation(view) {
     return `<section class="city-dossier-sec"><h3>NÜFUS SAYIMI</h3><div class="city-fact-grid">`
         + `<div><span>TOPLAM</span><b>${Math.round(total).toLocaleString('tr-TR')}</b><small>tam kişi uzlaştırması</small></div>`
         + `<div><span>ÇALIŞMA ÇAĞINDAKİ NÜFUS</span><b>${labor ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
-        + `<div><span>ÜRETİME KATILABİLİR NÜFUS</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>iş gücü havuzuna girebilen kişiler</small></div>`
+        + `<div><span>KULLANILABİLİR ÇALIŞAN</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>üretime katılabilecek iş gücü havuzu</small></div>`
         + `</div><p class="city-hint">Çalışabilir ve kullanılabilir nüfus, bölgesel üretimin iş gücü kapasitesini doğrudan belirler.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${storyCityDossierRenderMigration(view)}${sections}`;
 }
 

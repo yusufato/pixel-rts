@@ -1,10 +1,11 @@
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.45
+**Belge sürümü:** 1.46
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28–32 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 33 sırada
+**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27 ve Dalga F / Faz 28–33 tamamlandı; Faz 22.1E fiziksel ekonomi stabilizasyon kapısı sonradan kapatıldı — Dalga F / Faz 33.1 sırada
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
+**Oynanabilirlik kapısı:** Yalnız veri, tablo, bildirim veya salt-okunur görünüm üreten katman tamamlanmış oyun özelliği sayılmaz. Oyuncu en az bir yetkili ve bedelli eylemle dünyaya müdahale edebilmeli; karakter bulunan alanlarda bu eylem isimli karakter, ilişki, söz, karşılık veya çatışma üzerinden kurulmalı ve sonucu kanonik dünya/olay defterine yazılmalıdır. Arayüz henüz var olmayan hedefli etkileşimi varmış gibi gösteremez.
 
 **1.1 değişikliği:** Serbest oyuncu sohbetinin gerçek şirket, ticaret, lojistik, yetki, blöf, sözleşme ve uzun vadeli karakter hafızasına dönüşmesini tanımlayan “Çelik Şirketi ve Britanya Sevkiyatı” referans kabul senaryosu eklendi.
 
@@ -95,6 +96,8 @@
 **1.44 değişikliği:** Faz 31, `story-election-mandate-ledger-1` ile sekiz devletin anayasal rejimine göre oransal parlamento, halk oylu liberal yürütme, meclis seçimi veya sınırlı yürütme yarışını kurdu; askerî rejimde seçim uydurulmaz ve haleflik Faz 33'e bırakılır. Oylar kanonik yetişkin nüfus kohortlarından tam kişi düzeyinde; katılım yaş/eğitim/şikâyet/meşruiyet, tercih ise iş/kimlik/gelir, mesele hafızası, kamusal güç merkezi desteği ve ülke siyasi yönelimiyle açıklanır. Dar sonuç + zayıf hukuk itiraz üretir; sertifikalı sonuç yeni mandat ve makam kimliği doğurur, fakat Faz 34 öncesinde adaylar açıkça `POLITICAL_SLATE_PROXY_PRE_PHASE_34` listesidir. 900 saniyelik A/B'de açık yol `24` seçim kaydı, `11` sertifika ve `11` barışçıl devir üretirken refah, enflasyon, huzursuzluk, devlet/haber ve üç kaynak deltası `0` kaldı; açık karma `f7cfa97e…230d1`, kontrol `20ccfde1…d2a2`. Save/load sırasında makam imzasının iki kez değişip sahte olay üretmesi ve Faz 25'in eski A/B filtresinin yeni yönetişim defterlerini kapsamaması tam regresyonda yakalanıp düzeltildi. Tam `npm test` kapsam azaltılmadan `1.867,8 sn`de çıkış kodu `0` verdi. Faz 32 açıldı.
 
 **1.45 değişikliği:** Faz 32, `story-integrity-investigation-ledger-1` ile yapısal saptırma riski, iddia, ön inceleme, resmî soruşturma ve kanıtlanmış/kanıtlanamamış sonucu ayrı durumlara böldü. Temiz ihale sıfır dosya bırakır; gerçek kurum yetkisi, bütçe fişi ve şirket kimliği olmadan ihale incelemesi açılamaz; yasal yetki/ödeme fişleri suç lehine değil `NEUTRAL` kanıttır. Hedefli probda tek teklif + `%50` fiyat sapması `4271 bp` ile `UNSUBSTANTIATED`, açık rüşvet fişi `6321 bp` ile `SUBSTANTIATED` oldu; sahte veya tekrar kullanılan yargı yetkisi reddedildi. WorldV2, PlayerKnowledge ve şehir `KURUMLAR` görünümü kendi kanıtı ile yabancı kamusal sonucu ayırır; kayıt/yükleme, göç, eski/bozuk/kapalı yollar geçti. `qa-runtime/story-phase32-ab.json` açık/kapalı `900 sn` fiziksel karmayı aynı `dd4ea478…f42c`, ilk farkı boş ve makro/kaynak deltalarını sıfır kaydetti. Tam `npm test` `52/52` görevle `1.664,7 sn`de geçti. Faz 33 açıldı.
+
+**1.46 değişikliği:** Faz 33, `story-political-crisis-ledger-1` ile darbeyi isimli aktör, hazırlık, koalisyon, karşı-güç, istihbarat, kaynak fişi ve deterministik teşebbüs zincirine dönüştürdü. RNG/LLM hüküm vermez; AI aynı kaynak kapısını kullanır ve kriz başına tek karşı hamleyle sınırlıdır. Oyuncu komplo lideriyle görüşme, sadık komutanla komuta zincirini güvenceye alma, kamuya açıklama veya bekleyip izleme yoluyla gerçek bedel ve sonuç üretir. 900 saniyelik A/B `7` kriz, `3` başarısız teşebbüs, `4` dağılma, `5` eylem ve `43` olay ölçtü; tam regresyon `54/54` geçti. Yalnız veri gösteren sistemlerin tamamlanmış sayılmasını yasaklayan karakter-eylem oynanabilirlik kapısı ana ilkelere eklendi. Faz 33.1 açıldı.
 
 ---
 
@@ -4006,12 +4009,20 @@ Hedefli prob rekabetçi piyasa ihalesinde `0` dosya; tek teklif + `%50` fiyat sa
 **Kabul kapısı:** Darbenin aktör, kaynak ve hazırlık zinciri olay defterinde görülebiliyor.  
 **Bağımlılık:** Faz 26, 28–32.
 
+**Kapanış — 7 Ağustos 2026:** Faz tamamlandı. `story-political-crisis-ledger-1`, en az iki gerçek sadakatsiz komutan ve yapısal risk bulunmadan kriz açmaz; hazırlık, koalisyon, karşı-güç, istihbarat, bölgesel kontrol ve kullanılan kaynakları aynı sürümlü defterde taşır. Teşebbüs sonucu gerçek komutan sadakati/yetenekleri, toplum, refah, devlet kapasitesi, güç merkezleri, seçim mandatı ve bütünlük dosyalarından deterministik hesaplanır. `randomOutcome:false` ve `llmOutcome:false` doğrulanır; yabancı toprak sonucu uydurulmaz.
+
+Oyuncu isimli komplo lideriyle görüşebilir, isimli sadık komutanla komuta zincirini güvenceye alabilir, kamuya açıklama yapabilir veya bekleyebilir. Dört yolun tamamı gerçek puan/itibar ya da karşı tarafın kazandığı hazırlık bedelini ve kaynak fişini üretir. AI aynı eylem kapısını kullanır, hile kaynağı almaz ve kriz başına bir kararla sınırlıdır. Gündem krizi isimli karakterle Talk ekranına taşır; henüz uygulanmamış genel hedefli karakter sohbeti ise varmış gibi davranmaz.
+
+WorldV2, oyuncu bilgi filtresi, kayıt/yükleme, V3→V2 göç, eski/bozuk kayıt kurtarma, özellik/öncül kapalı yollar ve salt-okunur projeksiyon geçti. `qa-runtime/story-phase33-ab.json` kontrol `d6ec566b…31bc`, açık `34ef8ff9…d838`; doğal 900 saniyede `7` kriz, `3` başarısız teşebbüs, `4` dağılma, `5` eylem, `43` olay, refah `-0,75`, enflasyon/huzursuzluk `0` fark üretti. Hedefli aynı-durum probu deterministik `SUCCESS / GOVERNMENT_SEIZED` sonucunu da doğruladı. Scheduler `25` görevdir; tam regresyon `54/54`, `487,4 sn`, ana koşu `190.852,31 ms`, çıkış kodu `0` ile geçti. Sıradaki faz **Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm**dür.
+
 ### FAZ 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm
 
 **Amaç:** Kurum, makam, güç merkezi ve karar gündemini tek yönetim bağlamında oynanabilir yapmak.  
 **Çıktı:** Gündem, kabine/kurum, yetki, güç merkezleri, bekleyen onaylar ve sözler için ilk gerçek view-model/UI.  
 **Kabul kapısı:** Komutan ve cumhurbaşkanı aynı yönetim ekranında farklı yetki/eylem görür; kilitli eylem alternatif erişim yolunu açıklar.  
 **Bağımlılık:** Faz 10.1, 28–33.
+
+**Kapanış — 7 Ağustos 2026:** Faz tamamlandı. `js/StoryGovernance.js`, oyuncunun kanonik karakterini Faz 29 makamlarıyla eşleştirir; yürütme ve silahlı kuvvetler için farklı eylem sunar, sahip olunmayan makamı taklit ettirmez ve kilitli kararın erişim yolunu açıklar. `120` bütçe puanlı kamu yatırımı ile `70` insan gücü maliyetli yerel seferberlik; gerçek kurum onay/yürütme zincirinden, Faz 30 kapasite fişinden ve idempotent nedensellik kapısından geçmeden fiziksel sonuç üretemez. İlk sonuç şehir seviyesini, ikincisi garnizonu kanonik alanda değiştirir; kâğıtta kalan uygulama harcamayı ve başarısızlığı saklamaz. Yönetim UI rol, kapasite, hedef, maliyet, onay, makam ve güç merkezini birleştirir; henüz var olmayan karakter söz hafızasını uydurmaz. `55/55` tam regresyon, kayıt/yükleme ve özellik-kapalı yol geçti; oyuncu kararı yokken Faz 33 dünya karması değişmedi. Sıradaki faz **Faz 34 — Karakter Kimliği ve Hedefleri**dir.
 
 ---
 

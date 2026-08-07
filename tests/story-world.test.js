@@ -43,6 +43,8 @@ const {
     probeStateCapacity,
     probeElections,
     probeIntegrity,
+    probePoliticalCrisis,
+    probeGovernanceWorkspace,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -78,6 +80,11 @@ function run() {
         seed: 2032,
         seconds: 900,
         featureFlags: { 'government.patronageIntegrity': false }
+    });
+    const politicalCrisisOff900 = storyTestResult('politicalCrisisOff900', runStorySimulation, {
+        seed: 2032,
+        seconds: 900,
+        featureFlags: { 'government.politicalCrisis': false }
     });
     const telemetryOff = storyTestResult('telemetryOff', runStorySimulation, {
         seed: 2032,
@@ -2509,8 +2516,149 @@ function run() {
         '900 sn kapalı Faz 32 koşusu diğer katman doğrulamalarını bozmamalı.');
     assert.equal(integrityOff900.integritySummary.disabled, true,
         'A/B kontrolünde Faz 32 gerçekten kapalı olmalı.');
-    assert.equal(repeat.stateHash, integrityOff900.stateHash,
-        'Kayıt-only Faz 32, 900 sn fiziksel dünya karmasını değiştirmemeli.');
+    assert.equal(politicalCrisisOff900.stateHash, integrityOff900.stateHash,
+        'Kayıt-only Faz 32, kendisine bağımlı Faz 33 iki tarafta da kapalıyken fiziksel dünya karmasını değiştirmemeli.');
+
+    const politicalCrisisProbe = storyTestResult('politicalCrisisProbe', probePoliticalCrisis);
+    assert.equal(politicalCrisisProbe.main.opened, true,
+        'Faz 33 yeterli aktör ve yapısal baskı olmadan değil, kanıtlı fixture ile kriz açmalı.');
+    assert.equal(politicalCrisisProbe.main.leadCanonical, true,
+        'Darbe hazırlığının lideri kanonik karakter kimliği taşımalı.');
+    assert.ok(politicalCrisisProbe.main.plotterCount >= 2,
+        'Tek huzursuz komutan tek başına darbe koalisyonu sayılmamalı.');
+    assert.equal(politicalCrisisProbe.main.negotiate.ok, true,
+        'Oyuncu komplo lideriyle bedelli görüşme yapabilmeli.');
+    assert.equal(politicalCrisisProbe.main.secure.ok, true,
+        'Oyuncu sadık komuta zincirini bedelli biçimde güvenceye alabilmeli.');
+    assert.equal(politicalCrisisProbe.main.actionChangedPreparation, true,
+        'Görüşme yalnız metin değil, hazırlığı ölçülebilir biçimde değiştirmeli.');
+    assert.equal(politicalCrisisProbe.main.actionRaisedCounter, true,
+        'Sadık komuta hamlesi gerçek karşı gücü artırmalı.');
+    assert.equal(politicalCrisisProbe.main.resourceReceiptsRecorded, true,
+        'Karşı hamle maliyeti aktör ve kaynak fişiyle olay zincirine yazılmalı.');
+    assert.equal(politicalCrisisProbe.main.ui.characterNamesVisible, true,
+        'Siyasi kriz çalışma alanı soyut yüzde yerine ilgili karakter adını göstermeli.');
+    assert.equal(politicalCrisisProbe.main.ui.fourActionsVisible, true,
+        'Sohbet alanı görüşme, güvenlik, açıklama ve bekleme kararlarını oyuncuya sunmalı.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.status, 'SUCCESS',
+        'Yeterli hazırlık ve koalisyon deterministik darbe sonucuna ulaşmalı.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.randomOutcome, false,
+        'Faz 33 sonucu RNG ile belirlenmemeli.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.llmOutcome, false,
+        'Faz 33 sonucu LLM ile belirlenmemeli.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.territorialMutation, false,
+        'İç bölünme yabancı devlete sahte ve gerekçesiz toprak devri üretmemeli.');
+    assert.equal(politicalCrisisProbe.main.validation.ok, true,
+        'Faz 33 hazırlık/koalisyon/karşı hamle defteri doğrulanmalı.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.validation.ok, true,
+        'Sonuçlanmış darbe defteri de aynı sözleşmeyi geçmeli.');
+    assert.equal(politicalCrisisProbe.main.worldValidation.ok, true,
+        'Siyasi kriz varlığı eklenmiş Dünya V2 doğrulanmalı.');
+    assert.equal(politicalCrisisProbe.main.ownKnowledgeValidation.ok, true,
+        'Kendi siyasi kriz bilgisi oyuncu bilgi sözleşmesini geçmeli.');
+    assert.equal(politicalCrisisProbe.main.foreignKnowledgeValidation.ok, true,
+        'Yabancı siyasi kriz bilgisi oyuncu bilgi sözleşmesini geçmeli.');
+    assert.equal(politicalCrisisProbe.main.foreignSecretsHidden, true,
+        'Yabancı görünüm komplo lideri, hazırlık ve karşı hamle ayrıntısını sızdırmamalı.');
+    assert.equal(politicalCrisisProbe.main.saveExact, true,
+        'Faz 33 defteri kayıt payloadına birebir girmeli.');
+    assert.equal(politicalCrisisProbe.restored.loaded, true,
+        'Faz 33 kayıt payloadı yeniden yüklenebilmeli.');
+    assert.equal(politicalCrisisProbe.restored.validation.ok, true,
+        'Yüklenen Faz 33 defteri doğrulanmalı.');
+    assert.equal(politicalCrisisProbe.restored.exact, true,
+        'Kayıt/yükleme siyasi kriz hazırlığını birebir korumalı.');
+    assert.equal(politicalCrisisProbe.main.migration.ok, true,
+        'Faz 33 taşıyan V3 kayıt V2 kopyasına göçebilmeli.');
+    assert.equal(politicalCrisisProbe.main.migration.validation.ok, true,
+        'Göçmüş siyasi kriz varlıkları Dünya V2 sözleşmesini geçmeli.');
+    assert.equal(politicalCrisisProbe.main.migration.countryPreserved, true,
+        'Göç ülke siyasi kriz özetini korumalı.');
+    assert.equal(politicalCrisisProbe.main.migration.unmapped, false,
+        'Göç Faz 33 alanını eşlenmemiş diye raporlamamalı.');
+    assert.equal(politicalCrisisProbe.legacy.validation.ok, true,
+        'Faz 33 öncesi kayıt güvenli boş kriz defteriyle açılmalı.');
+    assert.equal(politicalCrisisProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
+        'RNG sonucu enjekte edilmiş bozuk kriz kaydı sessizce kabul edilmemeli.');
+    assert.equal(politicalCrisisProbe.disabled.ledger, null,
+        'Faz 33 bayrağı kapalıyken yeni siyasi kriz defteri oluşmamalı.');
+    assert.equal(politicalCrisisProbe.prerequisiteDisabled.ledger, null,
+        'Faz 32 öncülü kapalıyken Faz 33 sahte hazırlık üretmemeli.');
+    assert.equal(repeat.politicalCrisisValidation.ok, true,
+        '900 sn açık Faz 33 defteri doğrulanmalı.');
+    assert.equal(politicalCrisisOff900.politicalCrisisValidation.ok, true,
+        '900 sn kapalı Faz 33 koşusu diğer katman doğrulamalarını bozmamalı.');
+    assert.equal(politicalCrisisOff900.politicalCrisisSummary.disabled, true,
+        'A/B kontrolünde Faz 33 gerçekten kapalı olmalı.');
+    assert.ok(repeat.politicalCrisisSummary.crisisCount > 0,
+        '900 sn canlı dünyada Faz 33 en az bir kaynaklı hazırlık zinciri üretmeli.');
+    assert.ok(repeat.politicalCrisisSummary.actionCount > 0,
+        'AI devletleri Faz 33 krizlerine hilesiz ve maliyetli karşı hamle vermeli.');
+    assert.equal(repeat.politicalCrisisSummary.randomOutcome, false,
+        '900 sn canlı Faz 33 dünyasında RNG darbe sonucu üretmemeli.');
+    assert.equal(repeat.politicalCrisisSummary.llmOutcome, false,
+        '900 sn canlı Faz 33 dünyasında LLM darbe sonucu üretmemeli.');
+    assert.notEqual(repeat.stateHash, politicalCrisisOff900.stateHash,
+        'Faz 33 AI karşı hamlelerinin gerçek kaynak/sadakat bedeli fiziksel dünyada ölçülebilir olmalı.');
+
+    const governanceProbe = storyTestResult('governanceProbe', probeGovernanceWorkspace);
+    assert.equal(governanceProbe.main.commander.role, 'GENELKURMAY BAŞKANI',
+        'Komutan yönetim ekranında sahip olmadığı yürütme makamına geçirilmemeli.');
+    assert.equal(governanceProbe.main.commander.mobilizeAllowed, true,
+        'Genelkurmay makamındaki oyuncu kendi askerî yetki rotasını kullanabilmeli.');
+    assert.equal(governanceProbe.main.commander.publicWorksLocked, true,
+        'Komutan yürütmeye ait kamu yatırım kararını doğrudan verememeli.');
+    assert.equal(governanceProbe.main.commander.alternativePathVisible, true,
+        'Kilitli eylem yetkiye ulaşmanın alternatif yolunu view-modelde açıklamalı.');
+    assert.equal(governanceProbe.main.commander.htmlHasAlternative, true,
+        'Alternatif erişim yolu gerçek yönetim arayüzünde görünmeli.');
+    assert.equal(governanceProbe.main.president.role, 'CUMHURBAŞKANI',
+        'Yürütme makamını alan oyuncunun yönetim rolü değişmeli.');
+    assert.equal(governanceProbe.main.president.holdsExecutive, true,
+        'Cumhurbaşkanı görünümü kanonik yürütme makamına dayanmalı.');
+    assert.equal(governanceProbe.main.president.publicWorksAllowed, true,
+        'Cumhurbaşkanı kendi şehri için kamu yatırım programı başlatabilmeli.');
+    assert.equal(governanceProbe.main.submitted.ok, true,
+        'Oyuncu eylemi gerçek kurum yetki fişine girebilmeli.');
+    assert.equal(governanceProbe.main.costSpent, 120,
+        'Kamu yatırım programı başvuruda gerçek devlet bütçesinden 120 puan ayırmalı.');
+    assert.equal(governanceProbe.main.request.domainDecision.result.status, 'APPLIED',
+        'Kurumsal karar Faz 30 uygulama fişinden sonra alan sonucuna bağlanmalı.');
+    assert.ok(['COMPLETED', 'DEGRADED'].includes(governanceProbe.main.ticket.status),
+        'Fiziksel sonuç yalnız tamamlanmış veya eksik kaliteyle tamamlanmış kapasite fişinden doğmalı.');
+    assert.equal(governanceProbe.main.physicalResult.applied, true,
+        'Yönetim kararı yalnız rapor üretmemeli; fiziksel şehir sonucunu uygulamalı.');
+    assert.equal(governanceProbe.main.physicalResult.physicalMutation, true,
+        'Domain makbuzu fiziksel mutasyonu açıkça kaydetmeli.');
+    assert.equal(governanceProbe.main.physicalResult.levelAfter,
+        governanceProbe.main.physicalResult.levelBefore + 1,
+        'Kamu yatırımı hedef şehrin kanonik seviyesini tam bir kademe yükseltmeli.');
+    assert.equal(governanceProbe.main.ui.roleVisible, true,
+        'Yönetim UI oyuncunun mevcut rolünü görünür göstermeli.');
+    assert.equal(governanceProbe.main.ui.actionVisible, true,
+        'Yönetim UI gerçek eylemi ve maliyetini göstermeli.');
+    assert.equal(governanceProbe.main.ui.pipelineVisible, true,
+        'Yönetim UI kararın sahada uygulanmış sonucunu göstermeli.');
+    assert.equal(governanceProbe.main.ui.officesVisible, true,
+        'Yönetim UI makamları ayrı bölümde göstermeli.');
+    assert.equal(governanceProbe.main.ui.centersVisible, true,
+        'Yönetim UI güç merkezlerini aynı çalışma bağlamına taşımalı.');
+    assert.equal(governanceProbe.main.institutionValidation.ok, true,
+        'Faz 33.1 domain makbuzu kurum yetki defterini bozmamalı.');
+    assert.equal(governanceProbe.main.stateCapacityValidation.ok, true,
+        'Faz 33.1 fiziksel tüketicisi Faz 30 kapasite defterini bozmamalı.');
+    assert.equal(governanceProbe.main.saveOk, true,
+        'Oyuncu yönetim kararı tam kampanya kaydını engellememeli.');
+    assert.equal(governanceProbe.restored.loaded, true,
+        'Uygulanmış yönetim kararı kayıttan yeniden açılabilmeli.');
+    assert.equal(governanceProbe.restored.decisionStatus, 'SAHADA UYGULANDI',
+        'Yüklenen yönetim görünümü uygulama sonucunu korumalı.');
+    assert.equal(governanceProbe.restored.physicalResultPreserved, true,
+        'Yüklenen karar fiziksel sonuç makbuzunu kaybetmemeli.');
+    assert.equal(governanceProbe.restored.institutionValidation.ok, true,
+        'Yüklenen Faz 33.1 kurumsal fişi doğrulanmalı.');
+    assert.equal(governanceProbe.disabled.disabled, true,
+        'Faz 33.1 özellik bayrağıyla güvenle kapanabilmeli.');
 
     const cityDossierProbe = storyTestResult('cityDossierProbe', probeCityDossier);
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
@@ -2935,8 +3083,8 @@ function run() {
         'Artık var olmayan override renderer index’e geri eklenmemeli.');
     assert.equal(indexSource.includes('src="js/MapData.js"'), true,
         'Aktif taktik MapData kaynağı index’te kalmalı.');
-    assert.equal(fs.existsSync(path.join(__dirname, '..', 'StoryGeoRender.js')), true,
-        'README’de arşiv olarak açıklanan prototip envanterde bulunmalı.');
+    assert.equal(fs.existsSync(path.join(__dirname, '..', '_arsiv', 'kok-olu-kopyalar', 'StoryGeoRender.js')), true,
+        'README’de arşiv olarak açıklanan prototip gerçek arşiv envanterinde bulunmalı.');
     assert.equal(fs.existsSync(path.join(__dirname, '..', 'MapData.v2.js')), false,
         'Eski kök MapData.v2 çifti çalışma ağacında geri oluşmamalı.');
     assert.equal(fs.existsSync(path.join(__dirname, '..', 'js', 'mapDataV2.js')), false,

@@ -486,13 +486,14 @@ function storyNewCampaign(config = {}) {
     if (typeof storyStateCapacityReset === 'function') storyStateCapacityReset();
     if (typeof storyElectionReset === 'function') storyElectionReset();
     if (typeof storyIntegrityReset === 'function') storyIntegrityReset();
+    if (typeof storyPoliticalCrisisReset === 'function') storyPoliticalCrisisReset();
     if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
     if (typeof storySchedulerReset === 'function') storySchedulerReset();
     // A/B geri dönüş yolu da yeni kampanyaya önceki koşunun kısmi sayaçlarını
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accSiege', '_accTech',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
     ]) STORY[key] = 0;
@@ -590,6 +591,9 @@ function storySave() {
             integrity: (typeof storyIntegrityForSave === 'function')
                 ? storyIntegrityForSave()
                 : STORY.integrity,
+            politicalCrises: (typeof storyPoliticalCrisisForSave === 'function')
+                ? storyPoliticalCrisisForSave()
+                : STORY.politicalCrises,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -698,6 +702,7 @@ function storyLoad() {
         if (typeof storyStateCapacityRestore === 'function') storyStateCapacityRestore(d.stateCapacity);
         if (typeof storyElectionRestore === 'function') storyElectionRestore(d.elections);
         if (typeof storyIntegrityRestore === 'function') storyIntegrityRestore(d.integrity);
+        if (typeof storyPoliticalCrisisRestore === 'function') storyPoliticalCrisisRestore(d.politicalCrises);
         // Secilmis yeni mandat kurumun yürütme makam kimligini degistirir. Eski
         // bekleyen yetki istekleri bu uzlastirmada STALE_AUTHORITY olur.
         if (typeof storyInstitutionEnsure === 'function') storyInstitutionEnsure();
@@ -1466,11 +1471,16 @@ function storyAdvanceStep(dtSec) {
         storyDissolveDeadStates(); storyApplyDefections(); storyApplyCoups();
     }
     const _stateCapacityDt = _storyDue('state-capacity', '_accStateCapacity', 5);
-    if (_stateCapacityDt > 0 && typeof storyStateCapacityTick === 'function') storyStateCapacityTick(_stateCapacityDt); // Faz 30 kararın idari uygulanabilirliği
+    if (_stateCapacityDt > 0) {
+        if (typeof storyStateCapacityTick === 'function') storyStateCapacityTick(_stateCapacityDt); // Faz 30 kararın idari uygulanabilirliği
+        if (typeof storyGovernanceTick === 'function') storyGovernanceTick(_stateCapacityDt); // Faz 33.1 oyuncu karari -> makam -> uygulama -> fiziksel sonuc
+    }
     const _electionDt = _storyDue('elections', '_accElections', 5);
     if (_electionDt > 0 && typeof storyElectionTick === 'function') storyElectionTick(_electionDt); // Faz 31 kohort oyu ve barışçıl makam devri
     const _integrityDt = _storyDue('integrity', '_accIntegrity', 5);
     if (_integrityDt > 0 && typeof storyIntegrityTick === 'function') storyIntegrityTick(_integrityDt); // Faz 32 kanitli patronaj ve sorusturma dosyalari
+    const _politicalCrisisDt = _storyDue('political-crisis', '_accPoliticalCrisis', 5);
+    if (_politicalCrisisDt > 0 && typeof storyPoliticalCrisisTick === 'function') storyPoliticalCrisisTick(_politicalCrisisDt); // Faz 33 aktor, hazirlik, koalisyon ve karsi hamle zinciri
     if (_storyDue('siege', '_accSiege', 2.5) > 0) storySiegeTick();
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
     if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();

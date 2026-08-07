@@ -18,11 +18,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const FACTIONS = [
-    { k: 'workers',  icon: '⚒️', name: 'İşçiler & Sendikalar' },
-    { k: 'business', icon: '🏦', name: 'Sermaye & Şirketler' },
-    { k: 'military', icon: '🎖️', name: 'Ordu & Emniyet' },
-    { k: 'intel',    icon: '📰', name: 'Aydınlar & Basın' },
-    { k: 'radicals', icon: '🔥', name: 'Militan Gruplar' },
+    { k: 'workers',  icon: '⚒️', name: 'İşçiler & Sendikalar', impact: 'İşçi desteği' },
+    { k: 'business', icon: '🏦', name: 'Sermaye & Şirketler', impact: 'Sermaye desteği' },
+    { k: 'military', icon: '🎖️', name: 'Ordu & Emniyet', impact: 'Ordu desteği' },
+    { k: 'intel',    icon: '📰', name: 'Aydınlar & Basın', impact: 'Aydın desteği' },
+    { k: 'radicals', icon: '🔥', name: 'Militan Gruplar', impact: 'Radikal eğilim' },
 ];
 const FAC_KEYS = FACTIONS.map(f => f.k);
 function facClamp(v) { return Math.max(5, Math.min(95, Math.round(v * 10) / 10)); }
@@ -93,14 +93,17 @@ function storyFacApply(st, deltas, why) {
     for (const k in deltas) {
         if (st.factions[k] == null) continue;
         st.factions[k] = facClamp(st.factions[k] + deltas[k]);
-        if (Math.abs(deltas[k]) >= 2) parts.push(`${(FACTIONS.find(f => f.k === k) || {}).icon || ''}${deltas[k] > 0 ? '+' : ''}${deltas[k]}`);
+        if (Math.abs(deltas[k]) >= 2) {
+            const faction = FACTIONS.find(f => f.k === k) || {};
+            parts.push(`${faction.impact || faction.name || k} ${deltas[k] > 0 ? '+' : ''}${deltas[k]}`);
+        }
     }
     if (why && parts.length) {
         st._facLog.unshift(`${why}: ${parts.join(' ')}`);
         if (st._facLog.length > 6) st._facLog.pop();
         // KULLANICI İSTEĞİ: oyuncunun devletindeki fraksiyon tepkileri ANA KAYITTA
         // görünsün — "arka planda ben görmeden olup bitiyor" şikâyetinin cevabı.
-        if (st.isPlayer && typeof storyLog === 'function') storyLog(`⚖️ ${why}: ${parts.join(' ')}`);
+        if (st.isPlayer && typeof storyLog === 'function') storyLog(`⚖️ ${why}: ${parts.join(' · ')}`);
     }
 }
 function storyFacOnLaw(st, slotKey, optId, optName) { storyFacApply(st, FAC_LAW[slotKey + '.' + optId], optName || (slotKey + '.' + optId)); }

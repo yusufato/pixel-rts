@@ -27,7 +27,8 @@ const {
     probeInstitutions,
     probeStateCapacity,
     probeElections,
-    probeIntegrity
+    probeIntegrity,
+    probePoliticalCrisis
 } = require('./story-sim-harness');
 
 function numberArg(name, fallback) {
@@ -441,6 +442,7 @@ function targetedProbeFor(flag, seed) {
         };
     }
     if (flag === 'government.patronageIntegrity') return probeIntegrity(seed);
+    if (flag === 'government.politicalCrisis') return probePoliticalCrisis(seed);
     if (flag === 'diplomacy.peacefulStart') return probePeacefulDiplomacy(seed);
     return null;
 }
@@ -492,6 +494,8 @@ const report = {
         stateCapacityValidation: control.stateCapacityValidation,
         electionSummary: control.electionSummary,
         electionValidation: control.electionValidation,
+        politicalCrisisSummary: control.politicalCrisisSummary,
+        politicalCrisisValidation: control.politicalCrisisValidation,
         tradeSummary: control.tradeSummary,
         tradeProductionOpportunityView: control.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: control.tradeProductionAdmissionPlan,
@@ -526,6 +530,8 @@ const report = {
         stateCapacityValidation: treatment.stateCapacityValidation,
         electionSummary: treatment.electionSummary,
         electionValidation: treatment.electionValidation,
+        politicalCrisisSummary: treatment.politicalCrisisSummary,
+        politicalCrisisValidation: treatment.politicalCrisisValidation,
         tradeSummary: treatment.tradeSummary,
         tradeProductionOpportunityView: treatment.tradeProductionOpportunityView,
         tradeProductionAdmissionPlan: treatment.tradeProductionAdmissionPlan,

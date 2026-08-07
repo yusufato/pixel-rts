@@ -82,6 +82,25 @@ function storyAgendaCollect(me) {
         `${noticeCount} olay okunmadan veya yanıtlanmadan bekliyor.`,
         'economy', 'TOPLUMU AÇ', 'fraksiyonlar'
     );
+    const pendingTalks = Array.isArray(STORY._talks) ? STORY._talks : [];
+    if (pendingTalks.length) {
+        const now = Number(STORY.clock) || 0;
+        const expire = typeof TALK_EXPIRE === 'number' ? TALK_EXPIRE : (typeof YEAR_SECONDS === 'number' ? YEAR_SECONDS : 60);
+        const nearest = pendingTalks.reduce((best, talk) => Math.min(
+            best,
+            Math.max(0, expire - (now - (Number(talk.born) || 0)))
+        ), Number.POSITIVE_INFINITY);
+        const soon = nearest <= expire * 0.35;
+        const remaining = typeof storyTalkRemainingLabel === 'function'
+            ? storyTalkRemainingLabel(nearest)
+            : 'süresi dolmadan yanıt bekliyor';
+        add(
+            soon ? 'high' : 'watch',
+            `${pendingTalks.length} görüşme yanıt bekliyor`,
+            `En yakın görüşmenin ${remaining}. Yanıtsız kalan konular kapanabilir.`,
+            'talk', 'GÖRÜŞMELERİ AÇ'
+        );
+    }
     if (me._strikeUntil && me._strikeUntil > (STORY.clock || 0)) add(
         'critical', 'Grev üretimi baskılıyor',
         `Eylem yaklaşık ${Math.max(1, Math.ceil(me._strikeUntil - (STORY.clock || 0)))} sn daha sürecek.`,
@@ -109,12 +128,12 @@ function storyAgendaCollect(me) {
         if (failed.length) add(
             'high', 'Kararlar sahada eksik uygulanıyor',
             `${failed.length} uygulama kâğıt üzerinde kaldı veya düşük kaliteyle tamamlandı.`,
-            'council', 'YÖNETİMİ AÇ'
+            'governance', 'YÖNETİMİ AÇ'
         );
         else if (queued.length) add(
             'watch', 'Uygulama kuyruğu oluştu',
             `${queued.length} yetkili karar idari kapasite bekliyor.`,
-            'council', 'KAPASİTEYİ İNCELE'
+            'governance', 'KAPASİTEYİ İNCELE'
         );
     }
     const integrity = typeof storyIntegrityPublicView === 'function' && typeof storyIntegrityCountryView === 'function'
@@ -122,7 +141,7 @@ function storyAgendaCollect(me) {
     if (integrity && integrity.openInvestigationCount > 0) add(
         'high', 'Resmî soruşturma açık',
         `${integrity.openInvestigationCount} dosya sonuç bekliyor; meşruiyet ve kurum güveni etkilenebilir.`,
-        'council', 'KURUMLARI AÇ'
+        'governance', 'KURUMLARI AÇ'
     );
     const election = typeof storyElectionPublicView === 'function' && typeof storyElectionCountryView === 'function'
         ? storyElectionPublicView(storyElectionCountryView(me.id)) : null;
@@ -132,12 +151,26 @@ function storyAgendaCollect(me) {
         if (contested) add(
             'high', 'Seçim sonucuna itiraz edildi',
             'Yetki devri kesinleşmeden kurumların kararı bekleniyor.',
-            'council', 'YÖNETİMİ AÇ'
+            'governance', 'YÖNETİMİ AÇ'
         );
         else if (active) add(
             'watch', 'Seçim kampanyası sürüyor',
             `${active.candidates.length} aday listesi iktidar için yarışıyor.`,
-            'council', 'YÖNETİMİ AÇ'
+            'governance', 'YÖNETİMİ AÇ'
+        );
+    }
+    const politicalCrisis = typeof storyPoliticalCrisisPlayerView === 'function'
+        ? storyPoliticalCrisisPlayerView() : null;
+    if (politicalCrisis && politicalCrisis.activeCrisis) {
+        const crisis = politicalCrisis.activeCrisis;
+        const leadName = typeof storyPoliticalCrisisActorName === 'function'
+            ? storyPoliticalCrisisActorName(me, crisis.leadActorId) : 'Bir komutan';
+        const advanced = crisis.status === 'ULTIMATUM' || crisis.status === 'ATTEMPT';
+        add(
+            advanced ? 'critical' : 'high',
+            `${leadName} çevresinde komuta krizi`,
+            `${crisis.status} aşaması. Bu bir olasılık etiketi değil; aktörler hazırlık yapıyor ve karşı hamlen yanıt bekliyor.`,
+            'talk', 'KARAKTERLERLE GÖRÜŞ'
         );
     }
     const cmd = STORY.commander ? storyNode(STORY.commander.node) : null;
@@ -160,8 +193,18 @@ function storyAgendaUpdate(me) {
     const list = document.getElementById('story-agenda-list');
     if (!summary || !list) return;
     const noticeCount = (STORY._factionNoticeQueue || []).length + (STORY._factionNoticeCurrent ? 1 : 0);
+    const talkCount = Array.isArray(STORY._talks) ? STORY._talks.length : 0;
+    const talkDeadlineKey = talkCount
+        ? Math.floor(Math.min(...STORY._talks.map(talk => Number(talk.born) || 0)))
+        : 0;
+    const politicalCrisis = typeof storyPoliticalCrisisPlayerView === 'function'
+        ? storyPoliticalCrisisPlayerView() : null;
+    const crisisKey = politicalCrisis && politicalCrisis.activeCrisis
+        ? `${politicalCrisis.activeCrisis.id}:${politicalCrisis.activeCrisis.status}:${politicalCrisis.activeCrisis.preparationBps}:${politicalCrisis.activeCrisis.counterBps}`
+        : '-';
     const renderKey = [
         STORY.playerStateId, Math.floor((Number(STORY.clock) || 0) * 2), noticeCount,
+        talkCount, talkDeadlineKey, crisisKey,
         Math.round(Number(me.welfare) || 0), Math.round(Number(me.inflation) || 0),
         me._strikeUntil && me._strikeUntil > (STORY.clock || 0) ? 1 : 0
     ].join('|');
@@ -169,8 +212,9 @@ function storyAgendaUpdate(me) {
     storyAgendaUpdate._lastKey = renderKey;
     const items = storyAgendaCollect(me);
     const urgent = items.filter(item => item.severity === 'critical' || item.severity === 'high').length;
+    const monitored = items.filter(item => item.severity === 'watch').length;
     const nextSummary = `<span class="story-kicker">ŞİMDİ</span>`
-        + `<b>${urgent ? `${urgent} KONU DİKKAT İSTİYOR` : 'DURUM KONTROL ALTINDA'}</b>`
+        + `<b>${urgent ? `${urgent} KONU DİKKAT İSTİYOR` : monitored ? `${monitored} KONU İZLEMEDE` : 'DURUM KONTROL ALTINDA'}</b>`
         + `<small>En önemli konular önce gösterilir. Ayrıntı ilgili çalışma alanında açılır.</small>`;
     const nextList = items.map(item => `<article class="story-agenda-item severity-${item.severity}">`
         + `<span>${item.severity === 'critical' ? 'ACİL' : item.severity === 'high' ? 'ÖNEMLİ' : item.severity === 'watch' ? 'İZLE' : 'SAKİN'}</span>`
@@ -185,6 +229,11 @@ function storyAgendaUpdate(me) {
 function storyAgendaNavigate(action, sub) {
     if (action === 'economy') return storyEconomyOpen(sub);
     if (action === 'council') return storyCouncilOpen();
+    if (action === 'governance') {
+        STORY._councilTab = 'gov';
+        return storyCouncilOpen();
+    }
+    if (action === 'talk') return storyTalkOpen();
     if (action === 'region') return storyBriefSetTab('region');
     if (action === 'flow') return storyBriefSetTab('flow');
 }
@@ -241,18 +290,25 @@ function storyPanelUpdate() {
         const type = selected ? (selected._siege ? 'KUŞATMA' : capital ? 'KARARGAH' : selected.oil > 0 ? 'PETROL MERKEZİ' : selected.pts > 0 ? 'SANAYİ MERKEZİ' : 'ŞEHİR') : '-';
         const stateText = current ? 'KOMUTA MERKEZİ' : adjacent ? (hostile ? 'AKTİF CEPHE' : 'ERİŞİLEBİLİR') : 'MENZİL DIŞI';
         const stateColor = current ? '#4ade80' : adjacent ? (hostile ? '#ff6b6b' : '#ffb000') : '#6e6330';
-        const mapName = (typeof DRAWN_MAP !== 'undefined' && DRAWN_MAP.name) ? DRAWN_MAP.name : 'Çizilen Harita';
+        const rawMapName = (typeof DRAWN_MAP !== 'undefined' && DRAWN_MAP.name) ? DRAWN_MAP.name : 'Çizilen Harita';
+        const mapName = /\u00c7izilen Harita/i.test(rawMapName)
+            ? 'Standart taktik saha'
+            : String(rawMapName).replace(/^[^\p{L}\p{N}]+/u, '');
+        const doctrineLabels = { armor: 'Zırhlı Mızrak', combined: 'Birleşik Silahlar', defense: 'Derin Savunma' };
+        const doctrine = doctrineLabels[STORY.cfg.doctrine] || 'Birleşik Silahlar';
         const foeValue = hostile && owner ? storyEnemyForceBudget(owner.id, selected.id) : null;
         const foeTotal = foeValue ? Math.floor(foeValue.oil + foeValue.manpower + foeValue.points) : 0;
         const reward = hostile ? '+120 puan · fetih · veteran ilerlemesi' : current ? 'Komuta ve ikmal merkezi' : 'Güvenli intikal';
+        const rewardLabel = hostile ? 'ZAFER GETİRİSİ' : current ? 'BÖLGE İŞLEVİ' : 'İNTİKAL SONUCU';
+        const forceLabel = hostile ? 'GARNİZON / TAHMİNİ GÜÇ' : 'GARNİZON';
         info.innerHTML = selected ?
             `<div class="story-node-heading"><b>${selected.name}</b><span class="story-node-state" style="color:${stateColor}">${stateText}</span></div>` +
             `<div class="story-brief-grid">` +
                 `<div class="story-brief-cell">TÜR<b>${type}</b></div>` +
                 `<div class="story-brief-cell">KONTROL<b style="color:${owner?.color || '#ffe9bf'}">${owner?.name || '-'}</b></div>` +
-                `<div class="story-brief-cell">MUHAREBE SAHASI<b>${mapName}</b></div>` +
-                `<div class="story-brief-cell">GARNİZON / GÜÇ<b>${hostile ? `${selected.garrison || 0} / ~${foeTotal}` : (selected.garrison || 0)}</b></div>` +
-            `</div><div class="story-brief-note">BEKLENEN SONUÇ: ${reward}<br>DOKTRİN: ${(STORY.cfg.doctrine || 'combined').toUpperCase()}</div>` :
+                `<div class="story-brief-cell">SAVAŞ HARİTASI<b>${mapName}</b></div>` +
+                `<div class="story-brief-cell">${forceLabel}<b>${hostile ? `${selected.garrison || 0} / ~${foeTotal}` : (selected.garrison || 0)}</b></div>` +
+            `</div><div class="story-brief-note">${rewardLabel}: ${reward}<br>ORDU DOKTRİNİ: ${doctrine}</div>` :
             `<div class="story-brief-note">Haritada bir şehir seçerek harekât brifingini aç.</div>`;
 
         if (action) {
@@ -262,7 +318,23 @@ function storyPanelUpdate() {
         }
     }
     const log = document.getElementById('story-log');
-    if (log) log.innerHTML = STORY.log.map(l => `<div class="story-log-row">${l}</div>`).join('');
+    if (log) {
+        const factionLabels = {
+            '⚒️': 'İşçi desteği',
+            '🏦': 'Sermaye desteği',
+            '🎖️': 'Ordu desteği',
+            '📰': 'Aydın desteği',
+            '🔥': 'Radikal eğilim'
+        };
+        const formatLog = entry => {
+            let value = String(entry == null ? '' : entry);
+            for (const [icon, label] of Object.entries(factionLabels)) {
+                value = value.replace(new RegExp(`${icon}([+-]\\d+(?:[.,]\\d+)?)`, 'g'), `${label} $1`);
+            }
+            return value;
+        };
+        log.innerHTML = STORY.log.map(l => `<div class="story-log-row">${formatLog(l)}</div>`).join('');
+    }
     const pb = document.getElementById('story-pause-btn');
     if (pb) { pb.textContent = STORY.paused ? 'DEVAM' : 'DURAKLAT'; pb.title = STORY.paused ? 'Devam' : 'Duraklat'; }
     const sb = document.getElementById('story-speed-btn');
@@ -842,16 +914,18 @@ function storyCouncilUpdate() {
     // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı (KANUNLAR sekmesi)
     const laws = document.getElementById('council-lawbox');
     if (laws && typeof storyCouncilLawsHtml === 'function') laws.innerHTML = storyCouncilLawsHtml(me);
+    if (typeof storyGovernanceUpdate === 'function') storyGovernanceUpdate();
     storyCouncilSyncTabs();
 }
 // Aktif sekmeyi göster/gizle (komutan listesi ↔ kanun/anayasa)
 function storyCouncilSyncTabs() {
     const requested = STORY._councilTab || 'cmd';
-    const tab = requested === 'law' ? 'law' : 'cmd';
+    const tab = requested === 'law' || requested === 'gov' ? requested : 'cmd';
     STORY._councilTab = tab;
     document.querySelectorAll('#council-tabs .ctab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.getElementById('council-tab-cmd')?.classList.toggle('hidden', tab !== 'cmd');
     document.getElementById('council-tab-law')?.classList.toggle('hidden', tab !== 'law');
+    document.getElementById('council-tab-gov')?.classList.toggle('hidden', tab !== 'gov');
 }
 function storyCouncilCreate() {
     const me = storyPlayerState(); if (!me || !(me.gov && me.gov.leader === 'player')) return;
@@ -1002,6 +1076,12 @@ function storyInit() {
         STORY._councilTab = t.dataset.tab;
         storyCouncilSyncTabs();
         storyCouncilUpdate();
+    });
+    document.getElementById('governance-body')?.addEventListener('click', (e) => {
+        if (typeof storyGovernanceHandleClick === 'function') storyGovernanceHandleClick(e);
+    });
+    document.getElementById('governance-body')?.addEventListener('change', (e) => {
+        if (typeof storyGovernanceHandleChange === 'function') storyGovernanceHandleChange(e);
     });
     document.getElementById('council-create-btn')?.addEventListener('click', storyCouncilCreate);
     document.getElementById('council-dismiss-btn')?.addEventListener('click', () => { STORY._dismissMode = !STORY._dismissMode; storyCouncilUpdate(); });
