@@ -32,12 +32,22 @@ function storyActivateDetailTooltips(root) {
     if (!root || typeof root.querySelectorAll !== 'function') return;
     root.querySelectorAll('.city-fact-grid > div small, .city-route-metrics').forEach(detail => {
         const host = detail.parentElement;
-        const text = String(detail.textContent || '').trim();
+        const parts = [...detail.children]
+            .map(node => String(node.innerText || node.textContent || '').trim())
+            .filter(Boolean);
+        const text = parts.length
+            ? parts.join(' · ')
+            : String(detail.innerText || detail.textContent || '').trim();
         if (!host || !text || host.dataset.storyTooltip) return;
         host.dataset.storyTooltip = text;
         host.classList.add('detail-hover');
         if (!host.hasAttribute('tabindex')) host.setAttribute('tabindex', '0');
-        host.setAttribute('aria-label', `${String(host.textContent || '').trim()} — ${text}`);
+        const primary = [...host.children]
+            .filter(node => node !== detail)
+            .map(node => String(node.innerText || node.textContent || '').trim())
+            .filter(Boolean)
+            .join(' · ');
+        host.setAttribute('aria-label', `${primary}${primary ? ' — ' : ''}${text}`);
         detail.classList.add('detail-tooltip-source');
     });
 }
@@ -189,25 +199,29 @@ function storyPanelUpdate() {
         const date = (typeof storyDateLabel === 'function') ? storyDateLabel() : `GÜN ${1 + Math.floor((STORY.clock || 0) / 60)}`;
         const toCouncil = (typeof YEAR_SECONDS !== 'undefined') ? Math.max(0, (STORY._nextCouncil || 0) - (STORY.clock || 0)) : null;
         const cSoon = toCouncil != null && toCouncil <= 30;
+        const statChip = (classes, label, value, detail, style) => {
+            const safeDetail = storyProjectionEscape(detail);
+            const safeLabel = storyProjectionEscape(`${label}: ${value}. Ayrıntılar için odaklan.`);
+            return `<div class="story-stat-chip ${classes || ''} detail-hover" tabindex="0" data-story-tooltip="${safeDetail}" aria-label="${safeLabel}"${style ? ` style="${style}"` : ''}>${label}<b>${value}</b></div>`;
+        };
         const nextStatsHtml =
-            `<div class="story-stat-chip identity" style="--state-color:${me.color}">DEVLET<b>${me.name}</b></div>` +
-            `<div class="story-stat-chip">PETROL<b>${Math.floor(myr.oil)}</b></div>` +
-            `<div class="story-stat-chip">İNSAN<b>${Math.floor(myr.manpower)}</b></div>` +
-            `<div class="story-stat-chip">PUAN<b>${Math.floor(myr.points)}</b></div>` +
-            `<div class="story-stat-chip">GAZİ<b>${(STORY.veterans || []).length}</b></div>` +
-            ((me.chips != null) ? `<div class="story-stat-chip" title="Elektronik stoku — tank/topçu üretimi ister">⚡<b>${Math.floor(me.chips)}</b></div>` : '') +
-            ((me.inflation != null) ? `<div class="story-stat-chip${me.inflation > 15 ? ' urgent' : ''}" title="Enflasyon geliri kırpar, halkı yorar">ENF<b>%${me.inflation.toFixed(0)}</b></div>` : '') +
-            `<div class="story-stat-chip wide">TARİH<b>${date}</b></div>` +
+            statChip('identity', 'DEVLET', me.name, 'Oyuncu devletin. Harita renkleri ve ülke panellerindeki kayıtlar bu devlete aittir.', `--state-color:${me.color}`) +
+            statChip('', 'PETROL', Math.floor(myr.oil), 'Komutan kasandaki petrol. Zırhlı birlik üretimi ve bazı askerî kararlar bunu harcar.') +
+            statChip('', 'İNSAN', Math.floor(myr.manpower), 'Komutan kasandaki insan gücü. Birlik üretimi ve sefer ordusunu büyütmek için kullanılır.') +
+            statChip('', 'PUAN', Math.floor(myr.points), 'Komutan kasandaki üretim ve karar puanı. Birlik, bina ve bazı siyasi eylemlerde kullanılır.') +
+            statChip('', 'GAZİ', (STORY.veterans || []).length, 'Savaşlardan sonra kayda geçen toplam gazi sayısı.') +
+            ((me.chips != null) ? statChip('tip-right', 'ELEKTRONİK', Math.floor(me.chips), 'Devletin elektronik stoku. Tank ve topçu üretimi elektronik gerektirir.') : '') +
+            ((me.inflation != null) ? statChip(`${me.inflation > 15 ? 'urgent ' : ''}tip-right`, 'ENF', `%${me.inflation.toFixed(0)}`, 'Enflasyon gelir verimini azaltır ve halkın refah baskısını büyütür.') : '') +
+            statChip('wide tip-right', 'TARİH', date, 'Hikâye dünyasının mevcut tarihi. Dünya ilerledikçe ekonomi, kurumlar ve ilişkiler bu takvime göre değişir.') +
             ((typeof storyEra === 'function') ? (() => {
                 const e = storyEraForUi();
                 const detail = storyProjectionEscape(storyWorldStateTooltip());
                 return `<div class="story-stat-chip wide world-state detail-hover" tabindex="0" data-story-tooltip="${detail}" aria-label="${storyProjectionEscape(`${e.name}. Dünya durumu ayrıntıları için odaklan.`)}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`;
             })() : '') +
             '';   // KONSEY geri-sayım çipi kaldırıldı (kullanıcı isteği) — takvim konsey panelinde
-        const worldChip = stats.querySelector('.world-state');
-        const tooltipHeld = !!(worldChip && (
-            document.activeElement === worldChip
-            || (typeof worldChip.matches === 'function' && worldChip.matches(':hover'))
+        const tooltipHeld = [...stats.querySelectorAll('.detail-hover')].some(chip => (
+            document.activeElement === chip
+            || (typeof chip.matches === 'function' && chip.matches(':hover'))
         ));
         // Üst çubuk çok sık güncellenir. Aynı HTML'yi yeniden yazmak hover düğümünü
         // her karede yok edip tooltip'i 50 Hz titretiyordu. Hover/focus boyunca mevcut
@@ -498,7 +512,7 @@ function storyArmyUpdate() {
     const myN = count(c.army), myCap = cmdArmyCap(c);
     const here = storyNode(c.node);
     let html = `<div class="army-card"><div class="army-name">🎖️ ${c.name}</div>`
-        + ((typeof charDiceBadge === 'function') ? charDiceBadge(c.skills) : '')
+        + ((typeof charDiceBadge === 'function') ? charDiceBadge(c.skills, true) : '')
         + `<div class="army-sub">Sadakat <b style="color:${storyLoyColor(c.loyalty || 100)}">${Math.round(c.loyalty || 100)}/100</b> · 📍 ${here ? here.name : '—'}</div></div>`;
     html += `<div class="army-section"><div class="army-h">⚔️ SEFER ORDUN <b>${myN}/${myCap}</b></div>`
         + `<div class="army-note">Bu ordu <b>seninle birlikte gezer</b> — saldırıya bunu götürürsün. Kapasite savaş yeteneğine bağlı.</div>`
@@ -566,9 +580,9 @@ function storyTechStatusFor(ids, tech) {
     if (storyTechHasIn(ids, tech.id)) return { state: 'researched', cost: 0 };
     const cost = storyTechCostFor(ids, tech);
     for (const p of (tech.prereq || [])) if (!storyTechHasIn(ids, p)) return { state: 'locked', reason: (TECH_BY_ID[p] ? TECH_BY_ID[p].name : p) + ' gerekli', cost };
-    if (tech.sibling && storyTechHasIn(ids, tech.sibling)) return { state: 'locked', reason: (TECH_BY_ID[tech.sibling] ? TECH_BY_ID[tech.sibling].name : '') + ' seçildi (kardeş)', cost };
+    if (tech.sibling && storyTechHasIn(ids, tech.sibling)) return { state: 'locked', reason: (TECH_BY_ID[tech.sibling] ? TECH_BY_ID[tech.sibling].name : '') + ' seçildi; aynı ikiliden yalnız biri araştırılabilir', cost };
     if (tech.tier >= 3 && !ids.some(id => TECH_BY_ID[id] && TECH_BY_ID[id].branch === 'state'))
-        return { state: 'locked', reason: 'Çağ Kapısı: Devlet dalında ≥1 tech şart', cost };
+        return { state: 'locked', reason: 'Çağ Kapısı: Devlet dalında en az 1 teknoloji gerekli', cost };
     if (tech.tier >= 4 && ids.length < 8)
         return { state: 'locked', reason: `Çağ Kapısı: ≥8 teknoloji şart (${ids.length}/8)`, cost };
     return { state: 'available', cost };
@@ -729,8 +743,8 @@ function storyTechUpdate() {
     const count = (STORY.tech || []).length;
     const toC = Math.max(0, (STORY._nextCouncil || 0) - (STORY.clock || 0));
     let html = `<div class="tech-top">🔬 Ar-Ge fonu: <b>${fund}⭐</b> · Araştırılan: <b>${count}/${TECH_TREE.techs.length}</b>`
-        + `<div class="tech-hint">Teknoloji <b>satın alınmaz</b> — fon yeterse en ucuz uygun tech kendiliğinden gelir; pahalı/stratejik olanı <b>KONSEY</b> seçer (sonraki toplantı: ${(toC / YEAR_SECONDS).toFixed(1)} yıl).</div>`
-        + `<div class="tech-hint">Maliyet her alımda +%10 · K3 için Devlet dalında ≥1 tech · K4 için ≥8 tech · K2 kardeşlerden biri</div></div><div class="tech-cols">`;
+        + `<div class="tech-hint">Teknoloji <b>satın alınmaz</b> — fon yeterse en ucuz uygun araştırma kendiliğinden tamamlanır; pahalı veya stratejik olanı <b>KONSEY</b> seçer (sonraki toplantı: ${(toC / YEAR_SECONDS).toFixed(1)} yıl).</div>`
+        + `<div class="tech-hint">Maliyet her araştırmada %10 artar · Kademe 3 için Devlet dalında en az 1 teknoloji · Kademe 4 için toplam 8 teknoloji · Kademe 2 ikililerinden yalnız biri seçilebilir</div></div><div class="tech-cols">`;
     for (const br of TECH_TREE.branches) {
         html += `<div class="tech-col"><div class="tech-col-h" style="color:${br.color}">${br.icon} ${br.name}</div>`;
         for (let tier = 1; tier <= 4; tier++) {
@@ -752,7 +766,7 @@ function storyTechUpdate() {
     if (rivals.length) {
         html += `<div class="tech-rivals"><div class="tech-col-h" style="color:#ff8a8a">⚔️ Rakip teknolojileri</div>`;
         for (const r of rivals.slice().sort((a, b) => (b.tech ? b.tech.length : 0) - (a.tech ? a.tech.length : 0)))
-            html += `<div class="tech-rival-row"><span style="color:${r.color}">⬤ ${r.name}</span><span><b>${(r.tech || []).length}</b> tech</span></div>`;
+            html += `<div class="tech-rival-row"><span style="color:${r.color}">⬤ ${r.name}</span><span><b>${(r.tech || []).length}</b> teknoloji</span></div>`;
         html += `</div>`;
     }
     body.innerHTML = html;
@@ -786,8 +800,10 @@ function storyCouncilUpdate() {
     const inc = STORY._incPerCmd || { oil: 0, manpower: 0, points: 0 };
     const tre = document.getElementById('council-treasury');
     // 'Senin kasan' satırı kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
-    if (tre) tre.innerHTML = `💰 Devlet hazinesi: ⛽<b>${Math.floor(me.res.oil)}</b> 👥<b>${Math.floor(me.res.manpower)}</b> ⭐<b>${Math.floor(me.res.points)}</b>`
-        + `<br><span style="color:#9fb3c8;font-size:12px">${cmds.length} komutan · gelir/komutan ⛽${inc.oil.toFixed(1)} 👥${inc.manpower.toFixed(1)} ⭐${inc.points.toFixed(1)} /sn (sabit)</span>`;
+    if (tre) tre.innerHTML = `<b>DEVLET HAZİNESİ</b>`
+        + `<br><span style="color:#dfe7ef">PETROL ${Math.floor(me.res.oil)} · İNSAN ${Math.floor(me.res.manpower)} · PUAN ${Math.floor(me.res.points)}</span>`
+        + `<br><span style="color:#9fb3c8;font-size:12px">${cmds.length} komutan · KİŞİ BAŞI/SN: PETROL +${inc.oil.toFixed(1)} · İNSAN +${inc.manpower.toFixed(1)} · PUAN +${inc.points.toFixed(1)}</span>`
+        + `<div class="council-skill-legend">YETENEKLER · ⚔ SAVAŞ · 🕊 DİPLOMASİ · ⚙ İKTİSAT · ● SADAKAT</div>`;
     // EN GÜÇLÜ (oyuncu hariç) + sıralama (oyuncu üst, sonra skill-toplam azalan)
     const skSum = c => c.skills ? (c.skills.warrior + c.skills.diplomat + c.skills.economist) : 0;
     let bestId = -1, bestSum = -1;

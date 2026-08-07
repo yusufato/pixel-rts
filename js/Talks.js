@@ -990,6 +990,16 @@ function storyTalkClose() {
 }
 function storyTalkToggle() { STORY._talkOpen ? storyTalkClose() : storyTalkOpen(); }
 
+function storyTalkRemainingLabel(seconds) {
+    const years = Math.max(0, Number(seconds) || 0) / YEAR_SECONDS;
+    if (years >= 1) {
+        const rounded = Math.ceil(years * 4) / 4;
+        return `${rounded.toLocaleString('tr-TR')} yıl kaldı`;
+    }
+    const months = Math.max(1, Math.ceil(years * 12));
+    return `${months} ay kaldı`;
+}
+
 const TALK_KIND_META = {
     internal: { ic: '🗣️', name: 'KOMUTANIN', c: '#4cff7c' },
     clique:   { ic: '👁️', name: 'KULİS',     c: '#c78cff' },
@@ -1008,7 +1018,7 @@ function storyTalkUpdate() {
             : String(STORY._talkFocusCharacterName);
         focusHtml = `<div class="talk-sec talk-focus"><div class="talk-h">⌖ ŞEHİR DOSYASINDAN GELEN BAĞLAM</div>`
             + `<div class="talk-note"><b>${safeName}</b> için sohbet merkezi açıldı. `
-            + `Karaktere özel serbest görüşme sözleşmesi <b>henüz sistemde yok</b>; aşağıdaki mevcut konuşmalar bu karakter adına uydurulmaz.</div></div>`;
+            + `Bekleyen gündemler bu karakterin görevi ve bulunduğu şehir bağlamında gösterilir.</div></div>`;
     }
     // 1) DİPLOMASİ TABLOSU — ilişkiler ve antlaşmalar
     const others = STORY.states.filter(s => s.id !== me.id && STORY.nodes.some(n => n.owner === s.id));
@@ -1018,7 +1028,7 @@ function storyTalkUpdate() {
         return `<div class="dip-row"><span class="dip-n" style="color:${s.color}">⬤ ${s.name}</span>`
             + `<span class="dip-t" style="color:${t.color}" title="${t.name}">${t.icon} ${t.name}</span>`
             + `<span class="dip-bar"><b style="width:${pct}%;background:${lab.c}"></b></span>`
-            + `<span class="dip-v" style="color:${lab.c}">${lab.t}</span></div>`;
+            + `<span class="dip-v" style="color:${lab.c}" title="İlişki puanı ${v}">${lab.t} ${v > 0 ? '+' : ''}${v}</span></div>`;
     }).join('');
     let html = focusHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
         + `<div class="talk-note">İlişkiler <b>sohbetlerle</b> değişir — elçileri dinle, söz ver, ahdine sadık kal.</div>`
@@ -1032,7 +1042,7 @@ function storyTalkUpdate() {
         const age = Math.max(0, TALK_EXPIRE - ((STORY.clock || 0) - t.born));
         html += `<div class="talk-card" data-talk="${t.uid}">`
             + `<div class="talk-card-h"><span style="color:${m.c}">${m.ic} ${m.name}</span>`
-            + `<span class="talk-age" title="cevaplanmazsa düşer">${Math.ceil(age / YEAR_SECONDS * 4) / 4} yıl</span></div>`
+            + `<span class="talk-age">${storyTalkRemainingLabel(age)}</span></div>`
             + `<div class="talk-lines">${t.lines.map(l => `<div>${l}</div>`).join('')}</div>`
             + `<div class="talk-opts">` + t.options.map((o, i) =>
                 `<button class="talk-opt" data-talk="${t.uid}" data-opt="${i}">`

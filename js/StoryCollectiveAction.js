@@ -14,6 +14,10 @@ const STORY_COLLECTIVE_ADAPTER_VERSION = 'story-collective-action-ledger-1';
 const STORY_COLLECTIVE_STAGES = Object.freeze(['NONE', 'PROTEST', 'STRIKE', 'UPRISING']);
 const STORY_COLLECTIVE_RESPONSES = Object.freeze(['CONCEDE', 'NEGOTIATE', 'SUPPRESS', 'IGNORE']);
 const STORY_COLLECTIVE_LABOR_PROBLEMS = Object.freeze(['income', 'employment']);
+const STORY_COLLECTIVE_PROBLEM_LABELS = Object.freeze({
+    food: 'Gıda erişimi', energy: 'Enerji erişimi', income: 'Gelir güvencesi',
+    employment: 'İşsizlik', security: 'Fiziksel güvenlik', publicServices: 'Kamu hizmetleri'
+});
 const STORY_COLLECTIVE_POLICY = Object.freeze({
     organizationModel: 'POWER_CENTER_OR_EXPLICIT_LEGACY_PROXY_V1',
     mobilizationRiseRateBps: 1800,
@@ -764,7 +768,7 @@ function storyCollectiveNotice(movement) {
         key: `collective-${movement.stage.toLowerCase()}`,
         severity: movement.stage === 'UPRISING' ? 'critical' : 'high',
         title: label,
-        summary: `${movement.problemType} şikâyeti ${Math.round(movement.affectedShareBps / 100)}% toplumsal kapsama ulaştı; ${typeof storyOpinionActorLabel === 'function' ? storyOpinionActorLabel(movement.blamedActorId) : movement.blamedActorId} sorumlu görülüyor.`,
+        summary: `${STORY_COLLECTIVE_PROBLEM_LABELS[movement.problemType] || movement.problemType} şikâyeti ${Math.round(movement.affectedShareBps / 100)}% toplumsal kapsama ulaştı; ${typeof storyOpinionActorLabel === 'function' ? storyOpinionActorLabel(movement.blamedActorId) : movement.blamedActorId} sorumlu görülüyor.`,
         consequence: `Seferberlik %${Math.round(movement.mobilizationBps / 100)}, radikalleşme %${Math.round(movement.radicalizationBps / 100)}. Yanıt verilmezse hareket kendi kanıt zincirine göre gelişir.`,
         deltas: {},
         collectiveActionId: movement.id,

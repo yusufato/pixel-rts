@@ -27,7 +27,7 @@ const CMDR_TREE = {
     nodes: [
         // ══ ⚔️ HARP ══
         { id: 'drillmaster', branch: 'war', tier: 1, cost: 1, name: 'Talimci',        desc: 'Sefer ordusu kapasiten +3',                 prereq: [],              effect: { armyCap: 3 } },
-        { id: 'schwerpunkt', branch: 'war', tier: 1, cost: 1, name: 'Schwerpunkt',    desc: 'Taarruz emrinde birlikler +%10 vuruş',      prereq: [],              effect: { legacy: true } },
+        { id: 'schwerpunkt', branch: 'war', tier: 1, cost: 1, name: 'Ana Darbe',      desc: 'Taarruz emrinde birliklerin vuruşu %10 artar', prereq: [],              effect: { legacy: true } },
         { id: 'steel-wall',  branch: 'war', tier: 2, cost: 2, name: 'Çelik Duvar',    desc: 'Tüm birliklerine +1 zırh',                  prereq: ['drillmaster'], effect: { legacy: true } },
         { id: 'ambusher',    branch: 'war', tier: 2, cost: 2, name: 'Pusucu',         desc: 'İlk temas kanat hasarı +%15',               prereq: ['schwerpunkt'], effect: { legacy: true } },
         { id: 'morale',      branch: 'war', tier: 2, cost: 2, name: 'Kanaat Önderi',  desc: 'Birliklerinin panik direnci +%25',          prereq: ['schwerpunkt'], effect: { legacy: true } },
@@ -38,7 +38,7 @@ const CMDR_TREE = {
         // 'logistics' ve 'mobilization' havuz sistemine geçişte ÖLÜ kalmıştı
         // (DEPLOY_RES.blue artık null → deploy bütçesine ekleme yapılmıyordu).
         // Yeni ekonomiye göre yeniden yorumlandı.
-        { id: 'logistics',   branch: 'adm', tier: 1, cost: 1, name: 'Lojistikçi',     desc: 'Şehirlerinde üretim süresi −%10',           prereq: [],              effect: { prodSpeed: 0.90 } },
+        { id: 'logistics',   branch: 'adm', tier: 1, cost: 1, name: 'Lojistikçi',     desc: 'Şehirlerindeki üretim %10 daha hızlı tamamlanır', prereq: [],              effect: { prodSpeed: 0.90 } },
         { id: 'mobilization',branch: 'adm', tier: 1, cost: 1, name: 'Seferberlik',    desc: 'Gelir payın +%15',                          prereq: [],              effect: { incomeShare: 1.15 } },
         { id: 'quarter',     branch: 'adm', tier: 2, cost: 2, name: 'Levazım Reisi',  desc: 'Üretim süresi −%15 daha',                   prereq: ['logistics'],   effect: { prodSpeed: 0.85 } },
         { id: 'builder',     branch: 'adm', tier: 2, cost: 2, name: 'İstihkamcı',     desc: 'Bina ve şehir yükseltme −%25 (senin kasan)', prereq: ['mobilization'], effect: { buildCost: 0.75 } },
@@ -46,10 +46,10 @@ const CMDR_TREE = {
         { id: 'industrial',  branch: 'adm', tier: 3, cost: 3, name: 'Sanayici',       desc: '🏗️ İktisat yeteneğin kalıcı +1',             prereq: ['quarter'],     effect: { skill: 'economist' } },
 
         // ══ 🕊️ SİYASET ══
-        { id: 'orator',      branch: 'pol', tier: 1, cost: 1, name: 'Hatip',          desc: 'Konseyde oyun <b>2 oy</b> sayılır',         prereq: [],              effect: { voteWeight: 1 } },
+        { id: 'orator',      branch: 'pol', tier: 1, cost: 1, name: 'Hatip',          desc: 'Konseydeki oyun 2 oy değerinde sayılır',   prereq: [],              effect: { voteWeight: 1 } },
         { id: 'patron',      branch: 'pol', tier: 1, cost: 1, name: 'Hami',           desc: 'Sohbetlerde sadakat kazanımların +%50',     prereq: [],              effect: { talkLoyMul: 1.5 } },
-        { id: 'whip',        branch: 'pol', tier: 2, cost: 2, name: 'Sopa',           desc: 'Konseyi ezme bedeli −5 → −2 sadakat',       prereq: ['orator'],      effect: { overrideCost: 2 } },
-        { id: 'spymaster',   branch: 'pol', tier: 2, cost: 2, name: 'Hafiye',         desc: 'Kulis ve rüşvet mektupları daha sık ele geçer', prereq: ['patron'],  effect: { intrigue: 1 } },
+        { id: 'whip',        branch: 'pol', tier: 2, cost: 2, name: 'Parti Disiplini', desc: 'Konsey kararını zorlamanın sadakat kaybı 5 yerine 2 olur', prereq: ['orator'], effect: { overrideCost: 2 } },
+        { id: 'spymaster',   branch: 'pol', tier: 2, cost: 2, name: 'İstihbarat Ağı', desc: 'Kulis ve rüşvet yazışmaları daha sık ele geçirilir', prereq: ['patron'], effect: { intrigue: 1 } },
         { id: 'kingmaker',   branch: 'pol', tier: 3, cost: 3, name: 'Kral Yapıcı',    desc: 'Konseyde oyun <b>4 oy</b> sayılır',         prereq: ['whip'],        effect: { voteWeight: 2 } },
         { id: 'statesman',   branch: 'pol', tier: 3, cost: 3, name: 'Devlet Adamı',   desc: '🕊️ Diplomasi yeteneğin kalıcı +1',           prereq: ['spymaster'],   effect: { skill: 'diplomat' } },
     ],

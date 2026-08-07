@@ -121,6 +121,11 @@ function storyNodeBackfill(n, options) {
     if (n.bar == null) n.bar = 0;
     if (!n.pool || typeof n.pool !== 'object') n.pool = {};
     if (!Array.isArray(n.q)) n.q = [];
+    // Eski bazı kayıtlarda üretim işi `type` alanı olmadan kalmıştı. Bu kayıt
+    // kuyruğu kilitliyor ve ŞEHİR > ORDU görünümünü tamamen çökertiyordu.
+    if (typeof STATS !== 'undefined') {
+        n.q = n.q.filter(job => job && STATS[job.type] && Number.isFinite(Number(job.t)));
+    }
     if (!(options && options.preserveRuntime)) n._siege = null;
 }
 
@@ -236,8 +241,15 @@ function prodCancel(nodeId, idx) {
     const n = storyNode(nodeId);
     if (!n || n.owner !== STORY.playerStateId || !n.q || !n.q[idx]) return false;
     const job = n.q[idx];
+    const stat = STATS[job.type];
+    if (!stat) {
+        n.q.splice(idx, 1);
+        storySave();
+        if (typeof storyCityUpdate === 'function') storyCityUpdate();
+        return true;
+    }
     const g = UNIT_RES_GROUP[job.type] || 'manpower';
-    const back = Math.round(((STATS[job.type] && STATS[job.type].cost) || 70) * 0.5);
+    const back = Math.round((stat.cost || 70) * 0.5);
     const w = STORY.commander && STORY.commander.res;
     if (w && g === 'points' && typeof storyBudgetCredit === 'function') {
         storyBudgetCredit(n.owner, back, 'production.refund', {
@@ -251,7 +263,7 @@ function prodCancel(nodeId, idx) {
         });
     }
     n.q.splice(idx, 1);
-    storyLog(`✖ ${STATS[job.type].name} üretimi iptal (+${back} iade).`);
+    storyLog(`✖ ${stat.name} üretimi iptal (+${back} iade).`);
     storySave();
     if (typeof storyCityUpdate === 'function') storyCityUpdate();
     return true;
@@ -261,13 +273,14 @@ function prodCancel(nodeId, idx) {
 function prodPendingFor(cmd) {
     if (!cmd) return 0;
     let c = 0;
-    for (const n of STORY.nodes) for (const j of (n.q || [])) if (j.cmd === cmd.id) c++;
+    for (const n of STORY.nodes) for (const j of (n.q || [])) if (j && STATS[j.type] && j.cmd === cmd.id) c++;
     return c;
 }
 // TESLİMAT: biten birlik sipariş eden komutanın SEFER ORDUSUNA katılır.
 // Komutan ölmüş/ordusu dolmuşsa o şehirdeki başka bir dost komutana, o da yoksa
 // GARNİZONA yazılır — üretim asla buharlaşmaz.
 function prodDeliver(n, type, cmdId) {
+    if (!STATS[type]) return 'invalid';
     const st = storyState(n.owner);
     let target = null;
     if (st && cmdId != null) target = storyCommanderById(st.id, cmdId);
@@ -302,6 +315,8 @@ function prodTick(step) {
     if (typeof STORY === 'undefined' || !STORY.nodes) return;
     for (const n of STORY.nodes) {
         if (!n.q || !n.q.length) continue;
+        n.q = n.q.filter(job => job && STATS[job.type] && Number.isFinite(Number(job.t)));
+        if (!n.q.length) continue;
         const busy = { fac: 0, bar: 0 };
         for (const job of n.q) {
             const k = prodBuildingFor(job.type);
@@ -477,7 +492,7 @@ function prodUnitButtons(n, kind, wallet) {
         html += unlocked
             ? `<button class="prod-btn cb-make" data-node="${n.id}" data-type="${t}" ${afford ? '' : 'disabled'} title="${s.name} — ${s.cost}${icon}${_chipNeed ? ' + ' + _chipNeed + '⚡' : ''}, ${sec} sn${_chipOk ? '' : ' — ⚡ stok yok'}">`
               + `<b>${s.name}</b><small>${icon}${s.cost}${_chipNeed ? ' ⚡' + _chipNeed : ''} · ${sec}sn</small></button>`
-            : `<button class="prod-btn locked" disabled title="Sv.${lv} gerekli"><b>${s.name}</b><small>🔒 Sv.${lv}</small></button>`;
+            : `<button class="prod-btn locked" disabled title="Seviye ${lv} gerekli"><b>${s.name}</b><small>🔒 SEVİYE ${lv}</small></button>`;
     }
     return html;
 }
@@ -491,16 +506,16 @@ function prodBuildingSection(n, kind, wallet, manage) {
     const label = kind === 'fac' ? 'FABRİKA' : 'KIŞLA';   // toUpperCase() Türkçe'de 'i'→'I' yapıyor, sabit metin kullanılır
     const maxed = lvl >= PROD_MAX_LEVEL;
     const cityBlocked = !maxed && lvl >= prodMaxBuildLevel(n);
-    let head = `<div class="prod-head"><span>${icon} ${label} <b>Sv.${lvl}/${PROD_MAX_LEVEL}</b></span>`;
-    if (maxed) head += `<span class="city-max">Maks</span>`;
-    else if (cityBlocked) head += `<span class="prod-lock" title="Bina şehir seviyesini en fazla 1 aşar — şehir büyüsün">🔒 Şehir Sv.${n.level || 1}</span>`;
+    let head = `<div class="prod-head"><span>${icon} ${label} <b>Seviye ${lvl}/${PROD_MAX_LEVEL}</b></span>`;
+    if (maxed) head += `<span class="city-max">EN YÜKSEK</span>`;
+    else if (cityBlocked) head += `<span class="prod-lock" title="Bina şehir seviyesini en fazla 1 aşar — şehir büyüsün">🔒 ŞEHİR SEVİYESİ ${n.level || 1}</span>`;
     else if (manage) head += `<button class="city-btn cb-build" data-node="${n.id}" data-kind="${kind}" ${(wallet.points || 0) < cost ? 'disabled' : ''}>`
-        + `${lvl === 0 ? 'Kur' : `Sv.${lvl + 1}`} (${cost}⭐)</button>`;
+        + `${lvl === 0 ? 'KUR' : `SEVİYE ${lvl + 1}`} (${cost} PUAN)</button>`;
     head += `</div>`;
     const body = manage
         ? `<div class="city-hint">${kind === 'fac'
-            ? 'Zırhlı sınıf: Sv.1 tanksavar · Sv.2 zırhlı piyade + TANK · Sv.3 seri üretim.'
-            : 'Yaya sınıf: Sv.1 piyade/keşif · Sv.2 istihkam/sağlık/mekanize · Sv.3 topçu.'}</div>`
+            ? 'Zırhlı sınıf: Seviye 1 tanksavar · Seviye 2 zırhlı piyade + tank · Seviye 3 seri üretim.'
+            : 'Yaya sınıf: Seviye 1 piyade/keşif · Seviye 2 istihkam/sağlık/mekanize · Seviye 3 topçu.'}</div>`
         : (lvl > 0
             ? `<div class="prod-grid">${prodUnitButtons(n, kind, wallet)}</div>`
             : `<div class="city-hint">${prodBuildingName(kind)} kurulmadı — 🏗️ BİNALAR bölümünden kur.</div>`);
@@ -508,7 +523,7 @@ function prodBuildingSection(n, kind, wallet, manage) {
 }
 
 function prodQueueSection(n) {
-    const q = n.q || [];
+    const q = (n.q || []).filter(job => job && STATS[job.type]);
     if (!q.length) return `<div class="prod-sec"><div class="prod-head"><span>⏳ ÜRETİM</span><span class="city-max">kuyruk boş</span></div></div>`;
     let html = `<div class="prod-sec"><div class="prod-head"><span>⏳ ÜRETİM</span>`
         + `<span class="city-max">🏭 ${prodQueueCount(n, 'fac')}/${prodSlots(n, 'fac')} · 🎖️ ${prodQueueCount(n, 'bar')}/${prodSlots(n, 'bar')}</span></div>`;

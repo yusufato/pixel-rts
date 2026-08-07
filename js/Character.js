@@ -491,8 +491,11 @@ function charRenderSummary(el) {
 }
 
 // Komutan listelerinde bar yerine ZAR ROZETİ (kullanıcı isteği: "1/1/1 gibi sayılar")
-function charDiceBadge(sk) {
+function charDiceBadge(sk, expanded) {
     const s = sk || {};
-    return `<div class="cr-dice" title="Savaş ${s.warrior | 0} · Diplomasi ${s.diplomat | 0} · İktisat ${s.economist | 0}">`
+    const detail = `Savaş yeteneği: ${s.warrior | 0}/6\nDiplomasi yeteneği: ${s.diplomat | 0}/6\nİktisat yeteneği: ${s.economist | 0}/6`;
+    if (expanded) return `<div class="cr-dice expanded" aria-label="${detail.replace(/\n/g, '. ')}">`
+        + `<span>SAVAŞ <b>${s.warrior | 0}</b></span><span>DİPLOMASİ <b>${s.diplomat | 0}</b></span><span>İKTİSAT <b>${s.economist | 0}</b></span></div>`;
+    return `<div class="cr-dice" title="${detail.replace(/\n/g, ' · ')}" aria-label="${detail.replace(/\n/g, '. ')}">`
         + `<span>⚔️${s.warrior | 0}</span><span>🕊️${s.diplomat | 0}</span><span>⚙️${s.economist | 0}</span></div>`;
 }

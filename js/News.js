@@ -140,7 +140,7 @@ function storyNewsUpdate() {
     const list = STORY._news || [];
     let html = `<div class="news-cred">🗞️ Basın güvenilirliği: <b>${me ? Math.round(me.pressCred) : '—'}</b>
         <small>Çarpıtma başarısı buna bağlı; her çarpıtma biraz yer. Aydınlar çarpıtmayı her durumda görür.</small></div>`;
-    if (!list.length) html += `<div class="city-hint">Henüz manşetlik olay yok — dünya daha yeni uyanıyor.</div>`;
+    if (!list.length) html += `<div class="city-hint">Henüz doğrulanmış manşet yok. Savaş, ekonomik kırılma, yasa ve diplomasi olayları burada yayımlanır.</div>`;
     list.forEach((r, i) => {
         const spin = storyNewsCanSpin(r)
             ? `<button class="city-btn news-spin" data-idx="${i}">📢 ÇARPIT (${NEWS_SPIN_COST}⭐ · ${Math.max(0, Math.ceil(NEWS_SPIN_WINDOW - (STORY.clock - r.t)))}sn)</button>` : '';

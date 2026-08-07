@@ -20,7 +20,7 @@ const TECH_TREE = {
     ],
     techs: [
         // ══ ⛽ ZIRH DOKTRİNİ — pahalı, vurucu, petrole bağımlı ══
-        { id: 'diesel',    branch: 'armor', tier: 1, cost: 80,  name: 'Dizel Hatları',    desc: 'Zırhlı/araç deploy −%20 petrol',           prereq: [],                                  effect: { oilCost: 0.80 } },
+        { id: 'diesel',    branch: 'armor', tier: 1, cost: 80,  name: 'Dizel Hatları',    desc: 'Zırhlı araç konuşlandırması %20 daha az petrol ister', prereq: [], effect: { oilCost: 0.80 } },
         { id: 'tracks',    branch: 'armor', tier: 1, cost: 70,  name: 'Aktif Süspansiyon', desc: 'Zırhlı sınıf +%10 hız',                   prereq: [],                                  effect: { armorSpeed: 1.10 } },
         { id: 'sloped',    branch: 'armor', tier: 2, cost: 140, name: 'Kompozit Zırh',      desc: 'Tank +%25 zırh (daha az hasar yer)',       prereq: ['diesel'],  sibling: 'maneuver',    effect: { tankArmor: 1.25 } },
         { id: 'maneuver',  branch: 'armor', tier: 2, cost: 120, name: 'Birleşik Manevra', desc: 'Mekanize+Zırhlı +%15 hız',                 prereq: ['diesel'],  sibling: 'sloped',      effect: { armorSpeed: 1.15 } },
@@ -30,7 +30,7 @@ const TECH_TREE = {
         { id: 'armorfist', branch: 'armor', tier: 4, cost: 380, name: 'Zırhlı Yumruk',    desc: 'Mekanize+Zırhlı piyade +%25 dayanıklılık', prereq: ['blitz'],                           effect: { mechHp: 1.25 } },
 
         // ══ 👥 SEFERBERLİK — ucuz, kalabalık, insan gücüne bağımlı ══
-        { id: 'conscript', branch: 'mob',   tier: 1, cost: 60,  name: 'Zorunlu Hizmet',   desc: 'Piyade deploy −%25 insan gücü',            prereq: [],                                  effect: { manpowerCost: 0.75 } },
+        { id: 'conscript', branch: 'mob',   tier: 1, cost: 60,  name: 'Zorunlu Hizmet',   desc: 'Piyade konuşlandırması %25 daha az insan gücü ister', prereq: [], effect: { manpowerCost: 0.75 } },
         { id: 'drill',     branch: 'mob',   tier: 1, cost: 75,  name: 'Atış Eğitim Programı',     desc: 'Piyade atışı +%15',                        prereq: [],                                  effect: { infantryAtk: 1.15 } },
         { id: 'trench',    branch: 'mob',   tier: 2, cost: 100, name: 'Mevzi Tahkimatı',     desc: 'Piyade +%30 dayanıklılık',                 prereq: ['conscript'], sibling: 'recon',     effect: { infantryHp: 1.30 } },
         { id: 'recon',     branch: 'mob',   tier: 2, cost: 90,  name: 'İHA Keşif Ağı',      desc: 'Keşif görüşü +%40',                        prereq: ['conscript'], sibling: 'trench',    effect: { reconVision: 1.40 } },

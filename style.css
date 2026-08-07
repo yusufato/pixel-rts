@@ -901,9 +901,10 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .wr-state-card:hover, .wr-state-card:focus-visible { border-color: var(--wr-amber); outline: none; }
 .wr-state-card.selected { border-color: var(--wr-amber); background: rgba(255,176,0,.13); box-shadow: inset 3px 0 0 var(--state-color); }
 .wr-state-head { display: flex; align-items: center; gap: 9px; }
+.wr-state-head > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .wr-state-code { width: 31px; height: 31px; border-radius: 6px; display: grid; place-items: center; flex: none; background: var(--state-color); color: white; font-size: 11px; box-shadow: 0 0 10px color-mix(in srgb, var(--state-color), transparent 45%); }
-.wr-state-name { min-width: 0; color: var(--wr-amber-bright); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wr-state-role { margin-top: 3px; color: var(--wr-muted); font-size: 9px; }
+.wr-state-name { display: block; min-width: 0; color: var(--wr-amber-bright); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wr-state-role { display: block; color: var(--wr-muted); font-size: 9px; }
 .wr-state-stats { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; color: var(--wr-muted); font-size: 8px; }
 .wr-mini-bar { height: 4px; margin-top: 4px; overflow: hidden; border-radius: 2px; background: rgba(0,0,0,.55); }
 .wr-mini-bar i { display: block; height: 100%; background: var(--bar-color); }
@@ -1014,12 +1015,12 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 
 /* ── KONSEY (hükümet) — sağdan kayar drawer (Faz-2 Adım 3) ── */
 #council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel { position: fixed; top: 0; left: 0; height: 100vh; width: 380px; max-width: 42vw;
-    background: rgba(12,18,28,0.96); border-right: 2px solid #4cff7c; box-shadow: 12px 0 28px rgba(0,0,0,0.45);
+    background: rgba(3,8,4,.995); border-right: 2px solid #4cff7c; box-shadow: 12px 0 28px rgba(0,0,0,0.45);
     transform: translateX(-100%); transition: transform 0.22s ease; z-index: 4500;
     display: flex; flex-direction: column; font-family: 'Segoe UI', system-ui, sans-serif; color: #dfe7ef; }
 #council-panel.open, #tech-panel.open, #army-panel.open, #city-panel.open, #news-panel.open, #economy-panel.open { transform: translateX(0); }
 /* 🏗️ ŞEHİRLER paneli (Adım 6) */
-#city-body { padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+#city-body { flex: 1 1 auto; min-width: 0; min-height: 0; padding: 12px 14px; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .city-top { font-size: 13px; color: #eaf2fb; background: rgba(255,200,90,0.1); border: 1px solid rgba(255,200,90,0.3); border-radius: 8px; padding: 9px 11px; }
 .city-hint { font-size: 10.5px; color: #8aa0b6; margin-top: 4px; line-height: 1.45; }
 .city-row { border: 1px solid rgba(90,130,170,0.3); border-radius: 8px; padding: 8px 10px; background: rgba(20,30,44,0.6); }
@@ -1155,7 +1156,7 @@ body[data-screen="story"] { background: #060a06; }
     height: 64px;
     z-index: 45;
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr) auto;
+    grid-template-columns: 270px minmax(0, 1fr) auto;
     align-items: center;
     gap: 16px;
     padding: 8px 14px 8px 18px;
@@ -1204,6 +1205,8 @@ body[data-screen="story"] { background: #060a06; }
 .detail-hover:focus-visible { outline: 1px solid var(--wr-green); outline-offset: 2px; }
 .world-state { cursor: help; }
 .world-state::after { left: auto; right: 0; min-width: 310px; }
+.story-stat-chip.detail-hover { cursor: help; }
+.story-stat-chip.tip-right::after { left: auto; right: 0; }
 .detail-tooltip-source { display: none !important; }
 #story-topright { position: static; display: flex; gap: 6px; }
 #story-topright .ctrl-btn {
@@ -1397,6 +1400,18 @@ body[data-screen="story"] { background: #060a06; }
     flex-direction: column;
     gap: 8px;
 }
+#city-body, #economy-body, #council-body, #council-list, #tech-body, #army-body, #news-body, #talk-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74,222,128,.5) rgba(0,0,0,.28);
+}
+#city-body::-webkit-scrollbar, #economy-body::-webkit-scrollbar, #council-body::-webkit-scrollbar, #council-list::-webkit-scrollbar,
+#tech-body::-webkit-scrollbar, #army-body::-webkit-scrollbar, #news-body::-webkit-scrollbar, #talk-body::-webkit-scrollbar { width: 8px; height: 8px; }
+#city-body::-webkit-scrollbar-track, #economy-body::-webkit-scrollbar-track, #council-body::-webkit-scrollbar-track, #council-list::-webkit-scrollbar-track,
+#tech-body::-webkit-scrollbar-track, #army-body::-webkit-scrollbar-track, #news-body::-webkit-scrollbar-track, #talk-body::-webkit-scrollbar-track { background: rgba(0,0,0,.28); }
+#city-body::-webkit-scrollbar-thumb, #economy-body::-webkit-scrollbar-thumb, #council-body::-webkit-scrollbar-thumb, #council-list::-webkit-scrollbar-thumb,
+#tech-body::-webkit-scrollbar-thumb, #army-body::-webkit-scrollbar-thumb, #news-body::-webkit-scrollbar-thumb, #talk-body::-webkit-scrollbar-thumb {
+    background: rgba(74,222,128,.42); border: 2px solid rgba(0,0,0,.28); border-radius: 6px;
+}
 .economy-dossier-head { border-left: 3px solid var(--wr-green); }
 .economy-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .city-dossier-head {
@@ -1419,9 +1434,10 @@ body[data-screen="story"] { background: #060a06; }
 .city-dossier-neighbors .city-chips { margin-top: 5px; }
 .city-dossier-tabs {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
 }
+.city-dossier-tabs.economy-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .city-dossier-tabs button {
     min-height: 32px;
     padding: 6px 5px;
@@ -1473,6 +1489,13 @@ body[data-screen="story"] { background: #060a06; }
     color: var(--wr-amber-bright);
     font-size: 14px;
     font-weight: 400;
+}
+.city-money-unit {
+    color: var(--wr-muted);
+    font-size: 8px;
+    font-style: normal;
+    letter-spacing: .35px;
+    white-space: nowrap;
 }
 .city-fact-grid .city-unknown {
     margin-top: 4px;
@@ -1996,7 +2019,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .dip-t { flex: 0 0 auto; font-size: 10px; }
 .dip-bar { flex: 1; height: 5px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; }
 .dip-bar b { display: block; height: 100%; }
-.dip-v { flex: 0 0 auto; min-width: 56px; text-align: right; font-size: 10px; }
+.dip-v { flex: 0 0 auto; min-width: 78px; text-align: right; font-size: 10px; }
 /* konuşma kartı */
 .talk-card { margin-bottom: 10px; padding: 10px; border: 1px solid var(--wr-line); border-left: 3px solid #4c9fff;
     border-radius: 4px; background: rgba(20,32,26,.75); }
@@ -2093,6 +2116,9 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .char-seeds { font-size: 12px; color: var(--wr-muted); line-height: 1.5; }
 .char-seeds i { color: #9fd2ff; font-style: normal; }
 .cr-dice { display: flex; gap: 6px; font-size: 11.5px; color: #ffd27a; align-items: center; white-space: nowrap; }
+.cr-dice.expanded { gap: 12px; margin: 7px 0; color: var(--wr-muted); font-size: 9px; letter-spacing: .55px; }
+.cr-dice.expanded b { color: var(--wr-amber-bright); font-size: 12px; }
+.council-skill-legend { margin-top: 7px; color: #8fa397; font-size: 9px; letter-spacing: .35px; }
 
 /* ═══ FRAKSİYON SEKMESİ (AŞAMA 2) ═══ */
 .fac-box { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
@@ -2166,8 +2192,11 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .commander-layout { min-height: 0; }
 .commander-profile { overflow-y: auto; min-height: 0; }
 .commander-perks { overflow: auto; min-height: 0; min-width: 0; }
-#commander-perk-grid { max-width: 100%; }
-#commander-perk-grid { padding-right: 16px; padding-bottom: 16px; }
+#commander-perk-grid { display: block; width: 100%; height: auto; max-width: 100%; padding-right: 16px; padding-bottom: 16px; }
+.commander-profile, .commander-perks {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74,222,128,.5) rgba(0,0,0,.28);
+}
 
 /* ═══ EKONOMİ BÖLÜMÜ + TALEP KARTI (AŞAMA 3) ═══ */
 .econ-box { border-bottom: 1px solid var(--wr-line); margin-bottom: 4px; }

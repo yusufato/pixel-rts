@@ -256,7 +256,7 @@ function storyEconHtml(st) {
         <div class="econ-row"><span>📈 Enflasyon</span><b style="color:${infCol}">${inflation == null ? '—' : `%${inflation.toFixed(1)}`}</b><small>geliri kırpar, halkı yorar</small></div>
         <div class="econ-row"><span>🤝 Piyasa güveni</span><b style="color:${trCol}">${trust == null ? '—' : Math.round(trust)}</b><small>⭐ gelirini oynatır; dipte sermaye kaçar</small></div>
         <div class="econ-row"><span>⚡ Elektronik stoku</span><b>${chips == null ? '—' : Math.floor(chips)}</b><small>tank/topçu üretimi ${ECON_CHIP_COST}⚡ ister</small></div>
-        <div class="econ-row"><span>🌾 Gıda dengesi</span><b style="color:${foodCol}">%${Math.round(food * 100)}</b><small>&lt;%85 kıtlık: şehirler orduyu beslemeli</small></div>
+        <div class="econ-row"><span>🌾 Gıda karşılama oranı</span><b style="color:${foodCol}">%${Math.round(food * 100)}</b><small>${food < .85 ? 'Kıtlık riski: üretim ihtiyacın %85’inin altında' : food < 1 ? 'Gıda arzı sınırda' : `Üretim, ihtiyacın %${Math.round(food * 100)}’ini karşılıyor`}</small></div>
         ${dem}</div>`;
 }
 

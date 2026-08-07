@@ -26,6 +26,54 @@ const STORY_CITY_MODE_META = Object.freeze({
     ENERGY: { icon: 'ϟ', label: 'ENERJİ' },
     DATA: { icon: '⌁', label: 'VERİ' }
 });
+const STORY_DOSSIER_RESOURCE_LABELS = Object.freeze({
+    food: 'GIDA', energy: 'ENERJİ', raw_materials: 'HAMMADDE',
+    industrial_parts: 'SANAYİ PARÇASI', electronics: 'ELEKTRONİK',
+    military_supplies: 'ASKERÎ MALZEME', labor: 'İŞ GÜCÜ', capital: 'SERMAYE'
+});
+const STORY_DOSSIER_SECTOR_LABELS = Object.freeze({
+    agriculture: 'TARIM', energy: 'ENERJİ', extraction: 'HAMMADDE',
+    civil_industry: 'SİVİL SANAYİ', advanced_tech: 'İLERİ TEKNOLOJİ',
+    defense_industry: 'SAVUNMA SANAYİİ', finance: 'FİNANS', logistics: 'LOJİSTİK'
+});
+const STORY_DOSSIER_STATUS_LABELS = Object.freeze({
+    CURRENT: 'ÖDEMELER DÜZENLİ', DEFAULT: 'TEMERRÜT', ARREARS: 'GECİKMEDE',
+    REGISTERED: 'KAYITLI', LICENSED: 'LİSANSLI', OPERATING: 'FAAL',
+    HELD: 'BEKLEMEDE', APPLIED: 'UYGULANDI', REJECTED: 'REDDEDİLDİ',
+    IN_TRANSIT: 'YOLDA', DELIVERED: 'TESLİM EDİLDİ', LOST: 'KAYIP',
+    RETURNED: 'GERİ DÖNDÜ', FAILED: 'BAŞARISIZ', PLANNED: 'PLANLANDI', PARTIAL: 'KISMİ'
+});
+const STORY_DOSSIER_ACTION_LABELS = Object.freeze({
+    HOLD: 'YATIRIMI BEKLET', INVEST_OWN_FUNDS: 'ÖZ KAYNAKLA YATIRIM',
+    BORROW_AND_INVEST: 'KREDİYLE YATIRIM', PREPARE_INVESTMENT_INPUTS: 'YATIRIM GİRDİLERİNİ HAZIRLA',
+    TARGETED_CAPACITY_GRANT: 'HEDEFLİ KAPASİTE DESTEĞİ'
+});
+const STORY_DOSSIER_REASON_LABELS = Object.freeze({
+    NO_ELIGIBLE_INVESTMENT: 'Yatırım koşulları oluşmadı',
+    BENEFIT_BELOW_THRESHOLD: 'Beklenen fayda yatırım eşiğinin altında',
+    INSUFFICIENT_CASH: 'Nakit yetersiz', INSUFFICIENT_INPUTS: 'Girdi yetersiz',
+    CREDIT_UNAVAILABLE: 'Kredi kullanılamıyor', COOLDOWN_ACTIVE: 'Yeni karar için bekleme süresi var'
+});
+const STORY_DOSSIER_OBJECTIVE_LABELS = Object.freeze({
+    FORCE_READINESS: 'HAREKÂT HAZIRLIĞI', BUDGET_SECURITY: 'SAVUNMA BÜTÇESİ', TERRITORIAL_ORDER: 'SINIR GÜVENLİĞİ',
+    MARKET_STABILITY: 'PİYASA İSTİKRARI', LOGISTICS_OPEN: 'AÇIK LOJİSTİK HATLARI', CAPITAL_PRESERVATION: 'SERMAYEYİ KORUMA',
+    EMPLOYMENT_SECURITY: 'İSTİHDAM GÜVENCESİ', INCOME_SECURITY: 'GELİR GÜVENCESİ', PUBLIC_SERVICES: 'KAMU HİZMETLERİ',
+    ADMIN_CAPACITY: 'İDARİ KAPASİTE', BUDGET_CONTINUITY: 'BÜTÇE SÜREKLİLİĞİ', LEGAL_CONTINUITY: 'HUKUKİ SÜREKLİLİK',
+    INFORMATION_ACCESS: 'BİLGİYE ERİŞİM', PRESS_AUTONOMY: 'BASIN ÖZERKLİĞİ', AUDIENCE_TRUST: 'KAMU GÜVENİ',
+    INTERNAL_ORDER: 'İÇ DÜZEN', COUNTER_RADICALIZATION: 'RADİKALLEŞMEYLE MÜCADELE', EXECUTIVE_CONTINUITY: 'YÖNETİM SÜREKLİLİĞİ',
+    MASS_MOBILIZATION: 'KİTLE SEFERBERLİĞİ', GRIEVANCE_ESCALATION: 'ŞİKÂYETLERİ BÜYÜTME', REGIME_DISRUPTION: 'YÖNETİMİ SARSMA'
+});
+
+function storyCityDossierLabel(value, labels) {
+    const key = String(value == null ? '' : value);
+    return labels[key] || key.replace(/_/g, ' ').toLocaleUpperCase('tr-TR');
+}
+
+function storyCityDossierRegionName(regionId) {
+    const legacyId = storyCityDossierLegacyId(regionId);
+    const node = legacyId == null || typeof storyNode !== 'function' ? null : storyNode(legacyId);
+    return node && node.name ? node.name : String(regionId || '—');
+}
 
 function storyCityDossierEnabled() {
     return typeof storyFeatureEnabled !== 'function' || storyFeatureEnabled('ui.cityDossier');
@@ -296,6 +344,10 @@ function storyCityDossierNumber(value) {
         : '—';
 }
 
+function storyCityDossierMoney(value) {
+    return `${storyCityDossierNumber(value)}<i class="city-money-unit"> devlet kredisi</i>`;
+}
+
 function storyCityDossierTabs(view, active) {
     const tabs = [
         ['genel', 'GENEL'],
@@ -358,18 +410,21 @@ function storyCityDossierRenderPowerCenters(view) {
         const local = view.facts.powerCenters && view.facts.powerCenters.value;
         const localRow = local && Array.isArray(local.centers)
             ? local.centers.find(item => item.centerId === center.id) : null;
-        return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[center.type] || center.type)} · ETKİ %${storyCityDossierNumber(center.influenceBps / 100)}</b>`
+        const detail = `Örgüt %${storyCityDossierNumber(center.organizationBps / 100)}`
+            + ` · Ülke desteği ${Math.round(Number(center.supportBase && center.supportBase.supportPeople) || 0).toLocaleString('tr-TR')} kişi`
+            + `${localRow ? ` · Bu bölgede ${Math.round(Number(localRow.supportPeople) || 0).toLocaleString('tr-TR')} kişi` : ''}`
+            + ` · Mali güç %${storyCityDossierNumber(capabilities.financeBps / 100)}`
+            + ` · Seferberlik %${storyCityDossierNumber(capabilities.mobilizationBps / 100)}`
+            + ` · Zorlama %${storyCityDossierNumber(capabilities.coercionBps / 100)}`
+            + `${resources.facilityCount ? ` · ${storyCityDossierNumber(resources.facilityCount)} tesis` : ''}`;
+        return `<article class="city-character-row detail-hover" tabindex="0" data-story-tooltip="${storyCityDossierEscape(detail)}"><div><b>${storyCityDossierEscape(typeLabels[center.type] || center.type)} · ETKİ %${storyCityDossierNumber(center.influenceBps / 100)}</b>`
             + `<span>${storyCityDossierEscape(center.name)} · LİDER: ${storyCityDossierEscape(leader.name || '—')}</span>`
-            + `<small>örgüt %${storyCityDossierNumber(center.organizationBps / 100)} · ağırlıklı destek ${Math.round(Number(center.supportBase && center.supportBase.supportPeople) || 0).toLocaleString('tr-TR')} kişi`
-            + `${localRow ? ` · bu bölgede ${Math.round(Number(localRow.supportPeople) || 0).toLocaleString('tr-TR')}` : ''}`
-            + ` · mali ${storyCityDossierNumber(capabilities.financeBps / 100)} / seferberlik ${storyCityDossierNumber(capabilities.mobilizationBps / 100)} / zorlama ${storyCityDossierNumber(capabilities.coercionBps / 100)}`
-            + `${resources.facilityCount ? ` · ${storyCityDossierNumber(resources.facilityCount)} tesis` : ''}`
-            + `${topGoal ? ` · öncelik ${storyCityDossierEscape(topGoal.code)} %${storyCityDossierNumber(topGoal.priorityBps / 100)}` : ''}</small></div></article>`;
+            + `<small>${topGoal ? `ÖNCELİK: ${storyCityDossierEscape(storyCityDossierLabel(topGoal.code, STORY_DOSSIER_OBJECTIVE_LABELS))} %${storyCityDossierNumber(topGoal.priorityBps / 100)}` : 'Öncelik kaydı yok'}</small></div></article>`;
     }).join('');
     return `<section class="city-dossier-sec"><h3>ÜLKEDEKİ GÜÇ MERKEZLERİ</h3>`
         + (rows ? `<div class="city-character-list">${rows}</div>`
             : `<div class="city-dossier-empty"><b>ETKİN MERKEZ YOK</b><span>Kayıtlı kurumsal aktör bulunmuyor.</span></div>`)
-        + `<p class="city-hint">Destek ve kapasite dekoratif puan değildir: nüfus kohortları, şirket kasaları/tesisleri, komutanlar, garnizonlar ve kolektif hareketlerden türetilir. Merkezlerin doğrudan, onaya bağlı ve yasak eylemleri yukarıdaki anayasal şema tarafından belirlenir. Medya, güvenlik ve bazı lider ofisleri sonraki kanonik sistemlere kadar açıkça etiketli vekildir.</p></section>`;
+        + `<p class="city-hint">Her güç merkezinin etkisi; toplumsal desteğine, mali kaynaklarına, örgütlenmesine ve güvenlik kapasitesine dayanır. Yapabilecekleri anayasal yetki düzeniyle sınırlıdır.</p></section>`;
 }
 
 function storyCityDossierRenderInstitutions(view) {
@@ -404,7 +459,7 @@ function storyCityDossierRenderInstitutions(view) {
         const execute = grants.filter(grant => grant.canExecute).length;
         return `<article class="city-character-row"><div><b>${storyCityDossierEscape(typeLabels[institution.type] || institution.type)}${localMark}</b>`
             + `<span>${storyCityDossierEscape(institution.name || '')} · MAKAM: ${storyCityDossierEscape(officeName)}</span>`
-            + `<small>başvuru ${propose} · onay ${approve} · yürütme ${execute} eylem türü</small></div></article>`;
+            + `<small>${propose} teklif yetkisi · ${approve} onay yetkisi · ${execute} uygulama yetkisi</small></div></article>`;
     }).join('');
     let routeSummary = '';
     let requestSummary = '';
@@ -415,10 +470,10 @@ function storyCityDossierRenderInstitutions(view) {
             return out;
         }, {});
         routeSummary = `<div class="city-fact-grid">`
-            + `<div><span>TEK MAKAM</span><b>${routeCounts.DIRECT || 0}</b></div>`
-            + `<div><span>ORTAK KARAR</span><b>${routeCounts.JOINT || 0}</b></div>`
-            + `<div><span>YASAK ROTA</span><b>${routeCounts.PROHIBITED || 0}</b></div>`
-            + `<div><span>DIŞ SİSTEME BAĞLI</span><b>${routeCounts.EXTERNAL_DOMAIN || 0}</b></div></div>`;
+            + `<div><span>TEK İMZAYLA KARAR</span><b>${routeCounts.DIRECT || 0}</b></div>`
+            + `<div><span>ORTAK ONAY GEREKEN</span><b>${routeCounts.JOINT || 0}</b></div>`
+            + `<div><span>YETKİ DIŞI</span><b>${routeCounts.PROHIBITED || 0}</b></div>`
+            + `<div><span>BAŞKA KURUMA BAĞLI</span><b>${routeCounts.EXTERNAL_DOMAIN || 0}</b></div></div>`;
         const requests = Array.isArray(value.requests) ? value.requests : [];
         const active = requests.filter(request => ['PENDING_APPROVAL', 'AUTHORIZED', 'STALE_AUTHORITY'].includes(request.status));
         requestSummary = active.length
@@ -432,7 +487,7 @@ function storyCityDossierRenderInstitutions(view) {
         + routeSummary
         + `<div class="city-character-list">${rows}</div>`
         + requestSummary
-        + `<p class="city-hint">Başvuru hakkı, onay yetkisi ve fiziksel yürütme birbirinden ayrıdır. Makam veya anayasa değişirse tamamlanmamış eski kararlar geçersizleşir; sohbet ya da LLM yeni yetki uyduramaz.</p></section>`;
+        + `<p class="city-hint">Teklif, onay ve uygulama ayrı yetkilerdir. Makam veya anayasa değişirse tamamlanmamış kararlar yeniden yetkilendirme isteyebilir.</p></section>`;
 }
 
 function storyCityDossierRenderStateCapacity(view) {
@@ -475,12 +530,12 @@ function storyCityDossierRenderStateCapacity(view) {
             return `<article class="city-character-row detail-hover" tabindex="0" data-story-tooltip="${storyCityDossierEscape(detail)}"><div>`
                 + `<b>${storyCityDossierEscape(ticket.actionType)} · ${storyCityDossierEscape(labels[ticket.status] || ticket.status)}</b>`
                 + `<span>İLERLEME %${pct(ticket.progressBps)} · ${storyCityDossierEscape(ticket.complexity)}</span>`
-                + `<small>tahmini saptırma %${pct(ticket.latestCapacity && ticket.latestCapacity.leakageRiskBps)} · fiziksel sonuç bu katmanda yazılmaz</small>`
+                + `<small>kaynak kaybı riski %${pct(ticket.latestCapacity && ticket.latestCapacity.leakageRiskBps)}</small>`
                 + `</div></article>`;
         }).join('');
         tickets = `<h3>UYGULAMA FİŞLERİ</h3>` + (rows
             ? `<div class="city-character-list">${rows}</div>`
-            : `<div class="city-dossier-empty"><b>UYGULAMA BEKLEMİYOR</b><span>Faz 29’dan aktarılmış yürütülmüş karar yok.</span></div>`);
+            : `<div class="city-dossier-empty"><b>UYGULAMA BEKLEMİYOR</b><span>Şu anda kurumların uygulamasını bekleyen onaylı karar yok.</span></div>`);
     }
     return `<section class="city-dossier-sec"><h3>MEŞRUİYET VE UYGULAMA KAPASİTESİ</h3>`
         + `<div class="city-fact-grid">${grid}</div>${tickets}`
@@ -522,7 +577,7 @@ function storyCityDossierRenderElections(view) {
     return `<section class="city-dossier-sec"><h3>SEÇİM VE BARIŞÇIL İKTİDAR DEVRİ</h3>${mandateGrid}`
         + (rows ? `<div class="city-character-list">${rows}</div>`
             : `<div class="city-dossier-empty"><b>HENÜZ SEÇİM YOK</b><span>İlk kampanya takvimde bekliyor.</span></div>`)
-        + `<p class="city-hint">Oylar çocuklar hariç gerçek nüfus kohortlarından tam kişi hesabıyla çıkar. Adaylar Faz 34'e kadar insan değil, açık siyasi liste vekilleridir. Güç merkezleri oy yaratmaz; yalnız sınırlı kamusal destek sinyali verir. Sonuç ekonomi bonusu değil, yeni ve izlenebilir bir makam mandası üretir.</p></section>`;
+        + `<p class="city-hint">Oy dağılımı seçmen nüfusu ve toplumsal desteğe göre hesaplanır. Seçim sonucu yönetim makamının meşruiyetini ve karar yetkisini değiştirir.</p></section>`;
 }
 
 function storyCityDossierRenderIntegrity(view) {
@@ -627,13 +682,15 @@ function storyCityDossierRenderLogistics(view) {
         ? [...(trade.incoming || []), ...(trade.outgoing || [])]
             .filter((item, index, rows) => rows.findIndex(row => row.id === item.id) === index)
         : [];
+    const shipmentStatus = value => storyCityDossierLabel(value, STORY_DOSSIER_STATUS_LABELS);
     return `<section class="city-dossier-sec"><h3>AKTİF SİPARİŞ VE SEVKİYATLAR</h3>`
         + (shipments.length
             ? `<div class="city-route-list">${shipments.map(shipment => (
                 `<article class="city-route-row ${String(shipment.status || 'held').toLowerCase()}">`
-                + `<div><span>${storyCityDossierEscape(shipment.resourceId)}</span><b>${storyCityDossierNumber(shipment.quantity)}</b></div>`
-                + `<div class="city-route-metrics"><span>${storyCityDossierEscape(shipment.status)}</span>`
-                + `<span>${storyCityDossierEscape(shipment.currentRegionId)}</span>`
+                + `<div><span>${storyCityDossierEscape(storyCityDossierLabel(shipment.resourceId, STORY_DOSSIER_RESOURCE_LABELS))}</span><b>${storyCityDossierNumber(shipment.quantity)}</b></div>`
+                + `<div class="city-route-metrics"><span>${storyCityDossierEscape(shipmentStatus(shipment.status))}</span>`
+                + `<span>${storyCityDossierEscape(storyCityDossierRegionName(shipment.sourceRegionId))} → ${storyCityDossierEscape(storyCityDossierRegionName(shipment.targetRegionId))}</span>`
+                + `<span>ŞİMDİ: ${storyCityDossierEscape(storyCityDossierRegionName(shipment.currentRegionId))}</span>`
                 + (shipment.marketQuote && shipment.marketQuote.status === 'INDICATIVE_INDEX_QUOTE'
                     ? `<span>FİYAT ${storyCityDossierNumber(shipment.marketQuote.unitIndex)} / ÖDEME BEKLİYOR</span>`
                     : '')
@@ -646,7 +703,7 @@ function storyCityDossierRenderLogistics(view) {
             const damage = Math.round(corridor.damageBps / 100);
             return `<article class="city-route-row ${corridor.status.toLowerCase()}">`
                 + `<div><span>${meta.icon} ${storyCityDossierEscape(meta.label)}</span><b>${storyCityDossierEscape(corridor.destinationName)}</b></div>`
-                + `<div class="city-route-metrics"><span>KAP. ${storyCityDossierNumber(corridor.effectiveCapacity)}</span><span>HASAR %${damage}</span><span>${storyCityDossierEscape(corridor.status)}</span></div>`
+                + `<div class="city-route-metrics"><span>KAPASİTE ${storyCityDossierNumber(corridor.effectiveCapacity)}</span><span>HASAR %${damage}</span><span>${storyCityDossierEscape(storyCityDossierLabel(corridor.status, STORY_DOSSIER_STATUS_LABELS))}</span></div>`
                 + `<button class="city-btn city-route" data-region="${storyCityDossierEscape(corridor.destinationRegionId)}">ROTAYA GİT</button>`
                 + `</article>`;
         }).join('') + `</div><p class="city-hint">Ticaret bu kapasiteyi tüketir; dış ticaret bedeli sevkte bütçeden bloke edilir, fiziksel teslimatta satıcıya aktarılır.</p></section>`;
@@ -660,16 +717,19 @@ function storyCityDossierRenderBudget(view) {
     }
     const budget = fact.value;
     const totals = budget.totals || {};
+    const balance = (Number(totals.revenue) || 0) - (Number(totals.expense) || 0);
+    const status = storyCityDossierLabel(budget.status, STORY_DOSSIER_STATUS_LABELS);
     return `<section class="city-dossier-sec"><h3>DEVLET BÜTÇESİ</h3><div class="city-fact-grid">`
-        + `<div><span>NAKİT</span><b>${storyCityDossierNumber(budget.cash)}⭐</b></div>`
-        + `<div><span>TİCARET BLOKESİ</span><b>${storyCityDossierNumber(budget.tradeEscrow)}⭐</b></div>`
-        + `<div><span>BORÇ</span><b>${storyCityDossierNumber(budget.debt)}⭐</b><small>tavan ${storyCityDossierNumber(budget.debtCeiling)}</small></div>`
+        + `<div><span>NAKİT</span><b>${storyCityDossierMoney(budget.cash)}</b></div>`
+        + `<div><span>TİCARET BLOKESİ</span><b>${storyCityDossierMoney(budget.tradeEscrow)}</b></div>`
+        + `<div><span>BORÇ</span><b>${storyCityDossierMoney(budget.debt)}</b><small>tavan ${storyCityDossierNumber(budget.debtCeiling)} devlet kredisi</small></div>`
         + `<div><span>YILLIK FAİZ</span><b>%${storyCityDossierNumber((Number(budget.annualInterestBps) || 0) / 100)}</b></div>`
-        + `<div><span>TOPLAM GELİR</span><b>${storyCityDossierNumber(totals.revenue)}⭐</b></div>`
-        + `<div><span>TOPLAM GİDER</span><b>${storyCityDossierNumber(totals.expense)}⭐</b></div>`
-        + `<div><span>BASILAN PARA</span><b>${storyCityDossierNumber(budget.moneyIssued)}⭐</b></div>`
-        + `<div><span>DURUM</span><b>${storyCityDossierEscape(budget.status)}</b><small>gecikme ${storyCityDossierNumber(budget.missedPaymentDays)} gün</small></div>`
-        + `</div><p class="city-hint">Komutan kasaları devlet nakdinin alt hesaplarıdır. Her gelir ve gider karşı hesapla kaydedilir; yetersiz bakiye varsa işlem reddedilir.</p></section>`;
+        + `<div><span>TOPLAM GELİR</span><b>${storyCityDossierMoney(totals.revenue)}</b></div>`
+        + `<div><span>TOPLAM GİDER</span><b>${storyCityDossierMoney(totals.expense)}</b></div>`
+        + `<div><span>BASILAN PARA</span><b>${storyCityDossierMoney(budget.moneyIssued)}</b></div>`
+        + `<div><span>BÜTÇE DENGESİ</span><b>${balance >= 0 ? '+' : ''}${storyCityDossierMoney(balance)}</b></div>`
+        + `<div><span>DURUM</span><b>${storyCityDossierEscape(status)}</b><small>${budget.missedPaymentDays ? `${storyCityDossierNumber(budget.missedPaymentDays)} gün gecikme` : 'gecikmiş ödeme yok'}</small></div>`
+        + `</div><p class="city-hint">Bütçe değerleri devlet kredisiyle gösterilir; bu kaynak üst çubuktaki komutan puanından ayrıdır. Yeterli nakit veya borçlanma alanı olmayan harcamalar uygulanmaz.</p></section>`;
 }
 
 function storyCityDossierRenderCompanies(view) {
@@ -686,31 +746,45 @@ function storyCityDossierRenderCompanies(view) {
     const projects = Array.isArray(local.projects) ? local.projects : [];
     const policyFact = view.facts.economicPolicy;
     const policy = policyFact && policyFact.value;
-    const decisions = policy && Array.isArray(policy.decisions) ? policy.decisions.slice(0, 8) : [];
+    const decisions = [];
+    if (policy && Array.isArray(policy.decisions)) {
+        const seenActors = new Set();
+        for (const decision of policy.decisions) {
+            const actorKey = `${decision && decision.actorType || ''}:${decision && decision.actorId || ''}`;
+            if (seenActors.has(actorKey)) continue;
+            seenActors.add(actorKey);
+            decisions.push(decision);
+            if (decisions.length >= 8) break;
+        }
+    }
     const rows = facilities.map(facility => {
         const company = facility.company || {};
         const debt = Math.max(0, -(Number(company.accounts && company.accounts['LIABILITY:DEBT']) || 0));
         const cash = Math.max(0, Number(company.accounts && company.accounts['ASSET:CASH']) || 0);
         const stateShare = (company.owners || []).find(owner => owner.ownerType === 'STATE');
         return `<article class="city-route-row ${String(company.status || 'operating').toLowerCase()}">`
-            + `<div><span>${storyCityDossierEscape(company.sectorId)}</span><b>${storyCityDossierEscape(company.name)}</b></div>`
-            + `<div class="city-route-metrics"><span>${storyCityDossierEscape(company.legalStatus)} / ${storyCityDossierEscape(company.licenseStatus)}</span>`
-            + `<span>NAKİT ${storyCityDossierNumber(cash)}⭐</span><span>BORÇ ${storyCityDossierNumber(debt)}⭐</span>`
+            + `<div><span>${storyCityDossierEscape(storyCityDossierLabel(company.sectorId, STORY_DOSSIER_SECTOR_LABELS))}</span><b>${storyCityDossierEscape(company.name)}</b></div>`
+            + `<div class="city-route-metrics"><span>${storyCityDossierEscape(storyCityDossierLabel(company.legalStatus, STORY_DOSSIER_STATUS_LABELS))} / ${storyCityDossierEscape(storyCityDossierLabel(company.licenseStatus, STORY_DOSSIER_STATUS_LABELS))}</span>`
+            + `<span>NAKİT ${storyCityDossierNumber(cash)} DEVLET KREDİSİ</span><span>BORÇ ${storyCityDossierNumber(debt)} DEVLET KREDİSİ</span>`
             + `<span>KAP. ${storyCityDossierNumber(facility.capacity)}</span>`
             + `<span>DEVLET PAYI %${storyCityDossierNumber((Number(stateShare && stateShare.shareBps) || 0) / 100)}</span></div></article>`;
     }).join('');
     const projectRows = projects.map(project => (
-        `<div><span>${storyCityDossierEscape(project.sectorId)}</span><b>${storyCityDossierEscape(project.status)}</b>`
+        `<div><span>${storyCityDossierEscape(storyCityDossierLabel(project.sectorId, STORY_DOSSIER_SECTOR_LABELS))}</span><b>${storyCityDossierEscape(storyCityDossierLabel(project.status, STORY_DOSSIER_STATUS_LABELS))}</b>`
         + `<small>${storyCityDossierNumber(project.remainingDays)} gün · +${storyCityDossierNumber(project.capacityIncrease)} kapasite</small></div>`
     )).join('');
     const decisionRows = decisions.map(decision => {
         const selected = decision.selectedAction || 'HOLD';
         const execution = decision.execution || {};
         const outcome = decision.outcome || {};
-        return `<div><span>${storyCityDossierEscape(decision.actorType)} · ${storyCityDossierEscape(selected)}</span>`
-            + `<b>${storyCityDossierEscape(execution.status || 'HELD')}</b>`
-            + `<small>puan ${storyCityDossierNumber(decision.selectedScore)} · ${storyCityDossierEscape(execution.code || '')}`
-            + `${outcome.status ? ` · sonuç ${storyCityDossierEscape(outcome.status)}` : ''}</small></div>`;
+        const actor = decision.actorType === 'COMPANY'
+            ? storyCityDossierLabel(String(decision.actorId || '').split(':').pop(), STORY_DOSSIER_SECTOR_LABELS)
+            : (decision.actorType === 'STATE' ? 'DEVLET' : storyCityDossierLabel(decision.actorType, {}));
+        const reason = storyCityDossierLabel(execution.code || '', STORY_DOSSIER_REASON_LABELS);
+        return `<div><span>${storyCityDossierEscape(actor)}</span>`
+            + `<b>${storyCityDossierEscape(storyCityDossierLabel(selected, STORY_DOSSIER_ACTION_LABELS))}</b>`
+            + `<small>${storyCityDossierEscape(storyCityDossierLabel(execution.status || 'HELD', STORY_DOSSIER_STATUS_LABELS))}${reason ? ` · ${storyCityDossierEscape(reason)}` : ''}`
+            + `${outcome.status && outcome.status !== 'NOT_APPLICABLE' ? ` · ${storyCityDossierEscape(storyCityDossierLabel(outcome.status, STORY_DOSSIER_STATUS_LABELS))}` : ''}</small></div>`;
     }).join('');
     return `<section class="city-dossier-sec"><h3>TESİS SAHİPLİĞİ VE ŞİRKETLER</h3>`
         + (rows ? `<div class="city-route-list">${rows}</div>` : `<div class="city-dossier-empty"><b>KAYITLI TESİS YOK</b><span>Bu bölgede çalışan sektör kapasitesi bulunmuyor.</span></div>`)
@@ -721,9 +795,9 @@ function storyCityDossierRenderCompanies(view) {
             : `<div class="city-hint">Henüz uygulanmış veya bekletilmiş kayıtlı ekonomik karar yok.</div>`)
         + `</section><section class="city-dossier-sec"><h3>YEREL BANKA</h3>`
         + (bank ? `<div class="city-fact-grid"><div><span>BANKA</span><b>${storyCityDossierEscape(bank.name)}</b></div>`
-            + `<div><span>REZERV</span><b>${storyCityDossierNumber(bank.reserves)}⭐</b></div>`
-            + `<div><span>KREDİLER</span><b>${storyCityDossierNumber(bank.loansReceivable)}⭐</b></div>`
-            + `<div><span>DURUM</span><b>${storyCityDossierEscape(bank.status)}</b></div></div>`
+            + `<div><span>REZERV</span><b>${storyCityDossierMoney(bank.reserves)}</b></div>`
+            + `<div><span>KREDİLER</span><b>${storyCityDossierMoney(bank.loansReceivable)}</b></div>`
+            + `<div><span>DURUM</span><b>${storyCityDossierEscape(storyCityDossierLabel(bank.status, STORY_DOSSIER_STATUS_LABELS))}</b></div></div>`
             : `<div class="city-hint">Doğrulanmış banka kaydı yok.</div>`)
         + `<p class="city-hint">Şirket kasası devlet bütçesi değildir. Üretim gideri şirket nakdinden, kredi banka rezervinden, kapasite artışı fiziksel parça ve tamamlanma süresinden geçer.</p></section>`;
 }
@@ -735,24 +809,15 @@ function storyCityDossierRenderMarket(view) {
             + `<span>Bu bölgenin stok, talep ve lojistik riskinden türetilmiş fiyat defteri oyuncuya açık değil.</span></section>`;
     }
     const market = fact.value;
-    const labels = {
-        food: 'GIDA',
-        energy: 'ENERJİ',
-        raw_materials: 'HAMMADDE',
-        industrial_parts: 'SANAYİ PARÇASI',
-        electronics: 'ELEKTRONİK',
-        military_supplies: 'ASKERÎ MALZEME',
-        labor: 'İŞ GÜCÜ',
-        capital: 'SERMAYE'
-    };
+    const labels = STORY_DOSSIER_RESOURCE_LABELS;
     const rows = Object.keys(labels).map(resourceId => {
         const resource = market.resources && market.resources[resourceId];
         if (!resource) return '';
         if (resource.status === 'DEFERRED') {
-            return `<div><span>${labels[resourceId]}</span><b>ERTELENDİ</b><small>iş gücü piyasası henüz modellenmedi</small></div>`;
+            return `<div><span>${labels[resourceId]}</span><b>VERİ YOK</b><small>ayrı bir bölgesel fiyat oluşmuyor</small></div>`;
         }
         if (resource.status === 'NUMERAIRE') {
-            return `<div><span>${labels[resourceId]}</span><b>1,00</b><small>finansal sermaye piyasası henüz ayrı modellenmedi</small></div>`;
+            return `<div><span>${labels[resourceId]}</span><b>1,00</b><small>hesaplama için sabit referans</small></div>`;
         }
         const change = Number(resource.lastChangeBps) || 0;
         const direction = change > 0 ? '+' : '';
@@ -773,7 +838,7 @@ function storyCityDossierRenderMarket(view) {
 function storyCityDossierRenderHistory(view) {
     if (!view.history.length) {
         return `<section class="city-dossier-empty"><b>DOĞRULANMIŞ YAKIN OLAY YOK</b>`
-            + `<span>Bu, şehirde hiçbir şey olmadığı anlamına gelmez; oyuncuya açılabilir nedensel kayıt henüz oluşmadı.</span></section>`;
+            + `<span>Şehir kayıtlarında yakın döneme ait doğrulanmış önemli bir değişiklik bulunmuyor.</span></section>`;
     }
     return `<section class="city-dossier-sec"><h3>SON DOĞRULANMIŞ DEĞİŞİKLİKLER</h3><div class="city-history-list">`
         + view.history.map(item => {
@@ -797,12 +862,13 @@ function storyCityDossierRenderCharacters(view) {
         return `<section class="city-dossier-empty"><b>DOĞRULANMIŞ KARAKTER YOK</b>`
             + `<span>Bu şehirde kendi komuta kayıtlarında görünen bir karakter bulunmuyor.</span></section>`;
     }
+    const roleLabels = { COMMANDER: 'KOMUTAN', PRESIDENT: 'CUMHURBAŞKANI', MINISTER: 'BAKAN', MAYOR: 'BELEDİYE BAŞKANI', EXECUTIVE: 'YÖNETİCİ' };
     return `<section class="city-dossier-sec"><h3>ŞEHİRDEKİ KARAKTERLER</h3><div class="city-character-list">`
         + view.characters.map(character => `<article class="city-character-row"><div>`
             + `<b>${storyCityDossierEscape(character.name.value)}</b>`
-            + `<span>${storyCityDossierEscape(character.role.value)}</span></div>`
+            + `<span>${storyCityDossierEscape(roleLabels[character.role.value] || character.role.value)}</span></div>`
             + `<button class="city-btn city-character" data-character="${storyCityDossierEscape(character.id)}">SOHBET GİRİŞİ</button></article>`).join('')
-        + `</div><p class="city-hint">Karaktere özel serbest sohbet sözleşmesi henüz yoktur; düğme mevcut sohbet merkezini bu karakter bağlamıyla açar.</p></section>`;
+        + `</div><p class="city-hint">Bir karakter seçerek görüşmeye onun görevi ve bulunduğu şehir bağlamında başlayabilirsin.</p></section>`;
 }
 
 function storyCityDossierRenderCollective(view) {
@@ -824,7 +890,7 @@ function storyCityDossierRenderCollective(view) {
                 + (view.isOwn ? `<small>Yerel şiddet %${storyCityDossierNumber(row.localSeverityBps / 100)} · seferberlik %${storyCityDossierNumber(row.mobilizationBps / 100)} · radikalleşme %${storyCityDossierNumber(row.radicalizationBps / 100)}</small>` : '<small>Kamuya açık eylem; örgütlenme gücü ve radikalleşme bilinmiyor.</small>')
                 + `</div></article>`).join('')}</div>`
             : `<div class="city-dossier-empty"><b>AKTİF KAMUSAL EYLEM YOK</b><span>${view.isOwn ? 'Şikâyetler henüz kalıcı seferberlik eşiğini aşmadı.' : 'Bu bölgede kamuya yansımış protesto, grev veya ayaklanma gözlenmedi.'}</span></div>`)
-        + `<p class="city-hint">Protesto anlık şikâyetten doğmaz; süre, tekrar, etkilenen nüfus ve örgütlenme birlikte eşik aşar. Yabancı gizli radikal ağlar kesin sayı olarak gösterilmez.</p></section>`;
+        + `<p class="city-hint">Protesto riski; şikâyetin süresi, tekrarı, etkilediği nüfus ve örgütlenme gücü birlikte yükseldiğinde artar. Yabancı ülkelerde yalnız doğrulanmış kamusal hareketler görünür.</p></section>`;
 }
 
 function storyCityDossierRenderMigration(view) {
@@ -847,7 +913,7 @@ function storyCityDossierRenderMigration(view) {
         + `<div><span>MÜLTECİ ÇIKIŞI</span><b>${Math.round(Number(value.refugeeOutPeople) || 0).toLocaleString('tr-TR')}</b></div>`
         + (view.isOwn ? `<div><span>YOLDA GELEN</span><b>${Math.round(Number(value.activeInboundPeople) || 0).toLocaleString('tr-TR')}</b></div>`
             + `<div><span>YOLDA GİDEN</span><b>${Math.round(Number(value.activeOutboundPeople) || 0).toLocaleString('tr-TR')}</b></div>`
-            + `<div><span>KABUL KAPASİTESİ</span><b>${Math.round(Number(value.receptionCapacityPeople) || 0).toLocaleString('tr-TR')}</b><small>konut varlığı öncesi vekil</small></div>` : '')
+            + `<div><span>KABUL KAPASİTESİ</span><b>${Math.round(Number(value.receptionCapacityPeople) || 0).toLocaleString('tr-TR')}</b><small>mevcut hizmet ve altyapı kapasitesi</small></div>` : '')
         + `</div>`
         + (flows.length ? `<div class="city-character-list">${flows.slice(-6).reverse().map(flow => `<article class="city-character-row"><div>`
             + `<b>${storyCityDossierEscape(kindLabels[flow.kind] || flow.kind)} · ${Math.round(Number(flow.people) || 0).toLocaleString('tr-TR')} kişi</b>`
@@ -857,7 +923,7 @@ function storyCityDossierRenderMigration(view) {
                 : '<small>Kamuya açık tamamlanmış akış; kohort ve rota ayrıntısı gizli.</small>')
             + `</div></article>`).join('')}</div>`
             : `<div class="city-dossier-empty"><b>KAYITLI GÖÇ AKIŞI YOK</b><span>Bu bölge için tamamlanmış veya yolda bir nüfus hareketi bulunmuyor.</span></div>`)
-        + `<p class="city-hint">Göç yalnız hedef daha iyi göründüğü için ışınlanmaz: güvenlik/yaşam baskısı, ulaşılabilir kara-deniz rotası, koridor darboğazı ve bölgesel kabul kapasitesi birlikte gerekir. Konut varlıkları henüz kurulmadığı için kapasite açıkça geçici altyapı vekilidir.</p></section>`;
+        + `<p class="city-hint">Göç; güvenlik ve yaşam baskısına, ulaşılabilir kara-deniz rotalarına, koridor kapasitesine ve hedef bölgenin kabul gücüne bağlıdır.</p></section>`;
 }
 
 function storyCityDossierRenderPopulation(view) {
@@ -897,7 +963,7 @@ function storyCityDossierRenderPopulation(view) {
     const conditions = needs ? `<section class="city-dossier-sec"><h3>YAŞAM KOŞULLARI</h3><div class="city-fact-grid">`
         + `<div><span>GIDA ERİŞİMİ</span><b>%${storyCityDossierNumber(needs.foodAccessBps / 100)}</b></div>`
         + `<div><span>ENERJİ ERİŞİMİ</span><b>%${storyCityDossierNumber(needs.energyAccessBps / 100)}</b></div>`
-        + `<div><span>GELİR GÜVENLİĞİ</span><b>%${storyCityDossierNumber(needs.incomeSecurityBps / 100)}</b><small>ücret değil, istihdam vekili</small></div>`
+        + `<div><span>GELİR GÜVENLİĞİ</span><b>%${storyCityDossierNumber(needs.incomeSecurityBps / 100)}</b><small>düzenli işe erişim</small></div>`
         + `<div><span>İŞSİZLİK RİSKİ</span><b>%${storyCityDossierNumber(needs.unemploymentRiskBps / 100)}</b></div>`
         + `<div><span>FİZİKSEL GÜVENLİK</span><b>%${storyCityDossierNumber(needs.securityBps / 100)}</b></div>`
         + `<div><span>KAMU HİZMETİ</span><b>%${storyCityDossierNumber(needs.publicServicesBps / 100)}</b></div>`
@@ -921,16 +987,16 @@ function storyCityDossierRenderPopulation(view) {
                 + `<small>${Math.round(issue.affectedPeople).toLocaleString('tr-TR')} kişi · ${issue.activeCohortCount} aktif / ${issue.recoveringCohortCount} iyileşen kohort</small>`
                 + `</div></article>`).join('')}</div>`
             : `<div class="city-dossier-empty"><b>BİRİKMİŞ ŞİKÂYET YOK</b><span>Anlık baskı hafıza eşiğini aşmadı veya tamamen unutuldu.</span></div>`)
-        + `<p class="city-hint">Sorumluluk bir mahkeme gerçeği değil, mevcut doğrudan sağlayıcı veya kamu yetkisine dayanan toplumsal atıftır. Medya ve söylenti katmanları ileride bu algıyı değiştirebilir; temel fiziksel olay kaydı değişmez.</p></section>` : '';
+        + `<p class="city-hint">Sorumlu görülen taraf, halkın mevcut bilgi ve deneyimine dayanan algısını gösterir; kesinleşmiş bir mahkeme hükmü değildir.</p></section>` : '';
     return `<section class="city-dossier-sec"><h3>NÜFUS SAYIMI</h3><div class="city-fact-grid">`
         + `<div><span>TOPLAM</span><b>${Math.round(total).toLocaleString('tr-TR')}</b><small>tam kişi uzlaştırması</small></div>`
-        + `<div><span>ÇALIŞMA ÇAĞI</span><b>${labor ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
-        + `<div><span>KULLANILABİLİR ÇALIŞAN</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>ücret modeli henüz yok</small></div>`
-        + `</div><p class="city-hint">Bu değerler dekoratif değildir: bölgesel üretimin iş gücü tavanını doğrudan belirler. Ücret endeksi Faz 28'e kadar kesin değer olarak gösterilmez.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${storyCityDossierRenderMigration(view)}${sections}`;
+        + `<div><span>ÇALIŞMA ÇAĞINDAKİ NÜFUS</span><b>${labor ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
+        + `<div><span>ÜRETİME KATILABİLİR NÜFUS</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>iş gücü havuzuna girebilen kişiler</small></div>`
+        + `</div><p class="city-hint">Çalışabilir ve kullanılabilir nüfus, bölgesel üretimin iş gücü kapasitesini doğrudan belirler.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${storyCityDossierRenderMigration(view)}${sections}`;
 }
 
 function storyCityDossierRender(view, active, node) {
-    if (view.disabled) return '<div class="city-hint">Şehir dosyası özellik bayrağıyla kapalı.</div>';
+    if (view.disabled) return '<div class="city-hint">Şehir dosyası bu seferde kullanılamıyor.</div>';
     let content = '';
     if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
     else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
