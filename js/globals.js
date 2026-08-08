@@ -703,6 +703,25 @@ function battleTeslimImhaGerekce(isRed, tgt) {
 // NEDEN YIGILMA DEGIL: gecmiste "aktif toplanma" denendi, oran SABIT kaldi (ana kutleye yiginca
 // dusmanin ana kutlesiyle karsilasiyorsun). Bu yuzden mudahale HEDEF SECIMIDIR.
 // Taraf-basi (tuzak B3). Varsayilan KAPALI: kendi kapisini gecene kadar acilmaz.
+// ── ANGAJMAN KABUL/RET (kullanici doktrini) ──
+// KULLANICI: "AI savunmasi taarruzu SADECE ustun oldugunu goruyorsa yapmali."
+// OLCULDU (kullanicinin 3 savunma maci, guncel motor, rakip beonai): AI hazir savunmaya taarruz
+// etti; oldurmelerinin %78'i KUTLE ICINDE oldu ve maclar 27-0 / 26-11 / 26-7 bitti. Hucum karari
+// yerel orana BAKMIYORDU (sure dolunca ya da %8 hasar gorunce kalkiyordu).
+// Kural: FIRE_WINDOW -> ASSAULT gecisi yerel ustunluk sartina baglanir. Ustunluk yoksa ates
+// penceresinde KALINIR — kullanicinin "iki taraf da yumaksa dolayli atislar is yapar" noktasi.
+// Taraf-basi (tuzak B3). Varsayilan KAPALI: kendi kapisini gecene kadar acilmaz.
+let BATTLE_ANGAJMAN = false;
+let BATTLE_ANGAJMAN_RED = null, BATTLE_ANGAJMAN_BLUE = null;
+function battleAngajman(isRed) {
+    const v = isRed ? BATTLE_ANGAJMAN_RED : BATTLE_ANGAJMAN_BLUE;
+    return v == null ? ((typeof BATTLE_ANGAJMAN === 'undefined') || BATTLE_ANGAJMAN) : !!v;
+}
+const ANGAJMAN_R = 900;        // hedef cevresinde kuvvet sayma yaricapi
+const ANGAJMAN_ESIK = 1.30;    // hucum icin gereken YEREL oran (dost/dusman)
+// BAGLANMA SAYACI (tuzak B2): kural bakti mi, kac kez reddetti?
+let BATTLE_ANGAJMAN_SAYAC = { bakilan: 0, reddedilen: 0 };
+
 let BATTLE_AKIN = false;
 // BAGLANMA SAYACI: kural gercekten calisti mi? Sifirsa akin HIC tetiklenmemis demektir (tuzak B2 —
 // bu kural ilk yazildiginda `observation.ownUnits`ta `speed` alani olmadigi icin tam bunu yasadi).

@@ -449,6 +449,36 @@ class TaskExecutionManager {
         return total > 0 ? ready / total : 1;
     }
 
+    // ── ANGAJMAN KABUL/RET (kullanici doktrini) ──
+    // KULLANICI: "AI taarruzu SADECE ustun oldugunu goruyorsa yapmali."
+    // OLCULDU (kullanicinin 3 savunma maci): AI hazir savunmaya taarruz etti, oldurmelerinin %78'i
+    // KUTLE ICINDE oldu, maclar 27-0 / 26-11 / 26-7 bitti. Hucum karari yerel orana BAKMIYORDU.
+    // Ustunluk yoksa ATES PENCERESINDE kalinir — kullanicinin "iki taraf da yumaksa dolayli atislar
+    // is yapar" noktasinin karsiligi.
+    // HEDEF NOKTASI: `operation` nesnesinde `objective` YOKTUR (ilk surumde uydurulmustu ve kural
+    // sessizce hic calismadi — bagli sayac yakaladi). Dogru kaynak PLANIN MAIN sozlesmesidir.
+    // ADIL: yalniz algilanan temaslar sayilir (SIM.units taranmaz). Determinist.
+    angajmanUygun(operationalPlan, observation) {
+        if (typeof battleAngajman !== 'function' ||
+            !battleAngajman(this.controller && this.controller.side)) return true;
+        const sozlesmeler = (operationalPlan && operationalPlan.taskContracts) || [];
+        const ana = sozlesmeler.find(c => c && c.groupRole === TASK_GROUP_ROLE.MAIN) || sozlesmeler[0];
+        const hedef = ana && (ana.objective || ana.destination);
+        if (!hedef || hedef.x == null) return true;
+        let dost = 0, dusman = 0;
+        for (const u of (observation.ownUnits || []))
+            if (Math.hypot(u.x - hedef.x, u.y - hedef.y) <= ANGAJMAN_R) dost++;
+        for (const c of (observation.contacts || []))
+            if (c && c.visible && Math.hypot(c.x - hedef.x, c.y - hedef.y) <= ANGAJMAN_R) dusman++;
+        if (dusman <= 0) return true;                       // savunan gorunmuyor -> serbest
+        const oran = dost / dusman;
+        if (typeof BATTLE_ANGAJMAN_SAYAC !== 'undefined') {
+            BATTLE_ANGAJMAN_SAYAC.bakilan++;
+            if (oran < ANGAJMAN_ESIK) BATTLE_ANGAJMAN_SAYAC.reddedilen++;
+        }
+        return oran >= ANGAJMAN_ESIK;
+    }
+
     updateOperation(operationalPlan, observation, tick) {
         if (!this.coordinatedPlan(operationalPlan)) {
             this.operation = null;
@@ -466,7 +496,11 @@ class TaskExecutionManager {
             if (ready || timedOut) {
                 const recentlyPrepared =
                     tick - this.lastFireWindowTick <= OPERATION_FIRE_MAX_TICKS * 2;
-                if (!operation.preparationOnly && recentlyPrepared) {
+                // ASSEMBLE -> ASSAULT KISAYOLU da kapiya baglanir: olculdu ki faz cogunlukla
+                // ASSEMBLE'da kaliyor (188 ASSEMBLE / 2 FIRE_WINDOW), yani yalniz FIRE_WINDOW
+                // gecisini kapatmak kurali is goremez hale getirirdi.
+                if (!operation.preparationOnly && recentlyPrepared &&
+                    this.angajmanUygun(operationalPlan, observation)) {
                     this.transitionOperation(
                         OPERATION_EXECUTION_PHASE.ASSAULT,
                         tick,
@@ -490,8 +524,18 @@ class TaskExecutionManager {
                     0,
                     1 - (observation.estimatedEnemyValue || baseline) / baseline
                 );
-                if ((phaseAge >= OPERATION_FIRE_MIN_TICKS && enemyDamageRatio >= 0.08) ||
-                    phaseAge >= OPERATION_FIRE_MAX_TICKS) {
+                // ── ANGAJMAN KABUL/RET (kullanıcı doktrini) ──
+                // KULLANICI: "AI savunması taarruzu SADECE üstün olduğunu görüyorsa yapmalı."
+                // ÖLÇÜLDÜ (kullanıcının 3 savunma maçı, güncel motor): AI hazır savunmaya taarruz etti,
+                // öldürmelerinin %78'i KÜTLE İÇİNDE oldu ve maçlar 27-0 / 26-11 / 26-7 bitti.
+                // Yani hücum kararı yerel orana BAKMIYORDU — süre dolunca ya da %8 hasar görünce
+                // kalkıyordu. Bu kural onu kapıya bağlar: üstünlük yoksa ATEŞ PENCERESİNDE KAL.
+                // Bu, kullanıcının ikinci noktasının da karşılığı: "iki taraf da yumaksa dolaylı
+                // atışlar iş yapar" — hücum etmeyip dövmeye devam etmek tam olarak budur.
+                // ADİL: yalnız algılanan temaslar (observation.contacts) sayılır.
+                const _angajmanOK = () => this.angajmanUygun(operationalPlan, observation);
+                if (((phaseAge >= OPERATION_FIRE_MIN_TICKS && enemyDamageRatio >= 0.08) ||
+                    phaseAge >= OPERATION_FIRE_MAX_TICKS) && _angajmanOK()) {
                     this.transitionOperation(
                         OPERATION_EXECUTION_PHASE.ASSAULT,
                         tick,
