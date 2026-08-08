@@ -82,6 +82,12 @@ for (const dos of dosyalar) {
     boyut('ikmal_olayi', 'birim basina RESUPPLY olayi');
     boyut('tamir_iyilestirme', 'birim basina REPAIR+HEAL olayi');
     boyut('komut_yogunlugu', 'birim basina verilen komut sayisi');
+    // ZENGINLESTIRME (2026-08-09) — yalniz YENI kayitlarda var; eski kayitlarda atlanir
+    boyut('net_maruziyet', 'beni vurabilen - vurabildigim (POZITIF = dezavantajli mesafe)', 'kucuk-iyi');
+    boyut('dusman_menzilinde', 'kac dusman BENI vurabiliyor', 'kucuk-iyi');
+    boyut('menzilimde_dusman', 'kac dusmana ates edebiliyorum');
+    boyut('en_yakin_dusman', 'en yakin dusmana mesafe');
+    boyut('katedilen_yol', 'birim basina toplam katedilen yol');
 
     // ── samples uzerinden birim-durumu boyutlari ──
     const odakTepe = { insan: 0, ai: 0, n: 0 };
@@ -99,6 +105,12 @@ for (const dos of dosyalar) {
             }
             ekle('panik', insanMi, (u.panicking || u.fleeing) ? 1 : 0);
             ekle('hareket_orani', insanMi, u.isMovingToManualTarget ? 1 : 0);
+            if (u.netMaruziyet !== undefined) {
+                ekle('net_maruziyet', insanMi, u.netMaruziyet);
+                ekle('dusman_menzilinde', insanMi, u.dusmanMenzilinde || 0);
+                ekle('menzilimde_dusman', insanMi, u.menzilimdeDusman || 0);
+                if (u.enYakinDusman >= 0) ekle('en_yakin_dusman', insanMi, u.enYakinDusman);
+            }
             if (u.attackTargetId) {
                 const h = insanMi ? hedefSay.insan : hedefSay.ai;
                 h[u.attackTargetId] = (h[u.attackTargetId] || 0) + 1;
@@ -153,6 +165,13 @@ for (const dos of dosyalar) {
     ekle('ikmal_olayi', false, say.ai.ikmal, Math.max(1, birimSay.ai));
     ekle('tamir_iyilestirme', true, say.insan.bakim, Math.max(1, birimSay.insan));
     ekle('tamir_iyilestirme', false, say.ai.bakim, Math.max(1, birimSay.ai));
+
+    // katedilen yol: SON ornekte birim basina (kumulatif)
+    {
+        const son = sm[sm.length - 1];
+        for (const u of (son.units || [])) if (u.katedilenYol !== undefined)
+            ekle('katedilen_yol', (u.side === insanTaraf), u.katedilenYol);
+    }
 
     // ── KOMUT AKISI: insanin gercek komutlari vs AI'in controller-order'lari ──
     let insanKomut = 0, aiKomut = 0;

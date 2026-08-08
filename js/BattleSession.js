@@ -64,6 +64,8 @@ function replayClone(value) {
 
 
 function battleResetReplay() {
+    // ZENGINLESTIRME: kumulatif yol sayaci mac basina SIFIRLANIR (yoksa onceki macin yolu tasar)
+    if (typeof battleTelemetrySifirla === 'function') battleTelemetrySifirla();
     BATTLE_REPLAY.version = 1;
     BATTLE_REPLAY.engineVersion = BATTLE_ENGINE_VERSION;
     BATTLE_REPLAY.session = null;
@@ -105,6 +107,23 @@ function battleTelemetryRound(value) {
     return Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
 }
 
+// ══ TELEMETRİ ZENGİNLEŞTİRME (2026-08-09) ═══════════════════════════════════════════════════
+// KULLANICI: "ham json'u ne kadar detaylandırırsan o kadar iyi analiz edersin."
+// FARK TARAMASI (kullanıcının 3 savunma maçı) şu hikâyeyi çıkardı: insan DURUP UZAKTAN vuruyor
+// (hareket %9, mesafe 1317px, baskı 2.2), AI YÜRÜYÜP YAKINA giriyor ve eziliyor (%43, 700px, 8.6).
+// KULLANICI HİPOTEZİ: "AI'ın bu kadar hareketi onun aleyhine işliyor."
+// Bu hipotezi sınamak için eksik olan tam şu: birim HANGİ AN düşman menzilinde, ne kadar yol
+// katetti, kendi menzilinde hedefi var mıydı. Aşağıdaki alanlar tam bunu verir.
+//
+// TASARIM: her şey TELEMETRİ KATMANINDA hesaplanır — `Unit` nesnesine alan EKLENMEZ, sim durumu
+// DEĞİŞMEZ, RNG tüketilmez. Böylece determinizm/fork/replay riski SIFIRDIR (yalnız gözlem).
+const _telemYol = new Map();        // id -> {x, y, yol}  kümülatif katedilen yol
+let _telemCanli = null;             // örnek başına canlı birim listesi (O(n²)'yi tek geçişe indirir)
+function battleTelemetrySifirla() { _telemYol.clear(); _telemCanli = null; }
+function _telemMenzil(u) {
+    const s = (typeof STATS !== 'undefined') ? STATS[u.type] : null;
+    return s ? (s.range || 0) : 0;
+}
 function battleTelemetryUnit(unit) {
     const targetDistance = Math.hypot(
         (unit.targetX ?? unit.x) - unit.x,
@@ -152,7 +171,38 @@ function battleTelemetryUnit(unit) {
         navBlocked: !!pathBlocked,
         terrain: typeof terrainTypeAt === 'function'
             ? terrainTypeAt(unit.x, unit.y)
-            : null
+            : null,
+        // ── ZENGİNLEŞTİRME (2026-08-09) — "hareket aleyhe mi işliyor?" hipotezi için ──
+        ...(function () {
+            const canli = _telemCanli || [];
+            const benimMenzil = _telemMenzil(unit);
+            let enYakin = Infinity, menzilimde = 0, menzillerinde = 0, dostYakin = 0;
+            for (const o of canli) {
+                if (o === unit || o.dead) continue;
+                const d = Math.hypot(o.x - unit.x, o.y - unit.y);
+                if (!!o.isRed === !!unit.isRed) { if (d <= 600) dostYakin++; continue; }
+                if (d < enYakin) enYakin = d;
+                if (benimMenzil > 0 && d <= benimMenzil) menzilimde++;      // ATEŞ EDEBİLİRİM
+                const om = _telemMenzil(o);
+                if (om > 0 && d <= om) menzillerinde++;                     // BENİ VURABİLİR
+            }
+            // kümülatif yol (telemetri-yerel; birim nesnesine yazılmaz)
+            const onc = _telemYol.get(unit.id);
+            let yol = onc ? onc.yol : 0;
+            if (onc) yol += Math.hypot(unit.x - onc.x, unit.y - onc.y);
+            _telemYol.set(unit.id, { x: unit.x, y: unit.y, yol });
+            return {
+                etkiliMenzil: battleTelemetryRound(benimMenzil),
+                enYakinDusman: enYakin === Infinity ? -1 : battleTelemetryRound(enYakin),
+                menzilimdeDusman: menzilimde,        // kaç düşmana ateş edebilirim
+                dusmanMenzilinde: menzillerinde,     // kaç düşman BENİ vurabilir  ← MARUZİYET
+                dostYakin600: dostYakin,             // yerel üstünlük payı
+                katedilenYol: battleTelemetryRound(yol),
+                // NET MARUZİYET: beni vurabilenler − vurabildiklerim. Pozitifse birim DEZAVANTAJLI
+                // bir mesafede duruyor demektir; kullanıcının hipotezi tam bunun üzerine.
+                netMaruziyet: menzillerinde - menzilimde
+            };
+        })()
     };
 }
 
@@ -227,10 +277,13 @@ function battleCaptureTelemetrySample() {
             winnerSide: SIM.battle?.winnerSide ?? null,
             outcomeReason: SIM.battle?.outcomeReason || null
         },
-        units: SIM.units
-            .filter(unit => !unit.dead)
-            .map(battleTelemetryUnit)
-            .sort((a, b) => a.id - b.id),
+        units: (function () {
+            // ZENGINLESTIRME: canli listeyi ORNEK BASINA bir kez kur; her birim onu tarar.
+            _telemCanli = SIM.units.filter(u => !u.dead && !u.loaded);
+            const out = _telemCanli.map(battleTelemetryUnit).sort((a, b) => a.id - b.id);
+            _telemCanli = null;
+            return out;
+        })(),
         controllers: [...BATTLE_CONTROLLERS.values()]
             .map(battleTelemetryController)
             .sort((a, b) => a.id.localeCompare(b.id))
