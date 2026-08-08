@@ -936,6 +936,93 @@ class TaskExecutionManager {
         return null;
     }
 
+    // ══ AKIN — "tek başına gezeni gafil avlamak" (kullanıcı doktrini, ölçümle doğrulandı) ══
+    // KULLANICI: "hızlı hareket edip tek başına gezen birliği gafil avlamak; önce hedef seç,
+    // doğru anı bekle, kısa bir taarruzla indir, geri çekil veya devam et."
+    // ÖLÇÜLDÜ (tools/gafil-avlama-teshis.js, 291 ölüm): AI ölümlerinin %52'si KÜTLE-KÜTLEYE
+    // (kurbanın ≥4 dostu var), gafil avlama yalnız %14. Oyuncunun temas anında 1.2 düşman görmesi
+    // yayıldığı için değil YALNIZ KALANI seçtiği için (dost sayısı benzer: 8.9 vs 6.9).
+    // NEDEN YIĞILMA DEĞİL: geçmişte "aktif toplanma" denendi ve oran SABİT kaldı — ana kütleye
+    // yığınca düşmanın ana kütlesiyle karşılaşıyorsun. Bu yüzden müdahale HEDEF SEÇİMİDİR.
+    // ADİL: yalnızca `observation.contacts` (algılanan) kullanılır, SIM.units taranmaz.
+    // DETERMİNİST: tüm sıralamalar id ile bozulur, RNG yok.
+    akinKarari(observation, tick) {
+        if (typeof battleAkin !== 'function' || !battleAkin(this.controller && this.controller.side)) return null;
+        // DIKKAT (yasandi): `observation.ownUnits` SNAPSHOT'tir — yalniz id/type/x/y/hpRatio/ammoRatio
+        // tasir. `u.speed` YOKTUR; ona bakan filtre listeyi bosaltir ve akin SESSIZCE hic calismaz.
+        // Hiz STATS'ten okunur.
+        const _hiz = (u) => ((typeof STATS !== 'undefined' && STATS[u.type]) ? (STATS[u.type].speed || 0) : 0);
+        const kendi = (observation.ownUnits || []).filter(u => _hiz(u) > 0);
+        const temas = (observation.contacts || []).filter(c => c && c.visible);
+        if (kendi.length < AKIN_ASGARI_AKINCI + 2 || !temas.length) { this.akin = null; return null; }
+
+        // 1) HEDEF SEÇ — İZOLE düşman: R içinde en fazla AKIN_IZOLE_DOST kadar kendi dostu olan
+        const izole = temas.filter(c => {
+            let dost = 0;
+            for (const o of temas) {
+                if (o === c) continue;
+                if (Math.hypot(o.x - c.x, o.y - c.y) <= AKIN_R) dost++;
+            }
+            return dost <= AKIN_IZOLE_DOST;
+        });
+
+        // mevcut akın hedefi hâlâ geçerli mi (histerezis: her tik hedef değiştirme)
+        let hedef = null;
+        if (this.akin && this.akin.hedefId != null) {
+            hedef = izole.find(c => c.id === this.akin.hedefId) || null;
+            if (!hedef) this.akin = null;   // hedef öldü / görünmez oldu / artık yalnız değil → AKIN BİTTİ
+        }
+        if (!hedef) {
+            if (!izole.length) { this.akin = null; return null; }
+            const merkez = executionCentroid(kendi);
+            let enYakin = null, ed = Infinity;
+            for (const c of izole) {
+                const d = merkez ? Math.hypot(c.x - merkez.x, c.y - merkez.y) : 0;
+                if (d > AKIN_AZAMI_MESAFE) continue;
+                if (d < ed || (d === ed && enYakin && c.id < enYakin.id)) { ed = d; enYakin = c; }
+            }
+            if (!enYakin) { this.akin = null; return null; }
+            hedef = enYakin;
+            this.akin = { hedefId: hedef.id, faz: 'TOPLANMA', baslangic: tick, akinci: [] };
+        }
+
+        // 2) AKINCI SEÇ — EN HIZLI birimler (kullanıcı: "hızlı hareket etmem"); kütleyi bozmamak için
+        // sınırlı sayı. Determinist: hız büyükten küçüğe, eşitlikte id.
+        const adaylar = kendi.slice()
+            .sort((a, b) => (_hiz(b) - _hiz(a)) || (a.id - b.id))
+            .filter(u => Math.hypot(u.x - hedef.x, u.y - hedef.y) <= AKIN_AZAMI_MESAFE);
+        const akinci = adaylar.slice(0, AKIN_AZAMI_AKINCI);
+        if (akinci.length < AKIN_ASGARI_AKINCI) { this.akin = null; return null; }
+        this.akin.akinci = akinci.map(u => u.id);
+
+        // 3) ANI BEKLE — yeterli akıncı VURUŞ mesafesine girene dek TAARRUZ başlamaz.
+        const hazir = akinci.filter(u => Math.hypot(u.x - hedef.x, u.y - hedef.y) <= AKIN_VURUS_MESAFE).length;
+        if (this.akin.faz === 'TOPLANMA' && hazir >= AKIN_ASGARI_AKINCI) this.akin.faz = 'TAARRUZ';
+
+        // 4) ÇEKİL — düşman desteği geldiyse (hedef artık yalnız değil) akın biter; üstteki `izole`
+        // kontrolü bunu zaten yakalar. Süre sınırı: takılıp kalmasın.
+        if (tick - this.akin.baslangic > AKIN_AZAMI_TIK) { this.akin = null; return null; }
+
+        // BAGLANMA SAYACI (tuzak B2): kural sessizce hic calismasin diye her akin emri sayilir.
+        if (typeof BATTLE_AKIN_SAYAC !== 'undefined') {
+            BATTLE_AKIN_SAYAC.emir++;
+            if (this.akin.faz === 'TAARRUZ') BATTLE_AKIN_SAYAC.taarruz++;
+        }
+        const sozde = { id: 'AKIN', groupRole: 'AKIN', formation: 'WEDGE' };
+        if (this.akin.faz === 'TAARRUZ') {
+            return executionAttackOrder(sozde, akinci, hedef);
+        }
+        // TOPLANMA: hedefe yaklaş ama üstüne binme (vuruş mesafesinin hemen dışında topla)
+        const dx = hedef.x - (executionCentroid(akinci) || hedef).x;
+        const dy = hedef.y - (executionCentroid(akinci) || hedef).y;
+        const d = Math.hypot(dx, dy) || 1;
+        const nokta = executionSafePoint({
+            x: hedef.x - (dx / d) * AKIN_VURUS_MESAFE * 0.8,
+            y: hedef.y - (dy / d) * AKIN_VURUS_MESAFE * 0.8
+        });
+        return executionMoveOrder(sozde, akinci, nokta, 'AKIN:TOPLANMA');
+    }
+
     decide(operationalPlan, observation, tick = SIM.tick) {
         if (!operationalPlan?.taskContracts?.length || !observation) return null;
         const activeIds = new Set(operationalPlan.taskContracts.map(contract => contract.id));
@@ -956,6 +1043,11 @@ class TaskExecutionManager {
                 )
                 : this.decideContract(contract, observation, tick))
             .filter(Boolean);
+        // AKIN emri EN SONA eklenir: aynı birim hem grup emri hem akın emri alırsa akın KAZANIR
+        // (emirler sırayla uygulanır). Akıncılar zaten sınırlı sayıda ve hızlı birimlerdir; ana
+        // kütlenin emri bozulmaz. Bayrak kapalıyken bu satır hiçbir şey yapmaz.
+        const _akin = this.akinKarari(observation, tick);
+        if (_akin) orders.push(_akin);
         this.lastTelemetry = {
             tick,
             planId: operationalPlan.planId,

@@ -694,6 +694,32 @@ function battleTeslimImhaGerekce(isRed, tgt) {
 // 8x6 izgara yigini bolebilir. Kumeler gercek yakinliga gore hesaplanir ve hedef listesine eklenir.
 // OLCULDU (tohum 202, tik 1800): 780 guclu 3-birimlik zayif grup (sektor 43) aday listesinde YOKTU.
 // VARSAYILAN KAPALI: kendi kapisini gecene kadar acilmaz (kosan tavan olcumleri de bozulmasin).
+// ── AKIN: "tek basina gezeni gafil avlamak" (kullanici doktrini) ──
+// KULLANICI: "hizli hareket edip tek basina gezen birligi gafil avlamak; once hedef sec, dogru ani
+// bekle, kisa bir taarruzla indir, cekil veya devam et."
+// OLCULDU (tools/gafil-avlama-teshis.js, 291 olum): AI olumlerinin %52'si KUTLE-KUTLEYE, gafil
+// avlama yalniz %14. Oyuncunun temas aninda 1.2 dusman gormesi YAYILDIGI icin degil YALNIZ KALANI
+// sectigi icin (dost sayisi benzer: 8.9 vs 6.9).
+// NEDEN YIGILMA DEGIL: gecmiste "aktif toplanma" denendi, oran SABIT kaldi (ana kutleye yiginca
+// dusmanin ana kutlesiyle karsilasiyorsun). Bu yuzden mudahale HEDEF SECIMIDIR.
+// Taraf-basi (tuzak B3). Varsayilan KAPALI: kendi kapisini gecene kadar acilmaz.
+let BATTLE_AKIN = false;
+// BAGLANMA SAYACI: kural gercekten calisti mi? Sifirsa akin HIC tetiklenmemis demektir (tuzak B2 —
+// bu kural ilk yazildiginda `observation.ownUnits`ta `speed` alani olmadigi icin tam bunu yasadi).
+let BATTLE_AKIN_SAYAC = { emir: 0, taarruz: 0 };
+let BATTLE_AKIN_RED = null, BATTLE_AKIN_BLUE = null;
+function battleAkin(isRed) {
+    const v = isRed ? BATTLE_AKIN_RED : BATTLE_AKIN_BLUE;
+    return v == null ? ((typeof BATTLE_AKIN === 'undefined') || BATTLE_AKIN) : !!v;
+}
+const AKIN_R = 600;              // izole sayilma cemberi (balistigin ayak izi; olcum de bunu kullandi)
+const AKIN_IZOLE_DOST = 1;       // hedefin R icinde EN FAZLA bu kadar kendi dostu olabilir
+const AKIN_ASGARI_AKINCI = 3;    // "saldiran >=3" — olcumdeki gafil-avlama tanimiyla ayni
+const AKIN_AZAMI_AKINCI = 5;     // kutleyi bozmamak icin tavan
+const AKIN_VURUS_MESAFE = 520;   // bu mesafeye giren akinci "hazir" sayilir; taarruz o zaman baslar
+const AKIN_AZAMI_MESAFE = 2200;  // bundan uzaktaki izole hedefe akin duzenlenmez
+const AKIN_AZAMI_TIK = 600;      // 30sn: akin takilip kalmasin
+
 let BATTLE_GRAMMAR_KUTLE = false;
 
 let BATTLE_FLANK_FIX = true;

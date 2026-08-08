@@ -20,17 +20,21 @@ const vm = require('node:vm');
 function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.argv[i + 1] : d; }
 const N = Math.max(1, Number(arg('--tohum', 6)) || 6);
 const R = Math.max(100, Number(arg('--r', 600)) || 600);   // yerel cember (600px = balistigin ayak izi)
-const HAVUZ = [202, 2024, 3141, 777, 11, 333, 4001, 4003];
+const HAVUZ = [202, 2024, 3141, 777, 11, 333, 4001, 4003, 4007, 4013, 4019, 4021];
 const TOHUMLAR = HAVUZ.slice(0, N);
+const AB = process.argv.includes('--ab');   // AKIN acik/kapali karsilastirmasi (taraf-basi: yalniz KIRMIZI)
 
 const { ctx } = tezgahKur();
 
-function kos(seed) {
+function kos(seed, akinAcik) {
     const kod = [
         '(() => {',
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;',
         'BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;',
         'BATTLE_INTEL4PRO_RED = true; BATTLE_INTEL4PRO_BLUE = true;',
+        // AKIN taraf-basi: YALNIZ kirmizi. Mavi iki kolda da kapali -> fark kirmiziya atfedilir.
+        'BATTLE_AKIN = false; BATTLE_AKIN_RED = ' + (akinAcik ? 'true' : 'null') + '; BATTLE_AKIN_BLUE = null;',
+        'if (typeof BATTLE_AKIN_SAYAC !== "undefined") BATTLE_AKIN_SAYAC = { emir: 0, taarruz: 0 };',
         'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;',
         'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;',
         'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;',
@@ -62,14 +66,60 @@ function kos(seed) {
         '    olum.push({ kirmiziKurban: k.isRed, tip: k.tip, kurbanDost, saldiranDost });',
         '  }',
         '} } finally { SIM.headless = ph; }',
-        'return JSON.stringify(olum);',
+        'const oS = battleArmyObservation(true), oD = battleArmyObservation(false);',
+        'return JSON.stringify({ olum: olum, marj: Math.round(oS.effectiveValue - oD.effectiveValue),',
+        '  sayac: (typeof BATTLE_AKIN_SAYAC !== "undefined") ? BATTLE_AKIN_SAYAC : null });',
         '})()'
     ].join('');
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'ga.js' }));
 }
 
+function kolOlc(akinAcik) {
+    let olumler = [], marjlar = [], emir = 0, taarruz = 0;
+    for (const s of TOHUMLAR) { const r = kos(s, akinAcik); olumler = olumler.concat(r.olum); marjlar.push(r.marj);
+        if (r.sayac) { emir += r.sayac.emir; taarruz += r.sayac.taarruz; } }
+    return { olumler, marjlar, emir, taarruz };
+}
+// KIRMIZININ oldurdukleri = kurban MAVI olan olumler (mudahale kirmiziya bagli)
+function rapor(ad, olumler) {
+    const k = olumler.filter(o => !o.kirmiziKurban);   // kirmizinin oldurdukleri
+    if (!k.length) { console.log('  ' + ad.padEnd(20) + ' olum yok'); return null; }
+    const yalniz = k.filter(o => o.kurbanDost <= 1).length;
+    const gafil = k.filter(o => o.kurbanDost <= 1 && o.saldiranDost >= 3).length;
+    const kutle = k.filter(o => o.kurbanDost >= 4).length;
+    console.log('  ' + ad.padEnd(20) + String(k.length).padStart(8) +
+        ('%' + Math.round(yalniz / k.length * 100)).padStart(10) +
+        ('%' + Math.round(gafil / k.length * 100)).padStart(11) +
+        ('%' + Math.round(kutle / k.length * 100)).padStart(11));
+    return { n: k.length, gafil: gafil / k.length };
+}
+if (AB) {
+    console.log('AKIN A/B — ' + TOHUMLAR.length + ' mac, cember ' + R + 'px  (mudahale YALNIZ kirmizida)');
+    console.log('  olcut: KIRMIZININ oldurdukleri arasinda gafil-avlama orani');
+    console.log('');
+    console.log('  ' + 'kol'.padEnd(20) + 'oldurme'.padStart(8) + 'yalniz'.padStart(10) + 'GAFIL'.padStart(11) + 'kutle'.padStart(11));
+    const A = kolOlc(false), B = kolOlc(true);
+    rapor('KAPALI (taban)', A.olumler);
+    rapor('ACIK (akin)', B.olumler);
+    console.log('');
+    console.log('  BAGLANMA KANITI — akin emri: taban ' + A.emir + ' (taarruz ' + A.taarruz + ')  |  acik ' +
+        B.emir + ' (taarruz ' + B.taarruz + ')');
+    if (!B.emir) console.log('  *** AKIN HIC TETIKLENMEDI — asagidaki tablo ANLAMSIZ ***');
+    const f = B.marjlar.map((x, i) => x - A.marjlar[i]);
+    const o = f.reduce((a, b) => a + b, 0) / f.length;
+    const sd = Math.sqrt(f.reduce((a, b) => a + (b - o) * (b - o), 0) / Math.max(1, f.length - 1));
+    const se = sd / Math.sqrt(f.length);
+    console.log('');
+    console.log('  ESLESTIRILMIS MARJ FARKI (kirmizi lehine): ' + (o > 0 ? '+' : '') + Math.round(o) +
+        '   std.hata ' + Math.round(se) + '   t ' + (se ? (o / se).toFixed(2) : '-') +
+        '   lehte ' + f.filter(x => x > 0).length + '/' + f.length);
+    console.log('');
+    console.log('  OKUMA: MEKANIZMA = gafil orani yukselmeli (yukselmezse akin BAGLANMAMIS demektir).');
+    console.log('         MAC kapisi AYRI ve |t| >= 2 ister.');
+    process.exit(0);
+}
 let hepsi = [];
-for (const s of TOHUMLAR) hepsi = hepsi.concat(kos(s));
+for (const s of TOHUMLAR) hepsi = hepsi.concat(kos(s, false).olum);
 
 console.log('GAFIL AVLAMA TESHISI — ' + TOHUMLAR.length + ' mac, cember ' + R + 'px');
 console.log('  kullanicinin dongusu: hedef sec -> ani bekle -> kisa taarruz -> cekil/devam');
