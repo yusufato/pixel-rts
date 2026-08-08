@@ -53,7 +53,12 @@ const QM_BEYIN = {
     intel3pro: { intel4: false, pro: false, beonai: null,  ad: 'intel3-pro' },
     intel4:    { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
     intel4pro: { intel4: true,  pro: true,  beonai: null,  ad: 'intel4-pro' },
-    beonai:    { intel4: true,  pro: false, beonai: 'beonai-karisim', ad: 'beonai' },
+    // 2026-08-09: oznitelik surumu v2'ye cikinca v1 modelleri (beonai-karisim/oracle-taban/klon)
+    // uyum kontrolunde ELENDI ve mac sessizce kod-AI'ya dusuyordu. Kontrol DOGRU calisti (kullanici
+    // uyariyi gordu). Uyumlu TEK model klon-v2 -> baglanti ona cevrildi.
+    // DURUSTLUK NOTU: beonai-klon-v2, 96 BAGIMSIZ macta kod-AI'dan ANLAMLI KOTU olcuLdu (t -2.85).
+    // Yani "beonai" rakibi su an intel4-pro'dan ZAYIFTIR; guclu rakip icin intel4-pro secilmeli.
+    beonai:    { intel4: true,  pro: false, beonai: 'beonai-klon-v2', ad: 'beonai' },
 };
 function quickMatchApplyBrain(anahtar) {
     const b = QM_BEYIN[anahtar] || QM_BEYIN.intel4pro;
