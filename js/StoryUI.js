@@ -32,24 +32,32 @@ function storyActivateDetailTooltips(root) {
     if (!root || typeof root.querySelectorAll !== 'function') return;
     root.querySelectorAll('.city-fact-grid > div small, .city-route-metrics').forEach(detail => {
         const host = detail.parentElement;
-        const parts = [...detail.children]
-            .map(node => String(node.innerText || node.textContent || '').trim())
+        // innerText Chromium'da her okumada stil/layout çözümleyebilir. Bu
+        // metinler görünürlük hesabı istemeyen yeni panel düğümleri olduğundan
+        // textContent aynı erişilebilir etiketi reflow tetiklemeden üretir.
+        const parts = Array.from(detail.children, node => String(node.textContent || '').trim())
             .filter(Boolean);
         const text = parts.length
             ? parts.join(' · ')
-            : String(detail.innerText || detail.textContent || '').trim();
+            : String(detail.textContent || '').trim();
         if (!host || !text || host.dataset.storyTooltip) return;
         host.dataset.storyTooltip = text;
         host.classList.add('detail-hover');
         if (!host.hasAttribute('tabindex')) host.setAttribute('tabindex', '0');
-        const primary = [...host.children]
+        const primary = Array.from(host.children)
             .filter(node => node !== detail)
-            .map(node => String(node.innerText || node.textContent || '').trim())
+            .map(node => String(node.textContent || '').trim())
             .filter(Boolean)
             .join(' · ');
         host.setAttribute('aria-label', `${primary}${primary ? ' — ' : ''}${text}`);
         detail.classList.add('detail-tooltip-source');
     });
+}
+
+function storyUiSetHtml(element, html) {
+    if (!element || element.innerHTML === html) return false;
+    element.innerHTML = html;
+    return true;
 }
 
 const STORY_BRIEF_TABS = Object.freeze(['agenda', 'region', 'flow']);
@@ -301,7 +309,7 @@ function storyPanelUpdate() {
         const reward = hostile ? '+120 puan · fetih · veteran ilerlemesi' : current ? 'Komuta ve ikmal merkezi' : 'Güvenli intikal';
         const rewardLabel = hostile ? 'ZAFER GETİRİSİ' : current ? 'BÖLGE İŞLEVİ' : 'İNTİKAL SONUCU';
         const forceLabel = hostile ? 'GARNİZON / TAHMİNİ GÜÇ' : 'GARNİZON';
-        info.innerHTML = selected ?
+        const nextInfoHtml = selected ?
             `<div class="story-node-heading"><b>${selected.name}</b><span class="story-node-state" style="color:${stateColor}">${stateText}</span></div>` +
             `<div class="story-brief-grid">` +
                 `<div class="story-brief-cell">TÜR<b>${type}</b></div>` +
@@ -310,6 +318,7 @@ function storyPanelUpdate() {
                 `<div class="story-brief-cell">${forceLabel}<b>${hostile ? `${selected.garrison || 0} / ~${foeTotal}` : (selected.garrison || 0)}</b></div>` +
             `</div><div class="story-brief-note">${rewardLabel}: ${reward}<br>ORDU DOKTRİNİ: ${doctrine}</div>` :
             `<div class="story-brief-note">Haritada bir şehir seçerek harekât brifingini aç.</div>`;
+        storyUiSetHtml(info, nextInfoHtml);
 
         if (action) {
             action.disabled = current || !adjacent;
@@ -333,15 +342,22 @@ function storyPanelUpdate() {
             }
             return value;
         };
-        log.innerHTML = STORY.log.map(l => `<div class="story-log-row">${formatLog(l)}</div>`).join('');
+        storyUiSetHtml(log, STORY.log.map(l => `<div class="story-log-row">${formatLog(l)}</div>`).join(''));
     }
     const pb = document.getElementById('story-pause-btn');
-    if (pb) { pb.textContent = STORY.paused ? 'DEVAM' : 'DURAKLAT'; pb.title = STORY.paused ? 'Devam' : 'Duraklat'; }
+    if (pb) {
+        const text = STORY.paused ? 'DEVAM' : 'DURAKLAT';
+        const title = STORY.paused ? 'Devam' : 'Duraklat';
+        if (pb.textContent !== text) pb.textContent = text;
+        if (pb.title !== title) pb.title = title;
+    }
     const sb = document.getElementById('story-speed-btn');
     if (sb) {
         const speed = typeof storyClockSnapshot === 'function' ? storyClockSnapshot().speed : 1;
-        sb.textContent = `${speed}× HIZ`;
-        sb.title = `Dünya hızı: ${speed}×`;
+        const text = `${speed}× HIZ`;
+        const title = `Dünya hızı: ${speed}×`;
+        if (sb.textContent !== text) sb.textContent = text;
+        if (sb.title !== title) sb.title = title;
     }
     if (typeof storyFactionNoticeBadgeUpdate === 'function') storyFactionNoticeBadgeUpdate();
 }
@@ -526,11 +542,11 @@ function storyChangesUpdate() {
     if (!body) return;
     const projection = storyChangesProjection();
     if (!projection || projection.error) {
-        body.innerHTML = `<div class="change-empty">Projeksiyon kurulamadı.<small>${storyProjectionEscape(projection && projection.error || 'Dünya hazır değil.')}</small></div>`;
+        storyUiSetHtml(body, `<div class="change-empty">Projeksiyon kurulamadı.<small>${storyProjectionEscape(projection && projection.error || 'Dünya hazır değil.')}</small></div>`);
         return;
     }
     if (projection.disabled) {
-        body.innerHTML = '<div class="change-empty">Nedensellik görünümü özellik bayrağıyla kapalı.</div>';
+        storyUiSetHtml(body, '<div class="change-empty">Nedensellik görünümü özellik bayrağıyla kapalı.</div>');
         return;
     }
 
@@ -560,10 +576,10 @@ function storyChangesUpdate() {
             + `<p>SONUÇ: <b>${storyProjectionEscape(storyChangesItemValue(selected))}</b></p></section>`
         : '<div class="change-empty">Henüz oyuncunun doğrulayabildiği kalıcı bir değişim yok.</div>';
 
-    body.innerHTML = `<div class="change-summary"><span>SON ${projection.recentSeconds} SN</span><b>${projection.badgeCount} DEĞİŞİM</b></div>`
+    storyUiSetHtml(body, `<div class="change-summary"><span>SON ${projection.recentSeconds} SN</span><b>${projection.badgeCount} DEĞİŞİM</b></div>`
         + `<div class="change-domains">${domainHtml || '<span>GÖRÜNÜR KAYIT YOK</span>'}</div>`
         + `<div class="change-list">${rows || '<div class="change-empty">Dünya ilerledikçe doğrulanmış değişiklikler burada görünecek.</div>'}</div>`
-        + detail;
+        + detail);
 }
 
 // 🏗️ ŞEHRE GİR paneli → js/Production.js (storyCityOpen/Close/Toggle/Update + üretim UI'ı)
@@ -640,7 +656,7 @@ function storyArmyUpdate() {
         + `</div>`;
 
     // KASAN bölümü kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
-    body.innerHTML = html;
+    storyUiSetHtml(body, html);
 }
 // ── TEKNOLOJİ AĞACI (Faz-2 Adım 4 — HER devlet kendi tech'ini geliştirir) ─────
 const TECH_COST_MULT = 2.5;   // tüm tech fiyatları ×2.5 (daha stratejik/kıt yatırım)
@@ -841,7 +857,7 @@ function storyTechUpdate() {
             html += `<div class="tech-rival-row"><span style="color:${r.color}">⬤ ${r.name}</span><span><b>${(r.tech || []).length}</b> teknoloji</span></div>`;
         html += `</div>`;
     }
-    body.innerHTML = html;
+    storyUiSetHtml(body, html);
 }
 function storyLoyColor(l) { return l >= 70 ? '#4cff7c' : (l >= 40 ? '#ffd24c' : '#ff5a5a'); }
 function storyPersonaIcon(p) { return { agresif: '🎯', savunmacı: '🛡️', fırsatçı: '🦊', dengeli: '⚖️', oyuncu: '👑' }[p] || '⚖️'; }   // komutan bireysel doğası
@@ -862,20 +878,22 @@ function storyCouncilUpdate() {
     const me = storyPlayerState(); if (!me) return;
     const isAdmin = !!(me.gov && me.gov.leader === 'player');
     const banner = document.getElementById('council-admin-banner');
-    if (banner) banner.innerHTML =
+    const bannerHtml =
         `<div class="story-res">🏛️ Cumhurbaşkanı: <b style="color:${isAdmin ? '#4cff7c' : '#ffd24c'}">${isAdmin ? (STORY.commander ? STORY.commander.name + ' (SEN)' : 'SEN') : ((typeof storyPresidentName === 'function') ? storyPresidentName(me) : 'AI')}</b></div>`
         + storyBar('Refah', me.welfare, '#54e08a')
         + `<div class="story-res">🏅 İtibar <b>${me.reputation}/6</b>${isAdmin ? '' : (me.reputation >= 6 && me.welfare >= 60 ? ' <span style="color:#4cff7c">— seçime hazırsın!</span>' : ` <span style="color:#9fb3c8">(seçim: itibar≥6 + refah≥60)</span>`)}</div>`
         + (isAdmin ? `<div class="story-res" style="color:#4cff7c;font-size:12px">🎖️ Komutan yaratabilir/dağıtabilirsin.</div>` : `<div class="story-res" style="color:#9fb3c8;font-size:12px">🔒 Yönetici olunca komutanları yönetirsin.</div>`);
+    storyUiSetHtml(banner, bannerHtml);
     const cmds = storyPlayerCommanders();
     const myr = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
     const inc = STORY._incPerCmd || { oil: 0, manpower: 0, points: 0 };
     const tre = document.getElementById('council-treasury');
     // 'Senin kasan' satırı kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
-    if (tre) tre.innerHTML = `<b>DEVLET HAZİNESİ</b>`
+    const treasuryHtml = `<b>DEVLET HAZİNESİ</b>`
         + `<br><span style="color:#dfe7ef">PETROL ${Math.floor(me.res.oil)} · İNSAN ${Math.floor(me.res.manpower)} · PUAN ${Math.floor(me.res.points)}</span>`
         + `<br><span style="color:#9fb3c8;font-size:12px">${cmds.length} komutan · KİŞİ BAŞI/SN: PETROL +${inc.oil.toFixed(1)} · İNSAN +${inc.manpower.toFixed(1)} · PUAN +${inc.points.toFixed(1)}</span>`
         + `<div class="council-skill-legend">YETENEKLER · ⚔ SAVAŞ · 🕊 DİPLOMASİ · ⚙ İKTİSAT · ● SADAKAT</div>`;
+    storyUiSetHtml(tre, treasuryHtml);
     // EN GÜÇLÜ (oyuncu hariç) + sıralama (oyuncu üst, sonra skill-toplam azalan)
     const skSum = c => c.skills ? (c.skills.warrior + c.skills.diplomat + c.skills.economist) : 0;
     let bestId = -1, bestSum = -1;
@@ -886,7 +904,7 @@ function storyCouncilUpdate() {
     // 'başkan listede yok' karışıklığı biter (o bir komutan değil, devletin lideri).
     const presCard = (typeof storyPresidentName === 'function')
         ? `<div class="pres-card">🏛️ <b>${storyPresidentName(me)}</b> — Cumhurbaşkanı <span class="pres-note">${isAdmin ? '(sensin)' : '(sivil lider — komutan değildir)'}</span></div>` : '';
-    if (list) list.innerHTML = presCard + sorted.map(c => {
+    const listHtml = presCard + sorted.map(c => {
         const node = storyNode(c.node);
         const front = (node && node.owner !== me.id) ? ' <span class="front">· cephe-gerisi</span>' : '';
         const loc = node ? ('📍 ' + node.name + front) : '📍 —';
@@ -902,6 +920,7 @@ function storyCouncilUpdate() {
             + `<div class="cr-loyalty${risk}" title="Sadakat ${loy}/100"><span class="cr-loy-dot" style="background:${storyLoyColor(loy)}"></span>${loy}</div>`
             + `<button class="cr-dismiss${showX}" data-cmd-id="${c.id}" title="Kov">✖</button></div>`;
     }).join('');
+    storyUiSetHtml(list, listHtml);
     // yönetici-yetkileri
     const acts = document.getElementById('council-actions');
     const createBtn = document.getElementById('council-create-btn');
@@ -913,7 +932,7 @@ function storyCouncilUpdate() {
     if (dismissBtn) { dismissBtn.disabled = !isAdmin || extra === 0; dismissBtn.textContent = STORY._dismissMode ? '✓ Dağıtmayı Bitir' : '✖ Dağıt Modu'; }
     // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı (KANUNLAR sekmesi)
     const laws = document.getElementById('council-lawbox');
-    if (laws && typeof storyCouncilLawsHtml === 'function') laws.innerHTML = storyCouncilLawsHtml(me);
+    if (laws && typeof storyCouncilLawsHtml === 'function') storyUiSetHtml(laws, storyCouncilLawsHtml(me));
     if (typeof storyGovernanceUpdate === 'function') storyGovernanceUpdate();
     storyCouncilSyncTabs();
 }

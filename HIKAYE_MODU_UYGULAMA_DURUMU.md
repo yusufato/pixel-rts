@@ -2,9 +2,9 @@
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
 **Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
-**Son kapanan faz:** Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm
+**Son kapanan faz:** Faz 34 — Karakter Kimliği ve Hedefleri
 
-**Aktif uygulama sırası:** Faz 34 — Karakter Kimliği ve Hedefleri
+**Aktif uygulama sırası:** Faz 36 — Üç Katmanlı Hafıza
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
 ## Faz tablosu
@@ -58,7 +58,10 @@
 | Faz 32 — Patronaj, Yolsuzluk ve Soruşturma | `complete` | `js/StoryIntegrity.js`; gerçek yetki/bütçe/şirket kanıtı, iddia→ön inceleme→soruşturma→bulgu, bilgi filtreli WorldV2/UI, kayıt/göç ve `qa-runtime/story-phase32-ab.json` |
 | Faz 33 — Darbe, Bölünme ve İç Çatışma | `complete` | `js/StoryPoliticalCrisis.js`; isimli aktör, hazırlık/koalisyon/karşı-güç, dört bedelli oyuncu hamlesi, deterministik teşebbüs, bilgi filtreli WorldV2/UI ve `qa-runtime/story-phase33-ab.json` |
 | Faz 33.1 — Yönetim Çalışma Alanı İlk Oynanabilir Sürüm | `complete` | `js/StoryGovernance.js`; gerçek rol/makam görünümü, yetki kilidi ve alternatif yol, iki bedelli karar, kurum onayı → Faz 30 kapasite fişi → fiziksel şehir sonucu, kayıt/yükleme ve hedefli UI probu |
-| Faz 34+ | `missing` | Bağımlılık sırasıyla uygulanacak |
+| Faz 34 — Karakter Kimliği ve Hedefleri | `complete` | `js/StoryCharacters.js`; 88+ kimlik, dört kararlı boyut, değer/korku/hırs/kırmızı çizgi/hedef/ses, türetilmiş rejim hizası, gerçek seçim adayları ve rol uyarlamalı 12 bedelli karar. Komutan `6/3/3`; her cevap mekanik kazanç+bedel, olay, WorldFact, ActorBelief, tepki kancası ve anında görünür sonuç üretir. Hedefli `12 olgu / 31 inanç / 0 yabancı sızıntı`; kayıt/yükleme ve V3→V2 göç kayıpsız. |
+| Faz 35 — Çok Boyutlu İlişkiler | `complete` | `js/StoryRelationships.js`; 176 karakter, 627 seyrek/yönlü bağ, güven/korku/saygı/borç/husumet, A→B/B→A asimetrisi ve köken kararı etkisi. Dört oynanabilir kök kendi sorularına/kariyerine ve gerçek şirket/kurum/servis bağına sahip. WorldV2/PlayerKnowledge/göç/kayıt kapıları ve savaş AI yükü altındaki tam `56/56` regresyon geçti. |
+| Faz 36 — Üç Katmanlı Hafıza | `partial` | `js/StoryMemory.js`; aktör başına 24 yakın kayıt, 12 deterministik özet, açık/çözülmüş EPISODE ve budanmayan ORIGIN/PROMISE/SECRET/BETRAYAL/DEBT. Gerçek Talks.js konuşması bölüm ve söz üretir; WorldV2/PlayerKnowledge v3/göç/save-load/scheduler devam kapıları geçti. Siyasi kriz ve gerçek sır/ihanet/borç üreticileri ile uzun soak açık. |
+| Faz 37+ | `missing` | Faz 36 kabul kapısı kapanmadan Faz 37 başlatılmayacak. |
 
 `partial`, dosya bulunduğu fakat bütün kabul kapılarının geçilmediği anlamına gelir.
 
@@ -107,7 +110,7 @@ Kabul kanıtı:
 - Yazılan V2 kaydı `storyWorldV2Validate` kapısını geçer.
 - Devlet ve bölge sayıları eksilmez.
 - Bölge sahipliği ve devlet kaynakları bire bir korunur.
-- Oyuncu komutanı `PLAYER_COMMANDER` rolüyle karakter/kuvvet modeline taşınır.
+- Oyuncu karakteri seçtiği kanonik rolle karakter modeline taşınır; askerî kuvvet uyumluluğu ayrı kampanya kontrol jetonuyla korunur.
 - Bozuk JSON ve eksik/bozuk kayıt göç öncesi reddedilir; yazma sayısı `0` kalır.
 - Farklı mevcut yedek veya farklı mevcut hedef sessizce ezilmez; yazma sayısı `0` kalır.
 - Göç probu canlı dünya karmasını değiştirmez.
@@ -930,12 +933,49 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Hedefli probda genelkurmay oyuncusu seferberlik yetkisini gördü fakat kamu yatırımını kullanamadı; yürütme makamına geçen aynı oyuncu yatırımı başlattı. `120` puan gerçekten eksildi, kapasite fişi `COMPLETED` oldu ve hedef şehir seviye `2 → 3` yükseldi. Kurum ve kapasite doğrulayıcıları, özellik-kapalı yol ve kayıt/yükleme geçti.
 - Kapsamı azaltılmamış `npm test -- --workers=6`, arşive taşınmış renderer için bayat kök-yol assertion’ı gerçek `_arsiv/kok-olu-kopyalar` yoluna düzeltildikten sonra `55/55` görevle, `681,1 sn` toplam sürede ve çıkış kodu `0` ile geçti. Ana 900 saniyelik koşu `262.191,86 ms`; dünya karması önceki Faz 33 ile aynı `34ef8ff959c39d0564a088679d3cc40f02f8c28261ade5f0498e11c89029d838` kaldı. Oyuncu karar vermediğinde Faz 33.1 otomatik dünya mutasyonu üretmiyor. Görsel tarayıcı bağlantısı bu oturumda mevcut değildi; 1366×768 ve paketlenmiş EXE piksel kabulü ayrıca oyuncu kontrolüne açıktır. Sıradaki uygulama **Faz 34 — Karakter Kimliği ve Hedefleri**dir.
 
+## Faz 34 — Karakter Kimliği ve Hedefleri kabul sonucu
+
+- `story-character-identity-ledger-2`, başkan, komutan ve seçim adaylarını aynı kimlik sözleşmesinde tutuyor: dört kararlı çekirdek boyut; değer, korku, hırs, kırmızı çizgi, rol/kişisel hedef ve ses profili. `muhalif/yandaş` sabit özellik yapılmadı; `currentRegimeAlignment` rol, sadakat ve kurumsal mesafeden türetiliyor.
+- Profil eylem yasaklamıyor. Aynı iki aday bütün karakterlerde sıralamada kaldı; farklı kimlikler ölçülebilir biçimde farklı ilk adayı ve konuşma stratejisini seçti. Faz 31’in soyut liste vekilleri seçim başına isimli karaktere, kazanan liste de gerçek makam sahibine göç etti.
+- Altı rolün 12 soru dağılımı sürümlü politikadır. Zar ekranında askerî komutan, şirket yöneticisi, siyasi lider ve ajan seçilebilir. Asker mevcut geniş dallanan bankayı; diğer üç yol toplam `36` özgün mesleki ikilemi kullanır. Belediye başkanı ve sivil politika kodları içerikleri bitmeden oyuncuya sahte seçim olarak sunulmaz.
+- Her cevap iç sistemde gerçek kazanç ve bedel taşır; oyuncu bunları seçimden önce görmez. Kampanya kurulunca karar gerçek kaynak değişimi, `character.origin_decision_recorded`, `WorldFact`, kaynaklı `ActorBelief`, tepki kancası ve `0 sn` ilk görünür sonuç üretir. Komutan profilinde kalıcı `GEÇMİŞ İZİ · 12 KARAR` hücresi vardır.
+- PlayerKnowledge ham `WorldFact` listesini açmaz; yalnız oyuncunun ülkesindeki bir karakterin ActorBelief’i varsa bilgi zarfı üretir. Hedefli prob `12` karar, `12` olay, `12` WorldFact, `31` ActorBelief, oyuncuda `12` görünür köken olgusu ve yabancı projeksiyonda `0` sızıntı verdi.
+- Kayıt/yükleme defteri birebir korudu. İlk tam koşu, V3→V2 göç adaptörünün yeni iki koleksiyonu boş bırakmasını yakaladı; adaptör `legacy-save-v3-to-v2-6` ile kimlikleri/olguları/inançları koruyacak şekilde düzeltildi. Hedefli göç `12/31` kayıpsız geçti.
+- Nihai `npm test -- --workers=6`, `56/56` görevle `819,6 sn`de ve çıkış kodu `0` ile geçti. Ana 900 saniyelik dünya karması `145d5775521b8ac8db834ccc76c6e417168eb0c61959cd6a8b744e3aa28b3b72`; karakter yaratım kararı olmayan referans dünya tarafsız kaldı. Tarayıcı yüzeyi bağlı olmadığı için gerçek piksel yerleşimi manuel EXE kontrolüne açıktır. Sıradaki uygulama **Faz 35 — Çok Boyutlu İlişkiler**dir.
+
+## Faz 35 — Çok Boyutlu İlişkiler kapanış sonucu
+
+- Karakter kimlik defteri `story-character-identity-ledger-3` oldu. Sekiz ülkede `80 COMMANDER`, `8 EXECUTIVE`, `24 POLITICAL_FIGURE`, `48 COMPANY_EXECUTIVE` ve `16 AGENT`; toplam `176` isimli karakter vardır. Şirket yöneticileri gerçek 48 şirket kimliğine bağlıdır.
+- `story-character-relationship-ledger-1` tam `176×176` tablo kurmaz. Yürütme erişimi ve meslek ağlarından `627` yönlü kenar kurar; her kenar güven, korku, saygı, borç ve husumeti `0–10000` baz puanda ayrı tutar. Hedefli prob A→B ile B→A'nın farklı olduğunu kanıtladı.
+- Oyuncunun 12 gizli-bedelli köken kararı aynı ülkenin aktörlerinin oyuncuya bakışını etkiler; hedefli komutan örneğinde `21` kenar başlangıç geçmişi aldı. Ters yön otomatik aynalanmaz.
+- Başlangıçtaki geniş karakter ağacı dört oynanabilir kökten açılır: askerî komutan, şirket sahibi, siyasi lider ve ajan. Rol, soru metinlerini ve `6/3/3`, `2/6/4`, `3/4/5`, `2/3/7` kanıt dağılımını değiştirmenin yanında gerçek kariyer kaydını da değiştirir. Komutan dışı cevaplar komuta cüzdanına dokunmaz; nüfuz, güvenilirlik, özerklik ve mesleki kapasiteyi `0–100` aralığında sürer.
+- Şirket sahibi gerçek `company:0:civil_industry` siciline, ajan servis yuvasına, siyasi lider yürütme kurumuna ve komutan silahlı kuvvetler kurumuna bağlanır. Şirket sahibi hedefli probunda oyuncu ne yürütme ne de silahlı kuvvetler makamını kendiliğinden aldı; bu makamlar isimli dünya aktörlerinde kaldı. Kariyer/bağ alanları `story-v1-to-v2-adapter-9`, PlayerKnowledge v2 ve `legacy-save-v3-to-v2-8` ile korunur.
+- WorldV2 `characterRelationships` koleksiyonunu taşır; PlayerKnowledge yalnız oyuncunun ülkesinin taraf olduğu bağları açar. Yabancı projeksiyonda oyuncunun özel ilişkisi `0` sızıntı verdi. V3→V2 ve birebir save/load geçti.
+- Şehir/ekonomi panel cache'i `64` anahtarlı gerçek LRU'ya çıktı; tek pahalı view-model o andaki bütün sekme imzalarına bağlanıyor ve değişmeyen HTML kontrolü DOM'u yeniden serileştirmeyen WeakMap aynası kullanıyor. Tek şehir sekme turu `33 istek / 1 şehir dosyası / 32 görünüm isabeti`; dört şehir turu `37 istek / 4 şehir dosyası / 1 WorldV2+PlayerKnowledge kurulumu / 3 dünya-bilgi isabeti / 33 görünüm isabeti / 0 tahliye` verdi. Bilgi filtresi ve UI tarafsızlığı geçti.
+- Kullanıcının bildirdiği ağır `Nüfus` ve `Kurumlar` sekmeleri ayrıca sıkılaştırıldı. Nüfus sekmesi aynı kohortu ikinci kez defterden klonlamaz; tooltip hazırlığı layout ölçmez; ekran dışı uzun bölümler paint/layout dışında kalabilir. Sekme DOM'ları fragment olarak saklanır. Hedefli tekrar açılışında view/world/HTML/`innerHTML` sayıları artmadı, iki hazır DOM ağacı geri takıldı ve içerik birebir kaldı.
+- Açık rol borcu: başlangıç rolü doğru kimlik, kurum ve kariyeri seçiyor fakat ana navigasyon ve bütün eylem yüzeyleri henüz `RoleAuthorityProjection` ile ayrışmıyor. Bu yüzden komutan şirket ayrıntısına gereğinden fazla erişebilir veya şirket sahibi eski ordu kontrollerini görebilir. Faz 35 içinde sahte geçici menü yapılmayacak; karakter eylem adayları Faz 37'de, tam rol merceği Faz 59–60.3'te kapanacak.
+- Açık bina borcu: mevcut şehir eylemleri fabrika/kışla ağırlıklıdır. Sırf çeşit görünmesi için yeni bonus düğmeleri eklenmeyecek. EXT-ACT-012'nin kanonik `ProjectV1 → WorldAssetV1 → bakım` zinciri ve karar biçimi gerçekten farklı ilk `8–12` varlık şablonu bu borcun sahibidir.
+- İlk tam koşu 56 görevi tamamladıktan sonra önemli bir kurum regresyonu yakaladı: başlangıçta komutan seçilen oyuncu, kampanya durumu yürütme makamını oyuncuya verdiğinde yine `GENELKURMAY BAŞKANI` kalıyordu. Başlangıç rolünün yalnız ilk makam atamasını belirlemesi; sonraki kurum sahipliğinin gerçek `state.gov.leader` durumunu izlemesi sağlandı. Karşı-test şirket sahibinin yürütme/ordu makamını kendiliğinden almadığını ve komutanın sonradan `CUMHURBAŞKANI` olabildiğini birlikte doğruladı.
+- Nihai `npm test -- --workers=6`, eşzamanlı savaş AI yüküne rağmen `56/56` görevle `2.185,4 sn`de ve çıkış kodu `0` ile geçti. Ana 900 saniyelik karma `145d5775521b8ac8db834ccc76c6e417168eb0c61959cd6a8b744e3aa28b3b72`; refah `64,625`, enflasyon `2,255`, huzursuzluk `3,09`, sekiz aktif devlet ve `16` haberle korundu. Faz 35 tamamlandı; sıradaki uygulama **Faz 36 — Üç Katmanlı Hafıza**dır.
+
+## Faz 36 — Üç Katmanlı Hafıza ilk dikey dilim
+
+- `story-character-memory-ledger-1` üç ayrı yaşam süresi kurdu. `RECENT` aktör başına `24` kayıtla sınırlı; budanan düşük önem kayıtları sessiz silinmek yerine en çok `12` deterministik `SUMMARY` kaydına yoğunlaşır. `EPISODE` çözülmemiş konuşma konusunu, `MILESTONE` ise ORIGIN/PROMISE/SECRET/BETRAYAL/DEBT gibi silinmemesi gereken bağları tutar.
+- Hafıza gerçek üretmez. `inventedFacts:false` ve `llmWrites:false` teşhisi sözleşmedir. On iki karakter köken kararı tam `12` ORIGIN mihenk taşı ve `31` ActorBelief kaynaklı yakın kayıt oluşturdu; önce görülen çift yazım `62→31` indirilerek aynı geçmişin karar ağırlığını ikiye katlaması engellendi.
+- Gerçek `Talks.js` kuyruğu hafıza bölüm kimliği taşır. `law-complaint` açılışı OPEN EPISODE, oyuncunun cevabı RESOLVED sonuç ve “gelecek konseyde değiştireceğim” seçeneği kalıcı PROMISE üretti. Süresi dolan konuşma da sonsuza kadar açık kalmaz; kaynaklı “yanıt verilmeden süresi doldu” sonucu alır.
+- PlayerKnowledge v3 yalnız kendi ülkesindeki gerçek hafıza sahiplerinin bildiğini açar. Ülke 0 sırrı ülke 1'e, ülke 1 sırrı ülke 0'a sızmadı; her sahibi kendi projeksiyonunda sırrı korudu. WorldV2, boş dünya, V3→V2, kaynak V3 değişmezliği ve birebir kayıt/yükleme geçti.
+- Scheduler devam probu görev sırasını ve registry/legacy eşitliğini korudu. 73. saniye kaydından sonra kesintisiz ve yüklenmiş dünya aynı `a57155c8bb7db30ec33629c49a4865623c5fb371b856c5b653d23061a3fb1b5c` karmasını verdi; checkpoint ve gelecek fark listeleri boştu.
+- Faz henüz kapanmadı. Faz 33 siyasi kriz konuşmaları ayrı UI yolunda; gerçek SECRET/BETRAYAL/DEBT üreticileri, dönem sonu yoğunlaştırma ve uzun kampanya boyut/bellek tavanı kabul borcudur.
+- Tam paket ilk olarak kimlik özelliği kapalı güç-merkezi A/B yolunda Talks.js aktör çözümleyicisinin `null.identities` erişimini yakaladı. Çözüm hafıza/kimlik yokken eski konuşmayı sürdürür; hedefli karşı-test `memory:null / talkCount:1` verdi. Sonraki 57-görev üretimi tamamlandı; eksik assertion importu manifest ile eşlendi.
+- Son 57'li sonuç setinde yalnız raster cache duvar süresi eşzamanlı savaş AI yükünde `3.365,171 ms` ile sabit `2.000 ms` kapısını aştı. Eşik gevşetilmedi. Aynı `mapRasterProbe` tek işçide `631,22 ms`, terrain/overlay `1350/300`, kıyı farkı `%0,216102`, eşit A/B karması ve geçerli sözleşme verdi. Bu tek sonuç korunmuş 57'li sete alındığında bütün `tests/story-world.test.js` assertion'ları çıkış kodu `0` ile geçti. Ana karma `145d5775521b8ac8db834ccc76c6e417168eb0c61959cd6a8b744e3aa28b3b72` kaldı.
+
 ## Faz 32 sonrası arayüz ve test tezgâhı ara teslimi
 
 - Dünya ekranının sağ bilgi yığını `GÜNDEM / BÖLGE / AKIŞ` bağlamlarına ayrıldı. Varsayılan `GÜNDEM`, aynı anda en fazla beş konuyu önem sırasıyla gösterir; `BÖLGE` mevcut harekât brifingini, `AKIŞ` dünya günlüğünü korur. Haritada düğüm seçimi doğrudan bölge bağlamına geçer.
 - Gündem yeni veya sahte bir yönetim durumu üretmez. Bekleyen fraksiyon olayı, grev, refah, enflasyon, Faz 30 uygulama bileti, Faz 31 seçim/itirazı, Faz 32 kamusal soruşturması ve seçili aktif cephe mevcut salt-okunur görünümlerden türetilir. Her konu ekonomi, konsey veya bölge çalışma alanına tek eylemle gider.
 - Sekmeler `tablist/tab/tabpanel`, `aria-selected`, klavye sol/sağ/Home/End dolaşımı ve görünür odak taşır. Gündem 2 Hz simülasyon çözünürlüğünde güncellenir; 50 Hz panel döngüsünde ağır ülke/kurum görünümü yeniden klonlanmaz.
 - `probeCityDossier`, gündemin simülasyon karmasını değiştirmediğini; bekleyen toplumsal olayın ilk sırada `critical` çıktığını; üç sekmenin görünürlük ve erişilebilirlik sözleşmesini ve beş maddelik yük tavanını doğruluyor. Görsel tarayıcı bu oturumda kullanılamadığı için piksel/viewport kabulü gerçek EXE üzerinde oyuncu kontrolüne açıktır.
+- 8 Ağustos performans düzeltmesiyle şehir/ekonomi panelleri her 0,5 saniyelik istekte tam `WorldV2 + PlayerKnowledge` ağacını yeniden kurmuyor. Sekme bağımlı defter ve scheduler sürümleri değişmedikçe görünüm önbellekten geliyor; aynı render anahtarında HTML üretimi ve DOM yazımı atlanıyor. Ekonomi paneli bu güvenli kapıyla canlı yenileniyor. Ana bölge bilgisi, günlük, ordu, teknoloji, konsey ve değişim panellerinde değişmeyen `innerHTML` yazımları da durduruldu. Hedefli ölçüm ilk istekte `1` görünüm/`1` DOM yazımı, sonraki 25 istekte `25` görünüm isabeti/`25` DOM atlaması verdi.
 - Paralel tezgâhın heap tavanı ile gerçek işçi planlama tahmini ayrıldı. Tam `npm test -- --workers=6` koşusu aynı `52/52` sonuç ve `dd4ea4786ddfdc10b26ed949213a2c2bddadc5782f1b2aa5b7d104ab0081f42c` karmasıyla `489,1 sn` sürdü; seri `1.664,7 sn` referansa göre `3,40×` hızlanma ve `%70,6` süre azalmasıdır. Kabul ayrıntısı `docs/HIKAYE-TEST-PARALEL.md` içindedir.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)

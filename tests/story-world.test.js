@@ -45,6 +45,8 @@ const {
     probeIntegrity,
     probePoliticalCrisis,
     probeGovernanceWorkspace,
+    probeCharacterIdentities,
+    probeCharacterMemory,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -2660,6 +2662,198 @@ function run() {
     assert.equal(governanceProbe.disabled.disabled, true,
         'Faz 33.1 özellik bayrağıyla güvenle kapanabilmeli.');
 
+    const characterIdentityProbe = storyTestResult('characterIdentityProbe', probeCharacterIdentities);
+    assert.equal(characterIdentityProbe.main.validation.ok, true,
+        'Faz 34 karakter kimliği defteri sözleşmesini geçmeli.');
+    assert.ok(characterIdentityProbe.main.identityCount >= characterIdentityProbe.main.countryCount * 2,
+        'Her devlet en az bir yürütme karakteri ve bir komutan kimliği taşımalı.');
+    assert.ok(characterIdentityProbe.main.divergent,
+        'Aynı seçenekler karşısında farklı karakter profilleri farklı ilk tercihe yönelebilmeli.');
+    assert.notDeepEqual(characterIdentityProbe.main.leftStrategy, characterIdentityProbe.main.rightStrategy,
+        'Farklı karakterler aynı bağlamda farklı konuşma stratejisi üretebilmeli.');
+    assert.ok(characterIdentityProbe.main.optionCounts.every(count => count === 2),
+        'Kişilik profili yetkili adayı yasaklamamalı; bütün seçenekler sıralamada kalmalı.');
+    assert.equal(characterIdentityProbe.main.ownIdentityStatus, 'VERIFIED',
+        'Kendi karakter kimliği doğrulanmış oyuncu bilgisi olmalı.');
+    assert.equal(characterIdentityProbe.main.foreignIdentityStatus, 'UNKNOWN',
+        'Yabancı karakterin iç kimlik profili istihbarat olmadan sızmamalı.');
+    assert.equal(characterIdentityProbe.main.creationInputValidation.ok, true,
+        'Faz 34 oyuncu yaratım girdisi rol dağılımı ve bedelli seçenek sözleşmesini geçmeli.');
+    assert.deepEqual(characterIdentityProbe.main.commanderPolicy.counts, { harp: 6, idare: 3, siyaset: 3 },
+        'Komutanın 12 kararı planlandığı gibi 6/3/3 kanıt alanına dağılmalı.');
+    assert.equal(characterIdentityProbe.main.previewMatrixComplete, true,
+        'Her tema ve davranış seçeneği iç sistemde gerçek kazanç ile bedel taşımalı.');
+    assert.equal(characterIdentityProbe.main.questionMechanicsHidden, true,
+        'On iki kişilik ikilemi mekanik artı/eksi veya etki önizlemesini oyuncuya göstermemeli.');
+    assert.equal(characterIdentityProbe.main.roleQuestionBanksComplete, true,
+        'Şirket yöneticisi, siyasi lider ve ajan yolları on ikişer özgün ve dört seçenekli rol ikilemi taşımalı.');
+    assert.equal(characterIdentityProbe.roleSelection.validation.ok, true,
+        'Şirket yöneticisi rolü kendi 2/6/4 soru dağılımıyla geçerli yaratılabilmeli.');
+    assert.equal(characterIdentityProbe.roleSelection.commanderTokenRole, 'COMPANY_OWNER',
+        'Eski hareket nesnesi yalnız kampanya kontrol jetonu olmalı; seçilen rolü korumalı.');
+    assert.equal(characterIdentityProbe.roleSelection.canonicalIdentityRole, 'COMPANY_OWNER',
+        'Dünya kimliği şirket yöneticisini gizlice oyuncu komutanına çevirmemeli.');
+    assert.deepEqual(characterIdentityProbe.roleSelection.policy.counts, { harp: 2, idare: 6, siyaset: 4 },
+        'Rol seçimi on iki sorunun kanıt alanını gerçekten değiştirmeli.');
+    assert.equal(characterIdentityProbe.roleSelection.organizationId, 'company:0:civil_industry',
+        'Şirket sahibi rolü soyut etikette kalmamalı; gerçek şirket siciline bağlanmalı.');
+    assert.equal(characterIdentityProbe.roleSelection.worldOrganizationId, 'company:0:civil_industry',
+        'Rolün gerçek şirket bağı WorldV2 karakter projeksiyonunda korunmalı.');
+    assert.match(characterIdentityProbe.roleSelection.publicTitle || '', /Yönetim Kurulu Başkanı/,
+        'Şirket sahibinin dünya içinde rolüne uygun kamusal unvanı olmalı.');
+    assert.equal(characterIdentityProbe.roleSelection.allEffectsUseCareer, true,
+        'Şirket sahibi cevapları komutan petrolü veya insan gücü yerine rol kariyerini değiştirmeli.');
+    assert.notEqual(characterIdentityProbe.roleSelection.executiveHolderActorId, 'character:0:0',
+        'Şirket sahibi seçen oyuncu otomatik olarak devlet yürütme makamını işgal etmemeli.');
+    assert.notEqual(characterIdentityProbe.roleSelection.armedForcesHolderActorId, 'character:0:0',
+        'Şirket sahibi seçen oyuncu otomatik olarak silahlı kuvvetler makamını işgal etmemeli.');
+    assert.ok(characterIdentityProbe.roleSelection.career
+        && Object.values(characterIdentityProbe.roleSelection.career)
+            .filter(value => typeof value === 'number')
+            .every(value => value >= 0 && value <= 100),
+    'Rol kariyer kaynakları sınırlandırılmış ve dünya durumunda kalıcı olmalı.');
+    assert.ok(characterIdentityProbe.main.roleCounts.COMPANY_EXECUTIVE >= characterIdentityProbe.main.countryCount,
+        'Dünya isimli şirket yöneticileri taşımalı.');
+    assert.ok(characterIdentityProbe.main.roleCounts.POLITICAL_FIGURE >= characterIdentityProbe.main.countryCount * 3,
+        'Her devlet geniş bir isimli siyasi kadro taşımalı.');
+    assert.ok(characterIdentityProbe.main.roleCounts.AGENT >= characterIdentityProbe.main.countryCount * 2,
+        'Her devlet iç ve dış istihbarat aktörü taşımalı.');
+    assert.equal(characterIdentityProbe.main.relationshipValidation.ok, true,
+        'Faz 35 yönlü ilişki defteri sözleşmesini geçmeli.');
+    assert.equal(characterIdentityProbe.main.memoryValidation.ok, true,
+        'Faz 34 köken olguları Faz 36 hafıza sözleşmesine kaynaklı bağlanmalı.');
+    assert.equal(characterIdentityProbe.main.originMemoryCount, 12,
+        'On iki karakter köken kararı on iki kalıcı ORIGIN mihenk taşı üretmeli.');
+    assert.ok(characterIdentityProbe.main.originRecentCount >= 12,
+        'ActorBelief sahipleri köken olgularını yakın bağlamlarında taşımalı.');
+    assert.ok(characterIdentityProbe.main.relationshipCount > characterIdentityProbe.main.identityCount,
+        'Seyrek ilişki grafı karakterleri birden fazla anlamlı bağla bağlamalı.');
+    assert.ok(characterIdentityProbe.main.asymmetricPair,
+        'A→B değerlendirmesi B→A değerlendirmesinden gerçekten farklı olabilmeli.');
+    assert.ok(characterIdentityProbe.main.originSeededRelationshipCount > 0,
+        'On iki gizli-bedelli yaratım kararı karakterlerin oyuncuya başlangıç bakışını değiştirmeli.');
+    assert.equal(characterIdentityProbe.main.worldRelationshipCount, characterIdentityProbe.main.relationshipCount,
+        'WorldV2 Faz 35 ilişki grafını eksiksiz taşımalı.');
+    assert.equal(characterIdentityProbe.main.foreignPlayerRelationshipLeak, false,
+        'Yabancı oyuncu projeksiyonu oyuncu karakterinin özel ilişkilerini sızdırmamalı.');
+    assert.equal(characterIdentityProbe.main.worldValidation.ok, true,
+        'WorldV2, Faz 34 WorldFact ve ActorBelief koleksiyonlarıyla doğrulanmalı.');
+    assert.equal(characterIdentityProbe.main.knowledgeValidation.ok, true,
+        'PlayerKnowledge, bilinen köken olgularını geçerli bilgi zarflarıyla taşımalı.');
+    assert.equal(characterIdentityProbe.main.creationOutcome.profile.decisions.length, 12,
+        'Oyuncunun on iki başlangıç kararı kalıcı yaratım profiline yazılmalı.');
+    assert.equal(characterIdentityProbe.main.worldFactCount, 12,
+        'Her başlangıç kararı tam bir kanonik WorldFact üretmeli.');
+    assert.ok(characterIdentityProbe.main.actorBeliefCount >= 12,
+        'Her WorldFact en az kararı veren karakterin kaynaklı ActorBelief kaydına sahip olmalı.');
+    assert.equal(characterIdentityProbe.main.originCausalEventCount, 12,
+        'Her başlangıç kararı nedensellik defterinde ayrı kanonik olay üretmeli.');
+    assert.ok(characterIdentityProbe.main.creationOutcome.profile.decisions.every(row =>
+        row.originEventId && row.gain.appliedDelta > 0 && row.cost.appliedDelta < 0),
+    'Her karar aynı kayıtta gerçek pozitif kazanç, gerçek negatif bedel ve originEventId taşımalı.');
+    assert.ok(characterIdentityProbe.main.creationOutcome.profile.decisions.every(row =>
+        row.visibleAt - characterIdentityProbe.main.creationOutcome.profile.completedAt <= 600),
+    'Her kararın ilk mekanik sonucu en geç on dakika içinde görünür olmalı.');
+    assert.equal(characterIdentityProbe.main.visibleOriginFactCount, 12,
+        'Oyuncu kendi geçmişindeki on iki kararı PlayerKnowledge üzerinden görebilmeli.');
+    assert.equal(characterIdentityProbe.main.foreignOriginFactCount, 0,
+        'Başka devlet, kaynaklı ActorBelief olmadan oyuncunun köken kararlarını öğrenmemeli.');
+    assert.equal(characterIdentityProbe.main.migration.ok, true,
+        'Faz 34 karakter defteri V3 kaydından V2 gölge dünyaya göç edebilmeli.');
+    assert.equal(characterIdentityProbe.main.migration.validation.ok, true,
+        'Göç edilen WorldFact ve ActorBelief koleksiyonları WorldV2 sözleşmesini geçmeli.');
+    assert.equal(characterIdentityProbe.main.migration.worldFactCount, 12,
+        'V3→V2 göçü oyuncunun on iki köken gerçeğini kaybetmemeli.');
+    assert.equal(characterIdentityProbe.main.migration.actorBeliefCount,
+        characterIdentityProbe.main.actorBeliefCount,
+        'V3→V2 göçü kaynaklı aktör inançlarını eksiltmemeli.');
+    assert.equal(characterIdentityProbe.main.migration.originMemoryCount, 12,
+        'V3→V2 göçü on iki kaynaklı ORIGIN mihenk taşını kaybetmemeli.');
+    assert.equal(characterIdentityProbe.main.migration.unmapped, false,
+        'Karakter kimliği defteri göç raporunda eşlenmemiş üst alan kalmamalı.');
+    assert.equal(characterIdentityProbe.main.creationSummary.decisionCount, 12,
+        'Komutan paneli için kalıcı geçmiş özeti on iki kararı saymalı.');
+    assert.equal(characterIdentityProbe.main.saveOk, true, 'Faz 34 karakter defteri kaydedilebilmeli.');
+    assert.equal(characterIdentityProbe.restored.loaded, true, 'Faz 34 karakter defteri kayıttan yüklenebilmeli.');
+    assert.equal(characterIdentityProbe.restored.validation.ok, true, 'Yüklenen karakter defteri geçerli kalmalı.');
+    assert.equal(characterIdentityProbe.restored.equal, true, 'Karakter kimliği kayıt/yüklemede birebir korunmalı.');
+    assert.equal(characterIdentityProbe.restored.relationshipValidation.ok, true,
+        'Yüklenen Faz 35 ilişki defteri geçerli kalmalı.');
+    assert.equal(characterIdentityProbe.restored.relationshipEqual, true,
+        'Yönlü ilişkiler kayıt/yüklemede birebir korunmalı.');
+    assert.equal(characterIdentityProbe.restored.memoryValidation.ok, true,
+        'Yüklenen köken hafızası geçerli kalmalı.');
+    assert.equal(characterIdentityProbe.restored.memoryEqual, true,
+        'Köken mihenk taşları ve yakın aktör bağlamı kayıt/yüklemede birebir korunmalı.');
+    assert.equal(characterIdentityProbe.disabled, null, 'Faz 34 özellik kapalıyken karakter defteri kurulmamı.');
+
+    const characterMemoryProbe = storyTestResult('characterMemoryProbe', probeCharacterMemory);
+    assert.equal(characterMemoryProbe.main.validation.ok, true,
+        'Faz 36 üç katmanlı karakter hafızası sözleşmesini geçmeli.');
+    assert.equal(characterMemoryProbe.main.realTalkEpisodeOpen, true,
+        'Gerçek Talks.js konuşması açıldığı anda kaynaklı hafıza bölümü üretmeli.');
+    assert.equal(characterMemoryProbe.main.realTalkEpisodeResolved, true,
+        'Oyuncunun gerçek konuşma cevabı açık hafıza bölümünü sonuçlandırmalı.');
+    assert.equal(characterMemoryProbe.main.realTalkPromiseRecorded, true,
+        'Gerçek konuşmada verilen söz kalıcı PROMISE mihenk taşına dönüşmeli.');
+    assert.equal(characterMemoryProbe.main.recentCount, 24,
+        'Yakın karakter hafızası aktör başına 24 kayıt tavanını aşmamalı.');
+    assert.ok(characterMemoryProbe.main.summaryCount > 0,
+        'Budanan yakın kayıtlar sessizce kaybolmak yerine deterministik dönem özeti bırakmalı.');
+    assert.equal(characterMemoryProbe.main.episodeApplied, true,
+        'Karakterler arasında kaynaklı konuşma bölümü açılabilmeli.');
+    assert.equal(characterMemoryProbe.main.openEpisodePreserved, true,
+        'Çözülmemiş konuşma konusu kapanmadan açık kalmalı.');
+    assert.match(characterMemoryProbe.main.unresolvedTopic || '', /henüz karara bağlanmadı/,
+        'Açık bölüm, çözülmemiş şartı açıkça taşımalı.');
+    assert.equal(characterMemoryProbe.main.promiseApplied, true, 'Söz kalıcı mihenk taşı olmalı.');
+    assert.equal(characterMemoryProbe.main.ownSecretApplied, true, 'Sır kalıcı mihenk taşı olmalı.');
+    assert.equal(characterMemoryProbe.main.milestoneSurvivedRecentPrune, true,
+        'Yakın bağlam budaması sır/söz/borç mihenk taşını silememeli.');
+    assert.equal(characterMemoryProbe.main.worldValidation.ok, true,
+        'Hafıza eklenmiş WorldV2 sözleşmesini geçmeli.');
+    assert.equal(characterMemoryProbe.main.knowledgeValidation.ok, true,
+        'Hafıza eklenmiş PlayerKnowledge sözleşmesini geçmeli.');
+    assert.equal(characterMemoryProbe.main.ownSeesOwnSecret, true,
+        'Sırrı bilen kendi aktörü sırrı bilgi görünümünde korumalı.');
+    assert.equal(characterMemoryProbe.main.foreignSeesOwnSecret, false,
+        'Yabancı ülke ActorBelief veya hafıza sahipliği olmadan oyuncunun sırrını görmemeli.');
+    assert.equal(characterMemoryProbe.main.ownSeesForeignSecret, false,
+        'Oyuncu ülkesi yabancı kapalı sırrı salt WorldV2 içinde diye öğrenmemeli.');
+    assert.equal(characterMemoryProbe.main.foreignSeesForeignSecret, true,
+        'Sırrın gerçek yabancı sahibi kendi bilgi projeksiyonunda kaydı korumalı.');
+    assert.equal(characterMemoryProbe.main.migration.ok, true, 'Faz 36 hafızalı V3→V2 göçü geçmeli.');
+    assert.equal(characterMemoryProbe.main.migration.validation.ok, true,
+        'Göçmüş hafıza WorldV2 sözleşmesini geçmeli.');
+    assert.equal(characterMemoryProbe.main.migration.memoryEqual, true,
+        'Güncel V3→V2 göçü üç hafıza katmanını birebir korumalı.');
+    assert.equal(characterMemoryProbe.main.migration.unmapped, false,
+        'characterMemory göç raporunda eşlenmemiş alan kalmamalı.');
+    assert.equal(characterMemoryProbe.main.saveOk, true, 'Faz 36 hafıza defteri kaydedilebilmeli.');
+    assert.equal(characterMemoryProbe.restored.loaded, true, 'Faz 36 hafıza defteri yüklenebilmeli.');
+    assert.equal(characterMemoryProbe.restored.validation.ok, true,
+        'Yüklenen üç katmanlı hafıza geçerli kalmalı.');
+    assert.equal(characterMemoryProbe.restored.equal, true,
+        'Yakın kayıt, açık bölüm ve mihenk taşları kayıt/yüklemede birebir korunmalı.');
+    assert.equal(characterMemoryProbe.restored.openEpisodePreserved, true,
+        'Çözülmemiş konuşma konusu yüklemede unutulmamalı.');
+    assert.equal(characterMemoryProbe.restored.promisePreserved, true, 'Söz yüklemede unutulmamalı.');
+    assert.equal(characterMemoryProbe.restored.secretPreserved, true, 'Sır yüklemede unutulmamalı.');
+    assert.equal(characterMemoryProbe.restored.debtPreserved, true, 'Borç yüklemede unutulmamalı.');
+    assert.equal(characterMemoryProbe.legacy.loaded, true, 'Eski hafızasız kayıt güvenle açılmalı.');
+    assert.equal(characterMemoryProbe.legacy.validation.ok, true,
+        "Eski kaydın kaynaklı hafıza backfill'i geçerli olmalı.");
+    assert.equal(characterMemoryProbe.legacy.backfilled, true,
+        'Eski kaydın hafıza geçmişinin backfill olduğu teşhiste yazmalı.');
+    assert.equal(characterMemoryProbe.legacy.inventedFacts, false,
+        'Eski kayıt için söz, sır veya ihanet uydurulmamalı.');
+    assert.equal(characterMemoryProbe.disabled, null,
+        'Faz 36 özellik kapalıyken karakter hafıza defteri kurulmamalı.');
+    assert.equal(characterMemoryProbe.dependencyDisabled.memory, null,
+        'Kimlik öncülü kapalıyken Faz 36 hafızası etkinleşmemeli.');
+    assert.ok(characterMemoryProbe.dependencyDisabled.talkCount > 0,
+        'Karakter kimliği/hafıza öncülü kapalıyken eski Talks.js akışı çökmemeli.');
+
     const cityDossierProbe = storyTestResult('cityDossierProbe', probeCityDossier);
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
     assert.equal(cityDossierProbe.main.foreignValidation.ok, true, 'Yabancı şehir dosyası sözleşmesini geçmeli.');
@@ -2708,6 +2902,90 @@ function run() {
         'Eski fraksiyon sekmesi destek puanı yerine gerçek güç merkezi kaydını göstermeli.');
     assert.match(cityDossierProbe.main.ownGeneral.html, /role="tablist"/, 'Şehir bölümleri erişilebilir tablist semantiği taşımalı.');
     assert.match(cityDossierProbe.main.ownGeneral.html, /aria-selected="true"/, 'Etkin şehir sekmesi erişilebilir seçim durumu taşımalı.');
+    assert.equal(cityDossierProbe.main.panelOptimization.sameHtml, true,
+        'Aynı şehir sekmesi değişmeyen durumda aynı görünümü korumalı.');
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterRepeat.viewBuilds,
+        cityDossierProbe.main.panelOptimization.afterFirst.viewBuilds,
+        'Değişmeyen şehir paneli tam dünya/bilgi görünümünü yeniden kurmamalı.'
+    );
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterRepeat.domWrites,
+        cityDossierProbe.main.panelOptimization.afterFirst.domWrites,
+        'Değişmeyen şehir paneli DOM ağacını yeniden yazmamalı.'
+    );
+    assert.ok(
+        cityDossierProbe.main.panelOptimization.afterRepeat.viewCacheHits
+            > cityDossierProbe.main.panelOptimization.afterFirst.viewCacheHits,
+        'Tekrarlanan şehir paneli isteği görünüm önbelleğine isabet etmeli.'
+    );
+    assert.ok(cityDossierProbe.main.panelOptimization.afterRepeat.viewCacheHits >= 25,
+        'Uzun açık panel örneğinde en az 25 ardışık görünüm kurulumu önbellekten karşılanmalı.');
+    assert.ok(
+        cityDossierProbe.main.panelOptimization.afterRepeat.domSkips
+            > cityDossierProbe.main.panelOptimization.afterFirst.domSkips,
+        'Tekrarlanan şehir paneli isteği DOM yazımını atlamalı.'
+    );
+    assert.equal(cityDossierProbe.main.panelOptimization.revisitSameHtml, true,
+        'Sekmeler arası gezip geri dönüldüğünde genel panel aynı kalmalı.');
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.beforeRevisit.viewBuilds,
+        cityDossierProbe.main.panelOptimization.afterFirst.viewBuilds,
+        'Aynı şehrin sekme turu tek WorldV2/PlayerKnowledge view-modelini paylaşmalı.'
+    );
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterRevisit.viewBuilds,
+        cityDossierProbe.main.panelOptimization.beforeRevisit.viewBuilds,
+        'Sekmeye geri dönüş tam WorldV2/PlayerKnowledge görünümünü yeniden kurmamalı.'
+    );
+    assert.ok(
+        cityDossierProbe.main.panelOptimization.afterRevisit.viewCacheHits
+            > cityDossierProbe.main.panelOptimization.beforeRevisit.viewCacheHits,
+        'Çok girişli panel LRU önbelleği sekmeye geri dönüşü karşılamalı.'
+    );
+    assert.equal(cityDossierProbe.main.panelOptimization.heavyTabsSameHtml, true,
+        'Nüfus ve Kurumlar sekmeleri tekrar açıldığında aynı doğrulanmış içeriği korumalı.');
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterHeavyRevisit.viewBuilds,
+        cityDossierProbe.main.panelOptimization.beforeHeavyRevisit.viewBuilds,
+        'Nüfus ve Kurumlar tekrar açılışı şehir görünümünü yeniden kurmamalı.'
+    );
+    assert.ok(
+        cityDossierProbe.main.panelOptimization.afterHeavyRevisit.domRestores
+            >= cityDossierProbe.main.panelOptimization.beforeHeavyRevisit.domRestores + 2,
+        'Nüfus ve Kurumlar tekrar açılışı hazırlanmış iki DOM ağacını yeniden ayrıştırmadan geri takmalı.'
+    );
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterHeavyRevisit.domWrites,
+        cityDossierProbe.main.panelOptimization.beforeHeavyRevisit.domWrites,
+        'Nüfus ve Kurumlar tekrar açılışı innerHTML ile yeni DOM yazmamalı.'
+    );
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterHeavyRevisit.worldBuilds,
+        cityDossierProbe.main.panelOptimization.beforeHeavyRevisit.worldBuilds,
+        'Ağır sekme tekrarları WorldV2/PlayerKnowledge ağacını yeniden kurmamalı.'
+    );
+    assert.equal(cityDossierProbe.main.panelOptimization.cityTourCount, 3,
+        'Panel önbelleği en az dört şehirlik gerçek gezinme çalışma kümesiyle sınanmalı.');
+    assert.equal(cityDossierProbe.main.panelOptimization.cityReturnSameHtml, true,
+        'Üç başka şehir gezildikten sonra ilk şehir aynı görünümü korumalı.');
+    assert.equal(
+        cityDossierProbe.main.panelOptimization.afterCityReturn.viewBuilds,
+        cityDossierProbe.main.panelOptimization.beforeCityReturn.viewBuilds,
+        'Dört şehirlik gezintiden dönüş WorldV2/PlayerKnowledge görünümünü yeniden kurmamalı.'
+    );
+    assert.ok(
+        cityDossierProbe.main.panelOptimization.afterCityReturn.viewCacheHits
+            > cityDossierProbe.main.panelOptimization.beforeCityReturn.viewCacheHits,
+        'Dört şehirlik çalışma kümesinden ilk şehre dönüş LRU önbelleğine isabet etmeli.'
+    );
+    assert.equal(cityDossierProbe.main.panelOptimization.afterCityReturn.viewCacheEvictions, 0,
+        'Dört şehirlik normal kullanıcı gezintisi görünüm anahtarlarını erken tahliye etmemeli.'
+    );
+    assert.equal(cityDossierProbe.main.panelOptimization.afterCityReturn.worldBuilds, 1,
+        'Dört farklı şehir aynı simülasyon anında tek WorldV2/PlayerKnowledge anlık görüntüsünü paylaşmalı.');
+    assert.ok(cityDossierProbe.main.panelOptimization.afterCityReturn.worldCacheHits >= 3,
+        'İlk şehirden sonraki üç şehir paylaşımlı dünya/bilgi önbelleğine isabet etmeli.');
     assert.equal(cityDossierProbe.main.routeOpened, true, 'Koridordan bağlı şehir dosyasına gidilebilmeli.');
     assert.equal(
         cityDossierProbe.main.routeState.selectedNodeId,
@@ -3129,7 +3407,7 @@ function run() {
     );
     assert.equal(migrationProbe.success.countryResourcesMatch, true, 'Devlet kaynakları V3→V2 bire bir korunmalı.');
     assert.equal(migrationProbe.success.regionOwnersMatch, true, 'Bölge sahipliği V3→V2 bire bir korunmalı.');
-    assert.equal(migrationProbe.success.playerCommanderMatch, true, 'Oyuncu komutanı V2 karakter/kuvvet modeline taşınmalı.');
+    assert.equal(migrationProbe.success.playerCommanderMatch, true, 'Oyuncu karakteri seçilen rolüyle V2 karakter/kuvvet modeline taşınmalı.');
     assert.equal(migrationProbe.success.clock.schedulerState.fixedStepSeconds, 0.25, 'Göç sabit saat adımını V2 zamanlayıcısına taşımalı.');
     assert.equal(migrationProbe.success.rng.rootSeed, 2032, 'Göç RNG kök tohumunu V2 teşhisine taşımalı.');
     assert.equal(

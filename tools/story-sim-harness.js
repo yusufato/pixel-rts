@@ -55,6 +55,10 @@ const STORY_SOURCES = [
     'js/StoryAI.js',
     'js/StorySocial.js',
     'js/Character.js',
+    'js/CharacterRoleQuestions.js',
+    'js/StoryCharacters.js',
+    'js/StoryRelationships.js',
+    'js/StoryMemory.js',
     'js/Factions.js',
     'js/Economy.js',
     'js/News.js',
@@ -476,6 +480,35 @@ function createRuntime(seed) {
                 storyOnBattleEnd(won, summary || {});
             },
             state: () => STORY,
+            characterIdentityLedger: () => storyCharacterIdentitySnapshot(),
+            validateCharacterIdentityLedger: ledger => storyCharacterIdentityValidate(ledger),
+            characterIdentityView: actorId => storyCharacterIdentityView(actorId),
+            characterRankOptions: (actorId, options) => storyCharacterRankOptions(actorId, options),
+            characterConversationStrategy: (actorId, context) => storyCharacterConversationStrategy(actorId, context),
+            characterCreationPolicy: role => storyCharacterCreationRolePolicy(role),
+            characterQuestionAt: (theme, stage, previousTag, role) => charQuestionAt(theme, stage, previousTag, role),
+            characterDecisionPreview: (theme, optionTag) => storyCharacterDecisionPreview(theme, optionTag),
+            characterCreationValidate: character => storyCharacterCreationValidate(character),
+            characterCreationOutcome: actorId => storyCharacterCreationOutcomeView(actorId),
+            characterCreationSummary: actorId => storyCharacterCreationSummary(actorId),
+            relationshipLedger: () => storyRelationshipSnapshot(),
+            validateRelationshipLedger: ledger => storyRelationshipValidate(ledger),
+            relationshipView: (fromActorId, toActorId) => storyRelationshipView(fromActorId, toActorId),
+            relationshipAdjust: (fromActorId, toActorId, deltas, meta) => storyRelationshipAdjust(fromActorId, toActorId, deltas, meta),
+            characterMemoryLedger: () => storyMemorySnapshot(),
+            validateCharacterMemoryLedger: ledger => storyMemoryValidate(ledger),
+            characterMemoryAddRecent: (actorId, input) => storyMemoryAddRecent(actorId, input),
+            characterMemoryOpenEpisode: input => storyMemoryOpenEpisode(input),
+            characterMemoryResolveEpisode: (id, resolution) => storyMemoryResolveEpisode(id, resolution),
+            characterMemoryAddMilestone: input => storyMemoryAddMilestone(input),
+            characterMemoryResolveMilestone: (id, status) => storyMemoryResolveMilestone(id, status),
+            talkRun: templateId => storyTalkRun(templateId),
+            talkQueue: () => JSON.parse(JSON.stringify((STORY._talks || []).map(talk => ({
+                uid: talk.uid, tpl: talk.tpl, speakerActorId: talk.speakerActorId,
+                memoryEpisodeId: talk.memoryEpisodeId,
+                options: (talk.options || []).map(option => ({ text: option.text, tip: option.tip }))
+            })))),
+            talkAnswer: (uid, optionIndex) => storyTalkAnswer(uid, optionIndex),
             diplomacySnapshot: () => JSON.parse(JSON.stringify(STORY.rel || {})),
             treaty: (a, b) => storyTreaty(a, b),
             setTreaty: (a, b, treaty, years, meta) => storySetTreaty(a, b, treaty, years, meta),
@@ -1344,6 +1377,8 @@ function createRuntime(seed) {
             },
             cityDossierBuild: nodeId => storyCityDossierBuild(nodeId),
             validateCityDossier: view => storyCityDossierValidate(view),
+            cityDossierPerfReset: () => storyCityDossierPanelReset(),
+            cityDossierPerf: () => storyCityDossierPanelPerfSnapshot(),
             renderCityDossier: (nodeId, tab) => {
                 STORY.selectedNodeId = Number(nodeId);
                 STORY._citySub = String(tab || 'genel');
@@ -2768,11 +2803,13 @@ function probeMigration(seed = 2032, seconds = 10) {
         const expectedPlayerCommanderId = source.commander && source.commander.id != null
             ? `character:${source.playerStateId}:${source.commander.id}`
             : null;
+        const expectedPlayerRole = source.commander && source.commander.creationRole
+            ? String(source.commander.creationRole) : 'COMMANDER';
         const playerCommanderMatch = !expectedPlayerCommanderId || (
             target
             && target.characters.some(character => (
                 character.id === expectedPlayerCommanderId
-                && character.role === 'PLAYER_COMMANDER'
+                && character.role === expectedPlayerRole
             ))
         );
 
@@ -7265,13 +7302,33 @@ function probeCityDossier(seed = 2032) {
         const beforeHash = hashSnapshot(beforeUiSnapshot);
         const ownView = runtime.api.cityDossierBuild(ownNode.id);
         const ownValidation = runtime.api.validateCityDossier(ownView);
+        runtime.api.cityDossierPerfReset();
         const ownGeneral = runtime.api.renderCityDossier(ownNode.id, 'genel');
+        const panelPerfAfterFirst = runtime.api.cityDossierPerf();
+        let ownGeneralRepeat = ownGeneral;
+        for (let index = 0; index < 25; index++) {
+            ownGeneralRepeat = runtime.api.renderCityDossier(ownNode.id, 'genel');
+        }
+        const panelPerfAfterRepeat = runtime.api.cityDossierPerf();
         const ownPopulation = runtime.api.renderCityDossier(ownNode.id, 'nufus');
+        const ownInstitutions = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
         const ownEconomy = runtime.api.renderEconomy(ownNode.id, 'genel');
         const ownMarket = runtime.api.renderEconomy(ownNode.id, 'piyasa');
         const ownLogistics = runtime.api.renderEconomy(ownNode.id, 'lojistik');
         const ownFactions = runtime.api.renderEconomy(ownNode.id, 'fraksiyonlar');
         const ownCharacters = runtime.api.renderCityDossier(ownNode.id, 'karakterler');
+        const panelPerfBeforeRevisit = runtime.api.cityDossierPerf();
+        const ownGeneralAfterTabTour = runtime.api.renderCityDossier(ownNode.id, 'genel');
+        const panelPerfAfterRevisit = runtime.api.cityDossierPerf();
+        const panelPerfBeforeHeavyRevisit = runtime.api.cityDossierPerf();
+        const ownPopulationRepeat = runtime.api.renderCityDossier(ownNode.id, 'nufus');
+        const ownInstitutionsRepeat = runtime.api.renderCityDossier(ownNode.id, 'kurumlar');
+        const panelPerfAfterHeavyRevisit = runtime.api.cityDossierPerf();
+        const cacheTourNodes = story.nodes.filter(node => node.id !== ownNode.id).slice(0, 3);
+        for (const node of cacheTourNodes) runtime.api.renderCityDossier(node.id, 'genel');
+        const panelPerfBeforeCityReturn = runtime.api.cityDossierPerf();
+        const ownGeneralAfterCityTour = runtime.api.renderCityDossier(ownNode.id, 'genel');
+        const panelPerfAfterCityReturn = runtime.api.cityDossierPerf();
         const topBarWorldState = runtime.api.topBarWorldState();
         const afterUiSnapshot = stateSnapshot(story);
         const afterUiHash = hashSnapshot(afterUiSnapshot);
@@ -7349,7 +7406,24 @@ function probeCityDossier(seed = 2032) {
             ownView,
             ownValidation,
             ownGeneral,
+            panelOptimization: {
+                sameHtml: ownGeneralRepeat.html === ownGeneral.html,
+                afterFirst: panelPerfAfterFirst,
+                afterRepeat: panelPerfAfterRepeat,
+                revisitSameHtml: ownGeneralAfterTabTour.html === ownGeneral.html,
+                beforeRevisit: panelPerfBeforeRevisit,
+                afterRevisit: panelPerfAfterRevisit,
+                heavyTabsSameHtml: ownPopulationRepeat.html === ownPopulation.html
+                    && ownInstitutionsRepeat.html === ownInstitutions.html,
+                beforeHeavyRevisit: panelPerfBeforeHeavyRevisit,
+                afterHeavyRevisit: panelPerfAfterHeavyRevisit,
+                cityReturnSameHtml: ownGeneralAfterCityTour.html === ownGeneral.html,
+                cityTourCount: cacheTourNodes.length,
+                beforeCityReturn: panelPerfBeforeCityReturn,
+                afterCityReturn: panelPerfAfterCityReturn
+            },
             ownPopulation,
+            ownInstitutions,
             ownEconomy,
             ownMarket,
             ownLogistics,
@@ -10472,6 +10546,439 @@ function probeGovernanceWorkspace(seed = 2032) {
     return { main, restored, disabled };
 }
 
+function probeCharacterIdentities(seed = 2032) {
+    const options = [
+        {
+            id: 'STATE_CAPACITY_PUSH', baseScore: 50,
+            affinities: { stateMarketOrientation: 32, institutionalPosture: 12 },
+            goalTags: ['EXPAND_STATE_CAPACITY']
+        },
+        {
+            id: 'MARKET_CONFIDENCE_PACT', baseScore: 50,
+            affinities: { stateMarketOrientation: -32, popularTechnocraticStyle: -8 },
+            goalTags: ['RESTORE_MARKET_CONFIDENCE']
+        }
+    ];
+    const localStages = { harp: 0, idare: 0, siyaset: 0 };
+    const creationThemes = [
+        'harp', 'harp', 'harp', 'harp', 'harp', 'harp',
+        'idare', 'idare', 'idare',
+        'siyaset', 'siyaset', 'siyaset'
+    ];
+    const creationTags = ['sert', 'kurnaz', 'halkci', 'uzman'];
+    const creationDecisions = creationThemes.map((theme, index) => ({
+        index,
+        role: 'COMMANDER',
+        theme,
+        stage: localStages[theme]++,
+        branch: index ? creationTags[(index - 1) % creationTags.length] : 'root',
+        questionText: `Faz 34 test ikilemi ${index + 1}`,
+        optionIndex: index % creationTags.length,
+        optionText: `Bedelli test seçeneği ${index + 1}`,
+        optionTag: creationTags[index % creationTags.length],
+        legacyFx: {},
+        legacySeed: index % 4 === 3 ? `test geçmişi ${index + 1}` : null
+    }));
+    const creationCharacter = {
+        name: 'Test Komutanı',
+        role: 'COMMANDER',
+        questionPolicyVersion: 'character-role-question-policy-1',
+        dice: { warrior: 4, diplomat: 3, economist: 3 },
+        axes: { hawk: 55, auth: 48, pop: 52, nat: 50 },
+        seeds: ['test geçmişi'],
+        skillPlus: 'warrior',
+        decisions: creationDecisions
+    };
+    const runtime = createRuntime(seed >>> 0);
+    let main, savedRaw, savedRelationshipLedger, savedMemoryLedger;
+    try {
+        runtime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            character: creationCharacter
+        });
+        const ledger = runtime.api.characterIdentityLedger();
+        const identities = Object.values(ledger.identities || {});
+        const relationshipLedger = runtime.api.relationshipLedger();
+        savedRelationshipLedger = relationshipLedger;
+        const memoryLedger = runtime.api.characterMemoryLedger();
+        savedMemoryLedger = memoryLedger;
+        const relationshipEdges = Object.values(relationshipLedger && relationshipLedger.edges || {});
+        const ranked = identities.map(identity => ({
+            actorId: identity.id,
+            ranking: runtime.api.characterRankOptions(identity.id, options)
+        }));
+        let divergent = null;
+        for (let left = 0; left < ranked.length && !divergent; left++) {
+            for (let right = left + 1; right < ranked.length; right++) {
+                if (ranked[left].ranking[0].optionId !== ranked[right].ranking[0].optionId) {
+                    divergent = { left: ranked[left], right: ranked[right] };
+                    break;
+                }
+            }
+        }
+        const world = runtime.api.worldV2();
+        const knowledge = runtime.api.playerKnowledge(world, 'country:0');
+        const foreignKnowledge = runtime.api.playerKnowledge(world, 'country:1');
+        const playerActorId = 'character:0:0';
+        const creationOutcome = runtime.api.characterCreationOutcome(playerActorId);
+        const creationSummary = runtime.api.characterCreationSummary(playerActorId);
+        const ownCharacter = knowledge.characters.find(row => row.id.startsWith('character:0:'));
+        const foreignCharacter = knowledge.characters.find(row => !row.id.startsWith('character:0:'));
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            ledger,
+            validation: runtime.api.validateCharacterIdentityLedger(ledger),
+            identityCount: identities.length,
+            roleCounts: identities.reduce((acc, row) => {
+                acc[row.role] = (acc[row.role] || 0) + 1;
+                return acc;
+            }, {}),
+            countryCount: runtime.api.state().states.length,
+            divergent,
+            leftStrategy: divergent ? runtime.api.characterConversationStrategy(divergent.left.actorId, { stakes: 70 }) : null,
+            rightStrategy: divergent ? runtime.api.characterConversationStrategy(divergent.right.actorId, { stakes: 70 }) : null,
+            optionCounts: ranked.map(row => row.ranking.length),
+            worldCharacterCount: world.characters.length,
+            worldValidation: runtime.api.validateWorldV2(world),
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(knowledge),
+            ownIdentityStatus: ownCharacter && ownCharacter.identityProfile.status,
+            foreignIdentityStatus: foreignCharacter && foreignCharacter.identityProfile.status,
+            creationInputValidation: runtime.api.characterCreationValidate(creationCharacter),
+            commanderPolicy: runtime.api.characterCreationPolicy('COMMANDER'),
+            relationshipValidation: runtime.api.validateRelationshipLedger(relationshipLedger),
+            memoryValidation: runtime.api.validateCharacterMemoryLedger(memoryLedger),
+            originMemoryCount: Object.values(memoryLedger.milestones || {})
+                .filter(row => row.kind === 'ORIGIN').length,
+            originRecentCount: Object.values(memoryLedger.recentByActor || {})
+                .flat().filter(row => row.kind === 'ORIGIN').length,
+            relationshipCount: relationshipEdges.length,
+            asymmetricPair: relationshipEdges.find(edge => {
+                const reverse = relationshipLedger.edges[`relationship:${edge.toActorId}=>${edge.fromActorId}`];
+                return reverse && (reverse.trustBps !== edge.trustBps || reverse.fearBps !== edge.fearBps
+                    || reverse.respectBps !== edge.respectBps || reverse.hostilityBps !== edge.hostilityBps);
+            }) || null,
+            originSeededRelationshipCount: relationshipEdges.filter(edge =>
+                (edge.history || []).some(item => item.source === 'character.creation_profile')).length,
+            creationOutcome,
+            creationSummary,
+            worldFactCount: world.worldFacts.length,
+            actorBeliefCount: world.actorBeliefs.length,
+            worldRelationshipCount: world.characterRelationships.length,
+            visibleRelationshipCount: knowledge.characterRelationships.length,
+            foreignPlayerRelationshipLeak: foreignKnowledge.characterRelationships.some(edge =>
+                edge.fromActorId === playerActorId || edge.toActorId === playerActorId),
+            visibleOriginFactCount: knowledge.originFacts.length,
+            foreignOriginFactCount: foreignKnowledge.originFacts.length,
+            originCausalEventCount: (runtime.api.state().causality.events || [])
+                .filter(row => row.type === 'character.origin_decision_recorded').length,
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                worldFactCount: migrated.ok ? migrated.world.worldFacts.length : 0,
+                actorBeliefCount: migrated.ok ? migrated.world.actorBeliefs.length : 0,
+                originMemoryCount: migrated.ok
+                    ? Object.values(migrated.world.memory.milestones || {})
+                        .filter(row => row.kind === 'ORIGIN').length
+                    : 0,
+                unmapped: !!(migrated.ok
+                    && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('characterIdentities'))
+            },
+            previewMatrixComplete: ['harp', 'idare', 'siyaset'].every(theme =>
+                creationTags.every(tag => {
+                    const preview = runtime.api.characterDecisionPreview(theme, tag);
+                    return !!(preview && preview.gainLabel && preview.costLabel);
+                })),
+            questionMechanicsHidden: (() => {
+                const source = fs.readFileSync(path.join(ROOT, 'js/Character.js'), 'utf8');
+                const start = source.indexOf('function charRenderQuestion');
+                const end = source.indexOf('function charRenderSummary', start);
+                const block = source.slice(start, end);
+                return !block.includes('KAZANÇ:') && !block.includes('BEDEL:')
+                    && !block.includes('storyCharacterDecisionPreview') && !block.includes('char-tradeoff');
+            })(),
+            roleQuestionBanksComplete: ['COMPANY_OWNER', 'EXECUTIVE', 'AGENT'].every(role => {
+                const policy = runtime.api.characterCreationPolicy(role);
+                return Object.entries(policy.counts).every(([theme, count]) => {
+                    const questions = Array.from({ length: count }, (_, stage) =>
+                        runtime.api.characterQuestionAt(theme, stage, stage ? creationTags[(stage - 1) % 4] : null, role));
+                    return questions.every(question => question && question.q && question.o && question.o.length === 4)
+                        && new Set(questions.map(question => question.q)).size === count;
+                });
+            }),
+            saveOk: runtime.api.state()._lastSaveOk === true
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.characterIdentityLedger();
+        const relationships = restoredRuntime.api.relationshipLedger();
+        const memory = restoredRuntime.api.characterMemoryLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateCharacterIdentityLedger(ledger),
+            equal: JSON.stringify(ledger) === JSON.stringify(main.ledger),
+            relationshipValidation: restoredRuntime.api.validateRelationshipLedger(relationships),
+            relationshipEqual: JSON.stringify(relationships) === JSON.stringify(savedRelationshipLedger),
+            memoryValidation: restoredRuntime.api.validateCharacterMemoryLedger(memory),
+            memoryEqual: JSON.stringify(memory) === JSON.stringify(savedMemoryLedger)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.identityGoals': false },
+            character: creationCharacter
+        });
+        disabled = disabledRuntime.api.characterIdentityLedger();
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+    const roleRuntime = createRuntime((seed + 1) >>> 0);
+    let roleSelection;
+    try {
+        const roleThemes = ['harp', 'harp', 'idare', 'idare', 'idare', 'idare', 'idare', 'idare',
+            'siyaset', 'siyaset', 'siyaset', 'siyaset'];
+        const roleStages = { harp: 0, idare: 0, siyaset: 0 };
+        const roleDecisions = roleThemes.map((theme, index) => ({
+            index, role: 'COMPANY_OWNER', theme, stage: roleStages[theme]++,
+            branch: index ? creationTags[(index - 1) % creationTags.length] : 'root',
+            questionText: `Şirket yöneticisi ikilemi ${index + 1}`,
+            optionIndex: index % creationTags.length,
+            optionText: `Rol kararı ${index + 1}`,
+            optionTag: creationTags[index % creationTags.length], legacyFx: {}, legacySeed: null
+        }));
+        const roleCharacter = Object.assign({}, creationCharacter, {
+            name: 'Test Sanayicisi', role: 'COMPANY_OWNER', decisions: roleDecisions
+        });
+        roleRuntime.api.newCampaign({
+            seed: seed + 1, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            character: roleCharacter
+        });
+        const actor = roleRuntime.api.characterIdentityView('character:0:0');
+        const outcome = roleRuntime.api.characterCreationOutcome('character:0:0');
+        const worldActor = roleRuntime.api.worldV2().characters
+            .find(row => row.id === 'character:0:0');
+        const roleInstitutionCountry = roleRuntime.api.institutionLedger().countries['country:0'];
+        const roleInstitutions = Object.values(roleInstitutionCountry.institutions || {});
+        const executiveHolder = roleInstitutions.find(row => row.type === 'EXECUTIVE');
+        const armedForcesHolder = roleInstitutions.find(row => row.type === 'ARMED_FORCES');
+        roleSelection = {
+            validation: roleRuntime.api.characterCreationValidate(roleCharacter),
+            commanderTokenRole: roleRuntime.api.state().commander.creationRole,
+            canonicalIdentityRole: actor && actor.role,
+            policy: roleRuntime.api.characterCreationPolicy('COMPANY_OWNER'),
+            organizationId: actor && actor.organizationId,
+            publicTitle: actor && actor.publicTitle,
+            career: actor && actor.career,
+            worldOrganizationId: worldActor && worldActor.organizationId,
+            executiveHolderActorId: executiveHolder && executiveHolder.officeHolder.actorId,
+            armedForcesHolderActorId: armedForcesHolder && armedForcesHolder.officeHolder.actorId,
+            allEffectsUseCareer: !!(outcome && outcome.profile.decisions.every(row => (
+                row.gain.scope === 'CHARACTER_CAREER'
+                && row.cost.scope === 'CHARACTER_CAREER'
+            )))
+        };
+    } finally {
+        roleRuntime.dom.window.close();
+    }
+    return { main, restored, disabled, roleSelection };
+}
+
+function probeCharacterMemory(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main, savedRaw, savedMemory;
+    const playerActorId = 'character:0:0';
+    const colleagueActorId = 'character:0:1';
+    let foreignActorId = null;
+    const ownSecretId = 'character-memory:test:secret-own';
+    const foreignSecretId = 'character-memory:test:secret-foreign';
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        foreignActorId = Object.values(runtime.api.characterIdentityLedger().identities || {})
+            .find(row => row.countryId === 'country:1').id;
+        runtime.api.state().states[0].laws.tax = 'moderate';
+        runtime.api.talkRun('law-complaint');
+        const generatedTalk = runtime.api.talkQueue().find(row => row.tpl === 'law-complaint');
+        const realTalkEpisodeOpen = !!(generatedTalk && generatedTalk.memoryEpisodeId
+            && runtime.api.characterMemoryLedger().episodes[generatedTalk.memoryEpisodeId]
+            && runtime.api.characterMemoryLedger().episodes[generatedTalk.memoryEpisodeId].status === 'OPEN');
+        if (generatedTalk) runtime.api.talkAnswer(generatedTalk.uid, 0);
+        for (let index = 0; index < 40; index++) {
+            runtime.api.characterMemoryAddRecent(playerActorId, {
+                id: `character-memory:test:recent:${index}`,
+                kind: index % 2 ? 'DECISION' : 'RELATIONSHIP',
+                summary: `Yakın test kaydı ${index}`,
+                occurredAt: index,
+                importanceBps: 1000 + index
+            });
+        }
+        const episode = runtime.api.characterMemoryOpenEpisode({
+            id: 'character-memory:test:episode-open',
+            topicKey: 'steel-routing-negotiation',
+            participantActorIds: [playerActorId, colleagueActorId],
+            summary: 'İngiltere çelik sevkiyatının oyuncu deposuna yönlendirilmesi',
+            unresolvedTopic: 'Fiyat, teslim rotası ve siyasi karşılık henüz karara bağlanmadı.',
+            importanceBps: 8200,
+            source: { eventId: 'event:test:steel-routing' }
+        });
+        const promise = runtime.api.characterMemoryAddMilestone({
+            id: 'character-memory:test:promise', kind: 'PROMISE',
+            subjectActorId: playerActorId, holderActorIds: [playerActorId, colleagueActorId],
+            relatedActorIds: [colleagueActorId], summary: 'Çelik teslimatı sonrası ortak depo kapasitesi kurulacak.',
+            status: 'OPEN', importanceBps: 9500, dueAt: 180,
+            source: { episodeId: episode.episode.id, eventId: 'event:test:promise' }
+        });
+        const ownSecret = runtime.api.characterMemoryAddMilestone({
+            id: ownSecretId, kind: 'SECRET', subjectActorId: playerActorId,
+            holderActorIds: [playerActorId], relatedActorIds: [colleagueActorId],
+            summary: 'Alternatif tedarikçinin kimliği yalnız oyuncu tarafından biliniyor.',
+            status: 'ACTIVE', importanceBps: 9800,
+            source: { eventId: 'event:test:secret-own' }
+        });
+        runtime.api.characterMemoryAddMilestone({
+            id: foreignSecretId, kind: 'SECRET', subjectActorId: foreignActorId,
+            holderActorIds: [foreignActorId], relatedActorIds: [],
+            summary: 'Yabancı devletin kapalı tedarik kanalı.', status: 'ACTIVE', importanceBps: 9800,
+            source: { eventId: 'event:test:secret-foreign' }
+        });
+        runtime.api.characterMemoryAddMilestone({
+            id: 'character-memory:test:debt', kind: 'DEBT', subjectActorId: colleagueActorId,
+            holderActorIds: [playerActorId, colleagueActorId], relatedActorIds: [playerActorId],
+            summary: 'Depo tahsisi karşılığında siyasi destek borcu.', status: 'OPEN', importanceBps: 9000
+        });
+        const ledger = runtime.api.characterMemoryLedger();
+        savedMemory = ledger;
+        const world = runtime.api.worldV2();
+        const ownKnowledge = runtime.api.playerKnowledge(world, 'country:0');
+        const foreignKnowledge = runtime.api.playerKnowledge(world, 'country:1');
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            validation: runtime.api.validateCharacterMemoryLedger(ledger),
+            realTalkEpisodeOpen,
+            realTalkEpisodeResolved: !!(generatedTalk && ledger.episodes[generatedTalk.memoryEpisodeId]
+                && ledger.episodes[generatedTalk.memoryEpisodeId].status === 'RESOLVED'),
+            realTalkPromiseRecorded: Object.values(ledger.milestones || {}).some(row =>
+                row.kind === 'PROMISE' && row.source && row.source.talkTemplateId === 'law-complaint'),
+            recentCount: (ledger.recentByActor[playerActorId] || []).length,
+            summaryCount: (ledger.summariesByActor[playerActorId] || []).length,
+            episodeApplied: episode.applied,
+            openEpisodePreserved: ledger.episodes['character-memory:test:episode-open']
+                && ledger.episodes['character-memory:test:episode-open'].status === 'OPEN',
+            unresolvedTopic: ledger.episodes['character-memory:test:episode-open']
+                && ledger.episodes['character-memory:test:episode-open'].unresolvedTopic,
+            promiseApplied: promise.applied,
+            ownSecretApplied: ownSecret.applied,
+            milestoneCount: Object.keys(ledger.milestones || {}).length,
+            milestoneSurvivedRecentPrune: !!ledger.milestones[ownSecretId],
+            worldValidation: runtime.api.validateWorldV2(world),
+            knowledgeValidation: runtime.api.validatePlayerKnowledge(ownKnowledge),
+            ownSeesOwnSecret: !!(ownKnowledge.characterMemory
+                && ownKnowledge.characterMemory.milestones[ownSecretId]),
+            foreignSeesOwnSecret: !!(foreignKnowledge.characterMemory
+                && foreignKnowledge.characterMemory.milestones[ownSecretId]),
+            ownSeesForeignSecret: !!(ownKnowledge.characterMemory
+                && ownKnowledge.characterMemory.milestones[foreignSecretId]),
+            foreignSeesForeignSecret: !!(foreignKnowledge.characterMemory
+                && foreignKnowledge.characterMemory.milestones[foreignSecretId]),
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                memoryEqual: !!(migrated.ok
+                    && JSON.stringify(migrated.world.memory) === JSON.stringify(ledger)),
+                unmapped: !!(migrated.ok
+                    && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('characterMemory'))
+            },
+            saveOk: runtime.api.state()._lastSaveOk === true
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.characterMemoryLedger();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateCharacterMemoryLedger(ledger),
+            equal: JSON.stringify(ledger) === JSON.stringify(savedMemory),
+            openEpisodePreserved: !!(ledger.episodes['character-memory:test:episode-open']
+                && ledger.episodes['character-memory:test:episode-open'].status === 'OPEN'
+                && ledger.episodes['character-memory:test:episode-open'].unresolvedTopic),
+            promisePreserved: !!ledger.milestones['character-memory:test:promise'],
+            secretPreserved: !!ledger.milestones[ownSecretId],
+            debtPreserved: !!ledger.milestones['character-memory:test:debt']
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        const legacySave = JSON.parse(savedRaw);
+        delete legacySave.characterMemory;
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        const loaded = legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.characterMemoryLedger();
+        legacy = {
+            loaded,
+            validation: legacyRuntime.api.validateCharacterMemoryLedger(ledger),
+            backfilled: !!(ledger.diagnostics && ledger.diagnostics.backfilled),
+            inventedFacts: !!(ledger.diagnostics && ledger.diagnostics.inventedFacts),
+            milestoneCount: Object.keys(ledger.milestones || {}).length
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.threeLayerMemory': false }
+        });
+        disabled = disabledRuntime.api.characterMemoryLedger();
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+    const dependencyDisabledRuntime = createRuntime(seed >>> 0);
+    let dependencyDisabled;
+    try {
+        dependencyDisabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.identityGoals': false }
+        });
+        dependencyDisabledRuntime.api.state().states[0].laws.tax = 'moderate';
+        dependencyDisabledRuntime.api.talkRun('law-complaint');
+        dependencyDisabled = {
+            memory: dependencyDisabledRuntime.api.characterMemoryLedger(),
+            talkCount: dependencyDisabledRuntime.api.talkQueue().length
+        };
+    } finally {
+        dependencyDisabledRuntime.dom.window.close();
+    }
+    return { main, restored, legacy, disabled, dependencyDisabled };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -10513,6 +11020,8 @@ module.exports = {
     probeIntegrity,
     probePoliticalCrisis,
     probeGovernanceWorkspace,
+    probeCharacterIdentities,
+    probeCharacterMemory,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

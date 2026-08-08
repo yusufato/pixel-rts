@@ -638,19 +638,25 @@ class TaskExecutionManager {
                 return null;
             }
             if (contract.groupRole === TASK_GROUP_ROLE.RECON) {
-                const threat = executionSelfDefenseTarget(contract, units, observation);
-                if (threat && (state.lastTargetId !== threat.id ||
-                    this.shouldRefresh(state, tick, TASK_ACTION_REFRESH_TICKS))) {
-                    const order = executionSelfDefenseAttackOrder(contract, units, threat);
-                    if (order) return this.markOrder(state, order, tick);
-                }
+                // ═══ GÖZLEM GÖREVİ, KENDİNİ-SAVUNMADAN ÖNCE GELİR (2026-08-08, ölçümle) ═══
+                // ESKİ SIRA: önce kendini-savunma bakılıyor ve tehdit varsa `return` ile çıkılıyordu →
+                // gözlem noktasına gitme emri HİÇ üretilmiyordu. Keşif kendi kütlesinin yanında durduğu
+                // için tehdit sürekli menzildeydi, yani birim kalıcı olarak "savunma" kipinde kalıp
+                // ASLA keşfe çıkmıyordu.
+                // ÖLÇÜLDÜ (kullanıcının 6 maçı, 6 grup kıyaslandı): RECON emir oranı %9.6 — boşta beklemesi
+                // gereken RESERVE ile aynı, tüm aktif rollerin en altı. Aldığı emirlerin %50'si ATTACK.
+                // Bedeli: AI keşif birimlerinin %90'ı ölüyor (insanınki %50), recon_uav 9 birim 0 HASAR
+                // veriyor (silahı yok — ona ATTACK emri vermek tamamen israf), ve AI kararlarının %35'i
+                // sıfır görünür kontakla alınıyor.
+                // YENİ SIRA: gözlem noktasına varılmadıysa HAREKET öncelikli; savunma ateşi yalnız birim
+                // yerine ulaştıktan sonra. Keşfin işi görüş kurmak, dövüşmek değil.
                 const hasVisibleContact = (observation.contacts || [])
                     .some(contact => contact.visible);
                 const observationPoint = hasVisibleContact
                     ? contract.route?.[0]
                     : contract.destination;
-                if (observationPoint && !executionArrived(units, observationPoint, 115) &&
-                    this.shouldRefresh(state, tick)) {
+                const yerinde = !observationPoint || executionArrived(units, observationPoint, 115);
+                if (!yerinde && this.shouldRefresh(state, tick)) {
                     return this.markOrder(
                         state,
                         executionMoveOrder(
@@ -659,6 +665,65 @@ class TaskExecutionManager {
                             observationPoint,
                             `TASK:${contract.id}:OBSERVATION_POSITION`
                         ),
+                        tick
+                    );
+                }
+                if (yerinde) {
+                    const threat = executionSelfDefenseTarget(contract, units, observation);
+                    if (threat && (state.lastTargetId !== threat.id ||
+                        this.shouldRefresh(state, tick, TASK_ACTION_REFRESH_TICKS))) {
+                        const order = executionSelfDefenseAttackOrder(contract, units, threat);
+                        if (order) return this.markOrder(state, order, tick);
+                    }
+                }
+                return null;
+            }
+            if (contract.groupRole === TASK_GROUP_ROLE.SUPPORT) {
+                // ═══ DESTEK: İHTİYACI OLANIN YANINA GİT (2026-08-08, ölçümle) ═══
+                // KAPSAMA MATRİSİ (tools/kapsama-matrisi.js) SUPPORT rolünün yürütmede HİÇ özel dalı
+                // olmadığını gösterdi (planlamada 10 referans, yürütmede 0) → destek grubu buradaki
+                // dalların hiçbirine girmeyip en sondaki HOLD'a düşüyor, yani sabit bir noktada oturuyordu.
+                // ÖLÇÜLDÜ (kullanıcının 2 canlı maçı): mühimmatı %50'nin altına düşen birimlerin
+                // İKMAL ALANINDA olma oranı **%0** (AI n=24, insan n=26); yaralıların sağlık alanında
+                // olma oranı AI %3. Yarıçaplar küçük (sıhhiye/istihkam 200px, ikmal 300px), ordu ise
+                // 625px derinliğe yayılıyor → destek ordunun İÇİNDE ama ihtiyacı olanın YANINDA değil.
+                // KURAL: ihtiyaç sahiplerinin (mühimmat<%50 veya can<%60) ağırlık merkezine git.
+                // İhtiyaç yoksa sözleşme hedefine dön. Deterministik (RNG yok, snapshot okur).
+                const own = observation?.ownUnits || [];
+                const kendiId = new Set(units.map(u => u.id));
+                const muhtac = own.filter(u => !kendiId.has(u.id) &&
+                    (((u.ammoRatio !== undefined) && u.ammoRatio < 0.5) ||
+                     ((u.hpRatio !== undefined) && u.hpRatio < 0.6)));
+                let hedef = contract.destination;
+                if (muhtac.length) {
+                    // AĞIRLIK MERKEZİ DEĞİL, EN ÇOK İŞE YARAYAN NOKTA (2026-08-08).
+                    // İlk sürüm ihtiyaç sahiplerinin merkezine gidiyordu; merkez iki ayrı kümenin
+                    // ORTASINDAKİ BOŞLUĞA düşebiliyor ve aura (200-300px) kimseye değmiyor.
+                    // KULLANICI KARARI: aura yarıçapları AYNI KALSIN ("ben iyi kullanıyorsam AI da
+                    // kullanabilir") → çare yarıçapı büyütmek değil, DOĞRU NOKTAYA park etmek.
+                    // Kural: adaylar = ihtiyaç sahiplerinin konumları; kendi aura yarıçapı içinde
+                    // EN ÇOK ihtiyaç sahibini kapsayanı seç. Deterministik (eşitlikte en küçük id).
+                    let R = 0;
+                    for (const u of units) {
+                        const st = (typeof STATS !== 'undefined') ? STATS[u.type] : null;
+                        const a = st && st.aura;
+                        const r = a ? (a.radius || a.range || 0) * 100 : 0;
+                        if (r > R) R = r;
+                    }
+                    if (!(R > 0)) R = 250;
+                    let enIyi = null, enSkor = -1;
+                    for (const aday of muhtac) {
+                        let skor = 0;
+                        for (const v of muhtac) if (Math.hypot(v.x - aday.x, v.y - aday.y) <= R) skor++;
+                        if (skor > enSkor || (skor === enSkor && enIyi && aday.id < enIyi.id)) { enSkor = skor; enIyi = aday; }
+                    }
+                    if (enIyi) hedef = { x: enIyi.x, y: enIyi.y };
+                }
+                if (hedef && !executionArrived(units, hedef, 115) && this.shouldRefresh(state, tick)) {
+                    return this.markOrder(
+                        state,
+                        executionMoveOrder(contract, units, hedef,
+                            `TASK:${contract.id}:SUPPORT_TO_NEED`),
                         tick
                     );
                 }

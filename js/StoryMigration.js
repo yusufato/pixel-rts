@@ -272,6 +272,75 @@ function storyMigrationV3RawToV2(raw, options) {
     if (save.commander) {
         addCommander(playerStateId, save.commander, true);
     }
+    // Faz 34 kimlikleri komutan listesinden daha geniştir: başkanlar ve seçim
+    // adayları da ActorBelief sahibi olabilir. V3 gölge göçü bu karakterleri ve
+    // köken olgularını sessizce düşüremez.
+    const savedCharacterLedger = storyMigrationObject(save.characterIdentities);
+    const savedCharacterIdentities = storyMigrationObject(savedCharacterLedger.identities);
+    for (const identity of Object.values(savedCharacterIdentities)) {
+        if (!identity || identity.id == null) continue;
+        const id = String(identity.id);
+        const existing = characters.find(row => row.id === id);
+        const fields = {
+            role: String(identity.role || (existing && existing.role) || 'CHARACTER'),
+            organizationId: identity.organizationId == null ? null : String(identity.organizationId),
+            institutionId: identity.institutionId == null ? null : String(identity.institutionId),
+            serviceId: identity.serviceId == null ? null : String(identity.serviceId),
+            publicTitle: identity.publicTitle == null ? null : String(identity.publicTitle),
+            identityProfile: storyMigrationClone(storyMigrationObject(identity.coreAxes)),
+            values: storyMigrationClone(storyMigrationObject(identity.values)),
+            fears: storyMigrationClone(Array.isArray(identity.fears) ? identity.fears : []),
+            ambitions: storyMigrationClone(Array.isArray(identity.ambitions) ? identity.ambitions : []),
+            redLines: storyMigrationClone(Array.isArray(identity.redLines) ? identity.redLines : []),
+            goals: storyMigrationClone(Array.isArray(identity.goals) ? identity.goals : []),
+            career: storyMigrationClone(storyMigrationObject(identity.career)),
+            voiceProfile: storyMigrationClone(storyMigrationObject(identity.voiceProfile)),
+            currentRegimeAlignment: null
+        };
+        if (existing) {
+            Object.assign(existing, fields);
+            continue;
+        }
+        seenCharacterIds.add(id);
+        characters.push(Object.assign(
+            storyMigrationBase(
+                id,
+                identity.countryId == null ? null : String(identity.countryId),
+                storyMigrationNumber(identity.createdAt, 0)
+            ),
+            {
+                legacyId: null,
+                name: String(identity.name || 'İsimsiz karakter'),
+                role: String(identity.role || 'CHARACTER'),
+                personality: null,
+                regionId: null,
+                loyalty: null,
+                skills: {},
+                axes: {}
+            },
+            fields
+        ));
+    }
+    const worldFacts = Object.values(storyMigrationObject(savedCharacterLedger.worldFacts)).map(fact => Object.assign(
+        storyMigrationBase(
+            String(fact.id),
+            fact.countryId == null ? null : String(fact.countryId),
+            storyMigrationNumber(fact.occurredAt, 0),
+            fact.originEventId == null ? null : `causal-${fact.originEventId}`
+        ),
+        storyMigrationClone(fact),
+        { entityType: 'WORLD_FACT' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+    const actorBeliefs = Object.values(storyMigrationObject(savedCharacterLedger.actorBeliefs)).map(belief => Object.assign(
+        storyMigrationBase(
+            String(belief.id),
+            belief.holderCountryId == null ? null : String(belief.holderCountryId),
+            storyMigrationNumber(belief.learnedAt, 0),
+            belief.originEventId == null ? null : `causal-${belief.originEventId}`
+        ),
+        storyMigrationClone(belief),
+        { entityType: 'ACTOR_BELIEF' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
     characters.sort((a, b) => a.id.localeCompare(b.id));
     forces.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -483,7 +552,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'characterIdentities', 'characterRelationships', 'characterMemory', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -497,10 +566,65 @@ function storyMigrationV3RawToV2(raw, options) {
             : !!featureDefaults[key];
     }
 
+    // Faz 36: yeni kayıt kendi hafıza defterini taşır. Eski kayıt için geçmiş
+    // uydurulmaz; yalnız zaten kaydedilmiş WorldFact + ActorBelief zinciri
+    // deterministik ORIGIN hafızasına dönüştürülür.
+    const savedMemory = storyMigrationObject(save.characterMemory);
+    const memory = savedMemory.schemaVersion === 1
+        ? storyMigrationClone(savedMemory)
+        : (typeof storyMemoryLedgerCreate === 'function'
+            ? storyMemoryLedgerCreate({ backfilled: true })
+            : {
+                schemaVersion: 1,
+                adapterVersion: 'story-character-memory-ledger-1',
+                policyHash: 'fnv1a32:phase36-three-layer-memory-1',
+                nextSequence: 0, recentByActor: {}, episodes: {}, milestones: {}, summariesByActor: {},
+                diagnostics: { backfilled: true, inventedFacts: false, llmWrites: false }
+            });
+    if (savedMemory.schemaVersion !== 1) {
+        const identityIds = new Set(characters.map(row => row.id));
+        const beliefsByFact = {};
+        for (const belief of actorBeliefs) {
+            (beliefsByFact[belief.worldFactId] || (beliefsByFact[belief.worldFactId] = [])).push(belief);
+        }
+        for (const fact of worldFacts.filter(row => row.factType === 'CHARACTER_ORIGIN_DECISION')) {
+            const token = String(fact.id).replace(/[^a-zA-Z0-9_-]/g, '-');
+            const beliefs = beliefsByFact[fact.id] || [];
+            const holders = Array.from(new Set([fact.subjectActorId].concat(
+                beliefs.map(row => row.holderActorId)
+            ))).filter(id => identityIds.has(id)).sort();
+            memory.milestones[`character-memory:origin:${token}`] = {
+                id: `character-memory:origin:${token}`,
+                layer: 'MILESTONE', kind: 'ORIGIN', subjectActorId: fact.subjectActorId,
+                holderActorIds: holders, relatedActorIds: [],
+                summary: String(fact.optionText || fact.optionTag || 'Karakter geçmişi'),
+                status: 'ACTIVE', permanent: true, importanceBps: 9000,
+                createdAt: storyMigrationNumber(fact.occurredAt, 0), dueAt: null, resolvedAt: null,
+                source: { worldFactId: fact.id, eventId: fact.originEventId || null }, version: 1
+            };
+            for (const belief of beliefs) {
+                if (!identityIds.has(belief.holderActorId)) continue;
+                const beliefToken = String(belief.id).replace(/[^a-zA-Z0-9_-]/g, '-');
+                const rows = memory.recentByActor[belief.holderActorId]
+                    || (memory.recentByActor[belief.holderActorId] = []);
+                rows.push({
+                    id: `character-memory:belief:${beliefToken}`,
+                    actorId: belief.holderActorId, layer: 'RECENT', kind: 'ORIGIN',
+                    summary: String(fact.optionText || fact.optionTag || 'Karakter geçmişi'),
+                    occurredAt: storyMigrationNumber(belief.learnedAt, 0),
+                    importanceBps: Math.max(1, Math.min(8000, storyMigrationNumber(belief.confidenceBps, 5000))),
+                    relatedActorIds: belief.holderActorId === fact.subjectActorId ? [] : [fact.subjectActorId],
+                    source: { worldFactId: fact.id, actorBeliefId: belief.id, eventId: fact.originEventId || null },
+                    version: 1
+                });
+            }
+        }
+    }
+
     const world = {
         meta: {
             schemaVersion: STORY_WORLD_V2_SCHEMA_VERSION,
-            adapterVersion: 'legacy-save-v3-to-v2-5',
+            adapterVersion: 'legacy-save-v3-to-v2-9',
             campaignId: `story:${seed == null ? 'legacy' : seed}:${playerStateId}`,
             seed,
             engineVersions: {
@@ -540,6 +664,19 @@ function storyMigrationV3RawToV2(raw, options) {
         countries,
         regions,
         characters,
+        worldFacts,
+        actorBeliefs,
+        characterRelationships: Object.values(storyMigrationObject(
+            storyMigrationObject(save.characterRelationships).edges
+        )).map(edge => Object.assign(
+            storyMigrationBase(
+                String(edge.id),
+                edge.countryId == null ? null : String(edge.countryId),
+                storyMigrationNumber(edge.createdAt, clock)
+            ),
+            storyMigrationClone(edge),
+            { entityType: 'CHARACTER_RELATIONSHIP' }
+        )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         populationCohorts,
         powerCenters: Object.values(savedPowerCenterRows).map(center => Object.assign(
             storyMigrationBase(String(center.id), center.countryId == null ? null : String(center.countryId), storyMigrationNumber(center.foundedAt, 0)),
@@ -589,10 +726,7 @@ function storyMigrationV3RawToV2(raw, options) {
         )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
         events,
         decisions,
-        memory: {
-            playerPromises: [],
-            characterSummaries: {}
-        },
+        memory,
         diagnostics: {
             sourceSchema: 'pixelrts_story_v3',
             stateHash: null,
@@ -660,6 +794,8 @@ function storyMigrationV3RawToV2(raw, options) {
                     countries: countries.length,
                     regions: regions.length,
                     characters: characters.length,
+                    worldFacts: worldFacts.length,
+                    actorBeliefs: actorBeliefs.length,
                     militaryForces: forces.length,
                     events: events.length
                 }
@@ -667,7 +803,8 @@ function storyMigrationV3RawToV2(raw, options) {
             coverage: {
                 countries: `${countries.length}/${save.states.length}`,
                 regions: `${regions.length}/${save.nodes.length}`,
-                playerCommander: characters.some(character => character.role === 'PLAYER_COMMANDER')
+                playerCharacter: characters.some(character => character.id === `character:${playerStateId}:${save.commander && save.commander.id}`),
+                playerRole: String(save.commander && save.commander.creationRole || 'COMMANDER')
             },
             backfills,
             warnings,

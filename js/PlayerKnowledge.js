@@ -5,13 +5,17 @@
 //  bilgi sınıfıyla PlayerVisibleFact üzerinden oyuncuya açılır.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const PLAYER_KNOWLEDGE_SCHEMA_VERSION = 1;
+const PLAYER_KNOWLEDGE_SCHEMA_VERSION = 3;
 const PLAYER_FACT_STATUS = Object.freeze({
     UNKNOWN: 'UNKNOWN',
     ESTIMATED: 'ESTIMATED',
     RUMOR: 'RUMOR',
     VERIFIED: 'VERIFIED'
 });
+
+function storyPlayerKnowledgeClone(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+}
 
 function storyPlayerVisibleFact(input) {
     const status = input && input.status;
@@ -330,9 +334,134 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
             skills: fact(own
                 ? storyPlayerVerifiedFact(character.id, 'skills', character.skills, gameTime, 'OWN_COMMAND')
                 : storyPlayerUnknownFact(character.id, 'skills', gameTime)),
+            organizationId: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'organizationId', character.organizationId, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'organizationId', gameTime)),
+            institutionId: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'institutionId', character.institutionId, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'institutionId', gameTime)),
+            serviceId: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'serviceId', character.serviceId, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'serviceId', gameTime)),
+            publicTitle: fact(storyPlayerVerifiedFact(
+                character.id, 'publicTitle', character.publicTitle, gameTime, 'PUBLIC_RECORD'
+            )),
+            identityProfile: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'identityProfile', character.identityProfile, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'identityProfile', gameTime)),
+            values: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'values', character.values, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'values', gameTime)),
+            goals: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'goals', character.goals, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'goals', gameTime)),
+            career: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'career', character.career, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'career', gameTime)),
+            voiceProfile: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'voiceProfile', character.voiceProfile, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'voiceProfile', gameTime)),
+            currentRegimeAlignment: fact(own
+                ? storyPlayerVerifiedFact(character.id, 'currentRegimeAlignment', character.currentRegimeAlignment, gameTime, 'OWN_CHARACTER_RECORD')
+                : storyPlayerUnknownFact(character.id, 'currentRegimeAlignment', gameTime)),
             personality: fact(storyPlayerUnknownFact(character.id, 'personality', gameTime))
         };
     });
+
+    // Faz 35: yönlü ilişki iç durumdur. Oyuncunun kendi ülkesindeki bir
+    // aktörün taraf olduğu kayıtlar açılır; yabancıların birbirine güveni
+    // salt WorldV2'de bulunuyor diye oyuncuya sızmaz.
+    const characterOwnerById = new Map((world.characters || []).map(row => [row.id, row.ownerId]));
+    const characterRelationships = (world.characterRelationships || []).filter(edge =>
+        characterOwnerById.get(edge.fromActorId) === playerCountryId
+        || characterOwnerById.get(edge.toActorId) === playerCountryId
+    ).map(edge => ({
+        id: edge.id,
+        fromActorId: edge.fromActorId,
+        toActorId: edge.toActorId,
+        contactReason: fact(storyPlayerVerifiedFact(edge.id, 'contactReason', edge.contactReason, gameTime, 'OWN_RELATIONSHIP_MEMORY')),
+        trustBps: fact(storyPlayerVerifiedFact(edge.id, 'trustBps', edge.trustBps, gameTime, 'OWN_RELATIONSHIP_MEMORY')),
+        fearBps: fact(storyPlayerVerifiedFact(edge.id, 'fearBps', edge.fearBps, gameTime, 'OWN_RELATIONSHIP_MEMORY')),
+        respectBps: fact(storyPlayerVerifiedFact(edge.id, 'respectBps', edge.respectBps, gameTime, 'OWN_RELATIONSHIP_MEMORY')),
+        debtBps: fact(storyPlayerVerifiedFact(edge.id, 'debtBps', edge.debtBps, gameTime, 'OWN_RELATIONSHIP_MEMORY')),
+        hostilityBps: fact(storyPlayerVerifiedFact(edge.id, 'hostilityBps', edge.hostilityBps, gameTime, 'OWN_RELATIONSHIP_MEMORY'))
+    }));
+
+    // Faz 34 köken kararları ham dünya gerçeğinden açılmaz. Oyuncunun ülkesine
+    // ait bir karakter gerçekten biliyorsa, en güvenilir ActorBelief üzerinden
+    // görünür olur; yabancı/özel geçmiş böylece WorldV2'den UI'a sızmaz.
+    const knownOriginByFact = new Map();
+    for (const belief of (world.actorBeliefs || [])) {
+        if (belief.holderCountryId !== playerCountryId) continue;
+        const previous = knownOriginByFact.get(belief.worldFactId);
+        if (!previous || Number(belief.confidenceBps) > Number(previous.confidenceBps)) {
+            knownOriginByFact.set(belief.worldFactId, belief);
+        }
+    }
+    const worldFactById = new Map((world.worldFacts || []).map(row => [row.id, row]));
+    const originFacts = Array.from(knownOriginByFact.values()).sort((a, b) =>
+        a.worldFactId.localeCompare(b.worldFactId, 'en')).map(belief => {
+        const origin = worldFactById.get(belief.worldFactId);
+        if (!origin) return null;
+        const confidence = Math.max(1, Math.min(10000, Number(belief.confidenceBps) || 1));
+        return fact(storyPlayerVisibleFact({
+            id: `visible-origin:${belief.worldFactId}`,
+            subjectId: origin.subjectActorId,
+            field: `originDecision:${origin.decisionIndex}`,
+            value: {
+                worldFactId: origin.id,
+                role: origin.role,
+                theme: origin.theme,
+                questionText: origin.questionText,
+                optionText: origin.optionText,
+                gain: origin.gain,
+                cost: origin.cost,
+                reactionHook: origin.reactionHook,
+                occurredAt: origin.occurredAt
+            },
+            status: confidence === 10000 ? PLAYER_FACT_STATUS.VERIFIED : PLAYER_FACT_STATUS.ESTIMATED,
+            confidenceBps: confidence,
+            source: { type: belief.source && belief.source.type || 'ACTOR_BELIEF', id: belief.id },
+            observedAt: belief.learnedAt,
+            expiresAt: null
+        }));
+    }).filter(Boolean);
+
+    // Faz 36: hafıza da bilgi filtresinden geçer. Bir ülke, yalnız kendi
+    // aktörlerinden en az birinin gerçekten bildiği yakın kayıt, bölüm ve
+    // mihenk taşını görür. SECRET etiketi WorldV2'de var diye yabancıya açılmaz.
+    const memorySource = world.memory && typeof world.memory === 'object' ? world.memory : {};
+    const ownActorIds = new Set((world.characters || [])
+        .filter(row => row.ownerId === playerCountryId).map(row => row.id));
+    const characterMemory = {
+        schemaVersion: memorySource.schemaVersion,
+        adapterVersion: memorySource.adapterVersion,
+        policyHash: memorySource.policyHash,
+        nextSequence: Number(memorySource.nextSequence) || 0,
+        recentByActor: {},
+        episodes: {},
+        milestones: {},
+        summariesByActor: {},
+        diagnostics: Object.assign({}, memorySource.diagnostics || {}, { playerFiltered: true })
+    };
+    for (const actorId of Array.from(ownActorIds).sort()) {
+        if (Array.isArray(memorySource.recentByActor && memorySource.recentByActor[actorId])) {
+            characterMemory.recentByActor[actorId] = storyPlayerKnowledgeClone(memorySource.recentByActor[actorId]);
+        }
+        if (Array.isArray(memorySource.summariesByActor && memorySource.summariesByActor[actorId])) {
+            characterMemory.summariesByActor[actorId] = storyPlayerKnowledgeClone(memorySource.summariesByActor[actorId]);
+        }
+    }
+    for (const [id, episode] of Object.entries(memorySource.episodes || {})) {
+        if ((episode.participantActorIds || []).some(actorId => ownActorIds.has(actorId))) {
+            characterMemory.episodes[id] = storyPlayerKnowledgeClone(episode);
+        }
+    }
+    for (const [id, milestone] of Object.entries(memorySource.milestones || {})) {
+        if ((milestone.holderActorIds || []).some(actorId => ownActorIds.has(actorId))) {
+            characterMemory.milestones[id] = storyPlayerKnowledgeClone(milestone);
+        }
+    }
 
     return {
         schemaVersion: PLAYER_KNOWLEDGE_SCHEMA_VERSION,
@@ -342,7 +471,10 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
         facts,
         countries,
         regions,
-        characters
+        characters,
+        characterRelationships,
+        originFacts,
+        characterMemory
     };
 }
 
@@ -373,6 +505,11 @@ function storyPlayerKnowledgeValidate(view) {
                 issues.push({ code: 'VERIFIED_CONFIDENCE', path: `${at}.confidenceBps` });
             }
         });
+    }
+    if (!Array.isArray(view.originFacts)) issues.push({ code: 'ORIGIN_FACTS_ARRAY', path: '$.originFacts' });
+    if (!Array.isArray(view.characterRelationships)) issues.push({ code: 'CHARACTER_RELATIONSHIPS_ARRAY', path: '$.characterRelationships' });
+    if (!view.characterMemory || typeof view.characterMemory !== 'object' || Array.isArray(view.characterMemory)) {
+        issues.push({ code: 'CHARACTER_MEMORY_OBJECT', path: '$.characterMemory' });
     }
     return { ok: issues.length === 0, issues };
 }

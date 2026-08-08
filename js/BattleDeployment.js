@@ -12,14 +12,44 @@ const BATTLE_DEPLOY_WEIGHTS = Object.freeze({
     [T.TRANSPORT_HELO]: 0.02   // nakliye-heli: piyade takviyesini hatta taşır (bindir-indir)
 });
 // Muharebe-odaklı (hızlı maç/AI): çekirdek ateş gücü + FAZ 2 HAVA (helikopter/drone). Nakliye-heli FAZ3 (load-mekaniği).
+// SUPPLY 0.03 -> 0.05 (2026-08-08, olcumle): IKMAL KAPSAMASI ADET sorunu.
+// Kullanici karari: aura yaricaplari AYNI KALSIN ("ben iyi kullaniyorsam AI da kullanabilir").
+// Konumlandirma duzeltildi (SUPPORT dali: en cok ihtiyac sahibini kapsayan noktaya park et) ve
+// saglik kapsamasi %7 -> %20 oldu; ama IKMAL %1 -> %3'te kaldi cunku orduda 1-2 ikmal araci var
+// (yaricap 300px). Doz taramasi (656 mac) ikmali IYI ve AZ-ALINAN olctu: +2 supply +1055, -2 supply -1876.
+// SPAAG 0.05 -> 0.09 (2026-08-08, olcumle): SEMSIYE ADET sorunu.
+// Olculdu: ordu yayilimi 1162px yaricap (alan 4.2M px2), hava savunma 1.5 ADET x 802px menzil
+// (kapsanabilir 3.0M px2) -> TEORIK TAVAN %70. Olculen kapsama %60-68, yani konumlandirma zaten
+// tavana yakin; bagllayici kisit ADET. Kullanicinin 2 canli macinda saldiri helikopteri 4116 hasar
+// verip 0 kayip verdi ve AI'in dolayli ates birimlerini oldurdu (hasarin %47'si).
+// SPAAG secildi cunku doz taramasi (656 mac) onu IYI olctu (+2 spaag +757, -2 spaag -1245);
+// SAM ayni taramada KOTU cikti (-1009), o yuzden SAM'e dokunulmadi.
 const BATTLE_DEPLOY_COMBAT_WEIGHTS = Object.freeze({
-    [T.INFANTRY]: 0.14, [T.ANTI_TANK]: 0.11, [T.MORTAR]: 0.04, [T.MANPADS]: 0.04, [T.COMMANDO]: 0.03,
-    [T.ARMOR]: 0.10, [T.MECH_INFANTRY]: 0.07, [T.TANK_HUNTER]: 0.05,
-    [T.ARTILLERY]: 0.05, [T.MLRS]: 0.025, [T.BALLISTIC]: 0.01, [T.COUNTER_BATTERY]: 0.015,
-    [T.SPAAG]: 0.05, [T.SAM]: 0.025, [T.RECON]: 0.045, [T.EW]: 0.015,
-    [T.MEDIC]: 0.02, [T.ENGINEER]: 0.03, [T.SUPPLY]: 0.03, [T.HQ]: 0.02,
-    [T.ATTACK_HELO]: 0.025, [T.RECON_UAV]: 0.025, [T.UCAV]: 0.02, [T.DRONE_OPERATOR]: 0.03,   // FAZ 2 hava (drone-operatör: 2 kamikaze SALAR — redesign, tek-tek kamikaze yerine)
-    [T.TRANSPORT_HELO]: 0.015   // nakliye-heli: piyade takviyesini hatta taşır
+    [T.INFANTRY]: 0.14,
+    [T.ANTI_TANK]: 0.11,
+    [T.MORTAR]: 0.04,
+    [T.MANPADS]: 0.04,
+    [T.COMMANDO]: 0.03,
+    [T.ARMOR]: 0.1,
+    [T.MECH_INFANTRY]: 0.07,
+    [T.TANK_HUNTER]: 0.05,
+    [T.ARTILLERY]: 0.05,
+    [T.MLRS]: 0.025,
+    [T.BALLISTIC]: 0.01,
+    [T.COUNTER_BATTERY]: 0.015,
+    [T.SPAAG]: 0.09,
+    [T.SAM]: 0.025,
+    [T.RECON]: 0.045,
+    [T.EW]: 0.015,
+    [T.MEDIC]: 0.02,
+    [T.ENGINEER]: 0.03,
+    [T.SUPPLY]: 0.05,
+    [T.HQ]: 0.02,
+    [T.ATTACK_HELO]: 0.025,
+    [T.RECON_UAV]: 0.025,
+    [T.UCAV]: 0.02,
+    [T.DRONE_OPERATOR]: 0.054,
+    [T.TRANSPORT_HELO]: 0.015
 });
 
 function deploymentCloneBudget(budget) {
@@ -628,14 +658,29 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
                 sum + deployWeights[candidate], 0) || 1;
             const target = (initial[group] || 0) *
                 (deployWeights[type] / weightTotal);
-            const _nd = (target - (spent[type] || 0)) / Math.max(1, STATS[type].cost);
+            // ═══ TAHSİS DÜZELTMESİ (2026-08-08, ölçümle) ═══
+            // ESKİ metrik `(hedef − harcanan) / maliyet` idi. Bu, ağırlığı bütçe-payı olarak tanımlayıp
+            // sıralamayı BİRİM-BAŞI yapıyordu; ucuz birim yapısal olarak hep kazanıyordu:
+            //     piyade  w0.14 → hedef ~884₺ / 100₺  = 8.8      ÇNRA w0.025 → hedef ~158₺ / 650₺ = 0.24
+            // Açgözlü döngü ucuzları alıp BÜTÇEYİ BİTİRİYOR, pahalı sınıf sırasını hiç görmüyordu.
+            // ÖLÇÜLDÜ (192 konuşlandırma, intel4-pro): balistik %0, komuta aracı %0, nakliye-helo %0,
+            // ÇNRA %21, saldırı-helo %19, SAM %13, SİHA %11, EH %7 — buna karşılık ≤320₺ olan HER ŞEY %100.
+            // Kesim tam fiyat çizgisinde. Doktrin bile kurtarmıyor: TOPÇU doktrini ÇNRA'yı ×1.7 yapıyor,
+            // hedef 268₺ → yine 650₺'nin altında. Ordulardaki ÇNRA'nın TAMAMI "imza-floor" yamasından
+            // geliyordu (imza doktrini 10'da 2 → %20; ölçülen %21 ile birebir).
+            // YENİ: para bazlı EN-BÜYÜK-KALAN (largest remainder) — apportionment'ın standart yöntemi ve
+            // bu depoda zaten kullanılıyor (BattlePlanning FLANK açlığı düzeltmesi). Ağırlık bütçe-payı
+            // olarak tanımlıysa sıralama da PARA biriminde olmalı; bölmek birim karıştırıyordu.
+            const _def = target - (spent[type] || 0);
             return {
                 type,
-                deficit: target - (spent[type] || 0),
-                normalizedDeficit: _jit ? _nd * (0.75 + srand() * 0.5) : _nd   // ±%25 tohum-gürültü (yakın-denkleri karıştır)
+                deficit: _def,
+                // ±%25 tohum-gürültü (yakın-denkleri karıştır). Yalnız POZİTİF kalana uygulanır:
+                // negatif kalanı çarpmak sıralamayı ters çevirirdi (eski kodda da aynı kusur vardı).
+                rank: (_jit && _def > 0) ? _def * (0.75 + srand() * 0.5) : _def
             };
         }).sort((a, b) =>
-            (b.normalizedDeficit - a.normalizedDeficit) ||
+            (b.rank - a.rank) ||
             (b.deficit - a.deficit) ||
             a.type - b.type
         )[0];
@@ -716,6 +761,9 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     // kör) YAPISAL-İMKANSIZ. "Bantlar geniş, tabanlar sert." Zorunlu-çekirdek (ikmal/spaag/keşif/sıhhiye/istihkam) + indirect(havan≥2,
     // analistin %100-sinyali) + hat(piyade≥4,AT≥2) + drone(operatör≥1). MIZRAK/rol-tabanından ÖNCE rezerve edilir (çekirdek mızrağa yem-olmaz).
     // Eksik-tipi ekle; yer gerekirse HAT-FAZLASI piyadeden (piyade-min 4 korunur → omurga sağlam).
+    // DENETLENDI (2026-08-08, 2^5 faktoriyel / 1024 mac): sert tabanlar BOZUK tahsis doneminde damitilmisti,
+    // bu yuzden supheliydiler. Olcum onlari HAKLI cikardi: 16/16 konuslandirmada calisiyorlar ve KAPATMAK
+    // marji -114 dusuruyor (t -0.80) — yiginin tek iyi-guclendirilmis tahmini, cunku digerleri seyrek tetikleniyor.
     if (Object.prototype.hasOwnProperty.call(remaining, 'money')) {
         // SIRA = analist-frekans: en-güçlü değişmezler ÖNCE (bütçe darsa en-kritik-olmayanlar eksik kalsın, çekirdek değil).
         // 2havan+ikmal=%100, spaag=%80. Sonra hat/AT/drone tabanları, en son 2.keşif/istihkam (lüks-çekirdek).
@@ -932,12 +980,39 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
     };
 }
 
+// ═══ KONUŞLANDIRMA DERİNLİĞİ — NİTELİKTEN TÜRETİLİR (2026-08-08) ═══
+// ESKİ HÂLİ elle bir isim listesiydi ve 26 birimin YALNIZ 6'sını adlandırıyordu; kalan 20'si
+// "varsayılan 3"e düşüyordu. Roster büyürken güncellenmemiş — bugün düzeltilen tahsis metriğiyle
+// aynı sınıftan bir bayatlık.
+// ÖLÇÜLDÜ (24 konuşlandırma, kendi kenarına mesafe): menzil ↔ öne çıkma korelasyonu −0.106, yani
+// menzil fiilen HİÇ dikkate alınmıyordu. ÇNRA (2600px menzil) 436'da, piyade (300px) 414'te —
+// yani 2600px'lik silah, 300px'lik silahla aynı hatta. Silahsız lojistik ise ÖNDEYDİ:
+// ikmal 490, drone-operatörü 472, komuta aracı 472 — hepsi piyadenin önünde. Ölçülen bedeli:
+// AI'ın keşif birimlerinin %90'ı, drone-operatörlerinin %56'sı ölüyor ve 0 hasar veriyorlar.
+//
+// YENİ KURAL (isim değil NİTELİK): birimin en uzun silah menzili + silahlı mı + keşif mi.
+//   0 = uzun menzilli vuruş (topçu/ÇNRA/balistik)   — en geride, menzili zaten yetiyor
+//   1 = SİLAHSIZ destek/lojistik                     — hatta işi yok
+//   2 = orta menzil ateş desteği + hava savunma      — hattın gerisinde
+//   3 = hat muharebesi (kısa menzil, zırhlı/piyade)  — temas hattı
+//   4 = keşif                                        — en önde, görüş kurar
 function deploymentDepth(type) {
-    if (type === T.ARTILLERY) return 0;
-    if (type === T.ENGINEER || type === T.MEDIC) return 1;
-    if (type === T.ANTI_TANK) return 2;
-    if (type === T.RECON) return 4;
-    return 3;
+    const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+    if (!s) return 3;
+    if (type === T.RECON || type === T.RECON_UAV) return 4;          // keşif: görüş kurmak için önde
+    let menzil = 0, silahli = false;
+    for (const w of (s.weapons || [])) {
+        if (!(w.damage > 0)) continue;
+        silahli = true;
+        if ((w.range || 0) > menzil) menzil = w.range;
+    }
+    // DİKKAT: STATS[].weapons[].range motorda ZATEN PİKSEL (ÇNRA 1950, piyade 300). UnitData'daki
+    // ham JSON'da kare cinsindendir (ÇNRA 26) — ikisini karıştırmak bütün sınıflandırmayı bozar (yaşandı).
+    const px = menzil;
+    if (!silahli) return 1;                                           // silahsız destek/lojistik: hatta işi yok
+    if (px >= 1200) return 0;                                         // uzun menzilli vuruş: en geride
+    if (px >= 800) return 2;                                          // orta menzil ateş desteği + hava savunma
+    return 3;                                                         // hat muharebesi
 }
 
 function deploymentSpotFree(point, occupied) {
@@ -946,7 +1021,11 @@ function deploymentSpotFree(point, occupied) {
 
 function deploymentFindSpot(side, type, indexInDepth, occupied, totalInDepth) {
     const depth = deploymentDepth(type);
-    const forwardY = 180 + depth * 78;
+    // DERİNLİK ADIMI 78 → 150 (2026-08-08): 78px'lik adım tüm orduyu 326px'lik tek bir hatta sıkıştırıyordu.
+    // Silah menzilleri 300-3000px, harita derinliği 3450px — 326px'lik "derinlik" hiçbir şey ifade etmiyordu.
+    // ÖLÇÜLDÜ: sınıflandırmayı düzeltmek TEK BAŞINA yetmedi (menzil↔öne-çıkma −0.106 → +0.075), çünkü
+    // geometri sınıflandırmayı eziyordu. 150px adım → 5 kademe 600px'e yayılır, iki ordu arasında hâlâ ~2200px kalır.
+    const forwardY = 180 + depth * 150;
     const desiredY = side ? forwardY : WORLD_H - forwardY;
     // ANALİST-FIX (anti-yumak): birimleri merkez-±525px yerine CEPHEYE (0.15W–0.85W) eşit-yay → savunma hattı,
     // alan-ateşine (ÇNRA/havan) tek-nokta mezar sunmaz. Rol-bazlı derinlik (y) korunur; yalnız x genişler. Deterministik (indeks-tabanlı).
@@ -962,11 +1041,15 @@ function deploymentFindSpot(side, type, indexInDepth, occupied, totalInDepth) {
         : { x: desiredX, y: rowY };
     if (deploymentSpotFree(first, occupied)) return first;
 
+    // ÇARPIŞMA ARAMASI: eskiden y HEP ÖNE kayıyordu (`side ? +ring*18 : -ring*18`) → sıkışıklık birimleri
+    // sistematik olarak DÜŞMANA doğru itiyordu ve derinlik sınıflandırmasını eziyordu (ölçüldü: ÇNRA
+    // derinlik-0 olduğu hâlde sahada 348'de, SAM 431'de çıkıyordu). Artık önce GERİYE, sonra öne denenir:
+    // sıkışıklık birimi kendi hattının gerisine iter, düşmanın kucağına değil.
     for (let ring = 1; ring <= 12; ring++) {
-        for (const xSign of [-1, 1]) {
+        for (const ySign of [-1, 1]) for (const xSign of [-1, 1]) {
             const candidate = {
                 x: desiredX + xSign * ring * 55,
-                y: rowY + (side ? ring * 18 : -ring * 18)
+                y: rowY + (side ? ySign * ring * 18 : -ySign * ring * 18)
             };
             const safe = typeof nearestPassable === 'function'
                 ? nearestPassable(candidate.x, candidate.y, 30)

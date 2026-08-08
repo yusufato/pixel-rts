@@ -408,7 +408,15 @@ function warRoomRenderCommander() {
     if (name) name.textContent = current.name.toUpperCase();
     if (bar) bar.style.width = `${progress}%`;
     if (text) text.textContent = rankIndex === ranks.length - 1 ? `${commander.xp} XP · AZAMİ RÜTBE` : `${commander.xp} / ${next.xp} XP`;
-    if (summary) summary.innerHTML = `<div><span>SEFER SKORU</span><b>${commander.score}</b></div><div><span>ZAFER</span><b>${commander.victories}</b></div><div><span>VETERAN</span><b>${(STORY.veterans || []).length}</b></div><div><span>AKTİF KAYNAK</span><b>${Math.floor(commander.res.oil + commander.res.manpower + commander.res.points)}</b></div>`;
+    if (summary) {
+        const actorId = `character:${STORY.playerStateId | 0}:${commander.id}`;
+        const origin = typeof storyCharacterCreationSummary === 'function'
+            ? storyCharacterCreationSummary(actorId) : null;
+        const originHtml = origin
+            ? `<div title="${origin.factCount} kanonik geçmiş olgusu · ${origin.beliefCount} kaynaklı aktör inancı"><span>GEÇMİŞ İZİ</span><b>${origin.decisionCount} KARAR</b></div>`
+            : '';
+        summary.innerHTML = `<div><span>SEFER SKORU</span><b>${commander.score}</b></div><div><span>ZAFER</span><b>${commander.victories}</b></div><div><span>VETERAN</span><b>${(STORY.veterans || []).length}</b></div><div><span>AKTİF KAYNAK</span><b>${Math.floor(commander.res.oil + commander.res.manpower + commander.res.points)}</b></div>${originHtml}`;
+    }
 
     // FAZ-7: 3-slotlu perk ızgarası yerine KOMUTAN GELİŞİM AĞACI (CommanderTree.js)
     const slotCount = document.getElementById('commander-slot-count');

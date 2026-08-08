@@ -4,9 +4,10 @@
 //  İki iş yapar:
 //   1) Harekât kurulumundan sonra KARAKTER EKRANI: isim + 3 yetenek zarı (1-6,
 //      sınırsız yeniden atma) + 12 UYARLANIR soru. Sorular A/B/C temalı (HARP/
-//      İDARE/SİYASET — komutan ağacının 3 dalıyla hizalı) ve bir sonraki soru
-//      ÖNCEKİ CEVABIN ETİKETİNE göre gelir. Yazım modeli tema başına
-//      1 kök + 4+4+4 takip = 39 soru; sonuç uzayı 4^12 ≈ 16.7M kombinasyon.
+//      İDARE/SİYASET — komutanda 6/3/3, diğer roller için sürümlü farklı dağılım)
+//      ve ilk dallanan aşamalarda bir sonraki soru ÖNCEKİ CEVABIN ETİKETİNE göre
+//      gelir. Kazanç/bedel mekanik olarak kaydedilir fakat yaratım ekranında
+//      gösterilmez; oyuncu puan tablosunu değil kendi karakterini seçer.
 //   2) KİŞİLİK MOTORU: 4 ideolojik eksen (0-100) yalnız oyuncuya değil TÜM
 //      komutanlara ve her devletin CUMHURBAŞKANINA atanır. AI devletin doktrini
 //      liderinden türer — lider değişince devletin karakteri değişir.
@@ -325,6 +326,105 @@ const CHARQ = {
         },
     },
 };
+
+// Faz 34 rol politikası 4/4/4 sabit dağılımı kaldırır. İlk dört soru mevcut
+// dallanan ağacı kullanır; daha yüksek kota gereken alanlar aşağıdaki geç dönem
+// ikilemlerine uzanır. Bu sorular da "doğru cevap" sunmaz: her seçenek,
+// StoryCharacters.js içindeki gerçek kazanç + gerçek bedel sözleşmesine bağlanır.
+const CHARQ_EXTENDED = {
+    harp: [
+        { q: 'Göreve başlamadan önce elindeki son tatbikat bütçesini nasıl kullanırsın?', o: [
+            { t: 'Sınır birliklerine gerçek mühimmatlı gece tatbikatı.', tag: 'sert', fx: { hawk: 4, auth: 2 } },
+            { t: 'Rakibin doktrinini taklit eden gizli bir kırmızı takım kur.', tag: 'kurnaz', fx: { auth: 2, pop: -2 } },
+            { t: 'Yedekleri ve ailelerini kapsayan açık seferberlik provası.', tag: 'halkci', fx: { pop: 4, nat: 2 } },
+            { t: 'Lojistik darboğazları ölçen masasız, veriye dayalı prova.', tag: 'uzman', fx: { pop: -2, hawk: -2 } }
+        ]},
+        { q: 'İlk emrinde hız ile kuvvet koruma çatışıyor. Komutanlık ilken hangisi?', o: [
+            { t: 'İnisiyatifi almak için kayıp riskini kabul et.', tag: 'sert', fx: { hawk: 5 } },
+            { t: 'Rakibi yanlış hedefe bağla; asıl kuvveti sakla.', tag: 'kurnaz', fx: { auth: 2, nat: -2 } },
+            { t: 'Birliklere geri çekilme eşiğini açıkça duyur.', tag: 'halkci', fx: { pop: 4, auth: -2 } },
+            { t: 'Temas öncesi ikmal ve keşif kapıları tamamlanmadan ilerleme.', tag: 'uzman', fx: { hawk: -3, pop: -2 } }
+        ]}
+    ],
+    idare: [
+        { q: 'İlk ay için tek bir yönetim kapasitesi yatırımı seçebilirsin. Hangisi?', o: [
+            { t: 'Kriz anında emirleri hızlandıracak yürütme hücresi.', tag: 'sert', fx: { auth: 4 } },
+            { t: 'Darboğazları sessizce aşacak kişisel koordinasyon ağı.', tag: 'kurnaz', fx: { auth: 3, pop: -2 } },
+            { t: 'Vatandaş başvurularını doğrudan göreceğin saha masası.', tag: 'halkci', fx: { pop: 5, auth: -2 } },
+            { t: 'Bütçe, stok ve sonuçları birleştiren ölçüm birimi.', tag: 'uzman', fx: { pop: -3 } }
+        ]},
+        { q: 'Bir kamu programı hedefi tutturuyor ama maliyeti planı aşıyor. İlk tepkin?', o: [
+            { t: 'Sonucu koru; bütçeyi başka kalemlerden kes.', tag: 'sert', fx: { auth: 4 } },
+            { t: 'Tedarikçileri yeniden pazarlığa çağır, ayrıntıyı kapalı tut.', tag: 'kurnaz', fx: { auth: 3, pop: -2 } },
+            { t: 'Kapsamı mahallelerle birlikte daralt.', tag: 'halkci', fx: { pop: 4, auth: -2 } },
+            { t: 'Programı ölçülebilir parçalara böl; kötü parçayı kapat.', tag: 'uzman', fx: { pop: -2 } }
+        ]},
+        { q: 'Görev devrinde selefinden kalan tartışmalı sözleşmeler önünde. Ne yaparsın?', o: [
+            { t: 'Stratejik olanları aynen sürdür; belirsizlik zafiyettir.', tag: 'sert', fx: { auth: 4, nat: 2 } },
+            { t: 'Tarafları ayrı ayrı çağırıp yeni sadakat şartları koy.', tag: 'kurnaz', fx: { auth: 3, pop: -2 } },
+            { t: 'Sözleşme özetlerini halka aç ve itiraz süresi tanı.', tag: 'halkci', fx: { pop: 5, auth: -3 } },
+            { t: 'Bağımsız mali ve hukuki tarama tamamlanana kadar dondur.', tag: 'uzman', fx: { pop: -2, auth: -2 } }
+        ]}
+    ],
+    siyaset: [
+        { q: 'Göreve başlarken seni destekleyen koalisyon ilk ayrıcalığını istiyor. Cevabın?', o: [
+            { t: 'Kritik görevlerde sadakat karşılıksız kalmaz.', tag: 'sert', fx: { auth: 4 } },
+            { t: 'Talebi böl; küçük kısmını verip kalanını koz tut.', tag: 'kurnaz', fx: { auth: 3, pop: -2 } },
+            { t: 'Talebi ve cevabını kamuoyuna açıkla.', tag: 'halkci', fx: { pop: 5, auth: -3 } },
+            { t: 'Aynı ölçütü herkese uygulayan atama kuralı çıkar.', tag: 'uzman', fx: { pop: -2, auth: -2 } }
+        ]},
+        { q: 'İlk konuşmanda toplumun duymak istediği şey ile gerçek tablo çelişiyor. Hangisini seçersin?', o: [
+            { t: 'Önce güven ver; zor gerçeği sonuç aldıktan sonra anlat.', tag: 'sert', fx: { auth: 3, pop: -2 } },
+            { t: 'Her kesime kaldırabileceği kadarını söyle.', tag: 'kurnaz', fx: { auth: 2, pop: -2 } },
+            { t: 'Bedeli de hatayı da açıkça anlat.', tag: 'halkci', fx: { pop: 5, auth: -2 } },
+            { t: 'Veriyi yayımla; yorumu bağımsız uzmanlara bırak.', tag: 'uzman', fx: { pop: -3, auth: -2 } }
+        ]},
+        { q: 'Yakın çevrenden biri geçmişindeki tartışmalı bir kararı saklamanı öneriyor. Ne yaparsın?', o: [
+            { t: 'Devlet güvenliği gerektiriyorsa kayıt kapalı kalır.', tag: 'sert', fx: { auth: 4 } },
+            { t: 'Dosyayı sakla ama gerektiğinde pazarlık gücü olarak koru.', tag: 'kurnaz', fx: { auth: 3, pop: -3 } },
+            { t: 'Kararı sen açıkla ve sorumluluğu üstlen.', tag: 'halkci', fx: { pop: 5, auth: -3 } },
+            { t: 'Kayıt, süre ve erişim kuralıyla bağımsız arşive girsin.', tag: 'uzman', fx: { pop: -2, auth: -2 } }
+        ]}
+    ]
+};
+
+const CHAR_ROLE_QUESTION_POLICY_VERSION = 'character-role-question-policy-1';
+const CHAR_ROLE_QUESTION_POLICY = Object.freeze({
+    COMMANDER: Object.freeze({ harp: 6, idare: 3, siyaset: 3 }),
+    COMPANY_OWNER: Object.freeze({ harp: 2, idare: 6, siyaset: 4 }),
+    MAYOR: Object.freeze({ harp: 1, idare: 7, siyaset: 4 }),
+    EXECUTIVE: Object.freeze({ harp: 3, idare: 4, siyaset: 5 }),
+    AGENT: Object.freeze({ harp: 2, idare: 3, siyaset: 7 }),
+    CIVILIAN: Object.freeze({ harp: 1, idare: 5, siyaset: 6 })
+});
+const CHAR_ROLE_META = Object.freeze({
+    COMMANDER: Object.freeze({ icon: '⚔️', label: 'ASKERÎ KOMUTAN', short: 'Komutan',
+        description: 'Ordu, güvenlik ve komuta zinciri içinden yükselirsin.' }),
+    COMPANY_OWNER: Object.freeze({ icon: '🏭', label: 'ŞİRKET YÖNETİCİSİ', short: 'Şirket yöneticisi',
+        description: 'Sermaye, üretim, ticaret ve siyasi bağlantılarla ilerlersin.' }),
+    MAYOR: Object.freeze({ icon: '🏙️', label: 'BELEDİYE BAŞKANI', short: 'Belediye başkanı',
+        description: 'Şehir hizmetleri, halk ve merkezî yönetim arasında karar verirsin.' }),
+    EXECUTIVE: Object.freeze({ icon: '🏛️', label: 'SİYASİ LİDER', short: 'Siyasi lider',
+        description: 'Hükûmet, koalisyon, kurum ve kamuoyu gücünü yönetirsin.' }),
+    AGENT: Object.freeze({ icon: '🕵️', label: 'İSTİHBARAT AJANI', short: 'Ajan',
+        description: 'Bilgi, gizli ağlar, sadakat ve karşı operasyonlarla ilerlersin.' }),
+    CIVILIAN: Object.freeze({ icon: '👤', label: 'SİVİL AKTÖR', short: 'Sivil',
+        description: 'Mesleki ve toplumsal ağlardan siyasi etkiye uzanan açık bir yol izlersin.' })
+});
+const CHAR_PLAYABLE_ROLES = Object.freeze(['COMMANDER', 'COMPANY_OWNER', 'EXECUTIVE', 'AGENT']);
+
+function charRoleKey(role) {
+    const key = String(role || 'COMMANDER').toUpperCase();
+    return CHAR_ROLE_QUESTION_POLICY[key] ? key : 'COMMANDER';
+}
+function charRoleQuestionPolicy(role) {
+    const roleKey = charRoleKey(role);
+    return { role: roleKey, version: CHAR_ROLE_QUESTION_POLICY_VERSION,
+        counts: Object.assign({}, CHAR_ROLE_QUESTION_POLICY[roleKey]), total: 12 };
+}
+function charRoleMeta(role) {
+    return CHAR_ROLE_META[charRoleKey(role)] || CHAR_ROLE_META.COMMANDER;
+}
 const CHARQ_THEMES = [
     { key: 'harp',    name: 'HARP',    icon: '⚔️' },
     { key: 'idare',   name: 'İDARE',   icon: '🏛️' },
@@ -333,10 +433,18 @@ const CHARQ_THEMES = [
 
 // ── SORU AKIŞI (saf mantık; UI'dan bağımsız → test edilebilir) ─────────────
 function charQuestionAt(themeKey, stage, prevTag) {
+    const role = arguments.length > 3 ? charRoleKey(arguments[3]) : 'COMMANDER';
+    if (role !== 'COMMANDER' && typeof CHAR_ROLE_SCENARIOS !== 'undefined') {
+        const roleBank = CHAR_ROLE_SCENARIOS[role];
+        const scenario = roleBank && roleBank[themeKey] && roleBank[themeKey][stage];
+        if (scenario) return scenario;
+    }
     const th = CHARQ[themeKey]; if (!th) return null;
     if (stage === 0) return th.root;
     const bank = [th.s2, th.s3, th.s4][stage - 1];
-    return bank ? (bank[prevTag] || bank.uzman) : null;
+    if (bank) return bank[prevTag] || bank.uzman;
+    const extra = CHARQ_EXTENDED[themeKey] || [];
+    return extra[stage - 4] || null;
 }
 // Cevap etiketi sayacından yetenek +1: sert→savaş, halkci→diplomasi, uzman→iktisat,
 // kurnaz→en düşük zara (+çok yönlü kurnazlık). charApply içinde kullanılır.
@@ -403,13 +511,17 @@ function charApply(character) {
     c.axes = charClampAxes(Object.assign(charAxesDefault(), character.axes || {}));
     c.lpBonus = character.dice ? charLpBonus(character.dice) : 0;    // zar denkleştirmesi
     c.legacy = (character.seeds || []).slice(0, 4);                  // geçmiş tohumları (AŞAMA 7 hafızasına doğacak)
+    c.creationRole = charRoleKey(character.role);
+    STORY.playerRole = c.creationRole;
+    c.creationDecisions = Array.isArray(character.decisions)
+        ? character.decisions.map(row => Object.assign({}, row)) : [];
     c.archetype = charArchetype(c.axes).id;
     if (character.skillPlus && c.skills[character.skillPlus] != null)
         c.skills[character.skillPlus] = Math.min(6, c.skills[character.skillPlus] + 1);
 }
 
 // ── EKRAN ──────────────────────────────────────────────────────────────────
-const CHAR_UI = { cfg: null, step: 0, name: '', dice: null, axes: null, tags: [], seeds: [], theme: 0, stage: 0, prevTag: null, qIndex: 0 };
+const CHAR_UI = { cfg: null, step: 0, name: '', dice: null, axes: null, tags: [], seeds: [], decisions: [], role: 'COMMANDER', theme: 0, stage: 0, prevTag: null, qIndex: 0 };
 
 function charOpen(setupCfg) {
     CHAR_UI.cfg = Object.assign({}, setupCfg || {});
@@ -418,14 +530,19 @@ function charOpen(setupCfg) {
         CHAR_UI.cfg.seed = rng.rootSeed;
     }
     CHAR_UI.step = 0; CHAR_UI.dice = charRollDice(); CHAR_UI.axes = charAxesDefault();
-    CHAR_UI.tags = []; CHAR_UI.seeds = []; CHAR_UI.theme = 0; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; CHAR_UI.qIndex = 0;
+    CHAR_UI.tags = []; CHAR_UI.seeds = []; CHAR_UI.decisions = [];
+    CHAR_UI.role = charRoleKey(CHAR_UI.cfg.characterRole || CHAR_UI.cfg.role || 'COMMANDER');
+    CHAR_UI.theme = 0; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; CHAR_UI.qIndex = 0;
     CHAR_UI.name = 'Komutan';
     showScreen('story-character');
     charRender();
 }
 function charFinish() {
     const skillPlus = charSkillFromTags(CHAR_UI.tags, CHAR_UI.dice);
-    const character = { name: CHAR_UI.name.trim() || 'Komutan', dice: CHAR_UI.dice, axes: CHAR_UI.axes, seeds: CHAR_UI.seeds, skillPlus };
+    const character = { name: CHAR_UI.name.trim() || 'Komutan', dice: CHAR_UI.dice, axes: CHAR_UI.axes,
+        seeds: CHAR_UI.seeds, skillPlus, role: CHAR_UI.role,
+        questionPolicyVersion: CHAR_ROLE_QUESTION_POLICY_VERSION,
+        decisions: CHAR_UI.decisions.map(row => Object.assign({}, row)) };
     storyNewCampaign(Object.assign({}, CHAR_UI.cfg, { character }));
     if (typeof storyOpen === 'function') storyOpen();
 }
@@ -437,9 +554,18 @@ function charRender() {
 }
 function charRenderDice(el) {
     const d = CHAR_UI.dice, lp = charLpBonus(d);
+    const selectedRole = charRoleMeta(CHAR_UI.role);
     const die = (k, icon, name) => `<div class="char-die"><span class="cd-icon">${icon}</span><b class="cd-val">${d[k]}</b><span class="cd-name">${name}</span></div>`;
+    const roles = CHAR_PLAYABLE_ROLES.map(role => {
+        const meta = CHAR_ROLE_META[role];
+        const selected = role === CHAR_UI.role;
+        return `<button type="button" class="char-role${selected ? ' selected' : ''}" data-role="${role}" aria-pressed="${selected}">`
+            + `<b>${meta.icon} ${meta.label}</b><small>${meta.description}</small></button>`;
+    }).join('');
     el.innerHTML = `
-      <div class="char-title">KOMUTAN PROFİLİ</div>
+      <div class="char-title">HİKÂYEDEKİ KARAKTERİN</div>
+      <div class="char-role-intro">Rolünü seç. Ardından gelen 12 ikilem <b>${selectedRole.short}</b> hayatına göre değişecek; cevapların puan karşılığı gösterilmeyecek.</div>
+      <div class="char-role-grid">${roles}</div>
       <label class="char-name-row">İSİM <input id="char-name" maxlength="24" value="${CHAR_UI.name.replace(/"/g, '&quot;')}"></label>
       <div class="char-dice-row">${die('warrior', '⚔️', 'SAVAŞ')}${die('diplomat', '🕊️', 'DİPLOMASİ')}${die('economist', '⚙️', 'İKTİSAT')}</div>
       <div class="char-lp">🎖️ Başlangıç liyakat puanı: <b>${lp}</b><br>
@@ -450,25 +576,50 @@ function charRenderDice(el) {
       </div>`;
     const nameEl = document.getElementById('char-name');
     nameEl.addEventListener('input', () => { CHAR_UI.name = nameEl.value; });
+    el.querySelectorAll('.char-role').forEach(button => button.addEventListener('click', () => {
+        const previousDefault = charRoleMeta(CHAR_UI.role).short;
+        CHAR_UI.name = nameEl.value;
+        CHAR_UI.role = charRoleKey(button.dataset.role);
+        if (!CHAR_UI.name.trim() || CHAR_UI.name.trim() === 'Komutan' || CHAR_UI.name.trim() === previousDefault) {
+            CHAR_UI.name = charRoleMeta(CHAR_UI.role).short;
+        }
+        charRender();
+    }));
     document.getElementById('char-roll').addEventListener('click', () => { CHAR_UI.dice = charRollDice(); charRender(); });
     document.getElementById('char-next').addEventListener('click', () => { CHAR_UI.step = 1; charRender(); });
 }
 function charRenderQuestion(el) {
     const th = CHARQ_THEMES[CHAR_UI.theme];
-    const q = charQuestionAt(th.key, CHAR_UI.stage, CHAR_UI.prevTag);
+    const q = charQuestionAt(th.key, CHAR_UI.stage, CHAR_UI.prevTag, CHAR_UI.role);
     if (!q) { CHAR_UI.step = 2; return charRender(); }
     el.innerHTML = `
-      <div class="char-title">${th.icon} ${th.name} · Soru ${CHAR_UI.qIndex + 1}/12</div>
+      <div class="char-title">${charRoleMeta(CHAR_UI.role).icon} ${charRoleMeta(CHAR_UI.role).short} · ${th.name} · Soru ${CHAR_UI.qIndex + 1}/12</div>
       <div class="char-q">${q.q}</div>
-      <div class="char-opts">${q.o.map((o, i) => `<button type="button" class="char-opt" data-i="${i}">${o.t}</button>`).join('')}</div>`;
+      <div class="char-question-note">Doğru cevap yok. Dünyanın seni nasıl okuyacağını bilmeden, gerçekten vereceğin kararı seç.</div>
+      <div class="char-opts">${q.o.map((o, i) =>
+        `<button type="button" class="char-opt" data-i="${i}">${o.t}</button>`).join('')}</div>`;
     el.querySelectorAll('.char-opt').forEach(btn => btn.addEventListener('click', () => {
         const o = q.o[+btn.dataset.i];
         for (const k in (o.fx || {})) CHAR_UI.axes[k] = (CHAR_UI.axes[k] ?? 50) + o.fx[k];
         charClampAxes(CHAR_UI.axes);
         CHAR_UI.tags.push(o.tag);
         if (o.seed) CHAR_UI.seeds.push(o.seed);
+        CHAR_UI.decisions.push({
+            index: CHAR_UI.qIndex,
+            role: CHAR_UI.role,
+            theme: th.key,
+            stage: CHAR_UI.stage,
+            branch: CHAR_UI.prevTag || 'root',
+            questionText: q.q,
+            optionIndex: +btn.dataset.i,
+            optionText: o.t,
+            optionTag: o.tag,
+            legacyFx: Object.assign({}, o.fx || {}),
+            legacySeed: o.seed || null
+        });
         CHAR_UI.prevTag = o.tag; CHAR_UI.stage++; CHAR_UI.qIndex++;
-        if (CHAR_UI.stage > 3) { CHAR_UI.theme++; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; }
+        const policy = charRoleQuestionPolicy(CHAR_UI.role);
+        if (CHAR_UI.stage >= (policy.counts[th.key] || 0)) { CHAR_UI.theme++; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; }
         if (CHAR_UI.theme >= CHARQ_THEMES.length) CHAR_UI.step = 2;
         charRender();
     }));
@@ -482,7 +633,7 @@ function charRenderSummary(el) {
           <span class="ca-hi">${x.hi}</span><b class="ca-val">${v}</b></div>`;
     };
     el.innerHTML = `
-      <div class="char-title">${arc.icon} ${CHAR_UI.name.trim() || 'Komutan'} — <span class="char-arc">${arc.name}</span></div>
+      <div class="char-title">${charRoleMeta(CHAR_UI.role).icon} ${CHAR_UI.name.trim() || charRoleMeta(CHAR_UI.role).short} — <span class="char-arc">${charRoleMeta(CHAR_UI.role).short} / ${arc.name}</span></div>
       <div class="char-axes">${CHAR_AXES.map(bar).join('')}</div>
       ${CHAR_UI.seeds.length ? `<div class="char-seeds">📜 Geçmişin: ${CHAR_UI.seeds.map(s => `<i>${s}</i>`).join(' · ')}</div>` : ''}
       <div class="char-lp">⚔️${CHAR_UI.dice.warrior} 🕊️${CHAR_UI.dice.diplomat} ⚙️${CHAR_UI.dice.economist} · 🎖️ ${charLpBonus(CHAR_UI.dice)} LP</div>

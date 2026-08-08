@@ -4,7 +4,7 @@
 //  Oylar kanonik nufus kohortlarindan, tercih kamuoyu hafizasi ve gercek
 //  yonetim sonuclarindan turetilir. Tek zar, LLM sayisi, sahte secmen veya
 //  gizli bonus yoktur. Faz 34 gelene kadar aday bir insan degil, acikca
-//  POLITICAL_SLATE_PROXY_PRE_PHASE_34 modelidir. Bu katman ekonomi ya da
+//  Faz 34 ile siyasi listeler kanonik aday karakter kimliği taşır. Bu katman ekonomi ya da
 //  kaynak yazmaz; sertifikali sonuc yalniz yeni bir makam/mandat kimligi
 //  uretir ve Faz 29 yetki imzasinin dogal yoldan yenilenmesini saglar.
 // ============================================================================
@@ -63,8 +63,8 @@ const STORY_ELECTION_POLICY = Object.freeze({
     maximumElections: 96,
     maximumMandates: 80,
     maximumEvents: 512,
-    candidateModel: 'POLITICAL_SLATE_PROXY_PRE_PHASE_34',
-    officeHolderModel: 'ELECTED_OFFICEHOLDER_PROXY_PRE_PHASE_34',
+    candidateModel: 'CANONICAL_CHARACTER_IDENTITY_PHASE_34',
+    officeHolderModel: 'CANONICAL_CHARACTER_IDENTITY_PHASE_34',
     voteModel: 'EXACT_COHORT_PERSON_ALLOCATION_V1',
     resultModel: 'MANDATE_RECORD_ONLY_PHASE_31',
     physicalMutation: false
@@ -113,10 +113,12 @@ function storyElectionMandateId(countryId, sequence) { return `mandate:${storyEl
 function storyElectionId(countryId, sequence) { return `election:${storyElectionCountryId(countryId)}:${Math.max(1, Number(sequence) || 1)}`; }
 function storyElectionOfficeHolderActorId(mandateId) { return `officeholder:${String(mandateId)}:executive`; }
 
-function storyElectionSlates(countryId) {
+function storyElectionSlates(countryId, electionKey) {
     const state = storyElectionState(countryId);
     return STORY_ELECTION_SLATE_KEYS.map((key, index) => {
         const def = STORY_ELECTION_SLATES[key];
+        const candidate = typeof storyCharacterPoliticalCandidate === 'function'
+            ? storyCharacterPoliticalCandidate(countryId, key, electionKey) : null;
         return {
             id: storyElectionSlateId(countryId, key),
             key,
@@ -124,6 +126,8 @@ function storyElectionSlates(countryId) {
             name: `${state ? state.name : countryId} ${def.name}`,
             ballotOrder: index + 1,
             candidateModel: STORY_ELECTION_POLICY.candidateModel,
+            candidateActorId: candidate && candidate.id || null,
+            candidateName: candidate && candidate.name || null,
             stance: storyElectionClone(def.stance),
             issueWeights: storyElectionClone(def.issueWeights),
             endorsements: []
@@ -144,8 +148,8 @@ function storyElectionInitialMandate(ledger, countryId) {
         termEndsAt: STORY_ELECTION_POLICY.firstElectionBaseSeconds
             + Number(String(countryId).split(':').pop()) * STORY_ELECTION_POLICY.firstElectionCountryStaggerSeconds,
         officeHolder: {
-            actorId: storyElectionOfficeHolderActorId(id), actorType: 'OFFICEHOLDER_PROXY',
-            name: oldName, model: 'LEGACY_NAMED_EXECUTIVE_BRIDGED_PHASE_31'
+            actorId: `character:${Number(String(countryId).split(':').pop())}:president`, actorType: 'CHARACTER',
+            name: oldName, model: 'CANONICAL_CHARACTER_IDENTITY_PHASE_34'
         },
         resultModel: STORY_ELECTION_POLICY.resultModel
     };
@@ -336,7 +340,7 @@ function storyElectionCount(election) {
     const country = STORY.stateCapacity && STORY.stateCapacity.countries
         ? STORY.stateCapacity.countries[election.countryId] : null;
     const model = storyElectionModel(election.countryId);
-    const slates = storyElectionSlates(election.countryId);
+    const slates = storyElectionSlates(election.countryId, election.id);
     storyElectionEndorsements(election.countryId, slates);
     const totals = Object.fromEntries(slates.map(slate => [slate.id, 0]));
     const ballots = [];
@@ -417,7 +421,7 @@ function storyElectionSchedule(ledger, country) {
         campaignStartsAt: storyElectionRound(country.nextElectionAt - model.campaignSeconds),
         countedAt: null, contestedAt: null, contestResolvesAt: null, certifiedAt: null,
         incumbentMandateId: country.currentMandateId,
-        candidates: storyElectionSlates(country.countryId),
+        candidates: storyElectionSlates(country.countryId, id),
         cohortBallots: [], totals: [], eligiblePeople: 0, castVotes: 0,
         turnoutBps: 0, winnerSlateId: null, coalitionSlateIds: [],
         marginVotes: 0, marginBps: 0, contest: null, resultingMandateId: null,
@@ -449,10 +453,13 @@ function storyElectionCreateMandate(ledger, country, election) {
         status: 'ACTIVE', startedAt: storyElectionRound(STORY.clock), endedAt: null,
         termEndsAt: storyElectionRound((Number(STORY.clock) || 0) + model.termSeconds),
         officeHolder: {
-            actorId: storyElectionOfficeHolderActorId(id), actorType: 'OFFICEHOLDER_PROXY',
-            name: coalition.length > 1
-                ? `${primary ? primary.name : 'Koalisyon'} öncülüğündeki koalisyon`
-                : `${primary ? primary.name : 'Seçilmiş liste'} yürütmesi`,
+            actorId: primary && primary.candidateActorId || storyElectionOfficeHolderActorId(id),
+            actorType: primary && primary.candidateActorId ? 'CHARACTER' : 'OFFICEHOLDER_PROXY',
+            name: primary && primary.candidateName
+                ? primary.candidateName
+                : (coalition.length > 1
+                    ? `${primary ? primary.name : 'Koalisyon'} öncülüğündeki koalisyon`
+                    : `${primary ? primary.name : 'Seçilmiş liste'} yürütmesi`),
             model: STORY_ELECTION_POLICY.officeHolderModel
         },
         resultModel: STORY_ELECTION_POLICY.resultModel
@@ -607,6 +614,12 @@ function storyElectionValidate(ledger) {
         if (!Array.isArray(election.candidates) || election.candidates.length !== STORY_ELECTION_SLATE_KEYS.length) add('ELECTION_CANDIDATES', `${path}.candidates`, 'Seçim dört sürümlü liste taşımalı.');
         const candidateIds = new Set((election.candidates || []).map(row => row.id));
         if (candidateIds.size !== (election.candidates || []).length) add('ELECTION_CANDIDATE_DUPLICATE', `${path}.candidates`, 'Aday listesi yineleniyor.');
+        for (const candidate of (election.candidates || [])) {
+            if (candidate.candidateModel === 'CANONICAL_CHARACTER_IDENTITY_PHASE_34'
+                && (!String(candidate.candidateActorId || '').startsWith('character:') || !candidate.candidateName)) {
+                add('ELECTION_CANDIDATE_CHARACTER', `${path}.candidates`, 'Faz 34 adayı kanonik karakter kimliği ve ad taşımalı.');
+            }
+        }
         if (['COUNTED', 'CONTESTED', 'CERTIFIED'].includes(election.status)) {
             const totalVotes = (election.totals || []).reduce((sum, row) => sum + Math.max(0, Number(row.votes) || 0), 0);
             if (totalVotes !== election.castVotes) add('ELECTION_VOTE_TOTAL', `${path}.totals`, 'Liste oyları kullanılan oylarla tam uyuşmalı.');

@@ -6,10 +6,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_WORLD_V2_SCHEMA_VERSION = 2;
-const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-6';
+const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-10';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
-    'meta', 'clock', 'countries', 'regions', 'characters',
+    'meta', 'clock', 'countries', 'regions', 'characters', 'worldFacts', 'actorBeliefs', 'characterRelationships',
     'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence', 'companies', 'mediaOutlets',
     'diplomaticEdges', 'markets', 'militaryForces', 'crises',
     'events', 'decisions', 'memory', 'diagnostics'
@@ -272,11 +272,48 @@ function storyWorldV2Regions() {
 
 function storyWorldV2Characters() {
     const characters = [];
+    const includedIds = new Set();
     for (const state of (STORY.states || [])) {
+        const presidentActorId = `character:${state.id}:president`;
+        const presidentIdentity = typeof storyCharacterIdentityView === 'function'
+            ? storyCharacterIdentityView(presidentActorId) : null;
+        if (presidentIdentity) {
+            characters.push(Object.assign(
+                storyWorldV2EntityBase(presidentActorId, storyWorldV2CountryId(state.id), 0, null),
+                {
+                    legacyId: null,
+                    name: presidentIdentity.name,
+                    role: 'EXECUTIVE',
+                    personality: state.gov && state.gov.president && state.gov.president.persona || null,
+                    regionId: STORY._capitals && STORY._capitals[state.id] != null
+                        ? storyWorldV2RegionId(STORY._capitals[state.id]) : null,
+                    loyalty: null,
+                    skills: storyWorldV2Clone(state.gov && state.gov.president && state.gov.president.dice || {}),
+                    axes: storyWorldV2Clone(state.gov && state.gov.president && state.gov.president.axes || {}),
+                    organizationId: presidentIdentity.organizationId || null,
+                    institutionId: presidentIdentity.institutionId || null,
+                    serviceId: presidentIdentity.serviceId || null,
+                    publicTitle: presidentIdentity.publicTitle || null,
+                    identityProfile: storyWorldV2Clone(presidentIdentity.coreAxes),
+                    values: storyWorldV2Clone(presidentIdentity.values),
+                    fears: storyWorldV2Clone(presidentIdentity.fears),
+                    ambitions: storyWorldV2Clone(presidentIdentity.ambitions),
+                    redLines: storyWorldV2Clone(presidentIdentity.redLines),
+                    goals: storyWorldV2Clone(presidentIdentity.goals),
+                    career: storyWorldV2Clone(presidentIdentity.career),
+                    voiceProfile: storyWorldV2Clone(presidentIdentity.voiceProfile),
+                    currentRegimeAlignment: presidentIdentity.currentRegimeAlignment
+                }
+            ));
+            includedIds.add(presidentActorId);
+        }
         for (const commander of ((state.gov && state.gov.commanders) || [])) {
+            const actorId = storyWorldV2CharacterId(state.id, commander.id);
+            const identity = typeof storyCharacterIdentityView === 'function'
+                ? storyCharacterIdentityView(actorId) : null;
             characters.push(Object.assign(
                 storyWorldV2EntityBase(
-                    storyWorldV2CharacterId(state.id, commander.id),
+                    actorId,
                     storyWorldV2CountryId(state.id),
                     0,
                     null
@@ -284,17 +321,98 @@ function storyWorldV2Characters() {
                 {
                     legacyId: commander.id,
                     name: String(commander.name || `Komutan ${commander.id}`),
-                    role: commander.isPlayer ? 'PLAYER_COMMANDER' : 'COMMANDER',
+                    role: identity ? identity.role : (commander.isPlayer
+                        ? String(commander.creationRole || 'COMMANDER') : 'COMMANDER'),
                     personality: commander.personality || null,
                     regionId: commander.node == null ? null : storyWorldV2RegionId(commander.node),
                     loyalty: storyWorldV2Round(commander.loyalty),
                     skills: storyWorldV2Clone(commander.skills || {}),
-                    axes: storyWorldV2Clone(commander.axes || {})
+                    axes: storyWorldV2Clone(commander.axes || {}),
+                    organizationId: identity && identity.organizationId || null,
+                    institutionId: identity && identity.institutionId || null,
+                    serviceId: identity && identity.serviceId || null,
+                    publicTitle: identity && identity.publicTitle || null,
+                    identityProfile: identity ? storyWorldV2Clone(identity.coreAxes) : null,
+                    values: identity ? storyWorldV2Clone(identity.values) : null,
+                    fears: identity ? storyWorldV2Clone(identity.fears) : [],
+                    ambitions: identity ? storyWorldV2Clone(identity.ambitions) : [],
+                    redLines: identity ? storyWorldV2Clone(identity.redLines) : [],
+                    goals: identity ? storyWorldV2Clone(identity.goals) : [],
+                    career: identity ? storyWorldV2Clone(identity.career) : null,
+                    voiceProfile: identity ? storyWorldV2Clone(identity.voiceProfile) : null,
+                    currentRegimeAlignment: identity ? identity.currentRegimeAlignment : null
                 }
             ));
+            includedIds.add(actorId);
         }
     }
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    for (const identity of Object.values(identityLedger && identityLedger.identities || {})) {
+        if (includedIds.has(identity.id)) continue;
+        const view = typeof storyCharacterIdentityView === 'function'
+            ? storyCharacterIdentityView(identity.id) : identity;
+        characters.push(Object.assign(
+            storyWorldV2EntityBase(identity.id, identity.countryId, identity.createdAt, null),
+            {
+                legacyId: null, name: identity.name, role: identity.role,
+                personality: null, regionId: null, loyalty: null, skills: {}, axes: {},
+                organizationId: identity.organizationId || null,
+                institutionId: identity.institutionId || null,
+                serviceId: identity.serviceId || null,
+                publicTitle: identity.publicTitle || null,
+                identityProfile: storyWorldV2Clone(identity.coreAxes),
+                values: storyWorldV2Clone(identity.values),
+                fears: storyWorldV2Clone(identity.fears),
+                ambitions: storyWorldV2Clone(identity.ambitions),
+                redLines: storyWorldV2Clone(identity.redLines),
+                goals: storyWorldV2Clone(identity.goals),
+                career: storyWorldV2Clone(identity.career),
+                voiceProfile: storyWorldV2Clone(identity.voiceProfile),
+                currentRegimeAlignment: view && view.currentRegimeAlignment
+            }
+        ));
+    }
     return characters.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function storyWorldV2CharacterWorldFacts() {
+    const ledger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    return Object.values(ledger && ledger.worldFacts || {}).map(fact => Object.assign(
+        storyWorldV2EntityBase(
+            fact.id,
+            fact.countryId,
+            fact.occurredAt,
+            fact.originEventId == null ? null : `causal-${fact.originEventId}`
+        ),
+        storyWorldV2Clone(fact),
+        { entityType: 'WORLD_FACT' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
+function storyWorldV2CharacterActorBeliefs() {
+    const ledger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    return Object.values(ledger && ledger.actorBeliefs || {}).map(belief => Object.assign(
+        storyWorldV2EntityBase(
+            belief.id,
+            belief.holderCountryId,
+            belief.learnedAt,
+            belief.originEventId == null ? null : `causal-${belief.originEventId}`
+        ),
+        storyWorldV2Clone(belief),
+        { entityType: 'ACTOR_BELIEF' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+
+function storyWorldV2CharacterRelationships() {
+    const ledger = typeof storyRelationshipEnsure === 'function' ? storyRelationshipEnsure() : null;
+    return Object.values(ledger && ledger.edges || {}).map(edge => Object.assign(
+        storyWorldV2EntityBase(edge.id, edge.countryId, edge.createdAt, null),
+        storyWorldV2Clone(edge),
+        { entityType: 'CHARACTER_RELATIONSHIP' }
+    )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
 function storyWorldV2PopulationCohorts() {
@@ -522,6 +640,9 @@ function storyWorldV2CreateEmpty(options) {
         countries: [],
         regions: [],
         characters: [],
+        worldFacts: [],
+        actorBeliefs: [],
+        characterRelationships: [],
         populationCohorts: [],
         powerCenters: [],
         institutions: [],
@@ -538,10 +659,9 @@ function storyWorldV2CreateEmpty(options) {
         crises: [],
         events: [],
         decisions: [],
-        memory: {
-            playerPromises: [],
-            characterSummaries: {}
-        },
+        memory: typeof storyMemoryLedgerCreate === 'function'
+            ? storyMemoryLedgerCreate()
+            : { recentByActor: {}, episodes: {}, milestones: {}, summariesByActor: {} },
         diagnostics: {
             sourceSchema: 'story-world-v2',
             stateHash: null,
@@ -583,6 +703,9 @@ function storyWorldV2Snapshot() {
         countries: storyWorldV2Countries(),
         regions: storyWorldV2Regions(),
         characters: storyWorldV2Characters(),
+        worldFacts: storyWorldV2CharacterWorldFacts(),
+        actorBeliefs: storyWorldV2CharacterActorBeliefs(),
+        characterRelationships: storyWorldV2CharacterRelationships(),
         populationCohorts: storyWorldV2PopulationCohorts(),
         powerCenters: storyWorldV2PowerCenters(),
         institutions: storyWorldV2Institutions(),
@@ -641,10 +764,9 @@ function storyWorldV2Snapshot() {
                 sourceEventId: event.id
             }
         )),
-        memory: {
-            playerPromises: [],
-            characterSummaries: {}
-        },
+        memory: typeof storyMemoryWorldView === 'function'
+            ? storyMemoryWorldView()
+            : { recentByActor: {}, episodes: {}, milestones: {}, summariesByActor: {} },
         diagnostics: {
             sourceSchema: 'pixelrts_story_v3/runtime-v1',
             stateHash,
@@ -803,7 +925,7 @@ function storyWorldV2Validate(world, options) {
     }
 
     const collectionNames = STORY_WORLD_V2_TOP_LEVEL.filter(key => [
-        'countries', 'regions', 'characters', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence',
+        'countries', 'regions', 'characters', 'worldFacts', 'actorBeliefs', 'characterRelationships', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence',
         'companies', 'mediaOutlets', 'diplomaticEdges', 'markets', 'militaryForces',
         'crises', 'events', 'decisions'
     ].includes(key));
@@ -880,6 +1002,53 @@ function storyWorldV2Validate(world, options) {
         }
         if (character.regionId != null && !regionIds.has(character.regionId)) {
             add('BROKEN_REFERENCE', `$.characters[${i}].regionId`, `Bilinmeyen bölge: ${character.regionId}`);
+        }
+    }
+    const characterIds = new Set((world.characters || []).map(character => character && character.id));
+    const worldFactIds = new Set((world.worldFacts || []).map(fact => fact && fact.id));
+    for (let i = 0; i < (world.worldFacts || []).length; i++) {
+        const fact = world.worldFacts[i];
+        if (!fact || typeof fact !== 'object') continue;
+        if (!characterIds.has(fact.subjectActorId)) {
+            add('BROKEN_REFERENCE', `$.worldFacts[${i}].subjectActorId`, `Bilinmeyen olgu öznesi: ${fact.subjectActorId}`);
+        }
+    }
+    for (let i = 0; i < (world.actorBeliefs || []).length; i++) {
+        const belief = world.actorBeliefs[i];
+        if (!belief || typeof belief !== 'object') continue;
+        if (!characterIds.has(belief.holderActorId)) {
+            add('BROKEN_REFERENCE', `$.actorBeliefs[${i}].holderActorId`, `Bilinmeyen inanç sahibi: ${belief.holderActorId}`);
+        }
+        if (!worldFactIds.has(belief.worldFactId)) {
+            add('BROKEN_REFERENCE', `$.actorBeliefs[${i}].worldFactId`, `Bilinmeyen dünya gerçeği: ${belief.worldFactId}`);
+        }
+    }
+    for (let i = 0; i < (world.characterRelationships || []).length; i++) {
+        const edge = world.characterRelationships[i];
+        if (!edge || typeof edge !== 'object') continue;
+        if (!characterIds.has(edge.fromActorId)) {
+            add('BROKEN_REFERENCE', `$.characterRelationships[${i}].fromActorId`, `Bilinmeyen ilişki kaynağı: ${edge.fromActorId}`);
+        }
+        if (!characterIds.has(edge.toActorId)) {
+            add('BROKEN_REFERENCE', `$.characterRelationships[${i}].toActorId`, `Bilinmeyen ilişki hedefi: ${edge.toActorId}`);
+        }
+        if (edge.fromActorId === edge.toActorId) {
+            add('RELATION_SELF_EDGE', `$.characterRelationships[${i}]`, 'Karakter kendi kendisiyle ilişki kenarı taşıyamaz.');
+        }
+        for (const axis of ['trustBps', 'fearBps', 'respectBps', 'debtBps', 'hostilityBps']) {
+            const value = Number(edge[axis]);
+            if (!Number.isInteger(value) || value < 0 || value > 10000) {
+                add('RELATION_AXIS_RANGE', `$.characterRelationships[${i}].${axis}`, `${axis} 0–10000 tamsayı olmalıdır.`);
+            }
+        }
+    }
+    const memory = world.memory;
+    if (!memory || typeof memory !== 'object' || Array.isArray(memory)) {
+        add('MEMORY_OBJECT', '$.memory', 'Karakter hafızası nesne olmalıdır.');
+    } else if (typeof storyMemoryValidate === 'function') {
+        const memoryValidation = storyMemoryValidate(memory);
+        for (const issue of memoryValidation.issues || []) {
+            add(`MEMORY_${issue.code}`, `$.memory${String(issue.path || '$').replace(/^\$/, '')}`, issue.message || 'Karakter hafızası geçersiz.');
         }
     }
     for (let i = 0; i < (world.populationCohorts || []).length; i++) {

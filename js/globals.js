@@ -354,6 +354,14 @@ let BATTLE_FORCE_CONCENTRATE = true;
 // ihtiyatı kutsal tut. AÇIKKEN CONCENTRATE'in tek-kütle/tek-hedef davranışını sektör-katmanıyla değiştirir (fazlı, ölçüm-güdümlü).
 // A/B KANITLANDI (düşman-uyarlamalı): saldıran 2/3→3/3, dağılım +%52, determinizm korundu → VARSAYILAN AÇIK + version bump.
 let BATTLE_SECTOR_COMMAND = true;
+// KADRO YAMA YIGINI — DENETLENDI (2026-08-08). Tedarik tahsisi kokunden duzeltildikten sonra ustundeki
+// telafi yamalari 2^5 faktoriyel ile (1024 mac, 5 grup: imza/taban/hava/mizrak/omurga) sinandi.
+// SONUC: kanita dayanarak kaldirilacak yama YOK. Ana etkilerin hicbiri |t|>=2 degil; ustelik imza (2/16),
+// mizrak (3/16), omurga (1/16) cok SEYREK tetikleniyor -> olculemedi (etkisiz DEGIL). Tek iyi-guclendirilmis
+// tahmin `taban`: 16/16 calisiyor, kapatmak -114 (t -0.80) => faydali, kaldi.
+// `hava` grubu (SAM tabani + radar takasi) bu yapilandirmada KANITLI OLU: 1024 macta tam sifir fark,
+// 16/16 konuslandirmada kadro birebir ayni. Kod SILINMEDI (baska butce/roster/mod'da tetiklenebilir) ama
+// bu konfigurasyonda hicbir sey yapmiyor. Olcum iskelesi (BATTLE_KADRO_YAMALARI) soz verildigi gibi KALDIRILDI.
 // TARAF-BAŞI SEKTÖR-KOMUTA (null = global değeri kullan). GEREKÇE: kuvvet-dağılımı ölçümü
 // (tools/kuvvet-dagilim-teshis.js) sektör-komutayı A/B'ye sokamadı çünkü bayrak GLOBAL —
 // kapatınca İKİ taraf birden bloblaşıyor ve fark hangi tarafa ait bilinemiyor. Diğer tüm
@@ -376,7 +384,17 @@ function battleBrainIntel4(isRed) { return isRed ? BATTLE_INTEL4_RED : BATTLE_IN
 // --ablation her deltayı TEK açıp intel3pro'ya karşı ölçer → yardım-eden tut, zarar-veren at. (Global; beyin-flag'i kapalı tarafı etkilemez.)
 // profile: TEHDİT-PROFİLİ sistemi (default-FALSE → default-off byte-aynı; diğerleri default-true=tam-intel4).
 const BATTLE_INTEL4_DELTAS = { stance: true, shock: true, deblob: true, helo: true, comp: true, micro: true, profile: false, drone: false, defense: false, backbone: false, range: false, attack: true };   // attack=ON (kullanıcı-kararı): saldıran dron AT-perdesini temizler → 2/6→6/6, DET ✓ (yalnız AI-hedefleme, hash-yapı değişmez)
-function battleDelta(isRed, key) { return battleBrainIntel4(isRed) && BATTLE_INTEL4_DELTAS[key] !== false; }
+// TARAF-BAŞI DELTA (tuzak B3): tek global bayrakla A/B yapılırsa değişiklik İKİ TARAFI da etkiler ve
+// etki birbirini götürür. Pro katmanında (BATTLE_INTEL4PRO_DELTAS_RED/_BLUE) bu kalıp zaten vardı;
+// intel4 deltalarında yoktu. Varsayılan null = eski davranış (byte-aynı).
+let BATTLE_INTEL4_DELTAS_RED = null;
+let BATTLE_INTEL4_DELTAS_BLUE = null;
+function battleDelta(isRed, key) {
+    if (!battleBrainIntel4(isRed)) return false;
+    const per = isRed ? BATTLE_INTEL4_DELTAS_RED : BATTLE_INTEL4_DELTAS_BLUE;
+    if (per && per[key] !== undefined) return per[key] !== false;
+    return BATTLE_INTEL4_DELTAS[key] !== false;
+}
 
 // ─── INTEL4-PRO KATMANI ───────────────────────────────────────────────────────────────────────────
 // intel4-pro = intel4 + aşağıdaki deltalar. intel4 MEZUN OLDU (intel3pro'yu geçti); pro artık intel4'e karşı ölçülür.
@@ -789,6 +807,11 @@ let BATTLE_JAM_RECON = true;
 // Yüklü nakliye helosu "önce teslim et" kuralı yüzünden yakıt için üsse DÖNMÜYORDU (`!busyTransport`).
 // ÖLÇÜLDÜ: 12 helonun 10'u yakıtı bitip düştü ve kargosundaki 10 piyadeyi de öldürdü; düşman
 // yalnız 1 tanesini vurdu. Yakıt bu kesrin altına inince kargo şartı düşer ve üsse dönülür.
+// OLCULDU ve GERI ALINDI (2026-08-08): `return_to_base` hasar-tetikli cekilme yazildi, BIND KANITI
+// tetiklendigini dogruladi (4/4 helo, en dusuk can %19) ama TEK BIR HELIKOPTERI BILE KURTARMADI —
+// esik %45'te de %75'te de olum orani %100 kaldi (24 ve 32 mac). Cekilme YANLIS ILAC: helo hava
+// savunma zarfina girdikten sonra ne zaman kirarsa kirsin kacamiyor. Gercek care YAKLASIMDA
+// (nap_of_earth arazi maskeleme / SEAD-once) — daha buyuk bir is, ayri ele alinmali.
 let BATTLE_HELO_KRITIK_YAKIT = 0.12;
 // TARAF-BASI ferry bayraklari (tuzak B3: global bayrak A/B'de iki tarafi birden degistirir).
 // null = global degeri kullan.
@@ -1172,6 +1195,19 @@ function battleUnitRoleBucket(type) {
         tags.includes('breakthrough') || tags.includes('anti_infantry') || tags.includes('backline_hunter');
     if (!combatTag && (cat === 'recon' || tags.includes('intel') || tags.includes('spotter'))) return TASK_GROUP_ROLE.RECON;
     if (cat === 'indirect' || tags.includes('indirect_fire')) return TASK_GROUP_ROLE.FIRE_SUPPORT;
+    // ═══ HAVA SAVUNMA ŞEMSİYESİ (2026-08-08, kullanıcı gözlemi + ölçüm) ═══
+    // KULLANICI: "helom çok rahat geziyor; AI'nin hava savunması ŞEMSİYE gibi olmalı, hem birimler ordan
+    // çok çıkmamalı hem hava savunma YAKIN durmalı."
+    // KUSUR: hava savunma `anti_air` etiketi yüzünden combatTag alıyordu → MUHAREBE kovasına düşüyor →
+    // MAIN/FIXING/FLANK ile birlikte HEDEFE yürüyordu. Oysa koruması gereken değerli varlıklar GERİDE:
+    // ateş desteği 0.55, destek 0.3, ihtiyat 0.2. Şemsiye taarruzla öne gidince arka AÇIKTA kalıyordu.
+    // ÖLÇÜLDÜ (kullanıcının 2 canlı maçı): AI birimlerinin yalnız %65'i bir hava-savunma menzilinde
+    // (insanda %92); AI havadan 22 birim kaybetti (12'si şemsiye DIŞINDA), insan 1. Ve AI'ın DOLAYLI ATEŞ
+    // birimlerini öldüren #1 sebep insanın saldırı helikopteri (hasarın %47'si, 8 ölümün 4'ü) — AI'ın
+    // topçusu bu yüzden 453'e karşı yalnız 193 atış yapabildi ve ÇNRA'sı 3065'e karşı 511 hasar verdi.
+    // ÇÖZÜM: hava savunma, KORUDUĞU ateş desteğiyle AYNI grupta konuşlanır (FIRE_SUPPORT hedefi:
+    // saldıranda 0.55, savunanda derin mevzi). Şemsiye artık değerli arkanın üstünde.
+    if (cat === 'air_defense') return TASK_GROUP_ROLE.FIRE_SUPPORT;
     if (cat === 'support' || cat === 'logistics' || cat === 'command' || !hasW ||
         tags.includes('sustain') || tags.includes('engineering') || tags.includes('logistics') ||
         tags.includes('command') || tags.includes('no_weapon')) return TASK_GROUP_ROLE.SUPPORT;

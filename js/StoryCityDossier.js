@@ -20,6 +20,344 @@ const STORY_CITY_DOSSIER_TABS = Object.freeze([
 const STORY_ECONOMY_TABS = Object.freeze([
     'genel', 'butce', 'sirketler', 'piyasa', 'lojistik', 'fraksiyonlar'
 ]);
+
+// Panel açıkken 0,5 saniyede bir yenileme isteği gelir. Eski akış her istekte
+// bütün StoryWorldStateV2'yi kopyalıyor, doğruluyor ve PlayerKnowledge ağacını
+// yeniden kuruyordu. Aşağıdaki salt-okunur UI önbelleği yalnız ilgili katmanın
+// tik sürümü veya ekranda kullanılan doğrudan değer değiştiğinde geçersiz olur.
+// Simülasyon durumu içinde tutulmaz; kayıt karmasına ve determinizme karışmaz.
+let STORY_CITY_DOSSIER_PANEL_CACHE = new Map();
+let STORY_CITY_DOSSIER_DOM_HTML = new WeakMap();
+let STORY_CITY_DOSSIER_WORLD_CACHE = null;
+let STORY_CITY_DOSSIER_HTML_CACHE = new WeakMap();
+let STORY_CITY_DOSSIER_DOM_TAB_CACHE = new WeakMap();
+let STORY_CITY_DOSSIER_PANEL_PERF = null;
+let STORY_CITY_DOSSIER_PANEL_EPOCH = 0;
+const STORY_CITY_DOSSIER_PANEL_CACHE_LIMIT = 64;
+
+const STORY_CITY_DOSSIER_LEDGER_GROUPS = Object.freeze({
+    city: Object.freeze({
+        genel: ['regionalEconomy'],
+        nufus: ['population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration'],
+        kurumlar: ['institutions', 'powerCenters', 'stateCapacity', 'elections', 'integrity'],
+        tarih: [],
+        karakterler: [],
+        binalar: ['regionalEconomy'],
+        ordu: ['regionalEconomy']
+    }),
+    economy: Object.freeze({
+        genel: ['regionalEconomy'],
+        butce: ['stateBudget'],
+        sirketler: ['companyEconomy', 'economicAI', 'marketPrices'],
+        piyasa: ['marketPrices'],
+        lojistik: ['tradeLogistics', 'infrastructureGraph'],
+        fraksiyonlar: ['powerCenters', 'collectiveAction', 'publicOpinion']
+    })
+});
+const STORY_CITY_DOSSIER_TASK_GROUPS = Object.freeze({
+    city: Object.freeze({
+        genel: ['resource', 'production'],
+        nufus: ['population', 'population-needs', 'factions', 'human-migration'],
+        kurumlar: ['institutions', 'power-centers', 'state-capacity', 'elections', 'integrity'],
+        tarih: [], karakterler: ['loyalty', 'commander-ai'],
+        binalar: ['resource', 'production'], ordu: ['resource', 'production']
+    }),
+    economy: Object.freeze({
+        genel: ['economy', 'resource', 'production'], butce: ['economy'],
+        sirketler: ['economy'], piyasa: ['economy'],
+        lojistik: ['economy'], fraksiyonlar: ['factions', 'power-centers']
+    })
+});
+
+function storyCityDossierPanelPerfReset() {
+    STORY_CITY_DOSSIER_PANEL_PERF = {
+        requests: 0,
+        viewBuilds: 0,
+        viewCacheHits: 0,
+        viewCacheEvictions: 0,
+        worldBuilds: 0,
+        worldCacheHits: 0,
+        htmlBuilds: 0,
+        htmlCacheHits: 0,
+        domRestores: 0,
+        domWrites: 0,
+        domSkips: 0
+    };
+    return storyCityDossierPanelPerfSnapshot();
+}
+
+function storyCityDossierPanelPerfEnsure() {
+    if (!STORY_CITY_DOSSIER_PANEL_PERF) storyCityDossierPanelPerfReset();
+    return STORY_CITY_DOSSIER_PANEL_PERF;
+}
+
+function storyCityDossierPanelPerfSnapshot() {
+    const perf = STORY_CITY_DOSSIER_PANEL_PERF || {
+        requests: 0, viewBuilds: 0, viewCacheHits: 0, viewCacheEvictions: 0,
+        worldBuilds: 0, worldCacheHits: 0, htmlBuilds: 0, htmlCacheHits: 0,
+        domWrites: 0, domRestores: 0, domSkips: 0
+    };
+    return Object.assign({}, perf);
+}
+
+function storyCityDossierPanelReset() {
+    STORY_CITY_DOSSIER_PANEL_CACHE = new Map();
+    STORY_CITY_DOSSIER_DOM_HTML = new WeakMap();
+    STORY_CITY_DOSSIER_WORLD_CACHE = null;
+    STORY_CITY_DOSSIER_HTML_CACHE = new WeakMap();
+    STORY_CITY_DOSSIER_DOM_TAB_CACHE = new WeakMap();
+    STORY_CITY_DOSSIER_PANEL_EPOCH++;
+    storyCityDossierPanelPerfReset();
+}
+
+function storyCityDossierPanelLedgerTick(name) {
+    const ledger = STORY && STORY[name];
+    if (!ledger || typeof ledger !== 'object') return '-';
+    if (Number.isFinite(Number(ledger.tickSequence))) return Number(ledger.tickSequence);
+    if (Number.isFinite(Number(ledger.version))) return Number(ledger.version);
+    if (Number.isFinite(Number(ledger.updatedAt))) return Number(ledger.updatedAt);
+    return '0';
+}
+
+function storyCityDossierPanelNodeToken(node) {
+    if (!node) return '-';
+    const queue = (node.q || []).map(job => [
+        job.type, job.kind, Math.round((Number(job.t) || 0) * 10), job.cmd
+    ].join(':')).join(',');
+    const pool = Object.keys(node.pool || {}).sort().map(key => `${key}:${node.pool[key]}`).join(',');
+    return [
+        node.id, node.owner, node.name, node.level, node.garrison,
+        node.fac, node.bar, node.pop, node.wealth, node.oil, node.pts,
+        node.cities, queue, pool
+    ].join(':');
+}
+
+function storyCityDossierPanelStateToken(state) {
+    if (!state) return '-';
+    const res = state.res || {};
+    const fac = state.fac || {};
+    return [
+        state.id, state.welfare, state.reputation, state.inflation,
+        state.marketConfidence, state.techPoints,
+        res.oil, res.manpower, res.points,
+        fac.workers, fac.capital, fac.military, fac.intel, fac.radicals
+    ].join(':');
+}
+
+function storyCityDossierPanelCommanderToken(active) {
+    const player = STORY.commander;
+    const wallet = player && player.res || {};
+    let token = [
+        player && player.id, player && player.node,
+        wallet.oil, wallet.manpower, wallet.points
+    ].join(':');
+    if (active !== 'karakterler') return token;
+    token += '|' + (STORY.states || []).flatMap(state => (
+        (state.gov && state.gov.commanders || []).map(commander => [
+            state.id, commander.id, commander.node, commander.loyalty,
+            commander.skills && commander.skills.warrior,
+            commander.skills && commander.skills.diplomat,
+            commander.skills && commander.skills.economist
+        ].join(':'))
+    )).join(',');
+    return token;
+}
+
+function storyCityDossierPanelRevision(node, surface, active) {
+    const groups = STORY_CITY_DOSSIER_LEDGER_GROUPS[surface] || {};
+    const ledgers = groups[active] || [];
+    const taskGroups = STORY_CITY_DOSSIER_TASK_GROUPS[surface] || {};
+    const tasks = taskGroups[active] || [];
+    const owner = node && typeof storyState === 'function' ? storyState(node.owner) : null;
+    const player = typeof storyPlayerState === 'function' ? storyPlayerState() : null;
+    const parts = [
+        STORY_CITY_DOSSIER_SCHEMA_VERSION, STORY_CITY_DOSSIER_PANEL_EPOCH, surface, active,
+        STORY.playerStateId, storyCityDossierPanelNodeToken(node),
+        storyCityDossierPanelStateToken(owner),
+        owner === player ? '-' : storyCityDossierPanelStateToken(player),
+        storyCityDossierPanelCommanderToken(active)
+    ];
+    for (const name of ledgers) parts.push(`${name}:${storyCityDossierPanelLedgerTick(name)}`);
+    for (const name of tasks) {
+        const task = STORY.scheduler && STORY.scheduler.tasks && STORY.scheduler.tasks[name];
+        parts.push(`task:${name}:${task && Number(task.runCount) || 0}`);
+    }
+    if (active === 'tarih' || active === 'lojistik') {
+        parts.push(`cause:${STORY.causality && Number(STORY.causality.nextSequence) || 0}`);
+    }
+    if (active === 'tarih') parts.push(`age:${Math.floor(Number(STORY.clock) || 0)}`);
+    return parts.join('|');
+}
+
+function storyCityDossierPanelWorldRevision() {
+    const nodeTokens = (STORY.nodes || []).map(storyCityDossierPanelNodeToken).join('|');
+    const stateTokens = (STORY.states || []).map(storyCityDossierPanelStateToken).join('|');
+    const taskTokens = Object.entries(STORY.scheduler && STORY.scheduler.tasks || {})
+        .sort((a, b) => a[0].localeCompare(b[0], 'en'))
+        .map(([name, task]) => `${name}:${Number(task && task.runCount) || 0}`)
+        .join('|');
+    return [
+        STORY_CITY_DOSSIER_PANEL_EPOCH,
+        STORY.playerStateId,
+        nodeTokens,
+        stateTokens,
+        storyCityDossierPanelCommanderToken('karakterler'),
+        `cause:${STORY.causality && Number(STORY.causality.nextSequence) || 0}`,
+        taskTokens
+    ].join('||');
+}
+
+function storyCityDossierPanelWorldContext(perf) {
+    const revision = storyCityDossierPanelWorldRevision();
+    if (STORY_CITY_DOSSIER_WORLD_CACHE
+        && STORY_CITY_DOSSIER_WORLD_CACHE.revision === revision) {
+        perf.worldCacheHits++;
+        return STORY_CITY_DOSSIER_WORLD_CACHE;
+    }
+    const world = storyWorldV2ExportValidated();
+    const playerCountryId = storyWorldV2CountryId(STORY.playerStateId);
+    const knowledge = storyPlayerKnowledgeProject(world, playerCountryId);
+    STORY_CITY_DOSSIER_WORLD_CACHE = { revision, world, knowledge };
+    perf.worldBuilds++;
+    return STORY_CITY_DOSSIER_WORLD_CACHE;
+}
+
+function storyCityDossierPanelCachePut(cache, key, view, perf) {
+    if (cache.has(key)) cache.delete(key);
+    cache.set(key, view);
+    // Bir şehir 13 şehir/ekonomi sekmesi üretir. 24 girdilik eski sınır iki
+    // komşu şehir arasında gidip gelindiğinde sürekli WorldV2 kuruyordu.
+    // Aynı görünüm nesnesine referans veren 64 küçük anahtar yaklaşık beş
+    // şehirlik çalışma kümesini taşır; büyük veri kopyası oluşturmaz.
+    while (cache.size > STORY_CITY_DOSSIER_PANEL_CACHE_LIMIT) {
+        cache.delete(cache.keys().next().value);
+        perf.viewCacheEvictions++;
+    }
+}
+
+// Dossier view-modeli sekmeden bağımsızdır; sekmeler yalnız aynı modelin
+// farklı alanlarını çizer. Tek pahalı WorldV2/PlayerKnowledge kurulumundan
+// sonra o andaki tüm sekme imzalarını aynı görünüme bağla.
+function storyCityDossierPanelSeedTabs(cache, node, view, perf) {
+    const surfaces = [
+        ['city', STORY_CITY_DOSSIER_TABS],
+        ['economy', STORY_ECONOMY_TABS]
+    ];
+    for (const [surface, tabs] of surfaces) {
+        for (const tab of tabs) {
+            const revision = storyCityDossierPanelRevision(node, surface, tab);
+            storyCityDossierPanelCachePut(cache, `${node.id}|${revision}`, view, perf);
+        }
+    }
+}
+
+function storyCityDossierPanelView(node, surface, active) {
+    const perf = storyCityDossierPanelPerfEnsure();
+    perf.requests++;
+    const revision = storyCityDossierPanelRevision(node, surface, active);
+    const cacheKey = `${node.id}|${revision}`;
+    const cache = STORY_CITY_DOSSIER_PANEL_CACHE instanceof Map
+        ? STORY_CITY_DOSSIER_PANEL_CACHE : (STORY_CITY_DOSSIER_PANEL_CACHE = new Map());
+    if (cache.has(cacheKey)) {
+        perf.viewCacheHits++;
+        const view = cache.get(cacheKey);
+        // Son kullanılan girdiyi sona taşı: panel/sekme gezintisinde gerçek LRU.
+        cache.delete(cacheKey);
+        cache.set(cacheKey, view);
+        return { view, revision, cached: true };
+    }
+    const context = storyCityDossierPanelWorldContext(perf);
+    const view = storyCityDossierBuild(node.id, context);
+    perf.viewBuilds++;
+    storyCityDossierPanelSeedTabs(cache, node, view, perf);
+    return { view, revision, cached: false };
+}
+
+function storyCityDossierPanelDomTabs(body) {
+    let tabs = STORY_CITY_DOSSIER_DOM_TAB_CACHE.get(body);
+    if (!tabs) {
+        tabs = new Map();
+        STORY_CITY_DOSSIER_DOM_TAB_CACHE.set(body, tabs);
+    }
+    return tabs;
+}
+
+function storyCityDossierPanelStashDom(body) {
+    const renderKey = body.dataset.storyRenderKey;
+    if (!renderKey || !body.firstChild || !body.ownerDocument) return false;
+    const tabs = storyCityDossierPanelDomTabs(body);
+    const fragment = body.ownerDocument.createDocumentFragment();
+    while (body.firstChild) fragment.appendChild(body.firstChild);
+    if (tabs.has(renderKey)) tabs.delete(renderKey);
+    tabs.set(renderKey, {
+        fragment,
+        html: STORY_CITY_DOSSIER_DOM_HTML.get(body) || '',
+        scrollTop: Number(body.scrollTop) || 0
+    });
+    while (tabs.size > 12) tabs.delete(tabs.keys().next().value);
+    return true;
+}
+
+function storyCityDossierPanelRestoreDom(body, renderKey) {
+    const tabs = storyCityDossierPanelDomTabs(body);
+    const saved = tabs.get(renderKey);
+    if (!saved || !saved.fragment || !saved.fragment.firstChild) return false;
+    tabs.delete(renderKey);
+    storyCityDossierPanelStashDom(body);
+    body.appendChild(saved.fragment);
+    body.dataset.storyRenderKey = renderKey;
+    body.scrollTop = saved.scrollTop;
+    STORY_CITY_DOSSIER_DOM_HTML.set(body, saved.html);
+    storyCityDossierPanelPerfEnsure().domRestores++;
+    return true;
+}
+
+function storyCityDossierPanelCommit(body, html, renderKey) {
+    const perf = storyCityDossierPanelPerfEnsure();
+    // innerHTML okumak tarayıcıya bütün alt ağacı yeniden serilettiriyordu.
+    // Panel DOM'unun tek yazarı bu modül olduğu için son üretilen metni zayıf
+    // anahtarlı bellekte tutmak aynı güvenceyi çok daha ucuza verir.
+    if (STORY_CITY_DOSSIER_DOM_HTML.get(body) === html) {
+        body.dataset.storyRenderKey = renderKey;
+        perf.domSkips++;
+        return false;
+    }
+    storyCityDossierPanelStashDom(body);
+    body.innerHTML = html;
+    STORY_CITY_DOSSIER_DOM_HTML.set(body, html);
+    body.dataset.storyRenderKey = renderKey;
+    perf.domWrites++;
+    return true;
+}
+
+function storyCityDossierPanelRender(body, renderKey, producer) {
+    const perf = storyCityDossierPanelPerfEnsure();
+    if (body.dataset.storyRenderKey === renderKey) {
+        perf.domSkips++;
+        return false;
+    }
+    // Daha önce açılmış sekmenin hazırlanmış DOM ağacını geri tak. HTML parse,
+    // tooltip taraması ve erişilebilir etiket üretimi ikinci kez çalışmaz.
+    if (storyCityDossierPanelRestoreDom(body, renderKey)) return false;
+    return storyCityDossierPanelCommit(body, producer(), renderKey);
+}
+
+function storyCityDossierCachedHtml(view, key, producer) {
+    const perf = storyCityDossierPanelPerfEnsure();
+    let cache = STORY_CITY_DOSSIER_HTML_CACHE.get(view);
+    if (!cache) {
+        cache = new Map();
+        STORY_CITY_DOSSIER_HTML_CACHE.set(view, cache);
+    }
+    if (cache.has(key)) {
+        perf.htmlCacheHits++;
+        return cache.get(key);
+    }
+    const html = producer();
+    cache.set(key, html);
+    perf.htmlBuilds++;
+    return html;
+}
 const STORY_CITY_MODE_META = Object.freeze({
     LAND: { icon: '↔', label: 'KARA' },
     SEA: { icon: '≈', label: 'DENİZ' },
@@ -172,15 +510,17 @@ function storyCityDossierCorridors(regionId, logisticsFact, world) {
             || a.destinationName.localeCompare(b.destinationName, 'tr'));
 }
 
-function storyCityDossierBuild(nodeId) {
+function storyCityDossierBuild(nodeId, sharedContext) {
     if (!storyCityDossierEnabled()) {
         return { schemaVersion: STORY_CITY_DOSSIER_SCHEMA_VERSION, disabled: true };
     }
     const legacyId = Number(nodeId);
     if (!Number.isInteger(legacyId)) throw new Error('Şehir dosyası için geçerli düğüm kimliği zorunlu.');
-    const world = storyWorldV2ExportValidated();
+    const world = sharedContext && sharedContext.world
+        ? sharedContext.world : storyWorldV2ExportValidated();
     const playerCountryId = storyWorldV2CountryId(STORY.playerStateId);
-    const knowledge = storyPlayerKnowledgeProject(world, playerCountryId);
+    const knowledge = sharedContext && sharedContext.knowledge
+        ? sharedContext.knowledge : storyPlayerKnowledgeProject(world, playerCountryId);
     const regionId = storyWorldV2RegionId(legacyId);
     const worldRegion = (world.regions || []).find(region => region.id === regionId);
     const region = (knowledge.regions || []).find(candidate => candidate.id === regionId);
@@ -961,9 +1301,17 @@ function storyCityDossierRenderPopulation(view) {
         }).join('');
         return `<section class="city-dossier-sec"><h3>${title}</h3><div class="city-fact-grid">${cards}</div></section>`;
     }).join('');
-    const labor = typeof storyPopulationLaborSupply === 'function'
-        ? storyPopulationLaborSupply(view.regionId, 1)
-        : null;
+    // PlayerKnowledge zaten aynı kanonik kohortları bu görünüm için kopyaladı.
+    // Render sırasında population ledger'ını ikinci kez klonlayıp tarama.
+    const labor = {
+        workingAgePeople: rows.reduce((sum, row) => (
+            sum + (row.ageBand === 'YOUNG' || row.ageBand === 'ADULT'
+                ? Number(row.membersPeople) || 0 : 0)
+        ), 0),
+        availableWorkersPeople: typeof storyPopulationAvailableWorkers === 'function'
+            ? rows.reduce((sum, row) => sum + storyPopulationAvailableWorkers(row), 0)
+            : null
+    };
     const needsFact = view.facts.needsWelfare;
     const needs = needsFact && needsFact.status === PLAYER_FACT_STATUS.VERIFIED
         ? needsFact.value
@@ -998,34 +1346,36 @@ function storyCityDossierRenderPopulation(view) {
         + `<p class="city-hint">Sorumlu görülen taraf, halkın mevcut bilgi ve deneyimine dayanan algısını gösterir; kesinleşmiş bir mahkeme hükmü değildir.</p></section>` : '';
     return `<section class="city-dossier-sec"><h3>NÜFUS SAYIMI</h3><div class="city-fact-grid">`
         + `<div><span>TOPLAM</span><b>${Math.round(total).toLocaleString('tr-TR')}</b><small>tam kişi uzlaştırması</small></div>`
-        + `<div><span>ÇALIŞMA ÇAĞINDAKİ NÜFUS</span><b>${labor ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
-        + `<div><span>KULLANILABİLİR ÇALIŞAN</span><b>${labor ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>üretime katılabilecek iş gücü havuzu</small></div>`
+        + `<div><span>ÇALIŞMA ÇAĞINDAKİ NÜFUS</span><b>${Number.isFinite(labor.workingAgePeople) ? Math.round(labor.workingAgePeople).toLocaleString('tr-TR') : '—'}</b></div>`
+        + `<div><span>KULLANILABİLİR ÇALIŞAN</span><b>${Number.isFinite(labor.availableWorkersPeople) ? Math.round(labor.availableWorkersPeople).toLocaleString('tr-TR') : '—'}</b><small>üretime katılabilecek iş gücü havuzu</small></div>`
         + `</div><p class="city-hint">Çalışabilir ve kullanılabilir nüfus, bölgesel üretimin iş gücü kapasitesini doğrudan belirler.</p></section>${conditions}${complaints}${storyCityDossierRenderCollective(view)}${storyCityDossierRenderMigration(view)}${sections}`;
 }
 
 function storyCityDossierRender(view, active, node) {
     if (view.disabled) return '<div class="city-hint">Şehir dosyası bu seferde kullanılamıyor.</div>';
-    let content = '';
-    if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
-    else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
-        + storyCityDossierRenderStateCapacity(view)
-        + storyCityDossierRenderIntegrity(view)
-        + storyCityDossierRenderElections(view)
-        + storyCityDossierRenderPowerCenters(view);
-    else if (active === 'tarih') content = storyCityDossierRenderHistory(view);
-    else if (active === 'karakterler') content = storyCityDossierRenderCharacters(view);
-    else if (active === 'binalar' && view.isOwn && node) {
-        const wallet = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
-        content = prodBuildingSection(node, 'fac', wallet, true)
-            + prodBuildingSection(node, 'bar', wallet, true)
-            + `<div class="city-hint">Bina seviyesi şehir seviyesini en fazla 1 aşar.</div>`;
-    } else if (active === 'ordu' && view.isOwn && node) {
-        const wallet = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
-        content = prodBuildingSection(node, 'fac', wallet, false)
-            + prodBuildingSection(node, 'bar', wallet, false)
-            + prodQueueSection(node);
-    } else content = storyCityDossierGeneral(view, node);
-    return storyCityDossierHeader(view, active) + content;
+    return storyCityDossierCachedHtml(view, `city:${active}`, () => {
+        let content = '';
+        if (active === 'nufus') content = storyCityDossierRenderPopulation(view);
+        else if (active === 'kurumlar') content = storyCityDossierRenderInstitutions(view)
+            + storyCityDossierRenderStateCapacity(view)
+            + storyCityDossierRenderIntegrity(view)
+            + storyCityDossierRenderElections(view)
+            + storyCityDossierRenderPowerCenters(view);
+        else if (active === 'tarih') content = storyCityDossierRenderHistory(view);
+        else if (active === 'karakterler') content = storyCityDossierRenderCharacters(view);
+        else if (active === 'binalar' && view.isOwn && node) {
+            const wallet = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
+            content = prodBuildingSection(node, 'fac', wallet, true)
+                + prodBuildingSection(node, 'bar', wallet, true)
+                + `<div class="city-hint">Bina seviyesi şehir seviyesini en fazla 1 aşar.</div>`;
+        } else if (active === 'ordu' && view.isOwn && node) {
+            const wallet = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
+            content = prodBuildingSection(node, 'fac', wallet, false)
+                + prodBuildingSection(node, 'bar', wallet, false)
+                + prodQueueSection(node);
+        } else content = storyCityDossierGeneral(view, node);
+        return storyCityDossierHeader(view, active) + content;
+    });
 }
 
 function storyEconomyTabs(active) {
@@ -1039,25 +1389,27 @@ function storyEconomyTabs(active) {
 }
 
 function storyEconomyRender(view, active) {
-    let content = '';
-    if (active === 'butce') content = storyCityDossierRenderBudget(view);
-    else if (active === 'sirketler') content = storyCityDossierRenderCompanies(view);
-    else if (active === 'piyasa') content = storyCityDossierRenderMarket(view);
-    else if (active === 'lojistik') content = storyCityDossierRenderLogistics(view);
-    else if (active === 'fraksiyonlar') {
-        const match = /^country:(-?\d+)$/.exec(String(view.ownerId || ''));
-        const ownerState = match && typeof storyState === 'function' ? storyState(Number(match[1])) : null;
-        content = view.facts.countryPowerCenters && view.facts.countryPowerCenters.value
-            ? storyCityDossierRenderPowerCenters(view)
-            : (view.isOwn && ownerState && typeof storyFacHtml === 'function'
-                ? storyFacHtml(ownerState)
-                : `<section class="city-dossier-empty"><b>TOPLUMSAL DENGE DOĞRULANMADI</b><span>Yabancı devletin fraksiyon bağlılıkları açık bilgi değildir.</span></section>`);
-    } else content = storyEconomyRenderOverview(view);
-    return `<section class="city-dossier-head economy-dossier-head">`
-        + `<div class="city-dossier-kicker">${view.isOwn ? 'ULUSAL VE BÖLGESEL DEFTER' : 'KAMUYA AÇIK EKONOMİK GÖRÜNÜM'}</div>`
-        + `<div class="city-dossier-name">${storyCityDossierEscape(view.facts.name.value)}</div>`
-        + `<div class="city-dossier-source">${storyCityDossierEscape(view.ownerName)} · ${view.isOwn ? 'DOĞRULANMIŞ KAYIT' : 'SINIRLI İSTİHBARAT'}</div>`
-        + `</section>${storyEconomyTabs(active)}${content}`;
+    return storyCityDossierCachedHtml(view, `economy:${active}`, () => {
+        let content = '';
+        if (active === 'butce') content = storyCityDossierRenderBudget(view);
+        else if (active === 'sirketler') content = storyCityDossierRenderCompanies(view);
+        else if (active === 'piyasa') content = storyCityDossierRenderMarket(view);
+        else if (active === 'lojistik') content = storyCityDossierRenderLogistics(view);
+        else if (active === 'fraksiyonlar') {
+            const match = /^country:(-?\d+)$/.exec(String(view.ownerId || ''));
+            const ownerState = match && typeof storyState === 'function' ? storyState(Number(match[1])) : null;
+            content = view.facts.countryPowerCenters && view.facts.countryPowerCenters.value
+                ? storyCityDossierRenderPowerCenters(view)
+                : (view.isOwn && ownerState && typeof storyFacHtml === 'function'
+                    ? storyFacHtml(ownerState)
+                    : `<section class="city-dossier-empty"><b>TOPLUMSAL DENGE DOĞRULANMADI</b><span>Yabancı devletin fraksiyon bağlılıkları açık bilgi değildir.</span></section>`);
+        } else content = storyEconomyRenderOverview(view);
+        return `<section class="city-dossier-head economy-dossier-head">`
+            + `<div class="city-dossier-kicker">${view.isOwn ? 'ULUSAL VE BÖLGESEL DEFTER' : 'KAMUYA AÇIK EKONOMİK GÖRÜNÜM'}</div>`
+            + `<div class="city-dossier-name">${storyCityDossierEscape(view.facts.name.value)}</div>`
+            + `<div class="city-dossier-source">${storyCityDossierEscape(view.ownerName)} · ${view.isOwn ? 'DOĞRULANMIŞ KAYIT' : 'SINIRLI İSTİHBARAT'}</div>`
+            + `</section>${storyEconomyTabs(active)}${content}`;
+    });
 }
 
 function storyEconomyUpdate() {
@@ -1068,19 +1420,26 @@ function storyEconomyUpdate() {
     const title = document.getElementById('economy-title');
     if (!node) {
         if (title) title.textContent = 'EKONOMİ';
-        body.innerHTML = '<div class="city-dossier-empty"><b>BÖLGE SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>';
+        storyCityDossierPanelCommit(body, '<div class="city-dossier-empty"><b>BÖLGE SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>', 'economy:empty');
         return;
     }
     try {
-        const view = storyCityDossierBuild(node.id);
         const active = STORY_ECONOMY_TABS.includes(STORY._economySub) ? STORY._economySub : 'genel';
+        const panelView = storyCityDossierPanelView(node, 'economy', active);
+        const view = panelView.view;
         STORY._economySub = active;
         STORY._economyView = view;
-        if (title) title.textContent = `EKONOMİ / ${String(view.facts.name.value).toLocaleUpperCase('tr')}`;
-        body.innerHTML = storyEconomyRender(view, active);
-        if (typeof storyActivateDetailTooltips === 'function') storyActivateDetailTooltips(body);
+        const nextTitle = `EKONOMİ / ${String(view.facts.name.value).toLocaleUpperCase('tr')}`;
+        if (title && title.textContent !== nextTitle) title.textContent = nextTitle;
+        const changed = storyCityDossierPanelRender(
+            body,
+            `economy:${node.id}:${panelView.revision}`,
+            () => storyEconomyRender(view, active)
+        );
+        if (changed && typeof storyActivateDetailTooltips === 'function') storyActivateDetailTooltips(body);
     } catch (error) {
-        body.innerHTML = `<div class="city-dossier-empty"><b>EKONOMİ DOSYASI OLUŞTURULAMADI</b><span>${storyCityDossierEscape(error && error.message || error)}</span></div>`;
+        const message = storyCityDossierEscape(error && error.message || error);
+        storyCityDossierPanelCommit(body, `<div class="city-dossier-empty"><b>EKONOMİ DOSYASI OLUŞTURULAMADI</b><span>${message}</span></div>`, `economy:error:${message}`);
     }
 }
 
@@ -1092,23 +1451,32 @@ function storyCityDossierUpdate() {
     const title = document.getElementById('city-title');
     if (!node) {
         if (title) title.textContent = 'ŞEHİR DOSYASI';
-        body.innerHTML = '<div class="city-dossier-empty"><b>ŞEHİR SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>';
+        storyCityDossierPanelCommit(body, '<div class="city-dossier-empty"><b>ŞEHİR SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>', 'city:empty');
         return;
     }
-    let view;
+    let view, panelView;
     try {
-        view = storyCityDossierBuild(node.id);
+        let requested = STORY_CITY_DOSSIER_TABS.includes(STORY._citySub) ? STORY._citySub : 'genel';
+        if (node.owner !== STORY.playerStateId && (requested === 'binalar' || requested === 'ordu')) requested = 'genel';
+        panelView = storyCityDossierPanelView(node, 'city', requested);
+        view = panelView.view;
     } catch (error) {
-        body.innerHTML = `<div class="city-dossier-empty"><b>DOSYA OLUŞTURULAMADI</b><span>${storyCityDossierEscape(error && error.message || error)}</span></div>`;
+        const message = storyCityDossierEscape(error && error.message || error);
+        storyCityDossierPanelCommit(body, `<div class="city-dossier-empty"><b>DOSYA OLUŞTURULAMADI</b><span>${message}</span></div>`, `city:error:${message}`);
         return;
     }
-    if (title) title.textContent = `${String(view.facts.name.value).toLocaleUpperCase('tr')} / DOSYA`;
+    const nextTitle = `${String(view.facts.name.value).toLocaleUpperCase('tr')} / DOSYA`;
+    if (title && title.textContent !== nextTitle) title.textContent = nextTitle;
     let active = STORY_CITY_DOSSIER_TABS.includes(STORY._citySub) ? STORY._citySub : 'genel';
     if (!view.isOwn && (active === 'binalar' || active === 'ordu')) active = 'genel';
     STORY._citySub = active;
     STORY._cityDossierView = view;
-    body.innerHTML = storyCityDossierRender(view, active, node);
-    if (typeof storyActivateDetailTooltips === 'function') storyActivateDetailTooltips(body);
+    const changed = storyCityDossierPanelRender(
+        body,
+        `city:${node.id}:${panelView.revision}`,
+        () => storyCityDossierRender(view, active, node)
+    );
+    if (changed && typeof storyActivateDetailTooltips === 'function') storyActivateDetailTooltips(body);
 }
 
 function storyCityDossierOpenRegion(regionId) {

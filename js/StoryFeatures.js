@@ -46,6 +46,9 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'government.patronageIntegrity': true,
     'government.politicalCrisis': true,
     'government.playerGovernance': true,
+    'characters.identityGoals': true,
+    'characters.multiDimensionalRelations': true,
+    'characters.threeLayerMemory': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -147,6 +150,19 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'government.patronageIntegrity',
         'government.politicalCrisis',
         'economy.stateBudget'
+    ]),
+    'characters.identityGoals': Object.freeze([
+        'government.institutionsAuthority',
+        'causality.ledger'
+    ]),
+    'characters.multiDimensionalRelations': Object.freeze([
+        'characters.identityGoals',
+        'causality.ledger'
+    ]),
+    'characters.threeLayerMemory': Object.freeze([
+        'characters.identityGoals',
+        'characters.multiDimensionalRelations',
+        'causality.ledger'
     ])
 });
 

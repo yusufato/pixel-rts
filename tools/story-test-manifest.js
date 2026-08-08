@@ -44,6 +44,8 @@ const STORY_TEST_TASKS = Object.freeze([
     { key: 'integrityProbe', fn: 'probeIntegrity', weight: 35, args: [] },
     { key: 'politicalCrisisProbe', fn: 'probePoliticalCrisis', weight: 35, args: [] },
     { key: 'governanceProbe', fn: 'probeGovernanceWorkspace', weight: 20, args: [] },
+    { key: 'characterIdentityProbe', fn: 'probeCharacterIdentities', weight: 18, args: [] },
+    { key: 'characterMemoryProbe', fn: 'probeCharacterMemory', weight: 8, args: [] },
     { key: 'cityDossierProbe', fn: 'probeCityDossier', weight: 12, args: [] },
     { key: 'mapRasterProbe', fn: 'probeCanonicalMapRaster', weight: 18, args: [] },
     { key: 'prebuiltRasterProbe', fn: 'probePrebuiltMapRaster', weight: 12, args: [] },

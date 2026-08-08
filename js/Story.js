@@ -356,6 +356,12 @@ function storyCreateCommander(stateId, node, options) {
         cmd.skills.economist = Math.min(6, cmd.skills.economist + o);
     }
     st.gov.commanders.push(cmd);
+    // Faz 34 kimliği salt-okunur bir UI çağrısına bırakılmaz. Kampanya defteri
+    // kurulduktan sonra doğan komutan aynı yaratma olayında kimlik kazanır;
+    // böylece kesintisiz ve kayıt/yükleme yolları birebir kalır.
+    if (STORY.characterIdentities && typeof storyCharacterIdentityView === 'function') {
+        storyCharacterIdentityView(`character:${st.id}:${cmd.id}`);
+    }
     return cmd;
 }
 // KONSEY ATAMASI: konseyin seçtiği aday tipine göre yetenek eğilimli komutan (Council.js kullanır)
@@ -409,6 +415,7 @@ function storySumRes(cmds) {
 }
 
 function storyNewCampaign(config = {}) {
+    if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
     const requestedFeatureFlags = typeof storyFeatureNormalize === 'function'
         ? storyFeatureNormalize(config.featureFlags || STORY.cfg.featureFlags)
         : (config.featureFlags || STORY.cfg.featureFlags || {});
@@ -430,12 +437,13 @@ function storyNewCampaign(config = {}) {
     }));
     STORY.playerStateId = playerStateId;
     // OYUNCUNUN KOMUTANI = kontrol-jetonu (bağımsız bir komutan-birey)
-    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {}, army: {}, st: playerStateId };
+    STORY.commander = { id: 0, name: 'Komutan (Sen)', isPlayer: true, creationRole: 'COMMANDER', personality: 'oyuncu', loyalty: 100, skills: { warrior: 4, diplomat: 3, economist: 3 }, res: { oil: Math.round(200 * abundance), manpower: Math.round(200 * abundance), points: Math.round(200 * abundance) }, node: (STORY._capitals && STORY._capitals[playerStateId]) || 0, xp: 0, score: 0, victories: 0, rank: 1, activePerks: [], rewardMods: {}, army: {}, st: playerStateId };
     storyInitGovernments();                            // her devlete AI komutan + hükümet iskeleti
     // AŞAMA 1: her devlete İSİMLİ cumhurbaşkanı ("AI Cumhurbaşkanı" etiketi öldü) +
     // oyuncunun karakter ekranı çıktısı (isim, zar, eksenler, tohumlar) uygulanır.
     if (typeof storyEnsurePresidents === 'function') storyEnsurePresidents();
     if (typeof charApply === 'function' && config.character) charApply(config.character);
+    STORY.playerRole = STORY.commander.creationRole || 'COMMANDER';
     // AŞAMA 2: fraksiyonlar lider profilinden doğar (oyuncu devletinde karakter %20 karışır)
     if (typeof storyFacInitAll === 'function') storyFacInitAll();
     if (!STORY.commander.axes && typeof charAxesDefault === 'function') STORY.commander.axes = charAxesDefault();
@@ -459,6 +467,7 @@ function storyNewCampaign(config = {}) {
         featureFlags: requestedFeatureFlags
     };
     if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
+    if (typeof storyCharacterIdentityReset === 'function') storyCharacterIdentityReset();
     STORY.paused = false;
     STORY._gameOver = false;   // ADIM 6: yenilgi bayrağı sıfırla
     STORY.clock = 0;
@@ -475,6 +484,13 @@ function storyNewCampaign(config = {}) {
     if (typeof storyBudgetReset === 'function') storyBudgetReset();
     if (typeof storyNeedsReset === 'function') storyNeedsReset();
     if (typeof storyCompanyReset === 'function') storyCompanyReset();
+    // Rol seçimi artık yalnız bir etiket değildir. Şirket sahibi gerçek şirket
+    // siciline, ajan gerçek servis yuvasına, siyasi lider ve komutan ise ilgili
+    // kurumsal makama bağlanır; soru sonuçları bu bağın kariyer kaynaklarını sürer.
+    if (typeof storyCharacterBindPlayerRole === 'function') storyCharacterBindPlayerRole();
+    // Karakter defteri şirketlerden önce kurulmuştur. Faz 35'in isimli şirket
+    // yöneticileri ancak gerçek şirket sicili doğduktan sonra uzlaştırılır.
+    if (typeof storyCharacterIdentityReconcileSources === 'function') storyCharacterIdentityReconcileSources();
     if (typeof storyEconomicAIReset === 'function') storyEconomicAIReset();
     if (typeof storyOpinionReset === 'function') storyOpinionReset();
     if (typeof storyCollectiveReset === 'function') storyCollectiveReset();
@@ -522,6 +538,18 @@ function storyNewCampaign(config = {}) {
             abundance
         });
     }
+    // Faz 35 ilişki grafı, tüm isimli aktör ve şirketler kurulduktan sonra
+    // fakat oyuncunun 12 geçmiş kararı uygulanmadan önce doğar.
+    if (typeof storyRelationshipReset === 'function') storyRelationshipReset();
+    // Faz 34: karakter ekranındaki 12 karar ancak bütün dünya defterleri ve
+    // nedensellik kapısı hazır olduktan sonra uygulanır. Böylece görünen
+    // kazanç/bedel ile kaydedilen WorldEvent/WorldFact aynı başlangıç anına aittir.
+    if (config.character && typeof storyCharacterCreationApply === 'function') {
+        storyCharacterCreationApply(config.character);
+    }
+    // Faz 36: dünya olguları ve aktör inançları doğduktan sonra üç katmanlı
+    // hafızaya kaynaklı köken kayıtları eklenir. Defter geçmiş uydurmaz.
+    if (typeof storyMemoryReset === 'function') storyMemoryReset({ seedOrigins: true });
     storyLog(`${storyPlayerState().name} barış dönemine başladı. Ekonomiyi, kurumları ve ilişkileri geliştir; savaş ancak açık bir diplomatik kırılmayla başlayabilir.`);
     storySave();
 }
@@ -594,6 +622,15 @@ function storySave() {
             politicalCrises: (typeof storyPoliticalCrisisForSave === 'function')
                 ? storyPoliticalCrisisForSave()
                 : STORY.politicalCrises,
+            characterIdentities: (typeof storyCharacterIdentityForSave === 'function')
+                ? storyCharacterIdentityForSave()
+                : STORY.characterIdentities,
+            characterRelationships: (typeof storyRelationshipForSave === 'function')
+                ? storyRelationshipForSave()
+                : STORY.characterRelationships,
+            characterMemory: (typeof storyMemoryForSave === 'function')
+                ? storyMemoryForSave()
+                : STORY.characterMemory,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -686,6 +723,7 @@ function storyLoad() {
         // Başkentler: eski kayıtlarda yok → yeniden üret (yoksa capitalSeek ve komutan konumlanması bozulur)
         STORY._capitals = (Array.isArray(d.caps) && d.caps.length) ? d.caps : storyPickCapitals(STORY.nodes, STORY.states.length);
         STORY.commander = d.commander || { node: 0 };
+        STORY.playerRole = STORY.commander.creationRole || d.playerRole || 'COMMANDER';
         storyCommanderBackfill(STORY.commander);
         if (typeof cmdrMigrate === 'function') cmdrMigrate(STORY.commander);   // FAZ-7: eski 3-slot perk → ağaç düğümü
         // Kurum makamları oyuncu/komutan kimliğini, güç merkezleri kurumsal
@@ -735,6 +773,9 @@ function storyLoad() {
         // AŞAMA 1 göçü: eski kayıtlarda eksen/cumhurbaşkanı yok → üret
         if (typeof storyEnsurePresidents === 'function') storyEnsurePresidents();
         if (STORY.commander && !STORY.commander.axes && typeof charAxesDefault === 'function') STORY.commander.axes = charAxesDefault();
+        if (typeof storyCharacterIdentityRestore === 'function') storyCharacterIdentityRestore(d.characterIdentities);
+        if (typeof storyRelationshipRestore === 'function') storyRelationshipRestore(d.characterRelationships);
+        if (typeof storyMemoryRestore === 'function') storyMemoryRestore(d.characterMemory);
         if (typeof storyFacBackfill === 'function') for (const st of STORY.states) storyFacBackfill(st);   // AŞAMA 2 göçü
         STORY._news = Array.isArray(d.news) ? d.news : [];   // AŞAMA 4: gazete arşivi
         const runtime = d.runtime && typeof d.runtime === 'object' ? d.runtime : {};
@@ -813,6 +854,7 @@ function storyLoad() {
             STORY._talkUid = 0;
         }
         STORY.log = d.log || [];
+        if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
         STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
         if (typeof storyTelemetryRestore === 'function') storyTelemetryRestore(d.telemetry);
         if (typeof storyCausalityRestore === 'function') storyCausalityRestore(d.causality);

@@ -790,10 +790,16 @@ function storyTalkTick(dtSec) {
     storyTalkRun();
 }
 
-function storyTalkRun() {
+function storyTalkRun(preferredTemplateId) {
     if (!STORY.active || STORY._session) return;
     if (!STORY._talks) STORY._talks = [];
     // süresi geçenleri düşür
+    const expiredTalks = STORY._talks.filter(t => (STORY.clock || 0) - t.born >= TALK_EXPIRE);
+    for (const talk of expiredTalks) {
+        if (talk.memoryEpisodeId && typeof storyMemoryResolveEpisode === 'function') {
+            storyMemoryResolveEpisode(talk.memoryEpisodeId, 'Yanıt verilmeden süresi doldu.');
+        }
+    }
     STORY._talks = STORY._talks.filter(t => (STORY.clock || 0) - t.born < TALK_EXPIRE);
     if (STORY._talks.length >= TALK_MAX_QUEUE) return;
 
@@ -802,8 +808,12 @@ function storyTalkRun() {
     if (!cand.length) return;
     // ağırlıklı seçim
     let tot = 0; const ws = cand.map(tp => { const w = (typeof tp.weight === 'function' ? tp.weight(ctx) : 1) || 1; tot += w; return w; });
-    let r = storyRandom('diplomacy') * tot, pick = cand[0];
-    for (let i = 0; i < cand.length; i++) { r -= ws[i]; if (r <= 0) { pick = cand[i]; break; } }
+    let pick = preferredTemplateId ? cand.find(tp => tp.id === preferredTemplateId) : null;
+    if (!pick) {
+        let r = storyRandom('diplomacy') * tot;
+        pick = cand[0];
+        for (let i = 0; i < cand.length; i++) { r -= ws[i]; if (r <= 0) { pick = cand[i]; break; } }
+    }
     const buildRng = typeof storyRngForSave === 'function' ? storyRngForSave() : null;
     const previousTrace = STORY._talkPickTrace;
     const buildTrace = { mode: 'record', picks: [] };
@@ -820,11 +830,27 @@ function storyTalkRun() {
     if (aud === 'council') { if (storyTalkToCouncil(built, pick, ctx)) return; }
     else if (aud === 'admin' && !storyTalkIsAdmin()) { storyTalkResolveByAdmin(built, pick, ctx); return; }
 
+    const uid = (STORY._talkUid = (STORY._talkUid || 0) + 1);
+    const speakerActorId = storyTalkCanonicalActorId(built.who, built.foreign && built.foreign.id);
+    const playerActorId = STORY.commander
+        ? `character:${STORY.playerStateId | 0}:${STORY.commander.id}` : null;
+    const episodeId = speakerActorId && playerActorId && typeof storyMemoryOpenEpisode === 'function'
+        ? `character-memory:talk:${uid}` : null;
+    if (episodeId) storyMemoryOpenEpisode({
+        id: episodeId,
+        topicKey: `talk-template:${pick.id}`,
+        participantActorIds: [playerActorId, speakerActorId],
+        summary: `${built.who ? built.who.name : 'Bir haberci'}: ${String((built.lines || [])[0] || pick.id).replace(/<[^>]+>/g, '')}`,
+        unresolvedTopic: 'Oyuncunun cevabı bekleniyor.',
+        importanceBps: pick.kind === 'crisis' ? 8500 : 6500,
+        source: { talkUid: uid, talkTemplateId: pick.id }
+    });
     STORY._talks.push({
-        uid: (STORY._talkUid = (STORY._talkUid || 0) + 1),
+        uid,
         tpl: pick.id, kind: pick.kind, born: STORY.clock || 0,
         title: built.who ? built.who.name : 'Haber',
         foreignId: built.foreign ? built.foreign.id : null,
+        speakerActorId, memoryEpisodeId: episodeId,
         lines: built.lines, options: built.options, buildRng, buildPicks: buildTrace.picks,
     });
     storyTalkBadge();
@@ -832,6 +858,28 @@ function storyTalkRun() {
         const ic = pick.kind === 'foreign' ? '🕊️' : (pick.kind === 'clique' ? '👁️' : '🗣️');
         storyFlash(`${ic} ${built.who ? built.who.name : 'Bir haberci'} seninle konuşmak istiyor.`);
     }
+}
+
+function storyTalkCanonicalActorId(who, fallbackStateId) {
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const identities = identityLedger && identityLedger.identities || {};
+    if (who === STORY.commander) {
+        const playerId = `character:${STORY.playerStateId | 0}:${STORY.commander.id}`;
+        return identities[playerId] ? playerId : null;
+    }
+    for (const state of (STORY.states || [])) {
+        const commander = state.gov && Array.isArray(state.gov.commanders)
+            ? state.gov.commanders.find(row => row === who || (who && row.id === who.id && row.name === who.name))
+            : null;
+        if (commander) {
+            const id = `character:${state.id}:${commander.id}`;
+            if (identities[id]) return id;
+        }
+    }
+    const stateId = Number(fallbackStateId);
+    const presidentId = Number.isInteger(stateId) ? `character:${stateId}:president` : null;
+    return presidentId && identities[presidentId] ? presidentId : null;
 }
 
 // Bekleyen konuşmalar canlı `run` kapanışları taşır ve doğrudan JSON'a
@@ -850,6 +898,8 @@ function storyTalkRuntimeForSave() {
             born: talk.born,
             title: talk.title,
             foreignId: talk.foreignId == null ? null : talk.foreignId,
+            speakerActorId: talk.speakerActorId || null,
+            memoryEpisodeId: talk.memoryEpisodeId || null,
             lines: Array.isArray(talk.lines) ? talk.lines.slice() : [],
             options: (talk.options || []).map(option => ({
                 text: option.text || '',
@@ -906,6 +956,8 @@ function storyTalkRuntimeRestore(saved) {
             born: Number.isFinite(Number(item.born)) ? Number(item.born) : (STORY.clock || 0),
             title: item.title || (built && built.who && built.who.name) || 'Haber',
             foreignId: item.foreignId == null ? null : item.foreignId,
+            speakerActorId: item.speakerActorId || null,
+            memoryEpisodeId: item.memoryEpisodeId || null,
             lines: Array.isArray(item.lines) ? item.lines.slice() : ((built && built.lines) || []),
             options: rebuiltOptions || fallbackOptions,
             buildRng: item.buildRng || null,
@@ -1088,9 +1140,26 @@ function storyTalkAnswer(uid, optIdx) {
     const talks = STORY._talks || [];
     const t = talks.find(x => x.uid === uid); if (!t) return;
     const o = t.options[optIdx]; if (!o) return;
+    const promiseCountBefore = Math.max(0, Math.floor(Number(STORY._promises) || 0));
     let res = null;
     try { res = o.run(t); } catch (e) { res = { fail: 'Bu seçenek uygulanamadı.' }; }
     if (res && res.fail) { storyFlash(res.fail); return; }         // başarısız → konuşma kuyrukta kalır
+    if (t.memoryEpisodeId && typeof storyMemoryResolveEpisode === 'function') {
+        storyMemoryResolveEpisode(t.memoryEpisodeId, (res && res.msg) || o.text || 'Karar verildi.');
+    }
+    const promiseCountAfter = Math.max(0, Math.floor(Number(STORY._promises) || 0));
+    if (promiseCountAfter > promiseCountBefore && typeof storyMemoryAddMilestone === 'function') {
+        const playerActorId = `character:${STORY.playerStateId | 0}:${STORY.commander.id}`;
+        const holders = [playerActorId, t.speakerActorId].filter(Boolean);
+        storyMemoryAddMilestone({
+            id: `character-memory:talk-promise:${uid}:${promiseCountAfter}`,
+            kind: 'PROMISE', subjectActorId: playerActorId, holderActorIds: holders,
+            relatedActorIds: (t.speakerActorId ? [t.speakerActorId] : []),
+            summary: `${o.text || 'Verilen söz'} — ${(res && res.msg) || 'Söz kayda geçti.'}`,
+            status: 'OPEN', importanceBps: 9500,
+            source: { episodeId: t.memoryEpisodeId || null, talkUid: uid, talkTemplateId: t.tpl }
+        });
+    }
     STORY._talks = talks.filter(x => x.uid !== uid);
     const m = TALK_KIND_META[t.kind] || TALK_KIND_META.internal;
     storyLog(`${m.ic} <b>${t.title}</b> — ${(res && res.msg) || 'karar verildi'}`);

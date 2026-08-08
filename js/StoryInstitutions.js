@@ -159,7 +159,12 @@ function storyInstitutionConstitution(st) {
         || STORY_INSTITUTION_CONSTITUTIONS.monarchy;
 }
 function storyInstitutionCommanderHolder(countryId, st) {
-    const rows = typeof storyStateCommanders === 'function' ? storyStateCommanders(st) : [];
+    const rows = typeof storyStateCommanders === 'function'
+        ? storyStateCommanders(st).filter(commander => (
+            !commander.isPlayer
+            || String(commander.creationRole || 'COMMANDER').toUpperCase() === 'COMMANDER'
+        ))
+        : [];
     const sorted = rows.slice().sort((a, b) => (
         (Number(b.skills && b.skills.warrior) || 0) - (Number(a.skills && a.skills.warrior) || 0)
         || Number(a.id) - Number(b.id)

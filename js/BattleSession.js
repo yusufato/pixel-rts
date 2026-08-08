@@ -2,7 +2,12 @@
 // Hızlı Maç, Hikâye, Multiplayer ve QA aynı reset, harita, RNG ve kural
 // kurulumundan geçer. Modlar yalnız başlangıç verisi sağlar; motor değiştiremez.
 
-const BATTLE_ENGINE_VERSION = 'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair-a2a';   // + HAVA-HAVA: helo/SİHA hava hedefi vurur
+const BATTLE_ENGINE_VERSION = 'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair-a2a-tedarik6';   // 2026-08-08 ALTI DAVRANIS DEGISIKLIGI: tahsis metrigi (para bazli en-buyuk-kalan), konuslandirma
+// derinligi (nitelikten turetilir + 150px adim + geriye-de-bakan carpisma aramasi), kesif onceligi
+// (gozlem > kendini-savunma), hava savunma kovasi (air_defense -> FIRE_SUPPORT), SUPPORT yurutme dali,
+// birim agirliklari (SPAAG 0.09, SUPPLY 0.05).
+// SURUM BUMP SART: bayat surum dizesi, kayitlarin kendilerini ureten motora karsi dogrulanmasini
+// imkansiz kilar. Bugun bu yuzden kullanicinin canli maci 120. tikte sapti (kayit eski motordandi).
 const BATTLE_TICK_MS = 50;
 const BATTLE_TICK_SEC = BATTLE_TICK_MS / 1000;
 const BATTLE_MAX_STEPS_PER_FRAME = 8;
