@@ -47,6 +47,9 @@ const {
     probeGovernanceWorkspace,
     probeCharacterIdentities,
     probeCharacterMemory,
+    probeCharacterActions,
+    probeCharacterArbiter,
+    probeContactDirectory,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
@@ -2538,6 +2541,12 @@ function run() {
         'Sadık komuta hamlesi gerçek karşı gücü artırmalı.');
     assert.equal(politicalCrisisProbe.main.resourceReceiptsRecorded, true,
         'Karşı hamle maliyeti aktör ve kaynak fişiyle olay zincirine yazılmalı.');
+    assert.equal(politicalCrisisProbe.main.crisisMemoryEpisodeOpen, true,
+        'Açık siyasi kriz kanonik aktörlerle çözülmemiş bir hafıza bölümü taşımalı.');
+    assert.equal(politicalCrisisProbe.main.actionMemoryEpisodesResolved, true,
+        'Uygulanan karşı hamleler sonuç koduyla çözülmüş hafıza bölümleri olmalı.');
+    assert.equal(politicalCrisisProbe.main.memoryValidation.ok, true,
+        'Siyasi kriz karşı hamleleri karakter hafıza sözleşmesini bozmamalı.');
     assert.equal(politicalCrisisProbe.main.ui.characterNamesVisible, true,
         'Siyasi kriz çalışma alanı soyut yüzde yerine ilgili karakter adını göstermeli.');
     assert.equal(politicalCrisisProbe.main.ui.fourActionsVisible, true,
@@ -2550,6 +2559,16 @@ function run() {
         'Faz 33 sonucu LLM ile belirlenmemeli.');
     assert.equal(politicalCrisisProbe.deterministicOutcome.territorialMutation, false,
         'İç bölünme yabancı devlete sahte ve gerekçesiz toprak devri üretmemeli.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.crisisMemoryEpisodeResolved, true,
+        'Darbe sonucu açık siyasi kriz hafıza bölümünü kapatmalı.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.betrayalRecorded, true,
+        'Fiilî darbe teşebbüsü kalıcı BETRAYAL mihenk taşı üretmeli.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.betrayalSubjectCanonical, true,
+        'İhanet mihenk taşı darbe liderinin kanonik aktör kimliğine bağlı olmalı.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.betrayalResultGrounded, true,
+        'İhanet hafızası gerçek kriz sonuç kodunu kaynak göstermeli.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.memoryValidation.ok, true,
+        'Sonuçlanmış siyasi kriz karakter hafıza sözleşmesini bozmamalı.');
     assert.equal(politicalCrisisProbe.main.validation.ok, true,
         'Faz 33 hazırlık/koalisyon/karşı hamle defteri doğrulanmalı.');
     assert.equal(politicalCrisisProbe.deterministicOutcome.validation.ok, true,
@@ -2600,6 +2619,44 @@ function run() {
         '900 sn canlı Faz 33 dünyasında RNG darbe sonucu üretmemeli.');
     assert.equal(repeat.politicalCrisisSummary.llmOutcome, false,
         '900 sn canlı Faz 33 dünyasında LLM darbe sonucu üretmemeli.');
+    assert.equal(repeat.characterMemoryValidation.ok, true,
+        '900 sn kampanya sonunda üç katmanlı karakter hafızası doğrulanmalı.');
+    assert.ok(repeat.characterMemorySummary.maxRecentPerActor
+        <= repeat.characterMemorySummary.budgets.recentPerActor,
+    '900 sn kampanyada aktör başına yakın hafıza tavanı aşılmamalı.');
+    assert.ok(repeat.characterMemorySummary.maxSummaryPerActor
+        <= repeat.characterMemorySummary.budgets.summaryPerActor,
+    '900 sn kampanyada aktör başına dönem özeti tavanı aşılmamalı.');
+    assert.ok(repeat.characterMemorySummary.openEpisodeCount
+        <= repeat.characterMemorySummary.budgets.openEpisodes,
+    '900 sn kampanyada açık bölüm bütçesi aşılmamalı.');
+    assert.ok(repeat.characterMemorySummary.resolvedEpisodeCount
+        <= repeat.characterMemorySummary.budgets.resolvedEpisodes,
+    '900 sn kampanyada çözülmüş bölüm bütçesi aşılmamalı.');
+    assert.ok(repeat.characterMemorySummary.milestoneCount
+        <= repeat.characterMemorySummary.budgets.milestones,
+    '900 sn kampanyada kalıcı mihenk taşı bütçesi aşılmamalı.');
+    assert.ok(repeat.characterMemorySummary.serializedChars
+        <= repeat.characterMemorySummary.budgets.serializedChars,
+    '900 sn kampanyada karakter hafızası serileştirme bütçesi aşılmamalı.');
+    assert.equal(repeat.characterActionValidation.ok, true,
+        '900 sn kampanya sonunda karakter eylemi defteri doğrulanmalı.');
+    assert.ok(repeat.characterActionSummary.receiptCount <= 90,
+        'Global 10 sn karakter eylemi bütçesi 900 sn içinde 90 makbuzu aşmamalı.');
+    assert.ok(repeat.characterActionSummary.receiptCount <= repeat.characterActionSummary.receiptCap,
+        '900 sn karakter eylemi defteri kalıcı makbuz tavanını aşmamalı.');
+    assert.ok(repeat.characterActionSummary.ai.appliedCount > 0
+        && repeat.characterActionSummary.ai.appliedCount <= 90,
+    'Deterministik karakter AI çalışmalı fakat global eylem tavanını aşmamalı.');
+    assert.ok(repeat.characterActionSummary.aiActionRateBps <= 5000
+        && repeat.characterActionSummary.aiSkippedCount > repeat.characterActionSummary.ai.appliedCount,
+    'Karakter AI bağlam zayıfken pas geçmeli; her karar tikini eyleme çevirmemeli.');
+    assert.ok(repeat.characterActionSummary.aiDistinctTypeCount >= 2,
+        'Varsayılan 900 sn dünyada seçici tek bir karakter eylemi türüne çökmemeli.');
+    assert.ok(repeat.characterActionSummary.aiDominantTypeShareBps <= 9000,
+        'Varsayılan 900 sn dünyada baskın eylem bütün kararların %90 üstünü yutmamalı.');
+    assert.equal(repeat.characterActionSummary.aiPlayerActorReceiptCount, 0,
+        '900 sn boyunca karakter AI oyuncunun seçili karakterini yönetmemeli.');
     assert.notEqual(repeat.stateHash, politicalCrisisOff900.stateHash,
         'Faz 33 AI karşı hamlelerinin gerçek kaynak/sadakat bedeli fiziksel dünyada ölçülebilir olmalı.');
 
@@ -2796,6 +2853,18 @@ function run() {
         'Oyuncunun gerçek konuşma cevabı açık hafıza bölümünü sonuçlandırmalı.');
     assert.equal(characterMemoryProbe.main.realTalkPromiseRecorded, true,
         'Gerçek konuşmada verilen söz kalıcı PROMISE mihenk taşına dönüşmeli.');
+    assert.equal(characterMemoryProbe.main.realBribeTalkResolved, true,
+        'Gerçek siyasi ödeme seçeneği uygulanıp konuşmayı kapatmalı.');
+    assert.equal(characterMemoryProbe.main.realDebtRecorded, true,
+        'Gerçek siyasi ödeme yönlü ilişki borcundan DEBT mihenk taşı üretmeli.');
+    assert.equal(characterMemoryProbe.main.realDebtReceiptGrounded, true,
+        'DEBT mihenk taşı gerçek bütçe işlem makbuzunu kaynak göstermeli.');
+    assert.equal(characterMemoryProbe.main.realDebtRelationshipRaised, true,
+        'Siyasi ödeme alıcısının oyuncuya yönlü debtBps değeri gerçekten artmalı.');
+    assert.equal(characterMemoryProbe.main.realIntegritySecretRecorded, true,
+        'Doğrulanmış özel bütünlük kanıtı gerçek SECRET mihenk taşı üretmeli.');
+    assert.equal(characterMemoryProbe.main.realIntegritySecretHeldByAgent, true,
+        'Özel bütünlük kanıtını yalnız kanonik istihbarat aktörü bilmeli.');
     assert.equal(characterMemoryProbe.main.recentCount, 24,
         'Yakın karakter hafızası aktör başına 24 kayıt tavanını aşmamalı.');
     assert.ok(characterMemoryProbe.main.summaryCount > 0,
@@ -2840,6 +2909,8 @@ function run() {
     assert.equal(characterMemoryProbe.restored.promisePreserved, true, 'Söz yüklemede unutulmamalı.');
     assert.equal(characterMemoryProbe.restored.secretPreserved, true, 'Sır yüklemede unutulmamalı.');
     assert.equal(characterMemoryProbe.restored.debtPreserved, true, 'Borç yüklemede unutulmamalı.');
+    assert.equal(characterMemoryProbe.restored.integritySecretPreserved, true,
+        'Doğrulanmış özel kanıt sırrı yüklemede unutulmamalı.');
     assert.equal(characterMemoryProbe.legacy.loaded, true, 'Eski hafızasız kayıt güvenle açılmalı.');
     assert.equal(characterMemoryProbe.legacy.validation.ok, true,
         "Eski kaydın kaynaklı hafıza backfill'i geçerli olmalı.");
@@ -2853,6 +2924,362 @@ function run() {
         'Kimlik öncülü kapalıyken Faz 36 hafızası etkinleşmemeli.');
     assert.ok(characterMemoryProbe.dependencyDisabled.talkCount > 0,
         'Karakter kimliği/hafıza öncülü kapalıyken eski Talks.js akışı çökmemeli.');
+
+    const characterActionsProbe = storyTestResult('characterActionsProbe', probeCharacterActions);
+    assert.deepEqual(characterActionsProbe.main.actionTypes,
+        ['PERSUADE', 'NEGOTIATE', 'ORDER', 'SABOTAGE', 'ALLY', 'RESIGN', 'BETRAY'],
+        'Faz 37 yedi karakter eylemi için deterministik aday üretmeli.');
+    assert.equal(characterActionsProbe.main.allContractsPresent, true,
+        'Her aday hedef, yetki, bedel, cooldown ve gerekçe sözleşmesi taşımalı.');
+    assert.deepEqual(characterActionsProbe.main.executableTypes,
+        ['PERSUADE', 'NEGOTIATE', 'ORDER', 'SABOTAGE', 'ALLY', 'RESIGN', 'BETRAY'],
+        'Yedi eylemin tamamı gerçek ilişki, yönetim, operasyon veya haleflik alanına bağlanmalı.');
+    assert.deepEqual(characterActionsProbe.main.unavailableTypes, [],
+        'Faz 37 adaylarında yürütücüsüz sahte eylem kalmamalı.');
+    assert.equal(characterActionsProbe.main.unavailableExplainExecutor, true,
+        'Yürütülemeyen her aday DOMAIN_EXECUTOR_NOT_AVAILABLE gerekçesini açıklamalı.');
+    assert.equal(characterActionsProbe.main.institutionalAuthorityResolved, true,
+        'Emir ve istifa gerçek makam sahibinden yetki kanıtı almalı.');
+    assert.equal(characterActionsProbe.main.intelligenceAuthorityResolved, true,
+        'Sabotaj adayı gerçek AGENT + servis bağıyla yetki kanıtı almalı.');
+    assert.equal(characterActionsProbe.main.ordered.ok, true,
+        'Emir gerçek yönetim kararı kuyruğuna alınmalı.');
+    assert.equal(characterActionsProbe.main.ordered.receipt.domainReceipt.outcomeModel,
+        'QUEUED_DOMAIN_DECISION', 'Emir makbuzu fiziksel sonucu erken iddia etmemeli.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.domainStatus, 'APPLIED',
+        'Emir kurum ve uygulama kapasitesi zincirinden saha sonucuna ulaşmalı.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.physicalMutation, true,
+        'Emir sonunda fiziksel dünya mutasyonu üretmeli.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.manpowerSpent, 70,
+        'Emir soyut ikinci para yerine tek ekonomi defterinden insan gücü harcamalı.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.garrisonDelta, 1,
+        'Seferberlik emri hedef şehrin garnizonunu bir artırmalı.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.receiptOutcomeModel,
+        'DOMAIN_DECISION_RESOLVED',
+        'Karakter eylemi makbuzu kurum sonucu oluşunca bekleyen durumdan çıkmalı.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.receiptFinalStatus, 'APPLIED',
+        'Emir makbuzu yalnız gerçek kurum sonucunu nihai durum olarak taşımalı.');
+    assert.equal(characterActionsProbe.main.orderPhysicalResult.memoryResolved, true,
+        'Emir hafızası saha sonucu gelmeden kapanmamalı, sonuç gelince çözülmeli.');
+    assert.equal(characterActionsProbe.main.sabotaged.ok, true,
+        'Yetkili ajanın kanonik koridor sabotajı süreli operasyon kuyruğuna alınmalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.pendingOutcomeModel,
+        'QUEUED_COVERT_OPERATION', 'Sabotaj başladığı anda fiziksel sonucu uydurmamalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.pendingPhysicalMutation, false,
+        'Hazırlık aşamasında koridor hasarı yazılmamalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.capabilitySpent, 6,
+        'Gizli operasyon ajanın gerçek altı kapasite bedelini harcamalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.syncChanged, 1,
+        'Otuz saniye sonunda tam bir bekleyen gizli operasyon çözülmeli.');
+    assert.equal(characterActionsProbe.main.sabotageResult.finalOutcomeModel,
+        'COVERT_OPERATION_RESOLVED', 'Sabotaj makbuzu deterministik nihai sonuca geçmeli.');
+    assert.equal(characterActionsProbe.main.sabotageResult.finalResult.status, 'SUCCEEDED',
+        'Yüksek kapasiteli hedefli test ajanı koridor sabotajını başarıyla tamamlamalı.');
+    assert.ok(characterActionsProbe.main.sabotageResult.damageAfterBps
+        > characterActionsProbe.main.sabotageResult.damageBeforeBps,
+    'Başarılı sabotaj gerçek altyapı hasarı yazmalı.');
+    assert.ok(characterActionsProbe.main.sabotageResult.effectiveCapacityAfter
+        < characterActionsProbe.main.sabotageResult.effectiveCapacityBefore,
+    'Koridor hasarı gerçek taşıma kapasitesini düşürmeli.');
+    assert.equal(characterActionsProbe.main.sabotageResult.infrastructureValidation.ok, true,
+        'Sabotaj sonrası altyapı grafı kanonik şemasını korumalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.memoryResolved, true,
+        'Ajan hafızası operasyon sonucu gelmeden kapanmamalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.targetSawIncident,
+        characterActionsProbe.main.sabotageResult.finalResult.detected,
+        'Hedef ülke yalnız tespit edilen sabotaj olayını görebilmeli.');
+    assert.equal(characterActionsProbe.main.sabotageResult.targetActorIdentityVisible,
+        characterActionsProbe.main.sabotageResult.finalResult.attributed,
+        'Ajan kimliği yalnız operasyon ayrıca faile atfedildiyse açılmalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.targetSecretOddsLeaked, false,
+        'Hedef ülkeye gizli başarı/tespit olasılıkları sızmamalı.');
+    assert.equal(characterActionsProbe.main.sabotageResult.targetKnowledgeValidation.ok, true,
+        'Hedef ülkenin redakte sabotaj bilgi projeksiyonu geçerli olmalı.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedUnattributed.actionCount, 1,
+        'Tespit edilen sabotaj olayı hedef ülkenin bilgi projeksiyonuna girmeli.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedUnattributed.actorId, null,
+        'Tespit tek başına ajanın kimliğini açmamalı.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedUnattributed.oddsLeaked, false,
+        'Tespit edilmiş olayda bile gizli operasyon olasılıkları hedefe sızmamalı.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedUnattributed.validation.ok, true,
+        'Tespit edilmiş fakat atfedilmemiş olay projeksiyonu geçerli olmalı.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedAttributed.actionCount, 1,
+        'Faile atfedilmiş olay hedef bilgi projeksiyonunda korunmalı.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedAttributed.actorId,
+        characterActionsProbe.main.sabotaged.receipt.actorId,
+        'Ajan kimliği yalnız ayrı atıf başarısında açılmalı.');
+    assert.equal(characterActionsProbe.main.sabotageDisclosureFixtures.detectedAttributed.validation.ok, true,
+        'Faile atfedilmiş sabotaj projeksiyonu geçerli olmalı.');
+    assert.equal(characterActionsProbe.main.persuaded.ok, true, 'İkna gerçek ilişki sonucu üretmeli.');
+    assert.equal(characterActionsProbe.main.negotiated.ok, true, 'Müzakere gerçek ilişki sonucu üretmeli.');
+    assert.equal(characterActionsProbe.main.allied.ok, true, 'İttifak gerçek ilişki sonucu üretmeli.');
+    assert.equal(characterActionsProbe.main.betrayed.ok, true,
+        'Anlamlı bağı olan aktörün ihaneti gerçek ilişki ve hafıza sonucu üretmeli.');
+    assert.equal(characterActionsProbe.main.resigned.ok, true,
+        'Gerçek makam sahibi istifayı kanonik haleflik sonucuna bağlayabilmeli.');
+    assert.equal(characterActionsProbe.main.resignationResult.firstButtonPresent, true,
+        'Yönetim paneli oyuncunun elindeki makam için gerçek istifa düğmesi göstermeli.');
+    assert.equal(characterActionsProbe.main.resignationResult.armedButtonPresent, true,
+        'İlk tıklama sonrası aynı makam için açık onay düğmesi görünmeli.');
+    assert.equal(characterActionsProbe.main.resignationResult.firstClickCreatedReceipt, false,
+        'İlk tıklama yanlışlıkla istifa makbuzu veya makam devri üretmemeli.');
+    assert.equal(characterActionsProbe.main.resignationResult.previousActorId,
+        characterActionsProbe.main.resigned.receipt.actorId,
+        'İstifa makbuzu gerçek eski makam sahibinden çıkmalı.');
+    assert.notEqual(characterActionsProbe.main.resignationResult.successorActorId,
+        characterActionsProbe.main.resignationResult.previousActorId,
+        'İstifa makamı aynı aktöre geri vermemeli.');
+    assert.equal(characterActionsProbe.main.resignationResult.outcomeModel,
+        'OFFICE_SUCCESSION_RESOLVED',
+        'İstifa yalnız gerçek makam devri tamamlandığında başarı sayılmalı.');
+    assert.equal(characterActionsProbe.main.resignationResult.physicalMutation, true,
+        'İstifa kanonik kurum sahibini fiziksel olarak değiştirmeli.');
+    assert.equal(characterActionsProbe.main.resignationResult.actorNoLongerHoldsOffice, true,
+        'İstifa eden aktör aynı makam yetkisini korumamalı.');
+    assert.equal(characterActionsProbe.main.resignationResult.transitionCount, 1,
+        'Makam devri kayıt/yükleme için tek aktif geçiş kaydı bırakmalı.');
+    assert.equal(characterActionsProbe.main.resignationResult.memoryResolved, true,
+        'İstifa isimli ve çözülmüş karakter hafızası bırakmalı.');
+    assert.equal(characterActionsProbe.main.unsupported.ok, false,
+        'Katalog dışı karakter eylemi makbuz üretmeden reddedilmeli.');
+    assert.equal(characterActionsProbe.main.cooldownBlocked, true,
+        'Uygulanan eylem aynı anda tekrar edilememeli ve açık availableAt taşımalı.');
+    assert.equal(characterActionsProbe.main.influenceSpent, 5,
+        'İkna ve müzakere kariyer etkisinden toplam beş puan harcamalı.');
+    assert.equal(characterActionsProbe.main.credibilitySpent, 12,
+        'İttifak ve ihanet kariyer güvenilirliğinden toplam on iki puan harcamalı.');
+    assert.ok(characterActionsProbe.main.relationshipTrustGainBeforeBetrayal > 0
+        && characterActionsProbe.main.relationshipRespectGainBeforeBetrayal > 0,
+    'Karakter eylemi yalnız rapor değil kanonik yönlü ilişki değişimi üretmeli.');
+    assert.ok(characterActionsProbe.main.betrayalTrustDelta < 0
+        && characterActionsProbe.main.betrayalHostilityDelta > 0,
+    'İhanet hedefin güvenini düşürüp husumetini gerçekten yükseltmeli.');
+    assert.equal(characterActionsProbe.main.resolvedActionEpisodes, 7,
+        'Emir, sabotaj ve istifa dahil yedi uygulanan eylem çözülmüş hafıza bölümü bırakmalı.');
+    assert.equal(characterActionsProbe.main.allianceMilestones, 1,
+        'Kişisel ittifak budanmayan kaynaklı bir ilişki mihenk taşı bırakmalı.');
+    assert.equal(characterActionsProbe.main.brokenAllianceMilestones, 1,
+        'İhanet önceki aktif ittifakı BROKEN durumuna geçirmeli.');
+    assert.equal(characterActionsProbe.main.betrayalMilestones, 1,
+        'İhanet budanmayan ve makbuza bağlı BETRAYAL mihenk taşı bırakmalı.');
+    assert.equal(characterActionsProbe.main.betrayalReceiptBreaksAlliance, true,
+        'İhanet makbuzu bozduğu ittifak kimliğini taşımalı.');
+    assert.equal(characterActionsProbe.main.validation.ok, true,
+        'Faz 37 eylem defteri kendi şema doğrulamasını geçmeli.');
+    assert.equal(characterActionsProbe.main.worldValidation.ok, true,
+        'Karakter eylem makbuzları WorldV2 varlık sözleşmesini geçmeli.');
+    assert.equal(characterActionsProbe.main.worldActionCount, 7,
+        'WorldV2 uygulanmış yedi karakter eylemi makbuzunu taşımalı.');
+    assert.equal(characterActionsProbe.main.ownKnowledgeValidation.ok, true,
+        'Oyuncunun karakter eylemi bilgi projeksiyonu geçerli olmalı.');
+    assert.equal(characterActionsProbe.main.foreignKnowledgeValidation.ok, true,
+        'Yabancı ülke için karakter eylemi bilgi projeksiyonu geçerli olmalı.');
+    assert.equal(characterActionsProbe.main.ownVisibleActionCount, 7,
+        'Oyuncu kendi ülkesinin yedi gerçek eylem makbuzunu görebilmeli.');
+    assert.equal(characterActionsProbe.main.foreignVisibleActionCount, 0,
+        'İlgisiz yabancı ülke oyuncunun gizli karakter eylemlerini görmemeli.');
+    assert.equal(characterActionsProbe.main.migration.ok, true,
+        'FAZ 37 eylem defteri V3 kaydından V2 gölge dünyaya göç edebilmeli.');
+    assert.equal(characterActionsProbe.main.migration.validation.ok, true,
+        'Göç edilen karakter eylemleri WorldV2 sözleşmesini geçmeli.');
+    assert.equal(characterActionsProbe.main.migration.actionCount, 7,
+        'V3→V2 göçü yedi uygulanmış karakter eylemini kaybetmemeli.');
+    assert.equal(characterActionsProbe.main.migration.equal, true,
+        'Canlı adaptör ve kayıt göçü aynı karakter eylem varlıklarını üretmeli.');
+    assert.equal(characterActionsProbe.main.migration.unmapped, false,
+        'characterActions göç raporunda eşlenmemiş alan kalmamalı.');
+    assert.equal(characterActionsProbe.main.summary.appliedCount, 7,
+        'Yalnız gerçekten başlatılan yedi eylem makbuz defterine girmeli.');
+    assert.equal(characterActionsProbe.main.saveOk, true, 'Faz 37 eylem defteri kaydedilebilmeli.');
+    assert.equal(characterActionsProbe.restored.loaded, true, 'Faz 37 eylem defteri yüklenebilmeli.');
+    assert.equal(characterActionsProbe.restored.validation.ok, true,
+        'Yüklenen eylem defteri geçerli kalmalı.');
+    assert.equal(characterActionsProbe.restored.equal, true,
+        'Eylem makbuzları ve cooldownlar kayıt/yüklemede birebir korunmalı.');
+    assert.equal(characterActionsProbe.restored.institutionLedgerEqual, true,
+        'İstifa geçişi kurum restore sırasında sahte eski-sahip uzlaştırma olayı üretmemeli.');
+    assert.equal(characterActionsProbe.restored.sabotageDamagePreserved, true,
+        'Tamamlanmış sabotajın fiziksel koridor hasarı kayıt/yüklemede korunmalı.');
+    assert.equal(characterActionsProbe.restored.resignationSuccessorPreserved, true,
+        'İstifa sonrası makam sahibi kayıt/yüklemede eski aktöre dönmemeli.');
+    assert.equal(characterActionsProbe.sabotageResume.loaded, true,
+        'Sonuçlanmamış gizli operasyon kaydı açılabilmeli.');
+    assert.equal(characterActionsProbe.sabotageResume.syncChanged, 1,
+        'Kayıttan devam eden gizli operasyon zamanı gelince tam bir kez çözülmeli.');
+    assert.equal(characterActionsProbe.sabotageResume.validation.ok, true,
+        'Kayıttan devam eden sabotaj defteri geçerli kalmalı.');
+    assert.equal(characterActionsProbe.sabotageResume.finalDomainEqual, true,
+        'Sabotajın başarı/tespit/atıf sonucu checkpoint sonrası değişmemeli.');
+    assert.equal(characterActionsProbe.sabotageResume.finalMemoryEqual, true,
+        'Sabotaj hafızası checkpoint sonrası kesintisiz sonuçla aynı olmalı.');
+    assert.equal(characterActionsProbe.sabotageResume.damageBps,
+        characterActionsProbe.sabotageResume.expectedDamageBps,
+        'Checkpoint sonrası fiziksel koridor hasarı kesintisiz sonuçla aynı olmalı.');
+    assert.equal(characterActionsProbe.version2.loaded, true,
+        'Önceki Faz 37 eylem defteri sürümü açılabilmeli.');
+    assert.equal(characterActionsProbe.version2.validation.ok, true,
+        'Önceki eylem defteri güncel seçici sözleşmesine geçerli göç etmeli.');
+    assert.equal(characterActionsProbe.version2.schemaVersion, 6,
+        'Sürüm-2 eylem defteri sürüm-6 makam geçişi şemasına yükseltilmeli.');
+    assert.equal(characterActionsProbe.version2.policyHash, 'fnv1a32:phase37-context-selector-2',
+        'Göç eski seçici karmasını koruyup yanlış politika iddiasında bulunmamalı.');
+    assert.equal(characterActionsProbe.version2.receiptCount, 7,
+        'Seçici politikası göçerken geçmiş yedi gerçek makbuz kaybolmamalı.');
+    assert.equal(characterActionsProbe.version3.loaded, true,
+        'Gerçek sürüm-3 sosyal eylem defteri açılabilmeli.');
+    assert.equal(characterActionsProbe.version3.validation.ok, true,
+        'Sürüm-3 sosyal makbuzlar güncel türlü hedef şemasını geçmeli.');
+    assert.equal(characterActionsProbe.version3.schemaVersion, 6,
+        'Sürüm-3 eylem defteri sürüm-6 hedef ve makam sözleşmesine yükselmeli.');
+    assert.equal(characterActionsProbe.version3.receiptCount, 4,
+        'Sürüm-3’ün dört sosyal makbuzu göçte kaybolmamalı.');
+    assert.equal(characterActionsProbe.version3.typedContractsBackfilled, true,
+        'Eski sosyal makbuzlara CHARACTER hedef modeli ve boş domain bağlamı eklenmeli.');
+    assert.equal(characterActionsProbe.legacy.loaded, true,
+        'Eski eylem-deftersiz kayıt güvenle açılmalı.');
+    assert.equal(characterActionsProbe.legacy.validation.ok, true,
+        'Eski kayıt için boş eylem defteri geçerli oluşturulmalı.');
+    assert.equal(characterActionsProbe.legacy.backfilled, true,
+        'Eski kaydın eylem geçmişinin uydurulmadığı backfill olarak işaretlenmeli.');
+    assert.equal(characterActionsProbe.legacy.receiptCount, 0,
+        'Eski kayıt için geçmiş karakter eylemi uydurulmamalı.');
+    assert.equal(characterActionsProbe.disabled, null,
+        'Faz 37 özellik kapalıyken karakter eylem defteri kurulmamı.');
+    assert.equal(characterActionsProbe.dependencyDisabled, null,
+        'Üç katmanlı hafıza öncülü kapalıyken Faz 37 eylemleri etkinleşmemeli.');
+    assert.ok(characterActionsProbe.aiUninterrupted.receiptCount > 0,
+        'Gerçek scheduler akışında AI en az bir geçerli karakter eylemi uygulamalı.');
+    assert.equal(characterActionsProbe.aiUninterrupted.allDeterministicAI, true,
+        'AI makbuzları deterministik seçici puanı ve gerekçesi taşımalı.');
+    assert.ok(characterActionsProbe.aiUninterrupted.summary.aiActionRateBps <= 10000
+        && characterActionsProbe.aiUninterrupted.summary.aiSkippedCount >= 0,
+        'Karakter AI özeti uygulama ve pas bütçesini açıkça ölçmeli.');
+    assert.equal(characterActionsProbe.aiUninterrupted.playerNeverControlled, true,
+        'Karakter AI oyuncunun seçtiği karakteri asla yönetmemeli.');
+    assert.equal(characterActionsProbe.aiUninterrupted.bounded, true,
+        'On saniyelik global tik kırk saniyede dörtten fazla eylem üretememeli.');
+    assert.equal(characterActionsProbe.aiUninterrupted.scheduler.tasks['character-actions'].runCount, 4,
+        'Karakter eylemi scheduler görevi kırk saniyede tam dört kez çalışmalı.');
+    assert.equal(characterActionsProbe.aiResumed.loaded, true,
+        'Karakter AI checkpoint kaydı açılabilmeli.');
+    assert.equal(characterActionsProbe.aiResumed.equal, true,
+        'Checkpoint sonrası karakter AI defteri kesintisiz koşuyla birebir aynı olmalı.');
+    assert.equal(characterActionsProbe.aiResumed.schedulerTaskEqual, true,
+        'Karakter eylemi scheduler sayacı checkpoint sonrasında kaymamalı.');
+    assert.equal(characterActionsProbe.playerUi.opened, true,
+        'Şehirdeki doğrulanmış karakter hedefli eylem yüzeyinde açılabilmeli.');
+    assert.equal(characterActionsProbe.playerUi.buttonCount, 5,
+        'Askerî şehir bağlamı dört sosyal eyleme gerçek emri eklemeli.');
+    assert.ok(characterActionsProbe.playerUi.enabledButtonCount > 0,
+        'Doğrulanmış yerel temasta en az bir bedelli karakter eylemi uygulanabilir olmalı.');
+    assert.equal(characterActionsProbe.playerUi.receipt.decisionSource, 'PLAYER_UI',
+        'Gerçek DOM tıklaması oyuncu kaynaklı eylem makbuzu üretmeli.');
+    assert.equal(characterActionsProbe.playerUi.receipt.actionType, 'PERSUADE',
+        'İkna düğmesi başka bir karakter eylemine dönüşmemeli.');
+    assert.equal(characterActionsProbe.playerUi.receipt.costReceipt.amount, 2,
+        'Oyuncunun ikna eylemi gerçek iki nüfuz bedelini harcamalı.');
+    assert.equal(characterActionsProbe.playerUi.orderButtonVisible, true,
+        'Askerî muhatapta seferberlik emri düğmesi görünmeli.');
+    assert.equal(characterActionsProbe.playerUi.orderQueued, true,
+        'Gerçek DOM emir tıklaması yönetim kararı kuyruğu makbuzu üretmeli.');
+    assert.equal(characterActionsProbe.playerUi.cooldownVisible, true,
+        'Eylem sonrası aynı düğme gerçek aktör/çift cooldown süresini açıklamalı.');
+    assert.equal(characterActionsProbe.playerUi.validation.ok, true,
+        'Oyuncu UI eylemi Faz 37 makbuz defterini bozmamalı.');
+
+    const characterArbiterProbe = storyTestResult('characterArbiterProbe', probeCharacterArbiter);
+    assert.ok(characterArbiterProbe.main.actorId && characterArbiterProbe.main.rankedCount > 0,
+        'Faz 38 hakemi kanonik kimlik ve Faz 37 adayları üzerinden çalışmalı.');
+    assert.equal(characterArbiterProbe.main.requestOk, true,
+        'Karakter hakemi sürümlü, geçerli bir karar isteği kurmalı.');
+    assert.equal(characterArbiterProbe.main.requestDeterministic, true,
+        'Aynı dünya bağlamı aynı hakem isteğini üretmeli.');
+    assert.ok(characterArbiterProbe.main.candidateCount > 0
+        && characterArbiterProbe.main.candidateCount <= characterArbiterProbe.main.candidateCap,
+    'LLM yalnız sınırlı ve kod tarafından doğrulanmış aday kümesini görmeli.');
+    assert.equal(characterArbiterProbe.main.validSource, 'LOCAL_LLM_VALIDATED',
+        'Şemaya ve sunulan adaya uyan model çıktısı doğrulanmış öneri olarak kabul edilmeli.');
+    assert.equal(characterArbiterProbe.main.validValidation.ok, true,
+        'Kabul edilen model çıktısı katı Faz 38 doğrulayıcısından geçmeli.');
+    assert.equal(characterArbiterProbe.main.fencedSource, 'LOCAL_LLM_VALIDATED',
+        'Modelin markdown çiti içindeki tek JSON nesnesi güvenli biçimde ayrıştırılabilmeli.');
+    assert.equal(characterArbiterProbe.main.unknownFallback, 'DETERMINISTIC_FALLBACK',
+        'Model sunulmayan bir aday uydurduğunda deterministik yedeğe dönülmeli.');
+    assert.equal(characterArbiterProbe.main.unknownReason, 'CANDIDATE_NOT_OFFERED',
+        'Uydurma aday reddi açıklanabilir bir neden kodu taşımalı.');
+    assert.equal(characterArbiterProbe.main.mismatchFallback, 'DETERMINISTIC_FALLBACK',
+        'Aday kimliği ile eylem türü uyuşmayan çıktı uygulanmamalı.');
+    assert.equal(characterArbiterProbe.main.mismatchReason, 'ACTION_MISMATCH',
+        'Eylem uyuşmazlığı ayrı doğrulama koduyla görünmeli.');
+    assert.equal(characterArbiterProbe.main.injectedFallback, 'DETERMINISTIC_FALLBACK',
+        'LLM gizli oran veya şema dışı alan eklediğinde çıktı reddedilmeli.');
+    assert.equal(characterArbiterProbe.main.injectedReason, 'UNKNOWN_FIELD',
+        'Şema dışı alan reddi sessizce yutulmamalı.');
+    assert.equal(characterArbiterProbe.main.malformedFallback, 'DETERMINISTIC_FALLBACK',
+        'Bozuk JSON karakter davranışını durdurmamalı.');
+    assert.equal(characterArbiterProbe.main.fallbackDeterministic, true,
+        'Model kapalı veya bozukken yedek karar aynı bağlamda birebir olmalı.');
+    assert.equal(characterArbiterProbe.main.proposalOnly, true,
+        'Hakem çıktısı dünya komutu değil yalnız öneri olmalı.');
+    assert.equal(characterArbiterProbe.main.forbiddenContextLeak, false,
+        'Hakem bağlamı konum, servis, hasar, kapasite veya gizli operasyon olasılığı taşımamalı.');
+    assert.equal(characterArbiterProbe.main.worldNeutral, true,
+        'Model önerisini kurmak veya doğrulamak dünya durumunu değiştirmemeli.');
+    assert.equal(characterArbiterProbe.main.diagnostics.worldMutation, false,
+        'Faz 38 ilk dikeyi modelin mekanik yazma yetkisini açıkça kapatmalı.');
+    assert.equal(characterArbiterProbe.disabled.reason, 'ARBITER_DISABLED',
+        'Hakem özellik bayrağı kapalıyken sessizce çalışmamalı.');
+    assert.equal(characterArbiterProbe.dependencyDisabled.reason, 'ARBITER_DISABLED',
+        'Faz 37 eylem öncülü kapalıyken LLM hakemi etkin görünmemeli.');
+
+    const contactDirectoryProbe = storyTestResult('contactDirectoryProbe', probeContactDirectory);
+    assert.equal(contactDirectoryProbe.agent.knowledgeValidation.ok, true,
+        'Kamusal altyapı ve temas dizini PlayerKnowledge sözleşmesini geçmeli.');
+    assert.equal(contactDirectoryProbe.agent.knowledgeSchemaVersion, 4,
+        'Kamu altyapı sicili PlayerKnowledge v4 sözleşmesinde taşınmalı.');
+    assert.ok(contactDirectoryProbe.agent.publicAssetCount > 0,
+        'Oyuncu kamusal fiziksel yol topolojisini kaynaklı varlık olarak görebilmeli.');
+    assert.equal(contactDirectoryProbe.agent.publicAssetSecretLeak, false,
+        'Kamusal altyapı sicili hasar, kapasite, erişim veya etkinlik durumu sızdırmamalı.');
+    assert.equal(contactDirectoryProbe.agent.isAgent, true,
+        'Ajan başlangıç rolü temas çalışma alanında doğru tanınmalı.');
+    assert.ok(contactDirectoryProbe.agent.contactCount > 0
+        && contactDirectoryProbe.agent.publicCharacterCount > contactDirectoryProbe.agent.contactCount,
+    'Varsayılan temas listesi genel kamusal sicilden daha dar olmalı.');
+    assert.ok(contactDirectoryProbe.agent.operationCount > 0,
+        'Ajan rolü doğrulanmış kamusal fiziksel hedeflerden operasyon adayları üretmeli.');
+    assert.equal(contactDirectoryProbe.agent.allOperationsUseLandPublicTopology, true,
+        'İlk ajan yüzeyi yalnız kamusal fiziksel kara koridorlarını hedeflemeli.');
+    assert.equal(contactDirectoryProbe.agent.foreignLocationLeakCount, 0,
+        'Genel karakter dizini yabancı karakter konumu açmamalı.');
+    assert.equal(contactDirectoryProbe.agent.operationSecretFieldCount, 0,
+        'Ajan operasyon kartları yabancı hasar veya kapasite ayrıntısı taşımamalı.');
+    assert.equal(contactDirectoryProbe.agent.foreignKnowledgeLocationsUnknown, true,
+        'PlayerKnowledge yabancı karakter regionId alanını UNKNOWN/null korumalı.');
+    assert.equal(contactDirectoryProbe.agent.cacheStable, true,
+        'Değişmeyen temas dizini aynı ağır dünya/bilgi görünümünü yeniden kurmamalı.');
+    assert.equal(contactDirectoryProbe.agent.operationButtonPresent, true,
+        'Gerçek sohbet DOM yolunda ajan sabotaj düğmesi bulunmalı.');
+    assert.ok(contactDirectoryProbe.agent.sabotageReceipt
+        && contactDirectoryProbe.agent.sabotageReceipt.domainReceipt.outcomeModel === 'QUEUED_COVERT_OPERATION',
+    'Gerçek DOM sabotaj tıklaması süreli gizli operasyon makbuzu üretmeli.');
+    assert.equal(contactDirectoryProbe.agent.capabilitySpent, 6,
+        'Ajan UI sabotajı gerçek altı kapasite bedelini harcamalı.');
+    assert.equal(contactDirectoryProbe.agent.registryTogglePresent, true,
+        'Kamusal karakter sicili veri yığınını varsayılan ekrana basmak yerine açılır kontrol taşımalı.');
+    assert.equal(contactDirectoryProbe.agent.publicRowsAfterToggle,
+        contactDirectoryProbe.agent.publicCharacterCount,
+        'Kamusal sicil açıldığında bütün bilinen karakter kayıtları eksiksiz görünmeli.');
+    assert.equal(contactDirectoryProbe.agent.bodyContainsForeignRegionId, false,
+        'Açılmış kamusal sicil bile yabancı karakter konumu taşımamalı.');
+    assert.equal(contactDirectoryProbe.agent.actionLedgerValidation.ok, true,
+        'Ajan UI eyleminden sonra Faz 37 defteri geçerli kalmalı.');
+    assert.equal(contactDirectoryProbe.commander.isAgent, false,
+        'Komutan rolü ajan yetkisi kazanmış gibi gösterilmemeli.');
+    assert.equal(contactDirectoryProbe.commander.operationCount, 0,
+        'Komutanın sohbet yüzeyinde sabotaj operasyon listesi bulunmamalı.');
+    assert.equal(contactDirectoryProbe.commander.foreignLocationLeakCount, 0,
+        'Rol ne olursa olsun yabancı karakter konumu gizli kalmalı.');
 
     const cityDossierProbe = storyTestResult('cityDossierProbe', probeCityDossier);
     assert.equal(cityDossierProbe.main.ownValidation.ok, true, 'Kendi şehir dosyası sözleşmesini geçmeli.');
@@ -2997,10 +3424,21 @@ function run() {
     assert.equal(cityDossierProbe.main.characterState.talkOpen, true, 'Karakter girişi sohbet panelini açmalı.');
     assert.equal(
         cityDossierProbe.main.characterState.talkFocusCharacterId,
-        cityDossierProbe.main.ownView.characters[0].id,
+        cityDossierProbe.main.characterActions.view.targetActorId,
         'Sohbet merkezi şehirden gelen karakter bağlamını korumalı.'
     );
-    assert.match(cityDossierProbe.main.characterState.talkText, /henüz sistemde yok/, 'Eksik hedefli sohbet uydurulmadan açıkça belirtilmeli.');
+    assert.match(cityDossierProbe.main.characterState.talkText, /Serbest hedefli sohbet Faz 38 borcudur/,
+        'Serbest hedefli sohbet hazırmış gibi gösterilmemeli; gerçek Faz 37 eylemlerinden ayrılmalı.');
+    assert.equal(cityDossierProbe.main.characterActions.buttonCount, 5,
+        'Şehirden açılan karakter temasında dört sosyal eylem ve bağlamsal emir bulunmalı.');
+    assert.equal(cityDossierProbe.main.characterActions.receiptAdded, true,
+        'Şehir→sohbet DOM tıklaması gerçek karakter eylemi makbuzu eklemeli.');
+    assert.equal(cityDossierProbe.main.characterActions.receipt.decisionSource, 'PLAYER_UI',
+        'Şehirden uygulanan eylem AI kararı gibi kaydedilmemeli.');
+    assert.equal(cityDossierProbe.main.characterActions.cooldownVisibleAfterAction, true,
+        'Uygulanan şehir karakter eylemi panelde cooldown gerekçesiyle kapanmalı.');
+    assert.equal(cityDossierProbe.main.characterActions.validation.ok, true,
+        'Şehirden uygulanan eylem karakter eylem defterini geçerli bırakmalı.');
     assert.doesNotMatch(cityDossierProbe.main.characterState.talkText, /DÜNYANIN HÂLİ/,
         'Dünya özeti sohbet panelini ilgisiz veriyle doldurmamalı.');
     assert.match(cityDossierProbe.main.topBarWorldState.tooltip, /Savaş.*Refah/s,
@@ -3486,6 +3924,8 @@ function run() {
         'state-capacity': 2,
         elections: 2,
         integrity: 2,
+        'political-crisis': 2,
+        'character-actions': 1,
         siege: 5,
         technology: 1,
         chatter: 1,
@@ -3809,7 +4249,7 @@ function run() {
         'js/Talks.js', 'js/CommanderTree.js', 'js/StoryProductionSectors.js',
         'js/StoryRegionalEconomy.js', 'js/StoryMarket.js',
         'js/StoryInstitutions.js', 'js/StoryStateCapacity.js', 'js/StoryElections.js',
-        'js/StoryIntegrity.js'
+        'js/StoryIntegrity.js', 'js/StoryCharacterActions.js'
     ];
     const directStoryRandomCalls = storyRandomDomains.flatMap(relativePath => {
         const source = fs.readFileSync(path.resolve(__dirname, '..', relativePath), 'utf8');

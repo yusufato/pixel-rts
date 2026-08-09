@@ -354,6 +354,16 @@ const TALK_TEMPLATES = [
                               correlationId: `talk-bribe:${who.id}`
                           });
                           if (!moved.ok) return { fail: '⭐ Puanın yetmiyor.' };
+                          const debtorActorId = t.speakerActorId || storyTalkCanonicalActorId(who);
+                          const creditorActorId = `character:${STORY.playerStateId | 0}:${STORY.commander.id}`;
+                          if (debtorActorId && typeof storyRelationshipAdjust === 'function') {
+                              storyRelationshipAdjust(debtorActorId, creditorActorId, { debtBps: 2500 }, {
+                                  source: 'talk.ultimatum.bribe', reason: 'PAID_POLITICAL_CONCESSION',
+                                  sourceReceiptId: moved.transaction && moved.transaction.id,
+                                  talkUid: t.uid, talkTemplateId: t.tpl,
+                                  debtSummary: `${who.name}, 300⭐ siyasi ödeme karşılığında oyuncuya açık bir yükümlülük altına girdi.`
+                              });
+                          }
                       } else { w.points -= 300; who.res.points = (who.res.points || 0) + 300; }
                       who.loyalty = Math.min(100, talkLoy(who) + talkGain(18));
                       return { msg: `${who.name} sustu (sadakat +18, −300⭐).` }; } },
@@ -1058,6 +1068,90 @@ const TALK_KIND_META = {
     foreign:  { ic: '🕊️', name: 'DIŞ TEMAS', c: '#9fd2ff' },
     crisis:   { ic: '⚠️', name: 'İÇ SİYASİ KRİZ', c: '#ff8f66' },
 };
+
+const STORY_TALK_CHARACTER_ACTION_COPY = Object.freeze({
+    PERSUADE: Object.freeze({ detail: 'Hedefin sana duyduğu güven ve saygıyı kişisel nüfuz kullanarak artırır.' }),
+    NEGOTIATE: Object.freeze({ detail: 'İki yönlü güveni güçlendirir, mevcut husumeti düşürür.' }),
+    ALLY: Object.freeze({ detail: 'Yüksek güvenilirlik bedeliyle kalıcı kişisel ittifak kurar.' }),
+    BETRAY: Object.freeze({ detail: 'Anlamlı bağı koparır; güveni yıkar, husumeti artırır ve ihanet hafızası bırakır.' }),
+    ORDER: Object.freeze({ detail: 'Bu subay üzerinden seçili şehrin ihtiyatını kurum ve uygulama kapasitesi zincirine yollar.' }),
+    SABOTAGE: Object.freeze({ detail: 'Kamusal fiziksel hedefte süreli gizli operasyon başlatır; sonuç, tespit ve fail atfı ayrı çözülür.' })
+});
+
+function storyTalkCharacterActionReason(action) {
+    const reason = action && action.reasons && action.reasons[0];
+    const cooldownSeconds = Math.ceil(Number(action && action.cooldownRemainingSeconds) || 0);
+    const cooldownLabel = typeof storyTalkRemainingLabel === 'function'
+        ? storyTalkRemainingLabel(cooldownSeconds).replace(/ kaldı$/, '')
+        : `${cooldownSeconds} sn`;
+    const labels = {
+        SELF_TARGET_FORBIDDEN: 'Kendine karşı uygulanamaz.',
+        ACTION_ON_COOLDOWN: `${cooldownLabel} sonra yeniden kullanılabilir.`,
+        INSUFFICIENT_CAREER_RESOURCE: 'Kariyer kaynağın yetersiz.',
+        NO_VERIFIED_CONTACT: 'Bu karakterle doğrulanmış temasın yok.',
+        ALLIANCE_ALREADY_ACTIVE: 'Bu karakterle etkin ittifak zaten var.',
+        BETRAYAL_REQUIRES_MEANINGFUL_TIE: 'İhanet için önce güven, saygı, borç veya ittifak bağı gerekir.',
+        TARGET_NOT_FOUND: 'Hedef karakter bulunamadı.',
+        ACTOR_NOT_FOUND: 'Oyuncu karakteri bulunamadı.',
+        ORDER_TARGET_MUST_BE_MILITARY: 'Emir için askerî bir muhatap seçmelisin.',
+        ORDER_GOVERNANCE_LOCKED: action && action.domainReasons && action.domainReasons[0]
+            || 'Bu emir mevcut yetki, kaynak veya şehir koşullarında verilemiyor.',
+        ORDER_REGION_TARGET_REQUIRED: 'Emir için bir şehir hedefi gerekiyor.',
+        ACTOR_LACKS_INTELLIGENCE_SERVICE: 'Bu operasyon için doğrulanmış ajan ve servis yetkin yok.',
+        SABOTAGE_ASSET_TARGET_REQUIRED: 'Operasyon için doğrulanmış fiziksel varlık gerekiyor.',
+        SABOTAGE_ASSET_TARGET_NOT_FOUND: 'Hedef varlık güncel kamusal sicilde bulunamadı.',
+        SABOTAGE_TARGET_MUST_BE_FOREIGN: 'Kendi ülkenin altyapısı bu yüzeyden hedeflenemez.',
+        ACTION_LAYER_DISABLED: 'Karakter eylem sistemi kapalı.'
+    };
+    return labels[reason] || (reason ? `Kullanılamıyor: ${reason}` : 'Kullanılamıyor.');
+}
+
+function storyTalkCharacterActionCost(action) {
+    const cost = action && action.cost || {};
+    const domainCost = action && action.domainCost || {};
+    if (Number(domainCost.manpower) > 0) return `${Number(domainCost.manpower)} insan gücü`;
+    if (Number(domainCost.points) > 0) return `${Number(domainCost.points)} bütçe puanı`;
+    if (!cost.key || !(Number(cost.amount) > 0)) return 'Bedel yok';
+    const labels = { influence: 'nüfuz', credibility: 'güvenilirlik', autonomy: 'özerklik', capability: 'kapasite' };
+    const available = Number(cost.available);
+    return `${Number(cost.amount)} ${labels[cost.key] || cost.key}`
+        + (Number.isFinite(available) ? ` · mevcut ${Math.round(available)}` : '');
+}
+
+function storyTalkCharacterActionHtml(targetActorId, targetRegionId) {
+    if (typeof storyCharacterActionPlayerView !== 'function') return '';
+    const view = storyCharacterActionPlayerView(targetActorId, {
+        commandType: 'MOBILIZE_RESERVE', targetRegionId
+    });
+    if (!view || view.disabled) {
+        return `<div class="talk-note">Hedefli karakter eylemleri şu anda kullanılamıyor.</div>`;
+    }
+    const esc = typeof storyCityDossierEscape === 'function'
+        ? storyCityDossierEscape : value => String(value);
+    return `<div class="talk-card character-action-card"><div class="talk-card-h">`
+        + `<span>DOĞRUDAN EYLEMLER</span><span class="talk-age">${view.actions.length} aday</span></div>`
+        + `<div class="talk-note">Bunlar sohbet süsü değildir: bedel harcar, ilişkiyi ve karakter hafızasını kalıcı değiştirir.</div>`
+        + `<div class="talk-opts">${view.actions.map(action => {
+            const copy = STORY_TALK_CHARACTER_ACTION_COPY[action.actionType] || { detail: '' };
+            const status = action.allowed ? storyTalkCharacterActionCost(action) : storyTalkCharacterActionReason(action);
+            return `<button class="talk-opt character-action-opt" data-character-action="${esc(action.actionType)}" `
+                + `data-character-target="${esc(view.targetActorId)}" `
+                + `data-character-region="${esc(action.domainContext && action.domainContext.targetRegionId || '')}" `
+                + `data-character-command="${esc(action.domainContext && action.domainContext.commandType || '')}"`
+                + `${action.allowed ? '' : ' disabled'}>`
+                + `<b>${esc(action.label)}</b><span class="talk-tip">${esc(copy.detail)} ${esc(status)}</span></button>`;
+        }).join('')}</div></div>`;
+}
+
+function storyTalkCharacterActionMessage(actionType, result) {
+    const labels = { PERSUADE: 'İkna girişimi', NEGOTIATE: 'Müzakere', ALLY: 'Kişisel ittifak', BETRAY: 'İhanet', ORDER: 'Seferberlik emri', SABOTAGE: 'Sabotaj operasyonu' };
+    if (result && result.ok && actionType === 'ORDER') return 'Seferberlik emri kurum zincirine alındı; saha sonucu uygulama kapasitesi tamamlandığında oluşacak.';
+    if (result && result.ok && actionType === 'SABOTAGE') return 'Sabotaj operasyonu başlatıldı; fiziksel sonuç ve tespit 30 saniye sonra çözülecek.';
+    if (result && result.ok) return `${labels[actionType] || actionType} uygulandı ve dünya kaydına işlendi.`;
+    const action = result && result.candidate;
+    return storyTalkCharacterActionReason(action || { reasons: [result && result.reason || 'ACTION_FAILED'] });
+}
+
 function storyTalkUpdate() {
     if (!STORY._talkOpen) return;
     const body = document.getElementById('talk-body'); if (!body) return;
@@ -1069,9 +1163,10 @@ function storyTalkUpdate() {
         const safeName = typeof storyCityDossierEscape === 'function'
             ? storyCityDossierEscape(STORY._talkFocusCharacterName)
             : String(STORY._talkFocusCharacterName);
-        focusHtml = `<div class="talk-sec talk-focus"><div class="talk-h">⌖ ŞEHİR DOSYASINDAN GELEN BAĞLAM</div>`
-            + `<div class="talk-note"><b>${safeName}</b> için şehir bağlamı korundu; ancak bu karakterle hedefli sohbet henüz sistemde yok. `
-            + `Aşağıdaki genel görüşmeler bu karakterin cevabı gibi gösterilmez.</div></div>`;
+        focusHtml = `<div class="talk-sec talk-focus"><div class="talk-h">⌖ HEDEFLİ KARAKTER TEMASI</div>`
+            + `<div class="talk-note"><b>${safeName}</b> şehir dosyasından seçildi. Serbest hedefli sohbet Faz 38 borcudur; `
+            + `aşağıdaki Faz 37 eylemleri ise şimdi gerçek ve uygulanabilirdir.</div>`
+            + storyTalkCharacterActionHtml(STORY._talkFocusCharacterId, STORY._talkFocusRegionId) + `</div>`;
     }
     // 1) DİPLOMASİ TABLOSU — ilişkiler ve antlaşmalar
     const others = STORY.states.filter(s => s.id !== me.id && STORY.nodes.some(n => n.owner === s.id));
@@ -1083,7 +1178,10 @@ function storyTalkUpdate() {
             + `<span class="dip-bar"><b style="width:${pct}%;background:${lab.c}"></b></span>`
             + `<span class="dip-v" style="color:${lab.c}" title="İlişki puanı ${v}">${lab.t} ${v > 0 ? '+' : ''}${v}</span></div>`;
     }).join('');
-    let html = focusHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
+    const contactHtml = typeof storyContactDirectoryBuild === 'function'
+        && typeof storyContactDirectoryRenderHtml === 'function'
+        ? storyContactDirectoryRenderHtml(storyContactDirectoryBuild()) : '';
+    let html = focusHtml + contactHtml + `<div class="talk-sec"><div class="talk-h">🌍 DİPLOMASİ</div>`
         + `<div class="talk-note">İlişkiler <b>sohbetlerle</b> değişir — elçileri dinle, söz ver, ahdine sadık kal.</div>`
         + (diploRows || `<div class="talk-note">Sahnede başka devlet yok.</div>`) + `</div>`;
 
@@ -1148,16 +1246,13 @@ function storyTalkAnswer(uid, optIdx) {
         storyMemoryResolveEpisode(t.memoryEpisodeId, (res && res.msg) || o.text || 'Karar verildi.');
     }
     const promiseCountAfter = Math.max(0, Math.floor(Number(STORY._promises) || 0));
-    if (promiseCountAfter > promiseCountBefore && typeof storyMemoryAddMilestone === 'function') {
+    if (promiseCountAfter > promiseCountBefore && typeof storyMemoryRecordPromise === 'function') {
         const playerActorId = `character:${STORY.playerStateId | 0}:${STORY.commander.id}`;
-        const holders = [playerActorId, t.speakerActorId].filter(Boolean);
-        storyMemoryAddMilestone({
-            id: `character-memory:talk-promise:${uid}:${promiseCountAfter}`,
-            kind: 'PROMISE', subjectActorId: playerActorId, holderActorIds: holders,
-            relatedActorIds: (t.speakerActorId ? [t.speakerActorId] : []),
+        storyMemoryRecordPromise({
+            subjectActorId: playerActorId, relatedActorId: t.speakerActorId,
             summary: `${o.text || 'Verilen söz'} — ${(res && res.msg) || 'Söz kayda geçti.'}`,
-            status: 'OPEN', importanceBps: 9500,
-            source: { episodeId: t.memoryEpisodeId || null, talkUid: uid, talkTemplateId: t.tpl }
+            importanceBps: 9500, talkTemplateId: t.tpl,
+            source: { episodeId: t.memoryEpisodeId || null, talkUid: uid, talkTemplateId: t.tpl, promiseSequence: promiseCountAfter }
         });
     }
     STORY._talks = talks.filter(x => x.uid !== uid);
@@ -1174,6 +1269,45 @@ function storyTalkBind() {
     document.getElementById('story-talk-btn')?.addEventListener('click', storyTalkToggle);
     document.getElementById('talk-close')?.addEventListener('click', storyTalkClose);
     document.getElementById('talk-body')?.addEventListener('click', e => {
+        const registryToggle = e.target.closest('[data-contact-registry-toggle]');
+        if (registryToggle && typeof storyContactDirectoryToggleRegistry === 'function') {
+            storyContactDirectoryToggleRegistry();
+            return;
+        }
+        const contactButton = e.target.closest('[data-contact-character]');
+        if (contactButton && typeof storyContactDirectoryOpenCharacter === 'function') {
+            const opened = storyContactDirectoryOpenCharacter(
+                contactButton.dataset.contactCharacter,
+                contactButton.dataset.contactName
+            );
+            if (!opened) storyFlash('Bu karakterle doğrulanmış doğrudan temasın yok.');
+            return;
+        }
+        const characterActionButton = e.target.closest('[data-character-action]');
+        if (characterActionButton && typeof storyCharacterActionExecutePlayer === 'function') {
+            const actionType = String(characterActionButton.dataset.characterAction || '').toUpperCase();
+            const result = storyCharacterActionExecutePlayer(
+                actionType,
+                characterActionButton.dataset.characterTarget,
+                {
+                    commandType: characterActionButton.dataset.characterCommand,
+                    targetRegionId: characterActionButton.dataset.characterRegion,
+                    targetAssetId: characterActionButton.dataset.characterAsset,
+                    assetType: characterActionButton.dataset.characterAssetType
+                }
+            );
+            storyFlash(storyTalkCharacterActionMessage(actionType, result));
+            if (result && result.ok) {
+                const targetName = characterActionButton.dataset.characterTargetName
+                    || STORY._talkFocusCharacterName || characterActionButton.dataset.characterTarget;
+                storyLog(`👤 <b>${targetName}</b> — ${storyTalkCharacterActionMessage(actionType, result)}`);
+                if (typeof storySave === 'function') storySave();
+            }
+            storyTalkUpdate();
+            if (typeof storyPanelUpdate === 'function') storyPanelUpdate();
+            if (typeof storyRender === 'function') storyRender();
+            return;
+        }
         const crisisButton = e.target.closest('[data-political-crisis-action]');
         if (crisisButton && typeof storyPoliticalCrisisAct === 'function') {
             const result = storyPoliticalCrisisAct(STORY.playerStateId, crisisButton.dataset.politicalCrisisAction);

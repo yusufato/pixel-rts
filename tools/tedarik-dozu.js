@@ -31,18 +31,10 @@ const TOHUMLAR = HAVUZ.slice(ATLA, ATLA + N);
 const { ctx } = tezgahKur();
 
 // ── 1) AI'in DOGAL ordusunun ORTALAMA kadrosu -> taban tarif ──
-function dogalKadro(tohumlar) {
-    const kod = [
-        '(() => { const acc = {}; const seeds = ' + JSON.stringify(tohumlar) + ';',
-        'for (const s of seeds) { if (typeof srand === "function") srand(s);',
-        '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;',
-        '  const m = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true, brainIntel4:true, isAttacker:false });',
-        '  if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;',
-        '  for (const t of (m.types||[])) { const id = (STATS[t]||{}).id || t; acc[id] = (acc[id]||0) + 1; } }',
-        'return JSON.stringify({ acc, n: seeds.length }); })()'
-    ].join('');
-    return JSON.parse(vm.runInContext(kod, ctx, { filename: 'dk.js' }));
-}
+// [SILINDI 2026-08-09] `dogalKadro()` olu koddu (hic cagrilmiyordu) ve icinde `srand(s)` vardi.
+// `srand` bu motorda TOHUMLAYICI DEGIL, zar atma fonksiyonudur (argumansiz) — argumani yok sayip
+// RNG'yi bir adim ilerletir. Tuzak olarak durmasin diye kaldirildi. Tohum-basi taban icin
+// `dogalKadroTohum()` kullaniliyor (oturumu gercekten acip o macin kadrosunu okur).
 
 const MALIYET = (() => JSON.parse(vm.runInContext(
     '(() => { const o = {}; for (const k of Object.keys(STATS)) { const s = STATS[k]; if (s && s.id) o[s.id] = s.cost; } return JSON.stringify(o); })()',

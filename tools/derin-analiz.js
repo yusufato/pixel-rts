@@ -240,7 +240,7 @@ if (katmanAcik(4)) {
     // hareket/ates olculeri fark-taramasi.js ile AYNI alanlara baglanir (u.speed BIRIM STATI, anlik hiz degil)
     const olc = (u) => ({ hareket: u.isMovingToManualTarget ? 1 : 0, bask: u.suppression || 0,
         net: u.netMaruziyet || 0, yol: u.katedilenYol || 0, menzil: u.enYakinDusman || 0,
-        panik: (u.panicking || u.fleeing) ? 1 : 0, ates: u.attackTargetId != null ? 1 : 0 });
+        panik: (u.panicking || u.fleeing) ? 1 : 0, ates: u.attackTargetId ? 1 : 0 });   // SOZLESME: 0 = hedef YOK; `!= null` HER ZAMAN dogru donerdi (duzeltildi 2026-08-09)
     const cizgi = [];
     for (let i = 0; i < DILIM; i++) {
         const I = { hareket: [], bask: [], net: [], yol: [], menzil: [], panik: [], ates: [], sayi: [] };

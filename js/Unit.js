@@ -377,7 +377,11 @@ class Unit {
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
-            if (!this._komutaMerkez() && !this._ikmalRefakat() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
+            // SÖMÜRÜCÜ RAKİP HAVUZU en ÖNDE: dar-betikli bot, kod-AI'ın tüm hareket becerilerini ezer
+            // (amacı iyi oynamak değil, ÖLÇÜLMÜŞ bir insan sömürüsünü birebir tekrarlamak).
+            // Kapalıyken (varsayılan) tek bir bayrak okuması → eski davranış birebir aynı.
+            const _somuru = (typeof exploiterHeloTaciz === 'function') && exploiterHeloTaciz(this);
+            if (!_somuru && !this._komutaMerkez() && !this._ikmalRefakat() && !this._havaSemsiye() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1796,6 +1800,117 @@ class Unit {
         this._pressingAssault = 0;
         if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
             BATTLE_BALANCE.supplyEscortBind = (BATTLE_BALANCE.supplyEscortBind || 0) + 1;
+        }
+        return true;
+    }
+
+    // ── INTEL4-PRO 'adUmbrella': HAVA SAVUNMASI ATIŞ NOKTASINI ÖRTER (KORUNANI DEĞİL) ──
+    // ÖLÇÜLDÜ (2026-08-09, kullanıcının 26 GERÇEK maçı, tools/olduren-kaynak.js + helo-maruziyet.js):
+    //   attack_helo AI kayıplarının %22'si — tek kalemde EN BÜYÜK katil (146 ölüm).
+    //   Kurbanların %79'u hava savunma menzilinin İÇİNDEYDİ  → konumlandırma "yanlış yerde" DEĞİL.
+    //   Ama HELONUN KENDİSİ vuruş anında menzilde yalnız %41, menzil∩görüş yalnız **%21**.
+    //   Helo→en yakın AD medyan 1188px; o anda en yakın AD çoğunlukla manpads (825px) → MENZİL DIŞI.
+    // KÖK NEDEN: helo 675px'ten atıyor, yani şemsiyenin ALTINDAKİ birimi şemsiyenin DIŞINDA durarak
+    // öldürüyor. Kapsama yer birimini örtüyor, ona ateş edilen HAVA SAHASINI örtmüyor.
+    // KATKIDA BULUNAN: air_defense kovası FIRE_SUPPORT'a bağlı (globals battleUnitRoleBucket) ve o grup
+    // BattlePlanning.js:686-688'de bilerek derine çekiliyor ("en-uzun düşman doğrudan-ateş-zarfı ~675
+    // DIŞINDA"). Topçu için doğru, hava savunması için tam ters — AD topçunun güvenlik mesafesini
+    // miras alıyor. Bu kural o mirası birim katmanında telafi eder (planlama kovası bozulmadan).
+    // KURAL: AD, koruduğu KARA kütlesinin merkezinden TEHDİT EKSENİ yönünde, zarfı düşmanın atış
+    // noktalarına yetecek kadar ileri oturur. İleri gitme miktarı SABİT DEĞİL, geometriden türetilir:
+    //   gereken erişim = kütleYarıçapı + düşmanHavaMenzili   →   ileri = gereken − kendiMenzili
+    // GÜVENLİK (28% ölüm AI'ın hiç AD'si kalmamışken oluyor): görülen silahlı düşman KARA birimi
+    // PRO_AD_TEHDIT içindeyse ilerleme; ve ileri miktarı PRO_AD_MAX_ILERI ile tavanlı.
+    // Determinist: yalnız mesafe/menzil aritmetiği, RNG yok.
+    _havaSemsiye() {
+        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'adUmbrella')) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.speed || this._returningToBase) return false;
+        const st = STATS[this.type];
+        if (!st || st.category !== 'air_defense') return false;          // veriden türetilir, elle liste YOK
+        // KENDİ hava menzili (hava hedefleyen silahların en uzunu)
+        let benimMenzil = 0;
+        for (const w of (st.weapons || [])) {
+            if (Array.isArray(w.targets) && w.targets.includes('air')) benimMenzil = Math.max(benimMenzil, w.range || 0);
+        }
+        if (benimMenzil <= 0) return false;
+
+        // 1) KORUNACAK KÜME: helonun vurduğu şey = KARA muharip dostlar (ölçüm: ifv/at_team/artillery/
+        //    tank_destroyer/mbt ilk sıralarda). Maliyetle ağırlıklı merkez + kütle yarıçapı.
+        let cx = 0, cy = 0, w = 0;
+        const uyeler = [];
+        for (const f of SIM.units) {
+            if (f.dead || f.loaded || f.abandoned || f.isRed !== this.isRed || f === this) continue;
+            if (f.isAir) continue;                                        // havadaki dostu şemsiye korumaz
+            const fs = STATS[f.type];
+            if (!fs) continue;
+            const m = fs.cost || 0;
+            if (m <= 0) continue;
+            cx += f.x * m; cy += f.y * m; w += m;
+            uyeler.push(f);
+        }
+        if (!w || uyeler.length < PRO_AD_MIN_KUME) return false;          // korunacak kütle yok → mevcut davranış
+        cx /= w; cy /= w;
+        // KÜTLE YARIÇAPI: en uzak %25'i dışarıda bırakan yarıçap (tek aykırı birim şemsiyeyi sürüklemesin)
+        const mesafeler = uyeler.map(f => Math.hypot(f.x - cx, f.y - cy)).sort((a, b) => a - b);
+        const kutleR = mesafeler[Math.floor(mesafeler.length * 0.75)] || 0;
+
+        // 2) DÜŞMAN HAVA MENZİLİ: görülen düşman hava birimlerinin en uzun hava→yer menzili.
+        //    Görülmüyorsa varsayılan (PRO_AD_VARSAYILAN_TEHDIT) — helo zaten çoğu zaman görünmüyor (%3.8).
+        let dusMenzil = 0;
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || !e.isAir) continue;
+            const es = STATS[e.type];
+            for (const wp of ((es && es.weapons) || [])) {
+                if (Array.isArray(wp.targets) && wp.targets.includes('ground')) dusMenzil = Math.max(dusMenzil, wp.range || 0);
+            }
+        }
+        if (dusMenzil <= 0) dusMenzil = PRO_AD_VARSAYILAN_TEHDIT;
+
+        // 3) TEHDİT EKSENİ: kütleden düşman kara kütlesine doğru (helo düşman tarafından gelir).
+        let ex = 0, ey = 0, ew = 0;
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || e.isAir) continue;
+            const es = STATS[e.type];
+            const m = (es && es.cost) || 0;
+            if (m <= 0) continue;
+            ex += e.x * m; ey += e.y * m; ew += m;
+        }
+        let ux, uy;
+        if (ew) {
+            ex /= ew; ey /= ew;
+            const d = Math.hypot(ex - cx, ey - cy);
+            if (d < 1) return false;
+            ux = (ex - cx) / d; uy = (ey - cy) / d;
+        } else {                                                          // düşman kara birimi görünmüyor → harita ekseni
+            uy = this.isRed ? 1 : -1; ux = 0;
+        }
+
+        // 4) GEREKEN İLERİ MESAFE — geometriden, sabit değil
+        const gereken = kutleR + dusMenzil;
+        let ileri = gereken - benimMenzil;
+        if (ileri <= 0) return false;                                     // zarf zaten yetiyor → mevzi bozma
+        ileri = Math.min(ileri, PRO_AD_MAX_ILERI);
+
+        // 5) GÜVENLİK: silahlı düşman KARA birimi çok yakınsa ilerleme (AD'nin %28'lik yokluğu ölümcül)
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed || e.isAir) continue;
+            const es = STATS[e.type];
+            if (!es || !es.weapons || !es.weapons.length) continue;
+            if (Math.hypot(e.x - this.x, e.y - this.y) <= PRO_AD_TEHDIT) return false;
+        }
+
+        const hx = cx + ux * ileri, hy = cy + uy * ileri;
+        const d = Math.hypot(hx - this.x, hy - this.y);
+        if (d <= PRO_AD_OLU_BOLGE) {                                      // yerinde → dur (titreme önleyici)
+            this.targetX = this.x; this.targetY = this.y;
+        } else {
+            this.targetX = hx; this.targetY = hy;
+        }
+        this.isMovingToManualTarget = true;
+        this._pressingAssault = 0;
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.adUmbrellaBind = (BATTLE_BALANCE.adUmbrellaBind || 0) + 1;
         }
         return true;
     }

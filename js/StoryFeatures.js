@@ -49,6 +49,8 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.identityGoals': true,
     'characters.multiDimensionalRelations': true,
     'characters.threeLayerMemory': true,
+    'characters.actionCandidates': true,
+    'characters.llmArbiter': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -163,6 +165,19 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.identityGoals',
         'characters.multiDimensionalRelations',
         'causality.ledger'
+    ]),
+    'characters.actionCandidates': Object.freeze([
+        'characters.identityGoals',
+        'characters.multiDimensionalRelations',
+        'characters.threeLayerMemory',
+        'government.institutionsAuthority',
+        'causality.ledger'
+    ]),
+    'characters.llmArbiter': Object.freeze([
+        'characters.identityGoals',
+        'characters.multiDimensionalRelations',
+        'characters.threeLayerMemory',
+        'characters.actionCandidates'
     ])
 });
 

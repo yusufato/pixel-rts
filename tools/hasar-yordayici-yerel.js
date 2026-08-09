@@ -39,7 +39,7 @@ const ADAYLAR = {
     'YEREL Lanchester D':         { tip: 'oran', ozel: 'lanchester' },
     'YEREL menzil-agirlikli':     { tip: 'oran', f: (us) => us.reduce((a, u) => a + (ST[u.type].cost || 0) * (u.hp / Math.max(1, u.maxHp)) * (ST[u.type].menzil || 0), 0) },
     'YEREL dolayli sayisi':       { tip: 'fark', f: (us) => us.filter(u => ST[u.type].dolayli).length },
-    'YEREL ates edebilen':        { tip: 'fark', f: (us) => us.filter(u => u.attackTargetId != null).length },
+    'YEREL ates edebilen':        { tip: 'fark', f: (us) => us.filter(u => u.attackTargetId).length },   // SOZLESME: 0 = hedef YOK (eski `!= null` tum birimleri sayiyordu)
     'YEREL baski (ters)':         { tip: 'fark', f: (us) => us.length ? -us.reduce((a, u) => a + (u.suppression || 0), 0) / us.length : 0 },
     'YEREL menzilimde dusman':    { tip: 'fark', alan: 'menzilimdeDusman', f: (us) => us.reduce((a, u) => a + (u.menzilimdeDusman || 0), 0) },
     'YEREL net maruziyet':        { tip: 'fark', alan: 'netMaruziyet', f: (us) => us.reduce((a, u) => a + (u.netMaruziyet || 0), 0) },

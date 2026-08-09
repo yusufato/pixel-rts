@@ -509,7 +509,7 @@ function storyNewCampaign(config = {}) {
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterActions', '_accSiege', '_accTech',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
     ]) STORY[key] = 0;
@@ -550,6 +550,9 @@ function storyNewCampaign(config = {}) {
     // Faz 36: dünya olguları ve aktör inançları doğduktan sonra üç katmanlı
     // hafızaya kaynaklı köken kayıtları eklenir. Defter geçmiş uydurmaz.
     if (typeof storyMemoryReset === 'function') storyMemoryReset({ seedOrigins: true });
+    // Faz 37: eylem defteri kimlik, kurum, ilişki ve hafıza kaynaklarının
+    // tamamından sonra doğar; aday üretimi bunlardan paralel gerçeklik kurmaz.
+    if (typeof storyCharacterActionReset === 'function') storyCharacterActionReset();
     storyLog(`${storyPlayerState().name} barış dönemine başladı. Ekonomiyi, kurumları ve ilişkileri geliştir; savaş ancak açık bir diplomatik kırılmayla başlayabilir.`);
     storySave();
 }
@@ -631,6 +634,9 @@ function storySave() {
             characterMemory: (typeof storyMemoryForSave === 'function')
                 ? storyMemoryForSave()
                 : STORY.characterMemory,
+            characterActions: (typeof storyCharacterActionForSave === 'function')
+                ? storyCharacterActionForSave()
+                : STORY.characterActions,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -733,6 +739,11 @@ function storyLoad() {
         // Seçilmiş makam sahibi kurum yetki imzasının girdisidir. Doğrulanmış
         // seçim görüntüsünü kurum restore'undan önce hazırla; tam seçim
         // uzlaştırması kurumlar ve kapasite geri geldikten sonra yapılır.
+        // Aktif istifa/haleflik geçişi de kurum makam imzasının girdisidir.
+        // Kurum restore edilmeden salt-okunur geçiş kaynağını hazırla; tam
+        // karakter/referans doğrulaması kimlik defteri döndükten sonra yapılır.
+        if (typeof storyCharacterActionPrimeRestore === 'function') storyCharacterActionPrimeRestore(d.characterActions);
+        else STORY.characterActions = null;
         if (typeof storyElectionPrimeRestore === 'function') storyElectionPrimeRestore(d.elections);
         else STORY.elections = null;
         if (typeof storyInstitutionRestore === 'function') storyInstitutionRestore(d.institutions);
@@ -776,6 +787,7 @@ function storyLoad() {
         if (typeof storyCharacterIdentityRestore === 'function') storyCharacterIdentityRestore(d.characterIdentities);
         if (typeof storyRelationshipRestore === 'function') storyRelationshipRestore(d.characterRelationships);
         if (typeof storyMemoryRestore === 'function') storyMemoryRestore(d.characterMemory);
+        if (typeof storyCharacterActionRestore === 'function') storyCharacterActionRestore(d.characterActions);
         if (typeof storyFacBackfill === 'function') for (const st of STORY.states) storyFacBackfill(st);   // AŞAMA 2 göçü
         STORY._news = Array.isArray(d.news) ? d.news : [];   // AŞAMA 4: gazete arşivi
         const runtime = d.runtime && typeof d.runtime === 'object' ? d.runtime : {};
@@ -1523,6 +1535,8 @@ function storyAdvanceStep(dtSec) {
     if (_integrityDt > 0 && typeof storyIntegrityTick === 'function') storyIntegrityTick(_integrityDt); // Faz 32 kanitli patronaj ve sorusturma dosyalari
     const _politicalCrisisDt = _storyDue('political-crisis', '_accPoliticalCrisis', 5);
     if (_politicalCrisisDt > 0 && typeof storyPoliticalCrisisTick === 'function') storyPoliticalCrisisTick(_politicalCrisisDt); // Faz 33 aktor, hazirlik, koalisyon ve karsi hamle zinciri
+    const _characterActionDt = _storyDue('character-actions', '_accCharacterActions', 10);
+    if (_characterActionDt > 0 && typeof storyCharacterActionTick === 'function') storyCharacterActionTick(_characterActionDt); // Faz 37 deterministik, hilesiz ve sinirli karakter eylemi secimi
     if (_storyDue('siege', '_accSiege', 2.5) > 0) storySiegeTick();
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
     if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();

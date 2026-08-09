@@ -445,7 +445,9 @@ function storyGovernanceTick() {
         if (ticket && ['COMPLETED', 'DEGRADED', 'PAPER_ONLY'].includes(ticket.status)
             && storyGovernanceApplyResult(request, ticket)) changed++;
     }
-    if (changed && typeof storySave === 'function') storySave();
+    const characterActionSync = changed && typeof storyCharacterActionSyncDomainReceipts === 'function'
+        ? storyCharacterActionSyncDomainReceipts() : { changed: 0 };
+    if ((changed || characterActionSync.changed) && typeof storySave === 'function') storySave();
     return { disabled: false, decisionCount: requests.length, changed };
 }
 
@@ -526,11 +528,27 @@ function storyGovernancePlayerView() {
             id: row.id, type: row.type, name: row.name,
             officeHolderName: row.officeHolder && row.officeHolder.name
         })),
-        offices: Object.values(ctx.country.institutions || {}).map(row => ({
-            id: row.id, type: row.type, name: row.name,
-            officeHolderName: row.officeHolder && row.officeHolder.name,
-            heldByPlayer: row.officeHolder && row.officeHolder.actorId === ctx.actorId
-        })),
+        offices: Object.values(ctx.country.institutions || {}).map(row => {
+            const heldByPlayer = row.officeHolder && row.officeHolder.actorId === ctx.actorId;
+            const resignCandidate = heldByPlayer && typeof storyCharacterActionCandidate === 'function'
+                ? storyCharacterActionCandidate({
+                    actorId: ctx.actorId, targetActorId: null, actionType: 'RESIGN',
+                    decisionSource: 'PLAYER_UI',
+                    domainContext: { targetInstitutionId: row.id }
+                }) : null;
+            return {
+                id: row.id, type: row.type, name: row.name,
+                officeHolderName: row.officeHolder && row.officeHolder.name,
+                heldByPlayer,
+                resignAction: resignCandidate ? {
+                    allowed: resignCandidate.allowed,
+                    reasons: resignCandidate.reasons.slice(),
+                    successorName: resignCandidate.domainValidation && resignCandidate.domainValidation.view
+                        && resignCandidate.domainValidation.view.successorHolder
+                        && resignCandidate.domainValidation.view.successorHolder.name || null
+                } : null
+            };
+        }),
         ownedRegions, selectedRegionId: defaultRegionId, actions, decisions, centers,
         capacity: capacity ? {
             legitimacyBps: capacity.legitimacyBps,
@@ -569,9 +587,19 @@ function storyGovernanceRenderHtml(view) {
         + `<span>BÜROKRASİ <b>%${Math.round(cap.bureaucraticCapacityBps / 100)}</b></span>`
         + `<span>UYGULAMA <b>%${Math.round(cap.implementationCapacityBps / 100)}</b></span>`
         + `<span>BÜTÜNLÜK <b>%${Math.round(cap.institutionalIntegrityBps / 100)}</b></span></div>` : '';
-    const officesHtml = view.offices.map(office => `<div class="governance-office${office.heldByPlayer ? ' is-player' : ''}">`
-        + `<b>${storyGovernanceEscape(office.name)}</b><span>${storyGovernanceEscape(office.officeHolderName)}`
-        + `${office.heldByPlayer ? ' · SEN' : ''}</span></div>`).join('');
+    const officesHtml = view.offices.map(office => {
+        const armed = STORY._governanceResignConfirmId === office.id;
+        const resign = office.resignAction && office.heldByPlayer
+            ? (office.resignAction.allowed
+                ? `<small>GEÇİCİ HALEF · ${storyGovernanceEscape(office.resignAction.successorName || 'belirlenemedi')}</small>`
+                    + `<button class="story-btn governance-resign${armed ? ' armed' : ''}" data-governance-resign="${storyGovernanceEscape(office.id)}">`
+                    + `${armed ? 'İSTİFAYI ONAYLA' : 'İSTİFAYI HAZIRLA'}</button>`
+                : `<small class="governance-lock">${storyGovernanceEscape(office.resignAction.reasons.join(' '))}</small>`)
+            : '';
+        return `<div class="governance-office${office.heldByPlayer ? ' is-player' : ''}">`
+            + `<b>${storyGovernanceEscape(office.name)}</b><span>${storyGovernanceEscape(office.officeHolderName)}`
+            + `${office.heldByPlayer ? ' · SEN' : ''}</span>${resign}</div>`;
+    }).join('');
     const actionHtml = view.actions.map(action => `<article class="governance-action${action.allowed ? '' : ' locked'}">`
         + `<h4>${storyGovernanceEscape(action.name)}</h4><p>${storyGovernanceEscape(action.description)}</p>`
         + `<small>MALIYET · ${storyGovernanceEscape(storyGovernanceCostLabel(action.cost))}</small>`
@@ -611,6 +639,30 @@ function storyGovernanceUpdate() {
 }
 
 function storyGovernanceHandleClick(event) {
+    const resignButton = event && event.target && event.target.closest
+        ? event.target.closest('[data-governance-resign]') : null;
+    if (resignButton && !resignButton.disabled) {
+        const institutionId = resignButton.dataset.governanceResign;
+        if (STORY._governanceResignConfirmId !== institutionId) {
+            STORY._governanceResignConfirmId = institutionId;
+            if (typeof storyFlash === 'function') storyFlash('İstifa makamı kalıcı olarak devreder. İkinci kez onayla.');
+            storyGovernanceUpdate();
+            return { ok: false, status: 'CONFIRMATION_REQUIRED', institutionId };
+        }
+        STORY._governanceResignConfirmId = null;
+        const result = typeof storyCharacterActionExecutePlayer === 'function'
+            ? storyCharacterActionExecutePlayer('RESIGN', null, { targetInstitutionId: institutionId })
+            : { ok: false, reason: 'CHARACTER_ACTION_EXECUTOR_UNAVAILABLE' };
+        if (typeof storyFlash === 'function') {
+            const successor = result.receipt && result.receipt.domainReceipt
+                && result.receipt.domainReceipt.successorHolder;
+            storyFlash(result.ok
+                ? `İstifa yürürlüğe girdi. Geçici halef: ${successor && successor.name || 'belirlenemedi'}.`
+                : (result.reason || (result.candidate && result.candidate.reasons[0]) || 'İstifa uygulanamadı.'));
+        }
+        storyGovernanceUpdate();
+        return result;
+    }
     const button = event && event.target && event.target.closest
         ? event.target.closest('[data-governance-action]') : null;
     if (!button || button.disabled) return false;

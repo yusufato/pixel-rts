@@ -59,6 +59,8 @@ const STORY_SOURCES = [
     'js/StoryCharacters.js',
     'js/StoryRelationships.js',
     'js/StoryMemory.js',
+    'js/StoryCharacterActions.js',
+    'js/StoryContacts.js',
     'js/Factions.js',
     'js/Economy.js',
     'js/News.js',
@@ -66,6 +68,8 @@ const STORY_SOURCES = [
     'js/StoryUI.js',
     'js/Production.js',
     'js/Council.js',
+    'js/LLM.js',
+    'js/StoryCharacterArbiter.js',
     'js/Era.js',
     'js/Talks.js',
     'js/CommanderTree.js'
@@ -481,6 +485,8 @@ function createRuntime(seed) {
             },
             state: () => STORY,
             characterIdentityLedger: () => storyCharacterIdentitySnapshot(),
+            characterIdentityReset: () => storyCharacterIdentityReset(),
+            characterBindPlayerRole: () => storyCharacterBindPlayerRole(),
             validateCharacterIdentityLedger: ledger => storyCharacterIdentityValidate(ledger),
             characterIdentityView: actorId => storyCharacterIdentityView(actorId),
             characterRankOptions: (actorId, options) => storyCharacterRankOptions(actorId, options),
@@ -496,12 +502,34 @@ function createRuntime(seed) {
             relationshipView: (fromActorId, toActorId) => storyRelationshipView(fromActorId, toActorId),
             relationshipAdjust: (fromActorId, toActorId, deltas, meta) => storyRelationshipAdjust(fromActorId, toActorId, deltas, meta),
             characterMemoryLedger: () => storyMemorySnapshot(),
+            characterMemorySummary: () => storyMemorySummary(),
             validateCharacterMemoryLedger: ledger => storyMemoryValidate(ledger),
             characterMemoryAddRecent: (actorId, input) => storyMemoryAddRecent(actorId, input),
             characterMemoryOpenEpisode: input => storyMemoryOpenEpisode(input),
             characterMemoryResolveEpisode: (id, resolution) => storyMemoryResolveEpisode(id, resolution),
             characterMemoryAddMilestone: input => storyMemoryAddMilestone(input),
             characterMemoryResolveMilestone: (id, status) => storyMemoryResolveMilestone(id, status),
+            characterActionLedger: () => storyCharacterActionSnapshot(),
+            validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
+            characterActionCandidate: input => storyCharacterActionCandidate(input),
+            characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
+            characterActionExecute: input => storyCharacterActionExecute(input),
+            characterActionPlayerView: (targetActorId, domainContext) => storyCharacterActionPlayerView(targetActorId, domainContext),
+            characterActionExecutePlayer: (actionType, targetActorId, domainContext) => storyCharacterActionExecutePlayer(actionType, targetActorId, domainContext),
+            characterActionAIRankActor: actorId => storyCharacterActionAIRankActor(actorId),
+            characterActionAISelection: () => storyCharacterActionAISelection(),
+            characterActionSyncDomains: () => storyCharacterActionSyncDomainReceipts(),
+            characterActionTick: dt => storyCharacterActionTick(dt),
+            characterActionSummary: () => storyCharacterActionSummary(),
+            characterArbiterBuildRequest: (actorId, options) => storyCharacterArbiterBuildRequest(actorId, options),
+            characterArbiterValidate: (request, raw) => storyCharacterArbiterValidate(request, raw),
+            characterArbiterFallback: (request, reason) => storyCharacterArbiterFallback(request, reason),
+            characterArbiterResolve: (request, raw) => storyCharacterArbiterResolve(request, raw),
+            characterArbiterAsk: (actorId, options) => storyCharacterArbiterAsk(actorId, options),
+            characterArbiterDiagnostics: () => storyCharacterArbiterDiagnostics(),
+            contactDirectoryBuild: () => storyContactDirectoryBuild(),
+            contactDirectoryRenderHtml: view => storyContactDirectoryRenderHtml(view),
+            talkUpdate: () => storyTalkUpdate(),
             talkRun: templateId => storyTalkRun(templateId),
             talkQueue: () => JSON.parse(JSON.stringify((STORY._talks || []).map(talk => ({
                 uid: talk.uid, tpl: talk.tpl, speakerActorId: talk.speakerActorId,
@@ -704,6 +732,7 @@ function createRuntime(seed) {
             politicalCrisisTick: dt => storyPoliticalCrisisTick(dt),
             governanceView: () => storyGovernancePlayerView(),
             governanceActionView: (actionId, regionId) => storyGovernanceActionView(actionId, regionId),
+            governanceUpdate: () => storyGovernanceUpdate(),
             governanceSubmit: (actionId, regionId) => storyGovernanceSubmit(actionId, regionId),
             governanceTick: dt => storyGovernanceTick(dt),
             governanceHtml: () => {
@@ -1426,7 +1455,8 @@ function createRuntime(seed) {
                 economyOpen: !!STORY._economyOpen,
                 talkOpen: !!STORY._talkOpen,
                 talkFocusCharacterId: STORY._talkFocusCharacterId || null,
-                talkText: document.getElementById('talk-body')?.textContent || ''
+                talkText: document.getElementById('talk-body')?.textContent || '',
+                talkHtml: document.getElementById('talk-body')?.innerHTML || ''
             }),
             activationUiState: input => {
                 input = input || {};
@@ -2348,6 +2378,16 @@ function runStorySimulation(options = {}) {
             ? runtime.api.validatePoliticalCrisisLedger(politicalCrisisLedger)
             : { ok: true, disabled: true, issues: [] };
         const politicalCrisisSummary = runtime.api.politicalCrisisSummary();
+        const characterMemoryLedger = runtime.api.characterMemoryLedger();
+        const characterMemoryValidation = characterMemoryLedger
+            ? runtime.api.validateCharacterMemoryLedger(characterMemoryLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const characterMemorySummary = runtime.api.characterMemorySummary();
+        const characterActionLedger = runtime.api.characterActionLedger();
+        const characterActionValidation = characterActionLedger
+            ? runtime.api.validateCharacterActionLedger(characterActionLedger)
+            : { ok: true, disabled: true, issues: [] };
+        const characterActionSummary = runtime.api.characterActionSummary();
         const tradeValidation = runtime.api.validateTradeLedger(runtime.api.tradeLedger());
         const tradeSummary = runtime.api.tradeSummary();
         // The full counterfactual/Pareto observer is an explicit report, not a
@@ -2554,6 +2594,10 @@ function runStorySimulation(options = {}) {
             integritySummary,
             politicalCrisisValidation,
             politicalCrisisSummary,
+            characterMemoryValidation,
+            characterMemorySummary,
+            characterActionValidation,
+            characterActionSummary,
             tradeValidation,
             tradeSummary,
             tradeProductionOpportunityView,
@@ -3098,7 +3142,7 @@ function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
         'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'siege', 'technology',
+        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'character-actions', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -7342,11 +7386,26 @@ function probeCityDossier(seed = 2032) {
         const routeState = runtime.api.cityDossierUiState();
 
         runtime.api.renderCityDossier(ownNode.id, 'karakterler');
-        const character = ownView.characters[0];
+        const playerActorId = `character:${story.playerStateId}:${story.commander.id}`;
+        const character = ownView.characters.find(row => row.id !== playerActorId);
+        if (!character) throw new Error('Faz 37 UI probu için oyuncu dışında hedef karakter bulunamadı.');
         const characterOpened = character
             ? runtime.api.cityDossierOpenCharacter(character.id)
             : false;
         const characterState = runtime.api.cityDossierUiState();
+        const characterActionView = runtime.api.characterActionPlayerView(character.id);
+        const actionButtons = Array.from(runtime.dom.window.document.querySelectorAll('[data-character-action]'));
+        const persuadeButton = actionButtons.find(button => button.dataset.characterAction === 'PERSUADE');
+        const actionReceiptsBefore = runtime.api.characterActionSummary().receiptCount;
+        // JSDOM kaynakları belge hâlâ `loading` iken senkron yükler; gerçek EXE'deki
+        // tek DOMContentLoaded turunu burada açıkça tetikleyip delegasyon bağını sınarız.
+        runtime.dom.window.document.dispatchEvent(new runtime.dom.window.Event('DOMContentLoaded'));
+        if (persuadeButton) persuadeButton.click();
+        const characterActionSummaryAfter = runtime.api.characterActionSummary();
+        const characterStateAfterAction = runtime.api.cityDossierUiState();
+        const playerActionReceipt = Object.values(runtime.api.characterActionLedger().receipts || {})
+            .find(row => row.decisionSource === 'PLAYER_UI' && row.actionType === 'PERSUADE'
+                && row.targetActorId === character.id);
 
         const foreignSentinels = {
             population: 987654321,
@@ -7436,6 +7495,17 @@ function probeCityDossier(seed = 2032) {
             routeState,
             characterOpened,
             characterState,
+            characterActions: {
+                view: characterActionView,
+                buttonCount: actionButtons.length,
+                enabledButtonCount: actionButtons.filter(button => !button.disabled).length,
+                persuadeClicked: !!persuadeButton,
+                receiptAdded: characterActionSummaryAfter.receiptCount === actionReceiptsBefore + 1,
+                receipt: playerActionReceipt || null,
+                cooldownVisibleAfterAction: /sonra yeniden kullanılabilir/.test(characterStateAfterAction.talkText),
+                talkTextAfterAction: characterStateAfterAction.talkText,
+                validation: runtime.api.validateCharacterActionLedger(runtime.api.characterActionLedger())
+            },
             foreignView,
             foreignValidation,
             foreignGeneral,
@@ -10267,6 +10337,10 @@ function probePoliticalCrisis(seed = 2032) {
         runtime.api.advance(20);
         const secure = runtime.api.politicalCrisisAct('country:0', 'SECURE_COMMAND');
         const finalLedger = runtime.api.politicalCrisisLedger();
+        const finalMemory = runtime.api.characterMemoryLedger();
+        const actionMemoryEpisodes = Object.values(finalMemory.episodes || {}).filter(row =>
+            row.source && row.source.politicalCrisisId === active.id
+            && row.source.actionSequence != null);
         const world = runtime.api.worldV2();
         const ownKnowledge = runtime.api.playerKnowledge(world, 'country:0');
         const foreignKnowledge = runtime.api.playerKnowledge(world, 'country:1');
@@ -10287,6 +10361,12 @@ function probePoliticalCrisis(seed = 2032) {
             actionChangedPreparation: !!(negotiate.ok && negotiate.action.after.preparationBps < negotiate.action.before.preparationBps),
             actionRaisedCounter: !!(secure.ok && secure.action.after.counterBps > secure.action.before.counterBps),
             resourceReceiptsRecorded: !!(negotiate.ok && negotiate.action.resourceReceipts.length),
+            crisisMemoryEpisodeOpen: !!(active.memoryEpisodeId
+                && finalMemory.episodes[active.memoryEpisodeId]
+                && finalMemory.episodes[active.memoryEpisodeId].status === 'OPEN'),
+            actionMemoryEpisodesResolved: actionMemoryEpisodes.length === 2
+                && actionMemoryEpisodes.every(row => row.status === 'RESOLVED'),
+            memoryValidation: runtime.api.validateCharacterMemoryLedger(finalMemory),
             ui: {
                 characterNamesVisible: !!(talkUi && active && talkUi.text.includes(fixture.plotters[0].name)),
                 fourActionsVisible: !!(talkUi && /doğrudan görüş/.test(talkUi.text)
@@ -10335,6 +10415,9 @@ function probePoliticalCrisis(seed = 2032) {
         outcomeRuntime.api.politicalCrisisTick(5);
         const resolvedLedger = outcomeRuntime.api.politicalCrisisLedger();
         const resolved = resolvedLedger.crises[activeId];
+        const resolvedMemory = outcomeRuntime.api.characterMemoryLedger();
+        const betrayal = Object.values(resolvedMemory.milestones || {}).find(row =>
+            row.kind === 'BETRAYAL' && row.source && row.source.politicalCrisisId === activeId);
         deterministicOutcome = {
             status: resolved.status,
             resultCode: resolved.resultCode,
@@ -10344,7 +10427,15 @@ function probePoliticalCrisis(seed = 2032) {
             territorialMutation: resolvedLedger.events
                 .filter(event => event.crisisId === activeId && event.type === 'CRISIS_RESOLVED')
                 .some(event => event.physicalTerritorialMutation === true),
-            validation: outcomeRuntime.api.validatePoliticalCrisisLedger(resolvedLedger)
+            validation: outcomeRuntime.api.validatePoliticalCrisisLedger(resolvedLedger),
+            memoryValidation: outcomeRuntime.api.validateCharacterMemoryLedger(resolvedMemory),
+            crisisMemoryEpisodeResolved: !!(resolved.memoryEpisodeId
+                && resolvedMemory.episodes[resolved.memoryEpisodeId]
+                && resolvedMemory.episodes[resolved.memoryEpisodeId].status === 'RESOLVED'),
+            betrayalRecorded: !!betrayal,
+            betrayalSubjectCanonical: !!(betrayal && betrayal.subjectActorId === resolved.leadActorId),
+            betrayalResultGrounded: !!(betrayal && betrayal.source
+                && betrayal.source.resultCode === resolved.resultCode)
         };
     } finally {
         outcomeRuntime.dom.window.close();
@@ -10805,6 +10896,8 @@ function probeCharacterMemory(seed = 2032) {
     let foreignActorId = null;
     const ownSecretId = 'character-memory:test:secret-own';
     const foreignSecretId = 'character-memory:test:secret-foreign';
+    let realDebtId = null;
+    let realIntegritySecretId = null;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         foreignActorId = Object.values(runtime.api.characterIdentityLedger().identities || {})
@@ -10816,6 +10909,15 @@ function probeCharacterMemory(seed = 2032) {
             && runtime.api.characterMemoryLedger().episodes[generatedTalk.memoryEpisodeId]
             && runtime.api.characterMemoryLedger().episodes[generatedTalk.memoryEpisodeId].status === 'OPEN');
         if (generatedTalk) runtime.api.talkAnswer(generatedTalk.uid, 0);
+        const ownState = runtime.api.state().states.find(row => Number(row.id) === 0);
+        const bribeTarget = (ownState.gov && ownState.gov.commanders || [])
+            .find(row => `character:0:${row.id}` !== playerActorId);
+        runtime.api.state().commander.res.points = Math.max(600, Number(runtime.api.state().commander.res.points) || 0);
+        if (bribeTarget) bribeTarget.loyalty = 20;
+        runtime.api.talkRun('ultimatum');
+        const ultimatumTalk = runtime.api.talkQueue().find(row => row.tpl === 'ultimatum');
+        if (ultimatumTalk) runtime.api.talkAnswer(ultimatumTalk.uid, 1);
+        runtime.api.integrityTick(5);
         for (let index = 0; index < 40; index++) {
             runtime.api.characterMemoryAddRecent(playerActorId, {
                 id: `character-memory:test:recent:${index}`,
@@ -10854,12 +10956,15 @@ function probeCharacterMemory(seed = 2032) {
             summary: 'Yabancı devletin kapalı tedarik kanalı.', status: 'ACTIVE', importanceBps: 9800,
             source: { eventId: 'event:test:secret-foreign' }
         });
-        runtime.api.characterMemoryAddMilestone({
-            id: 'character-memory:test:debt', kind: 'DEBT', subjectActorId: colleagueActorId,
-            holderActorIds: [playerActorId, colleagueActorId], relatedActorIds: [playerActorId],
-            summary: 'Depo tahsisi karşılığında siyasi destek borcu.', status: 'OPEN', importanceBps: 9000
-        });
         const ledger = runtime.api.characterMemoryLedger();
+        const realDebt = Object.values(ledger.milestones || {}).find(row =>
+            row.kind === 'DEBT' && row.source && row.source.talkTemplateId === 'ultimatum');
+        const realIntegritySecret = Object.values(ledger.milestones || {}).find(row =>
+            row.kind === 'SECRET' && row.source && row.source.integrityEvidenceId);
+        realDebtId = realDebt && realDebt.id;
+        realIntegritySecretId = realIntegritySecret && realIntegritySecret.id;
+        const debtEdge = ultimatumTalk
+            ? runtime.api.relationshipView(ultimatumTalk.speakerActorId, playerActorId) : null;
         savedMemory = ledger;
         const world = runtime.api.worldV2();
         const ownKnowledge = runtime.api.playerKnowledge(world, 'country:0');
@@ -10874,6 +10979,13 @@ function probeCharacterMemory(seed = 2032) {
                 && ledger.episodes[generatedTalk.memoryEpisodeId].status === 'RESOLVED'),
             realTalkPromiseRecorded: Object.values(ledger.milestones || {}).some(row =>
                 row.kind === 'PROMISE' && row.source && row.source.talkTemplateId === 'law-complaint'),
+            realBribeTalkResolved: !!(ultimatumTalk && !runtime.api.talkQueue().some(row => row.uid === ultimatumTalk.uid)),
+            realDebtRecorded: !!realDebt,
+            realDebtReceiptGrounded: !!(realDebt && realDebt.source && realDebt.source.sourceReceiptId),
+            realDebtRelationshipRaised: !!(debtEdge && debtEdge.debtBps >= 2500),
+            realIntegritySecretRecorded: !!realIntegritySecret,
+            realIntegritySecretHeldByAgent: !!(realIntegritySecret
+                && realIntegritySecret.holderActorIds.every(actorId => /:agent:/.test(actorId))),
             recentCount: (ledger.recentByActor[playerActorId] || []).length,
             summaryCount: (ledger.summariesByActor[playerActorId] || []).length,
             episodeApplied: episode.applied,
@@ -10924,7 +11036,8 @@ function probeCharacterMemory(seed = 2032) {
                 && ledger.episodes['character-memory:test:episode-open'].unresolvedTopic),
             promisePreserved: !!ledger.milestones['character-memory:test:promise'],
             secretPreserved: !!ledger.milestones[ownSecretId],
-            debtPreserved: !!ledger.milestones['character-memory:test:debt']
+            debtPreserved: !!(realDebtId && ledger.milestones[realDebtId]),
+            integritySecretPreserved: !!(realIntegritySecretId && ledger.milestones[realIntegritySecretId])
         };
     } finally {
         restoredRuntime.dom.window.close();
@@ -10979,6 +11092,757 @@ function probeCharacterMemory(seed = 2032) {
     return { main, restored, legacy, disabled, dependencyDisabled };
 }
 
+function probeCharacterActions(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main, savedRaw, savedLedger, pendingSabotageRaw, sabotageReceiptId;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const playerState = story.states.find(row => Number(row.id) === Number(story.playerStateId));
+        // Komutan rolü, seferberlik emrinin gerçek ARMED_FORCES makamından
+        // geçtiğini sınar; oyuncuya geçici veya sahte yetki eklenmez.
+        playerState.gov.leader = 'ai';
+        story.commander.skills.warrior = 99;
+        runtime.api.institutionTick(5);
+        const identities = Object.values(runtime.api.characterIdentityLedger().identities || {});
+        const playerActorId = `character:${story.playerStateId}:${story.commander.id}`;
+        const player = identities.find(row => row.id === playerActorId);
+        const localTarget = identities.find(row => row.countryId === player.countryId && row.id !== playerActorId);
+        const institutionLedger = story.institutions;
+        const playerCountry = institutionLedger.countries[player.countryId];
+        const armedForces = Object.values(playerCountry.institutions || {})
+            .find(row => row.type === 'ARMED_FORCES');
+        const officeActorId = armedForces.officeHolder.actorId;
+        const officeActor = identities.find(row => row.id === officeActorId);
+        const officeTarget = identities.find(row => row.countryId === officeActor.countryId
+            && row.id !== officeActorId && row.role === officeActor.role)
+            || identities.find(row => row.countryId === officeActor.countryId && row.id !== officeActorId);
+        const agent = identities.find(row => row.role === 'AGENT' && row.serviceId);
+        const agentForeignTarget = identities.find(row => row.countryId !== agent.countryId);
+        const liveAgent = story.characterIdentities.identities[agent.id];
+        liveAgent.career.capability = 99;
+        const unrelatedForeignTarget = identities.find(row => row.countryId !== player.countryId
+            && row.countryId !== agentForeignTarget.countryId);
+        const targetRegion = story.nodes.find(node => Number(node.owner) === Number(story.playerStateId)
+            && Number(node.garrison || 0) < Number(node.level || 1) * 4);
+        const sabotageCountryId = Number(String(agentForeignTarget.countryId).split(':').pop());
+        const corridor = runtime.api.infrastructureSnapshot().corridors.find(row => (
+            row.mode === 'LAND' && row.endpointRegionIds.some(regionId => {
+                const nodeId = Number(String(regionId).split(':').pop());
+                const node = story.nodes.find(candidate => Number(candidate.id) === nodeId);
+                return node && Number(node.owner) === sabotageCountryId;
+            })
+        ));
+        if (!corridor) throw new Error('Faz 37 sabotaj probu için hedef ülkeye ait koridor bulunamadı.');
+        const orderDomain = {
+            commandType: 'MOBILIZE_RESERVE', targetRegionId: `region:${targetRegion.id}`
+        };
+
+        const candidates = [
+            runtime.api.characterActionCandidate({ actionType: 'PERSUADE', actorId: playerActorId, targetActorId: localTarget.id }),
+            runtime.api.characterActionCandidate({ actionType: 'NEGOTIATE', actorId: playerActorId, targetActorId: localTarget.id }),
+            runtime.api.characterActionCandidate({
+                actionType: 'ORDER', actorId: playerActorId, targetActorId: officeTarget.id,
+                domainContext: orderDomain
+            }),
+            runtime.api.characterActionCandidate({
+                actionType: 'SABOTAGE', actorId: agent.id, targetActorId: agentForeignTarget.id,
+                domainContext: {
+                    assetType: 'INFRASTRUCTURE_CORRIDOR', targetAssetId: corridor.id
+                }
+            }),
+            runtime.api.characterActionCandidate({ actionType: 'ALLY', actorId: playerActorId, targetActorId: localTarget.id }),
+            runtime.api.characterActionCandidate({
+                actionType: 'RESIGN', actorId: officeActorId,
+                domainContext: { targetInstitutionId: armedForces.id }
+            }),
+            runtime.api.characterActionCandidate({ actionType: 'BETRAY', actorId: playerActorId, targetActorId: localTarget.id })
+        ];
+        const beforeCareer = JSON.parse(JSON.stringify(player.career));
+        const beforeRelationship = runtime.api.relationshipView(localTarget.id, playerActorId);
+        const manpowerBeforeOrder = Number(story.commander.res.manpower) || 0;
+        const garrisonBeforeOrder = Number(targetRegion.garrison) || 0;
+        const ordered = runtime.api.characterActionExecute({
+            actionType: 'ORDER', actorId: playerActorId, targetActorId: officeTarget.id,
+            domainContext: orderDomain, decisionSource: 'PLAYER_UI'
+        });
+        let orderRequest = ordered.ok
+            && story.institutions.requests[ordered.receipt.domainReceipt.requestId];
+        for (let index = 0; index < 60 && orderRequest && !orderRequest.domainDecision.result; index++) {
+            story.clock += 5;
+            runtime.api.stateCapacityTick(5);
+            runtime.api.governanceTick(5);
+            orderRequest = story.institutions.requests[ordered.receipt.domainReceipt.requestId];
+        }
+        const orderFinalReceipt = runtime.api.characterActionLedger().receipts[ordered.receipt.id];
+        const persuaded = runtime.api.characterActionExecute({
+            actionType: 'PERSUADE', actorId: playerActorId, targetActorId: localTarget.id
+        });
+        const cooldownCandidate = runtime.api.characterActionCandidate({
+            actionType: 'PERSUADE', actorId: playerActorId, targetActorId: localTarget.id
+        });
+        const negotiated = runtime.api.characterActionExecute({
+            actionType: 'NEGOTIATE', actorId: playerActorId, targetActorId: localTarget.id
+        });
+        const allied = runtime.api.characterActionExecute({
+            actionType: 'ALLY', actorId: playerActorId, targetActorId: localTarget.id
+        });
+        const afterAllianceRelationship = runtime.api.relationshipView(localTarget.id, playerActorId);
+        const betrayed = runtime.api.characterActionExecute({
+            actionType: 'BETRAY', actorId: playerActorId, targetActorId: localTarget.id
+        });
+        const sabotageDamageBefore = Number(runtime.api.infrastructureSnapshot().corridors
+            .find(row => row.id === corridor.id).damageBps) || 0;
+        const sabotageCapabilityBefore = Number(liveAgent.career.capability) || 0;
+        const sabotaged = runtime.api.characterActionExecute({
+            actionType: 'SABOTAGE', actorId: agent.id, targetActorId: agentForeignTarget.id,
+            domainContext: { assetType: 'INFRASTRUCTURE_CORRIDOR', targetAssetId: corridor.id },
+            decisionSource: 'PLAYER_OR_SYSTEM'
+        });
+        sabotageReceiptId = sabotaged.receipt.id;
+        const sabotagePendingReceipt = sabotaged.receipt;
+        runtime.api.saveNow();
+        pendingSabotageRaw = runtime.api.savedRaw();
+        story.clock += 30;
+        const sabotageSync = runtime.api.characterActionSyncDomains();
+        const sabotageFinalReceipt = runtime.api.characterActionLedger().receipts[sabotaged.receipt.id];
+        const sabotageInfrastructureAfter = runtime.api.infrastructureSnapshot();
+        const sabotageCorridorAfter = sabotageInfrastructureAfter.corridors
+            .find(row => row.id === corridor.id);
+        const sabotageDamageAfter = Number(sabotageCorridorAfter.damageBps) || 0;
+        const officeBeforeResign = runtime.api.institutionCountryView(player.countryId)
+            .institutions[armedForces.id].officeHolder;
+        const receiptCountBeforeResign = Object.keys(runtime.api.characterActionLedger().receipts || {}).length;
+        runtime.dom.window.document.dispatchEvent(new runtime.dom.window.Event('DOMContentLoaded'));
+        runtime.api.governanceUpdate();
+        const resignButtonBefore = runtime.dom.window.document.querySelector(
+            `[data-governance-resign="${armedForces.id}"]`
+        );
+        if (resignButtonBefore) resignButtonBefore.click();
+        const receiptCountAfterArm = Object.keys(runtime.api.characterActionLedger().receipts || {}).length;
+        const resignButtonArmed = runtime.dom.window.document.querySelector(
+            `[data-governance-resign="${armedForces.id}"]`
+        );
+        if (resignButtonArmed) resignButtonArmed.click();
+        const resignedReceipt = Object.values(runtime.api.characterActionLedger().receipts || {})
+            .find(row => row.actionType === 'RESIGN');
+        const resigned = { ok: !!resignedReceipt, receipt: resignedReceipt || null };
+        const officeAfterResign = runtime.api.institutionCountryView(player.countryId)
+            .institutions[armedForces.id].officeHolder;
+        const unsupported = runtime.api.characterActionExecute({
+            actionType: 'RETIRE', actorId: officeActorId
+        });
+        const afterCareer = runtime.api.characterIdentityView(playerActorId).career;
+        const afterRelationship = runtime.api.relationshipView(localTarget.id, playerActorId);
+        const memory = runtime.api.characterMemoryLedger();
+        const ledger = runtime.api.characterActionLedger();
+        const world = runtime.api.worldV2();
+        const ownKnowledge = runtime.api.playerKnowledge(world, player.countryId);
+        const sabotageTargetKnowledge = runtime.api.playerKnowledge(world, agentForeignTarget.countryId);
+        const foreignKnowledge = runtime.api.playerKnowledge(world, unrelatedForeignTarget.countryId);
+        const detectedFixtureWorld = JSON.parse(JSON.stringify(world));
+        const detectedFixtureReceipt = detectedFixtureWorld.characterActions.find(row => row.id === sabotaged.receipt.id);
+        detectedFixtureReceipt.domainReceipt.finalResult.detected = true;
+        detectedFixtureReceipt.domainReceipt.finalResult.attributed = false;
+        detectedFixtureReceipt.domainReceipt.finalResult.testFixture = 'DETECTED_UNATTRIBUTED';
+        const detectedFixtureKnowledge = runtime.api.playerKnowledge(
+            detectedFixtureWorld, agentForeignTarget.countryId
+        );
+        const attributedFixtureWorld = JSON.parse(JSON.stringify(detectedFixtureWorld));
+        const attributedFixtureReceipt = attributedFixtureWorld.characterActions.find(row => row.id === sabotaged.receipt.id);
+        attributedFixtureReceipt.domainReceipt.finalResult.attributed = true;
+        attributedFixtureReceipt.domainReceipt.finalResult.testFixture = 'DETECTED_ATTRIBUTED';
+        const attributedFixtureKnowledge = runtime.api.playerKnowledge(
+            attributedFixtureWorld, agentForeignTarget.countryId
+        );
+        savedLedger = ledger;
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const migrated = runtime.api.migrateRaw(savedRaw);
+        main = {
+            actionTypes: candidates.map(row => row.actionType),
+            allContractsPresent: candidates.every(row => row.targetValidation && row.authority
+                && row.cost && Number.isFinite(row.availableAt) && Array.isArray(row.reasons)),
+            executableTypes: candidates.filter(row => row.handlerAvailable).map(row => row.actionType),
+            unavailableTypes: candidates.filter(row => !row.handlerAvailable).map(row => row.actionType),
+            unavailableExplainExecutor: candidates.filter(row => !row.handlerAvailable)
+                .every(row => row.reasons.includes('DOMAIN_EXECUTOR_NOT_AVAILABLE')),
+            institutionalAuthorityResolved: candidates.filter(row => ['ORDER', 'RESIGN'].includes(row.actionType))
+                .every(row => row.authority.ok && row.authority.grants.length > 0),
+            intelligenceAuthorityResolved: candidates.find(row => row.actionType === 'SABOTAGE').authority.ok,
+            ordered,
+            orderPhysicalResult: {
+                requestStatus: orderRequest && orderRequest.status,
+                domainStatus: orderRequest && orderRequest.domainDecision
+                    && orderRequest.domainDecision.result && orderRequest.domainDecision.result.status,
+                physicalMutation: !!(orderRequest && orderRequest.domainDecision
+                    && orderRequest.domainDecision.result && orderRequest.domainDecision.result.physicalMutation),
+                manpowerSpent: manpowerBeforeOrder - (Number(story.commander.res.manpower) || 0),
+                garrisonDelta: (Number(targetRegion.garrison) || 0) - garrisonBeforeOrder,
+                receiptOutcomeModel: orderFinalReceipt && orderFinalReceipt.domainReceipt
+                    && orderFinalReceipt.domainReceipt.outcomeModel,
+                receiptFinalStatus: orderFinalReceipt && orderFinalReceipt.domainReceipt
+                    && orderFinalReceipt.domainReceipt.finalResult
+                    && orderFinalReceipt.domainReceipt.finalResult.status,
+                memoryResolved: !!(orderFinalReceipt && orderFinalReceipt.memory
+                    && orderFinalReceipt.memory.episodeResolved)
+            },
+            sabotaged,
+            sabotageResult: {
+                pendingOutcomeModel: sabotagePendingReceipt.domainReceipt.outcomeModel,
+                pendingPhysicalMutation: sabotagePendingReceipt.domainReceipt.physicalMutation,
+                syncChanged: sabotageSync.changed,
+                finalOutcomeModel: sabotageFinalReceipt.domainReceipt.outcomeModel,
+                finalResult: sabotageFinalReceipt.domainReceipt.finalResult,
+                capabilitySpent: sabotageCapabilityBefore - (Number(liveAgent.career.capability) || 0),
+                damageBeforeBps: sabotageDamageBefore,
+                damageAfterBps: sabotageDamageAfter,
+                effectiveCapacityBefore: Number(corridor.effectiveCapacity) || 0,
+                effectiveCapacityAfter: Number(sabotageCorridorAfter.effectiveCapacity) || 0,
+                infrastructureValidation: runtime.api.validateInfrastructureSnapshot(sabotageInfrastructureAfter),
+                memoryResolved: !!(sabotageFinalReceipt.memory && sabotageFinalReceipt.memory.episodeResolved),
+                targetVisibleCount: sabotageTargetKnowledge.characterActions.length,
+                targetSawIncident: sabotageTargetKnowledge.characterActions.some(row => row.id === sabotaged.receipt.id),
+                targetActorIdentityVisible: sabotageTargetKnowledge.characterActions.some(row => (
+                    row.id === sabotaged.receipt.id && row.actorId === agent.id
+                )),
+                targetSecretOddsLeaked: JSON.stringify(sabotageTargetKnowledge.characterActions).includes('successChanceBps')
+                    || JSON.stringify(sabotageTargetKnowledge.characterActions).includes('resolutionCommitment'),
+                targetKnowledgeValidation: runtime.api.validatePlayerKnowledge(sabotageTargetKnowledge)
+            },
+            sabotageDisclosureFixtures: {
+                detectedUnattributed: {
+                    actionCount: detectedFixtureKnowledge.characterActions.length,
+                    actorId: detectedFixtureKnowledge.characterActions[0]
+                        && detectedFixtureKnowledge.characterActions[0].actorId,
+                    oddsLeaked: JSON.stringify(detectedFixtureKnowledge.characterActions).includes('ChanceBps')
+                        || JSON.stringify(detectedFixtureKnowledge.characterActions).includes('resolutionCommitment'),
+                    validation: runtime.api.validatePlayerKnowledge(detectedFixtureKnowledge)
+                },
+                detectedAttributed: {
+                    actionCount: attributedFixtureKnowledge.characterActions.length,
+                    actorId: attributedFixtureKnowledge.characterActions[0]
+                        && attributedFixtureKnowledge.characterActions[0].actorId,
+                    validation: runtime.api.validatePlayerKnowledge(attributedFixtureKnowledge)
+                }
+            },
+            persuaded, negotiated, allied, betrayed, resigned, unsupported,
+            resignationResult: {
+                firstButtonPresent: !!resignButtonBefore,
+                armedButtonPresent: !!resignButtonArmed,
+                firstClickCreatedReceipt: receiptCountAfterArm !== receiptCountBeforeResign,
+                previousActorId: officeBeforeResign && officeBeforeResign.actorId,
+                successorActorId: officeAfterResign && officeAfterResign.actorId,
+                successorName: officeAfterResign && officeAfterResign.name,
+                actorNoLongerHoldsOffice: !(runtime.api.characterActionCandidate({
+                    actionType: 'RESIGN', actorId: officeActorId,
+                    domainContext: { targetInstitutionId: armedForces.id }
+                }).authority.grants || []).some(row => row.institutionId === armedForces.id),
+                outcomeModel: resigned.receipt && resigned.receipt.domainReceipt
+                    && resigned.receipt.domainReceipt.outcomeModel,
+                physicalMutation: !!(resigned.receipt && resigned.receipt.domainReceipt
+                    && resigned.receipt.domainReceipt.physicalMutation),
+                transitionCount: Object.keys(ledger.officeTransitions || {}).length,
+                memoryResolved: !!(resigned.receipt && resigned.receipt.memory
+                    && resigned.receipt.memory.episodeResolved)
+            },
+            cooldownBlocked: !cooldownCandidate.allowed
+                && cooldownCandidate.reasons.includes('ACTION_ON_COOLDOWN')
+                && cooldownCandidate.availableAt > cooldownCandidate.generatedAt,
+            influenceSpent: beforeCareer.influence - afterCareer.influence,
+            credibilitySpent: beforeCareer.credibility - afterCareer.credibility,
+            relationshipTrustGainBeforeBetrayal: afterAllianceRelationship.trustBps - beforeRelationship.trustBps,
+            relationshipRespectGainBeforeBetrayal: afterAllianceRelationship.respectBps - beforeRelationship.respectBps,
+            betrayalTrustDelta: afterRelationship.trustBps - afterAllianceRelationship.trustBps,
+            betrayalHostilityDelta: afterRelationship.hostilityBps - afterAllianceRelationship.hostilityBps,
+            resolvedActionEpisodes: Object.values(memory.episodes || {}).filter(row =>
+                row.source && row.source.type === 'CHARACTER_ACTION_RECEIPT' && row.status === 'RESOLVED').length,
+            allianceMilestones: Object.values(memory.milestones || {}).filter(row =>
+                row.source && row.source.actionType === 'ALLY').length,
+            brokenAllianceMilestones: Object.values(memory.milestones || {}).filter(row =>
+                row.source && row.source.actionType === 'ALLY' && row.status === 'BROKEN').length,
+            betrayalMilestones: Object.values(memory.milestones || {}).filter(row =>
+                row.kind === 'BETRAYAL' && row.source && row.source.actionType === 'BETRAY').length,
+            betrayalReceiptBreaksAlliance: betrayed.receipt.memory.brokenAllianceIds.length === 1,
+            validation: runtime.api.validateCharacterActionLedger(ledger),
+            worldValidation: runtime.api.validateWorldV2(world),
+            worldActionCount: world.characterActions.length,
+            ownKnowledgeValidation: runtime.api.validatePlayerKnowledge(ownKnowledge),
+            foreignKnowledgeValidation: runtime.api.validatePlayerKnowledge(foreignKnowledge),
+            ownVisibleActionCount: ownKnowledge.characterActions.length,
+            foreignVisibleActionCount: foreignKnowledge.characterActions.length,
+            migration: {
+                ok: migrated.ok,
+                validation: migrated.ok ? runtime.api.validateWorldV2(migrated.world) : null,
+                actionCount: migrated.ok ? migrated.world.characterActions.length : 0,
+                equal: !!(migrated.ok
+                    && JSON.stringify(migrated.world.characterActions) === JSON.stringify(world.characterActions)),
+                unmapped: !!(migrated.ok
+                    && migrated.world.diagnostics.migration.unmappedTopLevelFields.includes('characterActions'))
+            },
+            summary: runtime.api.characterActionSummary(),
+            saveOk: !!savedRaw && JSON.parse(savedRaw).characterActions != null
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const ledger = restoredRuntime.api.characterActionLedger();
+        const savedObject = JSON.parse(savedRaw);
+        const sabotageReceipt = Object.values(ledger.receipts || {}).find(row => row.actionType === 'SABOTAGE');
+        const resignReceipt = Object.values(ledger.receipts || {}).find(row => row.actionType === 'RESIGN');
+        const sabotageCorridor = sabotageReceipt && restoredRuntime.api.infrastructureSnapshot().corridors
+            .find(row => row.id === sabotageReceipt.domainReceipt.targetAssetId);
+        const restoredOffice = resignReceipt && restoredRuntime.api.institutionCountryView(resignReceipt.actorCountryId)
+            .institutions[resignReceipt.domainReceipt.institutionId];
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateCharacterActionLedger(ledger),
+            equal: JSON.stringify(ledger) === JSON.stringify(savedLedger),
+            institutionLedgerEqual: JSON.stringify(restoredRuntime.api.state().institutions)
+                === JSON.stringify(savedObject.institutions),
+            sabotageDamagePreserved: !!(sabotageReceipt && sabotageCorridor
+                && Number(sabotageCorridor.damageBps)
+                    === Number(sabotageReceipt.domainReceipt.finalResult.damageBps)),
+            resignationSuccessorPreserved: !!(resignReceipt && restoredOffice && restoredOffice.officeHolder
+                && restoredOffice.officeHolder.actorId === resignReceipt.domainReceipt.successorHolder.actorId),
+            summary: restoredRuntime.api.characterActionSummary()
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+
+    const sabotageResumeRuntime = createRuntime(seed >>> 0);
+    let sabotageResume;
+    try {
+        sabotageResumeRuntime.api.putSavedRaw(pendingSabotageRaw);
+        const loaded = sabotageResumeRuntime.api.loadNow();
+        const story = sabotageResumeRuntime.api.state();
+        story.clock += 30;
+        const sync = sabotageResumeRuntime.api.characterActionSyncDomains();
+        const receipt = sabotageResumeRuntime.api.characterActionLedger().receipts[sabotageReceiptId];
+        const corridor = sabotageResumeRuntime.api.infrastructureSnapshot().corridors.find(row => (
+            row.id === receipt.domainReceipt.targetAssetId
+        ));
+        const uninterruptedReceipt = savedLedger.receipts[sabotageReceiptId];
+        sabotageResume = {
+            loaded,
+            syncChanged: sync.changed,
+            validation: sabotageResumeRuntime.api.validateCharacterActionLedger(
+                sabotageResumeRuntime.api.characterActionLedger()
+            ),
+            finalDomainEqual: JSON.stringify(receipt.domainReceipt)
+                === JSON.stringify(uninterruptedReceipt.domainReceipt),
+            finalMemoryEqual: JSON.stringify(receipt.memory)
+                === JSON.stringify(uninterruptedReceipt.memory),
+            damageBps: corridor && corridor.damageBps,
+            expectedDamageBps: uninterruptedReceipt.domainReceipt.finalResult.damageBps
+        };
+    } finally {
+        sabotageResumeRuntime.dom.window.close();
+    }
+
+    const version2Runtime = createRuntime(seed >>> 0);
+    let version2;
+    try {
+        const version2Save = JSON.parse(savedRaw);
+        version2Save.characterActions.schemaVersion = 2;
+        version2Save.characterActions.adapterVersion = 'story-character-action-ledger-2';
+        version2Save.characterActions.ai.policyHash = 'fnv1a32:phase37-deterministic-selector-1';
+        version2Runtime.api.putSavedRaw(JSON.stringify(version2Save));
+        const loaded = version2Runtime.api.loadNow();
+        const ledger = version2Runtime.api.characterActionLedger();
+        version2 = {
+            loaded,
+            validation: version2Runtime.api.validateCharacterActionLedger(ledger),
+            schemaVersion: ledger && ledger.schemaVersion,
+            policyHash: ledger && ledger.ai && ledger.ai.policyHash,
+            receiptCount: Object.keys(ledger && ledger.receipts || {}).length
+        };
+    } finally {
+        version2Runtime.dom.window.close();
+    }
+
+    const version3Runtime = createRuntime(seed >>> 0);
+    let version3;
+    try {
+        const version3Save = JSON.parse(savedRaw);
+        const receipts = version3Save.characterActions.receipts || {};
+        for (const [id, receipt] of Object.entries(receipts)) {
+            if (['ORDER', 'SABOTAGE', 'RESIGN'].includes(receipt.actionType)) {
+                delete receipts[id];
+                continue;
+            }
+            delete receipt.targetModel;
+            delete receipt.domainContext;
+            delete receipt.domainReceipt;
+        }
+        version3Save.characterActions.officeTransitions = {};
+        version3Save.characterActions.schemaVersion = 3;
+        version3Save.characterActions.adapterVersion = 'story-character-action-ledger-3';
+        version3Runtime.api.putSavedRaw(JSON.stringify(version3Save));
+        const loaded = version3Runtime.api.loadNow();
+        const ledger = version3Runtime.api.characterActionLedger();
+        version3 = {
+            loaded,
+            validation: version3Runtime.api.validateCharacterActionLedger(ledger),
+            schemaVersion: ledger && ledger.schemaVersion,
+            receiptCount: Object.keys(ledger && ledger.receipts || {}).length,
+            typedContractsBackfilled: Object.values(ledger && ledger.receipts || {}).every(receipt => (
+                receipt.targetModel === 'CHARACTER'
+                && receipt.domainContext && typeof receipt.domainContext === 'object'
+                && receipt.domainReceipt === null
+            ))
+        };
+    } finally {
+        version3Runtime.dom.window.close();
+    }
+
+    const legacyRuntime = createRuntime(seed >>> 0);
+    let legacy;
+    try {
+        const legacySave = JSON.parse(savedRaw);
+        delete legacySave.characterActions;
+        legacyRuntime.api.putSavedRaw(JSON.stringify(legacySave));
+        const loaded = legacyRuntime.api.loadNow();
+        const ledger = legacyRuntime.api.characterActionLedger();
+        legacy = {
+            loaded,
+            validation: legacyRuntime.api.validateCharacterActionLedger(ledger),
+            backfilled: !!(ledger.diagnostics && ledger.diagnostics.backfilled),
+            receiptCount: Object.keys(ledger.receipts || {}).length
+        };
+    } finally {
+        legacyRuntime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.actionCandidates': false }
+        });
+        disabled = disabledRuntime.api.characterActionLedger();
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const dependencyDisabledRuntime = createRuntime(seed >>> 0);
+    let dependencyDisabled;
+    try {
+        dependencyDisabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.threeLayerMemory': false }
+        });
+        dependencyDisabled = dependencyDisabledRuntime.api.characterActionLedger();
+    } finally {
+        dependencyDisabledRuntime.dom.window.close();
+    }
+
+    const uninterruptedRuntime = createRuntime(seed >>> 0);
+    let aiUninterrupted;
+    try {
+        uninterruptedRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        uninterruptedRuntime.api.advance(40);
+        const ledger = uninterruptedRuntime.api.characterActionLedger();
+        const playerActorId = `character:0:${uninterruptedRuntime.api.state().commander.id}`;
+        const receipts = Object.values(ledger.receipts || {});
+        aiUninterrupted = {
+            ledger,
+            scheduler: uninterruptedRuntime.api.schedulerSnapshot(),
+            receiptCount: receipts.length,
+            allDeterministicAI: receipts.every(row => row.decisionSource === 'DETERMINISTIC_AI'
+                && Number.isFinite(row.selectorScore) && row.selectorReasons.length > 0),
+            playerNeverControlled: receipts.every(row => row.actorId !== playerActorId),
+            bounded: receipts.length <= 4,
+            summary: uninterruptedRuntime.api.characterActionSummary()
+        };
+    } finally {
+        uninterruptedRuntime.dom.window.close();
+    }
+
+    const checkpointRuntime = createRuntime(seed >>> 0);
+    let checkpointRaw;
+    try {
+        checkpointRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        checkpointRuntime.api.advance(22.5);
+        checkpointRuntime.api.saveNow();
+        checkpointRaw = checkpointRuntime.api.savedRaw();
+    } finally {
+        checkpointRuntime.dom.window.close();
+    }
+    const resumedRuntime = createRuntime(seed >>> 0);
+    let aiResumed;
+    try {
+        resumedRuntime.api.putSavedRaw(checkpointRaw);
+        const loaded = resumedRuntime.api.loadNow();
+        resumedRuntime.api.advance(17.5);
+        const ledger = resumedRuntime.api.characterActionLedger();
+        aiResumed = {
+            loaded,
+            ledger,
+            scheduler: resumedRuntime.api.schedulerSnapshot(),
+            equal: JSON.stringify(ledger) === JSON.stringify(aiUninterrupted.ledger),
+            schedulerTaskEqual: JSON.stringify(resumedRuntime.api.schedulerSnapshot().tasks['character-actions'])
+                === JSON.stringify(aiUninterrupted.scheduler.tasks['character-actions'])
+        };
+    } finally {
+        resumedRuntime.dom.window.close();
+    }
+
+    const uiRuntime = createRuntime(seed >>> 0);
+    let playerUi;
+    try {
+        uiRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = uiRuntime.api.state();
+        const playerState = story.states.find(row => Number(row.id) === Number(story.playerStateId));
+        playerState.gov.leader = 'ai';
+        story.commander.skills.warrior = 99;
+        uiRuntime.api.institutionTick(5);
+        const playerActorId = `character:${story.playerStateId}:${story.commander.id}`;
+        const world = uiRuntime.api.worldV2();
+        const targetWorld = world.characters.find(row => row.ownerId === 'country:0'
+            && row.id !== playerActorId && row.regionId && row.role === 'COMMANDER')
+            || world.characters.find(row => row.ownerId === 'country:0'
+                && row.id !== playerActorId && row.regionId);
+        const regionLegacyId = targetWorld ? Number(String(targetWorld.regionId).split(':').pop()) : NaN;
+        const cityView = Number.isInteger(regionLegacyId)
+            ? uiRuntime.api.cityDossierBuild(regionLegacyId) : null;
+        const target = cityView && cityView.characters.find(row => row.id === targetWorld.id);
+        if (!target) throw new Error('Faz 37 oyuncu UI probu için şehirde hedef karakter bulunamadı.');
+        uiRuntime.api.renderCityDossier(regionLegacyId, 'karakterler');
+        const opened = uiRuntime.api.cityDossierOpenCharacter(target.id);
+        const before = uiRuntime.api.cityDossierUiState();
+        const buttons = Array.from(uiRuntime.dom.window.document.querySelectorAll('[data-character-action]'));
+        const persuadeButton = buttons.find(button => button.dataset.characterAction === 'PERSUADE');
+        uiRuntime.dom.window.document.dispatchEvent(new uiRuntime.dom.window.Event('DOMContentLoaded'));
+        if (persuadeButton) persuadeButton.click();
+        const orderButton = Array.from(uiRuntime.dom.window.document.querySelectorAll('[data-character-action]'))
+            .find(button => button.dataset.characterAction === 'ORDER');
+        if (orderButton && !orderButton.disabled) orderButton.click();
+        const after = uiRuntime.api.cityDossierUiState();
+        const ledger = uiRuntime.api.characterActionLedger();
+        const receipt = Object.values(ledger.receipts || {}).find(row => row.decisionSource === 'PLAYER_UI'
+            && row.actionType === 'PERSUADE');
+        const orderReceipt = Object.values(ledger.receipts || {}).find(row => row.decisionSource === 'PLAYER_UI'
+            && row.actionType === 'ORDER');
+        playerUi = {
+            opened,
+            focusCharacterId: before.talkFocusCharacterId,
+            buttonCount: buttons.length,
+            enabledButtonCount: buttons.filter(button => !button.disabled).length,
+            receipt: receipt || null,
+            orderButtonVisible: !!orderButton,
+            orderReceipt: orderReceipt || null,
+            orderQueued: !!(orderReceipt && orderReceipt.domainReceipt
+                && orderReceipt.domainReceipt.outcomeModel === 'QUEUED_DOMAIN_DECISION'),
+            cooldownVisible: /sonra yeniden kullanılabilir/.test(after.talkText),
+            talkTextAfter: after.talkText,
+            validation: uiRuntime.api.validateCharacterActionLedger(ledger)
+        };
+    } finally {
+        uiRuntime.dom.window.close();
+    }
+    return { main, restored, sabotageResume, version2, version3, legacy, disabled, dependencyDisabled, aiUninterrupted, aiResumed, playerUi };
+}
+
+function probeContactDirectory(seed = 2032) {
+    const agentRuntime = createRuntime(seed >>> 0);
+    let agent;
+    try {
+        agentRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = agentRuntime.api.state();
+        story.commander.creationRole = 'AGENT';
+        story.playerRole = 'AGENT';
+        agentRuntime.api.characterBindPlayerRole();
+        agentRuntime.api.characterIdentityReset();
+        const firstView = agentRuntime.api.contactDirectoryBuild();
+        const secondView = agentRuntime.api.contactDirectoryBuild();
+        const world = agentRuntime.api.worldV2();
+        const knowledge = agentRuntime.api.playerKnowledge(world, 'country:0');
+        const foreignCharacters = knowledge.characters.filter(row => {
+            const source = world.characters.find(candidate => candidate.id === row.id);
+            return source && source.ownerId !== 'country:0';
+        });
+        story._talkOpen = true;
+        agentRuntime.dom.window.document.dispatchEvent(new agentRuntime.dom.window.Event('DOMContentLoaded'));
+        agentRuntime.api.talkUpdate();
+        const body = agentRuntime.dom.window.document.getElementById('talk-body');
+        const operationButton = body && body.querySelector('[data-character-action="SABOTAGE"]');
+        const capabilityBefore = Number(agentRuntime.api.characterIdentityView(firstView.playerActorId).career.capability) || 0;
+        if (operationButton) operationButton.click();
+        const sabotageReceipt = Object.values(agentRuntime.api.characterActionLedger().receipts || {})
+            .find(row => row.actionType === 'SABOTAGE' && row.decisionSource === 'PLAYER_UI');
+        const capabilityAfter = Number(agentRuntime.api.characterIdentityView(firstView.playerActorId).career.capability) || 0;
+        const registryToggle = body && body.querySelector('[data-contact-registry-toggle]');
+        if (registryToggle) registryToggle.click();
+        const publicRowsAfterToggle = body
+            ? body.querySelectorAll('.contact-directory-scroll .contact-directory-row').length : 0;
+        agent = {
+            knowledgeValidation: agentRuntime.api.validatePlayerKnowledge(knowledge),
+            knowledgeSchemaVersion: knowledge.schemaVersion,
+            publicAssetCount: knowledge.infrastructureAssets.length,
+            publicAssetSecretLeak: /damageBps|effectiveCapacity|\"capacity\"|\"access\"|\"enabled\"/
+                .test(JSON.stringify(knowledge.infrastructureAssets)),
+            isAgent: firstView.isAgent,
+            contactCount: firstView.contacts.length,
+            publicCharacterCount: firstView.publicCharacters.length,
+            operationCount: firstView.operations.length,
+            allOperationsUseLandPublicTopology: firstView.operations.every(row => row.mode === 'LAND'),
+            foreignLocationLeakCount: firstView.diagnostics.foreignLocationLeakCount,
+            operationSecretFieldCount: firstView.diagnostics.operationSecretFieldCount,
+            foreignKnowledgeLocationsUnknown: foreignCharacters.every(row => row.regionId.status === 'UNKNOWN'
+                && row.regionId.value === null),
+            cacheStable: firstView === secondView,
+            operationButtonPresent: !!operationButton,
+            sabotageReceipt: sabotageReceipt || null,
+            capabilitySpent: capabilityBefore - capabilityAfter,
+            registryTogglePresent: !!registryToggle,
+            publicRowsAfterToggle,
+            bodyContainsForeignRegionId: firstView.publicCharacters.filter(row => !row.own)
+                .some(row => row.visibleRegionId != null),
+            actionLedgerValidation: agentRuntime.api.validateCharacterActionLedger(
+                agentRuntime.api.characterActionLedger()
+            )
+        };
+    } finally {
+        agentRuntime.dom.window.close();
+    }
+
+    const commanderRuntime = createRuntime(seed >>> 0);
+    let commander;
+    try {
+        commanderRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const view = commanderRuntime.api.contactDirectoryBuild();
+        commander = {
+            isAgent: view.isAgent,
+            operationCount: view.operations.length,
+            foreignLocationLeakCount: view.diagnostics.foreignLocationLeakCount
+        };
+    } finally {
+        commanderRuntime.dom.window.close();
+    }
+    return { agent, commander };
+}
+
+function probeCharacterArbiter(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const identityLedger = runtime.api.characterIdentityLedger();
+        const playerActorId = story.commander ? `character:0:${story.commander.id}` : null;
+        const actors = Object.values(identityLedger.identities || {})
+            .filter(row => row.id !== playerActorId)
+            .sort((a, b) => a.id.localeCompare(b.id, 'en'));
+        let actor = null;
+        let ranked = [];
+        for (const candidateActor of actors) {
+            const actorRanked = runtime.api.characterActionAIRankActor(candidateActor.id);
+            if (!actorRanked.length) continue;
+            actor = candidateActor;
+            ranked = actorRanked;
+            break;
+        }
+        const request = runtime.api.characterArbiterBuildRequest(actor && actor.id, { ranked });
+        const repeatedRequest = runtime.api.characterArbiterBuildRequest(actor && actor.id, { ranked });
+        const offered = request.context && request.context.candidates && request.context.candidates[0];
+        const validOutput = {
+            schemaVersion: 1,
+            requestId: request.requestId,
+            verdict: 'PROPOSE',
+            candidateId: offered && offered.candidateId,
+            actionType: offered && offered.actionType,
+            targetActorId: offered && offered.targetActorId,
+            reasonCode: 'GOAL_ALIGNMENT',
+            speechPlan: {
+                opening: 'STATE_POSITION_FIRST', tone: 'MEASURED',
+                address: 'FORMAL_TITLE', emphasis: ['GOAL', 'RISK']
+            }
+        };
+        const valid = runtime.api.characterArbiterResolve(request, JSON.stringify(validOutput));
+        const fenced = runtime.api.characterArbiterResolve(request, `\n\`\`\`json\n${JSON.stringify(validOutput)}\n\`\`\``);
+        const unknownCandidate = JSON.parse(JSON.stringify(validOutput));
+        unknownCandidate.candidateId = 'character-action-candidate:invented';
+        const unknown = runtime.api.characterArbiterResolve(request, unknownCandidate);
+        const mismatchedAction = JSON.parse(JSON.stringify(validOutput));
+        mismatchedAction.actionType = validOutput.actionType === 'ALLY' ? 'BETRAY' : 'ALLY';
+        const mismatch = runtime.api.characterArbiterResolve(request, mismatchedAction);
+        const injectedField = JSON.parse(JSON.stringify(validOutput));
+        injectedField.successChanceBps = 10000;
+        const injected = runtime.api.characterArbiterResolve(request, injectedField);
+        const malformed = runtime.api.characterArbiterResolve(request, '{not-json');
+        const fallbackA = runtime.api.characterArbiterFallback(request, 'TEST');
+        const fallbackB = runtime.api.characterArbiterFallback(request, 'TEST');
+        const requestText = JSON.stringify(request);
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        main = {
+            actorId: actor && actor.id,
+            rankedCount: ranked.length,
+            requestOk: request.ok,
+            requestDeterministic: JSON.stringify(request) === JSON.stringify(repeatedRequest),
+            candidateCount: request.context && request.context.candidates.length,
+            candidateCap: 8,
+            validSource: valid.source,
+            validValidation: valid.validation,
+            fencedSource: fenced.source,
+            unknownFallback: unknown.source,
+            unknownReason: unknown.rejectedReason,
+            mismatchFallback: mismatch.source,
+            mismatchReason: mismatch.rejectedReason,
+            injectedFallback: injected.source,
+            injectedReason: injected.rejectedReason,
+            malformedFallback: malformed.source,
+            malformedReason: malformed.rejectedReason,
+            fallbackDeterministic: JSON.stringify(fallbackA) === JSON.stringify(fallbackB),
+            proposalOnly: valid.proposalOnly && valid.worldMutation === false,
+            forbiddenContextLeak: /regionId|serviceId|damageBps|effectiveCapacity|successChanceBps|detectionChanceBps/
+                .test(requestText),
+            worldNeutral: beforeHash === afterHash,
+            beforeHash,
+            afterHash,
+            diagnostics: runtime.api.characterArbiterDiagnostics()
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const disabledRuntime = createRuntime(seed >>> 0);
+    let disabled;
+    try {
+        disabledRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.llmArbiter': false }
+        });
+        const actorId = Object.keys(disabledRuntime.api.characterIdentityLedger().identities || {})[0];
+        disabled = disabledRuntime.api.characterArbiterBuildRequest(actorId);
+    } finally {
+        disabledRuntime.dom.window.close();
+    }
+
+    const dependencyRuntime = createRuntime(seed >>> 0);
+    let dependencyDisabled;
+    try {
+        dependencyRuntime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.actionCandidates': false }
+        });
+        const actorId = Object.keys(dependencyRuntime.api.characterIdentityLedger().identities || {})[0];
+        dependencyDisabled = dependencyRuntime.api.characterArbiterBuildRequest(actorId);
+    } finally {
+        dependencyRuntime.dom.window.close();
+    }
+    return { main, disabled, dependencyDisabled };
+}
+
 module.exports = {
     runStorySimulation,
     probeWelfareGate,
@@ -11022,6 +11886,9 @@ module.exports = {
     probeGovernanceWorkspace,
     probeCharacterIdentities,
     probeCharacterMemory,
+    probeCharacterActions,
+    probeCharacterArbiter,
+    probeContactDirectory,
     probeCityDossier,
     probeCanonicalMapRaster,
     probePoliticalOverlay,

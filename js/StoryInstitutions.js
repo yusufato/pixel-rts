@@ -181,6 +181,9 @@ function storyInstitutionCommanderHolder(countryId, st) {
     };
 }
 function storyInstitutionHolder(countryId, type, st) {
+    const transitionHolder = typeof storyCharacterActionOfficeHolderOverride === 'function'
+        ? storyCharacterActionOfficeHolderOverride(countryId, type) : null;
+    if (transitionHolder) return transitionHolder;
     if (type === 'EXECUTIVE') {
         if (st && st.isPlayer && st.gov && st.gov.leader === 'player' && STORY.commander) {
             return {

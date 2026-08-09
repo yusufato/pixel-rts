@@ -5,7 +5,7 @@
 //  bilgi sınıfıyla PlayerVisibleFact üzerinden oyuncuya açılır.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const PLAYER_KNOWLEDGE_SCHEMA_VERSION = 3;
+const PLAYER_KNOWLEDGE_SCHEMA_VERSION = 4;
 const PLAYER_FACT_STATUS = Object.freeze({
     UNKNOWN: 'UNKNOWN',
     ESTIMATED: 'ESTIMATED',
@@ -387,6 +387,78 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
         hostilityBps: fact(storyPlayerVerifiedFact(edge.id, 'hostilityBps', edge.hostilityBps, gameTime, 'OWN_RELATIONSHIP_MEMORY'))
     }));
 
+    // Faz 37: oyuncu kendi aktörünün eylem makbuzunu tam görür. Yabancı bir
+    // aktör oyuncu karakterini hedeflediyse olayın varlığı ve sosyal sonucu
+    // görünür, fakat yabancı kariyer bedeli ve kurum içi yetki kanıtı sızmaz.
+    const characterActions = (world.characterActions || []).filter(receipt => {
+        if (receipt.actorCountryId === playerCountryId) return true;
+        if (receipt.targetCountryId !== playerCountryId) return false;
+        if (receipt.actionType !== 'SABOTAGE') return true;
+        const finalResult = receipt.domainReceipt && receipt.domainReceipt.finalResult;
+        return !!(finalResult && finalResult.detected);
+    }).map(receipt => {
+        if (receipt.actorCountryId === playerCountryId) return storyPlayerKnowledgeClone(receipt);
+        if (receipt.actionType === 'SABOTAGE') {
+            const domain = receipt.domainReceipt || {};
+            const finalResult = domain.finalResult || {};
+            const attributed = !!finalResult.attributed;
+            return {
+                id: receipt.id,
+                entityType: receipt.entityType,
+                actionType: receipt.actionType,
+                actorId: attributed ? receipt.actorId : null,
+                actorCountryId: attributed ? receipt.actorCountryId : null,
+                targetActorId: receipt.targetActorId,
+                targetCountryId: receipt.targetCountryId,
+                targetModel: receipt.targetModel,
+                status: receipt.status,
+                completedAt: receipt.completedAt,
+                domainContext: {
+                    assetType: receipt.domainContext && receipt.domainContext.assetType || null,
+                    targetAssetId: domain.targetAssetId || null
+                },
+                domainReceipt: {
+                    outcomeModel: 'DETECTED_COVERT_INCIDENT',
+                    targetAssetType: domain.targetAssetType || null,
+                    targetAssetId: domain.targetAssetId || null,
+                    finalResult: {
+                        status: finalResult.status,
+                        detected: true,
+                        attributed,
+                        physicalMutation: !!finalResult.physicalMutation,
+                        previousDamageBps: finalResult.previousDamageBps,
+                        damageBps: finalResult.damageBps,
+                        damageDeltaBps: finalResult.damageDeltaBps,
+                        resolvedAt: finalResult.resolvedAt
+                    }
+                },
+                relationshipEffects: [],
+                authority: null,
+                cost: null,
+                costReceipt: null,
+                foreignDetailsRedacted: true
+            };
+        }
+        return {
+            id: receipt.id,
+            entityType: receipt.entityType,
+            actionType: receipt.actionType,
+            actorId: receipt.actorId,
+            actorCountryId: receipt.actorCountryId,
+            targetActorId: receipt.targetActorId,
+            targetCountryId: receipt.targetCountryId,
+            status: receipt.status,
+            completedAt: receipt.completedAt,
+            relationshipEffects: storyPlayerKnowledgeClone((receipt.relationshipEffects || []).filter(effect =>
+                characterOwnerById.get(effect.fromActorId) === playerCountryId
+                || characterOwnerById.get(effect.toActorId) === playerCountryId)),
+            authority: null,
+            cost: null,
+            costReceipt: null,
+            foreignDetailsRedacted: true
+        };
+    });
+
     // Faz 34 köken kararları ham dünya gerçeğinden açılmaz. Oyuncunun ülkesine
     // ait bir karakter gerçekten biliyorsa, en güvenilir ActorBelief üzerinden
     // görünür olur; yabancı/özel geçmiş böylece WorldV2'den UI'a sızmaz.
@@ -463,6 +535,24 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
         }
     }
 
+    const publicPhysicalAssets = world.diagnostics && world.diagnostics.infrastructure
+        && Array.isArray(world.diagnostics.infrastructure.publicPhysicalAssets)
+        ? world.diagnostics.infrastructure.publicPhysicalAssets : [];
+    const infrastructureAssets = publicPhysicalAssets.map(asset => ({
+        id: asset.id,
+        topology: fact(storyPlayerVerifiedFact(
+            asset.id,
+            'publicTopology',
+            {
+                mode: asset.mode,
+                endpointRegionIds: (asset.endpointRegionIds || []).slice(),
+                ownerCountryIds: (asset.ownerCountryIds || []).slice()
+            },
+            gameTime,
+            'PUBLIC_INFRASTRUCTURE_MAP'
+        ))
+    }));
+
     return {
         schemaVersion: PLAYER_KNOWLEDGE_SCHEMA_VERSION,
         playerCountryId,
@@ -473,6 +563,8 @@ function storyPlayerKnowledgeProject(world, playerCountryId) {
         regions,
         characters,
         characterRelationships,
+        characterActions,
+        infrastructureAssets,
         originFacts,
         characterMemory
     };
@@ -508,6 +600,22 @@ function storyPlayerKnowledgeValidate(view) {
     }
     if (!Array.isArray(view.originFacts)) issues.push({ code: 'ORIGIN_FACTS_ARRAY', path: '$.originFacts' });
     if (!Array.isArray(view.characterRelationships)) issues.push({ code: 'CHARACTER_RELATIONSHIPS_ARRAY', path: '$.characterRelationships' });
+    if (!Array.isArray(view.characterActions)) issues.push({ code: 'CHARACTER_ACTIONS_ARRAY', path: '$.characterActions' });
+    if (!Array.isArray(view.infrastructureAssets)) {
+        issues.push({ code: 'INFRASTRUCTURE_ASSETS_ARRAY', path: '$.infrastructureAssets' });
+    } else {
+        view.infrastructureAssets.forEach((asset, index) => {
+            const at = `$.infrastructureAssets[${index}]`;
+            if (!asset || typeof asset.id !== 'string' || !asset.id) issues.push({ code: 'INFRASTRUCTURE_ASSET_ID', path: `${at}.id` });
+            if (!asset || !asset.topology || asset.topology.status !== PLAYER_FACT_STATUS.VERIFIED) {
+                issues.push({ code: 'INFRASTRUCTURE_ASSET_TOPOLOGY', path: `${at}.topology` });
+            }
+            const serialized = JSON.stringify(asset || {});
+            for (const secret of ['damageBps', 'capacity', 'effectiveCapacity', 'access', 'enabled']) {
+                if (serialized.includes(`\"${secret}\"`)) issues.push({ code: 'INFRASTRUCTURE_SECRET_LEAK', path: at });
+            }
+        });
+    }
     if (!view.characterMemory || typeof view.characterMemory !== 'object' || Array.isArray(view.characterMemory)) {
         issues.push({ code: 'CHARACTER_MEMORY_OBJECT', path: '$.characterMemory' });
     }

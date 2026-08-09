@@ -443,12 +443,12 @@ function storyBudgetTransfer(stateOrId, fromCommander, toCommander, amount, sour
     if (!toCommander.res) toCommander.res = { oil: 0, manpower: 0, points: 0 };
     toCommander.res.points = storyBudgetRound((Number(toCommander.res.points) || 0) + value);
     const country = storyBudgetCountry(st);
-    if (country) storyBudgetPost(country, source || 'internal.transfer', [
+    const posted = country ? storyBudgetPost(country, source || 'internal.transfer', [
         { account: `MEMO:TRANSFER_TO:${toCommander.id}`, amount: value },
         { account: `MEMO:TRANSFER_FROM:${fromCommander.id}`, amount: -value }
-    ], options);
+    ], options) : null;
     storyBudgetSyncMirror(st);
-    return { ok: true, amount: value };
+    return { ok: true, amount: value, transaction: posted && posted.transaction || null };
 }
 
 function storyBudgetFundCommander(stateOrId, toCommander, amount, source, options) {

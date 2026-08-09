@@ -584,7 +584,13 @@ const BATTLE_INTEL4PRO_DELTAS = {
     commandCenter: false,   // K2'DE ELENDİ (6 tohum): kapsama %84→%94 ama kazandırdığı hasar 0.98→0.97 ₺ (değişmedi)
     // P21 — KOMUTA MENZİLİ. Veride `range: 0.08` tanımlıydı ama kodda karşılığı YOKTU (ölü veri).
     // Kullanıcı kararı: "ne işe yarıyor ona göre silelim veya işleyelim" → uygulandı, ölçülecek.
-    commandRange: false   // ÖLÇÜLMEDEN AÇILMAZ
+    commandRange: false,   // ÖLÇÜLMEDEN AÇILMAZ
+    // P22 — HAVA SAVUNMA ŞEMSİYESİ (KULLANICI DOKTRİNİ + ÖLÇÜM). 26 gerçek oyuncu maçı:
+    // attack_helo AI kayıplarının %22'si (tek kalemde en büyük katil). Kurbanların %79'u AD
+    // menzilindeydi ama HELONUN KENDİSİ vuruş anında menzil∩görüşünde yalnız %21 — helo 675px'ten,
+    // şemsiyenin DIŞINDA durarak şemsiyenin ALTINDAKİ birimi öldürüyor. Kural: AD, korunan kara
+    // kütlesinin tehdit ekseninde, zarfı düşmanın ATIŞ NOKTALARINA yetecek kadar ileri oturur.
+    adUmbrella: false   // ÖLÇÜLMEDEN AÇILMAZ
 };
 // ── 'airBaseRequirement' PARAMETRELERİ (aranabilir) ──
 let PRO_USSU_MIN_TL = 300;   // bu değerin altındaki hava birimi için ordu bozulmaz
@@ -1005,6 +1011,34 @@ const TRANSPORT_LOAD_TIME = 1.6;          // saniye/yolcu — biniş süresi (ge
 const TRANSPORT_UNLOAD_TIME = 0.7;        // saniye/yolcu — iniş süresi
 const TRANSPORT_UNLOAD_TRIGGER = 420;     // düşman bu kadar yakınsa hemen indir (fast-rope)
 const PRO_IST_ILERI_DERINLIK = 0.75;   // 'engineerForward' acikken istihkamin kurabildigi en derin nokta (harita orani)
+// ── HAVA SAVUNMA PAYI CARPANI (aranabilir) ──
+// AD agirliklari: MANPADS 0.04 + SPAAG 0.09 + SAM 0.025 = 0.155 (+ hava radari 0.015).
+// 1 = eski davranis. TARAF-BASI (tuzak B3): global olsaydi iki taraf da ayni orduyu alir ve marj
+// simetrik olarak sifirlanirdi — kaldiracin MAC DEGERI olculemezdi. Kapsam VERIDEN turetilir:
+// kategori air_defense + hava radari + hava silahi tasiyan piyade (manpads_team).
+let BATTLE_AD_WEIGHT_MULT_RED = 1;
+let BATTLE_AD_WEIGHT_MULT_BLUE = 1;
+
+// ── SEARCH / UNCERTAIN AYRIMI (aranabilir) ──
+// OLCUM (26 gercek mac, 10952 karar): korlugun %82'si UNCERTAIN; puanlama ikili oldugu icin UNCERTAIN
+// tam gorusle ayni −50'yi aliyordu → 1025 UNCERTAIN kararinin HICBIRINDE SEARCH secilmedi (%0.0).
+// Ara deger NOTR secildi (odul degil): UNCERTAIN bloklari ort. 5.8sn ve %94'u kendiliginden CONTACT'a donuyor.
+let BATTLE_SEARCH_UNCERTAIN = false;      // OLCULMEDEN ACILMAZ
+let BATTLE_SEARCH_UNCERTAIN_SCORE = 0;    // CONTACT −50 · UNCERTAIN bu · NO_CONTACT +30
+// ASIL KAPI ADAY URETIMINDE (BattleSituation CourseOfActionGenerator): UNCERTAIN'de SEARCH hic
+// URETILMIYORDU. Taban puan DUSUK — HOLD 35, FIRE_PREPARATION ~50; amac kesfi mumkun kilmak,
+// varsayilan tercih yapmak degil (UNCERTAIN bloklari zaten ort. 5.8sn suruyor).
+let BATTLE_SEARCH_UNCERTAIN_BASE = 38;
+
+// ── 'adUmbrella' PARAMETRELERI (aranabilir) ──
+// OLCUM (26 gercek oyuncu maci): helo vurus aninda AD menzil∩gorusunde yalniz %21; helo->AD medyan
+// 1188px; en yakin AD cogunlukla manpads (825px menzil) → menzil disi. Ileri mesafe SABIT DEGIL,
+// geometriden turer: (kutleYaricapi + dusmanHavaMenzili) − kendiMenzili, asagidaki tavanla sinirli.
+let PRO_AD_MAX_ILERI = 400;          // kutlenin onune en fazla bu kadar cikar (guvenlik: AD olurse semsiye biter)
+let PRO_AD_TEHDIT = 700;             // silahli dusman KARA birimi bu kadar yakinsa ilerleme
+let PRO_AD_OLU_BOLGE = 120;          // hedefe bu kadar yakinsa DUR (titreme onleyici)
+let PRO_AD_MIN_KUME = 4;             // korunacak kara birimi sayisi bunun altindaysa mevzi bozma
+let PRO_AD_VARSAYILAN_TEHDIT = 675;  // dusman havasi GORUNMUYORKEN varsayilan tehdit menzili (attack_helo)
 let PRO_KOMUTA_OLU_BOLGE = 200;   // 'commandCenter': merkeze bu kadar yakinsa DUR (titreme onleyici olu bolge)
 let PRO_KOMUTA_MENZIL = 0.08;   // 'commandRange': komuta halesindeki dostun menzil carpani (UnitData'daki aura.range)
 

@@ -26,7 +26,33 @@ const BATTLE_PLAN_KIND = Object.freeze({
     DISENGAGE: 'DISENGAGE'
 });
 
+// ═══ DURUM KATEGORİLERİ — NİTELİKTEN TÜRETİLİR (2026-08-09) ═══
+// ESKİ HÂLİ elle yazılmış 5 satırlık bir isim listesiydi: yalnız ARMOR/ARTILLERY/RECON/MEDIC/ENGINEER
+// adlandırılıyor, KALAN HER ŞEY 'line'a düşüyordu — saldırı helikopteri, SİHA, kamikaze mühimmat,
+// SAM, SPAAG, MANPADS, ÇNRA, havan, balistik füze dâhil.
+// SONUÇ: durum değerlendirmesinde HAVA TEHDİDİ DİYE BİR KAVRAM YOKTU. AI helikopteri görüyordu
+// (algı çalışıyor) ama onu bir tehdit sınıfı olarak TEMSİL EDEMİYORDU; temsil edemeyince
+// Commitment/Planning/Execution da ona tepki veremiyordu.
+// ÖLÇÜLDÜ (kullanıcının 3 canlı maçı, katman atfı — tools/katman-atfi.js):
+//   AI ölümlerinin %47'si "gördü ama ETİKETLEMEDİ" (algı %87 görüyor, durum sıfır hava tehdidi),
+//   467 kararın 467'sinde enemy.air = yok, threatProfile = null.
+//   Aynı maçlarda insanın saldırı helikopteri 4116 hasar verip 0 kayıp verdi.
+// Bu, bugün düzeltilen `deploymentDepth` ile AYNI bayatlık sınıfı: roster büyürken güncellenmemiş liste.
+// YENİ: UnitData'daki `category` alanı zaten doğru (air/uav/air_defense/indirect/...) ve kullanılmıyordu.
 function situationUnitCategory(type) {
+    const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+    const k = s && s.category;
+    const tags = (s && s.roleTags) || [];
+    if (k === 'air' || k === 'uav') return 'air';
+    // ETİKET İNCELİĞİ (battleUnitRoleBucket ile tutarlı): havan veride 'infantry' ama DOLAYLI ateş;
+    // manpads veride 'infantry' ama HAVA SAVUNMA. Kategoriye körü körüne güvenmek ikisini de 'line' yapıyordu.
+    if (k === 'air_defense' || tags.indexOf('anti_air') >= 0) return 'airDefense';
+    if (k === 'indirect' || tags.indexOf('indirect_fire') >= 0) return 'fireSupport';
+    if (k === 'armor') return 'armor';
+    if (k === 'recon') return 'recon';
+    if (k === 'support' || k === 'logistics' || k === 'command') return 'support';
+    if (k === 'infantry') return 'line';
+    // kategori tanımsızsa eski davranışa düş (byte-aynı kalsın)
     if (type === T.ARMOR || type === T.ARMOR_INFANTRY || type === T.MECH_INFANTRY) return 'armor';
     if (type === T.ARTILLERY) return 'fireSupport';
     if (type === T.RECON) return 'recon';
@@ -254,8 +280,9 @@ class SituationAnalyzer {
         const ticksSinceContact = (this._lastContactTick != null) ? (observation.tick - this._lastContactTick) : 99999;
 
         const categories = {
-            friendly: { armor: 0, fireSupport: 0, recon: 0, support: 0, line: 0 },
-            enemy: { armor: 0, fireSupport: 0, recon: 0, support: 0, line: 0 }
+            // air / airDefense EKLENDI (2026-08-09): oncesinde hava tehdidi temsil edilemiyordu (bkz situationUnitCategory).
+            friendly: { armor: 0, fireSupport: 0, recon: 0, support: 0, line: 0, air: 0, airDefense: 0 },
+            enemy: { armor: 0, fireSupport: 0, recon: 0, support: 0, line: 0, air: 0, airDefense: 0 }
         };
         const sectors = { left: emptySector(), center: emptySector(), right: emptySector() };
         let hpReadiness = 0;
@@ -447,6 +474,20 @@ class CourseOfActionGenerator {
             return candidates;
         }
 
+        // UNCERTAIN'DE KESIF ADAYI (bayrakli, varsayilan KAPALI = eski davranis birebir).
+        // ÖLÇÜLDÜ (26 gerçek maç, 10952 karar): körlüğün %82'si UNCERTAIN — "temas hafızada var ama
+        // hiçbirini göremiyorum" — ve UNCERTAIN kararlarının %0.0'ında SEARCH seçilmiş (1025 karar).
+        // İLK TEŞHİSİM YANLIŞTI: sebep aşağıdaki puanlamadaki −50 cezası DEĞİL; SEARCH bu durumda
+        // ADAY OLARAK HİÇ ÜRETİLMİYOR (yukarıdaki NO_CONTACT dalı erken dönüyor). Bağlanma sayacı
+        // 0 çıkınca yakalandı — sayaç olmasa "etkisi yok" diye yanlış rapor edilecekti.
+        // ÖLÇÜLEN SINIR: UNCERTAIN blokları ort. 5.8sn ve %94'ü kendiliğinden CONTACT'a dönüyor →
+        // taban puan DÜŞÜK tutuldu; amaç keşfi mümkün kılmak, tercih ettirmek değil.
+        if (situation.contactState === CONTACT_STATE.UNCERTAIN &&
+            typeof BATTLE_SEARCH_UNCERTAIN !== 'undefined' && BATTLE_SEARCH_UNCERTAIN) {
+            candidates.push(createCourseOfAction(BATTLE_PLAN_KIND.SEARCH, situation,
+                'Temas kayboldu — yeniden temas kur', BATTLE_SEARCH_UNCERTAIN_BASE));
+        }
+
         const isAttacker = situation.role === BATTLE_ROLE.ATTACKER;
         const hasFireSupport = (situation.categories?.friendly?.fireSupport || 0) > 0;
         const closeDefensiveThreat = Number.isFinite(situation.closestContactDistance) &&
@@ -597,7 +638,22 @@ class CourseOfActionEvaluator {
         const doctrine = this.controller.doctrine || 'combined';
 
         if (candidate.kind === BATTLE_PLAN_KIND.SEARCH) {
-            score += situation.contactState === CONTACT_STATE.NO_CONTACT ? 30 : -50;
+            // TEMAS DURUMU 3 DEĞERLİ, PUANLAMA 2 DEĞERLİYDİ (ölçüldü 2026-08-09, 26 gerçek maç / 10952 karar):
+            // körlüğün %82'si NO_CONTACT değil UNCERTAIN ("temas hafızada var ama hiçbirini göremiyorum")
+            // ve UNCERTAIN tam görüşle AYNI −50'yi yiyordu → UNCERTAIN'de SEARCH oranı %0.0 (1025 kararın
+            // hiçbirinde). AI görüşü kaybedince tekrar temas kurmaya çalışmıyor; HOLD %45 + hatırladığı
+            // konuma ateş hazırlığı %42 yapıyor. UNCERTAIN, keşfin EN DEĞERLİ olduğu durumdur.
+            // ÖLÇÜLEN SINIR (abartma payı): UNCERTAIN blokları ort. 5.8sn sürüyor ve 89 geçişin 84'ü
+            // kendiliğinden CONTACT'a dönüyor → ara değer NÖTR seçildi, ödül değil.
+            // BAYRAKLA A/B (varsayılan KAPALI = eski davranış birebir).
+            const _belirsiz = (typeof BATTLE_SEARCH_UNCERTAIN !== 'undefined' && BATTLE_SEARCH_UNCERTAIN) &&
+                situation.contactState === CONTACT_STATE.UNCERTAIN;
+            if (_belirsiz) {
+                score += BATTLE_SEARCH_UNCERTAIN_SCORE;
+                if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+                    BATTLE_BALANCE.searchUncertainBind = (BATTLE_BALANCE.searchUncertainBind || 0) + 1;
+                }
+            } else score += situation.contactState === CONTACT_STATE.NO_CONTACT ? 30 : -50;
             score += categoriesReconShare(situation.categories.friendly) * 15;
         } else if (candidate.kind === BATTLE_PLAN_KIND.ADVANCE) {
             score += isAttacker ? 12 : -5;

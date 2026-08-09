@@ -14,6 +14,14 @@
 //   degisim orani YUKSEK -> etiket gurultu, tavan olcumu KARAR UZAYI hakkinda hicbir sey soylemiyor
 //
 // Not: oracle 64 aday uretiyor (gramer), commitment katmanindaki 3 plan adayi ile karistirilmamali.
+//
+// ⚠ ARAC HATASI ve DUZELTMESI (2026-08-09): ilk surum pertürbasyonu `srand(x)` ile yapiyordu.
+// AMA `srand` bu motorda TOHUMLAYICI DEGIL, ZAR ATMA fonksiyonu (js/globals.js:101, argumansiz):
+//     function srand() { let a = (SIM_RNG.state = (SIM_RNG.state + 0x6D2B79F5) | 0); ... }
+// Yani `srand(777001)` argumani YOK SAYIP RNG'yi bir adim ILERLETIYOR. Sonuc: "ayni tohum" sanilan
+// tekrarlar aslinda FARKLI RNG durumundan basliyordu ve olculen tum oynaklik ARACIN URUNUYDU.
+// Bu hatayla "oracle tekrarlanabilir degil" diye yanlis bir bulgu uretilmisti; geri cekildi.
+// DOGRUSU: RNG durumu DOGRUDAN yazilir -> SIM_RNG.state = <sabit>.
 const { tezgahKur } = require('./muharebe-tezgah.js');
 const vm = require('node:vm');
 const fs = require('fs');
@@ -50,10 +58,20 @@ function kos(seed) {
         '      st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);',
         '      if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st); }',
         '    if (phase !== PHASE.BATTLE) break;',
-        '    const kayit = { tik: SIM.tick, olcum: [] };',
+        '    const kayit = { tik: SIM.tick, olcum: [], kontrol: null };',
+        // BIND/KONTROL: AYNI tohumla iki degerlendirme BIREBIR AYNI olmali. Olmuyorsa oracle durumu
+        // tam restore etmiyor demektir ve "pertürbasyon gurultusu" olcumu SIZINTIYLA karisir.
+        '    { SIM_RNG.state = 555000 + hedefTik;',
+        '      const a = battleOracleEvaluate({ sideRed: true, rolloutSec: UFUKLAR[0] });',
+        '      SIM_RNG.state = 555000 + hedefTik;',
+        '      const b = battleOracleEvaluate({ sideRed: true, rolloutSec: UFUKLAR[0] });',
+        '      kayit.kontrol = (a && b && a.oracle && b.oracle)',
+        '        ? { ayni: (a.oracle.intent+"|"+a.oracle.sector+"|"+a.oracle.tempo) === (b.oracle.intent+"|"+b.oracle.sector+"|"+b.oracle.tempo),',
+        '            skorA: a.oracle.scalar, skorB: b.oracle.scalar }',
+        '        : { hata: true }; }',
         '    for (const ufuk of UFUKLAR) {',
         '      for (let p = 0; p < PERT; p++) {',
-        '        if (typeof srand === "function") srand(900000 + p * 7919 + hedefTik);',
+        '        SIM_RNG.state = (900000 + p * 7919 + hedefTik) >>> 0;',
         '        const r = battleOracleEvaluate({ sideRed: true, rolloutSec: ufuk });',
         '        if (r && !r.err && r.oracle) {',
         '          kayit.olcum.push({ ufuk, p, anahtar: r.oracle.intent + "|" + r.oracle.sector + "|" + r.oracle.tempo,',
@@ -114,6 +132,17 @@ const y = (d, t) => t ? ('%' + Math.round(d / t * 100) + '  (' + d + '/' + t + '
 yaz('  ARGMAX DEGISIM ORANI — ayni ufuk, farkli devam tohumu : ' + y(ufukIci.degisen, ufukIci.toplam));
 for (const u of UFUKLAR) if (perUfuk[u]) yaz('      ufuk ' + u + 'sn: ' + y(perUfuk[u].d, perUfuk[u].t));
 yaz('  ARGMAX DEGISIM ORANI — ufuklar arasi (25 vs 45 vs 70) : ' + y(ufukArasi.degisen, ufukArasi.toplam));
+// KONTROL RAPORU: ayni tohumla iki degerlendirme ayni mi? Degilse pertürbasyon olcumu SIZINTIYLA karisir.
+let kOk = 0, kTop = 0, kSkorFark = [];
+for (const m of hepsi) for (const k of m.kararlar) {
+    if (!k.kontrol || k.kontrol.hata) continue;
+    kTop++; if (k.kontrol.ayni) kOk++;
+    if (Number.isFinite(k.kontrol.skorA) && Number.isFinite(k.kontrol.skorB))
+        kSkorFark.push(Math.abs(k.kontrol.skorA - k.kontrol.skorB));
+}
+yaz('  KONTROL (ayni tohum, iki kez): argmax AYNI ' + kOk + '/' + kTop +
+    (kTop && kOk < kTop ? '   *** DURUM TAM RESTORE EDILMIYOR — pertürbasyon olcumu SUPHELI ***' : '') +
+    (kSkorFark.length ? ('   ort skor farki ' + Math.round(ort(kSkorFark))) : ''));
 yaz('  oracle skorunun pertürbasyonlar arasi bagil std sapmasi: ' + (ort(skorDagilim) * 100).toFixed(1) + '%');
 yaz('');
 yaz('  KARAR KURALI (analist): degisim orani >%30-40 ise ETIKETLER GURULTUDUR ve');

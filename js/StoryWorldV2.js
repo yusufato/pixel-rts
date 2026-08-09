@@ -6,10 +6,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_WORLD_V2_SCHEMA_VERSION = 2;
-const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-10';
+const STORY_WORLD_V2_ADAPTER_VERSION = 'story-v1-to-v2-adapter-11';
 
 const STORY_WORLD_V2_TOP_LEVEL = Object.freeze([
-    'meta', 'clock', 'countries', 'regions', 'characters', 'worldFacts', 'actorBeliefs', 'characterRelationships',
+    'meta', 'clock', 'countries', 'regions', 'characters', 'worldFacts', 'actorBeliefs', 'characterRelationships', 'characterActions',
     'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence', 'companies', 'mediaOutlets',
     'diplomaticEdges', 'markets', 'militaryForces', 'crises',
     'events', 'decisions', 'memory', 'diagnostics'
@@ -415,6 +415,26 @@ function storyWorldV2CharacterRelationships() {
     )).sort((a, b) => a.id.localeCompare(b.id, 'en'));
 }
 
+function storyWorldV2CharacterActions() {
+    const ledger = typeof storyCharacterActionEnsure === 'function'
+        ? storyCharacterActionEnsure() : null;
+    return Object.values(ledger && ledger.receipts || {}).map(receipt => Object.assign(
+        storyWorldV2EntityBase(
+            receipt.id,
+            receipt.actorCountryId,
+            receipt.createdAt,
+            receipt.causality && receipt.causality.eventId
+        ),
+        storyWorldV2Clone(receipt),
+        {
+            entityType: 'CHARACTER_ACTION_RECEIPT',
+            updatedAt: storyWorldV2Round(receipt.completedAt),
+            version: Math.max(1, Number(receipt.version) || 1)
+        }
+    )).sort((a, b) => Number(a.sequence) - Number(b.sequence)
+        || a.id.localeCompare(b.id, 'en'));
+}
+
 function storyWorldV2PopulationCohorts() {
     const rows = typeof storyPopulationWorldEntities === 'function'
         ? storyPopulationWorldEntities()
@@ -643,6 +663,7 @@ function storyWorldV2CreateEmpty(options) {
         worldFacts: [],
         actorBeliefs: [],
         characterRelationships: [],
+        characterActions: [],
         populationCohorts: [],
         powerCenters: [],
         institutions: [],
@@ -706,6 +727,7 @@ function storyWorldV2Snapshot() {
         worldFacts: storyWorldV2CharacterWorldFacts(),
         actorBeliefs: storyWorldV2CharacterActorBeliefs(),
         characterRelationships: storyWorldV2CharacterRelationships(),
+        characterActions: storyWorldV2CharacterActions(),
         populationCohorts: storyWorldV2PopulationCohorts(),
         powerCenters: storyWorldV2PowerCenters(),
         institutions: storyWorldV2Institutions(),
@@ -825,6 +847,20 @@ function storyWorldV2Snapshot() {
                         topologyHash: infrastructure.topologyHash,
                         networkHash: infrastructure.networkHash,
                         damageRevision: infrastructure.damageRevision,
+                        // Fiziksel yol/deniz topolojisi kamusal harita
+                        // bilgisidir. Kapasite, hasar, erişim ve etkin durum bu
+                        // sicile kasıtlı olarak girmez; PlayerKnowledge yalnız
+                        // bu dar varlık listesini oyuncu yüzeyine açar.
+                        publicPhysicalAssets: (infrastructure.corridors || [])
+                            .filter(row => ['LAND', 'SEA'].includes(row.mode))
+                            .map(row => ({
+                                id: row.id,
+                                mode: row.mode,
+                                endpointRegionIds: (row.endpointRegionIds || []).slice(),
+                                ownerCountryIds: typeof storyInfrastructureEndpointOwners === 'function'
+                                    ? storyInfrastructureEndpointOwners(row) : []
+                            }))
+                            .sort((a, b) => a.id.localeCompare(b.id, 'en')),
                         summary: storyWorldV2Clone(infrastructure.summary),
                         diagnostics: storyWorldV2Clone(infrastructure.diagnostics || null)
                     };
@@ -925,7 +961,7 @@ function storyWorldV2Validate(world, options) {
     }
 
     const collectionNames = STORY_WORLD_V2_TOP_LEVEL.filter(key => [
-        'countries', 'regions', 'characters', 'worldFacts', 'actorBeliefs', 'characterRelationships', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence',
+        'countries', 'regions', 'characters', 'worldFacts', 'actorBeliefs', 'characterRelationships', 'characterActions', 'populationCohorts', 'powerCenters', 'institutions', 'implementationTickets', 'elections', 'mandates', 'integrityCases', 'integrityEvidence',
         'companies', 'mediaOutlets', 'diplomaticEdges', 'markets', 'militaryForces',
         'crises', 'events', 'decisions'
     ].includes(key));
@@ -1040,6 +1076,23 @@ function storyWorldV2Validate(world, options) {
             if (!Number.isInteger(value) || value < 0 || value > 10000) {
                 add('RELATION_AXIS_RANGE', `$.characterRelationships[${i}].${axis}`, `${axis} 0–10000 tamsayı olmalıdır.`);
             }
+        }
+    }
+    for (let i = 0; i < (world.characterActions || []).length; i++) {
+        const receipt = world.characterActions[i];
+        if (!receipt || typeof receipt !== 'object') continue;
+        if (!characterIds.has(receipt.actorId)) {
+            add('BROKEN_REFERENCE', `$.characterActions[${i}].actorId`, `Bilinmeyen eylem aktörü: ${receipt.actorId}`);
+        }
+        if (receipt.targetActorId != null && !characterIds.has(receipt.targetActorId)) {
+            add('BROKEN_REFERENCE', `$.characterActions[${i}].targetActorId`, `Bilinmeyen eylem hedefi: ${receipt.targetActorId}`);
+        }
+        if (typeof STORY_CHARACTER_ACTION_DEFS !== 'undefined'
+            && !STORY_CHARACTER_ACTION_DEFS[receipt.actionType]) {
+            add('CHARACTER_ACTION_TYPE', `$.characterActions[${i}].actionType`, 'Karakter eylem türü geçersiz.');
+        }
+        if (!['APPLIED', 'FAILED'].includes(receipt.status)) {
+            add('CHARACTER_ACTION_STATUS', `$.characterActions[${i}].status`, 'Karakter eylem makbuz durumu geçersiz.');
         }
     }
     const memory = world.memory;

@@ -443,6 +443,24 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
     };
 }
 
+// ── TEDARİK DELTALARINDA TARAF-BAŞI GEÇERSİZ KILMA (tuzak B3) ──
+// ÖLÇÜLDÜ (2026-08-09, tools/pro-delta-denetimi.js): spotter/logistics/airBase deltaları 24 maçın
+// 24'ünde "değişmedi" çıktı ve "ÖLÜ" diye yorumlandı. YANLIŞTI — üçü de GLOBAL BATTLE_INTEL4PRO_DELTAS
+// nesnesini okuyordu, denetim ise taraf-başı BATTLE_INTEL4PRO_DELTAS_RED'i ayarlıyordu. Yani kural
+// ölü değildi, DENETİM KAPATAMIYORDU. Sonuç "ölçülemedi"ye çevrildi.
+// Bu yardımcı YALNIZ delta-geçersiz-kılmayı taraf-duyarlı yapar; etkinleştirme kapısı (config.pro)
+// bilerek DEĞİŞMEDİ — battleProDelta'ya geçmek BATTLE_INTEL4PRO_<taraf> kapısını da devreye sokar ve
+// bu bayrağı set etmeyen mevcut araçların ordularını sessizce değiştirirdi.
+function deploymentProDeltaKapali(key, config) {
+    if (typeof BATTLE_INTEL4PRO_DELTAS === 'undefined') return false;
+    const isRed = !!(config && config.isRed === true);
+    const ov = isRed
+        ? (typeof BATTLE_INTEL4PRO_DELTAS_RED !== 'undefined' ? BATTLE_INTEL4PRO_DELTAS_RED : null)
+        : (typeof BATTLE_INTEL4PRO_DELTAS_BLUE !== 'undefined' ? BATTLE_INTEL4PRO_DELTAS_BLUE : null);
+    if (ov && Object.prototype.hasOwnProperty.call(ov, key)) return ov[key] === false;
+    return BATTLE_INTEL4PRO_DELTAS[key] === false;
+}
+
 // ── INTEL4-PRO 'spotterRequirement': GÖZCÜSÜZ KESKİN NİŞANCI ALINMAZ ──
 // ÖLÇÜLDÜ (tools/balistik-mermi-teshis.js, 6 tohum, normal ordu): balistik füzenin hedefi GEOMETRİK
 // olarak zamanın %100'ünde menzilinde — ama GÖRÜNÜR oranı %0-3. Keşifsiz orduda 4/6 tohumda HİÇ ateş
@@ -455,13 +473,18 @@ function battleBuildArmyFromRecipe(rawBudget, config) {
 // HER İKİ KURUCU YOLA da uygulanır (tarif modu sezgisel zinciri tamamen atlıyor).
 function battleGozcuKuraliUygula(types, spent, remaining, config) {
     if (!(config && config.pro === true)) return;
-    if (typeof battleProDelta === 'function' && typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' &&
-        !BATTLE_INTEL4PRO_DELTAS.spotterRequirement) return;
+    if (deploymentProDeltaKapali('spotterRequirement', config)) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
-    // İKİ AYRI GÖZCÜ SINIFI — çünkü görüş de iki ayrı kanal:
-    //  KARA hedefi: normal keşif (scout/İHA) aydınlatır.
-    //  HAVA hedefi: YALNIZ hava-arama radarı (airRadar) açar — canSee(…, isAir=true) böyle çalışır
-    //               ve rosterde bu bayrağı taşıyan TEK birim counter_battery_radar'dır.
+    // İKİ AYRI GÖZCÜ SINIFI:
+    //  KARA hedefi: normal keşif (scout/İHA) aydınlatır — ama airRadar TAŞIYAN birim kara görüşü VERMEZ.
+    //  HAVA hedefi: DÜZELTME (2026-08-09) — burada eskiden "hava hedefini YALNIZ airRadar açar"
+    //  yazıyordu. YANLIŞ. `canSee` (globals.js:1491-1508) hava için ayrı bir kural işletmez; tek
+    //  özel satır `if (u.airRadar && targetIsAir !== true) continue;` yani "radar birimi KARA
+    //  görüşü sağlamaz" demektir. Hava hedefini HERHANGİ bir dost birim kendi vision'ı içinde görür.
+    //  Ölçümle doğrulandı (26 gerçek maç): helo vuruş anında %81 GÖRÜNÜR durumda.
+    //  Aşağıdaki SAM ölçümü (12 SAM / 6 tohum / 0 atış) YİNE DE GEÇERLİ, ama sebebi tespit değil
+    //  MENZİL-GÖRÜŞ AÇIKLIĞI: SAM 1650px'e atıyor, ordunun toplu görüşü o mesafede bitiyor.
+    //  Radar (2000px görüş) bu açığı kapattığı için kural anlamlı — gerekçe düzeltildi, kural durur.
     // ÖLÇÜLDÜ (tools/sam-teshis.js, 6 tohum): SAM menzili 1650px, görüşü 900px. Düşman uçağı
     // zamanın %21'inde menzilde ama %0'ında GÖRÜNÜR → 12 SAM, 6 tohum, TOPLAM 0 ATIŞ; 8'i tam
     // yükle ölüyor. Orduya 1 hava radarı eklenince: atış 0→8, tam-yükle ölen 8→4 ve düşmanın
@@ -541,7 +564,7 @@ function battleDestekIcinYerAc(types, spent, remaining, maliyet, korunanTipler) 
 // büyük-eşit silahlı birim varsa, orduda en az PRO_LOJISTIK_MIN adet resupply-aura birimi bulunur.
 function battleLojistikKuraliUygula(types, spent, remaining, config) {
     if (!(config && config.pro === true)) return;
-    if (typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' && !BATTLE_INTEL4PRO_DELTAS.logisticsRequirement) return;
+    if (deploymentProDeltaKapali('logisticsRequirement', config)) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
     const kaynakTipleri = [];
     for (const t in STATS) { const st = STATS[t]; if (st && st.aura && st.aura.type === 'resupply') kaynakTipleri.push(Number(t)); }
@@ -583,7 +606,7 @@ function battleLojistikKuraliUygula(types, spent, remaining, config) {
 // us-kurabilen birim (engineer) bulunur.
 function battleUssuKuraliUygula(types, spent, remaining, config) {
     if (!(config && config.pro === true)) return;
-    if (typeof BATTLE_INTEL4PRO_DELTAS !== 'undefined' && !BATTLE_INTEL4PRO_DELTAS.airBaseRequirement) return;
+    if (deploymentProDeltaKapali('airBaseRequirement', config)) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
     // Us kurabilen = 'build_trench'/'fortify' yetenegi olan (rosterde engineer)
     const kurucu = [];
@@ -632,7 +655,35 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
         ? BATTLE_DEPLOY_COMBAT_WEIGHTS
         : BATTLE_DEPLOY_WEIGHTS;
     // ÇEŞİTLİLİK: config.varied ise her maça seed'li doktrin (farklı ama dengeli ordu → öngörülemez)
-    const deployWeights = config.varied ? battleDeploymentVariedWeights(baseWeights) : baseWeights;
+    let deployWeights = config.varied ? battleDeploymentVariedWeights(baseWeights) : baseWeights;
+    // ── HAVA SAVUNMA PAYI ÇARPANI (A/B için; varsayılan 1 = davranış AYNEN eski) ──
+    // ÖLÇÜLDÜ (26 gerçek oyuncu maçı): attack_helo AI kayıplarının %22'si. Konumlandırma hipotezlerinin
+    // İKİSİ DE çürüdü — AD'yi öne sürmek başarısız (adUmbrella 48 maç t=0.20, AD sağkalımı −6.9 puan),
+    // "birimler şemsiyeden çıkıyor" da yok (helo kurbanı %23.1 vs taban %22.5). Geriye kalan: AD ateş
+    // ediyor ama öldüremiyor (149 isabet → 29 helodan 6 ölüm) ve ölümlerin %28'i AI'ın hiç AD'si
+    // kalmamışken oluyor. Denge SABİT (kullanıcı kuralı) → AI'ın kendi elindeki kaldıraç ADET.
+    // Kategori VERİDEN türetilir (elle tip listesi YOK — geçmişte elle liste tam bu sınıfta hata üretti).
+    // TARAF-BASI (tuzak B3): carpan GLOBAL olsaydi iki taraf da ayni orduyu alir, marj SIMETRIK
+    // olarak birbirini goturur ve kaldiracin MAC DEGERI olculemezdi (ilk surumde yasandi, kosu iptal).
+    // AD KAPSAMI: kategori 'air_defense' (spaag/sam) + hava radari + KATEGORISI 'infantry' OLSA DA
+    // hava silahi tasiyan birim (manpads_team) — olcumde vurus aninda en yakin AD 107 vakanin 59'unda
+    // manpads'ti, disarida birakmak kapsamin yarisini kacirirdi. Hepsi VERIDEN turetilir.
+    {
+        const _mult = (config && config.isRed === true)
+            ? (typeof BATTLE_AD_WEIGHT_MULT_RED !== 'undefined' ? BATTLE_AD_WEIGHT_MULT_RED : 1)
+            : (typeof BATTLE_AD_WEIGHT_MULT_BLUE !== 'undefined' ? BATTLE_AD_WEIGHT_MULT_BLUE : 1);
+        if (_mult !== 1) {
+            const havaSilahi = (st) => (st.weapons || []).some(w => Array.isArray(w.targets) && w.targets.includes('air'));
+            const w = { ...deployWeights };
+            for (const t of Object.keys(w)) {
+                const st = STATS[t];
+                if (!st) continue;
+                if (st.category === 'air' || st.category === 'uav') continue;   // ucaklar AD degil
+                if (st.category === 'air_defense' || st.airRadar === true || havaSilahi(st)) w[t] = w[t] * _mult;
+            }
+            deployWeights = w;
+        }
+    }
     const allowedTypes = Object.keys(deployWeights).map(Number)
         .filter(type => STATS[type] && config.excludeTypes?.includes(type) !== true)
         .sort((a, b) => a - b);
@@ -1166,6 +1217,8 @@ function battleAutoDeploySession(config = {}) {
         isAttacker: (config.attackerSide === true),
         // INTEL4-PRO kompozisyon katmanı (kırmızı taraf): AT-tavanı vb. yalnız pro-beyinli tarafta.
         pro: (typeof BATTLE_INTEL4PRO_RED !== 'undefined') && BATTLE_INTEL4PRO_RED === true,
+        // TARAF (tuzak B3): tedarik deltalarının taraf-başı geçersiz kılınması için gerekli.
+        isRed: true,
         // TARİF MODU (FAZ 0): doluysa yukarıdaki sezgisel alanların HİÇBİRİ kullanılmaz — ordu tariften kurulur.
         recipe: (typeof BATTLE_RECIPE_RED !== 'undefined') ? BATTLE_RECIPE_RED : null
     });

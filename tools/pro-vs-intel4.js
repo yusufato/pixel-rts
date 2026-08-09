@@ -8,6 +8,11 @@ const N = Math.max(1, Number(arg('--tohum', 12)) || 12);
 const ATLA = Math.max(0, Number(arg('--atla', 64)) || 0);
 const HAVUZ = []; for (let i = 0; i < 96; i++) HAVUZ.push(100000 + i * 137);
 const TOHUMLAR = HAVUZ.slice(ATLA, ATLA + N);
+// DELTA DENETIMI SONRASI (2026-08-09): 3 delta OLU (spotter/logistics/airBase, 0/24 tetiklenme),
+// 5 delta kapatinca KAZANDIRIYOR (+19..+265, hicbiri tek basina anlamli degil ama HEPSI ayni yonde),
+// heloHunt tek FAYDALI (-406). `--kapat a,b,c` ile pro tarafinda o deltalar kapatilir.
+const KAPAT = (arg('--kapat', '') || '').split(',').map(x => x.trim()).filter(Boolean);
+const KAPAT_OBJ = KAPAT.length ? ('{ ' + KAPAT.map(k => k + ': false').join(', ') + ' }') : 'null';
 const { ctx } = tezgahKur();
 
 // proKirmizi=true -> KIRMIZI pro, MAVI duz intel4.  false -> tersi (taraf yanliligi goturulur)
@@ -18,6 +23,8 @@ function kos(seed, kirmiziSaldiran, proKirmizi) {
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;',
         'BATTLE_INTEL4PRO_RED = ' + (proKirmizi ? 'true' : 'false') + ';',
         'BATTLE_INTEL4PRO_BLUE = ' + (proKirmizi ? 'false' : 'true') + ';',
+        'BATTLE_INTEL4PRO_DELTAS_RED = ' + (proKirmizi ? KAPAT_OBJ : 'null') + ';',
+        'BATTLE_INTEL4PRO_DELTAS_BLUE = ' + (proKirmizi ? 'null' : KAPAT_OBJ) + ';',
         'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;',
         'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;',
         'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;',
@@ -40,6 +47,7 @@ function kos(seed, kirmiziSaldiran, proKirmizi) {
 }
 
 console.log('INTEL4-PRO vs INTEL4 — ' + TOHUMLAR.length + ' tohum x 2 rol x 2 taraf = ' + (TOHUMLAR.length * 4) + ' mac');
+console.log('  kapatilan delta: ' + (KAPAT.length ? KAPAT.join(',') : '(yok)'));
 console.log('  tohumlar ' + TOHUMLAR[0] + '..' + TOHUMLAR[TOHUMLAR.length - 1] + '  (bugunku 6 motor degisikliginden SONRA)');
 console.log('');
 const proMarj = []; let proGalip = 0, mac = 0;

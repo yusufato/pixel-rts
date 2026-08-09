@@ -552,7 +552,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'characterIdentities', 'characterRelationships', 'characterMemory', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'characterIdentities', 'characterRelationships', 'characterMemory', 'characterActions', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);
@@ -624,7 +624,7 @@ function storyMigrationV3RawToV2(raw, options) {
     const world = {
         meta: {
             schemaVersion: STORY_WORLD_V2_SCHEMA_VERSION,
-            adapterVersion: 'legacy-save-v3-to-v2-9',
+            adapterVersion: 'legacy-save-v3-to-v2-10',
             campaignId: `story:${seed == null ? 'legacy' : seed}:${playerStateId}`,
             seed,
             engineVersions: {
@@ -677,6 +677,23 @@ function storyMigrationV3RawToV2(raw, options) {
             storyMigrationClone(edge),
             { entityType: 'CHARACTER_RELATIONSHIP' }
         )).sort((a, b) => a.id.localeCompare(b.id, 'en')),
+        characterActions: Object.values(storyMigrationObject(
+            storyMigrationObject(save.characterActions).receipts
+        )).map(receipt => Object.assign(
+            storyMigrationBase(
+                String(receipt.id),
+                receipt.actorCountryId == null ? null : String(receipt.actorCountryId),
+                storyMigrationNumber(receipt.createdAt, clock),
+                receipt.causality && receipt.causality.eventId
+            ),
+            storyMigrationClone(receipt),
+            {
+                entityType: 'CHARACTER_ACTION_RECEIPT',
+                updatedAt: storyMigrationNumber(receipt.completedAt, clock),
+                version: Math.max(1, Number(receipt.version) || 1)
+            }
+        )).sort((a, b) => Number(a.sequence) - Number(b.sequence)
+            || a.id.localeCompare(b.id, 'en')),
         populationCohorts,
         powerCenters: Object.values(savedPowerCenterRows).map(center => Object.assign(
             storyMigrationBase(String(center.id), center.countryId == null ? null : String(center.countryId), storyMigrationNumber(center.foundedAt, 0)),

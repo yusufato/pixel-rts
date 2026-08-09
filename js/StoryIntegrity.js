@@ -145,6 +145,9 @@ function storyIntegrityAddEvidence(ledger, caseRow, spec) {
     storyIntegrityRecordEvent(ledger, 'EVIDENCE_ATTACHED', {
         caseId: caseRow.id, evidenceId: row.id, type: row.type, public: row.public
     });
+    if (typeof storyMemoryRecordPrivateIntegrityEvidence === 'function') {
+        storyMemoryRecordPrivateIntegrityEvidence(caseRow, row);
+    }
     return row;
 }
 function storyIntegrityCreateCase(ledger, spec) {

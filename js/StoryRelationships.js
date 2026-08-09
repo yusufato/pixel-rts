@@ -160,8 +160,9 @@ function storyRelationshipView(fromActorId, toActorId) {
 }
 function storyRelationshipEnsureEdge(fromActorId, toActorId, reason) {
     const ledger = storyRelationshipEnsure();
-    const identities = typeof storyCharacterIdentityEnsure === 'function'
-        ? storyCharacterIdentityEnsure().identities : {};
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const identities = identityLedger && identityLedger.identities || {};
     const edge = ledger && storyRelationshipConnect(ledger, identities[fromActorId], identities[toActorId], reason);
     return edge || null;
 }
@@ -188,7 +189,28 @@ function storyRelationshipAdjust(fromActorId, toActorId, deltas, meta) {
     });
     if (edge.history.length > 24) edge.history.splice(0, edge.history.length - 24);
     ledger.revision++;
-    return { applied: true, edge: storyRelationshipClone(edge) };
+    let debtMemory = null;
+    if (before.debtBps !== after.debtBps && (!meta || meta.recordDebtMemory !== false)
+        && typeof storyMemoryRecordRelationshipDebt === 'function') {
+        debtMemory = storyMemoryRecordRelationshipDebt({
+            relationshipId: edge.id,
+            debtorActorId: edge.fromActorId,
+            creditorActorId: edge.toActorId,
+            beforeDebtBps: before.debtBps,
+            afterDebtBps: after.debtBps,
+            summary: meta && meta.debtSummary,
+            source: {
+                relationshipHistoryVersion: edge.version,
+                source: String(meta && meta.source || 'UNKNOWN'),
+                reason: String(meta && meta.reason || 'RELATION_CHANGED'),
+                sourceEventId: meta && meta.sourceEventId != null ? Number(meta.sourceEventId) : null,
+                sourceReceiptId: meta && meta.sourceReceiptId != null ? String(meta.sourceReceiptId) : null,
+                talkUid: meta && meta.talkUid != null ? Number(meta.talkUid) : null,
+                talkTemplateId: meta && meta.talkTemplateId != null ? String(meta.talkTemplateId) : null
+            }
+        });
+    }
+    return { applied: true, edge: storyRelationshipClone(edge), debtMemory };
 }
 
 const STORY_RELATIONSHIP_ORIGIN_TAG_DELTAS = Object.freeze({
@@ -212,7 +234,8 @@ function storyRelationshipApplyOriginProfile(profile) {
         const result = storyRelationshipAdjust(observer.id, profile.actorId, aggregate, {
             source: 'character.creation_profile',
             reason: 'ORIGIN_REPUTATION',
-            sourceEventId: profile.decisions[profile.decisions.length - 1].originEventId
+            sourceEventId: profile.decisions[profile.decisions.length - 1].originEventId,
+            recordDebtMemory: false
         });
         if (result.applied) changed++;
     }

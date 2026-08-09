@@ -238,6 +238,93 @@ function storyPoliticalCrisisRegionalControl(state, crisis, assessment) {
         };
     }).sort((a, b) => a.regionId.localeCompare(b.regionId, 'en'));
 }
+
+function storyPoliticalCrisisMemoryOpen(state, crisis) {
+    if (typeof storyMemoryOpenEpisode !== 'function' || !crisis || !crisis.leadActorId) return null;
+    const participants = Array.from(new Set([
+        crisis.leadActorId,
+        (crisis.loyalistActorIds || [])[0]
+    ].filter(Boolean)));
+    const id = `character-memory:political-crisis:${crisis.id}`;
+    const opened = storyMemoryOpenEpisode({
+        id,
+        topicKey: `political-crisis:${crisis.id}`,
+        participantActorIds: participants,
+        summary: `${storyPoliticalCrisisActorName(state, crisis.leadActorId)} çevresinde askerî iktidar krizi başladı.`,
+        unresolvedTopic: 'Koalisyonun dağılacağı, uzlaşacağı veya yönetime el koymaya kalkışacağı henüz belli değil.',
+        importanceBps: 9300,
+        source: { politicalCrisisId: crisis.id, countryId: crisis.countryId, eventType: 'CRISIS_OPENED' }
+    });
+    return opened && opened.episode ? opened.episode.id : (opened && opened.duplicate ? id : null);
+}
+
+function storyPoliticalCrisisMemoryRecordAction(state, crisis, history) {
+    if (typeof storyMemoryOpenEpisode !== 'function' || typeof storyMemoryResolveEpisode !== 'function') return null;
+    const participants = Array.from(new Set([history.actorId, history.targetActorId].filter(Boolean)));
+    if (!participants.length) return null;
+    const actionLabels = {
+        NEGOTIATE: 'Doğrudan müzakere',
+        SECURE_COMMAND: 'Komuta zincirini güvenceye alma',
+        PUBLIC_ACCOUNT: 'Kamu önünde hesap verme',
+        WAIT_AND_WATCH: 'Müdahale etmeden gözlem'
+    };
+    const id = `character-memory:political-crisis-action:${crisis.id}:${history.sequence}`;
+    const label = actionLabels[history.actionId] || history.actionId;
+    const opened = storyMemoryOpenEpisode({
+        id, topicKey: `political-crisis-action:${history.actionId}`,
+        participantActorIds: participants,
+        summary: `${label}: ${participants.map(actorId => storyPoliticalCrisisActorName(state, actorId)).join(' ↔ ')}`,
+        unresolvedTopic: 'Karşı hamlenin kriz üzerindeki etkisi uygulanıyor.',
+        importanceBps: 8500,
+        source: {
+            politicalCrisisId: crisis.id, actionSequence: history.sequence,
+            actionId: history.actionId, resultCode: history.resultCode
+        }
+    });
+    const episodeId = opened && opened.episode ? opened.episode.id : (opened && opened.duplicate ? id : null);
+    if (episodeId) storyMemoryResolveEpisode(
+        episodeId,
+        `${label} tamamlandı: ${history.resultCode}. Hazırlık ${history.before.preparationBps}→${history.after.preparationBps}, karşı güç ${history.before.counterBps}→${history.after.counterBps}.`
+    );
+    return episodeId;
+}
+
+function storyPoliticalCrisisMemoryResolve(state, crisis) {
+    if (crisis.memoryEpisodeId && typeof storyMemoryResolveEpisode === 'function') {
+        storyMemoryResolveEpisode(
+            crisis.memoryEpisodeId,
+            `Siyasi kriz ${crisis.resultCode || crisis.status} sonucuyla kapandı.`
+        );
+    }
+    if (!['SUCCESS', 'FAILED', 'SPLIT'].includes(crisis.status)
+        || !crisis.leadActorId || typeof storyMemoryAddMilestone !== 'function') return null;
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const identities = identityLedger && identityLedger.identities || {};
+    const publicHolders = Object.values(identities)
+        .filter(row => row.countryId === crisis.countryId).map(row => row.id).sort();
+    const privateHolders = Array.from(new Set([
+        crisis.leadActorId,
+        ...(crisis.plotterActorIds || []),
+        ...(crisis.loyalistActorIds || [])
+    ].filter(actorId => identities[actorId]))).sort();
+    const holders = crisis.publicExposure ? publicHolders : privateHolders;
+    if (!holders.length) return null;
+    return storyMemoryAddMilestone({
+        id: `character-memory:political-crisis-betrayal:${crisis.id}`,
+        kind: 'BETRAYAL', subjectActorId: crisis.leadActorId,
+        holderActorIds: holders,
+        relatedActorIds: Array.from(new Set((crisis.plotterActorIds || []).concat(crisis.loyalistActorIds || [])))
+            .filter(actorId => actorId !== crisis.leadActorId && identities[actorId]).sort(),
+        summary: `${storyPoliticalCrisisActorName(state, crisis.leadActorId)} öncülüğündeki koalisyon yönetime el koymayı denedi; sonuç ${crisis.resultCode}.`,
+        status: ['SUCCESS', 'SPLIT'].includes(crisis.status) ? 'ACTIVE' : 'RESOLVED',
+        importanceBps: 10000, recordRecent: false,
+        source: {
+            politicalCrisisId: crisis.id, resultCode: crisis.resultCode,
+            outcomeScoreBps: crisis.outcomeScoreBps, publicExposure: !!crisis.publicExposure
+        }
+    });
+}
 function storyPoliticalCrisisOpen(ledger, state, assessment) {
     const countryId = assessment.countryId;
     const country = ledger.countries[countryId];
@@ -275,6 +362,7 @@ function storyPoliticalCrisisOpen(ledger, state, assessment) {
         counterAfterBps: crisis.counterBps,
         reasonCodes: Object.keys(assessment.factors).filter(key => assessment.factors[key] === true || Number(assessment.factors[key]) >= 6000)
     });
+    crisis.memoryEpisodeId = storyPoliticalCrisisMemoryOpen(state, crisis);
     return crisis;
 }
 function storyPoliticalCrisisStage(preparationBps) {
@@ -328,6 +416,7 @@ function storyPoliticalCrisisResolve(ledger, state, country, crisis, assessment)
         physicalGovernmentMutation: success,
         physicalTerritorialMutation: false
     });
+    storyPoliticalCrisisMemoryResolve(state, crisis);
     if (state.isPlayer && typeof storyFlash === 'function') {
         storyFlash(success
             ? `🔥 ${storyPoliticalCrisisActorName(state, crisis.leadActorId)} öncülüğündeki girişim yönetimi ele geçirdi.`
@@ -355,6 +444,7 @@ function storyPoliticalCrisisAdvance(ledger, state, country, crisis, assessment,
             storyPoliticalCrisisRecordEvent(ledger, 'CRISIS_RESOLVED', crisis, {
                 resultCode: crisis.resultCode, physicalGovernmentMutation: false, physicalTerritorialMutation: false
             });
+            storyPoliticalCrisisMemoryResolve(state, crisis);
             return;
         }
     } else {
@@ -473,6 +563,7 @@ function storyPoliticalCrisisAct(countryId, actionId, options) {
     crisis.actionHistory.push(history);
     if (crisis.actionHistory.length > STORY_POLITICAL_CRISIS_POLICY.maximumActionsPerCrisis) crisis.actionHistory.shift();
     storyPoliticalCrisisRecordEvent(ledger, 'COUNTERACTION_RECORDED', crisis, history);
+    history.memoryEpisodeId = storyPoliticalCrisisMemoryRecordAction(state, crisis, history);
     if (options.save !== false && typeof storySave === 'function') storySave();
     return { ok: true, crisis: storyPoliticalCrisisClone(crisis), action: storyPoliticalCrisisClone(history) };
 }

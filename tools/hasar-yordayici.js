@@ -38,7 +38,7 @@ const ADAYLAR = {
     'birim sayisi':               { tip: 'oran', f: (us) => us.length },
     'Lanchester D (dps)':         { tip: 'oran', ozel: 'lanchester' },
     'menzil-agirlikli deger':     { tip: 'oran', f: (us) => us.reduce((a, u) => a + (ST[u.type].cost || 0) * (u.hp / Math.max(1, u.maxHp)) * (ST[u.type].menzil || 0), 0) },
-    'ates edebilen birim':        { tip: 'fark', f: (us) => us.filter(u => u.attackTargetId != null).length },
+    'ates edebilen birim':        { tip: 'fark', f: (us) => us.filter(u => u.attackTargetId).length },   // SOZLESME: 0 = hedef YOK (eski `!= null` tum birimleri sayiyordu)
     'temastaki birim (<1200px)':  { tip: 'fark', ozel: 'temas' },
     'dolayli-ates birimi sayisi': { tip: 'fark', f: (us) => us.filter(u => (ST[u.type].weapons || []).some(w => w.indirect)).length },
     'siperde/ormanda birim':      { tip: 'fark', f: (us) => us.filter(u => u.inTrench || u.inForest).length },

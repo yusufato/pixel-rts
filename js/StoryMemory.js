@@ -15,6 +15,9 @@ const STORY_CHARACTER_MEMORY_POLICY_HASH = 'fnv1a32:phase36-three-layer-memory-1
 const STORY_CHARACTER_MEMORY_RECENT_CAP = 24;
 const STORY_CHARACTER_MEMORY_SUMMARY_CAP = 12;
 const STORY_CHARACTER_MEMORY_RESOLVED_EPISODE_CAP = 48;
+const STORY_CHARACTER_MEMORY_OPEN_EPISODE_CAP = 64;
+const STORY_CHARACTER_MEMORY_MILESTONE_CAP = 2048;
+const STORY_CHARACTER_MEMORY_SERIALIZED_CHAR_CAP = 4000000;
 
 const STORY_CHARACTER_MEMORY_KINDS = Object.freeze([
     'ORIGIN', 'CONVERSATION', 'PROMISE', 'SECRET', 'BETRAYAL', 'DEBT',
@@ -71,6 +74,9 @@ function storyMemoryLedgerCreate(options) {
             recentCap: STORY_CHARACTER_MEMORY_RECENT_CAP,
             summaryCap: STORY_CHARACTER_MEMORY_SUMMARY_CAP,
             resolvedEpisodeCap: STORY_CHARACTER_MEMORY_RESOLVED_EPISODE_CAP,
+            openEpisodeCap: STORY_CHARACTER_MEMORY_OPEN_EPISODE_CAP,
+            milestoneCap: STORY_CHARACTER_MEMORY_MILESTONE_CAP,
+            serializedCharCap: STORY_CHARACTER_MEMORY_SERIALIZED_CHAR_CAP,
             inventedFacts: false,
             llmWrites: false
         }
@@ -163,6 +169,10 @@ function storyMemoryOpenEpisode(input) {
     }
     const id = String(input.id || storyMemoryNextId(ledger, 'episode'));
     if (ledger.episodes[id]) return { applied: false, duplicate: true, episode: storyMemoryClone(ledger.episodes[id]) };
+    const openCount = Object.values(ledger.episodes).filter(row => row && row.status === 'OPEN').length;
+    if (openCount >= STORY_CHARACTER_MEMORY_OPEN_EPISODE_CAP) {
+        return { applied: false, reason: 'OPEN_EPISODE_BUDGET_EXHAUSTED' };
+    }
     const episode = {
         id,
         layer: 'EPISODE',
@@ -244,6 +254,9 @@ function storyMemoryAddMilestone(input) {
     }
     const id = String(input.id || storyMemoryNextId(ledger, 'milestone'));
     if (ledger.milestones[id]) return { applied: false, duplicate: true, milestone: storyMemoryClone(ledger.milestones[id]) };
+    if (Object.keys(ledger.milestones).length >= STORY_CHARACTER_MEMORY_MILESTONE_CAP) {
+        return { applied: false, reason: 'MILESTONE_BUDGET_EXHAUSTED' };
+    }
     const kind = STORY_CHARACTER_MEMORY_KINDS.includes(String(input.kind || '').toUpperCase())
         ? String(input.kind).toUpperCase() : 'OTHER';
     const status = STORY_CHARACTER_MEMORY_MILESTONE_STATUS.includes(String(input.status || '').toUpperCase())
@@ -292,6 +305,133 @@ function storyMemoryResolveMilestone(milestoneId, status) {
     milestone.resolvedAt = storyMemoryNow();
     milestone.version = Math.max(1, Number(milestone.version) || 1) + 1;
     return { applied: true, milestone: storyMemoryClone(milestone) };
+}
+
+// Aynı konuşma şablonunda aynı kişiye tekrar verilen açık söz, yeni ve
+// sınırsız mihenk taşları üretmez. Tek kaynaklı söz güncellenir; tekrarın
+// kendisi yakın hafızaya ayrı bir kayıt olarak düşer.
+function storyMemoryRecordPromise(input) {
+    const ledger = storyMemoryEnsure();
+    input = input || {};
+    const subjectActorId = String(input.subjectActorId || '');
+    const relatedActorId = String(input.relatedActorId || '');
+    const templateId = String(input.talkTemplateId || 'general');
+    const id = `character-memory:promise:${storyMemorySafeToken(templateId)}:${storyMemorySafeToken(subjectActorId)}:${storyMemorySafeToken(relatedActorId)}`;
+    const existing = ledger && ledger.milestones[id];
+    if (!existing) {
+        return storyMemoryAddMilestone({
+            id, kind: 'PROMISE', subjectActorId,
+            holderActorIds: [subjectActorId, relatedActorId].filter(Boolean),
+            relatedActorIds: [relatedActorId].filter(Boolean),
+            summary: String(input.summary || 'Verilen söz kayda geçti.'),
+            status: 'OPEN', importanceBps: input.importanceBps == null ? 9500 : input.importanceBps,
+            dueAt: input.dueAt,
+            source: storyMemoryClone(input.source || {})
+        });
+    }
+    existing.summary = String(input.summary || existing.summary);
+    existing.status = 'OPEN';
+    existing.resolvedAt = null;
+    existing.dueAt = Number.isFinite(Number(input.dueAt)) ? Number(input.dueAt) : existing.dueAt;
+    existing.source = storyMemoryClone(input.source || existing.source || {});
+    existing.version = Math.max(1, Number(existing.version) || 1) + 1;
+    for (const holderActorId of existing.holderActorIds) {
+        storyMemoryAddRecent(holderActorId, {
+            id: `character-memory:promise-repeat:${storyMemorySafeToken(id)}:${existing.version}:${storyMemorySafeToken(holderActorId)}`,
+            kind: 'PROMISE', summary: existing.summary, importanceBps: 8500,
+            relatedActorIds: [subjectActorId, relatedActorId].filter(actorId => actorId && actorId !== holderActorId),
+            source: Object.assign({}, existing.source, { milestoneId: id })
+        });
+    }
+    return { applied: true, updated: true, milestone: storyMemoryClone(existing) };
+}
+
+// Borç yalnız yönlü ilişki defterindeki gerçek debtBps değişiminden doğar.
+// Aynı A→B yükümlülüğü tek bir kalıcı mihenk taşında güncellenir; böylece
+// her ödeme ayrı bir sahte "borç" çoğaltmaz ve borç sıfırlansa bile tarihçe
+// tamamen unutulmaz.
+function storyMemoryRecordRelationshipDebt(input) {
+    const ledger = storyMemoryEnsure();
+    input = input || {};
+    const identities = storyMemoryIdentityMap();
+    const debtorActorId = String(input.debtorActorId || '');
+    const creditorActorId = String(input.creditorActorId || '');
+    if (!ledger || !identities[debtorActorId] || !identities[creditorActorId]
+        || debtorActorId === creditorActorId) {
+        return { applied: false, reason: 'CANONICAL_DEBT_ACTORS_REQUIRED' };
+    }
+    const beforeDebtBps = storyMemoryClampBps(input.beforeDebtBps);
+    const afterDebtBps = storyMemoryClampBps(input.afterDebtBps);
+    if (beforeDebtBps === afterDebtBps) return { applied: false, reason: 'DEBT_UNCHANGED' };
+    const relationshipId = String(input.relationshipId || `${debtorActorId}=>${creditorActorId}`);
+    const id = `character-memory:debt:${storyMemorySafeToken(relationshipId)}`;
+    const summary = String(input.summary
+        || `${debtorActorId} aktörünün ${creditorActorId} aktörüne yükümlülüğü ${afterDebtBps} bps oldu.`);
+    const source = Object.assign({}, storyMemoryClone(input.source || {}), { relationshipId });
+    const existing = ledger.milestones[id];
+    if (!existing) {
+        const created = storyMemoryAddMilestone({
+            id, kind: 'DEBT', subjectActorId: debtorActorId,
+            holderActorIds: [debtorActorId, creditorActorId],
+            relatedActorIds: [creditorActorId], summary,
+            status: afterDebtBps > 0 ? 'OPEN' : 'RESOLVED',
+            importanceBps: Math.max(7500, afterDebtBps), source
+        });
+        return Object.assign({}, created, { beforeDebtBps, afterDebtBps });
+    }
+    existing.summary = summary;
+    existing.status = afterDebtBps > 0 ? 'OPEN' : 'RESOLVED';
+    existing.importanceBps = Math.max(7500, afterDebtBps);
+    existing.resolvedAt = afterDebtBps > 0 ? null : storyMemoryNow();
+    existing.source = source;
+    existing.version = Math.max(1, Number(existing.version) || 1) + 1;
+    for (const holderActorId of existing.holderActorIds) {
+        storyMemoryAddRecent(holderActorId, {
+            id: `character-memory:debt-change:${storyMemorySafeToken(id)}:${existing.version}:${storyMemorySafeToken(holderActorId)}`,
+            kind: 'DEBT', summary, importanceBps: Math.min(8500, existing.importanceBps),
+            relatedActorIds: [debtorActorId, creditorActorId].filter(actorId => actorId !== holderActorId),
+            source: Object.assign({}, source, { milestoneId: id })
+        });
+    }
+    return { applied: true, updated: true, milestone: storyMemoryClone(existing), beforeDebtBps, afterDebtBps };
+}
+
+// Gizli bilgi, salt bir iddia veya LLM metni değildir. Yalnız kanonik bir
+// bütünlük dosyasındaki kamuya kapalı, iddiayı destekleyen ve hem özgünlüğü
+// hem ilgisi yüksek bir kanıt bu kapıdan SECRET olabilir.
+function storyMemoryRecordPrivateIntegrityEvidence(caseRow, evidence) {
+    const ledger = storyMemoryEnsure();
+    const identities = storyMemoryIdentityMap();
+    if (!ledger || !caseRow || !evidence || evidence.public
+        || evidence.direction !== 'SUPPORTS'
+        || Number(evidence.authenticityBps) < 8000
+        || Number(evidence.relevanceBps) < 8000) {
+        return { applied: false, reason: 'CONFIRMED_PRIVATE_EVIDENCE_REQUIRED' };
+    }
+    let subjectActorId = caseRow.subjectActorId ? String(caseRow.subjectActorId) : '';
+    if (!identities[subjectActorId] && caseRow.beneficiaryCompanyId) {
+        const companyActorId = `character:company-executive:${String(caseRow.beneficiaryCompanyId)}`;
+        if (identities[companyActorId]) subjectActorId = companyActorId;
+    }
+    if (!identities[subjectActorId]) return { applied: false, reason: 'EVIDENCE_SUBJECT_REQUIRED' };
+    const countryToken = String(caseRow.countryId || '').replace(/^country:/, '');
+    const preferredHolderId = `character:${countryToken}:agent:domestic`;
+    const holderActorId = identities[preferredHolderId]
+        ? preferredHolderId
+        : Object.values(identities).filter(row => row.countryId === caseRow.countryId && row.role === 'AGENT')
+            .sort((a, b) => String(a.id).localeCompare(String(b.id), 'en'))[0]?.id;
+    if (!holderActorId) return { applied: false, reason: 'INTELLIGENCE_HOLDER_REQUIRED' };
+    return storyMemoryAddMilestone({
+        id: `character-memory:integrity-secret:${storyMemorySafeToken(evidence.id)}`,
+        kind: 'SECRET', subjectActorId, holderActorIds: [holderActorId],
+        relatedActorIds: [subjectActorId].filter(id => id !== holderActorId),
+        summary: `${String(caseRow.kind || 'BÜTÜNLÜK_DOSYASI')}: ${String(evidence.summaryCode || evidence.type)}`,
+        status: 'ACTIVE', importanceBps: Math.max(9000, Number(evidence.relevanceBps) || 0),
+        source: {
+            integrityCaseId: String(caseRow.id), integrityEvidenceId: String(evidence.id),
+            sourceId: String(evidence.sourceId || ''), sourceKind: String(evidence.sourceKind || '')
+        }
+    });
 }
 
 function storyMemorySeedOriginFacts() {
@@ -372,6 +512,10 @@ function storyMemoryValidate(candidate) {
             || episode.participantActorIds.some(actorId => !identities[actorId])) add('EPISODE_PARTICIPANTS', `${at}.participantActorIds`, 'Konuşma katılımcısı bulunamadı.');
         if (episode && episode.status === 'OPEN' && !episode.unresolvedTopic) add('EPISODE_OPEN_TOPIC', `${at}.unresolvedTopic`, 'Açık bölüm çözülmemiş konu taşımalı.');
     }
+    const openEpisodeCount = Object.values(candidate.episodes || {}).filter(row => row && row.status === 'OPEN').length;
+    const resolvedEpisodeCount = Object.values(candidate.episodes || {}).filter(row => row && row.status === 'RESOLVED').length;
+    if (openEpisodeCount > STORY_CHARACTER_MEMORY_OPEN_EPISODE_CAP) add('OPEN_EPISODE_CAP', '$.episodes', 'Açık bölüm tavanı aşıldı.');
+    if (resolvedEpisodeCount > STORY_CHARACTER_MEMORY_RESOLVED_EPISODE_CAP) add('RESOLVED_EPISODE_CAP', '$.episodes', 'Çözülmüş bölüm tavanı aşıldı.');
     for (const [id, milestone] of Object.entries(candidate.milestones || {})) {
         const at = `$.milestones.${id}`;
         if (!milestone || milestone.id !== id || milestone.layer !== 'MILESTONE' || milestone.permanent !== true) add('MILESTONE_ID', at, 'Mihenk taşı kimliği/kalıcılığı geçersiz.');
@@ -379,7 +523,46 @@ function storyMemoryValidate(candidate) {
         if (!Array.isArray(milestone && milestone.holderActorIds) || milestone.holderActorIds.some(actorId => !identities[actorId])) add('MILESTONE_HOLDERS', `${at}.holderActorIds`, 'Mihenk taşı bilen aktörleri geçersiz.');
         if (!STORY_CHARACTER_MEMORY_MILESTONE_STATUS.includes(milestone && milestone.status)) add('MILESTONE_STATUS', `${at}.status`, 'Mihenk taşı durumu geçersiz.');
     }
+    if (Object.keys(candidate.milestones || {}).length > STORY_CHARACTER_MEMORY_MILESTONE_CAP) {
+        add('MILESTONE_CAP', '$.milestones', 'Kalıcı mihenk taşı tavanı aşıldı.');
+    }
+    if (JSON.stringify(candidate).length > STORY_CHARACTER_MEMORY_SERIALIZED_CHAR_CAP) {
+        add('SERIALIZED_SIZE_CAP', '$', 'Karakter hafıza defteri serileştirme bütçesini aştı.');
+    }
     return { ok: issues.length === 0, issues };
+}
+
+function storyMemorySummary() {
+    const ledger = storyMemoryEnsure();
+    if (!ledger) return { disabled: true };
+    const recentCounts = Object.values(ledger.recentByActor || {}).map(rows => rows.length);
+    const summaryCounts = Object.values(ledger.summariesByActor || {}).map(rows => rows.length);
+    const episodes = Object.values(ledger.episodes || {});
+    const milestones = Object.values(ledger.milestones || {});
+    const milestoneKinds = {};
+    for (const row of milestones) milestoneKinds[row.kind] = (milestoneKinds[row.kind] || 0) + 1;
+    return {
+        schemaVersion: ledger.schemaVersion,
+        adapterVersion: ledger.adapterVersion,
+        actorCountWithRecent: recentCounts.length,
+        recentCount: recentCounts.reduce((sum, value) => sum + value, 0),
+        maxRecentPerActor: recentCounts.length ? Math.max(...recentCounts) : 0,
+        summaryCount: summaryCounts.reduce((sum, value) => sum + value, 0),
+        maxSummaryPerActor: summaryCounts.length ? Math.max(...summaryCounts) : 0,
+        openEpisodeCount: episodes.filter(row => row.status === 'OPEN').length,
+        resolvedEpisodeCount: episodes.filter(row => row.status === 'RESOLVED').length,
+        milestoneCount: milestones.length,
+        milestoneKinds,
+        serializedChars: JSON.stringify(ledger).length,
+        budgets: {
+            recentPerActor: STORY_CHARACTER_MEMORY_RECENT_CAP,
+            summaryPerActor: STORY_CHARACTER_MEMORY_SUMMARY_CAP,
+            openEpisodes: STORY_CHARACTER_MEMORY_OPEN_EPISODE_CAP,
+            resolvedEpisodes: STORY_CHARACTER_MEMORY_RESOLVED_EPISODE_CAP,
+            milestones: STORY_CHARACTER_MEMORY_MILESTONE_CAP,
+            serializedChars: STORY_CHARACTER_MEMORY_SERIALIZED_CHAR_CAP
+        }
+    };
 }
 
 function storyMemoryReset(options) {
