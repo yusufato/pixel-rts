@@ -684,6 +684,26 @@ function battleBuildArmyManifest(rawBudget, config = {}) {
             deployWeights = w;
         }
     }
+    // ── INTEL4-PRO 'heloMass': SALDIRI HELİKOPTERİ KÜTLESİ (ölçülmüş insan üstünlüğü) ──
+    // KAYNAK ÖLÇÜM (26 gerçek oyuncu maçı, BattleExploiters.js başlığı): attack_helo AI kayıplarının
+    // **%22'si** — tek kalemde en büyük katil. Sömürü görünmezlik değil MENZİL DIŞI KALMAK: insanın
+    // medyan duruş mesafesi 1188px; manpads(825)/spaag(975) yetişmiyor, yalnız SAM(1650) yetişiyor ve
+    // vakaların ancak beşte birinde SAM var. Uçuş disiplini `helo_harass` botunda zaten yazılı.
+    // BOŞLUK (ölçüldü, 48 ordu): AI ordu başına yalnız **0.48** attack_helo alıyor — yani insanın en
+    // büyük kozunu neredeyse hiç kullanmıyor. Disiplini tek başına açmak bu yüzden bağlamadı (23/48).
+    // Bu delta yalnız AĞIRLIĞI çarpar; bütçe/tavan/tarif kuralları aynen işler (para bir yerden gelir,
+    // yani başka birimden kısılır — bedava kuvvet DEĞİL, kompozisyon tercihi).
+    if (typeof battleProDelta === 'function' && battleProDelta(config && config.isRed === true, 'heloMass')) {
+        const _hm = (typeof PRO_HELO_WEIGHT_MULT !== 'undefined') ? PRO_HELO_WEIGHT_MULT : 3;
+        const w = { ...deployWeights };
+        for (const t of Object.keys(w)) {
+            const st = STATS[t];
+            if (!st || st.category !== 'air') continue;
+            if (!(st.weapons || []).some(x => Array.isArray(x.targets) && x.targets.includes('ground'))) continue;   // yalnız KARA vurabilen saldırı helosu
+            w[t] = w[t] * _hm;
+        }
+        deployWeights = w;
+    }
     const allowedTypes = Object.keys(deployWeights).map(Number)
         .filter(type => STATS[type] && config.excludeTypes?.includes(type) !== true)
         .sort((a, b) => a - b);

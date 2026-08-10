@@ -20,14 +20,122 @@
 // dünyayı hızlandırıp dengeyi bozduğunu gösterdi: 900sn'de ortalama şehir 9.0 → 5.5,
 // üç devletin refahı sıfırlandı. Tank görünürlüğü sorununu çözen şey maliyet değil,
 // kilit YAPISIydı (aşağıdaki PROD_UNLOCK notuna bakınız).
-const FACTORY_COST = [260, 480, 900];    // fabrika pahalı: ağır sanayi
-const BARRACKS_COST = [150, 300, 560];   // kışla ucuz: piyade altyapısı
 const PROD_MAX_LEVEL = 3;
 
-// Fabrika = paletli/zırhlı sınıf. Kalan her şey kışlada üretilir.
-const FACTORY_TYPES = [T.ARMOR, T.ANTI_TANK, T.ARMOR_INFANTRY];
-function prodBuildingFor(type) { return FACTORY_TYPES.indexOf(type) >= 0 ? 'fac' : 'bar'; }
-function prodBuildingName(kind) { return kind === 'fac' ? 'Fabrika' : 'Kışla'; }
+// ═══ ALTI ASKERİ BİNA + BAĞIMLILIK GRAFİĞİ (kullanıcı kararı, 2026-08-10) ═══
+// GEREKÇE: iki bina (kışla/fabrika) 26 birimlik roster için fazla dardı — her şey aynı iki kilide
+// bağlıydı ve "hava üssü olmadan saldırı helikopteri" gibi anlamsız durumlar oluşuyordu.
+// BAĞIMLILIK: binalar birbirine bağlı bir yapı kurar — sanayi olmadan topçu parkı, ağır sanayi
+// olmadan hava üssü kurulamaz. Böylece şehir gelişimi bir SIRA izler, her şey paralel açılmaz.
+//
+// ÖLÇÜLMÜŞ RİSK (dürüstlük notu): 152 şehirde yalnız 4'ünde Sv.3 kışla, 8'inde Sv.3 fabrika vardı.
+// Yatırımı 2 binadan 6'ya bölmek üst kademeyi DAHA DA nadirleştirebilir. Bağımlılık grafiği bunu
+// kısmen dengeler (yatırım sıraya girer, dağılmaz) ama etkisi ÖLÇÜLMELİ:
+// tools/hikaye-roster-kapsama.js ile "sahaya çıkan tip sayısı" öncesi/sonrası karşılaştırılır.
+const PROD_BUILDINGS = {
+    bar: { ad: 'Kışla',                 ikon: '🎖️', maliyet: [150, 300, 560] },
+    fac: { ad: 'Fabrika',               ikon: '🏭', maliyet: [260, 480, 900] },
+    // İHTİSAS BİNALARI: KURMAK UCUZ, ÖLÇEKLEMEK PAHALI.
+    // ÖLÇÜLDÜ (900 sn, 152 şehir): ilk maliyetler kışla/fabrika bandındayken hava üssü 0, topçu parkı 3,
+    // hava savunma 2 şehirde kalıyordu — ön koşul binaları (kışla+fabrika) bütçeyi bitiriyor, ihtisas
+    // binasına sıra hiç gelmiyordu. Bir hava savunma MEVZİİ kurmanın ağır sanayi kadar pahalı olması
+    // zaten yanlıştı: mevzi/park kurulur, asıl yatırım onu büyütmektedir. Sv.1 düşürüldü, üst kademeler
+    // pahalı bırakıldı → çeşitlilik erişilebilir, derinlik hâlâ tercih gerektiriyor.
+    art: { ad: 'Topçu Parkı',           ikon: '💥', maliyet: [120, 340, 700] },
+    air: { ad: 'Hava Üssü',             ikon: '🚁', maliyet: [170, 430, 860] },
+    sup: { ad: 'Destek Üssü',           ikon: '🩺', maliyet: [ 90, 250, 520] },
+    aad: { ad: 'Hava Savunma Mevzii',   ikon: '🛡️', maliyet: [110, 310, 640] }
+};
+const PROD_KINDS = Object.keys(PROD_BUILDINGS);
+// ── EKONOMİNİN GÖRDÜĞÜ SANAYİ/SAVUNMA HACMİ ──
+// Ekonomi katmanı bir şehrin gelişmişliğini yıllardır "fabrika + kışla" diye ölçüyordu; iki bina
+// varken bu, TOPLAM askerî-sınai yatırıma eşitti. Altı binaya geçince aynı yatırım altıya bölündü,
+// fabrika/kışla seviyeleri düştü ve ekonomi bunu "şehir geriledi" diye okudu. Aşağıdaki iki ölçü
+// toplamı korur: yalnız fac/bar varken ESKİ DEĞERİN AYNISINI verir, ihtisas binaları eklendikçe
+// yatırımı geri sayar. Ayrım işlevsel: üretim tesisi (tezgâh, işçi) ile askerî tesis (personel, mevzi).
+function prodIndustryLevel(n) { return ((n && n.fac) | 0) + ((n && n.art) | 0); }
+function prodDefenseLevel(n) {
+    return ((n && n.bar) | 0) + ((n && n.air) | 0) + ((n && n.aad) | 0) + ((n && n.sup) | 0);
+}
+function prodInfraLevel(n) { return prodIndustryLevel(n) + prodDefenseLevel(n); }
+// DERİNLİK = Sv.1'in ÜSTÜNDEKİ yatırım. "Şehir zaten gelişmiş mi?" sorusunda kullanılır.
+// Toplam seviyeyle ölçmek konseyde ters teşvik üretiyordu: topçu parkı fabrika ister, ama fabrikası
+// olan şehir "gelişmiş" sayılıp yatırım listesinin dibine düşüyordu — ihtisas binası kurulabilecek
+// şehirler, seçilme şansı en düşük şehirler oluyordu. Temel bina sahipliği artık ceza değil.
+function prodDepthLevel(n) {
+    let d = 0; for (const k of PROD_KINDS) d += Math.max(0, ((n && n[k]) | 0) - 1);
+    return d;
+}
+// BİNA ÖN KOŞULU: `bina Sv.N` kurmak için başka binalarda gereken asgari seviye.
+// Okunuşu: art'ı Sv.1 yapmak için fac ≥ 1; Sv.3 yapmak için fac ≥ 2 gerekir.
+const PROD_BUILD_REQ = {
+    bar: { 1: {},              2: {},                3: { sup: 1 } },
+    fac: { 1: { bar: 1 },      2: { bar: 2 },        3: { bar: 2, sup: 1 } },
+    art: { 1: { fac: 1 },      2: { fac: 1 },        3: { fac: 2 } },
+    aad: { 1: { fac: 1 },      2: { fac: 1 },        3: { fac: 2, sup: 1 } },
+    air: { 1: { fac: 2 },      2: { fac: 2, sup: 1 },3: { fac: 3, sup: 2 } },
+    sup: { 1: { bar: 1 },      2: { bar: 1 },        3: { bar: 2 } }
+};
+// BİRİM ÖN KOŞULU: kendi binası yetmez, BAŞKA bina da gerekir (kullanıcı örneği: balistik füze
+// için fabrika Sv.2). Yalnız istisnalar yazılır; listede olmayan birim kendi binasıyla üretilir.
+const PROD_UNIT_REQ = {
+    ballistic_missile:     { fac: 2 },        // füze gövdesi ağır sanayi ister
+    sam_battery:           { sup: 1 },        // uzun menzilli SAM radar/lojistik omurgası ister
+    counter_battery_radar: { sup: 1 },
+    ew_vehicle:            { sup: 2 },
+    armed_uav:             { sup: 1 },        // silahlı İHA veri bağı ister
+    attack_helo:           { fac: 2 },        // saldırı helosu ağır bakım ister
+    command_vehicle:       { sup: 2 }
+};
+function prodBuildReqFor(kind, level) {
+    const t = PROD_BUILD_REQ[kind];
+    return (t && t[Math.max(1, Math.min(3, level))]) || {};
+}
+// Ön koşul sağlanıyor mu + eksikse okunabilir sebep (UI'de "neden kuramıyorum" görünsün)
+function prodReqDurumu(n, req) {
+    const eksik = [];
+    for (const k of Object.keys(req || {})) {
+        if ((n[k] | 0) < req[k]) eksik.push(`${PROD_BUILDINGS[k].ad} Sv.${req[k]}`);
+    }
+    return { tamam: eksik.length === 0, eksik };
+}
+function prodBuildReqMet(n, kind, level) { return prodReqDurumu(n, prodBuildReqFor(kind, level)).tamam; }
+function prodUnitReqMet(n, type) {
+    const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+    const req = (s && PROD_UNIT_REQ[s.id]) || null;
+    return !req || prodReqDurumu(n, req).tamam;
+}
+
+// ── 26-BİRİM ROSTERİ HİKÂYE MODUNA (kullanıcı: "hikâye modunda bu 25 birlik kullanılmıyor") ──
+// TEŞHİS: hikâye üretimi ROSTERİN YALNIZ 8'İNİ açıyordu (infantry, scout_vehicle, engineer, medic,
+// ifv, artillery, at_team, mbt) — yani modern rosterin üçte biri. Üstelik `T.ARMOR_INFANTRY` takma adı
+// UnitLoader'ın LEGACY tablosunda HİÇ TANIMLI DEĞİL (ifv → 'MECH_INFANTRY'), dolayısıyla hem
+// FACTORY_TYPES hem de fabrika Sv.2 kilidi `undefined` bir tip taşıyordu: sessiz hayalet kayıt.
+// ÇÖZÜM — ELLE LİSTE DEĞİL VERİDEN TÜRETME: bina ve kilit seviyesi rosterin KENDİ `category` ve
+// `tier` alanlarından çıkar. Roster değişince (yeni birim, kademe değişimi) hikâye modu kendiliğinden
+// uyar; bir daha "motorda var ama seferde yok" durumu oluşamaz.
+//   BİNA  : araç/hava/hava-savunma/İHA → FABRİKA · yaya, dolaylı-tim, destek, lojistik, komuta → KIŞLA
+//   KİLİT : roster kademesi (tier) → bina seviyesi; tier 4 (balistik) en üst kademeye düşer
+function prodCategoryOf(type) {
+    const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+    return (s && s.category) ? s.category : 'infantry';
+}
+// KATEGORİ → BİNA (veriden; roster değişirse eşleme kendiliğinden uyar)
+function prodBuildingFor(type) {
+    const cat = prodCategoryOf(type);
+    // 'indirect' AYRIMI: havan bir TİM (yaya) → kışla; ÇNRA/balistik araçtır → topçu parkı.
+    if (cat === 'indirect') {
+        const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+        return (s && s.armorType === 'infantry') ? 'bar' : 'art';
+    }
+    if (cat === 'armor' || cat === 'recon') return 'fac';
+    if (cat === 'air' || cat === 'uav') return 'air';
+    if (cat === 'air_defense') return 'aad';
+    if (cat === 'support' || cat === 'logistics' || cat === 'command') return 'sup';
+    return 'bar';   // infantry ve tanımsız kalan her şey
+}
+function prodBuildingName(kind) { return (PROD_BUILDINGS[kind] || {}).ad || kind; }
+function prodBuildingIcon(kind) { return (PROD_BUILDINGS[kind] || {}).ikon || '🏗️'; }
 // KONSEY/TEKNOLOJİ etkileri: şehrin SAHİBİ devletin bonusu (oyuncu ve AI aynı yolu kullanır)
 function prodStateBonus(n) {
     if (!n || n.owner == null || typeof storyState !== 'function') return null;
@@ -35,7 +143,7 @@ function prodStateBonus(n) {
     return (st && st._techBonus) || null;
 }
 function prodBuildCost(kind, lvl, n) {
-    const tbl = kind === 'fac' ? FACTORY_COST : BARRACKS_COST;
+    const tbl = (PROD_BUILDINGS[kind] || {}).maliyet || PROD_BUILDINGS.bar.maliyet;
     const base = tbl[lvl] != null ? tbl[lvl] : null;   // null = maksimum
     if (base == null) return null;
     const tb = n ? prodStateBonus(n) : null;           // İstihkam Bürosu / Teknik Okullar: bina ucuzlar
@@ -61,15 +169,64 @@ function prodMaxBuildLevel(n) { return Math.min(PROD_MAX_LEVEL, (n.level || 1) +
 // sorun tuning değil YAPIYDI.
 // Sv.3 anlamsız kalmıyor: PROD_SPEED[3]=2.2 ile SERİ ÜRETİM kademesi oluyor
 // (yeni birim değil, aynı birimi iki kattan hızlı basmak).
-const PROD_UNLOCK = {
-    bar: { 1: [T.INFANTRY, T.RECON], 2: [T.ENGINEER, T.MEDIC, T.MECH_INFANTRY], 3: [T.ARTILLERY] },
-    fac: { 1: [T.ANTI_TANK], 2: [T.ARMOR_INFANTRY, T.ARMOR], 3: [] }
-};
+// ROSTERDEN TÜRETİLİR (bkz. prodBuildingFor notu). Tek seferlik kurulur ve önbelleklenir:
+// STATS sabittir, her çağrıda yeniden taramak gereksiz. Deterministik (tip indeksine göre sıralı).
+let _PROD_UNLOCK = null;
+function prodUnlockTable() {
+    if (_PROD_UNLOCK) return _PROD_UNLOCK;
+    const t = {};
+    for (const k of PROD_KINDS) t[k] = { 1: [], 2: [], 3: [] };
+    if (typeof STATS !== 'undefined') {
+        const tipler = Object.keys(STATS).map(Number).filter(x => Number.isFinite(x)).sort((a, b) => a - b);
+        // BİNA-İÇİ KADEME NORMALİZASYONU: roster kademesini DOĞRUDAN bina seviyesine yazmak,
+        // en ucuz birimi tier-2 olan binaları (Topçu Parkı, Hava Savunma) Sv.1'de BOŞ bırakıyordu —
+        // oyuncu binayı kurar, hiçbir şey üretemez. Onun yerine her binanın KENDİ kademeleri
+        // sıralanıp 1..3'e eşlenir: en ucuz sınıfı Sv.1'de açılır, üstü sırayla gelir.
+        // Böylece "kurduğum bina işe yaramıyor" durumu yapısal olarak oluşamaz.
+        const kademeler = {};
+        for (const tip of tipler) {
+            const st = STATS[tip]; if (!st) continue;
+            const kind = prodBuildingFor(tip);
+            (kademeler[kind] = kademeler[kind] || new Set()).add(st.tier || 1);
+        }
+        const eslem = {};
+        for (const kind of Object.keys(kademeler)) {
+            const sirali = [...kademeler[kind]].sort((a, b) => a - b);
+            eslem[kind] = {};
+            sirali.forEach((tier, i) => { eslem[kind][tier] = Math.min(3, i + 1); });
+        }
+        for (const tip of tipler) {
+            const st = STATS[tip];
+            if (!st) continue;
+            const kind = prodBuildingFor(tip);
+            const lv = (eslem[kind] && eslem[kind][st.tier || 1]) || 1;
+            t[kind][lv].push(tip);
+        }
+    }
+    _PROD_UNLOCK = t;
+    return t;
+}
+// Geriye dönük ad (eski kod/araçlar PROD_UNLOCK okuyabilir)
+const PROD_UNLOCK = new Proxy({}, { get: (_, k) => prodUnlockTable()[k] });
+// ── KADEME = BİNA + ŞEHİR (ölçümle eklendi, 2026-08-10) ──
+// Altı binaya bölünce ÖLÇÜLDÜ: sahaya çıkan tip sayısı 15/26 → 10/26'ya DÜŞTÜ. Sebep kilit değil
+// YATIRIMIN BÖLÜNMESİ: 900 sn'de topçu parkı 1, hava üssü 1, hava savunma 2 şehirde kurulabilmişti;
+// her binayı ayrı ayrı Sv.3'e çıkarmak imkânsız. Kademe artık İKİ yatırımın toplamı:
+//     kademe = bina seviyesi + şehir seviyesi − 1   (1..3 arası)
+// Yani üst sınıfa iki yoldan ulaşılır: binayı büyüt VEYA şehri büyüt. Küçük şehirde uzmanlaşmış
+// bina hâlâ temel sınıfı verir; başkentte tek seviye bina bile üst sınıfı açar. Şehir yükseltmesi
+// böylece TÜM sınıflarda anlam kazanır (eski şikâyet: "şehir yükseltmenin anlamı yok").
+function prodKademe(n, kind) {
+    if ((n[kind] | 0) <= 0) return 0;                       // bina yoksa hiçbir kademe açık değil
+    return Math.max(1, Math.min(3, (n[kind] | 0) + (n.level | 0) - 1));
+}
 function prodTypesFor(n, kind) {
-    const lv = n[kind] | 0;
+    const lv = prodKademe(n, kind);
+    const tbl = prodUnlockTable()[kind] || {};
     let out = [];
-    for (let i = 1; i <= lv; i++) out = out.concat(PROD_UNLOCK[kind][i] || []);
-    return out;
+    for (let i = 1; i <= lv; i++) out = out.concat(tbl[i] || []);
+    // BİRİM ÖN KOŞULU: kendi binası yeter sayılmaz — balistik füze fabrika Sv.2 ister vb.
+    return out.filter(t => prodUnitReqMet(n, t));
 }
 
 // ── ÜRETİM SÜRESİ / KAPASİTE ──
@@ -155,11 +312,18 @@ function storyPoolPower(n) { return 0; }
 function prodBuild(nodeId, kind) {
     const n = storyNode(nodeId);
     if (!n || n.owner !== STORY.playerStateId) return false;
-    if (kind !== 'fac' && kind !== 'bar') return false;
+    if (PROD_KINDS.indexOf(kind) < 0) return false;
     const lvl = n[kind] | 0;
     if (lvl >= PROD_MAX_LEVEL) { storyFlash(`${prodBuildingName(kind)} zaten maksimum seviye.`); return false; }
     if (lvl >= prodMaxBuildLevel(n)) {
         storyFlash(`Önce şehri yükselt — ${prodBuildingName(kind)} şehir seviyesini (Sv.${n.level || 1}) geçemez.`);
+        return false;
+    }
+    // BİNA ÖN KOŞULU: binalar birbirine bağlı bir yapı kurar (sanayi olmadan topçu parkı yok).
+    // Eksikse sebebi AÇIKÇA söylenir — oyuncu "neden kuramıyorum" diye tahmin etmesin.
+    const _req = prodReqDurumu(n, prodBuildReqFor(kind, lvl + 1));
+    if (!_req.tamam) {
+        storyFlash(`${prodBuildingName(kind)} Sv.${lvl + 1} için önce: ${_req.eksik.join(' + ')}`);
         return false;
     }
     const cost = prodBuildCost(kind, lvl, n);
@@ -276,6 +440,42 @@ function prodPendingFor(cmd) {
     for (const n of STORY.nodes) for (const j of (n.q || [])) if (j && STATS[j.type] && j.cmd === cmd.id) c++;
     return c;
 }
+// ── GARNİZON KOMPOZİSYONU ──
+// Eskiden garnizon yalnız bir SAYIydı (n.garrison) ve teslim edilen birliğin TİPİ atılıyordu.
+// Sonuç: şehir topçu parkı kurup havan üretse bile savunma düellosunda sahaya hep
+// piyade+tanksavar çıkıyordu (storySpawnGarrison'da elle yazılı ikili). Roster 26 birime
+// açıldığına göre garnizon da ürettiğini yansıtmalı. n.garrisonUnits tipleri sayar;
+// n.garrison ile TOPLAMI daima eşit tutulur, fazlası "tipsiz" sayılıp piyadeye düşer.
+function storyGarrisonAdd(n, type) {
+    if (!n || !STATS[type]) return;
+    if (!n.garrisonUnits) n.garrisonUnits = {};
+    n.garrisonUnits[type] = (n.garrisonUnits[type] | 0) + 1;
+}
+// k birlik eksilt: EN UCUZ tip önce gider (ağır teçhizat şehirde kalır — kuşatmada mantıklı olan bu)
+function storyGarrisonRemove(n, k) {
+    if (!n || !n.garrisonUnits) return;
+    let kalan = Math.max(0, k | 0);
+    const sirali = Object.keys(n.garrisonUnits).map(Number)
+        .sort((a, b) => (((STATS[a] && STATS[a].cost) || 70) - ((STATS[b] && STATS[b].cost) || 70)) || (a - b));
+    for (const t of sirali) {
+        if (kalan <= 0) break;
+        const d = Math.min(kalan, n.garrisonUnits[t] | 0);
+        n.garrisonUnits[t] -= d; kalan -= d;
+        if ((n.garrisonUnits[t] | 0) <= 0) delete n.garrisonUnits[t];
+    }
+}
+// Savunma düellosunda sahaya çıkacak garnizon tipleri (uzunluk = istenen birlik sayısı).
+// Kayıtlı tip yetmezse kalanı piyade/tanksavar tabanıyla doldurulur — eski kayıtlar da çalışır.
+function storyGarrisonComposition(n, adet) {
+    const out = [];
+    const gu = (n && n.garrisonUnits) || {};
+    for (const k of Object.keys(gu).map(Number).sort((a, b) => a - b)) {
+        for (let i = 0; i < (gu[k] | 0) && out.length < adet; i++) if (STATS[k]) out.push(k);
+    }
+    for (let i = out.length; i < adet; i++) out.push((i % 3 === 0) ? T.ANTI_TANK : T.INFANTRY);
+    return out;
+}
+
 // TESLİMAT: biten birlik sipariş eden komutanın SEFER ORDUSUNA katılır.
 // Komutan ölmüş/ordusu dolmuşsa o şehirdeki başka bir dost komutana, o da yoksa
 // GARNİZONA yazılır — üretim asla buharlaşmaz.
@@ -300,6 +500,7 @@ function prodDeliver(n, type, cmdId) {
     const cap = storyCityGarrisonCap(n);
     if ((n.garrison | 0) < cap) {
         n.garrison = (n.garrison | 0) + 1;
+        storyGarrisonAdd(n, type);                       // TİP KORUNUR: savunmada gerçekten bu birlik çıkar
         if (n.owner === STORY.playerStateId && typeof storyLog === 'function')
             storyLog(`🛡️ <b>${n.name}</b>: ${STATS[type].name} teslim edilemedi (ordu dolu) → garnizona katıldı.`);
         return 'garrison';
@@ -497,25 +698,42 @@ function prodUnitButtons(n, kind, wallet) {
     return html;
 }
 
+// Bina açıklaması VERİDEN üretilir: hangi kademede hangi birimler açılıyor + bağımlılığı.
+// Elle yazılmış metin roster değişince yalan söylerdi (eski hâli "Seviye 3 topçu" diyordu,
+// oysa topçu artık Topçu Parkı'nda üretiliyor).
+function prodBinaAciklama(kind) {
+    const t = prodUnlockTable()[kind] || {};
+    const ad = tip => (STATS[tip] && STATS[tip].name) || tip;
+    const par = [];
+    for (const lv of [1, 2, 3]) {
+        const l = (t[lv] || []).map(ad);
+        if (l.length) par.push(`Sv.${lv} ${l.join(', ')}`);
+    }
+    const r = prodBuildReqFor(kind, 1);
+    const on = Object.keys(r).length ? ` · Ön koşul: ${Object.keys(r).map(k => `${PROD_BUILDINGS[k].ad} Sv.${r[k]}`).join(' + ')}` : '';
+    return (par.join(' · ') || 'Bu binada üretilebilir birim yok.') + on;
+}
+
 // manage=true → 🏗️ BİNALAR alt-görünümü (kur/yükselt burada); manage=false → ana
 // görünüm (yalnız üretim düğmeleri — bina işlemleri BİNALAR'a taşındı, kullanıcı isteği)
 function prodBuildingSection(n, kind, wallet, manage) {
     const lvl = n[kind] | 0;
     const cost = prodBuildCost(kind, lvl, n);
-    const icon = kind === 'fac' ? '🏭' : '🎖️';
-    const label = kind === 'fac' ? 'FABRİKA' : 'KIŞLA';   // toUpperCase() Türkçe'de 'i'→'I' yapıyor, sabit metin kullanılır
+    const icon = prodBuildingIcon(kind);
+    const label = (PROD_BUILDINGS[kind] || {}).ad || kind;
     const maxed = lvl >= PROD_MAX_LEVEL;
     const cityBlocked = !maxed && lvl >= prodMaxBuildLevel(n);
+    // ÖN KOŞUL: bina bağımlılık grafiği (bkz. PROD_BUILD_REQ). Eksikse düğme yerine SEBEP gösterilir.
+    const req = prodReqDurumu(n, prodBuildReqFor(kind, lvl + 1));
     let head = `<div class="prod-head"><span>${icon} ${label} <b>Seviye ${lvl}/${PROD_MAX_LEVEL}</b></span>`;
     if (maxed) head += `<span class="city-max">EN YÜKSEK</span>`;
     else if (cityBlocked) head += `<span class="prod-lock" title="Bina şehir seviyesini en fazla 1 aşar — şehir büyüsün">🔒 ŞEHİR SEVİYESİ ${n.level || 1}</span>`;
+    else if (!req.tamam) head += `<span class="prod-lock" title="Bina bağımlılığı">🔒 ÖNCE ${req.eksik.join(' + ')}</span>`;
     else if (manage) head += `<button class="city-btn cb-build" data-node="${n.id}" data-kind="${kind}" ${(wallet.points || 0) < cost ? 'disabled' : ''}>`
         + `${lvl === 0 ? 'KUR' : `SEVİYE ${lvl + 1}`} (${cost} PUAN)</button>`;
     head += `</div>`;
     const body = manage
-        ? `<div class="city-hint">${kind === 'fac'
-            ? 'Zırhlı sınıf: Seviye 1 tanksavar · Seviye 2 zırhlı piyade + tank · Seviye 3 seri üretim.'
-            : 'Yaya sınıf: Seviye 1 piyade/keşif · Seviye 2 istihkam/sağlık/mekanize · Seviye 3 topçu.'}</div>`
+        ? `<div class="city-hint">${prodBinaAciklama(kind)}</div>`
         : (lvl > 0
             ? `<div class="prod-grid">${prodUnitButtons(n, kind, wallet)}</div>`
             : `<div class="city-hint">${prodBuildingName(kind)} kurulmadı — 🏗️ BİNALAR bölümünden kur.</div>`);
@@ -526,7 +744,8 @@ function prodQueueSection(n) {
     const q = (n.q || []).filter(job => job && STATS[job.type]);
     if (!q.length) return `<div class="prod-sec"><div class="prod-head"><span>⏳ ÜRETİM</span><span class="city-max">kuyruk boş</span></div></div>`;
     let html = `<div class="prod-sec"><div class="prod-head"><span>⏳ ÜRETİM</span>`
-        + `<span class="city-max">🏭 ${prodQueueCount(n, 'fac')}/${prodSlots(n, 'fac')} · 🎖️ ${prodQueueCount(n, 'bar')}/${prodSlots(n, 'bar')}</span></div>`;
+        + `<span class="city-max">${PROD_KINDS.filter(k => (n[k] | 0) > 0)
+            .map(k => `${prodBuildingIcon(k)} ${prodQueueCount(n, k)}/${prodSlots(n, k)}`).join(' · ') || 'bina yok'}</span></div>`;
     // Her binanın SIRADAKİ işi ilerler (paralel hat) — kalanlar "bekliyor"
     const active = { fac: 0, bar: 0 };
     q.forEach((job, i) => {
@@ -534,7 +753,7 @@ function prodQueueSection(n) {
         const running = !active[kind];
         if (running) active[kind] = 1;
         const pct = Math.max(0, Math.min(100, (1 - job.t / Math.max(1, job.tot)) * 100));
-        html += `<div class="prod-row"><span class="prod-name">${kind === 'fac' ? '🏭' : '🎖️'} ${STATS[job.type].name}</span>`
+        html += `<div class="prod-row"><span class="prod-name">${prodBuildingIcon(kind)} ${STATS[job.type].name}</span>`
             + `<i class="prod-bar"><b style="width:${pct.toFixed(0)}%"></b></i>`
             + `<span class="prod-eta">${running ? Math.ceil(job.t) + 's' : 'bekliyor'}</span>`
             + `<button class="city-btn cb-cancel" data-node="${n.id}" data-idx="${i}" title="İptal (%50 iade)">✖</button></div>`;
@@ -603,15 +822,13 @@ function storyCityUpdate() {
 
     if (STORY._citySub === 'binalar') {   // 🏗️ BİNALAR: fabrika + kışla kur/yükselt
         body.innerHTML = top
-            + prodBuildingSection(n, 'fac', w, true)
-            + prodBuildingSection(n, 'bar', w, true)
+            + PROD_KINDS.map(k => prodBuildingSection(n, k, w, true)).join('')
             + `<div class="city-hint">Bina seviyesi şehir seviyesini en fazla 1 aşar; şehir büyüdükçe tavan açılır.</div>`;
         return;
     }
     if (STORY._citySub === 'ordu') {      // ⚔️ ORDU ÜRET: birim üretimi burada (kullanıcı isteği)
         body.innerHTML = top
-            + prodBuildingSection(n, 'fac', w, false)
-            + prodBuildingSection(n, 'bar', w, false)
+            + PROD_KINDS.filter(k => (n[k] | 0) > 0).map(k => prodBuildingSection(n, k, w, false)).join('')
             + prodQueueSection(n);
         return;
     }
@@ -647,12 +864,14 @@ function storyTagVeteran(u) {
 
 // AI için bina kur/yükselt (oyuncunun prodBuild'iyle aynı kurallar, farkı: sahiplik kontrolü ve kasa)
 function aiTryBuild(n, st, payer) {
-    // Eksik olanı önce kur: sabit 'bar' önceliği fabrikayı hep geri plana atıyordu
-    // → zırhlı sınıf (tanksavar üstü) hiç açılmıyordu.
-    const kinds = ((n.bar | 0) <= (n.fac | 0)) ? ['bar', 'fac'] : ['fac', 'bar'];
+    // ALTI BİNA + BAĞIMLILIK: "en geri kalanı kur" sırası artık altı bina üzerinden işler.
+    // ÖN KOŞULU SAĞLANMAYAN bina atlanır — yoksa AI parası varken kuramadığı binayı deneyip
+    // her turu boşa harcar (ve sıradaki binaya hiç geçmez). Determinist: seviye, sonra sabit ad sırası.
+    const kinds = PROD_KINDS.slice().sort((a, b) => ((n[a] | 0) - (n[b] | 0)) || (a < b ? -1 : 1));
     for (const kind of kinds) {
         const lvl = n[kind] | 0;
         if (lvl >= PROD_MAX_LEVEL || lvl >= prodMaxBuildLevel(n)) continue;
+        if (!prodBuildReqMet(n, kind, lvl + 1)) continue;   // bina bağımlılığı sağlanmadı
         const cost = prodBuildCost(kind, lvl, n);
         if (!payer || !payer.res || (payer.res.points || 0) < cost) continue;
         if (typeof storyBudgetDebit === 'function') {
@@ -677,7 +896,8 @@ function aiTryBuild(n, st, payer) {
 // AI üretim doktrini: sınır şehri savunma ağırlıklı, iç şehir eldeki en iyi birim
 function aiTryProduce(n, st, cmds) {
     const isBorder = (n.neighbors || []).some(nb => { const m = storyNode(nb); return m && m.owner !== n.owner; });
-    let open = prodTypesFor(n, 'fac').concat(prodTypesFor(n, 'bar'));
+    let open = [];
+    for (const k of PROD_KINDS) open = open.concat(prodTypesFor(n, k));
     // AŞAMA 3: ⚡ stoku yetmeyen tipler AI için de kapalı (tam simetri)
     if (typeof storyEconChipNeeds === 'function') {
         const _stC = storyState(n.owner);
@@ -689,11 +909,20 @@ function aiTryProduce(n, st, cmds) {
     // edilir: cephede savunma sınıfları, geride vurucu güç ağırlık kazanır.
     const payerCmd = cmds[0];
     const have = (payerCmd && payerCmd.army) || {};
-    const DEF_SET = [T.ANTI_TANK, T.INFANTRY, T.ENGINEER];
+    // SAVUNMA SINIFI — roster 26 birime açıldığı için ELLE ÜÇLÜ LİSTE yetmez oldu (eski hâli
+    // [ANTI_TANK, INFANTRY, ENGINEER] idi; sınır şehirleri MANPADS/SPAAG/SAM/havan hiç tercih etmiyordu).
+    // Veriden türet: zemin tutan ve gelen taarruzu kıran sınıflar — yaya, hava savunma, tahkimat.
+    const prodSavunmaSinifi = t => {
+        const s = STATS[t]; if (!s) return false;
+        const rt = s.roleTags || [];
+        return s.category === 'infantry' || s.category === 'air_defense' ||
+            rt.indexOf('anti_armor') >= 0 || rt.indexOf('anti_air') >= 0 || rt.indexOf('line_holder') >= 0 ||
+            (s.abilities || []).indexOf('build_trench') >= 0;
+    };
     const weightOf = t => {
         let wgt = 10;
         wgt -= Math.min(8, (have[t] | 0) * 2.2);                        // elinde çoksa cazibesi düşer
-        if (isBorder && DEF_SET.indexOf(t) >= 0) wgt += 5;              // cephede savunma sınıfı
+        if (isBorder && prodSavunmaSinifi(t)) wgt += 5;                  // cephede savunma sınıfı (veriden)
         if (!isBorder) wgt += ((STATS[t] && STATS[t].cost) || 70) / 60; // geride vurucu güç
         return Math.max(0.6, wgt);
     };
@@ -862,7 +1091,7 @@ function storyCityGrowthTick(dt) {
             ? storyCollectiveRegionStrikeActive(n.id)
             : st._strikeUntil && st._strikeUntil > (STORY.clock || 0);
         const unr = (typeof storyFacUnrest === 'function') ? storyFacUnrest(st) : 0;
-        const infra = (n.fac | 0) + (n.bar | 0);
+        const infra = prodInfraLevel(n);                       // ALTI BİNA: tesis toplamı
         const bootstrapPlanning = typeof storyFeatureEnabled !== 'function'
             || storyFeatureEnabled('economy.bootstrapPlanning');
         if (bootstrapPlanning) {
@@ -896,7 +1125,7 @@ function storyCityGrowthTick(dt) {
         // Katsayılar ölçümle kalibre: ilk değerlerde 600 sn'de yalnız 2-5 şehir Sv.2
         // olabiliyordu (hedef bant 5-20) — darboğaz zenginlik birikimindeydi.
         n.wealth = Math.max(0, Math.min(200, (n.wealth || 0)
-            + (0.012 + (n.pts || 0) * 0.007 + (n.fac | 0) * 0.010) * (Math.max(10, st.welfare) / 50) * dt));
+            + (0.012 + (n.pts || 0) * 0.007 + prodIndustryLevel(n) * 0.010) * (Math.max(10, st.welfare) / 50) * dt));
         const req = CITY_LVL_REQ[n.level || 1];
         if (req && n.pop >= req.pop && n.wealth >= req.wealth) {
             n.level = (n.level || 1) + 1;

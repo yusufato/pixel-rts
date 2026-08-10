@@ -26,7 +26,7 @@ let win = null;
 // GPU kapalı olduğu için tam-ekran yüzey yazılımla sistem RAM'inde besleniyordu. Testte hiç
 // çizim gerekmiyor (SIM.headless=true, rAF iptal) → pencere küçük ve GİZLİ kalır.
 // Kullanıcının makinesi 12 paralel işçiyle bu yüzden dondu.
-const TEST_BAYRAKLARI = new Set(["--smoke","--uitest","--battletest","--maptest","--ailab","--realrepro","--grammartest","--forktest","--recipeab","--recipebase","--membreak","--recipeaudit","--zonedrift","--ratiotest","--comptest","--armydump","--budgetprobe","--intel4pro","--matchtimeline","--intel4selfplay","--intel4exam","--pdtest","--divdiag","--defersoak","--defertest","--benchmark","--liverepro","--oracletest","--versus","--selfplay","--varietytest","--coach","--coachwatch","--learntest","--humancapture","--snaptest","--doctrinetournament","--handicaprec","--gradrec","--profilecheck","--vshandicap","--vsrec","--ablation","--vstournament","--ladder","--aibattery","--modelsmoke","--selectorlive","--oracledata","--oracleseq","--oracledagger","--diagvs","--unitdump","--fixverify","--precisiontest","--replaycheck","--playtest"]);
+const TEST_BAYRAKLARI = new Set(["--smoke","--uitest","--battletest","--maptest","--ailab","--realrepro","--grammartest","--forktest","--recipeab","--recipebase","--membreak","--recipeaudit","--zonedrift","--ratiotest","--comptest","--armydump","--budgetprobe","--intel4pro","--matchtimeline","--intel4selfplay","--intel4exam","--pdtest","--divdiag","--defersoak","--defertest","--benchmark","--liverepro","--oracletest","--versus","--selfplay","--varietytest","--coach","--coachwatch","--learntest","--humancapture","--snaptest","--doctrinetournament","--handicaprec","--gradrec","--profilecheck","--vshandicap","--vsrec","--ablation","--vstournament","--ladder","--aibattery","--modelsmoke","--selectorlive","--oracledata","--oracleseq","--oracledagger","--diagvs","--unitdump","--fixverify","--precisiontest","--replaycheck","--playtest","--hudtest","--beyintest","--izle"]);
 const TEST_KIPI = process.argv.some(a => TEST_BAYRAKLARI.has(a));
 
 function createWindow() {
@@ -77,6 +77,8 @@ const LLM_SELFTEST = process.argv.includes('--llm-selftest') ||
 // açığa çıkmıştı ve bunu yalnız oyunu gerçekten açan biri görebildi (kullanıcı gördü).
 // Bu test o sınıf hatayı otomatik yakalar; görüntüler insan gözüyle de incelenebilir.
 const UITEST = process.argv.includes('--uitest');
+// ARAYUZ YERLESIM TESTI: paneller cakisiyor mu / dizim kunyesi doluyor mu (olculur, goz karari degil)
+const HUDTEST = process.argv.includes('--hudtest');
 // Paketlenmiş Electron, bilinmeyen `--battletest` argümanını Chromium katmanında
 // reddedebiliyor. Aynı testi kullanıcının açtığı EXE üzerinde çalıştırabilmek için
 // yalnız yerel süreç ortamından etkinleşen ikinci, açık bir giriş sağlanır.
@@ -215,6 +217,221 @@ app.whenReady().then(() => {
 
     // AI LAB: `--ailab` → runAIVsAILabDiagnostics ile düz-hat vs KANAT yapan oyuncu-vekili
     // senaryolarını koşup kırmızı AI'nın kanata dayanıklılığını ölçer (AI'ye bonus YOK).
+    // ── BEYIN BAGLANMA TESTI: `--beyintest` ──────────────────────────────────────────────
+    // Kullanici karari (2026-08-10): iki AI kalir (intel3-pro, intel4); beonai PASIF; HIKAYE savaslari
+    // intel4 ile oynanir (dusman + muttefik). Bunlar KOD OKUYARAK degil OLCEREK dogrulanir: hikaye
+    // savasi gercekten acilir ve bayraklar/kontrolorler okunur. Ayrica Hizli Mac'ta secilebilen
+    // beyin listesi ve varsayilan sinanir.
+    if (process.argv.includes('--beyintest')) {
+        createWindow();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        const sorunlar = [];
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) sorunlar.push('konsol: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            // 1) HIZLI MAC: secilebilir beyinler + varsayilan
+            const qm = await js(`(() => {
+                const btn = [...document.querySelectorAll('#qm-brain button')].map(b => b.dataset.brain);
+                const secili = (document.querySelector('#qm-brain button.selected') || {}).dataset;
+                return { butonlar: btn, varsayilan: secili ? secili.brain : null,
+                    tabloAnahtar: Object.keys(typeof QM_BEYIN !== 'undefined' ? QM_BEYIN : {}),
+                    beonaiBaglanir: Object.values(typeof QM_BEYIN !== 'undefined' ? QM_BEYIN : {}).some(v => v.beonai) };
+            })()`);
+            if (!qm.butonlar || qm.butonlar.length !== 2) sorunlar.push('Hizli Mac: 2 beyin bekleniyordu, var: ' + JSON.stringify(qm.butonlar));
+            if (qm.butonlar && (qm.butonlar.indexOf('intel3pro') < 0 || qm.butonlar.indexOf('intel4') < 0)) sorunlar.push('Hizli Mac: intel3pro+intel4 olmali');
+            if (qm.varsayilan !== 'intel4') sorunlar.push('Hizli Mac: varsayilan intel4 olmali, su an ' + qm.varsayilan);
+            if (qm.beonaiBaglanir) sorunlar.push('beonai HALA baglanabiliyor (pasif olmali)');
+            // 2) HIKAYE SAVASI: gercekten ac, bayraklari ve kontrolor beyinlerini oku
+            const hik = await js(`(() => {
+                if (typeof storyNewGame === 'function') { try { storyNewGame('TUR'); } catch (e) {} }
+                if (typeof STORY === 'undefined' || !STORY) return { hata: 'STORY yok' };
+                STORY.battleCtx = { mode: 'attack', durationSec: 120, attacker: 0, defender: 1, enemyStateId: 1 };
+                try { storyEnterBattle({ mapId: -2 }); } catch (e) { return { hata: 'storyEnterBattle: ' + e.message }; }
+                return { red: BATTLE_INTEL4_RED, blue: BATTLE_INTEL4_BLUE,
+                    proRed: BATTLE_INTEL4PRO_RED, proBlue: BATTLE_INTEL4PRO_BLUE,
+                    beonaiRed: BATTLE_BEONAI_RED, beonaiBlue: BATTLE_BEONAI_BLUE,
+                    oturum: (typeof BATTLE_SESSION !== 'undefined') ? BATTLE_SESSION.mode : null,
+                    kontrolorler: [...(typeof BATTLE_CONTROLLERS !== 'undefined' ? BATTLE_CONTROLLERS.values() : [])]
+                        .map(c => c.id + ':' + (typeof battleBrainIntel4 === 'function' ? battleBrainIntel4(c.side) : '?')) };
+            })()`);
+            if (hik.hata) sorunlar.push('Hikaye: ' + hik.hata);
+            else {
+                if (hik.oturum !== 'story') sorunlar.push('Hikaye: oturum modu story degil (' + hik.oturum + ')');
+                if (hik.red !== true) sorunlar.push('Hikaye: DUSMAN intel4 degil');
+                if (hik.blue !== true) sorunlar.push('Hikaye: MUTTEFIK intel4 degil');
+                if (hik.proRed || hik.proBlue) sorunlar.push('Hikaye: intel4-pro baglanmis olmamali');
+                if (hik.beonaiRed || hik.beonaiBlue) sorunlar.push('Hikaye: beonai baglanmis olmamali');
+            }
+            // 3) ROSTER KAPSAMI: hikaye URETIMI rosterin kacini aciyor? (kullanici: "hikayede bu 25
+            //    birlik kullanilmiyor"). Once 8 gercek + 1 HAYALET tip aciliyordu (T.ARMOR_INFANTRY
+            //    UnitLoader LEGACY tablosunda tanimli degil). Artik kilit rosterden turetilir.
+            const ros = await js(`(() => {
+                if (typeof prodUnlockTable !== 'function' || typeof STATS === 'undefined') return { hata: 'uretim yok' };
+                const t = prodUnlockTable();
+                const acik = new Set();
+                let hayalet = 0;
+                // BINA LISTESI ELLE YAZILMAZ: alti binaya gecince ['bar','fac'] sabiti testi
+                // 9/26'da birakti ve OYUNU degil TESTI kirdi. Kaynak tek: PROD_KINDS.
+                const kinds = (typeof PROD_KINDS !== 'undefined') ? PROD_KINDS : Object.keys(t);
+                for (const b of kinds) for (const lv of [1, 2, 3])
+                    for (const tip of (t[b][lv] || [])) { if (STATS[tip]) acik.add(tip); else hayalet++; }
+                const toplam = Object.keys(STATS).map(Number).filter(Number.isFinite).length;
+                const eksik = Object.keys(STATS).map(Number).filter(Number.isFinite)
+                    .filter(x => !acik.has(x)).map(x => STATS[x].id);
+                return { rosterToplam: toplam, uretilebilir: acik.size, hayalet, eksik };
+            })()`);
+            if (ros.hata) sorunlar.push('Roster: ' + ros.hata);
+            else {
+                if (ros.hayalet > 0) sorunlar.push('Roster: ' + ros.hayalet + ' HAYALET tip (STATS karsiligi yok)');
+                if (ros.uretilebilir !== ros.rosterToplam) sorunlar.push('Roster: ' + ros.uretilebilir + '/' + ros.rosterToplam + ' uretilebilir, eksik: ' + JSON.stringify(ros.eksik));
+            }
+            // 4) ZORLUK DUGMESI: KOLAY → dusman intel3-pro (taban), ZOR → dusman intel4.
+            //    MUTTEFIK HER IKI HALDE de intel4 (zorluk rakibi ayarlar, oyuncunun tarafini sakatlamaz).
+            const zor = await js(`(() => {
+                const btn = [...document.querySelectorAll('#screen-story-setup .wr-option-row[data-setting="difficulty"] button')]
+                    .map(b => b.dataset.value);
+                const sonuc = {};
+                for (const mod of ['easy', 'hard']) {
+                    STORY.cfg.difficulty = mod;
+                    try { storyEnterBattle({ mapId: -2 }); } catch (e) { return { hata: mod + ': ' + e.message }; }
+                    sonuc[mod] = { dusman: BATTLE_INTEL4_RED, muttefik: BATTLE_INTEL4_BLUE };
+                }
+                return { butonlar: btn, ...sonuc };
+            })()`);
+            if (zor.hata) sorunlar.push('Zorluk: ' + zor.hata);
+            else {
+                if (!zor.butonlar || zor.butonlar.length !== 2) sorunlar.push('Zorluk: kolay/zor dugmesi yok (' + JSON.stringify(zor.butonlar) + ')');
+                if (zor.easy && zor.easy.dusman !== false) sorunlar.push('KOLAY: dusman intel4 kalmis (intel3-pro olmali)');
+                if (zor.hard && zor.hard.dusman !== true) sorunlar.push('ZOR: dusman intel4 degil');
+                if ((zor.easy && !zor.easy.muttefik) || (zor.hard && !zor.hard.muttefik)) sorunlar.push('Muttefik her iki zorlukta da intel4 olmali');
+            }
+            console.log('BEYINTEST_ZORLUK ' + JSON.stringify(zor));
+            console.log('BEYINTEST_ROSTER ' + JSON.stringify(ros));
+            console.log('BEYINTEST_QM ' + JSON.stringify(qm));
+            console.log('BEYINTEST_HIKAYE ' + JSON.stringify(hik));
+            console.log('BEYINTEST_PROBLEMS ' + JSON.stringify(sorunlar.slice(0, 8)));
+            console.log(sorunlar.length ? 'BEYINTEST_FAIL' : 'BEYINTEST_OK');
+            setTimeout(() => app.exit(sorunlar.length ? 1 : 0), 300);
+        });
+        return;
+    }
+
+    // ── SEYIRCI KIPI: `--izle [--seed N] [--sn 240] [--her 10] [--shots <klasor>]` ───────────────
+    // Kullanici: "bizzat oyunu calistirip iki AI'nin savasini kare kare izleyeceksin, senin icin sis yok,
+    // iki tarafi da gorup oynayis tarzinin profilini cikartacaksin."
+    // GERCEK oyun penceresi acilir (jsdom tezgahi degil): KIRMIZI = intel4-pro, MAVI = duz intel4, iki taraf
+    // da AI. Izleyici icin SIS KAPALI (canSee her zaman true) → iki ordu da tam gorunur. Belirli araliklarla
+    // ekran goruntusu + o anin sayisal ozeti alinir; sonda hepsi tek dosyaya yazilir.
+    if (process.argv.includes('--izle')) {
+        const _sIdx = process.argv.indexOf('--seed');
+        const IZ_SEED = _sIdx >= 0 ? (Number(process.argv[_sIdx + 1]) >>> 0) : 100000;
+        const _nIdx = process.argv.indexOf('--sn');
+        const IZ_SN = _nIdx >= 0 ? Number(process.argv[_nIdx + 1]) : 240;
+        const _hIdx = process.argv.indexOf('--her');
+        const IZ_HER = _hIdx >= 0 ? Number(process.argv[_hIdx + 1]) : 12;
+        // Taraf/rol degistirilebilir: taraf yanliligi ile rol yanliligi ayri ayri izlenebilsin.
+        const _pIdx = process.argv.indexOf('--prokirmizi');
+        const PRO_K = _pIdx >= 0 ? process.argv[_pIdx + 1] !== '0' : true;
+        const _aIdx = process.argv.indexOf('--kirmizisaldiran');
+        const KIRMIZI_SALDIRAN = _aIdx >= 0 ? process.argv[_aIdx + 1] !== '0' : true;
+        createWindow();
+        const fsz = require('fs');
+        const DIR = path.join(SHOTS_DIR, 'izle-' + IZ_SEED + '-pro' + (PRO_K ? 'K' : 'M') + '-sal' + (KIRMIZI_SALDIRAN ? 'K' : 'M'));
+        try { fsz.mkdirSync(DIR, { recursive: true }); } catch (_) {}
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        const shot = async name => { await sleep(300); try { const img = await win.webContents.capturePage(); fsz.writeFileSync(path.join(DIR, name + '.png'), img.toPNG()); } catch (_) {} };
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) console.log('KONSOL: ' + message); });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1400);
+            const kur = await js(`(() => {
+                // SIS KAPALI (yalniz izleyici icin, SIM'e dokunmaz): canSee sarmalanir → her sey gorunur.
+                // Bu bir RENDER/gorunurluk kancasidir; AI kendi canSee'sini cagirmaz, BattlePerception kullanir.
+                BATTLE_SPECTATE = true;   // sis KATMANI kapali (drawFogOfWar erken doner)
+                if (!window.__izleSisKapali) {
+                    window.__izleGercekCanSee = canSee;
+                    window.canSee = function () { return true; };
+                    window.__izleSisKapali = true;
+                }
+                BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+                BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;
+                BATTLE_INTEL4PRO_RED = ${PRO_K ? 'true' : 'false'};
+                BATTLE_INTEL4PRO_BLUE = ${PRO_K ? 'false' : 'true'};
+                if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+                if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+                if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+                openBattlefieldSession({ mode:'quick', mapId:-2, seed:${IZ_SEED}, attackerSide:${KIRMIZI_SALDIRAN},
+                    durationSec:${IZ_SN}, playerMoney:6500, enemyMoney:6500 });
+                if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+                // MAVI ordu: duz intel4, AI surer (oyuncu karismaz) → saf AI vs AI.
+                battleDeployManifest(battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true,
+                    brainIntel4:true, isAttacker:${!KIRMIZI_SALDIRAN}, pro:${!PRO_K} }), false, { source:'izle', ally:true });
+                startBattle();
+                showScreen('game');
+                // Tum haritayi gor: kamerayi ortala, uzaklas.
+                zoom = Math.min((window.innerWidth - 20) / WORLD_W, (window.innerHeight - 140) / WORLD_H);
+                camera.x = 0; camera.y = 0;
+                return { kirmizi: SIM.units.filter(u => u.isRed).length, mavi: SIM.units.filter(u => !u.isRed).length,
+                    zoom: +zoom.toFixed(3), sure: SIM.battle ? SIM.battle.durationSec : null };
+            })()`);
+            console.log('IZLE_KURULUM ' + JSON.stringify(kur));
+            // O ANIN SAYISAL OZETI: iki tarafin agirlik merkezi, yayilimi, temas mesafesi, atesteki birim
+            // sayisi, ilerleme. Ekran goruntusuyle AYNI ana ait → gorsel ile sayi birbirini dogrular.
+            const ozetJS = `(() => {
+                const yan = k => { const a = []; for (const u of SIM.units) if (!u.dead && !u.loaded && u.isRed === k) a.push(u); return a; };
+                const olc = a => { if (!a.length) return null;
+                    const cx = a.reduce((s,u)=>s+u.x,0)/a.length, cy = a.reduce((s,u)=>s+u.y,0)/a.length;
+                    const yay = Math.sqrt(a.reduce((s,u)=>s+(u.x-cx)**2+(u.y-cy)**2,0)/a.length);
+                    let ates = 0, hasarli = 0, hp = 0, maxhp = 0, muh = 0, maxmuh = 0, bastirilmis = 0;
+                    for (const u of a) { if (u.attackTarget && !u.attackTarget.dead) ates++; if (u.hp < u.maxHp) hasarli++;
+                        hp += u.hp; maxhp += u.maxHp; muh += (u.ammo||0); maxmuh += (u.maxAmmo||0); if ((u.suppression||0) > 0) bastirilmis++; }
+                    return { n: a.length, cx: Math.round(cx), cy: Math.round(cy), yayilim: Math.round(yay),
+                        ates, hasarli, bastirilmis, can: Math.round(hp/Math.max(1,maxhp)*100),
+                        muhimmat: maxmuh ? Math.round(muh/maxmuh*100) : null }; };
+                const K = olc(yan(true)), M = olc(yan(false));
+                let enYakin = 1e9, temasta = 0;
+                for (const a of yan(true)) for (const b of yan(false)) { const d = Math.hypot(a.x-b.x, a.y-b.y);
+                    if (d < enYakin) enYakin = d; }
+                for (const a of yan(true)) { for (const b of yan(false)) if (Math.hypot(a.x-b.x,a.y-b.y) <= (a.range||0)) { temasta++; break; } }
+                const oK = battleArmyObservation(true), oM = battleArmyObservation(false);
+                const p = id => { const q = (SIM.ctrlPosture || {})[id]; return q ? (q.role + '/' + q.stance) : null; };
+                return { sn: Math.round((SIM.battle && SIM.battle.elapsedSec) || 0), tik: SIM.tick,
+                    kirmizi: K, mavi: M, enYakin: Math.round(enYakin), kirmiziMenzilde: temasta,
+                    marj: Math.round(oK.effectiveValue - oM.effectiveValue),
+                    durus: Object.keys(SIM.ctrlPosture || {}).map(id => id + ':' + p(id)).join(' | '),
+                    bitti: phase !== PHASE.BATTLE };
+            })()`;
+            const kayit = [];
+            for (let i = 0; i * IZ_HER <= IZ_SN; i++) {
+                const hedefSn = i * IZ_HER;
+                // Oyun GERCEK ZAMANDA kosuyor (gameLoop) — belirli saniyeye gelene kadar bekle.
+                // Oyun ekran-goruntusu + offscreen pencere yuzunden gercek-zamanin ~0.25 hizinda
+                // kosuyor; bekleme tavani buna gore (yoksa mac yarida kesiliyor).
+                for (let bek = 0; bek < 700; bek++) {
+                    const d = await js(`(() => ({ sn: Math.round((SIM.battle && SIM.battle.elapsedSec) || 0), bitti: phase !== PHASE.BATTLE }))()`);
+                    if (!d || d.bitti || d.sn >= hedefSn) break;
+                    await sleep(150);
+                }
+                const o = await js(ozetJS);
+                const ad = 'kare-' + String(i).padStart(3, '0') + '-sn' + String(o && o.sn != null ? o.sn : hedefSn).padStart(3, '0');
+                await shot(ad);
+                kayit.push(Object.assign({ kare: ad }, o));
+                console.log('IZLE ' + JSON.stringify(o));
+                if (o && o.bitti) break;
+            }
+            const son = await js(`(() => { const b = SIM.battle || {};
+                return { kazanan: b.winnerSide === true ? 'KIRMIZI' : (b.winnerSide === false ? 'MAVI' : 'berabere'), proTaraf: '${PRO_K ? 'KIRMIZI' : 'MAVI'}',
+                    sebep: b.outcomeReason, sn: Math.round(b.elapsedSec || 0) }; })()`);
+            console.log('IZLE_SONUC ' + JSON.stringify(son));
+            try { fsz.writeFileSync(path.join(DIR, 'izle.json'), JSON.stringify({ seed: IZ_SEED, kurulum: kur, sonuc: son, kareler: kayit }, null, 2), 'utf8'); } catch (_) {}
+            console.log('IZLE_DIR ' + DIR);
+            console.log('IZLE_OK');
+            setTimeout(() => app.exit(0), 400);
+        });
+        return;
+    }
+
     if (process.argv.includes('--ailab')) {
         createWindow();
         const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -4270,6 +4487,128 @@ app.whenReady().then(() => {
         return;
     }
 
+    // ── ARAYÜZ YERLEŞİM TESTİ: `--hudtest [--shots <klasör>]` ──────────────────────────────
+    // Kullanıcı kusur raporu (2026-08-09): "üst üste binmiş düzelt" + "birim dizerken tıkladığımız
+    // birimin özelliklerini göstersin". Bunlar göz kararıyla değil ÖLÇÜLEREK sınanır: paneller gerçek
+    // tarayıcıda çizilir, `getBoundingClientRect` ile KESİŞİYOR MU diye bakılır. Ekran görüntüsü de
+    // alınır ama karar geometriye aittir — "bende düzgün görünüyor" bir kanıt değildir.
+    if (HUDTEST) {
+        createWindow();
+        const fsx3 = require('fs');
+        try { fsx3.mkdirSync(SHOTS_DIR, { recursive: true }); } catch (_) {}
+        const problems = [];
+        win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) problems.push('konsol: ' + message); });
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
+        // capturePage SON BIRLESTIRILMIS kareyi verir; hemen cagirinca bir onceki ekrani yakalar
+        // (yasandi: 'hizlimac' cekimi menuyu gosterdi). Once bir kare bekle.
+        const shot = async name => { await sleep(400); try { const img = await win.webContents.capturePage(); fsx3.writeFileSync(path.join(SHOTS_DIR, name + '.png'), img.toPNG()); } catch (_) {} };
+        const click = sel => js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (el) el.click(); return !!el; })()`);
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1200);
+            // 1) HIZLI MAÇ — ileri ayarlar KAPALI mı, düğmeler kutuyla çakışıyor mu?
+            await click('#btn-quick-match'); await sleep(500);
+            const qm = await js(`(() => {
+                const d = document.querySelector('.qm-advanced');
+                // OLCUT SECIMI (yasanan tuzak): kapali <details> icerigini Chromium display:none YAPMAZ —
+                // content-visibility ile cizmez ama LAYOUT KUTUSU durur. Bu yuzden offsetWidth/getClientRects
+                // "gizli degil" der ve yanlis alarm uretir. Sadelesmenin gercek olcutu KUTU BOYU: ileri
+                // ayarlar acilinca kutu ne kadar uzuyor? Ayrica checkVisibility gercek gorunurlugu verir.
+                const box = document.querySelector('#screen-quickmatch .qm-box');
+                const yuk = () => box ? Math.round(box.getBoundingClientRect().height) : -1;
+                const kapaliYuk = yuk();
+                if (d) { d.open = true; }
+                const acikYuk = yuk();
+                if (d) { d.open = false; }
+                const gorunurMu = e => !!e && typeof e.checkVisibility === 'function'
+                    && e.checkVisibility({ contentVisibilityAuto: true, visibilityProperty: true });
+                const kesis = (a, b) => { if (!a || !b) return false; const r1 = a.getBoundingClientRect(), r2 = b.getBoundingClientRect();
+                    return r1.right > r2.left + 1 && r2.right > r1.left + 1 && r1.bottom > r2.top + 1 && r2.bottom > r1.top + 1; };
+                return { ileriVar: !!d, ileriKapali: !!d && !d.open,
+                    ekran: document.body.getAttribute('data-screen'),
+                    beyinGizli: !gorunurMu(document.getElementById('qm-brain')),
+                    tohumGizli: !gorunurMu(document.getElementById('qm-seed')),
+                    kutuKapali: kapaliYuk, kutuAcik: acikYuk, kisalma: acikYuk - kapaliYuk,
+                    kutuDugmeCakismasi: kesis(document.querySelector('#screen-quickmatch .qm-box'), document.querySelector('#screen-quickmatch .menu-side')) };
+            })()`);
+            await shot('hud-1-hizlimac');
+            if (!qm.ileriVar) problems.push('Hızlı Maç: .qm-advanced yok');
+            if (qm.ileriVar && !qm.ileriKapali) problems.push('Hızlı Maç: ileri ayarlar açık başlıyor');
+            if (!qm.beyinGizli) problems.push('Hızlı Maç: Rakip AI hâlâ görünür (sadeleşmedi)');
+            if (!qm.tohumGizli) problems.push('Hızlı Maç: Tohum hâlâ görünür (sadeleşmedi)');
+            if (!(qm.kisalma > 60)) problems.push('Hızlı Maç: ileri ayarlar kutuyu kısaltmıyor (kisalma=' + qm.kisalma + ')');
+            if (qm.ekran !== 'quickmatch') problems.push('Hızlı Maç: ekran açılmadı (data-screen=' + qm.ekran + ')');
+            if (qm.kutuDugmeCakismasi) problems.push('Hızlı Maç: kutu ile düğme sütunu çakışıyor');
+
+            // 2) DİZİM — birim künyesi tıklayınca doluyor mu?
+            await click('#btn-qm-start'); await sleep(1100);
+            const kartBos = await js(`(() => { const c = document.getElementById('deploy-unit-card');
+                return { var: !!c, gorunur: !!c && c.offsetParent !== null, bos: !!c && c.classList.contains('is-empty') }; })()`);
+            const tiklandi = await js(`(() => { const b = document.querySelector('.spawn-cat'); if (b) { b.click(); return 'kategori'; }
+                const s = document.querySelector('.spawn-btn'); if (s) { s.click(); return 'birim'; } return null; })()`);
+            await sleep(250);
+            if (tiklandi === 'kategori') { await js(`(() => { const s = document.querySelector('.spawn-btn'); if (s) s.click(); return !!s; })()`); await sleep(250); }
+            const kartDolu = await js(`(() => { const c = document.getElementById('deploy-unit-card'); if (!c) return null;
+                return { bos: c.classList.contains('is-empty'), baslik: (c.querySelector('.duc-head h4') || {}).textContent || null,
+                    istatistik: c.querySelectorAll('.duc-stat').length }; })()`);
+            await shot('hud-2-dizim');
+            if (!kartBos.var) problems.push('Dizim: #deploy-unit-card yok');
+            else if (!kartBos.gorunur) problems.push('Dizim: birim künyesi görünmüyor (gizli panel)');
+            if (!kartDolu || kartDolu.bos) problems.push('Dizim: birime tıklandı ama künye BOŞ kaldı');
+            else if (!kartDolu.baslik || kartDolu.istatistik < 6) problems.push('Dizim: künye eksik (başlık/istatistik yok)');
+
+            // 3) SAVAŞ — yetenek paneli ile emir paneli ÇAKIŞIYOR MU?
+            // Önce sahaya GERÇEK oyuncu birliği koy: yoksa seçilecek bir şey olmaz ve yetenek paneli
+            // hiç açılmaz → çakışma sınanamaz (ilk koşuda tam bu oldu, test kendini yakaladı).
+            const konan = await js(`(() => {
+                const kenar = (typeof myCanonicalSide !== 'undefined') ? myCanonicalSide : false;
+                const tipler = [T.ENGINEER, T.INFANTRY, T.ARMOR].filter(t => t != null && STATS[t]);
+                let n = 0;
+                for (const t of tipler) {
+                    const x = WORLD_W * 0.5 + n * 120, y = kenar ? WORLD_H * 0.12 : WORLD_H * 0.88;
+                    if (typeof placeUnit === 'function' && typeof isInPlayerZone === 'function' && isInPlayerZone(x, y)) { placeUnit(t, x, y, kenar); n++; }
+                }
+                return n;
+            })()`);
+            await sleep(200);
+            if (!konan) problems.push('Savaş: test sahaya birlik koyamadı (çakışma sınaması zayıflar)');
+            await js(`(() => { if (typeof startBattle === 'function') startBattle(); return true; })()`); await sleep(900);
+            const faz = await js(`(() => document.body.getAttribute('data-phase'))()`);
+            if (faz !== 'battle') problems.push('Savaş: faz battle olmadı (data-phase=' + faz + ')');
+            const cakisma = await js(`(() => {
+                // Yetenek panelini gerçekten aç: oyuncunun bir birimini seç, sonra paneli tazele.
+                let sec = 0;
+                for (const u of units) { if (typeof playerCanControlBattleUnit === 'function' && playerCanControlBattleUnit(u) && !u.dead) { u.selected = true; sec++; if (sec >= 1) break; } }
+                if (typeof _abilityPanelSig !== 'undefined') _abilityPanelSig = null;
+                if (typeof refreshAbilityPanelIfChanged === 'function') refreshAbilityPanelIfChanged();
+                const a = document.getElementById('ui-abilities'), o = document.getElementById('battle-orders');
+                if (!a || !o) return { hata: 'panel yok' };
+                const ra = a.getBoundingClientRect(), ro = o.getBoundingClientRect();
+                const acik = a.offsetParent !== null && ra.height > 0;
+                const kesis = acik && ra.right > ro.left + 1 && ro.right > ra.left + 1 && ra.bottom > ro.top + 1 && ro.bottom > ra.top + 1;
+                return { secili: sec, yetenekAcik: acik, kesis: kesis,
+                    yetenek: [Math.round(ra.top), Math.round(ra.bottom)], emir: [Math.round(ro.top), Math.round(ro.bottom)],
+                    ekranDisi: ro.bottom > window.innerHeight + 1 || ra.top < -1 };
+            })()`);
+            await shot('hud-3-savas');
+            if (cakisma && cakisma.hata) problems.push('Savaş: ' + cakisma.hata);
+            else if (cakisma) {
+                if (!cakisma.yetenekAcik) problems.push('Savaş: yetenek paneli açılmadı (çakışma sınanamadı)');
+                if (cakisma.kesis) problems.push('Savaş: yetenek paneli ile emir paneli ÇAKIŞIYOR ' + JSON.stringify(cakisma));
+                if (cakisma.ekranDisi) problems.push('Savaş: sol yığın ekran dışına taşıyor ' + JSON.stringify(cakisma));
+            }
+
+            console.log('HUDTEST_QM ' + JSON.stringify(qm));
+            console.log('HUDTEST_DIZIM ' + JSON.stringify({ kart: kartBos, dolu: kartDolu }));
+            console.log('HUDTEST_CAKISMA ' + JSON.stringify(cakisma));
+            console.log('HUDTEST_SHOTS ' + SHOTS_DIR);
+            console.log('HUDTEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 8)));
+            console.log(problems.length ? 'HUDTEST_FAIL' : 'HUDTEST_OK');
+            setTimeout(() => app.exit(problems.length ? 1 : 0), 300);
+        });
+        return;
+    }
+
     if (UITEST) {
         createWindow();
         const fsx2 = require('fs');
@@ -4650,10 +4989,15 @@ ipcMain.handle('llm:start', () => {
 });
 
 ipcMain.handle('llm:generate', async (_e, req) => {
+    req = req || {};
     if (!llmChild && !llmError) llmStart();
     if (!llmReady) return null;                       // hazır değilse oyun yedeğe düşer
     const id = ++llmSeq;
-    llmChild.send({ t: 'gen', id, system: req.system, prompt: req.prompt, maxTokens: req.maxTokens, temperature: req.temperature });
+    llmChild.send({
+        t: 'gen', id, system: req.system, prompt: req.prompt,
+        maxTokens: req.maxTokens, temperature: req.temperature,
+        jsonSchema: req.jsonSchema
+    });
     return new Promise(resolve => {
         llmPending.set(id, resolve);
         // ZAMAN AŞIMI 30 sn → 120 sn. Ölçüm: saf CPU'da 7B ~0.8 jeton/sn, tek diyalog

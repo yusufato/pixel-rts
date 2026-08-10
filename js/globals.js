@@ -346,6 +346,24 @@ const UNIT_RADIUS = Math.max(BASE_DRAW_W, BASE_DRAW_H) / 2;
 const UNIT_ROTATE = true;            // tüm sprite facing yönüne döner (hedefe "düz" bakar)
 const UNIT_FACE_OFFSET = Math.PI / 2;// ÖN = dikdörtgenin UZUN kenarı (geniş cephe öne); kısa-kenar-ön istersen 0 yap
 const UNIT_TURN_SMOOTH = 0.5;        // GLOBAL dönüş hız çarpanı (hepsini topluca ayarla; 0.5 = yarı hız) — kullanıcı isteği: dönüş çok hızlıydı, yarıya indirildi
+
+// ── RENDER ARA-DEĞERİ (60 FPS pürüzsüzlüğü; SİM'e DOKUNMAZ) ──
+// Sim sabit 20 Hz adım atar (BATTLE_TICK_MS=50), ekran 60 fps çizer. Ara-değer yoksa birim iki kare
+// DURUR üçüncüde SIÇRAR. Hızlı birimde adım 12+ px olduğundan bu, gözle "titreme/bozulma" olarak görünür.
+// ÖLÇÜLDÜ (tools/titreme-tik.js, tohum 202): sim-içi konum salınımı en kötü 0.61 ters/sn — görünür eşik
+// olan 1/sn'nin ALTINDA; çarpışma katkısı 0, shoot-and-scoot (mlrs) 0.01. Yani kalan titreme SİMDEN DEĞİL
+// çizim tarafındandır. Bu yüzden düzeltme yalnız render'da: `u._rpx/_rpy` (tik başındaki konum) ile
+// `u.x/u.y` arasında RENDER_ALPHA kadar lerp. Hash'e girmez, headless'te hiç yazılmaz.
+let BATTLE_RENDER_INTERP = true;
+let RENDER_ALPHA = 1;                // gameLoop her karede tazeler: kalan akümülatör / BATTLE_TICK_MS
+const RENDER_INTERP_MAX_JUMP = 90;   // bundan büyük sıçrama = ışınlanma (unstick/spawn/snap) → ara-değer yok
+function unitRenderPos(u) {
+    if (!BATTLE_RENDER_INTERP || u._rpx === undefined) return { x: u.x, y: u.y };
+    const dx = u.x - u._rpx, dy = u.y - u._rpy;
+    if ((dx * dx + dy * dy) > RENDER_INTERP_MAX_JUMP * RENDER_INTERP_MAX_JUMP) return { x: u.x, y: u.y };
+    const a = RENDER_ALPHA;
+    return { x: u._rpx + dx * a, y: u._rpy + dy * a };
+}
 // KONSANTRASYON: AI kuvvetini sektörlere BÖLMEK yerine TEK kütlede yığar + rezervi minimuma indirir → odaklı-ateşle
 // yerel üstünlük (insanın kazanma tarzı). ÖLÇÜLDÜ: savunmada -980→-327, saldırıda +15→+620, normal rakipte regresyon yok.
 // Dağılım AI'nın asıl zaafıydı; bu onu her senaryoda dramatik güçlendirir. false = eski dağıtan davranış.
@@ -526,6 +544,49 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // DOĞRU MÜDAHALE KATMANI DEĞİŞTİ: birim-içi "kapatma kapısı" değil, KONTROLÖR seviyesinde
     // KUVVET DAĞILIMI — savunan kütlesini nereye koyuyor ve neden ince yayılıyor.
     localRatio: false,
+    // ── 'antiMatch' (KULLANICI DOKTRİNİ): yerel üstünlük SAYIYLA değil ANTİ-EŞLEŞMEYLE ölçülür ──
+    // İki fren: (1) yerel ETKİ oranı eşiğin altındaysa kapatma, (2) sen o karışıma karşı YANLIŞ ALETSEN
+    // kapatma (doğru alet girsin). Hiçbir birimi yeniden konumlandırmaz — "aktif toplanma" ölçülüp
+    // zararlı bulunmuştu (Unit.js:1593), bu onun aksine yalnız İLERLEMEYİ keser.
+    // ÖLÇÜLMEDEN AÇILMAZ: varsayılan KAPALI.
+    antiMatch: false,
+    // ── 'armCommand' — TÜMEN KOMUTASI (kullanıcı fikri, 2026-08-09) ──
+    // "Piyade tümeni, zırhlı tümeni, dolaylı tümeni kendi komutalarıyla yönetilsin; böylece tüm tümenler
+    // detaylı bir savaş taktiği oluşturur." Teknik karşılığı: her muharip grup, kendi BİLEŞİMİNİN en çok
+    // hasar verdiği düşman kümesine nişan alır (BattlePlanning.planningAntiAim). Anti-eşleşme burada FREN
+    // değil GÖREV DAĞITIM ÖLÇÜTÜ — birim yanlış dövüşe hiç gönderilmez. ÖLÇÜLMEDEN AÇILMAZ.
+    armCommand: false,
+    // ── 'massMatch' — KÜTLE-İÇİ ANTİ DİZİLİM (kütleyi BÖLMEDEN eşleşme) ──
+    // armCommand'ın dersi: orduyu anti-kümelere dağıtmak hem yayılımı artırdı hem etki-oranını düşürdü.
+    // Bu delta kütleyi hiç bölmez: hedef, formasyon ve menzil-katmanı aynı; yalnız AYNI DERİNLİKTEKİ
+    // birimler yanal olarak yeniden dizilir (tanksavar zırha bakan yüze, piyade piyadeye bakan yüze).
+    // ⛔ ACILDI ve GERI ALINDI (2026-08-10). Kesif havuzlarinda (D,E) ucu birlikte +242/+210 verdi
+    // (t 2.7 duyurdum) ama BAGIMSIZ havuzlarda (F,G) +41 ve −39 → ortalama SIFIR. Galibiyet farki da
+    // bagimsiz havuzlarda %51.6 vs %50.3 (±1.55, anlamsiz). SECIM YANLILIGI: mekanizmayi buldugum
+    // havuzda olcmek onu abartiyor — bu, ayni gun DORDUNCU kez yasandi. Kod+olcum duruyor, varsayilan KAPALI.
+    massMatch: false,
+    // ── 'destLock' — KARAR DONGUSU HEDEF KILIDI ──
+    // Olculdu: birim dakikada 6.4 kez 220px+ hedef degistiriyor, net yer degistirmesinin 4 KATI yol
+    // yuruyor ve ilk temasta kuvvetin yalniz %12'si olay yerinde. Calkantinin %54'u kontrolor emri.
+    // Bu delta grup hedefini kilitler: kucuk suruklenme yok sayilir, buyuk degisiklik beklemeye tabidir;
+    // gercek yeniden-yonelim (>1200px) ve varis kilidi deler. ISLEYIS: BattleExecution.executionLockedPoint.
+    destLock: false,
+    // ── 'killFocus' — SANIYEDE EN COK DEGER IMHA ET (dogal odaklanmis ates) ──
+    // Olculdu: yerel kumede 4.9 atici 1.8 AYRI hedefe atiyor (0.370) — iki beyinde de ayni. Sebep:
+    // birim hedef skoru KALAN CANI okumuyor (yalniz hasar/mesafe), yarali dusman one cikmiyor.
+    // Skor deger*hasar/kalan-can olunca odaklanma kendiliginden dogar ve dusmanin ates hacmi hizla duser.
+    killFocus: false,
+    // ── 'heloMass' — SALDIRI HELIKOPTERI KUTLESI (olculmus insan ustunlugu) ──
+    // attack_helo AI kayiplarinin %22'si (26 gercek mac) ama AI ordu basina yalniz 0.48 tane aliyor.
+    // Ucus disiplini `helo_harass` botunda zaten yazili; tek basina acmak baglamadi (23/48) cunku
+    // ortada helo YOK. Bu delta agirligi carpar -> kuvvet insanin kozunu fiilen kullanabilir hale gelir.
+    // ⛔ bkz. massMatch notu — ucu birlikte acilmis, bagimsiz havuzlarda sifir cikip GERI ALINMISTI.
+    heloMass: false,
+    // ── 'heloDoctrine' — INSAN UCUS DISIPLINI (BattleExploiters.exploiterHeloTaciz) ──
+    // 26 gercek oyuncu macindan turetilmis: dusman AD zarfinin DISINDA kal (medyan 1188px), deger
+    // avla, guvenli atis noktasi yoksa GIRME. Bugune dek yalniz test-rakibi botuydu; olculup pro'nun
+    // kendi yetenegi yapildi. TEK BASINA +83 (t 0.59); heloMass ile birlikte anlamli.
+    heloDoctrine: false,
     // P14 — KISA MENZİLLİ DOLAYLI ATEŞ MENZİLE GİRER (BECERİ). TEŞHİS: savunan dolaylısı mühimmatı
     // varken tiklerin %48'inde MENZİLİNDE DÜŞMAN OLMADIĞI için boş duruyor (görüş %0, ölü bölge %0,
     // filtre %0 — sebep tek başına KONUM). Havan menzil 900px, en yakın düşman ort. 1165px.
@@ -621,6 +682,50 @@ let PRO_ICREEP_HAT_GERI = 250;      // kendi ön hattının en az bu kadar geris
 // ── 'armorFace' PARAMETRELERİ (aranabilir) ──
 let PRO_ARMORFACE_R = 2200;              // tehdit taraması yarıçapı (en uzun doğrudan-ateş menzilini kapsar)
 let PRO_ARMORFACE_MIN_BASKINLIK = 0.35;  // tehdit vektörü bu kadar yönlü değilse (her yönden) dönme
+// ── 'antiMatch' PARAMETRELERİ (KULLANICI DOKTRİNİ, 2026-08-09) ──
+// "AI gördüğü tüm alanlarda karşı tarafa ANTİ olan birliklerini vuruşturmalı. Kütleyi büyütücem diye
+//  piyadeleri dolaylının önüne koyarsan ölürler; dolaylılar tanka vurursa hiçbir şey olmaz."
+// ÖLÇÜLDÜ (tools/anti-eslesme.js, 16 maç): temas anındaki yerel dost kütlesinin **%22-27'si YANLIŞ ALET**
+// (yerel düşman karışımına karşı DPS'i, kendi en iyi hedefine karşı DPS'inin %20'sinin altında) ve
+// temasların **%19-23'ünde** sayı-oranı ≥1.5 (mevcut kurallar "iyi" der) iken ETKİ-oranı <1.0 (dövüş kaybediliyor).
+// Mevcut `assaultCohesion`/`localRatio` yalnız KAFA SAYAR; bu delta aynı kapıyı ETKİ ile kurar.
+let PRO_ANTI_R = 600;         // yerel kesit yarıçapı (localRatio ile aynı — karşılaştırılabilir kalsın)
+let PRO_ANTI_MIN = 1.0;       // yerel ETKİ oranı (dost DPS / düşman DPS) bunun altındaysa kapatma
+let PRO_ANTI_WRONG = 0.20;    // kendi DPS'i en-iyi hedefine karşı olanın bu katından azsa "yanlış alet"
+// TİP×TİP DPS ÖNBELLEĞİ: motorun KENDİ hasar matrisinden türetilir (BattleForecast.forecastDpsVs ile aynı
+// formül; o dosya oyunda yüklü değil). Saf aritmetik + statik veri → determinist, RNG yok, hash'e girmez.
+const _ANTI_DPS = new Map();
+function battleTypeDps(aType, bType) {
+    const key = aType * 1000 + bType;
+    const hit = _ANTI_DPS.get(key);
+    if (hit !== undefined) return hit;
+    const A = STATS[aType], B = STATS[bType];
+    const DM = (typeof UNITS_MODERN_DB !== 'undefined') ? UNITS_MODERN_DB.damageMatrix : null;
+    let dps = 0;
+    if (A && B && DM) {
+        const arm = B.armorType || 'infantry';
+        for (const w of (A.weapons || [])) {
+            if (!w || !(w.damage > 0)) continue;
+            if (typeof weaponCanEngage === 'function' && !weaponCanEngage(w, B)) continue;
+            const eff = (DM[w.damageType] || {})[arm] || 0;
+            if (eff <= 0) continue;
+            const rof = (w.rof > 0) ? w.rof : 1, perShot = (w.perShot > 0) ? w.perShot : 1;
+            const acc = (w.accuracy && Number.isFinite(w.accuracy.base)) ? Math.max(0.05, Math.min(1, w.accuracy.base)) : 1;
+            dps += w.damage * eff * rof * perShot * acc;
+        }
+    }
+    _ANTI_DPS.set(key, dps);
+    return dps;
+}
+const _ANTI_BEST = new Map();
+function battleTypeBestDps(aType) {
+    const hit = _ANTI_BEST.get(aType);
+    if (hit !== undefined) return hit;
+    let m = 0;
+    for (const t in STATS) { const v = battleTypeDps(aType, Number(t)); if (v > m) m = v; }
+    _ANTI_BEST.set(aType, m);
+    return m;
+}
 // ── 'localRatio' PARAMETRELERİ (aranabilir) ──
 let PRO_RATIO_R = 600;      // yerel oran yarıçapı (ölçüm bu yarıçapta yapıldı: kazanan 10.8 / kaybeden 3.4)
 let PRO_RATIO_MIN = 1.0;    // (dost+1)/düşman bunun altındaysa ilerleme — yerel dezavantajda kapatma
@@ -768,6 +873,43 @@ let BATTLE_GRAMMAR_KUTLE = false;
 let BATTLE_FLANK_FIX = true;
 function battleFlankFix() {
     return (typeof BATTLE_FLANK_FIX === 'undefined') || BATTLE_FLANK_FIX;
+}
+
+// ── VARIŞ EŞİĞİ / SON KISMİ ADIM (kullanıcı: "birliği kendine çok yakın bir konuma göndermeye
+// çalıştığımda gitmiyor" — `_holdingPos` sıfırlaması YETMEDİ, İKİNCİ eşik buydu) ──
+// ÖLÇÜLDÜ (tools/yakin-emir-teshis.js, scout_vehicle 12 px/tik): 4/8/11/13 px'lik emirlerde birim
+// HİÇ KIMILDAMIYOR (netYer 0). Sebep: eski eşik `movementSpeed + 1` idi ve adım hep TAM hız
+// atılıyordu → hıza bağlı bir ÖLÜ BÖLGE. 16-40 px'te de 12 px'lik kuantumdan 4-8 px eksik kalıyordu.
+// DÜZELTME: (a) varış toleransı hızdan bağımsız küçük bir sabit, (b) son adım kalan mesafeye
+// KIRPILIR (rota izlenirken kırpma yok — ara nokta hedeften yakın olabilir).
+// SİM davranışı değişir → determinizm hash'leri ve AI ölçüt tabanları kayar (bilerek).
+// SEYIRCI KIPI (`--izle`): sis cizilmez + her birim gorunur sayilir. Yalniz IZLEME icindir;
+// simulasyona ve AI algisina (BattlePerception) DOKUNMAZ, varsayilani kapalidir.
+let BATTLE_SPECTATE = false;
+
+// Son açılan savaş oturumunun yapılandırması ("Tekrar Oyna" bununla aynı maçı yeniden kurar).
+let LAST_BATTLE_CONFIG = null;
+
+// ── KARE ÇARPIŞMA SINIRI (kullanıcı: "birim sınırları daire değil KENDİ BOYUTUNDA kare olsun") ──
+// Birim sprite'ı 64×64 px çizilir ama çarpışma yarıçap 32'lik bir DAİRE ile çözülüyordu; görülen
+// dikdörtgen ile çarpışan daire birbirini tutmuyordu (köşeler iç içe geçiyor, kenarlar boşluk bırakıyor).
+// Artık ayırma eksen-hizalı KUTU (AABB) ile yapılır: en az batma ekseninde itilir — köşeye takılma yok,
+// dizilim ızgaraya oturur. Seçim çerçevesi de bu kutuyu çizer → GÖRÜLEN = ÇARPIŞAN.
+// SİM DEĞİŞİKLİĞİ: determinizm hash'leri ve AI ölçüt tabanları kayar (listede bilerek EN SONA konmuştu).
+let BATTLE_BOX_COLLISION = true;
+const UNIT_HALF_W = BASE_DRAW_W / 2;
+const UNIT_HALF_H = BASE_DRAW_H / 2;
+function battleBoxCollision() {
+    return (typeof BATTLE_BOX_COLLISION === 'undefined') || BATTLE_BOX_COLLISION;
+}
+
+// 'heloMass' carpani: attack_helo agirligi bu kat artar (butce sabit -> baska birimden kisilir).
+let PRO_HELO_WEIGHT_MULT = 3;
+
+let BATTLE_ARRIVE_FIX = true;
+const ARRIVE_TOLERANCE_PX = 1.5;
+function battleArriveFix() {
+    return (typeof BATTLE_ARRIVE_FIX === 'undefined') || BATTLE_ARRIVE_FIX;
 }
 
 let BATTLE_UNSTICK_FIX = true;
@@ -1054,6 +1196,31 @@ let BATTLE_FERRY_FIX = true;
 // HIZLI MAC'ta secilen RAKIP BEYIN etiketi. Telemetriye her sifirlamada yeniden yazilir —
 // `resetBattleState()` hem oturum acilisinda HEM startBattle'da cagriliyor, dolayisiyla oturum
 // acildiktan sonra telemetriye dogrudan yazmak SILINIYORDU (yakalandi).
+// Dizimde sag tik ile YERLESTIRILMIS birimi havuza iade (kullanici istegi).
+// NOT: bir maçta "Mavi sag kalan 1 / oldurme 0" gorunce bunu sebep sanip KAPATMISTIM — YANLIS
+// cikarimdi; kullanici o maci TEST icin oyle bitirmis. Kanit olmadan ozellik kapatilmaz. ACIK.
+let BATTLE_DEPLOY_SAGTIK_IADE = true;
+
+// Yesil formasyon onizlemesi (main.js). Kullanici once istedi, sonra vazgecti → varsayilan KAPALI.
+let BATTLE_FORMASYON_ONIZLEME = false;
+
+// Turuncu "SCHWERPUNKT" ana-caba ekseni (WarRoomUI). Kullanici kaldirilmasini istedi: cizgi
+// kuvvetin KUTLE MERKEZINDEN cikip hedefe gidiyordu, bu da hedefi yanlis gosteriyordu.
+let BATTLE_SCHWERPUNKT_EKSENI = false;
+
+// ── SAM COKLU HEDEF (kullanici istegi 2026-08-09) ──
+// GEREKCE (kullanici): "2 helo ayni anda saldirdiginda hava ustunlugunu cok rahat kiriyor."
+// Olcumle uyumlu: helo AI kayiplarinin %22'si ve SAM (menzil 1650) tek seferde tek hedefe atiyordu.
+// SAM ayni anda EN FAZLA SAM_MAX_HEDEF hava hedefine ates eder (ikinci hedef ayri bekleme + ayri
+// muhimmat tuketir). Determinist: uzamsal-izgara + id ile esitlik bozma, RNG yok.
+let BATTLE_SAM_MULTI_TARGET = true;
+let SAM_MAX_HEDEF = 2;
+
+// ── MAC DURAKLATMA (ESC) — kullanici kusur raporu 2026-08-09: "esc bastigimda oyun dursun ve
+// pencere ciksin: mactan cik / maca devam et". Duraklatma DETERMINIZMI BOZMAZ: zaman biriktirilmez,
+// tik atilmaz (komutan modunun `_cmdrMayStep` kalibinin aynisi). Replay/hash etkilenmez.
+let BATTLE_PAUSED = false;
+
 let BATTLE_RAKIP_BEYIN = null;
 let BATTLE_GRAMMAR_V2 = false;
 let BATTLE_GRAMMAR_KOTA = 64;
@@ -1488,6 +1655,14 @@ let selectedSpawnType = null;
 // ─── SAVAŞ SİSİ KONTROLÜ (Team Vision) ───
 // targetIsAir verilirse: HAVA-ARAMA RADARI (airRadar) YALNIZ hava hedefini açar (görüş-desteği);
 // normal birimler her şeyi görür (eskisi gibi). Radar karayı görmez → "sadece havayı görsün".
+// KUSUR (kullanıcı, 2026-08-09): "radar açıkken sağ-alt haritada düşmanın TAMAMI görünüyor".
+// KÖK NEDEN: `airRadar` bayrağı YALNIZ STATS'te var (UnitLoader.js:88); Unit örneğine hiç kopyalanmıyor.
+// Bu yüzden aşağıdaki `u.airRadar` her zaman undefined'dı → "radar karayı açmaz" kuralı HİÇ çalışmadı ve
+// radarın 2500px görüşü tüm KARA düşmanını da açıyordu. Sis katmanı (main.js:1385) STATS'e de baktığı için
+// oyun haritası doğru görünüyordu; mini harita ve HEDEFLEME yanlıştı — rapor tam olarak bu ayrımdı.
+function unitHasAirRadar(u) {
+    return !!(u && (u.airRadar || (typeof STATS !== 'undefined' && STATS[u.type] && STATS[u.type].airRadar)));
+}
 function canSee(teamIsRed, targetX, targetY, targetIsAir) {
     for (const u of SIM.units) {
         if (u.dead || u.isRed !== teamIsRed) continue;
@@ -1498,7 +1673,7 @@ function canSee(teamIsRed, targetX, targetY, targetIsAir) {
         // ilan ettiği şey ise KONTROL BAĞININ kopması. Bağ koptuysa görüntü de akmaz.
         if (u.jammable && typeof BATTLE_JAM_RECON !== 'undefined' && BATTLE_JAM_RECON &&
             typeof SIM !== 'undefined' && (SIM.tick - (u.jammedTick || -99)) <= 1) continue;
-        if (u.airRadar && targetIsAir !== true) continue;         // radar yalnız havayı açar
+        if (unitHasAirRadar(u) && targetIsAir !== true) continue; // radar yalnız havayı açar
         const vision = Number.isFinite(u.vision) ? u.vision : STATS[u.type].vision;
         if (Math.hypot(u.x - targetX, u.y - targetY) <= vision) return true;
     }

@@ -174,6 +174,64 @@ const STORY_RESOURCE_LEGACY_MAPPINGS = Object.freeze([
     }
 ]);
 
+function storyResourceUnitFold(value) {
+    return String(value == null ? '' : value).trim().toLocaleLowerCase('tr-TR')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function storyResourceUnitResolve(resourceId, rawUnit, amount) {
+    const definition = STORY_RESOURCE_DEFINITIONS.find(row => row.id === String(resourceId || ''));
+    const numeric = Number(amount);
+    if (!definition) return { ok: false, code: 'RESOURCE_NOT_FOUND', resourceId: String(resourceId || '') };
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return { ok: false, code: 'INVALID_UNIT_AMOUNT', resourceId: definition.id };
+    }
+    const unit = definition.unit;
+    const folded = storyResourceUnitFold(rawUnit);
+    const exact = [unit.id, unit.label, unit.symbol].map(storyResourceUnitFold);
+    const explicitAliases = {
+        food: ['gida tonu', 'ton gida', 't gida'],
+        energy: ['mwh', 'megavat saat'],
+        raw_materials: ['hammadde tonu', 'ton hammadde', 't ham'],
+        industrial_parts: ['parca lotu', 'standart parca lotu', 'lot parca', 'lot'],
+        electronics: ['elektronik lotu', 'lot elektronik', 'lot elek', 'lot'],
+        military_supplies: ['ikmal tonu', 'askeri ikmal tonu', 'ton ikmal', 't ikmal'],
+        labor: ['isci gun'],
+        capital: ['para birimi', 'pb', 'sermaye', 'capital']
+    }[definition.id] || [];
+    const generic = ['birim', 'adet', 'unit'].includes(folded);
+    const matched = exact.includes(folded) || explicitAliases.map(storyResourceUnitFold).includes(folded);
+    if (!matched && !generic) {
+        return {
+            ok: false,
+            code: 'UNIT_CONVERSION_REQUIRED',
+            resourceId: definition.id,
+            suppliedUnit: String(rawUnit || ''),
+            canonicalUnit: storyResourceCloneUnit(unit)
+        };
+    }
+    return {
+        ok: true,
+        code: generic ? 'GENERIC_UNIT_BOUND_TO_CATALOG' : 'CANONICAL_UNIT_MATCH',
+        resourceId: definition.id,
+        suppliedUnit: String(rawUnit || ''),
+        canonicalUnit: storyResourceCloneUnit(unit),
+        amount: Number(numeric.toFixed(Number(unit.precision) || 0)),
+        factor: 1,
+        confidenceBps: generic ? 7000 : 10000
+    };
+}
+
+function storyResourceCloneUnit(unit) {
+    return unit ? {
+        id: String(unit.id), label: String(unit.label), symbol: String(unit.symbol),
+        precision: Number(unit.precision) || 0
+    } : null;
+}
+
 function storyResourceEnabled() {
     return typeof storyFeatureEnabled !== 'function'
         || storyFeatureEnabled('economy.resourceTaxonomy');

@@ -46,6 +46,18 @@ function saveTimings(timings) {
     fs.mkdirSync(path.dirname(TIMING_FILE), { recursive: true });
     fs.writeFileSync(TIMING_FILE, `${JSON.stringify(timings, null, 2)}\n`);
 }
+function validateManifestCoverage() {
+    const source = fs.readFileSync(TEST_FILE, 'utf8');
+    const requested = Array.from(new Set(Array.from(
+        source.matchAll(/storyTestResult\(\s*['"]([^'"]+)['"]/g), match => match[1]
+    )));
+    const manifest = STORY_TEST_TASKS.map(task => task.key);
+    const missing = requested.filter(key => !manifest.includes(key));
+    const extra = manifest.filter(key => !requested.includes(key));
+    if (missing.length || extra.length) {
+        throw new Error(`Story test manifest mismatch: missing=[${missing.join(',')}] extra=[${extra.join(',')}]`);
+    }
+}
 function determineWorkerCount(cpuBusy) {
     const explicitRaw = argValue('--workers') || process.env.STORY_TEST_WORKERS;
     const explicit = explicitRaw == null || explicitRaw === 'auto' ? null : Math.max(1, Number(explicitRaw) || 1);
@@ -80,6 +92,7 @@ async function runAssertions(resultsDir) {
 
 async function main() {
     const started = Date.now();
+    validateManifestCoverage();
     const cpuBusy = await cpuBusyPercent();
     const config = determineWorkerCount(cpuBusy);
     const keep = process.argv.includes('--keep-results');

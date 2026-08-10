@@ -188,7 +188,9 @@ function storyActivationCandidate(node, context) {
     if (node.owner === STORY.playerStateId) add('PLAYER_CONTROLLED', 12000);
 
     const level = Math.max(1, Number(node.level) || 1);
-    const infrastructure = Math.max(0, Number(node.fac) || 0) + Math.max(0, Number(node.bar) || 0);
+    const infrastructure = typeof prodInfraLevel === 'function'
+        ? Math.max(0, prodInfraLevel(node))                       // ALTI BİNA: tesis toplamı
+        : Math.max(0, Number(node.fac) || 0) + Math.max(0, Number(node.bar) || 0);
     const population = Math.max(0, Number(node.pop) || 0);
     const garrison = Math.max(0, Number(node.garrison) || 0);
     priority += level * 1200 + infrastructure * 350 + Math.min(3000, population / 1000) + Math.min(2000, garrison * 10);

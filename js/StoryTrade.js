@@ -2322,6 +2322,18 @@ function storyTradeProductionAdmissionPlan(options) {
         SURVIVAL: candidates.some(candidate => candidate.policyLane === 'SURVIVAL'),
         CHAIN_RECOVERY: candidates.some(candidate => candidate.policyLane === 'CHAIN_RECOVERY')
     };
+    // ŞERİDİN TÜM ADAYLARI TEK TEK DENENDİ Mİ? "Uygun aday" ile "sevk edilebilir aday" AYRI şeylerdir:
+    // bir aday politikaca uygun olup da hiçbir kaynağı minimumUsefulQuantity kadar veremediği için
+    // fizik olarak reddedilebilir (SHARED_RESERVATION_CONFLICT). Planlayıcı bunu düzeltemez.
+    // Garanti edebildiği şey şudur: HİÇBİR ŞERİDİ ATLAMAZ — bir şerit temsil edilmiyorsa, o şeridin
+    // her adayı ayrı ayrı denenmiş ve fiziksel olarak elenmiştir; sevkiyat bütçesi diğer şeride
+    // harcandığı için sırası hiç gelmemiş DEĞİLDİR. laneMinimumsSatisfied artık bunu ölçer.
+    const laneExhausted = {};
+    for (const lane of Object.keys(laneAvailable)) {
+        const laneKeys = candidates.filter(candidate => candidate.policyLane === lane)
+            .map(stableCandidateKey);
+        laneExhausted[lane] = laneKeys.length > 0 && laneKeys.every(key => attempted.has(key));
+    }
     const byLane = countBy(selected, 'policyLane');
     const quantityByResource = selected.reduce((totals, selection) => {
         totals[selection.resourceId] = storyTradeRound(
@@ -2369,8 +2381,9 @@ function storyTradeProductionAdmissionPlan(options) {
                 resourceDispatchLimits
             ),
             laneAvailable,
+            laneExhausted,
             laneMinimumsSatisfied: Object.keys(laneAvailable).every(lane => (
-                !laneAvailable[lane] || Number(byLane[lane] || 0) > 0
+                !laneAvailable[lane] || Number(byLane[lane] || 0) > 0 || laneExhausted[lane]
             ))
         },
         summary: {

@@ -464,6 +464,11 @@ function storyNewCampaign(config = {}) {
         abundance,
         doctrine: config.doctrine || STORY.cfg.doctrine || 'combined',
         fog: config.fog !== false,
+        // ZORLUK: sefer savaslarinda RAKIBIN beyni ('easy' = intel3-pro taban, 'hard' = intel4 mezun).
+        // Kurulum ekranindan gelir; eski kayitlarda yoksa 'hard' (bugune dek fiilen oynanan seviyeye
+        // en yakin degil ama YENI varsayilan — eski kayit yukleyen oyuncu ayni deneyimi surdursun diye
+        // storyLoad tarafinda ayrica ele alinir).
+        difficulty: (config.difficulty === 'easy') ? 'easy' : 'hard',
         featureFlags: requestedFeatureFlags
     };
     if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
@@ -510,6 +515,7 @@ function storyNewCampaign(config = {}) {
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
         '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterActions', '_accSiege', '_accTech',
+        '_accNegotiationDeadlines',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
     ]) STORY[key] = 0;
@@ -553,6 +559,8 @@ function storyNewCampaign(config = {}) {
     // Faz 37: eylem defteri kimlik, kurum, ilişki ve hafıza kaynaklarının
     // tamamından sonra doğar; aday üretimi bunlardan paralel gerçeklik kurmaz.
     if (typeof storyCharacterActionReset === 'function') storyCharacterActionReset();
+    if (typeof storyConversationSessionReset === 'function') storyConversationSessionReset();
+    if (typeof storyNegotiationReset === 'function') storyNegotiationReset();
     storyLog(`${storyPlayerState().name} barış dönemine başladı. Ekonomiyi, kurumları ve ilişkileri geliştir; savaş ancak açık bir diplomatik kırılmayla başlayabilir.`);
     storySave();
 }
@@ -637,6 +645,12 @@ function storySave() {
             characterActions: (typeof storyCharacterActionForSave === 'function')
                 ? storyCharacterActionForSave()
                 : STORY.characterActions,
+            conversationUnderstanding: (typeof storyConversationSessionForSave === 'function')
+                ? storyConversationSessionForSave()
+                : STORY.conversationUnderstanding,
+            negotiations: (typeof storyNegotiationForSave === 'function')
+                ? storyNegotiationForSave()
+                : STORY.negotiations,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -788,6 +802,10 @@ function storyLoad() {
         if (typeof storyRelationshipRestore === 'function') storyRelationshipRestore(d.characterRelationships);
         if (typeof storyMemoryRestore === 'function') storyMemoryRestore(d.characterMemory);
         if (typeof storyCharacterActionRestore === 'function') storyCharacterActionRestore(d.characterActions);
+        if (typeof storyConversationSessionRestore === 'function') {
+            storyConversationSessionRestore(d.conversationUnderstanding);
+        }
+        if (typeof storyNegotiationRestore === 'function') storyNegotiationRestore(d.negotiations);
         if (typeof storyFacBackfill === 'function') for (const st of STORY.states) storyFacBackfill(st);   // AŞAMA 2 göçü
         STORY._news = Array.isArray(d.news) ? d.news : [];   // AŞAMA 4: gazete arşivi
         const runtime = d.runtime && typeof d.runtime === 'object' ? d.runtime : {};
@@ -845,7 +863,7 @@ function storyLoad() {
             STORY.tech = _pst.tech;
         } else STORY.tech = d.tech || [];
         storyComputeTechBonus();
-        STORY.cfg = Object.assign({ abundance: 1.0, doctrine: 'combined', fog: true }, d.cfg || {});
+        STORY.cfg = Object.assign({ abundance: 1.0, doctrine: 'combined', fog: true, difficulty: 'hard' }, d.cfg || {});
         if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
         STORY.clock = d.clock || 0;
         if (typeof storyClockRestore === 'function') storyClockRestore(d.time);
@@ -1048,6 +1066,23 @@ function storyEnterBattle(node) {
     const _foeId = STORY.battleCtx ? (STORY.battleCtx.enemyStateId != null ? STORY.battleCtx.enemyStateId : (STORY.battleCtx.mode === 'attack' ? STORY.battleCtx.defender : STORY.battleCtx.attacker)) : null;
     const _foe = (_foeId != null) ? storyState(_foeId) : null;
     const redTech = (_foe && _foe._techBonus) || null;
+    // ── HİKÂYE SAVAŞLARI intel4 BEYNİYLE OYNANIR (kullanıcı kararı, 2026-08-10) ──
+    // Bugüne dek hikâye modu bayrakları hiç kurmuyordu → iki taraf da varsayılan (false) ile, yani
+    // TABAN intel3-pro beyniyle oynuyordu. Hızlı Maç'ta intel4 seçilebilirken seferin kendisi zayıf
+    // beyinle oynanıyordu. Artık DÜŞMAN ve MÜTTEFİK ikisi de intel4. (intel4-pro bağlanmaz: ~10.000
+    // maçlık ölçümde intel4'ü geçemedi; beonai pasif — klon-v2 kod-AI'dan anlamlı kötüydü.)
+    // Bayraklar oturum AÇILMADAN önce kurulur: openBattlefieldSession beyin bayraklarını okur.
+    // ZORLUK RAKIBI AYARLAR (kullanıcı isteği): KOLAY → düşman taban beyin (intel3-pro),
+    // ZOR → düşman mezun sürüm (intel4). MÜTTEFİK HER ZAMAN intel4: zorluk, oyuncunun kendi
+    // tarafını sakatlayarak değil rakibi zayıflatarak ayarlanır (yoksa "kolay" modda müttefikler
+    // aptallaşıp oyuncuya yük olurdu).
+    const _zor = !(STORY.cfg && STORY.cfg.difficulty === 'easy');
+    if (typeof BATTLE_INTEL4_RED !== 'undefined') BATTLE_INTEL4_RED = _zor;    // düşman: zorluğa bağlı
+    if (typeof BATTLE_INTEL4_BLUE !== 'undefined') BATTLE_INTEL4_BLUE = true;  // müttefik/garnizon: daima intel4
+    if (typeof BATTLE_INTEL4PRO_RED !== 'undefined') BATTLE_INTEL4PRO_RED = false;
+    if (typeof BATTLE_INTEL4PRO_BLUE !== 'undefined') BATTLE_INTEL4PRO_BLUE = false;
+    if (typeof BATTLE_BEONAI_RED !== 'undefined') BATTLE_BEONAI_RED = null;
+    if (typeof BATTLE_BEONAI_BLUE !== 'undefined') BATTLE_BEONAI_BLUE = null;
     openBattlefieldSession({
         mode: 'story',
         mapId: node.mapId,
@@ -1329,6 +1364,7 @@ function storyOnBattleEnd(won, battleSummary) {
 
     // game-over ekranını HİKAYE moduna çevir: "Dünyaya Dön" göster, "Tekrar Oyna" gizle
     document.getElementById('restart-btn')?.classList.add('hidden');
+    document.getElementById('menu-return-btn')?.classList.add('hidden');   // hikayede menuye donus yok: "Dunyaya Don"
     const rb = document.getElementById('story-return-btn');
     if (rb) rb.classList.add('hidden');
     if (typeof warRoomShowCampaignResult === 'function') warRoomShowCampaignResult(STORY.pendingReward);
@@ -1366,6 +1402,7 @@ function storyReturnToWorld() {
     document.getElementById('campaign-result-panel')?.classList.add('hidden');
     document.getElementById('story-return-btn')?.classList.add('hidden');
     document.getElementById('restart-btn')?.classList.remove('hidden');   // normal mod için geri-aç
+    document.getElementById('menu-return-btn')?.classList.remove('hidden');
     phase = PHASE.OVER;   // sim duruyor; dünya ekranı devralır
     STORY._lastFrameT = 0;   // savaş/menu süresi dünya saatine hayalet kare olarak eklenmesin
     showScreen('story');
@@ -1537,6 +1574,8 @@ function storyAdvanceStep(dtSec) {
     if (_politicalCrisisDt > 0 && typeof storyPoliticalCrisisTick === 'function') storyPoliticalCrisisTick(_politicalCrisisDt); // Faz 33 aktor, hazirlik, koalisyon ve karsi hamle zinciri
     const _characterActionDt = _storyDue('character-actions', '_accCharacterActions', 10);
     if (_characterActionDt > 0 && typeof storyCharacterActionTick === 'function') storyCharacterActionTick(_characterActionDt); // Faz 37 deterministik, hilesiz ve sinirli karakter eylemi secimi
+    const _negotiationDt = _storyDue('negotiation-deadlines', '_accNegotiationDeadlines', 5);
+    if (_negotiationDt > 0 && typeof storyNegotiationTick === 'function') storyNegotiationTick(); // Faz 38.3 süreli söz ve ihlal yaşam döngüsü
     if (_storyDue('siege', '_accSiege', 2.5) > 0) storySiegeTick();
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
     if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();

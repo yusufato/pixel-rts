@@ -77,8 +77,9 @@ function storyRegionalDemandSpecs(node, worldDays) {
     const days = Math.max(0, Number(worldDays) || 0);
     const population = storyRegionalPopulation(node);
     const level = Math.max(1, Number(node && node.level) || 1);
-    const facilities = Math.max(0, Number(node && node.fac) || 0)
-        + Math.max(0, Number(node && node.bar) || 0);
+    const facilities = typeof prodInfraLevel === 'function'
+        ? Math.max(0, prodInfraLevel(node))                       // ALTI BİNA: tesis toplamı
+        : Math.max(0, Number(node && node.fac) || 0) + Math.max(0, Number(node && node.bar) || 0);
     const military = Math.max(0, Number(node && node.garrison) || 0);
     const settledCommerce = typeof storyCommerceEnabled === 'function'
         && storyCommerceEnabled();

@@ -84,9 +84,17 @@ function storySpawnGarrison() {
     const node = storyNode(ctx.nodeId); if (!node) return;
     // ŞEHİR SEVİYESİ: milis tabanı seviyeyle büyür (Sv.1=3, Sv.2=5, Sv.3=8)
     const base = (typeof cityMilitiaFor === 'function') ? cityMilitiaFor(node) : CITY_MILITIA_BASE;
-    const g = Math.min(20, base + Math.min(storyCityGarrisonCap(node), node.garrison || 0));
+    const gar = Math.min(storyCityGarrisonCap(node), node.garrison || 0);
+    const g = Math.min(20, base + gar);
+    // KOMPOZİSYON ROSTERDEN: şehir ne ürettiyse savunmada o çıkar. Elle yazılı piyade+tanksavar
+    // ikilisi 26 birimlik rosterde artık yanlıştı — havan üreten şehir havanla savunmalı.
+    // Milis TABANI (g - gar) her zaman yaya kalır: milis teçhizatlı birlik değildir.
+    const kayitli = (typeof storyGarrisonComposition === 'function')
+        ? storyGarrisonComposition(node, gar) : [];
     for (let i = 0; i < g; i++) {
-        const type = (i % 3 === 0) ? T.ANTI_TANK : T.INFANTRY;
+        const idx = i - (g - kayitli.length);
+        const type = (idx >= 0 && kayitli[idx] != null) ? kayitli[idx]
+            : ((i % 3 === 0) ? T.ANTI_TANK : T.INFANTRY);
         const u = new Unit(type, 180 + (i % 10) * 52, (WORLD_H - 300) - Math.floor(i / 10) * 50, false);   // gazi/müttefik ile aynı güvenli dizilim bölgesi
         u.ally = true;
         if (typeof getSquadRole === 'function') u.squad = getSquadRole(type);

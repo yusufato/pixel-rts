@@ -216,6 +216,7 @@ function storyContactDirectoryOpenCharacter(actorId, name) {
     STORY._talkFocusCharacterId = row.id;
     STORY._talkFocusCharacterName = String(name || row.name);
     STORY._talkFocusRegionId = null;
+    STORY._talkView = 'conversations';
     if (typeof storyTalkUpdate === 'function') storyTalkUpdate();
     return true;
 }

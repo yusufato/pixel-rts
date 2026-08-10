@@ -16,6 +16,8 @@ const fs = require('fs'), path = require('path');
 let llama = null, model = null, ctx = null, LlamaChatSession = null;
 let busy = false;
 const queue = [];
+const jsonGrammarCache = new Map();
+const JSON_GRAMMAR_CACHE_CAP = 32;
 
 // CUDA (RTX 4060) KALICI + OTOMATİK: cuda-runtime/bin master (npm install silemez). Her başlangıçta:
 //   1) CUDA_PATH + PATH ayarla (node-llama-cpp tespiti bunları arar)
@@ -85,6 +87,19 @@ async function runOne(job) {
             temperature: job.temperature == null ? 0.85 : job.temperature,
             topP: 0.9,
         };
+        if (job.jsonSchema) {
+            const schemaText = JSON.stringify(job.jsonSchema);
+            if (schemaText.length > 16384) throw new Error('JSON grammar schema too large');
+            let grammar = jsonGrammarCache.get(schemaText);
+            if (!grammar) {
+                grammar = await llama.createGrammarForJsonSchema(JSON.parse(schemaText));
+                jsonGrammarCache.set(schemaText, grammar);
+                while (jsonGrammarCache.size > JSON_GRAMMAR_CACHE_CAP) {
+                    jsonGrammarCache.delete(jsonGrammarCache.keys().next().value);
+                }
+            }
+            promptOptions.grammar = grammar;
+        }
         // Faz 3.1 tezgâhı aynı üretim yolunu ölçer. Normal oyun isteklerinde
         // callbacks eklenmez; çıktı ve zamanlama davranışı değişmez.
         if (job.metrics) {

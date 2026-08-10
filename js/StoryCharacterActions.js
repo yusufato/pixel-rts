@@ -11,10 +11,11 @@
 //  fiziksel varlığa; istifa ise kanonik makam devri ve halefliğe bağlanır.
 // ============================================================================
 
-const STORY_CHARACTER_ACTION_SCHEMA_VERSION = 6;
-const STORY_CHARACTER_ACTION_ADAPTER_VERSION = 'story-character-action-ledger-6';
+const STORY_CHARACTER_ACTION_SCHEMA_VERSION = 8;
+const STORY_CHARACTER_ACTION_ADAPTER_VERSION = 'story-character-action-ledger-8';
 const STORY_CHARACTER_ACTION_RECEIPT_CAP = 2048;
-const STORY_CHARACTER_ACTION_AI_POLICY_HASH = 'fnv1a32:phase37-context-selector-2';
+const STORY_CHARACTER_ARBITER_DECISION_CAP = 512;
+const STORY_CHARACTER_ACTION_AI_POLICY_HASH = 'fnv1a32:phase38-speech-realizer-4';
 const STORY_CHARACTER_ACTION_AI_ACTOR_WINDOW = 8;
 const STORY_CHARACTER_ACTION_AI_CONTACT_CAP = 4;
 const STORY_CHARACTER_ACTION_AI_MIN_SCORE = 54;
@@ -22,6 +23,7 @@ const STORY_CHARACTER_ACTION_AI_RECENT_WINDOW_SECONDS = 120;
 const STORY_CHARACTER_ACTION_SABOTAGE_DELAY_SECONDS = 30;
 const STORY_CHARACTER_ACTION_SABOTAGE_MAX_DAMAGE_BPS = 10000;
 const STORY_CHARACTER_ACTION_PLAYER_TYPES = Object.freeze(['PERSUADE', 'NEGOTIATE', 'ALLY', 'BETRAY']);
+const STORY_CHARACTER_ACTION_AI_SOURCES = Object.freeze(['DETERMINISTIC_AI', 'LOCAL_LLM_VALIDATED']);
 
 const STORY_CHARACTER_ACTION_DEFS = Object.freeze({
     PERSUADE: Object.freeze({
@@ -116,6 +118,10 @@ function storyCharacterActionDeterministicBps(value) {
     return storyCharacterActionHash32(value) % 10000;
 }
 
+function storyCharacterActionAIReceipt(receipt) {
+    return !!(receipt && STORY_CHARACTER_ACTION_AI_SOURCES.includes(receipt.decisionSource));
+}
+
 function storyCharacterActionSabotagePlan(candidate, receiptId) {
     const targetCountry = typeof storyStateCapacityCountryView === 'function'
         ? storyStateCapacityCountryView(candidate.targetCountryId) : null;
@@ -172,8 +178,10 @@ function storyCharacterActionLedgerCreate(options) {
         schemaVersion: STORY_CHARACTER_ACTION_SCHEMA_VERSION,
         adapterVersion: STORY_CHARACTER_ACTION_ADAPTER_VERSION,
         nextReceiptSequence: 0,
+        nextArbiterDecisionSequence: 0,
         cooldowns: {},
         receipts: {},
+        arbiterDecisions: {},
         officeTransitions: {},
         ai: {
             policyHash: STORY_CHARACTER_ACTION_AI_POLICY_HASH,
@@ -184,8 +192,16 @@ function storyCharacterActionLedgerCreate(options) {
             deniedCount: 0,
             prunedAppliedCount: 0,
             prunedDeniedCount: 0,
+            arbiterRequestedCount: 0,
+            arbiterAcceptedCount: 0,
+            arbiterPassCount: 0,
+            arbiterFallbackCount: 0,
+            arbiterStaleCount: 0,
+            arbiterRestoredCount: 0,
+            arbiterDecisionPrunedCount: 0,
             lastTickAt: 0,
-            lastSelection: null
+            lastSelection: null,
+            pendingArbiter: null
         },
         diagnostics: {
             backfilled: !!options.backfilled,
@@ -193,7 +209,7 @@ function storyCharacterActionLedgerCreate(options) {
             receiptCap: STORY_CHARACTER_ACTION_RECEIPT_CAP,
             deterministicCandidates: true,
             randomDecisions: false,
-            llmDecisions: false,
+            llmDecisions: true,
             unavailableDomainExecutors: []
         }
     };
@@ -201,9 +217,14 @@ function storyCharacterActionLedgerCreate(options) {
 
 function storyCharacterActionMigrateLedger(saved) {
     const ledger = storyCharacterActionClone(saved);
-    if (!ledger || typeof ledger !== 'object' || ![1, 2, 3, 4, 5, STORY_CHARACTER_ACTION_SCHEMA_VERSION].includes(ledger.schemaVersion)) return null;
+    if (!ledger || typeof ledger !== 'object'
+        || ![1, 2, 3, 4, 5, 6, 7, STORY_CHARACTER_ACTION_SCHEMA_VERSION].includes(ledger.schemaVersion)) return null;
     if (!ledger.cooldowns || typeof ledger.cooldowns !== 'object') ledger.cooldowns = {};
     if (!ledger.receipts || typeof ledger.receipts !== 'object') ledger.receipts = {};
+    if (!ledger.arbiterDecisions || typeof ledger.arbiterDecisions !== 'object'
+        || Array.isArray(ledger.arbiterDecisions)) ledger.arbiterDecisions = {};
+    ledger.nextArbiterDecisionSequence = Math.max(0,
+        Math.floor(Number(ledger.nextArbiterDecisionSequence) || 0));
     if (!ledger.officeTransitions || typeof ledger.officeTransitions !== 'object'
         || Array.isArray(ledger.officeTransitions)) ledger.officeTransitions = {};
     const defaults = storyCharacterActionLedgerCreate({
@@ -232,6 +253,7 @@ function storyCharacterActionMigrateLedger(saved) {
 
 function storyCharacterActionReset() {
     if (!storyCharacterActionEnabled()) { STORY.characterActions = null; return null; }
+    if (typeof storyCharacterArbiterLiveReset === 'function') storyCharacterArbiterLiveReset({ preserveTestAdapter: true });
     STORY.characterActions = storyCharacterActionLedgerCreate();
     return storyCharacterActionSnapshot();
 }
@@ -615,6 +637,8 @@ function storyCharacterActionCandidate(input) {
         decisionSource: String(input.decisionSource || 'PLAYER_OR_SYSTEM'),
         selectorScore: Number.isFinite(Number(input.selectorScore)) ? Number(input.selectorScore) : null,
         selectorReasons: Array.isArray(input.selectorReasons) ? input.selectorReasons.map(String) : [],
+        decisionMetadata: input.decisionMetadata && typeof input.decisionMetadata === 'object'
+            ? storyCharacterActionClone(input.decisionMetadata) : null,
         allowed: reasons.length === 0,
         reasons
     };
@@ -1082,7 +1106,7 @@ function storyCharacterActionPruneReceipts(ledger) {
     for (const row of rows) {
         if (excess <= 0) break;
         if (protectedReceiptIds.has(row.id)) continue;
-        if (row.decisionSource === 'DETERMINISTIC_AI') {
+        if (storyCharacterActionAIReceipt(row)) {
             if (row.status === 'APPLIED') {
                 ledger.ai.prunedAppliedCount = Math.max(0, Number(ledger.ai.prunedAppliedCount) || 0) + 1;
             } else if (row.status === 'FAILED') {
@@ -1123,6 +1147,7 @@ function storyCharacterActionExecute(input) {
         decisionSource: candidate.decisionSource,
         selectorScore: candidate.selectorScore,
         selectorReasons: storyCharacterActionClone(candidate.selectorReasons),
+        decisionMetadata: storyCharacterActionClone(candidate.decisionMetadata),
         createdAt: candidate.generatedAt, completedAt,
         authority: storyCharacterActionClone(candidate.authority),
         cost: storyCharacterActionClone(candidate.cost),
@@ -1196,7 +1221,7 @@ function storyCharacterActionAIRecentStats(actorId, actionType) {
     let globalTypeCount = 0;
     let actorTypeCount = 0;
     for (const receipt of Object.values(ledger && ledger.receipts || {})) {
-        if (receipt.status !== 'APPLIED' || receipt.decisionSource !== 'DETERMINISTIC_AI') continue;
+        if (receipt.status !== 'APPLIED' || !storyCharacterActionAIReceipt(receipt)) continue;
         if (Number(receipt.completedAt) < windowStart || receipt.actionType !== actionType) continue;
         globalTypeCount++;
         if (receipt.actorId === actorId) actorTypeCount++;
@@ -1331,6 +1356,280 @@ function storyCharacterActionAISelection() {
     };
 }
 
+function storyCharacterActionArbiterDecisionPrune(ledger) {
+    const rows = Object.values(ledger.arbiterDecisions || {}).sort((a, b) =>
+        Number(a.sequence) - Number(b.sequence) || a.id.localeCompare(b.id, 'en'));
+    const excess = Math.max(0, rows.length - STORY_CHARACTER_ARBITER_DECISION_CAP);
+    for (let index = 0; index < excess; index++) {
+        delete ledger.arbiterDecisions[rows[index].id];
+        ledger.ai.arbiterDecisionPrunedCount++;
+    }
+}
+
+function storyCharacterActionArbiterDecisionRecord(pending, input) {
+    const ledger = storyCharacterActionEnsure();
+    input = input || {};
+    const sequence = Math.max(0, Math.floor(Number(ledger.nextArbiterDecisionSequence) || 0)) + 1;
+    ledger.nextArbiterDecisionSequence = sequence;
+    const id = `character-arbiter-decision:${sequence}`;
+    const row = {
+        id,
+        sequence,
+        schemaVersion: 2,
+        requestId: pending.requestId,
+        contextHash: pending.contextHash,
+        actorId: pending.actorId,
+        source: String(input.source || 'DETERMINISTIC_FALLBACK'),
+        status: String(input.status || 'FALLBACK'),
+        verdict: String(input.verdict || 'PASS'),
+        candidateId: input.candidateId == null ? null : String(input.candidateId),
+        actionType: input.actionType == null ? null : String(input.actionType),
+        targetActorId: input.targetActorId == null ? null : String(input.targetActorId),
+        reasonCode: input.reasonCode == null ? null : String(input.reasonCode),
+        fallbackReason: input.fallbackReason == null ? null : String(input.fallbackReason),
+        speechPlan: input.speechPlan && typeof input.speechPlan === 'object'
+            ? storyCharacterActionClone(input.speechPlan) : null,
+        createdAt: Number(pending.createdAt) || 0,
+        consumedAt: storyCharacterActionNow(),
+        createdAtTick: Number(pending.createdAtTick) || 0,
+        consumedAtTick: Number(ledger.ai.tickSequence) || 0,
+        version: 2
+    };
+    row.realization = typeof storyCharacterSpeechRealizeDecision === 'function'
+        ? storyCharacterSpeechRealizeDecision(row, {
+            history: Object.values(ledger.arbiterDecisions || {})
+        }) : null;
+    ledger.arbiterDecisions[id] = row;
+    storyCharacterActionArbiterDecisionPrune(ledger);
+    return storyCharacterActionClone(row);
+}
+
+function storyCharacterActionArbiterRecentDecisions(actorId, limit) {
+    const ledger = storyCharacterActionEnsure();
+    return Object.values(ledger && ledger.arbiterDecisions || {})
+        .filter(row => row.actorId === String(actorId || ''))
+        .sort((a, b) => Number(b.sequence) - Number(a.sequence)
+            || b.id.localeCompare(a.id, 'en'))
+        .slice(0, Math.max(1, Math.min(12, Number(limit) || 6)))
+        .map(row => ({
+            verdict: row.verdict,
+            actionType: row.actionType,
+            targetActorId: row.targetActorId,
+            reasonCode: row.reasonCode,
+            fallbackReason: row.fallbackReason,
+            source: row.source,
+            consumedAt: row.consumedAt
+        }));
+}
+
+function storyCharacterActionAIApply(proposal, decisionSource, decisionMetadata, actorWindow, dtSec) {
+    const ledger = storyCharacterActionEnsure();
+    const preview = storyCharacterActionCandidate({
+        actionType: proposal.actionType,
+        actorId: proposal.actorId,
+        targetActorId: proposal.targetActorId,
+        decisionSource,
+        selectorScore: proposal.score,
+        selectorReasons: proposal.reasons,
+        decisionMetadata
+    });
+    if (!preview.allowed) {
+        return {
+            applied: false,
+            stale: true,
+            result: { ok: false, status: 'DENIED', candidate: preview },
+            selection: {
+                at: ledger.ai.lastTickAt, status: 'STALE',
+                reason: preview.reasons.join('|'), actorId: proposal.actorId,
+                targetActorId: proposal.targetActorId, actionType: proposal.actionType,
+                score: proposal.score, reasons: proposal.reasons,
+                actorWindow: actorWindow || [], elapsedSeconds: Number(dtSec) || 0
+            }
+        };
+    }
+    ledger.ai.selectedCount++;
+    const result = storyCharacterActionExecute({
+        actionType: proposal.actionType,
+        actorId: proposal.actorId,
+        targetActorId: proposal.targetActorId,
+        decisionSource,
+        selectorScore: proposal.score,
+        selectorReasons: proposal.reasons,
+        decisionMetadata
+    });
+    if (result.ok) ledger.ai.appliedCount++;
+    else if (result.receipt) ledger.ai.deniedCount++;
+    else ledger.ai.selectedCount--;
+    return {
+        applied: !!result.ok,
+        stale: !result.receipt,
+        result,
+        selection: {
+            at: ledger.ai.lastTickAt,
+            status: result.ok ? 'APPLIED' : (result.receipt ? 'DENIED' : 'STALE'),
+            reason: result.ok ? null : (result.candidate && result.candidate.reasons || ['EXECUTION_FAILED']).join('|'),
+            actorId: proposal.actorId,
+            targetActorId: proposal.targetActorId,
+            actionType: proposal.actionType,
+            score: proposal.score,
+            reasons: proposal.reasons,
+            receiptId: result.receipt && result.receipt.id || null,
+            decisionSource,
+            decisionMetadata: storyCharacterActionClone(decisionMetadata),
+            actorWindow: actorWindow || [],
+            elapsedSeconds: Number(dtSec) || 0
+        }
+    };
+}
+
+function storyCharacterActionArbiterQueue(selection) {
+    const ledger = storyCharacterActionEnsure();
+    if (!selection || !selection.selected || typeof storyCharacterArbiterBuildRequest !== 'function'
+        || typeof storyCharacterArbiterLiveAvailable !== 'function'
+        || !storyCharacterArbiterLiveAvailable()
+        || typeof storyCharacterArbiterLiveDispatch !== 'function') return null;
+    const actorId = selection.candidate.actorId;
+    const ranked = storyCharacterActionAIRankActor(actorId);
+    const request = storyCharacterArbiterBuildRequest(actorId, { ranked });
+    if (!request || !request.ok || !request.context.candidates.length) return null;
+    const dispatch = storyCharacterArbiterLiveDispatch(request);
+    if (!dispatch || !dispatch.ok) return null;
+    const fallback = ranked.find(row => row.candidate.id === selection.candidate.id) || ranked[0];
+    ledger.ai.pendingArbiter = {
+        schemaVersion: 1,
+        requestId: request.requestId,
+        contextHash: request.contextHash,
+        actorId,
+        createdAt: storyCharacterActionNow(),
+        createdAtTick: ledger.ai.tickSequence,
+        consumeAtTick: ledger.ai.tickSequence + 1,
+        actorWindow: (selection.actorWindow || []).slice(),
+        fallback: fallback ? {
+            candidateId: fallback.candidate.id,
+            actionType: fallback.candidate.actionType,
+            actorId: fallback.candidate.actorId,
+            targetActorId: fallback.candidate.targetActorId,
+            score: fallback.score,
+            reasons: (fallback.reasons || []).slice()
+        } : null
+    };
+    ledger.ai.arbiterRequestedCount++;
+    return storyCharacterActionClone(ledger.ai.pendingArbiter);
+}
+
+function storyCharacterActionArbiterConsume(dtSec) {
+    const ledger = storyCharacterActionEnsure();
+    const pending = ledger && ledger.ai.pendingArbiter;
+    if (!pending || ledger.ai.tickSequence < Number(pending.consumeAtTick)) return null;
+    ledger.ai.pendingArbiter = null;
+    const ranked = storyCharacterActionAIRankActor(pending.actorId);
+    const request = typeof storyCharacterArbiterBuildRequest === 'function'
+        ? storyCharacterArbiterBuildRequest(pending.actorId, { ranked }) : null;
+    const sameContext = !!(request && request.ok
+        && request.requestId === pending.requestId && request.contextHash === pending.contextHash);
+    const mailbox = sameContext && typeof storyCharacterArbiterLiveTake === 'function'
+        ? storyCharacterArbiterLiveTake(pending.requestId, pending.contextHash)
+        : { status: 'STALE_CONTEXT', result: null };
+    if (!sameContext && typeof storyCharacterArbiterLiveDiscard === 'function') {
+        storyCharacterArbiterLiveDiscard(pending.requestId);
+    }
+    if (sameContext && mailbox.status !== 'SETTLED'
+        && typeof storyCharacterArbiterLiveDiscard === 'function') {
+        storyCharacterArbiterLiveDiscard(pending.requestId);
+    }
+    const result = mailbox.status === 'SETTLED' ? mailbox.result : null;
+    const output = result && result.output;
+    const modelValidated = !!(sameContext && result && result.source === 'LOCAL_LLM_VALIDATED'
+        && result.validation && result.validation.ok && output
+        && output.requestId === pending.requestId);
+    if (modelValidated && output.verdict === 'PASS') {
+        ledger.ai.arbiterAcceptedCount++;
+        ledger.ai.arbiterPassCount++;
+        const decision = storyCharacterActionArbiterDecisionRecord(pending, {
+            source: 'LOCAL_LLM_VALIDATED', status: 'ACCEPTED', verdict: 'PASS',
+            reasonCode: output.reasonCode, speechPlan: output.speechPlan
+        });
+        return {
+            applied: false,
+            result: null,
+            selection: {
+                at: ledger.ai.lastTickAt, status: 'ARBITER_PASS', reason: output.reasonCode,
+                actorId: pending.actorId, requestId: pending.requestId,
+                arbiterDecisionId: decision.id,
+                decisionSource: 'LOCAL_LLM_VALIDATED', actorWindow: pending.actorWindow || [],
+                elapsedSeconds: Number(dtSec) || 0
+            }
+        };
+    }
+    if (modelValidated && output.verdict === 'PROPOSE') {
+        const selected = ranked.find(row => row.candidate.id === output.candidateId);
+        if (selected) {
+            ledger.ai.arbiterAcceptedCount++;
+            const decision = storyCharacterActionArbiterDecisionRecord(pending, {
+                source: 'LOCAL_LLM_VALIDATED', status: 'ACCEPTED', verdict: 'PROPOSE',
+                candidateId: selected.candidate.id,
+                actionType: selected.candidate.actionType,
+                targetActorId: selected.candidate.targetActorId,
+                reasonCode: output.reasonCode, speechPlan: output.speechPlan
+            });
+            const applied = storyCharacterActionAIApply({
+                actionType: selected.candidate.actionType,
+                actorId: selected.candidate.actorId,
+                targetActorId: selected.candidate.targetActorId,
+                score: selected.score,
+                reasons: (selected.reasons || []).concat(`arbiter:${output.reasonCode}`)
+            }, 'LOCAL_LLM_VALIDATED', {
+                schemaVersion: 1,
+                requestId: pending.requestId,
+                contextHash: pending.contextHash,
+                choiceId: output.choiceId,
+                arbiterDecisionId: decision.id,
+                reasonCode: output.reasonCode,
+                speechPlan: storyCharacterActionClone(output.speechPlan)
+            }, pending.actorWindow, dtSec);
+            if (applied.stale) ledger.ai.arbiterStaleCount++;
+            return applied;
+        }
+    }
+    if (!sameContext) ledger.ai.arbiterStaleCount++;
+    else ledger.ai.arbiterFallbackCount++;
+    const fallback = pending.fallback;
+    const fallbackReason = sameContext ? mailbox.status : 'STALE_CONTEXT';
+    const fallbackDecision = storyCharacterActionArbiterDecisionRecord(pending, {
+        source: 'DETERMINISTIC_FALLBACK',
+        status: sameContext ? 'FALLBACK' : 'STALE',
+        verdict: fallback ? 'PROPOSE' : 'PASS',
+        candidateId: fallback && fallback.candidateId,
+        actionType: fallback && fallback.actionType,
+        targetActorId: fallback && fallback.targetActorId,
+        fallbackReason
+    });
+    if (!fallback) {
+        return {
+            applied: false, result: null,
+            selection: {
+                at: ledger.ai.lastTickAt, status: 'ARBITER_FALLBACK_EMPTY',
+                reason: sameContext ? mailbox.status : 'STALE_CONTEXT', actorId: pending.actorId,
+                arbiterDecisionId: fallbackDecision.id,
+                actorWindow: pending.actorWindow || [], elapsedSeconds: Number(dtSec) || 0
+            }
+        };
+    }
+    return storyCharacterActionAIApply({
+        actionType: fallback.actionType,
+        actorId: fallback.actorId,
+        targetActorId: fallback.targetActorId,
+        score: fallback.score,
+        reasons: (fallback.reasons || []).concat(`arbiter-fallback:${sameContext ? mailbox.status : 'STALE_CONTEXT'}`)
+    }, 'DETERMINISTIC_AI', {
+        schemaVersion: 1,
+        requestId: pending.requestId,
+        contextHash: pending.contextHash,
+        arbiterDecisionId: fallbackDecision.id,
+        fallbackReason
+    }, pending.actorWindow, dtSec);
+}
+
 function storyCharacterActionTick(dtSec) {
     const ledger = storyCharacterActionEnsure();
     if (!ledger) return { disabled: true };
@@ -1340,6 +1639,20 @@ function storyCharacterActionTick(dtSec) {
     storyCharacterActionSyncDomainReceipts();
     ledger.ai.tickSequence++;
     ledger.ai.lastTickAt = storyCharacterActionNow();
+    if (typeof storyCharacterArbiterLiveWarmup === 'function') storyCharacterArbiterLiveWarmup();
+
+    const consumed = storyCharacterActionArbiterConsume(dtSec);
+    if (consumed) {
+        ledger.ai.lastSelection = consumed.selection;
+        if (typeof storyCharacterArbiterLiveAvailable === 'function'
+            && storyCharacterArbiterLiveAvailable()) {
+            const nextSelection = storyCharacterActionAISelection();
+            if (nextSelection.selected) storyCharacterActionArbiterQueue(nextSelection);
+        }
+        return { disabled: false, applied: consumed.applied, result: consumed.result,
+            selection: storyCharacterActionClone(ledger.ai.lastSelection) };
+    }
+
     const selection = storyCharacterActionAISelection();
     if (!selection.selected) {
         ledger.ai.lastSelection = {
@@ -1349,31 +1662,26 @@ function storyCharacterActionTick(dtSec) {
         };
         return { disabled: false, applied: false, selection: storyCharacterActionClone(ledger.ai.lastSelection) };
     }
-    ledger.ai.selectedCount++;
-    const result = storyCharacterActionExecute({
+    const pending = storyCharacterActionArbiterQueue(selection);
+    if (pending) {
+        ledger.ai.lastSelection = {
+            at: ledger.ai.lastTickAt, status: 'ARBITER_PENDING', reason: null,
+            actorId: pending.actorId, requestId: pending.requestId,
+            actorWindow: pending.actorWindow, consumeAtTick: pending.consumeAtTick
+        };
+        return { disabled: false, applied: false, pending: true,
+            selection: storyCharacterActionClone(ledger.ai.lastSelection) };
+    }
+    const applied = storyCharacterActionAIApply({
         actionType: selection.candidate.actionType,
         actorId: selection.candidate.actorId,
         targetActorId: selection.candidate.targetActorId,
-        decisionSource: 'DETERMINISTIC_AI',
-        selectorScore: selection.score,
-        selectorReasons: selection.reasons
-    });
-    if (result.ok) ledger.ai.appliedCount++;
-    else ledger.ai.deniedCount++;
-    ledger.ai.lastSelection = {
-        at: ledger.ai.lastTickAt,
-        status: result.ok ? 'APPLIED' : 'DENIED',
-        reason: result.ok ? null : (result.candidate && result.candidate.reasons || ['EXECUTION_FAILED']).join('|'),
-        actorId: selection.candidate.actorId,
-        targetActorId: selection.candidate.targetActorId,
-        actionType: selection.candidate.actionType,
         score: selection.score,
-        reasons: selection.reasons,
-        receiptId: result.receipt && result.receipt.id || null,
-        actorWindow: selection.actorWindow,
-        elapsedSeconds: Number(dtSec) || 0
-    };
-    return { disabled: false, applied: !!result.ok, result, selection: storyCharacterActionClone(ledger.ai.lastSelection) };
+        reasons: selection.reasons
+    }, 'DETERMINISTIC_AI', null, selection.actorWindow, dtSec);
+    ledger.ai.lastSelection = applied.selection;
+    return { disabled: false, applied: applied.applied, result: applied.result,
+        selection: storyCharacterActionClone(ledger.ai.lastSelection) };
 }
 
 function storyCharacterActionValidate(candidate) {
@@ -1384,21 +1692,80 @@ function storyCharacterActionValidate(candidate) {
     if (candidate.adapterVersion !== STORY_CHARACTER_ACTION_ADAPTER_VERSION) add('ADAPTER_VERSION', '$.adapterVersion');
     if (!candidate.cooldowns || typeof candidate.cooldowns !== 'object' || Array.isArray(candidate.cooldowns)) add('COOLDOWNS_OBJECT', '$.cooldowns');
     if (!candidate.receipts || typeof candidate.receipts !== 'object' || Array.isArray(candidate.receipts)) add('RECEIPTS_OBJECT', '$.receipts');
+    if (!candidate.arbiterDecisions || typeof candidate.arbiterDecisions !== 'object'
+        || Array.isArray(candidate.arbiterDecisions)) add('ARBITER_DECISIONS_OBJECT', '$.arbiterDecisions');
     if (!candidate.officeTransitions || typeof candidate.officeTransitions !== 'object'
         || Array.isArray(candidate.officeTransitions)) add('OFFICE_TRANSITIONS_OBJECT', '$.officeTransitions');
     if (!candidate.ai || typeof candidate.ai !== 'object' || Array.isArray(candidate.ai)) add('AI_STATE_OBJECT', '$.ai');
     else {
         if (candidate.ai.policyHash !== STORY_CHARACTER_ACTION_AI_POLICY_HASH) add('AI_POLICY_HASH', '$.ai.policyHash');
         for (const key of ['cursor', 'tickSequence', 'selectedCount', 'appliedCount', 'deniedCount',
-            'prunedAppliedCount', 'prunedDeniedCount']) {
+            'prunedAppliedCount', 'prunedDeniedCount', 'arbiterRequestedCount',
+            'arbiterAcceptedCount', 'arbiterPassCount', 'arbiterFallbackCount',
+            'arbiterStaleCount', 'arbiterRestoredCount', 'arbiterDecisionPrunedCount']) {
             if (!Number.isInteger(Number(candidate.ai[key])) || Number(candidate.ai[key]) < 0) add('AI_COUNTER', `$.ai.${key}`);
         }
         if (Number(candidate.ai.selectedCount) !== Number(candidate.ai.appliedCount) + Number(candidate.ai.deniedCount)) {
             add('AI_SELECTED_OUTCOME_MISMATCH', '$.ai.selectedCount');
         }
         if (!Number.isFinite(Number(candidate.ai.lastTickAt)) || Number(candidate.ai.lastTickAt) < 0) add('AI_LAST_TICK', '$.ai.lastTickAt');
+        const pending = candidate.ai.pendingArbiter;
+        if (pending != null && (!pending || pending.schemaVersion !== 1
+            || !pending.requestId || !pending.contextHash || !pending.actorId
+            || !Number.isInteger(Number(pending.createdAtTick))
+            || !Number.isInteger(Number(pending.consumeAtTick))
+            || Number(pending.consumeAtTick) !== Number(pending.createdAtTick) + 1
+            || !pending.fallback || !pending.fallback.candidateId)) {
+            add('AI_PENDING_ARBITER', '$.ai.pendingArbiter');
+        }
     }
     const identities = storyCharacterActionIdentities();
+    let maximumArbiterSequence = 0;
+    for (const [id, decision] of Object.entries(candidate.arbiterDecisions || {})) {
+        const at = `$.arbiterDecisions.${id}`;
+        if (!decision || decision.id !== id) add('ARBITER_DECISION_ID', `${at}.id`);
+        if (!decision || ![1, 2].includes(decision.schemaVersion)) add('ARBITER_DECISION_SCHEMA', `${at}.schemaVersion`);
+        if (!decision || !decision.requestId || !decision.contextHash) add('ARBITER_DECISION_REQUEST', at);
+        if (!identities[decision && decision.actorId]) add('ARBITER_DECISION_ACTOR', `${at}.actorId`);
+        if (!['LOCAL_LLM_VALIDATED', 'DETERMINISTIC_FALLBACK'].includes(decision && decision.source)) {
+            add('ARBITER_DECISION_SOURCE', `${at}.source`);
+        }
+        if (!['ACCEPTED', 'FALLBACK', 'STALE'].includes(decision && decision.status)) {
+            add('ARBITER_DECISION_STATUS', `${at}.status`);
+        }
+        if (!['PROPOSE', 'PASS'].includes(decision && decision.verdict)) add('ARBITER_DECISION_VERDICT', `${at}.verdict`);
+        if (decision && decision.verdict === 'PROPOSE'
+            && (!decision.candidateId || !STORY_CHARACTER_ACTION_DEFS[decision.actionType])) {
+            add('ARBITER_DECISION_CANDIDATE', at);
+        }
+        if (decision && decision.targetActorId != null && !identities[decision.targetActorId]) {
+            add('ARBITER_DECISION_TARGET', `${at}.targetActorId`);
+        }
+        if (decision && decision.source === 'LOCAL_LLM_VALIDATED'
+            && (!decision.reasonCode || !decision.speechPlan || typeof decision.speechPlan !== 'object')) {
+            add('ARBITER_DECISION_MODEL_PROOF', at);
+        }
+        if (decision && decision.schemaVersion === 2 && decision.status !== 'STALE') {
+            const speechValidation = typeof storyCharacterSpeechValidateRealization === 'function'
+                ? storyCharacterSpeechValidateRealization(decision.realization)
+                : { ok: false };
+            if (!speechValidation.ok) add('ARBITER_DECISION_REALIZATION', `${at}.realization`);
+        }
+        if (decision && decision.status === 'STALE' && decision.realization != null) {
+            add('ARBITER_STALE_REALIZATION', `${at}.realization`);
+        }
+        if (!Number.isInteger(Number(decision && decision.sequence)) || Number(decision.sequence) < 1) {
+            add('ARBITER_DECISION_SEQUENCE', `${at}.sequence`);
+        }
+        maximumArbiterSequence = Math.max(maximumArbiterSequence, Number(decision && decision.sequence) || 0);
+    }
+    if (!Number.isInteger(Number(candidate.nextArbiterDecisionSequence))
+        || Number(candidate.nextArbiterDecisionSequence) < maximumArbiterSequence) {
+        add('ARBITER_DECISION_NEXT_SEQUENCE', '$.nextArbiterDecisionSequence');
+    }
+    if (Object.keys(candidate.arbiterDecisions || {}).length > STORY_CHARACTER_ARBITER_DECISION_CAP) {
+        add('ARBITER_DECISION_CAP', '$.arbiterDecisions');
+    }
     for (const [key, value] of Object.entries(candidate.cooldowns || {})) {
         if (!Number.isFinite(Number(value)) || Number(value) < 0) add('COOLDOWN_TIME', `$.cooldowns.${key}`);
     }
@@ -1448,9 +1815,16 @@ function storyCharacterActionValidate(candidate) {
                 add('RESIGN_DOMAIN_RECEIPT', `${at}.domainReceipt`);
             }
         }
-        if (receipt && receipt.decisionSource === 'DETERMINISTIC_AI') {
+        if (storyCharacterActionAIReceipt(receipt)) {
             if (!Number.isFinite(Number(receipt.selectorScore))) add('AI_SELECTOR_SCORE', `${at}.selectorScore`);
             if (!Array.isArray(receipt.selectorReasons) || !receipt.selectorReasons.length) add('AI_SELECTOR_REASONS', `${at}.selectorReasons`);
+        }
+        if (receipt && receipt.decisionSource === 'LOCAL_LLM_VALIDATED') {
+            const meta = receipt.decisionMetadata;
+            if (!meta || !meta.requestId || !meta.contextHash || !meta.reasonCode
+                || !meta.speechPlan || typeof meta.speechPlan !== 'object') {
+                add('LLM_DECISION_METADATA', `${at}.decisionMetadata`);
+            }
         }
     }
     for (const [institutionId, transition] of Object.entries(candidate.officeTransitions || {})) {
@@ -1467,7 +1841,7 @@ function storyCharacterActionValidate(candidate) {
         }
     }
     if (Object.keys(candidate.receipts || {}).length > STORY_CHARACTER_ACTION_RECEIPT_CAP) add('RECEIPT_CAP', '$.receipts');
-    const aiReceipts = Object.values(candidate.receipts || {}).filter(row => row.decisionSource === 'DETERMINISTIC_AI');
+    const aiReceipts = Object.values(candidate.receipts || {}).filter(storyCharacterActionAIReceipt);
     if (candidate.ai && Number(candidate.ai.appliedCount) !== Number(candidate.ai.prunedAppliedCount)
         + aiReceipts.filter(row => row.status === 'APPLIED').length) {
         add('AI_APPLIED_RECEIPT_MISMATCH', '$.ai.appliedCount');
@@ -1491,6 +1865,7 @@ function storyCharacterActionForSave() { return storyCharacterActionSnapshot(); 
 // tam kimlik/referans doğrulaması karakter sicili geri geldikten sonra normal
 // restore aşamasında yine yapılır.
 function storyCharacterActionPrimeRestore(saved) {
+    if (typeof storyCharacterArbiterLiveReset === 'function') storyCharacterArbiterLiveReset({ preserveTestAdapter: true });
     if (!storyCharacterActionEnabled() || !saved) {
         STORY.characterActions = null;
         return null;
@@ -1503,7 +1878,10 @@ function storyCharacterActionPrimeRestore(saved) {
 function storyCharacterActionRestore(saved) {
     if (!storyCharacterActionEnabled()) { STORY.characterActions = null; return null; }
     const candidate = storyCharacterActionMigrateLedger(saved);
-    if (candidate && storyCharacterActionValidate(candidate).ok) STORY.characterActions = candidate;
+    if (candidate && storyCharacterActionValidate(candidate).ok) {
+        STORY.characterActions = candidate;
+        if (STORY.characterActions.ai.pendingArbiter) STORY.characterActions.ai.arbiterRestoredCount++;
+    }
     else {
         STORY.characterActions = storyCharacterActionLedgerCreate({ backfilled: true });
         STORY.characterActions.diagnostics.restoredFromInvalidLedger = !!candidate;
@@ -1517,7 +1895,7 @@ function storyCharacterActionSummary() {
     if (!ledger) return { disabled: true };
     const receipts = Object.values(ledger.receipts || {});
     const playerActorId = storyCharacterActionAIPlayerActorId();
-    const aiReceipts = receipts.filter(row => row.decisionSource === 'DETERMINISTIC_AI');
+    const aiReceipts = receipts.filter(storyCharacterActionAIReceipt);
     const byType = {};
     for (const receipt of receipts) byType[receipt.actionType] = (byType[receipt.actionType] || 0) + 1;
     const aiByType = {};
@@ -1542,6 +1920,13 @@ function storyCharacterActionSummary() {
             ? Math.round(dominantAITypeRow[1] / aiReceipts.length * 10000) : 0,
         aiActionRateBps: tickCount ? Math.round(appliedAI / tickCount * 10000) : 0,
         aiSkippedCount: Math.max(0, tickCount - selectedAI),
+        aiArbiterRequestedCount: Math.max(0, Number(ledger.ai.arbiterRequestedCount) || 0),
+        aiArbiterAcceptedCount: Math.max(0, Number(ledger.ai.arbiterAcceptedCount) || 0),
+        aiArbiterPassCount: Math.max(0, Number(ledger.ai.arbiterPassCount) || 0),
+        aiArbiterFallbackCount: Math.max(0, Number(ledger.ai.arbiterFallbackCount) || 0),
+        aiArbiterStaleCount: Math.max(0, Number(ledger.ai.arbiterStaleCount) || 0),
+        arbiterDecisionCount: Object.keys(ledger.arbiterDecisions || {}).length,
+        arbiterDecisionPrunedCount: Math.max(0, Number(ledger.ai.arbiterDecisionPrunedCount) || 0),
         aiPlayerActorReceiptCount: aiReceipts.filter(row => row.actorId === playerActorId).length,
         serializedChars: JSON.stringify(ledger).length,
         ai: storyCharacterActionClone(ledger.ai),

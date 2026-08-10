@@ -241,7 +241,10 @@ function storyAgendaNavigate(action, sub) {
         STORY._councilTab = 'gov';
         return storyCouncilOpen();
     }
-    if (action === 'talk') return storyTalkOpen();
+    if (action === 'talk') {
+        STORY._talkView = 'conversations';
+        return storyTalkOpen();
+    }
     if (action === 'region') return storyBriefSetTab('region');
     if (action === 'flow') return storyBriefSetTab('flow');
 }
@@ -1183,9 +1186,15 @@ function storyInit() {
         }, { passive: false });
         cv.style.cursor = 'grab';
     }
+    // Metin girişi kamera kısayollarından bağımsızdır. Özellikle WASD,
+    // görüşme metni yazılırken preventDefault ile yutulmamalıdır.
+    const storyKeyboardTargetIsEditable = target => !!(target && target.closest
+        && target.closest('input, textarea, select, [contenteditable="true"]'));
+
     // KAMERA: WASD / ok tuşları (yalnız story ekranındayken)
     window.addEventListener('keydown', (e) => {
         if (typeof APP_SCREEN === 'undefined' || APP_SCREEN !== 'story') return;
+        if (storyKeyboardTargetIsEditable(e.target)) return;
         if (e.key === 'Escape') { if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen || STORY._cityOpen || STORY._economyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose(); storyEconomyClose(); e.preventDefault(); } return; }
         const s = 90 / storyCam.zoom; let m = false;
         const k = e.key.toLowerCase();

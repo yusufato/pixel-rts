@@ -43,4 +43,49 @@
 - [x] 760×700 and 1280×800 overflow checks passed.
 - [x] Fonts loaded and duplicate DOM ids eliminated.
 
-final result: passed
+War Room result: passed
+
+---
+
+# Character Conversation Workspace Design QA
+
+**Comparison Target**
+
+- Source visual truth: user-provided 1920×1080 Pixel RTS story-map screenshot in the 9 August 2026 request.
+- Intended state: the selected character's dedicated conversation window open above the existing story map and chat drawer.
+- Implementation target: local Electron application in this repository.
+- Implementation screenshot: unavailable; the in-app browser runtime returned an empty browser list.
+- Viewport: source 1920×1080; matching implementation viewport could not be captured.
+
+**Evidence Available**
+
+- Source screenshot was visually inspected for palette, typography, panel density, borders, hierarchy, and the 525 px left drawer constraint.
+- DOM interaction probe passed opening the separate modal, rendering a public profile, listing two saved sessions, resuming the older session, showing a PlayerKnowledge-filtered action record, submitting a new WASD-containing sentence, and preserving two sessions through save/load.
+- JavaScript syntax checks and `git diff --check` passed.
+- No browser-rendered implementation image or console inspection is available, so visual fidelity cannot be claimed.
+
+**Findings**
+
+- [P1] Browser-rendered comparison is unavailable.
+  Location: character conversation modal at 1920×1080.
+  Evidence: source screenshot is available, but the browser runtime reported no selectable browser and produced no implementation capture.
+  Impact: real font metrics, overflow, scroll behavior, focus ring, and three-column balance cannot be visually certified.
+  Fix: open the packaged/local game, select a character, open the conversation window, and capture the same 1920×1080 state for side-by-side QA.
+
+- Fonts and typography: implementation reuses the existing Share Tech Mono hierarchy; browser rasterization is unverified.
+- Spacing and layout rhythm: code defines a centered 1180×760 maximum shell with 3-column desktop and 2/1-column responsive fallbacks; rendered proportions are unverified.
+- Colors and visual tokens: implementation reuses the existing amber/green/dark terminal tokens and solid panel surfaces; rendered contrast is unverified.
+- Image quality and asset fidelity: the new window introduces no new image assets or placeholder imagery and leaves the existing terrain/sprites untouched.
+- Copy and content: DOM evidence confirms profile, active conversation, previous conversations, agreements/records, safety state, and resume labels are present.
+
+**Implementation Checklist**
+
+- [x] Dedicated modal and close/backdrop/Escape behavior implemented.
+- [x] Public profile and directional relationship view implemented.
+- [x] Previous sessions and resume behavior implemented.
+- [x] PlayerKnowledge-filtered agreements/records implemented.
+- [x] WASD input isolation implemented and probed.
+- [ ] Capture matching 1920×1080 implementation state and inspect console.
+- [ ] Compare full view and focused modal regions against the source screenshot.
+
+final result: blocked

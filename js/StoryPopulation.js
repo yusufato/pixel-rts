@@ -67,8 +67,12 @@ function storyPopulationHashNumber(text) {
 
 function storyPopulationProfileWeights(node) {
     const urban = Math.max(0, Number(node.level) || 1) + Math.max(0, Number(node.cities) || 0);
-    const industry = Math.max(0, Number(node.fac) || 0);
-    const defense = Math.max(0, Number(node.bar) || 0);
+    // ALTI BİNA: sanayi/savunma istihdamı artık tek binadan değil, tesis TOPLAMINDAN okunur
+    // (iki bina varken sonuç birebir aynıydı; bkz. Production.prodIndustryLevel).
+    const industry = typeof prodIndustryLevel === 'function'
+        ? Math.max(0, prodIndustryLevel(node)) : Math.max(0, Number(node.fac) || 0);
+    const defense = typeof prodDefenseLevel === 'function'
+        ? Math.max(0, prodDefenseLevel(node)) : Math.max(0, Number(node.bar) || 0);
     const wealth = Math.max(0, Number(node.wealth) || 0);
     const raw = STORY_POPULATION_PROFILES.map(profile => {
         let weight = profile.base;

@@ -5,8 +5,20 @@ function battleUnitVisibleToViewer(unit, viewerSide, phaseValue) {
     if (!unit || unit.dead) return false;
     if (unit.isRed === viewerSide) return true;
     if (phaseValue === PHASE.DEPLOY) return false;
-    if (phaseValue === PHASE.BATTLE) return canSee(viewerSide, unit.x, unit.y);
+    // HAVA-ARAMA RADARI: `targetIsAir` verilmezse canSee radarı hiç saymaz. Eskiden burada verilmiyordu →
+    // radar bir uçağı bulsa bile ekranda/mini haritada GÖSTERMİYORDU (buna karşılık `airRadar` bayrağı
+    // örneğe kopyalanmadığı için radar KARAYI açıyordu; ikisi birlikte tam ters davranış üretiyordu).
+    if (phaseValue === PHASE.BATTLE) return canSee(viewerSide, unit.x, unit.y, unit.isAir);
     return true;
+}
+
+// RADAR TEMASI: birim YALNIZ hava-arama radarı sayesinde biliniyor mu? (göz teması yok)
+// Böyle temaslar sprite olarak değil KIRMIZI temas işareti olarak çizilir — kullanıcı isteği:
+// "siste kalan birim oyun haritasında KIRMIZI gösterilsin".
+function battleRadarOnlyContact(unit, viewerSide) {
+    if (!unit || unit.dead || unit.isRed === viewerSide) return false;
+    if (typeof canSee !== 'function') return false;
+    return canSee(viewerSide, unit.x, unit.y, unit.isAir) && !canSee(viewerSide, unit.x, unit.y, false);
 }
 
 class Unit {
@@ -185,7 +197,17 @@ class Unit {
         const frameScale = Math.max(0, dtSec * 60);
 
         if (this.flashTimer > 0) this.flashTimer -= frameScale;
-        if (this.revealTimer > 0) this.revealTimer -= frameScale;   // T3 PUSU: açıkta kalma süresi azalır → tekrar gizlenir
+        // T3 PUSU: açıkta kalma süresi azalır → tekrar gizlenir.
+        // KUSUR (kullanıcı raporu 2026-08-09): "açığa çıkan birim GÖZÜMÜN ÖNÜNDE tekrar gizleniyor,
+        // kötü görünüyor — sisin içine girmediği sürece gizlenmesin." HAKLI: sayaç, düşman ona
+        // BAKARKEN de işliyordu ve birim izlenirken kayboluyordu.
+        // DÜZELTME: sayaç YALNIZCA görülmediğinde (siste) işler. Görüş alanındayken açıkta kalır.
+        // Determinist: `canSee` yalnız mesafe/görüş okur, RNG yok. Maliyet: yalnız AÇIKTAKİ birimler
+        // için, kare başına bir `canSee` çağrısı.
+        if (this.revealTimer > 0) {
+            const _gorunuyor = (typeof canSee === 'function') && canSee(!this.isRed, this.x, this.y, this.isAir);
+            if (!_gorunuyor) this.revealTimer -= frameScale;
+        }
         this.scanTimer -= frameScale;
 
         if (this.suppression > 0) this.suppression -= 0.18 * frameScale;   // T1: yavaş decay → bastırma birikebilir (taktik kaynak)
@@ -374,6 +396,7 @@ class Unit {
         if (!this._returningToBase) {   // üsse dönerken savaşmaz/taşımaz — yalnız eve uçar (targetX üsse ayarlı)
             if (this.transportSlots) this.updateTransport(now, dtSec);   // TAŞIMA: nakliye-heli piyade bindir-taşı-indir
             this.engageCombat(now);
+            this._samCokluHedef(now, dtSec);          // SAM: aynı anda 2. hava hedefi (kullanıcı isteği)
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
@@ -525,7 +548,12 @@ class Unit {
         // KULLANICI-FIX (hareket-titremesi "sağa-sola pinpon"): birim varınca DURUR; çarpışma-itmesi onu küçük-oynatınca YENİDEN-HAREKET
         // ETMESİN (arrived→push→re-move→push osilasyonu, çoklu-birim tek-noktaya kümelenince). HİSTEREZİS: holding'de yeniden-hareket
         // eşiği BÜYÜK (2.6×yarıçap) → küçük-itme absorbe; gerçek-yeni-emir (targetX belirgin-kayar → distToTarget büyür) eşiği aşar.
-        const _reThreshold = this._holdingPos ? Math.max(movementSpeed + 1, UNIT_RADIUS * 2.6) : (movementSpeed + 1);
+        // VARIŞ TOLERANSI: eski `movementSpeed + 1` HIZA BAĞLI bir ölü bölgeydi — 12 px/tik'lik keşif
+        // aracına 13 px'lik emir verilince distToTarget eşiği aşamıyor ve birim HİÇ kımıldamıyordu
+        // (ölçüldü: tools/yakin-emir-teshis.js). Tolerans artık hızdan bağımsız sabit; son adım aşağıda
+        // kalan mesafeye kırpıldığı için birim hedefin tam üstüne oturur, eşiği tekrar tetiklemez.
+        const _arriveTol = battleArriveFix() ? ARRIVE_TOLERANCE_PX : (movementSpeed + 1);
+        const _reThreshold = this._holdingPos ? Math.max(_arriveTol, UNIT_RADIUS * 2.6) : _arriveTol;
         if (distToTarget > _reThreshold) {
             this._holdingPos = false;
             const _sdx = _steerX - this.x, _sdy = _steerY - this.y;
@@ -566,8 +594,16 @@ class Unit {
             
             const finalDist = Math.hypot(moveX, moveY);
             if (finalDist > 0) {
-                let stepX = (moveX / finalDist) * movementSpeed;
-                let stepY = (moveY / finalDist) * movementSpeed;
+                // SON KISMİ ADIM: hedefe kalan mesafe bir tam adımdan küçükse adımı KIRP → birim
+                // hedefin üstüne oturur (eski hâl: hep tam adım → 12 px'lik kuantum, hedefte 4-8 px
+                // sapma + hıza bağlı ölü bölge). Rota (A*) izlenirken kırpma YOK: ara nokta nihai
+                // hedeften yakın olabilir, kırparsak konvoy her ara noktada yavaşlar.
+                const _onPath = !!(this._navPath && this._navPath.length) || !!this._unstickPoint;
+                const _stepLen = (battleArriveFix() && !_onPath)
+                    ? Math.min(movementSpeed, distToTarget)
+                    : movementSpeed;
+                let stepX = (moveX / finalDist) * _stepLen;
+                let stepY = (moveY / finalDist) * _stepLen;
                 if (_gridMode && !this.isAir && typeof isPassableAt === 'function') {
                     // sert engel: dağ/su (köprü hariç) geçilmez → eksen-bazlı kaydır. HAVA baypas (üstünden uçar).
                     let nx = this.x + stepX, ny = this.y + stepY;
@@ -1443,11 +1479,11 @@ class Unit {
 
         const playerControlled = this.controlOwner === 'PLAYER';
         if (playerControlled) {
-            if (this.manualTarget && !this.manualTarget.dead && canSee(false, this.manualTarget.x, this.manualTarget.y)) {
+            if (this.manualTarget && !this.manualTarget.dead && canSee(false, this.manualTarget.x, this.manualTarget.y, this.manualTarget.isAir)) {
                 this.attackTarget = this.manualTarget;
             } else {
                 this.manualTarget = null;
-                if (!this.attackTarget || this.attackTarget.dead || !canSee(false, this.attackTarget.x, this.attackTarget.y) || Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y) > this.range * 1.3) {
+                if (!this.attackTarget || this.attackTarget.dead || !canSee(false, this.attackTarget.x, this.attackTarget.y, this.attackTarget.isAir) || Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y) > this.range * 1.3) {
                     const nearby = this.findBestVisibleEnemy();
                     if (nearby && nearby.dist <= this.range) this.attackTarget = nearby.unit;
                     else this.attackTarget = null;
@@ -1475,7 +1511,7 @@ class Unit {
                 if (this.attackTarget) this.performAttack(now);
             }
         } else if (this.manualTarget && !this.manualTarget.dead &&
-                   canSee(this.isRed, this.manualTarget.x, this.manualTarget.y)) {
+                   canSee(this.isRed, this.manualTarget.x, this.manualTarget.y, this.manualTarget.isAir)) {
             // Denetleyici hedef SEÇER; birim yalnız emri icra eder. Burada karar/target scoring yoktur.
             this.attackTarget = this.manualTarget;
             const d = Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y);
@@ -1590,6 +1626,64 @@ class Unit {
                         standOff = true;
                         if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
                             BATTLE_BALANCE.localRatioBind = (BATTLE_BALANCE.localRatioBind || 0) + 1;
+                        }
+                    }
+                }
+                // ── INTEL4-PRO 'antiMatch': YEREL ÜSTÜNLÜK SAYIYLA DEĞİL ANTİ-EŞLEŞMEYLE ──
+                // KULLANICI DOKTRİNİ: "kütleyi büyütücem diye piyadeleri dolaylının önüne koyarsan ölürler;
+                // dolaylılar tanka vurursa hiçbir şey olmaz — birimleri ANTİ kullan."
+                // Üstteki iki kural (assaultCohesion/localRatio) yalnız KAFA SAYAR: "5 piyade 3 tanka karşı"yı
+                // 1.67 ile İYİ görür. ÖLÇÜLDÜ (tools/anti-eslesme.js): yerel kütlenin %22-27'si yanlış alet ve
+                // temasların %19-23'ünde sayı ≥1.5 iken ETKİ <1.0 — yani kural kazandığını sanırken kaybediyor.
+                // Hedef SEÇİMİ zaten anti-ağırlıklı (findBestVisibleEnemy); eksik olan KİMİN o dövüşte
+                // BULUNDUĞU. Bu yüzden fren burada: yanlış alet kapatmaz, doğru alet girer.
+                // Birim YENİDEN KONUMLANDIRILMAZ — "aktif toplanma" ölçülüp zararlı bulunmuştu (satır 1593).
+                if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+                    BATTLE_BALANCE.antiMatchReach = (BATTLE_BALANCE.antiMatchReach || 0) + 1;   // teşhis: bu satıra kaç kez gelindi
+                    if (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'antiMatch')) BATTLE_BALANCE.antiMatchOn = (BATTLE_BALANCE.antiMatchOn || 0) + 1;
+                    if (standOff) BATTLE_BALANCE.antiMatchPreStand = (BATTLE_BALANCE.antiMatchPreStand || 0) + 1;
+                }
+                if (!standOff && typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'antiMatch')) {
+                    // KESİT NEREDE ALINIR: birimin ALTINDA değil, GİRECEĞİ DÖVÜŞÜN YERİNDE (hedefin çevresi).
+                    // İlk sürüm kesiti birimin altından aldı ve HİÇ bağlamadı (ölçüldü: bind=0/3000 tik) —
+                    // çünkü birim menzil dışından kapatırken düşman çoğu zaman 600px'in ötesinde kalıyor.
+                    // Doğru soru "etrafımda ne var" değil, "GİTTİĞİM yerdeki karışıma karşı doğru alet miyim".
+                    const _hx = this.attackTarget.x, _hy = this.attackTarget.y;
+                    let _oDps = 0, _eDps = 0, _en = 0;
+                    const _dostlar = [], _dusman = [];
+                    for (const o of SIM.spatialGrid.getNearby(_hx, _hy, PRO_ANTI_R)) {
+                        if (o.dead || o.loaded || o.abandoned) continue;
+                        if (Math.hypot(o.x - _hx, o.y - _hy) > PRO_ANTI_R) continue;
+                        if (o.isRed === this.isRed) { if (o !== this) _dostlar.push(o); } else _dusman.push(o);
+                    }
+                    _en = _dusman.length;
+                    if (_en > 0) {
+                        _dostlar.push(this);                                   // kendisi de kütlenin parçası
+                        for (const f of _dostlar) {
+                            let s = 0;
+                            for (const e of _dusman) s += battleTypeDps(f.type, e.type);
+                            _oDps += s / _en;                                  // birim başına ORTALAMA etki
+                        }
+                        for (const e of _dusman) {
+                            let s = 0;
+                            for (const f of _dostlar) s += battleTypeDps(e.type, f.type);
+                            _eDps += s / _dostlar.length;
+                        }
+                        // (1) YEREL ETKİ ORANI: bu dövüşü kazanamıyorsak kapatma.
+                        const _etkiKotu = _eDps > 0 && (_oDps / _eDps) < PRO_ANTI_MIN;
+                        // (2) YANLIŞ ALET: bu karışıma karşı ben işe yaramıyorsam öne çıkmam (doğru alet girsin).
+                        let _kendi = 0;
+                        for (const e of _dusman) _kendi += battleTypeDps(this.type, e.type);
+                        _kendi /= _en;
+                        const _enIyi = battleTypeBestDps(this.type);
+                        const _yanlisAlet = _enIyi > 0 && _kendi < PRO_ANTI_WRONG * _enIyi;
+                        if (_etkiKotu || _yanlisAlet) {
+                            standOff = true;
+                            if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+                                BATTLE_BALANCE.antiMatchBind = (BATTLE_BALANCE.antiMatchBind || 0) + 1;
+                                if (_yanlisAlet) BATTLE_BALANCE.antiMatchWrongTool = (BATTLE_BALANCE.antiMatchWrongTool || 0) + 1;
+                                if (_etkiKotu) BATTLE_BALANCE.antiMatchBadRatio = (BATTLE_BALANCE.antiMatchBadRatio || 0) + 1;
+                            }
                         }
                     }
                 }
@@ -2320,6 +2414,19 @@ class Unit {
                 // Birincil vuramıyorsa puanı vurabilen İKİNCİL silahtan hesapla → helo heloyu gerçekten AVLAR.
                 if (dmg <= 0) dmg = this._ikincilHasar(u);
                 sc = dmg / (1 + d * 0.012);   // counter-hasarı / yakınlık (yüksek=iyi eşleşme+yakın)
+                // ── INTEL4-PRO 'killFocus': "SANİYEDE EN ÇOK DEĞER İMHA ET" ──
+                // ÖLÇÜLDÜ (tools: ates dagilimi, 24 maç): yerel kümede 4.9 atıcı 1.8 AYRI hedefe atıyor
+                // (oran 0.370) — iki beyinde de aynı. Sebebi burada: birim hedef skoru KALAN CANI HİÇ
+                // OKUMUYOR (yalnız hasar/mesafe). Yaralı düşman ile tam canlı düşman aynı puanı alıyor,
+                // dolayısıyla kimse bitirmeye yönelmiyor; herkes kendi "en iyi eşleşmesini" kovalıyor.
+                // Ölçüt değer/ÖLDÜRME-SÜRESİ olunca odaklanma KENDİLİĞİNDEN doğar: bir hedef yaralandığı
+                // an herkesin skorunda öne çıkar, ölür ve düşmanın ateş hacmi hemen düşer. Aşırı-öldürme
+                // riski yok: hedef ölünce skordan çıkar, sıradakine geçilir. Determinist (RNG yok).
+                if (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'killFocus') && dmg > 0) {
+                    const _deger = (STATS[u.type] && STATS[u.type].cost) || 100;
+                    const _kalan = Math.max(1, u.hp);
+                    sc = (_deger * dmg / _kalan) / (1 + d * 0.012);   // birim zamanda imha edilen DEĞER
+                }
                 if (this._autoAir && u.isAir) sc *= 2.5;   // AUTO_ENGAGE_AIR: SPAAG önce havayı vurur (hava-savunma önceliği)
                 if (_spearFocus && (u.type === T.ARMOR || u.type === T.TANK_HUNTER)) sc *= 2.8;   // SAVUNMA anti-mızrak: gelen MBT/TD'ye kilitlen
                 // FAZ2 AV-PAKETİ ('drone'-delta): kamikaze/komando/arka-avcısı HVT'yi (destek/topçu/radar/AA/lojistik) ×3 tercih eder →
@@ -2399,6 +2506,86 @@ class Unit {
             if (v > en) en = v;
         }
         return en;
+    }
+
+    // ── SAM COKLU HEDEF (kullanici istegi 2026-08-09) ──
+    // GEREKCE (kullanici): "2 helo ayni anda saldirdiginda hava ustunlugunu cok rahat kiriyor."
+    // SAM'in ANA silahi tek seferde tek hedefe atiyordu; bu metod ANA silahla IKINCI bir HAVA
+    // hedefine, ayri bekleme sayaci ve ayri muhimmat tuketimiyle ates eder. Toplam es-zamanli
+    // hedef SAM_MAX_HEDEF (=2) ile sinirli. Kalip `fireSecondaryWeapons` ile AYNI (deferred-damage,
+    // uzamsal-izgara, id ile esitlik bozma) → determinist, RNG yok.
+    // KAPSAM: yalniz kategori 'air_defense' VE ana silahi havayi hedefleyebilen birim.
+    _samCokluHedef(now, dtSec) {
+        if (typeof BATTLE_SAM_MULTI_TARGET === 'undefined' || !BATTLE_SAM_MULTI_TARGET) return;
+        if (this.dead || this.isFleeing || this.loaded || this.abandoned) return;
+        const st = STATS[this.type];
+        if (!st || st.category !== 'air_defense') return;
+        const ws = st.weapons;
+        if (!ws || !ws.length) return;
+        const w = ws[0];
+        if (!Array.isArray(w.targets) || !w.targets.includes('air')) return;
+        if (typeof weaponAktif === 'function' && !weaponAktif(w)) return;
+        const DM = (typeof UNITS_MODERN_DB !== 'undefined') ? UNITS_MODERN_DB.damageMatrix : null;
+        if (!DM) return;
+        const ekHedef = Math.max(0, (typeof SAM_MAX_HEDEF !== 'undefined' ? SAM_MAX_HEDEF : 2) - 1);
+        if (ekHedef <= 0) return;
+
+        const wr = w.range || 0; if (wr <= 0) return;
+        const perShot = w.perShot > 0 ? w.perShot : 1;
+        const kullanilan = new Set();
+        if (this.attackTarget && !this.attackTarget.dead) kullanilan.add(this.attackTarget.id);
+
+        for (let k = 0; k < ekHedef; k++) {
+            const cdKey = '_samCd' + k;
+            this[cdKey] = (this[cdKey] || 0) - dtSec;
+            if (this[cdKey] > 0) continue;
+            if (this.maxAmmo > 0 && this.ammo < perShot) return;      // kuru → ek atis yok
+            const near = SIM.spatialGrid.getNearby(this.x, this.y, wr);
+            let best = null, bestScore = -1;
+            for (const n of near) {
+                if (n.dead || n.loaded || n.abandoned || n.isRed === this.isRed) continue;
+                if (!n.isAir) continue;                                // yalniz HAVA hedefi
+                if (kullanilan.has(n.id)) continue;                    // ana hedef ve onceki ek hedef HARIC
+                const d = Math.hypot(n.x - this.x, n.y - this.y);
+                if (d > wr || (w.minRange && d < w.minRange)) continue;
+                if (d > this.vision && !canSee(this.isRed, n.x, n.y, true)) continue;
+                const arm = STATS[n.type] ? STATS[n.type].armorType : 'infantry';
+                const eff = (DM[w.damageType] || {})[arm] || 0;
+                if (eff <= 0) continue;
+                const score = eff / (1 + d * 0.004);
+                if (score > bestScore || (score === bestScore && best && n.id < best.id)) { bestScore = score; best = n; }
+            }
+            if (!best) continue;
+            kullanilan.add(best.id);
+            const arm = STATS[best.type] ? STATS[best.type].armorType : 'infantry';
+            const eff = (DM[w.damageType] || {})[arm] || 0;
+            const _bd = Math.hypot(best.x - this.x, best.y - this.y);
+            let dmg = Math.max(1, Math.floor(w.damage * (w.salvo || 1) * eff * (this.xpBonus || 1) *
+                weaponAccuracy(this, w, best, _bd) * incomingDamageMult(best)));
+            if ((SIM.tick - (this.commandHaloTick || -999)) <= 1) dmg = Math.floor(dmg * 1.12);
+            if (this._cmdShockUntil && SIM.tick < this._cmdShockUntil) dmg = Math.floor(dmg * 0.72);
+            const _sTicks = battleFlightTicks(_bd, battleProjectileSpeed(this.type, true));
+            SIM.pendingHits.push({
+                kind: 'direct', evt: 'SECONDARY_FIRE',
+                fireTick: (SIM.tick || 0), arriveTick: (SIM.tick || 0) + _sTicks, seq: SIM.pendingHitSeq++,
+                atkId: this.id, atkType: this.type, atkIsRed: !!this.isRed, atkPower: this.atk * (this.xpBonus || 1),
+                atkX: this.x, atkY: this.y,
+                tgtId: best.id, dmg: dmg,
+                isCrit: false, willAbandon: false, isRear: false, isFlank: false,
+                flash: 4, panicMul: 80, supp: 0, knock: 0, splashR: 0,
+                sparks: false, distress: false, xp: false
+            });
+            this[cdKey] = w.rof > 0 ? 1 / w.rof : 999;
+            if (this.maxAmmo > 0) this.ammo = Math.max(0, this.ammo - perShot);
+            if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+                BATTLE_BALANCE.samCokluBind = (BATTLE_BALANCE.samCokluBind || 0) + 1;
+            }
+            if (!SIM.headless && typeof spawnProjectile === 'function') {
+                spawnProjectile(this.x, this.y, { x: best.x, y: best.y },
+                    { homing: true, trail: true, impact: 'spark', color: '#bfe6ff', scale: 0.9,
+                      speed: battleProjectileSpeed(this.type, true), maxLife: 3 });
+            }
+        }
     }
 
     fireSecondaryWeapons(now, dtSec) {
@@ -2885,10 +3072,32 @@ class Unit {
         this.voffX *= 0.82; this.voffY *= 0.82;
         if (Math.abs(this.voffX) < 0.05) this.voffX = 0;
         if (Math.abs(this.voffY) < 0.05) this.voffY = 0;
-        const s = worldToScreen(this.x + this.voffX, this.y + this.voffY);
+        // 60 FPS ARA-DEĞER: sim 20 Hz; ham this.x çizilirse birim 2 kare durup 3.'de sıçrar (hızlı
+        // birimde 12+ px → "titreme"). unitRenderPos tik-başı konumla lerp eder; sim'e dokunmaz.
+        const _rp = (typeof unitRenderPos === 'function') ? unitRenderPos(this) : this;
+        const s = worldToScreen(_rp.x + this.voffX, _rp.y + this.voffY);
         const dw = drawW(), dh = drawH();
 
         if (s.x < -dw * 2 || s.x > canvas.width + dw * 2 || s.y < -dh * 2 || s.y > canvas.height + dh * 2) return;
+
+        // ── RADAR TEMASI (sis içinde, yalnız radardan biliniyor) → KIRMIZI temas işareti, sprite YOK ──
+        // Radar bir iz verir, teşhis vermez: birimin ne olduğu, canı, yönü bilinmez. Bu yüzden burada
+        // çizim biter (return) — can çubuğu/menzil halkası/seçim kutusu da çizilmez.
+        if (phase === PHASE.BATTLE && typeof battleRadarOnlyContact === 'function' &&
+            battleRadarOnlyContact(this, _viewerSide)) {
+            const _r = Math.max(4, dw * 0.42);
+            const _puls = 0.55 + 0.45 * Math.abs(Math.sin((typeof gameTime !== 'undefined' ? gameTime : 0) * 3));
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,60,60,' + (0.45 + 0.4 * _puls).toFixed(3) + ')';
+            ctx.lineWidth = Math.max(1.5, 2 * zoom);
+            ctx.beginPath();                                  // eşkenar dörtgen = "tanımlanmamış temas"
+            ctx.moveTo(s.x, s.y - _r); ctx.lineTo(s.x + _r, s.y);
+            ctx.lineTo(s.x, s.y + _r); ctx.lineTo(s.x - _r, s.y);
+            ctx.closePath(); ctx.stroke();
+            ctx.fillStyle = 'rgba(255,60,60,0.18)'; ctx.fill();
+            ctx.restore();
+            return;
+        }
 
         // Yumuşak dönüş (render-only): drawAngle facingAngle'a kademeli yaklaşır → "tık diye" dönmez
         if (this.drawAngle === undefined) this.drawAngle = this.facingAngle;
@@ -2901,11 +3110,17 @@ class Unit {
         if (this.selected && !this.isRed) {
             ctx.strokeStyle = '#00ff55';
             ctx.lineWidth = 2;
+            // KULLANICI (2026-08-09): "birimlerin arkasındaki o yeşil şeyi kaldır veya birimle aynı
+            // şekilde döndür, gözükmesin." Kısa süre eksen-hizalı çizildi (çarpışma kutusunu göstersin
+            // diye) ama 45° dönmüş sprite'ın arkasında koca bir kare olarak sırıtıyordu.
+            // Çerçeve yeniden birimle BİRLİKTE döner ve sprite sınırına TAM oturur (payı yok) →
+            // gövdenin arkasında kaybolur. Fizik kutusu yine eksen-hizalı AABB'dir; seçim göstergesi
+            // fizik göstergesi değildir.
             if (UNIT_ROTATE) {
                 ctx.save();
                 ctx.translate(s.x, s.y);
                 ctx.rotate(_ang);                          // seçim kutusu birimle birlikte döner
-                ctx.strokeRect(-dw / 2 - 3, -dh / 2 - 3, dw + 6, dh + 6);
+                ctx.strokeRect(-dw / 2, -dh / 2, dw, dh);
                 ctx.restore();
             } else {
                 ctx.strokeRect(s.x - dw / 2 - 3, s.y - dh / 2 - 3, dw + 6, dh + 6);
@@ -3072,6 +3287,10 @@ class Unit {
 
 function resolveCollisions() {
     const MIN_DIST = UNIT_RADIUS * 1.9;
+    // KARE SINIR: kutu çakışması köşeye kadar sürer → ızgara sorgusu KÖŞEGENİ kapsamalı,
+    // yoksa çapraz duran çift hiç sınanmaz ve birimler köşeden iç içe geçer.
+    const BOX = (typeof battleBoxCollision === 'function') && battleBoxCollision();
+    const QUERY_R = BOX ? Math.hypot(UNIT_HALF_W * 2, UNIT_HALF_H * 2) : MIN_DIST;
     const gridMode = typeof MAP_MODE !== 'undefined' &&
         MAP_MODE === 'grid' &&
         typeof isPassableAt === 'function';
@@ -3108,7 +3327,7 @@ function resolveCollisions() {
     for (let i = 0; i < SIM.units.length; i++) {
         if (SIM.units[i].dead || (SIM.units[i].loaded && battleFerryFix(SIM.units[i].isRed))) continue;
         const a = SIM.units[i];
-        const nearby = SIM.spatialGrid.getNearby(a.x, a.y, MIN_DIST);
+        const nearby = SIM.spatialGrid.getNearby(a.x, a.y, QUERY_R);
         for (let j = 0; j < nearby.length; j++) {
             const b = nearby[j];
             if (b.dead || a === b || (b.loaded && battleFerryFix(b.isRed))) continue;
@@ -3143,11 +3362,40 @@ function resolveCollisions() {
                 dy = Math.sin(angle) * 0.02;
                 dist = 0.02;
             }
-            const requiredDist = softTransit ? MIN_DIST * 0.78 : MIN_DIST;
-            if (dist < requiredDist) {
-                const overlap = (requiredDist - dist) / 2;
-                const pushX = (dx / dist) * overlap;
-                const pushY = (dy / dist) * overlap;
+            let pushX = 0, pushY = 0;
+            if (BOX) {
+                // ── EKSEN-HIZALI KUTU (AABB) AYIRMA ──
+                // Birim sprite'ı kadar (BASE_DRAW_W × BASE_DRAW_H) bir kutudur. Çakışma iki eksende
+                // birden batma varsa vardır; itme EN AZ batan eksende yapılır (minimum translation
+                // vector). Böylece yan yana duran birimler ızgaraya oturur ve köşe teması diagonal
+                // savrulma üretmez — eski daire hem köşeleri iç içe alıyor hem kenarda boşluk bırakıyordu.
+                const shrink = softTransit ? 0.78 : 1;
+                const needX = UNIT_HALF_W * 2 * shrink;
+                const needY = UNIT_HALF_H * 2 * shrink;
+                const penX = needX - Math.abs(dx);
+                const penY = needY - Math.abs(dy);
+                if (penX > 0 && penY > 0) {
+                    // TİTREME UYARISI (ölçüldü): "yalnız en az batan ekseni it" kuralı penX≈penY
+                    // olduğunda her tik EKSEN DEĞİŞTİRİYOR → sağ-sol-yukarı-aşağı pinpon (4 tohumda
+                    // ort. ters/sn 0.10 → 0.15). Süreksizliği kaldırmak için itme iki eksene
+                    // SÜREKLİ bir ağırlıkla dağıtılır: bir eksen belirgin şekilde sığsa (penX≪penY)
+                    // sonuç klasik MTV'ye iner, eşitlikte ise köşegen tek bir itme olur.
+                    // Ağırlık KARESEL: sığ eksen baskın çıkar (penX=1,penY=10 → itmenin %99'u X'te,
+                    // yani klasik MTV), eşitlikte ikiye bölünür (köşegen, tek yönlü, salınımsız).
+                    const wsum = penX * penX + penY * penY;
+                    const wX = penY * penY / wsum, wY = penX * penX / wsum;
+                    pushX = (dx >= 0 ? 1 : -1) * (penX / 2) * wX;
+                    pushY = (dy >= 0 ? 1 : -1) * (penY / 2) * wY;
+                }
+            } else {
+                const requiredDist = softTransit ? MIN_DIST * 0.78 : MIN_DIST;
+                if (dist < requiredDist) {
+                    const overlap = (requiredDist - dist) / 2;
+                    pushX = (dx / dist) * overlap;
+                    pushY = (dy / dist) * overlap;
+                }
+            }
+            if (pushX !== 0 || pushY !== 0) {
                 const ax = a.x - pushX, ay = a.y - pushY;
                 const bx = b.x + pushX, by = b.y + pushY;
                 if (!gridMode || isPassableAt(ax, ay)) {

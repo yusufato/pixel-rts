@@ -51,6 +51,18 @@ function deployDropCarried(wx, wy) {
 
 // Faz 0/1b: oyuncu komut kuyruğu — fare işleyicisi buraya iter, stepSim başında tik-sınırında uygulanır.
 let pendingPlayerCommands = [];
+// ÇOK OYUNCULU KÖPRÜSÜ: bu kuyruk YEREL'dir; stepSim onu yalnız bu bilgisayarda uygular. Lockstep'te
+// sağ-tık (move/attack) ağa gidiyordu ama YETENEK yolları gitmiyordu — sol-panel yeteneği, M (mayın),
+// U (indir) tetikleyen oyuncu maçı ANINDA ayrıştırıyordu (iki PC'de farklı dünya → desync uyarısı).
+// Çözüm engellemek değil bağlamak: MP açıkken komut aynı tik-kuyruğundan AĞA yazılır, iki tarafta
+// sabit sırayla (önce mavi, sonra kırmızı) uygulanır. Tek oyunculu yol DEĞİŞMEZ.
+function queuePlayerCommand(type, payload) {
+    if (typeof MP !== 'undefined' && MP.active) {
+        if (typeof mpEmitEvent === 'function') mpEmitEvent(type, payload);
+        return;
+    }
+    if (typeof pendingPlayerCommands !== 'undefined') pendingPlayerCommands.push({ type, payload });
+}
 canvas.addEventListener('mousemove', (e) => { const p = canvasPoint(e); mouseScreenX = p.x; mouseScreenY = p.y; });
 canvas.addEventListener('mousedown', (e) => {
     const p = canvasPoint(e);
@@ -62,7 +74,11 @@ canvas.addEventListener('mousedown', (e) => {
         if (selectedSpawnType === null) {
             if (deployCarried) { deployDropCarried(world.x, world.y); return; }
             const picked = deployUnitAt(world.x, world.y);
-            if (picked) { deployCarried = picked; picked.selected = true; canvas.classList.add('ghost-cursor'); }
+            if (picked) {
+                deployCarried = picked; picked.selected = true; canvas.classList.add('ghost-cursor');
+                // Sahadaki birliğe tıklamak da künyesini açar (barla aynı kaynak).
+                if (typeof showDeployDossier === 'function') { _deployDossierPinned = picked.type; showDeployDossier(picked.type); }
+            }
             return;
         }
         if (isInPlayerZone(world.x, world.y) && deploySpotFree(world.x, world.y, null)) {
@@ -96,8 +112,8 @@ canvas.addEventListener('mousedown', (e) => {
                 const abId = selectedSupportMode.slice(8);
                 const meta = (typeof ABILITY_META !== 'undefined') ? ABILITY_META[abId] : null;
                 const ids = units.filter(u => u.selected && playerCanControlBattleUnit(u) && (!meta || !meta.need || meta.need(u))).map(u => u.id);
-                if (ids.length && typeof pendingPlayerCommands !== 'undefined') {
-                    pendingPlayerCommands.push({ type: 'player-ability', payload: { ability: abId, unitIds: ids, x: Math.round(world.x * 100) / 100, y: Math.round(world.y * 100) / 100 } });
+                if (ids.length) {
+                    queuePlayerCommand('player-ability', { ability: abId, unitIds: ids, x: Math.round(world.x * 100) / 100, y: Math.round(world.y * 100) / 100 });
                     if (typeof battleLearnMessage === 'function') battleLearnMessage((meta ? meta.icon + ' ' + meta.label : abId) + ' emri verildi', 1500);
                 }
                 cancelSupportMode();
@@ -148,9 +164,13 @@ canvas.addEventListener('mouseup', (e) => {
     const minSY = Math.min(dragStartY, mouseScreenY), maxSY = Math.max(dragStartY, mouseScreenY);
     if (maxSX - minSX < 5 && maxSY - minSY < 5) {
         const world = screenToWorld(p.x, p.y);
-        let bestUnit = null, bestDist = 30;
+        // KARE SINIR: tıklama testi de KUTU olur — çizilen çerçevenin içine tıklayan birimi seçer
+        // (eski 30px'lik daire, 64px'lik kutunun köşelerini kaçırıyordu).
+        const _box = (typeof battleBoxCollision === 'function') && battleBoxCollision();
+        let bestUnit = null, bestDist = _box ? Infinity : 30;
         for (const u of units) {
             if (!playerCanControlBattleUnit(u)) continue;
+            if (_box && (Math.abs(u.x - world.x) > UNIT_HALF_W || Math.abs(u.y - world.y) > UNIT_HALF_H)) continue;
             const d = Math.hypot(u.x - world.x, u.y - world.y);
             if (d < bestDist) { bestUnit = u; bestDist = d; }
         }
@@ -178,6 +198,41 @@ canvas.addEventListener('contextmenu', (e) => {
             canvas.classList.remove('ghost-cursor');
             return;
         }
+        // KUSUR (kullanici raporu 2026-08-09): "dizerken yanlislikla koydugum birligi geri alamiyorum."
+        // Eskiden sag tik YALNIZ ELDEKI birimi iade ediyordu; SAHAYA KONMUS birimi geri almanin yolu yoktu.
+        // Simdi: elde birim yokken sag tik, imlecin altindaki KENDI birimini havuza iade eder.
+        // ⚠ VARSAYILAN KAPALI (2026-08-09): bu ozellik eklendikten sonraki macta "Mavi sag kalan 1,
+        // oldurme 0/0" goruldu. Sag tik dizim sirasinda BASKA amaclarla da kullaniliyor (secim iptali)
+        // ve o durumda birimler SESSIZCE havuza donuyor olabilir. Kanit yok ama risk gercek →
+        // dogrulanana kadar bayrakla kapali. Acmak icin: BATTLE_DEPLOY_SAGTIK_IADE = true.
+        if ((typeof BATTLE_DEPLOY_SAGTIK_IADE !== 'undefined' && BATTLE_DEPLOY_SAGTIK_IADE) &&
+            !deployCarried && !selectedSpawnType) {
+            const _w = screenToWorld(p.x, p.y);
+            let _hedef = null, _en = Infinity;
+            for (const u of units) {
+                if (u.dead || u.isRed || (u.ally && typeof u.ally !== 'undefined' && u.ally === true && false)) continue;
+                const d = Math.hypot(u.x - _w.x, u.y - _w.y);
+                if (d <= Math.max(28, UNIT_RADIUS + 8) && d < _en) { _en = d; _hedef = u; }
+            }
+            // ⚠ KOK NEDEN (kullanici "hala silemiyorum" dedi): ilk surum YALNIZ `DEPLOY_POOL` varsa
+            // calisiyordu. Havuz SADECE hikaye modunda dolu; Hizli Mac/MP'de `null` (Story.js:1362) →
+            // Hizli Mac'ta kural HIC calismiyordu. Simdi iki yol da var: havuz varsa sayaca iade,
+            // yoksa PARAYA iade (Hizli Mac'ta birim parayla aliniyor).
+            if (_hedef) {
+                const _st = STATS[_hedef.type];
+                const _bedel = _st ? (_st.cost || 0) : 0;
+                if (typeof DEPLOY_POOL !== 'undefined' && DEPLOY_POOL) {
+                    DEPLOY_POOL[_hedef.type] = (DEPLOY_POOL[_hedef.type] | 0) + 1;
+                } else if (typeof player !== 'undefined' && player) {
+                    player.money = (player.money || 0) + _bedel;
+                }
+                _hedef.dead = true;
+                const ix = units.indexOf(_hedef); if (ix >= 0) units.splice(ix, 1);
+                if (typeof battleLearnMessage === 'function') battleLearnMessage('↩️ Birlik geri alındı', 1200);
+                canvas.classList.remove('ghost-cursor');
+                return;
+            }
+        }
         selectedSpawnType = null;
         if (deployCarried) { deployCarried.selected = false; deployCarried = null; }   // taşımayı iptal et
         document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('selected-btn'));
@@ -193,9 +248,26 @@ canvas.addEventListener('contextmenu', (e) => {
         const w = screenToWorld(p.x, p.y);
         const sel = units.filter(u => u.selected && u.isRed === myCanonicalSide && !u.dead);
         if (!sel.length) return;
+        // TAŞIMA BİNDİR (çok oyunculu): MP dalı her sağ-tıkı hareket/saldırı sayıyordu, bindirme
+        // mantığına HİÇ ulaşılmıyordu — indirme (U) çalışırken bindirme online'da imkânsızdı.
+        // Hedef seçimi YEREL sis'e bakmaz (dost birim, iki PC'de de görünür) → determinizm bozulmaz.
+        const _loaders = sel.filter(u => u.transportSlots > 0 && u.cargo.length < u.transportSlots);
+        if (_loaders.length) {
+            let _lt = null;
+            for (const u of units) {
+                if (u.dead || u.loaded || u.isRed !== myCanonicalSide || u.transportSlots > 0) continue;
+                const st = STATS[u.type];
+                if (!st || st.armorType !== 'infantry') continue;
+                if (Math.hypot(u.x - w.x, u.y - w.y) < 34) { _lt = u; break; }
+            }
+            if (_lt) {
+                mpEmitEvent('player-load', { transportIds: _loaders.map(u => u.id), targetId: _lt.id });
+                return;
+            }
+        }
         let isAttack = false;   // saldırı/hareket kararı BENİM sis'ime göre; hedef ise apply'da sis'siz çözülür (iki PC eşit)
         for (const u of units) {
-            if (u.dead || u.isRed === myCanonicalSide || !canSee(myCanonicalSide, u.x, u.y)) continue;
+            if (u.dead || u.isRed === myCanonicalSide || !canSee(myCanonicalSide, u.x, u.y, u.isAir)) continue;
             if (Math.hypot(u.x - w.x, u.y - w.y) < 30) { isAttack = true; break; }
         }
         mpEmitCommand(isAttack ? 'attack' : 'move', sel.map(u => u.id), w.x, w.y);
@@ -226,7 +298,7 @@ canvas.addEventListener('contextmenu', (e) => {
 
     let targetEnemy = null;
     for (const u of units) {
-        if (u.dead || !u.isRed || !canSee(false, u.x, u.y)) continue;
+        if (u.dead || !u.isRed || !canSee(false, u.x, u.y, u.isAir)) continue;
         if (Math.hypot(u.x - world.x, u.y - world.y) < 30) { targetEnemy = u; break; }
     }
     // DETERMİNİZM (Faz 0/1b): komutun ETKİSİNİ tık anında çöz (formasyon/hedef), ama birim-mutasyonu +
@@ -240,11 +312,14 @@ canvas.addEventListener('contextmenu', (e) => {
         } });
     } else {
         const count = selectedUnits.length;
-        const cols = Math.ceil(Math.sqrt(count)), spacing = UNIT_RADIUS * 2.5;
+        // KUSUR (kullanıcı raporu 2026-08-09): "birden fazla birlik tutup emir verdiğimde imlecin
+        // uç noktasına değil SOL ÜST tarafına gidiyorlar." DOĞRULANDI (aritmetik):
+        // ızgara KUTUNUN merkezine hizalanıyordu, DOLU HÜCRELERİN merkezine değil. Son satır eksik
+        // dolduğunda kütle merkezi sola-yukarı kayıyor — 5 birimde (−0.2, −0.1)×spacing, birim
+        // sayısı arttıkça büyür. DÜZELTME: ofsetlerin ORTALAMASI çıkarılır → merkez tam imleçte.
+        const _ofs = formationOffsets(count);   // ONIZLEME ile AYNI kaynak
         const destinations = selectedUnits.map((unit, i) => {
-            const row = Math.floor(i / cols), col = i % cols;
-            const offsetX = (col - (cols - 1) / 2) * spacing, offsetY = (row - (Math.ceil(count / cols) - 1) / 2) * spacing;
-            const desired = { x: world.x + offsetX, y: world.y + offsetY };
+            const desired = { x: world.x + _ofs[i].x, y: world.y + _ofs[i].y };
             const safe = typeof terrainSafePoint === 'function' ? terrainSafePoint(desired.x, desired.y) : desired;
             return { id: unit.id, x: Math.round(safe.x * 100) / 100, y: Math.round(safe.y * 100) / 100 };
         });
@@ -378,8 +453,8 @@ document.getElementById('ui-abilities')?.addEventListener('click', (e) => {
     } else {
         // Anlık: seçili uygun birimler için hemen kuyruğa (M/U tuşlarının panel karşılığı).
         const ids = _abilitySelectedUnits().filter(u => !m.need || m.need(u)).map(u => u.id);
-        if (ids.length && typeof pendingPlayerCommands !== 'undefined') {
-            pendingPlayerCommands.push({ type: 'player-ability', payload: { ability: id, unitIds: ids } });
+        if (ids.length) {
+            queuePlayerCommand('player-ability', { ability: id, unitIds: ids });
             if (typeof battleLearnMessage === 'function') battleLearnMessage(m.icon + ' ' + m.label + ' emri verildi', 1500);
         }
         cancelSupportMode();
@@ -430,13 +505,60 @@ function openSpawnCategory(catId) {
     document.querySelectorAll('.spawn-cat').forEach(b => b.classList.toggle('cat-open', b.dataset.cat === catId));
     renderSpawnIcons();
 }
+// ── DİZİM FAZI BİRİM KÜNYESİ (kullanıcı: "birim dizerken tıkladığımız birimin özelliklerini göstersin") ──
+// Veri zaten vardı; tek sorun onu yazan `#ui-info` panelinin dizim fazında gizli olmasıydı. Artık aynı
+// künye sağdaki kompozisyon paneline yazılıyor. TEK KAYNAK: hem barın üzerine gelme, hem tıklama, hem de
+// sahadaki birliği eline alma bu fonksiyonu çağırır → üç yol asla farklı bilgi gösteremez.
+function unitDossierHTML(type) {
+    const s = STATS[type];
+    if (!s) return '';
+    const hava = s.domain === 'air';
+    const satir = (k, v) => '<div class="duc-stat"><span>' + k + '</span><b>' + v + '</b></div>';
+    let html = '<div class="duc-head"><h4>' + s.name + '</h4><em>' + (hava ? 'HAVA' : 'KARA') + ' · ' + s.cost + '₺</em></div>';
+    const rol = (s.roleTags || []).join(' · ');
+    if (rol) html += '<div class="duc-role">' + rol + '</div>';
+    html += '<div class="duc-grid">'
+        + satir('CAN', s.hp)
+        + satir('VURUŞ', s.atk)
+        + satir('MENZİL', s.range + (s.minRange ? ' (min ' + s.minRange + ')' : ''))
+        + satir('GÖRÜŞ', s.vision)
+        + satir('HIZ', (s.speed * 20) + ' px/sn')
+        + satir('ZIRH', s.armorType + '/' + s.armorValue)
+        + '</div>';
+    html += '<div class="duc-line">vurabildiği: <b>' + s.targets + '</b>'
+        + (s.aura ? ' · hale: <b>' + s.aura.type + '</b>' : '')
+        + (s.transportSlots ? ' · taşır: <b>' + s.transportSlots + '</b>' : '') + '</div>';
+    const ab = (s.abilities || []).map(a => {
+        const m = (typeof ABILITY_META !== 'undefined') ? ABILITY_META[a] : null;
+        return m ? (m.icon + ' ' + m.label) : a;
+    });
+    if (ab.length) html += '<div class="duc-abil">' + ab.map(a => '<span>' + a + '</span>').join('') + '</div>';
+    return html;
+}
+function showDeployDossier(type) {
+    const card = document.getElementById('deploy-unit-card');
+    if (!card) return;
+    if (type == null || !STATS[type]) {
+        card.classList.add('is-empty');
+        card.innerHTML = '<div class="duc-empty">Alttaki barda bir birime tıkla — künyesi burada çıkar.</div>';
+        return;
+    }
+    card.classList.remove('is-empty');
+    card.innerHTML = unitDossierHTML(type);
+}
+let _deployDossierPinned = null;   // TIKLANAN birim (üzerine gelme geçicidir, tıklama kalıcı)
 function _spawnSelect(btn, toggle) {
     if (phase !== PHASE.DEPLOY) return;
     const type = parseInt(btn.dataset.type);
-    if (toggle && selectedSpawnType === type) { selectedSpawnType = null; btn.classList.remove('selected-btn'); canvas.classList.remove('ghost-cursor'); return; }
+    if (toggle && selectedSpawnType === type) {
+        selectedSpawnType = null; btn.classList.remove('selected-btn'); canvas.classList.remove('ghost-cursor');
+        _deployDossierPinned = null; showDeployDossier(null);
+        return;
+    }
     selectedSpawnType = type;
     document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('selected-btn'));
     btn.classList.add('selected-btn'); canvas.classList.add('ghost-cursor');
+    _deployDossierPinned = type; showDeployDossier(type);
 }
 (function wireSpawnBar() {
     const bar = document.getElementById('ui-spawn-bar'); if (!bar) return;
@@ -447,13 +569,18 @@ function _spawnSelect(btn, toggle) {
     bar.addEventListener('mousedown', e => { const b = e.target.closest('.spawn-btn'); if (b) _spawnSelect(b, false); });
     bar.addEventListener('mouseover', e => {
         const b = e.target.closest('.spawn-btn'); if (!b) return; const s = STATS[parseInt(b.dataset.type)]; if (!s) return;
+        showDeployDossier(parseInt(b.dataset.type));          // dizim panelindeki künye (geçici önizleme)
         const el = document.getElementById('info-content'); if (!el) return;
         el.innerHTML = `<b style="color:#aaddff">${s.name}</b><br>${(s.roleTags || []).join(', ')}<br><br>`
             + `❤️ HP: ${s.hp} | ⚔️ ATK: ${s.atk}<br>🏃 Hız: ${(s.speed * 20)}px/sn | 📏 Menzil: ${s.range}${s.minRange ? ' (min ' + s.minRange + ')' : ''}<br>`
             + `👁️ Görüş: ${s.vision} | 🛡️ ${s.armorType}/${s.armorValue} | 💰 ${s.cost}<br>`
             + `🎯 <b style="color:${s.domain === 'air' ? '#7cf' : '#cf9'}">${s.domain === 'air' ? 'HAVA' : 'KARA'}</b> · vurur: ${s.targets}${s.aura ? ' · aura: ' + s.aura.type : ''}`;
     });
-    bar.addEventListener('mouseout', e => { if (e.target.closest('.spawn-btn')) { const el = document.getElementById('info-content'); if (el) el.innerHTML = 'Bir birim seç veya üzerine gel'; } });
+    bar.addEventListener('mouseout', e => {
+        if (!e.target.closest('.spawn-btn')) return;
+        showDeployDossier(_deployDossierPinned);              // önizleme bitti → TIKLANAN birime geri dön
+        const el = document.getElementById('info-content'); if (el) el.innerHTML = 'Bir birim seç veya üzerine gel';
+    });
 })();
 buildSpawnBar();
 
@@ -548,15 +675,84 @@ document.getElementById('start-btn').addEventListener('click', () => {
     if (units.filter(u => !u.isRed).length === 0) return;
     startBattle();
 });
-document.getElementById('restart-btn').addEventListener('click', () => {
+// "Tekrar Oyna" ESKİDEN menüye dönüyordu (etiketiyle çelişiyordu). Kullanıcı isteği: düğme küçülsün,
+// yanına "Menüye Dön" gelsin. Artık her düğme adını yapar:
+//   Tekrar Oyna → AYNI ayar ve AYNI tohumla maçı baştan kurar (aynı ordu/harita, temiz sayfa).
+//   Menüye Dön  → savaşı bırakıp ana menü.
+function battleReturnToMenu() {
+    document.getElementById('game-over-screen')?.classList.add('hidden');
     if (typeof resetBattleState === 'function') resetBattleState();
     if (typeof showScreen === 'function') showScreen('menu');
-});
+}
+function battleRematch() {
+    // LAST_BATTLE_CONFIG openBattlefieldSession tarafından yazılır. Yoksa (hikâye/MP gibi kendi
+    // akışı olan modlar) güvenli davranış menüye dönmektir — sessizce hiçbir şey yapmamak değil.
+    if (typeof LAST_BATTLE_CONFIG === 'undefined' || !LAST_BATTLE_CONFIG) { battleReturnToMenu(); return; }
+    document.getElementById('game-over-screen')?.classList.add('hidden');
+    openBattlefieldSession(LAST_BATTLE_CONFIG);   // aynı tohum → aynı ordu/harita (gerçek tekrar)
+    if (typeof showScreen === 'function') showScreen('game');
+}
+document.getElementById('restart-btn').addEventListener('click', battleRematch);
+document.getElementById('menu-return-btn')?.addEventListener('click', battleReturnToMenu);
 let lastBattleDiagnosticReport = null;
 
 // FAZ 6: "bu maçtan öğren" — tek-oyunculu Hızlı Maç'ta AI, senin maçlarından öğrenir (varsayılan AÇIK).
 // Maç sonu ~1 dk etiketleme olur. 'L' tuşu aç/kapat. Kapatırsan o maç öğrenilmez (bekleme yok).
 let BATTLE_LEARN_FROM_MATCH = true;
+// ── FORMASYON YERLESIMI (TEK KAYNAK) ──
+// Emir verme ve ONIZLEME bu AYNI fonksiyonu kullanir. Ayri hesap yapilsaydi onizleme yalan
+// soyleyebilirdi; kullanicinin gordugu ile birimin gittigi yer birbirinden ayrilirdi.
+// Merkez TAM IMLECTE: ofsetlerin ortalamasi cikarilir. (Eski kod izgarayi KUTUNUN merkezine
+// hizaliyordu; son satir eksik dolunca merkez sola-yukari kayiyordu — 7 birimde yarim aralik.)
+function formationOffsets(count) {
+    const cols = Math.ceil(Math.sqrt(count)), spacing = UNIT_RADIUS * 2.5;
+    const ofs = [];
+    for (let i = 0; i < count; i++) {
+        const row = Math.floor(i / cols), col = i % cols;
+        ofs.push({ x: (col - (cols - 1) / 2) * spacing, y: (row - (Math.ceil(count / cols) - 1) / 2) * spacing });
+    }
+    const mx = ofs.reduce((a, o) => a + o.x, 0) / Math.max(1, count);
+    const my = ofs.reduce((a, o) => a + o.y, 0) / Math.max(1, count);
+    return ofs.map(o => ({ x: o.x - mx, y: o.y - my }));
+}
+
+// ── ESC DURAKLATMA PENCERESI (kullanici kusur raporu 2026-08-09) ──
+// "esc bastigimda oyun dursun ve pencere ciksin: mactan cik / maca devam et".
+// Pencere DOM'a bir kez kurulur; duraklatma bayragi sim dongusunu keser (determinizm etkilenmez).
+function battlePauseOverlay() {
+    let el = document.getElementById('battle-pause');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'battle-pause';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9000;display:none;align-items:center;' +
+        'justify-content:center;background:rgba(0,0,0,0.62);backdrop-filter:blur(2px)';
+    el.innerHTML =
+        '<div style="min-width:280px;padding:26px 30px;border-radius:12px;background:#12161c;' +
+        'border:1px solid #2b3442;box-shadow:0 12px 40px rgba(0,0,0,.5);text-align:center;font-family:inherit">' +
+        '<div style="font-size:19px;color:#e6edf5;margin-bottom:4px">⏸️ Maç duraklatıldı</div>' +
+        '<div style="font-size:12px;color:#7f8b9c;margin-bottom:18px">ESC ile devam edebilirsin</div>' +
+        '<button id="btn-pause-resume" style="display:block;width:100%;margin:8px 0;padding:11px;' +
+        'border-radius:8px;border:1px solid #2f6f4f;background:#1c3d2c;color:#cfe9d8;cursor:pointer;font-size:14px">' +
+        'Maça devam et</button>' +
+        '<button id="btn-pause-quit" style="display:block;width:100%;margin:8px 0;padding:11px;' +
+        'border-radius:8px;border:1px solid #6f3030;background:#3d1c1c;color:#e9cfcf;cursor:pointer;font-size:14px">' +
+        'Maçtan çık</button></div>';
+    document.body.appendChild(el);
+    el.querySelector('#btn-pause-resume').addEventListener('click', () => battleTogglePause(false));
+    el.querySelector('#btn-pause-quit').addEventListener('click', () => {
+        battleTogglePause(false);
+        if (typeof showScreen === 'function') showScreen('menu');
+    });
+    return el;
+}
+
+function battleTogglePause(zorla) {
+    if (typeof BATTLE_PAUSED === 'undefined') return;
+    BATTLE_PAUSED = (zorla === undefined) ? !BATTLE_PAUSED : !!zorla;
+    const el = battlePauseOverlay();
+    el.style.display = BATTLE_PAUSED ? 'flex' : 'none';
+}
+
 function battleLearnMessage(text, autoHideMs) {
     if (typeof document === 'undefined') return;
     let el = document.getElementById('learn-msg');
@@ -573,6 +769,14 @@ function battleLearnMessage(text, autoHideMs) {
 }
 if (typeof document !== 'undefined') {
     document.addEventListener('keydown', e => {
+        // ── ESC: MACI DURAKLAT + MENU (kullanici kusur raporu 2026-08-09) ──
+        // Onceden ESC savasta HICBIR SEY yapmiyordu. Duraklatma yalnizca zaman biriktirmeyi keser;
+        // sim durumu, replay ve hash etkilenmez (bkz. gameLoop icindeki _duraklat).
+        if (e.key === 'Escape' && typeof phase !== 'undefined' && phase === PHASE.BATTLE) {
+            e.preventDefault();
+            battleTogglePause();
+            return;
+        }
         if (e.key === 'l' || e.key === 'L') {
             if (typeof phase !== 'undefined' && phase === PHASE.BATTLE) return;   // savaşta 'L' başka işe karışmasın
             BATTLE_LEARN_FROM_MATCH = !BATTLE_LEARN_FROM_MATCH;
@@ -581,32 +785,24 @@ if (typeof document !== 'undefined') {
         if ((e.key === 'u' || e.key === 'U') && typeof phase !== 'undefined' && phase === PHASE.BATTLE) {
             // TAŞIMA İNDİR: seçili dolu taşıyıcı(lar) bulunduğu yere yolcuları indirsin
             const sel = units.filter(u => u.selected && playerCanControlBattleUnit(u) && u.transportSlots > 0 && u.cargo.length > 0);
-            if (sel.length && typeof pendingPlayerCommands !== 'undefined') {
-                pendingPlayerCommands.push({ type: 'player-unload', payload: { transportIds: sel.map(u => u.id) } });
+            if (sel.length) {
+                queuePlayerCommand('player-unload', { transportIds: sel.map(u => u.id) });
                 if (typeof battleLearnMessage === 'function') battleLearnMessage('🪂 İndir emri verildi', 1500);
             }
         }
         if ((e.key === 'm' || e.key === 'M') && typeof phase !== 'undefined' && phase === PHASE.BATTLE) {
             // MAYIN DÖŞE: seçili istihkam(lar) bulunduğu yere mayın koysun
             const eng = units.filter(u => u.selected && playerCanControlBattleUnit(u) && u.type === T.ENGINEER);
-            if (eng.length && typeof pendingPlayerCommands !== 'undefined') {
-                pendingPlayerCommands.push({ type: 'player-mine', payload: { engineerIds: eng.map(u => u.id) } });
+            if (eng.length) {
+                queuePlayerCommand('player-mine', { engineerIds: eng.map(u => u.id) });
                 if (typeof battleLearnMessage === 'function') battleLearnMessage('💣 Mayın döşendi', 1500);
             }
         }
     });
 }
 
-document.getElementById('copy-battle-report-btn')?.addEventListener('click', async () => {
-    const output = document.getElementById('battle-report-output');
-    if (!output) return;
-    output.select();
-    try {
-        await navigator.clipboard.writeText(output.value);
-    } catch (error) {
-        document.execCommand('copy');
-    }
-});
+// NOT: "Raporu Kopyala" + sağdaki ham metin dökümü kaldırıldı (kullanıcı isteği, 2026-08-09).
+// Tam veri "Ham JSON İndir" ile alınır — hiçbir bilgi kaybı yok, yalnız ekran sadeleşti.
 document.getElementById('download-battle-report-btn')?.addEventListener('click', () => {
     if (!lastBattleDiagnosticReport) return;
     const json = JSON.stringify(lastBattleDiagnosticReport, null, 2);
@@ -715,33 +911,8 @@ function checkGameOver() {
 
     const resultLabel = won === 'draw' ? 'Berabere' : won ? 'Oyuncu kazandı' : 'Oyuncu kaybetti';
     const roleLabel = SIM.battle?.attackerSide === false ? 'SALDIRAN' : 'SAVUNAN';
-    const readableReport = [
-        'PIXEL RTS MAÇ RAPORU',
-        '',
-        `Motor: ${battleSummary.engineVersion}`,
-        `Oturum: ${battleSummary.sessionMode || '-'}`,
-        `Tohum: ${battleSummary.seed ?? '-'}`,
-        `Harita: ${battleSummary.mapId ?? '-'}`,
-        `Sonuç: ${resultLabel}`,
-        `Bitiş: ${battleSummary.outcomeLabel}`,
-        `Rolün: ${roleLabel}`,
-        `Kalan süre: ${Math.ceil(battleSummary.timeRemaining)} sn`,
-        `Süre: ${battleSummary.durationSeconds.toFixed(1)} sn`,
-        `Mavi sağ kalan: ${battleSummary.blueSurvivors}`,
-        `Kırmızı sağ kalan: ${battleSummary.redSurvivors}`,
-        `Mavi öldürme: ${battleSummary.blueKills}`,
-        `Kırmızı öldürme: ${battleSummary.redKills}`,
-        '',
-        '── HAM KAYIT ──',
-        `Durum örneği: ${battleSummary.recording.samples}`,
-        `İsabet/ölüm olayı: ${battleSummary.recording.combatEvents}`,
-        `AI karar kaydı: ${battleSummary.recording.controllerDecisions}`,
-        `Oyuncu/AI emir olayı: ${battleSummary.recording.playerAndAIEvents}`,
-        'Tam kayıt için: Ham JSON İndir',
-        '',
-        'Ham JSON:',
-        JSON.stringify(battleSummary, null, 2)
-    ].join('\n');
+    // KALDIRILDI (kullanıcı isteği, 2026-08-09): sağdaki ham metin raporu ve "Raporu Kopyala".
+    // Aynı bilgi ve fazlası "Ham JSON İndir" çıktısında (lastBattleDiagnosticReport) duruyor.
 
     document.getElementById('score-table').innerHTML = `
         <div class="score-row"><span>Sonuç</span><span class="score-val">${resultLabel}</span></div>
@@ -751,9 +922,8 @@ function checkGameOver() {
         <div class="score-row"><span>Mavi öldürme</span><span class="score-val">${battleSummary.blueKills}</span></div>
         <div class="score-row"><span>Kırmızı öldürme</span><span class="score-val">${battleSummary.redKills}</span></div>
     `;
-    const reportOutput = document.getElementById('battle-report-output');
-    if (reportOutput) reportOutput.value = readableReport;
     document.getElementById('restart-btn')?.classList.remove('hidden');
+    document.getElementById('menu-return-btn')?.classList.remove('hidden');
     document.getElementById('story-return-btn')?.classList.add('hidden');
     document.getElementById('campaign-result-panel')?.classList.add('hidden');
     if (typeof BATTLE_SESSION !== 'undefined' && BATTLE_SESSION.mode === 'story' &&
@@ -1093,12 +1263,49 @@ function drawMap() {
         ctx.restore();
     }
 
+    // ── FORMASYON ONIZLEMESI (kullanici istegi 2026-08-09) ──
+    // "3 birim secip bir nokta gosterdigimde, o noktaya geldiklerinde nasil duracaklarini gosteren
+    //  YESIL KESIK CIZGILER ciksin, birimlerle AYNI BUYUKLUKTE — ve sectigim nokta KESINLIKLE
+    //  imlecin uc noktasinda gozuksun."
+    // Onizleme, emirle AYNI `formationOffsets` fonksiyonunu kullanir → gordugun yer, gidilen yerdir.
+    // Imlecin TAM ucuna ayrica bir hedef isareti cizilir (formasyon orada ORTALANIR).
+    if (typeof phase !== 'undefined' && phase === PHASE.BATTLE && !isDragging) {
+        const _sel = units.filter(u => u.selected && (typeof playerCanControlBattleUnit !== 'function' || playerCanControlBattleUnit(u)));
+        // KAPATILDI (kullanici 2026-08-09: "o yesil onizleme olmasin, vazgectim").
+        // Kod DURUYOR — bayragi true yapmak yeterli; emirle AYNI `formationOffsets` kaynagini kullanir.
+        const _onizlemeAcik = (typeof BATTLE_FORMASYON_ONIZLEME !== 'undefined') && BATTLE_FORMASYON_ONIZLEME;
+        if (_onizlemeAcik && _sel.length >= 1) {
+            const _w = screenToWorld(mouseScreenX, mouseScreenY);
+            const _of = formationOffsets(_sel.length);
+            const _r = UNIT_RADIUS * zoom;
+            ctx.save();
+            ctx.setLineDash([6 * zoom, 5 * zoom]);
+            ctx.lineWidth = Math.max(1, 1.6 * zoom);
+            ctx.strokeStyle = 'rgba(92,220,150,0.75)';
+            for (const o of _of) {
+                const _p = worldToScreen(_w.x + o.x, _w.y + o.y);
+                ctx.beginPath(); ctx.arc(_p.x, _p.y, _r, 0, Math.PI * 2); ctx.stroke();
+            }
+            // SECILEN NOKTA: imlecin tam ucunda, kesiksiz kucuk arti
+            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(120,255,180,0.95)';
+            ctx.lineWidth = Math.max(1, 1.4 * zoom);
+            const _c = worldToScreen(_w.x, _w.y), _k = 7 * zoom;
+            ctx.beginPath();
+            ctx.moveTo(_c.x - _k, _c.y); ctx.lineTo(_c.x + _k, _c.y);
+            ctx.moveTo(_c.x, _c.y - _k); ctx.lineTo(_c.x, _c.y + _k);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
     if (phase === PHASE.DEPLOY) {
         const mpGuest = (typeof myCanonicalSide !== 'undefined' && myCanonicalSide);   // true = MP guest (KIRMIZI/kuzey)
         // BENİM bölgem (belirgin mavi) — host güney, guest kuzey
         const myY0 = mpGuest ? 0 : WORLD_H * 0.6, myY1 = mpGuest ? WORLD_H * 0.4 : WORLD_H;
         const ls = worldToScreen(0, myY0); const le = worldToScreen(WORLD_W, myY1);
         ctx.fillStyle = 'rgba(40, 100, 255, 0.06)'; ctx.fillRect(ls.x, ls.y, le.x - ls.x, le.y - ls.y);
+
         ctx.strokeStyle = 'rgba(80, 160, 255, 0.25)'; ctx.lineWidth = 2; ctx.setLineDash([10, 6]); ctx.strokeRect(ls.x, ls.y, le.x - ls.x, le.y - ls.y);
 
         // RAKİP bölgesi (soluk kırmızı)
@@ -1183,7 +1390,8 @@ function drawMap() {
             const a = STATS[u.type] && STATS[u.type].aura;
             if (!a || !_renk[a.type]) continue;
             const R = (a.radius || 3) * _TP;
-            const p = worldToScreen(u.x, u.y);
+            const _rp = unitRenderPos(u);                            // sprite ile aynı ara-değer → hale birimden kopmaz
+            const p = worldToScreen(_rp.x, _rp.y);
             const zr2 = R * zoom;
             if (p.x < -zr2 || p.x > canvas.width + zr2 || p.y < -zr2 || p.y > canvas.height + zr2) continue;
             ctx.setLineDash([10 * zoom, 8 * zoom]);
@@ -1227,6 +1435,9 @@ function drawMap() {
 }
 
 function drawFogOfWar() {
+    // SEYİRCİ KİPİ (`--izle`): iki AI'yı da tam görmek için sis çizilmez. YALNIZ görsel katman —
+    // AI'ların kendi algısı (BattlePerception) bundan etkilenmez, sim'e dokunmaz.
+    if (typeof BATTLE_SPECTATE !== 'undefined' && BATTLE_SPECTATE) return;
     if (typeof STORY !== 'undefined' && STORY.active && STORY.cfg && STORY.cfg.fog === false) return;
     // Deploy fazında fog of war yok - harita açık görünsün
     if (phase === PHASE.DEPLOY) return;
@@ -1240,7 +1451,13 @@ function drawFogOfWar() {
 
     for (const u of units) {
         if (u.dead || u.isRed !== myCanonicalSide) continue;
-        const s = worldToScreen(u.x, u.y);
+        // HAVA-ARAMA RADARI KARAYI AÇMAZ (kullanıcı kusur raporu, 2026-08-09 — doğrulandı).
+        // Hedefleme tarafı ZATEN doğruydu: `canSee` (globals.js:1501) radar birimini kara hedefi için
+        // atlar. Ama sis katmanı ayrı bir yoldan, HER dost birimin `vision`'ıyla açılıyordu — radarın
+        // 2500px'lik dairesi kara sisini de siliyordu. Radar yalnız HAVA algılar; sis kara katmanıdır.
+        if (u.airRadar || (STATS[u.type] && STATS[u.type].airRadar)) continue;
+        const _rp = unitRenderPos(u);                                 // sis deliği de sprite ile aynı karede ilerlesin
+        const s = worldToScreen(_rp.x, _rp.y);
         const vRadius = (Number.isFinite(u.vision) ? u.vision : STATS[u.type].vision) * zoom;
         
         if (s.x < -vRadius || s.x > canvas.width + vRadius || s.y < -vRadius || s.y > canvas.height + vRadius) continue;
@@ -1413,6 +1630,14 @@ function stepSim(now, dtSec, driveController, spawnDeathVfx) {
     // Dizi durumunu değiştirmeden yürütme yönünü her tick ters çevirerek iki tarafa
     // eşit sayıda ilk icra hakkı ver. Canlı, headless, hikâye ve hızlı maç aynı
     // stepSim yolunu kullandığından bu adalet düzeltmesi bütün motorlarda ortaktır.
+    // RENDER ARA-DEĞERİ: tik BAŞINDAKİ konumu sakla (çizim bununla u.x arasında lerp eder → 60 fps pürüzsüz).
+    // Yalnız canlı çizimde; headless tezgâhta hiç yazılmaz. Sim alanı DEĞİL (hash'e girmez).
+    if (!SIM.headless && typeof BATTLE_RENDER_INTERP !== 'undefined' && BATTLE_RENDER_INTERP) {
+        for (let i = 0; i < SIM.units.length; i++) {
+            SIM.units[i]._rpx = SIM.units[i].x;
+            SIM.units[i]._rpy = SIM.units[i].y;
+        }
+    }
     if (((SIM.tick || 0) & 1) === 0) {
         for (let i = 0; i < SIM.units.length; i++) {
             SIM.units[i].update(now, dtSec);
@@ -1473,9 +1698,12 @@ function gameLoop(timestamp) {
         battlePerformanceWindow.maxFrameMs = Math.max(battlePerformanceWindow.maxFrameMs, dt);
         if (_mpActive) {
             mpStep(timestamp);                       // ÇOK OYUNCULU: sabit-tick lockstep (kendi içinde stepSim çağırır)
+            RENDER_ALPHA = 1;                        // MP akümülatörü içeride; ara-değer yok (konum tik-sonu)
         } else {
             // KOMUTAN MODU: dış-komutan turu gelince sim DURUR (adım atma, zaman biriktirme) — emir bekle.
-            const _cmdrMayStep = (typeof commanderPreStep !== 'function') || commanderPreStep();
+            // ESC DURAKLATMA: zaman BIRIKTIRILMEZ ve tik ATILMAZ → determinizm/replay etkilenmez.
+            const _duraklat = (typeof BATTLE_PAUSED !== 'undefined') && BATTLE_PAUSED;
+            const _cmdrMayStep = !_duraklat && ((typeof commanderPreStep !== 'function') || commanderPreStep());
             battleAccumulatorMs += _cmdrMayStep ? dt * GAME_SPEED : 0;
             let steps = 0;
             while (_cmdrMayStep && battleAccumulatorMs >= BATTLE_TICK_MS && steps < BATTLE_MAX_STEPS_PER_FRAME
@@ -1488,6 +1716,9 @@ function gameLoop(timestamp) {
                 battleAccumulatorMs -= BATTLE_TICK_MS;
                 steps++;
             }
+            // Kalan akümülatör = bir sonraki tike ne kadar kaldığı → çizim o oranda ileri taşır.
+            // Duraklatmada/adım atılmayan karede de doğru: prev==son adım öncesi, alpha sabit kalır.
+            RENDER_ALPHA = Math.max(0, Math.min(1, battleAccumulatorMs / BATTLE_TICK_MS));
             battlePerformanceWindow.simulationSteps += steps;
             if (steps >= BATTLE_MAX_STEPS_PER_FRAME &&
                 battleAccumulatorMs >= BATTLE_TICK_MS) {

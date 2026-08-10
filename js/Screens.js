@@ -49,19 +49,21 @@ function qmSelected(groupId, fallback) {
 // Rakip KIRMIZI taraftir (controller `battle-red-ai`, owner ENEMY_AI); oyuncu mavidir.
 // intel3-pro AYRI bir bayrak DEGIL: intel4 kapaliyken elde edilen TABAN beyindir.
 // Secim telemetriye de yazilir (`rakipBeyin`) — ham JSON'dan hangi beyinle oynandigi anlasilsin.
+// ── IKI AI (kullanici karari, 2026-08-10) ──
+// intel4-pro LISTEDEN KALDIRILDI: ~10.000 macta olculdu, intel4'u GECEMEDI (pro ≡ intel4, %50; en iyi
+// mudahale bile bagimsiz havuzlarda sifir). Iki surumu ayri secenek diye sunmak, olmayan bir zorluk
+// farki vaat etmek olurdu. beonai PASIF: klon-v2 96 bagimsiz macta kod-AI'dan ANLAMLI KOTU (t −2.85).
+// Anahtarlar GERIYE DONUK CALISIR (eski kayit/telemetri 'intel4pro'/'beonai' yazmis olabilir):
+// ikisi de intel4'e duser, sessizce baska bir beyin oynamaz.
 const QM_BEYIN = {
     intel3pro: { intel4: false, pro: false, beonai: null,  ad: 'intel3-pro' },
     intel4:    { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
-    intel4pro: { intel4: true,  pro: true,  beonai: null,  ad: 'intel4-pro' },
-    // 2026-08-09: oznitelik surumu v2'ye cikinca v1 modelleri (beonai-karisim/oracle-taban/klon)
-    // uyum kontrolunde ELENDI ve mac sessizce kod-AI'ya dusuyordu. Kontrol DOGRU calisti (kullanici
-    // uyariyi gordu). Uyumlu TEK model klon-v2 -> baglanti ona cevrildi.
-    // DURUSTLUK NOTU: beonai-klon-v2, 96 BAGIMSIZ macta kod-AI'dan ANLAMLI KOTU olcuLdu (t -2.85).
-    // Yani "beonai" rakibi su an intel4-pro'dan ZAYIFTIR; guclu rakip icin intel4-pro secilmeli.
-    beonai:    { intel4: true,  pro: false, beonai: 'beonai-klon-v2', ad: 'beonai' },
+    // ── ARTIK SECILEMEZ (geriye donuk esleme) ──
+    intel4pro: { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
+    beonai:    { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
 };
 function quickMatchApplyBrain(anahtar) {
-    const b = QM_BEYIN[anahtar] || QM_BEYIN.intel4pro;
+    const b = QM_BEYIN[anahtar] || QM_BEYIN.intel4;   // varsayilan artik intel4 (en guclu kalan beyin)
     if (typeof BATTLE_INTEL4_RED !== 'undefined') BATTLE_INTEL4_RED = b.intel4;
     if (typeof BATTLE_INTEL4PRO_RED !== 'undefined') BATTLE_INTEL4PRO_RED = b.pro;
     if (typeof BATTLE_BEONAI_RED !== 'undefined') BATTLE_BEONAI_RED = b.beonai;

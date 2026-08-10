@@ -6,12 +6,13 @@
 //  sonuç yine StoryCharacterActions tarafından doğrulanır ve uygulanır.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const STORY_CHARACTER_ARBITER_SCHEMA_VERSION = 1;
-const STORY_CHARACTER_ARBITER_ADAPTER_VERSION = 'story-character-arbiter-1';
-const STORY_CHARACTER_ARBITER_POLICY_HASH = 'fnv1a32:phase38-closed-choice-1';
+const STORY_CHARACTER_ARBITER_SCHEMA_VERSION = 2;
+const STORY_CHARACTER_ARBITER_ADAPTER_VERSION = 'story-character-arbiter-3';
+const STORY_CHARACTER_ARBITER_POLICY_HASH = 'fnv1a32:phase38-grammar-choice-3';
 const STORY_CHARACTER_ARBITER_CANDIDATE_CAP = 8;
 const STORY_CHARACTER_ARBITER_CACHE_CAP = 32;
 const STORY_CHARACTER_ARBITER_MIN_SCORE = 54;
+const STORY_CHARACTER_ARBITER_LIVE_SCHEMA_VERSION = 1;
 
 const STORY_CHARACTER_ARBITER_VERDICTS = Object.freeze(['PROPOSE', 'PASS']);
 const STORY_CHARACTER_ARBITER_REASON_CODES = Object.freeze([
@@ -31,9 +32,20 @@ const STORY_CHARACTER_ARBITER_EMPHASIS = Object.freeze([
 
 const STORY_CHARACTER_ARBITER_SYSTEM = `Sen Pixel RTS karakter karar hakemisin.
 Yalnız verilen ADAYLAR arasından seçim yapabilir veya PASS diyebilirsin.
+ADAYLAR boşsa verdict PASS ve choiceId null olmalıdır.
 Yeni eylem, hedef, sayı, bedel, olasılık, bilgi veya dünya sonucu uyduramazsın.
 Yalnız tek satırlık geçerli JSON döndür. Açıklama ve markdown yazma.
-Şema: {"schemaVersion":1,"requestId":"...","verdict":"PROPOSE|PASS","candidateId":"...|null","actionType":"...|null","targetActorId":"...|null","reasonCode":"izinli kod","speechPlan":{"opening":"izinli kod","tone":"izinli kod","address":"izinli kod","emphasis":["izinli kod"]}}`;
+Kodları AYNEN kullan; kodların yerine doğal dil cümlesi yazma.
+choiceId içindeki sayı kalite veya sıra bildirmez; etiketi tahmin etme.
+Aktörün hedef, kırmızı çizgi ve ilişkilerini değerlendir. score kodun kanıt gücüdür;
+açık bir kırmızı çizgi çelişkisi yoksa daha güçlü kanıtı tercih et.
+recentDecisions geçmiş karar kanıtıdır; değişen bağlam yoksa aynı düşük değerli seçimi seri biçimde tekrarlama.
+reasonCode: GOAL_ALIGNMENT|RELATIONSHIP_PRESSURE|RECIPROCITY|RED_LINE|INSUFFICIENT_VALUE|DEFER_FOR_INFORMATION
+opening: STATE_POSITION_FIRST|RELATIONSHIP_CONTEXT_FIRST
+tone: FIRM|MEASURED|WARM|GUARDED
+address: FORMAL_TITLE|SURNAME|ROLE_TITLE|NEUTRAL
+emphasis: GOAL|RELATIONSHIP|COST|RISK|RED_LINE|RECIPROCITY
+Şema: {"schemaVersion":2,"requestId":"...","verdict":"PROPOSE|PASS","choiceId":"SUNULAN_KOD|null","reasonCode":"izinli kod","speechPlan":{"opening":"izinli kod","tone":"izinli kod","address":"izinli kod","emphasis":["izinli kod"]}}`;
 
 function storyCharacterArbiterClone(value) {
     if (value == null) return value;
@@ -116,10 +128,18 @@ function storyCharacterArbiterBuildRequest(actorId, options) {
         ? options.ranked
         : (typeof storyCharacterActionAIRankActor === 'function'
             ? storyCharacterActionAIRankActor(actor.id) : []);
-    const candidates = ranked.map(storyCharacterArbiterCandidateRow).filter(Boolean)
+    const rankedCandidates = ranked.map(storyCharacterArbiterCandidateRow).filter(Boolean)
+        .filter(row => Number(row.score) >= STORY_CHARACTER_ARBITER_MIN_SCORE)
         .sort((left, right) => right.score - left.score
             || left.candidateId.localeCompare(right.candidateId, 'en'))
         .slice(0, STORY_CHARACTER_ARBITER_CANDIDATE_CAP);
+    const usedChoiceIds = new Set();
+    const candidates = rankedCandidates.map((row, index) => {
+        const base = `Q${storyCharacterArbiterHash(row.candidateId).slice(-4).toUpperCase()}`;
+        const choiceId = usedChoiceIds.has(base) ? `${base}${index + 1}` : base;
+        usedChoiceIds.add(choiceId);
+        return Object.assign({ choiceId }, row);
+    });
     const targetIds = Array.from(new Set(candidates.map(row => row.targetActorId).filter(Boolean))).sort();
     const targets = targetIds.map(targetId => storyCharacterArbiterSafeIdentity(
         typeof storyCharacterIdentityView === 'function' ? storyCharacterIdentityView(targetId) : null
@@ -147,6 +167,8 @@ function storyCharacterArbiterBuildRequest(actorId, options) {
         targets,
         relationships,
         recentMemory: storyCharacterArbiterMemory(actor.id),
+        recentDecisions: typeof storyCharacterActionArbiterRecentDecisions === 'function'
+            ? storyCharacterActionArbiterRecentDecisions(actor.id, 6) : [],
         candidates
     };
     const contextHash = storyCharacterArbiterHash(context);
@@ -188,8 +210,7 @@ function storyCharacterArbiterValidate(request, raw) {
         return { ok: false, issues, output: null };
     }
     const allowedTop = new Set([
-        'schemaVersion', 'requestId', 'verdict', 'candidateId', 'actionType',
-        'targetActorId', 'reasonCode', 'speechPlan'
+        'schemaVersion', 'requestId', 'verdict', 'choiceId', 'reasonCode', 'speechPlan'
     ]);
     for (const key of Object.keys(output)) if (!allowedTop.has(key)) add('UNKNOWN_FIELD', `$.${key}`);
     if (output.schemaVersion !== STORY_CHARACTER_ARBITER_SCHEMA_VERSION) add('SCHEMA_VERSION', '$.schemaVersion');
@@ -210,18 +231,29 @@ function storyCharacterArbiterValidate(request, raw) {
     }
     const candidates = request && request.context && request.context.candidates || [];
     if (output.verdict === 'PROPOSE') {
-        const selected = candidates.find(row => row.candidateId === output.candidateId);
-        if (!selected) add('CANDIDATE_NOT_OFFERED', '$.candidateId');
-        else {
-            if (output.actionType !== selected.actionType) add('ACTION_MISMATCH', '$.actionType');
-            if ((output.targetActorId || null) !== (selected.targetActorId || null)) add('TARGET_MISMATCH', '$.targetActorId');
-        }
+        const selected = candidates.find(row => row.choiceId === output.choiceId);
+        if (!selected) add('CHOICE_NOT_OFFERED', '$.choiceId');
     } else if (output.verdict === 'PASS') {
-        if (output.candidateId != null) add('PASS_CANDIDATE_FORBIDDEN', '$.candidateId');
-        if (output.actionType != null) add('PASS_ACTION_FORBIDDEN', '$.actionType');
-        if (output.targetActorId != null) add('PASS_TARGET_FORBIDDEN', '$.targetActorId');
+        if (output.choiceId != null) add('PASS_CHOICE_FORBIDDEN', '$.choiceId');
     }
     return { ok: issues.length === 0, issues, output: issues.length ? null : storyCharacterArbiterClone(output) };
+}
+
+function storyCharacterArbiterMaterialize(request, output) {
+    const candidates = request && request.context && request.context.candidates || [];
+    const selected = output && output.verdict === 'PROPOSE'
+        ? candidates.find(row => row.choiceId === output.choiceId) : null;
+    return {
+        schemaVersion: output.schemaVersion,
+        requestId: output.requestId,
+        verdict: output.verdict,
+        choiceId: output.choiceId,
+        candidateId: selected ? selected.candidateId : null,
+        actionType: selected ? selected.actionType : null,
+        targetActorId: selected ? selected.targetActorId : null,
+        reasonCode: output.reasonCode,
+        speechPlan: storyCharacterArbiterClone(output.speechPlan)
+    };
 }
 
 function storyCharacterArbiterSpeechPlan(actor, candidate, pass) {
@@ -249,24 +281,23 @@ function storyCharacterArbiterFallback(request, reason) {
     const actor = request && request.context && request.context.actor;
     const top = request && request.context && request.context.candidates && request.context.candidates[0];
     const propose = !!(top && Number(top.score) >= STORY_CHARACTER_ARBITER_MIN_SCORE);
-    const output = {
+    const rawOutput = {
         schemaVersion: STORY_CHARACTER_ARBITER_SCHEMA_VERSION,
         requestId: request && request.requestId || null,
         verdict: propose ? 'PROPOSE' : 'PASS',
-        candidateId: propose ? top.candidateId : null,
-        actionType: propose ? top.actionType : null,
-        targetActorId: propose ? top.targetActorId : null,
+        choiceId: propose ? top.choiceId : null,
         reasonCode: propose ? 'GOAL_ALIGNMENT' : 'INSUFFICIENT_VALUE',
         speechPlan: storyCharacterArbiterSpeechPlan(actor, top, !propose)
     };
+    const validation = storyCharacterArbiterValidate(request, rawOutput);
     return {
         ok: true,
         source: 'DETERMINISTIC_FALLBACK',
         rejectedReason: reason || null,
         proposalOnly: true,
         worldMutation: false,
-        output,
-        validation: storyCharacterArbiterValidate(request, output)
+        output: storyCharacterArbiterMaterialize(request, rawOutput),
+        validation
     };
 }
 
@@ -280,7 +311,7 @@ function storyCharacterArbiterResolve(request, raw) {
         rejectedReason: null,
         proposalOnly: true,
         worldMutation: false,
-        output: validation.output,
+        output: storyCharacterArbiterMaterialize(request, validation.output),
         validation
     };
 }
@@ -294,8 +325,59 @@ function storyCharacterArbiterPrompt(request) {
         targets: request.context.targets,
         relationships: request.context.relationships,
         recentMemory: request.context.recentMemory,
-        candidates: request.context.candidates
+        recentDecisions: request.context.recentDecisions,
+        candidates: request.context.candidates.map(row => ({
+            choiceId: row.choiceId,
+            actionType: row.actionType,
+            targetActorId: row.targetActorId,
+            targetCountryId: row.targetCountryId,
+            targetModel: row.targetModel,
+            score: row.score,
+            cost: row.cost
+        }))
     })}`;
+}
+
+function storyCharacterArbiterJsonSchema(request) {
+    const choiceIds = (request && request.context && request.context.candidates || [])
+        .map(row => row.choiceId).filter(Boolean);
+    const speechPlan = {
+        type: 'object',
+        properties: {
+            opening: { enum: STORY_CHARACTER_ARBITER_OPENINGS.slice() },
+            tone: { enum: STORY_CHARACTER_ARBITER_TONES.slice() },
+            address: { enum: STORY_CHARACTER_ARBITER_ADDRESSES.slice() },
+            emphasis: {
+                type: 'array',
+                items: { enum: STORY_CHARACTER_ARBITER_EMPHASIS.slice() },
+                minItems: 1,
+                maxItems: 3
+            }
+        },
+        additionalProperties: false
+    };
+    const branch = (verdict, choiceId, reasonCodes) => ({
+        type: 'object',
+        properties: {
+            schemaVersion: { const: STORY_CHARACTER_ARBITER_SCHEMA_VERSION },
+            requestId: { const: request && request.requestId || '' },
+            verdict: { const: verdict },
+            choiceId,
+            reasonCode: { enum: reasonCodes },
+            speechPlan
+        },
+        additionalProperties: false
+    });
+    const passBranch = branch('PASS', { const: null }, [
+        'RED_LINE', 'INSUFFICIENT_VALUE', 'DEFER_FOR_INFORMATION'
+    ]);
+    if (!choiceIds.length) return { oneOf: [passBranch] };
+    return {
+        oneOf: [
+            branch('PROPOSE', { enum: choiceIds }, STORY_CHARACTER_ARBITER_REASON_CODES.slice()),
+            passBranch
+        ]
+    };
 }
 
 function storyCharacterArbiterCache() {
@@ -317,8 +399,7 @@ function storyCharacterArbiterCachePut(request, result) {
     return storyCharacterArbiterClone(cache.entries[key]);
 }
 
-function storyCharacterArbiterAsk(actorId, options) {
-    const request = storyCharacterArbiterBuildRequest(actorId, options);
+function storyCharacterArbiterAskRequest(request) {
     if (!request.ok) return Promise.resolve({ ok: false, reason: request.reason, request });
     const cache = storyCharacterArbiterCache();
     if (cache.entries[request.contextHash]) return Promise.resolve(storyCharacterArbiterClone(cache.entries[request.contextHash]));
@@ -327,12 +408,123 @@ function storyCharacterArbiterAsk(actorId, options) {
     );
     return llmEnrich(STORY_CHARACTER_ARBITER_SYSTEM, storyCharacterArbiterPrompt(request), raw => {
         const validation = storyCharacterArbiterValidate(request, raw);
-        return validation.ok ? validation.output : null;
-    }).then(output => storyCharacterArbiterCachePut(request,
+        return validation.ok ? raw : null;
+    }, { jsonSchema: storyCharacterArbiterJsonSchema(request) }).then(output => storyCharacterArbiterCachePut(request,
         output ? storyCharacterArbiterResolve(request, output)
             : storyCharacterArbiterFallback(request, 'LLM_UNAVAILABLE_OR_REJECTED'))
     ).catch(() => storyCharacterArbiterCachePut(request,
         storyCharacterArbiterFallback(request, 'LLM_EXCEPTION')));
+}
+
+function storyCharacterArbiterAsk(actorId, options) {
+    return storyCharacterArbiterAskRequest(storyCharacterArbiterBuildRequest(actorId, options));
+}
+
+// Asenkron model sonucu kanonik dünyaya hiçbir zaman kendi başına yazamaz.
+// Buradaki posta kutusu yalnız duvar-saatinde tamamlanan öneriyi tutar; sabit
+// hikâye tiki, kayıtlı istek zarfını yeniden üretip eşleştirmeden sonucu alamaz.
+function storyCharacterArbiterLiveState() {
+    if (typeof STORY === 'undefined') return { generation: 0, entries: {}, testAdapter: null, warmupStarted: false };
+    if (!STORY._characterArbiterLive) {
+        STORY._characterArbiterLive = { generation: 1, entries: {}, testAdapter: null, warmupStarted: false };
+    }
+    return STORY._characterArbiterLive;
+}
+
+function storyCharacterArbiterLiveReset(options) {
+    options = options || {};
+    const previous = typeof STORY !== 'undefined' && STORY._characterArbiterLive;
+    const testAdapter = options.preserveTestAdapter && previous ? previous.testAdapter : null;
+    const generation = Math.max(0, Number(previous && previous.generation) || 0) + 1;
+    if (typeof STORY !== 'undefined') {
+        STORY._characterArbiterLive = {
+            generation, entries: {}, testAdapter: testAdapter || null, warmupStarted: false
+        };
+    }
+    return { generation, cleared: true };
+}
+
+function storyCharacterArbiterSetLiveAdapter(adapter) {
+    const state = storyCharacterArbiterLiveState();
+    state.testAdapter = typeof adapter === 'function' ? adapter : null;
+    return !!state.testAdapter;
+}
+
+function storyCharacterArbiterLiveAvailable() {
+    const state = storyCharacterArbiterLiveState();
+    if (typeof state.testAdapter === 'function') return true;
+    return storyCharacterArbiterEnabled()
+        && typeof llmAvailable === 'function' && llmAvailable();
+}
+
+function storyCharacterArbiterLiveWarmup() {
+    const state = storyCharacterArbiterLiveState();
+    if (typeof state.testAdapter === 'function' || storyCharacterArbiterLiveAvailable()) return true;
+    if (state.warmupStarted || !storyCharacterArbiterEnabled()
+        || typeof llmBridge !== 'function' || !llmBridge()
+        || typeof llmEnsure !== 'function') return false;
+    state.warmupStarted = true;
+    Promise.resolve(llmEnsure()).catch(() => null);
+    return false;
+}
+
+function storyCharacterArbiterLiveStore(request, generation, result) {
+    const state = storyCharacterArbiterLiveState();
+    if (state.generation !== generation) return false;
+    const entry = state.entries[request.requestId];
+    if (!entry || entry.contextHash !== request.contextHash) return false;
+    entry.status = 'SETTLED';
+    entry.result = storyCharacterArbiterClone(result);
+    return true;
+}
+
+function storyCharacterArbiterLiveDispatch(request) {
+    if (!request || !request.ok) return { ok: false, reason: 'REQUEST_INVALID' };
+    if (!storyCharacterArbiterLiveAvailable()) return { ok: false, reason: 'LIVE_ARBITER_UNAVAILABLE' };
+    const state = storyCharacterArbiterLiveState();
+    const generation = state.generation;
+    state.entries[request.requestId] = {
+        schemaVersion: STORY_CHARACTER_ARBITER_LIVE_SCHEMA_VERSION,
+        requestId: request.requestId,
+        contextHash: request.contextHash,
+        status: 'PENDING',
+        result: null
+    };
+    let run;
+    try {
+        run = typeof state.testAdapter === 'function'
+            ? state.testAdapter(storyCharacterArbiterClone(request))
+            : storyCharacterArbiterAskRequest(request);
+    } catch (_) {
+        run = storyCharacterArbiterFallback(request, 'LIVE_DISPATCH_EXCEPTION');
+    }
+    if (run && typeof run.then === 'function') {
+        run.then(result => storyCharacterArbiterLiveStore(request, generation, result))
+            .catch(() => storyCharacterArbiterLiveStore(request, generation,
+                storyCharacterArbiterFallback(request, 'LIVE_PROMISE_EXCEPTION')));
+    } else {
+        storyCharacterArbiterLiveStore(request, generation,
+            run || storyCharacterArbiterFallback(request, 'LIVE_EMPTY_RESULT'));
+    }
+    return { ok: true, requestId: request.requestId, contextHash: request.contextHash };
+}
+
+function storyCharacterArbiterLiveTake(requestId, contextHash) {
+    const state = storyCharacterArbiterLiveState();
+    const entry = state.entries[String(requestId || '')];
+    if (!entry) return { status: 'MISSING', result: null };
+    if (entry.contextHash !== contextHash) return { status: 'CONTEXT_MISMATCH', result: null };
+    if (entry.status !== 'SETTLED') return { status: 'PENDING', result: null };
+    delete state.entries[entry.requestId];
+    return { status: 'SETTLED', result: storyCharacterArbiterClone(entry.result) };
+}
+
+function storyCharacterArbiterLiveDiscard(requestId) {
+    const state = storyCharacterArbiterLiveState();
+    const key = String(requestId || '');
+    const existed = !!state.entries[key];
+    delete state.entries[key];
+    return existed;
 }
 
 function storyCharacterArbiterDiagnostics() {
@@ -345,6 +537,10 @@ function storyCharacterArbiterDiagnostics() {
         proposalOnly: true,
         worldMutation: false,
         cacheSize: cache.order.length,
-        cacheCap: STORY_CHARACTER_ARBITER_CACHE_CAP
+        cacheCap: STORY_CHARACTER_ARBITER_CACHE_CAP,
+        liveAvailable: storyCharacterArbiterLiveAvailable(),
+        liveWarmupStarted: !!storyCharacterArbiterLiveState().warmupStarted,
+        livePending: Object.values(storyCharacterArbiterLiveState().entries)
+            .filter(row => row.status === 'PENDING').length
     };
 }

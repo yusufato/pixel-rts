@@ -45,8 +45,9 @@ function llmProbe() {
     }).catch(e => { LLM.error = String(e); return LLM; });
 }
 
-// Modeli AÇIKÇA yükle (kullanıcı anlatıcıyı açtı ya da ilk üretim gerekti).
-// Birkaç saniye sürer ve ~5GB bellek alır — bu yüzden asla kendiliğinden çağrılmaz.
+// Modeli ihtiyaç anında yükle (kullanıcı anlatıcıyı açtı veya A-seviye karakter
+// hakemi ilk kez gerekti). Birkaç saniye sürer ve ~5GB bellek alır; açılış
+// yoklaması bunu çağırmaz, canlı tüketici ateşler ve dünya sonucu beklemez.
 function llmEnsure() {
     const b = llmBridge();
     if (!b) { LLM.error = 'masaüstü değil'; return Promise.resolve(LLM); }
@@ -168,7 +169,7 @@ function llmParseDialog(text, a, b) {
 
 // ── İSTEK ──────────────────────────────────────────────────────────────────
 // Oyun bunu "ateşle ve unut" olarak çağırır. Söz döner ama beklenmesi ŞART DEĞİL.
-function llmEnrich(system, prompt, validate) {
+function llmEnrich(system, prompt, validate, generationOptions) {
     const b = llmBridge();
     if (!llmAvailable() || LLM.inFlight >= LLM.maxInFlight) return Promise.resolve(null);
     LLM.inFlight++; LLM.stats.asked++;
@@ -210,7 +211,16 @@ function llmEnrich(system, prompt, validate) {
     // 70 jetonla iskeleden sonra 2. replik yarıda kesiliyordu. 110: iskele + iki TAM
     // replik sığıyor, doğrulayıcı zaten fazlasını atıyor. CPU maliyeti anahtar kapalı
     // varsayılan olduğu için kabul edilebilir (saf CPU'da ~0.8 jeton/sn).
-    return b.generate({ system: system || LLM_SYSTEM, prompt, maxTokens: 110, temperature: LLM_TEMPERATURE })
+    const generationRequest = {
+        system: system || LLM_SYSTEM,
+        prompt,
+        maxTokens: 110,
+        temperature: LLM_TEMPERATURE
+    };
+    if (generationOptions && generationOptions.jsonSchema) {
+        generationRequest.jsonSchema = generationOptions.jsonSchema;
+    }
+    return b.generate(generationRequest)
         .then(txt => {
             if (!txt) { LLM.stats.failed++; finish('llm.failed', { reason: 'empty' }); return null; }
             const v = validate ? validate(txt) : txt;

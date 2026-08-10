@@ -100,6 +100,12 @@
                                 <div class="wr-option-row" data-setting="doctrine"><span>DOKTRİN</span><div><button data-value="armor">Zırhlı Mızrak</button><button class="selected" data-value="combined">Birleşik Silahlar</button><button data-value="defense">Derin Savunma</button></div></div>
                                 <div class="wr-option-row locked"><span>DEVLET SAYISI</span><div><button class="selected" data-value="8">8 · Yaşayan Dünya</button></div></div>
                                 <div class="wr-option-row" data-setting="abundance"><span>KAYNAK BOLLUĞU</span><div><button data-value="0.75">Kıt</button><button class="selected" data-value="1">Dengeli</button><button data-value="1.25">Bol</button></div></div>
+                                <!-- ZORLUK (kullanici istegi, 2026-08-10): sefer savaslari hangi beyinle oynansin.
+                                     KOLAY = intel3-pro (taban beyin) · ZOR = intel4 (mezun surum).
+                                     Hikaye savaslari bugune dek DAIMA taban beyinle oynuyordu; intel4'e baglayinca
+                                     zorluk olculmeden kaydi. Secim oyuncuda olsun. Muttefik AI her zaman intel4 —
+                                     zorluk RAKIBI ayarlar, kendi tarafini sakatlamaz. -->
+                                <div class="wr-option-row" data-setting="difficulty"><span>ZORLUK</span><div><button data-value="easy">Kolay</button><button class="selected" data-value="hard">Zor</button></div></div>
                                 <div class="wr-option-row" data-setting="fog"><span>SİS-İ HARP</span><div><button class="selected" data-value="on">Açık</button><button data-value="off">Kapalı</button></div></div>
                             </div>
                             <div id="wr-selected-state" class="wr-selected-state">Bir devlet seçerek harekât emrini hazırla.</div>
@@ -124,19 +130,26 @@
                     <button data-role="random"><b>RASTGELE</b><small>maç başında belirlenir</small></button>
                 </div>
             </div>
-            <div class="qm-row" style="margin-top:16px;"><label>🧠 Rakip AI:</label>
-                <div id="qm-brain" class="qm-choice">
-                    <button data-brain="intel3pro"><b>intel3-pro</b><small>taban beyin</small></button>
-                    <button data-brain="intel4"><b>intel4</b><small>mezun sürüm</small></button>
-                    <button data-brain="intel4pro" class="selected"><b>intel4-pro</b><small>en güçlü kod-AI</small></button>
-                    <button data-brain="beonai"><b>beonai</b><small>öğrenen model</small></button>
+            <!-- SADELEŞTİRME (kullanıcı isteği): AI beyni / tohum / harita günlük oyunda değişmez —
+                 kapalı bir "İleri ayarlar" bölümüne alındı. Varsayılanlar aynı, hiçbir seçenek silinmedi. -->
+            <details class="qm-advanced">
+                <summary>⚙️ İleri ayarlar <em>(AI beyni · tohum · harita)</em></summary>
+                <div class="qm-row"><label>🧠 Rakip AI:</label>
+                    <div id="qm-brain" class="qm-choice">
+                        <!-- İKİ AI (kullanıcı kararı, 2026-08-10): intel4-pro, ~10.000 maçlık ölçümde intel4'ü
+                             GEÇEMEDİ (pro ≡ intel4, %50) → listeden kaldırıldı. beonai PASİF: klon-v2, 96 bağımsız
+                             maçta kod-AI'dan anlamlı KÖTÜ (t −2.85). Kalan iki beyin gerçek bir zorluk farkı sunar:
+                             intel3-pro = taban, intel4 = mezun sürüm. -->
+                        <button data-brain="intel3pro"><b>intel3-pro</b><small>taban beyin · daha kolay</small></button>
+                        <button data-brain="intel4" class="selected"><b>intel4</b><small>mezun sürüm · en güçlü</small></button>
+                    </div>
                 </div>
-            </div>
-            <div class="qm-row"><label>🎲 Tohum (boş = rastgele):
-                <input type="number" id="qm-seed" class="qm-select" placeholder="ör. 202" style="width:140px;"></label></div>
-            <div class="qm-hint">Aynı tohum = aynı harita, aynı ordular. Dört AI'yı adil kıyaslamak için aynı tohumu kullan.</div>
-            <div class="qm-row"><label>🗺️ Harita:
-                <select id="qm-map" class="qm-select"></select></label></div>
+                <div class="qm-row"><label>🎲 Tohum (boş = rastgele):
+                    <input type="number" id="qm-seed" class="qm-select" placeholder="ör. 202" style="width:140px;"></label></div>
+                <div class="qm-hint">Aynı tohum = aynı harita, aynı ordular — AI'ları adil kıyaslamak için.</div>
+                <div class="qm-row"><label>🗺️ Harita:
+                    <select id="qm-map" class="qm-select"></select></label></div>
+            </details>
         </div>
         <div class="menu-side">
             <button id="btn-qm-start" class="menu-btn primary">⚔️ Savaşa Başla</button>
@@ -297,6 +310,25 @@
                 </div>
                 <div id="talk-body"></div>
             </aside>
+            <!-- KARAKTER GÖRÜŞMESİ — profil, devam eden taslak ve geçmiş aynı çalışma alanında -->
+            <div id="conversation-workspace-modal" class="conversation-workspace-modal hidden"
+                role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="conversation-workspace-name">
+                <section class="conversation-workspace-shell">
+                    <header class="conversation-workspace-header">
+                        <div>
+                            <span class="conversation-workspace-kicker">KARAKTER GÖRÜŞMESİ</span>
+                            <h2 id="conversation-workspace-name">GÖRÜŞME</h2>
+                            <p id="conversation-workspace-meta"></p>
+                        </div>
+                        <button id="conversation-workspace-close" class="council-x" aria-label="Görüşmeyi kapat">KAPAT</button>
+                    </header>
+                    <div class="conversation-workspace-layout">
+                        <aside id="conversation-workspace-profile" class="conversation-workspace-profile"></aside>
+                        <main id="conversation-workspace-main" class="conversation-workspace-main"></main>
+                        <aside id="conversation-workspace-history" class="conversation-workspace-history"></aside>
+                    </div>
+                </section>
+            </div>
             <!-- FRAKSİYON OLAYI — arka planda kaybolmayan, sıraya alınan oyuncu bildirimi -->
             <div id="faction-event-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="faction-event-title">
                 <div class="faction-event-card">
@@ -358,6 +390,11 @@
     <!-- WAR ROOM: deploy sırasında gerçek birliklerden beslenen kompozisyon paneli -->
     <aside id="deploy-sidebar" aria-label="Ordu kompozisyonu">
         <div class="deploy-side-head"><span>ORDU KOMPOZİSYONU</span><b id="deploy-unit-count">0 / —</b></div>
+        <!-- SEÇİLİ BİRİM KARTI (kullanıcı isteği): dizerken tıklanan/üzerine gelinen birimin künyesi.
+             Bu bilgi zaten vardı ama `#ui-info` paneli dizim fazında display:none idi → hiç görünmüyordu. -->
+        <div id="deploy-unit-card" class="deploy-unit-card is-empty">
+            <div class="duc-empty">Alttaki barda bir birime tıkla — künyesi burada çıkar.</div>
+        </div>
         <div id="deploy-operation-name">SERBEST DÜELLO</div>
         <div id="deploy-comp-list"></div>
         <div class="deploy-side-summary">
@@ -380,14 +417,20 @@
         <div id="battle-target-stats" class="battle-target-stats"></div>
         <div id="battle-target-matchup" class="battle-target-matchup">Bir dost birim seçerek savaş verisini aç.</div>
     </aside>
-    <section id="battle-orders" aria-label="Komutan emirleri">
-        <div>KOMUTAN EMİRLERİ</div>
-        <button data-battle-order="assault"><b>TAARRUZ</b><span>Schwerpunkt</span></button>
-        <button data-battle-order="free-fire"><b>ATEŞ SERBEST</b><span>otomatik temas</span></button>
-        <button data-battle-order="trench"><b>SİPER KAZ</b><span>tahkim</span></button>
-        <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
-    </section>
-    <section id="ui-abilities" aria-label="Seçili birim yetenekleri"></section>
+    <!-- SOL YIĞIN: yetenek paneli ve emir paneli AYRI AYRI `position:fixed` idi (bottom:232 / bottom:96).
+         Emir paneli içeriğe göre büyüyünce sabit 232px'i aşıp yetenek panelinin altına giriyordu —
+         kullanıcının gördüğü üst üste binme buydu. Artık ikisi tek bir akışta (flex column) yığılıyor;
+         hangisi ne kadar büyürse büyüsün çakışma YAPISAL olarak imkânsız. -->
+    <div id="battle-left-stack">
+        <section id="ui-abilities" aria-label="Seçili birim yetenekleri"></section>
+        <section id="battle-orders" aria-label="Komutan emirleri">
+            <div>KOMUTAN EMİRLERİ</div>
+            <button data-battle-order="assault"><b>TAARRUZ</b><span>Schwerpunkt</span></button>
+            <button data-battle-order="free-fire"><b>ATEŞ SERBEST</b><span>otomatik temas</span></button>
+            <button data-battle-order="trench"><b>SİPER KAZ</b><span>tahkim</span></button>
+            <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
+        </section>
+    </div>
     <aside id="battle-feed"><div class="battle-feed-head">MUHAREBE KAYDI <b>CANLI</b></div><div id="battle-feed-list"></div></aside>
     <div id="game-war-overlay" aria-hidden="true"></div>
 
@@ -421,9 +464,10 @@
     <div id="game-over-screen" class="hidden">
         <div class="game-over-box">
             <h1 id="game-over-title">OYUN BİTTİ</h1>
+            <!-- KULLANICI İSTEĞİ (2026-08-09): sağdaki DETAYLI RAPOR (ham metin dökümü) kaldırıldı.
+                 Ekranda yalnız skor tablosu kalır; tam veri "Ham JSON İndir" ile alınır. -->
             <div class="game-over-content">
                 <div id="score-table"></div>
-                <textarea id="battle-report-output" readonly></textarea>
             </div>
             <section id="campaign-result-panel" class="hidden">
                 <div class="campaign-xp-summary"><span>KUVVET EKONOMİSİ</span><b id="campaign-xp-earned">+0 XP</b><em id="campaign-rank-progress">RÜTBE 1</em></div>
@@ -437,10 +481,14 @@
                 <button id="story-claim-reward" disabled>ÖDÜLÜ AL</button>
             </section>
             <div class="battle-report-actions">
-                <button id="copy-battle-report-btn">📋 Raporu Kopyala</button>
                 <button id="download-battle-report-btn">💾 Ham JSON İndir</button>
             </div>
-            <button id="restart-btn">🔄 Tekrar Oyna</button>
+            <!-- "Tekrar Oyna" küçültüldü ve yanına "Menüye Dön" kondu (kullanıcı isteği).
+                 Tekrar Oyna artık GERÇEKTEN yeniden oynatır (aynı ayar/tohum); menüye dönüş ayrı düğme. -->
+            <div class="game-over-nav">
+                <button id="restart-btn" class="go-nav-btn">🔄 Tekrar Oyna</button>
+                <button id="menu-return-btn" class="go-nav-btn">🏠 Menüye Dön</button>
+            </div>
             <button id="story-return-btn" class="hidden">🗺️ Dünyaya Dön</button>
         </div>
     </div>
@@ -548,6 +596,9 @@
     <script src="js/Council.js"></script>
     <script src="js/LLM.js"></script>
     <script src="js/StoryCharacterArbiter.js"></script>
+    <script src="js/StoryCharacterSpeech.js"></script>
+    <script src="js/StoryConversationUnderstanding.js"></script>
+    <script src="js/StoryNegotiation.js"></script>
     <script src="js/Era.js"></script>
     <script src="js/Chatter.js"></script>
     <script src="js/Talks.js"></script>

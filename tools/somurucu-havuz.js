@@ -64,7 +64,8 @@ function kos(seed, kirmiziSaldiran, acik) {
     BATTLE_EXPLOITER_BLUE = ${(KIP === 'kaldirac' || acik) ? "'" + SOMURU + "'" : 'null'};
     if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
     if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
-    if (typeof BATTLE_BALANCE !== 'undefined') { BATTLE_BALANCE.on = true; BATTLE_BALANCE.exploiterHeloBind = 0; }
+    if (typeof BATTLE_BALANCE !== 'undefined') { BATTLE_BALANCE.on = true; BATTLE_BALANCE.exploiterHeloBind = 0;
+        BATTLE_BALANCE.searchUncertainBind = 0; BATTLE_BALANCE.adUmbrellaBind = 0; }
     if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
     openBattlefieldSession({ mode:'quick', mapId:-2, seed:${seed}, attackerSide:${kirmiziSaldiran},
         durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
@@ -128,7 +129,11 @@ function kos(seed, kirmiziSaldiran, acik) {
         heloBaslangic, dusurulenHelo, heloOlum, heloOlumDeger, toplamOlumDeger,
         kirmiziBaslangic, kirmiziSon: SIM.units.filter(u => u.isRed && !u.dead).length,
         hOrnek, hMenzilde, hGorunur, hVurulabilir,
-        bind: (typeof BATTLE_BALANCE !== 'undefined' ? (BATTLE_BALANCE.exploiterHeloBind||0) : 0)
+        bind: (typeof BATTLE_BALANCE !== 'undefined' ? (BATTLE_BALANCE.exploiterHeloBind||0) : 0),
+        // KALDIRAC BAGLANMA SAYACI — 0 ise kaldirac HIC calismadi, tablo ANLAMSIZ (bugun bir kez yasandi)
+        kBind: (typeof BATTLE_BALANCE === 'undefined') ? 0 :
+            ((BATTLE_BALANCE.searchUncertainBind||0) + (BATTLE_BALANCE.adUmbrellaBind||0)),
+        adAdet: SIM.units.filter(u => u.isRed && STATS[u.type] && STATS[u.type].category === 'air_defense').length
     });
 })()`;
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'som.js' }));
@@ -153,7 +158,14 @@ for (let i = 0; i < TOHUMLAR.length; i++) {
 const ort = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 const oranTop = (arr, p, q) => { const P = arr.reduce((s, r) => s + r[p], 0), Q = arr.reduce((s, r) => s + r[q], 0); return Q ? P / Q : 0; };
 yaz('');
-yaz('  ══ BAGLANMA ══  acik ' + K.acik.reduce((s, r) => s + r.bind, 0) +
+if (KIP === 'kaldirac') {
+    yaz('  ══ KALDIRAC BAGLANMA ══  ' + KALDIRAC + ': ' + K.acik.reduce((s, r) => s + (r.kBind || 0), 0) +
+        '  (bind>0 mac ' + K.acik.filter(r => (r.kBind || 0) > 0).length + '/' + K.acik.length + ')' +
+        '   kontrol kolunda ' + K.kapali.reduce((s, r) => s + (r.kBind || 0), 0) + ' (0 olmali)' +
+        '   |  AD adet ' + (K.kapali.reduce((s,r)=>s+(r.adAdet||0),0)/K.kapali.length).toFixed(1) +
+        ' -> ' + (K.acik.reduce((s,r)=>s+(r.adAdet||0),0)/K.acik.length).toFixed(1));
+}
+yaz('  ══ SOMURUCU BAGLANMA ══  acik ' + K.acik.reduce((s, r) => s + r.bind, 0) +
     ' (bind>0 mac ' + K.acik.filter(r => r.bind > 0).length + '/' + K.acik.length + ')' +
     '   kapali ' + K.kapali.reduce((s, r) => s + r.bind, 0) + ' (0 olmali)');
 yaz('');

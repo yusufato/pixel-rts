@@ -196,7 +196,7 @@ const UNITS_MODERN_DB = {
       "id": "counter_battery_radar", "name": "Hava-Arama Radari", "category": "support", "tier": 2,
       "cost": { "resource": 350, "supply": 3, "buildTime": 24 },
       "hp": 200, "armorType": "light", "armorValue": 0,
-      "speed": 1.2, "vision": 20, "stealth": 0, "detect": 0.6,
+      "speed": 1.2, "vision": 25, "stealth": 0, "detect": 0.6,
       "airRadar": true,
       "weapons": [],
       "ammo": null,
@@ -234,7 +234,7 @@ const UNITS_MODERN_DB = {
       "speed": 1.0, "vision": 9, "stealth": 0, "detect": 0.8,
       "pointDefense": { "chance": 0.6 },
       "weapons": [
-        { "name": "SAM", "damage": 220, "damageType": "sam", "range": 22, "minRange": 3,
+        { "name": "SAM", "damage": 255, "damageType": "sam", "range": 22, "minRange": 3,
           "rof": 0.3, "aoe": 1.2, "targets": ["air"], "indirect": false, "canIntercept": true,
           "accuracy": { "base": 0.86, "optimalRange": 16, "falloff": 0.30, "vsMoving": 0.10, "ignoresCover": 0.0 } }
       ],
@@ -247,7 +247,7 @@ const UNITS_MODERN_DB = {
     {
       "id": "attack_helo", "name": "Taarruz Helikopteri", "category": "air", "tier": 3,
       "cost": { "resource": 800, "supply": 6, "buildTime": 40 },
-      "hp": 420, "armorType": "air", "armorValue": 3,
+      "hp": 330, "armorType": "air", "armorValue": 3,
       "speed": 4.5, "vision": 12, "stealth": 0, "detect": 0.3,
       "weapons": [
         { "name": "ATGM podu", "damage": 200, "damageType": "shaped", "range": 12, "minRange": 1,

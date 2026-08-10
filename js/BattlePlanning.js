@@ -652,6 +652,61 @@ function assignSectors(taskGroups, situation, controller) {
         }
     }
 }
+// ── TÜMEN KOMUTASI FAZ 1: "ANTİ OLDUĞUN EKSENE NİŞAN AL" (kullanıcı doktrini, 2026-08-09) ──
+// "Piyade tümeni, zırhlı tümeni, dolaylı tümeni kendi komutalarıyla yönetilsin" + "birimleri karşı tarafa
+// ANTİ kullan". Birim-içi FREN (antiMatch) ölçüldü ve KAPIYI GEÇEMEDİ (22/48 vs 27/48): yanlış aleti
+// durduruyor ama yerine doğru aleti göndermiyor; üstelik yanlış-alet maruziyetinin %49'u zaten temasta,
+// yani frenin yetişemeyeceği yerde. Doğru katman GÖREV DAĞITIMI — bu fonksiyon tam orada.
+//
+// Kural: grup, kendi BİLEŞİMİNİN en çok hasar verdiği düşman KÜMESİNE nişan alır. Nişan sektör
+// merkezinden bir sektör genişliğinden fazla kaydırılmaz (ordu dağılmasın, cephe kopmasın).
+// SİS DÜRÜSTLÜĞÜ: düşman yalnız `observation.contacts` üzerinden okunur (algı katmanı) — SIM taranmaz.
+// DETERMİNİZM: ızgara anahtarları tam sayı, sıralı gezinme, RNG yok.
+const ARM_AIM_CELL = 600;        // kümeleme ızgarası (bir sektör ~1/3 harita genişliği)
+const ARM_AIM_MAX_SHIFT = 900;   // nişanın sektör merkezinden azami kayması
+function planningAntiAim(controller, group, aim) {
+    const obs = controller && controller.lastObservation;
+    if (!obs || !Array.isArray(obs.contacts) || !obs.contacts.length) return null;
+    if (!group || !group.composition) return null;
+    // 1) Temasları kaba ızgarada kümele (deterministik anahtar sırası).
+    const hucre = new Map();
+    for (const c of obs.contacts) {
+        if (!Number.isFinite(c.x) || !Number.isFinite(c.y)) continue;
+        const gx = Math.floor(c.x / ARM_AIM_CELL), gy = Math.floor(c.y / ARM_AIM_CELL);
+        const k = gx * 10000 + gy;
+        let h = hucre.get(k);
+        if (!h) { h = { x: 0, y: 0, n: 0, tipler: {} }; hucre.set(k, h); }
+        h.x += c.x; h.y += c.y; h.n++;
+        const t = c.typeEstimate;
+        if (t != null) h.tipler[t] = (h.tipler[t] || 0) + (Number.isFinite(c.confidence) ? c.confidence : 1);
+    }
+    if (!hucre.size) return null;
+    // 2) Her küme için: BİZİM bileşimimizin oraya verdiği hasar (anti-eşleşme) × oradaki değer.
+    //    Yani "en çok düşman" değil "EN ÇOK BENİM İŞİM OLAN düşman".
+    let enIyi = null, enIyiSkor = 0;
+    for (const k of [...hucre.keys()].sort((a, b) => a - b)) {
+        const h = hucre.get(k);
+        const cx = h.x / h.n, cy = h.y / h.n;
+        if (Math.hypot(cx - aim.x, cy - aim.y) > ARM_AIM_MAX_SHIFT) continue;   // cepheyi koparma
+        let etki = 0, deger = 0;
+        for (const et of Object.keys(h.tipler).sort()) {
+            const eTip = Number(et), agirlik = h.tipler[et];
+            deger += ((STATS[eTip] && STATS[eTip].cost) || 0) * agirlik;
+            for (const ot of Object.keys(group.composition).sort()) {
+                etki += battleTypeDps(Number(ot), eTip) * group.composition[ot] * agirlik;
+            }
+        }
+        if (etki <= 0 || deger <= 0) continue;
+        const skor = etki * Math.sqrt(deger);   // hem "işim" hem "değerli" olsun (kök: değer baskın çıkmasın)
+        if (skor > enIyiSkor) { enIyiSkor = skor; enIyi = { x: cx, y: cy }; }
+    }
+    if (!enIyi) return null;
+    if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+        BATTLE_BALANCE.armCommandAim = (BATTLE_BALANCE.armCommandAim || 0) + 1;
+    }
+    return planningClampPoint({ x: enIyi.x, y: enIyi.y });
+}
+
 function planningContractDestination(controller, group, objective, friendlyCentroid) {
     const origin = group.centroid || friendlyCentroid || objective;
     // SEKTÖR-KOMUTA: grup kendi sektörünün ORTASINA nişan alır (tek-global objektif yerine) → gruplar 3 ayrı x'e yayılır.
@@ -693,6 +748,13 @@ function planningContractDestination(controller, group, objective, friendlyCentr
             }
         }
         aim = { x: ax, y: ay };
+    }
+    // TÜMEN KOMUTASI: sektör merkezi yerine ANTİ olduğun kümeye nişan al (yalnız muharip gruplar;
+    // ateş-desteği/lojistik/keşif kendi derinlik kuralında kalır, onları öne çekmek omurgayı söker).
+    if (typeof battleProDelta === 'function' && controller && battleProDelta(controller.side, 'armCommand') &&
+        (group.role === TASK_GROUP_ROLE.MAIN || group.role === TASK_GROUP_ROLE.FIXING || group.role === TASK_GROUP_ROLE.FLANK)) {
+        const _anti = planningAntiAim(controller, group, aim);
+        if (_anti) aim = { x: _anti.x, y: aim.y * 0.5 + _anti.y * 0.5 };   // x tam, y yarı (derinlik kuralı korunur)
     }
     objective = aim;
     let dest;

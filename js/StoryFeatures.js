@@ -51,6 +51,8 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.threeLayerMemory': true,
     'characters.actionCandidates': true,
     'characters.llmArbiter': true,
+    'characters.conversationUnderstanding': true,
+    'characters.negotiationCases': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -178,6 +180,19 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.multiDimensionalRelations',
         'characters.threeLayerMemory',
         'characters.actionCandidates'
+    ]),
+    'characters.conversationUnderstanding': Object.freeze([
+        'characters.identityGoals',
+        'characters.threeLayerMemory',
+        'characters.actionCandidates',
+        'economy.resourceTaxonomy',
+        'economy.companiesBanks'
+    ]),
+    'characters.negotiationCases': Object.freeze([
+        'characters.conversationUnderstanding',
+        'characters.threeLayerMemory',
+        'economy.tradeLogistics',
+        'economy.companiesBanks'
     ])
 });
 

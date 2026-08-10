@@ -377,8 +377,8 @@ function storyCommerceDeliverCargo(shipment) {
     if (!storyCommerceEnabled()) return ready;
     const commerce = storyCommerceEnsure();
     const cargoRegionId = shipment.commerceCargoRegionId || `shipment:${String(shipment.id)}`;
-    const wholesaleBuyer = shipment.buyerCompanyId
-        && shipment.sellerCountryId !== shipment.buyerCountryId
+    const wholesaleBuyer = shipment.buyerCompanyId && shipment.settlementReservationId
+        && shipment.buyerCompanyId !== shipment.sellerCompanyId
         ? String(shipment.buyerCompanyId)
         : null;
     const wholesaleUnitCost = wholesaleBuyer

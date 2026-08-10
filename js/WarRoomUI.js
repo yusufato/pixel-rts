@@ -19,7 +19,10 @@ const WAR_ROOM_SETUP = {
     stateId: null,
     doctrine: 'combined',
     abundance: 1,
-    fog: true
+    fog: true,
+    // ZORLUK: sefer savaslarinda RAKIBIN beyni. 'easy' = intel3-pro (taban), 'hard' = intel4 (mezun).
+    // Varsayilan 'hard' — Hizli Mac'in varsayilaniyla ayni, boylece iki mod ayni zorlugu vaat eder.
+    difficulty: 'hard'
 };
 // FAZ-7: ARTIK CommanderTree.js/CMDR_TREE geçerli. Bu tablo yalnız eski kayıt
 // göçü ve tarihsel referans için duruyor — UI onu kullanmıyor.
@@ -144,6 +147,7 @@ function warRoomSelectState(stateId) {
 function warRoomSetupOpen() {
     WAR_ROOM_SETUP.stateId = null;
     WAR_ROOM_SETUP.doctrine = 'combined';
+    WAR_ROOM_SETUP.difficulty = 'hard';
     WAR_ROOM_SETUP.abundance = 1;
     WAR_ROOM_SETUP.fog = true;
     warRoomRenderStates();
@@ -167,7 +171,8 @@ function warRoomStartCampaign() {
         playerStateId: WAR_ROOM_SETUP.stateId,
         abundance: WAR_ROOM_SETUP.abundance,
         doctrine: WAR_ROOM_SETUP.doctrine,
-        fog: WAR_ROOM_SETUP.fog
+        fog: WAR_ROOM_SETUP.fog,
+        difficulty: WAR_ROOM_SETUP.difficulty
     };
     // AŞAMA 1: kurulumdan sonra KARAKTER EKRANI araya girer (isim + zar + 12 soru).
     // Karakter ekranı yoksa (eski test yolu) doğrudan kampanya başlar.
@@ -362,6 +367,12 @@ function warRoomDrawBattleAxis(context) {
     const cx = force.reduce((sum, unit) => sum + unit.x, 0) / force.length;
     const cy = force.reduce((sum, unit) => sum + unit.y, 0) / force.length;
     const from = worldToScreen(cx, cy), to = worldToScreen(target.x, target.y);
+    // KALDIRILDI (kullanici istegi 2026-08-09): turuncu "SCHWERPUNKT" ekseni.
+    // Cizgi birimden DEGIL kuvvetin KUTLE MERKEZINDEN cikiyordu; bu yuzden hedefi yanlis
+    // gosteriyor ve "birimler imlecin sol-ustune gidiyor" izlenimi veriyordu. Yerini,
+    // emirle AYNI matematigi kullanan formasyon onizlemesi aldi (main.js formationOffsets).
+    // Bayrakla geri acilabilir; varsayilan KAPALI.
+    if (typeof BATTLE_SCHWERPUNKT_EKSENI === 'undefined' || !BATTLE_SCHWERPUNKT_EKSENI) return;
     context.save();
     context.strokeStyle = 'rgba(255,176,0,.82)';
     context.fillStyle = '#ffd27a';

@@ -25,8 +25,12 @@ const IZYAZ = process.argv.includes('--izyaz');
 
 const { ctx } = tezgahKur();
 
+// --set "BAYRAK=deger;BAYRAK2=deger" : olculecek kolu ayarla (A/B icin; TEK degisken kurali).
+const SET = arg('--set', '');
+
 const kod = [
     '(() => {',
+    SET ? (SET.split(';').filter(Boolean).join('; ') + ';') : '',
     'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;',
     'BATTLE_INTEL4_DELTAS.defense = true; BATTLE_INTEL4_DELTAS.range = true; BATTLE_INTEL4_DELTAS.drone = true;',
     'BATTLE_INTEL4PRO_RED = true; BATTLE_INTEL4PRO_BLUE = true;',

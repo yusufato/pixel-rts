@@ -144,7 +144,66 @@ function executionDistinctDestination(point, occupied, seed = 0) {
     return first;
 }
 
+// ── KÜTLE-İÇİ ANTİ DİZİLİM ('massMatch') — KÜTLEYİ BÖLMEDEN eşleşmeyi düzelt ──
+// İKİ DENEME BAŞARISIZ OLDU ve ikisi de HAREKET katmanındaydı: birim freni (`antiMatch`, 22/48) ve
+// grup nişanı (`armCommand`, 26/48 — üstelik yayılımı +49 artırıp etki-oranını 6.56→2.73 düşürdü).
+// ÖLÇÜLEN DERS: bu motorda BİRLEŞİK-SİLAH KÜTLESİ, eşleşme-optimize edilmiş PARÇALARI yener.
+// Bu yüzden burada kütle BÖLÜNMEZ: hedef noktası, formasyon geometrisi ve menzil-katmanı (kısa öne,
+// uzun arkaya) AYNEN kalır — yalnız AYNI DERİNLİK BANDINDAKİ birimler kendi aralarında YANAL olarak
+// yeniden dizilir. Tanksavar kütlenin zırha bakan yüzüne, piyade piyadeye bakan yüzüne düşer.
+// Kütle merkezi, cephe genişliği ve derinlik DEĞİŞMEZ → yoğunlaşma kaybı yok.
+let _execAntiCtx = null;   // { contacts, side } — decide() başında kurulur, sonunda temizlenir
+
+// ── HEDEF KİLİDİ ('destLock') — KARAR DÖNGÜSÜ ÇALKANTISINI KES ──
+// ÖLÇÜLDÜ (tools/karar-dongusu.js, 24 maç): her birim dakikada 6.4 kez 220px+ hedef değiştiriyor ve net
+// yer değiştirmesinin ~4 KATI yol yürüyor; ilk temasta muharip kuvvetin yalnız %12'si olay yerinde.
+// ÇALKANTI ATFI (tools/hedef-calkanti-atfi.js): %54 `applyBattleOrder` — yani kontrolörün emri.
+// SLOT HİPOTEZİ ÇÜRÜTÜLDÜ (%1): aynı noktaya yeniden emir birim hedefini oynatmıyor; nokta GERÇEKTEN
+// oynuyor (tek maçta 102 kez). Yani kuvvet, varmadan önce yeniden yönlendiriliyor.
+// ÇARE (bu kod tabanının kendi kalıbı — STANCE_LOCK / odak-histerezisi / ana-çaba 70s kilidi ile aynı):
+// grup hedefi bir KİLİT ile tutulur; küçük sürüklenme yok sayılır, büyük değişiklik en az bir bekleme
+// süresi geçmeden uygulanmaz. GÜVENLİK KAPILARI: (a) çok büyük yeniden-yönelim (>1200px) anında geçer,
+// (b) grup hedefe vardıysa kilit düşer. Böylece "gerçek yeni bilgi" engellenmez, yalnız titreşim kesilir.
+const DEST_LOCK_PX = 420;        // bu kadar altındaki nokta kayması YOK SAYILIR (aynı yere gidiyoruz)
+const DEST_LOCK_TICKS = 200;     // ~10s: büyük değişiklik için asgari bekleme
+const DEST_LOCK_HARD_PX = 1200;  // bundan büyük yeniden-yönelim kilidi DELER (gerçek yön değişikliği)
+const DEST_LOCK_ARRIVED = 240;   // grup merkezi hedefe bu kadar yaklaştıysa kilit düşer (görev bitti)
+const _destLock = new Map();     // contractId -> { x, y, tick }
+function executionLockedPoint(contract, units, point) {
+    if (!_execAntiCtx || typeof battleProDelta !== 'function' ||
+        !battleProDelta(_execAntiCtx.side, 'destLock')) return point;
+    const simdi = (typeof SIM !== 'undefined' && SIM.tick) || 0;
+    const onceki = _destLock.get(contract.id);
+    if (!onceki) { _destLock.set(contract.id, { x: point.x, y: point.y, tick: simdi }); return point; }
+    const kayma = Math.hypot(point.x - onceki.x, point.y - onceki.y);
+    if (kayma <= 1) return { x: onceki.x, y: onceki.y };
+    const merkez = executionCentroid(units);
+    const vardi = merkez && Math.hypot(merkez.x - onceki.x, merkez.y - onceki.y) <= DEST_LOCK_ARRIVED;
+    const zorunlu = kayma >= DEST_LOCK_HARD_PX;
+    const beklendi = (simdi - onceki.tick) >= DEST_LOCK_TICKS;
+    if (zorunlu || vardi || (kayma >= DEST_LOCK_PX && beklendi)) {
+        _destLock.set(contract.id, { x: point.x, y: point.y, tick: simdi });
+        return point;
+    }
+    if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+        BATTLE_BALANCE.destLockHold = (BATTLE_BALANCE.destLockHold || 0) + 1;
+    }
+    return { x: onceki.x, y: onceki.y };   // kilitli: eski hedefe devam et (kuvvet oraya VARSIN)
+}
+function executionAntiLateral(unitType, point, sideX, sideY, contacts) {
+    let wx = 0, wy = 0, w = 0;
+    for (const c of contacts) {
+        if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || c.typeEstimate == null) continue;
+        const g = battleTypeDps(unitType, c.typeEstimate) * (Number.isFinite(c.confidence) ? c.confidence : 1);
+        if (g <= 0) continue;
+        wx += c.x * g; wy += c.y * g; w += g;
+    }
+    if (w <= 0) return 0;
+    return ((wx / w) - point.x) * sideX + ((wy / w) - point.y) * sideY;
+}
+
 function executionMoveOrder(contract, units, point, reason) {
+    point = executionLockedPoint(contract, units, point);   // KARAR DÖNGÜSÜ: hedef kilidi (bkz. yukarısı)
     const centroid = executionCentroid(units) || point;
     const dx = point.x - centroid.x;
     const dy = point.y - centroid.y;
@@ -159,7 +218,35 @@ function executionMoveOrder(contract, units, point, reason) {
         const rb = (typeof STATS !== 'undefined' && STATS[b.type]) ? (STATS[b.type].range || 0) : 0;
         return ra - rb || a.id - b.id;
     });
-    const destinations = ordered.map((unit, index) => {
+    // KÜTLE-İÇİ ANTİ DİZİLİM: slotlar aynı, yalnız aynı derinlikteki birimler yanal olarak yer değişir.
+    let yerlesim = ordered;
+    if (_execAntiCtx && _execAntiCtx.contacts && _execAntiCtx.contacts.length &&
+        typeof battleProDelta === 'function' && battleProDelta(_execAntiCtx.side, 'massMatch')) {
+        const sideX = -forwardY, sideY = forwardX;
+        const slot = ordered.map((_, i) => executionFormationOffset(i, units.length, contract.formation, forwardX, forwardY));
+        const derin = s => Math.round((-(s.x * forwardX + s.y * forwardY)) / 40);   // 40px bantlar
+        const yan = s => s.x * sideX + s.y * sideY;
+        const bant = new Map();
+        for (let i = 0; i < slot.length; i++) {
+            const d = derin(slot[i]);
+            if (!bant.has(d)) bant.set(d, []);
+            bant.get(d).push(i);
+        }
+        yerlesim = ordered.slice();
+        for (const d of [...bant.keys()].sort((a, b) => a - b)) {
+            const idx = bant.get(d);
+            if (idx.length < 2) continue;
+            const slotSirali = idx.slice().sort((a, b) => (yan(slot[a]) - yan(slot[b])) || (a - b));
+            const birimler = idx.map(i => ordered[i]).sort((a, b) =>
+                (executionAntiLateral(a.type, point, sideX, sideY, _execAntiCtx.contacts) -
+                 executionAntiLateral(b.type, point, sideX, sideY, _execAntiCtx.contacts)) || (a.id - b.id));
+            for (let k = 0; k < slotSirali.length; k++) yerlesim[slotSirali[k]] = birimler[k];
+        }
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.massMatchOrder = (BATTLE_BALANCE.massMatchOrder || 0) + 1;
+        }
+    }
+    const destinations = yerlesim.map((unit, index) => {
         const offset = executionFormationOffset(
             index,
             units.length,
@@ -1134,6 +1221,15 @@ class TaskExecutionManager {
 
     decide(operationalPlan, observation, tick = SIM.tick) {
         if (!operationalPlan?.taskContracts?.length || !observation) return null;
+        // KÜTLE-İÇİ ANTİ DİZİLİM bağlamı: emir üretimi boyunca algı temasları erişilebilir olsun.
+        // Yalnız `observation.contacts` (algı katmanı) — SIM taranmaz, sis dürüstlüğü korunur.
+        _execAntiCtx = { contacts: observation.contacts || [], side: this.controller && this.controller.side };
+        try {
+        return this._decide(operationalPlan, observation, tick);
+        } finally { _execAntiCtx = null; }
+    }
+
+    _decide(operationalPlan, observation, tick = SIM.tick) {
         const activeIds = new Set(operationalPlan.taskContracts.map(contract => contract.id));
         for (const id of this.states.keys()) {
             if (!activeIds.has(id)) this.states.delete(id);

@@ -17,10 +17,14 @@ const MP = {
     myDeployReady: false, myDeployList: null, peerDeploy: null   // serbest-deploy
 };
 
-const MP_TICK_MS = 50;        // 20 Hz sabit-tick
+// SİMÜLASYON TİK'İ İLE AYNI OLMAK ZORUNDA: mpStep `now = T * MP_TICK_MS` üretir, motor içeride
+// `SIM.tick * BATTLE_TICK_MS` kullanır (mayın kurulma gecikmesi vb.). İki sabit ayrışırsa online maç
+// sessizce bozulur. Kopyalamak yerine motordan türet.
+const MP_TICK_MS = (typeof BATTLE_TICK_MS !== 'undefined') ? BATTLE_TICK_MS : 50;   // 20 Hz sabit-tick
 let MP_INPUT_DELAY = 3;       // tick cinsinden komut gecikmesi (LAN=3≈150ms; bulut=6≈300ms internet için)
 const MP_HASH_PERIOD = 30;    // her 30 tick'te desync-hash
 const MP_MAX_STEPS = 6;       // bir frame'de en çok kaç tick simüle (catch-up sınırı)
+const MP_DEPLOY_BUDGET = 6500;   // hızlı maçla eşit (Screens.js qm-pl/qm-ai varsayılanı)
 
 // ── KAMERAYI KENDİ ORDUMA ORTALA (yerel — ağa gitmez) ──
 function mpCameraToMyArmy() {
@@ -43,8 +47,11 @@ function mpEnterDeploy() {
 
     SIM.units.length = 0;                                       // temiz deploy sahnesi (yerel önizleme)
     if (SIM.trenches) SIM.trenches.length = 0;
-    if (typeof player !== 'undefined') player.money = 1500;     // host bütçesi (MAVİ)
-    if (typeof enemy !== 'undefined') enemy.money = 1500;       // guest bütçesi (KIRMIZI)
+    // BÜTÇE: hızlı maçla AYNI (6500). 1500 değeri 9 birimlik eski rosterden kalmaydı; modern 26
+    // birimlik rosterde ortalama birim ~400₺ olduğu için online ordular diğer modların DÖRTTE BİRİ
+    // kadar kalıyordu (6500 ile ~16 birim, 1500 ile ~4). İki taraf eşit — maç kuralı, ikisi de bilir.
+    if (typeof enemy !== 'undefined') enemy.money = MP_DEPLOY_BUDGET;       // guest bütçesi (KIRMIZI)
+    if (typeof player !== 'undefined') player.money = MP_DEPLOY_BUDGET;     // host bütçesi (MAVİ)
     phase = PHASE.DEPLOY;                                       // lockstep DEPLOY'da DÖNMEZ (sadece BATTLE)
 
     if (typeof showScreen === 'function') showScreen('game');
@@ -127,6 +134,33 @@ function mpEmitCommand(kind, ids, x, y) {
     (MP.localCmds[K] || (MP.localCmds[K] = [])).push({ kind: kind, ids: ids, x: Math.round(x), y: Math.round(y) });
 }
 
+// ── YETENEK/OLAY KOMUTU (sol-panel yeteneği, mayın, indir) → aynı tik-kuyruğu ──
+// Bunlar eskiden YEREL kuyruğa (pendingPlayerCommands) gidiyordu ve yalnız tetikleyen bilgisayarda
+// uygulanıyordu → iki dünya ayrışıyor, birkaç saniye sonra hash tutmuyor ve maç "senkron koptu" ile
+// duruyordu. Artık move/attack ile AYNI yoldan geçer: aynı tick, sabit sıra (mavi→kırmızı).
+function mpEmitEvent(type, payload) {
+    if (!MP.active || MP.desync || !type) return false;
+    const K = Math.max(MP.tick + MP_INPUT_DELAY, MP.sentUpTo + 1);
+    (MP.localCmds[K] || (MP.localCmds[K] = [])).push({ kind: 'event', ev: type, payload: payload || {} });
+    return true;
+}
+
+// KARŞI TARAFIN BİRİMİNE DOKUNAMAZ: gelen olayın birim listeleri gönderenin tarafına süzülür.
+// (Ağdan gelen mesaja güvenilmez; hatalı/kötü niyetli istemci rakibin taşıyıcısını boşaltamasın.)
+const MP_EVENT_ID_FIELDS = ['unitIds', 'engineerIds', 'transportIds'];
+function mpSanitizeEventPayload(payload, sideIsRed) {
+    const out = Object.assign({}, payload || {});
+    let sawList = false;
+    for (const f of MP_EVENT_ID_FIELDS) {
+        if (!Array.isArray(out[f])) continue;
+        sawList = true;
+        out[f] = out[f].filter(id => { const u = mpUnitById(id); return u && !u.dead && u.isRed === sideIsRed; });
+    }
+    if (!sawList) return null;                       // birim listesi olmayan olay lockstep'te taşınmaz
+    if (MP_EVENT_ID_FIELDS.every(f => !Array.isArray(out[f]) || !out[f].length)) return null;
+    return out;
+}
+
 // ── girişimi gelecek tick'lere kadar gönder (boşsa boş-komut = heartbeat + bariyer) ──
 function mpFlushInputs() {
     const target = MP.tick + MP_INPUT_DELAY;
@@ -207,8 +241,15 @@ function mpResolveAttackTarget(x, y, sideIsRed) {
 function mpApplyCmds(cmds, sideIsRed) {
     if (!cmds || !cmds.length) return;
     for (const c of cmds) {
+        if (c.kind === 'event') {                    // yetenek/mayın/indir — motorun kayıtlı-olay yolundan
+            const p = mpSanitizeEventPayload(c.payload, sideIsRed);
+            if (p && typeof battleApplyRecordedEvent === 'function') {
+                battleApplyRecordedEvent({ type: c.ev, payload: p });
+            }
+            continue;
+        }
         const us = [];
-        for (const id of c.ids) { const u = mpUnitById(id); if (u && !u.dead && u.isRed === sideIsRed) us.push(u); }
+        for (const id of (c.ids || [])) { const u = mpUnitById(id); if (u && !u.dead && u.isRed === sideIsRed) us.push(u); }
         if (!us.length) continue;
         if (c.kind === 'attack') {
             const foe = mpResolveAttackTarget(c.x, c.y, sideIsRed);
@@ -238,6 +279,25 @@ function lsStateHash() {
     for (const u of us) {
         mix(u.id); mix(Math.round(u.x * 16)); mix(Math.round(u.y * 16));
         mix(Math.round((u.hp || 0) * 16)); mix(u.isRed ? 1 : 0);
+    }
+    // MAYIN + SİPER/HASTANE: bu hash yalnız birimleri kapsıyordu ve MOTORUN YARISINA KÖRDÜ.
+    // ÖLÇÜLDÜ (tools/online-lockstep-kapi.js negatif kontrolü): iki istemci gerçekten farklı
+    // dünyalar üretti (birinde mavi mayın, diğerinde kırmızı) ve hash "aynı" dedi. Yani senkron
+    // dedektörü, yakalamak için var olduğu sapmayı göremiyordu. Sıralama determinizm şartı:
+    // diziler iki tarafta aynı sırada oluşur ama garantiye almak için konuma göre sıralanır.
+    const mines = (SIM.mines || []).slice()
+        .sort((a, b) => (a.x - b.x) || (a.y - b.y) || ((a.isRed ? 1 : 0) - (b.isRed ? 1 : 0)));
+    mix(mines.length);
+    for (const m of mines) {
+        mix(Math.round(m.x * 16)); mix(Math.round(m.y * 16));
+        mix(m.isRed ? 1 : 0); mix(m.armed ? 1 : 0);
+    }
+    const fields = (SIM.trenches || []).slice()
+        .sort((a, b) => (a.x - b.x) || (a.y - b.y) || ((a.isRed ? 1 : 0) - (b.isRed ? 1 : 0)));
+    mix(fields.length);
+    for (const f of fields) {
+        mix(Math.round(f.x * 16)); mix(Math.round(f.y * 16));
+        mix(Math.round((f.hp || 0) * 16)); mix(f.isRed ? 1 : 0); mix(f.isHospital ? 1 : 0);
     }
     if (SIM.rng && typeof SIM.rng.state === 'number') mix(SIM.rng.state >>> 0);
     if (SIM.battle) {

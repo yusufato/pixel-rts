@@ -288,7 +288,7 @@ function storyCouncilBuildAgenda(st, sessionNo) {
         const score = n => {
             let v = (n.oil || 0) * 2 + (n.cities || 0) * 1.5 + (n.pts || 0) * 2 + (n.level || 1) * 2;
             if (n.id === capId) v += 8;                                    // başkent önceliklidir
-            v -= ((n.fac | 0) + (n.bar | 0)) * 3;                          // zaten gelişmişse geri sırada
+            v -= prodDepthLevel(n) * 3;                                    // DERİNLİĞİ cezalandır, temeli değil
             const front = (n.neighbors || []).some(id => { const q = storyNode(id); return q && q.owner !== st.id; });
             if (front) v += 5;                                             // cephe şehri tahkim edilmeli
             return v + rnd('site' + n.id) * 6;
@@ -297,14 +297,34 @@ function storyCouncilBuildAgenda(st, sessionNo) {
         const opts = [];
         for (const n of sites) {
             // o şehir için en anlamlı tek iş: eksik binayı kur, yoksa şehri yükselt
-            let kind = null;
-            if ((n.bar | 0) < prodMaxBuildLevel(n)) kind = 'bar';
-            else if ((n.fac | 0) < prodMaxBuildLevel(n)) kind = 'fac';
+            // ALTI BİNA: konsey yalnız kışla/fabrika öneriyordu; ihtisas binalarını devlet yatırımı
+            // hiç tanımıyordu (onları yalnız komutanların yerel yatırımı kuruyordu). Artık ön koşulu
+            // sağlanan tüm binalar aday.
+            // NOT — GEREKÇE DÜZELTMESİ: bu değişikliği ilk yazarken "900 sn'de 152 şehrin hiçbirinde
+            // ihtisas binası yok" ölçümüne dayanmıştım; o okuma YANLIŞTI (harness snapshot'ı yalnız
+            // fac/bar taşıyordu, dünyada 42/14/57/54 şehirde bina vardı). Değişiklik yine de doğru:
+            // devlet hazinesinin altı binadan dördünü görememesi için bir sebep yok. Ama etkisi
+            // "sıfırdan başlatmak" değil, "devlet yatırımını komutan yatırımıyla aynı repertuara açmak".
+            // ÖNCE GENİŞLİK, SONRA DERİNLİK: temel bina YOKSA o kurulur; temeli varsa en düşük
+            // seviyeli bina büyür (aynı seviyede temel önce). Maliyet eğrisi de bunu söylüyor:
+            // kurmak ucuz, ölçeklemek pahalı. (İlk sürümde kışla/fabrika koşulsuz öndeydi ve
+            // tavana varmadan sıra ihtisas binalarına hiç gelmiyordu.)
+            const temel = { bar: 1, fac: 1 };
+            let kind = null, best = null;
+            for (const k of PROD_KINDS) {
+                const lvl = n[k] | 0;
+                if (lvl >= prodMaxBuildLevel(n) || lvl >= PROD_MAX_LEVEL) continue;
+                if (!prodBuildReqMet(n, k, lvl + 1)) continue;             // bağımlılık sağlanmadı
+                const oncelik = (temel[k] && lvl === 0) ? -1                // temeli olmayan şehir önce onu kurar
+                    : lvl * 2 + (temel[k] ? 0 : 1);                        // sonra en geri kalmış bina büyür
+                if (!best || oncelik < best.oncelik) best = { k, lvl, oncelik };
+            }
+            if (best) kind = best.k;
             if (kind) {
                 const lvl = n[kind] | 0, cost = prodBuildCost(kind, lvl, n);
                 if (cost != null) opts.push({
-                    id: `b|${n.id}|${kind}`, name: `${kind === 'fac' ? '🏭' : '🎖️'} ${n.name}: ${prodBuildingName(kind)} Sv.${lvl + 1}`,
-                    desc: `${cost}⭐ devlet hazinesinden · ${kind === 'fac' ? 'tank/tanksavar/zırhlı piyade' : 'piyade/keşif/topçu'} üretimi`,
+                    id: `b|${n.id}|${kind}`, name: `${prodBuildingIcon(kind)} ${n.name}: ${prodBuildingName(kind)} Sv.${lvl + 1}`,
+                    desc: `${cost}⭐ devlet hazinesinden · ${prodBinaAciklama(kind)}`,
                     meta: 'İNŞAAT', appeal: kind === 'fac' ? { warrior: 1.2, economist: 0.8 } : { warrior: 0.9, economist: 0.9 },
                 });
             } else if ((n.level || 1) < 3) {

@@ -17,12 +17,16 @@
     "story:ab": "node tools/story-ab.js",
     "story:llm-bench": "node tools/story-llm-benchmark.js",
     "story:llm-gate": "node tools/story-llm-benchmark.js --gate",
+    "story:arbiter-bench": "node tools/story-character-arbiter-benchmark.js",
+    "story:arbiter-gate": "node tools/story-character-arbiter-benchmark.js --gate",
+    "story:dialogue-blind": "node tools/story-dialogue-blind-eval.js",
     "story:build-map-raster": "node tools/make-story-map-raster.js",
     "start": "electron .",
     "dist": "electron-builder --win --x64",
     "dist:dir": "electron-builder --win --x64 --dir",
     "shortcut": "node electron/make-shortcut.js",
-    "icon": "node tools/make-icon.js"
+    "icon": "node tools/make-icon.js",
+    "test:online": "node tools/online-lockstep-kapi.js"
   },
   "dependencies": {
     "node-llama-cpp": "^3.19.1"

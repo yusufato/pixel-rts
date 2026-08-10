@@ -993,6 +993,12 @@ function battleApplyRecordedEvent(event) {
             unit.manualMoveTarget = { x: destination.x, y: destination.y };
             unit.isMovingToManualTarget = true;
             unit.attackTarget = null;
+            // KUSUR (kullanici raporu 2026-08-09): "birligi kendine cok yakin bir konuma gondermeye
+            // calistigimda gitmiyor." KOK NEDEN: birim varinca `_holdingPos` olur ve o modda yeniden
+            // hareket esigi UNIT_RADIUS*2.6'ya cikar (Unit.js:540) — carpisma-itmesi kaynakli titremeyi
+            // yutmak icin konmus histerezis. Ama OYUNCUNUN ACIK EMRINI de yutuyordu.
+            // Histerezis KORUNUR (titreme dusmesin); yalniz acik emir onu SIFIRLAR.
+            unit._holdingPos = false;
         }
     } else if (event.type === 'player-attack') {
         const target = battleUnitById(payload.targetId);
@@ -1251,6 +1257,10 @@ function openBattlefieldSession(config = {}) {
     const durationSec = Math.max(30, Number.isFinite(config.durationSec)
         ? config.durationSec
         : (typeof DEFAULT_BATTLE_DURATION_SEC !== 'undefined' ? DEFAULT_BATTLE_DURATION_SEC : 240));
+
+    // "Tekrar Oyna" bunu kullanır: aynı ayarlarla AYNI maçı kurabilmek için son yapılandırma saklanır.
+    // Tohum burada SABİTLENİR (config.seed boşsa Date.now() geliyordu) → tekrar gerçekten aynı maç olur.
+    if (typeof LAST_BATTLE_CONFIG !== 'undefined') LAST_BATTLE_CONFIG = Object.assign({}, config, { seed });
 
     resetBattleState();
 

@@ -655,6 +655,121 @@ function storyBudgetReserveTrade(order, quantity) {
     return { ok: true, amount: priced.amount, reservationId, settlement, quote: priced.quote };
 }
 
+function storyBudgetReserveNegotiatedPayment(spec) {
+    spec = spec || {};
+    const ledger = storyBudgetEnsure();
+    if (!ledger) return { ok: false, code: 'BUDGET_DISABLED' };
+    const correlationId = String(spec.correlationId || '').trim();
+    const buyerCompanyId = String(spec.buyerCompanyId || '').trim();
+    const sellerCompanyId = spec.sellerCompanyId == null ? null : String(spec.sellerCompanyId);
+    const amount = storyBudgetRound(Math.max(0, Number(spec.amount) || 0));
+    if (!correlationId || !buyerCompanyId || amount <= 0) {
+        return { ok: false, code: 'INVALID_NEGOTIATED_PAYMENT' };
+    }
+    const existing = ledger.settlements.find(row => row.kind === 'NEGOTIATED_CONTRACT_ESCROW'
+        && row.correlationId === correlationId);
+    if (existing) {
+        const exact = existing.buyerCompanyId === buyerCompanyId
+            && existing.sellerCompanyId === sellerCompanyId
+            && Math.abs(Number(existing.amount) - amount) <= 1e-6;
+        return exact && existing.status === 'RESERVED'
+            ? { ok: true, code: 'NEGOTIATED_PAYMENT_ALREADY_RESERVED', duplicate: true,
+                reservationId: existing.id, settlement: storyBudgetClone(existing) }
+            : { ok: false, code: exact ? 'NEGOTIATED_PAYMENT_RESERVATION_CLOSED'
+                : 'NEGOTIATED_PAYMENT_IDEMPOTENCY_CONFLICT' };
+    }
+    if (String(spec.currency || 'capital').toLowerCase() !== 'capital') {
+        return { ok: false, code: 'NEGOTIATED_PAYMENT_CURRENCY_UNSUPPORTED' };
+    }
+    const reserved = typeof storyCompanyReserveTradePayment === 'function'
+        ? storyCompanyReserveTradePayment(buyerCompanyId, amount, {
+            correlationId, negotiationCaseId: spec.negotiationCaseId || null,
+            negotiationVersionId: spec.negotiationVersionId || null
+        }) : { ok: false, code: 'COMPANY_ESCROW_EXECUTOR_MISSING' };
+    if (!reserved.ok) return { ok: false, code: reserved.code || 'NEGOTIATED_PAYMENT_RESERVE_FAILED', finance: reserved };
+    ledger.settlementSequence++;
+    const reservationId = `budget-settlement:${ledger.settlementSequence}`;
+    const settlement = {
+        id: reservationId,
+        kind: 'NEGOTIATED_CONTRACT_ESCROW',
+        status: 'RESERVED',
+        payerType: 'COMPANY',
+        correlationId,
+        negotiationCaseId: spec.negotiationCaseId == null ? null : String(spec.negotiationCaseId),
+        negotiationVersionId: spec.negotiationVersionId == null ? null : String(spec.negotiationVersionId),
+        orderId: null,
+        shipmentId: spec.shipmentId == null ? null : String(spec.shipmentId),
+        sellerCountryId: spec.sellerCountryId == null ? null : String(spec.sellerCountryId),
+        buyerCountryId: spec.buyerCountryId == null ? null : String(spec.buyerCountryId),
+        sellerCompanyId,
+        buyerCompanyId,
+        resourceId: spec.resourceId == null ? null : String(spec.resourceId),
+        quantity: storyBudgetRound(Math.max(0, Number(spec.quantity) || 0)),
+        amount,
+        currency: STORY_BUDGET_POLICY.currency,
+        quote: { source: 'NEGOTIATED_CASE_VERSION', declaredAmount: amount, indexOverride: false },
+        reservedAt: storyBudgetRound(STORY.clock),
+        settledAt: null,
+        releasedAt: null,
+        releaseReason: null
+    };
+    ledger.settlements.push(settlement);
+    storyBudgetTrimSettlements(ledger);
+    return { ok: true, code: 'NEGOTIATED_PAYMENT_RESERVED', duplicate: false,
+        reservationId, settlement: storyBudgetClone(settlement), transaction: reserved.transaction };
+}
+
+function storyBudgetReleaseNegotiatedPayment(reservationId, reason) {
+    const ledger = storyBudgetEnsure();
+    const settlement = ledger && ledger.settlements.find(row => row.id === String(reservationId || '')
+        && row.kind === 'NEGOTIATED_CONTRACT_ESCROW');
+    if (!settlement) return { ok: false, code: 'NEGOTIATED_PAYMENT_NOT_FOUND' };
+    if (settlement.status === 'RELEASED') {
+        return { ok: true, code: 'NEGOTIATED_PAYMENT_ALREADY_RELEASED', duplicate: true,
+            settlement: storyBudgetClone(settlement) };
+    }
+    if (settlement.status !== 'RESERVED') return { ok: false, code: 'NEGOTIATED_PAYMENT_NOT_RESERVED' };
+    const released = typeof storyCompanyReleaseTradePayment === 'function'
+        ? storyCompanyReleaseTradePayment(settlement.buyerCompanyId, settlement.amount, {
+            correlationId: settlement.correlationId, settlementId: settlement.id,
+            negotiationCaseId: settlement.negotiationCaseId,
+            negotiationVersionId: settlement.negotiationVersionId,
+            reason: String(reason || 'NEGOTIATION_CANCELLED')
+        }) : { ok: false, code: 'COMPANY_ESCROW_EXECUTOR_MISSING' };
+    if (!released.ok) return { ok: false, code: released.code || 'NEGOTIATED_PAYMENT_RELEASE_FAILED', finance: released };
+    settlement.status = 'RELEASED';
+    settlement.releasedAt = storyBudgetRound(STORY.clock);
+    settlement.releaseReason = String(reason || 'NEGOTIATION_CANCELLED');
+    return { ok: true, code: 'NEGOTIATED_PAYMENT_RELEASED', duplicate: false,
+        settlement: storyBudgetClone(settlement), transaction: released.transaction };
+}
+
+function storyBudgetSettleNegotiatedPayment(reservationId, details) {
+    const ledger = storyBudgetEnsure();
+    const settlement = ledger && ledger.settlements.find(row => row.id === String(reservationId || '')
+        && row.kind === 'NEGOTIATED_CONTRACT_ESCROW');
+    if (!settlement) return { ok: false, code: 'NEGOTIATED_PAYMENT_NOT_FOUND' };
+    if (settlement.status === 'SETTLED') {
+        return { ok: true, code: 'NEGOTIATED_PAYMENT_ALREADY_SETTLED', duplicate: true,
+            settlement: storyBudgetClone(settlement) };
+    }
+    if (settlement.status !== 'RESERVED') return { ok: false, code: 'NEGOTIATED_PAYMENT_NOT_RESERVED' };
+    const shipmentId = details && details.shipmentId != null ? String(details.shipmentId) : null;
+    if (!settlement.sellerCompanyId) return { ok: false, code: 'NEGOTIATED_PAYMENT_SELLER_MISSING' };
+    if (settlement.shipmentId && shipmentId && settlement.shipmentId !== shipmentId) {
+        return { ok: false, code: 'NEGOTIATED_PAYMENT_SHIPMENT_CONFLICT' };
+    }
+    if (shipmentId) settlement.shipmentId = shipmentId;
+    const result = storyBudgetSettleTrade(settlement.id, {
+        shipmentId,
+        cargoCost: Math.max(0, Number(details && details.cargoCost) || 0)
+    });
+    if (!result.ok) return result;
+    settlement.settlementSource = 'NEGOTIATED_DELIVERY_OBLIGATION';
+    return { ok: true, code: 'NEGOTIATED_PAYMENT_SETTLED', duplicate: false,
+        settlement: storyBudgetClone(settlement) };
+}
+
 function storyBudgetBindTradeShipment(reservationId, shipmentId) {
     if (!reservationId) return true;
     const ledger = storyBudgetEnsure();
@@ -738,6 +853,7 @@ function storyBudgetSettleTrade(reservationId, details) {
     const settlement = ledger && ledger.settlements.find(item => item.id === reservationId);
     if (!settlement || settlement.status !== 'RESERVED') return { ok: false, code: 'RESERVATION_NOT_ACTIVE' };
     if (settlement.payerType === 'COMPANY' && settlement.buyerCompanyId) {
+        const settlementCorrelationId = settlement.orderId || settlement.correlationId || settlement.id;
         const buyerCompany = typeof storyCompanyById === 'function'
             ? storyCompanyById(settlement.buyerCompanyId)
             : null;
@@ -758,7 +874,7 @@ function storyBudgetSettleTrade(reservationId, details) {
             settlement.amount,
             cargoCost,
             {
-                correlationId: settlement.orderId,
+                correlationId: settlementCorrelationId,
                 settlementId: settlement.id,
                 buyerCompanyId: settlement.buyerCompanyId,
                 buyerType: 'TRADE_IMPORT',
@@ -770,7 +886,7 @@ function storyBudgetSettleTrade(reservationId, details) {
             settlement.buyerCompanyId,
             settlement.amount,
             {
-                correlationId: settlement.orderId,
+                correlationId: settlementCorrelationId,
                 settlementId: settlement.id,
                 resourceId: settlement.resourceId,
                 quantity: settlement.quantity

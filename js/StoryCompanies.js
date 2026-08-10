@@ -1224,6 +1224,97 @@ function storyCompanyRegionView(regionId) {
     return { regionId: id, facilities, warehouses, projects };
 }
 
+function storyCompanyWarehouseOccupancy(warehouseId, resourceId) {
+    const ledger = storyCompanyEnsure();
+    const warehouse = ledger && ledger.warehouses[String(warehouseId || '')];
+    const resource = String(resourceId || '');
+    if (!warehouse) return { ok: false, code: 'WAREHOUSE_NOT_FOUND' };
+    if (!STORY_RESOURCE_IDS.includes(resource)) return { ok: false, code: 'RESOURCE_NOT_FOUND' };
+    const regional = STORY.regionalEconomy && STORY.regionalEconomy.regions
+        && STORY.regionalEconomy.regions[warehouse.regionId];
+    if (!regional) return { ok: false, code: 'REGIONAL_STOCK_NOT_FOUND' };
+    const capacity = Math.max(0, Number(warehouse.capacityByResource && warehouse.capacityByResource[resource]) || 0);
+    // Her bölgede tek genel depo vardır; bölgesel stok bu deponun teslim edilmiş
+    // fiziksel doluluğudur. Yoldaki sevkiyat henüz stokta değildir fakat hedef
+    // kapasiteyi şimdiden taahhüt eder. Açık fakat sevk edilmemiş sipariş fiziksel
+    // mal olmadığı için burada sayılmaz.
+    const stored = Math.max(0, Number(regional.stocks && regional.stocks[resource]) || 0);
+    const incomingShipments = ((STORY.tradeLogistics && STORY.tradeLogistics.shipments) || [])
+        .filter(row => row.targetRegionId === warehouse.regionId && row.resourceId === resource
+            && ['IN_TRANSIT', 'HELD'].includes(row.status));
+    const incoming = incomingShipments.reduce((sum, row) => sum + Math.max(0, Number(row.quantity) || 0), 0);
+    const committed = storyCompanyRound(stored + incoming);
+    const available = storyCompanyRound(Math.max(0, capacity - committed));
+    return {
+        ok: true,
+        code: committed > capacity + 1e-6 ? 'WAREHOUSE_OVERBOOKED' : 'WAREHOUSE_OCCUPANCY_VERIFIED',
+        warehouseId: warehouse.id,
+        regionId: warehouse.regionId,
+        resourceId: resource,
+        capacity: storyCompanyRound(capacity),
+        stored: storyCompanyRound(stored),
+        incoming: storyCompanyRound(incoming),
+        committed,
+        available,
+        utilizationBps: capacity > 0 ? Math.round(Math.min(2, committed / capacity) * 10000) : 20000,
+        incomingShipmentIds: incomingShipments.map(row => row.id).sort(),
+        overbooked: committed > capacity + 1e-6
+    };
+}
+
+function storyCompanyPayContractPenalty(fromCompanyId, toCompanyId, amount, details) {
+    const ledger = storyCompanyEnsure();
+    const from = ledger && ledger.companies[String(fromCompanyId || '')];
+    const to = ledger && ledger.companies[String(toCompanyId || '')];
+    const value = storyCompanyRound(Math.max(0, Number(amount) || 0));
+    const correlationId = String(details && details.correlationId || '').trim();
+    if (!from || !to || from.id === to.id || value <= 0 || !correlationId) {
+        return { ok: false, code: 'INVALID_CONTRACT_PENALTY_TRANSFER' };
+    }
+    const existingDebit = ledger.transactions.find(row => row.source === 'contract.penalty.debit'
+        && row.correlationId === correlationId);
+    const existingCredit = ledger.transactions.find(row => row.source === 'contract.penalty.credit'
+        && row.correlationId === correlationId);
+    const existingRollback = ledger.transactions.find(row => row.source === 'contract.penalty.rollback'
+        && row.correlationId === correlationId);
+    if (existingDebit && existingCredit) {
+        const booked = Math.max(0, -Number((existingDebit.postings || [])
+            .find(row => row.account === 'ASSET:CASH')?.amount || 0));
+        return Math.abs(booked - value) <= 1e-6
+            ? { ok: true, code: 'CONTRACT_PENALTY_ALREADY_PAID', duplicate: true,
+                amount: value, debitTransaction: storyCompanyClone(existingDebit),
+                creditTransaction: storyCompanyClone(existingCredit) }
+            : { ok: false, code: 'CONTRACT_PENALTY_IDEMPOTENCY_CONFLICT' };
+    }
+    if (existingDebit && !existingCredit && !existingRollback) {
+        return { ok: false, code: 'CONTRACT_PENALTY_TRANSFER_INCOMPLETE' };
+    }
+    if (Number(from.accounts && from.accounts['ASSET:CASH']) + 1e-6 < value) {
+        return { ok: false, code: 'CONTRACT_PENALTY_CASH_UNAVAILABLE',
+            available: storyCompanyRound(from.accounts && from.accounts['ASSET:CASH']), required: value };
+    }
+    const meta = Object.assign({}, storyCompanyClone(details || {}), { correlationId });
+    const debited = storyCompanyPost(from, 'contract.penalty.debit', [
+        { account: 'EXPENSE:CONTRACT_PENALTY', amount: value },
+        { account: 'ASSET:CASH', amount: -value }
+    ], meta);
+    if (!debited.ok) return debited;
+    const credited = storyCompanyPost(to, 'contract.penalty.credit', [
+        { account: 'ASSET:CASH', amount: value },
+        { account: 'REVENUE:CONTRACT_PENALTY', amount: -value }
+    ], meta);
+    if (!credited.ok) {
+        storyCompanyPost(from, 'contract.penalty.rollback', [
+            { account: 'ASSET:CASH', amount: value },
+            { account: 'EXPENSE:CONTRACT_PENALTY', amount: -value }
+        ], Object.assign({}, meta, { failedCreditCode: credited.code || 'UNKNOWN' }));
+        return { ok: false, code: 'CONTRACT_PENALTY_CREDIT_FAILED', credit: credited };
+    }
+    return { ok: true, code: 'CONTRACT_PENALTY_PAID', duplicate: false, amount: value,
+        fromCompanyId: from.id, toCompanyId: to.id,
+        debitTransaction: debited.transaction, creditTransaction: credited.transaction };
+}
+
 function storyCompanyCountryView(countryId) {
     const ledger = storyCompanyEnsure();
     if (!ledger) return null;

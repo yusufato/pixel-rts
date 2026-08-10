@@ -14,8 +14,26 @@ function storyWorldFrame(timestamp) {
     STORY._lastFrameT = timestamp;
     if (dt > 0.5) dt = 0.5;          // sekme arka plandayken sıçramayı engelle
     storyAdvance(dt);
-    // KONSEY açıkken ~0.5sn'de bir paneli tazele (yaşayan-dünya değerleri; render-throttle'a binmesin, titremesin)
-    if (STORY._councilOpen || STORY._armyOpen || STORY._techOpen || STORY._cityOpen || STORY._economyOpen || STORY._changesOpen) { STORY._accCouncil = (STORY._accCouncil || 0) + dt; if (STORY._accCouncil >= 0.5) { STORY._accCouncil = 0; if (STORY._councilOpen) storyCouncilUpdate(); if (STORY._armyOpen) storyArmyUpdate(); if (STORY._techOpen) storyTechUpdate(); if (STORY._cityOpen) storyCityUpdate(); if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate(); if (STORY._changesOpen) storyChangesUpdate(); } }
+    // Küçük paneller 2 Hz tazelenir. WorldV2 bilgi süzgeci kuran şehir ve ekonomi
+    // dosyaları ayrı bütçededir: 1 Hz, oyuncu okurken/gezdirirken ayrıca ertelenir.
+    if (STORY._councilOpen || STORY._armyOpen || STORY._techOpen || STORY._changesOpen) {
+        STORY._accCouncil = (STORY._accCouncil || 0) + dt;
+        if (STORY._accCouncil >= 0.5) {
+            STORY._accCouncil = 0;
+            if (STORY._councilOpen) storyCouncilUpdate();
+            if (STORY._armyOpen) storyArmyUpdate();
+            if (STORY._techOpen) storyTechUpdate();
+            if (STORY._changesOpen) storyChangesUpdate();
+        }
+    }
+    if (STORY._cityOpen || STORY._economyOpen) {
+        STORY._accDossier = (STORY._accDossier || 0) + dt;
+        if (STORY._accDossier >= 1) {
+            STORY._accDossier = 0;
+            if (STORY._cityOpen) storyCityUpdate();
+            if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
+        }
+    }
     // ~20fps render throttle (harita çoğunlukla durağan; pulse animasyonu için sürekli)
     if (timestamp - (STORY._lastRenderT || 0) >= 50) {
         STORY._lastRenderT = timestamp;

@@ -31,6 +31,7 @@ let STORY_CITY_DOSSIER_DOM_HTML = new WeakMap();
 let STORY_CITY_DOSSIER_WORLD_CACHE = null;
 let STORY_CITY_DOSSIER_HTML_CACHE = new WeakMap();
 let STORY_CITY_DOSSIER_DOM_TAB_CACHE = new WeakMap();
+let STORY_CITY_DOSSIER_INTERACTION = new WeakMap();
 let STORY_CITY_DOSSIER_PANEL_PERF = null;
 let STORY_CITY_DOSSIER_PANEL_EPOCH = 0;
 const STORY_CITY_DOSSIER_PANEL_CACHE_LIMIT = 64;
@@ -81,7 +82,9 @@ function storyCityDossierPanelPerfReset() {
         htmlCacheHits: 0,
         domRestores: 0,
         domWrites: 0,
-        domSkips: 0
+        domSkips: 0,
+        interactionDefers: 0,
+        scrollRestores: 0
     };
     return storyCityDossierPanelPerfSnapshot();
 }
@@ -95,7 +98,8 @@ function storyCityDossierPanelPerfSnapshot() {
     const perf = STORY_CITY_DOSSIER_PANEL_PERF || {
         requests: 0, viewBuilds: 0, viewCacheHits: 0, viewCacheEvictions: 0,
         worldBuilds: 0, worldCacheHits: 0, htmlBuilds: 0, htmlCacheHits: 0,
-        domWrites: 0, domRestores: 0, domSkips: 0
+        domWrites: 0, domRestores: 0, domSkips: 0,
+        interactionDefers: 0, scrollRestores: 0
     };
     return Object.assign({}, perf);
 }
@@ -282,6 +286,57 @@ function storyCityDossierPanelDomTabs(body) {
     return tabs;
 }
 
+function storyCityDossierPanelNow() {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now() : Date.now();
+}
+
+// Bilgi kutusunun bağlı olduğu düğümü yenilemek CSS balonunu her tikte yok
+// edip yeniden yaratıyordu. Kaydırma sırasında da aynı yeniden yazım tarayıcıyı
+// yukarı sıçratıyordu. Etkileşim durumu simülasyondan ayrı, DOM'a özel tutulur.
+function storyCityDossierPanelInteractionState(body) {
+    let state = STORY_CITY_DOSSIER_INTERACTION.get(body);
+    if (state) return state;
+    state = { hovered: null, scrollUntil: 0, ignoreScrollUntil: 0 };
+    STORY_CITY_DOSSIER_INTERACTION.set(body, state);
+    body.addEventListener('pointerover', event => {
+        const target = event.target && event.target.closest && event.target.closest('.detail-hover');
+        if (target && body.contains(target)) state.hovered = target;
+    });
+    body.addEventListener('pointerout', event => {
+        const hovered = state.hovered;
+        if (!hovered) return;
+        const related = event.relatedTarget;
+        if (!related || !hovered.contains(related)) state.hovered = null;
+    });
+    body.addEventListener('scroll', () => {
+        const now = storyCityDossierPanelNow();
+        if (now >= state.ignoreScrollUntil) state.scrollUntil = now + 900;
+    }, { passive: true });
+    return state;
+}
+
+function storyCityDossierPanelInteractionHeld(body) {
+    const state = storyCityDossierPanelInteractionState(body);
+    const now = storyCityDossierPanelNow();
+    if (state.scrollUntil > now) return true;
+    if (state.hovered && state.hovered.isConnected && body.contains(state.hovered)) return true;
+    const active = body.ownerDocument && body.ownerDocument.activeElement;
+    if (active && body.contains(active) && active.closest && active.closest('.detail-hover')) return true;
+    // Pointer panel yeniden kurulduğu anda zaten hareketsiz biçimde kartın
+    // üzerindeyse pointerover oluşmayabilir; gerçek CSS :hover durumunu da oku.
+    try { return !!body.querySelector('.detail-hover:hover'); } catch (_) { return false; }
+}
+
+function storyCityDossierPanelRestoreScroll(body, value) {
+    const scrollTop = Math.max(0, Number(value) || 0);
+    if (!scrollTop) return;
+    const state = storyCityDossierPanelInteractionState(body);
+    state.ignoreScrollUntil = storyCityDossierPanelNow() + 80;
+    body.scrollTop = scrollTop;
+    storyCityDossierPanelPerfEnsure().scrollRestores++;
+}
+
 function storyCityDossierPanelStashDom(body) {
     const renderKey = body.dataset.storyRenderKey;
     if (!renderKey || !body.firstChild || !body.ownerDocument) return false;
@@ -292,13 +347,14 @@ function storyCityDossierPanelStashDom(body) {
     tabs.set(renderKey, {
         fragment,
         html: STORY_CITY_DOSSIER_DOM_HTML.get(body) || '',
-        scrollTop: Number(body.scrollTop) || 0
+        scrollTop: Number(body.scrollTop) || 0,
+        viewportKey: body.dataset.storyViewportKey || ''
     });
     while (tabs.size > 12) tabs.delete(tabs.keys().next().value);
     return true;
 }
 
-function storyCityDossierPanelRestoreDom(body, renderKey) {
+function storyCityDossierPanelRestoreDom(body, renderKey, viewportKey) {
     const tabs = storyCityDossierPanelDomTabs(body);
     const saved = tabs.get(renderKey);
     if (!saved || !saved.fragment || !saved.fragment.firstChild) return false;
@@ -306,31 +362,38 @@ function storyCityDossierPanelRestoreDom(body, renderKey) {
     storyCityDossierPanelStashDom(body);
     body.appendChild(saved.fragment);
     body.dataset.storyRenderKey = renderKey;
-    body.scrollTop = saved.scrollTop;
+    body.dataset.storyViewportKey = saved.viewportKey || viewportKey || renderKey;
+    storyCityDossierPanelRestoreScroll(body, saved.scrollTop);
     STORY_CITY_DOSSIER_DOM_HTML.set(body, saved.html);
     storyCityDossierPanelPerfEnsure().domRestores++;
     return true;
 }
 
-function storyCityDossierPanelCommit(body, html, renderKey) {
+function storyCityDossierPanelCommit(body, html, renderKey, viewportKey) {
     const perf = storyCityDossierPanelPerfEnsure();
+    const nextViewportKey = viewportKey || renderKey;
     // innerHTML okumak tarayıcıya bütün alt ağacı yeniden serilettiriyordu.
     // Panel DOM'unun tek yazarı bu modül olduğu için son üretilen metni zayıf
     // anahtarlı bellekte tutmak aynı güvenceyi çok daha ucuza verir.
     if (STORY_CITY_DOSSIER_DOM_HTML.get(body) === html) {
         body.dataset.storyRenderKey = renderKey;
+        body.dataset.storyViewportKey = nextViewportKey;
         perf.domSkips++;
         return false;
     }
+    const sameViewport = body.dataset.storyViewportKey === nextViewportKey;
+    const previousScroll = sameViewport ? Number(body.scrollTop) || 0 : 0;
     storyCityDossierPanelStashDom(body);
     body.innerHTML = html;
     STORY_CITY_DOSSIER_DOM_HTML.set(body, html);
     body.dataset.storyRenderKey = renderKey;
+    body.dataset.storyViewportKey = nextViewportKey;
+    if (sameViewport) storyCityDossierPanelRestoreScroll(body, previousScroll);
     perf.domWrites++;
     return true;
 }
 
-function storyCityDossierPanelRender(body, renderKey, producer) {
+function storyCityDossierPanelRender(body, renderKey, producer, viewportKey) {
     const perf = storyCityDossierPanelPerfEnsure();
     if (body.dataset.storyRenderKey === renderKey) {
         perf.domSkips++;
@@ -338,8 +401,8 @@ function storyCityDossierPanelRender(body, renderKey, producer) {
     }
     // Daha önce açılmış sekmenin hazırlanmış DOM ağacını geri tak. HTML parse,
     // tooltip taraması ve erişilebilir etiket üretimi ikinci kez çalışmaz.
-    if (storyCityDossierPanelRestoreDom(body, renderKey)) return false;
-    return storyCityDossierPanelCommit(body, producer(), renderKey);
+    if (storyCityDossierPanelRestoreDom(body, renderKey, viewportKey)) return false;
+    return storyCityDossierPanelCommit(body, producer(), renderKey, viewportKey);
 }
 
 function storyCityDossierCachedHtml(view, key, producer) {
@@ -1416,11 +1479,16 @@ function storyEconomyUpdate() {
     if (!STORY._economyOpen) return;
     const body = document.getElementById('economy-body');
     if (!body) return;
+    storyCityDossierPanelInteractionState(body);
+    if (body.firstChild && storyCityDossierPanelInteractionHeld(body)) {
+        storyCityDossierPanelPerfEnsure().interactionDefers++;
+        return;
+    }
     const node = typeof storyCityFocus === 'function' ? storyCityFocus() : null;
     const title = document.getElementById('economy-title');
     if (!node) {
         if (title) title.textContent = 'EKONOMİ';
-        storyCityDossierPanelCommit(body, '<div class="city-dossier-empty"><b>BÖLGE SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>', 'economy:empty');
+        storyCityDossierPanelCommit(body, '<div class="city-dossier-empty"><b>BÖLGE SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>', 'economy:empty', 'economy:empty');
         return;
     }
     try {
@@ -1434,12 +1502,13 @@ function storyEconomyUpdate() {
         const changed = storyCityDossierPanelRender(
             body,
             `economy:${node.id}:${panelView.revision}`,
-            () => storyEconomyRender(view, active)
+            () => storyEconomyRender(view, active),
+            `economy:${node.id}:${active}`
         );
         if (changed && typeof storyActivateDetailTooltips === 'function') storyActivateDetailTooltips(body);
     } catch (error) {
         const message = storyCityDossierEscape(error && error.message || error);
-        storyCityDossierPanelCommit(body, `<div class="city-dossier-empty"><b>EKONOMİ DOSYASI OLUŞTURULAMADI</b><span>${message}</span></div>`, `economy:error:${message}`);
+        storyCityDossierPanelCommit(body, `<div class="city-dossier-empty"><b>EKONOMİ DOSYASI OLUŞTURULAMADI</b><span>${message}</span></div>`, `economy:error:${message}`, 'economy:error');
     }
 }
 
@@ -1447,11 +1516,16 @@ function storyCityDossierUpdate() {
     if (!STORY._cityOpen) return;
     const body = document.getElementById('city-body');
     if (!body) return;
+    storyCityDossierPanelInteractionState(body);
+    if (body.firstChild && storyCityDossierPanelInteractionHeld(body)) {
+        storyCityDossierPanelPerfEnsure().interactionDefers++;
+        return;
+    }
     const node = typeof storyCityFocus === 'function' ? storyCityFocus() : null;
     const title = document.getElementById('city-title');
     if (!node) {
         if (title) title.textContent = 'ŞEHİR DOSYASI';
-        storyCityDossierPanelCommit(body, '<div class="city-dossier-empty"><b>ŞEHİR SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>', 'city:empty');
+        storyCityDossierPanelCommit(body, '<div class="city-dossier-empty"><b>ŞEHİR SEÇİLMEDİ</b><span>Haritadan bir şehir seç.</span></div>', 'city:empty', 'city:empty');
         return;
     }
     let view, panelView;
@@ -1462,7 +1536,7 @@ function storyCityDossierUpdate() {
         view = panelView.view;
     } catch (error) {
         const message = storyCityDossierEscape(error && error.message || error);
-        storyCityDossierPanelCommit(body, `<div class="city-dossier-empty"><b>DOSYA OLUŞTURULAMADI</b><span>${message}</span></div>`, `city:error:${message}`);
+        storyCityDossierPanelCommit(body, `<div class="city-dossier-empty"><b>DOSYA OLUŞTURULAMADI</b><span>${message}</span></div>`, `city:error:${message}`, 'city:error');
         return;
     }
     const nextTitle = `${String(view.facts.name.value).toLocaleUpperCase('tr')} / DOSYA`;
@@ -1474,7 +1548,8 @@ function storyCityDossierUpdate() {
     const changed = storyCityDossierPanelRender(
         body,
         `city:${node.id}:${panelView.revision}`,
-        () => storyCityDossierRender(view, active, node)
+        () => storyCityDossierRender(view, active, node),
+        `city:${node.id}:${active}`
     );
     if (changed && typeof storyActivateDetailTooltips === 'function') storyActivateDetailTooltips(body);
 }
@@ -1501,6 +1576,7 @@ function storyCityDossierOpenCharacter(characterId) {
     STORY._talkFocusCharacterId = character.id;
     STORY._talkFocusCharacterName = character.name.value;
     STORY._talkFocusRegionId = view.regionId;
+    STORY._talkView = 'conversations';
     if (typeof storyTalkOpen === 'function') {
         storyTalkOpen();
         return true;
