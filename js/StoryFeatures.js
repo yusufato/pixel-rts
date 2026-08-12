@@ -56,6 +56,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.relationshipInterpretation': true,
     'characters.roleAdapters': true,
     'characters.derivedPower': true,
+    'characters.cohortActivation': true,
     'characters.conversationUnderstanding': true,
     'characters.negotiationCases': true,
     'characters.mechanicalContracts': true,
@@ -211,6 +212,12 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.identityGoals',
         'characters.multiDimensionalRelations',
         'characters.roleAdapters'
+    ]),
+    'characters.cohortActivation': Object.freeze([
+        'characters.identityGoals',
+        'population.cohorts',
+        'society.publicOpinionMemory',
+        'society.collectiveAction'
     ]),
     'characters.conversationUnderstanding': Object.freeze([
         'characters.identityGoals',

@@ -671,3 +671,10 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Yaşam geçişinden önce tek devlet makamı gerçek Faz 37 haleflik makbuzuyla devredilir. Birden çok makam atomik devredilemediği için kısmi mutasyon yerine reddedilir.
 - Şirket makamı görünümü yalnız yaşayan ve aktif karakteri makam sahibi sayar; ölü/emekli CEO boş koltuk üretir, hayalî halef üretmez.
 - Harici yaşam olayı kimliği şimdilik yalnız referanstır; kanonik olay defterinde doğrulama ve otomatik yaş/sağlık/ölüm üretimi açık borçtur.
+
+### 12 Ağustos 2026 — Faz 38.11 kohort aktivasyon aday kapısı
+
+- İlk adım isimli kişi üretmek değil, hangi gerçek kohort ve olayın ayrıntıyı hak ettiğini kanıtlamaktır.
+- Aktivasyon düzeyi yalnız yerel toplumsal eylem aşaması, şiddeti ve seferberliğinden türetilir; rol adı veya rastgele şöhret bonusu kullanılmaz.
+- Adayın meslek/eğitim/kimlik profili gerçek nüfus kohortundan gelir, fakat bu henüz tekil kişinin biyografisi değildir.
+- Aday değerlendirmesi nüfusu ve karakter sayısını değiştirmez. Kalıcı yükseltme politikası gelene kadar `identityActorId:null` zorunludur.

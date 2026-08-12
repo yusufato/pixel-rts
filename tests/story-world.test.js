@@ -4150,6 +4150,26 @@ function run() {
     assert.equal(lifeStatusProbe.saveLoadPreserved, true,
         'Faz 38.10: yaşam durumu, makam kaybı ve eylem yasağı save/load sonrasında korunmalı.');
 
+    const cohortActivationProbe = storyTestResult(
+        'characterCohortActivationProbe', probeCharacterCohortActivation
+    );
+    assert.equal(cohortActivationProbe.deterministic, true,
+        'Faz 38.11: aynı kohort ve olay aynı aktivasyon adayını üretmeli.');
+    assert.equal(cohortActivationProbe.candidateGrounded, true,
+        'Faz 38.11: aktivasyon adayı gerçek kohort ve toplumsal harekete dayanmalı.');
+    assert.equal(cohortActivationProbe.activationLevelBounded, true,
+        'Faz 38.11: aktivasyon düzeyi kapalı katalogda ve puanı sınırlı olmalı.');
+    assert.equal(cohortActivationProbe.noPersonFabricated, true,
+        'Faz 38.11: ilk aday görünümü isimli insan uydurmamalı.');
+    assert.equal(cohortActivationProbe.populationConserved, true,
+        'Faz 38.11: aday değerlendirmesi nüfusu eksiltmemeli veya çoğaltmamalı.');
+    assert.equal(cohortActivationProbe.worldReadOnly, true,
+        'Faz 38.11: aktivasyon sorgusu kanonik defterlere yazmamalı.');
+    assert.equal(cohortActivationProbe.profileFromCohort, true,
+        'Faz 38.11: aday profili gerçek kohort özelliklerini taşımalı.');
+    assert.equal(cohortActivationProbe.featureDisabled, true,
+        'Faz 38.11: özellik bayrağı kapalıyken aday katmanı güvenle kapanmalı.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );

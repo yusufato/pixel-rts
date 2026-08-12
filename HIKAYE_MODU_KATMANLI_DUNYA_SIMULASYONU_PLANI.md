@@ -4372,6 +4372,8 @@ Zorunlu mimari sınırlar:
 
 ### FAZ 38.11 — Karakter Katmanları ve Kohorttan Yükselme
 
+**İlk uygulama dilimi — 12 Ağustos 2026:** `StoryCharacterActivation.js` henüz insan üretmeyen, salt-okunur aktivasyon aday kapısını kurdu. Kaynak yalnız Faz 23'ün gerçek bölgesel kohortu ile Faz 26'nın aynı bölgedeki gerçek `PROTEST/STRIKE/UPRISING` katılımıdır. Yerel sorun şiddeti, seferberlik ve eylem aşaması sınırlı `0–10000` puana; puan kapalı `AGGREGATE/MINOR/RELEVANT/MAJOR/WORLD` kataloğuna çevrilir. Meslek/eğitim seçimi olay türü ve gerçek kohort büyüklüğünden deterministik yapılır. Kabul fikstüründe `WORKING_CONDITIONS + UPRISING` gerçek çalışan kohortundan `WORLD` adayı üretti. Buna rağmen kimlik defterine aktör eklenmedi, nüfus eksilmedi ve aday açıkça `CANDIDATE_ONLY_NO_PERSON_CREATED` kaldı. Böylece “olay oldu, bedava ünlü doğdu” kısa yolu açılmadı. Kalıcı yükseltme kimliği, kişi-kohort muhasebesi, activation/deactivation yaşam döngüsü, aktivist/ihbarcı/yerel lider/viral medya gibi ayrı olay adaptörleri ve ayrıntı kapanınca hafıza korunumu sonraki dilimlerdir.
+
 **Amaç:** Modern dünyada binlerce kişiyi tam karar döngüsüyle çalıştırmadan önemli bireyleri kalıcı aktöre dönüştürmek.
 **Çıktı:** `AGGREGATE/MINOR/RELEVANT/MAJOR/WORLD` aktivasyon politikası; olay tetikli değerlendirme; aktivist, ihbarcı, sembolik işçi, yerel lider ve viral medya figürünün kohorttan isimli karaktere deterministik yükselmesi.
 **Kabul kapısı:** Boşta karakter pahalı karar çalıştırmıyor; yükselme kişi yaratmıyor veya nüfusu eksiltmiyor; aynı seed/olay aynı kimliği açıyor; ayrıntı kapanınca önemli hafıza ve ilişkiler kaybolmuyor.

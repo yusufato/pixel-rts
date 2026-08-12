@@ -69,6 +69,7 @@ const STORY_SOURCES = [
     'js/StoryRelationshipInterpretation.js',
     'js/StoryCharacterRoleAdapters.js',
     'js/StoryCharacterPower.js',
+    'js/StoryCharacterActivation.js',
     'js/StoryCharacterActions.js',
     'js/StoryContacts.js',
     'js/Factions.js',
@@ -581,6 +582,7 @@ function createRuntime(seed) {
             characterRoleCompanyOfficeView: companyId => storyCharacterRoleCompanyOfficeView(companyId),
             characterPowerView: actorId => storyCharacterPowerView(actorId),
             characterCareerView: actorId => storyCharacterCareerView(actorId),
+            characterActivationCandidates: () => storyCharacterActivationCandidates(),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14784,6 +14786,71 @@ function probeCharacterLifeStatus(seed = 2032) {
     return result;
 }
 
+function probeCharacterCohortActivation(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const population = story.population;
+        const regionId = Object.keys(population.regions || {}).sort()[0];
+        const region = population.regions[regionId];
+        const peopleBefore = Object.values(population.regions).reduce((sum, row) =>
+            sum + row.populationPeople, 0);
+        story.collectiveAction.regions[regionId].participations = [{
+            movementId: 'movement:activation-fixture', problemType: 'WORKING_CONDITIONS',
+            blamedActorId: 'power-center:fixture', localSeverityBps: 9200,
+            localAffectedPeople: 300, stage: 'UPRISING',
+            mobilizationBps: 9000, radicalizationBps: 7600
+        }];
+        const identityCountBefore = Object.keys(story.characterIdentities.identities || {}).length;
+        const worldBefore = hashSnapshot(stateSnapshot(story));
+        const view = runtime.api.characterActivationCandidates();
+        const repeat = runtime.api.characterActivationCandidates();
+        const worldAfter = hashSnapshot(stateSnapshot(story));
+        const peopleAfter = Object.values(population.regions).reduce((sum, row) =>
+            sum + row.populationPeople, 0);
+        const candidate = view.candidates[0];
+        result = {
+            deterministic: JSON.stringify(view) === JSON.stringify(repeat),
+            candidateGrounded: view.ok && candidate
+                && candidate.regionId === regionId
+                && region.cohorts.some(row => row.id === candidate.cohortId)
+                && candidate.trigger.movementId === 'movement:activation-fixture',
+            activationLevelBounded: candidate && ['AGGREGATE', 'MINOR', 'RELEVANT', 'MAJOR', 'WORLD']
+                .includes(candidate.level) && candidate.level === 'WORLD'
+                && Number.isInteger(candidate.scoreBps)
+                && candidate.scoreBps >= 0 && candidate.scoreBps <= 10000,
+            noPersonFabricated: candidate && candidate.identityActorId === null
+                && candidate.promotionStatus === 'CANDIDATE_ONLY_NO_PERSON_CREATED'
+                && view.namedCharacterCreationAvailable === false
+                && Object.keys(story.characterIdentities.identities || {}).length === identityCountBefore,
+            populationConserved: peopleBefore === peopleAfter
+                && candidate.populationMutation === false && view.populationMutation === false,
+            worldReadOnly: worldBefore === worldAfter
+                && view.canonicalLedgersReadOnly === true && view.worldMutation === false,
+            profileFromCohort: candidate && candidate.sourcePopulationPeople > 0
+                && candidate.profile.ageBand && candidate.profile.occupation
+                && candidate.profile.education && candidate.profile.identity
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const disabled = createRuntime((seed + 1) >>> 0);
+    try {
+        disabled.api.newCampaign({ seed: seed + 1, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.cohortActivation': false } });
+        const view = disabled.api.characterActivationCandidates();
+        result.featureDisabled = view.code === 'FEATURE_DISABLED'
+            && view.candidates.length === 0 && view.worldMutation === false;
+    } finally {
+        disabled.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -17044,6 +17111,7 @@ module.exports = {
     probeCharacterPower,
     probeCharacterCareerLifecycle,
     probeCharacterLifeStatus,
+    probeCharacterCohortActivation,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
