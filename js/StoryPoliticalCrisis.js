@@ -289,7 +289,7 @@ function storyPoliticalCrisisMemoryRecordAction(state, crisis, history) {
     return episodeId;
 }
 
-function storyPoliticalCrisisMemoryResolve(state, crisis) {
+function storyPoliticalCrisisMemoryResolve(state, crisis, resolutionEvent) {
     if (crisis.memoryEpisodeId && typeof storyMemoryResolveEpisode === 'function') {
         storyMemoryResolveEpisode(
             crisis.memoryEpisodeId,
@@ -310,7 +310,7 @@ function storyPoliticalCrisisMemoryResolve(state, crisis) {
     ].filter(actorId => identities[actorId]))).sort();
     const holders = crisis.publicExposure ? publicHolders : privateHolders;
     if (!holders.length) return null;
-    return storyMemoryAddMilestone({
+    const betrayal = storyMemoryAddMilestone({
         id: `character-memory:political-crisis-betrayal:${crisis.id}`,
         kind: 'BETRAYAL', subjectActorId: crisis.leadActorId,
         holderActorIds: holders,
@@ -324,6 +324,33 @@ function storyPoliticalCrisisMemoryResolve(state, crisis) {
             outcomeScoreBps: crisis.outcomeScoreBps, publicExposure: !!crisis.publicExposure
         }
     });
+    // Darbenin yenilmesi, yalnız gerçekten aynı sadık koalisyonda bulunan en
+    // az iki karakter için ortak kriz başarısıdır. Darbecilerin yönetimi ele
+    // geçirmesi veya koalisyonun sessiz dağılması bu etiketi alamaz.
+    const loyalists = Array.from(new Set(crisis.loyalistActorIds || []))
+        .filter(actorId => identities[actorId]).sort();
+    let sharedSuccess = null;
+    if (crisis.status === 'FAILED' && crisis.resultCode === 'COUP_DEFEATED'
+        && loyalists.length >= 2 && resolutionEvent && resolutionEvent.type === 'CRISIS_RESOLVED') {
+        sharedSuccess = storyMemoryAddMilestone({
+            id: `character-memory:political-crisis-shared-success:${crisis.id}`,
+            kind: 'DECISION', status: 'RESOLVED',
+            subjectActorId: loyalists[0],
+            holderActorIds: loyalists,
+            relatedActorIds: loyalists.slice(1),
+            summary: `${loyalists.length} sadık aktör siyasi krizi birlikte durdurdu.`,
+            importanceBps: 9400, recordRecent: false,
+            source: {
+                politicalCrisisId: crisis.id,
+                resultCode: crisis.resultCode,
+                relationshipEventTag: 'SHARED_CRISIS_SUCCESS',
+                sourceEventId: resolutionEvent.id,
+                eventType: resolutionEvent.type,
+                publicExposure: !!crisis.publicExposure
+            }
+        });
+    }
+    return { betrayal, sharedSuccess };
 }
 function storyPoliticalCrisisOpen(ledger, state, assessment) {
     const countryId = assessment.countryId;
@@ -408,7 +435,7 @@ function storyPoliticalCrisisResolve(ledger, state, country, crisis, assessment)
         for (const commander of plotters) commander.loyalty = Math.max(10, (Number(commander.loyalty) || 0) - 4);
         if (typeof storyWelfareDelta === 'function') storyWelfareDelta(state, 'government.political_crisis_failed', -2);
     }
-    storyPoliticalCrisisRecordEvent(ledger, 'CRISIS_RESOLVED', crisis, {
+    const resolutionEvent = storyPoliticalCrisisRecordEvent(ledger, 'CRISIS_RESOLVED', crisis, {
         actorId: crisis.leadActorId,
         resultCode: crisis.resultCode,
         outcomeScoreBps: scoreBps,
@@ -416,7 +443,7 @@ function storyPoliticalCrisisResolve(ledger, state, country, crisis, assessment)
         physicalGovernmentMutation: success,
         physicalTerritorialMutation: false
     });
-    storyPoliticalCrisisMemoryResolve(state, crisis);
+    storyPoliticalCrisisMemoryResolve(state, crisis, resolutionEvent);
     if (state.isPlayer && typeof storyFlash === 'function') {
         storyFlash(success
             ? `🔥 ${storyPoliticalCrisisActorName(state, crisis.leadActorId)} öncülüğündeki girişim yönetimi ele geçirdi.`
@@ -441,10 +468,10 @@ function storyPoliticalCrisisAdvance(ledger, state, country, crisis, assessment,
             crisis.resolvedAt = storyPoliticalCrisisRound(STORY.clock); crisis.updatedAt = crisis.resolvedAt;
             country.activeCrisisId = null; country.lastResolvedAt = crisis.resolvedAt;
             country.nextCrisisAllowedAt = crisis.resolvedAt + STORY_POLITICAL_CRISIS_POLICY.failureCooldownSeconds;
-            storyPoliticalCrisisRecordEvent(ledger, 'CRISIS_RESOLVED', crisis, {
+            const resolutionEvent = storyPoliticalCrisisRecordEvent(ledger, 'CRISIS_RESOLVED', crisis, {
                 resultCode: crisis.resultCode, physicalGovernmentMutation: false, physicalTerritorialMutation: false
             });
-            storyPoliticalCrisisMemoryResolve(state, crisis);
+            storyPoliticalCrisisMemoryResolve(state, crisis, resolutionEvent);
             return;
         }
     } else {

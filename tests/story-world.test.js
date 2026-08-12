@@ -2593,6 +2593,24 @@ function run() {
         'İhanet mihenk taşı darbe liderinin kanonik aktör kimliğine bağlı olmalı.');
     assert.equal(politicalCrisisProbe.deterministicOutcome.betrayalResultGrounded, true,
         'İhanet hafızası gerçek kriz sonuç kodunu kaynak göstermeli.');
+    assert.equal(politicalCrisisProbe.deterministicOutcome.sharedSuccessNotForgedForCoupVictory, true,
+        'Darbecilerin yönetimi ele geçirmesi ortak savunma başarısı diye kaydedilmemeli.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.status, 'FAILED',
+        'Yeterli karşı güç deterministik darbe girişimini yenmeli.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.resultCode, 'COUP_DEFEATED',
+        'Ortak savunma hafızası yalnız gerçek COUP_DEFEATED sonucundan doğmalı.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.sharedRecorded, true,
+        'Darbeyi birlikte durduran sadık karakterler kaynaklı ortak başarı hafızası taşımalı.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.participantGrounded, true,
+        'Ortak başarı sahipleri gerçek kriz sadık koalisyonunun üyeleri olmalı.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.sourceEventGrounded, true,
+        'Ortak başarı gerçek CRISIS_RESOLVED olay kimliği ve sonuç koduna bağlanmalı.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.interpretationReady, true,
+        'Kaynaklı ortak kriz başarısı Faz 38.8 ilişki yorumuna girebilmeli.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.memoryValidation.ok, true,
+        'Ortak kriz başarısı Faz 36 hafıza sözleşmesini bozmamalı.');
+    assert.equal(politicalCrisisProbe.sharedDefenseOutcome.crisisValidation.ok, true,
+        'Ortak kriz başarısı Faz 33 kriz defterini bozmamalı.');
     assert.equal(politicalCrisisProbe.deterministicOutcome.memoryValidation.ok, true,
         'Sonuçlanmış siyasi kriz karakter hafıza sözleşmesini bozmamalı.');
     assert.equal(politicalCrisisProbe.main.validation.ok, true,

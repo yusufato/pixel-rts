@@ -10680,6 +10680,9 @@ function probePoliticalCrisis(seed = 2032) {
         const resolvedMemory = outcomeRuntime.api.characterMemoryLedger();
         const betrayal = Object.values(resolvedMemory.milestones || {}).find(row =>
             row.kind === 'BETRAYAL' && row.source && row.source.politicalCrisisId === activeId);
+        const sharedSuccess = Object.values(resolvedMemory.milestones || {}).find(row =>
+            row.source && row.source.relationshipEventTag === 'SHARED_CRISIS_SUCCESS'
+            && row.source.politicalCrisisId === activeId);
         deterministicOutcome = {
             status: resolved.status,
             resultCode: resolved.resultCode,
@@ -10697,10 +10700,52 @@ function probePoliticalCrisis(seed = 2032) {
             betrayalRecorded: !!betrayal,
             betrayalSubjectCanonical: !!(betrayal && betrayal.subjectActorId === resolved.leadActorId),
             betrayalResultGrounded: !!(betrayal && betrayal.source
-                && betrayal.source.resultCode === resolved.resultCode)
+                && betrayal.source.resultCode === resolved.resultCode),
+            sharedSuccessNotForgedForCoupVictory: !sharedSuccess
         };
     } finally {
         outcomeRuntime.dom.window.close();
+    }
+
+    const defenseRuntime = createRuntime((seed + 41) >>> 0);
+    let sharedDefenseOutcome;
+    try {
+        const fixture = prime(defenseRuntime);
+        const ledger = defenseRuntime.api.politicalCrisisLedger();
+        const activeId = ledger.countries['country:0'].activeCrisisId;
+        const crisis = defenseRuntime.api.state().politicalCrises.crises[activeId];
+        crisis.preparationBps = 8999;
+        crisis.manualCounterBps = 10000;
+        crisis.counterBps = 10000;
+        defenseRuntime.api.politicalCrisisTick(5);
+        const resolvedLedger = defenseRuntime.api.politicalCrisisLedger();
+        const resolved = resolvedLedger.crises[activeId];
+        const memory = defenseRuntime.api.characterMemoryLedger();
+        const shared = Object.values(memory.milestones || {}).find(row =>
+            row.kind === 'DECISION'
+            && row.source && row.source.relationshipEventTag === 'SHARED_CRISIS_SUCCESS'
+            && row.source.politicalCrisisId === activeId);
+        const sourceEvent = shared && resolvedLedger.events.find(row =>
+            row.id === shared.source.sourceEventId);
+        const first = shared && shared.holderActorIds[0];
+        const second = shared && shared.holderActorIds[1];
+        const interpretation = first && second
+            ? defenseRuntime.api.relationshipInterpretMemory(first, second, shared.id) : null;
+        sharedDefenseOutcome = {
+            status: resolved.status,
+            resultCode: resolved.resultCode,
+            sharedRecorded: !!shared,
+            participantGrounded: !!(shared && shared.holderActorIds.length >= 2
+                && shared.holderActorIds.every(actorId => resolved.loyalistActorIds.includes(actorId))),
+            sourceEventGrounded: !!(sourceEvent && sourceEvent.type === 'CRISIS_RESOLVED'
+                && sourceEvent.resultCode === resolved.resultCode),
+            interpretationReady: !!(interpretation && interpretation.ok
+                && interpretation.interpretation.interpretationType === 'SHARED_CRISIS_SUCCESS'),
+            memoryValidation: defenseRuntime.api.validateCharacterMemoryLedger(memory),
+            crisisValidation: defenseRuntime.api.validatePoliticalCrisisLedger(resolvedLedger)
+        };
+    } finally {
+        defenseRuntime.dom.window.close();
     }
 
     const restoredRuntime = createRuntime(seed >>> 0);
@@ -10781,7 +10826,8 @@ function probePoliticalCrisis(seed = 2032) {
     } finally {
         prerequisiteRuntime.dom.window.close();
     }
-    return { main, deterministicOutcome, restored, legacy, corrupt, disabled, prerequisiteDisabled };
+    return { main, deterministicOutcome, sharedDefenseOutcome, restored, legacy, corrupt,
+        disabled, prerequisiteDisabled };
 }
 
 function probeGovernanceWorkspace(seed = 2032) {
