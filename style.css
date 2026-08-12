@@ -2359,6 +2359,16 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-listener-response li b { color: #d8e4db; font-size: 8px; letter-spacing: .6px; }
 .conversation-listener-response li.fail b { color: #ff7777; }
 .conversation-listener-response li.unknown b, .conversation-listener-response li.pending b { color: var(--wr-amber); }
+.conversation-follow-up-thread { display: grid; gap: 8px; margin-top: 5px; }
+.conversation-follow-up { max-width: 84%; padding: 11px 13px; border: 1px solid rgba(132,155,141,.22); }
+.conversation-follow-up span { color: #71857a; font-size: 8px; letter-spacing: 1px; }
+.conversation-follow-up p { margin: 6px 0 0; color: #dce7df; font-size: 12px; line-height: 1.55; }
+.conversation-follow-up small { display: block; margin-top: 7px; color: #5f7668; font-size: 8px; }
+.conversation-follow-up.player { justify-self: end; border-color: rgba(255,176,0,.32); background: rgba(255,176,0,.035); }
+.conversation-follow-up.listener { justify-self: start; border-color: rgba(76,255,124,.25); background: rgba(76,255,124,.025); }
+.conversation-follow-up-composer { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--wr-line); }
+.conversation-follow-up-composer > label { display: block; margin-bottom: 7px; color: var(--wr-amber); font-size: 9px; letter-spacing: 1px; }
+.conversation-workspace-main .conversation-follow-up-composer textarea { min-height: 96px; }
 .conversation-response-actions { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(103,178,255,.25); background: rgba(58,122,188,.045); }
 .conversation-response-actions > header { color: #79bbff; font-size: 9px; letter-spacing: 1.1px; }
 .conversation-response-actions > p { margin: 0; color: #8fa399; font-size: 9px; line-height: 1.45; }

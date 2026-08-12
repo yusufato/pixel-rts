@@ -487,7 +487,8 @@ function storyConversationSessionLedgerCreate() {
         diagnostics: {
             prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
             domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
-            playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0
+            playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0,
+            socialFollowUps: 0
         }
     };
 }
@@ -501,13 +502,15 @@ function storyConversationSessionMigrateLedger(saved) {
     ledger.diagnostics = Object.assign({
         prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
         domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
-        playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0
+        playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0,
+        socialFollowUps: 0
     }, ledger.diagnostics || {});
     for (const session of (ledger.sessions || [])) {
         session.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
         if (!Array.isArray(session.listenerResponses)) session.listenerResponses = [];
         if (!Array.isArray(session.playerResponses)) session.playerResponses = [];
         if (!Array.isArray(session.evidenceSubmissions)) session.evidenceSubmissions = [];
+        if (!Array.isArray(session.followUps)) session.followUps = [];
         if (!session.concessions || typeof session.concessions !== 'object') {
             session.concessions = { useExistingCompany: false, withdrawnClaimIds: [] };
         }
@@ -1080,6 +1083,7 @@ function storyConversationSessionCandidate(session) {
         requests,
         concessions: storyConversationClone(session.concessions),
         evidenceSubmissionIds: (session.evidenceSubmissions || []).map(row => row.id),
+        followUpIds: (session.followUps || []).map(row => row.id),
         domainReviewId: session.domainReview && session.domainReview.id || null,
         executable: false,
         worldMutation: false,
@@ -1125,6 +1129,73 @@ function storyConversationSessionBuildSocialResponse(session, ledger) {
     return response;
 }
 
+function storyConversationSocialFollowUpText(analysis, raw) {
+    const folded = storyConversationFold(raw);
+    if (storyConversationContains(folded, ['ben de iyiyim', 'iyiyim', 'iyi gidiyor'])) {
+        return 'Buna sevindim. Bugün konuşmak istediğin başka bir konu var mı?';
+    }
+    if (storyConversationContains(folded, ['kotu', 'zor', 'uzgun', 'yorgun'])) {
+        return 'Bunu duyduğuma üzüldüm. İstersen seni zorlayan konuyu anlat.';
+    }
+    const direct = storyConversationSocialResponseText(analysis.speechAct);
+    if (direct) return direct;
+    return 'Bunu önceki sözünün devamı olarak anladım. Ne demek istediğini biraz daha açar mısın?';
+}
+
+function storyConversationSessionFollowUp(sessionId, raw) {
+    const ledger = storyConversationSessionEnsure();
+    const session = storyConversationSessionFind(sessionId);
+    const text = String(raw == null ? '' : raw).trim();
+    if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    if (session.status !== 'SOCIAL_RESPONSE_READY') {
+        return { ok: false, code: 'FOLLOW_UP_NOT_AVAILABLE', worldMutation: false };
+    }
+    if (!text || text.length > STORY_CONVERSATION_MAX_INPUT) {
+        return { ok: false, code: !text ? 'EMPTY_INPUT' : 'INPUT_TOO_LONG', worldMutation: false };
+    }
+    if ((session.followUps || []).length >= STORY_CONVERSATION_TURN_LIMIT - 1) {
+        return { ok: false, code: 'TURN_LIMIT', worldMutation: false };
+    }
+    const analysis = storyConversationAnalyze(text, {
+        listenerActorId: session.listenerActorId,
+        focusRegionId: session.focusRegionId
+    });
+    if (!analysis.ok) return { ok: false, code: analysis.code, worldMutation: false };
+    const sequence = session.followUps.length + 1;
+    const response = {
+        schemaVersion: 1,
+        id: `conversation-follow-up-response:${session.id}:${sequence}`,
+        kind: 'FOLLOW_UP_RESPONSE',
+        actorId: session.listenerActorId,
+        targetActorId: session.playerActorId,
+        speechAct: analysis.speechAct,
+        createdAt: Number(STORY.clock) || 0,
+        text: storyConversationSocialFollowUpText(analysis, text),
+        source: 'DETERMINISTIC_SOCIAL_FOLLOW_UP',
+        worldMutation: false
+    };
+    const followUp = {
+        schemaVersion: 1,
+        id: `conversation-follow-up:${session.id}:${sequence}`,
+        sequence,
+        createdAt: Number(STORY.clock) || 0,
+        playerText: text,
+        inputHash: storyConversationHash(text),
+        analysis: storyConversationClone(analysis),
+        response,
+        worldMutation: false
+    };
+    session.followUps.push(followUp);
+    session.listenerResponses.push(storyConversationClone(response));
+    session.updatedAt = Number(STORY.clock) || 0;
+    session.candidate = storyConversationSessionCandidate(session);
+    ledger.diagnostics.socialFollowUps++;
+    return {
+        ok: true, code: 'FOLLOW_UP_RECORDED', followUp: storyConversationClone(followUp),
+        session: storyConversationClone(session), worldMutation: false
+    };
+}
+
 function storyConversationSessionBegin(raw, context) {
     const ledger = storyConversationSessionEnsure();
     if (!ledger) return { ok: false, code: 'FEATURE_DISABLED', worldMutation: false };
@@ -1142,7 +1213,7 @@ function storyConversationSessionBegin(raw, context) {
         analysis: storyConversationClone(analysis),
         questions: storyConversationSessionQuestions(analysis, id),
         domainChecks: storyConversationSessionDomainChecks(analysis),
-        resolvedEntities: {}, resolvedTerms: {}, turns: [], listenerResponses: [], playerResponses: [],
+        resolvedEntities: {}, resolvedTerms: {}, turns: [], followUps: [], listenerResponses: [], playerResponses: [],
         evidenceSubmissions: [], concessions: { useExistingCompany: false, withdrawnClaimIds: [] },
         resolution: null, status: null, domainReview: null, candidate: null, worldMutation: false
     };
@@ -1293,6 +1364,11 @@ function storyConversationSessionValidateLedger(candidate) {
             .concat(STORY_CONVERSATION_REVIEW_STATUSES, STORY_CONVERSATION_RESOLUTION_STATUSES)
             .includes(session.status)) add('SESSION_STATUS', `$.sessions[${index}].status`);
         if ((session.turns || []).length > STORY_CONVERSATION_TURN_LIMIT) add('TURN_LIMIT', `$.sessions[${index}].turns`);
+        if (!Array.isArray(session.followUps) || session.followUps.length > STORY_CONVERSATION_TURN_LIMIT
+            || session.followUps.some(row => !row.id || !row.playerText || row.worldMutation !== false
+                || !row.response || row.response.worldMutation !== false)) {
+            add('FOLLOW_UPS', `$.sessions[${index}].followUps`);
+        }
         if (!Array.isArray(session.listenerResponses)
             || session.listenerResponses.length > STORY_CONVERSATION_TURN_LIMIT
             || session.listenerResponses.some(row => row.worldMutation !== false)) {

@@ -1385,6 +1385,26 @@ function storyTalkConversationResponseOptionsHtml(session) {
             + `<b>${esc(option.label)}</b><small>${esc(option.detail)}</small></button>`).join('')}</div></section>`;
 }
 
+function storyTalkConversationFollowUpsHtml(session) {
+    const esc = storyTalkConversationEscape;
+    return (session.followUps || []).map(row => `<div class="conversation-follow-up-thread">`
+        + `<article class="conversation-follow-up player"><span>SEN</span><p>${esc(row.playerText)}</p></article>`
+        + `<article class="conversation-follow-up listener"><span>MUHATAP</span>`
+        + `<p>${esc(row.response && row.response.text || '')}</p>`
+        + `<small>AYNI GÖRÜŞME · DÜNYA DEĞİŞMEDİ</small></article></div>`).join('');
+}
+
+function storyTalkConversationFollowUpComposerHtml(session) {
+    if (session.status !== 'SOCIAL_RESPONSE_READY') return '';
+    const esc = storyTalkConversationEscape;
+    return `<section class="conversation-follow-up-composer">`
+        + `<label for="conversation-follow-up-input">BU KONUŞMAYA DEVAM ET</label>`
+        + `<textarea id="conversation-follow-up-input" data-conversation-follow-up maxlength="1200" rows="4" `
+        + `placeholder="Cevabını veya takip sorunu doğal biçimde yaz..."></textarea>`
+        + `<div class="conversation-submit-row"><small>AYNI GÖRÜŞME KORUNUR · CTRL + ENTER</small>`
+        + `<button class="story-btn" data-conversation-follow-up-send="${esc(session.id)}">DEVAM ET</button></div></section>`;
+}
+
 function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
     if (typeof storyConversationSessionLatest !== 'function') return '';
     const esc = storyTalkConversationEscape;
@@ -1417,6 +1437,7 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
             : `<div class="conversation-safety-note">DÜNYA DEĞİŞMEDİ · ${session.domainChecks.length} gerçek motor denetimi bekliyor</div>`);
     if (session.domainReview) html += storyTalkConversationDomainReviewHtml(session.domainReview);
     html += storyTalkConversationResponseOptionsHtml(session);
+    html += storyTalkConversationFollowUpsHtml(session);
     if (session) {
         const question = session.questions.find(row => row.status === 'OPEN');
         if (question) {
@@ -1442,6 +1463,7 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
                 + `<button class="story-btn" data-conversation-domain-review="${esc(session.id)}">MEKANİK ÖN İNCELEMEYİ BAŞLAT</button></div>`;
         }
     }
+    html += storyTalkConversationFollowUpComposerHtml(session);
     return html + `</article></section>`;
 }
 
@@ -1607,6 +1629,21 @@ function storyConversationWorkspaceHandleClick(event) {
         if (typeof storySave === 'function') storySave();
         storyConversationWorkspaceRender();
         storyTalkUpdate();
+        return;
+    }
+    const followUpSend = event.target.closest('[data-conversation-follow-up-send]');
+    if (followUpSend && typeof storyConversationSessionFollowUp === 'function') {
+        const input = modal.querySelector('[data-conversation-follow-up]');
+        const result = storyConversationSessionFollowUp(
+            followUpSend.dataset.conversationFollowUpSend,
+            input && input.value
+        );
+        storyFlash(result && result.ok ? 'Sözün aynı görüşmeye eklendi.'
+            : `Takip sözü eklenemedi: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        const main = document.getElementById('conversation-workspace-main');
+        if (main) main.scrollTop = main.scrollHeight;
         return;
     }
     const conversationOption = event.target.closest('[data-conversation-option]');
@@ -1908,7 +1945,9 @@ function storyTalkBind() {
             return;
         }
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-            const button = workspace.querySelector('[data-conversation-send], [data-conversation-reply-send]');
+            const button = workspace.querySelector('[data-conversation-follow-up]:focus')
+                ? workspace.querySelector('[data-conversation-follow-up-send]')
+                : workspace.querySelector('[data-conversation-send], [data-conversation-reply-send]');
             if (button) {
                 event.preventDefault();
                 button.click();
