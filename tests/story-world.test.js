@@ -55,6 +55,8 @@ const {
     probeConversationRuntime385,
     probeDecisionTraceV2,
     probeCharacterBehaviorState,
+    probeRelationshipInterpretation,
+    probeCharacterRoleAdapters,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
@@ -3998,6 +4000,32 @@ function run() {
         'Faz 38.8: salt-okunur yorum fazladan hafıza kaydı üretmemeli.');
     assert.equal(relationshipInterpretationProbe.disabled.code, 'FEATURE_DISABLED',
         'Faz 38.8: özellik bayrağı kapalıyken yorum güvenli biçimde kapanmalı.');
+
+    const characterRoleAdaptersProbe = storyTestResult(
+        'characterRoleAdaptersProbe', probeCharacterRoleAdapters
+    );
+    assert.equal(characterRoleAdaptersProbe.deterministic, true,
+        'Faz 38.9: aynı kanonik kadro aynı rol adaptörü görünümünü üretmeli.');
+    assert.equal(characterRoleAdaptersProbe.companyLedgerGrounded, true,
+        'Faz 38.9: şirket yöneticisi yalnız gerçek şirket defterindeki kuruluşuna bağlanmalı.');
+    assert.equal(characterRoleAdaptersProbe.officeBindingsGrounded, true,
+        'Faz 38.9: hükümet ve askerî yetki yalnız gerçek makam sahibinden türemeli.');
+    assert.equal(characterRoleAdaptersProbe.unboundTitlesDenied, true,
+        'Faz 38.9: unvan taşıyıp kanonik makamı olmayan karakter mekanik yetki kazanmamalı.');
+    assert.equal(characterRoleAdaptersProbe.agentsContractOnly, true,
+        'Faz 38.9: servis kimliği olan ajan, yürütücü defteri gelene kadar sözleşme düzeyinde kalmalı.');
+    assert.equal(characterRoleAdaptersProbe.mediaGapExplicit, true,
+        'Faz 38.9: medya karakteri ve kurum yürütücüsü boşluğu açıkça UNAVAILABLE görünmeli.');
+    assert.equal(characterRoleAdaptersProbe.negotiationRemainsPersonal, true,
+        'Faz 38.9: genel müzakere şirket veya devlet işlemi varmış gibi davranmamalı.');
+    assert.equal(characterRoleAdaptersProbe.goalBoundaryPreserved, true,
+        'Faz 38.9: kişinin rol ve özel hedefleri kurumun kanonik hedefi diye kopyalanmamalı.');
+    assert.equal(characterRoleAdaptersProbe.authorityRoutesGrounded, true,
+        'Faz 38.9: teklif, onay ve uygulama yolları yalnız kanonik makam yetki hibesinden okunmalı.');
+    assert.equal(characterRoleAdaptersProbe.worldNeutral, true,
+        'Faz 38.9: rol adaptörü okumak dünyayı değiştirmemeli.');
+    assert.equal(characterRoleAdaptersProbe.featureDisabled, true,
+        'Faz 38.9: özellik bayrağı kapalıyken adaptör güvenli biçimde kapanmalı.');
 
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding

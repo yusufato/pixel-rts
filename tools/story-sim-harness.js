@@ -67,6 +67,7 @@ const STORY_SOURCES = [
     'js/StoryDecisionTrace.js',
     'js/StoryCharacterBehavior.js',
     'js/StoryRelationshipInterpretation.js',
+    'js/StoryCharacterRoleAdapters.js',
     'js/StoryCharacterActions.js',
     'js/StoryContacts.js',
     'js/Factions.js',
@@ -567,6 +568,8 @@ function createRuntime(seed) {
             relationshipInterpretationOptionAdjustment: (actorId, targetActorId, actionType) => (
                 storyRelationshipInterpretationOptionAdjustment(actorId, targetActorId, actionType)
             ),
+            characterRoleAdapterView: actorId => storyCharacterRoleAdapterView(actorId),
+            characterRoleAdapterCatalog: () => storyCharacterRoleAdapterCatalog(),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14125,6 +14128,122 @@ function probeRelationshipInterpretation(seed = 2032) {
     return result;
 }
 
+function probeCharacterRoleAdapters(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const identities = Object.values(story.characterIdentities.identities || {});
+        const worldBefore = hashSnapshot(stateSnapshot(story));
+        const views = identities.map(actor => ({
+            actor,
+            view: runtime.api.characterRoleAdapterView(actor.id)
+        }));
+        const repeated = identities.map(actor => runtime.api.characterRoleAdapterView(actor.id));
+        const companyLedger = runtime.api.companyLedger();
+        const institutionLedger = runtime.api.institutionLedger();
+        const institutions = Object.values(institutionLedger && institutionLedger.countries || {})
+            .flatMap(country => Object.values(country.institutions || {}));
+        const companies = views.filter(row => row.view.adapter.family === 'COMPANY');
+        const officeFamilies = views.filter(row =>
+            ['GOVERNMENT', 'MILITARY'].includes(row.view.adapter.family));
+        const boundOffices = officeFamilies.filter(row =>
+            row.view.adapter.bindingStatus === 'CANONICAL_OFFICE_BOUND');
+        const unboundTitles = officeFamilies.filter(row =>
+            row.view.adapter.bindingStatus === 'OFFICE_BINDING_MISSING');
+        const agents = views.filter(row => row.view.adapter.family === 'INTELLIGENCE');
+        const companyActor = companies[0] && companies[0].actor;
+        const negotiationTarget = companyActor && identities.find(row => row.id !== companyActor.id);
+        const negotiation = companyActor && negotiationTarget
+            ? runtime.api.characterActionCandidate({
+                actionType: 'NEGOTIATE', actorId: companyActor.id,
+                targetActorId: negotiationTarget.id
+            }) : null;
+        const catalog = runtime.api.characterRoleAdapterCatalog();
+        const worldAfter = hashSnapshot(stateSnapshot(story));
+        result = {
+            counts: {
+                identities: identities.length, companies: companies.length,
+                officeBound: boundOffices.length, officeUnbound: unboundTitles.length,
+                agents: agents.length
+            },
+            deterministic: JSON.stringify(views.map(row => row.view)) === JSON.stringify(repeated),
+            companyLedgerGrounded: companies.length > 0 && companies.every(row => {
+                const adapter = row.view.adapter;
+                return adapter.bindingStatus === 'CANONICAL_ORGANIZATION_BOUND'
+                    && adapter.executorStatus === 'LIMITED_COMPANY_EXECUTORS'
+                    && !!(companyLedger && companyLedger.companies
+                        && companyLedger.companies[adapter.organizationId]);
+            }),
+            officeBindingsGrounded: boundOffices.length > 0 && boundOffices.every(row =>
+                row.view.adapter.institutionalBindings.length > 0
+                && row.view.adapter.institutionalBindings.every(binding => institutions.some(institution =>
+                    institution.id === binding.institutionId
+                    && institution.officeHolder
+                    && institution.officeHolder.actorId === row.actor.id))),
+            unboundTitlesDenied: unboundTitles.length > 0 && unboundTitles.every(row =>
+                row.view.adapter.executorStatus === 'UNAVAILABLE'
+                && row.view.adapter.capabilities.length === 0
+                && row.view.adapter.titleGrantsAuthority === false),
+            agentsContractOnly: agents.length > 0 && agents.every(row =>
+                row.view.adapter.bindingStatus === 'IDENTITY_SERVICE_BOUND'
+                && row.view.adapter.executorStatus === 'CONTRACT_ONLY'
+                && row.view.adapter.capabilities.includes('COVERT_ACTION_CONTRACT_ONLY')),
+            mediaGapExplicit: catalog.families.MEDIA.identitySource === null
+                && catalog.families.MEDIA.bindingSource === null
+                && catalog.families.MEDIA.executorStatus === 'UNAVAILABLE'
+                && catalog.families.MEDIA.institutionAvailable === false,
+            negotiationRemainsPersonal: !!negotiation
+                && negotiation.targetModel === 'CHARACTER'
+                && negotiation.domainValidation.view === null
+                && Object.keys(negotiation.domainContext || {}).length === 0
+                && companies.every(row => row.view.adapter.generalNegotiationMechanical === false),
+            goalBoundaryPreserved: views.every(row => {
+                const boundary = row.view.adapter.goalBoundary;
+                const roleIds = (row.actor.goals || []).filter(goal => goal.kind === 'ROLE')
+                    .map(goal => goal.id);
+                const personalIds = (row.actor.goals || []).filter(goal => goal.kind === 'PERSONAL')
+                    .map(goal => goal.id);
+                return JSON.stringify(boundary.actorRoleGoalIds) === JSON.stringify(roleIds)
+                    && JSON.stringify(boundary.actorPersonalGoalIds) === JSON.stringify(personalIds)
+                    && boundary.organizationGoalIds.length === 0
+                    && boundary.institutionGoalIds.length === 0
+                    && boundary.organizationGoalLedgerAvailable === false
+                    && boundary.institutionGoalLedgerAvailable === false
+                    && boundary.actorRoleGoalIsOrganizationGoal === false
+                    && boundary.actorPersonalGoalIsInstitutionGoal === false;
+            }),
+            authorityRoutesGrounded: boundOffices.every(row =>
+                row.view.adapter.authorityRoutes.length > 0
+                && row.view.adapter.authorityRoutes.every(route => institutions.some(institution =>
+                    institution.id === route.institutionId
+                    && (institution.authorityGrants || []).some(grant =>
+                        grant.actionType === route.actionType
+                        && (grant.canPropose === true) === route.canPropose
+                        && (grant.canApprove === true) === route.canApprove
+                        && (grant.canExecute === true) === route.canExecute
+                        && (grant.legalBasis || null) === route.legalBasis)))),
+            worldNeutral: worldBefore === worldAfter
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const disabled = createRuntime((seed + 1) >>> 0);
+    try {
+        disabled.api.newCampaign({ seed: seed + 1, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.roleAdapters': false } });
+        const actor = Object.values(disabled.api.state().characterIdentities.identities || {})[0];
+        const view = disabled.api.characterRoleAdapterView(actor && actor.id);
+        result.featureDisabled = view.code === 'FEATURE_DISABLED' && view.worldMutation === false;
+    } finally {
+        disabled.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -16381,6 +16500,7 @@ module.exports = {
     probeDecisionTraceV2,
     probeCharacterBehaviorState,
     probeRelationshipInterpretation,
+    probeCharacterRoleAdapters,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

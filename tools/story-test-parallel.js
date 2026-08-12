@@ -156,10 +156,14 @@ async function main() {
                 finishIfDone();
             }
         });
-        child.on('exit', () => {
+        child.on('exit', (code, signal) => {
             const unfinished = state.task;
             states.delete(child.pid);
-            if (unfinished && !failed) {
+            if (!state.ready && !state.recycling && !failed) {
+                failed = new Error(
+                    `Story test worker exited before ready: code=${code} signal=${signal || 'none'}`
+                );
+            } else if (unfinished && !failed) {
                 unfinished.inFlight = false;
                 failed = new Error(`Story test worker exited during task: ${unfinished.key}`);
             }
