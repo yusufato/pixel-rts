@@ -588,7 +588,13 @@ function createRuntime(seed) {
             conversationSessionBegin: (text, options) => storyConversationSessionBegin(text, options),
             conversationSessionReply: (sessionId, questionId, answer) => storyConversationSessionReply(sessionId, questionId, answer),
             conversationSessionFollowUp: (sessionId, text) => storyConversationSessionFollowUp(sessionId, text),
-            conversationLLMParseReply: (text, context) => storyConversationLLMParseReply(text, context),
+            conversationLLMParseReply: (text, context) => {
+                const raw = String(text || '').trim();
+                const wrapped = raw.startsWith('{') ? raw : JSON.stringify({ reply: raw });
+                const history = context && context.history || [];
+                const fallback = history.length ? String(history[history.length - 1].text || '') : '';
+                return storyConversationSocialLLMParse(wrapped, fallback, context && context.playerText || '');
+            },
             conversationDiscourseContext: (session, options) => storyConversationDiscourseContext(session, options),
             conversationDiscourseTokenEstimate: text => storyConversationDiscourseTokenEstimate(text),
             conversationHistoryTokenBudget: () => STORY_CONVERSATION_HISTORY_TOKEN_BUDGET,
@@ -13374,6 +13380,89 @@ function probeDialogueScenarioLab(seed = 2032) {
     };
 }
 
+function probeConversationRuntime385(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let savedRaw;
+    let snapshot;
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const beforeWorld = hashSnapshot(stateSnapshot(story));
+        const actors = runtime.api.contactDirectoryBuild().publicCharacters;
+        const listener = actors[0];
+        const outsider = actors.find(row => row.id !== listener.id);
+        const playerActorId = `character:0:${story.commander.id}`;
+        const opened = runtime.api.conversationSessionBegin('Merhaba', { listenerActorId: listener.id });
+        const followUps = [];
+        for (let index = 0; index < 23; index++) {
+            followUps.push(runtime.api.conversationSessionFollowUp(
+                opened.session.id, index % 2 ? 'Bugün nasılsın?' : 'Merhaba, konuşmaya devam edelim.'
+            ));
+        }
+        const blocked = runtime.api.conversationSessionFollowUp(opened.session.id, 'Bu tur tavanı aşmalı.');
+        const fullSession = runtime.api.conversationSessionGet(opened.session.id);
+        const history = runtime.api.conversationDiscourseContext(fullSession);
+        const historyTokens = history.reduce((sum, row) => sum
+            + runtime.api.conversationDiscourseTokenEstimate(row.text) + 6, 0);
+        const last = fullSession.followUps[fullSession.followUps.length - 1];
+        const generationHistory = runtime.api.conversationDiscourseContext(fullSession, {
+            excludeFollowUpId: last.id, excludeResponseId: last.response.id
+        });
+        runtime.api.characterMemoryAddRecent(listener.id, {
+            id: 'memory:phase385:owned', kind: 'PROMISE',
+            summary: 'Önceki tedarik görüşmesine yeniden dönülecek.',
+            importanceBps: 9000, relatedActorIds: [playerActorId], source: { eventId: 'event:phase385:owned' }
+        });
+        runtime.api.characterMemoryAddRecent(outsider.id, {
+            id: 'memory:phase385:foreign', kind: 'SECRET',
+            summary: 'PHASE385_FOREIGN_SECRET', importanceBps: 9900,
+            relatedActorIds: [playerActorId], source: { eventId: 'event:phase385:foreign' }
+        });
+        const memorySession = runtime.api.conversationSessionBegin('Merhaba', { listenerActorId: listener.id });
+        const recalled = runtime.api.conversationSessionFollowUp(
+            memorySession.session.id, 'Daha önce verdiğin sözü hatırlıyor musun, ne oldu?'
+        );
+        const memoryResponse = recalled.followUp.response;
+        snapshot = runtime.api.conversationSessionSnapshot();
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        result = {
+            allFollowUpsAccepted: followUps.every(row => row && row.ok),
+            turnLimitBlocked: blocked && blocked.ok === false && blocked.code === 'TURN_LIMIT',
+            followUpCount: fullSession.followUps.length,
+            historyRows: history.length,
+            historyTokens,
+            historyBudget: runtime.api.conversationHistoryTokenBudget(),
+            currentTurnExcluded: !generationHistory.some(row =>
+                row.text === last.playerText || row.text === last.response.text),
+            memorySource: memoryResponse.source,
+            memoryOwnVisible: memoryResponse.text.includes('Önceki tedarik görüşmesine'),
+            memoryForeignHidden: !memoryResponse.text.includes('PHASE385_FOREIGN_SECRET')
+                && !(memoryResponse.memoryRecall.records || []).some(row => row.kind === 'SECRET'),
+            memoryRawWorldRead: memoryResponse.rawWorldRead,
+            validation: runtime.api.conversationSessionValidate(snapshot),
+            worldNeutral: beforeWorld === hashSnapshot(stateSnapshot(story))
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const restoredRuntime = createRuntime(seed >>> 0);
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        result.restored = {
+            loaded: restoredRuntime.api.loadNow(),
+            exact: JSON.stringify(restoredRuntime.api.conversationSessionSnapshot()) === JSON.stringify(snapshot),
+            validation: restoredRuntime.api.conversationSessionValidate(
+                restoredRuntime.api.conversationSessionSnapshot()
+            )
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -15626,6 +15715,7 @@ module.exports = {
     probeCharacterSpeech,
     probeCharacterLongDialogue,
     probeDialogueScenarioLab,
+    probeConversationRuntime385,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

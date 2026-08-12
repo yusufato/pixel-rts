@@ -52,6 +52,7 @@ const {
     probeCharacterSpeech,
     probeCharacterLongDialogue,
     probeDialogueScenarioLab,
+    probeConversationRuntime385,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
@@ -3766,6 +3767,38 @@ function run() {
         'Faz 38.4: darbe/halefiyet laboratuvar durumlu konuşma defteri doğrulanmalı.');
     assert.equal(dialogueScenarioLabProbe.understanding.coup.worldNeutral, true,
         'Faz 38.4: halefiyet sözünü anlamak ve göstermek siyasi krizi veya makamı değiştirmemeli.');
+
+    const conversationRuntime385Probe = storyTestResult(
+        'conversationRuntime385Probe', probeConversationRuntime385
+    );
+    assert.equal(conversationRuntime385Probe.allFollowUpsAccepted, true,
+        'Temiz Faz 38.5: ilk 23 takip mesajı aynı oturumda kabul edilmeli.');
+    assert.equal(conversationRuntime385Probe.turnLimitBlocked, true,
+        'Temiz Faz 38.5: 24 takip turunu aşan mesaj güvenli biçimde reddedilmeli.');
+    assert.equal(conversationRuntime385Probe.followUpCount, 23,
+        'Temiz Faz 38.5: reddedilen tur oturum defterine eklenmemeli.');
+    assert.equal(conversationRuntime385Probe.historyTokens <= conversationRuntime385Probe.historyBudget, true,
+        'Temiz Faz 38.5: konuşma geçmişi model bağlam bütçesini aşmamalı.');
+    assert.equal(conversationRuntime385Probe.currentTurnExcluded, true,
+        'Temiz Faz 38.5: üretilmekte olan tur geçmişte sahte cevap gibi yinelenmemeli.');
+    assert.equal(conversationRuntime385Probe.memorySource, 'CHARACTER_HELD_MEMORY_RECALL',
+        'Temiz Faz 38.5: açık geçmiş sorusu yalnız karakterin tuttuğu hafızadan yanıtlanmalı.');
+    assert.equal(conversationRuntime385Probe.memoryOwnVisible, true,
+        'Temiz Faz 38.5: muhatabın oyuncuyla ilgili kaynaklı sözü geri çağrılmalı.');
+    assert.equal(conversationRuntime385Probe.memoryForeignHidden, true,
+        'Temiz Faz 38.5: başka aktörün gizli hafızası konuşmaya sızmamalı.');
+    assert.equal(conversationRuntime385Probe.memoryRawWorldRead, false,
+        'Temiz Faz 38.5: hafıza cevabı ham dünya defterini okumamalı.');
+    assert.equal(conversationRuntime385Probe.validation.ok, true,
+        'Temiz Faz 38.5: çok turlu ve hafızalı konuşma defteri doğrulanmalı.');
+    assert.equal(conversationRuntime385Probe.worldNeutral, true,
+        'Temiz Faz 38.5: konuşma ve hafıza çağrımı dünyayı değiştirmemeli.');
+    assert.equal(conversationRuntime385Probe.restored.loaded, true,
+        'Temiz Faz 38.5: konuşma kaydı geri yüklenebilmeli.');
+    assert.equal(conversationRuntime385Probe.restored.exact, true,
+        'Temiz Faz 38.5: çok turlu/hafızalı oturum save-load sırasında birebir kalmalı.');
+    assert.equal(conversationRuntime385Probe.restored.validation.ok, true,
+        'Temiz Faz 38.5: geri yüklenen defter doğrulanmalı.');
 
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding

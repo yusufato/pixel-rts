@@ -468,6 +468,7 @@ const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 3;
 const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-3';
 const STORY_CONVERSATION_SESSION_LIMIT = 32;
 const STORY_CONVERSATION_TURN_LIMIT = 24;
+const STORY_CONVERSATION_HISTORY_TOKEN_BUDGET = 6000;
 const STORY_CONVERSATION_DOMAIN_REVIEW_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_DOMAIN_REVIEW_ADAPTER_VERSION = 'story-conversation-domain-review-1';
 const STORY_CONVERSATION_REVIEW_STATUSES = Object.freeze([
@@ -1244,6 +1245,35 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
         + `GÜVENLİ ANLAM cümlesini kelimesi kelimesine kopyalama. `
         + `Yeni kişi, olay, sayı, stok, anlaşma, emir, yetki veya dünya gerçeği ekleme. `
         + `Mekanik sonuç vaat etme. Yalnız {"reply":"cevap"} JSON nesnesi döndür; en fazla dört kısa cümle.`;
+}
+
+function storyConversationDiscourseTokenEstimate(text) {
+    return Math.max(1, Math.ceil(String(text || '').length / 3.2));
+}
+
+function storyConversationDiscourseContext(session, options) {
+    options = options && typeof options === 'object' ? options : {};
+    const rows = [];
+    if (!options.excludeOpening && session.initialText) rows.push({ speaker: 'PLAYER', text: session.initialText });
+    const opening = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+    if (!options.excludeOpening && opening && opening.id !== options.excludeResponseId) {
+        rows.push({ speaker: 'CHARACTER', text: opening.text });
+    }
+    for (const followUp of (session.followUps || [])) {
+        if (followUp.id === options.excludeFollowUpId) continue;
+        rows.push({ speaker: 'PLAYER', text: followUp.playerText });
+        if (followUp.response && followUp.response.id !== options.excludeResponseId) {
+            rows.push({ speaker: 'CHARACTER', text: followUp.response.text });
+        }
+    }
+    const selected = [];
+    let tokens = 0;
+    for (let index = rows.length - 1; index >= 0; index--) {
+        const cost = storyConversationDiscourseTokenEstimate(rows[index].text) + 6;
+        if (selected.length && tokens + cost > STORY_CONVERSATION_HISTORY_TOKEN_BUDGET) break;
+        selected.unshift(rows[index]); tokens += cost;
+    }
+    return selected;
 }
 
 function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerText) {
