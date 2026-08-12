@@ -11,8 +11,8 @@
 //  fiziksel varlığa; istifa ise kanonik makam devri ve halefliğe bağlanır.
 // ============================================================================
 
-const STORY_CHARACTER_ACTION_SCHEMA_VERSION = 8;
-const STORY_CHARACTER_ACTION_ADAPTER_VERSION = 'story-character-action-ledger-8';
+const STORY_CHARACTER_ACTION_SCHEMA_VERSION = 9;
+const STORY_CHARACTER_ACTION_ADAPTER_VERSION = 'story-character-action-ledger-9';
 const STORY_CHARACTER_ACTION_RECEIPT_CAP = 2048;
 const STORY_CHARACTER_ARBITER_DECISION_CAP = 512;
 const STORY_CHARACTER_ACTION_AI_POLICY_HASH = 'fnv1a32:phase38-speech-realizer-4';
@@ -182,6 +182,8 @@ function storyCharacterActionLedgerCreate(options) {
         cooldowns: {},
         receipts: {},
         arbiterDecisions: {},
+        decisionContexts: {},
+        decisionTraces: {},
         officeTransitions: {},
         ai: {
             policyHash: STORY_CHARACTER_ACTION_AI_POLICY_HASH,
@@ -218,11 +220,15 @@ function storyCharacterActionLedgerCreate(options) {
 function storyCharacterActionMigrateLedger(saved) {
     const ledger = storyCharacterActionClone(saved);
     if (!ledger || typeof ledger !== 'object'
-        || ![1, 2, 3, 4, 5, 6, 7, STORY_CHARACTER_ACTION_SCHEMA_VERSION].includes(ledger.schemaVersion)) return null;
+        || ![1, 2, 3, 4, 5, 6, 7, 8, STORY_CHARACTER_ACTION_SCHEMA_VERSION].includes(ledger.schemaVersion)) return null;
     if (!ledger.cooldowns || typeof ledger.cooldowns !== 'object') ledger.cooldowns = {};
     if (!ledger.receipts || typeof ledger.receipts !== 'object') ledger.receipts = {};
     if (!ledger.arbiterDecisions || typeof ledger.arbiterDecisions !== 'object'
         || Array.isArray(ledger.arbiterDecisions)) ledger.arbiterDecisions = {};
+    if (!ledger.decisionContexts || typeof ledger.decisionContexts !== 'object'
+        || Array.isArray(ledger.decisionContexts)) ledger.decisionContexts = {};
+    if (!ledger.decisionTraces || typeof ledger.decisionTraces !== 'object'
+        || Array.isArray(ledger.decisionTraces)) ledger.decisionTraces = {};
     ledger.nextArbiterDecisionSequence = Math.max(0,
         Math.floor(Number(ledger.nextArbiterDecisionSequence) || 0));
     if (!ledger.officeTransitions || typeof ledger.officeTransitions !== 'object'
@@ -1361,7 +1367,14 @@ function storyCharacterActionArbiterDecisionPrune(ledger) {
         Number(a.sequence) - Number(b.sequence) || a.id.localeCompare(b.id, 'en'));
     const excess = Math.max(0, rows.length - STORY_CHARACTER_ARBITER_DECISION_CAP);
     for (let index = 0; index < excess; index++) {
-        delete ledger.arbiterDecisions[rows[index].id];
+        const decision = rows[index];
+        const traceId = decision.decisionTraceId;
+        const trace = traceId && ledger.decisionTraces[traceId];
+        if (trace) {
+            delete ledger.decisionContexts[trace.contextId];
+            delete ledger.decisionTraces[traceId];
+        }
+        delete ledger.arbiterDecisions[decision.id];
         ledger.ai.arbiterDecisionPrunedCount++;
     }
 }
@@ -1399,6 +1412,26 @@ function storyCharacterActionArbiterDecisionRecord(pending, input) {
         ? storyCharacterSpeechRealizeDecision(row, {
             history: Object.values(ledger.arbiterDecisions || {})
         }) : null;
+    const decisionContext = pending.decisionContext
+        || (typeof storyDecisionContextV2Build === 'function'
+            ? storyDecisionContextV2Build(pending.actorId,
+                typeof storyCharacterActionAIRankActor === 'function'
+                    ? storyCharacterActionAIRankActor(pending.actorId) : [])
+            : null);
+    const decisionTrace = decisionContext && typeof storyDecisionTraceV2Build === 'function'
+        ? storyDecisionTraceV2Build(id, decisionContext, {
+            verdict: row.verdict,
+            candidateId: row.candidateId,
+            actionType: row.actionType,
+            reasonCode: row.reasonCode || row.fallbackReason,
+            source: row.source
+        }) : null;
+    if (decisionTrace) {
+        ledger.decisionContexts[decisionContext.id] = storyCharacterActionClone(decisionContext);
+        ledger.decisionTraces[decisionTrace.id] = storyCharacterActionClone(decisionTrace);
+        row.decisionContextId = decisionContext.id;
+        row.decisionTraceId = decisionTrace.id;
+    }
     ledger.arbiterDecisions[id] = row;
     storyCharacterActionArbiterDecisionPrune(ledger);
     return storyCharacterActionClone(row);
@@ -1504,6 +1537,8 @@ function storyCharacterActionArbiterQueue(selection) {
         createdAtTick: ledger.ai.tickSequence,
         consumeAtTick: ledger.ai.tickSequence + 1,
         actorWindow: (selection.actorWindow || []).slice(),
+        decisionContext: typeof storyDecisionContextV2Build === 'function'
+            ? storyDecisionContextV2Build(actorId, ranked) : null,
         fallback: fallback ? {
             candidateId: fallback.candidate.id,
             actionType: fallback.candidate.actionType,
@@ -1694,6 +1729,10 @@ function storyCharacterActionValidate(candidate) {
     if (!candidate.receipts || typeof candidate.receipts !== 'object' || Array.isArray(candidate.receipts)) add('RECEIPTS_OBJECT', '$.receipts');
     if (!candidate.arbiterDecisions || typeof candidate.arbiterDecisions !== 'object'
         || Array.isArray(candidate.arbiterDecisions)) add('ARBITER_DECISIONS_OBJECT', '$.arbiterDecisions');
+    if (!candidate.decisionContexts || typeof candidate.decisionContexts !== 'object'
+        || Array.isArray(candidate.decisionContexts)) add('DECISION_CONTEXTS_OBJECT', '$.decisionContexts');
+    if (!candidate.decisionTraces || typeof candidate.decisionTraces !== 'object'
+        || Array.isArray(candidate.decisionTraces)) add('DECISION_TRACES_OBJECT', '$.decisionTraces');
     if (!candidate.officeTransitions || typeof candidate.officeTransitions !== 'object'
         || Array.isArray(candidate.officeTransitions)) add('OFFICE_TRANSITIONS_OBJECT', '$.officeTransitions');
     if (!candidate.ai || typeof candidate.ai !== 'object' || Array.isArray(candidate.ai)) add('AI_STATE_OBJECT', '$.ai');
@@ -1765,6 +1804,19 @@ function storyCharacterActionValidate(candidate) {
     }
     if (Object.keys(candidate.arbiterDecisions || {}).length > STORY_CHARACTER_ARBITER_DECISION_CAP) {
         add('ARBITER_DECISION_CAP', '$.arbiterDecisions');
+    }
+    const traceValidation = typeof storyDecisionTraceV2Validate === 'function'
+        ? storyDecisionTraceV2Validate(candidate.decisionContexts, candidate.decisionTraces)
+        : { ok: true, issues: [] };
+    for (const issue of traceValidation.issues || []) add(issue.code, issue.path);
+    for (const [id, decision] of Object.entries(candidate.arbiterDecisions || {})) {
+        const importance = decision && decision.actionType
+            && typeof storyDecisionTraceImportance === 'function'
+            ? storyDecisionTraceImportance(decision.actionType) : 'ROUTINE';
+        if (decision && decision.status !== 'STALE' && ['MAJOR', 'WORLD'].includes(importance)
+            && (!decision.decisionTraceId || !candidate.decisionTraces[decision.decisionTraceId])) {
+            add('MAJOR_DECISION_TRACE_REQUIRED', `$.arbiterDecisions.${id}.decisionTraceId`);
+        }
     }
     for (const [key, value] of Object.entries(candidate.cooldowns || {})) {
         if (!Number.isFinite(Number(value)) || Number(value) < 0) add('COOLDOWN_TIME', `$.cooldowns.${key}`);

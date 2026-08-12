@@ -64,6 +64,7 @@ const STORY_SOURCES = [
     'js/StoryCharacters.js',
     'js/StoryRelationships.js',
     'js/StoryMemory.js',
+    'js/StoryDecisionTrace.js',
     'js/StoryCharacterActions.js',
     'js/StoryContacts.js',
     'js/Factions.js',
@@ -561,6 +562,10 @@ function createRuntime(seed) {
             characterActionSummary: () => storyCharacterActionSummary(),
             characterActionArbiterRecentDecisions: (actorId, limit) => storyCharacterActionArbiterRecentDecisions(actorId, limit),
             characterActionArbiterDecisionRecord: (pending, input) => storyCharacterActionArbiterDecisionRecord(pending, input),
+            decisionContextBuild: (actorId, ranked) => storyDecisionContextV2Build(actorId, ranked),
+            decisionTraceBuild: (decisionId, context, input) => storyDecisionTraceV2Build(decisionId, context, input),
+            decisionTracePlayerView: (traceId, viewerActorId) => storyDecisionTraceV2PlayerView(traceId, viewerActorId),
+            decisionTraceValidate: (contexts, traces) => storyDecisionTraceV2Validate(contexts, traces),
             characterArbiterBuildRequest: (actorId, options) => storyCharacterArbiterBuildRequest(actorId, options),
             characterArbiterSystem: () => STORY_CHARACTER_ARBITER_SYSTEM,
             characterArbiterPrompt: request => storyCharacterArbiterPrompt(request),
@@ -13463,6 +13468,94 @@ function probeConversationRuntime385(seed = 2032) {
     return result;
 }
 
+function probeDecisionTraceV2(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let savedRaw;
+    let actionSnapshot;
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const identityLedger = runtime.api.characterIdentityLedger();
+        const playerActorId = `character:0:${story.commander.id}`;
+        const actor = Object.values(identityLedger.identities || {})
+            .filter(row => row.id !== playerActorId)
+            .find(row => runtime.api.characterActionAIRankActor(row.id).length > 0);
+        const ranked = actor ? runtime.api.characterActionAIRankActor(actor.id) : [];
+        const contextA = runtime.api.decisionContextBuild(actor && actor.id, ranked);
+        const hiddenFactId = 'world-fact:phase386:hidden';
+        identityLedger.worldFacts[hiddenFactId] = {
+            id: hiddenFactId, factType: 'TEST_HIDDEN', visibility: 'SECRET', version: 1
+        };
+        const contextB = runtime.api.decisionContextBuild(actor && actor.id, ranked);
+        const selected = contextA && contextA.candidates.find(row => row.allowed);
+        const trace = runtime.api.decisionTraceBuild('decision:phase386:fixture', contextA, {
+            verdict: selected ? 'PROPOSE' : 'PASS',
+            candidateId: selected && selected.candidateId,
+            source: 'DETERMINISTIC_FALLBACK',
+            reasonCode: selected ? 'GOAL_ALIGNMENT' : 'INSUFFICIENT_VALUE'
+        });
+        const invalidTrace = runtime.api.decisionTraceBuild('decision:phase386:invalid', contextA, {
+            verdict: 'PROPOSE', candidateId: 'candidate:not-offered', source: 'DETERMINISTIC_FALLBACK'
+        });
+        const pending = {
+            requestId: 'phase386-request', contextHash: contextA.contextHash,
+            actorId: actor.id, createdAt: Number(story.clock) || 0,
+            createdAtTick: 1, decisionContext: contextA
+        };
+        const recorded = runtime.api.characterActionArbiterDecisionRecord(pending, {
+            source: 'DETERMINISTIC_FALLBACK', status: 'FALLBACK',
+            verdict: selected ? 'PROPOSE' : 'PASS',
+            candidateId: selected && selected.candidateId,
+            actionType: selected && selected.actionType,
+            targetActorId: selected && selected.targetActorId,
+            fallbackReason: 'PHASE386_PROBE'
+        });
+        actionSnapshot = runtime.api.characterActionLedger();
+        const recordedTrace = actionSnapshot.decisionTraces[recorded.decisionTraceId];
+        const playerView = runtime.api.decisionTracePlayerView(recorded.decisionTraceId, playerActorId);
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        result = {
+            contextCreated: !!contextA,
+            hiddenWorldFactIgnored: contextA.contextHash === contextB.contextHash
+                && !JSON.stringify(contextB).includes(hiddenFactId),
+            rawWorldFactRead: contextA.rawWorldFactRead,
+            offeredCandidateSelected: !!trace && trace.selectedCandidateId === selected.candidateId,
+            nonCandidateRejected: invalidTrace === null,
+            majorTraceAttached: !['MAJOR', 'WORLD'].includes(recordedTrace.importance)
+                || (!!recorded.decisionTraceId && !!recorded.decisionContextId),
+            sourceBeliefRefsOnly: contextA.actorBeliefs.every(row => row.beliefId && row.worldFactId
+                && !Object.prototype.hasOwnProperty.call(row, 'factValue')
+                && !Object.prototype.hasOwnProperty.call(row, 'questionText')
+                && !Object.prototype.hasOwnProperty.call(row, 'optionText')),
+            playerProjection: playerView,
+            playerPrivateReasonsHidden: playerView.supportingReasons.length === 0
+                && playerView.opposingReasons.length === 0
+                && playerView.authority === null && playerView.cost === null
+                && playerView.privateReasonCount > 0,
+            validation: runtime.api.validateCharacterActionLedger(actionSnapshot),
+            traceValidation: runtime.api.decisionTraceValidate(
+                actionSnapshot.decisionContexts, actionSnapshot.decisionTraces
+            )
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const restored = createRuntime(seed >>> 0);
+    try {
+        restored.api.putSavedRaw(savedRaw);
+        result.restored = {
+            loaded: restored.api.loadNow(),
+            exact: JSON.stringify(restored.api.characterActionLedger()) === JSON.stringify(actionSnapshot),
+            validation: restored.api.validateCharacterActionLedger(restored.api.characterActionLedger())
+        };
+    } finally {
+        restored.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -15716,6 +15809,7 @@ module.exports = {
     probeCharacterLongDialogue,
     probeDialogueScenarioLab,
     probeConversationRuntime385,
+    probeDecisionTraceV2,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

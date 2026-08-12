@@ -4309,6 +4309,8 @@ Zorunlu mimari sınırlar:
 
 ### FAZ 38.6 — Algılanan Dünya ve Karar İzi V2
 
+**Uygulama notu — 12 Ağustos 2026:** İlk dikey dilim kodlandı. `StoryDecisionTrace.js`, mevcut Faz 34–38 defterlerini ikinci bir dünya/ilişki motoruna çevirmeden `DecisionContextV2` ve `DecisionTraceV2` üretir. Bağlam WorldFact içeriğini doğrudan okuyamaz; yalnız karar sahibinin kaynaklı `ActorBelief` kimlikleri, gerçek adaylar, yetki/bedel filtreleri, aktif hedefler ve yönlü ilişki anlık görüntüsü kullanılır. Sunulmayan aday izi reddedilir; `NEGOTIATE/ALLY/BETRAY` MAJOR, `ORDER/SABOTAGE/RESIGN` WORLD sayılır ve hakem kaydında iz zorunludur. Eylem defteri şema-9 ile bağlam+izleri saklar ve budamayla birlikte temizler. Oyuncu projeksiyonu başka aktörün özel skor/yetki/bedel nedenlerini açmaz. Tetikleyici olay, rol/kanun/kurum filtresinin ayrı kanıt satırları, risk ve psikoloji katkısı ile UI açıklama yüzeyi sonraki 38.6 dilimleridir.
+
 **Amaç:** Karakter kararını gerçek dünya yerine karakterin kaynaklı inancı üzerinden, destekleyen ve karşı çıkan nedenlerle açıklamak.
 **Çıktı:** `DecisionContextV2`, `DecisionTraceV2`; tetik olayları, ActorBelief anlık görüntüsü, aday/filtre sonuçları, rol-hukuk-organizasyon sınırları, hedef deltaları, maliyet/risk, ilişki ve psikoloji katkıları.
 **Kabul kapısı:** `MAJOR/WORLD` kararında iz zorunlu; aday olmayan eylem seçilemiyor; gizli WorldFact puana sızmıyor; aynı bağlam/tohum save-load sonrası aynı seçimi ve izi üretiyor. UI yalnız oyuncunun bildiği nedenleri gösteriyor.

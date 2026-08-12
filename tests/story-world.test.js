@@ -53,6 +53,7 @@ const {
     probeCharacterLongDialogue,
     probeDialogueScenarioLab,
     probeConversationRuntime385,
+    probeDecisionTraceV2,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
@@ -3799,6 +3800,34 @@ function run() {
         'Temiz Faz 38.5: çok turlu/hafızalı oturum save-load sırasında birebir kalmalı.');
     assert.equal(conversationRuntime385Probe.restored.validation.ok, true,
         'Temiz Faz 38.5: geri yüklenen defter doğrulanmalı.');
+
+    const decisionTraceV2Probe = storyTestResult('decisionTraceV2Probe', probeDecisionTraceV2);
+    assert.equal(decisionTraceV2Probe.contextCreated, true,
+        'Faz 38.6: gerçek karakter adaylarından DecisionContextV2 kurulmalı.');
+    assert.equal(decisionTraceV2Probe.hiddenWorldFactIgnored, true,
+        'Faz 38.6: ActorBelief olmayan gizli WorldFact karar bağlamını değiştirmemeli.');
+    assert.equal(decisionTraceV2Probe.rawWorldFactRead, false,
+        'Faz 38.6: karar bağlamı ham WorldFact okumadığını kanıtlamalı.');
+    assert.equal(decisionTraceV2Probe.offeredCandidateSelected, true,
+        'Faz 38.6: seçilen eylem gerçek aday kümesinden gelmeli.');
+    assert.equal(decisionTraceV2Probe.nonCandidateRejected, true,
+        'Faz 38.6: sunulmayan aday için karar izi üretilememeli.');
+    assert.equal(decisionTraceV2Probe.majorTraceAttached, true,
+        'Faz 38.6: MAJOR/WORLD kararına bağlam ve karar izi zorunlu bağlanmalı.');
+    assert.equal(decisionTraceV2Probe.sourceBeliefRefsOnly, true,
+        'Faz 38.6: karar bağlamı olgu metni yerine yalnız kaynaklı ActorBelief referansı taşımalı.');
+    assert.equal(decisionTraceV2Probe.playerPrivateReasonsHidden, true,
+        'Faz 38.6: oyuncu, başka aktörün özel puan/yetki/bedel gerekçelerini görememeli.');
+    assert.equal(decisionTraceV2Probe.validation.ok, true,
+        'Faz 38.6: eylem defteri DecisionTraceV2 ile doğrulanmalı.');
+    assert.equal(decisionTraceV2Probe.traceValidation.ok, true,
+        'Faz 38.6: DecisionContextV2 ve DecisionTraceV2 çapraz doğrulamayı geçmeli.');
+    assert.equal(decisionTraceV2Probe.restored.loaded, true,
+        'Faz 38.6: karar izi kaydı geri yüklenebilmeli.');
+    assert.equal(decisionTraceV2Probe.restored.exact, true,
+        'Faz 38.6: aynı bağlam ve karar izi save-load sırasında birebir kalmalı.');
+    assert.equal(decisionTraceV2Probe.restored.validation.ok, true,
+        'Faz 38.6: geri yüklenen karar izi defteri geçerli kalmalı.');
 
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding

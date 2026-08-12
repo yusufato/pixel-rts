@@ -51,6 +51,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.threeLayerMemory': true,
     'characters.actionCandidates': true,
     'characters.llmArbiter': true,
+    'characters.decisionTraceV2': true,
     'characters.conversationUnderstanding': true,
     'characters.negotiationCases': true,
     'characters.mechanicalContracts': true,
@@ -180,6 +181,11 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.identityGoals',
         'characters.multiDimensionalRelations',
         'characters.threeLayerMemory',
+        'characters.actionCandidates'
+    ]),
+    'characters.decisionTraceV2': Object.freeze([
+        'characters.identityGoals',
+        'characters.multiDimensionalRelations',
         'characters.actionCandidates'
     ]),
     'characters.conversationUnderstanding': Object.freeze([
