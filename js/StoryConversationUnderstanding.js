@@ -1191,6 +1191,121 @@ function storyConversationSocialResponseText(session, speechAct, salt) {
     return { text: selected, voice: style };
 }
 
+function storyConversationSocialLLMSchema() {
+    return {
+        type: 'object', additionalProperties: false,
+        properties: { reply: { type: 'string', minLength: 2, maxLength: 420 } },
+        required: ['reply']
+    };
+}
+
+function storyConversationSocialLLMParse(raw, fallbackText, playerText) {
+    let parsed;
+    try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { return null; }
+    const text = String(parsed && parsed.reply || '').trim().replace(/\s+/g, ' ');
+    if (!text || text.length > 420 || text === fallbackText) return null;
+    if (/\d/.test(text) || /\b(character|session|actor|worldMutation|system|assistant|user)\b/i.test(text)) return null;
+    if (typeof LLM_EN_LEAK !== 'undefined' && LLM_EN_LEAK.test(text)) return null;
+    if (typeof LLM_NONLATIN !== 'undefined' && LLM_NONLATIN.test(text)) return null;
+    if (/\b(kabul ettim|onayladım|emri verdim|söz veriyorum|anlaşma tamam|sevkiyatı başlattım)\b/i.test(text)) return null;
+    const playerFolded = storyConversationFold(playerText);
+    const replyFolded = storyConversationFold(text);
+    const negativePlayerState = storyConversationContains(playerFolded, [
+        'yoruldum', 'yorgunum', 'kotuyum', 'uzgunum', 'moralim bozuk', 'zorlanıyorum', 'zorlanıyorum'
+    ]);
+    if (negativePlayerState && storyConversationContains(replyFolded, [
+        'sevindim', 'ne guzel', 'harika', 'mukemmel'
+    ])) return null;
+    // Turkish-Llama'nın gerçek GPU koşusunda ürettiği "Sizi yorulduğuna" gibi
+    // kişi/iyelik uyuşmazlıkları biçimsel olarak JSON'dur ama oynanabilir Türkçe değildir.
+    if (/\b(sizi|seni)\s+\S{2,}(dığına|diğine|duğuna|düğüne)\b/i.test(text)) return null;
+    const sentences = text.split(/[.!?]+/).map(row => row.trim()).filter(Boolean);
+    if (!sentences.length || sentences.length > 4 || text.split(/\s+/).length > 70) return null;
+    return text;
+}
+
+function storyConversationSocialLLMPrompt(session, response, playerText) {
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(session.listenerActorId) : null;
+    const history = [];
+    if (session.initialText) history.push(`OYUNCU: ${session.initialText}`);
+    const opening = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+    if (opening && opening.id !== response.id) history.push(`KARAKTER: ${opening.text}`);
+    for (const followUp of (session.followUps || []).slice(-10)) {
+        if (followUp.response && followUp.response.id === response.id) continue;
+        history.push(`OYUNCU: ${followUp.playerText}`);
+        if (followUp.response && followUp.response.text) history.push(`KARAKTER: ${followUp.response.text}`);
+    }
+    return `KARAKTER: ${actor && actor.name || 'Muhatap'}\nROL: ${actor && actor.role || 'CHARACTER'}\n`
+        + `SES KAYDI: ${response.voiceFingerprint || 'GUARDED'}\nİLİŞKİ BANDI: ${response.relationshipBand || 'RESERVED'}\n`
+        + `KONUŞMA GEÇMİŞİ:\n${history.join('\n') || '(ilk mesaj)'}\nOYUNCUNUN SON SÖZÜ: ${playerText}\n`
+        + `GÜVENLİ ANLAM: ${response.text}\n\n`
+        + `Bu aynı kesintisiz görüşmedir. Güvenli anlamı koruyarak karakterin doğal Türkçe cevabını yaz; `
+        + `GÜVENLİ ANLAM cümlesini kelimesi kelimesine kopyalama. `
+        + `Yeni kişi, olay, sayı, stok, anlaşma, emir, yetki veya dünya gerçeği ekleme. `
+        + `Mekanik sonuç vaat etme. Yalnız {"reply":"cevap"} JSON nesnesi döndür; en fazla dört kısa cümle.`;
+}
+
+function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerText) {
+    if (typeof llmEnsure !== 'function' || typeof llmEnrich !== 'function'
+        || typeof llmBridge !== 'function' || !llmBridge()) return false;
+    const session = storyConversationSessionFind(sessionId);
+    if (!session) return false;
+    const findResponse = current => (current.listenerResponses || []).find(row => row.id === responseId);
+    const mirrorResponse = (current, source) => {
+        const followUp = (current.followUps || []).find(row => row.response && row.response.id === responseId);
+        if (followUp) followUp.response = storyConversationClone(source);
+    };
+    const response = findResponse(session);
+    if (!response) return false;
+    response.enrichmentStatus = 'MODEL_LOADING';
+    Promise.resolve(llmEnsure()).then(state => {
+        const current = storyConversationSessionFind(sessionId);
+        const currentResponse = current && findResponse(current);
+        if (!currentResponse) return null;
+        if (!state || !state.ready) {
+            currentResponse.enrichmentStatus = 'FALLBACK_KEPT';
+            mirrorResponse(current, currentResponse);
+            return null;
+        }
+        currentResponse.enrichmentStatus = 'GENERATING';
+        mirrorResponse(current, currentResponse);
+        const fallbackText = currentResponse.text;
+        return llmEnrich(
+            'Modern bir strateji oyunundaki karakter olarak Türkçe konuş. Yalnız verilen bağlamı kullan.',
+            storyConversationSocialLLMPrompt(current, currentResponse, playerText),
+            raw => storyConversationSocialLLMParse(raw, fallbackText, playerText),
+            { maxTokens: 180, temperature: 0.35, priority: 100, jsonSchema: storyConversationSocialLLMSchema() }
+        ).then(text => {
+            const live = storyConversationSessionFind(sessionId);
+            const liveResponse = live && findResponse(live);
+            if (!liveResponse) return;
+            if (text) {
+                liveResponse.text = text;
+                liveResponse.source = 'LOCAL_LLM_CHARACTER_REALIZATION';
+                liveResponse.enrichmentStatus = 'USED';
+                liveResponse.llmUsed = true;
+            } else {
+                liveResponse.enrichmentStatus = 'FALLBACK_KEPT';
+                liveResponse.llmUsed = false;
+            }
+            mirrorResponse(live, liveResponse);
+            if (typeof storySave === 'function') storySave();
+            if (typeof storyConversationWorkspacePatchResponse === 'function') {
+                storyConversationWorkspacePatchResponse(liveResponse.id, liveResponse.text, liveResponse.enrichmentStatus);
+            }
+        });
+    }).catch(() => {
+        const current = storyConversationSessionFind(sessionId);
+        const currentResponse = current && findResponse(current);
+        if (currentResponse) {
+            currentResponse.enrichmentStatus = 'FALLBACK_KEPT';
+            mirrorResponse(current, currentResponse);
+        }
+    });
+    return true;
+}
+
 function storyConversationSessionBuildSocialResponse(session, ledger) {
     if (!session || !session.analysis.ok || !session.listenerActorId
         || !STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)) return null;
@@ -1208,6 +1323,7 @@ function storyConversationSessionBuildSocialResponse(session, ledger) {
         source: 'CHARACTER_PROFILE_SOCIAL_RESPONSE',
         voiceFingerprint: realized.voice.fingerprint,
         relationshipBand: realized.voice.relationshipBand,
+        enrichmentStatus: 'NOT_QUEUED', llmUsed: false,
         worldMutation: false
     };
     session.listenerResponses.push(response);
@@ -1217,11 +1333,13 @@ function storyConversationSessionBuildSocialResponse(session, ledger) {
 
 function storyConversationSocialFollowUpText(session, analysis, raw, sequence) {
     const folded = storyConversationFold(raw);
+    // "İyiyim ama yoruldum" gibi karşıt yapılarda son/olumsuz durum daha fazla
+    // bilgi taşır; ilk olumlu kelimede durmak karakteri duyarsız gösteriyordu.
+    if (storyConversationContains(folded, ['kotu', 'zor', 'uzgun', 'yorgun', 'yoruldum'])) {
+        return 'Bunu duyduğuma üzüldüm. İstersen seni zorlayan konuyu anlat.';
+    }
     if (storyConversationContains(folded, ['ben de iyiyim', 'iyiyim', 'iyi gidiyor'])) {
         return 'Buna sevindim. Bugün konuşmak istediğin başka bir konu var mı?';
-    }
-    if (storyConversationContains(folded, ['kotu', 'zor', 'uzgun', 'yorgun'])) {
-        return 'Bunu duyduğuma üzüldüm. İstersen seni zorlayan konuyu anlat.';
     }
     const direct = storyConversationSocialResponseText(session, analysis.speechAct, sequence);
     if (direct) return direct.text;
@@ -1260,6 +1378,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         source: 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
         voiceFingerprint: storyConversationSocialVoice(session).fingerprint,
         relationshipBand: storyConversationSocialVoice(session).relationshipBand,
+        enrichmentStatus: 'NOT_QUEUED', llmUsed: false,
         worldMutation: false
     };
     const followUp = {
@@ -1278,6 +1397,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     session.updatedAt = Number(STORY.clock) || 0;
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
+    storyConversationSessionQueueSocialLLM(session.id, response.id, text);
     return {
         ok: true, code: 'FOLLOW_UP_RECORDED', followUp: storyConversationClone(followUp),
         session: storyConversationClone(session), worldMutation: false
@@ -1314,6 +1434,8 @@ function storyConversationSessionBegin(raw, context) {
         ledger.sessions.splice(0, remove);
         ledger.diagnostics.prunedSessions += remove;
     }
+    const openingResponse = session.listenerResponses.find(row => row.kind === 'SOCIAL_RESPONSE');
+    if (openingResponse) storyConversationSessionQueueSocialLLM(session.id, openingResponse.id, session.initialText);
     return { ok: analysis.ok, code: analysis.ok ? 'SESSION_STARTED' : analysis.code, session: storyConversationClone(session), worldMutation: false };
 }
 

@@ -4963,7 +4963,11 @@ function llmStart() {
     // gerisini CPU'da bırakır. GPU'lu makinede diyalog ~1 sn, GPU'suzda ~45 sn ama
     // çalışır. Ölçüm: bench --gpu 99 ile 24-50 jeton/sn alındı, yani bu makinede GPU
     // yolu çalışıyor. Sığdırma başarısız olursa host 'error' yollar, oyun şablona düşer.
-    llmChild.send({ t: 'load', modelPath: llmPath, gpuLayers: 'auto' });
+    // Hikâye sohbeti son turları ve karakter bağlamını birlikte taşır. 1024,
+    // ikinci mesajdan sonra geçmişi kırpıyordu. Turkish-Llama'nın gerçek eğitim
+    // tavanı 8192'dir; daha büyük değer bağlam taşması uyarısı ve sahte kapasite
+    // üretir. GPU katman seçimi yine otomatiktir.
+    llmChild.send({ t: 'load', modelPath: llmPath, gpuLayers: 'auto', contextSize: 8192 });
 }
 
 // ── BELLEK DÜZELTMESİ: durum yoklaması ARTIK MODELİ YÜKLEMEZ ────────────────

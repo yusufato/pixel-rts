@@ -20,6 +20,9 @@ const LLM = {
     error: null,
     inFlight: 0,
     maxInFlight: 1,         // tek sıra: model zaten tek süreç
+    queue: [],
+    queueSequence: 0,
+    ensurePromise: null,
     stats: { asked: 0, used: 0, rejected: 0, failed: 0 },
 };
 
@@ -52,13 +55,26 @@ function llmEnsure() {
     const b = llmBridge();
     if (!b) { LLM.error = 'masaüstü değil'; return Promise.resolve(LLM); }
     if (LLM.ready) return Promise.resolve(LLM);
-    const cagri = b.start ? b.start() : b.status();   // eski köprüyle geriye uyumlu
-    return Promise.resolve(cagri).then(s => {
+    if (LLM.ensurePromise) return LLM.ensurePromise;
+    const startedAt = Date.now();
+    const poll = () => Promise.resolve(b.status()).then(s => {
         LLM.ready = !!(s && s.ready);
         LLM.model = s && s.model;
         LLM.error = s && s.error;
-        return LLM;
-    }).catch(e => { LLM.error = String(e); return LLM; });
+        LLM.yuklendi = !!(s && s.yuklendi);
+        if (LLM.ready || LLM.error || Date.now() - startedAt >= 120000) return LLM;
+        return new Promise(resolve => setTimeout(resolve, 250)).then(poll);
+    });
+    LLM.ensurePromise = Promise.resolve(b.start ? b.start() : b.status())
+        .then(s => {
+            LLM.ready = !!(s && s.ready);
+            LLM.model = s && s.model;
+            LLM.error = s && s.error;
+            return LLM.ready || LLM.error ? LLM : poll();
+        })
+        .catch(e => { LLM.error = String(e); return LLM; })
+        .finally(() => { LLM.ensurePromise = null; });
+    return LLM.ensurePromise;
 }
 
 // ── SAHNE BAĞLAMI → İSTEM ──────────────────────────────────────────────────
@@ -169,9 +185,9 @@ function llmParseDialog(text, a, b) {
 
 // ── İSTEK ──────────────────────────────────────────────────────────────────
 // Oyun bunu "ateşle ve unut" olarak çağırır. Söz döner ama beklenmesi ŞART DEĞİL.
-function llmEnrich(system, prompt, validate, generationOptions) {
+function llmEnrichRun(system, prompt, validate, generationOptions) {
     const b = llmBridge();
-    if (!llmAvailable() || LLM.inFlight >= LLM.maxInFlight) return Promise.resolve(null);
+    if (!llmAvailable()) return Promise.resolve(null);
     LLM.inFlight++; LLM.stats.asked++;
     const telemetryActive = typeof STORY !== 'undefined' && STORY.active
         && typeof storyTelemetryEvent === 'function';
@@ -214,8 +230,9 @@ function llmEnrich(system, prompt, validate, generationOptions) {
     const generationRequest = {
         system: system || LLM_SYSTEM,
         prompt,
-        maxTokens: 110,
-        temperature: LLM_TEMPERATURE
+        maxTokens: Math.max(16, Math.min(512, Number(generationOptions && generationOptions.maxTokens) || 110)),
+        temperature: Number.isFinite(Number(generationOptions && generationOptions.temperature))
+            ? Number(generationOptions.temperature) : LLM_TEMPERATURE
     };
     if (generationOptions && generationOptions.jsonSchema) {
         generationRequest.jsonSchema = generationOptions.jsonSchema;
@@ -227,9 +244,33 @@ function llmEnrich(system, prompt, validate, generationOptions) {
             if (!v) { LLM.stats.rejected++; finish('llm.rejected', { reason: 'validation' }); return null; }
             LLM.stats.used++;
             finish('llm.used', { outputChars: Array.isArray(v) ? v.join('\n').length : String(v).length });
+            if (generationOptions && typeof generationOptions.onOutcome === 'function') {
+                generationOptions.onOutcome('llm.used');
+            }
             return v;
         })
-        .catch(() => { LLM.stats.failed++; finish('llm.failed', { reason: 'exception' }); return null; });
+        .catch(() => { LLM.stats.failed++; finish('llm.failed', { reason: 'exception' }); return null; })
+        .finally(() => { llmPumpQueue(); });
+}
+
+function llmPumpQueue() {
+    if (LLM.inFlight >= LLM.maxInFlight || !LLM.queue.length || !llmAvailable()) return;
+    const job = LLM.queue.shift();
+    llmEnrichRun(job.system, job.prompt, job.validate, job.options).then(job.resolve);
+}
+
+function llmEnrich(system, prompt, validate, generationOptions) {
+    if (!llmAvailable()) return Promise.resolve(null);
+    return new Promise(resolve => {
+        const options = generationOptions && typeof generationOptions === 'object' ? generationOptions : {};
+        LLM.queue.push({
+            system, prompt, validate, options, resolve,
+            priority: Number(options.priority) || 0,
+            sequence: ++LLM.queueSequence
+        });
+        LLM.queue.sort((a, b) => b.priority - a.priority || a.sequence - b.sequence);
+        llmPumpQueue();
+    });
 }
 
 // Chatter kaydını arka planda zenginleştir (kayıt zaten oyunda; metni değiştiririz)

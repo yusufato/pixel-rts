@@ -1322,7 +1322,7 @@ function storyTalkConversationResponseOptionsHtml(session) {
     if (socialResponse) {
         return `<section class="conversation-listener-response social" data-social-response="${esc(socialResponse.id)}">`
             + `<header><span>KARAKTERİN CEVABI</span><small>${esc(socialResponse.speechAct)}</small></header>`
-            + `<blockquote>“${esc(socialResponse.text)}”</blockquote>`
+            + `<blockquote>“<span data-conversation-response-text="${esc(socialResponse.id)}">${esc(socialResponse.text)}</span>”</blockquote>`
             + `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div></section>`;
     }
     const options = typeof storyConversationSessionResponseOptions === 'function'
@@ -1390,7 +1390,7 @@ function storyTalkConversationFollowUpsHtml(session) {
     return (session.followUps || []).map(row => `<div class="conversation-follow-up-thread">`
         + `<article class="conversation-follow-up player"><span>SEN</span><p>${esc(row.playerText)}</p></article>`
         + `<article class="conversation-follow-up listener"><span>MUHATAP</span>`
-        + `<p>${esc(row.response && row.response.text || '')}</p>`
+        + `<p data-conversation-response-text="${esc(row.response && row.response.id || '')}">${esc(row.response && row.response.text || '')}</p>`
         + `<small>AYNI GÖRÜŞME · DÜNYA DEĞİŞMEDİ</small></article></div>`).join('');
 }
 
@@ -1537,6 +1537,17 @@ function storyConversationWorkspaceClose() {
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
     delete modal.dataset.listenerActorId;
+}
+
+function storyConversationWorkspacePatchResponse(responseId, text, status) {
+    const modal = document.getElementById('conversation-workspace-modal');
+    if (!modal || modal.classList.contains('hidden')) return false;
+    const node = Array.from(modal.querySelectorAll('[data-conversation-response-text]'))
+        .find(row => row.dataset.conversationResponseText === String(responseId));
+    if (!node) return false;
+    node.textContent = String(text || '');
+    node.dataset.enrichmentStatus = String(status || 'FALLBACK_KEPT');
+    return true;
 }
 
 function storyConversationWorkspaceHandleClick(event) {
