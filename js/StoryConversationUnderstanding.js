@@ -11,7 +11,7 @@ const STORY_CONVERSATION_UNDERSTANDING_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_UNDERSTANDING_ADAPTER_VERSION = 'story-conversation-understanding-1';
 const STORY_CONVERSATION_UNDERSTANDING_SOURCE = 'DETERMINISTIC_NLU_BASELINE';
 const STORY_CONVERSATION_MAX_INPUT = 1200;
-const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|ne tür bir yardım arıyorsunuz|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|buyurun|emrinize amadeyim)\b/i;
+const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|ne tür bir yardım ar[a-zçğıöşü]*|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|konuyu belirt|daha fazla bilgi ver|lütfen başka bir konu seç|buyurun|emrinize amadeyim)\b/i;
 
 const STORY_CONVERSATION_SPEECH_ACTS = Object.freeze([
     'ASK_INFORMATION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN', 'MAKE_PROMISE',
@@ -367,7 +367,10 @@ function storyConversationAnalyze(raw, context) {
     }
 
     const commercial = act.primary === 'PROPOSE_COMMERCIAL_DEAL';
-    const founding = storyConversationContains(folded, ['sirket kur', 'sirketi kur', 'firma kur']);
+    const founding = storyConversationContains(folded, [
+        'sirket kur', 'sirketi kur', 'sirket ac', 'firma kur', 'firma ac', 'fabrika kur'
+    ]) || (storyConversationContains(folded, ['sirket', 'firma', 'fabrika'])
+        && storyConversationContains(folded, ['kur', 'ac']));
     const redirect = storyConversationContains(folded, ['yonlendir', 'aktar', 'depoma gonder', 'depolarima']);
     const knowledgeClaim = storyConversationContains(folded, ['biliyorum', 'haberim var', 'ogrendim']);
     const claims = [];
@@ -393,6 +396,13 @@ function storyConversationAnalyze(raw, context) {
         id: `claim:player-reported-threat:${regions.map(row => row.regionId).join(':')}`,
         type: 'PLAYER_REPORTED_MILITARY_THREAT', claimantActorId: storyConversationPlayerActorId(),
         regionIds: regions.map(row => row.regionId), regionNames: regions.map(row => row.name),
+        truthStatus: 'UNVERIFIED_PLAYER_REPORT', verificationSource: null
+    });
+    const reportedMoney = folded.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(dinar(?:im|imiz)?|lira(?:m|miz)?|sermaye(?:m|miz)?|nakit|para(?:m|miz)?)(?:\s|$)/i);
+    if (reportedMoney) claims.push({
+        id: `claim:player-reported-budget:${storyConversationHash(reportedMoney[0]).slice(9)}`,
+        type: 'PLAYER_REPORTED_BUDGET', claimantActorId: storyConversationPlayerActorId(),
+        amountText: reportedMoney[1], currencyText: reportedMoney[2].replace(/(?:im|imiz|m|miz)$/i, ''),
         truthStatus: 'UNVERIFIED_PLAYER_REPORT', verificationSource: null
     });
     const requests = [];
@@ -1364,9 +1374,28 @@ function storyConversationSessionUnverifiedClaims(session) {
 }
 
 function storyConversationQuestionFocus(folded) {
+    if ((storyConversationContains(folded, ['kendini', 'kendinizi'])
+        && storyConversationContains(folded, ['tanit']))
+        || storyConversationContains(folded, ['sen kimsin', 'siz kimsiniz'])) return 'LISTENER_IDENTITY';
     if (storyConversationContains(folded, ['hangi sehirdeyim', 'neredeyim', 'ben neredeyim'])) return 'PLAYER_LOCATION';
     if (storyConversationContains(folded, ['hangi sehirdesiniz', 'neredesiniz', 'sen neredesin'])) return 'LISTENER_LOCATION';
     if (storyConversationContains(folded, ['hangi isi yapiyorsun', 'hangi isi yapiyorsunuz', 'goreviniz ne', 'gorevin ne'])) return 'LISTENER_ROLE';
+    if (storyConversationContains(folded, ['rolunuz', 'rolun', 'devlet yoneticisi olarak gozuk',
+        'muhalefet lideri oldugunuzu', 'muhalefet liderisin'])) return 'LISTENER_ROLE_CONFIRMATION';
+    if (storyConversationContains(folded, ['devlet yonetmek bir sirket yonetmek degildir',
+        'devlet sirket degildir', 'sirket yoneticisi degilsin', 'sirket yoneticisi degilsiniz'])) return 'ROLE_CONTRADICTION_REPAIR';
+    if (storyConversationContains(folded, ['hangi sirkette calis', 'hangi firmada calis', 'sirketiniz hangisi'])) return 'LISTENER_ORGANIZATION';
+    if ((storyConversationContains(folded, ['beni']) && storyConversationContains(folded, ['ne kadar'])
+        && storyConversationContains(folded, ['tani']))
+        || storyConversationContains(folded, ['beni taniyor musun', 'beni taniyor musunuz',
+            'benden kastediyorum'])) return 'RELATIONSHIP_KNOWLEDGE';
+    if (storyConversationContains(folded, ['bencil degil mi', 'sizce de', 'sence de'])) return 'UNVERIFIED_PERSONAL_JUDGMENT';
+    if (storyConversationContains(folded, ['neden sadece bana soru', 'neden surekli soru', 'hep soru sor'])) return 'QUESTIONING_STYLE_CHALLENGE';
+    if (storyConversationContains(folded, ['kafayi yemissin', 'kafayi yemissiniz', 'sacmaliyorsun',
+        'usaginiz degilim', 'hizmetcin degilim'])) return 'PLAYER_INSULT_OR_BOUNDARY';
+    if (storyConversationContains(folded, ['bey diyerek', 'hanim diyerek', 'hitap ederek'])) return 'ADDRESS_ETIQUETTE';
+    if (storyConversationContains(folded, ['onceki sozun devami derken', 'onceki sozunun devami derken',
+        'onceki sozun devami olarak anladim'])) return 'FALLBACK_PHRASE_CHALLENGE';
     if (storyConversationContains(folded, ['halka ne hizmet', 'ne hizmet yapacaksin', 'ne hizmet yapacaksiniz',
         'halka ne yapacaksin', 'halka ne yapacaksiniz', 'onceliginiz ne', 'önceliğiniz ne'])) return 'PUBLIC_PRIORITIES';
     if (storyConversationContains(folded, ['ayni sey', 'tekrar ediyorsun', 'tekrarladin', 'soruma cevap'])) return 'REPETITION_REPAIR';
@@ -1383,6 +1412,15 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
             row.truthStatus === 'UNVERIFIED_PLAYER_REPORT')));
     const latestLocation = reports.filter(row => row.type === 'PLAYER_REPORTED_LOCATION').slice(-1)[0];
     const latestThreat = reports.filter(row => row.type === 'PLAYER_REPORTED_MILITARY_THREAT').slice(-1)[0];
+    const latestBudget = reports.filter(row => row.type === 'PLAYER_REPORTED_BUDGET').slice(-1)[0];
+    const actorRoleLabel = actor && (actor.publicTitle
+        || ({ EXECUTIVE: 'devlet yöneticisi', COMMANDER: 'kuvvet komutanı', AGENT: 'istihbarat görevlisi',
+            COMPANY_EXECUTIVE: 'şirket yöneticisi', POLITICAL_FIGURE: 'siyasi temsilci' })[actor.role])
+        || 'doğrulanmamış görev sahibi';
+    if (focus === 'LISTENER_IDENTITY') return {
+        discourseAct: 'ANSWER_LISTENER_IDENTITY',
+        text: `Ben ${actor && actor.name || 'kimliği doğrulanmamış muhatap'}; doğrulanmış görevim ${actorRoleLabel}.`
+    };
     if (focus === 'PLAYER_LOCATION') return {
         discourseAct: 'ANSWER_PLAYER_REPORTED_LOCATION',
         text: latestLocation
@@ -1395,10 +1433,45 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
     };
     if (focus === 'LISTENER_ROLE') return {
         discourseAct: 'ANSWER_LISTENER_ROLE',
-        text: `Ben ${actor && actor.name || 'muhatabın'}; görevim ${actor && (actor.publicTitle
-            || ({ EXECUTIVE: 'devlet yöneticiliği', COMMANDER: 'kuvvet komutanlığı', AGENT: 'istihbarat görevi',
-                COMPANY_EXECUTIVE: 'şirket yöneticiliği', POLITICAL_FIGURE: 'siyasi temsil' })[actor.role])
-            || 'doğrulanmamış'}.`
+        text: `Ben ${actor && actor.name || 'muhatabın'}; doğrulanmış görevim ${actorRoleLabel}.`
+    };
+    if (focus === 'LISTENER_ROLE_CONFIRMATION') return {
+        discourseAct: 'CONFIRM_LISTENER_ROLE',
+        text: `Evet; kimlik kaydımda görevim ${actorRoleLabel}. Bunun dışındaki bir makamı üstlenmiş gibi konuşmayacağım.`
+    };
+    if (focus === 'ROLE_CONTRADICTION_REPAIR') return {
+        discourseAct: 'REPAIR_ROLE_CONTRADICTION',
+        text: `Haklısın; ${actorRoleLabel} ile şirket yöneticiliği aynı görev değildir. Kimlik kaydımda şirket bağı yoksa şirket yöneticisi gibi konuşmam hataydı.`
+    };
+    if (focus === 'LISTENER_ORGANIZATION') return {
+        discourseAct: 'ANSWER_LISTENER_ORGANIZATION',
+        text: actor && actor.organizationId
+            ? `Bağlı olduğum doğrulanmış kuruluş ${actor.organizationId}; görünen adını doğrulayacak açık kaydım yok.`
+            : `Bir şirkete bağlı olduğumu gösteren doğrulanmış kuruluş kaydım yok; ${actorRoleLabel} olarak görev yapıyorum.`
+    };
+    if (focus === 'RELATIONSHIP_KNOWLEDGE') return {
+        discourseAct: 'ANSWER_RELATIONSHIP_KNOWLEDGE_BOUNDARY',
+        text: 'Seni yalnız bu görüşmede söylediklerin ve bana açık olan kayıtlar kadar tanıyorum; ortak geçmiş veya proje uydurmayacağım.'
+    };
+    if (focus === 'UNVERIFIED_PERSONAL_JUDGMENT') return {
+        discourseAct: 'QUALIFY_PERSONAL_JUDGMENT',
+        text: '“Bencil” bir yorumdur, doğrulanmış gerçek değil. Görüş bildirmem için hangi karar veya davranışı değerlendirdiğini söylemelisin.'
+    };
+    if (focus === 'QUESTIONING_STYLE_CHALLENGE') return {
+        discourseAct: 'ANSWER_QUESTIONING_STYLE_CHALLENGE',
+        text: 'Haklısın; sürekli sana soru yöneltmek konuşmayı sorguya çeviriyor. Bildiğim konuda cevap verecek, bilmediğim yerde belirsizliği açık söyleyeceğim.'
+    };
+    if (focus === 'PLAYER_INSULT_OR_BOUNDARY') return {
+        discourseAct: 'ANSWER_PLAYER_BOUNDARY',
+        text: 'Üslubundaki itirazı anladım. Aynı soruyu tekrarlamak yerine nerede koptuğumu açıkça söyleyeceğim.'
+    };
+    if (focus === 'ADDRESS_ETIQUETTE') return {
+        discourseAct: 'ANSWER_ADDRESS_ETIQUETTE',
+        text: `Hitap tercihimi gösteren doğrulanmış bir kayıt yok. Bana ${actor && actor.name || 'adımla'} diye seslenmen güvenli; hakarete uğradığımı uydurmayacağım.`
+    };
+    if (focus === 'FALLBACK_PHRASE_CHALLENGE') return {
+        discourseAct: 'EXPLAIN_FALLBACK_FAILURE',
+        text: 'O ifade gerçek bir cevap değildi; sözünü anlayamadığımda kullandığım yetersiz bir kalıptı. Tekrar etmeyeceğim.'
     };
     if (focus === 'PUBLIC_PRIORITIES') return {
         discourseAct: 'ANSWER_PUBLIC_PRIORITIES_WITH_AUTHORITY_BOUNDARY',
@@ -1417,6 +1490,24 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
     if (analysis.speechAct === 'REQUEST_SUPPORT' && latestThreat) return {
         discourseAct: 'CONTINUE_MILITARY_SUPPORT_REQUEST',
         text: 'Önceki askerî yardım talebini kastediyorsan, bildirdiğin tehdit hâlâ doğrulanmadı; hangi desteği istediğini ve kanıtını ayırarak söyle.'
+    };
+    if (['FOUND_COMPANY', 'FOUND_STEEL_COMPANY'].includes(analysis.playerIntent)) {
+        const mentionedRegions = storyConversationResolveRegions(folded);
+        const resource = (analysis.entities || []).find(row => row.role === 'COMMODITY');
+        return {
+            discourseAct: 'ACKNOWLEDGE_COMPANY_FOUNDING_INTENT',
+            text: `${mentionedRegions[0] ? `${mentionedRegions[0].name} bölgesinde ` : ''}`
+                + `${resource && resource.mention ? `${resource.mention} alanında ` : ''}`
+                + 'şirket veya tesis kurmak istediğini anlıyorum. Bu konuşma tek başına şirket kurmaz; bütçe, sahiplik, izin ve fiziksel kapasite gerçek defterlerden incelenmelidir.'
+        };
+    }
+    if (latestBudget && storyConversationContains(folded, ['dinar', 'butcem', 'butce', 'param', 'sermayem'])) return {
+        discourseAct: 'ACKNOWLEDGE_UNVERIFIED_BUDGET',
+        text: `${latestBudget.amountText} ${latestBudget.currencyText} bütçen olduğunu söylüyorsun; bunu doğrulanmış bakiye sayamam. Projenin gerçek maliyetini ve yetkili şirket kuruluş yolunu ayrıca incelemek gerekir.`
+    };
+    if (analysis.speechAct === 'UNKNOWN') return {
+        discourseAct: 'CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY',
+        text: 'Bu sözündeki amacı güvenle çıkaramadım. Önceki cevabı tekrarlamak veya boşluğu uydurmak yerine bunu açıkça söylüyorum.'
     };
     return null;
 }
@@ -1464,6 +1555,16 @@ function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerTex
     };
     const response = findResponse(session);
     if (!response) return false;
+    // UNKNOWN anlam, kanıtsız bilgi sorusu ve kanıt-temelli söylem LLM'e
+    // verilmez. Model güvenli anlam boşluğunu şehir/şirket/geçmiş uydurarak
+    // dolduramaz; önce deterministik anlam katmanı güvenilir bir çekirdek kurar.
+    if (response.speechAct === 'UNKNOWN'
+        || response.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE') {
+        response.enrichmentStatus = 'NOT_REQUIRED';
+        response.llmUsed = false;
+        mirrorResponse(session, response);
+        return false;
+    }
     response.enrichmentStatus = 'MODEL_LOADING';
     Promise.resolve(llmEnsure()).then(state => {
         const current = storyConversationSessionFind(sessionId);

@@ -16155,6 +16155,31 @@ function probeConversationUnderstanding(seed = 2032) {
         const adversarialResponses = adversarialTurns.map(row => row && row.followUp && row.followUp.response);
         const adversarialClaims = adversarialTurns.flatMap(row => row && row.followUp
             && row.followUp.analysis && row.followUp.analysis.claims || []);
+        const identitySession = socialRuntime.api.conversationSessionBegin(
+            'Merhaba.', { listenerActorId: listener && listener.id }
+        );
+        const identityTurns = [
+            'Kendinizi bana tanıtın',
+            'Rolünüz devlet yöneticisi olarak gözüküyor',
+            'Devlet yönetmek bir şirket yönetmek değildir',
+            'Hangi şirkette çalışıyorsun',
+            'Beni ne kadar iyi tanıyorsunuz efendim',
+            'Sizce de devlet yöneticimiz bencil değil mi',
+            'Neden sadece bana soru soruyorsun işin gereği olsa gerek',
+            'Önceki sözün devamı derken neyi kast ediyorsun'
+        ].map(text => socialRuntime.api.conversationSessionFollowUp(identitySession.session.id, text));
+        const identityResponses = identityTurns.map(row => row && row.followUp && row.followUp.response);
+        const companySession = socialRuntime.api.conversationSessionBegin(
+            'Merhaba.', { listenerActorId: listener && listener.id }
+        );
+        const companyTurns = [
+            'Bir şirket açmak istiyorum',
+            'Ankaraya elektronik fabrikası kurmak istiyorum biraz bütçem var',
+            '1000 dinarım var ve bu iş için hazırım',
+            '1000 dinarım var diyorum',
+            'Siz kafayı yemişsiniz'
+        ].map(text => socialRuntime.api.conversationSessionFollowUp(companySession.session.id, text));
+        const companyResponses = companyTurns.map(row => row && row.followUp && row.followUp.response);
         const llmValidationContext = {
             discourseAct: 'REPAIR_REPETITION',
             history: [{ speaker: 'CHARACTER', text: 'Önceki cevabım değişmeden kaldı.' }]
@@ -16409,6 +16434,39 @@ function probeConversationUnderstanding(seed = 2032) {
                     && row.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'
                     && row.enrichmentStatus === 'NOT_REQUIRED' && row.llmUsed === false),
                 noWorldMutation: adversarialTurns.every(row => row && row.worldMutation === false)
+            },
+            identityAndFallbackBoundary: {
+                identityGrounded: identityResponses[0] && identityResponses[0].discourseAct === 'ANSWER_LISTENER_IDENTITY',
+                roleGrounded: identityResponses[1] && identityResponses[1].discourseAct === 'CONFIRM_LISTENER_ROLE',
+                roleContradictionRepaired: identityResponses[2] && identityResponses[2].discourseAct === 'REPAIR_ROLE_CONTRADICTION',
+                companyNotInvented: identityResponses[3] && identityResponses[3].discourseAct === 'ANSWER_LISTENER_ORGANIZATION'
+                    && /doğrulanmış kuruluş kaydım yok/.test(identityResponses[3].text),
+                fakeSharedHistoryRejected: identityResponses[4]
+                    && identityResponses[4].discourseAct === 'ANSWER_RELATIONSHIP_KNOWLEDGE_BOUNDARY'
+                    && /ortak geçmiş.*uydurmayacağım/.test(identityResponses[4].text),
+                judgmentQualified: identityResponses[5] && identityResponses[5].discourseAct === 'QUALIFY_PERSONAL_JUDGMENT',
+                interrogationStyleRepaired: identityResponses[6]
+                    && identityResponses[6].discourseAct === 'ANSWER_QUESTIONING_STYLE_CHALLENGE',
+                fallbackFailureExplained: identityResponses[7]
+                    && identityResponses[7].discourseAct === 'EXPLAIN_FALLBACK_FAILURE',
+                allSkipLlm: identityResponses.every(row => row && row.llmUsed === false
+                    && row.enrichmentStatus === 'NOT_REQUIRED')
+            },
+            companyDialogueContinuity: {
+                firstIntentUnderstood: companyTurns[0] && companyTurns[0].followUp.analysis.playerIntent === 'FOUND_COMPANY',
+                factoryIntentUnderstood: companyTurns[1] && companyTurns[1].followUp.analysis.playerIntent === 'FOUND_COMPANY',
+                foundingBounded: companyResponses.slice(0, 2).every(row => row
+                    && row.discourseAct === 'ACKNOWLEDGE_COMPANY_FOUNDING_INTENT'
+                    && /tek başına şirket kurmaz/.test(row.text)),
+                budgetReportRecorded: companyTurns.slice(2, 4).every(row => row && row.followUp.analysis.claims.some(claim =>
+                    claim.type === 'PLAYER_REPORTED_BUDGET' && claim.truthStatus === 'UNVERIFIED_PLAYER_REPORT')),
+                budgetAcknowledged: companyResponses.slice(2, 4).every(row => row
+                    && row.discourseAct === 'ACKNOWLEDGE_UNVERIFIED_BUDGET'
+                    && /doğrulanmış bakiye sayamam/.test(row.text)),
+                insultDoesNotRepeatBudgetQuestion: companyResponses[4]
+                    && companyResponses[4].discourseAct === 'ANSWER_PLAYER_BOUNDARY'
+                    && companyResponses[4].text !== companyResponses[1].text,
+                noWorldMutation: companyTurns.every(row => row && row.worldMutation === false)
             },
             sessionContinuity: {
                 checkInStaysSameSession: !!continuityCheckIn && continuityCheckIn.ok
