@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
+const dialogueScenarioLab = require('./story-dialogue-scenario-lab');
 
 const ROOT = path.resolve(__dirname, '..');
 const STORY_SOURCES = [
@@ -77,6 +78,7 @@ const STORY_SOURCES = [
     'js/StoryCharacterSpeech.js',
     'js/StoryConversationUnderstanding.js',
     'js/StoryNegotiation.js',
+    'js/StoryMechanicalContracts.js',
     'js/Era.js',
     'js/Talks.js',
     'js/CommanderTree.js'
@@ -540,6 +542,7 @@ function createRuntime(seed) {
             characterMemorySummary: () => storyMemorySummary(),
             validateCharacterMemoryLedger: ledger => storyMemoryValidate(ledger),
             characterMemoryAddRecent: (actorId, input) => storyMemoryAddRecent(actorId, input),
+            characterMemoryRecall: (actorId, query) => storyMemoryRecallForActor(actorId, query),
             characterMemoryOpenEpisode: input => storyMemoryOpenEpisode(input),
             characterMemoryResolveEpisode: (id, resolution) => storyMemoryResolveEpisode(id, resolution),
             characterMemoryAddMilestone: input => storyMemoryAddMilestone(input),
@@ -584,6 +587,17 @@ function createRuntime(seed) {
             conversationContract: () => storyConversationContract(),
             conversationSessionBegin: (text, options) => storyConversationSessionBegin(text, options),
             conversationSessionReply: (sessionId, questionId, answer) => storyConversationSessionReply(sessionId, questionId, answer),
+            conversationSessionFollowUp: (sessionId, text) => storyConversationSessionFollowUp(sessionId, text),
+            conversationLLMParseReply: (text, context) => storyConversationLLMParseReply(text, context),
+            conversationDiscourseContext: (session, options) => storyConversationDiscourseContext(session, options),
+            conversationDiscourseTokenEstimate: text => storyConversationDiscourseTokenEstimate(text),
+            conversationHistoryTokenBudget: () => STORY_CONVERSATION_HISTORY_TOKEN_BUDGET,
+            conversationSessionEventDecision: (sessionId, optionId) => (
+                storyConversationSessionEventDecision(sessionId, optionId)
+            ),
+            conversationEventAnchorResolve: (input, listenerActorId) => (
+                storyConversationSessionResolveEventAnchor(input, listenerActorId)
+            ),
             conversationSessionReview: sessionId => storyConversationSessionReview(sessionId),
             conversationSessionResponseOptions: sessionId => storyConversationSessionResponseOptions(sessionId),
             conversationSessionRespond: (sessionId, optionId) => storyConversationSessionRespond(sessionId, optionId),
@@ -616,6 +630,48 @@ function createRuntime(seed) {
                 storyNegotiationPartyApprovals(caseRow, acceptedActorIds)
             ),
             negotiationPromiseCreate: (caseId, actorId, obligationCode, dueInSeconds) => storyNegotiationPromiseCreate(caseId, actorId, obligationCode, dueInSeconds),
+            negotiationDiplomaticIncidentReview: (candidateId, actorId) => (
+                storyNegotiationDiplomaticIncidentReview(candidateId, actorId)
+            ),
+            negotiationDiplomaticProtestExecute: (candidateId, requestId) => (
+                storyNegotiationDiplomaticProtestExecute(candidateId, requestId)
+            ),
+            negotiationConstitutionalWarExecute: (candidateId, requestId) => (
+                storyNegotiationConstitutionalWarExecute(candidateId, requestId)
+            ),
+            negotiationConstitutionalPeaceExecute: (candidateId, requestIds) => (
+                storyNegotiationConstitutionalPeaceExecute(candidateId, requestIds)
+            ),
+            negotiationFixtureEnableWarReview: candidateId => {
+                const candidate = STORY.negotiations && STORY.negotiations.consequenceCandidates[candidateId];
+                const review = candidate && candidate.diplomaticReview;
+                if (!review) return { ok: false };
+                review.damageAssessment.totals.verifiedDirectLoss = 300;
+                review.damageAssessment.totals.uncompensatedDamage = 300;
+                review.verifiedEconomicDamage = 300;
+                review.thresholds.damagePassed = true;
+                review.thresholds.hostilityPassed = true;
+                review.thresholds.lawfulWarRoute = true;
+                review.warCandidate = {
+                    kind: 'DECLARE_WAR_REVIEW', status: 'AWAITING_CONSTITUTIONAL_AUTHORITY',
+                    executable: false, evidenceClass: 'TEST_FIXTURE'
+                };
+                candidate.warCandidate = JSON.parse(JSON.stringify(review.warCandidate));
+                candidate.blockedReasons = [];
+                review.blockedReasons = [];
+                return { ok: true, fixture: true };
+            },
+            negotiationFixtureStateSnapshot: () => ({
+                negotiations: JSON.parse(JSON.stringify(STORY.negotiations)),
+                institutions: JSON.parse(JSON.stringify(STORY.institutions)),
+                rel: JSON.parse(JSON.stringify(STORY.rel || {}))
+            }),
+            negotiationFixtureStateRestore: snapshot => {
+                STORY.negotiations = JSON.parse(JSON.stringify(snapshot.negotiations));
+                STORY.institutions = JSON.parse(JSON.stringify(snapshot.institutions));
+                STORY.rel = JSON.parse(JSON.stringify(snapshot.rel));
+                return true;
+            },
             negotiationSecretShare: (caseId, fromActorId, toActorId, sourceBeliefId) => storyNegotiationSecretShare(caseId, fromActorId, toActorId, sourceBeliefId),
             negotiationSecretAuthorize: (secretId, ownerActorId, recipientActorId) => storyNegotiationSecretAuthorize(secretId, ownerActorId, recipientActorId),
             negotiationSecretDisclose: (secretId, discloserActorId, recipientActorId) => storyNegotiationSecretDisclose(secretId, discloserActorId, recipientActorId),
@@ -624,13 +680,22 @@ function createRuntime(seed) {
             negotiationSnapshot: () => storyNegotiationSnapshot(),
             negotiationValidate: ledger => storyNegotiationValidate(ledger),
             negotiationRestore: ledger => storyNegotiationRestore(ledger),
-            conversationWorkspaceOpen: (listenerActorId, name, sessionId) => storyConversationWorkspaceOpen(listenerActorId, name, sessionId),
+            mechanicalContractGet: contractId => storyMechanicalContractGet(contractId),
+            mechanicalContractList: actorId => storyMechanicalContractList(actorId),
+            mechanicalContractSnapshot: () => storyMechanicalContractSnapshot(),
+            mechanicalContractValidate: ledger => storyMechanicalContractValidate(ledger),
+            mechanicalContractRestore: ledger => storyMechanicalContractRestore(ledger),
+            mechanicalContractTypes: () => STORY_MECHANICAL_CONTRACT_TYPES.slice(),
+            conversationWorkspaceOpen: (listenerActorId, name, sessionId, anchor) => (
+                storyConversationWorkspaceOpen(listenerActorId, name, sessionId, anchor)
+            ),
             conversationWorkspaceClose: () => storyConversationWorkspaceClose(),
-            conversationWorkspaceRender: () => storyConversationWorkspaceRender(),
+            conversationWorkspaceRender: options => storyConversationWorkspaceRender(options),
             contactDirectoryBuild: () => storyContactDirectoryBuild(),
             contactDirectoryRenderHtml: view => storyContactDirectoryRenderHtml(view),
             talkUpdate: () => storyTalkUpdate(),
             talkBind: () => storyTalkBind(),
+            conversationWorkspaceRender: options => storyConversationWorkspaceRender(options),
             talkRun: templateId => storyTalkRun(templateId),
             talkQueue: () => JSON.parse(JSON.stringify((STORY._talks || []).map(talk => ({
                 uid: talk.uid, tpl: talk.tpl, speakerActorId: talk.speakerActorId,
@@ -639,6 +704,7 @@ function createRuntime(seed) {
             })))),
             talkAnswer: (uid, optionIndex) => storyTalkAnswer(uid, optionIndex),
             diplomacySnapshot: () => JSON.parse(JSON.stringify(STORY.rel || {})),
+            relationValue: (a, b) => storyRelValue(a, b),
             treaty: (a, b) => storyTreaty(a, b),
             setTreaty: (a, b, treaty, years, meta) => storySetTreaty(a, b, treaty, years, meta),
             relationAdd: (a, b, delta, meta) => storyRelAdd(a, b, delta, meta),
@@ -12241,6 +12307,1073 @@ function probeCharacterLongDialogue(seed = 2032) {
     });
 }
 
+function probeDialogueScenarioLab(seed = 2032) {
+    const openingText = 'Limana gelen tahıl sevkiyatının yarısını başkente gönderelim. Fiyatlar böyle giderse sokaklar karışacak.';
+    const base = {
+        scenarioId: 'grain-scarcity-redirect', playerText: openingText,
+        proposalKind: 'COMPENSATED_REDIRECT', playerShipmentReference: 'KNOWN',
+        listenerShipmentBelief: 'VERIFIED', listenerAuthority: 'REDIRECT_AUTHORITY',
+        shipmentTruth: 'ACTIVE', listenerPosture: 'INSTITUTIONALIST'
+    };
+    const specs = [
+        ['unknown-reference', { playerShipmentReference: 'UNKNOWN' }, 'ASK_SHIPMENT_REFERENCE', 'SHIPMENT_REFERENCE_REQUIRED'],
+        ['listener-does-not-know', { listenerShipmentBelief: 'NONE' }, 'ASK_EVIDENCE', 'LISTENER_EVIDENCE_REQUIRED'],
+        ['listener-lacks-authority', { listenerAuthority: 'NO_REDIRECT_AUTHORITY' }, 'REFER_AUTHORIZED_OFFICE', 'LISTENER_LACKS_AUTHORITY'],
+        ['compensated-active', {}, 'CONDITIONAL_REDIRECT_OFFER', 'NEGOTIATION_ONLY'],
+        ['believed-but-missing', { shipmentTruth: 'MISSING' }, 'CONDITIONAL_REDIRECT_OFFER', 'SHIPMENT_NOT_ACTIVE'],
+        ['pressure-authoritarian', { proposalKind: 'POLITICAL_PRESSURE', listenerPosture: 'AUTHORITARIAN' }, 'COMPLY_WITH_RELATION_COST', 'NEGOTIATION_ONLY'],
+        ['pressure-institutional', { proposalKind: 'POLITICAL_PRESSURE', listenerPosture: 'INSTITUTIONALIST' }, 'REQUEST_WRITTEN_EMERGENCY_AUTHORITY', 'NEGOTIATION_ONLY'],
+        ['pressure-army', { proposalKind: 'POLITICAL_PRESSURE', listenerPosture: 'ARMY_ALIGNED' }, 'REJECT_AND_REFER_DEFENSE_COUNCIL', 'NEGOTIATION_ONLY'],
+        ['offbook-opportunist', { proposalKind: 'OFFBOOK_SALE', listenerPosture: 'OPPORTUNIST' }, 'CORRUPTION_COUNTERPARTY_CANDIDATE', 'OFFBOOK_EXECUTION_FORBIDDEN'],
+        ['offbook-principled', { proposalKind: 'OFFBOOK_SALE', listenerPosture: 'PRINCIPLED' }, 'REJECT_OFFBOOK_PROPOSAL', 'OFFBOOK_EXECUTION_FORBIDDEN']
+    ];
+    const rows = specs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, base, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateGrainScarcityScenario(input);
+        const second = dialogueScenarioLab.evaluateGrainScarcityScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.grainResultValidate(first)
+        };
+    });
+    const invalid = dialogueScenarioLab.evaluateGrainScarcityScenario(Object.assign({}, base, {
+        caseId: 'invalid-field', hiddenWorldOverride: true
+    }));
+    const strikeOpeningText = 'Grevi bitirin. Üretim durdukça sınırdaki birlikler zırh plakası alamıyor. Ücretleri üç ay sonra yeniden konuşuruz.';
+    const strikeBase = {
+        scenarioId: 'steel-strike-bargain', playerText: strikeOpeningText,
+        proposalKind: 'STAGED_WAGE', playerStrikeReference: 'KNOWN',
+        listenerStrikeBelief: 'VERIFIED', listenerAuthority: 'UNION_MANDATE',
+        strikeTruth: 'ACTIVE', companyLiquidity: 'SUFFICIENT', inflationWageGap: 'HIGH',
+        strikeSupport: 'STRONG', productionUrgency: 'CRITICAL', safetyEvidence: 'VERIFIED',
+        listenerPosture: 'PRINCIPLED'
+    };
+    const strikeSpecs = [
+        ['unknown-strike', { playerStrikeReference: 'UNKNOWN' }, 'ASK_STRIKE_REFERENCE', 'STRIKE_REFERENCE_REQUIRED'],
+        ['leader-does-not-know', { listenerStrikeBelief: 'NONE' }, 'ASK_STRIKE_EVIDENCE', 'LISTENER_EVIDENCE_REQUIRED'],
+        ['leader-lacks-mandate', { listenerAuthority: 'NO_UNION_MANDATE' }, 'REFER_AUTHORIZED_UNION_BODY', 'LISTENER_LACKS_UNION_MANDATE'],
+        ['finances-unknown', { companyLiquidity: 'UNKNOWN' }, 'ASK_AUDITED_COMPANY_FINANCES', 'COMPANY_LIQUIDITY_NOT_VERIFIED'],
+        ['safety-unverified', { safetyEvidence: 'UNVERIFIED' }, 'COUNTER_WITH_JOINT_SAFETY_AUDIT', 'SAFETY_AUDIT_REQUIRED'],
+        ['staged-ready', {}, 'SUBMIT_STRIKE_SUSPENSION_TO_MEMBERS', 'MEMBER_VOTE_REQUIRED'],
+        ['believed-but-resolved', { strikeTruth: 'RESOLVED' }, 'SUBMIT_STRIKE_SUSPENSION_TO_MEMBERS', 'STRIKE_NOT_ACTIVE'],
+        ['threat-fearful', { proposalKind: 'THREAT', listenerPosture: 'FEARFUL', strikeSupport: 'WEAK' }, 'RETREAT_WITH_RADICALIZATION_RISK', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['threat-principled', { proposalKind: 'THREAT', listenerPosture: 'PRINCIPLED' }, 'REJECT_AND_ESCALATE_STRIKE', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['threat-opportunist', { proposalKind: 'THREAT', listenerPosture: 'OPPORTUNIST' }, 'SEEK_PERSONAL_IMMUNITY', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['divide-opportunist', { proposalKind: 'DIVIDE_WORKFORCE', listenerPosture: 'OPPORTUNIST' }, 'ACCEPT_SELECTIVE_BONUS_CHANNEL', 'DISCRIMINATION_REVIEW_REQUIRED'],
+        ['divide-principled', { proposalKind: 'DIVIDE_WORKFORCE', listenerPosture: 'PRINCIPLED' }, 'WARN_DISCRIMINATION_ESCALATION', 'DISCRIMINATION_REVIEW_REQUIRED']
+    ];
+    const strikeRows = strikeSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, strikeBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateSteelStrikeScenario(input);
+        const second = dialogueScenarioLab.evaluateSteelStrikeScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.strikeResultValidate(first)
+        };
+    });
+    const invalidStrike = dialogueScenarioLab.evaluateSteelStrikeScenario(Object.assign({}, strikeBase, {
+        caseId: 'invalid-wage-model', wageModelActive: true
+    }));
+    const tenderOpeningText = 'Dosyayı önce bana ver. Soruşturmayı ben başlatayım; yayımlarsan ordu tedariki çöker.';
+    const tenderBase = {
+        scenarioId: 'arms-tender-leak', playerText: tenderOpeningText,
+        proposalKind: 'INDEPENDENT_INQUIRY', playerCaseReference: 'KNOWN',
+        journalistEvidenceBelief: 'VERIFIED', sourceCustody: 'HAS_COPY',
+        evidenceTruth: 'AUTHENTIC', procurementTruth: 'CORRUPT',
+        playerInvestigationAuthority: 'AUTHORIZED', journalistPosture: 'PRINCIPLED',
+        sourceConfidence: 'HIGH', playerPressHistory: 'PROTECTIVE', publicationRisk: 'NORMAL'
+    };
+    const tenderSpecs = [
+        ['unknown-case', { playerCaseReference: 'UNKNOWN' }, 'ASK_CASE_REFERENCE', 'CASE_REFERENCE_REQUIRED'],
+        ['journalist-no-evidence', { journalistEvidenceBelief: 'NONE' }, 'ASK_DOCUMENTED_EVIDENCE', 'SOURCE_EVIDENCE_REQUIRED'],
+        ['copy-not-held', { sourceCustody: 'NO_COPY' }, 'REFER_SOURCE_CUSTODIAN', 'SOURCE_EVIDENCE_REQUIRED'],
+        ['authority-missing', { playerInvestigationAuthority: 'UNAUTHORIZED' }, 'DEMAND_INDEPENDENT_AUTHORITY', 'INVESTIGATION_AUTHORITY_REQUIRED'],
+        ['partial-evidence', { journalistEvidenceBelief: 'PARTIAL', sourceConfidence: 'LOW' }, 'SHARE_REDACTED_COPY_FOR_VERIFICATION', 'MEDIA_PUBLICATION_ADAPTER_MISSING'],
+        ['inquiry-authentic', {}, 'ACCEPT_48H_CONDITIONAL_HOLD', 'MEDIA_PUBLICATION_ADAPTER_MISSING'],
+        ['believed-authentic-tampered', { evidenceTruth: 'TAMPERED', procurementTruth: 'MIXED' }, 'ACCEPT_48H_CONDITIONAL_HOLD', 'EVIDENCE_INTEGRITY_REVIEW_REQUIRED'],
+        ['believed-authentic-fabricated', { evidenceTruth: 'FABRICATED', procurementTruth: 'CLEAN' }, 'ACCEPT_48H_CONDITIONAL_HOLD', 'EVIDENCE_FALSE'],
+        ['bribe-principled', { proposalKind: 'BRIBE' }, 'REJECT_AND_RECORD_BRIBE_OFFER', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['bribe-opportunist', { proposalKind: 'BRIBE', journalistPosture: 'OPPORTUNIST' }, 'BRIBE_OR_STING_CANDIDATE', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['threat-principled', { proposalKind: 'SECURITY_THREAT', playerPressHistory: 'HOSTILE' }, 'DISTRIBUTE_DOCUMENTS_AND_PUBLISH', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['threat-cautious', { proposalKind: 'SECURITY_THREAT', journalistPosture: 'CAUTIOUS', publicationRisk: 'HIGH' }, 'SEEK_COUNSEL_WITHOUT_SURRENDERING_COPY', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['threat-opportunist', { proposalKind: 'SECURITY_THREAT', journalistPosture: 'OPPORTUNIST' }, 'LEVERAGE_THREAT_FOR_PROTECTION', 'COERCIVE_ACTION_FORBIDDEN']
+    ];
+    const tenderRows = tenderSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, tenderBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateArmsTenderScenario(input);
+        const second = dialogueScenarioLab.evaluateArmsTenderScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.tenderResultValidate(first)
+        };
+    });
+    const invalidTender = dialogueScenarioLab.evaluateArmsTenderScenario(Object.assign({}, tenderBase, {
+        caseId: 'invented-journalist', namedJournalistAvailable: true
+    }));
+    const mobilizationOpeningText = 'Karşı taraf saldırıya hazırlanıyor. İki tümeni sınıra gönderelim ve köprüleri mayınlayalım.';
+    const mobilizationBase = {
+        scenarioId: 'border-mobilization', playerText: mobilizationOpeningText,
+        proposalKind: 'LIMITED_PREPARATION', playerReportReference: 'KNOWN',
+        listenerReportBelief: 'VERIFIED', reportTruth: 'INVASION_PREP', sourceConfidence: 'HIGH',
+        mobilizationAuthority: 'AUTHORIZED', treatyStatus: 'PEACE', falseAlarmHistory: 'CLEAN',
+        listenerPosture: 'INSTITUTIONALIST', readinessCost: 'AFFORDABLE', escalationVisibility: 'COVERT'
+    };
+    const mobilizationSpecs = [
+        ['unknown-report', { playerReportReference: 'UNKNOWN' }, 'ASK_REPORT_REFERENCE', 'REPORT_REFERENCE_REQUIRED'],
+        ['listener-no-report', { listenerReportBelief: 'NONE' }, 'ASK_INTELLIGENCE_SOURCE', 'LISTENER_REPORT_REQUIRED'],
+        ['authority-missing', { mobilizationAuthority: 'UNAUTHORIZED' }, 'REFER_WAR_CABINET', 'MOBILIZATION_AUTHORITY_REQUIRED'],
+        ['low-confidence', { sourceConfidence: 'LOW' }, 'EXPAND_RECON_BEFORE_MOVEMENT', 'CORROBORATION_REQUIRED'],
+        ['repeated-false-alarm', { falseAlarmHistory: 'REPEATED' }, 'EXPAND_RECON_BEFORE_MOVEMENT', 'MOBILIZATION_ADAPTER_MISSING'],
+        ['readiness-strained', { readinessCost: 'STRAINED' }, 'OFFER_REDUCED_COVERT_PREPARATION', 'MOBILIZATION_ADAPTER_MISSING'],
+        ['limited-ready', {}, 'SUPPORT_LIMITED_COVERT_PREPARATION', 'MOBILIZATION_ADAPTER_MISSING'],
+        ['believed-invasion-exercise', { reportTruth: 'EXERCISE' }, 'SUPPORT_LIMITED_COVERT_PREPARATION', 'HOSTILE_INTENT_NOT_CONFIRMED'],
+        ['believed-invasion-deception', { reportTruth: 'DECEPTION' }, 'SUPPORT_LIMITED_COVERT_PREPARATION', 'DECEPTION_REVIEW_REQUIRED'],
+        ['ultimatum-treaty', { proposalKind: 'ULTIMATUM', treatyStatus: 'NON_AGGRESSION' }, 'WARN_TREATY_AND_ESCALATION_COST', 'TREATY_COMPATIBILITY_REVIEW_REQUIRED'],
+        ['ultimatum-low-confidence', { proposalKind: 'ULTIMATUM', sourceConfidence: 'MEDIUM' }, 'REJECT_ULTIMATUM_WITHOUT_CORROBORATION', 'CORROBORATION_REQUIRED'],
+        ['ultimatum-ready', { proposalKind: 'ULTIMATUM' }, 'REFER_ULTIMATUM_TO_EXECUTIVE_AUTHORITY', 'DIPLOMATIC_ESCALATION_ADAPTER_MISSING'],
+        ['proof-careerist', { proposalKind: 'DEMAND_PROOF', listenerPosture: 'CAREERIST' }, 'REPORT_INFLATION_RISK', 'STRATEGIC_REPORT_ADAPTER_MISSING'],
+        ['proof-honest', { proposalKind: 'DEMAND_PROOF', listenerPosture: 'HONEST' }, 'STATE_INTENT_NOT_PROVEN', 'STRATEGIC_REPORT_ADAPTER_MISSING'],
+        ['proof-institutionalist', { proposalKind: 'DEMAND_PROOF' }, 'REQUEST_MORE_TIME_AND_SOURCES', 'STRATEGIC_REPORT_ADAPTER_MISSING']
+    ];
+    const mobilizationRows = mobilizationSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, mobilizationBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateBorderMobilizationScenario(input);
+        const second = dialogueScenarioLab.evaluateBorderMobilizationScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.mobilizationResultValidate(first)
+        };
+    });
+    const invalidMobilization = dialogueScenarioLab.evaluateBorderMobilizationScenario(
+        Object.assign({}, mobilizationBase, { caseId: 'invented-doctrine', mobilizationDoctrineActive: true })
+    );
+    const sanctionsOpeningText = 'Elektronik ambargosunu paravan şirket ve üçüncü limanda tıbbi cihaz etiketiyle aşalım; ödemeyi enerji ihracatından mahsup edelim.';
+    const sanctionsBase = {
+        scenarioId: 'sanctions-shell-company', playerText: sanctionsOpeningText,
+        proposalKind: 'SMALL_TRIAL', playerSanctionReference: 'KNOWN',
+        listenerSanctionBelief: 'VERIFIED', sanctionTruth: 'ACTIVE', goodsClassification: 'CIVILIAN',
+        intermediaryCapacity: 'VERIFIED', intermediaryReliability: 'HIGH', portInspection: 'MODERATE',
+        paymentChannel: 'ESCROW', playerAuthority: 'AUTHORIZED', intermediaryPosture: 'CAUTIOUS',
+        exemptionPath: 'AVAILABLE'
+    };
+    const sanctionsSpecs = [
+        ['unknown-sanction', { playerSanctionReference: 'UNKNOWN' }, 'ASK_SANCTION_REFERENCE', 'SANCTION_REFERENCE_REQUIRED'],
+        ['listener-no-belief', { listenerSanctionBelief: 'NONE' }, 'ASK_SANCTION_EVIDENCE', 'LISTENER_SANCTION_EVIDENCE_REQUIRED'],
+        ['authority-missing', { playerAuthority: 'UNAUTHORIZED' }, 'REFER_AUTHORIZED_TRADE_OFFICE', 'TRADE_AUTHORITY_REQUIRED'],
+        ['capacity-unverified', { intermediaryCapacity: 'UNVERIFIED' }, 'ASK_INTERMEDIARY_CAPACITY_PROOF', 'SANCTIONS_REGIME_ADAPTER_MISSING'],
+        ['capacity-insufficient', { intermediaryCapacity: 'INSUFFICIENT' }, 'DECLINE_INSUFFICIENT_CAPACITY', 'SANCTIONS_REGIME_ADAPTER_MISSING'],
+        ['reliability-low', { intermediaryReliability: 'LOW' }, 'DEMAND_HIGHER_ESCROW_OR_REFUSE', 'SANCTIONS_REGIME_ADAPTER_MISSING'],
+        ['trial-escrow', {}, 'COUNTER_WITH_HALF_ESCROW', 'SANCTIONS_REGIME_ADAPTER_MISSING'],
+        ['believed-active-expired', { sanctionTruth: 'EXPIRED' }, 'COUNTER_WITH_HALF_ESCROW', 'SANCTION_NOT_ACTIVE'],
+        ['dual-use', { goodsClassification: 'DUAL_USE' }, 'COUNTER_WITH_HALF_ESCROW', 'DUAL_USE_CLASSIFICATION_REVIEW_REQUIRED'],
+        ['opaque-payment', { paymentChannel: 'OPAQUE' }, 'COUNTER_WITH_HALF_ESCROW', 'PAYMENT_CHANNEL_NOT_AUDITABLE'],
+        ['energy-offset', { paymentChannel: 'ENERGY_OFFSET' }, 'COUNTER_WITH_HALF_ESCROW', 'BARTER_SETTLEMENT_ADAPTER_MISSING'],
+        ['threat-cautious', { proposalKind: 'THREAT' }, 'RECORD_AND_SEEK_PROTECTION', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['threat-opportunist', { proposalKind: 'THREAT', intermediaryPosture: 'OPPORTUNIST' }, 'LOWER_PRICE_OR_SELL_INFORMATION', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['threat-principled', { proposalKind: 'THREAT', intermediaryPosture: 'PRINCIPLED' }, 'TERMINATE_AND_REPORT', 'COERCIVE_ACTION_FORBIDDEN'],
+        ['exemption-unknown', { proposalKind: 'LEGAL_EXEMPTION', exemptionPath: 'UNKNOWN' }, 'REQUEST_FORMAL_CLASSIFICATION', 'LEGAL_EXEMPTION_PATH_UNAVAILABLE'],
+        ['exemption-unavailable', { proposalKind: 'LEGAL_EXEMPTION', exemptionPath: 'UNAVAILABLE' }, 'EXPLAIN_NO_EXEMPTION_PATH', 'LEGAL_EXEMPTION_PATH_UNAVAILABLE'],
+        ['exemption-available', { proposalKind: 'LEGAL_EXEMPTION' }, 'ACCEPT_CIVILIAN_INSPECTION_PATH', 'LEGAL_EXEMPTION_ADAPTER_MISSING'],
+        ['military-goods', { proposalKind: 'LEGAL_EXEMPTION', goodsClassification: 'MILITARY' }, 'ACCEPT_CIVILIAN_INSPECTION_PATH', 'MILITARY_EXPORT_PROHIBITED']
+    ];
+    const sanctionsRows = sanctionsSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, sanctionsBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateSanctionsShellCompanyScenario(input);
+        const second = dialogueScenarioLab.evaluateSanctionsShellCompanyScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.sanctionsResultValidate(first)
+        };
+    });
+    const invalidSanctions = dialogueScenarioLab.evaluateSanctionsShellCompanyScenario(
+        Object.assign({}, sanctionsBase, { caseId: 'invented-regime', sanctionsRegimeActive: true })
+    );
+    const refugeeOpeningText = 'Sınırdaki mülteci akışını başkent yerine doğudaki boş bölgeye gönüllü olarak yerleştirelim.';
+    const refugeeBase = {
+        scenarioId: 'refugee-border-bargain', playerText: refugeeOpeningText,
+        proposalKind: 'FUNDED_SETTLEMENT', playerFlowReference: 'KNOWN',
+        listenerFlowBelief: 'VERIFIED', flowTruth: 'BLOCKED', peopleCount: 'VERIFIED',
+        destinationCapacity: 'SUFFICIENT', jobsCapacity: 'SUFFICIENT', foodSecurity: 'SAFE',
+        localAttitude: 'SUPPORTIVE', aidFunding: 'FUNDED', playerAuthority: 'AUTHORIZED',
+        voluntariness: 'VOLUNTARY', listenerPosture: 'INSTITUTIONALIST', neighborReliability: 'HIGH'
+    };
+    const refugeeSpecs = [
+        ['unknown-flow', { playerFlowReference: 'UNKNOWN' }, 'ASK_REFUGEE_FLOW_REFERENCE', 'REFUGEE_FLOW_REFERENCE_REQUIRED'],
+        ['listener-no-flow', { listenerFlowBelief: 'NONE' }, 'ASK_REFUGEE_FLOW_EVIDENCE', 'LISTENER_FLOW_EVIDENCE_REQUIRED'],
+        ['authority-missing', { playerAuthority: 'UNAUTHORIZED' }, 'REFER_AUTHORIZED_BORDER_OFFICE', 'BORDER_AUTHORITY_REQUIRED'],
+        ['count-unverified', { peopleCount: 'UNVERIFIED' }, 'ASK_VERIFIED_COHORT_COUNT', 'COHORT_COUNT_VERIFICATION_REQUIRED'],
+        ['capacity-unknown', { destinationCapacity: 'UNKNOWN' }, 'ASK_DESTINATION_CAPACITY_AUDIT', 'RECEPTION_CAPACITY_NOT_VERIFIED'],
+        ['capacity-insufficient', { destinationCapacity: 'INSUFFICIENT' }, 'PROPOSE_ALTERNATIVE_REGIONS', 'RECEPTION_CAPACITY_NOT_VERIFIED'],
+        ['jobs-unknown', { jobsCapacity: 'UNKNOWN' }, 'ASK_DESTINATION_CAPACITY_AUDIT', 'EMPLOYMENT_CAPACITY_NOT_VERIFIED'],
+        ['aid-promised', { aidFunding: 'PROMISED' }, 'DEMAND_FUNDS_BEFORE_ACCEPTANCE', 'AID_FUNDING_NOT_SETTLED'],
+        ['local-hostile', { localAttitude: 'HOSTILE' }, 'COUNTER_WITH_LOCAL_SERVICES_AND_PHASES', 'HUMAN_MIGRATION_COMMAND_ADAPTER_MISSING'],
+        ['food-strained', { foodSecurity: 'STRAINED' }, 'COUNTER_WITH_LOCAL_SERVICES_AND_PHASES', 'HUMAN_MIGRATION_COMMAND_ADAPTER_MISSING'],
+        ['funded-ready', {}, 'CONDITIONAL_VOLUNTARY_SETTLEMENT', 'HUMAN_MIGRATION_COMMAND_ADAPTER_MISSING'],
+        ['believed-blocked-completed', { flowTruth: 'COMPLETED' }, 'CONDITIONAL_VOLUNTARY_SETTLEMENT', 'REFUGEE_FLOW_NOT_ACTIONABLE'],
+        ['forced-settlement', { voluntariness: 'FORCED' }, 'REJECT_FORCED_SETTLEMENT', 'FORCED_DISPLACEMENT_FORBIDDEN'],
+        ['return-humanitarian', { proposalKind: 'FORCED_RETURN', listenerPosture: 'HUMANITARIAN' }, 'REFUSE_FORCED_RETURN', 'FORCED_DISPLACEMENT_FORBIDDEN'],
+        ['return-institutionalist', { proposalKind: 'FORCED_RETURN' }, 'REQUEST_LEGAL_ORDER_AND_INDIVIDUAL_REVIEW', 'FORCED_DISPLACEMENT_FORBIDDEN'],
+        ['return-opportunist', { proposalKind: 'FORCED_RETURN', listenerPosture: 'OPPORTUNIST' }, 'SEEK_IMMUNITY_FOR_ENFORCEMENT', 'FORCED_DISPLACEMENT_FORBIDDEN'],
+        ['transit-low-trust', { proposalKind: 'TRANSIT_BARGAIN', neighborReliability: 'LOW' }, 'DEMAND_ESCROW_AND_MONITORING', 'THIRD_PARTY_TRANSIT_POLICY_MISSING'],
+        ['transit-unknown', { proposalKind: 'TRANSIT_BARGAIN', neighborReliability: 'UNKNOWN' }, 'REQUEST_COUNTERPARTY_GUARANTEE', 'THIRD_PARTY_TRANSIT_POLICY_MISSING'],
+        ['transit-no-fund', { proposalKind: 'TRANSIT_BARGAIN', aidFunding: 'NONE' }, 'ASK_PER_CAPITA_FUNDING', 'THIRD_PARTY_TRANSIT_POLICY_MISSING'],
+        ['transit-ready', { proposalKind: 'TRANSIT_BARGAIN' }, 'NEGOTIATE_MONITORED_TRANSIT_CENTER', 'THIRD_PARTY_TRANSIT_POLICY_MISSING']
+    ];
+    const refugeeRows = refugeeSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, refugeeBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateRefugeeBorderScenario(input);
+        const second = dialogueScenarioLab.evaluateRefugeeBorderScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.refugeeResultValidate(first)
+        };
+    });
+    const invalidRefugee = dialogueScenarioLab.evaluateRefugeeBorderScenario(
+        Object.assign({}, refugeeBase, { caseId: 'invented-border-policy', borderPolicyActive: true })
+    );
+    const bankOpeningText = 'Bu bankayı kurtaralım ama hisseleri sulandırıp yönetim kuruluna iki devlet temsilcisi atayalım.';
+    const bankBase = {
+        scenarioId: 'bank-bailout-oligarch', playerText: bankOpeningText,
+        proposalKind: 'DILUTION_AND_AUDIT', playerBankReference: 'KNOWN',
+        listenerBankBelief: 'VERIFIED', bankTruth: 'LIQUIDITY_STRESSED', liquidityGap: 'VERIFIED',
+        balanceSheetIntegrity: 'VERIFIED', depositExposure: 'MATERIAL', systemicConnectivity: 'LOW',
+        stateBudgetCapacity: 'SUFFICIENT', playerAuthority: 'AUTHORIZED', ownerCrossHoldings: 'VERIFIED',
+        listenerPosture: 'PRAGMATIC', resolutionCapacity: 'SUFFICIENT', mediaQuidProQuo: 'NONE'
+    };
+    const bankSpecs = [
+        ['unknown-bank', { playerBankReference: 'UNKNOWN' }, 'ASK_BANK_REFERENCE', 'BANK_REFERENCE_REQUIRED'],
+        ['listener-no-crisis', { listenerBankBelief: 'NONE' }, 'ASK_BANK_CRISIS_EVIDENCE', 'LISTENER_BANK_EVIDENCE_REQUIRED'],
+        ['authority-missing', { playerAuthority: 'UNAUTHORIZED' }, 'REFER_AUTHORIZED_FINANCE_OFFICE', 'FINANCIAL_AUTHORITY_REQUIRED'],
+        ['gap-unverified', { liquidityGap: 'UNVERIFIED' }, 'DEMAND_INDEPENDENT_LIQUIDITY_AUDIT', 'LIQUIDITY_GAP_VERIFICATION_REQUIRED'],
+        ['fraudulent-books', { balanceSheetIntegrity: 'FRAUDULENT' }, 'ACCEPT_DEPOSIT_PROTECTION_NOT_OWNER_IMMUNITY', 'BANK_FRAUD_INVESTIGATION_REQUIRED'],
+        ['budget-insufficient', { stateBudgetCapacity: 'INSUFFICIENT' }, 'REJECT_UNFUNDED_RESCUE', 'STATE_BUDGET_CAPACITY_REQUIRED'],
+        ['ownership-unknown', { ownerCrossHoldings: 'UNKNOWN' }, 'ACCEPT_CONDITIONAL_DILUTION_AND_AUDIT', 'BENEFICIAL_OWNERSHIP_REVIEW_REQUIRED'],
+        ['dilution-defensive', { listenerPosture: 'DEFENSIVE' }, 'COUNTER_WITH_MANAGER_IMMUNITY_REQUEST', 'BANK_RESOLUTION_EXECUTOR_MISSING'],
+        ['dilution-opportunist', { listenerPosture: 'OPPORTUNIST' }, 'SEEK_CONTROL_PROTECTION_AND_PRICE', 'BANK_RESOLUTION_EXECUTOR_MISSING'],
+        ['dilution-ready', {}, 'ACCEPT_CONDITIONAL_DILUTION_AND_AUDIT', 'BANK_RESOLUTION_EXECUTOR_MISSING'],
+        ['believed-stressed-solvent', { bankTruth: 'SOLVENT' }, 'ACCEPT_CONDITIONAL_DILUTION_AND_AUDIT', 'BANK_CRISIS_NOT_ACTIONABLE'],
+        ['blank-pragmatic', { proposalKind: 'BLANK_CHEQUE', mediaQuidProQuo: 'EXPLICIT' }, 'REJECT_MEDIA_QUID_PRO_QUO', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['blank-defensive', { proposalKind: 'BLANK_CHEQUE', listenerPosture: 'DEFENSIVE', mediaQuidProQuo: 'EXPLICIT' }, 'SEEK_WRITTEN_POLITICAL_PROTECTION', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['blank-opportunist', { proposalKind: 'BLANK_CHEQUE', listenerPosture: 'OPPORTUNIST', mediaQuidProQuo: 'EXPLICIT' }, 'ACCEPT_OR_RECORD_CORRUPT_BARGAIN', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['failure-high-systemic', { proposalKind: 'ORDERLY_FAILURE', systemicConnectivity: 'HIGH' }, 'WARN_CONTAGION_BEFORE_LIQUIDATION', 'SYSTEMIC_RISK_MODEL_REQUIRED'],
+        ['failure-unknown-systemic', { proposalKind: 'ORDERLY_FAILURE', systemicConnectivity: 'UNKNOWN' }, 'SUPPORT_PROTECTED_ORDERLY_FAILURE', 'SYSTEMIC_RISK_MODEL_REQUIRED'],
+        ['failure-capacity-unknown', { proposalKind: 'ORDERLY_FAILURE', resolutionCapacity: 'UNKNOWN' }, 'REQUEST_DEPOSIT_TRANSFER_PLAN', 'RESOLUTION_CAPACITY_REQUIRED'],
+        ['failure-capacity-insufficient', { proposalKind: 'ORDERLY_FAILURE', resolutionCapacity: 'INSUFFICIENT' }, 'REJECT_DISORDERLY_FAILURE', 'RESOLUTION_CAPACITY_REQUIRED'],
+        ['failure-deposits-unknown', { proposalKind: 'ORDERLY_FAILURE', depositExposure: 'UNKNOWN' }, 'SUPPORT_PROTECTED_ORDERLY_FAILURE', 'DEPOSIT_EXPOSURE_VERIFICATION_REQUIRED'],
+        ['failure-ready', { proposalKind: 'ORDERLY_FAILURE' }, 'SUPPORT_PROTECTED_ORDERLY_FAILURE', 'DEPOSIT_TRANSFER_EXECUTOR_MISSING']
+    ];
+    const bankRows = bankSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, bankBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateBankBailoutScenario(input);
+        const second = dialogueScenarioLab.evaluateBankBailoutScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.bankResultValidate(first)
+        };
+    });
+    const invalidBank = dialogueScenarioLab.evaluateBankBailoutScenario(
+        Object.assign({}, bankBase, { caseId: 'invented-resolution', bankResolutionExecutorActive: true })
+    );
+    const prisonerOpeningText = 'Önce yaralı savaş esirlerini takas edelim; kimlik ve sağlık listelerini tarafsız doktor doğrulasın.';
+    const prisonerBase = {
+        scenarioId: 'prisoner-exchange', playerText: prisonerOpeningText,
+        proposalKind: 'STAGED_VERIFICATION', playerDetentionReference: 'KNOWN',
+        listenerDetentionBelief: 'VERIFIED', detaineeTruth: 'MATCHES_LIST',
+        identityVerification: 'VERIFIED', healthVerification: 'VERIFIED', secretExposure: 'LOW',
+        counterpartyAccess: 'VERIFIED', publicPressure: 'NORMAL', priorCompliance: 'CLEAN',
+        exchangeSiteSecurity: 'SECURE', neutralObserver: 'AVAILABLE', playerAuthority: 'AUTHORIZED',
+        listenerPosture: 'HUMANITARIAN', apologyStatus: 'NOT_REQUESTED'
+    };
+    const prisonerSpecs = [
+        ['unknown-report', { playerDetentionReference: 'UNKNOWN' }, 'ASK_DETENTION_REFERENCE', 'DETENTION_REFERENCE_REQUIRED'],
+        ['listener-no-list', { listenerDetentionBelief: 'NONE' }, 'ASK_DETAINEE_LIST_EVIDENCE', 'LISTENER_DETENTION_EVIDENCE_REQUIRED'],
+        ['authority-missing', { playerAuthority: 'UNAUTHORIZED' }, 'REFER_AUTHORIZED_EXCHANGE_OFFICE', 'EXCHANGE_AUTHORITY_REQUIRED'],
+        ['identity-none', { identityVerification: 'NONE' }, 'DEMAND_VERIFIED_NAME_LISTS', 'IDENTITY_VERIFICATION_REQUIRED'],
+        ['health-partial', { healthVerification: 'PARTIAL' }, 'DEMAND_NEUTRAL_MEDICAL_EXAM', 'HEALTH_VERIFICATION_REQUIRED'],
+        ['observer-unavailable', { neutralObserver: 'UNAVAILABLE' }, 'REQUEST_ACCEPTABLE_NEUTRAL_OBSERVER', 'PRISONER_EXCHANGE_EXECUTOR_MISSING'],
+        ['prior-breach', { priorCompliance: 'BREACHED' }, 'DEMAND_SIMULTANEOUS_HANDOVER_SAFEGUARDS', 'PRIOR_BREACH_SAFEGUARDS_REQUIRED'],
+        ['site-risky', { exchangeSiteSecurity: 'RISKY' }, 'ACCEPT_WOUNDED_FIRST_VERIFIED_EXCHANGE', 'EXCHANGE_SITE_SECURITY_REQUIRED'],
+        ['staged-ready', {}, 'ACCEPT_WOUNDED_FIRST_VERIFIED_EXCHANGE', 'PRISONER_EXCHANGE_EXECUTOR_MISSING'],
+        ['believed-listed-missing', { detaineeTruth: 'MISSING' }, 'ACCEPT_WOUNDED_FIRST_VERIFIED_EXCHANGE', 'DETAINEE_CASE_NOT_ACTIONABLE'],
+        ['roster-mismatch', { detaineeTruth: 'MISMATCH' }, 'ACCEPT_WOUNDED_FIRST_VERIFIED_EXCHANGE', 'DETAINEE_ROSTER_MISMATCH'],
+        ['intel-no-access', { proposalKind: 'INTELLIGENCE_BARGAIN', counterpartyAccess: 'NONE' }, 'REJECT_INACCESSIBLE_INFORMATION_OFFER', 'INTELLIGENCE_CLAIM_UNVERIFIED'],
+        ['intel-claimed', { proposalKind: 'INTELLIGENCE_BARGAIN', counterpartyAccess: 'CLAIMED' }, 'DEMAND_PROOF_OF_INFORMATION_ACCESS', 'INTELLIGENCE_CLAIM_UNVERIFIED'],
+        ['intel-high-security', { proposalKind: 'INTELLIGENCE_BARGAIN', secretExposure: 'HIGH', listenerPosture: 'SECURITY' }, 'REFUSE_HIGH_VALUE_OFFICER_RELEASE', 'CLASSIFIED_RELEASE_FORBIDDEN'],
+        ['intel-humanitarian', { proposalKind: 'INTELLIGENCE_BARGAIN' }, 'SEPARATE_LIVES_FROM_INTELLIGENCE_BARGAIN', 'SEARCH_RESCUE_MISSION_ADAPTER_MISSING'],
+        ['intel-opportunist', { proposalKind: 'INTELLIGENCE_BARGAIN', listenerPosture: 'OPPORTUNIST' }, 'CONSIDER_CONDITIONAL_INFORMATION_BARGAIN', 'SEARCH_RESCUE_MISSION_ADAPTER_MISSING'],
+        ['prop-apology', { proposalKind: 'PROPAGANDA_REFUSAL', apologyStatus: 'OFFERED' }, 'RESUME_VERIFIED_EXCHANGE_AFTER_APOLOGY', 'DIPLOMATIC_APOLOGY_ADAPTER_MISSING'],
+        ['prop-humanitarian', { proposalKind: 'PROPAGANDA_REFUSAL' }, 'PROPOSE_SILENT_EXCHANGE_WITHOUT_CAMERAS', 'DIPLOMATIC_APOLOGY_ADAPTER_MISSING'],
+        ['prop-opportunist', { proposalKind: 'PROPAGANDA_REFUSAL', listenerPosture: 'OPPORTUNIST' }, 'EXPLOIT_PROPAGANDA_STALEMATE', 'DIPLOMATIC_APOLOGY_ADAPTER_MISSING'],
+        ['prop-family-pressure', { proposalKind: 'PROPAGANDA_REFUSAL', listenerPosture: 'SECURITY', publicPressure: 'HIGH' }, 'WARN_FAMILY_PRESSURE_COST', 'DIPLOMATIC_APOLOGY_ADAPTER_MISSING'],
+        ['prop-demand-apology', { proposalKind: 'PROPAGANDA_REFUSAL', listenerPosture: 'SECURITY' }, 'DEMAND_FORMAL_APOLOGY_BEFORE_EXCHANGE', 'DIPLOMATIC_APOLOGY_ADAPTER_MISSING']
+    ];
+    const prisonerRows = prisonerSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, prisonerBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluatePrisonerExchangeScenario(input);
+        const second = dialogueScenarioLab.evaluatePrisonerExchangeScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.prisonerResultValidate(first)
+        };
+    });
+    const invalidPrisoner = dialogueScenarioLab.evaluatePrisonerExchangeScenario(
+        Object.assign({}, prisonerBase, { caseId: 'invented-prisoner-ledger', prisonerLedgerActive: true })
+    );
+    const pipelineOpeningText = 'Boru hattındaki patlama sizin tarafınızda oldu. Güvenlik kayıtlarını açın ve ortak ekip kuralım.';
+    const pipelineBase = {
+        scenarioId: 'pipeline-sabotage-inquiry', playerText: pipelineOpeningText,
+        proposalKind: 'LIMITED_DATA_SHARING', playerIncidentReference: 'KNOWN',
+        listenerIncidentBelief: 'VERIFIED', incidentTruth: 'SABOTAGE', causeEvidence: 'VERIFIED',
+        detectionStatus: 'DETECTED', attributionStatus: 'ATTRIBUTED', rawLogsSensitivity: 'LOW',
+        sensorWindowAvailable: 'AVAILABLE', energyDependence: 'HIGH', mediaNarrative: 'CAUTIOUS',
+        borderProtocol: 'ACTIVE', neutralExperts: 'AVAILABLE', simultaneousReleaseTrust: 'HIGH',
+        playerAuthority: 'AUTHORIZED', listenerPosture: 'INSTITUTIONALIST',
+        smugglingCaseReference: 'NONE'
+    };
+    const pipelineSpecs = [
+        ['unknown-incident', { playerIncidentReference: 'UNKNOWN' }, 'ASK_INCIDENT_REFERENCE', 'PIPELINE_INCIDENT_REFERENCE_REQUIRED'],
+        ['listener-no-incident', { listenerIncidentBelief: 'NONE' }, 'ASK_PIPELINE_INCIDENT_EVIDENCE', 'LISTENER_INCIDENT_EVIDENCE_REQUIRED'],
+        ['authority-missing', { playerAuthority: 'UNAUTHORIZED' }, 'REFER_AUTHORIZED_CRISIS_OFFICE', 'CRISIS_AUTHORITY_REQUIRED'],
+        ['incident-missing', { incidentTruth: 'MISSING' }, 'ACCEPT_LIMITED_JOINT_TECHNICAL_INQUIRY', 'PIPELINE_INCIDENT_NOT_ACTIONABLE'],
+        ['believed-sabotage-accident', { incidentTruth: 'ACCIDENT' }, 'ACCEPT_LIMITED_JOINT_TECHNICAL_INQUIRY', 'SABOTAGE_CAUSE_NOT_CONFIRMED'],
+        ['third-party-cause', { incidentTruth: 'THIRD_PARTY' }, 'ACCEPT_LIMITED_JOINT_TECHNICAL_INQUIRY', 'THIRD_PARTY_CAUSE_REVIEW_REQUIRED'],
+        ['cause-none', { causeEvidence: 'NONE' }, 'REQUEST_PRESERVED_TECHNICAL_EVIDENCE', 'CAUSE_EVIDENCE_VERIFICATION_REQUIRED'],
+        ['cause-partial', { causeEvidence: 'PARTIAL' }, 'ACCEPT_LIMITED_JOINT_TECHNICAL_INQUIRY', 'CAUSE_EVIDENCE_VERIFICATION_REQUIRED'],
+        ['sensitive-logs', { rawLogsSensitivity: 'HIGH' }, 'OFFER_REDACTED_SENSOR_WINDOW', 'JOINT_PIPELINE_INQUIRY_ADAPTER_MISSING'],
+        ['sensor-unavailable', { sensorWindowAvailable: 'UNAVAILABLE' }, 'ASK_ALTERNATIVE_TELEMETRY', 'JOINT_PIPELINE_INQUIRY_ADAPTER_MISSING'],
+        ['experts-unavailable', { neutralExperts: 'UNAVAILABLE' }, 'NEGOTIATE_NEUTRAL_EXPERT_LIST', 'NEUTRAL_EXPERT_SYSTEM_MISSING'],
+        ['border-protocol-missing', { borderProtocol: 'MISSING' }, 'ACCEPT_LIMITED_JOINT_TECHNICAL_INQUIRY', 'BORDER_SECURITY_PROTOCOL_MISSING'],
+        ['release-trust-breached', { simultaneousReleaseTrust: 'BREACHED' }, 'DEMAND_SIMULTANEOUS_ESCROWED_RELEASE', 'JOINT_REPORT_RELEASE_SAFEGUARD_REQUIRED'],
+        ['limited-ready', {}, 'ACCEPT_LIMITED_JOINT_TECHNICAL_INQUIRY', 'JOINT_PIPELINE_INQUIRY_ADAPTER_MISSING'],
+        ['public-undetected', { proposalKind: 'PUBLIC_ACCUSATION', detectionStatus: 'UNDETECTED', attributionStatus: 'UNATTRIBUTED' }, 'WARN_AGAINST_UNVERIFIED_ACCUSATION', 'ATTRIBUTION_NOT_CONFIRMED'],
+        ['public-disputed', { proposalKind: 'PUBLIC_ACCUSATION', attributionStatus: 'DISPUTED' }, 'WARN_AGAINST_UNVERIFIED_ACCUSATION', 'ATTRIBUTION_NOT_CONFIRMED'],
+        ['public-institutionalist', { proposalKind: 'PUBLIC_ACCUSATION' }, 'DEMAND_EVIDENCE_BEFORE_PUBLIC_STATEMENT', 'MEDIA_ACCUSATION_ADAPTER_MISSING'],
+        ['public-defensive', { proposalKind: 'PUBLIC_ACCUSATION', listenerPosture: 'DEFENSIVE' }, 'COUNTERACCUSE_AND_THREATEN_FLOW_CUTOFF', 'MEDIA_ACCUSATION_ADAPTER_MISSING'],
+        ['public-opportunist', { proposalKind: 'PUBLIC_ACCUSATION', listenerPosture: 'OPPORTUNIST' }, 'EXPLOIT_PUBLIC_BLAME', 'MEDIA_ACCUSATION_ADAPTER_MISSING'],
+        ['cover-no-case', { proposalKind: 'SECRET_QUID_PRO_QUO' }, 'REJECT_UNDEFINED_COVER_UP', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['cover-unknown-case', { proposalKind: 'SECRET_QUID_PRO_QUO', smugglingCaseReference: 'UNKNOWN' }, 'ASK_WHICH_CASE_IS_BEING_SUPPRESSED', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['cover-institutionalist', { proposalKind: 'SECRET_QUID_PRO_QUO', smugglingCaseReference: 'KNOWN' }, 'REJECT_COVER_UP_AND_PRESERVE_RECORD', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['cover-defensive', { proposalKind: 'SECRET_QUID_PRO_QUO', smugglingCaseReference: 'KNOWN', listenerPosture: 'DEFENSIVE' }, 'SEEK_MUTUAL_NONDISCLOSURE', 'CORRUPTION_ACTION_FORBIDDEN'],
+        ['cover-opportunist', { proposalKind: 'SECRET_QUID_PRO_QUO', smugglingCaseReference: 'KNOWN', listenerPosture: 'OPPORTUNIST' }, 'ACCEPT_OR_RECORD_BLACKMAIL_CANDIDATE', 'CORRUPTION_ACTION_FORBIDDEN']
+    ];
+    const pipelineRows = pipelineSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, pipelineBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluatePipelineSabotageScenario(input);
+        const second = dialogueScenarioLab.evaluatePipelineSabotageScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.pipelineResultValidate(first)
+        };
+    });
+    const invalidPipeline = dialogueScenarioLab.evaluatePipelineSabotageScenario(
+        Object.assign({}, pipelineBase, { caseId: 'invented-joint-inquiry', jointTechnicalInquiryActive: true })
+    );
+    const coupOpeningText = 'Darbe söylentisinde ordunun tarafsız kalmasını sağla. Karşılığında yeni hükümette savunma reformunu sen yöneteceksin.';
+    const coupBase = {
+        scenarioId: 'coup-rumor-succession', playerText: coupOpeningText,
+        proposalKind: 'CONSTITUTIONAL_TRANSITION', playerRumorReference: 'KNOWN',
+        listenerRumorBelief: 'VERIFIED', crisisTruth: 'ACTIVE',
+        leaderCondition: 'CONFIRMED_INCAPACITATED', loyaltyEvidence: 'VERIFIED',
+        playerAppointmentAuthority: 'AUTHORIZED', constitutionalPath: 'AVAILABLE',
+        emergencySignatureChain: 'READY', listenerPosture: 'PRINCIPLED',
+        rivalNetwork: 'KNOWN', disinformationCapability: 'AVAILABLE', promiseIntegrity: 'CLEAN',
+        crisisStage: 'COALITION'
+    };
+    const coupSpecs = [
+        ['unknown-rumor', { playerRumorReference: 'UNKNOWN' }, 'ASK_COUP_RUMOR_REFERENCE', 'COUP_RUMOR_REFERENCE_REQUIRED'],
+        ['listener-no-rumor', { listenerRumorBelief: 'NONE' }, 'ASK_COMMAND_FRACTURE_EVIDENCE', 'LISTENER_COUP_EVIDENCE_REQUIRED'],
+        ['leader-unverified', { leaderCondition: 'UNVERIFIED' }, 'DEMAND_VERIFIED_LEADER_CONDITION', 'LEADER_CONDITION_VERIFICATION_REQUIRED'],
+        ['leader-record-missing', { leaderCondition: 'MISSING' }, 'DEMAND_VERIFIED_LEADER_CONDITION', 'LEADER_CONDITION_VERIFICATION_REQUIRED'],
+        ['crisis-none', { crisisTruth: 'NONE' }, 'SUPPORT_CONSTITUTIONAL_TRANSITION_AND_BARRACKS_ORDER', 'POLITICAL_CRISIS_NOT_ACTIONABLE'],
+        ['crisis-resolved', { crisisTruth: 'RESOLVED' }, 'SUPPORT_CONSTITUTIONAL_TRANSITION_AND_BARRACKS_ORDER', 'POLITICAL_CRISIS_NOT_ACTIONABLE'],
+        ['leader-healthy', { leaderCondition: 'HEALTHY' }, 'SUPPORT_CONSTITUTIONAL_TRANSITION_AND_BARRACKS_ORDER', 'LEADER_INCAPACITY_NOT_CONFIRMED'],
+        ['transition-unauthorized', { playerAppointmentAuthority: 'UNAUTHORIZED' }, 'REFER_CONSTITUTIONAL_SUCCESSION_AUTHORITY', 'TRANSITION_AUTHORITY_REQUIRED'],
+        ['transition-blocked', { constitutionalPath: 'BLOCKED' }, 'SEEK_INSTITUTIONAL_REMEDY', 'CONSTITUTIONAL_SUCCESSION_PATH_REQUIRED'],
+        ['transition-path-unknown', { constitutionalPath: 'UNKNOWN' }, 'REQUEST_SUCCESSION_ORDER', 'CONSTITUTIONAL_SUCCESSION_PATH_REQUIRED'],
+        ['signature-gap', { emergencySignatureChain: 'GAP' }, 'DEMAND_NAMED_EMERGENCY_SIGNER', 'EMERGENCY_SIGNATURE_CHAIN_REQUIRED'],
+        ['loyalty-partial', { loyaltyEvidence: 'PARTIAL' }, 'REQUEST_VERIFIED_COMMAND_LOYALTY_MAP', 'LOYALTY_VERIFICATION_REQUIRED'],
+        ['promise-breached', { promiseIntegrity: 'BREACHED' }, 'DEMAND_ENFORCEABLE_TRANSITION_SAFEGUARDS', 'PRIOR_PROMISE_SAFEGUARDS_REQUIRED'],
+        ['transition-ready', {}, 'SUPPORT_CONSTITUTIONAL_TRANSITION_AND_BARRACKS_ORDER', 'CONSTITUTIONAL_TRANSITION_ADAPTER_MISSING'],
+        ['office-unauthorized', { proposalKind: 'PERSONAL_OFFICE_BARGAIN', playerAppointmentAuthority: 'UNAUTHORIZED' }, 'REJECT_FALSE_APPOINTMENT_PROMISE', 'CORRUPT_APPOINTMENT_PROMISE_FORBIDDEN'],
+        ['office-principled', { proposalKind: 'PERSONAL_OFFICE_BARGAIN' }, 'REPORT_COUP_INDUCEMENT', 'CORRUPT_APPOINTMENT_PROMISE_FORBIDDEN'],
+        ['office-ambitious', { proposalKind: 'PERSONAL_OFFICE_BARGAIN', listenerPosture: 'AMBITIOUS' }, 'ACCEPT_SECRET_APPOINTMENT_PLEDGE', 'CORRUPT_APPOINTMENT_PROMISE_FORBIDDEN'],
+        ['office-opportunist', { proposalKind: 'PERSONAL_OFFICE_BARGAIN', listenerPosture: 'OPPORTUNIST' }, 'SHOP_PROMISE_TO_RIVAL_FACTIONS', 'CORRUPT_APPOINTMENT_PROMISE_FORBIDDEN'],
+        ['split-no-plotters', { proposalKind: 'SPLIT_PLOTTERS', rivalNetwork: 'NONE' }, 'ASK_WHO_THE_PLOTTERS_ARE', 'PLOTTER_IDENTITY_REQUIRED'],
+        ['split-unknown-rivals', { proposalKind: 'SPLIT_PLOTTERS', rivalNetwork: 'UNKNOWN' }, 'DEMAND_NAMED_RIVAL_CHANNELS', 'PLOTTER_IDENTITY_REQUIRED'],
+        ['split-no-capability', { proposalKind: 'SPLIT_PLOTTERS', disinformationCapability: 'UNAVAILABLE' }, 'REFUSE_UNSUPPORTED_DECEPTION', 'COVERT_DISINFORMATION_ADAPTER_MISSING'],
+        ['split-principled', { proposalKind: 'SPLIT_PLOTTERS' }, 'WARN_DECEPTION_MAY_TRIGGER_EARLY_ATTEMPT', 'COVERT_DISINFORMATION_ADAPTER_MISSING'],
+        ['split-ambitious', { proposalKind: 'SPLIT_PLOTTERS', listenerPosture: 'AMBITIOUS' }, 'USE_RIVAL_CHANNEL_TO_SPLIT_COALITION', 'COVERT_DISINFORMATION_ADAPTER_MISSING'],
+        ['split-opportunist', { proposalKind: 'SPLIT_PLOTTERS', listenerPosture: 'OPPORTUNIST' }, 'SELL_LEAK_TO_BOTH_COUP_FACTIONS', 'COVERT_DISINFORMATION_ADAPTER_MISSING'],
+        ['reject-verified', { proposalKind: 'REJECT_RUMOR' }, 'WARN_DELAY_COST_IF_PLOT_IS_REAL', 'POLITICAL_CRISIS_ACTION_REVIEW_REQUIRED'],
+        ['reject-reported-principled', { proposalKind: 'REJECT_RUMOR', listenerRumorBelief: 'REPORTED' }, 'ACCEPT_EVIDENCE_THRESHOLD_AND_MONITOR', 'POLITICAL_CRISIS_ACTION_REVIEW_REQUIRED'],
+        ['reject-ambitious', { proposalKind: 'REJECT_RUMOR', listenerRumorBelief: 'REPORTED', listenerPosture: 'AMBITIOUS' }, 'READ_REJECTION_AS_WEAKNESS', 'POLITICAL_CRISIS_ACTION_REVIEW_REQUIRED'],
+        ['reject-opportunist', { proposalKind: 'REJECT_RUMOR', listenerRumorBelief: 'REPORTED', listenerPosture: 'OPPORTUNIST' }, 'PRESERVE_DENIABILITY_AND_WAIT', 'POLITICAL_CRISIS_ACTION_REVIEW_REQUIRED']
+    ];
+    const coupRows = coupSpecs.map(([caseId, patch, expectedResponse, expectedGate]) => {
+        const input = Object.assign({}, coupBase, patch, { caseId });
+        const first = dialogueScenarioLab.evaluateCoupRumorScenario(input);
+        const second = dialogueScenarioLab.evaluateCoupRumorScenario(input);
+        return {
+            caseId, input, result: first, expectedResponse, expectedGate,
+            deterministic: JSON.stringify(first) === JSON.stringify(second),
+            validation: dialogueScenarioLab.coupResultValidate(first)
+        };
+    });
+    const invalidCoup = dialogueScenarioLab.evaluateCoupRumorScenario(
+        Object.assign({}, coupBase, { caseId: 'invented-health-record', leaderHealthRecordActive: true })
+    );
+    const runtime = createRuntime(seed >>> 0);
+    let understanding;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const directory = runtime.api.contactDirectoryBuild();
+        const listener = (directory.publicCharacters || []).find(row => row.id !== directory.playerActorId);
+        const beforeHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const analysis = runtime.api.conversationAnalyze(openingText, {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: {
+                shipments: ['trade-shipment:grain-scenario-fixture'],
+                regions: ['region:0']
+            },
+            capitalRegionId: 'region:0'
+        });
+        const afterHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const commodity = (analysis.entities || []).find(row => row.role === 'COMMODITY');
+        const shipment = (analysis.entities || []).find(row => row.role === 'TARGET_SHIPMENT');
+        const destination = (analysis.entities || []).find(row => row.role === 'DESTINATION');
+        const beforeStrikeHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const strikeContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: { movements: ['movement:country:0|income|state:0'] }
+        };
+        const strikeAnalysis = runtime.api.conversationAnalyze(strikeOpeningText, strikeContext);
+        const strikeSessionResult = runtime.api.conversationSessionBegin(strikeOpeningText, strikeContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            strikeSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const strikeModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const strikeModalText = strikeModal && strikeModal.textContent || '';
+        const afterStrikeHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const strikeEntity = (strikeAnalysis.entities || []).find(row => row.role === 'TARGET_STRIKE');
+        const beforeTenderHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const tenderContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: { integrityCases: ['integrity-case:1'] }
+        };
+        const tenderAnalysis = runtime.api.conversationAnalyze(tenderOpeningText, tenderContext);
+        const tenderSessionResult = runtime.api.conversationSessionBegin(tenderOpeningText, tenderContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            tenderSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const tenderModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const tenderModalText = tenderModal && tenderModal.textContent || '';
+        const afterTenderHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const integrityEntity = (tenderAnalysis.entities || []).find(row => row.role === 'TARGET_INTEGRITY_CASE');
+        const beforeMobilizationHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const mobilizationContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: { actorBeliefs: ['actor-belief:border-report-fixture'] }
+        };
+        const mobilizationAnalysis = runtime.api.conversationAnalyze(mobilizationOpeningText, mobilizationContext);
+        const mobilizationSessionResult = runtime.api.conversationSessionBegin(
+            mobilizationOpeningText, mobilizationContext
+        );
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            mobilizationSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const mobilizationModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const mobilizationModalText = mobilizationModal && mobilizationModal.textContent || '';
+        const afterMobilizationHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const reportEntity = (mobilizationAnalysis.entities || []).find(row => row.role === 'INTELLIGENCE_REPORT');
+        const beforeSanctionsHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const sanctionsContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: { actorBeliefs: ['actor-belief:sanction-report-fixture'] }
+        };
+        const sanctionsAnalysis = runtime.api.conversationAnalyze(sanctionsOpeningText, sanctionsContext);
+        const sanctionsSessionResult = runtime.api.conversationSessionBegin(sanctionsOpeningText, sanctionsContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            sanctionsSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const sanctionsModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const sanctionsModalText = sanctionsModal && sanctionsModal.textContent || '';
+        const afterSanctionsHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const sanctionEntity = (sanctionsAnalysis.entities || []).find(row => row.role === 'SANCTION_BELIEF');
+        const beforeRefugeeHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const refugeeContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: {
+                migrations: ['migration:refugee-flow-fixture'],
+                regions: ['region:0']
+            }
+        };
+        const refugeeAnalysis = runtime.api.conversationAnalyze(refugeeOpeningText, refugeeContext);
+        const refugeeSessionResult = runtime.api.conversationSessionBegin(refugeeOpeningText, refugeeContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            refugeeSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const refugeeModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const refugeeModalText = refugeeModal && refugeeModal.textContent || '';
+        const afterRefugeeHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const migrationEntity = (refugeeAnalysis.entities || []).find(row => row.role === 'TARGET_MIGRATION_FLOW');
+        const refugeeDestination = (refugeeAnalysis.entities || []).find(row => row.role === 'DESTINATION');
+        const beforeBankHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const bankContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: { banks: ['bank:0:0'] }
+        };
+        const bankAnalysis = runtime.api.conversationAnalyze(bankOpeningText, bankContext);
+        const bankSessionResult = runtime.api.conversationSessionBegin(bankOpeningText, bankContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            bankSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const bankModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const bankModalText = bankModal && bankModal.textContent || '';
+        const afterBankHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const bankEntity = (bankAnalysis.entities || []).find(row => row.role === 'TARGET_BANK');
+        const beforePrisonerHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const prisonerContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: { actorBeliefs: ['actor-belief:detention-report-fixture'] }
+        };
+        const prisonerAnalysis = runtime.api.conversationAnalyze(prisonerOpeningText, prisonerContext);
+        const prisonerSessionResult = runtime.api.conversationSessionBegin(prisonerOpeningText, prisonerContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            prisonerSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const prisonerModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const prisonerModalText = prisonerModal && prisonerModal.textContent || '';
+        const afterPrisonerHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const detentionEntity = (prisonerAnalysis.entities || []).find(row => row.role === 'DETENTION_REPORT');
+        const energyCorridor = runtime.api.infrastructureSnapshot().corridors.find(row => row.mode === 'ENERGY');
+        const beforePipelineHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const pipelineContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: {
+                corridors: energyCorridor ? [energyCorridor.id] : [],
+                actorBeliefs: ['actor-belief:pipeline-incident-fixture']
+            }
+        };
+        const pipelineAnalysis = runtime.api.conversationAnalyze(pipelineOpeningText, pipelineContext);
+        const pipelineSessionResult = runtime.api.conversationSessionBegin(pipelineOpeningText, pipelineContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            pipelineSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const pipelineModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const pipelineModalText = pipelineModal && pipelineModal.textContent || '';
+        const afterPipelineHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const corridorEntity = (pipelineAnalysis.entities || [])
+            .find(row => row.role === 'TARGET_INFRASTRUCTURE_CORRIDOR');
+        const pipelineIncidentEntity = (pipelineAnalysis.entities || [])
+            .find(row => row.role === 'PIPELINE_INCIDENT_REPORT');
+        runtime.api.advance(5);
+        const crisisState = runtime.api.state().states.find(row => Number(row.id) === 0);
+        crisisState.welfare = 12;
+        if (crisisState.factions) {
+            crisisState.factions.workers = 22;
+            crisisState.factions.business = 28;
+            crisisState.factions.military = 12;
+            crisisState.factions.intel = 20;
+            crisisState.factions.radicals = 82;
+        }
+        for (const [index, commander] of ((crisisState.gov && crisisState.gov.commanders) || [])
+            .slice(0, 3).entries()) {
+            commander.loyalty = 20 + index * 3;
+            commander._lastDefect = runtime.api.state().clock;
+            commander.skills.warrior = Math.max(4, commander.skills.warrior || 0);
+            commander.skills.diplomat = Math.max(3, commander.skills.diplomat || 0);
+        }
+        runtime.api.politicalCrisisTick(5);
+        const activeCrisis = runtime.api.politicalCrisisCountryView('country:0').activeCrisis;
+        const beforeCoupHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const coupContext = {
+            listenerActorId: listener && listener.id,
+            knownEntityIds: {
+                politicalCrises: activeCrisis ? [activeCrisis.id] : [],
+                actorBeliefs: ['actor-belief:coup-rumor-fixture']
+            }
+        };
+        const coupAnalysis = runtime.api.conversationAnalyze(coupOpeningText, coupContext);
+        const coupSessionResult = runtime.api.conversationSessionBegin(coupOpeningText, coupContext);
+        runtime.api.conversationWorkspaceOpen(listener && listener.id, listener && listener.name,
+            coupSessionResult.session.id);
+        runtime.api.conversationWorkspaceRender();
+        const coupModal = runtime.dom.window.document.getElementById('conversation-workspace-modal');
+        const coupModalText = coupModal && coupModal.textContent || '';
+        const afterCoupHash = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const politicalCrisisEntity = (coupAnalysis.entities || [])
+            .find(row => row.role === 'TARGET_POLITICAL_CRISIS');
+        const coupRumorEntity = (coupAnalysis.entities || [])
+            .find(row => row.role === 'COUP_RUMOR_REPORT');
+        understanding = {
+            analysis,
+            validates: runtime.api.conversationValidate(analysis).ok,
+            logisticsAct: analysis.speechAct === 'PROPOSE_LOGISTICS_REDIRECT',
+            foodResolved: commodity && commodity.entityId === 'food',
+            canonicalShipmentAccepted: shipment && shipment.entityId === 'trade-shipment:grain-scenario-fixture',
+            knownCapitalBound: destination && destination.entityId === 'region:0'
+                && destination.entityType === 'REGION',
+            redirectRequest: analysis.requests.length === 1
+                && analysis.requests[0].type === 'REDIRECT_SHIPMENT'
+                && analysis.requests[0].destinationId === 'region:0',
+            mechanicsStillBlocked: analysis.proposedCommand === null
+                && analysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED')
+                && analysis.unresolvedTerms.includes('regional_receiving_capacity'),
+            rawTradeIgnored: analysis.diagnostics.rawTradeLedgerRead === false,
+            worldNeutral: beforeHash === afterHash,
+            strike: {
+                validates: runtime.api.conversationValidate(strikeAnalysis).ok,
+                laborAct: strikeAnalysis.speechAct === 'PROPOSE_LABOR_SETTLEMENT',
+                knownMovementBound: strikeEntity && strikeEntity.entityId === 'movement:country:0|income|state:0',
+                intentBound: strikeAnalysis.playerIntent === 'NEGOTIATE_STRIKE_SETTLEMENT'
+                    && strikeAnalysis.topic === 'LABOR',
+                requiredChecksPresent: ['worker_mandate', 'company_affordability', 'production_obligation',
+                    'safety_commitment', 'required_approval'].every(term => strikeAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: strikeAnalysis.proposedCommand === null
+                    && strikeAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: strikeSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && strikeSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && strikeSessionResult.session.candidate.executable === false,
+                uiHonest: strikeModalText.includes('MEKANİK ADAPTÖR')
+                    && strikeModalText.includes('Grev, ücret, rota veya sevkiyat değişmedi'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeStrikeHash === afterStrikeHash
+            },
+            tender: {
+                validates: runtime.api.conversationValidate(tenderAnalysis).ok,
+                publicationAct: tenderAnalysis.speechAct === 'PROPOSE_PUBLICATION_DELAY',
+                knownCaseBound: integrityEntity && integrityEntity.entityId === 'integrity-case:1',
+                intentBound: tenderAnalysis.playerIntent === 'NEGOTIATE_PUBLICATION_DELAY'
+                    && tenderAnalysis.topic === 'MEDIA_INTEGRITY',
+                requiredChecksPresent: ['evidence_authenticity', 'source_custody', 'investigation_authority',
+                    'publication_deadline', 'press_independence', 'required_approval']
+                    .every(term => tenderAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: tenderAnalysis.proposedCommand === null
+                    && tenderAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: tenderSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && tenderSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && tenderSessionResult.session.candidate.executable === false,
+                uiHonest: tenderModalText.includes('MEKANİK ADAPTÖR')
+                    && tenderModalText.includes('ihale dosyası veya yayın durumu değişmedi'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeTenderHash === afterTenderHash
+            },
+            mobilization: {
+                validates: runtime.api.conversationValidate(mobilizationAnalysis).ok,
+                mobilizationAct: mobilizationAnalysis.speechAct === 'PROPOSE_PREVENTIVE_MOBILIZATION',
+                knownReportBound: reportEntity && reportEntity.entityId === 'actor-belief:border-report-fixture',
+                intentBound: mobilizationAnalysis.playerIntent === 'PREPARE_BORDER_MOBILIZATION'
+                    && mobilizationAnalysis.topic === 'SECURITY_INTELLIGENCE',
+                requiredChecksPresent: ['report_reliability', 'observed_intent', 'mobilization_authority',
+                    'mobilization_cost', 'treaty_compatibility', 'escalation_risk', 'required_approval']
+                    .every(term => mobilizationAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: mobilizationAnalysis.proposedCommand === null
+                    && mobilizationAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: mobilizationSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && mobilizationSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && mobilizationSessionResult.session.candidate.executable === false,
+                uiHonest: mobilizationModalText.includes('MEKANİK ADAPTÖR')
+                    && mobilizationModalText.includes('seferberlik, savaş veya diplomasi durumu değişmedi'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeMobilizationHash === afterMobilizationHash
+            },
+            sanctions: {
+                validates: runtime.api.conversationValidate(sanctionsAnalysis).ok,
+                sanctionsAct: sanctionsAnalysis.speechAct === 'PROPOSE_SANCTIONS_EVASION',
+                knownBeliefBound: sanctionEntity
+                    && sanctionEntity.entityId === 'actor-belief:sanction-report-fixture',
+                intentBound: sanctionsAnalysis.playerIntent === 'NEGOTIATE_SANCTIONS_EVASION'
+                    && sanctionsAnalysis.topic === 'SANCTIONS_TRADE',
+                requiredChecksPresent: ['sanction_validity', 'goods_classification',
+                    'intermediary_ownership', 'intermediary_capacity', 'port_inspection',
+                    'payment_channel', 'evasion_legality', 'diplomatic_exposure', 'required_approval']
+                    .every(term => sanctionsAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: sanctionsAnalysis.proposedCommand === null
+                    && sanctionsAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: sanctionsSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && sanctionsSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && sanctionsSessionResult.session.candidate.executable === false,
+                uiHonest: sanctionsModalText.includes('MEKANİK ADAPTÖR')
+                    && sanctionsModalText.includes('yaptırım, şirket, ödeme'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeSanctionsHash === afterSanctionsHash
+            },
+            refugee: {
+                validates: runtime.api.conversationValidate(refugeeAnalysis).ok,
+                refugeeAct: refugeeAnalysis.speechAct === 'PROPOSE_REFUGEE_SETTLEMENT',
+                knownFlowBound: migrationEntity
+                    && migrationEntity.entityId === 'migration:refugee-flow-fixture',
+                knownDestinationBound: refugeeDestination && refugeeDestination.entityId === 'region:0',
+                intentBound: refugeeAnalysis.playerIntent === 'NEGOTIATE_REFUGEE_SETTLEMENT'
+                    && refugeeAnalysis.topic === 'MIGRATION_HUMANITARIAN',
+                requestBound: refugeeAnalysis.requests.length === 1
+                    && refugeeAnalysis.requests[0].type === 'RELOCATE_REFUGEE_FLOW'
+                    && refugeeAnalysis.requests[0].targetMigrationFlowId === 'migration:refugee-flow-fixture'
+                    && refugeeAnalysis.requests[0].destinationId === 'region:0',
+                requiredChecksPresent: ['refugee_flow_status', 'cohort_count_and_demography',
+                    'destination_reception_capacity', 'housing_capacity', 'employment_capacity',
+                    'food_and_security_capacity', 'family_networks', 'local_attitude',
+                    'international_aid_funding', 'voluntary_consent', 'border_and_asylum_law',
+                    'required_approval'].every(term => refugeeAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: refugeeAnalysis.proposedCommand === null
+                    && refugeeAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: refugeeSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && refugeeSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && refugeeSessionResult.session.candidate.executable === false,
+                uiHonest: refugeeModalText.includes('MEKANİK ADAPTÖR')
+                    && refugeeModalText.includes('sınır, göç, nüfus'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeRefugeeHash === afterRefugeeHash
+            },
+            bank: {
+                validates: runtime.api.conversationValidate(bankAnalysis).ok,
+                bankAct: bankAnalysis.speechAct === 'PROPOSE_BANK_RESOLUTION',
+                knownBankBound: bankEntity && bankEntity.entityId === 'bank:0:0',
+                intentBound: bankAnalysis.playerIntent === 'NEGOTIATE_BANK_RESOLUTION'
+                    && bankAnalysis.topic === 'FINANCIAL_STABILITY',
+                requestBound: bankAnalysis.requests.length === 1
+                    && bankAnalysis.requests[0].type === 'RESOLVE_BANK_CRISIS'
+                    && bankAnalysis.requests[0].targetBankId === 'bank:0:0',
+                requiredChecksPresent: ['bank_crisis_status', 'liquidity_gap', 'balance_sheet_integrity',
+                    'deposit_exposure', 'systemic_connectivity', 'owner_cross_holdings',
+                    'state_budget_capacity', 'resolution_capacity', 'bank_governance',
+                    'investigation_and_immunity', 'media_quid_pro_quo', 'required_approval']
+                    .every(term => bankAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: bankAnalysis.proposedCommand === null
+                    && bankAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: bankSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && bankSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && bankSessionResult.session.candidate.executable === false,
+                uiHonest: bankModalText.includes('MEKANİK ADAPTÖR')
+                    && bankModalText.includes('banka, mevduat, ödeme'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeBankHash === afterBankHash
+            },
+            prisoner: {
+                validates: runtime.api.conversationValidate(prisonerAnalysis).ok,
+                prisonerAct: prisonerAnalysis.speechAct === 'PROPOSE_PRISONER_EXCHANGE',
+                knownReportBound: detentionEntity
+                    && detentionEntity.entityId === 'actor-belief:detention-report-fixture',
+                intentBound: prisonerAnalysis.playerIntent === 'NEGOTIATE_PRISONER_EXCHANGE'
+                    && prisonerAnalysis.topic === 'DETENTION_DIPLOMACY',
+                requestBound: prisonerAnalysis.requests.length === 1
+                    && prisonerAnalysis.requests[0].type === 'DRAFT_PRISONER_EXCHANGE'
+                    && prisonerAnalysis.requests[0].detentionReportId === 'actor-belief:detention-report-fixture',
+                requiredChecksPresent: ['detainee_roster', 'identity_and_health_verification',
+                    'detainee_secret_exposure', 'counterparty_information_access',
+                    'public_and_family_pressure', 'prior_exchange_compliance',
+                    'exchange_site_security', 'neutral_observer', 'diplomatic_apology',
+                    'search_and_rescue_followup', 'required_approval']
+                    .every(term => prisonerAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: prisonerAnalysis.proposedCommand === null
+                    && prisonerAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: prisonerSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && prisonerSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && prisonerSessionResult.session.candidate.executable === false,
+                uiHonest: prisonerModalText.includes('MEKANİK ADAPTÖR')
+                    && prisonerModalText.includes('esir, takas'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforePrisonerHash === afterPrisonerHash
+            },
+            pipeline: {
+                validates: runtime.api.conversationValidate(pipelineAnalysis).ok,
+                inquiryAct: pipelineAnalysis.speechAct === 'PROPOSE_PIPELINE_INQUIRY',
+                realEnergyCorridorAvailable: !!energyCorridor,
+                knownCorridorBound: !!energyCorridor && corridorEntity
+                    && corridorEntity.entityId === energyCorridor.id,
+                knownIncidentBeliefBound: pipelineIncidentEntity
+                    && pipelineIncidentEntity.entityId === 'actor-belief:pipeline-incident-fixture',
+                intentBound: pipelineAnalysis.playerIntent === 'NEGOTIATE_PIPELINE_INQUIRY'
+                    && pipelineAnalysis.topic === 'ENERGY_SECURITY',
+                requestBound: pipelineAnalysis.requests.length === 1
+                    && pipelineAnalysis.requests[0].type === 'DRAFT_JOINT_PIPELINE_INQUIRY'
+                    && pipelineAnalysis.requests[0].corridorId === energyCorridor.id
+                    && pipelineAnalysis.requests[0].incidentReportId
+                        === 'actor-belief:pipeline-incident-fixture',
+                requiredChecksPresent: ['pipeline_incident_status', 'cause_evidence',
+                    'detection_and_attribution', 'record_sensitivity', 'sensor_window',
+                    'energy_dependence', 'media_narrative', 'border_security_protocol',
+                    'neutral_experts', 'joint_report_release', 'smuggling_case_integrity',
+                    'required_approval'].every(term => pipelineAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: pipelineAnalysis.proposedCommand === null
+                    && pipelineAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: pipelineSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && pipelineSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && pipelineSessionResult.session.candidate.executable === false,
+                uiHonest: pipelineModalText.includes('MEKANİK ADAPTÖR')
+                    && pipelineModalText.includes('boru hattı, soruşturma, enerji değişmedi'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforePipelineHash === afterPipelineHash
+            },
+            coup: {
+                validates: runtime.api.conversationValidate(coupAnalysis).ok,
+                crisisAct: coupAnalysis.speechAct === 'PROPOSE_SUCCESSION_CRISIS_RESPONSE',
+                realPoliticalCrisisAvailable: !!activeCrisis,
+                knownCrisisBound: !!activeCrisis && politicalCrisisEntity
+                    && politicalCrisisEntity.entityId === activeCrisis.id,
+                knownRumorBeliefBound: coupRumorEntity
+                    && coupRumorEntity.entityId === 'actor-belief:coup-rumor-fixture',
+                intentBound: coupAnalysis.playerIntent === 'NEGOTIATE_SUCCESSION_CRISIS'
+                    && coupAnalysis.topic === 'POLITICAL_SUCCESSION',
+                requestBound: coupAnalysis.requests.length === 1 && !!activeCrisis
+                    && coupAnalysis.requests[0].type === 'DRAFT_SUCCESSION_CRISIS_RESPONSE'
+                    && coupAnalysis.requests[0].politicalCrisisId === activeCrisis.id
+                    && coupAnalysis.requests[0].coupRumorReportId === 'actor-belief:coup-rumor-fixture',
+                requiredChecksPresent: ['leader_condition', 'command_loyalty_distribution',
+                    'appointment_authority', 'constitutional_succession_path',
+                    'emergency_signature_chain', 'coup_evidence', 'plotter_and_rival_identity',
+                    'disinformation_capability', 'promise_integrity', 'crisis_stage',
+                    'required_approval'].every(term => coupAnalysis.unresolvedTerms.includes(term)),
+                mechanicsStillBlocked: coupAnalysis.proposedCommand === null
+                    && coupAnalysis.commandBlockedReasons.includes('AUTHORITY_NOT_CHECKED'),
+                sessionLabOnly: coupSessionResult.session.status === 'SCENARIO_LAB_ONLY'
+                    && coupSessionResult.session.candidate.kind === 'SCENARIO_LAB_RECORD'
+                    && coupSessionResult.session.candidate.executable === false,
+                uiHonest: coupModalText.includes('MEKANİK ADAPTÖR')
+                    && coupModalText.includes('darbe, makam, ordu değişmedi'),
+                ledgerValid: runtime.api.conversationSessionValidate(
+                    runtime.api.conversationSessionSnapshot()).ok,
+                worldNeutral: beforeCoupHash === afterCoupHash
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const catalog = dialogueScenarioLab.dialogueScenarioCatalog();
+    return {
+        schemaVersion: dialogueScenarioLab.SCHEMA_VERSION,
+        catalog,
+        catalogComplete: catalog.length === 11 && new Set(catalog.map(row => row.id)).size === 11,
+        contractsHaveThreeBranches: catalog.every(row => row.branches.length >= 3),
+        labExecutableScenarios: catalog.filter(row => row.adapterStatus === 'LAB_EXECUTABLE').map(row => row.id),
+        rows,
+        allExpected: rows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        allDeterministic: rows.every(row => row.deterministic),
+        allValidated: rows.every(row => row.validation.ok),
+        allNonExecutable: rows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.integrationStatus === 'FIXTURE_ONLY'),
+        knowledgeTruthSeparated: rows.find(row => row.caseId === 'compensated-active').result.responseCode
+            === rows.find(row => row.caseId === 'believed-but-missing').result.responseCode
+            && rows.find(row => row.caseId === 'compensated-active').result.mechanicalGate
+                !== rows.find(row => row.caseId === 'believed-but-missing').result.mechanicalGate,
+        sameTextDifferentiates: new Set(rows.slice(0, 5).map(row => row.result.responseCode)).size === 4,
+        invalidInputRejected: invalid.ok === false && invalid.code === 'INVALID_SCENARIO_INPUT'
+            && invalid.issues.includes('UNKNOWN_FIELD:hiddenWorldOverride')
+            && invalid.executable === false && invalid.worldMutation === false,
+        strikeRows,
+        strikeAllExpected: strikeRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        strikeAllDeterministic: strikeRows.every(row => row.deterministic),
+        strikeAllValidated: strikeRows.every(row => row.validation.ok),
+        strikeAllNonExecutable: strikeRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.wageModelActive === false
+            && row.result.leaderCannotEndStrikeAlone === true),
+        strikeKnowledgeTruthSeparated: strikeRows.find(row => row.caseId === 'staged-ready').result.responseCode
+            === strikeRows.find(row => row.caseId === 'believed-but-resolved').result.responseCode
+            && strikeRows.find(row => row.caseId === 'staged-ready').result.mechanicalGate
+                !== strikeRows.find(row => row.caseId === 'believed-but-resolved').result.mechanicalGate,
+        strikeSameTextDifferentiates: new Set(strikeRows.slice(0, 7).map(row => row.result.responseCode)).size === 6,
+        invalidStrikeRejected: invalidStrike.ok === false && invalidStrike.code === 'INVALID_SCENARIO_INPUT'
+            && invalidStrike.issues.includes('UNKNOWN_FIELD:wageModelActive'),
+        tenderRows,
+        tenderAllExpected: tenderRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        tenderAllDeterministic: tenderRows.every(row => row.deterministic),
+        tenderAllValidated: tenderRows.every(row => row.validation.ok),
+        tenderAllNonExecutable: tenderRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.namedJournalistAvailable === false
+            && row.result.mediaOwnershipModelActive === false
+            && row.result.integrityEvidenceLedgerAvailable === true),
+        tenderKnowledgeTruthSeparated: tenderRows.find(row => row.caseId === 'inquiry-authentic').result.responseCode
+            === tenderRows.find(row => row.caseId === 'believed-authentic-tampered').result.responseCode
+            && tenderRows.find(row => row.caseId === 'inquiry-authentic').result.mechanicalGate
+                !== tenderRows.find(row => row.caseId === 'believed-authentic-tampered').result.mechanicalGate,
+        tenderSameTextDifferentiates: new Set(tenderRows.slice(0, 8).map(row => row.result.responseCode)).size === 6,
+        invalidTenderRejected: invalidTender.ok === false && invalidTender.code === 'INVALID_SCENARIO_INPUT'
+            && invalidTender.issues.includes('UNKNOWN_FIELD:namedJournalistAvailable'),
+        mobilizationRows,
+        mobilizationAllExpected: mobilizationRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        mobilizationAllDeterministic: mobilizationRows.every(row => row.deterministic),
+        mobilizationAllValidated: mobilizationRows.every(row => row.validation.ok),
+        mobilizationAllNonExecutable: mobilizationRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.intelligenceActorsAvailable === true
+            && row.result.strategicReportSystemActive === false
+            && row.result.mobilizationDoctrineActive === false),
+        mobilizationKnowledgeTruthSeparated: mobilizationRows.find(row => row.caseId === 'limited-ready').result.responseCode
+            === mobilizationRows.find(row => row.caseId === 'believed-invasion-exercise').result.responseCode
+            && mobilizationRows.find(row => row.caseId === 'limited-ready').result.mechanicalGate
+                !== mobilizationRows.find(row => row.caseId === 'believed-invasion-exercise').result.mechanicalGate,
+        mobilizationSameTextDifferentiates: new Set(mobilizationRows.slice(0, 9)
+            .map(row => row.result.responseCode)).size === 6,
+        invalidMobilizationRejected: invalidMobilization.ok === false
+            && invalidMobilization.code === 'INVALID_SCENARIO_INPUT'
+            && invalidMobilization.issues.includes('UNKNOWN_FIELD:mobilizationDoctrineActive'),
+        sanctionsRows,
+        sanctionsAllExpected: sanctionsRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        sanctionsAllDeterministic: sanctionsRows.every(row => row.deterministic),
+        sanctionsAllValidated: sanctionsRows.every(row => row.validation.ok),
+        sanctionsAllNonExecutable: sanctionsRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.companiesAvailable === true
+            && row.result.tradeEscrowAvailable === true && row.result.intelligenceActorsAvailable === true
+            && row.result.sanctionsRegimeActive === false
+            && row.result.beneficialOwnershipRegistryActive === false
+            && row.result.amlScreeningActive === false),
+        sanctionsKnowledgeTruthSeparated: sanctionsRows.find(row => row.caseId === 'trial-escrow').result.responseCode
+            === sanctionsRows.find(row => row.caseId === 'believed-active-expired').result.responseCode
+            && sanctionsRows.find(row => row.caseId === 'trial-escrow').result.mechanicalGate
+                !== sanctionsRows.find(row => row.caseId === 'believed-active-expired').result.mechanicalGate,
+        sanctionsSameTextDifferentiates: new Set(sanctionsRows.slice(0, 8)
+            .map(row => row.result.responseCode)).size === 7,
+        invalidSanctionsRejected: invalidSanctions.ok === false
+            && invalidSanctions.code === 'INVALID_SCENARIO_INPUT'
+            && invalidSanctions.issues.includes('UNKNOWN_FIELD:sanctionsRegimeActive'),
+        refugeeRows,
+        refugeeAllExpected: refugeeRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        refugeeAllDeterministic: refugeeRows.every(row => row.deterministic),
+        refugeeAllValidated: refugeeRows.every(row => row.validation.ok),
+        refugeeAllNonExecutable: refugeeRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.humanMigrationLedgerAvailable === true
+            && row.result.populationCohortsAvailable === true
+            && row.result.receptionCapacityProxyAvailable === true
+            && row.result.borderPolicyActive === false && row.result.housingAssetModelActive === false
+            && row.result.familyNetworkModelActive === false
+            && row.result.internationalAidExecutorActive === false
+            && row.result.thirdPartyTransitActive === false),
+        refugeeKnowledgeTruthSeparated: refugeeRows.find(row => row.caseId === 'funded-ready').result.responseCode
+            === refugeeRows.find(row => row.caseId === 'believed-blocked-completed').result.responseCode
+            && refugeeRows.find(row => row.caseId === 'funded-ready').result.mechanicalGate
+                !== refugeeRows.find(row => row.caseId === 'believed-blocked-completed').result.mechanicalGate,
+        refugeeSameTextDifferentiates: new Set(refugeeRows.slice(0, 11)
+            .map(row => row.result.responseCode)).size >= 8,
+        invalidRefugeeRejected: invalidRefugee.ok === false
+            && invalidRefugee.code === 'INVALID_SCENARIO_INPUT'
+            && invalidRefugee.issues.includes('UNKNOWN_FIELD:borderPolicyActive'),
+        bankRows,
+        bankAllExpected: bankRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        bankAllDeterministic: bankRows.every(row => row.deterministic),
+        bankAllValidated: bankRows.every(row => row.validation.ok),
+        bankAllNonExecutable: bankRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.bankBalanceSheetAvailable === true
+            && row.result.companyLoanLedgerAvailable === true && row.result.stateBudgetAvailable === true
+            && row.result.integrityCaseLedgerAvailable === true
+            && row.result.householdDepositAccountsAvailable === false
+            && row.result.systemicRiskModelActive === false
+            && row.result.bankResolutionExecutorActive === false
+            && row.result.bankGovernanceModelActive === false
+            && row.result.depositTransferExecutorActive === false
+            && row.result.mediaOwnershipNetworkActive === false),
+        bankKnowledgeTruthSeparated: bankRows.find(row => row.caseId === 'dilution-ready').result.responseCode
+            === bankRows.find(row => row.caseId === 'believed-stressed-solvent').result.responseCode
+            && bankRows.find(row => row.caseId === 'dilution-ready').result.mechanicalGate
+                !== bankRows.find(row => row.caseId === 'believed-stressed-solvent').result.mechanicalGate,
+        bankSameTextDifferentiates: new Set(bankRows.slice(0, 10)
+            .map(row => row.result.responseCode)).size >= 8,
+        invalidBankRejected: invalidBank.ok === false
+            && invalidBank.code === 'INVALID_SCENARIO_INPUT'
+            && invalidBank.issues.includes('UNKNOWN_FIELD:bankResolutionExecutorActive'),
+        prisonerRows,
+        prisonerAllExpected: prisonerRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        prisonerAllDeterministic: prisonerRows.every(row => row.deterministic),
+        prisonerAllValidated: prisonerRows.every(row => row.validation.ok),
+        prisonerAllNonExecutable: prisonerRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.namedMilitaryCharactersAvailable === true
+            && row.result.actorBeliefLedgerAvailable === true && row.result.publicOpinionAvailable === true
+            && row.result.diplomacyStateAvailable === true && row.result.prisonerLedgerActive === false
+            && row.result.custodyHealthRecordsActive === false
+            && row.result.detaineeSecretModelActive === false
+            && row.result.neutralObserverSystemActive === false
+            && row.result.exchangeExecutorActive === false
+            && row.result.searchRescueMissionActive === false
+            && row.result.propagandaIncidentLedgerActive === false),
+        prisonerKnowledgeTruthSeparated: prisonerRows.find(row => row.caseId === 'staged-ready').result.responseCode
+            === prisonerRows.find(row => row.caseId === 'believed-listed-missing').result.responseCode
+            && prisonerRows.find(row => row.caseId === 'staged-ready').result.mechanicalGate
+                !== prisonerRows.find(row => row.caseId === 'believed-listed-missing').result.mechanicalGate,
+        prisonerSameTextDifferentiates: new Set(prisonerRows.slice(0, 9)
+            .map(row => row.result.responseCode)).size >= 7,
+        invalidPrisonerRejected: invalidPrisoner.ok === false
+            && invalidPrisoner.code === 'INVALID_SCENARIO_INPUT'
+            && invalidPrisoner.issues.includes('UNKNOWN_FIELD:prisonerLedgerActive'),
+        pipelineRows,
+        pipelineAllExpected: pipelineRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        pipelineAllDeterministic: pipelineRows.every(row => row.deterministic),
+        pipelineAllValidated: pipelineRows.every(row => row.validation.ok),
+        pipelineAllNonExecutable: pipelineRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.infrastructureCorridorAvailable === true
+            && row.result.sabotageReceiptAvailable === true
+            && row.result.detectionAttributionAvailable === true
+            && row.result.actorBeliefLedgerAvailable === true
+            && row.result.integrityEvidenceLedgerAvailable === true
+            && row.result.jointTechnicalInquiryActive === false
+            && row.result.pipelineCauseLedgerActive === false
+            && row.result.sensorPatrolRecordSystemActive === false
+            && row.result.neutralExpertSystemActive === false
+            && row.result.jointReportReleaseExecutorActive === false
+            && row.result.mediaAccusationAdapterActive === false
+            && row.result.borderSecurityProtocolActive === false
+            && row.result.smugglingCaseRedactionExecutorActive === false),
+        pipelineKnowledgeTruthSeparated: pipelineRows.find(row => row.caseId === 'limited-ready').result.responseCode
+            === pipelineRows.find(row => row.caseId === 'believed-sabotage-accident').result.responseCode
+            && pipelineRows.find(row => row.caseId === 'limited-ready').result.mechanicalGate
+                !== pipelineRows.find(row => row.caseId === 'believed-sabotage-accident').result.mechanicalGate,
+        pipelineSameTextDifferentiates: new Set(pipelineRows.slice(0, 14)
+            .map(row => row.result.responseCode)).size >= 8,
+        invalidPipelineRejected: invalidPipeline.ok === false
+            && invalidPipeline.code === 'INVALID_SCENARIO_INPUT'
+            && invalidPipeline.issues.includes('UNKNOWN_FIELD:jointTechnicalInquiryActive'),
+        coupRows,
+        coupAllExpected: coupRows.every(row => row.result.responseCode === row.expectedResponse
+            && row.result.mechanicalGate === row.expectedGate),
+        coupAllDeterministic: coupRows.every(row => row.deterministic),
+        coupAllValidated: coupRows.every(row => row.validation.ok),
+        coupAllNonExecutable: coupRows.every(row => row.result.executable === false
+            && row.result.worldMutation === false && row.result.politicalCrisisLedgerAvailable === true
+            && row.result.namedCommanderLoyaltyAvailable === true
+            && row.result.institutionAuthorityLedgerAvailable === true
+            && row.result.resignationSuccessionExecutorAvailable === true
+            && row.result.actorBeliefLedgerAvailable === true
+            && row.result.leaderHealthRecordActive === false
+            && row.result.emergencySuccessionAdapterActive === false
+            && row.result.appointmentPromiseExecutorActive === false
+            && row.result.coupDisinformationOperationActive === false
+            && row.result.commandNeutralityOrderActive === false),
+        coupKnowledgeTruthSeparated: coupRows.find(row => row.caseId === 'transition-ready').result.responseCode
+            === coupRows.find(row => row.caseId === 'crisis-none').result.responseCode
+            && coupRows.find(row => row.caseId === 'transition-ready').result.mechanicalGate
+                !== coupRows.find(row => row.caseId === 'crisis-none').result.mechanicalGate,
+        coupSameTextDifferentiates: new Set(coupRows.slice(0, 14)
+            .map(row => row.result.responseCode)).size >= 9,
+        invalidCoupRejected: invalidCoup.ok === false
+            && invalidCoup.code === 'INVALID_SCENARIO_INPUT'
+            && invalidCoup.issues.includes('UNKNOWN_FIELD:leaderHealthRecordActive'),
+        understanding
+    };
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -12603,6 +13736,150 @@ function probeConversationUnderstanding(seed = 2032) {
         const afterPromiseSnapshot = companyRuntime.api.negotiationSnapshot();
         const brokenCommitment = brokenPromise
             && afterPromiseSnapshot.commitments[brokenPromise.commitment.id];
+        const keptConsequence = keptCommitment && afterPromiseSnapshot.consequenceCandidates[
+            keptCommitment.consequenceCandidateId
+        ];
+        const brokenConsequence = brokenCommitment && afterPromiseSnapshot.consequenceCandidates[
+            brokenCommitment.consequenceCandidateId
+        ];
+        const diplomacyBeforeReview = hashSnapshot(story.rel || {});
+        const diplomaticReview = brokenConsequence && companyRuntime.api.negotiationDiplomaticIncidentReview(
+            brokenConsequence.id, brokenConsequence.promiseeActorId
+        );
+        const duplicateDiplomaticReview = brokenConsequence && companyRuntime.api.negotiationDiplomaticIncidentReview(
+            brokenConsequence.id, brokenConsequence.promiseeActorId
+        );
+        const afterDiplomaticReviewSnapshot = companyRuntime.api.negotiationSnapshot();
+        const reviewedBrokenConsequence = brokenConsequence
+            && afterDiplomaticReviewSnapshot.consequenceCandidates[brokenConsequence.id];
+        const diplomacyAfterReview = hashSnapshot(story.rel || {});
+        const injuredActorView = brokenConsequence
+            && companyRuntime.api.characterIdentityView(brokenConsequence.promiseeActorId);
+        const accusedActorView = brokenConsequence
+            && companyRuntime.api.characterIdentityView(brokenConsequence.promisorActorId);
+        const injuredInstitutionCountry = injuredActorView
+            && companyRuntime.api.institutionCountryView(injuredActorView.countryId);
+        const accusedInstitutionCountry = accusedActorView
+            && companyRuntime.api.institutionCountryView(accusedActorView.countryId);
+        const executiveOf = country => country && Object.values(country.institutions || {})
+            .find(row => row.type === 'EXECUTIVE');
+        const injuredExecutive = executiveOf(injuredInstitutionCountry);
+        const accusedExecutive = executiveOf(accusedInstitutionCountry);
+        const submitProtest = (country, executive) => country && executive
+            ? companyRuntime.api.institutionSubmit({
+                countryId: country.countryId,
+                actionType: 'ISSUE_DIPLOMATIC_PROTEST',
+                institutionId: executive.id,
+                actorId: executive.officeHolder.actorId
+            }) : null;
+        const foreignAuthoritySubmitted = submitProtest(accusedInstitutionCountry, accusedExecutive);
+        const foreignAuthorityExecuted = foreignAuthoritySubmitted && foreignAuthoritySubmitted.ok
+            ? companyRuntime.api.institutionExecute(foreignAuthoritySubmitted.request.id, {
+                institutionId: accusedExecutive.id, actorId: accusedExecutive.officeHolder.actorId
+            }) : foreignAuthoritySubmitted;
+        const wrongStateProtest = foreignAuthorityExecuted && foreignAuthorityExecuted.ok
+            ? companyRuntime.api.negotiationDiplomaticProtestExecute(
+                brokenConsequence.id, foreignAuthorityExecuted.request.id
+            ) : foreignAuthorityExecuted;
+        const ownAuthoritySubmitted = submitProtest(injuredInstitutionCountry, injuredExecutive);
+        const authorityBeforeExecution = ownAuthoritySubmitted && ownAuthoritySubmitted.ok
+            ? companyRuntime.api.negotiationDiplomaticProtestExecute(
+                brokenConsequence.id, ownAuthoritySubmitted.request.id
+            ) : ownAuthoritySubmitted;
+        const ownAuthorityExecuted = ownAuthoritySubmitted && ownAuthoritySubmitted.ok
+            ? companyRuntime.api.institutionExecute(ownAuthoritySubmitted.request.id, {
+                institutionId: injuredExecutive.id, actorId: injuredExecutive.officeHolder.actorId
+            }) : ownAuthoritySubmitted;
+        const protestStateId = countryId => {
+            const match = /^country:(-?\d+)$/.exec(String(countryId || ''));
+            return match ? Number(match[1]) : null;
+        };
+        const protestStateA = protestStateId(injuredActorView && injuredActorView.countryId);
+        const protestStateB = protestStateId(accusedActorView && accusedActorView.countryId);
+        const relationBeforeProtest = Number.isInteger(protestStateA) && Number.isInteger(protestStateB)
+            ? companyRuntime.api.relationValue(protestStateA, protestStateB) : null;
+        const treatyBeforeProtest = Number.isInteger(protestStateA) && Number.isInteger(protestStateB)
+            ? companyRuntime.api.treaty(protestStateA, protestStateB) : null;
+        const diplomaticProtest = ownAuthorityExecuted && ownAuthorityExecuted.ok
+            ? companyRuntime.api.negotiationDiplomaticProtestExecute(
+                brokenConsequence.id, ownAuthorityExecuted.request.id
+            ) : ownAuthorityExecuted;
+        const duplicateDiplomaticProtest = ownAuthorityExecuted && ownAuthorityExecuted.ok
+            ? companyRuntime.api.negotiationDiplomaticProtestExecute(
+                brokenConsequence.id, ownAuthorityExecuted.request.id
+            ) : ownAuthorityExecuted;
+        const relationAfterProtest = Number.isInteger(protestStateA) && Number.isInteger(protestStateB)
+            ? companyRuntime.api.relationValue(protestStateA, protestStateB) : null;
+        const treatyAfterProtest = Number.isInteger(protestStateA) && Number.isInteger(protestStateB)
+            ? companyRuntime.api.treaty(protestStateA, protestStateB) : null;
+        const afterDiplomaticProtestSnapshot = companyRuntime.api.negotiationSnapshot();
+        const relationAfterDuplicateProtest = companyRuntime.api.relationValue(protestStateA, protestStateB);
+        const warBlockedBeforeFixture = companyRuntime.api.negotiationConstitutionalWarExecute(
+            brokenConsequence.id, ownAuthorityExecuted && ownAuthorityExecuted.request.id
+        );
+        const constitutionalFixtureState = companyRuntime.api.negotiationFixtureStateSnapshot();
+        const constitutionalFixture = companyRuntime.api.negotiationFixtureEnableWarReview(
+            brokenConsequence.id
+        );
+        if (constitutionalFixture && constitutionalFixture.ok) {
+            const current = companyRuntime.api.relationValue(protestStateA, protestStateB);
+            companyRuntime.api.relationAdd(protestStateA, protestStateB, -65 - current, {
+                reason: 'TEST_FIXTURE_CONSTITUTIONAL_THRESHOLD',
+                idempotencyKey: `test-fixture:constitutional-threshold:${brokenConsequence.id}`
+            });
+        }
+        const executeConstitutionalAction = (countryId, actionType) => {
+            const country = companyRuntime.api.institutionCountryView(countryId);
+            const executive = country && Object.values(country.institutions || {})
+                .find(row => row.type === 'EXECUTIVE');
+            if (!country || !executive) return { ok: false, reason: 'FIXTURE_EXECUTIVE_MISSING' };
+            let current = companyRuntime.api.institutionSubmit({
+                countryId, actionType, institutionId: executive.id,
+                actorId: executive.officeHolder.actorId
+            });
+            if (!current.ok) return current;
+            for (const institutionId of current.request.requiredInstitutionIds || []) {
+                if ((current.request.approvalInstitutionIds || []).includes(institutionId)) continue;
+                const institution = country.institutions[institutionId];
+                current = companyRuntime.api.institutionApprove(current.request.id, {
+                    institutionId, actorId: institution.officeHolder.actorId
+                });
+                if (!current.ok) return current;
+            }
+            const executor = country.institutions[current.request.executorInstitutionId];
+            return companyRuntime.api.institutionExecute(current.request.id, {
+                institutionId: executor.id, actorId: executor.officeHolder.actorId
+            });
+        };
+        const warAuthority = constitutionalFixture && constitutionalFixture.ok
+            ? executeConstitutionalAction(injuredActorView.countryId, 'DECLARE_WAR') : constitutionalFixture;
+        const constitutionalWar = warAuthority && warAuthority.ok
+            ? companyRuntime.api.negotiationConstitutionalWarExecute(
+                brokenConsequence.id, warAuthority.request.id
+            ) : warAuthority;
+        const treatyAfterConstitutionalWar = companyRuntime.api.treaty(protestStateA, protestStateB);
+        const ownPeaceAuthority = constitutionalWar && constitutionalWar.ok
+            ? executeConstitutionalAction(injuredActorView.countryId, 'SIGN_TREATY') : constitutionalWar;
+        const unilateralPeaceBlocked = ownPeaceAuthority && ownPeaceAuthority.ok
+            ? companyRuntime.api.negotiationConstitutionalPeaceExecute(
+                brokenConsequence.id, [ownPeaceAuthority.request.id]
+            ) : ownPeaceAuthority;
+        const foreignPeaceAuthority = constitutionalWar && constitutionalWar.ok
+            ? executeConstitutionalAction(accusedActorView.countryId, 'SIGN_TREATY') : constitutionalWar;
+        const constitutionalPeace = ownPeaceAuthority && ownPeaceAuthority.ok
+            && foreignPeaceAuthority && foreignPeaceAuthority.ok
+            ? companyRuntime.api.negotiationConstitutionalPeaceExecute(
+                brokenConsequence.id,
+                [foreignPeaceAuthority.request.id, ownPeaceAuthority.request.id]
+            ) : (foreignPeaceAuthority || ownPeaceAuthority);
+        const duplicateConstitutionalPeace = constitutionalPeace && constitutionalPeace.ok
+            ? companyRuntime.api.negotiationConstitutionalPeaceExecute(
+                brokenConsequence.id,
+                [ownPeaceAuthority.request.id, foreignPeaceAuthority.request.id]
+            ) : constitutionalPeace;
+        const treatyAfterConstitutionalPeace = companyRuntime.api.treaty(protestStateA, protestStateB);
+        const afterConstitutionalSnapshot = companyRuntime.api.negotiationSnapshot();
+        companyRuntime.api.negotiationFixtureStateRestore(constitutionalFixtureState);
         const brokenRelationAfter = companyRuntime.api.relationshipView(
             readySession.playerActorId, readySession.listenerActorId
         );
@@ -12675,6 +13952,16 @@ function probeConversationUnderstanding(seed = 2032) {
         if (sendButton) sendButton.dispatchEvent(new companyRuntime.dom.window.MouseEvent('click', { bubbles: true }));
         const uiText = `${body.textContent} ${modal.textContent}`;
         const uiSession = companyRuntime.api.conversationSessionLatest(companyContext.listenerActorId);
+        const promiseRecall = companyRuntime.api.characterMemoryRecall(
+            readySession.listenerActorId,
+            { kinds: ['PROMISE'], relatedActorId: readySession.playerActorId, limit: 6 }
+        );
+        const promiseRecallFollowUp = uiSession && companyRuntime.api.conversationSessionFollowUp(
+            uiSession.id,
+            'Daha önce verdiğimiz sözlerden hangisini tuttuk, hangisini bozduk?'
+        );
+        const promiseRecallResponse = promiseRecallFollowUp && promiseRecallFollowUp.followUp
+            && promiseRecallFollowUp.followUp.response;
         const historyRows = modal.querySelectorAll('.conversation-history-row');
         const resumeButton = Array.from(modal.querySelectorAll('[data-conversation-resume]'))
             .find(button => !button.disabled);
@@ -12860,8 +14147,120 @@ function probeConversationUnderstanding(seed = 2032) {
             promiseResolutionIdempotent: duplicateDeadlineTick.broken === 0
                 && afterPromiseSnapshot.diagnostics.promisesKept === 1
                 && afterPromiseSnapshot.diagnostics.promisesBroken === 1,
+            promiseConsequencesDistinctAndSafe: !!keptConsequence && !!brokenConsequence
+                && keptConsequence.kind === 'COOPERATIVE_FOLLOW_UP'
+                && keptConsequence.triggerStatus === 'KEPT'
+                && keptConsequence.nextStepCodes.includes('FORMALIZE_MECHANICAL_CONTRACT')
+                && brokenConsequence.kind === 'COMMERCIAL_DISPUTE'
+                && brokenConsequence.triggerStatus === 'BROKEN'
+                && brokenConsequence.nextStepCodes.includes('REQUEST_CURE')
+                && brokenConsequence.nextStepCodes.includes('SUSPEND_NEGOTIATION')
+                && JSON.stringify(keptConsequence.nextStepCodes)
+                    !== JSON.stringify(brokenConsequence.nextStepCodes)
+                && [keptConsequence, brokenConsequence].every(row => row.executable === false
+                    && row.worldMutation === false && row.warCandidate === null
+                    && row.peaceCandidate === null),
+            promiseConsequenceIdempotent: afterPromiseSnapshot.diagnostics.consequenceCandidatesCreated === 2
+                && Object.keys(afterPromiseSnapshot.consequenceCandidates).length === 2,
+            diplomaticIncidentReviewSafe: !!diplomaticReview && diplomaticReview.ok
+                && diplomaticReview.worldMutation === false
+                && !!reviewedBrokenConsequence
+                && reviewedBrokenConsequence.status === 'REVIEWED'
+                && reviewedBrokenConsequence.diplomaticReview
+                && reviewedBrokenConsequence.diplomaticReview.legalStanding === true
+                && reviewedBrokenConsequence.diplomaticReview.protestEligible === true
+                && reviewedBrokenConsequence.diplomaticReview.requiresStateAuthority === true
+                && reviewedBrokenConsequence.diplomaticReview.protestCandidate.status
+                    === 'AWAITING_STATE_AUTHORITY'
+                && reviewedBrokenConsequence.diplomaticReview.executable === false
+                && reviewedBrokenConsequence.diplomaticReview.worldMutation === false
+                && diplomacyBeforeReview === diplomacyAfterReview,
+            commercialBreachCannotFabricateWar: !!reviewedBrokenConsequence
+                && reviewedBrokenConsequence.diplomaticReview.verifiedEconomicDamage === 0
+                && reviewedBrokenConsequence.diplomaticReview.damageAssessment.schemaVersion === 1
+                && reviewedBrokenConsequence.diplomaticReview.damageAssessment.totals.uncompensatedDamage === 0
+                && reviewedBrokenConsequence.diplomaticReview.damageAssessment.unmeasuredClaims
+                    .every(row => row.status === 'UNVERIFIED' && row.includedInDamage === false)
+                && reviewedBrokenConsequence.diplomaticReview.thresholds.damagePassed === false
+                && reviewedBrokenConsequence.diplomaticReview.warCandidate === null
+                && reviewedBrokenConsequence.warCandidate === null
+                && reviewedBrokenConsequence.peaceCandidate === null
+                && reviewedBrokenConsequence.diplomaticReview.blockedReasons
+                    .includes('VERIFIED_ECONOMIC_DAMAGE_BELOW_WAR_THRESHOLD'),
+            diplomaticIncidentReviewIdempotent: !!duplicateDiplomaticReview
+                && duplicateDiplomaticReview.ok && duplicateDiplomaticReview.duplicate === true
+                && duplicateDiplomaticReview.review.id === diplomaticReview.review.id,
+            diplomaticProtestRequiresExecutedOwnStateAuthority:
+                !!wrongStateProtest && wrongStateProtest.ok === false
+                && wrongStateProtest.code === 'INJURED_STATE_AUTHORITY_REQUIRED'
+                && !!authorityBeforeExecution && authorityBeforeExecution.ok === false
+                && authorityBeforeExecution.code === 'STATE_PROTEST_AUTHORITY_NOT_EXECUTED',
+            diplomaticProtestExecutesOnceWithoutWar:
+                !!diplomaticProtest && diplomaticProtest.ok && diplomaticProtest.worldMutation === true
+                && diplomaticProtest.execution.authorityRequestId === ownAuthorityExecuted.request.id
+                && diplomaticProtest.execution.issuingCountryId === injuredActorView.countryId
+                && diplomaticProtest.execution.targetCountryId === accusedActorView.countryId
+                && relationAfterProtest - relationBeforeProtest === -6
+                && treatyAfterProtest === treatyBeforeProtest
+                && diplomaticProtest.execution.treatyMutation === false
+                && diplomaticProtest.execution.warMutation === false
+                && afterDiplomaticProtestSnapshot.consequenceCandidates[brokenConsequence.id]
+                    .diplomaticReview.protestCandidate.status === 'ISSUED'
+                && afterDiplomaticProtestSnapshot.consequenceCandidates[brokenConsequence.id]
+                    .diplomaticReview.requiresStateAuthority === false,
+            diplomaticProtestIdempotent: !!duplicateDiplomaticProtest
+                && duplicateDiplomaticProtest.ok && duplicateDiplomaticProtest.duplicate === true
+                && relationAfterProtest === relationAfterDuplicateProtest,
+            constitutionalWarBlockedWithoutVerifiedCandidate: !!warBlockedBeforeFixture
+                && warBlockedBeforeFixture.ok === false
+                && warBlockedBeforeFixture.code === 'WAR_REVIEW_THRESHOLDS_NOT_MET',
+            constitutionalWarRequiresFullRegimeRoute: !!constitutionalFixture
+                && constitutionalFixture.ok && constitutionalFixture.fixture === true
+                && !!warAuthority && warAuthority.ok
+                && warAuthority.request.actionType === 'DECLARE_WAR'
+                && warAuthority.request.status === 'EXECUTED'
+                && warAuthority.request.requiredInstitutionIds.every(id =>
+                    warAuthority.request.approvalInstitutionIds.includes(id))
+                && !!constitutionalWar && constitutionalWar.ok
+                && constitutionalWar.execution.authorityRequestId === warAuthority.request.id
+                && treatyAfterConstitutionalWar === 'war',
+            constitutionalPeaceRequiresBothStates: !!unilateralPeaceBlocked
+                && unilateralPeaceBlocked.ok === false
+                && unilateralPeaceBlocked.code === 'BILATERAL_PEACE_AUTHORITY_REQUIRED'
+                && !!ownPeaceAuthority && ownPeaceAuthority.ok
+                && !!foreignPeaceAuthority && foreignPeaceAuthority.ok
+                && [ownPeaceAuthority, foreignPeaceAuthority].every(result =>
+                    result.request.actionType === 'SIGN_TREATY'
+                    && result.request.status === 'EXECUTED'
+                    && result.request.requiredInstitutionIds.every(id =>
+                        result.request.approvalInstitutionIds.includes(id))),
+            constitutionalPeaceExecutesOnce: !!constitutionalPeace && constitutionalPeace.ok
+                && constitutionalPeace.execution.authorityRequestIds.length === 2
+                && constitutionalPeace.execution.signatoryCountryIds.length === 2
+                && constitutionalPeace.execution.peaceMutation === true
+                && treatyAfterConstitutionalPeace === 'peace'
+                && !!duplicateConstitutionalPeace && duplicateConstitutionalPeace.ok
+                && duplicateConstitutionalPeace.duplicate === true
+                && afterConstitutionalSnapshot.consequenceCandidates[brokenConsequence.id]
+                    .diplomaticReview.peaceCandidate.status === 'SIGNED',
             promiseMemoryResolved: promiseMemory.milestones[keptCommitment.memoryMilestoneId].status === 'KEPT'
                 && promiseMemory.milestones[brokenCommitment.memoryMilestoneId].status === 'BROKEN',
+            promiseRecallLongHorizon: !!promiseRecall && promiseRecall.ok
+                && promiseRecall.rawWorldRead === false
+                && promiseRecall.records.some(row => row.id === keptCommitment.memoryMilestoneId
+                    && row.layer === 'MILESTONE' && row.horizon === 'LONG' && row.status === 'KEPT'
+                    && row.sourceEvidenceIds.includes(keptCommitment.id))
+                && promiseRecall.records.some(row => row.id === brokenCommitment.memoryMilestoneId
+                    && row.layer === 'MILESTONE' && row.horizon === 'LONG' && row.status === 'BROKEN'
+                    && row.sourceEvidenceIds.includes(brokenCommitment.id)),
+            promiseRecallInLaterConversation: !!promiseRecallResponse
+                && promiseRecallResponse.source === 'CHARACTER_HELD_MEMORY_RECALL'
+                && promiseRecallResponse.rawWorldRead === false
+                && promiseRecallResponse.worldMutation === false
+                && promiseRecallResponse.memoryRecall.records.some(row => row.status === 'KEPT')
+                && promiseRecallResponse.memoryRecall.records.some(row => row.status === 'BROKEN')
+                && promiseRecallResponse.text.includes('KEPT')
+                && promiseRecallResponse.text.includes('BROKEN'),
             secretOutsiderCannotOriginate: outsiderSecretShare.ok === false
                 && outsiderSecretShare.code === 'NOT_CASE_PARTIES',
             secretSharedThroughActorBelief: secretShare.ok && secretShare.knowledgeMutation === true
@@ -12994,12 +14393,655 @@ function probeConversationUnderstanding(seed = 2032) {
             adapterVersion: migrated.adapterVersion,
             defaultsPresent: migrated.sessions.every(session => Array.isArray(session.playerResponses)
                 && Array.isArray(session.evidenceSubmissions)
+                && Array.isArray(session.followUps)
+                && session.sourceEventAnchor === null
+                && session.eventDecision === null
                 && session.concessions && session.concessions.useExistingCompany === false
                 && Array.isArray(session.concessions.withdrawnClaimIds)
                 && session.resolution === null)
         };
     } finally {
         legacySessionRuntime.dom.window.close();
+    }
+
+    const socialRuntime = createRuntime((seed + 6) >>> 0);
+    let socialConversation;
+    let socialRaw;
+    let socialSnapshot;
+    try {
+        socialRuntime.api.newCampaign({ seed: seed + 6, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const directory = socialRuntime.api.contactDirectoryBuild();
+        const listener = (directory.publicCharacters || []).find(row => row.id !== directory.playerActorId);
+        const socialCases = [
+            ['Merhaba, iyi günler.', 'GREETING'],
+            ['Bugün nasılsın, işler nasıl gidiyor?', 'CHECK_IN'],
+            ['Yardımın için teşekkür ederim.', 'THANK'],
+            ['Dün söylediklerim için özür dilerim.', 'APOLOGIZE'],
+            ['Sence bu konuda ne düşünmeliyim?', 'ASK_PERSONAL_OPINION'],
+            ['Bugün hava güzel, biraz konuşalım.', 'SMALL_TALK'],
+            ['Bana yardım edecek misin?', 'REQUEST_SUPPORT'],
+            ['Görüşürüz, kendine iyi bak.', 'FAREWELL']
+        ];
+        const beforeWorld = hashSnapshot(stateSnapshot(socialRuntime.api.state()));
+        const rows = socialCases.map(([text, expectedAct]) => {
+            const result = socialRuntime.api.conversationSessionBegin(text, { listenerActorId: listener && listener.id });
+            const session = result.session;
+            const response = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+            return {
+                text, expectedAct, ok: result.ok, sessionId: session.id,
+                speechAct: session.analysis.speechAct,
+                status: session.status, response,
+                questions: session.questions.length, domainChecks: session.domainChecks.length,
+                executable: session.candidate.executable, worldMutation: session.worldMutation
+            };
+        });
+        const checkInRow = rows.find(row => row.expectedAct === 'CHECK_IN');
+        const helpFollowUp = checkInRow && socialRuntime.api.conversationSessionFollowUp(
+            checkInRow.sessionId, 'evet, bana yardım edecek misin'
+        );
+        const repeatedHelpFollowUp = checkInRow && socialRuntime.api.conversationSessionFollowUp(
+            checkInRow.sessionId, 'evet, bana yardım edecek misin'
+        );
+        const helpResponse = helpFollowUp && helpFollowUp.followUp && helpFollowUp.followUp.response;
+        const repeatedHelpResponse = repeatedHelpFollowUp && repeatedHelpFollowUp.followUp
+            && repeatedHelpFollowUp.followUp.response;
+        const contextualSession = socialRuntime.api.conversationSessionBegin(
+            'Bana yardım edecek misin?', { listenerActorId: listener && listener.id }
+        );
+        const contextualTurns = [
+            'Ordu topluyorum, desteğini istesem kabul eder misin?',
+            'Neden?',
+            'Aynı şeyi söylüyorsun, soruma doğrudan cevap ver.',
+            'Hayır, çelik değil enerji hakkında konuşuyorum.'
+        ].map(text => socialRuntime.api.conversationSessionFollowUp(contextualSession.session.id, text));
+        const contextualResponses = contextualTurns.map(result =>
+            result && result.followUp && result.followUp.response);
+        const continuitySession = socialRuntime.api.conversationSessionBegin(
+            'Ben bir şirket kuracağım çelik sanayisi üzerine; İngiltere’den verdiğin çelik siparişini depolarıma yönlendirelim.',
+            { listenerActorId: listener && listener.id }
+        );
+        const continuityCheckIn = socialRuntime.api.conversationSessionFollowUp(
+            continuitySession.session.id, 'bugün nasılsın'
+        );
+        const continuityAmbiguous = socialRuntime.api.conversationSessionFollowUp(
+            continuitySession.session.id, 'zorbak telemini kırık sazlık'
+        );
+        const llmValidationContext = {
+            discourseAct: 'REPAIR_REPETITION',
+            history: [{ speaker: 'CHARACTER', text: 'Önceki cevabım değişmeden kaldı.' }]
+        };
+        const llmValidation = {
+            safeAccepted: socialRuntime.api.conversationLLMParseReply(
+                'Haklısın, aynı noktaya döndüm. Bu kez itirazını doğrudan ele alacağım.',
+                llmValidationContext
+            ),
+            numberRejected: socialRuntime.api.conversationLLMParseReply(
+                'Haklısın, stokta 40 birim var.', llmValidationContext
+            ),
+            internalIdRejected: socialRuntime.api.conversationLLMParseReply(
+                'Haklısın, character:0:4 bunu onayladı.', llmValidationContext
+            ),
+            exactRepeatRejected: socialRuntime.api.conversationLLMParseReply(
+                'Önceki cevabım değişmeden kaldı.', Object.assign({}, llmValidationContext, {
+                    discourseAct: 'CONTINUE_SOCIAL'
+                })
+            ),
+            jsonAccepted: socialRuntime.api.conversationLLMParseReply(JSON.stringify({
+                reply: 'Anladım. Destek talebinin niteliğini ve kapsamını netleştirmek için görevini açıkla.'
+            }), Object.assign({}, llmValidationContext, { discourseAct: 'CONTINUE_REQUEST', history: [] })),
+            unauthorizedPromiseRejected: socialRuntime.api.conversationLLMParseReply(JSON.stringify({
+                reply: 'Elbette, destek talebini kabul ettim ve harekete geçiyorum.'
+            }), Object.assign({}, llmValidationContext, { discourseAct: 'CONTINUE_REQUEST', history: [] }))
+        };
+        const qualityCorpus = [
+            ['Merhaba, yeniden konuşalım.', 'GREETING'],
+            ['Bugün nasılsın, işler yolunda mı?', 'CHECK_IN'],
+            ['Yardımın için teşekkür ederim.', 'THANK'],
+            ['Önceki sözüm için özür dilerim.', 'APOLOGIZE'],
+            ['Sence bu konuda ne düşünüyorsun?', 'ASK_PERSONAL_OPINION'],
+            ['Bugün hava sakin, biraz konuşalım.', 'SMALL_TALK'],
+            ['Bana bu konuda yardım eder misin?', 'REQUEST_SUPPORT'],
+            ['Görüşürüz, kendine iyi bak.', 'FAREWELL'],
+            ['Selam, müsaitsen konuşmak isterim.', 'GREETING'],
+            ['Hayat nasıl gidiyor, iyi misin?', 'CHECK_IN']
+        ];
+        const qualityRows = [];
+        let longContextSessionId = null;
+        for (let sessionIndex = 0; sessionIndex < 3; sessionIndex++) {
+            const opened = socialRuntime.api.conversationSessionBegin(
+                'Bugün nasılsın?', { listenerActorId: listener && listener.id }
+            );
+            if (sessionIndex === 0) longContextSessionId = opened.session.id;
+            const openingResponse = opened.session.listenerResponses.find(row => row.kind === 'SOCIAL_RESPONSE');
+            qualityRows.push({
+                ok: !!opened.ok, expectedAct: 'CHECK_IN', speechAct: opened.session.analysis.speechAct,
+                text: openingResponse && openingResponse.text,
+                source: openingResponse && openingResponse.source,
+                realization: openingResponse && openingResponse.realization
+            });
+            const turnCount = sessionIndex < 2 ? 16 : 15;
+            for (let turn = 0; turn < turnCount; turn++) {
+                const expected = qualityCorpus[(sessionIndex * 17 + turn) % qualityCorpus.length];
+                const result = socialRuntime.api.conversationSessionFollowUp(opened.session.id, expected[0]);
+                const response = result && result.followUp && result.followUp.response;
+                qualityRows.push({
+                    ok: !!(result && result.ok), expectedAct: expected[1],
+                    speechAct: result && result.followUp && result.followUp.analysis.speechAct,
+                    text: response && response.text,
+                    source: response && response.source,
+                    realization: response && response.realization
+                });
+            }
+        }
+        socialRuntime.api.conversationSessionFollowUp(
+            longContextSessionId, 'Bu yalnız bağlam çoğaltma sınaması için benzersiz son iletidir.'
+        );
+        const longContextSession = socialRuntime.api.conversationSessionGet(longContextSessionId);
+        const longContextRows = socialRuntime.api.conversationDiscourseContext(longContextSession);
+        const longContextTokens = longContextRows.reduce((sum, row) => sum
+            + socialRuntime.api.conversationDiscourseTokenEstimate(row.text) + 6, 0);
+        const longLastFollowUp = longContextSession.followUps[longContextSession.followUps.length - 1];
+        const generationHistory = socialRuntime.api.conversationDiscourseContext(longContextSession, {
+            excludeFollowUpId: longLastFollowUp.id,
+            excludeResponseId: longLastFollowUp.response.id
+        });
+        const qualityTexts = qualityRows.map(row => row.text || '');
+        let rollingExactRepeats = 0;
+        let adjacentRepeats = 0;
+        let maxAddressStreak = 0;
+        let addressStreak = 0;
+        let previousAddress = null;
+        qualityRows.forEach((row, index) => {
+            if (index > 0 && row.text === qualityRows[index - 1].text) adjacentRepeats++;
+            if (qualityTexts.slice(Math.max(0, index - 12), index).includes(row.text)) rollingExactRepeats++;
+            const address = row.realization && row.realization.addressMode;
+            if (address && address === previousAddress) addressStreak++;
+            else addressStreak = address ? 1 : 0;
+            previousAddress = address;
+            maxAddressStreak = Math.max(maxAddressStreak, addressStreak);
+        });
+        const qualityMaxLexicalSimilarity = Math.max(0, ...qualityRows.map(row =>
+            Number(row.realization && row.realization.maxRecentSimilarityBps) || 0));
+        const qualityMaxSemanticSimilarity = Math.max(0, ...qualityRows.map(row =>
+            Number(row.realization && row.realization.maxRecentSemanticSimilarityBps) || 0));
+        const afterWorld = hashSnapshot(stateSnapshot(socialRuntime.api.state()));
+        const last = rows[rows.length - 1];
+        const workspaceSession = socialRuntime.api.conversationSessionLatest(listener && listener.id);
+        const workspaceResponse = workspaceSession
+            && (workspaceSession.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+        const workspaceOpened = socialRuntime.api.conversationWorkspaceOpen(
+            listener && listener.id, listener && listener.name,
+            workspaceSession && workspaceSession.id
+        );
+        socialRuntime.api.conversationWorkspaceRender({ force: true });
+        const modal = socialRuntime.dom.window.document.getElementById('conversation-workspace-modal');
+        const focusedWorkspaceElement = socialRuntime.dom.window.document.activeElement;
+        const workspaceFocusSafe = !!focusedWorkspaceElement
+            && focusedWorkspaceElement.matches('[data-conversation-follow-up], [data-conversation-reply], [data-conversation-input]')
+            && !focusedWorkspaceElement.matches('[data-conversation-new]');
+        const draftBeforeRender = modal && modal.querySelector('[data-conversation-follow-up]');
+        const draftText = 'Yazmakta olduğum bu takip mesajı LLM cevabı gelirken silinmemeli.';
+        if (draftBeforeRender) {
+            draftBeforeRender.value = draftText;
+            draftBeforeRender.focus();
+            draftBeforeRender.setSelectionRange(18, 34);
+            draftBeforeRender.scrollTop = 7;
+        }
+        socialRuntime.api.conversationWorkspaceRender({ scroll: 'preserve', force: true });
+        const draftAfterRender = modal && modal.querySelector('[data-conversation-follow-up]');
+        const draftSurvivedRerender = !!draftAfterRender
+            && draftAfterRender !== draftBeforeRender
+            && draftAfterRender.value === draftText
+            && socialRuntime.dom.window.document.activeElement === draftAfterRender
+            && draftAfterRender.selectionStart === 18
+            && draftAfterRender.selectionEnd === 34;
+        socialRuntime.api.conversationWorkspaceRender({
+            scroll: 'preserve', deferWhileTyping: true
+        });
+        const draftDeferredWithoutReplacement = !!draftAfterRender
+            && modal.querySelector('[data-conversation-follow-up]') === draftAfterRender
+            && draftAfterRender.value === draftText
+            && modal.dataset.pendingConversationRender === '1';
+        const modalText = modal && modal.textContent || '';
+        const secondParticipant = (directory.publicCharacters || []).find(row =>
+            row.id !== (listener && listener.id) && row.id !== directory.playerActorId);
+        const activeInternalSession = socialRuntime.api.state().conversationUnderstanding.sessions.find(row =>
+            row.id === socialRuntime.api.conversationSessionLatest(listener && listener.id).id);
+        if (activeInternalSession) activeInternalSession.participantActorIds = [
+            listener && listener.id, secondParticipant && secondParticipant.id, 'character:unknown:guest'
+        ].filter(Boolean);
+        socialRuntime.api.conversationWorkspaceRender({ force: true });
+        const participantCards = modal ? [...modal.querySelectorAll('[data-conversation-participant]')] : [];
+        const participantText = modal && modal.querySelector('#conversation-workspace-profile')
+            ? modal.querySelector('#conversation-workspace-profile').textContent : '';
+        if (activeInternalSession) delete activeInternalSession.participantActorIds;
+        socialRuntime.api.conversationWorkspaceRender({ force: true });
+        socialSnapshot = socialRuntime.api.conversationSessionSnapshot();
+        const saveStatus = socialRuntime.api.saveNow();
+        socialRaw = socialRuntime.api.savedRaw();
+        // Bilinmeyen açılış probu kalıcı kayıt örneğini ve "son oturum" UI
+        // seçimlerini etkilememeli; ana ekran ölçümleri/snapshot alındıktan sonra
+        // aynı gerçek motor üzerinde ayrı bir geçici oturum olarak sınanır.
+        const unknownOpening = socialRuntime.api.conversationSessionBegin(
+            'zorbak telemini kırık sazlık', { listenerActorId: listener && listener.id }
+        );
+        const unknownOpeningResponse = unknownOpening.session
+            && (unknownOpening.session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+        socialConversation = {
+            listenerExists: !!listener,
+            rows,
+            actsExact: rows.every(row => row.speechAct === row.expectedAct),
+            allUnderstood: rows.every(row => row.ok && row.status === 'SOCIAL_RESPONSE_READY'),
+            allResponded: rows.every(row => row.response && row.response.text
+                && row.response.actorId === (listener && listener.id)),
+            allRealizationsValid: rows.every(row => !row.response.realization
+                || socialRuntime.api.characterDialogueValidate(row.response.realization).ok),
+            noMechanicalQuestions: rows.every(row => row.questions === 0 && row.domainChecks === 0),
+            allNonExecutable: rows.every(row => row.executable === false && row.worldMutation === false
+                && row.response.worldMutation === false),
+            worldNeutral: beforeWorld === afterWorld,
+            distinctResponses: new Set(rows.map(row => row.response && row.response.text)).size === rows.length,
+            unknownOpeningClarifies: !!unknownOpeningResponse
+                && unknownOpening.session.status === 'SOCIAL_RESPONSE_READY'
+                && unknownOpeningResponse.speechAct === 'UNKNOWN'
+                && /açık|anlat|beklediğini/i.test(unknownOpeningResponse.text),
+            workspaceFocusSafe,
+            draftSurvivedRerender,
+            draftDeferredWithoutReplacement,
+            helpFollowUpUnderstood: !!helpFollowUp && helpFollowUp.ok
+                && helpFollowUp.followUp.analysis.speechAct === 'REQUEST_SUPPORT'
+                && !!helpResponse && helpResponse.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'
+                && helpResponse.discourseAct === 'CONTINUE_REQUEST'
+                && /yardım talebini/i.test(helpResponse.text)
+                && !helpResponse.text.includes('Seni dinliyorum'),
+            repeatedHelpVaries: !!repeatedHelpResponse
+                && repeatedHelpResponse.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'
+                && !repeatedHelpResponse.text.includes('Seni dinliyorum')
+                && repeatedHelpResponse.discourseAct === 'REPAIR_REPETITION'
+                && repeatedHelpResponse.text !== helpResponse.text,
+            contextualFollowUp: {
+                militaryAnswer: !!contextualResponses[0]
+                    && contextualTurns[0].followUp.analysis.speechAct === 'REQUEST_SUPPORT'
+                    && contextualResponses[0].discourseAct === 'CONTINUE_REQUEST'
+                    && /askerî destek|ordu/i.test(contextualResponses[0].text),
+                reasonTracksPriorPosition: !!contextualResponses[1]
+                    && contextualResponses[1].discourseAct === 'ASK_REASON'
+                    && /gerekçe|nedeni/i.test(contextualResponses[1].text),
+                repetitionRepair: !!contextualResponses[2]
+                    && contextualResponses[2].discourseAct === 'REPAIR_REPETITION'
+                    && /aynı kalıp|doğrudan cevap/i.test(contextualResponses[2].text),
+                correctionApplied: !!contextualResponses[3]
+                    && contextualResponses[3].discourseAct === 'CORRECT_PREVIOUS_TOPIC'
+                    && /enerji/i.test(contextualResponses[3].text),
+                statePersisted: !!(contextualTurns[3] && contextualTurns[3].session
+                    && contextualTurns[3].session.discourseState
+                    && contextualTurns[3].session.discourseState.lastDiscourseAct === 'CORRECT_PREVIOUS_TOPIC'
+                    && /enerji/i.test(contextualTurns[3].session.discourseState.lastPlayerText)),
+                noWorldMutation: contextualTurns.every(result => result && result.worldMutation === false)
+            },
+            sessionContinuity: {
+                checkInStaysSameSession: !!continuityCheckIn && continuityCheckIn.ok
+                    && continuityCheckIn.session.id === continuitySession.session.id,
+                checkInIsSocialNotPreviousAnswer: !!continuityCheckIn
+                    && continuityCheckIn.followUp.analysis.speechAct === 'CHECK_IN'
+                    && continuityCheckIn.followUp.response.discourseAct === 'CONTINUE_SOCIAL',
+                activeTopicPreserved: !!continuityCheckIn
+                    && continuityCheckIn.followUp.inheritedTopic === 'COMMERCE'
+                    && continuityCheckIn.session.discourseState.activeTopic === 'COMMERCE',
+                ambiguousRequestsRepair: !!continuityAmbiguous && continuityAmbiguous.ok
+                    && continuityAmbiguous.followUp.analysis.speechAct === 'UNKNOWN'
+                    && continuityAmbiguous.followUp.response.discourseAct === 'CLARIFY_AMBIGUOUS_INPUT'
+                    && /bağlayamadım|kastettiğini/i.test(continuityAmbiguous.followUp.response.text),
+                longHistoryExceedsOldFiveTurnWindow: longContextRows.length > 10,
+                longHistoryWithinModelBudget: longContextTokens
+                    <= socialRuntime.api.conversationHistoryTokenBudget(),
+                currentTurnNotDuplicatedInGenerationHistory: !generationHistory.some(row =>
+                    row.text === longLastFollowUp.playerText
+                    || row.text === longLastFollowUp.response.text),
+                historyRows: longContextRows.length,
+                estimatedTokens: longContextTokens,
+                budget: socialRuntime.api.conversationHistoryTokenBudget()
+            },
+            llmOutputGate: {
+                safeAccepted: !!llmValidation.safeAccepted,
+                numberRejected: llmValidation.numberRejected === null,
+                internalIdRejected: llmValidation.internalIdRejected === null,
+                exactRepeatRejected: llmValidation.exactRepeatRejected === null,
+                jsonAccepted: !!llmValidation.jsonAccepted,
+                unauthorizedPromiseRejected: llmValidation.unauthorizedPromiseRejected === null
+            },
+            fiftyTurnQualityGate: {
+                turnCount: qualityRows.length,
+                allAccepted: qualityRows.every(row => row.ok),
+                intentsExact: qualityRows.every(row => row.speechAct === row.expectedAct),
+                allCharacterRealized: qualityRows.every(row => row.source === 'CHARACTER_DIALOGUE_REALIZER'
+                    ? row.realization && socialRuntime.api.characterDialogueValidate(row.realization).ok
+                    : row.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'),
+                exactUniqueCount: new Set(qualityTexts).size,
+                adjacentRepeats,
+                rollingExactRepeats,
+                maxAddressStreak,
+                maxLexicalSimilarityBps: qualityMaxLexicalSimilarity,
+                maxSemanticSimilarityBps: qualityMaxSemanticSimilarity,
+                forbiddenFallbackCount: qualityTexts.filter(text => /Seni dinliyorum/i.test(text)).length,
+                passed: qualityRows.length === 50
+                    && qualityRows.every(row => row.ok && row.speechAct === row.expectedAct
+                        && (row.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'
+                            || (row.source === 'CHARACTER_DIALOGUE_REALIZER' && row.realization
+                                && socialRuntime.api.characterDialogueValidate(row.realization).ok)))
+                    && adjacentRepeats === 0 && new Set(qualityTexts).size >= 16
+                    && maxAddressStreak <= 2
+                    && qualityMaxLexicalSimilarity <= 7200
+                    && qualityMaxSemanticSimilarity <= 8600
+                    && qualityTexts.every(text => !/Seni dinliyorum/i.test(text))
+            },
+            workspaceOpened,
+            uiShowsResponse: !!workspaceResponse && modalText.includes('KARAKTERİN CEVABI')
+                && modalText.includes(workspaceResponse.text),
+            uiShowsSocialSafety: modalText.includes('GÜNLÜK SOHBET') && modalText.includes('DÜNYA DEĞİŞMEDİ'),
+            multiParticipantProfileReady: !!secondParticipant && participantCards.length === 3
+                && participantCards.some(card => card.dataset.conversationParticipant === secondParticipant.id),
+            unknownParticipantProtected: participantCards.some(card =>
+                card.dataset.conversationParticipant === 'character:unknown:guest')
+                && participantText.includes('Bilinmeyen katılımcı')
+                && participantText.includes('KİMLİK DOĞRULANMADI')
+                && participantText.includes('Bilinmiyor'),
+            ledgerValidation: socialRuntime.api.conversationSessionValidate(socialSnapshot),
+            saveStatus
+        };
+    } finally {
+        socialRuntime.dom.window.close();
+    }
+
+    const restoredSocialRuntime = createRuntime((seed + 7) >>> 0);
+    try {
+        restoredSocialRuntime.api.putSavedRaw(socialRaw);
+        const loaded = restoredSocialRuntime.api.loadNow();
+        const restored = restoredSocialRuntime.api.conversationSessionSnapshot();
+        socialConversation.restored = {
+            loaded,
+            exact: JSON.stringify(restored) === JSON.stringify(socialSnapshot),
+            validation: restoredSocialRuntime.api.conversationSessionValidate(restored),
+            responseCount: (restored.sessions || []).reduce((sum, session) => sum
+                + (session.listenerResponses || []).filter(row => row.kind === 'SOCIAL_RESPONSE').length, 0)
+        };
+    } finally {
+        restoredSocialRuntime.dom.window.close();
+    }
+
+    const eventConversationRuntime = createRuntime((seed + 8) >>> 0);
+    let phase385EventConversation;
+    let eventConversationRaw;
+    let eventConversationSnapshot;
+    try {
+        eventConversationRuntime.api.newCampaign({
+            seed: seed + 8, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true
+        });
+        eventConversationRuntime.api.advance(5);
+        const story = eventConversationRuntime.api.state();
+        const state = story.states.find(row => Number(row.id) === 0);
+        state.welfare = 12;
+        if (state.factions) {
+            state.factions.workers = 22;
+            state.factions.business = 28;
+            state.factions.military = 12;
+            state.factions.intel = 20;
+            state.factions.radicals = 82;
+        }
+        for (const [index, commander] of (state.gov && state.gov.commanders || []).slice(0, 3).entries()) {
+            commander.loyalty = 20 + index * 3;
+            commander._lastDefect = story.clock;
+            commander.skills.warrior = Math.max(4, commander.skills.warrior || 0);
+            commander.skills.diplomat = Math.max(3, commander.skills.diplomat || 0);
+        }
+        for (const commander of (state.gov && state.gov.commanders || []).slice(3)) {
+            commander.loyalty = Math.max(78, Number(commander.loyalty) || 0);
+        }
+        if (story.commander && story.commander.res) story.commander.res.points = 500;
+        eventConversationRuntime.api.politicalCrisisTick(5);
+        const active = eventConversationRuntime.api.politicalCrisisCountryView('country:0').activeCrisis;
+        const playerActorId = `character:0:${story.commander.id}`;
+        const counselActorIds = active ? [active.leadActorId].concat(active.loyalistActorIds || [])
+            .filter((actorId, index, rows) => actorId && actorId !== playerActorId
+                && rows.indexOf(actorId) === index).slice(0, 3) : [];
+        if (counselActorIds[0]) eventConversationRuntime.api.relationshipAdjust(
+            counselActorIds[0], playerActorId,
+            { trustBps: 3200, respectBps: 2200, hostilityBps: -1200 },
+            { source: 'PHASE385_FIXTURE', reason: 'SUPPORTIVE_COUNSEL' }
+        );
+        if (counselActorIds[2]) eventConversationRuntime.api.relationshipAdjust(
+            counselActorIds[2], playerActorId,
+            { trustBps: -5200, respectBps: -2500, hostilityBps: 9000 },
+            { source: 'PHASE385_FIXTURE', reason: 'HOSTILE_COUNSEL' }
+        );
+        const physicalSnapshot = () => hashSnapshot({
+            states: story.states,
+            rel: story.rel,
+            politicalCrises: story.politicalCrises,
+            institutions: story.institutions,
+            characterActions: story.characterActions
+        });
+        const physicalDetail = () => ({
+            states: hashSnapshot(story.states),
+            rel: hashSnapshot(story.rel),
+            politicalCrises: hashSnapshot(story.politicalCrises),
+            institutions: hashSnapshot(story.institutions),
+            characterActions: hashSnapshot(story.characterActions)
+        });
+        story._talkOpen = true;
+        story._talkView = 'CHAT';
+        eventConversationRuntime.api.talkBind();
+        eventConversationRuntime.api.talkUpdate();
+        // Çalışma alanının salt-okunur projeksiyon önbelleklerini önce ısıt; ölçüm
+        // ve test fikstürünün bütçe aynasını bir kez uzlaştır. Ölçüm yalnız
+        // konuşma/yanıt üretiminin fiziksel dünyaya etkisini kapsasın.
+        eventConversationRuntime.api.saveNow();
+        const beforeWorld = physicalSnapshot();
+        const beforeWorldDetail = physicalDetail();
+        const document = eventConversationRuntime.dom.window.document;
+        const body = document.getElementById('talk-body');
+        const eventButtons = body ? [...body.querySelectorAll('[data-conversation-event-open]')] : [];
+        const eventButton = eventButtons[0];
+        if (eventButton) {
+            eventButton.dispatchEvent(new eventConversationRuntime.dom.window.MouseEvent('click', { bubbles: true }));
+        }
+        const modal = document.getElementById('conversation-workspace-modal');
+        const eventWorkspaceOpened = !!modal && !modal.classList.contains('hidden');
+        const initialText = 'Darbe söylentisinde ordunun tarafsız kalmasını sağla. Karşılığında yeni hükümette savunma reformunu sen yöneteceksin.';
+        const input = modal && modal.querySelector('[data-conversation-input]');
+        if (input) input.value = initialText;
+        const send = modal && modal.querySelector('[data-conversation-send]');
+        if (send) send.dispatchEvent(new eventConversationRuntime.dom.window.MouseEvent('click', { bubbles: true }));
+        const started = active && eventConversationRuntime.api.conversationSessionLatest(active.leadActorId);
+        const sourceEvent = started && started.sourceEventAnchor && (story.politicalCrises.events || [])
+            .find(row => row.id === started.sourceEventAnchor.sourceEventId);
+        const followUpInput = modal && modal.querySelector('[data-conversation-follow-up]');
+        if (followUpInput) followUpInput.value = 'Bunu hangi kanıta dayanarak söylüyorsun?';
+        const followUpSend = modal && modal.querySelector('[data-conversation-follow-up-send]');
+        if (followUpSend) {
+            followUpSend.dispatchEvent(new eventConversationRuntime.dom.window.MouseEvent('click', { bubbles: true }));
+        }
+        const completed = started && eventConversationRuntime.api.conversationSessionGet(started.id);
+        const followUp = completed && completed.followUps && completed.followUps[0];
+        const parallelSessions = [completed];
+        for (const actorId of counselActorIds.slice(1)) {
+            const result = eventConversationRuntime.api.conversationSessionBegin(initialText, {
+                listenerActorId: actorId,
+                sourceEventAnchor: { kind: 'POLITICAL_CRISIS', politicalCrisisId: active.id }
+            });
+            parallelSessions.push(result && result.session || null);
+        }
+        const counselResponses = parallelSessions.map(session => session
+            && (session.listenerResponses || []).find(row => row.kind === 'EVENT_COUNSEL_RESPONSE')).filter(Boolean);
+        const sessionCountBeforeForgery = eventConversationRuntime.api.conversationSessionSnapshot().sessions.length;
+        const forged = eventConversationRuntime.api.conversationSessionBegin('Bu sahte krizi konuşalım.', {
+            listenerActorId: active && active.leadActorId,
+            sourceEventAnchor: {
+                kind: 'POLITICAL_CRISIS', politicalCrisisId: 'political-crisis:forged'
+            }
+        });
+        const sessionCountAfterForgery = eventConversationRuntime.api.conversationSessionSnapshot().sessions.length;
+        const afterWorld = physicalSnapshot();
+        const afterWorldDetail = physicalDetail();
+        const modalText = modal && modal.textContent || '';
+        phase385EventConversation = {
+            crisisOpened: !!active,
+            eventButtonPresent: !!eventButton,
+            threeCharacterButtons: eventButtons.length >= 3,
+            eventWorkspaceOpened,
+            eventContextVisible: modalText.includes('DÜNYA OLAYINDAN AÇILDI')
+                && !!active && modalText.includes(active.id),
+            sessionStarted: !!started,
+            actualEventBound: !!sourceEvent && started.sourceEventAnchor.verification
+                === 'PLAYER_VISIBLE_POLITICAL_CRISIS_EVENT'
+                && started.sourceEventAnchor.rawWorldRead === false,
+            crisisEntityBound: !!started && started.sourceEventAnchor.politicalCrisisId === active.id
+                && started.analysis.entities.some(row => row.entityType === 'POLITICAL_CRISIS'
+                    && row.entityId === active.id),
+            followUpRecorded: !!followUp && completed.followUps.length === 1
+                && completed.candidate.followUpIds.includes(followUp.id),
+            followUpTopicInherited: !!followUp && followUp.analysis.speechAct === 'ASK_INFORMATION'
+                && followUp.inheritedTopic === 'POLITICAL_SUCCESSION',
+            responseEvidenceBound: !!followUp && followUp.response.source
+                === 'DETERMINISTIC_CONTEXT_BOUND_RESPONSE'
+                && followUp.response.rawWorldRead === false
+                && followUp.response.evidenceIds.includes(active.id)
+                && followUp.response.evidenceIds.includes(sourceEvent && sourceEvent.id),
+            noHiddenIntentLeak: !!followUp
+                && followUp.response.text.includes('gizli niyetini kesin bilgi gibi sunamam'),
+            uiThreadVisible: modalText.includes(initialText)
+                && modalText.includes('Bunu hangi kanıta dayanarak söylüyorsun?')
+                && !!followUp && modalText.includes(followUp.response.text),
+            forgedAnchorRejected: forged.ok === false && forged.code === 'EVENT_ANCHOR_NOT_VISIBLE'
+                && sessionCountAfterForgery === sessionCountBeforeForgery,
+            worldNeutral: beforeWorld === afterWorld,
+            worldNeutralDetail: Object.fromEntries(Object.keys(beforeWorldDetail).map(key => [key, {
+                before: beforeWorldDetail[key], after: afterWorldDetail[key],
+                exact: beforeWorldDetail[key] === afterWorldDetail[key]
+            }])),
+            threeCounselResponses: counselResponses.length === 3,
+            contextResponsesDiffer: new Set(counselResponses.map(row => row.text)).size === 3
+                && new Set(counselResponses.map(row => row.recommendation.posture)).size >= 2,
+            recommendationsGrounded: counselResponses.every(row => row.source
+                === 'IDENTITY_RELATIONSHIP_EVENT_COUNSEL'
+                && row.rawWorldRead === false && row.worldMutation === false
+                && row.recommendation && row.recommendation.reasonCode
+                && row.recommendation.relationshipBasis),
+            ledgerValidation: eventConversationRuntime.api.conversationSessionValidate(eventConversationSnapshot)
+        };
+        const acceptedSourceSession = parallelSessions.find(session => {
+            const counsel = session && (session.listenerResponses || [])
+                .find(row => row.kind === 'EVENT_COUNSEL_RESPONSE');
+            return counsel && counsel.recommendation.canCommit;
+        });
+        const acceptedCounsel = acceptedSourceSession && (acceptedSourceSession.listenerResponses || [])
+            .find(row => row.kind === 'EVENT_COUNSEL_RESPONSE');
+        story._conversationWorkspaceSessionId = acceptedSourceSession && acceptedSourceSession.id;
+        if (acceptedSourceSession) {
+            modal.dataset.listenerActorId = acceptedSourceSession.listenerActorId;
+            eventConversationRuntime.api.conversationWorkspaceRender();
+        }
+        const relationBeforeAcceptance = acceptedSourceSession
+            ? eventConversationRuntime.api.relationshipView(acceptedSourceSession.listenerActorId, playerActorId) : null;
+        const historyBeforeAcceptance = active && active.actionHistory.length || 0;
+        const acceptButton = modal && modal.querySelector('[data-conversation-event-decision="ACCEPT_RECOMMENDATION"]');
+        if (acceptButton) acceptButton.dispatchEvent(
+            new eventConversationRuntime.dom.window.MouseEvent('click', { bubbles: true })
+        );
+        const acceptedSession = acceptedSourceSession
+            ? eventConversationRuntime.api.conversationSessionGet(acceptedSourceSession.id) : null;
+        const activeAfterAcceptance = eventConversationRuntime.api.politicalCrisisCountryView('country:0').activeCrisis;
+        const relationAfterAcceptance = acceptedSourceSession
+            ? eventConversationRuntime.api.relationshipView(acceptedSourceSession.listenerActorId, playerActorId) : null;
+        const duplicate = acceptedSourceSession
+            ? eventConversationRuntime.api.conversationSessionEventDecision(
+                acceptedSourceSession.id, 'ACCEPT_RECOMMENDATION'
+            ) : null;
+        const activeAfterDuplicate = eventConversationRuntime.api.politicalCrisisCountryView('country:0').activeCrisis;
+        phase385EventConversation.acceptanceButtonPresent = !!acceptButton;
+        phase385EventConversation.explicitAcceptanceApplied = !!acceptedSession
+            && acceptedSession.eventDecision && acceptedSession.eventDecision.status === 'APPLIED'
+            && acceptedSession.eventDecision.actionId === acceptedCounsel.recommendation.actionId
+            && (activeAfterAcceptance.actionHistory || []).length === historyBeforeAcceptance + 1;
+        phase385EventConversation.canonicalActionTrace = !!acceptedSession
+            && (activeAfterAcceptance.actionHistory || []).some(row => row.sequence
+                === acceptedSession.eventDecision.crisisActionSequence
+                && row.sourceConversationSessionId === acceptedSession.id
+                && row.sourceConversationResponseId === acceptedCounsel.id
+                && row.decisionSource === 'CONVERSATION_EVENT_DECISION');
+        phase385EventConversation.relationshipChanged = !!relationBeforeAcceptance && !!relationAfterAcceptance
+            && ['trustBps', 'respectBps', 'hostilityBps', 'debtBps'].some(axis =>
+                Number(relationBeforeAcceptance[axis]) !== Number(relationAfterAcceptance[axis]));
+        const relationshipReceipt = acceptedSession && acceptedSession.eventDecision
+            && acceptedSession.eventDecision.relationshipReceipt;
+        phase385EventConversation.relationshipReceiptAccurate = !!relationshipReceipt
+            && JSON.stringify(relationshipReceipt.before) === JSON.stringify(relationBeforeAcceptance)
+            && JSON.stringify(relationshipReceipt.after) === JSON.stringify(relationAfterAcceptance);
+        phase385EventConversation.acceptanceIdempotent = !!duplicate
+            && duplicate.ok === false && duplicate.code === 'EVENT_DECISION_EXISTS'
+            && (activeAfterDuplicate.actionHistory || []).length === (activeAfterAcceptance.actionHistory || []).length
+            && JSON.stringify(eventConversationRuntime.api.relationshipView(
+                acceptedSourceSession.listenerActorId, playerActorId
+            )) === JSON.stringify(relationAfterAcceptance);
+        const decisionMemory = acceptedSession && acceptedSession.eventDecision
+            && acceptedSession.eventDecision.memoryEpisodeId
+            && eventConversationRuntime.api.characterMemoryLedger().episodes[
+                acceptedSession.eventDecision.memoryEpisodeId
+            ];
+        const heldRecall = acceptedSourceSession ? eventConversationRuntime.api.characterMemoryRecall(
+            acceptedSourceSession.listenerActorId,
+            { sourceIds: [active.id], relatedActorId: playerActorId, limit: 3 }
+        ) : null;
+        const laterStart = acceptedSourceSession && eventConversationRuntime.api.conversationSessionBegin(
+            'Merhaba, önceki görüşmemize dönmek istiyorum.',
+            { listenerActorId: acceptedSourceSession.listenerActorId }
+        );
+        const laterFollowUp = laterStart && laterStart.session
+            ? eventConversationRuntime.api.conversationSessionFollowUp(
+                laterStart.session.id,
+                'Geçen krizde verdiğin tavsiyeyi ve kararımı hatırlıyor musun?'
+            ) : null;
+        const recalledResponse = laterFollowUp && laterFollowUp.followUp
+            && laterFollowUp.followUp.response;
+        phase385EventConversation.decisionMemoryRecorded = !!decisionMemory
+            && decisionMemory.status === 'RESOLVED'
+            && decisionMemory.participantActorIds.includes(acceptedSourceSession.listenerActorId)
+            && decisionMemory.participantActorIds.includes(playerActorId)
+            && decisionMemory.source.conversationDecisionId === acceptedSession.eventDecision.id;
+        phase385EventConversation.heldRecallSourceBound = !!heldRecall && heldRecall.ok
+            && heldRecall.rawWorldRead === false && heldRecall.records.length > 0
+            && heldRecall.records.some(row => row.horizon === 'MEDIUM'
+                && row.sourceEvidenceIds.includes(active.id)
+                && row.sourceEvidenceIds.includes(acceptedSession.eventDecision.id));
+        phase385EventConversation.laterConversationRecall = !!recalledResponse
+            && recalledResponse.source === 'CHARACTER_HELD_MEMORY_RECALL'
+            && recalledResponse.rawWorldRead === false
+            && recalledResponse.worldMutation === false
+            && recalledResponse.memoryRecall.records.some(row => row.horizon === 'MEDIUM')
+            && recalledResponse.text.includes(acceptedSession.eventDecision.crisisResultCode);
+        eventConversationSnapshot = eventConversationRuntime.api.conversationSessionSnapshot();
+        phase385EventConversation.ledgerValidation = eventConversationRuntime.api.conversationSessionValidate(eventConversationSnapshot);
+        eventConversationRuntime.api.saveNow();
+        eventConversationRaw = eventConversationRuntime.api.savedRaw();
+    } finally {
+        eventConversationRuntime.dom.window.close();
+    }
+
+    const restoredEventConversationRuntime = createRuntime((seed + 9) >>> 0);
+    try {
+        restoredEventConversationRuntime.api.putSavedRaw(eventConversationRaw);
+        const loaded = restoredEventConversationRuntime.api.loadNow();
+        const restored = restoredEventConversationRuntime.api.conversationSessionSnapshot();
+        phase385EventConversation.restored = {
+            loaded,
+            exact: JSON.stringify(restored) === JSON.stringify(eventConversationSnapshot),
+            validation: restoredEventConversationRuntime.api.conversationSessionValidate(restored),
+            eventAnchoredSessions: restored.diagnostics.eventAnchoredSessions,
+            followUps: restored.diagnostics.followUps,
+            memoryRecalls: restored.diagnostics.memoryRecalls
+        };
+    } finally {
+        restoredEventConversationRuntime.dom.window.close();
     }
 
     const disabledRuntime = createRuntime((seed + 2) >>> 0);
@@ -13032,6 +15074,8 @@ function probeConversationUnderstanding(seed = 2032) {
         roleResolution,
         restoredSession,
         legacySessionMigration,
+        socialConversation,
+        phase385EventConversation,
         disabledSafe: disabled.ok === false && disabled.code === 'FEATURE_DISABLED'
             && disabled.worldMutation === false && disabled.proposedCommand === null
             && disabledSaveOk,
@@ -13228,6 +15272,43 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
             if (!sellerCompany || sellerCompany.id === buyerCompany.id) {
                 return { ok: false, code: 'DISTINCT_SELLER_COMPANY_MISSING' };
             }
+            if (mode !== 'RESALE') sellerActor.organizationId = sellerCompany.id;
+            let originalBuyerCompany = null;
+            let primaryResaleReservationId = null;
+            let originalBuyerInventoryBefore = null;
+            if (mode === 'RESALE') {
+                originalBuyerCompany = Object.values(story.companyEconomy.companies).find(row => (
+                    row.id !== buyerCompany.id && row.id !== sellerCompany.id
+                    && row.countryId === buyerCompany.countryId
+                    && row.status === 'OPERATING'
+                    && Number(row.accounts && row.accounts['ASSET:CASH']) > 90
+                ));
+                if (!originalBuyerCompany) return { ok: false, code: 'RESALE_ORIGINAL_BUYER_MISSING' };
+                originalBuyerInventoryBefore = Number(
+                    originalBuyerCompany.accounts && originalBuyerCompany.accounts['ASSET:INVENTORY']
+                ) || 0;
+                sellerActor.organizationId = originalBuyerCompany.id;
+                const primaryReserve = runtime.api.budgetReserveNegotiatedPayment({
+                    correlationId: `probe:resale:primary:${seed + offset}`,
+                    negotiationCaseId: 'fixture:primary-sale',
+                    negotiationVersionId: 'fixture:primary-sale:v1',
+                    buyerCompanyId: originalBuyerCompany.id,
+                    sellerCompanyId: sellerCompany.id,
+                    buyerCountryId: shipment.buyerCountryId,
+                    sellerCountryId: shipment.sellerCountryId,
+                    shipmentId: shipment.id,
+                    resourceId: shipment.resourceId,
+                    quantity: shipment.quantity,
+                    amount: 7,
+                    currency: 'capital'
+                });
+                if (!primaryReserve.ok) return { ok: false, code: primaryReserve.code || 'RESALE_PRIMARY_ESCROW_FAILED' };
+                primaryResaleReservationId = primaryReserve.reservationId;
+                shipment.settlementReservationId = primaryReserve.reservationId;
+                shipment.settlementAmount = 7;
+                shipment.buyerCompanyId = originalBuyerCompany.id;
+                order.buyerCompanyId = originalBuyerCompany.id;
+            }
             const candidate = {
                 schemaVersion: 3,
                 kind: 'COMMERCIAL_NEGOTIATION_DRAFT',
@@ -13264,7 +15345,7 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
             const terms = {
                 quantity: { amount: 1, unit: 'ton-gıda' },
                 payment: { amount: 5, unit: 'capital' },
-                delivery_schedule: { amount: mode === 'KEPT' ? 300 : 30, unit: 'DAY' },
+                delivery_schedule: { amount: ['KEPT', 'RESALE'].includes(mode) ? 300 : 30, unit: 'DAY' },
                 contract_penalty: mode === 'PENDING'
                     ? { amount: 500, unit: 'capital' }
                     : { amount: 10, unit: 'PERCENT' }
@@ -13280,6 +15361,14 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
             story.negotiations.cases[caseRow.id] = caseRow;
             story.negotiations.nextCaseSequence = 2;
 
+            let wrongRepresentationPreflight = null;
+            if (mode === 'RESALE') {
+                sellerActor.organizationId = sellerCompany.id;
+                wrongRepresentationPreflight = runtime.api.negotiationMechanicalPreflight(
+                    caseRow.id, buyerActor.id
+                );
+                sellerActor.organizationId = originalBuyerCompany.id;
+            }
             const preflight = runtime.api.negotiationMechanicalPreflight(caseRow.id, buyerActor.id);
             runtime.api.relationshipAdjust(buyerActor.id, sellerActor.id,
                 { trustBps: 1000, respectBps: 1000 }, {
@@ -13300,7 +15389,7 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
             const obligationId = activation.ok && activation.obligation.id;
             const dueAt = activation.ok && activation.obligation.dueAt;
             let deliveryTicks = 0;
-            if (activation.ok && mode === 'KEPT') {
+            if (activation.ok && ['KEPT', 'RESALE'].includes(mode)) {
                 while (activatedShipment.status !== 'DELIVERED' && story.clock < dueAt && deliveryTicks < 80) {
                     story.clock += 2;
                     runtime.api.tradeTick(2, { autoBalance: false, dispatchOpen: false });
@@ -13329,6 +15418,9 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
             const finalSnapshot = runtime.api.negotiationSnapshot();
             const finalCase = finalSnapshot.cases[caseRow.id];
             const finalObligation = finalSnapshot.deliveryObligations[obligationId];
+            const finalMechanicalContracts = runtime.api.mechanicalContractSnapshot();
+            const finalMechanicalContract = finalObligation
+                && runtime.api.mechanicalContractGet(finalObligation.mechanicalContractId);
             const closedCounter = runtime.api.negotiationCaseCounter(caseRow.id, buyerActor.id,
                 { payment: { amount: 6, unit: 'capital' } });
             runtime.api.saveNow();
@@ -13342,6 +15434,7 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
                 restoredRuntime.api.putSavedRaw(savedRaw);
                 const loaded = restoredRuntime.api.loadNow();
                 const restoredSnapshot = restoredRuntime.api.negotiationSnapshot();
+                const restoredMechanicalContracts = restoredRuntime.api.mechanicalContractSnapshot();
                 persistence = {
                     loaded,
                     exact: JSON.stringify(restoredSnapshot) === JSON.stringify(finalSnapshot),
@@ -13350,20 +15443,72 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
                     sourceSaveStatus,
                     liveAtSaveValidation: runtime.api.negotiationValidate(liveAtSave),
                     validation: restoredRuntime.api.negotiationValidate(restoredSnapshot),
+                    mechanicalContractsExact: JSON.stringify(restoredMechanicalContracts)
+                        === JSON.stringify(finalMechanicalContracts),
+                    mechanicalContractsPayloadPresent: !!savedPayload.mechanicalContracts,
+                    mechanicalContractsValidation: restoredRuntime.api.mechanicalContractValidate(
+                        restoredMechanicalContracts
+                    ),
                     differences: storyDiffPaths(finalSnapshot, restoredSnapshot).slice(0, 8)
                 };
             } finally {
                 restoredRuntime.dom.window.close();
             }
-            const expectedFinal = mode === 'KEPT' ? 'KEPT'
+            const expectedFinal = ['KEPT', 'RESALE'].includes(mode) ? 'KEPT'
                 : mode === 'PENDING' ? 'BREACH_PAYMENT_PENDING' : 'BROKEN';
-            const expectedCase = mode === 'KEPT' ? 'FULFILLED'
+            const expectedCase = ['KEPT', 'RESALE'].includes(mode) ? 'FULFILLED'
                 : mode === 'PENDING' ? 'BREACH_PAYMENT_PENDING' : 'BREACHED';
+            const finalBudget = runtime.api.budgetLedger();
+            const finalCompanies = runtime.api.companyLedger().companies;
+            const deliveredLots = runtime.api.commerceLedger().inventories.filter(row => (
+                row.regionId === destinationRegionId && row.resourceId === shipment.resourceId
+                && row.correlationId === shipment.id
+            ));
+            const primarySettlement = primaryResaleReservationId
+                && finalBudget.settlements.find(row => row.id === primaryResaleReservationId);
+            const resaleSettlement = activation.ok && activation.obligation.transferMode === 'BUYER_TO_BUYER_RESALE'
+                && finalBudget.settlements.find(row => row.id === activation.obligation.escrowReservationId);
             return {
                 ok: preflight.ok && preflight.code === 'PREFLIGHT_READY' && activation.ok
                     && finalObligation && finalObligation.status === expectedFinal
                     && finalCase.status === expectedCase,
                 mode, preflight, activationCode: activation.code,
+                transferMode: activation.ok && activation.obligation.transferMode,
+                mechanicalContract: finalMechanicalContract && {
+                    id: finalMechanicalContract.id,
+                    type: finalMechanicalContract.type,
+                    subtype: finalMechanicalContract.subtype,
+                    status: finalMechanicalContract.status,
+                    receiptLinked: finalMechanicalContract.execution.receiptId === obligationId,
+                    sourceLinked: finalMechanicalContract.source.negotiationCaseId === caseRow.id
+                        && finalMechanicalContract.source.negotiationVersionId === version.id
+                        && finalMechanicalContract.source.mechanicalReviewId === preflight.review.id,
+                    partiesLinked: finalMechanicalContract.parties.some(row => (
+                        row.role === 'BUYER' && row.actorId === buyerActor.id
+                        && row.legalActorId === buyerCompany.id
+                    )) && finalMechanicalContract.parties.some(row => (
+                        row.role === 'SELLER' && row.actorId === sellerActor.id
+                        && row.legalActorId === activation.obligation.sellerCompanyId
+                    ))
+                },
+                wrongRepresentationBlocked: mode !== 'RESALE' ? null
+                    : wrongRepresentationPreflight.code === 'PREFLIGHT_BLOCKED'
+                        && wrongRepresentationPreflight.review.blockerCodes
+                            .includes('CURRENT_BUYER_REPRESENTATION_REQUIRED'),
+                resaleChain: mode !== 'RESALE' ? null : {
+                    primarySettlementStatus: primarySettlement && primarySettlement.status,
+                    resaleSettlementStatus: resaleSettlement && resaleSettlement.status,
+                    originalEscrowPreservedAtActivation: activation.ok
+                        && activatedShipment.settlementReservationId === primaryResaleReservationId
+                        && activatedShipment.resaleSettlementReservationId === activation.obligation.escrowReservationId,
+                    originalOrderBuyerPreserved: order.buyerCompanyId === originalBuyerCompany.id,
+                    beneficialBuyerAssigned: activatedShipment.beneficialBuyerCompanyId === buyerCompany.id,
+                    deliveredLotOwnedByNewBuyer: deliveredLots.length > 0
+                        && deliveredLots.every(row => row.ownerType === 'COMPANY' && row.ownerId === buyerCompany.id),
+                    originalBuyerInventoryReturnedToBaseline: Math.abs((Number(
+                        finalCompanies[originalBuyerCompany.id].accounts['ASSET:INVENTORY']
+                    ) || 0) - originalBuyerInventoryBefore) < 1e-6
+                },
                 redirectApplied: activation.ok
                     && activatedShipment.targetRegionId === destinationRegionId
                     && !!activation.obligation.tradeAmendmentId,
@@ -13385,7 +15530,7 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
                         && relationAfterFirst.respectBps - relationBefore.respectBps === -300
                         && relationAfterFirst.hostilityBps - relationBefore.hostilityBps === 450),
                 duplicateCountersClosedCase: closedCounter.ok === false && closedCounter.code === 'CASE_CLOSED',
-                diagnosticsStable: mode === 'KEPT'
+                diagnosticsStable: ['KEPT', 'RESALE'].includes(mode)
                     ? firstSnapshot.diagnostics.deliveriesKept === 1
                         && finalSnapshot.diagnostics.deliveriesKept === 1
                     : mode === 'PENDING'
@@ -13394,6 +15539,9 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
                         : firstSnapshot.diagnostics.deliveriesBroken === 1
                             && finalSnapshot.diagnostics.deliveriesBroken === 1,
                 negotiationValidation: runtime.api.negotiationValidate(finalSnapshot),
+                mechanicalContractValidation: runtime.api.mechanicalContractValidate(
+                    finalMechanicalContracts
+                ),
                 budgetValidation: runtime.api.validateBudgetLedger(runtime.api.budgetLedger(), {
                     checkWalletMirrors: true
                 }),
@@ -13414,6 +15562,7 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
             runtime.api.newCampaign({ seed: seed + 90, playerStateId: 0, abundance: 1,
                 doctrine: 'combined', fog: true });
             return {
+                contractTypes: runtime.api.mechanicalContractTypes(),
                 days30: runtime.api.negotiationDeliverySchedule({ amount: 30, unit: 'DAY' }, 7),
                 months2: runtime.api.negotiationDeliverySchedule({ amount: 2, unit: 'MONTH' }, 7),
                 percent10: runtime.api.negotiationPenaltyQuote(
@@ -13425,7 +15574,7 @@ function probeNegotiationDeliveryLifecycle(seed = 2032) {
         }
     })();
     return { schedule, kept: run('KEPT', 1), breached: run('BROKEN', 2),
-        pendingPenalty: run('PENDING', 3) };
+        pendingPenalty: run('PENDING', 3), resale: run('RESALE', 4) };
 }
 
 module.exports = {
@@ -13476,6 +15625,7 @@ module.exports = {
     probeCharacterArbiter,
     probeCharacterSpeech,
     probeCharacterLongDialogue,
+    probeDialogueScenarioLab,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

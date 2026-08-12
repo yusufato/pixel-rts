@@ -1,0 +1,127 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TASARIM TOKEN'LARI — TEK KAYNAK
+   ═══════════════════════════════════════════════════════════════════════════
+   Bu dosya mockup ve oyun arasındaki TEK ortak sözleşmedir. Katman B kabul
+   edilince bu bloğun tamamı style.css:716-725'in yerine geçer; token kopyası
+   iki yerde tutulmaz.
+
+   MEVCUT DURUM (style.css:716-725): yalnız 8 renk değişkeni var. Tipografi,
+   boşluk ve köşe yarıçapı HİÇ adlandırılmamış → her panelde elle yazılmış.
+   Ölçülen dağılım:
+     - yazı boyutu: 6, 7, 8, 9, 10, 11, 12, 13 px (8 ayrı değer, kuralsız)
+     - padding    : 5, 6, 7, 8, 9, 10, 11, 12, 14, 16 px
+     - radius     : 0, 3, 4, 8, 10, 11, 20 px
+   Bu dosya o dağılımı adlandırılmış bir ölçeğe indirir.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Fontlar — style.css:4-20 ile BİREBİR aynı, yalnız yol bir üst dizine bakar.
+   CDN yok: masaüstü sürümü çevrimdışı çalışmak zorunda (CSP + internetsiz kullanım). */
+@font-face {
+    font-family: 'Press Start 2P';
+    font-style: normal; font-weight: 400; font-display: swap;
+    src: url('../assets/fonts/pressstart2p-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Press Start 2P';
+    font-style: normal; font-weight: 400; font-display: swap;
+    src: url('../assets/fonts/pressstart2p-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Share Tech Mono';
+    font-style: normal; font-weight: 400; font-display: swap;
+    src: url('../assets/fonts/sharetechmono-latin.woff2') format('woff2');
+}
+
+:root {
+    /* ── RENK: mevcut 8 token AYNEN korunur (style.css:716-725) ───────────── */
+    --wr-amber: #ffb000;
+    --wr-amber-bright: #ffe9bf;
+    --wr-green: #4ade80;
+    --wr-red: #ff6b6b;
+    --wr-line: rgba(255, 176, 0, 0.22);
+    --wr-panel: rgba(8, 12, 6, 0.92);
+    --wr-muted: #8c7a3e;
+    --wr-dim: #6e6330;
+
+    /* ── RENK: YENİ ──────────────────────────────────────────────────────── */
+    /* handoff README'de "amber metin" diye geçiyor ama değişkeni yoktu;
+       kodda çıplak #ffd27a olarak birkaç yerde duruyor. */
+    --wr-amber-text: #ffd27a;
+    /* KUSUR 11: :focus-visible bugün hover ile BİREBİR aynı stili alıyor
+       (style.css:1877-1878, 1887-1888) → klavye kullanıcısı nerede olduğunu
+       göremiyor. Odak kendi rengini alır. */
+    --wr-focus: #6cc7ff;
+    /* KUSUR 8/9: mavi legacy kalıntıların gideceği yer. Bu iki token, eski
+       #12161c / rgba(60,140,255,.3) gibi çıplak değerlerin karşılığıdır. */
+    --wr-screen: #060a06;
+    --wr-surface: rgba(5, 9, 4, 0.92);
+    --wr-surface-solid: #0a0f08;
+    --wr-hover: rgba(255, 176, 0, 0.12);
+    --wr-idle: rgba(255, 176, 0, 0.035);
+
+    /* Uyarı/bekleme durumu — bugün hiç yok, bu yüzden paraşüt cooldown'ı
+       gösterilemiyor (KUSUR 2). */
+    --wr-wait: #c8922e;
+    --wr-disabled-ink: #5a5230;
+
+    /* ── TİPOGRAFİ ÖLÇEĞİ ────────────────────────────────────────────────── */
+    /* Sağdaki yorum, o adımın BUGÜNKÜ karşılığıdır. 7-8px taban okunamıyor;
+       ölçek 2px yukarı kaydırılır ve ara değerler tekilleştirilir. */
+    --wr-fs-micro: 9px;    /* bugün 6-7px: .ability-chip, .battle-target-stats span */
+    --wr-fs-small: 10px;   /* bugün 8px:   .battle-vp-title, .battle-feed satırları */
+    --wr-fs-body: 11px;    /* bugün 9px:   #ui-abilities, #battle-orders, #ui-resources */
+    --wr-fs-label: 13px;   /* bugün 10-11px: buton başlıkları, .battle-vp-values b */
+    --wr-fs-title: 15px;   /* bugün 12-13px: .battle-target-main h3 */
+    --wr-fs-hero: clamp(27px, 4vw, 54px);  /* sonuç başlığı — değişmiyor */
+
+    --wr-lh-tight: 1.25;
+    --wr-lh-body: 1.45;
+    --wr-track: 1px;       /* letter-spacing: bugün 1 / 1.5 / 3 px karışık */
+    --wr-track-wide: 1.5px;
+
+    --wr-font-hud: 'Share Tech Mono', 'Courier New', monospace;
+    --wr-font-display: 'Press Start 2P', monospace;
+
+    /* ── BOŞLUK ÖLÇEĞİ ───────────────────────────────────────────────────── */
+    --wr-space-1: 4px;
+    --wr-space-2: 7px;
+    --wr-space-3: 11px;
+    --wr-space-4: 16px;
+    --wr-space-5: 24px;
+
+    /* ── KÖŞE ────────────────────────────────────────────────────────────── */
+    --wr-radius-0: 0;       /* metre/bar gibi "makine" yüzeyleri */
+    --wr-radius-sharp: 3px; /* buton/panel — baskın değer */
+    --wr-radius-soft: 8px;  /* modal kabuğu */
+
+    /* ── DOKUNMA HEDEFİ ──────────────────────────────────────────────────── */
+    --wr-hit-min: 44px;     /* emir/yetenek butonları bugün 40-46px arası */
+
+    /* ── CRT ─────────────────────────────────────────────────────────────── */
+    /* KUSUR 13 / design-qa.md:36 (tek açık P3 bulgusu): "canlı savaş alanı bazı
+       arazi tohumlarında konsept görüntüsünden daha parlak; opsiyonel bir CRT
+       yoğunluk kaydırıcısı bunu oynanabilirliği düşürmeden ayarlayabilir."
+       Kaydırıcı bu değişkeni yazar. */
+    --wr-crt-alpha: 0.26;
+    --wr-crt-vignette: 0.55;
+}
+
+/* Ortak CRT tarama katmanı — bugün her yerde elle tekrarlanan
+   repeating-linear-gradient'in tek yeri. */
+.wr-crt::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        repeating-linear-gradient(0deg, rgba(0,0,0,var(--wr-crt-alpha)) 0 1px, transparent 1px 3px),
+        radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(0,0,0,var(--wr-crt-vignette)) 100%);
+}
+
+/* Ortak odak işareti — KUSUR 11. Hover'dan AYIRT EDİLEBİLİR olmak zorunda. */
+.wr-focusable:focus-visible {
+    outline: 2px solid var(--wr-focus);
+    outline-offset: 1px;
+}

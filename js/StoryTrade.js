@@ -1228,11 +1228,14 @@ function storyTradeCompleteShipment(shipment) {
         shipment.holdReason = 'TARGET_CREDIT_FAILED';
         return { ok: false, code: credit.code || 'TARGET_CREDIT_FAILED' };
     }
-    const settlement = shipment.settlementReservationId && typeof storyBudgetSettleTrade === 'function'
-        ? storyBudgetSettleTrade(shipment.settlementReservationId, {
-            shipmentId: shipment.id,
-            cargoCost: shipment.commerceCargoCost || 0
-        })
+    const settlement = shipment.settlementReservationId
+        && typeof storyBudgetSettleShipmentPayments === 'function'
+        ? storyBudgetSettleShipmentPayments(shipment)
+        : shipment.settlementReservationId && typeof storyBudgetSettleTrade === 'function'
+            ? storyBudgetSettleTrade(shipment.settlementReservationId, {
+                shipmentId: shipment.id,
+                cargoCost: shipment.commerceCargoCost || 0
+            })
         : { ok: true, internal: true };
     if (!settlement.ok) {
         storyRegionalStockDelta(shipment.targetRegionId, shipment.resourceId, -shipment.quantity, {
@@ -1285,7 +1288,10 @@ function storyTradeLoseShipment(shipmentId, reason) {
     shipment.status = 'LOST';
     shipment.holdReason = String(reason || 'LOGISTICS_LOSS');
     shipment.lostAt = storyTradeRound(STORY.clock);
-    if (shipment.settlementReservationId && typeof storyBudgetReleaseTrade === 'function') {
+    if ((shipment.settlementReservationId || shipment.resaleSettlementReservationId)
+        && typeof storyBudgetReleaseShipmentPayments === 'function') {
+        storyBudgetReleaseShipmentPayments(shipment, shipment.holdReason);
+    } else if (shipment.settlementReservationId && typeof storyBudgetReleaseTrade === 'function') {
         storyBudgetReleaseTrade(shipment.settlementReservationId, shipment.holdReason);
     }
     storyTradeAdd(ledger.totals.lost, shipment.resourceId, shipment.quantity);

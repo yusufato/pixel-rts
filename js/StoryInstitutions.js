@@ -35,6 +35,7 @@ const STORY_INSTITUTION_ACTIONS = Object.freeze({
     APPOINT_COMMANDER: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     DISMISS_COMMANDER: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     AUTHORIZE_BUDGET: Object.freeze({ executor: 'LEGISLATURE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'LEGISLATURE'], centers: ['BUSINESS_COUNCIL', 'LABOR_CONFEDERATION', 'CIVIL_SERVICE', 'ARMED_FORCES'] }),
+    ISSUE_DIPLOMATIC_PROTEST: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     SIGN_TREATY: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     DECLARE_WAR: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     MOBILIZE_FORCE: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),

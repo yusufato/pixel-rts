@@ -99,6 +99,7 @@ const STORY = {
     aggregationPolicy: null, // Faz 13: HOT↔COLD kayıpsız kapsül ve korunum sözleşmesi
     infrastructureGraph: null, // Faz 14: kara/deniz/enerji/veri koridorları, kapasite ve hasar
     tradeLogistics: null, // Faz 18: sözleşme, sipariş, yoldaki yük, teslimat ve kapasite
+    mechanicalContracts: null, // Faz 38.3: müzakereden ayrı mekanik taraf/değer/ihlal/icra gerçeği
     marketPrices: null, // Faz 19: fiziksel arz/talep ve lojistik riskten türeyen bölgesel fiyat endeksleri
     economicAI: null, // Faz 22: şirket ve AI devletlerinin açıklanabilir ekonomik karar defteri
     playerStateId: 0,
@@ -561,6 +562,7 @@ function storyNewCampaign(config = {}) {
     if (typeof storyCharacterActionReset === 'function') storyCharacterActionReset();
     if (typeof storyConversationSessionReset === 'function') storyConversationSessionReset();
     if (typeof storyNegotiationReset === 'function') storyNegotiationReset();
+    if (typeof storyMechanicalContractReset === 'function') storyMechanicalContractReset();
     storyLog(`${storyPlayerState().name} barış dönemine başladı. Ekonomiyi, kurumları ve ilişkileri geliştir; savaş ancak açık bir diplomatik kırılmayla başlayabilir.`);
     storySave();
 }
@@ -651,6 +653,9 @@ function storySave() {
             negotiations: (typeof storyNegotiationForSave === 'function')
                 ? storyNegotiationForSave()
                 : STORY.negotiations,
+            mechanicalContracts: (typeof storyMechanicalContractForSave === 'function')
+                ? storyMechanicalContractForSave()
+                : STORY.mechanicalContracts,
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
@@ -806,6 +811,9 @@ function storyLoad() {
             storyConversationSessionRestore(d.conversationUnderstanding);
         }
         if (typeof storyNegotiationRestore === 'function') storyNegotiationRestore(d.negotiations);
+        if (typeof storyMechanicalContractRestore === 'function') {
+            storyMechanicalContractRestore(d.mechanicalContracts);
+        }
         if (typeof storyFacBackfill === 'function') for (const st of STORY.states) storyFacBackfill(st);   // AŞAMA 2 göçü
         STORY._news = Array.isArray(d.news) ? d.news : [];   // AŞAMA 4: gazete arşivi
         const runtime = d.runtime && typeof d.runtime === 'object' ? d.runtime : {};

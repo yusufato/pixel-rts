@@ -15,6 +15,7 @@ const STORY_NEGOTIATION_SECRET_LIMIT = 256;
 const STORY_NEGOTIATION_DISCLOSURE_LIMIT = 16;
 const STORY_NEGOTIATION_MECHANICAL_REVIEW_LIMIT = 16;
 const STORY_NEGOTIATION_DELIVERY_LIMIT = 128;
+const STORY_NEGOTIATION_CONSEQUENCE_LIMIT = 256;
 const STORY_NEGOTIATION_PENALTY_RETRY_SECONDS = 10;
 const STORY_NEGOTIATION_EVENT_LIMIT = 512;
 const STORY_NEGOTIATION_STATUSES = Object.freeze([
@@ -47,6 +48,39 @@ function storyNegotiationEnabled() {
         || storyFeatureEnabled('characters.negotiationCases');
 }
 
+function storyNegotiationDamageAssessment(deliveries) {
+    const entries = (deliveries || []).map(row => ({
+        deliveryObligationId: row.id,
+        shipmentId: row.shipmentId,
+        resourceId: row.resourceId,
+        quantity: Number(row.quantity) || 0,
+        contractualValue: Number(row.paymentAmount) || 0,
+        refundedPrincipal: Number(row.paymentAmount) || 0,
+        penaltyCompensation: Number(row.penaltyAmount) || 0,
+        verifiedDirectLoss: 0,
+        uncompensatedDamage: 0,
+        evidenceIds: [row.id].concat(row.penaltyTransactionIds || []).filter(Boolean),
+        classification: 'BREACH_SETTLED_ESCROW_REFUNDED_AND_PENALTY_PAID'
+    }));
+    return {
+        schemaVersion: 1,
+        currency: 'capital',
+        entries,
+        totals: {
+            contractualValue: entries.reduce((sum, row) => sum + row.contractualValue, 0),
+            refundedPrincipal: entries.reduce((sum, row) => sum + row.refundedPrincipal, 0),
+            penaltyCompensation: entries.reduce((sum, row) => sum + row.penaltyCompensation, 0),
+            verifiedDirectLoss: entries.reduce((sum, row) => sum + row.verifiedDirectLoss, 0),
+            uncompensatedDamage: entries.reduce((sum, row) => sum + row.uncompensatedDamage, 0)
+        },
+        unmeasuredClaims: [
+            { kind: 'OPPORTUNITY_COST', status: 'UNVERIFIED', includedInDamage: false },
+            { kind: 'PRODUCTION_LOSS', status: 'UNVERIFIED', includedInDamage: false }
+        ],
+        sourceModel: 'CANONICAL_DELIVERY_ESCROW_AND_PENALTY_RECEIPTS_ONLY'
+    };
+}
+
 function storyNegotiationLedgerCreate() {
     return {
         schemaVersion: STORY_NEGOTIATION_SCHEMA_VERSION,
@@ -57,10 +91,12 @@ function storyNegotiationLedgerCreate() {
         nextDisclosureSequence: 1,
         nextMechanicalReviewSequence: 1,
         nextDeliverySequence: 1,
+        nextConsequenceSequence: 1,
         cases: {},
         commitments: {},
         secrets: {},
         deliveryObligations: {},
+        consequenceCandidates: {},
         events: [],
         diagnostics: {
             opened: 0, versionsCreated: 0, partyAcceptances: 0,
@@ -69,6 +105,7 @@ function storyNegotiationLedgerCreate() {
             leaksDiscovered: 0, betrayalsApplied: 0,
             mechanicalPreflights: 0, mechanicalBlocked: 0,
             deliveriesCreated: 0, deliveriesKept: 0, deliveriesBroken: 0,
+            consequenceCandidatesCreated: 0,
             rejectedMutations: 0, prunedCases: 0, prunedEvents: 0
         }
     };
@@ -80,15 +117,19 @@ function storyNegotiationLedgerMigrate(candidate) {
     if (!Number.isInteger(ledger.nextDisclosureSequence) || ledger.nextDisclosureSequence < 1) ledger.nextDisclosureSequence = 1;
     if (!Number.isInteger(ledger.nextMechanicalReviewSequence) || ledger.nextMechanicalReviewSequence < 1) ledger.nextMechanicalReviewSequence = 1;
     if (!Number.isInteger(ledger.nextDeliverySequence) || ledger.nextDeliverySequence < 1) ledger.nextDeliverySequence = 1;
+    if (!Number.isInteger(ledger.nextConsequenceSequence) || ledger.nextConsequenceSequence < 1) ledger.nextConsequenceSequence = 1;
     if (!ledger.secrets || typeof ledger.secrets !== 'object' || Array.isArray(ledger.secrets)) ledger.secrets = {};
     if (!ledger.deliveryObligations || typeof ledger.deliveryObligations !== 'object'
         || Array.isArray(ledger.deliveryObligations)) ledger.deliveryObligations = {};
+    if (!ledger.consequenceCandidates || typeof ledger.consequenceCandidates !== 'object'
+        || Array.isArray(ledger.consequenceCandidates)) ledger.consequenceCandidates = {};
     if (!ledger.diagnostics || typeof ledger.diagnostics !== 'object') ledger.diagnostics = {};
     for (const [key, value] of Object.entries({
         secretsShared: 0, disclosures: 0, unauthorizedDisclosures: 0,
         leaksDiscovered: 0, betrayalsApplied: 0,
         mechanicalPreflights: 0, mechanicalBlocked: 0,
-        deliveriesCreated: 0, deliveriesKept: 0, deliveriesBroken: 0
+        deliveriesCreated: 0, deliveriesKept: 0, deliveriesBroken: 0,
+        consequenceCandidatesCreated: 0
     })) {
         if (!Number.isFinite(Number(ledger.diagnostics[key]))) ledger.diagnostics[key] = value;
     }
@@ -107,6 +148,17 @@ function storyNegotiationLedgerMigrate(candidate) {
             obligation.penaltyAttempts = 0;
         }
         if (obligation.nextPenaltyRetryAt === undefined) obligation.nextPenaltyRetryAt = null;
+    }
+    for (const consequence of Object.values(ledger.consequenceCandidates)) {
+        const review = consequence && consequence.diplomaticReview;
+        if (!review || review.damageAssessment) continue;
+        const receiptIds = new Set(review.verifiedBreachReceiptIds || []);
+        const deliveries = Object.values(ledger.deliveryObligations)
+            .filter(row => receiptIds.has(row.id) && row.status === 'BROKEN');
+        review.damageAssessment = storyNegotiationDamageAssessment(deliveries);
+        review.verifiedEconomicDamage = review.damageAssessment.totals.uncompensatedDamage;
+        if (review.thresholds) review.thresholds.damagePassed = review.verifiedEconomicDamage
+            >= Number(review.thresholds.warVerifiedDamageMinimum || 250);
     }
     return ledger;
 }
@@ -454,6 +506,457 @@ function storyNegotiationPromiseEffects(commitment, kept) {
     return { applied: !!relationship.applied, relationship, memory };
 }
 
+// Söz sonucu doğrudan savaş, antlaşma veya para yazmaz. Yalnız mevcut gerçek
+// sonuca dayalı, sonraki domainin inceleyebileceği kapalı adayları üretir.
+// Özellikle ticari bir ihlal, diplomasi yürütücüsü olmadan casus belli değildir.
+function storyNegotiationPromiseConsequenceCandidate(commitment, kept) {
+    const ledger = storyNegotiationEnsure();
+    if (!ledger || !commitment) return { applied: false, reason: 'NEGOTIATION_DISABLED' };
+    const existing = Object.values(ledger.consequenceCandidates || {})
+        .find(row => row.sourceCommitmentId === commitment.id);
+    if (existing) return { applied: false, duplicate: true, candidate: storyNegotiationClone(existing) };
+    if (Object.keys(ledger.consequenceCandidates).length >= STORY_NEGOTIATION_CONSEQUENCE_LIMIT) {
+        return { applied: false, reason: 'CONSEQUENCE_LIMIT' };
+    }
+    const caseRow = ledger.cases[commitment.caseId];
+    if (!caseRow) return { applied: false, reason: 'CASE_NOT_FOUND' };
+    const identity = actorId => typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(actorId) : null;
+    const promisor = identity(commitment.promisorActorId);
+    const promisee = identity(commitment.promiseeActorId);
+    const countryIds = [promisor && promisor.countryId, promisee && promisee.countryId]
+        .filter(Boolean).map(String);
+    const crossBorder = countryIds.length === 2 && countryIds[0] !== countryIds[1];
+    const sequence = ledger.nextConsequenceSequence++;
+    const nextStepCodes = kept
+        ? ['CONTINUE_NEGOTIATION', 'FORMALIZE_MECHANICAL_CONTRACT']
+        : ['REQUEST_CURE', 'SUSPEND_NEGOTIATION'].concat(
+            crossBorder ? ['DIPLOMATIC_PROTEST_REVIEW'] : []
+        );
+    const candidate = {
+        schemaVersion: 1,
+        id: `negotiation-consequence:${sequence}`,
+        sequence,
+        caseId: commitment.caseId,
+        sourceCommitmentId: commitment.id,
+        sourceResolutionEventId: commitment.resolutionEventId,
+        triggerStatus: kept ? 'KEPT' : 'BROKEN',
+        kind: kept ? 'COOPERATIVE_FOLLOW_UP' : 'COMMERCIAL_DISPUTE',
+        promisorActorId: commitment.promisorActorId,
+        promiseeActorId: commitment.promiseeActorId,
+        partyCountryIds: Array.from(new Set(countryIds)).sort(),
+        crossBorder,
+        nextStepCodes,
+        escalationReview: !kept && crossBorder ? 'DIPLOMATIC_INCIDENT_REVIEW' : 'NONE',
+        diplomaticReview: null,
+        warCandidate: null,
+        peaceCandidate: null,
+        status: 'OPEN',
+        createdAt: Number(STORY.clock) || 0,
+        executable: false,
+        worldMutation: false,
+        blockedReasons: !kept && crossBorder
+            ? ['DIPLOMATIC_INCIDENT_EXECUTOR_MISSING'] : []
+    };
+    ledger.consequenceCandidates[candidate.id] = candidate;
+    ledger.diagnostics.consequenceCandidatesCreated++;
+    storyNegotiationEvent(ledger, {
+        kind: 'PROMISE_CONSEQUENCE_CANDIDATE_CREATED', caseId: commitment.caseId,
+        commitmentId: commitment.id, consequenceCandidateId: candidate.id,
+        triggerStatus: candidate.triggerStatus, worldMutation: false
+    });
+    return { applied: true, candidate: storyNegotiationClone(candidate) };
+}
+
+function storyNegotiationCountryStateId(countryId) {
+    const match = /^country:(-?\d+)$/.exec(String(countryId || ''));
+    return match ? Number(match[1]) : null;
+}
+
+// Ticari bir söz ihlali savaş sebebi değildir. Bu inceleme yalnız kanonik
+// söz/olay/ilişki/antlaşma kayıtlarından açıklanabilir bir diplomatik dosya
+// üretir. Doğrulanmış maddi zarar yoksa savaş adayı özellikle kapalı kalır.
+function storyNegotiationDiplomaticIncidentReview(candidateId, requestedByActorId) {
+    const ledger = storyNegotiationEnsure();
+    const candidate = ledger && ledger.consequenceCandidates[String(candidateId || '')];
+    if (!candidate) return { ok: false, code: 'CONSEQUENCE_NOT_FOUND', worldMutation: false };
+    if (candidate.diplomaticReview) {
+        return { ok: true, code: 'DIPLOMATIC_REVIEW_EXISTS', duplicate: true,
+            review: storyNegotiationClone(candidate.diplomaticReview), worldMutation: false };
+    }
+    const requester = String(requestedByActorId || '');
+    if (requester !== candidate.promiseeActorId) {
+        return { ok: false, code: 'INJURED_PARTY_STANDING_REQUIRED', worldMutation: false };
+    }
+    const commitment = ledger.commitments[candidate.sourceCommitmentId];
+    const sourceEvent = (ledger.events || []).find(row => row.id === candidate.sourceResolutionEventId);
+    const countryStateIds = (candidate.partyCountryIds || []).map(storyNegotiationCountryStateId)
+        .filter(Number.isInteger);
+    const treaty = countryStateIds.length === 2 && typeof storyTreaty === 'function'
+        ? storyTreaty(countryStateIds[0], countryStateIds[1]) : null;
+    const stateRelation = countryStateIds.length === 2 && typeof storyRelValue === 'function'
+        ? storyRelValue(countryStateIds[0], countryStateIds[1]) : null;
+    const actorRelation = typeof storyRelationshipView === 'function'
+        ? storyRelationshipView(candidate.promiseeActorId, candidate.promisorActorId) : null;
+    const matchingBrokenDeliveries = Object.values(ledger.deliveryObligations || {}).filter(row =>
+        row.caseId === candidate.caseId && row.status === 'BROKEN'
+        && Array.isArray(row.penaltyTransactionIds) && row.penaltyTransactionIds.length > 0);
+    // Escrow iadesi ve ceza ödemesi kayda girdiyse teslimat ihlali gerçektir.
+    // Ceza alıcının tazminatıdır, zarar değildir; iade edilmiş anapara da kayıp
+    // yazılamaz. Fırsat/üretim kaybı ayrı makbuz olmadan yalnız ölçülmemiş iddia
+    // olarak kalır ve savaş eşiğine girmez.
+    const verifiedBreachReceiptIds = matchingBrokenDeliveries.map(row => row.id).sort();
+    const damageAssessment = storyNegotiationDamageAssessment(matchingBrokenDeliveries);
+    const verifiedEconomicDamage = damageAssessment.totals.uncompensatedDamage;
+    const legalStanding = !!commitment && commitment.status === 'BROKEN'
+        && !!sourceEvent && sourceEvent.kind === 'PROMISE_BROKEN'
+        && candidate.triggerStatus === 'BROKEN' && candidate.crossBorder === true;
+    const protestEligible = legalStanding;
+    const hostileThreshold = Number.isFinite(stateRelation) && stateRelation <= -60;
+    const damageThreshold = verifiedEconomicDamage >= 250;
+    const lawfulWarRoute = countryStateIds.length === 2 && treaty && treaty !== 'war'
+        && typeof storyInstitutionCountryView === 'function'
+        && countryStateIds.some(id => {
+            const country = storyInstitutionCountryView(`country:${id}`);
+            const route = country && country.authorityByAction && country.authorityByAction.DECLARE_WAR;
+            return route && route.mode !== 'PROHIBITED' && route.mode !== 'EXTERNAL_DOMAIN';
+        });
+    const review = {
+        schemaVersion: 1,
+        id: `diplomatic-review:${candidate.sequence}`,
+        consequenceCandidateId: candidate.id,
+        requestedByActorId: requester,
+        reviewedAt: Number(STORY.clock) || 0,
+        evidenceIds: [candidate.sourceResolutionEventId, candidate.sourceCommitmentId]
+            .concat(verifiedBreachReceiptIds).filter(Boolean),
+        legalStanding,
+        protestEligible,
+        requiresStateAuthority: protestEligible,
+        treatyAtReview: treaty,
+        stateRelationAtReview: stateRelation,
+        actorRelationshipAtReview: actorRelation ? {
+            trustBps: actorRelation.trustBps,
+            respectBps: actorRelation.respectBps,
+            hostilityBps: actorRelation.hostilityBps,
+            debtBps: actorRelation.debtBps
+        } : null,
+        verifiedBreachReceiptIds,
+        damageAssessment,
+        verifiedEconomicDamage,
+        thresholds: {
+            warVerifiedDamageMinimum: 250,
+            warStateRelationMaximum: -60,
+            damagePassed: damageThreshold,
+            hostilityPassed: hostileThreshold,
+            lawfulWarRoute: !!lawfulWarRoute
+        },
+        protestCandidate: protestEligible ? {
+            kind: 'DIPLOMATIC_PROTEST', status: 'AWAITING_STATE_AUTHORITY', executable: false
+        } : null,
+        warCandidate: legalStanding && damageThreshold && hostileThreshold && lawfulWarRoute
+            ? { kind: 'DECLARE_WAR_REVIEW', status: 'AWAITING_CONSTITUTIONAL_AUTHORITY', executable: false }
+            : null,
+        peaceCandidate: null,
+        executable: false,
+        worldMutation: false,
+        blockedReasons: [
+            !legalStanding ? 'LEGAL_STANDING_FAILED' : null,
+            !damageThreshold ? 'VERIFIED_ECONOMIC_DAMAGE_BELOW_WAR_THRESHOLD' : null,
+            !hostileThreshold ? 'STATE_RELATION_NOT_HOSTILE_ENOUGH_FOR_WAR_REVIEW' : null,
+            !lawfulWarRoute ? 'LAWFUL_WAR_ROUTE_NOT_VERIFIED' : null
+        ].filter(Boolean)
+    };
+    candidate.diplomaticReview = review;
+    candidate.status = 'REVIEWED';
+    candidate.blockedReasons = review.blockedReasons.slice();
+    candidate.warCandidate = review.warCandidate;
+    candidate.peaceCandidate = null;
+    storyNegotiationEvent(ledger, {
+        kind: 'DIPLOMATIC_INCIDENT_REVIEWED', caseId: candidate.caseId,
+        consequenceCandidateId: candidate.id, requestedByActorId: requester,
+        protestEligible, warCandidate: !!review.warCandidate, worldMutation: false
+    });
+    return { ok: true, code: protestEligible ? 'DIPLOMATIC_PROTEST_AUTHORITY_REQUIRED'
+        : 'DIPLOMATIC_INCIDENT_REVIEW_BLOCKED', duplicate: false,
+        review: storyNegotiationClone(review), worldMutation: false };
+}
+
+// Zarar gören özel aktör dosyayı açabilir fakat devlet adına protesto
+// yayımlayamaz. Yalnız Faz 29 kurum defterinde tamamlanmış, doğru devlete ait
+// ve henüz tüketilmemiş bir yetki fişi bu etkiyi açar. Protesto savaş veya
+// antlaşma değişikliği değildir.
+function storyNegotiationDiplomaticProtestExecute(candidateId, authorityRequestId) {
+    const ledger = storyNegotiationEnsure();
+    const candidate = ledger && ledger.consequenceCandidates[String(candidateId || '')];
+    if (!candidate || !candidate.diplomaticReview) {
+        return { ok: false, code: 'DIPLOMATIC_REVIEW_REQUIRED', worldMutation: false };
+    }
+    const review = candidate.diplomaticReview;
+    if (!review.protestEligible || !review.protestCandidate) {
+        return { ok: false, code: 'DIPLOMATIC_PROTEST_NOT_ELIGIBLE', worldMutation: false };
+    }
+    const requestId = String(authorityRequestId || '');
+    if (review.protestExecution) {
+        const same = review.protestExecution.authorityRequestId === requestId;
+        return same
+            ? { ok: true, code: 'DIPLOMATIC_PROTEST_ALREADY_ISSUED', duplicate: true,
+                execution: storyNegotiationClone(review.protestExecution), worldMutation: false }
+            : { ok: false, code: 'DIPLOMATIC_PROTEST_ALREADY_ISSUED', worldMutation: false };
+    }
+    const institutionLedger = STORY.institutions;
+    const request = institutionLedger && institutionLedger.requests
+        && institutionLedger.requests[requestId];
+    if (!request || request.actionType !== 'ISSUE_DIPLOMATIC_PROTEST') {
+        return { ok: false, code: 'STATE_PROTEST_AUTHORITY_REQUIRED', worldMutation: false };
+    }
+    if (request.status !== 'EXECUTED') {
+        return { ok: false, code: 'STATE_PROTEST_AUTHORITY_NOT_EXECUTED', worldMutation: false };
+    }
+    const alreadyConsumed = Object.values(ledger.consequenceCandidates || {}).some(row =>
+        row && row.diplomaticReview && row.diplomaticReview.protestExecution
+        && row.diplomaticReview.protestExecution.authorityRequestId === requestId);
+    if (alreadyConsumed) {
+        return { ok: false, code: 'STATE_PROTEST_AUTHORITY_ALREADY_CONSUMED', worldMutation: false };
+    }
+    const injuredActor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(candidate.promiseeActorId) : null;
+    const accusedActor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(candidate.promisorActorId) : null;
+    if (!injuredActor || !accusedActor || injuredActor.countryId === accusedActor.countryId) {
+        return { ok: false, code: 'CROSS_BORDER_STATE_PARTIES_REQUIRED', worldMutation: false };
+    }
+    if (request.countryId !== injuredActor.countryId) {
+        return { ok: false, code: 'INJURED_STATE_AUTHORITY_REQUIRED', worldMutation: false };
+    }
+    const injuredStateId = storyNegotiationCountryStateId(injuredActor.countryId);
+    const accusedStateId = storyNegotiationCountryStateId(accusedActor.countryId);
+    if (!Number.isInteger(injuredStateId) || !Number.isInteger(accusedStateId)) {
+        return { ok: false, code: 'STATE_IDENTITY_INVALID', worldMutation: false };
+    }
+    const treatyBefore = typeof storyTreaty === 'function'
+        ? storyTreaty(injuredStateId, accusedStateId) : null;
+    const relationBefore = typeof storyRelValue === 'function'
+        ? storyRelValue(injuredStateId, accusedStateId) : null;
+    if (!Number.isFinite(relationBefore) || typeof storyRelAdd !== 'function') {
+        return { ok: false, code: 'DIPLOMACY_RELATION_EXECUTOR_MISSING', worldMutation: false };
+    }
+    storyRelAdd(injuredStateId, accusedStateId, -6, {
+        actor: { type: 'institution', id: request.executorInstitutionId },
+        reason: 'diplomatic.protest.commercial_breach',
+        idempotencyKey: `diplomatic-protest:${candidate.id}`,
+        correlationId: review.id
+    });
+    const relationAfter = storyRelValue(injuredStateId, accusedStateId);
+    const treatyAfter = storyTreaty(injuredStateId, accusedStateId);
+    const execution = {
+        schemaVersion: 1,
+        id: `diplomatic-protest:${candidate.sequence}`,
+        consequenceCandidateId: candidate.id,
+        diplomaticReviewId: review.id,
+        authorityRequestId: requestId,
+        issuingCountryId: injuredActor.countryId,
+        targetCountryId: accusedActor.countryId,
+        executedByInstitutionId: request.executorInstitutionId,
+        issuedAt: Number(STORY.clock) || 0,
+        relationBefore,
+        relationAfter,
+        relationDelta: relationAfter - relationBefore,
+        treatyBefore,
+        treatyAfter,
+        warMutation: false,
+        treatyMutation: treatyBefore !== treatyAfter
+    };
+    review.protestExecution = execution;
+    review.protestCandidate.status = 'ISSUED';
+    review.protestCandidate.executable = false;
+    review.requiresStateAuthority = false;
+    storyNegotiationEvent(ledger, {
+        kind: 'DIPLOMATIC_PROTEST_ISSUED', caseId: candidate.caseId,
+        consequenceCandidateId: candidate.id, diplomaticReviewId: review.id,
+        authorityRequestId: requestId, issuingCountryId: injuredActor.countryId,
+        targetCountryId: accusedActor.countryId, relationDelta: execution.relationDelta,
+        treatyMutation: execution.treatyMutation, warMutation: false, worldMutation: true
+    });
+    return { ok: true, code: 'DIPLOMATIC_PROTEST_ISSUED', duplicate: false,
+        execution: storyNegotiationClone(execution), worldMutation: true };
+}
+
+function storyNegotiationDiplomaticStateParties(candidate) {
+    const injuredActor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(candidate && candidate.promiseeActorId) : null;
+    const accusedActor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(candidate && candidate.promisorActorId) : null;
+    const injuredStateId = storyNegotiationCountryStateId(injuredActor && injuredActor.countryId);
+    const accusedStateId = storyNegotiationCountryStateId(accusedActor && accusedActor.countryId);
+    return injuredActor && accusedActor && injuredActor.countryId !== accusedActor.countryId
+        && Number.isInteger(injuredStateId) && Number.isInteger(accusedStateId)
+        ? { injuredActor, accusedActor, injuredStateId, accusedStateId } : null;
+}
+
+function storyNegotiationAuthorityConsumed(ledger, requestId) {
+    const id = String(requestId || '');
+    return Object.values(ledger && ledger.consequenceCandidates || {}).some(row => {
+        const review = row && row.diplomaticReview;
+        if (!review) return false;
+        if (review.protestExecution && review.protestExecution.authorityRequestId === id) return true;
+        if (review.warExecution && review.warExecution.authorityRequestId === id) return true;
+        return !!(review.peaceExecution && Array.isArray(review.peaceExecution.authorityRequestIds)
+            && review.peaceExecution.authorityRequestIds.includes(id));
+    });
+}
+
+function storyNegotiationConstitutionalWarExecute(candidateId, authorityRequestId) {
+    const ledger = storyNegotiationEnsure();
+    const candidate = ledger && ledger.consequenceCandidates[String(candidateId || '')];
+    const review = candidate && candidate.diplomaticReview;
+    if (!review || !review.warCandidate) {
+        return { ok: false, code: 'WAR_REVIEW_THRESHOLDS_NOT_MET', worldMutation: false };
+    }
+    const requestId = String(authorityRequestId || '');
+    if (review.warExecution) {
+        return review.warExecution.authorityRequestId === requestId
+            ? { ok: true, code: 'WAR_ALREADY_DECLARED', duplicate: true,
+                execution: storyNegotiationClone(review.warExecution), worldMutation: false }
+            : { ok: false, code: 'WAR_ALREADY_DECLARED', worldMutation: false };
+    }
+    const request = STORY.institutions && STORY.institutions.requests
+        && STORY.institutions.requests[requestId];
+    if (!request || request.actionType !== 'DECLARE_WAR') {
+        return { ok: false, code: 'DECLARE_WAR_AUTHORITY_REQUIRED', worldMutation: false };
+    }
+    if (request.status !== 'EXECUTED') {
+        return { ok: false, code: 'DECLARE_WAR_AUTHORITY_NOT_EXECUTED', worldMutation: false };
+    }
+    const parties = storyNegotiationDiplomaticStateParties(candidate);
+    if (!parties) return { ok: false, code: 'CROSS_BORDER_STATE_PARTIES_REQUIRED', worldMutation: false };
+    if (request.countryId !== parties.injuredActor.countryId) {
+        return { ok: false, code: 'INJURED_STATE_WAR_AUTHORITY_REQUIRED', worldMutation: false };
+    }
+    if (storyNegotiationAuthorityConsumed(ledger, requestId)) {
+        return { ok: false, code: 'CONSTITUTIONAL_AUTHORITY_ALREADY_CONSUMED', worldMutation: false };
+    }
+    const currentRelation = storyRelValue(parties.injuredStateId, parties.accusedStateId);
+    const damageMinimum = Number(review.thresholds && review.thresholds.warVerifiedDamageMinimum) || 250;
+    const relationMaximum = Number(review.thresholds && review.thresholds.warStateRelationMaximum);
+    if (Number(review.verifiedEconomicDamage) < damageMinimum) {
+        return { ok: false, code: 'WAR_DAMAGE_THRESHOLD_STALE', worldMutation: false };
+    }
+    if (!Number.isFinite(currentRelation) || !Number.isFinite(relationMaximum)
+        || currentRelation > relationMaximum) {
+        return { ok: false, code: 'WAR_HOSTILITY_THRESHOLD_STALE', worldMutation: false };
+    }
+    const treatyBefore = storyTreaty(parties.injuredStateId, parties.accusedStateId);
+    if (treatyBefore === 'war') {
+        return { ok: false, code: 'STATES_ALREADY_AT_WAR', worldMutation: false };
+    }
+    storySetTreaty(parties.injuredStateId, parties.accusedStateId, 'war', 0, {
+        actor: { type: 'institution', id: request.executorInstitutionId },
+        reason: 'constitutional.declare_war',
+        idempotencyKey: `constitutional-war:${candidate.id}`,
+        correlationId: review.id
+    });
+    const treatyAfter = storyTreaty(parties.injuredStateId, parties.accusedStateId);
+    const execution = {
+        schemaVersion: 1,
+        id: `constitutional-war:${candidate.sequence}`,
+        consequenceCandidateId: candidate.id,
+        authorityRequestId: requestId,
+        declaringCountryId: parties.injuredActor.countryId,
+        targetCountryId: parties.accusedActor.countryId,
+        executedByInstitutionId: request.executorInstitutionId,
+        executedAt: Number(STORY.clock) || 0,
+        treatyBefore,
+        treatyAfter,
+        warMutation: treatyBefore !== treatyAfter && treatyAfter === 'war'
+    };
+    review.warExecution = execution;
+    review.warCandidate.status = 'DECLARED';
+    review.warCandidate.executable = false;
+    review.peaceCandidate = {
+        kind: 'NEGOTIATE_PEACE',
+        status: 'AWAITING_BILATERAL_CONSTITUTIONAL_AUTHORITY',
+        requiredCountryIds: [parties.injuredActor.countryId, parties.accusedActor.countryId].sort(),
+        executable: false
+    };
+    candidate.warCandidate = storyNegotiationClone(review.warCandidate);
+    candidate.peaceCandidate = storyNegotiationClone(review.peaceCandidate);
+    storyNegotiationEvent(ledger, {
+        kind: 'CONSTITUTIONAL_WAR_DECLARED', caseId: candidate.caseId,
+        consequenceCandidateId: candidate.id, authorityRequestId: requestId,
+        declaringCountryId: execution.declaringCountryId, targetCountryId: execution.targetCountryId,
+        treatyBefore, treatyAfter, worldMutation: true
+    });
+    return { ok: true, code: 'CONSTITUTIONAL_WAR_DECLARED', duplicate: false,
+        execution: storyNegotiationClone(execution), worldMutation: true };
+}
+
+function storyNegotiationConstitutionalPeaceExecute(candidateId, authorityRequestIds) {
+    const ledger = storyNegotiationEnsure();
+    const candidate = ledger && ledger.consequenceCandidates[String(candidateId || '')];
+    const review = candidate && candidate.diplomaticReview;
+    if (!review || !review.warExecution || !review.peaceCandidate) {
+        return { ok: false, code: 'ACTIVE_WAR_REVIEW_REQUIRED', worldMutation: false };
+    }
+    const requestIds = Array.from(new Set((authorityRequestIds || []).map(String))).sort();
+    if (review.peaceExecution) {
+        return storyNegotiationHash(review.peaceExecution.authorityRequestIds) === storyNegotiationHash(requestIds)
+            ? { ok: true, code: 'PEACE_ALREADY_SIGNED', duplicate: true,
+                execution: storyNegotiationClone(review.peaceExecution), worldMutation: false }
+            : { ok: false, code: 'PEACE_ALREADY_SIGNED', worldMutation: false };
+    }
+    const parties = storyNegotiationDiplomaticStateParties(candidate);
+    if (!parties) return { ok: false, code: 'CROSS_BORDER_STATE_PARTIES_REQUIRED', worldMutation: false };
+    const requiredCountryIds = [parties.injuredActor.countryId, parties.accusedActor.countryId].sort();
+    const requests = requestIds.map(id => STORY.institutions && STORY.institutions.requests
+        && STORY.institutions.requests[id]).filter(Boolean);
+    if (requests.length !== 2 || requestIds.length !== 2
+        || requests.some(row => row.actionType !== 'SIGN_TREATY')) {
+        return { ok: false, code: 'BILATERAL_PEACE_AUTHORITY_REQUIRED', worldMutation: false };
+    }
+    if (requests.some(row => row.status !== 'EXECUTED')) {
+        return { ok: false, code: 'BILATERAL_PEACE_AUTHORITY_NOT_EXECUTED', worldMutation: false };
+    }
+    const suppliedCountries = requests.map(row => row.countryId).sort();
+    if (storyNegotiationHash(suppliedCountries) !== storyNegotiationHash(requiredCountryIds)) {
+        return { ok: false, code: 'BOTH_BELLIGERENT_AUTHORITIES_REQUIRED', worldMutation: false };
+    }
+    if (requestIds.some(id => storyNegotiationAuthorityConsumed(ledger, id))) {
+        return { ok: false, code: 'CONSTITUTIONAL_AUTHORITY_ALREADY_CONSUMED', worldMutation: false };
+    }
+    const treatyBefore = storyTreaty(parties.injuredStateId, parties.accusedStateId);
+    if (treatyBefore !== 'war') {
+        return { ok: false, code: 'STATES_NOT_AT_WAR', worldMutation: false };
+    }
+    storySetTreaty(parties.injuredStateId, parties.accusedStateId, 'peace', 0, {
+        actor: { type: 'institutions', id: requestIds.join('+') },
+        reason: 'constitutional.bilateral_peace',
+        idempotencyKey: `constitutional-peace:${candidate.id}`,
+        correlationId: review.id
+    });
+    const treatyAfter = storyTreaty(parties.injuredStateId, parties.accusedStateId);
+    const execution = {
+        schemaVersion: 1,
+        id: `constitutional-peace:${candidate.sequence}`,
+        consequenceCandidateId: candidate.id,
+        authorityRequestIds: requestIds,
+        signatoryCountryIds: suppliedCountries,
+        executedAt: Number(STORY.clock) || 0,
+        treatyBefore,
+        treatyAfter,
+        peaceMutation: treatyBefore === 'war' && treatyAfter === 'peace'
+    };
+    review.peaceExecution = execution;
+    review.peaceCandidate.status = 'SIGNED';
+    candidate.peaceCandidate = storyNegotiationClone(review.peaceCandidate);
+    storyNegotiationEvent(ledger, {
+        kind: 'BILATERAL_PEACE_SIGNED', caseId: candidate.caseId,
+        consequenceCandidateId: candidate.id, authorityRequestIds: requestIds,
+        signatoryCountryIds: suppliedCountries, treatyBefore, treatyAfter, worldMutation: true
+    });
+    return { ok: true, code: 'BILATERAL_PEACE_SIGNED', duplicate: false,
+        execution: storyNegotiationClone(execution), worldMutation: true };
+}
+
 function storyNegotiationPromiseResolve(commitment, status, evidence) {
     const ledger = storyNegotiationEnsure();
     if (!ledger || !commitment || commitment.status !== 'OPEN') {
@@ -472,10 +975,14 @@ function storyNegotiationPromiseResolve(commitment, status, evidence) {
     });
     commitment.resolutionEventId = event.id;
     const effects = storyNegotiationPromiseEffects(commitment, kept);
+    const consequence = storyNegotiationPromiseConsequenceCandidate(commitment, kept);
+    commitment.consequenceCandidateId = consequence && consequence.candidate
+        ? consequence.candidate.id : null;
     if (kept) ledger.diagnostics.promisesKept++;
     else ledger.diagnostics.promisesBroken++;
     return { ok: true, code: kept ? 'PROMISE_KEPT' : 'PROMISE_BROKEN',
-        commitment: storyNegotiationClone(commitment), effects, worldMutation: !!effects.applied };
+        commitment: storyNegotiationClone(commitment), effects, consequence,
+        worldMutation: !!effects.applied };
 }
 
 function storyNegotiationResolveCounterOfferPromises(caseRow, version) {
@@ -861,6 +1368,7 @@ function storyNegotiationMechanicalPreflight(caseId, requestedByActorId) {
     const companies = STORY.companyEconomy;
     const identities = storyNegotiationIdentityLedger();
     const playerIdentity = identities && identities.identities[caseRow.partyActorIds[0]];
+    const counterpartyIdentity = identities && identities.identities[caseRow.partyActorIds[1]];
     const shipmentId = request && request.targetShipmentId || shipmentEntity && shipmentEntity.entityId;
     const destinationId = request && request.destinationId || destinationEntity && destinationEntity.entityId;
     const shipment = trade && trade.shipments.find(row => row.id === shipmentId);
@@ -868,8 +1376,7 @@ function storyNegotiationMechanicalPreflight(caseId, requestedByActorId) {
     const contract = shipment && trade.contracts.find(row => row.id === shipment.contractId);
     const warehouse = companies && companies.warehouses && companies.warehouses[destinationId];
     const company = companies && companies.companies && companies.companies[companyEntity && companyEntity.entityId];
-    const sellerCompanyId = shipment && (shipment.sellerCompanyId || order && order.sellerCompanyId) || null;
-    const sellerCompany = companies && companies.companies && companies.companies[sellerCompanyId];
+    const originalSellerCompanyId = shipment && (shipment.sellerCompanyId || order && order.sellerCompanyId) || null;
     const quantity = version.terms.quantity;
     const payment = version.terms.payment;
     const schedule = version.terms.delivery_schedule;
@@ -892,10 +1399,42 @@ function storyNegotiationMechanicalPreflight(caseId, requestedByActorId) {
     const existingSettlement = shipment && shipment.settlementReservationId && STORY.stateBudget
         && (STORY.stateBudget.settlements || []).find(row => row.id === shipment.settlementReservationId);
     const paymentBindingFree = !!shipment && !shipment.settlementReservationId;
-    checks.push(storyNegotiationMechanicalCheck('shipment_payment_binding', paymentBindingFree,
-        paymentBindingFree ? 'SHIPMENT_PAYMENT_UNBOUND' : 'SHIPMENT_PAYMENT_ALREADY_BOUND',
+    const resaleTransferable = !!(shipment && existingSettlement
+        && existingSettlement.status === 'RESERVED' && existingSettlement.payerType === 'COMPANY'
+        && existingSettlement.buyerCompanyId && existingSettlement.sellerCompanyId
+        && existingSettlement.shipmentId === shipment.id
+        && existingSettlement.sellerCompanyId === originalSellerCompanyId
+        && existingSettlement.resourceId === shipment.resourceId
+        && Math.abs(Number(existingSettlement.quantity) - Number(shipment.quantity)) <= 1e-6
+        && existingSettlement.buyerCompanyId !== (company && company.id)
+        && counterpartyIdentity
+        && counterpartyIdentity.organizationId === existingSettlement.buyerCompanyId);
+    const paymentBindingReady = paymentBindingFree || resaleTransferable;
+    const deliverySellerCompanyId = resaleTransferable
+        ? existingSettlement.buyerCompanyId : originalSellerCompanyId;
+    const sellerCompany = companies && companies.companies && companies.companies[deliverySellerCompanyId];
+    checks.push(storyNegotiationMechanicalCheck('shipment_payment_binding', paymentBindingReady,
+        paymentBindingFree ? 'SHIPMENT_PAYMENT_UNBOUND'
+            : resaleTransferable ? 'SHIPMENT_PAYMENT_BUYER_RESALE_READY'
+                : 'SHIPMENT_PAYMENT_ALREADY_BOUND',
         [shipment && shipment.settlementReservationId, existingSettlement && existingSettlement.status],
-        'Aynı fiziksel yük iki kez ödenemez. Mevcut escrow bağlıysa alıcıdan alıcıya devir sözleşmesi gerekir.'));
+        'Bağlı ilk escrow korunur; yalnız mevcut alıcının temsilcisi yeni alıcıya ayrı escrow ile yoldaki malı yeniden satabilir.'));
+    checks.push(storyNegotiationMechanicalCheck('resale_assignment_authority', paymentBindingFree || resaleTransferable,
+        paymentBindingFree ? 'RESALE_ASSIGNMENT_NOT_REQUIRED'
+            : resaleTransferable ? 'CURRENT_BUYER_REPRESENTATION_VERIFIED'
+                : 'CURRENT_BUYER_REPRESENTATION_REQUIRED',
+        [counterpartyIdentity && counterpartyIdentity.id,
+            counterpartyIdentity && counterpartyIdentity.organizationId,
+            existingSettlement && existingSettlement.buyerCompanyId],
+        'Yoldaki malın hak sahibi, sohbet edilen karşı tarafın gerçekten temsil ettiği şirket olmalıdır.'));
+    const counterpartyRepresentationOk = !!(counterpartyIdentity && deliverySellerCompanyId
+        && counterpartyIdentity.organizationId === deliverySellerCompanyId);
+    checks.push(storyNegotiationMechanicalCheck('counterparty_representation', counterpartyRepresentationOk,
+        counterpartyRepresentationOk ? 'SELLER_REPRESENTATION_VERIFIED'
+            : 'SELLER_REPRESENTATION_REQUIRED',
+        [counterpartyIdentity && counterpartyIdentity.id,
+            counterpartyIdentity && counterpartyIdentity.organizationId, deliverySellerCompanyId],
+        'Konuşmayı kabul eden karakter, mekanik sözleşmedeki satıcı şirketi gerçekten temsil etmelidir.'));
     checks.push(storyNegotiationMechanicalCheck('destination_warehouse', !!warehouse && warehouse.status === 'OPERATING',
         warehouse ? (warehouse.status === 'OPERATING' ? 'WAREHOUSE_VERIFIED' : 'WAREHOUSE_NOT_OPERATING') : 'WAREHOUSE_NOT_FOUND',
         [destinationId], 'Hedef, çalışan ve kanonik şirket defterinde bulunan gerçek bir depo olmalıdır.'));
@@ -978,7 +1517,7 @@ function storyNegotiationMechanicalPreflight(caseId, requestedByActorId) {
             : !penaltyExecutorAvailable ? 'CONTRACT_PENALTY_EXECUTOR_UNAVAILABLE'
                 : !sellerCompany ? 'CONTRACT_PENALTY_SELLER_COMPANY_MISSING'
                     : !company ? 'CONTRACT_PENALTY_BUYER_COMPANY_MISSING' : 'CONTRACT_PENALTY_EXECUTOR_AVAILABLE',
-        [sellerCompanyId, company && company.id, penalty && penalty.unit],
+        [deliverySellerCompanyId, company && company.id, penalty && penalty.unit],
         'Doğrulanmış gecikme cezası satıcı ve alıcı şirket arasında çift taraflı posting ile uygulanır; nakit yoksa alacak açık kalır.'));
 
     const inputHash = storyNegotiationHash({
@@ -990,8 +1529,14 @@ function storyNegotiationMechanicalPreflight(caseId, requestedByActorId) {
             settlementReservationId: shipment.settlementReservationId || null },
         warehouse: warehouse && { id: warehouse.id, status: warehouse.status,
             countryId: warehouse.countryId, ownerCompanyId: warehouse.ownerCompanyId,
-            capacity: nominalCapacity }, sellerCompanyId, occupancy, unitResolution,
-        deliverySchedule, penaltyQuote,
+            capacity: nominalCapacity }, occupancy, unitResolution,
+        deliverySchedule, penaltyQuote, originalSellerCompanyId, deliverySellerCompanyId,
+        counterpartyOrganizationId: counterpartyIdentity && counterpartyIdentity.organizationId || null,
+        existingSettlement: existingSettlement && { id: existingSettlement.id,
+            status: existingSettlement.status, payerType: existingSettlement.payerType,
+            buyerCompanyId: existingSettlement.buyerCompanyId,
+            sellerCompanyId: existingSettlement.sellerCompanyId,
+            amount: existingSettlement.amount },
         checks: checks.map(row => [row.id, row.status, row.code])
     });
     const duplicate = caseRow.mechanicalReviews.find(row => row.inputHash === inputHash);
@@ -1064,16 +1609,77 @@ function storyNegotiationDeliveryObligationCreate(caseId, requestedByActorId) {
     const destinationWarehouse = STORY.companyEconomy && STORY.companyEconomy.warehouses
         && STORY.companyEconomy.warehouses[destinationEntity && destinationEntity.entityId];
     const order = shipment && STORY.tradeLogistics.orders.find(row => row.id === shipment.orderId);
-    const sellerCompanyId = shipment && (shipment.sellerCompanyId || order && order.sellerCompanyId);
+    const originalSellerCompanyId = shipment && (shipment.sellerCompanyId || order && order.sellerCompanyId);
+    const existingSettlement = shipment && shipment.settlementReservationId && STORY.stateBudget
+        && (STORY.stateBudget.settlements || []).find(row => row.id === shipment.settlementReservationId);
+    const identities = storyNegotiationIdentityLedger();
+    const counterpartyIdentity = identities && identities.identities[caseRow.partyActorIds[1]];
+    const resaleTransfer = !!(existingSettlement && existingSettlement.status === 'RESERVED'
+        && existingSettlement.payerType === 'COMPANY' && existingSettlement.buyerCompanyId
+        && existingSettlement.sellerCompanyId
+        && existingSettlement.shipmentId === shipment.id
+        && existingSettlement.sellerCompanyId === originalSellerCompanyId
+        && existingSettlement.resourceId === shipment.resourceId
+        && Math.abs(Number(existingSettlement.quantity) - Number(shipment.quantity)) <= 1e-6
+        && existingSettlement.buyerCompanyId !== buyerCompanyId
+        && counterpartyIdentity
+        && counterpartyIdentity.organizationId === existingSettlement.buyerCompanyId);
+    const sellerCompanyId = resaleTransfer ? existingSettlement.buyerCompanyId : originalSellerCompanyId;
     const schedule = storyNegotiationDeliverySchedule(version.terms.delivery_schedule, Number(STORY.clock) || 0);
     const penalty = storyNegotiationPenaltyQuote(version.terms.payment, version.terms.contract_penalty);
     if (!shipment || !buyerCompanyId || !sellerCompanyId || !destinationWarehouse
-        || !schedule.ok || !penalty.ok || shipment.settlementReservationId) {
+        || !schedule.ok || !penalty.ok || (shipment.settlementReservationId && !resaleTransfer)) {
         return { ok: false, code: 'DELIVERY_OBLIGATION_GROUNDING_INVALID', worldMutation: false };
     }
     const unit = storyResourceUnitResolve(shipment.resourceId,
         version.terms.quantity.unit, version.terms.quantity.amount);
     if (!unit.ok) return { ok: false, code: unit.code, worldMutation: false };
+    const transferMode = resaleTransfer ? 'BUYER_TO_BUYER_RESALE' : 'DIRECT_NEGOTIATED_DELIVERY';
+    const contractDraft = typeof storyMechanicalContractGoodsDraftCreate === 'function'
+        ? storyMechanicalContractGoodsDraftCreate({
+            subtype: transferMode,
+            source: {
+                negotiationCaseId: caseRow.id,
+                negotiationVersionId: version.id,
+                mechanicalReviewId: review.id
+            },
+            parties: [
+                { role: 'BUYER', actorId: caseRow.partyActorIds[0], legalActorType: 'COMPANY',
+                    legalActorId: buyerCompanyId },
+                { role: 'SELLER', actorId: caseRow.partyActorIds[1], legalActorType: 'COMPANY',
+                    legalActorId: sellerCompanyId }
+            ],
+            scope: {
+                shipmentId: shipment.id, orderId: shipment.orderId,
+                tradeContractId: shipment.contractId,
+                resourceId: shipment.resourceId, quantity: unit.amount,
+                quantityUnit: 'canonical', destinationWarehouseId: destinationWarehouse.id,
+                targetRegionId: destinationWarehouse.regionId,
+                originalBuyerCompanyId: resaleTransfer ? existingSettlement.buyerCompanyId : null,
+                originalSellerCompanyId
+            },
+            price: {
+                amount: Number(version.terms.payment.amount), currency: 'capital',
+                payerLegalActorId: buyerCompanyId, payeeLegalActorId: sellerCompanyId,
+                primarySettlementReservationId: resaleTransfer ? existingSettlement.id : null
+            },
+            schedule: {
+                createdAt: Number(STORY.clock) || 0, dueAt: schedule.dueAt,
+                durationSeconds: schedule.durationSeconds,
+                sourceAmount: schedule.amount, sourceUnit: schedule.unit
+            },
+            serviceLevel: { metric: 'PHYSICAL_SHIPMENT_DELIVERED', requiredQuantity: unit.amount,
+                destinationWarehouseId: destinationWarehouse.id },
+            breach: { code: 'DELIVERY_DEADLINE_BREACHED', penaltyAmount: penalty.amount,
+                penaltyCurrency: 'capital' },
+            causalIds: [caseRow.id, version.id, review.id, shipment.id, shipment.orderId,
+                shipment.contractId, destinationWarehouse.id].filter(Boolean)
+        }) : { ok: false, code: 'MECHANICAL_CONTRACT_V1_UNAVAILABLE' };
+    if (!contractDraft.ok) {
+        return { ok: false, code: contractDraft.code || 'MECHANICAL_CONTRACT_DRAFT_FAILED',
+            worldMutation: false };
+    }
+    const mechanicalContractId = contractDraft.contract.id;
     const reserve = typeof storyBudgetReserveNegotiatedPayment === 'function'
         ? storyBudgetReserveNegotiatedPayment({
             correlationId: `${caseRow.id}:${version.id}:payment`,
@@ -1105,10 +1711,17 @@ function storyNegotiationDeliveryObligationCreate(caseId, requestedByActorId) {
     if (typeof storyBudgetBindTradeShipment === 'function') {
         storyBudgetBindTradeShipment(reserve.reservationId, shipment.id);
     }
-    shipment.settlementReservationId = reserve.reservationId;
-    shipment.settlementAmount = Number(version.terms.payment.amount);
-    shipment.buyerCompanyId = buyerCompanyId;
-    if (order) order.buyerCompanyId = buyerCompanyId;
+    if (resaleTransfer) {
+        shipment.beneficialBuyerCompanyId = buyerCompanyId;
+        shipment.resaleSettlementReservationId = reserve.reservationId;
+        shipment.resaleSettlementAmount = Number(version.terms.payment.amount);
+        shipment.resaleSourceBuyerCompanyId = existingSettlement.buyerCompanyId;
+    } else {
+        shipment.settlementReservationId = reserve.reservationId;
+        shipment.settlementAmount = Number(version.terms.payment.amount);
+        shipment.buyerCompanyId = buyerCompanyId;
+        if (order) order.buyerCompanyId = buyerCompanyId;
+    }
     const sequence = ledger.nextDeliverySequence++;
     const id = `negotiation-delivery:${sequence}`;
     const sellerActorId = caseRow.partyActorIds[1];
@@ -1134,6 +1747,11 @@ function storyNegotiationDeliveryObligationCreate(caseId, requestedByActorId) {
         sellerActorId,
         buyerCompanyId,
         sellerCompanyId,
+        transferMode,
+        mechanicalContractId,
+        originalSellerCompanyId,
+        originalBuyerCompanyId: resaleTransfer ? existingSettlement.buyerCompanyId : null,
+        primarySettlementReservationId: resaleTransfer ? existingSettlement.id : null,
         destinationWarehouseId: destinationWarehouse.id,
         targetRegionId: destinationWarehouse.regionId,
         tradeAmendmentId: redirected.amendment && redirected.amendment.id || null,
@@ -1157,13 +1775,18 @@ function storyNegotiationDeliveryObligationCreate(caseId, requestedByActorId) {
         version: 1
     };
     ledger.deliveryObligations[id] = obligation;
+    const contractActivation = storyMechanicalContractActivate(mechanicalContractId, id);
+    if (!contractActivation.ok) {
+        obligation.lastErrorCode = contractActivation.code || 'MECHANICAL_CONTRACT_ACTIVATION_FAILED';
+    }
     const authority = caseRow.requiredApprovals.find(row => row.kind === 'MECHANICAL_CONTRACT_AUTHORITY');
     if (authority) {
         authority.status = 'APPROVED';
         authority.actorId = requester;
         authority.approvedAt = Number(STORY.clock) || 0;
-        authority.ownerSystem = 'NEGOTIATED_DELIVERY_OBLIGATION';
+        authority.ownerSystem = 'MECHANICAL_CONTRACT_V1';
         authority.obligationId = id;
+        authority.mechanicalContractId = mechanicalContractId;
     }
     caseRow.status = 'ACTIVE';
     caseRow.execution = { status: 'TRACKING_DELIVERY', receiptId: id };
@@ -1219,14 +1842,21 @@ function storyNegotiationDeliveryTick() {
         const shipment = STORY.tradeLogistics && STORY.tradeLogistics.shipments
             && STORY.tradeLogistics.shipments.find(row => row.id === obligation.shipmentId);
         if (obligation.status !== 'BREACH_PAYMENT_PENDING' && shipment && shipment.status === 'DELIVERED') {
-            const settled = typeof storyBudgetSettleNegotiatedPayment === 'function'
-                ? storyBudgetSettleNegotiatedPayment(obligation.escrowReservationId, {
-                    shipmentId: shipment.id, cargoCost: shipment.commerceCargoCost || 0
-                }) : { ok: false, code: 'NEGOTIATED_PAYMENT_SETTLEMENT_UNAVAILABLE' };
+            const settled = obligation.transferMode === 'BUYER_TO_BUYER_RESALE'
+                && typeof storyBudgetSettleShipmentPayments === 'function'
+                ? storyBudgetSettleShipmentPayments(shipment)
+                : typeof storyBudgetSettleNegotiatedPayment === 'function'
+                    ? storyBudgetSettleNegotiatedPayment(obligation.escrowReservationId, {
+                        shipmentId: shipment.id, cargoCost: shipment.commerceCargoCost || 0
+                    }) : { ok: false, code: 'NEGOTIATED_PAYMENT_SETTLEMENT_UNAVAILABLE' };
             if (!settled.ok) {
                 obligation.status = 'SETTLEMENT_PENDING';
                 obligation.lastErrorCode = settled.code || 'SETTLEMENT_FAILED';
                 obligation.version++;
+                if (obligation.mechanicalContractId
+                    && typeof storyMechanicalContractSyncDelivery === 'function') {
+                    storyMechanicalContractSyncDelivery(obligation.mechanicalContractId, obligation);
+                }
                 continue;
             }
             obligation.status = 'KEPT';
@@ -1234,6 +1864,10 @@ function storyNegotiationDeliveryTick() {
             obligation.resolvedAt = now;
             obligation.lastErrorCode = null;
             obligation.version++;
+            if (obligation.mechanicalContractId
+                && typeof storyMechanicalContractSyncDelivery === 'function') {
+                storyMechanicalContractSyncDelivery(obligation.mechanicalContractId, obligation);
+            }
             if (obligation.memoryMilestoneId && typeof storyMemoryResolveMilestone === 'function') {
                 storyMemoryResolveMilestone(obligation.memoryMilestoneId, 'KEPT');
             }
@@ -1282,6 +1916,10 @@ function storyNegotiationDeliveryTick() {
             }
             pendingPenalty++;
             worldMutation = true;
+            if (obligation.mechanicalContractId
+                && typeof storyMechanicalContractSyncDelivery === 'function') {
+                storyMechanicalContractSyncDelivery(obligation.mechanicalContractId, obligation);
+            }
             continue;
         }
         obligation.status = 'BROKEN';
@@ -1291,6 +1929,10 @@ function storyNegotiationDeliveryTick() {
         obligation.penaltyTransactionIds = [penalty.debitTransaction && penalty.debitTransaction.id,
             penalty.creditTransaction && penalty.creditTransaction.id].filter(Boolean);
         obligation.version++;
+        if (obligation.mechanicalContractId
+            && typeof storyMechanicalContractSyncDelivery === 'function') {
+            storyMechanicalContractSyncDelivery(obligation.mechanicalContractId, obligation);
+        }
         if (caseRow) {
             caseRow.status = 'BREACHED';
             caseRow.execution = { status: 'BREACH_SETTLED', receiptId: obligation.id };
@@ -1319,6 +1961,8 @@ function storyNegotiationValidate(candidate) {
         || Array.isArray(candidate.secrets)) add('SECRETS', '$.secrets');
     if (!candidate.deliveryObligations || typeof candidate.deliveryObligations !== 'object'
         || Array.isArray(candidate.deliveryObligations)) add('DELIVERY_OBLIGATIONS', '$.deliveryObligations');
+    if (!candidate.consequenceCandidates || typeof candidate.consequenceCandidates !== 'object'
+        || Array.isArray(candidate.consequenceCandidates)) add('CONSEQUENCE_CANDIDATES', '$.consequenceCandidates');
     if (!Array.isArray(candidate.events) || candidate.events.length > STORY_NEGOTIATION_EVENT_LIMIT) add('EVENTS', '$.events');
     for (const [id, row] of Object.entries(candidate.cases || {})) {
         const at = `$.cases.${id}`;
@@ -1402,6 +2046,99 @@ function storyNegotiationValidate(candidate) {
             }
         }
     }
+    const consequenceRows = Object.entries(candidate.consequenceCandidates || {});
+    if (consequenceRows.length > STORY_NEGOTIATION_CONSEQUENCE_LIMIT) {
+        add('CONSEQUENCE_LIMIT', '$.consequenceCandidates');
+    }
+    for (const [id, row] of consequenceRows) {
+        const at = `$.consequenceCandidates.${id}`;
+        if (!row || row.id !== id || row.schemaVersion !== 1
+            || !Number.isInteger(row.sequence) || row.sequence < 1) add('CONSEQUENCE_IDENTITY', at);
+        if (!candidate.commitments[row && row.sourceCommitmentId]
+            || !candidate.cases[row && row.caseId]) add('CONSEQUENCE_SOURCE', at);
+        if (!['KEPT', 'BROKEN'].includes(row && row.triggerStatus)
+            || !['COOPERATIVE_FOLLOW_UP', 'COMMERCIAL_DISPUTE'].includes(row && row.kind)
+            || !['OPEN', 'REVIEWED'].includes(row && row.status)) add('CONSEQUENCE_STATE', at);
+        if (!Array.isArray(row && row.nextStepCodes) || !row.nextStepCodes.length
+            || row.executable !== false || row.worldMutation !== false
+            || (row.peaceCandidate !== null && !(row.diplomaticReview
+                && storyNegotiationHash(row.diplomaticReview.peaceCandidate)
+                    === storyNegotiationHash(row.peaceCandidate)))
+            || (row.warCandidate !== null && !(row.diplomaticReview
+                && storyNegotiationHash(row.diplomaticReview.warCandidate)
+                    === storyNegotiationHash(row.warCandidate)))) {
+            add('CONSEQUENCE_SAFETY', at);
+        }
+        if (row && row.status === 'REVIEWED') {
+            const review = row.diplomaticReview;
+            if (!review || review.consequenceCandidateId !== row.id || review.schemaVersion !== 1
+                || review.executable !== false || review.worldMutation !== false
+                || !Array.isArray(review.evidenceIds)
+                || !Array.isArray(review.blockedReasons)
+                || !review.thresholds || !Number.isFinite(Number(review.verifiedEconomicDamage))
+                || !review.damageAssessment || review.damageAssessment.schemaVersion !== 1
+                || !Array.isArray(review.damageAssessment.entries)
+                || !Array.isArray(review.damageAssessment.unmeasuredClaims)
+                || !review.damageAssessment.totals
+                || Number(review.damageAssessment.totals.uncompensatedDamage)
+                    !== Number(review.verifiedEconomicDamage)
+                || ['contractualValue', 'refundedPrincipal', 'penaltyCompensation',
+                    'verifiedDirectLoss', 'uncompensatedDamage'].some(key => {
+                    const sum = review.damageAssessment.entries.reduce((total, entry) =>
+                        total + Number(entry[key] || 0), 0);
+                    return sum !== Number(review.damageAssessment.totals[key] || 0);
+                })
+                || review.damageAssessment.unmeasuredClaims.some(claim =>
+                    claim.status !== 'UNVERIFIED' || claim.includedInDamage !== false)
+                || review.damageAssessment.entries.some(entry =>
+                    !String(entry.deliveryObligationId || '').trim()
+                    || !Array.isArray(entry.evidenceIds)
+                    || Number(entry.uncompensatedDamage) < 0)) {
+                add('DIPLOMATIC_REVIEW', `${at}.diplomaticReview`);
+            }
+            if (review && review.protestExecution) {
+                const execution = review.protestExecution;
+                if (execution.schemaVersion !== 1 || execution.consequenceCandidateId !== row.id
+                    || !String(execution.authorityRequestId || '').trim()
+                    || !String(execution.issuingCountryId || '').trim()
+                    || !String(execution.targetCountryId || '').trim()
+                    || execution.issuingCountryId === execution.targetCountryId
+                    || !Number.isFinite(Number(execution.relationBefore))
+                    || !Number.isFinite(Number(execution.relationAfter))
+                    || Number(execution.relationAfter) - Number(execution.relationBefore)
+                        !== Number(execution.relationDelta)
+                    || execution.treatyMutation !== false || execution.warMutation !== false
+                    || !review.protestCandidate || review.protestCandidate.status !== 'ISSUED'
+                    || review.requiresStateAuthority !== false) {
+                    add('DIPLOMATIC_PROTEST_EXECUTION', `${at}.diplomaticReview.protestExecution`);
+                }
+            }
+            if (review && review.warExecution) {
+                const execution = review.warExecution;
+                if (execution.schemaVersion !== 1 || execution.consequenceCandidateId !== row.id
+                    || !String(execution.authorityRequestId || '').trim()
+                    || execution.treatyAfter !== 'war' || execution.warMutation !== true
+                    || !review.warCandidate || review.warCandidate.status !== 'DECLARED'
+                    || !review.peaceCandidate
+                    || review.peaceCandidate.status === 'AWAITING_CONSTITUTIONAL_AUTHORITY') {
+                    add('CONSTITUTIONAL_WAR_EXECUTION', `${at}.diplomaticReview.warExecution`);
+                }
+            }
+            if (review && review.peaceExecution) {
+                const execution = review.peaceExecution;
+                if (execution.schemaVersion !== 1 || execution.consequenceCandidateId !== row.id
+                    || !Array.isArray(execution.authorityRequestIds)
+                    || execution.authorityRequestIds.length !== 2
+                    || !Array.isArray(execution.signatoryCountryIds)
+                    || execution.signatoryCountryIds.length !== 2
+                    || execution.treatyBefore !== 'war' || execution.treatyAfter !== 'peace'
+                    || execution.peaceMutation !== true
+                    || !review.peaceCandidate || review.peaceCandidate.status !== 'SIGNED') {
+                    add('CONSTITUTIONAL_PEACE_EXECUTION', `${at}.diplomaticReview.peaceExecution`);
+                }
+            }
+        }
+    }
     for (const [id, obligation] of Object.entries(candidate.deliveryObligations || {})) {
         const at = `$.deliveryObligations.${id}`;
         const caseRow = candidate.cases && candidate.cases[obligation.caseId];
@@ -1427,6 +2164,26 @@ function storyNegotiationValidate(candidate) {
             || !Number.isFinite(Number(obligation.paymentAmount)) || Number(obligation.paymentAmount) <= 0
             || !Number.isFinite(Number(obligation.penaltyAmount)) || Number(obligation.penaltyAmount) <= 0) {
             add('DELIVERY_VALUE', at);
+        }
+        const transferMode = obligation.transferMode || 'DIRECT_NEGOTIATED_DELIVERY';
+        if (!['DIRECT_NEGOTIATED_DELIVERY', 'BUYER_TO_BUYER_RESALE'].includes(transferMode)) {
+            add('DELIVERY_TRANSFER_MODE', at);
+        }
+        if (transferMode === 'BUYER_TO_BUYER_RESALE'
+            && (!String(obligation.originalBuyerCompanyId || '').trim()
+                || !String(obligation.originalSellerCompanyId || '').trim()
+                || !String(obligation.primarySettlementReservationId || '').trim()
+                || obligation.originalBuyerCompanyId !== obligation.sellerCompanyId
+                || obligation.originalBuyerCompanyId === obligation.buyerCompanyId)) {
+            add('DELIVERY_RESALE_CHAIN', at);
+        }
+        const authority = caseRow && Array.isArray(caseRow.requiredApprovals)
+            ? caseRow.requiredApprovals.find(row => row.kind === 'MECHANICAL_CONTRACT_AUTHORITY')
+            : null;
+        if (obligation.mechanicalContractId != null
+            && (!String(obligation.mechanicalContractId).trim()
+                || !authority || authority.mechanicalContractId !== obligation.mechanicalContractId)) {
+            add('DELIVERY_MECHANICAL_CONTRACT_LINK', at);
         }
         if (!Number.isFinite(Number(obligation.createdAt))
             || !Number.isFinite(Number(obligation.dueAt))

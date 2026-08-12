@@ -50,6 +50,7 @@ const STORY_TEST_TASKS = Object.freeze([
     { key: 'characterArbiterProbe', fn: 'probeCharacterArbiter', weight: 8, args: [] },
     { key: 'characterSpeechProbe', fn: 'probeCharacterSpeech', weight: 8, args: [] },
     { key: 'characterLongDialogueProbe', fn: 'probeCharacterLongDialogue', weight: 8, args: [] },
+    { key: 'dialogueScenarioLabProbe', fn: 'probeDialogueScenarioLab', weight: 3, args: [] },
     { key: 'conversationUnderstandingProbe', fn: 'probeConversationUnderstanding', weight: 8, args: [] },
     { key: 'negotiationDeliveryProbe', fn: 'probeNegotiationDeliveryLifecycle', weight: 4, args: [] },
     { key: 'contactDirectoryProbe', fn: 'probeContactDirectory', weight: 25, args: [] },

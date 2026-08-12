@@ -51,32 +51,30 @@ War Room result: passed
 
 **Comparison Target**
 
-- Source visual truth: user-provided 1920×1080 Pixel RTS story-map screenshot in the 9 August 2026 request.
+- Source visual truth: user-provided Pixel RTS character-conversation screenshots, including the latest 1480×970 state.
 - Intended state: the selected character's dedicated conversation window open above the existing story map and chat drawer.
 - Implementation target: local Electron application in this repository.
-- Implementation screenshot: unavailable; the in-app browser runtime returned an empty browser list.
-- Viewport: source 1920×1080; matching implementation viewport could not be captured.
+- Implementation screenshots: `qa-runtime/conversation-ui-final/09-karakter-gorusmesi-compositor.png` and the long-session/multi-participant acceptance capture `qa-runtime/conversation-ui-scroll-final/10-karakter-gorusmesi-kaydirma-coklu-profil.png`.
+- Viewport: 1903×974 compositor capture (desktop scale); measured center-column width 875 px.
 
 **Evidence Available**
 
-- Source screenshot was visually inspected for palette, typography, panel density, borders, hierarchy, and the 525 px left drawer constraint.
+- Source and implementation screenshots were visually inspected for palette, typography, panel density, borders, hierarchy, and conversation focus.
 - DOM interaction probe passed opening the separate modal, rendering a public profile, listing two saved sessions, resuming the older session, showing a PlayerKnowledge-filtered action record, submitting a new WASD-containing sentence, and preserving two sessions through save/load.
-- JavaScript syntax checks and `git diff --check` passed.
-- No browser-rendered implementation image or console inspection is available, so visual fidelity cannot be claimed.
+- The real Electron path completed menu → setup → character creation → story map → populated character conversation with no UI-test problem or error-level console report.
+- Runtime geometry confirmed the shell remained inside the viewport, the fixed composer remained inside the main column, and the main column retained 875 px width while the transcript was scrollable.
+- The real renderer then produced 12 follow-ups and three explicit participants. The transcript reached `scrollMax=2367`; wheel-up and wheel-down over the fixed composer both moved the transcript, and the participant rail independently overflowed.
+- JavaScript syntax checks, the focused conversation regression, and `git diff --check` passed.
 
 **Findings**
 
-- [P1] Browser-rendered comparison is unavailable.
-  Location: character conversation modal at 1920×1080.
-  Evidence: source screenshot is available, but the browser runtime reported no selectable browser and produced no implementation capture.
-  Impact: real font metrics, overflow, scroll behavior, focus ring, and three-column balance cannot be visually certified.
-  Fix: open the packaged/local game, select a character, open the conversation window, and capture the same 1920×1080 state for side-by-side QA.
-
-- Fonts and typography: implementation reuses the existing Share Tech Mono hierarchy; browser rasterization is unverified.
-- Spacing and layout rhythm: code defines a centered 1180×760 maximum shell with 3-column desktop and 2/1-column responsive fallbacks; rendered proportions are unverified.
-- Colors and visual tokens: implementation reuses the existing amber/green/dark terminal tokens and solid panel surfaces; rendered contrast is unverified.
+- No actionable P0/P1/P2 visual finding remains in the captured desktop state.
+- Fonts and typography: Share Tech Mono renders consistently with the command-terminal hierarchy; primary speech remains clearly dominant over metadata.
+- Spacing and layout rhythm: the center column is now dominant, the new-conversation action is compact, and transcript scrolling is separated from the always-reachable follow-up composer.
+- Colors and visual tokens: amber/green/dark terminal tokens are consistent; the follow-up editor was changed from a large white slab to the dark terminal surface after the first compositor review.
 - Image quality and asset fidelity: the new window introduces no new image assets or placeholder imagery and leaves the existing terrain/sprites untouched.
 - Copy and content: DOM evidence confirms profile, active conversation, previous conversations, agreements/records, safety state, and resume labels are present.
+- Multi-participant disclosure: known participants receive separate public-profile cards; an unresolved participant is shown as `Bilinmeyen katılımcı / KİMLİK DOĞRULANMADI` without invented country, role, or relationship data.
 
 **Implementation Checklist**
 
@@ -85,7 +83,16 @@ War Room result: passed
 - [x] Previous sessions and resume behavior implemented.
 - [x] PlayerKnowledge-filtered agreements/records implemented.
 - [x] WASD input isolation implemented and probed.
-- [ ] Capture matching 1920×1080 implementation state and inspect console.
-- [ ] Compare full view and focused modal regions against the source screenshot.
+- [x] Real Electron compositor capture produced and inspected.
+- [x] Full modal composition compared against the supplied conversation screenshot.
+- [x] Transcript/composer containment and center-column width measured in the real renderer.
+- [x] Long transcript wheel scrolling verified in both directions over transcript and composer regions.
+- [x] Multi-participant profile rail and unknown-participant information boundary captured and inspected.
 
-final result: blocked
+**Patches Made Since Previous QA Pass**
+
+- The first long-session probe exposed `overflow-y: scroll` with `scrollMax=0`: the active composer wrapper had no constrained grid height, so the transcript expanded below the clipped shell. The wrapper now owns a `minmax(0, 1fr)` transcript row and a fixed composer row.
+- Wheel events over the fixed composer are routed to the transcript unless the textarea itself has scroll range. Render refreshes preserve the prior offset; new/resumed messages intentionally move to the end.
+- The single-profile renderer was replaced by an explicit participant list that can display several known or unknown actors without treating unrelated crisis actors as conversation participants.
+
+final result: passed

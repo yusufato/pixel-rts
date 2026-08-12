@@ -1,0 +1,174 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOCKUP LABORATUVAR KABUĞU
+   ═══════════════════════════════════════════════════════════════════════════
+   BU DOSYA OYUNA TAŞINMAZ. Yalnız mockup'ları tarayıcıda incelemek için
+   gereken çerçeve, araç çubuğu ve redline pinlerini çizer.
+
+   Kabuk bilinçli olarak NÖTR GRİ. Oyunun amber terminal dilini kullansaydı
+   "kabuk mu tasarım mı" ayırt edilemezdi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: #15171a;
+    color: #c8ccd2;
+    font: 13px/1.5 ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+    padding-bottom: 60px;
+}
+
+a { color: #7fb8e8; }
+
+/* ── ARAÇ ÇUBUĞU ───────────────────────────────────────────────────────── */
+.lab-bar {
+    position: sticky; top: 0; z-index: 500;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+    padding: 9px 14px;
+    background: #1d2126;
+    border-bottom: 1px solid #30363d;
+}
+.lab-bar h1 { font-size: 13px; font-weight: 700; letter-spacing: .5px; color: #e6edf3; }
+.lab-bar h1 small { display: block; font-size: 11px; font-weight: 400; color: #8b949e; }
+.lab-group { display: flex; align-items: center; gap: 5px; }
+.lab-group > label { font-size: 11px; color: #8b949e; }
+.lab-bar button, .lab-bar a.lab-btn {
+    padding: 4px 9px; border: 1px solid #3d444d; border-radius: 4px;
+    background: #22272e; color: #c8ccd2; font: inherit; font-size: 11px;
+    cursor: pointer; text-decoration: none;
+}
+.lab-bar button:hover, .lab-bar a.lab-btn:hover { border-color: #6e7681; background: #2d333b; }
+.lab-bar button[aria-pressed="true"] { border-color: #58a6ff; background: #1f6feb33; color: #e6edf3; }
+.lab-bar input[type="range"] { width: 96px; accent-color: #58a6ff; }
+.lab-spacer { flex: 1 1 auto; }
+
+.lab-gate {
+    padding: 3px 8px; border-radius: 4px; font-size: 11px;
+    border: 1px solid #3d444d; background: #22272e; color: #8b949e;
+}
+.lab-gate[data-state="pass"] { border-color: #2ea04366; background: #2ea04322; color: #7ee787; }
+.lab-gate[data-state="fail"] { border-color: #f8514966; background: #f8514922; color: #ffa198; }
+
+/* ── SAHNE (viewport çerçevesi) ─────────────────────────────────────────── */
+.lab-scenes { padding: 16px; display: flex; flex-direction: column; gap: 26px; }
+
+.lab-scene > header {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+.lab-scene > header h2 { font-size: 13px; color: #e6edf3; }
+.lab-scene > header p { font-size: 11px; color: #8b949e; }
+.lab-scene > header .lab-tag {
+    padding: 1px 6px; border: 1px solid #3d444d; border-radius: 3px;
+    font-size: 10px; color: #8b949e;
+}
+
+/* Sahne, GERÇEK piksel ölçüsünde çizilir; pencereye sığmıyorsa küçültülür.
+   Ölçek transform ile yapılır → içerideki hiçbir px değeri yalan söylemez. */
+.lab-frame { overflow: hidden; border: 1px solid #30363d; border-radius: 6px; background: #000; }
+.stage {
+    position: relative;
+    transform-origin: 0 0;
+    overflow: hidden;
+    background: var(--wr-screen, #060a06);
+    color: var(--wr-amber-text, #ffd27a);
+    font-family: var(--wr-font-hud, monospace);
+}
+.stage-scale-note { margin-top: 5px; font-size: 10px; color: #6e7681; }
+
+/* ── REDLINE PİNLERİ ───────────────────────────────────────────────────── */
+/* data-kusur="2,3" taşıyan her öğe numaralı bir rozet alır. Rozetsiz
+   değişiklik = BULGULAR.md'de karşılığı olmayan kozmetik değişiklik. */
+.lab-pin {
+    position: absolute; z-index: 400;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 19px; height: 19px; padding: 0 4px;
+    border: 1px solid #f0883e; border-radius: 10px;
+    background: #16191d; color: #ffb86b;
+    font: 700 10px/1 ui-monospace, monospace;
+    pointer-events: auto; cursor: help;
+}
+.lab-pin[data-katman="b"] { border-color: #a371f7; color: #d2a8ff; }
+body[data-pins="off"] .lab-pin { display: none; }
+body[data-pins="off"] [data-kusur] { outline: none !important; }
+body[data-pins="on"] [data-kusur] { outline: 1px dashed rgba(240,136,62,.45); outline-offset: 1px; }
+
+/* ── KUSUR LEJANDI ─────────────────────────────────────────────────────── */
+.lab-legend { padding: 0 16px 16px; }
+.lab-legend table { border-collapse: collapse; width: 100%; max-width: 1100px; }
+.lab-legend caption { text-align: left; font-size: 12px; color: #e6edf3; padding-bottom: 6px; }
+.lab-legend th, .lab-legend td {
+    border: 1px solid #30363d; padding: 5px 8px; font-size: 11px;
+    text-align: left; vertical-align: top;
+}
+.lab-legend th { background: #1d2126; color: #8b949e; font-weight: 400; }
+.lab-legend td.n { width: 34px; color: #ffb86b; font-weight: 700; text-align: center; }
+.lab-legend tr[data-katman="b"] td.n { color: #d2a8ff; }
+.lab-legend code { color: #7fb8e8; font-size: 10px; }
+
+/* ── WIREFRAME (KATMAN A) ──────────────────────────────────────────────── */
+/* Katman A'da renk ve font YOK: karar yalnız "ne nerede" üzerine olsun diye.
+   Bu blok stage içindeki her şeyi griye indirger. */
+body[data-katman="a"] .stage {
+    background: #101214;
+    color: #9aa2ab;
+    font-family: ui-monospace, 'Cascadia Mono', monospace;
+    filter: grayscale(1);
+}
+body[data-katman="a"] .stage .wf {
+    border: 1px solid #4a525b;
+    background: #181b1f;
+    border-radius: 2px;
+}
+body[data-katman="a"] .stage .wf-h {
+    font-size: 10px; letter-spacing: .6px; text-transform: uppercase;
+    color: #6e7681; padding: 5px 7px; border-bottom: 1px solid #2c3238;
+}
+body[data-katman="a"] .stage .wf-body { padding: 7px; font-size: 11px; }
+body[data-katman="a"] .stage .wf-row {
+    display: flex; justify-content: space-between; gap: 6px;
+    padding: 3px 0; border-bottom: 1px dotted #2c3238;
+}
+body[data-katman="a"] .stage .wf-slot {
+    border: 1px dashed #4a525b; border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6e7681; font-size: 10px; text-align: center; padding: 4px;
+}
+body[data-katman="a"] .stage .wf-new { border-color: #f0883e; border-style: solid; }
+body[data-katman="a"] .stage .wf-kill { border-color: #f85149; border-style: dashed; opacity: .55; }
+body[data-katman="a"] .stage .wf-note {
+    font-size: 10px; color: #f0883e; padding: 3px 7px; line-height: 1.35;
+}
+body[data-katman="a"] .stage canvas, body[data-katman="a"] .stage .sprite { opacity: .35; }
+
+/* Katman A/B rozeti — hangi katmanda olduğun her zaman görünür olmalı. */
+.lab-layer-badge {
+    padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700;
+    border: 1px solid #f0883e; background: #f0883e22; color: #ffb86b;
+}
+body[data-katman="b"] .lab-layer-badge { border-color: #a371f7; background: #a371f722; color: #d2a8ff; }
+
+/* ── LAUNCHER (index.html) ─────────────────────────────────────────────── */
+.lab-home { max-width: 1080px; margin: 0 auto; padding: 24px 18px 60px; }
+.lab-home h1 { font-size: 20px; color: #e6edf3; margin-bottom: 4px; }
+.lab-home > p { color: #8b949e; margin-bottom: 20px; max-width: 76ch; }
+.lab-matrix { border-collapse: collapse; width: 100%; margin-bottom: 26px; }
+.lab-matrix th, .lab-matrix td {
+    border: 1px solid #30363d; padding: 9px 11px; text-align: left; vertical-align: top;
+}
+.lab-matrix th { background: #1d2126; color: #8b949e; font-weight: 400; font-size: 11px; }
+.lab-matrix td strong { color: #e6edf3; }
+.lab-matrix td small { display: block; color: #8b949e; font-size: 11px; margin-top: 3px; }
+.stamp {
+    display: inline-block; padding: 1px 7px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; letter-spacing: .5px;
+}
+.stamp[data-s="ACIK"]      { border: 1px solid #f0883e66; background: #f0883e22; color: #ffb86b; }
+.stamp[data-s="KABUL"]     { border: 1px solid #2ea04366; background: #2ea04322; color: #7ee787; }
+.stamp[data-s="UYGULANDI"] { border: 1px solid #58a6ff66; background: #1f6feb22; color: #a5d6ff; }
+.stamp[data-s="BEKLIYOR"]  { border: 1px solid #3d444d;   background: #22272e;   color: #8b949e; }
+
+.lab-home section { margin-bottom: 24px; }
+.lab-home h2 { font-size: 14px; color: #e6edf3; margin-bottom: 8px; }
+.lab-home ul { padding-left: 20px; color: #8b949e; }
+.lab-home li { margin-bottom: 4px; }
+.lab-home code { color: #7fb8e8; background: #1d2126; padding: 1px 4px; border-radius: 3px; }

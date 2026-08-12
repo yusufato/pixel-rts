@@ -948,6 +948,94 @@ function storyBudgetSettleTrade(reservationId, details) {
     return { ok: true, settlement };
 }
 
+// A single physical shipment may carry a second, negotiated buyer-to-buyer
+// assignment.  The exporter's original escrow remains authoritative; the
+// resale escrow is settled only after the first buyer has acquired the goods.
+// Both postings share one rollback boundary so a half-settled title chain can
+// never survive a failed second posting.
+function storyBudgetSettleShipmentPayments(shipment) {
+    if (!shipment || !shipment.settlementReservationId) return { ok: true, internal: true };
+    const ledger = storyBudgetEnsure();
+    const primary = ledger && ledger.settlements.find(row => row.id === shipment.settlementReservationId);
+    if (!primary) return { ok: false, code: 'SHIPMENT_PRIMARY_SETTLEMENT_MISSING' };
+    const resaleId = shipment.resaleSettlementReservationId || null;
+    if (!resaleId) {
+        return primary.status === 'SETTLED'
+            ? { ok: true, code: 'SHIPMENT_PAYMENT_ALREADY_SETTLED', duplicate: true, settlement: primary }
+            : storyBudgetSettleTrade(primary.id, {
+                shipmentId: shipment.id,
+                cargoCost: shipment.commerceCargoCost || 0
+            });
+    }
+    const resale = ledger.settlements.find(row => row.id === resaleId);
+    if (!resale || resale.kind !== 'NEGOTIATED_CONTRACT_ESCROW') {
+        return { ok: false, code: 'SHIPMENT_RESALE_SETTLEMENT_MISSING' };
+    }
+    if (primary.payerType !== 'COMPANY' || !primary.buyerCompanyId
+        || primary.shipmentId !== shipment.id
+        || primary.sellerCompanyId !== shipment.sellerCompanyId
+        || primary.resourceId !== shipment.resourceId
+        || Math.abs(Number(primary.quantity) - Number(shipment.quantity)) > 1e-6
+        || resale.buyerCompanyId !== shipment.beneficialBuyerCompanyId
+        || resale.sellerCompanyId !== primary.buyerCompanyId
+        || (resale.shipmentId && resale.shipmentId !== shipment.id)) {
+        return { ok: false, code: 'SHIPMENT_RESALE_TITLE_CHAIN_INVALID' };
+    }
+    if (primary.status === 'SETTLED' && resale.status === 'SETTLED') {
+        return { ok: true, code: 'SHIPMENT_PAYMENT_CHAIN_ALREADY_SETTLED', duplicate: true,
+            primary: storyBudgetClone(primary), resale: storyBudgetClone(resale) };
+    }
+    if (primary.status !== 'RESERVED' || resale.status !== 'RESERVED') {
+        return { ok: false, code: 'SHIPMENT_PAYMENT_CHAIN_NOT_RESERVED' };
+    }
+    const budgetSnapshot = storyBudgetClone(STORY.stateBudget);
+    const companySnapshot = storyBudgetClone(STORY.companyEconomy);
+    const first = storyBudgetSettleTrade(primary.id, {
+        shipmentId: shipment.id,
+        cargoCost: shipment.commerceCargoCost || 0
+    });
+    if (!first.ok) return { ok: false, code: first.code || 'SHIPMENT_PRIMARY_SETTLEMENT_FAILED', primary: first };
+    const second = storyBudgetSettleNegotiatedPayment(resale.id, {
+        shipmentId: shipment.id,
+        // The first buyer immediately resells the acquired title.  Its booked
+        // acquisition value is the primary settlement amount, not route cost.
+        cargoCost: Number(primary.amount) || 0
+    });
+    if (!second.ok) {
+        STORY.stateBudget = budgetSnapshot;
+        STORY.companyEconomy = companySnapshot;
+        return { ok: false, code: second.code || 'SHIPMENT_RESALE_SETTLEMENT_FAILED',
+            rolledBack: true, resale: second };
+    }
+    return { ok: true, code: 'SHIPMENT_PAYMENT_CHAIN_SETTLED',
+        primary: first, resale: second };
+}
+
+function storyBudgetReleaseShipmentPayments(shipment, reason) {
+    if (!shipment) return { ok: false, code: 'SHIPMENT_REQUIRED' };
+    const ledger = storyBudgetEnsure();
+    const primary = shipment.settlementReservationId
+        && ledger && ledger.settlements.find(row => row.id === shipment.settlementReservationId);
+    const resale = shipment.resaleSettlementReservationId
+        && ledger && ledger.settlements.find(row => row.id === shipment.resaleSettlementReservationId);
+    const budgetSnapshot = storyBudgetClone(STORY.stateBudget);
+    const companySnapshot = storyBudgetClone(STORY.companyEconomy);
+    const first = !primary || primary.status === 'RELEASED'
+        ? { ok: true, duplicate: !!primary }
+        : storyBudgetReleaseTrade(primary.id, reason);
+    if (!first.ok) return { ok: false, code: first.code || 'SHIPMENT_PRIMARY_RELEASE_FAILED', primary: first };
+    const second = !resale || resale.status === 'RELEASED'
+        ? { ok: true, duplicate: !!resale }
+        : storyBudgetReleaseNegotiatedPayment(resale.id, reason);
+    if (!second.ok) {
+        STORY.stateBudget = budgetSnapshot;
+        STORY.companyEconomy = companySnapshot;
+        return { ok: false, code: second.code || 'SHIPMENT_RESALE_RELEASE_FAILED',
+            rolledBack: true, resale: second };
+    }
+    return { ok: true, code: 'SHIPMENT_PAYMENT_CHAIN_RELEASED', primary: first, resale: second };
+}
+
 function storyBudgetReconcileCountry(st, reason) {
     const country = storyBudgetCountry(st);
     if (!country) return null;

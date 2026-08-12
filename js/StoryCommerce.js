@@ -377,13 +377,17 @@ function storyCommerceDeliverCargo(shipment) {
     if (!storyCommerceEnabled()) return ready;
     const commerce = storyCommerceEnsure();
     const cargoRegionId = shipment.commerceCargoRegionId || `shipment:${String(shipment.id)}`;
-    const wholesaleBuyer = shipment.buyerCompanyId && shipment.settlementReservationId
-        && shipment.buyerCompanyId !== shipment.sellerCompanyId
-        ? String(shipment.buyerCompanyId)
+    const effectiveBuyerCompanyId = shipment.beneficialBuyerCompanyId || shipment.buyerCompanyId;
+    const effectiveSettlementId = shipment.resaleSettlementReservationId || shipment.settlementReservationId;
+    const effectiveSettlementAmount = shipment.resaleSettlementReservationId
+        ? shipment.resaleSettlementAmount : shipment.settlementAmount;
+    const wholesaleBuyer = effectiveBuyerCompanyId && effectiveSettlementId
+        && effectiveBuyerCompanyId !== shipment.sellerCompanyId
+        ? String(effectiveBuyerCompanyId)
         : null;
     const wholesaleUnitCost = wholesaleBuyer
         ? storyCommerceRound(
-            Number(shipment.settlementAmount || 0)
+            Number(effectiveSettlementAmount || 0)
                 / Math.max(1e-8, Number(shipment.quantity) || 0)
         )
         : null;

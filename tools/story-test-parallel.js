@@ -141,7 +141,8 @@ async function main() {
                 completed++;
                 timings[message.key] = { elapsedMs: Math.round(message.elapsedMs), bytes: message.bytes, updatedAt: new Date().toISOString() };
                 console.log(`[story-parallel] ${completed}/${selected.length} ${message.key} ${(message.elapsedMs / 1000).toFixed(1)}s ${(message.bytes / 1024 / 1024).toFixed(1)}MiB`);
-                if (message.memory && message.memory.rss > recycleRss && selected.length) {
+                if ((message.recycleRecommended
+                    || (message.memory && message.memory.rss > recycleRss)) && selected.length) {
                     state.recycling = true;
                     child.disconnect();
                     child.kill();

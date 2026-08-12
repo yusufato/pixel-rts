@@ -553,6 +553,11 @@ function storyPoliticalCrisisAct(countryId, actionId, options) {
         targetActorId: target ? targetActorId : null,
         resultCode,
         controller: options.ai ? 'AI' : 'PLAYER',
+        decisionSource: options.source ? String(options.source) : null,
+        sourceConversationSessionId: options.sourceConversationSessionId
+            ? String(options.sourceConversationSessionId) : null,
+        sourceConversationResponseId: options.sourceConversationResponseId
+            ? String(options.sourceConversationResponseId) : null,
         resourceReceipts: receipts,
         before,
         after: {

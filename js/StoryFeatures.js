@@ -53,6 +53,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.llmArbiter': true,
     'characters.conversationUnderstanding': true,
     'characters.negotiationCases': true,
+    'characters.mechanicalContracts': true,
     'diplomacy.peacefulStart': true,
     'world.canonicalMapRaster': true,
     'world.prebuiltMapRaster': true,
@@ -192,6 +193,12 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.conversationUnderstanding',
         'characters.threeLayerMemory',
         'economy.tradeLogistics',
+        'economy.companiesBanks'
+    ]),
+    'characters.mechanicalContracts': Object.freeze([
+        'characters.negotiationCases',
+        'economy.tradeLogistics',
+        'economy.stateBudget',
         'economy.companiesBanks'
     ])
 });

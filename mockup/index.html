@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Pixel RTS — UX/UI Mockup Laboratuvarı</title>
+<link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<div class="lab-home">
+
+<h1>UX/UI Mockup Laboratuvarı</h1>
+<p>
+Bu klasör <strong>oyuna hiç dokunmaz</strong>. Dosyalar tarayıcıda <code>file://</code> ile
+doğrudan açılır; build adımı, sunucu ve Electron gerekmez.
+<code>package.json</code> → <code>build.files</code> listesinde <code>mockup/**</code> olmadığı için
+EXE paketine de girmez.
+</p>
+
+<section>
+<h2>Katman sırası — zorunlu</h2>
+<ul>
+<li><strong>Katman A — bilgi mimarisi.</strong> Gri kutu, renk yok, font yok. Karar: <em>ne nerede duracak</em>.</li>
+<li><strong>Katman B — görsel dil.</strong> Token'lı tam görsel. Karar: <em>nasıl görünecek</em>.</li>
+<li>A'nın dördü de kabul edilmeden B'ye geçilmez. Sebep: ikisi aynı anda değişirse hangi
+düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış bir hata sınıfı
+(<code>docs/OLCUM-TUZAKLARI.md</code>).</li>
+</ul>
+</section>
+
+<table class="lab-matrix">
+<tr>
+    <th style="width:24%">Yüzey</th>
+    <th style="width:31%">Katman A — bilgi mimarisi</th>
+    <th style="width:31%">Katman B — görsel dil</th>
+    <th style="width:14%">Karşılaştırma</th>
+</tr>
+<tr>
+    <td>
+        <strong>01 · Menü + kurulum</strong>
+        <small>Ana menü, harekât kurulumu, 12 soruluk komutan dosyası</small>
+    </td>
+    <td>
+        <a class="lab-btn" href="01-menu-setup.html?katman=a&amp;vp=916">aç →</a>
+        <small>kusur 22 — 12 soruluk akışta ilerleme/geri alma görünmüyor</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td>
+        <a class="lab-btn" href="01-menu-setup.html?katman=b&amp;vp=916">aç →</a>
+        <small>kusur 23 — yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td><small><a href="../qa-screenshots/01-menu.png">01-menu.png</a><br>
+        <a href="../qa-screenshots/02-setup.png">02-setup.png</a></small></td>
+</tr>
+<tr>
+    <td>
+        <strong>02 · Savaş HUD</strong>
+        <small>Dizim kenar çubuğu, sol yetenek/emir yığını, hedef kartı, muharebe kaydı</small>
+    </td>
+    <td>
+        <a class="lab-btn" href="02-battle-hud.html?katman=a&amp;vp=916">aç →</a>
+        <small>kusur 1-7 — ölü panel, sessiz buton, geri bildirim yokluğu</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td>
+        <a class="lab-btn" href="02-battle-hud.html?katman=b&amp;vp=916">aç →</a>
+        <small>kusur 8-13 — mavi kalıntı, inline modal, 7px yazı, odak, CRT</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td><small><a href="../qa-screenshots/04-deploy.png">04-deploy.png</a><br>
+        <a href="../qa-screenshots/05-battle.png">05-battle.png</a></small></td>
+</tr>
+<tr>
+    <td>
+        <strong>03 · Hikaye dünyası</strong>
+        <small>Komuta çubuğu, harita, gündem/bölge/akış, 8 araç + 7 drawer</small>
+    </td>
+    <td>
+        <a class="lab-btn" href="03-story-world.html?katman=a&amp;vp=1280">aç →</a>
+        <small>kusur 14-18 — rol süzmesi, gündem→karar, 6 satırlık akış, arama</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td>
+        <a class="lab-btn" href="03-story-world.html?katman=b&amp;vp=1280">aç →</a>
+        <small>kusur 19 — eski mavi bloğun tasfiyesi</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td><small><a href="../qa-screenshots/03-map.png">03-map.png</a></small></td>
+</tr>
+<tr>
+    <td>
+        <strong>04 · Görüşme çalışma alanı</strong>
+        <small>3 sütunlu karakter görüşme modalı</small>
+    </td>
+    <td>
+        <a class="lab-btn" href="04-conversation.html?katman=a&amp;vp=1903">aç →</a>
+        <small>kusur 20-21 — ilişki merceği, geçmişte arama</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td>
+        <a class="lab-btn" href="04-conversation.html?katman=b&amp;vp=1903">aç →</a>
+        <small>yoğunluk ve okunabilirlik (kusur 10 ölçeği burada da denenir)</small>
+        <span class="stamp" data-s="ACIK">AÇIK</span>
+    </td>
+    <td><small><code>qa-runtime/conversation-ui-final/</code><br>(gitignore'lu, yerel)</small></td>
+</tr>
+</table>
+
+<section>
+<h2>Her sayfadaki kapılar</h2>
+<ul>
+<li><strong>KAPSAMA</strong> — o yüzeyin o katmandaki her kusur numarası sahnede en az bir
+pin almış mı. Pinsiz değişiklik, defterde karşılığı olmayan kozmetik değişikliktir.</li>
+<li><strong>TAŞMA</strong> — seçili viewport'ta hiçbir öğe sahne kutusunu aşmıyor mu.
+<code>design-qa.md:15</code>'teki mevcut kabul ölçütünün aynısı.</li>
+<li><strong>FONT</strong> — <code>Share Tech Mono</code> ve <code>Press Start 2P</code>
+<code>file://</code> altında gerçekten yüklendi mi. Yüklenmediyse ölçülen her satır yalandır.</li>
+</ul>
+</section>
+
+<section>
+<h2>Viewport'lar neden bu üçü</h2>
+<ul>
+<li><strong>916×572</strong> — mevcut War Room QA'sının masaüstü tabanı (<code>design-qa.md:9</code>)</li>
+<li><strong>1280×800</strong> — geniş kontrol, aynı QA turundan (<code>design-qa.md:9</code>)</li>
+<li><strong>1903×974</strong> — görüşme penceresi compositor çekimi (<code>design-qa.md:58</code>)</li>
+</ul>
+</section>
+
+<section>
+<h2>Dosyalar</h2>
+<ul>
+<li><code>tokens.css</code> — <strong>tek token kaynağı.</strong> Katman B kabul edilince bu blok
+<code>style.css:716-725</code>'in yerine geçer; token iki yerde tutulmaz.</li>
+<li><code>lab.css</code> / <code>lab.js</code> — laboratuvar kabuğu. Oyuna taşınmaz.</li>
+<li><code>fixtures.js</code> — <code>js/units-modern.json</code>, <code>js/Story.js</code> ve
+<code>js/main.js</code>'ten kopyalanmış gerçek adlar/sayılar. Yer tutucu metin yok.</li>
+<li><code><a href="BULGULAR.md">BULGULAR.md</a></code> — 23 kusurun damga defteri
+(<code>AÇIK</code> / <code>KABUL</code> / <code>UYGULANDI &lt;commit&gt;</code>).</li>
+</ul>
+</section>
+
+</div>
+</body>
+</html>

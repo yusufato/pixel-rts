@@ -183,6 +183,7 @@ function storyRelationshipAdjust(fromActorId, toActorId, deltas, meta) {
         at: edge.updatedAt,
         source: String(meta && meta.source || 'UNKNOWN'),
         sourceEventId: meta && meta.sourceEventId != null ? Number(meta.sourceEventId) : null,
+        sourceReceiptId: meta && meta.sourceReceiptId != null ? String(meta.sourceReceiptId) : null,
         reason: String(meta && meta.reason || 'RELATION_CHANGED'),
         before,
         after

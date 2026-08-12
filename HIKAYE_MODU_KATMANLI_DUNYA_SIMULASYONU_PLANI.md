@@ -155,6 +155,12 @@
 
 **1.74 kapanış denemesi:** Bellek-farkında üç işçiyle kapsamı azaltılmamış paket `62/62` görev sonucunu `3.139,0 sn`de temiz üretti; `conversationUnderstandingProbe` ortak yük altında `17,8 sn` sürdü ve bütün Faz 38.1 assertion'ları geçti. Nihai assertion aşamasını eski ekonomi koruması durdurdu: ana 900 saniyelik koşunun son 300 saniye yaşam koşulu ortalaması `%69,2809` ile `%70` kapısının `71,9 bp` altında kaldı; final `%70,69`, gıda/enerji son-300 ortalamaları `%78,19/%75,57`dir. İzole `first` koşusu `642,5 sn`de aynı sonucu ve `5fb256849330e5dc654e75126c5c4790168338cc23a2c5877d55d19a152d764a` karmasını yeniden üretti. Eşik gevşetilmedi. Faz 38.1 varsayılan dünya scheduler'ına görev eklemez ve hedefli fiziksel ekonomi nötrlüğü geçmiştir; eşzamanlı kullanıcı çalışması olan altı askerî bina/bağımlılık grafiği `Production.js` üzerinden şehir yatırım/üretim akışını değiştirmektedir. Bu değişiklik geri alınmadı veya Faz 38.1'e mal edilmedi. Bu nedenle Faz 38.1 hedefli teknik dikeyleri tamam, fakat küresel tam-regresyon kabulü açık ve faz durumu `partial` kalır.
 
+**1.75 değişikliği:** Faz 38.5'in üçüncü dikeyinin ilk yarısı karakterin sonraki görüşmede gerçek karar ve söz sonucunu hatırlamasını kurdu. Kabul edilen siyasi kriz tavsiyesi, danışman ile oyuncunun tuttuğu çözülmüş `EPISODE` kaydına; kriz, konuşma oturumu, danışman cevabı, karar makbuzu, eylem sırası ve sonuç koduyla yazılır. Yeni ortak seçici yalnız çağrılan karakterin sahibi/katılımcısı olduğu `RECENT / EPISODE / MILESTONE` kayıtlarını okur; ham dünya defterine dönmez ve kaynak kimliklerini cevapta taşır. Kriz sorusu konuşma/karar kayıtlarını, söz sorusu Faz 38.3'ün gerçek `PROMISE` mihenk taşlarını seçer; borç veya ilgisiz yüksek öncelikli kayıt konu dışı cevabı ele geçiremez. Aynı gerçek müzakere vakasındaki yeni karşı teklif `KEPT`, son tarihi geçen mekanik onay sözü `BROKEN` oldu; muhatap sonraki ayrı görüşmede ikisini kaynak kimlikleri ve uzun ufuk durumlarıyla birlikte hatırladı. Oturum defteri şema-6'ya yükseldi. Hedefli probda kısa/orta/uzun katman, gizlilik, doğrulama ve byte-byte save/load geçti (`5,5 sn`); gerçek test işçisi `4,5 sn`de tamamlandı. Söz sonuçlarının ekonomik/diplomatik kriz ve savaş/barış adaylarını farklılaştırması hâlâ açıktır. Bina sistemi dosyalarına dokunulmadı.
+
+**1.76 değişikliği:** Oyuncunun bildirdiği takip konuşması regresyonu kapatıldı. “Bana yardım edecek misin?” artık UNKNOWN/genel fallback değil kapalı `REQUEST_SUPPORT` niyetidir. İlk ve takip turları aynı karakter ses gerçekleştiricisini ve son 12 yanıt geçmişini kullanır; aynı yardım cümlesinin ikinci tekrarı farklı geçerli yanıt üretir. “Seni dinliyorum” kalıbı canlı kaynaklardan tamamen kaldırıldı. Aynı dilimde söz sonucu için yürütülemez fakat sürümlü sonraki-adım adayları eklendi: `KEPT → COOPERATIVE_FOLLOW_UP / CONTINUE_NEGOTIATION / FORMALIZE_MECHANICAL_CONTRACT`, `BROKEN → COMMERCIAL_DISPUTE / REQUEST_CURE / SUSPEND_NEGOTIATION`; taraflar ülkeler arasıysa yalnız `DIPLOMATIC_PROTEST_REVIEW` açılır. Ticari ihlal kendiliğinden savaş nedeni yapılmaz; `warCandidate` ve `peaceCandidate` diplomatik olay yürütücüsü gelene kadar `null`, bütün adaylar `worldMutation:false/executable:false`tır. Hedefli prob sosyal tekrar, söz hafızası, iki farklı aday, idempotans ve müzakere doğrulamasını geçti.
+
+**1.77 değişikliği:** Faz 38.5 konuşma UI'si gerçek Electron compositor görüntüsüyle yeniden düzenlendi. 1440 px tavanlı çalışma alanında profil/geçmiş rayları daraltıldı, merkez konuşma sütunu ölçümde `875 px` oldu; uzun oturum kendi içinde kayarken takip bestecisi altta sürekli erişilebilir kaldı. Dev “Yeni konuşma” ve “Devam et” eylemleri kompaktlaştırıldı, takip metin alanı koyu terminal yüzeyine alındı. Gerçek UI zinciri `menu → kurulum → karakter → dünya → dolu görüşme` sorunsuz geçti; kabuk ve besteci viewport/merkez sınırları içindeydi. Aynı dilimde `DIPLOMATIC_INCIDENT_REVIEW` gerçek söz+çözüm olayı+iki yönlü karakter ilişkisi+devlet antlaşması+kurum savaş rotasını kaynaklı dosyaya topladı. Sınır aşan BROKEN söz protesto için `AWAITING_STATE_AUTHORITY` üretir; fakat kanonik ekonomik zarar ölçülmediyse zarar eşiği `0 < 250` kalır ve savaş/barış adayı üretilemez. İnceleme ilişki veya antlaşmayı değiştirmez ve idempotenttir. Hedefli konuşma probu temizdir. Devlet makamının protestoyu gerçekten yürütmesi ve doğrulanmış zarar muhasebesi hâlâ açıktır.
+
 ---
 
 ## 1. Hedef
@@ -4182,6 +4188,10 @@ Tam regresyon 57 görev sonucunun tamamını üretti. İlk denetim kimlik öncü
 
 **Altıncı dikey — fiziksel yönlendirme, teslim ve ihlal yaşam döngüsü, 10 Ağustos 2026:** Kabul edilmiş güncel sürüm ön-kontrol girdisini etkinleştirme anında yeniden doğrular; eski bir `READY` makbuzu değişmiş dünyada yetki değildir. Uygun vakada şirket bedeli tek `NEGOTIATED_CONTRACT_ESCROW` fişiyle ayrılır, mevcut `storyTradeRedirectShipment` amendment/rota kapısı gerçek sevkiyatı hedef depoya yönlendirir ve ödeme aynı sevkiyatın tek settlement kimliğine bağlanır. `STORY_CALENDAR` ölçeğinde 30 gün 10, iki ay 20 oyun saniyesidir; yüzde ceza kabul edilmiş ödeme üzerinden deterministik hesaplanır. Gerçek teslimat ticaret motorunda stok ve kargo lotunu taşır, escrow'u satıcıya uzlaştırır ve vaka `FULFILLED/KEPT` olur. Son tarih aşılırsa alıcı escrow'u iade edilir, satıcıdan alıcıya çift taraflı ceza posting'i uygulanır, güven `−700`, saygı `−300`, husumet `+450` ve söz hafızası bir kez yazılır; nakit yoksa `BREACH_PAYMENT_PENDING` açık borcu korunur ve 30 dünya günü dolmadan her scheduler tikinde yeniden denenmez. Yerli B2B teslimatta muhasebe envanteri ile fiziksel lot sahibinin ayrışması probda yakalandı; settlement'a bağlı ve şirketleri farklı yükte lot alıcıya devredilerek kapatıldı. İkinci tick ikinci para/ilişki/teşhis üretmez, tamamlanmış vaka yeniden teklif alamaz. Zamanında teslim, tahsil edilmiş ihlal ve açık ceza borcu probları müzakere, bütçe, şirket, commerce ve ticaret doğrulamalarını ve ilk yüklemede byte-byte eşitliği geçti. Önceden başka escrow'a bağlı sevkiyat `SHIPMENT_PAYMENT_ALREADY_BOUND` ile açıkça bloke edilir: alıcıdan alıcıya hak/ödeme devri bu dar dikeyde uydurulmaz, genel `MechanicalContractV1` borcudur. Bu sınır ve ağır scheduler/insan kör kapıları nedeniyle Faz 38.3 hâlâ `partial`dır.
 
+**Yedinci dikey — yoldaki malın alıcıdan alıcıya yeniden satışı, 11 Ağustos 2026:** Önceden şirket escrow'uyla finanse edilmiş aktif yük artık ödeme bağının üzerine yazılmaz. Yeni alıcı oyuncunun temsil ettiği şirket, mevcut alıcı da sohbet edilen aktörün gerçekten temsil ettiği şirket değilse ön-kontrol `CURRENT_BUYER_REPRESENTATION_REQUIRED` ile durur. Uygun durumda ilk sipariş, ilk alıcı ve özgün satıcı escrow'u tarihsel/hukuki zincir olarak korunur; yeni alıcı mevcut alıcıya ikinci `NEGOTIATED_CONTRACT_ESCROW` açar. Sevkiyat `beneficialBuyerCompanyId` ile tek fiziksel faydalanıcıyı, ayrı bir resale settlement kimliğiyle ikinci satış ayağını taşır. Teslimatta özgün satıcı→eski alıcı ve eski alıcı→yeni alıcı muhasebesi tek rollback sınırında kapanır: ikinci posting başarısızsa ilk posting de geri alınır; ara alıcıda hayalet envanter kalmaz. Kayıpta iki escrow birlikte iade edilir. Hedefli dördüncü yaşam yolu ilk escrow/sipariş koruması, iki `SETTLED` ödeme, yeni alıcı lot sahipliği, ara alıcı envanter baz çizgisi, idempotensi, beş defter doğrulaması ve byte-byte save/load'u geçti. Bu, `GOODS` içindeki dar bir hak devridir; genel `MechanicalContractV1` tür/şema defteri değildir. SERVICE/CONSTRUCTION/LOGISTICS/INSURANCE, üçüncü taraf onayları ve genel sözleşme UI'sı açık kalır; Faz 38.3 hâlâ `partial`dır.
+
+**Sekizinci dikey — bağımsız `MechanicalContractV1` omurgası, 11 Ağustos 2026:** `NegotiationCase` ile mekanik sözleşme artık aynı kayıt değildir. Yeni `StoryMechanicalContracts.js` defteri `GOODS/SERVICE/CONSTRUCTION/LOGISTICS/INSURANCE` ailelerini, kaynak müzakere vakası+sürümü+önkontrolü, karakter temsilcisi ile hukuki tarafı, kapsamı, fiyatı, süre/SLA'yı, ihlal sonucunu, nedensel kimlikleri ve icra makbuzunu sürümlü ve hash-kilitli taşır. Yalnız iki tarafın güncel kabulünden ve gerçek şirket temsilinden türeyen `GOODS` taslağı `APPROVED_PENDING_EXECUTION` olabilir; aktif sözleşme içeriği geriye dönük değiştirilemez. Hazır fakat henüz icra edilmemiş taslak, değişen dünya nedeniyle yeni bir önkontrol makbuzu oluşursa güvenle yenilenebilir. Teslim yükümlülüğü sözleşmeyi `ACTIVE→FULFILLED/BREACHED/BREACH_PAYMENT_PENDING` zincirinde senkronlar; UI mekanik sözleşme kimliği/türü/alt türü/durumunu gösterir. Dört hedefli yol kaynak/temsil/receipt bağını, durum geçişini, defter doğrulamasını ve byte-byte save/load'u geçti; alanı olmayan eski kayıt boş ve geçerli sözleşme defterine göç etti. Altı işçili tam paket `64/64` görevi `736,8 sn`de ve çıkış `0` ile tamamladı; 900 sn ana dünya sekiz devleti koruyup `%79,33/%78,31/%72,56` gıda/enerji/yaşam verdi. Diğer dört aile yalnız şemada tanımlıdır ve dünya adaptörü olmadan etkinleştirilemez; Faz 38.3 bu nedenle `partial`dır.
+
 ### FAZ 38.4 — Diyalog Ağacı Senaryo Laboratuvarı
 
 **Amaç:** Serbest sohbet sözleşmesini yalnız birkaç mutlu yol yerine farklı bilgi, yetki, kişilik ve dünya koşullarında sistematik olarak doğrulamak.  
@@ -4189,12 +4199,48 @@ Tam regresyon 57 görev sonucunun tamamını üretti. İlk denetim kimlik öncü
 **Kabul kapısı:** Her ağaç en az üç mekanik aday dal üretiyor; aynı oyuncu cümlesi farklı dünya/karakter koşullarında doğru biçimde ayrışıyor; yetkisiz veya bilgisiz karakter sahte sonuç üretmiyor. Henüz tamamlanmamış medya, diplomasi, istihbarat ve askerî sistemlerin gerçek entegrasyonu bu fazda başarılı sayılmaz; yalnız sözleşmeleri fikstürlerle doğrulanır.  
 **Bağımlılık:** Faz 18, 21, 29, 34–38.3.
 
+**İlk dikey — gündelik sosyal temas, 11 Ağustos 2026:** Oyuncu gözleminde ortaya çıkan sessiz başarısızlık doğrulandı: eski sınıflandırıcı `nasılsın?` gibi bir cümlede düşük puanlı `SMALL_TALK` yerine genel `ASK_INFORMATION` seçiyor, sosyal niyet seçilse dahi oturum `READY_FOR_REVIEW` durumunda karakter cevabı üretmeden kalıyordu. Sosyal sözleşme `GREETING/CHECK_IN/THANK/APOLOGIZE/FAREWELL/ASK_PERSONAL_OPINION/SMALL_TALK` olarak ayrıldı. Gerçek muhatap kimliği mevcut ses profiliyle yanıt verir; cevap oturum geçmişinde kalır, UI'da görünür ve save/load'da birebir korunur. Sosyal yol açıklama, domain denetimi, çalıştırılabilir aday, ilişki veya fiziksel dünya mutasyonu üretmez. Yedi niyetlik hedefli senaryo, karakter sesi doğrulaması, farklı cevap, UI, dünya nötrlüğü ve kayıt/yükleme kapıları geçti; uzun diyalog ve kayıt göçü yakın regresyonları da temizdir. Altı işçili tam paket `1.204 sn` dış komut sınırında sonuç dosyası üretmeden zaman aşımına uğradı; geride kalan yalnız bu koşuya ait işçiler kapatıldı, kullanıcı süreçlerine dokunulmadı ve tam kabul verilmedi. Bu yalnız sosyal açılış dikeyidir: serbest konulu uzun sohbet, güncel dünya olayına dayalı kişisel görüş, önceki cümleye anlamsal takip ve on bir mekanik referans ağacının üçer dal matrisi tamamlanmadığı için Faz 38.4 `partial`dır.
+
+**İkinci dikey — referans katalog ve tahıl kıtlığı matrisi, 11 Ağustos 2026:** Ana çelik vakası ile on ek referans ağacı sürümlü, benzersiz kimlikli katalogda toplandı; her biri en az üç aday dal sözleşmesi taşır. Yalnız `grain-scarcity-redirect` gerçekten çalıştırılabilir laboratuvar durumundadır, kalan dokuz yeni ağaç `CONTRACT_ONLY`, çelik dikeyi `EXISTING_VERTICAL` olarak açıkça ayrılır. Tahıl ağacı; oyuncunun sevkiyatı bilmemesi, muhatabın bilmemesi, muhatabın yetkisizliği, telafili yönlendirme, otoriter/kurumsalcı/ordu yanlısı baskı tepkileri, fırsatçı/ilkeli kayıt dışı satış tepkileri ve doğruluk–inanç ayrımını on vakada ölçer. Sonuçlar daima `FIXTURE_ONLY`, `executable=false`, `worldMutation=false`tır. Muhatap sevkiyata inanırken gerçek sevkiyatın bulunmadığı vaka aynı karakter cevabını korur fakat mekanik kapıyı `SHIPMENT_NOT_ACTIVE` yapar; ActorBelief dünya gerçeğine dönüşmez. Gerçek konuşma çözümleyicisi `tahıl/buğday→food`, `trade-shipment:*`, açık oturumdan bilinen başkent `region:*` ve `PROPOSE_LOGISTICS_REDIRECT` eylemini tanır; yetki ve bölgesel kabul kapasitesi doğrulanmadan komut üretmez. Yeni prob `0,5 sn`, mevcut konuşma probu `4,6 sn`, 65 görevlik manifest ön kontrolü temizdir. Bu henüz gerçek rota değişikliği değildir; tahıl ağacının mekanik adaptörü ve diğer dokuz ağacın koşul matrisleri açıktır.
+
+**Üçüncü dikey — çelik fabrikası grevi matrisi, 11 Ağustos 2026:** `steel-strike-bargain` ikinci çalıştırılabilir laboratuvar ağacı oldu. On iki vaka; oyuncu ve liderin grev bilgisi, liderin sendika mandatı, şirket likiditesi, ücret–enflasyon farkı, grev desteği, üretim aciliyeti, güvenlik kanıtı ve ilkeli/korkak/fırsatçı duruşu ayırır. Kademeli ücret dalının en ileri cevabı grevi bitirmez: `SUBMIT_STRIKE_SUSPENSION_TO_MEMBERS`, mekanik kapısı `MEMBER_VOTE_REQUIRED`tır. Tehdit dalı korkak/zayıf destekte geri çekilme ve radikalleşme riski, ilkeli liderde genişleme, fırsatçı liderde kişisel dokunulmazlık arayışı üretir; hiçbirinde baskı eylemi uygulanmaz. İşçileri primle bölme dalı ayrımcılık incelemesi olmadan ilerlemez. Lider aktif grev olduğuna inanırken motor kaydı çözülmüşse aynı sözlü cevap korunur fakat `STRIKE_NOT_ACTIVE` kapısı çalışır. Canlı ücret modeli `wageModelActive=false` olduğu için fikstür bu alanı etkinleştiremez; şema dışı deneme reddedilir. NLU gerçek `movement:*` kimliğini, `PROPOSE_LABOR_SETTLEMENT`, `NEGOTIATE_STRIKE_SETTLEMENT/LABOR` ve temsil/likidite/üretim/güvenlik borçlarını çıkarır. Oturum `SCENARIO_LAB_ONLY` durumunda kalır; UI grev, ücret, rota veya sevkiyatın değişmediğini açıkça söyler. İzole prob `0,64 sn`, manifest koşusu `0,6 sn`, mevcut konuşma regresyonu `2,9 sn` ve çıkışlar `0`dır. İlk manifest denemesi 80 saniye sessiz kaldığı için durduruldu; işçi artığı yoktu ve sorun doğrudan/tekrar koşularda üretilemedi. Gerçek ücret, toplu sözleşme, üye oyu ve güvenlik projesi adaptörleri açık kalır.
+
+**Dördüncü dikey — silah ihalesi dosyası ve medya gerçeği, 11 Ağustos 2026:** `arms-tender-leak` üçüncü çalıştırılabilir laboratuvar ağacı oldu. On üç vaka; oyuncunun dosya bilgisi, gazetecinin kanıt inancı, kaynak/kopya zinciri, belgenin gerçek bütünlüğü, ihalenin gerçek durumu, soruşturma yetkisi, gazeteci duruşu, kaynak güveni, oyuncunun basın geçmişi ve yayın riskini ayırır. Bağımsız soruşturma dalı yetki yoksa bağımsız makam ister; kısmi kanıtta redakte kopya ve doğrulama, tam kanıtta koşullu 48 saatlik bekleme cevabı üretebilir. Bu cevap yayın durumunu değiştirmez çünkü isimli gazeteci ve medya sahiplik modeli yoktur. Rüşvet dalı ilkeli karakterde ret+kayıt, fırsatçı karakterde kabul veya tuzak adayıdır fakat her ikisi `CORRUPTION_ACTION_FORBIDDEN`; güvenlik tehdidi `COERCIVE_ACTION_FORBIDDEN`dır. Gazeteci belgenin gerçek olduğuna inanırken belge değiştirilmiş veya tamamen sahte olabilir: sözlü cevap aynı kalabilir, mekanik kapı sırasıyla `EVIDENCE_INTEGRITY_REVIEW_REQUIRED` veya `EVIDENCE_FALSE` olur. Mevcut `integrity-case:*`, kanıt skoru ve soruşturma fişi gerçek altyapıdır; `News.js` isimli gazeteci/medya ağı değildir. NLU `PROPOSE_PUBLICATION_DELAY`, `NEGOTIATE_PUBLICATION_DELAY/MEDIA_INTEGRITY` ve gerçek dosya kimliğini bağlar; belge bütünlüğü, kaynak, yetki, süre ve basın bağımsızlığını açık borç tutar. UI hiçbir ihale dosyası veya yayın durumunun değişmediğini söyler. Temiz doğrudan prob `0,595 sn`, manifest probu `0,6 sn`, mevcut konuşma regresyonu `3,6 sn` ve çıkışlar `0`dır. İlk iki denemede zaman aşımından kalan test işçileri yeni doğrudan koşuyu da bekletti; yalnız o test süreçleri kapatıldı, 09:15 kullanıcı süreçlerine dokunulmadı ve temiz koşuda sorun tekrarlanmadı. Araştırmacı gazeteci, medya sahibi ve savcı karakter ağları Faz 39–42 ile Faz 57/59–60 sahipliğindedir; Faz 38.4 bunları varmış gibi üretmez.
+
+**Beşinci dikey — sınır yığınağı ve önleyici seferberlik, 11 Ağustos 2026:** `border-mobilization` dördüncü çalıştırılabilir laboratuvar ağacı oldu. On beş vaka; oyuncu ve muhatap rapor bilgisi, gerçek karşı taraf niyeti, kaynak güveni, seferberlik yetkisi, antlaşma, yanlış alarm geçmişi, karakter duruşu, hazırlık maliyeti ve görünürlüğü ayırır. Ajan/istihbarat karakterleri gerçekten vardır; fakat stratejik rapor yaşam döngüsü ve seferberlik doktrini yoktur. Sınırlı hazırlık, ültimatom ve niyet kanıtı isteme dalları bu yüzden sırasıyla `MOBILIZATION_ADAPTER_MISSING`, `DIPLOMATIC_ESCALATION_ADAPTER_MISSING` ve `STRATEGIC_REPORT_ADAPTER_MISSING` kapılarında kalabilir. Muhatap saldırı hazırlığına inanırken motor gerçeği tatbikat veya aldatma olduğunda aynı sözlü destek cevabı korunur, mekanik kapı `HOSTILE_INTENT_NOT_CONFIRMED` veya `DECEPTION_REVIEW_REQUIRED` olur. Serbest metin `PROPOSE_PREVENTIVE_MOBILIZATION`, `PREPARE_BORDER_MOBILIZATION/SECURITY_INTELLIGENCE` ve kaynaklı `actor-belief:*` raporunu bağlar; rapor güveni, niyet, yetki, maliyet, antlaşma ve tırmanmayı borç tutar. UI seferberlik, savaş ve diplomasinin değişmediğini söyler. İlk doğrudan prob, plan dal adları ile iç teklif enumlarının aynı alan sanıldığını `SELECTED_BRANCH` hatasıyla yakaladı; katalog değiştirilmeden açık dal eşlemesi eklendi. Son doğrudan prob `0,622 sn`, manifest `0,6 sn`, mevcut konuşma regresyonu `4,2 sn` ve çıkışlar `0`dır. Gerçek stratejik rapor Faz 57, seferberlik/savaş hedefi Faz 47–52 ve tam rol yetkisi Faz 59–60 borcudur.
+
+**Altıncı dikey — yaptırım, paravan şirket ve yasal muafiyet, 11 Ağustos 2026:** `sanctions-shell-company` beşinci çalıştırılabilir laboratuvar ağacı oldu. On sekiz vaka; oyuncu ve muhatabın yaptırım bilgisi, yaptırımın gerçek yürürlüğü, malın sivil/çift kullanımlı/askerî sınıfı, aracının kapasitesi ve güvenilirliği, liman denetimi, escrow/enerji mahsubu/opak ödeme, oyuncu yetkisi, aracı duruşu ve yasal muafiyet yolunu ayırır. Küçük deneme, tehdit ve yasal muafiyet dalları karakter cevabı üretir; hiçbiri sevkiyat, şirket, ödeme veya diplomasi komutu değildir. Karakter yaptırımın aktif olduğuna inanırken gerçek kayıt sona ermişse aynı escrow karşılığı korunur fakat mekanik kapı `SANCTION_NOT_ACTIVE` olur. Gerçek şirket sahipliği, fiziksel ticaret escrow'su ve ajan karakterleri kullanılabilir; yaptırım rejimi, nihai faydalanıcı/paravan sahiplik grafiği, AML taraması ve gümrük yakalanma modeli yoktur. Bu sınırlar sonuç şemasında zorunlu `false` alanlarıdır ve fikstür girdisiyle etkinleştirilemez. NLU `PROPOSE_SANCTIONS_EVASION`, `NEGOTIATE_SANCTIONS_EVASION/SANCTIONS_TRADE` ve açık oturumdaki `actor-belief:*` yaptırım inancını bağlar; inancı dünya gerçeği saymaz. UI yaptırım, şirket ve ödemenin değişmediğini açıkça söyler. Doğrudan prob 18/18 beklenen sonuç, determinizm, şema, dünya nötrlüğü ve dürüst UI kapılarını `2,7 sn`de; hedefli manifest `0,7 sn`, mevcut sohbet regresyonu `2,9 sn`de geçti. Gerçek yaptırım/kaçakçılık/diplomatik sonuç adaptörü sonraki modern diplomasi, ticaret ve istihbarat fazlarının borcudur.
+
+**Yedinci dikey — mülteci yerleştirme ve sınır pazarlığı, 11 Ağustos 2026:** `refugee-border-bargain` altıncı çalıştırılabilir laboratuvar ağacı oldu. Yirmi vaka; oyuncu ve muhatabın akış bilgisi, akışın gerçek durumu, insan sayısının doğruluğu, hedef kabul ve iş kapasitesi, gıda/güvenlik, yerel halk tutumu, yardım fonu, oyuncu yetkisi, gönüllülük, muhatap duruşu ve komşu güvenilirliğini ayırır. Kaynaklı gönüllü yerleşim, zorla geri gönderme ve komşuya mali transit teklifi yalnız karakter cevabı üretir. Zorla yerleştirme/geri dönüş her durumda `FORCED_DISPLACEMENT_FORBIDDEN`; üçüncü ülke merkezi `THIRD_PARTY_TRANSIT_POLICY_MISSING` kapısında kalır. Gerçek Faz 27 `REFUGEE` defteri insan sayısı, kohort, rota, gecikme, atomik nüfus transferi ve kabul kapasitesi vekili taşır. Buna karşılık gerçek konut varlığı, aile/akrabalık ağı, sınır-vize-iltica politikası, uluslararası yardım ödeme yürütücüsü ve üçüncü ülke transit anlaşması yoktur; sonuç şeması bu yoklukları zorunlu kılar. Muhatap akışın beklediğine inanırken motor kaydı tamamlanmışsa aynı koşullu kabul cevabı mekanik kapıda `REFUGEE_FLOW_NOT_ACTIONABLE` olur. NLU `migration:*`, bilinen `region:*`, `PROPOSE_REFUGEE_SETTLEMENT`, `NEGOTIATE_REFUGEE_SETTLEMENT/MIGRATION_HUMANITARIAN` ve çalıştırılamaz yerleştirme isteğini bağlar. UI sınır, göç ve nüfusun değişmediğini söyler. Doğrudan 20/20 prob `2,5 sn`, hedefli manifest `0,8 sn`, mevcut sohbet regresyonu `5,8 sn` ve çıkışlar `0`dır. Gerçek oyuncu göç komutu, yardım settlementı, rıza ve sınır politikası sonraki entegrasyon fazlarının borcudur.
+
+**Sekizinci dikey — banka kurtarma, tasfiye ve oligark pazarlığı, 11 Ağustos 2026:** `bank-bailout-oligarch` yedinci çalıştırılabilir laboratuvar ağacı oldu. Yirmi vaka; oyuncu ve muhatabın banka krizi bilgisi, bankanın gerçek ödeme durumu, likidite açığı kanıtı, bilanço bütünlüğü, mevduat maruziyeti, sistemik bağlantı, devlet bütçesi, oyuncu yetkisi, çapraz sahiplik, muhatap duruşu, çözümleme kapasitesi ve medya karşılığını ayırır. Hissedar sulandırma+denetim, gizli ayrıcalık ve düzenli tasfiye yalnız karakter cevabı üretir. Sahte bilanço `BANK_FRAUD_INVESTIGATION_REQUIRED`, medya karşılığı kredi `CORRUPTION_ACTION_FORBIDDEN`, sistemik bağlantısı bilinmeyen tasfiye `SYSTEMIC_RISK_MODEL_REQUIRED` kapısında kalır. Gerçek Faz 21 banka defteri rezerv, kredi alacağı, özkaynak ve toplu mevduat alanı; şirket kredileri, devlet bütçesi ve integrity-case kanıtı taşır. Fakat hane kimlikli mevduat hesapları/garantisi, bankalar arası bulaşma ağı, banka sahibi ve yönetim kurulu, hissedar sulandırma, çözümleme/tasfiye ve mevduat transfer yürütücüsü yoktur. Muhatap krize inanırken gerçek banka solvent ise aynı koşullu kurtarma cevabı mekanik kapıda `BANK_CRISIS_NOT_ACTIONABLE` olur. NLU `bank:*`, `PROPOSE_BANK_RESOLUTION`, `NEGOTIATE_BANK_RESOLUTION/FINANCIAL_STABILITY` ve çalıştırılamaz çözümleme isteğini bağlar. UI banka, mevduat ve ödemenin değişmediğini söyler. Doğrudan 20/20 prob `2,7 sn`, hedefli manifest `0,8 sn`, mevcut sohbet regresyonu `2,9 sn` ve çıkışlar `0`dır. Gerçek banka krizi üretimi, garantili mevduat, çözümleme kurumu, sistemik risk ve oligark medya ağı sonraki finans/siyaset entegrasyon borcudur.
+
+**Dokuzuncu dikey — savaş esiri takası, istihbarat ve propaganda, 11 Ağustos 2026:** `prisoner-exchange` sekizinci çalıştırılabilir laboratuvar ağacı oldu ve katalog dalları plandaki gerçek seçeneklerle `STAGED_VERIFICATION / INTELLIGENCE_BARGAIN / PROPAGANDA_REFUSAL` olarak hizalandı. Yirmi bir vaka; oyuncu ve muhatabın esir listesi bilgisi, gerçek liste durumu, kimlik/sağlık doğrulaması, esirin sır maruziyeti, karşı tarafın bilgi erişimi, aile/kamuoyu baskısı, önceki ihlal, takas noktası, tarafsız gözlemci, yetki, karakter duruşu ve özrü ayırır. ActorBelief bir esir defteri değildir. İnançta listede/gerçekte kayıp kişi aynı yaralı-takas cevabını korurken mekanik kapıda `DETAINEE_CASE_NOT_ACTIONABLE` olur. Yüksek gizli bilgi `CLASSIFIED_RELEASE_FORBIDDEN`, doğrulanmamış kayıp-tim bilgisi `INTELLIGENCE_CLAIM_UNVERIFIED`, propaganda özrü `DIPLOMATIC_APOLOGY_ADAPTER_MISSING` kapısında kalır. İsimli askerî ve istihbarat karakterleri, ActorBelief, kamuoyu ve temel diplomasi gerçektir; esir/gözaltı defteri, sağlık kaydı, kişiye bağlı sır, tarafsız doktor mandatı, eşzamanlı takas, propaganda olayı ve arama-kurtarma görevi yoktur. NLU `actor-belief:*` raporunu dünya gerçeğine çevirmeden `PROPOSE_PRISONER_EXCHANGE`, `NEGOTIATE_PRISONER_EXCHANGE/DETENTION_DIPLOMACY` ve çalıştırılamaz takas taslağına bağlar. UI esir ve takasın değişmediğini söyler. Doğrudan 21/21 prob `2,8 sn`, hedefli manifest `0,8 sn`, sohbet regresyonu `2,9 sn` ve çıkışlar `0`dır. İlk kapsamlı koşu 65 görevi tamamladıktan sonra genişletilen tek UI cümlesinin eski grev “değişmedi” alt sözleşmesini bozduğunu yakaladı; yedi alan ayrı ve kesintisiz güvenlik ifadelerine ayrıldı. İkinci kapsamı azaltılmamış paket `65/65`, `1043,0 sn`, çıkış `0`; ana 900 saniye `480458,84 ms`, sekiz devlet, `%79,33/%78,31/%72,56` gıda/enerji/yaşam ve değişmeyen `a1c2f0c9…c4d` karması verdi. Gerçek esir yaşam döngüsü, Cenevre/hukuk, sağlık, takas icrası ve moral sonuçları sonraki askerî-diplomasi entegrasyon borcudur.
+
+**Onuncu dikey — boru hattı sabotajı ve ortak soruşturma, 11 Ağustos 2026:** `pipeline-sabotage-inquiry` dokuzuncu çalıştırılabilir laboratuvar ağacı oldu; dallar `LIMITED_DATA_SHARING / PUBLIC_ACCUSATION / SECRET_QUID_PRO_QUO` olarak planla hizalandı. Yirmi dört vaka; olay bilgisi, muhatap inancı, gerçek neden, teknik kanıt, tespit ve atıf, ham güvenlik kaydının hassasiyeti, sensör penceresi, enerji bağımlılığı, medya anlatısı, sınır protokolü, tarafsız uzman, eşzamanlı yayın güveni, yetki, kişilik ve kaçakçılık dosyasını ayrı girişler olarak taşır. İnançta sabotaj/gerçekte kaza aynı kurumsal cevabı korurken mekanik kapıda `SABOTAGE_CAUSE_NOT_CONFIRMED`; üçüncü taraf nedeni `THIRD_PARTY_CAUSE_REVIEW_REQUIRED`; doğrulanmamış aleni suçlama `ATTRIBUTION_NOT_CONFIRMED`; gizli dosya takası daima `CORRUPTION_ACTION_FORBIDDEN` olur. Kampanyanın gerçek enerji koridoru, karakter sabotaj makbuzu ve tespit/atıf sonucu mevcuttur. Buna karşılık boru hattı neden defteri, devriye/sensör kayıt sistemi, ortak teknik heyet, tarafsız uzman havuzu, eşzamanlı rapor yürütücüsü, medya suçlama adaptörü, sınır güvenliği protokolü ve kaçakçılık dosyası redaksiyonu yoktur. NLU gerçek `corridor:energy:*` kimliğini ayrı ActorBelief olay kaydıyla `PROPOSE_PIPELINE_INQUIRY`, `NEGOTIATE_PIPELINE_INQUIRY/ENERGY_SECURITY` ve çalıştırılamaz ortak soruşturma taslağına bağlar. UI boru hattı, soruşturma ve enerjinin değişmediğini açıklar. Doğrudan prob `2,9 sn`, hedefli manifest `0,9 sn`, konuşma regresyonu `2,8 sn`, çıkışlar `0`dır. Büyük paket son darbe/halefiyet ağacı sonrasında tekrar çalıştırılacaktır.
+
+**On birinci dikey — darbe söylentisi ve halefiyet pazarlığı, 11 Ağustos 2026:** `coup-rumor-succession` onuncu ve son çalıştırılabilir referans ağacı oldu; katalog dalları planın dört gerçek seçeneğiyle `CONSTITUTIONAL_TRANSITION / PERSONAL_OFFICE_BARGAIN / SPLIT_PLOTTERS / REJECT_RUMOR` olarak hizalandı. Yirmi sekiz vaka; oyuncu ve muhatap söylenti bilgisi, gerçek kriz, lider durumu, komuta sadakati, atama yetkisi, anayasal sıra, acil imza zinciri, karakter hırsı, rakip ağı, dezenformasyon kapasitesi, önceki söz ihlali ve kriz aşamasını ayrı tutar. İnançta gerçek darbe varmış gibi aynı anayasal cevap üretilebilir; motor gerçeğinde kriz yoksa `POLITICAL_CRISIS_NOT_ACTIONABLE`, lider sağlıklıysa `LEADER_INCAPACITY_NOT_CONFIRMED` kapısı çalışır. Gizli makam teklifi daima `CORRUPT_APPOINTMENT_PROMISE_FORBIDDEN`; komutanları birbirine düşürme `COVERT_DISINFORMATION_ADAPTER_MISSING`; söylentiyi reddetme yalnız `POLITICAL_CRISIS_ACTION_REVIEW_REQUIRED` olur. Faz 33 gerçek siyasi kriz ve isimli komutan sadakati, Faz 29 kurum yetkisi, Faz 37 gönüllü istifa/halefiyet yürütücüsü ve ActorBelief gerçektir. Lider sağlık kaydı, acil anayasal geçiş, bedelli makam taahhüdü, darbe dezenformasyonu ve kışlada kal emri yoktur. NLU deterministik olarak açılmış gerçek `political-crisis:*` kimliğini ayrı `actor-belief:*` söylenti kaydıyla `PROPOSE_SUCCESSION_CRISIS_RESPONSE`, `NEGOTIATE_SUCCESSION_CRISIS/POLITICAL_SUCCESSION` ve çalıştırılamaz taslağa bağlar. UI darbe, makam ve ordunun değişmediğini söyler. Doğrudan 28/28 prob `3,4 sn`, hedefli manifest `1,4 sn`, konuşma regresyonu `2,8 sn`; kapsamı azaltılmamış paket `65/65`, `596,4 sn`, çıkış `0`; ana 900 saniye `212417,84 ms`, sekiz devlet, `%79,33/%78,31/%72,56` ve değişmeyen `a1c2f0c9…c4d` karmasıdır. On matris tamamlanmıştır; gerçek dünya adaptörleri ve ortak kabul kapısındaki serbest takip/geri çağrım işleri ayrı borçtur.
+
 ### FAZ 38.5 — Sohbet Çalışma Alanı İlk Oynanabilir Sürüm
 
 **Amaç:** Karakter bulma, erişim, serbest metin, bağlam, teklif sürümü ve söz hafızasını tek oyuncu akışında birleştirmek.  
 **Çıktı:** Konuşulabilir karakter dizini, aktif sohbet düzeni, bağlam paneli, teklif/söz kartları, yanıt bekleme ve yedek model durumları.  
 **Kabul kapısı:** Oyuncu şehir veya yönetim ekranından karaktere ulaşabiliyor; kabul ettiği teklif sürümü açıkça görülüyor; konuşma metni tek başına dünya komutu uygulamıyor; bilinmeyen karakter amacı sızmıyor.  
 **Bağımlılık:** Faz 3.1, 14.1, 33.1, 34–38.4.
+
+**İlk dikey — gerçek dünya olayından açılan sürdürülebilir görüşme, 11 Ağustos 2026:** Faz 33 siyasi kriz görünümündeki gerçek kriz lideri artık ayrı görüşme penceresinde olay bağlamıyla açılabilir. Kaynak, serbest metinden veya LLM özetinden uydurulmaz: yalnız oyuncuya görünür aktif `political-crisis:*` kaydının kanonik son olay kimliği, kriz katılımcısı muhatap ve açılış durumu şema-4 konuşma oturumuna alınır. Görünmeyen/sahte kriz kimliği oturum üretmeden `EVENT_ANCHOR_NOT_VISIBLE` ile reddedilir. Oyuncu ilk sözden sonra aynı oturumda serbest takip mesajı yazabilir; genel bir “hangi kanıt?” sorusu önceki `POLITICAL_SUCCESSION` konusunu korur. Karakter cevabı yalnız görünür olay+kriz kimliklerini kanıt gösterir, ham dünya defteri okumaz ve komutanların gizli niyetini kesin gerçek diye sunmayı açıkça reddeder. İlk söz, takip sorusu ve cevap aynı akışta görünür; olay kartı kaynak bağını oyuncuya gösterir. Konuşma tek başına kriz, ilişki, kurum veya fiziksel karar uygulamaz. Olay ankrajı, takip turları, sayaçlar ve aday bağları save/load'da birebir korunur; v2 oturum kayıtları güvenli varsayılanlarla v4'e yükselir. Hedefli gerçek DOM probu `10,9 sn`, tam yükte `8,2 sn` geçti. Kapsamı azaltılmamış paket `65/65`, `1511,7 sn`, çıkış `0`; ana dünya `1050115,83 ms`, sekiz devlet, `%79,33/%78,31/%72,56` ve değişmeyen `a1c2f0c9…c4d` karması verdi. İlk tam koşunun 20 dakikalık dış sınırda takılması test sonucu değil işçi yaşam döngüsü hatasıydı: büyük sonuç yazıldıktan sonra `done` öncesi zorunlu tam GC, CPU rekabetinde dakikalar sürüyordu. Büyük sonuç işçisi artık sonucu önce bildirip havuz tarafından yenileniyor. Bu dikey Faz 38.5'i kapatmaz; üç farklı karakter/ilişki ayrışması, gerçek söz veya sır sonucu, geçerli dünya kararı, krizden savaş/barış adayına geçiş ve daha sonraki konuşmada kısa–orta–uzun geri çağrım hâlâ zorunlu ara kabul borcudur.
+
+**İkinci dikey — üç karakterli kriz müzakeresi ve açık kabul makbuzu, 11 Ağustos 2026:** Aynı görünür Faz 33 krizi artık kriz lideri ve iki gerçek sadık komutanla ayrı olay görüşmesi açar; oyuncunun kendi karakteri muhatap listesinden çıkarılır. Her muhatap aynı söz için kendi `coreAxes`, değer, etkin hedef ve oyuncuya dönük güven/saygı/husumet bağından deterministik `EVENT_COUNSEL_RESPONSE` üretir. Lider müzakere kanalını, kurumsalcı komutan emir zincirini, kamucu karakter aleni hesabı, güvensiz karakter kanıt toplamayı önerebilir; yüksek husumet+düşük güven taahhüdü reddeder. UI gizli hedef enumunu göstermez; yalnız doğal gerekçe, öneri, ilişki bantları ve destek/koşul/ret duruşunu gösterir. Bu yanıt `rawWorldRead:false/worldMutation:false` kalır. Dünya ancak oyuncu ayrı `ÖNERİYİ KABUL ET VE UYGULA` düğmesine bastığında değişir: mevcut `storyPoliticalCrisisAct` maliyet/yetki/cooldown kapısı yeniden çalışır, kriz eylemi konuşma oturumu+yanıt kimliğini taşır ve karakter→oyuncu ilişkisi kaynak makbuzuyla değişir. Oturum şema-5'e yükseldi; `eventDecision` kabul/ret, kriz eylem sırası, sonuç kodu ve ilişki öncesi/sonrası makbuzunu saklar. İkinci kabul `EVENT_DECISION_EXISTS` ile eylem, maliyet ve ilişki etkisi üretmeden reddedilir. Hedefli gerçek DOM+save/load probunda üç düğme, üç farklı cevap, konuşma boyunca beş fiziksel defterde birebir hash, kabul sonrası tek kriz eylemi, tek ilişki değişimi, doğru öncesi/sonrası ilişki makbuzu, kanonik geri iz ve idempotans geçti. Nihai hedefli prob `6,7 sn` ve defter doğrulaması temizdir. Aynı çalışma ağacındaki 65 görevli tam paket, kullanıcı CPU yükü altında altı ilk ağır işçi tek sonuç vermeden `604 sn` dış sınırına ulaştığı için kabul başarısı sayılmadı; yalnız bu koşunun yetim işçileri kapatıldı. Önceki `65/65` taban geçerlidir fakat bu ikinci dikey için yeni tam paket borcu açıktır. Faz 38.5 kapanmaz: tutulmuş/bozulmuş sözün kriz adayına etkisi, savaş/barış ayrımı, sonraki konuşmada kısa–orta–uzun geri çağrım ve 50 turluk insan tekrar kapısı eksiktir.
+
+**Üçüncü dikey A — kaynaklı karar/söz hafızası ve sonraki görüşmede geri çağrım, 11 Ağustos 2026:** Kriz tavsiyesinin açık kabulü artık yalnız ilişki ve kriz makbuzu bırakmaz; danışman ile oyuncunun ortak tuttuğu, hemen çözülmüş bir karar bölümü üretir. Kayıt `politicalCrisisId`, `conversationDecisionId`, `conversationSessionId`, `counselResponseId`, kanonik kriz eylem sırası ve sonuç kodunu birlikte taşır. `storyMemoryRecallForActor`, karakterin kendi RECENT/EPISODE/MILESTONE katmanlarını deterministik puanlar; sahibi veya katılımcısı olmadığı kaydı hiçbir koşulda döndürmez. Sonraki ayrı görüşmede “geçen krizdeki karar” sorusu orta-vadeli bölümden gerçek sonuç kodunu ve kanıt kimliklerini döndürür. Aynı seçici Faz 38.3'te gerçekten tutulan karşı-teklif sözü ile gerçekten bozulan süreli mekanik-onay sözünü uzun-vadeli `PROMISE` kayıtlarından birlikte çağırır; cevap KEPT/BROKEN durumlarını ve commitment kaynaklarını taşır. Konu filtresi kriz/karar ile söz mihenk taşını ayırır; aynı ilişkiden doğan DEBT kaydı kriz cevabının önüne geçmez. Oturum şema-6, eski şema-1..5 güvenli göçü, `memoryRecalls` teşhisi ve save/load birebirliği vardır. Hedefli Faz 38.5 probunda kısa/orta/uzun katman ve defter doğrulaması geçti. Sonraki adım söz sonuçlarını gerçek diplomatik/ekonomik uyuşmazlık adayına bağlamaktır; yeni paralel söz motoru kurulmayacaktır.
+
+**Üçüncü dikey B — uzun görüşme UI'si, çoklu katılımcı görünümü, devlet yetkili protesto ve zarar değerlendirmesi, 11 Ağustos 2026:** Gerçek Electron compositor probunda 12 takipli konuşmanın görünmeyen biçimde modalın altına büyüdüğü ölçüldü (`overflow-y:scroll` görünürken `scrollMax=0`). Aktif konuşma kabı `minmax(0,1fr)` akış + sabit besteci grid'ine çevrildi; sıradan render kaydırmayı korur, yeni/yeniden açılan mesaj sona gider ve besteci üzerindeki tekerlek metin alanının kendi kaydırması yoksa konuşma akışına yönlenir. Nihai ölçüm `scrollTop=2206`, `scrollMax=2367`, iki yönde tekerlek başarısı ve `0` UI problemi verdi. Oturumun açık `participantActorIds` alanı sol rayda ayrı profil kartları üretir; PlayerKnowledge ile bilinen veri gösterilir, bilinmeyen katılımcıda ülke/rol/ilişki uydurulmaz. Bu yalnız UI hazırlığıdır; gerçek çok taraflı karakter karar döngüsü sonraki davranış fazlarının borcudur. Sınır aşan BROKEN sözün incelemesi de Faz 29 kurum yetkisine bağlandı: yaralı özel aktör dosyayı açabilir ama devlet adına protesto yayımlayamaz. Doğru ülkenin yürütülmüş, tek kullanımlık `ISSUE_DIPLOMATIC_PROTEST` fişi tüketilince devlet ilişkisi kaynaklı ve sınırlı `-6` değişir; antlaşma ve savaş durumu aynen kalır. Yabancı devlet fişi, yürütülmemiş fiş ve ikinci tüketim reddedilir. Zarar değerlendirmesi yalnız kanonik teslimat, escrow iadesi ve ceza ödeme makbuzlarını kullanır: sözleşme değeri ile iade edilmiş anapara, ceza tazminatı, doğrulanmış doğrudan kayıp ve tazmin edilmemiş zarar ayrı alanlardır. Fırsat maliyeti ve üretim kaybı kaynak fişi yoksa `UNVERIFIED / includedInDamage:false` kalır; bu yüzden aynı vakada savaş eşiği dürüstçe sıfırdır. Eski incelemeler bu şemaya güvenli backfill edilir. Sohbet probu ile bağımsız kurum probu temizdir. Sıradaki dikey anayasal savaş/barış adayları, ardından 50 turluk insan tekrar kapısıdır.
+
+**Üçüncü dikey C — anayasal savaş/barış ve 50 turluk tekrar kapısı, 11 Ağustos 2026:** `DECLARE_WAR` icrası konuşma veya tek makam çağrısı değildir. Kaynaklı diplomatik incelemede hem tazmin edilmemiş zarar (`≥250`) hem güncel devlet ilişkisi (`≤-60`) hem yasal rota yeniden doğrulanır; inceleme sonrası eşik bayatlarsa yürütülmüş kurum fişi dahi savaşı açamaz. Eşikler geçtiğinde yalnız yaralı devletin rejime göre gereken bütün kurum onaylarını taşıyan `EXECUTED DECLARE_WAR` fişi tek kullanımlık tüketilir. Savaş açıldıktan sonra barış adayı iki savaşan ülkeyi açıkça listeler; tek ülkenin `SIGN_TREATY` fişi reddedilir, her iki ülkenin kendi anayasal rotasından geçmiş iki ayrı fişi `war→peace` değişimini bir kez uygular. Mutlu yol testi gerçek zarar gibi sunulmadı: harness içinde `TEST_FIXTURE` diye işaretlenen eşik kurulumu kullanıldı ve test sonunda müzakere, kurum ve diplomasi anlık görüntüsü geri yüklendi. Gerçek sıfır-zarar ticari vaka savaş üretmemeye devam etti. Sosyal konuşma kalite kapısı üç oturuma bölünmüş, açılış cevapları dahil tam 50 kronolojik turdur. Üç karşı-tohumda bütün niyetler doğru, bütün sözler karakter gerçekleştiricisinden, yan yana ve son-12 tam tekrar `0`, azami aynı hitap serisi `2`, yasak fallback `0`; benzersiz cümle sayısı `49/50`, `49/50`, `50/50`, en yüksek sözcüksel benzerlik `%22,73`, anlamsal benzerlik `%36,36` kaldı. Bu otomatik kapı metinlerin eğlenceli olduğuna dair oyuncu kabulünün yerine geçmez. Sırada kapsamı azaltılmamış tam paket ve gerçek EXE oyuncu konuşma kabulü vardır.
+
+**Tam paket denemesi:** Altı işçili kapsamı azaltılmamış `npm test -- --workers=6`, `1204,1 sn` dış sınırında hiçbir görev sonucu bildirmeden zaman aşımına uğradı; bu başarı veya regresyon geçişi değildir. Yalnız bu koşuya ait `story-test-parallel` ve altı `story-test-worker` süreci kimlik/komut satırıyla doğrulanıp kapatıldı; diğer kullanıcı süreçlerine dokunulmadı. Aynı çalışma ağacında hedefli Faz 38.5 probu `1/1`, kurum probu `1/1`, üç tohumlu 50 tur ölçümü ve sözdizimi/diff kapıları temizdir. Faz 38.5, tam paket ve oyuncu doğallık/eğlence kabulü gelmeden `partial` kalır.
+
+**Altıncı dikey — gerçek çok turlu söylem durumu ve yerel LLM bağlantısı, 11 Ağustos 2026:** Oyuncu testi, önceki 50 tur ölçümünün yalnız kalıp/hitap tekrarını ölçtüğünü ve anlamsal sohbet yeterliliğini kanıtlamadığını ortaya çıkardı: ilk yanıt anlamlıyken sonraki sözler aynı niyet şablonuna yığılıyordu. Oturum şema-7'ye yükseltildi; aktif konu, son oyuncu sözü, son karakter tutumu, karakterin bekleyen sorusu, son söylem eylemi ve tur sayısı kayıt/yüklemede korunur. Takipler `ANSWER_PREVIOUS_QUESTION / ASK_REASON / CHALLENGE_PREVIOUS_POSITION / CORRECT_PREVIOUS_TOPIC / REPAIR_REPETITION / ACCEPT / REJECT / CHANGE_TOPIC` dâhil kapalı söylem planına bağlanır. Model hazır olmasa bile yedek yanıt son sözü ve önceki soruyu açıkça referans alır; “Seni dinliyorum” genel kaçağı kullanılmaz. Paketli yerel model artık oyuncu sohbetinin gerçek tüketicisidir: son on konuşma satırı, karakter kimliği, aktif konu ve kodun güvenli anlam planıyla asenkron tek-cevap üretir. Çıktı sayı, iç kimlik, yeni kişi/olay/stok/anlaşma/emir/yetki veya mekanik sonuç eklerse reddedilir; dünya sonucu yalnız deterministik motorlarda kalır. `llm:start` önceki gibi yüklemeyi başlatıp hemen `ready:false` dönmez; renderer'ı dondurmadan hazır/hata durumunu bekler. Ardışık sohbet üretimleri tek model kuyruğunda sırayla işlenir. Hedefli prob; askerî cevabı önceki yardım sorusuna bağlama, “neden?” ile son tutumu açıklama, tekrar şikâyetini onarma, çelik→enerji düzeltmesi, dünya nötrlüğü, şema-7 göçü ve birebir save/load kapılarını geçti. Elli tur testi artık dürüstçe sağlamlık kapısıdır; anlamsal kalite kanıtı dört açık takip senaryosudur. Gerçek paketli model çıktısı, gecikme, ret/fallback oranı ve oyuncu doğallık kabulü EXE üzerinde henüz ölçülmediğinden Faz 38.5 `partial` kalır.
 
 ### ZORUNLU ARA KABUL — Sohbetten Sonuca Mini Dikey Dilim
 
@@ -4213,14 +4259,104 @@ Oyuncu bir karakterle serbest konuşur
 
 Ara kabul kapısı:
 
-- En az üç farklı karakter aynı teklife farklı gerekçeyle cevap verir.
-- Oyuncunun aynı metni farklı ilişki koşullarında kullanması aynı sonucu garanti etmez.
-- Bir söz tutulduğunda ve bozulduğunda farklı gelecek adayları açılır.
+- En az üç farklı karakter aynı teklife farklı gerekçeyle cevap verir. **İkinci dikeyde geçti.**
+- Oyuncunun aynı metni farklı ilişki koşullarında kullanması aynı sonucu garanti etmez. **İkinci dikeyde geçti.**
+- Gerçek KEPT/BROKEN söz farklı ve kaynaklı sonraki-adım adayları açar. **Üçüncü dikey B'de geçti; adaylar henüz yürütülemez.**
+- Tutulan ve bozulan gerçek söz sonraki görüşmede kaynak ve durumuyla hatırlanır. **Üçüncü dikey A'da geçti.**
+- Aynı sosyal yardım talebi tekrarlandığında karakter aynı fallback cümlesini kopyalamaz. **Üçüncü dikey B'de geçti.**
+- Kabul edilmiş gerçek kriz kararı daha sonraki ayrı görüşmede kaynağıyla hatırlanır. **Üçüncü dikey A'da geçti.**
 - Sohbet olmadan seçilen mekanik karar ile sohbetle müzakere edilen karar aynı yol değildir.
-- En az 50 konuşma turunda rahatsız edici replik/hitap döngüsü oluşmaz.
+- En az 50 konuşma turunda rahatsız edici replik/hitap döngüsü oluşmaz. **Üçüncü dikey C'de üç tohumlu otomatik kapı geçti; oyuncu eğlence kabulü ayrıca açık.**
 - LLM kapalıyken zincir daha az zengin metinle fakat mekanik olarak çalışmaya devam eder.
 - Fikstürle üretilen sonuç UI ve telemetride açıkça `TEST_FIXTURE` olarak işaretlenir; gerçek entegrasyon gibi raporlanmaz.
 - Bu zincir eğlenceli ve anlaşılır bulunmazsa medya, tam diplomasi ve dünya ölçeklemesi ertelenir.
+
+---
+
+## DALGA G.1 — Modern Karakter Davranışı Yükseltmesi
+
+Bu yükseltme, dış `ModernCharacterBehaviorSystem` analizinin ana plana seçici kabulüdür. Faz 34–38.5'in çalışan kimlik, ilişki, hafıza, ActorBelief, eylem, hakem ve konuşma defterleri değiştirilmez ve tek bir `CharacterV2` monolitine kopyalanmaz. Karakter kaydı yalnız kararlı kimlik ile defter referanslarını taşır; ilişki, hafıza, inanç, makam, güç ve eylem kendi kanonik sahibinde kalır.
+
+Kabul edilen davranış zinciri:
+
+```text
+WorldFact
+→ erişim kontrollü InformationItem
+→ kaynaklı ActorBelief
+→ kişisel + rol + organizasyon hedefleri
+→ DecisionContext
+→ mekanik adaptörün ürettiği ActionCandidate
+→ yetki / hukuk / kaynak / fizik / gizlilik filtresi
+→ açıklanabilir DecisionTrace
+→ kanonik komut ve makbuz
+→ WorldConsequence / yeni WorldFact
+→ ilişki, hafıza, stres, kariyer ve iletişim geri beslemesi
+```
+
+Zorunlu mimari sınırlar:
+
+- Karakter `WorldFact`ı doğrudan okuyamaz; yalnız erişebildiği `InformationItem` ve ActorBelief anlık görüntüsü karar bağlamına girer.
+- Rol, kişisel, organizasyon ve ideolojik hedefler ayrı sahiplik taşır. CEO şirketin, komutan ordunun, gazeteci medya kuruluşunun kendisi değildir.
+- Trait, değer, kuşak veya ideoloji doğrudan sabit yüzde bonusu ya da eylem yasağı değildir; aday skoru ve konuşma stratejisinde kaynaklı gerekçe üretir.
+- Hata rastgele aptallık değildir. Eksik/yanlış inanç, kaynak yanlılığı, kariyer riski, ilişki, stres, sınırlı düşünme bütçesi ve yalnız tohumlu/kayıtlı küçük belirsizlikten açıklanmalıdır.
+- LLM aday, puan, gerçek, yetki veya sonuç üretemez. Yalnız seçilmiş karar, güvenle açıklanabilir nedenler, kamu personası, izinli inanç/sırlar ve hedef kitle üzerinden dil gerçekleştirir.
+- Kamu personası özel tercih değildir. Oyuncuya gösterilen karar açıklaması karakterin gizli hedef, özel inanç veya sırrını sızdırmaz; `PlayerKnowledge` projeksiyonundan geçer.
+- `PowerProfile` ikinci bir güç motoru değildir. Kurum, şirket, bütçe, birlik, medya erişimi, ağ ve uzmanlık defterlerinden zaman damgalı salt-okunur görünüm olarak türetilir.
+- İlişkiyi on korelasyonlu sayaca şişirmek yasaktır. Mevcut güven/korku/saygı/borç/husumet kanoniktir; sevgi, bağımlılık, rekabet, mağduriyet, ideolojik yakınlık ve profesyonel saygı önce olay etiketi veya türetilmiş bağlam görünümü olarak kanıtlanır. Ayrı eksen ancak karşı-örnek testinde mevcut beş eksenin açıklayamadığı farklı karar üretirse eklenebilir.
+- `AGGREGATE/MINOR/RELEVANT/MAJOR/WORLD` karakter katmanları Faz 12 aktivasyon bütçesine bağlanır. Oyuncunun temas ettiği kişiyi ayrıntılandırmak geçmişi yeniden yazmaz; kararlı kimlik ve kaynak olaylardan deterministik açılım yapar.
+- Belgedeki çok sayıdaki rol ve örnek eylem motor değildir. Domain adapter, yetki, maliyet, gerçek hedef ve makbuz yoksa rol yalnız katalog borcudur ve UI'da eylem gösteremez.
+- Dış belgedeki sayısal senaryolar `TEST_FIXTURE`dır. Dünya gerçeği, denge değeri veya çalışır adaptör diye raporlanamaz.
+
+### FAZ 38.6 — Algılanan Dünya ve Karar İzi V2
+
+**Amaç:** Karakter kararını gerçek dünya yerine karakterin kaynaklı inancı üzerinden, destekleyen ve karşı çıkan nedenlerle açıklamak.
+**Çıktı:** `DecisionContextV2`, `DecisionTraceV2`; tetik olayları, ActorBelief anlık görüntüsü, aday/filtre sonuçları, rol-hukuk-organizasyon sınırları, hedef deltaları, maliyet/risk, ilişki ve psikoloji katkıları.
+**Kabul kapısı:** `MAJOR/WORLD` kararında iz zorunlu; aday olmayan eylem seçilemiyor; gizli WorldFact puana sızmıyor; aynı bağlam/tohum save-load sonrası aynı seçimi ve izi üretiyor. UI yalnız oyuncunun bildiği nedenleri gösteriyor.
+**Bağımlılık:** Faz 4.1, 9–10, 29–30, 34–38.5.
+
+### FAZ 38.7 — Önyargı, Geçici Stres ve Kamu Personası
+
+**Amaç:** Karakterlerin anlaşılır biçimde kusurlu davranmasını ve kamu/özel dil ayrımını kurmak.
+**Çıktı:** Sınırlı, ortogonal `BiasProfileV1`; kaynak olay, yarı ömür ve tavan taşıyan `CharacterStressStateV1`; `PublicPersonaV1`; özel tercihle çelişebilen fakat gizlilik filtresini aşamayan ifade planı.
+**Kabul kapısı:** Stres ikinci refah motoruna dönüşmüyor; aynı şok bütün karakterlere aynı tepkiyi vermiyor; önyargı aynı kanıtı iki kez puanlamıyor; persona mekanik gerçeği değiştirmiyor; stres kaynağı kesilince açıklanabilir biçimde sönüyor.
+**Bağımlılık:** Faz 25–26, 34, 36–38.6. Medya Faz 39–42 bu sözleşmenin tüketicisidir.
+
+### FAZ 38.8 — İlişki Yorumu ve Bağlamsal Hafıza Geri Çağrımı
+
+**Amaç:** Aynı olayın farklı karakterlerde farklı ilişki yorumu ve gelecek davranışı üretmesini sağlamak.
+**Çıktı:** İlişki olay etiketleri, yorum, duygusal ağırlık, güven, pekişme ve geri çağrım tetikleri; kişi/kurum, benzer kriz, stres, yıldönümü, medya yeniden gündemi ve yeni kanıt sorguları.
+**Kabul kapısı:** Tutulan söz, bozulan söz, aleni aşağılama ve ortak kriz başarısı farklı yorum/aday üretir; düşük önem yoğunlaştırılırken ihanet/borç/sır/mihenk taşı kaybolmaz; yeni ilişki ekseni ancak mevcut beş eksene karşı bilgi kazancı kanıtıyla açılır.
+**Bağımlılık:** Faz 35–36, 38.3–38.6.
+
+### FAZ 38.9 — Rol Adaptörleri ve Kurumsal Müzakere
+
+**Amaç:** Devlet, şirket, ordu, medya ve istihbaratı tek kişilik AI olmaktan çıkarmak.
+**Çıktı:** Sürümlü rol kataloğu ve gerçek domain adapter kayıtları; ilk dikeylerde hükümet başkanı/bakan, CEO/CFO/CTO/yönetim kurulu, genelkurmay/saha komutanı, gazeteci/editör/patron ve istihbarat şefi/analist ayrımı.
+**Kabul kapısı:** Kurum sonucu yetkili karakterlerin teklif, itiraz, onay ve uygulama zincirinden çıkıyor; rol kataloğundaki fakat adaptersiz eylem görünmüyor; organizasyon hedefi kişinin özel hedefi diye kopyalanmıyor.
+**Bağımlılık:** Faz 21–22, 28–33.1, 34–38.8, medya Faz 39–42.
+
+### FAZ 38.10 — Türetilmiş Güç ve Kariyer Yaşam Döngüsü
+
+**Amaç:** Makam dışı gücü ve karakterin 2010–2100 boyunca rol değiştiren yaşamını modellemek.
+**Çıktı:** Kurumsal/ekonomik/askerî/medya/ağ/halk/uzmanlık/bilgi/zorlama/hukuk kaynaklarından türetilmiş güç görünümü; terfi, görevden alma, seçim, istifa, emeklilik, skandal, yaş, sağlık, ölüm ve haleflik olayları.
+**Kabul kapısı:** Güç saklanan keyfî bonus değil kanonik varlık/yetki/ağ sorgusudur; makam kaybı bütün nüfuzu sıfırlamaz; kariyer geçişi geçmiş, ilişki, söz ve sırları korur; ölü/emekli karakter aktif yetki kullanamaz.
+**Bağımlılık:** Faz 23, 28–37, 38.6–38.9, sonraki sağlık ve demografi adaptörleri.
+
+### FAZ 38.11 — Karakter Katmanları ve Kohorttan Yükselme
+
+**Amaç:** Modern dünyada binlerce kişiyi tam karar döngüsüyle çalıştırmadan önemli bireyleri kalıcı aktöre dönüştürmek.
+**Çıktı:** `AGGREGATE/MINOR/RELEVANT/MAJOR/WORLD` aktivasyon politikası; olay tetikli değerlendirme; aktivist, ihbarcı, sembolik işçi, yerel lider ve viral medya figürünün kohorttan isimli karaktere deterministik yükselmesi.
+**Kabul kapısı:** Boşta karakter pahalı karar çalıştırmıyor; yükselme kişi yaratmıyor veya nüfusu eksiltmiyor; aynı seed/olay aynı kimliği açıyor; ayrıntı kapanınca önemli hafıza ve ilişkiler kaybolmuyor.
+**Bağımlılık:** Faz 12–13, 23–28, 34–38.10.
+
+### FAZ 38.12 — Davranış QA, Gizlilik ve Oyuncu Açıklaması
+
+**Amaç:** İnsan benzerliğini yalnız “farklı seçim yaptı” gözlemine bırakmamak.
+**Çıktı:** Senaryo regresyonları, karşı-olgusal profil testleri, korelasyon/double-count denetimi, uzun dönem davranış dağılımı, gizli neden sızıntı testi, 50+ turluk dil/karar tekrarı ve “neden böyle davrandı?” bilgi filtreli UI.
+**Kabul kapısı:** Aynı eylem farklı kaynaklı nedenlerle ayrışabiliyor; farklı profil hiçbir koşul değişmeden kozmetik metin farkına indirgenmiyor; tek eylem/rol uzun koşuda baskınlaşmıyor; oyuncu bilmediği gizli hedefi karar izinden öğrenmiyor; LLM kapalı yol mekanik olarak eşdeğer kalıyor.
+**Bağımlılık:** Faz 38.6–38.11 ve ilgili domain adapterleri.
+
+Bu yükseltme aktif Faz 38.5'i baştan yazdırmaz. Önce sohbetten sonuca zorunlu mini zincir kapanır. Faz 38.6–38.8 bu zincirin kanıtını genelleştirir; 38.7 ve 38.9 medya Faz 39–42 ile, 38.9–38.11 de sonraki ekonomi/askerî/diplomasi fazlarıyla çapraz ilerleyebilir.
 
 ---
 
@@ -4253,6 +4389,170 @@ Ara kabul kapısı:
 **Çıktı:** Kampanya, sansür, sızıntı, hedef kitle, karşı propaganda ve itibar riski.  
 **Kabul kapısı:** Yüksek propaganda sonsuz ve risksiz kontrol sağlamıyor; güvenilirlik aşınması çalışıyor.  
 **Bağımlılık:** Faz 28, 41.
+
+---
+
+## DALGA H.1 — Teknoloji, Yenilik ve Toplumsal Benimseme Yükseltmesi
+
+Bu dalga, dış teknoloji kataloğu analizinin ana plana yükseltilmiş sürümüdür. Yaklaşık `1.300` düğümlük `100 aile × 13 seviye` veri seti nihai motor şeması veya sayı invariant'ı değildir; yalnız içerik taslağıdır. Nihai katalogda aileler eşit derinlikte olmak zorunda değildir. Ana hat, alternatif, deneysel, çıkmaz, niş, eski ve yeniden canlanan teknolojik yollar gerçek bir DAG üzerinde birlikte yaşayabilir.
+
+Temel ayrım:
+
+```text
+TEKNOLOJİ TANIMI       Ne yapılabileceğine dair statik bilgi
+ARAŞTIRMA İDDİASI      Sınanabilir bilimsel veya mühendislik iddiası
+KANIT                  İddianın hangi koşullarda ne kadar desteklendiği
+KABİLİYET ERİŞİMİ      Hangi aktör/kurum/şirket/tesisin neyi gerçekten yapabildiği
+UYGULAMA                Kabiliyetin hangi sektörde ve amaçla kullanıldığı
+KURULU VARLIK           Dünyada gerçekten inşa edilmiş ve çalışan örnek
+KURUM/HUKUK             Kullanım, üretim ve transferin yetki/risk sınırı
+İNANÇ                   Aktörlerin bütün bunlar hakkındaki kaynaklı tahmini
+```
+
+Kanonik dinamik zincir:
+
+```text
+TechnologyNodeV2
+→ test edilebilir ResearchClaimV1
+→ ResearchEvidenceV1
+→ CapabilityAccessGrantV1
+→ TechnologyApplicationV1
+→ ApplicationDeploymentReceiptV1
+→ InstalledAssetV1
+→ gerçek ekonomik/toplumsal/askerî sonuç
+→ WorldFact / ActorBelief / medya ve kültürel geri besleme
+```
+
+Mimari değişmezler:
+
+- Teknoloji kataloğunda bulunmak, hiçbir ülke veya aktöre kabiliyet vermez.
+- Teknoloji DAG'ı ile kabiliyet grafı aynı şey değildir; aynı kabiliyet farklı teknik yollarla, farklı fiziksel sınırlar altında sağlanabilir.
+- Tek bir ülke teknoloji sayacı yoktur. Bilgi araştırma ekibinde, örtük ustalık personelde, hukuki hak şirkette, üretim yeteneği tesiste ve kullanım erişimi ithal varlıkta ayrı tutulabilir.
+- Olgunluk elle akan tek yüzde değildir. Bilimsel tekrar, prototip, saha denemesi, hata oranı, pilot hat, yield, hacim, tedarikçi derinliği ve personelden kaynaklı sorgu sonucudur.
+- Deney sonucu ile kamuya açıklanan iddia ayrıdır. Bir CEO başarısız sonucu saklayabilir; yalan açıklama dünya gerçeğini değiştirmez fakat ActorBelief, yatırım ve medya davranışını etkileyebilir.
+- `Hype` yalnız kaynaklı ve belirsizlik taşıyan ActorBelief'tir. Zeitgeist, Faz 23–42 nüfus/şikâyet/medya/siyaset gerçeklerinden türetilen projeksiyondur; ikinci kamuoyu motoru değildir.
+- Kültür araştırmaya doğrudan keyfî hız çarpanı vermez. Bütçe, yetenek göçü, ruhsat, dava, sigorta, talep, kamu satın alımı, protesto ve şirket yatırımı üzerinden etki eder.
+- İthalat kullanım erişimidir; yerli üretim kabiliyeti değildir. Lisans, ortak girişim, açık kaynak, casusluk, ele geçirilen örnek ve çalışan transferi farklı kanıt/hak/tesis/personel paketleri üretir.
+- `DomainAdapter` dünyaya doğrudan yazamaz. Doğrulanmış komut → maliyet/yetki → makbuz → olay → etki hattını kullanır.
+- Uygulama etkisi sabit evrensel bonus değildir. Tesis uyumu, eğitim, bakım, enerji güvenliği, siber güvenlik, lisans, kanıt kalitesi ve teknoloji konfigürasyonundan hesaplanır.
+- Teknoloji eskidiğinde kurulu varlık yok olmaz. Eski kömür tesisi, eski batarya kimyası veya eski yazılım gerçek ömür, bakım, retrofit ve tedarik koşullarıyla yaşamaya devam eder; kriz eski yolu yeniden ekonomik yapabilir.
+- `EarliestYear` sert kilit değildir. `TemporalPriorV1`, tarihsel kayıt veya `P10/P50/P90`, güven sınıfı ve fiziksel sınır taşır. Düşük güvenli uzun gelecek kesin takvim gibi sunulmaz.
+- Statik kataloglar kayda kopyalanmaz. Kayıt yalnız katalog sürüm/checksum, aktif programlar, kanıt, hak/erişim, kurulu varlık, kurum durumu ve seyrek inançları taşır.
+
+İlk kanıt dikeyi bütün kataloğu yüklemek değildir. Yarı iletken/AI/endüstriyel otomasyon zinciri; gerçek araştırma aktörü ve tesis, kanıt, kabiliyet erişimi, mevcut fabrikaya bedelli retrofit, elektronik/sermaye/enerji tüketimi, iş gücü bileşimi, bakım/siber risk, şikâyet, medya çerçevesi ve üç karakterli müzakereyi tek nedensel hat üzerinde kanıtlamalıdır.
+
+### FAZ 42.1 — Kanonik Teknoloji Katalog Sözleşmeleri
+
+**Amaç:** Kimlik, sürüm, checksum, yerelleştirme ve göç temelini kurmak.
+**Çıktı:** `TechnologyNodeV2`, `CapabilityDefinitionV1`, `TechnologyApplicationV1`, `InstitutionRuleDefinitionV1`, `AcquisitionPolicyV1`, `TemporalPriorV1`; build-time derleyici.
+**Kabul kapısı:** Yinelenen/eksik kimlik, bilinmeyen kural veya kabiliyet, hatalı enum, bozuk sürüm ve checksum uyuşmazlığı sessizce yüklenmiyor. Türkçe görünen adlar makine enumu olarak kullanılmıyor.
+**Bağımlılık:** Faz 4–5, 9–10.
+
+### FAZ 42.2 — Teknoloji DAG'ı ve Kabiliyet İfade Derleyicisi
+
+**Amaç:** Eşit seviyeli ağaç yerine alternatif/çıkmaz/niş/yeniden canlanan gerçek DAG kurmak.
+**Çıktı:** Güvenli ifade AST'si, önkoşul ve rakip/yedek/revival bağları, aşağı yönlü tüketici reverse-index'i.
+**Kabul kapısı:** Döngü, imkânsız önkoşul ve tüketicisi olmayan düğüm raporlanıyor; ifade metni `eval` ile çalıştırılmıyor; aynı kabiliyete birden fazla teknik yol izinli.
+**Bağımlılık:** Faz 42.1.
+
+### FAZ 42.3 — Kabiliyet Sahipliği, Erişim ve Örtük Bilgi
+
+**Amaç:** “Ülke teknolojiyi açtı” kısayolunu gerçek sahiplik kapsamına ayırmak.
+**Çıktı:** `CapabilityAccessGrantV1`; kişi/ekip/şirket/üniversite/kurum/tesis/ekosistem sahipliği, kaynak, kanıt, hukuki hak, örtük bilgi, üretim erişimi, aktarılabilirlik, geçerlilik ve iptal.
+**Kabul kapısı:** Bir şirketteki uzmanlık bütün ülke tesislerine ışınlanmıyor; ithal ürün üretim hakkı vermiyor; personel kaybı örtük kabiliyeti açıklanabilir biçimde düşürebiliyor.
+**Bağımlılık:** Faz 21, 34–36, 42.1–42.2.
+
+### FAZ 42.4 — Araştırma Aktörleri, Ekipler, Tesisler ve Programlar
+
+**Amaç:** Her araştırma harcamasını gerçek aktör, ekip, tesis, süre ve hedef iddiaya bağlamak.
+**Çıktı:** `ResearchActorV1`, `ResearchTeamV1`, `ResearchFacilityV1`, `ResearchProgramV1`; üniversite, şirket, startup, savunma/devlet laboratuvarı, açık kaynak ve bireysel mucit türleri.
+**Kabul kapısı:** Devlet doğrudan yüzde satın almıyor; program kuruyor/fonluyor. Tesis, personel, compute, malzeme ve bütçe yoksa araştırma ilerlemiş sayılmıyor. Aynı program farklı aktörlerde farklı risk ve bilgi paylaşımı üretiyor.
+**Bağımlılık:** Faz 20–21, 29–30, 34–35, 42.3.
+
+### FAZ 42.5 — Deney, Prototip, Saha Denemesi ve Kanıt Defteri
+
+**Amaç:** Olgunluğu sayaç yerine kaynaklı ve çelişebilir kanıttan türetmek.
+**Çıktı:** `ResearchClaimV1`, `ExperimentV1`, `PrototypeV1`, `FieldTrialV1`, `ResearchEvidenceV1`, bağımsız tekrar ve başarısızlık kayıtları.
+**Kabul kapısı:** Tek başarılı deney teknolojiyi kitleselleştirmiyor; bağımsız başarısız tekrar güveni düşürüyor fakat geçmişi silmiyor. Sonuç, yayınlanan iddia ve aktör inancı ayrıdır. Ham rutin kanıt sınırlı özetlenirken dönüm noktası, çelişki, kaza ve sahtekârlık kalıcı tutulur.
+**Bağımlılık:** Faz 9–10, 36, 42.4.
+
+### FAZ 42.6 — Patent, Know-how ve Teknoloji Transferi
+
+**Amaç:** Araştırmak, kullanmak, üretmek ve devretmek arasındaki farkı mekanikleştirmek.
+**Çıktı:** `PatentOrKnowHowV1`, `LicenseV1`, `TechnologyTransferV1`, `AcquisitionOutcomeV1`; ithalat, lisans, ortak girişim, açık kaynak, personel transferi, casusluk ve ele geçirilen örnek.
+**Kabul kapısı:** Her edinim yolu farklı kullanım/hukuk/belge/örtük bilgi/eğitim/tooling/prototip/tesis/risk paketi üretir. Aynı teknoloji bütün yolları otomatik desteklemez; casusluk fabrika veya hukuki hak yaratmaz.
+**Bağımlılık:** Faz 18, 21, 35–36, 41–42, 42.3–42.5; yaptırım ve gizli faaliyet genişlemesi Faz 45'te tamamlanır.
+
+### FAZ 42.7 — Teknoloji Uygulamaları ve Güvenli Domain Adaptörleri
+
+**Amaç:** Kabiliyeti tooltip bonusundan gerçek üretim/varlık komutuna çevirmek.
+**Çıktı:** Sektör/varlık uygunluğu, inşa ve işletme girdisi, personel/altyapı, bakım, kalite, kaynak, arıza ve `DomainAdapterID`; `ApplicationDeploymentReceiptV1`.
+**Kabul kapısı:** Uygulama mevcut tesis üzerinde fiziksel girdi, süre, yetki ve uyum kontrolünden geçiyor; sabit küresel yüzde kullanmıyor; bütün değişiklikler kanonik komut/makbuz/olay hattından geçiyor ve tekrar yükleme çift etki üretmiyor.
+**Bağımlılık:** Faz 9–21, 30, 42.2–42.6. Askerî ve diplomatik adaptörlerin nihai kapanışı Faz 43–51'e aittir.
+
+### FAZ 42.8 — Hukuk, Sertifika, Dava, Sigorta ve Teknoloji Kazası
+
+**Amaç:** Yasanın varlığı, yetki, uygulama kapasitesi ve gerçek denetimi ayırmak.
+**Çıktı:** Sürümlü `InstitutionRuleDefinitionV1`, jurisdiction/effective-date/supersession; sertifika, enforcement, sorumluluk, sigorta ve olay tabloları.
+**Kabul kapısı:** Bilinmeyen RuleID build'i durduruyor. Kâğıt üstü yasa düşük kurum kapasitesinde tam denetim sayılmıyor. Kaza gerçek varlık/işletme koşulundan doğuyor; tek rastgele teknoloji cezası değil.
+**Bağımlılık:** Faz 29–32, 39–42, 42.1, 42.7.
+
+### FAZ 42.9 — Benimseme, Yayılım ve Kurulu Taban
+
+**Amaç:** Keşif/prototip/ticarileşme/kitlesel benimseme/normalleşme etiketlerini gerçek dünyadan türetmek.
+**Çıktı:** `InstalledAssetV1`, retrofit ve ömür; uygulama+ülke+sektör+kohort kapsamlı kabul sorguları.
+**Kabul kapısı:** Katalog düğümü açılınca varlık doğmuyor. Yayılım gerçek satış, tesis, kullanıcı, altyapı, maliyet ve yetkiden geliyor. Hayat kurtaran tıbbi kullanım ile sağlıklı insan geliştirmesi aynı kabul puanını paylaşmıyor. Eski varlık teknoloji değişince yok olmuyor.
+**Bağımlılık:** Faz 17–26, 39–42, 42.7–42.8.
+
+### FAZ 42.10 — Teknoloji İnancı, Hype ve Balonlar
+
+**Amaç:** Gerçek olgunluk ile mühendis, şirket, yatırımcı, halk ve istihbarat algısını ayırmak.
+**Çıktı:** Kaynak/belirsizlik/çıkar çatışması taşıyan ActorBelief; teknoloji iddiası, yayın, değerleme ve balon/çöküşün sistemik zinciri.
+**Kabul kapısı:** Global `Hype=80` alanı yok. CEO'nun açıklaması başarısız deneyi değiştirmiyor; fakat medya ve yatırımcı inancı üzerinden gerçek finansman ve güven sonucu doğurabiliyor. Bağımsız test gerçeği ancak kaynaklı yayılım yoluyla aktörlere ulaşıyor.
+**Bağımlılık:** Faz 35–42, 42.5, 42.9.
+
+### FAZ 42.11 — Şirket ve Devlet Araştırma AI'si
+
+**Amaç:** AI aktörlerin kabiliyet açığı, strateji, maliyet, risk, Hype ve bildikleri kanıta göre program/transfer/uygulama seçmesi.
+**Çıktı:** Açıklanabilir aday üretici, bütçe portföyü, iptal/devam/eşleme kararları ve deterministik yedek.
+**Kabul kapısı:** AI en ileri yıl etiketini körlemesine seçmiyor; bilmediği gizli kanıtı okumuyor; başarısız programı koşul değişmeden sonsuza dek fonlamıyor; şirket ve devlet aynı bütçe/amaç sahibi gibi davranmıyor.
+**Bağımlılık:** Faz 22, 38, 42.3–42.10. Şirket seçicisi bu fazda; tam ulusal strateji entegrasyonu Faz 55–58'de kapanır.
+
+### FAZ 42.12 — Oyuncu Teknoloji Çalışma Alanı
+
+**Amaç:** Oyuncuya ham 1.300 satır yerine neden/kanıt/erişim/uygulama/tüketici zinciri ve yetkili eylem sunmak.
+**Çıktı:** Alan görünümü, teknoloji dosyası, aşağı yönlü tüketici grafı, program/aktör/tesis/kanıt/lisans/uygulama/kurulu taban ve belirsizlik kartları.
+**Kabul kapısı:** Oyuncu “EUV şu an neden önemli?”, “kim biliyor?”, “neden üretemiyorum?”, “hangi kanıta güveniyorum?” ve “hangi bedelli eylemi yapabilirim?” sorularını bulabiliyor; rolü dışında gizli şirket veya devlet bilgisi sızmıyor.
+**Bağımlılık:** Faz 4.1, 10.1, 38.5, 42.1–42.11, 59–60 tam rol görünümünde genişletilir.
+
+### FAZ 42.13 — 2032 Tarihsel Teknoloji Başlangıç Dünyası
+
+**Amaç:** Mevcut `2032` oyun başlangıcını 2010–2031 kaynak geçmişinden türetilmiş makul teknoloji dünyasıyla başlatmak.
+**Çıktı:** Başlangıç programları, kanıtlar, patent/lisanslar, şirket/kurum kabiliyet erişimleri, tesis konfigürasyonları, kurulu taban ve kaynaklı aktör inançları.
+**Kabul kapısı:** 2010 oynanabilir başlangıç olarak zorla getirilmez; 2010–2031 arka planı 2032 seed'ini açıklar. Ülkeler aynı evrensel teknoloji seviyesine sahip değildir; tarihsel kaynak ve belirsizlik ayrıdır.
+**Bağımlılık:** Faz 42.1–42.12.
+
+### FAZ 42.14 — 2032–2100 Uzun Dönem Teknoloji Çeşitliliği
+
+**Amaç:** Teknolojinin tek gelecek yoluna ve oyuncunun tek baskın açılışına yakınsamasını önlemek.
+**Çıktı:** Çok tohumlu uzun koşu, teknoloji/uygulama/kurulu taban parmak izi, AI/yeşil/transhümanist/kurumsal/gözetim/uzay/post-emek/dağıtık/biyo/sanal/insancıl gelecek kümeleri.
+**Kabul kapısı:** En az 100 on-yıllık kampanya aynı 2050/2100 kabiliyet, uygulama ve kurulu taban bileşimine yığılmıyor; farklılık yalnız isim değil gerçek ekonomi, toplum, kurum, medya ve varlık sonucudur. Hilesiz AI ve oyuncu aynı fiziksel kurallara tabidir.
+**Bağımlılık:** Faz 42.1–42.13, Faz 55–58.2 ve tam dünya entegrasyonu sonrası nihai kabul.
+
+### Açık teknoloji borçları
+
+- `100 × 13 = 1.300` eski katalog yalnız içerik kaynağıdır; `TechnologyNodeV2` DAG'ına aile bazında yeniden yazılmalı ve her düğüm tarihsel/teknik kaynak denetiminden geçmelidir.
+- İlk kodlama bütün katalog değil, yarı iletken–AI–otomasyon mini dikeyidir. Bu dikey geçmeden içerik sayısı başarı sayılmaz.
+- `ResearchEvidenceV1`, `CapabilityAccessGrantV1` ve `ApplicationDeploymentReceiptV1` uygulama öncesi kesin şemaya bağlanmalıdır.
+- Kanıt defteri için budama/toplulaştırma, negatif tekrar ve tarihsel dönüm noktası saklama politikası gereklidir.
+- Kabiliyet seviyesi enerji yoğunluğu, güvenlik, maliyet veya sıcaklık gibi fiziksel olarak farklı boyutları tek puanda yanlış eşitlememelidir.
+- Uygulama kuralındaki serbest `GameplayResult` metinleri makine etkisi değildir; domain adaptörü ve doğrulanmış makbuz gerekir.
+- Bütün edinim yollarının her düğümde açık olması yasaktır; teknolojiye özgü edinim politikası ve farklı çıktı paketi gerekir.
+- Hukuk/ruhsat string'leri kanonik RuleID kataloğuna taşınmalıdır; yetki, yürürlük ve enforcement kapasitesi ayrılmalıdır.
+- Hype ve kültürel iklim Faz 39–42 medya gerçeklerinden beslenmelidir; teknoloji modülü paralel medya veya kamuoyu gerçeği üretmemelidir.
+- Statik katalog kayda yazılmamalı; sürüm/checksum göçü ve bozuk/eksik katalog güvenli reddi zorunludur.
+- Yalnız aktif program, değişen uygulama, yeni kanıt ve seyrek inanç tik almalıdır; `1.300 × aktör × her tik` taraması yasaktır.
+- Askerî teknoloji, bonus etiketiyle taktik motoru değiştirmemeli; Faz 47–50 manifestosu ve aynı savaş motoru sözleşmesi üzerinden ekipman/kabiliyet taşımalıdır.
 
 ---
 

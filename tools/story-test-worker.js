@@ -22,8 +22,15 @@ async function execute(message) {
         const payload = v8.serialize(result);
         fs.writeFileSync(message.outputPath, payload);
         const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
-        if (global.gc) global.gc();
-        send({ type: 'done', taskId: message.taskId, key: message.key, elapsedMs, bytes: payload.length, memory: process.memoryUsage() });
+        const memory = process.memoryUsage();
+        // Büyük 900 sn sonuçlarında tam GC, yoğun CPU altında sonucu diske
+        // yazdıktan sonra işçiyi dakikalarca kilitleyebiliyor. Sonucu önce
+        // ana sürece bildir; büyük nesne grafı taşıyan işçiyi havuz yenilesin.
+        send({
+            type: 'done', taskId: message.taskId, key: message.key,
+            elapsedMs, bytes: payload.length, memory,
+            recycleRecommended: payload.length >= 8 * 1024 * 1024
+        });
     } catch (error) {
         send({ type: 'error', taskId: message.taskId, key: message.key, error: { message: error.message, stack: error.stack } });
     } finally {
