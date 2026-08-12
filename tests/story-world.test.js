@@ -4202,6 +4202,24 @@ function run() {
     assert.equal(cohortPromotionProbe.saveLoadPreserved, true,
         'Faz 38.11: kohort–karakter bağı save/load sonrasında korunmalı.');
 
+    const activationBudgetProbe = storyTestResult(
+        'characterActivationBudgetProbe', probeCharacterActivationBudget
+    );
+    assert.equal(activationBudgetProbe.onePromotionPerTick, true,
+        'Faz 38.11: tek aktivasyon tikinde en fazla bir isimli karakter yükselmeli.');
+    assert.equal(activationBudgetProbe.countryCapEnforced, true,
+        'Faz 38.11: tek ülke isimli temsilci kotasını aşmamalı.');
+    assert.equal(activationBudgetProbe.worldAndHighResolutionBounded, true,
+        'Faz 38.11: dünya ve yüksek çözünürlük karakter bütçeleri sınırlı kalmalı.');
+    assert.equal(activationBudgetProbe.noLlmCalls, true,
+        'Faz 38.11: simülasyon LOD yükseltmesi LLM çağrısı yapmamalı.');
+    assert.equal(activationBudgetProbe.schedulerRegistered, true,
+        'Faz 38.11: aktivasyon görevi davranıştan sonra, eylemden önce 15 saniyede çalışmalı.');
+    assert.equal(activationBudgetProbe.activationLedgerValid, true,
+        'Faz 38.11: bütçeli otomatik yükseltme geçerli aktivasyon defteri üretmeli.');
+    assert.equal(activationBudgetProbe.physicalPopulationUntouched, true,
+        'Faz 38.11: otomatik yükseltme fiziksel kohort nüfusunu değiştirmemeli.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );

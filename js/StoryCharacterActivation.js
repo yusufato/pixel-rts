@@ -7,6 +7,13 @@
 const STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION = 1;
 const STORY_CHARACTER_ACTIVATION_ADAPTER_VERSION = 'story-character-activation-ledger-1';
 const STORY_CHARACTER_ACTIVATION_PROMOTABLE = Object.freeze(['RELEVANT', 'MAJOR', 'WORLD']);
+const STORY_CHARACTER_ACTIVATION_BUDGET = Object.freeze({
+    worldNamedRepresentatives: 64,
+    countryNamedRepresentatives: 8,
+    highResolutionActors: 16,
+    promotionsPerTick: 1,
+    tickSeconds: 15
+});
 const STORY_CHARACTER_ACTIVATION_LEVELS = Object.freeze([
     'AGGREGATE', 'MINOR', 'RELEVANT', 'MAJOR', 'WORLD'
 ]);
@@ -283,5 +290,67 @@ function storyCharacterActivationRosterView() {
     return {
         ok: true, code: 'ACTIVATED_CHARACTER_ROSTER', actors,
         canonicalLedgersReadOnly: true, worldMutation: false
+    };
+}
+
+function storyCharacterActivationBudgetView() {
+    const ledger = STORY.characterActivation
+        || storyCharacterActivationLedgerCreate({ backfilled: true });
+    const roster = storyCharacterActivationRosterView();
+    const promotions = Object.values(ledger.promotions || {});
+    const byCountry = {};
+    for (const row of promotions) byCountry[row.countryId] = (byCountry[row.countryId] || 0) + 1;
+    const highResolution = (roster.actors || []).filter(row => row.expensiveDecisionEligible).length;
+    return {
+        policy: storyCharacterActivationClone(STORY_CHARACTER_ACTIVATION_BUDGET),
+        namedRepresentativeCount: promotions.length,
+        countryCounts: byCountry,
+        highResolutionActorCount: highResolution,
+        remainingWorldSlots: Math.max(0,
+            STORY_CHARACTER_ACTIVATION_BUDGET.worldNamedRepresentatives - promotions.length),
+        remainingHighResolutionSlots: Math.max(0,
+            STORY_CHARACTER_ACTIVATION_BUDGET.highResolutionActors - highResolution),
+        llmEligibility: 'WORLD_ONLY_SEPARATE_REASONING_GATE_REQUIRED',
+        worldMutation: false
+    };
+}
+function storyCharacterActivationTick() {
+    if (!storyCharacterActivationEnabled()) return {
+        promotedCount: 0, code: 'FEATURE_DISABLED', worldMutation: false
+    };
+    const candidates = storyCharacterActivationCandidates().candidates
+        .filter(row => row.promotable && !row.identityActorId);
+    const promoted = [];
+    const skipped = [];
+    for (const candidate of candidates) {
+        if (promoted.length >= STORY_CHARACTER_ACTIVATION_BUDGET.promotionsPerTick) break;
+        const budget = storyCharacterActivationBudgetView();
+        const countryCount = Number(budget.countryCounts[candidate.countryId]) || 0;
+        if (budget.remainingWorldSlots <= 0) {
+            skipped.push({ candidateId: candidate.id, reason: 'WORLD_NAMED_BUDGET_EXHAUSTED' });
+            continue;
+        }
+        if (countryCount >= STORY_CHARACTER_ACTIVATION_BUDGET.countryNamedRepresentatives) {
+            skipped.push({ candidateId: candidate.id, reason: 'COUNTRY_NAMED_BUDGET_EXHAUSTED' });
+            continue;
+        }
+        if (['MAJOR', 'WORLD'].includes(candidate.level)
+            && budget.remainingHighResolutionSlots <= 0) {
+            skipped.push({ candidateId: candidate.id, reason: 'HIGH_RESOLUTION_BUDGET_EXHAUSTED' });
+            continue;
+        }
+        const result = storyCharacterActivationPromote(candidate.id);
+        if (result.ok && !result.duplicate) promoted.push(result.promotion);
+        else skipped.push({ candidateId: candidate.id, reason: result.code });
+    }
+    return {
+        promotedCount: promoted.length,
+        promotionIds: promoted.map(row => row.id),
+        skipped: skipped.slice(0, 32),
+        evaluatedCandidateCount: candidates.length,
+        promotionsPerTickCap: STORY_CHARACTER_ACTIVATION_BUDGET.promotionsPerTick,
+        llmCalls: 0,
+        code: promoted.length ? 'AUTOMATIC_PROMOTION_APPLIED' : 'NO_PROMOTION_APPLIED',
+        worldMutation: promoted.length > 0
     };
 }

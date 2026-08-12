@@ -517,7 +517,7 @@ function storyNewCampaign(config = {}) {
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterBehavior', '_accCharacterActions', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterBehavior', '_accCharacterActivation', '_accCharacterActions', '_accSiege', '_accTech',
         '_accNegotiationDeadlines',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
@@ -1592,6 +1592,8 @@ function storyAdvanceStep(dtSec) {
     if (_politicalCrisisDt > 0 && typeof storyPoliticalCrisisTick === 'function') storyPoliticalCrisisTick(_politicalCrisisDt); // Faz 33 aktor, hazirlik, koalisyon ve karsi hamle zinciri
     const _characterBehaviorDt = _storyDue('character-behavior', '_accCharacterBehavior', 5);
     if (_characterBehaviorDt > 0 && typeof storyCharacterBehaviorTick === 'function') storyCharacterBehaviorTick(_characterBehaviorDt); // Faz 38.7 kaynakli ve sonumlenen gecici stres
+    const _characterActivationDt = _storyDue('character-activation', '_accCharacterActivation', 15);
+    if (_characterActivationDt > 0 && typeof storyCharacterActivationTick === 'function') storyCharacterActivationTick(); // Faz 38.11 kanitli ve butceli simulation LOD yukselmesi
     const _characterActionDt = _storyDue('character-actions', '_accCharacterActions', 10);
     if (_characterActionDt > 0 && typeof storyCharacterActionTick === 'function') storyCharacterActionTick(_characterActionDt); // Faz 37 deterministik, hilesiz ve sinirli karakter eylemi secimi
     const _negotiationDt = _storyDue('negotiation-deadlines', '_accNegotiationDeadlines', 5);

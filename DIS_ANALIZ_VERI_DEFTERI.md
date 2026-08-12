@@ -686,3 +686,18 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Aynı aday aynı deterministik aktör kimliğine gider ve ikinci çağrı ikinci kişi yaratmaz. Aktivasyon ve kimlik defterleri kaynak kohort/hareket üzerinden birbirini doğrular.
 - Kaynak olay sönünce karakter silinmez; pahalı karar uygunluğu kapanır ve etkin düzey `MINOR` olur. Hafıza ile ilişki korunur.
 - Yeni kampanya önceki oyunun promosyonlarını taşımaz. Save/load ise aktör ve aktivasyon kaydını birlikte korur; yetim referanslı bozuk kayıt reddedilir.
+
+### 12 Ağustos 2026 — Dış analiz: Character Mind Architecture ve simulation LOD
+
+- Analizin ana teşhisi doğru: oyuncu “AI skor 82 olduğu için yaptı” değil, “bu karakter geçmişteki borç/kin/korku ve yanlış bilgisi yüzünden yaptı” diyebilmelidir.
+- Skor tamamen kaldırılmaz; aday eleme, LOD ve performans bütçesi için gerekir. Karar iradesi gibi sunulmaz ve açıklama izi yerine geçmez.
+- Yeni kişilik modifier'ları hemen eklenmez. Cesaret, açgözlülük, kıskançlık ve intikam önce mevcut eksenler, hedefler, hafıza, ActorBelief, stres ve ilişki kanallarına karşı bilgi kazancı testinden geçmelidir.
+- Dünya tek devlet AI'sından değil karakter ↔ organizasyon ↔ devlet ↔ toplum geri beslemesinden karar üretmelidir. Faz 38.9 kurum karar zinciri bunun mekanik kapısıdır.
+- Simulation LOD: bütün dünya ucuz deterministik simülasyon; sınırlı MAJOR/WORLD kadro bilişsel planlama; yalnız seyrek WORLD kararları ayrı gizlilik/hakem kapısından 8B akıl yürütme. LLM sayı, gerçek, yetki ve sonuç yazmaz.
+
+### 12 Ağustos 2026 — Faz 38.11 otomatik aktivasyon bütçesi
+
+- Aktivasyon görevi her 15 saniyede, karakter davranışından sonra ve eylem seçiminden önce çalışır.
+- Tik başına 1, ülke başına 8, dünya genelinde 64 isimli temsilci ve eşzamanlı 16 yüksek çözünürlük tavanı vardır.
+- Dokuz güçlü aynı-ülke adayında sekiz yükseldi, dokuzuncu ülke bütçesinde kaldı; nüfus mutasyonu ve LLM çağrısı sıfırdı.
+- Bu sayılar nihai denge değildir. 900 saniye ve uzun yıllı doğal dağılım görülmeden tavanlar yükseltilmemelidir.

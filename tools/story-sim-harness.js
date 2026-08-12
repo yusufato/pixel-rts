@@ -586,6 +586,8 @@ function createRuntime(seed) {
             characterActivationPromote: candidateId => storyCharacterActivationPromote(candidateId),
             characterActivationLedger: () => storyCharacterActivationSnapshot(),
             characterActivationRoster: () => storyCharacterActivationRosterView(),
+            characterActivationBudget: () => storyCharacterActivationBudgetView(),
+            characterActivationTick: () => storyCharacterActivationTick(),
             validateCharacterActivationLedger: ledger => storyCharacterActivationValidate(ledger),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
@@ -3379,7 +3381,7 @@ function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
         'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'character-behavior', 'character-actions', 'negotiation-deadlines', 'siege', 'technology',
+        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'character-behavior', 'character-activation', 'character-actions', 'negotiation-deadlines', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -14979,6 +14981,65 @@ function probeCharacterCohortPromotion(seed = 2032) {
     return result;
 }
 
+function probeCharacterActivationBudget(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const countryId = Object.keys(story.population.countries || {}).sort()[0];
+        const regions = Object.values(story.population.regions || {})
+            .filter(row => row.countryId === countryId).sort((a, b) =>
+                a.regionId.localeCompare(b.regionId, 'en')).slice(0, 9);
+        for (const [index, region] of regions.entries()) {
+            story.collectiveAction.regions[region.regionId].participations = [{
+                movementId: `movement:budget-fixture:${index}`,
+                problemType: 'WORKING_CONDITIONS', blamedActorId: 'power-center:fixture',
+                localSeverityBps: 9200 - index, localAffectedPeople: 300,
+                stage: 'UPRISING', mobilizationBps: 9000 - index,
+                radicalizationBps: 7600
+            }];
+        }
+        const tickResults = [];
+        for (let index = 0; index < 10; index++) tickResults.push(
+            runtime.api.characterActivationTick()
+        );
+        const budget = runtime.api.characterActivationBudget();
+        const ledger = runtime.api.characterActivationLedger();
+        const countryPromotions = Object.values(ledger.promotions || {})
+            .filter(row => row.countryId === countryId);
+        const scheduler = runtime.api.schedulerSnapshot();
+        result = {
+            onePromotionPerTick: tickResults.every(row => row.promotedCount <= 1
+                && row.promotionsPerTickCap === 1),
+            countryCapEnforced: regions.length === 9 && countryPromotions.length === 8
+                && budget.countryCounts[countryId] === 8
+                && tickResults.some(row => row.skipped.some(skip =>
+                    skip.reason === 'COUNTRY_NAMED_BUDGET_EXHAUSTED')),
+            worldAndHighResolutionBounded: budget.namedRepresentativeCount <= 64
+                && budget.highResolutionActorCount <= 16
+                && budget.policy.worldNamedRepresentatives === 64
+                && budget.policy.highResolutionActors === 16,
+            noLlmCalls: tickResults.every(row => row.llmCalls === 0)
+                && budget.llmEligibility === 'WORLD_ONLY_SEPARATE_REASONING_GATE_REQUIRED',
+            schedulerRegistered: scheduler.taskOrder.includes('character-activation')
+                && scheduler.tasks['character-activation'].intervalSeconds === 15
+                && scheduler.taskOrder.indexOf('character-activation')
+                    > scheduler.taskOrder.indexOf('character-behavior')
+                && scheduler.taskOrder.indexOf('character-activation')
+                    < scheduler.taskOrder.indexOf('character-actions'),
+            activationLedgerValid: runtime.api.validateCharacterActivationLedger(ledger).ok,
+            physicalPopulationUntouched: Object.values(story.population.regions || {})
+                .every(region => region.populationPeople === region.cohorts.reduce((sum, cohort) =>
+                    sum + cohort.membersPeople, 0))
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -17241,6 +17302,7 @@ module.exports = {
     probeCharacterLifeStatus,
     probeCharacterCohortActivation,
     probeCharacterCohortPromotion,
+    probeCharacterActivationBudget,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
