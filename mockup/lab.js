@@ -33,10 +33,10 @@
         7: { y: '02', k: 'a', t: 'Muharebe kaydı aria-live taşımıyor',
              kod: 'index.html:434 · yalnız #battle-target-card aria-live taşıyor' },
         /* ── 02 SAVAŞ HUD — Katman B (görsel) ───────────────────────────── */
-        8: { y: '02', k: 'b', t: 'Legacy mavi kalıntılar: minimap kenarlığı, kamera ipucu, spawn hover glow',
-             kod: 'style.css:1-570 mavi blok ezilmemiş · .spawn-btn hover rgba(60,140,255,.3)' },
-        9: { y: '02', k: 'b', t: 'Duraklatma modalı ve öğrenme bildirimi tamamen inline stil (mavi + system-ui)',
-             kod: 'js/main.js:722-747 #12161c · js/main.js:756-769 #8ecbff, z-index 99999' },
+        8: { y: '02', k: 'b', t: 'Legacy kalıntılar: .spawn-cat HİÇ ezilmemiş (yeşil), savaşta .spawn-btn:hover mavi, kamera ipucu savaşta token\'sız',
+             kod: 'style.css:235-237 .spawn-cat rgba(120,200,140,.35)/12px/r5 — war-room override YOK · :277 hover rgba(60,140,255,.3) savaşta geçerli · :130-142 ipucu 7px/#888, yalnız :1777 deploy\'da ezilmiş' },
+        9: { y: '02', k: 'b', t: 'Duraklatma modalı ve öğrenme bildirimi tamamen inline stil; modalın KENDİ İÇİNDE iki font var',
+             kod: 'js/main.js:727-739 inline #12161c/r12, başlık font-family:inherit→Press Start 2P ama butonlarda font-family YOK→sistem sans · js/main.js:761-763 bildirim #8ecbff/14px system-ui/z-index 99999 · gerçek çekim: qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png' },
         10: { y: '02', k: 'b', t: '7-9px yazı boyutları — HUD\'un yarısı okunamıyor',
               kod: 'style.css:1845 8px · :1870 7px · :1884 9px · :1893 7px' },
         11: { y: '02', k: 'b', t: ':focus-visible hover ile birebir aynı → klavye odağı görünmüyor',
@@ -59,16 +59,20 @@
         /* ── 03 HİKAYE DÜNYASI — Katman B ───────────────────────────────── */
         19: { y: '03', k: 'b', t: 'Eski mavi hikaye bloğu duruyor; #story-hud/#story-news/#story-tools İKİ KEZ tanımlı',
               kod: 'style.css:1005-1185 eski · :1181+ war-room ezmesi' },
+        24: { y: '03', k: 'a', t: 'Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor (1650px altındaki HER masaüstü genişliğinde)',
+              kod: 'style.css:1206 #story-stats justify-content:flex-end + overflow yok · :1207 .story-stat-chip min-width:92px · ÖLÇÜLDÜ (9 çip, içerik 1070px): 1100→549px taşma · 1280→369px · 1440→209px · 1600→49px · kanıt qa-runtime/mockup-baseline/kusur-16-akis-sekmesi.png' },
         /* ── 04 GÖRÜŞME ─────────────────────────────────────────────────── */
         20: { y: '04', k: 'a', t: 'İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor',
               kod: 'MODERN_DUNYA_EKSIKLERI.md MW-014 · js/Talks.js:1270 profil yalnız statik' },
         21: { y: '04', k: 'a', t: 'Kayıtlı oturum sayısı artınca geçmiş sütununda arama/filtre yok',
               kod: 'js/Talks.js:1549 storyTalkConversationHistoryHtml düz liste' },
         /* ── 01 MENÜ + KURULUM ──────────────────────────────────────────── */
-        22: { y: '01', k: 'a', t: '12 soruluk karakter akışında ilerleme/geri alma görünmüyor',
-              kod: 'js/Character.js:549 charRender · index.html:71,:80 adım göstergesi yalnız 3 adım' },
+        22: { y: '01', k: 'a', t: '12 soruluk akışta GERİ ALMA yok, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız',
+              kod: 'js/Character.js:601-625 seçenek tıklanınca decisions\'a yazılıp ilerliyor, dönüş yolu yok · :596 sayaç başlık satırının içinde (tema geçişi ve rol-başı dağılım :392-399 görünmüyor) · index.html:81 adım 2 = "BRİFİNG" ama :73 aynı adım = "KARAKTER"' },
         23: { y: '01', k: 'b', t: 'Yeni tipografi ölçeği uzun Türkçe etiketlerde kırpma yapmamalı',
-              kod: 'design-qa.md:20 mevcut kabul ölçütü' }
+              kod: 'design-qa.md:20 mevcut kabul ölçütü' },
+        25: { y: '01', k: 'a', t: 'KAMPANYAYI BAŞLATAN BUTON 916×572\'de EKRAN DIŞINDA ve kaydırma yok — oyun başlatılamıyor',
+              kod: 'ÖLÇÜLDÜ (gerçek giriş yolu, 8 devlet kartı dolu): #btn-story-start alt kenarı 632px / viewport 572px → 60px altta · style.css:919 .wr-setup-layout overflow YOK, height:calc(100% - 92px) sabit · .app-screen overflow:hidden (style.css:589) → kırpıyor · kurtarıcı kural style.css:994 yalnız @media(max-width:900px) altında, 916px\'te uygulanmıyor · kanıt qa-runtime/mockup-baseline/kusur-25-baslat-butonu-916x572.png' }
     };
 
     var VIEWPORTS = [
@@ -80,7 +84,7 @@
     var params = new URLSearchParams(global.location.search);
     var state = {
         katman: params.get('katman') === 'b' ? 'b' : 'a',
-        vp: parseInt(params.get('vp'), 10) || 916,
+        vp: parseInt(params.get('vp'), 10) || 0,   /* 0 → sayfanın kendi varsayılanı */
         pins: params.get('pin') !== 'off',
         crt: parseFloat(params.get('crt'))
     };
@@ -92,12 +96,17 @@
         return n;
     }
 
+    /* URL'i güncel tut ki "şu anki görünümü" kopyala-yapıştır ile paylaşabilelim.
+       file:// altında replaceState SecurityError atar (Chrome ve jsdom) — sessizce
+       yutulur, çünkü mockup'ın birincil açılış yolu tam da file://. */
     function setUrl() {
         var p = new URLSearchParams();
         p.set('katman', state.katman);
         p.set('vp', String(state.vp));
         if (!state.pins) p.set('pin', 'off');
-        history.replaceState(null, '', location.pathname + '?' + p.toString());
+        try {
+            history.replaceState(null, '', location.pathname + '?' + p.toString());
+        } catch (e) { /* file:// — adres çubuğu güncellenmez, işlev etkilenmez */ }
     }
 
     /* ── SAHNE ÖLÇEKLEME ──────────────────────────────────────────────────
@@ -177,6 +186,9 @@
     function collectSeen() {
         var seen = {};
         Array.prototype.forEach.call(document.querySelectorAll('[data-kusur]'), function (host) {
+            /* Gizli katmandaki pinler sayılmaz — yoksa kapsama kapısı, o an
+               ekranda olmayan bir sahneyle kandırılabilir. */
+            if (host.closest('[hidden]')) return;
             host.getAttribute('data-kusur').split(',').forEach(function (s) {
                 var n = s.trim();
                 seen[n] = (seen[n] || 0) + 1;
@@ -199,14 +211,35 @@
     /* ── KAPI 2: YATAY TAŞMA ─────────────────────────────────────────────
        design-qa.md:15'teki mevcut kabul ölçütünün aynısı: hiçbir viewport'ta
        yatay taşma olmayacak. Sahne overflow:hidden olduğu için scrollWidth
-       yerine her çocuğun sahne kutusunu aşıp aşmadığına bakılır. */
+       yerine her çocuğun sahne kutusunu aşıp aşmadığına bakılır.
+
+       YALNIZ ÖNERİ SAHNELERİ ölçülür (data-gate="on"). "ŞU AN" sahneleri
+       mevcut kusurları bilerek yeniden ürettiği için onları ölçmek kapıyı
+       sürekli kırmızıda tutar ve sinyali yok eder. */
     function gateOverflow() {
         var kotu = [];
-        Array.prototype.forEach.call(document.querySelectorAll('.stage'), function (stage) {
+        Array.prototype.forEach.call(document.querySelectorAll('[data-gate="on"] .stage'), function (stage) {
+            if (stage.closest('[hidden]')) return;
             var sw = stage.clientWidth, sh = stage.clientHeight;
+            /* Kaydırılabilir bir ata içindeki öğe TAŞMA sayılmaz: içerik
+               erişilebilir durumda. Ama overflow:hidden bir ata içindeyse
+               içerik KESİLİYOR ve oyuncu ona hiç ulaşamıyor — o gerçek kusur.
+               Bu ayrım gerçek Chromium ölçümünde şart oldu: hikaye gündem
+               listesi zaten kaydırmalı (style.css:1298), oysa karakter ekranı
+               kaydırmasız kesiliyor. */
+            function kaydirilabilirAtaVar(n) {
+                for (var p = n.parentNode; p && p !== stage; p = p.parentNode) {
+                    if (p.nodeType !== 1) break;
+                    var o = global.getComputedStyle(p);
+                    var ov = o.overflowY + ' ' + o.overflowX;
+                    if (ov.indexOf('auto') >= 0 || ov.indexOf('scroll') >= 0) return true;
+                }
+                return false;
+            }
             Array.prototype.forEach.call(stage.querySelectorAll('*'), function (n) {
                 if (n.classList.contains('lab-pin')) return;
                 if (n.offsetParent === null) return;
+                if (kaydirilabilirAtaVar(n)) return;
                 var r = n.getBoundingClientRect();
                 var sr = stage.getBoundingClientRect();
                 var scale = sr.width / sw || 1;
@@ -223,13 +256,34 @@
 
     /* ── KAPI 3: FONT ────────────────────────────────────────────────────
        assets/fonts/*.woff2 file:// altında çözülmezse mockup sistem fontuna
-       düşer ve ölçtüğün her satır yalan olur. */
-    function gateFont() {
-        if (!document.fonts || !document.fonts.check) return { ok: null };
-        var a = document.fonts.check('12px "Share Tech Mono"');
-        var b = document.fonts.check('12px "Press Start 2P"');
-        return { ok: a && b, stm: a, ps2p: b };
+       düşer ve ölçtüğün her satır yalan olur.
+
+       DİKKAT: yalnız check() yetmez. font-display:swap ile tanımlı bir font,
+       sayfada henüz KULLANILMADIYSA yüklenmez ve check() false döner — gerçek
+       Chromium'da bu yanlış alarm ölçüldü (Press Start 2P yalnız katman B'deki
+       bir başlıkta kullanılıyordu). Kapı önce load() ile yüklemeyi dener,
+       sonra bakar: sorduğumuz şey "dosya çözülüyor mu", "şu an boyanıyor mu"
+       değil. */
+    var fontDurum = { ok: null, stm: null, ps2p: null, yukleniyor: false };
+    function fontYukle(sonra) {
+        if (!document.fonts || !document.fonts.load) { fontDurum.ok = null; return; }
+        if (fontDurum.yukleniyor) return;
+        fontDurum.yukleniyor = true;
+        Promise.all([
+            document.fonts.load('12px "Share Tech Mono"', 'ABC'),
+            document.fonts.load('12px "Press Start 2P"', 'ABC')
+        ]).then(function (yuzler) {
+            fontDurum.stm = yuzler[0].length > 0;
+            fontDurum.ps2p = yuzler[1].length > 0;
+            fontDurum.ok = fontDurum.stm && fontDurum.ps2p;
+            fontDurum.yukleniyor = false;
+            if (sonra) sonra();
+        }, function () {
+            fontDurum.ok = false; fontDurum.yukleniyor = false;
+            if (sonra) sonra();
+        });
     }
+    function gateFont() { return fontDurum; }
 
     function runGates(yuzey) {
         var out = [];
@@ -239,11 +293,11 @@
                                : 'pinsiz kusur: ' + cov.eksik.join(', ') });
         var ov = gateOverflow();
         out.push({ ad: 'TAŞMA', ok: ov.ok,
-                   msg: ov.ok ? state.vp + 'px sahnede taşma yok' : ov.kotu.slice(0, 4).join(' | ') });
+                   msg: ov.ok ? state.vp + 'px öneri sahnelerinde taşma yok' : ov.kotu.slice(0, 4).join(' | ') });
         var f = gateFont();
         out.push({ ad: 'FONT', ok: f.ok,
-                   msg: f.ok === null ? 'tarayıcı desteklemiyor'
-                        : (f.ok ? 'Share Tech Mono + Press Start 2P yüklü'
+                   msg: f.ok === null ? (f.yukleniyor ? 'yükleniyor…' : 'tarayıcı desteklemiyor')
+                        : (f.ok ? 'Share Tech Mono + Press Start 2P çözüldü (file://)'
                                 : 'EKSİK → STM:' + f.stm + ' PS2P:' + f.ps2p) });
         return out;
     }
@@ -317,6 +371,14 @@
             document.documentElement.style.setProperty('--wr-crt-alpha', sl.value);
             document.documentElement.style.setProperty('--wr-crt-vignette', String(Math.min(0.8, sl.value * 2.1)));
             val.textContent = sl.value;
+            /* Sahnede bu ayarı GÖSTEREN bir kontrol varsa onu da sürer — mockup'taki
+               kaydırıcı gerçek bir ayar gibi davransın diye. */
+            Array.prototype.forEach.call(document.querySelectorAll('[data-crt-value]'), function (n) {
+                n.textContent = (+sl.value).toFixed(2);
+            });
+            Array.prototype.forEach.call(document.querySelectorAll('[data-crt-fill]'), function (n) {
+                n.style.width = Math.round((sl.value / +sl.max) * 100) + '%';
+            });
         };
         gC.appendChild(sl); gC.appendChild(val);
         bar.appendChild(gC);
@@ -365,9 +427,13 @@
         KUSURLAR: KUSURLAR,
         VIEWPORTS: VIEWPORTS,
         init: function (cfg) {
+            /* URL'de vp yoksa sayfanın kendi doğal ölçüsü kullanılır: savaş HUD'u
+               916'da, hikaye 1280'de, görüşme modalı 1903'te tasarlandı. */
+            if (!state.vp) state.vp = cfg.vp || 916;
             function boot() {
                 refs = buildBar(cfg);
                 apply(cfg);
+                fontYukle(function () { paintGates(cfg.yuzey); });
                 global.addEventListener('resize', function () {
                     layoutScenes();
                     paintGates(cfg.yuzey);

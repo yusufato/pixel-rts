@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>04 · Görüşme çalışma alanı — Mockup</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="lab.css">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   "ŞU AN" YENİDEN İNŞASI — style.css:2179-2263 birebir
+   Bu yüzey projedeki en çok iterasyon görmüş ekran (qa-runtime/conversation-ui*
+   beş tur) ve design-qa.md'de "passed". Buradaki iş YENİDEN TASARIM DEĞİL,
+   eksik iki merceği eklemek.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.stage { font-family: var(--wr-font-hud); background: #060a06; }
+
+.c-modal { position: absolute; inset: 0; display: grid; place-items: center;
+    padding: 24px; background: rgba(0,4,2,.82); }
+.c-shell { width: min(1180px, calc(100% - 48px)); height: min(760px, calc(100% - 48px));
+    min-height: 520px; display: grid; grid-template-rows: auto minmax(0,1fr);
+    overflow: hidden; border: 1px solid var(--wr-amber); border-left: 4px solid var(--wr-amber);
+    border-radius: 5px; background: #06100a; box-shadow: 0 28px 90px rgba(0,0,0,.82);
+    color: #dce9df; }
+.c-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+    padding: 16px 18px 14px; border-bottom: 1px solid var(--wr-line); background: #08150e; }
+.c-kicker, .c-sec { display: block; color: var(--wr-amber); font-size: 9px;
+    line-height: 1.2; letter-spacing: 1.7px; }
+.c-head h2 { margin: 5px 0 3px; color: #ffe9bf; font-size: 21px; font-weight: 400; letter-spacing: .7px; }
+.c-head p { color: #819287; font-size: 10px; }
+.c-layout { min-height: 0; display: grid;
+    grid-template-columns: minmax(205px,.72fr) minmax(420px,1.65fr) minmax(245px,.92fr); }
+.c-col { min-width: 0; min-height: 0; overflow: hidden; padding: 16px; }
+.c-profile { border-right: 1px solid var(--wr-line); background: rgba(6,18,11,.72); }
+.c-main    { background: #07110b; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 12px; }
+.c-history { border-left: 1px solid var(--wr-line); background: rgba(3,11,7,.82); }
+.c-sec { margin: 0 0 9px; }
+
+.c-card { margin-bottom: 18px; padding: 12px; border: 1px solid rgba(255,176,0,.28);
+    border-left: 3px solid var(--wr-amber); background: rgba(255,176,0,.035); }
+.c-card .st { color: #4cff7c; font-size: 8px; letter-spacing: 1.2px; }
+.c-card.bilinmiyor { border-left-color: var(--wr-dim); }
+.c-card.bilinmiyor .st { color: var(--wr-dim); }
+.c-card h3 { margin: 7px 0 3px; color: #f4f0df; font-size: 16px; font-weight: 400; }
+.c-card p { margin: 0 0 12px; color: #91a397; font-size: 10px; line-height: 1.4; }
+.c-card dl { display: grid; gap: 8px; }
+.c-card dl div { padding-top: 7px; border-top: 1px solid rgba(255,255,255,.06); }
+.c-card dt { color: #697a70; font-size: 8px; letter-spacing: 1px; }
+.c-card dd { margin: 3px 0 0; color: #cbd8ce; font-size: 10px; }
+
+.c-trans { overflow: hidden; border: 1px solid var(--wr-line); background: rgba(0,0,0,.25); padding: 12px; }
+.c-line { padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 11px; line-height: 1.5; }
+.c-line b { display: block; color: var(--wr-amber); font-size: 8px; font-weight: 400;
+    letter-spacing: 1.2px; margin-bottom: 3px; }
+.c-line.ben b { color: #4cff7c; }
+
+.c-opts { display: flex; flex-direction: column; gap: 5px; }
+.c-opt { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+    padding: 8px 10px; border: 1px solid rgba(255,176,0,.25); background: rgba(255,176,0,.03);
+    color: #dce9df; font: 10px var(--wr-font-hud); text-align: left; cursor: pointer; }
+.c-opt em { font-style: normal; color: #819287; font-size: 8px; white-space: nowrap; }
+
+.c-hist-row { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 10px; color: #cbd8ce; }
+.c-hist-row time { display: block; color: #697a70; font-size: 8px; letter-spacing: 1px; }
+.c-hist-row.aktif { color: #ffe9bf; border-left: 2px solid var(--wr-green); padding-left: 7px; }
+
+/* ═══════════════════════ ÖNERİ — KATMAN B ═══════════════════════ */
+
+/* KUSUR 20 — sol sütun sekmeli: PROFİL | İLİŞKİ.
+   Yeni bir sütun EKLENMEZ: üç sütunlu kompozisyon design-qa.md'de kabul edilmiş,
+   onu bozmak kabul edilmiş bir sonucu geri almak olur. */
+.p-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: -16px -16px 14px;
+    border-bottom: 1px solid var(--wr-line); background: rgba(0,0,0,.25); }
+.p-tab { padding: 9px 0; border: 0; border-bottom: 2px solid transparent; background: transparent;
+    color: var(--wr-dim); font: var(--wr-fs-small) var(--wr-font-hud); letter-spacing: 1.2px; cursor: pointer; }
+.p-tab.active { border-bottom-color: var(--wr-green); color: var(--wr-green); background: rgba(74,222,128,.055); }
+
+.p-zincir { display: flex; flex-direction: column; }
+.p-halka { position: relative; padding: 9px 0 9px 18px; border-left: 1px solid var(--wr-line); }
+.p-halka::before { content: ''; position: absolute; left: -4px; top: 14px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--wr-dim); }
+.p-halka.bozuldu::before   { background: var(--wr-red); box-shadow: 0 0 7px var(--wr-red); }
+.p-halka.yururlukte::before{ background: var(--wr-green); }
+.p-halka.alacakli::before  { background: var(--wr-amber); box-shadow: 0 0 7px var(--wr-amber); }
+.p-halka time { display: block; color: var(--wr-dim); font-size: var(--wr-fs-micro); letter-spacing: 1px; }
+.p-halka .tip { color: var(--wr-amber); font-size: var(--wr-fs-micro); letter-spacing: 1.2px; }
+.p-halka p { margin: 3px 0 4px; color: #cbd8ce; font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); }
+.p-halka .durum { display: inline-block; padding: 0 5px; border: 1px solid currentColor;
+    border-radius: 2px; font-size: var(--wr-fs-micro); letter-spacing: 1px; }
+.p-halka.bozuldu .durum    { color: var(--wr-red); }
+.p-halka.yururlukte .durum { color: var(--wr-green); }
+.p-halka.alacakli .durum   { color: var(--wr-amber); }
+.p-halka.acik .durum       { color: var(--wr-muted); }
+.p-ozet { margin-top: var(--wr-space-3); padding: var(--wr-space-2) var(--wr-space-3);
+    border-left: 2px solid var(--wr-amber); background: rgba(255,176,0,.045);
+    color: var(--wr-muted); font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); }
+.p-ozet b { color: var(--wr-amber-bright); font-weight: 400; }
+
+/* KUSUR 21 — geçmişte arama + tür filtresi + muhataba göre gruplama */
+.p-hist-arac { margin: -4px 0 10px; display: flex; flex-direction: column; gap: 5px; }
+.p-ara { width: 100%; padding: 5px 8px; border: 1px solid var(--wr-line);
+    border-radius: var(--wr-radius-sharp); background: rgba(0,0,0,.35);
+    color: var(--wr-muted); font: var(--wr-fs-small) var(--wr-font-hud); }
+.p-cipler { display: flex; flex-wrap: wrap; gap: 3px; }
+.p-cip { padding: 2px 6px; border: 1px solid var(--wr-line); border-radius: var(--wr-radius-sharp);
+    background: var(--wr-idle); color: var(--wr-muted); font-size: var(--wr-fs-micro); letter-spacing: .8px; }
+.p-cip.secili { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); }
+.p-grup { margin-top: var(--wr-space-3); }
+.p-grup > b { display: block; padding-bottom: 3px; border-bottom: 1px solid var(--wr-line);
+    color: var(--wr-amber); font-size: var(--wr-fs-micro); font-weight: 400; letter-spacing: 1.4px; }
+.p-sayac { margin-top: var(--wr-space-2); color: var(--wr-dim); font-size: var(--wr-fs-micro); }
+
+/* Ölçek uygulanmış varyantlar */
+.p-line { font-size: var(--wr-fs-body); }
+.p-opt  { font-size: var(--wr-fs-small); min-height: var(--wr-hit-min); }
+.p-opt em { font-size: var(--wr-fs-micro); }
+
+.wf-abs { position: absolute; }
+</style>
+</head>
+<body data-katman="a" data-pins="on">
+
+<div class="lab-scenes">
+
+<!-- ═══════════════════ SAHNE 1 — ŞU AN ═══════════════════ -->
+<section class="lab-scene" data-gate="off">
+    <header>
+        <h2>1 · ŞU AN — üç sütunlu görüşme çalışma alanı</h2>
+        <span class="lab-tag">js/Talks.js:1581-1622 · style.css:2179-2263</span>
+        <p>Bu kompozisyon <code>design-qa.md</code>'de kabul edilmiş. Eksik olan iki mercek: ilişki zinciri ve geçmişte arama.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage">
+            <div class="c-modal">
+                <div class="c-shell">
+                    <div class="c-head">
+                        <div>
+                            <span class="c-kicker">KARAKTER GÖRÜŞMESİ</span>
+                            <h2>Kanzler Reinhardt Vogel</h2>
+                            <p>Cermen Federasyonu · Devlet Başkanı — tahıl koridoru krizi</p>
+                        </div>
+                        <div style="color:#697a70;font-size:9px;letter-spacing:1.2px">KAPAT ✕</div>
+                    </div>
+                    <div class="c-layout">
+                        <div class="c-col c-profile" data-kusur="20" data-pin-pos="tr">
+                            <span class="c-sec">KATILIMCILAR</span>
+                            <div id="prof-simdi"></div>
+                        </div>
+                        <div class="c-col c-main">
+                            <div>
+                                <span class="c-sec">GÖRÜŞME</span>
+                                <div class="c-trans" id="trans-simdi"></div>
+                            </div>
+                            <div>
+                                <span class="c-sec">CEVABIN</span>
+                                <div class="c-opts" id="opts-simdi"></div>
+                            </div>
+                        </div>
+                        <div class="c-col c-history" data-kusur="21" data-pin-pos="tl">
+                            <span class="c-sec">ÖNCEKİ GÖRÜŞMELER</span>
+                            <div id="hist-simdi"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 2 — ÖNERİ (KATMAN A) ═══════════════════ -->
+<section class="lab-scene" data-only-katman="a" data-gate="on">
+    <header>
+        <h2>2 · ÖNERİ — bilgi mimarisi</h2>
+        <span class="lab-tag">Katman A · renk ve font yok</span>
+        <p>Kural: üç sütunlu düzen korunur. İki mercek MEVCUT sütunların içine sekme olarak girer.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage">
+            <div class="c-modal" style="background:rgba(0,0,0,.5)">
+                <div class="wf" style="width:min(1180px,calc(100% - 48px));height:min(760px,calc(100% - 48px));display:grid;grid-template-rows:auto minmax(0,1fr)">
+                    <div class="wf-h">Başlık — muhatap adı, rolü, konu · değişmiyor</div>
+                    <div style="display:grid;grid-template-columns:minmax(205px,.72fr) minmax(420px,1.65fr) minmax(245px,.92fr);min-height:0">
+
+                        <!-- KUSUR 20 -->
+                        <div class="wf wf-new" data-kusur="20" data-pin-pos="tr" style="margin:8px">
+                            <div class="wf-h">Sol sütun — SEKMELİ olur</div>
+                            <div class="wf-body">
+                                <div style="display:flex;gap:4px;margin-bottom:6px">
+                                    <span class="wf-slot" style="flex:1">PROFİL<br><small>bugünkü içerik</small></span>
+                                    <span class="wf-slot wf-new" style="flex:1">İLİŞKİ<br><small>YENİ</small></span>
+                                </div>
+                                <div class="wf-row"><span>söz</span><span>verildi / BOZULDU</span></div>
+                                <div class="wf-row"><span>anlaşma</span><span>yürürlükte / bitti</span></div>
+                                <div class="wf-row"><span>borç</span><span>alacaklısın / borçlusun</span></div>
+                                <div class="wf-row"><span>eylem</span><span>açık sonuç</span></div>
+                                <div class="wf-note">
+                                    Bugün profil kartı statik: ülke, rol, ilişki puanı.
+                                    İki taraf arasındaki <em>geçmiş</em> hiçbir yerde tek parça
+                                    görünmüyor (MW-014). Oyuncu "bu adam bana ne sözü verdi,
+                                    ben ona ne borçluyum" sorusuna cevap bulamıyor.
+                                    <br><br>
+                                    Zincir <strong>PlayerKnowledge</strong> süzgecinden geçer:
+                                    oyuncunun bilmediği bir söz burada görünmez — bilgi sınırı
+                                    korunur (HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857).
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="wf" style="margin:8px">
+                            <div class="wf-h">Orta sütun — değişmiyor</div>
+                            <div class="wf-body">
+                                <div class="wf-row"><span>transkript</span><span>kaydırmalı</span></div>
+                                <div class="wf-row"><span>seçenekler</span><span>bedel + risk</span></div>
+                                <div class="wf-row"><span>serbest metin</span><span>sabit besteci</span></div>
+                                <div class="wf-note">
+                                    Kaydırma ve besteci sabitleme borcu zaten kapatılmış
+                                    (design-qa.md:94-95). Buraya dokunulmuyor.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KUSUR 21 -->
+                        <div class="wf wf-new" data-kusur="21" data-pin-pos="tl" style="margin:8px">
+                            <div class="wf-h">Sağ sütun — ARAMA + GRUPLAMA</div>
+                            <div class="wf-body">
+                                <div class="wf-row"><span>arama kutusu</span><span>YENİ</span></div>
+                                <div class="wf-row"><span>tür filtresi</span><span>YENİ</span></div>
+                                <div class="wf-row"><span>muhataba göre grup</span><span>YENİ</span></div>
+                                <div class="wf-row"><span>oturum satırı</span><span>bugünkü içerik</span></div>
+                                <div class="wf-note">
+                                    Bugün düz liste (js/Talks.js:1549). Kampanya ilerledikçe
+                                    oturum sayısı artıyor ve aranan görüşme listenin dibine
+                                    düşüyor; sürdürme (resume) pratikte kullanılamaz oluyor.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 2 — ÖNERİ (KATMAN B) ═══════════════════ -->
+<section class="lab-scene" data-only-katman="b" data-gate="on">
+    <header>
+        <h2>2 · ÖNERİ — görsel dil</h2>
+        <span class="lab-tag">Katman B · tokens.css</span>
+        <p>Sol sütun İLİŞKİ sekmesinde; sağ sütunda arama, tür filtresi ve muhatap grupları.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage">
+            <div class="c-modal">
+                <div class="c-shell">
+                    <div class="c-head">
+                        <div>
+                            <span class="c-kicker">KARAKTER GÖRÜŞMESİ</span>
+                            <h2>Kanzler Reinhardt Vogel</h2>
+                            <p>Cermen Federasyonu · Devlet Başkanı — tahıl koridoru krizi</p>
+                        </div>
+                        <div style="color:#697a70;font-size:var(--wr-fs-small);letter-spacing:1.2px">KAPAT ✕</div>
+                    </div>
+                    <div class="c-layout">
+                        <!-- KUSUR 20 -->
+                        <div class="c-col c-profile" data-kusur="20" data-pin-pos="tr">
+                            <div class="p-tabs">
+                                <button class="p-tab">PROFİL</button>
+                                <button class="p-tab active">İLİŞKİ</button>
+                            </div>
+                            <span class="c-sec">VOGEL ↔ SEN · ZİNCİR</span>
+                            <div class="p-zincir" id="zincir-oneri"></div>
+                            <div class="p-ozet">
+                                Net durum: <b>1 bozulmuş söz</b> onda, <b>1 karşılıksız destek</b> sende.
+                                Masaya bu bilançoyla oturuyorsun.
+                            </div>
+                        </div>
+
+                        <div class="c-col c-main">
+                            <div>
+                                <span class="c-sec">GÖRÜŞME</span>
+                                <div class="c-trans" id="trans-oneri"></div>
+                            </div>
+                            <div>
+                                <span class="c-sec">CEVABIN</span>
+                                <div class="c-opts" id="opts-oneri"></div>
+                            </div>
+                        </div>
+
+                        <!-- KUSUR 21 -->
+                        <div class="c-col c-history" data-kusur="21" data-pin-pos="tl">
+                            <span class="c-sec">ÖNCEKİ GÖRÜŞMELER</span>
+                            <div class="p-hist-arac">
+                                <input class="p-ara" value="tahıl" readonly>
+                                <div class="p-cipler">
+                                    <span class="p-cip secili">TÜMÜ</span><span class="p-cip">ANLAŞMA</span>
+                                    <span class="p-cip">KRİZ</span><span class="p-cip">SÜRÜYOR</span>
+                                </div>
+                            </div>
+                            <div id="hist-oneri"></div>
+                            <div class="p-sayac">7 oturum · 2 muhatap · arama "tahıl" ile 3 eşleşme</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+</div>
+
+<div class="lab-legend"></div>
+
+<script src="fixtures.js"></script>
+<script src="lab.js"></script>
+<script>
+(function () {
+    var G = FIX.GORUSME;
+
+    /* Katılımcı kartları — bilinmeyen katılımcı uydurma veri TAŞIMAZ
+       (design-qa.md:77 kabul kuralı). */
+    var p = document.getElementById('prof-simdi');
+    if (p) {
+        p.innerHTML = G.katilimcilar.map(function (k) {
+            var bilinmiyor = k.iliski === null;
+            return '<div class="c-card' + (bilinmiyor ? ' bilinmiyor' : '') + '">' +
+                '<span class="st">' + k.guven + '</span>' +
+                '<h3>' + k.ad + '</h3><p>' + k.rol + '</p>' +
+                (bilinmiyor ? '' :
+                    '<dl><div><dt>İLİŞKİ</dt><dd>' + k.iliski + '</dd></div></dl>') +
+                '</div>';
+        }).join('');
+    }
+
+    function transkript(id, sinif) {
+        var n = document.getElementById(id); if (!n) return;
+        n.innerHTML = G.transkript.map(function (r) {
+            return '<div class="c-line ' + (sinif || '') + (r.kim === 'SEN' ? ' ben' : '') + '">' +
+                '<b>' + r.kim + '</b>' + r.s + '</div>';
+        }).join('');
+    }
+    transkript('trans-simdi');
+    transkript('trans-oneri', 'p-line');
+
+    function secenekler(id, sinif) {
+        var n = document.getElementById(id); if (!n) return;
+        n.innerHTML = G.secenekler.map(function (s) {
+            return '<button class="c-opt ' + (sinif || '') + '"><span>' + s.et + '</span>' +
+                '<em>' + (s.mal || '—') + (s.risk ? ' · risk ' + s.risk : '') + '</em></button>';
+        }).join('');
+    }
+    secenekler('opts-simdi');
+    secenekler('opts-oneri', 'p-opt');
+
+    /* ŞU AN: düz liste, arama yok */
+    var h1 = document.getElementById('hist-simdi');
+    if (h1) {
+        h1.innerHTML = G.gecmis.map(function (g) {
+            return '<div class="c-hist-row' + (g.aktif ? ' aktif' : '') + '">' +
+                '<time>' + g.t + ' · ' + g.kim + '</time>' + g.ozet + '</div>';
+        }).join('');
+    }
+
+    /* ÖNERİ: muhataba göre gruplanmış */
+    var h2 = document.getElementById('hist-oneri');
+    if (h2) {
+        var gruplar = {};
+        G.gecmis.forEach(function (g) { (gruplar[g.kim] = gruplar[g.kim] || []).push(g); });
+        h2.innerHTML = Object.keys(gruplar).map(function (kim) {
+            return '<div class="p-grup"><b>' + kim + ' · ' + gruplar[kim].length + '</b>' +
+                gruplar[kim].map(function (g) {
+                    return '<div class="c-hist-row' + (g.aktif ? ' aktif' : '') + '">' +
+                        '<time>' + g.t + '</time>' + g.ozet + '</div>';
+                }).join('') + '</div>';
+        }).join('');
+    }
+
+    /* KUSUR 20 — ilişki zinciri */
+    var DURUM_SINIF = {
+        'BOZULDU': 'bozuldu', 'YÜRÜRLÜKTE': 'yururlukte',
+        'ALACAKLISIN': 'alacakli', 'AÇIK': 'acik'
+    };
+    var z = document.getElementById('zincir-oneri');
+    if (z) {
+        z.innerHTML = G.iliskiZinciri.map(function (h) {
+            return '<div class="p-halka ' + (DURUM_SINIF[h.durum] || '') + '">' +
+                '<time>' + h.t + '</time><span class="tip">' + h.tip.toUpperCase() + '</span>' +
+                '<p>' + h.s + '</p><span class="durum">' + h.durum + '</span></div>';
+        }).join('');
+    }
+
+    LAB.init({
+        yuzey: '04',
+        vp: 1903,
+        baslik: '04 · GÖRÜŞME ÇALIŞMA ALANI',
+        altBaslik: 'js/Talks.js:1581-1622 · style.css:2179-2263 · design-qa.md bölüm 2'
+    });
+})();
+</script>
+</body>
+</html>

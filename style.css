@@ -944,7 +944,37 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .wr-mini-bar { height: 4px; margin-top: 4px; overflow: hidden; border-radius: 2px; background: rgba(0,0,0,.55); }
 .wr-mini-bar i { display: block; height: 100%; background: var(--bar-color); }
 
-.wr-briefing { display: flex; flex-direction: column; gap: 14px; }
+/* KUSUR: 916×572'de "HİKÂYEYİ BAŞLAT" EKRAN DIŞINDA kalıyordu ve kaydırma yoktu →
+   o boyutta kampanya BAŞLATILAMIYORDU. Ölçüldü (gerçek giriş yolu, 8 devlet kartı):
+   #btn-story-start alt kenarı 632px / viewport 572px (60px altta); 1024×640'ta
+   633/640 ile yalnız 7px payla kurtuluyordu.
+   Sebep: bu sütun min-height:0 ile küçülüyor ama `overflow` kuralı yoktu; taşan
+   kısmı .app-screen (overflow:hidden) kırpıyordu. Kurtarıcı kural style.css'te
+   VARDI ama @media (max-width:900px) altında — 916px'te uygulanmıyordu, çünkü
+   arıza GENİŞLİKTEN değil YÜKSEKLİKTEN doğuyor.
+   Çözüm kırılma noktasına dokunmuyor (o, kurulum ekranının kısa yükseklikte tek
+   sütuna çökmesini engellemek için bilerek genişliğe bağlanmıştı): sütun kendi
+   içinde kayar, birincil eylem şeridi yapışkan kalır.
+
+   DİKKAT (ölçüldü): yalnız `overflow-y:auto` yazmak YETMİYOR — CSS'te bir eksen
+   `visible` değilse diğeri de `auto`ya çözülür; yatay kaydırma çubuğu çıkıp
+   "Derin Savunma" ve "FANTEZİ" etiketlerini kırpmıştı. Bu yüzden yatay eksen
+   açıkça `hidden` ve grid hücresinin daralabilmesi için `min-width: 0`. */
+.wr-briefing {
+    display: flex; flex-direction: column; gap: 14px;
+    min-height: 0; min-width: 0;
+    overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: thin; scrollbar-color: rgba(255,176,0,.35) transparent;
+}
+.wr-briefing::-webkit-scrollbar, .wr-state-grid::-webkit-scrollbar { width: 8px; }
+.wr-briefing::-webkit-scrollbar-track, .wr-state-grid::-webkit-scrollbar-track { background: transparent; }
+.wr-briefing::-webkit-scrollbar-thumb, .wr-state-grid::-webkit-scrollbar-thumb {
+    background: rgba(255,176,0,.28); border-radius: 4px;
+}
+.wr-briefing::-webkit-scrollbar-thumb:hover, .wr-state-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,176,0,.5);
+}
+.wr-state-grid { scrollbar-width: thin; scrollbar-color: rgba(255,176,0,.35) transparent; }
 .wr-era-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .wr-era { min-height: 74px; padding: 10px 7px; border: 1px solid var(--wr-line); border-radius: 9px; background: rgba(255,176,0,.04); color: var(--wr-muted); font-family: inherit; }
 .wr-era.selected { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); }
@@ -961,7 +991,18 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .wr-option-row.locked button { cursor: default; }
 .wr-selected-state { margin-top: auto; min-height: 58px; padding: 11px 13px; border: 1px solid var(--wr-line); border-left: 3px solid var(--wr-amber); border-radius: 7px; background: var(--wr-panel); color: var(--wr-muted); font-size: 11px; line-height: 1.55; }
 .wr-selected-state b { color: var(--wr-amber-bright); font-weight: 400; }
-.wr-setup-actions { display: grid; grid-template-columns: 128px 1fr; gap: 10px; }
+/* Birincil eylem, sütun kaydırılsa bile DAİMA görünür kalır (yukarıdaki kusur notu).
+   Arka plan gradyanı, altından kayan içeriğin butonlara karışmasını engeller. */
+.wr-setup-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 128px 1fr;
+    gap: 10px;
+    padding-top: 10px;
+    background: linear-gradient(to top, #060a06 76%, rgba(6, 10, 6, 0));
+}
 .wr-secondary, .wr-confirm { min-height: 44px; border-radius: 7px; font-family: inherit; letter-spacing: 1.5px; cursor: pointer; }
 .wr-secondary { border: 1px solid var(--wr-line); background: rgba(255,176,0,.04); color: var(--wr-muted); }
 .wr-confirm { border: 1px solid var(--wr-green); background: linear-gradient(135deg, rgba(74,222,128,.18), rgba(8,14,6,.6)); color: #d9ffe6; }

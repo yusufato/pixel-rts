@@ -41,16 +41,21 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
     </td>
     <td>
         <a class="lab-btn" href="01-menu-setup.html?katman=a&amp;vp=916">aç →</a>
-        <small>kusur 22 — 12 soruluk akışta ilerleme/geri alma görünmüyor</small>
-        <span class="stamp" data-s="ACIK">AÇIK</span>
+        <small>kusur 22 — 12 soruluk akışta geri alma yok · <span class="stamp" data-s="ACIK">AÇIK</span><br>
+        kusur 25 — ⛔ başlat butonu ekran dışıydı ·
+        <span class="stamp" data-s="UYGULANDI">DÜZELTİLDİ</span></small>
     </td>
     <td>
         <a class="lab-btn" href="01-menu-setup.html?katman=b&amp;vp=916">aç →</a>
         <small>kusur 23 — yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı</small>
         <span class="stamp" data-s="ACIK">AÇIK</span>
     </td>
-    <td><small><a href="../qa-screenshots/01-menu.png">01-menu.png</a><br>
-        <a href="../qa-screenshots/02-setup.png">02-setup.png</a></small></td>
+    <td><small>
+        <a href="../qa-screenshots/01-menu.png">menü</a> ·
+        <a href="../qa-screenshots/02-setup.png">kurulum</a><br>
+        <a href="../qa-runtime/conversation-ui-final/06-soru-7.png">soru 7/12</a> ⚑<br>
+        <a href="../qa-runtime/mockup-baseline/kusur-25-baslat-butonu-916x572.png">başlat butonu yok (k25)</a> ⚑
+    </small></td>
 </tr>
 <tr>
     <td>
@@ -67,8 +72,12 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
         <small>kusur 8-13 — mavi kalıntı, inline modal, 7px yazı, odak, CRT</small>
         <span class="stamp" data-s="ACIK">AÇIK</span>
     </td>
-    <td><small><a href="../qa-screenshots/04-deploy.png">04-deploy.png</a><br>
-        <a href="../qa-screenshots/05-battle.png">05-battle.png</a></small></td>
+    <td><small>
+        <a href="../qa-screenshots/04-deploy.png">dizim</a> ·
+        <a href="../qa-screenshots/05-battle.png">savaş</a><br>
+        <a href="../qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png">duraklatma (k9)</a> ⚑<br>
+        <a href="../qa-runtime/mockup-baseline/kusur-09-duraklatma-bildirim.png">bildirim + yeşil kategoriler (k8/k9)</a> ⚑
+    </small></td>
 </tr>
 <tr>
     <td>
@@ -77,7 +86,8 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
     </td>
     <td>
         <a class="lab-btn" href="03-story-world.html?katman=a&amp;vp=1280">aç →</a>
-        <small>kusur 14-18 — rol süzmesi, gündem→karar, 6 satırlık akış, arama</small>
+        <small>kusur 14-18 — rol süzmesi, gündem→karar, 6 satırlık akış, arama<br>
+        <strong>kusur 24 — komuta çubuğu taşması (bu turda bulundu)</strong></small>
         <span class="stamp" data-s="ACIK">AÇIK</span>
     </td>
     <td>
@@ -85,7 +95,11 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
         <small>kusur 19 — eski mavi bloğun tasfiyesi</small>
         <span class="stamp" data-s="ACIK">AÇIK</span>
     </td>
-    <td><small><a href="../qa-screenshots/03-map.png">03-map.png</a></small></td>
+    <td><small>
+        <a href="../qa-screenshots/03-map.png">harita</a><br>
+        <a href="../qa-runtime/mockup-baseline/kusur-16-akis-sekmesi.png">AKIŞ + taşan çubuk (k16/k24)</a> ⚑<br>
+        <a href="../qa-runtime/mockup-baseline/bonus-konsey-oturumu.png">konsey oturumu</a> ⚑
+    </small></td>
 </tr>
 <tr>
     <td>
@@ -102,9 +116,45 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
         <small>yoğunluk ve okunabilirlik (kusur 10 ölçeği burada da denenir)</small>
         <span class="stamp" data-s="ACIK">AÇIK</span>
     </td>
-    <td><small><code>qa-runtime/conversation-ui-final/</code><br>(gitignore'lu, yerel)</small></td>
+    <td><small>
+        <a href="../qa-runtime/conversation-ui-final/09-karakter-gorusmesi-compositor.png">görüşme penceresi</a> ⚑<br>
+        <a href="../qa-runtime/conversation-ui-scroll-final/10-karakter-gorusmesi-kaydirma-coklu-profil.png">uzun oturum + çoklu profil</a> ⚑
+    </small></td>
 </tr>
 </table>
+
+<p style="color:#8b949e;font-size:11px;margin:-14px 0 26px">
+⚑ = <code>qa-runtime/</code> altında, <strong>gitignore'lu</strong> — yalnız bu makinede var.
+<code>qa-runtime/mockup-baseline/</code> bu turda üretildi; geri kalanı önceki QA turlarından.
+</p>
+
+<section>
+<h2>Bu turda ölçülerek bulunanlar</h2>
+<ul>
+<li><strong>⛔ Kusur 25 — kampanya başlatılamıyor (yeni, en ağır) — <span class="stamp" data-s="UYGULANDI">DÜZELTİLDİ</span>.</strong>
+916×572'de "HİKÂYEYİ BAŞLAT" butonunun alt kenarı <strong>632 px</strong>, viewport
+<strong>572 px</strong> — buton ekranın 60 px altında ve o ekranda <strong>kaydırma yok</strong>
+(<code>.wr-setup-layout</code> <code>overflow</code> taşımıyor, <code>.app-screen</code>
+<code>overflow:hidden</code>). Kurtarıcı kural <code>@media (max-width:900px)</code>
+altında olduğu için 916 px'te devreye girmiyor. Arıza <em>yükseklikten</em> doğuyor:
+1024×640'ta yalnız 7 px payla kurtuluyor. Bu, <code>design-qa.md</code>'nin
+"passed" dediği ekran ve tam da onun baz aldığı viewport.
+<br><strong>Düzeltildi:</strong> brifing sütunu kaydırmalı, birincil eylem yapışkan
+alt şeritte. 916×572'de buton 632 → <strong>488</strong>; 1280×800 hiç değişmedi.
+Reponun kendi <code>--uitest</code> akışı temiz geçti.</li>
+<li><strong>Kusur 24 — komuta çubuğu taşması (yeni).</strong> Hikaye üst çubuğundaki 9 kaynak
+çipi <strong>1070 px</strong> yer istiyor; kutu 1280×800'de <strong>701 px</strong>.
+<code>#story-stats</code> <code>justify-content:flex-end</code> ve <code>overflow</code> kuralı
+olmadığı için fazlalık <strong>sola, başlığın üstüne</strong> akıyor —
+1650 px altındaki her masaüstü genişliğinde. Bugüne dek kaçtı çünkü mevcut QA
+<em>sayfa</em> taşmasına bakıyordu, kutu-içi flex taşmasına değil.</li>
+<li><strong>Kusur 9 daha kesin.</strong> Duraklatma modalının başlığı
+<code>font-family:inherit</code> ile <strong>Press Start 2P</strong> alıyor, butonları ise
+tarayıcı sans-serif'i — çakışma modalın <em>içinde</em>.</li>
+<li><strong>Kusur olmayan iki şey doğrulandı:</strong> soru sayacı <code>/12</code> doğru;
+12-soruluk ekran kısa viewport'ta <strong>kırpılmıyor</strong> (916×572'de 75 px pay var).</li>
+</ul>
+</section>
 
 <section>
 <h2>Her sayfadaki kapılar</h2>
@@ -135,8 +185,9 @@ pin almış mı. Pinsiz değişiklik, defterde karşılığı olmayan kozmetik d
 <li><code>lab.css</code> / <code>lab.js</code> — laboratuvar kabuğu. Oyuna taşınmaz.</li>
 <li><code>fixtures.js</code> — <code>js/units-modern.json</code>, <code>js/Story.js</code> ve
 <code>js/main.js</code>'ten kopyalanmış gerçek adlar/sayılar. Yer tutucu metin yok.</li>
-<li><code><a href="BULGULAR.md">BULGULAR.md</a></code> — 23 kusurun damga defteri
-(<code>AÇIK</code> / <code>KABUL</code> / <code>UYGULANDI &lt;commit&gt;</code>).</li>
+<li><code><a href="BULGULAR.md">BULGULAR.md</a></code> — 25 kusurun damga defteri
+(<code>AÇIK</code> / <code>KABUL</code> / <code>UYGULANDI &lt;commit&gt;</code>).
+İkisi (24, 25) bu turda ölçülerek bulundu.</li>
 </ul>
 </section>
 

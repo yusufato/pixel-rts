@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>03 · Hikaye dünyası — Mockup</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="lab.css">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAHNE 1 — "ŞU AN" YENİDEN İNŞASI
+   style.css:1188-1356 (war-room hikaye bloğu) birebir; position:fixed/absolute
+   → sahne kutusuna göre absolute.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.stage { font-family: var(--wr-font-hud); background: #060a06; }
+
+/* #story-command-bar — style.css:1188-1210 */
+.s-bar { position: absolute; inset: 0 0 auto 0; height: 64px;
+    display: grid; grid-template-columns: 270px minmax(0,1fr) auto; align-items: center; gap: 16px;
+    padding: 8px 14px 8px 18px; border-bottom: 1px solid var(--wr-line);
+    background: rgba(5,9,4,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.s-title { display: grid; grid-template-columns: auto auto; align-items: baseline; column-gap: 7px;
+    color: var(--wr-amber-bright); letter-spacing: 3px; }
+.s-title span, .s-title b { font-size: 18px; font-weight: 400; }
+.s-title b { color: var(--wr-amber); }
+.s-title small { grid-column: 1/-1; margin-top: 3px; color: var(--wr-dim); font-size: 8px; letter-spacing: 1.4px; }
+.s-stats { min-width: 0; display: flex; justify-content: flex-end; gap: 6px; }
+.s-chip { min-width: 92px; padding: 5px 8px; border-left: 1px solid var(--wr-line);
+    color: var(--wr-muted); font-size: 9px; letter-spacing: .6px; }
+.s-chip b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; }
+.s-chip.identity { min-width: 170px; border-left-color: #4cff7c; }
+.s-chip.identity b { color: #4cff7c; }
+.s-topright { display: flex; gap: 6px; }
+.s-ctrl { height: 34px; padding: 0 10px; border: 1px solid var(--wr-line); border-radius: 4px;
+    background: rgba(255,176,0,.04); color: var(--wr-muted);
+    font: 9px var(--wr-font-hud); letter-spacing: 1px; }
+
+/* #story-map-shell — style.css:1260-1277 */
+.s-map { position: absolute; left: 0; top: 64px; right: 330px; bottom: 0; overflow: hidden;
+    background:
+        radial-gradient(70% 60% at 46% 46%, #10231a 0%, #0a170f 60%, #07100c 100%); }
+.s-map::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.17) 0 1px, transparent 1px 3px),
+                radial-gradient(ellipse at center, transparent 54%, rgba(0,0,0,.52) 100%); }
+.s-map-label { position: absolute; top: 12px; left: 16px; padding: 5px 9px;
+    border: 1px solid var(--wr-line); background: rgba(5,9,4,.78); color: var(--wr-amber);
+    font-size: 9px; letter-spacing: 1.4px; }
+.s-map-help { position: absolute; left: 16px; bottom: 14px; color: var(--wr-dim);
+    font-size: 9px; letter-spacing: 1.4px; }
+.s-map-legend { position: absolute; right: 14px; bottom: 12px; display: flex; gap: 12px;
+    color: var(--wr-dim); font-size: 9px; letter-spacing: 1.4px; }
+.s-node { position: absolute; width: 9px; height: 9px; margin: -4px 0 0 -4px; border-radius: 50%; }
+.s-link { position: absolute; height: 1px; background: rgba(255,176,0,.15); transform-origin: 0 50%; }
+
+/* #story-brief-panel — style.css:1279-1350 */
+.s-brief { position: absolute; top: 64px; right: 0; bottom: 0; width: 330px;
+    display: grid; grid-template-rows: 44px minmax(0,1fr);
+    border-left: 1px solid var(--wr-line); background: rgba(5,9,4,.97); }
+.s-tabs { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid var(--wr-line);
+    background: rgba(0,0,0,.2); }
+.s-tab { border: 0; border-right: 1px solid rgba(255,176,0,.12); border-bottom: 2px solid transparent;
+    background: transparent; color: var(--wr-dim); font: 9px var(--wr-font-hud); letter-spacing: 1.2px; }
+.s-tab.active { border-bottom-color: var(--wr-green); color: var(--wr-green); background: rgba(74,222,128,.055); }
+/* style.css:1298 → overflow-y:auto. Gündem listesi GERÇEKTE kaydırmalı;
+   mockup'ta da öyle olmalı, yoksa taşma kapısı yanlış alarm verir. */
+.s-agenda { overflow-y: auto; padding: 17px 16px; }
+.s-agenda-sum { padding: 0 0 13px; border-bottom: 1px solid var(--wr-line); color: var(--wr-dim); font-size: 9px; }
+.s-agenda-sum b { display: block; margin-top: 7px; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; }
+.s-agenda-list { display: flex; flex-direction: column; gap: 8px; margin-top: 11px; }
+.s-item { position: relative; padding: 10px 10px 9px 12px; border: 1px solid var(--wr-line);
+    border-left: 3px solid var(--wr-dim); background: rgba(255,176,0,.025); }
+.s-item.critical { border-left-color: var(--wr-red); background: rgba(255,107,107,.045); }
+.s-item.high  { border-left-color: var(--wr-amber); }
+.s-item.watch { border-left-color: #70a9d8; }
+.s-item.stable{ border-left-color: var(--wr-green); background: rgba(74,222,128,.035); }
+.s-item > span { color: var(--wr-dim); font-size: 7px; letter-spacing: 1.4px; }
+.s-item.critical > span { color: #ff8f8f; }
+.s-item h3 { margin: 5px 0 0; color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; line-height: 1.3; }
+.s-item p { margin: 6px 0 9px; color: var(--wr-muted); font-size: 9px; line-height: 1.45; }
+.s-item button { min-height: 28px; padding: 0 9px; border: 1px solid rgba(74,222,128,.35);
+    background: rgba(74,222,128,.045); color: var(--wr-green); font: 8px var(--wr-font-hud); letter-spacing: .8px; }
+
+/* #story-tools — style.css:1352-1356 */
+.s-tools { position: absolute; left: 16px; bottom: 38px; display: flex; gap: 6px; }
+.s-tool { height: 42px; padding: 0 10px; border: 1px solid var(--wr-line); border-radius: 5px;
+    background: rgba(5,9,4,.9); color: var(--wr-muted); font-family: var(--wr-font-hud);
+    display: flex; align-items: center; gap: 7px;
+    font-size: 23px; line-height: 1;   /* ← style.css:1014'ten SIZAN legacy değer */ }
+.s-tool b { color: var(--wr-amber); font-size: 9px; font-weight: 400; }
+.s-tool span { font-size: 10px; letter-spacing: 1px; }
+
+/* AKIŞ sekmesi — style.css:1343-1350 */
+.s-flow { display: flex; flex-direction: column; overflow: hidden; }
+.s-flow .h { padding: 10px 14px; border-bottom: 1px solid var(--wr-line);
+    color: var(--wr-amber); font-size: 9px; letter-spacing: 2px; }
+.s-flow .hint { padding: 7px 13px 3px; color: var(--wr-dim); font-size: 7.5px; letter-spacing: 1px; }
+.s-log { padding: 8px 13px; color: #7fae90; font-size: 10px; line-height: 1.45; overflow: hidden; }
+.s-log-row { padding: 5px 0; border-bottom: 1px solid rgba(255,176,0,.08); }
+.s-log-row.kesik { color: #4a3f22; }
+
+/* ═══════════════════════ ÖNERİ — KATMAN B ═══════════════════════ */
+
+/* KUSUR 15 — gündem maddesi artık KARAR verdiriyor */
+.p-item { border-left-width: 3px; }
+.p-item h3 { font-size: var(--wr-fs-label); }
+.p-item p { font-size: var(--wr-fs-small); }
+.p-item > span { font-size: var(--wr-fs-micro); }
+.p-aktor { display: flex; align-items: center; gap: 5px; margin: 6px 0;
+    color: var(--wr-amber); font-size: var(--wr-fs-small); }
+.p-aktor::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--wr-amber); }
+.p-kararlar { display: flex; flex-direction: column; gap: 4px; margin-top: var(--wr-space-2); }
+.p-karar { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center;
+    min-height: 34px; padding: 5px 8px; border: 1px solid rgba(74,222,128,.3);
+    border-radius: var(--wr-radius-sharp); background: rgba(74,222,128,.045);
+    color: var(--wr-amber-bright); font: var(--wr-fs-small) var(--wr-font-hud);
+    letter-spacing: .8px; text-align: left; cursor: pointer; }
+.p-karar em { font-style: normal; color: var(--wr-wait); font-size: var(--wr-fs-micro); white-space: nowrap; }
+.p-karar.pasif { border-color: var(--wr-line); background: transparent;
+    color: var(--wr-disabled-ink); cursor: not-allowed; }
+.p-karar.pasif em { color: var(--wr-red); }
+.p-detay { margin-top: 5px; color: var(--wr-dim); font-size: var(--wr-fs-micro);
+    text-decoration: underline dotted; }
+
+/* KUSUR 18 — neden izi rozeti */
+.p-neden { display: inline-block; margin-left: 5px; padding: 0 4px;
+    border: 1px solid rgba(112,169,216,.5); border-radius: 2px;
+    color: #9ec9e8; font-size: var(--wr-fs-micro); }
+
+/* KUSUR 24 — komuta çubuğu taşması.
+   İki değişiklik: (1) kutu artık kendi sınırını zorluyor (overflow:hidden),
+   (2) öncelik-2 çipleri etiketini bırakıp yalnız değeri gösteriyor.
+   Böylece 1100px'te bile satır sığıyor ve başlığın üstüne akmıyor. */
+.p-stats { overflow: hidden; }
+.p-chip { min-width: 0; }
+.p-chip.daralt { min-width: 0; padding: 5px var(--wr-space-2); }
+.p-chip.daralt b { margin-top: 0; }
+.p-bar-not { position: absolute; left: 18px; top: 70px;
+    padding: var(--wr-space-2) var(--wr-space-3);
+    border: 1px solid var(--wr-line); border-left: 2px solid var(--wr-amber);
+    background: var(--wr-surface); color: var(--wr-muted);
+    font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); max-width: 430px; }
+.p-bar-not b { color: var(--wr-amber-bright); font-weight: 400; }
+
+/* KUSUR 14 — rol süzgeci */
+.p-rol { position: absolute; left: 16px; bottom: 88px;
+    display: flex; align-items: center; gap: 8px; padding: var(--wr-space-2) var(--wr-space-3);
+    border: 1px solid var(--wr-line); background: var(--wr-surface);
+    color: var(--wr-muted); font-size: var(--wr-fs-small); letter-spacing: var(--wr-track); }
+.p-rol b { color: var(--wr-amber-bright); font-weight: 400; }
+.p-rol .gizli { color: var(--wr-dim); text-decoration: line-through; }
+.s-tool.gizli { opacity: .28; border-style: dashed; }
+
+/* KUSUR 16 — akış arşivi */
+.p-flow-arac { display: flex; gap: 4px; padding: var(--wr-space-2) var(--wr-space-3);
+    border-bottom: 1px solid var(--wr-line); }
+.p-ara { flex: 1; min-width: 0; padding: 4px 7px; border: 1px solid var(--wr-line);
+    border-radius: var(--wr-radius-sharp); background: rgba(0,0,0,.3);
+    color: var(--wr-muted); font: var(--wr-fs-small) var(--wr-font-hud); }
+.p-filtre { padding: 4px 7px; border: 1px solid var(--wr-line); border-radius: var(--wr-radius-sharp);
+    background: var(--wr-idle); color: var(--wr-amber); font: var(--wr-fs-micro) var(--wr-font-hud); }
+.p-log-row { padding: 5px 0; border-bottom: 1px solid rgba(255,176,0,.08);
+    color: #7fae90; font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); }
+.p-log-row time { color: var(--wr-dim); margin-right: 6px; }
+
+/* KUSUR 17 — aday listesinde arama */
+.p-aday { position: absolute; left: 16px; top: 88px; width: 330px;
+    padding: var(--wr-space-3); border: 1px solid var(--wr-line); background: var(--wr-surface); }
+.p-aday h5 { color: var(--wr-amber); font-size: var(--wr-fs-small); font-weight: 400;
+    letter-spacing: var(--wr-track); margin-bottom: var(--wr-space-2); }
+.p-aday .row { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; padding: 4px 0;
+    border-bottom: 1px solid rgba(255,176,0,.08);
+    color: var(--wr-muted); font-size: var(--wr-fs-small); }
+.p-aday .row b { color: var(--wr-amber-bright); font-weight: 400; }
+.p-aday .sayac { margin-top: var(--wr-space-2); color: var(--wr-dim); font-size: var(--wr-fs-micro); }
+
+/* KUSUR 19 — tasfiye tablosu */
+.tasfiye { position: absolute; right: 346px; top: 88px; width: 420px;
+    padding: var(--wr-space-3); border: 1px solid var(--wr-line);
+    background: var(--wr-surface); color: var(--wr-muted);
+    font-family: var(--wr-font-hud); font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); }
+.tasfiye h5 { color: var(--wr-amber); font-size: var(--wr-fs-body); font-weight: 400;
+    letter-spacing: var(--wr-track); margin-bottom: var(--wr-space-2); }
+.tasfiye .grup { margin-bottom: var(--wr-space-3); }
+.tasfiye .grup > b { display: block; color: var(--wr-amber-bright); font-weight: 400;
+    margin-bottom: var(--wr-space-1); }
+.tasfiye code { color: #9ec9e8; }
+.tasfiye .olu { color: #ff9d97; }
+.tasfiye .sizinti { color: var(--wr-wait); }
+.tasfiye .not { margin-top: var(--wr-space-2); padding-top: var(--wr-space-2);
+    border-top: 1px solid var(--wr-line); color: var(--wr-dim); font-size: var(--wr-fs-micro); }
+
+.wf-abs { position: absolute; }
+</style>
+</head>
+<body data-katman="a" data-pins="on">
+
+<div class="lab-scenes">
+
+<!-- ═══════════════════ SAHNE 1 — ŞU AN ═══════════════════ -->
+<section class="lab-scene" data-gate="off">
+    <header>
+        <h2>1 · ŞU AN — hikaye dünyası ana ekranı</h2>
+        <span class="lab-tag">index.html:190-350 · style.css:1188-1356</span>
+        <p>Sağ panel GÜNDEM sekmesinde. Sol altta 8 araç düğmesi; her biri soldan kayan bir drawer açıyor.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage" id="stage-simdi">
+            <!-- KUSUR 24: çip satırı kutuyu taşırıyor ve flex-end yüzünden SOLA,
+                 başlığın üstüne akıyor. Burada gerçek 9 çip ve gerçek metin
+                 uzunlukları kullanıldı; taşma kendiliğinden oluşur. -->
+            <div class="s-bar" data-kusur="24" data-pin-pos="tl">
+                <div class="s-title"><span>PIXEL</span><b>AVRUPA</b><small>TACNET · KOMUTA TERMİNALİ</small></div>
+                <div class="s-stats" id="stats-simdi"></div>
+                <div class="s-topright">
+                    <button class="s-ctrl">1× HIZ</button><button class="s-ctrl">DURAKLAT</button>
+                    <button class="s-ctrl">KAYDET</button><button class="s-ctrl">MENÜ</button>
+                </div>
+            </div>
+
+            <div class="s-map" id="map-simdi">
+                <div class="s-map-label">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div>
+                <div class="s-map-help">SÜRÜKLE: KAMERA · TEKERLEK: ZOOM · DÜĞÜM: BRİFİNG</div>
+                <div class="s-map-legend"><span>DOST</span><span>ERİŞİLEBİLİR</span><span>DÜŞMAN</span></div>
+            </div>
+
+            <div class="s-brief">
+                <div class="s-tabs">
+                    <button class="s-tab active">GÜNDEM</button>
+                    <button class="s-tab">BÖLGE</button>
+                    <button class="s-tab">AKIŞ</button>
+                </div>
+                <div class="s-agenda" data-kusur="15,18" data-pin-pos="tr">
+                    <div class="s-agenda-sum">
+                        <span>DEVLET GÜNDEMİ</span>
+                        <b>2 KRİTİK · 2 YÜKSEK · 1 İZLE</b>
+                    </div>
+                    <div class="s-agenda-list" id="agenda-simdi"></div>
+                </div>
+            </div>
+
+            <div class="s-tools" data-kusur="14" data-pin-pos="tr" id="tools-simdi"></div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 2 — ŞU AN: AKIŞ SEKMESİ ═══════════════════ -->
+<section class="lab-scene" data-gate="off">
+    <header>
+        <h2>2 · ŞU AN — AKIŞ sekmesi ve uzun aday listesi</h2>
+        <span class="lab-tag">js/Story.js:124 · Faz 38.1 borcu</span>
+        <p>Akış defteri 14 kayıt tutuyor; panel yalnız <strong>son 6'sını</strong> gösteriyor. Aday listeleri ilk 8'de kesiliyor, arama yok.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage">
+            <div class="s-bar">
+                <div class="s-title"><span>PIXEL</span><b>AVRUPA</b><small>TACNET · KOMUTA TERMİNALİ</small></div>
+                <div class="s-stats" id="stats-simdi2"></div>
+                <div class="s-topright"><button class="s-ctrl">HIZ ×2</button><button class="s-ctrl">MENÜ</button></div>
+            </div>
+            <div class="s-map">
+                <div class="s-map-label">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div>
+                <!-- KUSUR 17 — depo/aday seçimi: ilk 8, gerisi yok -->
+                <div class="wf-abs" data-kusur="17" data-pin-pos="tr"
+                     style="left:16px;top:60px;width:330px;padding:11px;border:1px solid var(--wr-line);background:rgba(5,9,4,.94)">
+                    <div style="color:var(--wr-amber);font-size:9px;letter-spacing:1px;margin-bottom:7px">
+                        İKMAL DEPOSU SEÇ
+                    </div>
+                    <div id="aday-simdi" style="color:var(--wr-muted);font-size:9px"></div>
+                    <div style="margin-top:7px;color:#ff9d97;font-size:9px">
+                        … 17 aday daha — listede görünmüyor, arama/filtre yok
+                    </div>
+                </div>
+            </div>
+            <div class="s-brief">
+                <div class="s-tabs">
+                    <button class="s-tab">GÜNDEM</button><button class="s-tab">BÖLGE</button>
+                    <button class="s-tab active">AKIŞ</button>
+                </div>
+                <div class="s-flow" data-kusur="16" data-pin-pos="tr">
+                    <div class="h">DÜNYA AKIŞI</div>
+                    <div class="hint">SON OLAYLAR</div>
+                    <div class="s-log" id="log-simdi"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 3 — ÖNERİ (KATMAN A) ═══════════════════ -->
+<section class="lab-scene" data-only-katman="a" data-gate="on">
+    <header>
+        <h2>3 · ÖNERİ — bilgi mimarisi</h2>
+        <span class="lab-tag">Katman A · renk ve font yok</span>
+        <p>Karar: gündem nerede karar verdirecek, hangi araçlar role göre gizlenecek, akış nereye arşivlenecek.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage" id="stage-oneri-a">
+            <!-- KUSUR 24 -->
+            <div class="wf wf-abs wf-new" data-kusur="24" data-pin-pos="tl" style="inset:0 0 auto 0;height:150px">
+                <div class="wf-h">Komuta çubuğu — ÖNCELİK KADEMESİ</div>
+                <div class="wf-body">
+                    <div class="wf-row"><span>kademe 1 — daima tam</span><span>DEVLET · PETROL · İNSAN · PUAN</span></div>
+                    <div class="wf-row"><span>kademe 2 — dar ekranda etiketsiz</span><span>GAZİ · ELEKTRONİK · ENF · TARİH · ÇAĞ</span></div>
+                    <div class="wf-row"><span>kutu</span><span><code>overflow:hidden</code> — sınırını zorlar</span></div>
+                    <div class="wf-note">
+                        ÖLÇÜLDÜ: 9 çipin içeriği <b>1070 px</b>, kutu 1280'de <b>701 px</b>.
+                        <code>#story-stats</code> (style.css:1206) <code>justify-content:flex-end</code>
+                        ve <code>overflow</code> kuralı olmadığı için fazlalık <b>SOLA</b>,
+                        başlığın üstüne akıyor. Taşma: 1100→549px · 1280→369px ·
+                        1440→209px · 1600→49px. Yani 1650 px altındaki her masaüstü
+                        genişliğinde bozuk — QA'nın kendi 1280×800 kontrolü dahil
+                        (o kontrol <em>sayfa</em> taşmasına bakıyordu, kutu-içi taşmaya değil).
+                        Karar: yer bittiğinde hangi bilgi kazanacak.
+                    </div>
+                </div>
+            </div>
+
+            <div class="wf-abs" style="left:0;top:64px;right:330px;bottom:0;border-right:1px solid #2c3238">
+                <div class="wf-slot" style="position:absolute;inset:40px 40px 120px 40px">
+                    HARİTA — değişmiyor<br>(kamera, zoom, düğüm seçimi)
+                </div>
+
+                <!-- KUSUR 17 -->
+                <div class="wf wf-abs wf-new" data-kusur="17" data-pin-pos="tr"
+                     style="left:16px;top:16px;width:330px">
+                    <div class="wf-h">Aday seçici — ARAMA + DARALTMA</div>
+                    <div class="wf-body">
+                        <div class="wf-row"><span>arama kutusu</span><span>ad / bölge</span></div>
+                        <div class="wf-row"><span>filtre çipleri</span><span>mesafe · stok · sahip</span></div>
+                        <div class="wf-row"><span>sayaç</span><span>"8 / 25 gösteriliyor"</span></div>
+                        <div class="wf-note">
+                            Bugün ilk 8 aday basılıyor, geri kalan 17 hiç görünmüyor ve
+                            oyuncu kaç seçenek olduğunu bile bilmiyor.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KUSUR 14 -->
+                <div class="wf wf-abs wf-new" data-kusur="14" data-pin-pos="tr"
+                     style="left:16px;bottom:86px;width:480px">
+                    <div class="wf-h">Rol süzgeci — YENİ</div>
+                    <div class="wf-body">
+                        <div class="wf-row"><span>ROL: GENELKURMAY</span><span>görünen: KONSEY · ORDU · AR-GE · ŞEHİR · SOHBET · KOMUTAN</span></div>
+                        <div class="wf-row"><span></span><span>gizli: GAZETE · EKONOMİ (şirket merceği)</span></div>
+                        <div class="wf-note">
+                            Bugün 8 araç herkese aynı. Komutan gereksiz şirket ayrıntısı görüyor,
+                            şirket sahibi ordu kontrolü görüyor (MW-014 / MW-020).
+                            Süzgeç yalnız GÖRÜNÜRLÜK değiştirir — dünya durumu değişmez,
+                            determinizm korunur (HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wf-abs" style="left:16px;bottom:38px;display:flex;gap:6px">
+                    <span class="wf-slot" style="height:42px;padding:0 10px">01 KONSEY</span>
+                    <span class="wf-slot" style="height:42px;padding:0 10px">02 ORDU</span>
+                    <span class="wf-slot" style="height:42px;padding:0 10px">03 AR-GE</span>
+                    <span class="wf-slot" style="height:42px;padding:0 10px">04 ŞEHİR</span>
+                    <span class="wf-slot" style="height:42px;padding:0 10px">05 SOHBET</span>
+                    <span class="wf-slot" style="height:42px;padding:0 10px">06 KOMUTAN</span>
+                    <span class="wf-slot wf-kill" style="height:42px;padding:0 10px">07 GAZETE</span>
+                    <span class="wf-slot wf-kill" style="height:42px;padding:0 10px">08 EKONOMİ</span>
+                </div>
+            </div>
+
+            <div class="wf-abs" style="top:64px;right:0;bottom:0;width:330px;border-left:1px solid #2c3238">
+                <div class="wf" style="margin:0;border:0;border-bottom:1px solid #2c3238">
+                    <div class="wf-h">GÜNDEM · BÖLGE · AKIŞ</div>
+                </div>
+
+                <!-- KUSUR 15 + 18 -->
+                <div class="wf wf-new" data-kusur="15,18" data-pin-pos="tr" style="margin:8px">
+                    <div class="wf-h">Gündem maddesi — KARAR KATMANI</div>
+                    <div class="wf-body">
+                        <div class="wf-row"><span>şiddet + başlık</span><span>bugün var</span></div>
+                        <div class="wf-row"><span>açıklama</span><span>bugün var</span></div>
+                        <div class="wf-row"><span><b>muhatap</b> (isimli aktör)</span><span>YENİ</span></div>
+                        <div class="wf-row"><span><b>2-3 bedelli karar</b></span><span>YENİ</span></div>
+                        <div class="wf-row"><span><b>NEDEN? rozeti</b></span><span>YENİ (kapsam genişler)</span></div>
+                        <div class="wf-row"><span>"panele git" bağlantısı</span><span>ikincil olur</span></div>
+                        <div class="wf-note">
+                            Bugünkü tek düğme yalnız ilgili paneli açıyor (js/StoryUI.js:237-251);
+                            karar hâlâ başka bir yüzeyde veriliyor (MW-003).
+                            Kararın bedeli ve yetki yetersizliği kartın üzerinde okunabilir olmalı —
+                            "yetkili ve bedelli eylem" kabul kuralı (MODERN_DUNYA_EKSIKLERI.md).
+                            NEDEN? rozeti bugün diplomasi, sadakat, itibar, üretim kuyruğu ve
+                            ordu listesinde YOK.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KUSUR 16 -->
+                <div class="wf wf-new" data-kusur="16" data-pin-pos="tr" style="margin:8px">
+                    <div class="wf-h">AKIŞ — arşiv olur</div>
+                    <div class="wf-body">
+                        <div class="wf-row"><span>görünen kayıt</span><span>6 → tümü (kaydırmalı)</span></div>
+                        <div class="wf-row"><span>arama + tarih filtresi</span><span>YENİ</span></div>
+                        <div class="wf-row"><span>tür filtresi</span><span>askeri · ekonomi · siyaset</span></div>
+                        <div class="wf-note">
+                            js/Story.js:124 defteri 6 kayda kırpıyor. Kırpma UI'da değil
+                            VERİDE olduğu için kayıt geri gelmiyor — arşiv istiyorsak
+                            önce kırpma sınırı yükselmeli.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 3 — ÖNERİ (KATMAN B) ═══════════════════ -->
+<section class="lab-scene" data-only-katman="b" data-gate="on">
+    <header>
+        <h2>3 · ÖNERİ — görsel dil ve CSS tasfiyesi</h2>
+        <span class="lab-tag">Katman B · kusur 19</span>
+        <p>Yerleşim Katman A ile aynı; burada uygulanmış token ölçeği ve eski mavi bloğun ölçülmüş tasfiye listesi var.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage" id="stage-oneri-b">
+            <div class="s-bar" data-kusur="24" data-pin-pos="tl">
+                <div class="s-title"><span>PIXEL</span><b>AVRUPA</b><small>TACNET · KOMUTA TERMİNALİ</small></div>
+                <div class="s-stats p-stats" id="stats-oneri"></div>
+                <div class="s-topright">
+                    <button class="s-ctrl">1× HIZ</button><button class="s-ctrl">DURAKLAT</button>
+                    <button class="s-ctrl">MENÜ</button>
+                </div>
+            </div>
+            <div class="p-bar-not">
+                <b>KUSUR 24 ÇÖZÜMÜ:</b> öncelik-2 çipleri (GAZİ · ELEKTRONİK · ENF · TARİH · ÇAĞ)
+                etiketini bırakıp yalnız değeri gösteriyor; kutu <code>overflow:hidden</code>
+                ile sınırlı. Etiket <code>title</code> ile erişilebilir kalıyor.
+            </div>
+
+            <div class="s-map">
+                <div class="s-map-label">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div>
+
+                <!-- KUSUR 17 -->
+                <div class="p-aday" data-kusur="17" data-pin-pos="tr">
+                    <h5>İKMAL DEPOSU SEÇ</h5>
+                    <div style="display:flex;gap:4px;margin-bottom:7px">
+                        <input class="p-ara" value="trab" readonly>
+                        <span class="p-filtre">≤300 KM</span><span class="p-filtre">STOK &gt;40%</span>
+                    </div>
+                    <div id="aday-oneri"></div>
+                    <div class="sayac">3 / 25 gösteriliyor · filtre: mesafe + stok</div>
+                </div>
+
+                <!-- KUSUR 19 -->
+                <div class="tasfiye" data-kusur="19" data-pin-pos="tr">
+                    <h5>ESKİ MAVİ BLOĞUN TASFİYESİ — style.css:1005-1185</h5>
+                    <div class="grup">
+                        <b>1 · İKİ KEZ TANIMLI (yeni blok eskiyi eziyor)</b>
+                        <code>#story-hud</code> :1009 ⇄ :1315 ·
+                        <code>#story-news</code> :1024 ⇄ :1343 ·
+                        <code>#story-tools</code> :1013 ⇄ :1352
+                    </div>
+                    <div class="grup">
+                        <b>2 · TAMAMEN ÖLÜ — js/ ve index.html'de HİÇ geçmiyor</b>
+                        <span class="olu" id="olu-liste"></span>
+                    </div>
+                    <div class="grup">
+                        <b>3 · SIZAN LEGACY DEĞERLER (ezilmemiş bildirimler)</b>
+                        <span class="sizinti">
+                        <code>.tool-btn</code> :1014 → <code>font-size:23px</code>,
+                        <code>line-height:1</code>, <code>transition:all .15s</code> hâlâ geçerli;
+                        :1353 bunları ezmiyor.<br>
+                        <code>.ctrl-btn</code> :1020 → yalnız <code>transition</code> sızıyor
+                        (:1247'deki <code>font</code> kısayolu boyut ve satır yüksekliğini sıfırlıyor).
+                        </span>
+                    </div>
+                    <div class="not">
+                        Ölçüm: blokta 113 selektör var; 9'u hiçbir js/html dosyasında geçmiyor.
+                        Kelime-sınırlı eşleşme kullanıldı (<code>city-btn</code> gibi adlar
+                        <code>city-btn-x</code>'e karışmasın diye) — ilk ölçüm sınır kontrolü
+                        olmadığı için 28 yanlış-pozitif vermişti.
+                    </div>
+                </div>
+            </div>
+
+            <div class="s-brief">
+                <div class="s-tabs">
+                    <button class="s-tab active">GÜNDEM</button>
+                    <button class="s-tab">BÖLGE</button>
+                    <button class="s-tab">AKIŞ</button>
+                </div>
+                <div class="s-agenda">
+                    <div class="s-agenda-sum" style="font-size:var(--wr-fs-small)">
+                        <span>DEVLET GÜNDEMİ</span><b>2 KRİTİK · 2 YÜKSEK · 1 İZLE</b>
+                    </div>
+                    <div class="s-agenda-list" data-kusur="15,18" data-pin-pos="tr" id="agenda-oneri"></div>
+                </div>
+            </div>
+
+            <!-- KUSUR 14 -->
+            <div class="p-rol" data-kusur="14" data-pin-pos="tr">
+                ROL: <b>GENELKURMAY BAŞKANI</b> · araçlar süzüldü:
+                <span class="gizli">GAZETE</span> <span class="gizli">EKONOMİ</span>
+            </div>
+            <div class="s-tools" id="tools-oneri"></div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 4 — ÖNERİ: AKIŞ ARŞİVİ ═══════════════════ -->
+<section class="lab-scene" data-only-katman="b" data-gate="on">
+    <header>
+        <h2>4 · ÖNERİ — AKIŞ arşive dönüşüyor</h2>
+        <span class="lab-tag">kusur 16</span>
+        <p>Aynı 14 kayıt; hepsi erişilebilir, arama ve tür filtresi var.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage">
+            <div class="s-bar">
+                <div class="s-title"><span>PIXEL</span><b>AVRUPA</b><small>TACNET · KOMUTA TERMİNALİ</small></div>
+                <div class="s-stats" id="stats-oneri2"></div>
+                <div class="s-topright"><button class="s-ctrl">HIZ ×2</button><button class="s-ctrl">MENÜ</button></div>
+            </div>
+            <div class="s-map"><div class="s-map-label">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div></div>
+            <div class="s-brief">
+                <div class="s-tabs">
+                    <button class="s-tab">GÜNDEM</button><button class="s-tab">BÖLGE</button>
+                    <button class="s-tab active">AKIŞ</button>
+                </div>
+                <div class="s-flow" data-kusur="16" data-pin-pos="tr">
+                    <div class="h" style="font-size:var(--wr-fs-small)">DÜNYA AKIŞI · ARŞİV</div>
+                    <div class="p-flow-arac">
+                        <input class="p-ara" placeholder="ara: tahıl, grev, Cermen…" readonly>
+                        <span class="p-filtre">TÜMÜ</span>
+                    </div>
+                    <div class="s-log" style="overflow:hidden" id="log-oneri"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+</div>
+
+<div class="lab-legend"></div>
+
+<script src="fixtures.js"></script>
+<script src="lab.js"></script>
+<script>
+(function () {
+    /* GERÇEK 9 çip — index.html/StoryUI'ın ürettiği sırayla ve gerçek
+       değer uzunluklarıyla. Taşma (kusur 24) bu uzunluklardan doğuyor;
+       kısaltılmış sahte değerlerle kusur görünmez olurdu. */
+    var CIPLER = [
+        { ad: 'DEVLET',     v: 'Türk Cumhuriyeti', kimlik: true, oncelik: 1 },
+        { ad: 'PETROL',     v: '319',              oncelik: 1 },
+        { ad: 'İNSAN',      v: '346',              oncelik: 1 },
+        { ad: 'PUAN',       v: '146',              oncelik: 1 },
+        { ad: 'GAZİ',       v: '0',                oncelik: 2 },
+        { ad: 'ELEKTRONİK', v: '16',               oncelik: 2 },
+        { ad: 'ENF',        v: '%4',               oncelik: 2 },
+        { ad: 'TARİH',      v: '17.07.2032',       oncelik: 2 },
+        { ad: 'ÇAĞ',        v: 'SOĞUK DENGE',      oncelik: 2 }
+    ];
+    function cipler(id) {
+        var n = document.getElementById(id); if (!n) return;
+        n.innerHTML = CIPLER.map(function (c) {
+            return '<div class="s-chip' + (c.kimlik ? ' identity' : '') + '">' +
+                c.ad + '<b>' + c.v + '</b></div>';
+        }).join('');
+    }
+    ['stats-simdi', 'stats-simdi2'].forEach(cipler);
+
+    /* ÖNERİ: öncelik-2 çipleri dar genişlikte etiketini bırakıp yalnız değeri
+       gösterir; kutu overflow:hidden ile sınırlanır → başlığın üstüne akamaz. */
+    function ciplerOneri(id) {
+        var n = document.getElementById(id); if (!n) return;
+        n.innerHTML = CIPLER.map(function (c) {
+            if (c.oncelik === 1) {
+                return '<div class="s-chip p-chip' + (c.kimlik ? ' identity' : '') + '">' +
+                    c.ad + '<b>' + c.v + '</b></div>';
+            }
+            return '<div class="s-chip p-chip daralt" title="' + c.ad + '"><b>' + c.v + '</b></div>';
+        }).join('');
+    }
+    ['stats-oneri', 'stats-oneri2'].forEach(ciplerOneri);
+
+    /* ── ŞU AN: gündem maddesi — tek düğme, yalnız panele yönlendiriyor ── */
+    var a1 = document.getElementById('agenda-simdi');
+    if (a1) {
+        a1.innerHTML = FIX.GUNDEM.slice(0, 4).map(function (g) {
+            return '<div class="s-item ' + g.sev + '">' +
+                '<span>' + g.sev.toUpperCase() + '</span>' +
+                '<h3>' + g.bas + '</h3><p>' + g.ac + '</p>' +
+                '<button>' + g.panel + ' →</button></div>';
+        }).join('');
+    }
+
+    /* ── ÖNERİ: aynı maddeler, muhatap + bedelli kararlar + neden izi ── */
+    var KARARLAR = {
+        0: [ { et: 'Sendikayla masaya otur', mal: 'Deniz Arıkan · 2 gün' },
+             { et: 'Zorunlu hakem devreye sok', mal: 'refah −6 · itibar −4' },
+             { et: 'Tersaneyi askeri idareye devret', mal: 'YETKİ YOK — konsey kararı gerek', pasif: true } ],
+        1: [ { et: 'Trabzon üzerinden alternatif kontrat', mal: 'bütçe −340/ay' },
+             { et: 'Vogel ile doğrudan görüşme aç', mal: 'görüşme · 1 tur' },
+             { et: 'Boğaz geçiş ücretini iki katına çıkar', mal: 'ilişki −15 · misilleme riski' } ],
+        2: [ { et: 'Sosyal harcama paketi', mal: 'bütçe −1 200 · refah +9' },
+             { et: 'Vergi indirimi', mal: 'gelir −8% · enflasyon +1.4' } ],
+        3: [ { et: 'Soruşturmayı hızlandır', mal: 'Selma Doğan · 5 gün' },
+             { et: 'Valiyi görevden al', mal: 'garnizon komutası 3 gün boşta' } ]
+    };
+    var NEDEN = {
+        0: 'ücret endeksi 3 çeyrektir enflasyonun altında',
+        1: 'Cermen meclisi 2 hafta önce tarım sübvansiyonunu kesti',
+        2: 'grev + tahıl kesintisi birleşik etkisi',
+        3: 'ihale kayıtlarında 2 tutarsızlık'
+    };
+    var a2 = document.getElementById('agenda-oneri');
+    if (a2) {
+        a2.innerHTML = FIX.GUNDEM.slice(0, 3).map(function (g, i) {
+            var k = (KARARLAR[i] || []).map(function (d) {
+                return '<button class="p-karar' + (d.pasif ? ' pasif' : '') + '">' +
+                    '<span>' + d.et + '</span><em>' + d.mal + '</em></button>';
+            }).join('');
+            return '<div class="s-item p-item ' + g.sev + '">' +
+                '<span>' + g.sev.toUpperCase() +
+                '<i class="p-neden" style="font-style:normal">NEDEN? ' + (NEDEN[i] || '') + '</i></span>' +
+                '<h3>' + g.bas + '</h3><p>' + g.ac + '</p>' +
+                (g.aktor !== '—' ? '<div class="p-aktor">MUHATAP: ' + g.aktor + '</div>' : '') +
+                '<div class="p-kararlar">' + k + '</div>' +
+                '<div class="p-detay">' + g.panel + ' panelinde ayrıntı →</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    /* ── Araç düğmeleri ── */
+    var ARACLAR = [
+        ['01','KONSEY'],['02','ORDU'],['03','AR-GE'],['04','ŞEHRE GİR'],
+        ['05','SOHBET'],['06','KOMUTAN'],['07','GAZETE'],['08','EKONOMİ']
+    ];
+    var t1 = document.getElementById('tools-simdi');
+    if (t1) t1.innerHTML = ARACLAR.map(function (a) {
+        return '<button class="s-tool"><b>' + a[0] + '</b><span>' + a[1] + '</span></button>';
+    }).join('');
+    /* ÖNERİ: rol süzgeci son iki aracı gizliyor */
+    var t2 = document.getElementById('tools-oneri');
+    if (t2) t2.innerHTML = ARACLAR.map(function (a, i) {
+        return '<button class="s-tool' + (i >= 6 ? ' gizli' : '') + '"><b>' + a[0] +
+            '</b><span>' + a[1] + '</span></button>';
+    }).join('');
+
+    /* ── AKIŞ: bugün 6 kayıt, defterde 14 ── */
+    var l1 = document.getElementById('log-simdi');
+    if (l1) {
+        l1.innerHTML = FIX.AKIS.slice(0, 6).map(function (k) {
+            return '<div class="s-log-row">' + k.s + '</div>';
+        }).join('') +
+        '<div class="s-log-row kesik">— js/Story.js:124 burada kesiyor: 8 kayıt daha var, erişilemiyor —</div>';
+    }
+    var l2 = document.getElementById('log-oneri');
+    if (l2) {
+        l2.innerHTML = FIX.AKIS.map(function (k) {
+            return '<div class="p-log-row"><time>' + k.t + '</time>' + k.s + '</div>';
+        }).join('');
+    }
+
+    /* ── Aday listesi (ikmal deposu) ── */
+    var DEPOLAR = [
+        ['Trabzon Merkez', '%78', '112 km'], ['Samsun Liman', '%64', '190 km'],
+        ['Erzurum Batı', '%41', '265 km'],  ['Sivas Depo-3', '%88', '310 km'],
+        ['Ankara Kuzey', '%52', '420 km'],  ['Kayseri Ana', '%37', '455 km'],
+        ['Malatya Doğu', '%29', '480 km'],  ['Konya Merkez', '%71', '560 km']
+    ];
+    var d1 = document.getElementById('aday-simdi');
+    if (d1) d1.innerHTML = DEPOLAR.map(function (d) {
+        return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,176,0,.08)">' +
+            '<span>' + d[0] + '</span><span>' + d[1] + ' · ' + d[2] + '</span></div>';
+    }).join('');
+    var d2 = document.getElementById('aday-oneri');
+    if (d2) d2.innerHTML = DEPOLAR.slice(0, 3).map(function (d) {
+        return '<div class="row"><b>' + d[0] + '</b><span>' + d[1] + '</span><span>' + d[2] + '</span></div>';
+    }).join('');
+
+    /* ── KUSUR 19: ölçülmüş ölü selektör listesi ──
+       Kaynak: style.css:1005-1185 bloğundaki 113 selektör, js/ + index.html'e
+       karşı kelime-sınırlı arandı. */
+    var OLU = [
+        ['#story-actions', 1039], ['.army-res', 1136], ['.city-name', 1062],
+        ['.city-row', 1061], ['.pool-grid', 1104], ['.pool-item', 1105],
+        ['.story-cmd', 1037], ['.story-hint', 1038], ['.story-state-name', 1029]
+    ];
+    var o = document.getElementById('olu-liste');
+    if (o) o.innerHTML = OLU.map(function (x) {
+        return '<code>' + x[0] + '</code> :' + x[1];
+    }).join(' · ');
+
+    /* Harita düğümleri — gerçek devlet renkleriyle. */
+    var m = document.getElementById('map-simdi');
+    if (m) {
+        var noktalar = [
+            [0.30,0.34,1],[0.38,0.28,3],[0.46,0.22,4],[0.52,0.38,3],[0.60,0.30,5],
+            [0.70,0.44,5],[0.64,0.62,0],[0.72,0.58,0],[0.55,0.66,7],[0.40,0.60,6],
+            [0.24,0.52,1],[0.33,0.70,6],[0.78,0.66,7],[0.20,0.26,2]
+        ];
+        m.insertAdjacentHTML('beforeend', noktalar.map(function (p) {
+            var renk = FIX.DEVLETLER[p[2]].renk;
+            return '<span class="s-node" style="left:' + (p[0]*100) + '%;top:' + (p[1]*100) +
+                '%;background:' + renk + ';box-shadow:0 0 7px ' + renk + '"></span>';
+        }).join(''));
+    }
+
+    LAB.init({
+        yuzey: '03',
+        vp: 1280,
+        baslik: '03 · HİKAYE DÜNYASI',
+        altBaslik: 'index.html:190-350 · js/StoryUI.js · js/Story.js · style.css:1005-1185 + 1188-1356'
+    });
+})();
+</script>
+</body>
+</html>

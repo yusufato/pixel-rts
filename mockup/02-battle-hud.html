@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>02 · Savaş HUD — Mockup</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="lab.css">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAHNE 1 — "ŞU AN" YENİDEN İNŞASI
+   Aşağıdaki her kural style.css'teki karşılığından BİREBİR kopyalanmıştır
+   (satır numaraları yorumda). position:fixed → position:absolute, çünkü sahne
+   viewport ölçüsünde bir kutu; geometri aynı kalır.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.stage { font-family: var(--wr-font-hud); }
+
+/* Savaş alanı zemini — gerçek arazi değil, yalnız HUD'un üstüne bindiği yüzey.
+   Kontrast, qa-screenshots/05-battle.png'deki ortalama parlaklığa yakın tutuldu. */
+.field {
+    position: absolute; inset: 0;
+    background:
+        radial-gradient(60% 45% at 30% 62%, #2b3320 0%, #1a2015 55%, #0e1310 100%),
+        linear-gradient(180deg, #16200f 0%, #0d1209 100%);
+}
+.field .unit {
+    position: absolute; width: 26px; height: 20px;
+    image-rendering: pixelated;
+}
+.field .obj {
+    position: absolute; width: 34px; height: 34px; border-radius: 50%;
+    border: 1px dashed rgba(255,176,0,.45);
+}
+
+/* ── #ui-resources — style.css:1837-1842 ─────────────────────────────────── */
+.n-resources {
+    position: absolute; top: 14px; left: 14px; min-width: 190px; padding: 10px 12px;
+    border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(5,9,4,.9);
+    color: var(--wr-muted); font: 9px var(--wr-font-hud);
+}
+
+/* ── #battle-vp-hud — style.css:1844-1853 ────────────────────────────────── */
+.n-vp {
+    position: absolute; top: 12px; left: 50%; width: min(430px, 38%);
+    transform: translateX(-50%); padding: 8px 11px;
+    border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-muted);
+}
+.n-vp .t, .n-vp .v { display: flex; justify-content: space-between; align-items: center;
+    font-size: 8px; letter-spacing: 1px; }
+.n-vp .t b { color: var(--wr-amber); font-weight: 400; }
+.n-vp .bars { position: relative; height: 8px; margin: 6px 0; background: rgba(255,255,255,.08); overflow: hidden; }
+.n-vp .bars::after { content:''; position: absolute; left: 50%; top:-2px; bottom:-2px; width:1px; background:#ffe9bf; }
+.n-vp .bars i { position: absolute; top: 0; bottom: 0; }
+.n-vp .bl { right: 50%; width: 34%; background: var(--wr-green); }
+.n-vp .br { left: 50%; width: 28%; background: var(--wr-red); }
+.n-vp .v b { color: var(--wr-amber-bright); font-weight: 400; font-size: 11px; }
+.n-vp .v span { color: var(--wr-amber); }
+
+/* ── #battle-target-card — style.css:1855-1873 ───────────────────────────── */
+.n-target {
+    position: absolute; top: 14px; right: 14px; width: 268px; padding: 11px;
+    border: 1px solid rgba(74,222,128,.55); background: rgba(5,9,4,.94);
+    color: var(--wr-muted); box-shadow: 0 0 20px rgba(0,0,0,.4);
+}
+.n-target .head { display: flex; justify-content: space-between; padding-bottom: 7px;
+    border-bottom: 1px solid var(--wr-line); color: var(--wr-green); font-size: 8px; letter-spacing: 1px; }
+.n-target .main { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.n-target .sprite { width: 56px; height: 42px; flex: none; }
+.n-target h3 { margin: 0; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; letter-spacing: 1px; }
+.n-target small { display: block; margin-top: 4px; color: var(--wr-muted); font-size: 8px; }
+.meter { display: grid; grid-template-columns: 34px 1fr 64px; align-items: center; gap: 6px;
+    margin: 5px 0; color: var(--wr-muted); font-size: 8px; }
+.meter > i { height: 5px; background: rgba(255,255,255,.08); overflow: hidden; display: block; }
+.meter > i b { display: block; height: 100%; background: var(--wr-green); }
+.meter em { color: var(--wr-amber-bright); font-style: normal; text-align: right; }
+.n-stats { display: grid; grid-template-columns: repeat(4,1fr); margin-top: 10px; border: 1px solid var(--wr-line); }
+.n-stats span { padding: 6px 3px; border-right: 1px solid var(--wr-line); color: var(--wr-muted);
+    font-size: 7px; text-align: center; }
+.n-stats span:last-child { border-right: 0; }
+.n-stats b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; }
+.n-matchup { margin-top: 8px; color: var(--wr-muted); font-size: 8px; line-height: 1.4; }
+
+/* ── #battle-left-stack — style.css:1829-1832 ────────────────────────────── */
+.n-left { position: absolute; left: 14px; bottom: 96px; width: 280px;
+    display: flex; flex-direction: column; gap: 8px; }
+
+/* ── #ui-abilities — style.css:1884-1894 ─────────────────────────────────── */
+.n-abil { padding: 8px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92);
+    color: var(--wr-amber); font-size: 9px; letter-spacing: 1px;
+    display: flex; flex-direction: column; gap: 4px; }
+.n-abil .h { font-size: 8px; color: var(--wr-muted); margin-bottom: 2px; }
+.n-abil .row { display: flex; flex-wrap: wrap; gap: 4px; }
+.n-abil .btn { flex: 1 1 calc(50% - 4px); min-height: 40px; padding: 5px 7px;
+    border: 1px solid var(--wr-line); border-radius: 3px; background: rgba(255,176,0,.05);
+    color: var(--wr-muted); font-family: inherit; text-align: left; cursor: pointer; }
+.n-abil .btn b { display: block; font-size: 12px; font-weight: 400; }
+.n-abil .btn span { display: block; margin-top: 2px; font-size: 7px; }
+.n-abil .chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.n-abil .chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px;
+    border: 1px dashed rgba(255,176,0,.28); border-radius: 8px; font-size: 7px; color: var(--wr-muted); }
+
+/* ── #battle-orders — style.css:1875-1881 ────────────────────────────────── */
+.n-orders { padding: 9px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92);
+    color: var(--wr-amber); font-size: 9px; letter-spacing: 1px; }
+.n-orders > .h { margin-bottom: 7px; }
+.n-orders button { width: calc(50% - 3px); min-height: 46px; margin: 3px 1px; padding: 6px 8px;
+    border: 1px solid var(--wr-line); border-radius: 3px; background: rgba(255,176,0,.035);
+    color: var(--wr-muted); font-family: inherit; text-align: left; cursor: pointer; }
+.n-orders button b { display: block; color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; }
+.n-orders button span { display: block; margin-top: 3px; font-size: 7px; }
+
+/* ── #battle-feed — style.css:1896-1903 ──────────────────────────────────── */
+.n-feed { position: absolute; top: 290px; right: 14px; width: 268px; height: 142px;
+    border: 1px solid var(--wr-line); background: rgba(5,9,4,.9); color: var(--wr-muted); overflow: hidden; }
+.n-feed .h { display: flex; justify-content: space-between; padding: 8px 9px;
+    border-bottom: 1px solid var(--wr-line); color: var(--wr-amber); font-size: 8px; letter-spacing: 1px; }
+.n-feed .h b { color: var(--wr-green); font-weight: 400; }
+.n-feed .list { max-height: 108px; overflow-y: auto; }
+.n-feed .list > div { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 5px 8px;
+    border-bottom: 1px solid rgba(255,176,0,.07); font-size: 8px; line-height: 1.35; }
+.n-feed time { color: var(--wr-dim); }
+.n-feed .friendly span { color: var(--wr-green); }
+.n-feed .hostile span { color: var(--wr-red); }
+.n-feed .order span { color: var(--wr-amber-bright); }
+
+/* ── #minimap — style.css:389-401 (legacy) + :1905 (savaş ezmesi) ─────────── */
+.n-minimap { position: absolute; right: 14px; bottom: 92px; width: 200px; height: 110px;
+    border: 1px solid var(--wr-line); background: rgba(5,9,4,.94); overflow: hidden; }
+.n-minimap i { position: absolute; width: 3px; height: 3px; }
+.n-minimap .dost { background: var(--wr-green); }
+.n-minimap .dusman { background: var(--wr-red); }
+.n-minimap .obj { width: 9px; height: 9px; border: 1px solid rgba(255,176,0,.5); border-radius: 50%; }
+.n-minimap.legacy { border: 2px solid rgba(100,200,255,.3); border-radius: 6px;
+    background: rgba(10,10,20,.85); }
+
+/* ── #ui-spawn-bar savaşta — style.css:1906-1908 + js/main.js:665-666 ─────── */
+.n-spawn { position: absolute; left: 306px; right: 296px; bottom: 0; height: 76px; padding: 7px;
+    border-top: 1px solid var(--wr-line); background: rgba(5,9,4,.92);
+    box-shadow: 0 -8px 22px rgba(0,0,0,.35);
+    opacity: .3; pointer-events: none;      /* js/main.js:665-666 — savaşta kilitli */
+    display: flex; gap: 6px; flex-wrap: wrap; align-content: flex-start; }
+/* .spawn-cat — style.css:235-237. WAR-ROOM OVERRIDE'I YOK: yeşil kalıyor. */
+.spawn-cat { padding: 7px 11px; background: rgba(20,32,16,.92); color: #cfe3d0;
+    border: 1px solid rgba(120,200,140,.35); border-radius: 5px; font-size: 12px;
+    font-weight: 600; white-space: nowrap; font-family: system-ui, sans-serif; }
+
+/* ── #ui-camera-hint — style.css:130-142 (legacy, savaşta ezilmiyor) ──────── */
+.n-hint { position: absolute; bottom: 108px; left: 12px; background: rgba(10,10,20,.7);
+    border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: 6px 12px;
+    color: #888; font-size: 7px; font-family: system-ui, sans-serif; max-width: 300px; }
+
+/* ── #ui-info — style.css:1834-1836: display:none !important ──────────────── */
+/* Konum: VP göstergesinin ALTINA alındı — üstteyken onunla çakışıyordu. */
+.n-info-dead {
+    position: absolute; top: 96px; right: 296px; width: 232px; padding: 9px;
+    border: 1px dashed #f85149; border-radius: 4px; background: rgba(248,81,73,.07);
+    color: #ff9d97; font-size: 9px; line-height: 1.4;
+}
+
+/* ── Duraklatma modalı — js/main.js:722-747, TAMAMEN INLINE STİL ─────────── */
+.n-pause {
+    position: absolute; inset: 0; background: rgba(0,0,0,.62);
+    display: flex; align-items: center; justify-content: center;
+}
+/* js/main.js:727-739'daki inline stilin BİREBİR karşılığı — gerçek oyunda
+   ölçüldü ve doğrulandı (qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png). */
+.n-pause .box {
+    min-width: 280px; padding: 26px 30px; border-radius: 12px; background: #12161c;
+    border: 1px solid #2b3442; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    text-align: center;
+    /* js/main.js:731 `font-family:inherit` → body'den 'Press Start 2P' geliyor.
+       Butonlarda font-family YOK → tarayıcı varsayılanı sans-serif.
+       Yani çakışma modalın DIŞINDA değil, İÇİNDE: aynı kutuda piksel başlık +
+       sistem sans buton. Gerçek çekimde doğrulandı. */
+    font-family: 'Press Start 2P', monospace;
+}
+.n-pause .box h4 { font-size: 19px; color: #e6edf5; margin-bottom: 4px; font-weight: 400; }
+.n-pause .box p { font-size: 12px; color: #7f8b9c; margin-bottom: 18px; }
+.n-pause .box button { display: block; width: 100%; margin: 8px 0; padding: 11px;
+    border-radius: 8px; font-size: 14px; cursor: pointer;
+    font-family: system-ui, -apple-system, sans-serif; }
+.n-pause .devam { border: 1px solid #2f6f4f; background: #1c3d2c; color: #cfe9d8; }
+.n-pause .cik   { border: 1px solid #6f3030; background: #3d1c1c; color: #e9cfcf; }
+/* öğrenme bildirimi — js/main.js:761-763 inline stili birebir */
+.n-learn { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    padding: 10px 20px; border-radius: 9px; background: rgba(18,20,32,.94);
+    border: 1px solid #49f; color: #8ecbff; box-shadow: 0 4px 18px rgba(0,0,0,.5);
+    font: 14px system-ui, sans-serif; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAHNE 2 — ÖNERİ (KATMAN B görsel dili)
+   Yalnız FARKLI olan kurallar. Ortak olanlar yukarıdaki .n-* sınıflarını
+   yeniden kullanır — mockup'ta bile kural tekrarlamıyoruz.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tipografi ölçeği uygulanmış varyantlar */
+.p-target { font-size: var(--wr-fs-small); }
+.p-target .head { font-size: var(--wr-fs-small); }
+.p-target h3 { font-size: var(--wr-fs-title); }
+.p-target small { font-size: var(--wr-fs-micro); }
+.p-target .meter { font-size: var(--wr-fs-small); }
+.p-target .n-stats span { font-size: var(--wr-fs-micro); padding: var(--wr-space-2) 3px; }
+.p-target .n-stats b { font-size: var(--wr-fs-label); }
+.p-target .n-matchup { font-size: var(--wr-fs-small); }
+
+/* KUSUR 1 — çoklu seçim özeti: kart üçüncü bir duruma girer. */
+.sel-summary { margin-top: var(--wr-space-2); }
+.sel-row { display: grid; grid-template-columns: 20px 1fr 42px 46px; gap: 6px;
+    align-items: center; padding: 3px 0; border-bottom: 1px solid rgba(255,176,0,.08);
+    font-size: var(--wr-fs-small); }
+.sel-row .sp { width: 20px; height: 15px; }
+.sel-row em { font-style: normal; color: var(--wr-amber-bright); text-align: right; }
+.sel-row .weak { color: var(--wr-red); }
+.sel-foot { display: flex; justify-content: space-between; margin-top: var(--wr-space-2);
+    padding-top: var(--wr-space-2); border-top: 1px solid var(--wr-line);
+    font-size: var(--wr-fs-small); }
+.sel-foot b { color: var(--wr-amber-bright); font-weight: 400; }
+
+/* KUSUR 2 + 4 — emir butonlarında DURUM ve KISAYOL katmanı */
+.p-orders button { position: relative; overflow: hidden; min-height: var(--wr-hit-min);
+    font-size: var(--wr-fs-body); }
+.p-orders button b { font-size: var(--wr-fs-label); }
+.p-orders button span { font-size: var(--wr-fs-micro); }
+.p-orders .key { position: absolute; top: 3px; right: 4px; padding: 0 3px;
+    border: 1px solid var(--wr-line); border-radius: 2px;
+    color: var(--wr-dim); font-size: var(--wr-fs-micro); }
+.p-orders .wait { position: absolute; left: 0; bottom: 0; height: 3px;
+    background: var(--wr-wait); }
+.p-orders button[data-durum="bekleme"] { color: var(--wr-disabled-ink); cursor: not-allowed; }
+.p-orders button[data-durum="bekleme"] b { color: var(--wr-wait); }
+.p-orders button[data-durum="yetersiz"] { border-style: dashed; cursor: not-allowed; }
+.p-orders button[data-durum="yetersiz"] b { color: var(--wr-red); }
+.p-orders button[data-durum="yetersiz"] span { color: var(--wr-red); }
+/* KUSUR 11 — odak hover'dan AYIRT EDİLEBİLİR */
+.p-orders button.focus-demo { outline: 2px solid var(--wr-focus); outline-offset: 1px; }
+.p-orders button.hover-demo { border-color: var(--wr-amber); background: var(--wr-hover);
+    color: var(--wr-amber-bright); }
+
+/* KUSUR 4 — kontrol grubu şeridi (yeni) */
+.p-groups { position: absolute; left: 14px; bottom: 14px; width: 280px;
+    display: flex; gap: 3px; padding: var(--wr-space-2);
+    border: 1px solid var(--wr-line); background: var(--wr-surface); }
+.p-groups .g { flex: 1; text-align: center; padding: 4px 0; border: 1px solid var(--wr-line);
+    border-radius: var(--wr-radius-sharp); color: var(--wr-dim); font-size: var(--wr-fs-micro); }
+.p-groups .g.dolu { color: var(--wr-amber-bright); border-color: rgba(255,176,0,.45);
+    background: var(--wr-idle); }
+.p-groups .g.aktif { color: var(--wr-screen); background: var(--wr-amber); border-color: var(--wr-amber); }
+.p-groups .g b { display: block; font-weight: 400; font-size: var(--wr-fs-small); }
+
+/* KUSUR 3 — komut işareti ve onay satırı */
+.cmd-mark { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+    border: 2px solid var(--wr-green); border-radius: 50%; }
+.cmd-mark::after { content: ''; position: absolute; inset: 8px; border: 1px solid var(--wr-green); border-radius: 50%; }
+.cmd-mark.attack { border-color: var(--wr-red); border-radius: 0; transform: rotate(45deg); }
+.cmd-mark.attack::after { border-color: var(--wr-red); border-radius: 0; }
+.cmd-line { position: absolute; height: 1px; background: linear-gradient(90deg, rgba(74,222,128,.15), var(--wr-green)); }
+.cmd-ack { margin-top: var(--wr-space-2); padding: var(--wr-space-2);
+    border-left: 2px solid var(--wr-green); background: rgba(74,222,128,.07);
+    color: var(--wr-amber-bright); font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); }
+
+/* KUSUR 8 — legacy kalıntıların token karşılığı */
+.p-cat { padding: var(--wr-space-2) var(--wr-space-3); border: 1px solid var(--wr-line);
+    border-radius: var(--wr-radius-sharp); background: var(--wr-idle);
+    color: var(--wr-muted); font-family: var(--wr-font-hud); font-size: var(--wr-fs-body);
+    letter-spacing: var(--wr-track); }
+.p-cat.acik { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); }
+.p-hint { position: absolute; left: 14px; bottom: 14px; padding: var(--wr-space-2) var(--wr-space-3);
+    border: 1px solid var(--wr-line); border-radius: var(--wr-radius-sharp);
+    background: rgba(5,9,4,.82); color: var(--wr-dim);
+    font-family: var(--wr-font-hud); font-size: var(--wr-fs-small); }
+
+/* KUSUR 9 — duraklatma modalı ve bildirim terminal dilinde */
+.p-pause { position: absolute; inset: 0; background: rgba(3,6,3,.86);
+    display: flex; align-items: center; justify-content: center; }
+.p-pause .box { width: 340px; padding: var(--wr-space-5);
+    border: 1px solid var(--wr-line); border-radius: var(--wr-radius-soft);
+    background: var(--wr-screen); color: var(--wr-muted);
+    font-family: var(--wr-font-hud); text-align: left; }
+.p-pause .box h4 { color: var(--wr-amber-bright); font-family: var(--wr-font-display);
+    font-size: var(--wr-fs-label); letter-spacing: var(--wr-track-wide);
+    margin-bottom: var(--wr-space-2); font-weight: 400; }
+.p-pause .box p { font-size: var(--wr-fs-small); margin-bottom: var(--wr-space-4);
+    line-height: var(--wr-lh-body); }
+.p-pause .box button { display: block; width: 100%; margin-bottom: var(--wr-space-1);
+    min-height: var(--wr-hit-min); padding: var(--wr-space-2) var(--wr-space-3);
+    border: 1px solid var(--wr-line); border-radius: var(--wr-radius-sharp);
+    background: var(--wr-idle); color: var(--wr-amber-bright);
+    font: inherit; font-size: var(--wr-fs-body); text-align: left; cursor: pointer;
+    letter-spacing: var(--wr-track); }
+/* KUSUR 13 — CRT yoğunluk kaydırıcısı, duraklatma modalı içinde */
+.p-crt { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: var(--wr-space-2);
+    margin-top: var(--wr-space-3); padding-top: var(--wr-space-3);
+    border-top: 1px solid var(--wr-line);
+    color: var(--wr-muted); font-size: var(--wr-fs-small); letter-spacing: var(--wr-track); }
+.p-crt-track { width: 120px; height: 4px; background: rgba(255,255,255,.09); }
+.p-crt-track i { display: block; height: 100%; background: var(--wr-amber); }
+.p-crt b { color: var(--wr-amber-bright); font-weight: 400; font-size: var(--wr-fs-body); }
+
+.p-learn { position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+    padding: var(--wr-space-2) var(--wr-space-4);
+    border: 1px solid var(--wr-line); border-left: 2px solid var(--wr-green);
+    background: var(--wr-surface); color: var(--wr-amber-bright);
+    font-family: var(--wr-font-hud); font-size: var(--wr-fs-body); letter-spacing: var(--wr-track); }
+
+/* KUSUR 10 — ölçek karşılaştırması */
+.fs-demo { position: absolute; right: 14px; bottom: 14px; width: 268px;
+    padding: var(--wr-space-3); border: 1px solid var(--wr-line);
+    background: var(--wr-surface); color: var(--wr-muted); font-family: var(--wr-font-hud); }
+.fs-demo h5 { font-size: var(--wr-fs-small); color: var(--wr-amber); font-weight: 400;
+    letter-spacing: var(--wr-track); margin-bottom: var(--wr-space-2); }
+.fs-demo .pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--wr-space-2);
+    padding: 2px 0; border-bottom: 1px solid rgba(255,176,0,.08); align-items: baseline; }
+.fs-demo .eski { color: var(--wr-dim); }
+.fs-demo .yeni { color: var(--wr-amber-bright); }
+.fs-demo .l7  { font-size: 7px; }  .fs-demo .l8 { font-size: 8px; }
+.fs-demo .l9  { font-size: 9px; }  .fs-demo .l10 { font-size: 10px; }
+.fs-demo .l11 { font-size: 11px; } .fs-demo .l13 { font-size: 13px; }
+.fs-demo .l15 { font-size: 15px; }
+
+/* KUSUR 12 — silinecek yetim kurallar */
+.dead-css { position: absolute; left: 306px; bottom: 14px; width: 300px;
+    padding: var(--wr-space-3); border: 1px dashed rgba(248,81,73,.5);
+    background: rgba(248,81,73,.06); color: #ff9d97;
+    font-family: var(--wr-font-hud); font-size: var(--wr-fs-small); line-height: var(--wr-lh-body); }
+.dead-css b { color: #ffc9c4; font-weight: 400; }
+
+/* ── KATMAN A wireframe yardımcıları ─────────────────────────────────────── */
+.wf-abs { position: absolute; }
+.wf-cap { font-size: 10px; color: #f0883e; padding: 2px 6px; }
+</style>
+</head>
+<body data-katman="a" data-pins="on">
+
+<div class="lab-scenes">
+
+<!-- ═══════════════════ SAHNE 1 — ŞU AN ═══════════════════ -->
+<section class="lab-scene" data-gate="off">
+    <header>
+        <h2>1 · ŞU AN — mevcut savaş HUD'u</h2>
+        <span class="lab-tag">style.css:1821-1915 birebir</span>
+        <p>Katman A'da gri: karar yalnız yerleşim üzerine. Katman B'de renkli: görsel dil kopuklukları görünür.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage wr-crt" id="stage-simdi">
+            <div class="field">
+                <span class="obj" style="left:390px;top:250px"></span>
+                <span class="unit" style="left:170px;top:300px"></span>
+                <span class="unit" style="left:205px;top:322px"></span>
+                <span class="unit" style="left:150px;top:346px"></span>
+                <span class="unit" style="left:560px;top:236px"></span>
+                <span class="unit" style="left:596px;top:262px"></span>
+            </div>
+
+            <div class="n-resources">
+                <div>Bütçe: 1240</div>
+                <div>Petrol: 380</div>
+                <div>İnsan: 22</div>
+            </div>
+
+            <div class="n-vp">
+                <div class="t"><span>MAVİ SALDIRIYOR</span><b>02:41</b></div>
+                <div class="bars"><i class="bl"></i><i class="br"></i></div>
+                <div class="v"><b>İRADE %68</b><span>3 SEKTÖR</span><b>İRADE %56</b></div>
+            </div>
+
+            <!-- KUSUR 1: bu panel her karede yazılıyor ama CSS ile tamamen gizli.
+                 Burada NE OLDUĞUNU göstermek için görünür çizildi, kırmızı kesik
+                 çerçeve "gerçekte ekranda YOK" demektir. -->
+            <div class="n-info-dead" data-kusur="1" data-pin-pos="tl">
+                <b>#ui-info — EKRANDA YOK</b><br>
+                js/main.js:976-989 her karede buraya "Tank · HP 900/900 · Zırh 8"
+                yazıyor; style.css:1834-1836 paneli <code>display:none !important</code>
+                yapıyor. Yani seçili birim özeti hiç görünmüyor.
+            </div>
+
+            <div class="n-target">
+                <div class="head"><span>TARGET LOCK</span><b>SEÇİLİ</b></div>
+                <div class="main">
+                    <span class="sprite" id="sp-tank"></span>
+                    <div><h3>TANK</h3><small>ZIRHLI · HAT KIRICI</small></div>
+                </div>
+                <div class="meter"><span>HULL</span><i><b style="width:74%"></b></i><em>666/900</em></div>
+                <div class="meter"><span>AMMO</span><i><b style="width:41%"></b></i><em>7/17</em></div>
+                <div class="n-stats">
+                    <span>ATK<b>150</b></span><span>MNZ<b>6</b></span><span>ZIRH<b>8</b></span><span>HIZ<b>1.6</b></span>
+                </div>
+                <div class="n-matchup">Güçlü: piyade, ZMA · Zayıf: Tanksavar Timi, SİHA</div>
+            </div>
+
+            <div class="n-feed" data-kusur="7" data-pin-pos="tl">
+                <div class="h"><span>MUHAREBE KAYDI</span><b>CANLI</b></div>
+                <div class="list" id="feed-simdi"></div>
+            </div>
+
+            <div class="n-left">
+                <div class="n-abil">
+                    <div class="h">YETENEKLER</div>
+                    <div class="row">
+                        <button class="btn"><b>MAYIN DÖŞE</b><span>hedef seç</span></button>
+                        <button class="btn"><b>SİPER KAZ</b><span>bulunduğu yer</span></button>
+                    </div>
+                    <div class="chips">
+                        <span class="chip">garrison <em>oto</em></span>
+                        <span class="chip">dig_in <em>oto</em></span>
+                        <span class="chip">ambush <em>oto</em></span>
+                    </div>
+                </div>
+                <div class="n-orders" data-kusur="2,4" data-pin-pos="tr">
+                    <div class="h">KOMUTAN EMİRLERİ</div>
+                    <button><b>TAARRUZ</b><span>Schwerpunkt</span></button
+                    ><button><b>ATEŞ SERBEST</b><span>otomatik temas</span></button
+                    ><button><b>SİPER KAZ</b><span>tahkim</span></button
+                    ><button><b>PARAŞÜT</b><span>150 bütçe</span></button>
+                </div>
+            </div>
+
+            <div class="n-spawn" data-kusur="5" data-pin-pos="tl" id="spawn-simdi"></div>
+
+            <div class="n-hint" data-kusur="6,8" data-pin-pos="tr">
+                WASD veya fare kenarları ile haritayı kaydır · Yerleşmiş birliğe tıkla → yeni yere tıkla ile taşı
+            </div>
+
+            <div class="n-minimap" id="mm1"></div>
+
+            <!-- KUSUR 3: sağ tık verildi ama ekranda hiçbir iz yok.
+                 İşaretlenen nokta, komutun gittiği ama görünmediği yerdir. -->
+            <div class="wf-abs" data-kusur="3" data-pin-pos="tl"
+                 style="left:352px;top:238px;width:76px;height:56px;border:1px dashed rgba(248,81,73,.55)">
+                <div class="wf-cap" style="position:absolute;top:100%;white-space:nowrap">
+                    sağ tık buraya verildi — ekranda iz yok
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 2 — ŞU AN: MODAL + BİLDİRİM ═══════════════════ -->
+<section class="lab-scene" data-only-katman="b" data-gate="off">
+    <header>
+        <h2>2 · ŞU AN — duraklatma modalı ve bildirim</h2>
+        <span class="lab-tag">js/main.js:722-769, tamamen inline stil</span>
+        <p>Aynı ekranda iki tasarım dili: arkada amber terminal, önde gri-mavi <code>system-ui</code> modal.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage wr-crt">
+            <div class="field"></div>
+            <div class="n-resources"><div>Bütçe: 1240</div><div>Petrol: 380</div></div>
+            <div class="n-vp">
+                <div class="t"><span>MAVİ SALDIRIYOR</span><b>02:41</b></div>
+                <div class="bars"><i class="bl"></i><i class="br"></i></div>
+                <div class="v"><b>İRADE %68</b><span>3 SEKTÖR</span><b>İRADE %56</b></div>
+            </div>
+            <div class="n-learn">Öğrenen AI açık — model v7 yükleniyor</div>
+            <div class="n-pause" data-kusur="9" data-pin-pos="tl">
+                <div class="box">
+                    <h4>⏸️ Maç duraklatıldı</h4>
+                    <p>ESC ile devam edebilirsin</p>
+                    <button class="devam">Maça devam et</button>
+                    <button class="cik">Maçtan çık</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 3 — ÖNERİ (KATMAN A) ═══════════════════ -->
+<section class="lab-scene" data-only-katman="a" data-gate="on">
+    <header>
+        <h2>3 · ÖNERİ — bilgi mimarisi</h2>
+        <span class="lab-tag">Katman A · renk ve font yok</span>
+        <p>Karar: hangi bilgi nerede duracak, hangi panel ölecek, hangi durum yeni yüzey isteyecek.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage" id="stage-oneri-a">
+            <div class="field"></div>
+
+            <div class="wf wf-abs" style="top:14px;left:14px;width:190px">
+                <div class="wf-h">Kaynak</div>
+                <div class="wf-body">bütçe · petrol · insan — <em>değişmiyor</em></div>
+            </div>
+
+            <div class="wf wf-abs" style="top:12px;left:50%;transform:translateX(-50%);width:348px">
+                <div class="wf-h">İrade / süre</div>
+                <div class="wf-body">iki yönlü bar + sektör sayısı — <em>değişmiyor</em></div>
+            </div>
+
+            <!-- KUSUR 1 -->
+            <div class="wf wf-abs wf-new" data-kusur="1" data-pin-pos="tl"
+                 style="top:14px;right:14px;width:268px">
+                <div class="wf-h">Seçim kartı — ÜÇ DURUM</div>
+                <div class="wf-body">
+                    <div class="wf-row"><span>1 · seçim yok</span><span>"birim seç"</span></div>
+                    <div class="wf-row"><span>2 · tek birim</span><span>bugünkü künye</span></div>
+                    <div class="wf-row"><span>3 · N birim <b>YENİ</b></span><span>kompozisyon dökümü</span></div>
+                    <div class="wf-note">
+                        Durum 3 bugün YOK: 12 birim seçince kart hâlâ tek birim gösteriyor.
+                        Döküm satırları: tip · adet · toplam HULL · en zayıf birim.
+                        Ölü <code>#ui-info</code> paneli silinir, işini bu kart devralır.
+                    </div>
+                </div>
+            </div>
+
+            <!-- KUSUR 7 -->
+            <div class="wf wf-abs" data-kusur="7" data-pin-pos="tl" style="top:290px;right:14px;width:268px;height:142px">
+                <div class="wf-h">Muharebe kaydı</div>
+                <div class="wf-body">
+                    zaman · olay · taraf
+                    <div class="wf-note">
+                        <code>aria-live="polite"</code> + <code>role="log"</code> eklenir.
+                        Bugün yalnız hedef kartı aria-live taşıyor; ekran okuyucu
+                        muharebe olaylarını hiç duyurmuyor.
+                    </div>
+                </div>
+            </div>
+
+            <div class="wf-abs" style="left:14px;bottom:96px;width:280px;display:flex;flex-direction:column;gap:8px">
+                <div class="wf">
+                    <div class="wf-h">Yetenekler</div>
+                    <div class="wf-body">
+                        <div class="wf-row"><span>aktif → buton</span><span>2 sütun</span></div>
+                        <div class="wf-row"><span>pasif → çip</span><span>"oto"</span></div>
+                    </div>
+                </div>
+                <!-- KUSUR 2 + 4 -->
+                <div class="wf wf-new" data-kusur="2,4" data-pin-pos="tr">
+                    <div class="wf-h">Komutan emirleri — DURUM KATMANI</div>
+                    <div class="wf-body">
+                        <div class="wf-row"><span>TAARRUZ</span><span>HAZIR · ⌨ Q</span></div>
+                        <div class="wf-row"><span>ATEŞ SERBEST</span><span>HAZIR · ⌨ F</span></div>
+                        <div class="wf-row"><span>SİPER KAZ</span><span>BEKLEME 18s · ⌨ T</span></div>
+                        <div class="wf-row"><span>PARAŞÜT</span><span>BÜTÇE YETMİYOR · ⌨ P</span></div>
+                        <div class="wf-note">
+                            Bugün dördü de aynı görünüyor. PARAŞÜT bütçe/cooldown yetersizken
+                            tıklanınca <em>hiçbir şey olmuyor</em> (js/main.js:348 erken return);
+                            oyuncu butonun bozuk mu yoksa kilitli mi olduğunu bilemiyor.
+                            Kısayol harfi de bugün hiçbir butonun üstünde yazmıyor.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KUSUR 4 — kontrol grubu -->
+            <div class="wf wf-abs wf-new" data-kusur="4" data-pin-pos="tr"
+                 style="left:14px;bottom:14px;width:280px">
+                <div class="wf-h">Kontrol grubu şeridi — YENİ</div>
+                <div class="wf-body">
+                    <div style="display:flex;gap:3px">
+                        <span class="wf-slot" style="flex:1">1<br>4 pi.</span>
+                        <span class="wf-slot" style="flex:1">2<br>3 tank</span>
+                        <span class="wf-slot" style="flex:1">3<br>2 top.</span>
+                        <span class="wf-slot" style="flex:1">4</span>
+                        <span class="wf-slot" style="flex:1">5</span>
+                        <span class="wf-slot" style="flex:1">6</span>
+                    </div>
+                    <div class="wf-note">
+                        Ctrl+N kur · N seç · NN kameraya al. Bugün hiç yok.
+                        Bu şerit, savaşta silinen üretim barından boşalan yere oturur;
+                        kalan genişlik minimap'e gider (200×110 → 236×130).
+                    </div>
+                </div>
+            </div>
+
+            <!-- KUSUR 5 -->
+            <!-- Kutu bilerek TAM 76px: barın gerçek ayak izini gösteriyor.
+                 Açıklamanın kalanı kontrol grubu notunda. -->
+            <div class="wf wf-abs wf-kill" data-kusur="5" data-pin-pos="tl"
+                 style="left:306px;right:296px;bottom:0;height:76px">
+                <div class="wf-h">Üretim barı — SAVAŞTA SİLİNİR</div>
+                <div class="wf-body">Savaşta üretim yok; bar <code>opacity .3</code> ile 76px yer kaplıyor.</div>
+            </div>
+
+            <!-- KUSUR 6 -->
+            <div class="wf wf-abs wf-kill" data-kusur="6" data-pin-pos="tr"
+                 style="left:14px;bottom:120px;width:280px">
+                <div class="wf-h">Kamera ipucu — CSS ile gizlenir</div>
+                <div class="wf-body">
+                    Bugün yalnız <code>startBattle()</code> içinde JS ile gizleniyor.
+                    Rematch / MP yolunda gizlenmezse sol yığının altına giriyor.
+                </div>
+            </div>
+
+            <!-- KUSUR 3 -->
+            <div class="wf-abs wf-new" data-kusur="3" data-pin-pos="tl"
+                 style="left:330px;top:210px;width:230px;height:110px;border:1px solid #f0883e;border-radius:2px">
+                <div class="wf-h">Komut geri bildirimi — YENİ</div>
+                <div class="wf-body">
+                    <div class="wf-row"><span>hedef noktada işaret</span><span>400 ms</span></div>
+                    <div class="wf-row"><span>hareket / taarruz</span><span>daire / eşkenar</span></div>
+                    <div class="wf-row"><span>kartta onay satırı</span><span>"EMİR → hedef"</span></div>
+                </div>
+            </div>
+
+            <div class="wf wf-abs" style="right:14px;bottom:14px;width:236px;height:130px">
+                <div class="wf-h">Minimap — büyütülür</div>
+                <div class="wf-body">200×110 → 236×130 (üretim barından boşalan yer)</div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 3 — ÖNERİ (KATMAN B) ═══════════════════ -->
+<section class="lab-scene" data-only-katman="b" data-gate="on">
+    <header>
+        <h2>3 · ÖNERİ — görsel dil</h2>
+        <span class="lab-tag">Katman B · tokens.css</span>
+        <p>Aynı yerleşim, uygulanmış token ölçeği. Araç çubuğundaki CRT kaydırıcısı bu sahneyi de etkiler.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage wr-crt" id="stage-oneri-b">
+            <div class="field">
+                <span class="obj" style="left:390px;top:250px"></span>
+                <span class="unit" style="left:170px;top:300px"></span>
+                <span class="unit" style="left:205px;top:322px"></span>
+                <span class="unit" style="left:150px;top:346px"></span>
+                <span class="unit" style="left:560px;top:236px"></span>
+                <!-- KUSUR 3 — komut işareti + eksen -->
+                <span class="cmd-line" style="left:195px;top:300px;width:200px"></span>
+                <span class="cmd-mark" style="left:395px;top:262px"></span>
+                <span class="cmd-mark attack" style="left:566px;top:246px"></span>
+            </div>
+
+            <div class="n-resources" style="font-size:var(--wr-fs-body)">
+                <div>Bütçe: 1240</div><div>Petrol: 380</div><div>İnsan: 22</div>
+            </div>
+
+            <div class="n-vp">
+                <div class="t" style="font-size:var(--wr-fs-small)"><span>MAVİ SALDIRIYOR</span><b>02:41</b></div>
+                <div class="bars"><i class="bl"></i><i class="br"></i></div>
+                <div class="v" style="font-size:var(--wr-fs-small)"><b>İRADE %68</b><span>3 SEKTÖR</span><b>İRADE %56</b></div>
+            </div>
+
+            <!-- KUSUR 1 + 3 + 10 — çoklu seçim durumu, onay satırı, ölçek -->
+            <div class="n-target p-target" data-kusur="1,3,10" data-pin-pos="tl">
+                <div class="head"><span>SEÇİM · 12 BİRİM</span><b>TAARRUZ</b></div>
+                <div class="sel-summary" id="sel-rows"></div>
+                <div class="sel-foot"><span>TOPLAM HULL</span><b>5 840 / 7 060</b></div>
+                <div class="sel-foot"><span>EN ZAYIF</span><b class="weak" style="color:var(--wr-red)">Topçu #1 · %19</b></div>
+                <div class="cmd-ack">EMİR ALINDI · TAARRUZ → sektör K2 (Tank #3 baş çaba)</div>
+            </div>
+
+            <div class="n-feed" style="top:330px;height:120px">
+                <div class="h" style="font-size:var(--wr-fs-small)"><span>MUHAREBE KAYDI</span><b>CANLI</b></div>
+                <div class="list" id="feed-oneri" style="max-height:86px"></div>
+            </div>
+
+            <div class="n-left" style="bottom:120px">
+                <!-- KUSUR 2 + 4 + 11 -->
+                <div class="n-orders p-orders" data-kusur="2,4,11" data-pin-pos="tr">
+                    <div class="h" style="font-size:var(--wr-fs-body)">KOMUTAN EMİRLERİ</div>
+                    <button class="hover-demo" data-durum="hazir"><span class="key">Q</span><b>TAARRUZ</b><span>Schwerpunkt</span></button
+                    ><button class="focus-demo" data-durum="hazir"><span class="key">F</span><b>ATEŞ SERBEST</b><span>otomatik temas</span></button
+                    ><button data-durum="bekleme"><span class="key">T</span><b>SİPER KAZ</b><span>bekleme 18 sn</span><i class="wait" style="width:62%"></i></button
+                    ><button data-durum="yetersiz"><span class="key">P</span><b>PARAŞÜT</b><span>150₺ gerek · 90₺ var</span></button>
+                </div>
+            </div>
+
+            <!-- KUSUR 4 -->
+            <div class="p-groups" data-kusur="4" data-pin-pos="tr">
+                <span class="g dolu"><b>1</b>4 pi.</span>
+                <span class="g aktif"><b>2</b>3 tk.</span>
+                <span class="g dolu"><b>3</b>2 tp.</span>
+                <span class="g"><b>4</b>—</span>
+                <span class="g"><b>5</b>—</span>
+                <span class="g"><b>6</b>—</span>
+            </div>
+
+            <!-- KUSUR 8 — kategori butonları token'a çekilmiş (dizim fazından örnek) -->
+            <div class="wf-abs" data-kusur="8" data-pin-pos="tl"
+                 style="left:306px;bottom:120px;width:300px;padding:var(--wr-space-2);border:1px solid var(--wr-line);background:var(--wr-surface)">
+                <div style="color:var(--wr-amber);font-size:var(--wr-fs-small);letter-spacing:var(--wr-track);margin-bottom:var(--wr-space-2)">
+                    DİZİM KATEGORİLERİ — token'a çekilmiş
+                </div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap" id="cat-oneri"></div>
+            </div>
+
+            <!-- KUSUR 12 -->
+            <div class="dead-css" data-kusur="12" data-pin-pos="tr">
+                <b>SİLİNECEK YETİM KURALLAR</b><br>
+                <code>#train-ai-btn</code> — style.css:188-218 · HTML'de ve JS'te karşılığı yok<br>
+                <code>#ai-training-screen</code> — style.css:404 · aynı<br>
+                Savaşta <code>.spawn-btn:hover</code> — style.css:277 mavi glow'a düşüyor
+            </div>
+
+            <!-- KUSUR 10 -->
+            <div class="fs-demo" data-kusur="10" data-pin-pos="tl">
+                <h5>TİPOGRAFİ ÖLÇEĞİ — ÖNCE / SONRA</h5>
+                <div class="pair"><span class="eski l7">7px yetenek çipi</span><span class="yeni l9">9px · micro</span></div>
+                <div class="pair"><span class="eski l8">8px muharebe kaydı</span><span class="yeni l10">10px · small</span></div>
+                <div class="pair"><span class="eski l9">9px emir paneli</span><span class="yeni l11">11px · body</span></div>
+                <div class="pair"><span class="eski l10">10px buton başlığı</span><span class="yeni l13">13px · label</span></div>
+                <div class="pair"><span class="eski l13">13px birim adı</span><span class="yeni l15">15px · title</span></div>
+            </div>
+
+            <div class="p-hint" data-kusur="6" data-pin-pos="tr" style="left:auto;right:266px;bottom:14px">
+                Savaş fazında CSS ile gizli — JS'e bağlı değil
+            </div>
+
+            <div class="n-minimap" id="mm2" style="width:236px;height:130px;bottom:14px"></div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+<!-- ═══════════════════ SAHNE 4 — ÖNERİ: MODAL + BİLDİRİM ═══════════════════ -->
+<section class="lab-scene" data-only-katman="b" data-gate="on">
+    <header>
+        <h2>4 · ÖNERİ — duraklatma ve bildirim terminal dilinde</h2>
+        <span class="lab-tag">kusur 9 + 11</span>
+        <p>Inline stil kalkar; ikisi de <code>tokens.css</code> yüzeylerini kullanır.</p>
+    </header>
+    <div class="lab-frame">
+        <div class="stage wr-crt">
+            <div class="field"></div>
+            <div class="n-resources" style="font-size:var(--wr-fs-body)"><div>Bütçe: 1240</div><div>Petrol: 380</div></div>
+            <div class="n-vp">
+                <div class="t" style="font-size:var(--wr-fs-small)"><span>MAVİ SALDIRIYOR</span><b>02:41</b></div>
+                <div class="bars"><i class="bl"></i><i class="br"></i></div>
+                <div class="v" style="font-size:var(--wr-fs-small)"><b>İRADE %68</b><span>3 SEKTÖR</span><b>İRADE %56</b></div>
+            </div>
+            <div class="p-learn" data-kusur="9" data-pin-pos="tr">ÖĞRENEN AI AÇIK · model v7 yükleniyor</div>
+            <div class="p-pause" data-kusur="9,11" data-pin-pos="tl">
+                <div class="box">
+                    <h4>DURAKLATILDI</h4>
+                    <p>Simülasyon donduruldu. Maç durumu ve tohum korunuyor.</p>
+                    <button class="wr-focusable" style="outline:2px solid var(--wr-focus);outline-offset:1px">
+                        ▸ MAÇA DEVAM ET <span style="float:right;color:var(--wr-dim)">ESC</span>
+                    </button>
+                    <button class="wr-focusable">▸ MAÇTAN ÇIK</button>
+                    <!-- KUSUR 13 — design-qa.md:36'daki tek açık P3 bulgusu.
+                         Kaydırıcı buraya konur: savaş sırasında erişilebilir tek
+                         ayar yüzeyi duraklatma modalı. Araç çubuğundaki CRT
+                         kaydırıcısı bu sahneyi canlı olarak etkiliyor — deneyebilirsin. -->
+                    <div class="p-crt" data-kusur="13" data-pin-pos="tr">
+                        <span>CRT YOĞUNLUĞU</span>
+                        <div class="p-crt-track"><i data-crt-fill style="width:43%"></i></div>
+                        <b data-crt-value>0.26</b>
+                    </div>
+                    <p style="margin:var(--wr-space-2) 0 0;font-size:var(--wr-fs-micro);color:var(--wr-dim)">
+                        Bazı arazi tohumlarında savaş alanı konsept çekiminden parlak çıkıyor.
+                        Kaydırıcı yalnız görsel katmanı etkiler; sim ve determinizm etkilenmez.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="stage-scale-note"></p>
+</section>
+
+</div>
+
+<div class="lab-legend"></div>
+
+<script src="fixtures.js"></script>
+<script src="lab.js"></script>
+<script>
+/* Sahneleri gerçek veriyle doldur — yer tutucu metin kullanılmaz. */
+(function () {
+    function feed(mount, kayitlar) {
+        var n = document.getElementById(mount);
+        if (!n) return;
+        n.innerHTML = kayitlar.map(function (k) {
+            return '<div class="' + k.tip + '"><time>' + k.t + '</time><span>' + k.s + '</span></div>';
+        }).join('');
+    }
+    feed('feed-simdi', FIX.MUHAREBE_KAYDI);
+    feed('feed-oneri', FIX.MUHAREBE_KAYDI.slice(0, 6));
+
+    /* Saha birimleri — gerçek icons.png sprite'ları (mavi = oyuncu, kırmızı = AI).
+       Sıra: piyade, piyade, tank / düşman ZMA, düşman tank. */
+    var saha = [
+        { sp: 0, k: false }, { sp: 0, k: false }, { sp: 5, k: false },
+        { sp: 6, k: true },  { sp: 5, k: true }
+    ];
+    Array.prototype.forEach.call(document.querySelectorAll('.field .unit'), function (n, i) {
+        var u = saha[i % saha.length];
+        n.setAttribute('style', n.getAttribute('style') + ';' + FIX.spriteStil(u.sp, u.k));
+    });
+
+    /* Hedef kartı sprite'ı — icons.png sütun 5 (Tank), satır 0 (mavi/oyuncu). */
+    var sp = document.getElementById('sp-tank');
+    if (sp) sp.setAttribute('style', FIX.spriteStil(5, false));
+
+    /* ŞU AN: kategori butonları legacy yeşil (.spawn-cat) */
+    var s = document.getElementById('spawn-simdi');
+    if (s) {
+        s.innerHTML = FIX.KATEGORILER.map(function (c) {
+            return '<span class="spawn-cat">' + c.ad + '</span>';
+        }).join('');
+    }
+    /* ÖNERİ: aynı butonlar token'a çekilmiş */
+    var c2 = document.getElementById('cat-oneri');
+    if (c2) {
+        c2.innerHTML = FIX.KATEGORILER.map(function (c, i) {
+            return '<span class="p-cat' + (i === 1 ? ' acik' : '') + '">' + c.ad + '</span>';
+        }).join('');
+    }
+
+    /* KUSUR 1 — çoklu seçim dökümü. Gerçek birim adları ve gerçek HP'ler. */
+    var secim = [
+        { id: 'infantry', adet: 4, hull: 0.86 },
+        { id: 'mbt',      adet: 3, hull: 0.74 },
+        { id: 'artillery',adet: 2, hull: 0.19, zayif: true },
+        { id: 'ifv',      adet: 2, hull: 0.91 },
+        { id: 'medic',    adet: 1, hull: 1.00 }
+    ];
+    var rows = document.getElementById('sel-rows');
+    if (rows) {
+        rows.innerHTML = secim.map(function (r) {
+            var b = FIX.birim(r.id);
+            return '<div class="sel-row' + (r.zayif ? ' weak' : '') + '">' +
+                '<span class="sp" style="' + FIX.spriteStil(b.sp, false) + '"></span>' +
+                '<span>' + b.ad + '</span>' +
+                '<span>×' + r.adet + '</span>' +
+                '<em>%' + Math.round(r.hull * 100) + '</em></div>';
+        }).join('');
+    }
+
+    /* Minimap blipleri — sahadaki birimlerin oranlı karşılığı. Boş bir kutu
+       ekran çekiminde "artefakt" gibi okunuyordu. */
+    var BLIP = [
+        [.18,.55,'dost'], [.22,.62,'dost'], [.15,.70,'dost'], [.26,.58,'dost'],
+        [.72,.42,'dusman'], [.78,.48,'dusman'], [.68,.36,'dusman'],
+        [.45,.46,'obj']
+    ];
+    ['mm1', 'mm2'].forEach(function (id) {
+        var n = document.getElementById(id); if (!n) return;
+        n.innerHTML = BLIP.map(function (b) {
+            return '<i class="' + b[2] + '" style="left:' + (b[0]*100) + '%;top:' + (b[1]*100) + '%"></i>';
+        }).join('');
+    });
+
+    LAB.init({
+        yuzey: '02',
+        vp: 916,
+        baslik: '02 · SAVAŞ HUD',
+        altBaslik: 'index.html:372-461 · js/main.js · js/WarRoomUI.js · style.css:1821-1915'
+    });
+})();
+</script>
+</body>
+</html>
