@@ -615,6 +615,14 @@ function storyCharacterIdentityValidate(ledger) {
         if (!Array.isArray(row && row.ambitions) || !row.ambitions.length) issues.push({ code: 'AMBITIONS_REQUIRED', path: `${at}.ambitions` });
         if (!Array.isArray(row && row.redLines) || !row.redLines.length) issues.push({ code: 'RED_LINES_REQUIRED', path: `${at}.redLines` });
         if (!Array.isArray(row && row.goals) || row.goals.length < 2) issues.push({ code: 'GOALS_REQUIRED', path: `${at}.goals` });
+        if (row && row.activationOrigin) {
+            const origin = row.activationOrigin;
+            if (!origin.candidateId || !origin.cohortId || !origin.regionId || !origin.sourceMovementId
+                || origin.populationAccounting !== 'REPRESENTATIVE_INCLUDED_IN_COHORT'
+                || origin.populationDelta !== 0) {
+                issues.push({ code: 'ACTIVATION_ORIGIN', path: `${at}.activationOrigin` });
+            }
+        }
         const life = row && row.life;
         if (!life || !['ACTIVE', 'RETIRED', 'DEAD'].includes(life.status)) {
             issues.push({ code: 'LIFE_STATUS', path: `${at}.life.status` });

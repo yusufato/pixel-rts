@@ -678,3 +678,11 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Aktivasyon düzeyi yalnız yerel toplumsal eylem aşaması, şiddeti ve seferberliğinden türetilir; rol adı veya rastgele şöhret bonusu kullanılmaz.
 - Adayın meslek/eğitim/kimlik profili gerçek nüfus kohortundan gelir, fakat bu henüz tekil kişinin biyografisi değildir.
 - Aday değerlendirmesi nüfusu ve karakter sayısını değiştirmez. Kalıcı yükseltme politikası gelene kadar `identityActorId:null` zorunludur.
+
+### 12 Ağustos 2026 — Faz 38.11 kalıcı temsilci ve dormancy
+
+- İsimli temsilci yeni nüfus değildir; kohort içindeki bir kişinin ayrıntılı temsili olduğu için `populationDelta:0` taşır ve kohorttan bir kişi düşülmez.
+- Yalnız `RELEVANT/MAJOR/WORLD` düzeyi kalıcı aktöre yükselir. Düşük önem adayı API çağrısıyla zorla yükseltilemez.
+- Aynı aday aynı deterministik aktör kimliğine gider ve ikinci çağrı ikinci kişi yaratmaz. Aktivasyon ve kimlik defterleri kaynak kohort/hareket üzerinden birbirini doğrular.
+- Kaynak olay sönünce karakter silinmez; pahalı karar uygunluğu kapanır ve etkin düzey `MINOR` olur. Hafıza ile ilişki korunur.
+- Yeni kampanya önceki oyunun promosyonlarını taşımaz. Save/load ise aktör ve aktivasyon kaydını birlikte korur; yetim referanslı bozuk kayıt reddedilir.

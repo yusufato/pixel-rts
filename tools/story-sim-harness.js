@@ -583,6 +583,10 @@ function createRuntime(seed) {
             characterPowerView: actorId => storyCharacterPowerView(actorId),
             characterCareerView: actorId => storyCharacterCareerView(actorId),
             characterActivationCandidates: () => storyCharacterActivationCandidates(),
+            characterActivationPromote: candidateId => storyCharacterActivationPromote(candidateId),
+            characterActivationLedger: () => storyCharacterActivationSnapshot(),
+            characterActivationRoster: () => storyCharacterActivationRosterView(),
+            validateCharacterActivationLedger: ledger => storyCharacterActivationValidate(ledger),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14824,7 +14828,7 @@ function probeCharacterCohortActivation(seed = 2032) {
                 && candidate.scoreBps >= 0 && candidate.scoreBps <= 10000,
             noPersonFabricated: candidate && candidate.identityActorId === null
                 && candidate.promotionStatus === 'CANDIDATE_ONLY_NO_PERSON_CREATED'
-                && view.namedCharacterCreationAvailable === false
+                && view.namedCharacterCreationAvailable === true
                 && Object.keys(story.characterIdentities.identities || {}).length === identityCountBefore,
             populationConserved: peopleBefore === peopleAfter
                 && candidate.populationMutation === false && view.populationMutation === false,
@@ -14847,6 +14851,130 @@ function probeCharacterCohortActivation(seed = 2032) {
             && view.candidates.length === 0 && view.worldMutation === false;
     } finally {
         disabled.dom.window.close();
+    }
+    return result;
+}
+
+function probeCharacterCohortPromotion(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    let savedRaw;
+    let actorId;
+    let candidateId;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const regionId = Object.keys(story.population.regions || {}).sort()[0];
+        const populationBefore = Object.values(story.population.regions).reduce((sum, row) =>
+            sum + row.populationPeople, 0);
+        story.collectiveAction.regions[regionId].participations = [{
+            movementId: 'movement:promotion-fixture', problemType: 'WORKING_CONDITIONS',
+            blamedActorId: 'power-center:fixture', localSeverityBps: 8800,
+            localAffectedPeople: 250, stage: 'UPRISING',
+            mobilizationBps: 8600, radicalizationBps: 7300
+        }];
+        const candidate = runtime.api.characterActivationCandidates().candidates[0];
+        candidateId = candidate.id;
+        const identityCountBefore = Object.keys(story.characterIdentities.identities || {}).length;
+        const promoted = runtime.api.characterActivationPromote(candidate.id);
+        const duplicate = runtime.api.characterActivationPromote(candidate.id);
+        actorId = promoted.actor && promoted.actor.id;
+        const actor = runtime.api.characterIdentityView(actorId);
+        const afterView = runtime.api.characterActivationCandidates();
+        const afterCandidate = afterView.candidates.find(row => row.id === candidate.id);
+        const ledger = runtime.api.characterActivationLedger();
+        const populationAfter = Object.values(story.population.regions).reduce((sum, row) =>
+            sum + row.populationPeople, 0);
+        const memory = runtime.api.characterMemoryRecall(actorId, {});
+        const relatedActor = Object.values(story.characterIdentities.identities || {})
+            .find(row => row.id !== actorId);
+        runtime.api.relationshipAdjust(actorId, relatedActor.id, { trustBps: 150 },
+            { sourceType: 'PROMOTION_PROBE', sourceId: 'promotion-probe:relationship' });
+        const relationshipBeforeDormancy = runtime.api.relationshipView(actorId, relatedActor.id);
+        story.collectiveAction.regions[regionId].participations = [];
+        const dormantActor = runtime.api.characterActivationRoster().actors
+            .find(row => row.actorId === actorId);
+        const dormantMemory = runtime.api.characterMemoryRecall(actorId, {});
+        const relationshipAfterDormancy = runtime.api.relationshipView(actorId, relatedActor.id);
+        const lowRegionId = Object.keys(story.population.regions || {}).sort()[1];
+        story.collectiveAction.regions[lowRegionId].participations = [{
+            movementId: 'movement:low-promotion-fixture', problemType: 'FOOD_ACCESS',
+            blamedActorId: 'power-center:fixture', localSeverityBps: 900,
+            localAffectedPeople: 20, stage: 'PROTEST',
+            mobilizationBps: 700, radicalizationBps: 200
+        }];
+        const lowCandidate = runtime.api.characterActivationCandidates().candidates
+            .find(row => row.trigger.movementId === 'movement:low-promotion-fixture');
+        const identityCountBeforeLowAttempt = Object.keys(story.characterIdentities.identities || {}).length;
+        const lowPromotion = runtime.api.characterActivationPromote(lowCandidate.id);
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        result = {
+            promotionApplied: promoted.ok && promoted.code === 'NAMED_REPRESENTATIVE_PROMOTED'
+                && promoted.worldMutation === true && promoted.populationMutation === false,
+            deterministicIdentity: actorId === `character:activated:${candidate.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+            identityGrounded: actor && actor.originModel === 'PHASE_38_11_COHORT_PROMOTION'
+                && actor.activationOrigin.candidateId === candidate.id
+                && actor.activationOrigin.cohortId === candidate.cohortId
+                && actor.activationOrigin.sourceMovementId === candidate.trigger.movementId,
+            representativeAccounting: populationBefore === populationAfter
+                && actor.activationOrigin.populationAccounting === 'REPRESENTATIVE_INCLUDED_IN_COHORT'
+                && actor.activationOrigin.populationDelta === 0
+                && promoted.promotion.populationDelta === 0,
+            exactlyOneIdentity: Object.keys(story.characterIdentities.identities || {}).length
+                === identityCountBefore + 1
+                && duplicate.ok && duplicate.duplicate === true
+                && duplicate.promotion.actorId === actorId,
+            candidateNowLinked: afterCandidate.identityActorId === actorId
+                && afterCandidate.promotionStatus === 'PROMOTED_NAMED_REPRESENTATIVE',
+            ledgersCrossValidate: runtime.api.validateCharacterActivationLedger(ledger).ok
+                && runtime.api.validateCharacterIdentityLedger(runtime.api.characterIdentityLedger()).ok,
+            originMemoryCreated: memory.records.some(row =>
+                row.source && row.source.sourceType === 'COHORT_PROMOTION'
+                && row.source.movementId === candidate.trigger.movementId),
+            dormancyReducesCostPreservesPerson: dormantActor
+                && dormantActor.sourceStatus === 'DORMANT_SOURCE'
+                && dormantActor.effectiveLevel === 'MINOR'
+                && dormantActor.expensiveDecisionEligible === false
+                && dormantActor.identityPresent === true
+                && runtime.api.characterIdentityView(actorId) !== null,
+            dormancyPreservesMemoryAndRelationship: dormantMemory.records.some(row =>
+                row.source && row.source.sourceType === 'COHORT_PROMOTION')
+                && JSON.stringify(relationshipAfterDormancy)
+                    === JSON.stringify(relationshipBeforeDormancy),
+            lowLevelPromotionRejected: lowCandidate.level === 'AGGREGATE'
+                && lowCandidate.promotable === false
+                && lowPromotion.code === 'ACTIVATION_LEVEL_TOO_LOW'
+                && Object.keys(story.characterIdentities.identities || {}).length
+                    === identityCountBeforeLowAttempt,
+            saveContainsBothSides: savedRaw.includes(candidate.id) && savedRaw.includes(actorId)
+        };
+        runtime.api.newCampaign({ seed: seed + 99, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        result.newCampaignClearsPromotions = Object.keys(
+            runtime.api.characterActivationLedger().promotions || {}
+        ).length === 0 && runtime.api.characterIdentityView(actorId) === null;
+    } finally {
+        runtime.dom.window.close();
+    }
+    const restored = createRuntime((seed + 1) >>> 0);
+    try {
+        restored.api.putSavedRaw(savedRaw);
+        const loaded = restored.api.loadNow();
+        const actor = restored.api.characterIdentityView(actorId);
+        const promotion = restored.api.characterActivationLedger().promotions[candidateId];
+        const rosterActor = restored.api.characterActivationRoster().actors
+            .find(row => row.actorId === actorId);
+        result.saveLoadPreserved = loaded === true && actor && promotion
+            && promotion.actorId === actorId
+            && actor.activationOrigin.candidateId === candidateId
+            && restored.api.validateCharacterActivationLedger(
+                restored.api.characterActivationLedger()
+            ).ok && rosterActor && rosterActor.sourceStatus === 'DORMANT_SOURCE'
+            && rosterActor.expensiveDecisionEligible === false;
+    } finally {
+        restored.dom.window.close();
     }
     return result;
 }
@@ -17112,6 +17240,7 @@ module.exports = {
     probeCharacterCareerLifecycle,
     probeCharacterLifeStatus,
     probeCharacterCohortActivation,
+    probeCharacterCohortPromotion,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

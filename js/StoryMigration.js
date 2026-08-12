@@ -552,7 +552,7 @@ function storyMigrationV3RawToV2(raw, options) {
         'cfg', 'pendingReward', 'clock', 'log', 'caps', 'nextCouncil', 'councilNo',
         'time', 'rng', 'scheduler', 'runtime', 'era', 'eraEvents', 'eraFlips',
         'lastUrgent', 'news', 'telemetry', 'causality', 'regionModel',
-        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'characterIdentities', 'characterRelationships', 'characterMemory', 'characterActions', 'characterBehavior', 'conversationUnderstanding', 'negotiations', 'mechanicalContracts', 'companyEconomy', 'economicAI', 'rel'
+        'activationPolicy', 'aggregationPolicy', 'infrastructureGraph', 'population', 'needsWelfare', 'publicOpinion', 'collectiveAction', 'humanMigration', 'powerCenters', 'institutions', 'stateCapacity', 'elections', 'integrity', 'politicalCrises', 'characterIdentities', 'characterActivation', 'characterRelationships', 'characterMemory', 'characterActions', 'characterBehavior', 'conversationUnderstanding', 'negotiations', 'mechanicalContracts', 'companyEconomy', 'economicAI', 'rel'
     ]);
     const unmappedTopLevelFields = Object.keys(save).filter(key => !knownTop.has(key)).sort();
     const featureOverrides = storyMigrationObject(storyMigrationObject(save.cfg).featureFlags);

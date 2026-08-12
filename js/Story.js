@@ -500,6 +500,7 @@ function storyNewCampaign(config = {}) {
     if (typeof storyEconomicAIReset === 'function') storyEconomicAIReset();
     if (typeof storyOpinionReset === 'function') storyOpinionReset();
     if (typeof storyCollectiveReset === 'function') storyCollectiveReset();
+    if (typeof storyCharacterActivationReset === 'function') storyCharacterActivationReset();
     if (typeof storyHumanMigrationReset === 'function') storyHumanMigrationReset();
     // Kurum reseti onceki kampanyanin secilmis makam vekilini okuyamaz.
     STORY.elections = null;
@@ -639,6 +640,9 @@ function storySave() {
             characterIdentities: (typeof storyCharacterIdentityForSave === 'function')
                 ? storyCharacterIdentityForSave()
                 : STORY.characterIdentities,
+            characterActivation: (typeof storyCharacterActivationForSave === 'function')
+                ? storyCharacterActivationForSave()
+                : STORY.characterActivation,
             characterRelationships: (typeof storyRelationshipForSave === 'function')
                 ? storyRelationshipForSave()
                 : STORY.characterRelationships,
@@ -808,6 +812,7 @@ function storyLoad() {
         if (typeof storyEnsurePresidents === 'function') storyEnsurePresidents();
         if (STORY.commander && !STORY.commander.axes && typeof charAxesDefault === 'function') STORY.commander.axes = charAxesDefault();
         if (typeof storyCharacterIdentityRestore === 'function') storyCharacterIdentityRestore(d.characterIdentities);
+        if (typeof storyCharacterActivationRestore === 'function') storyCharacterActivationRestore(d.characterActivation);
         if (typeof storyRelationshipRestore === 'function') storyRelationshipRestore(d.characterRelationships);
         if (typeof storyMemoryRestore === 'function') storyMemoryRestore(d.characterMemory);
         if (typeof storyCharacterBehaviorRestore === 'function') storyCharacterBehaviorRestore(d.characterBehavior);

@@ -5,6 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION = 1;
+const STORY_CHARACTER_ACTIVATION_ADAPTER_VERSION = 'story-character-activation-ledger-1';
+const STORY_CHARACTER_ACTIVATION_PROMOTABLE = Object.freeze(['RELEVANT', 'MAJOR', 'WORLD']);
 const STORY_CHARACTER_ACTIVATION_LEVELS = Object.freeze([
     'AGGREGATE', 'MINOR', 'RELEVANT', 'MAJOR', 'WORLD'
 ]);
@@ -15,6 +17,81 @@ function storyCharacterActivationEnabled() {
 }
 function storyCharacterActivationClone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+function storyCharacterActivationSafeToken(value) {
+    return String(value == null ? '' : value).replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+function storyCharacterActivationLedgerCreate(options) {
+    return {
+        schemaVersion: STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION,
+        adapterVersion: STORY_CHARACTER_ACTIVATION_ADAPTER_VERSION,
+        sequence: 0,
+        promotions: {},
+        diagnostics: {
+            backfilled: !!(options && options.backfilled),
+            populationAccounting: 'NAMED_PERSON_REMAINS_INCLUDED_IN_SOURCE_COHORT',
+            inventedPeople: false
+        }
+    };
+}
+function storyCharacterActivationEnsure() {
+    if (!storyCharacterActivationEnabled()) return null;
+    if (!STORY.characterActivation) {
+        STORY.characterActivation = storyCharacterActivationLedgerCreate({ backfilled: true });
+    }
+    return STORY.characterActivation;
+}
+function storyCharacterActivationReset() {
+    if (!storyCharacterActivationEnabled()) { STORY.characterActivation = null; return null; }
+    STORY.characterActivation = storyCharacterActivationLedgerCreate();
+    return storyCharacterActivationSnapshot();
+}
+function storyCharacterActivationValidate(candidate) {
+    const issues = [];
+    const add = (code, path) => issues.push({ code, path });
+    if (!candidate || typeof candidate !== 'object') return {
+        ok: false, issues: [{ code: 'ACTIVATION_LEDGER_REQUIRED', path: '$' }]
+    };
+    if (candidate.schemaVersion !== STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION) add('ACTIVATION_SCHEMA', '$.schemaVersion');
+    if (candidate.adapterVersion !== STORY_CHARACTER_ACTIVATION_ADAPTER_VERSION) add('ACTIVATION_ADAPTER', '$.adapterVersion');
+    if (!Number.isInteger(candidate.sequence) || candidate.sequence < 0) add('ACTIVATION_SEQUENCE', '$.sequence');
+    if (!candidate.promotions || typeof candidate.promotions !== 'object'
+        || Array.isArray(candidate.promotions)) add('ACTIVATION_PROMOTIONS', '$.promotions');
+    for (const [candidateId, row] of Object.entries(candidate.promotions || {})) {
+        const at = `$.promotions.${candidateId}`;
+        if (!row || row.candidateId !== candidateId) add('PROMOTION_CANDIDATE_ID', `${at}.candidateId`);
+        if (!row || !row.actorId || !row.cohortId || !row.regionId || !row.countryId
+            || !row.sourceMovementId || !STORY_CHARACTER_ACTIVATION_PROMOTABLE.includes(row.level)
+            || row.populationAccounting !== 'REPRESENTATIVE_INCLUDED_IN_COHORT'
+            || row.populationDelta !== 0 || !Number.isFinite(Number(row.promotedAt))) {
+            add('PROMOTION_CONTRACT', at);
+        }
+        const identityLedger = STORY.characterIdentities;
+        const actor = identityLedger && identityLedger.identities && identityLedger.identities[row.actorId];
+        if (!actor || !actor.activationOrigin || actor.activationOrigin.candidateId !== candidateId
+            || actor.activationOrigin.cohortId !== row.cohortId) add('PROMOTION_IDENTITY_REFERENCE', `${at}.actorId`);
+    }
+    return { ok: issues.length === 0, issues };
+}
+function storyCharacterActivationSnapshot() {
+    const ledger = storyCharacterActivationEnsure();
+    return ledger ? storyCharacterActivationClone(ledger) : null;
+}
+function storyCharacterActivationForSave() { return storyCharacterActivationSnapshot(); }
+function storyCharacterActivationRestore(saved) {
+    if (!storyCharacterActivationEnabled()) { STORY.characterActivation = null; return null; }
+    const candidate = storyCharacterActivationClone(saved);
+    if (candidate && candidate.schemaVersion === STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION
+        && candidate.adapterVersion === STORY_CHARACTER_ACTIVATION_ADAPTER_VERSION
+        && candidate.promotions && typeof candidate.promotions === 'object') {
+        STORY.characterActivation = candidate;
+        if (!storyCharacterActivationValidate(candidate).ok) {
+            STORY.characterActivation = storyCharacterActivationLedgerCreate({ backfilled: true });
+        }
+    } else {
+        STORY.characterActivation = storyCharacterActivationLedgerCreate({ backfilled: true });
+    }
+    return storyCharacterActivationSnapshot();
 }
 function storyCharacterActivationLevel(participation) {
     const stage = String(participation && participation.stage || 'NONE');
@@ -54,6 +131,8 @@ function storyCharacterActivationCandidates() {
     if (!population || !collective) return {
         ok: false, code: 'SOURCE_LEDGER_UNAVAILABLE', candidates: [], worldMutation: false
     };
+    const activationLedger = STORY.characterActivation
+        || storyCharacterActivationLedgerCreate({ backfilled: true });
     const candidates = [];
     for (const regionId of Object.keys(collective.regions || {}).sort()) {
         const summary = collective.regions[regionId];
@@ -64,8 +143,10 @@ function storyCharacterActivationCandidates() {
             const cohort = storyCharacterActivationCohort(region, participation);
             if (!cohort) continue;
             const activation = storyCharacterActivationLevel(participation);
+            const id = `activation:${cohort.id}:${participation.movementId}`;
+            const promotion = activationLedger && activationLedger.promotions[id];
             candidates.push({
-                id: `activation:${cohort.id}:${participation.movementId}`,
+                id,
                 schemaVersion: STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION,
                 level: activation.level, scoreBps: activation.scoreBps,
                 cohortId: cohort.id, regionId, countryId: cohort.countryId,
@@ -81,8 +162,10 @@ function storyCharacterActivationCandidates() {
                     localSeverityBps: participation.localSeverityBps,
                     mobilizationBps: participation.mobilizationBps
                 },
-                identityActorId: null,
-                promotionStatus: 'CANDIDATE_ONLY_NO_PERSON_CREATED',
+                identityActorId: promotion ? promotion.actorId : null,
+                promotionStatus: promotion ? 'PROMOTED_NAMED_REPRESENTATIVE'
+                    : 'CANDIDATE_ONLY_NO_PERSON_CREATED',
+                promotable: STORY_CHARACTER_ACTIVATION_PROMOTABLE.includes(activation.level),
                 populationMutation: false, worldMutation: false
             });
         }
@@ -92,7 +175,113 @@ function storyCharacterActivationCandidates() {
         ok: true, code: candidates.length ? 'ACTIVATION_CANDIDATES_READY' : 'NO_EVIDENCED_CANDIDATES',
         schemaVersion: STORY_CHARACTER_ACTIVATION_SCHEMA_VERSION,
         levels: STORY_CHARACTER_ACTIVATION_LEVELS.slice(), candidates,
-        namedCharacterCreationAvailable: false,
+        namedCharacterCreationAvailable: true,
         canonicalLedgersReadOnly: true, populationMutation: false, worldMutation: false
+    };
+}
+
+function storyCharacterActivationRole(candidate) {
+    return candidate && candidate.profile && candidate.profile.occupation === 'DEFENSE'
+        ? 'OFFICER' : 'CIVILIAN';
+}
+function storyCharacterActivationPromote(candidateId) {
+    if (!storyCharacterActivationEnabled()) return {
+        ok: false, code: 'FEATURE_DISABLED', worldMutation: false
+    };
+    const id = String(candidateId || '');
+    const ledger = storyCharacterActivationEnsure();
+    const existing = ledger && ledger.promotions[id];
+    if (existing) return {
+        ok: true, code: 'PROMOTION_ALREADY_APPLIED', duplicate: true,
+        promotion: storyCharacterActivationClone(existing), worldMutation: false
+    };
+    const view = storyCharacterActivationCandidates();
+    const candidate = view.candidates.find(row => row.id === id);
+    if (!candidate) return { ok: false, code: 'ACTIVATION_CANDIDATE_NOT_FOUND', worldMutation: false };
+    if (!candidate.promotable) return {
+        ok: false, code: 'ACTIVATION_LEVEL_TOO_LOW', level: candidate.level, worldMutation: false
+    };
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    if (!identityLedger) return { ok: false, code: 'IDENTITY_LEDGER_UNAVAILABLE', worldMutation: false };
+    const actorId = `character:activated:${storyCharacterActivationSafeToken(id)}`;
+    if (identityLedger.identities[actorId]) return {
+        ok: false, code: 'ACTIVATION_ACTOR_ID_CONFLICT', actorId, worldMutation: false
+    };
+    const role = storyCharacterActivationRole(candidate);
+    const actor = storyCharacterIdentityCreate({
+        id: actorId, countryId: candidate.countryId,
+        name: storyCharacterStablePublicName(actorId), role,
+        publicTitle: candidate.trigger.stage === 'UPRISING' ? 'Yerel Hareket Sözcüsü'
+            : candidate.trigger.stage === 'STRIKE' ? 'İşçi Temsilcisi' : 'Topluluk Temsilcisi',
+        originModel: 'PHASE_38_11_COHORT_PROMOTION'
+    });
+    actor.activationOrigin = {
+        candidateId: candidate.id, cohortId: candidate.cohortId,
+        regionId: candidate.regionId, sourceMovementId: candidate.trigger.movementId,
+        populationAccounting: 'REPRESENTATIVE_INCLUDED_IN_COHORT',
+        populationDelta: 0, version: 1
+    };
+    const promotedAt = Number(STORY.clock) || 0;
+    const promotion = {
+        id: `character-promotion:${ledger.sequence + 1}`,
+        candidateId: candidate.id, actorId, cohortId: candidate.cohortId,
+        regionId: candidate.regionId, countryId: candidate.countryId,
+        sourceMovementId: candidate.trigger.movementId,
+        level: candidate.level, scoreBps: candidate.scoreBps,
+        populationAccounting: 'REPRESENTATIVE_INCLUDED_IN_COHORT',
+        populationDelta: 0, promotedAt, status: 'ACTIVE', version: 1
+    };
+    identityLedger.identities[actorId] = actor;
+    ledger.sequence++;
+    ledger.promotions[candidate.id] = promotion;
+    if (typeof storyMemoryAddMilestone === 'function') storyMemoryAddMilestone({
+        id: `${promotion.id}:milestone`, kind: 'CAREER', subjectActorId: actorId,
+        holderActorIds: [actorId], summary: `${actor.name}, ${candidate.trigger.problemType} hareketinde tanınan bir temsilci oldu.`,
+        importanceBps: candidate.level === 'WORLD' ? 10000 : candidate.level === 'MAJOR' ? 9000 : 8000,
+        createdAt: promotedAt,
+        source: { sourceType: 'COHORT_PROMOTION', sourceId: promotion.id,
+            movementId: promotion.sourceMovementId, cohortId: promotion.cohortId }
+    });
+    return {
+        ok: true, code: 'NAMED_REPRESENTATIVE_PROMOTED', duplicate: false,
+        actor: storyCharacterIdentityClone(actor), promotion: storyCharacterActivationClone(promotion),
+        populationMutation: false, worldMutation: true
+    };
+}
+
+function storyCharacterActivationRosterView() {
+    if (!storyCharacterActivationEnabled()) return {
+        ok: false, code: 'FEATURE_DISABLED', actors: [], worldMutation: false
+    };
+    const ledger = STORY.characterActivation
+        || storyCharacterActivationLedgerCreate({ backfilled: true });
+    const activeById = new Map(storyCharacterActivationCandidates().candidates
+        .map(candidate => [candidate.id, candidate]));
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const actors = Object.values(ledger && ledger.promotions || {})
+        .sort((a, b) => a.actorId.localeCompare(b.actorId, 'en'))
+        .map(promotion => {
+            const active = activeById.get(promotion.candidateId) || null;
+            const actor = identityLedger && identityLedger.identities[promotion.actorId];
+            return {
+                actorId: promotion.actorId, candidateId: promotion.candidateId,
+                identityPresent: !!actor,
+                sourceStatus: active ? 'ACTIVE_SOURCE' : 'DORMANT_SOURCE',
+                effectiveLevel: active ? active.level : 'MINOR',
+                promotedLevel: promotion.level,
+                sourceMovementId: promotion.sourceMovementId,
+                cohortId: promotion.cohortId,
+                expensiveDecisionEligible: !!active && ['MAJOR', 'WORLD'].includes(active.level),
+                identityDeletedWhenDormant: false,
+                memoryDeletedWhenDormant: false,
+                relationshipDeletedWhenDormant: false,
+                worldMutation: false
+            };
+        });
+    return {
+        ok: true, code: 'ACTIVATED_CHARACTER_ROSTER', actors,
+        canonicalLedgersReadOnly: true, worldMutation: false
     };
 }

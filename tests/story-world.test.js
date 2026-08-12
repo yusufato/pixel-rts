@@ -4170,6 +4170,38 @@ function run() {
     assert.equal(cohortActivationProbe.featureDisabled, true,
         'Faz 38.11: özellik bayrağı kapalıyken aday katmanı güvenle kapanmalı.');
 
+    const cohortPromotionProbe = storyTestResult(
+        'characterCohortPromotionProbe', probeCharacterCohortPromotion
+    );
+    assert.equal(cohortPromotionProbe.promotionApplied, true,
+        'Faz 38.11: yeterli kanıtlı aday kalıcı isimli temsilciye yükseltilebilmeli.');
+    assert.equal(cohortPromotionProbe.deterministicIdentity, true,
+        'Faz 38.11: aynı aday kimliği aynı aktör kimliğini üretmeli.');
+    assert.equal(cohortPromotionProbe.identityGrounded, true,
+        'Faz 38.11: yükseltilmiş karakter kaynak kohort ve hareketi taşımalı.');
+    assert.equal(cohortPromotionProbe.representativeAccounting, true,
+        'Faz 38.11: isimli temsilci kohort içinde sayılmalı; nüfus eklenmemeli veya eksilmemeli.');
+    assert.equal(cohortPromotionProbe.exactlyOneIdentity, true,
+        'Faz 38.11: aynı aday ikinci kez karakter yaratmamalı.');
+    assert.equal(cohortPromotionProbe.candidateNowLinked, true,
+        'Faz 38.11: aday görünümü yükseltmeden sonra kanonik aktör kimliğine bağlanmalı.');
+    assert.equal(cohortPromotionProbe.ledgersCrossValidate, true,
+        'Faz 38.11: aktivasyon ve kimlik defterleri karşılıklı doğrulanmalı.');
+    assert.equal(cohortPromotionProbe.originMemoryCreated, true,
+        'Faz 38.11: yükselme kaynağı karakter hafızasında kalıcı iz bırakmalı.');
+    assert.equal(cohortPromotionProbe.dormancyReducesCostPreservesPerson, true,
+        'Faz 38.11: kaynak olay sönünce kişi silinmeden pahalı karar düzeyinden inmeli.');
+    assert.equal(cohortPromotionProbe.dormancyPreservesMemoryAndRelationship, true,
+        'Faz 38.11: ayrıntı kapanınca karakter hafızası ve ilişkisi korunmalı.');
+    assert.equal(cohortPromotionProbe.lowLevelPromotionRejected, true,
+        'Faz 38.11: AGGREGATE/MINOR aday API çağrısıyla zorla isimli karaktere çevrilmemeli.');
+    assert.equal(cohortPromotionProbe.newCampaignClearsPromotions, true,
+        'Faz 38.11: yeni kampanya önceki oyunun yükseltilmiş karakterlerini taşımamalı.');
+    assert.equal(cohortPromotionProbe.saveContainsBothSides, true,
+        'Faz 38.11: kayıt hem yükseltme hem aktör kimliği tarafını taşımalı.');
+    assert.equal(cohortPromotionProbe.saveLoadPreserved, true,
+        'Faz 38.11: kohort–karakter bağı save/load sonrasında korunmalı.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );
