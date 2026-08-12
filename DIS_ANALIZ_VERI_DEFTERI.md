@@ -701,3 +701,11 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Tik başına 1, ülke başına 8, dünya genelinde 64 isimli temsilci ve eşzamanlı 16 yüksek çözünürlük tavanı vardır.
 - Dokuz güçlü aynı-ülke adayında sekiz yükseldi, dokuzuncu ülke bütçesinde kaldı; nüfus mutasyonu ve LLM çağrısı sıfırdı.
 - Bu sayılar nihai denge değildir. 900 saniye ve uzun yıllı doğal dağılım görülmeden tavanlar yükseltilmemelidir.
+
+### 12 Ağustos 2026 — görünür sohbet QA günlüğü ve bot dili kapısı
+
+- Kullanıcının gerçek EXE gözlemi, günlük sohbetlerin kendi gündemi olan karakterden çok “nasıl yardımcı olabilirim” diyen ucuz servis botuna benzediğini gösterdi.
+- Kaynakta bu ifade gerçekten deterministik `GREETING/WARM` kalıbında bulundu; yalnız model kusuru değildi. Kalıp kaldırıldı ve aynı servis dili yerel LLM doğrulayıcısında da yasaklandı.
+- Görünür her oyuncu–karakter turu artık `qa-runtime/story-dialogue-log.jsonl` dosyasına `sessionId/responseId`, konuşma eylemi, kaynak ve LLM kullanımıyla yazılır. Sonradan gelen model zenginleştirmesi ayrı `RESPONSE_ENRICHED` olayıdır. Sistem istemi, gizli eksen, ActorBelief ve ham dünya gerçeği kayda girmez; dosya 8 MB'ta döner.
+- Hedefli konuşma probu kayıt çiftini ve gizli alan yokluğunu; uzun diyalog probu 50 turluk kapıyı doğruladı. Bir sonraki gerçek oyuncu oturumundan sonra tahmin yerine bu JSONL üzerinden tekrar, servis dili, bağlam kopması ve fallback/model oranı ölçülecektir.
+- Test tezgâhı ayrıca ticari teklif oturumunda günlük ara sözün canlı motor tarafından reddedildiği eski mimari borcu görünür kıldı. Bu borç sohbetten-sonuca zincirinin durum makinesi çalışmasında ele alınacak; geçmiş test beklentisi geçsin diye mekanik teklif sessizce sosyal oturuma çevrilmeyecek.
