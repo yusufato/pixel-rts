@@ -3816,6 +3816,10 @@ function run() {
         'Faz 38.6: MAJOR/WORLD kararına bağlam ve karar izi zorunlu bağlanmalı.');
     assert.equal(decisionTraceV2Probe.sourceBeliefRefsOnly, true,
         'Faz 38.6: karar bağlamı olgu metni yerine yalnız kaynaklı ActorBelief referansı taşımalı.');
+    assert.equal(decisionTraceV2Probe.triggerRecorded, true,
+        'Faz 38.6: kararın hangi motor tetikleyicisinden doğduğu bağlamda kayıtlı olmalı.');
+    assert.equal(decisionTraceV2Probe.allFilterGatesRecorded, true,
+        'Faz 38.6: hedef, yetki, domain, bedel, cooldown ve yürütücü kapıları ayrı kanıtlanmalı.');
     assert.equal(decisionTraceV2Probe.playerPrivateReasonsHidden, true,
         'Faz 38.6: oyuncu, başka aktörün özel puan/yetki/bedel gerekçelerini görememeli.');
     assert.equal(decisionTraceV2Probe.validation.ok, true,
@@ -3828,6 +3832,12 @@ function run() {
         'Faz 38.6: aynı bağlam ve karar izi save-load sırasında birebir kalmalı.');
     assert.equal(decisionTraceV2Probe.restored.validation.ok, true,
         'Faz 38.6: geri yüklenen karar izi defteri geçerli kalmalı.');
+    assert.equal(decisionTraceV2Probe.legacySchema8.loaded, true,
+        'Faz 38.6: şema-8 karakter eylem kaydı yüklenebilmeli.');
+    assert.equal(decisionTraceV2Probe.legacySchema8.preserved, true,
+        'Faz 38.6: eski MAJOR karar iz yok diye silinmemeli; LEGACY_UNAVAILABLE olarak korunmalı.');
+    assert.equal(decisionTraceV2Probe.legacySchema8.validation.ok, true,
+        'Faz 38.6: şema-8 göçünden sonra karakter eylem defteri geçerli olmalı.');
 
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding

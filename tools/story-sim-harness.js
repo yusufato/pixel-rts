@@ -13529,6 +13529,13 @@ function probeDecisionTraceV2(seed = 2032) {
                 && !Object.prototype.hasOwnProperty.call(row, 'factValue')
                 && !Object.prototype.hasOwnProperty.call(row, 'questionText')
                 && !Object.prototype.hasOwnProperty.call(row, 'optionText')),
+            triggerRecorded: contextA.trigger.type === 'AUTONOMOUS_REVIEW'
+                && contextA.trigger.source === 'CHARACTER_ACTION_AI_TICK',
+            allFilterGatesRecorded: contextA.candidates.every(row => {
+                const gates = new Set((row.filterEvidence || []).map(item => item.gateId));
+                return ['TARGET', 'AUTHORITY', 'DOMAIN', 'COST', 'COOLDOWN', 'EXECUTOR']
+                    .every(gate => gates.has(gate));
+            }),
             playerProjection: playerView,
             playerPrivateReasonsHidden: playerView.supportingReasons.length === 0
                 && playerView.opposingReasons.length === 0
@@ -13552,6 +13559,33 @@ function probeDecisionTraceV2(seed = 2032) {
         };
     } finally {
         restored.dom.window.close();
+    }
+    const legacy = createRuntime(seed >>> 0);
+    try {
+        const payload = JSON.parse(savedRaw);
+        payload.characterActions.schemaVersion = 8;
+        payload.characterActions.adapterVersion = 'story-character-action-ledger-8';
+        delete payload.characterActions.decisionContexts;
+        delete payload.characterActions.decisionTraces;
+        const legacyDecision = Object.values(payload.characterActions.arbiterDecisions || {})[0];
+        if (legacyDecision) {
+            legacyDecision.actionType = 'NEGOTIATE';
+            delete legacyDecision.decisionContextId;
+            delete legacyDecision.decisionTraceId;
+            delete legacyDecision.tracePolicy;
+        }
+        legacy.api.putSavedRaw(JSON.stringify(payload));
+        const loaded = legacy.api.loadNow();
+        const ledger = legacy.api.characterActionLedger();
+        const migratedDecision = Object.values(ledger.arbiterDecisions || {})[0];
+        result.legacySchema8 = {
+            loaded,
+            preserved: !!migratedDecision && migratedDecision.actionType === 'NEGOTIATE'
+                && migratedDecision.tracePolicy === 'LEGACY_UNAVAILABLE',
+            validation: legacy.api.validateCharacterActionLedger(ledger)
+        };
+    } finally {
+        legacy.dom.window.close();
     }
     return result;
 }

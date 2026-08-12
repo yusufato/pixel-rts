@@ -249,6 +249,10 @@ function storyCharacterActionMigrateLedger(saved) {
         if (receipt.domainReceipt === undefined) receipt.domainReceipt = null;
         receipt.version = Math.max(1, Number(receipt.version) || 1);
     }
+    for (const decision of Object.values(ledger.arbiterDecisions)) {
+        if (!decision || decision.tracePolicy) continue;
+        decision.tracePolicy = decision.decisionTraceId ? 'REQUIRED_ATTACHED' : 'LEGACY_UNAVAILABLE';
+    }
     ledger.diagnostics = Object.assign({}, defaults.diagnostics, ledger.diagnostics || {}, {
         unavailableDomainExecutors: []
     });
@@ -1371,8 +1375,10 @@ function storyCharacterActionArbiterDecisionPrune(ledger) {
         const traceId = decision.decisionTraceId;
         const trace = traceId && ledger.decisionTraces[traceId];
         if (trace) {
-            delete ledger.decisionContexts[trace.contextId];
             delete ledger.decisionTraces[traceId];
+            const contextStillUsed = Object.values(ledger.decisionTraces || {})
+                .some(row => row && row.contextId === trace.contextId);
+            if (!contextStillUsed) delete ledger.decisionContexts[trace.contextId];
         }
         delete ledger.arbiterDecisions[decision.id];
         ledger.ai.arbiterDecisionPrunedCount++;
@@ -1432,6 +1438,10 @@ function storyCharacterActionArbiterDecisionRecord(pending, input) {
         row.decisionContextId = decisionContext.id;
         row.decisionTraceId = decisionTrace.id;
     }
+    row.tracePolicy = decisionTrace ? 'REQUIRED_ATTACHED'
+        : (['MAJOR', 'WORLD'].includes(typeof storyDecisionTraceImportance === 'function'
+            ? storyDecisionTraceImportance(row.actionType) : 'ROUTINE')
+            ? 'REQUIRED_MISSING' : 'OPTIONAL');
     ledger.arbiterDecisions[id] = row;
     storyCharacterActionArbiterDecisionPrune(ledger);
     return storyCharacterActionClone(row);
@@ -1814,6 +1824,7 @@ function storyCharacterActionValidate(candidate) {
             && typeof storyDecisionTraceImportance === 'function'
             ? storyDecisionTraceImportance(decision.actionType) : 'ROUTINE';
         if (decision && decision.status !== 'STALE' && ['MAJOR', 'WORLD'].includes(importance)
+            && decision.tracePolicy !== 'LEGACY_UNAVAILABLE'
             && (!decision.decisionTraceId || !candidate.decisionTraces[decision.decisionTraceId])) {
             add('MAJOR_DECISION_TRACE_REQUIRED', `$.arbiterDecisions.${id}.decisionTraceId`);
         }

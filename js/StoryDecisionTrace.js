@@ -65,6 +65,16 @@ function storyDecisionTraceCandidate(row) {
     if (!candidate || !candidate.id || !candidate.actionType) return null;
     const cost = candidate.cost || {};
     const authority = candidate.authority || {};
+    const targetValidation = candidate.targetValidation || {};
+    const domainValidation = candidate.domainValidation || {};
+    const availableAt = Number(candidate.availableAt) || 0;
+    const generatedAt = Number(candidate.generatedAt) || 0;
+    const gate = (gateId, passed, reason, evidenceType) => ({
+        gateId,
+        passed: passed === true,
+        reason: reason == null ? null : String(reason),
+        evidenceType
+    });
     return {
         candidateId: String(candidate.id),
         actionType: String(candidate.actionType),
@@ -84,6 +94,16 @@ function storyDecisionTraceCandidate(row) {
             available: Number.isFinite(Number(cost.available)) ? Number(cost.available) : null,
             affordable: cost.ok === true
         },
+        filterEvidence: [
+            gate('TARGET', targetValidation.ok, targetValidation.reason, 'TARGET_VALIDATION'),
+            gate('AUTHORITY', authority.ok, authority.reason, 'AUTHORITY_GRANT'),
+            gate('DOMAIN', domainValidation.ok, domainValidation.reason, 'DOMAIN_ADAPTER'),
+            gate('COST', cost.ok, cost.reason, 'RESOURCE_LEDGER'),
+            gate('COOLDOWN', availableAt <= generatedAt + 1e-9,
+                availableAt <= generatedAt + 1e-9 ? null : 'ACTION_ON_COOLDOWN', 'ACTION_LEDGER'),
+            gate('EXECUTOR', candidate.handlerAvailable === true,
+                candidate.handlerAvailable === true ? null : 'DOMAIN_EXECUTOR_NOT_AVAILABLE', 'DOMAIN_EXECUTOR')
+        ],
         filterReasons: (candidate.reasons || []).map(String).slice(0, 12),
         scoreReasons: (row && row.reasons || candidate.selectorReasons || []).map(String).slice(0, 16)
     };
@@ -115,6 +135,12 @@ function storyDecisionContextV2Build(actorId, ranked) {
         adapterVersion: STORY_DECISION_TRACE_ADAPTER_VERSION,
         actorId: actor.id,
         generatedAt: typeof STORY !== 'undefined' ? Number(STORY.clock) || 0 : 0,
+        trigger: {
+            type: 'AUTONOMOUS_REVIEW',
+            source: 'CHARACTER_ACTION_AI_TICK',
+            reasonCodes: candidates.slice(0, 3)
+                .flatMap(row => row.scoreReasons.slice(0, 2)).filter(Boolean).slice(0, 6)
+        },
         actorBeliefs: storyDecisionTraceActorBeliefs(actor.id, targetIds),
         activeGoals: (actor.goals || []).filter(row => row && row.status === 'ACTIVE')
             .map(row => ({ objective: String(row.objective), priorityBps: Number(row.priorityBps) || 0 }))
@@ -159,6 +185,7 @@ function storyDecisionTraceV2Build(decisionId, context, input) {
         beliefEvidenceIds: context.actorBeliefs.map(row => row.beliefId),
         authority: selected ? storyDecisionTraceClone(selected.authority) : null,
         cost: selected ? storyDecisionTraceClone(selected.cost) : null,
+        filterEvidence: selected ? storyDecisionTraceClone(selected.filterEvidence) : [],
         reasonCode: input.reasonCode == null ? null : String(input.reasonCode),
         source: String(input.source || 'DETERMINISTIC_FALLBACK'),
         rawWorldFactRead: false
@@ -215,6 +242,16 @@ function storyDecisionTraceV2Validate(contexts, traces) {
         if (!context || context.schemaVersion !== STORY_DECISION_CONTEXT_SCHEMA_VERSION) add('DECISION_CONTEXT_SCHEMA', at);
         if (!context || context.rawWorldFactRead !== false) add('RAW_WORLD_FACT_READ', `${at}.rawWorldFactRead`);
         if (!Array.isArray(context && context.candidateIds) || !Array.isArray(context && context.candidates)) add('DECISION_CONTEXT_CANDIDATES', at);
+        if (!context || !context.trigger || context.trigger.type !== 'AUTONOMOUS_REVIEW'
+            || context.trigger.source !== 'CHARACTER_ACTION_AI_TICK') add('DECISION_CONTEXT_TRIGGER', `${at}.trigger`);
+        for (let index = 0; index < (context && context.candidates || []).length; index++) {
+            const candidate = context.candidates[index];
+            const gateIds = (candidate.filterEvidence || []).map(row => row.gateId);
+            if (!['TARGET', 'AUTHORITY', 'DOMAIN', 'COST', 'COOLDOWN', 'EXECUTOR']
+                .every(gateId => gateIds.includes(gateId))) {
+                add('DECISION_FILTER_EVIDENCE', `${at}.candidates[${index}].filterEvidence`);
+            }
+        }
         if (context && context.contextHash !== storyDecisionTraceHash(Object.assign({}, context, {
             id: undefined, contextHash: undefined
         }))) add('DECISION_CONTEXT_HASH', `${at}.contextHash`);
