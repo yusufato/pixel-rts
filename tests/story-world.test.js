@@ -3926,6 +3926,39 @@ function run() {
     assert.equal(characterBehaviorStateProbe.restored.validation.ok, true,
         'Faz 38.7: geri yüklenen davranış defteri geçerli kalmalı.');
 
+    const relationshipInterpretationProbe = storyTestResult(
+        'relationshipInterpretationProbe', probeRelationshipInterpretation
+    );
+    assert.equal(relationshipInterpretationProbe.allReady, true,
+        'Faz 38.8: dört desteklenen olay türü sahip olunan hafızadan yorumlanabilmeli.');
+    assert.deepEqual(relationshipInterpretationProbe.types,
+        ['PROMISE_KEPT', 'PROMISE_BROKEN', 'PUBLIC_HUMILIATION', 'SHARED_CRISIS_SUCCESS'],
+        'Faz 38.8: söz, ihlal, aleni aşağılama ve ortak kriz başarısı birbirine karışmamalı.');
+    assert.equal(relationshipInterpretationProbe.deterministic, true,
+        'Faz 38.8: aynı aktör ve kaynak hafıza aynı yorumu üretmeli.');
+    assert.equal(relationshipInterpretationProbe.directionalMeaning, true,
+        'Faz 38.8: olumlu ve olumsuz olaylar mevcut ilişki eksenlerinde farklı yön önermeli.');
+    assert.equal(relationshipInterpretationProbe.existingAxesOnly, true,
+        'Faz 38.8: kanıt olmadan altıncı ilişki ekseni açılmamalı.');
+    assert.equal(relationshipInterpretationProbe.ownedRecallOnly, true,
+        'Faz 38.8: yorum yalnız aktörün sahip olduğu kaynak hafıza geri çağrımını kullanmalı.');
+    assert.equal(relationshipInterpretationProbe.foreignMemoryRejected, true,
+        'Faz 38.8: başka aktörün özel hafızası yorum kaynağı yapılamamalı.');
+    assert.equal(relationshipInterpretationProbe.targetMismatchRejected, true,
+        'Faz 38.8: hafızayla ilgisiz karaktere ilişki yorumu bağlanamamalı.');
+    assert.equal(relationshipInterpretationProbe.forgedTagRejected, true,
+        'Faz 38.8: doğru kayıt türü ve kaynak makbuzu olmayan olay etiketi reddedilmeli.');
+    assert.equal(relationshipInterpretationProbe.proposalOnly, true,
+        'Faz 38.8: ilk yorum adaptörü ilişkiyi veya dünyayı kendiliğinden değiştirmemeli.');
+    assert.equal(relationshipInterpretationProbe.relationshipNeutral, true,
+        'Faz 38.8: yorum üretmek Faz 35 ilişki defterini ikinci kez yazmamalı.');
+    assert.equal(relationshipInterpretationProbe.worldNeutral, true,
+        'Faz 38.8: yorum üretmek fiziksel dünyayı değiştirmemeli.');
+    assert.equal(relationshipInterpretationProbe.onlyFixtureMemoriesAdded, true,
+        'Faz 38.8: salt-okunur yorum fazladan hafıza kaydı üretmemeli.');
+    assert.equal(relationshipInterpretationProbe.disabled.code, 'FEATURE_DISABLED',
+        'Faz 38.8: özellik bayrağı kapalıyken yorum güvenli biçimde kapanmalı.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );

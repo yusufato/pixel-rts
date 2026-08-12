@@ -66,6 +66,7 @@ const STORY_SOURCES = [
     'js/StoryMemory.js',
     'js/StoryDecisionTrace.js',
     'js/StoryCharacterBehavior.js',
+    'js/StoryRelationshipInterpretation.js',
     'js/StoryCharacterActions.js',
     'js/StoryContacts.js',
     'js/Factions.js',
@@ -559,6 +560,9 @@ function createRuntime(seed) {
             ),
             characterBehaviorExpressionPlan: (actorId, channel, plan) => (
                 storyCharacterBehaviorExpressionPlan(actorId, channel, plan)
+            ),
+            relationshipInterpretMemory: (actorId, relatedActorId, sourceId) => (
+                storyRelationshipInterpretMemory(actorId, relatedActorId, sourceId)
             ),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
@@ -13884,6 +13888,91 @@ function probeCharacterBehaviorState(seed = 2032) {
     return result;
 }
 
+function probeRelationshipInterpretation(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const actors = Object.values(story.characterIdentities.identities || {});
+        const holder = actors[0];
+        const target = actors.find(row => row.id !== holder.id);
+        const stranger = actors.find(row => row.id !== holder.id && row.id !== target.id);
+        const relationshipBefore = JSON.stringify(runtime.api.relationshipLedger());
+        const memoryBeforeCount = Object.keys(runtime.api.characterMemoryLedger().milestones || {}).length;
+        const add = (id, kind, status, source) => runtime.api.characterMemoryAddMilestone({
+            id, kind, status, subjectActorId: target.id,
+            holderActorIds: [holder.id], relatedActorIds: [target.id],
+            summary: id, importanceBps: 9000, source, recordRecent: false
+        });
+        const kept = add('memory:phase388:kept', 'PROMISE', 'KEPT', {
+            commitmentId: 'commitment:phase388:kept'
+        });
+        const broken = add('memory:phase388:broken', 'PROMISE', 'BROKEN', {
+            commitmentId: 'commitment:phase388:broken'
+        });
+        const humiliation = add('memory:phase388:humiliation', 'CONFLICT', 'ACTIVE', {
+            relationshipEventTag: 'PUBLIC_HUMILIATION', sourceEventId: 'event:phase388:humiliation'
+        });
+        const crisis = add('memory:phase388:crisis', 'DECISION', 'RESOLVED', {
+            relationshipEventTag: 'SHARED_CRISIS_SUCCESS', sourceReceiptId: 'receipt:phase388:crisis'
+        });
+        const forgedTag = add('memory:phase388:forged-tag', 'OTHER', 'ACTIVE', {
+            relationshipEventTag: 'PUBLIC_HUMILIATION'
+        });
+        const worldBefore = hashSnapshot(stateSnapshot(story));
+        const keptView = runtime.api.relationshipInterpretMemory(holder.id, target.id, kept.milestone.id);
+        const keptRepeat = runtime.api.relationshipInterpretMemory(holder.id, target.id, kept.milestone.id);
+        const brokenView = runtime.api.relationshipInterpretMemory(holder.id, target.id, broken.milestone.id);
+        const humiliationView = runtime.api.relationshipInterpretMemory(
+            holder.id, target.id, humiliation.milestone.id
+        );
+        const crisisView = runtime.api.relationshipInterpretMemory(holder.id, target.id, crisis.milestone.id);
+        const foreignRead = runtime.api.relationshipInterpretMemory(stranger.id, target.id, kept.milestone.id);
+        const wrongTarget = runtime.api.relationshipInterpretMemory(holder.id, stranger.id, kept.milestone.id);
+        const forgedView = runtime.api.relationshipInterpretMemory(holder.id, target.id, forgedTag.milestone.id);
+        const worldAfter = hashSnapshot(stateSnapshot(story));
+        const relationshipAfter = JSON.stringify(runtime.api.relationshipLedger());
+        const memoryAfterCount = Object.keys(runtime.api.characterMemoryLedger().milestones || {}).length;
+        const views = [keptView, brokenView, humiliationView, crisisView];
+        result = {
+            types: views.map(row => row.interpretation && row.interpretation.interpretationType),
+            allReady: views.every(row => row.ok && row.code === 'RELATIONSHIP_INTERPRETATION_READY'),
+            deterministic: JSON.stringify(keptView) === JSON.stringify(keptRepeat),
+            directionalMeaning: keptView.interpretation.proposedRelationshipDeltas.trustBps > 0
+                && brokenView.interpretation.proposedRelationshipDeltas.trustBps < 0
+                && humiliationView.interpretation.proposedRelationshipDeltas.respectBps < 0
+                && crisisView.interpretation.proposedRelationshipDeltas.respectBps > 0,
+            existingAxesOnly: views.every(row => JSON.stringify(Object.keys(
+                row.interpretation.proposedRelationshipDeltas
+            ).sort()) === JSON.stringify(['debtBps', 'fearBps', 'hostilityBps', 'respectBps', 'trustBps'])),
+            ownedRecallOnly: views.every(row => row.interpretation.recallRecords.length > 0
+                && row.interpretation.recallRecords.every(record => record.rawWorldRead === false)),
+            foreignMemoryRejected: foreignRead.code === 'ACTOR_HELD_MEMORY_REQUIRED',
+            targetMismatchRejected: wrongTarget.code === 'MEMORY_TARGET_MISMATCH',
+            forgedTagRejected: forgedView.code === 'SUPPORTED_EVENT_TAG_REQUIRED',
+            proposalOnly: views.every(row => row.interpretation.applied === false
+                && row.interpretation.worldMutation === false
+                && row.interpretation.rawWorldRead === false),
+            relationshipNeutral: relationshipBefore === relationshipAfter,
+            worldNeutral: worldBefore === worldAfter,
+            onlyFixtureMemoriesAdded: memoryAfterCount - memoryBeforeCount === 5
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const disabled = createRuntime((seed + 1) >>> 0);
+    try {
+        disabled.api.newCampaign({ seed: seed + 1, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.relationshipInterpretation': false } });
+        result.disabled = disabled.api.relationshipInterpretMemory('a', 'b', 'c');
+    } finally {
+        disabled.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -16139,6 +16228,7 @@ module.exports = {
     probeConversationRuntime385,
     probeDecisionTraceV2,
     probeCharacterBehaviorState,
+    probeRelationshipInterpretation,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
