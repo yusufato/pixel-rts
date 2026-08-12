@@ -4359,6 +4359,8 @@ Zorunlu mimari sınırlar:
 
 ### FAZ 38.10 — Türetilmiş Güç ve Kariyer Yaşam Döngüsü
 
+**İlk uygulama dilimi — 12 Ağustos 2026:** `StoryCharacterPower.js` gücü kalıcı puan yerine salt-okunur kanonik sorgu yaptı. Kurumsal/yasal kanal gerçek makam `authorityGrants`, ekonomik kanal şirket nakdi+tesisleri, askerî kanal ARMED_FORCES makam/rotaları, ağ kanalı aktöre yönelen seyrek ilişki kenarları, bilgi kanalı yalnız aktörün tuttuğu ActorBelief kayıtlarıyla hesaplanır. Eski `career.influence=50` kaynak değildir; testte 0/100 değiştirilmesi sonucu değiştirmedi. Makamsız unvan sahibinin kurumsal gücü sıfır kanıtlıdır. Medya, halk tabanı ve uzmanlık henüz yürütücüsüz olduğundan `UNAVAILABLE/null` görünür; toplamın içine sahte sıfır kanalı gibi kanıt sayılmaz. Bütün değerler 0–10000 bandında, deterministik ve dünya nötrdür. Bu ilk görünüm kariyer yaşam döngüsü değildir; makam kaybı, seçim/istifa/emeklilik, sağlık/ölüm ve geçmiş koruma sıradadır.
+
 **Amaç:** Makam dışı gücü ve karakterin 2010–2100 boyunca rol değiştiren yaşamını modellemek.
 **Çıktı:** Kurumsal/ekonomik/askerî/medya/ağ/halk/uzmanlık/bilgi/zorlama/hukuk kaynaklarından türetilmiş güç görünümü; terfi, görevden alma, seçim, istifa, emeklilik, skandal, yaş, sağlık, ölüm ve haleflik olayları.
 **Kabul kapısı:** Güç saklanan keyfî bonus değil kanonik varlık/yetki/ağ sorgusudur; makam kaybı bütün nüfuzu sıfırlamaz; kariyer geçişi geçmiş, ilişki, söz ve sırları korur; ölü/emekli karakter aktif yetki kullanamaz.

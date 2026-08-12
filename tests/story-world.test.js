@@ -57,6 +57,7 @@ const {
     probeCharacterBehaviorState,
     probeRelationshipInterpretation,
     probeCharacterRoleAdapters,
+    probeCharacterPower,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
@@ -4076,6 +4077,30 @@ function run() {
         'Faz 38.9: rol adaptörü okumak dünyayı değiştirmemeli.');
     assert.equal(characterRoleAdaptersProbe.featureDisabled, true,
         'Faz 38.9: özellik bayrağı kapalıyken adaptör güvenli biçimde kapanmalı.');
+
+    const characterPowerProbe = storyTestResult('characterPowerProbe', probeCharacterPower);
+    assert.equal(characterPowerProbe.deterministic, true,
+        'Faz 38.10: aynı kanonik defterler aynı türetilmiş güç görünümünü üretmeli.');
+    assert.equal(characterPowerProbe.officePowerGrounded, true,
+        'Faz 38.10: makam gücü gerçek yetki hibelerinden türemeli.');
+    assert.equal(characterPowerProbe.unboundTitleHasNoInstitutionalPower, true,
+        'Faz 38.10: görünen unvanı olup gerçek makamı olmayan kişi kurumsal güç kazanmamalı.');
+    assert.equal(characterPowerProbe.companyAssetsGroundPower, true,
+        'Faz 38.10: şirket gücü gerçek nakit ve tesis kanıtından türemeli.');
+    assert.equal(characterPowerProbe.storedInfluenceIgnored, true,
+        'Faz 38.10: eski career.influence sayısı güç kaynağı veya saklanan bonus olmamalı.');
+    assert.equal(characterPowerProbe.boundedAndFinite, true,
+        'Faz 38.10: bütün türetilmiş güç kanalları sonlu ve 0–10000 bandında kalmalı.');
+    assert.equal(characterPowerProbe.unavailableChannelsExplicit, true,
+        'Faz 38.10: medya, halk tabanı ve uzmanlık yürütücüsü yokluğu açık UNAVAILABLE görünmeli.');
+    assert.equal(characterPowerProbe.notApplicableExcludedFromTotal, true,
+        'Faz 38.10: uygulanamayan veya kanıtsız güç kanalları toplamı sahte sıfırla düşürmemeli.');
+    assert.equal(characterPowerProbe.canonicalReadOnly, true,
+        'Faz 38.10: güç sorgusu yalnız kanonik defterleri okumalı ve dünya yazmamalı.');
+    assert.equal(characterPowerProbe.worldNeutral, true,
+        'Faz 38.10: güç görünümü üretmek fiziksel dünyayı değiştirmemeli.');
+    assert.equal(characterPowerProbe.featureDisabled, true,
+        'Faz 38.10: özellik bayrağı kapalıyken güç görünümü güvenle kapanmalı.');
 
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding

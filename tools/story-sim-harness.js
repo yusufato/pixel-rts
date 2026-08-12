@@ -68,6 +68,7 @@ const STORY_SOURCES = [
     'js/StoryCharacterBehavior.js',
     'js/StoryRelationshipInterpretation.js',
     'js/StoryCharacterRoleAdapters.js',
+    'js/StoryCharacterPower.js',
     'js/StoryCharacterActions.js',
     'js/StoryContacts.js',
     'js/Factions.js',
@@ -576,6 +577,7 @@ function createRuntime(seed) {
             characterRoleInstitutionReviewApply: input => storyCharacterRoleInstitutionReviewApply(input),
             characterRoleCompanyDecisionSubmit: input => storyCharacterRoleCompanyDecisionSubmit(input),
             characterRoleCompanyOfficeView: companyId => storyCharacterRoleCompanyOfficeView(companyId),
+            characterPowerView: actorId => storyCharacterPowerView(actorId),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14494,6 +14496,91 @@ function probeCharacterRoleAdapters(seed = 2032) {
     return result;
 }
 
+function probeCharacterPower(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const identities = Object.values(story.characterIdentities.identities || {});
+        const officeActor = identities.find(actor => {
+            const view = runtime.api.characterRoleAdapterView(actor.id);
+            return view.ok && view.adapter.bindingStatus === 'CANONICAL_OFFICE_BOUND';
+        });
+        const unboundActor = identities.find(actor => {
+            const view = runtime.api.characterRoleAdapterView(actor.id);
+            return view.ok && view.adapter.bindingStatus === 'OFFICE_BINDING_MISSING';
+        });
+        const companyActor = identities.find(actor => {
+            const view = runtime.api.characterRoleAdapterView(actor.id);
+            return view.ok && view.adapter.family === 'COMPANY';
+        });
+        const worldBefore = hashSnapshot(stateSnapshot(story));
+        const office = runtime.api.characterPowerView(officeActor.id);
+        const officeRepeat = runtime.api.characterPowerView(officeActor.id);
+        const unbound = runtime.api.characterPowerView(unboundActor.id);
+        const company = runtime.api.characterPowerView(companyActor.id);
+        const previousInfluence = officeActor.career.influence;
+        officeActor.career.influence = previousInfluence === 100 ? 0 : 100;
+        const influenceChanged = runtime.api.characterPowerView(officeActor.id);
+        officeActor.career.influence = previousInfluence;
+        const worldAfter = hashSnapshot(stateSnapshot(story));
+        const all = identities.map(actor => runtime.api.characterPowerView(actor.id));
+        result = {
+            deterministic: JSON.stringify(office) === JSON.stringify(officeRepeat),
+            officePowerGrounded: office.ok && office.power.sources.institutional.valueBps > 0
+                && office.power.sources.institutional.evidenceCount > 0,
+            unboundTitleHasNoInstitutionalPower: unbound.ok
+                && unbound.power.sources.institutional.valueBps === 0
+                && unbound.power.sources.institutional.evidenceCount === 0,
+            companyAssetsGroundPower: company.ok
+                && company.power.sources.economic.valueBps > 0
+                && company.power.sources.economic.evidenceCount > 0,
+            storedInfluenceIgnored: influenceChanged.power.totalBps === office.power.totalBps
+                && influenceChanged.power.storedCareerInfluenceUsed === false
+                && influenceChanged.power.storedPowerBonus === null,
+            boundedAndFinite: all.every(row => row.ok
+                && Number.isInteger(row.power.totalBps)
+                && row.power.totalBps >= 0 && row.power.totalBps <= 10000
+                && Object.values(row.power.sources).every(source =>
+                    source.valueBps === null || (Number.isInteger(source.valueBps)
+                        && source.valueBps >= 0 && source.valueBps <= 10000))),
+            unavailableChannelsExplicit: all.every(row =>
+                row.power.sources.media.status === 'UNAVAILABLE'
+                && row.power.sources.publicBase.status === 'UNAVAILABLE'
+                && row.power.sources.expertise.status === 'UNAVAILABLE'
+                && row.power.sources.media.valueBps === null),
+            notApplicableExcludedFromTotal: all.every(row => {
+                const available = Object.values(row.power.sources)
+                    .filter(source => source.status === 'AVAILABLE');
+                const expected = available.length
+                    ? Math.max(0, Math.min(10000, Math.round(available.reduce((sum, source) =>
+                        sum + source.valueBps, 0) / available.length))) : 0;
+                return row.power.totalBps === expected;
+            }),
+            canonicalReadOnly: all.every(row =>
+                row.power.canonicalLedgerReadOnly === true
+                && row.power.worldMutation === false),
+            worldNeutral: worldBefore === worldAfter
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const disabled = createRuntime((seed + 1) >>> 0);
+    try {
+        disabled.api.newCampaign({ seed: seed + 1, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true,
+            featureFlags: { 'characters.derivedPower': false } });
+        const actor = Object.values(disabled.api.state().characterIdentities.identities || {})[0];
+        const view = disabled.api.characterPowerView(actor.id);
+        result.featureDisabled = view.code === 'FEATURE_DISABLED' && view.worldMutation === false;
+    } finally {
+        disabled.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -16751,6 +16838,7 @@ module.exports = {
     probeCharacterBehaviorState,
     probeRelationshipInterpretation,
     probeCharacterRoleAdapters,
+    probeCharacterPower,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

@@ -55,6 +55,7 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.behaviorState': true,
     'characters.relationshipInterpretation': true,
     'characters.roleAdapters': true,
+    'characters.derivedPower': true,
     'characters.conversationUnderstanding': true,
     'characters.negotiationCases': true,
     'characters.mechanicalContracts': true,
@@ -205,6 +206,11 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.multiDimensionalRelations',
         'government.institutionsAuthority',
         'economy.companiesBanks'
+    ]),
+    'characters.derivedPower': Object.freeze([
+        'characters.identityGoals',
+        'characters.multiDimensionalRelations',
+        'characters.roleAdapters'
     ]),
     'characters.conversationUnderstanding': Object.freeze([
         'characters.identityGoals',
