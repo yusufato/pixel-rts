@@ -4124,6 +4124,32 @@ function run() {
     assert.equal(careerLifecycleProbe.continuityCountersGrounded, true,
         'Faz 38.10: süreklilik sayaçları gerçek ilişki ve hafıza defterlerinden gelmeli.');
 
+    const lifeStatusProbe = storyTestResult('characterLifeStatusProbe', probeCharacterLifeStatus);
+    assert.equal(lifeStatusProbe.unknownDemographyHonest, true,
+        'Faz 38.10: kaynak yaş/doğum/sağlık verisi yoksa karaktere sayı uydurulmamalı.');
+    assert.equal(lifeStatusProbe.sourceEvidenceRequired, true,
+        'Faz 38.10: emeklilik veya ölüm kaynak olay kimliği olmadan uygulanmamalı.');
+    assert.equal(lifeStatusProbe.retirementAppliedWithSuccession, true,
+        'Faz 38.10: emeklilikten önce tutulan makam kanonik halefe devredilmeli.');
+    assert.equal(lifeStatusProbe.retiredActiveAuthorityBlocked, true,
+        'Faz 38.10: emekli karakter aktif kurumsal yetki kullanamamalı.');
+    assert.equal(lifeStatusProbe.retiredPersonalAgencyPreserved, true,
+        'Faz 38.10: emeklilik kişisel ilişki ve nüfuz eylemlerini sıfırlamamalı.');
+    assert.equal(lifeStatusProbe.identityHistoryPreserved, true,
+        'Faz 38.10: yaşam geçişi kimlik, hedef, ilişki ve geçmiş hafızayı silmemeli.');
+    assert.equal(lifeStatusProbe.deathRemovesCompanyOffice, true,
+        'Faz 38.10: ölü şirket yöneticisi aktif şirket makamında görünmemeli.');
+    assert.equal(lifeStatusProbe.deadCannotAct, true,
+        'Faz 38.10: ölü karakter eylem adayı üretememeli.');
+    assert.equal(lifeStatusProbe.identityLedgerValid, true,
+        'Faz 38.10: yaşam olayları kimlik defteri doğrulamasını korumalı.');
+    assert.equal(lifeStatusProbe.sourceValidationGapExplicit, true,
+        'Faz 38.10: harici olay referansının henüz doğrulanmadığı açıkça yazılmalı.');
+    assert.equal(lifeStatusProbe.saveCreated, true,
+        'Faz 38.10: emeklilik ve ölüm kaynakları kayıt dosyasında kalıcı olmalı.');
+    assert.equal(lifeStatusProbe.saveLoadPreserved, true,
+        'Faz 38.10: yaşam durumu, makam kaybı ve eylem yasağı save/load sonrasında korunmalı.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );

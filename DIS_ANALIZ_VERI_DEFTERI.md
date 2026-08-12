@@ -663,3 +663,11 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - İstifa makamı ve kurumsal yetkiyi düşürür fakat karakteri sıfırlamaz: kişilik, hedef, ilişki, hafıza ve bilgi kanıtı korunur.
 - Kariyer görünümü Faz 29 kurumları ile Faz 37 makam geçişlerini okur; ikinci bir makam/yetki defteri açmaz.
 - Yaş, sağlık, emeklilik ve ölüm yürütücüsü henüz yoktur. Bunlar varmış gibi tarih veya durum üretmek yerine açık `UNAVAILABLE` borcudur.
+
+### 12 Ağustos 2026 — Faz 38.10 yaşam durumu ve yetki sınırı
+
+- Mevcut karakter kaynaklarında doğum tarihi, yaş ve sağlık kanıtı yoktur; deterministik rastgele yaş da kanıt değildir. Bu alanlar `null/UNKNOWN` kalır.
+- Emeklilik ile ölüm aynı kapı değildir: emekli kişi aktif kurumsal/şirket/servis yetkisini kaybeder fakat kişisel ilişki ve nüfuzunu korur; ölü kişi aktif eylem kullanamaz.
+- Yaşam geçişinden önce tek devlet makamı gerçek Faz 37 haleflik makbuzuyla devredilir. Birden çok makam atomik devredilemediği için kısmi mutasyon yerine reddedilir.
+- Şirket makamı görünümü yalnız yaşayan ve aktif karakteri makam sahibi sayar; ölü/emekli CEO boş koltuk üretir, hayalî halef üretmez.
+- Harici yaşam olayı kimliği şimdilik yalnız referanstır; kanonik olay defterinde doğrulama ve otomatik yaş/sağlık/ölüm üretimi açık borçtur.

@@ -591,6 +591,11 @@ function storyCharacterActionCandidate(input) {
     if (!storyCharacterActionEnabled() || !ledger) reasons.push('ACTION_LAYER_DISABLED');
     if (!definition) reasons.push('UNKNOWN_ACTION_TYPE');
     if (!actor) reasons.push('ACTOR_NOT_FOUND');
+    const lifeGate = actor && typeof storyCharacterIdentityCanAct === 'function'
+        ? storyCharacterIdentityCanAct(actor.id) : { ok: true, code: 'ACTOR_ACTIVE', status: 'ACTIVE' };
+    if (actor && lifeGate.status === 'DEAD') reasons.push('ACTOR_DEAD');
+    if (actor && lifeGate.status === 'RETIRED' && definition
+        && definition.authorityModel !== 'PERSONAL_AGENCY') reasons.push('ACTOR_RETIRED');
 
     const targetValidation = definition
         ? storyCharacterActionTargetValidation(definition, actor, target)
@@ -642,6 +647,7 @@ function storyCharacterActionCandidate(input) {
         pairCooldownSeconds: definition ? Number(definition.pairCooldownSeconds) || 0 : 0,
         targetValidation,
         authority,
+        lifeGate,
         cost,
         handlerAvailable,
         decisionSource: String(input.decisionSource || 'PLAYER_OR_SYSTEM'),

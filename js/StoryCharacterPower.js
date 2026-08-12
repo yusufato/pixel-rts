@@ -110,7 +110,9 @@ function storyCharacterCareerView(actorId) {
     const activeInstitutionIds = adapter ? adapter.institutionalBindings.map(row => row.institutionId) : [];
     const companyActive = !!(adapter && adapter.family === 'COMPANY'
         && adapter.bindingStatus === 'CANONICAL_ORGANIZATION_BOUND');
-    const status = activeInstitutionIds.length ? 'ACTIVE_OFFICE'
+    const life = actor.life || {};
+    const status = life.status && life.status !== 'ACTIVE' ? life.status
+        : activeInstitutionIds.length ? 'ACTIVE_OFFICE'
         : companyActive ? 'ACTIVE_ORGANIZATION_ROLE'
         : transitions.some(row => row.direction === 'LEFT_OFFICE') ? 'FORMER_OFFICE_HOLDER'
         : 'ACTIVE_NO_CANONICAL_OFFICE';
@@ -140,7 +142,16 @@ function storyCharacterCareerView(actorId) {
                 officeLossClearsHistory: false
             },
             lifecycleAvailability: {
-                retirement: 'UNAVAILABLE', health: 'UNAVAILABLE', mortality: 'UNAVAILABLE'
+                status: String(life.status || 'ACTIVE'),
+                statusEvidence: life.statusEvidence || null,
+                birthDate: life.birthDate == null ? null : life.birthDate,
+                ageYears: life.ageYears == null ? null : life.ageYears,
+                healthStatus: life.healthStatus || 'UNKNOWN',
+                retirementEligibility: life.retirementEligibility || 'UNKNOWN',
+                retirementTransition: 'SOURCE_EVENT_REFERENCE_REQUIRED',
+                mortalityTransition: 'SOURCE_EVENT_REFERENCE_REQUIRED',
+                automaticAgeHealthMortality: 'UNAVAILABLE',
+                sourceEventValidation: 'UNAVAILABLE'
             },
             canonicalLedgerReadOnly: true, worldMutation: false
         },

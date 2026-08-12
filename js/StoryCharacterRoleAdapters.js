@@ -67,7 +67,9 @@ function storyCharacterRoleCompanyOfficeView(companyId) {
         .sort((a, b) => a.id.localeCompare(b.id, 'en'));
     const officeKeys = ['CEO', 'CFO', 'CTO', 'BOARD_CHAIR'];
     const offices = Object.fromEntries(officeKeys.map(officeKey => {
-        const holders = actors.filter(actor => storyCharacterRoleCompanyOfficeKey(actor.role) === officeKey);
+        const holders = actors.filter(actor => storyCharacterRoleCompanyOfficeKey(actor.role) === officeKey
+            && (typeof storyCharacterIdentityCanAct !== 'function'
+                || storyCharacterIdentityCanAct(actor.id).ok));
         return [officeKey, {
             officeKey, holderActorIds: holders.map(actor => actor.id),
             status: holders.length === 1 ? 'FILLED'
@@ -137,6 +139,8 @@ function storyCharacterRoleAdapterView(actorId) {
     const identityServiceBound = family === 'INTELLIGENCE' && !!actor.serviceId;
     const actorRoleGoals = (actor.goals || []).filter(goal => goal.kind === 'ROLE');
     const actorPersonalGoals = (actor.goals || []).filter(goal => goal.kind === 'PERSONAL');
+    const lifeGate = typeof storyCharacterIdentityCanAct === 'function'
+        ? storyCharacterIdentityCanAct(actor.id) : { ok: true, code: 'ACTOR_ACTIVE', status: 'ACTIVE' };
     let bindingStatus = 'PERSONAL_ONLY';
     let executorStatus = 'PERSONAL_AGENCY';
     let bindingEvidence = [];
@@ -161,6 +165,17 @@ function storyCharacterRoleAdapterView(actorId) {
         executorStatus = 'UNAVAILABLE';
         capabilities = [];
     }
+    if (lifeGate.status === 'DEAD') {
+        bindingStatus = lifeGate.code;
+        executorStatus = 'INACTIVE_CHARACTER';
+        bindingEvidence = [];
+        capabilities = [];
+    } else if (lifeGate.status === 'RETIRED') {
+        bindingStatus = lifeGate.code;
+        executorStatus = 'PERSONAL_AGENCY_ONLY';
+        bindingEvidence = [];
+        capabilities = ['PERSONAL_RELATIONSHIP'];
+    }
     return {
         ok: true, code: 'ROLE_ADAPTER_VIEW',
         adapter: {
@@ -168,15 +183,16 @@ function storyCharacterRoleAdapterView(actorId) {
             actorId: actor.id, role: actor.role, family,
             bindingStatus, executorStatus,
             bindingEvidence, capabilities,
-            institutionalBindings: institutions,
-            authorityRoutes: institutions.flatMap(row => row.authorityGrants.map(grant => ({
+            institutionalBindings: lifeGate.status === 'ACTIVE' ? institutions : [],
+            authorityRoutes: (lifeGate.status === 'ACTIVE' ? institutions : []).flatMap(row => row.authorityGrants.map(grant => ({
                 institutionId: row.institutionId,
                 institutionType: row.institutionType,
                 countryId: row.countryId,
                 ...grant
             }))),
-            organizationId: company ? company.id : null,
-            serviceId: identityServiceBound ? actor.serviceId : null,
+            organizationId: lifeGate.status === 'ACTIVE' && company ? company.id : null,
+            serviceId: lifeGate.status === 'ACTIVE' && identityServiceBound ? actor.serviceId : null,
+            lifeStatus: lifeGate.status,
             goalBoundary: {
                 actorRoleGoalIds: actorRoleGoals.map(goal => goal.id),
                 actorPersonalGoalIds: actorPersonalGoals.map(goal => goal.id),

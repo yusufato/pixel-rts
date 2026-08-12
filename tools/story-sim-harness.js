@@ -539,6 +539,8 @@ function createRuntime(seed) {
             characterCreationValidate: character => storyCharacterCreationValidate(character),
             characterCreationOutcome: actorId => storyCharacterCreationOutcomeView(actorId),
             characterCreationSummary: actorId => storyCharacterCreationSummary(actorId),
+            characterIdentityCanAct: actorId => storyCharacterIdentityCanAct(actorId),
+            characterIdentityLifeTransition: input => storyCharacterIdentityLifeTransition(input),
             relationshipLedger: () => storyRelationshipSnapshot(),
             validateRelationshipLedger: ledger => storyRelationshipValidate(ledger),
             relationshipView: (fromActorId, toActorId) => storyRelationshipView(fromActorId, toActorId),
@@ -14636,8 +14638,11 @@ function probeCharacterCareerLifecycle(seed = 2032) {
             relationshipsPreserved: JSON.stringify(runtime.api.relationshipLedger()) === relationBefore,
             priorMemoryPreserved: memoryBefore.records.some(row => row.id === 'career-probe:prior-memory')
                 && memoryAfter.records.some(row => row.id === 'career-probe:prior-memory'),
-            missingLifecycleExplicit: ['retirement', 'health', 'mortality'].every(key =>
-                careerAfter.career.lifecycleAvailability[key] === 'UNAVAILABLE'),
+            missingLifecycleExplicit:
+                careerAfter.career.lifecycleAvailability.automaticAgeHealthMortality === 'UNAVAILABLE'
+                && careerAfter.career.lifecycleAvailability.sourceEventValidation === 'UNAVAILABLE'
+                && careerAfter.career.lifecycleAvailability.birthDate === null
+                && careerAfter.career.lifecycleAvailability.ageYears === null,
             deterministicReadOnly: JSON.stringify(careerAfter) === JSON.stringify(repeat)
                 && worldBeforeRead === worldAfterRead
                 && careerAfter.career.canonicalLedgerReadOnly === true,
@@ -14647,6 +14652,134 @@ function probeCharacterCareerLifecycle(seed = 2032) {
         };
     } finally {
         runtime.dom.window.close();
+    }
+    return result;
+}
+
+function probeCharacterLifeStatus(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    let savedRaw;
+    let retiredActorId;
+    let deadActorId;
+    let companyId;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const identities = Object.values(runtime.api.characterIdentityLedger().identities || {});
+        const officeActor = identities.find(actor => {
+            const adapter = runtime.api.characterRoleAdapterView(actor.id);
+            return adapter.ok && adapter.adapter.institutionalBindings.some(row =>
+                ['EXECUTIVE', 'ARMED_FORCES'].includes(row.institutionType));
+        });
+        const companyActor = identities.find(actor => {
+            const adapter = runtime.api.characterRoleAdapterView(actor.id);
+            return adapter.ok && adapter.adapter.family === 'COMPANY'
+                && adapter.adapter.organizationId;
+        });
+        const related = identities.find(actor => actor.id !== officeActor.id);
+        runtime.api.relationshipAdjust(officeActor.id, related.id, { respectBps: 140 },
+            { sourceType: 'LIFE_PROBE', sourceId: 'life-probe:relationship' });
+        runtime.api.characterMemoryAddRecent(officeActor.id, {
+            id: 'life-probe:prior-memory', kind: 'CAREER', summary: 'Yaşam geçişinden önceki kayıt',
+            source: { sourceType: 'LIFE_PROBE', sourceId: 'life-probe:memory' }
+        });
+        const identityBefore = runtime.api.characterIdentityView(officeActor.id);
+        const relationshipBefore = JSON.stringify(runtime.api.relationshipLedger());
+        const missingSource = runtime.api.characterIdentityLifeTransition({
+            actorId: officeActor.id, toStatus: 'RETIRED'
+        });
+        const retired = runtime.api.characterIdentityLifeTransition({
+            actorId: officeActor.id, toStatus: 'RETIRED',
+            sourceEventId: 'fixture:event:retirement:1', reasonCode: 'VOLUNTARY_RETIREMENT'
+        });
+        const retiredIdentity = runtime.api.characterIdentityView(officeActor.id);
+        const retiredAdapter = runtime.api.characterRoleAdapterView(officeActor.id);
+        const retiredCareer = runtime.api.characterCareerView(officeActor.id);
+        const retiredPersonalAction = runtime.api.characterActionCandidate({
+            actionType: 'PERSUADE', actorId: officeActor.id, targetActorId: related.id
+        });
+        const retiredAuthorityAction = runtime.api.characterActionCandidate({
+            actionType: 'RESIGN', actorId: officeActor.id,
+            domainContext: { targetInstitutionId: 'former-office' }
+        });
+        const retiredMemory = runtime.api.characterMemoryRecall(officeActor.id, {});
+        const companyOfficeBefore = runtime.api.characterRoleCompanyOfficeView(companyActor.organizationId);
+        const died = runtime.api.characterIdentityLifeTransition({
+            actorId: companyActor.id, toStatus: 'DEAD',
+            sourceEventId: 'fixture:event:death:1', reasonCode: 'DEATH_EVENT'
+        });
+        const companyOfficeAfter = runtime.api.characterRoleCompanyOfficeView(companyActor.organizationId);
+        const deadAction = runtime.api.characterActionCandidate({
+            actionType: 'PERSUADE', actorId: companyActor.id, targetActorId: related.id
+        });
+        const validation = runtime.api.validateCharacterIdentityLedger(
+            runtime.api.characterIdentityLedger()
+        );
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        retiredActorId = officeActor.id;
+        deadActorId = companyActor.id;
+        companyId = companyActor.organizationId;
+        result = {
+            unknownDemographyHonest: identityBefore.life.birthDate === null
+                && identityBefore.life.ageYears === null
+                && identityBefore.life.healthStatus === 'UNKNOWN'
+                && identityBefore.life.retirementEligibility === 'UNKNOWN',
+            sourceEvidenceRequired: missingSource.code === 'SOURCE_EVENT_REQUIRED'
+                && runtime.api.characterIdentityView(officeActor.id).life.status === 'RETIRED',
+            retirementAppliedWithSuccession: retired.ok === true
+                && retired.event.toStatus === 'RETIRED'
+                && retired.event.successionReceiptIds.length > 0
+                && retiredCareer.career.status === 'RETIRED'
+                && retiredCareer.career.activeInstitutionIds.length === 0,
+            retiredActiveAuthorityBlocked: retiredAdapter.adapter.executorStatus === 'PERSONAL_AGENCY_ONLY'
+                && retiredAdapter.adapter.authorityRoutes.length === 0
+                && !retiredAuthorityAction.allowed
+                && retiredAuthorityAction.reasons.includes('ACTOR_RETIRED'),
+            retiredPersonalAgencyPreserved: retiredPersonalAction.allowed
+                && retiredPersonalAction.authority.model === 'PERSONAL_AGENCY',
+            identityHistoryPreserved: retiredIdentity.id === identityBefore.id
+                && JSON.stringify(retiredIdentity.coreAxes) === JSON.stringify(identityBefore.coreAxes)
+                && JSON.stringify(retiredIdentity.goals) === JSON.stringify(identityBefore.goals)
+                && JSON.stringify(runtime.api.relationshipLedger()) === relationshipBefore
+                && retiredMemory.records.some(row => row.id === 'life-probe:prior-memory'),
+            deathRemovesCompanyOffice: died.ok === true
+                && companyOfficeBefore.offices.CEO.holderActorIds.includes(companyActor.id)
+                && !companyOfficeAfter.offices.CEO.holderActorIds.includes(companyActor.id)
+                && companyOfficeAfter.offices.CEO.status === 'VACANT',
+            deadCannotAct: !deadAction.allowed && deadAction.reasons.includes('ACTOR_DEAD'),
+            identityLedgerValid: validation.ok,
+            sourceValidationGapExplicit: retired.event.sourceValidation
+                === 'EXTERNAL_EVENT_REFERENCE_UNVERIFIED',
+            saveCreated: typeof savedRaw === 'string' && savedRaw.includes('fixture:event:retirement:1')
+                && savedRaw.includes('fixture:event:death:1')
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const restored = createRuntime((seed + 1) >>> 0);
+    try {
+        restored.api.putSavedRaw(savedRaw);
+        const loaded = restored.api.loadNow();
+        const retiredIdentity = restored.api.characterIdentityView(retiredActorId);
+        const deadIdentity = restored.api.characterIdentityView(deadActorId);
+        const deadOffice = restored.api.characterRoleCompanyOfficeView(companyId);
+        const target = Object.values(restored.api.characterIdentityLedger().identities || {})
+            .find(actor => actor.id !== deadActorId);
+        const deadAction = restored.api.characterActionCandidate({
+            actionType: 'PERSUADE', actorId: deadActorId, targetActorId: target.id
+        });
+        result.saveLoadPreserved = loaded === true
+            && retiredIdentity.life.status === 'RETIRED'
+            && deadIdentity.life.status === 'DEAD'
+            && deadOffice.offices.CEO.status === 'VACANT'
+            && !deadAction.allowed && deadAction.reasons.includes('ACTOR_DEAD')
+            && restored.api.validateCharacterIdentityLedger(
+                restored.api.characterIdentityLedger()
+            ).ok;
+    } finally {
+        restored.dom.window.close();
     }
     return result;
 }
@@ -16910,6 +17043,7 @@ module.exports = {
     probeCharacterRoleAdapters,
     probeCharacterPower,
     probeCharacterCareerLifecycle,
+    probeCharacterLifeStatus,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

@@ -7,8 +7,8 @@
 //  verir. Mekanik sonuç yine ilgili domain/kurum kapısından geçer.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const STORY_CHARACTER_IDENTITY_SCHEMA_VERSION = 3;
-const STORY_CHARACTER_IDENTITY_ADAPTER_VERSION = 'story-character-identity-ledger-3';
+const STORY_CHARACTER_IDENTITY_SCHEMA_VERSION = 4;
+const STORY_CHARACTER_IDENTITY_ADAPTER_VERSION = 'story-character-identity-ledger-4';
 const STORY_CHARACTER_CREATION_POLICY_VERSION = 'story-character-paid-decisions-1';
 const STORY_CHARACTER_CORE_AXES = Object.freeze([
     'stateMarketOrientation',
@@ -216,6 +216,118 @@ function storyCharacterIdentityCareer(role) {
         model: `ROLE_CAREER:${String(role || 'CHARACTER')}`
     };
 }
+function storyCharacterIdentityLife() {
+    return {
+        status: 'ACTIVE',
+        statusEvidence: 'SOURCE_ACTOR_PRESENT',
+        birthDate: null,
+        ageYears: null,
+        healthStatus: 'UNKNOWN',
+        retirementEligibility: 'UNKNOWN',
+        events: [],
+        version: 1
+    };
+}
+function storyCharacterIdentityLifeBackfill(actor) {
+    if (!actor.life || typeof actor.life !== 'object' || Array.isArray(actor.life)) {
+        actor.life = storyCharacterIdentityLife();
+    }
+    const life = actor.life;
+    if (!['ACTIVE', 'RETIRED', 'DEAD'].includes(life.status)) life.status = 'ACTIVE';
+    if (!life.statusEvidence) life.statusEvidence = 'LEGACY_SOURCE_ACTOR_PRESENT';
+    if (life.birthDate == null) life.birthDate = null;
+    if (!Number.isFinite(Number(life.ageYears))) life.ageYears = null;
+    else life.ageYears = Math.max(0, Math.min(130, Math.floor(Number(life.ageYears))));
+    if (!['UNKNOWN', 'HEALTHY', 'IMPAIRED', 'CRITICAL'].includes(life.healthStatus)) {
+        life.healthStatus = 'UNKNOWN';
+    }
+    if (!['UNKNOWN', 'ELIGIBLE', 'INELIGIBLE'].includes(life.retirementEligibility)) {
+        life.retirementEligibility = 'UNKNOWN';
+    }
+    if (!Array.isArray(life.events)) life.events = [];
+    life.version = 1;
+    return life;
+}
+function storyCharacterIdentityCanAct(actorId) {
+    const ledger = storyCharacterIdentityEnsure();
+    const actor = ledger && ledger.identities[String(actorId || '')];
+    if (!actor) return { ok: false, code: 'ACTOR_NOT_FOUND', status: null };
+    const life = storyCharacterIdentityLifeBackfill(actor);
+    return {
+        ok: life.status === 'ACTIVE',
+        code: life.status === 'ACTIVE' ? 'ACTOR_ACTIVE' : `ACTOR_${life.status}`,
+        status: life.status
+    };
+}
+function storyCharacterIdentityLifeTransition(input) {
+    input = input || {};
+    const actorId = String(input.actorId || '');
+    const toStatus = String(input.toStatus || '').toUpperCase();
+    const sourceEventId = String(input.sourceEventId || '');
+    const ledger = storyCharacterIdentityEnsure();
+    const actor = ledger && ledger.identities[actorId];
+    if (!actor) return { ok: false, code: 'ACTOR_NOT_FOUND', worldMutation: false };
+    const life = storyCharacterIdentityLifeBackfill(actor);
+    if (!['RETIRED', 'DEAD'].includes(toStatus)) {
+        return { ok: false, code: 'LIFE_STATUS_TRANSITION_UNSUPPORTED', worldMutation: false };
+    }
+    if (!sourceEventId) return { ok: false, code: 'SOURCE_EVENT_REQUIRED', worldMutation: false };
+    if (life.status !== 'ACTIVE') {
+        return { ok: false, code: `ACTOR_ALREADY_${life.status}`, worldMutation: false };
+    }
+    const held = typeof storyCharacterActionHeldInstitutions === 'function'
+        ? storyCharacterActionHeldInstitutions(actorId) : [];
+    if (held.length > 1) return {
+        ok: false, code: 'MULTIPLE_OFFICE_SUCCESSION_NOT_ATOMIC',
+        institutionIds: held.map(row => row.institutionId), worldMutation: false
+    };
+    const previews = held.map(row => storyCharacterActionCandidate({
+        actionType: 'RESIGN', actorId,
+        domainContext: { targetInstitutionId: row.institutionId },
+        decisionSource: 'LIFE_CYCLE'
+    }));
+    const blocked = previews.find(row => !row.allowed);
+    if (blocked) return {
+        ok: false, code: 'OFFICE_SUCCESSION_REQUIRED_BEFORE_LIFE_TRANSITION',
+        institutionId: blocked.domainContext && blocked.domainContext.targetInstitutionId,
+        reasons: blocked.reasons.slice(), worldMutation: false
+    };
+    const successionReceiptIds = [];
+    for (const preview of previews) {
+        const resignation = storyCharacterActionExecute({
+            actionType: 'RESIGN', actorId,
+            domainContext: preview.domainContext,
+            decisionSource: 'LIFE_CYCLE'
+        });
+        if (!resignation.ok) return {
+            ok: false, code: 'OFFICE_SUCCESSION_FAILED',
+            successionReceiptIds, worldMutation: successionReceiptIds.length > 0
+        };
+        successionReceiptIds.push(resignation.receipt.id);
+    }
+    const occurredAt = Number.isFinite(Number(input.occurredAt))
+        ? Number(input.occurredAt) : Number(STORY.clock) || 0;
+    const event = {
+        id: `character-life:${actorId.replace(/[^a-zA-Z0-9_-]/g, '-')}:${toStatus.toLowerCase()}:${life.events.length + 1}`,
+        fromStatus: 'ACTIVE', toStatus, sourceEventId,
+        reasonCode: String(input.reasonCode || (toStatus === 'DEAD' ? 'DEATH_EVENT' : 'VOLUNTARY_RETIREMENT')),
+        occurredAt, successionReceiptIds,
+        sourceValidation: 'EXTERNAL_EVENT_REFERENCE_UNVERIFIED', version: 1
+    };
+    life.status = toStatus;
+    life.statusEvidence = sourceEventId;
+    life.events.push(event);
+    if (life.events.length > 16) life.events.splice(0, life.events.length - 16);
+    actor.updatedAt = occurredAt;
+    if (typeof storyMemoryAddMilestone === 'function') storyMemoryAddMilestone({
+        id: `${event.id}:milestone`, kind: 'CAREER', subjectActorId: actorId,
+        holderActorIds: [actorId], summary: toStatus === 'DEAD'
+            ? `${actor.name} hayatını kaybetti.` : `${actor.name} aktif görevlerden emekli oldu.`,
+        importanceBps: 10000, createdAt: occurredAt,
+        source: { sourceType: 'CHARACTER_LIFE_EVENT', sourceId: sourceEventId, lifeEventId: event.id }
+    });
+    return { ok: true, code: `ACTOR_${toStatus}`, event: storyCharacterIdentityClone(event), worldMutation: true };
+}
 function storyCharacterIdentityCreate(input) {
     const id = String(input.id);
     const axes = storyCharacterIdentityAxes(id, input.legacyAxes, input.role);
@@ -240,6 +352,7 @@ function storyCharacterIdentityCreate(input) {
         voiceProfile: storyCharacterIdentityVoice(id, axes, values),
         goals: storyCharacterIdentityGoals(id, input.role, axes, traits),
         career: storyCharacterIdentityCareer(input.role),
+        life: storyCharacterIdentityLife(),
         legacySeeds: Array.isArray(input.legacySeeds) ? input.legacySeeds.slice(0, 8) : [],
         createdAt: Number(STORY.clock) || 0,
         updatedAt: Number(STORY.clock) || 0,
@@ -342,11 +455,12 @@ function storyCharacterIdentityLedgerCreate() {
 function storyCharacterIdentityMigrateLedger(saved) {
     const ledger = storyCharacterIdentityClone(saved);
     if (!ledger || typeof ledger !== 'object') return null;
-    if (![1, 2, STORY_CHARACTER_IDENTITY_SCHEMA_VERSION].includes(ledger.schemaVersion)) return null;
+    if (![1, 2, 3, STORY_CHARACTER_IDENTITY_SCHEMA_VERSION].includes(ledger.schemaVersion)) return null;
     if (!ledger.identities || typeof ledger.identities !== 'object') return null;
     if (!ledger.creationProfiles || typeof ledger.creationProfiles !== 'object') ledger.creationProfiles = {};
     if (!ledger.worldFacts || typeof ledger.worldFacts !== 'object') ledger.worldFacts = {};
     if (!ledger.actorBeliefs || typeof ledger.actorBeliefs !== 'object') ledger.actorBeliefs = {};
+    for (const actor of Object.values(ledger.identities)) storyCharacterIdentityLifeBackfill(actor);
     ledger.schemaVersion = STORY_CHARACTER_IDENTITY_SCHEMA_VERSION;
     ledger.adapterVersion = STORY_CHARACTER_IDENTITY_ADAPTER_VERSION;
     return ledger;
@@ -374,6 +488,7 @@ function storyCharacterIdentityReconcileSources() {
         if (!existing.career || typeof existing.career !== 'object') {
             existing.career = storyCharacterIdentityCareer(existing.role);
         }
+        storyCharacterIdentityLifeBackfill(existing);
     }
     return ledger;
 }
@@ -434,6 +549,7 @@ function storyCharacterIdentityEnsure() {
     if (!ledger.creationProfiles || typeof ledger.creationProfiles !== 'object') ledger.creationProfiles = {};
     if (!ledger.worldFacts || typeof ledger.worldFacts !== 'object') ledger.worldFacts = {};
     if (!ledger.actorBeliefs || typeof ledger.actorBeliefs !== 'object') ledger.actorBeliefs = {};
+    for (const actor of Object.values(ledger.identities || {})) storyCharacterIdentityLifeBackfill(actor);
     return STORY.characterIdentities;
 }
 function storyCharacterPoliticalCandidate(countryId, slateKey, electionKey) {
@@ -499,6 +615,33 @@ function storyCharacterIdentityValidate(ledger) {
         if (!Array.isArray(row && row.ambitions) || !row.ambitions.length) issues.push({ code: 'AMBITIONS_REQUIRED', path: `${at}.ambitions` });
         if (!Array.isArray(row && row.redLines) || !row.redLines.length) issues.push({ code: 'RED_LINES_REQUIRED', path: `${at}.redLines` });
         if (!Array.isArray(row && row.goals) || row.goals.length < 2) issues.push({ code: 'GOALS_REQUIRED', path: `${at}.goals` });
+        const life = row && row.life;
+        if (!life || !['ACTIVE', 'RETIRED', 'DEAD'].includes(life.status)) {
+            issues.push({ code: 'LIFE_STATUS', path: `${at}.life.status` });
+        }
+        const birthDateValid = life && (life.birthDate === null
+            || /^\d{4}-\d{2}-\d{2}$/.test(String(life.birthDate)));
+        const ageValid = life && (life.ageYears === null
+            || (Number.isInteger(life.ageYears) && life.ageYears >= 0 && life.ageYears <= 130));
+        if (!life || !birthDateValid || !ageValid
+            || !['UNKNOWN', 'HEALTHY', 'IMPAIRED', 'CRITICAL'].includes(life.healthStatus)
+            || !['UNKNOWN', 'ELIGIBLE', 'INELIGIBLE'].includes(life.retirementEligibility)
+            || !Array.isArray(life.events) || life.events.length > 16) {
+            issues.push({ code: 'LIFE_CONTRACT', path: `${at}.life` });
+        }
+        for (const [eventIndex, event] of ((life && life.events) || []).entries()) {
+            if (!event || !event.id || !['RETIRED', 'DEAD'].includes(event.toStatus)
+                || !event.sourceEventId || !Number.isFinite(Number(event.occurredAt))
+                || event.sourceValidation !== 'EXTERNAL_EVENT_REFERENCE_UNVERIFIED') {
+                issues.push({ code: 'LIFE_EVENT', path: `${at}.life.events[${eventIndex}]` });
+            }
+        }
+        const lastLifeEvent = life && life.events && life.events[life.events.length - 1];
+        if (life && life.status !== 'ACTIVE'
+            && (!lastLifeEvent || lastLifeEvent.toStatus !== life.status
+                || life.statusEvidence !== lastLifeEvent.sourceEventId)) {
+            issues.push({ code: 'LIFE_STATUS_EVIDENCE', path: `${at}.life.statusEvidence` });
+        }
     }
     for (const key of ['creationProfiles', 'worldFacts', 'actorBeliefs']) {
         if (!ledger[key] || typeof ledger[key] !== 'object' || Array.isArray(ledger[key])) {
