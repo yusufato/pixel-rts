@@ -182,6 +182,7 @@ async function main() {
         state.task = task;
         state.child.send({
             type: 'run', taskId: sequence++, key: task.key, fn: task.fn, args: task.args,
+            requiredTrue: task.requiredTrue || [],
             outputPath: path.join(resultsDir, `${task.key}.bin`)
         });
     }

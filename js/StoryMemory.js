@@ -94,6 +94,19 @@ function storyMemoryRecentSummary(actorId, removed) {
     const kinds = {};
     for (const row of removed) kinds[row.kind] = (kinds[row.kind] || 0) + 1;
     const orderedKinds = Object.keys(kinds).sort().map(kind => `${kind}:${kinds[kind]}`);
+    const relatedActorCounts = {};
+    const relationshipEventTagCounts = {};
+    const sourceMemoryIds = removed.map(row => row.id).sort();
+    for (const row of removed) {
+        for (const relatedActorId of (row.relatedActorIds || [])) {
+            relatedActorCounts[relatedActorId] = (relatedActorCounts[relatedActorId] || 0) + 1;
+        }
+        const tag = String(row.source && row.source.relationshipEventTag || '').toUpperCase();
+        if (typeof STORY_RELATIONSHIP_INTERPRETATION_TYPES !== 'undefined'
+            && STORY_RELATIONSHIP_INTERPRETATION_TYPES.includes(tag)) {
+            relationshipEventTagCounts[tag] = (relationshipEventTagCounts[tag] || 0) + 1;
+        }
+    }
     const summaries = ledger.summariesByActor[actorId] || (ledger.summariesByActor[actorId] = []);
     const record = {
         id: storyMemoryNextId(ledger, 'summary'),
@@ -104,7 +117,14 @@ function storyMemoryRecentSummary(actorId, removed) {
         recordCount: removed.length,
         kinds,
         summary: `Yakın bağlamdan ${removed.length} düşük öncelikli kayıt arşivlendi (${orderedKinds.join(', ')}).`,
-        sourceMemoryIds: removed.map(row => row.id),
+        sourceMemoryIds,
+        relatedActorCounts: Object.fromEntries(Object.entries(relatedActorCounts)
+            .sort(([left], [right]) => left.localeCompare(right, 'en'))),
+        relationshipEventTagCounts: Object.fromEntries(Object.entries(relationshipEventTagCounts)
+            .sort(([left], [right]) => left.localeCompare(right, 'en'))),
+        sourceSetHash: typeof storyDecisionTraceHash === 'function'
+            ? storyDecisionTraceHash(sourceMemoryIds) : null,
+        preservesMilestones: true,
         createdAt: storyMemoryNow(),
         version: 1
     };
@@ -569,6 +589,18 @@ function storyMemoryValidate(candidate) {
             const at = `$.recentByActor.${actorId}[${index}]`;
             if (!row || row.actorId !== actorId || row.layer !== 'RECENT') add('RECENT_IDENTITY', at, 'Yakın kayıt aktör/katman sözleşmesini bozuyor.');
             if (!STORY_CHARACTER_MEMORY_KINDS.includes(row && row.kind)) add('MEMORY_KIND', `${at}.kind`, 'Hafıza türü geçersiz.');
+        }
+    }
+    for (const [actorId, rows] of Object.entries(candidate.summariesByActor || {})) {
+        const at = `$.summariesByActor.${actorId}`;
+        if (!identities[actorId]) add('SUMMARY_ACTOR_REFERENCE', at, 'Hafıza özeti aktörü bulunamadı.');
+        if (!Array.isArray(rows)) { add('SUMMARY_ARRAY', at, 'Hafıza özeti dizi olmalı.'); continue; }
+        if (rows.length > STORY_CHARACTER_MEMORY_SUMMARY_CAP) add('SUMMARY_CAP', at, 'Hafıza özeti tavanı aşıldı.');
+        for (const [index, row] of rows.entries()) {
+            const rowAt = `${at}[${index}]`;
+            if (!row || row.actorId !== actorId || row.layer !== 'SUMMARY') add('SUMMARY_IDENTITY', rowAt, 'Hafıza özeti aktör/katman sözleşmesini bozuyor.');
+            if (!Array.isArray(row && row.sourceMemoryIds)) add('SUMMARY_SOURCES', `${rowAt}.sourceMemoryIds`, 'Hafıza özeti kaynak kimlikleri taşımalı.');
+            if (row && row.preservesMilestones != null && row.preservesMilestones !== true) add('SUMMARY_MILESTONE_BOUNDARY', `${rowAt}.preservesMilestones`, 'Hafıza özeti mihenk taşını silemez.');
         }
     }
     for (const [id, episode] of Object.entries(candidate.episodes || {})) {

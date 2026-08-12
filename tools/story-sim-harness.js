@@ -13894,6 +13894,8 @@ function probeCharacterBehaviorState(seed = 2032) {
 function probeRelationshipInterpretation(seed = 2032) {
     const runtime = createRuntime(seed >>> 0);
     let result;
+    let savedRaw;
+    let memorySnapshot;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         const story = runtime.api.state();
@@ -13942,6 +13944,30 @@ function probeRelationshipInterpretation(seed = 2032) {
         const forgedTag = add('memory:phase388:forged-tag', 'OTHER', 'ACTIVE', {
             relationshipEventTag: 'PUBLIC_HUMILIATION'
         });
+        const milestoneCountBeforeConsolidation = Object.keys(
+            runtime.api.characterMemoryLedger().milestones || {}
+        ).length;
+        for (let index = 0; index < 30; index++) {
+            runtime.api.characterMemoryAddRecent(holder.id, {
+                id: `recent:phase388:filler:${index}`, kind: 'CONVERSATION',
+                summary: `Yakın bağlam ${index}`, occurredAt: 100 + index,
+                importanceBps: 5000, relatedActorIds: [stranger.id],
+                source: { sourceReceiptId: `receipt:phase388:filler:${index}` }
+            });
+        }
+        runtime.api.characterMemoryAddRecent(holder.id, {
+            id: 'recent:phase388:old-humiliation', kind: 'CONFLICT',
+            summary: 'Eski kaynaklı aleni aşağılama', occurredAt: 1, importanceBps: 100,
+            relatedActorIds: [stranger.id], source: {
+                relationshipEventTag: 'PUBLIC_HUMILIATION',
+                sourceEventId: 'event:phase388:old-humiliation'
+            }
+        });
+        const consolidatedLedger = runtime.api.characterMemoryLedger();
+        const consolidatedSummaries = consolidatedLedger.summariesByActor[holder.id] || [];
+        const consolidatedAdjustment = runtime.api.relationshipInterpretationOptionAdjustment(
+            holder.id, stranger.id, 'BETRAY'
+        );
         const worldBefore = hashSnapshot(stateSnapshot(story));
         const keptView = runtime.api.relationshipInterpretMemory(holder.id, target.id, kept.milestone.id);
         const keptRepeat = runtime.api.relationshipInterpretMemory(holder.id, target.id, kept.milestone.id);
@@ -14002,6 +14028,18 @@ function probeRelationshipInterpretation(seed = 2032) {
                     && trace.relationshipMemoryContributions.contributions.length > 0
                     && trace.relationshipMemoryContributions.rawWorldRead === false;
             })(),
+            recentCapPreserved: (consolidatedLedger.recentByActor[holder.id] || []).length <= 24,
+            consolidationSourcesPreserved: consolidatedSummaries.some(row =>
+                row.relationshipEventTagCounts.PUBLIC_HUMILIATION === 1
+                && row.relatedActorCounts[stranger.id] === 1
+                && row.sourceMemoryIds.includes('recent:phase388:old-humiliation')
+                && typeof row.sourceSetHash === 'string'
+                && row.preservesMilestones === true),
+            consolidatedSelectorContribution: consolidatedAdjustment.contributions.some(row =>
+                row.consolidated === true && row.interpretationType === 'PUBLIC_HUMILIATION'
+                && row.sourceSetHash),
+            milestonesSurviveConsolidation: Object.keys(consolidatedLedger.milestones || {}).length
+                === milestoneCountBeforeConsolidation,
             proposalOnly: views.every(row => row.interpretation.applied === false
                 && row.interpretation.worldMutation === false
                 && row.interpretation.rawWorldRead === false),
@@ -14009,8 +14047,25 @@ function probeRelationshipInterpretation(seed = 2032) {
             worldNeutral: worldBefore === worldAfter,
             onlyFixtureMemoriesAdded: memoryAfterCount - memoryBeforeCount === 5
         };
+        memorySnapshot = runtime.api.characterMemoryLedger();
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
     } finally {
         runtime.dom.window.close();
+    }
+    const restored = createRuntime(seed >>> 0);
+    try {
+        restored.api.putSavedRaw(savedRaw);
+        result.restored = {
+            loaded: restored.api.loadNow(),
+            exact: JSON.stringify(restored.api.characterMemoryLedger())
+                === JSON.stringify(memorySnapshot),
+            validation: restored.api.validateCharacterMemoryLedger(
+                restored.api.characterMemoryLedger()
+            )
+        };
+    } finally {
+        restored.dom.window.close();
     }
     const disabled = createRuntime((seed + 1) >>> 0);
     try {

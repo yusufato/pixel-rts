@@ -80,13 +80,15 @@ function storyRelationshipInterpretationIntensityBps(actorId, type) {
         ? storyCharacterIdentityView(actorId) : null;
     const axes = actor && actor.coreAxes || {};
     const values = actor && actor.values || {};
+    const axis = key => Number.isFinite(Number(axes[key])) ? Number(axes[key]) : 50;
+    const value = key => Number.isFinite(Number(values[key])) ? Number(values[key]) : 50;
     let delta = 0;
     if (type === 'PROMISE_BROKEN' || type === 'PUBLIC_HUMILIATION') {
-        delta += (Number(axes.loyalty) - 50) * 18;
-        delta += (Number(values.hawkishness) - 50) * 10;
+        delta += (axis('institutionalPosture') - 50) * 18;
+        delta += (value('hawkishness') - 50) * 10;
     } else {
-        delta += (Number(axes.cooperation) - 50) * 14;
-        delta += (Number(axes.loyalty) - 50) * 8;
+        delta += (axis('nationalGlobalOrientation') - 50) * 14;
+        delta += (axis('institutionalPosture') - 50) * 8;
     }
     return Math.max(8000, Math.min(12000, Math.round(10000 + delta)));
 }
@@ -180,6 +182,28 @@ function storyRelationshipInterpretationOptionAdjustment(actorId, targetActorId,
             rawDelta: weight * interpreted.interpretation.intensityBps / 10000
         });
     }
+    for (const summary of ledger && ledger.summariesByActor && ledger.summariesByActor[holder] || []) {
+        const relatedCount = Number(summary.relatedActorCounts
+            && summary.relatedActorCounts[target]) || 0;
+        if (!relatedCount) continue;
+        for (const [interpretationType, count] of Object.entries(
+            summary.relationshipEventTagCounts || {}
+        )) {
+            const weight = Number(STORY_RELATIONSHIP_INTERPRETATION_ACTION_WEIGHT[
+                interpretationType
+            ] && STORY_RELATIONSHIP_INTERPRETATION_ACTION_WEIGHT[interpretationType][action]) || 0;
+            if (!weight || !(Number(count) > 0)) continue;
+            rows.push({
+                sourceMemoryId: summary.id,
+                interpretationType,
+                occurredAt: Number(summary.toAt) || 0,
+                importanceBps: Math.min(7000, 3500 + Number(count) * 500),
+                rawDelta: weight * Math.min(0.75, 0.25 + Number(count) * 0.1),
+                consolidated: true,
+                sourceSetHash: summary.sourceSetHash || null
+            });
+        }
+    }
     rows.sort((a, b) => b.importanceBps - a.importanceBps
         || b.occurredAt - a.occurredAt
         || a.sourceMemoryId.localeCompare(b.sourceMemoryId, 'en'));
@@ -189,7 +213,9 @@ function storyRelationshipInterpretationOptionAdjustment(actorId, targetActorId,
         appliedDelta: Math.round(row.rawDelta * 1000) / 1000,
         deterministic: true,
         worldMutation: false,
-        rawWorldRead: false
+        rawWorldRead: false,
+        consolidated: row.consolidated === true,
+        sourceSetHash: row.sourceSetHash || null
     }));
     const raw = contributions.reduce((sum, row) => sum + row.appliedDelta, 0);
     const scoreDelta = Math.round(Math.max(-STORY_RELATIONSHIP_INTERPRETATION_SCORE_CAP,

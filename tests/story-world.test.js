@@ -3956,6 +3956,20 @@ function run() {
         'Faz 38.8: kaynaklı ilişki yorumu gerçek karakter eylem sıralamasının neden zincirine girmeli.');
     assert.equal(relationshipInterpretationProbe.traceReadyContribution, true,
         'Faz 38.8: ilişki hafızası katkısı kaynaklarıyla Faz 38.6 kalıcı karar izine girmeli.');
+    assert.equal(relationshipInterpretationProbe.recentCapPreserved, true,
+        'Faz 38.8: uzun kampanyada yakın hafıza 24 kayıt tavanını aşmamalı.');
+    assert.equal(relationshipInterpretationProbe.consolidationSourcesPreserved, true,
+        'Faz 38.8: yoğunlaştırma hedef karakteri, olay etiketini ve kaynak kümesini korumalı.');
+    assert.equal(relationshipInterpretationProbe.consolidatedSelectorContribution, true,
+        'Faz 38.8: yoğunlaştırılmış ilişki hafızası düşük ağırlıklı seçici katkısı üretebilmeli.');
+    assert.equal(relationshipInterpretationProbe.milestonesSurviveConsolidation, true,
+        'Faz 38.8: yakın hafıza yoğunlaştırması söz, sır, borç veya diğer mihenk taşlarını silememeli.');
+    assert.equal(relationshipInterpretationProbe.restored.loaded, true,
+        'Faz 38.8: yoğunlaştırılmış hafıza kaydı yüklenebilmeli.');
+    assert.equal(relationshipInterpretationProbe.restored.exact, true,
+        'Faz 38.8: hedef/olay/kaynak yoğunlaştırması save-load sırasında birebir kalmalı.');
+    assert.equal(relationshipInterpretationProbe.restored.validation.ok, true,
+        'Faz 38.8: geri yüklenen yoğunlaştırılmış hafıza defteri geçerli kalmalı.');
     assert.equal(relationshipInterpretationProbe.proposalOnly, true,
         'Faz 38.8: ilk yorum adaptörü ilişkiyi veya dünyayı kendiliğinden değiştirmemeli.');
     assert.equal(relationshipInterpretationProbe.relationshipNeutral, true,

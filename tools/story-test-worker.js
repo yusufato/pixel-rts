@@ -19,6 +19,13 @@ async function execute(message) {
         const fn = harness[message.fn];
         if (typeof fn !== 'function') throw new Error(`Unknown story test task function: ${message.fn}`);
         const result = await fn(...(Array.isArray(message.args) ? message.args : []));
+        for (const path of (message.requiredTrue || [])) {
+            const value = String(path).split('.').reduce((cursor, key) =>
+                cursor == null ? undefined : cursor[key], result);
+            if (value !== true) throw new Error(
+                `${message.key}: required result ${path}=true, got ${JSON.stringify(value)}`
+            );
+        }
         const payload = v8.serialize(result);
         fs.writeFileSync(message.outputPath, payload);
         const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
