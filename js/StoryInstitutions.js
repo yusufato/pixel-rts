@@ -17,6 +17,9 @@ const STORY_INSTITUTION_TYPES = Object.freeze([
 const STORY_INSTITUTION_REQUEST_STATUSES = Object.freeze([
     'PENDING_APPROVAL', 'AUTHORIZED', 'EXECUTED', 'DENIED', 'STALE_AUTHORITY', 'CANCELLED'
 ]);
+const STORY_INSTITUTION_REJECTION_REASON_CODES = Object.freeze([
+    'INSTITUTIONAL_OBJECTION', 'CHARACTER_ROLE_REVIEW_REJECTED'
+]);
 
 const STORY_INSTITUTION_DEFS = Object.freeze({
     EXECUTIVE: Object.freeze({ name: 'Yürütme Makamı', scope: 'COUNTRY' }),
@@ -420,6 +423,15 @@ function storyInstitutionValidate(ledger) {
             && (request.requiredInstitutionIds || []).some(id => !approvals.has(id))) {
             add('INSTITUTION_MISSING_APPROVAL', `${at}.approvalInstitutionIds`, 'Yetkili/uygulanmış istek bütün zorunlu onayları taşımalı.');
         }
+        if (request.status === 'DENIED' && request.result && request.result.status === 'REJECTED') {
+            if (!STORY_INSTITUTION_REJECTION_REASON_CODES.includes(request.result.reasonCode)) {
+                add('INSTITUTION_REJECTION_REASON', `${at}.result.reasonCode`, 'Ret gerekçesi kapalı katalogdan gelmeli.');
+            }
+            if (!request.result.rejectedByActorId || !request.result.rejectedByInstitutionId
+                || request.result.physicalMutation !== false) {
+                add('INSTITUTION_REJECTION_RECEIPT', `${at}.result`, 'Ret makbuzu gerçek aktör, kurum ve fiziksel-etkisizlik taşımalı.');
+            }
+        }
         if (request.effectModel !== STORY_INSTITUTION_POLICY.effectModel) add('INSTITUTION_EFFECT_MODEL', `${at}.effectModel`, 'Faz 29 karar kaydı fiziksel etki uyduramaz.');
     }
     if (!Array.isArray(ledger.events) || ledger.events.length > STORY_INSTITUTION_POLICY.maximumEvents) add('INSTITUTION_EVENT_LIMIT', '$.events', 'Kurum olay bütçesi aşıldı.');
@@ -603,6 +615,46 @@ function storyInstitutionApproveAction(requestId, input) {
         ? 'AUTHORIZED' : 'PENDING_APPROVAL';
     request.updatedAt = storyInstitutionRound(STORY.clock);
     storyInstitutionRecordEvent(ledger, 'ACTION_APPROVED', { requestId: request.id, institutionId, status: request.status });
+    return { ok: true, request: storyInstitutionClone(request) };
+}
+function storyInstitutionRejectAction(requestId, input) {
+    const ledger = storyInstitutionEnsure();
+    if (!ledger) return { ok: false, status: 'DISABLED', reason: 'INSTITUTION_LAYER_DISABLED' };
+    const request = ledger.requests[String(requestId)];
+    if (!request) return { ok: false, status: 'DENIED', reason: 'UNKNOWN_REQUEST' };
+    if (request.status !== 'PENDING_APPROVAL') {
+        return { ok: false, status: request.status, reason: 'REQUEST_NOT_PENDING' };
+    }
+    if (request.authoritySignature !== ledger.countries[request.countryId].authoritySignature) {
+        request.status = 'STALE_AUTHORITY';
+        return { ok: false, status: request.status, reason: 'AUTHORITY_SCHEMA_CHANGED' };
+    }
+    const country = ledger.countries[request.countryId];
+    const actor = storyInstitutionResolveActor(country, input || {});
+    if (!actor || actor.sourceKind !== 'INSTITUTION') {
+        return { ok: false, status: 'DENIED', reason: 'REJECTOR_SOURCE_MISMATCH' };
+    }
+    const institutionId = storyInstitutionId(request.countryId, actor.institutionType);
+    if (!request.requiredInstitutionIds.includes(institutionId)) {
+        return { ok: false, status: 'DENIED', reason: 'INSTITUTION_APPROVAL_NOT_REQUIRED' };
+    }
+    const requestedReason = String(input && input.reasonCode || 'INSTITUTIONAL_OBJECTION');
+    const reasonCode = STORY_INSTITUTION_REJECTION_REASON_CODES.includes(requestedReason)
+        ? requestedReason : 'INSTITUTIONAL_OBJECTION';
+    request.status = 'DENIED';
+    request.updatedAt = storyInstitutionRound(STORY.clock);
+    request.result = {
+        status: 'REJECTED', reasonCode,
+        rejectedByActorId: actor.actorId,
+        rejectedByInstitutionId: institutionId,
+        physicalMutation: false,
+        effectModel: STORY_INSTITUTION_POLICY.effectModel
+    };
+    storyInstitutionRecordEvent(ledger, 'ACTION_REJECTED', {
+        requestId: request.id, countryId: request.countryId,
+        actionType: request.actionType, actorId: actor.actorId,
+        institutionId, reasonCode, physicalMutation: false
+    });
     return { ok: true, request: storyInstitutionClone(request) };
 }
 function storyInstitutionExecuteAction(requestId, input) {

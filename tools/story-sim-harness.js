@@ -572,6 +572,8 @@ function createRuntime(seed) {
             characterRoleAdapterCatalog: () => storyCharacterRoleAdapterCatalog(),
             characterRoleInstitutionActionPreview: input => storyCharacterRoleInstitutionActionPreview(input),
             characterRoleInstitutionAction: input => storyCharacterRoleInstitutionAction(input),
+            characterRoleInstitutionReviewPreview: input => storyCharacterRoleInstitutionReviewPreview(input),
+            characterRoleInstitutionReviewApply: input => storyCharacterRoleInstitutionReviewApply(input),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14133,6 +14135,8 @@ function probeRelationshipInterpretation(seed = 2032) {
 function probeCharacterRoleAdapters(seed = 2032) {
     const runtime = createRuntime(seed >>> 0);
     let result;
+    let savedRaw;
+    let institutionSnapshot;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
             doctrine: 'combined', fog: true });
@@ -14242,6 +14246,10 @@ function probeCharacterRoleAdapters(seed = 2032) {
         const submitted = proposer && runtime.api.characterRoleInstitutionAction({
             phase: 'PROPOSE', actorId: proposer.actor.id, actionType: 'MOBILIZE_FORCE'
         });
+        const approvalReview = submitted && submitted.ok && approver
+            ? runtime.api.characterRoleInstitutionReviewPreview({
+                actorId: approver.actor.id, requestId: submitted.request.id
+            }) : null;
         const approved = submitted && submitted.ok && approver
             ? runtime.api.characterRoleInstitutionAction({
                 phase: 'APPROVE', actorId: approver.actor.id,
@@ -14269,8 +14277,85 @@ function probeCharacterRoleAdapters(seed = 2032) {
             && finalRequest.proposer.actorId === proposer.actor.id
             && finalRequest.approvalInstitutionIds.length === 2
             && finalRequest.result && finalRequest.result.physicalMutation === false;
+        const commanders = boundOffices.filter(row => row.view.adapter.institutionalBindings
+            .some(binding => binding.institutionType === 'ARMED_FORCES'));
+        const executives = boundOffices.filter(row => row.view.adapter.institutionalBindings
+            .some(binding => binding.institutionType === 'EXECUTIVE'));
+        const submitForCommander = commander => {
+            const executive = executives.find(row => row.actor.countryId === commander.actor.countryId);
+            const submission = executive && runtime.api.characterRoleInstitutionAction({
+                phase: 'PROPOSE', actorId: executive.actor.id, actionType: 'MOBILIZE_FORCE'
+            });
+            const preview = submission && submission.ok
+                ? runtime.api.characterRoleInstitutionReviewPreview({
+                    actorId: commander.actor.id, requestId: submission.request.id
+                }) : null;
+            return { commander, executive, submission, preview };
+        };
+        const reviewFixtures = commanders
+            .filter(row => row.actor.id !== (approver && approver.actor.id))
+            .map(submitForCommander);
+        const objectionFixture = reviewFixtures.find(row =>
+            row.preview && row.preview.recommendation === 'OBJECT');
+        const rejectionFixture = reviewFixtures.find(row =>
+            row.preview && row.preview.recommendation === 'REJECT');
+        const objectionApplied = objectionFixture && runtime.api.characterRoleInstitutionReviewApply({
+            actorId: objectionFixture.commander.actor.id,
+            requestId: objectionFixture.submission.request.id
+        });
+        const rejectionApplied = rejectionFixture && runtime.api.characterRoleInstitutionReviewApply({
+            actorId: rejectionFixture.commander.actor.id,
+            requestId: rejectionFixture.submission.request.id
+        });
+        const ledgerAfterReviews = runtime.api.institutionLedger();
+        const objectionRequest = objectionFixture && ledgerAfterReviews.requests[
+            objectionFixture.submission.request.id
+        ];
+        const rejectionRequest = rejectionFixture && ledgerAfterReviews.requests[
+            rejectionFixture.submission.request.id
+        ];
+        result.reviewEvidenceGrounded = !!approvalReview
+            && approvalReview.recommendation === 'APPROVE'
+            && approvalReview.evidence.length === 2
+            && approvalReview.evidence.every(row => row.axis && Number.isFinite(row.value)
+                && Number.isFinite(row.contribution))
+            && approvalReview.randomDecision === false
+            && approvalReview.llmDecision === false
+            && approvalReview.rawWorldRead === false
+            && approvalReview.applied === false;
+        result.objectionDoesNotApproveOrReject = !!objectionApplied && objectionApplied.ok
+            && objectionApplied.applied === false && objectionApplied.worldMutation === false
+            && objectionRequest.status === 'PENDING_APPROVAL'
+            && objectionRequest.approvalInstitutionIds.length === 1;
+        result.authorizedRejectionTerminal = !!rejectionApplied && rejectionApplied.ok
+            && rejectionApplied.applied === true
+            && rejectionRequest.status === 'DENIED'
+            && rejectionRequest.result.status === 'REJECTED'
+            && rejectionRequest.result.rejectedByActorId === rejectionFixture.commander.actor.id
+            && rejectionRequest.result.physicalMutation === false;
+        result.reviewOutcomesDiverse = !!approvalReview && !!objectionFixture && !!rejectionFixture
+            && new Set([approvalReview.recommendation, objectionFixture.preview.recommendation,
+                rejectionFixture.preview.recommendation]).size === 3;
+        result.institutionLedgerValidAfterReviews = runtime.api.validateInstitutionLedger(
+            ledgerAfterReviews
+        ).ok === true;
+        institutionSnapshot = ledgerAfterReviews;
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
     } finally {
         runtime.dom.window.close();
+    }
+    const restored = createRuntime(seed >>> 0);
+    try {
+        restored.api.putSavedRaw(savedRaw);
+        result.restored = {
+            loaded: restored.api.loadNow(),
+            exact: JSON.stringify(restored.api.institutionLedger())
+                === JSON.stringify(institutionSnapshot),
+            validation: restored.api.validateInstitutionLedger(restored.api.institutionLedger())
+        };
+    } finally {
+        restored.dom.window.close();
     }
     const disabled = createRuntime((seed + 1) >>> 0);
     try {

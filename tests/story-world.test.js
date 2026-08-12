@@ -4028,6 +4028,22 @@ function run() {
         'Faz 38.9: makamsız unvan sahibi adaptör üzerinden kurum teklifi sunamamalı.');
     assert.equal(characterRoleAdaptersProbe.institutionChainRecorded, true,
         'Faz 38.9: karakter zinciri ikinci defter kurmadan kanonik kurum isteğine kaydolmalı.');
+    assert.equal(characterRoleAdaptersProbe.reviewEvidenceGrounded, true,
+        'Faz 38.9: makam incelemesi kaynaklı karakter eksenleriyle açıklanmalı; LLM veya rastgelelik karar vermemeli.');
+    assert.equal(characterRoleAdaptersProbe.objectionDoesNotApproveOrReject, true,
+        'Faz 38.9: itiraz bekleyen isteği sessizce onaylamamalı veya terminal reddetmemeli.');
+    assert.equal(characterRoleAdaptersProbe.authorizedRejectionTerminal, true,
+        'Faz 38.9: yalnız zorunlu gerçek makamın reddi kanonik isteği DENIED durumuna kapatmalı.');
+    assert.equal(characterRoleAdaptersProbe.reviewOutcomesDiverse, true,
+        'Faz 38.9: aynı eylem farklı makam karakterlerinde onay, itiraz ve ret üretebilmeli.');
+    assert.equal(characterRoleAdaptersProbe.institutionLedgerValidAfterReviews, true,
+        'Faz 38.9: karakter itiraz/ret kararları sonrası Faz 29 kurum defteri geçerli kalmalı.');
+    assert.equal(characterRoleAdaptersProbe.restored.loaded, true,
+        'Faz 38.9: karakter makam kararlarıyla kurum defteri yüklenebilmeli.');
+    assert.equal(characterRoleAdaptersProbe.restored.exact, true,
+        'Faz 38.9: onay, itiraz ve ret makbuzları save-load sırasında birebir kalmalı.');
+    assert.equal(characterRoleAdaptersProbe.restored.validation.ok, true,
+        'Faz 38.9: geri yüklenen kurum ret makbuzu kapalı gerekçe sözleşmesini geçmeli.');
     assert.equal(characterRoleAdaptersProbe.worldNeutral, true,
         'Faz 38.9: rol adaptörü okumak dünyayı değiştirmemeli.');
     assert.equal(characterRoleAdaptersProbe.featureDisabled, true,

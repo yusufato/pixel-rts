@@ -231,3 +231,84 @@ function storyCharacterRoleInstitutionAction(input) {
         worldMutation: result.ok === true
     };
 }
+
+function storyCharacterRoleInstitutionReviewPreview(input) {
+    input = input || {};
+    const routePreview = storyCharacterRoleInstitutionActionPreview({
+        phase: 'APPROVE', actorId: input.actorId, requestId: input.requestId
+    });
+    if (!routePreview.ok) return routePreview;
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(input.actorId) : null;
+    if (!actor) return { ok: false, code: 'ACTOR_NOT_FOUND', worldMutation: false };
+    const securityActions = new Set([
+        'DECLARE_WAR', 'MOBILIZE_FORCE', 'CONTAIN_VIOLENCE',
+        'APPOINT_COMMANDER', 'DISMISS_COMMANDER'
+    ]);
+    const constitutionalActions = new Set(['ENACT_LAW', 'AMEND_CONSTITUTION', 'REVIEW_LEGALITY']);
+    const economicActions = new Set(['AUTHORIZE_BUDGET', 'ISSUE_LOCAL_ORDER']);
+    const evidence = [];
+    let supportScore = 50;
+    const addAxis = (axis, value, weight, reasonCode) => {
+        const centered = Number(value) - 50;
+        const contribution = Math.round(centered * weight * 100) / 100;
+        supportScore += contribution;
+        evidence.push({ axis, value: Number(value), weight, contribution, reasonCode });
+    };
+    if (securityActions.has(routePreview.actionType)) {
+        addAxis('values.hawkishness', actor.values && actor.values.hawkishness, 0.9,
+            'SECURITY_ESCALATION_POSTURE');
+        addAxis('coreAxes.institutionalPosture', actor.coreAxes && actor.coreAxes.institutionalPosture,
+            0.25, 'CHAIN_OF_COMMAND_POSTURE');
+    } else if (constitutionalActions.has(routePreview.actionType)) {
+        addAxis('coreAxes.institutionalPosture', actor.coreAxes && actor.coreAxes.institutionalPosture,
+            0.7, 'INSTITUTIONAL_CHANGE_POSTURE');
+        addAxis('values.libertyAuthority', actor.values && actor.values.libertyAuthority,
+            0.25, 'LEGAL_ORDER_POSTURE');
+    } else if (economicActions.has(routePreview.actionType)) {
+        addAxis('coreAxes.stateMarketOrientation', actor.coreAxes && actor.coreAxes.stateMarketOrientation,
+            0.6, 'STATE_MARKET_POSTURE');
+        addAxis('values.publicResponsiveness', actor.values && actor.values.publicResponsiveness,
+            0.25, 'PUBLIC_RESPONSIVENESS');
+    } else {
+        addAxis('coreAxes.institutionalPosture', actor.coreAxes && actor.coreAxes.institutionalPosture,
+            0.5, 'GENERAL_INSTITUTIONAL_POSTURE');
+    }
+    supportScore = Math.max(0, Math.min(100, Math.round(supportScore * 100) / 100));
+    const recommendation = supportScore < 30 ? 'REJECT'
+        : supportScore < 45 ? 'OBJECT' : 'APPROVE';
+    return {
+        ok: true, code: 'INSTITUTION_ROLE_REVIEW_READY',
+        actorId: actor.id, requestId: routePreview.requestId,
+        actionType: routePreview.actionType, route: routePreview.route,
+        supportScore, recommendation, evidence,
+        thresholds: { rejectBelow: 30, objectBelow: 45 },
+        randomDecision: false, llmDecision: false,
+        rawWorldRead: false, applied: false, worldMutation: false
+    };
+}
+function storyCharacterRoleInstitutionReviewApply(input) {
+    const review = storyCharacterRoleInstitutionReviewPreview(input);
+    if (!review.ok) return review;
+    if (review.recommendation === 'OBJECT') {
+        return {
+            ok: true, code: 'INSTITUTION_ROLE_OBJECTION_RECORDED_AS_PROPOSAL',
+            review, request: null, applied: false, worldMutation: false
+        };
+    }
+    const actorInput = { actorId: review.actorId, institutionId: review.route.institutionId };
+    const result = review.recommendation === 'REJECT'
+        ? storyInstitutionRejectAction(review.requestId, {
+            ...actorInput, reasonCode: 'CHARACTER_ROLE_REVIEW_REJECTED'
+        })
+        : storyInstitutionApproveAction(review.requestId, actorInput);
+    return {
+        ok: result.ok === true,
+        code: result.ok
+            ? `INSTITUTION_ROLE_REVIEW_${review.recommendation}_APPLIED`
+            : (result.reason || 'INSTITUTION_ROLE_REVIEW_REJECTED'),
+        review, request: result.request || null,
+        applied: result.ok === true,
+        worldMutation: result.ok === true
+    };
+}
