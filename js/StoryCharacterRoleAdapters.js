@@ -43,12 +43,50 @@ function storyCharacterRoleAdapterClone(value) {
 }
 function storyCharacterRoleAdapterFamily(role) {
     const key = String(role || '').toUpperCase();
-    if (['COMPANY_OWNER', 'COMPANY_EXECUTIVE'].includes(key)) return 'COMPANY';
+    if (['COMPANY_OWNER', 'COMPANY_EXECUTIVE', 'COMPANY_CFO', 'COMPANY_CTO',
+        'COMPANY_BOARD_CHAIR'].includes(key)) return 'COMPANY';
     if (['EXECUTIVE', 'POLITICAL_FIGURE', 'POLITICAL_CANDIDATE', 'MAYOR'].includes(key)) return 'GOVERNMENT';
     if (key === 'AGENT') return 'INTELLIGENCE';
     if (['COMMANDER', 'GENERAL', 'OFFICER', 'SOLDIER'].includes(key)) return 'MILITARY';
     if (['JOURNALIST', 'EDITOR', 'MEDIA_OWNER'].includes(key)) return 'MEDIA';
     return 'PERSONAL';
+}
+function storyCharacterRoleCompanyOfficeKey(role) {
+    return {
+        COMPANY_EXECUTIVE: 'CEO', COMPANY_CFO: 'CFO', COMPANY_CTO: 'CTO',
+        COMPANY_OWNER: 'BOARD_CHAIR', COMPANY_BOARD_CHAIR: 'BOARD_CHAIR'
+    }[String(role || '').toUpperCase()] || null;
+}
+function storyCharacterRoleCompanyOfficeView(companyId) {
+    const company = typeof storyCompanyById === 'function' ? storyCompanyById(companyId) : null;
+    if (!company) return { ok: false, code: 'COMPANY_NOT_FOUND', worldMutation: false };
+    const ledger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const actors = Object.values(ledger && ledger.identities || {})
+        .filter(actor => actor.organizationId === company.id)
+        .sort((a, b) => a.id.localeCompare(b.id, 'en'));
+    const officeKeys = ['CEO', 'CFO', 'CTO', 'BOARD_CHAIR'];
+    const offices = Object.fromEntries(officeKeys.map(officeKey => {
+        const holders = actors.filter(actor => storyCharacterRoleCompanyOfficeKey(actor.role) === officeKey);
+        return [officeKey, {
+            officeKey, holderActorIds: holders.map(actor => actor.id),
+            status: holders.length === 1 ? 'FILLED'
+                : holders.length > 1 ? 'CONFLICT' : 'VACANT',
+            authoritySource: holders.length ? 'CANONICAL_CHARACTER_ORGANIZATION_BINDING' : null
+        }];
+    }));
+    return {
+        ok: true, code: 'COMPANY_OFFICE_VIEW', companyId: company.id,
+        offices,
+        vacancies: officeKeys.filter(key => offices[key].status === 'VACANT'),
+        conflicts: officeKeys.filter(key => offices[key].status === 'CONFLICT'),
+        namedActorCount: actors.length,
+        aggregateOwnersNotCharacters: (company.owners || []).filter(owner =>
+            !actors.some(actor => actor.id === owner.ownerId)).map(owner => ({
+                ownerType: owner.ownerType, ownerId: owner.ownerId, shareBps: owner.shareBps
+            })),
+        fabricatedOfficeHolders: false, worldMutation: false
+    };
 }
 function storyCharacterRoleAdapterCatalog() {
     return {
@@ -330,7 +368,9 @@ function storyCharacterRoleCompanyDecisionSubmit(input) {
     if (typeof storyCompanySubmitManagementDecision !== 'function') {
         return { ok: false, code: 'COMPANY_DECISION_EXECUTOR_MISSING', worldMutation: false };
     }
+    const officeView = storyCharacterRoleCompanyOfficeView(adapter.organizationId);
     return storyCompanySubmitManagementDecision({
+        managementOfficeView: officeView,
         ...input, companyId: adapter.organizationId, actorId: adapter.actorId
     });
 }

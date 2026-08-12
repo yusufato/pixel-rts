@@ -4048,6 +4048,10 @@ function run() {
         'Faz 38.9: karakter itiraz/ret kararları sonrası Faz 29 kurum defteri geçerli kalmalı.');
     assert.equal(characterRoleAdaptersProbe.companyExecutiveProposalRecorded, true,
         'Faz 38.9: gerçek şirket yöneticisi kredi ve yatırım teklifini kendi kanonik şirketine kaydedebilmeli.');
+    assert.equal(characterRoleAdaptersProbe.companyOfficeVacanciesExplicit, true,
+        'Faz 38.9: gerçek yönetici CEO makamını doldurmalı; CFO, CTO ve kurul başkanı uydurulmadan boş görünmeli.');
+    assert.equal(characterRoleAdaptersProbe.companyDecisionNamesMissingRoles, true,
+        'Faz 38.9: kredi ve yatırım teklifleri hangi gerçek yönetim makamlarının eksik olduğunu ayrı yazmalı.');
     assert.equal(characterRoleAdaptersProbe.companyBoardGapBlocksExecution, true,
         'Faz 38.9: kurul karakterleri yokken yönetici teklifi kredi, nakit veya yatırım yaratmamalı.');
     assert.equal(characterRoleAdaptersProbe.crossCompanyDecisionRejected, true,

@@ -575,6 +575,7 @@ function createRuntime(seed) {
             characterRoleInstitutionReviewPreview: input => storyCharacterRoleInstitutionReviewPreview(input),
             characterRoleInstitutionReviewApply: input => storyCharacterRoleInstitutionReviewApply(input),
             characterRoleCompanyDecisionSubmit: input => storyCharacterRoleCompanyDecisionSubmit(input),
+            characterRoleCompanyOfficeView: companyId => storyCharacterRoleCompanyOfficeView(companyId),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14408,6 +14409,26 @@ function probeCharacterRoleAdapters(seed = 2032) {
             && investmentDecision.decision.status === 'BOARD_APPROVAL_MISSING'
             && loanDecision.decision.proposedByActorId === companyDecisionActor.actor.id
             && investmentDecision.decision.proposedByActorId === companyDecisionActor.actor.id;
+        const officeView = companyDecisionActor && runtime.api.characterRoleCompanyOfficeView(
+            companyDecisionActor.view.adapter.organizationId
+        );
+        result.companyOfficeVacanciesExplicit = !!officeView && officeView.ok
+            && officeView.offices.CEO.status === 'FILLED'
+            && officeView.offices.CEO.holderActorIds[0] === companyDecisionActor.actor.id
+            && officeView.offices.CFO.status === 'VACANT'
+            && officeView.offices.CTO.status === 'VACANT'
+            && officeView.offices.BOARD_CHAIR.status === 'VACANT'
+            && officeView.fabricatedOfficeHolders === false
+            && officeView.aggregateOwnersNotCharacters.length > 0;
+        result.companyDecisionNamesMissingRoles = !!loanDecision && !!investmentDecision
+            && JSON.stringify(loanDecision.decision.requiredApproverRoles)
+                === JSON.stringify(['CEO', 'CFO', 'BOARD_CHAIR'])
+            && JSON.stringify(loanDecision.decision.missingApproverRoles)
+                === JSON.stringify(['CFO', 'BOARD_CHAIR'])
+            && JSON.stringify(investmentDecision.decision.requiredApproverRoles)
+                === JSON.stringify(['CEO', 'CFO', 'CTO', 'BOARD_CHAIR'])
+            && JSON.stringify(investmentDecision.decision.missingApproverRoles)
+                === JSON.stringify(['CFO', 'CTO', 'BOARD_CHAIR']);
         result.companyBoardGapBlocksExecution = !!loanDecision && !!investmentDecision
             && loanDecision.executable === false && investmentDecision.executable === false
             && loanDecision.economicMutation === false && investmentDecision.economicMutation === false

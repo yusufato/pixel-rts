@@ -398,6 +398,12 @@ function storyCompanyValidate(candidate) {
             || decision.economicMutation !== false) {
             add('COMPANY_DECISION_PROPOSAL_ONLY', at, 'Yönetici teklifi aktör kaynaklı ve ekonomik etkisiz olmalı.');
         }
+        if (!Array.isArray(decision.requiredApproverRoles)
+            || !Array.isArray(decision.missingApproverRoles)
+            || decision.missingApproverRoles.some(role =>
+                !decision.requiredApproverRoles.includes(role))) {
+            add('COMPANY_DECISION_APPROVER_CONTRACT', at, 'Şirket kararı gereken ve eksik makamları açıkça taşımalı.');
+        }
     }
     for (const transaction of (candidate.transactions || [])) {
         if (transaction.actorType !== 'COMPANY' || !Array.isArray(transaction.postings)) continue;
@@ -515,6 +521,11 @@ function storyCompanySubmitManagementDecision(input) {
     if (!STORY_COMPANY_DECISION_TYPES.includes(decisionType)) {
         return { ok: false, code: 'UNSUPPORTED_COMPANY_DECISION', worldMutation: false };
     }
+    const officeView = input.managementOfficeView && input.managementOfficeView.ok
+        && input.managementOfficeView.companyId === company.id
+        ? storyCompanyClone(input.managementOfficeView) : null;
+    const requiredApproverRoles = decisionType === 'REQUEST_LOAN'
+        ? ['CEO', 'CFO', 'BOARD_CHAIR'] : ['CEO', 'CFO', 'CTO', 'BOARD_CHAIR'];
     let payload;
     if (decisionType === 'REQUEST_LOAN') {
         const amount = storyCompanyRound(Math.max(0, Number(input.amount) || 0));
@@ -533,7 +544,14 @@ function storyCompanySubmitManagementDecision(input) {
         companyId: company.id, decisionType,
         proposedByActorId: actor.id,
         payload, status: 'BOARD_APPROVAL_MISSING',
-        requiredApproverRoles: ['BOARD_MEMBER'],
+        requiredApproverRoles,
+        missingApproverRoles: requiredApproverRoles.filter(role =>
+            !officeView || !officeView.offices || !officeView.offices[role]
+            || officeView.offices[role].status !== 'FILLED'),
+        officeBindingEvidence: officeView ? Object.fromEntries(
+            requiredApproverRoles.map(role => [role,
+                storyCompanyClone(officeView.offices[role])])
+        ) : {},
         approvalActorIds: [], rejectionActorIds: [],
         createdAt: storyCompanyRound(STORY.clock), updatedAt: storyCompanyRound(STORY.clock),
         result: null,
