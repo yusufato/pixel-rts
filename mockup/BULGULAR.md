@@ -278,14 +278,27 @@ Her mockup sayfası üç kapı çalıştırır (araç çubuğunda canlı). **Ger
 |---|---|---|
 | **KAPSAMA** | Bu yüzeyin bu katmandaki her kusuru sahnede pin almış mı | 8/8 **tam** (25 kusur, 57 pin) |
 | **TAŞMA** | Öneri sahnelerinde içerik sahne kutusunu aşıyor mu (`design-qa.md:15` ölçütü) | 8/8 **taşma yok** |
+| **KUTU** | Esnek/ızgara kaplarında çocuklar kendi kabını aşıyor mu (kusur 24'ten sonra eklendi) | 8/8 **taşma yok** |
 | **FONT** | `Share Tech Mono` + `Press Start 2P` `file://` altında çözülüyor mu | 8/8 **çözüldü** |
 
-"ŞU AN" sahneleri taşma kapısının **dışındadır** (`data-gate="off"`): mevcut kusurları
+"ŞU AN" sahneleri taşma kapılarının **dışındadır** (`data-gate="off"`): mevcut kusurları
 bilerek yeniden ürettikleri için ölçülseler kapı sürekli kırmızıda kalır ve sinyal ölür.
+
+**KUTU kapısı neden sonradan eklendi.** TAŞMA yalnız *sahne* kutusuna bakıyordu ve
+kusur 24'ü kaçırdı: çipler kendi kabını (`#story-stats`) 369 px taşırıp başlığın
+üstüne akıyordu ama sahneyi taşırmadığı için kapı yeşil kalıyordu. Oyunun kendi QA'sı
+da (`design-qa.md`) aynı körlükteydi — yalnız *sayfa* taşmasına bakıyordu. Ölçüt artık
+iki kademeli; `design-qa.md`'nin "Üçüncü QA turu" bölümünde de aynı şekilde güncellendi.
+
+**Kapı negatif kontrolle doğrulandı.** Yeni bir kapının asıl riski hiçbir şey
+yakalamayıp sürekli yeşil yanmasıdır. Aynı mantık "ŞU AN" sahnelerine uygulandığında
+kapı **yalnız** kusur 24'ü yeniden üreten kutuda ateşliyor (`stats-simdi` 253 px,
+`stats-simdi2` 116 px) ve diğer üç sayfanın hem ŞU AN hem ÖNERİ sahnelerinde sessiz.
+Yani ayrım gücü var.
 
 ### Kapıların yakaladıkları (mockup'ın kendi kusurları — hepsi düzeltildi)
 
-Kapılar süs değil; ilk gerçek-Chromium turunda dört şey yakaladılar:
+Kapılar süs değil; gerçek-Chromium turlarında beş şey yakaladılar:
 
 1. **FONT yanlış alarmı.** `document.fonts.check()` tek başına yetmiyor:
    `font-display:swap` fontu sayfada henüz *kullanılmadıysa* yüklenmez ve `false` döner.
@@ -302,6 +315,21 @@ Kapılar süs değil; ilk gerçek-Chromium turunda dört şey yakaladılar:
 4. **Çekim harness'ında boyama yarışı** — yeniden kullanılan pencerede `capturePage()`
    boyanmamış kareyi alıyordu (03/B bomboş çıktı, DOM'u doğruydu). Harness'a çift `rAF`
    beklemesi eklendi. Bu mockup kusuru değil, ölçüm aleti kusuruydu.
+5. **KUTU kapısının kendi yanlış alarmı — ölçek karışması.** Kapının ilk sürümü
+   04'te dört "taşma" raporladı (1–4 px). Hepsi sahteydi: `.stage` CSS ile
+   ölçekleniyor, `getBoundingClientRect()` ölçekli değer döndürüyor ama
+   `getComputedStyle().paddingLeft` ölçeksiz. İkisini karıştırmak
+   `dolgu × (1 − ölçek)` kadar sahte aşım üretiyor — 0.798 ölçekte 16 px dolgu
+   tam 3.2 px eder, raporlanan 3.93 ile uyuşuyor. Dolgu ve kenarlık artık ölçekle
+   çarpılıyor, eşik de sahne koordinatına geri çevriliyor.
+
+> **Ölçüm aleti dersi (bu turda üç kez tekrarlandı).** Bir kapı kırmızı yandığında
+> ilk soru "tasarım mı bozuk" değil, **"alet doğru mu ölçüyor"** olmalı. Bu turda
+> üç kez alet hatalıydı, tasarım değil: `fonts.check()` yüklenmemiş fontu yok sayıyordu ·
+> `scrollWidth` sözde-öge tooltip'ini sayıyordu · `getBoundingClientRect` ile
+> ölçeksiz `padding` karıştırılmıştı. Üçü de "düzelttiğim" şeyin aslında sağlam
+> olduğu vakalardı. Karşı önlem: her yeni kapı **negatif kontrolle** doğrulanır —
+> bilinen bozuk bir örnekte ateşlediği gösterilmeden kapı sayılmaz.
 
 ---
 

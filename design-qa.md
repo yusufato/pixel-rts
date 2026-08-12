@@ -44,6 +44,53 @@
 - [x] Fonts loaded and duplicate DOM ids eliminated.
 
 War Room result: passed
+→ **Kısmen geri çekildi.** İki maddesi 2026-08-12 ölçümüyle yanlışlandı; aşağıdaki
+"Üçüncü QA turu" bölümüne bakın.
+
+---
+
+# Üçüncü QA turu — 2026-08-12 (düzeltme kaydı)
+
+Bu bölüm yukarıdaki War Room turunun **iki iddiasını geri çeker**. Geçmiş bölüm
+silinmedi; hangi ölçütün neyi kaçırdığı görünsün diye yerinde bırakıldı.
+
+**Geri çekilen 1 — "916×572'de kaynak düzenini koruyor" (satır 29).**
+O viewport'ta `#btn-story-start`in alt kenarı **632 px**, görünür alan **572 px**:
+kampanyayı başlatan buton ekranın 60 px altındaydı ve o ekranda kaydırma yoktu
+(`.app-screen` `overflow:hidden`). Yani **916×572'de kampanya hiç başlatılamıyordu** —
+ve bu, turun kendi taban viewport'u. 1024×640'ta yalnız 7 px payla kurtuluyordu.
+Kurtarıcı kural `style.css`'te vardı ama `@media (max-width:900px)` altında; arıza
+genişlikten değil **yükseklikten** doğduğu için 916 px'te devreye girmiyordu.
+Düzeltildi: commit `67a403c`. 916×572'de buton alt kenarı 632 → **488**.
+
+**Geri çekilen 2 — "760×700 ve 1280×800 taşma kontrolleri geçti" (satır 15, 21, 43).**
+Kontrol gerçekten geçti, ama **yanlış şeyi ölçüyordu**: yalnız *sayfa* yatay taşmasına
+bakıyordu (`documentElement.scrollWidth > clientWidth`). Hikaye komuta çubuğundaki
+9 kaynak çipi 1070 px istiyor, kutu 1280×800'de 701 px; fazlalık sayfayı taşırmıyor,
+**kutunun dışına, başlığın üstüne** akıyor. Sayfa ölçütü buna kördü.
+Düzeltildi: commit `ee81aaa`. 1280 px'te içerik 1070 → **633**, örtüşme yok.
+
+**Ölçüt güncellendi.** Bundan sonra taşma kabulü iki kademelidir:
+
+1. *sayfa* taşması: `documentElement.scrollWidth <= clientWidth` (eski ölçüt, korunur)
+2. *kutu içi* taşma: her yerleşim kabında son çocuğun sağ kenarı kabın sağ kenarını,
+   ilk çocuğun sol kenarı kabın sol kenarını aşmamalı; ayrıca komşu kutuyla
+   (ör. `.story-command-title`) çakışma sıfır olmalı
+
+**Ölçüm aleti uyarısı.** Kırpmayı `element.scrollWidth > clientWidth` ile aramayın:
+`.detail-hover::after` gibi mutlak konumlu sözde-öge tooltip'leri `scrollWidth`'e
+karışıp **her varyantta** yalancı alarm üretiyor. Metin kırpması `Range` ile
+yalnız değer ve etiket düğümü üzerinden ölçülmeli.
+
+**Bu turda kapsanan viewport'lar:** 980 · 1000 · 1100 · 1259 · 1261 · 1280 · 1366 ·
+1440 · 1600 · 1660 · 1920 (kusur 24) ve 916×572 · 1280×800 (kusur 25). Hepsi temiz.
+`electron . --uitest` altı adımda `OK`, `UITEST_PROBLEMS []`, konsol hatası yok.
+
+Kanıt: `qa-runtime/mockup-baseline/kusur-24-komuta-cubugu-{ONCE,SONRA}-1280.png`,
+`kusur-25-baslat-butonu-916x572.png`, `kusur-25-DUZELTILDI-{916x572,1280x800}.png`.
+Tam defter: `mockup/BULGULAR.md`.
+
+Üçüncü tur sonucu: iki P0 kapatıldı; kalan 23 madde `mockup/BULGULAR.md`'de `AÇIK`.
 
 ---
 

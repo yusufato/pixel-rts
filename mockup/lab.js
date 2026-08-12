@@ -254,6 +254,62 @@
         return { ok: kotu.length === 0, kotu: kotu };
     }
 
+    /* ── KAPI 2b: KUTU İÇİ TAŞMA ─────────────────────────────────────────
+       Kapı 2 yalnız SAHNE kutusuna bakıyordu ve gerçek bir kusuru kaçırdı:
+       hikaye komuta çubuğundaki 9 çip kendi kabını (#story-stats) 369 px
+       taşırıp başlığın üstüne akıyordu, ama sahneyi taşırmadığı için kapı
+       yeşil kalıyordu. Oyunun kendi QA'sı da (design-qa.md) aynı körlükteydi:
+       yalnız *sayfa* taşmasına bakıyordu. Bkz. kusur 24.
+
+       Ölçüt: esnek/ızgara kaplar için çocukların uç noktaları kabın içerik
+       kutusunu aşıyor mu. Dar tutuldu ki yalancı alarm üretmesin:
+         · kap kaydırılabilirse taşma değil (içerik erişilebilir)
+         · mutlak/sabit konumlu çocuklar sayılmaz (tooltip, rozet, süsleme)
+         · yalnız yatay eksen — dikey taşma çoğu kapta meşru
+
+       DİKKAT (ölçüldü): sahne CSS ile ÖLÇEKLENİYOR. getBoundingClientRect
+       ölçekli, getComputedStyle'ın padding/border değerleri ölçeksiz döner;
+       ikisini karıştırmak dolgu×(1−ölçek) kadar sahte taşma üretir. 0.798
+       ölçekte 16px dolgu → 3.2px yalancı alarm; kapı ilk sürümünde 04'te tam
+       bunu raporladı. Bu yüzden dolgu ve kenarlık ölçekle çarpılır. */
+    function gateBoxOverflow() {
+        var kotu = [];
+        Array.prototype.forEach.call(document.querySelectorAll('[data-gate="on"] .stage'), function (stage) {
+            if (stage.closest('[hidden]')) return;
+            var sr0 = stage.getBoundingClientRect();
+            var olcek = (stage.clientWidth ? sr0.width / stage.clientWidth : 1) || 1;
+            Array.prototype.forEach.call(stage.querySelectorAll('*'), function (kap) {
+                if (kap.offsetParent === null) return;
+                var ks = global.getComputedStyle(kap);
+                if (ks.display.indexOf('flex') < 0 && ks.display.indexOf('grid') < 0) return;
+                if ((ks.overflowX + ks.overflowY).indexOf('auto') >= 0) return;
+                if ((ks.overflowX + ks.overflowY).indexOf('scroll') >= 0) return;
+                var kr = kap.getBoundingClientRect();
+                var sol = kr.left + (parseFloat(ks.paddingLeft || 0) + parseFloat(ks.borderLeftWidth || 0)) * olcek;
+                var sag = kr.right - (parseFloat(ks.paddingRight || 0) + parseFloat(ks.borderRightWidth || 0)) * olcek;
+                var enSol = null, enSag = null;
+                Array.prototype.forEach.call(kap.children, function (c) {
+                    if (c.classList.contains('lab-pin')) return;
+                    var cs = global.getComputedStyle(c);
+                    if (cs.display === 'none') return;
+                    if (cs.position === 'absolute' || cs.position === 'fixed') return;
+                    var r = c.getBoundingClientRect();
+                    if (!r.width && !r.height) return;
+                    if (enSol === null || r.left < enSol) enSol = r.left;
+                    if (enSag === null || r.right > enSag) enSag = r.right;
+                });
+                if (enSol === null) return;
+                /* aşımı sahne koordinatına geri çevir ki eşik ölçekten bağımsız olsun */
+                var asim = Math.max(sol - enSol, enSag - sag) / olcek;
+                if (asim > 1) {
+                    kotu.push((kap.id || kap.className || kap.tagName) +
+                        ' → çocuklar kabı ' + Math.round(asim) + 'px aşıyor');
+                }
+            });
+        });
+        return { ok: kotu.length === 0, kotu: kotu };
+    }
+
     /* ── KAPI 3: FONT ────────────────────────────────────────────────────
        assets/fonts/*.woff2 file:// altında çözülmezse mockup sistem fontuna
        düşer ve ölçtüğün her satır yalan olur.
@@ -294,6 +350,10 @@
         var ov = gateOverflow();
         out.push({ ad: 'TAŞMA', ok: ov.ok,
                    msg: ov.ok ? state.vp + 'px öneri sahnelerinde taşma yok' : ov.kotu.slice(0, 4).join(' | ') });
+        var kov = gateBoxOverflow();
+        out.push({ ad: 'KUTU', ok: kov.ok,
+                   msg: kov.ok ? 'esnek/ızgara kaplarında kutu içi taşma yok'
+                               : kov.kotu.slice(0, 4).join(' | ') });
         var f = gateFont();
         out.push({ ad: 'FONT', ok: f.ok,
                    msg: f.ok === null ? (f.yukleniyor ? 'yükleniyor…' : 'tarayıcı desteklemiyor')
