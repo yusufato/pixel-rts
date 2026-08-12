@@ -4040,6 +4040,10 @@ function run() {
         'Faz 38.9: makam incelemesi kaynaklı karakter eksenleriyle açıklanmalı; LLM veya rastgelelik karar vermemeli.');
     assert.equal(characterRoleAdaptersProbe.objectionDoesNotApproveOrReject, true,
         'Faz 38.9: itiraz bekleyen isteği sessizce onaylamamalı veya terminal reddetmemeli.');
+    assert.equal(characterRoleAdaptersProbe.objectionIdempotent, true,
+        'Faz 38.9: aynı makamın aynı isteğe tekrarlanan itirazı ikinci makbuz üretmemeli.');
+    assert.equal(characterRoleAdaptersProbe.objectionHistorySurvivesApproval, true,
+        'Faz 38.9: sonraki onay eski itirazı silmemeli; tarihsel izi çözüldü durumunda korumalı.');
     assert.equal(characterRoleAdaptersProbe.authorizedRejectionTerminal, true,
         'Faz 38.9: yalnız zorunlu gerçek makamın reddi kanonik isteği DENIED durumuna kapatmalı.');
     assert.equal(characterRoleAdaptersProbe.reviewOutcomesDiverse, true,

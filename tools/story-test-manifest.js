@@ -72,6 +72,7 @@ const STORY_TEST_TASKS = Object.freeze([
             'authorityRoutesGrounded', 'institutionChainRoleSeparated',
             'unboundCannotSubmit', 'institutionChainRecorded',
             'reviewEvidenceGrounded', 'objectionDoesNotApproveOrReject',
+            'objectionIdempotent', 'objectionHistorySurvivesApproval',
             'authorizedRejectionTerminal', 'reviewOutcomesDiverse',
             'institutionLedgerValidAfterReviews',
             'companyExecutiveProposalRecorded', 'companyOfficeVacanciesExplicit',

@@ -14338,11 +14338,20 @@ function probeCharacterRoleAdapters(seed = 2032) {
             actorId: objectionFixture.commander.actor.id,
             requestId: objectionFixture.submission.request.id
         });
+        const objectionRepeated = objectionFixture && runtime.api.characterRoleInstitutionReviewApply({
+            actorId: objectionFixture.commander.actor.id,
+            requestId: objectionFixture.submission.request.id
+        });
+        const objectionThenApproved = objectionFixture && runtime.api.characterRoleInstitutionAction({
+            phase: 'APPROVE', actorId: objectionFixture.commander.actor.id,
+            requestId: objectionFixture.submission.request.id
+        });
         const rejectionApplied = rejectionFixture && runtime.api.characterRoleInstitutionReviewApply({
             actorId: rejectionFixture.commander.actor.id,
             requestId: rejectionFixture.submission.request.id
         });
         const ledgerAfterReviews = runtime.api.institutionLedger();
+        const objectionRequestAtReview = objectionApplied && objectionApplied.request;
         const objectionRequest = objectionFixture && ledgerAfterReviews.requests[
             objectionFixture.submission.request.id
         ];
@@ -14359,9 +14368,18 @@ function probeCharacterRoleAdapters(seed = 2032) {
             && approvalReview.rawWorldRead === false
             && approvalReview.applied === false;
         result.objectionDoesNotApproveOrReject = !!objectionApplied && objectionApplied.ok
-            && objectionApplied.applied === false && objectionApplied.worldMutation === false
-            && objectionRequest.status === 'PENDING_APPROVAL'
-            && objectionRequest.approvalInstitutionIds.length === 1;
+            && objectionRequestAtReview.status === 'PENDING_APPROVAL'
+            && objectionRequestAtReview.approvalInstitutionIds.length === 1
+            && objectionRequestAtReview.reviewRecords.length === 1
+            && objectionRequestAtReview.reviewRecords[0].status === 'ACTIVE'
+            && objectionRequestAtReview.reviewRecords[0].physicalMutation === false;
+        result.objectionIdempotent = !!objectionRepeated && objectionRepeated.ok
+            && objectionRepeated.request.reviewRecords.length === 1;
+        result.objectionHistorySurvivesApproval = !!objectionThenApproved && objectionThenApproved.ok
+            && objectionRequest.status === 'AUTHORIZED'
+            && objectionRequest.reviewRecords.length === 1
+            && objectionRequest.reviewRecords[0].status === 'SUPERSEDED_BY_APPROVAL'
+            && Number.isFinite(objectionRequest.reviewRecords[0].resolvedAt);
         result.authorizedRejectionTerminal = !!rejectionApplied && rejectionApplied.ok
             && rejectionApplied.applied === true
             && rejectionRequest.status === 'DENIED'

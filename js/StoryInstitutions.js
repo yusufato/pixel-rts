@@ -20,6 +20,9 @@ const STORY_INSTITUTION_REQUEST_STATUSES = Object.freeze([
 const STORY_INSTITUTION_REJECTION_REASON_CODES = Object.freeze([
     'INSTITUTIONAL_OBJECTION', 'CHARACTER_ROLE_REVIEW_REJECTED'
 ]);
+const STORY_INSTITUTION_OBJECTION_REASON_CODES = Object.freeze([
+    'CHARACTER_ROLE_REVIEW_OBJECTED'
+]);
 
 const STORY_INSTITUTION_DEFS = Object.freeze({
     EXECUTIVE: Object.freeze({ name: 'Yürütme Makamı', scope: 'COUNTRY' }),
@@ -432,6 +435,18 @@ function storyInstitutionValidate(ledger) {
                 add('INSTITUTION_REJECTION_RECEIPT', `${at}.result`, 'Ret makbuzu gerçek aktör, kurum ve fiziksel-etkisizlik taşımalı.');
             }
         }
+        if (request.reviewRecords != null && !Array.isArray(request.reviewRecords)) {
+            add('INSTITUTION_REVIEW_RECORDS', `${at}.reviewRecords`, 'Kurum inceleme kayıtları dizi olmalı.');
+        }
+        for (const [index, review] of (request.reviewRecords || []).entries()) {
+            const reviewAt = `${at}.reviewRecords[${index}]`;
+            if (!review || !review.id || !review.actorId || !review.institutionId
+                || !STORY_INSTITUTION_OBJECTION_REASON_CODES.includes(review.reasonCode)
+                || !['ACTIVE', 'SUPERSEDED_BY_APPROVAL'].includes(review.status)
+                || review.physicalMutation !== false) {
+                add('INSTITUTION_REVIEW_RECEIPT', reviewAt, 'İtiraz gerçek makam, kapalı gerekçe ve fiziksel-etkisizlik taşımalı.');
+            }
+        }
         if (request.effectModel !== STORY_INSTITUTION_POLICY.effectModel) add('INSTITUTION_EFFECT_MODEL', `${at}.effectModel`, 'Faz 29 karar kaydı fiziksel etki uyduramaz.');
     }
     if (!Array.isArray(ledger.events) || ledger.events.length > STORY_INSTITUTION_POLICY.maximumEvents) add('INSTITUTION_EVENT_LIMIT', '$.events', 'Kurum olay bütçesi aşıldı.');
@@ -442,6 +457,14 @@ function storyInstitutionReset(options) {
     if (!storyInstitutionEnabled()) { STORY.institutions = null; return null; }
     STORY.institutions = storyInstitutionLedgerCreate(options);
     return STORY.institutions;
+}
+function storyInstitutionMigrateLedger(saved) {
+    const ledger = storyInstitutionClone(saved);
+    if (!ledger || typeof ledger !== 'object') return ledger;
+    for (const request of Object.values(ledger.requests || {})) {
+        if (!Array.isArray(request.reviewRecords)) request.reviewRecords = [];
+    }
+    return ledger;
 }
 function storyInstitutionReconcile(ledger) {
     if (!ledger) return ledger;
@@ -476,7 +499,7 @@ function storyInstitutionEnsure() {
 function storyInstitutionRestore(saved) {
     if (!storyInstitutionEnabled()) { STORY.institutions = null; return null; }
     if (!saved) return storyInstitutionReset({ backfilled: true });
-    const candidate = storyInstitutionClone(saved);
+    const candidate = storyInstitutionMigrateLedger(saved);
     const validation = storyInstitutionValidate(candidate);
     if (validation.ok) { STORY.institutions = candidate; return storyInstitutionReconcile(candidate); }
     const ledger = storyInstitutionLedgerCreate({ backfilled: true, restoredFromInvalidLedger: true, issues: validation.issues });
@@ -586,7 +609,8 @@ function storyInstitutionSubmitAction(input) {
         updatedAt: storyInstitutionRound(STORY.clock),
         executedAt: null,
         effectModel: STORY_INSTITUTION_POLICY.effectModel,
-        result: null
+        result: null,
+        reviewRecords: []
     };
     ledger.requests[requestId] = request;
     const ids = Object.keys(ledger.requests).sort((a, b) => Number(a.split(':').pop()) - Number(b.split(':').pop()));
@@ -610,12 +634,56 @@ function storyInstitutionApproveAction(requestId, input) {
     const institutionId = storyInstitutionId(request.countryId, actor.institutionType);
     if (!request.requiredInstitutionIds.includes(institutionId)) return { ok: false, status: 'DENIED', reason: 'INSTITUTION_APPROVAL_NOT_REQUIRED' };
     if (!request.approvalInstitutionIds.includes(institutionId)) request.approvalInstitutionIds.push(institutionId);
+    for (const review of (request.reviewRecords || [])) {
+        if (review.institutionId === institutionId && review.status === 'ACTIVE') {
+            review.status = 'SUPERSEDED_BY_APPROVAL';
+            review.resolvedAt = storyInstitutionRound(STORY.clock);
+        }
+    }
     request.approvalInstitutionIds.sort((a, b) => a.localeCompare(b, 'en'));
     request.status = request.requiredInstitutionIds.every(id => request.approvalInstitutionIds.includes(id))
         ? 'AUTHORIZED' : 'PENDING_APPROVAL';
     request.updatedAt = storyInstitutionRound(STORY.clock);
     storyInstitutionRecordEvent(ledger, 'ACTION_APPROVED', { requestId: request.id, institutionId, status: request.status });
     return { ok: true, request: storyInstitutionClone(request) };
+}
+function storyInstitutionObjectAction(requestId, input) {
+    const ledger = storyInstitutionEnsure();
+    if (!ledger) return { ok: false, status: 'DISABLED', reason: 'INSTITUTION_LAYER_DISABLED' };
+    const request = ledger.requests[String(requestId)];
+    if (!request) return { ok: false, status: 'DENIED', reason: 'UNKNOWN_REQUEST' };
+    if (request.status !== 'PENDING_APPROVAL') {
+        return { ok: false, status: request.status, reason: 'REQUEST_NOT_PENDING' };
+    }
+    const country = ledger.countries[request.countryId];
+    const actor = storyInstitutionResolveActor(country, input || {});
+    if (!actor || actor.sourceKind !== 'INSTITUTION') {
+        return { ok: false, status: 'DENIED', reason: 'OBJECTOR_SOURCE_MISMATCH' };
+    }
+    const institutionId = storyInstitutionId(request.countryId, actor.institutionType);
+    if (!request.requiredInstitutionIds.includes(institutionId)) {
+        return { ok: false, status: 'DENIED', reason: 'INSTITUTION_APPROVAL_NOT_REQUIRED' };
+    }
+    const reasonCode = STORY_INSTITUTION_OBJECTION_REASON_CODES.includes(String(input && input.reasonCode))
+        ? String(input.reasonCode) : 'CHARACTER_ROLE_REVIEW_OBJECTED';
+    if (!Array.isArray(request.reviewRecords)) request.reviewRecords = [];
+    const existing = request.reviewRecords.find(review =>
+        review.institutionId === institutionId && review.status === 'ACTIVE');
+    if (existing) return { ok: true, request: storyInstitutionClone(request), review: storyInstitutionClone(existing), idempotent: true };
+    const review = {
+        id: `institution-review:${request.id}:${institutionId}`,
+        actorId: actor.actorId, institutionId, reasonCode,
+        status: 'ACTIVE', createdAt: storyInstitutionRound(STORY.clock),
+        resolvedAt: null, physicalMutation: false
+    };
+    request.reviewRecords.push(review);
+    request.updatedAt = storyInstitutionRound(STORY.clock);
+    storyInstitutionRecordEvent(ledger, 'ACTION_OBJECTED', {
+        requestId: request.id, countryId: request.countryId,
+        actionType: request.actionType, actorId: actor.actorId,
+        institutionId, reasonCode, physicalMutation: false
+    });
+    return { ok: true, request: storyInstitutionClone(request), review: storyInstitutionClone(review), idempotent: false };
 }
 function storyInstitutionRejectAction(requestId, input) {
     const ledger = storyInstitutionEnsure();

@@ -329,9 +329,18 @@ function storyCharacterRoleInstitutionReviewApply(input) {
     const review = storyCharacterRoleInstitutionReviewPreview(input);
     if (!review.ok) return review;
     if (review.recommendation === 'OBJECT') {
+        const objected = storyInstitutionObjectAction(review.requestId, {
+            actorId: review.actorId, institutionId: review.route.institutionId,
+            reasonCode: 'CHARACTER_ROLE_REVIEW_OBJECTED'
+        });
         return {
-            ok: true, code: 'INSTITUTION_ROLE_OBJECTION_RECORDED_AS_PROPOSAL',
-            review, request: null, applied: false, worldMutation: false
+            ok: objected.ok === true,
+            code: objected.ok ? 'INSTITUTION_ROLE_OBJECTION_RECORDED'
+                : (objected.reason || 'INSTITUTION_ROLE_OBJECTION_REJECTED'),
+            review, request: objected.request || null,
+            objection: objected.review || null,
+            applied: objected.ok === true, worldMutation: objected.ok === true,
+            physicalMutation: false
         };
     }
     const actorInput = { actorId: review.actorId, institutionId: review.route.institutionId };
