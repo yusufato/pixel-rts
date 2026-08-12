@@ -312,3 +312,25 @@ function storyCharacterRoleInstitutionReviewApply(input) {
         worldMutation: result.ok === true
     };
 }
+
+function storyCharacterRoleCompanyDecisionSubmit(input) {
+    input = input || {};
+    const view = storyCharacterRoleAdapterView(input.actorId);
+    if (!view.ok) return view;
+    const adapter = view.adapter;
+    if (adapter.family !== 'COMPANY') {
+        return { ok: false, code: 'COMPANY_ROLE_REQUIRED', worldMutation: false };
+    }
+    if (adapter.bindingStatus !== 'CANONICAL_ORGANIZATION_BOUND') {
+        return { ok: false, code: 'CANONICAL_COMPANY_REQUIRED', worldMutation: false };
+    }
+    if (input.companyId && String(input.companyId) !== adapter.organizationId) {
+        return { ok: false, code: 'ACTOR_COMPANY_MISMATCH', worldMutation: false };
+    }
+    if (typeof storyCompanySubmitManagementDecision !== 'function') {
+        return { ok: false, code: 'COMPANY_DECISION_EXECUTOR_MISSING', worldMutation: false };
+    }
+    return storyCompanySubmitManagementDecision({
+        ...input, companyId: adapter.organizationId, actorId: adapter.actorId
+    });
+}

@@ -6,10 +6,16 @@
 //  vardir; yatirim aninda kapasite yaratmaz, fiziksel girdi ve zaman ister.
 // ============================================================================
 
-const STORY_COMPANY_SCHEMA_VERSION = 1;
+const STORY_COMPANY_SCHEMA_VERSION = 2;
+const STORY_COMPANY_LEGACY_SCHEMA_VERSIONS = Object.freeze([1]);
 const STORY_COMPANY_ADAPTER_VERSION = 'story-company-bank-ledger-1';
 const STORY_COMPANY_TRANSACTION_LIMIT = 1800;
 const STORY_COMPANY_PROJECT_LIMIT = 600;
+const STORY_COMPANY_DECISION_LIMIT = 512;
+const STORY_COMPANY_DECISION_TYPES = Object.freeze(['REQUEST_LOAN', 'START_INVESTMENT']);
+const STORY_COMPANY_DECISION_STATUSES = Object.freeze([
+    'BOARD_APPROVAL_MISSING', 'PENDING_BOARD', 'APPROVED', 'REJECTED', 'EXECUTED', 'CANCELLED'
+]);
 const STORY_COMPANY_SECTORS = Object.freeze([
     'agriculture', 'energy', 'extraction', 'civil_industry',
     'advanced_tech', 'defense_industry'
@@ -204,6 +210,7 @@ function storyCompanyLedgerCreate(options) {
         transactionSequence: 0,
         applicationSequence: 0,
         projectSequence: 0,
+        decisionSequence: 0,
         lastTickAt: 0,
         openingMoneySupply: 0,
         externalMoneyInflow: 0,
@@ -215,6 +222,7 @@ function storyCompanyLedgerCreate(options) {
         warehouses: {},
         applications: [],
         projects: [],
+        managementDecisions: [],
         transactions: [],
         diagnostics: {
             backfilled: !!options.backfilled,
@@ -367,6 +375,30 @@ function storyCompanyValidate(candidate) {
         if (!candidate.facilities[project.facilityId]) add('PROJECT_FACILITY', `$.projects.${project.id}.facilityId`, 'Yatirim tesisi yok.');
         if (!['BUILDING', 'COMPLETED', 'CANCELLED'].includes(project.status)) add('PROJECT_STATUS', `$.projects.${project.id}.status`, 'Yatirim durumu gecersiz.');
     }
+    if (!Number.isInteger(candidate.decisionSequence) || candidate.decisionSequence < 0) {
+        add('COMPANY_DECISION_SEQUENCE', '$.decisionSequence', 'Şirket karar sayacı geçersiz.');
+    }
+    if (!Array.isArray(candidate.managementDecisions)
+        || candidate.managementDecisions.length > STORY_COMPANY_DECISION_LIMIT) {
+        add('COMPANY_DECISION_LIMIT', '$.managementDecisions', 'Şirket yönetim karar bütçesi geçersiz.');
+    }
+    for (const decision of (candidate.managementDecisions || [])) {
+        const at = `$.managementDecisions.${decision && decision.id}`;
+        if (!decision || !decision.id || !companies[decision.companyId]) {
+            add('COMPANY_DECISION_IDENTITY', at, 'Şirket yönetim kararı gerçek şirkete bağlı olmalı.');
+            continue;
+        }
+        if (!STORY_COMPANY_DECISION_TYPES.includes(decision.decisionType)) {
+            add('COMPANY_DECISION_TYPE', `${at}.decisionType`, 'Şirket karar türü kapalı katalogdan gelmeli.');
+        }
+        if (!STORY_COMPANY_DECISION_STATUSES.includes(decision.status)) {
+            add('COMPANY_DECISION_STATUS', `${at}.status`, 'Şirket karar durumu geçersiz.');
+        }
+        if (!decision.proposedByActorId || decision.worldMutation !== false
+            || decision.economicMutation !== false) {
+            add('COMPANY_DECISION_PROPOSAL_ONLY', at, 'Yönetici teklifi aktör kaynaklı ve ekonomik etkisiz olmalı.');
+        }
+    }
     for (const transaction of (candidate.transactions || [])) {
         if (transaction.actorType !== 'COMPANY' || !Array.isArray(transaction.postings)) continue;
         const sum = storyCompanyRound(transaction.postings.reduce((total, row) => total + Number(row.amount || 0), 0));
@@ -418,6 +450,16 @@ function storyCompanyRestore(saved) {
         return null;
     }
     const candidate = storyCompanyClone(saved);
+    if (candidate && STORY_COMPANY_LEGACY_SCHEMA_VERSIONS.includes(candidate.schemaVersion)) {
+        candidate.schemaVersion = STORY_COMPANY_SCHEMA_VERSION;
+        candidate.policyHash = STORY_COMPANY_POLICY_HASH;
+        candidate.decisionSequence = 0;
+        candidate.managementDecisions = [];
+        candidate.diagnostics = candidate.diagnostics || {};
+        candidate.diagnostics.warnings = (candidate.diagnostics.warnings || []).concat(
+            'Şema-1 şirket defterine boş yönetim karar kuyruğu eklendi; ekonomik kayıtlar değiştirilmedi.'
+        ).slice(0, 30);
+    }
     if (candidate && typeof storyCommerceEnabled === 'function' && storyCommerceEnabled()
         && !candidate.commerce && typeof storyCommerceCreateLedger === 'function') {
         candidate.commerce = storyCommerceCreateLedger({ backfilled: true });
@@ -455,6 +497,58 @@ function storyCompanyForSave() {
 function storyCompanyById(companyId) {
     const ledger = storyCompanyEnsure();
     return ledger && ledger.companies[String(companyId)] || null;
+}
+
+function storyCompanySubmitManagementDecision(input) {
+    input = input || {};
+    const ledger = storyCompanyEnsure();
+    if (!ledger) return { ok: false, code: 'COMPANY_LAYER_DISABLED', worldMutation: false };
+    const company = ledger.companies[String(input.companyId || '')];
+    if (!company) return { ok: false, code: 'COMPANY_NOT_FOUND', worldMutation: false };
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(input.actorId) : null;
+    if (!actor || actor.role !== 'COMPANY_EXECUTIVE'
+        || actor.organizationId !== company.id) {
+        return { ok: false, code: 'CANONICAL_COMPANY_EXECUTIVE_REQUIRED', worldMutation: false };
+    }
+    const decisionType = String(input.decisionType || '').toUpperCase();
+    if (!STORY_COMPANY_DECISION_TYPES.includes(decisionType)) {
+        return { ok: false, code: 'UNSUPPORTED_COMPANY_DECISION', worldMutation: false };
+    }
+    let payload;
+    if (decisionType === 'REQUEST_LOAN') {
+        const amount = storyCompanyRound(Math.max(0, Number(input.amount) || 0));
+        if (amount <= 0) return { ok: false, code: 'LOAN_AMOUNT_REQUIRED', worldMutation: false };
+        payload = { amount, bankId: company.bankId };
+    } else {
+        const regionId = storyCompanyRegionId(input.regionId);
+        const facility = company.facilityIds.map(id => ledger.facilities[id]).find(row =>
+            row && row.regionId === regionId && row.status === 'OPERATING');
+        if (!facility) return { ok: false, code: 'OWN_OPERATING_FACILITY_REQUIRED', worldMutation: false };
+        payload = { regionId, facilityId: facility.id };
+    }
+    ledger.decisionSequence++;
+    const decision = {
+        id: `company-management-decision:${ledger.decisionSequence}`,
+        companyId: company.id, decisionType,
+        proposedByActorId: actor.id,
+        payload, status: 'BOARD_APPROVAL_MISSING',
+        requiredApproverRoles: ['BOARD_MEMBER'],
+        approvalActorIds: [], rejectionActorIds: [],
+        createdAt: storyCompanyRound(STORY.clock), updatedAt: storyCompanyRound(STORY.clock),
+        result: null,
+        worldMutation: false, economicMutation: false
+    };
+    ledger.managementDecisions.push(decision);
+    if (ledger.managementDecisions.length > STORY_COMPANY_DECISION_LIMIT) {
+        const removable = ledger.managementDecisions.findIndex(row =>
+            ['REJECTED', 'EXECUTED', 'CANCELLED'].includes(row.status));
+        if (removable >= 0) ledger.managementDecisions.splice(removable, 1);
+        else ledger.managementDecisions.shift();
+    }
+    return { ok: true, code: 'COMPANY_DECISION_RECORDED_BOARD_MISSING',
+        decision: storyCompanyClone(decision), executable: false,
+        worldMutation: false, economicMutation: false };
 }
 
 function storyCompanyFacility(regionId, sectorId) {

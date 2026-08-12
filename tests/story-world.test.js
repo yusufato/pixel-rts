@@ -1397,6 +1397,14 @@ function run() {
     assert.equal(companyProbe.legacy.loaded, true, 'Şirket katmanı öncesi kayıt güvenle açılabilmeli.');
     assert.equal(companyProbe.legacy.validation.ok, true, 'Eski kayıttan geçerli şirket/tesis açılışı kurulmalı.');
     assert.equal(companyProbe.legacy.diagnostics.backfilled, true, 'Eski kayıt şirket backfill teşhisi taşımalı.');
+    assert.equal(companyProbe.schemaOne.loaded, true,
+        'Şema-1 şirket defteri yönetim karar kuyruğu eklenerek açılabilmeli.');
+    assert.equal(companyProbe.schemaOne.validation.ok, true,
+        'Şema-1→2 göçünden sonra şirket defteri geçerli olmalı.');
+    assert.equal(companyProbe.schemaOne.migratedToV2, true,
+        'Şema-1 göçü boş ve sıralı yönetim karar kuyruğu kurmalı.');
+    assert.equal(companyProbe.schemaOne.economicDataPreserved, true,
+        'Şema-1 göçü mevcut şirket, banka, tesis, proje ve hesap verisini değiştirmemeli.');
     assert.equal(companyProbe.corrupt.loaded, true, 'Bozuk şirket defteri dünya kaybı olmadan açılmalı.');
     assert.equal(companyProbe.corrupt.validation.ok, true, 'Bozuk şirket defteri güvenli açılışla onarılmalı.');
     assert.equal(companyProbe.corrupt.diagnostics.restoredFromInvalidLedger, true,
@@ -4038,12 +4046,24 @@ function run() {
         'Faz 38.9: aynı eylem farklı makam karakterlerinde onay, itiraz ve ret üretebilmeli.');
     assert.equal(characterRoleAdaptersProbe.institutionLedgerValidAfterReviews, true,
         'Faz 38.9: karakter itiraz/ret kararları sonrası Faz 29 kurum defteri geçerli kalmalı.');
+    assert.equal(characterRoleAdaptersProbe.companyExecutiveProposalRecorded, true,
+        'Faz 38.9: gerçek şirket yöneticisi kredi ve yatırım teklifini kendi kanonik şirketine kaydedebilmeli.');
+    assert.equal(characterRoleAdaptersProbe.companyBoardGapBlocksExecution, true,
+        'Faz 38.9: kurul karakterleri yokken yönetici teklifi kredi, nakit veya yatırım yaratmamalı.');
+    assert.equal(characterRoleAdaptersProbe.crossCompanyDecisionRejected, true,
+        'Faz 38.9: şirket yöneticisi başka şirket adına yönetim kararı sunamamalı.');
+    assert.equal(characterRoleAdaptersProbe.companyDecisionLedgerValid, true,
+        'Faz 38.9: yönetim teklifleri sonrası kanonik şirket defteri geçerli kalmalı.');
     assert.equal(characterRoleAdaptersProbe.restored.loaded, true,
         'Faz 38.9: karakter makam kararlarıyla kurum defteri yüklenebilmeli.');
     assert.equal(characterRoleAdaptersProbe.restored.exact, true,
         'Faz 38.9: onay, itiraz ve ret makbuzları save-load sırasında birebir kalmalı.');
     assert.equal(characterRoleAdaptersProbe.restored.validation.ok, true,
         'Faz 38.9: geri yüklenen kurum ret makbuzu kapalı gerekçe sözleşmesini geçmeli.');
+    assert.equal(characterRoleAdaptersProbe.restored.companyExact, true,
+        'Faz 38.9: şirket yönetim teklifleri save-load sırasında birebir kalmalı.');
+    assert.equal(characterRoleAdaptersProbe.restored.companyValidation.ok, true,
+        'Faz 38.9: geri yüklenen şirket karar kuyruğu şema-2 sözleşmesini geçmeli.');
     assert.equal(characterRoleAdaptersProbe.worldNeutral, true,
         'Faz 38.9: rol adaptörü okumak dünyayı değiştirmemeli.');
     assert.equal(characterRoleAdaptersProbe.featureDisabled, true,

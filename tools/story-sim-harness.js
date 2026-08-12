@@ -574,6 +574,7 @@ function createRuntime(seed) {
             characterRoleInstitutionAction: input => storyCharacterRoleInstitutionAction(input),
             characterRoleInstitutionReviewPreview: input => storyCharacterRoleInstitutionReviewPreview(input),
             characterRoleInstitutionReviewApply: input => storyCharacterRoleInstitutionReviewApply(input),
+            characterRoleCompanyDecisionSubmit: input => storyCharacterRoleCompanyDecisionSubmit(input),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -6904,6 +6905,37 @@ function probeCompaniesBanks(seed = 2032) {
         corruptRuntime.dom.window.close();
     }
 
+    const schemaOneRuntime = createRuntime(seed >>> 0);
+    let schemaOne;
+    try {
+        const schemaOneSave = JSON.parse(savedRaw);
+        const legacyLedger = schemaOneSave.companyEconomy;
+        legacyLedger.schemaVersion = 1;
+        delete legacyLedger.decisionSequence;
+        delete legacyLedger.managementDecisions;
+        const economicBefore = JSON.stringify(legacyLedger);
+        schemaOneRuntime.api.putSavedRaw(JSON.stringify(schemaOneSave));
+        const loaded = schemaOneRuntime.api.loadNow();
+        const migrated = schemaOneRuntime.api.companyLedger();
+        const comparable = JSON.parse(JSON.stringify(migrated));
+        comparable.schemaVersion = 1;
+        delete comparable.decisionSequence;
+        delete comparable.managementDecisions;
+        comparable.diagnostics.warnings = (comparable.diagnostics.warnings || []).filter(row =>
+            !String(row).includes('Şema-1 şirket defterine boş yönetim karar kuyruğu'));
+        schemaOne = {
+            loaded,
+            validation: schemaOneRuntime.api.validateCompanyLedger(migrated),
+            migratedToV2: migrated.schemaVersion === 2
+                && migrated.decisionSequence === 0
+                && Array.isArray(migrated.managementDecisions)
+                && migrated.managementDecisions.length === 0,
+            economicDataPreserved: JSON.stringify(comparable) === economicBefore
+        };
+    } finally {
+        schemaOneRuntime.dom.window.close();
+    }
+
     const disabledRuntime = createRuntime(seed >>> 0);
     let disabled;
     try {
@@ -6940,6 +6972,7 @@ function probeCompaniesBanks(seed = 2032) {
         main,
         restored,
         legacy,
+        schemaOne,
         corrupt,
         disabled,
         ab: {
@@ -14137,6 +14170,7 @@ function probeCharacterRoleAdapters(seed = 2032) {
     let result;
     let savedRaw;
     let institutionSnapshot;
+    let companySnapshot;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
             doctrine: 'combined', fog: true });
@@ -14339,7 +14373,54 @@ function probeCharacterRoleAdapters(seed = 2032) {
         result.institutionLedgerValidAfterReviews = runtime.api.validateInstitutionLedger(
             ledgerAfterReviews
         ).ok === true;
+        const companyDecisionActor = companies.find(row => {
+            const company = companyLedger.companies[row.view.adapter.organizationId];
+            return company && company.facilityIds.length > 0;
+        });
+        const companyBeforeDecisions = companyDecisionActor
+            ? runtime.api.companyLedger() : null;
+        const boundCompany = companyDecisionActor
+            && companyBeforeDecisions.companies[companyDecisionActor.view.adapter.organizationId];
+        const facility = boundCompany && companyBeforeDecisions.facilities[boundCompany.facilityIds[0]];
+        const loanDecision = companyDecisionActor && runtime.api.characterRoleCompanyDecisionSubmit({
+            actorId: companyDecisionActor.actor.id,
+            decisionType: 'REQUEST_LOAN', amount: 75
+        });
+        const investmentDecision = companyDecisionActor && facility
+            && runtime.api.characterRoleCompanyDecisionSubmit({
+                actorId: companyDecisionActor.actor.id,
+                decisionType: 'START_INVESTMENT', regionId: facility.regionId
+            });
+        const otherCompany = companies.find(row => companyDecisionActor
+            && row.view.adapter.organizationId !== companyDecisionActor.view.adapter.organizationId);
+        const crossCompany = companyDecisionActor && otherCompany
+            && runtime.api.characterRoleCompanyDecisionSubmit({
+                actorId: companyDecisionActor.actor.id,
+                companyId: otherCompany.view.adapter.organizationId,
+                decisionType: 'REQUEST_LOAN', amount: 25
+            });
+        const companyAfterDecisions = runtime.api.companyLedger();
+        const companyAfter = boundCompany
+            && companyAfterDecisions.companies[boundCompany.id];
+        result.companyExecutiveProposalRecorded = !!loanDecision && loanDecision.ok
+            && !!investmentDecision && investmentDecision.ok
+            && loanDecision.decision.status === 'BOARD_APPROVAL_MISSING'
+            && investmentDecision.decision.status === 'BOARD_APPROVAL_MISSING'
+            && loanDecision.decision.proposedByActorId === companyDecisionActor.actor.id
+            && investmentDecision.decision.proposedByActorId === companyDecisionActor.actor.id;
+        result.companyBoardGapBlocksExecution = !!loanDecision && !!investmentDecision
+            && loanDecision.executable === false && investmentDecision.executable === false
+            && loanDecision.economicMutation === false && investmentDecision.economicMutation === false
+            && companyAfter.accounts['ASSET:CASH'] === boundCompany.accounts['ASSET:CASH']
+            && companyAfter.accounts['LIABILITY:DEBT'] === boundCompany.accounts['LIABILITY:DEBT']
+            && companyAfterDecisions.projects.length === companyBeforeDecisions.projects.length;
+        result.crossCompanyDecisionRejected = !!crossCompany && crossCompany.ok === false
+            && crossCompany.code === 'ACTOR_COMPANY_MISMATCH';
+        result.companyDecisionLedgerValid = runtime.api.validateCompanyLedger(
+            companyAfterDecisions
+        ).ok === true;
         institutionSnapshot = ledgerAfterReviews;
+        companySnapshot = companyAfterDecisions;
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
     } finally {
@@ -14352,7 +14433,10 @@ function probeCharacterRoleAdapters(seed = 2032) {
             loaded: restored.api.loadNow(),
             exact: JSON.stringify(restored.api.institutionLedger())
                 === JSON.stringify(institutionSnapshot),
-            validation: restored.api.validateInstitutionLedger(restored.api.institutionLedger())
+            validation: restored.api.validateInstitutionLedger(restored.api.institutionLedger()),
+            companyExact: JSON.stringify(restored.api.companyLedger())
+                === JSON.stringify(companySnapshot),
+            companyValidation: restored.api.validateCompanyLedger(restored.api.companyLedger())
         };
     } finally {
         restored.dom.window.close();
