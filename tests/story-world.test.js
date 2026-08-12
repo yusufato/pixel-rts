@@ -3818,12 +3818,38 @@ function run() {
         'Faz 38.6: karar bağlamı olgu metni yerine yalnız kaynaklı ActorBelief referansı taşımalı.');
     assert.equal(decisionTraceV2Probe.triggerRecorded, true,
         'Faz 38.6: kararın hangi motor tetikleyicisinden doğduğu bağlamda kayıtlı olmalı.');
+    assert.equal(decisionTraceV2Probe.eventTriggerSourced, true,
+        'Faz 38.6: olay tepkisi yalnız aktörün tuttuğu ActorBelief kanıtına bağlanmalı.');
+    assert.equal(decisionTraceV2Probe.forgedEventTriggerRejected, true,
+        'Faz 38.6: aktörün bilmediği olguya dayanan sahte olay tetikleyicisi reddedilmeli.');
+    assert.equal(decisionTraceV2Probe.roleOrganizationBoundaryRecorded, true,
+        'Faz 38.6: rol, ülke, kurum/organizasyon/servis sınırı gerçek kimlikten kaydedilmeli.');
+    assert.equal(decisionTraceV2Probe.authorityGrantsSourced, true,
+        'Faz 38.6: aday yetkisi mevcut kurum veya servis grant kayıtlarını taşımalı.');
     assert.equal(decisionTraceV2Probe.allFilterGatesRecorded, true,
         'Faz 38.6: hedef, yetki, domain, bedel, cooldown ve yürütücü kapıları ayrı kanıtlanmalı.');
     assert.equal(decisionTraceV2Probe.playerPrivateReasonsHidden, true,
         'Faz 38.6: oyuncu, başka aktörün özel puan/yetki/bedel gerekçelerini görememeli.');
+    assert.equal(decisionTraceV2Probe.playerExplanationSafe, true,
+        'Faz 38.6: oyuncu açıklaması gizli olgu, skor veya özel ilişki sayısı sızdırmamalı.');
+    assert.equal(decisionTraceV2Probe.inboxExplanationConnected, true,
+        'Faz 38.6: oyuncuya yöneltilmiş kararın güvenli açıklaması Sana Söylenenler kutusuna bağlanmalı.');
+    assert.equal(decisionTraceV2Probe.explanationDomSafe, true,
+        'Faz 38.6: gerçek sohbet DOM’u güvenli açıklamayı göstermeli ve özel alanları sızdırmamalı.');
+    assert.equal(decisionTraceV2Probe.actorPrivateReasonsVisible, true,
+        'Faz 38.6: karar sahibi kendi psikoloji ve risk kanıtını görebilmeli.');
+    assert.equal(decisionTraceV2Probe.psychologyNoDoubleCount, true,
+        'Faz 38.6: psikoloji açıklaması mevcut seçici katkısını ikinci kez puanlamamalı.');
+    assert.equal(decisionTraceV2Probe.psychologyReasonsSourced, true,
+        'Faz 38.6: psikoloji katkısı yalnız mevcut seçicinin kaynaklı nedenlerinden türemeli.');
+    assert.equal(decisionTraceV2Probe.riskExplanationOnly, true,
+        'Faz 38.6: risk görünümü sınırlı, açıklama amaçlı ve puan etkisiz olmalı.');
+    assert.equal(decisionTraceV2Probe.repeatedTraceDeterministic, true,
+        'Faz 38.6: aynı karar kimliği ve bağlamı birebir aynı izi üretmeli.');
     assert.equal(decisionTraceV2Probe.validation.ok, true,
         'Faz 38.6: eylem defteri DecisionTraceV2 ile doğrulanmalı.');
+    assert.equal(decisionTraceV2Probe.identityValidation.ok, true,
+        'Faz 38.6: kaynak olay ve ActorBelief fişi karakter kimliği doğrulamasını geçmeli.');
     assert.equal(decisionTraceV2Probe.traceValidation.ok, true,
         'Faz 38.6: DecisionContextV2 ve DecisionTraceV2 çapraz doğrulamayı geçmeli.');
     assert.equal(decisionTraceV2Probe.restored.loaded, true,

@@ -1816,7 +1816,8 @@ function storyCharacterActionValidate(candidate) {
         add('ARBITER_DECISION_CAP', '$.arbiterDecisions');
     }
     const traceValidation = typeof storyDecisionTraceV2Validate === 'function'
-        ? storyDecisionTraceV2Validate(candidate.decisionContexts, candidate.decisionTraces)
+        ? storyDecisionTraceV2Validate(candidate.decisionContexts, candidate.decisionTraces,
+            candidate.arbiterDecisions)
         : { ok: true, issues: [] };
     for (const issue of traceValidation.issues || []) add(issue.code, issue.path);
     for (const [id, decision] of Object.entries(candidate.arbiterDecisions || {})) {

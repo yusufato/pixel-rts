@@ -1722,9 +1722,20 @@ function storyTalkUpdate() {
             const esc = typeof storyProjectionEscape === 'function' ? storyProjectionEscape : value => String(value);
             directedHtml = `<div class="talk-sec character-statement-inbox"><div class="talk-h">◈ SANA SÖYLENENLER <b>${directedStatements.length}</b></div>`
                 + `<div class="talk-note">Yalnız doğrudan sana yöneltilmiş karakter kararları gösterilir; başkalarının özel görüşmeleri açığa çıkmaz.</div>`
-                + directedStatements.map(row => `<div class="talk-card"><div class="talk-card-h">`
+                + directedStatements.map(row => {
+                    const explanation = row.explanation;
+                    const known = explanation && explanation.knownReasons || [];
+                    const explanationHtml = explanation ? `<details class="character-decision-explanation">`
+                        + `<summary>NEDEN BÖYLE KARAR VERDİ?</summary>`
+                        + `<div class="talk-note">${esc(explanation.summary)}</div>`
+                        + known.map(reason => `<div class="talk-line">${esc(reason.label)} · ${esc(reason.status)} · ${esc(reason.confidenceBand)}</div>`).join('')
+                        + (explanation.hiddenReasonCount > 0
+                            ? `<div class="talk-note">${explanation.hiddenReasonCount} gerekçe özel veya henüz bilinmiyor.</div>` : '')
+                        + `</details>` : '';
+                    return `<div class="talk-card"><div class="talk-card-h">`
                     + `<span>${esc(row.speakerName)}</span><span class="talk-age">${esc(row.speakerTitle || 'Karakter')}</span></div>`
-                    + `<div class="talk-lines"><div>“${esc(row.text)}”</div></div></div>`).join('') + `</div>`;
+                    + `<div class="talk-lines"><div>“${esc(row.text)}”</div></div>${explanationHtml}</div>`;
+                }).join('') + `</div>`;
         }
 
         let focusHtml = '';

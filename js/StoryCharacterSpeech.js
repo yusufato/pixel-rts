@@ -404,6 +404,9 @@ function storyCharacterSpeechPlayerInbox(limit) {
         .slice(0, Math.max(1, Math.min(12, Number(limit) || 6)))
         .map(row => {
             const actor = storyCharacterSpeechIdentity(row.actorId);
+            const explanation = row.decisionTraceId
+                && typeof storyDecisionTraceV2PlayerExplanation === 'function'
+                ? storyDecisionTraceV2PlayerExplanation(row.decisionTraceId, playerActorId) : null;
             return {
                 decisionId: row.id,
                 actorId: row.actorId,
@@ -413,7 +416,8 @@ function storyCharacterSpeechPlayerInbox(limit) {
                 verdict: row.verdict,
                 text: row.realization.text,
                 at: Number(row.consumedAt) || 0,
-                source: row.realization.source
+                source: row.realization.source,
+                explanation
             };
         });
 }

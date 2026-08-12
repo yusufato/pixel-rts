@@ -562,10 +562,11 @@ function createRuntime(seed) {
             characterActionSummary: () => storyCharacterActionSummary(),
             characterActionArbiterRecentDecisions: (actorId, limit) => storyCharacterActionArbiterRecentDecisions(actorId, limit),
             characterActionArbiterDecisionRecord: (pending, input) => storyCharacterActionArbiterDecisionRecord(pending, input),
-            decisionContextBuild: (actorId, ranked) => storyDecisionContextV2Build(actorId, ranked),
+            decisionContextBuild: (actorId, ranked, options) => storyDecisionContextV2Build(actorId, ranked, options),
             decisionTraceBuild: (decisionId, context, input) => storyDecisionTraceV2Build(decisionId, context, input),
             decisionTracePlayerView: (traceId, viewerActorId) => storyDecisionTraceV2PlayerView(traceId, viewerActorId),
-            decisionTraceValidate: (contexts, traces) => storyDecisionTraceV2Validate(contexts, traces),
+            decisionTracePlayerExplanation: (traceId, viewerActorId) => storyDecisionTraceV2PlayerExplanation(traceId, viewerActorId),
+            decisionTraceValidate: (contexts, traces, decisions) => storyDecisionTraceV2Validate(contexts, traces, decisions),
             characterArbiterBuildRequest: (actorId, options) => storyCharacterArbiterBuildRequest(actorId, options),
             characterArbiterSystem: () => STORY_CHARACTER_ARBITER_SYSTEM,
             characterArbiterPrompt: request => storyCharacterArbiterPrompt(request),
@@ -13477,18 +13478,49 @@ function probeDecisionTraceV2(seed = 2032) {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         const story = runtime.api.state();
         const identityLedger = runtime.api.characterIdentityLedger();
+        const liveIdentityLedger = story.characterIdentities;
         const playerActorId = `character:0:${story.commander.id}`;
-        const actor = Object.values(identityLedger.identities || {})
-            .filter(row => row.id !== playerActorId)
-            .find(row => runtime.api.characterActionAIRankActor(row.id).length > 0);
+        const nonPlayerActors = Object.values(identityLedger.identities || {})
+            .filter(row => row.id !== playerActorId);
+        const actor = nonPlayerActors.find(row => runtime.api.characterActionAIRankActor(row.id)
+            .some(candidate => candidate.candidate.targetActorId === playerActorId))
+            || nonPlayerActors.find(row => runtime.api.characterActionAIRankActor(row.id).length > 0);
         const ranked = actor ? runtime.api.characterActionAIRankActor(actor.id) : [];
+        const eventFactId = 'world-fact:phase386:event-fixture';
+        const eventBeliefId = 'actor-belief:phase386:event-fixture';
+        liveIdentityLedger.worldFacts[eventFactId] = {
+            id: eventFactId, factType: 'TEST_EVENT_OBSERVATION',
+            subjectActorId: playerActorId, countryId: actor.countryId,
+            originEventId: 'event:phase386:fixture', visibility: 'INSTITUTIONAL', version: 1
+        };
+        liveIdentityLedger.actorBeliefs[eventBeliefId] = {
+            id: eventBeliefId, holderActorId: actor.id, holderCountryId: actor.countryId,
+            worldFactId: eventFactId, subjectActorId: playerActorId,
+            beliefStatus: 'VERIFIED', confidenceBps: 9000,
+            source: { type: 'INSTITUTIONAL_RECORD', eventId: 'event:phase386:fixture' },
+            learnedAt: Number(story.clock) || 0, originEventId: 'event:phase386:fixture', version: 1
+        };
         const contextA = runtime.api.decisionContextBuild(actor && actor.id, ranked);
+        const eventBelief = contextA.actorBeliefs.find(row => row.beliefId === eventBeliefId);
+        const eventContext = runtime.api.decisionContextBuild(actor.id, ranked, {
+            trigger: {
+                type: 'EVENT_REACTION', eventId: 'event:phase386:fixture',
+                beliefEvidenceIds: [eventBelief.beliefId], reasonCodes: ['SOURCE_EVENT_OBSERVED']
+            }
+        });
+        const forgedEventContext = runtime.api.decisionContextBuild(actor.id, ranked, {
+            trigger: {
+                type: 'EVENT_REACTION', eventId: 'event:phase386:forged',
+                beliefEvidenceIds: ['actor-belief:not-held']
+            }
+        });
         const hiddenFactId = 'world-fact:phase386:hidden';
         identityLedger.worldFacts[hiddenFactId] = {
             id: hiddenFactId, factType: 'TEST_HIDDEN', visibility: 'SECRET', version: 1
         };
         const contextB = runtime.api.decisionContextBuild(actor && actor.id, ranked);
-        const selected = contextA && contextA.candidates.find(row => row.allowed);
+        const selected = contextA && (contextA.candidates.find(row => row.allowed
+            && row.targetActorId === playerActorId) || contextA.candidates.find(row => row.allowed));
         const trace = runtime.api.decisionTraceBuild('decision:phase386:fixture', contextA, {
             verdict: selected ? 'PROPOSE' : 'PASS',
             candidateId: selected && selected.candidateId,
@@ -13514,6 +13546,22 @@ function probeDecisionTraceV2(seed = 2032) {
         actionSnapshot = runtime.api.characterActionLedger();
         const recordedTrace = actionSnapshot.decisionTraces[recorded.decisionTraceId];
         const playerView = runtime.api.decisionTracePlayerView(recorded.decisionTraceId, playerActorId);
+        const playerExplanation = runtime.api.decisionTracePlayerExplanation(
+            recorded.decisionTraceId, playerActorId
+        );
+        const actorView = runtime.api.decisionTracePlayerView(recorded.decisionTraceId, actor.id);
+        const inboxRow = runtime.api.characterSpeechPlayerInbox(12)
+            .find(row => row.decisionId === recorded.id);
+        story._talkOpen = true;
+        story._talkView = 'chat';
+        runtime.api.talkUpdate();
+        const talkHtml = runtime.dom.window.document.getElementById('talk-body').innerHTML;
+        const repeatedTrace = runtime.api.decisionTraceBuild('decision:phase386:fixture', contextA, {
+            verdict: selected ? 'PROPOSE' : 'PASS',
+            candidateId: selected && selected.candidateId,
+            source: 'DETERMINISTIC_FALLBACK',
+            reasonCode: selected ? 'GOAL_ALIGNMENT' : 'INSUFFICIENT_VALUE'
+        });
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
         result = {
@@ -13531,19 +13579,63 @@ function probeDecisionTraceV2(seed = 2032) {
                 && !Object.prototype.hasOwnProperty.call(row, 'optionText')),
             triggerRecorded: contextA.trigger.type === 'AUTONOMOUS_REVIEW'
                 && contextA.trigger.source === 'CHARACTER_ACTION_AI_TICK',
+            eventTriggerSourced: !!eventBelief && !!eventContext
+                && eventContext.trigger.type === 'EVENT_REACTION'
+                && eventContext.trigger.beliefEvidenceIds[0] === eventBelief.beliefId,
+            forgedEventTriggerRejected: forgedEventContext === null,
+            roleOrganizationBoundaryRecorded: contextA.roleOrganizationBoundary.role === actor.role
+                && contextA.roleOrganizationBoundary.countryId === actor.countryId
+                && contextA.roleOrganizationBoundary.legalModel === 'ACTION_AUTHORITY_CONTRACT_ONLY'
+                && contextA.roleOrganizationBoundary.inventedLegalAuthority === false,
+            authorityGrantsSourced: contextA.candidates.every(row => Array.isArray(row.authority.grants)),
             allFilterGatesRecorded: contextA.candidates.every(row => {
                 const gates = new Set((row.filterEvidence || []).map(item => item.gateId));
                 return ['TARGET', 'AUTHORITY', 'DOMAIN', 'COST', 'COOLDOWN', 'EXECUTOR']
                     .every(gate => gates.has(gate));
             }),
             playerProjection: playerView,
+            playerExplanationSafe: !!playerExplanation
+                && playerExplanation.rawWorldFactRead === false
+                && !JSON.stringify(playerExplanation).includes(hiddenFactId)
+                && !JSON.stringify(playerExplanation).includes('scoreDelta')
+                && !JSON.stringify(playerExplanation).includes('trustBps')
+                && !JSON.stringify(playerExplanation).includes('hostilityBps')
+                && playerExplanation.hiddenReasonCount === playerView.hiddenBeliefEvidenceCount
+                    + playerView.privateReasonCount,
+            inboxExplanationConnected: selected.targetActorId !== playerActorId
+                || (!!inboxRow && !!inboxRow.explanation
+                    && inboxRow.explanation.decisionId === recorded.id
+                    && inboxRow.explanation.rawWorldFactRead === false),
+            explanationDomSafe: selected.targetActorId !== playerActorId
+                || (talkHtml.includes('NEDEN BÖYLE KARAR VERDİ?')
+                    && !talkHtml.includes(hiddenFactId)
+                    && !talkHtml.includes('scoreDelta')
+                    && !talkHtml.includes('trustBps')
+                    && !talkHtml.includes('hostilityBps')),
             playerPrivateReasonsHidden: playerView.supportingReasons.length === 0
                 && playerView.opposingReasons.length === 0
                 && playerView.authority === null && playerView.cost === null
+                && playerView.psychologyContributions === null && playerView.risk === null
                 && playerView.privateReasonCount > 0,
+            actorPrivateReasonsVisible: !!actorView.psychologyContributions && !!actorView.risk,
+            psychologyNoDoubleCount: recordedTrace.psychologyContributions.addedScoreDelta === 0
+                && recordedTrace.psychologyContributions.doubleCountPrevented === true
+                && recordedTrace.psychologyContributions.contributionModel
+                    === 'EXISTING_SELECTOR_REASONS_ONLY',
+            psychologyReasonsSourced: recordedTrace.psychologyContributions.axes
+                .concat(recordedTrace.psychologyContributions.goals)
+                .every(row => recordedTrace.supportingReasons.includes(row.sourceReason)),
+            riskExplanationOnly: recordedTrace.risk.explanationOnly === true
+                && recordedTrace.risk.scoreEffect === 0
+                && recordedTrace.risk.totalRiskBps >= 0
+                && recordedTrace.risk.totalRiskBps <= 10000
+                && recordedTrace.risk.components.length === 4,
+            repeatedTraceDeterministic: JSON.stringify(repeatedTrace) === JSON.stringify(trace),
             validation: runtime.api.validateCharacterActionLedger(actionSnapshot),
+            identityValidation: runtime.api.validateCharacterIdentityLedger(liveIdentityLedger),
             traceValidation: runtime.api.decisionTraceValidate(
-                actionSnapshot.decisionContexts, actionSnapshot.decisionTraces
+                actionSnapshot.decisionContexts, actionSnapshot.decisionTraces,
+                actionSnapshot.arbiterDecisions
             )
         };
     } finally {
