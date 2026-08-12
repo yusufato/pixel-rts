@@ -11,7 +11,7 @@ const STORY_CONVERSATION_UNDERSTANDING_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_UNDERSTANDING_ADAPTER_VERSION = 'story-conversation-understanding-1';
 const STORY_CONVERSATION_UNDERSTANDING_SOURCE = 'DETERMINISTIC_NLU_BASELINE';
 const STORY_CONVERSATION_MAX_INPUT = 1200;
-const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|yardımcı olmamı ister|talebinizi belirt|buyurun|emrinize amadeyim)\b/i;
+const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|ne tür bir yardım arıyorsunuz|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|buyurun|emrinize amadeyim)\b/i;
 
 const STORY_CONVERSATION_SPEECH_ACTS = Object.freeze([
     'ASK_INFORMATION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN', 'MAKE_PROMISE',
@@ -179,6 +179,21 @@ function storyConversationResolveCountries(folded) {
     return matches.sort((a, b) => b.confidenceBps - a.confidenceBps || a.entityId.localeCompare(b.entityId, 'en'));
 }
 
+function storyConversationResolveRegions(folded) {
+    const rows = [];
+    for (const region of (STORY.nodes || [])) {
+        const match = storyConversationApproxMention(folded, region && region.name);
+        if (!match || match.confidenceBps < 7800) continue;
+        rows.push({
+            regionId: `region:${region.id}`, name: String(region.name),
+            ownerCountryId: `country:${region.owner}`, confidenceBps: match.confidenceBps,
+            evidence: match.evidence
+        });
+    }
+    return rows.sort((a, b) => b.confidenceBps - a.confidenceBps
+        || a.regionId.localeCompare(b.regionId, 'en'));
+}
+
 function storyConversationResourceAliases(resource) {
     const aliases = [resource.id, resource.label];
     const extra = {
@@ -291,7 +306,8 @@ function storyConversationSpeechAct(folded, raw) {
     if (storyConversationContains(folded, ['ozur dilerim', 'kusura bakma', 'affedersin'])) add('APOLOGIZE', 14);
     if (storyConversationContains(folded, ['gorusuruz', 'hosca kal', 'kendine iyi bak', 'sonra konusuruz'])) add('FAREWELL', 14);
     if (storyConversationContains(folded, ['sence', 'ne dusunuyorsun', 'fikrin ne', 'senin gorusun'])) add('ASK_PERSONAL_OPINION', 13);
-    if (storyConversationContains(folded, ['yardim eder misin', 'yardim edecek misin', 'destek olur musun', 'destegine ihtiyacim var'])) add('REQUEST_SUPPORT', 14);
+    if (storyConversationContains(folded, ['yardim eder misin', 'yardim edecek misin', 'yardim icin gelir misin',
+        'yardim gerekiyor', 'yardim lazim', 'destek olur musun', 'destek verir misin', 'destegine ihtiyacim var'])) add('REQUEST_SUPPORT', 16);
     if (storyConversationContains(folded, ['biraz konusalim', 'sohbet edelim', 'hava guzel', 'laflayalim'])) add('SMALL_TALK', 12);
     if (String(raw || '').includes('?') || storyConversationContains(folded, ['neden', 'nasil', 'ne zaman', 'nerede', 'kim', 'hangi'])) add('ASK_INFORMATION', 7);
     if (storyConversationContains(folded, ['istiyorum', 'yap', 'gonder', 'yonlendir'])) add('REQUEST_ACTION', 5);
@@ -337,6 +353,7 @@ function storyConversationAnalyze(raw, context) {
 
     const act = storyConversationSpeechAct(folded, sourceText);
     const countries = storyConversationResolveCountries(folded);
+    const regions = storyConversationResolveRegions(folded);
     const resource = storyConversationResolveResource(folded);
     const shipment = storyConversationResolveShipment(folded, context);
     const playerAssets = storyConversationResolvePlayerAssets(folded);
@@ -361,12 +378,38 @@ function storyConversationAnalyze(raw, context) {
         targetShipmentId: shipment.entityId,
         truthStatus: 'UNVERIFIED_IN_CONVERSATION', verificationSource: null
     });
+    const reportsOwnLocation = /(?:^|\s)[a-z0-9:_-]+(?:de|da|te|ta)yim(?:\s|$)/.test(folded)
+        || storyConversationContains(folded, ['de bulunuyorum', 'da bulunuyorum']);
+    if (reportsOwnLocation && regions[0]) claims.push({
+        id: `claim:player-reported-location:${regions[0].regionId}`,
+        type: 'PLAYER_REPORTED_LOCATION', claimantActorId: storyConversationPlayerActorId(),
+        subjectActorId: storyConversationPlayerActorId(), regionId: regions[0].regionId,
+        regionName: regions[0].name, truthStatus: 'UNVERIFIED_PLAYER_REPORT', verificationSource: null
+    });
+    const reportsThreat = regions.length && storyConversationContains(folded, [
+        'dusman', 'birlik', 'ordu', 'asker', 'tehdit', 'yogunlas', 'sinir'
+    ]);
+    if (reportsThreat) claims.push({
+        id: `claim:player-reported-threat:${regions.map(row => row.regionId).join(':')}`,
+        type: 'PLAYER_REPORTED_MILITARY_THREAT', claimantActorId: storyConversationPlayerActorId(),
+        regionIds: regions.map(row => row.regionId), regionNames: regions.map(row => row.name),
+        truthStatus: 'UNVERIFIED_PLAYER_REPORT', verificationSource: null
+    });
     const requests = [];
     if (redirect) requests.push({
         id: 'request:redirect-shipment', type: 'REDIRECT_SHIPMENT',
         targetShipmentId: shipment && shipment.entityId || null,
         destinationId: (playerAssets.find(row => row.entityType === 'WAREHOUSE') || {}).entityId || null,
         requestedFromActorId: context.listenerActorId || null
+    });
+    const militaryContext = storyConversationContains(folded, [
+        'dusman', 'birlik', 'ordu', 'asker', 'cephe', 'sinir', 'askeri'
+    ]);
+    if (act.primary === 'REQUEST_SUPPORT' && militaryContext) requests.push({
+        id: 'request:military-support', type: 'REQUEST_MILITARY_SUPPORT',
+        requestedFromActorId: context.listenerActorId || null,
+        reportedRegionIds: regions.map(row => row.regionId),
+        evidenceStatus: reportsThreat ? 'PLAYER_REPORT_UNVERIFIED' : 'NO_THREAT_EVIDENCE'
     });
 
     const unresolved = new Set();
@@ -406,8 +449,10 @@ function storyConversationAnalyze(raw, context) {
         worldMutation: false, speechAct: act.primary, secondaryActs: act.secondary,
         playerIntent: founding && resource && resource.mention === 'çelik' ? 'FOUND_STEEL_COMPANY'
             : founding ? 'FOUND_COMPANY' : redirect ? 'REDIRECT_SHIPMENT'
+                : act.primary === 'REQUEST_SUPPORT' && militaryContext ? 'REQUEST_MILITARY_SUPPORT'
                 : STORY_CONVERSATION_SOCIAL_ACTS.includes(act.primary) ? `SOCIAL_${act.primary}` : 'UNSPECIFIED',
-        topic: commercial ? 'COMMERCE' : ['THREATEN', 'ACCUSE'].includes(act.primary) ? 'CONFLICT'
+        topic: commercial ? 'COMMERCE' : militaryContext ? 'MILITARY'
+            : ['THREATEN', 'ACCUSE'].includes(act.primary) ? 'CONFLICT'
             : act.primary === 'ASK_INFORMATION' ? 'INFORMATION'
                 : STORY_CONVERSATION_SOCIAL_ACTS.includes(act.primary) ? 'SOCIAL' : 'GENERAL',
         tone: storyConversationTone(folded, act.primary), attribution: 'PLAYER',
@@ -419,7 +464,8 @@ function storyConversationAnalyze(raw, context) {
             inputLength: sourceText.length, normalizedTokenCount: folded.split(' ').length,
             entityCount: entities.length, resolvedEntityCount: entities.filter(row => !!row.entityId).length,
             unresolvedEntityCount: unresolvedEntities.length, classifierScores: act.scores,
-            rawTradeLedgerRead: false, llmUsed: false
+            rawTradeLedgerRead: false, llmUsed: false,
+            playerReportCount: claims.filter(row => row.truthStatus === 'UNVERIFIED_PLAYER_REPORT').length
         }
     };
     const validation = storyConversationValidate(result);
@@ -1203,7 +1249,7 @@ function storyConversationSocialLLMSchema() {
     };
 }
 
-function storyConversationSocialLLMParse(raw, fallbackText, playerText) {
+function storyConversationSocialLLMParse(raw, fallbackText, playerText, validationContext) {
     let parsed;
     try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { return null; }
     const text = String(parsed && parsed.reply || '').trim().replace(/\s+/g, ' ');
@@ -1215,6 +1261,18 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText) {
     if (/\b(kabul ettim|onayladım|emri verdim|söz veriyorum|anlaşma tamam|sevkiyatı başlattım)\b/i.test(text)) return null;
     const playerFolded = storyConversationFold(playerText);
     const replyFolded = storyConversationFold(text);
+    const history = validationContext && Array.isArray(validationContext.history)
+        ? validationContext.history : [];
+    if (history.some(row => storyConversationFold(row && row.text) === replyFolded)) return null;
+    if (typeof storyCharacterDialogueSemanticSimilarityBps === 'function'
+        && history.some(row => storyCharacterDialogueSemanticSimilarityBps(text, row && row.text) >= 8800)) return null;
+    const unverifiedRegionNames = validationContext && validationContext.unverifiedRegionNames || [];
+    if (unverifiedRegionNames.some(name => storyConversationContains(replyFolded, [name]))
+        && !storyConversationContains(replyFolded, [
+            'soyledin', 'soyluyorsun', 'bildirdin', 'bildiriyorsun', 'iddia', 'dogrulanmadi', 'dogrulayamiyorum'
+        ])) return null;
+    if (validationContext && validationContext.locationAnswerMustBeUnknown
+        && (STORY.nodes || []).some(region => storyConversationContains(replyFolded, [region.name]))) return null;
     const negativePlayerState = storyConversationContains(playerFolded, [
         'yoruldum', 'yorgunum', 'kotuyum', 'uzgunum', 'moralim bozuk', 'zorlanıyorum', 'zorlanıyorum'
     ]);
@@ -1241,14 +1299,24 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
         history.push(`OYUNCU: ${followUp.playerText}`);
         if (followUp.response && followUp.response.text) history.push(`KARAKTER: ${followUp.response.text}`);
     }
+    const unverifiedClaims = storyConversationSessionUnverifiedClaims(session);
+    const claimLines = unverifiedClaims.map(row => row.type === 'PLAYER_REPORTED_LOCATION'
+        ? `OYUNCU İDDİASI (DOĞRULANMADI): Kendisinin ${row.regionName} bölgesinde olduğunu söyledi.`
+        : row.type === 'PLAYER_REPORTED_MILITARY_THREAT'
+            ? `OYUNCU İDDİASI (DOĞRULANMADI): ${row.regionNames.join(', ')} çevresinde askerî tehdit bildirdi.`
+            : `OYUNCU İDDİASI (DOĞRULANMADI): ${row.type}`);
     return `KARAKTER: ${actor && actor.name || 'Muhatap'}\nROL: ${actor && actor.role || 'CHARACTER'}\n`
         + `SES KAYDI: ${response.voiceFingerprint || 'GUARDED'}\nİLİŞKİ BANDI: ${response.relationshipBand || 'RESERVED'}\n`
-        + `KONUŞMA GEÇMİŞİ:\n${history.join('\n') || '(ilk mesaj)'}\nOYUNCUNUN SON SÖZÜ: ${playerText}\n`
+        + `KONUŞMA GEÇMİŞİ:\n${history.join('\n') || '(ilk mesaj)'}\n`
+        + `DOĞRULANMAMIŞ OYUNCU İDDİALARI:\n${claimLines.join('\n') || '(yok)'}\n`
+        + `OYUNCUNUN SON SÖZÜ: ${playerText}\n`
         + `GÜVENLİ ANLAM: ${response.text}\n\n`
         + `Bu aynı kesintisiz görüşmedir. Güvenli anlamı koruyarak karakterin doğal Türkçe cevabını yaz; `
         + `GÜVENLİ ANLAM cümlesini kelimesi kelimesine kopyalama. `
         + `Bir müşteri hizmetleri görevlisi veya dijital asistan gibi konuşma; “nasıl yardımcı olabilirim”, “talebinizi belirtin” ve “buyurun” deme. `
         + `Karakterin kendi gündemi, ruh hali ve ilişki mesafesi olan bir insan olduğunu hissettir; son söze somut tepki ver. `
+        + `Oyuncunun söylediği konum ve tehditleri gerçek kabul etme; yalnız “söyledin/bildirdin, doğrulanmadı” diye aktar. `
+        + `Karakterin veya oyuncunun konumu güvenli anlamda yoksa şehir adı uydurma. `
         + `Yeni kişi, olay, sayı, stok, anlaşma, emir, yetki veya dünya gerçeği ekleme. `
         + `Mekanik sonuç vaat etme. Yalnız {"reply":"cevap"} JSON nesnesi döndür; en fazla dört kısa cümle.`;
 }
@@ -1280,6 +1348,77 @@ function storyConversationDiscourseContext(session, options) {
         selected.unshift(rows[index]); tokens += cost;
     }
     return selected;
+}
+
+function storyConversationSessionUnverifiedClaims(session) {
+    const rows = [];
+    for (const analysis of [session && session.analysis].concat(
+        (session && session.followUps || []).map(row => row.analysis))) {
+        for (const claim of analysis && analysis.claims || []) {
+            if (claim.truthStatus === 'UNVERIFIED_PLAYER_REPORT') rows.push(storyConversationClone(claim));
+        }
+    }
+    const byId = new Map();
+    rows.forEach(row => byId.set(row.id, row));
+    return Array.from(byId.values()).slice(-12);
+}
+
+function storyConversationQuestionFocus(folded) {
+    if (storyConversationContains(folded, ['hangi sehirdeyim', 'neredeyim', 'ben neredeyim'])) return 'PLAYER_LOCATION';
+    if (storyConversationContains(folded, ['hangi sehirdesiniz', 'neredesiniz', 'sen neredesin'])) return 'LISTENER_LOCATION';
+    if (storyConversationContains(folded, ['hangi isi yapiyorsun', 'hangi isi yapiyorsunuz', 'goreviniz ne', 'gorevin ne'])) return 'LISTENER_ROLE';
+    if (storyConversationContains(folded, ['halka ne hizmet', 'ne hizmet yapacaksin', 'ne hizmet yapacaksiniz',
+        'halka ne yapacaksin', 'halka ne yapacaksiniz', 'onceliginiz ne', 'önceliğiniz ne'])) return 'PUBLIC_PRIORITIES';
+    if (storyConversationContains(folded, ['ayni sey', 'tekrar ediyorsun', 'tekrarladin', 'soruma cevap'])) return 'REPETITION_REPAIR';
+    return null;
+}
+
+function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
+    const folded = storyConversationFold(raw);
+    const focus = storyConversationQuestionFocus(folded);
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(session.listenerActorId) : null;
+    const reports = storyConversationSessionUnverifiedClaims(session).concat(
+        storyConversationClone((analysis && analysis.claims || []).filter(row =>
+            row.truthStatus === 'UNVERIFIED_PLAYER_REPORT')));
+    const latestLocation = reports.filter(row => row.type === 'PLAYER_REPORTED_LOCATION').slice(-1)[0];
+    const latestThreat = reports.filter(row => row.type === 'PLAYER_REPORTED_MILITARY_THREAT').slice(-1)[0];
+    if (focus === 'PLAYER_LOCATION') return {
+        discourseAct: 'ANSWER_PLAYER_REPORTED_LOCATION',
+        text: latestLocation
+            ? `${latestLocation.regionName} bölgesinde olduğunu söyledin; bunu bağımsız olarak doğrulayamıyorum.`
+            : 'Nerede olduğunu gösteren doğrulanmış bir bilgim yok.'
+    };
+    if (focus === 'LISTENER_LOCATION') return {
+        discourseAct: 'ANSWER_LISTENER_LOCATION_UNKNOWN',
+        text: 'Bulunduğum şehri doğrulayan güncel bir konum kaydım yok; şehir adı uydurmayacağım.'
+    };
+    if (focus === 'LISTENER_ROLE') return {
+        discourseAct: 'ANSWER_LISTENER_ROLE',
+        text: `Ben ${actor && actor.name || 'muhatabın'}; görevim ${actor && (actor.publicTitle
+            || ({ EXECUTIVE: 'devlet yöneticiliği', COMMANDER: 'kuvvet komutanlığı', AGENT: 'istihbarat görevi',
+                COMPANY_EXECUTIVE: 'şirket yöneticiliği', POLITICAL_FIGURE: 'siyasi temsil' })[actor.role])
+            || 'doğrulanmamış'}.`
+    };
+    if (focus === 'PUBLIC_PRIORITIES') return {
+        discourseAct: 'ANSWER_PUBLIC_PRIORITIES_WITH_AUTHORITY_BOUNDARY',
+        text: 'Halka dönük somut bir hizmet sözü vermeden önce yetkimi ve doğrulanmış kamu ihtiyacını görmem gerekir. Genel refah sözü tek başına bir plan değildir.'
+    };
+    if (focus === 'REPETITION_REPAIR') return {
+        discourseAct: 'REPAIR_REPETITION',
+        text: 'Haklısın; önceki cevabı tekrarladım. Son sorunu doğrudan ve yeni bilgi uydurmadan yeniden sor.'
+    };
+    if (analysis.playerIntent === 'REQUEST_MILITARY_SUPPORT') return {
+        discourseAct: 'ASSESS_UNVERIFIED_MILITARY_REQUEST',
+        text: latestThreat
+            ? `${latestThreat.regionNames.join(' ve ')} çevresinde düşman yoğunlaşması bildirdin; bu henüz doğrulanmış istihbarat değil. Kuvvet hareketi için önce tehdidin ve yetkinin doğrulanması gerekir.`
+            : 'Askerî destek istediğini anlıyorum; ancak tehdit ve konum doğrulanmadan kuvvet hareketi sözü veremem.'
+    };
+    if (analysis.speechAct === 'REQUEST_SUPPORT' && latestThreat) return {
+        discourseAct: 'CONTINUE_MILITARY_SUPPORT_REQUEST',
+        text: 'Önceki askerî yardım talebini kastediyorsan, bildirdiğin tehdit hâlâ doğrulanmadı; hangi desteği istediğini ve kanıtını ayırarak söyle.'
+    };
+    return null;
 }
 
 function storyConversationDiagnosticAppend(session, response, playerText, eventType, sequence) {
@@ -1338,10 +1477,19 @@ function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerTex
         currentResponse.enrichmentStatus = 'GENERATING';
         mirrorResponse(current, currentResponse);
         const fallbackText = currentResponse.text;
+        const validationContext = {
+            history: (current.listenerResponses || []).filter(row => row.id !== responseId)
+                .map(row => ({ text: row.text })),
+            unverifiedRegionNames: storyConversationSessionUnverifiedClaims(current)
+                .flatMap(row => row.regionNames || (row.regionName ? [row.regionName] : [])),
+            locationAnswerMustBeUnknown: currentResponse.discourseAct === 'ANSWER_LISTENER_LOCATION_UNKNOWN'
+        };
+        const preserveGroundedMeaning = currentResponse.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE';
         return llmEnrich(
             'Modern bir strateji oyunundaki karakter olarak Türkçe konuş. Yalnız verilen bağlamı kullan.',
             storyConversationSocialLLMPrompt(current, currentResponse, playerText),
-            raw => storyConversationSocialLLMParse(raw, fallbackText, playerText),
+            raw => preserveGroundedMeaning ? null
+                : storyConversationSocialLLMParse(raw, fallbackText, playerText, validationContext),
             { maxTokens: 180, temperature: 0.35, priority: 100, jsonSchema: storyConversationSocialLLMSchema() }
         ).then(text => {
             const live = storyConversationSessionFind(sessionId);
@@ -1460,6 +1608,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     if (!analysis.ok) return { ok: false, code: analysis.code, worldMutation: false };
     const sequence = session.followUps.length + 1;
     const heldMemory = storyConversationSocialMemoryRecall(session, text);
+    const grounded = !heldMemory && storyConversationGroundedFollowUp(session, analysis, text, sequence);
     const response = {
         schemaVersion: 1,
         id: `conversation-follow-up-response:${session.id}:${sequence}`,
@@ -1468,11 +1617,14 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         targetActorId: session.playerActorId,
         speechAct: analysis.speechAct,
         createdAt: Number(STORY.clock) || 0,
-        text: heldMemory ? heldMemory.text : storyConversationSocialFollowUpText(session, analysis, text, sequence),
-        source: heldMemory ? 'CHARACTER_HELD_MEMORY_RECALL' : 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
+        text: heldMemory ? heldMemory.text : grounded ? grounded.text
+            : storyConversationSocialFollowUpText(session, analysis, text, sequence),
+        source: heldMemory ? 'CHARACTER_HELD_MEMORY_RECALL' : grounded
+            ? 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE' : 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
+        discourseAct: grounded && grounded.discourseAct || '',
         voiceFingerprint: storyConversationSocialVoice(session).fingerprint,
         relationshipBand: storyConversationSocialVoice(session).relationshipBand,
-        enrichmentStatus: heldMemory ? 'NOT_REQUIRED' : 'NOT_QUEUED', llmUsed: false,
+        enrichmentStatus: heldMemory || grounded ? 'NOT_REQUIRED' : 'NOT_QUEUED', llmUsed: false,
         memoryRecall: heldMemory && heldMemory.recall || null,
         evidenceIds: heldMemory && heldMemory.evidenceIds || [],
         rawWorldRead: false,
@@ -1486,6 +1638,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         playerText: text,
         inputHash: storyConversationHash(text),
         analysis: storyConversationClone(analysis),
+        inheritedClaims: storyConversationSessionUnverifiedClaims(session),
         response,
         worldMutation: false
     };
@@ -1496,7 +1649,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
     if (heldMemory) ledger.diagnostics.memoryRecalls++;
-    if (!heldMemory) storyConversationSessionQueueSocialLLM(session.id, response.id, text);
+    if (!heldMemory && !grounded) storyConversationSessionQueueSocialLLM(session.id, response.id, text);
     return {
         ok: true, code: 'FOLLOW_UP_RECORDED', followUp: storyConversationClone(followUp),
         session: storyConversationClone(session), worldMutation: false

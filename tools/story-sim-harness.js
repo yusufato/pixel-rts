@@ -16141,6 +16141,20 @@ function probeConversationUnderstanding(seed = 2032) {
         const continuityAmbiguous = socialRuntime.api.conversationSessionFollowUp(
             continuitySession.session.id, 'zorbak telemini kırık sazlık'
         );
+        const adversarialSession = socialRuntime.api.conversationSessionBegin(
+            'Selamlar.', { listenerActorId: listener && listener.id }
+        );
+        const adversarialTurns = [
+            'Gaziantepteyim ve Halep sınırlarında düşman birlikleri yoğunlaşıyor yardım için gelir misiniz',
+            'Evet şu an hangi şehirdeyim',
+            'Hangi şehirdesiniz şu an',
+            'Aynı şeyleri dedin efendim',
+            'Yardım gerekiyor efendim yardım',
+            'Devlet yöneticisi olarak halka ne hizmet yapacaksınız'
+        ].map(text => socialRuntime.api.conversationSessionFollowUp(adversarialSession.session.id, text));
+        const adversarialResponses = adversarialTurns.map(row => row && row.followUp && row.followUp.response);
+        const adversarialClaims = adversarialTurns.flatMap(row => row && row.followUp
+            && row.followUp.analysis && row.followUp.analysis.claims || []);
         const llmValidationContext = {
             discourseAct: 'REPAIR_REPETITION',
             history: [{ speaker: 'CHARACTER', text: 'Önceki cevabım değişmeden kaldı.' }]
@@ -16364,6 +16378,37 @@ function probeConversationUnderstanding(seed = 2032) {
                     && contextualTurns[3].session.discourseState.lastDiscourseAct === 'CORRECT_PREVIOUS_TOPIC'
                     && /enerji/i.test(contextualTurns[3].session.discourseState.lastPlayerText)),
                 noWorldMutation: contextualTurns.every(result => result && result.worldMutation === false)
+            },
+            adversarialTruthBoundary: {
+                militaryIntentRecognized: !!adversarialTurns[0] && adversarialTurns[0].followUp.analysis.speechAct === 'REQUEST_SUPPORT'
+                    && adversarialTurns[0].followUp.analysis.playerIntent === 'REQUEST_MILITARY_SUPPORT',
+                reportsRemainUnverified: adversarialClaims.filter(row =>
+                    ['PLAYER_REPORTED_LOCATION', 'PLAYER_REPORTED_MILITARY_THREAT'].includes(row.type)).length === 2
+                    && adversarialClaims.filter(row =>
+                        ['PLAYER_REPORTED_LOCATION', 'PLAYER_REPORTED_MILITARY_THREAT'].includes(row.type))
+                        .every(row => row.truthStatus === 'UNVERIFIED_PLAYER_REPORT'),
+                militaryAnswerQualifiesClaim: !!adversarialResponses[0]
+                    && adversarialResponses[0].discourseAct === 'ASSESS_UNVERIFIED_MILITARY_REQUEST'
+                    && /bildirdin/.test(adversarialResponses[0].text)
+                    && /doğrulanmış.*değil/.test(adversarialResponses[0].text),
+                playerLocationIsReportedNotFact: !!adversarialResponses[1]
+                    && adversarialResponses[1].discourseAct === 'ANSWER_PLAYER_REPORTED_LOCATION'
+                    && /söyledin/.test(adversarialResponses[1].text)
+                    && /doğrulayamıyorum/.test(adversarialResponses[1].text),
+                listenerLocationNotInvented: !!adversarialResponses[2]
+                    && adversarialResponses[2].discourseAct === 'ANSWER_LISTENER_LOCATION_UNKNOWN'
+                    && !/(İstanbul|Ankara|Gaziantep|Halep)/.test(adversarialResponses[2].text),
+                repetitionRepairRecognized: !!adversarialResponses[3]
+                    && adversarialResponses[3].discourseAct === 'REPAIR_REPETITION',
+                laterHelpDoesNotRepeatThreatAnswer: !!adversarialResponses[4]
+                    && adversarialResponses[4].text !== adversarialResponses[0].text,
+                publicPriorityRejectsEmptySlogan: !!adversarialResponses[5]
+                    && adversarialResponses[5].discourseAct === 'ANSWER_PUBLIC_PRIORITIES_WITH_AUTHORITY_BOUNDARY'
+                    && /tek başına bir plan değildir/.test(adversarialResponses[5].text),
+                groundedAnswersSkipLlm: adversarialResponses.every(row => row
+                    && row.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'
+                    && row.enrichmentStatus === 'NOT_REQUIRED' && row.llmUsed === false),
+                noWorldMutation: adversarialTurns.every(row => row && row.worldMutation === false)
             },
             sessionContinuity: {
                 checkInStaysSameSession: !!continuityCheckIn && continuityCheckIn.ok

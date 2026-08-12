@@ -709,3 +709,11 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Görünür her oyuncu–karakter turu artık `qa-runtime/story-dialogue-log.jsonl` dosyasına `sessionId/responseId`, konuşma eylemi, kaynak ve LLM kullanımıyla yazılır. Sonradan gelen model zenginleştirmesi ayrı `RESPONSE_ENRICHED` olayıdır. Sistem istemi, gizli eksen, ActorBelief ve ham dünya gerçeği kayda girmez; dosya 8 MB'ta döner.
 - Hedefli konuşma probu kayıt çiftini ve gizli alan yokluğunu; uzun diyalog probu 50 turluk kapıyı doğruladı. Bir sonraki gerçek oyuncu oturumundan sonra tahmin yerine bu JSONL üzerinden tekrar, servis dili, bağlam kopması ve fallback/model oranı ölçülecektir.
 - Test tezgâhı ayrıca ticari teklif oturumunda günlük ara sözün canlı motor tarafından reddedildiği eski mimari borcu görünür kıldı. Bu borç sohbetten-sonuca zincirinin durum makinesi çalışmasında ele alınacak; geçmiş test beklentisi geçsin diye mekanik teklif sessizce sosyal oturuma çevrilmeyecek.
+
+### 12 Ağustos 2026 — ilk gerçek sohbet borç kapatma döngüsü
+
+- Sekiz turluk gerçek EXE kaydında LLM `7/8` turda kullanıldı ve ortalama yaklaşık `2,2 sn` sürdü; darboğaz hız değil anlam doğruluğuydu. Model doğrulanmamış Gaziantep/Halep bildirimini gerçek kabul etti, İstanbul uydurdu ve aynı askerî cevabı üç turda kullandı.
+- Oyuncu konumu ile askerî tehdit artık `UNVERIFIED_PLAYER_REPORT` iddiasıdır. Karakter bunu hatırlar fakat yalnız “söyledin/bildirdin; doğrulanmadı” diye aktarabilir. İddia WorldFact veya ActorBelief değildir ve dünya mutasyonu üretmez.
+- Doğal yardım cümleleri ile askerî bağlam birlikte `REQUEST_MILITARY_SUPPORT` olur. Oyuncu/muhatap konumu, rol sorusu, tekrar itirazı ve kamu önceliği ayrı soru odağına bağlandı. Kanonik konum verisi yokken şehir adı üretilmez.
+- Kanıt-temelli güvenli cevap LLM'e yeniden yazdırılmaz. Böylece yerel model doğal dil uğruna iddiayı yeniden gerçeğe çeviremez ve gereksiz GPU çağrısı yapılmaz. Genel sohbet LLM'i için tam/semantik tekrar, servis-botu eş anlamlıları ve doğrulanmamış yer adını olgu gibi kullanma kapıları eklendi.
+- Kullanıcının Gaziantep–Halep yalan dizisi zorunlu regresyon kapısı oldu: Türkçe `-teyim/-dayım`, askerî niyet, iddia niteliği, konum uydurmama, tekrar onarımı, boş refah sloganını reddetme, LLM atlama ve sıfır dünya mutasyonu birlikte doğrulanıyor.
