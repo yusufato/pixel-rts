@@ -1094,24 +1094,108 @@ function storyConversationSessionCandidate(session) {
     };
 }
 
-function storyConversationSocialResponseText(speechAct) {
-    return ({
-        GREETING: 'Merhaba. Buradayım; konuşmak istediğin konuyu söyle.',
-        CHECK_IN: 'İyiyim, teşekkür ederim. Senin günün nasıl gidiyor?',
-        THANK: 'Rica ederim. Yardımcı olabildiysem memnun oldum.',
-        APOLOGIZE: 'Özrünü duydum. Konuyu daha dikkatli biçimde sürdürebiliriz.',
-        FAREWELL: 'Görüşmek üzere. Kendine iyi bak.',
-        ASK_PERSONAL_OPINION: 'Fikrimi söyleyebilirim; hangi yönünü değerlendirmemi istediğini biraz aç.',
-        SMALL_TALK: 'Elbette, biraz konuşabiliriz.',
-        REQUEST_SUPPORT: 'Yardım isteğini duydum. Ne konuda desteğe ihtiyacın olduğunu açıkça söyle.'
-    })[speechAct] || null;
+function storyConversationSocialVoice(session) {
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(session.listenerActorId) : null;
+    const voice = actor && actor.voiceProfile || {};
+    const relation = typeof storyRelationshipView === 'function'
+        ? storyRelationshipView(session.listenerActorId, session.playerActorId) : null;
+    const trust = Number(relation && relation.trustBps) || 0;
+    const respect = Number(relation && relation.respectBps) || 0;
+    const hostility = Number(relation && relation.hostilityBps) || 0;
+    let register = 'GUARDED';
+    if (hostility < 4200 && trust >= 4800 && Number(voice.warmthBps) >= 5000) register = 'WARM';
+    else if (Number(voice.formalityBps) >= 6200 || respect >= 6200) register = 'FORMAL';
+    else if (Number(voice.directnessBps) >= 5800) register = 'DIRECT';
+    return {
+        register,
+        fingerprint: `${register}:${Math.round((Number(voice.directnessBps) || 0) / 1000)}:`
+            + `${Math.round((Number(voice.warmthBps) || 0) / 1000)}:${Math.round((Number(voice.formalityBps) || 0) / 1000)}`,
+        relationshipBand: hostility >= 6000 ? 'HOSTILE'
+            : trust >= 6000 ? 'TRUSTED' : respect >= 6000 ? 'RESPECTFUL' : 'RESERVED'
+    };
+}
+
+const STORY_CONVERSATION_SOCIAL_LINES = Object.freeze({
+    GREETING: Object.freeze({
+        WARM: ['Merhaba. Seni görmek güzel; günün nasıl gidiyor?', 'Selam. Burada olmana sevindim; nasıl yardımcı olabilirim?',
+            'Yeniden merhaba. Bugün aklında ne var?', 'Hoş geldin. Biraz konuşmak iyi olabilir; nereden başlayalım?'],
+        DIRECT: ['Merhaba. Konuya geçebiliriz.', 'Selam. Söyle, neyi konuşacağız?',
+            'Yeniden selam. Bu kez hangi konu var?', 'Buradayım. Ne söylemek istiyorsun?'],
+        FORMAL: ['Merhaba. Görüşmeye hazırım; buyurun.', 'İyi günler. Ele almak istediğiniz konuyu söyleyin.',
+            'Tekrar merhaba. Gündeminizdeki konuyu dinleyebilirim.', 'Hoş geldiniz. Görüşmeye nereden başlayalım?'],
+        GUARDED: ['Merhaba. Ne hakkında konuşmak istediğini söyle.', 'Selam. Önce konuyu netleştirelim.',
+            'Yeniden merhaba. Bu görüşmenin konusunu söyle.', 'Buradayım. Ne konuşacağımızı açıkça belirt.']
+    }),
+    CHECK_IN: Object.freeze({
+        WARM: ['İyiyim, teşekkür ederim. Senin günün nasıl gidiyor?', 'Fena değilim. Asıl sen nasılsın, günün nasıl geçti?',
+            'Bugün kendimi iyi hissediyorum. Senin keyfin nasıl?', 'İşler yoğun ama iyiyim. Senin tarafında hayat nasıl gidiyor?'],
+        DIRECT: ['İyiyim. Sen nasılsın?', 'İşler sürüyor. Senin tarafında durum nasıl?',
+            'Fena değilim. Senin günün nasıl?', 'Ayaktayım ve işimin başındayım. Sen nasılsın?'],
+        FORMAL: ['Teşekkür ederim, iyiyim. Sizin gününüz nasıl geçiyor?', 'İyiyim, sağ olun. Siz nasılsınız?',
+            'Bugün durumum iyi. Sizin tarafınızda işler nasıl?', 'Teşekkür ederim, her şey yolunda. Siz kendinizi nasıl hissediyorsunuz?'],
+        GUARDED: ['İdare ediyorum. Senin günün nasıl?', 'Şimdilik iyiyim. Neden sorduğunu da merak ettim.',
+            'Fena sayılmam. Senin durumun nasıl?', 'Günüm sakin geçiyor. Senin tarafta bir sorun mu var?']
+    }),
+    THANK: Object.freeze({
+        WARM: ['Rica ederim. Yardımcı olabildiysem ne mutlu.', 'Ne demek. İşine yaradıysa sevindim.'],
+        DIRECT: ['Rica ederim.', 'Sorun değil.'],
+        FORMAL: ['Rica ederim; görevimi yaptım.', 'Teşekkürünüze karşılık rica ederim.'],
+        GUARDED: ['Rica ederim. Konuyu burada kapatabiliriz.', 'Anladım. Teşekkürünü kabul ediyorum.']
+    }),
+    APOLOGIZE: Object.freeze({
+        WARM: ['Özrünü kabul ediyorum. Bunu geride bırakabiliriz.', 'Bunu söylemen önemliydi; devam edebiliriz.'],
+        DIRECT: ['Özrünü duydum. Aynı hatayı tekrarlamayalım.', 'Kabul ediyorum. Şimdi çözümüne bakalım.'],
+        FORMAL: ['Özrünüzü kayda değer buluyorum. Konuyu dikkatle sürdürelim.', 'Özrünüzü kabul ediyorum; bundan sonrasını usulünce ilerletelim.'],
+        GUARDED: ['Özrünü duydum. Güvenin yeniden kurulması zaman alacak.', 'Sözünü not ettim; davranışın belirleyici olacak.']
+    }),
+    FAREWELL: Object.freeze({
+        WARM: ['Görüşmek üzere. Kendine iyi bak.', 'Sonra görüşürüz; iyi kal.'],
+        DIRECT: ['Görüşürüz.', 'Peki. Sonra devam ederiz.'],
+        FORMAL: ['Görüşmek üzere. İyi günler dilerim.', 'Görüşmemizi burada tamamlayalım. Esen kalın.'],
+        GUARDED: ['Görüşmek üzere.', 'Şimdilik hoşça kal.']
+    }),
+    ASK_PERSONAL_OPINION: Object.freeze({
+        WARM: ['Fikrimi açıkça söylerim; hangi yönünü merak ediyorsun?', 'Elbette. Önce neyi değerlendirmemi istediğini anlat.'],
+        DIRECT: ['Soruyu netleştir; görüşümü doğrudan söyleyeyim.', 'Hangi konuda fikrimi istiyorsun?'],
+        FORMAL: ['Görüş bildirebilirim; değerlendirme konusunu netleştirin.', 'Elbette. Hangi başlıkta kanaatimi istediğinizi belirtin.'],
+        GUARDED: ['Fikrimi söylemeden önce bağlamı bilmem gerekir.', 'Önce konuyu aç; sonra ne düşündüğümü söylerim.']
+    }),
+    SMALL_TALK: Object.freeze({
+        WARM: ['Olur, biraz konuşalım. Aklında ne var?', 'Memnuniyetle. Bugün ne konuşmak istersin?'],
+        DIRECT: ['Olur. Konuyu sen seç.', 'Peki, konuşalım.'],
+        FORMAL: ['Elbette, kısa bir sohbet edebiliriz.', 'Uygundur. Sohbet konusunu siz seçin.'],
+        GUARDED: ['Biraz konuşabiliriz. Önce konuyu söyle.', 'Olur; ancak açık konuşalım.']
+    }),
+    REQUEST_SUPPORT: Object.freeze({
+        WARM: ['Yardım etmeyi isterim. Neye ihtiyacın olduğunu anlat.', 'Yanında olup olamayacağımı anlamam için ihtiyacını açıkla.'],
+        DIRECT: ['Ne istediğini ve nedenini açıkça söyle.', 'Desteğin türünü belirt; sonra cevap vereyim.'],
+        FORMAL: ['Talebinizi değerlendirebilmem için kapsamı ve gerekçeyi açıklayın.', 'Destek isteğinizi somutlaştırın; yetki sınırım içinde değerlendireyim.'],
+        GUARDED: ['Önce ne istediğini ve karşılığında ne beklediğini bilmeliyim.', 'Desteği peşinen veremem. İhtiyacı ayrıntılandır.']
+    })
+});
+
+function storyConversationSocialResponseText(session, speechAct, salt) {
+    const style = storyConversationSocialVoice(session);
+    const byAct = STORY_CONVERSATION_SOCIAL_LINES[speechAct];
+    const candidates = byAct && (byAct[style.register] || byAct.GUARDED) || [];
+    if (!candidates.length) return null;
+    const previous = new Set((session.listenerResponses || []).map(row => storyConversationFold(row.text)));
+    const start = parseInt(storyConversationHash(`${session.listenerActorId}|${speechAct}|${salt || 0}`).slice(9, 17), 16)
+        % candidates.length;
+    let selected = candidates[start];
+    for (let offset = 0; offset < candidates.length; offset++) {
+        const candidate = candidates[(start + offset) % candidates.length];
+        if (!previous.has(storyConversationFold(candidate))) { selected = candidate; break; }
+    }
+    return { text: selected, voice: style };
 }
 
 function storyConversationSessionBuildSocialResponse(session, ledger) {
     if (!session || !session.analysis.ok || !session.listenerActorId
         || !STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)) return null;
-    const text = storyConversationSocialResponseText(session.analysis.speechAct);
-    if (!text) return null;
+    const realized = storyConversationSocialResponseText(session, session.analysis.speechAct, 0);
+    if (!realized) return null;
     const response = {
         schemaVersion: 1,
         id: `conversation-social-response:${session.id}:1`,
@@ -1120,8 +1204,10 @@ function storyConversationSessionBuildSocialResponse(session, ledger) {
         targetActorId: session.playerActorId,
         speechAct: session.analysis.speechAct,
         createdAt: Number(STORY.clock) || 0,
-        text,
-        source: 'DETERMINISTIC_SOCIAL_RESPONSE',
+        text: realized.text,
+        source: 'CHARACTER_PROFILE_SOCIAL_RESPONSE',
+        voiceFingerprint: realized.voice.fingerprint,
+        relationshipBand: realized.voice.relationshipBand,
         worldMutation: false
     };
     session.listenerResponses.push(response);
@@ -1129,7 +1215,7 @@ function storyConversationSessionBuildSocialResponse(session, ledger) {
     return response;
 }
 
-function storyConversationSocialFollowUpText(analysis, raw) {
+function storyConversationSocialFollowUpText(session, analysis, raw, sequence) {
     const folded = storyConversationFold(raw);
     if (storyConversationContains(folded, ['ben de iyiyim', 'iyiyim', 'iyi gidiyor'])) {
         return 'Buna sevindim. Bugün konuşmak istediğin başka bir konu var mı?';
@@ -1137,8 +1223,8 @@ function storyConversationSocialFollowUpText(analysis, raw) {
     if (storyConversationContains(folded, ['kotu', 'zor', 'uzgun', 'yorgun'])) {
         return 'Bunu duyduğuma üzüldüm. İstersen seni zorlayan konuyu anlat.';
     }
-    const direct = storyConversationSocialResponseText(analysis.speechAct);
-    if (direct) return direct;
+    const direct = storyConversationSocialResponseText(session, analysis.speechAct, sequence);
+    if (direct) return direct.text;
     return 'Bunu önceki sözünün devamı olarak anladım. Ne demek istediğini biraz daha açar mısın?';
 }
 
@@ -1170,8 +1256,10 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         targetActorId: session.playerActorId,
         speechAct: analysis.speechAct,
         createdAt: Number(STORY.clock) || 0,
-        text: storyConversationSocialFollowUpText(analysis, text),
-        source: 'DETERMINISTIC_SOCIAL_FOLLOW_UP',
+        text: storyConversationSocialFollowUpText(session, analysis, text, sequence),
+        source: 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
+        voiceFingerprint: storyConversationSocialVoice(session).fingerprint,
+        relationshipBand: storyConversationSocialVoice(session).relationshipBand,
         worldMutation: false
     };
     const followUp = {
