@@ -158,6 +158,73 @@ function storyMemoryAddRecent(actorId, input) {
     return { applied: true, record: storyMemoryClone(record), prunedCount: pruned.length };
 }
 
+// Salt-okunur ve sahiplik-korumalı geri çağrım. Bu kapı küresel dünya durumunu
+// taramaz; yalnız aktörün RECENT kayıtlarını, katıldığı EPISODE'ları ve açıkça
+// holder olduğu MILESTONE'ları projekte eder.
+function storyMemoryRecallForActor(actorId, query) {
+    const ledger = storyMemoryEnsure();
+    const holderActorId = String(actorId || '');
+    const identities = storyMemoryIdentityMap();
+    if (!ledger || !identities[holderActorId]) {
+        return { ok: false, code: 'MEMORY_HOLDER_NOT_FOUND', actorId: holderActorId, records: [] };
+    }
+    query = query && typeof query === 'object' ? query : {};
+    const sourceIds = new Set((query.sourceIds || []).filter(Boolean).map(String));
+    const kinds = new Set((query.kinds || []).filter(Boolean).map(value => String(value).toUpperCase()));
+    const relatedActorId = query.relatedActorId == null ? null : String(query.relatedActorId);
+    const limit = Math.max(1, Math.min(6, Math.floor(Number(query.limit) || 3)));
+    const sourceValues = source => Object.values(source || {}).filter(value =>
+        ['string', 'number'].includes(typeof value)).map(String);
+    const sourceEvidence = row => Array.from(new Set([
+        row.id, ...(row.source && sourceValues(row.source) || [])
+    ].filter(Boolean))).sort();
+    const candidates = [];
+    const push = (row, layer, owned, relatedIds) => {
+        if (!row || !owned) return;
+        const rowKind = String(row.kind || (layer === 'EPISODE' ? 'CONVERSATION' : 'OTHER')).toUpperCase();
+        if (kinds.size && !kinds.has(rowKind)) return;
+        const evidenceIds = sourceEvidence(row);
+        const exactSourceMatches = evidenceIds.filter(id => sourceIds.has(id)).length;
+        if (sourceIds.size && exactSourceMatches === 0) return;
+        const relations = (relatedIds || []).map(String);
+        if (relatedActorId && !relations.includes(relatedActorId)
+            && String(row.subjectActorId || '') !== relatedActorId) return;
+        const layerWeight = layer === 'MILESTONE' ? 20000 : (layer === 'EPISODE' ? 12000 : 1000);
+        candidates.push({
+            schemaVersion: 1, id: row.id, layer,
+            horizon: layer === 'MILESTONE' ? 'LONG' : (layer === 'EPISODE' ? 'MEDIUM' : 'SHORT'),
+            kind: rowKind, status: row.status || null,
+            summary: String(row.resolution || row.summary || rowKind),
+            occurredAt: Number(row.resolvedAt != null ? row.resolvedAt
+                : (row.occurredAt != null ? row.occurredAt : row.createdAt)) || 0,
+            sourceEvidenceIds: evidenceIds,
+            score: exactSourceMatches * 10000 + layerWeight + Math.round(Number(row.importanceBps) || 0),
+            rawWorldRead: false
+        });
+    };
+    for (const row of (ledger.recentByActor[holderActorId] || [])) {
+        push(row, 'RECENT', row.actorId === holderActorId, row.relatedActorIds || []);
+    }
+    for (const row of Object.values(ledger.episodes || {})) {
+        push(row, 'EPISODE', (row.participantActorIds || []).includes(holderActorId),
+            (row.participantActorIds || []).filter(id => id !== holderActorId));
+    }
+    for (const row of Object.values(ledger.milestones || {})) {
+        push(row, 'MILESTONE', (row.holderActorIds || []).includes(holderActorId),
+            [row.subjectActorId].concat(row.relatedActorIds || []).filter(id => id !== holderActorId));
+    }
+    candidates.sort((a, b) => Number(b.score) - Number(a.score)
+        || Number(b.occurredAt) - Number(a.occurredAt)
+        || String(a.id).localeCompare(String(b.id), 'en'));
+    const records = candidates.slice(0, limit).map(row => {
+        const copy = storyMemoryClone(row); delete copy.score; return copy;
+    });
+    return {
+        ok: true, code: records.length ? 'MEMORY_RECALLED' : 'NO_HELD_MEMORY',
+        actorId: holderActorId, records, rawWorldRead: false
+    };
+}
+
 function storyMemoryOpenEpisode(input) {
     const ledger = storyMemoryEnsure();
     if (!ledger) return { applied: false, reason: 'MEMORY_DISABLED' };

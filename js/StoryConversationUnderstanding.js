@@ -488,7 +488,7 @@ function storyConversationSessionLedgerCreate() {
             prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
             domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
             playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0,
-            socialFollowUps: 0
+            socialFollowUps: 0, memoryRecalls: 0
         }
     };
 }
@@ -503,7 +503,7 @@ function storyConversationSessionMigrateLedger(saved) {
         prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
         domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
         playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0,
-        socialFollowUps: 0
+        socialFollowUps: 0, memoryRecalls: 0
     }, ledger.diagnostics || {});
     for (const session of (ledger.sessions || [])) {
         session.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
@@ -1346,6 +1346,30 @@ function storyConversationSocialFollowUpText(session, analysis, raw, sequence) {
     return 'Bunu önceki sözünün devamı olarak anladım. Ne demek istediğini biraz daha açar mısın?';
 }
 
+function storyConversationSocialMemoryRecall(session, raw) {
+    if (typeof storyMemoryRecallForActor !== 'function') return null;
+    const folded = storyConversationFold(raw);
+    const wantsMemory = storyConversationContains(folded, [
+        'hatirliyor musun', 'hatirladin mi', 'onceki konusma', 'gecen konusma',
+        'daha once', 'verdigin soz', 'verdigim soz', 'sozumu', 'sozunu', 'ne oldu'
+    ]);
+    if (!wantsMemory) return null;
+    const wantsPromise = storyConversationContains(folded, ['soz', 'tuttuk', 'bozduk', 'ne oldu']);
+    const recall = storyMemoryRecallForActor(session.listenerActorId, {
+        kinds: wantsPromise ? ['PROMISE']
+            : ['CONVERSATION', 'PROMISE', 'DECISION', 'CONFLICT', 'DEBT', 'RELATIONSHIP'],
+        relatedActorId: session.playerActorId,
+        limit: 3
+    });
+    if (!recall || !recall.ok || !recall.records.length) return null;
+    const summary = recall.records.map(row => `${row.summary}${row.status ? ` [${row.status}]` : ''}`).join(' | ');
+    return {
+        text: `Hatırladığım kayıtlar şunlar: ${summary}`,
+        recall,
+        evidenceIds: Array.from(new Set(recall.records.flatMap(row => row.sourceEvidenceIds || []))).sort()
+    };
+}
+
 function storyConversationSessionFollowUp(sessionId, raw) {
     const ledger = storyConversationSessionEnsure();
     const session = storyConversationSessionFind(sessionId);
@@ -1366,6 +1390,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     });
     if (!analysis.ok) return { ok: false, code: analysis.code, worldMutation: false };
     const sequence = session.followUps.length + 1;
+    const heldMemory = storyConversationSocialMemoryRecall(session, text);
     const response = {
         schemaVersion: 1,
         id: `conversation-follow-up-response:${session.id}:${sequence}`,
@@ -1374,11 +1399,14 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         targetActorId: session.playerActorId,
         speechAct: analysis.speechAct,
         createdAt: Number(STORY.clock) || 0,
-        text: storyConversationSocialFollowUpText(session, analysis, text, sequence),
-        source: 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
+        text: heldMemory ? heldMemory.text : storyConversationSocialFollowUpText(session, analysis, text, sequence),
+        source: heldMemory ? 'CHARACTER_HELD_MEMORY_RECALL' : 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
         voiceFingerprint: storyConversationSocialVoice(session).fingerprint,
         relationshipBand: storyConversationSocialVoice(session).relationshipBand,
-        enrichmentStatus: 'NOT_QUEUED', llmUsed: false,
+        enrichmentStatus: heldMemory ? 'NOT_REQUIRED' : 'NOT_QUEUED', llmUsed: false,
+        memoryRecall: heldMemory && heldMemory.recall || null,
+        evidenceIds: heldMemory && heldMemory.evidenceIds || [],
+        rawWorldRead: false,
         worldMutation: false
     };
     const followUp = {
@@ -1397,7 +1425,8 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     session.updatedAt = Number(STORY.clock) || 0;
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
-    storyConversationSessionQueueSocialLLM(session.id, response.id, text);
+    if (heldMemory) ledger.diagnostics.memoryRecalls++;
+    if (!heldMemory) storyConversationSessionQueueSocialLLM(session.id, response.id, text);
     return {
         ok: true, code: 'FOLLOW_UP_RECORDED', followUp: storyConversationClone(followUp),
         session: storyConversationClone(session), worldMutation: false

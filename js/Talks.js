@@ -1389,9 +1389,12 @@ function storyTalkConversationFollowUpsHtml(session) {
     const esc = storyTalkConversationEscape;
     return (session.followUps || []).map(row => `<div class="conversation-follow-up-thread">`
         + `<article class="conversation-follow-up player"><span>SEN</span><p>${esc(row.playerText)}</p></article>`
-        + `<article class="conversation-follow-up listener"><span>MUHATAP</span>`
+        + `<article class="conversation-follow-up listener"><span>${row.response && row.response.source === 'CHARACTER_HELD_MEMORY_RECALL'
+            ? 'MUHATAP · KAYNAKLI HAFIZA' : 'MUHATAP'}</span>`
         + `<p data-conversation-response-text="${esc(row.response && row.response.id || '')}">${esc(row.response && row.response.text || '')}</p>`
-        + `<small>AYNI GÖRÜŞME · DÜNYA DEĞİŞMEDİ</small></article></div>`).join('');
+        + `<small>${row.response && row.response.source === 'CHARACTER_HELD_MEMORY_RECALL'
+            ? `${(row.response.evidenceIds || []).length} KAYNAK · HAM DÜNYA OKUNMADI`
+            : 'AYNI GÖRÜŞME · DÜNYA DEĞİŞMEDİ'}</small></article></div>`).join('');
 }
 
 function storyTalkConversationFollowUpComposerHtml(session) {
