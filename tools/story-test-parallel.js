@@ -144,7 +144,7 @@ async function main() {
                 if ((message.recycleRecommended
                     || (message.memory && message.memory.rss > recycleRss)) && selected.length) {
                     state.recycling = true;
-                    child.disconnect();
+                    if (child.connected) child.disconnect();
                     child.kill();
                 } else assign(state);
                 finishIfDone();
@@ -194,7 +194,7 @@ async function main() {
         if (!failed && completed < selected.length) return;
         resolved = true;
         for (const state of states.values()) {
-            try { state.child.disconnect(); } catch (_) { /* already disconnected */ }
+            try { if (state.child.connected) state.child.disconnect(); } catch (_) { /* already disconnected */ }
             state.child.kill();
         }
         resolvePool();

@@ -65,6 +65,7 @@ const STORY_SOURCES = [
     'js/StoryRelationships.js',
     'js/StoryMemory.js',
     'js/StoryDecisionTrace.js',
+    'js/StoryCharacterBehavior.js',
     'js/StoryCharacterActions.js',
     'js/StoryContacts.js',
     'js/Factions.js',
@@ -549,6 +550,10 @@ function createRuntime(seed) {
             characterMemoryAddMilestone: input => storyMemoryAddMilestone(input),
             characterMemoryResolveMilestone: (id, status) => storyMemoryResolveMilestone(id, status),
             characterActionLedger: () => storyCharacterActionSnapshot(),
+            characterBehaviorLedger: () => storyCharacterBehaviorSnapshot(),
+            characterBehaviorValidate: ledger => storyCharacterBehaviorValidate(ledger),
+            characterBehaviorStressAdd: (actorId, input) => storyCharacterBehaviorStressAdd(actorId, input),
+            characterBehaviorTick: dt => storyCharacterBehaviorTick(dt),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -3341,7 +3346,7 @@ function probeSchedulerRegistry(seed = 2032) {
     const expectedOrder = [
         'resource', 'production', 'commander-ai', 'loyalty', 'economy',
         'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'character-actions', 'negotiation-deadlines', 'siege', 'technology',
+        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'character-behavior', 'character-actions', 'negotiation-deadlines', 'siege', 'technology',
         'chatter', 'talks', 'diplomacy', 'era', 'city-development',
         'replenishment'
     ];
@@ -13682,6 +13687,93 @@ function probeDecisionTraceV2(seed = 2032) {
     return result;
 }
 
+function probeCharacterBehaviorState(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let savedRaw;
+    let snapshot;
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const worldBefore = hashSnapshot(stateSnapshot(story));
+        const welfareBefore = story.states.map(row => Number(row.welfare) || 0);
+        const identities = story.characterIdentities;
+        const actors = Object.values(identities.identities || {});
+        const first = actors[0];
+        const behavior = runtime.api.characterBehaviorLedger();
+        const firstProfile = behavior.actors[first.id].biasProfile;
+        const different = actors.slice(1).find(actor => JSON.stringify(
+            behavior.actors[actor.id].biasProfile.biases
+        ) !== JSON.stringify(firstProfile.biases));
+        const factId = 'world-fact:phase387:stress';
+        const beliefId = 'actor-belief:phase387:stress';
+        identities.worldFacts[factId] = {
+            id: factId, factType: 'TEST_STRESS_EVENT', subjectActorId: first.id,
+            countryId: first.countryId, originEventId: 'event:phase387:stress',
+            visibility: 'PRIVATE', version: 1
+        };
+        identities.actorBeliefs[beliefId] = {
+            id: beliefId, holderActorId: first.id, holderCountryId: first.countryId,
+            worldFactId: factId, subjectActorId: first.id, beliefStatus: 'VERIFIED',
+            confidenceBps: 9000, source: { type: 'DIRECT_EXPERIENCE', eventId: 'event:phase387:stress' },
+            learnedAt: Number(story.clock) || 0, originEventId: 'event:phase387:stress', version: 1
+        };
+        const forged = runtime.api.characterBehaviorStressAdd(first.id, {
+            eventId: 'event:phase387:forged', beliefId: 'actor-belief:not-held',
+            initialBps: 8000, halfLifeSeconds: 60
+        });
+        const added = runtime.api.characterBehaviorStressAdd(first.id, {
+            eventId: 'event:phase387:stress', beliefId,
+            kind: 'PUBLIC_CRISIS_PRESSURE', initialBps: 8000, halfLifeSeconds: 60
+        });
+        story.clock += 60;
+        runtime.api.characterBehaviorTick(60);
+        const atHalfLife = runtime.api.characterBehaviorLedger()
+            .actors[first.id].stressors[added.stressor.id];
+        story.clock += 600;
+        runtime.api.characterBehaviorTick(600);
+        snapshot = runtime.api.characterBehaviorLedger();
+        const afterDecay = snapshot.actors[first.id].stressors[added.stressor.id];
+        const worldAfter = hashSnapshot(stateSnapshot(story));
+        const welfareAfter = story.states.map(row => Number(row.welfare) || 0);
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        result = {
+            actorCount: Object.keys(snapshot.actors).length,
+            distinctBiasProfiles: !!different,
+            biasBounded: Object.values(snapshot.actors).every(row => row.biasProfile.biases.length <= 2
+                && row.biasProfile.biases.every(bias => bias.strengthBps >= 0 && bias.strengthBps <= 2500)
+                && row.biasProfile.scoreEffect === 0
+                && row.biasProfile.doubleCountPrevented === true),
+            forgedStressRejected: forged.ok === false && forged.code === 'SOURCE_BELIEF_REQUIRED',
+            sourcedStressAccepted: added.ok === true && added.stressor.beliefId === beliefId,
+            halfLifeCorrect: Math.abs(atHalfLife.currentBps - 4000) <= 1,
+            stressDecays: afterDecay.currentBps < atHalfLife.currentBps
+                && afterDecay.status === 'EXPIRED',
+            personaTruthSafe: Object.values(snapshot.actors).every(row =>
+                row.publicPersona.mechanicalTruthMutable === false
+                && row.publicPersona.source === 'CANONICAL_VOICE_PROFILE'),
+            worldNeutral: worldBefore === worldAfter,
+            welfareNeutral: JSON.stringify(welfareBefore) === JSON.stringify(welfareAfter),
+            validation: runtime.api.characterBehaviorValidate(snapshot)
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const restored = createRuntime(seed >>> 0);
+    try {
+        restored.api.putSavedRaw(savedRaw);
+        result.restored = {
+            loaded: restored.api.loadNow(),
+            exact: JSON.stringify(restored.api.characterBehaviorLedger()) === JSON.stringify(snapshot),
+            validation: restored.api.characterBehaviorValidate(restored.api.characterBehaviorLedger())
+        };
+    } finally {
+        restored.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -15936,6 +16028,7 @@ module.exports = {
     probeDialogueScenarioLab,
     probeConversationRuntime385,
     probeDecisionTraceV2,
+    probeCharacterBehaviorState,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

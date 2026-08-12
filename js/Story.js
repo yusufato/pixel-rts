@@ -509,13 +509,14 @@ function storyNewCampaign(config = {}) {
     if (typeof storyElectionReset === 'function') storyElectionReset();
     if (typeof storyIntegrityReset === 'function') storyIntegrityReset();
     if (typeof storyPoliticalCrisisReset === 'function') storyPoliticalCrisisReset();
+    if (typeof storyCharacterBehaviorReset === 'function') storyCharacterBehaviorReset();
     if (typeof storyClockReset === 'function') storyClockReset({ speed: 1 });
     if (typeof storySchedulerReset === 'function') storySchedulerReset();
     // A/B geri dönüş yolu da yeni kampanyaya önceki koşunun kısmi sayaçlarını
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
-        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterActions', '_accSiege', '_accTech',
+        '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterBehavior', '_accCharacterActions', '_accSiege', '_accTech',
         '_accNegotiationDeadlines',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
         '_accChat'
@@ -647,6 +648,9 @@ function storySave() {
             characterActions: (typeof storyCharacterActionForSave === 'function')
                 ? storyCharacterActionForSave()
                 : STORY.characterActions,
+            characterBehavior: (typeof storyCharacterBehaviorForSave === 'function')
+                ? storyCharacterBehaviorForSave()
+                : STORY.characterBehavior,
             conversationUnderstanding: (typeof storyConversationSessionForSave === 'function')
                 ? storyConversationSessionForSave()
                 : STORY.conversationUnderstanding,
@@ -806,6 +810,7 @@ function storyLoad() {
         if (typeof storyCharacterIdentityRestore === 'function') storyCharacterIdentityRestore(d.characterIdentities);
         if (typeof storyRelationshipRestore === 'function') storyRelationshipRestore(d.characterRelationships);
         if (typeof storyMemoryRestore === 'function') storyMemoryRestore(d.characterMemory);
+        if (typeof storyCharacterBehaviorRestore === 'function') storyCharacterBehaviorRestore(d.characterBehavior);
         if (typeof storyCharacterActionRestore === 'function') storyCharacterActionRestore(d.characterActions);
         if (typeof storyConversationSessionRestore === 'function') {
             storyConversationSessionRestore(d.conversationUnderstanding);
@@ -1580,6 +1585,8 @@ function storyAdvanceStep(dtSec) {
     if (_integrityDt > 0 && typeof storyIntegrityTick === 'function') storyIntegrityTick(_integrityDt); // Faz 32 kanitli patronaj ve sorusturma dosyalari
     const _politicalCrisisDt = _storyDue('political-crisis', '_accPoliticalCrisis', 5);
     if (_politicalCrisisDt > 0 && typeof storyPoliticalCrisisTick === 'function') storyPoliticalCrisisTick(_politicalCrisisDt); // Faz 33 aktor, hazirlik, koalisyon ve karsi hamle zinciri
+    const _characterBehaviorDt = _storyDue('character-behavior', '_accCharacterBehavior', 5);
+    if (_characterBehaviorDt > 0 && typeof storyCharacterBehaviorTick === 'function') storyCharacterBehaviorTick(_characterBehaviorDt); // Faz 38.7 kaynakli ve sonumlenen gecici stres
     const _characterActionDt = _storyDue('character-actions', '_accCharacterActions', 10);
     if (_characterActionDt > 0 && typeof storyCharacterActionTick === 'function') storyCharacterActionTick(_characterActionDt); // Faz 37 deterministik, hilesiz ve sinirli karakter eylemi secimi
     const _negotiationDt = _storyDue('negotiation-deadlines', '_accNegotiationDeadlines', 5);

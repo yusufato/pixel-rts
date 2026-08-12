@@ -54,6 +54,7 @@ const {
     probeDialogueScenarioLab,
     probeConversationRuntime385,
     probeDecisionTraceV2,
+    probeCharacterBehaviorState,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
@@ -3865,6 +3866,38 @@ function run() {
     assert.equal(decisionTraceV2Probe.legacySchema8.validation.ok, true,
         'Faz 38.6: şema-8 göçünden sonra karakter eylem defteri geçerli olmalı.');
 
+    const characterBehaviorStateProbe = storyTestResult(
+        'characterBehaviorStateProbe', probeCharacterBehaviorState
+    );
+    assert.equal(characterBehaviorStateProbe.actorCount > 0, true,
+        'Faz 38.7: davranış defteri gerçek karakter kadrosunu kapsamalı.');
+    assert.equal(characterBehaviorStateProbe.distinctBiasProfiles, true,
+        'Faz 38.7: aynı şok öncesinde bile farklı karakter profilleri kozmetik olarak aynı olmamalı.');
+    assert.equal(characterBehaviorStateProbe.biasBounded, true,
+        'Faz 38.7: bias en çok iki kaynaklı ve sınırlı eksen önceliği taşımalı; bu dilimde puan eklememeli.');
+    assert.equal(characterBehaviorStateProbe.forgedStressRejected, true,
+        'Faz 38.7: aktörün bilmediği olaya sahte stres bağlanamamalı.');
+    assert.equal(characterBehaviorStateProbe.sourcedStressAccepted, true,
+        'Faz 38.7: stres gerçek olay ve aktöre ait ActorBelief ile açılmalı.');
+    assert.equal(characterBehaviorStateProbe.halfLifeCorrect, true,
+        'Faz 38.7: stres tam yarı ömürde başlangıç değerinin yarısına inmeli.');
+    assert.equal(characterBehaviorStateProbe.stressDecays, true,
+        'Faz 38.7: kaynak olay yenilenmezse geçici stres sönüp kapanmalı.');
+    assert.equal(characterBehaviorStateProbe.personaTruthSafe, true,
+        'Faz 38.7: kamu personası mekanik gerçeği değiştirememeli.');
+    assert.equal(characterBehaviorStateProbe.worldNeutral, true,
+        'Faz 38.7: ilk davranış defteri fiziksel dünya sonucuna yazmamalı.');
+    assert.equal(characterBehaviorStateProbe.welfareNeutral, true,
+        'Faz 38.7: stres ikinci refah motoruna dönüşmemeli.');
+    assert.equal(characterBehaviorStateProbe.validation.ok, true,
+        'Faz 38.7: davranış defteri doğrulanmalı.');
+    assert.equal(characterBehaviorStateProbe.restored.loaded, true,
+        'Faz 38.7: davranış defteri kayıttan yüklenebilmeli.');
+    assert.equal(characterBehaviorStateProbe.restored.exact, true,
+        'Faz 38.7: bias, stres ve persona save-load sırasında birebir kalmalı.');
+    assert.equal(characterBehaviorStateProbe.restored.validation.ok, true,
+        'Faz 38.7: geri yüklenen davranış defteri geçerli kalmalı.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );
@@ -5099,6 +5132,7 @@ function run() {
         elections: 2,
         integrity: 2,
         'political-crisis': 2,
+        'character-behavior': 2,
         'character-actions': 1,
         'negotiation-deadlines': 2,
         siege: 5,

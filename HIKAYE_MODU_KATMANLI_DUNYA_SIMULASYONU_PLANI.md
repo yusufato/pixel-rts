@@ -4318,6 +4318,8 @@ Zorunlu mimari sınırlar:
 
 ### FAZ 38.7 — Önyargı, Geçici Stres ve Kamu Personası
 
+**Uygulama notu — 12 Ağustos 2026:** İlk dikey dilim kodlandı. `StoryCharacterBehavior.js`, karakter kimliğini kopyalamadan her aktör için en çok iki kanonik eksen önceliği, mevcut ses profilinden kamu personası ve kaynak olay+ActorBelief zorunlu geçici stres defteri kurar. Bias `2500 bp` tavanlıdır ve ilk dilimde `scoreEffect:0` ile çift sayım yapmaz. Persona `mechanicalTruthMutable:false` olduğundan ifade, mekanik sonucu değiştiremez. Stres aktör başına sekiz kayıtla sınırlı, `30–1800 sn` yarı ömürlü ve kaynak yenilenmezse üstel sönümlüdür; refah veya dünya alanına yazmaz. Hedefli prob farklı gerçek karakter profillerini, sahte olay reddini, `8000→4000` tam yarı ömrü, kapanışı, dünya/refah nötrlüğünü ve birebir kayıt/yüklemeyi doğruladı. Sonraki dilim, katkıyı Faz 38.6 karar izine bir kez ve sınırlı biçimde bağlayacak; kamu/özel ifade ayrımını konuşma gerçekleştiricisinde kanıtlayacaktır.
+
 **Amaç:** Karakterlerin anlaşılır biçimde kusurlu davranmasını ve kamu/özel dil ayrımını kurmak.
 **Çıktı:** Sınırlı, ortogonal `BiasProfileV1`; kaynak olay, yarı ömür ve tavan taşıyan `CharacterStressStateV1`; `PublicPersonaV1`; özel tercihle çelişebilen fakat gizlilik filtresini aşamayan ifade planı.
 **Kabul kapısı:** Stres ikinci refah motoruna dönüşmüyor; aynı şok bütün karakterlere aynı tepkiyi vermiyor; önyargı aynı kanıtı iki kez puanlamıyor; persona mekanik gerçeği değiştirmiyor; stres kaynağı kesilince açıklanabilir biçimde sönüyor.
