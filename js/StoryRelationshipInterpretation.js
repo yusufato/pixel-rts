@@ -29,6 +29,13 @@ const STORY_RELATIONSHIP_INTERPRETATION_HINTS = Object.freeze({
     PUBLIC_HUMILIATION: Object.freeze(['DISTANCE', 'DEMAND_REPAIR']),
     SHARED_CRISIS_SUCCESS: Object.freeze(['SUPPORT', 'ALLY'])
 });
+const STORY_RELATIONSHIP_INTERPRETATION_SCORE_CAP = 3;
+const STORY_RELATIONSHIP_INTERPRETATION_ACTION_WEIGHT = Object.freeze({
+    PROMISE_KEPT: Object.freeze({ NEGOTIATE: 1, ALLY: 2 }),
+    PROMISE_BROKEN: Object.freeze({ NEGOTIATE: 1, ALLY: -2, BETRAY: 1 }),
+    PUBLIC_HUMILIATION: Object.freeze({ PERSUADE: -1, ALLY: -2, BETRAY: 2 }),
+    SHARED_CRISIS_SUCCESS: Object.freeze({ PERSUADE: 1, NEGOTIATE: 1, ALLY: 2, BETRAY: -2 })
+});
 
 function storyRelationshipInterpretationEnabled() {
     return typeof storyFeatureEnabled !== 'function'
@@ -137,6 +144,61 @@ function storyRelationshipInterpretMemory(actorId, relatedActorId, sourceId) {
             worldMutation: false,
             rawWorldRead: false
         },
+        worldMutation: false,
+        rawWorldRead: false
+    };
+}
+
+function storyRelationshipInterpretationOptionAdjustment(actorId, targetActorId, actionType) {
+    const neutral = {
+        scoreDelta: 0, contributions: [], reasons: [], deterministic: true,
+        worldMutation: false, rawWorldRead: false
+    };
+    if (!storyRelationshipInterpretationEnabled()) return neutral;
+    const ledger = typeof storyMemoryEnsure === 'function' ? storyMemoryEnsure() : null;
+    const holder = String(actorId || '');
+    const target = String(targetActorId || '');
+    const action = String(actionType || '').toUpperCase();
+    const rows = [];
+    for (const row of Object.values(ledger && ledger.milestones || {})) {
+        if (!(row.holderActorIds || []).includes(holder)) continue;
+        const related = [row.subjectActorId].concat(row.relatedActorIds || []).filter(Boolean).map(String);
+        if (!related.includes(target)) continue;
+        const interpreted = storyRelationshipInterpretMemory(holder, target, row.id);
+        if (!interpreted.ok) continue;
+        const weight = Number(STORY_RELATIONSHIP_INTERPRETATION_ACTION_WEIGHT[
+            interpreted.interpretation.interpretationType
+        ] && STORY_RELATIONSHIP_INTERPRETATION_ACTION_WEIGHT[
+            interpreted.interpretation.interpretationType
+        ][action]) || 0;
+        if (!weight) continue;
+        rows.push({
+            sourceMemoryId: row.id,
+            interpretationType: interpreted.interpretation.interpretationType,
+            occurredAt: Number(row.resolvedAt != null ? row.resolvedAt : row.createdAt) || 0,
+            importanceBps: Number(row.importanceBps) || 0,
+            rawDelta: weight * interpreted.interpretation.intensityBps / 10000
+        });
+    }
+    rows.sort((a, b) => b.importanceBps - a.importanceBps
+        || b.occurredAt - a.occurredAt
+        || a.sourceMemoryId.localeCompare(b.sourceMemoryId, 'en'));
+    const contributions = rows.slice(0, 2).map(row => ({
+        sourceMemoryId: row.sourceMemoryId,
+        interpretationType: row.interpretationType,
+        appliedDelta: Math.round(row.rawDelta * 1000) / 1000,
+        deterministic: true,
+        worldMutation: false,
+        rawWorldRead: false
+    }));
+    const raw = contributions.reduce((sum, row) => sum + row.appliedDelta, 0);
+    const scoreDelta = Math.round(Math.max(-STORY_RELATIONSHIP_INTERPRETATION_SCORE_CAP,
+        Math.min(STORY_RELATIONSHIP_INTERPRETATION_SCORE_CAP, raw)) * 1000) / 1000;
+    return {
+        scoreDelta,
+        contributions,
+        reasons: contributions.map(row => `relationship-memory:${row.interpretationType}:${row.appliedDelta >= 0 ? '+' : ''}${row.appliedDelta.toFixed(2)}`),
+        deterministic: true,
         worldMutation: false,
         rawWorldRead: false
     };

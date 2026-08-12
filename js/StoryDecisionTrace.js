@@ -153,6 +153,11 @@ function storyDecisionTraceCandidate(row) {
     const behavior = row && row.behavior && typeof row.behavior === 'object'
         ? storyDecisionTraceClone(row.behavior)
         : { scoreDelta: 0, contributions: [], reasons: [], cap: 0, deterministic: true, rawWorldRead: false };
+    const relationshipInterpretation = row && row.relationshipInterpretation
+        && typeof row.relationshipInterpretation === 'object'
+        ? storyDecisionTraceClone(row.relationshipInterpretation)
+        : { scoreDelta: 0, contributions: [], reasons: [], deterministic: true,
+            worldMutation: false, rawWorldRead: false };
     return {
         candidateId: String(candidate.id),
         actionType: String(candidate.actionType),
@@ -191,7 +196,8 @@ function storyDecisionTraceCandidate(row) {
         filterReasons: (candidate.reasons || []).map(String).slice(0, 12),
         scoreReasons,
         psychologyEvidence: storyDecisionTracePsychologyEvidence(scoreReasons),
-        behaviorContributions: behavior
+        behaviorContributions: behavior,
+        relationshipMemoryContributions: relationshipInterpretation
     };
 }
 
@@ -305,6 +311,8 @@ function storyDecisionTraceV2Build(decisionId, context, input) {
             ? storyDecisionTraceClone(selected.psychologyEvidence) : null,
         behaviorContributions: selected
             ? storyDecisionTraceClone(selected.behaviorContributions) : null,
+        relationshipMemoryContributions: selected
+            ? storyDecisionTraceClone(selected.relationshipMemoryContributions) : null,
         risk: selected ? storyDecisionTraceRiskView(selected, context) : null,
         reasonCode: input.reasonCode == null ? null : String(input.reasonCode),
         source: String(input.source || 'DETERMINISTIC_FALLBACK'),
@@ -344,6 +352,8 @@ function storyDecisionTraceV2PlayerView(traceId, viewerActorId) {
             ? storyDecisionTraceClone(trace.psychologyContributions) : null,
         behaviorContributions: ownsDecision
             ? storyDecisionTraceClone(trace.behaviorContributions) : null,
+        relationshipMemoryContributions: ownsDecision
+            ? storyDecisionTraceClone(trace.relationshipMemoryContributions) : null,
         risk: ownsDecision ? storyDecisionTraceClone(trace.risk) : null,
         visibleBeliefEvidence: visibleBeliefs.map(row => ({
             beliefId: row.beliefId,
@@ -355,6 +365,7 @@ function storyDecisionTraceV2PlayerView(traceId, viewerActorId) {
         privateReasonCount: ownsDecision ? 0
             : trace.supportingReasons.length + trace.opposingReasons.length
                 + Number(!!trace.psychologyContributions) + Number(!!trace.behaviorContributions)
+                + Number(!!trace.relationshipMemoryContributions)
                 + Number(!!trace.risk),
         rawWorldFactRead: false
     };
@@ -455,6 +466,15 @@ function storyDecisionTraceV2Validate(contexts, traces, decisions) {
                 || trace.behaviorContributions.rawWorldRead !== false
                 || !Array.isArray(trace.behaviorContributions.contributions))) {
             add('BEHAVIOR_CONTRIBUTION_CONTRACT', `${at}.behaviorContributions`);
+        }
+        if (trace && trace.relationshipMemoryContributions
+            && (Math.abs(Number(trace.relationshipMemoryContributions.scoreDelta) || 0) > 3
+                || trace.relationshipMemoryContributions.deterministic !== true
+                || trace.relationshipMemoryContributions.worldMutation !== false
+                || trace.relationshipMemoryContributions.rawWorldRead !== false
+                || !Array.isArray(trace.relationshipMemoryContributions.contributions)
+                || trace.relationshipMemoryContributions.contributions.length > 2)) {
+            add('RELATIONSHIP_MEMORY_CONTRIBUTION_CONTRACT', `${at}.relationshipMemoryContributions`);
         }
         if (trace && trace.risk
             && (trace.risk.scoreEffect !== 0 || trace.risk.explanationOnly !== true

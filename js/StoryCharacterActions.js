@@ -1315,12 +1315,19 @@ function storyCharacterActionAIRankActor(actorId) {
                 ? storyCharacterBehaviorOptionAdjustment(actorId,
                     { actionType: candidate.actionType }, scored.reasons || [])
                 : { scoreDelta: 0, reasons: [], contributions: [] };
+            const relationshipInterpretation = typeof storyRelationshipInterpretationOptionAdjustment === 'function'
+                ? storyRelationshipInterpretationOptionAdjustment(
+                    actorId, targetActorId, candidate.actionType
+                ) : { scoreDelta: 0, reasons: [], contributions: [] };
             ranked.push({
                 candidate,
                 score: Math.round(((Number(scored.score) || 0)
-                    + Number(behavior.scoreDelta || 0)) * 1000) / 1000,
-                reasons: (option.policyReasons || []).concat(scored.reasons || [], behavior.reasons || []),
-                behavior: storyCharacterActionClone(behavior)
+                    + Number(behavior.scoreDelta || 0)
+                    + Number(relationshipInterpretation.scoreDelta || 0)) * 1000) / 1000,
+                reasons: (option.policyReasons || []).concat(scored.reasons || [], behavior.reasons || [],
+                    relationshipInterpretation.reasons || []),
+                behavior: storyCharacterActionClone(behavior),
+                relationshipInterpretation: storyCharacterActionClone(relationshipInterpretation)
             });
         }
     }

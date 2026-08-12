@@ -3948,6 +3948,14 @@ function run() {
         'Faz 38.8: hafızayla ilgisiz karaktere ilişki yorumu bağlanamamalı.');
     assert.equal(relationshipInterpretationProbe.forgedTagRejected, true,
         'Faz 38.8: doğru kayıt türü ve kaynak makbuzu olmayan olay etiketi reddedilmeli.');
+    assert.equal(relationshipInterpretationProbe.adjustmentBounded, true,
+        'Faz 38.8: en çok iki ilişki hafızası toplam mutlak üç puan katkı verebilmeli.');
+    assert.equal(relationshipInterpretationProbe.contextualDirection, true,
+        'Faz 38.8: tutulmuş/bozulmuş söz, aşağılama ve ortak başarı eylem bağlamını farklı yönde değiştirmeli.');
+    assert.equal(relationshipInterpretationProbe.selectorConnected, true,
+        'Faz 38.8: kaynaklı ilişki yorumu gerçek karakter eylem sıralamasının neden zincirine girmeli.');
+    assert.equal(relationshipInterpretationProbe.traceReadyContribution, true,
+        'Faz 38.8: ilişki hafızası katkısı kaynaklarıyla Faz 38.6 kalıcı karar izine girmeli.');
     assert.equal(relationshipInterpretationProbe.proposalOnly, true,
         'Faz 38.8: ilk yorum adaptörü ilişkiyi veya dünyayı kendiliğinden değiştirmemeli.');
     assert.equal(relationshipInterpretationProbe.relationshipNeutral, true,
