@@ -62,7 +62,7 @@ düzeltmenin neyi çözdüğü ölçülemez.
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** yükselir (UI'da değil), AKIŞ arşive dönüşür: arama + tür filtresi | `AÇIK` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `HIKAYE_MODU_UYGULAMA_DURUMU.md` Faz 38.1 açık borç | Arama kutusu + filtre çipleri + `8 / 25 gösteriliyor` sayacı | `AÇIK` |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `AÇIK` |
-| **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Öncelik kademesi + `overflow:hidden` (aşağıda) | `AÇIK` |
+| **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Üç bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** (commit aşağıda) |
 
 ### 24 — bu turda **yeni bulundu ve ölçüldü**
 
@@ -88,15 +88,62 @@ içerik kutunun dışına akıyor. Kanıt: `qa-runtime/mockup-baseline/kusur-16-
 (1280×800, gerçek oyun — "PIXEL AVRUPA" başlığının üstünde "Türk Cumhuriyeti" ve
 "PETROL 319" okunuyor).
 
-**Öneri ve doğrulaması:** kademe 1 (DEVLET · PETROL · İNSAN · PUAN) daima tam;
-kademe 2 (GAZİ · ELEKTRONİK · ENF · TARİH · ÇAĞ) dar ekranda etiketini bırakıp
-yalnız değeri gösterir (etiket `title` ile erişilebilir kalır); kutu `overflow:hidden`.
-Mockup'ta 1280 px'te ölçüldü:
+#### 24 — uygulandı (bu turda, oyunda)
 
-| | içerik | kutu | taşma | başlıkla örtüşme |
-|---|---|---|---|---|
-| ŞU AN | 954 px | 701 px | 253 px | **237 px** |
-| ÖNERİ | 625 px | 764 px | yok | **yok** |
+Kutu genişliğinin kanunu ölçüldü: `#story-stats` grid'in `1fr` sütunu, yani
+**kutu = pencere − 579** (270 başlık + 245 `#story-topright` + 64 boşluk/dolgu).
+Başka kaldıraç yok — ya içerik küçülecek ya çip gizlenecek. Uygulanan üç bant:
+
+| bant | ne olur | 9 çip görünür mü |
+|---|---|---|
+| **≥1650 px** | hiçbir şey değişmez (zaten sığıyordu) | evet |
+| **1260–1650 px** | çipler sabit 92/150 px yerine `min-content`; boşluk 6→4, dolgu 8→6 px | **evet** — içerik 1070 → **633 px** |
+| **<1260 px** | kademe-2 çipleri gizlenir (633 px bile sığmıyor: 1000 px'te kutu 421) | hayır, 4 çip |
+
+Ayrıca `#story-stats { overflow: hidden }` — içerik ne olursa olsun başlığın
+üstüne **asla** çıkamaz.
+
+**Sıra tabanlı gizleme kaldırıldı.** Eski `@media (max-width:980px)` bloğu
+`.story-stat-chip:nth-of-type(n+4)` ile gizliyordu; `ELEKTRONİK` ve `ENF` koşullu
+üretildiği için (`me.chips` / `me.inflation` null olabilir) sıra kayıyor ve **her
+dünyada farklı çipler** gizleniyordu. Kademe artık `js/StoryUI.js`'te üreten yerde
+`t2` sınıfıyla işaretleniyor; CSS sıraya değil sınıfa bakıyor. Yan fayda: 980 px'te
+3 yerine 4 çip kalıyor (içerik 269 / kutu 401).
+
+**Doğrulama — gerçek oyun, gerçek dosyalar, 11 genişlik:**
+
+| pencere | kutu | içerik | taşma | başlığı örtüyor mu | kutu dışı çip |
+|---|---|---|---|---|---|
+| 980 | 481 | 269 | yok | hayır | 0 |
+| 1000 | 421 | 269 | yok | hayır | 0 |
+| 1100 | 521 | 269 | yok | hayır | 0 |
+| 1259 | 681 | 269 | yok | hayır | 0 |
+| 1261 | 681 | 269 | yok | hayır | 0 |
+| **1280** | 701 | **633** | yok (68 px pay) | hayır | 0 |
+| 1366 | 789 | 633 | yok | hayır | 0 |
+| 1440 | 861 | 633 | yok | hayır | 0 |
+| 1600 | 1021 | 633 | yok | hayır | 0 |
+| 1660 | 1081 | 1070 | yok | hayır | 0 |
+| 1920 | 1341 | 1070 | yok | hayır | 0 |
+
+Önce/sonra çekimi: `qa-runtime/mockup-baseline/kusur-24-komuta-cubugu-ONCE-1280.png`
+ve `-SONRA-1280.png`. ÖNCE'de "…mhuriyeti" ekranın solundan taşıp kesilmiş,
+"PETROL 223" doğrudan "AVRUPA" başlığının üstüne basılmış.
+`electron . --uitest` altı adımda da `OK`, `UITEST_PROBLEMS []`, konsol hatası yok.
+
+**Ölçerken çıkan iki tuzak — not:**
+
+1. **Aleti önce doğrula.** İlk sürümde kırpma ölçütü `chip.scrollWidth > clientWidth`
+   idi ve **her varyantta** 5 çip "kesik" diyordu — `.detail-hover::after` tooltip'i
+   (mutlak konumlu, `max-width:390px`) `scrollWidth`'e karışıyordu. Ölçüt `Range` ile
+   yalnız değer ve etiket metnine bakacak şekilde değiştirildi; ancak ondan sonra
+   ŞU AN doğru şekilde "kaldı", 1920'de "geçti" verdi.
+2. **Çift tanımlı seçici.** İlk uygulamada içerik 633 yerine 721 px çıktı ve 1280'de
+   5 px taştı: `.story-stat-chip.wide` bu dosyada **iki kez** tanımlı
+   (`style.css:2110` `min-width:150px`) ve o satır düzeltmeden *sonra* geldiği için
+   eşit özgüllükteki kural eziliyordu. Kurallar `#story-stats ...` ile yazıldı;
+   özgüllük sıradan bağımsız kazanıyor. Bu, kusur 19'un ("çift tanımlı seçiciler")
+   somut bir maliyeti.
 
 ### Katman B
 
@@ -141,7 +188,7 @@ Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. �
 |---|---|---|---|---|
 | 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre 6/3/3 ↔ 1/7/4 değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + verilen kararlar listesi (satıra tıkla → o soruya dön). Geri alma mevcut `decisions` defterinden son kaydı çıkarır; yeni veri yapısı gerekmez | `AÇIK` |
 | 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | `AÇIK` |
-| **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`DÜZELTİLDİ`** (commit bekliyor) |
+| **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
 
 ### 25 — bu turda **yeni bulundu ve ölçüldü** (en ağır bulgu)
 
@@ -260,12 +307,17 @@ Kapılar süs değil; ilk gerçek-Chromium turunda dört şey yakaladılar:
 
 ## Bulaşmazlık
 
-Mockup turu oyuna dokunmadı; **tek istisna kusur 25'in düzeltmesi**:
+Mockup turu oyuna dokunmadı; **iki istisna: kusur 25 ve kusur 24**. İkisi de
+görsel tercih değil, ölçülmüş arıza — bu yüzden katman kabulü beklenmedi.
 
 - `mockup/**` — tüm mockup dosyaları (oyuna girmez).
-- `style.css` — **iki kural değişti** (`.wr-briefing`, `.wr-setup-actions`), yalnız kusur 25 için.
-  Oynanabilirliği kesen bir arıza olduğu için katman kabulü beklenmedi.
-- `index.html`, `js/**`, `electron/**` **değişmedi**.
+- `style.css`:
+  - kusur 25 → `.wr-briefing`, `.wr-setup-actions` (commit `67a403c`)
+  - kusur 24 → `#story-stats` + iki `@media` bandı; `@media (max-width:980px)`
+    içindeki sıra tabanlı `nth-of-type(n+4)` kuralı kaldırıldı
+- `js/StoryUI.js` — kusur 24 için **yalnız sınıf adı**: beş çipe `t2` kademe işareti.
+  Sayı, metin veya davranış değişmedi.
+- `index.html`, `electron/**` ve diğer `js/**` **değişmedi**.
 - `package.json` → `build.files` listesinde `mockup/**` yok → EXE paketine girmez
   (liste: `electron/**/*`, `js/**/*`, `assets/**/*`, `icons.png`, `index.html`, `style.css`).
 

@@ -1244,7 +1244,16 @@ body[data-screen="story"] { background: #060a06; }
 .story-command-title span, .story-command-title b { font-size: 18px; font-weight: 400; }
 .story-command-title b { color: var(--wr-amber); }
 .story-command-title small { grid-column: 1 / -1; margin-top: 3px; color: var(--wr-dim); font-size: 8px; letter-spacing: 1.4px; }
-#story-stats { min-width: 0; display: flex; justify-content: flex-end; align-items: stretch; gap: 6px; }
+/* KUSUR 24: 9 kaynak çipi 1070px yer istiyor; bu kutu 1fr olduğu için kalan
+   alan kadar. Kalan = pencere − 270 (başlık) − 245 (#story-topright) − 64
+   (boşluk+dolgu) = pencere − 579. Yani çipler ancak 1650px ÜSTÜNDE sığıyor.
+   Altında justify-content:flex-end fazlalığı SOLA taşırıyordu ve `overflow`
+   kuralı olmadığı için çipler .story-command-title'ın ÜSTÜNE biniyordu.
+   Ölçüldü (gerçek oyun, 9 çip, en uzun çağ adı "SOĞUK DENGE"):
+     1280px → kutu 701, içerik 1070, taşma 369, başlık örtülmesi 353, 3 çip dışarıda
+     1440px → taşma 209 · 1640px → taşma 9 · 1660px → sığıyor
+   Bugüne dek kaçtı çünkü QA *sayfa* taşmasına bakıyor, kutu içi flex taşmasına değil. */
+#story-stats { min-width: 0; display: flex; justify-content: flex-end; align-items: stretch; gap: 6px; overflow: hidden; }
 .story-stat-chip { min-width: 92px; padding: 5px 8px; border-left: 1px solid var(--wr-line); color: var(--wr-muted); font-size: 9px; letter-spacing: .6px; }
 .story-stat-chip b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; }
 .story-stat-chip.identity { min-width: 170px; border-left-color: var(--state-color); }
@@ -1412,9 +1421,38 @@ body[data-screen="story"] { background: #060a06; }
 .council-x { color: var(--wr-muted); font: 9px 'Share Tech Mono', monospace; letter-spacing: 1px; }
 .council-x:hover { color: var(--wr-amber-bright); }
 
+/* KUSUR 24 — üç bant. Ölçüm yukarıda, #story-stats kuralının başında.
+   1650 ÜSTÜ: hiçbir şey değişmez, zaten sığıyor.
+   1260-1650: çipler sabit 92/150px yerine İÇERİK kadar yer kaplar (min-content) +
+   dolgu/boşluk sıkışır. İçerik 1070 → 633px; 1280'de 68px pay kalır. Bilgi kaybı yok.
+   1260 ALTI: 633px bile sığmıyor (1000px'te kutu yalnız 421) — orada başka çare yok,
+   kademe-2 çipleri gizlenir. Eşik 1260, 1220 değil: 1221px'te pay 9px'e düşüyordu ve
+   farklı font metriğinde arıza geri gelirdi; 1261'de pay 49px.
+
+   DİKKAT (ölçüldü): seçiciler `#story-stats ...` ile yazılmak ZORUNDA.
+   `.story-stat-chip.wide` bu dosyada İKİ KEZ tanımlı (style.css:2110 `min-width:150px`)
+   ve o satır burasından SONRA geldiği için eşit özgüllükte olan kural eziliyordu:
+   içerik 633 yerine 721px çıkıp 1280'de 5px taşıyordu. Id ile özgüllük yükseltilince
+   sıradan bağımsız kazanıyor — ileride başka bir çift tanım eklenirse de dayanır. */
+@media (max-width: 1650px) {
+    #story-stats { gap: 4px; }
+    #story-stats .story-stat-chip { min-width: min-content; white-space: nowrap; padding: 5px 6px; }
+    #story-stats .story-stat-chip.wide { min-width: min-content; }
+    /* devlet adı zaten ellipsis'li; taban genişlik okunabilirlik için */
+    #story-stats .story-stat-chip.identity { min-width: 120px; max-width: 160px; }
+}
+
+@media (max-width: 1260px) {
+    #story-stats .story-stat-chip.t2 { display: none; }
+}
+
 @media (max-width: 980px) {
+    /* Buradaki `.story-stat-chip:nth-of-type(n+4) { display:none }` KALDIRILDI:
+       ELEKTRONİK ve ENF koşullu üretiliyor (me.chips / me.inflation null olabilir),
+       bu yüzden sıra kayıyor ve her dünyada FARKLI çipler gizleniyordu. Yerini
+       yukarıdaki sınıf tabanlı `.t2` kuralı aldı (StoryUI.js'te işaretleniyor);
+       ayrıca 3 yerine 4 çip kalıyor — 980px'te dördü de sığıyor (içerik 269 / kutu 401). */
     #story-command-bar { grid-template-columns: 190px 1fr auto; }
-    .story-stat-chip:nth-of-type(n+4) { display: none; }
     #story-map-shell { right: 285px; }
     #story-brief-panel { width: 285px; }
     .story-brief-grid { grid-template-columns: 1fr; }

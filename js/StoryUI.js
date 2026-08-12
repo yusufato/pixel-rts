@@ -264,19 +264,24 @@ function storyPanelUpdate() {
             const safeLabel = storyProjectionEscape(`${label}: ${value}. Ayrıntılar için odaklan.`);
             return `<div class="story-stat-chip ${classes || ''} detail-hover" tabindex="0" data-story-tooltip="${safeDetail}" aria-label="${safeLabel}"${style ? ` style="${style}"` : ''}>${label}<b>${value}</b></div>`;
         };
+        // KADEME: `t2` = dar ekranda ilk feda edilecek çipler. Eskiden bu iş CSS'te
+        // `.story-stat-chip:nth-of-type(n+4)` ile yapılıyordu; ELEKTRONİK ve ENF
+        // koşullu üretildiği için (me.chips / me.inflation null olabilir) sıra
+        // kayıyor ve HER DURUMDA FARKLI çipler gizleniyordu. Kademe artık burada,
+        // üreten yerde işaretleniyor; CSS sıraya değil sınıfa bakıyor.
         const nextStatsHtml =
             statChip('identity', 'DEVLET', me.name, 'Oyuncu devletin. Harita renkleri ve ülke panellerindeki kayıtlar bu devlete aittir.', `--state-color:${me.color}`) +
             statChip('', 'PETROL', Math.floor(myr.oil), 'Komutan kasandaki petrol. Zırhlı birlik üretimi ve bazı askerî kararlar bunu harcar.') +
             statChip('', 'İNSAN', Math.floor(myr.manpower), 'Komutan kasandaki insan gücü. Birlik üretimi ve sefer ordusunu büyütmek için kullanılır.') +
             statChip('', 'PUAN', Math.floor(myr.points), 'Komutan kasandaki üretim ve karar puanı. Birlik, bina ve bazı siyasi eylemlerde kullanılır.') +
-            statChip('', 'GAZİ', (STORY.veterans || []).length, 'Savaşlardan sonra kayda geçen toplam gazi sayısı.') +
-            ((me.chips != null) ? statChip('tip-right', 'ELEKTRONİK', Math.floor(me.chips), 'Devletin elektronik stoku. Tank ve topçu üretimi elektronik gerektirir.') : '') +
-            ((me.inflation != null) ? statChip(`${me.inflation > 15 ? 'urgent ' : ''}tip-right`, 'ENF', `%${me.inflation.toFixed(0)}`, 'Enflasyon gelir verimini azaltır ve halkın refah baskısını büyütür.') : '') +
-            statChip('wide tip-right', 'TARİH', date, 'Hikâye dünyasının mevcut tarihi. Dünya ilerledikçe ekonomi, kurumlar ve ilişkiler bu takvime göre değişir.') +
+            statChip('t2', 'GAZİ', (STORY.veterans || []).length, 'Savaşlardan sonra kayda geçen toplam gazi sayısı.') +
+            ((me.chips != null) ? statChip('t2 tip-right', 'ELEKTRONİK', Math.floor(me.chips), 'Devletin elektronik stoku. Tank ve topçu üretimi elektronik gerektirir.') : '') +
+            ((me.inflation != null) ? statChip(`${me.inflation > 15 ? 'urgent ' : ''}t2 tip-right`, 'ENF', `%${me.inflation.toFixed(0)}`, 'Enflasyon gelir verimini azaltır ve halkın refah baskısını büyütür.') : '') +
+            statChip('t2 wide tip-right', 'TARİH', date, 'Hikâye dünyasının mevcut tarihi. Dünya ilerledikçe ekonomi, kurumlar ve ilişkiler bu takvime göre değişir.') +
             ((typeof storyEra === 'function') ? (() => {
                 const e = storyEraForUi();
                 const detail = storyProjectionEscape(storyWorldStateTooltip());
-                return `<div class="story-stat-chip wide world-state detail-hover" tabindex="0" data-story-tooltip="${detail}" aria-label="${storyProjectionEscape(`${e.name}. Dünya durumu ayrıntıları için odaklan.`)}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`;
+                return `<div class="story-stat-chip t2 wide world-state detail-hover" tabindex="0" data-story-tooltip="${detail}" aria-label="${storyProjectionEscape(`${e.name}. Dünya durumu ayrıntıları için odaklan.`)}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`;
             })() : '') +
             '';   // KONSEY geri-sayım çipi kaldırıldı (kullanıcı isteği) — takvim konsey panelinde
         const tooltipHeld = [...stats.querySelectorAll('.detail-hover')].some(chip => (

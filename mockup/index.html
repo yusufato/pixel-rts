@@ -86,9 +86,10 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
     </td>
     <td>
         <a class="lab-btn" href="03-story-world.html?katman=a&amp;vp=1280">aç →</a>
-        <small>kusur 14-18 — rol süzmesi, gündem→karar, 6 satırlık akış, arama<br>
-        <strong>kusur 24 — komuta çubuğu taşması (bu turda bulundu)</strong></small>
-        <span class="stamp" data-s="ACIK">AÇIK</span>
+        <small>kusur 14-18 — rol süzmesi, gündem→karar, 6 satırlık akış, arama ·
+        <span class="stamp" data-s="ACIK">AÇIK</span><br>
+        kusur 24 — komuta çubuğu taşması ·
+        <span class="stamp" data-s="UYGULANDI">DÜZELTİLDİ</span></small>
     </td>
     <td>
         <a class="lab-btn" href="03-story-world.html?katman=b&amp;vp=1280">aç →</a>
@@ -98,6 +99,8 @@ düzeltmenin neyi çözdüğü ölçülemez — bu repoda daha önce yaşanmış
     <td><small>
         <a href="../qa-screenshots/03-map.png">harita</a><br>
         <a href="../qa-runtime/mockup-baseline/kusur-16-akis-sekmesi.png">AKIŞ + taşan çubuk (k16/k24)</a> ⚑<br>
+        k24 <a href="../qa-runtime/mockup-baseline/kusur-24-komuta-cubugu-ONCE-1280.png">önce</a> ·
+        <a href="../qa-runtime/mockup-baseline/kusur-24-komuta-cubugu-SONRA-1280.png">sonra</a> ⚑<br>
         <a href="../qa-runtime/mockup-baseline/bonus-konsey-oturumu.png">konsey oturumu</a> ⚑
     </small></td>
 </tr>
@@ -142,12 +145,17 @@ altında olduğu için 916 px'te devreye girmiyor. Arıza <em>yükseklikten</em>
 <br><strong>Düzeltildi:</strong> brifing sütunu kaydırmalı, birincil eylem yapışkan
 alt şeritte. 916×572'de buton 632 → <strong>488</strong>; 1280×800 hiç değişmedi.
 Reponun kendi <code>--uitest</code> akışı temiz geçti.</li>
-<li><strong>Kusur 24 — komuta çubuğu taşması (yeni).</strong> Hikaye üst çubuğundaki 9 kaynak
-çipi <strong>1070 px</strong> yer istiyor; kutu 1280×800'de <strong>701 px</strong>.
-<code>#story-stats</code> <code>justify-content:flex-end</code> ve <code>overflow</code> kuralı
-olmadığı için fazlalık <strong>sola, başlığın üstüne</strong> akıyor —
-1650 px altındaki her masaüstü genişliğinde. Bugüne dek kaçtı çünkü mevcut QA
-<em>sayfa</em> taşmasına bakıyordu, kutu-içi flex taşmasına değil.</li>
+<li><strong>Kusur 24 — komuta çubuğu taşması (yeni) — <span class="stamp" data-s="UYGULANDI">DÜZELTİLDİ</span>.</strong>
+Hikaye üst çubuğundaki 9 kaynak çipi <strong>1070 px</strong> yer istiyor; kutu 1280×800'de
+<strong>701 px</strong>. <code>#story-stats</code> <code>justify-content:flex-end</code> ve
+<code>overflow</code> kuralı olmadığı için fazlalık <strong>sola, başlığın üstüne</strong>
+akıyor — 1650 px altındaki her masaüstü genişliğinde. Bugüne dek kaçtı çünkü mevcut QA
+<em>sayfa</em> taşmasına bakıyordu, kutu-içi flex taşmasına değil.
+<br><strong>Düzeltildi:</strong> çipler sabit genişlik yerine içerik kadar yer kaplıyor
+(1070 → <strong>633 px</strong>), 1260 px altında kademe-2 çipleri gizleniyor, kutu
+<code>overflow:hidden</code>. 11 genişlikte ölçüldü, hepsi temiz. Sıra tabanlı
+<code>nth-of-type(n+4)</code> gizlemesi de kaldırıldı: koşullu üretilen çipler yüzünden
+her dünyada farklı çipleri gizliyordu.</li>
 <li><strong>Kusur 9 daha kesin.</strong> Duraklatma modalının başlığı
 <code>font-family:inherit</code> ile <strong>Press Start 2P</strong> alıyor, butonları ise
 tarayıcı sans-serif'i — çakışma modalın <em>içinde</em>.</li>
