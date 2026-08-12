@@ -30,6 +30,11 @@ contextBridge.exposeInMainWorld('PIXEL', {
         // #5: her maçın TAM kaydını (samples+controllerDecisions) qa-runtime/last-match.json'a yaz → Claude izler.
         saveMatchRecording: rec => ipcRenderer.invoke('train:saveMatchRecording', rec),
     },
+    // Hikâye sohbeti QA günlüğü. Yalnız oyuncunun gördüğü iki metin ve dar
+    // tanı künyesi ana sürece geçer; sistem istemi/gizli dünya bilgisi geçmez.
+    diagnostics: {
+        appendStoryDialogue: entry => ipcRenderer.invoke('diagnostics:appendStoryDialogue', entry),
+    },
     // KOMUTAN MODU: COMMANDER=1 env ile açılır → oyun kırmızıyı dış-komutana (dosya alışverişi) bırakır.
     commanderMode: process.env.COMMANDER === '1',
     commander: {

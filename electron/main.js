@@ -4855,6 +4855,55 @@ ipcMain.handle('train:saveHumanData', (_e, examples) => {
 });
 // KOMUTAN MODU: canlı saha ↔ emir dosya alışverişi. Renderer sahayı yazar + emir okur; dış-komutan (Claude) tersini yapar.
 const COMMANDER_DIR = path.dirname(HUMAN_DATA_FILE);   // qa-runtime
+const STORY_DIALOGUE_LOG_FILE = path.join(COMMANDER_DIR, 'story-dialogue-log.jsonl');
+const STORY_DIALOGUE_LOG_MAX_BYTES = 8 * 1024 * 1024;
+function storyDialogueLogText(value, maxLength) {
+    return String(value == null ? '' : value)
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ')
+        .slice(0, maxLength);
+}
+ipcMain.handle('diagnostics:appendStoryDialogue', (_e, entry) => {
+    try {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return { ok: false, error: 'INVALID_ENTRY' };
+        const eventType = storyDialogueLogText(entry.eventType, 32);
+        if (!['TURN_CREATED', 'RESPONSE_ENRICHED'].includes(eventType)) return { ok: false, error: 'INVALID_EVENT' };
+        const row = {
+            schemaVersion: 1,
+            recordedAt: new Date().toISOString(),
+            eventType,
+            gameClock: Number.isFinite(Number(entry.gameClock)) ? Number(entry.gameClock) : 0,
+            sessionId: storyDialogueLogText(entry.sessionId, 120),
+            responseId: storyDialogueLogText(entry.responseId, 160),
+            turnSequence: Math.max(0, Math.min(200, Number(entry.turnSequence) || 0)),
+            listener: {
+                actorId: storyDialogueLogText(entry.listener && entry.listener.actorId, 160),
+                name: storyDialogueLogText(entry.listener && entry.listener.name, 120),
+                role: storyDialogueLogText(entry.listener && entry.listener.role, 80)
+            },
+            playerText: storyDialogueLogText(entry.playerText, 1200),
+            characterText: storyDialogueLogText(entry.characterText, 1200),
+            speechAct: storyDialogueLogText(entry.speechAct, 64),
+            discourseAct: storyDialogueLogText(entry.discourseAct, 64),
+            source: storyDialogueLogText(entry.source, 96),
+            enrichmentStatus: storyDialogueLogText(entry.enrichmentStatus, 48),
+            llmUsed: entry.llmUsed === true
+        };
+        if (!row.sessionId || !row.responseId || !row.playerText || !row.characterText) {
+            return { ok: false, error: 'MISSING_VISIBLE_TURN' };
+        }
+        const fsx = require('fs');
+        fsx.mkdirSync(COMMANDER_DIR, { recursive: true });
+        try {
+            if (fsx.statSync(STORY_DIALOGUE_LOG_FILE).size >= STORY_DIALOGUE_LOG_MAX_BYTES) {
+                const rotated = `${STORY_DIALOGUE_LOG_FILE}.1`;
+                try { fsx.unlinkSync(rotated); } catch (_) {}
+                fsx.renameSync(STORY_DIALOGUE_LOG_FILE, rotated);
+            }
+        } catch (_) {}
+        fsx.appendFileSync(STORY_DIALOGUE_LOG_FILE, `${JSON.stringify(row)}\n`, 'utf8');
+        return { ok: true, file: STORY_DIALOGUE_LOG_FILE };
+    } catch (e) { return { ok: false, error: String(e && e.message) }; }
+});
 ipcMain.handle('commander:writeState', (_e, state) => {
     try {
         const fsx = require('fs');

@@ -11,6 +11,7 @@ const STORY_CONVERSATION_UNDERSTANDING_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_UNDERSTANDING_ADAPTER_VERSION = 'story-conversation-understanding-1';
 const STORY_CONVERSATION_UNDERSTANDING_SOURCE = 'DETERMINISTIC_NLU_BASELINE';
 const STORY_CONVERSATION_MAX_INPUT = 1200;
+const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|yardımcı olmamı ister|talebinizi belirt|buyurun|emrinize amadeyim)\b/i;
 
 const STORY_CONVERSATION_SPEECH_ACTS = Object.freeze([
     'ASK_INFORMATION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN', 'MAKE_PROMISE',
@@ -855,6 +856,8 @@ function storyConversationSessionApplyDomainReview(session) {
     if (!Array.isArray(session.listenerResponses)) session.listenerResponses = [];
     if (!session.listenerResponses.some(row => row.id === review.response.id)) {
         session.listenerResponses.push(storyConversationClone(review.response));
+        storyConversationDiagnosticAppend(session, review.response, session.initialText,
+            'TURN_CREATED', (session.followUps || []).length);
         if (session.listenerResponses.length > STORY_CONVERSATION_TURN_LIMIT) session.listenerResponses.shift();
     }
     session.status = review.sessionStatus;
@@ -1119,12 +1122,12 @@ function storyConversationSocialVoice(session) {
 
 const STORY_CONVERSATION_SOCIAL_LINES = Object.freeze({
     GREETING: Object.freeze({
-        WARM: ['Merhaba. Seni görmek güzel; günün nasıl gidiyor?', 'Selam. Burada olmana sevindim; nasıl yardımcı olabilirim?',
-            'Yeniden merhaba. Bugün aklında ne var?', 'Hoş geldin. Biraz konuşmak iyi olabilir; nereden başlayalım?'],
-        DIRECT: ['Merhaba. Konuya geçebiliriz.', 'Selam. Söyle, neyi konuşacağız?',
-            'Yeniden selam. Bu kez hangi konu var?', 'Buradayım. Ne söylemek istiyorsun?'],
-        FORMAL: ['Merhaba. Görüşmeye hazırım; buyurun.', 'İyi günler. Ele almak istediğiniz konuyu söyleyin.',
-            'Tekrar merhaba. Gündeminizdeki konuyu dinleyebilirim.', 'Hoş geldiniz. Görüşmeye nereden başlayalım?'],
+        WARM: ['Merhaba. Seni görmek güzel; günün nasıl gidiyor?', 'Selam. Burada olmana sevindim; bugün yüzün nasıl gülüyor?',
+            'Yeniden merhaba. Bugün aklını en çok ne meşgul ediyor?', 'Hoş geldin. Biraz soluklanıp konuşmak iyi gelebilir.'],
+        DIRECT: ['Merhaba. Konuya geçebiliriz.', 'Selam. Bu kez söze sen başla.',
+            'Yeniden selam. Bugün acele etmeden konuşabiliriz.', 'Buradayım; seni duyuyorum.'],
+        FORMAL: ['Merhaba. Görüşmek için uygun bir zaman.', 'İyi günler. Bugünün nasıl geçtiğini merak ediyorum.',
+            'Tekrar merhaba. Önce sizi dinleyeyim.', 'Hoş geldiniz. Görüşmemizi sürdürebiliriz.'],
         GUARDED: ['Merhaba. Ne hakkında konuşmak istediğini söyle.', 'Selam. Önce konuyu netleştirelim.',
             'Yeniden merhaba. Bu görüşmenin konusunu söyle.', 'Buradayım. Ne konuşacağımızı açıkça belirt.']
     }),
@@ -1205,6 +1208,7 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText) {
     try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { return null; }
     const text = String(parsed && parsed.reply || '').trim().replace(/\s+/g, ' ');
     if (!text || text.length > 420 || text === fallbackText) return null;
+    if (STORY_CONVERSATION_SERVICE_BOT_LANGUAGE.test(text)) return null;
     if (/\d/.test(text) || /\b(character|session|actor|worldMutation|system|assistant|user)\b/i.test(text)) return null;
     if (typeof LLM_EN_LEAK !== 'undefined' && LLM_EN_LEAK.test(text)) return null;
     if (typeof LLM_NONLATIN !== 'undefined' && LLM_NONLATIN.test(text)) return null;
@@ -1243,6 +1247,8 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
         + `GÜVENLİ ANLAM: ${response.text}\n\n`
         + `Bu aynı kesintisiz görüşmedir. Güvenli anlamı koruyarak karakterin doğal Türkçe cevabını yaz; `
         + `GÜVENLİ ANLAM cümlesini kelimesi kelimesine kopyalama. `
+        + `Bir müşteri hizmetleri görevlisi veya dijital asistan gibi konuşma; “nasıl yardımcı olabilirim”, “talebinizi belirtin” ve “buyurun” deme. `
+        + `Karakterin kendi gündemi, ruh hali ve ilişki mesafesi olan bir insan olduğunu hissettir; son söze somut tepki ver. `
         + `Yeni kişi, olay, sayı, stok, anlaşma, emir, yetki veya dünya gerçeği ekleme. `
         + `Mekanik sonuç vaat etme. Yalnız {"reply":"cevap"} JSON nesnesi döndür; en fazla dört kısa cümle.`;
 }
@@ -1274,6 +1280,37 @@ function storyConversationDiscourseContext(session, options) {
         selected.unshift(rows[index]); tokens += cost;
     }
     return selected;
+}
+
+function storyConversationDiagnosticAppend(session, response, playerText, eventType, sequence) {
+    try {
+        if (!session || !response || !playerText || !response.text
+            || typeof window === 'undefined' || !window.PIXEL || !window.PIXEL.diagnostics
+            || typeof window.PIXEL.diagnostics.appendStoryDialogue !== 'function') return false;
+        const actor = typeof storyCharacterIdentityView === 'function'
+            ? storyCharacterIdentityView(session.listenerActorId) : null;
+        const entry = {
+            eventType: eventType || 'TURN_CREATED',
+            gameClock: Number(STORY.clock) || 0,
+            sessionId: session.id,
+            responseId: response.id,
+            turnSequence: Number(sequence) || 0,
+            listener: {
+                actorId: session.listenerActorId,
+                name: actor && actor.name || '',
+                role: actor && actor.role || ''
+            },
+            playerText: String(playerText),
+            characterText: String(response.text),
+            speechAct: response.speechAct || session.analysis && session.analysis.speechAct || '',
+            discourseAct: response.discourseAct || '',
+            source: response.source || '',
+            enrichmentStatus: response.enrichmentStatus || '',
+            llmUsed: response.llmUsed === true
+        };
+        Promise.resolve(window.PIXEL.diagnostics.appendStoryDialogue(entry)).catch(() => {});
+        return true;
+    } catch (_) { return false; }
 }
 
 function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerText) {
@@ -1320,6 +1357,8 @@ function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerTex
                 liveResponse.llmUsed = false;
             }
             mirrorResponse(live, liveResponse);
+            storyConversationDiagnosticAppend(live, liveResponse, playerText, 'RESPONSE_ENRICHED',
+                (live.followUps || []).find(row => row.response && row.response.id === liveResponse.id)?.sequence || 0);
             if (typeof storySave === 'function') storySave();
             if (typeof storyConversationWorkspacePatchResponse === 'function') {
                 storyConversationWorkspacePatchResponse(liveResponse.id, liveResponse.text, liveResponse.enrichmentStatus);
@@ -1452,6 +1491,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     };
     session.followUps.push(followUp);
     session.listenerResponses.push(storyConversationClone(response));
+    storyConversationDiagnosticAppend(session, response, text, 'TURN_CREATED', sequence);
     session.updatedAt = Number(STORY.clock) || 0;
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
@@ -1494,6 +1534,7 @@ function storyConversationSessionBegin(raw, context) {
         ledger.diagnostics.prunedSessions += remove;
     }
     const openingResponse = session.listenerResponses.find(row => row.kind === 'SOCIAL_RESPONSE');
+    if (openingResponse) storyConversationDiagnosticAppend(session, openingResponse, session.initialText, 'TURN_CREATED', 0);
     if (openingResponse) storyConversationSessionQueueSocialLLM(session.id, openingResponse.id, session.initialText);
     return { ok: analysis.ok, code: analysis.ok ? 'SESSION_STARTED' : analysis.code, session: storyConversationClone(session), worldMutation: false };
 }

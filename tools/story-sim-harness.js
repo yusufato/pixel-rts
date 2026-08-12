@@ -16076,6 +16076,15 @@ function probeConversationUnderstanding(seed = 2032) {
     let socialSnapshot;
     try {
         socialRuntime.api.newCampaign({ seed: seed + 6, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const dialogueDiagnosticEntries = [];
+        socialRuntime.dom.window.PIXEL = {
+            diagnostics: {
+                appendStoryDialogue: entry => {
+                    dialogueDiagnosticEntries.push(JSON.parse(JSON.stringify(entry)));
+                    return Promise.resolve({ ok: true });
+                }
+            }
+        };
         const directory = socialRuntime.api.contactDirectoryBuild();
         const listener = (directory.publicCharacters || []).find(row => row.id !== directory.playerActorId);
         const socialCases = [
@@ -16305,6 +16314,17 @@ function probeConversationUnderstanding(seed = 2032) {
             noMechanicalQuestions: rows.every(row => row.questions === 0 && row.domainChecks === 0),
             allNonExecutable: rows.every(row => row.executable === false && row.worldMutation === false
                 && row.response.worldMutation === false),
+            dialogueDiagnostics: {
+                captured: dialogueDiagnosticEntries.length >= rows.length,
+                visiblePairOnly: dialogueDiagnosticEntries.every(row => row.playerText && row.characterText
+                    && row.sessionId && row.responseId),
+                noHiddenPayload: dialogueDiagnosticEntries.every(row => !Object.prototype.hasOwnProperty.call(row, 'system')
+                    && !Object.prototype.hasOwnProperty.call(row, 'prompt')
+                    && !Object.prototype.hasOwnProperty.call(row, 'beliefs')
+                    && !Object.prototype.hasOwnProperty.call(row, 'worldFacts')),
+                serviceBotLanguageCount: dialogueDiagnosticEntries.filter(row =>
+                    /nasıl yardımcı olabilirim|talebinizi belirt|buyurun/i.test(row.characterText || '')).length
+            },
             worldNeutral: beforeWorld === afterWorld,
             distinctResponses: new Set(rows.map(row => row.response && row.response.text)).size === rows.length,
             unknownOpeningClarifies: !!unknownOpeningResponse
@@ -16348,13 +16368,13 @@ function probeConversationUnderstanding(seed = 2032) {
             sessionContinuity: {
                 checkInStaysSameSession: !!continuityCheckIn && continuityCheckIn.ok
                     && continuityCheckIn.session.id === continuitySession.session.id,
-                checkInIsSocialNotPreviousAnswer: !!continuityCheckIn
+                checkInIsSocialNotPreviousAnswer: !!(continuityCheckIn && continuityCheckIn.followUp)
                     && continuityCheckIn.followUp.analysis.speechAct === 'CHECK_IN'
                     && continuityCheckIn.followUp.response.discourseAct === 'CONTINUE_SOCIAL',
-                activeTopicPreserved: !!continuityCheckIn
+                activeTopicPreserved: !!(continuityCheckIn && continuityCheckIn.followUp)
                     && continuityCheckIn.followUp.inheritedTopic === 'COMMERCE'
                     && continuityCheckIn.session.discourseState.activeTopic === 'COMMERCE',
-                ambiguousRequestsRepair: !!continuityAmbiguous && continuityAmbiguous.ok
+                ambiguousRequestsRepair: !!(continuityAmbiguous && continuityAmbiguous.ok && continuityAmbiguous.followUp)
                     && continuityAmbiguous.followUp.analysis.speechAct === 'UNKNOWN'
                     && continuityAmbiguous.followUp.response.discourseAct === 'CLARIFY_AMBIGUOUS_INPUT'
                     && /bağlayamadım|kastettiğini/i.test(continuityAmbiguous.followUp.response.text),
