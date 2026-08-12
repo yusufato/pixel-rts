@@ -1311,10 +1311,16 @@ function storyCharacterActionAIRankActor(actorId) {
             const scored = typeof storyCharacterOptionScore === 'function'
                 ? storyCharacterOptionScore(actorId, option)
                 : { score: option.baseScore, reasons: ['IDENTITY_SCORER_UNAVAILABLE'] };
+            const behavior = typeof storyCharacterBehaviorOptionAdjustment === 'function'
+                ? storyCharacterBehaviorOptionAdjustment(actorId,
+                    { actionType: candidate.actionType }, scored.reasons || [])
+                : { scoreDelta: 0, reasons: [], contributions: [] };
             ranked.push({
                 candidate,
-                score: Math.round((Number(scored.score) || 0) * 1000) / 1000,
-                reasons: (option.policyReasons || []).concat(scored.reasons || [])
+                score: Math.round(((Number(scored.score) || 0)
+                    + Number(behavior.scoreDelta || 0)) * 1000) / 1000,
+                reasons: (option.policyReasons || []).concat(scored.reasons || [], behavior.reasons || []),
+                behavior: storyCharacterActionClone(behavior)
             });
         }
     }

@@ -8,7 +8,8 @@
 //  engeller. Oyuncu yalnız kendisine yöneltilmiş sözleri görebilir.
 // ============================================================================
 
-const STORY_CHARACTER_SPEECH_SCHEMA_VERSION = 1;
+const STORY_CHARACTER_SPEECH_SCHEMA_VERSION = 2;
+const STORY_CHARACTER_SPEECH_LEGACY_SCHEMA_VERSION = 1;
 const STORY_CHARACTER_SPEECH_SOURCE = 'DETERMINISTIC_CONSTRAINED_REALIZER';
 const STORY_CHARACTER_SPEECH_RECENT_WINDOW = 6;
 const STORY_CHARACTER_DIALOGUE_SCHEMA_VERSION = 1;
@@ -305,7 +306,16 @@ function storyCharacterSpeechRealizeDecision(decision, options) {
     if (!decision || decision.status === 'STALE') return null;
     const actor = storyCharacterSpeechIdentity(decision.actorId);
     const target = decision.targetActorId ? storyCharacterSpeechIdentity(decision.targetActorId) : null;
-    const plan = storyCharacterSpeechPlan(decision, actor);
+    const basePlan = storyCharacterSpeechPlan(decision, actor);
+    const expression = typeof storyCharacterBehaviorExpressionPlan === 'function'
+        ? storyCharacterBehaviorExpressionPlan(decision.actorId,
+            target ? 'PRIVATE_DIRECTED' : 'PUBLIC_STATEMENT', basePlan)
+        : {
+            channel: target ? 'PRIVATE_DIRECTED' : 'PUBLIC_STATEMENT',
+            plan: basePlan, personaSource: null,
+            scoreEffect: 0, mechanicalDecisionMutable: false
+        };
+    const plan = expression.plan;
     const actionLines = decision.verdict === 'PASS'
         ? (STORY_CHARACTER_SPEECH_PASS_LINES[decision.reasonCode]
             || STORY_CHARACTER_SPEECH_PASS_LINES.DEFAULT)
@@ -368,6 +378,12 @@ function storyCharacterSpeechRealizeDecision(decision, options) {
         opening: plan.opening,
         tone: plan.tone,
         emphasis: plan.emphasis,
+        expressionChannel: expression.channel,
+        personaSource: expression.personaSource,
+        publicRegister: expression.publicRegister || null,
+        disclosureStyle: expression.disclosureStyle || null,
+        scoreEffect: 0,
+        mechanicalDecisionMutable: false,
         source: STORY_CHARACTER_SPEECH_SOURCE,
         generatedAt: Number(decision.consumedAt) || 0
     };
@@ -376,7 +392,9 @@ function storyCharacterSpeechRealizeDecision(decision, options) {
 function storyCharacterSpeechValidateRealization(realization) {
     const issues = [];
     if (!realization || typeof realization !== 'object') return { ok: false, issues: ['REALIZATION_OBJECT'] };
-    if (realization.schemaVersion !== STORY_CHARACTER_SPEECH_SCHEMA_VERSION) issues.push('SCHEMA_VERSION');
+    const currentSchema = realization.schemaVersion === STORY_CHARACTER_SPEECH_SCHEMA_VERSION;
+    const legacySchema = realization.schemaVersion === STORY_CHARACTER_SPEECH_LEGACY_SCHEMA_VERSION;
+    if (!currentSchema && !legacySchema) issues.push('SCHEMA_VERSION');
     if (!realization.utteranceId || !realization.templateId) issues.push('IDENTITY');
     if (!realization.text || realization.text.length > 280) issues.push('TEXT_LENGTH');
     if (storyCharacterSpeechNormalize(realization.text) !== realization.normalizedText) issues.push('NORMALIZED_TEXT');
@@ -385,6 +403,14 @@ function storyCharacterSpeechValidateRealization(realization) {
     if (!['STATE_POSITION_FIRST', 'RELATIONSHIP_CONTEXT_FIRST'].includes(realization.opening)) issues.push('OPENING');
     if (!['FIRM', 'MEASURED', 'WARM', 'GUARDED'].includes(realization.tone)) issues.push('TONE');
     if (realization.source !== STORY_CHARACTER_SPEECH_SOURCE) issues.push('SOURCE');
+    // Şema-1 gerçekleşimleri tarihsel sözlerdir: o tarihte persona kanalı
+    // kaydedilmediği için geriye dönük sahte bir kamu/özel bağlam uydurulmaz.
+    // Şema-2 ve sonrası ise ifade katmanının mekanik karara dokunmadığını açıkça
+    // kanıtlamak zorundadır.
+    if (currentSchema) {
+        if (!['PUBLIC_STATEMENT', 'PRIVATE_DIRECTED'].includes(realization.expressionChannel)) issues.push('EXPRESSION_CHANNEL');
+        if (realization.scoreEffect !== 0 || realization.mechanicalDecisionMutable !== false) issues.push('PERSONA_MECHANICAL_BOUNDARY');
+    }
     return { ok: issues.length === 0, issues };
 }
 

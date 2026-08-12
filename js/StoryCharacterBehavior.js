@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  KARAKTER DAVRANIŞ DURUMU — Faz 38.7
 //  Kararlı sınırlı bias, kaynaklı ve sönümlenen stres, mekanik-gerçekten ayrı
-//  kamu personası. Bu ilk dilim seçim puanına veya dünya sonucuna yazmaz.
+//  kamu personası. Seçime sınırlı ve açıklanabilir katkı verir; dünya sonucuna
+//  doğrudan yazmaz, persona mekanik kararı değiştiremez.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_CHARACTER_BEHAVIOR_SCHEMA_VERSION = 1;
@@ -10,6 +11,7 @@ const STORY_CHARACTER_STRESS_CAP_PER_ACTOR = 8;
 const STORY_CHARACTER_STRESS_MAX_BPS = 10000;
 const STORY_CHARACTER_STRESS_MIN_HALF_LIFE = 30;
 const STORY_CHARACTER_STRESS_MAX_HALF_LIFE = 1800;
+const STORY_CHARACTER_BEHAVIOR_SCORE_DELTA_CAP = 4;
 
 function storyCharacterBehaviorEnabled() {
     return typeof storyFeatureEnabled !== 'function'
@@ -142,6 +144,109 @@ function storyCharacterBehaviorTick(dtSec) {
         actor.updatedAt = now;
     }
     return { disabled: false, activeStressors: active, elapsedSeconds: Number(dtSec) || 0 };
+}
+function storyCharacterBehaviorOptionAdjustment(actorId, option, existingReasons) {
+    const ledger = storyCharacterBehaviorEnsure();
+    const row = ledger && ledger.actors[String(actorId || '')];
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(String(actorId || '')) : null;
+    if (!row || !actor || !option) return {
+        scoreDelta: 0, contributions: [], reasons: [], cap: STORY_CHARACTER_BEHAVIOR_SCORE_DELTA_CAP
+    };
+    const usedAxes = new Set((existingReasons || []).map(String).map(reason => {
+        const match = /^(stateMarketOrientation|nationalGlobalOrientation|popularTechnocraticStyle|institutionalPosture):/.exec(reason);
+        return match && match[1];
+    }).filter(Boolean));
+    const biasSensitivity = {
+        INSTITUTIONAL_PRIOR: { PERSUADE: 0.30, NEGOTIATE: 0.65, ALLY: 0.50, BETRAY: -0.90 },
+        NATIONAL_PRIOR: { PERSUADE: 0.25, NEGOTIATE: -0.35, ALLY: -0.75, BETRAY: 0.45 },
+        EVIDENCE_STYLE_PRIOR: { PERSUADE: 0.55, NEGOTIATE: -0.45, ALLY: 0.15, BETRAY: -0.20 }
+    };
+    const stressSensitivity = {
+        PUBLIC_CRISIS_PRESSURE: { PERSUADE: 0.75, NEGOTIATE: 1.00, ALLY: -0.45, BETRAY: -1.15 },
+        OPERATIONAL_PRESSURE: { PERSUADE: -0.20, NEGOTIATE: 0.45, ALLY: 0.25, BETRAY: -0.65 },
+        EVENT_PRESSURE: { PERSUADE: 0.35, NEGOTIATE: 0.55, ALLY: -0.20, BETRAY: -0.55 }
+    };
+    const contributions = [];
+    for (const bias of row.biasProfile.biases || []) {
+        if (usedAxes.has(bias.axis)) {
+            contributions.push({
+                kind: 'BIAS', sourceId: bias.id, sourceAxis: bias.axis,
+                rawDelta: 0, appliedDelta: 0, suppressedReason: 'AXIS_ALREADY_COUNTED'
+            });
+            continue;
+        }
+        const sensitivity = Number(biasSensitivity[bias.id] && biasSensitivity[bias.id][option.actionType]) || 0;
+        const direction = bias.direction === 'NEGATIVE' ? -1 : 1;
+        const rawDelta = direction * sensitivity * Number(bias.strengthBps) / 1000;
+        contributions.push({
+            kind: 'BIAS', sourceId: bias.id, sourceAxis: bias.axis,
+            rawDelta: Math.round(rawDelta * 1000) / 1000,
+            appliedDelta: Math.round(rawDelta * 1000) / 1000,
+            suppressedReason: null
+        });
+    }
+    const responseSensitivity = Math.max(0.75, Math.min(1.25,
+        1 + ((Number(actor.values && actor.values.hawkishness) || 50) - 50) / 200));
+    for (const stressor of Object.values(row.stressors || {})) {
+        if (stressor.status !== 'ACTIVE' || Number(stressor.currentBps) <= 10) continue;
+        const table = stressSensitivity[stressor.kind] || stressSensitivity.EVENT_PRESSURE;
+        const sensitivity = Number(table[option.actionType]) || 0;
+        const rawDelta = sensitivity * Number(stressor.currentBps) / 2500 * responseSensitivity;
+        contributions.push({
+            kind: 'STRESS', sourceId: stressor.id, sourceBeliefId: stressor.beliefId,
+            rawDelta: Math.round(rawDelta * 1000) / 1000,
+            appliedDelta: Math.round(rawDelta * 1000) / 1000,
+            suppressedReason: null
+        });
+    }
+    const rawTotal = contributions.reduce((sum, item) => sum + Number(item.appliedDelta || 0), 0);
+    const scoreDelta = Math.max(-STORY_CHARACTER_BEHAVIOR_SCORE_DELTA_CAP,
+        Math.min(STORY_CHARACTER_BEHAVIOR_SCORE_DELTA_CAP, rawTotal));
+    const rounded = Math.round(scoreDelta * 1000) / 1000;
+    if (Math.abs(rawTotal - scoreDelta) > 1e-9) {
+        contributions.push({
+            kind: 'CAP', sourceId: 'BEHAVIOR_SCORE_DELTA_CAP', rawDelta: Math.round(rawTotal * 1000) / 1000,
+            appliedDelta: rounded, suppressedReason: 'TOTAL_CLAMPED'
+        });
+    }
+    return {
+        scoreDelta: rounded,
+        contributions,
+        reasons: contributions.filter(item => item.kind !== 'CAP').map(item =>
+            `behavior:${item.kind.toLowerCase()}:${item.sourceId}:${Number(item.appliedDelta).toFixed(3)}`),
+        cap: STORY_CHARACTER_BEHAVIOR_SCORE_DELTA_CAP,
+        deterministic: true,
+        rawWorldRead: false
+    };
+}
+function storyCharacterBehaviorExpressionPlan(actorId, channel, basePlan) {
+    const ledger = storyCharacterBehaviorEnsure();
+    const row = ledger && ledger.actors[String(actorId || '')];
+    const normalizedChannel = channel === 'PUBLIC_STATEMENT'
+        ? 'PUBLIC_STATEMENT' : 'PRIVATE_DIRECTED';
+    const plan = storyCharacterBehaviorClone(basePlan || {});
+    if (!row) return {
+        channel: normalizedChannel, plan,
+        personaSource: null, scoreEffect: 0, mechanicalDecisionMutable: false
+    };
+    const persona = row.publicPersona;
+    if (normalizedChannel === 'PUBLIC_STATEMENT') {
+        plan.opening = 'STATE_POSITION_FIRST';
+        plan.tone = persona.pressureStyle === 'FIRM' ? 'FIRM' : 'MEASURED';
+        plan.address = 'NEUTRAL';
+    }
+    return {
+        channel: normalizedChannel,
+        plan,
+        personaSource: persona.source,
+        publicRegister: normalizedChannel === 'PUBLIC_STATEMENT'
+            ? persona.publicRegister : null,
+        disclosureStyle: normalizedChannel === 'PUBLIC_STATEMENT'
+            ? persona.disclosureStyle : 'PRIVATE_RELATIONAL_CONTEXT',
+        scoreEffect: 0,
+        mechanicalDecisionMutable: false
+    };
 }
 function storyCharacterBehaviorValidate(candidate) {
     const issues = [];

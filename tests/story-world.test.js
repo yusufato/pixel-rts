@@ -3875,16 +3875,44 @@ function run() {
         'Faz 38.7: aynı şok öncesinde bile farklı karakter profilleri kozmetik olarak aynı olmamalı.');
     assert.equal(characterBehaviorStateProbe.biasBounded, true,
         'Faz 38.7: bias en çok iki kaynaklı ve sınırlı eksen önceliği taşımalı; bu dilimde puan eklememeli.');
+    assert.equal(characterBehaviorStateProbe.deterministicAdjustment, true,
+        'Faz 38.7: aynı karakter, seçenek ve bağlam aynı davranış katkısını üretmeli.');
+    assert.equal(characterBehaviorStateProbe.doubleCountPrevented, true,
+        'Faz 38.7: seçicide zaten kullanılan karakter ekseni bias tarafından ikinci kez puanlanmamalı.');
     assert.equal(characterBehaviorStateProbe.forgedStressRejected, true,
         'Faz 38.7: aktörün bilmediği olaya sahte stres bağlanamamalı.');
     assert.equal(characterBehaviorStateProbe.sourcedStressAccepted, true,
         'Faz 38.7: stres gerçek olay ve aktöre ait ActorBelief ile açılmalı.');
+    assert.equal(characterBehaviorStateProbe.boundedBehaviorDelta, true,
+        'Faz 38.7: bias ve stres toplam davranış katkısı mutlak dört puan tavanını aşmamalı.');
+    assert.equal(characterBehaviorStateProbe.sameShockDifferentResponse, true,
+        'Faz 38.7: aynı kaynak olay farklı karakterlerde farklı fakat açıklanabilir katkı üretmeli.');
+    assert.equal(characterBehaviorStateProbe.activeStressContributes, true,
+        'Faz 38.7: aktif stres kaynak kimliğiyle karar katkısına girmeli.');
+    assert.equal(characterBehaviorStateProbe.actionSelectorConnected, true,
+        'Faz 38.7: davranış katkısı gerçek karakter eylem seçicisinin puan ve neden zincirine bağlanmalı.');
     assert.equal(characterBehaviorStateProbe.halfLifeCorrect, true,
         'Faz 38.7: stres tam yarı ömürde başlangıç değerinin yarısına inmeli.');
+    assert.equal(characterBehaviorStateProbe.halfLifeReducesContribution, true,
+        'Faz 38.7: stres yarılandığında karar katkısı da başlangıç biasına yaklaşmalı.');
     assert.equal(characterBehaviorStateProbe.stressDecays, true,
         'Faz 38.7: kaynak olay yenilenmezse geçici stres sönüp kapanmalı.');
+    assert.equal(characterBehaviorStateProbe.expiredStressStopsContributing, true,
+        'Faz 38.7: kapanmış stres artık karar puanına veya neden zincirine girmemeli.');
     assert.equal(characterBehaviorStateProbe.personaTruthSafe, true,
         'Faz 38.7: kamu personası mekanik gerçeği değiştirememeli.');
+    assert.equal(characterBehaviorStateProbe.expressionChannelsDiffer, true,
+        'Faz 38.7: aynı karakter kamusal açıklama ile özel görüşmede farklı ifade planı kullanmalı.');
+    assert.equal(characterBehaviorStateProbe.expressionInputImmutable, true,
+        'Faz 38.7: persona katmanı hakemin temel konuşma planını yerinde değiştirmemeli.');
+    assert.equal(characterBehaviorStateProbe.expressionMechanicalBoundary, true,
+        'Faz 38.7: kamu/özel ifade farkı karar puanına veya mekanik gerçeğe dokunmamalı.');
+    assert.equal(characterBehaviorStateProbe.realizationChannelsCorrect, true,
+        'Faz 38.7: yeni gerçekleşen sözler sürüm-2 kamu/özel kanalını açıkça kaydetmeli.');
+    assert.equal(characterBehaviorStateProbe.realizationValidation.every(row => row.ok), true,
+        'Faz 38.7: kamu ve özel persona gerçekleşimleri konuşma sözleşmesini geçmeli.');
+    assert.equal(characterBehaviorStateProbe.legacySpeechPreserved, true,
+        'Faz 38.7: eski sürüm-1 sözler sahte persona bağlamı uydurulmadan okunabilmeli.');
     assert.equal(characterBehaviorStateProbe.worldNeutral, true,
         'Faz 38.7: ilk davranış defteri fiziksel dünya sonucuna yazmamalı.');
     assert.equal(characterBehaviorStateProbe.welfareNeutral, true,

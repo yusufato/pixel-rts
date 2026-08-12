@@ -150,6 +150,9 @@ function storyDecisionTraceCandidate(row) {
         evidenceType
     });
     const scoreReasons = (row && row.reasons || candidate.selectorReasons || []).map(String).slice(0, 16);
+    const behavior = row && row.behavior && typeof row.behavior === 'object'
+        ? storyDecisionTraceClone(row.behavior)
+        : { scoreDelta: 0, contributions: [], reasons: [], cap: 0, deterministic: true, rawWorldRead: false };
     return {
         candidateId: String(candidate.id),
         actionType: String(candidate.actionType),
@@ -187,7 +190,8 @@ function storyDecisionTraceCandidate(row) {
         ],
         filterReasons: (candidate.reasons || []).map(String).slice(0, 12),
         scoreReasons,
-        psychologyEvidence: storyDecisionTracePsychologyEvidence(scoreReasons)
+        psychologyEvidence: storyDecisionTracePsychologyEvidence(scoreReasons),
+        behaviorContributions: behavior
     };
 }
 
@@ -299,6 +303,8 @@ function storyDecisionTraceV2Build(decisionId, context, input) {
         filterEvidence: selected ? storyDecisionTraceClone(selected.filterEvidence) : [],
         psychologyContributions: selected
             ? storyDecisionTraceClone(selected.psychologyEvidence) : null,
+        behaviorContributions: selected
+            ? storyDecisionTraceClone(selected.behaviorContributions) : null,
         risk: selected ? storyDecisionTraceRiskView(selected, context) : null,
         reasonCode: input.reasonCode == null ? null : String(input.reasonCode),
         source: String(input.source || 'DETERMINISTIC_FALLBACK'),
@@ -336,6 +342,8 @@ function storyDecisionTraceV2PlayerView(traceId, viewerActorId) {
         cost: ownsDecision ? storyDecisionTraceClone(trace.cost) : null,
         psychologyContributions: ownsDecision
             ? storyDecisionTraceClone(trace.psychologyContributions) : null,
+        behaviorContributions: ownsDecision
+            ? storyDecisionTraceClone(trace.behaviorContributions) : null,
         risk: ownsDecision ? storyDecisionTraceClone(trace.risk) : null,
         visibleBeliefEvidence: visibleBeliefs.map(row => ({
             beliefId: row.beliefId,
@@ -346,7 +354,8 @@ function storyDecisionTraceV2PlayerView(traceId, viewerActorId) {
         hiddenBeliefEvidenceCount: Math.max(0, context.actorBeliefs.length - visibleBeliefs.length),
         privateReasonCount: ownsDecision ? 0
             : trace.supportingReasons.length + trace.opposingReasons.length
-                + Number(!!trace.psychologyContributions) + Number(!!trace.risk),
+                + Number(!!trace.psychologyContributions) + Number(!!trace.behaviorContributions)
+                + Number(!!trace.risk),
         rawWorldFactRead: false
     };
 }
@@ -439,6 +448,13 @@ function storyDecisionTraceV2Validate(contexts, traces, decisions) {
             && (trace.psychologyContributions.addedScoreDelta !== 0
                 || trace.psychologyContributions.doubleCountPrevented !== true)) {
             add('PSYCHOLOGY_DOUBLE_COUNT', `${at}.psychologyContributions`);
+        }
+        if (trace && trace.behaviorContributions
+            && (Math.abs(Number(trace.behaviorContributions.scoreDelta) || 0) > 4
+                || trace.behaviorContributions.deterministic !== true
+                || trace.behaviorContributions.rawWorldRead !== false
+                || !Array.isArray(trace.behaviorContributions.contributions))) {
+            add('BEHAVIOR_CONTRIBUTION_CONTRACT', `${at}.behaviorContributions`);
         }
         if (trace && trace.risk
             && (trace.risk.scoreEffect !== 0 || trace.risk.explanationOnly !== true

@@ -554,6 +554,12 @@ function createRuntime(seed) {
             characterBehaviorValidate: ledger => storyCharacterBehaviorValidate(ledger),
             characterBehaviorStressAdd: (actorId, input) => storyCharacterBehaviorStressAdd(actorId, input),
             characterBehaviorTick: dt => storyCharacterBehaviorTick(dt),
+            characterBehaviorOptionAdjustment: (actorId, option, reasons) => (
+                storyCharacterBehaviorOptionAdjustment(actorId, option, reasons)
+            ),
+            characterBehaviorExpressionPlan: (actorId, channel, plan) => (
+                storyCharacterBehaviorExpressionPlan(actorId, channel, plan)
+            ),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -13699,12 +13705,23 @@ function probeCharacterBehaviorState(seed = 2032) {
         const welfareBefore = story.states.map(row => Number(row.welfare) || 0);
         const identities = story.characterIdentities;
         const actors = Object.values(identities.identities || {});
-        const first = actors[0];
+        const first = actors.find(actor => runtime.api.characterActionAIRankActor(actor.id).length > 0)
+            || actors[0];
         const behavior = runtime.api.characterBehaviorLedger();
         const firstProfile = behavior.actors[first.id].biasProfile;
-        const different = actors.slice(1).find(actor => JSON.stringify(
+        const different = actors.filter(actor => actor.id !== first.id).find(actor => JSON.stringify(
             behavior.actors[actor.id].biasProfile.biases
         ) !== JSON.stringify(firstProfile.biases));
+        const baselineAdjustment = runtime.api.characterBehaviorOptionAdjustment(
+            first.id, { actionType: 'NEGOTIATE' }, []
+        );
+        const repeatedBaseline = runtime.api.characterBehaviorOptionAdjustment(
+            first.id, { actionType: 'NEGOTIATE' }, []
+        );
+        const usedAxisReasons = firstProfile.biases.map(bias => `${bias.axis}:+1.00`);
+        const doubleCountGuard = runtime.api.characterBehaviorOptionAdjustment(
+            first.id, { actionType: 'NEGOTIATE' }, usedAxisReasons
+        );
         const factId = 'world-fact:phase387:stress';
         const beliefId = 'actor-belief:phase387:stress';
         identities.worldFacts[factId] = {
@@ -13718,6 +13735,19 @@ function probeCharacterBehaviorState(seed = 2032) {
             confidenceBps: 9000, source: { type: 'DIRECT_EXPERIENCE', eventId: 'event:phase387:stress' },
             learnedAt: Number(story.clock) || 0, originEventId: 'event:phase387:stress', version: 1
         };
+        const secondFactId = 'world-fact:phase387:stress-second';
+        const secondBeliefId = 'actor-belief:phase387:stress-second';
+        identities.worldFacts[secondFactId] = {
+            id: secondFactId, factType: 'TEST_STRESS_EVENT', subjectActorId: different.id,
+            countryId: different.countryId, originEventId: 'event:phase387:stress',
+            visibility: 'PRIVATE', version: 1
+        };
+        identities.actorBeliefs[secondBeliefId] = {
+            id: secondBeliefId, holderActorId: different.id, holderCountryId: different.countryId,
+            worldFactId: secondFactId, subjectActorId: different.id, beliefStatus: 'VERIFIED',
+            confidenceBps: 9000, source: { type: 'DIRECT_EXPERIENCE', eventId: 'event:phase387:stress' },
+            learnedAt: Number(story.clock) || 0, originEventId: 'event:phase387:stress', version: 1
+        };
         const forged = runtime.api.characterBehaviorStressAdd(first.id, {
             eventId: 'event:phase387:forged', beliefId: 'actor-belief:not-held',
             initialBps: 8000, halfLifeSeconds: 60
@@ -13726,14 +13756,62 @@ function probeCharacterBehaviorState(seed = 2032) {
             eventId: 'event:phase387:stress', beliefId,
             kind: 'PUBLIC_CRISIS_PRESSURE', initialBps: 8000, halfLifeSeconds: 60
         });
+        const secondAdded = runtime.api.characterBehaviorStressAdd(different.id, {
+            eventId: 'event:phase387:stress', beliefId: secondBeliefId,
+            kind: 'PUBLIC_CRISIS_PRESSURE', initialBps: 8000, halfLifeSeconds: 60
+        });
+        const activeAdjustment = runtime.api.characterBehaviorOptionAdjustment(
+            first.id, { actionType: 'NEGOTIATE' }, []
+        );
+        const secondActiveAdjustment = runtime.api.characterBehaviorOptionAdjustment(
+            different.id, { actionType: 'NEGOTIATE' }, []
+        );
+        const rankedWithBehavior = runtime.api.characterActionAIRankActor(first.id);
+        const baseSpeechPlan = {
+            opening: 'RELATIONSHIP_CONTEXT_FIRST', tone: 'WARM',
+            address: 'FORMAL_TITLE', emphasis: ['GOAL']
+        };
+        const privateExpression = runtime.api.characterBehaviorExpressionPlan(
+            first.id, 'PRIVATE_DIRECTED', baseSpeechPlan
+        );
+        const publicExpression = runtime.api.characterBehaviorExpressionPlan(
+            first.id, 'PUBLIC_STATEMENT', baseSpeechPlan
+        );
+        const privateDecision = {
+            id: 'decision:phase387:private', sequence: 1, status: 'ACCEPTED',
+            verdict: 'PROPOSE', actionType: 'NEGOTIATE', reasonCode: 'GOAL_ALIGNMENT',
+            actorId: first.id, targetActorId: different.id,
+            requestId: 'request:phase387:private', contextHash: 'phase387-private',
+            consumedAt: Number(story.clock) || 0, speechPlan: baseSpeechPlan
+        };
+        const publicDecision = Object.assign({}, privateDecision, {
+            id: 'decision:phase387:public', sequence: 2, targetActorId: null,
+            requestId: 'request:phase387:public', contextHash: 'phase387-public'
+        });
+        const privateRealization = runtime.api.characterSpeechRealizeDecision(privateDecision);
+        const publicRealization = runtime.api.characterSpeechRealizeDecision(publicDecision);
+        const legacyRealization = JSON.parse(JSON.stringify(privateRealization));
+        legacyRealization.schemaVersion = 1;
+        delete legacyRealization.expressionChannel;
+        delete legacyRealization.personaSource;
+        delete legacyRealization.publicRegister;
+        delete legacyRealization.disclosureStyle;
+        delete legacyRealization.scoreEffect;
+        delete legacyRealization.mechanicalDecisionMutable;
         story.clock += 60;
         runtime.api.characterBehaviorTick(60);
         const atHalfLife = runtime.api.characterBehaviorLedger()
             .actors[first.id].stressors[added.stressor.id];
+        const halfLifeAdjustment = runtime.api.characterBehaviorOptionAdjustment(
+            first.id, { actionType: 'NEGOTIATE' }, []
+        );
         story.clock += 600;
         runtime.api.characterBehaviorTick(600);
         snapshot = runtime.api.characterBehaviorLedger();
         const afterDecay = snapshot.actors[first.id].stressors[added.stressor.id];
+        const expiredAdjustment = runtime.api.characterBehaviorOptionAdjustment(
+            first.id, { actionType: 'NEGOTIATE' }, []
+        );
         const worldAfter = hashSnapshot(stateSnapshot(story));
         const welfareAfter = story.states.map(row => Number(row.welfare) || 0);
         runtime.api.saveNow();
@@ -13745,14 +13823,46 @@ function probeCharacterBehaviorState(seed = 2032) {
                 && row.biasProfile.biases.every(bias => bias.strengthBps >= 0 && bias.strengthBps <= 2500)
                 && row.biasProfile.scoreEffect === 0
                 && row.biasProfile.doubleCountPrevented === true),
+            deterministicAdjustment: JSON.stringify(baselineAdjustment) === JSON.stringify(repeatedBaseline),
+            doubleCountPrevented: doubleCountGuard.contributions
+                .filter(row => row.kind === 'BIAS').every(row => row.appliedDelta === 0
+                    && row.suppressedReason === 'AXIS_ALREADY_COUNTED'),
             forgedStressRejected: forged.ok === false && forged.code === 'SOURCE_BELIEF_REQUIRED',
-            sourcedStressAccepted: added.ok === true && added.stressor.beliefId === beliefId,
+            sourcedStressAccepted: added.ok === true && added.stressor.beliefId === beliefId
+                && secondAdded.ok === true && secondAdded.stressor.beliefId === secondBeliefId,
+            boundedBehaviorDelta: [baselineAdjustment, activeAdjustment, secondActiveAdjustment,
+                halfLifeAdjustment, expiredAdjustment].every(row => Math.abs(row.scoreDelta) <= 4),
+            sameShockDifferentResponse: activeAdjustment.scoreDelta !== secondActiveAdjustment.scoreDelta,
+            activeStressContributes: activeAdjustment.contributions.some(row => row.kind === 'STRESS'
+                && row.sourceId === added.stressor.id && row.appliedDelta !== 0),
+            actionSelectorConnected: rankedWithBehavior.some(row => row.behavior
+                && row.behavior.contributions.some(item => item.kind === 'STRESS')
+                && row.reasons.some(reason => reason.startsWith('behavior:stress:'))),
             halfLifeCorrect: Math.abs(atHalfLife.currentBps - 4000) <= 1,
+            halfLifeReducesContribution: Math.abs(halfLifeAdjustment.scoreDelta - baselineAdjustment.scoreDelta)
+                < Math.abs(activeAdjustment.scoreDelta - baselineAdjustment.scoreDelta),
             stressDecays: afterDecay.currentBps < atHalfLife.currentBps
                 && afterDecay.status === 'EXPIRED',
+            expiredStressStopsContributing: !expiredAdjustment.contributions.some(row => row.kind === 'STRESS')
+                && expiredAdjustment.scoreDelta === baselineAdjustment.scoreDelta,
             personaTruthSafe: Object.values(snapshot.actors).every(row =>
                 row.publicPersona.mechanicalTruthMutable === false
                 && row.publicPersona.source === 'CANONICAL_VOICE_PROFILE'),
+            expressionChannelsDiffer: privateExpression.channel === 'PRIVATE_DIRECTED'
+                && publicExpression.channel === 'PUBLIC_STATEMENT'
+                && JSON.stringify(privateExpression.plan) !== JSON.stringify(publicExpression.plan),
+            expressionInputImmutable: JSON.stringify(baseSpeechPlan) === JSON.stringify({
+                opening: 'RELATIONSHIP_CONTEXT_FIRST', tone: 'WARM',
+                address: 'FORMAL_TITLE', emphasis: ['GOAL']
+            }),
+            expressionMechanicalBoundary: [privateExpression, publicExpression].every(row =>
+                row.scoreEffect === 0 && row.mechanicalDecisionMutable === false),
+            realizationChannelsCorrect: privateRealization.expressionChannel === 'PRIVATE_DIRECTED'
+                && publicRealization.expressionChannel === 'PUBLIC_STATEMENT'
+                && privateRealization.schemaVersion === 2 && publicRealization.schemaVersion === 2,
+            realizationValidation: [privateRealization, publicRealization].map(row =>
+                runtime.api.characterSpeechValidateRealization(row)),
+            legacySpeechPreserved: runtime.api.characterSpeechValidateRealization(legacyRealization).ok,
             worldNeutral: worldBefore === worldAfter,
             welfareNeutral: JSON.stringify(welfareBefore) === JSON.stringify(welfareAfter),
             validation: runtime.api.characterBehaviorValidate(snapshot)
