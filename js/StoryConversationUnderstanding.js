@@ -15,7 +15,13 @@ const STORY_CONVERSATION_MAX_INPUT = 1200;
 const STORY_CONVERSATION_SPEECH_ACTS = Object.freeze([
     'ASK_INFORMATION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN', 'MAKE_PROMISE',
     'SHARE_SECRET', 'BLUFF_CANDIDATE', 'ACCUSE', 'REQUEST_ACTION',
-    'OFFER_SUPPORT', 'COUNTER_OFFER', 'REJECT', 'SMALL_TALK', 'UNKNOWN'
+    'OFFER_SUPPORT', 'COUNTER_OFFER', 'REJECT', 'GREETING', 'CHECK_IN',
+    'THANK', 'APOLOGIZE', 'FAREWELL', 'ASK_PERSONAL_OPINION',
+    'SMALL_TALK', 'REQUEST_SUPPORT', 'UNKNOWN'
+]);
+const STORY_CONVERSATION_SOCIAL_ACTS = Object.freeze([
+    'GREETING', 'CHECK_IN', 'THANK', 'APOLOGIZE', 'FAREWELL',
+    'ASK_PERSONAL_OPINION', 'SMALL_TALK', 'REQUEST_SUPPORT'
 ]);
 const STORY_CONVERSATION_ENTITY_STATUSES = Object.freeze([
     'RESOLVED_PUBLIC', 'RESOLVED_OWNED', 'KNOWN_CONTEXT_REFERENCE',
@@ -278,9 +284,16 @@ function storyConversationSpeechAct(folded, raw) {
     if (storyConversationContains(folded, ['yardim ederim', 'destek olurum', 'yanindayim'])) add('OFFER_SUPPORT', 9);
     if (storyConversationContains(folded, ['kabul etmiyorum', 'reddediyorum', 'olmaz'])) add('REJECT', 9);
     if (storyConversationContains(folded, ['karsilik olarak', 'ama su sartla', 'buna karsilik'])) add('COUNTER_OFFER', 9);
+    if (storyConversationContains(folded, ['merhaba', 'selam', 'gunaydin', 'iyi gunler'])) add('GREETING', 13);
+    if (storyConversationContains(folded, ['nasilsin', 'nasil gidiyor', 'keyfin nasil', 'gunun nasil', 'bugunun nasil'])) add('CHECK_IN', 15);
+    if (storyConversationContains(folded, ['tesekkur ederim', 'tesekkurler', 'sag ol', 'minnettarim'])) add('THANK', 14);
+    if (storyConversationContains(folded, ['ozur dilerim', 'kusura bakma', 'affedersin'])) add('APOLOGIZE', 14);
+    if (storyConversationContains(folded, ['gorusuruz', 'hosca kal', 'kendine iyi bak', 'sonra konusuruz'])) add('FAREWELL', 14);
+    if (storyConversationContains(folded, ['sence', 'ne dusunuyorsun', 'fikrin ne', 'senin gorusun'])) add('ASK_PERSONAL_OPINION', 13);
+    if (storyConversationContains(folded, ['yardim eder misin', 'yardim edecek misin', 'destek olur musun', 'destegine ihtiyacim var'])) add('REQUEST_SUPPORT', 14);
+    if (storyConversationContains(folded, ['biraz konusalim', 'sohbet edelim', 'hava guzel', 'laflayalim'])) add('SMALL_TALK', 12);
     if (String(raw || '').includes('?') || storyConversationContains(folded, ['neden', 'nasil', 'ne zaman', 'nerede', 'kim', 'hangi'])) add('ASK_INFORMATION', 7);
     if (storyConversationContains(folded, ['istiyorum', 'yap', 'gonder', 'yonlendir'])) add('REQUEST_ACTION', 5);
-    if (storyConversationContains(folded, ['merhaba', 'selam', 'nasilsin'])) add('SMALL_TALK', 4);
     const ranked = Object.keys(scores).sort((a, b) => scores[b] - scores[a] || a.localeCompare(b, 'en'));
     return {
         primary: ranked[0] || 'UNKNOWN',
@@ -391,9 +404,11 @@ function storyConversationAnalyze(raw, context) {
         inputHash: storyConversationHash(folded), language: 'tr', source: STORY_CONVERSATION_UNDERSTANDING_SOURCE,
         worldMutation: false, speechAct: act.primary, secondaryActs: act.secondary,
         playerIntent: founding && resource && resource.mention === 'çelik' ? 'FOUND_STEEL_COMPANY'
-            : founding ? 'FOUND_COMPANY' : redirect ? 'REDIRECT_SHIPMENT' : 'UNSPECIFIED',
+            : founding ? 'FOUND_COMPANY' : redirect ? 'REDIRECT_SHIPMENT'
+                : STORY_CONVERSATION_SOCIAL_ACTS.includes(act.primary) ? `SOCIAL_${act.primary}` : 'UNSPECIFIED',
         topic: commercial ? 'COMMERCE' : ['THREATEN', 'ACCUSE'].includes(act.primary) ? 'CONFLICT'
-            : act.primary === 'ASK_INFORMATION' ? 'INFORMATION' : 'GENERAL',
+            : act.primary === 'ASK_INFORMATION' ? 'INFORMATION'
+                : STORY_CONVERSATION_SOCIAL_ACTS.includes(act.primary) ? 'SOCIAL' : 'GENERAL',
         tone: storyConversationTone(folded, act.primary), attribution: 'PLAYER',
         entities, claims, requests, offeredConsideration: [], unresolvedTerms: Array.from(unresolved).sort(),
         ambiguityLevel, ambiguityBps, riskLevel: highImpact ? 'HIGH' : 'LOW',
@@ -472,7 +487,7 @@ function storyConversationSessionLedgerCreate() {
         diagnostics: {
             prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
             domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
-            playerResponses: 0, knowledgeTransfers: 0
+            playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0
         }
     };
 }
@@ -486,7 +501,7 @@ function storyConversationSessionMigrateLedger(saved) {
     ledger.diagnostics = Object.assign({
         prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
         domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
-        playerResponses: 0, knowledgeTransfers: 0
+        playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0
     }, ledger.diagnostics || {});
     for (const session of (ledger.sessions || [])) {
         session.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
@@ -1022,6 +1037,10 @@ function storyConversationSessionStatus(session) {
     if (session.resolution && STORY_CONVERSATION_RESOLUTION_STATUSES.includes(session.resolution.status)) {
         return session.resolution.status;
     }
+    if (STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)
+        && (session.listenerResponses || []).some(row => row.kind === 'SOCIAL_RESPONSE')) {
+        return 'SOCIAL_RESPONSE_READY';
+    }
     if ((session.questions || []).some(row => row.status === 'OPEN')) return 'NEEDS_CLARIFICATION';
     if (session.domainReview && STORY_CONVERSATION_REVIEW_STATUSES.includes(session.domainReview.sessionStatus)) {
         return session.domainReview.sessionStatus;
@@ -1045,8 +1064,10 @@ function storyConversationSessionCandidate(session) {
     }
     return {
         schemaVersion: 3,
-        kind: session.analysis.speechAct === 'PROPOSE_COMMERCIAL_DEAL'
-            ? 'COMMERCIAL_NEGOTIATION_DRAFT' : 'CONVERSATION_ACT_DRAFT',
+        kind: STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)
+            ? 'SOCIAL_CONVERSATION_RECORD'
+            : session.analysis.speechAct === 'PROPOSE_COMMERCIAL_DEAL'
+                ? 'COMMERCIAL_NEGOTIATION_DRAFT' : 'CONVERSATION_ACT_DRAFT',
         sourceSessionId: session.id,
         speakerActorId: session.playerActorId,
         listenerActorId: session.listenerActorId,
@@ -1067,6 +1088,41 @@ function storyConversationSessionCandidate(session) {
             .concat(session.status === 'NEEDS_CLARIFICATION' ? ['OPEN_CLARIFICATIONS'] : [])
             .concat(session.resolution ? [session.resolution.status] : [])
     };
+}
+
+function storyConversationSocialResponseText(speechAct) {
+    return ({
+        GREETING: 'Merhaba. Buradayım; konuşmak istediğin konuyu söyle.',
+        CHECK_IN: 'İyiyim, teşekkür ederim. Senin günün nasıl gidiyor?',
+        THANK: 'Rica ederim. Yardımcı olabildiysem memnun oldum.',
+        APOLOGIZE: 'Özrünü duydum. Konuyu daha dikkatli biçimde sürdürebiliriz.',
+        FAREWELL: 'Görüşmek üzere. Kendine iyi bak.',
+        ASK_PERSONAL_OPINION: 'Fikrimi söyleyebilirim; hangi yönünü değerlendirmemi istediğini biraz aç.',
+        SMALL_TALK: 'Elbette, biraz konuşabiliriz.',
+        REQUEST_SUPPORT: 'Yardım isteğini duydum. Ne konuda desteğe ihtiyacın olduğunu açıkça söyle.'
+    })[speechAct] || null;
+}
+
+function storyConversationSessionBuildSocialResponse(session, ledger) {
+    if (!session || !session.analysis.ok || !session.listenerActorId
+        || !STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)) return null;
+    const text = storyConversationSocialResponseText(session.analysis.speechAct);
+    if (!text) return null;
+    const response = {
+        schemaVersion: 1,
+        id: `conversation-social-response:${session.id}:1`,
+        kind: 'SOCIAL_RESPONSE',
+        actorId: session.listenerActorId,
+        targetActorId: session.playerActorId,
+        speechAct: session.analysis.speechAct,
+        createdAt: Number(STORY.clock) || 0,
+        text,
+        source: 'DETERMINISTIC_SOCIAL_RESPONSE',
+        worldMutation: false
+    };
+    session.listenerResponses.push(response);
+    if (ledger && ledger.diagnostics) ledger.diagnostics.socialResponses++;
+    return response;
 }
 
 function storyConversationSessionBegin(raw, context) {
@@ -1090,6 +1146,7 @@ function storyConversationSessionBegin(raw, context) {
         evidenceSubmissions: [], concessions: { useExistingCompany: false, withdrawnClaimIds: [] },
         resolution: null, status: null, domainReview: null, candidate: null, worldMutation: false
     };
+    storyConversationSessionBuildSocialResponse(session, ledger);
     session.status = storyConversationSessionStatus(session);
     session.candidate = storyConversationSessionCandidate(session);
     ledger.sessions.push(session);
@@ -1232,7 +1289,7 @@ function storyConversationSessionValidateLedger(candidate) {
         if (!session.id || session.schemaVersion !== STORY_CONVERSATION_SESSION_SCHEMA_VERSION) add('SESSION_ID', `$.sessions[${index}]`);
         if (session.worldMutation !== false || !session.candidate || session.candidate.worldMutation !== false
             || session.candidate.executable !== false) add('SESSION_MUTATION', `$.sessions[${index}]`);
-        if (!['REJECTED', 'NEEDS_CLARIFICATION', 'READY_FOR_DOMAIN_REVIEW', 'READY_FOR_REVIEW']
+        if (!['REJECTED', 'NEEDS_CLARIFICATION', 'READY_FOR_DOMAIN_REVIEW', 'READY_FOR_REVIEW', 'SOCIAL_RESPONSE_READY']
             .concat(STORY_CONVERSATION_REVIEW_STATUSES, STORY_CONVERSATION_RESOLUTION_STATUSES)
             .includes(session.status)) add('SESSION_STATUS', `$.sessions[${index}].status`);
         if ((session.turns || []).length > STORY_CONVERSATION_TURN_LIMIT) add('TURN_LIMIT', `$.sessions[${index}].turns`);

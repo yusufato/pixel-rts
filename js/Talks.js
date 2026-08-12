@@ -1183,6 +1183,7 @@ const STORY_TALK_CONVERSATION_STATUS = Object.freeze({
     NEEDS_CLARIFICATION: 'AÇIKLAMA BEKLİYOR',
     READY_FOR_DOMAIN_REVIEW: 'MEKANİK İNCELEMEYE HAZIR',
     READY_FOR_REVIEW: 'İNCELEMEYE HAZIR',
+    SOCIAL_RESPONSE_READY: 'KARAKTER CEVAP VERDİ',
     DOMAIN_REVIEW_NEEDS_EVIDENCE: 'MUHATAP KANIT BEKLİYOR',
     DOMAIN_REVIEW_COUNTER_OFFER: 'MUHATAP KARŞI TEKLİF VERDİ',
     DOMAIN_REVIEW_REJECTED: 'MUHATAP REDDETTİ',
@@ -1317,6 +1318,13 @@ function storyTalkConversationDomainReviewHtml(review) {
 
 function storyTalkConversationResponseOptionsHtml(session) {
     const esc = storyTalkConversationEscape;
+    const socialResponse = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+    if (socialResponse) {
+        return `<section class="conversation-listener-response social" data-social-response="${esc(socialResponse.id)}">`
+            + `<header><span>KARAKTERİN CEVABI</span><small>${esc(socialResponse.speechAct)}</small></header>`
+            + `<blockquote>“${esc(socialResponse.text)}”</blockquote>`
+            + `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div></section>`;
+    }
     const options = typeof storyConversationSessionResponseOptions === 'function'
         ? storyConversationSessionResponseOptions(session) : [];
     if (session.resolution) {
@@ -1404,7 +1412,9 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
         + `<blockquote>${esc(session.initialText)}</blockquote>`
         + `<div class="conversation-understood"><span>ANLAŞILAN NİYET</span>`
         + `<b>${esc(session.analysis.speechAct)} · ${esc(session.analysis.playerIntent)}</b></div>`
-        + `<div class="conversation-safety-note">DÜNYA DEĞİŞMEDİ · ${session.domainChecks.length} gerçek motor denetimi bekliyor</div>`;
+        + (session.status === 'SOCIAL_RESPONSE_READY'
+            ? `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div>`
+            : `<div class="conversation-safety-note">DÜNYA DEĞİŞMEDİ · ${session.domainChecks.length} gerçek motor denetimi bekliyor</div>`);
     if (session.domainReview) html += storyTalkConversationDomainReviewHtml(session.domainReview);
     html += storyTalkConversationResponseOptionsHtml(session);
     if (session) {
