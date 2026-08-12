@@ -62,7 +62,7 @@ düzeltmenin neyi çözdüğü ölçülemez.
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** yükselir (UI'da değil), AKIŞ arşive dönüşür: arama + tür filtresi | `AÇIK` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `HIKAYE_MODU_UYGULAMA_DURUMU.md` Faz 38.1 açık borç | Arama kutusu + filtre çipleri + `8 / 25 gösteriliyor` sayacı | `AÇIK` |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `AÇIK` |
-| **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Üç bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** (commit aşağıda) |
+| **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Üç bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` |
 
 ### 24 — bu turda **yeni bulundu ve ölçüldü**
 
@@ -313,7 +313,7 @@ görsel tercih değil, ölçülmüş arıza — bu yüzden katman kabulü beklen
 - `mockup/**` — tüm mockup dosyaları (oyuna girmez).
 - `style.css`:
   - kusur 25 → `.wr-briefing`, `.wr-setup-actions` (commit `67a403c`)
-  - kusur 24 → `#story-stats` + iki `@media` bandı; `@media (max-width:980px)`
+  - kusur 24 → (commit `ee81aaa`) `#story-stats` + iki `@media` bandı; `@media (max-width:980px)`
     içindeki sıra tabanlı `nth-of-type(n+4)` kuralı kaldırıldı
 - `js/StoryUI.js` — kusur 24 için **yalnız sınıf adı**: beş çipe `t2` kademe işareti.
   Sayı, metin veya davranış değişmedi.
