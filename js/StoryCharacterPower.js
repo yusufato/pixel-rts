@@ -82,3 +82,68 @@ function storyCharacterPowerView(actorId) {
         worldMutation: false
     };
 }
+
+// Kariyer bir başka yetki defteri değildir. Güncel makam ve geçmiş geçişler
+// zaten kurum/eylem defterlerinde kanoniktir; bu görünüm onları karakterin
+// kalıcı kimliğiyle birleştirir ve eksik yaşam yürütücülerini açık bırakır.
+function storyCharacterCareerView(actorId) {
+    if (!storyCharacterPowerEnabled()) return { ok: false, code: 'FEATURE_DISABLED', worldMutation: false };
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(actorId) : null;
+    if (!actor) return { ok: false, code: 'ACTOR_NOT_FOUND', worldMutation: false };
+    const adapterView = typeof storyCharacterRoleAdapterView === 'function'
+        ? storyCharacterRoleAdapterView(actor.id) : null;
+    const adapter = adapterView && adapterView.ok ? adapterView.adapter : null;
+    const actionLedger = STORY.characterActions || null;
+    const transitions = Object.values(actionLedger && actionLedger.officeTransitions || {})
+        .filter(row => row && (row.predecessorActorId === actor.id
+            || (row.successorHolder && row.successorHolder.actorId === actor.id)))
+        .sort((a, b) => Number(a.createdAt) - Number(b.createdAt)
+            || String(a.id).localeCompare(String(b.id), 'en'))
+        .map(row => ({
+            transitionId: row.id, status: row.status,
+            institutionId: row.institutionId, institutionType: row.institutionType,
+            direction: row.predecessorActorId === actor.id ? 'LEFT_OFFICE' : 'ENTERED_OFFICE',
+            reason: row.reason, sourceReceiptId: row.sourceReceiptId,
+            occurredAt: row.createdAt
+        }));
+    const activeInstitutionIds = adapter ? adapter.institutionalBindings.map(row => row.institutionId) : [];
+    const companyActive = !!(adapter && adapter.family === 'COMPANY'
+        && adapter.bindingStatus === 'CANONICAL_ORGANIZATION_BOUND');
+    const status = activeInstitutionIds.length ? 'ACTIVE_OFFICE'
+        : companyActive ? 'ACTIVE_ORGANIZATION_ROLE'
+        : transitions.some(row => row.direction === 'LEFT_OFFICE') ? 'FORMER_OFFICE_HOLDER'
+        : 'ACTIVE_NO_CANONICAL_OFFICE';
+    const relationshipLedger = STORY.characterRelationships || null;
+    const relationshipEdgeCount = Object.values(relationshipLedger && relationshipLedger.edges || {})
+        .filter(edge => edge.fromActorId === actor.id || edge.toActorId === actor.id).length;
+    const memoryLedger = STORY.characterMemory || null;
+    const memoryCount = ((memoryLedger && memoryLedger.recentByActor || {})[actor.id] || []).length
+        + Object.values(memoryLedger && memoryLedger.episodes || {})
+            .filter(row => (row.participantActorIds || []).includes(actor.id)).length
+        + Object.values(memoryLedger && memoryLedger.milestones || {})
+            .filter(row => row.subjectActorId === actor.id
+                || (row.holderActorIds || []).includes(actor.id)).length;
+    const identityLedger = STORY.characterIdentities || null;
+    const heldBeliefCount = Object.values(identityLedger && identityLedger.actorBeliefs || {})
+        .filter(row => row.holderActorId === actor.id).length;
+    return {
+        ok: true, code: 'DERIVED_CAREER_READY',
+        career: {
+            schemaVersion: STORY_CHARACTER_POWER_SCHEMA_VERSION,
+            actorId: actor.id, status,
+            activeInstitutionIds, organizationId: companyActive ? adapter.organizationId : null,
+            transitions,
+            continuity: {
+                identityPreserved: true, personalityPreserved: true, goalsPreserved: true,
+                relationshipEdgeCount, memoryCount, heldBeliefCount,
+                officeLossClearsHistory: false
+            },
+            lifecycleAvailability: {
+                retirement: 'UNAVAILABLE', health: 'UNAVAILABLE', mortality: 'UNAVAILABLE'
+            },
+            canonicalLedgerReadOnly: true, worldMutation: false
+        },
+        worldMutation: false
+    };
+}

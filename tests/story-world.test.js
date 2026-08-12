@@ -4102,6 +4102,28 @@ function run() {
     assert.equal(characterPowerProbe.featureDisabled, true,
         'Faz 38.10: özellik bayrağı kapalıyken güç görünümü güvenle kapanmalı.');
 
+    const careerLifecycleProbe = storyTestResult(
+        'characterCareerLifecycleProbe', probeCharacterCareerLifecycle
+    );
+    assert.equal(careerLifecycleProbe.resignationApplied, true,
+        'Faz 38.10: kanonik istifa gerçek makam devrini uygulamalı.');
+    assert.equal(careerLifecycleProbe.officeAuthorityRemoved, true,
+        'Faz 38.10: makam kaybı eski sahibin kurumsal yetki ve gücünü düşürmeli.');
+    assert.equal(careerLifecycleProbe.transitionGrounded, true,
+        'Faz 38.10: kariyer geçişi gerçek istifa makbuzuna dayanmalı.');
+    assert.equal(careerLifecycleProbe.identityAndPersonalityPreserved, true,
+        'Faz 38.10: makam kaybı kimlik, kişilik ve hedefleri silmemeli.');
+    assert.equal(careerLifecycleProbe.relationshipsPreserved, true,
+        'Faz 38.10: makam kaybı ilişkileri sıfırlamamalı.');
+    assert.equal(careerLifecycleProbe.priorMemoryPreserved, true,
+        'Faz 38.10: makam kaybı önceki hafızayı silmemeli.');
+    assert.equal(careerLifecycleProbe.missingLifecycleExplicit, true,
+        'Faz 38.10: emeklilik, sağlık ve ölüm yürütücüsü yokluğu açık kalmalı.');
+    assert.equal(careerLifecycleProbe.deterministicReadOnly, true,
+        'Faz 38.10: kariyer görünümü deterministik ve salt-okunur olmalı.');
+    assert.equal(careerLifecycleProbe.continuityCountersGrounded, true,
+        'Faz 38.10: süreklilik sayaçları gerçek ilişki ve hafıza defterlerinden gelmeli.');
+
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding
     );

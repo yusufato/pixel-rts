@@ -578,6 +578,7 @@ function createRuntime(seed) {
             characterRoleCompanyDecisionSubmit: input => storyCharacterRoleCompanyDecisionSubmit(input),
             characterRoleCompanyOfficeView: companyId => storyCharacterRoleCompanyOfficeView(companyId),
             characterPowerView: actorId => storyCharacterPowerView(actorId),
+            characterCareerView: actorId => storyCharacterCareerView(actorId),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14581,6 +14582,75 @@ function probeCharacterPower(seed = 2032) {
     return result;
 }
 
+function probeCharacterCareerLifecycle(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let result;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const identities = Object.values(runtime.api.state().characterIdentities.identities || {});
+        const actor = identities.find(row => {
+            const view = runtime.api.characterRoleAdapterView(row.id);
+            return view.ok && view.adapter.institutionalBindings.length > 0
+                && view.adapter.institutionalBindings.some(binding =>
+                    ['EXECUTIVE', 'ARMED_FORCES'].includes(binding.institutionType));
+        });
+        const adapterBefore = runtime.api.characterRoleAdapterView(actor.id).adapter;
+        const institutionId = adapterBefore.institutionalBindings.find(binding =>
+            ['EXECUTIVE', 'ARMED_FORCES'].includes(binding.institutionType)).institutionId;
+        runtime.api.relationshipAdjust(actor.id, identities.find(row => row.id !== actor.id).id,
+            { trustBps: 125 }, { sourceType: 'CAREER_PROBE', sourceId: 'career-probe:relationship' });
+        runtime.api.characterMemoryAddRecent(actor.id, {
+            id: 'career-probe:prior-memory', kind: 'CAREER', summary: 'Makam öncesi kalıcı kayıt',
+            importanceBps: 7000, source: { sourceType: 'CAREER_PROBE', sourceId: 'career-probe:memory' }
+        });
+        const identityBefore = runtime.api.characterIdentityView(actor.id);
+        const relationBefore = JSON.stringify(runtime.api.relationshipLedger());
+        const memoryBefore = runtime.api.characterMemoryRecall(actor.id, {});
+        const powerBefore = runtime.api.characterPowerView(actor.id);
+        const careerBefore = runtime.api.characterCareerView(actor.id);
+        const resign = runtime.api.characterActionExecute({
+            actionType: 'RESIGN', actorId: actor.id,
+            domainContext: { targetInstitutionId: institutionId }, decisionSource: 'PROBE'
+        });
+        const careerAfter = runtime.api.characterCareerView(actor.id);
+        const powerAfter = runtime.api.characterPowerView(actor.id);
+        const identityAfter = runtime.api.characterIdentityView(actor.id);
+        const memoryAfter = runtime.api.characterMemoryRecall(actor.id, {});
+        const worldBeforeRead = hashSnapshot(stateSnapshot(runtime.api.state()));
+        const repeat = runtime.api.characterCareerView(actor.id);
+        const worldAfterRead = hashSnapshot(stateSnapshot(runtime.api.state()));
+        result = {
+            resignationApplied: resign.ok === true && resign.receipt.status === 'APPLIED',
+            officeAuthorityRemoved: careerBefore.career.status === 'ACTIVE_OFFICE'
+                && careerAfter.career.status === 'FORMER_OFFICE_HOLDER'
+                && !careerAfter.career.activeInstitutionIds.includes(institutionId)
+                && powerAfter.power.sources.institutional.valueBps < powerBefore.power.sources.institutional.valueBps,
+            transitionGrounded: careerAfter.career.transitions.some(row =>
+                row.institutionId === institutionId && row.direction === 'LEFT_OFFICE'
+                && row.sourceReceiptId === resign.receipt.id),
+            identityAndPersonalityPreserved: identityAfter.id === identityBefore.id
+                && JSON.stringify(identityAfter.coreAxes) === JSON.stringify(identityBefore.coreAxes)
+                && JSON.stringify(identityAfter.values) === JSON.stringify(identityBefore.values)
+                && JSON.stringify(identityAfter.goals) === JSON.stringify(identityBefore.goals),
+            relationshipsPreserved: JSON.stringify(runtime.api.relationshipLedger()) === relationBefore,
+            priorMemoryPreserved: memoryBefore.records.some(row => row.id === 'career-probe:prior-memory')
+                && memoryAfter.records.some(row => row.id === 'career-probe:prior-memory'),
+            missingLifecycleExplicit: ['retirement', 'health', 'mortality'].every(key =>
+                careerAfter.career.lifecycleAvailability[key] === 'UNAVAILABLE'),
+            deterministicReadOnly: JSON.stringify(careerAfter) === JSON.stringify(repeat)
+                && worldBeforeRead === worldAfterRead
+                && careerAfter.career.canonicalLedgerReadOnly === true,
+            continuityCountersGrounded: careerAfter.career.continuity.relationshipEdgeCount > 0
+                && careerAfter.career.continuity.memoryCount >= memoryBefore.records.length
+                && careerAfter.career.continuity.officeLossClearsHistory === false
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    return result;
+}
+
 function probeConversationUnderstanding(seed = 2032) {
     const input = 'Ben bir şirket kuracağım, çelik sanayisi üzerine. Senin de İngiltere’den çelik siparişi verdiğini biliyorum. Bu çelikleri benim depolarıma yönlendirelim.';
     const typoInput = 'ben celik sirketi kurcam, senin ingiletereden siparis verdigini biliyom, bunlari depoma yonlendirelim';
@@ -16839,6 +16909,7 @@ module.exports = {
     probeRelationshipInterpretation,
     probeCharacterRoleAdapters,
     probeCharacterPower,
+    probeCharacterCareerLifecycle,
     probeConversationUnderstanding,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,

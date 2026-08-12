@@ -657,3 +657,9 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Eski fazın “fiziksel eşitlik” A/B filtresi, sonradan eklenen açıklayıcı downstream ledger'ları açıkça kapsam dışına almalıdır. Aksi halde fiziksel dünya birebir aynıyken yalnız yeni gözlem durumu yanlış regresyon alarmı üretir.
 - Özellik kapalı yokluk sözleşmesi `undefined` değil açık `null` olmalıdır. JSON'da alanın kaybolması, kapalı sistem ile eksik entegrasyonu ayırt etmeyi zorlaştırır.
 - Uzun QA koşusu başka 12-worker benchmark ile aynı anda çalıştırıldığında 30 dakikalık zaman aşımı üretti; tek başına aynı kapsam `1.645 sn`de geçti. Faz kabul ölçümü için makine yükü kaydedilmeli, fakat kullanıcı süreçleri izinsiz durdurulmamalıdır.
+### 12 Ağustos 2026 — Faz 38.10 makam kaybında karakter sürekliliği
+
+- Güç saklanan bir kariyer bonusu değildir; yalnız uygulanabilir, kanıtlı kanallar toplamı belirler.
+- İstifa makamı ve kurumsal yetkiyi düşürür fakat karakteri sıfırlamaz: kişilik, hedef, ilişki, hafıza ve bilgi kanıtı korunur.
+- Kariyer görünümü Faz 29 kurumları ile Faz 37 makam geçişlerini okur; ikinci bir makam/yetki defteri açmaz.
+- Yaş, sağlık, emeklilik ve ölüm yürütücüsü henüz yoktur. Bunlar varmış gibi tarih veya durum üretmek yerine açık `UNAVAILABLE` borcudur.
