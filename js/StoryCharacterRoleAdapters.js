@@ -134,6 +134,7 @@ function storyCharacterRoleAdapterView(actorId) {
             authorityRoutes: institutions.flatMap(row => row.authorityGrants.map(grant => ({
                 institutionId: row.institutionId,
                 institutionType: row.institutionType,
+                countryId: row.countryId,
                 ...grant
             }))),
             organizationId: company ? company.id : null,
@@ -152,5 +153,81 @@ function storyCharacterRoleAdapterView(actorId) {
             worldMutation: false
         },
         worldMutation: false
+    };
+}
+
+function storyCharacterRoleInstitutionPhaseCapability(phase) {
+    const key = String(phase || '').toUpperCase();
+    return { PROPOSE: 'canPropose', APPROVE: 'canApprove', EXECUTE: 'canExecute' }[key] || null;
+}
+function storyCharacterRoleInstitutionActionPreview(input) {
+    input = input || {};
+    const phase = String(input.phase || '').toUpperCase();
+    const capability = storyCharacterRoleInstitutionPhaseCapability(phase);
+    if (!capability) return { ok: false, code: 'UNKNOWN_INSTITUTION_PHASE', worldMutation: false };
+    const view = storyCharacterRoleAdapterView(input.actorId);
+    if (!view.ok) return view;
+    const adapter = view.adapter;
+    if (!['GOVERNMENT', 'MILITARY'].includes(adapter.family)) {
+        return { ok: false, code: 'INSTITUTIONAL_ROLE_REQUIRED', worldMutation: false };
+    }
+    if (adapter.bindingStatus !== 'CANONICAL_OFFICE_BOUND') {
+        return { ok: false, code: 'CANONICAL_OFFICE_REQUIRED', worldMutation: false };
+    }
+    const ledger = typeof storyInstitutionEnsure === 'function' ? storyInstitutionEnsure() : null;
+    const request = input.requestId && ledger && ledger.requests
+        ? ledger.requests[String(input.requestId)] : null;
+    if (phase !== 'PROPOSE' && !request) {
+        return { ok: false, code: 'INSTITUTION_REQUEST_REQUIRED', worldMutation: false };
+    }
+    const actionType = String(request ? request.actionType : input.actionType || '');
+    if (!actionType) return { ok: false, code: 'ACTION_TYPE_REQUIRED', worldMutation: false };
+    const eligibleRoutes = adapter.authorityRoutes.filter(route =>
+        route.actionType === actionType && route[capability] === true
+        && (!request || route.institutionId.startsWith(`institution:${request.countryId}:`))
+        && (phase !== 'APPROVE' || request.requiredInstitutionIds.includes(route.institutionId))
+        && (phase !== 'EXECUTE' || request.executorInstitutionId === route.institutionId));
+    if (!eligibleRoutes.length) {
+        return { ok: false, code: `ACTOR_NOT_AUTHORIZED_TO_${phase}`, worldMutation: false };
+    }
+    return {
+        ok: true, code: 'INSTITUTION_ROLE_ROUTE_READY', phase, actionType,
+        requestId: request ? request.id : null,
+        route: storyCharacterRoleAdapterClone(eligibleRoutes[0]),
+        actorId: adapter.actorId, worldMutation: false
+    };
+}
+function storyCharacterRoleInstitutionAction(input) {
+    const preview = storyCharacterRoleInstitutionActionPreview(input);
+    if (!preview.ok) return preview;
+    const actorInput = {
+        actorId: preview.actorId,
+        institutionId: preview.route.institutionId
+    };
+    let result;
+    if (preview.phase === 'PROPOSE') {
+        result = typeof storyInstitutionSubmitAction === 'function'
+            ? storyInstitutionSubmitAction({
+                ...actorInput, countryId: preview.route.countryId,
+                actionType: preview.actionType,
+                targetRegionId: input && input.targetRegionId
+            }) : { ok: false, reason: 'INSTITUTION_EXECUTOR_MISSING' };
+    } else if (preview.phase === 'APPROVE') {
+        result = typeof storyInstitutionApproveAction === 'function'
+            ? storyInstitutionApproveAction(preview.requestId, actorInput)
+            : { ok: false, reason: 'INSTITUTION_EXECUTOR_MISSING' };
+    } else {
+        result = typeof storyInstitutionExecuteAction === 'function'
+            ? storyInstitutionExecuteAction(preview.requestId, actorInput)
+            : { ok: false, reason: 'INSTITUTION_EXECUTOR_MISSING' };
+    }
+    return {
+        ok: result.ok === true,
+        code: result.ok ? `INSTITUTION_ROLE_${preview.phase}_APPLIED`
+            : (result.reason || 'INSTITUTION_ROLE_ACTION_REJECTED'),
+        phase: preview.phase, actionType: preview.actionType,
+        actorId: preview.actorId, route: preview.route,
+        request: result.request || null,
+        worldMutation: result.ok === true
     };
 }

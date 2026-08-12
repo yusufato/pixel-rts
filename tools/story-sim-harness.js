@@ -570,6 +570,8 @@ function createRuntime(seed) {
             ),
             characterRoleAdapterView: actorId => storyCharacterRoleAdapterView(actorId),
             characterRoleAdapterCatalog: () => storyCharacterRoleAdapterCatalog(),
+            characterRoleInstitutionActionPreview: input => storyCharacterRoleInstitutionActionPreview(input),
+            characterRoleInstitutionAction: input => storyCharacterRoleInstitutionAction(input),
             validateCharacterActionLedger: ledger => storyCharacterActionValidate(ledger),
             characterActionCandidate: input => storyCharacterActionCandidate(input),
             characterActionCandidates: (actorId, targetActorId, domainContexts) => storyCharacterActionCandidates(actorId, targetActorId, domainContexts),
@@ -14227,6 +14229,46 @@ function probeCharacterRoleAdapters(seed = 2032) {
                         && (grant.legalBasis || null) === route.legalBasis)))),
             worldNeutral: worldBefore === worldAfter
         };
+        const proposer = boundOffices.find(row => row.view.adapter.authorityRoutes.some(route =>
+            route.actionType === 'MOBILIZE_FORCE' && route.canPropose
+            && route.institutionType === 'EXECUTIVE'));
+        const approver = proposer && boundOffices.find(row => row.view.adapter.authorityRoutes.some(route =>
+            route.actionType === 'MOBILIZE_FORCE' && route.canApprove
+            && route.institutionType === 'ARMED_FORCES'
+            && route.countryId === proposer.view.adapter.authorityRoutes.find(item =>
+                item.actionType === 'MOBILIZE_FORCE' && item.canPropose
+                && item.institutionType === 'EXECUTIVE').countryId));
+        const deniedActor = unboundTitles[0];
+        const submitted = proposer && runtime.api.characterRoleInstitutionAction({
+            phase: 'PROPOSE', actorId: proposer.actor.id, actionType: 'MOBILIZE_FORCE'
+        });
+        const approved = submitted && submitted.ok && approver
+            ? runtime.api.characterRoleInstitutionAction({
+                phase: 'APPROVE', actorId: approver.actor.id,
+                requestId: submitted.request.id
+            }) : null;
+        const executed = approved && approved.ok && proposer
+            ? runtime.api.characterRoleInstitutionAction({
+                phase: 'EXECUTE', actorId: proposer.actor.id,
+                requestId: submitted.request.id
+            }) : null;
+        const denied = deniedActor && runtime.api.characterRoleInstitutionActionPreview({
+            phase: 'PROPOSE', actorId: deniedActor.actor.id, actionType: 'MOBILIZE_FORCE'
+        });
+        const finalRequest = submitted && runtime.api.institutionLedger().requests[submitted.request.id];
+        result.institutionChainRoleSeparated = !!(submitted && submitted.ok
+            && approved && approved.ok && executed && executed.ok
+            && proposer.actor.id !== approver.actor.id
+            && submitted.request.status === 'PENDING_APPROVAL'
+            && approved.request.status === 'AUTHORIZED'
+            && executed.request.status === 'EXECUTED');
+        result.unboundCannotSubmit = !!denied && denied.ok === false
+            && denied.code === 'CANONICAL_OFFICE_REQUIRED';
+        result.institutionChainRecorded = !!finalRequest
+            && finalRequest.status === 'EXECUTED'
+            && finalRequest.proposer.actorId === proposer.actor.id
+            && finalRequest.approvalInstitutionIds.length === 2
+            && finalRequest.result && finalRequest.result.physicalMutation === false;
     } finally {
         runtime.dom.window.close();
     }

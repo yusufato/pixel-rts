@@ -4022,6 +4022,12 @@ function run() {
         'Faz 38.9: kişinin rol ve özel hedefleri kurumun kanonik hedefi diye kopyalanmamalı.');
     assert.equal(characterRoleAdaptersProbe.authorityRoutesGrounded, true,
         'Faz 38.9: teklif, onay ve uygulama yolları yalnız kanonik makam yetki hibesinden okunmalı.');
+    assert.equal(characterRoleAdaptersProbe.institutionChainRoleSeparated, true,
+        'Faz 38.9: kurumsal teklif, onay ve uygulama gerçek makam sahipleri arasında ayrılmalı.');
+    assert.equal(characterRoleAdaptersProbe.unboundCannotSubmit, true,
+        'Faz 38.9: makamsız unvan sahibi adaptör üzerinden kurum teklifi sunamamalı.');
+    assert.equal(characterRoleAdaptersProbe.institutionChainRecorded, true,
+        'Faz 38.9: karakter zinciri ikinci defter kurmadan kanonik kurum isteğine kaydolmalı.');
     assert.equal(characterRoleAdaptersProbe.worldNeutral, true,
         'Faz 38.9: rol adaptörü okumak dünyayı değiştirmemeli.');
     assert.equal(characterRoleAdaptersProbe.featureDisabled, true,
