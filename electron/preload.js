@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('PIXEL', {
         // { system, prompt, maxTokens, temperature, jsonSchema? } → Promise<string|null>
         // null = model yok/hazır değil/zaman aşımı → oyun birleşim üretecine düşer
         generate: req => ipcRenderer.invoke('llm:generate', req),
+        // Model zaten yüklüyken aynı tokenizer ile salt-okunur sayı üretir.
+        tokenCount: text => ipcRenderer.invoke('llm:tokenCount', text),
     },
     // FAZ 6: insan-maçı öğrenme — oyun, maç sonu etiketlenmiş karar-durumlarını disk'e ekler.
     // main süreç qa-runtime/human-data.json'a APPEND eder (örnekler birikir). → Promise<{count}>

@@ -1,6 +1,6 @@
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.71
+**Belge sürümü:** 1.74
 **Kapsam:** Yalnızca hikâye modu  
 **Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27, Dalga F / Faz 28–33.1 ve Dalga G / Faz 34–38 tamamlandı; aktif sıra Faz 38.1 — Oyuncu Konuşmasını Anlama
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
@@ -12,6 +12,8 @@
 **1.2 değişikliği:** Ekonomi, toplum, medya, istihbarat, diplomasi ve iç siyaseti kapsayan on dallı referans diyalog ağacı ile bunların otomatik senaryo matrisi eklendi.
 
 **1.3 değişikliği:** Genel mimari denetim yapıldı; diyalog fazı bağımlılıkları düzeltildi, tam entegrasyon kapısı eklendi, sistemik olayların yanlışlıkla tekrar cezasıyla bastırılması engellendi, LLM çalışma zamanı/bağlam/güvenlik kuralları ve anlamlı kampanya çeşitliliği ölçümleri güçlendirildi.
+
+**1.74 değişikliği:** Faz 38 sonrası kompleks sohbet yükseltmesi `HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md` belgesine bağlandı. Milyonlarca cümleyi kodlama yaklaşımı reddedildi; `DialogueMove + domain adaptörü + söylem durumu + kanıt referansı + 8B gerçekleştirici` mimarisi kabul edildi. Yaklaşık 8,99 GB Coder-14B canlı ikinci model değil, oyun kapalıyken sırayla çalışan adversarial oyuncu/eleştirmen/öğretmen olarak sınırlandı. Mevcut 8B'nin gerçek `8192` bağlam tavanı korundu; 10 bin ham token yerine çalışma belleği, episodik özet ve kanonik hafıza ayrıldı. Gerçek oyuncu JSONL kayıtları nihai kabul kaynağıdır.
 
 **1.4 değişikliği:** Arayüz, simülasyon planından türetilen ayrı bir bilgi mimarisi olarak tanımlandı; oyuncu bilgi filtresi, şehir/yönetim/sohbet ve tüm alan çalışma ekranları, kademeli veri sunumu, bağlamsal navigasyon ve uçtan uca UI kabul fazları eklendi.
 

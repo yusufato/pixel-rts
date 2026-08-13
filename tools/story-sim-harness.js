@@ -82,6 +82,10 @@ const STORY_SOURCES = [
     'js/LLM.js',
     'js/StoryCharacterArbiter.js',
     'js/StoryCharacterSpeech.js',
+    'js/StoryDialogueMove.js',
+    'js/StoryDiscourseState.js',
+    'js/StoryConversationDomains.js',
+    'js/StoryConversationContext.js',
     'js/StoryConversationUnderstanding.js',
     'js/StoryNegotiation.js',
     'js/StoryMechanicalContracts.js',
@@ -628,6 +632,14 @@ function createRuntime(seed) {
             characterDialogueValidate: realization => storyCharacterDialogueValidate(realization),
             characterDialogueSimilarityBps: (left, right) => storyCharacterDialogueSimilarityBps(left, right),
             characterDialogueSemanticSimilarityBps: (left, right) => storyCharacterDialogueSemanticSimilarityBps(left, right),
+            dialogueMoveBuild: input => storyDialogueMoveBuild(input),
+            dialogueMoveValidate: (move, universe) => storyDialogueMoveValidate(move, universe),
+            dialogueMovePromptView: move => storyDialogueMovePromptView(move),
+            discourseStateCreate: (sessionId, analysis) => storyDiscourseStateCreate(sessionId, analysis),
+            discourseStateApply: (state, input) => storyDiscourseStateApply(state, input),
+            discourseStateValidate: state => storyDiscourseStateValidate(state),
+            conversationDomainBuild: input => storyConversationDomainBuild(input),
+            conversationDomainValidate: bundle => storyConversationDomainValidate(bundle),
             conversationAnalyze: (text, options) => storyConversationAnalyze(text, options),
             conversationValidate: analysis => storyConversationValidate(analysis),
             conversationContract: () => storyConversationContract(),
@@ -639,9 +651,22 @@ function createRuntime(seed) {
                 const wrapped = raw.startsWith('{') ? raw : JSON.stringify({ reply: raw });
                 const history = context && context.history || [];
                 const fallback = history.length ? String(history[history.length - 1].text || '') : '';
-                return storyConversationSocialLLMParse(wrapped, fallback, context && context.playerText || '');
+                return storyConversationSocialLLMParse(wrapped, fallback,
+                    context && context.playerText || '', context || null);
             },
             conversationDiscourseContext: (session, options) => storyConversationDiscourseContext(session, options),
+            conversationContextPack: (session, response, playerText, options) =>
+                storyConversationSessionContextPack(session, response, playerText, options),
+            conversationSocialLLMPrompt: (session, response, playerText) =>
+                storyConversationSocialLLMPrompt(session, response, playerText),
+            conversationSocialLLMSchema: move => storyConversationSocialLLMSchema(move),
+            conversationSocialLLMParse: (raw, fallback, playerText, context) =>
+                storyConversationSocialLLMParse(raw, fallback, playerText, context),
+            conversationSocialLLMDiagnose: (raw, fallback, playerText, context) =>
+                storyConversationSocialLLMDiagnose(raw, fallback, playerText, context),
+            contextPackCompile: (input, options) => storyContextPackCompile(input, options),
+            contextPackValidate: pack => storyContextPackValidate(pack),
+            memoryAddMilestone: input => storyMemoryAddMilestone(input),
             conversationDiscourseTokenEstimate: text => storyConversationDiscourseTokenEstimate(text),
             conversationHistoryTokenBudget: () => STORY_CONVERSATION_HISTORY_TOKEN_BUDGET,
             conversationSessionEventDecision: (sessionId, optionId) => (
@@ -13559,7 +13584,7 @@ function probeConversationRuntime385(seed = 2032) {
             historyTokens,
             historyBudget: runtime.api.conversationHistoryTokenBudget(),
             currentTurnExcluded: !generationHistory.some(row =>
-                row.text === last.playerText || row.text === last.response.text),
+                row.sourceId === last.id || row.sourceId === last.response.id),
             memorySource: memoryResponse.source,
             memoryOwnVisible: memoryResponse.text.includes('Önceki tedarik görüşmesine'),
             memoryForeignHidden: !memoryResponse.text.includes('PHASE385_FOREIGN_SECRET')
@@ -17004,6 +17029,381 @@ function probeCharacterArbiter(seed = 2032) {
     };
 }
 
+function probeVirtualConversationLab(seed = 2032) {
+    const scenarios = [
+        { text: 'işinizin nedir', act: 'ANSWER_LISTENER_ROLE' },
+        { text: 'ne iş yapıyorsunuz', act: 'ANSWER_LISTENER_ROLE' },
+        { text: 'sağol benden çekindiğini hissediyorum çekinmene gerek yok dostum', act: 'QUALIFY_RELATIONSHIP_PERCEPTION' },
+        { text: 'bu görevlerden benim haberim yok ne işler yapıyorsun', act: 'ANSWER_CURRENT_ASSIGNMENT_BOUNDARY' },
+        { text: 'tamam onu biliyorum dostum işim var dedin işini soruyorum', act: 'ANSWER_CURRENT_ASSIGNMENT_BOUNDARY' },
+        { text: 'bana verebileceğiniz iş var mı', act: 'ANSWER_JOB_REQUEST_BOUNDARY' },
+        { text: 'istediğiniz bir şey var mı', act: 'ANSWER_JOB_REQUEST_BOUNDARY' },
+        { text: 'enerji konusunda sıkıntılar duydum', act: 'ACKNOWLEDGE_UNVERIFIED_SECTOR_REPORT' },
+        { text: 'benim çalışabileceğim bir şey var mı', act: 'ANSWER_JOB_REQUEST_BOUNDARY' },
+        { text: 'anlamadım', act: 'REPAIR_MISUNDERSTANDING' },
+        { text: 'peki', act: 'ACKNOWLEDGE_AND_HOLD_CONTEXT' },
+        { text: 'bana cevap ver', act: 'REPAIR_MISSING_ANSWER' }
+    ];
+    const mutate = (text, variant) => {
+        if (variant === 0) return text;
+        if (variant === 1) return `${text}?`;
+        if (variant === 2) return text.replace(/siniz/g, 'sin').replace(/niz/g, 'n');
+        if (variant === 3) return `efendim ${text}`;
+        if (variant === 4) return text.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g');
+        if (variant === 5) return `${text} lütfen`;
+        if (variant === 6) return text.toUpperCase();
+        if (variant === 7) return `peki ama ${text}`;
+        if (variant === 8) return text.replace(/ /g, '  ');
+        return `${text}.`;
+    };
+    const execute = runSeed => {
+        const runtime = createRuntime(runSeed >>> 0);
+        try {
+            runtime.api.newCampaign({ seed: runSeed, playerStateId: 0, abundance: 1,
+                doctrine: 'combined', fog: true });
+            const story = runtime.api.state();
+            const beforeHash = hashSnapshot(stateSnapshot(story));
+            const directory = runtime.api.contactDirectoryBuild();
+            const byRole = new Map();
+            for (const actor of directory.publicCharacters || []) {
+                if (actor.id !== directory.playerActorId && !byRole.has(actor.role)) byRole.set(actor.role, actor);
+            }
+            const actors = Array.from(byRole.values()).slice(0, 5);
+            const rows = [];
+            for (const actor of actors) for (const scenario of scenarios) for (let variant = 0; variant < 10; variant++) {
+                const opened = runtime.api.conversationSessionBegin('Merhaba.', { listenerActorId: actor.id });
+                const playerText = mutate(scenario.text, variant);
+                const followed = runtime.api.conversationSessionFollowUp(opened.session.id, playerText);
+                const response = followed && followed.followUp && followed.followUp.response;
+                rows.push({
+                    role: actor.role, playerText, expectedAct: scenario.act,
+                    actualAct: response && response.discourseAct || '',
+                    text: response && response.text || '',
+                    source: response && response.source || '',
+                    worldMutation: followed && followed.worldMutation
+                });
+            }
+            const afterHash = hashSnapshot(stateSnapshot(story));
+            return {
+                actorRoles: actors.map(actor => actor.role), rows,
+                worldNeutral: beforeHash === afterHash,
+                signature: JSON.stringify(rows.map(row => [row.role, row.playerText, row.actualAct, row.text]))
+            };
+        } finally {
+            runtime.dom.window.close();
+        }
+    };
+    const first = execute(seed >>> 0);
+    const repeat = execute(seed >>> 0);
+    const rows = first.rows;
+    const forbidden = /nasıl yardımcı olabilirim|ne tür bir yardım|talebinizi belirt|buyurun|emrinize amadeyim/i;
+    return {
+        simulatedTurns: rows.length + repeat.rows.length,
+        roleCount: first.actorRoles.length,
+        roleCoverage: first.actorRoles,
+        allScenariosRecognized: rows.every(row => row.actualAct === row.expectedAct),
+        noUnknownWall: rows.every(row => row.actualAct !== 'CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY'),
+        noServiceBotLanguage: rows.every(row => !forbidden.test(row.text)),
+        groundedWithoutLlm: rows.every(row => row.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'),
+        noWorldMutation: first.worldNeutral && repeat.worldNeutral
+            && rows.every(row => row.worldMutation === false),
+        deterministicReplay: first.signature === repeat.signature,
+        failures: rows.filter(row => row.actualAct !== row.expectedAct).slice(0, 20)
+    };
+}
+
+function probeDialogueMoveContract(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const directory = runtime.api.contactDirectoryBuild();
+        const listener = (directory.publicCharacters || []).find(row =>
+            row.id !== directory.playerActorId);
+        const opened = runtime.api.conversationSessionBegin('Merhaba.', {
+            listenerActorId: listener && listener.id
+        });
+        const military = runtime.api.conversationSessionFollowUp(opened.session.id,
+            'Halep çevresinde düşman gücü var, askerî destek istiyorum.');
+        const checkIn = runtime.api.conversationSessionFollowUp(opened.session.id,
+            'Bugün nasılsın?');
+        const session = runtime.api.conversationSessionGet(opened.session.id);
+        const responses = session.listenerResponses || [];
+        const moves = responses.map(row => row.dialogueMove).filter(Boolean);
+        const militaryMove = military.followUp.response.dialogueMove;
+        const checkInMove = checkIn.followUp.response.dialogueMove;
+        const ledger = runtime.api.conversationSessionSnapshot();
+        const forged = JSON.parse(JSON.stringify(ledger));
+        const forgedMove = forged.sessions[0].listenerResponses[0].dialogueMove;
+        forgedMove.allowedEntityIds.push('character:hidden:forged');
+        forgedMove.moveId = runtime.api.dialogueMoveBuild({
+            sessionId: forged.sessions[0].id, sequence: 0,
+            analysis: forged.sessions[0].analysis,
+            response: Object.assign({}, forged.sessions[0].listenerResponses[0], {
+                dialogueMove: undefined
+            }),
+            listenerActorId: forged.sessions[0].listenerActorId,
+            playerActorId: forged.sessions[0].playerActorId
+        }).moveId;
+        const envelope = {
+            moveId: militaryMove.moveId,
+            reply: 'Bildirdiğin tehdidi doğrulamadan kuvvet sözü veremem.',
+            usedRefs: militaryMove.claimRefs.slice(),
+            answeredQuestionIds: [], introducedQuestion: null, closing: false
+        };
+        const acceptedEnvelope = runtime.api.conversationLLMParseReply(JSON.stringify(envelope), {
+            playerText: 'Askerî destek istiyorum.', history: [], dialogueMove: militaryMove
+        });
+        const wrongMoveEnvelope = Object.assign({}, envelope, { moveId: 'dialogue-move:00000000' });
+        const forgedRefEnvelope = Object.assign({}, envelope, {
+            usedRefs: envelope.usedRefs.concat('belief:hidden:war-plan')
+        });
+        const repairedLedger = runtime.api.conversationSessionRestore(forged);
+        const repairedMove = repairedLedger.sessions[0].listenerResponses[0].dialogueMove;
+        return {
+            openingAndFollowUpsCovered: moves.length === 3,
+            allMovesValid: moves.every(row => runtime.api.dialogueMoveValidate(row).ok),
+            militaryClaimBound: militaryMove.claimRefs.length > 0
+                && militaryMove.requiredPoints.includes('PRESERVE_CLAIM_VERIFICATION_STATUS'),
+            unrelatedClaimNotCarried: checkInMove.claimRefs.length === 0,
+            worldCommandAlwaysNull: moves.every(row => row.worldCommand === null),
+            allForbidWorldMutation: moves.every(row =>
+                row.forbiddenCommitments.includes('WORLD_MUTATION')),
+            ledgerValid: runtime.api.conversationSessionValidate(ledger).ok,
+            forgedSourceRejected: runtime.api.conversationSessionValidate(forged).issues.some(row =>
+                row.code === 'DIALOGUE_MOVE_SOURCE_MISMATCH'),
+            validEnvelopeAccepted: typeof acceptedEnvelope === 'string' && acceptedEnvelope.length > 0,
+            wrongMoveEnvelopeRejected: runtime.api.conversationLLMParseReply(
+                JSON.stringify(wrongMoveEnvelope), {
+                    playerText: 'Askerî destek istiyorum.', history: [], dialogueMove: militaryMove
+                }) === null,
+            forgedUsedRefRejected: runtime.api.conversationLLMParseReply(
+                JSON.stringify(forgedRefEnvelope), {
+                    playerText: 'Askerî destek istiyorum.', history: [], dialogueMove: militaryMove
+                }) === null,
+            legacyMoveRebuiltWithoutSessionLoss: repairedLedger.sessions.length === ledger.sessions.length
+                && repairedMove.allowedEntityIds.includes('character:hidden:forged') === false
+                && runtime.api.dialogueMoveValidate(repairedMove).ok,
+            deterministic: JSON.stringify(militaryMove) === JSON.stringify(
+                runtime.api.dialogueMoveBuild({
+                    sessionId: opened.session.id, sequence: military.followUp.sequence,
+                    analysis: military.followUp.analysis,
+                    response: military.followUp.response,
+                    inheritedClaims: military.followUp.inheritedClaims,
+                    listenerActorId: opened.session.listenerActorId,
+                    playerActorId: opened.session.playerActorId
+                }))
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
+function probeDiscourseStateContract(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const directory = runtime.api.contactDirectoryBuild();
+        const listener = (directory.publicCharacters || []).find(row =>
+            row.id !== directory.playerActorId);
+        const opened = runtime.api.conversationSessionBegin(
+            'Merhaba.', { listenerActorId: listener && listener.id });
+        const commerce = runtime.api.conversationSessionFollowUp(opened.session.id,
+            'Elektronik şirketi kurmak istiyorum.');
+        const checkIn = runtime.api.conversationSessionFollowUp(opened.session.id, 'Bugün nasılsın?');
+        const repair = runtime.api.conversationSessionFollowUp(opened.session.id, 'Anlamadım.');
+        const answer = runtime.api.conversationSessionFollowUp(opened.session.id,
+            'Bu şirket için 1000 dinarım var.');
+        const longTurns = [
+            'Halep çevresinde düşman var.',
+            'Anlamadım.',
+            'Bugün nasılsın?',
+            'Onu demiyorum, Halep iddiamı geri çekiyorum.',
+            'Önceki konuya dönelim.',
+            'Peki.', 'Teşekkür ederim.', 'Bugün işler nasıl?',
+            'Anlamadım.', 'Şirket için elektronik düşünüyorum.',
+            'Peki.', 'Bugün nasılsın?', 'Önceki konuya dönelim.',
+            'Şirket için 1200 dinarım var.', 'Anlamadım.', 'Elektronik şirketini kastediyorum.'
+        ].map(text => runtime.api.conversationSessionFollowUp(opened.session.id, text));
+        const session = runtime.api.conversationSessionGet(opened.session.id);
+        const state = session.discourseState;
+        const snapshot = runtime.api.conversationSessionSnapshot();
+        const snapshotValidation = runtime.api.conversationSessionValidate(snapshot);
+        const restored = runtime.api.conversationSessionRestore(snapshot);
+        const restoredSession = restored.sessions.find(row => row.id === opened.session.id);
+        const restoredState = restoredSession && restoredSession.discourseState;
+        const repairRow = state.repairChain.find(row => row.repairTurnId.endsWith(':3'));
+        const correctedThreat = state.claimPositions.find(row =>
+            row.claimType === 'PLAYER_REPORTED_MILITARY_THREAT');
+        const lastResponse = longTurns.at(-1).followUp.response;
+        return {
+            stateValid: runtime.api.discourseStateValidate(state).ok,
+            ledgerValidBeforeRestore: snapshotValidation.ok,
+            activeCommerceSurvivesSocialAside: commerce.ok && checkIn.session.discourseState.activeTopic === 'COMMERCE',
+            repairLinkedToPreviousTurn: !!repairRow
+                && repairRow.repairTurnId.endsWith(':3') && repairRow.repairOfTurnId.endsWith(':2'),
+            questionDebtCreated: repair.session.discourseState.answerDebts.some(row => row.status === 'OPEN'),
+            answerDebtClosed: answer.session.discourseState.answerDebts.some(row => row.status === 'ANSWERED'
+                && row.answeredByTurnId.endsWith(':4')),
+            boundedState: state.topicHistory.length <= 12 && state.openQuestions.length <= 12
+                && state.answerDebts.length <= 12 && state.repairChain.length <= 16
+                && state.claimPositions.length <= 24,
+            twentyTurnChainComplete: session.followUps.length === 20
+                && longTurns.every(row => row && row.ok),
+            correctedClaimSupersedesPrior: correctedThreat
+                && correctedThreat.status === 'CORRECTED_BY_PLAYER'
+                && (lastResponse.dialogueMove.claimRefs || []).includes(correctedThreat.claimId) === false,
+            topicReturnRestoresCommerce: state.activeTopic === 'COMMERCE',
+            multipleQuestionDebtsPreserved: state.answerDebts.length >= 2
+                && state.answerDebts.every(row => ['OPEN', 'ANSWERED'].includes(row.status)),
+            saveLoadExact: !!restoredState && JSON.stringify(state) === JSON.stringify(restoredState),
+            validationIssues: snapshotValidation.issues,
+            worldNeutral: state.worldMutation === false && answer.worldMutation === false
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
+function probeConversationDomainAdapters(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const directory = runtime.api.contactDirectoryBuild();
+        const listener = (directory.publicCharacters || []).find(row =>
+            row.id !== directory.playerActorId);
+        const opened = runtime.api.conversationSessionBegin('Merhaba.', {
+            listenerActorId: listener && listener.id
+        });
+        const cases = [
+            ['SOCIAL', 'Bugün nasılsın?'],
+            ['ECONOMY', 'Elektronik şirketi kurmak istiyorum.'],
+            ['POLITICS', 'Yönetimi bu konuda suçluyorum.'],
+            ['MILITARY', 'Halep çevresinde düşman var, askerî destek istiyorum.'],
+            ['DIPLOMACY', 'Diplomasi ve dış ilişkiler hakkında konuşalım.']
+        ];
+        const rows = cases.map(([expectedDomain, text]) => {
+            const result = runtime.api.conversationSessionFollowUp(opened.session.id, text);
+            const response = result && result.followUp && result.followUp.response;
+            return { expectedDomain, result, response, bundle: response && response.domainEvidence };
+        });
+        const session = runtime.api.conversationSessionGet(opened.session.id);
+        const snapshot = runtime.api.conversationSessionSnapshot();
+        const forgedSnapshot = JSON.parse(JSON.stringify(snapshot));
+        const forgedResponse = forgedSnapshot.sessions[0].listenerResponses.at(-1);
+        forgedResponse.domainEvidence = runtime.api.conversationDomainBuild({
+            analysis: { topic: forgedResponse.domainEvidence.domain, claims: [], entities: [] },
+            roleView: { ok: true, bindingEvidence: [{ id: 'authority:forged:commander' }] }
+        });
+        const forgedValidation = runtime.api.conversationSessionValidate(forgedSnapshot);
+        return {
+            allFiveDomainsResolved: rows.every(row => row.bundle
+                && row.bundle.domain === row.expectedDomain),
+            sharedEnvelopeShape: new Set(rows.map(row =>
+                Object.keys(row.bundle || {}).sort().join('|'))).size === 1,
+            allBundlesValid: rows.every(row => runtime.api.conversationDomainValidate(row.bundle).ok),
+            adaptersNeverWriteText: rows.every(row => row.bundle.producesText === false),
+            adaptersNeverReadRawWorld: rows.every(row => row.bundle.rawWorldRead === false),
+            adaptersNeverCommandWorld: rows.every(row => row.bundle.worldCommand === null
+                && row.bundle.worldMutation === false),
+            moveClaimsSubsetOfDomain: rows.every(row => {
+                const allowed = new Set(row.bundle.claimRefs);
+                return (row.response.dialogueMove.claimRefs || []).every(ref => allowed.has(ref));
+            }),
+            allResponsesUseCommonMove: rows.every(row => row.response.dialogueMove
+                && runtime.api.dialogueMoveValidate(row.response.dialogueMove).ok),
+            forgedDomainSourceRejected: forgedValidation.issues.some(row =>
+                row.code === 'DOMAIN_EVIDENCE_SOURCE_MISMATCH'),
+            ledgerValid: runtime.api.conversationSessionValidate(
+                runtime.api.conversationSessionSnapshot()).ok,
+            worldNeutral: rows.every(row => row.result.worldMutation === false)
+                && session.discourseState.worldMutation === false,
+            domains: rows.map(row => row.bundle && row.bundle.domain)
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
+function probeConversationContextPack(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1,
+            doctrine: 'combined', fog: true });
+        const directory = runtime.api.contactDirectoryBuild();
+        const playerActorId = directory.playerActorId;
+        const actors = (directory.publicCharacters || []).filter(row => row.id !== playerActorId);
+        const listener = actors[0];
+        const outsider = actors.find(row => row.id !== listener.id);
+        const promise = runtime.api.memoryAddMilestone({
+            id: 'context-probe:promise', kind: 'PROMISE', status: 'OPEN',
+            subjectActorId: listener.id, holderActorIds: [listener.id, playerActorId],
+            relatedActorIds: [playerActorId], summary: 'Oyuncuya karşı teklif sunma sözü verildi.',
+            source: { receiptId: 'context-probe:promise-receipt' }
+        });
+        const sharedSecret = runtime.api.memoryAddMilestone({
+            id: 'context-probe:secret:shared', kind: 'SECRET', status: 'ACTIVE',
+            subjectActorId: playerActorId, holderActorIds: [listener.id, playerActorId],
+            relatedActorIds: [playerActorId], summary: 'Oyuncuyla paylaşılan gizli kayıt.',
+            source: { beliefId: 'context-probe:belief:shared' }
+        });
+        const foreignSecret = runtime.api.memoryAddMilestone({
+            id: 'context-probe:secret:foreign', kind: 'SECRET', status: 'ACTIVE',
+            subjectActorId: outsider.id, holderActorIds: [listener.id, outsider.id],
+            relatedActorIds: [outsider.id], summary: 'Yabancı aktöre ait gizli kayıt.',
+            source: { beliefId: 'context-probe:belief:foreign' }
+        });
+        const opened = runtime.api.conversationSessionBegin('Merhaba.', {
+            listenerActorId: listener.id
+        });
+        const follow = runtime.api.conversationSessionFollowUp(opened.session.id,
+            'Önceki sözümüzü ve aramızdaki sırrı hatırlıyor musun?');
+        const session = runtime.api.conversationSessionGet(opened.session.id);
+        const response = follow.followUp.response;
+        const pack = runtime.api.conversationContextPack(session, response,
+            'Önceki sözümüzü ve aramızdaki sırrı hatırlıyor musun?');
+        const ids = new Set(pack.sections.map(row => row.id));
+        const longSections = [{
+            id: 'required:move', kind: 'DIALOGUE_MOVE', text: 'Zorunlu karar',
+            protected: true, priority: 100, sourceRefs: ['dialogue-move:test']
+        }, {
+            id: 'required:current', kind: 'CURRENT_TURN', text: 'Son oyuncu sözü',
+            protected: true, priority: 100
+        }];
+        for (let index = 0; index < 60; index++) longSections.push({
+            id: `optional:${index}`, kind: index % 2 ? 'SMALL_TALK' : 'RUMOR',
+            text: `Düşük öncelikli eski ayrıntı ${index} `.repeat(20),
+            priority: index % 2 ? 10 : 20, recency: index
+        });
+        const longPack = runtime.api.contextPackCompile({ sections: longSections }, {
+            modelLimit: 700, outputReserve: 100, fixedOverhead: 100
+        });
+        const forged = JSON.parse(JSON.stringify(pack));
+        forged.sections[0].text = 'Tahrif edilmiş talimat';
+        return {
+            packValid: runtime.api.contextPackValidate(pack).ok,
+            canonicalPromiseIncluded: promise.applied && ids.has('context:memory:context-probe:promise'),
+            canonicalSharedSecretIncluded: sharedSecret.applied
+                && ids.has('context:memory:context-probe:secret:shared'),
+            unrelatedForeignSecretExcluded: foreignSecret.applied
+                && !ids.has('context:memory:context-probe:secret:foreign')
+                && !JSON.stringify(pack).includes('Yabancı aktöre ait gizli kayıt'),
+            requiredContextProtected: longPack.protectedIds.includes('required:move')
+                && longPack.protectedIds.includes('required:current'),
+            lowPriorityContextDropped: longPack.dropped.length > 0,
+            longPackWithinBudget: longPack.ok && longPack.tokenCount <= longPack.promptBudget,
+            forgedPackRejected: runtime.api.contextPackValidate(forged).issues.some(row => row.code === 'CHECKSUM'),
+            estimateClearlyLabeled: pack.tokenizerMode === 'DETERMINISTIC_ESTIMATE',
+            worldNeutral: pack.worldMutation === false && longPack.worldMutation === false
+                && follow.worldMutation === false
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
 function probeNegotiationDeliveryLifecycle(seed = 2032) {
     function run(mode, offset) {
         const runtime = createRuntime((seed + offset) >>> 0);
@@ -17427,6 +17827,11 @@ module.exports = {
     probeCharacterCohortPromotion,
     probeCharacterActivationBudget,
     probeConversationUnderstanding,
+    probeVirtualConversationLab,
+    probeDialogueMoveContract,
+    probeDiscourseStateContract,
+    probeConversationDomainAdapters,
+    probeConversationContextPack,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
     probeCityDossier,

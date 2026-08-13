@@ -9,6 +9,7 @@
 //  Protokol (process.send / process.on('message')):
 //    ← { t:'load', modelPath, gpuLayers }        → { t:'loaded' } | { t:'error' }
 //    ← { t:'gen', id, system, prompt, maxTokens } → { t:'gen', id, text } | { t:'gen', id, error }
+//    ← { t:'count', id, text }                    → { t:'count', id, tokens }
 //    ← { t:'stop' }
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -50,15 +51,22 @@ async function ensureLoaded(modelPath, gpuLayers, contextSize) {
     // BACKEND: CPU istendiyse kapat; aksi halde CUDA (cuda-runtime varsa, RTX 4060 → hızlı) → yoksa Vulkan → yoksa CPU.
     const cpuOnly = (gpuLayers === 0 || gpuLayers === 'cpu' || gpuLayers === '0');
     let backend = false;
+    const backendDiagnostics = [];
     if (!cpuOnly) backend = ensureCudaRuntime() ? 'cuda' : 'vulkan';
     try {
         llama = await mod.getLlama({ gpu: backend });
     } catch (e) {
+        backendDiagnostics.push({ attempted: backend || 'cpu', error: String(e && e.message || e) });
         // CUDA/Vulkan yüklenemezse sırayla düş — çökme yok, sadece yavaşlar.
-        try { llama = await mod.getLlama({ gpu: backend === 'cuda' ? 'vulkan' : false }); }
-        catch (e2) { llama = await mod.getLlama({ gpu: false }); }
+        const fallbackBackend = backend === 'cuda' ? 'vulkan' : false;
+        try { llama = await mod.getLlama({ gpu: fallbackBackend }); }
+        catch (e2) {
+            backendDiagnostics.push({ attempted: fallbackBackend || 'cpu',
+                error: String(e2 && e2.message || e2) });
+            llama = await mod.getLlama({ gpu: false });
+        }
     }
-    send({ t: 'backend', gpu: (llama && llama.gpu) || 'cpu' });
+    send({ t: 'backend', gpu: (llama && llama.gpu) || 'cpu', diagnostics: backendDiagnostics });
     // GPU KATMANI: 'auto' → node-llama-cpp VRAM'e sığdığı kadar katmanı GPU'ya koyar,
     // gerisini CPU'da bırakır. Böylece tek varsayılan üç makineyi de idare eder:
     //   8 GB GPU → tüm katmanlar GPU'da (~30-50 jeton/sn)
@@ -157,6 +165,16 @@ process.on('message', async msg => {
         if (queue.length > 6) queue.shift();
         queue.push(msg);
         pump();
+        return;
+    }
+    if (msg.t === 'count') {
+        try {
+            if (!model || typeof model.tokenize !== 'function') throw new Error('model tokenizer unavailable');
+            const tokens = model.tokenize(String(msg.text || ''), false, 'trimLeadingSpace');
+            send({ t: 'count', id: msg.id, tokens: Array.isArray(tokens) ? tokens.length : 0 });
+        } catch (e) {
+            send({ t: 'count', id: msg.id, error: String(e && e.message || e) });
+        }
         return;
     }
     if (msg.t === 'stop') process.exit(0);

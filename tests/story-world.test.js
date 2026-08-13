@@ -59,6 +59,11 @@ const {
     probeCharacterRoleAdapters,
     probeCharacterPower,
     probeConversationUnderstanding,
+    probeVirtualConversationLab,
+    probeDialogueMoveContract,
+    probeDiscourseStateContract,
+    probeConversationDomainAdapters,
+    probeConversationContextPack,
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
     probeCityDossier,
@@ -4219,6 +4224,119 @@ function run() {
         'Faz 38.11: bütçeli otomatik yükseltme geçerli aktivasyon defteri üretmeli.');
     assert.equal(activationBudgetProbe.physicalPopulationUntouched, true,
         'Faz 38.11: otomatik yükseltme fiziksel kohort nüfusunu değiştirmemeli.');
+
+    const virtualConversationLabProbe = storyTestResult(
+        'virtualConversationLabProbe', probeVirtualConversationLab
+    );
+    assert.ok(virtualConversationLabProbe.simulatedTurns >= 1000,
+        'Sanal sohbet laboratuvarı tekil örnek yerine en az bin çok-rollü tur çalıştırmalı.');
+    assert.ok(virtualConversationLabProbe.roleCount >= 4,
+        'Sanal sohbet laboratuvarı tek karakter tipine aşırı uyum göstermemeli.');
+    assert.equal(virtualConversationLabProbe.allScenariosRecognized, true,
+        `Gerçek oyuncu kayıtlarından türetilen cümleler ve yazım varyantları beklenen söylem eylemine bağlanmalı: ${JSON.stringify(virtualConversationLabProbe.failures)}`);
+    assert.equal(virtualConversationLabProbe.noUnknownWall, true,
+        'Gündelik ve rol-bağlı cümleler genel “amacını çıkaramadım” duvarına yığılmamalı.');
+    assert.equal(virtualConversationLabProbe.noServiceBotLanguage, true,
+        'Sanal oyuncu koşusunda karakter müşteri hizmetleri botu gibi konuşmamalı.');
+    assert.equal(virtualConversationLabProbe.groundedWithoutLlm, true,
+        'Sanal laboratuvardaki olgusal sınır cevapları LLM halüsinasyonuna bırakılmamalı.');
+    assert.equal(virtualConversationLabProbe.noWorldMutation, true,
+        'Sanal sohbet turları açık mekanik kabul olmadan dünyayı değiştirmemeli.');
+    assert.equal(virtualConversationLabProbe.deterministicReplay, true,
+        'Aynı tohumdaki sanal sohbet koşusu birebir yeniden üretilebilmeli.');
+
+    const dialogueMoveContractProbe = storyTestResult(
+        'dialogueMoveContractProbe', probeDialogueMoveContract
+    );
+    assert.equal(dialogueMoveContractProbe.openingAndFollowUpsCovered, true,
+        'DialogueMove açılış ve bütün takip cevaplarında bulunmalı.');
+    assert.equal(dialogueMoveContractProbe.allMovesValid, true,
+        'Canlı DialogueMove kayıtları sözleşme doğrulamasından geçmeli.');
+    assert.equal(dialogueMoveContractProbe.militaryClaimBound, true,
+        'Askerî cevap doğrulanmamış askerî iddiaya açıkça bağlanmalı.');
+    assert.equal(dialogueMoveContractProbe.unrelatedClaimNotCarried, true,
+        'Eski askerî iddia ilgisiz günlük sohbete yetki olarak taşınmamalı.');
+    assert.equal(dialogueMoveContractProbe.worldCommandAlwaysNull, true,
+        'DialogueMove doğrudan dünya komutu üretememeli.');
+    assert.equal(dialogueMoveContractProbe.allForbidWorldMutation, true,
+        'Her DialogueMove dünya mutasyonunu açıkça yasaklamalı.');
+    assert.equal(dialogueMoveContractProbe.ledgerValid, true,
+        'DialogueMove taşıyan sohbet defteri geçerli olmalı.');
+    assert.equal(dialogueMoveContractProbe.forgedSourceRejected, true,
+        'Karması değiştirilse bile kaynaksız varlık referansı defterden reddedilmeli.');
+    assert.equal(dialogueMoveContractProbe.validEnvelopeAccepted, true,
+        'Doğru moveId ve izinli kaynakları taşıyan LLM zarfı kabul edilmeli.');
+    assert.equal(dialogueMoveContractProbe.wrongMoveEnvelopeRejected, true,
+        'Yanlış moveId taşıyan LLM zarfı reddedilmeli.');
+    assert.equal(dialogueMoveContractProbe.forgedUsedRefRejected, true,
+        'İzin verilmeyen kaynak kimliği kullanan LLM zarfı reddedilmeli.');
+    assert.equal(dialogueMoveContractProbe.legacyMoveRebuiltWithoutSessionLoss, true,
+        'Eski veya tahrif olmuş türetilmiş DialogueMove oturumu silmeden kaynaklardan yeniden kurulmalı.');
+    assert.equal(dialogueMoveContractProbe.deterministic, true,
+        'DialogueMove aynı oturum girdilerinden deterministik yeniden kurulmalı.');
+
+    const discourseStateContractProbe = storyTestResult(
+        'discourseStateContractProbe', probeDiscourseStateContract
+    );
+    assert.equal(discourseStateContractProbe.stateValid, true,
+        'S2 söylem durumu sürümlü sözleşmesini geçmeli.');
+    assert.equal(discourseStateContractProbe.activeCommerceSurvivesSocialAside, true,
+        'Sosyal ara söz aktif ticari konuyu silmemeli.');
+    assert.equal(discourseStateContractProbe.repairLinkedToPreviousTurn, true,
+        'Anlamadım onarımı önceki konuşma düğümüne bağlanmalı.');
+    assert.equal(discourseStateContractProbe.questionDebtCreated, true,
+        'Karakterin açıklama sorusu oyuncuya açık cevap borcu yazmalı.');
+    assert.equal(discourseStateContractProbe.answerDebtClosed, true,
+        'Oyuncunun içerikli cevabı açık soru borcunu kaynak turuyla kapatmalı.');
+    assert.equal(discourseStateContractProbe.boundedState, true,
+        'Söylem durumu konu/soru/onarım tavanlarını aşmamalı.');
+    assert.equal(discourseStateContractProbe.twentyTurnChainComplete, true,
+        'S2 kabulü tekil örnek yerine aynı oturumda 20 takip turunu tamamlamalı.');
+    assert.equal(discourseStateContractProbe.correctedClaimSupersedesPrior, true,
+        'Oyuncunun düzelttiği eski claim sonraki DialogueMove kaynağı olamamalı.');
+    assert.equal(discourseStateContractProbe.topicReturnRestoresCommerce, true,
+        'Önceki konuya dönüş askıya alınmış ticari konuyu geri yüklemeli.');
+    assert.equal(discourseStateContractProbe.multipleQuestionDebtsPreserved, true,
+        'Birden çok soru borcu birbirini silmeden durum defterinde korunmalı.');
+    assert.equal(discourseStateContractProbe.saveLoadExact, true,
+        'Söylem durumu save/load sonrasında birebir korunmalı.');
+    assert.equal(discourseStateContractProbe.worldNeutral, true,
+        'Söylem durumu dünyayı değiştirmemeli.');
+
+    const conversationDomainAdaptersProbe = storyTestResult(
+        'conversationDomainAdaptersProbe', probeConversationDomainAdapters
+    );
+    assert.equal(conversationDomainAdaptersProbe.allFiveDomainsResolved, true,
+        'Günlük, ekonomi, siyaset, askerî ve diplomasi girdileri doğru adaptöre ayrılmalı.');
+    assert.equal(conversationDomainAdaptersProbe.sharedEnvelopeShape, true,
+        'Beş domain ayrı mini motorlar yerine aynı kanıt zarfını kullanmalı.');
+    assert.equal(conversationDomainAdaptersProbe.allBundlesValid, true,
+        'Canlı domain kanıt zarfları sözleşmeyi geçmeli.');
+    assert.equal(conversationDomainAdaptersProbe.adaptersNeverWriteText, true,
+        'Domain adaptörü karakter repliği yazmamalı.');
+    assert.equal(conversationDomainAdaptersProbe.adaptersNeverReadRawWorld, true,
+        'Domain adaptörü ham dünya defterini doğrudan okumamalı.');
+    assert.equal(conversationDomainAdaptersProbe.adaptersNeverCommandWorld, true,
+        'Domain adaptörü dünya komutu veya mutasyonu üretememeli.');
+    assert.equal(conversationDomainAdaptersProbe.moveClaimsSubsetOfDomain, true,
+        'DialogueMove claim kaynakları domain zarfının izinli kümesini aşmamalı.');
+    assert.equal(conversationDomainAdaptersProbe.allResponsesUseCommonMove, true,
+        'Beş domain cevabı ortak DialogueMove sözleşmesine girmeli.');
+    assert.equal(conversationDomainAdaptersProbe.forgedDomainSourceRejected, true,
+        'Biçimsel olarak geçerli ama kaynağı sahte domain kanıtı reddedilmeli.');
+    assert.equal(conversationDomainAdaptersProbe.ledgerValid, true,
+        'Domain zarflı canlı konuşma defteri geçerli olmalı.');
+    assert.equal(conversationDomainAdaptersProbe.worldNeutral, true,
+        'Beş domain konuşması açık mekanik kabul olmadan dünyayı değiştirmemeli.');
+
+    const conversationContextPackProbe = storyTestResult(
+        'conversationContextPackProbe', probeConversationContextPack
+    );
+    for (const key of ['packValid', 'canonicalPromiseIncluded', 'canonicalSharedSecretIncluded',
+        'unrelatedForeignSecretExcluded', 'requiredContextProtected', 'lowPriorityContextDropped',
+        'longPackWithinBudget', 'forgedPackRejected', 'estimateClearlyLabeled', 'worldNeutral']) {
+        assert.equal(conversationContextPackProbe[key], true, `ContextPack kapısı geçmeli: ${key}`);
+    }
 
     const conversationUnderstandingProbe = storyTestResult(
         'conversationUnderstandingProbe', probeConversationUnderstanding

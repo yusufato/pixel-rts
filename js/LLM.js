@@ -237,8 +237,23 @@ function llmEnrichRun(system, prompt, validate, generationOptions) {
     if (generationOptions && generationOptions.jsonSchema) {
         generationRequest.jsonSchema = generationOptions.jsonSchema;
     }
-    return b.generate(generationRequest)
+    const enforceContextLimit = generationOptions && Number.isInteger(generationOptions.contextLimit)
+        && typeof b.tokenCount === 'function';
+    let contextRejected = false;
+    const generation = enforceContextLimit
+        ? llmResolveContextRequest(b, generationRequest, generationOptions).then(resolved => {
+            if (!resolved.ok) {
+                contextRejected = true;
+                LLM.stats.rejected++;
+                finish('llm.rejected', Object.assign({ reason: 'context_token_limit' }, resolved.decision));
+                return null;
+            }
+            return b.generate(resolved.request);
+        })
+        : b.generate(generationRequest);
+    return generation
         .then(txt => {
+            if (contextRejected) return null;
             if (!txt) { LLM.stats.failed++; finish('llm.failed', { reason: 'empty' }); return null; }
             const v = validate ? validate(txt) : txt;
             if (!v) { LLM.stats.rejected++; finish('llm.rejected', { reason: 'validation' }); return null; }
@@ -251,6 +266,41 @@ function llmEnrichRun(system, prompt, validate, generationOptions) {
         })
         .catch(() => { LLM.stats.failed++; finish('llm.failed', { reason: 'exception' }); return null; })
         .finally(() => { llmPumpQueue(); });
+}
+
+async function llmResolveContextRequest(bridge, request, options) {
+    let current = Object.assign({}, request);
+    const maxRebuilds = Math.max(0, Math.min(2, Math.floor(Number(options.contextMaxRebuilds) || 0)));
+    for (let attempt = 0; attempt <= maxRebuilds; attempt++) {
+        const count = await bridge.tokenCount(`${current.system}\n${current.prompt}`);
+        const decision = llmContextTokenDecision(count, current.maxTokens,
+            options.contextLimit, options.contextWrapperReserveTokens);
+        if (decision.ok) return { ok: true, request: current, decision, rebuilds: attempt };
+        if (attempt >= maxRebuilds || typeof options.contextRebuildPrompt !== 'function') {
+            return { ok: false, request: null, decision, rebuilds: attempt };
+        }
+        const available = Math.max(1, decision.contextLimit - decision.maxTokens - decision.wrapperReserve);
+        const scale = Number.isFinite(decision.inputTokens) && decision.inputTokens > 0
+            ? Math.max(0.15, Math.min(0.9, available / decision.inputTokens * 0.9)) : 0.5;
+        const rebuilt = await options.contextRebuildPrompt({ attempt: attempt + 1,
+            availableInputTokens: available, scale, previousPrompt: current.prompt });
+        if (!rebuilt || typeof rebuilt !== 'string' || rebuilt === current.prompt) {
+            return { ok: false, request: null, decision, rebuilds: attempt };
+        }
+        current = Object.assign({}, current, { prompt: rebuilt });
+    }
+    return { ok: false, request: null, decision: null, rebuilds: maxRebuilds };
+}
+
+function llmContextTokenDecision(inputTokens, maxTokens, contextLimit, wrapperReserve) {
+    const input = Number(inputTokens);
+    const inputPresent = inputTokens !== null && inputTokens !== undefined && inputTokens !== '';
+    const output = Math.max(0, Math.floor(Number(maxTokens) || 0));
+    const limit = Math.max(1, Math.floor(Number(contextLimit) || 0));
+    const wrapper = Math.max(0, Math.floor(Number(wrapperReserve) || 0));
+    const total = inputPresent && Number.isFinite(input) ? input + output + wrapper : Infinity;
+    return { ok: inputPresent && Number.isFinite(input) && total <= limit, inputTokens: input,
+        maxTokens: output, wrapperReserve: wrapper, contextLimit: limit, totalTokens: total };
 }
 
 function llmPumpQueue() {

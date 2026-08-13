@@ -5006,6 +5006,10 @@ function llmStart() {
             const r = llmPending.get(m.id);
             if (r) { llmPending.delete(m.id); r(m.error ? null : m.text); }
         }
+        if (m.t === 'count') {
+            const r = llmPending.get(m.id);
+            if (r) { llmPending.delete(m.id); r(m.error ? null : Number(m.tokens)); }
+        }
     });
     llmChild.on('exit', () => { llmChild = null; llmReady = false; for (const r of llmPending.values()) r(null); llmPending.clear(); });
     // gpuLayers: 'auto' → node-llama-cpp VRAM'e sığdığı kadar katmanı GPU'ya koyar,
@@ -5058,6 +5062,16 @@ ipcMain.handle('llm:generate', async (_e, req) => {
         // RAM tutar, bir çekirdeği doldurur ve sonuç HİÇBİR ZAMAN kullanılmazdı.
         // Oyun zaten bunu beklemiyor (ateşle-unut), o yüzden uzun sınır bedava.
         setTimeout(() => { if (llmPending.has(id)) { llmPending.delete(id); resolve(null); } }, 120000);
+    });
+});
+
+ipcMain.handle('llm:tokenCount', async (_e, text) => {
+    if (!llmReady || !llmChild) return null;
+    const id = ++llmSeq;
+    llmChild.send({ t: 'count', id, text: String(text || '') });
+    return new Promise(resolve => {
+        llmPending.set(id, resolve);
+        setTimeout(() => { if (llmPending.has(id)) { llmPending.delete(id); resolve(null); } }, 10000);
     });
 });
 
