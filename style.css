@@ -185,37 +185,10 @@ html {
 }
 #mp-ready-btn:hover { transform: translateX(-50%) scale(1.08); background: linear-gradient(135deg, #2ecc5a, #46ff7c); }
 
-#train-ai-btn {
-    position: absolute;
-    bottom: 115px;
-    left: 65%;
-    transform: translateX(-50%);
-    z-index: 15;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 12px;
-    color: #fff;
-    background: linear-gradient(135deg, #005544, #00aa88);
-    border: 2px solid rgba(50, 255, 150, 0.7);
-    border-radius: 10px;
-    padding: 18px 25px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 0 15px rgba(0, 255, 100, 0.2);
-}
-
-#train-ai-btn:hover {
-    background: linear-gradient(135deg, #007755, #00ccaa);
-    transform: translateX(-50%) scale(1.05);
-    box-shadow: 0 0 25px rgba(0, 255, 100, 0.4);
-}
-
-#train-ai-btn:active {
-    transform: translateX(-50%) scale(0.97);
-}
-
-#train-ai-btn.hidden {
-    display: none;
-}
+/* KUSUR 12: #train-ai-btn ve #ai-training-screen kurallari SILINDI.
+   Ikisinin de index.html'de ve js/** icinde SIFIR referansi var (olculdu);
+   eski AI-egitim ekraninin kalintisiydi. #game-over-screen paylasimli
+   seciciden yalniz yetim yarisi cikarildi, canli yari yerinde. */
 
 @keyframes start-pulse {
 
@@ -401,7 +374,7 @@ html {
 }
 
 /* ─── GAME OVER VE TRAINING OVERLAY ─── */
-#game-over-screen, #ai-training-screen {
+#game-over-screen {
     position: absolute;
     top: 0;
     left: 0;
@@ -415,7 +388,7 @@ html {
     padding: 14px;
 }
 
-#game-over-screen.hidden, #ai-training-screen.hidden {
+#game-over-screen.hidden {
     display: none;
 }
 
@@ -574,7 +547,6 @@ body:not([data-screen="game"]) #ui-phase,
 body:not([data-screen="game"]) #ui-info,
 body:not([data-screen="game"]) #ui-camera-hint,
 body:not([data-screen="game"]) #start-btn,
-body:not([data-screen="game"]) #train-ai-btn,
 body:not([data-screen="game"]) #ui-spawn-bar,
 body:not([data-screen="game"]) #ui-support,
 body:not([data-screen="game"]) #minimap { display: none !important; }
@@ -1826,7 +1798,6 @@ body[data-screen="game"][data-phase="deploy"] #deploy-sidebar {
 body[data-screen="game"][data-phase="deploy"] #gameCanvas { width: calc(100% - 330px); }
 body[data-screen="game"][data-phase="deploy"] #ui-info,
 body[data-screen="game"][data-phase="deploy"] #minimap,
-body[data-screen="game"][data-phase="deploy"] #train-ai-btn { display: none !important; }
 body[data-screen="game"][data-phase="deploy"] #ui-resources {
     top: 13px;
     left: 14px;
@@ -1854,6 +1825,20 @@ body[data-screen="game"][data-phase="deploy"] #phase-text {
     animation: none;
 }
 body[data-screen="game"][data-phase="deploy"] #ui-camera-hint { left: 14px; bottom: 94px; border-color: var(--wr-line); background: rgba(5,9,4,.82); color: var(--wr-dim); font-family: 'Share Tech Mono', monospace; }
+/* KUSUR 6: kamera ipucunu gizlemek JS'te satır içi stille yapılıyordu
+   (js/main.js `#ui-camera-hint`.style.display = 'none'). İki ayrı arıza doğuruyordu:
+   1) Satır içi stili GERİ AÇAN yer yoktu → ilk savaştan sonra ipucu oturum boyunca
+      kayboluyordu. Ölçüldü: dizim(ilk) görünür → savaş gizli → dizim(rematch) HÂLÂ
+      gizli (satır içi `display:none` duruyor).
+   2) Çok oyunculuda `js/MP.js` savaş fazına startBattle()'a UĞRAMADAN giriyor
+      (üretim barını ve #ui-phase'i elle gizliyor ama ipucunu unutmuş) → orada ipucu
+      savaş boyunca ekranda kalıp #battle-left-stack'in altına giriyordu.
+   Gizleme faza bağlandı: hangi kod yolu savaşa sokarsa soksun kural aynı işler,
+   ve faz dizime döndüğünde ipucu kendiliğinden geri gelir.
+   `over` fazı da kapsanır: eski satır içi stil oyun-sonu ekranında da gizli
+   kalıyordu, yalnız `battle` yazmak orada ipucunu geri getirirdi. */
+body[data-screen="game"][data-phase="battle"] #ui-camera-hint,
+body[data-screen="game"][data-phase="over"] #ui-camera-hint { display: none; }
 body[data-screen="game"][data-phase="deploy"] #ui-spawn-bar {
     left: 0;
     right: 330px;

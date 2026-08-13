@@ -664,7 +664,10 @@ function startBattle() {
     document.getElementById('phase-text').style.color = '#ff4444';
     document.getElementById('ui-spawn-bar').style.opacity = '0.3';
     document.getElementById('ui-spawn-bar').style.pointerEvents = 'none';
-    document.getElementById('ui-camera-hint').style.display = 'none';
+    // Kamera ipucunun gizlenmesi CSS'e taşındı (kusur 6):
+    // body[data-screen="game"][data-phase="battle"] #ui-camera-hint { display: none }
+    // Buradaki satır içi stil geri açılmadığı için ipucu rematch'te de kayboluyordu,
+    // ayrıca MP yolu bu satıra hiç uğramadığı için orada gizlenmiyordu.
     document.getElementById('ui-support').classList.remove('hidden');
 
     setTimeout(() => { document.getElementById('ui-phase').style.display = 'none'; }, 3000);

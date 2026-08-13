@@ -35,7 +35,7 @@ düzeltmenin neyi çözdüğü ölçülemez.
 | 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 400 ms işaret (hareket = daire, taarruz = eşkenar) + kartta `EMİR ALINDI → hedef` satırı | `AÇIK` |
 | 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz | Butonlara kısayol rozeti; sol yığının altına 6 slotlu kontrol grubu şeridi | `AÇIK` |
 | 5 | Savaşta üretim barı kalıntı olarak 76 px yer kaplıyor | `js/main.js:665-666` `opacity .3` + `pointerEvents:none` | Savaş fazında tamamen kalkar; boşalan şerit kontrol grubuna ve büyütülmüş minimap'e (200×110 → 236×130) gider | `AÇIK` |
-| 6 | Kamera ipucu yalnız `startBattle()` yolunda gizleniyor → rematch/MP'de sol yığının altına giriyor | `js/main.js:667` JS ile gizleniyor, CSS'te savaş-fazı kuralı yok | Gizleme CSS'e taşınır (`body[data-phase="battle"]`), JS'e bağımlılık biter | `AÇIK` |
+| 6 | Kamera ipucu yalnız `startBattle()` yolunda gizleniyor — **iddia edilenden ağır çıktı** | `js/main.js:667` satır içi `display:none` yazıyor ve **hiçbir yer geri açmıyor** → ilk savaştan sonra ipucu oturum boyunca kayboluyor (ölçüldü: dizim ✓ → savaş ✗ → rematch **✗**) · `js/MP.js:120` savaş fazına `startBattle()`'a uğramadan giriyor → MP'de hiç gizlenmiyor | Gizleme faza bağlandı (`battle` + `over`); satır içi stil kaldırıldı | **`UYGULANDI`** (commit aşağıda) |
 | 7 | Muharebe kaydı `aria-live` taşımıyor | `index.html:434` · yalnız `#battle-target-card` taşıyor | `aria-live="polite"` + `role="log"` | `AÇIK` |
 
 ### Katman B — görsel dil
@@ -46,7 +46,7 @@ düzeltmenin neyi çözdüğü ölçülemez.
 | 9 | Duraklatma modalı ve öğrenme bildirimi **tamamen inline stil**; üstelik modalın **kendi içinde** iki font var | `js/main.js:727-739` — kutu `font-family:inherit` → body'den **Press Start 2P**, ama butonlarda `font-family` yok → **tarayıcı sans-serif**'i · `js/main.js:761-763` bildirim `#8ecbff` / `14px system-ui` / `z-index:99999` · gerçek çekim: `qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png` | İkisi de terminal diline geçer; inline stil kalkar | `AÇIK` |
 | 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | `AÇIK` |
 | 11 | `:focus-visible` hover ile **birebir aynı** → klavye odağı görünmüyor | `style.css:1877-1878`, `:1887-1888` | `--wr-focus: #6cc7ff` ile ayrı odak halkası | `AÇIK` |
-| 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te karşılığı yok | Silinir | `AÇIK` |
+| 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te **sıfır** referans (ölçüldü) | Silindi: 29 satır. `#game-over-screen` paylaşımlı seçicisinden yalnız yetim yarısı çıkarıldı, canlı yarı yerinde | **`UYGULANDI`** (commit aşağıda) |
 | 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | `AÇIK` |
 
 ---
