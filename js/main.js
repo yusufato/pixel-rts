@@ -977,20 +977,17 @@ function updateUI() {
     }
 
     if (phase === PHASE.BATTLE) {
-        const sel = units.filter(u => u.selected && playerCanControlBattleUnit(u));
-        if (sel.length === 1) {
-            const u = sel[0];
-            const s = STATS[u.type];
-            document.getElementById('info-content').innerHTML = `
-                <b style="color:#aaddff">${s.name}</b><br>
-                ❤️ ${Math.floor(u.hp)}/${u.maxHp} | 🛡️ ${u.armor}<br>
-                ⚔️ ATK: ${u.atk} | 📏 ${u.range}<br>
-                👁️ ${s.vision} | ${u.attackTarget ? '<span style="color:#ff6666">Saldırıyor!</span>' : '<span style="color:#888">Bekleme</span>'}
-            `;
-        } else if (sel.length > 1) {
-            document.getElementById('info-content').innerHTML = `<b style="color:#aaddff">${sel.length} birim seçili</b><br>Sağ tık: hareket / saldır`;
-        }
-        
+        /* KUSUR 1 (daraltıldı — ölçüm önceki iddiayı çürüttü):
+           Buradaki iki innerHTML yazması `#info-content`e gidiyordu, ama `#ui-info`
+           savaş fazında `display:none !important` (style.css:1919). Yani metin her
+           karede üretilip GÖRÜNMEYEN bir düğüme yazılıyordu — hem boşa iş, hem de
+           "N birim seçili" bilgisi oyuncuya hiç ulaşmıyordu.
+           DİKKAT: panel ÖLÜ DEĞİL — dizim fazında görünür ve çalışıyor (ölçüldü:
+           display:block, "Bir birim seç veya üzerine gel"). Bu yüzden panel
+           silinmedi, yalnız savaş fazındaki ölü yazma kaldırıldı.
+           Bilginin savaşta NEREDE görüneceği (hedef kartı mı, ayrı bir şerit mi)
+           bir tasarım kararı; mockup'ta kusur 1 olarak açık duruyor. */
+
         document.getElementById('cd-paradrop').style.height = `${(supportCooldowns.paradrop / MAX_CD_PARADROP) * 100}%`;
         document.getElementById('btn-paradrop').style.borderColor = selectedSupportMode === 'paradrop' ? '#fff' : '#555';
         document.getElementById('btn-paradrop').classList.toggle('disabled', player.money < PARADROP_COST || supportCooldowns.paradrop > 0);

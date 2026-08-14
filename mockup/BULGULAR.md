@@ -30,7 +30,7 @@ düzeltmenin neyi çözdüğü ölçülemez.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 1 | Seçili birim özeti hiç görünmüyor; çoklu seçim durumu yok | `js/main.js:976-989` her karede yazıyor · `style.css:1834-1836` `display:none !important` · `js/WarRoomUI.js:321` daima tek birim | Ölü `#ui-info` silinir; hedef kartı **üç duruma** çıkar (seçim yok / tek birim / N birim dökümü + en zayıf birim) | `AÇIK` |
+| 1 | Savaşta seçili birim özeti görünmüyor — **iddia ölçümle daraltıldı, öneri DEĞİŞTİ** | `#ui-info` savaşta gizli (`style.css:1919` `display:none !important`) ama **dizimde GÖRÜNÜR** (ölçüldü: `display:block`) · çoklu seçim metni `js/main.js:991`'de **zaten vardı**, yalnız gizli düğüme yazılıyordu | ~~Ölü `#ui-info` silinir~~ → **panel silinmez** (dizimde canlı). Savaştaki ölü yazma kaldırıldı; bilginin savaşta nerede görüneceği hâlâ açık tasarım kararı | kısmen **`UYGULANDI`** (commit aşağıda) · geri kalanı `AÇIK` |
 | 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · `js/main.js:991-994` cooldown gizli panele yazılıyor | Emir butonları durum katmanı kazanır: `HAZIR` / `BEKLEME 18s` (dolan çubuk) / `150₺ gerek · 90₺ var` | `AÇIK` |
 | 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 400 ms işaret (hareket = daire, taarruz = eşkenar) + kartta `EMİR ALINDI → hedef` satırı | `AÇIK` |
 | 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz | Butonlara kısayol rozeti; sol yığının altına 6 slotlu kontrol grubu şeridi | `AÇIK` |
@@ -344,6 +344,22 @@ Kapılar süs değil; gerçek-Chromium turlarında beş şey yakaladılar:
    `dolgu × (1 − ölçek)` kadar sahte aşım üretiyor — 0.798 ölçekte 16 px dolgu
    tam 3.2 px eder, raporlanan 3.93 ile uyuşuyor. Dolgu ve kenarlık artık ölçekle
    çarpılıyor, eşik de sahne koordinatına geri çevriliyor.
+
+### Geri çekilen iddialar (ölçüm sonrası)
+
+Bu turda **dört** iddia ölçümle çürütüldü. Damga defterinin varlık sebebi bu:
+
+1. **Soru sayacı yanlış** → `/12` doğruymuş (`js/Character.js:596`).
+2. **12 soruluk ekran kırpılıyor** → kırpılmıyormuş, 916×572'de 75 px pay var.
+3. **Kusur 8: minimap kenarlığı legacy mavi** → `style.css:1905`'te zaten eziliyormuş;
+   madde gerçek kalıntılara (`.spawn-cat`, savaş `.spawn-btn:hover`, kamera ipucu) çevrildi.
+4. **Kusur 1: `#ui-info` ölü panel, silinmeli** → **ölü değil**; dizim fazında görünür ve
+   çalışıyor. Öneri kabul edilseydi **çalışan bir panel silinecekti**. Ayrıca "çoklu seçim
+   durumu yok" da yanlış: metin `js/main.js:991`'de zaten vardı, yalnız gizli düğüme yazılıyordu.
+
+Buna karşılık **kusur 6 ters yönde şaşırttı**: defterde yazandan *daha ağır* çıktı
+(satır içi stil geri açılmıyordu → ipucu oturum boyunca kayboluyordu).
+**Kusur 11 de öyle**: iki kural değil dokuz kural.
 
 > **Ölçüm aleti dersi (bu turda üç kez tekrarlandı).** Bir kapı kırmızı yandığında
 > ilk soru "tasarım mı bozuk" değil, **"alet doğru mu ölçüyor"** olmalı. Bu turda
