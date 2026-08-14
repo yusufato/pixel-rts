@@ -1418,6 +1418,23 @@ body[data-screen="story"] { background: #060a06; }
     #story-stats .story-stat-chip.t2 { display: none; }
 }
 
+/* 900 px altı: 5 çip de sığmıyor (760 px'te kutu yalnız 261, içerik 347). Bu bant
+   düzeltmeden ÖNCE de bozuktu — 4 çiple bile 760 px'te 8 px taşıyordu; fark, artık
+   başlığın üstüne akmak yerine kırpılması. TARİH burada bırakılır ve devlet çipi
+   daha da daralır; geriye komutan kasasının üç kalemi + devlet kimliği kalır. */
+@media (max-width: 900px) {
+    #story-stats .story-stat-chip.t3 { display: none; }
+    #story-stats .story-stat-chip.identity { min-width: 64px; max-width: 88px; }
+}
+
+/* 780 px altı: kaynaklar 5 haneye çıktığında (uzun kampanyada oluyor) 4 çip de
+   sığmıyor. Ölçüldü: 720 px'te 3 haneyle pay tam 0, 5 haneyle **−8 px**.
+   Burada devlet çipi düşer — oyuncu kendi devletini zaten biliyor, oysa
+   PETROL/İNSAN/PUAN harcanabilir bütçedir. 700 px altında zaten hepsi gizleniyor. */
+@media (max-width: 780px) {
+    #story-stats .story-stat-chip.identity { display: none; }
+}
+
 @media (max-width: 980px) {
     /* Buradaki `.story-stat-chip:nth-of-type(n+4) { display:none }` KALDIRILDI:
        ELEKTRONİK ve ENF koşullu üretiliyor (me.chips / me.inflation null olabilir),
@@ -2429,7 +2446,17 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-follow-up p { margin: 6px 0 0; color: #dce7df; font-size: 12px; line-height: 1.55; }
 .conversation-follow-up small { display: block; margin-top: 7px; color: #5f7668; font-size: 8px; }
 .conversation-follow-up.player { justify-self: end; border-color: rgba(255,176,0,.32); background: rgba(255,176,0,.035); }
-.conversation-follow-up.listener { justify-self: start; border-color: rgba(76,255,124,.25); background: rgba(76,255,124,.025); }
+.conversation-follow-up.listener { justify-self: start; border-color: rgba(255,176,0,.34); border-left: 3px solid var(--wr-amber);
+    background: rgba(255,176,0,.045); }
+.conversation-follow-up.listener > span { color: var(--wr-amber); }
+.conversation-thinking { display: grid; grid-template-columns: 10px auto; align-items: center; gap: 4px 8px; color: #e2c46e; }
+.conversation-thinking i { grid-row: 1 / span 2; width: 8px; height: 8px; border-radius: 50%; background: var(--wr-amber);
+    box-shadow: 0 0 0 0 rgba(255,176,0,.45); animation: conversation-thinking-pulse 1.15s ease-out infinite; }
+.conversation-thinking b { font-size: 10px; font-weight: 400; letter-spacing: 1px; }
+.conversation-thinking small { margin: 0; color: #75887b; font-size: 7px; letter-spacing: .8px; }
+.conversation-wait-notice { padding: 13px; border: 1px solid rgba(255,176,0,.28); background: rgba(255,176,0,.035); }
+.conversation-wait-notice p { margin: 8px 0 0; color: #879a8d; font-size: 9px; }
+@keyframes conversation-thinking-pulse { 70% { box-shadow: 0 0 0 7px rgba(255,176,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,176,0,0); } }
 .conversation-follow-up-composer { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--wr-line); }
 .conversation-follow-up-composer > label { display: block; margin-bottom: 7px; color: var(--wr-amber); font-size: 9px; letter-spacing: 1px; }
 .conversation-workspace-main .conversation-follow-up-composer textarea { min-height: 96px; }

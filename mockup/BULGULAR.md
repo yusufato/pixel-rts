@@ -94,11 +94,33 @@ Kutu genişliğinin kanunu ölçüldü: `#story-stats` grid'in `1fr` sütunu, ya
 **kutu = pencere − 579** (270 başlık + 245 `#story-topright` + 64 boşluk/dolgu).
 Başka kaldıraç yok — ya içerik küçülecek ya çip gizlenecek. Uygulanan üç bant:
 
-| bant | ne olur | 9 çip görünür mü |
+| bant | ne olur | görünen çip |
 |---|---|---|
-| **≥1650 px** | hiçbir şey değişmez (zaten sığıyordu) | evet |
-| **1260–1650 px** | çipler sabit 92/150 px yerine `min-content`; boşluk 6→4, dolgu 8→6 px | **evet** — içerik 1070 → **633 px** |
-| **<1260 px** | kademe-2 çipleri gizlenir (633 px bile sığmıyor: 1000 px'te kutu 421) | hayır, 4 çip |
+| **≥1650 px** | hiçbir şey değişmez (zaten sığıyordu) | 9 |
+| **1260–1650 px** | çipler sabit 92/150 px yerine `min-content`; boşluk 6→4, dolgu 8→6 px | **9** — içerik 1070 → **633 px** |
+| **900–1260 px** | `t2` gizlenir: GAZİ · ELEKTRONİK · ENF · ÇAĞ | 5 (TARİH kalır) |
+| **780–900 px** | `t3` gizlenir: TARİH · devlet çipi 88 px'e daralır | 4 |
+| **<780 px** | devlet çipi de düşer | 3 (PETROL · İNSAN · PUAN) |
+
+**Hangi çip önce feda edilir — gerekçe.** TARİH kademe-2'de değil kademe-3'te:
+gündem panelindeki süreler ("1,25 yıl kaldı") takvime göre okunuyor, yani eyleme
+dönük. GAZİ ise salt geriye dönük bir sayaç ve üst çubukta ona bağlı hiçbir karar
+yok. En dar bantta düşen DEVLET çipi, çünkü oyuncu kendi devletini zaten biliyor;
+PETROL/İNSAN/PUAN ise harcanabilir bütçe.
+
+**Çip genişliği içeriğe bağlı — en kötü durum ayrıca ölçüldü.** Uzun kampanyada
+kaynaklar 5 haneye çıkıyor ve `PUAN` çipinde değer zaten etiketten geniş
+(21.9 px etiket / 22.9 px değer, 3 hanede). 5 hane satıra **+31 px** ekliyor.
+`<b>` metni doğrudan DOM'a yazılarak 13 genişlikte yeniden ölçüldü, hepsi geçti;
+en dar pay 1261 px'te **18 px**. Bu ölçüm olmasaydı 720 px bandı −8 px ile
+kırpacaktı — dördüncü kademe (780 px) tam bu yüzden var.
+
+> **Ölçüm tuzağı — dördüncü kez.** İlk denemede kaynakları `STORY.commander.res`
+> üzerinden şişirdim ve "içerik hiç değişmedi, risk yok" sonucuna varacaktım.
+> Doğrulayınca enjeksiyonun hiç uygulanmadığı görüldü (değerler 222/235/205'te
+> kaldı) — yani test bir **no-op**'tu ve negatif sonuç sahteydi. Ölçüm modelden
+> değil DOM'dan yapılınca gerçek etki (+31 px) ortaya çıktı.
+
 
 Ayrıca `#story-stats { overflow: hidden }` — içerik ne olursa olsun başlığın
 üstüne **asla** çıkamaz.

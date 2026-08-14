@@ -264,7 +264,15 @@ function storyPanelUpdate() {
             const safeLabel = storyProjectionEscape(`${label}: ${value}. Ayrıntılar için odaklan.`);
             return `<div class="story-stat-chip ${classes || ''} detail-hover" tabindex="0" data-story-tooltip="${safeDetail}" aria-label="${safeLabel}"${style ? ` style="${style}"` : ''}>${label}<b>${value}</b></div>`;
         };
-        // KADEME: `t2` = dar ekranda ilk feda edilecek çipler. Eskiden bu iş CSS'te
+        // KADEME — dar ekranda hangi çipin feda edileceği. Ölçüm: kutu = pencere − 579
+        // (≤980'de başlık sütunu 190'a düştüğü için − 499).
+        //   sınıfsız = daima kalır: DEVLET · PETROL · İNSAN · PUAN
+        //   `t3`     = 900 px altında gizlenir: TARİH
+        //   `t2`     = 1260 px altında gizlenir: GAZİ · ELEKTRONİK · ENF · ÇAĞ
+        // TARİH'in GAZİ'den önce gelmesi bilinçli: gündem panelindeki süreler
+        // ("1,25 yıl kaldı") takvime göre okunuyor, yani eyleme dönük. GAZİ salt
+        // geriye dönük bir sayaç ve üst çubukta ona bağlı hiçbir karar yok.
+        // Eskiden bu iş CSS'te
         // `.story-stat-chip:nth-of-type(n+4)` ile yapılıyordu; ELEKTRONİK ve ENF
         // koşullu üretildiği için (me.chips / me.inflation null olabilir) sıra
         // kayıyor ve HER DURUMDA FARKLI çipler gizleniyordu. Kademe artık burada,
@@ -277,7 +285,7 @@ function storyPanelUpdate() {
             statChip('t2', 'GAZİ', (STORY.veterans || []).length, 'Savaşlardan sonra kayda geçen toplam gazi sayısı.') +
             ((me.chips != null) ? statChip('t2 tip-right', 'ELEKTRONİK', Math.floor(me.chips), 'Devletin elektronik stoku. Tank ve topçu üretimi elektronik gerektirir.') : '') +
             ((me.inflation != null) ? statChip(`${me.inflation > 15 ? 'urgent ' : ''}t2 tip-right`, 'ENF', `%${me.inflation.toFixed(0)}`, 'Enflasyon gelir verimini azaltır ve halkın refah baskısını büyütür.') : '') +
-            statChip('t2 wide tip-right', 'TARİH', date, 'Hikâye dünyasının mevcut tarihi. Dünya ilerledikçe ekonomi, kurumlar ve ilişkiler bu takvime göre değişir.') +
+            statChip('t3 wide tip-right', 'TARİH', date, 'Hikâye dünyasının mevcut tarihi. Dünya ilerledikçe ekonomi, kurumlar ve ilişkiler bu takvime göre değişir.') +
             ((typeof storyEra === 'function') ? (() => {
                 const e = storyEraForUi();
                 const detail = storyProjectionEscape(storyWorldStateTooltip());
