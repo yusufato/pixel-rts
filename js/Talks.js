@@ -1192,6 +1192,45 @@ const STORY_TALK_CONVERSATION_STATUS = Object.freeze({
     NEGOTIATION_DEFERRED: 'GÖRÜŞME BEKLEMEDE'
 });
 
+const STORY_TALK_ROLE_LABELS = Object.freeze({
+    EXECUTIVE: 'Devlet yöneticisi', POLITICAL_FIGURE: 'Siyasi isim',
+    POLITICAL_CANDIDATE: 'Siyasi aday', COMMANDER: 'Komutan', AGENT: 'Ajan',
+    COMPANY_OWNER: 'Şirket sahibi', COMPANY_EXECUTIVE: 'Şirket yöneticisi',
+    MAYOR: 'Belediye başkanı', CHARACTER: 'Karakter'
+});
+
+const STORY_TALK_SPEECH_ACT_LABELS = Object.freeze({
+    ASK_INFORMATION: 'BİLGİ SORUSU', PROPOSE_COMMERCIAL_DEAL: 'TİCARİ TEKLİF',
+    THREATEN: 'TEHDİT', MAKE_PROMISE: 'SÖZ VERME', SHARE_SECRET: 'GİZLİ PAYLAŞIM',
+    BLUFF_CANDIDATE: 'OLASI BLÖF', ACCUSE: 'SUÇLAMA', REQUEST_ACTION: 'EYLEM TALEBİ',
+    OFFER_SUPPORT: 'DESTEK TEKLİFİ', COUNTER_OFFER: 'KARŞI TEKLİF', REJECT: 'RET',
+    GREETING: 'SELAMLAMA', CHECK_IN: 'HÂL HATIR SORMA', THANK: 'TEŞEKKÜR',
+    APOLOGIZE: 'ÖZÜR', FAREWELL: 'VEDA', ASK_PERSONAL_OPINION: 'KİŞİSEL GÖRÜŞ SORUSU',
+    SMALL_TALK: 'GÜNLÜK SOHBET', REQUEST_SUPPORT: 'DESTEK TALEBİ',
+    ASK_RELATIONSHIP: 'İLİŞKİ SORUSU', REPORT_MILITARY: 'ASKERÎ BİLDİRİM',
+    REPORT_ECONOMIC: 'EKONOMİK BİLDİRİM',
+    CORRECT_STATEMENT: 'DÜZELTME', CHALLENGE: 'İTİRAZ', UNKNOWN: 'ANLAŞILAMADI'
+});
+
+const STORY_TALK_INTENT_LABELS = Object.freeze({
+    FOUND_STEEL_COMPANY: 'ÇELİK ŞİRKETİ KURMA', FOUND_COMPANY: 'ŞİRKET KURMA',
+    REDIRECT_SHIPMENT: 'SEVKİYATI YÖNLENDİRME', REQUEST_MILITARY_SUPPORT: 'ASKERÎ DESTEK İSTEME',
+    UNSPECIFIED: 'AYRINTILANDIRILMAMIŞ', UNKNOWN: 'ANLAŞILAMADI'
+});
+
+function storyTalkConversationSpeechActLabel(value) {
+    return STORY_TALK_SPEECH_ACT_LABELS[String(value || '')] || 'KONUŞMA EYLEMİ';
+}
+
+function storyTalkConversationIntentLabel(value) {
+    const key = String(value || '');
+    if (STORY_TALK_INTENT_LABELS[key]) return STORY_TALK_INTENT_LABELS[key];
+    if (key.startsWith('SOCIAL_')) {
+        return `SOSYAL · ${storyTalkConversationSpeechActLabel(key.slice(7))}`;
+    }
+    return 'GENEL KONUŞMA';
+}
+
 function storyTalkConversationEscape(value) {
     if (typeof storyProjectionEscape === 'function') return storyProjectionEscape(value);
     return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
@@ -1236,20 +1275,15 @@ function storyTalkConversationProfileHtml(listenerActorId) {
         ? storyContactDirectoryBuild() : null;
     const row = directory && directory.publicCharacters
         ? directory.publicCharacters.find(candidate => candidate.id === String(listenerActorId)) : null;
-    const roleLabels = {
-        EXECUTIVE: 'Devlet yöneticisi', POLITICAL_FIGURE: 'Siyasi isim',
-        POLITICAL_CANDIDATE: 'Siyasi aday', COMMANDER: 'Komutan', AGENT: 'Ajan',
-        COMPANY_OWNER: 'Şirket sahibi', COMPANY_EXECUTIVE: 'Şirket yöneticisi', MAYOR: 'Belediye başkanı'
-    };
     const role = row && row.role || 'CHARACTER';
     const contact = row && row.own ? 'AYNI ÜLKE'
         : (row && row.directContact ? 'DOĞRULANMIŞ TEMAS' : 'KAMUSAL SİCİL');
     return `<div class="conversation-section-title">KİŞİ PROFİLİ</div>`
         + `<div class="conversation-profile-card"><span class="conversation-profile-status">${esc(contact)}</span>`
         + `<h3>${esc(row && row.name || STORY._talkFocusCharacterName || listenerActorId)}</h3>`
-        + `<p>${esc(row && (row.publicTitle || roleLabels[role]) || roleLabels[role] || role)}</p>`
+        + `<p>${esc(row && (row.publicTitle || STORY_TALK_ROLE_LABELS[role]) || STORY_TALK_ROLE_LABELS[role] || 'Karakter')}</p>`
         + `<dl><div><dt>ÜLKE / KURUM</dt><dd>${esc(row && row.countryName || 'Bilinmiyor')}</dd></div>`
-        + `<div><dt>ROL</dt><dd>${esc(roleLabels[role] || role)}</dd></div></dl></div>`
+        + `<div><dt>ROL</dt><dd>${esc(STORY_TALK_ROLE_LABELS[role] || 'Karakter')}</dd></div></dl></div>`
         + `<div class="conversation-section-title">SANA BAKIŞI</div>`
         + storyTalkConversationRelationHtml(listenerActorId)
         + `<div class="conversation-profile-note">Gizli kişilik değerleri gösterilmez. Profil, kamusal sicil ve doğrulanmış ilişkinizden oluşur.</div>`;
@@ -1309,10 +1343,10 @@ function storyTalkConversationDomainReviewHtml(review) {
             + `<span>${esc(row.publicText)}</span></li>`;
     }).join('');
     return `<section class="conversation-listener-response${statusClass}" data-domain-review="${esc(review.id)}">`
-        + `<header><span>DOĞRULANMIŞ KARAKTER CEVABI</span><small>${esc(review.response.speechAct)}</small></header>`
+        + `<header><span>DOĞRULANMIŞ KARAKTER CEVABI</span><small>${esc(storyTalkConversationSpeechActLabel(review.response.speechAct))}</small></header>`
         + `<blockquote>“${esc(review.response.text)}”</blockquote>`
         + `<ul>${checks}</ul>`
-        + `<div class="conversation-safety-note">MUHATAP YALNIZ KENDİ ACTORBELIEF KAYITLARINI OKUDU · DÜNYA DEĞİŞMEDİ</div>`
+        + `<div class="conversation-safety-note">KARAKTER YALNIZ KENDİ BİLGİ KAYITLARINI OKUDU · DÜNYA DEĞİŞMEDİ</div>`
         + `</section>`;
 }
 
@@ -1321,8 +1355,11 @@ function storyTalkConversationResponseOptionsHtml(session) {
     const socialResponse = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
     if (socialResponse) {
         return `<section class="conversation-listener-response social" data-social-response="${esc(socialResponse.id)}">`
-            + `<header><span>KARAKTERİN CEVABI</span><small>${esc(socialResponse.speechAct)}</small></header>`
-            + `<blockquote>“<span data-conversation-response-text="${esc(socialResponse.id)}">${esc(socialResponse.text)}</span>”</blockquote>`
+        + `<header><span>KARAKTERİN CEVABI</span><small>${esc(storyTalkConversationSpeechActLabel(socialResponse.speechAct))}</small></header>`
+            + `<blockquote><span data-conversation-response-text="${esc(socialResponse.id)}" `
+            + `data-enrichment-status="${esc(socialResponse.enrichmentStatus || '')}">`
+            + `${storyTalkConversationResponsePending(socialResponse)
+                ? storyTalkConversationThinkingHtml(socialResponse) : `“${esc(socialResponse.text)}”`}</span></blockquote>`
             + `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div></section>`;
     }
     const options = typeof storyConversationSessionResponseOptions === 'function'
@@ -1385,13 +1422,26 @@ function storyTalkConversationResponseOptionsHtml(session) {
             + `<b>${esc(option.label)}</b><small>${esc(option.detail)}</small></button>`).join('')}</div></section>`;
 }
 
+function storyTalkConversationResponsePending(response) {
+    return !!response && ['MODEL_LOADING', 'GENERATING'].includes(response.enrichmentStatus);
+}
+
+function storyTalkConversationThinkingHtml(response) {
+    const phase = response && response.enrichmentStatus === 'MODEL_LOADING'
+        ? 'MODEL HAZIRLANIYOR' : 'CEVAP OLUŞTURULUYOR';
+    return `<span class="conversation-thinking"><i></i><b>KARAKTER DÜŞÜNÜYOR…</b><small>${phase}</small></span>`;
+}
+
 function storyTalkConversationFollowUpsHtml(session) {
     const esc = storyTalkConversationEscape;
     return (session.followUps || []).map(row => `<div class="conversation-follow-up-thread">`
         + `<article class="conversation-follow-up player"><span>SEN</span><p>${esc(row.playerText)}</p></article>`
         + `<article class="conversation-follow-up listener"><span>${row.response && row.response.source === 'CHARACTER_HELD_MEMORY_RECALL'
-            ? 'MUHATAP · KAYNAKLI HAFIZA' : 'MUHATAP'}</span>`
-        + `<p data-conversation-response-text="${esc(row.response && row.response.id || '')}">${esc(row.response && row.response.text || '')}</p>`
+            ? 'KARAKTERİN CEVABI · KAYNAKLI HAFIZA' : 'KARAKTERİN CEVABI'}</span>`
+        + `<p data-conversation-response-text="${esc(row.response && row.response.id || '')}" `
+        + `data-enrichment-status="${esc(row.response && row.response.enrichmentStatus || '')}">`
+        + `${storyTalkConversationResponsePending(row.response)
+            ? storyTalkConversationThinkingHtml(row.response) : esc(row.response && row.response.text || '')}</p>`
         + `<small>${row.response && row.response.source === 'CHARACTER_HELD_MEMORY_RECALL'
             ? `${(row.response.evidenceIds || []).length} KAYNAK · HAM DÜNYA OKUNMADI`
             : 'AYNI GÖRÜŞME · DÜNYA DEĞİŞMEDİ'}</small></article></div>`).join('');
@@ -1399,6 +1449,11 @@ function storyTalkConversationFollowUpsHtml(session) {
 
 function storyTalkConversationFollowUpComposerHtml(session) {
     if (session.status !== 'SOCIAL_RESPONSE_READY') return '';
+    const pending = (session.listenerResponses || []).find(storyTalkConversationResponsePending);
+    if (pending) return `<section class="conversation-follow-up-composer pending" `
+        + `data-conversation-pending-response="${storyTalkConversationEscape(pending.id)}">`
+        + `<div class="conversation-wait-notice">${storyTalkConversationThinkingHtml(pending)}`
+        + `<p>Cevap tamamlanınca aynı görüşmeye devam edebilirsin.</p></div></section>`;
     const esc = storyTalkConversationEscape;
     return `<section class="conversation-follow-up-composer">`
         + `<label for="conversation-follow-up-input">BU KONUŞMAYA DEVAM ET</label>`
@@ -1434,7 +1489,8 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
         + `<span>${session.turns.length} açıklama</span></div>`
         + `<blockquote>${esc(session.initialText)}</blockquote>`
         + `<div class="conversation-understood"><span>ANLAŞILAN NİYET</span>`
-        + `<b>${esc(session.analysis.speechAct)} · ${esc(session.analysis.playerIntent)}</b></div>`
+        + `<b>${esc(storyTalkConversationSpeechActLabel(session.analysis.speechAct))} · `
+        + `${esc(storyTalkConversationIntentLabel(session.analysis.playerIntent))}</b></div>`
         + (session.status === 'SOCIAL_RESPONSE_READY'
             ? `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div>`
             : `<div class="conversation-safety-note">DÜNYA DEĞİŞMEDİ · ${session.domainChecks.length} gerçek motor denetimi bekliyor</div>`);
@@ -1498,7 +1554,8 @@ function storyConversationWorkspaceRender() {
     const row = directory && directory.publicCharacters
         ? directory.publicCharacters.find(candidate => candidate.id === String(listenerActorId)) : null;
     const name = row && row.name || STORY._talkFocusCharacterName || listenerActorId;
-    const role = row && (row.publicTitle || row.role) || 'Karakter';
+    const roleCode = row && row.role || 'CHARACTER';
+    const role = row && row.publicTitle || STORY_TALK_ROLE_LABELS[roleCode] || 'Karakter';
     const country = row && row.countryName || 'Bilinmeyen kurum';
     const nameElement = document.getElementById('conversation-workspace-name');
     const metaElement = document.getElementById('conversation-workspace-meta');
@@ -1517,9 +1574,40 @@ function storyConversationWorkspaceRender() {
         + storyTalkConversationRecordsHtml(listenerActorId) + `</div>`;
 }
 
+function storyConversationWorkspacePauseUiSync(locked) {
+    const pauseButton = document.getElementById('story-pause-btn');
+    if (!pauseButton) return;
+    pauseButton.disabled = !!locked;
+    if (locked) {
+        pauseButton.textContent = 'SOHBETTE DURAKLATILDI';
+        pauseButton.title = 'Karakter görüşmesi kapanana kadar dünya zamanı durur';
+        return;
+    }
+    pauseButton.textContent = STORY.paused ? 'DEVAM' : 'DURAKLAT';
+    pauseButton.title = STORY.paused ? 'Devam' : 'Duraklat';
+}
+
+function storyConversationWorkspacePauseAcquire() {
+    if (STORY._conversationPauseLease) return;
+    STORY._conversationPauseLease = {
+        wasPaused: STORY.paused === true
+    };
+    STORY.paused = true;
+    storyConversationWorkspacePauseUiSync(true);
+}
+
+function storyConversationWorkspacePauseRelease() {
+    const lease = STORY._conversationPauseLease;
+    if (!lease) return;
+    STORY.paused = lease.wasPaused === true;
+    delete STORY._conversationPauseLease;
+    storyConversationWorkspacePauseUiSync(false);
+}
+
 function storyConversationWorkspaceOpen(listenerActorId, name, requestedSessionId) {
     const modal = document.getElementById('conversation-workspace-modal');
     if (!modal || !listenerActorId) return false;
+    storyConversationWorkspacePauseAcquire();
     STORY._talkFocusCharacterId = String(listenerActorId);
     if (name) STORY._talkFocusCharacterName = String(name);
     const latest = typeof storyConversationSessionLatest === 'function'
@@ -1536,10 +1624,12 @@ function storyConversationWorkspaceOpen(listenerActorId, name, requestedSessionI
 
 function storyConversationWorkspaceClose() {
     const modal = document.getElementById('conversation-workspace-modal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
-    delete modal.dataset.listenerActorId;
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.listenerActorId;
+    }
+    storyConversationWorkspacePauseRelease();
 }
 
 function storyConversationWorkspacePatchResponse(responseId, text, status) {
@@ -1548,8 +1638,27 @@ function storyConversationWorkspacePatchResponse(responseId, text, status) {
     const node = Array.from(modal.querySelectorAll('[data-conversation-response-text]'))
         .find(row => row.dataset.conversationResponseText === String(responseId));
     if (!node) return false;
-    node.textContent = String(text || '');
-    node.dataset.enrichmentStatus = String(status || 'FALLBACK_KEPT');
+    const normalizedStatus = String(status || 'FALLBACK_KEPT');
+    node.dataset.enrichmentStatus = normalizedStatus;
+    if (['MODEL_LOADING', 'GENERATING'].includes(normalizedStatus)) {
+        node.innerHTML = storyTalkConversationThinkingHtml({ enrichmentStatus: normalizedStatus });
+    } else {
+        node.textContent = String(text || '');
+    }
+    return true;
+}
+
+function storyConversationWorkspaceResponseSettled(responseId) {
+    const modal = document.getElementById('conversation-workspace-modal');
+    if (!modal || modal.classList.contains('hidden')) return false;
+    const responseVisible = Array.from(modal.querySelectorAll('[data-conversation-response-text]'))
+        .some(row => row.dataset.conversationResponseText === String(responseId));
+    if (!responseVisible) return false;
+    const main = document.getElementById('conversation-workspace-main');
+    const previousScroll = main ? main.scrollTop : 0;
+    storyConversationWorkspaceRender();
+    const refreshed = document.getElementById('conversation-workspace-main');
+    if (refreshed) refreshed.scrollTop = Math.max(previousScroll, refreshed.scrollHeight - refreshed.clientHeight);
     return true;
 }
 

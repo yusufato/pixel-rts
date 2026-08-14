@@ -20,7 +20,8 @@ const STORY_DIALOGUE_MOVE_BASE_ACTS = Object.freeze([
     'SHARE_SECRET', 'BLUFF_CANDIDATE', 'ACCUSE', 'REQUEST_ACTION',
     'OFFER_SUPPORT', 'COUNTER_OFFER', 'REJECT', 'GREETING', 'CHECK_IN',
     'THANK', 'APOLOGIZE', 'FAREWELL', 'ASK_PERSONAL_OPINION', 'SMALL_TALK',
-    'REQUEST_SUPPORT', 'UNKNOWN'
+    'REQUEST_SUPPORT', 'ASK_RELATIONSHIP', 'REPORT_MILITARY',
+    'REPORT_ECONOMIC', 'CORRECT_STATEMENT', 'CHALLENGE', 'UNKNOWN'
 ]);
 const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     ANSWER_LISTENER_IDENTITY: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
@@ -28,6 +29,13 @@ const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     CONFIRM_LISTENER_ROLE: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
     REPAIR_ROLE_CONTRADICTION: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
     ANSWER_LISTENER_ORGANIZATION: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
+    ANSWER_PLAYER_IDENTITY_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_TRUST_ASSESSMENT: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ACCEPT_FIRST_CONTACT_CORRECTION: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ACKNOWLEDGE_COMPREHENSION_FAILURE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_AUTHORITY_CLAIM_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ACKNOWLEDGE_UNVERIFIED_MILITARY_REPORT: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
+    RECORD_CONFIDENTIALITY_REQUEST_FOR_REPORT: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
     ANSWER_PLAYER_REPORTED_LOCATION: { policyId: 'PLAYER_LOCATION_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_LOCATION'], memory: false },
     ANSWER_LISTENER_LOCATION_UNKNOWN: { policyId: 'NO_LOCATION_EVIDENCE', claimTypes: [], memory: false },
     ASSESS_UNVERIFIED_MILITARY_REQUEST: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
@@ -43,6 +51,10 @@ const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     EXPLAIN_FALLBACK_FAILURE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ANSWER_CURRENT_ASSIGNMENT_BOUNDARY: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
     ANSWER_JOB_REQUEST_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ACKNOWLEDGE_UNVERIFIED_TREASURY_REPORT: { policyId: 'PLAYER_TREASURY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_TREASURY_CONDITION'], memory: false },
+    ANSWER_SHARED_HISTORY_BOUNDARY: { policyId: 'PLAYER_SHARED_HISTORY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_SHARED_HISTORY'], memory: false },
+    REPAIR_FABRICATION_WORDING: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_WEATHER_SMALL_TALK: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ACKNOWLEDGE_UNVERIFIED_SECTOR_REPORT: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     QUALIFY_RELATIONSHIP_PERCEPTION: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     REPAIR_MISUNDERSTANDING: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },

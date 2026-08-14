@@ -475,6 +475,7 @@ function storyNewCampaign(config = {}) {
     if (typeof storyFeatureConfigure === 'function') storyFeatureConfigure(STORY.cfg.featureFlags);
     if (typeof storyCharacterIdentityReset === 'function') storyCharacterIdentityReset();
     STORY.paused = false;
+    delete STORY._conversationPauseLease;
     STORY._gameOver = false;   // ADIM 6: yenilgi bayrağı sıfırla
     STORY.clock = 0;
     if (typeof storyRegionReset === 'function') storyRegionReset({ generatedAt: 0 });
@@ -903,7 +904,8 @@ function storyLoad() {
         }
         STORY.log = d.log || [];
         if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
-        STORY.paused = false; STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
+        STORY.paused = false; delete STORY._conversationPauseLease;
+        STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;
         if (typeof storyTelemetryRestore === 'function') storyTelemetryRestore(d.telemetry);
         if (typeof storyCausalityRestore === 'function') storyCausalityRestore(d.causality);
         return true;
@@ -1447,7 +1449,7 @@ function storyAssignDeposits() {
 
 // ── DÜNYA SİMÜLASYONU (gerçek-zaman, duraklatılabilir) ────────────────────────
 function storyAdvanceStep(dtSec) {
-    if (STORY.paused) return;
+    if (STORY.paused || STORY._conversationPauseLease) return;
     if (STORY._session) {         // FAZ-4: KONSEY TOPLANTIDA — dünya durur (olay)
         if (typeof storyCouncilAfkCheck === 'function') storyCouncilAfkCheck();   // ama süresiz değil
         return;

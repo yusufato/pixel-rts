@@ -4394,6 +4394,32 @@ Zorunlu mimari sınırlar:
 **Kabul kapısı:** Aynı eylem farklı kaynaklı nedenlerle ayrışabiliyor; farklı profil hiçbir koşul değişmeden kozmetik metin farkına indirgenmiyor; tek eylem/rol uzun koşuda baskınlaşmıyor; oyuncu bilmediği gizli hedefi karar izinden öğrenmiyor; LLM kapalı yol mekanik olarak eşdeğer kalıyor.
 **Bağımlılık:** Faz 38.6–38.11 ve ilgili domain adapterleri.
 
+### FAZ 38.13 — Oynanabilir Karakter Etkileşimi ve Resmî Toplantılar
+
+**Amaç:** Sohbeti yalnız metin üreten bir ekrandan çıkarıp karakter ilişkilerinin, görevlerin ve kurumsal kararların oynanabilir giriş kapısı yapmak. Tek kişilik görüşme ile çok kişili resmî toplantı ayrı gerçeklik motorları kurmaz; ikisi de aynı konuşma, inanç, ilişki, yetki, hafıza ve nedensellik defterlerini kullanır.
+
+**Zaman sözleşmesi:** Karakter görüşmesi veya resmî toplantı açıkken dünya saati ilerlemez. Açılışta olay ve katılımcı görünümü aynı dünya anına kilitlenir; pencere kapanınca sohbet öncesindeki duraklatma durumu geri gelir. Konuşma sürerken arka planda savaş, fiyat, olay, görev süresi veya karakter kararı ilerleyemez. Kabul edilmiş sonuçlar tek atomik kapanış fişiyle aynı dünya anına uygulanır; sırf oyuncu uzun düşündü diye bedel doğmaz.
+
+**Tek kişilik görüşme çıktıları:**
+
+- Karakterin oyuncuya bakışı yönlüdür: `karakter → oyuncu` güven, saygı, çekince, borç ve husumet eksenleri konuşmanın anlamlı sonuçlarından etkilenebilir; oyuncunun karaktere bakışı otomatik ve simetrik değişmez.
+- Selamlaşma veya aynı cümleyi tekrarlama ilişki çiftçiliği yapamaz. Değişim; gerçek fedakârlık, doğrulanmış yalan, tutulmuş/bozulmuş söz, saygı sınırı, ortak başarı, tehdit veya çıkar çatışması gibi kaynaklı bir olaya dayanır; görüşme/tik başına tavan ve soğuma taşır.
+- `GÜNLÜK_SOHBET`, `GÖREV_İŞ`, `GİZLİLİK`, `BİLDİRİM_RAPOR`, `TEKLİF_MÜZAKERE` ve `RESMÎ_TOPLANTI` aynı `ConversationCaseV1` içindeki konuşma kipleridir. Kip değişimi eski konuşmayı silmez.
+- Görev/iş kaydı; gerçek veren aktör ve yetki, hedef, kapsam, son tarih, bedel/ödül, kabul durumu, yürütücü ve kaynak olay olmadan üretilemez. LLM görev, para, makam veya emir uyduramaz.
+- Oyuncu bildirimi önce `UNVERIFIED_CLAIM`dır. Kaynak, yer, zaman, iddia ve güven ayrı tutulur; karakter inanabilir, şüphelenebilir veya doğrulama işi açabilir fakat iddia dünya gerçeğine dönüşmez.
+- Gizlilik isteği garanti değildir. Katılımcı, yasal/kurumsal yükümlülük, mevcut sadakat, korku ve çıkarına göre kabul, sınırlı kabul veya ret verebilir. Gerçek görünürlük matrisi hangi aktörün hangi sözü bildiğini taşır; UI “kayıt altına alındı” ile “gizli kalacağı garanti edildi”yi ayırır.
+- Bildirge/resmî açıklama konuşmada taslak olabilir; yayımlanma, imza ve mekanik sonuç ayrı yetki ve medya kapılarından geçer.
+
+**Çok kişili resmî toplantı:** `MeetingCaseV1`; toplantı türü, başkan, gündem maddeleri, zorunlu/davetli katılımcılar, temsil yetkileri, konuşma sırası, açık sorular, öneriler, itirazlar, çekinceler, oylama/onay durumu, özel notlar ve resmî tutanak taşır. Oyuncu herkese hitap edebilir, tek kişiye soru yöneltebilir, söz isteyebilir, itiraz edebilir, önerge sunabilir, oylama isteyebilir, maddeyi erteleyebilir veya ayrı görüşme talep edebilir. Karakterler birbirine cevap verebilir; fakat yalnız kendi `ActorBelief` kayıtlarını, toplantıda duyduklarını ve yetkili oldukları kurumsal kayıtları okuyabilir. Başka katılımcının gizli prompt bağlamı ortak toplantı bağlamına sızamaz.
+
+Toplantı metni mekanik karar değildir. LLM yalnız doğrulanmış `DialogueMoveV1` ve toplantı durumunu doğal Türkçeyle gerçekleştirir. Gündem, söz hakkı, önerge geçerliliği, oy, yetki, görev, sır erişimi ve dünya etkisini deterministik motor belirler. Her katılımcının sözü aktör kimliğiyle kaydedilir; aynı cevap iki karakter adına gösterilemez. Toplantı sonunda `MeetingOutcomeReceiptV1`, kabul/ret/erteleme, muhalefet şerhi, açılan görevler, verilen sözler, gizlilik kapsamı, yönlü ilişki yorumları ve kanonik nedensellik kimliklerini atomik olarak yazar. Tutanak oyuncunun bilmediği özel niyetleri göstermez.
+
+**Arayüz:** Sol katılımcı sütunu birden fazla gerçek karakteri bilinen/bilinmeyen alanlarıyla gösterir; aktif konuşmacı ve düşünüyor durumu görünürdür. Orta akışta konuşmacı adı, hitap edilen kişi, gündem maddesi ve bekleyen soru kaybolmaz. Sağ sütun gündem, açık kararlar, görev/söz/gizlilik kayıtları ve bilgi filtreli tutanağı ayırır. Günlük sohbet resmî toplantı görünümüne zorlanmaz; oyuncu veri tablosu okumadan eylem seçebilir, ayrıntı fare üstü veya dosya görünümünde kalır.
+
+**Kabul kapısı:** Açık pencere boyunca dünya saati byte-byte değişmez ve kapanış önceki duraklatma durumunu geri getirir. En az üç katılımcılı 20 turluk toplantıda konuşmacı/hitap/gündem bağı korunur; özel sır sızıntısı, hayalî yetki, kaynaksız görev ve çift uygulama sıfırdır. Aynı seed ve girişler aynı yapılandırılmış sonucu verir; doğal metin değişse bile mekanik sonuç değişmez. Save/load açık görüşmeyi, taslağı, konuşma sırasını, gündemi ve bekleyen kararı korur. Selam tekrarıyla ilişki büyütülemez; doğrulanmış yalan, tutulmuş söz ve ortak başarı farklı yönlü ilişki fişleri üretir. Toplantı tutanağı yalnız oyuncunun erişebildiği bilgiyi gösterir.
+
+**Bağımlılık:** Faz 9–10.1, 25, 34–38.12; görev/iş için Faz 37–38.10, bildirge ve kamusal yayılım için Faz 39–42.
+
 Bu yükseltme aktif Faz 38.5'i baştan yazdırmaz. Önce sohbetten sonuca zorunlu mini zincir kapanır. Faz 38.6–38.8 bu zincirin kanıtını genelleştirir; 38.7 ve 38.9 medya Faz 39–42 ile, 38.9–38.11 de sonraki ekonomi/askerî/diplomasi fazlarıyla çapraz ilerleyebilir.
 
 ---

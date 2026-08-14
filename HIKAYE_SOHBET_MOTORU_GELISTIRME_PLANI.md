@@ -462,10 +462,17 @@ adversarial corpus üzerinde yeniden koşturulmadan kabul verilmeyecek.
 
 ### S7 — 14B adversarial oyuncu üreticisi
 
-- Model tek başına, oyun kapalıyken CPU/kısmi GPU ile çalışır.
-- Yeni konu değil yeni dil/bağlam saldırı biçimleri üretir.
+- Oyuncu LLM, karakter LLM'nin test yardımcısı değildir; ayrı özne ve ayrı bağlamdır. Yalnız kamusal UI görünümü, kamusal karakter profili, görünür konuşma ve kendisine özel saldırı hedefini görür. Karakterin `ActorBelief`, özel hafıza, gizli hedef, beklenen cevap, NLU etiketi ve doğrulayıcı kuralları oyuncu promptuna giremez.
+- Üretilen turların en fazla `%25`i karakterin rahatça bildiği kamusal konulardan gelir. Zorunlu dağılım; bilinmeyen konu, yanlış öncül/yalan, doğru+yanlış karışımı, gelecek-faz talebi, eksik/argo/yazım hatalı cümle ve ani konu değişimini kapsar.
+- Oyuncu yalnız soru sormaz: iddia, emir, pazarlık, duygu, hakaret, düzeltme, yarım cümle, sır isteği ve gündelik sohbet kurar. Canlı oyuncunun daha önce yazdığı cümleler kopyalanmaz; corpus, günlük ve aynı koşu geçmişine karşı exact/semantic yenilik kapısı çalışır.
+- İlk çalıştırılabilir sözleşme `tools/story-dialogue-adversarial-player-manifest.js` ve `tools/story-dialogue-domain-maturity.json`dır. 60 turluk çekirdekte yalnız 9 tur `SUPPORTED_PUBLIC`; kalan 51 tur bilinmeyen, yanlış, karışık, gelecek-faz veya gürültülü sınıftadır. Manifest hazır oyuncu cümlesi taşımaz; cümleyi çalışma anında oyuncu LLM üretir.
+- Aynı fiziksel 8B model, iki ayrı sistem promptu ve bağlam paketiyle sırayla oyuncu ve karakter rolünde çalışabilir; bu iki öznenin bağlam izolasyonunu bozmaz. 14B daha sonra oyuncu üreticisi/atak planlayıcısı olarak kullanılabilir, fakat iki modeli aynı anda VRAM'e sığdırmak kabul koşulu değildir.
 
-**Kabul:** İnsan örneklemesinde yeni ve anlamlı vaka oranı `≥ %60`; kopya/boş vaka temizlenir.
+**Kabul:** İnsan örneklemesinde yeni ve anlamlı vaka oranı `≥ %60`; kopya/boş vaka temizlenir. Gizli karakter bağlamı oyuncu istemine sızıntı `0`; kamusal-bilinen tur oranı `≤ %25`; en az 15 saldırı ailesi ve 10 ifade biçimi bulunur.
+
+**15,71 GB makine sınırı — 14 Ağustos 2026:** 8B karakter çalışma zamanı gerçek koşuda yaklaşık `7,4 GB RSS`, 14B oyuncu dosyası yaklaşık `9 GB`dır; iki ayrı hostu eşzamanlı yüklemek güvenli değildir. Koşucu `20 GB` boş RAM altındaysa `DUAL_MODEL_MEMORY_UNSAFE` ile başlamadan durur. Kabul edilen yerel yol tur-bazlı model swap'tir: 14B oyuncu yükle → oyuncu turunu ve saldırı durumunu atomik kaydet → hostu kapat/bellek boşalmasını doğrula → 8B karakter yükle → cevabı üret/doğrula/kaydet → hostu kapat → sonraki tur. Yavaşlık kalite veya güvenlik kapısını atlama gerekçesi değildir.
+
+**Objektif faz sınırı:** Sohbet kalitesi ile dünya sistemi kapsamı ayrı puanlanır. `LIVE` alanda dil, bağlam, epistemik güvenlik, gerçek adaptör ve mekanik sınır birlikte ölçülür. `PARTIAL` alanda yalnız mevcut kanıtların kullanımı ve eksik kapasitenin dürüst açıklanması beklenir. `PLANNED` alanda karakterin henüz var olmayan görev, toplantı, medya, teknoloji veya ajan mekaniğini çalıştıramaması hata değildir; doğal konuşamaması, sistemi varmış gibi uydurması ya da oyuncunun iddiasını gerçek kabul etmesi hatadır. Böylece gelecek faz eksikleri bugünkü sohbet motorunu haksız yere düşürmez, sohbet kusurları da “faz gelmedi” bahanesiyle gizlenmez.
 
 ### S8 — 14B eleştirmen ve insan kalibrasyonu
 
@@ -504,6 +511,17 @@ test → JSONL analiz → hata etiketi → corpus → düzeltme
 
 Her döngü sürümlenir. Genel kalite artarken belirli eski konuşmalar bozulursa sürüm kabul edilmez.
 
+### S13 — Sohbetten eyleme ve çok katılımcılı resmî toplantı
+
+- Tek kişilik sohbet ve resmî toplantı aynı konuşma durumunu kullanır; toplantı ayrı ve kuralsız bir grup-chat değildir.
+- Konuşma açılışı dünya zamanına kilit koyar. Kapanış, görüşme öncesindeki duraklatma durumunu geri yükler; kabul edilen etkiler tek kapanış fişiyle uygulanır.
+- Gündelik söz, görev/iş, gizlilik isteği, oyuncu bildirimi, bildirge taslağı ve teklif ayrı anlam alanlarıdır; hiçbiri yalnız LLM metniyle mekanik gerçeğe dönüşmez.
+- Karakterin oyuncuya bakışı yönlü ve kaynaklıdır. Tekrarlanan selam, teşekkür veya anlamsız tur güven/saygı çiftçiliği yapamaz.
+- Çok kişili toplantı; başkan, gündem, katılımcı yetkileri, konuşmacı/hitap, açık sorular, önerge, itiraz, oy, özel not ve bilgi filtreli tutanak taşır.
+- Her karakter yalnız kendi bilgisi ve toplantıda duyduğu sözlerle konuşur. Özel bağlam ortak prompta birleştirilmez; konuşmacı kimliği ve söz sahipliği her tur doğrulanır.
+
+**Kabul:** Üç katılımcılı 20 turda zaman ilerlemez; konuşmacı ve gündem kaymaz; gizli bilgi sızmaz; hayalî görev/yetki doğmaz; aynı mekanik sonuç iki kez uygulanmaz; save/load görüşme ve toplantı durumunu korur.
+
 ## 11. İlk uygulanacak sıra
 
 1. Önce S0–S2: test verisi, DialogueMove ve söylem durumu.
@@ -526,3 +544,127 @@ Başarı “AI her cümleyi anlıyor” değildir. Başarı:
 - bütün bunları dünya motorunun gerçeğini ve oyuncunun iradesini çiğnemeden yapmasıdır.
 
 Bu hedef milyonlarca cümle yazılarak değil; az sayıda genel konuşma eylemi, gerçek domain adaptörleri, yapılandırılmış hafıza, sınırlı LLM rolü ve sürekli insan-kalibreli sanal test döngüsüyle ulaşılabilir.
+
+## 13. S6.5/S7 — Bağımsız oyuncu–karakter uzun koşusu ve pencere hakemi
+
+İki ayrı LLM öznesi, dünya gerçeklerini değiştirmeden oyuncu ve oyun karakteri
+olarak aynı sürümlü görüşmeyi sürdürecektir. Oyuncu öznesi karakterin bilebildiği
+cevapları seçen senarist değildir; kendi gizli saldırı hedefiyle bildiği,
+bilmediği, yanlış bildiği ve kasıtlı olarak yalan söylediği konuları açar.
+Karakter öznesi yalnız kendi kaynaklı bağlamını ve oyuncunun görünür sözlerini
+görür. Oyuncunun saldırı etiketi karakter promptuna, karakterin gizli bilgisi
+oyuncu promptuna giremez.
+
+Her 10 turda ayrı hakem geçişi şu çıktıyı üretir:
+
+- açık sorular ve cevap borçları,
+- karakterlerin son pozisyonları ve değişim gerekçeleri,
+- gerçek / iddia / yalan / geri çekilmiş iddia ayrımı,
+- verilen sözler, reddedilen talepler ve gizlilik kapsamı,
+- kişi, rol, zaman, konu ve zamir çelişkileri,
+- exact/semantic tekrar, servis-botu dili ve kişilik kayması,
+- önceki 10-tur penceresiyle çelişen yeni hükümler,
+- ham tur kimliklerine bağlı kanıt referansları.
+
+Hakem özeti ham konuşmanın yerine geçmez. Bütün istemler, ham cevaplar,
+doğrulayıcı kararları, pencere özetleri, model seed'leri ve gecikmeler atomik
+JSONL olarak tutulur. Hakem kendi kendine altın etiket üretemez; insan örneklemesi
+olmadan verdiği puan yalnız aday bulgusudur.
+
+### Çalıştırma merdiveni
+
+1. 30 tur geliştirme smoke'u.
+2. 100 tur bağlam/özet zinciri kapısı.
+3. Gece başına 300–500 tur gerçek 8B koşusu.
+4. Resume/checkpoint ile biriken 1.000 ve 10.000 tur kampanyaları.
+
+14 Ağustos 2026 Vulkan ölçümünde tek üretim p50 yaklaşık `17,85 sn` olduğu için
+iki konuşmacı + her 10 tur hakemle 10.000 turun tek gecede bitmesi gerçekçi
+değildir. 10.000 kalıcı kampanya hedefidir; gece kabul birimi 300–500 turdur.
+Hız optimizasyonu kalite kapısını, gerçek ContextPack'i veya doğrulayıcıyı
+atlayamaz.
+
+### 14B oyuncu / 8B karakter frontier-batch mimarisi
+
+16 GB RAM sınıfında iki model eşzamanlı tutulamaz; tur başına model değiştirmek
+ise yükleme vergisini konuşma sayısıyla çarpar. Uzun koşu, bağımsız görüşmeleri
+aynı konuşma derinliğinde toplar. Bir frontier çevrimi:
+
+1. 14B bir kez yüklenir; N oturumun yalnız sıradaki oyuncu sözünü görünür geçmişe
+   göre üretir. Her söz alan, ifade biçimi, tekrar ve özel-test-talimatı sızıntısı
+   kapısından geçer ve hemen checkpoint'e yazılır.
+2. 14B süreci tamamen kapanır; süreç çıkışı ve bellek geri kazanımı görülmeden
+   karakter modeli yüklenmez.
+3. Oyuncu sözleri motorun gerçek konuşma oturumlarına uygulanır. Model gerektiren
+   cevaplar ayrılır; model gerektirmeyen grounded cevaplar doğrudan tamamlanır.
+4. 8B bir kez yüklenir; frontier'daki bütün model-uygun karakter cevaplarını
+   gerçek ContextPack ve üretim doğrulayıcısıyla üretir.
+5. Kabul edilen cevap yalnız UI transcript'ine değil, motor defterindeki kanonik
+   response ve follow-up kaydına geri yazılır. Sonraki frontier bu gerçek cevabı
+   görür. Defter + transcript atomik kaydedilir ve 8B tamamen kapanır.
+
+`N=100`, 10 derinlikli 100 görüşmede yaklaşık 2.000 tur-başı yükleme yerine 20
+frontier yüklemesi hedefler. İlk `2×2` gerçek smoke dört turu dört yüklemeyle
+tamamladı; teknik mimari geçti. Buna rağmen `716,2 sn` toplam sürenin baskın kısmı
+14B'nin yeniden üretimleridir. Uzun koşudan önce `playerMetrics` üzerinden ilk
+denemede alan/biçim kabulü yükseltilmeli; hatalı özel brief sızıntısı kabul
+edilerek hız kazanılamaz.
+
+Donanım kabulü: 14B oyuncu context'i bu makinede `4096`, mikro-batch tavanı `2`.
+`8192` gerçek Vulkan yüklemesinde VRAM'e sığmamıştır. Mikro-batch ölçümü iki oyuncu
+sözünü tek çağrıda ilk denemede üretmiş ve küçük `2×1` örneğinde toplam süreyi
+yaklaşık `%21` düşürmüştür. Buna rağmen tek batch üretimi `162 sn` sürmüştür.
+Gece `100×10` basamağından önce zorunlu merdiven `4 oturum × 2 derinlik`tir:
+özel-yönerge sızıntısı sıfır, oyuncu ilk-deneme kabulü en az `%75`, yanlış karakter
+kabulü sıfır ve teknik hata sıfır olmadan bir üst basamağa çıkılmaz.
+
+### Kabul
+
+- pencere içinde ve pencereler arasında açık çelişki kaybı sıfır,
+- gizli bağlam sızıntısı ve kaynaksız dünya gerçeği sıfır,
+- yarım koşudan görüşme sınırında deterministik devam,
+- en az `%10` kör insan örneğinde hakem hata etiketleri için `≥ %80` uyuşma,
+- 10.000 turun tamamı yalnız 100/1.000 tur kapıları geçildikten sonra kalite
+  kanıtına sayılır.
+
+### 4×2 kapı kararı ve epistemik NLU borcu — 14 Ağustos 2026
+
+`4×2` kapısı mikro-batch `4` ile zaman aşımına uğradı; güvenli fiziksel tavan `2`
+olarak ölçüldü. Mikro-batch `2` ile tamamlanan sekiz turda ilk-deneme oyuncu kabulü
+yalnız `%37,5`, model karakter kabulü `0` ve oyuncu üretim hatası `2`dir. Dolayısıyla
+bir sonraki basamak 100×10 değil; 14B oyuncunun alan/biçim uyumunu küçük, sabit
+manifestte yükseltme ve 8B'nin ham cevaplarını yanlış kabul etmeme çalışmasıdır.
+
+Yeni değişmez: entity extraction, LLM'den önce gelen güven köküdür. Deterministik
+NLU'nun bulanık eşleştirmeyle uydurduğu bir entity, ContextPack'e claim olarak
+girerse LLM doğrulayıcı açısından sahte değil kaynaklı görünür. Bu nedenle:
+
+- kısa özel adlarda bulanık eşleşme yapılmaz,
+- her claim'in açık metin kanıtı ve entity kanıtı bulunur,
+- test koşucuları üretimden ayrı doğrulama bağlamı kuramaz,
+- cevapta geçen her yer adı DialogueMove entity izin listesinde olmalıdır,
+- gerçek oyuncuda bulunan her entity-extraction yanlış pozitifi birebir regresyon
+  ve ContextPack sızıntı testi olur.
+
+Bu borcun ilk vakası kapanmıştır: “başarının” artık “Basra” sayılmaz; sahte tehdit
+claim'i, kaynak referansı ve 8B bağlam satırı oluşmaz. Ancak genel çözüm yalnız bu
+kelime listesi değildir. S7 ilerlerken entity sınıfları için precision ağırlıklı
+adversarial corpus ve claim→context provenance denetimi genişletilecektir.
+
+Oyuncu üretim kapısı Türkçe yüzey biçimini anlamsal alanla karıştırmamalıdır.
+Tercih edilen tek kelime prompt yönlendirmesidir, kabul gerçeği değildir. Kabul;
+alanın eşdeğer çapalarından birini ve güvenli Türkçe çekimlerini tanır. Kısa kökler
+keyfî prefix eşleşmesiyle kabul edilmez. Bu kural gerçek `2×1` ham çıktıda
+“enflasyon / toplantımızın” ilk adaylarını doğru biçimde geri kazanmıştır.
+
+Ara kayıt değişmezi: karakter doğrulayıcı, oyuncu üretim kapısı, manifest veya
+domain sözleşmesinden herhangi biri değişirse eski frontier kararı geçersizdir.
+Checkpoint v3 bu dört kaynağın parmak izini taşır; yalnız JSON şeması ve model adı
+eşitliği resume için yeterli değildir.
+
+Güncel `2×1` tam zincir oyuncu üretimini nihai `2/2` tamamlamış fakat ilk-deneme
+oranı `%50`de kalmıştır. Karakter tarafında bir kaynaksız fiyat/miktar uydurması,
+bir de “tutanak → tutuklama” kaynak terimi bozması ve servis-botu kapanışı
+görülmüştür. İkisi de güncel doğrulayıcıda fallback'tir. Bir sonraki çalışma,
+aynı sabit manifestte `4×2` kapısını yeniden çalıştırıp ilk-deneme `%75`, teknik
+hata `0`, yanlış karakter kabulü `0` koşullarını birlikte ölçmektir.

@@ -180,4 +180,6 @@ process.on('message', async msg => {
     if (msg.t === 'stop') process.exit(0);
 });
 
+// Ana süreç zorla kapanırsa model belleğini taşıyan host yetim kalmamalı.
+process.on('disconnect', () => process.exit(0));
 process.on('uncaughtException', e => send({ t: 'error', error: 'uncaught: ' + (e && e.message) }));

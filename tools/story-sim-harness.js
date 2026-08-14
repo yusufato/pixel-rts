@@ -664,6 +664,8 @@ function createRuntime(seed) {
                 storyConversationSocialLLMParse(raw, fallback, playerText, context),
             conversationSocialLLMDiagnose: (raw, fallback, playerText, context) =>
                 storyConversationSocialLLMDiagnose(raw, fallback, playerText, context),
+            conversationValidationContext: (session, response) =>
+                storyConversationSessionValidationContext(session, response),
             contextPackCompile: (input, options) => storyContextPackCompile(input, options),
             contextPackValidate: pack => storyContextPackValidate(pack),
             memoryAddMilestone: input => storyMemoryAddMilestone(input),
@@ -768,6 +770,7 @@ function createRuntime(seed) {
             ),
             conversationWorkspaceClose: () => storyConversationWorkspaceClose(),
             conversationWorkspaceRender: options => storyConversationWorkspaceRender(options),
+            conversationTestMarkPending: responseId => STORY_CONVERSATION_LLM_PENDING.add(String(responseId)),
             contactDirectoryBuild: () => storyContactDirectoryBuild(),
             contactDirectoryRenderHtml: view => storyContactDirectoryRenderHtml(view),
             talkUpdate: () => storyTalkUpdate(),

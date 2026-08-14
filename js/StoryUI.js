@@ -362,10 +362,14 @@ function storyPanelUpdate() {
     }
     const pb = document.getElementById('story-pause-btn');
     if (pb) {
-        const text = STORY.paused ? 'DEVAM' : 'DURAKLAT';
-        const title = STORY.paused ? 'Devam' : 'Duraklat';
+        const conversationLocked = !!STORY._conversationPauseLease;
+        const text = conversationLocked ? 'SOHBETTE DURAKLATILDI' : (STORY.paused ? 'DEVAM' : 'DURAKLAT');
+        const title = conversationLocked
+            ? 'Karakter görüşmesi kapanana kadar dünya zamanı durur'
+            : (STORY.paused ? 'Devam' : 'Duraklat');
         if (pb.textContent !== text) pb.textContent = text;
         if (pb.title !== title) pb.title = title;
+        if (pb.disabled !== conversationLocked) pb.disabled = conversationLocked;
     }
     const sb = document.getElementById('story-speed-btn');
     if (sb) {
@@ -1033,7 +1037,11 @@ function storyInit() {
         const button = event.target.closest('[data-story-agenda-action]');
         if (button) storyAgendaNavigate(button.dataset.storyAgendaAction, button.dataset.storyAgendaSub);
     });
-    document.getElementById('story-pause-btn')?.addEventListener('click', () => { STORY.paused = !STORY.paused; storyRender(); });
+    document.getElementById('story-pause-btn')?.addEventListener('click', () => {
+        if (STORY._conversationPauseLease) return;
+        STORY.paused = !STORY.paused;
+        storyRender();
+    });
     document.getElementById('story-speed-btn')?.addEventListener('click', () => {
         if (typeof storyClockCycleSpeed === 'function') storyClockCycleSpeed();
         storyPanelUpdate();

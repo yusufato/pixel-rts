@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "STORY_DIALOGUE_DOMAIN_MATURITY_CONTRACT",
+  "asOf": "2026-08-14",
+  "statuses": {
+    "LIVE": "Mekanik ve kanonik kayıt canlıdır; konuşma gerçek adaptörü kullanmalıdır.",
+    "PARTIAL": "Bazı kanonik kayıtlar vardır; yalnız mevcut kaynaklar kadar konuşulabilir.",
+    "PLANNED": "Gelecek faz konusudur; mekanik sonuç beklenmez, dürüst sınır cevabı beklenir."
+  },
+  "domains": [
+    { "id": "ECONOMY", "status": "LIVE", "ownerPhases": "15-24", "characterAgency": "PARTIAL" },
+    { "id": "TRADE_LOGISTICS", "status": "LIVE", "ownerPhases": "18-22.1", "characterAgency": "PARTIAL" },
+    { "id": "COMPANIES_BANKS", "status": "LIVE", "ownerPhases": "21-22", "characterAgency": "PARTIAL" },
+    { "id": "POPULATION_SOCIETY", "status": "LIVE", "ownerPhases": "23-28", "characterAgency": "PARTIAL" },
+    { "id": "GOVERNMENT_AUTHORITY", "status": "PARTIAL", "ownerPhases": "29-38.10", "characterAgency": "PARTIAL" },
+    { "id": "CHARACTER_IDENTITY_RELATION_MEMORY", "status": "PARTIAL", "ownerPhases": "34-38.12", "characterAgency": "PARTIAL" },
+    { "id": "TASKS_JOBS", "status": "PLANNED", "ownerPhases": "38.13", "characterAgency": "PLANNED" },
+    { "id": "FORMAL_MEETINGS", "status": "PLANNED", "ownerPhases": "38.13", "characterAgency": "PLANNED" },
+    { "id": "MEDIA_INFORMATION_WAR", "status": "PLANNED", "ownerPhases": "39-42", "characterAgency": "PLANNED" },
+    { "id": "TECHNOLOGY_INNOVATION", "status": "PLANNED", "ownerPhases": "42.1-42.14", "characterAgency": "PLANNED" },
+    { "id": "INTELLIGENCE_AGENTS", "status": "PLANNED", "ownerPhases": "47+", "characterAgency": "PLANNED" }
+  ],
+  "scoringPolicy": {
+    "LIVE": ["language", "context", "epistemicSafety", "domainGrounding", "mechanicalBoundary"],
+    "PARTIAL": ["language", "context", "epistemicSafety", "availableEvidenceUse", "missingCapabilityDisclosure"],
+    "PLANNED": ["language", "context", "epistemicSafety", "honestCapabilityBoundary"]
+  }
+}

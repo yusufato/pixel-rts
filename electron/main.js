@@ -4884,8 +4884,10 @@ ipcMain.handle('diagnostics:appendStoryDialogue', (_e, entry) => {
             characterText: storyDialogueLogText(entry.characterText, 1200),
             speechAct: storyDialogueLogText(entry.speechAct, 64),
             discourseAct: storyDialogueLogText(entry.discourseAct, 64),
+            dialogueMoveId: storyDialogueLogText(entry.dialogueMoveId, 120),
             source: storyDialogueLogText(entry.source, 96),
             enrichmentStatus: storyDialogueLogText(entry.enrichmentStatus, 48),
+            llmValidationCode: storyDialogueLogText(entry.llmValidationCode, 64),
             llmUsed: entry.llmUsed === true
         };
         if (!row.sessionId || !row.responseId || !row.playerText || !row.characterText) {
