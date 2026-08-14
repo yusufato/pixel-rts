@@ -537,3 +537,18 @@ stratejisinin başarı sayılmaması için rapora `modelEligibleTurns`,
 `supportedPublicUsefulBps` metrikleri eklendi. `100×10` gece koşusu başlamaz;
 önce sabit desteklenen-kamusal bataryada yararlı cevap oranı en az `%50` ve yanlış
 kabul `0` birlikte kanıtlanacaktır.
+
+İlk dört-alan pozitif smoke, 14B sıcaklığı `0,55`e indirildikten sonra oyuncu
+üretimini ilk denemede `4/4` tamamladı. 8B doğal kabul `1/3`, manifest etiketine
+göre yararlı sonuç `1/4` görünüyordu. Ham kaynak incelemesi bu oranın bile yanlış
+adlandırıldığını gösterdi: dört `SUPPORTED_PUBLIC` turun tamamında `factRefs=0`,
+`beliefRefs=0`, `claimRefs=0`, `memoryRefs=0` idi. Domain adapter dünyadan kanıt
+projeksiyonu yapmıyor; yalnız boş zarf oluşturuyor.
+
+Rapor artık `supportedPublicDeclaredTurns` ile gerçekten kanıt taşıyan
+`supportedPublicTurns`ı ayırır. Manifest destekli deyip sıfır kaynak taşıyan tur
+`supportedPublicContractMismatches` olur ve yararlı-cevap paydasına giremez.
+Aktif kök borç 8B prompt ayarı değil, StoryConversationDomains için doğrulanmış
+dünya-gerçeği projeksiyonudur. Ekonomi/teknoloji/toplantı gerçekleri kaynak kimliği
+ve görünürlük politikasıyla ContextPack'e girmeden pozitif 8B kalite testi geçerli
+sayılmaz.

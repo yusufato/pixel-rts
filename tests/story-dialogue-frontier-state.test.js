@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const { createRuntime } = require('../tools/story-sim-harness');
 const { patchAcceptedResponse, summary, playerCandidateIssues,
     playerMicrobatchPrompt, playerModeContract,
-    chunkJobsByMode, frontierRunnerFingerprint } = require('../tools/story-dialogue-frontier-runner');
+    chunkJobsByMode, scenarioSequenceIndex,
+    frontierRunnerFingerprint } = require('../tools/story-dialogue-frontier-runner');
 
 const runtime = createRuntime(2032);
 try {
@@ -36,8 +37,20 @@ try {
         playerAttemptSlots: 0, playerBatchCalls: 0, playerFirstAttemptAccepted: 0,
         playerFirstAttemptAcceptanceBps: 0, playerFinalAccepted: 0,
         modelEligibleTurns: 0, characterAcceptanceBps: 0,
-        supportedPublicTurns: 0, supportedPublicUseful: 0, supportedPublicUsefulBps: 0,
+        supportedPublicTurns: 0, supportedPublicDeclaredTurns: 0,
+        supportedPublicContractMismatches: 0,
+        supportedPublicUseful: 0, supportedPublicUsefulBps: 0,
         playerCandidateIssues: {} });
+    const provenanceSummary = summary({ sessions: [{ turns: [
+        { knowledgeRelation: 'SUPPORTED_PUBLIC', evidenceRefCount: 0, accepted: false,
+            modelEligible: true, disposition: 'FALLBACK_KEPT' },
+        { knowledgeRelation: 'SUPPORTED_PUBLIC', evidenceRefCount: 2, accepted: true,
+            modelEligible: true, disposition: 'USED' }
+    ] }] });
+    assert.equal(provenanceSummary.supportedPublicDeclaredTurns, 2);
+    assert.equal(provenanceSummary.supportedPublicTurns, 1);
+    assert.equal(provenanceSummary.supportedPublicContractMismatches, 1);
+    assert.equal(provenanceSummary.supportedPublicUsefulBps, 10000);
     const scenario = { utteranceMode: 'QUESTION',
         requiredTopicAnchors: ['ekonomi', 'enflasyon', 'bütçe'],
         targetTopicAnchor: 'ekonomi' };
@@ -107,6 +120,9 @@ try {
     ], 2);
     assert.deepEqual(groupedBatches.map(batch => batch.map(row => row.id)), [[1, 3], [2]],
         'Mikro-batch yalnız aynı ifade biçimindeki işleri birleştirmeli.');
+    assert.equal(scenarioSequenceIndex([], 6, 4, 1, 2), 12);
+    assert.equal(scenarioSequenceIndex([0, 6, 12, 18], 0, 4, 0, 2), 12,
+        'Pozitif batarya sıralı manifest yerine açık senaryo indekslerini kullanabilmeli.');
     const microPrompt = playerMicrobatchPrompt([{ session: { index: 0,
         actor: { name: 'Deniz', role: 'EXECUTIVE' }, transcript: [] },
     scenario: Object.assign({ privatePlayerBrief: 'Ekonomi hakkında zor bir soru sor.',
@@ -116,7 +132,7 @@ try {
     assert.match(microPrompt, /"jobId":0/);
     assert.match(frontierRunnerFingerprint(), /^[0-9a-f]{8}$/,
         'Checkpoint oyuncu kapısı ve koşucu sözleşmesinin parmak izini taşımalı.');
-    process.stdout.write(`${JSON.stringify({ ok: true, frontierStateAssertions: 40 })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, frontierStateAssertions: 46 })}\n`);
 } finally {
     runtime.dom.window.close();
 }

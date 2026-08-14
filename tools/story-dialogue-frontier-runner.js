@@ -13,6 +13,7 @@ const sessionArg = process.argv.find(row => row.startsWith('--sessions='));
 const depthArg = process.argv.find(row => row.startsWith('--depth='));
 const microbatchArg = process.argv.find(row => row.startsWith('--player-microbatch='));
 const scenarioOffsetArg = process.argv.find(row => row.startsWith('--scenario-offset='));
+const scenarioIndicesArg = process.argv.find(row => row.startsWith('--scenario-indices='));
 const sessionCount = Math.max(1, Math.floor(Number(sessionArg && sessionArg.slice(11)) || 10));
 const depthLimit = Math.max(1, Math.floor(Number(depthArg && depthArg.slice(8)) || 10));
 const playerMicrobatchSize = Math.min(2, Math.max(1,
@@ -20,6 +21,9 @@ const playerMicrobatchSize = Math.min(2, Math.max(1,
 const playerContextSize = 4096;
 const scenarioOffset = Math.max(0, Math.floor(Number(
     scenarioOffsetArg && scenarioOffsetArg.split('=')[1]) || 0));
+const selectedScenarioIndices = scenarioIndicesArg
+    ? scenarioIndicesArg.split('=')[1].split(',').map(value => Math.floor(Number(value)))
+        .filter(value => Number.isInteger(value) && value >= 0) : [];
 const outputPath = path.resolve(outputArg ? outputArg.slice(9)
     : path.join(ROOT, 'qa-runtime', 'story-dialogue-frontier.json'));
 const checkpointPath = outputPath.replace(/\.json$/i, '.partial.json');
@@ -32,6 +36,10 @@ const startedAt = Date.now();
 function round(value, digits = 2) {
     const scale = 10 ** digits;
     return Math.round(Number(value) * scale) / scale;
+}
+function scenarioSequenceIndex(indices, offset, sessions, depthIndex, sessionIndex) {
+    const ordinal = depthIndex * sessions + sessionIndex;
+    return indices && indices.length ? indices[ordinal] : offset + ordinal;
 }
 function hash(value) {
     const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -244,7 +252,8 @@ function summary(state) {
         && !row.playerMetrics.attemptDiagnostics[0].issues.length).length;
     const finalPlayerAccepted = turns.filter(row => row.playerText && !row.error).length;
     const modelEligibleTurns = turns.filter(row => row.modelEligible === true);
-    const supportedPublicTurns = turns.filter(row => row.knowledgeRelation === 'SUPPORTED_PUBLIC');
+    const declaredSupportedTurns = turns.filter(row => row.knowledgeRelation === 'SUPPORTED_PUBLIC');
+    const supportedPublicTurns = declaredSupportedTurns.filter(row => Number(row.evidenceRefCount) > 0);
     const usefulAnswer = row => row.accepted === true || (row.disposition === 'NOT_REQUIRED'
         && row.responseDiscourseAct && !/CLARIFY|REPAIR|UNKNOWN/.test(row.responseDiscourseAct));
     const supportedPublicUseful = supportedPublicTurns.filter(usefulAnswer).length;
@@ -267,6 +276,8 @@ function summary(state) {
             ? Math.round(10000 * turns.filter(row => row.accepted === true).length
                 / modelEligibleTurns.length) : 0,
         supportedPublicTurns: supportedPublicTurns.length,
+        supportedPublicDeclaredTurns: declaredSupportedTurns.length,
+        supportedPublicContractMismatches: declaredSupportedTurns.length - supportedPublicTurns.length,
         supportedPublicUseful,
         supportedPublicUsefulBps: supportedPublicTurns.length
             ? Math.round(10000 * supportedPublicUseful / supportedPublicTurns.length) : 0,
@@ -281,7 +292,12 @@ async function main() {
         if (!fs.existsSync(model)) throw new Error(`Model bulunamadı: ${model}`);
     }
     const totalTurns = sessionCount * depthLimit;
-    const manifest = buildManifest(scenarioOffset + totalTurns);
+    if (selectedScenarioIndices.length && selectedScenarioIndices.length !== totalTurns) {
+        throw new Error(`SCENARIO_INDICES_COUNT:${selectedScenarioIndices.length}/${totalTurns}`);
+    }
+    const manifestSize = selectedScenarioIndices.length
+        ? Math.max(...selectedScenarioIndices) + 1 : scenarioOffset + totalTurns;
+    const manifest = buildManifest(manifestSize);
     const validatorFingerprint = hash(fs.readFileSync(
         path.join(ROOT, 'js', 'StoryConversationUnderstanding.js'), 'utf8'));
     const runnerFingerprint = frontierRunnerFingerprint();
@@ -295,6 +311,7 @@ async function main() {
             if (saved.schemaVersion === 3 && saved.kind === 'STORY_DIALOGUE_FRONTIER_CHECKPOINT'
                 && saved.sessionCount === sessionCount && saved.depthLimit === depthLimit
                 && (Number(saved.scenarioOffset) || 0) === scenarioOffset
+                && JSON.stringify(saved.scenarioIndices || []) === JSON.stringify(selectedScenarioIndices)
                 && (saved.playerContextSize === playerContextSize
                     || (saved.playerContextSize == null && !(saved.pending || []).length
                         && !(saved.modelLoads || []).length))
@@ -346,6 +363,7 @@ async function main() {
             schemaVersion: 3, kind: 'STORY_DIALOGUE_FRONTIER_CHECKPOINT',
             runnerVersion: 'story-dialogue-frontier-3', createdAt: new Date().toISOString(),
             sessionCount, depthLimit, playerMicrobatchSize, playerContextSize, scenarioOffset,
+            scenarioIndices: selectedScenarioIndices.slice(),
             depthIndex: 0, phase: 'PLAYER', pending: [], sessions,
             playerBatchSequence: 0,
             manifestChecksum: manifest.checksum, validatorFingerprint, runnerFingerprint,
@@ -376,7 +394,8 @@ async function main() {
                     live('MODEL LOAD', `14B hazır (${round(loaded.loadMs)} ms, ${host.backend()})`, completedCount(state), totalTurns);
                     const jobs = state.sessions.filter(session =>
                         !state.pending.some(row => row.sessionIndex === session.index)).map(session => {
-                        const scenarioIndex = scenarioOffset + state.depthIndex * sessionCount + session.index;
+                        const scenarioIndex = scenarioSequenceIndex(selectedScenarioIndices, scenarioOffset,
+                            sessionCount, state.depthIndex, session.index);
                         return { session, scenarioIndex, scenario: manifest.scenarios[scenarioIndex],
                             attemptDiagnostics: [] };
                     });
@@ -386,7 +405,7 @@ async function main() {
                             const generated = await host.generate({ system: PLAYER_SYSTEM,
                                 prompt: playerMicrobatchPrompt(unresolved),
                                 maxTokens: Math.min(3072, 80 + unresolved.length * 180),
-                                temperature: 0.9, seed: 73000 + state.depthIndex * 1009 + attempt * 7919,
+                                temperature: 0.55, seed: 73000 + state.depthIndex * 1009 + attempt * 7919,
                                 jsonSchema: { type: 'object', additionalProperties: false,
                                     properties: { turns: { type: 'array', minItems: unresolved.length,
                                         maxItems: unresolved.length, items: { type: 'object',
@@ -513,6 +532,9 @@ async function main() {
                                 disposition: 'NOT_REQUIRED', accepted: null,
                                 acceptedReply: response.text, fallbackReply: response.text,
                                 responseDiscourseAct: response.discourseAct || '',
+                                evidenceRefCount: [].concat(response.dialogueMove.factRefs || [],
+                                    response.dialogueMove.beliefRefs || [],
+                                    response.dialogueMove.memoryRefs || []).length,
                                 playerMetrics: pending.playerMetrics };
                         } else {
                             const prompt = runtime.api.conversationSocialLLMPrompt(session, response, pending.playerText);
@@ -534,6 +556,9 @@ async function main() {
                                 disposition: accepted ? 'USED' : 'FALLBACK_KEPT', accepted: !!accepted,
                                 acceptedReply: accepted, fallbackReply: response.text,
                                 responseDiscourseAct: response.discourseAct || '',
+                                evidenceRefCount: [].concat(response.dialogueMove.factRefs || [],
+                                    response.dialogueMove.beliefRefs || [],
+                                    response.dialogueMove.memoryRefs || []).length,
                                 validationCode: diagnosis.code, qualityTags: diagnosis.qualityTags || [],
                                 playerMetrics: pending.playerMetrics,
                                 rawOutput: generated.raw, inputTokens,
@@ -585,4 +610,4 @@ if (require.main === module) {
 }
 
 module.exports = { patchAcceptedResponse, summary, playerCandidateIssues, playerMicrobatchPrompt,
-    playerModeContract, chunkJobsByMode, frontierRunnerFingerprint };
+    playerModeContract, chunkJobsByMode, scenarioSequenceIndex, frontierRunnerFingerprint };

@@ -46,6 +46,7 @@
     "story:dialogue-frontier-smoke": "node tools/story-dialogue-frontier-runner.js --sessions=2 --depth=2 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-smoke.json",
     "story:dialogue-frontier-micro-smoke": "node tools/story-dialogue-frontier-runner.js --sessions=2 --depth=1 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-micro-smoke.json",
     "story:dialogue-frontier-acceptance": "node tools/story-dialogue-frontier-runner.js --sessions=4 --depth=2 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-acceptance-8.json",
+    "story:dialogue-frontier-supported-smoke": "node tools/story-dialogue-frontier-runner.js --sessions=4 --depth=1 --scenario-indices=0,6,12,18 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-supported-smoke.json",
     "story:dialogue-frontier-domain-smoke": "node tools/story-dialogue-frontier-runner.js --sessions=2 --depth=1 --scenario-offset=6 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-domain-smoke.json",
     "test:story-dialogue-frontier-state": "node tests/story-dialogue-frontier-state.test.js",
     "test:story-dialogue-llm-host-lifecycle": "node tests/story-dialogue-llm-host-lifecycle.test.js",

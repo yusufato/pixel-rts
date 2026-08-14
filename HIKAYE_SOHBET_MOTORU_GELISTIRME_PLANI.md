@@ -711,3 +711,19 @@ cevapsız bir sistem oynanabilir sayılmaz. Yeni zorunlu kapı:
 Aktif sonraki çalışma 8B'nin desteklenen kamusal ekonomi/teknoloji/ilişki
 sorularına kaynaklı, kişilikli ve servis-botu olmayan cevap üretmesidir. Uzun
 adversarial hacim artırımı bu pozitif-yetenek borcundan sonra gelir.
+
+Pozitif smoke bu sıranın önüne bir altyapı borcu koymuştur: manifestte
+`SUPPORTED_PUBLIC` seçilen dört turun hiçbirinde DialogueMove kaynak referansı
+yoktur. `StoryConversationDomains` şu an yalnız şema zarfı üretmekte, ekonomi,
+teknoloji veya toplantı dünyasından doğrulanmış fact projeksiyonu yapmamaktadır.
+Bu yüzden sonraki alt sıra:
+
+1. kamusal dünya gerçeği kayıt sözleşmesi ve kaynak kimliği,
+2. karakterin erişim/rol filtresi,
+3. domain evidence → DialogueMove → ContextPack provenance zinciri,
+4. sıfır-kaynak `SUPPORTED_PUBLIC` için sert sözleşme hatası,
+5. aynı dört-alan pozitif smoke ve `%50` yararlılık kapısıdır.
+
+Manifest etiketi tek başına kanıt değildir. `supportedPublicUsefulBps` yalnız en
+az bir izinli fact/belief/claim/memory kaynağı taşıyan turları paydaya alır;
+etiketli fakat kaynaksız turlar `supportedPublicContractMismatches` olarak raporlanır.
