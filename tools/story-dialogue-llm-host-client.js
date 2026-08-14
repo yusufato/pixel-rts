@@ -21,6 +21,8 @@ function createLlmHostClient(options) {
     let sequence = 0;
     let backend = 'unknown';
     let backendDiagnostics = [];
+    let backendDevices = [];
+    let backendVram = null;
     let stopped = false;
     const pending = new Map();
     const rejectPending = error => {
@@ -34,6 +36,9 @@ function createLlmHostClient(options) {
         if (message.t === 'backend') {
             backend = message.gpu || 'cpu';
             backendDiagnostics = Array.isArray(message.diagnostics) ? message.diagnostics : [];
+            backendDevices = Array.isArray(message.devices) ? message.devices.slice() : [];
+            backendVram = message.vram && typeof message.vram === 'object'
+                ? Object.assign({}, message.vram) : null;
             return;
         }
         if (message.t === 'chunk') {
@@ -79,24 +84,31 @@ function createLlmHostClient(options) {
         if (killer.unref) killer.unref();
         if (deadline.unref) deadline.unref();
     });
+    const loadOrProbe = probeOnly => new Promise((resolve, reject) => {
+        const started = performance.now();
+        const timer = setTimeout(() => reject(new Error(probeOnly
+            ? 'GPU_PROBE_TIMEOUT' : 'MODEL_LOAD_TIMEOUT')),
+        Math.max(1000, Number(options.loadTimeoutMs) || 180000));
+        const listener = message => {
+            if (message && message.t === 'loaded') {
+                clearTimeout(timer); child.off('message', listener);
+                resolve({ loadMs: performance.now() - started, backend,
+                    devices: backendDevices.slice(), vram: backendVram && Object.assign({}, backendVram) });
+            } else if (message && message.t === 'error') {
+                clearTimeout(timer); child.off('message', listener); reject(new Error(message.error));
+            }
+        };
+        child.on('message', listener);
+        child.send({ t: 'load', modelPath, gpuLayers: options.gpuLayers || 'auto', contextSize,
+            requireDiscreteGpu: options.requireDiscreteGpu === true, probeOnly });
+    });
     return {
-        load: () => new Promise((resolve, reject) => {
-            const started = performance.now();
-            const timer = setTimeout(() => reject(new Error('MODEL_LOAD_TIMEOUT')),
-                Math.max(1000, Number(options.loadTimeoutMs) || 180000));
-            const listener = message => {
-                if (message && message.t === 'loaded') {
-                    clearTimeout(timer); child.off('message', listener);
-                    resolve({ loadMs: performance.now() - started });
-                } else if (message && message.t === 'error') {
-                    clearTimeout(timer); child.off('message', listener); reject(new Error(message.error));
-                }
-            };
-            child.on('message', listener);
-            child.send({ t: 'load', modelPath, gpuLayers: options.gpuLayers || 'auto', contextSize });
-        }),
+        load: () => loadOrProbe(false),
+        probe: () => loadOrProbe(true),
         backend: () => backend,
         backendDiagnostics: () => backendDiagnostics.slice(),
+        backendDevices: () => backendDevices.slice(),
+        backendVram: () => backendVram && Object.assign({}, backendVram),
         runtime: () => useElectronRuntime ? 'electron-node' : 'system-node',
         count: async text => Number((await request({ t: 'count', text })).tokens),
         generate: async input => {

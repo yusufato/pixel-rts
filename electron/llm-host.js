@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const fs = require('fs'), path = require('path');
+const { hasDiscreteGpuDevice } = require('./llm-gpu-policy');
 let llama = null, model = null, ctx = null, LlamaChatSession = null;
 let busy = false;
 const queue = [];
@@ -44,7 +45,7 @@ function ensureCudaRuntime() {
 
 function send(msg) { try { process.send && process.send(msg); } catch (_) {} }
 
-async function ensureLoaded(modelPath, gpuLayers, contextSize) {
+async function ensureLoaded(modelPath, gpuLayers, contextSize, requireDiscreteGpu, probeOnly) {
     if (model) return;
     const mod = await import('node-llama-cpp');
     LlamaChatSession = mod.LlamaChatSession;
@@ -66,7 +67,22 @@ async function ensureLoaded(modelPath, gpuLayers, contextSize) {
             llama = await mod.getLlama({ gpu: false });
         }
     }
-    send({ t: 'backend', gpu: (llama && llama.gpu) || 'cpu', diagnostics: backendDiagnostics });
+    let devices = [];
+    let vram = null;
+    try { devices = llama && await llama.getGpuDeviceNames() || []; } catch (_) {}
+    try { vram = llama && await llama.getVramState() || null; } catch (_) {}
+    const integratedOnly = !hasDiscreteGpuDevice(devices);
+    const activeBackend = (llama && llama.gpu) || false;
+    if (activeBackend && integratedOnly) backendDiagnostics.push({ attempted: activeBackend,
+        error: 'INTEGRATED_GPU_ONLY', devices: devices.slice() });
+    send({ t: 'backend', gpu: (llama && llama.gpu) || 'cpu', diagnostics: backendDiagnostics,
+        devices, vram });
+    if (requireDiscreteGpu && (activeBackend === false || integratedOnly)) {
+        try { llama && llama.dispose(); } catch (_) {}
+        llama = null;
+        throw new Error(`DISCRETE_GPU_REQUIRED:${devices.join(',') || 'NO_GPU_DEVICE'}`);
+    }
+    if (probeOnly) return;
     // GPU KATMANI: 'auto' → node-llama-cpp VRAM'e sığdığı kadar katmanı GPU'ya koyar,
     // gerisini CPU'da bırakır. Böylece tek varsayılan üç makineyi de idare eder:
     //   8 GB GPU → tüm katmanlar GPU'da (~30-50 jeton/sn)
@@ -152,8 +168,9 @@ process.on('message', async msg => {
     if (!msg || !msg.t) return;
     if (msg.t === 'load') {
         try {
-            await ensureLoaded(msg.modelPath, msg.gpuLayers, msg.contextSize);
-            send({ t: 'loaded', modelPath: msg.modelPath });
+            await ensureLoaded(msg.modelPath, msg.gpuLayers, msg.contextSize,
+                msg.requireDiscreteGpu === true, msg.probeOnly === true);
+            send({ t: 'loaded', modelPath: msg.modelPath, probeOnly: msg.probeOnly === true });
             pump();
         } catch (e) {
             send({ t: 'error', error: String(e && e.message || e) });

@@ -49,6 +49,8 @@
     "story:dialogue-frontier-domain-smoke": "node tools/story-dialogue-frontier-runner.js --sessions=2 --depth=1 --scenario-offset=6 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-domain-smoke.json",
     "test:story-dialogue-frontier-state": "node tests/story-dialogue-frontier-state.test.js",
     "test:story-dialogue-llm-host-lifecycle": "node tests/story-dialogue-llm-host-lifecycle.test.js",
+    "test:story-dialogue-gpu-policy": "node tests/story-dialogue-gpu-policy.test.js",
+    "story:dialogue-gpu-preflight": "node tools/story-dialogue-gpu-preflight.js",
     "story:dialogue-frontier-night": "node tools/story-dialogue-frontier-runner.js --sessions=100 --depth=10 --player-microbatch=2 --output=qa-runtime/story-dialogue-frontier-night-1000.json",
     "story:build-map-raster": "node tools/make-story-map-raster.js",
     "start": "electron .",

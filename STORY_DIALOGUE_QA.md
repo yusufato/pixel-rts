@@ -476,3 +476,24 @@ rapor bunu kabul etmiş olsa da güncel kapı `SERVICE_BOT_LANGUAGE` ile reddede
 bot kalıbı çıkarılırsa terim kayması ayrıca `SOURCE_TERM_CORRUPTION` olur. Güncel
 kalite sınıflandırması `0 yanlış kabul / 2 güvenli fallback`tir. Negatif LLM kapısı
 `29/29` oldu. Yeni `4×2` çalıştırılmadan gece basamağı açılmaz.
+
+## 14 Ağustos 2026 — GPU aygıt doğrulaması
+
+Doğrudan `node-llama-cpp` aygıt probu, önceki Vulkan koşularının NVIDIA RTX 4060
+yerine `Intel(R) UHD Graphics` üzerinde çalıştığını gösterdi. Vulkan VRAM sayacı
+yaklaşık 8 GB göstermesine rağmen bu ayrık ekran kartı belleği değildir; Intel
+iGPU'nun paylaşımlı sistem belleğidir. Bu nedenle yukarıdaki gerçek konuşma
+çıktıları kalite ve doğrulayıcı bulgusu olarak geçerlidir, fakat süre/throughput
+ölçümleri RTX performans tahmini olarak kullanılamaz.
+
+Uzun 8B/14B QA koşucuları artık model yüklemeden önce aktif arka uçtaki fiziksel
+aygıt adlarını denetler. Yalnız Intel UHD/Iris veya CPU görülürse
+`DISCRETE_GPU_REQUIRED` ile birkaç saniyede durur; ağır koşunun yanlış aygıtta
+dakikalarca ilerlemesine izin verilmez. `npm run story:dialogue-gpu-preflight`
+aynı denetimi model yüklemeden çalıştırır ve aygıt adı, backend ve VRAM durumunu
+raporlar. Güncel makinede beklenen sonuç Intel UHD nedeniyle başarısız preflight'tır.
+
+RTX performans ölçümü ancak işletim sistemi RTX'i compute/Vulkan sürecine açtıktan,
+preflight NVIDIA aygıtını gösterdikten ve aynı sabit manifest yeniden koşulduktan
+sonra kayda geçecektir. Eski Intel süreleri silinmez; donanım etiketiyle tarihsel
+karşılaştırma olarak korunur.

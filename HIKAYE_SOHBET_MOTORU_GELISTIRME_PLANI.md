@@ -668,3 +668,24 @@ bir de “tutanak → tutuklama” kaynak terimi bozması ve servis-botu kapanı
 görülmüştür. İkisi de güncel doğrulayıcıda fallback'tir. Bir sonraki çalışma,
 aynı sabit manifestte `4×2` kapısını yeniden çalıştırıp ilk-deneme `%75`, teknik
 hata `0`, yanlış karakter kabulü `0` koşullarını birlikte ölçmektir.
+
+### Ayrık GPU kabul kapısı — 14 Ağustos 2026
+
+Model arka ucunun yalnız `vulkan` veya `cuda` bildirmesi GPU kanıtı değildir.
+Çalışan fiziksel aygıt adı da kaydedilmeli ve ayrık GPU olduğu doğrulanmalıdır.
+Bu makinede yapılan aygıt probu Vulkan'ın RTX 4060 yerine Intel UHD'yi ve
+paylaşımlı sistem belleğini kullandığını ortaya çıkarmıştır. Dolayısıyla önceki
+kalite bulguları korunur, ancak süre ölçümleri RTX kapasitesi sayılmaz.
+
+S5–S8 arasındaki bütün ağır gerçek-model koşularının değişmezi:
+
+- başlamadan önce backend, aygıt listesi ve VRAM durumu kaydedilir,
+- yalnız entegre GPU/CPU görülürse model yüklenmeden `DISCRETE_GPU_REQUIRED` ile
+  durulur,
+- sessiz CPU/iGPU fallback kalite veya hız deneyi olarak kabul edilmez,
+- donanım değişince aynı manifest ve seed'lerle yeniden ölçüm yapılır,
+- raporlar model, quant, context, backend ve fiziksel GPU adını birlikte taşır.
+
+Yerel teşhis komutu `npm run story:dialogue-gpu-preflight`tir. Güncel donanım
+borcu, RTX'in işletim sistemi/üretici GPU modu tarafından compute sürecine
+açılması ve preflight'ın `NVIDIA GeForce RTX 4060 Laptop GPU` göstermesidir.

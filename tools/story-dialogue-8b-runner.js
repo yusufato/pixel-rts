@@ -145,7 +145,7 @@ function summarizeTurns(turns) {
 
 function runnerHost(selectedModelPath = modelPath, selectedContextSize = 8192) {
     return createLlmHostClient({ root: ROOT, modelPath: selectedModelPath,
-        contextSize: selectedContextSize, electronNodePath });
+        contextSize: selectedContextSize, electronNodePath, requireDiscreteGpu: true });
 }
 
 async function main() {

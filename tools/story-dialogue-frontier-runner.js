@@ -264,14 +264,16 @@ async function main() {
         while (state.depthIndex < depthLimit) {
             if (state.phase === 'PLAYER') {
                 const host = createLlmHostClient({ root: ROOT, modelPath: playerModelPath,
-                    contextSize: playerContextSize, generationTimeoutMs: 300000 });
+                    contextSize: playerContextSize, generationTimeoutMs: 300000,
+                    requireDiscreteGpu: true });
                 const before = memorySnapshot();
                 live('MODEL LOAD', `14B oyuncu frontier ${state.depthIndex + 1} yükleniyor`, completedCount(state), totalTurns);
                 let loaded;
                 try {
                     loaded = await host.load();
                     state.modelLoads.push({ kind: 'PLAYER', depthIndex: state.depthIndex,
-                        loadMs: round(loaded.loadMs), backend: host.backend(), before });
+                        loadMs: round(loaded.loadMs), backend: host.backend(),
+                        devices: loaded.devices, vram: loaded.vram, before });
                     live('MODEL LOAD', `14B hazır (${round(loaded.loadMs)} ms, ${host.backend()})`, completedCount(state), totalTurns);
                     const jobs = state.sessions.filter(session =>
                         !state.pending.some(row => row.sessionIndex === session.index)).map(session => {
@@ -386,13 +388,15 @@ async function main() {
                 let host = null;
                 try {
                     if (eligible.length) {
-                        host = createLlmHostClient({ root: ROOT, modelPath: characterModelPath, contextSize: 8192 });
+                        host = createLlmHostClient({ root: ROOT, modelPath: characterModelPath,
+                            contextSize: 8192, requireDiscreteGpu: true });
                         const before = memorySnapshot();
                         live('MODEL LOAD', `8B karakter frontier ${state.depthIndex + 1} yükleniyor (${eligible.length} üretim)`,
                             completedCount(state), totalTurns);
                         const loaded = await host.load();
                         state.modelLoads.push({ kind: 'CHARACTER', depthIndex: state.depthIndex,
-                            loadMs: round(loaded.loadMs), backend: host.backend(), before,
+                            loadMs: round(loaded.loadMs), backend: host.backend(),
+                            devices: loaded.devices, vram: loaded.vram, before,
                             backendDiagnostics: host.backendDiagnostics() });
                         live('MODEL LOAD', `8B hazır (${round(loaded.loadMs)} ms, ${host.backend()})`,
                             completedCount(state), totalTurns);
