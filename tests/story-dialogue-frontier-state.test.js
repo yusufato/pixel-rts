@@ -3,7 +3,8 @@
 const assert = require('node:assert/strict');
 const { createRuntime } = require('../tools/story-sim-harness');
 const { patchAcceptedResponse, summary, playerCandidateIssues,
-    playerMicrobatchPrompt, frontierRunnerFingerprint } = require('../tools/story-dialogue-frontier-runner');
+    playerMicrobatchPrompt, playerModeContract,
+    chunkJobsByMode, frontierRunnerFingerprint } = require('../tools/story-dialogue-frontier-runner');
 
 const runtime = createRuntime(2032);
 try {
@@ -32,7 +33,11 @@ try {
     ] }] };
     assert.deepEqual(summary(fakeState), { sessions: 1, turns: 3, accepted: 1, fallback: 1,
         notRequired: 1, errors: 0, rejectionCodes: { FALSE_PRIOR_FAMILIARITY: 1 },
-        playerAttemptSlots: 0, playerBatchCalls: 0, playerCandidateIssues: {} });
+        playerAttemptSlots: 0, playerBatchCalls: 0, playerFirstAttemptAccepted: 0,
+        playerFirstAttemptAcceptanceBps: 0, playerFinalAccepted: 0,
+        modelEligibleTurns: 0, characterAcceptanceBps: 0,
+        supportedPublicTurns: 0, supportedPublicUseful: 0, supportedPublicUsefulBps: 0,
+        playerCandidateIssues: {} });
     const scenario = { utteranceMode: 'QUESTION',
         requiredTopicAnchors: ['ekonomi', 'enflasyon', 'bütçe'],
         targetTopicAnchor: 'ekonomi' };
@@ -55,6 +60,53 @@ try {
     assert.ok(playerCandidateIssues('Bu gelecek-faz yeteneği çok önemli olacak.',
         { utteranceMode: 'ASSERTION', requiredTopicAnchors: ['yetenek'], targetTopicAnchor: 'yetenek' }, [])
         .includes('PRIVATE_BRIEF_LEAK'));
+    assert.ok(playerCandidateIssues(
+        'Bu oyuncu yeteneklerini geliştirme aşamasında olduğunu biliyorum.', {
+            utteranceMode: 'ASSERTION', requiredTopicAnchors: ['yetenek'], targetTopicAnchor: 'yetenek'
+        }, []).includes('PRIVATE_BRIEF_LEAK'));
+    assert.ok(playerCandidateIssues('Toplantıda kaç kişi vardı?', meetingScenario, [])
+        .includes('WRONG_UTTERANCE_MODE'), 'İddia modu soru kabul etmemeli.');
+    assert.ok(playerCandidateIssues('Göç really önemli ve insanları etkiliyor.',
+        { utteranceMode: 'ASSERTION', requiredTopicAnchors: ['göç'], targetTopicAnchor: 'göç' }, [])
+        .includes('NON_TURKISH_TOKEN'), 'İngilizce kod değişimi doğal Türkçe oyuncu sözü sayılmamalı.');
+    assert.ok(playerCandidateIssues('Toplantıda unexpectedly yeterli oy çıktı.', meetingScenario, [])
+        .includes('NON_TURKISH_TOKEN'));
+    assert.deepEqual(playerCandidateIssues(
+        'Bu ajanın raporu beni gerçekten endişelendiriyor.', {
+            utteranceMode: 'EMOTIONAL_REACTION', requiredTopicAnchors: ['ajan', 'gizli operasyon'],
+            targetTopicAnchor: 'ajan'
+        }, []), [], 'Kısa Türkçe çapa güvenli çekim eki aldığında konu dışı sayılmamalı.');
+    assert.deepEqual(playerCandidateIssues('Hayır, benim kimliğimi yanlış anladın.', {
+        utteranceMode: 'CORRECTION', requiredTopicAnchors: ['kimlik'], targetTopicAnchor: 'kimlik'
+    }, []), [], 'Ünsüz yumuşamalı Türkçe çapa tanınmalı.');
+    const modeCases = [
+        ['DEMAND', 'Göç sorununa karşı bir plan yapmanı istiyorum.', 'göç'],
+        ['EMOTIONAL_REACTION', 'Ajan haberi yüzünden çok endişeliyim.', 'ajan'],
+        ['COUNTER_CLAIM', 'Hayır, bu görev konusundaki tutumuna katılmıyorum.', 'görev'],
+        ['TOPIC_SWITCH', 'Bu arada teknoloji konusuna geçelim.', 'teknoloji'],
+        ['CORRECTION', 'Hayır, şirket değil banka demek istemiştim.', 'banka'],
+        ['NEGOTIATION', 'Bütçe desteği karşılığında sana pay teklif ediyorum.', 'bütçe'],
+        ['CASUAL_CHAT', 'Bugün piyasa epey sakin görünüyor.', 'piyasa']
+    ];
+    for (const [utteranceMode, text, anchor] of modeCases) {
+        assert.deepEqual(playerCandidateIssues(text, {
+            utteranceMode, requiredTopicAnchors: [anchor], targetTopicAnchor: anchor
+        }, []), [], `${utteranceMode} doğal örneğini kabul etmeli.`);
+    }
+    for (const mode of ['QUESTION', 'ASSERTION', 'DEMAND', 'EMOTIONAL_REACTION',
+        'COUNTER_CLAIM', 'FRAGMENT', 'TOPIC_SWITCH', 'CORRECTION', 'NEGOTIATION', 'CASUAL_CHAT']) {
+        assert.ok(playerModeContract(mode).length >= 40, `${mode} açık biçim sözleşmesi taşımalı.`);
+    }
+    assert.match(playerModeContract('CORRECTION', 'kimlik'), /kimlik/);
+    assert.doesNotMatch(playerModeContract('CORRECTION', 'kimlik'), /banka|şirket/,
+        'Biçim örneği başka alanın konu sözcüklerini prompta sızdırmamalı.');
+    const groupedBatches = chunkJobsByMode([
+        { scenario: { utteranceMode: 'QUESTION' }, id: 1 },
+        { scenario: { utteranceMode: 'ASSERTION' }, id: 2 },
+        { scenario: { utteranceMode: 'QUESTION' }, id: 3 }
+    ], 2);
+    assert.deepEqual(groupedBatches.map(batch => batch.map(row => row.id)), [[1, 3], [2]],
+        'Mikro-batch yalnız aynı ifade biçimindeki işleri birleştirmeli.');
     const microPrompt = playerMicrobatchPrompt([{ session: { index: 0,
         actor: { name: 'Deniz', role: 'EXECUTIVE' }, transcript: [] },
     scenario: Object.assign({ privatePlayerBrief: 'Ekonomi hakkında zor bir soru sor.',
@@ -64,7 +116,7 @@ try {
     assert.match(microPrompt, /"jobId":0/);
     assert.match(frontierRunnerFingerprint(), /^[0-9a-f]{8}$/,
         'Checkpoint oyuncu kapısı ve koşucu sözleşmesinin parmak izini taşımalı.');
-    process.stdout.write(`${JSON.stringify({ ok: true, frontierStateAssertions: 14 })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, frontierStateAssertions: 40 })}\n`);
 } finally {
     runtime.dom.window.close();
 }

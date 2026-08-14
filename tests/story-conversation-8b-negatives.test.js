@@ -120,8 +120,71 @@ try {
     const economicQualified = diagnoseFor(economicClaim,
         'Söylediğin fiyat artışı henüz doğrulanmadı; iddianı kanıt olmadan gerçek kabul edemem.');
     assert.notEqual(economicQualified.code, 'UNVERIFIED_CLAIM_ADOPTED');
+    assert.equal(diagnoseFor('Şirket finansmanı nasıl?',
+        'Elbette! Seninle görüşmek çok güzel. Şirket finansmanı hakkında daha fazla bilgi edinmek ister misin?').code,
+    'SERVICE_BOT_LANGUAGE');
+    assert.equal(diagnoseFor('Bu ajanın kimliğini bilmiyorum.',
+        'Bu gizli etkinlik hakkında daha fazla bilgi edinmek istiyorum. Sizinle bu konu hakkında konuşmak için zaman ayırabilir misiniz?').code,
+    'SERVICE_BOT_LANGUAGE');
+    const informationPlayerText = 'Pişmanlık, enflasyon ne hakkında konuşmalıyım?';
+    const informationOpened = runtime.api.conversationSessionBegin('Merhaba.', {
+        listenerActorId: listener.id
+    });
+    const informationFollow = runtime.api.conversationSessionFollowUp(
+        informationOpened.session.id, informationPlayerText);
+    const informationResponse = informationFollow.followUp.response;
+    const informationSession = runtime.api.conversationSessionGet(informationOpened.session.id);
+    const informationContext = runtime.api.conversationValidationContext(
+        informationSession, informationResponse);
+    const evasiveInformation = runtime.api.conversationSocialLLMDiagnose(JSON.stringify({
+        moveId: informationResponse.dialogueMove.moveId,
+        reply: 'Elbette! Enflasyon ve pişmanlık hakkında ne bilmek istiyorsunuz?',
+        usedRefs: [], answeredQuestionIds: [], introducedQuestion: null, closing: false
+    }), informationResponse.text, informationPlayerText, informationContext);
+    assert.equal(evasiveInformation.code, 'EVASIVE_INFORMATION_QUESTION');
+    assert.equal(diagnoseFor('Göç kayıtlarını incelemeni istiyorum.',
+        'Elbette göç kayıtlarını inceleyebilirim. Lütfen daha fazla ayrıntıya ihtiyacım var.').code,
+    'SERVICE_BOT_LANGUAGE');
+    const actionContext = Object.assign({}, context, { dialogueMove: Object.assign({},
+        context.dialogueMove, { act: 'REQUEST_ACTION', forbiddenCommitments: ['WORLD_MUTATION'] }) });
+    const actionAcceptance = runtime.api.conversationSocialLLMDiagnose(JSON.stringify({
+        moveId: actionContext.dialogueMove.moveId,
+        reply: 'Göç kayıtlarını inceleyebilirim.', usedRefs: [], answeredQuestionIds: [],
+        introducedQuestion: null, closing: false
+    }), response.text, 'Göç kayıtlarını incelemeni istiyorum.', actionContext);
+    assert.equal(actionAcceptance.code, 'UNAUTHORIZED_ACTION_ACCEPTANCE');
+    const paddedFallback = runtime.api.conversationSocialLLMDiagnose(JSON.stringify({
+        moveId: response.dialogueMove.moveId,
+        reply: 'Elbette, kısa bir sohbet edebiliriz. Günaydın.', usedRefs: [],
+        answeredQuestionIds: [], introducedQuestion: null, closing: false
+    }), 'Elbette, kısa bir sohbet edebiliriz.', 'Hayır, ben bu görevi tamamlamam.', context);
+    assert.equal(paddedFallback.code, 'FALLBACK_PADDING');
+    assert.equal(diagnoseFor('Bu haftaki bütçede ne kadar para harcadık?',
+        'Merhaba! Bu haftaki bütçeyi kontrol edeceğim. Lütfen bir dakika bekleyin.').code,
+    'UNAUTHORIZED_FUTURE_COMMITMENT');
+    assert.equal(diagnoseFor('Hayır, kimlik konusunda önceki sözümü düzeltmek istiyorum.',
+        'Anlayışımı tekrarlamak isterim. Son sözünü tekrarlayabilir misin?').code,
+    'FAILED_CORRECTION_RESPONSE');
+    const parseEnvelope = (playerText, reply, fallbackText = response.text,
+        validationContext = context) => runtime.api.conversationSocialLLMParse(JSON.stringify({
+            moveId: validationContext.dialogueMove.moveId, reply, usedRefs: [],
+            answeredQuestionIds: [], introducedQuestion: null, closing: false
+        }), fallbackText, playerText, validationContext);
+    assert.equal(parseEnvelope('Hayır, kimlik konusunda önceki sözümü düzeltmek istiyorum.',
+        'Anlayışımı tekrarlamak isterim. Son sözünü tekrarlayabilir misin?'), null,
+    'Diagnose tarafından reddedilen düzeltme kaçışı Parse tarafından kabul edilmemeli.');
+    assert.equal(parseEnvelope('Hayır, ben bu görevi tamamlamam.',
+        'Elbette, kısa bir sohbet edebiliriz. Günaydın.',
+        'Elbette, kısa bir sohbet edebiliriz.'), null,
+    'Fallback sonuna dolgu eklemek gerçek kabul kapısını aşmamalı.');
+    assert.equal(diagnoseFor('Enflasyon neden yükseldi?',
+        'Nedenleri tam bilmiyorum. Ancak bu konuyu daha detaylı tartışmak istersek daha iyi anlayabiliriz.').code,
+    'SERVICE_BOT_LANGUAGE');
+    assert.equal(diagnoseFor('Göç kayıtlarını incelemeni istiyorum.',
+        'Göç kayıtlarını incelemeyi kabul ediyoruz. Lütfen daha fazla ayrıntıya girin.').code,
+    'SERVICE_BOT_LANGUAGE');
     const nedeniyleNotWhy = diagnoseFor(economicClaim,
         'Bu konuda elimde doğrulanmış veri yok; söylediğin durumu kaynakla incelemeliyiz.');
     assert.ok(!(nedeniyleNotWhy.qualityTags || []).includes('FAILED_REASON_CONTINUATION'));
-    process.stdout.write(`${JSON.stringify({ ok: true, negatives: 29 })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, negatives: 41 })}\n`);
 } finally { runtime.dom.window.close(); }

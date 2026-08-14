@@ -491,9 +491,49 @@ aygıt adlarını denetler. Yalnız Intel UHD/Iris veya CPU görülürse
 `DISCRETE_GPU_REQUIRED` ile birkaç saniyede durur; ağır koşunun yanlış aygıtta
 dakikalarca ilerlemesine izin verilmez. `npm run story:dialogue-gpu-preflight`
 aynı denetimi model yüklemeden çalıştırır ve aygıt adı, backend ve VRAM durumunu
-raporlar. Güncel makinede beklenen sonuç Intel UHD nedeniyle başarısız preflight'tır.
+raporlar. Yeniden başlatmadan önceki durumda preflight Intel UHD nedeniyle
+beklendiği gibi başarısızdı.
+
+Yeniden başlatma ve üretici GPU modu düzeltmesinden sonra aynı preflight
+`backend=cuda`, `NVIDIA GeForce RTX 4060 Laptop GPU`, yaklaşık `7,45 GB` boş VRAM
+ile geçti. Aşağıdaki yeni ölçümler artık Intel değil RTX/CUDA ölçümüdür.
 
 RTX performans ölçümü ancak işletim sistemi RTX'i compute/Vulkan sürecine açtıktan,
 preflight NVIDIA aygıtını gösterdikten ve aynı sabit manifest yeniden koşulduktan
 sonra kayda geçecektir. Eski Intel süreleri silinmez; donanım etiketiyle tarihsel
 karşılaştırma olarak korunur.
+
+## 14 Ağustos 2026 — RTX/CUDA 4×2 kapısı
+
+İlk RTX koşusu, eski kapıların sahte kabul ürettiğini gösterdi. On ifade biçiminin
+yalnız soru ve fragment türleri denetleniyordu; servis-botu çekimleri, fallback
+sonuna dolgu ekleme, yetkisiz eylem kabulleri ve düzeltmeden kaçış Parse yolundan
+geçebiliyordu. Ayrıca 14B'ye verilen sabit biçim örnekleri başka alanların
+konularını prompta sızdırıyor, farklı ifade biçimleri aynı mikro-batch içinde
+birbirini kirletiyordu.
+
+Düzeltmeler:
+
+- on ifade biçiminin tamamı deterministik olarak denetlenir,
+- biçim örneği her işin kendi konu çapasıyla üretilir,
+- yalnız aynı ifade biçimindeki işler aynı mikro-batch'e girer,
+- kısa ve ünsüz yumuşamalı Türkçe çapalar güvenli ek listesiyle tanınır,
+- İngilizce kod değişimi ve iç geliştirme brief'i sızıntısı reddedilir,
+- `Parse` ile `Diagnose` aynı düzeltme/fallback retlerini uygular,
+- ilk-deneme oyuncu kabulü raporda doğrudan bps olarak hesaplanır.
+
+Güncel sabit `4 oturum × 2 derinlik` koşusu RTX/CUDA üzerinde `124,3 sn` sürdü.
+Oyuncu ilk-deneme kabulü `7/8 = %87,5`, nihai üretim `8/8`, teknik hata `0` oldu.
+Karakterin iki riskli ham cevabı `UNAUTHORIZED_FUTURE_COMMITMENT` ve
+`FAILED_CORRECTION_RESPONSE` ile reddedildi; yanlış karakter kabulü `0`dır.
+Hedefli kanıtlar: negatif 8B kapısı `41/41`, frontier sözleşmesi `40` kontrol,
+oyuncu regresyonu `30/30`.
+
+Bu sonuç yalnız güvenlik/üretim kapısını açar; doğallık kapısını açmaz. Model-uygun
+iki turun ikisi fallback'e düştü ve kabul edilen doğal 8B cevabı `0` oldu.
+Desteklenen kamusal iki konunun hiçbiri yararlı cevap üretmedi. “Her şeyi reddet”
+stratejisinin başarı sayılmaması için rapora `modelEligibleTurns`,
+`characterAcceptanceBps`, `supportedPublicUseful` ve
+`supportedPublicUsefulBps` metrikleri eklendi. `100×10` gece koşusu başlamaz;
+önce sabit desteklenen-kamusal bataryada yararlı cevap oranı en az `%50` ve yanlış
+kabul `0` birlikte kanıtlanacaktır.

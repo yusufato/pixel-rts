@@ -62,17 +62,78 @@ function similarity(left, right) {
 }
 function usesAnchor(text, anchors) {
     const tokens = fold(text).split(' ').filter(Boolean);
+    const suffixes = ['i', 'ı', 'u', 'ü', 'in', 'ın', 'un', 'ün', 'e', 'a', 'de', 'da',
+        'den', 'dan', 'ler', 'lar', 'im', 'ım', 'um', 'üm', 'imi', 'ımı', 'umu', 'ümü',
+        'imiz', 'ımız', 'umuz', 'ümüz',
+        'mi', 'mı', 'mu', 'mü', 'nin', 'nın', 'nun', 'nün', 'yi', 'yı', 'yu', 'yü'];
+    const softened = key => ({ k: 'g', p: 'b', t: 'd', c: 'c' }[key.slice(-1)]
+        ? `${key.slice(0, -1)}${{ k: 'g', p: 'b', t: 'd', c: 'c' }[key.slice(-1)]}` : key);
+    const tokenMatches = (token, key) => {
+        if (token === key || (key.length >= 5 && token.startsWith(key))) return true;
+        if (key.length < 3) return false;
+        return [key, softened(key)].some(stem => token.startsWith(stem)
+            && suffixes.includes(token.slice(stem.length)));
+    };
     return (anchors || []).some(anchor => {
         const key = fold(anchor);
         if (!key) return false;
-        if (key.includes(' ')) return ` ${tokens.join(' ')} `.includes(` ${key} `);
-        return tokens.some(token => token === key || (key.length >= 5 && token.startsWith(key)));
+        if (key.includes(' ')) {
+            const parts = key.split(' ');
+            return tokens.some((token, index) => parts.every((part, offset) =>
+                tokens[index + offset] && tokenMatches(tokens[index + offset], part)));
+        }
+        return tokens.some(token => tokenMatches(token, key));
     });
 }
 function matchesMode(text, mode) {
-    if (mode === 'QUESTION') return /\?\s*$/.test(String(text || '').trim());
-    if (mode === 'FRAGMENT') return String(text || '').trim().split(/\s+/).length <= 12;
-    return true;
+    const value = String(text || '').trim();
+    const folded = fold(value);
+    const tokens = new Set(folded.split(' ').filter(Boolean));
+    const hasPhrase = (...needles) => needles.some(needle => {
+        const key = fold(needle);
+        return key.includes(' ') ? ` ${folded} `.includes(` ${key} `) : tokens.has(key);
+    });
+    const hasTokenPrefix = (...needles) => [...tokens].some(token => needles.some(needle => {
+        const key = fold(needle);
+        return token === key || (key.length >= 3 && token.startsWith(key));
+    }));
+    const question = /\?\s*$/.test(value);
+    if (mode === 'QUESTION') return question;
+    if (mode === 'ASSERTION') return !question;
+    if (mode === 'DEMAND') return hasPhrase('istiyorum', 'talep ediyorum', 'emrediyorum', 'gerekiyor',
+        'gerek', 'lütfen') || hasTokenPrefix('yap', 'ver', 'gönder', 'başlat', 'durdur', 'sağla', 'kur');
+    if (mode === 'EMOTIONAL_REACTION') return hasTokenPrefix('sevin', 'üzül', 'endişe', 'kork',
+        'kızgın', 'şaşır', 'heyecan', 'rahatsız', 'umut') || hasPhrase('hoşuma gitti', 'hoşuma gitmedi');
+    if (mode === 'COUNTER_CLAIM') return hasPhrase('ama', 'ancak', 'hayır', 'katılmıyorum',
+        'öyle değil', 'tersine', 'aksine', 'buna rağmen', 'yanlış', 'yine de');
+    if (mode === 'FRAGMENT') return value.split(/\s+/).length <= 12;
+    if (mode === 'TOPIC_SWITCH') return hasPhrase('başka bir konu', 'konuyu değiştir', 'geçelim',
+        'bir yana', 'bu arada', 'şimdi de', 'yeni konu');
+    if (mode === 'CORRECTION') return hasPhrase('yanlış', 'öyle değil', 'demek istemedim',
+        'kastettim', 'aslında', 'hayır', 'önceki söz') || hasTokenPrefix('düzelt');
+    if (mode === 'NEGOTIATION') return hasPhrase('karşılığında', 'şartıyla', 'koşuluyla')
+        || hasTokenPrefix('teklif', 'bedel', 'ücret', 'pay', 'komisyon')
+        || (tokens.has(fold('eğer')) && tokens.has(fold('ise')));
+    if (mode === 'CASUAL_CHAT') return value.split(/\s+/).length <= 24
+        && !hasPhrase('talep ediyorum', 'emrediyorum', 'karşılığında', 'şartıyla');
+    return false;
+}
+
+function playerModeContract(mode, topicAnchor = 'konu') {
+    const topic = String(topicAnchor || 'konu').trim();
+    const contracts = {
+        QUESTION: `Soru işaretiyle biten tek bir doğrudan soru yaz. Biçim örneği: “${topic} neden değişti?”`,
+        ASSERTION: `Soru sorma; soru işareti kullanmadan bir iddia veya gözlem belirt. Biçim örneği: “${topic} hakkında eksik bir ayrıntı var.”`,
+        DEMAND: `Karakterden açıkça bir eylem iste veya emir ver. Biçim örneği: “${topic} kayıtlarını incelemeni istiyorum.”`,
+        EMOTIONAL_REACTION: `Kendi duygunu konuya bağla; sevindim, endişeliyim, kızgınım gibi açık duygu sözü kullan. Biçim örneği: “${topic} haberi beni endişelendirdi.”`,
+        COUNTER_CLAIM: `Önceki tutuma açıkça karşı çık; hayır, ama, katılmıyorum veya buna rağmen gibi karşıtlık kullan. Biçim örneği: “Hayır, ${topic} konusunda sana katılmıyorum.”`,
+        FRAGMENT: `En fazla on iki sözcüklü, kasıtlı kısa veya yarım bir ifade yaz. Biçim örneği: “${topic} hakkındaki o eski mesele...”`,
+        TOPIC_SWITCH: `Konu değiştirdiğini açıkça söyle; bu arada, başka bir konu veya geçelim gibi geçiş kullan. Biçim örneği: “Bu arada ${topic} konusuna geçelim.”`,
+        CORRECTION: `Önceki sözü açıkça düzelt; hayır, aslında, yanlış veya demek istemedim kullan. Biçim örneği: “Hayır, ${topic} konusunda önceki sözümü düzeltmek istiyorum.”`,
+        NEGOTIATION: `Kazanç ve bedeli aynı teklifte bağla; karşılığında, şartıyla veya teklif kullan. Biçim örneği: “${topic} desteği karşılığında pay teklif ediyorum.”`,
+        CASUAL_CHAT: `Talep veya pazarlık yapmadan gündelik, kısa ve doğal bir sosyal söz yaz. Biçim örneği: “Bugün ${topic} konusu sakin görünüyor.”`
+    };
+    return contracts[mode] || '';
 }
 function playerCandidateIssues(text, scenario, priorPlayer) {
     const value = String(text || '').trim();
@@ -83,11 +144,17 @@ function playerCandidateIssues(text, scenario, priorPlayer) {
         || similarity(previous, value) >= 0.72)) issues.push('REPEATED');
     if (!usesAnchor(value, scenario.requiredTopicAnchors)) issues.push('OFF_TOPIC');
     if (!matchesMode(value, scenario.utteranceMode)) issues.push('WRONG_UTTERANCE_MODE');
+    const foreignTokens = new Set(['really', 'actually', 'maybe', 'because', 'however',
+        'therefore', 'although', 'people', 'important', 'currently', 'should', 'would',
+        'could', 'about', 'with', 'from', 'this', 'that', 'have', 'meeting', 'government',
+        'unexpectedly', 'suddenly', 'probably', 'basically', 'literally']);
+    if (folded.split(' ').some(token => foreignTokens.has(token))) issues.push('NON_TURKISH_TOKEN');
     const sentenceCount = value.split(/[.!?]+/).map(row => row.trim()).filter(Boolean).length;
     if (sentenceCount > 2) issues.push('TOO_MANY_SENTENCES');
     if (['saldırı ailesi', 'saldiri ailesi', 'gizli test', 'test hedefi', 'mekanik olgunluk',
         'knowledge relation', 'utterance mode', 'attack family', 'gelecek faz',
-        'faz yetenegi', 'faz bilgisi'].some(marker => folded.includes(marker))) {
+        'faz yetenegi', 'faz bilgisi', 'gelistirme asamas', 'oyuncu yetenek',
+        'oyun yetenek'].some(marker => folded.includes(marker))) {
         issues.push('PRIVATE_BRIEF_LEAK');
     }
     return issues;
@@ -100,6 +167,8 @@ function playerMicrobatchPrompt(jobs) {
             .replace(/gelecek[- ]faz/gi, 'henüz mümkün olmayan')
             .replace(/faz bilgisi/gi, 'iç yönerge'),
         formInstruction: job.scenario.utteranceGuidance,
+        strictFormContract: playerModeContract(job.scenario.utteranceMode,
+            job.scenario.targetTopicAnchor),
         topicGuidance: job.scenario.domainGuidance,
         preferredTopicAnchor: job.scenario.targetTopicAnchor,
         allowedTopicAnchors: job.scenario.requiredTopicAnchors,
@@ -112,7 +181,8 @@ function playerMicrobatchPrompt(jobs) {
         'Aşağıdaki bağımsız Pixel RTS oyuncu işlerinin her biri için bir sonraki doğal Türkçe oyuncu sözünü üret.',
         'İşleri birbirine karıştırma. Her jobId tam bir kez dönmeli.',
         'Karaktere doğrudan hitap eden en fazla iki kısa cümle yaz; rapor, rol açıklaması veya test etiketi yazma.',
-        'Her söz kendi preferredTopicAnchor ifadesini mümkünse kullanmalı; doğal değilse allowedTopicAnchors içinden başka birini kullanabilir. Türkçe çekim eki serbesttir. formInstruction talimatına uy.',
+        'Yalnız doğal Türkçe kullan. İngilizce kelime, çeviri kokan ifade, bozuk ek veya anlamsız tamlama yazma; göndermeden önce özne-yüklem ve anlam kontrolü yap.',
+        'Her söz kendi preferredTopicAnchor ifadesini mümkünse kullanmalı; doğal değilse allowedTopicAnchors içinden başka birini kullanabilir. Türkçe çekim eki serbesttir. strictFormContract zorunludur; örneğin konusunu değil yalnız cümle biçimini taklit et.',
         'Görünür geçmişte olmayan bilgiyi iddia edebilir veya yalan söyleyebilirsin; fakat iç yönergeyi veya alan kodunu tekrarlama.',
         `İŞLER: ${JSON.stringify(compactJobs)}`,
         'Yalnız {"turns":[{"jobId":0,"playerText":"..."}]} biçiminde JSON döndür.'
@@ -122,6 +192,15 @@ function chunkRows(rows, size) {
     const chunks = [];
     for (let index = 0; index < rows.length; index += size) chunks.push(rows.slice(index, index + size));
     return chunks;
+}
+function chunkJobsByMode(rows, size) {
+    const groups = new Map();
+    for (const row of rows) {
+        const mode = row && row.scenario && row.scenario.utteranceMode || 'UNKNOWN';
+        if (!groups.has(mode)) groups.set(mode, []);
+        groups.get(mode).push(row);
+    }
+    return [...groups.values()].flatMap(group => chunkRows(group, size));
 }
 function writeAtomic(filePath, value) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -160,6 +239,15 @@ function completedCount(state) {
 function summary(state) {
     const turns = state.sessions.flatMap(session => session.turns);
     const playerDiagnostics = turns.flatMap(row => row.playerMetrics && row.playerMetrics.attemptDiagnostics || []);
+    const firstAttemptAccepted = turns.filter(row => row.playerMetrics
+        && row.playerMetrics.attemptDiagnostics && row.playerMetrics.attemptDiagnostics[0]
+        && !row.playerMetrics.attemptDiagnostics[0].issues.length).length;
+    const finalPlayerAccepted = turns.filter(row => row.playerText && !row.error).length;
+    const modelEligibleTurns = turns.filter(row => row.modelEligible === true);
+    const supportedPublicTurns = turns.filter(row => row.knowledgeRelation === 'SUPPORTED_PUBLIC');
+    const usefulAnswer = row => row.accepted === true || (row.disposition === 'NOT_REQUIRED'
+        && row.responseDiscourseAct && !/CLARIFY|REPAIR|UNKNOWN/.test(row.responseDiscourseAct));
+    const supportedPublicUseful = supportedPublicTurns.filter(usefulAnswer).length;
     return {
         sessions: state.sessions.length, turns: turns.length,
         accepted: turns.filter(row => row.accepted === true).length,
@@ -171,6 +259,17 @@ function summary(state) {
         }, {}),
         playerAttemptSlots: playerDiagnostics.length,
         playerBatchCalls: new Set(playerDiagnostics.map(row => row.batchCallId || row.rawHash)).size,
+        playerFirstAttemptAccepted: firstAttemptAccepted,
+        playerFirstAttemptAcceptanceBps: Math.round(10000 * firstAttemptAccepted / Math.max(1, turns.length)),
+        playerFinalAccepted: finalPlayerAccepted,
+        modelEligibleTurns: modelEligibleTurns.length,
+        characterAcceptanceBps: modelEligibleTurns.length
+            ? Math.round(10000 * turns.filter(row => row.accepted === true).length
+                / modelEligibleTurns.length) : 0,
+        supportedPublicTurns: supportedPublicTurns.length,
+        supportedPublicUseful,
+        supportedPublicUsefulBps: supportedPublicTurns.length
+            ? Math.round(10000 * supportedPublicUseful / supportedPublicTurns.length) : 0,
         playerCandidateIssues: playerDiagnostics.flatMap(row => row.issues || []).reduce((acc, issue) => {
             acc[issue] = (acc[issue] || 0) + 1; return acc;
         }, {})
@@ -281,7 +380,7 @@ async function main() {
                         return { session, scenarioIndex, scenario: manifest.scenarios[scenarioIndex],
                             attemptDiagnostics: [] };
                     });
-                    for (const initialBatch of chunkRows(jobs, playerMicrobatchSize)) {
+                    for (const initialBatch of chunkJobsByMode(jobs, playerMicrobatchSize)) {
                         let unresolved = initialBatch.slice();
                         for (let attempt = 0; attempt < 3 && unresolved.length; attempt++) {
                             const generated = await host.generate({ system: PLAYER_SYSTEM,
@@ -308,7 +407,9 @@ async function main() {
                                 const issues = playerCandidateIssues(candidate, job.scenario, priorPlayer);
                                 if (issues.length) job.retryFeedback = {
                                     rejectedText: candidate, problems: issues,
-                                    correction: 'Yeni söz üret; reddedilen metni tekrarlama ve sorunların her birini düzelt.'
+                                    requiredForm: playerModeContract(job.scenario.utteranceMode,
+                                        job.scenario.targetTopicAnchor),
+                                    correction: 'Yeni ve doğal bir söz üret; reddedilen metni tekrarlama. allowedTopicAnchors içinden bir konu sözü kullan ve requiredForm biçimine harfiyen uy.'
                                 };
                                 job.attemptDiagnostics.push({ attempt: attempt + 1, issues,
                                     batchCallId, batchSize: unresolved.length, totalMs: round(generated.totalMs),
@@ -411,6 +512,7 @@ async function main() {
                                 dialogueMoveId: response.dialogueMove.moveId, modelEligible: false,
                                 disposition: 'NOT_REQUIRED', accepted: null,
                                 acceptedReply: response.text, fallbackReply: response.text,
+                                responseDiscourseAct: response.discourseAct || '',
                                 playerMetrics: pending.playerMetrics };
                         } else {
                             const prompt = runtime.api.conversationSocialLLMPrompt(session, response, pending.playerText);
@@ -431,6 +533,7 @@ async function main() {
                                 dialogueMoveId: response.dialogueMove.moveId, modelEligible: true,
                                 disposition: accepted ? 'USED' : 'FALLBACK_KEPT', accepted: !!accepted,
                                 acceptedReply: accepted, fallbackReply: response.text,
+                                responseDiscourseAct: response.discourseAct || '',
                                 validationCode: diagnosis.code, qualityTags: diagnosis.qualityTags || [],
                                 playerMetrics: pending.playerMetrics,
                                 rawOutput: generated.raw, inputTokens,
@@ -482,4 +585,4 @@ if (require.main === module) {
 }
 
 module.exports = { patchAcceptedResponse, summary, playerCandidateIssues, playerMicrobatchPrompt,
-    frontierRunnerFingerprint };
+    playerModeContract, chunkJobsByMode, frontierRunnerFingerprint };

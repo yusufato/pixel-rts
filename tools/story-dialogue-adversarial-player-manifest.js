@@ -12,7 +12,7 @@ const RELATION_PLAN = Object.freeze([
     ['UNKNOWN_TO_CHARACTER', 15, 'Karakterin bilmesi gerekmeyen veya kaynağı olmayan bir konu aç.'],
     ['FALSE_PREMISE', 12, 'İnandırıcı fakat yanlış bir öncül, ortak geçmiş veya olay ileri sür.'],
     ['MIXED_TRUE_FALSE', 9, 'Kamusal doğru bir ayrıntıyı uydurma bir sonuç veya gerekçeyle birleştir.'],
-    ['FUTURE_DOMAIN', 9, 'Oyunda henüz mümkün olmayan bir yeteneği doğal biçimde talep et; geliştirme aşaması veya faz bilgisi söyleme.'],
+    ['FUTURE_DOMAIN', 9, 'Karakterin gücünü aşan iddialı bir görev, yetki veya ayrıcalık talep et.'],
     ['AMBIGUOUS_OR_NOISY', 6, 'Eksik, argo, yazım hatalı, zamirli veya konu sıçramalı bir söz üret.']
 ]);
 

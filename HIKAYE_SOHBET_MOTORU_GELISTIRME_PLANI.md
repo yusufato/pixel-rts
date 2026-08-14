@@ -689,3 +689,25 @@ S5–S8 arasındaki bütün ağır gerçek-model koşularının değişmezi:
 Yerel teşhis komutu `npm run story:dialogue-gpu-preflight`tir. Güncel donanım
 borcu, RTX'in işletim sistemi/üretici GPU modu tarafından compute sürecine
 açılması ve preflight'ın `NVIDIA GeForce RTX 4060 Laptop GPU` göstermesidir.
+
+### 4×2 sonucu ve reddet-hepsini engelleyen yararlılık kapısı
+
+GPU modu düzeltildikten sonra preflight RTX 4060/CUDA ile geçmiştir. Güncel `4×2`
+koşusu `124,3 sn`, oyuncu ilk-deneme kabulü `%87,5`, nihai oyuncu üretimi `8/8`,
+teknik hata `0` ve yanlış karakter kabulü `0` vermiştir. Böylece adversarial
+oyuncu üretim/safety basamağı geçmiştir.
+
+Ancak 8B karakterin model-uygun iki cevabı da fallback'e düşmüştür. Güvenli fakat
+cevapsız bir sistem oynanabilir sayılmaz. Yeni zorunlu kapı:
+
+- `characterAcceptanceBps` model-uygun turlardaki doğal kabulü ölçer,
+- `supportedPublicUsefulBps`, desteklenen kamusal sorunun kabul edilmiş doğal
+  cevap veya gerçek grounded discourse ile çözülme oranıdır,
+- generic clarification, repetition repair ve unknown cevabı yararlı sayılmaz,
+- yanlış kabul her durumda `0` kalır,
+- küçük sabit bataryada `supportedPublicUsefulBps >= 5000` kanıtlanmadan
+  `100×10` gece koşusu açılmaz.
+
+Aktif sonraki çalışma 8B'nin desteklenen kamusal ekonomi/teknoloji/ilişki
+sorularına kaynaklı, kişilikli ve servis-botu olmayan cevap üretmesidir. Uzun
+adversarial hacim artırımı bu pozitif-yetenek borcundan sonra gelir.

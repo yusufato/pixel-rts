@@ -18,6 +18,16 @@ try {
     assert.doesNotMatch(openingResponse.text, /yeniden|tekrar|sürdür|bu kez/i,
         'İlk görüşme eski tanışıklık ima etmemeli.');
 
+    const informationSession = runtime.api.conversationSessionBegin('Merhaba.', {
+        listenerActorId: listener.id
+    });
+    const unsupportedInformation = runtime.api.conversationSessionFollowUp(
+        informationSession.session.id, 'Enflasyon şu anda çok yüksek değil mi?');
+    assert.equal(unsupportedInformation.followUp.analysis.speechAct, 'ASK_INFORMATION');
+    assert.doesNotMatch(unsupportedInformation.followUp.response.text, /önceki sözünün devamı/i,
+        'İlk bilgi sorusu sahte konuşma devamlılığı üretmemeli.');
+    assert.match(unsupportedInformation.followUp.response.text, /doğrulayacak bilgim yok|uydurmayacağım/i);
+
     const follow = text => runtime.api.conversationSessionFollowUp(opened.session.id, text);
     const identity = follow('Benim kim olduğumu biliyor musun?');
     assert.equal(identity.followUp.response.discourseAct, 'ANSWER_PLAYER_IDENTITY_BOUNDARY');

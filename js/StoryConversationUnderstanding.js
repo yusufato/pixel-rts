@@ -11,7 +11,7 @@ const STORY_CONVERSATION_UNDERSTANDING_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_UNDERSTANDING_ADAPTER_VERSION = 'story-conversation-understanding-1';
 const STORY_CONVERSATION_UNDERSTANDING_SOURCE = 'DETERMINISTIC_NLU_BASELINE';
 const STORY_CONVERSATION_MAX_INPUT = 1200;
-const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|neler yapmamıza yardımcı|ne tür bir yardım ar[a-zçğıöşü]*|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|konuyu belirt|daha fazla bilgi(?:ye ihtiyacım var| ver| paylaş)|daha fazla ayrıntı(?:ya gir| ver)|sorularınızı açıkça belirt|lütfen başka bir konu seç|buyurun|emrinize amadeyim)\b/i;
+const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|neler yapmamıza yardımcı|ne tür bir yardım ar[a-zçğıöşü]*|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|konuyu belirt|daha fazla bilgi(?:ye ihtiyacım var| ver| paylaş)|daha fazla ayrıntı(?:ya gir(?:in)?|ya ihtiyacım var| ver(?:in)?)|sorularınızı açıkça belirt|lütfen başka bir konu seç|buyurun|emrinize amadeyim)\b/i;
 
 const STORY_CONVERSATION_SPEECH_ACTS = Object.freeze([
     'ASK_INFORMATION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN', 'MAKE_PROMISE',
@@ -1409,6 +1409,8 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText, validati
     try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { return null; }
     const text = String(parsed && parsed.reply || '').trim().replace(/\s+/g, ' ');
     if (!text || text.length > 420 || text === fallbackText) return null;
+    const fallbackFolded = storyConversationFold(fallbackText);
+    if (fallbackFolded.length >= 20 && storyConversationFold(text).includes(fallbackFolded)) return null;
     if (storyConversationSocialLLMTextIssue(text, validationContext, playerText)) return null;
     if (/\d/.test(text) || /\b(character|session|actor|worldMutation|system|assistant|user)\b/i.test(text)) return null;
     if (typeof LLM_EN_LEAK !== 'undefined' && LLM_EN_LEAK.test(text)) return null;
@@ -1424,6 +1426,7 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText, validati
         || obligationFailures.includes('FAILED_CONFIRMATION_QUESTION')
         || obligationFailures.includes('FAILED_CONFIDENTIALITY_REQUEST')
         || obligationFailures.includes('FAILED_SOCIAL_CHECK_IN')
+        || obligationFailures.includes('FAILED_CORRECTION_RESPONSE')
         || obligationFailures.includes('REPORT_RECAST_AS_THREAT')
         || obligationFailures.includes('TAUTOLOGICAL_REPLY')) return null;
     const history = validationContext && Array.isArray(validationContext.history)
@@ -1472,8 +1475,15 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
         || storyConversationContains(folded, ['neler yapmamiza yardimci', 'nasil yardimci olabiliriz',
             'lutfen daha fazla bilgi ver', 'bu konuyu daha detayli tartismak ister misiniz',
             'bu konuyu daha ayrintili tartismak ister misiniz',
+            'bu konuyu daha detayli tartismak ister',
+            'bu konuyu daha ayrintili tartismak ister',
             'bu konuyu daha detayli konusmak ister misiniz',
-            'bu konuyu daha ayrintili konusmak ister misiniz', 'cesitli yollar dusunebiliriz'])) {
+            'bu konuyu daha ayrintili konusmak ister misiniz',
+            'hakkinda daha fazla bilgi edinmek ister misin',
+            'hakkinda daha fazla bilgi edinmek ister misiniz',
+            'bu konu hakkinda konusmak icin zaman ayirabilir misin',
+            'bu konu hakkinda konusmak icin zaman ayirabilir misiniz',
+            'cesitli yollar dusunebiliriz'])) {
         return 'SERVICE_BOT_LANGUAGE';
     }
     if (validationContext && validationContext.firstContact
@@ -1491,6 +1501,12 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
         && !storyConversationContains(folded, ['tutanak'])) return 'SOURCE_TERM_CORRUPTION';
     if (player.length >= 24 && folded.includes(player)) return 'PLAYER_SEMANTIC_ECHO';
     const moveSpeechAct = move && move.speechAct;
+    const moveAct = move && (move.act || move.speechAct);
+    if (moveAct === 'ASK_INFORMATION' && /\?\s*$/.test(value)
+        && !storyConversationContains(folded, ['bilmiyorum', 'bilgim yok', 'dogrulayam',
+            'kaydim yok', 'emin degilim', 'soyledigini acikla', 'neyi kastettigini'])) {
+        return 'EVASIVE_INFORMATION_QUESTION';
+    }
     const echoStop = new Set(['bir', 'bu', 've', 'ile', 'icin', 'gibi', 'daha', 'cok', 'fazla',
         'konuda', 'konusunda', 'olarak', 'oldugu', 'oldugunu']);
     const echoTokens = source => storyConversationFold(source).split(' ')
@@ -1587,6 +1603,23 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
         && (!move || (move.forbiddenCommitments || []).includes('WORLD_MUTATION'))) {
         return 'UNAUTHORIZED_FUTURE_COMMITMENT';
     }
+    if (/\b(kontrol edeceğim|inceleyeceğim|araştıracağım|bakacağım|öğreneceğim|doğrulayacağım|soracağım|hazırlayacağım)\b/i.test(value)
+        && (!move || (move.forbiddenCommitments || []).includes('WORLD_MUTATION'))) {
+        return 'UNAUTHORIZED_FUTURE_COMMITMENT';
+    }
+    if (/\b(bir dakika|biraz|kısa süre)\s+bekle(?:yin|menizi|meni)?\b/i.test(value)) {
+        return 'FAKE_ASYNC_WAIT';
+    }
+    if (['REQUEST_ACTION', 'REQUEST_SUPPORT'].includes(moveAct)
+        && /\b(yapabilirim|inceleyebilirim|gönderebilirim|sağlayabilirim|başlatabilirim|durdurabilirim|halledebilirim)\b/i.test(value)
+        && (!move || (move.forbiddenCommitments || []).includes('WORLD_MUTATION'))) {
+        return 'UNAUTHORIZED_ACTION_ACCEPTANCE';
+    }
+    if (['REQUEST_ACTION', 'REQUEST_SUPPORT'].includes(moveAct)
+        && /\b(kabul ediyorum|kabul ediyoruz|yerine getireceğim|yerine getireceğiz|inceleyeceğiz|yapacağız|sağlayacağız)\b/i.test(value)
+        && (!move || (move.forbiddenCommitments || []).includes('WORLD_MUTATION'))) {
+        return 'UNAUTHORIZED_ACTION_ACCEPTANCE';
+    }
     return null;
 }
 
@@ -1620,6 +1653,12 @@ function storyConversationSocialLLMQualityTags(text, playerText) {
         && !storyConversationContains(reply, ['anladim', 'anlamadim', 'evet', 'hayir'])) {
         tags.push('FAILED_CONFIRMATION_QUESTION');
     }
+    if (storyConversationContains(player, ['duzeltmek istiyorum', 'duzeltiyorum',
+        'yanlis anladin', 'demek istemistim', 'kastetmistim'])
+        && storyConversationContains(reply, ['tekrarlayabilir misin', 'tekrarlar misin',
+            'ne demek istedigini', 'biraz daha ac'])) {
+        tags.push('FAILED_CORRECTION_RESPONSE');
+    }
     if (storyConversationContains(player, ['aramizda kalsin', 'kamuya aciklama yapma'])
         && !storyConversationContains(reply, ['aramizda', 'gizli', 'kamuya', 'aciklamam',
             'soz veremem', 'garanti veremem'])) tags.push('FAILED_CONFIDENTIALITY_REQUEST');
@@ -1641,6 +1680,10 @@ function storyConversationSocialLLMDiagnose(raw, fallbackText, playerText, valid
     const text = String(parsed && parsed.reply || '').trim().replace(/\s+/g, ' ');
     if (!text) return { ok: false, code: 'EMPTY_REPLY' };
     if (text === fallbackText) return { ok: false, code: 'EXACT_FALLBACK_COPY' };
+    const foldedFallback = storyConversationFold(fallbackText);
+    if (foldedFallback.length >= 20 && storyConversationFold(text).includes(foldedFallback)) {
+        return { ok: false, code: 'FALLBACK_PADDING' };
+    }
     if (storyConversationFold(text) === storyConversationFold(playerText)) {
         return { ok: false, code: 'PLAYER_INPUT_ECHO' };
     }
@@ -1664,7 +1707,7 @@ function storyConversationSocialLLMDiagnose(raw, fallbackText, playerText, valid
         return { ok: false, code: 'FAILED_DIRECTNESS_REQUEST', qualityTags };
     }
     for (const code of ['FAILED_CONFIRMATION_QUESTION', 'FAILED_CONFIDENTIALITY_REQUEST',
-        'FAILED_SOCIAL_CHECK_IN', 'REPORT_RECAST_AS_THREAT']) {
+        'FAILED_SOCIAL_CHECK_IN', 'FAILED_CORRECTION_RESPONSE', 'REPORT_RECAST_AS_THREAT']) {
         if (qualityTags.includes(code)) return { ok: false, code, qualityTags };
     }
     if (qualityTags.includes('TAUTOLOGICAL_REPLY')) {
@@ -2327,7 +2370,13 @@ function storyConversationSocialFollowUpText(session, analysis, raw, sequence) {
     }
     const direct = storyConversationSocialResponseText(session, analysis.speechAct, sequence);
     if (direct) return direct.text;
-    return 'Bunu önceki sözünün devamı olarak anladım. Ne demek istediğini biraz daha açar mısın?';
+    if (analysis.speechAct === 'ASK_INFORMATION') {
+        return 'Bu soruyu doğrulayacak bilgim yok. Bilmediğim ayrıntıyı uydurmayacağım.';
+    }
+    if (sequence <= 1) {
+        return 'Bu sözündeki amacı güvenle çıkaramadım. Ne istediğini biraz daha açık söyler misin?';
+    }
+    return 'Bu sözünü önceki konuşmayla güvenle bağlayamadım. Yeni iddianı veya isteğini açıkça belirt.';
 }
 
 function storyConversationSocialMemoryRecall(session, raw) {
