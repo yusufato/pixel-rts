@@ -6,6 +6,9 @@ Bu dosya **damga defteridir**. Her satır üç durumdan birini taşır:
 |---|---|
 | `AÇIK` | Mockup'ta önerisi var, kullanıcı henüz kabul etmedi |
 | `KABUL` | Kullanıcı öneriyi onayladı, uygulanmayı bekliyor |
+
+**Katman A kabul edildi (12 madde): 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22.**
+Katman B (8, 9, 10, 13, 19, 23) kullanıcı kararıyla **bekletildi** — önce A bitecek.
 | `UYGULANDI <commit>` | Oyuna girdi; commit hash'i yazılmadan bu damga geçersizdir |
 
 **Damgasız satır güvenilmez sayılır.** Bu repoda plan/doküman bayatlaması ölçülmüş
@@ -31,10 +34,10 @@ düzeltmenin neyi çözdüğü ölçülemez.
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 1 | Savaşta seçili birim özeti görünmüyor — **iddia ölçümle daraltıldı, öneri DEĞİŞTİ** | `#ui-info` savaşta gizli (`style.css:1919` `display:none !important`) ama **dizimde GÖRÜNÜR** (ölçüldü: `display:block`) · çoklu seçim metni `js/main.js:991`'de **zaten vardı**, yalnız gizli düğüme yazılıyordu | ~~Ölü `#ui-info` silinir~~ → **panel silinmez** (dizimde canlı). Savaştaki ölü yazma kaldırıldı; bilginin savaşta nerede görüneceği hâlâ açık tasarım kararı | kısmen **`UYGULANDI`** `36c8b86` · geri kalanı `AÇIK` |
-| 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · `js/main.js:991-994` cooldown gizli panele yazılıyor | Emir butonları durum katmanı kazanır: `HAZIR` / `BEKLEME 18s` (dolan çubuk) / `150₺ gerek · 90₺ var` | `AÇIK` |
-| 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 400 ms işaret (hareket = daire, taarruz = eşkenar) + kartta `EMİR ALINDI → hedef` satırı | `AÇIK` |
-| 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz | Butonlara kısayol rozeti; sol yığının altına 6 slotlu kontrol grubu şeridi | `AÇIK` |
-| 5 | Savaşta üretim barı kalıntı olarak 76 px yer kaplıyor | `js/main.js:665-666` `opacity .3` + `pointerEvents:none` | Savaş fazında tamamen kalkar; boşalan şerit kontrol grubuna ve büyütülmüş minimap'e (200×110 → 236×130) gider | `AÇIK` |
+| 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · `js/main.js:991-994` cooldown gizli panele yazılıyor | Emir butonları durum katmanı kazanır: `HAZIR` / `BEKLEME 18s` (dolan çubuk) / `150₺ gerek · 90₺ var` | `KABUL` |
+| 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 400 ms işaret (hareket = daire, taarruz = eşkenar) + kartta `EMİR ALINDI → hedef` satırı | `KABUL` |
+| 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz | Butonlara kısayol rozeti; sol yığının altına 6 slotlu kontrol grubu şeridi | `KABUL` |
+| 5 | Savaşta üretim barı kalıntı olarak 76 px yer kaplıyor | `js/main.js:665-666` `opacity .3` + `pointerEvents:none` | Savaş fazında tamamen kalkar; boşalan şerit kontrol grubuna ve büyütülmüş minimap'e (200×110 → 236×130) gider | `KABUL` |
 | 6 | Kamera ipucu yalnız `startBattle()` yolunda gizleniyor — **iddia edilenden ağır çıktı** | `js/main.js:667` satır içi `display:none` yazıyor ve **hiçbir yer geri açmıyor** → ilk savaştan sonra ipucu oturum boyunca kayboluyor (ölçüldü: dizim ✓ → savaş ✗ → rematch **✗**) · `js/MP.js:120` savaş fazına `startBattle()`'a uğramadan giriyor → MP'de hiç gizlenmiyor | Gizleme faza bağlandı (`battle` + `over`); satır içi stil kaldırıldı | **`UYGULANDI`** `6e5361a` |
 | 7 | Muharebe kaydı `aria-live` taşımıyor | `index.html:434` · yalnız `#battle-target-card` taşıyor | `role="log"` + `aria-live="polite"` + `aria-relevant="additions"` + `aria-label`, **kabukta değil güncellenen düğümde** (`#battle-feed-list`) | **`UYGULANDI`** `a870cb1` |
 
@@ -57,11 +60,11 @@ düzeltmenin neyi çözdüğü ölçülemez.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | Rol süzgeci yalnız **görünürlüğü** değiştirir; dünya durumu değişmez → determinizm korunur (`HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`) | `AÇIK` |
-| 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `AÇIK` |
-| 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** yükselir (UI'da değil), AKIŞ arşive dönüşür: arama + tür filtresi | `AÇIK` |
-| 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `HIKAYE_MODU_UYGULAMA_DURUMU.md` Faz 38.1 açık borç | Arama kutusu + filtre çipleri + `8 / 25 gösteriliyor` sayacı | `AÇIK` |
-| 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `AÇIK` |
+| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | Rol süzgeci yalnız **görünürlüğü** değiştirir; dünya durumu değişmez → determinizm korunur (`HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`) | `KABUL` |
+| 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
+| 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** yükselir (UI'da değil), AKIŞ arşive dönüşür: arama + tür filtresi | `KABUL` |
+| 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `HIKAYE_MODU_UYGULAMA_DURUMU.md` Faz 38.1 açık borç | Arama kutusu + filtre çipleri + `8 / 25 gösteriliyor` sayacı | `KABUL` |
+| 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `KABUL` |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
 
 ### 24 — bu turda **yeni bulundu ve ölçüldü**
@@ -197,8 +200,8 @@ ve `design-qa.md` bölüm 2'de **passed**. Buradaki iş yeniden tasarım değil,
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · `js/Talks.js:1270` profil kartı statik | Sol sütun sekmeli olur (`PROFİL` / `İLİŞKİ`); zincir söz–anlaşma–borç–eylem olarak dizilir, `PlayerKnowledge` süzgecinden geçer (`HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857`) | `AÇIK` |
-| 21 | Geçmiş sütununda arama/filtre yok; oturum arttıkça sürdürme kullanılamaz oluyor | `js/Talks.js:1549` düz liste | Arama + tür filtresi + muhataba göre gruplama + eşleşme sayacı | `AÇIK` |
+| 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · `js/Talks.js:1270` profil kartı statik | Sol sütun sekmeli olur (`PROFİL` / `İLİŞKİ`); zincir söz–anlaşma–borç–eylem olarak dizilir, `PlayerKnowledge` süzgecinden geçer (`HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857`) | `KABUL` |
+| 21 | Geçmiş sütununda arama/filtre yok; oturum arttıkça sürdürme kullanılamaz oluyor | `js/Talks.js:1549` düz liste | Arama + tür filtresi + muhataba göre gruplama + eşleşme sayacı | `KABUL` |
 
 ---
 
@@ -208,7 +211,7 @@ Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. �
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre 6/3/3 ↔ 1/7/4 değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + verilen kararlar listesi (satıra tıkla → o soruya dön). Geri alma mevcut `decisions` defterinden son kaydı çıkarır; yeni veri yapısı gerekmez | `AÇIK` |
+| 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre 6/3/3 ↔ 1/7/4 değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + verilen kararlar listesi (satıra tıkla → o soruya dön). Geri alma mevcut `decisions` defterinden son kaydı çıkarır; yeni veri yapısı gerekmez | `KABUL` |
 | 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | `AÇIK` |
 | **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
 

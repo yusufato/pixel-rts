@@ -425,11 +425,18 @@
         <section id="ui-abilities" aria-label="Seçili birim yetenekleri"></section>
         <section id="battle-orders" aria-label="Komutan emirleri">
             <div>KOMUTAN EMİRLERİ</div>
-            <button data-battle-order="assault"><b>TAARRUZ</b><span>Schwerpunkt</span></button>
-            <button data-battle-order="free-fire"><b>ATEŞ SERBEST</b><span>otomatik temas</span></button>
-            <button data-battle-order="trench"><b>SİPER KAZ</b><span>tahkim</span></button>
-            <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
+            <!-- KUSUR 2: <em> = durum satırı (HAZIR / BEKLEME 18s / 150₺ GEREK · 90₺ VAR).
+                 <i> = bekleme süresi dolum çubuğu. İkisini de warRoomUpdateBattle() yazar;
+                 kısayol rozeti (kusur 4) data-key ile gelir. -->
+            <button data-battle-order="assault" data-key="Q"><b>TAARRUZ</b><span>Schwerpunkt</span><em></em><i></i></button>
+            <button data-battle-order="free-fire" data-key="F"><b>ATEŞ SERBEST</b><span>otomatik temas</span><em></em><i></i></button>
+            <button data-battle-order="trench" data-key="T"><b>SİPER KAZ</b><span>tahkim</span><em></em><i></i></button>
+            <button data-battle-order="paradrop" data-key="P"><b>PARAŞÜT</b><span>150 bütçe</span><em></em><i></i></button>
         </section>
+        <!-- KUSUR 4: kontrol grubu şeridi. Ctrl+1..9 atar, 1..9 çağırır.
+             Seçim tamamen yerel bir arayüz durumu (komutlar birim id'siyle
+             kuyruğa giriyor), bu yüzden replay ve hash etkilenmez. -->
+        <section id="battle-groups" aria-label="Kontrol grupları"></section>
     </div>
     <!-- KUSUR 7: kayıt sürekli güncelleniyordu ama ekran okuyucuya hiç duyurulmuyordu
          (#battle-target-card aria-live taşıyor, burası taşımıyordu). aria-live

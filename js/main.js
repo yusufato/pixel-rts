@@ -780,6 +780,35 @@ if (typeof document !== 'undefined') {
             battleTogglePause();
             return;
         }
+        /* ── KUSUR 4: EMİR KISAYOLLARI + KONTROL GRUPLARI ──────────────────
+           Tuşlar WASD (kamera, js/globals.js:260) ve mevcut L/U/M ile
+           ÇAKIŞMAYACAK şekilde seçildi: Q taarruz, F ateş serbest, T siper,
+           P paraşüt. Rozetler index.html'de `data-key` ile duruyor, CSS
+           yazdırıyor — tuş ile etiket tek kaynaktan gelmiyor ama ikisi de
+           burada yorumla bağlandı.
+           Yazı alanına odaklıyken kısayol çalışmaz; yoksa sohbet kutusuna
+           "p" yazmak paraşüt moduna sokardı. */
+        const _yaziAlani = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+        if (!_yaziAlani && typeof phase !== 'undefined' && phase === PHASE.BATTLE) {
+            const _k = (e.key || '').toLowerCase();
+            const _emir = { q: 'assault', f: 'free-fire', t: 'trench', p: 'paradrop' }[_k];
+            if (_emir && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                if (typeof warRoomIssueOrder === 'function') warRoomIssueOrder(_emir);
+                return;
+            }
+            if (/^[1-9]$/.test(e.key)) {
+                e.preventDefault();
+                const n = Number(e.key);
+                if (e.ctrlKey || e.metaKey) {
+                    if (typeof battleGroupAssign === 'function') battleGroupAssign(n);
+                } else if (typeof battleGroupRecall === 'function') {
+                    battleGroupRecall(n);
+                }
+                if (typeof updateUI === 'function') updateUI();
+                return;
+            }
+        }
         if (e.key === 'l' || e.key === 'L') {
             if (typeof phase !== 'undefined' && phase === PHASE.BATTLE) return;   // savaşta 'L' başka işe karışmasın
             BATTLE_LEARN_FROM_MATCH = !BATTLE_LEARN_FROM_MATCH;

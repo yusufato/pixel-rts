@@ -1965,6 +1965,59 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
 #battle-orders button b { color: var(--wr-amber-bright); font-size: 10px; }
 #battle-orders button span { margin-top: 3px; font-size: 7px; }
 
+/* KUSUR 2 — emir butonu durum katmanı. <em> durum metni, <i> bekleme dolumu.
+   Durum YALNIZ renkle anlatılmaz; metin her hâlde okunur (renk körlüğü). */
+#battle-orders button { position: relative; overflow: hidden; }
+#battle-orders button em {
+    display: block; margin-top: 4px; font-size: 8px; font-style: normal;
+    letter-spacing: .5px; color: var(--wr-muted);
+}
+#battle-orders button[data-ord="ready"] em { color: var(--wr-green); }
+#battle-orders button[data-ord="wait"]  em { color: #c8922e; }
+#battle-orders button[data-ord="poor"]  em { color: var(--wr-red); }
+/* Kullanılamaz durumdayken buton sönük ama TIKLANABİLİR kalır: tıklayınca
+   muharebe kaydına sebep düşsün diye. `pointer-events:none` yapmak, sessizliği
+   başka bir biçimde geri getirirdi. */
+#battle-orders button[data-ord="wait"],
+#battle-orders button[data-ord="poor"] { opacity: .72; }
+#battle-orders button i {
+    position: absolute; left: 0; bottom: 0; height: 2px; width: 0;
+    background: #c8922e; transition: width .25s linear;
+}
+/* KUSUR 4 — kısayol rozeti. data-key HTML'de duruyor, CSS yazdırıyor. */
+#battle-orders button[data-key]::after {
+    content: attr(data-key);
+    position: absolute; top: 4px; right: 4px;
+    padding: 1px 4px; border: 1px solid var(--wr-line); border-radius: 2px;
+    font-size: 7px; line-height: 1.3; color: var(--wr-dim);
+}
+
+/* KUSUR 4 — kontrol grubu şeridi. Dolu slot amber, boş slot sönük.
+   Sayı yalnız renkle değil rakamla anlatılır; `title` tuş bilgisini taşır. */
+#battle-groups {
+    display: flex; gap: 3px; padding: 6px 7px;
+    border: 1px solid var(--wr-line); background: rgba(5,9,4,.92);
+}
+#battle-groups span {
+    position: relative; flex: 1 1 0; min-width: 0; padding: 3px 0 2px;
+    border: 1px solid transparent; border-radius: 2px;
+    text-align: center; font-size: 7px; color: var(--wr-dim);
+}
+#battle-groups span b { display: block; font-weight: 400; font-size: 8px; }
+#battle-groups span i { display: block; font-style: normal; font-size: 9px; min-height: 11px; }
+#battle-groups span[data-dolu="1"] {
+    border-color: var(--wr-line); background: rgba(255,176,0,.08); color: var(--wr-amber);
+}
+#battle-groups span[data-dolu="1"] i { color: var(--wr-amber-bright); }
+
+/* KUSUR 5: üretim barı savaşta yalnız `opacity:.3` ile söndürülüyordu —
+   işlevsizdi ama 76 px yer kaplıyor ve tıklanabilir görünüyordu. Savaşta
+   tamamen kalkar. Gizleme CSS'te (kusur 6'da öğrenildiği gibi faza bağlı);
+   JS'teki satır içi stiller yerinde bırakıldı çünkü onları BattleSession.js:1252
+   ve MP.js:59 geri açıyor — yani kusur 6'daki "geri açılmıyor" arızası burada YOK. */
+body[data-screen="game"][data-phase="battle"] #ui-spawn-bar,
+body[data-screen="game"][data-phase="over"] #ui-spawn-bar { display: none; }
+
 /* SOL-PANEL YETENEK-SEÇİCİ: seçili birimin aktif-yetenekleri (buton) + pasif (oto-çip). JS display:flex ile açar. */
 #ui-abilities { padding: 8px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1px; flex-direction: column; gap: 4px; }
 #ui-abilities .ability-head { font-size: 8px; color: var(--wr-muted); margin-bottom: 2px; }

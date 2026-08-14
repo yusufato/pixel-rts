@@ -251,6 +251,7 @@ function warRoomBattleEvent(message, tone = 'info') {
 }
 
 function warRoomResetBattleUI() {
+    battleGroupsReset();          // KUSUR 4: yeni maça eski gruplarla girilmez
     WAR_ROOM_BATTLE_FEED.length = 0;
     warRoomUpdateBattle._counts = null;
     warRoomBattleEvent('MUHAREBE AĞI HAZIR');
@@ -285,6 +286,138 @@ function warRoomIssueOrder(order) {
     }
 }
 
+/* ── KUSUR 4: KONTROL GRUPLARI ──────────────────────────────────────────────
+   Ctrl+1..9 seçili birlikleri gruba atar, 1..9 grubu geri çağırır.
+
+   DETERMİNİZM: `unit.selected` tamamen yerel bir arayüz durumudur — emirler
+   `pendingPlayerCommands`e birim id'siyle giriyor (bkz. warRoomIssueOrder),
+   seçim simülasyona hiç girmiyor. Bu yüzden gruplar replay'i ve hash'i
+   etkilemez; ağ üzerinden de gönderilmez.
+
+   Ölü birim id'leri çağırma anında elenir, ama gruptan SİLİNMEZ: aynı grup
+   takviye sonrası yeniden atanmadan da anlamını korusun diye değil — id'ler
+   benzersiz olduğu için ölü id bir daha eşleşmez; temizlik yalnız gösterim
+   sayısını doğru tutar. */
+const BATTLE_CONTROL_GROUPS = Object.create(null);
+
+function battleGroupAssign(n) {
+    if (typeof units === 'undefined') return 0;
+    const ids = units.filter(u => !u.dead && !u.isRed && u.selected &&
+        (typeof playerCanControlBattleUnit !== 'function' || playerCanControlBattleUnit(u)))
+        .map(u => u.id);
+    if (!ids.length) { delete BATTLE_CONTROL_GROUPS[n]; return 0; }
+    BATTLE_CONTROL_GROUPS[n] = ids;
+    if (typeof warRoomBattleEvent === 'function') warRoomBattleEvent(`GRUP ${n} — ${ids.length} BİRLİK`, 'info');
+    return ids.length;
+}
+
+function battleGroupRecall(n) {
+    if (typeof units === 'undefined') return 0;
+    const ids = BATTLE_CONTROL_GROUPS[n];
+    if (!ids || !ids.length) return 0;
+    const küme = new Set(ids);
+    let sayi = 0;
+    units.forEach(u => {
+        const uygun = !u.dead && !u.isRed && küme.has(u.id);
+        u.selected = uygun;
+        if (uygun) sayi++;
+    });
+    if (!sayi && typeof warRoomBattleEvent === 'function') warRoomBattleEvent(`GRUP ${n} — BİRLİK KALMADI`, 'hostile');
+    return sayi;
+}
+
+function battleGroupsReset() {
+    Object.keys(BATTLE_CONTROL_GROUPS).forEach(k => delete BATTLE_CONTROL_GROUPS[k]);
+}
+
+function warRoomUpdateGroups() {
+    const kutu = document.getElementById('battle-groups');
+    if (!kutu) return;
+    if (!kutu.children.length) {
+        for (let n = 1; n <= 9; n++) {
+            const s = document.createElement('span');
+            s.setAttribute('data-g', String(n));
+            s.innerHTML = `<b>${n}</b><i></i>`;
+            kutu.appendChild(s);
+        }
+    }
+    let imza = '';
+    for (let n = 1; n <= 9; n++) {
+        const ids = BATTLE_CONTROL_GROUPS[n];
+        let canli = 0;
+        if (ids && typeof units !== 'undefined') {
+            const küme = new Set(ids);
+            canli = units.reduce((t, u) => t + ((!u.dead && küme.has(u.id)) ? 1 : 0), 0);
+        }
+        imza += canli + ',';
+    }
+    if (kutu._grpImza === imza) return;
+    kutu._grpImza = imza;
+    const parcalar = imza.split(',');
+    for (let n = 1; n <= 9; n++) {
+        const el = kutu.children[n - 1];
+        const canli = Number(parcalar[n - 1]) || 0;
+        el.querySelector('i').textContent = canli ? String(canli) : '';
+        el.setAttribute('data-dolu', canli ? '1' : '0');
+        el.setAttribute('title', canli ? `Grup ${n}: ${canli} birlik (${n} tuşu çağırır)`
+                                       : `Grup ${n} boş (Ctrl+${n} ile ata)`);
+    }
+}
+
+/* ── KUSUR 2: EMİR BUTONLARINDA DURUM ───────────────────────────────────────
+   Ölçülen arıza: PARAŞÜT butonu bekleme süresi dolmamışsa veya bütçe yetmiyorsa
+   `js/main.js:348`'de sessizce `return` ediyordu. Buton tıklanıyor, hiçbir şey
+   olmuyor, hiçbir yerde sebep yazmıyor — oyuncu arayüzü bozuk sanıyor. Bekleme
+   göstergesi (`#cd-paradrop`) vardı ama `#ui-support` savaşta gizli olduğu için
+   (style.css:1919) hiç görünmüyordu.
+
+   Artık her emir butonu ne yapacağını ve neden yapamayacağını kendisi yazıyor.
+   TAARRUZ/ATEŞ SERBEST'te "kaç birlik" gösterilir: seçim yoksa emir TÜM orduya
+   gider (warRoomIssueOrder: `selected.length ? selected : own`) — bu, oyuncunun
+   çoğu zaman fark etmediği bir davranış.
+
+   Her karede çağrılır; bu yüzden imza karşılaştırmasıyla gereksiz DOM yazması
+   engellenir (aynı hata sınıfı kusur 1'de ölçülmüştü). */
+function warRoomUpdateOrderStates(blue) {
+    const kutu = document.getElementById('battle-orders');
+    if (!kutu) return;
+    const secili = blue.filter(u => u.selected).length;
+    const hedefAdet = secili || blue.length;
+    const para = (typeof player !== 'undefined' && player) ? Math.floor(player.money || 0) : 0;
+    const pdCd = (typeof supportCooldowns !== 'undefined') ? Math.ceil(supportCooldowns.paradrop || 0) : 0;
+    const pdMax = (typeof MAX_CD_PARADROP !== 'undefined') ? MAX_CD_PARADROP : 30;
+    const pdUcret = (typeof PARADROP_COST !== 'undefined') ? PARADROP_COST : 150;
+
+    const durum = (emir) => {
+        if (emir === 'paradrop') {
+            if (pdCd > 0) return { metin: `BEKLEME ${pdCd}s`, hal: 'wait', dolum: pdCd / pdMax };
+            if (para < pdUcret) return { metin: `${pdUcret}₺ GEREK · ${para}₺ VAR`, hal: 'poor', dolum: 0 };
+            return { metin: `HAZIR · ${pdUcret}₺`, hal: 'ready', dolum: 0 };
+        }
+        if (emir === 'trench') return { metin: 'HAZIR', hal: 'ready', dolum: 0 };
+        // taarruz / ateş serbest
+        if (!blue.length) return { metin: 'DOST BİRLİK YOK', hal: 'poor', dolum: 0 };
+        return { metin: secili ? `${hedefAdet} SEÇİLİ BİRLİK` : `TÜM ORDU · ${hedefAdet} BİRLİK`,
+                 hal: 'ready', dolum: 0 };
+    };
+
+    kutu.querySelectorAll('button[data-battle-order]').forEach(btn => {
+        const d = durum(btn.getAttribute('data-battle-order'));
+        const imza = d.hal + '|' + d.metin + '|' + Math.round(d.dolum * 100);
+        if (btn._ordImza === imza) return;          // değişmediyse DOM'a dokunma
+        btn._ordImza = imza;
+        const em = btn.querySelector('em');
+        if (em) em.textContent = d.metin;
+        const i = btn.querySelector('i');
+        if (i) i.style.width = d.dolum > 0 ? `${Math.min(100, d.dolum * 100)}%` : '0';
+        btn.setAttribute('data-ord', d.hal);
+        // Erişilebilirlik: durum yalnız renkle değil metinle de anlatılır.
+        const b = btn.querySelector('b');
+        btn.setAttribute('aria-label', `${b ? b.textContent : ''} — ${d.metin}`);
+        btn.setAttribute('aria-disabled', d.hal === 'ready' ? 'false' : 'true');
+    });
+}
+
 function warRoomUpdateBattle() {
     if (typeof units === 'undefined' || typeof STATS === 'undefined' || typeof SIM === 'undefined') return;
     const blue = units.filter(unit => !unit.dead && !unit.isRed);
@@ -317,6 +450,9 @@ function warRoomUpdateBattle() {
     if (timeLabel) timeLabel.textContent = clock;
     const roleLabel = document.getElementById('battle-role-label');
     if (roleLabel && battle) roleLabel.textContent = battle.attackerSide ? 'KIRMIZI SALDIRIYOR' : 'MAVİ SALDIRIYOR';
+
+    warRoomUpdateOrderStates(blue);
+    warRoomUpdateGroups();
 
     const selected = units.find(unit => unit.selected && !unit.dead) || null;
     const stat = selected ? STATS[selected.type] : null;
