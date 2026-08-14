@@ -1485,6 +1485,7 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText, validati
         if (parsed.answeredQuestionIds.some(ref => typeof ref !== 'string')) return null;
     }
     if (storyConversationSocialLLMNumberIssue(text, parsed, validationContext)) return null;
+    if (storyConversationSocialLLMMemoryIssue(text, parsed, validationContext)) return null;
     if (history.some(row => storyConversationFold(row && row.text) === replyFolded)) return null;
     if (typeof storyCharacterDialogueSemanticSimilarityBps === 'function'
         && history.some(row => storyCharacterDialogueSemanticSimilarityBps(text, row && row.text) >= 8800)) return null;
@@ -1735,6 +1736,29 @@ function storyConversationSocialLLMNumberIssue(text, parsed, validationContext) 
     return replyNumbers.some(number => !allowedNumbers.has(number)) ? 'UNSOURCED_NUMBER' : null;
 }
 
+function storyConversationSocialLLMMemoryIssue(text, parsed, validationContext) {
+    const move = validationContext && validationContext.dialogueMove;
+    if (!move || move.act !== 'RECALL_HELD_MEMORY') return null;
+    const requiredRefs = new Set(move.memoryRefs || []);
+    const usedRefs = new Set(parsed && Array.isArray(parsed.usedRefs) ? parsed.usedRefs : []);
+    const usedMemoryRefs = Array.from(requiredRefs).filter(ref => usedRefs.has(ref));
+    if (!usedMemoryRefs.length) return 'MEMORY_REF_REQUIRED';
+    const memories = (validationContext.memoryRecords || [])
+        .filter(row => usedMemoryRefs.includes(row.id));
+    if (!memories.length) return 'MEMORY_SOURCE_UNAVAILABLE';
+    const stop = new Set(['onceki', 'sonraki', 'yeniden', 'oyuncuya', 'oyuncunun', 'konusu',
+        'konuyu', 'kaydi', 'kayit', 'verildi', 'yapildi', 'olacak', 'olarak', 'icin']);
+    const roots = value => storyConversationFold(value).split(' ')
+        .filter(token => token.length >= 5 && !stop.has(token))
+        .map(token => token.slice(0, Math.min(6, token.length)));
+    const replyRoots = new Set(roots(text));
+    const sourceRoots = new Set(memories.flatMap(row => roots(row.summary)));
+    if (sourceRoots.size && !Array.from(sourceRoots).some(root => replyRoots.has(root))) {
+        return 'MEMORY_CONTENT_UNGROUNDED';
+    }
+    return null;
+}
+
 function storyConversationSocialLLMDiagnose(raw, fallbackText, playerText, validationContext) {
     let parsed;
     try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) {
@@ -1760,6 +1784,8 @@ function storyConversationSocialLLMDiagnose(raw, fallbackText, playerText, valid
     }
     const numberIssue = storyConversationSocialLLMNumberIssue(text, parsed, validationContext);
     if (numberIssue) return { ok: false, code: numberIssue };
+    const memoryIssue = storyConversationSocialLLMMemoryIssue(text, parsed, validationContext);
+    if (memoryIssue) return { ok: false, code: memoryIssue };
     const qualityTags = storyConversationSocialLLMQualityTags(text, playerText);
     if (qualityTags.includes('EVASIVE_DIRECT_QUESTION')) {
         return { ok: false, code: 'EVASIVE_DIRECT_QUESTION', qualityTags };
@@ -1802,6 +1828,7 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
         + `Karakterin veya oyuncunun konumu güvenli anlamda yoksa şehir adı uydurma. `
         + `Yeni kişi, olay, sayı, stok, anlaşma, emir, yetki veya dünya gerçeği ekleme. `
         + `FACT kaydı oyuncunun sorusuyla ilgiliyse cevabında en az bir FACT bilgisini somut biçimde kullan ve onun kimliğini usedRefs içine yaz. `
+        + `MEMORY kaydı oyuncunun sorusuyla ilgiliyse kayıttaki somut konuyu cevapta an ve kullandığın MEMORY kimliğini usedRefs içine yaz. `
         + `İlgili FACT varken bütünüyle “bilgim yok” deme; kayıt sorunun yalnız bir bölümünü karşılıyorsa önce bildiğin gerçeği söyle, sonra kapsam sınırını açıkla. `
         + `Mekanik sonuç vaat etme. DİYALOG KARARI varsa moveId alanını aynen geri ver; yalnız gerçekten kullandığın izinli kaynakları usedRefs içine yaz. `
         + (Number(session.contactOrdinal) === 1
@@ -1888,11 +1915,16 @@ function storyConversationSessionContextPack(session, response, playerText, opti
             + `${claim.regionNames ? ` / ${claim.regionNames.join(', ')}` : ''}`
     });
     const explicitMemory = response.memoryRecall && response.memoryRecall.records || [];
-    const obligationRecall = typeof storyMemoryRecallForActor === 'function'
+    const turnAnalysis = currentFollowUp && currentFollowUp.analysis || null;
+    const obligationIntent = typeof storyConversationMemoryIntent === 'function'
+        ? storyConversationMemoryIntent(playerText, turnAnalysis, { includeObligations: true }) : null;
+    const obligationRecall = obligationIntent && typeof storyMemoryRecallForActor === 'function'
         ? storyMemoryRecallForActor(session.listenerActorId, {
-            kinds: ['PROMISE', 'SECRET'], relatedActorId: session.playerActorId, limit: 6
+            kinds: obligationIntent.kinds, relatedActorId: session.playerActorId, limit: 6
         }) : null;
-    const relevantMemories = explicitMemory.concat(obligationRecall && obligationRecall.records || []);
+    const relevantMemories = Array.from(new Map(explicitMemory
+        .concat(obligationRecall && obligationRecall.records || [])
+        .map(memory => [String(memory.id), memory])).values());
     for (const memory of relevantMemories) sections.push({
         id: `context:memory:${memory.id}`, kind: 'MEMORY', priority: 92,
         protected: memory.kind === 'PROMISE' || memory.kind === 'SECRET',
@@ -2490,18 +2522,57 @@ function storyConversationSocialFollowUpText(session, analysis, raw, sequence) {
     return 'Bu sözünü önceki konuşmayla güvenle bağlayamadım. Yeni iddianı veya isteğini açıkça belirt.';
 }
 
-function storyConversationSocialMemoryRecall(session, raw) {
-    if (typeof storyMemoryRecallForActor !== 'function') return null;
+function storyConversationMemoryIntent(raw, analysis, options) {
     const folded = storyConversationFold(raw);
-    const wantsMemory = storyConversationContains(folded, [
-        'hatirliyor musun', 'hatirladin mi', 'onceki konusma', 'gecen konusma',
-        'daha once', 'verdigin soz', 'verdigim soz', 'sozumu', 'sozunu', 'ne oldu'
+    const explicitRecall = storyConversationContains(folded, [
+        'hatirliyor musun', 'hatirladin mi', 'hatirla', 'onceki konusma', 'gecen konusma',
+        'son konusma', 'ne konustuk', 'daha once', 'gecmiste', 'verdigin soz', 'verdigim soz',
+        'sozumu', 'sozunu', 'aramizda ne oldu', 'aramizdaki gecmis'
     ]);
-    if (!wantsMemory) return null;
-    const wantsPromise = storyConversationContains(folded, ['soz', 'tuttuk', 'bozduk', 'ne oldu']);
+    const promise = storyConversationContains(folded, [
+        'verdigin soz', 'verdigim soz', 'sozumu', 'sozunu', 'soz vermistin', 'soz vermistim',
+        'vaat', 'taahhut'
+    ]);
+    const debt = storyConversationContains(folded, ['borc', 'alacagim', 'alacagin', 'borclu']);
+    const secret = storyConversationContains(folded, [
+        'sir', 'gizli', 'gizlilik', 'mahrem', 'aramizda kalsin', 'kimse bilmesin'
+    ]);
+    const conflict = storyConversationContains(folded, [
+        'ihanet', 'kavga', 'tartisma', 'husumet', 'kirgin', 'guvenin nerede kayboldu',
+        'neden guvenmiyorsun', 'neden bana guvenmiyorsun'
+    ]);
+    const decision = storyConversationContains(folded, [
+        'karar', 'kararlastirdik', 'anlastik', 'anlasmistik', 'uzlastik'
+    ]);
+    const conversation = storyConversationContains(folded, [
+        'onceki konusma', 'gecen konusma', 'son konusma', 'ne konustuk'
+    ]);
+    const relationshipHistory = (analysis && analysis.topic === 'RELATIONSHIP')
+        && (explicitRecall || conflict || storyConversationContains(folded, ['neden', 'nerede kayboldu']));
+    const commerceObligation = options && options.includeObligations
+        && analysis && analysis.topic === 'COMMERCE'
+        && (promise || debt || decision || storyConversationContains(folded, [
+            'anlasma', 'teklif', 'teslimat', 'ortaklik', 'pay'
+        ]));
+    if (!explicitRecall && !relationshipHistory && !secret && !commerceObligation) return null;
+    let kinds;
+    if (secret) kinds = ['SECRET'];
+    else if (promise && !debt && !decision) kinds = ['PROMISE'];
+    else if (debt && !promise) kinds = ['DEBT', 'PROMISE'];
+    else if (conflict) kinds = ['CONFLICT', 'RELATIONSHIP', 'PROMISE', 'DEBT'];
+    else if (decision) kinds = ['DECISION', 'PROMISE', 'DEBT'];
+    else if (conversation) kinds = ['CONVERSATION', 'PROMISE', 'DECISION'];
+    else if (commerceObligation) kinds = ['PROMISE', 'DEBT', 'DECISION'];
+    else kinds = ['CONVERSATION', 'PROMISE', 'DECISION', 'CONFLICT', 'DEBT', 'RELATIONSHIP'];
+    return { kinds: Array.from(new Set(kinds)), explicitRecall, relationshipHistory };
+}
+
+function storyConversationSocialMemoryRecall(session, raw, analysis) {
+    if (typeof storyMemoryRecallForActor !== 'function') return null;
+    const intent = storyConversationMemoryIntent(raw, analysis);
+    if (!intent) return null;
     const recall = storyMemoryRecallForActor(session.listenerActorId, {
-        kinds: wantsPromise ? ['PROMISE']
-            : ['CONVERSATION', 'PROMISE', 'DECISION', 'CONFLICT', 'DEBT', 'RELATIONSHIP'],
+        kinds: intent.kinds,
         relatedActorId: session.playerActorId,
         limit: 3
     });
@@ -2538,7 +2609,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     });
     if (!analysis.ok) return { ok: false, code: analysis.code, worldMutation: false };
     const sequence = session.followUps.length + 1;
-    const heldMemory = storyConversationSocialMemoryRecall(session, text);
+    const heldMemory = storyConversationSocialMemoryRecall(session, text, analysis);
     let grounded = !heldMemory && storyConversationGroundedFollowUp(session, analysis, text, sequence);
     if (grounded && (session.listenerResponses || []).some(row =>
         storyConversationFold(row.text) === storyConversationFold(grounded.text))) {
@@ -2568,7 +2639,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         confidentialityRequest: grounded && grounded.confidentialityRequest || null,
         voiceFingerprint: storyConversationSocialVoice(session).fingerprint,
         relationshipBand: storyConversationSocialVoice(session).relationshipBand,
-        enrichmentStatus: heldMemory || grounded ? 'NOT_REQUIRED' : 'NOT_QUEUED', llmUsed: false,
+        enrichmentStatus: grounded ? 'NOT_REQUIRED' : 'NOT_QUEUED', llmUsed: false,
         memoryRecall: heldMemory && heldMemory.recall || null,
         evidenceIds: heldMemory && heldMemory.evidenceIds || [],
         rawWorldRead: false,
@@ -2600,7 +2671,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
     if (heldMemory) ledger.diagnostics.memoryRecalls++;
-    if (!heldMemory && !grounded) storyConversationSessionQueueSocialLLM(session.id, response.id, text);
+    if (!grounded) storyConversationSessionQueueSocialLLM(session.id, response.id, text);
     return {
         ok: true, code: 'FOLLOW_UP_RECORDED', followUp: storyConversationClone(followUp),
         session: storyConversationClone(session), worldMutation: false
@@ -2802,6 +2873,10 @@ function storyConversationSessionValidationContext(session, response) {
         .map(ref => typeof storyConversationDomainFactResolve === 'function'
             ? storyConversationDomainFactResolve(ref, session.listenerActorId, response.domainEvidence) : null)
         .filter(Boolean).map(row => ({ id: row.id, text: row.text, sourceType: row.sourceType }));
+    const allowedMemoryRefs = new Set(response.dialogueMove && response.dialogueMove.memoryRefs || []);
+    const memoryRecords = (response.memoryRecall && response.memoryRecall.records || [])
+        .filter(row => allowedMemoryRefs.has(row.id))
+        .map(row => ({ id: row.id, kind: row.kind, status: row.status, summary: row.summary }));
     return {
         history: (session.listenerResponses || []).filter(row => row.id !== response.id)
             .map(row => ({ text: row.text })),
@@ -2813,7 +2888,7 @@ function storyConversationSessionValidationContext(session, response) {
         locationAnswerMustBeUnknown: response.discourseAct === 'ANSWER_LISTENER_LOCATION_UNKNOWN',
         firstContact: Number(session.contactOrdinal) === 1,
         dialogueMove: response.dialogueMove || null,
-        verifiedFacts
+        verifiedFacts, memoryRecords
     };
 }
 

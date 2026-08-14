@@ -19,6 +19,19 @@ try {
         row.ownerId !== directory.playerCountryId && row.role === 'EXECUTIVE');
     assert.ok(ownExecutive && ownCommander && foreignExecutive, 'kanıt testi için üç rol bulunmalı');
 
+    runtime.api.characterMemoryAddRecent(ownExecutive.id, {
+        id: 'memory:evidence:player-promise', kind: 'PROMISE',
+        summary: 'Oyuncuya liman teslimatını yeniden görüşme sözü verildi.',
+        importanceBps: 9000, relatedActorIds: [directory.playerActorId],
+        source: { eventId: 'event:evidence:player-promise' }
+    });
+    runtime.api.characterMemoryAddRecent(ownExecutive.id, {
+        id: 'memory:evidence:third-actor-secret', kind: 'SECRET',
+        summary: 'THIRD_ACTOR_SECRET_MUST_NOT_LEAK',
+        importanceBps: 9900, relatedActorIds: [foreignExecutive.id],
+        source: { eventId: 'event:evidence:third-actor-secret' }
+    });
+
     function ask(actor, text) {
         const opened = runtime.api.conversationSessionBegin('Merhaba.', { listenerActorId: actor.id });
         const followed = runtime.api.conversationSessionFollowUp(opened.session.id, text);
@@ -46,6 +59,8 @@ try {
     assert.ok(ownFacts.every(row => !/recentTransactions|journal|policyHash/.test(row.text)),
         'ham bütçe defteri prompta sızmamalı');
     assert.equal(own.response.source, 'DETERMINISTIC_VERIFIED_FACT_RESPONSE');
+    assert.equal(own.pack.sections.some(row => row.kind === 'MEMORY'), false,
+        'ekonomi sorusuna ilgisiz söz veya sır belleği otomatik eklenmemeli');
     assert.match(own.response.text, /Doğrulanmış kayda göre/);
     assert.match(own.response.text, /anlık kayıt geçmiş dönem değişimini/i,
         'trend sorusu yalnız anlık görüntüyle cevaplanmış gibi yapılmamalı');
@@ -102,6 +117,48 @@ try {
     assert.equal(relationship.response.domainEvidence.factRefs.some(ref =>
         ref === `relationship:${directory.playerActorId}=>${ownExecutive.id}`), false,
     'oyuncudan muhataba ters ilişki kanıt diye sızmamalı');
+    assert.equal(relationship.pack.sections.some(row => row.kind === 'MEMORY'), false,
+        'genel ilişki sorusu kanonik ilişki gerçeği yerine ilgisiz geçmişi taşımamalı');
+
+    const promiseRecall = ask(ownExecutive, 'Bana verdiğin sözü hatırlıyor musun?');
+    assert.equal(promiseRecall.response.source, 'CHARACTER_HELD_MEMORY_RECALL');
+    assert.equal(promiseRecall.response.enrichmentStatus, 'NOT_QUEUED',
+        'kaynaklı hafıza cevabı güvenli fallback’i koruyarak doğal dil gerçekleştirmesine açık olmalı');
+    assert.deepEqual(Array.from(promiseRecall.response.memoryRecall.records.map(row => row.id)),
+        ['memory:evidence:player-promise']);
+    const promiseMemorySections = promiseRecall.pack.sections.filter(row => row.kind === 'MEMORY');
+    assert.equal(promiseMemorySections.length, 1);
+    assert.match(promiseMemorySections[0].text, /liman teslimatını/);
+    assert.ok(promiseMemorySections[0].sourceRefs.includes('event:evidence:player-promise'));
+    assert.doesNotMatch(JSON.stringify(promiseRecall.pack), /THIRD_ACTOR_SECRET_MUST_NOT_LEAK/,
+        'muhatabın tuttuğu ama oyuncuyla ilgisiz üçüncü kişi sırrı ContextPack’e sızmamalı');
+    const memoryValidation = runtime.api.conversationValidationContext(
+        promiseRecall.session, promiseRecall.response);
+    const memoryEnvelope = (reply, usedRefs) => JSON.stringify({
+        moveId: promiseRecall.response.dialogueMove.moveId, reply, usedRefs,
+        answeredQuestionIds: [], introducedQuestion: null, closing: false
+    });
+    const groundedMemoryReply = runtime.api.conversationSocialLLMDiagnose(memoryEnvelope(
+        'Liman teslimatını yeniden görüşeceğimize dair verdiğim söz kaydımda duruyor.',
+        ['memory:evidence:player-promise']), promiseRecall.response.text,
+    'Bana verdiğin sözü hatırlıyor musun?', memoryValidation);
+    assert.equal(groundedMemoryReply.ok, true,
+        'doğal hafıza cevabı izinli MEMORY kimliğini ve somut kayıt konusunu kullanabilmeli');
+    const uncitedMemoryReply = runtime.api.conversationSocialLLMDiagnose(memoryEnvelope(
+        'Liman teslimatını yeniden görüşeceğimize dair verdiğim söz kaydımda duruyor.', []),
+    promiseRecall.response.text, 'Bana verdiğin sözü hatırlıyor musun?', memoryValidation);
+    assert.equal(uncitedMemoryReply.code, 'MEMORY_REF_REQUIRED');
+    const unrelatedMemoryReply = runtime.api.conversationSocialLLMDiagnose(memoryEnvelope(
+        'Bu kaydı biliyorum ama ayrıntısını burada söylemeyeceğim.',
+        ['memory:evidence:player-promise']), promiseRecall.response.text,
+    'Bana verdiğin sözü hatırlıyor musun?', memoryValidation);
+    assert.equal(unrelatedMemoryReply.code, 'MEMORY_CONTENT_UNGROUNDED');
+
+    const missingSecret = ask(ownExecutive, 'Aramızdaki gizli konuyu hatırlıyor musun?');
+    assert.equal(missingSecret.response.memoryRecall, null,
+        'oyuncuyla ilişkili sır yokken üçüncü kişi sırrı geri çağrılmış sayılmamalı');
+    assert.equal(missingSecret.pack.sections.some(row => row.kind === 'MEMORY'), false);
+    assert.doesNotMatch(JSON.stringify(missingSecret.pack), /THIRD_ACTOR_SECRET_MUST_NOT_LEAK/);
 
     const relationshipContext = runtime.api.conversationValidationContext(
         relationship.session, relationship.response);
@@ -161,6 +218,7 @@ try {
         commanderFactCount: commander.response.domainEvidence.factRefs.length,
         foreignFactCount: foreign.response.domainEvidence.factRefs.length,
         relationshipFactCount: relationship.response.domainEvidence.factRefs.length,
+        promiseMemoryCount: promiseMemorySections.length,
         unestablishedRelationshipFactCount: unestablished.response.domainEvidence.factRefs.length,
         socialFactCount: 0
     })}\n`);

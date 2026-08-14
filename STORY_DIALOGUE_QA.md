@@ -593,3 +593,33 @@ yararlı teslim `%100`, hata `0` verdi. Cevap kanonik ilişki FACT'inden
 deterministik üretildiği için 8B hiç yüklenmedi (`modelLoads=1`, yalnız 14B).
 Önceki 8B “daha açık söyleyin” cevabının sahte `%100` kabulü iptal edildi;
 mevcut FACT varken açıklama isteme kaçışı reddediliyor.
+
+## 14 Ağustos 2026 — Konu ve sahiplik filtreli hafıza projeksiyonu
+
+ContextPack'in her turda muhatabın oyuncuyla ilgili bütün `PROMISE/SECRET`
+kayıtlarını eklediği tespit edildi. Bu davranış konu ilgisi olmadan gizli veya
+eski bilgiyi modele taşıyor, gereksiz token harcıyor ve modelin alakasız geçmişe
+sapmasını kolaylaştırıyordu. Ortak hafıza niyeti artık söz, borç, karar, çatışma,
+önceki konuşma, ilişki geçmişi ve gizlilik için ayrı tür kümeleri üretir. “Ne
+oldu?” tek başına artık bütün çağrımı `PROMISE` diye daraltmaz. Her sorguda
+muhatabın sahipliği ve `relatedActorId=playerActorId` sınırı korunur.
+
+Kanıt testinde aynı muhataba oyuncuyla ilgili bir söz ve yabancı karakterle ilgili
+yüksek önemde bir sır verildi. Ekonomi ve genel ilişki sorularının ContextPack'inde
+`MEMORY=0`; açık söz sorusunda yalnız oyuncu sözü `MEMORY=1`; üçüncü kişi sırrı
+metin, kayıt ve kaynak referanslarında sıfırdır. Açık gizli-geçmiş sorusunda
+oyuncuyla ilgili sır yoksa başka kişinin sırrı yedek cevap diye kullanılamaz.
+
+Kaynaklı hafıza cevabı artık mekanik fallback'te kilitli değildir; gerçek oyunda
+8B doğal Türkçe gerçekleştirme deneyebilir. Kabul için `RECALL_HELD_MEMORY`
+hareketindeki izinli `memoryRefs` kümesinden en az bir kimliği `usedRefs` ile
+kullanması ve cevabın ilgili kayıt özetindeki somut konuya bağlanması zorunludur.
+Kaynak yazmadan doğru görünen cevap `MEMORY_REF_REQUIRED`, kaynak kimliğini yazıp
+ilgisiz konuşan cevap `MEMORY_CONTENT_UNGROUNDED` olur; iki durumda da güvenli
+fallback oyuncuya kalır.
+
+Hedefli ekonomi/ilişki/hafıza kanıt testi, ContextPack ve DialogueMove testleri,
+30 oyuncu regresyonu, 60 adversarial senaryo ve 23 turluk save/load probu geçti.
+1.200 turluk ek sanal laboratuvar mevcut makine yükünde `184,8 sn` zaman aşımına
+uğradı; hata vermedi fakat tamamlanmadığı için yeşil kanıt sayılmadı. Tam `81/81`
+paket hâlâ yeniden koşulmadı.

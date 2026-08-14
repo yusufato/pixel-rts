@@ -724,7 +724,7 @@ Bu yüzden sonraki alt sıra:
 4. sıfır-kaynak `SUPPORTED_PUBLIC` için raporlanan sert sözleşme uyumsuzluğu — **tamamlandı**,
 5. teknoloji için yalnız Faz 42'de gerçek kayıt oluştuğunda fact projeksiyonu,
 6. resmî toplantı için katılımcı/gündem/tutanak görünürlük projeksiyonu,
-7. ilişki için aktörün bildiği yönlü ilişki projeksiyonu — **tamamlandı**; hafıza kaynaklarının konuya göre daraltılması açık,
+7. ilişki için aktörün bildiği yönlü ilişki projeksiyonu ve hafıza kaynaklarının konu/sahiplik filtresi — **tamamlandı**,
 8. aynı dört-alan pozitif smoke ve `%50` doğal yararlılık kapısıdır.
 
 Manifest etiketi tek başına kanıt değildir. `supportedPublicUsefulBps` yalnız en
