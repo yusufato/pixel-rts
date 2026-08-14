@@ -694,6 +694,10 @@ body:not([data-screen="game"]) #minimap { display: none !important; }
     --wr-panel: rgba(8, 12, 6, 0.92);
     --wr-muted: #8c7a3e;
     --wr-dim: #6e6330;
+    /* KUSUR 11: klavye odağı için AYRI renk. Amber = hover, yeşil = onay/dost
+       zaten kullanımda; odak bu ikisiyle karışmamalı. Mavi, arayüzde başka hiçbir
+       durumu anlatmadığı için seçildi (mockup/tokens.css ile aynı değer). */
+    --wr-focus: #6cc7ff;
 }
 
 #war-room-shell {
@@ -2699,3 +2703,30 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .news-t { font-size: 13px; color: #ffe9bf; line-height: 1.45; }
 .news-b { font-size: 11.5px; color: var(--wr-muted); margin-top: 4px; line-height: 1.4; }
 .news-spin { margin-top: 7px; width: 100%; }
+
+/* ═══════════════ KUSUR 11 — KLAVYE ODAĞI GÖRÜNÜR OLSUN ═══════════════
+   Ölçüldü: dokuz kuralda `:focus-visible` doğrudan `:hover` ile aynı gruba
+   yazılmış VE `outline: none` deniyor (style.css:857, 908, 1280, 1317, 1336,
+   1362, 1959, 1969 ve türevleri). Yani klavye odağı tarayıcının kendi halkasını
+   kaybediyor ve geriye yalnız hover görünümü kalıyor — fare başka bir öğenin
+   üstündeyken odağın nerede olduğu anlaşılamıyor.
+
+   Bu blok DOSYANIN SONUNDA duruyor; sebebi özgüllük değil SIRA: yukarıdaki
+   kurallar `outline: none` yazdığı ve eşit özgüllükte olduğu için, ezmenin tek
+   güvenli yolu sonra gelmek. (Aynı ders kusur 24'te `.story-stat-chip.wide`
+   çift tanımıyla alınmıştı.)
+
+   Hover ve onay renkleri değişmiyor; yalnız odak ayrı bir işaret kazanıyor. */
+.wr-menu-button:focus-visible,
+.wr-state-card:focus-visible,
+.wr-era:focus-visible,
+#story-topright .ctrl-btn:focus-visible,
+.story-brief-tab:focus-visible,
+.story-agenda-item button:focus-visible,
+.story-action-btn:focus-visible,
+#battle-orders button:focus-visible,
+#ui-abilities .ability-btn:focus-visible,
+.story-stat-chip:focus-visible {
+    outline: 2px solid var(--wr-focus);
+    outline-offset: 2px;
+}

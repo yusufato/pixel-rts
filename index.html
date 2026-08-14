@@ -431,7 +431,10 @@
             <button data-battle-order="paradrop"><b>PARAŞÜT</b><span>150 bütçe</span></button>
         </section>
     </div>
-    <aside id="battle-feed"><div class="battle-feed-head">MUHAREBE KAYDI <b>CANLI</b></div><div id="battle-feed-list"></div></aside>
+    <!-- KUSUR 7: kayıt sürekli güncelleniyordu ama ekran okuyucuya hiç duyurulmuyordu
+         (#battle-target-card aria-live taşıyor, burası taşımıyordu). aria-live
+         GÜNCELLENEN düğümde olmalı, kabukta değil -> #battle-feed-list üzerinde. -->
+    <aside id="battle-feed"><div class="battle-feed-head">MUHAREBE KAYDI <b>CANLI</b></div><div id="battle-feed-list" role="log" aria-live="polite" aria-relevant="additions" aria-label="Muharebe kaydı"></div></aside>
     <div id="game-war-overlay" aria-hidden="true"></div>
 
     <!-- Kamera İpucu -->
