@@ -11,7 +11,7 @@ const STORY_CONVERSATION_UNDERSTANDING_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_UNDERSTANDING_ADAPTER_VERSION = 'story-conversation-understanding-1';
 const STORY_CONVERSATION_UNDERSTANDING_SOURCE = 'DETERMINISTIC_NLU_BASELINE';
 const STORY_CONVERSATION_MAX_INPUT = 1200;
-const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|neler yapmamıza yardımcı|ne tür bir yardım ar[a-zçğıöşü]*|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|konuyu belirt|daha fazla bilgi(?:ye ihtiyacım var| ver| paylaş)|daha fazla ayrıntı(?:ya gir(?:in)?|ya ihtiyacım var| ver(?:in)?)|sorularınızı açıkça belirt|lütfen başka bir konu seç|buyurun|emrinize amadeyim)\b/i;
+const STORY_CONVERSATION_SERVICE_BOT_LANGUAGE = /\b(nasıl yardımcı olabilirim|size nasıl yardımcı|sana nasıl yardımcı|neler yapmamıza yardımcı|ne tür bir yardım ar[a-zçğıöşü]*|nasıl destek olabilirim|yardımcı olmamı ister|talebinizi belirt|konuyu belirt|daha fazla bilgi(?:ye ihtiyacım var| ver| paylaş)|daha fazla ayrıntı(?:ya gir(?:in)?|ya ihtiyacım var| ver(?:in)?)|sorularınızı(?: açıkça)? belirtin|teşekkür ederim için buradayım|lütfen başka bir konu seç|buyurun|emrinize amadeyim)\b/i;
 
 const STORY_CONVERSATION_SPEECH_ACTS = Object.freeze([
     'ASK_INFORMATION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN', 'MAKE_PROMISE',
@@ -307,21 +307,23 @@ function storyConversationSpeechAct(folded, raw) {
     if (storyConversationContains(folded, ['yonlendirelim', 'anlasma', 'ortaklik', 'satin alalim'])) add('PROPOSE_COMMERCIAL_DEAL', 9);
     if (storyConversationContains(folded, ['yoksa', 'aksi halde', 'bedelini odersin', 'zarar veririm', 'mahvederim'])) add('THREATEN', 14);
     if (storyConversationContains(folded, ['soz veriyorum', 'taahhut ediyorum', 'ben halledecegim', 'yapacagim'])) add('MAKE_PROMISE', 10);
-    if (storyConversationContains(folded, ['aramizda kalsin', 'gizli bilgi', 'bu bir sir', 'kimseye soyleme'])) add('SHARE_SECRET', 12);
+    if (storyConversationContains(folded, ['aramizda kalsin', 'gizli bilgi', 'bu bir sir', 'kimseye soyleme',
+        'gizli bir bilgim var', 'gizli sir', 'sir bilgi', 'sirrim var', 'bir sirrim var'])) add('SHARE_SECRET', 12);
     if (storyConversationContains(folded, ['blof yapiyorum', 'blöf yapıyorum'])) add('BLUFF_CANDIDATE', 16);
     if (storyConversationContains(folded, ['suclusun', 'sen yaptin', 'ihanet ettin', 'sorumlusu sensin'])) add('ACCUSE', 11);
     if (storyConversationContains(folded, ['yardim ederim', 'destek olurum', 'yanindayim'])) add('OFFER_SUPPORT', 9);
-    if (storyConversationContains(folded, ['kabul etmiyorum', 'reddediyorum', 'olmaz'])) add('REJECT', 9);
+    if (storyConversationContains(folded, ['kabul etmiyorum', 'reddediyorum', 'olmaz', 'bir sey soyleme', 'birsey soyleme'])) add('REJECT', 9);
     if (storyConversationContains(folded, ['karsilik olarak', 'ama su sartla', 'buna karsilik'])) add('COUNTER_OFFER', 9);
     if (storyConversationContains(folded, ['pay talep', 'hisse talep', 'kazanc talep'])
         && storyConversationContains(folded, ['sunuyorum', 'teklif ediyorum', 'karsiliginda'])) {
         add('COUNTER_OFFER', 13);
     }
     if (storyConversationContains(folded, ['merhaba', 'selam', 'gunaydin', 'iyi gunler'])) add('GREETING', 13);
-    if (storyConversationContains(folded, ['nasilsin', 'nasil gidiyor', 'keyfin nasil', 'gunun nasil', 'bugunun nasil'])) add('CHECK_IN', 15);
+    if (storyConversationContains(folded, ['nasilsin', 'nasilsiniz', 'nasil gidiyor', 'keyfin nasil', 'gunun nasil', 'bugunun nasil'])) add('CHECK_IN', 15);
     if (storyConversationContains(folded, ['tesekkur ederim', 'tesekkurler', 'sag ol', 'minnettarim'])) add('THANK', 14);
     if (storyConversationContains(folded, ['ozur dilerim', 'kusura bakma', 'affedersin'])) add('APOLOGIZE', 14);
-    if (storyConversationContains(folded, ['gorusuruz', 'hosca kal', 'kendine iyi bak', 'sonra konusuruz'])) add('FAREWELL', 14);
+    if (storyConversationContains(folded, ['gorusuruz', 'hosca kal', 'kendine iyi bak', 'sonra konusuruz',
+        'gule gule', 'ben gidiyorum', 'tekrar donecegim', 'baska zaman donecegim'])) add('FAREWELL', 14);
     if (storyConversationContains(folded, ['sence', 'ne dusunuyorsun', 'fikrin ne', 'senin gorusun'])) add('ASK_PERSONAL_OPINION', 13);
     if (storyConversationContains(folded, ['yardim eder misin', 'yardim edecek misin', 'yardim icin gelir misin',
         'yardim gerekiyor', 'yardim lazim', 'destek olur musun', 'destek verir misin', 'destegine ihtiyacim var'])) add('REQUEST_SUPPORT', 16);
@@ -331,6 +333,8 @@ function storyConversationSpeechAct(folded, raw) {
         'iliskimizi nasil', 'iliskimiz hakkinda', 'guven konusunda ne dusunuyorsun'])) {
         add('ASK_RELATIONSHIP', 17);
     }
+    if (storyConversationContains(folded, ['sana guvenmiyorum', 'size guvenmiyorum', 'aramiz kotu',
+        'aramiz iyi degil']) || folded === 'guven') add('ASK_RELATIONSHIP', 15);
     const relationshipWordQuestion = (String(raw || '').includes('?')
         || storyConversationContains(folded, ['neden', 'nasil', 'nerede', 'ne zaman']))
         && folded.split(/\s+/).some(word =>
@@ -345,18 +349,25 @@ function storyConversationSpeechAct(folded, raw) {
     if (storyConversationContains(folded, ['ilk defa konusuyoruz', 'ilk kez konusuyoruz',
         'seninle ilk defa', 'daha once konusmadik', 'hayir sen', 'yanlis soyluyorsun'])) add('CORRECT_STATEMENT', 17);
     if (storyConversationContains(folded, ['bozuk musun', 'beni anlamiyor musun',
-        'ne sacmaliyorsun', 'neden boylesin'])) add('CHALLENGE', 16);
+        'ne sacmaliyorsun', 'neden boylesin', 'kendi kendime konusuyorum',
+        'gule guleyi de mi anlamadin'])) add('CHALLENGE', 16);
     if (storyConversationContains(folded, ['bana bir gorev ver', 'bana gorev ver', 'bana is ver'])) add('REQUEST_ACTION', 18);
     if (storyConversationContains(folded, ['bana verebilecegin bir gorev', 'bana verebileceginiz bir gorev',
         'bana verebilecegin gorev', 'bana verebileceginiz gorev',
         'verebilecegin bir gorev var mi', 'verebileceginiz bir gorev var mi',
         'verebilecegin gorev var mi', 'verebileceginiz gorev var mi'])) add('REQUEST_ACTION', 18);
+    if (storyConversationContains(folded, ['is verebilecek tanidigin', 'gorev verebilecek tanidigin',
+        'tanidikta mi yok', 'tanidik da mi yok', 'benden istedigin bir sey var mi',
+        'benden istediginiz bir sey var mi'])) add('REQUEST_ACTION', 17);
     if (storyConversationContains(folded, ['biraz konusalim', 'sohbet edelim', 'hava guzel',
-        'hava sicak', 'hava soguk', 'hava yagmurlu', 'sicaklar', 'laflayalim'])) add('SMALL_TALK', 12);
+        'hava sicak', 'hava soguk', 'hava yagmurlu', 'sicaklar', 'laflayalim',
+        'bir seyler de', 'birseyler de', 'soyleyecegin bir sey yok mu',
+        'soyleyeceginiz bir sey yok mu'])) add('SMALL_TALK', 12);
     if (storyConversationContains(folded, ['beni uzuyor', 'beni uzdun', 'uzuldum', 'kirildim'])
         && storyConversationContains(folded, ['uydur', 'sucla', 'dusun'])) add('CHALLENGE', 17);
     if (storyConversationContains(folded, ['peki', 'tamam', 'anladim', 'olur'])) add('SMALL_TALK', 8);
-    if (String(raw || '').includes('?') || storyConversationContains(folded, ['neden', 'nasil', 'ne zaman', 'nerede', 'kim', 'hangi'])) add('ASK_INFORMATION', 7);
+    if (String(raw || '').includes('?') || /(?:^|\s)(mi|mı|mu|mü|misin|mısın|musun|müsün|misiniz|mısınız|musunuz|müsünüz)(?:\s|$)/i.test(String(raw || ''))
+        || storyConversationContains(folded, ['neden', 'nasil', 'ne zaman', 'nerede', 'kim', 'hangi'])) add('ASK_INFORMATION', 7);
     if (storyConversationContains(folded, ['istiyorum', 'talep ediyorum', 'yap', 'gonder', 'yonlendir',
         'is var mi', 'isiniz var mi', 'is verebilir', 'calisabilecegim'])) add('REQUEST_ACTION', 9);
     const ranked = Object.keys(scores).sort((a, b) => scores[b] - scores[a] || a.localeCompare(b, 'en'));
@@ -1398,10 +1409,30 @@ const STORY_CONVERSATION_SOCIAL_LINES = Object.freeze({
     })
 });
 
-function storyConversationSocialResponseText(session, speechAct, salt) {
+function storyConversationSocialResponseText(session, speechAct, salt, raw) {
     const style = storyConversationSocialVoice(session);
     const byAct = STORY_CONVERSATION_SOCIAL_LINES[speechAct];
-    const sourceCandidates = byAct && (byAct[style.register] || byAct.GUARDED) || [];
+    const folded = storyConversationFold(raw);
+    const actor = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(session.listenerActorId) : null;
+    let sourceCandidates = byAct && (byAct[style.register] || byAct.GUARDED) || [];
+    if (speechAct === 'ASK_PERSONAL_OPINION' && storyConversationContains(folded, ['teknoloji'])) {
+        sourceCandidates = [
+            'Teknolojiye yalnız yenilik diye bakmam; kimin yararlandığını, bedelini ve denetimini de tartarım.',
+            'Benim için teknoloji, gösterişten önce gerçek bir sorunu çözmeli; aksi hâlde pahalı bir vitrindir.'
+        ];
+    }
+    if (speechAct === 'SMALL_TALK' && storyConversationContains(folded, [
+        'bir seyler de', 'birseyler de', 'soyleyecegin bir sey yok mu',
+        'soyleyeceginiz bir sey yok mu', 'kendi kendime konusuyorum'
+    ])) {
+        const roleLine = actor && actor.role === 'COMMANDER'
+            ? 'Şunu söyleyeyim: bir ordunun gücü yalnız silahında değil, insanların neden savaştığını bilmesindedir.'
+            : actor && actor.role === 'COMPANY_EXECUTIVE'
+                ? 'Şunu söyleyeyim: bir şirket büyürken yalnız kazancı değil, hangi bağımlılıkları büyüttüğünü de izlemelidir.'
+                : 'Şunu söyleyeyim: yönetimde en tehlikeli rahatlık, sessizliği herkesin razı olduğu sanmaktır.';
+        sourceCandidates = [roleLine];
+    }
     const firstContact = Number(session && session.contactOrdinal) === 1;
     const candidates = firstContact && speechAct === 'GREETING'
         ? sourceCandidates.filter(row => !/\b(yeniden|tekrar|sürdür|bu kez)\b/i.test(row))
@@ -1505,6 +1536,7 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText, validati
     // Turkish-Llama'nın gerçek GPU koşusunda ürettiği "Sizi yorulduğuna" gibi
     // kişi/iyelik uyuşmazlıkları biçimsel olarak JSON'dur ama oynanabilir Türkçe değildir.
     if (/\b(sizi|seni)\s+\S{2,}(dığına|diğine|duğuna|düğüne)\b/i.test(text)) return null;
+    if (/\b(sizi|seni)\s+nasıl\s+hissediyorsun(?:uz)?\b/i.test(text)) return null;
     const sentences = text.split(/[.!?]+/).map(row => row.trim()).filter(Boolean);
     if (!sentences.length || sentences.length > 4 || text.split(/\s+/).length > 70) return null;
     return text;
@@ -1514,6 +1546,9 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
     const value = String(text || '').trim();
     const folded = storyConversationFold(value);
     const player = storyConversationFold(playerText);
+    if (/\b(sizi|seni)\s+nasıl\s+hissediyorsun(?:uz)?\b/i.test(value)) {
+        return 'TURKISH_PERSON_AGREEMENT';
+    }
     if (STORY_CONVERSATION_SERVICE_BOT_LANGUAGE.test(value)
         || storyConversationContains(folded, ['neler yapmamiza yardimci', 'nasil yardimci olabiliriz',
             'lutfen daha fazla bilgi ver', 'bu konuyu daha detayli tartismak ister misiniz',
@@ -1988,6 +2023,11 @@ function storyConversationSessionUnverifiedClaims(session) {
 }
 
 function storyConversationQuestionFocus(folded) {
+    if (storyConversationContains(folded, ['bana bir sey soyleme', 'bana birsey soyleme'])) {
+        return 'REQUEST_SILENCE';
+    }
+    if (storyConversationContains(folded, ['sagliginiz yerinde degilmis', 'sagligin yerinde degilmis',
+        'hasta oldugunuzu duydum', 'hasta oldugunu duydum'])) return 'LISTENER_HEALTH_RUMOR';
     if (storyConversationContains(folded, [
         'ortak bir proje yapmistik', 'ortak proje yapmistik', 'ortak bir proje yapmistim',
         'birlikte calismistik', 'bu gorevi sen vermistin', 'bu isi sen vermistin',
@@ -2014,9 +2054,12 @@ function storyConversationQuestionFocus(folded) {
         'bana baglisin', 'benim emrimdesin'])) return 'RELATIONSHIP_AUTHORITY_CORRECTION';
     if (storyConversationContains(folded, ['dusman ordusu gordum', 'dusman askerleri gordum',
         'buyuk bir dusman gucu', 'asker yigiliyor', 'asker toplaniyor'])) return 'UNVERIFIED_MILITARY_REPORT';
+    if (storyConversationContains(folded, ['siz emre aydogansiniz degil mi',
+        'sen emre aydogansin degil mi'])) return 'LISTENER_IDENTITY_CLAIM';
     if ((storyConversationContains(folded, ['kendini', 'kendinizi'])
         && storyConversationContains(folded, ['tanit']))
-        || storyConversationContains(folded, ['sen kimsin', 'siz kimsiniz'])) return 'LISTENER_IDENTITY';
+        || storyConversationContains(folded, ['sen kimsin', 'siz kimsiniz', 'kimligin ne',
+            'kimliginiz ne', 'senin kimligin', 'sizin kimliginiz'])) return 'LISTENER_IDENTITY';
     if (storyConversationContains(folded, ['hangi sehirdeyim', 'neredeyim', 'ben neredeyim'])) return 'PLAYER_LOCATION';
     if (storyConversationContains(folded, ['hangi sehirdesiniz', 'neredesiniz', 'sen neredesin'])) return 'LISTENER_LOCATION';
     if (storyConversationContains(folded, ['hangi isi yapiyorsun', 'hangi isi yapiyorsunuz', 'goreviniz ne', 'gorevin ne',
@@ -2026,6 +2069,9 @@ function storyConversationQuestionFocus(folded) {
         'devlet yoneticisi misiniz', 'devlet yoneticisi degil misiniz',
         'devlet yoneticisi misin', 'devlet yoneticisi degil misin',
         'muhalefet lideri oldugunuzu', 'muhalefet liderisin'])) return 'LISTENER_ROLE_CONFIRMATION';
+    if (storyConversationContains(folded, ['genel mudurumuz', 'komutanim', 'baskanim'])) {
+        return 'LISTENER_ROLE_ADDRESS';
+    }
     if (storyConversationContains(folded, ['devlet yonetmek bir sirket yonetmek degildir',
         'devlet sirket degildir', 'sirket yoneticisi degilsin', 'sirket yoneticisi degilsiniz'])) return 'ROLE_CONTRADICTION_REPAIR';
     if (storyConversationContains(folded, ['hangi sirkette calis', 'hangi firmada calis', 'sirketiniz hangisi'])) return 'LISTENER_ORGANIZATION';
@@ -2042,6 +2088,12 @@ function storyConversationQuestionFocus(folded) {
         'onceki sozun devami olarak anladim'])) return 'FALLBACK_PHRASE_CHALLENGE';
     if (storyConversationContains(folded, ['bu gorevlerden', 'ne isler yapiyorsun', 'ne isler yapiyorsunuz',
         'isim var dedin', 'isin var dedin', 'isimi soruyorum', 'isini soruyorum', 'mevcut gorevin ne'])) return 'CURRENT_ASSIGNMENT';
+    if (storyConversationContains(folded, ['is verebilecek tanidigin', 'gorev verebilecek tanidigin',
+        'tanidikta mi yok', 'tanidik da mi yok'])) return 'REQUEST_JOB_REFERRAL';
+    if (storyConversationContains(folded, ['kimse bana gorev vermiyor', 'kimse bana is vermiyor',
+        'issiz kaldim', 'bu aralar aciktayim'])) return 'JOB_FRUSTRATION';
+    if (storyConversationContains(folded, ['benden istedigin bir sey var mi',
+        'benden istediginiz bir sey var mi'])) return 'REQUEST_CHARACTER_NEED';
     if (storyConversationContains(folded, ['bana verebileceginiz is', 'bana verebilecegin is', 'bana is ver',
         'bana bir gorev ver', 'bana gorev ver',
         'bana verebilecegin bir gorev', 'bana verebileceginiz bir gorev',
@@ -2053,6 +2105,11 @@ function storyConversationQuestionFocus(folded) {
     if (storyConversationContains(folded, ['enerji konusunda sikinti', 'enerji sikintisi', 'enerji sorunu duydum'])) return 'UNVERIFIED_ENERGY_REPORT';
     if (storyConversationContains(folded, ['benden cekindigini', 'benden cekiniyorsun', 'benden korktugunu',
         'benden korkuyorsun'])) return 'RELATIONSHIP_PERCEPTION';
+    if (storyConversationContains(folded, ['sana guvenmiyorum', 'size guvenmiyorum',
+        'aramiz kotu', 'aramiz iyi degil']) || folded === 'guven') return 'RELATIONSHIP_NEGATIVE_STATEMENT';
+    if (storyConversationContains(folded, ['su an uzerinde calistiginiz bir teknoloji',
+        'su an uzerinde calistigin bir teknoloji', 'uzerinde calistiginiz teknoloji',
+        'uzerinde calistigin teknoloji'])) return 'CURRENT_TECHNOLOGY_BOUNDARY';
     if (storyConversationContains(folded, ['anlamadim', 'neyi kastettin', 'ne demek istedin'])) return 'REQUEST_EXPLANATION';
     if (storyConversationContains(folded, ['bana cevap ver', 'soruma cevap ver', 'cevap vermedin'])) return 'DEMAND_ANSWER';
     if (folded.split(' ').length <= 3
@@ -2080,6 +2137,14 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
         || ({ EXECUTIVE: 'devlet yöneticisi', COMMANDER: 'kuvvet komutanı', AGENT: 'istihbarat görevlisi',
             COMPANY_EXECUTIVE: 'şirket yöneticisi', POLITICAL_FIGURE: 'siyasi temsilci' })[actor.role])
         || 'doğrulanmamış görev sahibi';
+    if (focus === 'REQUEST_SILENCE') return {
+        discourseAct: 'ANSWER_PLAYER_BOUNDARY',
+        text: 'Peki. Konuşmayı burada zorlamayacağım.'
+    };
+    if (focus === 'LISTENER_HEALTH_RUMOR') return {
+        discourseAct: 'ANSWER_LISTENER_HEALTH_BOUNDARY',
+        text: 'Sağlığımla ilgili duyduğun şey bir söylenti. Bunu doğrulayacak güncel sağlık kaydım olmadığı için iyi ya da kötü olduğumu kanıtlanmış bilgi gibi söyleyemem.'
+    };
     if (focus === 'PLAYER_IDENTITY') return {
         discourseAct: 'ANSWER_PLAYER_IDENTITY_BOUNDARY',
         text: 'Kim olduğunu yalnız bana açık olan oyuncu kaydı ve bu görüşmede söylediklerin kadar bilebilirim. Burada adını veya geçmişini doğrulayan açık bir kayıt yoksa sana kimlik uydurmayacağım.'
@@ -2141,6 +2206,10 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
         discourseAct: 'ANSWER_LISTENER_IDENTITY',
         text: `Ben ${actor && actor.name || 'kimliği doğrulanmamış muhatap'}; doğrulanmış görevim ${actorRoleLabel}.`
     };
+    if (focus === 'LISTENER_IDENTITY_CLAIM') return {
+        discourseAct: 'ANSWER_LISTENER_IDENTITY',
+        text: `Hayır. Kimlik kaydımda adım ${actor && actor.name || 'doğrulanmamış'}; görevim ${actorRoleLabel}.`
+    };
     if (focus === 'PLAYER_LOCATION') return {
         discourseAct: 'ANSWER_PLAYER_REPORTED_LOCATION',
         text: latestLocation
@@ -2158,6 +2227,10 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
     if (focus === 'LISTENER_ROLE_CONFIRMATION') return {
         discourseAct: 'CONFIRM_LISTENER_ROLE',
         text: `Evet; kimlik kaydımda görevim ${actorRoleLabel}. Bunun dışındaki bir makamı üstlenmiş gibi konuşmayacağım.`
+    };
+    if (focus === 'LISTENER_ROLE_ADDRESS') return {
+        discourseAct: 'ANSWER_LISTENER_ROLE',
+        text: `Bana görevimle hitap ediyorsun. Kimlik kaydımda görevim ${actorRoleLabel}; bunun ötesinde bir unvanı sahiplenmeyeceğim.`
     };
     if (focus === 'ROLE_CONTRADICTION_REPAIR') return {
         discourseAct: 'REPAIR_ROLE_CONTRADICTION',
@@ -2197,9 +2270,25 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
         discourseAct: 'ANSWER_CURRENT_ASSIGNMENT_BOUNDARY',
         text: `Doğrulanmış görevim ${actorRoleLabel}; bunun dışında yürüttüğüm somut bir iş veya cephe görevi kaydı burada görünmüyor. Önceki cevabım böyle bir görev varmış izlenimi verdiyse o kısmı geri çekiyorum.`
     };
+    if (focus === 'REQUEST_JOB_REFERRAL') return {
+        discourseAct: 'ANSWER_JOB_REFERRAL_BOUNDARY',
+        text: 'Sana iş vereceğini doğrulayabildiğim bir tanıdık kaydım yok. Bir isim uydurup seni yanlış kapıya göndermeyeceğim.'
+    };
+    if (focus === 'JOB_FRUSTRATION') return {
+        discourseAct: 'ACKNOWLEDGE_JOB_FRUSTRATION',
+        text: 'Görev bulamamanın seni öfkelendirdiğini anlıyorum. Fakat sırf bu yüzden olmayan bir görev yaratamam; gerçek bir ihtiyaç ve yetkili kişi oluştuğunda bunun kaydı görünmeli.'
+    };
+    if (focus === 'REQUEST_CHARACTER_NEED') return {
+        discourseAct: 'ANSWER_CHARACTER_NEED_BOUNDARY',
+        text: 'Şu anda senden isteyebileceğim doğrulanmış bir ihtiyaç veya açık görev kaydım yok. Varmış gibi davranmayacağım.'
+    };
     if (focus === 'REQUEST_JOB_OR_TASK') return {
         discourseAct: 'ANSWER_JOB_REQUEST_BOUNDARY',
         text: 'Şu anda sana verebileceğim doğrulanmış bir görev veya iş kaydı yok. Konuşma sürsün diye görev uydurmayacağım; gerçek bir ihtiyaç oluşursa kaynağı ve yetkisiyle görünmeli.'
+    };
+    if (analysis.speechAct === 'SHARE_SECRET' && !latestThreat) return {
+        discourseAct: 'ASK_SECRET_SCOPE_WITHOUT_PROMISE',
+        text: 'Bir sır paylaşmak istediğini anlıyorum; fakat içeriğini henüz söylemedin. Dinleyebilirim, ancak ne olduğunu bilmeden koşulsuz gizlilik sözü veremem.'
     };
     if (analysis.speechAct === 'SHARE_SECRET' && latestThreat) return {
         discourseAct: 'RECORD_CONFIDENTIALITY_REQUEST_FOR_REPORT',
@@ -2216,6 +2305,14 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
     if (focus === 'RELATIONSHIP_PERCEPTION') return {
         discourseAct: 'QUALIFY_RELATIONSHIP_PERCEPTION',
         text: 'Benden çekindiğimi hissetmen senin yorumun; bunu gerçek diye onaylamayacağım. Mesafeli konuşmam görevimden veya aramızdaki güven düzeyinden kaynaklanabilir.'
+    };
+    if (focus === 'RELATIONSHIP_NEGATIVE_STATEMENT') return {
+        discourseAct: 'ACKNOWLEDGE_RELATIONSHIP_STANCE',
+        text: 'Bana güvenmediğini ve aramızdaki ilişkinin kötü olduğunu söylüyorsun. Bunu görmezden gelmeyeceğim; güven sözle değil, sonraki davranışlarımızla değişir.'
+    };
+    if (focus === 'CURRENT_TECHNOLOGY_BOUNDARY') return {
+        discourseAct: 'ANSWER_CURRENT_TECHNOLOGY_BOUNDARY',
+        text: 'Üzerinde çalıştığım doğrulanmış bir teknoloji projesi kaydı burada görünmüyor. Şirket unvanım var diye yürütülmeyen bir projeyi varmış gibi anlatmayacağım.'
     };
     if (focus === 'REQUEST_EXPLANATION') return {
         discourseAct: 'REPAIR_MISUNDERSTANDING',
@@ -2474,7 +2571,7 @@ function storyConversationSessionBuildSocialResponse(session, ledger) {
     const grounded = storyConversationGroundedFollowUp(session, session.analysis, session.initialText, 0);
     if (!grounded && !STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)) return null;
     const realized = grounded ? null
-        : storyConversationSocialResponseText(session, session.analysis.speechAct, 0);
+        : storyConversationSocialResponseText(session, session.analysis.speechAct, 0, session.initialText);
     if (!grounded && !realized) return null;
     const voice = storyConversationSocialVoice(session);
     const response = {
@@ -2511,7 +2608,7 @@ function storyConversationSocialFollowUpText(session, analysis, raw, sequence) {
     if (storyConversationContains(folded, ['ben de iyiyim', 'iyiyim', 'iyi gidiyor'])) {
         return 'Buna sevindim. Bugün konuşmak istediğin başka bir konu var mı?';
     }
-    const direct = storyConversationSocialResponseText(session, analysis.speechAct, sequence);
+    const direct = storyConversationSocialResponseText(session, analysis.speechAct, sequence, raw);
     if (direct) return direct.text;
     if (analysis.speechAct === 'ASK_INFORMATION') {
         return 'Bu soruyu doğrulayacak bilgim yok. Bilmediğim ayrıntıyı uydurmayacağım.';
@@ -2537,6 +2634,9 @@ function storyConversationMemoryIntent(raw, analysis, options) {
     const secret = storyConversationContains(folded, [
         'sir', 'gizli', 'gizlilik', 'mahrem', 'aramizda kalsin', 'kimse bilmesin'
     ]);
+    const secretRecall = secret && (explicitRecall || storyConversationContains(folded, [
+        'aramizdaki sir', 'gizli konuyu', 'gizli bilgiyi', 'daha onceki sir', 'eski sir'
+    ]));
     const conflict = storyConversationContains(folded, [
         'ihanet', 'kavga', 'tartisma', 'husumet', 'kirgin', 'guvenin nerede kayboldu',
         'neden guvenmiyorsun', 'neden bana guvenmiyorsun'
@@ -2554,9 +2654,9 @@ function storyConversationMemoryIntent(raw, analysis, options) {
         && (promise || debt || decision || storyConversationContains(folded, [
             'anlasma', 'teklif', 'teslimat', 'ortaklik', 'pay'
         ]));
-    if (!explicitRecall && !relationshipHistory && !secret && !commerceObligation) return null;
+    if (!explicitRecall && !relationshipHistory && !secretRecall && !commerceObligation) return null;
     let kinds;
-    if (secret) kinds = ['SECRET'];
+    if (secretRecall) kinds = ['SECRET'];
     else if (promise && !debt && !decision) kinds = ['PROMISE'];
     else if (debt && !promise) kinds = ['DEBT', 'PROMISE'];
     else if (conflict) kinds = ['CONFLICT', 'RELATIONSHIP', 'PROMISE', 'DEBT'];

@@ -623,3 +623,34 @@ Hedefli ekonomi/ilişki/hafıza kanıt testi, ContextPack ve DialogueMove testle
 1.200 turluk ek sanal laboratuvar mevcut makine yükünde `184,8 sn` zaman aşımına
 uğradı; hata vermedi fakat tamamlanmadığı için yeşil kanıt sayılmadı. Tam `81/81`
 paket hâlâ yeniden koşulmadı.
+
+## 14 Ağustos 2026 — Canlı oyuncu testindeki UNKNOWN duvarı
+
+Kullanıcının son gerçek testi ham `story-dialogue-log.jsonl` üzerinden incelendi.
+Başlıca sorun modelin zayıf cevabı değil, doğal sözlerin modelden önce
+`UNKNOWN → CLARIFY/REPAIR_REPETITION` duvarına çarpmasıydı. Aynı görüşmede “bana
+görev ver”, “iş verecek tanıdığın var mı”, “kimse bana görev vermiyor” ve “benden
+istediğin bir şey var mı” tek ret kalıbına çöküyordu. Kimlik, sağlık söylentisi,
+güven beyanı, teknoloji, sır teklifi, konuşma başlatma ve gündelik vedaların da
+önemli bölümü anlaşılmıyordu.
+
+Canlı cümleler birebir regresyona alındı. Yeni ayrımlar:
+
+- yanlış isimle kimlik teyidi → kanonik karakter kimliği,
+- sağlık söylentisi → kanıt sınırı,
+- doğrudan görev / iş yönlendirmesi / işsizlik hayal kırıklığı / karakter ihtiyacı
+  → dört ayrı hareket ve dört ayrı cevap,
+- “gizli bir bilgim var” → yeni sır teklifi; geçmiş SECRET geri çağrımı değil,
+- “aramız kötü / sana güvenmiyorum” → ilişki beyanı,
+- “teknoloji hakkında ne düşünüyorsun” → konuya doğrudan kişisel görüş,
+- güncel teknoloji projesi → Faz 42 öncesi açık kayıt sınırı,
+- “bir şeyler de” → role özgü proaktif gündelik söz,
+- “güle güle / ben gidiyorum / başka zaman döneceğim” → veda.
+
+Gerçek logda kabul edilmiş iki bozuk 8B metni ayrıca kapatıldı. “Sizi nasıl
+hissediyorsunuz?” artık `TURKISH_PERSON_AGREEMENT`; “Teşekkür ederim için
+buradayım. Lütfen sorularınızı belirtin.” artık `SERVICE_BOT_LANGUAGE` olur.
+Canlı cümle paketi `50` regresyon, seri sohbet sözleşmesi, `60` adversarial
+senaryo ve kanıt testlerinde geçti. RTX/CUDA preflight NVIDIA 4060'ı doğruladı;
+3 turluk gerçek 8B smoke `1/1` model kabulü, sıfır fallback/hata, `638 ms` ilk
+token ve `2.208 ms` toplam süre verdi. Bu küçük smoke doğallık kabulü değildir.

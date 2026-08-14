@@ -131,6 +131,90 @@ try {
     assert.notEqual(authority.followUp.analysis.speechAct, 'UNKNOWN');
     assert.equal(authority.followUp.response.discourseAct, 'ANSWER_AUTHORITY_CLAIM_BOUNDARY');
 
+    const liveProbe = text => {
+        const openedLive = runtime.api.conversationSessionBegin(text, { listenerActorId: listener.id });
+        assert.equal(openedLive.ok, true, `canlı cümle açılmalı: ${text}`);
+        return { analysis: openedLive.session.analysis,
+            response: openedLive.session.listenerResponses[0], session: openedLive.session };
+    };
+    const wrongIdentity = liveProbe('siz emre aydoğansınız değil mi');
+    assert.equal(wrongIdentity.response.discourseAct, 'ANSWER_LISTENER_IDENTITY');
+    assert.match(wrongIdentity.response.text, new RegExp(listener.name, 'i'));
+    assert.doesNotMatch(wrongIdentity.response.text, /Emre Aydoğan/i);
+
+    const healthRumor = liveProbe('bugünlerde sağlığınız yerinde değilmiş');
+    assert.equal(healthRumor.response.discourseAct, 'ANSWER_LISTENER_HEALTH_BOUNDARY');
+    assert.doesNotMatch(healthRumor.response.text, /amacı güvenle çıkaramadım/i);
+
+    const techOpinion = liveProbe('teknoloji hakkında ne düşünüyorsun');
+    assert.equal(techOpinion.analysis.speechAct, 'ASK_PERSONAL_OPINION');
+    assert.match(techOpinion.response.text, /teknoloji/i);
+    assert.doesNotMatch(techOpinion.response.text, /hangi başlık|konuyu netleştir/i);
+
+    const currentTech = liveProbe('şu an üzerinde çalıştığınız bir teknoloji var mı');
+    assert.equal(currentTech.analysis.speechAct, 'ASK_INFORMATION');
+    assert.equal(currentTech.response.discourseAct, 'ANSWER_CURRENT_TECHNOLOGY_BOUNDARY');
+
+    const ownIdentity = liveProbe('kimliğin ne');
+    assert.equal(ownIdentity.response.discourseAct, 'ANSWER_LISTENER_IDENTITY');
+    assert.match(ownIdentity.response.text, new RegExp(listener.name, 'i'));
+
+    const secretOffer = liveProbe('gizli bir bilgim var');
+    assert.equal(secretOffer.analysis.speechAct, 'SHARE_SECRET');
+    assert.equal(secretOffer.response.discourseAct, 'ASK_SECRET_SCOPE_WITHOUT_PROMISE');
+
+    const proactive = liveProbe('adamım birşeyler de');
+    assert.equal(proactive.analysis.speechAct, 'SMALL_TALK');
+    assert.match(proactive.response.text, /Şunu söyleyeyim/i);
+    assert.doesNotMatch(proactive.response.text, /amacı güvenle çıkaramadım/i);
+
+    const roleAddress = liveProbe('savunma genel müdürümüz');
+    assert.equal(roleAddress.response.discourseAct, 'ANSWER_LISTENER_ROLE');
+
+    const silence = liveProbe('bana birşey söyleme Ilgaz');
+    assert.equal(silence.response.discourseAct, 'ANSWER_PLAYER_BOUNDARY');
+
+    for (const farewellText of ['size başka zaman tekrar döneceğim', 'güle güle', 'ben gidiyorum']) {
+        const farewellProbe = liveProbe(farewellText);
+        assert.equal(farewellProbe.analysis.speechAct, 'FAREWELL');
+        assert.doesNotMatch(farewellProbe.response.text, /belirli bir amaca bağlayamadım/i);
+    }
+
+    const jobTalk = runtime.api.conversationSessionBegin('bana verebileceğiniz görev var mı', {
+        listenerActorId: listener.id
+    });
+    const jobFollow = text => runtime.api.conversationSessionFollowUp(jobTalk.session.id, text);
+    const referral = jobFollow('bana iş verebilecek tanıdığınız var mı');
+    const frustration = jobFollow('kimse bana görev vermiyor');
+    const need = jobFollow('benden istediğin bir şey var mı');
+    assert.equal(referral.followUp.response.discourseAct, 'ANSWER_JOB_REFERRAL_BOUNDARY');
+    assert.equal(frustration.followUp.response.discourseAct, 'ACKNOWLEDGE_JOB_FRUSTRATION');
+    assert.equal(need.followUp.response.discourseAct, 'ANSWER_CHARACTER_NEED_BOUNDARY');
+    assert.equal(new Set([referral, frustration, need].map(row =>
+        row.followUp.response.text)).size, 3, 'üç ayrı iş niyeti aynı ret kalıbına çökmemeli');
+
+    for (const relationshipText of ['anladım aramız kötü', 'ben de sana güvenmiyorum o zaman', 'güven']) {
+        const relationProbe = liveProbe(relationshipText);
+        assert.equal(relationProbe.analysis.speechAct, 'ASK_RELATIONSHIP');
+        assert.equal(relationProbe.response.discourseAct, 'ACKNOWLEDGE_RELATIONSHIP_STANCE');
+    }
+
+    const checkInProbe = liveProbe('nasılsınız');
+    const checkContext = runtime.api.conversationValidationContext(
+        checkInProbe.session, checkInProbe.response);
+    const checkEnvelope = reply => JSON.stringify({
+        moveId: checkInProbe.response.dialogueMove.moveId, reply, usedRefs: [],
+        answeredQuestionIds: [], introducedQuestion: null, closing: false
+    });
+    const personMismatch = runtime.api.conversationSocialLLMDiagnose(
+        checkEnvelope('Teşekkür ederim, her şey yolunda. Sizi nasıl hissediyorsunuz?'),
+        checkInProbe.response.text, 'nasılsınız', checkContext);
+    assert.equal(personMismatch.code, 'TURKISH_PERSON_AGREEMENT');
+    const serviceBot = runtime.api.conversationSocialLLMDiagnose(
+        checkEnvelope('Teşekkür ederim için buradayım. Lütfen sorularınızı belirtin.'),
+        checkInProbe.response.text, 'nasılsınız', checkContext);
+    assert.equal(serviceBot.code, 'SERVICE_BOT_LANGUAGE');
+
     const unknownOne = follow('zorbak telemini');
     const unknownTwo = follow('kırık sazlık darun');
     assert.equal(unknownOne.followUp.analysis.speechAct, 'UNKNOWN');
@@ -183,7 +267,7 @@ try {
     assert.equal(runtime.api.state().paused, false,
         'Son görüşme kapanınca çalışan dünya durumuna dönülmeli.');
 
-    process.stdout.write(`${JSON.stringify({ ok: true, regressions: 30 })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, regressions: 50 })}\n`);
 } finally {
     runtime.dom.window.close();
 }

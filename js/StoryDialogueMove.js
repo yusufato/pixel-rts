@@ -25,6 +25,7 @@ const STORY_DIALOGUE_MOVE_BASE_ACTS = Object.freeze([
 ]);
 const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     ANSWER_LISTENER_IDENTITY: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
+    ANSWER_LISTENER_HEALTH_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ANSWER_LISTENER_ROLE: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
     CONFIRM_LISTENER_ROLE: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
     REPAIR_ROLE_CONTRADICTION: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
@@ -51,6 +52,12 @@ const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     EXPLAIN_FALLBACK_FAILURE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ANSWER_CURRENT_ASSIGNMENT_BOUNDARY: { policyId: 'CANONICAL_ACTOR_IDENTITY', claimTypes: [], memory: false },
     ANSWER_JOB_REQUEST_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_JOB_REFERRAL_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ACKNOWLEDGE_JOB_FRUSTRATION: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_CHARACTER_NEED_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ASK_SECRET_SCOPE_WITHOUT_PROMISE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ACKNOWLEDGE_RELATIONSHIP_STANCE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_CURRENT_TECHNOLOGY_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ACKNOWLEDGE_UNVERIFIED_TREASURY_REPORT: { policyId: 'PLAYER_TREASURY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_TREASURY_CONDITION'], memory: false },
     ANSWER_SHARED_HISTORY_BOUNDARY: { policyId: 'PLAYER_SHARED_HISTORY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_SHARED_HISTORY'], memory: false },
     REPAIR_FABRICATION_WORDING: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },

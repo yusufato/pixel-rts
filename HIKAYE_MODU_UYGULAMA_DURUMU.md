@@ -19,6 +19,15 @@ konusuyla metinsel bağ yoksa model cevabı reddedilip güvenli fallback korunur
 Teknoloji gerçekleri Faz 42'yi, toplantı gerçekleri
 Faz 38.13'ü bekler. Gece `100×10` koşusu doğal 8B yararlılığı geçmeden kapalıdır.
 
+**14 Ağustos canlı oyuncu corpus düzeltmesi:** Son gerçek görüşmede baskın hata
+8B'den önceki `UNKNOWN/REPAIR_REPETITION` duvarıydı. Kimlik, sağlık söylentisi,
+dört ayrı iş/görev niyeti, olumsuz güven beyanı, teknoloji görüşü/projesi, yeni
+sır teklifi, proaktif sohbet isteği ve üç gündelik veda ailesi birebir canlı
+metinlerle ayrıldı. Yeni sır teklifi eski SECRET geri çağrımı yapmaz. Yanlış kişi
+eki ve servis-botu Türkçesiyle kabul edilmiş iki 8B cümlesi sert reddedilir.
+Hedefli canlı paket `50`, adversarial paket `60` senaryoda geçti. RTX/CUDA küçük
+smoke sıfır hata verdi; üç tur doğallık kabulü sayılmaz.
+
 **Tam paket durumu:** İki altı-işçili `npm test` koşusu sırasıyla yaklaşık
 `677,3 sn` ve `659,3 sn` sürdü. İkincisi `46/81`de bayat boolean test sözleşmesinde
 durdu; bu nedenle tam paket yeşil ilan edilmedi. Koşuların açtığı üç borç kapandı:

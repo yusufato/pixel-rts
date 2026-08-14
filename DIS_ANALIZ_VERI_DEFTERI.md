@@ -784,3 +784,10 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Sahiplik tek başına yeterli değildir. Kayıt hem muhatabın tuttuğu hafıza olmalı hem de `relatedActorId=playerActorId` ile bu görüşmenin tarafına bağlanmalıdır. Muhatabın tuttuğu üçüncü kişi sırrı bile oyuncu ContextPack'ine giremez.
 - Kaynaklı hafıza cevabı 8B doğal gerçekleştirmesine açıldı. Model en az bir izinli `memoryRef` kullanmazsa `MEMORY_REF_REQUIRED`; kimliği yazıp kayıt özetinin somut konusuna değinmezse `MEMORY_CONTENT_UNGROUNDED` ile reddedilir. Güvenli deterministik metin her iki ret dalında korunur.
 - Hedefli kanıt, ContextPack, DialogueMove, 30 oyuncu regresyonu, 60 adversarial senaryo ve 23 turluk save/load probu geçti. 1.200 turluk ek laboratuvar `184,8 sn`de zaman aşımına uğradığı için kabul kanıtı sayılmadı; tam `81/81` paket hâlâ açık kanıttır.
+
+### 14 Ağustos 2026 — gerçek oyuncu UNKNOWN/tekrar çöküşü
+
+- Ham canlı log, son testte kötü deneyimin baskın nedeninin 8B değil deterministik NLU olduğunu gösterdi. Doğal kimlik, sağlık, iş, güven, teknoloji, sır ve veda cümlelerinin çoğu modele ulaşmadan `UNKNOWN` veya aynı `REPAIR_REPETITION` metnine düşüyordu.
+- Doğrudan görev, iş yönlendirmesi, işsizlik hayal kırıklığı ve karakterin oyuncudan ihtiyacı dört ayrı harekete ayrıldı. “Gizli bir bilgim var” yeni sır teklifi; “gizli konuyu hatırlıyor musun” geçmiş sır çağrımıdır. Yanlış isim teyidi kanonik kimliğe, teknoloji proje sorusu açık Faz 42 kayıt sınırına bağlanır.
+- Gerçek 8B'nin kabul edilmiş “Sizi nasıl hissediyorsunuz?” kişi uyuşmazlığı ve “Teşekkür ederim için buradayım. Lütfen sorularınızı belirtin.” servis-botu metni sert ret oldu. Birebir canlı paket `50`, adversarial paket `60` senaryoda geçti.
+- RTX 4060/CUDA preflight geçti. Küçük gerçek-model smoke `3` turda `1/1` model kabulü, sıfır fallback/hata, `638,16 ms` ilk token ve `2.208,09 ms` toplam üretim verdi. Bu yalnız çalışma yolu kanıtıdır; geniş doğal konuşma kabulü değildir.

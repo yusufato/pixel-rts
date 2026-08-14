@@ -160,6 +160,22 @@ try {
     assert.equal(missingSecret.pack.sections.some(row => row.kind === 'MEMORY'), false);
     assert.doesNotMatch(JSON.stringify(missingSecret.pack), /THIRD_ACTOR_SECRET_MUST_NOT_LEAK/);
 
+    runtime.api.characterMemoryAddRecent(ownExecutive.id, {
+        id: 'memory:evidence:player-secret', kind: 'SECRET',
+        summary: 'Oyuncuyla paylaşılan kapalı liman anahtarı.', importanceBps: 9200,
+        relatedActorIds: [directory.playerActorId],
+        source: { eventId: 'event:evidence:player-secret' }
+    });
+    const newSecretOffer = ask(ownExecutive, 'Gizli bir bilgim var.');
+    assert.equal(newSecretOffer.response.memoryRecall, null,
+        'yeni sır paylaşma teklifi eski SECRET kaydını çağırmamalı');
+    assert.equal(newSecretOffer.response.discourseAct, 'ASK_SECRET_SCOPE_WITHOUT_PROMISE');
+    const existingSecretRecall = ask(ownExecutive,
+        'Aramızdaki gizli konuyu hatırlıyor musun?');
+    assert.deepEqual(Array.from(existingSecretRecall.response.memoryRecall.records.map(row => row.id)),
+        ['memory:evidence:player-secret'],
+    'açık geçmiş sorgusu ise yalnız oyuncuyla ilgili SECRET kaydını çağırmalı');
+
     const relationshipContext = runtime.api.conversationValidationContext(
         relationship.session, relationship.response);
     relationshipContext.dialogueMove = Object.assign({},
