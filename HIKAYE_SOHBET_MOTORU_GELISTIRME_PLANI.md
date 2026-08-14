@@ -686,9 +686,9 @@ S5–S8 arasındaki bütün ağır gerçek-model koşularının değişmezi:
 - donanım değişince aynı manifest ve seed'lerle yeniden ölçüm yapılır,
 - raporlar model, quant, context, backend ve fiziksel GPU adını birlikte taşır.
 
-Yerel teşhis komutu `npm run story:dialogue-gpu-preflight`tir. Güncel donanım
-borcu, RTX'in işletim sistemi/üretici GPU modu tarafından compute sürecine
-açılması ve preflight'ın `NVIDIA GeForce RTX 4060 Laptop GPU` göstermesidir.
+Yerel teşhis komutu `npm run story:dialogue-gpu-preflight`tir. Yeniden başlatma
+sonrasında bu kapı `cuda / NVIDIA GeForce RTX 4060 Laptop GPU` ile geçmiştir;
+Intel UHD artık kabul edilen frontier koşusunun compute aygıtı değildir.
 
 ### 4×2 sonucu ve reddet-hepsini engelleyen yararlılık kapısı
 
@@ -718,12 +718,23 @@ yoktur. `StoryConversationDomains` şu an yalnız şema zarfı üretmekte, ekono
 teknoloji veya toplantı dünyasından doğrulanmış fact projeksiyonu yapmamaktadır.
 Bu yüzden sonraki alt sıra:
 
-1. kamusal dünya gerçeği kayıt sözleşmesi ve kaynak kimliği,
-2. karakterin erişim/rol filtresi,
-3. domain evidence → DialogueMove → ContextPack provenance zinciri,
-4. sıfır-kaynak `SUPPORTED_PUBLIC` için sert sözleşme hatası,
-5. aynı dört-alan pozitif smoke ve `%50` yararlılık kapısıdır.
+1. ekonomi için kamusal dünya gerçeği kayıt sözleşmesi ve kaynak kimliği — **tamamlandı**,
+2. ekonomi karakter erişim/rol filtresi — **tamamlandı**,
+3. ekonomi domain evidence → DialogueMove → ContextPack provenance zinciri — **tamamlandı**,
+4. sıfır-kaynak `SUPPORTED_PUBLIC` için raporlanan sert sözleşme uyumsuzluğu — **tamamlandı**,
+5. teknoloji için yalnız Faz 42'de gerçek kayıt oluştuğunda fact projeksiyonu,
+6. resmî toplantı için katılımcı/gündem/tutanak görünürlük projeksiyonu,
+7. ilişki için aktörün bildiği yönlü ilişki projeksiyonu — **tamamlandı**; hafıza kaynaklarının konuya göre daraltılması açık,
+8. aynı dört-alan pozitif smoke ve `%50` doğal yararlılık kapısıdır.
 
 Manifest etiketi tek başına kanıt değildir. `supportedPublicUsefulBps` yalnız en
 az bir izinli fact/belief/claim/memory kaynağı taşıyan turları paydaya alır;
 etiketli fakat kaynaksız turlar `supportedPublicContractMismatches` olarak raporlanır.
+
+Ekonomi gerçek-model smoke'unda 8B kaynakları doğru kullanmasına rağmen güvenli
+fallback'i giriş cümlesiyle kopyaladığı için doğal kabul alamadı. Oyuncuya teslim
+edilen kaynaklı deterministik cevap ile modelin doğal kabulü ayrı tutulur:
+`supportedPublicDeliveredUsefulBps` teslim kalitesini,
+`supportedPublicUsefulBps` yalnız doğal model/grounded-discourse kabulünü ölçer.
+Bu koşuda ekonomi için değerler sırasıyla `%100` ve `%0`dır; reddet-hepsini başarı
+gibi göstermeden oynanabilir fallback'in de kaybolmamasını sağlar.

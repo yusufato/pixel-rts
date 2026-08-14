@@ -1353,25 +1353,24 @@ function storyTalkConversationDomainReviewHtml(review) {
 function storyTalkConversationResponseOptionsHtml(session) {
     const esc = storyTalkConversationEscape;
     const socialResponse = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
-    if (socialResponse) {
-        return `<section class="conversation-listener-response social" data-social-response="${esc(socialResponse.id)}">`
+    const socialHtml = socialResponse
+        ? `<section class="conversation-listener-response social" data-social-response="${esc(socialResponse.id)}">`
         + `<header><span>KARAKTERİN CEVABI</span><small>${esc(storyTalkConversationSpeechActLabel(socialResponse.speechAct))}</small></header>`
             + `<blockquote><span data-conversation-response-text="${esc(socialResponse.id)}" `
             + `data-enrichment-status="${esc(socialResponse.enrichmentStatus || '')}">`
             + `${storyTalkConversationResponsePending(socialResponse)
                 ? storyTalkConversationThinkingHtml(socialResponse) : `“${esc(socialResponse.text)}”`}</span></blockquote>`
-            + `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div></section>`;
-    }
+            + `<div class="conversation-safety-note">GÜNLÜK SOHBET · DÜNYA DEĞİŞMEDİ</div></section>` : '';
     const options = typeof storyConversationSessionResponseOptions === 'function'
         ? storyConversationSessionResponseOptions(session) : [];
     if (session.resolution) {
         const deferred = session.resolution.status === 'NEGOTIATION_DEFERRED';
-        return `<section class="conversation-resolution${deferred ? '' : ' danger'}"><b>${deferred ? 'GÖRÜŞME BEKLEMEDE' : 'GÖRÜŞME SONLANDI'}</b>`
+        return socialHtml + `<section class="conversation-resolution${deferred ? '' : ' danger'}"><b>${deferred ? 'GÖRÜŞME BEKLEMEDE' : 'GÖRÜŞME SONLANDI'}</b>`
             + `<p>${deferred ? 'Yeni şirket kuruluşu ayrı bir mekanik işlemle tamamlanmadan bu taslak ilerlemeyecek.'
                 : 'Teklif ve karşı teklif uygulanmadan kapatıldı.'}</p></section>`;
     }
     if (!options.length) {
-        if (session.status !== 'READY_FOR_NEGOTIATION') return '';
+        if (session.status !== 'READY_FOR_NEGOTIATION') return socialHtml;
         const negotiation = typeof storyNegotiationCaseBySession === 'function'
             ? storyNegotiationCaseBySession(session.id) : null;
         if (negotiation) {
@@ -1405,17 +1404,17 @@ function storyTalkConversationResponseOptionsHtml(session) {
             const mutationNotice = delivery
                 ? 'Sözleşme gerçek sevkiyat, escrow ve teslim makbuzuna bağlıdır.'
                 : 'Taraf kabulü fiziksel icra değildir; stok ve sevkiyat değişmedi.';
-            return `<section class="conversation-ready negotiation-open"><b>MÜZAKERE VAKASI AÇIK</b>`
+            return socialHtml + `<section class="conversation-ready negotiation-open"><b>MÜZAKERE VAKASI AÇIK</b>`
                 + `<p>${esc(negotiation.id)} · sürüm ${esc(current && current.number || 1)} · ${esc(negotiation.status)}</p>`
                 + reviewText + deliveryText
                 + `<small>${pending} onay bekliyor · ${secretCount} kayıtlı gizli paylaşım. Gizli içerik bu özette gösterilmez. `
                 + `${mutationNotice}</small>${preflightButton}${activateButton}</section>`;
         }
-        return `<section class="conversation-ready"><b>DOĞRULANMIŞ MÜZAKERE HAZIRLIĞI</b>`
+        return socialHtml + `<section class="conversation-ready"><b>DOĞRULANMIŞ MÜZAKERE HAZIRLIĞI</b>`
             + `<p>Taraflar ve temel iddialar görüşmeye hazır. Henüz sözleşme, ödeme veya sevkiyat oluşmadı.</p>`
             + `<button class="story-btn" data-negotiation-case-open="${esc(session.id)}">MÜZAKERE VAKASI AÇ</button></section>`;
     }
-    return `<section class="conversation-response-actions"><header>CEVABINI SEÇ</header>`
+    return socialHtml + `<section class="conversation-response-actions"><header>CEVABINI SEÇ</header>`
         + `<p>Yalnız doğrulanabilen seçenekler gösterilir. Seçim fiziksel dünyayı veya sevkiyatı kendiliğinden değiştirmez.</p>`
         + `<div>${options.map(option => `<button class="conversation-response-option" `
             + `data-conversation-player-response="${esc(option.id)}" data-conversation-session="${esc(session.id)}">`

@@ -138,7 +138,7 @@ function playerModeContract(mode, topicAnchor = 'konu') {
         FRAGMENT: `En fazla on iki sözcüklü, kasıtlı kısa veya yarım bir ifade yaz. Biçim örneği: “${topic} hakkındaki o eski mesele...”`,
         TOPIC_SWITCH: `Konu değiştirdiğini açıkça söyle; bu arada, başka bir konu veya geçelim gibi geçiş kullan. Biçim örneği: “Bu arada ${topic} konusuna geçelim.”`,
         CORRECTION: `Önceki sözü açıkça düzelt; hayır, aslında, yanlış veya demek istemedim kullan. Biçim örneği: “Hayır, ${topic} konusunda önceki sözümü düzeltmek istiyorum.”`,
-        NEGOTIATION: `Kazanç ve bedeli aynı teklifte bağla; karşılığında, şartıyla veya teklif kullan. Biçim örneği: “${topic} desteği karşılığında pay teklif ediyorum.”`,
+        NEGOTIATION: `Kazanç ve bedeli aynı teklifte bağla; karşılığında, şartıyla veya teklif kullan. Biçim örneği: “${topic} konusunda vereceğim destek karşılığında pay teklif ediyorum.”`,
         CASUAL_CHAT: `Talep veya pazarlık yapmadan gündelik, kısa ve doğal bir sosyal söz yaz. Biçim örneği: “Bugün ${topic} konusu sakin görünüyor.”`
     };
     return contracts[mode] || '';
@@ -255,8 +255,13 @@ function summary(state) {
     const declaredSupportedTurns = turns.filter(row => row.knowledgeRelation === 'SUPPORTED_PUBLIC');
     const supportedPublicTurns = declaredSupportedTurns.filter(row => Number(row.evidenceRefCount) > 0);
     const usefulAnswer = row => row.accepted === true || (row.disposition === 'NOT_REQUIRED'
-        && row.responseDiscourseAct && !/CLARIFY|REPAIR|UNKNOWN/.test(row.responseDiscourseAct));
+        && ((row.responseDiscourseAct && !/CLARIFY|REPAIR|UNKNOWN/.test(row.responseDiscourseAct))
+            || row.fallbackSource === 'DETERMINISTIC_VERIFIED_FACT_RESPONSE'));
     const supportedPublicUseful = supportedPublicTurns.filter(usefulAnswer).length;
+    const deliveredUseful = row => usefulAnswer(row)
+        || (row.disposition === 'FALLBACK_KEPT'
+            && row.fallbackSource === 'DETERMINISTIC_VERIFIED_FACT_RESPONSE');
+    const supportedPublicDeliveredUseful = supportedPublicTurns.filter(deliveredUseful).length;
     return {
         sessions: state.sessions.length, turns: turns.length,
         accepted: turns.filter(row => row.accepted === true).length,
@@ -281,6 +286,9 @@ function summary(state) {
         supportedPublicUseful,
         supportedPublicUsefulBps: supportedPublicTurns.length
             ? Math.round(10000 * supportedPublicUseful / supportedPublicTurns.length) : 0,
+        supportedPublicDeliveredUseful,
+        supportedPublicDeliveredUsefulBps: supportedPublicTurns.length
+            ? Math.round(10000 * supportedPublicDeliveredUseful / supportedPublicTurns.length) : 0,
         playerCandidateIssues: playerDiagnostics.flatMap(row => row.issues || []).reduce((acc, issue) => {
             acc[issue] = (acc[issue] || 0) + 1; return acc;
         }, {})
@@ -501,7 +509,8 @@ async function main() {
                     const response = (session.listenerResponses || []).find(row => row.id === pending.responseId);
                     if (!response) throw new Error(`PREPARED_RESPONSE_MISSING:${pending.responseId}`);
                     const modelEligible = response.speechAct !== 'UNKNOWN'
-                        && response.source !== 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE';
+                        && !['DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE',
+                            'DETERMINISTIC_VERIFIED_FACT_RESPONSE'].includes(response.source);
                     work.push({ pending, sessionState, scenario, session, response, modelEligible });
                 }
                 const eligible = work.filter(row => row.modelEligible);
@@ -531,6 +540,7 @@ async function main() {
                                 dialogueMoveId: response.dialogueMove.moveId, modelEligible: false,
                                 disposition: 'NOT_REQUIRED', accepted: null,
                                 acceptedReply: response.text, fallbackReply: response.text,
+                                fallbackSource: response.source || null,
                                 responseDiscourseAct: response.discourseAct || '',
                                 evidenceRefCount: [].concat(response.dialogueMove.factRefs || [],
                                     response.dialogueMove.beliefRefs || [],
@@ -555,6 +565,7 @@ async function main() {
                                 dialogueMoveId: response.dialogueMove.moveId, modelEligible: true,
                                 disposition: accepted ? 'USED' : 'FALLBACK_KEPT', accepted: !!accepted,
                                 acceptedReply: accepted, fallbackReply: response.text,
+                                fallbackSource: response.source || null,
                                 responseDiscourseAct: response.discourseAct || '',
                                 evidenceRefCount: [].concat(response.dialogueMove.factRefs || [],
                                     response.dialogueMove.beliefRefs || [],

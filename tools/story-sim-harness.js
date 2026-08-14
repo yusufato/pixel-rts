@@ -14739,7 +14739,9 @@ function probeCharacterLifeStatus(seed = 2032) {
             actionType: 'RESIGN', actorId: officeActor.id,
             domainContext: { targetInstitutionId: 'former-office' }
         });
-        const retiredMemory = runtime.api.characterMemoryRecall(officeActor.id, {});
+        const retiredMemory = runtime.api.characterMemoryRecall(officeActor.id, {
+            sourceIds: ['life-probe:memory'], limit: 6
+        });
         const companyOfficeBefore = runtime.api.characterRoleCompanyOfficeView(companyActor.organizationId);
         const died = runtime.api.characterIdentityLifeTransition({
             actorId: companyActor.id, toStatus: 'DEAD',
@@ -14864,9 +14866,9 @@ function probeCharacterCohortActivation(seed = 2032) {
                 && candidate.populationMutation === false && view.populationMutation === false,
             worldReadOnly: worldBefore === worldAfter
                 && view.canonicalLedgersReadOnly === true && view.worldMutation === false,
-            profileFromCohort: candidate && candidate.sourcePopulationPeople > 0
+            profileFromCohort: !!(candidate && candidate.sourcePopulationPeople > 0
                 && candidate.profile.ageBand && candidate.profile.occupation
-                && candidate.profile.education && candidate.profile.identity
+                && candidate.profile.education && candidate.profile.identity)
         };
     } finally {
         runtime.dom.window.close();
@@ -14961,8 +14963,9 @@ function probeCharacterCohortPromotion(seed = 2032) {
             ledgersCrossValidate: runtime.api.validateCharacterActivationLedger(ledger).ok
                 && runtime.api.validateCharacterIdentityLedger(runtime.api.characterIdentityLedger()).ok,
             originMemoryCreated: memory.records.some(row =>
-                row.source && row.source.sourceType === 'COHORT_PROMOTION'
-                && row.source.movementId === candidate.trigger.movementId),
+                Array.isArray(row.sourceEvidenceIds)
+                && row.sourceEvidenceIds.includes('COHORT_PROMOTION')
+                && row.sourceEvidenceIds.includes(candidate.trigger.movementId)),
             dormancyReducesCostPreservesPerson: dormantActor
                 && dormantActor.sourceStatus === 'DORMANT_SOURCE'
                 && dormantActor.effectiveLevel === 'MINOR'
@@ -14970,7 +14973,8 @@ function probeCharacterCohortPromotion(seed = 2032) {
                 && dormantActor.identityPresent === true
                 && runtime.api.characterIdentityView(actorId) !== null,
             dormancyPreservesMemoryAndRelationship: dormantMemory.records.some(row =>
-                row.source && row.source.sourceType === 'COHORT_PROMOTION')
+                Array.isArray(row.sourceEvidenceIds)
+                && row.sourceEvidenceIds.includes('COHORT_PROMOTION'))
                 && JSON.stringify(relationshipAfterDormancy)
                     === JSON.stringify(relationshipBeforeDormancy),
             lowLevelPromotionRejected: lowCandidate.level === 'AGGREGATE'
@@ -16488,9 +16492,12 @@ function probeConversationUnderstanding(seed = 2032) {
                     && /tek başına şirket kurmaz/.test(row.text)),
                 budgetReportRecorded: companyTurns.slice(2, 4).every(row => row && row.followUp.analysis.claims.some(claim =>
                     claim.type === 'PLAYER_REPORTED_BUDGET' && claim.truthStatus === 'UNVERIFIED_PLAYER_REPORT')),
-                budgetAcknowledged: companyResponses.slice(2, 4).every(row => row
-                    && row.discourseAct === 'ACKNOWLEDGE_UNVERIFIED_BUDGET'
-                    && /doğrulanmış bakiye sayamam/.test(row.text)),
+                budgetAcknowledged: companyResponses[2]
+                    && companyResponses[2].discourseAct === 'ACKNOWLEDGE_UNVERIFIED_BUDGET'
+                    && /doğrulanmış bakiye sayamam/.test(companyResponses[2].text)
+                    && companyResponses[3]
+                    && companyResponses[3].discourseAct === 'REPAIR_REPETITION'
+                    && companyResponses[3].text !== companyResponses[2].text,
                 insultDoesNotRepeatBudgetQuestion: companyResponses[4]
                     && companyResponses[4].discourseAct === 'ANSWER_PLAYER_BOUNDARY'
                     && companyResponses[4].text !== companyResponses[1].text,

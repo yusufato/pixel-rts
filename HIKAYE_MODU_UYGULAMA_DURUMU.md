@@ -8,6 +8,20 @@
 **Aktif uygulama sırası:** Sohbet motoru yükseltmesi S6 — sert çıktı doğrulayıcıları ve gerçekten benzersiz adversarial 8B konuşma bataryası
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
 
+**14 Ağustos kanıt dikeyi:** Ekonomi FACT zincirinden sonra karakter→oyuncu yönlü
+ilişki kaydı da imzalı DomainEvidence/ContextPack kaynağına bağlandı. Ters yön ve
+üçüncü aktör verisi sızmaz; ilişki kenarı yoksa puan uydurmak yerine doğrulanmış
+“kayıt oluşmadı” sonucu taşınır. Teknoloji gerçekleri Faz 42'yi, toplantı gerçekleri
+Faz 38.13'ü bekler. Gece `100×10` koşusu doğal 8B yararlılığı geçmeden kapalıdır.
+
+**Tam paket durumu:** İki altı-işçili `npm test` koşusu sırasıyla yaklaşık
+`677,3 sn` ve `659,3 sn` sürdü. İkincisi `46/81`de bayat boolean test sözleşmesinde
+durdu; bu nedenle tam paket yeşil ilan edilmedi. Koşuların açtığı üç borç kapandı:
+salt-okunur hafıza kaynağı artık ham `row.source` beklemiyor, bilinmeyen yaş
+`null→0` olmuyor ve kohort profil probu string yerine boolean döndürüyor. Kariyer,
+yaşam, kohort, aktivasyon bütçesi, sohbet sözleşmeleri ve 1.200 turluk sanal
+laboratuvar hedefli olarak temizdir. Güncel tüm-81 yeniden koşusu açık kanıttır.
+
 ## Faz tablosu
 
 | Faz | Durum | Kanıt |

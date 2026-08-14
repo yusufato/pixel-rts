@@ -110,6 +110,7 @@ function storyDialogueMoveRequiredPoints(act, input) {
     if (/UNKNOWN|CLARIFY/.test(act)) points.push('STATE_UNDERSTANDING_LIMIT_EXPLICITLY');
     if (/REPAIR/.test(act)) points.push('CORRECT_PRIOR_RESPONSE_WITHOUT_DEFENSIVENESS');
     if ((input.memoryRefs || []).length) points.push('CITE_ONLY_HELD_MEMORY');
+    if ((input.factRefs || []).length) points.push('USE_RELEVANT_VERIFIED_FACTS');
     if (/SUPPORT|REQUEST|COMPANY|JOB|TASK|PRIORITIES/.test(act)) points.push('STATE_AUTHORITY_BOUNDARY');
     return storyDialogueMoveUnique(points);
 }

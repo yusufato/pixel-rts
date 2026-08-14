@@ -52,5 +52,20 @@ assert.ok(storyConversationDomainValidate(forged).issues.some(row => row.code ==
 const textWriter = JSON.parse(JSON.stringify(bundles[1]));
 textWriter.producesText = true;
 assert.ok(storyConversationDomainValidate(textWriter).issues.some(row => row.code === 'BOUNDARY'));
+
+assert.equal(storyConversationDomainBuild({ analysis: {
+    topic: 'ECONOMY', speechAct: 'ASK_INFORMATION', claims: [], entities: []
+} }).domain, 'ECONOMY', 'doğrudan ekonomi sorusu sosyal alana düşmemeli');
+const recorded = storyConversationDomainBuild({ analysis: fixtures.ECONOMY, factRecords: [{
+    id: 'fact:country:0:inflation', actorId: 'character:0:president',
+    countryId: 'country:0', field: 'inflation', status: 'VERIFIED',
+    confidenceBps: 10000, sourceType: 'OWN_TREASURY', observedAt: 12,
+    text: 'Doğrulanmış enflasyon göstergesi %4.0.'
+}] });
+assert.equal(storyConversationDomainValidate(recorded).ok, true);
+const tamperedRecord = JSON.parse(JSON.stringify(recorded));
+tamperedRecord.factRecords[0].text = 'Enflasyon %99.0.';
+assert.ok(storyConversationDomainValidate(tamperedRecord).issues.some(row => row.code === 'CHECKSUM'),
+    'tarihsel fact metni bundle imzasını bozmadan değiştirilememeli');
 process.stdout.write(`${JSON.stringify({ ok: true, domains: bundles.length,
     sharedShape: true })}\n`);

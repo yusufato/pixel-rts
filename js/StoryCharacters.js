@@ -236,7 +236,7 @@ function storyCharacterIdentityLifeBackfill(actor) {
     if (!['ACTIVE', 'RETIRED', 'DEAD'].includes(life.status)) life.status = 'ACTIVE';
     if (!life.statusEvidence) life.statusEvidence = 'LEGACY_SOURCE_ACTOR_PRESENT';
     if (life.birthDate == null) life.birthDate = null;
-    if (!Number.isFinite(Number(life.ageYears))) life.ageYears = null;
+    if (life.ageYears == null || !Number.isFinite(Number(life.ageYears))) life.ageYears = null;
     else life.ageYears = Math.max(0, Math.min(130, Math.floor(Number(life.ageYears))));
     if (!['UNKNOWN', 'HEALTHY', 'IMPAIRED', 'CRITICAL'].includes(life.healthStatus)) {
         life.healthStatus = 'UNKNOWN';

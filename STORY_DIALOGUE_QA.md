@@ -552,3 +552,44 @@ Aktif kök borç 8B prompt ayarı değil, StoryConversationDomains için doğrul
 dünya-gerçeği projeksiyonudur. Ekonomi/teknoloji/toplantı gerçekleri kaynak kimliği
 ve görünürlük politikasıyla ContextPack'e girmeden pozitif 8B kalite testi geçerli
 sayılmaz.
+
+## 14 Ağustos 2026 — İlk kanonik ekonomi FACT dikeyi
+
+Boş domain zarfı borcunun ilk gerçek dikeyi kapatıldı. `ECONOMY` soruları artık
+deterministik NLU'da ayrı konuya yönlenir; karakterin ülkesi açısından üretilen
+`StoryWorldV2 → PlayerKnowledge` görünümünden yalnız `VERIFIED` gerçekler seçilir.
+Yönetici kurum bağı varsa bütçe ve hazineyi, yetkisiz komutan yalnız enflasyon ve
+refahı görür. Yabancı yöneticiye oyuncu ülkesinin özel bütçe defteri bağlanmaz.
+Ham journal/recent transaction verisi ContextPack'e girmez.
+
+Kaynak kimlikleri `DomainEvidence.factRefs → DialogueMove.factRefs → FACT
+ContextPack` boyunca aynen korunur. FACT varken bilgi sorusu en az bir fact ref
+kullanmak zorundadır; mevcut gerçek varken genel “bilgim yok” kaçışı ve kaynakta
+bulunmayan sayı reddedilir. Model başarısız olduğunda gösterilen deterministik
+fallback de artık aynı gerçeklerden üretilir; trend sorusunda anlık görüntünün
+geçmiş değişimi kanıtlamadığı açıkça belirtilir.
+Her turdaki doğrulanmış salt-okunur `factRecords` bundle imzasına ve kayda girer;
+sonraki tick, başka karakterin cache'i veya kayıt/yükleme eski konuşmanın kaynak
+metnini güncel değerle değiştiremez.
+
+RTX 4060/CUDA gerçek-model tekrarında 14B oyuncu ilk denemede `4/4`, teknik hata
+`0` verdi. Dört manifest turundan yalnız ekonomi gerçek kaynak taşıdı:
+`supportedPublicTurns=1`, sözleşme uyumsuzluğu `3`. 8B ekonomi cevabı FACT'leri
+ve doğru sayıları kullandı fakat güvenli anlamı giriş cümlesiyle kopyaladığı için
+`FALLBACK_PADDING` ile reddedildi; oyuncuya kaynaklı deterministik cevap teslim
+edildi. Model kabulü bu fallback ile şişirilmez: `supportedPublicUsefulBps=0`;
+teslim kalitesi ayrıca `supportedPublicDeliveredUsefulBps=10000` olarak ölçülür.
+Teknoloji ve resmî toplantı kanıt projeksiyonları açık borçtur. İlişki dikeyinde
+yalnız muhatap→oyuncu yönlü kanonik kayıt verilir; ters yön veya üçüncü aktör
+ilişkisi kanıt sayılmaz. Kenar yoksa güven puanı uydurulmaz, imzalı
+`DIRECTIONAL_RELATIONSHIP_LEDGER_ABSENCE` kaydı taşınır. “Birlikte” sözcüğünün
+askerî “birlik” sayılması gerçek model cümlesiyle regresyona alınmıştır.
+
+İlk ilişki RTX smoke'u “güvenimi sunuyorum, pay talep ediyorum” sözünü doğru
+biçimde `RELATIONSHIP + COUNTER_OFFER` sayıp pazarlık vakasına yöneltti. Ayrı
+bilgi-sorusu smoke'unda 14B “Güvenin nerede kayboldu?” üretti; çekimli biçim
+regresyona alındı. Son koşu `supportedPublicTurns=1`, sözleşme uyumsuzluğu `0`,
+yararlı teslim `%100`, hata `0` verdi. Cevap kanonik ilişki FACT'inden
+deterministik üretildiği için 8B hiç yüklenmedi (`modelLoads=1`, yalnız 14B).
+Önceki 8B “daha açık söyleyin” cevabının sahte `%100` kabulü iptal edildi;
+mevcut FACT varken açıklama isteme kaçışı reddediliyor.

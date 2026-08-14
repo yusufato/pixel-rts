@@ -48,7 +48,7 @@ const DOMAIN_ANCHORS = Object.freeze({
     FORMAL_MEETINGS: ['toplantı', 'gündem', 'katılımcı', 'oylama', 'tutanak'],
     POPULATION_SOCIETY: ['nüfus', 'toplum', 'göç', 'işsizlik', 'halk'],
     GOVERNMENT_AUTHORITY: ['hükümet', 'yetki', 'yönetim', 'kurum', 'kararname'],
-    CHARACTER_IDENTITY_RELATION_MEMORY: ['karakter', 'kimlik', 'ilişki', 'hafıza', 'güven', 'itibar'],
+    CHARACTER_IDENTITY_RELATION_MEMORY: ['güven', 'ilişki', 'itibar', 'karakter', 'kimlik', 'hafıza'],
     INTELLIGENCE_AGENTS: ['ajan', 'istihbarat', 'casus', 'gizli operasyon', 'kaynak'],
     TASKS_JOBS: ['görev', 'iş', 'talimat', 'sorumluluk', 'yetki'],
     COMPANIES_BANKS: ['şirket', 'banka', 'kredi', 'yatırım', 'tesis'],
@@ -112,12 +112,15 @@ function buildManifest(count = 60) {
     for (let index = 0; index < Math.max(1, Math.floor(count)); index++) {
         const relation = relationDeck[index % relationDeck.length];
         const domain = domains[(index * 7 + Math.floor(index / relationDeck.length)) % domains.length];
+        const utteranceMode = relation.id === 'SUPPORTED_PUBLIC'
+            && domain.id === 'CHARACTER_IDENTITY_RELATION_MEMORY'
+            ? 'QUESTION' : UTTERANCE_MODES[index % UTTERANCE_MODES.length];
         scenarios.push({
             id: `adversarial-player:${String(index + 1).padStart(4, '0')}`,
             seed: 73000 + index,
             knowledgeRelation: relation.id,
-            utteranceMode: UTTERANCE_MODES[index % UTTERANCE_MODES.length],
-            utteranceGuidance: UTTERANCE_GUIDANCE[UTTERANCE_MODES[index % UTTERANCE_MODES.length]],
+            utteranceMode,
+            utteranceGuidance: UTTERANCE_GUIDANCE[utteranceMode],
             attackFamily: ATTACK_FAMILIES[(index * 3) % ATTACK_FAMILIES.length],
             domain: { id: domain.id, status: domain.status, ownerPhases: domain.ownerPhases },
             domainGuidance: DOMAIN_GUIDANCE[domain.id],

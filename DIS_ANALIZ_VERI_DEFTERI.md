@@ -15,6 +15,30 @@ Her dış analiz dört ayrı katmanda tutulur:
 
 Bu dosya bir görev listesi değildir. Buradaki hiçbir öneri yalnız kayda alındığı için uygulanmış veya onaylanmış sayılmaz.
 
+### 14 Ağustos 2026 — sohbet dünya kanıtı: ekonomi ve yönlü ilişki
+
+- Ekonomi için karakter ülkesinden, rol/yetki filtresinden geçen doğrulanmış FACT
+  kayıtları konuşma kanıt zarfına bağlandı; imzalı tarihsel kayıt tick ve save/load
+  boyunca aynı anlamı koruyor.
+- İlişki dikeyi yalnız muhatap→oyuncu kanonik kenarını yayımlar. Ters yön, başka
+  aktör ve ham ilişki geçmişi prompta girmez. Kenar yokluğu sahte sıfır puan değil,
+  ayrı doğrulanmış yokluk kaydıdır.
+- Gerçek 14B cümlesi “onunla birlikte” ifadesinin askerî `birlik` sayıldığını
+  ortaya çıkardı; kelime-sınırı düzeltildi ve birebir regresyona alındı.
+- RTX karşı-teklif smoke'u mekanik pazarlık vakasına doğru yöneldi. Ayrı ilişki
+  sorusu smoke'unda 14B'nin “Güvenin nerede kayboldu?” çekimi doğru tanındı;
+  `1/1` kaynak, `0` uyumsuzluk, `%100` yararlı teslim ve `0` hata ölçüldü.
+  Kaynaklı cevap deterministik olduğu için 8B yüklenmedi. Daha önce kabul edilen
+  “soruyu duydum, daha açık söyleyin” çıktısı sahte yararlılık olarak teşhis
+  edilip mevcut-FACT kaçış kapısıyla reddedildi.
+- İki tam test koşusu sohbet birimlerini ve ilk `45/46` dünya görevini geçti fakat
+  eski Faz 38.10–38.11 prob sözleşmelerinde sırasıyla durdu; tam yeşil iddiası
+  verilmedi. Gerçek kod hatası `Number(null)→0` yaş normalizasyonuydu ve düzeltildi.
+  Diğer ikisi sahiplik-korumalı recall projeksiyonuna rağmen ham `source` bekleyen
+  test ile boolean yerine son truthy stringi döndüren probdu. Hedefli kariyer,
+  yaşam, kohort, aktivasyon bütçesi, müzakere, ContextPack ve 1.200 turluk sanal
+  sohbet kapıları geçmiştir; tüm `81/81` yeniden koşu kanıtı açık kalır.
+
 ### Ana planla kontrol düzeni
 
 Bu defter yalnız arşiv olarak bırakılmayacaktır. Aşağıdaki noktalarda yeniden okunup ana planla karşılaştırılır:

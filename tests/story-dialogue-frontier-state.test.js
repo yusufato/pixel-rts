@@ -40,6 +40,7 @@ try {
         supportedPublicTurns: 0, supportedPublicDeclaredTurns: 0,
         supportedPublicContractMismatches: 0,
         supportedPublicUseful: 0, supportedPublicUsefulBps: 0,
+        supportedPublicDeliveredUseful: 0, supportedPublicDeliveredUsefulBps: 0,
         playerCandidateIssues: {} });
     const provenanceSummary = summary({ sessions: [{ turns: [
         { knowledgeRelation: 'SUPPORTED_PUBLIC', evidenceRefCount: 0, accepted: false,
@@ -51,6 +52,16 @@ try {
     assert.equal(provenanceSummary.supportedPublicTurns, 1);
     assert.equal(provenanceSummary.supportedPublicContractMismatches, 1);
     assert.equal(provenanceSummary.supportedPublicUsefulBps, 10000);
+    assert.equal(provenanceSummary.supportedPublicDeliveredUsefulBps, 10000);
+    const groundedFallbackSummary = summary({ sessions: [{ turns: [{
+        knowledgeRelation: 'SUPPORTED_PUBLIC', evidenceRefCount: 2, accepted: false,
+        modelEligible: true, disposition: 'FALLBACK_KEPT',
+        fallbackSource: 'DETERMINISTIC_VERIFIED_FACT_RESPONSE'
+    }] }] });
+    assert.equal(groundedFallbackSummary.supportedPublicUsefulBps, 0,
+        'model kabulü deterministik fallback ile şişirilmemeli');
+    assert.equal(groundedFallbackSummary.supportedPublicDeliveredUsefulBps, 10000,
+        'oyuncuya teslim edilen kaynaklı fallback ayrıca ölçülmeli');
     const scenario = { utteranceMode: 'QUESTION',
         requiredTopicAnchors: ['ekonomi', 'enflasyon', 'bütçe'],
         targetTopicAnchor: 'ekonomi' };
@@ -132,7 +143,7 @@ try {
     assert.match(microPrompt, /"jobId":0/);
     assert.match(frontierRunnerFingerprint(), /^[0-9a-f]{8}$/,
         'Checkpoint oyuncu kapısı ve koşucu sözleşmesinin parmak izini taşımalı.');
-    process.stdout.write(`${JSON.stringify({ ok: true, frontierStateAssertions: 46 })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, frontierStateAssertions: 49 })}\n`);
 } finally {
     runtime.dom.window.close();
 }

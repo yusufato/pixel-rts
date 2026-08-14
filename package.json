@@ -5,7 +5,7 @@
   "description": "Pixel RTS — yaşayan Avrupa seferi: şehir üretimi, konsey, diplomasi",
   "main": "electron/main.js",
   "scripts": {
-    "test": "node tests/story-dialogue-corpus.test.js && node tests/story-dialogue-move.test.js && node tests/story-dialogue-hard-assertion-audit.test.js && node tests/story-discourse-state.test.js && node tests/story-conversation-domains.test.js && node tests/story-conversation-context.test.js && node tests/story-conversation-player-regressions.test.js && node tests/story-dialogue-adversarial-player-manifest.test.js && node tests/story-llm-context-limit.test.js && node tools/story-test-parallel.js",
+    "test": "node tests/story-dialogue-corpus.test.js && node tests/story-dialogue-move.test.js && node tests/story-dialogue-hard-assertion-audit.test.js && node tests/story-discourse-state.test.js && node tests/story-conversation-domains.test.js && node tests/story-conversation-context.test.js && node tests/story-conversation-evidence.test.js && node tests/story-conversation-player-regressions.test.js && node tests/story-dialogue-adversarial-player-manifest.test.js && node tests/story-llm-context-limit.test.js && node tools/story-test-parallel.js",
     "test:story": "node tools/story-test-parallel.js",
     "test:story:plan": "node tools/story-test-parallel.js --plan",
     "test:story:serial": "node --max-old-space-size=8192 --expose-gc tests/story-world.test.js",
@@ -28,6 +28,7 @@
     "story:discourse-state-test": "node tests/story-discourse-state.test.js",
     "story:conversation-domains-test": "node tests/story-conversation-domains.test.js",
     "story:conversation-context-test": "node tests/story-conversation-context.test.js",
+    "story:conversation-evidence-test": "node tests/story-conversation-evidence.test.js",
     "story:conversation-player-regressions": "node tests/story-conversation-player-regressions.test.js",
     "story:llm-context-limit-test": "node tests/story-llm-context-limit.test.js",
     "story:dialogue-8b": "node tools/story-dialogue-8b-runner.js",
