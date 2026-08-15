@@ -772,7 +772,11 @@ body[data-screen="multiplayer"] #war-room-shell { display: flex; }
     inset: 0;
     z-index: 5000;
     pointer-events: none;
-    background: repeating-linear-gradient(0deg, rgba(0,0,0,.24) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,.47) 100%);
+    /* KUSUR 13 — CRT yoğunluğu artık sürekli. `design-qa.md:36`'daki tek açık
+       P3: "canlı muharebe bazı arazi tohumlarında konsept çekimden parlak".
+       İkili anahtar bunu çözemiyordu; ya tam tarama ya hiç. Taban değerler
+       (.24 tarama, .47 vinyet) --wr-crt-alpha = 1'de birebir eskisi. */
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,calc(.24 * var(--wr-crt-alpha, 1))) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,calc(.47 * var(--wr-crt-alpha, 1))) 100%);
     animation: wr-scan 8s linear infinite;
 }
 body.wr-crt-off #war-room-stage::after { display: none; }
@@ -2116,6 +2120,9 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .battle-pause-box { min-width: 300px; padding: 24px 28px; border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(5,9,4,.97); box-shadow: 0 30px 80px rgba(0,0,0,.72); text-align: center; font-family: 'Share Tech Mono', monospace; }
 .battle-pause-title { margin-bottom: 6px; color: var(--wr-amber-bright); font-size: 13px; letter-spacing: 2.5px; }
 .battle-pause-sub { margin-bottom: 18px; color: var(--wr-dim); font-size: 9px; letter-spacing: 1.2px; }
+.battle-pause-crt { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(255,176,0,.03); color: var(--wr-muted); font-size: 8px; letter-spacing: 1.2px; }
+.battle-pause-crt input[type="range"] { flex: 1 1 auto; min-width: 0; accent-color: var(--wr-amber); }
+.battle-pause-crt output { flex: 0 0 34px; color: var(--wr-amber-bright); font-size: 9px; text-align: right; }
 .battle-pause-btn { display: block; width: 100%; margin: 7px 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--wr-green); border-radius: 4px; background: rgba(74,222,128,.1); color: #d9ffe6; font: 11px 'Share Tech Mono', monospace; letter-spacing: 1.3px; cursor: pointer; transition: all .15s ease; }
 .battle-pause-btn:hover, .battle-pause-btn:focus-visible { background: rgba(74,222,128,.2); box-shadow: 0 0 18px rgba(74,222,128,.16); outline: none; }
 .battle-pause-btn.cikis { border-color: var(--wr-red); background: rgba(255,107,107,.08); color: #ffd5d5; }

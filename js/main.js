@@ -739,14 +739,30 @@ function battlePauseOverlay() {
         '<div class="battle-pause-box">' +
         '<div class="battle-pause-title">⏸️ MAÇ DURAKLATILDI</div>' +
         '<div class="battle-pause-sub">ESC İLE DEVAM EDEBİLİRSİN</div>' +
+        // KUSUR 13: CRT yoğunluğu buradan da ayarlanır. Ayarın kanonik yeri menüdeki
+        // panel, ama parlaklık sorunu SAHAYA bakarken fark ediliyor; savaş içinde
+        // menüye çıkış yolu yok. İki denetim de warRoomApplyCrtAlpha üzerinden AYNI
+        // tercihi yazar — iki ayrı ayar değil, tek ayarın iki yüzü.
+        '<label class="battle-pause-crt"><span>CRT YOĞUNLUĞU</span>' +
+        '<input id="battle-crt-alpha" type="range" min="0" max="100" value="100">' +
+        '<output id="battle-crt-alpha-value">100%</output></label>' +
         '<button id="btn-pause-resume" class="battle-pause-btn">MAÇA DEVAM ET</button>' +
         '<button id="btn-pause-quit" class="battle-pause-btn cikis">MAÇTAN ÇIK</button></div>';
     document.body.appendChild(el);
+    el.querySelector('#battle-crt-alpha').addEventListener('input', event => {
+        if (typeof warRoomApplyCrtAlpha === 'function') warRoomApplyCrtAlpha(event.target.value);
+        if (typeof warRoomSavePrefs === 'function') warRoomSavePrefs();
+    });
     el.querySelector('#btn-pause-resume').addEventListener('click', () => battleTogglePause(false));
     el.querySelector('#btn-pause-quit').addEventListener('click', () => {
         battleTogglePause(false);
         if (typeof showScreen === 'function') showScreen('menu');
     });
+    // Pencere TEMBEL kurulduğu için kaydırıcı kayıtlı tercihi bilmiyor: kurulur
+    // kurulmaz eşitle, yoksa açılışta hep %100 gösterip yalan söyler.
+    if (typeof warRoomApplyCrtAlpha === 'function' && typeof warRoomLoadPrefs === 'function') {
+        warRoomApplyCrtAlpha(warRoomLoadPrefs().crtAlpha);
+    }
     return el;
 }
 

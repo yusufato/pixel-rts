@@ -44,19 +44,41 @@ function warRoomLoadPrefs() {
         // maliyeti kimseye sormadan yüklemek doğru değil — isteyen açar.
         return {
             crt: saved.crt !== false,
+            // KUSUR 13: yoğunluk. Eski kayıtlarda alan yok → 100 (eski davranışın birebiri).
+            crtAlpha: Number.isFinite(+saved.crtAlpha) ? Math.max(0, Math.min(100, +saved.crtAlpha)) : 100,
             volume: Number.isFinite(+saved.volume) ? Math.max(0, Math.min(100, +saved.volume)) : 70,
             llm: saved.llm === true,
         };
     } catch (_) {
-        return { crt: true, volume: 70, llm: false };
+        return { crt: true, crtAlpha: 100, volume: 70, llm: false };
     }
+}
+
+// ── KUSUR 13: CRT YOĞUNLUĞU (design-qa.md:36 · turun tek açık P3) ───────────
+// "Canlı muharebe bazı arazi tohumlarında konsept çekimden parlak." İkili
+// anahtar bunu çözemez; ya tam tarama ya hiç. Yoğunluk --wr-crt-alpha ile
+// sürülür; ayar hem menüdeki panelden hem savaş içi duraklatma penceresinden
+// değiştirilebilir, ikisi de AYNI tercihi yazar (iki ayrı ayar değil).
+function warRoomApplyCrtAlpha(yuzde) {
+    const v = Math.max(0, Math.min(100, Number.isFinite(+yuzde) ? +yuzde : 100));
+    document.documentElement.style.setProperty('--wr-crt-alpha', String(v / 100));
+    for (const id of ['wr-crt-alpha', 'battle-crt-alpha']) {
+        const kaydirici = document.getElementById(id);
+        if (kaydirici && +kaydirici.value !== v) kaydirici.value = String(v);
+    }
+    for (const id of ['wr-crt-alpha-value', 'battle-crt-alpha-value']) {
+        const etiket = document.getElementById(id);
+        if (etiket) etiket.value = `${v}%`;
+    }
+    return v;
 }
 
 function warRoomSavePrefs() {
     const crt = !!document.getElementById('wr-crt-toggle')?.checked;
+    const crtAlpha = warRoomApplyCrtAlpha(document.getElementById('wr-crt-alpha')?.value ?? 100);
     const volume = +(document.getElementById('wr-volume')?.value || 70);
     const llm = !!document.getElementById('wr-llm-toggle')?.checked;
-    try { localStorage.setItem(WAR_ROOM_UI_KEY, JSON.stringify({ crt, volume, llm })); } catch (_) {}
+    try { localStorage.setItem(WAR_ROOM_UI_KEY, JSON.stringify({ crt, crtAlpha, volume, llm })); } catch (_) {}
     document.body.classList.toggle('wr-crt-off', !crt);
     warRoomApplyLLM(llm);
 }
@@ -671,6 +693,7 @@ function warRoomInit() {
     if (volume) volume.value = prefs.volume;
     if (volumeValue) volumeValue.value = `${prefs.volume}%`;
     if (llmToggle) llmToggle.checked = prefs.llm;
+    warRoomApplyCrtAlpha(prefs.crtAlpha);
     document.body.classList.toggle('wr-crt-off', !prefs.crt);
     warRoomApplyLLM(prefs.llm);
 
@@ -692,6 +715,7 @@ function warRoomInit() {
         });
     });
     crt?.addEventListener('change', warRoomSavePrefs);
+    document.getElementById('wr-crt-alpha')?.addEventListener('input', warRoomSavePrefs);
     llmToggle?.addEventListener('change', warRoomSavePrefs);
     volume?.addEventListener('input', () => {
         if (volumeValue) volumeValue.value = `${volume.value}%`;
