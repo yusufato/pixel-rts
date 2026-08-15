@@ -452,7 +452,7 @@ ve `design-qa.md` bölüm 2'de **passed**. Buradaki iş yeniden tasarım değil,
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · ilişki **çubukları solda**, zincir (`ANLAŞMALAR & KAYITLAR`) **sağda** ayrı blokta | Sol sütun sekmeli (`PROFİL` / `İLİŞKİ`); zincir söz → ittifak/anlaşma → borç → eylem sırasında, çubukların hemen altında | **`UYGULANDI`** (commit aşağıda) |
+| 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · ilişki **çubukları solda**, zincir (`ANLAŞMALAR & KAYITLAR`) **sağda** ayrı blokta | Sol sütun sekmeli (`PROFİL` / `İLİŞKİ`); zincir söz → ittifak/anlaşma → borç → eylem sırasında, çubukların hemen altında | **`UYGULANDI`** `12b693c` |
 | 21 | Geçmiş sütununda arama/filtre yok; oturum arttıkça sürdürme kullanılamaz oluyor | `js/Talks.js` düz liste | Arama + tür süzgeci + eşleşme sayacı (yapışkan çubuk). **"Muhataba göre gruplama" yapılmadı**: liste zaten tek muhataba ait, gruplayacak ikinci taraf yok | **`UYGULANDI`** `1f78abf` |
 
 #### 20 — uygulandı (bu turda, oyunda)
