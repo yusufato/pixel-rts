@@ -55,7 +55,7 @@ fiyat endeksi.
 
 ---
 
-## Aşama 1 — `pts` yatağını ekonomiye bağla · `AÇIK`
+## Aşama 1 — `pts` yatağını ekonomiye bağla · **`UYGULANDI`** `8ea7f10`
 
 **Neden ilk:** haritadaki üç yataktan biri ekonomiye hiç girmiyor. 20 şehirdeki
 32 birim yalnız eski cüzdanın soyut "puan" gelirini besliyor. Yeni veri
@@ -75,11 +75,27 @@ haritayı anlamlı kılar. Ayrıca `advanced_tech` katalogda zaten `electronics`
   Gelir formülü (`Story.js:1522`) değişmeden kalır, yalnız bağış eklenir.
 - Determinizm: bağış hesabı tik sınırında ve tohumdan türemeli.
 
-**Kabul ölçütü:**
-- `pts > 0` olan 20 bölgede `advanced_tech` kapasitesi ölçülebilir şekilde artar
-- `electronics` stoku sıfır olan bölge sayısı **artmaz**
-- eski cüzdan `points` geliri **değişmez** (aynı tohumda birebir)
-- `--forktest` yeşil · `--uitest` `PROBLEMS []`
+**Kabul ölçütü ve SONUÇ** (152 düğüm, saat 301'de eşleştirilmiş):
+
+| ölçüt | taban | sonra | durum |
+|---|---|---|---|
+| `advanced_tech` ort — `pts`'li şehir | 0.294 | **0.646** | ✔ arttı |
+| `advanced_tech` ort — `pts`'siz şehir | 0.0703 | 0.0703 | ✔ **birebir aynı** (regresyon yok) |
+| `advanced_tech` sıfır olan bölge | 121 | 113 | ✔ |
+| `electronics` sıfır olan bölge | 10 | **5** | ✔ yarıya indi |
+| `electronics` ortalama stok | 2.99 | 3.54 | ✔ +%19 |
+| açılış cüzdanı | — | aynı | ✔ çift sayım yok |
+| `--forktest` · `--uitest` | — | yeşil / `[]` | ✔ |
+
+**Yukarı-akış bedeli (dürüstçe kaydedilir):** tech sektörü büyüyünce girdisini
+de tüketiyor — hammadde sıfır 47 → 51, sanayi parçası 45 → 48, askerî malzeme
+49 → 51; ortalama enerji −%11, hammadde −%5. Bu bir kusur değil **sonuç**:
+uzmanlaşma yukarı-akış talebi yaratır. Aşama 2 tam da bu arzı getiriyor.
+
+> **Ölçüm notu — tohum bu katmanda örnek üretmiyor.** Üç tohum denendi, üçü de
+> **birebir aynı** sonucu verdi: harita sabit (gerçek-Avrupa) ve ekonomi
+> deterministik. Yani bu istatistiksel değil **kesin** bir karşılaştırma.
+> Sonraki aşamalarda "çok tohum" güvencesine yaslanma.
 
 ---
 
