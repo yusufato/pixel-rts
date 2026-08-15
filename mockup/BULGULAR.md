@@ -111,9 +111,33 @@ da duyuruluyor.
 | 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | Rol süzgeci yalnız **görünürlüğü** değiştirir; dünya durumu değişmez → determinizm korunur (`HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`) | `KABUL` |
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
-| 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `HIKAYE_MODU_UYGULAMA_DURUMU.md` Faz 38.1 açık borç | Arama kutusu + filtre çipleri + `8 / 25 gösteriliyor` sayacı | `KABUL` |
+| 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + altında yalnız "N adaydan ilk 8 gösteriliyor" notu — **kalanına ulaşmanın hiçbir yolu yok** | Arama kutusu + `8 / 25` sayacı + "TÜMÜNÜ GÖSTER" | `KABUL` · **bir kez denendi ve GERİ ÇEKİLDİ**, aşağıda |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `KABUL` |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
+
+#### 17 — denendi, ölçülemedi, geri çekildi
+
+Uygulaması yazıldı (arama kutusu, `N / M` sayacı, genişlet/daralt, soru başına UI
+durumu) ve sözdizimi temizdi. **Commit edilmedi**, çünkü çalıştığı gösterilemedi:
+
+1. **Sentetik oturum enjekte edilemiyor.** Defter, şemaya uymayan oturumu
+   `storyConversationSessionEnsure()` içinde eliyor. Ölçüldü: `push` yazıyor
+   (`sessions.length` doğrudan okununca **1**), `Ensure` **aynı nesneyi** döndürüyor
+   ama `0` görüyor. Bu motorun doğru davranışı — benim enjeksiyonum geçersizdi.
+2. **Gerçek API ile de yola girilemedi.** `storyConversationSessionBegin(...)`
+   `SESSION_STARTED` döndürdü ama **0 netleştirme sorusu** üretti; yani
+   `question.options` dalı hiç çizilmedi. Denenen cümleyle o dal ölü.
+3. **Dosya artık paylaşımlı.** Çalışma sırasında `js/Talks.js` ve `style.css`'e
+   paralel iş hattının commit'lenmemiş işi girdi (konuşma türü seçici, görev
+   teklifleri). Doğrulanmamış kodu oraya bırakmak ya da dosyayı toptan geri almak
+   ikisi de yanlış olurdu; kendi üç bloğum tek tek çıkarıldı.
+
+**Bir sonraki tur için asıl soru bu maddeden önce gelir:** bu dal gerçekte
+ulaşılabilir mi? Gerçek bir oturumda `OPEN` durumda ve 8'den çok seçenekli bir
+soru üretilebiliyor mu? Üretilemiyorsa kusur "arama yok" değil, "netleştirme
+soruları hiç görünmüyor" olur ve önerinin tamamı değişir. Ölçmeden yazmak,
+defterin engellemek için var olduğu bayat iddiadır.
+
 
 #### 16 — uygulandı (bu turda, oyunda)
 
