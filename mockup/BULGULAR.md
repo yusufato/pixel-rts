@@ -98,12 +98,40 @@ da duyuruluyor.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 8 | Legacy kalıntılar | `style.css:235-237` `.spawn-cat` yeşil/12px/r5 — **war-room override'ı hiç yok** · `:277` savaşta `.spawn-btn:hover` mavi glow'a düşüyor · `:130-142` kamera ipucu 7px/`#888`, yalnız `:1777` deploy'da ezilmiş | Üçü de `tokens.css` yüzeylerine çekilir | `AÇIK` |
+| 8 | Legacy kalıntılar | `style.css:235-237` `.spawn-cat` yeşil/12px/r5 — **war-room override'ı hiç yok** · `:277` savaşta `.spawn-btn:hover` mavi glow'a düşüyor · `:130-142` kamera ipucu 7px/`#888`, yalnız `:1777` deploy'da ezilmiş | Üçü de `tokens.css` yüzeylerine çekilir | **`UYGULANDI`** `b09c4d9` · **iki iddia geri çekildi, aşağıda** |
 | 9 | Duraklatma modalı ve öğrenme bildirimi **tamamen inline stil**; üstelik modalın **kendi içinde** iki font var | `js/main.js:727-739` — kutu `font-family:inherit` → body'den **Press Start 2P**, ama butonlarda `font-family` yok → **tarayıcı sans-serif**'i · `js/main.js:761-763` bildirim `#8ecbff` / `14px system-ui` / `z-index:99999` · gerçek çekim: `qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png` | İkisi de terminal diline geçer; inline stil kalkar | `AÇIK` |
 | 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | `AÇIK` |
 | 11 | `:focus-visible` hover ile **birebir aynı** → klavye odağı görünmüyor — **defterde yazandan yaygın** | **dokuz** kural `:focus-visible`'ı `:hover` ile aynı gruba yazıp üstüne `outline:none` diyor: `style.css:857 · 908 · 1280 · 1317 · 1336 · 1362 · 1959 · 1969` | `--wr-focus: #6cc7ff` ile ayrı odak halkası; blok dosya SONUNDA (özgüllük değil sıra meselesi) | **`UYGULANDI`** `a870cb1` |
 | 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te **sıfır** referans (ölçüldü) | Silindi: 29 satır. `#game-over-screen` paylaşımlı seçicisinden yalnız yetim yarısı çıkarıldı, canlı yarı yerinde | **`UYGULANDI`** `6e5361a` |
 | 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | `AÇIK` |
+
+#### 8 — uygulandı (`b09c4d9`); üç iddianın ikisi ölçümde düştü
+
+Gerçek Electron'da, gerçek fare olayıyla hover tetiklenerek ölçüldü
+(`executeJavaScript` ile `:hover` tetiklenmez — bu ayrımı atlamak sahte "temiz"
+sonucu verirdi). Dizim ve savaş fazları ayrı ayrı, savaş fazına gerçekten
+girilerek (birim dizilmeden maç anında bitiyor ve faz `over` ölçülüyordu).
+
+| iddia | ölçüm | sonuç |
+|---|---|---|
+| `.spawn-cat` yeşil/12px/r5, override yok | dizimde **GÖRÜNÜR**: font **`Arial`** 12px, kenar `rgba(120,200,140,.35)`, açık halde `rgba(70,140,70,.95)`, köşe 5px | **doğrulandı ve büyüdü** — HUD'un tek yabancı-fontlu yüzeyi |
+| savaşta `.spawn-btn:hover` mavi glow'a düşüyor | dizimde hover zaten `rgb(74,222,128)`; savaşta çubuk `pointer-events:none` **ve** `checkVisibility=false` → hover hiç tetiklenemiyor | **geri çekildi** |
+| kamera ipucu 7px/`#888`, yalnız deploy'da ezilmiş | renk `rgb(110,99,48)`, font Share Tech Mono, kenar amber — zaten çekilmiş; savaş/bitişte `display:none` (kusur 6) | **daraldı**: tek kalıntı köşe yarıçapı 6px |
+
+Kategori düğmeleri war-room diline çekildi (Share Tech Mono 10px, `--wr-line` /
+`--wr-muted`, hover ve açık halde `--wr-green`), kamera ipucunun köşesi 4px oldu.
+**Ayrı bir override katmanı eklenmedi, kural yerinde yeniden yazıldı** — çift
+tanım kusur 19'da bedeli ölçülmüş bir borç, aynı borcu yeniden açmak tutarsız olurdu.
+
+| kapı | sonuç |
+|---|---|
+| taban hâli (tıklanmamış kategori) | `rgb(140,122,62)` · Share Tech Mono 10px · r4 |
+| 916×572'de kırpılan etiket | **0** · yatay taşma **0** |
+| `--hudtest` · `--uitest` | ikisi de `PROBLEMS []` |
+
+> Kalan gözlem (bu kusurun kapsamı değil): 7 kategori düğmesi 916 px'te **iki
+> satıra** sarıyor. Yazı küçüldüğü için önceki hâlden dar; yani bu davranış
+> öncesinde de vardı, benim değişikliğimin ürünü değil.
 
 ---
 
