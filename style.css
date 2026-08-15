@@ -2644,6 +2644,27 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-resolution.danger b { color: #ff8585; }
 .conversation-resolution p { margin: 6px 0 0; color: #9cad9f; font-size: 9px; line-height: 1.5; }
 .conversation-history-block + .conversation-history-block { margin-top: 20px; }
+
+/* ── KUSUR 21: geçmiş araması + tür süzgeci ─────────────────────────────────
+   Süzgeç listeyle birlikte kaymasın: geçmiş uzadıkça oyuncu aşağı indiğinde
+   arama kutusunu kaybetmemeli. */
+.conversation-history-bar { position: sticky; top: 0; z-index: 2; margin-bottom: 8px;
+    padding-bottom: 6px; background: linear-gradient(to bottom, rgba(5,9,4,.97) 80%, rgba(5,9,4,0)); }
+.conversation-history-search { width: 100%; padding: 6px 8px; border: 1px solid rgba(120,160,135,.28);
+    border-radius: 3px; background: rgba(8,16,12,.55); color: var(--wr-amber-bright);
+    font-family: inherit; font-size: 9px; letter-spacing: .06em; }
+.conversation-history-search::placeholder { color: #66786d; }
+.conversation-history-search:focus-visible { border-color: var(--wr-amber); outline: none; }
+.conversation-history-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.conversation-history-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px;
+    border: 1px solid rgba(120,160,135,.22); border-radius: 3px; background: transparent;
+    color: #8fa397; font-family: inherit; font-size: 7.5px; letter-spacing: .06em; cursor: pointer; }
+.conversation-history-chip b { color: #b9c9bd; font-weight: 400; }
+.conversation-history-chip:hover { border-color: var(--wr-amber); color: var(--wr-amber-bright); }
+.conversation-history-chip[data-aktif="1"] { border-color: var(--wr-amber);
+    background: rgba(255,176,0,.1); color: var(--wr-amber-bright); }
+.conversation-history-chip[data-aktif="1"] b { color: var(--wr-amber-bright); }
+.conversation-history-count { margin-top: 5px; color: #66786d; font-size: 7.5px; letter-spacing: .1em; }
 .conversation-history-row,
 .conversation-record { margin-bottom: 7px; padding: 9px; border: 1px solid rgba(120,160,135,.16); background: rgba(8,16,12,.55); }
 .conversation-history-row.active { border-color: rgba(76,255,124,.38); box-shadow: inset 2px 0 0 #4cff7c; }

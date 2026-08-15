@@ -1658,12 +1658,61 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
     return html + `</article></section>`;
 }
 
+/* ── KUSUR 21: geçmiş sütununda arama/filtre yoktu ───────────────────────────
+   Liste düzdü; oturum sayısı arttıkça eski bir konuşmayı bulup sürdürmek
+   kullanılamaz hale geliyordu. Arama + tür süzgeci + eşleşme sayacı eklendi.
+
+   Süzme boyutları oturumun KENDİ alanlarından geliyor, uydurulmadı:
+   `initialText` (metin araması) ve `conversationCase.mode` (tür). Defterdeki
+   "muhataba göre gruplama" BURAYA UYMUYOR ve bilerek yapılmadı: bu liste zaten
+   tek bir muhataba ait (`listenerActorId` ile süzülüyor), gruplayacak ikinci
+   taraf yok.
+
+   Durum muhatap başına tutulur ve salt UI'dır: oturuma, deftere ve kayda
+   yazılmaz, save/load'a girmez. */
+const STORY_TALK_HISTORY_STATE = {};
+function storyTalkHistoryState(listenerActorId) {
+    const k = String(listenerActorId || '');
+    if (!STORY_TALK_HISTORY_STATE[k]) STORY_TALK_HISTORY_STATE[k] = { arama: '', tur: 'hepsi' };
+    return STORY_TALK_HISTORY_STATE[k];
+}
+
 function storyTalkConversationHistoryHtml(listenerActorId) {
     const esc = storyTalkConversationEscape;
-    const sessions = typeof storyConversationSessionList === 'function'
+    const tumSessions = typeof storyConversationSessionList === 'function'
         ? storyConversationSessionList(listenerActorId) : [];
-    if (!sessions.length) return `<div class="conversation-empty">Bu kişiyle kayıtlı eski konuşma yok.</div>`;
-    return sessions.map(session => {
+    if (!tumSessions.length) return `<div class="conversation-empty">Bu kişiyle kayıtlı eski konuşma yok.</div>`;
+
+    const durum = storyTalkHistoryState(listenerActorId);
+    const ara = durum.arama.trim().toLocaleLowerCase('tr');
+    const turu = s => String((s.conversationCase && s.conversationCase.mode) || '');
+    const sessions = tumSessions.filter(s => {
+        if (durum.tur !== 'hepsi' && turu(s) !== durum.tur) return false;
+        if (!ara) return true;
+        return String(s.initialText || '').toLocaleLowerCase('tr').includes(ara);
+    });
+
+    // Tür çipleri yalnız GERÇEKTEN kayıtta olan türler için çizilir; boş süzgeç
+    // sunmak listeyi sürekli boş bırakmaktan başka işe yaramıyor.
+    const turSayaci = {};
+    tumSessions.forEach(s => { const t = turu(s); if (t) turSayaci[t] = (turSayaci[t] || 0) + 1; });
+    const cipler = [`<button class="conversation-history-chip" data-history-tur="hepsi"`
+        + ` data-aktif="${durum.tur === 'hepsi' ? '1' : '0'}">HEPSİ<b>${tumSessions.length}</b></button>`]
+        .concat(Object.keys(turSayaci).map(t =>
+            `<button class="conversation-history-chip" data-history-tur="${esc(t)}"`
+            + ` data-aktif="${durum.tur === t ? '1' : '0'}">`
+            + `${esc(STORY_TALK_CONVERSATION_CASE_LABELS[t] || t)}<b>${turSayaci[t]}</b></button>`)).join('');
+
+    const bar = `<div class="conversation-history-bar">`
+        + `<input type="search" class="conversation-history-search" data-history-search="${esc(listenerActorId)}"`
+        + ` placeholder="geçmişte ara" value="${esc(durum.arama)}">`
+        + `<div class="conversation-history-chips">${cipler}</div>`
+        + `<div class="conversation-history-count">${sessions.length} / ${tumSessions.length} konuşma</div></div>`;
+
+    if (!sessions.length) {
+        return bar + `<div class="conversation-empty">Bu süzgece uyan konuşma yok.</div>`;
+    }
+    return bar + sessions.map(session => {
         const active = session.id === STORY._conversationWorkspaceSessionId;
         const openCount = session.questions.filter(row => row.status === 'OPEN').length;
         const excerpt = session.initialText.length > 104 ? `${session.initialText.slice(0, 101)}…` : session.initialText;
@@ -2010,6 +2059,15 @@ function storyConversationWorkspaceHandleClick(event) {
         if (main) main.scrollTop = main.scrollHeight;
         return;
     }
+    // KUSUR 21: geçmiş tür süzgeci
+    const historyChip = event.target.closest('[data-history-tur]');
+    if (historyChip) {
+        const modalEl = document.getElementById('conversation-workspace-modal');
+        const kisi = (modalEl && modalEl.dataset.listenerActorId) || STORY._talkFocusCharacterId;
+        storyTalkHistoryState(kisi).tur = historyChip.dataset.historyTur;
+        storyConversationWorkspaceRender();
+        return;
+    }
     const conversationOption = event.target.closest('[data-conversation-option]');
     if (conversationOption && typeof storyConversationSessionReply === 'function') {
         const result = storyConversationSessionReply(
@@ -2308,6 +2366,19 @@ function storyTalkBind() {
             return;
         }
         storyConversationWorkspaceHandleClick(event);
+    });
+    /* KUSUR 21: geçmiş araması. Panel her tuşta yeniden yazıldığı için dinleyici
+       kutuya değil PENCEREYE bağlanır ve yazımdan sonra odak geri verilir; yoksa
+       ilk harften sonra odak kaybolur ve yazmak imkânsız olur (kusur 16'da aynı
+       tuzağa düşülmüştü). */
+    workspace?.addEventListener('input', event => {
+        const kutu = event.target.closest('[data-history-search]');
+        if (!kutu) return;
+        const kisi = kutu.dataset.historySearch;
+        storyTalkHistoryState(kisi).arama = kutu.value;
+        storyConversationWorkspaceRender();
+        const yeni = workspace.querySelector(`[data-history-search="${CSS.escape(kisi)}"]`);
+        if (yeni) { yeni.focus(); yeni.setSelectionRange(yeni.value.length, yeni.value.length); }
     });
     document.getElementById('conversation-workspace-close')?.addEventListener('click', storyConversationWorkspaceClose);
     workspace?.addEventListener('keydown', event => {

@@ -436,7 +436,7 @@ ve `design-qa.md` bölüm 2'de **passed**. Buradaki iş yeniden tasarım değil,
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · `js/Talks.js:1270` profil kartı statik | Sol sütun sekmeli olur (`PROFİL` / `İLİŞKİ`); zincir söz–anlaşma–borç–eylem olarak dizilir, `PlayerKnowledge` süzgecinden geçer (`HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857`) | `KABUL` |
-| 21 | Geçmiş sütununda arama/filtre yok; oturum arttıkça sürdürme kullanılamaz oluyor | `js/Talks.js:1549` düz liste | Arama + tür filtresi + muhataba göre gruplama + eşleşme sayacı | `KABUL` |
+| 21 | Geçmiş sütununda arama/filtre yok; oturum arttıkça sürdürme kullanılamaz oluyor | `js/Talks.js` düz liste | Arama + tür süzgeci + eşleşme sayacı (yapışkan çubuk). **"Muhataba göre gruplama" yapılmadı**: liste zaten tek muhataba ait, gruplayacak ikinci taraf yok | **`UYGULANDI`** (commit aşağıda) |
 
 ---
 
@@ -449,6 +449,31 @@ Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. �
 | 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + karar defteri (satıra tıkla → o soruya dön). **Geri alma çıkarma değil YENİDEN OYNATMA** (aşağıda) | **`UYGULANDI`** `d2ad747` · adım etiketi tutarsızlığı `AÇIK` |
 | 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | `AÇIK` |
 | **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
+
+#### 21 — uygulandı (bu turda, oyunda)
+
+Süzme boyutları oturumun **kendi alanlarından** geliyor: `initialText` (metin) ve
+`conversationCase.mode` (tür). Tür çipleri yalnız kayıtta **gerçekten bulunan**
+türler için çizilir — sürekli boş sonuç veren süzgeç sunmanın anlamı yok.
+
+**Defterin bir isteği bilerek yapılmadı:** "muhataba göre gruplama". Bu liste
+`listenerActorId` ile zaten tek muhataba süzülüyor; gruplayacak ikinci taraf yok.
+Uydurma bir grup başlığı eklemek yerine madde bu notla kapatıldı.
+
+| ölçüm | sonuç |
+|---|---|
+| 5 gerçek oturum (`SESSION_STARTED` ×5) | 5 satır · arama kutusu · 2 çip · `5 / 5 konuşma` |
+| arama `lojistik` | 2 satır, uymayan **0**, sayaç `2 / 5`, **odak kutuda kalıyor** |
+| eşleşme yok (`zzzz`) | 0 satır, **arama kutusu duruyor** (yoksa süzgeçte kilitlenirdin), boş mesaj, `0 / 5` |
+| **tür ayrımı** | `TASKS_JOBS 2/2` · `DAILY_CHAT 2/2` · `CONFIDENTIALITY 1/1` — üçü de görünen = beklenen |
+| dünya durumu | süzgeç/arama sonrası saat, oturum sayısı, log **birebir aynı** |
+| `--uitest` · sohbet regresyonları | `UITEST_PROBLEMS []` · `story-conversation-player-regressions` ve `-context` **geçti** |
+
+**Ayrım gücü ayrıca kanıtlandı.** İlk ölçümde beş oturum da `DAILY_CHAT` çıktı;
+süzgeç "çalışıyor" görünüyordu ama hiçbir şeyi ayırmıyordu. Saklanan oturumların
+türü çeşitlendirilip üç ayrı türde görünen=beklenen doğrulandı. Ayırt ettiği
+gösterilmeyen süzgeç, süzgeç sayılmaz.
+
 
 #### 22 — uygulandı (bu turda, oyunda)
 
