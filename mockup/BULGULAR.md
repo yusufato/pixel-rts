@@ -11,17 +11,24 @@ Bu dosya **damga defteridir**. Her satır üç durumdan birini taşır:
 **Katman A kabul edildi (12 madde): 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22.**
 Katman B (8, 9, 10, 13, 19, 23) kullanıcı kararıyla **bekletildi** — önce A bitecek.
 
-**Katman A: 11/12 uygulandı. Katman B: 6/6 uygulandı — ikisi de bitti.**
+**Defter kapandı: 24 madde `UYGULANDI`, 1 madde (`18`) dünya-modeli turuna
+devredildi, `AÇIK` satır kalmadı.**
 
 Kalan tek madde **18** — ölçüm öneriyi geçersiz kıldı (dört alan hiç nedensellik
 etkisi üretmiyor, diplomasi bilerek kapalı); UI turunun değil dünya-modeli
 turunun işi. Bu defterin UI'ya düşen her maddesi kapandı.
 
-**Bu turun en pahalı dersi:** kabul edilen dokuz maddenin **üçünde** iddia
-ölçümde düştü ya da daralttı (8'in iki iddiası, 18'in tamamı, 1'in yarısı) ve
+**Bu turun en pahalı dersi:** kabul edilen maddelerin **üçünde** iddia ölçümde
+düştü ya da daraldı (8'in iki iddiası, 18'in tamamı, 1'in ilk yarısı) ve
 **ikisinde** varsayım yanlış çıktı (19'da "nasılsa eziliyor", 22'de "çıkarma
 geri alır"). Damgasız satıra güvenilmez kuralı yetmiyor; **damgalı satırın da
 kanıtı ölçümle yenilenmeli.**
+
+**İkinci ders — alet dört kez yanılttı**, hepsi de "kod bozuk" gibi göründü:
+sabitlenmemiş tohum (19), ölçüm sırasında ilerleyen dünya (19), `scrollWidth`'i
+kirleten pseudo-eleman (24), ve saniyede bir güncellenen HUD'dan okunan bayat
+kart (1). Kural: **bir bulgu kodu suçlamadan önce aletin o bulguyu üretebildiği
+gösterilmeli** — negatif kontrol, bu turda üç kez kararı kurtardı.
 
 **Damgasız satır güvenilmez sayılır.** Bu repoda plan/doküman bayatlaması ölçülmüş
 bir sorun (`docs/OLCUM-TUZAKLARI.md`); damga onun karşı önlemidir.
@@ -45,7 +52,7 @@ düzeltmenin neyi çözdüğü ölçülemez.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 1 | Savaşta seçili birim özeti görünmüyor — **iddia ölçümle daraltıldı, öneri DEĞİŞTİ** | `#ui-info` savaşta gizli (`style.css:1919` `display:none !important`) ama **dizimde GÖRÜNÜR** (ölçüldü: `display:block`) · çoklu seçim metni `js/main.js:991`'de **zaten vardı**, yalnız gizli düğüme yazılıyordu | ~~Ölü `#ui-info` silinir~~ → **panel silinmez** (dizimde canlı). Savaştaki ölü yazma kaldırıldı; bilginin savaşta nerede görüneceği hâlâ açık tasarım kararı | kısmen **`UYGULANDI`** `36c8b86` · geri kalanı `AÇIK` |
+| 1 | Savaşta seçili birim özeti görünmüyor — **iddia ölçümle daraltıldı, öneri DEĞİŞTİ** | `#ui-info` savaşta gizli (`style.css:1919` `display:none !important`) ama **dizimde GÖRÜNÜR** (ölçüldü: `display:block`) · çoklu seçim metni `js/main.js:991`'de **zaten vardı**, yalnız gizli düğüme yazılıyordu | ~~Ölü `#ui-info` silinir~~ → **panel silinmez** (dizimde canlı). Savaştaki ölü yazma kaldırıldı; bilginin savaşta nerede görüneceği hâlâ açık tasarım kararı | **`UYGULANDI`** `36c8b86` + `a044a51` |
 | 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · bekleme göstergesi savaşta gizli `#ui-support`ta | Her buton durumunu kendisi yazar: `HAZIR · 300₺` / `BEKLEME 18s` (dolum çubuğu) / `300₺ GEREK · 40₺ VAR`; TAARRUZ ve ATEŞ SERBEST kaç birliğe gideceğini söyler | **`UYGULANDI`** `c3a7d6d` |
 | 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 420 ms işaret (hareket = büzülen yeşil daire, taarruz = kırmızı çapraz, bindirme = mavi kare) + hedef kartında `EMİR ALINDI · TÜR → hedef` satırı | **`UYGULANDI`** `622c4ef` |
 | 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz · `js/globals.js:260` WASD kamerada | Rozetler `data-key` ile: **Q** taarruz · **F** ateş serbest · **T** siper · **P** paraşüt (A elendi, WASD ile çakışıyor). Ctrl+1..9 atar, 1..9 çağırır; 9 slotlu şerit canlı sayıyı gösterir | **`UYGULANDI`** `c3a7d6d` |
@@ -140,6 +147,38 @@ ayarın iki yüzü.
 | tembel kurulan pencere | 35 kayıtlıyken **35 açıldı** (yoksa hep %100 gösterip yalan söylerdi) |
 | eski kayıt (`crtAlpha` alanı yok) | 100'e düşer, davranış değişmez |
 | `--uitest` · `--hudtest` | ikisi de `PROBLEMS []` |
+
+#### 1 — açık yarısı da kapandı (`a044a51`)
+
+**Açık duran tasarım kararı:** savaşta seçim bilgisi nerede görünecek? Cevap:
+**hedef kartında**, ayrı bir şeritte değil. Kart zaten `aria-live` taşıyor ve
+"ne seçili" sorusunun tek yüzeyi o; ikinci bir panel aynı bilgiyi iki yerde
+gösterirdi — kusur 20'de tam da bu deseni sökmüştük.
+
+Kusur gerçekti ve erişilebilirdi: kart `units.find(...)` ile yalnız **ilk**
+seçili birimi gösteriyordu, oysa kontrol grupları (Ctrl+1..9) tam da çok birim
+seçmek için var.
+
+**Toplamlar seçilerek alındı, körlemesine toplanmadı.** ATK toplanır — birlikte
+ateş ederler. Ama menzil ve hız **minimum** alınır: grup en kısa menzillisi
+kadar yaklaşmak, en yavaşı kadar yavaş gitmek zorunda. Ortalama menzil komuta
+kararını yanlış yönlendirirdi.
+
+| durum | kart |
+|---|---|
+| 0 seçili | `BİRİM SEÇ` boş durumu (değişmedi) |
+| 1 seçili | `PIYADE` · ATK / RNG / ZIRH / HIZ (değişmedi) |
+| 6 seçili | `GRUP KOMUTA` · `6 BİRLİK SEÇİLİ` · `3 PIYADE · 2 MANPADS TIMI · 1 TANK AVCISI` · gövde `1480/1480` · `ATK 712` / `EN KISA RNG 300` / `ORT ZIRH 1.0` / `EN YAVAŞ 1.13` |
+| panik + mühimmat | `⚠ 1 PANİK · 1 MÜHİMMAT BİTTİ` · mühimmat `19/22` |
+
+Kırpma: üç viewport'ta 0 kırpık hücre, kart sınır dışına çıkmıyor.
+`--hudtest []` · `--uitest []` · `--forktest forkTutarli:true`.
+
+> **Alet yine yanılttı, dördüncü kez.** HUD saniyede ~1 kez güncelleniyor; ilk
+> ölçüm seçimi değiştirip 450 ms sonra okuyor ve **bayat kart** görüyordu. Bu
+> "tek seçimde kart boş kalıyor" diye var olmayan bir bulgu üretti; iki tur
+> boyunca kodda hata aradım. `warRoomUpdateBattle()` açıkça çağrılınca düzeldi.
+> Önce dünyanın donduğunu doğrulamak (hp sabit, ölüm yok) yanlış şüpheyi eledi.
 
 #### 10 + 23 — uygulandı (`2f5f62e`); ikisi ayrılamaz, birlikte yürütüldü
 
