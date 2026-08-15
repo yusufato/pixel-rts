@@ -202,6 +202,13 @@
             </header>
             <div id="story-map-shell">
                 <canvas id="storyCanvas"></canvas>
+                <!-- SPACE duraklatma göstergesi. HARİTANIN içinde: #story-wrap'e
+                     konduğunda üst komuta çubuğunun üstüne binip PETROL/İNSAN/PUAN
+                     değerlerini örtüyordu (ölçüldü, çekimle görüldü).
+                     Görünürlüğün tek otoritesi body[data-story-durak]. -->
+                <div id="story-pause-flag" role="status" aria-live="polite" aria-hidden="true">
+                    <b>⏸ DURAKLATILDI</b><span>SPACE İLE DEVAM</span>
+                </div>
                 <div class="story-map-label">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div>
                 <div class="story-map-help">SÜRÜKLE: KAMERA · TEKERLEK: ZOOM · DÜĞÜM: BRİFİNG</div>
                 <div class="story-map-legend"><span class="friendly">DOST HAT</span><span class="open">ERİŞİLEBİLİR</span><span class="hostile">DÜŞMAN</span></div>
@@ -235,15 +242,11 @@
                 <button id="story-city-btn" class="tool-btn" title="Seçili şehri yönet: bina, üretim, garnizon, ordu"><b>04</b><span>ŞEHRE GİR</span></button>
                 <button id="story-talk-btn" class="tool-btn" title="Sohbetler ve diplomasi"><b>05</b><span>SOHBET</span><i id="story-talk-badge" class="tool-badge hidden"></i></button>
                 <button id="story-commander-btn" class="tool-btn" title="Komutan profili"><b>06</b><span>KOMUTAN</span></button>
-                <button id="story-news-btn" class="tool-btn" title="Gazete — dünya manşetleri ve çarpıtma"><b>07</b><span>GAZETE</span><i id="news-badge" class="tool-badge hidden"></i></button>
-                <button id="story-economy-btn" class="tool-btn" title="Bütçe, piyasa, şirketler, lojistik ve toplumsal denge"><b>08</b><span>EKONOMİ</span><i id="story-economy-badge" class="tool-badge hidden"></i></button>
+                <button id="story-economy-btn" class="tool-btn" title="Bütçe, piyasa, şirketler, lojistik ve toplumsal denge"><b>07</b><span>EKONOMİ</span><i id="story-economy-badge" class="tool-badge hidden"></i></button>
             </div>
+            <!-- GAZETE paneli KALDIRILDI: manşetler sağdaki AKIŞ sekmesine taşındı
+                 (js/News.js · js/StoryUI.js storyFlowHtml). ÇARPIT orada. -->
             <!-- KONSEY (hükümet) — SOLDAN kayar drawer (dünyayı durdurmaz) -->
-            <aside id="news-panel" aria-hidden="true">
-                <div class="panel-header"><span class="council-title">GAZETE</span>
-                    <button id="news-close" class="council-x" aria-label="Kapat">KAPAT</button></div>
-                <div id="news-body"></div>
-            </aside>
             <aside id="council-panel" aria-hidden="true">
                 <div id="council-header">
                     <span class="council-title">KONSEY</span>

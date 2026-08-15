@@ -33,7 +33,9 @@ const NEWS_ARCH = {
 function storyNews(arch, facts) {
     const a = NEWS_ARCH[arch]; if (!a) return null;
     if (!STORY._news) STORY._news = [];
+    STORY._newsSeq = (STORY._newsSeq || 0) + 1;
     const rec = {
+        id: STORY._newsSeq,
         t: Math.round(STORY.clock || 0),
         date: (typeof storyDateLabel === 'function') ? storyDateLabel() : '',
         arch, facts,
@@ -43,10 +45,15 @@ function storyNews(arch, facts) {
     };
     STORY._news.unshift(rec);
     if (STORY._news.length > NEWS_MAX) STORY._news.pop();
+    /* AYRI GAZETE PANELİ KALDIRILDI (kullanıcı raporu: "gazete ve gündem aynı").
+       Ölçüm onu doğruladı: 360 oyun-saniyesinde gazete 3 manşet, akış 105 kayıt
+       üretiyordu ve panel çoğu zaman "henüz manşet yok" yazıyordu. Manşet yine
+       de GERÇEK içerik — akışta hiç görünmüyordu (ölçüldü: 0 eşleşme). Bu yüzden
+       panel silindi ama manşet AKIŞ'a yazılıyor; ÇARPIT da orada kalıyor. */
+    if (typeof storyLogHeadline === 'function') storyLogHeadline('🗞️ ' + rec.headline, rec.id);
+    else if (typeof storyLog === 'function') storyLog('🗞️ ' + rec.headline);
     // LLM açıksa gazeteci ağzıyla yeniden yaz (ateşle-unut; şablon zaten basıldı)
     if (typeof llmEnrichNews === 'function') llmEnrichNews(rec);
-    if (typeof storyNewsBadge === 'function') storyNewsBadge();
-    if (STORY._newsOpen && typeof storyNewsUpdate === 'function') storyNewsUpdate();
     return rec;
 }
 
@@ -91,7 +98,7 @@ function storyNewsSpin(idx) {
         storyLog(`🤥 Çarpıtma ELE ALINDI — kimse inanmadı (güvenilirlik ${Math.round(me.pressCred)}, refah −2).`);
     }
     if (typeof llmEnrichNews === 'function' && rec.spun) llmEnrichNews(rec);   // hükümet ağzıyla yeniden yaz
-    storySave(); if (typeof storyNewsUpdate === 'function') storyNewsUpdate();
+    storySave(); if (typeof storyPanelUpdate === 'function') storyPanelUpdate();   // manşet AKIŞ satırında
 }
 function storyNewsSpinText(rec) {
     const f = rec.facts || {};
@@ -110,51 +117,25 @@ function storyNewsConquest(node, winnerSt, loserSt) {
     storyNews('conquest', { city: node.name, winner: winnerSt.name, loser: loserSt ? loserSt.name : '?' });
 }
 
-// ── PANEL ──────────────────────────────────────────────────────────────────
-function storyNewsOpen() {
-    storyCouncilClose(); storyTechClose(); storyCityClose(); if (typeof storyArmyClose === 'function') storyArmyClose(); if (typeof storyEconomyClose === 'function') storyEconomyClose();
-    STORY._newsOpen = true;
-    const p = document.getElementById('news-panel');
-    if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
-    document.getElementById('story-news-btn')?.classList.add('active');
-    STORY._newsSeen = (STORY._news || []).length;
-    storyNewsBadge(); storyNewsUpdate();
+/* ── AYRI GAZETE PANELİ KALDIRILDI ───────────────────────────────
+   Kullanıcı raporu: "gazete ve gündem aynı, gazeteyi kaldır". Ölçüm onu
+   doğruladı: 360 oyun-saniyesinde gazete 3 manşet üretirken akış 105 kayıt
+   üretiyordu ve panel çoğu zaman "henüz manşet yok" yazıyordu.
+
+   Ama manşet ve ÇARPIT GERÇEK içerikti; silinmedi, AKIŞ'a taşındı. Bu dosya
+   artık veri + mekanik tutuyor, ekranı StoryUI akış çizicisi çiziyor. */
+function storyNewsById(id) {
+    return (STORY._news || []).find(r => r && r.id === id) || null;
 }
-function storyNewsClose() {
-    STORY._newsOpen = false;
-    const p = document.getElementById('news-panel');
-    if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
-    document.getElementById('story-news-btn')?.classList.remove('active');
+function storyNewsSpinById(id) {
+    const liste = STORY._news || [];
+    const idx = liste.findIndex(r => r && r.id === id);
+    if (idx >= 0) storyNewsSpin(idx);
 }
-function storyNewsToggle() { STORY._newsOpen ? storyNewsClose() : storyNewsOpen(); }
-function storyNewsBadge() {
-    const b = document.getElementById('news-badge'); if (!b) return;
-    const unseen = Math.max(0, (STORY._news || []).length - (STORY._newsSeen || 0));
-    b.textContent = unseen > 0 ? String(Math.min(9, unseen)) : '';
-    b.classList.toggle('hidden', unseen === 0 || STORY._newsOpen);
-}
-function storyNewsUpdate() {
-    if (!STORY._newsOpen) return;
-    const body = document.getElementById('news-body'); if (!body) return;
-    const me = storyPlayerState(); if (me) storyNewsCredBackfill(me);
-    const list = STORY._news || [];
-    let html = `<div class="news-cred">🗞️ Basın güvenilirliği: <b>${me ? Math.round(me.pressCred) : '—'}</b>
-        <small>Çarpıtma başarısı buna bağlı; her çarpıtma biraz yer. Aydınlar çarpıtmayı her durumda görür.</small></div>`;
-    if (!list.length) html += `<div class="city-hint">Henüz doğrulanmış manşet yok. Savaş, ekonomik kırılma, yasa ve diplomasi olayları burada yayımlanır.</div>`;
-    list.forEach((r, i) => {
-        const spin = storyNewsCanSpin(r)
-            ? `<button class="city-btn news-spin" data-idx="${i}">📢 ÇARPIT (${NEWS_SPIN_COST}⭐ · ${Math.max(0, Math.ceil(NEWS_SPIN_WINDOW - (STORY.clock - r.t)))}sn)</button>` : '';
-        html += `<div class="news-card${r.spun ? ' spun' : ''}">
-            <div class="news-h"><span>${r.date}</span>${r.llm ? '<span class="news-llm" title="Yapay anlatıcı yazdı">🤖</span>' : ''}</div>
-            <div class="news-t">${r.headline}</div>
-            ${r.body ? `<div class="news-b">${r.body}</div>` : ''}
-            ${spin}</div>`;
-    });
-    body.innerHTML = html;
-}
+
 if (typeof document !== 'undefined') {
     document.addEventListener('click', e => {
-        const b = e.target && e.target.closest ? e.target.closest('.news-spin') : null;
-        if (b) storyNewsSpin(+b.dataset.idx);
+        const b = e.target && e.target.closest ? e.target.closest('[data-haber-carpit]') : null;
+        if (b) storyNewsSpinById(+b.dataset.haberCarpit);
     });
 }

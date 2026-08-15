@@ -1077,11 +1077,11 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 #story-return-btn:hover { background: linear-gradient(135deg,#267a4a,#1d5e3a); }
 
 /* ── KONSEY (hükümet) — sağdan kayar drawer (Faz-2 Adım 3) ── */
-#council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel { position: fixed; top: 0; left: 0; height: 100vh; width: 380px; max-width: 42vw;
+#council-panel, #tech-panel, #army-panel, #city-panel, #economy-panel { position: fixed; top: 0; left: 0; height: 100vh; width: 380px; max-width: 42vw;
     background: rgba(3,8,4,.995); border-right: 2px solid #4cff7c; box-shadow: 12px 0 28px rgba(0,0,0,0.45);
     transform: translateX(-100%); transition: transform 0.22s ease; z-index: 4500;
     display: flex; flex-direction: column; font-family: 'Segoe UI', system-ui, sans-serif; color: #dfe7ef; }
-#council-panel.open, #tech-panel.open, #army-panel.open, #city-panel.open, #news-panel.open, #economy-panel.open { transform: translateX(0); }
+#council-panel.open, #tech-panel.open, #army-panel.open, #city-panel.open, #economy-panel.open { transform: translateX(0); }
 /* 🏗️ ŞEHİRLER paneli (Adım 6) */
 #city-body { flex: 1 1 auto; min-width: 0; min-height: 0; padding: 12px 14px; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .city-top { font-size: 13px; color: #eaf2fb; background: rgba(255,200,90,0.1); border: 1px solid rgba(255,200,90,0.3); border-radius: 8px; padding: 9px 11px; }
@@ -1429,7 +1429,7 @@ body[data-screen="story"] { background: #060a06; }
 #story-tools .tool-btn span { font-size: 10px; letter-spacing: 1px; }
 #story-tools .tool-btn:hover, #story-tools .tool-btn.active { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); transform: none; }
 
-#council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel {
+#council-panel, #tech-panel, #army-panel, #city-panel, #economy-panel {
     top: 64px;
     height: calc(100vh - 64px);
     width: 390px;
@@ -1515,7 +1515,7 @@ body[data-screen="story"] { background: #060a06; }
     #story-tools { bottom: calc(45% + 8px); left: 8px; }
     #story-tools .tool-btn { height: 34px; padding: 0 7px; }
     #story-tools .tool-btn span { display: none; }
-    #council-panel, #tech-panel, #army-panel, #city-panel, #news-panel, #economy-panel { top: 58px; height: calc(100vh - 58px); width: 100vw; max-width: 100vw; }
+    #council-panel, #tech-panel, #army-panel, #city-panel, #economy-panel { top: 58px; height: calc(100vh - 58px); width: 100vw; max-width: 100vw; }
 }
 
 /* ── Faz 10.1: oyuncu-görünür değişim ve neden izi ─────────────────────── */
@@ -1556,16 +1556,16 @@ body[data-screen="story"] { background: #060a06; }
     flex-direction: column;
     gap: 8px;
 }
-#city-body, #economy-body, #council-body, #council-list, #tech-body, #army-body, #news-body, #talk-body {
+#city-body, #economy-body, #council-body, #council-list, #tech-body, #army-body, #talk-body {
     scrollbar-width: thin;
     scrollbar-color: rgba(74,222,128,.5) rgba(0,0,0,.28);
 }
 #city-body::-webkit-scrollbar, #economy-body::-webkit-scrollbar, #council-body::-webkit-scrollbar, #council-list::-webkit-scrollbar,
-#tech-body::-webkit-scrollbar, #army-body::-webkit-scrollbar, #news-body::-webkit-scrollbar, #talk-body::-webkit-scrollbar { width: 8px; height: 8px; }
+#tech-body::-webkit-scrollbar, #army-body::-webkit-scrollbar, #talk-body::-webkit-scrollbar { width: 8px; height: 8px; }
 #city-body::-webkit-scrollbar-track, #economy-body::-webkit-scrollbar-track, #council-body::-webkit-scrollbar-track, #council-list::-webkit-scrollbar-track,
-#tech-body::-webkit-scrollbar-track, #army-body::-webkit-scrollbar-track, #news-body::-webkit-scrollbar-track, #talk-body::-webkit-scrollbar-track { background: rgba(0,0,0,.28); }
+#tech-body::-webkit-scrollbar-track, #army-body::-webkit-scrollbar-track, #talk-body::-webkit-scrollbar-track { background: rgba(0,0,0,.28); }
 #city-body::-webkit-scrollbar-thumb, #economy-body::-webkit-scrollbar-thumb, #council-body::-webkit-scrollbar-thumb, #council-list::-webkit-scrollbar-thumb,
-#tech-body::-webkit-scrollbar-thumb, #army-body::-webkit-scrollbar-thumb, #news-body::-webkit-scrollbar-thumb, #talk-body::-webkit-scrollbar-thumb {
+#tech-body::-webkit-scrollbar-thumb, #army-body::-webkit-scrollbar-thumb, #talk-body::-webkit-scrollbar-thumb {
     background: rgba(74,222,128,.42); border: 2px solid rgba(0,0,0,.28); border-radius: 6px;
 }
 .economy-dossier-head { border-left: 3px solid var(--wr-green); }
@@ -3011,18 +3011,31 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .fd-btns { display: flex; gap: 8px; margin: 7px 0 4px; }
 .fd-btn { flex: 1; }
 
-/* ═══ GAZETE PANELİ (AŞAMA 4) ═══ */
-#news-body { padding: 10px 12px; overflow-y: auto; height: calc(100% - 52px); display: flex; flex-direction: column; gap: 9px; }
-.news-cred { font-size: 12px; color: #d9ffe9; border: 1px dashed var(--wr-line); border-radius: 8px; padding: 8px 10px; }
-.news-cred small { display: block; color: var(--wr-dim); margin-top: 3px; line-height: 1.4; }
-.news-card { border: 1px solid var(--wr-line); border-left: 3px solid var(--wr-amber); border-radius: 8px;
-    background: rgba(255,176,0,.04); padding: 8px 10px; }
-.news-card.spun { border-left-color: #9fd2ff; background: rgba(159,210,255,.05); }
-.news-h { display: flex; justify-content: space-between; font-size: 10px; color: var(--wr-dim); margin-bottom: 4px; }
-.news-llm { color: #9fd2ff; }
-.news-t { font-size: 13px; color: #ffe9bf; line-height: 1.45; }
-.news-b { font-size: 11.5px; color: var(--wr-muted); margin-top: 4px; line-height: 1.4; }
-.news-spin { margin-top: 7px; width: 100%; }
+/* ═══ DURAKLATMA GÖSTERGESİ (SPACE) ═══
+   Haritanın üstünde, ortada, küçük. Görünürlüğün TEK otoritesi
+   `body[data-story-durak]` — panelin kendi `style.display`'i yok ki iki
+   kaynak birbirini ezmesin (bu repoda ölçülmüş bir hata sınıfı). */
+#story-pause-flag {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    z-index: 60; display: none; align-items: baseline; gap: 9px;
+    padding: 5px 12px; border: 1px solid var(--wr-amber); border-radius: 4px;
+    background: rgba(5,9,4,.94); box-shadow: 0 4px 18px rgba(0,0,0,.5);
+    pointer-events: none; font-family: 'Share Tech Mono', monospace;
+}
+body[data-story-durak="1"] #story-pause-flag { display: flex; }
+#story-pause-flag b { color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; letter-spacing: 2px; }
+#story-pause-flag span { color: var(--wr-dim); font-size: 8px; letter-spacing: 1.2px; }
+
+/* ═══ MANŞET SATIRI (ayrı GAZETE paneli kaldırıldı) ═══
+   Manşetler sağdaki AKIŞ sekmesine taşındı; kendi paneli yerine akış satırının
+   bir varyantı. Sol kenar çizgisi onu sıradan kayıttan ayırır — ayrı kutu değil,
+   çünkü manşet de bir dünya olayı ve zaman sırası içinde okunmalı. */
+.story-log-row.manset { border-left: 2px solid var(--wr-amber); padding-left: 7px; margin-left: -9px; }
+.story-log-row.manset span { color: #ffe9bf; }
+.story-flow-carpit { display: block; margin-top: 5px; padding: 4px 7px; border: 1px solid var(--wr-green);
+    border-radius: 4px; background: rgba(74,222,128,.1); color: #d9ffe6;
+    font: inherit; font-size: 8px; letter-spacing: .1em; cursor: pointer; }
+.story-flow-carpit:hover, .story-flow-carpit:focus-visible { background: rgba(74,222,128,.2); outline: none; }
 
 /* ═══════════════ KUSUR 11 — KLAVYE ODAĞI GÖRÜNÜR OLSUN ═══════════════
    Ölçüldü: dokuz kuralda `:focus-visible` doğrudan `:hover` ile aynı gruba

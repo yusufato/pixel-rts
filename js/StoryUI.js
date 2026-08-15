@@ -20,7 +20,9 @@ const STORY_FLOW_TURLER = [
     { key: 'ekonomi', ad: 'EKONOMİ', simgeler: ['💸', '🌾', '🏭', '🏗️', '🧱', '⚙️', '✖', '➕', '🚪', '🔬', '🏙️'] },
     { key: 'diplomasi', ad: 'DİPLOMASİ', simgeler: ['🤝', '👂', '🤍'] },
     { key: 'halk', ad: 'HALK', simgeler: ['🪧', '📢', '🤥'] },
-    { key: 'dunya', ad: 'DÜNYA', simgeler: ['🌍', '⚠️'] }
+    { key: 'dunya', ad: 'DÜNYA', simgeler: ['🌍', '⚠️'] },
+    // Ayrı GAZETE paneli kaldırıldı; manşetler buraya düşüyor (js/News.js).
+    { key: 'manset', ad: 'MANŞET', simgeler: ['🗞️'] }
 ];
 const STORY_FLOW = { tur: 'hepsi', arama: '', hepsiniGoster: false };
 const STORY_FLOW_ILK = 12;   // varsayılan görünen satır; "TÜMÜNÜ GÖSTER" açar
@@ -62,10 +64,22 @@ function storyFlowHtml(formatLog) {
             data-aktif="${STORY_FLOW.tur === t.key ? '1' : '0'}">${t.ad}<b>${adet}</b></button>`;
     }).join('');
 
+    /* ÇARPIT, kaldırılan gazete panelinden buraya taşındı. Düğme YALNIZ hâlâ
+       çarpıtılabilir manşette çizilir (kendi devletin için kötü + 45 sn içinde),
+       yani oyuncu her satırda ölü bir düğme görmez. Kalan süre yazılıyor çünkü
+       pencere kaçırıldığında düğme sessizce kayboluyordu. */
+    const carpitHtml = (k) => {
+        if (k.haber == null || typeof storyNewsById !== 'function') return '';
+        const rec = storyNewsById(k.haber);
+        if (!rec || typeof storyNewsCanSpin !== 'function' || !storyNewsCanSpin(rec)) return '';
+        const kalanSn = Math.max(0, Math.ceil(NEWS_SPIN_WINDOW - ((STORY.clock || 0) - rec.t)));
+        return `<button type="button" class="story-flow-carpit" data-haber-carpit="${rec.id}"
+            title="Bu manşet devletin için kötü. ${NEWS_SPIN_COST}⭐ ile çarpıt.">📢 ÇARPIT ${NEWS_SPIN_COST}⭐ · ${kalanSn}sn</button>`;
+    };
     const satirlar = gosterilecek.length
-        ? gosterilecek.map(k => `<div class="story-log-row">
+        ? gosterilecek.map(k => `<div class="story-log-row${k.haber != null ? ' manset' : ''}">
             ${k.t != null ? `<time>${storyProjectionEscape(storyFlowZaman(k.t))}</time>` : ''}
-            <span>${formatLog(k.m)}</span></div>`).join('')
+            <span>${formatLog(k.m)}${carpitHtml(k)}</span></div>`).join('')
         : `<div class="story-flow-bos">${ara || STORY_FLOW.tur !== 'hepsi'
             ? 'Bu süzgece uyan kayıt yok.' : 'Henüz kayıt yok.'}</div>`;
 
@@ -120,10 +134,10 @@ function storyFlowBind() {
 const STORY_TOOL_ROL_ONCELIK = Object.freeze({
     COMMANDER:     ['story-army-btn', 'story-city-btn', 'story-commander-btn', 'story-council-btn', 'story-talk-btn'],
     COMPANY_OWNER: ['story-economy-btn', 'story-tech-btn', 'story-city-btn', 'story-talk-btn', 'story-commander-btn'],
-    MAYOR:         ['story-city-btn', 'story-economy-btn', 'story-council-btn', 'story-talk-btn', 'story-news-btn'],
-    EXECUTIVE:     ['story-council-btn', 'story-news-btn', 'story-talk-btn', 'story-economy-btn', 'story-commander-btn'],
-    AGENT:         ['story-talk-btn', 'story-news-btn', 'story-council-btn', 'story-commander-btn'],
-    CIVILIAN:      ['story-talk-btn', 'story-news-btn', 'story-city-btn', 'story-economy-btn']
+    MAYOR:         ['story-city-btn', 'story-economy-btn', 'story-council-btn', 'story-talk-btn'],
+    EXECUTIVE:     ['story-council-btn', 'story-talk-btn', 'story-economy-btn', 'story-commander-btn'],
+    AGENT:         ['story-talk-btn', 'story-council-btn', 'story-commander-btn'],
+    CIVILIAN:      ['story-talk-btn', 'story-city-btn', 'story-economy-btn']
 });
 const STORY_TOOLS = { hepsi: false, uygulananRol: null };
 
@@ -258,9 +272,27 @@ function storyActivateDetailTooltips(root) {
     });
 }
 
+/* innerHTML yazmak kapsayıcıdaki TÜM düğümleri değiştirir; içeride odaklanmış
+   bir metin kutusu varsa odak ve imleç yok olur. Ölçüldü: AKIŞ arama kutusuna
+   tıkladıktan 200 ms sonra odak `BODY`ye düşüyordu (panel saniyede bir yeniden
+   çiziliyor). Yazarken sorun görünmüyordu çünkü `storyFlowBind` her tuş
+   vuruşunda yeniden odaklıyor — kutuya tıklayıp düşünen oyuncu için görünüyordu.
+   Burada odak/imleç yazmadan ÖNCE alınır, aynı id'li düğüme geri konur. */
 function storyUiSetHtml(element, html) {
     if (!element || element.innerHTML === html) return false;
+    const etkin = document.activeElement;
+    const odakId = (etkin && etkin.id && element.contains(etkin) &&
+        /^(INPUT|TEXTAREA)$/.test(etkin.tagName)) ? etkin.id : null;
+    const bas = odakId ? etkin.selectionStart : null;
+    const son = odakId ? etkin.selectionEnd : null;
     element.innerHTML = html;
+    if (odakId) {
+        const yeni = document.getElementById(odakId);
+        if (yeni && yeni !== etkin) {
+            yeni.focus();
+            try { if (bas != null) yeni.setSelectionRange(bas, son); } catch (_) { /* type=search kısıtı */ }
+        }
+    }
     return true;
 }
 
@@ -528,6 +560,33 @@ function storyAgendaNavigate(action, sub) {
     if (action === 'flow') return storyBriefSetTab('flow');
 }
 
+/* ── DURAKLATMA (SPACE + üstte gösterge) ─────────────────────────────────────
+   Duraklatma tek yerden geçer: hem sağ üstteki düğme hem SPACE burayı çağırır.
+   Sohbet kilidi (`_conversationPauseLease`) varken dünya zaten durmuş olur ve
+   oyuncunun onu elle açması karakter görüşmesini bozar — o yüzden kilitliyken
+   geçiş sessizce reddedilir, düğme de zaten `disabled`. */
+function storyTogglePause(zorla) {
+    if (typeof STORY === 'undefined') return false;
+    if (STORY._conversationPauseLease) return false;
+    STORY.paused = (zorla === undefined) ? !STORY.paused : !!zorla;
+    storyPauseFlagUpdate();
+    if (typeof storyRender === 'function') storyRender();
+    return STORY.paused;
+}
+
+/* Gösterge yalnız GERÇEKTEN durmuş dünyada çıkar. Sohbet kilidi ve konsey
+   oturumu da dünyayı durdurur ama onların kendi ekranı var; ikinci bir "durdu"
+   rozeti göstermek gürültü olurdu. */
+function storyPauseFlagUpdate() {
+    if (typeof document === 'undefined' || typeof STORY === 'undefined') return;
+    const goster = !!STORY.paused && !STORY._conversationPauseLease && !STORY._session;
+    if (document.body.getAttribute('data-story-durak') !== (goster ? '1' : '0'))
+        document.body.setAttribute('data-story-durak', goster ? '1' : '0');
+    const bayrak = document.getElementById('story-pause-flag');
+    if (bayrak && bayrak.getAttribute('aria-hidden') !== (goster ? 'false' : 'true'))
+        bayrak.setAttribute('aria-hidden', goster ? 'false' : 'true');
+}
+
 function storyPanelUpdate() {
     const me = storyPlayerState(); if (!me) return;
     storyToolsApplyRole();   // kusur 14 — yalnız görünürlük/sıra, dünya durumu değişmez
@@ -649,6 +708,7 @@ function storyPanelUpdate() {
             if (ipucu.textContent !== dogru) ipucu.textContent = dogru;
         }
     }
+    storyPauseFlagUpdate();
     const pb = document.getElementById('story-pause-btn');
     if (pb) {
         const conversationLocked = !!STORY._conversationPauseLease;
@@ -711,7 +771,7 @@ function storyTechClose() {
 function storyTechToggle() { STORY._techOpen ? storyTechClose() : storyTechOpen(); }
 // ORDUM paneli — komutan kartı + ordu bütçesi (kasan) + gaziler
 function storyArmyOpen() {
-    storyCouncilClose(); storyTechClose(); storyCityClose(); storyEconomyClose(); if (typeof storyNewsClose === 'function') storyNewsClose();
+    storyCouncilClose(); storyTechClose(); storyCityClose(); storyEconomyClose();
     STORY._armyOpen = true;
     const p = document.getElementById('army-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
@@ -729,7 +789,6 @@ function storyArmyToggle() { STORY._armyOpen ? storyArmyClose() : storyArmyOpen(
 // EKONOMİ — şehir dosyasındaki ekonomik gerçekler ve fraksiyonlar tek yerde.
 function storyEconomyOpen(sub) {
     storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose();
-    if (typeof storyNewsClose === 'function') storyNewsClose();
     if (typeof storyTalkClose === 'function') storyTalkClose();
     STORY._economyOpen = true;
     if (sub && typeof STORY_ECONOMY_TABS !== 'undefined' && STORY_ECONOMY_TABS.includes(sub)) STORY._economySub = sub;
@@ -794,7 +853,6 @@ function storyChangesBadgeUpdate() {
 
 function storyChangesOpen() {
     storyCouncilClose(); storyTechClose(); storyArmyClose(); storyCityClose();
-    if (typeof storyNewsClose === 'function') storyNewsClose();
     if (typeof storyTalkClose === 'function') storyTalkClose();
     STORY._changesOpen = true;
     const panel = document.getElementById('story-change-panel');
@@ -1338,10 +1396,24 @@ function storyInit() {
         const button = event.target.closest('[data-story-agenda-action]');
         if (button) storyAgendaNavigate(button.dataset.storyAgendaAction, button.dataset.storyAgendaSub);
     });
-    document.getElementById('story-pause-btn')?.addEventListener('click', () => {
-        if (STORY._conversationPauseLease) return;
-        STORY.paused = !STORY.paused;
-        storyRender();
+    document.getElementById('story-pause-btn')?.addEventListener('click', () => storyTogglePause());
+    /* SPACE = duraklat/devam. Yazarken tetiklenmemesi kritik: akış araması,
+       sohbet kutusu ve karakter adı hep metin alanı — orada boşluk KARAKTERDİR.
+       Ayrıca konsey oturumu açıkken dünya zaten durmuş oluyor, oraya karışmaz. */
+    window.addEventListener('keydown', (event) => {
+        if (event.code !== 'Space' && event.key !== ' ') return;
+        if (document.body.getAttribute('data-screen') !== 'story') return;
+        if (event.ctrlKey || event.altKey || event.metaKey) return;
+        const hedef = event.target;
+        if (hedef && (hedef.isContentEditable ||
+            /^(INPUT|TEXTAREA|SELECT)$/.test(hedef.tagName || ''))) return;
+        // Düğmeye odaklıyken SPACE zaten o düğmeyi basar; iki kez duraklatmayalım.
+        if (hedef && hedef.tagName === 'BUTTON') return;
+        // Kampanya yüklü mü? (`STORY.active` — `STORY.world` diye bir alan YOK;
+        // ilk yazdığım koruma tam da bu yüzden SPACE'i tamamen ölü bırakmıştı.)
+        if (typeof STORY === 'undefined' || !STORY.active) return;
+        event.preventDefault();
+        storyTogglePause();
     });
     document.getElementById('story-speed-btn')?.addEventListener('click', () => {
         if (typeof storyClockCycleSpeed === 'function') storyClockCycleSpeed();
@@ -1362,8 +1434,6 @@ function storyInit() {
         const node = e.target.closest('.tech-node.available'); if (node && node.dataset.tech) storyTechBuy(node.dataset.tech);
     });
     document.getElementById('story-army-btn')?.addEventListener('click', storyArmyToggle);
-    document.getElementById('story-news-btn')?.addEventListener('click', () => (typeof storyNewsToggle === 'function') && storyNewsToggle());
-    document.getElementById('news-close')?.addEventListener('click', () => (typeof storyNewsClose === 'function') && storyNewsClose());
     document.getElementById('story-economy-btn')?.addEventListener('click', storyEconomyToggle);
     document.getElementById('economy-close')?.addEventListener('click', storyEconomyClose);
     document.getElementById('faction-event-close')?.addEventListener('click', () => {

@@ -137,10 +137,18 @@ function storyNode(id) { return STORY.nodes[id]; }
 const STORY_LOG_CAP = 240;
 function storyLogNormalize(entry) {
     if (entry && typeof entry === 'object' && typeof entry.m === 'string') return entry;
-    return { m: String(entry == null ? '' : entry), t: null };
+    return { m: String(entry == null ? '' : entry), t: null, haber: null };
 }
 function storyLog(msg) {
     STORY.log.unshift({ m: String(msg == null ? '' : msg), t: STORY.clock || 0 });
+    if (STORY.log.length > STORY_LOG_CAP) STORY.log.length = STORY_LOG_CAP;
+}
+/* Manşet kaydı: ayrı GAZETE paneli kaldırıldı, manşetler AKIŞ'a girer.
+   `haber` alanı manşetin kimliğini taşır; ÇARPIT düğmesi akış satırında
+   onunla kurulur. Sıra numarası değil KİMLİK saklanır — `STORY._news`
+   unshift+pop ile çalıştığı için indeks kayar, kimlik kaymaz. */
+function storyLogHeadline(msg, haberId) {
+    STORY.log.unshift({ m: String(msg == null ? '' : msg), t: STORY.clock || 0, haber: haberId });
     if (STORY.log.length > STORY_LOG_CAP) STORY.log.length = STORY_LOG_CAP;
 }
 function storyCommanderBackfill(cmd) {

@@ -385,7 +385,7 @@ function llmEnrichNews(rec) {
             const icon = (typeof NEWS_ARCH !== 'undefined' && NEWS_ARCH[rec.arch]) ? NEWS_ARCH[rec.arch].icon : '📰';
             rec.headline = (rec.spun ? '📢 ' : icon + ' ') + h;
             rec.llm = true;
-            if (STORY._newsOpen && typeof storyNewsUpdate === 'function') storyNewsUpdate();
+            if (typeof storyPanelUpdate === 'function') storyPanelUpdate();   // manşet AKIŞ satırında yenilenir
         });
 }
 
