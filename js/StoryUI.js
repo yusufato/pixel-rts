@@ -400,6 +400,80 @@ function storyAgendaCollect(me) {
     return items.sort((a, b) => STORY_AGENDA_SEVERITY[a.severity] - STORY_AGENDA_SEVERITY[b.severity]).slice(0, 5);
 }
 
+/* ── KUSUR 15: gündem yönlendiriyordu ama karar verdirmiyordu ────────────────
+   Kart yalnız "paneli aç" diyordu; kiminle konuşacağın, neye mal olacağı ve
+   yetkinin yetip yetmediği hiçbir yerde görünmüyordu.
+
+   İCAT YOK. Muhatap kanonik kurum kimliğinden türetiliyor (`institution:...`,
+   `political:...`, `intelligence:...` — kurumun kendi türü ne yönettiğini
+   söylüyor), bedelli eylemler ise motorun kendi oyuncu görünümünden geliyor:
+   `storyCharacterActionPlayerView(...)` → `{ actionType, label, allowed, cost,
+   reasons }`. Aynı API görüşme penceresinde zaten kullanılıyor (Talks.js).
+
+   YÜRÜTME BURADA YOK. Kart kararı yalnız GÖSTERİR; tıklayınca mevcut ve
+   doğrulanmış görüşme çalışma alanı açılır. Böylece dünya durumunu değiştiren
+   tek yol tek yerde kalır — determinizm ve kayıt yolu riske girmez. */
+const STORY_AGENDA_MUHATAP = Object.freeze({
+    economy:    ['labor-organizer', 'finance', 'economy', 'trade'],
+    governance: ['government-whip', 'executive', 'interior'],
+    council:    ['government-whip', 'opposition-leader', 'executive'],
+    region:     ['armed_forces', 'defense'],
+    talk:       null,   // muhatap zaten görüşmenin karşı tarafı
+    flow:       null
+});
+
+function storyAgendaMuhatap(action) {
+    const anahtarlar = STORY_AGENDA_MUHATAP[action];
+    if (!anahtarlar || typeof storyCharacterActionIdentities !== 'function') return null;
+    if (typeof storyCharacterActionAIPlayerActorId !== 'function') return null;
+    const kimlikler = storyCharacterActionIdentities();
+    const oyuncuId = storyCharacterActionAIPlayerActorId();
+    const oyuncu = oyuncuId ? kimlikler[oyuncuId] : null;
+    if (!oyuncu) return null;
+    // yalnız KENDİ ülkendeki makam sahipleri: yabancı kurum muhatap sayılmaz
+    const adaylar = Object.keys(kimlikler)
+        .map(k => kimlikler[k])
+        .filter(a => a && a.countryId === oyuncu.countryId && a.id !== oyuncu.id
+                     && (a.institutionId || a.serviceId));
+    for (const anahtar of anahtarlar) {
+        const bulunan = adaylar.find(a =>
+            String(a.institutionId || a.serviceId || '').toLowerCase().includes(anahtar));
+        if (bulunan) return bulunan;
+    }
+    return null;
+}
+
+function storyAgendaKararlarHtml(action) {
+    const kisi = storyAgendaMuhatap(action);
+    if (!kisi || typeof storyCharacterActionPlayerView !== 'function') return '';
+    let gorunum = null;
+    try { gorunum = storyCharacterActionPlayerView(kisi.id, {}); } catch (e) { return ''; }
+    if (!gorunum || gorunum.disabled) return '';
+    const eylemler = (gorunum.actions || []).slice(0, 3);
+    if (!eylemler.length) return '';
+    /* Stiller SATIR İÇİ: `style.css` paralel iş hattının commit'lenmemiş
+       değişikliklerini taşıyor, o dosyaya dokunmak onların işini bu commit'e
+       karıştırırdı (kusur 14'te de aynı yol izlendi). CSS'siz bırakılınca satır
+       `MUHATAPAlp ÖzkanEmek Bloğu Sözcüsü` diye bitişik çıkıyordu — ölçüldü. */
+    const kStil = 'display:inline-flex;gap:5px;align-items:baseline;';
+    const satir = eylemler.map(a => {
+        const bedel = a.cost && a.cost.key ? `${a.cost.key} ${a.cost.amount}` : 'bedelsiz';
+        const engel = (a.reasons || [])[0] || (a.domainReasons || [])[0] || null;
+        return `<button class="agenda-karar" style="${kStil}${a.allowed ? '' : 'opacity:.55;'}"`
+            + ` data-agenda-kisi="${storyProjectionEscape(kisi.id)}"`
+            + ` data-agenda-kisi-ad="${storyProjectionEscape(kisi.name || '')}"`
+            + ` data-agenda-izin="${a.allowed ? '1' : '0'}"`
+            + ` title="${storyProjectionEscape(engel ? 'Engel: ' + engel : 'Görüşme penceresinde uygulanır')}">`
+            + `<b style="font-weight:400">${storyProjectionEscape(a.label || a.actionType)}</b>`
+            + `<small style="opacity:.7">${storyProjectionEscape(a.allowed ? bedel : (engel || 'yetki yok'))}</small></button>`;
+    }).join('');
+    return `<div class="agenda-muhatap" style="display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 7px">`
+        + `<span style="color:var(--wr-dim);font-size:7px;letter-spacing:1.4px">MUHATAP</span>`
+        + `<b style="color:var(--wr-amber-bright);font-size:10px;font-weight:400">${storyProjectionEscape(kisi.name || '—')}</b>`
+        + `<small style="color:var(--wr-muted);font-size:8px">${storyProjectionEscape(kisi.publicTitle || kisi.role || '')}</small></div>`
+        + `<div class="agenda-kararlar" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${satir}</div>`;
+}
+
 function storyAgendaUpdate(me) {
     const summary = document.getElementById('story-agenda-summary');
     const list = document.getElementById('story-agenda-list');
@@ -432,6 +506,7 @@ function storyAgendaUpdate(me) {
         + `<span>${item.severity === 'critical' ? 'ACİL' : item.severity === 'high' ? 'ÖNEMLİ' : item.severity === 'watch' ? 'İZLE' : 'SAKİN'}</span>`
         + `<h3>${storyProjectionEscape(item.title)}</h3>`
         + `<p>${storyProjectionEscape(item.detail)}</p>`
+        + storyAgendaKararlarHtml(item.action)   // kusur 15 — muhatap + bedelli kararlar
         + `<button data-story-agenda-action="${item.action}"${item.sub ? ` data-story-agenda-sub="${item.sub}"` : ''}>${storyProjectionEscape(item.actionLabel)}</button>`
         + `</article>`).join('');
     if (summary.innerHTML !== nextSummary) summary.innerHTML = nextSummary;
@@ -1248,6 +1323,18 @@ function storyInit() {
         document.querySelector(`[data-story-brief-tab="${STORY_BRIEF_TABS[next]}"]`)?.focus();
     });
     document.getElementById('story-agenda-list')?.addEventListener('click', (event) => {
+        // KUSUR 15: karar düğmesi ÖNCE bakılır. Kart yürütmez; muhatabın görüşme
+        // penceresini açar ve karar orada, mevcut doğrulanmış yoldan uygulanır.
+        const karar = event.target.closest('[data-agenda-kisi]');
+        if (karar) {
+            if (typeof storyConversationWorkspaceOpen === 'function') {
+                storyConversationWorkspaceOpen(karar.dataset.agendaKisi, karar.dataset.agendaKisiAd);
+            } else if (typeof storyTalkOpen === 'function') {
+                STORY._talkFocusCharacterId = karar.dataset.agendaKisi;
+                storyTalkOpen();
+            }
+            return;
+        }
         const button = event.target.closest('[data-story-agenda-action]');
         if (button) storyAgendaNavigate(button.dataset.storyAgendaAction, button.dataset.storyAgendaSub);
     });

@@ -109,11 +109,47 @@ da duyuruluyor.
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** `931db9d` |
-| 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
+| 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js` gündem kartı yalnız panel açıyor · MW-003 | Kart artık **isimli muhatap** + motorun kendi bedelli eylemlerini gösterir; yürütme mevcut görüşme penceresinde kalır (kart dünyayı değiştirmez) | **`UYGULANDI`** (commit aşağıda) |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + altında yalnız "N adaydan ilk 8 gösteriliyor" notu — **kalanına ulaşmanın hiçbir yolu yok** | Arama kutusu + `8 / 25` sayacı + "TÜMÜNÜ GÖSTER" | `KABUL` · **bir kez denendi ve GERİ ÇEKİLDİ**, aşağıda |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok — **ölçüm maddeyi yeniden çerçeveledi** | `js/StoryProjection.js` `storyProjectionEffectBinding` yalnız 3 yol bağlıyor · gerçek kampanyada 180 etkinin **%97'si zaten izli** | ~~Rozet kapsamı beş alana genişler~~ → **UI işi değil**: dört alan hiç nedensellik etkisi üretmiyor, diplomasi ise bilgi sızıntısı gerekçesiyle bilerek kapalı (aşağıda) | `KABUL` · **öneri geçersiz, yeniden yazılmalı** |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
+
+#### 15 — uygulandı (bu turda, oyunda)
+
+**Hiçbir mekanik icat edilmedi.** Bedelli eylemler motorun kendi oyuncu
+görünümünden geliyor: `storyCharacterActionPlayerView(hedefId, ...)` →
+`{ actionType, label, allowed, cost, reasons }`. Aynı API görüşme penceresinde
+zaten kullanılıyordu (`js/Talks.js`); bu tur onu gündem kartına da taşıdı.
+
+**Muhatap da icat değil, kanonik kurumdan türetiliyor.** Kurumlar kendi türlerini
+taşıyor (`political:0:labor-organizer`, `political:0:government-whip`,
+`intelligence:0:domestic`, `institution:country:0:armed_forces` …); kart aksiyonu
+bu türlerle eşleşiyor ve **yalnız oyuncunun kendi ülkesindeki** makam sahipleri
+aday oluyor.
+
+**Kart YÜRÜTMEZ.** Karar düğmesi yalnız gösterir; tıklayınca mevcut ve
+doğrulanmış görüşme çalışma alanı açılır. Dünya durumunu değiştiren tek yol tek
+yerde kalıyor — determinizm ve kayıt yolu riske girmiyor.
+
+| ölçüm | sonuç |
+|---|---|
+| enflasyon/refah eşiği zorlanınca | 3 kart · **2 muhataplı** · 6 karar düğmesi |
+| örnek | `MUHATAP Alp Özkan · Emek Bloğu Sözcüsü` → `İkna et influence 2` · `Müzakere et influence 3` · `Kişisel ittifak kur credibility 4` |
+| yabancı muhatap | **0** (yalnız kendi ülken) |
+| iki kez yeniden çizim | saat/log/kaynak **birebir aynı** |
+| **karar düğmesine tıklama** | dünya **birebir aynı**, eylem makbuzu artmadı, görüşme penceresi açıldı |
+| `--uitest` | `UITEST_PROBLEMS []` |
+
+**Muhatabı olmayan kart bilerek boş kalır.** `talk` kartının muhatabı zaten
+görüşmenin karşı tarafı; `region` kartının makamı (`armed_forces`) **oyuncunun
+kendisi** olduğu için aday listesinden düşüyor. İkisinde de sahte bir muhatap
+uydurmak yerine satır hiç çizilmiyor.
+
+**Stiller satır içi:** `style.css` paralel iş hattının commit'lenmemiş
+değişikliklerini taşıyordu. CSS'siz ilk sürümde satır `MUHATAPAlp ÖzkanEmek Bloğu
+Sözcüsü` diye bitişik çıkıyordu (çekimle görüldü); satır içi stille düzeltildi.
+
 
 #### 14 — uygulandı (bu turda, oyunda)
 
