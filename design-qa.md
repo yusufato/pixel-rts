@@ -33,7 +33,7 @@
 
 **Follow-up Polish**
 
-- [P3] The live battlefield is slightly brighter than the concept capture on some terrain seeds; a future optional CRT intensity slider could tune this without reducing playability.
+- [P3] ~~The live battlefield is slightly brighter than the concept capture on some terrain seeds; a future optional CRT intensity slider could tune this without reducing playability.~~ **CLOSED** `9d037ac` — scanline and vignette now scale via `--wr-crt-alpha`; slider available both in the menu settings panel and in the in-battle pause window, both writing the same preference. Defaults are byte-identical to the previous look at `alpha = 1`. See `mockup/BULGULAR.md` kusur 13.
 
 **Implementation Checklist**
 

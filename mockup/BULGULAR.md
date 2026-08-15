@@ -11,10 +11,17 @@ Bu dosya **damga defteridir**. Her satır üç durumdan birini taşır:
 **Katman A kabul edildi (12 madde): 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22.**
 Katman B (8, 9, 10, 13, 19, 23) kullanıcı kararıyla **bekletildi** — önce A bitecek.
 
-**Katman A durumu: 11/12 uygulandı.** Kalan tek madde **18** — ölçüm öneriyi
-geçersiz kıldı (dört alan hiç nedensellik etkisi üretmiyor, diplomasi bilerek
-kapalı); UI turunun değil dünya-modeli turunun işi. Katman A'nın UI'ya düşen
-kısmı bitti, B açılabilir.
+**Katman A: 11/12 uygulandı. Katman B: 6/6 uygulandı — ikisi de bitti.**
+
+Kalan tek madde **18** — ölçüm öneriyi geçersiz kıldı (dört alan hiç nedensellik
+etkisi üretmiyor, diplomasi bilerek kapalı); UI turunun değil dünya-modeli
+turunun işi. Bu defterin UI'ya düşen her maddesi kapandı.
+
+**Bu turun en pahalı dersi:** kabul edilen dokuz maddenin **üçünde** iddia
+ölçümde düştü ya da daralttı (8'in iki iddiası, 18'in tamamı, 1'in yarısı) ve
+**ikisinde** varsayım yanlış çıktı (19'da "nasılsa eziliyor", 22'de "çıkarma
+geri alır"). Damgasız satıra güvenilmez kuralı yetmiyor; **damgalı satırın da
+kanıtı ölçümle yenilenmeli.**
 
 **Damgasız satır güvenilmez sayılır.** Bu repoda plan/doküman bayatlaması ölçülmüş
 bir sorun (`docs/OLCUM-TUZAKLARI.md`); damga onun karşı önlemidir.
@@ -100,7 +107,7 @@ da duyuruluyor.
 |---|---|---|---|---|
 | 8 | Legacy kalıntılar | `style.css:235-237` `.spawn-cat` yeşil/12px/r5 — **war-room override'ı hiç yok** · `:277` savaşta `.spawn-btn:hover` mavi glow'a düşüyor · `:130-142` kamera ipucu 7px/`#888`, yalnız `:1777` deploy'da ezilmiş | Üçü de `tokens.css` yüzeylerine çekilir | **`UYGULANDI`** `b09c4d9` · **iki iddia geri çekildi, aşağıda** |
 | 9 | Duraklatma modalı ve öğrenme bildirimi **tamamen inline stil**; üstelik modalın **kendi içinde** iki font var | `js/main.js:727-739` — kutu `font-family:inherit` → body'den **Press Start 2P**, ama butonlarda `font-family` yok → **tarayıcı sans-serif**'i · `js/main.js:761-763` bildirim `#8ecbff` / `14px system-ui` / `z-index:99999` · gerçek çekim: `qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png` | İkisi de terminal diline geçer; inline stil kalkar | **`UYGULANDI`** `6eb0ca5` |
-| 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | `AÇIK` |
+| 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | **`UYGULANDI`** `2f5f62e` |
 | 11 | `:focus-visible` hover ile **birebir aynı** → klavye odağı görünmüyor — **defterde yazandan yaygın** | **dokuz** kural `:focus-visible`'ı `:hover` ile aynı gruba yazıp üstüne `outline:none` diyor: `style.css:857 · 908 · 1280 · 1317 · 1336 · 1362 · 1959 · 1969` | `--wr-focus: #6cc7ff` ile ayrı odak halkası; blok dosya SONUNDA (özgüllük değil sıra meselesi) | **`UYGULANDI`** `a870cb1` |
 | 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te **sıfır** referans (ölçüldü) | Silindi: 29 satır. `#game-over-screen` paylaşımlı seçicisinden yalnız yetim yarısı çıkarıldı, canlı yarı yerinde | **`UYGULANDI`** `6e5361a` |
 | 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | **`UYGULANDI`** `9d037ac` · **öneri genişletildi** |
@@ -133,6 +140,46 @@ ayarın iki yüzü.
 | tembel kurulan pencere | 35 kayıtlıyken **35 açıldı** (yoksa hep %100 gösterip yalan söylerdi) |
 | eski kayıt (`crtAlpha` alanı yok) | 100'e düşer, davranış değişmez |
 | `--uitest` · `--hudtest` | ikisi de `PROBLEMS []` |
+
+#### 10 + 23 — uygulandı (`2f5f62e`); ikisi ayrılamaz, birlikte yürütüldü
+
+10 değişikliğin kendisi, 23 onun kapısı. Kapı önce kuruldu — ölçemeden
+değiştirmek bu turda üç kez yanılttığı için (bkz. 19'un ölçüm notu).
+
+Savaş HUD'unda **6–13 px arası sekiz ayrı boyut** elle yazılmıştı. Ölçek
+adlandırılmadığı için her panel kendi kararını veriyordu ve 6–7 px okunabilirlik
+sınırının altındaydı. Atama **role** göre yapıldı, "eski değeri neydi"ye göre değil:
+
+| basamak | değer | rol | eskiden |
+|---|---|---|---|
+| `--wr-fs-micro` | 9px | altyazı · rozet · birim istatistik başlığı | 6–7px |
+| `--wr-fs-small` | 10px | bölüm başlığı · ölçer · akış satırı | 8px |
+| `--wr-fs-body` | 11px | panel gövde metni | 9px |
+| `--wr-fs-label` | 13px | vurgulu sayı ve değer | 10–12px |
+| `--wr-fs-title` | 15px | panel başlığı | 13px |
+
+34 bildirim token'a bağlandı; blokta elle yazılmış `px` kalmadı.
+
+**Kapı, mockup sahnesine değil gerçek oyuna kuruldu.** Defter "8 gerçek devlet
+adı + en uzun brifing etiketleri" içeren bir kanıt sahnesi öneriyordu; sahte
+sahne gerçek panel genişliklerini kanıtlamaz. Onun yerine gerçek savaş HUD'u
+3 viewport × 2 fazda tarandı.
+
+**Karar mutlak değil FARKA göre verildi** — önceden kırpık olan bir eleman bu
+turun regresyonu değil:
+
+| kapı | sonuç |
+|---|---|
+| yeni kırpılan | **0** (düzelen 0; taban 3 kırpık düğüm `#ui-phase`, değişmedi) |
+| negatif kontrol (token'lar 15/17/19/22/26) | **6 yeni kırpılma yakalandı** → alet kör değil |
+| ekran-dışı (9 HUD paneli × 3 viewport) | hepsi sınır içinde · yatay taşma **0** |
+| `--hudtest` | `kesis:false` · `ekranDisi:false` · `PROBLEMS []` |
+| `--uitest` | `PROBLEMS []` |
+
+> **İki ölçüm tuzağı baştan kapatıldı.** Tarayıcı `scrollWidth`'i `::before` /
+> `::after` içeriğiyle kirletiyor (bu turda kusur 24'te yaşanmıştı) ve
+> `overflow:auto` olan kap kırpmaz **kaydırır**. İkisi de kapının dışında
+> tutuldu; tutulmasaydı sahte kırpılma raporlanır, ölçek boşuna geri alınırdı.
 
 #### 9 — uygulandı (`6eb0ca5`); iddia doğru çıktı, ölçüm ağırlaştırdı
 
@@ -621,7 +668,7 @@ Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. �
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + karar defteri (satıra tıkla → o soruya dön). **Geri alma çıkarma değil YENİDEN OYNATMA** (aşağıda) | **`UYGULANDI`** `d2ad747` + `ec44b66` |
-| 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | `AÇIK` |
+| 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | **`UYGULANDI`** `2f5f62e` · **kapı gerçek oyuna kuruldu, mockup sahnesine değil** |
 | **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
 
 #### 21 — uygulandı (bu turda, oyunda)
