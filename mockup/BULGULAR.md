@@ -431,7 +431,7 @@ ve `-SONRA-1280.png`. ÖNCE'de "…mhuriyeti" ekranın solundan taşıp kesilmi�
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 19 | Eski mavi hikaye bloğu duruyor | `style.css:1005-1185` ⇄ `:1188-1356` | Üç adımlı tasfiye, aşağıda ölçülmüş | `AÇIK` |
+| 19 | Eski mavi hikaye bloğu duruyor | `style.css:1005-1185` ⇄ `:1188-1356` | Üç adımlı tasfiye, aşağıda ölçülmüş | **`UYGULANDI`** `db55b36` |
 
 **19'un ölçümü** — blokta 113 selektör var:
 
@@ -446,6 +446,41 @@ ve `-SONRA-1280.png`. ÖNCE'de "…mhuriyeti" ekranın solundan taşıp kesilmi�
 
 > Ölçüm notu: ilk tarama kelime sınırı kullanmadığı için **28 yanlış-pozitif** verdi
 > (`city-btn` gibi canlı adları ölü sandı). Sınırlı eşleşmeyle tekrar ölçüldü → 9.
+
+#### 19 — uygulandı (`db55b36`)
+
+Üç adım da yapıldı. Ama **"nasılsa eziliyor" varsayımı yanlış çıktı**: legacy
+bloktan altı bildirim hâlâ etkiliydi ve silinince ekran değişti. Bunlar
+war-room kurallarına **açıkça** yazıldı — kalıtım kazası yerine yazılı karar:
+
+| taşınan | nereye | neden hâlâ etkiliydi |
+|---|---|---|
+| `font-size:23px` · `line-height:1` · `transition` | `#story-tools .tool-btn` | war-room kuralı bu üçünü hiç yazmıyordu |
+| `transition` | `#story-topright .ctrl-btn` | `font` kısayolu boyutu eziyordu ama geçişi değil |
+| `z-index:20` | `#story-hud`, `#story-news` | `position:static` ama **flex öğesi** → yığılma sırası geçerli |
+| `display:flex` · `flex-direction` · `overflow` | `#story-news` | yalnız `.story-brief-view` durumunda yeniden yazılıyordu |
+
+`.tool-btn`'in 23px'i doğrudan görünmüyor (çocuklar kendi boyutlarını taşıyor)
+ama satır kutusunu ve düğme genişliğini belirliyor: kaldırıldığında araç çubuğu
+daralıyor, **taşma menüsüne düşen düğme sayısı değişiyor** — yani DOM değişiyor.
+Değerin kendisi sorgulanabilir; o kusur 10'un işi, bu turda davranış korundu.
+
+**Ölçüm aleti:** hikâye dünyasında 735 düğüm × 41 hesaplanmış özellik × 10 sahne
+(dünya + 9 araç çekmecesi) parmak izi.
+
+| kapı | sonuç |
+|---|---|
+| sahne determinizmi (aynı ağaçta iki koşu) | **0 fark** — sabit tohum + dondurulmuş dünya |
+| HEAD ⇄ tasfiye edilmiş ağaç | düğüm farkı **0** · **gerçek özellik farkı 0** |
+| kalan 50 fark | 40'ı `position:static` üstünde etkisiz ofset · 10'u worktree `icons.png` yolu |
+| negatif kontrol (`tool-btn` +1px) | **102 fark yakalandı** → alet kör değil |
+| `--uitest` | `PROBLEMS []` |
+
+> **Alet iki kez yanılttı, ikisi de düzeltildi.** (1) İlk koşuda tohum sabit
+> değildi → dünya her koşuda başkaydı, 1583 "fark" çıktı; sabit tohumla 0'a
+> indi. (2) Dünya ölçüm sırasında tıklamaya devam ediyordu → iki koşu farklı
+> an ölçüyordu (`DURAKLAT` ⇄ `DEVAM` düğme genişliği, fazladan `.pool-cmd`
+> düğümleri). `storyAdvance` no-op yapılınca düğüm farkı 36 → 0.
 
 ---
 
