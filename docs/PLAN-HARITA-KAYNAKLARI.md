@@ -99,21 +99,65 @@ uzmanlaşma yukarı-akış talebi yaratır. Aşama 2 tam da bu arzı getiriyor.
 
 ---
 
-## Aşama 2 — Maden yatağını haritaya çiz · `AÇIK`
+## Aşama 2 — Maden yatağını haritaya çiz · **`UYGULANDI`** `09ac28d` + `4579c42`
 
-**Ölçülen kusur:** `js/terrainData.js` içinde `cities`, `oil`, `pts` nokta
-listeleri var ama **`mine` listesi YOK**. 12 şehirdeki maden şehir
-konfigüründen (`Story.js:282` `c.mine`) geliyor — yani coğrafyadan değil.
-Sonuç: hammadde zinciri haritaya oturmuyor, 37 bölgede `raw_materials` sıfır.
+> **Planın kendisi burada yanlıştı, ölçüm düzeltti.** "`terrainData.js`'de `mine`
+> listesi yok" doğruydu ama alakasızdı: gerçek harita `terrainData` değil
+> **`geoData.js`** (Natural Earth) ve maden `GEO_CITIES[].mine` bayrağından
+> geliyor. `terrainData` eski prosedürel yedek yol.
 
-**Ne:** `terrainData.js`'e `mine: [[x,y], …]` listesi eklenir; `Story.js:1481`
-civarındaki `assign()` çağrılarına `assign(STORY_TERRAIN.mine, 'mine')` girer.
+### 2a — `pts` madenden ayrıldı (`09ac28d`)
 
-**Kabul ölçütü:**
-- maden taşıyan şehir sayısı 12 → hedeflenen sayıya çıkar, dağılım coğrafi
-- `raw_materials` stoku sıfır olan bölge sayısı **azalır**
-- `mineral_reserve` sonlu kalır (tükenme modeli bozulmaz)
-- kaydedilmiş eski kampanyalar yüklenmeye devam eder
+Aşama 1 `pts`'yi teknoloji havzası yaptı, ama üretim formülü
+`pts = maden*2 + (tier−2)` idi — yani **her maden kasabası otomatik teknoloji
+merkezi** sayılıyordu (bugünkü 20 "puan" şehri tam olarak 12 maden ×2 + 8
+başkent ×1). Bu aynı zamanda 2b'yi sessizce bozacaktı: maden eklemek teknoloji
+havzası da ekleyecekti.
+
+Yeni: `pts = max(0, fac−1) + max(0, tier−2)` — uzmanlık **sanayi derinliğinden**
+gelir. Her harita işareti tek anlam taşır: ⛏ hammadde · ⭐ uzman iş gücü · ⛽ enerji.
+
+`pts>0` şehir 20 → 31. Düşen: Erzurum, Marakeş, Tunus, Tula… Giren: Paris,
+Milano, Frankfurt, Stuttgart, Amsterdam, Prag, Varşova…
+
+**Denge kararı olarak kaydedilir:** teknoloji ağırlığı Kuzey Afrika'dan (pts 5 → 1)
+Orta Avrupa'ya (7 → 13) kayıyor. Tarihsel olarak tutarlı; katsayı tek satırda ayarlanır.
+
+### 2b — 11 gerçek maden havzası (`4579c42`)
+
+| şehir | havza |
+|---|---|
+| Cardiff | Güney Galler kömür |
+| Glasgow | Lanarkshire kömür ve demir |
+| Leeds | Yorkshire kömür |
+| Lille | Nord-Pas-de-Calais kömür |
+| Wroclaw | Aşağı Silezya kömür |
+| Sevilla | Rio Tinto bakır ve pirit |
+| Saraybosna | Zenica-Tuzla kömür ve demir |
+| Sofya | Pernik kömür |
+| Voronej | Kursk Manyetik Anomalisi demir cevheri |
+| Stokholm | Bergslagen demir bölgesi |
+| Kazablanka | Khouribga fosfat |
+
+Şehir listesinde karşılığı **olmayan** havza eklenmedi (Kiruna, Ostrava,
+Zonguldak, Kryvyi Rih) — olmayan şehre yatak konmaz. Madenli şehir 12 → 23.
+
+### Sonuç — turun başındaki tabana göre **altı zincirin altısı da iyileşti**
+
+| stoku sıfır olan bölge | tur başı | Aşama 1 | Aşama 2 |
+|---|---|---|---|
+| gıda | 38 | 36 | **34** |
+| enerji | 36 | 34 | **32** |
+| hammadde | 47 | 51 | **37** |
+| sanayi parçası | 45 | 48 | **35** |
+| elektronik | 10 | 5 | **4** |
+| askerî malzeme | 49 | 51 | **38** |
+
+Ortalama hammadde 47.1 → **65.7** (+%39). Aşama 1'in yarattığı yukarı-akış
+açığı kapandı — **plan sırası doğruydu.**
+
+`--forktest forkTutarli:true` · `--uitest PROBLEMS []` · eski kayıtlar
+etkilenmez (değişiklik yalnız kampanya kuruluşunda).
 
 ---
 
