@@ -11,6 +11,11 @@ Bu dosya **damga defteridir**. Her satır üç durumdan birini taşır:
 **Katman A kabul edildi (12 madde): 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22.**
 Katman B (8, 9, 10, 13, 19, 23) kullanıcı kararıyla **bekletildi** — önce A bitecek.
 
+**Katman A durumu: 11/12 uygulandı.** Kalan tek madde **18** — ölçüm öneriyi
+geçersiz kıldı (dört alan hiç nedensellik etkisi üretmiyor, diplomasi bilerek
+kapalı); UI turunun değil dünya-modeli turunun işi. Katman A'nın UI'ya düşen
+kısmı bitti, B açılabilir.
+
 **Damgasız satır güvenilmez sayılır.** Bu repoda plan/doküman bayatlaması ölçülmüş
 bir sorun (`docs/OLCUM-TUZAKLARI.md`); damga onun karşı önlemidir.
 
@@ -494,7 +499,7 @@ Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. �
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + karar defteri (satıra tıkla → o soruya dön). **Geri alma çıkarma değil YENİDEN OYNATMA** (aşağıda) | **`UYGULANDI`** `d2ad747` · adım etiketi tutarsızlığı `AÇIK` |
+| 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + karar defteri (satıra tıkla → o soruya dön). **Geri alma çıkarma değil YENİDEN OYNATMA** (aşağıda) | **`UYGULANDI`** `d2ad747` + `ec44b66` |
 | 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | `AÇIK` |
 | **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
 
@@ -563,9 +568,19 @@ fare tekerleğini öngörülemez yaptığı için kaldırıldı, tek kaydıran k
 | 1024×640 | hayır | evet | evet |
 | 1280×800 | hayır | evet | evet |
 
-**Kapsanmayan yarısı:** adım göstergesi tutarsızlığı (`index.html:73` "KARAKTER"
-⇄ `:81` "BRİFİNG") düzeltilmedi — `index.html` paralel iş hattının elinde ve
-commit'lenmemiş değişiklikleri var. Madde bu yüzden kısmen `AÇIK`.
+**İkinci yarısı — `UYGULANDI` `ec44b66`.** Adım göstergesi tutarsızlığı kapandı.
+`index.html:81` 2. adımı "BRİFİNG" diye yazıyordu; brifing kurulum ekranının
+**kendi bölümü** (`index.html:99` "HAREKÂT BRİFİNGİ"), ayrı bir adım değil.
+Gerçek akış `kurulum → charOpen (js/WarRoomUI.js:179) → charFinish →
+storyNewCampaign` olduğuna göre 2. adım KARAKTER; etiket ona çekildi.
+
+| ölçüm | sonuç |
+|---|---|
+| iki ekranın şerit metinleri | birebir aynı (`1 · DEVLET & ÇAĞ` / `2 · KARAKTER` / `3 · SEFER`) |
+| aktif adım | kurulum = 0, karakter = 1 |
+| `charOpen()` sonrası aktif etiket | `2 · KARAKTER` |
+| yatay taşma | 0 |
+| `--uitest` | `PROBLEMS []` |
 
 
 ### 25 — bu turda **yeni bulundu ve ölçüldü** (en ağır bulgu)
