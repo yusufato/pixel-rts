@@ -103,7 +103,36 @@ da duyuruluyor.
 | 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | `AÇIK` |
 | 11 | `:focus-visible` hover ile **birebir aynı** → klavye odağı görünmüyor — **defterde yazandan yaygın** | **dokuz** kural `:focus-visible`'ı `:hover` ile aynı gruba yazıp üstüne `outline:none` diyor: `style.css:857 · 908 · 1280 · 1317 · 1336 · 1362 · 1959 · 1969` | `--wr-focus: #6cc7ff` ile ayrı odak halkası; blok dosya SONUNDA (özgüllük değil sıra meselesi) | **`UYGULANDI`** `a870cb1` |
 | 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te **sıfır** referans (ölçüldü) | Silindi: 29 satır. `#game-over-screen` paylaşımlı seçicisinden yalnız yetim yarısı çıkarıldı, canlı yarı yerinde | **`UYGULANDI`** `6e5361a` |
-| 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | `AÇIK` |
+| 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | **`UYGULANDI`** `9d037ac` · **öneri genişletildi** |
+
+#### 13 — uygulandı (`9d037ac`); kaydırıcı iki yere kondu
+
+Tarama ve vinyet artık `--wr-crt-alpha` ile ölçekleniyor. Taban değerler
+(`.24` / `.47`) `alpha = 1`'de eski davranışın birebiri — yani varsayılan
+kullanıcı için hiçbir şey değişmiyor.
+
+**Öneriden sapma:** defter kaydırıcıyı yalnız duraklatma penceresine koyuyordu.
+İki yere kondu. Ayarın kanonik yeri menüdeki panel — tercih zaten orada
+saklanıyor ve CRT anahtarı orada. Ama parlaklık **sahaya bakarken** fark
+ediliyor ve savaş içinde menüye çıkış yolu yok; tek denetim menüde kalsaydı
+ayar tam ihtiyaç duyulduğu anda erişilemez olurdu. İkisi de
+`warRoomApplyCrtAlpha` üzerinden **aynı** tercihi yazar — iki ayar değil, tek
+ayarın iki yüzü.
+
+| ölçüm (`::after`'ın hesaplanmış background alfası) | tarama | vinyet |
+|---|---|---|
+| varsayılan (`--wr-crt-alpha: 1`) | `.24` | `.47` |
+| menüden %35 | `.082` | `.165` |
+| savaş içinden %80 | `.192` | `.376` |
+| %0 | `0` | `0` |
+
+| kapı | sonuç |
+|---|---|
+| iki kaydırıcı senkronu | savaştan %80 → menü kaydırıcısı **80'e eşitlendi** |
+| kalıcılık | `{"crt":true,"crtAlpha":80,...}` |
+| tembel kurulan pencere | 35 kayıtlıyken **35 açıldı** (yoksa hep %100 gösterip yalan söylerdi) |
+| eski kayıt (`crtAlpha` alanı yok) | 100'e düşer, davranış değişmez |
+| `--uitest` · `--hudtest` | ikisi de `PROBLEMS []` |
 
 #### 9 — uygulandı (`6eb0ca5`); iddia doğru çıktı, ölçüm ağırlaştırdı
 
