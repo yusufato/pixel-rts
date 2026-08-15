@@ -703,6 +703,23 @@ body:not([data-screen="game"]) #minimap { display: none !important; }
        zaten kullanımda; odak bu ikisiyle karışmamalı. Mavi, arayüzde başka hiçbir
        durumu anlatmadığı için seçildi (mockup/tokens.css ile aynı değer). */
     --wr-focus: #6cc7ff;
+
+    /* ── KUSUR 10: TİPOGRAFİ ÖLÇEĞİ ──────────────────────────────────────────
+       Savaş HUD'unda 6-13 px arası SEKİZ ayrı boyut elle yazılmıştı; ölçek
+       adlandırılmadığı için her panel kendi kararını veriyordu ve 6-7 px
+       okunabilirlik sınırının altındaydı. Beş basamak, ROLE göre atanır —
+       "eski değeri neydi"ye göre değil:
+         micro  altyazı / rozet / birim istatistik başlığı   (6-7 px idi)
+         small  bölüm başlığı / ölçer / akış satırı          (8 px idi)
+         body   panel gövde metni                            (9 px idi)
+         label  vurgulu sayı ve değer                        (10-12 px idi)
+         title  panel başlığı                                (13 px idi)
+       Kırpma kapısı: kusur 23 (üç viewport × iki faz, fark tabanlı). */
+    --wr-fs-micro: 9px;
+    --wr-fs-small: 10px;
+    --wr-fs-body: 11px;
+    --wr-fs-label: 13px;
+    --wr-fs-title: 15px;
 }
 
 #war-room-shell {
@@ -1955,40 +1972,40 @@ body[data-screen="game"][data-phase="battle"] #ui-support { display: none !impor
 body[data-screen="game"][data-phase="battle"] #ui-resources {
     top: 14px; left: 14px; min-width: 190px; padding: 10px 12px;
     border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(5,9,4,.9);
-    color: var(--wr-muted); font: 9px 'Share Tech Mono', monospace; box-shadow: none;
+    color: var(--wr-muted); font: var(--wr-fs-body) 'Share Tech Mono', monospace; box-shadow: none;
 }
 body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display: none; }
 
 #battle-vp-hud { top: 12px; left: 50%; width: min(430px, 38vw); transform: translateX(-50%); padding: 8px 11px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-muted); }
-.battle-vp-title, .battle-vp-values { display: flex; justify-content: space-between; align-items: center; font-size: 8px; letter-spacing: 1px; }
+.battle-vp-title, .battle-vp-values { display: flex; justify-content: space-between; align-items: center; font-size: var(--wr-fs-small); letter-spacing: 1px; }
 .battle-vp-title b { color: var(--wr-amber); font-weight: 400; }
 .battle-vp-bars { position: relative; height: 8px; margin: 6px 0; background: rgba(255,255,255,.08); overflow: hidden; }
 .battle-vp-bars::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #ffe9bf; }
 .battle-vp-bars i { position: absolute; top: 0; bottom: 0; transition: width .18s linear; }
 #battle-vp-blue { right: 50%; background: var(--wr-green); }
 #battle-vp-red { left: 50%; background: var(--wr-red); }
-.battle-vp-values b { color: var(--wr-amber-bright); font-weight: 400; font-size: 11px; }
+.battle-vp-values b { color: var(--wr-amber-bright); font-weight: 400; font-size: var(--wr-fs-label); }
 .battle-vp-values span { color: var(--wr-amber); }
 
 #battle-target-card { top: 14px; right: 14px; width: 268px; padding: 11px; border: 1px solid rgba(74,222,128,.55); background: rgba(5,9,4,.94); color: var(--wr-muted); box-shadow: 0 0 20px rgba(0,0,0,.4); }
 #battle-target-card.hostile { border-color: rgba(255,107,107,.65); }
-.battle-target-head { display: flex; justify-content: space-between; padding-bottom: 7px; border-bottom: 1px solid var(--wr-line); color: var(--wr-green); font-size: 8px; letter-spacing: 1px; }
+.battle-target-head { display: flex; justify-content: space-between; padding-bottom: 7px; border-bottom: 1px solid var(--wr-line); color: var(--wr-green); font-size: var(--wr-fs-small); letter-spacing: 1px; }
 .hostile .battle-target-head { color: var(--wr-red); }
 .battle-target-head b { font-weight: 400; }
 .battle-target-main { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
 .battle-target-sprite { width: 56px; height: 42px; flex: none; background-image: url('icons.png'); background-size: 2500% 200%; background-repeat: no-repeat; image-rendering: pixelated; }
-.battle-target-main h3 { margin: 0; color: var(--wr-amber-bright); font-size: 13px; font-weight: 400; letter-spacing: 1px; }
-.battle-target-main small { display: block; margin-top: 4px; color: var(--wr-muted); font-size: 8px; }
-.battle-meter { display: grid; grid-template-columns: 34px 1fr 64px; align-items: center; gap: 6px; margin: 5px 0; color: var(--wr-muted); font-size: 8px; }
+.battle-target-main h3 { margin: 0; color: var(--wr-amber-bright); font-size: var(--wr-fs-title); font-weight: 400; letter-spacing: 1px; }
+.battle-target-main small { display: block; margin-top: 4px; color: var(--wr-muted); font-size: var(--wr-fs-small); }
+.battle-meter { display: grid; grid-template-columns: 34px 1fr 64px; align-items: center; gap: 6px; margin: 5px 0; color: var(--wr-muted); font-size: var(--wr-fs-small); }
 .battle-meter > i { height: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
 .battle-meter > i b { display: block; height: 100%; background: var(--wr-green); }
 .hostile .battle-meter > i b { background: var(--wr-red); }
 .battle-meter em { color: var(--wr-amber-bright); font-style: normal; text-align: right; }
 .battle-target-stats { display: grid; grid-template-columns: repeat(4,1fr); margin-top: 10px; border: 1px solid var(--wr-line); }
-.battle-target-stats span { padding: 6px 3px; border-right: 1px solid var(--wr-line); color: var(--wr-muted); font-size: 7px; text-align: center; }
+.battle-target-stats span { padding: 6px 3px; border-right: 1px solid var(--wr-line); color: var(--wr-muted); font-size: var(--wr-fs-micro); text-align: center; }
 .battle-target-stats span:last-child { border-right: 0; }
-.battle-target-stats b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; }
-.battle-target-matchup { margin-top: 8px; color: var(--wr-muted); font-size: 8px; line-height: 1.4; }
+.battle-target-stats b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: var(--wr-fs-label); font-weight: 400; }
+.battle-target-matchup { margin-top: 8px; color: var(--wr-muted); font-size: var(--wr-fs-small); line-height: 1.4; }
 
 /* KUSUR 3: emrin metin karşılığı. Haritadaki 420 ms'lik işaretin kalıcı eşi —
    işaret sönse de son emrin ne olduğu okunabilir kalır, ve kart aria-live
@@ -1999,7 +2016,7 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
     padding-top: 7px;
     border-top: 1px solid var(--wr-line);
     color: #4ade80;
-    font-size: 9px;
+    font-size: var(--wr-fs-body);
     letter-spacing: 1px;
 }
 #battle-order-echo[data-kind="attack"] { color: #ff6b6b; }
@@ -2013,19 +2030,19 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
     #battle-order-echo.yeni { animation: none; }
 }
 
-#battle-orders { padding: 9px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-size: 9px; letter-spacing: 1px; }
+#battle-orders { padding: 9px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-size: var(--wr-fs-body); letter-spacing: 1px; }
 #battle-orders > div { margin-bottom: 7px; }
 #battle-orders button { width: calc(50% - 3px); min-height: 46px; margin: 3px 1px; padding: 6px 8px; border: 1px solid var(--wr-line); border-radius: 3px; background: rgba(255,176,0,.035); color: var(--wr-muted); font-family: inherit; text-align: left; cursor: pointer; }
 #battle-orders button:hover, #battle-orders button:focus-visible { border-color: var(--wr-amber); background: rgba(255,176,0,.12); color: var(--wr-amber-bright); outline: none; }
 #battle-orders button b, #battle-orders button span { display: block; font-weight: 400; }
-#battle-orders button b { color: var(--wr-amber-bright); font-size: 10px; }
-#battle-orders button span { margin-top: 3px; font-size: 7px; }
+#battle-orders button b { color: var(--wr-amber-bright); font-size: var(--wr-fs-label); }
+#battle-orders button span { margin-top: 3px; font-size: var(--wr-fs-micro); }
 
 /* KUSUR 2 — emir butonu durum katmanı. <em> durum metni, <i> bekleme dolumu.
    Durum YALNIZ renkle anlatılmaz; metin her hâlde okunur (renk körlüğü). */
 #battle-orders button { position: relative; overflow: hidden; }
 #battle-orders button em {
-    display: block; margin-top: 4px; font-size: 8px; font-style: normal;
+    display: block; margin-top: 4px; font-size: var(--wr-fs-small); font-style: normal;
     letter-spacing: .5px; color: var(--wr-muted);
 }
 #battle-orders button[data-ord="ready"] em { color: var(--wr-green); }
@@ -2045,7 +2062,7 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
     content: attr(data-key);
     position: absolute; top: 4px; right: 4px;
     padding: 1px 4px; border: 1px solid var(--wr-line); border-radius: 2px;
-    font-size: 7px; line-height: 1.3; color: var(--wr-dim);
+    font-size: var(--wr-fs-micro); line-height: 1.3; color: var(--wr-dim);
 }
 
 /* KUSUR 4 — kontrol grubu şeridi. Dolu slot amber, boş slot sönük.
@@ -2057,10 +2074,10 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
 #battle-groups span {
     position: relative; flex: 1 1 0; min-width: 0; padding: 3px 0 2px;
     border: 1px solid transparent; border-radius: 2px;
-    text-align: center; font-size: 7px; color: var(--wr-dim);
+    text-align: center; font-size: var(--wr-fs-micro); color: var(--wr-dim);
 }
-#battle-groups span b { display: block; font-weight: 400; font-size: 8px; }
-#battle-groups span i { display: block; font-style: normal; font-size: 9px; min-height: 11px; }
+#battle-groups span b { display: block; font-weight: 400; font-size: var(--wr-fs-small); }
+#battle-groups span i { display: block; font-style: normal; font-size: var(--wr-fs-body); min-height: 11px; }
 #battle-groups span[data-dolu="1"] {
     border-color: var(--wr-line); background: rgba(255,176,0,.08); color: var(--wr-amber);
 }
@@ -2075,23 +2092,23 @@ body[data-screen="game"][data-phase="battle"] #ui-spawn-bar,
 body[data-screen="game"][data-phase="over"] #ui-spawn-bar { display: none; }
 
 /* SOL-PANEL YETENEK-SEÇİCİ: seçili birimin aktif-yetenekleri (buton) + pasif (oto-çip). JS display:flex ile açar. */
-#ui-abilities { padding: 8px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1px; flex-direction: column; gap: 4px; }
-#ui-abilities .ability-head { font-size: 8px; color: var(--wr-muted); margin-bottom: 2px; }
+#ui-abilities { padding: 8px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-family: 'Share Tech Mono', monospace; font-size: var(--wr-fs-body); letter-spacing: 1px; flex-direction: column; gap: 4px; }
+#ui-abilities .ability-head { font-size: var(--wr-fs-small); color: var(--wr-muted); margin-bottom: 2px; }
 #ui-abilities .ability-row { display: flex; flex-wrap: wrap; gap: 4px; }
 #ui-abilities .ability-btn { flex: 1 1 calc(50% - 4px); min-height: 40px; padding: 5px 7px; border: 1px solid var(--wr-line); border-radius: 3px; background: rgba(255,176,0,.05); color: var(--wr-muted); font-family: inherit; text-align: left; cursor: pointer; }
 #ui-abilities .ability-btn:hover, #ui-abilities .ability-btn:focus-visible { border-color: var(--wr-amber); background: rgba(255,176,0,.14); color: var(--wr-amber-bright); outline: none; }
 #ui-abilities .ability-btn.active { border-color: #4cff7c; background: rgba(76,255,124,.16); color: #cfffdd; }
-#ui-abilities .ability-btn b { display: block; font-size: 12px; font-weight: 400; }
-#ui-abilities .ability-btn span { display: block; margin-top: 2px; font-size: 7px; }
+#ui-abilities .ability-btn b { display: block; font-size: var(--wr-fs-label); font-weight: 400; }
+#ui-abilities .ability-btn span { display: block; margin-top: 2px; font-size: var(--wr-fs-micro); }
 #ui-abilities .ability-chips { display: flex; flex-wrap: wrap; gap: 3px; }
-#ui-abilities .ability-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border: 1px dashed rgba(255,176,0,.28); border-radius: 8px; font-size: 7px; color: var(--wr-muted); }
-#ui-abilities .ability-chip em { font-style: normal; color: rgba(120,200,140,.75); font-size: 6px; }
+#ui-abilities .ability-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border: 1px dashed rgba(255,176,0,.28); border-radius: 8px; font-size: var(--wr-fs-micro); color: var(--wr-muted); }
+#ui-abilities .ability-chip em { font-style: normal; color: rgba(120,200,140,.75); font-size: var(--wr-fs-micro); }
 
 #battle-feed { top: 290px; right: 14px; width: 268px; max-height: calc(100vh - 430px); border: 1px solid var(--wr-line); background: rgba(5,9,4,.9); color: var(--wr-muted); overflow: hidden; }
-.battle-feed-head { display: flex; justify-content: space-between; padding: 8px 9px; border-bottom: 1px solid var(--wr-line); color: var(--wr-amber); font-size: 8px; letter-spacing: 1px; }
+.battle-feed-head { display: flex; justify-content: space-between; padding: 8px 9px; border-bottom: 1px solid var(--wr-line); color: var(--wr-amber); font-size: var(--wr-fs-small); letter-spacing: 1px; }
 .battle-feed-head b { color: var(--wr-green); font-weight: 400; }
 #battle-feed-list { max-height: 220px; overflow-y: auto; }
-#battle-feed-list > div { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 5px 8px; border-bottom: 1px solid rgba(255,176,0,.07); font-size: 8px; line-height: 1.35; }
+#battle-feed-list > div { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 5px 8px; border-bottom: 1px solid rgba(255,176,0,.07); font-size: var(--wr-fs-small); line-height: 1.35; }
 #battle-feed-list time { color: var(--wr-dim); }
 #battle-feed-list .friendly span { color: var(--wr-green); }
 #battle-feed-list .hostile span { color: var(--wr-red); }
@@ -2099,7 +2116,7 @@ body[data-screen="game"][data-phase="over"] #ui-spawn-bar { display: none; }
 body[data-screen="game"][data-phase="battle"] #minimap { right: 14px; bottom: 92px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.94); }
 body[data-screen="game"][data-phase="battle"] #ui-spawn-bar { left: 306px; right: 296px; width: auto; height: 76px; padding: 7px; border-top: 1px solid var(--wr-line); background: rgba(5,9,4,.92); box-shadow: 0 -8px 22px rgba(0,0,0,.35); }
 body[data-screen="game"][data-phase="battle"] .spawn-btn { height: 60px; border: 1px solid rgba(255,176,0,.12); border-radius: 3px; background: rgba(255,176,0,.025); color: var(--wr-muted); font-family: 'Share Tech Mono', monospace; }
-body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-cost { font-size: 7px; }
+body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-cost { font-size: var(--wr-fs-micro); }
 
 @media (max-width: 900px) {
     #battle-target-card, #battle-feed { right: 8px; width: 225px; }
@@ -2118,16 +2135,16 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 #battle-pause { position: fixed; inset: 0; z-index: 9000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.62); backdrop-filter: blur(2px); }
 #battle-pause.acik { display: flex; }
 .battle-pause-box { min-width: 300px; padding: 24px 28px; border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(5,9,4,.97); box-shadow: 0 30px 80px rgba(0,0,0,.72); text-align: center; font-family: 'Share Tech Mono', monospace; }
-.battle-pause-title { margin-bottom: 6px; color: var(--wr-amber-bright); font-size: 13px; letter-spacing: 2.5px; }
-.battle-pause-sub { margin-bottom: 18px; color: var(--wr-dim); font-size: 9px; letter-spacing: 1.2px; }
-.battle-pause-crt { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(255,176,0,.03); color: var(--wr-muted); font-size: 8px; letter-spacing: 1.2px; }
+.battle-pause-title { margin-bottom: 6px; color: var(--wr-amber-bright); font-size: var(--wr-fs-title); letter-spacing: 2.5px; }
+.battle-pause-sub { margin-bottom: 18px; color: var(--wr-dim); font-size: var(--wr-fs-body); letter-spacing: 1.2px; }
+.battle-pause-crt { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(255,176,0,.03); color: var(--wr-muted); font-size: var(--wr-fs-small); letter-spacing: 1.2px; }
 .battle-pause-crt input[type="range"] { flex: 1 1 auto; min-width: 0; accent-color: var(--wr-amber); }
-.battle-pause-crt output { flex: 0 0 34px; color: var(--wr-amber-bright); font-size: 9px; text-align: right; }
-.battle-pause-btn { display: block; width: 100%; margin: 7px 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--wr-green); border-radius: 4px; background: rgba(74,222,128,.1); color: #d9ffe6; font: 11px 'Share Tech Mono', monospace; letter-spacing: 1.3px; cursor: pointer; transition: all .15s ease; }
+.battle-pause-crt output { flex: 0 0 34px; color: var(--wr-amber-bright); font-size: var(--wr-fs-body); text-align: right; }
+.battle-pause-btn { display: block; width: 100%; margin: 7px 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--wr-green); border-radius: 4px; background: rgba(74,222,128,.1); color: #d9ffe6; font: var(--wr-fs-label) 'Share Tech Mono', monospace; letter-spacing: 1.3px; cursor: pointer; transition: all .15s ease; }
 .battle-pause-btn:hover, .battle-pause-btn:focus-visible { background: rgba(74,222,128,.2); box-shadow: 0 0 18px rgba(74,222,128,.16); outline: none; }
 .battle-pause-btn.cikis { border-color: var(--wr-red); background: rgba(255,107,107,.08); color: #ffd5d5; }
 .battle-pause-btn.cikis:hover, .battle-pause-btn.cikis:focus-visible { background: rgba(255,107,107,.16); box-shadow: 0 0 18px rgba(255,107,107,.14); }
-#learn-msg { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 99999; display: none; padding: 9px 18px; border: 1px solid var(--wr-amber); border-radius: 4px; background: rgba(5,9,4,.94); color: var(--wr-amber-bright); font: 10px 'Share Tech Mono', monospace; letter-spacing: 1.2px; pointer-events: none; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
+#learn-msg { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 99999; display: none; padding: 9px 18px; border: 1px solid var(--wr-amber); border-radius: 4px; background: rgba(5,9,4,.94); color: var(--wr-amber-bright); font: var(--wr-fs-label) 'Share Tech Mono', monospace; letter-spacing: 1.2px; pointer-events: none; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
 #learn-msg.acik { display: block; }
 
 /* ═══════════════ WAR ROOM — FAZ 5: SONUÇ / DRAFT / KOMUTAN ═══════════════ */
