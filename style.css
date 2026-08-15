@@ -2104,6 +2104,25 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     #battle-vp-hud { width: 42vw; }
 }
 
+/* ── KUSUR 9: DURAKLATMA PENCERESİ + ÖĞRENME BİLDİRİMİ ───────────────────────
+   İkisi de tamamen satır-içi stille kuruluyordu (js/main.js). Ölçüldü: tek
+   ekranda ÜÇ ayrı font vardı — kutu/başlık 'Press Start 2P' 19px (body'den
+   kalıtım), düğmeler font-family hiç yazılmadığı için tarayıcı varsayılanı
+   'Arial' 14px, bildirim ise 'system-ui' 14px + mavi (#8ecbff / #49f).
+   Köşeler 12px/8px/9px iken war-room yüzeyleri 3-4px. Stil buraya taşındı;
+   JS'te yalnız display durumu kaldı (durum stil değildir). */
+#battle-pause { position: fixed; inset: 0; z-index: 9000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.62); backdrop-filter: blur(2px); }
+#battle-pause.acik { display: flex; }
+.battle-pause-box { min-width: 300px; padding: 24px 28px; border: 1px solid var(--wr-line); border-radius: 4px; background: rgba(5,9,4,.97); box-shadow: 0 30px 80px rgba(0,0,0,.72); text-align: center; font-family: 'Share Tech Mono', monospace; }
+.battle-pause-title { margin-bottom: 6px; color: var(--wr-amber-bright); font-size: 13px; letter-spacing: 2.5px; }
+.battle-pause-sub { margin-bottom: 18px; color: var(--wr-dim); font-size: 9px; letter-spacing: 1.2px; }
+.battle-pause-btn { display: block; width: 100%; margin: 7px 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--wr-green); border-radius: 4px; background: rgba(74,222,128,.1); color: #d9ffe6; font: 11px 'Share Tech Mono', monospace; letter-spacing: 1.3px; cursor: pointer; transition: all .15s ease; }
+.battle-pause-btn:hover, .battle-pause-btn:focus-visible { background: rgba(74,222,128,.2); box-shadow: 0 0 18px rgba(74,222,128,.16); outline: none; }
+.battle-pause-btn.cikis { border-color: var(--wr-red); background: rgba(255,107,107,.08); color: #ffd5d5; }
+.battle-pause-btn.cikis:hover, .battle-pause-btn.cikis:focus-visible { background: rgba(255,107,107,.16); box-shadow: 0 0 18px rgba(255,107,107,.14); }
+#learn-msg { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 99999; display: none; padding: 9px 18px; border: 1px solid var(--wr-amber); border-radius: 4px; background: rgba(5,9,4,.94); color: var(--wr-amber-bright); font: 10px 'Share Tech Mono', monospace; letter-spacing: 1.2px; pointer-events: none; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
+#learn-msg.acik { display: block; }
+
 /* ═══════════════ WAR ROOM — FAZ 5: SONUÇ / DRAFT / KOMUTAN ═══════════════ */
 #game-over-screen { background: rgba(3,6,3,.96); font-family: 'Share Tech Mono', monospace; }
 #game-over-screen .game-over-box { width: min(1160px, 94vw); max-width: none; max-height: 92vh; overflow: auto; padding: 24px; border: 1px solid var(--wr-line); border-radius: 8px; background: #060a06; box-shadow: 0 30px 80px rgba(0,0,0,.72); }

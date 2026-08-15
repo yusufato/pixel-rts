@@ -732,19 +732,15 @@ function battlePauseOverlay() {
     if (el) return el;
     el = document.createElement('div');
     el.id = 'battle-pause';
-    el.style.cssText = 'position:fixed;inset:0;z-index:9000;display:none;align-items:center;' +
-        'justify-content:center;background:rgba(0,0,0,0.62);backdrop-filter:blur(2px)';
+    // KUSUR 9: stil style.css'te (#battle-pause / .battle-pause-*). Satır içi
+    // yazıldığında düğmeler font-family almadığı için tarayıcı varsayılanına
+    // düşüyordu; aynı pencerede üç ayrı font ölçülmüştü.
     el.innerHTML =
-        '<div style="min-width:280px;padding:26px 30px;border-radius:12px;background:#12161c;' +
-        'border:1px solid #2b3442;box-shadow:0 12px 40px rgba(0,0,0,.5);text-align:center;font-family:inherit">' +
-        '<div style="font-size:19px;color:#e6edf5;margin-bottom:4px">⏸️ Maç duraklatıldı</div>' +
-        '<div style="font-size:12px;color:#7f8b9c;margin-bottom:18px">ESC ile devam edebilirsin</div>' +
-        '<button id="btn-pause-resume" style="display:block;width:100%;margin:8px 0;padding:11px;' +
-        'border-radius:8px;border:1px solid #2f6f4f;background:#1c3d2c;color:#cfe9d8;cursor:pointer;font-size:14px">' +
-        'Maça devam et</button>' +
-        '<button id="btn-pause-quit" style="display:block;width:100%;margin:8px 0;padding:11px;' +
-        'border-radius:8px;border:1px solid #6f3030;background:#3d1c1c;color:#e9cfcf;cursor:pointer;font-size:14px">' +
-        'Maçtan çık</button></div>';
+        '<div class="battle-pause-box">' +
+        '<div class="battle-pause-title">⏸️ MAÇ DURAKLATILDI</div>' +
+        '<div class="battle-pause-sub">ESC İLE DEVAM EDEBİLİRSİN</div>' +
+        '<button id="btn-pause-resume" class="battle-pause-btn">MAÇA DEVAM ET</button>' +
+        '<button id="btn-pause-quit" class="battle-pause-btn cikis">MAÇTAN ÇIK</button></div>';
     document.body.appendChild(el);
     el.querySelector('#btn-pause-resume').addEventListener('click', () => battleTogglePause(false));
     el.querySelector('#btn-pause-quit').addEventListener('click', () => {
@@ -758,22 +754,21 @@ function battleTogglePause(zorla) {
     if (typeof BATTLE_PAUSED === 'undefined') return;
     BATTLE_PAUSED = (zorla === undefined) ? !BATTLE_PAUSED : !!zorla;
     const el = battlePauseOverlay();
-    el.style.display = BATTLE_PAUSED ? 'flex' : 'none';
+    el.classList.toggle('acik', BATTLE_PAUSED);
 }
 
 function battleLearnMessage(text, autoHideMs) {
     if (typeof document === 'undefined') return;
     let el = document.getElementById('learn-msg');
     if (!el) {
+        // KUSUR 9: stil style.css'te (#learn-msg). Satır içi hâlinde 'system-ui'
+        // 14px + mavi (#8ecbff / #49f) ile terminal dilinin dışına düşüyordu.
         el = document.createElement('div'); el.id = 'learn-msg';
-        el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99999;' +
-            'background:rgba(18,20,32,0.94);color:#8ecbff;padding:10px 20px;border:1px solid #49f;' +
-            'border-radius:9px;font:14px system-ui,sans-serif;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,0.5)';
         document.body.appendChild(el);
     }
-    if (!text) { el.style.display = 'none'; return; }
-    el.textContent = text; el.style.display = 'block';
-    if (autoHideMs) setTimeout(() => { if (document.getElementById('learn-msg')) document.getElementById('learn-msg').style.display = 'none'; }, autoHideMs);
+    if (!text) { el.classList.remove('acik'); return; }
+    el.textContent = text; el.classList.add('acik');
+    if (autoHideMs) setTimeout(() => { const k = document.getElementById('learn-msg'); if (k) k.classList.remove('acik'); }, autoHideMs);
 }
 if (typeof document !== 'undefined') {
     document.addEventListener('keydown', e => {
