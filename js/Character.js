@@ -588,23 +588,96 @@ function charRenderDice(el) {
     document.getElementById('char-roll').addEventListener('click', () => { CHAR_UI.dice = charRollDice(); charRender(); });
     document.getElementById('char-next').addEventListener('click', () => { CHAR_UI.step = 1; charRender(); });
 }
+/* ── KUSUR 22: GERİ ALMA ─────────────────────────────────────────────────────
+   12 soruluk akış tek yönlüydü: seçenek tıklanınca deftere yazılıp bir sonraki
+   soruya geçiliyordu, dönüş yolu yoktu. Yanlış tıklayan oyuncunun tek çaresi
+   kampanyayı baştan kurmaktı.
+
+   DİKKAT — "son kaydı geri çıkar" ÇALIŞMAZ: `charClampAxes` eksenleri 0-100'e
+   kırpıyor, yani kayıplı. Tavana dayanmış bir eksenden `fx` çıkarmak orijinal
+   değeri geri getirmez (ör. 96 +8 → 100, geri alınca 92 çıkar, doğrusu 96).
+   Bu yüzden geri alma, kararları BAŞTAN OYNATIR. `decisions` zaten `legacyFx`,
+   `optionTag` ve `legacySeed` taşıyor → yeni veri yapısı gerekmiyor, öneride
+   yazdığı gibi. */
+/* Yerel kaçış: StoryUI.js'teki storyProjectionEscape'e bağlanmıyorum, o dosya
+   yükleme sırasına bağlı ve bu ekran ondan önce açılabiliyor. */
+function charEscape(deger) {
+    return String(deger == null ? '' : deger)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function charApplyDecision(kayit) {
+    const fx = kayit.legacyFx || {};
+    for (const k in fx) CHAR_UI.axes[k] = (CHAR_UI.axes[k] ?? 50) + fx[k];
+    charClampAxes(CHAR_UI.axes);
+    CHAR_UI.tags.push(kayit.optionTag);
+    if (kayit.legacySeed) CHAR_UI.seeds.push(kayit.legacySeed);
+    CHAR_UI.prevTag = kayit.optionTag;
+    CHAR_UI.stage++;
+    CHAR_UI.qIndex++;
+    const policy = charRoleQuestionPolicy(CHAR_UI.role);
+    const th = CHARQ_THEMES[CHAR_UI.theme];
+    if (th && CHAR_UI.stage >= (policy.counts[th.key] || 0)) {
+        CHAR_UI.theme++; CHAR_UI.stage = 0; CHAR_UI.prevTag = null;
+    }
+}
+
+/* n karar kalacak şekilde geri sar. n = decisions.length - 1 → tek adım geri. */
+function charRewindTo(n) {
+    const kayitlar = CHAR_UI.decisions.slice(0, Math.max(0, n));
+    CHAR_UI.axes = charAxesDefault();
+    CHAR_UI.tags = []; CHAR_UI.seeds = []; CHAR_UI.decisions = [];
+    CHAR_UI.theme = 0; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; CHAR_UI.qIndex = 0;
+    for (const kayit of kayitlar) { CHAR_UI.decisions.push(kayit); charApplyDecision(kayit); }
+    CHAR_UI.step = 1;   // özetten de geri dönülebilsin
+    charRender();
+}
+
+/* Tema şeridi: hangi temada kaçıncı sorudasın. Dağılım role göre değişiyor
+   (charRoleQuestionPolicy) ama hiçbir yerde görünmüyordu — oyuncu 12'nin nasıl
+   bölündüğünü bilmiyordu. */
+function charThemeStrip() {
+    const policy = charRoleQuestionPolicy(CHAR_UI.role);
+    return `<div class="char-theme-strip">${CHARQ_THEMES.map((t, ti) => {
+        const adet = policy.counts[t.key] || 0;
+        if (!adet) return '';
+        const noktalar = Array.from({ length: adet }, (_, i) => {
+            const durum = ti < CHAR_UI.theme ? 'bitti'
+                : (ti > CHAR_UI.theme ? 'bekliyor'
+                : (i < CHAR_UI.stage ? 'bitti' : (i === CHAR_UI.stage ? 'simdi' : 'bekliyor')));
+            return `<i data-d="${durum}"></i>`;
+        }).join('');
+        return `<span class="cts-theme" data-aktif="${ti === CHAR_UI.theme ? '1' : '0'}">
+            <b>${t.name}</b><em>${noktalar}</em></span>`;
+    }).join('')}</div>`;
+}
+
 function charRenderQuestion(el) {
     const th = CHARQ_THEMES[CHAR_UI.theme];
     const q = charQuestionAt(th.key, CHAR_UI.stage, CHAR_UI.prevTag, CHAR_UI.role);
     if (!q) { CHAR_UI.step = 2; return charRender(); }
+    const verilen = CHAR_UI.decisions;
     el.innerHTML = `
       <div class="char-title">${charRoleMeta(CHAR_UI.role).icon} ${charRoleMeta(CHAR_UI.role).short} · ${th.name} · Soru ${CHAR_UI.qIndex + 1}/12</div>
+      ${charThemeStrip()}
       <div class="char-q">${q.q}</div>
       <div class="char-question-note">Doğru cevap yok. Dünyanın seni nasıl okuyacağını bilmeden, gerçekten vereceğin kararı seç.</div>
       <div class="char-opts">${q.o.map((o, i) =>
-        `<button type="button" class="char-opt" data-i="${i}">${o.t}</button>`).join('')}</div>`;
+        `<button type="button" class="char-opt" data-i="${i}">${o.t}</button>`).join('')}</div>
+      ${verilen.length ? `
+      <div class="char-undo-bar">
+        <button type="button" id="char-undo" class="char-undo">← GERİ AL</button>
+        <span class="char-undo-hint">son karar: ${charEscape(verilen[verilen.length - 1].optionText)}</span>
+      </div>
+      <details class="char-log"><summary>VERİLEN KARARLAR (${verilen.length})</summary>
+        <ol>${verilen.map((d, i) =>
+          `<li><button type="button" class="char-log-row" data-n="${i}">
+             <span>${charEscape(d.questionText)}</span><b>${charEscape(d.optionText)}</b></button></li>`).join('')}</ol>
+      </details>` : ''}`;
     el.querySelectorAll('.char-opt').forEach(btn => btn.addEventListener('click', () => {
         const o = q.o[+btn.dataset.i];
-        for (const k in (o.fx || {})) CHAR_UI.axes[k] = (CHAR_UI.axes[k] ?? 50) + o.fx[k];
-        charClampAxes(CHAR_UI.axes);
-        CHAR_UI.tags.push(o.tag);
-        if (o.seed) CHAR_UI.seeds.push(o.seed);
-        CHAR_UI.decisions.push({
+        const kayit = {
             index: CHAR_UI.qIndex,
             role: CHAR_UI.role,
             theme: th.key,
@@ -616,12 +689,18 @@ function charRenderQuestion(el) {
             optionTag: o.tag,
             legacyFx: Object.assign({}, o.fx || {}),
             legacySeed: o.seed || null
-        });
-        CHAR_UI.prevTag = o.tag; CHAR_UI.stage++; CHAR_UI.qIndex++;
-        const policy = charRoleQuestionPolicy(CHAR_UI.role);
-        if (CHAR_UI.stage >= (policy.counts[th.key] || 0)) { CHAR_UI.theme++; CHAR_UI.stage = 0; CHAR_UI.prevTag = null; }
+        };
+        // Kayıt ÖNCE yazılır, etki sonra: geri alma bu defteri yeniden oynatıyor,
+        // ikisinin tek yerden gitmesi ileri/geri yolun aynı kalmasını garantiler.
+        CHAR_UI.decisions.push(kayit);
+        charApplyDecision(kayit);
         if (CHAR_UI.theme >= CHARQ_THEMES.length) CHAR_UI.step = 2;
         charRender();
+    }));
+    const geri = document.getElementById('char-undo');
+    if (geri) geri.addEventListener('click', () => charRewindTo(CHAR_UI.decisions.length - 1));
+    el.querySelectorAll('.char-log-row').forEach(satir => satir.addEventListener('click', () => {
+        charRewindTo(+satir.dataset.n);   // o soruya dön: öncesindeki kararlar korunur
     }));
 }
 function charRenderSummary(el) {
@@ -637,8 +716,15 @@ function charRenderSummary(el) {
       <div class="char-axes">${CHAR_AXES.map(bar).join('')}</div>
       ${CHAR_UI.seeds.length ? `<div class="char-seeds">📜 Geçmişin: ${CHAR_UI.seeds.map(s => `<i>${s}</i>`).join(' · ')}</div>` : ''}
       <div class="char-lp">⚔️${CHAR_UI.dice.warrior} 🕊️${CHAR_UI.dice.diplomat} ⚙️${CHAR_UI.dice.economist} · 🎖️ ${charLpBonus(CHAR_UI.dice)} LP</div>
-      <div class="char-btns"><button id="char-go" type="button" class="primary">GÖREVE BAŞLA</button></div>`;
+      <div class="char-btns">
+        ${CHAR_UI.decisions.length ? '<button id="char-back" type="button" class="char-undo">← SON KARARI DEĞİŞTİR</button>' : ''}
+        <button id="char-go" type="button" class="primary">GÖREVE BAŞLA</button>
+      </div>`;
     document.getElementById('char-go').addEventListener('click', charFinish);
+    // Özetten de dönülebilir: 12. soruyu yanlış tıklayan oyuncunun tek çaresi
+    // kampanyayı baştan kurmak olmasın (kusur 22).
+    const geri = document.getElementById('char-back');
+    if (geri) geri.addEventListener('click', () => charRewindTo(CHAR_UI.decisions.length - 1));
 }
 
 // Komutan listelerinde bar yerine ZAR ROZETİ (kullanıcı isteği: "1/1/1 gibi sayılar")

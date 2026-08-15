@@ -259,9 +259,54 @@ Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. �
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre 6/3/3 ↔ 1/7/4 değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + verilen kararlar listesi (satıra tıkla → o soruya dön). Geri alma mevcut `decisions` defterinden son kaydı çıkarır; yeni veri yapısı gerekmez | `KABUL` |
+| 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + karar defteri (satıra tıkla → o soruya dön). **Geri alma çıkarma değil YENİDEN OYNATMA** (aşağıda) | **`UYGULANDI`** (commit aşağıda) · adım etiketi tutarsızlığı `AÇIK` |
 | 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | `AÇIK` |
 | **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
+
+#### 22 — uygulandı (bu turda, oyunda)
+
+**Öneri bir noktada yanlıştı ve ölçümle düzeltildi.** Defterde "geri alma mevcut
+`decisions` defterinden son kaydı çıkarır" yazıyordu. Bu **çalışmaz**: `charClampAxes`
+eksenleri 0-100'e kırpıyor, yani kayıplı. Ölçüldü:
+
+| | eksen `hawk` |
+|---|---|
+| karar öncesi | **96** |
+| `+8` etki → kırpıldı | 100 |
+| "son kaydı çıkar" ne verirdi | **92** ← yanlış |
+| doğru değer | **96** |
+
+**Ve bu gerçek oyunda erişilebilir bir durum.** Soru bankasındaki 188 `fx` bloğu
+tarandı: 12 soruda tek bir eksen `hawk` 123'e, `auth` 131'e, `pop` 126'ya kadar
+çıkabiliyor — üçü de tavanı aşıyor. Yani çıkarma yaklaşımı karakteri **sessizce**
+bozardı. Bu yüzden geri alma kararları baştan oynatıyor (`charRewindTo`), ileri ve
+geri yol tek fonksiyondan (`charApplyDecision`) geçiyor.
+
+**Doğrulama:**
+
+| ölçüm | sonuç |
+|---|---|
+| 5 karar → 3'e geri sar, beklenen durumla karşılaştır | eksen/tag/seed/tema/aşama/qIndex **birebir eşit** |
+| geri al + aynı seçeneği tekrar seç | durum **aynı** (idempotent) |
+| `--uitest` | altı adım `OK`, `UITEST_PROBLEMS []` |
+
+**Eklerken kendi düzelttiğim kusur sınıfını ürettim ve yakaladım.** Karar defteri
+açıkken (11 karar) son satırın alt kenarı 950 px, viewport 572 — ekran dışında ve
+panel kaymıyordu (`overflow: visible`). Bu, kusur 25'in aynı sınıfı. `.char-body`
+kaydırılabilir yapıldı (`overflow-x` açıkça `hidden`, yoksa CSS diğer ekseni
+`auto`ya çözüyor). Önce listeye de ayrı kaydırma vermiştim; iç içe iki kaydırma
+fare tekerleğini öngörülemez yaptığı için kaldırıldı, tek kaydıran kap var.
+
+| viewport | panel ekran dışı | ilk seçenek görünür | kaydırınca son satır görünür |
+|---|---|---|---|
+| 916×572 | hayır | evet | evet |
+| 1024×640 | hayır | evet | evet |
+| 1280×800 | hayır | evet | evet |
+
+**Kapsanmayan yarısı:** adım göstergesi tutarsızlığı (`index.html:73` "KARAKTER"
+⇄ `:81` "BRİFİNG") düzeltilmedi — `index.html` paralel iş hattının elinde ve
+commit'lenmemiş değişiklikleri var. Madde bu yüzden kısmen `AÇIK`.
+
 
 ### 25 — bu turda **yeni bulundu ve ölçüldü** (en ağır bulgu)
 
