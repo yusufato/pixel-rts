@@ -99,11 +99,40 @@ da duyuruluyor.
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 8 | Legacy kalıntılar | `style.css:235-237` `.spawn-cat` yeşil/12px/r5 — **war-room override'ı hiç yok** · `:277` savaşta `.spawn-btn:hover` mavi glow'a düşüyor · `:130-142` kamera ipucu 7px/`#888`, yalnız `:1777` deploy'da ezilmiş | Üçü de `tokens.css` yüzeylerine çekilir | **`UYGULANDI`** `b09c4d9` · **iki iddia geri çekildi, aşağıda** |
-| 9 | Duraklatma modalı ve öğrenme bildirimi **tamamen inline stil**; üstelik modalın **kendi içinde** iki font var | `js/main.js:727-739` — kutu `font-family:inherit` → body'den **Press Start 2P**, ama butonlarda `font-family` yok → **tarayıcı sans-serif**'i · `js/main.js:761-763` bildirim `#8ecbff` / `14px system-ui` / `z-index:99999` · gerçek çekim: `qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png` | İkisi de terminal diline geçer; inline stil kalkar | `AÇIK` |
+| 9 | Duraklatma modalı ve öğrenme bildirimi **tamamen inline stil**; üstelik modalın **kendi içinde** iki font var | `js/main.js:727-739` — kutu `font-family:inherit` → body'den **Press Start 2P**, ama butonlarda `font-family` yok → **tarayıcı sans-serif**'i · `js/main.js:761-763` bildirim `#8ecbff` / `14px system-ui` / `z-index:99999` · gerçek çekim: `qa-runtime/mockup-baseline/kusur-09-duraklatma-modali.png` | İkisi de terminal diline geçer; inline stil kalkar | **`UYGULANDI`** `6eb0ca5` |
 | 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | `AÇIK` |
 | 11 | `:focus-visible` hover ile **birebir aynı** → klavye odağı görünmüyor — **defterde yazandan yaygın** | **dokuz** kural `:focus-visible`'ı `:hover` ile aynı gruba yazıp üstüne `outline:none` diyor: `style.css:857 · 908 · 1280 · 1317 · 1336 · 1362 · 1959 · 1969` | `--wr-focus: #6cc7ff` ile ayrı odak halkası; blok dosya SONUNDA (özgüllük değil sıra meselesi) | **`UYGULANDI`** `a870cb1` |
 | 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te **sıfır** referans (ölçüldü) | Silindi: 29 satır. `#game-over-screen` paylaşımlı seçicisinden yalnız yetim yarısı çıkarıldı, canlı yarı yerinde | **`UYGULANDI`** `6e5361a` |
 | 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | `AÇIK` |
+
+#### 9 — uygulandı (`6eb0ca5`); iddia doğru çıktı, ölçüm ağırlaştırdı
+
+Defter "iki font" diyordu. Gerçek savaş fazında ölçüldü: **tek ekranda üç font.**
+
+| düğüm | önce | sonra |
+|---|---|---|
+| kutu / başlık | `Press Start 2P` 19px (body'den kalıtım) | `Share Tech Mono` 13px |
+| düğmeler | **`Arial`** 14px — `font-family` hiç yazılmadığı için tarayıcı varsayılanı | `Share Tech Mono` 11px |
+| öğrenme bildirimi | **`system-ui`** 14px, mavi `#8ecbff` / kenar `#49f` | `Share Tech Mono` 10px, amber |
+| köşeler | 12px / 8px / 9px | 4px |
+| satır-içi stil | 165–340 karakter | **6 düğümün hepsinde 0** |
+
+JS'te yalnız **durum** kaldı: `style.display` yerine `.acik` sınıfı — durum stil
+değildir. Bildirimi yalnız öğrenme değil emir geri bildirimi de kullanıyor
+(`js/main.js:117`, `:231`, `:463`), o yüzden amber terminal dili doğru seçim.
+
+**İşlevsel kapı** (stil taşımak davranışı sessizce bozabilirdi):
+
+| adım | sonuç |
+|---|---|
+| `battleTogglePause(true)` | `flex` · `BATTLE_PAUSED = true` |
+| DEVAM düğmesi | `none` · `false` |
+| ESC | açılır |
+| bildirim oto-gizleme (700 ms) | `none` |
+| boş metinle çağrı | `none` |
+| ÇIKIŞ düğmesi | `data-screen = menu`, örtü kapalı |
+
+`--uitest []` · `--hudtest []` · `--forktest forkTutarli:true`
 
 #### 8 — uygulandı (`b09c4d9`); üç iddianın ikisi ölçümde düştü
 
