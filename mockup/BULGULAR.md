@@ -110,10 +110,55 @@ da duyuruluyor.
 |---|---|---|---|---|
 | 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | Rol süzgeci yalnız **görünürlüğü** değiştirir; dünya durumu değişmez → determinizm korunur (`HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`) | `KABUL` |
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
-| 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** yükselir (UI'da değil), AKIŞ arşive dönüşür: arama + tür filtresi | `KABUL` |
+| 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** (commit aşağıda) |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `HIKAYE_MODU_UYGULAMA_DURUMU.md` Faz 38.1 açık borç | Arama kutusu + filtre çipleri + `8 / 25 gösteriliyor` sayacı | `KABUL` |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `KABUL` |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
+
+#### 16 — uygulandı (bu turda, oyunda)
+
+**Kırpma UI'da değil VERİDEydi.** `storyLog` 7. olayı yazarken birinciyi kalıcı
+olarak siliyordu — paneli büyütmek işe yaramazdı, çünkü kayıt zaten yoktu.
+Sınır `STORY_LOG_CAP = 240`; panel varsayılan 12 satır gösterip gerisini
+"N KAYIT DAHA GÖSTER" ile açıyor.
+
+**`storyLog(msg)` imzası değişmedi** — 16 dosyada 74 çağrı yeri var, hiçbirine
+dokunulmadı. Tür, mesajın **baş simgesinden** türetiliyor (35 farklı simge tarandı,
+6 kategoriye eşlendi). Yeni bir çağrı eklenip kategoriye yazılmazsa kayıt
+kaybolmuyor, yalnız `DİĞER`e düşüyor.
+
+**Kayıt biçimi `{ m, t }` oldu; eski kayıtlar düz metindi.** `storyLogNormalize`
+iki biçimi de kabul eder ve yükleme yolundan geçer, yani eski kayıt açılınca akış
+boşalmıyor (yalnız o satırların zamanı bilinmiyor, zaman etiketi çizilmiyor).
+
+| ölçüm | sonuç |
+|---|---|
+| 260 adım sonrası tutulan kayıt | **23** (eskiden tavan 6) |
+| kaydet → logu boşalt → yükle | 14 → 14, metin **ve** zaman birebir aynı |
+| gerçek kayıttaki log'u düz metne çevir → yükle | 3 kayıt açıldı, nesneye normalleşti, zamansız işaretlendi |
+| bozuk log (`null` · `42` · `"metin"` · `[null,7]`) | çökme yok → 0 · 0 · 0 · 1 kayıt |
+| tür filtresi `ASKERÎ` | 4 / 23, türe uymayan satır **0** |
+| arama `konsey` | 4 / 23, aramaya uymayan **0**, **odak kutuda kalıyor** |
+| `--uitest` | `UITEST_PROBLEMS []` |
+
+**Ölçüm iki gerçek kusur yakaladı — ikisi de benim:**
+
+1. **Özellik doğduğu gibi ölü olacaktı.** Filtre ve arama işleyicilerine
+   `storyUpdateUI()` yazmıştım; **öyle bir fonksiyon yok** (doğrusu
+   `storyPanelUpdate`). Tarama gösterdi ki bu ad repoda yalnız benim yeni kodumda
+   geçiyor — her tıklama `ReferenceError` atacaktı. Önceki bir ölçüm probu bunu
+   `typeof` ile korumalı çağırdığı için sessizce yutmuştu.
+2. **Panelde yalan yazı.** `index.html`'deki alt başlık "SON 6 KAYIT" diyor ve
+   sınır değişince yanlış hale geldi. `index.html` paralel iş hattının elinde
+   olduğu için metin JS'ten düzeltildi.
+
+**Not — tam test paketi:** `npm run test:story` (81 prob) turunda
+`conversationContextPackProbe` düştü. Tek başına çalıştırıldığında **hem çalışma
+ağacında hem temiz `HEAD` kopyasında geçiyor**, yani yalnız 6 işçilik tam yük
+altında düşen bir durum. Mekanizma olarak da bende olamaz: `STORY.log` yalnız
+`Story.js` ve `StoryUI.js`'te okunuyor, sohbet bağlam paketi ona hiç dokunmuyor.
+Bu bulgu paralel iş hattına ait; burada kayda geçiriliyor, kapatılmıyor.
+
 
 ### 24 — bu turda **yeni bulundu ve ölçüldü**
 

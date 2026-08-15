@@ -121,7 +121,28 @@ const STORY = {
 function storyState(id) { return STORY.states[id]; }
 function storyPlayerState() { return STORY.states[STORY.playerStateId]; }
 function storyNode(id) { return STORY.nodes[id]; }
-function storyLog(msg) { STORY.log.unshift(msg); if (STORY.log.length > 6) STORY.log.length = 6; }
+/* ── KUSUR 16: AKIŞ son 6 kayıtla sınırlıydı ─────────────────────────────────
+   Kırpma UI'da değil VERİDEydi: 7. olay yazıldığı anda birincisi kalıcı olarak
+   siliniyordu, yani oyuncu ne olduğunu geriye dönüp okuyamıyordu — kaydı açıp
+   kapatmak da işe yaramıyordu çünkü kayıt hiç yoktu. Sınır veride yükseltildi;
+   panel kaç satır göstereceğine kendi karar veriyor (StoryUI.js).
+
+   Kayıtlar artık `{ m, t }`: metin + yazıldığı dünya-zamanı. Eski kayıtlar düz
+   metindi ve KAYITLI OYUNLARDA öyle duruyor → `storyLogNormalize` iki biçimi de
+   kabul eder, yükleme yolundan geçirilir. Böylece eski kayıt açılınca akış
+   boşalmıyor (yalnız o kayıtların zamanı bilinmiyor).
+
+   `storyLog(msg)` imzası DEĞİŞMEDİ: 16 dosyada 74 çağrı yeri var, hiçbirine
+   dokunulmadı. */
+const STORY_LOG_CAP = 240;
+function storyLogNormalize(entry) {
+    if (entry && typeof entry === 'object' && typeof entry.m === 'string') return entry;
+    return { m: String(entry == null ? '' : entry), t: null };
+}
+function storyLog(msg) {
+    STORY.log.unshift({ m: String(msg == null ? '' : msg), t: STORY.clock || 0 });
+    if (STORY.log.length > STORY_LOG_CAP) STORY.log.length = STORY_LOG_CAP;
+}
 function storyCommanderBackfill(cmd) {
     if (!cmd) return;
     if (cmd.xp == null) cmd.xp = 0;
@@ -902,7 +923,12 @@ function storyLoad() {
         } else {
             STORY._talkUid = 0;
         }
-        STORY.log = d.log || [];
+        // Eski kayıtlar düz metin taşıyor; iki biçim de kabul edilir (kusur 16).
+        // Boş kayıt elenir: bozuk bir kayıtta `[null, 7]` gibi bir dizi ölçüldü,
+        // normalleşince biri boş metne dönüp panelde boş satır çiziyordu.
+        STORY.log = (Array.isArray(d.log) ? d.log : [])
+            .map(storyLogNormalize)
+            .filter(k => k.m && k.m.trim());
         if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
         STORY.paused = false; delete STORY._conversationPauseLease;
         STORY.battleCtx = null; STORY.selectedNodeId = STORY.commander.node; STORY.active = true;

@@ -8,6 +8,103 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── PANEL (HTML, throttled innerHTML) ────────────────────────────────────────
+/* ── KUSUR 16: AKIŞ artık arşiv ──────────────────────────────────────────────
+   Kırpma sınırı veride yükseldi (Story.js STORY_LOG_CAP); burası arama, tür
+   filtresi ve sayaç ekliyor. Tür, mesajın BAŞ SİMGESİNDEN çıkarılıyor: 16 dosyada
+   74 `storyLog(...)` çağrısı var ve hiçbirine tür parametresi eklenmedi — böylece
+   yeni bir çağrı unutulduğunda kayıt kaybolmuyor, yalnız `DİĞER`e düşüyor. */
+const STORY_FLOW_TURLER = [
+    { key: 'hepsi', ad: 'HEPSİ', simgeler: null },
+    { key: 'askeri', ad: 'ASKERÎ', simgeler: ['⚔️', '🛡️', '🎖️', '☠️', '💀', '💥', '🏰', '🏳️', '🏴', '🏆'] },
+    { key: 'siyaset', ad: 'SİYASET', simgeler: ['🏛️', '⚖️', '🚨', '⏳', '📜', '👤'] },
+    { key: 'ekonomi', ad: 'EKONOMİ', simgeler: ['💸', '🌾', '🏭', '🏗️', '🧱', '⚙️', '✖', '➕', '🚪', '🔬', '🏙️'] },
+    { key: 'diplomasi', ad: 'DİPLOMASİ', simgeler: ['🤝', '👂', '🤍'] },
+    { key: 'halk', ad: 'HALK', simgeler: ['🪧', '📢', '🤥'] },
+    { key: 'dunya', ad: 'DÜNYA', simgeler: ['🌍', '⚠️'] }
+];
+const STORY_FLOW = { tur: 'hepsi', arama: '', hepsiniGoster: false };
+const STORY_FLOW_ILK = 12;   // varsayılan görünen satır; "TÜMÜNÜ GÖSTER" açar
+
+function storyFlowTur(metin) {
+    const bas = String(metin || '').trim();
+    for (const t of STORY_FLOW_TURLER) {
+        if (!t.simgeler) continue;
+        for (const s of t.simgeler) if (bas.startsWith(s)) return t.key;
+    }
+    return 'diger';
+}
+
+function storyFlowZaman(t) {
+    if (t == null) return '';
+    if (typeof storyDateShort === 'function') {
+        try { return storyDateShort(t); } catch (e) { /* eski kayıt / imza uymuyor */ }
+    }
+    return 'GÜN ' + (1 + Math.floor(t / 60));
+}
+
+function storyFlowHtml(formatLog) {
+    const hepsi = Array.isArray(STORY.log) ? STORY.log.map(storyLogNormalize) : [];
+    const ara = STORY_FLOW.arama.trim().toLocaleLowerCase('tr');
+    const suzulmus = hepsi.filter(k => {
+        if (STORY_FLOW.tur !== 'hepsi' && storyFlowTur(k.m) !== STORY_FLOW.tur) return false;
+        if (!ara) return true;
+        // etiketleri at, düz metinde ara: kullanıcı <b> yazmıyor
+        return k.m.replace(/<[^>]*>/g, '').toLocaleLowerCase('tr').includes(ara);
+    });
+    const gosterilecek = STORY_FLOW.hepsiniGoster ? suzulmus : suzulmus.slice(0, STORY_FLOW_ILK);
+
+    const cipler = STORY_FLOW_TURLER.map(t => {
+        const adet = t.simgeler
+            ? hepsi.filter(k => storyFlowTur(k.m) === t.key).length
+            : hepsi.length;
+        if (!adet && t.key !== 'hepsi' && STORY_FLOW.tur !== t.key) return '';
+        return `<button type="button" class="story-flow-chip" data-flow-tur="${t.key}"
+            data-aktif="${STORY_FLOW.tur === t.key ? '1' : '0'}">${t.ad}<b>${adet}</b></button>`;
+    }).join('');
+
+    const satirlar = gosterilecek.length
+        ? gosterilecek.map(k => `<div class="story-log-row">
+            ${k.t != null ? `<time>${storyProjectionEscape(storyFlowZaman(k.t))}</time>` : ''}
+            <span>${formatLog(k.m)}</span></div>`).join('')
+        : `<div class="story-flow-bos">${ara || STORY_FLOW.tur !== 'hepsi'
+            ? 'Bu süzgece uyan kayıt yok.' : 'Henüz kayıt yok.'}</div>`;
+
+    const kalan = suzulmus.length - gosterilecek.length;
+    return `<div class="story-flow-bar">
+          <input type="search" id="story-flow-search" class="story-flow-search"
+                 placeholder="akışta ara" value="${storyProjectionEscape(STORY_FLOW.arama)}">
+          <div class="story-flow-chips">${cipler}</div>
+        </div>
+        <div class="story-flow-sayac">${suzulmus.length} / ${hepsi.length} kayıt</div>
+        ${satirlar}
+        ${kalan > 0 ? `<button type="button" id="story-flow-more" class="story-flow-more">${kalan} KAYIT DAHA GÖSTER</button>` : ''}
+        ${STORY_FLOW.hepsiniGoster && suzulmus.length > STORY_FLOW_ILK
+            ? `<button type="button" id="story-flow-less" class="story-flow-more">DARALT</button>` : ''}`;
+}
+
+/* Olaylar `storyUiSetHtml` ile yeniden yazıldığı için dinleyici düğüme değil
+   KAPSAYICIYA bağlanır (delegasyon) — her güncellemede yeniden bağlamak gerekmez
+   ve arama kutusu odağını kaybetmez. */
+function storyFlowBind() {
+    const log = document.getElementById('story-log');
+    if (!log || log.dataset.flowBagli === '1') return;
+    log.dataset.flowBagli = '1';
+    log.addEventListener('click', ev => {
+        const cip = ev.target.closest('[data-flow-tur]');
+        if (cip) { STORY_FLOW.tur = cip.dataset.flowTur; STORY_FLOW.hepsiniGoster = false; storyPanelUpdate(); return; }
+        if (ev.target.closest('#story-flow-more')) { STORY_FLOW.hepsiniGoster = true; storyPanelUpdate(); return; }
+        if (ev.target.closest('#story-flow-less')) { STORY_FLOW.hepsiniGoster = false; storyPanelUpdate(); }
+    });
+    log.addEventListener('input', ev => {
+        if (!ev.target.matches('#story-flow-search')) return;
+        STORY_FLOW.arama = ev.target.value;
+        STORY_FLOW.hepsiniGoster = false;
+        storyPanelUpdate();
+        const kutu = document.getElementById('story-flow-search');
+        if (kutu) { kutu.focus(); kutu.setSelectionRange(kutu.value.length, kutu.value.length); }
+    });
+}
+
 function storyEraForUi() {
     if (STORY._era && typeof ERA_BY_ID !== 'undefined' && ERA_BY_ID[STORY._era.id]) return ERA_BY_ID[STORY._era.id];
     if (typeof storyEraEval === 'function') return storyEraEval().era;
@@ -358,7 +455,16 @@ function storyPanelUpdate() {
             }
             return value;
         };
-        storyUiSetHtml(log, STORY.log.map(l => `<div class="story-log-row">${formatLog(l)}</div>`).join(''));
+        storyUiSetHtml(log, storyFlowHtml(formatLog));
+        storyFlowBind();
+        // `index.html`'deki alt başlık "SON 6 KAYIT" diyordu; kırpma sınırı 240'a
+        // çıkınca bu metin YANLIŞ hale geldi. index.html'e dokunmadan (o dosyada
+        // paralel iş hattının commit'lenmemiş değişiklikleri var) burada düzeltilir.
+        const ipucu = document.querySelector('.story-flow-hint');
+        if (ipucu) {
+            const dogru = 'EN YENİ OLAY ÜSTTE · SON ' + STORY_LOG_CAP + ' KAYIT ARŞİVLENİR';
+            if (ipucu.textContent !== dogru) ipucu.textContent = dogru;
+        }
     }
     const pb = document.getElementById('story-pause-btn');
     if (pb) {
