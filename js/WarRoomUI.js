@@ -493,6 +493,79 @@ function warRoomUpdateBattle() {
     if (feed) feed.innerHTML = WAR_ROOM_BATTLE_FEED.map(item => `<div class="${item.tone}"><time>${item.time}</time><span>${item.message}</span></div>`).join('');
 }
 
+/* ── KUSUR 3: EMİR GERİ BİLDİRİMİ ────────────────────────────────────────────
+   Sağ tık sonrası hiçbir onay yoktu: birim uzaksa veya yol kapalıysa oyuncu
+   emrin kaydedilip kaydedilmediğini anlayamıyordu. Hedef noktada 420 ms işaret:
+   hareket = büzülen daire, taarruz = kırmızı çapraz, bindirme = kare.
+
+   DETERMİNİZM: bu dizi YALNIZCA çizimde okunur; sim hiçbir yerde ona bakmaz ve
+   zamanlaması `performance.now()`, sim tikine bağlı değil. Yani canlı↔replay
+   hash'ini etkileyemez — bu dosyadaki emir yolunun kendisi (pendingPlayerCommands)
+   bilerek tik sınırına ertelenmiş durumda, işaret ona hiç karışmıyor. */
+const WAR_ROOM_ORDER_MARKS = [];
+const WAR_ROOM_ORDER_MARK_MS = 420;
+
+function warRoomMarkOrder(x, y, kind, bilgi) {
+    if (typeof performance === 'undefined') return;
+    WAR_ROOM_ORDER_MARKS.push({ x: x, y: y, kind: kind || 'move', t: performance.now() });
+    // sınırsız büyümeyi engelle: süresi dolanlar zaten çizimde eleniyor, bu yalnız tavan
+    if (WAR_ROOM_ORDER_MARKS.length > 24) WAR_ROOM_ORDER_MARKS.splice(0, WAR_ROOM_ORDER_MARKS.length - 24);
+    warRoomEchoOrder(kind, bilgi);
+}
+
+/* Görsel işaretin metin karşılığı. Hedef kartına yazılır çünkü kart zaten
+   `aria-live="polite"` taşıyor (index.html) → emir ekran okuyucuya da duyurulur.
+   Satır index.html'de DEĞİL burada üretiliyor: o dosyaya dokunmadan eklenebiliyor
+   ve kart HTML'i değişse bile bu kod kırılmıyor. */
+function warRoomEchoOrder(kind, bilgi) {
+    const card = document.getElementById('battle-target-card');
+    if (!card) return;
+    let satir = document.getElementById('battle-order-echo');
+    if (!satir) {
+        satir = document.createElement('div');
+        satir.id = 'battle-order-echo';
+        card.appendChild(satir);
+    }
+    const ad = kind === 'attack' ? 'TAARRUZ' : (kind === 'load' ? 'BİNDİR' : 'HAREKET');
+    satir.textContent = 'EMİR ALINDI · ' + ad + (bilgi ? ' → ' + bilgi : '');
+    satir.setAttribute('data-kind', kind || 'move');
+    satir.classList.remove('yeni');
+    void satir.offsetWidth;          // animasyonu her emirde yeniden tetikle
+    satir.classList.add('yeni');
+}
+
+function warRoomDrawOrderMarks(context) {
+    if (!WAR_ROOM_ORDER_MARKS.length || typeof worldToScreen !== 'function') return;
+    const now = performance.now();
+    context.save();
+    for (let i = WAR_ROOM_ORDER_MARKS.length - 1; i >= 0; i--) {
+        const m = WAR_ROOM_ORDER_MARKS[i];
+        const yas = (now - m.t) / WAR_ROOM_ORDER_MARK_MS;
+        if (yas >= 1) { WAR_ROOM_ORDER_MARKS.splice(i, 1); continue; }
+        const p = worldToScreen(m.x, m.y);
+        const solma = 1 - yas;
+        context.globalAlpha = solma;
+        context.lineWidth = 2;
+        if (m.kind === 'attack') {
+            const r = 7 + 13 * yas;
+            context.strokeStyle = '#ff6b6b';
+            context.beginPath();
+            context.moveTo(p.x - r, p.y - r); context.lineTo(p.x + r, p.y + r);
+            context.moveTo(p.x + r, p.y - r); context.lineTo(p.x - r, p.y + r);
+            context.stroke();
+        } else if (m.kind === 'load') {
+            const r = 6 + 10 * yas;
+            context.strokeStyle = '#8ecbff';
+            context.strokeRect(p.x - r, p.y - r, r * 2, r * 2);
+        } else {
+            const r = 20 - 13 * yas;   // büzülerek hedefe "oturur"
+            context.strokeStyle = '#4ade80';
+            context.beginPath(); context.arc(p.x, p.y, Math.max(2, r), 0, Math.PI * 2); context.stroke();
+        }
+    }
+    context.restore();
+}
+
 function warRoomDrawBattleAxis(context) {
     if (typeof phase === 'undefined' || typeof PHASE === 'undefined' || phase !== PHASE.BATTLE || typeof units === 'undefined') return;
     const force = units.filter(unit => unit.selected && !unit.dead && !unit.isRed);

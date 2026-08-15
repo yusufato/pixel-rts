@@ -35,11 +35,59 @@ düzeltmenin neyi çözdüğü ölçülemez.
 |---|---|---|---|---|
 | 1 | Savaşta seçili birim özeti görünmüyor — **iddia ölçümle daraltıldı, öneri DEĞİŞTİ** | `#ui-info` savaşta gizli (`style.css:1919` `display:none !important`) ama **dizimde GÖRÜNÜR** (ölçüldü: `display:block`) · çoklu seçim metni `js/main.js:991`'de **zaten vardı**, yalnız gizli düğüme yazılıyordu | ~~Ölü `#ui-info` silinir~~ → **panel silinmez** (dizimde canlı). Savaştaki ölü yazma kaldırıldı; bilginin savaşta nerede görüneceği hâlâ açık tasarım kararı | kısmen **`UYGULANDI`** `36c8b86` · geri kalanı `AÇIK` |
 | 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · bekleme göstergesi savaşta gizli `#ui-support`ta | Her buton durumunu kendisi yazar: `HAZIR · 300₺` / `BEKLEME 18s` (dolum çubuğu) / `300₺ GEREK · 40₺ VAR`; TAARRUZ ve ATEŞ SERBEST kaç birliğe gideceğini söyler | **`UYGULANDI`** (HASH) |
-| 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 400 ms işaret (hareket = daire, taarruz = eşkenar) + kartta `EMİR ALINDI → hedef` satırı | `KABUL` |
+| 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 420 ms işaret (hareket = büzülen yeşil daire, taarruz = kırmızı çapraz, bindirme = mavi kare) + hedef kartında `EMİR ALINDI · TÜR → hedef` satırı | **`UYGULANDI`** (commit aşağıda) |
 | 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz · `js/globals.js:260` WASD kamerada | Rozetler `data-key` ile: **Q** taarruz · **F** ateş serbest · **T** siper · **P** paraşüt (A elendi, WASD ile çakışıyor). Ctrl+1..9 atar, 1..9 çağırır; 9 slotlu şerit canlı sayıyı gösterir | **`UYGULANDI`** (HASH) |
 | 5 | Savaşta üretim barı kalıntı olarak 76 px yer kaplıyor | `js/main.js:665-666` `opacity .3` + `pointerEvents:none` | Savaş ve oyun-sonu fazında `display:none` (CSS, faza bağlı). Dizimde 84 px ve 7 kategoriyle yerinde kalıyor (ölçüldü) | **`UYGULANDI`** (HASH) |
 | 6 | Kamera ipucu yalnız `startBattle()` yolunda gizleniyor — **iddia edilenden ağır çıktı** | `js/main.js:667` satır içi `display:none` yazıyor ve **hiçbir yer geri açmıyor** → ilk savaştan sonra ipucu oturum boyunca kayboluyor (ölçüldü: dizim ✓ → savaş ✗ → rematch **✗**) · `js/MP.js:120` savaş fazına `startBattle()`'a uğramadan giriyor → MP'de hiç gizlenmiyor | Gizleme faza bağlandı (`battle` + `over`); satır içi stil kaldırıldı | **`UYGULANDI`** `6e5361a` |
 | 7 | Muharebe kaydı `aria-live` taşımıyor | `index.html:434` · yalnız `#battle-target-card` taşıyor | `role="log"` + `aria-live="polite"` + `aria-relevant="additions"` + `aria-label`, **kabukta değil güncellenen düğümde** (`#battle-feed-list`) | **`UYGULANDI`** `a870cb1` |
+
+#### 3 — uygulandı (bu turda, oyunda)
+
+**Emir yolu tek dal değil.** Sağ tık işleyicisinde komutun fiilen verildiği **beş**
+ayrı çıkış var; işaret beşine de bağlandı, yoksa MP'de veya bindirmede sessiz kalırdı:
+
+| çıkış | dosya | işaret |
+|---|---|---|
+| MP bindirme | `js/main.js` `mpEmitEvent('player-load')` | mavi kare |
+| MP hareket/taarruz | `mpEmitCommand(...)` | daire / çapraz |
+| tek oyunculu bindirme | `pendingPlayerCommands` `player-load` | mavi kare |
+| taarruz | `player-attack` | kırmızı çapraz |
+| hareket | `player-move` | yeşil daire |
+
+**Determinizm.** İşaret dizisi yalnızca çizimde okunur, zamanlaması `performance.now()`;
+sim ona hiçbir yerde bakmaz. Emir yolunun kendisi bilerek tik sınırına ertelenmiş
+(`flushPendingPlayerCommands`) ve o mantığa dokunulmadı. Kapılar:
+
+| kapı | sonuç |
+|---|---|
+| `--defertest` | `hashSayisi 201 / karşılaştırılan 201 / ilkSapma null` |
+| `--forktest` | `forkTutarli true`, sapan birim 0 |
+| `--battletest` | `BATTLETEST_PROBLEMS []`, determinizm `28d34b65 == 28d34b65` |
+| `--uitest` | altı adım `OK` |
+
+**Davranış ölçümü** (gerçek oyun, gerçek `contextmenu` olayı):
+
+| adım | işaret | kart satırı |
+|---|---|---|
+| boş araziye sağ tık | 1 · `move` | `EMİR ALINDI · HAREKET → 4 birim` (yeşil) |
+| 420 ms + bir çizim | **0** (süresi doldu) | satır kalıcı — son emir okunabilir kalır |
+| düşmana sağ tık | 1 · `attack` | `EMİR ALINDI · TAARRUZ → İkmal Aracı` (kırmızı) |
+
+Kart satırı `index.html`'de değil `warRoomEchoOrder()`'da üretiliyor: o dosyada
+paralel iş hattının commit'lenmemiş değişiklikleri vardı, karıştırmamak için
+dokunulmadı. Kart zaten `aria-live="polite"` taşıdığından emir ekran okuyucuya
+da duyuruluyor.
+
+**Ölçerken çıkan iki not:**
+
+1. **Sis emri hareket yapar, bu kusur değil.** Görünmeyen düşmana sağ tık
+   `canSee` false döndüğü için `player-move` üretiyor — işaret de doğru olarak
+   yeşil daire çiziyor. İlk ölçümde taarruzun `move` çıkması bu yüzdendi; birimler
+   düşmanın yanına taşınıp sis kalkınca `attack` geldi.
+2. **Gizli pencerede çekim yalan söyler.** İlk görsel kanıtta kart satırı yoktu;
+   aynı karede oyun tuvali de tamamen siyahtı — yani kare hiç boyanmamıştı
+   (`show:false` → rAF dönmüyor). Pencere görünür yapılınca satır beklendiği gibi
+   çıktı. Aynı sınıf `mockup/BULGULAR.md` "boyama yarışı" notunda da kayıtlı.
 
 ### Katman B — görsel dil
 

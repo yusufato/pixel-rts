@@ -262,6 +262,7 @@ canvas.addEventListener('contextmenu', (e) => {
             }
             if (_lt) {
                 mpEmitEvent('player-load', { transportIds: _loaders.map(u => u.id), targetId: _lt.id });
+                if (typeof warRoomMarkOrder === 'function') warRoomMarkOrder(_lt.x, _lt.y, 'load', _loaders.length + ' taşıyıcı');   // kusur 3
                 return;
             }
         }
@@ -271,6 +272,7 @@ canvas.addEventListener('contextmenu', (e) => {
             if (Math.hypot(u.x - w.x, u.y - w.y) < 30) { isAttack = true; break; }
         }
         mpEmitCommand(isAttack ? 'attack' : 'move', sel.map(u => u.id), w.x, w.y);
+        if (typeof warRoomMarkOrder === 'function') warRoomMarkOrder(w.x, w.y, isAttack ? 'attack' : 'move', sel.length + ' birim');   // kusur 3
         return;
     }
     const world = screenToWorld(p.x, p.y);
@@ -292,6 +294,7 @@ canvas.addEventListener('contextmenu', (e) => {
             pendingPlayerCommands.push({ type: 'player-load', payload: {
                 transportIds: loaders.map(u => u.id), targetId: loadTarget.id
             } });
+            if (typeof warRoomMarkOrder === 'function') warRoomMarkOrder(loadTarget.x, loadTarget.y, 'load', loaders.length + ' taşıyıcı');   // kusur 3
             return;
         }
     }
@@ -310,6 +313,7 @@ canvas.addEventListener('contextmenu', (e) => {
             unitIds: selectedUnits.map(unit => unit.id),
             targetId: targetEnemy.id
         } });
+        if (typeof warRoomMarkOrder === 'function') warRoomMarkOrder(targetEnemy.x, targetEnemy.y, 'attack', (STATS[targetEnemy.type] && STATS[targetEnemy.type].name) || targetEnemy.type);   // kusur 3
     } else {
         const count = selectedUnits.length;
         // KUSUR (kullanıcı raporu 2026-08-09): "birden fazla birlik tutup emir verdiğimde imlecin
@@ -329,6 +333,7 @@ canvas.addEventListener('contextmenu', (e) => {
             y: Math.round(world.y * 100) / 100,
             destinations
         } });
+        if (typeof warRoomMarkOrder === 'function') warRoomMarkOrder(world.x, world.y, 'move', selectedUnits.length + ' birim');   // kusur 3
     }
 });
 
@@ -1801,6 +1806,7 @@ function gameLoop(timestamp) {
     drawMap();
     units.forEach(u => u.draw());
     if (typeof warRoomDrawBattleAxis === 'function') warRoomDrawBattleAxis(ctx);
+    if (typeof warRoomDrawOrderMarks === 'function') warRoomDrawOrderMarks(ctx);   // kusur 3
     drawParticles(ctx);
     if (typeof drawFloatTexts === 'function') drawFloatTexts(ctx);   // hasar sayıları (partiküllerin üstünde)
     drawSupport(ctx);

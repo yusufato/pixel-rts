@@ -1957,6 +1957,29 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
 .battle-target-stats b { display: block; margin-top: 3px; color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; }
 .battle-target-matchup { margin-top: 8px; color: var(--wr-muted); font-size: 8px; line-height: 1.4; }
 
+/* KUSUR 3: emrin metin karşılığı. Haritadaki 420 ms'lik işaretin kalıcı eşi —
+   işaret sönse de son emrin ne olduğu okunabilir kalır, ve kart aria-live
+   taşıdığı için ekran okuyucuya duyurulur. Satır JS'ten üretiliyor
+   (js/WarRoomUI.js warRoomEchoOrder), index.html'de karşılığı yok. */
+#battle-order-echo {
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid var(--wr-line);
+    color: #4ade80;
+    font-size: 9px;
+    letter-spacing: 1px;
+}
+#battle-order-echo[data-kind="attack"] { color: #ff6b6b; }
+#battle-order-echo[data-kind="load"]   { color: #8ecbff; }
+#battle-order-echo.yeni { animation: order-echo-in .42s ease-out; }
+@keyframes order-echo-in {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #battle-order-echo.yeni { animation: none; }
+}
+
 #battle-orders { padding: 9px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.92); color: var(--wr-amber); font-size: 9px; letter-spacing: 1px; }
 #battle-orders > div { margin-bottom: 7px; }
 #battle-orders button { width: calc(50% - 3px); min-height: 46px; margin: 3px 1px; padding: 6px 8px; border: 1px solid var(--wr-line); border-radius: 3px; background: rgba(255,176,0,.035); color: var(--wr-muted); font-family: inherit; text-align: left; cursor: pointer; }
