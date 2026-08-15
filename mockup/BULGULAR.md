@@ -452,8 +452,39 @@ ve `design-qa.md` bölüm 2'de **passed**. Buradaki iş yeniden tasarım değil,
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · `js/Talks.js:1270` profil kartı statik | Sol sütun sekmeli olur (`PROFİL` / `İLİŞKİ`); zincir söz–anlaşma–borç–eylem olarak dizilir, `PlayerKnowledge` süzgecinden geçer (`HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857`) | `KABUL` |
+| 20 | İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor | MW-014 · ilişki **çubukları solda**, zincir (`ANLAŞMALAR & KAYITLAR`) **sağda** ayrı blokta | Sol sütun sekmeli (`PROFİL` / `İLİŞKİ`); zincir söz → ittifak/anlaşma → borç → eylem sırasında, çubukların hemen altında | **`UYGULANDI`** (commit aşağıda) |
 | 21 | Geçmiş sütununda arama/filtre yok; oturum arttıkça sürdürme kullanılamaz oluyor | `js/Talks.js` düz liste | Arama + tür süzgeci + eşleşme sayacı (yapışkan çubuk). **"Muhataba göre gruplama" yapılmadı**: liste zaten tek muhataba ait, gruplayacak ikinci taraf yok | **`UYGULANDI`** `1f78abf` |
+
+#### 20 — uygulandı (bu turda, oyunda)
+
+**Veri zaten vardı, yeri yanlıştı.** `storyTalkConversationKnownRecords` sözü,
+ittifakı, ihaneti, borcu ve uygulanmış eylemleri `PlayerKnowledge` süzgecinden
+geçirip zaten üretiyordu — ama ilişki **durumu** (güven/saygı/borç çubukları) sol
+sütunda, o durumu doğuran **zincir** sağ sütunda duruyordu. Oyuncu "borç 2 neden?"
+sorusunun cevabını iki sütun arasında arıyordu.
+
+Sol sütun sekmeli oldu: `PROFİL` kimliği, `İLİŞKİ` ise çubukları **ve** zinciri
+yan yana gösterir. Sağdaki "ANLAŞMALAR & KAYITLAR" bloğu kaldırıldı (aynı zincir
+iki yerde durmasın).
+
+| ölçüm | sonuç |
+|---|---|
+| PROFİL sekmesi | kimlik kartı **var** · çubuk 0 · zincir 0 |
+| İLİŞKİ sekmesi | kimlik kartı **yok** · **5 çubuk** · zincir · boş kayıtta açık mesaj |
+| sağ sütun | tek blok kaldı: `ÖNCEKİ KONUŞMALAR` · `ANLAŞMALAR` metni **yok** |
+| zincir sırası | `VERİLEN SÖZ` → `İTTİFAK & ANLAŞMA` → `BORÇ & İHANET` — defterin istediği sıra |
+| 24 kayıtta kırpma | 10 gösteriliyor + **`10 / 24 kayıt gösteriliyor`** notu |
+| sekme değiştirme | dünya durumu **birebir aynı** |
+| `--uitest` · sohbet regresyonları | `UITEST_PROBLEMS []` · ikisi de geçti |
+
+**Kırpma veri katmanından çizime taşındı.** `storyTalkConversationKnownRecords`
+içindeki `.slice(0, 12)` kaldırıldı: veri katmanında kesilince çizen taraf kaç
+kayıt kaçırdığını bilemiyor ve sessizce eksik gösteriyordu — kusur 17'de ölçülen
+aynı hata sınıfı. Artık kaç kaydın gizlendiği ekranda yazıyor.
+
+**Yetim çizici silindi.** Sağdaki blok taşınınca `storyTalkConversationRecordsHtml`
+tek çağrısını kaybetti; yerinde bırakılmadı (kusur 12'de aynı sınıf temizlenmişti).
+
 
 ---
 

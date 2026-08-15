@@ -1425,14 +1425,28 @@ function storyTalkConversationProfileHtml(listenerActorId) {
     const role = row && row.role || 'CHARACTER';
     const contact = row && row.own ? 'AYNI ÜLKE'
         : (row && row.directContact ? 'DOĞRULANMIŞ TEMAS' : 'KAMUSAL SİCİL');
-    return `<div class="conversation-section-title">KİŞİ PROFİLİ</div>`
+    // KUSUR 20: sol sütun sekmeli. PROFİL kimliği, İLİŞKİ durumu VE zinciri.
+    const sekme = storyTalkProfileTab(listenerActorId);
+    const sekmeler = [['profil', 'PROFİL'], ['iliski', 'İLİŞKİ']]
+        .map(([k, ad]) => `<button class="conversation-profile-tab" data-profile-tab="${k}"`
+            + ` data-listener="${esc(listenerActorId)}" data-aktif="${sekme === k ? '1' : '0'}">${ad}</button>`)
+        .join('');
+    const basi = `<div class="conversation-profile-tabs">${sekmeler}</div>`;
+    if (sekme === 'iliski') {
+        return basi
+            + `<div class="conversation-section-title">SANA BAKIŞI</div>`
+            + storyTalkConversationRelationHtml(listenerActorId)
+            + `<div class="conversation-section-title">İLİŞKİ ZİNCİRİ</div>`
+            + storyTalkConversationChainHtml(listenerActorId)
+            + `<div class="conversation-profile-note">Zincir yalnız doğrulanmış kayıtlardan oluşur; muhatabın senden gizlediği hiçbir şey burada görünmez.</div>`;
+    }
+    return basi
+        + `<div class="conversation-section-title">KİŞİ PROFİLİ</div>`
         + `<div class="conversation-profile-card"><span class="conversation-profile-status">${esc(contact)}</span>`
         + `<h3>${esc(row && row.name || STORY._talkFocusCharacterName || listenerActorId)}</h3>`
         + `<p>${esc(row && (row.publicTitle || STORY_TALK_ROLE_LABELS[role]) || STORY_TALK_ROLE_LABELS[role] || 'Karakter')}</p>`
         + `<dl><div><dt>ÜLKE / KURUM</dt><dd>${esc(row && row.countryName || 'Bilinmiyor')}</dd></div>`
         + `<div><dt>ROL</dt><dd>${esc(STORY_TALK_ROLE_LABELS[role] || 'Karakter')}</dd></div></dl></div>`
-        + `<div class="conversation-section-title">SANA BAKIŞI</div>`
-        + storyTalkConversationRelationHtml(listenerActorId)
         + `<div class="conversation-profile-note">Gizli kişilik değerleri gösterilmez. Profil, kamusal sicil ve doğrulanmış ilişkinizden oluşur.</div>`;
 }
 
@@ -1465,18 +1479,67 @@ function storyTalkConversationKnownRecords(listenerActorId) {
                 BETRAYAL: 'İhanet hafızası', DEBT: 'Kişisel borç' })[row.kind] || row.kind,
             summary: row.summary, status: row.status, at: Number(row.createdAt) || 0
         }));
-    return actions.concat(milestones).sort((a, b) => b.at - a.at || b.id.localeCompare(a.id, 'en')).slice(0, 12);
+    /* KUSUR 20: `.slice(0, 12)` BURADAN KALDIRILDI. Kırpma veri katmanında
+       yapılınca çizen taraf kaç kayıt kaçırdığını bilemiyor ve sessizce eksik
+       gösteriyordu — kusur 17'de ölçülen aynı hata sınıfı. Kırpma artık çizimde,
+       ve kaç kaydın gizlendiği yazılıyor. */
+    return actions.concat(milestones).sort((a, b) => b.at - a.at || b.id.localeCompare(a.id, 'en'));
 }
 
-function storyTalkConversationRecordsHtml(listenerActorId) {
+/* ── KUSUR 20: İLİŞKİ MERCEĞİ ────────────────────────────────────────────────
+   İlişki DURUMU (güven/saygı/borç çubukları) sol sütundaydı, o durumu doğuran
+   ZİNCİR (söz, ittifak, borç, eylem) ise sağ sütunda ayrı bir blokta duruyordu.
+   Oyuncu "borç 2 neden?" sorusunun cevabını iki sütun arasında arıyordu.
+
+   Sol sütun sekmeli oldu: `PROFİL` kimliği, `İLİŞKİ` ise çubukları ve zinciri
+   YAN YANA gösterir. Zincir, defterin istediği sırada gruplanır:
+   söz → ittifak/anlaşma → borç → eylem. Veri kaynağı değişmedi; kayıtlar zaten
+   `PlayerKnowledge` süzgecinden geçiyor (storyTalkConversationKnownRecords). */
+const STORY_TALK_PROFILE_TAB = {};
+function storyTalkProfileTab(listenerActorId) {
+    const k = String(listenerActorId || '');
+    if (!STORY_TALK_PROFILE_TAB[k]) STORY_TALK_PROFILE_TAB[k] = 'profil';
+    return STORY_TALK_PROFILE_TAB[k];
+}
+
+const STORY_TALK_ZINCIR_SIRA = Object.freeze([
+    { key: 'soz', baslik: 'VERİLEN SÖZ', tur: ['Verilen söz'] },
+    { key: 'baglar', baslik: 'İTTİFAK & ANLAŞMA', tur: ['İttifak bağı', 'Kişisel ittifak', 'Müzakere kaydı'] },
+    { key: 'borc', baslik: 'BORÇ & İHANET', tur: ['Kişisel borç', 'İhanet kaydı', 'İhanet hafızası'] },
+    { key: 'eylem', baslik: 'EYLEM', tur: null }   // geri kalan her şey
+]);
+const STORY_TALK_ZINCIR_ILK = 10;
+
+function storyTalkConversationChainHtml(listenerActorId) {
     const esc = storyTalkConversationEscape;
-    const rows = storyTalkConversationKnownRecords(listenerActorId);
-    if (!rows.length) return `<div class="conversation-empty">Bu kişiyle uygulanmış bir anlaşma, söz veya kalıcı bağ yok.</div>`;
-    return rows.map(row => `<article class="conversation-record"><div><b>${esc(row.kind)}</b>`
-        + `<time>${esc(storyTalkConversationDate(row.at))}</time></div><p>${esc(row.summary)}</p>`
-        + `<span>${esc(row.status)}</span></article>`).join('');
+    const hepsi = storyTalkConversationKnownRecords(listenerActorId);
+    if (!hepsi.length) {
+        return `<div class="conversation-empty">Bu kişiyle uygulanmış bir söz, bağ, borç veya eylem yok.</div>`;
+    }
+    const gosterilecek = hepsi.slice(0, STORY_TALK_ZINCIR_ILK);
+    const kalan = hepsi.length - gosterilecek.length;
+    const kullanilan = new Set();
+    const bloklar = STORY_TALK_ZINCIR_SIRA.map(grup => {
+        const satirlar = gosterilecek.filter(r => grup.tur
+            ? grup.tur.includes(r.kind)
+            : !kullanilan.has(r.id));
+        satirlar.forEach(r => kullanilan.add(r.id));
+        if (!satirlar.length) return '';
+        return `<div class="conversation-chain-group"><span>${esc(grup.baslik)}</span>`
+            + satirlar.map(r => `<article class="conversation-record"><div><b>${esc(r.kind)}</b>`
+                + `<time>${esc(storyTalkConversationDate(r.at))}</time></div><p>${esc(r.summary)}</p>`
+                + `<span>${esc(r.status)}</span></article>`).join('')
+            + `</div>`;
+    }).join('');
+    return bloklar
+        + (kalan > 0
+            ? `<div class="conversation-muted">${gosterilecek.length} / ${hepsi.length} kayıt gösteriliyor · en yeniler önce.</div>`
+            : `<div class="conversation-muted">${hepsi.length} kayıt · en yeniler önce.</div>`);
 }
 
+/* KUSUR 20: `storyTalkConversationRecordsHtml` SİLİNDİ. Sağ sütundaki
+   "ANLAŞMALAR & KAYITLAR" bloğu İLİŞKİ sekmesine taşınınca tek çağrısı kalmadı;
+   yetim kalan çizici bırakılmadı (kusur 12'de aynı sınıf temizlenmişti). */
 function storyTalkConversationDomainReviewHtml(review) {
     if (!review || !review.response) return '';
     const esc = storyTalkConversationEscape;
@@ -1828,10 +1891,11 @@ function storyConversationWorkspaceRender() {
     if (main) main.innerHTML = storyTalkConversationSessionHtml(
         listenerActorId, STORY._conversationWorkspaceSessionId
     );
+    // KUSUR 20: "ANLAŞMALAR & KAYITLAR" bloğu BURADAN KALDIRILDI; aynı zincir artık
+    // sol sütunun İLİŞKİ sekmesinde, ilişki çubuklarının hemen altında. Amaç
+    // "tek yerde" olması: durum ile onu doğuran kayıtlar aynı ekranda.
     if (history) history.innerHTML = `<div class="conversation-history-block"><div class="conversation-section-title">ÖNCEKİ KONUŞMALAR</div>`
-        + storyTalkConversationHistoryHtml(listenerActorId) + `</div>`
-        + `<div class="conversation-history-block"><div class="conversation-section-title">ANLAŞMALAR & KAYITLAR</div>`
-        + storyTalkConversationRecordsHtml(listenerActorId) + `</div>`;
+        + storyTalkConversationHistoryHtml(listenerActorId) + `</div>`;
 }
 
 function storyConversationWorkspacePauseUiSync(locked) {
@@ -2148,6 +2212,13 @@ function storyConversationWorkspaceHandleClick(event) {
         storyConversationWorkspaceRender();
         const main = document.getElementById('conversation-workspace-main');
         if (main) main.scrollTop = main.scrollHeight;
+        return;
+    }
+    // KUSUR 20: profil/ilişki sekmesi
+    const profileTab = event.target.closest('[data-profile-tab]');
+    if (profileTab) {
+        STORY_TALK_PROFILE_TAB[String(profileTab.dataset.listener || '')] = profileTab.dataset.profileTab;
+        storyConversationWorkspaceRender();
         return;
     }
     // KUSUR 17: aday listesini genişlet/daralt

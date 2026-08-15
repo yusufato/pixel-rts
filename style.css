@@ -2669,6 +2669,20 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-resolution p { margin: 6px 0 0; color: #9cad9f; font-size: 9px; line-height: 1.5; }
 .conversation-history-block + .conversation-history-block { margin-top: 20px; }
 
+/* ── KUSUR 20: profil/ilişki sekmesi + ilişki zinciri ───────────────────────
+   İlişki durumu ve onu doğuran kayıtlar aynı sütunda toplandı. */
+.conversation-profile-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 12px; }
+.conversation-profile-tab { min-height: 26px; padding: 4px 6px; cursor: pointer;
+    border: 1px solid rgba(120,160,135,.22); border-radius: 3px; background: transparent;
+    color: #8fa397; font-family: inherit; font-size: 8px; letter-spacing: 1.2px; }
+.conversation-profile-tab:hover { border-color: var(--wr-amber); color: var(--wr-amber-bright); }
+.conversation-profile-tab[data-aktif="1"] { cursor: default; border-color: var(--wr-amber);
+    background: rgba(255,176,0,.1); color: var(--wr-amber-bright); }
+.conversation-chain-group { margin-bottom: 12px; }
+.conversation-chain-group > span { display: block; margin-bottom: 5px; padding-bottom: 3px;
+    border-bottom: 1px solid rgba(255,176,0,.14); color: var(--wr-dim);
+    font-size: 7.5px; letter-spacing: 1.3px; }
+
 /* ── KUSUR 21: geçmiş araması + tür süzgeci ─────────────────────────────────
    Süzgeç listeyle birlikte kaymasın: geçmiş uzadıkça oyuncu aşağı indiğinde
    arama kutusunu kaybetmemeli. */
