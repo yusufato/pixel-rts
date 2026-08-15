@@ -167,6 +167,20 @@ function storyRegionalInitialRegion(node) {
     const cityYield = Math.max(0, Number(node.cities) || 0);
     const oilDeposit = Math.max(0, Number(node.oil) || 0);
     const mine = node.mine ? 1 : 0;
+    /* ── AŞAMA 1: `pts` yatağı artık ekonomiye giriyor ────────────────────────
+       Ölçüm (152 düğüm): haritadaki üç yataktan `oil` enerjiyi, `mine` çıkarmayı
+       besliyordu; `pts` HİÇBİR sektöre bağlı değildi — 20 şehirdeki 32 birim
+       yalnız eski cüzdanın soyut "puan" gelirini üretiyordu.
+
+       `pts` = UZMAN İŞ GÜCÜ / İLERİ TEKNOLOJİ havzası. `advanced_tech`
+       kapasitesini ve açılış elektronik stokunu besler; `electronics` zincirin
+       en sağlam ucu (stoku sıfır olan yalnız 6 bölge), yani coğrafi çeşitlilik
+       oraya eklenince denge bozulmuyor.
+
+       ÇİFT SAYIM YOK: eski cüzdanın `points` geliri (Story.js) değişmedi,
+       burada yalnız bölgesel bağış eklendi. `pts = 0` iken formül eskisiyle
+       BİREBİR aynı sonucu verir — regresyon kapısı bunu ölçer. */
+    const techDeposit = Math.max(0, Number(node.pts) || 0);
     const bootstrapCalibration = typeof storyFeatureEnabled !== 'function'
         || storyFeatureEnabled('economy.bootstrapPlanning');
     const extractionCapacity = mine
@@ -180,7 +194,7 @@ function storyRegionalInitialRegion(node) {
     stocks.energy = storyRegionalRound(stocks.energy + 15 + oilDeposit * 15);
     stocks.raw_materials = storyRegionalRound(stocks.raw_materials + 15 + mine * 50);
     stocks.industrial_parts = storyRegionalRound(stocks.industrial_parts + 5 + factory * 8);
-    stocks.electronics = storyRegionalRound(stocks.electronics + 1 + factory * 1.5);
+    stocks.electronics = storyRegionalRound(stocks.electronics + 1 + factory * 1.5 + techDeposit * 3);
     stocks.military_supplies = storyRegionalRound(stocks.military_supplies + 3 + barracks * 3);
     stocks.labor = 0;
     stocks.capital = storyRegionalRound(stocks.capital + 20 + level * 10 + factory * 5);
@@ -204,7 +218,11 @@ function storyRegionalInitialRegion(node) {
             energy: storyRegionalRound(oilDeposit > 0 || factory > 0 ? 0.25 + oilDeposit * 0.5 + factory * 0.1 : 0),
             extraction: extractionCapacity,
             civil_industry: storyRegionalRound(factory > 0 ? factory * 0.45 : 0),
-            advanced_tech: storyRegionalRound(factory >= 2 || level >= 3 ? factory * 0.18 + 0.1 : 0),
+            // `pts` yatağı sanayi ŞARTINI da kaldırır: uzman havzası olan bir
+            // şehir fabrikası olmasa da ileri teknoloji üretebilir. pts=0 iken
+            // ifade eski hâline birebir indirgenir.
+            advanced_tech: storyRegionalRound(
+                (factory >= 2 || level >= 3 ? factory * 0.18 + 0.1 : 0) + techDeposit * 0.22),
             defense_industry: storyRegionalRound(factory > 0 && barracks > 0 ? factory * 0.2 + barracks * 0.1 : 0)
         },
         lastTick: null
