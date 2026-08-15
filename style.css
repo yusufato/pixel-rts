@@ -2515,6 +2515,9 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-meeting-transcript header span, .conversation-meeting-transcript small { color: #6f7f75; font-size: 7px; }
 .conversation-meeting-transcript p { margin: 0; color: #cbd8cf; font-size: 10px; line-height: 1.5; }
 .conversation-meeting-grounding { padding: 4px 6px; border-left: 2px solid #54c98a; background: rgba(84,201,138,.06); color: #70b98d; font-size: 7px; letter-spacing: .5px; }
+.conversation-meeting-stance { padding: 4px 6px; border-left: 2px solid #9c8f72; background: rgba(156,143,114,.06); color: #b9ae92; font-size: 7px; letter-spacing: .5px; }
+.conversation-meeting-stance.support, .conversation-meeting-stance.lean_support { border-left-color: #4fd486; color: #73c996; }
+.conversation-meeting-stance.oppose, .conversation-meeting-stance.lean_oppose { border-left-color: #e26262; color: #d27e7e; }
 .conversation-meeting-private { display: grid; gap: 7px; padding: 9px; border: 1px dashed rgba(83,171,212,.3); background: rgba(44,110,142,.04); }
 .conversation-meeting-private summary { cursor: pointer; color: #71b9d8; font-size: 8px; letter-spacing: 1px; }
 .conversation-meeting-private > p { margin: 6px 0; color: #6f8b91; font-size: 8px; line-height: 1.45; }
@@ -2523,6 +2526,15 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-meeting-private-list article { padding: 7px; border-left: 2px solid #4b9fc6; background: rgba(48,126,162,.07); }
 .conversation-meeting-private-list header { display: flex; justify-content: space-between; gap: 8px; color: #77b7d2; font-size: 7px; }
 .conversation-meeting-private-list p { margin: 5px 0 0; color: #b9cdd5; font-size: 9px; line-height: 1.45; }
+.conversation-meeting-motions { display: grid; gap: 7px; padding: 9px; border: 1px solid rgba(224,174,70,.28); background: rgba(155,108,25,.04); }
+.conversation-meeting-motions > header { color: #d5aa55; font-size: 8px; letter-spacing: 1px; }
+.conversation-meeting-motions > p { margin: 0; color: #8d836d; font-size: 8px; }
+.conversation-meeting-motion-list { display: grid; gap: 6px; }
+.conversation-meeting-motion-list article { display: grid; gap: 6px; padding: 8px; border-left: 2px solid #92702e; background: rgba(174,129,43,.06); }
+.conversation-meeting-motion-list article.in_order { border-left-color: #4dc981; }
+.conversation-meeting-motion-list article.out_of_order { border-left-color: #c85f5f; }
+.conversation-meeting-motion-list header { display: flex; justify-content: space-between; gap: 8px; color: #c7a45f; font-size: 7px; }
+.conversation-meeting-motion-list p { margin: 0; color: #d0c3a8; font-size: 9px; line-height: 1.45; }
 .conversation-meeting-turn-control { display: grid; gap: 7px; padding: 9px; border: 1px solid rgba(190,132,255,.22); }
 .conversation-meeting-turn-control label { color: #c89aff; font-size: 8px; letter-spacing: 1px; }
 .conversation-meeting-turn-control select { width: 100%; height: 32px; border: 1px solid #365348; border-radius: 3px; background: #0b1710; color: #cad8ce; font: 9px 'Share Tech Mono', monospace; }
@@ -2591,6 +2603,18 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-option:hover,
 .conversation-option:focus { border-color: var(--wr-amber); background: rgba(255,176,0,.11); }
 .conversation-option b { font-size: 10px; font-weight: 400; }
+
+/* KUSUR 17: aday araması + genişletme. Yalnız aday sayısı 8'i aştığında çizilir,
+   yani bugünkü (2 adaylı) görünüme hiçbir şey eklemez. */
+.conversation-option-search { width: 100%; margin-bottom: 6px; padding: 6px 8px;
+    border: 1px solid rgba(255,176,0,.28); border-radius: 3px; background: rgba(255,176,0,.045);
+    color: var(--wr-amber-bright); font-family: inherit; font-size: 9px; letter-spacing: .06em; }
+.conversation-option-search::placeholder { color: #66786d; }
+.conversation-option-search:focus-visible { border-color: var(--wr-amber); outline: none; }
+.conversation-option-more { width: 100%; margin-top: 6px; padding: 6px;
+    border: 1px solid rgba(255,176,0,.28); border-radius: 3px; background: transparent;
+    color: #b9c9bd; font-family: inherit; font-size: 8.5px; letter-spacing: .1em; cursor: pointer; }
+.conversation-option-more:hover { border-color: var(--wr-amber); color: var(--wr-amber-bright); }
 .conversation-ready { padding: 13px; border: 1px solid rgba(76,255,124,.28); border-left: 3px solid #4cff7c; background: rgba(76,255,124,.045); }
 .conversation-ready b { color: #78f39a; font-size: 10px; letter-spacing: 1px; }
 .conversation-ready p { margin: 6px 0 0; color: #a9b9ad; font-size: 10px; line-height: 1.55; }

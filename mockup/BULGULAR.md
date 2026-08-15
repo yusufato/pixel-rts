@@ -111,7 +111,7 @@ da duyuruluyor.
 | 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** `931db9d` |
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js` gündem kartı yalnız panel açıyor · MW-003 | Kart artık **isimli muhatap** + motorun kendi bedelli eylemlerini gösterir; yürütme mevcut görüşme penceresinde kalır (kart dünyayı değiştirmez) | **`UYGULANDI`** `0854cad` |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
-| 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + altında yalnız "N adaydan ilk 8 gösteriliyor" notu — **kalanına ulaşmanın hiçbir yolu yok** | Arama kutusu + `8 / 25` sayacı + "TÜMÜNÜ GÖSTER" | `KABUL` · **bir kez denendi ve GERİ ÇEKİLDİ**, aşağıda |
+| 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + yalnız "N adaydan ilk 8 gösteriliyor" notu — kalanına ulaşım yok | Arama + `N / M` sayacı + "TÜMÜNÜ GÖSTER"; **8 ve altında hiçbir şey eklenmez** | **`UYGULANDI`** (commit aşağıda) |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok — **ölçüm maddeyi yeniden çerçeveledi** | `js/StoryProjection.js` `storyProjectionEffectBinding` yalnız 3 yol bağlıyor · gerçek kampanyada 180 etkinin **%97'si zaten izli** | ~~Rozet kapsamı beş alana genişler~~ → **UI işi değil**: dört alan hiç nedensellik etkisi üretmiyor, diplomasi ise bilgi sızıntısı gerekçesiyle bilerek kapalı (aşağıda) | `KABUL` · **öneri geçersiz, yeniden yazılmalı** |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
 
@@ -197,29 +197,46 @@ iki render arasına giriyordu. `STORY.paused = true` ile dondurunca 3 satır / "
 değişikliklerini taşıyordu, o yüzden görünürlük satır içi stille yönetiliyor.
 
 
-#### 17 — denendi, ölçülemedi, geri çekildi
+#### 17 — önce geri çekildi, sonra ölçülüp uygulandı
 
-Uygulaması yazıldı (arama kutusu, `N / M` sayacı, genişlet/daralt, soru başına UI
-durumu) ve sözdizimi temizdi. **Commit edilmedi**, çünkü çalıştığı gösterilemedi:
+**Birinci deneme geri çekilmişti** çünkü kod yolu ölçülemiyordu: sentetik oturum
+defterin şema doğrulamasına takılıyor, gerçek API ise 0 netleştirme sorusu
+üretiyordu. Ayrıca `js/Talks.js` o sırada paralel iş hattının commit'lenmemiş
+işini taşıyordu. Üç blok tek tek geri alınmıştı.
 
-1. **Sentetik oturum enjekte edilemiyor.** Defter, şemaya uymayan oturumu
-   `storyConversationSessionEnsure()` içinde eliyor. Ölçüldü: `push` yazıyor
-   (`sessions.length` doğrudan okununca **1**), `Ensure` **aynı nesneyi** döndürüyor
-   ama `0` görüyor. Bu motorun doğru davranışı — benim enjeksiyonum geçersizdi.
-2. **Gerçek API ile de yola girilemedi.** `storyConversationSessionBegin(...)`
-   `SESSION_STARTED` döndürdü ama **0 netleştirme sorusu** üretti; yani
-   `question.options` dalı hiç çizilmedi. Denenen cümleyle o dal ölü.
-3. **Dosya artık paylaşımlı.** Çalışma sırasında `js/Talks.js` ve `style.css`'e
-   paralel iş hattının commit'lenmemiş işi girdi (konuşma türü seçici, görev
-   teklifleri). Doğrulanmamış kodu oraya bırakmak ya da dosyayı toptan geri almak
-   ikisi de yanlış olurdu; kendi üç bloğum tek tek çıkarıldı.
+**İkinci turda üçü de çözüldü.** Paralel hat `a938df0` ile commit'lendi (dosya
+serbest) ve sorunun üretim koşulu bulundu: `storyConversationSessionQuestions`
+yalnız **çözümlenmemiş terim** varsa soru üretiyor — `commodity_identity`,
+`shipment_identity`, `destination_warehouse` aday listesi taşıyor. "Çelik
+sevkiyatını depoya gönderelim" cümlesi dalı tetikliyor.
 
-**Bir sonraki tur için asıl soru bu maddeden önce gelir:** bu dal gerçekte
-ulaşılabilir mi? Gerçek bir oturumda `OPEN` durumda ve 8'den çok seçenekli bir
-soru üretilebiliyor mu? Üretilemiyorsa kusur "arama yok" değil, "netleştirme
-soruları hiç görünmüyor" olur ve önerinin tamamı değişir. Ölçmeden yazmak,
-defterin engellemek için var olduğu bayat iddiadır.
+**Ölçüm maddeyi de düzeltti: kusur bugün LATENT.**
 
+| terim | gerçek aday sayısı |
+|---|---|
+| `commodity_identity` | **2** |
+| `shipment_identity` | 1 |
+| `destination_warehouse` | **0** (oyuncunun 25 düğümü olmasına rağmen) |
+
+Yani `slice(0, 8)` bugün **hiç ısırmıyor**; defterdeki "25 seçenek" öncülü
+gerçekleşmiyor. Ama 25 adaya zorlandığında 8 düğme + *"25 adaydan ilk 8
+gösteriliyor"* çıkıyor ve 17 aday erişilemez oluyor. Tetiklenmiyor diye sessiz
+bilgi kaybı yerinde bırakılmadı.
+
+| ölçüm | sonuç |
+|---|---|
+| **2 aday (bugünkü gerçek durum)** | 2 düğme · arama kutusu **yok** · ek not **yok** → görünüm birebir aynı |
+| 25 aday | 8 düğme · arama · `8 / 25 aday gösteriliyor` · `17 ADAY DAHA GÖSTER` |
+| tümünü göster | 25 düğme · **kayıp aday 0** |
+| arama `lojistik` | hepsi eşleşiyor · sayaçta süzgeç yazılı |
+| eşleşme yok | 0 düğme ama **arama kutusu duruyor** (yoksa süzgeçte kilitlenirdin) |
+| seçim öznitelikleri | `option/session/question` korunuyor → tıklama hâlâ yanıtı gönderiyor |
+| `--uitest` · sohbet regresyonları | `UITEST_PROBLEMS []` · ikisi de **geçti** |
+
+**Yan bulgu (kapatılmadı):** `destination_warehouse` sorusu üretiliyor ama
+**sıfır aday** taşıyor, oysa oyuncunun 25 düğümü var. Soru o zaman serbest metne
+düşüyor. Bu, aday çözümleyicisinde ayrı bir eksik; sohbet motorunun alanı olduğu
+için burada yalnız kayda geçiriliyor.
 
 #### 16 — uygulandı (bu turda, oyunda)
 

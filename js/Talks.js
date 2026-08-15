@@ -1265,6 +1265,10 @@ function storyTalkConversationMeetingHtml(session) {
     const currentSpeaker = meeting.participants.find(row =>
         row.actorId === meeting.speakingOrderActorIds[meeting.currentSpeakerIndex]);
     const playerTurn = currentSpeaker && currentSpeaker.actorId === session.playerActorId;
+    const stanceLabels = {
+        SUPPORT: 'DESTEKLİYOR', LEAN_SUPPORT: 'DESTEĞE YAKIN', UNDECIDED: 'KARARSIZ',
+        LEAN_OPPOSE: 'KARŞI ÇIKMAYA YAKIN', OPPOSE: 'KARŞI'
+    };
     const transcript = meeting.turns.length
         ? `<div class="conversation-meeting-transcript">${meeting.turns.map(turn => `<article class="${
             turn.actorId === session.playerActorId ? 'player' : 'character'}"><header><b>${esc(turn.actorName)}</b>`
@@ -1273,6 +1277,9 @@ function storyTalkConversationMeetingHtml(session) {
             + (turn.grounding ? `<div class="conversation-meeting-grounding">KAYNAKLI GÖRÜŞ · ${
                 turn.grounding.visibility === 'PUBLIC' ? 'KAMUSAL KAYIT' : 'KURUMSAL KAYIT'} · ${
                 Math.round(Number(turn.grounding.confidenceBps || 0) / 100)}% GÜVEN</div>` : '')
+            + (turn.stance ? `<div class="conversation-meeting-stance ${esc(turn.stance.direction.toLowerCase())}">TUTUM · ${
+                esc(stanceLabels[turn.stance.direction] || 'BELİRSİZ')} · ${
+                Math.round(Number(turn.stance.confidenceBps || 0) / 100)}% GÜVEN</div>` : '')
             + `<small>${turn.addressedActorId ? `MUHATAP: ${esc((meeting.participants.find(row => row.actorId === turn.addressedActorId) || {}).name || turn.addressedActorId)}` : 'TÜM KATILIMCILAR'}</small>`
             + `</article>`).join('')}</div>`
         : `<div class="conversation-empty">Toplantı transkripti henüz başlamadı.</div>`;
@@ -1284,6 +1291,16 @@ function storyTalkConversationMeetingHtml(session) {
         .map(note => `<article><header><b>ÖZEL NOT</b><span>${esc((meeting.participants.find(row =>
             row.actorId === note.recipientActorId) || {}).name || note.recipientActorId)}</span></header>`
             + `<p>${esc(note.text)}</p></article>`).join('');
+    const motionStatusLabels = {
+        PENDING_CHAIR_REVIEW: 'BAŞKAN İNCELEMESİ BEKLİYOR',
+        IN_ORDER: 'USULE UYGUN', OUT_OF_ORDER: 'GÜNDEM DIŞI'
+    };
+    const motions = (meeting.motions || []).map(motion => `<article class="${esc(motion.status.toLowerCase())}">`
+        + `<header><b>ÖNERGE ${motion.sequence}</b><span>${esc(motionStatusLabels[motion.status] || motion.status)}</span></header>`
+        + `<p>${esc(motion.text)}</p>`
+        + (motion.status === 'PENDING_CHAIR_REVIEW' && currentSpeaker.actorId === meeting.chair.actorId
+            ? `<button class="story-btn" data-conversation-meeting-motion-review="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">BAŞKAN İNCELEMESİNİ YAP</button>` : '')
+        + `</article>`).join('');
     const turnControl = playerTurn
         ? `<div class="conversation-meeting-turn-control"><label>SÖZ SENDE</label>`
             + `<select data-conversation-meeting-addressee><option value="">TÜM TOPLANTIYA</option>${addresseeOptions}</select>`
@@ -1292,7 +1309,7 @@ function storyTalkConversationMeetingHtml(session) {
         : `<div class="conversation-meeting-turn-control"><label>${esc(currentSpeaker && currentSpeaker.name || 'KARAKTER')} KONUŞACAK</label>`
             + `<select data-conversation-meeting-addressee><option value="">TÜM TOPLANTIYA</option>${addresseeOptions}</select>`
             + `<button class="story-btn" data-conversation-meeting-character-turn="${esc(meeting.id)}">KARAKTERİN SÖZÜNÜ AL</button></div>`;
-    return `<section class="conversation-meeting active"><header><span>RESMÎ TOPLANTI</span><small>USUL AÇIK · KARAR ADAPTÖRÜ YOK</small></header>`
+    return `<section class="conversation-meeting active"><header><span>RESMÎ TOPLANTI</span><small>ÖNERGE İNCELEMESİ AÇIK · OYLAMA KAPALI</small></header>`
         + `<div class="conversation-meeting-agenda"><b>GÜNDEM</b><p>${esc(meeting.agendaItems[0].title)}</p></div>`
         + `<div class="conversation-meeting-chair"><span>BAŞKAN</span><b>${esc(meeting.chair.name)}</b>`
         + `<small>${esc(STORY_TALK_INSTITUTION_LABELS[meeting.chair.institutionType] || meeting.chair.institutionType)} · KANONİK MAKAM</small></div>`
@@ -1305,7 +1322,11 @@ function storyTalkConversationMeetingHtml(session) {
         + `<select data-conversation-meeting-private-recipient><option value="">MUHATAP SEÇ</option>${privateRecipients}</select>`
         + `<textarea data-conversation-meeting-private-text maxlength="600" rows="2" placeholder="Seçilen kişiye özel not yaz..."></textarea>`
         + `<button class="story-btn" data-conversation-meeting-private-send="${esc(meeting.id)}">ÖZEL NOTU GÖNDER</button></details>`
-        + `<p class="conversation-meeting-boundary">Bu dilimde önerge, oy ve sonuç adaptörü yoktur. Söz sırası değişimi dünya kararı üretmez.</p></section>`;
+        + `<section class="conversation-meeting-motions"><header>ÖNERGELER</header>`
+        + (motions ? `<div class="conversation-meeting-motion-list">${motions}</div>` : '<p>Henüz önerge sunulmadı.</p>')
+        + `<textarea data-conversation-meeting-motion-text maxlength="600" rows="2" placeholder="Gündeme bağlı, uygulanabilir önerge metni yaz..."></textarea>`
+        + `<button class="story-btn" data-conversation-meeting-motion-propose="${esc(meeting.id)}">ÖNERGE SUN</button></section>`
+        + `<p class="conversation-meeting-boundary">Önerge ve başkanın usul incelemesi açıktır. Oylama, sonuç ve dünya etkisi henüz kapalıdır.</p></section>`;
 }
 
 function storyTalkConversationParticipantsHtml(meeting) {
@@ -1634,13 +1655,47 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
         if (question) {
             html += `<div class="conversation-question"><span>MUHATABIN NETLEŞTİRME İSTİYOR</span><h3>${esc(question.prompt)}</h3>`;
             if (question.options.length) {
-                const visibleOptions = question.options.slice(0, 8);
-                html += `<div class="conversation-options">${visibleOptions.map(option =>
+                /* KUSUR 17: liste `slice(0, 8)` ile kesiliyordu ve altındaki not yalnız
+                   "N adaydan ilk 8 gösteriliyor" diyordu — kalan adaylara ulaşmanın
+                   HİÇBİR YOLU yoktu, yalnız kaç tane kaçırdığın yazıyordu.
+
+                   ÖLÇÜLDÜ — bugün LATENT: gerçek oyunda en çok 2 aday üretiliyor
+                   (`commodity_identity` 2, `shipment_identity` 1), yani kırpma hiç
+                   ısırmıyor. Ama 25 adaya zorlandığında 8 düğme + o not çıkıyor ve
+                   17 aday erişilemez oluyor. Sessiz bilgi kaybı, tetiklenmiyor diye
+                   yerinde bırakılmaz.
+
+                   8 veya altında hiçbir şey EKLENMEZ: arama kutusu ve düğme yalnız
+                   kırpma gerçekten devreye girdiğinde çizilir, bugünkü görünüm birebir
+                   aynı kalır. */
+                const durum = storyTalkOptionState(question.id);
+                const ara = durum.arama.trim().toLocaleLowerCase('tr');
+                const suzulmus = ara
+                    ? question.options.filter(o => String(o.label || '').toLocaleLowerCase('tr').includes(ara))
+                    : question.options;
+                const kirpilir = question.options.length > STORY_TALK_OPTION_ILK;
+                const visibleOptions = (kirpilir && !durum.hepsi)
+                    ? suzulmus.slice(0, STORY_TALK_OPTION_ILK)
+                    : suzulmus;
+                const kalan = suzulmus.length - visibleOptions.length;
+                html += (kirpilir
+                    ? `<input class="conversation-option-search" type="search"`
+                      + ` data-conversation-option-search="${esc(question.id)}"`
+                      + ` placeholder="adaylarda ara" value="${esc(durum.arama)}">` : '')
+                    + `<div class="conversation-options">${visibleOptions.map(option =>
                     `<button class="conversation-option" data-conversation-option="${esc(option.id)}" `
                     + `data-conversation-session="${esc(session.id)}" data-conversation-question="${esc(question.id)}">`
                     + `<b>${esc(option.label)}</b></button>`).join('')}</div>`
-                    + (question.options.length > visibleOptions.length
-                        ? `<div class="conversation-muted">${question.options.length} adaydan ilk ${visibleOptions.length} gösteriliyor.</div>` : '');
+                    + (kirpilir
+                        ? `<div class="conversation-muted">${visibleOptions.length} / ${question.options.length} aday gösteriliyor`
+                          + (ara ? ` · "${esc(durum.arama)}" süzgeci` : '') + `.</div>` : '')
+                    + (!visibleOptions.length && ara
+                        ? `<div class="conversation-muted">"${esc(durum.arama)}" ile eşleşen aday yok.</div>` : '')
+                    + (kalan > 0
+                        ? `<button class="conversation-option-more" data-conversation-option-more="${esc(question.id)}">`
+                          + `${kalan} ADAY DAHA GÖSTER</button>` : '')
+                    + (durum.hepsi && suzulmus.length > STORY_TALK_OPTION_ILK
+                        ? `<button class="conversation-option-more" data-conversation-option-less="${esc(question.id)}">DARALT</button>` : '');
             } else {
                 html += `<input data-conversation-reply maxlength="240" placeholder="Yanıtını yaz">`
                     + `<div class="conversation-submit-row"><small>CTRL + ENTER ile gönderebilirsin.</small><button class="story-btn" data-conversation-reply-send="1" `
@@ -1670,6 +1725,17 @@ function storyTalkConversationSessionHtml(listenerActorId, requestedSessionId) {
 
    Durum muhatap başına tutulur ve salt UI'dır: oturuma, deftere ve kayda
    yazılmaz, save/load'a girmez. */
+/* KUSUR 17: aday listesi görünüm durumu, SORU BAŞINA. İki soru arasında geçen
+   oyuncu birinde yazdığı aramayı diğerinde görmesin. Salt UI: oturuma, deftere
+   ve kayda yazılmaz, save/load'a girmez. */
+const STORY_TALK_OPTION_ILK = 8;
+const STORY_TALK_OPTION_STATE = {};
+function storyTalkOptionState(questionId) {
+    const k = String(questionId || '');
+    if (!STORY_TALK_OPTION_STATE[k]) STORY_TALK_OPTION_STATE[k] = { arama: '', hepsi: false };
+    return STORY_TALK_OPTION_STATE[k];
+}
+
 const STORY_TALK_HISTORY_STATE = {};
 function storyTalkHistoryState(listenerActorId) {
     const k = String(listenerActorId || '');
@@ -1811,7 +1877,7 @@ function storyConversationWorkspaceOpen(listenerActorId, name, requestedSessionI
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     storyConversationWorkspaceRender();
-    const focusTarget = modal.querySelector('[data-conversation-input], [data-conversation-reply], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-new]');
+    const focusTarget = modal.querySelector('[data-conversation-input], [data-conversation-reply], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text], [data-conversation-new]');
     if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
     return true;
 }
@@ -1850,7 +1916,7 @@ function storyConversationWorkspaceResponseSettled(responseId) {
     if (!responseVisible) return false;
     const active = document.activeElement;
     const protectedEditor = active && modal.contains(active)
-        && active.matches('[data-conversation-follow-up], [data-conversation-reply], [data-conversation-input], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text]');
+        && active.matches('[data-conversation-follow-up], [data-conversation-reply], [data-conversation-input], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text]');
     if (protectedEditor && String(active.value || '').length) {
         modal.dataset.pendingConversationRender = '1';
         return true;
@@ -1967,6 +2033,31 @@ function storyConversationWorkspaceHandleClick(event) {
         storyConversationWorkspaceRender();
         return;
     }
+    const meetingMotionPropose = event.target.closest('[data-conversation-meeting-motion-propose]');
+    if (meetingMotionPropose && typeof storyConversationMeetingMotionPropose === 'function') {
+        const input = modal.querySelector('[data-conversation-meeting-motion-text]');
+        const result = storyConversationMeetingMotionPropose(
+            meetingMotionPropose.dataset.conversationMeetingMotionPropose, input && input.value
+        );
+        storyFlash(result && result.ok ? 'Önerge başkan incelemesine sunuldu; henüz karar değildir.'
+            : `Önerge sunulamadı: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const meetingMotionReview = event.target.closest('[data-conversation-meeting-motion-review]');
+    if (meetingMotionReview && typeof storyConversationMeetingMotionChairReview === 'function') {
+        const result = storyConversationMeetingMotionChairReview(
+            meetingMotionReview.dataset.meetingId,
+            meetingMotionReview.dataset.conversationMeetingMotionReview
+        );
+        storyFlash(result && result.ok
+            ? (result.motion.status === 'IN_ORDER' ? 'Başkan önergeyi usule uygun buldu.' : 'Başkan önergeyi gündem dışı bıraktı.')
+            : `Başkan incelemesi yapılamadı: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
     const reviewButton = event.target.closest('[data-conversation-domain-review]');
     if (reviewButton && typeof storyConversationSessionReview === 'function') {
         const result = storyConversationSessionReview(reviewButton.dataset.conversationDomainReview);
@@ -2057,6 +2148,19 @@ function storyConversationWorkspaceHandleClick(event) {
         storyConversationWorkspaceRender();
         const main = document.getElementById('conversation-workspace-main');
         if (main) main.scrollTop = main.scrollHeight;
+        return;
+    }
+    // KUSUR 17: aday listesini genişlet/daralt
+    const optionMore = event.target.closest('[data-conversation-option-more]');
+    if (optionMore) {
+        storyTalkOptionState(optionMore.dataset.conversationOptionMore).hepsi = true;
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const optionLess = event.target.closest('[data-conversation-option-less]');
+    if (optionLess) {
+        storyTalkOptionState(optionLess.dataset.conversationOptionLess).hepsi = false;
+        storyConversationWorkspaceRender();
         return;
     }
     // KUSUR 21: geçmiş tür süzgeci
@@ -2372,6 +2476,18 @@ function storyTalkBind() {
        ilk harften sonra odak kaybolur ve yazmak imkânsız olur (kusur 16'da aynı
        tuzağa düşülmüştü). */
     workspace?.addEventListener('input', event => {
+        // KUSUR 17: aday araması (aynı delegasyon; odak yazımdan sonra geri verilir)
+        const adayKutu = event.target.closest('[data-conversation-option-search]');
+        if (adayKutu) {
+            const soruId = adayKutu.dataset.conversationOptionSearch;
+            const d = storyTalkOptionState(soruId);
+            d.arama = adayKutu.value;
+            d.hepsi = false;
+            storyConversationWorkspaceRender();
+            const y = workspace.querySelector(`[data-conversation-option-search="${CSS.escape(soruId)}"]`);
+            if (y) { y.focus(); y.setSelectionRange(y.value.length, y.value.length); }
+            return;
+        }
         const kutu = event.target.closest('[data-history-search]');
         if (!kutu) return;
         const kisi = kutu.dataset.historySearch;
@@ -2395,6 +2511,8 @@ function storyTalkBind() {
                 ? workspace.querySelector('[data-conversation-meeting-player-send]')
                 : workspace.querySelector('[data-conversation-meeting-private-text]:focus')
                     ? workspace.querySelector('[data-conversation-meeting-private-send]')
+                : workspace.querySelector('[data-conversation-meeting-motion-text]:focus')
+                    ? workspace.querySelector('[data-conversation-meeting-motion-propose]')
                 : workspace.querySelector('[data-conversation-follow-up]:focus')
                     ? workspace.querySelector('[data-conversation-follow-up-send]')
                     : workspace.querySelector('[data-conversation-send], [data-conversation-reply-send]');
