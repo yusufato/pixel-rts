@@ -105,6 +105,113 @@ function storyFlowBind() {
     });
 }
 
+/* ── KUSUR 14: rol navigasyonu süzmüyordu ────────────────────────────────────
+   Sekiz araç herkese aynı sırayla ve aynı ağırlıkta görünüyordu; komutan şirket
+   ayrıntısı, şirket yöneticisi ordu kontrolü karıştırıyordu.
+
+   TASARIM KARARI — GİZLEME YOK, İKİNCİLLEŞTİRME VAR. Rolün dışındaki aracı
+   tamamen kaldırmak, oyuncunun gerçekten yapabildiği bir şeyi engelleyebilir
+   (şirket yöneticisinin de sefer ordusu var: STORY.commander.army). Bu yüzden
+   ikincil araçlar kaybolmuyor, tek tıklık bir şeritte toplanıyor. Erişim kaybı
+   sıfır, sinyal net.
+
+   DETERMİNİZM: yalnız DOM sınıfı/görünürlük. Dünya durumu, sıra, kayıt ve hiçbir
+   sayı değişmiyor — `HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`'teki koşul bu. */
+const STORY_TOOL_ROL_ONCELIK = Object.freeze({
+    COMMANDER:     ['story-army-btn', 'story-city-btn', 'story-commander-btn', 'story-council-btn', 'story-talk-btn'],
+    COMPANY_OWNER: ['story-economy-btn', 'story-tech-btn', 'story-city-btn', 'story-talk-btn', 'story-commander-btn'],
+    MAYOR:         ['story-city-btn', 'story-economy-btn', 'story-council-btn', 'story-talk-btn', 'story-news-btn'],
+    EXECUTIVE:     ['story-council-btn', 'story-news-btn', 'story-talk-btn', 'story-economy-btn', 'story-commander-btn'],
+    AGENT:         ['story-talk-btn', 'story-news-btn', 'story-council-btn', 'story-commander-btn'],
+    CIVILIAN:      ['story-talk-btn', 'story-news-btn', 'story-city-btn', 'story-economy-btn']
+});
+const STORY_TOOLS = { hepsi: false, uygulananRol: null };
+
+function storyToolsApplyRole() {
+    const kap = document.getElementById('story-tools');
+    if (!kap) return;
+    const rol = String((STORY.commander && STORY.commander.creationRole) || STORY.playerRole || 'COMMANDER').toUpperCase();
+    const oncelik = STORY_TOOL_ROL_ONCELIK[rol];
+    // Bilinmeyen rol → HERKESİ GERİ AÇ. Yalnız `return` demek yetmiyor: önceki
+    // rolün gizlemesi DOM'da duruyordu ve bilinmeyen rol o düzeni miras alıyordu
+    // (ölçüldü — `BILINMEYEN_ROL` CIVILIAN düzeninde kalmıştı). Yani yeni bir rol
+    // eklenip buraya yazılmazsa araçlar sessizce kaybolurdu; tam kaçınmak
+    // istediğim şey. Şimdi bilinmeyen rolde sekizi de görünür.
+    if (!oncelik) {
+        kap.removeAttribute('data-rol');
+        kap.removeAttribute('data-hepsi');
+        STORY_TOOLS.uygulananRol = rol;
+        let n = 0;
+        Array.prototype.forEach.call(kap.querySelectorAll('.tool-btn'), btn => {
+            if (btn.id === 'story-tools-more') return;
+            btn.dataset.ikincil = '0';
+            btn.style.order = '';
+            btn.style.display = '';
+            // numaralar da DOM sırasına döner; önceki rolden kalan sıra kalmasın
+            const etiket = btn.querySelector('b');
+            const yeni = String(++n).padStart(2, '0');
+            if (etiket && etiket.textContent !== yeni) etiket.textContent = yeni;
+        });
+        const eski = document.getElementById('story-tools-more');
+        if (eski) eski.remove();
+        return;
+    }
+    if (STORY_TOOLS.uygulananRol !== rol) {
+        STORY_TOOLS.uygulananRol = rol;
+        STORY_TOOLS.hepsi = false;   // rol değişince şerit kapanır
+    }
+    kap.dataset.rol = rol;
+    kap.dataset.hepsi = STORY_TOOLS.hepsi ? '1' : '0';
+
+    /* Görünürlük CSS sınıfıyla değil SATIR İÇİ stille yönetiliyor: `style.css`
+       şu an paralel iş hattının commit'lenmemiş değişikliklerini taşıyor ve o
+       dosyaya dokunmak onların işini benim commit'ime karıştırırdı. */
+    let ikincil = 0;
+    Array.prototype.forEach.call(kap.querySelectorAll('.tool-btn'), btn => {
+        if (btn.id === 'story-tools-more') return;
+        const sira = oncelik.indexOf(btn.id);
+        const birincil = sira >= 0;
+        btn.dataset.ikincil = birincil ? '0' : '1';
+        // Sıra da role göre: birincil araçlar önce, kendi içinde öncelik sırasında.
+        btn.style.order = birincil ? String(sira) : '99';
+        btn.style.display = (birincil || STORY_TOOLS.hepsi) ? '' : 'none';
+        if (!birincil) ikincil++;
+    });
+
+    /* Numaralar YENİDEN yazılır. `01`-`08` etiketleri kısayol DEĞİL, salt sıra
+       göstergesi (story modunda rakam tuşu hiçbir araca bağlı değil — ölçüldü).
+       Sırayı değiştirip numarayı bırakmak çubuğu `02 04 06 01 05` diye okutuyordu;
+       yani etiket artık yalan söylüyordu. Görünen sıraya göre numaralanır.
+       Yalnız `<b>` yazılır: rozet `<i>` düğümlerine dokunulmaz. */
+    const gorunenSirali = Array.prototype.slice.call(kap.querySelectorAll('.tool-btn'))
+        .filter(b => b.id !== 'story-tools-more')
+        .sort((a, b) => (parseInt(a.style.order, 10) || 0) - (parseInt(b.style.order, 10) || 0));
+    gorunenSirali.forEach((btn, i) => {
+        const etiket = btn.querySelector('b');
+        const yeni = String(i + 1).padStart(2, '0');
+        if (etiket && etiket.textContent !== yeni) etiket.textContent = yeni;
+    });
+
+    let dugme = document.getElementById('story-tools-more');
+    if (!ikincil) { if (dugme) dugme.remove(); return; }
+    if (!dugme) {
+        dugme = document.createElement('button');
+        dugme.id = 'story-tools-more';
+        dugme.className = 'tool-btn tool-more';
+        dugme.type = 'button';
+        dugme.addEventListener('click', () => {
+            STORY_TOOLS.hepsi = !STORY_TOOLS.hepsi;
+            storyToolsApplyRole();
+        });
+        kap.appendChild(dugme);
+    }
+    dugme.style.order = '98';
+    dugme.title = STORY_TOOLS.hepsi ? 'Rolüne uygun araçlara dön' : 'Rolünün dışındaki araçları da göster';
+    dugme.innerHTML = STORY_TOOLS.hepsi
+        ? '<b>−</b><span>DARALT</span>'
+        : `<b>+${ikincil}</b><span>ARAÇ</span>`;
+}
+
 function storyEraForUi() {
     if (STORY._era && typeof ERA_BY_ID !== 'undefined' && ERA_BY_ID[STORY._era.id]) return ERA_BY_ID[STORY._era.id];
     if (typeof storyEraEval === 'function') return storyEraEval().era;
@@ -348,6 +455,7 @@ function storyAgendaNavigate(action, sub) {
 
 function storyPanelUpdate() {
     const me = storyPlayerState(); if (!me) return;
+    storyToolsApplyRole();   // kusur 14 — yalnız görünürlük/sıra, dünya durumu değişmez
     storyAgendaUpdate(me);
     const stats = document.getElementById('story-stats');
     if (stats) {

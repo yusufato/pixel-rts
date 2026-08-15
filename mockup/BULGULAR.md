@@ -108,12 +108,58 @@ da duyuruluyor.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | Rol süzgeci yalnız **görünürlüğü** değiştirir; dünya durumu değişmez → determinizm korunur (`HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`) | `KABUL` |
+| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** (commit aşağıda) |
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + altında yalnız "N adaydan ilk 8 gösteriliyor" notu — **kalanına ulaşmanın hiçbir yolu yok** | Arama kutusu + `8 / 25` sayacı + "TÜMÜNÜ GÖSTER" | `KABUL` · **bir kez denendi ve GERİ ÇEKİLDİ**, aşağıda |
 | 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `KABUL` |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
+
+#### 14 — uygulandı (bu turda, oyunda)
+
+**Öneriden bilinçli sapma: GİZLEME YOK, İKİNCİLLEŞTİRME VAR.** Defterde "rol
+süzgeci" yazıyordu; rolün dışındaki aracı tamamen kaldırmak oyuncunun gerçekten
+yapabildiği bir şeyi engelleyebilir (şirket yöneticisinin de sefer ordusu var:
+`STORY.commander.army`). Bu yüzden ikincil araçlar kaybolmuyor, tek tıklık
+`+N ARAÇ` şeridinde toplanıyor.
+
+| rol | öne çıkan araçlar | şeritte |
+|---|---|---|
+| COMMANDER | ORDU · ŞEHRE GİR · KOMUTAN · KONSEY · SOHBET | +3 |
+| COMPANY_OWNER | EKONOMİ · AR-GE · ŞEHRE GİR · SOHBET · KOMUTAN | +3 |
+| MAYOR | ŞEHRE GİR · EKONOMİ · KONSEY · SOHBET · GAZETE | +3 |
+| EXECUTIVE | KONSEY · GAZETE · SOHBET · EKONOMİ · KOMUTAN | +3 |
+| AGENT | SOHBET · GAZETE · KONSEY · KOMUTAN | +4 |
+| CIVILIAN | SOHBET · GAZETE · ŞEHRE GİR · EKONOMİ | +4 |
+
+| kapı | sonuç |
+|---|---|
+| **erişim kaybı** | `+N ARAÇ` tıklanınca **her rolde 8/8** erişilebilir |
+| dünya durumu | rol 4 kez değiştirilip şerit açılıp kapatıldıktan sonra saat/log/kaynak/düğüm **birebir aynı** |
+| bilinmeyen rol | sekizi de görünür (aşağıda) |
+| numaralandırma | yedi rolde de görünen sıra `01..0N` artan |
+| `--uitest` | `UITEST_PROBLEMS []` |
+
+**Ölçüm iki kusur yakaladı, ikisi de benim:**
+
+1. **Korumanın kendisi bozuktu.** Bilinmeyen rol için yazdığım "hiçbir şey yapma"
+   dalı yalnız `return` diyordu; önceki rolün gizlemesi DOM'da kalıyordu ve
+   `BILINMEYEN_ROL` **CIVILIAN düzenini miras alıyordu**. Yani yeni bir rol
+   eklenip tabloya yazılmazsa araçlar sessizce kaybolurdu — tam kaçınmak için
+   yazdığım korumanın yaptığı şey buydu. Artık bilinmeyen rolde sekizi de açılır.
+2. **Numaralar yalan söylemeye başladı.** `01`-`08` etiketleri kısayol değil salt
+   sıra göstergesi (story modunda rakam tuşu hiçbir araca bağlı değil — ölçüldü).
+   Sırayı değiştirip numarayı bırakınca çubuk `02 04 06 01 05` diye okunuyordu.
+   Numaralar görünen sıraya göre yeniden yazılıyor.
+
+**Not — ölçüm tuzağı:** kusur 16 kapısı bu tur bir kez tutarsız çıktı (4 satır ama
+sayaç "3"). Sebep benim değişikliğim değildi: prob dünya **akarken** ölçüyordu ve
+iki render arasına giriyordu. `STORY.paused = true` ile dondurunca 3 satır / "3 / 25"
+/ uymayan 0. Akan dünyada ölçen her kapı bu hataya açıktır.
+
+**CSS'e dokunulmadı:** `style.css` bu sırada paralel iş hattının commit'lenmemiş
+değişikliklerini taşıyordu, o yüzden görünürlük satır içi stille yönetiliyor.
+
 
 #### 17 — denendi, ölçülemedi, geri çekildi
 
