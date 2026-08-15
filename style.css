@@ -2195,7 +2195,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 #campaign-draft-grid button { min-height: 220px; padding: 16px 13px; border: 1px solid var(--wr-line); border-radius: 5px; background: rgba(255,176,0,.035); color: var(--wr-muted); text-align: left; font-family: inherit; cursor: pointer; }
 #campaign-draft-grid button:hover, #campaign-draft-grid button.selected { border-color: var(--wr-green); background: rgba(74,222,128,.1); transform: translateY(-3px); }
 #campaign-draft-grid button span, #campaign-draft-grid button b, #campaign-draft-grid button small { display: block; }
-#campaign-draft-grid button span { color: var(--wr-green); font-size: 8px; letter-spacing: 1px; }
+#campaign-draft-grid button span { color: var(--wr-green); font-size: var(--wr-fs-small); letter-spacing: 1px; }
 #campaign-draft-grid button b { margin-top: 16px; color: var(--wr-amber-bright); font-size: 15px; font-weight: 400; letter-spacing: 1px; }
 #campaign-draft-grid button small { margin-top: 13px; color: var(--wr-muted); font-size: 10px; line-height: 1.5; }
 #story-claim-reward { grid-column: 1 / -1; min-height: 48px; border: 1px solid var(--wr-green); border-radius: 5px; background: rgba(74,222,128,.12); color: #d9ffe6; font: 12px 'Share Tech Mono', monospace; letter-spacing: 1.5px; cursor: pointer; }
@@ -2212,14 +2212,14 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .commander-profile { padding: 17px; border: 1px solid var(--wr-line); background: rgba(255,176,0,.025); }
 #commander-rank-mark { width: 104px; height: 104px; margin: 0 auto; display: grid; place-items: center; border: 1px solid var(--wr-amber); border-radius: 50%; color: var(--wr-amber-bright); font: 25px 'Press Start 2P', monospace; box-shadow: 0 0 24px rgba(255,176,0,.16); }
 .commander-profile h3 { margin: 15px 0 18px; color: var(--wr-amber); text-align: center; font-size: 16px; font-weight: 400; letter-spacing: 2px; }
-.commander-xp span { color: var(--wr-muted); font-size: 8px; letter-spacing: 1px; }
+.commander-xp span { color: var(--wr-muted); font-size: var(--wr-fs-small); letter-spacing: 1px; }
 .commander-xp i { display: block; height: 7px; margin-top: 6px; background: rgba(255,255,255,.07); }
 .commander-xp i b { display: block; height: 100%; background: var(--wr-amber); }
 .commander-xp em { display: block; margin-top: 5px; color: var(--wr-muted); font-size: 9px; font-style: normal; text-align: right; }
 #commander-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 18px; }
 #commander-summary div { padding: 8px; border: 1px solid var(--wr-line); }
 #commander-summary span, #commander-summary b { display: block; }
-#commander-summary span { color: var(--wr-muted); font-size: 7px; }
+#commander-summary span { color: var(--wr-muted); font-size: var(--wr-fs-micro); }
 #commander-summary b { margin-top: 4px; color: var(--wr-amber-bright); font-size: 12px; font-weight: 400; }
 .commander-profile p { margin-top: 18px; color: var(--wr-dim); font-size: 9px; line-height: 1.5; }
 .commander-perks { min-width: 0; }
@@ -2234,7 +2234,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 #commander-perk-grid button span { color: var(--wr-amber); font-size: 9px; }
 #commander-perk-grid button b { margin-top: 9px; color: var(--wr-amber-bright); font-size: 14px; font-weight: 400; }
 #commander-perk-grid button small { margin-top: 7px; font-size: 9px; line-height: 1.4; }
-#commander-perk-grid button em { position: absolute; right: 10px; top: 10px; color: var(--wr-muted); font-size: 7px; font-style: normal; letter-spacing: 1px; }
+#commander-perk-grid button em { position: absolute; right: 10px; top: 10px; color: var(--wr-muted); font-size: var(--wr-fs-micro); font-style: normal; letter-spacing: 1px; }
 #commander-perk-grid button.active em { color: var(--wr-green); }
 
 @media (max-width: 760px) {
@@ -2270,10 +2270,10 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .cs-opt.sel { border-color: var(--wr-amber); background: rgba(60,46,14,.6); border-left-color: var(--wr-amber-bright); }
 .cs-opt-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .cs-opt-h b { font-size: 13px; color: #fff; }
-.cs-opt-meta { font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.4px; color: var(--wr-muted); white-space: nowrap; }
+.cs-opt-meta { font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: 1.4px; color: var(--wr-muted); white-space: nowrap; }
 .cs-opt-d { margin-top: 3px; font-size: 11px; color: #a9bfae; }
 .cs-votes { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.cs-vc { font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.2px; color: #4cff7c; margin-right: 4px; }
+.cs-vc { font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: 1.2px; color: #4cff7c; margin-right: 4px; }
 .cs-voter { padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,.06); font-size: 9px; color: #b9cbc0; }
 .cs-voter.me { background: rgba(76,255,124,.16); color: #4cff7c; font-weight: 700; }
 .cs-warn { margin-top: 12px; padding: 8px 10px; border-left: 3px solid #ffd24c; background: rgba(255,210,76,.08);
@@ -2371,7 +2371,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 /* konsey oturumu: oy / karar ayrımı */
 .cs-opt.decided { box-shadow: inset 3px 0 0 #4cff7c; }
 .cs-myvote { margin-left: auto; padding: 2px 7px; border-radius: 3px; background: rgba(255,176,0,.18);
-    color: var(--wr-amber-bright); font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.2px; }
+    color: var(--wr-amber-bright); font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: 1.2px; }
 .cs-role-mini { margin-left: 10px; color: #9fb3c8; letter-spacing: .8px; }
 
 /* ══ SOHBET & DİPLOMASİ paneli ══════════════════════════════════════════════ */
@@ -2388,7 +2388,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     border-bottom: 1px solid rgba(255,176,0,.2); box-shadow: 0 7px 14px rgba(0,0,0,.2); }
 .talk-view-tab { min-width: 0; min-height: 34px; padding: 6px 5px; cursor: pointer; color: #829188;
     background: rgba(255,255,255,.025); border: 1px solid rgba(132,155,141,.2); border-radius: 3px;
-    font: 8px 'Share Tech Mono', monospace; letter-spacing: .8px; line-height: 1.2; }
+    font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: .8px; line-height: 1.2; }
 .talk-view-tab:hover { color: #dce8df; border-color: rgba(255,176,0,.45); }
 .talk-view-tab.active { color: var(--wr-amber-bright); border-color: var(--wr-amber); background: rgba(255,176,0,.11);
     box-shadow: inset 0 -2px 0 var(--wr-amber); }
@@ -2400,10 +2400,10 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .contact-directory-row > div, .contact-operation-row > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .contact-directory-row b, .contact-operation-row b { color: #e9f3eb; font-size: 10px; }
 .contact-directory-row span, .contact-operation-row span { color: #aab8ae; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.contact-directory-row small, .contact-operation-row small { color: #6fa783; font-size: 8px; letter-spacing: .04em; }
-.contact-directory-row .story-btn, .contact-operation-row .story-btn { flex: 0 0 auto; padding: 4px 6px; font-size: 8px; }
-.contact-directory-locked { flex: 0 0 auto; color: #647168 !important; font-size: 8px !important; }
-.contact-registry-toggle { margin-top: 8px; padding: 5px 7px; font-size: 8px; }
+.contact-directory-row small, .contact-operation-row small { color: #6fa783; font-size: var(--wr-fs-small); letter-spacing: .04em; }
+.contact-directory-row .story-btn, .contact-operation-row .story-btn { flex: 0 0 auto; padding: 4px 6px; font-size: var(--wr-fs-small); }
+.contact-directory-locked { flex: 0 0 auto; color: #647168 !important; font-size: var(--wr-fs-small) !important; }
+.contact-registry-toggle { margin-top: 8px; padding: 5px 7px; font-size: var(--wr-fs-small); }
 .contact-operation-card { margin-top: 10px; border-color: rgba(106,157,255,.32); }
 .talk-sec { margin-bottom: 14px; }
 .talk-h { font: 10px 'Share Tech Mono', monospace; letter-spacing: 1.6px; color: var(--wr-amber); margin-bottom: 6px; }
@@ -2823,7 +2823,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .ct-col { min-width: 0; }
 .ct-col-h { font: 11px 'Share Tech Mono', monospace; letter-spacing: 1.6px; margin-bottom: 2px; }
 .ct-col-d { font-size: 10px; color: #8fa397; margin-bottom: 8px; min-height: 26px; }
-.ct-tier { margin: 8px 0 4px; font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.4px; color: #6f8177;
+.ct-tier { margin: 8px 0 4px; font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: 1.4px; color: #6f8177;
     border-top: 1px solid rgba(255,255,255,.07); padding-top: 5px; }
 .ct-node { display: block; width: 100%; text-align: left; margin-bottom: 5px; padding: 7px 9px; font-family: inherit;
     background: rgba(20,32,26,.7); border: 1px solid var(--wr-line); border-left: 3px solid transparent;
@@ -2834,7 +2834,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .ct-node.locked, .ct-node.poor { opacity: .5; cursor: not-allowed; }
 .ct-n-h { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
 .ct-n-name { font-size: 12px; }
-.ct-n-badge { font: 8px 'Share Tech Mono', monospace; letter-spacing: 1px; color: var(--wr-amber-bright); white-space: nowrap; }
+.ct-n-badge { font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: 1px; color: var(--wr-amber-bright); white-space: nowrap; }
 .ct-node.owned .ct-n-badge { color: #4cff7c; }
 .ct-n-d { margin-top: 3px; font-size: 10px; color: #9fb3c8; line-height: 1.35; }
 .ct-n-lock { margin-top: 3px; font-size: 9px; color: #ff9a8a; }
@@ -2844,7 +2844,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .chat-card { margin-bottom: 8px; padding: 8px 10px; border-left: 3px solid #c78cff;
     background: rgba(199,140,255,.07); border-radius: 3px; }
 .chat-h { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px;
-    font: 8px 'Share Tech Mono', monospace; letter-spacing: 1.1px; color: #8fa397; }
+    font: var(--wr-fs-small) 'Share Tech Mono', monospace; letter-spacing: 1.1px; color: #8fa397; }
 .chat-line { font-size: 11.5px; color: #e6f0e8; line-height: 1.45; margin-bottom: 2px; }
 .chat-msg { margin-top: 4px; font-size: 10px; color: #b9a3d8; font-style: italic; }
 /* olağanüstü konsey sebebi */
@@ -2895,7 +2895,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
    ama hiçbir yerde görünmüyordu; oyuncu yalnız "Soru 4/12" görüyordu. */
 .char-theme-strip { display: flex; flex-wrap: wrap; gap: 12px; margin: 9px 0 12px; }
 .cts-theme { display: flex; align-items: center; gap: 6px; }
-.cts-theme b { color: var(--wr-dim); font-size: 8px; font-weight: 400; letter-spacing: .1em; }
+.cts-theme b { color: var(--wr-dim); font-size: var(--wr-fs-small); font-weight: 400; letter-spacing: .1em; }
 .cts-theme[data-aktif="1"] b { color: var(--wr-amber-bright); }
 .cts-theme em { display: flex; gap: 3px; }
 .cts-theme i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,176,0,.18); }
@@ -2907,10 +2907,10 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     background: rgba(255,176,0,.05); color: var(--wr-muted); font: inherit; font-size: 9px;
     letter-spacing: .1em; cursor: pointer; }
 .char-undo:hover { border-color: var(--wr-amber); color: var(--wr-amber-bright); }
-.char-undo-hint { color: var(--wr-dim); font-size: 8px; line-height: 1.3; }
+.char-undo-hint { color: var(--wr-dim); font-size: var(--wr-fs-small); line-height: 1.3; }
 
 .char-log { margin-top: 10px; }
-.char-log summary { color: var(--wr-dim); font-size: 8px; letter-spacing: .1em; cursor: pointer; }
+.char-log summary { color: var(--wr-dim); font-size: var(--wr-fs-small); letter-spacing: .1em; cursor: pointer; }
 .char-log summary:hover { color: var(--wr-amber); }
 /* Listeye AYRI kaydırma verilmedi bilerek: `.char-body` zaten kayıyor ve iç içe
    iki kaydırma alanı fare tekerleğini öngörülemez yapıyor. Tek kaydıran kap var. */
@@ -2926,7 +2926,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .char-role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-bottom: 12px; }
 .char-role { min-height: 58px; padding: 8px 9px; border: 1px solid #30445a; background: #101923; color: #c6d3df; text-align: left; }
 .char-role b { display: block; color: #dce9f4; font-size: 9px; letter-spacing: .06em; }
-.char-role small { display: block; margin-top: 4px; color: #8597a8; font-size: 8px; line-height: 1.35; }
+.char-role small { display: block; margin-top: 4px; color: #8597a8; font-size: var(--wr-fs-small); line-height: 1.35; }
 .char-role:hover { border-color: #6086aa; background: #152230; }
 .char-role.selected { border-color: #d6b45f; box-shadow: inset 0 0 0 1px #806a34; background: #252315; }
 .char-role.selected b { color: #f3d988; }
@@ -2994,7 +2994,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
     background: rgba(255,176,0,.05);
 }
 .faction-event-effect span, .faction-event-effect b { display: block; }
-.faction-event-effect span { color: var(--wr-muted); font-size: 8px; letter-spacing: 1.4px; }
+.faction-event-effect span { color: var(--wr-muted); font-size: var(--wr-fs-small); letter-spacing: 1.4px; }
 .faction-event-effect b { margin-top: 5px; color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; line-height: 1.5; }
 .faction-event-deltas { margin-top: 10px; color: var(--wr-green); font-size: 10px; line-height: 1.5; }
 .faction-event-responses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
@@ -3047,7 +3047,7 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 }
 body[data-story-durak="1"] #story-pause-flag { display: flex; }
 #story-pause-flag b { color: var(--wr-amber-bright); font-size: 10px; font-weight: 400; letter-spacing: 2px; }
-#story-pause-flag span { color: var(--wr-dim); font-size: 8px; letter-spacing: 1.2px; }
+#story-pause-flag span { color: var(--wr-dim); font-size: var(--wr-fs-small); letter-spacing: 1.2px; }
 
 /* ═══ MANŞET SATIRI (ayrı GAZETE paneli kaldırıldı) ═══
    Manşetler sağdaki AKIŞ sekmesine taşındı; kendi paneli yerine akış satırının
@@ -3057,7 +3057,7 @@ body[data-story-durak="1"] #story-pause-flag { display: flex; }
 .story-log-row.manset span { color: #ffe9bf; }
 .story-flow-carpit { display: block; margin-top: 5px; padding: 4px 7px; border: 1px solid var(--wr-green);
     border-radius: 4px; background: rgba(74,222,128,.1); color: #d9ffe6;
-    font: inherit; font-size: 8px; letter-spacing: .1em; cursor: pointer; }
+    font: inherit; font-size: var(--wr-fs-small); letter-spacing: .1em; cursor: pointer; }
 .story-flow-carpit:hover, .story-flow-carpit:focus-visible { background: rgba(74,222,128,.2); outline: none; }
 
 /* ═══════════════ KUSUR 11 — KLAVYE ODAĞI GÖRÜNÜR OLSUN ═══════════════
