@@ -6,10 +6,10 @@ Bu dosya **damga defteridir**. Her satır üç durumdan birini taşır:
 |---|---|
 | `AÇIK` | Mockup'ta önerisi var, kullanıcı henüz kabul etmedi |
 | `KABUL` | Kullanıcı öneriyi onayladı, uygulanmayı bekliyor |
+| `UYGULANDI <commit>` | Oyuna girdi; commit hash'i yazılmadan bu damga geçersizdir |
 
 **Katman A kabul edildi (12 madde): 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22.**
 Katman B (8, 9, 10, 13, 19, 23) kullanıcı kararıyla **bekletildi** — önce A bitecek.
-| `UYGULANDI <commit>` | Oyuna girdi; commit hash'i yazılmadan bu damga geçersizdir |
 
 **Damgasız satır güvenilmez sayılır.** Bu repoda plan/doküman bayatlaması ölçülmüş
 bir sorun (`docs/OLCUM-TUZAKLARI.md`); damga onun karşı önlemidir.
@@ -34,10 +34,10 @@ düzeltmenin neyi çözdüğü ölçülemez.
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 1 | Savaşta seçili birim özeti görünmüyor — **iddia ölçümle daraltıldı, öneri DEĞİŞTİ** | `#ui-info` savaşta gizli (`style.css:1919` `display:none !important`) ama **dizimde GÖRÜNÜR** (ölçüldü: `display:block`) · çoklu seçim metni `js/main.js:991`'de **zaten vardı**, yalnız gizli düğüme yazılıyordu | ~~Ölü `#ui-info` silinir~~ → **panel silinmez** (dizimde canlı). Savaştaki ölü yazma kaldırıldı; bilginin savaşta nerede görüneceği hâlâ açık tasarım kararı | kısmen **`UYGULANDI`** `36c8b86` · geri kalanı `AÇIK` |
-| 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · bekleme göstergesi savaşta gizli `#ui-support`ta | Her buton durumunu kendisi yazar: `HAZIR · 300₺` / `BEKLEME 18s` (dolum çubuğu) / `300₺ GEREK · 40₺ VAR`; TAARRUZ ve ATEŞ SERBEST kaç birliğe gideceğini söyler | **`UYGULANDI`** (HASH) |
+| 2 | PARAŞÜT butonu cooldown veya bütçe yetersizken **sessizce hiçbir şey yapmıyor** | `js/WarRoomUI.js:283` gizli butona `.click()` · `js/main.js:348` erken return · bekleme göstergesi savaşta gizli `#ui-support`ta | Her buton durumunu kendisi yazar: `HAZIR · 300₺` / `BEKLEME 18s` (dolum çubuğu) / `300₺ GEREK · 40₺ VAR`; TAARRUZ ve ATEŞ SERBEST kaç birliğe gideceğini söyler | **`UYGULANDI`** `c3a7d6d` |
 | 3 | Komut geri bildirimi yok: tıklama işareti, hedef onayı, ses yok | `js/main.js:186-333` sağ tık tek kanal · `js/WarRoomUI.js:360` yalnız eksen çizgisi | Hedef noktada 420 ms işaret (hareket = büzülen yeşil daire, taarruz = kırmızı çapraz, bindirme = mavi kare) + hedef kartında `EMİR ALINDI · TÜR → hedef` satırı | **`UYGULANDI`** `622c4ef` |
-| 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz · `js/globals.js:260` WASD kamerada | Rozetler `data-key` ile: **Q** taarruz · **F** ateş serbest · **T** siper · **P** paraşüt (A elendi, WASD ile çakışıyor). Ctrl+1..9 atar, 1..9 çağırır; 9 slotlu şerit canlı sayıyı gösterir | **`UYGULANDI`** (HASH) |
-| 5 | Savaşta üretim barı kalıntı olarak 76 px yer kaplıyor | `js/main.js:665-666` `opacity .3` + `pointerEvents:none` | Savaş ve oyun-sonu fazında `display:none` (CSS, faza bağlı). Dizimde 84 px ve 7 kategoriyle yerinde kalıyor (ölçüldü) | **`UYGULANDI`** (HASH) |
+| 4 | Kısayol etiketleri butonlarda yok; kontrol grubu (Ctrl+1..9) hiç yok | `js/main.js:771-801` M/U/Esc bağlı ama etiketsiz · `js/globals.js:260` WASD kamerada | Rozetler `data-key` ile: **Q** taarruz · **F** ateş serbest · **T** siper · **P** paraşüt (A elendi, WASD ile çakışıyor). Ctrl+1..9 atar, 1..9 çağırır; 9 slotlu şerit canlı sayıyı gösterir | **`UYGULANDI`** `c3a7d6d` |
+| 5 | Savaşta üretim barı kalıntı olarak 76 px yer kaplıyor | `js/main.js:665-666` `opacity .3` + `pointerEvents:none` | Savaş ve oyun-sonu fazında `display:none` (CSS, faza bağlı). Dizimde 84 px ve 7 kategoriyle yerinde kalıyor (ölçüldü) | **`UYGULANDI`** `c3a7d6d` |
 | 6 | Kamera ipucu yalnız `startBattle()` yolunda gizleniyor — **iddia edilenden ağır çıktı** | `js/main.js:667` satır içi `display:none` yazıyor ve **hiçbir yer geri açmıyor** → ilk savaştan sonra ipucu oturum boyunca kayboluyor (ölçüldü: dizim ✓ → savaş ✗ → rematch **✗**) · `js/MP.js:120` savaş fazına `startBattle()`'a uğramadan giriyor → MP'de hiç gizlenmiyor | Gizleme faza bağlandı (`battle` + `over`); satır içi stil kaldırıldı | **`UYGULANDI`** `6e5361a` |
 | 7 | Muharebe kaydı `aria-live` taşımıyor | `index.html:434` · yalnız `#battle-target-card` taşıyor | `role="log"` + `aria-live="polite"` + `aria-relevant="additions"` + `aria-label`, **kabukta değil güncellenen düğümde** (`#battle-feed-list`) | **`UYGULANDI`** `a870cb1` |
 
