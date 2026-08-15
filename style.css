@@ -205,9 +205,14 @@ html {
 /* ─── SPAWN BAR ─── */
 /* KATEGORİLİ SPAWN-BAR (25 tip): grup butonları + tıkla-açılan flyout */
 #ui-spawn-bar .spawn-cats { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-#ui-spawn-bar .spawn-cat { padding: 7px 11px; background: rgba(20,32,16,.92); color: #cfe3d0; border: 1px solid rgba(120,200,140,.35); border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; }
-#ui-spawn-bar .spawn-cat:hover { background: rgba(40,70,40,.95); }
-#ui-spawn-bar .spawn-cat.cat-open { background: rgba(70,140,70,.95); color: #fff; border-color: rgba(150,255,170,.6); }
+/* KUSUR 8 — kategori düğmeleri war-room diline çekildi. Ölçüldü: dizim fazında
+   GÖRÜNÜR haldeyken font 'Arial' 12px, yeşil palet (kenar rgba(120,200,140,.35),
+   açık halde rgba(70,140,70,.95)), köşe 5px idi — yani HUD'un tek yabancı-fontlu
+   yüzeyi. Ayrı bir override katmanı EKLENMEDİ; kural yerinde yeniden yazıldı,
+   çünkü çift tanım kusur 19'da bedeli ölçülmüş bir borç. */
+#ui-spawn-bar .spawn-cat { padding: 7px 10px; background: rgba(255,176,0,.035); color: var(--wr-muted); border: 1px solid var(--wr-line); border-radius: 4px; cursor: pointer; font: 10px 'Share Tech Mono', monospace; letter-spacing: 1px; white-space: nowrap; transition: all .15s ease; }
+#ui-spawn-bar .spawn-cat:hover { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); }
+#ui-spawn-bar .spawn-cat.cat-open { border-color: var(--wr-green); background: rgba(74,222,128,.16); color: #d9ffe6; }
 #ui-spawn-bar .spawn-flyout { position: absolute; bottom: 100%; left: 8px; margin-bottom: 8px; display: flex; gap: 5px; flex-wrap: wrap; max-width: 80vw; background: rgba(6,12,6,.97); padding: 8px; border: 1px solid rgba(120,200,140,.4); border-radius: 8px; box-shadow: 0 -10px 26px rgba(0,0,0,.5); z-index: 60; }
 #ui-spawn-bar .spawn-flyout.hidden { display: none; }
 
@@ -1867,7 +1872,9 @@ body[data-screen="game"][data-phase="deploy"] #phase-text {
     box-shadow: none;
     animation: none;
 }
-body[data-screen="game"][data-phase="deploy"] #ui-camera-hint { left: 14px; bottom: 94px; border-color: var(--wr-line); background: rgba(5,9,4,.82); color: var(--wr-dim); font-family: 'Share Tech Mono', monospace; }
+/* KUSUR 8: renk/font zaten çekilmişti, köşe yarıçapı legacy 6px kalmıştı
+   (war-room yüzeyleri 3-4px). Tek görünür kalıntı buydu. */
+body[data-screen="game"][data-phase="deploy"] #ui-camera-hint { left: 14px; bottom: 94px; border-color: var(--wr-line); background: rgba(5,9,4,.82); color: var(--wr-dim); font-family: 'Share Tech Mono', monospace; border-radius: 4px; }
 /* KUSUR 6: kamera ipucunu gizlemek JS'te satır içi stille yapılıyordu
    (js/main.js `#ui-camera-hint`.style.display = 'none'). İki ayrı arıza doğuruyordu:
    1) Satır içi stili GERİ AÇAN yer yoktu → ilk savaştan sonra ipucu oturum boyunca
