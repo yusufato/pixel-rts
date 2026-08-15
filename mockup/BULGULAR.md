@@ -108,7 +108,7 @@ da duyuruluyor.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** (commit aşağıda) |
+| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** `931db9d` |
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + altında yalnız "N adaydan ilk 8 gösteriliyor" notu — **kalanına ulaşmanın hiçbir yolu yok** | Arama kutusu + `8 / 25` sayacı + "TÜMÜNÜ GÖSTER" | `KABUL` · **bir kez denendi ve GERİ ÇEKİLDİ**, aşağıda |
