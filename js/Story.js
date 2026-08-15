@@ -279,7 +279,18 @@ function storyBuildCitiesGeo() {
     const nodes = GEO_CITIES.map((c, id) => ({
         id, name: c.name, lx: c.x / GEO.W, ly: c.y / GEO.H, owner: c.st, mapId: id % MAPS_LEN(),
         neighbors: [], cities: 1,
-        oil: c.oil ? 2 : 0, mine: c.mine ? 1 : 0, pts: (c.mine ? 2 : 0) + Math.max(0, c.tier - 2),   // ⛽petrol + ⭐maden + başkent ekonomisi
+        oil: c.oil ? 2 : 0, mine: c.mine ? 1 : 0,
+        /* ⭐ `pts` MADENDEN AYRILDI (Aşama 2a).
+           Eskiden `pts = maden*2 + (tier-2)` idi, yani "puan" soyut bir ekonomik
+           değerdi ve madenle aynı işareti paylaşıyordu. Aşama 1'de `pts` UZMAN
+           İŞ GÜCÜ / İLERİ TEKNOLOJİ havzası oldu (advanced_tech → electronics).
+           O tanımla "maden kasabası = teknoloji merkezi" tutarsız: Erzurum,
+           Marakeş ve Tunus teknoloji havzası sayılıyordu.
+
+           Artık uzmanlık SANAYİ DERİNLİĞİNDEN gelir: `fac` (fabrika kademesi)
+           + başkent kademesi. Her harita işareti tek anlam taşır —
+           ⛏ maden = hammadde, ⭐ = uzman iş gücü, ⛽ = enerji. */
+        pts: Math.max(0, c.fac - 1) + Math.max(0, c.tier - 2),
         level: c.tier, garrison: 0,                               // tier = başlangıç şehir seviyesi (organik büyüme devam eder)
         fac: Math.min(c.fac, c.tier + 1), bar: c.tier >= 2 ? 1 : 0,   // spec'teki fabrika seviyeleri (İstanbul 3 baca!)
         pool: {}, q: [], pop: null, wealth: 0, geo: 1, names: null
