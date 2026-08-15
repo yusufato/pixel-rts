@@ -112,7 +112,7 @@ da duyuruluyor.
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js:237-251` yalnız panel açıyor · MW-003 | Gündem kartı: isimli **muhatap** + 2-3 **bedelli karar** + yetki yetersizliği görünür; "panele git" ikincil olur | `KABUL` |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + altında yalnız "N adaydan ilk 8 gösteriliyor" notu — **kalanına ulaşmanın hiçbir yolu yok** | Arama kutusu + `8 / 25` sayacı + "TÜMÜNÜ GÖSTER" | `KABUL` · **bir kez denendi ve GERİ ÇEKİLDİ**, aşağıda |
-| 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok | `HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298` kapsam sınırı: diplomasi, sadakat, itibar, üretim kuyruğu, ordu listesi | Rozet kapsamı bu beş alana genişler | `KABUL` |
+| 18 | "NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok — **ölçüm maddeyi yeniden çerçeveledi** | `js/StoryProjection.js` `storyProjectionEffectBinding` yalnız 3 yol bağlıyor · gerçek kampanyada 180 etkinin **%97'si zaten izli** | ~~Rozet kapsamı beş alana genişler~~ → **UI işi değil**: dört alan hiç nedensellik etkisi üretmiyor, diplomasi ise bilgi sızıntısı gerekçesiyle bilerek kapalı (aşağıda) | `KABUL` · **öneri geçersiz, yeniden yazılmalı** |
 | **24** | **Komuta çubuğu kaynak çipleri kutuyu taşırıp başlığın üstüne akıyor** | `style.css:1206` `justify-content:flex-end`, `overflow` kuralı yok · `:1207` `.story-stat-chip min-width:92px` | Dört bant: içerik-boyutlu çipler + kademe sınıfı + `overflow:hidden` | **`UYGULANDI`** `ee81aaa` + `829bf90` (kademe sırası) |
 
 #### 14 — uygulandı (bu turda, oyunda)
@@ -255,6 +255,42 @@ içerik kutunun dışına akıyor. Kanıt: `qa-runtime/mockup-baseline/kusur-16-
 "PETROL 319" okunuyor).
 
 #### 24 — uygulandı (bu turda, oyunda)
+
+#### 18 — ölçüldü, öneri geçersiz çıktı, uygulanmadı
+
+Defter "rozet kapsamı beş alana genişler" diyordu (diplomasi, sadakat, itibar,
+üretim kuyruğu, ordu listesi). 300 adımlık gerçek kampanyada nedensellik defteri
+ölçüldü — **180 etki**:
+
+| | etki | oran |
+|---|---|---|
+| **neden-izi VAR** | `state:N.resources` 127 · `character:N.node` 47 | **%97** |
+| **neden-izi YOK** | `relation:N\|M.value` 4 · `character:…career.credibility/influence` 2 | %3 |
+
+**Beş alandan dördü listede hiç yok.** Sadakat, itibar, üretim kuyruğu ve ordu
+listesi **hiç nedensellik etkisi üretmiyor** — yani eksik olan "rozet" değil, o
+sistemlerin deftere yazması. Bu UI katmanında kapatılabilecek bir açık değil;
+`storyProjectionEffectBinding`'e satır eklemek bir şey göstermez çünkü gösterecek
+kayıt yok.
+
+**Kalan tek gerçek aday diplomasi ve o bilerek kapalı.** `js/StoryProjection.js`
+bağlayıcının sonunda açık gerekçe duruyor: *"Diplomatik gerçekler henüz
+PlayerKnowledgeService içinde bilgi sınıfı taşımıyor. Ham ilişki/antlaşma
+etkisini göstermek bilgi sızıntısı olur."* Bunu UI'dan açmak, oyunun bütün sohbet
+ve müzakere tasarımının dayandığı `PlayerKnowledge` süzgecini delerdi.
+
+**Not — gerekçe kısmen bayat olabilir:** `js/PlayerKnowledge.js` bugün `loyalty`,
+`reputation`, `trustBps`, `respectBps`, `hostilityBps`, `fearBps` ve `debtBps`
+alanlarını sınıflandırıyor. Yani "bilgi sınıfı yok" cümlesi yazıldığı günden beri
+değişmiş olabilir. Ama bu, bağlayıcıya körlemesine satır eklemek için yeterli
+değil: sınıfın **o özne için** gerçekten üretildiği ve hangi kesinlikle geldiği
+ayrıca ölçülmeli. Sızıntı riski taşıyan bir değişiklik ölçülmeden yapılmaz.
+
+**Bu madde yeniden yazılmalı.** Doğru soru "rozet nerede yok" değil:
+1. Sadakat/itibar/üretim/ordu sistemleri nedensellik etkisi yazmalı mı? (ürün kararı)
+2. Diplomatik ilişki değişimi oyuncuya hangi kesinlikle gösterilebilir? (bilgi tasarımı)
+İkisi de UI turunun değil, dünya-modeli turunun işi.
+
 
 Kutu genişliğinin kanunu ölçüldü: `#story-stats` grid'in `1fr` sütunu, yani
 **kutu = pencere − 579** (270 başlık + 245 `#story-topright` + 64 boşluk/dolgu).
