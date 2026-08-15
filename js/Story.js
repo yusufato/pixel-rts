@@ -1625,7 +1625,10 @@ function storyAdvanceStep(dtSec) {
     const _characterActionDt = _storyDue('character-actions', '_accCharacterActions', 10);
     if (_characterActionDt > 0 && typeof storyCharacterActionTick === 'function') storyCharacterActionTick(_characterActionDt); // Faz 37 deterministik, hilesiz ve sinirli karakter eylemi secimi
     const _negotiationDt = _storyDue('negotiation-deadlines', '_accNegotiationDeadlines', 5);
-    if (_negotiationDt > 0 && typeof storyNegotiationTick === 'function') storyNegotiationTick(); // Faz 38.3 süreli söz ve ihlal yaşam döngüsü
+    if (_negotiationDt > 0) {
+        if (typeof storyNegotiationTick === 'function') storyNegotiationTick(); // Faz 38.3 süreli söz ve ihlal yaşam döngüsü
+        if (typeof storyConversationTaskOfferTick === 'function') storyConversationTaskOfferTick(); // Faz 38.13 süreli ve kaynaklı görev teklifi
+    }
     if (_storyDue('siege', '_accSiege', 2.5) > 0) storySiegeTick();
     // FAZ-2 Adım 4: AI devletleri ORGANİK teknoloji geliştirir (techPoints yeterse)
     if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();

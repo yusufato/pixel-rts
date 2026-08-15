@@ -1985,6 +1985,33 @@ function storyCharacterActionSummary() {
     for (const receipt of aiReceipts) aiByType[receipt.actionType] = (aiByType[receipt.actionType] || 0) + 1;
     const dominantAITypeRow = Object.entries(aiByType).sort((a, b) => b[1] - a[1]
         || a[0].localeCompare(b[0], 'en'))[0] || null;
+    const identities = storyCharacterActionIdentities();
+    const aiByRole = {};
+    const aiByActor = {};
+    const aiByPair = {};
+    for (const receipt of aiReceipts) {
+        const actor = identities[receipt.actorId];
+        const role = String(actor && actor.role || 'UNKNOWN');
+        aiByRole[role] = (aiByRole[role] || 0) + 1;
+        aiByActor[receipt.actorId] = (aiByActor[receipt.actorId] || 0) + 1;
+        if (receipt.targetActorId) {
+            const pairKey = [String(receipt.actorId), String(receipt.targetActorId)]
+                .sort((left, right) => left.localeCompare(right, 'en')).join('|');
+            aiByPair[pairKey] = (aiByPair[pairKey] || 0) + 1;
+        }
+    }
+    const dominantRow = table => Object.entries(table).sort((a, b) => b[1] - a[1]
+        || a[0].localeCompare(b[0], 'en'))[0] || null;
+    const dominantAIRoleRow = dominantRow(aiByRole);
+    const dominantAIActorRow = dominantRow(aiByActor);
+    const repeatedPairCount = Object.values(aiByPair).filter(count => Number(count) > 1).length;
+    const minimumDistributionSample = 30;
+    const actionDominanceReviewBps = 7500;
+    const actionDominanceBps = dominantAITypeRow && aiReceipts.length
+        ? Math.round(dominantAITypeRow[1] / aiReceipts.length * 10000) : 0;
+    const actionMixVerdict = aiReceipts.length < minimumDistributionSample
+        ? 'INSUFFICIENT_SAMPLE'
+        : actionDominanceBps > actionDominanceReviewBps ? 'REVIEW' : 'OK';
     const tickCount = Math.max(0, Number(ledger.ai.tickSequence) || 0);
     const appliedAI = Math.max(0, Number(ledger.ai.appliedCount) || 0);
     const selectedAI = Math.max(0, Number(ledger.ai.selectedCount) || 0);
@@ -1999,8 +2026,27 @@ function storyCharacterActionSummary() {
         aiByType,
         aiDistinctTypeCount: Object.keys(aiByType).length,
         aiDominantType: dominantAITypeRow ? dominantAITypeRow[0] : null,
-        aiDominantTypeShareBps: dominantAITypeRow && aiReceipts.length
-            ? Math.round(dominantAITypeRow[1] / aiReceipts.length * 10000) : 0,
+        aiDominantTypeShareBps: actionDominanceBps,
+        behaviorQA: {
+            schemaVersion: 1,
+            sampleSize: aiReceipts.length,
+            minimumDistributionSample,
+            actionDominanceReviewBps,
+            actionMixVerdict,
+            byRole: aiByRole,
+            distinctRoleCount: Object.keys(aiByRole).length,
+            dominantRole: dominantAIRoleRow ? dominantAIRoleRow[0] : null,
+            dominantRoleShareBps: dominantAIRoleRow && aiReceipts.length
+                ? Math.round(dominantAIRoleRow[1] / aiReceipts.length * 10000) : 0,
+            distinctActorCount: Object.keys(aiByActor).length,
+            dominantActorId: dominantAIActorRow ? dominantAIActorRow[0] : null,
+            dominantActorShareBps: dominantAIActorRow && aiReceipts.length
+                ? Math.round(dominantAIActorRow[1] / aiReceipts.length * 10000) : 0,
+            distinctPairCount: Object.keys(aiByPair).length,
+            repeatedPairCount,
+            deterministic: true,
+            randomDiversityQuota: false
+        },
         aiActionRateBps: tickCount ? Math.round(appliedAI / tickCount * 10000) : 0,
         aiSkippedCount: Math.max(0, tickCount - selectedAI),
         aiArbiterRequestedCount: Math.max(0, Number(ledger.ai.arbiterRequestedCount) || 0),

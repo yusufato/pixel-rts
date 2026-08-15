@@ -107,6 +107,8 @@ function storyConversationDomainProjectFacts(actorId, analysis, roleView, option
     if (storyConversationDomainResolve(analysis) !== 'ECONOMY'
         || typeof storyWorldV2Snapshot !== 'function'
         || typeof storyPlayerKnowledgeProject !== 'function') return [];
+    // Şirket bilançosu ile ülke makro göstergeleri aynı kanıt değildir.
+    if (analysis && analysis.diagnostics && analysis.diagnostics.economicScope === 'COMPANY') return [];
     const world = storyWorldV2Snapshot();
     const knowledge = storyPlayerKnowledgeProject(world, actor.countryId);
     const country = (knowledge.countries || []).find(row => row.id === actor.countryId);

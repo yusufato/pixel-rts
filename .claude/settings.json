@@ -97,10 +97,15 @@
       "Bash(node --check tools/caprazla.js)",
       "Bash(node tools/caprazla.js --tarifler qa-runtime/tarifler-taban.json --sal H0-sezgisel --sav H0-sezgisel --seeds 12 --workers 6 --out qa-runtime/hiz-testi.json)",
       "Bash(rm -f qa-runtime/beonai-smoke.jsonl)",
-      "Bash(node tools/beonai-uret.js --maclar 1 --tohum 2024 --karar-araligi 2000 --rollout 10 --out qa-runtime/beonai-smoke.jsonl)"
+      "Bash(node tools/beonai-uret.js --maclar 1 --tohum 2024 --karar-araligi 2000 --rollout 10 --out qa-runtime/beonai-smoke.jsonl)",
+      "Bash(cd c:/Users/osman/Documents/GitHub/pixel-rts && git status --short | grep \" M \" && echo \"=== 14 ve 18 ===\" && sed -n '/^| 14 |/p;/^| 18 |/p' mockup/BULGULAR.md | fold -w 150)",
+      "Bash(cd c:/Users/osman/Documents/GitHub/pixel-rts && git status --short | grep \" M js/\" ; echo \"=== 15 onerisi ===\" && sed -n '/^| 15 |/p' mockup/BULGULAR.md | fold -w 150 && echo \"=== mevcut gundem ===\" && grep -n \"storyAgendaNavigate\\\\|function storyAgendaUpdate\" js/StoryUI.js | head)",
+      "Bash(sed -i 's/\\\\*\\\\*`UYGULANDI`\\\\*\\\\* \\(commit aşağıda\\)/**`UYGULANDI`** `__TRACKED_VAR__`/g' mockup/BULGULAR.md)",
+      "Bash(grep -oP '\\\\| \\\\*{0,2}`?\\(AÇIK|KABUL|UYGULANDI\\)`?\\\\*{0,2}' mockup/BULGULAR.md)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\osman\\AppData\\Local\\Temp\\claude\\c--Users-osman-Documents-GitHub-pixel-rts\\1ad8a69a-bb33-4162-a8ea-a6bcbfa0b56c\\tasks"
+      "C:\\Users\\osman\\AppData\\Local\\Temp\\claude\\c--Users-osman-Documents-GitHub-pixel-rts\\1ad8a69a-bb33-4162-a8ea-a6bcbfa0b56c\\tasks",
+      "c:\\Users\\osman\\Documents\\GitHub\\pixel-rts\\mockup"
     ]
   }
 }

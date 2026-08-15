@@ -5,7 +5,9 @@ const { createRuntime } = require('../tools/story-sim-harness');
 const { patchAcceptedResponse, summary, playerCandidateIssues,
     playerMicrobatchPrompt, playerModeContract,
     chunkJobsByMode, scenarioSequenceIndex,
-    frontierRunnerFingerprint } = require('../tools/story-dialogue-frontier-runner');
+    frontierRunnerFingerprint, conversationSessionLimit,
+    playerRetryInstruction, characterResponseModelEligible
+} = require('../tools/story-dialogue-frontier-runner');
 
 const runtime = createRuntime(2032);
 try {
@@ -16,6 +18,15 @@ try {
     const opened = runtime.api.conversationSessionBegin('Merhaba.', { listenerActorId: actor.id });
     const followed = runtime.api.conversationSessionFollowUp(opened.session.id, 'Bugün nasılsın?');
     const response = followed.followUp.response;
+    assert.equal(characterResponseModelEligible(response), true);
+    assert.equal(characterResponseModelEligible({ speechAct: 'ASK_INFORMATION',
+        enrichmentStatus: 'NOT_REQUIRED', source: 'DETERMINISTIC_KNOWLEDGE_BOUNDARY_RESPONSE' }), false,
+    'koşucu motorun NOT_REQUIRED kararını kaynak adına göre ezmemeli');
+    const socialPrompt = runtime.api.conversationSocialLLMPrompt(followed.session, response, 'Bugün nasılsın?');
+    assert.match(socialPrompt, /CEVAP SÖZLEŞMESİ/);
+    assert.doesNotMatch(socialPrompt, /GÜVENLİ ANLAM/);
+    assert.ok(!socialPrompt.includes(response.text),
+        'Model kopyalayabileceği deterministik fallback cümlesini promptta görmemeli.');
     patchAcceptedResponse(runtime, opened.session.id, response.id,
         'Bugün temkinliyim; yine de konuşabiliriz.');
     const patched = runtime.api.conversationSessionGet(opened.session.id);
@@ -34,6 +45,7 @@ try {
     ] }] };
     assert.deepEqual(summary(fakeState), { sessions: 1, turns: 3, accepted: 1, fallback: 1,
         notRequired: 1, errors: 0, rejectionCodes: { FALSE_PRIOR_FAMILIARITY: 1 },
+        infrastructureErrors: 0, playerGenerationErrors: 0, evaluatedTurns: 3,
         playerAttemptSlots: 0, playerBatchCalls: 0, playerFirstAttemptAccepted: 0,
         playerFirstAttemptAcceptanceBps: 0, playerFinalAccepted: 0,
         modelEligibleTurns: 0, characterAcceptanceBps: 0,
@@ -79,8 +91,12 @@ try {
     assert.deepEqual(playerCandidateIssues(
         'Son toplantımızın sonuçları çok hayırlıydı. Herkes çok tutkundu.',
         meetingScenario, []), [], 'Gerçek smoke toplantı çekimini yanlış reddetmemeli.');
-    assert.ok(playerCandidateIssues('Bütçe nedir? Enflasyon niye yükseldi? Hazine ne yapacak?',
+    assert.ok(playerCandidateIssues('Bütçe nedir? Enflasyon niye yükseldi? Hazine ne yapacak? Piyasa ne durumda? Fiyatlar düşer mi?',
         scenario, []).includes('TOO_MANY_SENTENCES'));
+    assert.ok(!playerCandidateIssues('Bu gizli operasyon çok riskli. Plan bozulabilir. Yine de heyecanlıyım. Hazırım!', {
+        utteranceMode: 'EMOTIONAL_REACTION', requiredTopicAnchors: ['gizli operasyon'],
+        targetTopicAnchor: 'gizli operasyon'
+    }, []).includes('TOO_MANY_SENTENCES'), 'Dört cümlelik canlı oyuncu tepkisi yapay biçimde reddedilmemeli.');
     assert.ok(playerCandidateIssues('Bu gelecek-faz yeteneği çok önemli olacak.',
         { utteranceMode: 'ASSERTION', requiredTopicAnchors: ['yetenek'], targetTopicAnchor: 'yetenek' }, [])
         .includes('PRIVATE_BRIEF_LEAK'));
@@ -121,16 +137,29 @@ try {
         'COUNTER_CLAIM', 'FRAGMENT', 'TOPIC_SWITCH', 'CORRECTION', 'NEGOTIATION', 'CASUAL_CHAT']) {
         assert.ok(playerModeContract(mode).length >= 40, `${mode} açık biçim sözleşmesi taşımalı.`);
     }
-    assert.match(playerModeContract('CORRECTION', 'kimlik'), /kimlik/);
-    assert.doesNotMatch(playerModeContract('CORRECTION', 'kimlik'), /banka|şirket/,
-        'Biçim örneği başka alanın konu sözcüklerini prompta sızdırmamalı.');
+    assert.doesNotMatch(playerModeContract('CORRECTION', 'kimlik'), /kimlik|banka|şirket/,
+        'Biçim sözleşmesi modele kopyalayacağı konu veya örnek cümle vermemeli.');
+    assert.equal(conversationSessionLimit, 32);
+    const retryInstruction = playerRetryInstruction(['REPEATED', 'WRONG_UTTERANCE_MODE'], {
+        utteranceMode: 'DEMAND', requiredTopicAnchors: ['göç']
+    });
+    assert.match(retryInstruction, /cümle iskeletini/);
+    assert.match(retryInstruction, /eylem|emir/);
+    assert.doesNotMatch(retryInstruction, /Şehrin nüfusunu/,
+        'Retry reddedilmiş model cümlesini yeniden ankrajlamamalı.');
     const groupedBatches = chunkJobsByMode([
         { scenario: { utteranceMode: 'QUESTION' }, id: 1 },
         { scenario: { utteranceMode: 'ASSERTION' }, id: 2 },
         { scenario: { utteranceMode: 'QUESTION' }, id: 3 }
     ], 2);
     assert.deepEqual(groupedBatches.map(batch => batch.map(row => row.id)), [[1, 3], [2]],
-        'Mikro-batch yalnız aynı ifade biçimindeki işleri birleştirmeli.');
+        'Mikro-batch yalnız aynı ifade biçimi ve bilinmeyen ortak alandaki işleri birleştirmeli.');
+    const domainBatches = chunkJobsByMode([
+        { scenario: { utteranceMode: 'QUESTION', domain: { id: 'ECONOMY' } }, id: 1 },
+        { scenario: { utteranceMode: 'QUESTION', domain: { id: 'MILITARY' } }, id: 2 }
+    ], 2);
+    assert.deepEqual(domainBatches.map(batch => batch.map(row => row.id)), [[1], [2]],
+        'Ayrı alanlar aynı mikro-batch içinde birbirinin konusunu kirletmemeli.');
     assert.equal(scenarioSequenceIndex([], 6, 4, 1, 2), 12);
     assert.equal(scenarioSequenceIndex([0, 6, 12, 18], 0, 4, 0, 2), 12,
         'Pozitif batarya sıralı manifest yerine açık senaryo indekslerini kullanabilmeli.');

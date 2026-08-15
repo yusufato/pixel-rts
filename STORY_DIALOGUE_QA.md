@@ -654,3 +654,191 @@ Canlı cümle paketi `50` regresyon, seri sohbet sözleşmesi, `60` adversarial
 senaryo ve kanıt testlerinde geçti. RTX/CUDA preflight NVIDIA 4060'ı doğruladı;
 3 turluk gerçek 8B smoke `1/1` model kabulü, sıfır fallback/hata, `638 ms` ilk
 token ve `2.208 ms` toplam süre verdi. Bu küçük smoke doğallık kabulü değildir.
+
+## 14 Ağustos 2026 — SemanticFrameV1 ilk kabul sınırı
+
+Canlı testte yeni tam cümlelerin tek tek düzeltilmesi yerel başarı üretirken
+görülmemiş bileşimlerin yeniden genel `ASK_INFORMATION/UNKNOWN` yoluna düştüğü
+doğrulandı. `StoryConversationSemanticFrame.js` artık sözün iletişim işlevi,
+konusu, hedefi, kutupluluğu, zamanı, epistemik niteliği, devamlılığı ve beklenen
+sonucunu ayrı taşır. Konuşma eylemi bu alanlardan yeniden hesaplanır; legacy
+puanlayıcı geçiş süresince yalnız uyumluluk katmanıdır.
+
+Yeni hedefli kapı 8 doğrudan ve 6 bileşimsel varyantı, ayrıca anlamsız metnin
+reddini geçti. Mevcut 50 gerçek oyuncu regresyonu, 71 eylem kataloglu
+DialogueMove testi, DiscourseState ve kaynak sahipliği/kanıt testi de temizdir.
+Bu sonuç `SF1` kabulüdür; gerçek 8B semantik yorumlama değildir. `SF2` için
+zorunlu kapılar: kapalı aday şeması, oyuncu metninde birebir kanıt-span,
+kanonik varlık bağlama, düşük güvenli asenkron bekleme, model başarısızlığında
+analiz/discourse/save-load bozmayan fallback ve sıfır dünya yetkisidir.
+
+## 14 Ağustos 2026 — SF2 gerçek-model sonucu: reddedildi
+
+Kapalı aday şeması ve asenkron oturum hattı test çiftinde geçti. Uydurulmuş kanıt,
+ek `worldMutation` alanı, tek-eksen tahmini ve `CONFIDE×EMOTION` uyumsuzluğu
+reddediliyor. Başarılı aday oyuncuya serbest model cevabı yazmıyor; mekanik
+yetkisiz analiz çerçevesi veriyor ve kod DialogueMove'u yeniden kuruyor.
+
+Gerçek paketli Turkish-Llama 8B, RTX 4060/CUDA üzerinde dört görülmemiş cümlede
+son sıkı kapıda `1/4` verdi. Rapor `qa-runtime/story-conversation-semantic-8b-smoke.json`
+içindedir. Yükleme yaklaşık `6,85 sn`, ilk token `0,41–0,53 sn`; performans
+sorunu yoktur. Model işlev, zaman ve kanıt alıntısını sık karıştırdığı için kalite
+kapısı geçmemiştir. Bayrak varsayılan kapalıdır. Sonraki deney 14B'nin çevrimdışı
+öğretmen olarak karşıt/parafraz çerçeve üretmesi ve sonuçların gerçek oyuncu
+loglarından ayrılmış holdout üzerinde ölçülmesidir; 8B eşiği gevşetilmeyecektir.
+
+## 14 Ağustos 2026 — SF3 SemanticFrameV2 ve eksen-maskeli öğretmen
+
+14B aynı dört görülmemiş sözde `3/4` sıkı eşleşme verdi; model CUDA'da olsa da
+tek sonuç yaklaşık `37–41 sn` sürdüğü için oyun içi aday değildir. İlk iki
+üretici+kör-hakem görevi V1 altında iki kez `0/2` tam kabul verdi. İkinci örnek
+“Gelecekte birlikte çalışabilir miyiz?” yüzey soru biçiminde olmasına rağmen
+pragmatik REQUEST'tir; tek `communicativeFunction` alanı bu ayrımı kaybediyordu.
+
+`SemanticFrameV2` artık `surfaceForm` ve pragmatik `communicativeFunction`
+alanlarını ayrı, kapalı enumlar olarak taşır. Model JSON bütçesi yeni alanla
+kesilmemesi için `320 → 420` tokene çıkarıldı. Kanıt-span, ek alan, komut ve
+dünya mutasyonu retleri aynen korunur.
+
+Öğretmen hattı 60 deterministik görev/8 temel bileşim üretir. Üretici hedefi
+görür; kör hakem görmez. Kabul politikası eksen-maskelidir: işlev+biçim+konu
+çekirdeğinin üçü de uyuşmalı, yalnız mutabık yan eksenler etikete yazılmalıdır.
+Son iki görevlik gerçek 14B koşu çekirdekte `2/2`, tam dokuz eksende `0/2` verdi;
+hedef/devamlılık ve hedef/epistemik alanları maskelendi. Bu yalnız mimari smoke'tur,
+kalite kapısı değildir. Geniş held-out tamamlanmadan 60 görevin tamamı eğitim
+verisi sayılmayacak ve canlı 8B bayrağı açılmayacaktır.
+
+## 14 Ağustos 2026 — SF3 sekizli kapsam sonucu: öğretmen reddedildi
+
+Ara kayıt+resume destekli sekiz bileşim koşusu `4/8` çekirdek, `0/8` tam
+mutabakat verdi. Bir kör çağrı 90 saniyede zaman aşımına uğradı; ilk yedi kayıt
+kaybolmadı ve yalnız sekizinci çağrı 180 saniyelik sınırla yeniden çalıştı.
+Eksen tablosunda epistemik `%12,5`, hedef/devamlılık `%25` ile en zayıf
+alanlardır. `trainingEligible=0`; 60 görevlik uzun üretim bilinçli durduruldu.
+
+Türkçe 8B redaktör koşusu `5/8` kalite geçişi bildirdi fakat iki açık yanlış
+olumlu üretti ve üç çelişkili JSON'u şema kapısında kaybetti. Eleştirmen yalnız
+reddedebilir; insan kapısı olmadan örneği eğitime yükseltemez. Semantik mutabakat
+ile doğal dil kalitesi ayrı raporlardır.
+
+Motor tarafında tam cümle yaması yerine yeterlilik eki operatörü eklendi.
+`-abilir/-ebilir + misin` WORK/MILITARY/ECONOMY bağlamında dolaylı REQUEST,
+birinci çoğul `miyiz` ortak OFFER üretir. ASK adayının epistemik durumu
+QUESTIONED olmak zorunda; TELL ve CORRECT sonuç alanları sınırlıdır. Hedefli
+V2/model/50 oyuncu regresyonu temizdir.
+
+## 14 Ağustos 2026 — insan inceleme kuyruğu ve gece kapısı
+
+`story:semantic-review`, yalnız localhost üzerinde sekiz gerçek SF3 örneğini,
+hedef eksenleri, mutabık/maskeli alanları ve 8B eleştirmen görüşünü gösterir.
+İnsan ACCEPT/REJECT/EDIT kararı verir; kabul/düzeltmede işlev+biçim+konu
+çekirdeğinin onayı zorunludur. Kayıt atomik insan inceleme defterine yazılır.
+
+Gece kapısı: `40` onaylı altın, `20` ayrı holdout, çekirdek `≥%85`, kanıt
+`≥%95`, doğal Türkçe `≥%90`, yanlış yüksek güven `≤%2`. Mevcut gerçek durum
+`NIGHT_TEST_BLOCKED`: altın `0/40`, holdout `0/20`. Arayüz/API ve geçer/kırmızı
+kapı testleri geçti. Gece üretim/eğitim koşusu bu ölçüler sağlanmadan başlamaz.
+
+İlk belirsiz UI incelemesindeki sekiz karar V2 gece sayacından çıkarıldı fakat
+geçmiş olarak korundu. Kullanıcı notu yeni bir ontoloji açığı buldu: gündelik
+yakınma, dostane yaklaşım, hakaret, pohpohlama, tehdit ve provokasyon konu veya
+duygu değildir; ayrı `socialStance` eksenidir. Bu V3 borcu kapanmadan bu aileler
+otomatik etiketlenmeyecektir.
+
+İkinci V2 incelemede insan `3` kabul verdi. QA adjudikasyonu `0007` meta-oyun,
+tekrar ve tekil/çoğul çelişkisi nedeniyle reddetti; insanın reddettiği `0008`
+ise doğal görüş sorusu olarak kabul edilebilir bulundu. Ortak altın çekirdek
+`0002` ve `0005`, yani `2/40`tır. Gece kapısı artık insan+QA kesişimini zorunlu
+kılar.
+
+Eğitim yerine güvenli ölçüm gecesi başlatıldı: `story:dialogue-frontier-night`,
+100 oturum, 10 derinlik, 1000 tur; 14B oyuncu + 8B karakter, CUDA, atomik resume.
+Koşu model/kaynak değiştirmez. İlk 14B üretim dalgasında meta-oyun sorusu
+görülmüştür; bu başarı değil, sonuçta sınıflandırılacak ham kırmızı bulgudur.
+
+İlk hız ölçümü yaklaşık 7 dakikada ilk derinliğin yalnız 42 geçerli oyuncu
+sözünü verdi: 39 birebir farklı metin, fakat yalnız 6 yapısal kalıp ve iki
+baskın kalıpta 20 söz. Bu yüzden benzersiz-string sayısı çeşitlilik kabulü
+değildir. Kalibrasyon tamamlanınca otomatik `30 oturum × 50 derinlik = 1500`
+uzun bağlam turu çalışacaktır; toplam gece kapsamı 2500 turdur.
+
+## 15 Ağustos 2026 — gece raporu geçersiz altyapı payı ve ilk düzeltme
+
+Tamamlanan 1000 turluk rapordaki `802` hata yeniden ham tur düzeyinde ayrıldı:
+`626 SESSION_NOT_FOUND`, `176 PLAYER_LLM_REPETITIVE_OFF_TOPIC_OR_INVALID`.
+Kök neden model değil, koşucunun aynı anda 100 görüşme açmasına rağmen kanonik
+defterin yalnız 32 görüşme saklamasıdır. İlk 68 oturum her derinlikte budanmış
+oturuma yazmaya çalışmıştır. Bu nedenle eski rapordaki kabul/fallback oranları
+model tabanı sayılamaz.
+
+Koşucu artık `sessionCount>32` için model yüklemeden fail-fast verir, bootstrap
+sonunda bütün kimliklerin yaşadığını kanıtlar ve raporda `infrastructureErrors`,
+`playerGenerationErrors`, `evaluatedTurns` alanlarını ayrı tutar. Kalibrasyon
+aynı 1000 turu koruyarak `25×40` oldu. Tamamlanmış rapor altyapı hatası taşıyorsa
+otomatik uzun koşu başlamaz.
+
+Kapasite hatası olmayan uzun kesit `510/1500` turda durduruldu: `193` oyuncu
+üretim hatası, `317` geçerli oyuncu sözü, `181` model gerektirmeyen cevap, `42`
+8B kabulü ve `94` 8B reddi/fallback. Retlerde `33 EXACT_HISTORY_REPEAT`, `21
+EXACT_FALLBACK_COPY`, `11 FALLBACK_PADDING`, `8 SERVICE_BOT_LANGUAGE` öne çıktı.
+Bu dağılım yeterince doygun olduğu için kalan 990 turun kaynak maliyeti yeni
+kanıt değerinden yüksek görüldü.
+
+İlk düzeltme sonrası aynı DEMAND+EMOTIONAL gerçek GPU çiftinde:
+
+- altyapı hatası `0`, oyuncu üretim hatası `1→0`, değerlendirilen tur `1→2`,
+- dört cümlelik doğal duygusal söz artık yapay iki-cümle kapısına takılmadı,
+- deterministik fallback cümlesi karakter promptundan çıkarılıp yapısal cevap
+  sözleşmesine dönüştürüldü,
+- 320 karakterde yarım kalan 8B yanıt `TRUNCATED_REPLY` ile reddedildi ve güvenli
+  cevap korundu,
+- yanlış dünya öncülünü tekrar/kanıtsız nedensellik olarak benimseme negatif
+  kapıları eklendi.
+- `gizli` sözcüğü tek başına `CONFIDE/SHARE_SECRET` değildir. Gizli operasyon
+  hakkında kaygı veya heyecan bildirmek `TELL×EMOTION`; sır verme ancak paylaşma,
+  verme veya gizli tutma eylem kanıtıyla `CONFIDE×SECRET` olur. Model fallback'e
+  düşerse de “konuyu seçin” demek yerine duyguyu karşılar ve olayın doğrulanmış
+  olduğunu varsaymaz.
+
+Son küçük koşuda 14B ve 8B CUDA kullandı; bu performans değil davranış
+doğrulamasıdır. Genel doğallık, uzun bağlam ve karakter çeşitliliği henüz kabul
+edilmiş değildir. Sonraki ölçüm küçük, katmanlı ve hata ailesi dengeli olmalı;
+yeniden kör 2500 tur başlatılmamalıdır.
+
+## 15 Ağustos 2026 — kanıt kapsamı ve aynı-oturum kirlenmesi
+
+Üç turluk gerçek CUDA smoke, “şirketinizin finansal durumu” sorusuna ülke
+enflasyon/refahının verildiğini gösterdi. Şirket bilançosu ile ülke makro
+göstergesi artık ayrı kapsamdır; kanonik şirket bilanço adaptörü yoksa ülke
+FACT kayıtları şirket cevabına açılmaz. Aynı koşudaki toplantı sorusuna model,
+önceki ekonomi cevabını ve yeniden selamlamayı taşıdı. `RECENT_TURN` artık
+yalnız söylem sürekliliğidir; güncel `allowedRefs` olmadan kanıt değildir.
+
+Tekrar smoke'unda sahte eski proje, ülke sayısı ve yeniden karşılaşma cevabı
+oyuncuya ulaşmadı. Ek olarak oturum ortası selam/baştan başlatma
+`MID_SESSION_RESTART` olarak reddedilir. “Teknoloji projesi için yetki alabilir
+miyim?” yapısı `INTERROGATIVE × REQUEST × TECHNOLOGY`, toplantı gündemi/sonucu
+ise kaynaklı kayıt yoksa ayrı sınır cevabıdır. Bu düzeltmeler hedefli yeşildir;
+8B'nin genel bilgi sorularında soruyu geri sorma eğilimi hâlâ kalite borcudur.
+
+## 15 Ağustos 2026 — kanıtsız bilgi sorusunda LLM kapısı
+
+Aynı medya sorusuyla yapılan A/B koşusunda 8B önce geri soru, sonra oyuncu
+cümlesinin başına “Merhaba” eklenmiş kopyasını üretti. Daha sert prompt bu aileyi
+düzeltmedi. Bu turda üretilecek kaynaklı içerik olmadığı için 8B çağrısı mimari
+olarak kaldırıldı: `ASK_INFORMATION + zero FACT + özel motor cevabı yok` artık
+üç deterministik bilgi-sınırı varyantından birini seçer ve `NOT_REQUIRED` olur.
+
+Frontier ve eski 8B koşucusu motorun `NOT_REQUIRED` kararını yok sayıp yalnız
+iki eski kaynak adını kontrol ediyordu. Koşucular artık kanonik motor statüsünü
+kullanır. Aynı CUDA senaryosu son ölçümde `modelEligibleTurns=0`, `notRequired=1`,
+`infrastructureErrors=0`, `modelLoads=1` verdi; yüklenen tek model 14B oyuncudur.
+8B karakter yüklenmemiştir. `SUPPORTED_PUBLIC` medya senaryosunda FACT sayısının
+sıfır kalması ise ayrı bir kapsam borcudur: modern medya defteri konuşma kanıt
+adaptörüne bağlanmadan karakter güncel haber bildiğini iddia edemez.
+
+Çok turlu merkez probda ayrıca eksik söylem etiketleri kapatıldı: gündelik hâl
+hatırı ticari konuyu silmeden `CONTINUE_SOCIAL`, anlamsız takip ise etkin konuyu
+uydurmadan `CLARIFY_AMBIGUOUS_INPUT` taşır. `inheritedTopic` takip kaydına
+yazılır. Kontrol sonucu aynı oturum, sosyal cevap, etkin konu, belirsizlik
+onarımı, uzun bağlam bütçesi ve güncel turun tekilleştirilmesi dahil `7/7`dir.

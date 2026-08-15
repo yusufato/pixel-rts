@@ -2715,6 +2715,23 @@ function run() {
         'Varsayılan 900 sn dünyada seçici tek bir karakter eylemi türüne çökmemeli.');
     assert.ok(repeat.characterActionSummary.aiDominantTypeShareBps <= 9000,
         'Varsayılan 900 sn dünyada baskın eylem bütün kararların %90 üstünü yutmamalı.');
+    assert.equal(repeat.characterActionSummary.behaviorQA.sampleSize,
+        repeat.characterActionSummary.aiReceiptCount,
+        'Faz 38.12 davranış QA örneği gerçek AI makbuzlarıyla birebir mutabık olmalı.');
+    assert.equal(repeat.characterActionSummary.behaviorQA.randomDiversityQuota, false,
+        'Faz 38.12 gözlemi çeşitlilik görüntüsü üretmek için rastgele eylem kotası kullanmamalı.');
+    assert.equal(repeat.characterActionSummary.behaviorQA.actionMixVerdict,
+        repeat.characterActionSummary.aiReceiptCount
+            < repeat.characterActionSummary.behaviorQA.minimumDistributionSample
+            ? 'INSUFFICIENT_SAMPLE'
+            : repeat.characterActionSummary.aiDominantTypeShareBps
+                > repeat.characterActionSummary.behaviorQA.actionDominanceReviewBps ? 'REVIEW' : 'OK',
+        'Faz 38.12 eylem karışımı kararı örnek tavanı ve ilan edilmiş eşikten yeniden hesaplanabilmeli.');
+    assert.ok(repeat.characterActionSummary.behaviorQA.distinctActorCount > 0
+        && repeat.characterActionSummary.behaviorQA.distinctRoleCount > 0,
+        'Faz 38.12 yalnız eylem türünü değil aktör ve rol yoğunluğunu da ölçmeli.');
+    assert.equal(repeat.characterActionSummary.behaviorQA.deterministic, true,
+        'Faz 38.12 davranış QA özeti deterministik olmalı.');
     assert.equal(repeat.characterActionSummary.aiPlayerActorReceiptCount, 0,
         '900 sn boyunca karakter AI oyuncunun seçili karakterini yönetmemeli.');
     assert.notEqual(repeat.stateHash, politicalCrisisOff900.stateHash,

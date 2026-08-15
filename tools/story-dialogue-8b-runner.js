@@ -409,7 +409,7 @@ async function main() {
                 sessionId = sessionId || result.session.id;
                 const session = runtime.api.conversationSessionGet(sessionId);
                 const modelEligible = response.speechAct !== 'UNKNOWN'
-                    && response.source !== 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE';
+                    && response.enrichmentStatus !== 'NOT_REQUIRED';
                 if (!modelEligible) {
                     turns.push({
                         groupId, caseId: source.caseId, turnIndex: source.turnIndex,
@@ -442,7 +442,7 @@ async function main() {
                 let characterSwap = null;
                 try {
                     inputTokens = await characterLease.host.count(`${SYSTEM}\n${prompt}`);
-                    generated = await characterLease.host.generate({ system: SYSTEM, prompt, maxTokens: 220,
+                    generated = await characterLease.host.generate({ system: SYSTEM, prompt, maxTokens: 300,
                         temperature: 0.35, jsonSchema: schema, seed: modelSeed });
                 } finally {
                     characterSwap = await releaseHost(characterLease, 'character');
@@ -469,7 +469,7 @@ async function main() {
                     contextPackId: runtime.api.conversationContextPack(
                         session, response, source.playerText).packId,
                     systemHash: hash(SYSTEM), promptHash: hash(prompt), grammarHash: hash(schema),
-                    inputTokens, maxTokens: 220, wrapperReserve: 128,
+                    inputTokens, maxTokens: 300, wrapperReserve: 128,
                     contextWithinLimit: inputTokens + 220 + 128 <= 8192,
                     rawOutput: generated.raw, acceptedReply: accepted,
                     validationCode: diagnosis.code,

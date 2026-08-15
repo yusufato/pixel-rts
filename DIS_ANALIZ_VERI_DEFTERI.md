@@ -15,6 +15,35 @@ Her dış analiz dört ayrı katmanda tutulur:
 
 Bu dosya bir görev listesi değildir. Buradaki hiçbir öneri yalnız kayda alındığı için uygulanmış veya onaylanmış sayılmaz.
 
+### 15 Ağustos 2026 — Faz 38.13 konuşma vakası ilk dikeyi
+
+- Altı konuşma alanı ikinci bir sohbet motoru olarak değil, mevcut oturumun
+  kalıcı `ConversationCaseV1` kipleri olarak uygulandı.
+- İlk kişisel `TaskOfferV1` adaptörü tamamlandı: gerçek veren, üstlenen, erişilebilir
+  hedef, son tarih ve kaynak vaka olmadan teklif oluşmaz. Verenin zorlama yetkisi
+  yoktur ve gerçek ödül defteri olmadığı için ödül açıkça `NONE`dır. Kabul edilen
+  görev hedef karakterle ayrı görüşme açılınca gerçek oturum kimliğiyle tamamlanır.
+  Kurumsal/ücretli görevler hâlâ açık borçtur. Resmî toplantı düğmesi adaptör
+  bekler; LLM boşluğu görev, ödül, katılımcı veya karar uydurarak kapatamaz.
+- Hedefli kabul; kip geçmişi, bağlamsal geçiş, özel bağlamın günlük sözle
+  silinmemesi, şema-3 göçü, save/restore birebirliği, altı UI düğmesi, pencere
+  kapanınca eski pause halinin dönmesi ve dünya+saat nötrlüğünü geçti.
+- Sıradaki oynanış borcu aynı defter üzerinde çok katılımcılı `MeetingCaseV1`dir;
+  ardından kurumsal görev yetkisi ve gerçek bedel/ödül defterleri genişletilecektir.
+- `MeetingCaseV1` ilk kabuğu daha sonra aynı gün kuruldu: gündem yalnız oyuncu
+  metnidir; başkan gerçek kurum makamından, 3–4 katılımcı erişilebilir kamusal
+  profillerden gelir. Katılımcı listesi ve söz sırası UI’da çalışır. Bu kabuk
+  henüz karakter sözü, önerge, itiraz, oy veya sonuç üretmez; boş karar alanları
+  doğrulayıcı tarafından zorunlu tutulur. Sıradaki borç çok taraflı tur ve bilgi
+  görünürlük matrisidir; kurumsal görev/ödül genişlemesi bunun ardından gelir.
+- Dördüncü dikeyde toplantı 8 turluk gerçek aktör sırasına çıkarıldı. Oyuncu ve
+  karakter sıra dışı konuşamaz; her kamusal tur bütün katılımcıların görünürlük
+  satırına aynı kimlikle eklenir. Her aktör yalnız kendi özel bağlamının sahibi
+  olarak işaretlenir ve başka özel bağlamı okuyamaz. Karakter sözleri henüz rol
+  tabanlı usul sınırıdır; mekanik kanaat veya karar gibi sunulmaz. Aynı aktörün
+  ilk üç usul sözündeki birebir tekrar da kapatıldı. Sıradaki borç ActorBelief
+  zeminli görüş ve özel/ikili toplantı notlarıdır.
+
 ### 14 Ağustos 2026 — sohbet dünya kanıtı: ekonomi ve yönlü ilişki
 
 - Ekonomi için karakter ülkesinden, rol/yetki filtresinden geçen doğrulanmış FACT
@@ -541,6 +570,9 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 
 | Tarih | Değişiklik |
 |---|---|
+| 15.08.2026 | Faz 38.7 hedefli probunda davranış nötrlüğü saat ilerlemesini fiziksel dünya yazımı saydığı için test tanımı gereği kırmızıydı. Yarı ömür ölçümü için bilerek ilerletilen yalnız `clock` fiziksel anlık görüntü kıyasından çıkarıldı; diğer dünya alanları aynı sertlikte kaldı. Ürün davranışı değiştirilmedi. |
+| 15.08.2026 | Faz 38.12 çok-tohumlu kapı dört paralel 300 sn koşuyu `61,4 sn`de bitirdi. Toplam `33` eylem `28 ALLY / 4 PERSUADE / 1 NEGOTIATE`; `%84,85` ile `REVIEW`. Roller `23 COMMANDER / 7 COMPANY_EXECUTIVE / 2 AGENT / 1 EXECUTIVE`, yinelenen çift `0`. Kök neden aynı çift spam'i değil, barış başlangıcında gerçek şirket/kurum/görev seçenekleri dardır ve ilk kişisel ittifak yaygın tek yüksek-değerli yoldur. Rastgele kota veya büyütülmüş global ceza reddedildi; Faz 38.9 ve 38.13 çıktıları sonrası yeniden ölçüm zorunludur. |
+| 15.08.2026 | Faz 38.12 ana davranış QA ilk dikeyi eklendi. Gerçek AI eylem makbuzlarından eylem türü, rol, aktör ve çift yoğunluğu; baskın pay ve örnek yeterliliği yeniden hesaplanıyor. `30` altı örnek `INSUFFICIENT_SAMPLE`, yeterli örnekte `%75` üstü baskınlık `REVIEW`; ölçüm seçiciyi değiştirmiyor ve rastgele çeşitlilik kotası yok. Aynı tohum 300 sn `7/8`, 900 sn `16/18` ALLY verdi. Sinyal ciddi ama örnek yetersiz olduğu için kör tekrar cezası uygulanmadı. Çok-tohumlu toplama ve ittifak/rol maruziyeti sıradadır. |
 | 31.07.2026 | EXT-001 ve EXT-002 ilk kez kaydedildi; güncel Faz 24 sonuçlarıyla zaman/kanıt ayrımı eklendi. |
 | 31.07.2026 | Kullanıcı yönlendirmesiyle Faz 22.1 aktif öncelik yapıldı; EXT-ACT-001/002 `active-phase22.1` durumuna alındı ve faz başlangıcı/kabul öncesi kontrol düzeni eklendi. |
 | 31.07.2026 | Faz 22.1 ara ölçümü işlendi: yatırım–bakım rezervi, atomik şirket takası, modern demografi ve lojistik zaman ufku kök nedenleri kaydedildi; `%42,75/%44,17` sonucu kabul kapısını geçmediği için açık kayıtlar kapatılmadı. |
@@ -791,3 +823,166 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Doğrudan görev, iş yönlendirmesi, işsizlik hayal kırıklığı ve karakterin oyuncudan ihtiyacı dört ayrı harekete ayrıldı. “Gizli bir bilgim var” yeni sır teklifi; “gizli konuyu hatırlıyor musun” geçmiş sır çağrımıdır. Yanlış isim teyidi kanonik kimliğe, teknoloji proje sorusu açık Faz 42 kayıt sınırına bağlanır.
 - Gerçek 8B'nin kabul edilmiş “Sizi nasıl hissediyorsunuz?” kişi uyuşmazlığı ve “Teşekkür ederim için buradayım. Lütfen sorularınızı belirtin.” servis-botu metni sert ret oldu. Birebir canlı paket `50`, adversarial paket `60` senaryoda geçti.
 - RTX 4060/CUDA preflight geçti. Küçük gerçek-model smoke `3` turda `1/1` model kabulü, sıfır fallback/hata, `638,16 ms` ilk token ve `2.208,09 ms` toplam üretim verdi. Bu yalnız çalışma yolu kanıtıdır; geniş doğal konuşma kabulü değildir.
+
+### 14 Ağustos 2026 — cümle ezberinden bileşimsel anlama geçiş
+
+- Commit sonrası gerçek oyuncu koşusunda eklenen örneklerin çalıştığı, fakat
+  “bana sinirlendin mi?” gibi görülmemiş bir bileşimin genel bilgi sorusuna;
+  sağlık bildiriminin ise doğru özel cevaba rağmen `UNKNOWN` sınıfına düştüğü
+  görüldü. Bu, daha fazla cümle ekleme yönteminin mimari tavanıdır.
+- `SemanticFrameV1` konuşma işlevi, yüklem/konu, hedef, kutupluluk, zaman,
+  epistemik durum, devamlılık ve beklenen sonucu ayrı çıkarır. Nihai eylem bu
+  eksenlerin çarpımından hesaplanır; tam cümle listesi üretim mantığı değildir.
+- İlk `38.5-SF1` dikeyi sağlık, duygu, görev, sır, askerî bildirim, ekonomi
+  görüşü, ilişki ve vedayı bileşimsel çözdü; anlamsız metni güven eşiğinin
+  altında bıraktı. Mevcut 50 canlı regresyon, DialogueMove, DiscourseState ve
+  kanıt testleri geçti.
+- Bu, genel Türkçe anlama tamamlandı demek değildir. Açık borç `38.5-SF2`dir:
+  düşük/orta güvenli sözde 8B birden fazla kapalı semantik aday önerecek, her
+  kanıt span'i gerçek oyuncu metniyle doğrulanacak ve nihai eylemi kod yeniden
+  hesaplayacaktır. LLM hiçbir mekanik yetki veya dünya gerçeği alamaz.
+
+### 14 Ağustos 2026 — SF2 gerçek 8B kapısı ve üretim kararı
+
+- `SemanticFrameCandidateV1` tek en-iyi aday, kapalı enum, en çok sekiz kısa
+  kanıt alıntısı ve sıfır komut/dünya yetkisiyle kuruldu. Alıntı oyuncunun gerçek
+  metninde yoksa, ek alan/yetki enjekte edilmişse, işlev ve yüklem ayrı kanıtlanmamışsa
+  veya çapraz alanlar uyuşmuyorsa aday reddedilir.
+- Geçerli sahte-model testinde `MODEL_LOADING → GENERATING →
+  SEMANTIC_INTERPRETED`, takip kilidi, analiz+DialogueMove+söylem yeniden kurma,
+  defter doğrulama ve dünya nötrlüğü geçti. Geçersiz yeni durum atomik olarak
+  önceki oturuma geri alınır.
+- İlk gerçek 8B istemi açıklamasız enumlarla `0/4` verdi ve yalnız zaman kanıtıyla
+  selamlama uyduran adayın doğrulayıcıdaki boşluğunu gösterdi. Türkçe alan
+  açıklaması, üç bileşim örneği ve tek adaydan sonraki sıkı koşu `1/4` kaldı.
+  CUDA RTX 4060, yaklaşık `6,85 sn` yükleme ve `0,41–0,53 sn` ilk token verdi;
+  darboğaz hız değil anlamsal yetenektir.
+- Duygu bildirimi `CONFIDE×EMOTION` diye yanlış sınıflandı ve çapraz alan kapısında
+  atıldı. Doğru `REQUEST×WORK` adayı metinde olmayan “benim” kanıtını uydurduğu
+  için atıldı. Gizlilik vakası doğru kabul edildi; kalanlar güvenli fallback'te kaldı.
+- Sonuç başarı değildir. `characters.semanticModelInterpretation=false`
+  varsayılandır. SF2 altyapısı test bayrağıyla hazır, canlı tüketim SF3 14B
+  öğretmen + kör holdout + distilasyon kanıtına kadar kapalıdır.
+
+### 14 Ağustos 2026 — 14B öğretmen deneyi ve dolaylı konuşma eylemi bulgusu
+
+- Qwen2.5-Coder 14B, 8B'nin `1/4` verdiği aynı kör semantik kapıda `3/4`
+  verdi. RTX 4060/CUDA doğrulandı; yaklaşık `10,2 sn` yükleme, `1,6–8,2 sn`
+  ilk token ve `37–41 sn` toplam çıktı nedeniyle yalnız çevrimdışı öğretmen
+  adayıdır.
+- İlk üretici+kör-hakem çiftleri tam çerçevede `0/2` kaldı. “Olabilir misin?”
+  örneği, dilbilgisel soru biçimiyle gerçek eylem isteğinin aynı alana
+  sıkıştırıldığını açığa çıkardı. Bu bir cümle eksikliği değil ontoloji hatasıdır.
+- `SemanticFrameV2`, `surfaceForm` ile pragmatik `communicativeFunction`ı ayırdı.
+  Kör hakem son koşuda dolaylı çalışma teklifini doğru biçimde
+  `INTERROGATIVE × REQUEST × WORK × ACTION` olarak çözdü.
+- Sentetik örnekler artık bütün çerçevede tek doğru etiketi alamaz. Çekirdek
+  işlev+biçim+konu mutabakatı zorunlu; yalnız mutabık eksenler etiketlenir,
+  uyuşmayan hedef/zaman/epistemik/devamlılık maskelenir. Son smoke çekirdekte
+  `2/2`, tam mutabakatta `0/2`dir. Başarı diye genellenemez.
+- 60 görev/8 bileşimlik deterministik SF3 manifesti ve birim kapısı hazırdır.
+  Açık borç: geniş kör holdout, doğal Türkçe kalite denetimi, gerçek oyuncu
+  loglarının üretimden tamamen ayrılması, eksen başına precision/recall ve
+  yanlış yüksek güven oranı. Bu kapılar geçmeden üretim özelliği kapalı kalır.
+
+### 14 Ağustos 2026 — sekiz-bileşim sonucuyla sentetik öğretmen freni
+
+- Gerçek 14B çift geçiş `8/8` tamamlandı: çekirdek `4/8`, tam çerçeve `0/8`,
+  eğitim uygunluğu `0/8`. İşlev/konu `%62,5`; biçim/zaman/sonuç `%50`; hedef ve
+  devamlılık `%25`; epistemik `%12,5`.
+- Kör hakem bazı alıntıların metinde bulunduğunu doğruladı fakat anlamca yanlış
+  eksene bağlanmasını yakalayamadı. “bir şey” ilişki kanıtı sayıldı. Substring
+  kanıtı semantik kanıt değildir.
+- Türkçe 8B kalite eleştirmeni beş sözü geçirdi; yapay meta cümleyi ve zayıf
+  kanıtı da onayladı. Üç kararda boolean ile `issues:["NONE"]` çelişti ve JSON
+  doğrulayıcı reddetti. İkinci model tek başına güvenilir hakem değildir.
+- Sonuç: 14B üretici/adversary, 8B yardımcı eleştirmen olabilir; hiçbiri
+  otomatik hakikat kaynağı değildir. 60 görevlik üretim durduruldu. İnsan
+  incelemeli küçük altın çekirdek veya daha güçlü bağımsız öğretmen olmadan
+  distilasyon yapılmayacak.
+- Faydalı genelleme doğrudan motora taşındı: `-abilir/-ebilir` yeterlilik yapısı
+  soru biçimi ile pragmatik amacı ayırır. İkinci tekil soru dolaylı REQUEST,
+  birinci çoğul soru ortak OFFER olabilir. Bu tam cümle listesi değil üretken
+  Türkçe operatörüdür. ASK epistemik ve TELL/CORRECT sonuç çapraz kapıları da
+  sertleştirildi.
+
+### 14 Ağustos 2026 — gece testi için insan kapısı
+
+- Sekiz SF3 kaydı localhost inceleme kuyruğuna bağlandı. Arayüz model hedefini,
+  mutabık/maskeli eksenleri ve eleştirmen kararını birlikte gösterir; insan
+  ACCEPT, REJECT veya düzeltilmiş EDIT bırakır.
+- Kabul veya düzeltme, işlev+biçim+konu çekirdeği açıkça seçilmeden kaydedilemez.
+  Modelin kalite kararı insan kararını otomatik doldurmaz.
+- Gece koşusu sert giriş ölçüleri: `40` altın, `20` holdout, çekirdek `≥%85`,
+  kanıt `≥%95`, doğal Türkçe `≥%90`, yanlış yüksek güven `≤%2`.
+- İlk kapı sonucu bilerek kırmızıdır: `0/40`, `0/20`, `NIGHT_TEST_BLOCKED`.
+  Bu, gece boyunca kötü sentetik veri üretip sahte gelişim göstermeyi engeller.
+
+### 14 Ağustos 2026 — ilk insan incelemesinin arayüz ve ontoloji bulgusu
+
+- Kullanıcı 8 kaydı tamamladı fakat neyi kabul ettiğini bilmediğini bildirdi.
+  Arayüz cümle doğallığı, hedef çerçeve doğruluğu ve eksen onayını tek ACCEPT
+  düğmesine sıkıştırmıştı. Bu kararlar kullanıcı hatası değil UI sözleşme
+  hatasıdır; legacy olarak saklandı ve gece sayacından çıkarıldı.
+- V2 arayüz “cümle+etiket doğru / reddet / düzelterek kabul et” ayrımını açıklar,
+  alanları Türkçe gösterir ve model kanıt alıntılarını görünür kılar. Eski karar
+  yenilenince history içinde korunur.
+- “Şimdi duygularım yok” notu `socialStance` eksiğini gösterdi. Yakınma, dostluk,
+  hakaret, pohpohlama, tehdit, provokasyon ve yatıştırma EMOTION konusu değildir;
+  konuşma konusundan bağımsız sosyal tavırdır. SemanticFrameV3 borcu açıldı.
+
+### 14 Ağustos 2026 — çift adjudikasyon ve güvenli gece ölçümü
+
+- V2 insan tekrarında 3 kabul/5 ret çıktı. QA ikinci hükmü yalnız `0002` ve
+  `0005` ile kesişti; altın çekirdek `2/40` oldu. `0007` yorgunluk kaynaklı
+  yanlış kabul, `0008` ise model JSON kesilmesinden etkilenmiş yanlış ret olarak
+  ayrıldı. Hiçbiri sessizce kullanıcının kararının üzerine yazılmadı.
+- Gece kapısı artık insan kararı + QA adjudikasyonu çekirdek kesişimini sayar.
+  Tek model veya tek yorgun inceleme eğitim verisi oluşturamaz.
+- `çalışalım` yapısı mevcut yüzey biçimlerinde net temsil edilemiyor;
+  SemanticFrameV3 için `HORTATIVE` (birlikte yapma çağrısı) borcu açıldı.
+- Gerçek eğitim hâlâ blokeli. Donanımı değerlendirmek için 14B oyuncu + 8B
+  karakter, 1000 turluk frontier yalnız ölçüm modunda başlatıldı. Atomik
+  checkpoint/rapor dışında dosya değiştirmez; ham bulgular incelenmeden eğitim
+  yapılmaz.
+- İlk hız/çeşitlilik örneği 42 metinde 39 birebir benzersiz görünmesine rağmen
+  yalnız 6 yapısal aile verdi; baskın iki şablon 20 metni kapladı. Exact unique
+  metriği doğal çeşitliliği abartıyor.
+- Gece paketi bu nedenle `100×10` genişlik + `30×50` uzun bağlam olarak iki
+  aşamaya çıkarıldı. Toplam 2500 tur; ikinci aşama ilk rapor doğrulanınca atomik
+  bekleyici tarafından başlatılır. Bu hâlâ ölçümdür, eğitim değildir.
+
+### 15 Ağustos 2026 — ölçüm altyapısı modelden önce doğrulanmalıdır
+
+- İlk 1000 turda görünen `802` hatanın `626` tanesi model değil
+  `SESSION_NOT_FOUND` altyapı hatasıdır. Test 100 paralel görüşme açarken oyun
+  defteri tasarım gereği 32 görüşme saklar. Ham toplamı “AI başarısız” diye
+  okumak sahte teşhis üretir.
+- Yeni zorunlu kural: uzun model koşusundan önce oturum kapasitesi, defterde
+  yaşayan kimlik sayısı ve altyapı-hata sıfırı kanıtlanır. Rapor model üretim
+  hatası ile harness hatasını ayrı sayaçlarda taşır.
+- Kapasite-hatasız 510 turluk kesit yine gerçek kalite kusuru gösterdi: oyuncu
+  üreticisinde biçim çökmesi; karakterde geçmiş/fallback tekrarı, servis botu
+  dili ve kesik cevap. Dolayısıyla altyapı hatasını ayırmak modeli aklamaz;
+  yalnız kusurun doğru sahibini gösterir.
+- İlk hedefli GPU tekrarında oyuncu hatası sıfırlandı ve kesik karakter cevabı
+  reddedildi. Bu iki kırmızı ailenin kapanışıdır; genel sohbet başarısı değildir.
+- Aynı smoke `gizli` konu niteliğinin otomatik sır paylaşma eylemine çevrildiğini
+  gösterdi. Konu ekseni ile iletişim işlevi ayrıldı; CONFIDE artık ayrıca
+  paylaşma/verme/gizli tutma kanıtı ister.
+- Sonraki gerçek CUDA kesiti ikinci bir mimari hata buldu: geçmiş tur metni
+  kanıt paketi içinde görünür olduğu için model, önceki ülke sayılarını ilgisiz
+  şirket/toplantı sorularına taşıyabiliyordu. Geçmiş metin artık FACT değildir;
+  şirket ve ülke ekonomi kapsamı ayrıldı, toplantı gündemi/sonucu kayıt yokluğu
+  ayrı mekanik cevap oldu. Hedefli üç turda eski sayı ve sahte ortak geçmiş
+  sızıntısı kalmadı.
+- Kanıtsız bilgi sorularında 8B'yi promptla zorlamak iki gerçek CUDA denemesinde
+  sırasıyla geri-soru ve oyuncu cümlesi kopyası üretti. Motor artık içeriksiz
+  turu modele göndermiyor. Test koşucularının bu `NOT_REQUIRED` kararını yok
+  saydığı ayrıca bulundu ve oyun/test eşitliği yeniden kuruldu. Medya senaryosu
+  kamusal bilgi vaat ediyor fakat konuşma FACT adaptörü hâlâ yok; modern medya
+  katmanının açık entegrasyon borcudur.
+- Devamlılık probu davranıştan çok eksik sözleşme alanı gösterdi: aktif ticari
+  konu korunmasına rağmen takip kaydı bunu taşımıyordu. `inheritedTopic`,
+  `CONTINUE_SOCIAL` ve `CLARIFY_AMBIGUOUS_INPUT` kanonikleştirildi; merkez uzun
+  konuşma probunun yedi devamlılık ölçüsü birlikte geçti.

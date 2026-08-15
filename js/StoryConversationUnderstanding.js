@@ -62,7 +62,8 @@ function storyConversationHash(value) {
 
 function storyConversationEnabled() {
     return typeof storyFeatureEnabled !== 'function'
-        || storyFeatureEnabled('characters.conversationUnderstanding');
+        || (storyFeatureEnabled('characters.conversationUnderstanding')
+            && storyFeatureEnabled('characters.conversationCases'));
 }
 
 function storyConversationContains(folded, patterns) {
@@ -410,7 +411,11 @@ function storyConversationAnalyze(raw, context) {
     if (!folded) return storyConversationFailure('EMPTY_INPUT', sourceText);
     context = context && typeof context === 'object' ? context : {};
 
-    const act = storyConversationSpeechAct(folded, sourceText);
+    const semanticFrame = typeof storyConversationSemanticFrameCompile === 'function'
+        ? storyConversationSemanticFrameCompile(sourceText, context) : null;
+    const legacyAct = storyConversationSpeechAct(folded, sourceText);
+    const act = typeof storyConversationSemanticFrameFuse === 'function'
+        ? storyConversationSemanticFrameFuse(legacyAct, semanticFrame) : legacyAct;
     const countries = storyConversationResolveCountries(folded);
     const regions = storyConversationResolveRegions(folded);
     const resource = storyConversationResolveResource(folded);
@@ -559,6 +564,13 @@ function storyConversationAnalyze(raw, context) {
         storyConversationContains(folded, ['refah', 'issizlik']) ? 'WELFARE' : null,
         storyConversationContains(folded, ['son donem', 'degisti', 'degisim', 'artti', 'azaldi']) ? 'TREND' : null
     ].filter(Boolean) : [];
+    const economicScope = economicContext && storyConversationContains(folded, [
+        'sirket', 'sirketim', 'sirketimiz', 'sirketiniz', 'firma', 'firmam', 'firmamiz',
+        'firmaniz'
+    ]) && !storyConversationContains(folded, [
+        'devlet ekonom', 'ulke ekonom', 'ulkemizin ekonom', 'ulkenizin ekonom',
+        'kamu butce', 'devlet butce', 'devlet hazine', 'makroekonom'
+    ]) ? 'COMPANY' : economicContext ? 'COUNTRY' : 'NONE';
     const result = {
         schemaVersion: STORY_CONVERSATION_UNDERSTANDING_SCHEMA_VERSION,
         adapterVersion: STORY_CONVERSATION_UNDERSTANDING_ADAPTER_VERSION,
@@ -566,6 +578,7 @@ function storyConversationAnalyze(raw, context) {
         analysisId: `conversation-analysis:${storyConversationHash(`${folded}|${context.listenerActorId || '-'}|${storyConversationKnownIds(context, 'shipment').join(',')}`).slice(9)}`,
         inputHash: storyConversationHash(folded), language: 'tr', source: STORY_CONVERSATION_UNDERSTANDING_SOURCE,
         worldMutation: false, speechAct: act.primary, secondaryActs: act.secondary,
+        semanticFrame,
         playerIntent: founding && resource && resource.mention === 'çelik' ? 'FOUND_STEEL_COMPANY'
             : founding ? 'FOUND_COMPANY' : redirect ? 'REDIRECT_SHIPMENT'
                 : act.primary === 'REQUEST_SUPPORT' && militaryContext ? 'REQUEST_MILITARY_SUPPORT'
@@ -587,7 +600,8 @@ function storyConversationAnalyze(raw, context) {
             inputLength: sourceText.length, normalizedTokenCount: folded.split(' ').length,
             entityCount: entities.length, resolvedEntityCount: entities.filter(row => !!row.entityId).length,
             unresolvedEntityCount: unresolvedEntities.length, classifierScores: act.scores,
-            economicSignals,
+            classifierSource: act.source || 'LEGACY_PHRASE_SCORER',
+            economicSignals, economicScope,
             relationshipSignals: relationshipContext ? ['DIRECTIONAL_RELATIONSHIP'] : [],
             rawTradeLedgerRead: false, llmUsed: false,
             playerReportCount: claims.filter(row => row.truthStatus === 'UNVERIFIED_PLAYER_REPORT').length
@@ -636,11 +650,26 @@ function storyConversationContract() {
 // NegotiationCase değildir: karakter henüz kabul/ret vermemiş, dünya komutu
 // oluşmamıştır. Oyuncunun cümle ve açıklamalarını kaybolmayan, sınırlandırılmış
 // bir mekanik inceleme adayına taşır. Gerçek söz/borç/anlaşma Faz 38.3'e aittir.
-const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 3;
-const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-3';
+const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 4;
+const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-4';
 const STORY_CONVERSATION_SESSION_LIMIT = 32;
+const STORY_CONVERSATION_TASK_OFFER_LIMIT = 64;
+const STORY_CONVERSATION_MEETING_LIMIT = 16;
 const STORY_CONVERSATION_TURN_LIMIT = 24;
 const STORY_CONVERSATION_HISTORY_TOKEN_BUDGET = 6000;
+const STORY_CONVERSATION_CASE_SCHEMA_VERSION = 1;
+const STORY_CONVERSATION_CASE_MODES = Object.freeze([
+    'DAILY_CHAT', 'TASKS_JOBS', 'CONFIDENTIALITY',
+    'REPORT_DECLARATION', 'OFFER_NEGOTIATION', 'FORMAL_MEETING'
+]);
+const STORY_CONVERSATION_CASE_MODE_STATUS = Object.freeze({
+    DAILY_CHAT: 'LIVE',
+    TASKS_JOBS: 'LIVE_TASK_OFFER_ADAPTER',
+    CONFIDENTIALITY: 'PARTIAL_SECRET_LEDGER_AVAILABLE',
+    REPORT_DECLARATION: 'PARTIAL_UNVERIFIED_CLAIM_LEDGER',
+    OFFER_NEGOTIATION: 'LIVE_NEGOTIATION_CASE_AVAILABLE',
+    FORMAL_MEETING: 'LIVE_MEETING_CASE_SHELL'
+});
 const STORY_CONVERSATION_DOMAIN_REVIEW_SCHEMA_VERSION = 1;
 const STORY_CONVERSATION_DOMAIN_REVIEW_ADAPTER_VERSION = 'story-conversation-domain-review-1';
 const STORY_CONVERSATION_REVIEW_STATUSES = Object.freeze([
@@ -656,27 +685,645 @@ function storyConversationSessionLedgerCreate() {
         schemaVersion: STORY_CONVERSATION_SESSION_SCHEMA_VERSION,
         adapterVersion: STORY_CONVERSATION_SESSION_ADAPTER_VERSION,
         nextSequence: 1,
+        nextTaskOfferSequence: 1,
+        nextMeetingSequence: 1,
         sessions: [],
+        taskOffers: [],
+        meetingCases: [],
         diagnostics: {
             prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
             domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
             playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0,
-            socialFollowUps: 0, memoryRecalls: 0
+            socialFollowUps: 0, memoryRecalls: 0, caseModeSwitches: 0,
+            prunedTaskOffers: 0
         }
     };
+}
+
+function storyConversationCaseInferMode(raw, analysis) {
+    const folded = storyConversationFold(raw);
+    const focus = typeof storyConversationQuestionFocus === 'function'
+        ? storyConversationQuestionFocus(folded) : null;
+    if (storyConversationContains(folded, ['resmi toplanti', 'toplanti duzenle',
+        'toplanti cagir', 'kurul toplansin', 'konsey toplansin'])) return 'FORMAL_MEETING';
+    if (['REQUEST_JOB_OR_TASK', 'REQUEST_JOB_REFERRAL', 'CURRENT_ASSIGNMENT',
+        'REQUEST_CHARACTER_NEED', 'JOB_FRUSTRATION'].includes(focus)) return 'TASKS_JOBS';
+    const speechAct = String(analysis && analysis.speechAct || 'UNKNOWN');
+    if (speechAct === 'SHARE_SECRET'
+        || storyConversationContains(folded, ['aramizda kalsin', 'gizli tut', 'sir olarak'])) {
+        return 'CONFIDENTIALITY';
+    }
+    if (['REPORT_MILITARY', 'REPORT_ECONOMIC'].includes(speechAct)
+        || storyConversationContains(folded, ['rapor veriyorum', 'bildiriyorum', 'bildirge'])) {
+        return 'REPORT_DECLARATION';
+    }
+    if (['PROPOSE_COMMERCIAL_DEAL', 'COUNTER_OFFER', 'OFFER_SUPPORT'].includes(speechAct)
+        || storyConversationContains(folded, ['teklif', 'anlasma', 'muzakere'])) {
+        return 'OFFER_NEGOTIATION';
+    }
+    return 'DAILY_CHAT';
+}
+
+function storyConversationCaseApplyMode(session, mode, source, sourceTurnId) {
+    if (!session || !STORY_CONVERSATION_CASE_MODES.includes(String(mode))) return false;
+    const normalized = String(mode);
+    if (!session.conversationCase || typeof session.conversationCase !== 'object') {
+        const participants = Array.from(new Set([session.playerActorId, session.listenerActorId]
+            .filter(Boolean).map(String)));
+        session.conversationCase = {
+            schemaVersion: STORY_CONVERSATION_CASE_SCHEMA_VERSION,
+            id: `conversation-case:${session.id}`,
+            sessionId: session.id,
+            kind: 'SINGLE_PARTY',
+            mode: normalized,
+            mechanicalStatus: STORY_CONVERSATION_CASE_MODE_STATUS[normalized],
+            participantActorIds: participants,
+            openedAt: Number(session.createdAt) || 0,
+            updatedAt: Number(session.updatedAt) || Number(session.createdAt) || 0,
+            modeHistory: [],
+            taskOfferIds: [], confidentialityRecordIds: [], declarationDraftIds: [],
+            meetingCaseId: null,
+            worldMutation: false
+        };
+    }
+    const conversationCase = session.conversationCase;
+    if (conversationCase.mode === normalized && conversationCase.modeHistory.length) return false;
+    const previous = conversationCase.modeHistory.length ? conversationCase.mode : null;
+    conversationCase.mode = normalized;
+    conversationCase.mechanicalStatus = STORY_CONVERSATION_CASE_MODE_STATUS[normalized];
+    conversationCase.updatedAt = Number(STORY.clock) || Number(session.updatedAt) || 0;
+    conversationCase.modeHistory.push({
+        sequence: conversationCase.modeHistory.length + 1,
+        from: previous,
+        to: normalized,
+        source: String(source || 'PLAYER_EXPLICIT_MODE'),
+        sourceTurnId: sourceTurnId == null ? null : String(sourceTurnId),
+        changedAt: Number(STORY.clock) || Number(session.updatedAt) || 0,
+        worldMutation: false
+    });
+    return true;
+}
+
+function storyConversationCaseCreate(session, raw, analysis) {
+    storyConversationCaseApplyMode(session,
+        storyConversationCaseInferMode(raw, analysis), 'INITIAL_ANALYSIS', `conversation-turn:${session.id}:0`);
+    return session.conversationCase;
+}
+
+function storyConversationTaskOfferTarget(session) {
+    if (!session || typeof storyContactDirectoryBuild !== 'function'
+        || typeof storyCharacterActionCandidate !== 'function') return null;
+    const directory = storyContactDirectoryBuild();
+    const listener = (directory.publicCharacters || []).find(row => row.id === session.listenerActorId);
+    const listenerIdentity = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(session.listenerActorId) : null;
+    if (!listener || listener.contactable === false || session.listenerActorId === session.playerActorId
+        || (listenerIdentity && listenerIdentity.life && listenerIdentity.life.status !== 'ACTIVE')) return null;
+    const candidates = (directory.publicCharacters || []).filter(row => row.contactable !== false
+        && row.id !== session.playerActorId && row.id !== session.listenerActorId)
+        .map(row => ({
+            row,
+            preview: storyCharacterActionCandidate({
+                actorId: session.playerActorId, targetActorId: row.id,
+                actionType: 'PERSUADE', decisionSource: 'CONVERSATION_TASK_PREVIEW'
+            })
+        }))
+        .filter(item => item.preview && item.preview.allowed)
+        .sort((a, b) => Number(b.row.ownerId === listener.ownerId) - Number(a.row.ownerId === listener.ownerId)
+            || Number(b.row.directContact === true) - Number(a.row.directContact === true)
+            || String(a.row.id).localeCompare(String(b.row.id), 'en'));
+    return candidates.length ? { listener, target: candidates[0].row, preview: candidates[0].preview } : null;
+}
+
+function storyConversationTaskOfferPreview(sessionId) {
+    const session = storyConversationSessionFind(sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    if (!session.conversationCase || session.conversationCase.mode !== 'TASKS_JOBS') {
+        return { ok: false, code: 'TASK_MODE_REQUIRED', worldMutation: false };
+    }
+    const source = storyConversationTaskOfferTarget(session);
+    if (!source) return { ok: false, code: 'NO_ELIGIBLE_CONTACT_TASK', worldMutation: false };
+    return {
+        ok: true, code: 'TASK_OFFER_PREVIEW_READY',
+        preview: {
+            kind: 'CONTACT_REQUEST', issuerActorId: session.listenerActorId,
+            issuerName: source.listener.name, assigneeActorId: session.playerActorId,
+            targetActorId: source.target.id, targetName: source.target.name,
+            objectiveType: 'HOLD_CONVERSATION', actionCandidateId: source.preview.id,
+            deadlineSeconds: 300,
+            authority: { model: 'PERSONAL_REQUEST', sourceActorId: session.listenerActorId, canCompel: false },
+            reward: { kind: 'NONE', amount: 0 }, worldMutation: false
+        },
+        worldMutation: false
+    };
+}
+
+function storyConversationTaskOfferCreate(sessionId) {
+    const ledger = storyConversationSessionEnsure();
+    const session = storyConversationSessionFind(sessionId);
+    if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const existing = ledger.taskOffers.find(row => row.sessionId === session.id
+        && ['OFFERED', 'ACCEPTED'].includes(row.status));
+    if (existing) return { ok: true, code: 'TASK_OFFER_ALREADY_OPEN', taskOffer: storyConversationClone(existing), worldMutation: false };
+    const preview = storyConversationTaskOfferPreview(sessionId);
+    if (!preview.ok) return preview;
+    if (ledger.taskOffers.length >= STORY_CONVERSATION_TASK_OFFER_LIMIT) {
+        const removable = ledger.taskOffers.findIndex(row => ['DECLINED', 'COMPLETED', 'EXPIRED'].includes(row.status));
+        if (removable < 0) return { ok: false, code: 'TASK_OFFER_LIMIT', worldMutation: false };
+        const removed = ledger.taskOffers.splice(removable, 1)[0];
+        for (const row of ledger.sessions) {
+            if (row.conversationCase) row.conversationCase.taskOfferIds = row.conversationCase.taskOfferIds
+                .filter(id => id !== removed.id);
+        }
+        ledger.diagnostics.prunedTaskOffers++;
+    }
+    const sequence = ledger.nextTaskOfferSequence++;
+    const createdAt = Number(STORY.clock) || 0;
+    const taskOffer = {
+        schemaVersion: 1, id: `conversation-task-offer:${sequence}`, sequence,
+        caseId: session.conversationCase.id, sessionId: session.id,
+        kind: preview.preview.kind, issuerActorId: preview.preview.issuerActorId,
+        issuerName: preview.preview.issuerName, assigneeActorId: preview.preview.assigneeActorId,
+        authority: preview.preview.authority,
+        objective: {
+            type: preview.preview.objectiveType, targetActorId: preview.preview.targetActorId,
+            targetName: preview.preview.targetName, minimumConversationCount: 1,
+            actionCandidateId: preview.preview.actionCandidateId
+        },
+        reward: preview.preview.reward, createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
+        status: 'OFFERED', acceptedAt: null, declinedAt: null, completedAt: null,
+        completionSessionId: null, sourceTurnId: `conversation-mode:${session.id}`,
+        worldMutation: false
+    };
+    ledger.taskOffers.push(taskOffer);
+    session.conversationCase.taskOfferIds.push(taskOffer.id);
+    session.conversationCase.updatedAt = createdAt;
+    return { ok: true, code: 'TASK_OFFER_CREATED', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+}
+
+function storyConversationTaskOfferList(sessionId) {
+    const ledger = storyConversationSessionEnsure();
+    return (ledger && ledger.taskOffers || []).filter(row => !sessionId || row.sessionId === String(sessionId))
+        .map(storyConversationClone);
+}
+
+function storyConversationTaskOfferDecision(taskOfferId, decision) {
+    const ledger = storyConversationSessionEnsure();
+    const taskOffer = ledger && ledger.taskOffers.find(row => row.id === String(taskOfferId));
+    const normalized = String(decision || '').toUpperCase();
+    if (!taskOffer) return { ok: false, code: 'TASK_OFFER_NOT_FOUND', worldMutation: false };
+    if (!['ACCEPT', 'DECLINE'].includes(normalized)) {
+        return { ok: false, code: 'TASK_DECISION_INVALID', worldMutation: false };
+    }
+    if (taskOffer.status !== 'OFFERED') {
+        return { ok: false, code: 'TASK_OFFER_NOT_OPEN', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+    }
+    const now = Number(STORY.clock) || 0;
+    if (now > taskOffer.dueAt) {
+        taskOffer.status = 'EXPIRED';
+        return { ok: false, code: 'TASK_OFFER_EXPIRED', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+    }
+    taskOffer.status = normalized === 'ACCEPT' ? 'ACCEPTED' : 'DECLINED';
+    taskOffer[normalized === 'ACCEPT' ? 'acceptedAt' : 'declinedAt'] = now;
+    return { ok: true, code: `TASK_OFFER_${taskOffer.status}`, taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+}
+
+function storyConversationTaskOfferTick() {
+    const ledger = storyConversationSessionEnsure();
+    if (!ledger) return 0;
+    const now = Number(STORY.clock) || 0;
+    let expired = 0;
+    for (const taskOffer of ledger.taskOffers || []) {
+        if (['OFFERED', 'ACCEPTED'].includes(taskOffer.status) && now > taskOffer.dueAt) {
+            taskOffer.status = 'EXPIRED';
+            expired++;
+        }
+    }
+    return expired;
+}
+
+function storyConversationTaskOfferCompleteForConversation(ledger, completedSession) {
+    if (!ledger || !completedSession) return [];
+    const now = Number(STORY.clock) || 0;
+    const completed = [];
+    for (const taskOffer of ledger.taskOffers || []) {
+        if (taskOffer.status !== 'ACCEPTED' || taskOffer.assigneeActorId !== completedSession.playerActorId
+            || taskOffer.objective.type !== 'HOLD_CONVERSATION'
+            || taskOffer.objective.targetActorId !== completedSession.listenerActorId
+            || taskOffer.sessionId === completedSession.id) continue;
+        if (now > taskOffer.dueAt) { taskOffer.status = 'EXPIRED'; continue; }
+        taskOffer.status = 'COMPLETED';
+        taskOffer.completedAt = now;
+        taskOffer.completionSessionId = completedSession.id;
+        completed.push(taskOffer.id);
+    }
+    return completed;
+}
+
+function storyConversationMeetingCandidate(session, agendaText) {
+    const agenda = String(agendaText == null ? '' : agendaText).trim().replace(/\s+/g, ' ');
+    if (!session || !session.conversationCase || session.conversationCase.mode !== 'FORMAL_MEETING') {
+        return { ok: false, code: 'MEETING_MODE_REQUIRED', worldMutation: false };
+    }
+    if (agenda.length < 8 || agenda.length > 240) {
+        return { ok: false, code: 'MEETING_AGENDA_INVALID', worldMutation: false };
+    }
+    if (typeof storyContactDirectoryBuild !== 'function'
+        || typeof storyCharacterRoleAdapterView !== 'function') {
+        return { ok: false, code: 'MEETING_DIRECTORY_UNAVAILABLE', worldMutation: false };
+    }
+    const directory = storyContactDirectoryBuild();
+    const visible = (directory.publicCharacters || []).filter(row => row.contactable !== false);
+    const listener = visible.find(row => row.id === session.listenerActorId);
+    if (!listener) return { ok: false, code: 'MEETING_LISTENER_NOT_CONTACTABLE', worldMutation: false };
+    const sameCountry = visible.filter(row => row.ownerId === listener.ownerId);
+    const officeCandidates = sameCountry.map(row => ({
+        row, view: storyCharacterRoleAdapterView(row.id)
+    })).filter(item => item.view && item.view.ok && item.view.adapter
+        && item.view.adapter.lifeStatus === 'ACTIVE'
+        && item.view.adapter.institutionalBindings.length)
+        .sort((a, b) => {
+            const priority = item => Math.min(...item.view.adapter.institutionalBindings.map(binding => ({
+                EXECUTIVE: 0, LEGISLATURE: 1, JUDICIARY: 2, ARMED_FORCES: 3, LOCAL_ADMINISTRATION: 4
+            })[binding.institutionType] ?? 9));
+            return priority(a) - priority(b) || String(a.row.id).localeCompare(String(b.row.id), 'en');
+        });
+    if (!officeCandidates.length) {
+        return { ok: false, code: 'MEETING_CANONICAL_CHAIR_REQUIRED', worldMutation: false };
+    }
+    const chair = officeCandidates[0];
+    const chairBinding = chair.view.adapter.institutionalBindings.slice().sort((a, b) => {
+        const priorities = { EXECUTIVE: 0, LEGISLATURE: 1, JUDICIARY: 2, ARMED_FORCES: 3, LOCAL_ADMINISTRATION: 4 };
+        return (priorities[a.institutionType] ?? 9) - (priorities[b.institutionType] ?? 9)
+            || a.institutionId.localeCompare(b.institutionId, 'en');
+    })[0];
+    const participantRows = [];
+    const add = row => {
+        if (row && !participantRows.some(item => item.id === row.id)) participantRows.push(row);
+    };
+    add(chair.row);
+    add({ id: session.playerActorId, name: 'Sen', role: 'PLAYER', ownerId: directory.playerCountryId,
+        countryName: listener.countryName, contactable: true, own: true });
+    add(listener);
+    sameCountry.slice().sort((a, b) => Number(b.directContact) - Number(a.directContact)
+        || String(a.id).localeCompare(String(b.id), 'en')).forEach(row => {
+        if (participantRows.length < 4) add(row);
+    });
+    if (participantRows.length < 3) {
+        return { ok: false, code: 'MEETING_MINIMUM_PARTICIPANTS', worldMutation: false };
+    }
+    return {
+        ok: true, code: 'MEETING_CANDIDATE_READY', agenda,
+        chair: { row: chair.row, binding: chairBinding }, participantRows,
+        worldMutation: false
+    };
+}
+
+function storyConversationMeetingCreate(sessionId, agendaText) {
+    const ledger = storyConversationSessionEnsure();
+    const session = storyConversationSessionFind(sessionId);
+    if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    if (session.conversationCase && session.conversationCase.meetingCaseId) {
+        const existing = ledger.meetingCases.find(row => row.id === session.conversationCase.meetingCaseId);
+        return { ok: true, code: 'MEETING_ALREADY_OPEN', meetingCase: storyConversationClone(existing), worldMutation: false };
+    }
+    if (ledger.meetingCases.length >= STORY_CONVERSATION_MEETING_LIMIT) {
+        return { ok: false, code: 'MEETING_CASE_LIMIT', worldMutation: false };
+    }
+    const candidate = storyConversationMeetingCandidate(session, agendaText);
+    if (!candidate.ok) return candidate;
+    const sequence = ledger.nextMeetingSequence++;
+    const id = `conversation-meeting:${sequence}`;
+    const createdAt = Number(STORY.clock) || 0;
+    const participantActorIds = candidate.participantRows.map(row => row.id);
+    const meetingCase = {
+        schemaVersion: 1, id, sequence, conversationCaseId: session.conversationCase.id,
+        sessionId: session.id, meetingType: 'FORMAL_CONSULTATION',
+        status: 'OPEN_NO_DECISION_ADAPTER', countryId: candidate.chair.binding.countryId,
+        chair: {
+            actorId: candidate.chair.row.id, name: candidate.chair.row.name,
+            institutionId: candidate.chair.binding.institutionId,
+            institutionType: candidate.chair.binding.institutionType,
+            authoritySource: 'CANONICAL_INSTITUTION_OFFICE'
+        },
+        participants: candidate.participantRows.map(row => ({
+            actorId: row.id, name: row.name, role: row.role,
+            countryName: row.countryName || candidate.chair.row.countryName,
+            visibility: 'KNOWN_PUBLIC_PROFILE', invitationStatus: 'CONFIRMED'
+        })),
+        participantActorIds,
+        agendaItems: [{
+            id: `${id}:agenda:1`, sequence: 1, title: candidate.agenda,
+            status: 'OPEN', proposedByActorId: session.playerActorId,
+            source: 'PLAYER_PROPOSED_AGENDA', worldMutation: false
+        }],
+        speakingOrderActorIds: participantActorIds.slice(), currentSpeakerIndex: 0,
+        turns: [], privateNotes: [], motions: [], votes: [], outcomeReceiptId: null,
+        visibilityMatrix: participantActorIds.map(actorId => ({
+            actorId,
+            visibleParticipantActorIds: participantActorIds.slice(),
+            visibleAgendaItemIds: [`${id}:agenda:1`],
+            visibleTurnIds: [],
+            visiblePrivateNoteIds: [],
+            privateContextOwnerActorId: actorId,
+            mayReadOtherPrivateContext: false
+        })),
+        createdAt, updatedAt: createdAt, worldMutation: false
+    };
+    ledger.meetingCases.push(meetingCase);
+    session.conversationCase.kind = 'MULTI_PARTY';
+    session.conversationCase.meetingCaseId = id;
+    session.conversationCase.participantActorIds = participantActorIds.slice();
+    session.conversationCase.updatedAt = createdAt;
+    return { ok: true, code: 'MEETING_CASE_CREATED', meetingCase: storyConversationClone(meetingCase), worldMutation: false };
+}
+
+function storyConversationMeetingGet(meetingCaseId) {
+    const ledger = storyConversationSessionEnsure();
+    const row = ledger && ledger.meetingCases.find(item => item.id === String(meetingCaseId));
+    return row ? storyConversationClone(row) : null;
+}
+
+function storyConversationMeetingBySession(sessionId) {
+    const ledger = storyConversationSessionEnsure();
+    const row = ledger && ledger.meetingCases.find(item => item.sessionId === String(sessionId));
+    return row ? storyConversationClone(row) : null;
+}
+
+function storyConversationMeetingAdvanceSpeaker(meetingCaseId) {
+    const ledger = storyConversationSessionEnsure();
+    const row = ledger && ledger.meetingCases.find(item => item.id === String(meetingCaseId));
+    if (!row) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    if (row.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_NOT_OPEN', worldMutation: false };
+    }
+    const result = storyConversationMeetingAppendTurn(row, {
+        actorId: row.speakingOrderActorIds[row.currentSpeakerIndex],
+        kind: 'PROCEDURAL_SKIP', text: '', sourceRefs: [row.agendaItems[0].id]
+    });
+    return Object.assign({}, result, {
+        code: result.ok ? 'MEETING_SPEAKER_ADVANCED' : result.code,
+        currentSpeakerActorId: result.ok
+            ? result.meetingCase.speakingOrderActorIds[result.meetingCase.currentSpeakerIndex] : null
+    });
+}
+
+function storyConversationMeetingAppendTurn(meeting, input) {
+    if (!meeting || meeting.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_NOT_OPEN', worldMutation: false };
+    }
+    if ((meeting.turns || []).length >= 40) {
+        return { ok: false, code: 'MEETING_TURN_LIMIT', worldMutation: false };
+    }
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (String(input.actorId || '') !== currentActorId) {
+        return { ok: false, code: 'MEETING_SPEAKER_OUT_OF_ORDER', worldMutation: false };
+    }
+    const participant = meeting.participants.find(row => row.actorId === currentActorId);
+    const addressedActorId = input.addressedActorId == null ? null : String(input.addressedActorId);
+    if (addressedActorId && !meeting.participantActorIds.includes(addressedActorId)) {
+        return { ok: false, code: 'MEETING_ADDRESSEE_NOT_PARTICIPANT', worldMutation: false };
+    }
+    const text = String(input.text == null ? '' : input.text).trim().replace(/\s+/g, ' ');
+    if (input.kind !== 'PROCEDURAL_SKIP' && (text.length < 2 || text.length > 1200)) {
+        return { ok: false, code: 'MEETING_TURN_TEXT_INVALID', worldMutation: false };
+    }
+    const sequence = meeting.turns.length + 1;
+    const turn = {
+        schemaVersion: 1, id: `${meeting.id}:turn:${sequence}`, sequence,
+        actorId: currentActorId, actorName: participant && participant.name || currentActorId,
+        actorRole: participant && participant.role || 'CHARACTER',
+        addressedActorId, kind: String(input.kind || 'PUBLIC_STATEMENT'),
+        text: input.kind === 'PROCEDURAL_SKIP' ? '' : text,
+        visibility: 'MEETING_PUBLIC',
+        sourceRefs: Array.from(new Set((input.sourceRefs || []).map(String))),
+        grounding: input.grounding ? storyConversationClone(input.grounding) : null,
+        knowledgePolicy: {
+            agendaVisible: true, priorPublicTurnsVisible: true,
+            ownPrivateContextOnly: true, otherPrivateContextReadable: false,
+            rawWorldRead: false
+        },
+        createdAt: Number(STORY.clock) || 0, worldMutation: false
+    };
+    meeting.turns.push(turn);
+    for (const row of meeting.visibilityMatrix || []) row.visibleTurnIds.push(turn.id);
+    meeting.currentSpeakerIndex = (meeting.currentSpeakerIndex + 1) % meeting.speakingOrderActorIds.length;
+    meeting.updatedAt = Number(STORY.clock) || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_TURN_RECORDED', turn: storyConversationClone(turn),
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingSubmitPlayerTurn(meetingCaseId, text, addressedActorId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    return storyConversationMeetingAppendTurn(meeting, {
+        actorId: session.playerActorId, addressedActorId, text,
+        kind: 'PLAYER_PUBLIC_STATEMENT', sourceRefs: [meeting.agendaItems[0].id]
+    });
+}
+
+function storyConversationMeetingSendPrivateNote(meetingCaseId, recipientActorId, text) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    if (meeting.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_NOT_OPEN', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const authorActorId = session.playerActorId;
+    const recipient = String(recipientActorId || '');
+    if (!meeting.participantActorIds.includes(recipient) || recipient === authorActorId) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_RECIPIENT_INVALID', worldMutation: false };
+    }
+    const normalized = String(text == null ? '' : text).trim().replace(/\s+/g, ' ');
+    if (normalized.length < 2 || normalized.length > 600) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_TEXT_INVALID', worldMutation: false };
+    }
+    if ((meeting.privateNotes || []).length >= 24) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_LIMIT', worldMutation: false };
+    }
+    const sequence = meeting.privateNotes.length + 1;
+    const note = {
+        schemaVersion: 1, id: `${meeting.id}:private-note:${sequence}`, sequence,
+        authorActorId, recipientActorId: recipient, text: normalized,
+        visibility: 'BILATERAL_PRIVATE', sourceTurnId: null,
+        createdAt: Number(STORY.clock) || 0, worldMutation: false
+    };
+    meeting.privateNotes.push(note);
+    for (const row of meeting.visibilityMatrix || []) {
+        if (row.actorId === authorActorId || row.actorId === recipient) {
+            row.visiblePrivateNoteIds.push(note.id);
+        }
+    }
+    meeting.updatedAt = Number(STORY.clock) || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_PRIVATE_NOTE_RECORDED', privateNote: storyConversationClone(note),
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingAgendaTerms(text) {
+    const stop = new Set(['acik', 'icin', 'ile', 've', 'veya', 'bir', 'bu', 'icin', 'uzere',
+        'gibi', 'daha', 'olan', 'olarak', 'icin', 'sonra', 'once']);
+    return Array.from(new Set(String(text || '').toLocaleLowerCase('tr-TR')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i')
+        .split(/[^a-z0-9]+/).filter(token => token.length >= 4 && !stop.has(token))));
+}
+
+function storyConversationMeetingBeliefGrounding(meeting, participant) {
+    if (!participant || typeof storyConversationActorBeliefView !== 'function') return null;
+    const view = storyConversationActorBeliefView(participant.actorId, { trackRead: true });
+    const agendaTerms = storyConversationMeetingAgendaTerms(meeting.agendaItems[0].title);
+    const eligible = (view.beliefs || []).filter(belief => {
+        const visibility = String(belief.fact && belief.fact.visibility || 'PRIVATE').toUpperCase();
+        return belief.beliefStatus !== 'CONTRADICTED' && Number(belief.confidenceBps) >= 3500
+            && ['PUBLIC', 'INSTITUTIONAL'].includes(visibility);
+    }).map(belief => {
+        const fact = belief.fact || {};
+        const searchable = [fact.factType, fact.publicSummary, fact.summary, fact.text,
+            fact.questionText, fact.optionText, fact.theme, fact.reactionHook]
+            .filter(Boolean).join(' ').toLocaleLowerCase('tr-TR')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i');
+        const relevance = agendaTerms.reduce((sum, token) => sum + (searchable.includes(token) ? 1 : 0), 0);
+        return { belief, relevance };
+    }).sort((a, b) => b.relevance - a.relevance
+        || Number(b.belief.confidenceBps) - Number(a.belief.confidenceBps)
+        || Number(b.belief.learnedAt) - Number(a.belief.learnedAt)
+        || String(a.belief.id).localeCompare(String(b.belief.id), 'en'));
+    if (!eligible.length) return null;
+    const selected = eligible[0].belief;
+    const fact = selected.fact || {};
+    const summary = String(fact.publicSummary || fact.summary || fact.text || fact.optionText || '')
+        .trim().replace(/\s+/g, ' ').slice(0, 220);
+    return {
+        beliefId: selected.id,
+        worldFactId: selected.worldFactId,
+        beliefStatus: String(selected.beliefStatus || 'REPORTED'),
+        confidenceBps: Number(selected.confidenceBps) || 0,
+        factType: String(fact.factType || 'SOURCED_RECORD'),
+        summary: summary || null,
+        visibility: String(fact.visibility || 'INSTITUTIONAL').toUpperCase()
+    };
+}
+
+function storyConversationMeetingCharacterText(meeting, participant, grounding) {
+    const agenda = meeting.agendaItems[0].title;
+    const previousCount = meeting.turns.filter(row => row.actorId === participant.actorId
+        && row.kind === 'CHARACTER_PROCEDURAL_STATEMENT').length;
+    if (grounding) {
+        const confidence = grounding.confidenceBps >= 8000 ? 'yüksek güvenli'
+            : grounding.confidenceBps >= 5500 ? 'desteklenmiş' : 'sınırlı güvenli';
+        const sourced = grounding.summary
+            ? `Kendi ${confidence} kaydımda şu bilgi var: “${grounding.summary}”`
+            : `Bu gündemle ilgili kendi ${confidence} kurumsal kaydım bulunuyor.`;
+        const endings = [
+            'Bunu doğrulanmış dünya gerçeği değil, benim bildiğim kaynak olarak tutanağa geçiriyorum.',
+            'Bu kaynağın sınırını aşmadan gündem değerlendirmemde dayanak olarak kullanıyorum.',
+            'Diğer katılımcıların özel bilgisine erişmeden görüşümü bu kayıtla sınırlıyorum.'
+        ];
+        return `${sourced} ${endings[previousCount % endings.length]}`;
+    }
+    let candidates;
+    if (participant.actorId === meeting.chair.actorId) candidates = [
+        `“${agenda}” gündemi kayda alındı. Katılımcılar yalnız kendi yetki ve bilgileri içinde konuşsun; bu oturum henüz karar üretmiyor.`,
+        'İlk görüşler tutanağa geçti. Açık bir önerge sunulmadığı için sırayı sürdürüyorum ve hiçbir sözü karar olarak kaydetmiyorum.',
+        'Gündem hâlâ açık. Katılımcılar itirazlarını ve dayandıkları yetkiyi ayırsın; sonuç kapısı açılmadan oturumu bağlamayacağım.'
+    ];
+    const role = String(participant.role || 'CHARACTER');
+    if (!candidates && role === 'COMMANDER') candidates = [
+        'Gündemi askerî açıdan dinliyorum. Doğrulanmış emir veya kaynak tahsisi olmadığı için bağlayıcı taahhüt vermiyorum.',
+        'Askerî sorumluluk konuşulacaksa hedef, kaynak ve komuta yetkisi ayrı ayrı doğrulanmalı. Şu an bunlardan bir emir çıkarmıyorum.',
+        'Risk başlıklarını kayda geçirebilirim; fakat teyitli kuvvet ve yetki fişi olmadan harekât sözü veremem.'
+    ];
+    if (!candidates && (role === 'COMPANY_EXECUTIVE' || role === 'COMPANY_OWNER')) candidates = [
+        'Gündemi kurumsal kapasite açısından dinliyorum. Doğrulanmış şirket onayı ve bütçe kaydı olmadan taahhüt vermiyorum.',
+        'Şirket adına konuşabilmem için kapsam, finansman ve onay zinciri açık olmalı. Mevcut sözümü yalnız değerlendirme olarak kaydedin.',
+        'Kaynak talebi somutlaşırsa yetkili şirket kayıtlarıyla inceleyebilirim; bu aşamada yatırım sözü oluşmadı.'
+    ];
+    if (!candidates && (role === 'POLITICAL_FIGURE' || role === 'EXECUTIVE')) candidates = [
+        'Gündemi kamusal ve kurumsal sorumluluk açısından dinliyorum. Önerge ve yetki kapısı açılmadan bunu resmî karar saymıyorum.',
+        'Siyasi tercih ile uygulanabilir karar aynı şey değil. Yetkili önerge gelmeden yalnız görüş bildiriyorum.',
+        'Kamusal bedel ve sorumluluk açık yazılmalı. Şimdilik bu söz bir onay veya yürütme talimatı değildir.'
+    ];
+    if (!candidates) candidates = [
+        'Gündemi dinledim. Kendi doğrulanmış bilgi alanım dışında iddia veya bağlayıcı karar üretmeyeceğim.',
+        'Önceki sözleri duydum; doğrulayamadığım noktaları benimsemeden kendi sorumluluk alanımı bekliyorum.',
+        'Yeni kanıt veya açık bir önerge gelirse değerlendirebilirim. Bu turda karar ya da taahhüt vermiyorum.'
+    ];
+    return candidates[previousCount % candidates.length];
+}
+
+function storyConversationMeetingGenerateCharacterTurn(meetingCaseId, addressedActorId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const session = storyConversationSessionFind(meeting.sessionId);
+    const actorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (session && actorId === session.playerActorId) {
+        return { ok: false, code: 'PLAYER_TURN_REQUIRES_INPUT', worldMutation: false };
+    }
+    const participant = meeting.participants.find(row => row.actorId === actorId);
+    const grounding = storyConversationMeetingBeliefGrounding(meeting, participant);
+    return storyConversationMeetingAppendTurn(meeting, {
+        actorId, addressedActorId, text: storyConversationMeetingCharacterText(meeting, participant, grounding),
+        kind: 'CHARACTER_PROCEDURAL_STATEMENT',
+        sourceRefs: [meeting.agendaItems[0].id].concat(
+            actorId === meeting.chair.actorId ? [meeting.chair.institutionId] : [],
+            grounding ? [grounding.beliefId, grounding.worldFactId] : []),
+        grounding
+    });
 }
 
 function storyConversationSessionMigrateLedger(saved) {
     const ledger = storyConversationClone(saved);
     if (!ledger || typeof ledger !== 'object'
-        || ![1, 2, STORY_CONVERSATION_SESSION_SCHEMA_VERSION].includes(Number(ledger.schemaVersion))) return null;
+        || ![1, 2, 3, STORY_CONVERSATION_SESSION_SCHEMA_VERSION].includes(Number(ledger.schemaVersion))) return null;
     ledger.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
     ledger.adapterVersion = STORY_CONVERSATION_SESSION_ADAPTER_VERSION;
+    ledger.nextTaskOfferSequence = Number.isInteger(ledger.nextTaskOfferSequence)
+        && ledger.nextTaskOfferSequence > 0 ? ledger.nextTaskOfferSequence : 1;
+    if (!Array.isArray(ledger.taskOffers)) ledger.taskOffers = [];
+    ledger.nextMeetingSequence = Number.isInteger(ledger.nextMeetingSequence)
+        && ledger.nextMeetingSequence > 0 ? ledger.nextMeetingSequence : 1;
+    if (!Array.isArray(ledger.meetingCases)) ledger.meetingCases = [];
+    for (const meeting of ledger.meetingCases) {
+        if (!Array.isArray(meeting.turns)) meeting.turns = [];
+        if (!Array.isArray(meeting.privateNotes)) meeting.privateNotes = [];
+        for (const turn of meeting.turns) {
+            if (!Object.prototype.hasOwnProperty.call(turn, 'grounding')) turn.grounding = null;
+        }
+        if (!Array.isArray(meeting.motions)) meeting.motions = [];
+        if (!Array.isArray(meeting.votes)) meeting.votes = [];
+        const participantActorIds = Array.isArray(meeting.participantActorIds)
+            ? meeting.participantActorIds.slice() : [];
+        const agendaIds = (meeting.agendaItems || []).map(row => row.id);
+        const publicTurnIds = meeting.turns.filter(row => row.visibility === 'MEETING_PUBLIC').map(row => row.id);
+        if (!Array.isArray(meeting.visibilityMatrix)
+            || meeting.visibilityMatrix.length !== participantActorIds.length) {
+            meeting.visibilityMatrix = participantActorIds.map(actorId => ({
+                actorId, visibleParticipantActorIds: participantActorIds.slice(),
+                visibleAgendaItemIds: agendaIds.slice(), visibleTurnIds: publicTurnIds.slice(),
+                visiblePrivateNoteIds: meeting.privateNotes.filter(note =>
+                    note.authorActorId === actorId || note.recipientActorId === actorId).map(note => note.id),
+                privateContextOwnerActorId: actorId,
+                mayReadOtherPrivateContext: false
+            }));
+        }
+        for (const row of meeting.visibilityMatrix) {
+            if (!Array.isArray(row.visiblePrivateNoteIds)) {
+                row.visiblePrivateNoteIds = meeting.privateNotes.filter(note =>
+                    note.authorActorId === row.actorId || note.recipientActorId === row.actorId).map(note => note.id);
+            }
+        }
+    }
     ledger.diagnostics = Object.assign({
         prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
         domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
         playerResponses: 0, knowledgeTransfers: 0, socialResponses: 0,
-        socialFollowUps: 0, memoryRecalls: 0
+        socialFollowUps: 0, memoryRecalls: 0, caseModeSwitches: 0,
+        prunedTaskOffers: 0
     }, ledger.diagnostics || {});
     for (const session of (ledger.sessions || [])) {
         session.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
@@ -704,6 +1351,41 @@ function storyConversationSessionMigrateLedger(saved) {
         if (!Array.isArray(session.concessions.withdrawnClaimIds)) session.concessions.withdrawnClaimIds = [];
         if (!session.resolution || typeof session.resolution !== 'object') session.resolution = null;
         if (!session.domainReview || typeof session.domainReview !== 'object') session.domainReview = null;
+        if (!session.conversationCase || typeof session.conversationCase !== 'object') {
+            storyConversationCaseCreate(session, session.initialText, session.analysis);
+        } else {
+            const conversationCase = session.conversationCase;
+            conversationCase.schemaVersion = STORY_CONVERSATION_CASE_SCHEMA_VERSION;
+            conversationCase.id = `conversation-case:${session.id}`;
+            conversationCase.sessionId = session.id;
+            const linkedMeeting = ledger.meetingCases.find(row => row.id === conversationCase.meetingCaseId);
+            conversationCase.kind = linkedMeeting ? 'MULTI_PARTY' : 'SINGLE_PARTY';
+            if (!STORY_CONVERSATION_CASE_MODES.includes(conversationCase.mode)) {
+                conversationCase.mode = storyConversationCaseInferMode(session.initialText, session.analysis);
+            }
+            conversationCase.mechanicalStatus = STORY_CONVERSATION_CASE_MODE_STATUS[conversationCase.mode];
+            conversationCase.participantActorIds = linkedMeeting
+                ? linkedMeeting.participantActorIds.slice()
+                : Array.from(new Set([session.playerActorId, session.listenerActorId]
+                    .filter(Boolean).map(String)));
+            conversationCase.openedAt = Number(conversationCase.openedAt) || Number(session.createdAt) || 0;
+            conversationCase.updatedAt = Number(conversationCase.updatedAt) || Number(session.updatedAt)
+                || conversationCase.openedAt;
+            if (!Array.isArray(conversationCase.modeHistory) || !conversationCase.modeHistory.length) {
+                conversationCase.modeHistory = [{
+                    sequence: 1, from: null, to: conversationCase.mode,
+                    source: 'LEGACY_SESSION_MIGRATION', sourceTurnId: null,
+                    changedAt: conversationCase.openedAt, worldMutation: false
+                }];
+            }
+            for (const key of ['taskOfferIds', 'confidentialityRecordIds', 'declarationDraftIds']) {
+                if (!Array.isArray(conversationCase[key])) conversationCase[key] = [];
+            }
+            if (!Object.prototype.hasOwnProperty.call(conversationCase, 'meetingCaseId')) {
+                conversationCase.meetingCaseId = null;
+            }
+            conversationCase.worldMutation = false;
+        }
         if (session.candidate && typeof session.candidate === 'object') {
             session.candidate.schemaVersion = 3;
             if (!Object.prototype.hasOwnProperty.call(session.candidate, 'domainReviewId')) {
@@ -1423,6 +2105,17 @@ function storyConversationSocialResponseText(session, speechAct, salt, raw) {
         ];
     }
     if (speechAct === 'SMALL_TALK' && storyConversationContains(folded, [
+        'heyecan', 'endise', 'kaygi', 'kork', 'gergin', 'riskli'
+    ])) {
+        const excited = storyConversationContains(folded, ['heyecan']);
+        const uneasy = storyConversationContains(folded, ['endise', 'kaygi', 'kork', 'gergin', 'riskli']);
+        sourceCandidates = excited && uneasy
+            ? ['Sözlerinde hem kaygı hem heyecan var. Anlattığın olayın doğruluğunu varsaymadan, sende bıraktığı etkiyi konuşabiliriz.']
+            : excited
+                ? ['Heyecanını duyuyorum. Sözünü ettiğin olayı doğrulanmış saymadan bu duygunun sende neye dönüştüğünü konuşabiliriz.']
+                : ['Bunun seni kaygılandırdığı açık. Olayı doğrulanmış saymadan sende yarattığı baskıyı konuşabiliriz.'];
+    }
+    if (speechAct === 'SMALL_TALK' && storyConversationContains(folded, [
         'bir seyler de', 'birseyler de', 'soyleyecegin bir sey yok mu',
         'soyleyeceginiz bir sey yok mu', 'kendi kendime konusuyorum'
     ])) {
@@ -1452,7 +2145,7 @@ function storyConversationSocialResponseText(session, speechAct, salt, raw) {
 function storyConversationSocialLLMSchema(dialogueMove) {
     const schema = {
         type: 'object', additionalProperties: false,
-        properties: { reply: { type: 'string', minLength: 2, maxLength: 320 } },
+        properties: { reply: { type: 'string', minLength: 2, maxLength: 480 } },
         required: ['reply']
     };
     if (dialogueMove && dialogueMove.moveId) {
@@ -1477,7 +2170,7 @@ function storyConversationSocialLLMParse(raw, fallbackText, playerText, validati
     let parsed;
     try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (_) { return null; }
     const text = String(parsed && parsed.reply || '').trim().replace(/\s+/g, ' ');
-    if (!text || text.length > 320 || text === fallbackText) return null;
+    if (!text || text.length > 480 || text === fallbackText) return null;
     const fallbackFolded = storyConversationFold(fallbackText);
     if (fallbackFolded.length >= 20 && storyConversationFold(text).includes(fallbackFolded)) return null;
     if (storyConversationSocialLLMTextIssue(text, validationContext, playerText)) return null;
@@ -1546,6 +2239,7 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
     const value = String(text || '').trim();
     const folded = storyConversationFold(value);
     const player = storyConversationFold(playerText);
+    if (value.length >= 450 && !/[.!?…)'”’"]$/.test(value)) return 'TRUNCATED_REPLY';
     if (/\b(sizi|seni)\s+nasıl\s+hissediyorsun(?:uz)?\b/i.test(value)) {
         return 'TURKISH_PERSON_AGREEMENT';
     }
@@ -1563,6 +2257,11 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
             'bu konu hakkinda konusmak icin zaman ayirabilir misiniz',
             'cesitli yollar dusunebiliriz'])) {
         return 'SERVICE_BOT_LANGUAGE';
+    }
+    if (validationContext && validationContext.ongoingSession
+        && storyConversationContains(folded, ['merhaba', 'yeniden merhaba', 'tekrar merhaba',
+            'seni tekrar gormek', 'sizi tekrar gormek', 'gorusmek icin uygun bir zaman'])) {
+        return 'MID_SESSION_RESTART';
     }
     if (validationContext && validationContext.firstContact
         && (storyConversationContains(folded, ['yeniden', 'tekrar merhaba', 'daha once konustuk',
@@ -1593,6 +2292,12 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
             'kaydim yok', 'emin degilim', 'soyledigini acikla', 'neyi kastettigini'])) {
         return 'EVASIVE_INFORMATION_QUESTION';
     }
+    if (moveAct === 'ASK_INFORMATION' && !verifiedFacts.length
+        && !storyConversationContains(folded, [
+            'bilmiyorum', 'bilgim yok', 'kaydim yok', 'kayit yok', 'kaydi yok',
+            'dogrulanmis kayit yok', 'dogrulayamiyorum', 'dogrulayamam',
+            'bu gorusmeye acilmadi', 'bana acik degil', 'gorunmuyor'
+        ])) return 'MISSING_DIRECT_KNOWLEDGE_BOUNDARY';
     const echoStop = new Set(['bir', 'bu', 've', 'ile', 'icin', 'gibi', 'daha', 'cok', 'fazla',
         'konuda', 'konusunda', 'olarak', 'oldugu', 'oldugunu']);
     const echoTokens = source => storyConversationFold(source).split(' ')
@@ -1642,6 +2347,8 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
     }
     const allowedRefs = new Set([].concat(move && move.factRefs || [], move && move.beliefRefs || [],
         move && move.claimRefs || [], move && move.memoryRefs || []));
+    const verifiedSourceRefs = new Set([].concat(move && move.factRefs || [],
+        move && move.beliefRefs || [], move && move.memoryRefs || []));
     const playerMakesWorldClaim = storyConversationContains(player, [
         'enflasyon', 'fiyatlar', 'butce', 'hazine', 'stok', 'ordu', 'asker',
         'toplanti', 'secim', 'sirket', 'banka', 'issizlik', 'goc'
@@ -1653,8 +2360,29 @@ function storyConversationSocialLLMTextIssue(text, validationContext, playerText
     const replyKeepsClaimUnverified = storyConversationContains(folded, [
         'dogrulanmadi', 'dogrulayamam', 'iddian', 'soyledigin', 'bildirdigin', 'kanit'
     ]);
-    if (!allowedRefs.size && playerMakesWorldClaim && replyAffirmsClaim && !replyKeepsClaimUnverified) {
+    if (!verifiedSourceRefs.size && playerMakesWorldClaim && replyAffirmsClaim && !replyKeepsClaimUnverified) {
         return 'UNVERIFIED_CLAIM_ADOPTED';
+    }
+    const playerAssertsWorldState = storyConversationContains(player, [
+        'artiyor', 'azaliyor', 'yukseliyor', 'dusuyor', 'tukeniyor', 'bozuldu',
+        'basladi', 'sona erdi', 'devam ediyor', 'gerceklesti', 'sonuclandi',
+        'kontrol etmeliyiz', 'sinirlandirmaliyiz'
+    ]);
+    if (!verifiedSourceRefs.size && playerMakesWorldClaim && playerAssertsWorldState
+        && !replyKeepsClaimUnverified) {
+        const claimStop = new Set(['bizim', 'sizin', 'bunun', 'olarak', 'icin', 'gerek',
+            'gerekiyor', 'etmeliyiz', 'yapmaliyiz', 'konuda', 'konusu', 'kontrol']);
+        const roots = source => storyConversationFold(source).split(' ')
+            .filter(token => token.length >= 4 && !claimStop.has(token))
+            .map(token => token.slice(0, Math.min(7, token.length)));
+        const playerRoots = new Set(roots(playerText));
+        const replyRoots = new Set(roots(value));
+        const sharedRoots = [...playerRoots].filter(root => replyRoots.has(root));
+        const adoptsCausalFrame = storyConversationContains(folded, [
+            'bu da', 'isaret ediyor', 'bu nedenle', 'bu yuzden', 'gerektigine',
+            'gerekiyor', 'etmeliyiz', 'yapmaliyiz', 'onlem almal'
+        ]);
+        if (sharedRoots.length >= 2 && adoptsCausalFrame) return 'UNVERIFIED_CLAIM_ADOPTED';
     }
     if (!allowedRefs.size && (storyConversationContains(folded, [
         'is gorusmesine hazirlaniyorum', 'cok mesgulum', 'biraz zamanim var',
@@ -1850,11 +2578,33 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
     const contextText = contextPack && contextPack.ok && typeof storyContextPackRender === 'function'
         ? storyContextPackRender(contextPack) : `KARAKTER: ${actor && actor.name || 'Muhatap'}\n`
             + `OYUNCUNUN SON SÖZÜ: ${playerText}`;
+    const moveView = typeof storyDialogueMovePromptView === 'function'
+        ? storyDialogueMovePromptView(response.dialogueMove) : null;
+    const responseContract = {
+        discourseAct: String(response.discourseAct || response.speechAct || 'UNKNOWN'),
+        relationshipBand: String(response.relationshipBand || 'RESERVED'),
+        sourceKind: String(response.source || 'DETERMINISTIC_SAFE_RESPONSE'),
+        answerMode: moveView && moveView.act === 'ASK_INFORMATION'
+            ? (moveView.allowedRefs || []).length ? 'VERIFIED_FACT_ANSWER'
+                : 'DIRECT_KNOWLEDGE_BOUNDARY'
+            : 'NATURAL_REALIZATION',
+        contentPlan: moveView && moveView.act === 'ASK_INFORMATION'
+            && !(moveView.allowedRefs || []).length ? {
+                mustExpress: ['SORULAN_KONUYA_DAIR_DOGRULANMIS_KAYIT_YOK'],
+                forbiddenForms: ['QUESTION', 'GREETING', 'TOPIC_CHANGE', 'SPECULATION'],
+                sentenceCount: 1
+            } : null,
+        requiredPoints: moveView && moveView.requiredPoints || [],
+        allowedRefs: moveView && moveView.allowedRefs || []
+    };
     return `KAYNAKLI BAĞLAM PAKETİ:\n${contextText}\n`
-        + `GÜVENLİ ANLAM: ${response.text}\n\n`
-        + `TEMAS DURUMU: ${Number(session.contactOrdinal) === 1 ? 'İLK GÖRÜŞME' : 'DAHA ÖNCE GÖRÜŞÜLDÜ'}\n`
-        + `Bu aynı kesintisiz görüşmedir. Güvenli anlamı koruyarak karakterin doğal Türkçe cevabını yaz; `
-        + `GÜVENLİ ANLAM cümlesini kelimesi kelimesine kopyalama. `
+        + `CEVAP SÖZLEŞMESİ: ${JSON.stringify(responseContract)}\n\n`
+        + `TEMAS DURUMU: ${(session.followUps || []).length
+            ? 'AYNI GÖRÜŞMENİN DEVAMI' : Number(session.contactOrdinal) === 1
+                ? 'İLK GÖRÜŞMENİN İLK TURU' : 'YENİDEN GÖRÜŞME'}\n`
+        + `Bu aynı kesintisiz görüşmedir. CEVAP SÖZLEŞMESİ ile DİYALOG KARARI işlevini koruyarak karakterin doğal Türkçe cevabını sıfırdan yaz. `
+        + `Bağlamdaki önceki KARAKTER cümlelerinden hiçbirini aynen tekrarlama veya küçük sözcük değişiklikleriyle yeniden kurma. `
+        + `Aynı görüşmenin devamındaysan yeniden selamlama, “tekrar görmek güzel” deme ve görüşmeyi baştan başlatma. `
         + `Bir müşteri hizmetleri görevlisi veya dijital asistan gibi konuşma; “nasıl yardımcı olabilirim”, “talebinizi belirtin” ve “buyurun” deme. `
         + `İlk görüşmeyse “yeniden”, “tekrar”, “seni görmek güzel” veya ortak geçmiş ima eden bir ifade kullanma. `
         + `Oyuncunun ortak proje, eski görev veya önceki anlaşma iddiasını kaynaklı MEMORY kaydı yoksa gerçek ortak anı gibi onaylama. `
@@ -1863,6 +2613,10 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
         + `Karakterin veya oyuncunun konumu güvenli anlamda yoksa şehir adı uydurma. `
         + `Yeni kişi, olay, sayı, stok, anlaşma, emir, yetki veya dünya gerçeği ekleme. `
         + `FACT kaydı oyuncunun sorusuyla ilgiliyse cevabında en az bir FACT bilgisini somut biçimde kullan ve onun kimliğini usedRefs içine yaz. `
+        + `RECENT_TURN içindeki eski sayı ve gerçekleri, bu turdaki DİYALOG KARARI allowedRefs alanında ayrıca izin verilmedikçe yeniden kullanma. `
+        + `Önceki soruyu değil OYUNCUNUN SON SÖZÜNÜ cevapla; eski konu yalnız açık bir gönderme varsa süreklilik sağlar. `
+        + `answerMode DIRECT_KNOWLEDGE_BOUNDARY ise soru sorma, selamlama veya başka konu önerme; oyuncunun sorduğu başlığa dair doğrulanmış kaydın bulunmadığını tek cümlede doğrudan söyle. `
+        + `DIRECT_KNOWLEDGE_BOUNDARY turunda cevabında “kayıt”, “bilgi” veya “doğrulayamıyorum” sınırlarından biri açıkça bulunmalı; “ne düşünüyorsunuz”, “ne bilmek istiyorsunuz” ve soru işareti kesinlikle yasaktır. `
         + `MEMORY kaydı oyuncunun sorusuyla ilgiliyse kayıttaki somut konuyu cevapta an ve kullandığın MEMORY kimliğini usedRefs içine yaz. `
         + `İlgili FACT varken bütünüyle “bilgim yok” deme; kayıt sorunun yalnız bir bölümünü karşılıyorsa önce bildiğin gerçeği söyle, sonra kapsam sınırını açıkla. `
         + `Mekanik sonuç vaat etme. DİYALOG KARARI varsa moveId alanını aynen geri ver; yalnız gerçekten kullandığın izinli kaynakları usedRefs içine yaz. `
@@ -1870,7 +2624,8 @@ function storyConversationSocialLLMPrompt(session, response, playerText) {
             ? `ZORUNLU SON KONTROL: Bu ilk temastır. MEMORY kaynağı yoksa geçmiş tanışıklık, önceki proje, eski görüşme veya yeniden karşılaşma yazma. `
             : '')
         + `Çıktı zarfı {"moveId":"...","reply":"cevap","usedRefs":[],"answeredQuestionIds":[],"introducedQuestion":null,"closing":false} olmalı; `
-        + `DİYALOG KARARI yoksa yalnız {"reply":"cevap"} döndür. En fazla iki kısa cümle; selamlama veya oyuncudan veri isteme cümlesi ekleme.`;
+        + `DİYALOG KARARI yoksa yalnız {"reply":"cevap"} döndür. En fazla iki kısa cümle kullan. `
+        + `Cevap için gerçekten eksik olan tek bir bilgi varsa yalnız o bilgiye özgü takip sorusu sorabilirsin; genel yardım veya ayrıntı isteme kalıbı kullanma.`;
 }
 
 function storyConversationSocialLLMPromptWithBudget(session, response, playerText, promptBudget) {
@@ -1883,7 +2638,7 @@ function storyConversationSocialLLMPromptWithBudget(session, response, playerTex
         ? storyCharacterIdentityView(session.listenerActorId) : null;
     const basePrompt = storyConversationSocialLLMPrompt(session, response, playerText);
     const marker = 'KAYNAKLI BAĞLAM PAKETİ:\n';
-    const safeMarker = '\nGÜVENLİ ANLAM:';
+    const safeMarker = '\nCEVAP SÖZLEŞMESİ:';
     const start = basePrompt.indexOf(marker);
     const end = basePrompt.indexOf(safeMarker);
     if (start < 0 || end < start) return null;
@@ -1897,7 +2652,8 @@ function storyConversationSessionContextPack(session, response, playerText, opti
         ? storyCharacterIdentityView(session.listenerActorId) : null;
     const sections = [{
         id: 'context:system', kind: 'SYSTEM', priority: 100, protected: true,
-        text: 'Yalnız bu kaynaklı bağlamı kullan; konuşma dünya komutu değildir.'
+        text: 'Yalnız bu kaynaklı bağlamı kullan; konuşma dünya komutu değildir. '
+            + 'RECENT_TURN yalnız söylem sürekliliğidir; FACT veya MEMORY yerine geçmez.'
     }, {
         id: `context:identity:${session.listenerActorId}`, kind: 'IDENTITY', priority: 100,
         protected: true, sourceRefs: [session.listenerActorId],
@@ -2075,6 +2831,20 @@ function storyConversationQuestionFocus(folded) {
     if (storyConversationContains(folded, ['devlet yonetmek bir sirket yonetmek degildir',
         'devlet sirket degildir', 'sirket yoneticisi degilsin', 'sirket yoneticisi degilsiniz'])) return 'ROLE_CONTRADICTION_REPAIR';
     if (storyConversationContains(folded, ['hangi sirkette calis', 'hangi firmada calis', 'sirketiniz hangisi'])) return 'LISTENER_ORGANIZATION';
+    if (storyConversationContains(folded, ['sirketinizin finansal durumu', 'sirketinin finansal durumu',
+        'firmanizin finansal durumu', 'firmanin finansal durumu', 'sirket finansmani',
+        'firma finansmani'])) return 'LISTENER_COMPANY_FINANCE';
+    if (storyConversationContains(folded, ['toplantinin sonuclari', 'toplanti sonucu',
+        'toplantinin sonucunu', 'bu toplantinin sonuclari', 'gorusmenin sonuclari'])) {
+        return 'CURRENT_MEETING_RESULTS';
+    }
+    if (storyConversationContains(folded, ['toplantida hangi konular', 'toplantinin gundemi',
+        'toplanti gundemi', 'ne konusulacak', 'neleri konusacagiz',
+        'ne hakkinda konusacagiz'])) return 'CURRENT_MEETING_AGENDA';
+    if (storyConversationContains(folded, ['toplantinin katilimci', 'toplantimizın katilimci',
+        'toplantimizin katilimci', 'katilimci listesi', 'kimler katilacak'])) {
+        return 'CURRENT_MEETING_PARTICIPANTS';
+    }
     if ((storyConversationContains(folded, ['beni']) && storyConversationContains(folded, ['ne kadar'])
         && storyConversationContains(folded, ['tani']))
         || storyConversationContains(folded, ['beni taniyor musun', 'beni taniyor musunuz',
@@ -2242,6 +3012,24 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
             ? `Bağlı olduğum doğrulanmış kuruluş ${actor.organizationId}; görünen adını doğrulayacak açık kaydım yok.`
             : `Bir şirkete bağlı olduğumu gösteren doğrulanmış kuruluş kaydım yok; ${actorRoleLabel} olarak görev yapıyorum.`
     };
+    if (focus === 'LISTENER_COMPANY_FINANCE') return {
+        discourseAct: 'ANSWER_COMPANY_FINANCE_BOUNDARY',
+        text: actor && actor.organizationId
+            ? 'Bağlı olduğum kuruluşun güncel bilançosunu doğrulayan şirket kaydı bu görüşmeye açılmadı; ülke ekonomisi verisini şirket finansmanıymış gibi sunmayacağım.'
+            : `Kimlik kaydımda doğrulanmış bir şirket bağı yok; ${actorRoleLabel} olarak ülke göstergelerini şirket bilançosu diye aktarmayacağım.`
+    };
+    if (focus === 'CURRENT_MEETING_RESULTS') return {
+        discourseAct: 'ANSWER_MEETING_RESULTS_BOUNDARY',
+        text: 'Bu görüşmede doğrulanmış bir toplantı kararı veya sonuç kaydı oluşmadı. Önceki konuşmayı resmî karar ya da tamamlanmış toplantı sonucu gibi sunmayacağım.'
+    };
+    if (focus === 'CURRENT_MEETING_AGENDA') return {
+        discourseAct: 'ANSWER_MEETING_AGENDA_BOUNDARY',
+        text: 'Bu görüşmeye bağlı doğrulanmış bir toplantı gündemi yok. Buradaki konuşma başlıklarını resmî gündemmiş gibi uydurmayacağım.'
+    };
+    if (focus === 'CURRENT_MEETING_PARTICIPANTS') return {
+        discourseAct: 'ANSWER_MEETING_PARTICIPANTS_BOUNDARY',
+        text: 'Bu görüşmeye bağlı doğrulanmış bir katılımcı listesi yok. Buradaki karakterleri resmî toplantı katılımcısıymış gibi göstermeyeceğim.'
+    };
     if (focus === 'RELATIONSHIP_KNOWLEDGE') return {
         discourseAct: 'ANSWER_RELATIONSHIP_KNOWLEDGE_BOUNDARY',
         text: 'Seni yalnız bu görüşmede söylediklerin ve bana açık olan kayıtlar kadar tanıyorum; ortak geçmiş veya proje uydurmayacağım.'
@@ -2358,6 +3146,10 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
         discourseAct: 'ACKNOWLEDGE_UNVERIFIED_BUDGET',
         text: `${latestBudget.amountText} ${latestBudget.currencyText} bütçen olduğunu söylüyorsun; bunu doğrulanmış bakiye sayamam. Projenin gerçek maliyetini ve yetkili şirket kuruluş yolunu ayrıca incelemek gerekir.`
     };
+    if (analysis.speechAct === 'REQUEST_ACTION') return {
+        discourseAct: 'ASSESS_ACTION_REQUEST_SCOPE',
+        text: 'Bir eylem başlatmamı veya desteklememi istediğini anlıyorum. Bu konuşma tek başına uygulama emri değildir; hedef, yetki, kaynak ve bedel mekanik kayıtlarda doğrulanmadan sonuç sözü veremem.'
+    };
     if (analysis.speechAct === 'UNKNOWN') return {
         discourseAct: 'CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY',
         text: 'Bu sözündeki amacı güvenle çıkaramadım. Önceki cevabı tekrarlamak veya boşluğu uydurmak yerine bunu açıkça söylüyorum.'
@@ -2396,6 +3188,218 @@ function storyConversationDiagnosticAppend(session, response, playerText, eventT
         Promise.resolve(window.PIXEL.diagnostics.appendStoryDialogue(entry)).catch(() => {});
         return true;
     } catch (_) { return false; }
+}
+
+function storyConversationSessionSemanticHistory(session, sequence) {
+    const rows = [];
+    if (sequence > 0) {
+        rows.push({ speaker: 'PLAYER', text: session.initialText });
+        const opening = (session.listenerResponses || []).find(row => row.kind === 'SOCIAL_RESPONSE');
+        if (opening) rows.push({ speaker: 'CHARACTER', text: opening.text });
+    }
+    for (const turn of (session.followUps || [])) {
+        if (Number(turn.sequence) >= Number(sequence)) break;
+        rows.push({ speaker: 'PLAYER', text: turn.playerText });
+        if (turn.response) rows.push({ speaker: 'CHARACTER', text: turn.response.text });
+    }
+    return rows.slice(-6);
+}
+
+function storyConversationSessionApplySemanticFrame(analysis, frame) {
+    const result = storyConversationClone(analysis);
+    result.semanticFrame = storyConversationClone(frame);
+    result.speechAct = frame.suggestedSpeechAct;
+    result.secondaryActs = Array.from(new Set([analysis.speechAct]
+        .concat(analysis.secondaryActs || []).filter(act => act && act !== 'UNKNOWN'
+            && act !== frame.suggestedSpeechAct))).slice(0, 3);
+    result.source = 'LOCAL_LLM_SEMANTIC_INTERPRETATION';
+    result.topic = ['RELATIONSHIP', 'EMOTION'].includes(frame.predicate) ? 'RELATIONSHIP'
+        : frame.predicate === 'MILITARY' ? 'MILITARY'
+            : frame.predicate === 'ECONOMY' ? 'ECONOMY'
+                : frame.predicate === 'TECHNOLOGY' ? 'TECHNOLOGY'
+                    : ['IDENTITY', 'HEALTH', 'LOCATION'].includes(frame.predicate) ? 'INFORMATION'
+                        : ['GREET', 'THANK', 'APOLOGIZE', 'CLOSE'].includes(frame.communicativeFunction)
+                            ? 'SOCIAL' : result.topic;
+    result.playerIntent = STORY_CONVERSATION_SOCIAL_ACTS.includes(result.speechAct)
+        ? `SOCIAL_${result.speechAct}` : result.playerIntent;
+    result.worldMutation = false;
+    result.proposedCommand = null;
+    result.diagnostics = Object.assign({}, result.diagnostics || {}, {
+        semanticModelUsed: true,
+        semanticModelSource: frame.source,
+        semanticModelEvidenceSpanCount: frame.evidence && frame.evidence.modelSpans
+            ? frame.evidence.modelSpans.length : 0
+    });
+    return result;
+}
+
+function storyConversationSessionSemanticFallbackText(analysis, frame) {
+    if (analysis.speechAct === 'REPORT_MILITARY') {
+        return 'Bunu askerî bir bildirim olarak anladım. Söylediğini kayda alabilirim; doğrulanmış istihbarat sayamam.';
+    }
+    if (analysis.speechAct === 'REPORT_ECONOMIC') {
+        return 'Bunu ekonomik durum hakkında bir bildirim olarak anladım. Kanıtlanmış kayıtla oyuncu beyanını birbirine karıştırmayacağım.';
+    }
+    if (analysis.speechAct === 'REQUEST_ACTION' || analysis.speechAct === 'REQUEST_SUPPORT') {
+        return 'Benden bir eylem veya destek istediğini anladım. Gerçek bir görev, kaynak ve yetki kaydı olmadan yapabileceğimi söyleyemem.';
+    }
+    if (analysis.speechAct === 'ASK_RELATIONSHIP') {
+        return 'Sorunun aramızdaki ilişki ve duygusal tutumla ilgili olduğunu anladım. Bildiğim ilişki kaydının ötesinde iç durum uydurmayacağım.';
+    }
+    if (analysis.speechAct === 'ASK_INFORMATION') {
+        return 'Bunu bir bilgi sorusu olarak anladım. Doğrulanmış kaydım olmayan ayrıntıyı cevap diye uydurmayacağım.';
+    }
+    if (analysis.speechAct === 'SHARE_SECRET') {
+        return 'Gizli bir bilgi paylaşmak istediğini anladım. İçeriği duymadan gizlilik veya sonuç sözü veremem.';
+    }
+    return frame && frame.predicate !== 'UNSPECIFIED'
+        ? `${frame.predicate.toLocaleLowerCase('tr-TR')} konusundaki sözünü anladım; doğrulanmamış ayrıntı eklemeyeceğim.`
+        : 'Sözünün iletişim amacını kısmen anladım; bilmediğim ayrıntıyı tamamlamayacağım.';
+}
+
+function storyConversationSessionRebuildDiscourse(session) {
+    if (typeof storyDiscourseStateCreate !== 'function') return;
+    let state = storyDiscourseStateCreate(session.id, session.analysis);
+    if (typeof storyDiscourseStateApply === 'function') {
+        for (const turn of (session.followUps || [])) state = storyDiscourseStateApply(state, {
+            turnId: `conversation-turn:${session.id}:${turn.sequence}`,
+            playerText: turn.playerText, analysis: turn.analysis, response: turn.response
+        });
+    }
+    session.discourseState = state;
+}
+
+function storyConversationSessionQueueSemanticLLM(sessionId, responseId, playerText) {
+    if (typeof storyConversationSemanticFrameNeedsModel !== 'function'
+        || typeof storyConversationSemanticFrameModelPrompt !== 'function'
+        || typeof storyConversationSemanticFrameModelParse !== 'function'
+        || typeof llmEnsure !== 'function' || typeof llmEnrich !== 'function'
+        || typeof llmBridge !== 'function' || !llmBridge()) return false;
+    const session = storyConversationSessionFind(sessionId);
+    if (!session) return false;
+    const followUp = (session.followUps || []).find(row => row.response && row.response.id === responseId);
+    const sequence = followUp ? Number(followUp.sequence) || 0 : 0;
+    const analysis = followUp ? followUp.analysis : session.analysis;
+    if (!storyConversationSemanticFrameNeedsModel(analysis)) return false;
+    const response = (session.listenerResponses || []).find(row => row.id === responseId);
+    if (!response) return false;
+    const mirrorResponse = (current, source) => {
+        const turn = (current.followUps || []).find(row => row.response && row.response.id === responseId);
+        if (turn) turn.response = storyConversationClone(source);
+    };
+    STORY_CONVERSATION_LLM_PENDING.add(responseId);
+    response.enrichmentStatus = 'MODEL_LOADING';
+    response.semanticInterpretationStatus = 'MODEL_LOADING';
+    mirrorResponse(session, response);
+    if (typeof storyConversationWorkspacePatchResponse === 'function') {
+        storyConversationWorkspacePatchResponse(response.id, response.text, response.enrichmentStatus);
+    }
+    const history = storyConversationSessionSemanticHistory(session, sequence);
+    Promise.resolve(llmEnsure()).then(state => {
+        const current = storyConversationSessionFind(sessionId);
+        const currentResponse = current && (current.listenerResponses || []).find(row => row.id === responseId);
+        if (!currentResponse) return null;
+        if (!state || !state.ready) return null;
+        currentResponse.enrichmentStatus = 'GENERATING';
+        currentResponse.semanticInterpretationStatus = 'GENERATING';
+        mirrorResponse(current, currentResponse);
+        if (typeof storyConversationWorkspacePatchResponse === 'function') {
+            storyConversationWorkspacePatchResponse(currentResponse.id, currentResponse.text,
+                currentResponse.enrichmentStatus);
+        }
+        return llmEnrich(
+            'Türkçe oyuncu sözünü yanıtlamadan kapalı semantik alanlara ayıran bir yorumlayıcısın.',
+            storyConversationSemanticFrameModelPrompt(playerText, { history }),
+            raw => storyConversationSemanticFrameModelParse(raw, playerText),
+            { maxTokens: 420, temperature: 0.1, priority: 120,
+                contextLimit: 8192, contextWrapperReserveTokens: 128,
+                jsonSchema: storyConversationSemanticFrameModelSchema() }
+        );
+    }).then(frame => {
+        STORY_CONVERSATION_LLM_PENDING.delete(responseId);
+        const current = storyConversationSessionFind(sessionId);
+        const liveResponse = current && (current.listenerResponses || []).find(row => row.id === responseId);
+        if (!current || !liveResponse) return;
+        const liveTurn = (current.followUps || []).find(row => row.response && row.response.id === responseId);
+        if (!frame) {
+            liveResponse.enrichmentStatus = 'FALLBACK_KEPT';
+            liveResponse.semanticInterpretationStatus = 'REJECTED_OR_UNAVAILABLE';
+            liveResponse.llmUsed = false;
+            mirrorResponse(current, liveResponse);
+        } else {
+            const previousSession = storyConversationClone(current);
+            const oldAnalysis = liveTurn ? liveTurn.analysis : current.analysis;
+            const nextAnalysis = storyConversationSessionApplySemanticFrame(oldAnalysis, frame);
+            if (liveTurn) liveTurn.analysis = storyConversationClone(nextAnalysis);
+            else current.analysis = storyConversationClone(nextAnalysis);
+            const grounded = storyConversationGroundedFollowUp(current, nextAnalysis, playerText, sequence);
+            const social = grounded ? null
+                : storyConversationSocialResponseText(current, nextAnalysis.speechAct, sequence, playerText);
+            liveResponse.speechAct = nextAnalysis.speechAct;
+            liveResponse.text = grounded ? grounded.text : social ? social.text
+                : storyConversationSessionSemanticFallbackText(nextAnalysis, frame);
+            liveResponse.source = grounded ? 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'
+                : 'DETERMINISTIC_SEMANTIC_FRAME_RESPONSE';
+            liveResponse.discourseAct = grounded && grounded.discourseAct || 'SEMANTIC_FRAME_INTERPRETED';
+            liveResponse.confidentialityRequest = grounded && grounded.confidentialityRequest || null;
+            liveResponse.enrichmentStatus = 'SEMANTIC_INTERPRETED';
+            liveResponse.semanticInterpretationStatus = 'USED';
+            liveResponse.semanticFrame = storyConversationClone(frame);
+            liveResponse.semanticLlmUsed = true;
+            liveResponse.llmUsed = false;
+            storyConversationSessionAttachDecisionContracts(current, liveResponse, nextAnalysis,
+                sequence, storyConversationSessionUnverifiedClaims(current));
+            mirrorResponse(current, liveResponse);
+            storyConversationSessionRebuildDiscourse(current);
+            current.candidate = storyConversationSessionCandidate(current);
+            current.updatedAt = Number(STORY.clock) || 0;
+            const ledgerValidation = storyConversationSessionValidateLedger(STORY.conversationUnderstanding);
+            if (!ledgerValidation.ok) {
+                const sessionIndex = STORY.conversationUnderstanding.sessions.findIndex(row => row.id === sessionId);
+                if (sessionIndex >= 0) STORY.conversationUnderstanding.sessions[sessionIndex] = previousSession;
+                const rolledBack = sessionIndex >= 0
+                    ? STORY.conversationUnderstanding.sessions[sessionIndex] : null;
+                const rolledBackResponse = rolledBack && (rolledBack.listenerResponses || [])
+                    .find(row => row.id === responseId);
+                if (rolledBackResponse) {
+                    rolledBackResponse.enrichmentStatus = 'FALLBACK_KEPT';
+                    rolledBackResponse.semanticInterpretationStatus = 'LEDGER_VALIDATION_FAILED';
+                    rolledBackResponse.semanticInterpretationIssues = ledgerValidation.issues.slice(0, 8);
+                    mirrorResponse(rolledBack, rolledBackResponse);
+                }
+                if (typeof storyConversationWorkspaceResponseSettled === 'function') {
+                    storyConversationWorkspaceResponseSettled(responseId);
+                }
+                return;
+            }
+            storyConversationDiagnosticAppend(current, liveResponse, playerText,
+                'SEMANTIC_INTERPRETATION_APPLIED', sequence);
+            if (typeof storySave === 'function') storySave();
+        }
+        if (typeof storyConversationWorkspacePatchResponse === 'function') {
+            storyConversationWorkspacePatchResponse(liveResponse.id, liveResponse.text,
+                liveResponse.enrichmentStatus);
+        }
+        if (typeof storyConversationWorkspaceResponseSettled === 'function') {
+            storyConversationWorkspaceResponseSettled(liveResponse.id);
+        }
+    }).catch(() => {
+        STORY_CONVERSATION_LLM_PENDING.delete(responseId);
+        const current = storyConversationSessionFind(sessionId);
+        const liveResponse = current && (current.listenerResponses || []).find(row => row.id === responseId);
+        if (!liveResponse) return;
+        liveResponse.enrichmentStatus = 'FALLBACK_KEPT';
+        liveResponse.semanticInterpretationStatus = 'ERROR';
+        mirrorResponse(current, liveResponse);
+        if (typeof storyConversationWorkspacePatchResponse === 'function') {
+            storyConversationWorkspacePatchResponse(liveResponse.id, liveResponse.text,
+                liveResponse.enrichmentStatus);
+        }
+        if (typeof storyConversationWorkspaceResponseSettled === 'function') {
+            storyConversationWorkspaceResponseSettled(liveResponse.id);
+        }
+    });
+    return true;
 }
 
 function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerText) {
@@ -2461,7 +3465,7 @@ function storyConversationSessionQueueSocialLLM(sessionId, responseId, playerTex
                     ? storyConversationSocialLLMParse(raw, fallbackText, playerText, validationContext)
                     : null;
             },
-            { maxTokens: 220, temperature: 0.35, priority: 100,
+            { maxTokens: 300, temperature: 0.35, priority: 100,
                 contextLimit: 8192, contextWrapperReserveTokens: 128,
                 contextMaxRebuilds: 2,
                 contextRebuildPrompt: budget => storyConversationSocialLLMPromptWithBudget(
@@ -2557,6 +3561,20 @@ function storyConversationSessionAttachDecisionContracts(session, response, anal
     response.domainEvidence = storyConversationSessionDomainEvidence(
         session, response, analysis, inheritedClaims);
     storyConversationSessionGroundedFactFallback(session, response, analysis);
+    if (analysis.speechAct === 'ASK_INFORMATION' && !response.discourseAct
+        && !(response.domainEvidence && response.domainEvidence.factRefs || []).length) {
+        const variants = [
+            'Sorduğun konuda bana açık doğrulanmış bir kayıt yok; kesin bir yanıt veremem.',
+            'Bu başlığı doğrulayacak bir kayıt görmüyorum; bilgi uydurarak cevap vermeyeceğim.',
+            'Elimde bu soruyu yanıtlayacak doğrulanmış bilgi bulunmuyor; bilmediğim ayrıntıyı tamamlamayacağım.'
+        ];
+        const variantSeed = parseInt(String(analysis.inputHash || '').slice(-8), 16) || sequence;
+        response.text = variants[Math.abs(variantSeed) % variants.length];
+        response.source = 'DETERMINISTIC_KNOWLEDGE_BOUNDARY_RESPONSE';
+        response.discourseAct = 'ANSWER_INFORMATION_BOUNDARY';
+        response.enrichmentStatus = 'NOT_REQUIRED';
+        response.llmUsed = false;
+    }
     if (typeof storyDialogueMoveBuild === 'function') response.dialogueMove = storyDialogueMoveBuild({
         sessionId: session.id, sequence, analysis, response, inheritedClaims,
         factRefs: response.domainEvidence && response.domainEvidence.factRefs,
@@ -2703,14 +3721,27 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     if ((session.followUps || []).length >= STORY_CONVERSATION_TURN_LIMIT - 1) {
         return { ok: false, code: 'TURN_LIMIT', worldMutation: false };
     }
+    const inheritedTopic = session.discourseState && session.discourseState.activeTopic || null;
     const analysis = storyConversationAnalyze(text, {
         listenerActorId: session.listenerActorId,
         focusRegionId: session.focusRegionId
     });
     if (!analysis.ok) return { ok: false, code: analysis.code, worldMutation: false };
     const sequence = session.followUps.length + 1;
+    const inferredMode = storyConversationCaseInferMode(text, analysis);
+    if (inferredMode !== 'DAILY_CHAT' && session.conversationCase
+        && inferredMode !== session.conversationCase.mode
+        && storyConversationCaseApplyMode(session, inferredMode, 'FOLLOW_UP_ANALYSIS',
+            `conversation-turn:${session.id}:${sequence}`)) {
+        ledger.diagnostics.caseModeSwitches++;
+    }
     const heldMemory = storyConversationSocialMemoryRecall(session, text, analysis);
     let grounded = !heldMemory && storyConversationGroundedFollowUp(session, analysis, text, sequence);
+    if (grounded && grounded.discourseAct === 'CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY'
+        && inheritedTopic) grounded = {
+            discourseAct: 'CLARIFY_AMBIGUOUS_INPUT',
+            text: 'Bu sözünü etkin konuşma konusuna güvenle bağlayamadım; neyi kastettiğini açıkça belirt.'
+        };
     if (grounded && (session.listenerResponses || []).some(row =>
         storyConversationFold(row.text) === storyConversationFold(grounded.text))) {
         grounded = grounded.discourseAct === 'CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY'
@@ -2745,6 +3776,9 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         rawWorldRead: false,
         worldMutation: false
     };
+    if (!response.discourseAct && analysis.speechAct === 'CHECK_IN') {
+        response.discourseAct = 'CONTINUE_SOCIAL';
+    }
     storyConversationSessionAttachDecisionContracts(session, response, analysis, sequence,
         storyConversationSessionUnverifiedClaims(session));
     const followUp = {
@@ -2755,6 +3789,7 @@ function storyConversationSessionFollowUp(sessionId, raw) {
         playerText: text,
         inputHash: storyConversationHash(text),
         analysis: storyConversationClone(analysis),
+        inheritedTopic,
         inheritedClaims: storyConversationSessionUnverifiedClaims(session),
         response,
         worldMutation: false
@@ -2771,7 +3806,11 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
     if (heldMemory) ledger.diagnostics.memoryRecalls++;
-    if (!grounded) storyConversationSessionQueueSocialLLM(session.id, response.id, text);
+    const semanticQueued = response.enrichmentStatus !== 'NOT_REQUIRED'
+        && storyConversationSessionQueueSemanticLLM(session.id, response.id, text);
+    if (!semanticQueued && !grounded && response.enrichmentStatus !== 'NOT_REQUIRED') {
+        storyConversationSessionQueueSocialLLM(session.id, response.id, text);
+    }
     return {
         ok: true, code: 'FOLLOW_UP_RECORDED', followUp: storyConversationClone(followUp),
         session: storyConversationClone(session), worldMutation: false
@@ -2805,10 +3844,12 @@ function storyConversationSessionBegin(raw, context) {
             ? storyDiscourseStateCreate(id, analysis) : null,
         worldMutation: false
     };
+    storyConversationCaseCreate(session, raw, analysis);
     storyConversationSessionBuildSocialResponse(session, ledger);
     session.status = storyConversationSessionStatus(session);
     session.candidate = storyConversationSessionCandidate(session);
     ledger.sessions.push(session);
+    storyConversationTaskOfferCompleteForConversation(ledger, session);
     if (ledger.sessions.length > STORY_CONVERSATION_SESSION_LIMIT) {
         const remove = ledger.sessions.length - STORY_CONVERSATION_SESSION_LIMIT;
         ledger.sessions.splice(0, remove);
@@ -2816,7 +3857,14 @@ function storyConversationSessionBegin(raw, context) {
     }
     const openingResponse = session.listenerResponses.find(row => row.kind === 'SOCIAL_RESPONSE');
     if (openingResponse) storyConversationDiagnosticAppend(session, openingResponse, session.initialText, 'TURN_CREATED', 0);
-    if (openingResponse) storyConversationSessionQueueSocialLLM(session.id, openingResponse.id, session.initialText);
+    if (openingResponse) {
+        const semanticQueued = openingResponse.enrichmentStatus !== 'NOT_REQUIRED'
+            && storyConversationSessionQueueSemanticLLM(
+                session.id, openingResponse.id, session.initialText);
+        if (!semanticQueued && openingResponse.enrichmentStatus !== 'NOT_REQUIRED') {
+            storyConversationSessionQueueSocialLLM(session.id, openingResponse.id, session.initialText);
+        }
+    }
     return { ok: analysis.ok, code: analysis.ok ? 'SESSION_STARTED' : analysis.code, session: storyConversationClone(session), worldMutation: false };
 }
 
@@ -2937,6 +3985,31 @@ function storyConversationSessionLatest(listenerActorId) {
     return rows.length ? storyConversationClone(rows[rows.length - 1]) : null;
 }
 
+function storyConversationSessionCaseGet(sessionId) {
+    const session = storyConversationSessionFind(sessionId);
+    return session && session.conversationCase ? storyConversationClone(session.conversationCase) : null;
+}
+
+function storyConversationSessionSetMode(sessionId, mode) {
+    const ledger = storyConversationSessionEnsure();
+    const session = storyConversationSessionFind(sessionId);
+    const normalized = String(mode || '');
+    if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    if (!STORY_CONVERSATION_CASE_MODES.includes(normalized)) {
+        return { ok: false, code: 'CONVERSATION_MODE_INVALID', worldMutation: false };
+    }
+    const changed = storyConversationCaseApplyMode(session, normalized,
+        'PLAYER_EXPLICIT_MODE', `conversation-mode:${session.id}:${session.conversationCase.modeHistory.length + 1}`);
+    session.updatedAt = Number(STORY.clock) || session.updatedAt;
+    if (changed) ledger.diagnostics.caseModeSwitches++;
+    return {
+        ok: true,
+        code: changed ? 'CONVERSATION_MODE_CHANGED' : 'CONVERSATION_MODE_UNCHANGED',
+        conversationCase: storyConversationClone(session.conversationCase),
+        worldMutation: false
+    };
+}
+
 function storyConversationSessionExpectedDialogueMove(session, response) {
     if (!session || !response || typeof storyDialogueMoveBuild !== 'function') return null;
     const followUp = (session.followUps || []).find(row =>
@@ -2987,6 +4060,8 @@ function storyConversationSessionValidationContext(session, response) {
             .flatMap(row => row.regionNames || (row.regionName ? [row.regionName] : [])),
         locationAnswerMustBeUnknown: response.discourseAct === 'ANSWER_LISTENER_LOCATION_UNKNOWN',
         firstContact: Number(session.contactOrdinal) === 1,
+        ongoingSession: (session.followUps || []).some(row =>
+            row.response && row.response.id !== response.id),
         dialogueMove: response.dialogueMove || null,
         verifiedFacts, memoryRecords
     };
@@ -3001,9 +4076,187 @@ function storyConversationSessionValidateLedger(candidate) {
     if (candidate.schemaVersion !== STORY_CONVERSATION_SESSION_SCHEMA_VERSION) add('SESSION_SCHEMA', '$.schemaVersion');
     if (candidate.adapterVersion !== STORY_CONVERSATION_SESSION_ADAPTER_VERSION) add('SESSION_ADAPTER', '$.adapterVersion');
     if (!Number.isInteger(candidate.nextSequence) || candidate.nextSequence < 1) add('NEXT_SEQUENCE', '$.nextSequence');
+    if (!Number.isInteger(candidate.nextTaskOfferSequence) || candidate.nextTaskOfferSequence < 1) {
+        add('NEXT_TASK_OFFER_SEQUENCE', '$.nextTaskOfferSequence');
+    }
+    if (!Number.isInteger(candidate.nextMeetingSequence) || candidate.nextMeetingSequence < 1) {
+        add('NEXT_MEETING_SEQUENCE', '$.nextMeetingSequence');
+    }
+    if (!Array.isArray(candidate.taskOffers)
+        || candidate.taskOffers.length > STORY_CONVERSATION_TASK_OFFER_LIMIT) {
+        add('TASK_OFFERS_REQUIRED', '$.taskOffers');
+    }
+    if (!Array.isArray(candidate.meetingCases)
+        || candidate.meetingCases.length > STORY_CONVERSATION_MEETING_LIMIT) {
+        add('MEETING_CASES_REQUIRED', '$.meetingCases');
+    }
     if (!Array.isArray(candidate.sessions) || candidate.sessions.length > STORY_CONVERSATION_SESSION_LIMIT) add('SESSION_LIMIT', '$.sessions');
+    const taskOfferIds = new Set();
+    for (const [index, taskOffer] of (candidate.taskOffers || []).entries()) {
+        const at = `$.taskOffers[${index}]`;
+        if (!taskOffer || taskOffer.schemaVersion !== 1 || !taskOffer.id || taskOfferIds.has(taskOffer.id)) {
+            add('TASK_OFFER_ID', at);
+            continue;
+        }
+        taskOfferIds.add(taskOffer.id);
+        if (!['OFFERED', 'ACCEPTED', 'DECLINED', 'COMPLETED', 'EXPIRED'].includes(taskOffer.status)) {
+            add('TASK_OFFER_STATUS', `${at}.status`);
+        }
+        if (taskOffer.kind !== 'CONTACT_REQUEST' || !taskOffer.issuerActorId || !taskOffer.assigneeActorId
+            || !taskOffer.authority || taskOffer.authority.model !== 'PERSONAL_REQUEST'
+            || taskOffer.authority.sourceActorId !== taskOffer.issuerActorId
+            || taskOffer.authority.canCompel !== false) add('TASK_OFFER_AUTHORITY', at);
+        if (!taskOffer.objective || taskOffer.objective.type !== 'HOLD_CONVERSATION'
+            || !taskOffer.objective.targetActorId || taskOffer.objective.minimumConversationCount !== 1) {
+            add('TASK_OFFER_OBJECTIVE', `${at}.objective`);
+        }
+        if (!taskOffer.reward || taskOffer.reward.kind !== 'NONE' || taskOffer.reward.amount !== 0) {
+            add('TASK_OFFER_REWARD', `${at}.reward`);
+        }
+        if (!Number.isFinite(taskOffer.createdAt) || !Number.isFinite(taskOffer.dueAt)
+            || taskOffer.dueAt <= taskOffer.createdAt || taskOffer.worldMutation !== false) {
+            add('TASK_OFFER_TIME_OR_MUTATION', at);
+        }
+        if (taskOffer.status === 'COMPLETED' && (!taskOffer.completionSessionId
+            || !Number.isFinite(taskOffer.completedAt))) add('TASK_OFFER_COMPLETION', at);
+    }
+    const meetingById = new Map();
+    for (const [index, meeting] of (candidate.meetingCases || []).entries()) {
+        const at = `$.meetingCases[${index}]`;
+        if (!meeting || meeting.schemaVersion !== 1 || !meeting.id || meetingById.has(meeting.id)) {
+            add('MEETING_CASE_ID', at);
+            continue;
+        }
+        meetingById.set(meeting.id, meeting);
+        const sourceSession = (candidate.sessions || []).find(row => row.id === meeting.sessionId);
+        if (!sourceSession || !sourceSession.conversationCase
+            || sourceSession.conversationCase.id !== meeting.conversationCaseId
+            || sourceSession.conversationCase.meetingCaseId !== meeting.id) {
+            add('MEETING_SESSION_REFERENCE', at);
+        }
+        if (meeting.meetingType !== 'FORMAL_CONSULTATION'
+            || meeting.status !== 'OPEN_NO_DECISION_ADAPTER') add('MEETING_CASE_STATUS', at);
+        if (!meeting.chair || !meeting.chair.actorId || !meeting.chair.institutionId
+            || meeting.chair.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE') {
+            add('MEETING_CHAIR_AUTHORITY', `${at}.chair`);
+        }
+        if (!Array.isArray(meeting.participants) || meeting.participants.length < 3
+            || !Array.isArray(meeting.participantActorIds)
+            || JSON.stringify(meeting.participants.map(row => row.actorId))
+                !== JSON.stringify(meeting.participantActorIds)
+            || new Set(meeting.participantActorIds).size !== meeting.participantActorIds.length
+            || !meeting.participantActorIds.includes(meeting.chair && meeting.chair.actorId)) {
+            add('MEETING_PARTICIPANTS', `${at}.participants`);
+        }
+        if (!Array.isArray(meeting.agendaItems) || meeting.agendaItems.length !== 1
+            || !meeting.agendaItems[0].title || meeting.agendaItems[0].status !== 'OPEN'
+            || meeting.agendaItems[0].source !== 'PLAYER_PROPOSED_AGENDA') {
+            add('MEETING_AGENDA', `${at}.agendaItems`);
+        }
+        if (!Array.isArray(meeting.speakingOrderActorIds)
+            || JSON.stringify(meeting.speakingOrderActorIds) !== JSON.stringify(meeting.participantActorIds)
+            || !Number.isInteger(meeting.currentSpeakerIndex)
+            || meeting.currentSpeakerIndex < 0
+            || meeting.currentSpeakerIndex >= meeting.speakingOrderActorIds.length
+            || meeting.currentSpeakerIndex !== ((meeting.turns || []).length % meeting.speakingOrderActorIds.length)) {
+            add('MEETING_SPEAKING_ORDER', `${at}.speakingOrderActorIds`);
+        }
+        const publicTurnIds = (meeting.turns || []).map(row => row && row.id);
+        if (!Array.isArray(meeting.turns) || meeting.turns.length > 40
+            || meeting.turns.some((turn, turnIndex) => !turn
+                || turn.id !== `${meeting.id}:turn:${turnIndex + 1}`
+                || turn.sequence !== turnIndex + 1
+                || !meeting.participantActorIds.includes(turn.actorId)
+                || (turn.addressedActorId != null
+                    && !meeting.participantActorIds.includes(turn.addressedActorId))
+                || turn.visibility !== 'MEETING_PUBLIC' || turn.worldMutation !== false
+                || !Array.isArray(turn.sourceRefs)
+                || (turn.grounding != null && (!turn.grounding.beliefId
+                    || !turn.grounding.worldFactId
+                    || !turn.sourceRefs.includes(turn.grounding.beliefId)
+                    || !turn.sourceRefs.includes(turn.grounding.worldFactId)
+                    || !['PUBLIC', 'INSTITUTIONAL'].includes(turn.grounding.visibility)))
+                || !turn.knowledgePolicy || turn.knowledgePolicy.ownPrivateContextOnly !== true
+                || turn.knowledgePolicy.otherPrivateContextReadable !== false
+                || turn.knowledgePolicy.rawWorldRead !== false)) {
+            add('MEETING_TURNS', `${at}.turns`);
+        }
+        const agendaIds = (meeting.agendaItems || []).map(row => row.id);
+        const privateNoteIds = (meeting.privateNotes || []).map(row => row && row.id);
+        if (!Array.isArray(meeting.privateNotes) || meeting.privateNotes.length > 24
+            || meeting.privateNotes.some((note, noteIndex) => !note
+                || note.id !== `${meeting.id}:private-note:${noteIndex + 1}`
+                || note.sequence !== noteIndex + 1
+                || !meeting.participantActorIds.includes(note.authorActorId)
+                || !meeting.participantActorIds.includes(note.recipientActorId)
+                || note.authorActorId === note.recipientActorId
+                || note.visibility !== 'BILATERAL_PRIVATE'
+                || typeof note.text !== 'string' || note.text.length < 2 || note.text.length > 600
+                || note.worldMutation !== false)) {
+            add('MEETING_PRIVATE_NOTES', `${at}.privateNotes`);
+        }
+        if (!Array.isArray(meeting.visibilityMatrix)
+            || meeting.visibilityMatrix.length !== meeting.participantActorIds.length
+            || meeting.visibilityMatrix.some(row => !row
+                || !meeting.participantActorIds.includes(row.actorId)
+                || JSON.stringify(row.visibleParticipantActorIds) !== JSON.stringify(meeting.participantActorIds)
+                || JSON.stringify(row.visibleAgendaItemIds) !== JSON.stringify(agendaIds)
+                || JSON.stringify(row.visibleTurnIds) !== JSON.stringify(publicTurnIds)
+                || JSON.stringify(row.visiblePrivateNoteIds) !== JSON.stringify(privateNoteIds.filter(noteId => {
+                    const note = meeting.privateNotes.find(item => item.id === noteId);
+                    return note && (note.authorActorId === row.actorId || note.recipientActorId === row.actorId);
+                }))
+                || row.privateContextOwnerActorId !== row.actorId
+                || row.mayReadOtherPrivateContext !== false)) {
+            add('MEETING_VISIBILITY_MATRIX', `${at}.visibilityMatrix`);
+        }
+        if (!Array.isArray(meeting.motions)
+            || !Array.isArray(meeting.votes) || meeting.outcomeReceiptId !== null
+            || meeting.worldMutation !== false) add('MEETING_DECISION_BOUNDARY', at);
+    }
     for (const [index, session] of (candidate.sessions || []).entries()) {
         if (!session.id || session.schemaVersion !== STORY_CONVERSATION_SESSION_SCHEMA_VERSION) add('SESSION_ID', `$.sessions[${index}]`);
+        const conversationCase = session.conversationCase;
+        if (!conversationCase || conversationCase.schemaVersion !== STORY_CONVERSATION_CASE_SCHEMA_VERSION
+            || conversationCase.id !== `conversation-case:${session.id}`
+            || conversationCase.sessionId !== session.id
+            || !['SINGLE_PARTY', 'MULTI_PARTY'].includes(conversationCase.kind)) {
+            add('CONVERSATION_CASE_SCHEMA', `$.sessions[${index}].conversationCase`);
+        } else {
+            if (!STORY_CONVERSATION_CASE_MODES.includes(conversationCase.mode)
+                || conversationCase.mechanicalStatus !== STORY_CONVERSATION_CASE_MODE_STATUS[conversationCase.mode]) {
+                add('CONVERSATION_CASE_MODE', `$.sessions[${index}].conversationCase.mode`);
+            }
+            const linkedMeeting = conversationCase.meetingCaseId
+                ? meetingById.get(conversationCase.meetingCaseId) : null;
+            const expectedParticipants = linkedMeeting ? linkedMeeting.participantActorIds
+                : Array.from(new Set([session.playerActorId, session.listenerActorId]
+                    .filter(Boolean).map(String)));
+            if (JSON.stringify(conversationCase.participantActorIds) !== JSON.stringify(expectedParticipants)) {
+                add('CONVERSATION_CASE_PARTICIPANTS', `$.sessions[${index}].conversationCase.participantActorIds`);
+            }
+            if ((linkedMeeting && conversationCase.kind !== 'MULTI_PARTY')
+                || (!linkedMeeting && conversationCase.kind !== 'SINGLE_PARTY')
+                || (conversationCase.meetingCaseId && !linkedMeeting)) {
+                add('CONVERSATION_CASE_MEETING_REFERENCE', `$.sessions[${index}].conversationCase.meetingCaseId`);
+            }
+            if (!Array.isArray(conversationCase.modeHistory) || !conversationCase.modeHistory.length
+                || conversationCase.modeHistory.some((row, modeIndex) => !row
+                    || row.sequence !== modeIndex + 1 || !STORY_CONVERSATION_CASE_MODES.includes(row.to)
+                    || row.worldMutation !== false)) {
+                add('CONVERSATION_CASE_HISTORY', `$.sessions[${index}].conversationCase.modeHistory`);
+            }
+            if (!['taskOfferIds', 'confidentialityRecordIds', 'declarationDraftIds']
+                .every(key => Array.isArray(conversationCase[key]))) {
+                add('CONVERSATION_CASE_RECORDS', `$.sessions[${index}].conversationCase`);
+            }
+            if ((conversationCase.taskOfferIds || []).some(id => !taskOfferIds.has(id))) {
+                add('CONVERSATION_CASE_TASK_REFERENCE', `$.sessions[${index}].conversationCase.taskOfferIds`);
+            }
+            if (conversationCase.worldMutation !== false) {
+                add('CONVERSATION_CASE_MUTATION', `$.sessions[${index}].conversationCase.worldMutation`);
+            }
+        }
         if (session.worldMutation !== false || !session.candidate || session.candidate.worldMutation !== false
             || session.candidate.executable !== false) add('SESSION_MUTATION', `$.sessions[${index}]`);
         if (!['REJECTED', 'NEEDS_CLARIFICATION', 'READY_FOR_DOMAIN_REVIEW', 'READY_FOR_REVIEW', 'SOCIAL_RESPONSE_READY']

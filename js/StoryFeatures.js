@@ -58,6 +58,10 @@ const STORY_FEATURE_DEFAULTS = Object.freeze({
     'characters.derivedPower': true,
     'characters.cohortActivation': true,
     'characters.conversationUnderstanding': true,
+    'characters.conversationCases': true,
+    // Gerçek 8B SF2 kapısı 1/4 kaldığı için üretimde kapalıdır. Yalnız açık
+    // test/A-B bayrağıyla çalışır; güvenli deterministik sohbet varsayılandır.
+    'characters.semanticModelInterpretation': false,
     'characters.negotiationCases': true,
     'characters.mechanicalContracts': true,
     'diplomacy.peacefulStart': true,
@@ -225,6 +229,13 @@ const STORY_FEATURE_DEPENDENCIES = Object.freeze({
         'characters.actionCandidates',
         'economy.resourceTaxonomy',
         'economy.companiesBanks'
+    ]),
+    'characters.conversationCases': Object.freeze([
+        'characters.conversationUnderstanding', 'characters.identityGoals',
+        'characters.multiDimensionalRelations'
+    ]),
+    'characters.semanticModelInterpretation': Object.freeze([
+        'characters.conversationUnderstanding'
     ]),
     'characters.negotiationCases': Object.freeze([
         'characters.conversationUnderstanding',

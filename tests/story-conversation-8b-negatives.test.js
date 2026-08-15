@@ -120,6 +120,13 @@ try {
     const economicQualified = diagnoseFor(economicClaim,
         'Söylediğin fiyat artışı henüz doğrulanmadı; iddianı kanıt olmadan gerçek kabul edemem.');
     assert.notEqual(economicQualified.code, 'UNVERIFIED_CLAIM_ADOPTED');
+    assert.ok(['UNVERIFIED_CLAIM_ADOPTED', 'PLAYER_SEMANTIC_ECHO'].includes(
+        diagnoseFor('İlçemizin nüfusu artıyor, göç hızını kontrol etmeliyiz.',
+            'İlçemizin nüfusu artıyor ve bu da göç hızını kontrol etmemiz gerektiğine işaret ediyor. Bu nedenle önlem almalıyız.').code),
+    'Doğrulanmamış dünya iddiası aynen veya nedensel gerçek gibi benimsenmemeli.');
+    assert.equal(diagnoseFor('Göç hızını kontrol etmeliyiz.',
+        `${'Bu konuyu yalnız doğrulanmış kayıtlarla ele almak gerekir. '.repeat(9)}uygun`).code,
+    'TRUNCATED_REPLY');
     assert.equal(diagnoseFor('Şirket finansmanı nasıl?',
         'Elbette! Seninle görüşmek çok güzel. Şirket finansmanı hakkında daha fazla bilgi edinmek ister misin?').code,
     'SERVICE_BOT_LANGUAGE');
@@ -142,6 +149,50 @@ try {
         usedRefs: [], answeredQuestionIds: [], introducedQuestion: null, closing: false
     }), informationResponse.text, informationPlayerText, informationContext);
     assert.equal(evasiveInformation.code, 'EVASIVE_INFORMATION_QUESTION');
+    const noFactOpened = runtime.api.conversationSessionBegin('Merhaba.', {
+        listenerActorId: listener.id
+    });
+    const noFactFollow = runtime.api.conversationSessionFollowUp(noFactOpened.session.id,
+        'Medyanın yeni stratejileri neler?');
+    const noFactResponse = noFactFollow.followUp.response;
+    const noFactSession = runtime.api.conversationSessionGet(noFactOpened.session.id);
+    const noFactContext = runtime.api.conversationValidationContext(noFactSession, noFactResponse);
+    assert.equal(noFactContext.verifiedFacts.length, 0);
+    assert.equal(noFactResponse.discourseAct, 'ANSWER_INFORMATION_BOUNDARY');
+    assert.equal(noFactResponse.enrichmentStatus, 'NOT_REQUIRED');
+    assert.equal(noFactResponse.llmUsed, false);
+    assert.match(noFactResponse.text, /doğrulanmış|doğrulayacak/i);
+    const noFactAskMove = runtime.api.dialogueMoveBuild({
+        sessionId: noFactSession.id, sequence: 1,
+        analysis: { speechAct: 'ASK_INFORMATION', claims: [], entities: [] },
+        response: { id: noFactResponse.id, relationshipBand: noFactResponse.relationshipBand },
+        factRefs: [], listenerActorId: noFactSession.listenerActorId,
+        playerActorId: noFactSession.playerActorId
+    });
+    const noFactValidationContext = Object.assign({}, noFactContext, {
+        dialogueMove: noFactAskMove
+    });
+    const unsupportedStatement = runtime.api.conversationSocialLLMDiagnose(JSON.stringify({
+        moveId: noFactAskMove.moveId,
+        reply: 'Medyanın yeni stratejileri toplumsal güveni artırıyor.',
+        usedRefs: [], answeredQuestionIds: [], introducedQuestion: null, closing: false
+    }), noFactResponse.text, 'Medyanın yeni stratejileri neler?', noFactValidationContext);
+    assert.equal(unsupportedStatement.code, 'MISSING_DIRECT_KNOWLEDGE_BOUNDARY');
+    const directBoundary = runtime.api.conversationSocialLLMDiagnose(JSON.stringify({
+        moveId: noFactAskMove.moveId,
+        reply: 'Medyanın yeni stratejilerini doğrulayan bir kayıt bana açık değil.',
+        usedRefs: [], answeredQuestionIds: [], introducedQuestion: null, closing: false
+    }), noFactResponse.text, 'Medyanın yeni stratejileri neler?', noFactValidationContext);
+    assert.equal(directBoundary.ok, true);
+
+    const ongoingContext = Object.assign({}, firstContactContext, { ongoingSession: true });
+    const midSessionRestart = runtime.api.conversationSocialLLMDiagnose(JSON.stringify({
+        moveId: response.dialogueMove.moveId,
+        reply: 'Merhaba. Bu görüşmeye yeniden başlayalım.', usedRefs: [],
+        answeredQuestionIds: [], introducedQuestion: null, closing: false
+    }), response.text, 'Bu toplantıda hangi konular konuşulacak?', ongoingContext);
+    assert.equal(midSessionRestart.code,
+    'MID_SESSION_RESTART');
     assert.equal(diagnoseFor('Göç kayıtlarını incelemeni istiyorum.',
         'Elbette göç kayıtlarını inceleyebilirim. Lütfen daha fazla ayrıntıya ihtiyacım var.').code,
     'SERVICE_BOT_LANGUAGE');

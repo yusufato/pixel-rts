@@ -19,6 +19,7 @@ const depthLimit = Math.max(1, Math.floor(Number(depthArg && depthArg.slice(8)) 
 const playerMicrobatchSize = Math.min(2, Math.max(1,
     Math.floor(Number(microbatchArg && microbatchArg.split('=')[1]) || 2)));
 const playerContextSize = 4096;
+const conversationSessionLimit = 32;
 const scenarioOffset = Math.max(0, Math.floor(Number(
     scenarioOffsetArg && scenarioOffsetArg.split('=')[1]) || 0));
 const selectedScenarioIndices = scenarioIndicesArg
@@ -128,18 +129,17 @@ function matchesMode(text, mode) {
 }
 
 function playerModeContract(mode, topicAnchor = 'konu') {
-    const topic = String(topicAnchor || 'konu').trim();
     const contracts = {
-        QUESTION: `Soru işaretiyle biten tek bir doğrudan soru yaz. Biçim örneği: “${topic} neden değişti?”`,
-        ASSERTION: `Soru sorma; soru işareti kullanmadan bir iddia veya gözlem belirt. Biçim örneği: “${topic} hakkında eksik bir ayrıntı var.”`,
-        DEMAND: `Karakterden açıkça bir eylem iste veya emir ver. Biçim örneği: “${topic} kayıtlarını incelemeni istiyorum.”`,
-        EMOTIONAL_REACTION: `Kendi duygunu konuya bağla; sevindim, endişeliyim, kızgınım gibi açık duygu sözü kullan. Biçim örneği: “${topic} haberi beni endişelendirdi.”`,
-        COUNTER_CLAIM: `Önceki tutuma açıkça karşı çık; hayır, ama, katılmıyorum veya buna rağmen gibi karşıtlık kullan. Biçim örneği: “Hayır, ${topic} konusunda sana katılmıyorum.”`,
-        FRAGMENT: `En fazla on iki sözcüklü, kasıtlı kısa veya yarım bir ifade yaz. Biçim örneği: “${topic} hakkındaki o eski mesele...”`,
-        TOPIC_SWITCH: `Konu değiştirdiğini açıkça söyle; bu arada, başka bir konu veya geçelim gibi geçiş kullan. Biçim örneği: “Bu arada ${topic} konusuna geçelim.”`,
-        CORRECTION: `Önceki sözü açıkça düzelt; hayır, aslında, yanlış veya demek istemedim kullan. Biçim örneği: “Hayır, ${topic} konusunda önceki sözümü düzeltmek istiyorum.”`,
-        NEGOTIATION: `Kazanç ve bedeli aynı teklifte bağla; karşılığında, şartıyla veya teklif kullan. Biçim örneği: “${topic} konusunda vereceğim destek karşılığında pay teklif ediyorum.”`,
-        CASUAL_CHAT: `Talep veya pazarlık yapmadan gündelik, kısa ve doğal bir sosyal söz yaz. Biçim örneği: “Bugün ${topic} konusu sakin görünüyor.”`
+        QUESTION: 'Bilgi isteyen tek bir doğrudan soru kur ve soru işaretiyle bitir.',
+        ASSERTION: 'Soru işareti kullanmadan doğruluğu tartışılabilir bir iddia veya gözlem belirt.',
+        DEMAND: 'Muhataptan yapılabilir bir eylemi açıkça iste veya ona doğrudan emir ver.',
+        EMOTIONAL_REACTION: 'Konunun sende doğurduğu duyguyu açıkça belli et; yalnız olay özeti yazma.',
+        COUNTER_CLAIM: 'Görünür konuşmadaki bir tutuma neden göstererek karşı çık veya farklı görüş bildir.',
+        FRAGMENT: 'En fazla on iki sözcüklü, kasıtlı kısa ya da eksiltili bir ifade kullan.',
+        TOPIC_SWITCH: 'Önceki konuyu sürdürmek yerine konuşmayı açıkça yeni bir konuya taşı.',
+        CORRECTION: 'Kendi önceki sözündeki belirli bir bilgiyi veya varsayımı açıkça düzelt.',
+        NEGOTIATION: 'İstediğin sonuç ile önerdiğin bedel veya tavizi tek bir karşı teklifte bağla.',
+        CASUAL_CHAT: 'Görev, emir veya pazarlık içermeyen kısa ve gündelik bir sosyal söz söyle.'
     };
     return contracts[mode] || '';
 }
@@ -158,7 +158,7 @@ function playerCandidateIssues(text, scenario, priorPlayer) {
         'unexpectedly', 'suddenly', 'probably', 'basically', 'literally']);
     if (folded.split(' ').some(token => foreignTokens.has(token))) issues.push('NON_TURKISH_TOKEN');
     const sentenceCount = value.split(/[.!?]+/).map(row => row.trim()).filter(Boolean).length;
-    if (sentenceCount > 2) issues.push('TOO_MANY_SENTENCES');
+    if (sentenceCount > 4) issues.push('TOO_MANY_SENTENCES');
     if (['saldırı ailesi', 'saldiri ailesi', 'gizli test', 'test hedefi', 'mekanik olgunluk',
         'knowledge relation', 'utterance mode', 'attack family', 'gelecek faz',
         'faz yetenegi', 'faz bilgisi', 'gelistirme asamas', 'oyuncu yetenek',
@@ -166,6 +166,23 @@ function playerCandidateIssues(text, scenario, priorPlayer) {
         issues.push('PRIVATE_BRIEF_LEAK');
     }
     return issues;
+}
+function playerRetryInstruction(issues, scenario) {
+    const rows = [];
+    if (issues.includes('REPEATED')) {
+        rows.push('Önceki cümle iskeletini, başlangıcını ve yüklemini bırak; düşünceyi başka bir açıdan kur.');
+    }
+    if (issues.includes('OFF_TOPIC')) {
+        rows.push(`Yalnız şu konu alanında kal ve sözünde bunlardan birini doğal biçimde geçir: ${(scenario.requiredTopicAnchors || []).join(', ')}.`);
+    }
+    if (issues.includes('WRONG_UTTERANCE_MODE')) {
+        rows.push(`Cümle türünü düzelt: ${playerModeContract(scenario.utteranceMode)} Başka cümle türü kullanma.`);
+    }
+    if (issues.includes('TOO_MANY_SENTENCES')) rows.push('En fazla iki kısa cümle kullan.');
+    if (issues.includes('NON_TURKISH_TOKEN')) rows.push('Yabancı sözcüğü doğal Türkçe karşılığıyla değiştir.');
+    if (issues.includes('PRIVATE_BRIEF_LEAK')) rows.push('Test yönergesinden söz etmeden yalnız oyun dünyasında konuş.');
+    if (issues.includes('EMPTY')) rows.push('Boş bırakma; tek bir doğal oyuncu sözü üret.');
+    return rows.join(' ');
 }
 function playerMicrobatchPrompt(jobs) {
     const compactJobs = jobs.map(job => ({
@@ -205,8 +222,10 @@ function chunkJobsByMode(rows, size) {
     const groups = new Map();
     for (const row of rows) {
         const mode = row && row.scenario && row.scenario.utteranceMode || 'UNKNOWN';
-        if (!groups.has(mode)) groups.set(mode, []);
-        groups.get(mode).push(row);
+        const domain = row && row.scenario && row.scenario.domain && row.scenario.domain.id || 'UNKNOWN';
+        const key = `${mode}|${domain}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
     }
     return [...groups.values()].flatMap(group => chunkRows(group, size));
 }
@@ -241,11 +260,20 @@ function patchAcceptedResponse(runtime, sessionId, responseId, acceptedText) {
     if (!validation || !validation.ok) throw new Error('SESSION_PATCH_LEDGER_INVALID');
     runtime.api.conversationSessionRestore(ledger);
 }
+function characterResponseModelEligible(response) {
+    return !!(response && response.speechAct !== 'UNKNOWN'
+        && response.enrichmentStatus !== 'NOT_REQUIRED');
+}
 function completedCount(state) {
     return state.sessions.reduce((sum, session) => sum + session.turns.length, 0);
 }
 function summary(state) {
     const turns = state.sessions.flatMap(session => session.turns);
+    const infrastructureErrors = turns.filter(row => row.error
+        && row.error !== 'PLAYER_LLM_REPETITIVE_OFF_TOPIC_OR_INVALID'
+        && row.error !== 'NO_PLAYER_TEXT').length;
+    const playerGenerationErrors = turns.filter(row => row.error === 'PLAYER_LLM_REPETITIVE_OFF_TOPIC_OR_INVALID'
+        || row.error === 'NO_PLAYER_TEXT').length;
     const playerDiagnostics = turns.flatMap(row => row.playerMetrics && row.playerMetrics.attemptDiagnostics || []);
     const firstAttemptAccepted = turns.filter(row => row.playerMetrics
         && row.playerMetrics.attemptDiagnostics && row.playerMetrics.attemptDiagnostics[0]
@@ -268,6 +296,9 @@ function summary(state) {
         fallback: turns.filter(row => row.accepted === false).length,
         notRequired: turns.filter(row => row.disposition === 'NOT_REQUIRED').length,
         errors: turns.filter(row => row.error).length,
+        infrastructureErrors,
+        playerGenerationErrors,
+        evaluatedTurns: turns.length - infrastructureErrors - playerGenerationErrors,
         rejectionCodes: turns.filter(row => row.accepted === false).reduce((acc, row) => {
             const code = row.validationCode || 'UNKNOWN'; acc[code] = (acc[code] || 0) + 1; return acc;
         }, {}),
@@ -300,6 +331,9 @@ async function main() {
         if (!fs.existsSync(model)) throw new Error(`Model bulunamadı: ${model}`);
     }
     const totalTurns = sessionCount * depthLimit;
+    if (sessionCount > conversationSessionLimit) {
+        throw new Error(`SESSION_COUNT_EXCEEDS_LEDGER_LIMIT:${sessionCount}/${conversationSessionLimit}`);
+    }
     if (selectedScenarioIndices.length && selectedScenarioIndices.length !== totalTurns) {
         throw new Error(`SCENARIO_INDICES_COUNT:${selectedScenarioIndices.length}/${totalTurns}`);
     }
@@ -367,6 +401,10 @@ async function main() {
             sessions.push({ index, sessionId: opened.session.id, actor: { id: actor.id, name: actor.name,
                 role: actor.role }, transcript: [], turns: [] });
         }
+        const liveSessionIds = new Set((runtime.api.conversationSessionSnapshot().sessions || [])
+            .map(row => row.id));
+        const missingSession = sessions.find(row => !liveSessionIds.has(row.sessionId));
+        if (missingSession) throw new Error(`SESSION_BOOTSTRAP_PRUNED:${missingSession.sessionId}`);
         state = {
             schemaVersion: 3, kind: 'STORY_DIALOGUE_FRONTIER_CHECKPOINT',
             runnerVersion: 'story-dialogue-frontier-3', createdAt: new Date().toISOString(),
@@ -410,10 +448,13 @@ async function main() {
                     for (const initialBatch of chunkJobsByMode(jobs, playerMicrobatchSize)) {
                         let unresolved = initialBatch.slice();
                         for (let attempt = 0; attempt < 3 && unresolved.length; attempt++) {
+                            const batchSequence = state.playerBatchSequence + 1;
                             const generated = await host.generate({ system: PLAYER_SYSTEM,
                                 prompt: playerMicrobatchPrompt(unresolved),
                                 maxTokens: Math.min(3072, 80 + unresolved.length * 180),
-                                temperature: 0.55, seed: 73000 + state.depthIndex * 1009 + attempt * 7919,
+                                temperature: Math.min(0.9, 0.62 + attempt * 0.12),
+                                seed: 73000 + state.depthIndex * 1009 + attempt * 7919
+                                    + batchSequence * 104729,
                                 jsonSchema: { type: 'object', additionalProperties: false,
                                     properties: { turns: { type: 'array', minItems: unresolved.length,
                                         maxItems: unresolved.length, items: { type: 'object',
@@ -421,7 +462,8 @@ async function main() {
                                                 jobId: { type: 'integer' },
                                                 playerText: { type: 'string', minLength: 1, maxLength: 1200 }
                                             }, required: ['jobId', 'playerText'] } } }, required: ['turns'] } });
-                            const batchCallId = `player-batch:${++state.playerBatchSequence}`;
+                            state.playerBatchSequence = batchSequence;
+                            const batchCallId = `player-batch:${batchSequence}`;
                             let envelope = null;
                             try { envelope = JSON.parse(generated.raw); } catch (_) {}
                             const candidates = new Map((envelope && Array.isArray(envelope.turns)
@@ -433,10 +475,8 @@ async function main() {
                                     .map(row => row.text);
                                 const issues = playerCandidateIssues(candidate, job.scenario, priorPlayer);
                                 if (issues.length) job.retryFeedback = {
-                                    rejectedText: candidate, problems: issues,
-                                    requiredForm: playerModeContract(job.scenario.utteranceMode,
-                                        job.scenario.targetTopicAnchor),
-                                    correction: 'Yeni ve doğal bir söz üret; reddedilen metni tekrarlama. allowedTopicAnchors içinden bir konu sözü kullan ve requiredForm biçimine harfiyen uy.'
+                                    problems: issues,
+                                    correction: playerRetryInstruction(issues, job.scenario)
                                 };
                                 job.attemptDiagnostics.push({ attempt: attempt + 1, issues,
                                     batchCallId, batchSize: unresolved.length, totalMs: round(generated.totalMs),
@@ -508,9 +548,7 @@ async function main() {
                     const session = runtime.api.conversationSessionGet(sessionState.sessionId);
                     const response = (session.listenerResponses || []).find(row => row.id === pending.responseId);
                     if (!response) throw new Error(`PREPARED_RESPONSE_MISSING:${pending.responseId}`);
-                    const modelEligible = response.speechAct !== 'UNKNOWN'
-                        && !['DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE',
-                            'DETERMINISTIC_VERIFIED_FACT_RESPONSE'].includes(response.source);
+                    const modelEligible = characterResponseModelEligible(response);
                     work.push({ pending, sessionState, scenario, session, response, modelEligible });
                 }
                 const eligible = work.filter(row => row.modelEligible);
@@ -551,7 +589,7 @@ async function main() {
                             const schema = runtime.api.conversationSocialLLMSchema(response.dialogueMove);
                             const inputTokens = await host.count(`${CHARACTER_SYSTEM}\n${prompt}`);
                             const generated = await host.generate({ system: CHARACTER_SYSTEM, prompt,
-                                maxTokens: 220, temperature: 0.35, jsonSchema: schema,
+                                maxTokens: 300, temperature: 0.35, jsonSchema: schema,
                                 seed: 91000 + pending.scenarioIndex });
                             const validationContext = runtime.api.conversationValidationContext(session, response);
                             const accepted = runtime.api.conversationSocialLLMParse(generated.raw,
@@ -573,7 +611,7 @@ async function main() {
                                 validationCode: diagnosis.code, qualityTags: diagnosis.qualityTags || [],
                                 playerMetrics: pending.playerMetrics,
                                 rawOutput: generated.raw, inputTokens,
-                                contextWithinLimit: inputTokens + 220 + 128 <= 8192,
+                                contextWithinLimit: inputTokens + 300 + 128 <= 8192,
                                 firstTokenMs: generated.firstTokenMs == null ? null : round(generated.firstTokenMs),
                                 totalMs: round(generated.totalMs), generatedTokens: generated.generatedTokens };
                         }
@@ -582,7 +620,7 @@ async function main() {
                         sessionState.transcript.push({ speaker: 'PLAYER', text: pending.playerText });
                         sessionState.transcript.push({ speaker: 'CHARACTER', text: visibleReply });
                         pending.completed = true;
-                        live(`KARAKTER 8B · ${sessionState.index + 1}/${sessionCount}`,
+                        live(`${turn.modelEligible ? 'KARAKTER 8B' : 'KARAKTER MOTOR'} · ${sessionState.index + 1}/${sessionCount}`,
                             visibleReply, completedCount(state), totalTurns);
                         persist();
                     }
@@ -621,4 +659,5 @@ if (require.main === module) {
 }
 
 module.exports = { patchAcceptedResponse, summary, playerCandidateIssues, playerMicrobatchPrompt,
-    playerModeContract, chunkJobsByMode, scenarioSequenceIndex, frontierRunnerFingerprint };
+    playerModeContract, chunkJobsByMode, scenarioSequenceIndex, frontierRunnerFingerprint,
+    conversationSessionLimit, playerRetryInstruction, characterResponseModelEligible };

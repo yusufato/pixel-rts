@@ -87,6 +87,7 @@ const STORY_SOURCES = [
     'js/StoryConversationDomains.js',
     'js/StoryConversationContext.js',
     'js/StoryConversationUnderstanding.js',
+    'js/StoryConversationSemanticFrame.js',
     'js/StoryNegotiation.js',
     'js/StoryMechanicalContracts.js',
     'js/Era.js',
@@ -641,6 +642,10 @@ function createRuntime(seed) {
             conversationDomainBuild: input => storyConversationDomainBuild(input),
             conversationDomainValidate: bundle => storyConversationDomainValidate(bundle),
             conversationAnalyze: (text, options) => storyConversationAnalyze(text, options),
+            conversationSemanticFrameNeedsModel: analysis => storyConversationSemanticFrameNeedsModel(analysis),
+            conversationSemanticFrameModelSchema: () => storyConversationSemanticFrameModelSchema(),
+            conversationSemanticFrameModelPrompt: (text, context) => storyConversationSemanticFrameModelPrompt(text, context),
+            conversationSemanticFrameModelParse: (raw, text) => storyConversationSemanticFrameModelParse(raw, text),
             conversationValidate: analysis => storyConversationValidate(analysis),
             conversationContract: () => storyConversationContract(),
             conversationSessionBegin: (text, options) => storyConversationSessionBegin(text, options),
@@ -684,6 +689,27 @@ function createRuntime(seed) {
             conversationSessionGet: sessionId => storyConversationSessionGet(sessionId),
             conversationSessionList: listenerActorId => storyConversationSessionList(listenerActorId),
             conversationSessionLatest: listenerActorId => storyConversationSessionLatest(listenerActorId),
+            conversationSessionCaseGet: sessionId => storyConversationSessionCaseGet(sessionId),
+            conversationSessionSetMode: (sessionId, mode) => storyConversationSessionSetMode(sessionId, mode),
+            conversationSessionMigrate: ledger => storyConversationSessionMigrateLedger(ledger),
+            conversationTaskOfferPreview: sessionId => storyConversationTaskOfferPreview(sessionId),
+            conversationTaskOfferCreate: sessionId => storyConversationTaskOfferCreate(sessionId),
+            conversationTaskOfferList: sessionId => storyConversationTaskOfferList(sessionId),
+            conversationTaskOfferDecision: (taskOfferId, decision) => storyConversationTaskOfferDecision(taskOfferId, decision),
+            conversationTaskOfferTick: () => storyConversationTaskOfferTick(),
+            conversationMeetingCreate: (sessionId, agenda) => storyConversationMeetingCreate(sessionId, agenda),
+            conversationMeetingGet: meetingId => storyConversationMeetingGet(meetingId),
+            conversationMeetingBySession: sessionId => storyConversationMeetingBySession(sessionId),
+            conversationMeetingAdvanceSpeaker: meetingId => storyConversationMeetingAdvanceSpeaker(meetingId),
+            conversationMeetingSubmitPlayerTurn: (meetingId, text, addressedActorId) => (
+                storyConversationMeetingSubmitPlayerTurn(meetingId, text, addressedActorId)
+            ),
+            conversationMeetingSendPrivateNote: (meetingId, recipientActorId, text) => (
+                storyConversationMeetingSendPrivateNote(meetingId, recipientActorId, text)
+            ),
+            conversationMeetingGenerateCharacterTurn: (meetingId, addressedActorId) => (
+                storyConversationMeetingGenerateCharacterTurn(meetingId, addressedActorId)
+            ),
             conversationSessionSnapshot: () => storyConversationSessionSnapshot(),
             conversationSessionValidate: ledger => storyConversationSessionValidateLedger(ledger),
             conversationSessionRestore: ledger => storyConversationSessionRestore(ledger),
@@ -13836,7 +13862,15 @@ function probeCharacterBehaviorState(seed = 2032) {
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         const story = runtime.api.state();
-        const worldBefore = hashSnapshot(stateSnapshot(story));
+        const physicalSnapshot = () => {
+            const value = stateSnapshot(story);
+            // Bu prob stresin yarı ömrünü ölçmek için saati bilerek ilerletir.
+            // Geçen zamanı fiziksel dünya yazımı diye saymak nötrlük kapısını
+            // tanımı gereği daima kırmızı yapar; yalnız saat bu kıyastan çıkar.
+            delete value.clock;
+            return value;
+        };
+        const worldBefore = hashSnapshot(physicalSnapshot());
         const welfareBefore = story.states.map(row => Number(row.welfare) || 0);
         const identities = story.characterIdentities;
         const actors = Object.values(identities.identities || {});
@@ -13947,7 +13981,7 @@ function probeCharacterBehaviorState(seed = 2032) {
         const expiredAdjustment = runtime.api.characterBehaviorOptionAdjustment(
             first.id, { actionType: 'NEGOTIATE' }, []
         );
-        const worldAfter = hashSnapshot(stateSnapshot(story));
+        const worldAfter = hashSnapshot(physicalSnapshot());
         const welfareAfter = story.states.map(row => Number(row.welfare) || 0);
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();

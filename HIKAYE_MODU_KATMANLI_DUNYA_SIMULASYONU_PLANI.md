@@ -4389,6 +4389,29 @@ Zorunlu mimari sınırlar:
 
 ### FAZ 38.12 — Davranış QA, Gizlilik ve Oyuncu Açıklaması
 
+**İlk uygulama dilimi — 15 Ağustos 2026:** Karakter eylem özeti Faz 38.12 için
+yeniden hesaplanabilir bir davranış QA görünümü taşır. Yalnız gerçek uygulanmış AI
+makbuzlarından eylem türü, rol, aktör ve aktör çifti yoğunluğu; baskın pay ve örnek
+yeterliliği çıkarılır. `30` eylem altı sonuç dürüstçe `INSUFFICIENT_SAMPLE`, yeterli
+örnekte `%75` üstü tek eylem baskınlığı `REVIEW` olur; bu eşikler seçiciyi değiştirmez.
+Rastgele çeşitlilik kotası yoktur. İlk gerçek ölçümde aynı tohum `300 sn`de `8`
+eylem (`7 ALLY / 1 PERSUADE`, `%87,5`), `900 sn`de `18` eylem
+(`16 ALLY / 2 PERSUADE`, `%88,89`) üretti. Bu, ALLY baskınlığına dair ciddi bir
+işarettir fakat iki koşu da asgari örneğin altındadır; sonuç denge kabulü veya kör
+ceza gerekçesi yapılmadı. Sıradaki kapı çok-tohumlu toplu örnek, aktif ittifak
+doygunluğu ve rol maruziyetini birlikte ölçmektir.
+
+**Çok-tohumlu kapı — 15 Ağustos 2026:** Dört izole `300 sn` dünya dört işçiyle
+`61,4 sn`de tamamlandı. Toplam `33` gerçek AI eyleminin `28 ALLY / 4 PERSUADE /
+1 NEGOTIATE` olması `%84,85` baskınlık ve `REVIEW` verdi. Rol dağılımı
+`23 COMMANDER / 7 COMPANY_EXECUTIVE / 2 AGENT / 1 EXECUTIVE`; baskın komutan payı
+`%69,70`, yinelenen aktör çifti `0`dır. Bu sonuç seçicinin aynı çifti döndürdüğünü
+değil, barışçıl başlangıçta gerçek alan eylemleri dar kalırken çok sayıda ilk
+kişisel ittifakın tek mevcut yüksek değerli yol olduğunu gösterir. Global tekrar
+cezasını büyütmek veya rastgele kota eklemek reddedildi. Kapanış için Faz 38.9'un
+şirket/kurum seçenekleri ve 38.13'ün görev/toplantı çıktıları aynı ölçüme girmeli;
+ardından eylem ve rol maruziyeti yeniden değerlendirilmelidir.
+
 **Amaç:** İnsan benzerliğini yalnız “farklı seçim yaptı” gözlemine bırakmamak.
 **Çıktı:** Senaryo regresyonları, karşı-olgusal profil testleri, korelasyon/double-count denetimi, uzun dönem davranış dağılımı, gizli neden sızıntı testi, 50+ turluk dil/karar tekrarı ve “neden böyle davrandı?” bilgi filtreli UI.
 **Kabul kapısı:** Aynı eylem farklı kaynaklı nedenlerle ayrışabiliyor; farklı profil hiçbir koşul değişmeden kozmetik metin farkına indirgenmiyor; tek eylem/rol uzun koşuda baskınlaşmıyor; oyuncu bilmediği gizli hedefi karar izinden öğrenmiyor; LLM kapalı yol mekanik olarak eşdeğer kalıyor.
@@ -4419,6 +4442,91 @@ Toplantı metni mekanik karar değildir. LLM yalnız doğrulanmış `DialogueMov
 **Kabul kapısı:** Açık pencere boyunca dünya saati byte-byte değişmez ve kapanış önceki duraklatma durumunu geri getirir. En az üç katılımcılı 20 turluk toplantıda konuşmacı/hitap/gündem bağı korunur; özel sır sızıntısı, hayalî yetki, kaynaksız görev ve çift uygulama sıfırdır. Aynı seed ve girişler aynı yapılandırılmış sonucu verir; doğal metin değişse bile mekanik sonuç değişmez. Save/load açık görüşmeyi, taslağı, konuşma sırasını, gündemi ve bekleyen kararı korur. Selam tekrarıyla ilişki büyütülemez; doğrulanmış yalan, tutulmuş söz ve ortak başarı farklı yönlü ilişki fişleri üretir. Toplantı tutanağı yalnız oyuncunun erişebildiği bilgiyi gösterir.
 
 **Bağımlılık:** Faz 9–10.1, 25, 34–38.12; görev/iş için Faz 37–38.10, bildirge ve kamusal yayılım için Faz 39–42.
+
+**15 Ağustos 2026 — ilk uygulama dilimi:** Mevcut tek kişilik görüşme defteri
+ikinci bir sohbet motoru açılmadan `ConversationCaseV1` şema-1 omurgasına
+yükseltildi. `GÜNLÜK SOHBET`, `GÖREV & İŞ`, `GİZLİLİK`, `BİLDİRİM & RAPOR`,
+`TEKLİF & MÜZAKERE` ve `RESMÎ TOPLANTI` kipleri aynı oturumda seçilebilir;
+kip geçişlerinin kaynağı ve sırası kalıcı geçmişte tutulur. Takip sözü açık bir
+alan taşıyorsa kip bağlamsal olarak değişebilir, sıradan günlük söz ise etkin özel
+bağlamı sessizce silemez. Arayüz aktif kipi ve gerçek mekanik olgunluğunu gösterir.
+İlk dilimde görev ve resmî toplantı `ADAPTÖR BEKLİYOR` durumundaydı; sistem
+hayalî görev, ödül, katılımcı veya toplantı sonucu üretmedi. Şema-3 kayıtları
+şema-4 oturum defterine kayıpsız göçer. Hedefli prob; altı UI seçeneğini, önceki
+duraklatma halinin geri gelmesini, kip geçmişini, geçersiz kip reddini,
+save/restore birebirliğini ve fiziksel dünya+saat değişmezliğini doğruladı.
+İkinci dikeyde ilk gerçek `TaskOfferV1` yolu açıldı. Muhatap yalnız kanonik ve
+erişilebilir karakter dizininden, oyuncunun mevcut karakter eylem kapısıyla
+gerçekten temas edebildiği başka bir karakter için görüşme talebi oluşturabilir.
+Veren, üstlenen, hedef, `300 sn` son tarih, kaynak vaka ve yetki biçimi kayıtlıdır.
+Bu ilk görev kişisel taleptir (`canCompel:false`) ve gerçek ödül sistemi olmadığı
+için açıkça `reward:NONE` taşır. Oyuncu kabul/ret verir; kabulden sonra hedef
+karakterle açılan ayrı gerçek görüşme görevi deterministik olarak tamamlar ve
+tamamlama oturumunu fişe bağlar. Tekrar teklif açık görevi çoğaltmaz; süre aşımı
+görevi kapatır. Görev üretimi, kabulü ve tamamlanması fiziksel dünya veya saat
+yazımı değildir. Kurumsal/ücretli görev çeşitleri, çok katılımcılı
+`MeetingCaseV1` ve yönlü ilişki sonuç fişleri açık borçtur; Faz 38.13 tamamlanmadı.
+
+**Üçüncü dikey — kaynaklı resmî toplantı kabuğu:** `MeetingCaseV1` şema-1
+aynı `ConversationCaseV1` içinde açılır; ayrı sohbet veya konsey gerçekliği
+kurmaz. Oyuncunun `8–240` karakterlik gündemi aynen `PLAYER_PROPOSED_AGENDA`
+olarak kaydedilir ve resmî karar sayılmaz. Başkan, görünen unvandan değil gerçek
+`StoryInstitutions.officeHolder` bağını yayımlayan rol adaptöründen seçilir;
+kanonik makam sahibi yoksa toplantı açılamaz. Oyuncu, muhatap, başkan ve gerekirse
+aynı ülkenin erişilebilir karakterleriyle en az üç, en çok dört doğrulanmış
+katılımcı kurulur. UI tek kişi profilini toplantı kipinde katılımcı listesine
+çevirir; başkan, gündem ve etkin söz sırası görünür. Söz sırası deterministik
+döner fakat bugün yalnız usul kaydıdır: karakter sözü, önerge, itiraz, oy veya
+sonuç üretmez. `motions`, `votes` boş ve `outcomeReceiptId:null` değişmezleri
+doğrulanır. Hedefli kabul; sahte gündem reddi, kanonik başkan, 3+ katılımcı,
+katılımcı/UI eşitliği, söz sırası, fiziksel dünya+saat nötrlüğü, şema-3 göçü ve
+save/restore birebirliğini geçti. Gerçek çok taraflı tur üretimi, bilgi görünürlük
+matrisi, önerge/itiraz/oy ve `MeetingOutcomeReceiptV1` sonraki dikeylerdir.
+
+**Beşinci dikey — aktör bilgisiyle kaynaklı görüş:** Karakter toplantı sözü üretirken ham dünya
+defterini veya başka katılımcının özel bağlamını okuyamaz. Yalnız konuşmacının tuttuğu, çelişmiş
+olmayan, güven eşiğini geçen ve `PUBLIC`/`INSTITUTIONAL` görünürlükteki `ActorBelief` kayıtları
+gündem terimleriyle sıralanır. Seçilen inanç ile bağlı `WorldFact` kimliği kamusal turun
+`sourceRefs` alanına yazılır; görünür metin bunun karakterin bilgisi olduğunu açıkça söyler ve
+kesin dünya gerçeği gibi sunmaz. `PRIVATE` olgu daha yüksek güvenli veya daha güncel olsa bile
+otomatik konuşmaya giremez. UI yalnız “kaynaklı görüş / kayıt türü / güven” rozetini gösterir;
+teknik kimlikleri ve özel içeriği açmaz. Kaynak kimliğinin turdan çıkarılması doğrulayıcıda
+`MEETING_TURNS` ihlalidir. Kaynak yoksa rol tabanlı, açıkça bağlayıcı olmayan usul sözü güvenli
+geri dönüş olarak kalır. Ayrıca asenkron model sonucu, oyuncunun odaktaki toplantı taslağını ve
+imleç seçimini sıfırlayamaz; gönderim `Ctrl+Enter` ile yapılabilir.
+
+Bu dikey karakterlerin farklı bilgiyle farklı konuşabilmesini başlatır; fakat henüz kanaat
+çıkarımı veya gündemdeki teklif lehine/aleyhine tutum hesabı üretmez.
+
+**Altıncı dikey — ikili özel not kanalı:** Oyuncu açık toplantı sürerken yalnız doğrulanmış bir
+katılımcıyı seçip kısa bir özel not gönderebilir. `MeetingCaseV1.privateNotes`; yazar, alıcı,
+metin, sıra, zaman ve `BILATERAL_PRIVATE` görünürlüğünü taşır. Not kamusal `turns` dizisine ve
+ortak transkripte girmez. Her katılımcının `visiblePrivateNoteIds` listesi bağımsız hesaplanır;
+yalnız yazar ile alıcı kimliği alır, üçüncü katılımcıya kimlik veya içerik sızmaz. Toplantı dışı
+alıcı ve kendine not reddedilir, toplantı başına üst sınır 24'tür. UI bunu kapalı bir ayrıntı
+alanında açıkça “kamusal tutanağa girmez” uyarısıyla sunar. Asenkron yeniden çizim koruması bu
+metin alanını da kapsar ve `Ctrl+Enter` notu yollar. Bu kanal şimdilik tek yönlü oyuncu eylemidir;
+karakterin özel yanıtı, nottan doğan sır/hafıza ve ikili pazarlık sonucu ayrıca kapatılacaktır.
+
+Sıradaki borç, katılımcının kaynakları ile kişiliğinden gündem tutumu çıkarmak; ardından geçerli
+önerge, itiraz ve oy kapısını açmaktır.
+
+**Dördüncü dikey — sıra kontrollü çok taraflı transkript ve görünürlük matrisi:**
+Toplantı artık yalnız katılımcı listesi değildir. En çok `40` turluk döngü,
+kanonik konuşma sırasını zorunlu tutar; oyuncu yalnız kendi sırasında serbest metin
+yazabilir, karakter sözü yalnız o karakterin sırasında üretilebilir. Sıra dışı
+oyuncu sözü ve katılımcı olmayan muhatap reddedilir. Her tur konuşmacı, muhatap,
+tür, kamusal görünürlük, gündem/kaynak referansı ve bilgi politikasıyla kaydolur.
+İlk sürümde bütün turlar `MEETING_PUBLIC`tır. Katılımcı başına görünürlük matrisi
+aynı kamusal katılımcı/gündem/tur kimliklerini taşır; `privateContextOwnerActorId`
+yalnız kendisidir, `mayReadOtherPrivateContext:false` ve `rawWorldRead:false`
+değişmezleri doğrulanır. Karakterler henüz mekanik müzakere yapmaz; rolüne göre
+yetki ve kanıt sınırını bildiren deterministik usul sözü verir. Aynı karakterin
+ilk üç sözünde birebir tekrar engellenir. UI hedef kişi seçimi, oyuncu bestecisi,
+karakter konuşma eylemi ve aktör isimli transkripti gösterir. Sekiz turluk kabul;
+sıra dışı ret, doğru aktör rotasyonu, kamusal tur eşitliği, özel bağlam yalıtımı,
+aynı-aktör tekrar yokluğu ve save/restore bütünlüğünü geçti. Gerçek ActorBelief
+zeminli çok taraflı görüş, özel/ikili not, önerge ve oy hâlâ açık borçtur.
 
 Bu yükseltme aktif Faz 38.5'i baştan yazdırmaz. Önce sohbetten sonuca zorunlu mini zincir kapanır. Faz 38.6–38.8 bu zincirin kanıtını genelleştirir; 38.7 ve 38.9 medya Faz 39–42 ile, 38.9–38.11 de sonraki ekonomi/askerî/diplomasi fazlarıyla çapraz ilerleyebilir.
 
@@ -5367,3 +5475,172 @@ Bu planın tamamlanmış sayılması için:
 - İlk 10 dakika oyuncuya rolünü, dünyanın durumunu ve ilk anlamlı kararını açıkça vermeli.
 
 Bu noktaya gelindiğinde ortaya yalnızca daha büyük bir sistem değil; oyuncunun kararlarını hatırlayan, sonuçlarını açıklayan ve kendi içinde tutarlı yeni tarihler üreten bir hikâye modu çıkmış olacaktır.
+
+## Faz 38.5 yükseltmesi — Bileşimsel anlam ve yetkisiz LLM yorumlayıcı
+
+Serbest sohbet, tam cümleleri kapalı niyet etiketlerine tek tek bağlayan bir
+kalıp listesiyle tamamlanamaz. Üretim mimarisi `SemanticFrameV1` kullanacaktır.
+Bir oyuncu sözü bağımsız konuşma işlevi, yüklem/konu, hedef, kutupluluk, zaman,
+bilgi durumu, konuşma devamlılığı ve beklenen sonuç eksenlerine ayrılır. Bu
+eksenlerin çarpımı milyonlarca yüzey cümlesini sonlu bir karar uzayına taşır.
+Ontoloji kökleri kavramları gösterir; tam oyuncu cümleleri üretim kuralı değil
+yalnız regresyon verisidir.
+
+Deterministik derleyici yüksek güvenli açık örnekleri çözer. Düşük/orta güvenli
+sözlerde paketli 8B ilk canlı kapıda kapalı enumlardan tek en-iyi
+`SemanticFrameCandidate` önerir; daha büyük öğretmen çevrimdışı birden fazla
+karşıt aday üretebilir. Modelin verdiği her kanıt aralığı oyuncunun gerçek metninde
+bulunmalı, varlıklar kanonik çözümleyiciden geçmeli ve nihai konuşma hareketini
+kod yeniden hesaplamalıdır. Model dünya gerçeği, sayı, ilişki puanı, yetki,
+görev varlığı veya komut üretemez.
+
+Çalışma sırası:
+
+- `38.5-SF1`: bileşimsel deterministik çerçeve, legacy puanlayıcıyla kontrollü
+  füzyon ve çarpım testleri;
+- `38.5-SF2`: düşük güven için asenkron 8B semantik aday çağrısı, kanıt-span
+  doğrulaması, `CHARACTER_THINKING` yaşam döngüsü ve güvenli fallback;
+- `38.5-SF3`: 14B öğretmenin yalnız karşıt/parafraz veri üretmesi, insan-log
+  holdout'u ve 8B/14B kör karşılaştırması;
+- `38.5-SF4`: yeterli veri oluşursa küçük yerel çok-kafalı sınıflandırıcıya
+  distilasyon; mekanik eşitlik ve aynı EXE kapısı değişmez.
+
+Kabul ölçüsü “kaç ifade kalıbı eklendi?” değildir. Daha önce görülmemiş bileşim,
+parafraz, yazım bozukluğu, konu değişimi ve bilinen/bilinmeyen varlık karışımında
+eksen doğruluğu; `UNKNOWN` oranı; yanlış yüksek güven; kanıt dışı yorum; dünya
+mutasyonu ve doğal görüşme kalitesi ayrı raporlanacaktır.
+
+**14 Ağustos SF2 ara kararı:** Asenkron yaşam döngüsü, JSON grammar, atomik
+oturum geri alma, kanıt/ek-alan/yetki enjeksiyonu reddi ve DialogueMove yeniden
+kurulumu hedefli testte geçti. Gerçek Turkish-Llama 8B/CUDA kapısı ise dört
+görülmemiş cümlede yalnız `1/4` güvenli-doğru sonuç verdi. Yanlış `CONFIDE ×
+EMOTION` birleşimi çapraz alan kapısıyla reddedildi; metinde bulunmayan “benim”
+kanıtı da atıldı. Eşik gevşetilmedi. `characters.semanticModelInterpretation`
+üretimde varsayılan kapalıdır; SF3 öğretmen/distilasyon kapısı geçmeden oyuncu
+sohbetine otomatik bağlanmayacaktır.
+
+**14 Ağustos SF3 ara kararı — dolaylı eylem ve eksen-maskeli öğretmen:** Aynı
+dört kör cümlede Qwen2.5-Coder 14B sıkı doğrulayıcıyla `3/4` verdi; 8B'nin
+`1/4` sonucundan belirgin biçimde iyidir. Buna rağmen çevrimiçi kullanım için
+uygun değildir: RTX 4060/CUDA üzerinde yükleme yaklaşık `10,2 sn`, ilk token
+`1,6–8,2 sn`, tek semantik çıktı `37–41 sn` sürdü. Rolü yalnız çevrimdışı
+öğretmen adayıdır.
+
+İlk üretici+kör-hakem deneyi temel bir ontoloji kusuru gösterdi. “Yarın burada
+olabilir misin?” dilbilgisel olarak soru, pragmatik olarak eylem isteğidir.
+`SemanticFrameV2` bu nedenle `surfaceForm` (INTERROGATIVE/DECLARATIVE/
+IMPERATIVE/EXCLAMATORY/FRAGMENT) ile `communicativeFunction`ı ayırır. Dolaylı
+istek artık `INTERROGATIVE × REQUEST × WORK × ACTION` olarak temsil edilir;
+tek bir ASK etiketine çökmez.
+
+SF3 veri kabulü bütün çerçevede ya hep ya hiç değildir. 14B hedef bileşimden
+doğal söz üretir; hedefi görmeyen ikinci 14B aynı sözü yeniden etiketler.
+Çekirdek `communicativeFunction + surfaceForm + predicate` mutabakatı zorunludur.
+Yalnız uyuşan yan eksenler eğitim etiketi alır; hedef, zaman, epistemik durum
+veya devamlılık uyuşmazsa o eksen maskelenir. İki görevlik ilk V2 smoke'ta
+çekirdek `2/2`, dokuz eksende tam mutabakat `0/2`dir. Bu küçük smoke genelleme
+kanıtı değildir. 60 görevlik dengeli manifest hazırdır; geniş holdout,
+doğallık denetimi, yanlış-yüksek-güven ve insan-log ayrımı açık borçtur.
+
+**14 Ağustos SF3 sekiz-bileşim kırmızı kapısı:** Sekiz temel bileşimin gerçek
+14B üretici+kör-hakem koşusu tamamlandı. Çekirdek mutabakat `4/8`, tam dokuz
+eksen mutabakatı `0/8`, otomatik eğitim uygunluğu `0/8`dir. Eksen doğrulukları:
+işlev `%62,5`, yüzey biçimi `%50`, konu `%62,5`, hedef `%25`, kutupluluk
+`%62,5`, zaman `%50`, epistemik durum `%12,5`, devamlılık `%25`, beklenen sonuç
+`%50`. Bu oranlarla 60 görevlik üretim başlatılmaz.
+
+Türkçe 8B bağımsız kalite eleştirmeni sekiz sözün beşini geçirdi, fakat zayıf
+“bir şey” ilişki kanıtını ve yapay meta-oyun cümlesini de onayladı; üç çıktıda
+`false` kararına rağmen `issues:["NONE"]` üretti ve şema kapısında reddedildi.
+Yerel LLM'ler bundan sonra sentetik çeşitlilik/adversary kaynağı olabilir,
+hakikat veya tek başına eğitim kabul kaynağı olamaz.
+
+Bu deneyden üretime alınan şey sentetik veri değil dilbilgisel operatördür.
+Türkçe yeterlilik eki `-abilir/-ebilir` ile kişi sorusu bileşimsel işlenir:
+“yardımcı olabilir misin?” `INTERROGATIVE × REQUEST`; “birlikte çalışabilir
+miyiz?” `INTERROGATIVE × OFFER` olur. ASK adayında `epistemicStatus=QUESTIONED`
+zorunludur; TELL/CORRECT ile beklenen sonuç çapraz kapıları sertleştirilmiştir.
+Tam cümle eklenmemiş, üretken dil yapısı eklenmiştir.
+
+**SF3 gece koşusu giriş kapısı:** Gece eğitimi süreye veya kullanıcı komutuna
+göre koşmaz. Yerel `127.0.0.1:4318` inceleme kuyruğunda en az 40 insan-onaylı
+altın örnek ve üretimden ayrı en az 20 holdout bulunmalıdır. Holdout çekirdek
+doğruluğu `≥%85`, kanıt doğruluğu `≥%95`, doğal Türkçe `≥%90`, yanlış yüksek
+güven `≤%2` olmalıdır. `story:semantic-night-gate` bu koşullardan biri eksikse
+`NIGHT_TEST_BLOCKED` üretir. İlk gerçek ölçüm `0/40` altın ve `0/20` holdout
+olduğu için gece eğitimi başlamamıştır. Model kararı insan onayı yerine geçmez.
+
+**İnsan incelemesinden çıkan V3 semantik borcu:** `predicate=EMOTION` oyuncunun
+ne hakkında konuştuğunu söyler, karaktere nasıl davrandığını söylemez. Ayrı
+`socialStance` ekseni gerekir: `NEUTRAL`, `AFFILIATIVE`, `COMPLAINT`, `INSULT`,
+`FLATTERY`, `THREAT`, `PROVOCATION`, `APPEASEMENT`. Bu eksen konuşma konusunu
+değiştirmez; ilişki tepkisi, karakter sınırı ve üslup sonucunu değiştirir.
+Örneğin ekonomik konuda hakaret hâlâ ECONOMY yüklemidir fakat `INSULT` tavrı
+taşır. V3 uygulanmadan günlük yakınma/hakaret örnekleri altın veri sayılmaz.
+
+Altın veri tek insan düğmesiyle oluşmaz. V2 insan kararı ile bağımsız QA
+adjudikasyonu aynı örneğin işlev+biçim+konu çekirdeğinde uyuşmalıdır. İlk sekiz
+örnekte insan `3` kabul, QA `3` çekirdek kabul verdi; güvenilir kesişim yalnız
+`2` örnektir. “Çalışalım” gibi birinci çoğul çağrı ayrıca mevcut
+INTERROGATIVE/DECLARATIVE/IMPERATIVE ayrımına sığmadı; `HORTATIVE` yüzey biçimi
+SemanticFrameV3 borcuna eklendi.
+
+Eğitim kapısı kırmızı kalırken gece donanımı boş bırakılmaz: 14B oyuncu ve 8B
+karakterle `25 oturum × 40 tur = 1000` adversarial konuşma yalnız ölçüm modunda
+çalışabilir. Bu koşu model veya oyun kaynağı değiştirmez; yalnız atomik
+checkpoint ve ham rapor yazar. Rapor insan/QA incelemesi görmeden hiçbir örnek
+eğitim verisine alınmaz.
+
+Gece ölçümünün gerçek kapsamı iki aşamadır: `25×40=1000` tur kalibrasyon,
+ardından başka senaryo aralığında `30×50=1500` tur uzun-bağlam
+dayanıklılığı. Toplam `2500` turdur. İkinci aşama ilk tamamlanmış raporu atomik
+olarak doğrulamadan başlamaz; 12 saat içinde kalibrasyon bitmezse sessizce
+devam etmek yerine açık timeout durumu yazar.
+
+**15 Ağustos gece ölçümü düzeltmesi:** İlk `100×10` koşusunun `802` hata
+sayısı model kusuru diye kullanılamaz. Bunların `626` tanesi, kanonik görüşme
+defterinin `32` oturum sınırı aşılınca ilk 68 oturumu budaması nedeniyle
+`SESSION_NOT_FOUND` olmuştur. Koşucu artık 32 üzerini model yüklemeden reddeder,
+oluşturulan bütün oturumların defterde yaşadığını doğrular ve altyapı hatasını
+oyuncu üretim hatasından ayrı raporlar. Eski 1000 rapor tarihsel kırmızı kanıt
+olarak korunur; kalite tabanı değildir.
+
+Uzun koşu `30×50` sözleşmesine uyduğu için kapasite hatası üretmedi; `510/1500`
+turda tekrar dağılımı doygunlaşınca ölçüm bilinçli durduruldu. Bu kesitte 193
+oyuncu üretim hatası, 317 geçerli oyuncu sözü, 181 deterministik cevap, 42 kabul
+ve 94 model fallback'i vardır. Açık sorunlar: 14B oyuncu biçim şablonuna çöküyor;
+8B karakter geçmiş/fallback cümlesini tekrarlıyor ve yer yer yarım cevap
+üretebiliyor. Bu veri eğitim için uygun değildir.
+
+İlk düzeltme dilimi örnek cümle ankrajlarını prompttan çıkardı, retry sırasında
+reddedilen cümleyi modele yeniden göstermeyi bıraktı, çağrı tohumlarını ayırdı ve
+ayrı konuşma alanlarının mikro-batch kirlenmesini engelledi. Karakter modeli artık
+hazır fallback metnini değil yapısal cevap sözleşmesini görür. Dört cümlelik
+doğal oyuncu tepkisi kabul edilir; 300+ karakterde noktalamasız kesilen cevap
+`TRUNCATED_REPLY` olur. Aynı iki gerçek GPU senaryosunda oyuncu üretim hatası
+`1→0`, altyapı hatası `0`; önce kabul edilen kesik 8B cevap güvenli fallback'e
+döndü. Bu yalnız hedefli düzeltme kanıtıdır; genel sohbet kalite kapısı hâlâ
+kırmızıdır.
+
+Smoke ayrıca konu ile konuşma eylemini ayıran yeni bir bileşim açığı buldu:
+`gizli operasyon` yalnız SECRET konu sözcüğü taşıdığı için sır paylaşımı
+sayılıyordu. Artık `CONFIDE` için paylaşma/verme/gizli tutma eylem kanıtı
+zorunludur; operasyon hakkındaki heyecan veya kaygı `TELL×EMOTION` kalır. Gerçek
+“gizli bilgi vereceğim” ve “aramızda kalsın” yolları korunmuştur.
+
+**Faz 38 konuşma kanıtı borcu — kapsam sahipliği:** `RECENT_TURN`, `FACT` ve
+`MEMORY` birbirinin yerine kullanılamaz. Önceki turdaki doğrulanmış sayı bile
+yeni turun `DialogueMove.allowedRefs` listesinde yoksa yeniden ileri sürülemez.
+Şirket finansmanı ülke makro göstergeleriyle cevaplanamaz; şirket bilançosu için
+ayrı kanonik şirket adaptörü gerekir. Resmî toplantı gündemi, katılımcı, karar ve
+sonuç da sohbet geçmişinden türetilemez; toplantı defteri oluşana kadar motor
+“kayıt yok” sınırını açıkça korur. Aynı oturumun devamı yeni görüşme değildir;
+karakter ortada yeniden selamlayamaz veya geçmiş tanışıklık icat edemez.
+
+**Faz 38 kanıtsız bilgi politikası:** Model içerik kaynağı değildir. Güncel
+`DialogueMove` hiçbir FACT/MEMORY taşımıyorsa ve motor soruyu bilgi isteği olarak
+anladıysa 8B'den dünya cevabı istenmez; deterministik bilgi sınırı gösterilir.
+Medya, nüfus, şirket veya resmî toplantı katmanı ileride kanonik kayıt açtığında
+aynı soru otomatik olarak kaynaklı cevap yoluna geçmelidir. Özellikle modern
+medya için haber kimliği, yayın zamanı, görünürlük sınıfı ve karakter erişimi
+FACT adaptörüne bağlanmadan `SUPPORTED_PUBLIC` kabulü verilmez.

@@ -41,6 +41,14 @@ const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     ANSWER_LISTENER_LOCATION_UNKNOWN: { policyId: 'NO_LOCATION_EVIDENCE', claimTypes: [], memory: false },
     ASSESS_UNVERIFIED_MILITARY_REQUEST: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
     CONTINUE_MILITARY_SUPPORT_REQUEST: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
+    ASSESS_ACTION_REQUEST_SCOPE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_COMPANY_FINANCE_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_MEETING_RESULTS_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_MEETING_AGENDA_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_MEETING_PARTICIPANTS_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ANSWER_INFORMATION_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    CONTINUE_SOCIAL: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    CLARIFY_AMBIGUOUS_INPUT: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ACKNOWLEDGE_UNVERIFIED_BUDGET: { policyId: 'PLAYER_BUDGET_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_BUDGET'], memory: false },
     ACKNOWLEDGE_COMPANY_FOUNDING_INTENT: { policyId: 'CURRENT_TURN_AND_BUDGET_CLAIM', claimTypes: ['PLAYER_REPORTED_BUDGET'], memory: false },
     RECALL_HELD_MEMORY: { policyId: 'ACTOR_HELD_MEMORY_ONLY', claimTypes: [], memory: true },
@@ -69,7 +77,8 @@ const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     ACKNOWLEDGE_AND_HOLD_CONTEXT: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ANSWER_PUBLIC_PRIORITIES_WITH_AUTHORITY_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     REPAIR_REPETITION: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
-    CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false }
+    CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    SEMANTIC_FRAME_INTERPRETED: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false }
 });
 const STORY_DIALOGUE_MOVE_ACT_CATALOG = Object.freeze(Object.assign(
     {},
@@ -118,6 +127,9 @@ function storyDialogueMoveRequiredPoints(act, input) {
     if (/REPAIR/.test(act)) points.push('CORRECT_PRIOR_RESPONSE_WITHOUT_DEFENSIVENESS');
     if ((input.memoryRefs || []).length) points.push('CITE_ONLY_HELD_MEMORY');
     if ((input.factRefs || []).length) points.push('USE_RELEVANT_VERIFIED_FACTS');
+    if (act === 'ASK_INFORMATION' && !(input.factRefs || []).length) {
+        points.push('STATE_MISSING_VERIFIED_RECORD_DIRECTLY', 'DO_NOT_REPLY_WITH_A_QUESTION');
+    }
     if (/SUPPORT|REQUEST|COMPANY|JOB|TASK|PRIORITIES/.test(act)) points.push('STATE_AUTHORITY_BOUNDARY');
     return storyDialogueMoveUnique(points);
 }

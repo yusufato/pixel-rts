@@ -82,6 +82,15 @@ function run() {
     });
     assert.deepEqual(memoryMove.memoryRefs, ['memory:promise:1']);
     assert.ok(memoryMove.requiredPoints.includes('CITE_ONLY_HELD_MEMORY'));
+
+    const noFactQuestion = storyDialogueMoveBuild({
+        sessionId: 'conversation-session:no-fact', sequence: 1,
+        analysis: { speechAct: 'ASK_INFORMATION', claims: [], entities: [] },
+        response: { id: 'response:no-fact', relationshipBand: 'RESERVED' },
+        factRefs: [], listenerActorId: 'character:0:1', playerActorId: 'character:0:player'
+    });
+    assert.ok(noFactQuestion.requiredPoints.includes('STATE_MISSING_VERIFIED_RECORD_DIRECTLY'));
+    assert.ok(noFactQuestion.requiredPoints.includes('DO_NOT_REPLY_WITH_A_QUESTION'));
     assert.equal(storyDialogueMoveValidate(memoryMove).ok, true);
     assert.equal(memoryMove.sourcePolicyId, 'ACTOR_HELD_MEMORY_ONLY');
 
