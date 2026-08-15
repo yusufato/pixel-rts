@@ -38,3 +38,6 @@ dist-current/
 
 # CUDA runtime DLL (600MB, yerel; llm-host self-heal ile electron.exe dizinine kopyalar)
 cuda-runtime/
+
+# sprite aracinin otomatik yedegi (bir onceki icons.png; git gecmisinde zaten var)
+icons.onceki.png

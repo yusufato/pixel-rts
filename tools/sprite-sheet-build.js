@@ -14,9 +14,13 @@
 //  kırmızıya çevrilir) — iki takım ayırt edilebilir kalsın diye.
 //
 //  KULLANIM
-//    npm run sprite -- --kaynak <tabaka.png> [--ek <kamikaze.png>] [--dene]
+//    npm run sprite -- --kaynak art/birimler-kaynak.png --ek art/kamikaze-kaynak.png [--dene]
 //    --dene  : icons.png'ye DOKUNMAZ, yalnız ne bulduğunu ve eşlemeyi yazar
 //              (önce bununla çalıştır — yanlış eşleme yanlış ikon demektir)
+//
+//  Kaynak görseller `art/` altında durur, `assets/` altında DEĞİL: package.json
+//  build.files `assets/**/*` içerdiği için orada dursalardı 1MB'lık kaynak
+//  tabaka hiç kullanılmadan EXE'ye girerdi.
 // ═══════════════════════════════════════════════════════════════════════════
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
@@ -150,6 +154,19 @@ app.whenReady().then(async () => {
                     }
                 }
                 if (say > 220 && x1 >= x0) kutular.push({ x0, y0, x1, y1, say });
+            }
+            /* YOZLASMIS BLOK SUZGECI. Kaynak gorselin ust kenarinda 233×0'lik bir
+               siyah cubuk vardi; piksel sayisi esigi (220) onu gecirdi ve TUM
+               esleme bir kaydi (spaag 12'ye, drone_operator 25'e). Esik sabit
+               degil: kutu boyutlarinin MEDYANINA gore, boylece farkli olcekli
+               kaynaklarda da calisir. */
+            if (kutular.length > 2) {
+                const med = dizi => { const s = dizi.slice().sort((a,b)=>a-b); return s[s.length >> 1]; };
+                const mw = med(kutular.map(k => k.x1 - k.x0));
+                const mh = med(kutular.map(k => k.y1 - k.y0));
+                const ayikli = kutular.filter(k =>
+                    (k.x1 - k.x0) >= mw * 0.2 && (k.y1 - k.y0) >= mh * 0.2);
+                if (ayikli.length) return ayikli;
             }
             return kutular;
         };
