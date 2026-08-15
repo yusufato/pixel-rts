@@ -1022,28 +1022,16 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 /* TAM EKRAN harita + üstüne yüzen HUD/panel/butonlar */
 #story-wrap { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
 #storyCanvas { position: absolute; inset: 0; width: 100%; height: 100%; background: #0b1118; image-rendering: pixelated; }
-/* Sol üst: kompakt devlet HUD'u (her zaman) */
-#story-hud { position: absolute; top: 12px; left: 12px; width: 290px; max-width: 32vw; max-height: 46vh; overflow-y: auto;
-    background: rgba(12,18,28,0.86); border: 1px solid rgba(90,130,170,0.3); border-radius: 10px;
-    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
-/* Sol orta: açılır-panel butonları (dikey araç çubuğu) */
-#story-tools { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 20; }
-.tool-btn { width: 48px; height: 48px; font-size: 23px; line-height: 1; color: #cfe0f0;
-    background: rgba(12,18,28,0.9); border: 1px solid rgba(90,130,170,0.4); border-radius: 10px; cursor: pointer; transition: all 0.15s ease; }
-.tool-btn:hover { background: rgba(34,52,74,0.95); border-color: #4cff7c; transform: scale(1.06); }
-.tool-btn.active { border-color: #4cff7c; background: rgba(76,255,124,0.16); }
+/* KUSUR 19 — tasfiye: #story-hud / #story-tools / #story-news ve .tool-btn /
+   .ctrl-btn'in eski MAVİ tanımları buradan SİLİNDİ. Üçü de aşağıdaki war-room
+   bloğunda ikinci kez tanımlıydı; çift tanım, eşit özgüllükte kuralın sıraya
+   göre kazanmasına yol açıp kusur 24'te ölçülmüş bir soruna neden olmuştu.
+   Silinen bloktan hâlâ GEÇERLİ olan bildirimler war-room kurallarına AÇIKÇA
+   taşındı — kalıtım kazası yerine yazılı karar. */
 /* Sağ üst: dur/devam + kaydet + menü */
 #story-topright { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 20; }
-.ctrl-btn { width: 44px; height: 44px; font-size: 18px; line-height: 1; color: #cfe0f0;
-    background: rgba(12,18,28,0.9); border: 1px solid rgba(90,130,170,0.4); border-radius: 10px; cursor: pointer; transition: all 0.15s ease; }
-.ctrl-btn:hover { background: rgba(34,52,74,0.95); border-color: #4c9fff; color: #fff; }
-/* Sağ: haber-akışı (küçük kutu) */
-#story-news { position: absolute; right: 12px; top: 66px; width: 270px; max-width: 30vw; max-height: 34vh;
-    background: rgba(12,18,28,0.84); border: 1px solid rgba(90,130,170,0.3); border-radius: 10px;
-    display: flex; flex-direction: column; overflow: hidden; z-index: 20; }
 .news-title { font-size: 12px; font-weight: 700; color: #9fb3c8; padding: 8px 12px; border-bottom: 1px solid rgba(90,130,170,0.2); }
 .story-title { margin: 0; font-size: 20px; color: #eaf2fb; }
-.story-state-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
 .story-res { font-size: 13px; color: #bcd0e6; margin: 3px 0; }
 .story-res b { color: #fff; }
 .story-bar-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9fb3c8; margin: 4px 0; }
@@ -1051,9 +1039,6 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .story-bar > div { height: 100%; transition: width 0.3s ease; }
 #story-node-info { border-top: 1px solid rgba(90,130,170,0.2);
     border-bottom: 1px solid rgba(90,130,170,0.2); padding: 10px 0; }
-.story-cmd { font-size: 14px; color: #ffd24c; margin-bottom: 6px; }
-.story-hint { font-size: 12px; color: #9fb3c8; margin: 4px 0; line-height: 1.45; }
-#story-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .story-btn { flex: 1; min-width: 92px; padding: 10px 8px; font-size: 13px; font-weight: 700;
     color: #cfe0f0; background: rgba(20,30,44,0.9); border: 1px solid rgba(90,130,170,0.4);
     border-radius: 8px; cursor: pointer; transition: all 0.15s ease; }
@@ -1075,8 +1060,6 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 #city-body { flex: 1 1 auto; min-width: 0; min-height: 0; padding: 12px 14px; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .city-top { font-size: 13px; color: #eaf2fb; background: rgba(255,200,90,0.1); border: 1px solid rgba(255,200,90,0.3); border-radius: 8px; padding: 9px 11px; }
 .city-hint { font-size: 10.5px; color: #8aa0b6; margin-top: 4px; line-height: 1.45; }
-.city-row { border: 1px solid rgba(90,130,170,0.3); border-radius: 8px; padding: 8px 10px; background: rgba(20,30,44,0.6); }
-.city-name { font-size: 13px; font-weight: 700; color: #eaf2fb; }
 .city-lvl { font-size: 11px; color: #ffd24c; }
 .city-stat { font-size: 11px; color: #9fb3c8; margin: 3px 0 6px; }
 .city-acts { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -1118,9 +1101,6 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .prod-bar b { display: block; height: 100%; background: linear-gradient(90deg, #ffb347, #ffce4c); }
 .prod-eta { flex: 0 0 52px; font-size: 10px; color: #9fb3c8; text-align: right; }
 .prod-row .city-btn { flex: 0 0 auto; min-width: 0; padding: 3px 7px; }
-.pool-grid { display: flex; flex-wrap: wrap; gap: 5px; }
-.pool-item { font-size: 10.5px; color: #cfe0f0; background: rgba(34,52,74,0.9); border: 1px solid rgba(90,130,170,0.35); border-radius: 6px; padding: 3px 7px; }
-.pool-item b { color: #4cff7c; }
 
 .tech-body { padding: 16px; font-size: 13px; line-height: 1.7; color: #bcd0e6; overflow-y: auto; }
 /* TEKNOLOJİ AĞACI gövdesi (dinamik) */
@@ -1150,7 +1130,6 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .army-sub { font-size: 12px; color: #9fb3c8; margin-top: 8px; }
 .army-section { border-top: 1px solid rgba(90,130,170,0.2); padding-top: 10px; }
 .army-h { font-size: 14px; font-weight: 700; color: #cfe0f0; margin-bottom: 4px; }
-.army-res { font-size: 14px; color: #fff; }
 .army-note { font-size: 11px; color: #8aa0b6; line-height: 1.5; margin-top: 4px; }
 .army-vets { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .army-vet-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px;
@@ -1280,6 +1259,10 @@ body[data-screen="story"] { background: #060a06; }
     color: var(--wr-muted);
     font: 9px 'Share Tech Mono', monospace;
     letter-spacing: 1px;
+    /* KUSUR 19: silinen legacy `.ctrl-btn` bloğundan HÂLÂ ETKİLİ olan tek
+       bildirim buydu (üstteki `font` kısayolu boyutu/satır yüksekliğini zaten
+       eziyordu). Kalıtımla gelmesin diye açıkça yazıldı. */
+    transition: all .15s ease;
 }
 #story-topright .ctrl-btn:hover, #story-topright .ctrl-btn:focus-visible { border-color: var(--wr-amber); color: var(--wr-amber-bright); background: rgba(255,176,0,.12); outline: none; }
 
@@ -1351,6 +1334,9 @@ body[data-screen="story"] { background: #060a06; }
     display: flex;
     flex-direction: column;
     gap: 8px;
+    /* KUSUR 19: legacy blokta duruyordu; #story-hud flex öğesi olduğu için
+       position:static olsa bile yığılma sırasını belirliyor. */
+    z-index: 20;
 }
 .story-kicker { color: var(--wr-amber); font-size: 10px; letter-spacing: 2px; }
 .story-title { margin: 0; color: var(--wr-dim); font-size: 9px; font-weight: 400; letter-spacing: 1.5px; }
@@ -1366,7 +1352,10 @@ body[data-screen="story"] { background: #060a06; }
 .story-action-btn:hover:not(:disabled), .story-action-btn:focus-visible { background: rgba(74,222,128,.18); box-shadow: 0 0 18px rgba(74,222,128,.16); outline: none; }
 .story-action-btn.hostile { border-color: var(--wr-red); background: rgba(255,107,107,.08); color: #ffd5d5; }
 .story-action-btn:disabled { border-color: var(--wr-line); background: rgba(255,176,0,.025); color: var(--wr-dim); cursor: not-allowed; box-shadow: none; }
-#story-news { position: static; width: auto; max-width: none; max-height: none; min-height: 0; border: 0; border-top: 1px solid var(--wr-line); border-radius: 0; background: rgba(0,0,0,.18); }
+/* KUSUR 19: legacy bloktan taşınanlar — display/flex-direction/overflow yalnız
+   `.story-brief-view` durumunda yeniden yazılıyordu, diğer durumda legacy'den
+   kalıtılıyordu; z-index flex öğesi olarak hâlâ etkili. */
+#story-news { position: static; width: auto; max-width: none; max-height: none; min-height: 0; border: 0; border-top: 1px solid var(--wr-line); border-radius: 0; background: rgba(0,0,0,.18); display: flex; flex-direction: column; overflow: hidden; z-index: 20; }
 #story-news.story-brief-view { display: flex; flex-direction: column; border-top: 0; overflow: hidden; }
 #story-news #story-log { overflow-y: auto; }
 #story-brief-panel > .hidden { display: none !important; }
@@ -1404,7 +1393,12 @@ body[data-screen="story"] { background: #060a06; }
 .story-flow-more:hover { border-color: var(--wr-amber); color: var(--wr-amber-bright); }
 
 #story-tools { position: absolute; left: 16px; top: auto; bottom: 38px; z-index: 25; transform: none; display: flex; flex-direction: row; gap: 6px; }
-#story-tools .tool-btn { width: auto; height: 42px; padding: 0 10px; border: 1px solid var(--wr-line); border-radius: 5px; background: rgba(5,9,4,.9); color: var(--wr-muted); font-family: 'Share Tech Mono', monospace; display: flex; align-items: center; gap: 7px; }
+/* KUSUR 19: silinen legacy `.tool-btn` bloğundan hâlâ etkili olan üç bildirim
+   (font-size / line-height / transition) buraya AÇIKÇA taşındı. 23px doğrudan
+   görünmez — çocuklar kendi boyutlarını taşır — ama satır kutusunu ve düğme
+   genişliğini belirliyor; ölçüldü: kaldırılınca araç çubuğu daralıp taşma
+   menüsüne düşen düğme sayısı değişiyor. Değerin kendisi kusur 10'un işi. */
+#story-tools .tool-btn { width: auto; height: 42px; padding: 0 10px; border: 1px solid var(--wr-line); border-radius: 5px; background: rgba(5,9,4,.9); color: var(--wr-muted); font-family: 'Share Tech Mono', monospace; font-size: 23px; line-height: 1; transition: all .15s ease; display: flex; align-items: center; gap: 7px; }
 #story-tools .tool-btn b { color: var(--wr-amber); font-size: 9px; font-weight: 400; }
 #story-tools .tool-btn span { font-size: 10px; letter-spacing: 1px; }
 #story-tools .tool-btn:hover, #story-tools .tool-btn.active { border-color: var(--wr-green); background: rgba(74,222,128,.1); color: var(--wr-amber-bright); transform: none; }
