@@ -79,7 +79,8 @@
     "dist:dir": "electron-builder --win --x64 --dir",
     "shortcut": "node electron/make-shortcut.js",
     "icon": "node tools/make-icon.js",
-    "test:online": "node tools/online-lockstep-kapi.js"
+    "test:online": "node tools/online-lockstep-kapi.js",
+    "sprite": "env -u ELECTRON_RUN_AS_NODE electron tools/sprite-sheet-build.js"
   },
   "dependencies": {
     "node-llama-cpp": "^3.19.1"
