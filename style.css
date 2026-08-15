@@ -1989,6 +1989,11 @@ body[data-screen="game"][data-phase="battle"] #ui-resources .res-icon { display:
 
 #battle-target-card { top: 14px; right: 14px; width: 268px; padding: 11px; border: 1px solid rgba(74,222,128,.55); background: rgba(5,9,4,.94); color: var(--wr-muted); box-shadow: 0 0 20px rgba(0,0,0,.4); }
 #battle-target-card.hostile { border-color: rgba(255,107,107,.65); }
+/* KUSUR 1: kart iki ayrı şey anlatıyor — TEK birimin künyesi ya da GRUBUN
+   özeti. Fark kenarlıkta değil başlıkta işaretlenir, çünkü kenarlık zaten
+   dost/düşman ayrımını taşıyor ve iki anlamı üst üste bindirmek okunmaz. */
+#battle-target-card.coklu #battle-contact-label { color: var(--wr-green); letter-spacing: 2px; }
+#battle-target-card.coklu #battle-target-name { letter-spacing: 1px; }
 .battle-target-head { display: flex; justify-content: space-between; padding-bottom: 7px; border-bottom: 1px solid var(--wr-line); color: var(--wr-green); font-size: var(--wr-fs-small); letter-spacing: 1px; }
 .hostile .battle-target-head { color: var(--wr-red); }
 .battle-target-head b { font-weight: 400; }

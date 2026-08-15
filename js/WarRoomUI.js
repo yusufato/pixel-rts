@@ -476,11 +476,26 @@ function warRoomUpdateBattle() {
     warRoomUpdateOrderStates(blue);
     warRoomUpdateGroups();
 
-    const selected = units.find(unit => unit.selected && !unit.dead) || null;
+    /* ── KUSUR 1 (açık yarısı): ÇOKLU SEÇİM DURUMU ──────────────────────────
+       Kart `units.find(...)` ile yalnız İLK seçili birimi gösteriyordu: kontrol
+       grupları (Ctrl+1..9) tam da çok birim seçmek için varken 12 birlik seçen
+       oyuncu tek birimin kartını görüyordu.
+
+       Bilgi AYRI bir şeride değil bu karta kondu: kart zaten `aria-live`
+       taşıyor (index.html) ve "ne seçili" sorusunun tek yüzeyi o. İkinci bir
+       panel aynı bilgiyi iki yerde gösterirdi — kusur 20'de sökülen desen.
+
+       Toplamlar SEÇİLEREK alındı, körlemesine toplanmadı: menzil ve hız
+       birliğin EN KISITLAYICI üyesine göre anlamlı (grup en yavaşı kadar hızlı,
+       en kısa menzillisi kadar yakın durmalı), o yüzden onlar minimum. */
+    const secililer = units.filter(unit => unit.selected && !unit.dead);
+    const coklu = secililer.length > 1;
+    const selected = secililer[0] || null;
     const stat = selected ? STATS[selected.type] : null;
     const friendly = !!(selected && !selected.isRed);
     const contact = document.getElementById('battle-target-card');
-    contact?.classList.toggle('hostile', !!selected && !friendly);
+    contact?.classList.toggle('hostile', coklu ? secililer.some(u => u.isRed) : (!!selected && !friendly));
+    contact?.classList.toggle('coklu', coklu);
     const label = document.getElementById('battle-contact-label');
     const state = document.getElementById('battle-contact-state');
     const name = document.getElementById('battle-target-name');
@@ -511,8 +526,71 @@ function warRoomUpdateBattle() {
         const unitName = type => STATS[type]?.name || type;
         matchup.textContent = selected ? `GÜÇLÜ: ${(stat.strong || []).slice(0, 2).map(unitName).join(', ') || '—'} · ZAYIF: ${(stat.weak || []).slice(0, 2).map(unitName).join(', ') || '—'}` : 'Bir dost birim seçerek savaş verisini aç.';
     }
+    if (coklu) warRoomRenderMultiSelect(secililer);
     const feed = document.getElementById('battle-feed-list');
     if (feed) feed.innerHTML = WAR_ROOM_BATTLE_FEED.map(item => `<div class="${item.tone}"><time>${item.time}</time><span>${item.message}</span></div>`).join('');
+}
+
+/* Çoklu seçim kartı. Tek-birim yolundaki yazmaların ÜSTÜNE geçer; ayrı bir
+   render hattı açılmadı ki kartın iki hâli birbirinden ayrı bakıma muhtaç
+   olmasın. Yalnız okuma yapar, hiçbir sim alanına dokunmaz. */
+function warRoomRenderMultiSelect(liste) {
+    const yaz = (id, metin) => { const el = document.getElementById(id); if (el) el.textContent = metin; };
+    const topla = (f) => liste.reduce((a, u) => a + (f(u) || 0), 0);
+
+    const hp = topla(u => u.hp), maxHp = topla(u => u.maxHp);
+    const ammo = topla(u => u.ammo), maxAmmo = topla(u => u.maxAmmo || 0);
+    const temas = liste.filter(u => u.attackTarget).length;
+    const panik = liste.filter(u => u.isPanicking).length;
+    const kuru = liste.filter(u => (u.maxAmmo || 0) > 0 && u.ammo <= 0).length;
+
+    // kompozisyon: tür sayıları, çoktan aza
+    const sayim = new Map();
+    for (const u of liste) sayim.set(u.type, (sayim.get(u.type) || 0) + 1);
+    const sirali = [...sayim.entries()].sort((a, b) => b[1] - a[1]);
+    const ad = t => (STATS[t] && STATS[t].name ? STATS[t].name.toUpperCase() : 'BİRİM');
+    const kompozisyon = sirali.slice(0, 3).map(([t, n]) => `${n} ${ad(t)}`).join(' · ') +
+        (sirali.length > 3 ? ` · +${sirali.length - 3} TÜR` : '');
+
+    yaz('battle-contact-label', 'GRUP KOMUTA');
+    yaz('battle-contact-state', temas ? `${temas}/${liste.length} TEMAS` : 'TRACK');
+    yaz('battle-target-name', `${liste.length} BİRLİK SEÇİLİ`);
+    yaz('battle-target-role', kompozisyon || 'SAHA BİRLİĞİ');
+
+    const sprite = document.getElementById('battle-target-sprite');
+    if (sprite && sirali.length) {
+        const bas = sirali[0][0];
+        sprite.style.backgroundPosition = `${bas * (100 / 24)}% ${liste[0].isRed ? '100%' : '0%'}`;
+        sprite.style.opacity = '1';
+    }
+
+    const oran = (a, b) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
+    const hullBar = document.getElementById('battle-hull-bar');
+    const ammoBar = document.getElementById('battle-ammo-bar');
+    if (hullBar) hullBar.style.width = `${oran(hp, maxHp)}%`;
+    if (ammoBar) ammoBar.style.width = `${oran(ammo, maxAmmo)}%`;
+    yaz('battle-hull-value', `${Math.ceil(hp)}/${Math.round(maxHp)}`);
+    yaz('battle-ammo-value', maxAmmo > 0 ? `${Math.round(ammo)}/${Math.round(maxAmmo)}` : '—');
+
+    // ATK toplanır (birlikte ateş ederler); RNG ve HIZ MİNİMUM alınır — grup en
+    // kısa menzillisi kadar yaklaşmak, en yavaşı kadar yavaş gitmek zorunda.
+    const enAz = (f) => liste.reduce((m, u) => Math.min(m, f(u)), Infinity);
+    const zirhOrt = topla(u => u.armor) / liste.length;
+    const stats = document.getElementById('battle-target-stats');
+    if (stats) {
+        stats.innerHTML =
+            `<span>ATK<b>${Math.round(topla(u => u.atk))}</b></span>` +
+            `<span>EN KISA RNG<b>${Math.round(enAz(u => u.range))}</b></span>` +
+            `<span>ORT ZIRH<b>${zirhOrt.toFixed(1)}</b></span>` +
+            `<span>EN YAVAŞ<b>${enAz(u => u.speed).toFixed(2)}</b></span>`;
+    }
+
+    const uyari = [];
+    if (panik) uyari.push(`${panik} PANİK`);
+    if (kuru) uyari.push(`${kuru} MÜHİMMAT BİTTİ`);
+    yaz('battle-target-matchup', uyari.length
+        ? '⚠ ' + uyari.join(' · ')
+        : `${liste.length} birlik tek emirle hareket eder.`);
 }
 
 /* ── KUSUR 3: EMİR GERİ BİLDİRİMİ ────────────────────────────────────────────
