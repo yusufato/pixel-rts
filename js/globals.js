@@ -330,12 +330,21 @@ function worldToScreen(wx, wy) {
     };
 }
 
-const SP_W = 320, SP_H = 320, SP_PAD = 30;   // yeni 25-sütun icons.png: hücre 320×320, pad 30 (8780×730; sx=30+type×350, sy kırmızı=380)
-// SPRITE-SÜTUN: icons.png yalnız 25-sütun (indeks 0-24). 25+ eklenen birim mevcut bir sprite'a eşlenir → boş-ikon olmaz.
-// drone_operator(25) → kamikaze-drone(18) ikonu (redesign: operatör kamikazenin yerini aldı → eski drone-görünümü kalsın).
+const SP_W = 320, SP_H = 320, SP_PAD = 30;   // icons.png: hücre 320×320, pad 30 (sx=30+type×350, sy kırmızı=380)
+
+/* SPRITE-SÜTUN — sayfanın GERÇEK genişliğinden türetilir, sabit sayı değil.
+   Eski sayfa 25 sütundu (8780 px) ve 26. birim `drone_operator` boş ikon
+   almasın diye kamikaze(18) sprite'ına eşleniyordu. Yeni sanat 26 birimin
+   hepsini ayrı çiziyor (9130 px). İkisi de çalışsın diye takma ad artık
+   KOŞULLU: sayfada o sütun VARSA kendi ikonu, yoksa eski yedek.
+   Böylece görsel değişimi ile kod değişimi birbirini beklemez. */
+function battleSpriteSutunSayisi() {
+    if (typeof spriteSheet === 'undefined' || !spriteSheet || !spriteSheet.naturalWidth) return 0;
+    return Math.max(0, Math.floor((spriteSheet.naturalWidth - SP_PAD) / (SP_W + SP_PAD)));
+}
 function battleSpriteCol(type) {
-    if (typeof T !== 'undefined' && type === T.DRONE_OPERATOR && T.KAMIKAZE != null) return T.KAMIKAZE;
-    return type;
+    if (typeof T === 'undefined' || type !== T.DRONE_OPERATOR || T.KAMIKAZE == null) return type;
+    return battleSpriteSutunSayisi() > type ? type : T.KAMIKAZE;
 }
 const BASE_DRAW_SCALE = 0.20;
 const BASE_DRAW_W = SP_W * BASE_DRAW_SCALE;

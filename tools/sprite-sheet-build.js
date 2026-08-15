@@ -2,7 +2,7 @@
 //  SPRITE SAYFASI ÜRETİCİ — yeni birim görsellerinden icons.png kurar
 //  ---------------------------------------------------------------------------
 //  Oyunun beklediği biçim (js/globals.js:333 ölçüldü):
-//      8780×730 · hücre 320×320 · pad 30 · 25 sütun
+//      hücre 320×320 · pad 30 · sütun = ROSTER İNDEKSİ (26 birim → 9130×730)
 //      sx = 30 + sütun × 350   ·   sy = 30 (MAVİ) / 380 (KIRMIZI)
 //
 //  Kaynak görsel beyaz zeminli, satırları eşit olmayan bir tabaka olabilir
@@ -35,21 +35,32 @@ const EK = arg('ek', null);              // ayrı dosyadaki tek sprite (kamikaze
 const DENE = bayrak('dene');
 const CIKTI = arg('cikti', path.join(ROOT, 'icons.png'));
 
-/* SÜTUN SIRASI — js/UnitData.js roster sırasıyla BİREBİR aynı olmalı.
-   Sıra bozulursa tank piyade ikonu alır; bu yüzden liste burada açıkça durur
-   ve araç roster'la uyuşmazsa DURUR. */
-const SUTUN_SIRASI = [
+/* İKİ AYRI SIRA VAR — karıştırmak ilk sürümde hataya yol açtı, o yüzden
+   burada açıkça ayrılmıştır:
+
+   1) OKUMA SIRASI (aşağıdaki liste): kaynak tabakadaki sprite'lar soldan sağa,
+      yukarıdan aşağıya hangi birime karşılık geliyor. Bu GÖRSEL bir olgudur,
+      kullanıcı doğrulamıştır.
+
+   2) SÜTUN NUMARASI: motor `sx = 30 + type × 350` diyor, yani sütun = birimin
+      ROSTER İNDEKSİDİR (js/UnitData.js). Bu liste DEĞİL, roster belirler.
+
+   İlk sürüm ikisini tek liste sanmıştı: radar 11. sıradayken 19. sütuna
+   yazılacaktı — SPAAG, SAM ve helikopterler kaymış olurdu. */
+const OKUMA_SIRASI = [
+    // 1. satır (9)
     'infantry', 'at_team', 'mortar_team', 'manpads_team', 'commando',
     'mbt', 'ifv', 'tank_destroyer', 'artillery',
+    // 2. satır (8)
     'mlrs', 'ballistic_missile', 'spaag', 'sam_battery',
     'attack_helo', 'transport_helo', 'recon_uav', 'armed_uav',
-    'loitering_munition',
-    'scout_vehicle', 'counter_battery_radar', 'ew_vehicle', 'medic',
-    'engineer', 'supply_truck', 'command_vehicle'
+    // 3. satır (8)
+    'drone_operator', 'scout_vehicle', 'counter_battery_radar', 'ew_vehicle',
+    'medic', 'engineer', 'supply_truck', 'command_vehicle'
 ];
+const EK_BIRIM = 'loitering_munition';   // ayrı dosyadan gelen kamikaze drone
 
-const HUCRE = 320, PAD = 30, SUTUN = 25;
-const GENIS = PAD + SUTUN * (HUCRE + PAD);      // 8780
+const HUCRE = 320, PAD = 30;
 const YUKSEK = PAD + HUCRE + PAD + HUCRE + PAD; // 730
 
 app.whenReady().then(async () => {
@@ -62,24 +73,36 @@ app.whenReady().then(async () => {
         if (!fs.existsSync(p)) { console.log('HATA: dosya yok -> ' + p); app.exit(1); return; }
     }
 
-    // roster ile sutun sirasini DOGRULA
+    // SÜTUN = ROSTER İNDEKSİ. Roster tek doğruluk kaynağıdır.
     const rosterKaynak = fs.readFileSync(path.join(ROOT, 'js', 'UnitData.js'), 'utf8');
     const roster = [];
     const re = /"id":\s*"([a-z_]+)",\s*"name":/g;
     let m; while ((m = re.exec(rosterKaynak))) roster.push(m[1]);
-    const eksik = SUTUN_SIRASI.filter(id => !roster.includes(id));
+    if (!roster.length) { console.log('HATA: roster okunamadi (js/UnitData.js).'); app.exit(1); return; }
+
+    const beklenen = OKUMA_SIRASI.concat(EK ? [EK_BIRIM] : []);
+    const eksik = beklenen.filter(id => !roster.includes(id));
     if (eksik.length) { console.log('HATA: roster\'da olmayan id: ' + eksik.join(', ')); app.exit(1); return; }
-    console.log('roster ' + roster.length + ' birim · sutun listesi ' + SUTUN_SIRASI.length + ' · eslesme tamam');
+    const kapsanmayan = roster.filter(id => !beklenen.includes(id));
+    if (kapsanmayan.length) {
+        console.log('UYARI: gorseli olmayan birim (bos ikon olur): ' + kapsanmayan.join(', '));
+    }
+    const SUTUN = roster.length;                      // 26
+    const GENIS = PAD + SUTUN * (HUCRE + PAD);        // 9130
+    console.log('roster ' + roster.length + ' birim · okuma sirasi ' + OKUMA_SIRASI.length +
+        (EK ? ' + ek 1' : '') + ' · tabaka ' + GENIS + '×' + YUKSEK);
 
     const win = new BrowserWindow({ width: 900, height: 600, show: false,
         webPreferences: { offscreen: true, nodeIntegration: false, contextIsolation: true } });
     await win.loadURL('data:text/html,<html><body></body></html>');
 
     const b64 = p => fs.readFileSync(p).toString('base64');
+    const sutunlar = OKUMA_SIRASI.map(id => roster.indexOf(id));
+    const ekSutun = EK ? roster.indexOf(EK_BIRIM) : -1;
     const girdi = {
         kaynak: 'data:image/png;base64,' + b64(KAYNAK),
         ek: EK ? ('data:image/png;base64,' + b64(EK)) : null,
-        HUCRE, PAD, SUTUN, GENIS, YUKSEK, dene: DENE
+        HUCRE, PAD, SUTUN, GENIS, YUKSEK, dene: DENE, sutunlar, ekSutun
     };
 
     const sonuc = await win.webContents.executeJavaScript(`(async (G) => {
@@ -183,46 +206,46 @@ app.whenReady().then(async () => {
             }
         };
 
-        // ana tabakadaki sprite'lar sirayla; --ek verilmisse 18. sutuna o girer
-        let sutun = 0;
-        const ekSutun = ${JSON.stringify(SUTUN_SIRASI.indexOf('loitering_munition'))};
-        for (const k of sirali) {
-            if (G.ek && sutun === ekSutun) sutun++;                 // yeri bos birak
-            if (sutun >= G.SUTUN) break;
-            cizHucre(kc, k.x0, k.y0, k.x1 - k.x0, k.y1 - k.y0, sutun);
-            sutun++;
+        /* Okuma sirasindaki her sprite, KENDI biriminin ROSTER SUTUNUNA yazilir.
+           i'inci sprite i'inci sutuna DEGIL — bu ayrim ilk surumdeki hataydi. */
+        const yazilan = [];
+        for (let i = 0; i < sirali.length && i < G.sutunlar.length; i++) {
+            const k = sirali[i], hedefSutun = G.sutunlar[i];
+            if (hedefSutun == null || hedefSutun < 0) continue;
+            cizHucre(kc, k.x0, k.y0, k.x1 - k.x0, k.y1 - k.y0, hedefSutun);
+            yazilan.push(hedefSutun);
         }
-        if (G.ek) {
+        if (G.ek && G.ekSutun >= 0) {
             const eim = await yukle(G.ek);
             const { c: ec, d: ed } = ayikla(eim);
             const ek = bloklar(ed, ec.width, ec.height).sort((a,b) => b.say - a.say)[0];
-            if (ek) cizHucre(ec, ek.x0, ek.y0, ek.x1 - ek.x0, ek.y1 - ek.y0, ekSutun);
+            if (ek) { cizHucre(ec, ek.x0, ek.y0, ek.x1 - ek.x0, ek.y1 - ek.y0, G.ekSutun); yazilan.push(G.ekSutun); }
             rapor.ekYerlesti = !!ek;
         }
-        rapor.yazilanSutun = sutun;
+        rapor.yazilanSutun = yazilan.length;
+        rapor.bosSutun = Array.from({length: G.SUTUN}, (_, i) => i).filter(i => !yazilan.includes(i));
         rapor.png = hed.toDataURL('image/png');
         return rapor;
     })(${JSON.stringify(girdi)})`);
 
     console.log('kaynak olcu      : ' + sonuc.kaynakOlcu.join('×'));
     console.log('bulunan sprite   : ' + sonuc.bulunan + '  (satirlar: ' + sonuc.satirlar.join(' + ') + ')');
-    if (sonuc.bulunan !== SUTUN_SIRASI.length - (EK ? 1 : 0)) {
-        console.log('UYARI: beklenen ' + (SUTUN_SIRASI.length - (EK ? 1 : 0)) + ', bulunan ' + sonuc.bulunan +
-            ' — esleme kayabilir. Once --dene ile kutulari gozden gecir.');
+    if (sonuc.bulunan !== OKUMA_SIRASI.length) {
+        console.log('UYARI: okuma sirasi ' + OKUMA_SIRASI.length + ' birim bekliyor, ' + sonuc.bulunan +
+            ' sprite bulundu — ESLEME KAYAR. Kutulari asagida gozden gecir, gerekirse');
+        console.log('       kaynak gorseldeki bosluklari/artefaktlari temizle ve tekrar dene.');
     }
     console.log('');
-    console.log('ESLEME (bulunan sira -> sutun -> birim):');
-    let s = 0;
-    const ekIdx = SUTUN_SIRASI.indexOf('loitering_munition');
-    for (let i = 0; i < sonuc.bulunan; i++) {
-        if (EK && s === ekIdx) s++;
-        if (s >= SUTUN) break;
-        const k = sonuc.kutular[i];
+    console.log('ESLEME (okuma sirasi -> birim -> roster sutunu):');
+    for (let i = 0; i < sonuc.bulunan && i < OKUMA_SIRASI.length; i++) {
+        const k = sonuc.kutular[i], id = OKUMA_SIRASI[i];
         console.log('  ' + String(i).padStart(2) + '  kutu ' + String(k[2]).padStart(4) + '×' + String(k[3]).padStart(4) +
-            '  ->  sutun ' + String(s).padStart(2) + '  ' + SUTUN_SIRASI[s]);
-        s++;
+            '  ->  ' + id.padEnd(24) + 'sutun ' + String(roster.indexOf(id)).padStart(2));
     }
-    if (EK) console.log('  ek dosya           ->  sutun ' + ekIdx + '  loitering_munition');
+    if (EK) console.log('  ek dosya              ->  ' + EK_BIRIM.padEnd(24) + 'sutun ' + roster.indexOf(EK_BIRIM));
+    if (sonuc.bosSutun && sonuc.bosSutun.length) {
+        console.log('  BOS KALAN SUTUN: ' + sonuc.bosSutun.map(i => i + ' (' + roster[i] + ')').join(', '));
+    }
 
     if (DENE) { console.log('\n--dene: icons.png DEGISMEDI.'); win.destroy(); app.exit(0); return; }
 
@@ -230,6 +253,6 @@ app.whenReady().then(async () => {
     if (fs.existsSync(CIKTI) && !fs.existsSync(yedek)) fs.copyFileSync(CIKTI, yedek);
     fs.writeFileSync(CIKTI, Buffer.from(sonuc.png.split(',')[1], 'base64'));
     console.log('\nyazildi: ' + CIKTI + '  (yedek: icons.onceki.png)');
-    console.log('olcu    : ' + GENIS + '×' + YUKSEK + ' — oyunun bekledigi bicim');
+    console.log("olcu    : " + GENIS + "×" + YUKSEK + "  (" + SUTUN + " sutun)");
     win.destroy(); app.exit(0);
 }).catch(e => { console.log('HATA: ' + e.message); app.exit(1); });
