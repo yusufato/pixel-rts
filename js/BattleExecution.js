@@ -169,6 +169,16 @@ const DEST_LOCK_TICKS = 200;     // ~10s: büyük değişiklik için asgari bekl
 const DEST_LOCK_HARD_PX = 1200;  // bundan büyük yeniden-yönelim kilidi DELER (gerçek yön değişikliği)
 const DEST_LOCK_ARRIVED = 240;   // grup merkezi hedefe bu kadar yaklaştıysa kilit düşer (görev bitti)
 const _destLock = new Map();     // contractId -> { x, y, tick }
+/* FORK KOPRUSU (2026-08-16): _destLock MODUL SEVIYESINDE ve karar girdisi — hangi noktaya
+   yurunecegini kilitliyor. Fork'a yazilmayinca ayni durumdan yapilan IKINCI rollout,
+   BIRINCININ kilitleriyle basliyor ve FARKLI hareket kararlari uretiyordu. Olculdu: ayni
+   fork'tan 3 rollout 3 farkli hash (saf fizik 3/3 ayni). Arama icin olumcul, tek-atislik
+   fork'ta gorunmuyordu. */
+function battleExecLockCapture() { return [..._destLock.entries()].map(([k, v]) => [k, { x: v.x, y: v.y, tick: v.tick }]); }
+function battleExecLockRestore(saved) {
+    _destLock.clear();
+    for (const [k, v] of (saved || [])) _destLock.set(k, { x: v.x, y: v.y, tick: v.tick });
+}
 function executionLockedPoint(contract, units, point) {
     if (!_execAntiCtx || typeof battleProDelta !== 'function' ||
         !battleProDelta(_execAntiCtx.side, 'destLock')) return point;

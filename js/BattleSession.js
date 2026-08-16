@@ -904,7 +904,16 @@ function battleForkCapture() {
         ctrlPosture: SIM.ctrlPosture ? replayClone(SIM.ctrlPosture) : null,   // kontrolör duruşu = sim-durumu (birim hareketi buna bağlı)
         supportCooldowns: (typeof supportCooldowns !== 'undefined') ? replayClone(supportCooldowns) : null,
         battle: SIM.battle ? replayClone(SIM.battle) : null,
-        controllers: (typeof battleForkCaptureControllers === 'function') ? battleForkCaptureControllers() : null
+        controllers: (typeof battleForkCaptureControllers === 'function') ? battleForkCaptureControllers() : null,
+        /* FORENSIK HALKA — AI GIRDISI, dolayisiyla fork sinirindan gecmeli.
+           BattlePerception.updateThreatProfile bu tamponu okuyup tehdit-sinifi cikariyor
+           (js/BattlePerception.js:176). Fork'a yazilmayinca ayni durumdan yapilan IKINCI
+           rollout, BIRINCININ olaylariyla kirlenmis bir tamponla basliyordu -> ayni zeminden
+           farkli kararlar. Tek-atislik fork bunu maskeliyordu; arama (ayni durumu defalarca
+           oynatmak) icin OLUMCUL. */
+        execLock: (typeof battleExecLockCapture === 'function') ? battleExecLockCapture() : null,
+        forensic: (typeof BATTLE_FORENSIC !== 'undefined' && BATTLE_FORENSIC)
+            ? { buf: replayClone(BATTLE_FORENSIC.buf), seq: BATTLE_FORENSIC.seq | 0 } : null
     };
 }
 function battleForkRestore(fork) {
@@ -938,6 +947,12 @@ function battleForkRestore(fork) {
     if (typeof gameTime !== 'undefined') gameTime = fork.gTime || 0;
     if (typeof battleAccumulatorMs !== 'undefined') battleAccumulatorMs = fork.accMs || 0;
     Unit.nextId = fork.nextId || 0;
+    if (typeof battleExecLockRestore === 'function') battleExecLockRestore(fork.execLock);
+    if (fork.forensic && typeof BATTLE_FORENSIC !== 'undefined' && BATTLE_FORENSIC) {
+        BATTLE_FORENSIC.buf.length = 0;
+        for (const e of (replayClone(fork.forensic.buf) || [])) BATTLE_FORENSIC.buf.push(e);
+        BATTLE_FORENSIC.seq = fork.forensic.seq | 0;
+    }
     if (fork.controllers && typeof battleForkRestoreControllers === 'function') battleForkRestoreControllers(fork.controllers, byId);
     SIM_RNG.state = fork.rngState >>> 0;   // birim yaratımının tükettiği srand'ı geri al (EN SON)
 }
@@ -958,6 +973,52 @@ function battleForkCaptureControllers() {
         if (c.perception) cs.perc = { contacts: _forkCloneMap(c.perception.contacts), lastObservation: replayClone(c.perception.lastObservation), initialFriendlyValue: c.perception.initialFriendlyValue };
         if (c.planCommitment) cs.commit = { current: replayClone(c.planCommitment.current), sequence: c.planCommitment.sequence, transitionHistory: replayClone(c.planCommitment.transitionHistory), lastDecision: replayClone(c.planCommitment.lastDecision) };
         if (c.taskExecutor) cs.exec = { states: _forkCloneMap(c.taskExecutor.states), transitionHistory: replayClone(c.taskExecutor.transitionHistory), operation: replayClone(c.taskExecutor.operation), operationHistory: replayClone(c.taskExecutor.operationHistory), lastFireWindowTick: c.taskExecutor.lastFireWindowTick, lastTelemetry: replayClone(c.taskExecutor.lastTelemetry) };
+        /* FORK BOŞLUĞU KAPATILDI (2026-08-16, ölçülerek bulundu).
+           Yakalama açık bir izin listesi; listede olmayan alan geri yüklenmiyordu.
+           ÖLÇÜLDÜ: aynı fork'tan 3 rollout 3 FARKLI hash veriyordu (saf fizik 3/3 aynı
+           → sapma AI katmanında). Kontrolör ağacının 8724 alanından 2785'i restore
+           sonrası eski hâline dönmüyordu. Bu üç kök eksikti:
+             · blackboard         — düşman/sektör/tehdit haritası, karar girdisi
+             · situationAnalyzer  — `_evHist` şok penceresini, `lastAnalysis` duruş
+                                    histerezisini besler (prevGateOpen/prevStance)
+             · sectorState        — sektör komutası durumu
+           Hepsi düz veri (Map yok) → replayClone yeterli. `controller` geri-referansı
+           ALINMAZ (döngüsel).
+           NEDEN ÖNEMLİ: aynı durumu defalarca ileri oynatmak (arama/"geleceği görme")
+           ancak zemin sabitse anlamlıdır. Tek-atışlık fork bunu maskeliyordu. */
+        if (c.blackboard) cs.bb = replayClone(c.blackboard);
+        /* SON 12 ALAN (fark alarak bulundu; hepsi karar girdisi):
+           perception._seenEnemyRefs (Map) + _confirmedKilledValue → düşman-inanç ve
+           imha muhasebesi · planCommitment._recentlyLeft → plan geri-dönüş kilidi ·
+           operationalPlanner._groupRegistry → grup kimlikleri ·
+           taskExecutor.focusBySector/focusContactId → sektör odağı. */
+        cs.ek = {
+            /* _seenEnemyRefs BİRİM REFERANSI tutar (adı da onu söylüyor) — JSON'a
+               çevrilemez, `attackTarget` üzerinden döngü kapatır. Bu yüzden KİMLİK
+               saklanır; geri yüklemede fork'un byId eşlemesiyle canlı nesneye bağlanır. */
+            seen: (c.perception && c.perception._seenEnemyRefs instanceof Map)
+                ? [...c.perception._seenEnemyRefs.entries()].map(([k, v]) => ({
+                    k: k, id: (v && v.id != null) ? v.id : null,
+                    olu: !!(v && v.dead), tip: v ? v.type : null }))
+                : null,
+            // imha defteri: yakalanmazsa geri yuklemeden sonra ayni olum TEKRAR sayilir
+            sayilan: (c.perception && c.perception._killedCounted instanceof Set) ? [...c.perception._killedCounted] : null,
+            killed: c.perception ? c.perception._confirmedKilledValue : undefined,
+            left: c.planCommitment ? replayClone(c.planCommitment._recentlyLeft) : undefined,
+            gregMap: !!(c.operationalPlanner && c.operationalPlanner._groupRegistry instanceof Map),
+            greg: (c.operationalPlanner && c.operationalPlanner._groupRegistry instanceof Map)
+                ? _forkCloneMap(c.operationalPlanner._groupRegistry)
+                : (c.operationalPlanner ? replayClone(c.operationalPlanner._groupRegistry) : undefined),
+            focusSec: c.taskExecutor ? replayClone(c.taskExecutor.focusBySector) : undefined,
+            focusId: c.taskExecutor ? c.taskExecutor.focusContactId : undefined
+        };
+        if (c.sectorState) cs.sector = replayClone(c.sectorState);
+        if (c.situationAnalyzer) cs.sa = {
+            lastAnalysis: replayClone(c.situationAnalyzer.lastAnalysis),
+            _evHist: replayClone(c.situationAnalyzer._evHist),
+            _shockHoldUntil: c.situationAnalyzer._shockHoldUntil,
+            _lastContactTick: c.situationAnalyzer._lastContactTick
+        };
         const op = c.operationalPlanner;
         if (op) cs.plan = { lastPlan: replayClone(op.lastPlan),
             fo: op.forceOrganizer ? { cachedPlanId: op.forceOrganizer.cachedPlanId, cachedUnitSignature: op.forceOrganizer.cachedUnitSignature, cachedGroups: replayClone(op.forceOrganizer.cachedGroups) } : null,
@@ -966,7 +1027,7 @@ function battleForkCaptureControllers() {
     }
     return out;
 }
-function battleForkRestoreControllers(saved) {
+function battleForkRestoreControllers(saved, byId) {
     if (typeof BATTLE_CONTROLLERS === 'undefined' || !BATTLE_CONTROLLERS || !saved) return;
     for (const cs of saved) {
         const c = BATTLE_CONTROLLERS.get(cs.id); if (!c) continue;
@@ -978,6 +1039,44 @@ function battleForkRestoreControllers(saved) {
         if (c.perception && cs.perc) { _forkLoadMap(c.perception.contacts, cs.perc.contacts); c.perception.lastObservation = replayClone(cs.perc.lastObservation); c.perception.initialFriendlyValue = cs.perc.initialFriendlyValue; }
         if (c.planCommitment && cs.commit) { c.planCommitment.current = replayClone(cs.commit.current); c.planCommitment.sequence = cs.commit.sequence; c.planCommitment.transitionHistory = replayClone(cs.commit.transitionHistory) || []; c.planCommitment.lastDecision = replayClone(cs.commit.lastDecision); }
         if (c.taskExecutor && cs.exec) { _forkLoadMap(c.taskExecutor.states, cs.exec.states); c.taskExecutor.transitionHistory = replayClone(cs.exec.transitionHistory) || []; c.taskExecutor.operation = replayClone(cs.exec.operation); c.taskExecutor.operationHistory = replayClone(cs.exec.operationHistory) || []; c.taskExecutor.lastFireWindowTick = cs.exec.lastFireWindowTick; c.taskExecutor.lastTelemetry = replayClone(cs.exec.lastTelemetry); }
+        // FORK BOŞLUĞU (bkz. capture tarafındaki not): blackboard + sektör + durum-analizi
+        if (c.blackboard && cs.bb) { for (const k in c.blackboard) delete c.blackboard[k]; Object.assign(c.blackboard, replayClone(cs.bb)); }
+        if (cs.ek) {   // son 12 alan (bkz. capture tarafındaki not)
+            if (c.perception) {
+                if (cs.ek.seen && c.perception._seenEnemyRefs instanceof Map) {
+                    /* kimlik -> canli nesne. Fork yalniz SAG birimleri tasir; olmus dusmanin
+                       kaydi da korunmali cunku tuketici `ref.dead` + `ref.type` okuyup imha
+                       degerini sayiyor. Bu yuzden olu kayit VEKIL nesneyle geri konur. */
+                    c.perception._seenEnemyRefs.clear();
+                    for (const e of cs.ek.seen) {
+                        const u = (e.id != null && byId) ? byId.get(e.id) : null;
+                        if (u) c.perception._seenEnemyRefs.set(e.k, u);
+                        else if (e.id != null) c.perception._seenEnemyRefs.set(e.k, { id: e.id, dead: true, type: e.tip });
+                    }
+                }
+                if (cs.ek.sayilan && c.perception._killedCounted instanceof Set) {
+                    c.perception._killedCounted.clear();
+                    for (const id of cs.ek.sayilan) c.perception._killedCounted.add(id);
+                }
+                if (cs.ek.killed !== undefined) c.perception._confirmedKilledValue = cs.ek.killed;
+            }
+            if (c.planCommitment && cs.ek.left !== undefined) c.planCommitment._recentlyLeft = replayClone(cs.ek.left);
+            if (c.operationalPlanner && cs.ek.greg !== undefined) {
+                if (cs.ek.gregMap && c.operationalPlanner._groupRegistry instanceof Map) _forkLoadMap(c.operationalPlanner._groupRegistry, cs.ek.greg);
+                else if (!cs.ek.gregMap) c.operationalPlanner._groupRegistry = replayClone(cs.ek.greg);
+            }
+            if (c.taskExecutor) {
+                if (cs.ek.focusSec !== undefined) c.taskExecutor.focusBySector = replayClone(cs.ek.focusSec);
+                if (cs.ek.focusId !== undefined) c.taskExecutor.focusContactId = cs.ek.focusId;
+            }
+        }
+        if (c.sectorState && cs.sector) { for (const k in c.sectorState) delete c.sectorState[k]; Object.assign(c.sectorState, replayClone(cs.sector)); }
+        if (c.situationAnalyzer && cs.sa) {
+            c.situationAnalyzer.lastAnalysis = replayClone(cs.sa.lastAnalysis);
+            c.situationAnalyzer._evHist = replayClone(cs.sa._evHist) || [];
+            c.situationAnalyzer._shockHoldUntil = cs.sa._shockHoldUntil;
+            c.situationAnalyzer._lastContactTick = cs.sa._lastContactTick;
+        }
         const op = c.operationalPlanner;
         if (op && cs.plan) { op.lastPlan = replayClone(cs.plan.lastPlan);
             if (op.forceOrganizer && cs.plan.fo) { op.forceOrganizer.cachedPlanId = cs.plan.fo.cachedPlanId; op.forceOrganizer.cachedUnitSignature = cs.plan.fo.cachedUnitSignature; op.forceOrganizer.cachedGroups = replayClone(cs.plan.fo.cachedGroups) || []; }
