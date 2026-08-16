@@ -1566,7 +1566,13 @@ const MINE_DAMAGE = 260;        // he tabanlı (zırhlıya alt-yön etkili); mat
 const MINE_AREA_MAX_R = 420;        // fareyle çizilebilecek en büyük yarıçap
 const MINE_AREA_SPACING = 78;       // ızgara adımı (MINE_TRIGGER_R'den geniş → mayınlar üst üste binmez)
 const MINE_AREA_MAX_ADET = 14;      // tek emirde en fazla mayın
-const MINE_LAY_REACH = 460;         // döşeyen birim bu mesafeden uzağa mayın koyamaz
+/* İSTİHKÂM GİDEREK DÖŞER (kullanıcı 2026-08-16: "mayını istihkâm aracı giderek kursun").
+   İlk sürüm mayınları emir anında ANINDA koyuyordu; bu yüzden "mayını ışınlamasın" diye
+   bir erişim yarıçapı (460px) gerekmişti. Artık istihkâm noktadan noktaya YÜRÜYOR, yani
+   mesafe sınırı gereksiz: gitmek zaman ve risk demek, sınırı mesafenin kendisi koyuyor. */
+const MINE_LAY_DIST = 34;           // bu kadar yaklaşınca döşemeye başlar
+const MINE_LAY_TIME = 0.9;          // her mayın için saniye (durup döşer)
+const MINE_WALK_TIMEOUT = 12;       // bir noktaya bu kadar saniyede varamazsa o noktayı ATLA (kilit emniyeti)
 
 // Tek bir altıgen ızgara (kaydırmalı satırlar), merkezden dışa determinist sıralı.
 function mineIzgara(cx, cy, r, s) {

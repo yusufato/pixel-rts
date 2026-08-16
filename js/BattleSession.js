@@ -630,7 +630,13 @@ function battleUnitSnapshot(unit) {
         _cmdShockUntil: unit._cmdShockUntil || 0,   // komuta-şoku emir-felci penceresi (HQ öldü)
         _deathFxDone: unit._deathFxDone ? 1 : 0,    // onDeath-efekti işlendi mi (command_shock tek-seferlik)
         _diveLastX: unit._diveLastX != null ? unit._diveLastX : null,   // drone taahhüt-hedef son-konumu (hedef-ölünce oraya-git+patla; re-derive edilemez)
-        _diveLastY: unit._diveLastY != null ? unit._diveLastY : null
+        _diveLastY: unit._diveLastY != null ? unit._diveLastY : null,
+        /* MAYIN ROTASI — fork/replay'e YAZILMAK ZORUNDA. Snapshot açık-alan listesidir;
+           yazılmazsa geri yüklenen istihkâm kalan mayın görevini UNUTUR ve fork eşitliği
+           bozulur (yarım kalmış rota re-derive edilemez, oyuncu emrinden türetilmiştir). */
+        mineRoute: unit.mineRoute && unit.mineRoute.length
+            ? unit.mineRoute.map(p => ({ x: p.x, y: p.y })) : null,
+        _mineLayTimer: unit._mineLayTimer || 0
     };
 }
 
@@ -713,6 +719,10 @@ function battleStateHash() {
         mix(unit._ctrlLostTick || 0);   // drone kontrol-kaybı/jam sayacı
         mix(unit._cmdShockUntil || 0); mix(unit._deathFxDone ? 1 : 0);   // komuta-şoku penceresi + onDeath-işlendi
         mix(unit._diveLastX != null ? Math.round(unit._diveLastX * 100) : '-'); mix(unit._diveLastY != null ? Math.round(unit._diveLastY * 100) : '-');   // drone taahhüt-hedef son-konumu
+        // MAYIN ROTASI hash'e girer: sapma sessizce geçmesin (kalan görev + döşeme sayacı)
+        mix(unit.mineRoute ? unit.mineRoute.length : 0);
+        if (unit.mineRoute && unit.mineRoute.length) { mix(Math.round(unit.mineRoute[0].x * 100)); mix(Math.round(unit.mineRoute[0].y * 100)); }
+        mix(Math.round((unit._mineLayTimer || 0) * 1000));
         mix(unit.payloadCount != null ? unit.payloadCount : '-'); mix(Math.round(unit._reloadTimer || 0));   // operatör mühimmat+ikmal-sayacı
         mix(unit._retired ? 1 : 0); mix(unit._refuelBaseKey || '-');   // helo emeklilik + üs-rezervasyon-bağı
     }
@@ -803,6 +813,10 @@ function battleRestoreUnit(snapshot) {
     if (snapshot._diveLastX != null) unit._diveLastX = snapshot._diveLastX;   // drone taahhüt-hedef son-konumu
     if (snapshot._diveLastY != null) unit._diveLastY = snapshot._diveLastY;
     if (snapshot.payloadCount != null) unit.payloadCount = snapshot.payloadCount;   // operatör mühimmat-sayısı
+    // MAYIN ROTASI: yarım kalmış döşeme görevi (kopyalanır — snapshot paylaşılmasın)
+    unit.mineRoute = (snapshot.mineRoute && snapshot.mineRoute.length)
+        ? snapshot.mineRoute.map(p => ({ x: p.x, y: p.y })) : null;
+    unit._mineLayTimer = snapshot._mineLayTimer || 0;
     unit.id = snapshot.id;
     unit.ally = !!snapshot.ally;
     unit.controlOwner = snapshot.controlOwner || (unit.isRed ? CONTROL_OWNER.ENEMY_AI : CONTROL_OWNER.PLAYER);
@@ -1048,20 +1062,28 @@ function battleApplyRecordedEvent(event) {
             if (!u || u.dead) continue;
             if (ab === 'lay_mines') {
                 if (u.type !== T.ENGINEER && u.type !== T.RECON) continue;   // keşif aracı da döşer (kullanıcı isteği)
-                /* ALAN DÖŞEME: payload {x,y,r} varsa oyuncunun çizdiği daireye ızgarayla döşe.
-                   Yoksa (eski yol / kısayol tuşu) birimin bulunduğu noktaya tek mayın. */
-                const _mr = (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46);
-                const _t = SIM.tick * BATTLE_TICK_MS;
-                let _noktalar;
+                /* ALAN DÖŞEME: emir mayın KOYMAZ, ROTA verir — istihkâm noktaya gidip döşer
+                   (kullanıcı: "mayını istihkâm aracı giderek kursun"). Rota determinist
+                   ızgaradan gelir; yürüyüş ve döşeme Unit.update'te işlenir.
+                   Payload'sız eski yol (kısayol tuşu) bulunduğu yere tek mayın bırakır. */
                 if (payload.x != null && payload.y != null && typeof mineAreaNoktalari === 'function') {
-                    _noktalar = mineAreaNoktalari(payload.x, payload.y, payload.r || 0)
-                        // ERİŞİM: döşeyen birimden uzaktaki noktalar düşer (mayın ışınlanmaz)
-                        .filter(p => Math.hypot(p.x - u.x, p.y - u.y) <= MINE_LAY_REACH);
+                    /* ARAZİ SÜZGECİ: ızgara noktası suya/dağa düşebilir. Ölçüldü — istihkâm
+                       geçilemez bir noktaya yürüyor, varamıyor, hareket katmanı onu "vardım"
+                       sayıp sabitliyor ve rota 12 noktada SONSUZA DEK donuyordu. Geçilemeyen
+                       nokta rotaya hiç girmez. */
+                    const _n = mineAreaNoktalari(payload.x, payload.y, payload.r || 0)
+                        .filter(p => typeof isPassableAt !== 'function' || isPassableAt(p.x, p.y));
+                    // Yürüyüş sırası: istihkâma EN YAKIN noktadan başla (determinist tiebreak)
+                    _n.sort((a, b) => {
+                        const da = Math.hypot(a.x - u.x, a.y - u.y), db = Math.hypot(b.x - u.x, b.y - u.y);
+                        return (da - db) || (a.x - b.x) || (a.y - b.y);
+                    });
+                    u.mineRoute = _n.map(p => ({ x: p.x, y: p.y }));
+                    u._mineLayTimer = 0;
+                    u.buildTrenchTarget = null; u.manualTarget = null; u.attackTarget = null;
                 } else {
-                    _noktalar = [{ x: u.x, y: u.y }];
-                }
-                for (const _p of _noktalar) {
-                    SIM.mines.push({ x: _p.x, y: _p.y, r: _mr, isRed: u.isRed, armed: false, createdAt: _t, armDelay: 1500 });
+                    SIM.mines.push({ x: u.x, y: u.y, r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46),
+                        isRed: u.isRed, armed: false, createdAt: SIM.tick * BATTLE_TICK_MS, armDelay: 1500 });
                 }
             } else if (ab === 'build_fortification') {
                 if (u.type !== T.ENGINEER) continue;

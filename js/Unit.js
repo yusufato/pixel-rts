@@ -781,6 +781,54 @@ class Unit {
             }
         }
 
+        /* ── MAYIN ROTASI: istihkâm noktaya GİDER, durur, döşer, sonrakine yürür ──
+           Eskiden mayınlar emir anında ışınlanıyordu. Artık her nokta bir görev:
+           yürü → MINE_LAY_DIST'e gir → MINE_LAY_TIME kadar dur → mayını bırak → sıradaki.
+           Böylece mayın döşemek zaman ve risk maliyeti olan bir iş olur. */
+        if (this.mineRoute && this.mineRoute.length) {
+            const _p = this.mineRoute[0];
+            const _d = Math.hypot(this.x - _p.x, this.y - _p.y);
+            if (_d > MINE_LAY_DIST) {
+                this.targetX = _p.x;
+                this.targetY = _p.y;
+                this.manualMoveTarget = { x: _p.x, y: _p.y };
+                this.isMovingToManualTarget = true;
+                /* GÖREV VARKEN "VARDIM" HİSTEREZİSİ KAPALI. Hareket katmanı, birim bir kez
+                   durduğunda yeniden-hareket eşiğini UNIT_RADIUS×2.6'ya (~83px) çıkarır
+                   (kümelenmede itiş-osilasyonunu söndürmek için). Mayın rotasında bu ölü
+                   kilit üretiyordu: istihkâm hedefe 43px kala duruyor, 34px'lik döşeme
+                   mesafesine ASLA giremiyor, rota 12 noktada donuyordu (ölçüldü).
+                   Aktif görevi olan birim "duruyor" sayılmaz. */
+                this._holdingPos = false;
+                /* EMNİYET ZAMAN AŞIMI: arazi süzgeci bir noktayı kaçırırsa ya da yol
+                   kapanırsa rota sonsuza dek donmasın — ulaşılamayan nokta atlanır.
+                   (Bu kilidi bir kez yaşadık; süzgeç ana çözüm, bu ikinci emniyet.) */
+                this._mineWalkT = (this._mineWalkT || 0) + frameScale / 60;
+                if (this._mineWalkT > MINE_WALK_TIMEOUT) {
+                    this._mineWalkT = 0;
+                    this.mineRoute.shift();
+                    if (!this.mineRoute.length) { this.mineRoute = null; this.isMovingToManualTarget = false; }
+                }
+                return false;                       // YÜRÜYOR → inşa değil, normal hareket katmanı işlesin
+            }
+            this._mineWalkT = 0;
+            this.targetX = this.x; this.targetY = this.y;
+            this._mineLayTimer = (this._mineLayTimer || 0) + frameScale / 60;
+            if (this._mineLayTimer >= MINE_LAY_TIME) {
+                this._mineLayTimer = 0;
+                SIM.mines.push({
+                    x: _p.x, y: _p.y,
+                    r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46),
+                    isRed: this.isRed, armed: false, createdAt: now, armDelay: 1500
+                });
+                if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) battleKredi(this, 'mayin', 1);
+                if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.minesLaid++;
+                this.mineRoute.shift();
+                if (!this.mineRoute.length) { this.mineRoute = null; this.isMovingToManualTarget = false; }
+            }
+            return true;                            // döşerken duruyor (inşa gibi)
+        }
+
         if (this.type === T.ENGINEER && this.buildTrenchTarget) {
             const safeBuild = typeof terrainSafePoint === 'function'
                 ? terrainSafePoint(this.buildTrenchTarget.x, this.buildTrenchTarget.y)

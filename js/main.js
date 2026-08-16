@@ -1627,23 +1627,45 @@ function drawMineAreaPreview() {
     ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(255,190,60,0.08)'; ctx.fill();
 
+    /* Erişim yarıçapı KALKTI: istihkâm artık noktaya GİDİYOR, ışınlamıyor. Bu yüzden
+       "ulaşamaz" gri noktası yok; onun yerine oyuncuya asıl maliyet gösterilir:
+       kaç mayın ve bu iş kaç saniye sürecek (yürüyüş + nokta başına döşeme). */
     const doseyen = units.filter(u => u.selected && playerCanControlBattleUnit(u) &&
         (u.type === T.ENGINEER || u.type === T.RECON));
-    const noktalar = (typeof mineAreaNoktalari === 'function') ? mineAreaNoktalari(d.x, d.y, d.r) : [];
-    let ulasan = 0;
+    // Motorla AYNI süzgeç: geçilemez araziye düşen nokta rotaya girmiyor, önizlemede de görünmemeli.
+    const noktalar = ((typeof mineAreaNoktalari === 'function') ? mineAreaNoktalari(d.x, d.y, d.r) : [])
+        .filter(p => typeof isPassableAt !== 'function' || isPassableAt(p.x, p.y));
     for (const p of noktalar) {
-        const erisir = doseyen.some(u => Math.hypot(p.x - u.x, p.y - u.y) <= MINE_LAY_REACH);
-        if (erisir) ulasan++;
         const ps = worldToScreen(p.x, p.y);
-        ctx.fillStyle = erisir ? 'rgba(255,120,60,0.95)' : 'rgba(150,150,150,0.35)';
+        ctx.fillStyle = 'rgba(255,120,60,0.95)';
         const rr = Math.max(2, 4 * zoom);
         ctx.beginPath(); ctx.arc(ps.x, ps.y, rr, 0, Math.PI * 2); ctx.fill();
     }
+    // Kaba süre tahmini: en yakın döşeyicinin alana yürüyüşü + noktalar arası + döşeme
+    let sure = null;
+    if (doseyen.length && noktalar.length) {
+        const u0 = doseyen.reduce((a, b) =>
+            Math.hypot(a.x - d.x, a.y - d.y) <= Math.hypot(b.x - d.x, b.y - d.y) ? a : b);
+        const hiz = Math.max(1, u0.speed * 20);                 // px/sn (speed tik başına)
+        const gidis = Math.hypot(u0.x - d.x, u0.y - d.y) / hiz;
+        const ic = (noktalar.length - 1) * (d.r * 1.3 / Math.max(1, noktalar.length)) / hiz;
+        sure = Math.round(gidis + ic + noktalar.length * MINE_LAY_TIME);
+    }
     ctx.font = `${Math.max(11, 13 * zoom)}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = ulasan ? '#ffd24c' : '#ff7b7b';
-    ctx.fillText(ulasan + '/' + noktalar.length + ' mayın · ' + Math.round(d.r) + 'px',
+    ctx.fillStyle = noktalar.length ? '#ffd24c' : '#ff7b7b';
+    ctx.fillText(noktalar.length + ' mayın · ' + Math.round(d.r) + 'px' + (sure != null ? ' · ~' + sure + 'sn' : ''),
         s.x, s.y - Math.max(12, zr + 10));
+
+    // Seçili istihkâmdan alana yürüyüş hattı (nereye gideceği net olsun)
+    if (doseyen.length && noktalar.length) {
+        ctx.strokeStyle = 'rgba(255,190,60,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+        for (const u of doseyen) {
+            const us = worldToScreen(u.x, u.y), ns = worldToScreen(noktalar[0].x, noktalar[0].y);
+            ctx.beginPath(); ctx.moveTo(us.x, us.y); ctx.lineTo(ns.x, ns.y); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+    }
     ctx.restore();
 }
 
