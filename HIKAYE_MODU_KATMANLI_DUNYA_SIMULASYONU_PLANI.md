@@ -4508,8 +4508,116 @@ alanında açıkça “kamusal tutanağa girmez” uyarısıyla sunar. Asenkron 
 metin alanını da kapsar ve `Ctrl+Enter` notu yollar. Bu kanal şimdilik tek yönlü oyuncu eylemidir;
 karakterin özel yanıtı, nottan doğan sır/hafıza ve ikili pazarlık sonucu ayrıca kapatılacaktır.
 
-Sıradaki borç, katılımcının kaynakları ile kişiliğinden gündem tutumu çıkarmak; ardından geçerli
-önerge, itiraz ve oy kapısını açmaktır.
+**Yedinci dikey — kaynaklı toplantı tutumu:** `MeetingStanceV1`, karakterin gündeme karşı
+konumunu `SUPPORT / LEAN_SUPPORT / UNDECIDED / LEAN_OPPOSE / OPPOSE` olarak deterministik
+çıkarır. Girdi; gündemin ekonomi-güvenlik-kamu hizmeti-yönetim sinyalleri, karakterin rol ilgisi,
+kişilik ve değer eksenleri, konuşmacıdan oyuncuya yönlü ilişki ve varsa kaynaklı olgunun açık
+`SUPPORT/OPPOSE` konumudur. Kaynaklı açık konum güçlüdür ama diğer bütün girdileri silmez.
+Güven, mutlak tutum gücü ve eldeki inancın güveninden ayrı hesaplanır. Sonuç; kaynak kimlikleri,
+kamusal neden kodları, hesap zamanı ve dünya-nötr işaretiyle konuşma turuna sabitlenir.
+
+Oyuncu ham `stateMarketOrientation`, `trustBps` veya benzeri mekanik eksenleri görmez; yalnız
+karakter söz aldıktan sonra Türkçe tutum etiketi ile güven oranını görür. Doğrulayıcı tutum
+kaynağının ana turun `sourceRefs` kümesinde bulunmasını ve ham kişilik/ilişki sızıntısı
+bayraklarının kapalı kalmasını zorunlu tutar. Aynı girdinin tekrarı byte-eşdeğer tutum üretir.
+Tutum konuşmadır, karar değildir ve tek başına ilişkiyi ya da dünyayı değiştirmez.
+
+**Sekizinci dikey — önerge ve başkanın usul incelemesi:** Oyuncu toplantı başına en çok altı
+`MeetingMotionV1` sunabilir. Önerge metni gündem maddesine, gerçek öneren aktöre, sıraya ve
+zamana bağlanır; ilk durumu `PENDING_CHAIR_REVIEW` olur. Önerge sunmak söz sırasını tüketmez ve
+dünya kararı değildir. Kanonik başkan önergeyi yalnız kendi söz sırasında inceleyebilir. Gündem
+ile normalize edilmiş anlamlı terim kesişimi bulunan önerge `IN_ORDER`, bulunmayan önerge
+`OUT_OF_ORDER` olur. İnceleme; başkan aktörü, makamı, eşleşen gündem terimleri ve kamusal karar
+turu kimliğiyle kaydedilir. Başkanın usul kararı konuşma sırasını tüketir ve bütün katılımcıların
+tutanağına girer.
+
+UI her önergenin metnini ve “başkan incelemesi bekliyor / usule uygun / gündem dışı” durumunu
+gösterir. İnceleme düğmesi yalnız başkanın sırası geldiğinde açılır. Önerge metni de asenkron
+yeniden çizime karşı korunur ve `Ctrl+Enter` ile sunulabilir. `IN_ORDER`, “kabul edildi” anlamına
+gelmez: `votes` hâlâ boş, `outcomeReceiptId` hâlâ `null` ve dünya etkisi yoktur. Doğrulayıcı,
+başkan makamını ve inceleme turu referansını zorunlu tutar. Birleşik test hem usule uygun hem
+gündem dışı yolu ve başkan sırası ihlalinin reddini doğrular.
+
+**Dokuzuncu dikey — kaynaklı önerge tepkileri:** `IN_ORDER` önergeye, oyuncu dışındaki her
+katılımcı yalnız kendi söz sırasında ve önerge başına bir kez tepki verebilir. Tepki motoru
+karakterin güncel `MeetingStanceV1` sonucunu ve yalnız onun erişebildiği gündemle ilgili
+`ActorBelief` kaydını okur. Açık `OPPOSE` kaydı veya güçlü karşı tutum `OBJECTION`; koşullu kayıt,
+kararsızlık ya da karşıya yakın tutum `AMENDMENT_REQUEST`; diğer destekleyici durumlar
+`ENDORSEMENT` üretir. Tepki metni kaynak özetini taşıyabilir fakat başka aktörün özel bağlamını
+okuyamaz.
+
+Her `MeetingMotionResponseV1`; önerge, aktör, tepki türü, tutum yönü, kaynak kümesi ve kamusal
+tur kimliğine bağlanır. İtiraz ve değişiklik talebi `OPEN`, destek `NOTED` durumundadır. Tepki
+karakterin söz sırasını tüketir ve ortak transkripte girer. UI, önergenin altında karakter adıyla
+Türkçe “itiraz / değişiklik talebi / destek” rozeti gösterir. Yanıtların hiçbiri oy veya dünya
+kararı değildir. Doğrulayıcı oyuncunun karakter tepkisi olarak yazılmasını, aynı aktörün çift
+yanıtını, tur-kaynak kopmasını ve gündem dışı önergeye tepki eklenmesini reddeder. Birleşik test
+üç tepki yolunu da kaynaklı kayıtlarla doğrular.
+
+**Onuncu dikey — değişiklik uzlaşması ve önerge sürümleri:** Oyuncu yalnız kendi söz sırasında
+açık `AMENDMENT_REQUEST` kaydını kabul veya reddedebilir. Ret, kaynak tepkiyi `REJECTED` yapar ve
+mevcut önerge metnini korur. Kabul için oyuncu gündemle bağlantılı, önceki metinden farklı yeni
+metni açıkça yazmak zorundadır. Kabul turu kamusal tutanağa girer; eski sürüm `SUPERSEDED`, yeni
+sürüm `ACTIVE` olur ve kaynak değişiklik talebinin kimliğini taşır. Önerge metni ve
+`activeVersionId` atomik değişir.
+
+Kabul edilen değişiklik önergeyi yeniden `PENDING_CHAIR_REVIEW` durumuna getirir ve geçerli
+başkan incelemesini sıfırlar. Yeni sürüm kanonik başkanın gerçek söz sırasında yeniden
+incelenmeden oy kapısına yaklaşamaz. Her sürüm kendi metnini, yaratan aktörü, kaynak tepkiyi,
+başkan incelemesini ve zamanını saklar. UI önerge sürüm sayısını, talebin Türkçe
+“açık/kabul edildi/reddedildi” durumunu ve kabul için ayrı metin alanını gösterir. Birden fazla
+talep olsa bile `Ctrl+Enter` yalnız odaktaki talebin kabul düğmesini çalıştırır.
+
+Doğrulayıcı tek aktif sürüm, aktif metin eşitliği, kabul edilmiş kaynak tepki, oyuncu karar turu,
+yeniden başkan incelemesi ve sürüm zincirini denetler. Sürüm alanı olmayan eski toplantı kaydı,
+mevcut metni birinci aktif sürüm sayarak göç eder. Birleşik test iki sürümü, sahte aktif metnin
+reddini, kayıt/geri-yükleme byte kararlılığını ve yeni sürümün yeniden usule uygun bulunmasını
+doğrular.
+
+**On birinci dikey — itirazın başkana sevki ve usul kararı:** Açık `OBJECTION`, oyuncu
+tarafından yalnız oyuncunun söz sırasında kanonik başkana sevk edilebilir. Sevk, itirazı
+silmez veya reddedilmiş saymaz; kaynak tepkiyi `REFERRED_TO_CHAIR` yapar ve kamusal
+`MOTION_OBJECTION_REFERRED` turunu tutanağa ekler. Başkan yalnız kendi söz sırasında karar
+verebilir. İtiraz eski bir önerge sürümüne bağlıysa karar `MOOT_BY_REVISION` olur: itiraz
+tarihsel kayıtta kalır fakat güncel metne karşı oy muhalefeti sayılmaz. İtiraz güncel sürüme
+bağlıysa `DISSENT_RECORDED` ile usulen kapanır ve muhalefet oylama aşaması için korunur.
+
+Karar `RESOLVED_FOR_PROCEDURE` durumunu, gerçek başkan aktörünü, makamını, yetki kaynağını,
+karar turunu ve muhalefetin korunup korunmadığını taşır. Oyuncu itirazı tek taraflı kabul,
+ret veya silme yetkisine sahip değildir; başkan dışındaki karakter usul kararı veremez.
+UI yalnız uygun söz sırasında “başkana sevk et” veya “usul kararı ver” eylemini gösterir ve
+ham İngilizce durumları Türkçe rozetlerle örter. Doğrulayıcı sevk/karar turu bağını, başkan
+kimliği ve kurumunu, sürümden türetilen karar türünü ve dünya-mutasyonu yasağını denetler.
+Birleşik test `25` turda eski sürüm itirazını sevk edip başkan eliyle revizyon nedeniyle
+hükümsüz kapattı; sahte başkan kimliği, sıra ihlali, kayıt/geri-yükleme ve dünya nötrlüğü
+kapıları geçti.
+
+**On ikinci dikey — sürüme bağlı oylama ve sonuç makbuzu:** Oylamayı yalnız kanonik başkan
+kendi söz sırasında açabilir. Kapı, güncel aktif sürümün başkan tarafından `IN_ORDER`
+incelenmesini, açık değişiklik talebi kalmamasını ve bütün itirazların usulen çözülmesini
+zorunlu tutar. Başkanın açılış turu, makam ve aktif sürüm kimliğini taşır; eski sürümün usul
+kararı yeni sürüm için oy yetkisi sayılmaz.
+
+Her katılımcı yalnız kendi söz sırasında ve güncel sürüm için bir kez `YES / NO / ABSTAIN`
+oyu kullanır. Oyuncunun seçimi açık UI eylemidir. Karakterin oyu rastgele veya LLM kararı
+değildir: önce aynı sürüme ait kayıtlı destek, korunmuş muhalefet ya da reddedilmiş değişiklik
+talebi; bunlar yoksa kaynaklı `MeetingStanceV1` okunur. Oy; aktör, önerge, sürüm, dayanak,
+kaynaklar ve kamusal turla kaydolur. UI bunları “kabul / ret / çekimser” olarak gösterir.
+
+Bütün katılımcılar oy verdiğinde basit çoğunluk (`kabul > ret`) kabul; eşitlik ve daha fazla
+ret reddir. Çekimser oy çoğunluk karşılaştırmasına eklenmez fakat nisap için gerçek katılımcı
+oyu olarak tutulur. `MeetingOutcomeReceiptV1`; gündem, önerge, aktif sürüm, oy kimlikleri,
+sayım, sonuç ve tamamlayan turu taşır. `physicalMutation:false` ve `worldMutation:false`
+değişmezdir: toplantıda kabul edilen önerge, uygun kurum/şirket/ordu uygulama adaptörü olmadan
+refahı, bütçeyi, ilişkiyi veya başka dünya değerini değiştirmez. Birleşik test `33` kamusal
+turda dört tekil oy, `3–1` kabul sonucu, eski sürüm oyunun reddi, sahte sayım/sürüm tahrifi,
+Türkçe UI, kayıt/geri-yükleme ve dünya nötrlüğü kapılarını geçti.
+
+Sıradaki borç, sonuç makbuzunu toplantıyı kapatan ayrı bir başkan tutanağına bağlamak ve yalnız
+kanıtlanmış yetkisi bulunan alan adaptörüne teklif olarak yönlendirmektir. İlk uygulama gerçek
+dünya etkisini aynı fonksiyonda doğurmamalı: Faz 29 kurum isteği veya Faz 38.9 rol adaptörü yeni
+bir yürütme/onay zinciri açmalı. Karakterden gelen özel not cevabı ve toplantının yönlü ilişki
+fişleri de hâlâ açıktır.
 
 **Dördüncü dikey — sıra kontrollü çok taraflı transkript ve görünürlük matrisi:**
 Toplantı artık yalnız katılımcı listesi değildir. En çok `40` turluk döngü,

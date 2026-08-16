@@ -178,7 +178,22 @@ app.whenReady().then(() => {
         const sleep = ms => new Promise(r => setTimeout(r, ms));
         const js = code => win.webContents.executeJavaScript(code, true).catch(e => 'JSHATA: ' + e.message);
         const shot = async name => { try { const img = await win.webContents.capturePage(); fsx2.writeFileSync(path.join(SHOTS_DIR, name + '.png'), img.toPNG()); } catch (_) {} };
+        const canvasShot = async name => {
+            try {
+                const dataUrl = await js(`(() => { const cv = document.getElementById('storyCanvas'); return cv ? cv.toDataURL('image/png') : null; })()`);
+                if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) {
+                    problems.push('saf harita canvas çıktısı alınamadı');
+                    return false;
+                }
+                fsx2.writeFileSync(path.join(SHOTS_DIR, name + '.png'), Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
+                return true;
+            } catch (error) {
+                problems.push('saf harita PNG: ' + error.message);
+                return false;
+            }
+        };
         const click = sel => js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (el) el.click(); return !!el; })()`);
+        const settlePaint = () => js(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
         win.webContents.on('did-finish-load', async () => {
             await sleep(1200);
             await js(`window.confirm = () => false; window.alert = () => {};`);
@@ -189,12 +204,12 @@ app.whenReady().then(() => {
             await click('#char-next'); await sleep(300);
             for (let i = 0; i < 12; i++) { await click('.char-opt'); await sleep(100); }
             await click('#char-go'); await sleep(1400);
-            const setZoom = z => js(`(() => { try { const cv=document.getElementById('storyCanvas'); storyCam.zoom=${z}; storyCenterCamOnPlayer(); storyClampCam(cv.width,cv.height); storyRender(); return {zoom:storyCam.zoom, pp:(typeof storyPP==='function'?storyPP():null), min:STORY._minZoom}; } catch(e){return {err:e.message};} })()`);
+            const setZoom = z => js(`(() => { try { const cv=document.getElementById('storyCanvas'); storyCam.zoom=${z}; storyCenterCamOnPlayer(); storyClampCam(cv.width,cv.height); storyRender(); const sizes={}; for(const level of [1,2,3]){ const nd=STORY.nodes.find(n=>(n.level|0)===level); if(nd&&typeof storyMapV2SettlementMetrics==='function'){ const m=storyMapV2SettlementMetrics(nd,{cam:storyCam,minZoom:STORY._minZoom}); sizes[level]=m.hidden?0:m.size; }} return {zoom:storyCam.zoom, pp:(typeof storyPP==='function'?storyPP():null), min:STORY._minZoom,renderer:STORY._mapRendererVersion||'legacy',settlementPx:sizes}; } catch(e){return {err:e.message};} })()`);
             // uzak (min zoom → düz)
-            let info = await js(`(() => { const cv=document.getElementById('storyCanvas'); storyCam.zoom=STORY._minZoom||0.6; storyClampCam(cv.width,cv.height); storyRender(); return {zoom:storyCam.zoom, pp:storyPP(), min:STORY._minZoom}; })()`);
-            console.log('MAPTEST_FAR ' + JSON.stringify(info)); await sleep(200); await shot('map-1-uzak-duz');
-            info = await setZoom(2.2); console.log('MAPTEST_MID ' + JSON.stringify(info)); await sleep(200); await shot('map-2-orta');
-            info = await setZoom(4.5); console.log('MAPTEST_NEAR ' + JSON.stringify(info)); await sleep(200); await shot('map-3-yakin-tilt');
+            let info = await js(`(() => { const cv=document.getElementById('storyCanvas'); storyCam.zoom=STORY._minZoom||0.6; storyClampCam(cv.width,cv.height); storyRender(); const sizes={}; for(const level of [1,2,3]){ const nd=STORY.nodes.find(n=>(n.level|0)===level); if(nd&&typeof storyMapV2SettlementMetrics==='function'){ const m=storyMapV2SettlementMetrics(nd,{cam:storyCam,minZoom:STORY._minZoom}); sizes[level]=m.hidden?0:m.size; }} return {zoom:storyCam.zoom,pp:storyPP(),min:STORY._minZoom,renderer:STORY._mapRendererVersion||'legacy',settlementPx:sizes}; })()`);
+            console.log('MAPTEST_FAR ' + JSON.stringify(info)); await sleep(200); await settlePaint(); await shot('map-1-uzak-duz'); await canvasShot('map-saf');
+            info = await setZoom(2.2); console.log('MAPTEST_MID ' + JSON.stringify(info)); await sleep(200); await settlePaint(); await shot('map-2-orta'); await canvasShot('map-2-orta-saf');
+            info = await setZoom(4.5); console.log('MAPTEST_NEAR ' + JSON.stringify(info)); await sleep(200); await settlePaint(); await shot('map-3-yakin-tilt'); await canvasShot('map-3-yakin-saf');
             // HIT-TEST round-trip: her node için ekran-konumu → storyS2W → dünya; ortalama hata (px)
             const rt = await js(`(() => { try {
                 let n=0, sumErr=0, maxErr=0;

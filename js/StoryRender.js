@@ -51,6 +51,9 @@ function storyResize() {
 // ZOOM-OUT SINIRI: tüm dünya (üst şerit dahil, sxOf(0) en geniş) ekrana ~1.15 marjla
 // sığdığında dur → harita dışını çok gösterme (kullanıcı isteği). Yüksekliği de sığdır.
 function storyMinZoom(w, h) {
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        return storyMapV2MinZoom(w, h, STORY_WORLD_W, STORY_WORLD_H);
+    }
     // zoom-out sınırında p→0 (düz) → sxOf(0)=1. p'ye bağlanmaz (storyPP döngüsünü kırar).
     const zW = w / (STORY_WORLD_W * 1.12);                  // genişlik kısıtı
     const zH = h / (STORY_WORLD_H * 1.06);                  // yükseklik kısıtı
@@ -61,6 +64,11 @@ function storyMinZoom(w, h) {
 // — eski formül sxOf(0)'ı katıp sürekli sola kaydırıyordu).
 function storyClampCam(w, h) {
     STORY._cw = w; STORY._ch = h;
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        STORY._minZoom = storyMapV2ClampCamera(storyCam, w, h, STORY_WORLD_W, STORY_WORLD_H);
+        STORY._mapRendererVersion = STORY_MAP_RENDERER_V2.version;
+        return;
+    }
     const mn = STORY._minZoom = storyMinZoom(w, h);        // storyPP bunu okur (eğim eğrisi)
     storyCam.zoom = Math.max(mn, Math.min(5, storyCam.zoom));
     const z = storyCam.zoom;
@@ -75,6 +83,12 @@ function storyCenterCamOnPlayer() {
     const n = storyNode(STORY.commander.node), cv = document.getElementById('storyCanvas');
     if (!n || !cv) return;
     storyResize();
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        STORY._cw = cv.width; STORY._ch = cv.height;
+        storyMapV2CenterCamera(storyCam, n.lx * STORY_WORLD_W, n.ly * STORY_WORLD_H, cv.width, cv.height);
+        storyClampCam(cv.width, cv.height);
+        return;
+    }
     STORY._cw = cv.width; STORY._ch = cv.height;                     // WARP: düğüm ekran ortasına (u=0.5)
     storyCam.x = n.lx * STORY_WORLD_W - (cv.width / 2) / storyCam.zoom;
     storyCam.y = n.ly * STORY_WORLD_H - storyVyOf(0.5) / storyCam.zoom;
@@ -111,6 +125,7 @@ const storyCam = { x: 0, y: 0, zoom: 1 };            // kamera: sol-üst köşe 
 // tıklama doğruluğu korunur. Döngü yok: storyMinZoom p'ye bağlı değil (aşağıda sabit 1).
 const STORY_PP_MAX = 0.6;                             // en yakın zoomda eğim gücü
 function storyPP() {
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) return 0;
     const mn = STORY._minZoom || storyCam.zoom || 1;
     const zt = Math.max(0, Math.min(1, (storyCam.zoom / mn - 1) / 3.5));
     return STORY_PP_MAX * zt * zt * (3 - 2 * zt);     // smoothstep: uzak→0, yakın→tmax
@@ -120,6 +135,9 @@ function storyVyOf(u) { const p = storyPP(), H = STORY._ch || 600; return H * (1
 function storyUOfVy(vy) { const p = storyPP(), H = STORY._ch || 600, v = vy / H; return v / (1 + p - p * v); }
 // dünya (px) → ekran; döner {x,y,u}. u perspektif ölçeği için (jeton boyutu).
 function storyW2S(wx, wy) {
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        return storyMapV2WorldToScreen(wx, wy, storyCam);
+    }
     const W = STORY._cw || 800, z = storyCam.zoom;
     const vx = (wx - storyCam.x) * z, vy = (wy - storyCam.y) * z;
     const u = storyUOfVy(vy);
@@ -127,12 +145,18 @@ function storyW2S(wx, wy) {
 }
 // ekran → dünya (px) — tıklama/sürükleme/zoom tersinimi
 function storyS2W(X, Y) {
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        return storyMapV2ScreenToWorld(X, Y, storyCam);
+    }
     const W = STORY._cw || 800, H = STORY._ch || 600, z = storyCam.zoom;
     const u = Y / H, vy = storyVyOf(u), vx = (X - W / 2) / storySxOf(u) + W / 2;
     return { x: storyCam.x + vx / z, y: storyCam.y + vy / z };
 }
 // perspektif ölçeği: yakın (alt) büyük, uzak (üst) küçük (jeton/etiket boyutu)
-function storyPScale(u) { return 0.62 + storySxOf(Math.max(0, Math.min(1, u))) * 0.5; }
+function storyPScale(u) {
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) return 1;
+    return 0.62 + storySxOf(Math.max(0, Math.min(1, u))) * 0.5;
+}
 function storyAdaptiveWarpEnabled() {
     return typeof storyFeatureEnabled !== 'function'
         || storyFeatureEnabled('render.adaptiveMapWarp');
@@ -211,14 +235,36 @@ function storyWarpPlan() {
 // bir önbellek tuvalini (kendi çözünürlüğü, dünya 0..STORY_WORLD kaplar) warp'lı çiz.
 // Plan terrain ve politik overlay arasında paylaşılır; çizim döngüsü hata yutmaz.
 function storyBlitWarp(g, src, alpha) {
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+        const ok = storyMapV2Blit(g, src, alpha, storyCam, STORY._cw, STORY._ch, STORY_WORLD_W, STORY_WORLD_H);
+        const ended = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+        STORY._warpLastFrame = { renderer: STORY_MAP_RENDERER_V2.version, band: STORY._ch,
+            drawCallsPerLayer: ok ? 1 : 0, maxScaleError: 0,
+            durationMs: Math.max(0, Math.round((ended - started) * 1000) / 1000) };
+        STORY._warpLastError = ok ? null : { ok: false, code: 'V2_BLIT_FAILED' };
+        return ok;
+    }
     const validation = storyWarpValidate(g, src);
     if (!validation.ok) {
         STORY._warpLastError = validation;
         return false;
     }
     const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    const W = STORY._cw, z = storyCam.zoom;
+    const W = STORY._cw, H = STORY._ch, z = storyCam.zoom;
     const kx = src.width / STORY_WORLD_W, ky = src.height / STORY_WORLD_H;
+    // Tam uzak görünümde perspektif yoktur. Şeritlere bölmek hem gereksiz yüzlerce
+    // drawImage çağrısı hem de piksel haritada yatay dikiş izi üretiyordu.
+    if (Math.abs(storyPP()) < 0.000001) {
+        if (alpha != null) g.globalAlpha = alpha;
+        g.drawImage(src, storyCam.x * kx, storyCam.y * ky,
+            (W / z) * kx, (H / z) * ky, 0, 0, W, H);
+        if (alpha != null) g.globalAlpha = 1;
+        STORY._warpLastFrame = { band: H, drawCallsPerLayer: 1, maxScaleError: 0,
+            durationMs: 0, cache: Object.assign({}, STORY._warpPlanStats || {}) };
+        STORY._warpLastError = null;
+        return true;
+    }
     const plan = storyWarpPlan();
     if (alpha != null) g.globalAlpha = alpha;
     for (const row of plan.rows) {
@@ -259,6 +305,7 @@ function _geoVNoise(x, y) {
     return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
 }
 function _geoFbm(x, y, oct) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++) { s += a * _geoVNoise(x * f, y * f); f *= 2; a *= 0.5; } return s; }
+function _geoMixRgb(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
 function _geoDistT(mask, w, h, inside) {
     const D = new Float32Array(w * h), INF = 1e9;
     for (let i = 0; i < w * h; i++) D[i] = (mask[i] === inside) ? INF : 0;
@@ -281,17 +328,83 @@ function _geoLatAt(yGeo) { return 63 - (yGeo / GEO.H) * 41; }
 // oyunun dinamik owner-overlay'i canlı sahipliği zaten boyar (fetihle renk anında değişir).
 // STATİK, bir kez üretilir (STORY._geoTerrain). Kaynak veri: js/geoData.js (GEO/GEO_CITIES/GEO_ROADS).
 const STORY_FORTS = [[520, 560], [890, 690], [640, 470]];   // kale mevkileri (GEO uzayı) — geçit başları
+const STORY_MAP_ATLAS_SPECS = {
+    mountains: { src: 'assets/maps/terrain-mountains-atlas-v2.png', cols: 4, rows: 4 },
+    forests: { src: 'assets/maps/terrain-forests-atlas-v2.png', cols: 4, rows: 4 },
+    settlements: { src: 'assets/maps/settlements-atlas-v2.png', cols: 4, rows: 4 },
+    groundDetail: { src: 'assets/maps/ground-texture-atlas-v1.png', cols: 4, rows: 4 },
+    terrainDetail: { src: 'assets/maps/terrain-detail-atlas-v2.png', cols: 4, rows: 4 },
+    ruralEnvironment: { src: 'assets/maps/rural-environment-atlas-v1.png', cols: 4, rows: 4 },
+    maritime: { src: 'assets/maps/maritime-atlas-v2.png', cols: 4, rows: 4 },
+    seaDetail: { src: 'assets/maps/sea-detail-atlas-v2.png', cols: 4, rows: 4 }
+};
+
+// Harita resmi statik bir arka plan değildir. Atlaslar yalnız sunum katmanıdır;
+// konum, seviye, biyom ve sahiplik canlı simülasyondan gelmeye devam eder.
+function storyMapAtlasEnsure() {
+    if (typeof Image === 'undefined') return null;
+    if (STORY._mapAtlases) return STORY._mapAtlases;
+    const atlases = STORY._mapAtlases = {};
+    for (const key of Object.keys(STORY_MAP_ATLAS_SPECS)) {
+        const spec = STORY_MAP_ATLAS_SPECS[key], img = new Image();
+        atlases[key] = { img, ready: false, cols: spec.cols, rows: spec.rows };
+        img.onload = () => {
+            atlases[key].ready = true;
+            if (key !== 'settlements') {
+                STORY._geoTerrain = null;
+                STORY._terrainCache = null;
+            }
+            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => storyRender());
+        };
+        img.onerror = () => { atlases[key].failed = true; };
+        img.src = spec.src;
+    }
+    return atlases;
+}
+
+function storyMapAtlasReady(key) {
+    const all = storyMapAtlasEnsure();
+    return !!(all && all[key] && all[key].ready && all[key].img.naturalWidth > 0);
+}
+
+function storyDrawAtlasCell(ctx, key, index, x, y, w, h, alpha, rotation, flipX) {
+    const all = storyMapAtlasEnsure(), a = all && all[key];
+    if (!a || !a.ready) return false;
+    const count = a.cols * a.rows, cell = ((index % count) + count) % count;
+    const col = cell % a.cols, row = Math.floor(cell / a.cols);
+    const sw = a.img.naturalWidth / a.cols, sh = a.img.naturalHeight / a.rows;
+    ctx.save();
+    ctx.globalAlpha *= alpha == null ? 1 : alpha;
+    ctx.imageSmoothingEnabled = false;
+    if (rotation || flipX) {
+        ctx.translate(Math.round(x), Math.round(y - h / 2));
+        if (rotation) ctx.rotate(rotation);
+        if (flipX) ctx.scale(-1, 1);
+        ctx.drawImage(a.img, col * sw, row * sh, sw, sh,
+            Math.round(-w / 2), Math.round(-h / 2), Math.round(w), Math.round(h));
+    } else {
+        ctx.drawImage(a.img, col * sw, row * sh, sw, sh,
+            Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+    }
+    ctx.restore();
+    return true;
+}
+
 function storyDrawGeoSettlements(ctx, S) {
     const CT = (typeof GEO_CITIES !== 'undefined') ? GEO_CITIES : [];
     const RD = (typeof GEO_ROADS !== 'undefined') ? GEO_ROADS : [];
     const P = (x, y) => [x * S, y * S];
     const rect = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
     // yollar — ince, koyu kılıflı
-    for (const e of RD) { const a = CT[e[0]], b = CT[e[1]]; if (!a || !b) continue;
+    for (let ei = 0; ei < RD.length; ei++) { const e = RD[ei], a = CT[e[0]], b = CT[e[1]]; if (!a || !b) continue;
         const p0 = P(a.x, a.y), p1 = P(b.x, b.y);
-        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
-        ctx.strokeStyle = 'rgba(38,30,20,.75)'; ctx.lineWidth = 2.6 * S; ctx.stroke();
-        ctx.strokeStyle = 'rgba(196,170,116,.9)'; ctx.lineWidth = 1 * S; ctx.stroke(); }
+        const dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.max(1, Math.hypot(dx, dy));
+        const bend = Math.min(12 * S, len * .10) * (_geoHash2(ei * 17 + 3, 409) > .5 ? 1 : -1);
+        const mx = (p0[0] + p1[0]) / 2 - dy / len * bend;
+        const my = (p0[1] + p1[1]) / 2 + dx / len * bend;
+        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.quadraticCurveTo(mx, my, p1[0], p1[1]);
+        ctx.strokeStyle = 'rgba(38,30,20,.76)'; ctx.lineWidth = 2.8 * S; ctx.stroke();
+        ctx.strokeStyle = 'rgba(210,184,124,.92)'; ctx.lineWidth = 1.2 * S; ctx.stroke(); }
     // yerleşim kümeleri — tier'a göre boyut (başkent kule silueti dahil)
     const cluster = (lo, la, n, big) => { const [cx, cy] = P(lo, la);
         for (let i = 0; i < n; i++) { const a = i * 2.399, r = (big ? 1.6 + i * .62 : 1.2 + i * .5) * S;
@@ -301,10 +414,12 @@ function storyDrawGeoSettlements(ctx, S) {
             rect(x, y, w, h, i % 3 === 0 ? '#b8562f' : '#8f4a2c');
             rect(x, y, w, 1, '#d98a4a'); }
         if (big) { rect(cx - 1, cy - 7 * S, 2 * S, 7 * S, '#5c5348'); rect(cx - 2, cy - 9 * S, 4 * S, 2 * S, '#8e8375'); } };
-    for (let i = 0; i < CT.length; i++) { const c = CT[i];
-        if (c.tier >= 3) cluster(c.x, c.y, 15, true);
-        else if (c.tier === 2) cluster(c.x, c.y, 7, false);
-        else if (i % 3 === 0) cluster(c.x, c.y, 3, false); }
+    if (!storyMapAtlasReady('settlements')) {
+        for (let i = 0; i < CT.length; i++) { const c = CT[i];
+            if (c.tier >= 3) cluster(c.x, c.y, 15, true);
+            else if (c.tier === 2) cluster(c.x, c.y, 7, false);
+            else if (i % 3 === 0) cluster(c.x, c.y, 3, false); }
+    }
     // madenler — dağ eteğinde ocak ağzı + çatkı + pasa
     const mine = (lo, la) => { const [x, y] = P(lo, la);
         rect(x - 2, y, 5, 2, 'rgba(18,14,10,.6)'); rect(x - 2, y - 1, 5, 2, '#4a3f33'); rect(x - 1, y - 1, 3, 1, '#241d17');
@@ -322,6 +437,429 @@ function storyDrawGeoSettlements(ctx, S) {
     // kaleler — geçit başları
     for (const ft of STORY_FORTS) { const [x, y] = P(ft[0], ft[1]);
         rect(x - 3, y - 2, 7, 5, 'rgba(20,16,12,.5)'); rect(x - 4, y - 3, 7, 5, '#7d7466'); rect(x - 4, y - 3, 7, 1, '#a39a88'); rect(x - 1, y - 6, 2, 4, '#8e8375'); }
+}
+
+function storyDrawGeoNaturalDetail(ctx, land, hgt, W, H, f) {
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    // Deniz yüzeyi: seyrek, yönlü dalga çizgileri; kıyı ve rota okunurluğunu bozmaz.
+    ctx.strokeStyle = 'rgba(116,181,202,.18)'; ctx.lineWidth = 1;
+    for (let y = 9; y < H; y += 17) for (let x = 8 + ((y / 17) & 1) * 7; x < W; x += 29) {
+        const i = y * W + x;
+        if (land[i] || land[Math.min(W * H - 1, i + 4)] || _geoHash2(x, y) < .28) continue;
+        const len = 3 + Math.floor(_geoHash2(x + 9, y + 3) * 5);
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
+    }
+    // Orman kümeleri: tek renkli leke yerine küçük ağaç silüetleri. Yüksek dağa/çöle çizilmez.
+    for (let y = 7; y < H - 7; y += 9) for (let x = 7; x < W - 7; x += 9) {
+        const i = y * W + x;
+        if (!land[i] || hgt[i] > .74) continue;
+        const forest = _geoFbm(x * .022 / f + 200, y * .022 / f, 4);
+        if (forest < .50 || _geoHash2(x + 31, y + 17) < .20) continue;
+        const jx = Math.round((_geoHash2(x, y) - .5) * 5), jy = Math.round((_geoHash2(x + 2, y + 4) - .5) * 4);
+        const tx = x + jx, ty = y + jy, size = forest > .63 ? 4 : 3;
+        ctx.fillStyle = 'rgba(25,48,29,.72)';
+        ctx.beginPath(); ctx.moveTo(tx, ty - size); ctx.lineTo(tx - size, ty + 2); ctx.lineTo(tx + size, ty + 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(83,116,59,.78)';
+        ctx.beginPath(); ctx.moveTo(tx - 1, ty - size + 1); ctx.lineTo(tx - size + 1, ty + 1); ctx.lineTo(tx, ty + 1); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(48,39,25,.75)'; ctx.fillRect(tx, ty + 2, 1, 2);
+    }
+    // Dağ sıraları: yükseklik alanından türetilen kaya/snow-cap silüetleri; konum oynanış rölyefiyle aynıdır.
+    for (let y = 8; y < H - 8; y += 11) for (let x = 8; x < W - 8; x += 11) {
+        const i = y * W + x, h = hgt[i];
+        if (!land[i] || h < .62 || _geoHash2(x + 71, y + 29) < .18) continue;
+        const size = Math.max(4, Math.min(8, Math.round(3 + h * 2.6)));
+        const jx = Math.round((_geoHash2(x + 5, y) - .5) * 5), tx = x + jx, ty = y + 3;
+        ctx.fillStyle = 'rgba(42,39,35,.72)';
+        ctx.beginPath(); ctx.moveTo(tx, ty - size); ctx.lineTo(tx - size, ty + 3); ctx.lineTo(tx + size, ty + 3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(142,137,120,.92)';
+        ctx.beginPath(); ctx.moveTo(tx, ty - size); ctx.lineTo(tx - size + 1, ty + 2); ctx.lineTo(tx - 1, ty); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(82,78,70,.92)';
+        ctx.beginPath(); ctx.moveTo(tx, ty - size); ctx.lineTo(tx + size, ty + 3); ctx.lineTo(tx - 1, ty); ctx.closePath(); ctx.fill();
+        if (h > 1.18) {
+            ctx.fillStyle = 'rgba(232,231,215,.94)';
+            ctx.beginPath(); ctx.moveTo(tx, ty - size); ctx.lineTo(tx - Math.ceil(size * .34), ty - Math.ceil(size * .42));
+            ctx.lineTo(tx, ty - Math.ceil(size * .55)); ctx.lineTo(tx + Math.ceil(size * .3), ty - Math.ceil(size * .36)); ctx.closePath(); ctx.fill();
+        }
+    }
+    ctx.restore();
+}
+
+function storyDrawGeoAtlasDetail(ctx, land, hgt, W, H, f, dLand, dSea) {
+    if (!storyMapAtlasReady('mountains') && !storyMapAtlasReady('forests')
+        && !storyMapAtlasReady('groundDetail') && !storyMapAtlasReady('terrainDetail')
+        && !storyMapAtlasReady('seaDetail')
+        && !storyMapAtlasReady('maritime')) return;
+
+    // Sürekli zemin mikro-dokusu. Tam kare atlas hücreleri doğrudan ana
+    // canvas'a basılmaz: önce ayrı katmanda birleştirilir, ardından gerçek kara
+    // ve yükseklik maskesiyle kesilir. Böylece kıyıya taşma ve dağların üstünü
+    // tarla dokusuyla kapatma olmaz; soft-light karışımı taban paletini korur.
+    if (storyMapAtlasReady('groundDetail')) {
+        const layer = document.createElement('canvas'); layer.width = W; layer.height = H;
+        const lg = layer.getContext('2d'); lg.imageSmoothingEnabled = false;
+        const tile = 96, step = 92;
+        for (let y = -8; y < H + tile; y += step) for (let x = -8; x < W + tile; x += step) {
+            const cx = Math.max(0, Math.min(W - 1, Math.round(x + tile / 2)));
+            const cy = Math.max(0, Math.min(H - 1, Math.round(y + tile / 2)));
+            const i = cy * W + cx;
+            const dry = cy > GEO.desertY * .9;
+            const mediterranean = !dry && cy > GEO.desertY * .68;
+            const forestN = _geoFbm(cx * .022 / f + 200, cy * .022 / f, 4);
+            const row = dry ? 3 : mediterranean ? 2 : forestN > .55 ? 1 : 0;
+            const variant = row * 4 + Math.floor(_geoHash2(x + 2221, y + 991) * 4);
+            storyDrawAtlasCell(lg, 'groundDetail', variant,
+                x + tile / 2, y + tile, tile, tile, .92, 0,
+                _geoHash2(x + 373, y + 2017) > .5);
+        }
+        const mask = document.createElement('canvas'); mask.width = W; mask.height = H;
+        const mg = mask.getContext('2d'), mi = mg.createImageData(W, H), mo = mi.data;
+        for (let i = 0; i < land.length; i++) {
+            if (!land[i] || hgt[i] > .72 || (dLand && dLand[i] < 1.2 * f)) continue;
+            mo[i * 4] = 255; mo[i * 4 + 1] = 255; mo[i * 4 + 2] = 255; mo[i * 4 + 3] = 255;
+        }
+        mg.putImageData(mi, 0, 0);
+        lg.globalCompositeOperation = 'destination-in'; lg.drawImage(mask, 0, 0);
+        ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = .38;
+        ctx.drawImage(layer, 0, 0); ctx.restore();
+    }
+
+    // Büyük düz renk yüzeylerini kıran tarla/çayır/çalılık yamaları. Bunlar biyom
+    // üretmez; mevcut biyomun üstüne aynı bölgenin görsel ayrıntısını bindirir.
+    if (storyMapAtlasReady('terrainDetail')) {
+        for (let y = 34; y < H - 30; y += 41) for (let x = 32; x < W - 30; x += 41) {
+            const i = y * W + x, h = hgt[i];
+            if (!land[i] || h > .72 || (dLand && dLand[i] < 3 * f)
+                || _geoHash2(x + 1709, y + 313) < .26) continue;
+            const dry = y > GEO.desertY * .9;
+            const mediterranean = !dry && y > GEO.desertY * .68;
+            const forestN = _geoFbm(x * .022 / f + 200, y * .022 / f, 4);
+            const row = dry ? 3 : mediterranean ? 2 : forestN > .56 ? 1 : 0;
+            const variant = row * 4 + Math.floor(_geoHash2(x + 41, y + 73) * 4);
+            const size = 64 + _geoHash2(x + 101, y + 29) * 28;
+            const jx = (_geoHash2(x + 7, y + 211) - .5) * 24;
+            const jy = (_geoHash2(x + 113, y + 19) - .5) * 18;
+            const rotation = (Math.floor(_geoHash2(x + 601, y + 47) * 4) * Math.PI) / 2;
+            storyDrawAtlasCell(ctx, 'terrainDetail', variant, x + jx, y + jy + size * .5,
+                size, size, dry ? .32 : .27, rotation, _geoHash2(x + 331, y + 151) > .5);
+        }
+
+        // İkinci, daha ince doku geçişi: büyük atlas adaları arasındaki boşlukları
+        // doldurur. Aynı hücreyi yan yana basmamak için farklı hash alanı, küçük
+        // ölçek, daha düşük alfa ve serbest açı kullanılır. Böylece atlasın 4x4
+        // düzeni harita üzerinde okunmaz; yalnız yerel tarla/çalılık/taş izi kalır.
+        for (let y = 19; y < H - 18; y += 27) for (let x = 17; x < W - 18; x += 27) {
+            const jx = Math.round((_geoHash2(x + 2141, y + 631) - .5) * 18);
+            const jy = Math.round((_geoHash2(x + 887, y + 1871) - .5) * 16);
+            const tx = Math.max(1, Math.min(W - 2, x + jx));
+            const ty = Math.max(1, Math.min(H - 2, y + jy));
+            const i = ty * W + tx, h = hgt[i];
+            if (!land[i] || h > .67 || (dLand && dLand[i] < 2.4 * f)) continue;
+            const dry = ty > GEO.desertY * .9;
+            const mediterranean = !dry && ty > GEO.desertY * .68;
+            const forestN = _geoFbm(tx * .022 / f + 200, ty * .022 / f, 4);
+            const regionalDensity = dry ? .34 : mediterranean ? .69
+                : forestN > .60 ? .84 : forestN > .53 ? .72 : .57;
+            if (_geoHash2(x + 1217, y + 2539) > regionalDensity) continue;
+            const row = dry ? 3 : mediterranean ? 2 : forestN > .56 ? 1 : 0;
+            const variant = row * 4 + Math.floor(_geoHash2(x + 337, y + 1019) * 4);
+            const size = 29 + _geoHash2(x + 409, y + 1153) * 17;
+            const rotation = (_geoHash2(x + 1741, y + 239) - .5) * Math.PI;
+            storyDrawAtlasCell(ctx, 'terrainDetail', variant, tx, ty + size * .5,
+                size, size * (.82 + _geoHash2(x + 541, y + 787) * .22),
+                dry ? .16 : .13, rotation, _geoHash2(x + 1597, y + 349) > .5);
+        }
+    }
+
+    // Deniz ayrıntıları tabana çok düşük alfa ile karışır; mavi birer daire gibi
+    // görünmemeleri için yamalar birbirinden geniş aralıklarla yerleştirilir.
+    if (storyMapAtlasReady('seaDetail')) {
+        // Kıyı köpüğü: deniz mesafe alanına bağlıdır; dolayısıyla siyasi sınırdan
+        // veya elle yerleştirilmiş bir sahil çizgisinden değil gerçek kara
+        // maskesinden üretilir. Küçük atlas parçaları kıyı boyunca kırık bir
+        // beyaz hat verir, fakat adaların üstüne ya da açık denize taşmaz.
+        for (let y = 10; y < H - 10; y += 11) for (let x = 10; x < W - 10; x += 11) {
+            const i = y * W + x, coast = dSea ? dSea[i] / f : 99;
+            if (land[i] || coast < .7 || coast > 4.8
+                || _geoHash2(x + 3001, y + 1187) < .36) continue;
+            const variant = 12 + Math.floor(_geoHash2(x + 229, y + 187) * 4);
+            const size = 17 + _geoHash2(x + 1291, y + 521) * 11;
+            const rotation = (_geoHash2(x + 977, y + 1601) - .5) * Math.PI;
+            storyDrawAtlasCell(ctx, 'seaDetail', variant, x, y + size * .32,
+                size, size * .54, .24, rotation, _geoHash2(x + 431, y + 2237) > .5);
+        }
+
+        for (let y = 44; y < H - 36; y += 76) for (let x = 42; x < W - 38; x += 76) {
+            const i = y * W + x;
+            if (land[i] || _geoHash2(x + 811, y + 2027) < .22) continue;
+            const col = Math.floor(_geoHash2(x + 83, y + 127) * 3);
+            const row = Math.floor(_geoHash2(x + 269, y + 43) * 4);
+            const size = 78 + _geoHash2(x + 23, y + 311) * 34;
+            const rotation = (Math.floor(_geoHash2(x + 719, y + 97) * 4) * Math.PI) / 2;
+            storyDrawAtlasCell(ctx, 'seaDetail', row * 4 + col, x, y + size * .5,
+                size, size * .82, .11, rotation, _geoHash2(x + 31, y + 971) > .5);
+        }
+    }
+
+    // Seyrek gemiler denizin ölçeğini ve ticaret hissini verir. Konumlar kara
+    // maskesinden türetilir; statik resim haritayı veya sahipliği belirlemez.
+    if (storyMapAtlasReady('maritime')) {
+        for (let y = 58; y < H - 46; y += 112) for (let x = 58; x < W - 50; x += 112) {
+            const i = y * W + x;
+            if (land[i] || (dSea && dSea[i] < 13 * f) || _geoHash2(x + 199, y + 887) < .42) continue;
+            const variant = Math.floor(_geoHash2(x + 401, y + 17) * 9);
+            const size = 24 + _geoHash2(x + 61, y + 503) * 13;
+            storyDrawAtlasCell(ctx, 'maritime', variant, x, y + size * .48,
+                size, size, .88);
+        }
+    }
+    if (storyMapAtlasReady('forests')) {
+        for (let y = 24; y < H - 22; y += 34) for (let x = 24; x < W - 22; x += 34) {
+            const i = y * W + x, density = _geoFbm(x * .022 / f + 200, y * .022 / f, 4);
+            if (!land[i] || y > GEO.desertY * .9 || hgt[i] > .70
+                || density < .39 || _geoHash2(x + 403, y + 97) < .10) continue;
+            const jx = (_geoHash2(x + 5, y + 9) - .5) * 16, jy = (_geoHash2(x + 11, y + 3) - .5) * 10;
+            const size = 50 + _geoHash2(x + 21, y + 33) * 28;
+            const band = y < GEO.borealY * .9 ? 2 : (density > .61 ? 0 : 1);
+            const variant = band * 4 + Math.floor(_geoHash2(x + 71, y + 17) * 4);
+            storyDrawAtlasCell(ctx, 'forests', variant, x + jx, y + jy + size * .52,
+                size, size, density > .58 ? .94 : .84,
+                (_geoHash2(x + 1801, y + 271) - .5) * .32,
+                _geoHash2(x + 991, y + 1433) > .5);
+        }
+    }
+    if (storyMapAtlasReady('mountains')) {
+        for (let ri = 0; ri < GEO.ranges.length; ri++) {
+            const range = GEO.ranges[ri], pts = range.pts || [];
+            for (let pi = 0; pi < pts.length; pi++) {
+                const a = pts[pi], b = pts[Math.min(pi + 1, pts.length - 1)];
+                // Range points are GEO-space coordinates. The old renderer used
+                // a hard-coded .9 terrain scale; V2 builds at a different raster
+                // density, so retaining .9 displaced and miniaturised every
+                // mountain chain. Use the actual terrain scale supplied here.
+                const gx = (a[0] + b[0]) * .5 * f, gy = (a[1] + b[1]) * .5 * f;
+                const ix = Math.max(0, Math.min(W - 1, Math.round(gx)));
+                const iy = Math.max(0, Math.min(H - 1, Math.round(gy)));
+                if (!land[iy * W + ix]) continue;
+                const dry = gy > GEO.desertY * .9, snowy = gy < GEO.borealY * 1.35 || (range.str || 0) > .92;
+                const band = dry ? 3 : snowy ? 2 : (range.str || 0) > .72 ? 1 : 0;
+                const variant = band * 4 + Math.floor(_geoHash2(ri * 31 + pi * 7, 991) * 4);
+                const size = (52 + Math.min(1, Math.max(.2, range.str || .5)) * 25) * (f / .9);
+                storyDrawAtlasCell(ctx, 'mountains', variant, gx, gy + size * .54,
+                    size * 1.16, size, .92);
+            }
+        }
+    }
+}
+
+function storyDrawSettlementSprite(ctx, node, px, py, farMap, scale, options) {
+    if (!storyMapAtlasReady('settlements')) return null;
+    const level = Math.max(1, Math.min(3, node.level | 0 || 1));
+    const industrial = (node.fac | 0) >= 3;
+    const row = industrial && level < 3 ? 2 : level >= 3 ? 3 : level - 1;
+    const variant = row * 4 + Math.floor(storyHash((node.id | 0) * 17 + 5, row * 29 + 11) * 4);
+    let size;
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        const metrics = storyMapV2SettlementMetrics(node, Object.assign({
+            cam: storyCam,
+            minZoom: STORY._minZoom || storyMinZoom(STORY._cw || 800, STORY._ch || 600)
+        }, options || {}));
+        if (metrics.hidden) return metrics;
+        size = metrics.size;
+    } else {
+        const base = farMap ? (level === 3 ? 50 : level === 2 ? (industrial ? 34 : 31) : 11)
+            : (level === 3 ? 60 : level === 2 ? (industrial ? 43 : 39) : 25);
+        size = Math.max(10, Math.round(base * Math.max(.76, scale)));
+    }
+    storyDrawAtlasCell(ctx, 'settlements', variant, px, py + Math.round(size * .27), size, size, 1);
+    return { half: Math.max(4, Math.round(size * .31)), size };
+}
+
+function storyCoastalNetworkEnsure() {
+    if (!STORY._landGrid || !STORY.nodes) return { ports: [], links: [] };
+    const cached = STORY._coastalNetwork;
+    if (cached && cached.grid === STORY._landGrid && cached.nodeCount === STORY.nodes.length) return cached;
+    const grid = STORY._landGrid, ports = [];
+    const at = (x, y) => (x < 0 || y < 0 || x >= STORY_GW || y >= STORY_GH)
+        ? -2 : grid[y * STORY_GW + x];
+    for (const node of STORY.nodes) {
+        if ((node.level | 0) < 2) continue;
+        const gx = Math.max(0, Math.min(STORY_GW - 1, Math.round(node.lx * (STORY_GW - 1))));
+        const gy = Math.max(0, Math.min(STORY_GH - 1, Math.round(node.ly * (STORY_GH - 1))));
+        let best = null;
+        for (let r = 1; r <= 8 && !best; r++) {
+            for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || at(gx + dx, gy + dy) !== -1) continue;
+                const d = Math.hypot(dx, dy);
+                if (!best || d < best.d) best = { x: gx + dx, y: gy + dy, d };
+            }
+        }
+        if (!best) continue;
+        ports.push({ node, lx: (best.x + .5) / STORY_GW, ly: (best.y + .5) / STORY_GH });
+    }
+    const waterRatio = (a, b) => {
+        let water = 0, count = 0;
+        for (let i = 2; i <= 18; i++) {
+            const t = i / 20;
+            const x = Math.round((a.lx + (b.lx - a.lx) * t) * (STORY_GW - 1));
+            const y = Math.round((a.ly + (b.ly - a.ly) * t) * (STORY_GH - 1));
+            if (at(x, y) === -1) water++;
+            count++;
+        }
+        return count ? water / count : 0;
+    };
+    const links = [], seen = new Set();
+    for (const a of ports) {
+        const candidates = ports.filter(b => b !== a)
+            .map(b => ({ b, d: Math.hypot(a.lx - b.lx, a.ly - b.ly) }))
+            .filter(p => p.d < .24 && waterRatio(a, p.b) >= .58)
+            .sort((p, q) => p.d - q.d).slice(0, 2);
+        for (const p of candidates) {
+            const key = a.node.id < p.b.node.id ? `${a.node.id}:${p.b.node.id}` : `${p.b.node.id}:${a.node.id}`;
+            if (seen.has(key)) continue;
+            seen.add(key); links.push({ a, b: p.b, key });
+        }
+    }
+    STORY._coastalNetwork = { grid: STORY._landGrid, nodeCount: STORY.nodes.length, ports, links };
+    return STORY._coastalNetwork;
+}
+
+function storyDrawMaritimeOverlay(ctx, farMap) {
+    if (!storyMapAtlasReady('maritime')) return;
+    const network = storyCoastalNetworkEnsure();
+    ctx.save();
+    ctx.setLineDash(farMap ? [2, 5] : [4, 7]);
+    ctx.lineWidth = farMap ? 1 : 1.25;
+    ctx.strokeStyle = 'rgba(186,216,207,.32)';
+    for (const link of network.links) {
+        const a = storyW2S(link.a.lx * STORY_WORLD_W, link.a.ly * STORY_WORLD_H);
+        const b = storyW2S(link.b.lx * STORY_WORLD_W, link.b.ly * STORY_WORLD_H);
+        if (a.u < -.08 || a.u > 1.08 || b.u < -.08 || b.u > 1.08) continue;
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
+        const bend = Math.min(22, len * .10) * (storyHash(link.a.node.id + 91, link.b.node.id + 37) > .5 ? 1 : -1);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(mx - dy / len * bend, my + dx / len * bend, b.x, b.y);
+        ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for (const port of network.ports) {
+        const p = storyW2S(port.lx * STORY_WORLD_W, port.ly * STORY_WORLD_H);
+        if (p.u < -.04 || p.u > 1.05) continue;
+        const level = Math.max(2, port.node.level | 0);
+        const size = Math.round((farMap ? (level >= 3 ? 19 : 15) : (level >= 3 ? 29 : 23)) * storyPScale(p.u));
+        const variant = 9 + Math.floor(storyHash(port.node.id * 23 + 7, 601) * 7);
+        storyDrawAtlasCell(ctx, 'maritime', variant, p.x, p.y + size * .3, size, size, .92);
+
+        // Büyük kıyı merkezleri yalnız daha büyük bir liman simgesi almaz; liman
+        // çevresinde küçük gemi trafiği de üretir. Bu görsel hareketlilik ekonomik
+        // kapasiteden gelir ve hiçbir savaş/ulaşım kuralı yaratmaz.
+        const activePort = level >= 3 || (port.node.fac | 0) >= 3;
+        if (activePort) {
+            const city = storyW2S(port.node.lx * STORY_WORLD_W, port.node.ly * STORY_WORLD_H);
+            let ox = p.x - city.x, oy = p.y - city.y;
+            const olen = Math.max(1, Math.hypot(ox, oy)); ox /= olen; oy /= olen;
+            const tx = -oy, ty = ox;
+            const traffic = farMap ? 1 : 2;
+            for (let k = 0; k < traffic; k++) {
+                const side = k === 0 ? 1 : -1;
+                const shipSize = Math.round(size * (farMap ? .72 : .62));
+                const sx = p.x + ox * (shipSize * .85) + tx * side * (size * .78);
+                const sy = p.y + oy * (shipSize * .55) + ty * side * (size * .52);
+                const shipVariant = Math.floor(storyHash(port.node.id * 41 + k * 13, 881) * 9);
+                storyDrawAtlasCell(ctx, 'maritime', shipVariant, sx, sy + shipSize * .42,
+                    shipSize, shipSize, .82, 0, side < 0);
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function storySecondaryRoadsEnsure() {
+    const CT = (typeof GEO_CITIES !== 'undefined') ? GEO_CITIES : [];
+    const RD = (typeof GEO_ROADS !== 'undefined') ? GEO_ROADS : [];
+    const cached = STORY._secondaryRoads;
+    if (cached && cached.cityCount === CT.length && cached.grid === STORY._landGrid) return cached.links;
+    if (!CT.length || !STORY._landGrid) return [];
+    const primary = new Set(RD.map(e => e[0] < e[1] ? `${e[0]}:${e[1]}` : `${e[1]}:${e[0]}`));
+    const seen = new Set(), links = [];
+    const onLandRatio = (a, b) => {
+        let land = 0, count = 0;
+        for (let k = 1; k < 10; k++) {
+            const t = k / 10;
+            const gx = Math.max(0, Math.min(STORY_GW - 1, Math.round((a.x + (b.x - a.x) * t) / GEO.W * (STORY_GW - 1))));
+            const gy = Math.max(0, Math.min(STORY_GH - 1, Math.round((a.y + (b.y - a.y) * t) / GEO.H * (STORY_GH - 1))));
+            if (STORY._landGrid[gy * STORY_GW + gx] >= 0) land++;
+            count++;
+        }
+        return count ? land / count : 0;
+    };
+    for (let i = 0; i < CT.length; i++) {
+        const a = CT[i];
+        const candidates = [];
+        for (let j = 0; j < CT.length; j++) {
+            // Roads follow terrain and trade geography, not current political
+            // ownership. Cross-border links must survive conquests and treaties.
+            if (i === j) continue;
+            const b = CT[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (d >= 15 && d <= 108) candidates.push({ j, b, d });
+        }
+        candidates.sort((p, q) => p.d - q.d);
+        for (const p of candidates.slice(0, a.tier >= 2 ? 2 : 1)) {
+            const key = i < p.j ? `${i}:${p.j}` : `${p.j}:${i}`;
+            if (seen.has(key) || primary.has(key) || onLandRatio(a, p.b) < .82) continue;
+            seen.add(key); links.push({ a, b: p.b, key });
+        }
+    }
+    STORY._secondaryRoads = { cityCount: CT.length, grid: STORY._landGrid, links };
+    return links;
+}
+
+function storyDrawPrimaryRoadOverlay(ctx, farMap) {
+    if (typeof storyMapV2Enabled !== 'function' || !storyMapV2Enabled()) return;
+    const CT = (typeof GEO_CITIES !== 'undefined') ? GEO_CITIES : [];
+    const RD = (typeof GEO_ROADS !== 'undefined') ? GEO_ROADS : [];
+    const ratio = typeof storyMapV2ZoomRatio === 'function'
+        ? storyMapV2ZoomRatio(storyCam, STORY._minZoom || storyCam.zoom) : 1;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < RD.length; i++) {
+        const edge = RD[i], from = CT[edge[0]], to = CT[edge[1]];
+        if (!from || !to) continue;
+        const a = storyW2S(from.x / GEO.W * STORY_WORLD_W, from.y / GEO.H * STORY_WORLD_H);
+        const b = storyW2S(to.x / GEO.W * STORY_WORLD_W, to.y / GEO.H * STORY_WORLD_H);
+        if ((a.x < -80 && b.x < -80) || (a.x > STORY._cw + 80 && b.x > STORY._cw + 80)
+            || (a.y < -80 && b.y < -80) || (a.y > STORY._ch + 80 && b.y > STORY._ch + 80)) continue;
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
+        const bend = Math.min(farMap ? 6 : 18, len * .075) * (storyHash(i * 17 + 3, 409) > .5 ? 1 : -1);
+        const mx = (a.x + b.x) / 2 - dy / len * bend;
+        const my = (a.y + b.y) / 2 + dx / len * bend;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y);
+        ctx.strokeStyle = farMap ? 'rgba(37,29,20,.58)' : 'rgba(30,24,18,.64)';
+        ctx.lineWidth = farMap ? 1.35 : Math.min(3, 1.7 + ratio * .08); ctx.stroke();
+        ctx.strokeStyle = farMap ? 'rgba(214,190,132,.50)' : 'rgba(214,190,132,.62)';
+        ctx.lineWidth = farMap ? .55 : Math.min(1.2, .65 + ratio * .035); ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function storyDrawSecondaryRoadOverlay(ctx, farMap) {
+    const links = storySecondaryRoadsEnsure();
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < links.length; i++) {
+        const link = links[i];
+        const a = storyW2S(link.a.x / GEO.W * STORY_WORLD_W, link.a.y / GEO.H * STORY_WORLD_H);
+        const b = storyW2S(link.b.x / GEO.W * STORY_WORLD_W, link.b.y / GEO.H * STORY_WORLD_H);
+        if (a.u < -.06 || a.u > 1.06 || b.u < -.06 || b.u > 1.06) continue;
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
+        const bend = Math.min(15, len * .08) * (storyHash(i * 31 + 17, 431) > .5 ? 1 : -1);
+        const mx = (a.x + b.x) / 2 - dy / len * bend;
+        const my = (a.y + b.y) / 2 + dx / len * bend;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y);
+        ctx.strokeStyle = farMap ? 'rgba(35,27,18,.25)' : 'rgba(35,27,18,.40)';
+        ctx.lineWidth = farMap ? .9 : 2.1; ctx.stroke();
+        ctx.strokeStyle = farMap ? 'rgba(205,180,123,.28)' : 'rgba(205,180,123,.42)';
+        ctx.lineWidth = farMap ? .34 : .8; ctx.stroke();
+    }
+    ctx.restore();
 }
 function storyGeoTerrainCache() {
     const mapPalette = typeof storyMapPaletteDescriptor === 'function'
@@ -351,7 +889,10 @@ function storyGeoTerrainCache() {
         };
         STORY._geoTerrain = fb; return fb;
     }
-    const S = 0.9;                                          // GEO(1500×1180) → tampon ölçeği
+    // V2 yakın görünüm tabanı: eski 0.9 ölçek (1350 px) 4.5x zoomda dev
+    // piksellere/bulanıklığa dönüşüyordu. 1.6 ölçek tüm üretilmiş atlasları
+    // korurken arazi tamponunu 2400 px'e çıkarır; dinamik politik katman ayrı kalır.
+    const S = (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) ? 1.6 : 0.9;
     const W = Math.round(GEO.W * S), H = Math.round(GEO.H * S), f = S / 0.95;   // f: prototip S=0.95 eşiklerini oranla
     const fbm = (x, y, o) => _geoFbm(x, y, o || 5);
     // 1) kara maskesi. Faz 14.2 açıkken GEO.land burada ikinci kez scanline
@@ -440,6 +981,7 @@ function storyGeoTerrainCache() {
         if (!land[i]) {
             const t = 1 - Math.min(1, Math.pow(dSea[i] / (140 * f), .55));
             col = pick(PL.sea, t * .92 + (fbm(x * .03 / f, y * .03 / f, 3) - .5) * .12, x, y, .8);
+            if (dSea[i] <= 2.2 * f) col = _geoMixRgb(col, [91, 151, 168], .52);
         } else {
             const h = hgt[i];
             const hx = (hgt[Math.min(W - 1, x + 1) + y * W] - hgt[Math.max(0, x - 1) + y * W]);
@@ -455,6 +997,7 @@ function storyGeoTerrainCache() {
             else { pal = PL.plain; t = .18 + h * 1.5; }
             const dense = h > .62 ? 1.45 : dLand[i] < 10 * f ? 1.25 : pal === PL.forest ? .85 : .45;
             col = pick(pal, Math.max(0, Math.min(1, t)) + shade * (h > .7 ? .3 : .16), x, y, dense);
+            if (dLand[i] <= 1.5 * f) col = _geoMixRgb(col, [204, 181, 96], .42);
         }
         o[k] = Math.max(0, Math.min(255, Math.round(col[0] * mapPalette.rgb[0] + mapPalette.lift[0])));
         o[k + 1] = Math.max(0, Math.min(255, Math.round(col[1] * mapPalette.rgb[1] + mapPalette.lift[1])));
@@ -462,11 +1005,20 @@ function storyGeoTerrainCache() {
         o[k + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
+    // V2 yalnız gerçek raster atlaslarını kullanır. Eski prosedürel üçgen ağaç/
+    // dağ işaretleri referanstaki doğal siluetleri debug sembollerine çeviriyordu.
+    if (typeof storyMapV2Enabled !== 'function' || !storyMapV2Enabled()) {
+        storyDrawGeoNaturalDetail(ctx, land, hgt, W, H, f);
+    }
+    storyDrawGeoAtlasDetail(ctx, land, hgt, W, H, f, dLand, dSea);
     // nehirler — çift hat
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (const rv of rivers0) { ctx.beginPath(); ctx.moveTo(rv[0][0], rv[0][1]); for (let i = 1; i < rv.length; i++) ctx.lineTo(rv[i][0], rv[i][1]); ctx.strokeStyle = '#20364e'; ctx.lineWidth = Math.max(1, 3 * S); ctx.stroke(); ctx.strokeStyle = '#3e7096'; ctx.lineWidth = Math.max(1, 1.4 * S); ctx.stroke(); }
     // yerleşim / yol / maden / fabrika / petrol / kale (tampon ölçeğinde)
-    storyDrawGeoSettlements(ctx, S);
+    // Legacy renderer baked roads, cities and resource marks into terrain.
+    // V2 keeps them as independent world/UI layers so they preserve scale and
+    // can change without rebuilding the physical map raster.
+    if (typeof storyMapV2Enabled !== 'function' || !storyMapV2Enabled()) storyDrawGeoSettlements(ctx, S);
     STORY._geoTerrainSource = terrainRaster ? {
         adapterVersion: STORY_MAP_RASTER_ADAPTER_VERSION,
         sourceHash: terrainRaster.sourceHash,
@@ -670,8 +1222,8 @@ function storyEnsureOwnerOverlay() {
         const bord = (ownerAt(gx + 1, gy) !== ow && ownerAt(gx + 1, gy) !== -1) || (ownerAt(gx, gy + 1) !== ow && ownerAt(gx, gy + 1) !== -1)
                   || (ownerAt(gx - 1, gy) !== ow && ownerAt(gx - 1, gy) !== -1) || (ownerAt(gx, gy - 1) !== ow && ownerAt(gx, gy - 1) !== -1);
         // DESIGN v3: gerçekçi rölyef görünsün → politik tint HAFİF (sınır belirgin, iç bölge şeffaf)
-        if (bord) g.fillStyle = `rgba(${oc[0] * 0.5 | 0},${oc[1] * 0.5 | 0},${oc[2] * 0.5 | 0},0.9)`;  // imparatorluk sınırı
-        else g.fillStyle = `rgba(${oc[0]},${oc[1]},${oc[2]},0.20)`;                                     // iç bölge: rölyef görünsün
+        if (bord) g.fillStyle = `rgba(${oc[0] * 0.5 | 0},${oc[1] * 0.5 | 0},${oc[2] * 0.5 | 0},0.68)`; // imparatorluk sınırı
+        else g.fillStyle = `rgba(${oc[0]},${oc[1]},${oc[2]},0.10)`;                                    // iç bölge: rölyef görünsün
         g.fillRect(gx, gy, 1, 1);
     }
     STORY._ownerKey = key; return cv;
@@ -692,17 +1244,39 @@ function storyRender() {
     // (1) TERRAIN tabanı — 2.5D warp'lı şerit-blit (gerçek kıyı çizgileri yatık düşer)
     const terr = storyEnsureTerrainCache();
     storyBlitWarp(g, terr);
+    // V2 local LOD: high-frequency ground atlas is drawn live in world space.
+    // It is not baked into the low-resolution overview raster, so zooming in
+    // reveals fields/forest texture instead of magnifying old terrain pixels.
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()
+        && typeof storyMapV2DrawGroundDetail === 'function') storyMapV2DrawGroundDetail(g);
     // (2) DİNAMİK POLİTİK katman (sahip-rengi yarı-saydam) — warp'lı; fetihte renk anında değişir
     const ovl = storyEnsureOwnerOverlay();
     storyBlitWarp(g, ovl);
+    // V2 inhabited-world layer. Rural clusters stay in canonical world space,
+    // are clipped by the shared land raster and sit below roads/cities. This
+    // keeps political ownership readable without leaving the continent empty.
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()
+        && typeof storyMapV2DrawRuralEnvironment === 'function') {
+        storyMapV2DrawRuralEnvironment(g);
+    }
     STORY._imgMode = false;
     // War Room renk işlemi: arazi okunur kalırken amber terminal kontrastına yaklaşır.
-    g.fillStyle = 'rgba(2,8,4,0.30)'; g.fillRect(0, 0, w, h);
-    g.strokeStyle = 'rgba(255,176,0,0.055)'; g.lineWidth = 1;
-    for (let gx = 0; gx < w; gx += 60) { g.beginPath(); g.moveTo(gx, 0); g.lineTo(gx, h); g.stroke(); }
-    for (let gy = 0; gy < h; gy += 60) { g.beginPath(); g.moveTo(0, gy); g.lineTo(w, gy); g.stroke(); }
+    if (typeof storyMapV2Enabled !== 'function' || !storyMapV2Enabled()) {
+        g.fillStyle = 'rgba(2,8,4,0.12)'; g.fillRect(0, 0, w, h);
+        g.strokeStyle = 'rgba(255,176,0,0.025)'; g.lineWidth = 1;
+        for (let gx = 0; gx < w; gx += 60) { g.beginPath(); g.moveTo(gx, 0); g.lineTo(gx, h); g.stroke(); }
+        for (let gy = 0; gy < h; gy += 60) { g.beginPath(); g.moveTo(0, gy); g.lineTo(w, gy); g.stroke(); }
+    }
 
-    // (3) ŞEHİR/KAYNAK işaretleri (🔴şehir/insan, 🟠petrol, 🟢puan) — dünya konumları, kamera+zoom
+    const farMap = storyCam.zoom <= storyMinZoom(w, h) * 1.25;
+    const mapZoomRatio = typeof storyMapV2ZoomRatio === 'function'
+        ? storyMapV2ZoomRatio(storyCam, STORY._minZoom || storyCam.zoom)
+        : storyCam.zoom / Math.max(.0001, storyMinZoom(w, h));
+    storyDrawMaritimeOverlay(g, farMap);
+    storyDrawPrimaryRoadOverlay(g, farMap);
+    storyDrawSecondaryRoadOverlay(g, farMap);
+    // (3) Kaynak işaretleri — uzak görünümde gizlenir; stratejik harita şehir
+    // atlası ve önemli etiketlerle okunur, debug noktalarıyla değil.
     if (typeof STORY_TERRAIN !== 'undefined') {
         const drawMarks = (arr, col, sz) => {
             for (const p of (arr || [])) {
@@ -713,23 +1287,28 @@ function storyRender() {
                 g.fillStyle = col; g.fillRect(sx - sz, sy - sz, 2 * sz, 2 * sz);
             }
         };
-        drawMarks(STORY_TERRAIN.oil, '#ff8a00', 2);     // petrol
-        drawMarks(STORY_TERRAIN.pts, '#3cdc6e', 2);     // puan
-        drawMarks(STORY_TERRAIN.cities, '#ff3636', 2);  // şehir (insan gücü)
+        if (!farMap) {
+            drawMarks(STORY_TERRAIN.oil, '#ff8a00', 2);     // petrol
+            drawMarks(STORY_TERRAIN.pts, '#3cdc6e', 2);     // puan
+        }
     }
 
     const cmdNode = STORY.commander.node;
     const adj = storyNode(cmdNode) ? storyNode(cmdNode).neighbors : [];
+    const labelBoxes = [];
 
     // KOMUTANIN ulaşabildiği komşu bağlantıları (yeşil=kendi bölge, kırmızı=saldırı) — sade
     const cmdP = storyNode(cmdNode) ? storyNodePixel(storyNode(cmdNode), w, h) : null;
     if (cmdP) {
-        g.lineWidth = 2;
+        g.save();
+        g.setLineDash(farMap ? [2, 7] : [3, 9]);
+        g.lineWidth = farMap ? .65 : .75;
         for (const mId of adj) {
             const m = storyNode(mId); const b = storyNodePixel(m, w, h);
-            g.strokeStyle = (m.owner === STORY.playerStateId) ? 'rgba(120,235,160,0.5)' : 'rgba(255,90,90,0.6)';
+            g.strokeStyle = (m.owner === STORY.playerStateId) ? 'rgba(120,235,160,0.16)' : 'rgba(255,90,90,0.22)';
             g.beginPath(); g.moveTo(cmdP.x, cmdP.y); g.lineTo(b.x, b.y); g.stroke();
         }
+        g.restore();
     }
 
     // DÜĞÜMLER
@@ -743,15 +1322,32 @@ function storyRender() {
         // ŞEHİR/BAŞKENT işareti — pixel KARE (sahip rengi + siyah kontur), perspektif ölçekli
         const sc = storyPScale(p.u);
         const tierBoost = n.geo ? (n.level >= 3 ? 1.7 : n.level >= 2 ? 1.25 : 1) : 1;   // başkent/büyük şehir iri
-        const sq = Math.round((isCmd ? 9 : 5.5) * sc * tierBoost);
+        const sq = Math.max(2, Math.round((isCmd ? (farMap ? 6 : 9) : (farMap ? 3.2 : 5.5))
+            * sc * (farMap ? Math.min(tierBoost, 1.25) : tierBoost)));
         const px = Math.round(p.x), py = Math.round(p.y);
-        g.fillStyle = '#000'; g.fillRect(px - sq - 1, py - sq - 1, 2 * sq + 2, 2 * sq + 2);
-        g.fillStyle = st ? st.color : '#888';
-        g.fillRect(px - sq, py - sq, 2 * sq, 2 * sq);
+        const settlement = storyDrawSettlementSprite(g, n, px, py, farMap, sc, {
+            commander: isCmd, selected: isSelected, actionable: attackable || moveable
+        });
+        const cityHidden = !!(settlement && settlement.hidden);
+        if (!settlement) {
+            g.fillStyle = '#000'; g.fillRect(px - sq - 1, py - sq - 1, 2 * sq + 2, 2 * sq + 2);
+            g.fillStyle = st ? st.color : '#888';
+            g.fillRect(px - sq, py - sq, 2 * sq, 2 * sq);
+        } else if (cityHidden) {
+            // Overview LOD: minor settlements are removed instead of enlarged.
+        } else if (settlement.minor) {
+            g.fillStyle = '#080b08'; g.fillRect(px - 2, py - 2, 5, 5);
+            g.fillStyle = st ? st.color : '#888'; g.fillRect(px - 1, py - 1, 3, 3);
+        } else if (settlement.size >= 8) {
+            const ownerHalf = Math.max(3, Math.round(settlement.half * .82));
+            g.fillStyle = '#090b08'; g.fillRect(px - ownerHalf - 1, py + 1, ownerHalf * 2 + 2, 3);
+            g.fillStyle = st ? st.color : '#888'; g.fillRect(px - ownerHalf, py + 2, ownerHalf * 2, 1);
+        }
         // ── DESIGN İKONLARI: fabrika bacası / petrol kulesi / maden kazması / kışla flaması ──
         // Yakınlaşınca ya da büyük şehirlerde göster (uzak/küçük şehirde kalabalık yapmasın).
-        const detail = storyCam.zoom > storyMinZoom(w, h) * 1.55 || (n.level || 1) >= 2;
-        if (detail && p.u > -0.05 && p.u < 1.05 && px > -30 && px < w + 30) {
+        const detail = !farMap && mapZoomRatio >= 7.5
+            && ((n.level || 1) >= 2 || (settlement && settlement.size >= 28));
+        if (!cityHidden && detail && p.u > -0.05 && p.u < 1.05 && px > -30 && px < w + 30) {
             const ic = Math.max(0.7, sc);
             if ((n.fac | 0) > 0) {                          // FABRİKA: gövde + baca sayısı = seviye
                 const fx = px + sq + 2, fy = py - 2;
@@ -797,7 +1393,28 @@ function storyRender() {
             g.fillStyle = '#ffe9bf'; g.font = '9px monospace'; g.textAlign = 'center'; g.textBaseline = 'bottom';
             g.fillText('SELECT', px, py - r - 3);
         }
-        // (harita üstünde YAZI YOK — kullanıcı isteği; ülke adları yan panelde gösterilir)
+        // Referans-stili stratejik şehir etiketi. Sadece final ekran uzayında çizilir;
+        // böylece terrain/politik katman altında kaybolmaz ve zoom ile okunur kalır.
+        const labelEligible = (n.level || 1) >= 2
+            || (settlement && settlement.size >= 26)
+            || isSelected || attackable || moveable;
+        if (!cityHidden && labelEligible && !isCmd) {
+            const label = String(n.name || '').toLocaleUpperCase('tr-TR');
+            const labelSize = farMap ? ((n.level || 1) >= 3 ? 9 : 7) : ((n.level || 1) >= 3 ? 10 : 9);
+            g.font = `bold ${labelSize}px monospace`; g.textAlign = 'left'; g.textBaseline = 'middle';
+            const tw = Math.ceil(g.measureText(label).width), lh = labelSize + 3;
+            const spriteFoot = settlement ? Math.round(settlement.size * .30) : sq;
+            const bx = px - Math.round(tw / 2) - 3, by = py + spriteFoot + 4;
+            const box = { x: bx, y: by, w: tw + 6, h: lh };
+            if (!labelBoxes.some(p => box.x < p.x + p.w + 3 && box.x + box.w + 3 > p.x
+                && box.y < p.y + p.h + 2 && box.y + box.h + 2 > p.y)) {
+                labelBoxes.push(box);
+                g.fillStyle = 'rgba(7,13,10,.88)'; g.fillRect(box.x, box.y, box.w, box.h);
+                g.strokeStyle = (n.level || 1) >= 3 ? '#e0bd54' : 'rgba(142,164,122,.9)'; g.lineWidth = 1;
+                g.strokeRect(box.x + .5, box.y + .5, box.w - 1, box.h - 1);
+                g.fillStyle = '#e7dfbd'; g.fillText(label, box.x + 3, box.y + box.h / 2 + .5);
+            }
+        }
         // oyuncu komutanı — şehir merkezinde kısa terminal etiketi
         if (isCmd) {
             g.font = 'bold 8px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -823,8 +1440,9 @@ function storyRender() {
         const node = storyNode(+cityId); if (!node) continue;
         const cp = storyNodePixel(node); const list = cmdByCity[cityId];
         for (let i = 0; i < list.length; i++) {
-            const cx = Math.round(cp.x + (i - (list.length - 1) / 2) * 7), cy = Math.round(cp.y - 13);
-            g.beginPath(); g.moveTo(cx, cy - 4); g.lineTo(cx - 4, cy + 4); g.lineTo(cx + 4, cy + 4); g.closePath();
+            const token = farMap ? 3 : 4;
+            const cx = Math.round(cp.x + (i - (list.length - 1) / 2) * (farMap ? 5 : 7)), cy = Math.round(cp.y - (farMap ? 9 : 13));
+            g.beginPath(); g.moveTo(cx, cy - token); g.lineTo(cx - token, cy + token); g.lineTo(cx + token, cy + token); g.closePath();
             g.fillStyle = (storyState(list[i]) || {}).color || '#fff'; g.fill();
             g.lineWidth = 1; g.strokeStyle = '#000'; g.stroke();
         }

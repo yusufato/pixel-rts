@@ -1,6 +1,23 @@
 # Pixel RTS
 
-Pixel RTS, aynı savaş motorunu hızlı maç ve hikâye modu arasında paylaşan; hikâye tarafında deterministik, katmanlı bir dünya simülasyonu kullanan Electron tabanlı bir strateji oyunudur.
+Pixel RTS; hızlı maç ile hikâye modunda aynı taktik savaş kaynaklarını kullanan, hikâye tarafında ise deterministik ve katmanlı bir modern dünya simülasyonu kuran Electron tabanlı bir strateji oyunudur. Proje aktif geliştirme aşamasındadır; savaş AI'si, ekonomi, karakter davranışı ve doğal dil görüşmeleri ayrı doğrulama tezgâhlarıyla geliştirilmektedir.
+
+## Güncel geliştirme durumu
+
+- Hızlı maç ve hikâye savaşı aynı `BattleController → Perception → Situation → Planning → Execution` karar zincirini ve aynı birlik/fizik kurallarını yükler. Maç kaydı; motor sürümü, başlangıç durumu, olaylar ve deterministik hash'ler taşır.
+- Hikâye dünyası 2032'de sekiz devletin barış içinde başladığı; bölgesel stok, üretim, ticaret, fiyat, bütçe, şirket, nüfus, kurum, seçim, karakter, ilişki ve bilgi katmanlarına sahip bir simülasyondur.
+- Faz 38.13 kısmen çalışır durumdadır. Oyuncu karakterlerle görüşebilir, sınırlı görev kabul edebilir ve 3–4 kişilik resmî toplantı açabilir. Toplantılarda konuşma sırası, özel not, kaynaklı tutum, önerge, değişiklik, itiraz, başkan usul kararı, sürüme bağlı oylama ve `MeetingOutcomeReceiptV1` bulunur.
+- Toplantıda kabul edilen önerge henüz kendiliğinden bütçe, kurum, ordu veya dünya değerlerini değiştirmez. Yetkili uygulama adaptörü ve toplantı kapanış zinciri sıradaki Faz 38.13 borcudur.
+- Serbest metin sohbet motoru bağlam, kaynak sınırı ve karar yetkisini korur; ancak insan düzeyinde doğal ve tekrarsız sohbet tamamlanmış değildir. Gerçek 8B/14B sanal görüşme, adversarial oyuncu ve uzun bağlam testleri bunun için tutulur.
+- Savaş AI'si hilesiz eşit kuvvet hedefiyle öğrenen seçici, karşı-olgusal oracle, davranış klonlama ve maç replay araçları taşır. İnsan seviyesinde taktik zekâ sağlandığı iddia edilmez; su/dağ geçişi, birim mikrosu, hedef seçimi ve kuvvet dağılımı sürekli telemetriyle sınanır.
+
+Ayrıntılı ve güncel durum:
+
+- [Hikâye modu ana planı](HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md)
+- [Hikâye modu uygulama durumu](HIKAYE_MODU_UYGULAMA_DURUMU.md)
+- [Modern dünya eksikleri](MODERN_DUNYA_EKSIKLERI.md)
+- [Savaş AI tasarım planı](SAVAS_AI_TASARIM_PLANI.md)
+- [Sohbet motoru geliştirme planı](HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md)
 
 ## Çalıştırma ve doğrulama
 
@@ -10,6 +27,18 @@ npm start
 npm test
 npm run test:story:soak
 ```
+
+Dar ve hızlı doğrulamalar:
+
+```text
+npm run story:conversation-case-test
+npm run story:conversation-player-regressions
+npm run story:conversation-semantic-frame-test
+npm run story:dialogue-move-test
+npm run story:dialogue-gpu-preflight
+```
+
+`npm test` geniş pakettir ve uzun sürebilir. Yalnız hikâye simülasyonunu paralel işçi havuzuyla çalıştırmak için `npm run test:story`, seri karşılaştırma için `npm run test:story:serial`, iş dağılımını çalıştırmadan görmek için `npm run test:story:plan` kullanılır.
 
 Harita raster varlığı yalnız coğrafya veya bölge geometrisi değiştiğinde yeniden üretilir:
 
@@ -31,6 +60,45 @@ npm run story:ab -- --flag=economy.stateBudget --output=qa-runtime/story-phase20
 ```
 
 `npm test`, gerçek hikâye kaynaklarını jsdom tezgâhında yükler; sekiz devletli 900 saniyelik deterministik koşuyu, sözleşme doğrulayıcılarını ve hedefli bozuk-veri testlerini çalıştırır. Bu tezgâh gerçek Chromium/GPU kare süresini veya nihai piksel görünümünü kanıtlamaz. Paketlenmiş EXE’de görsel kontrol ve p95 frame profili ayrıca yapılmalıdır.
+
+## Yerel LLM çalışma biçimi
+
+Oyun sohbet ve koçluk modellerini Ollama üzerinden çağırmaz. `electron/llm-host.js`, `node-llama-cpp` tabanlı ayrı bir alt süreç açar; böylece model çıkarımı ana Electron çizim/oyun döngüsünü doğrudan kilitlemez. Model arama sırası kurulum kaynakları, proje `models` klasörü, Electron kullanıcı verisi ve kullanıcının `models` klasörüdür.
+
+Normal oyun yolu uygun GGUF modelini `gpuLayers: auto` ile yükler ve sohbet bağlamı için en çok `8192` tokenlık pencere ister. Gerçek GPU kullanımı donanım, sürücü, llama.cpp ikilisi ve VRAM'e bağlıdır; katmanların bir bölümü RAM'de kalabilir. Bu nedenle yüksek RAM tüketimi tek başına modelin GPU kullanmadığını kanıtlamaz. Durum, `npm run story:dialogue-gpu-preflight` ve gerçek model smoke testleriyle doğrulanmalıdır.
+
+`npm run dist` sırasında `models` içindeki GGUF, lisans ve bildirim dosyaları `extraResources/models` olarak paketlenir. Model dosyası yoksa paketleme onu internetten indirmez; dağıtım öncesi modelin ve lisans dosyalarının gerçekten pakete girdiği kontrol edilmelidir.
+
+## Taktik savaş ve öğrenen AI
+
+Aktif savaş zincirinin ana parçaları:
+
+1. `js/BattleController.js` — karar döngüsü ve order uygulaması.
+2. `js/BattlePerception.js` — AI'nin izinli algısı; gizli dünya okuması değildir.
+3. `js/BattleSituation.js` — rol, tehdit ve kuvvet durumu.
+4. `js/BattlePlanning.js` ve `js/OperationGrammar.js` — plan, sektör, rota ve operasyon adayları.
+5. `js/BattleExecution.js` — hareket/saldırı emirleri.
+6. `js/BattleOracle.js`, `js/BattleFeatures.js`, `js/BattleSelector.js` — karşı-olgusal öğretmen, özellikler ve öğrenen seçim.
+7. `js/BattleDeployment.js`, `js/Unit.js` ve `js/BattleRules.js` — konuşlanma, birlik mikrosu ve fiziksel kurallar.
+8. `js/BattleSession.js` — tohum, motor sürümü, telemetri ve replay sözleşmesi.
+
+`scripts/` ve `tools/` altında self-play, turnuva, insan verisi, oracle/DAgger, GPU eğitimi, taktik teşhis ve canlı maç analizi araçları bulunur. Bunlar geliştirici araçlarıdır; `electron-builder` paketine alınmaz. Model başarısı yalnız eğitim skoruyla kabul edilmez: görülmemiş tohum, iki saldıran taraf yönü, farklı konuşlanma, fiziksel replay ve gerçek oyuncu maçı birlikte değerlendirilmelidir.
+
+## Karakter görüşmeleri ve resmî toplantılar
+
+`ConversationCaseV1` günlük sohbet, görev/iş, gizlilik, bildirim/rapor, teklif/müzakere ve resmî toplantı kiplerini aynı kayıt içinde tutar. Oyuncu yazı alanındayken WASD kısayolları metni çalmaz; çalışma alanı yeniden çizilirken taslak, seçim aralığı, odak ve kaydırma korunur. Görüşme açıkken hikâye saati durur.
+
+`MeetingCaseV1` şu anda:
+
+- kanonik makamdan başkan ve doğrulanmış katılımcılar seçer;
+- kamusal konuşma sırası ile iki taraflı özel notu ayırır;
+- karakterin yalnız kendi `ActorBelief` kayıtlarını ve toplantıda duyduklarını kullanmasına izin verir;
+- önergeyi aktif sürüme bağlar, değişiklikte eski sürümü silmeden yenisini üretir;
+- itirazı başkana sevk eder ve muhalefet kaydını korur;
+- her katılımcıya kendi sırasında tek kabul/ret/çekimser oy kullandırır;
+- sonuçta fiziksel etkisiz, doğrulanabilir bir toplantı makbuzu üretir.
+
+Hedefli `story-conversation-case` testi mevcut birleşik senaryoda 4 katılımcı, 33 kamusal tur, iki önerge, üç kaynaklı tepki, iki önerge sürümü, itiraz usul kararı ve dört oy üzerinden kayıt/yükleme ile dünya nötrlüğünü doğrular.
 
 ## Hikâye kaynak sözleşmesi
 
@@ -167,3 +235,8 @@ Electron paketi `electron/**/*`, `js/**/*`, `assets/**/*`, `index.html` ve `styl
 - Gerçek EXE’de 720p/1080p/1440p kıyı ve sınır görünümü henüz bu headless tezgâhla doğrulanamaz.
 - Gerçek Chromium compositor/GPU p50–p95 maliyeti ayrıca ölçülmelidir.
 - Uzun simülasyonda tek devlet hegemonyası hâlâ açıktır; harita render çalışması bunu çözmüş sayılmaz.
+- Hikâye ekonomisinde üretim açığı ve kritik fiyat yoğunluğu sürmektedir; ekonomik karar motoru otomatik denge garantisi değildir.
+- Karakter kadrosu, yaşam döngüsü, medya aktörleri, şirket alt makamları ve aktivist dışı yükselme kaynakları tamamlanmamıştır.
+- Sohbet yanıtları uzun görüşmelerde tekrara, kaçamak cevaba ve düşük alan çeşitliliğine düşebilir. 8B modelin bulunması bu sorunu tek başına çözmez.
+- Toplantı sonucu henüz kurumsal uygulama zincirine bağlanmaz; kabul edilmiş önerge dünya emri değildir.
+- Savaş AI modellerinin eğitim metrikleri gerçek oyuncuya karşı insan düzeyi başarı kanıtı değildir.

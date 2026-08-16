@@ -1235,6 +1235,12 @@ function storyCouncilSkillBars(sk) {
 function storyCamCenterOn(node) {
     const cv = document.getElementById('storyCanvas'); if (!cv || !node) return;
     storyResize();   // boyut tazele (bayat cv.width fix)
+    if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
+        STORY._cw = cv.width; STORY._ch = cv.height;
+        storyMapV2CenterCamera(storyCam, node.lx * STORY_WORLD_W, node.ly * STORY_WORLD_H, cv.width, cv.height);
+        storyClampCam(cv.width, cv.height);
+        return;
+    }
     STORY._cw = cv.width; STORY._ch = cv.height;                     // WARP: düğüm ekran ortasına
     storyCam.x = node.lx * STORY_WORLD_W - (cv.width / 2) / storyCam.zoom;
     storyCam.y = node.ly * STORY_WORLD_H - storyVyOf(0.5) / storyCam.zoom;
@@ -1572,7 +1578,9 @@ function storyInit() {
             const wpt = storyS2W(mx, my);               // imleç altındaki dünya noktası (warp)
             storyCam.zoom = Math.max(storyMinZoom(cv.width, cv.height), Math.min(5, storyCam.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
             // aynı ekran noktası aynı dünya noktasını göstersin: cam = dünya − vec/z
-            const u = my / cv.height, vy = storyVyOf(u), vx = (mx - cv.width / 2) / storySxOf(u) + cv.width / 2;
+            const flatV2 = typeof storyMapV2Enabled === 'function' && storyMapV2Enabled();
+            const u = my / cv.height, vy = flatV2 ? my : storyVyOf(u);
+            const vx = flatV2 ? mx : (mx - cv.width / 2) / storySxOf(u) + cv.width / 2;
             storyCam.x = wpt.x - vx / storyCam.zoom; storyCam.y = wpt.y - vy / storyCam.zoom;
             storyClampCam(cv.width, cv.height); storyRender();
         }, { passive: false });

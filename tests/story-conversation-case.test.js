@@ -3,6 +3,19 @@
 const assert = require('node:assert/strict');
 const { createRuntime } = require('../tools/story-sim-harness');
 
+function firstDifference(left, right, path = '$') {
+    if (Object.is(left, right)) return null;
+    if (!left || !right || typeof left !== 'object' || typeof right !== 'object') {
+        return { path, left, right };
+    }
+    const keys = Array.from(new Set([...Object.keys(left), ...Object.keys(right)])).sort();
+    for (const key of keys) {
+        const difference = firstDifference(left[key], right[key], `${path}.${key}`);
+        if (difference) return difference;
+    }
+    return null;
+}
+
 const runtime = createRuntime(3813001);
 try {
     runtime.api.newCampaign({ seed: 3813001, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
@@ -109,6 +122,7 @@ try {
         id: publicFactId, factType: 'MEETING_POLICY_POSITION',
         subjectActorId: meeting.chair.actorId, countryId: meeting.countryId,
         publicSummary: 'Sanayi yatırımında kaynak tahsisi ile denetim sorumluluğu birlikte tanımlanmalı.',
+        position: 'SUPPORT',
         visibility: 'INSTITUTIONAL', occurredAt: story.clock,
         originEventId: 'event:meeting-test:public', version: 1
     };
@@ -136,6 +150,14 @@ try {
         'Bu söz sırası dışında kalmalı.', null);
     assert.equal(outOfOrder.ok, false);
     assert.equal(outOfOrder.code, 'MEETING_SPEAKER_OUT_OF_ORDER');
+    const stancePreview = runtime.api.conversationMeetingStancePreview(meeting.id, meeting.chair.actorId);
+    const stancePreviewRepeat = runtime.api.conversationMeetingStancePreview(meeting.id, meeting.chair.actorId);
+    assert.equal(stancePreview.ok, true);
+    assert.equal(JSON.stringify(stancePreview.stance), JSON.stringify(stancePreviewRepeat.stance));
+    assert.ok(['SUPPORT', 'LEAN_SUPPORT'].includes(stancePreview.stance.direction));
+    assert.ok(stancePreview.stance.publicReasonCodes.includes('SOURCED_ACTOR_BELIEF'));
+    assert.equal(stancePreview.stance.rawPersonalityAxesExposed, false);
+    assert.equal(stancePreview.stance.rawRelationshipAxesExposed, false);
     const chairTurn = runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id,
         opened.session.playerActorId);
     assert.equal(chairTurn.ok, true);
@@ -147,6 +169,8 @@ try {
     assert.ok(!chairTurn.turn.sourceRefs.includes(privateBeliefId));
     assert.doesNotMatch(chairTurn.turn.text, /özel plan/i);
     assert.match(chairTurn.turn.text, /Sanayi yatırımında kaynak tahsisi/);
+    assert.equal(chairTurn.turn.stance.direction, stancePreview.stance.direction);
+    assert.ok(chairTurn.turn.stance.sourceRefs.every(ref => chairTurn.turn.sourceRefs.includes(ref)));
     const playerMeetingTurn = runtime.api.conversationMeetingSubmitPlayerTurn(meeting.id,
         'Sanayi yatırımı için önce sorumluluk ve denetim sınırlarını netleştirelim.',
         opened.session.listenerActorId);
@@ -203,13 +227,29 @@ try {
     assert.equal(runtime.dom.window.document.querySelectorAll('.conversation-meeting-transcript article').length, 8);
     const meetingUiText = runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent;
     assert.doesNotMatch(meetingUiText, /OPEN_NO_DECISION_ADAPTER|KNOWN_PUBLIC_PROFILE/);
-    assert.match(meetingUiText, /KARAR ADAPTÖRÜ YOK|DOĞRULANMIŞ KAMUSAL PROFİL/);
+    assert.match(meetingUiText, /ÖNERGE İNCELEMESİ AÇIK · OYLAMA KAPALI|DOĞRULANMIŞ KAMUSAL PROFİL/);
     assert.match(meetingUiText, /KAYNAKLI GÖRÜŞ · KURUMSAL KAYIT · 91% GÜVEN/);
+    assert.match(meetingUiText, /TUTUM · (DESTEKLİYOR|DESTEĞE YAKIN)/);
     assert.match(meetingUiText, /Kaynak planının ayrıntısını toplantıdan sonra ikili ele alalım/);
     runtime.dom.window.storyConversationWorkspaceClose();
 
-    const chairThirdTurn = runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null);
-    assert.equal(chairThirdTurn.ok, true);
+    assert.equal(runtime.api.conversationMeetingMotionPropose(meeting.id, 'kısa').code,
+        'MEETING_MOTION_TEXT_INVALID');
+    const motionProposed = runtime.api.conversationMeetingMotionPropose(meeting.id,
+        'Sanayi yatırımı kaynak tahsisi ve kurum denetimi birlikte yazılı plana bağlansın.');
+    assert.equal(motionProposed.ok, true);
+    assert.equal(motionProposed.motion.status, 'PENDING_CHAIR_REVIEW');
+    assert.equal(motionProposed.worldMutation, false);
+    const motionReviewed = runtime.api.conversationMeetingMotionChairReview(
+        meeting.id, motionProposed.motion.id
+    );
+    assert.equal(motionReviewed.ok, true);
+    assert.equal(motionReviewed.motion.status, 'IN_ORDER');
+    assert.equal(motionReviewed.motion.chairReview.authoritySource, 'CANONICAL_INSTITUTION_OFFICE');
+    assert.ok(motionReviewed.motion.chairReview.matchedAgendaTerms.length > 0);
+    assert.equal(motionReviewed.turn.kind, 'CHAIR_MOTION_RULING');
+    assert.equal(runtime.api.conversationMeetingMotionChairReview(
+        meeting.id, motionProposed.motion.id).code, 'MEETING_MOTION_ALREADY_REVIEWED');
     assert.equal(runtime.api.conversationMeetingGet(meeting.id)
         .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex],
     opened.session.playerActorId);
@@ -229,6 +269,220 @@ try {
     assert.equal(meetingDraft.selectionEnd, 31);
     assert.equal(runtime.dom.window.document.getElementById('conversation-workspace-modal')
         .dataset.pendingConversationRender, '1');
+    assert.match(runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent,
+        /USULE UYGUN/);
+    runtime.dom.window.storyConversationWorkspaceClose();
+
+    const unrelatedMotion = runtime.api.conversationMeetingMotionPropose(meeting.id,
+        'Ay kolonilerinde şiir yarışması düzenlenmesi için ayrı bir takvim hazırlansın.');
+    assert.equal(unrelatedMotion.ok, true);
+    assert.equal(runtime.api.conversationMeetingMotionChairReview(
+        meeting.id, unrelatedMotion.motion.id).code, 'MEETING_CHAIR_TURN_REQUIRED');
+    assert.equal(runtime.api.conversationMeetingSubmitPlayerTurn(meeting.id,
+        'İlk önergenin usul kaydını gördüm; diğer katılımcıların sözünü dinliyorum.', null).ok, true);
+    while (runtime.api.conversationMeetingGet(meeting.id)
+        .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex]
+        !== meeting.chair.actorId) {
+        assert.equal(runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null).ok, true);
+    }
+    const unrelatedReview = runtime.api.conversationMeetingMotionChairReview(
+        meeting.id, unrelatedMotion.motion.id
+    );
+    assert.equal(unrelatedReview.ok, true);
+    assert.equal(unrelatedReview.motion.status, 'OUT_OF_ORDER');
+    assert.equal(unrelatedReview.motion.chairReview.matchedAgendaTerms.length, 0);
+
+    assert.equal(runtime.api.conversationMeetingMotionRespond(
+        meeting.id, motionProposed.motion.id).code, 'MEETING_CHARACTER_TURN_REQUIRED');
+    assert.equal(runtime.api.conversationMeetingSubmitPlayerTurn(meeting.id,
+        'Usule uygun önerge için katılımcıların kaynaklı itirazlarını dinlemek istiyorum.', null).ok, true);
+    const responseMeeting = runtime.api.conversationMeetingGet(meeting.id);
+    const respondingActorId = responseMeeting.speakingOrderActorIds[responseMeeting.currentSpeakerIndex];
+    const opposeFactId = 'world-fact:meeting-test:motion-opposition';
+    const opposeBeliefId = 'actor-belief:meeting-test:motion-opposition';
+    identities.worldFacts[opposeFactId] = {
+        id: opposeFactId, factType: 'MEETING_POLICY_POSITION', subjectActorId: respondingActorId,
+        countryId: meeting.countryId,
+        publicSummary: 'Sanayi kaynak tahsisi denetim güvencesi kurulmadan uygulanmamalı.',
+        position: 'OPPOSE', visibility: 'INSTITUTIONAL', occurredAt: story.clock,
+        originEventId: 'event:meeting-test:motion-opposition', version: 1
+    };
+    identities.actorBeliefs[opposeBeliefId] = {
+        id: opposeBeliefId, holderActorId: respondingActorId, holderCountryId: meeting.countryId,
+        worldFactId: opposeFactId, beliefStatus: 'VERIFIED', confidenceBps: 10000,
+        learnedAt: story.clock + 10,
+        source: { type: 'INSTITUTIONAL_RECORD', eventId: 'event:meeting-test:motion-opposition' }
+    };
+    const objection = runtime.api.conversationMeetingMotionRespond(meeting.id, motionProposed.motion.id);
+    assert.equal(objection.ok, true);
+    assert.equal(objection.response.kind, 'OBJECTION');
+    assert.equal(objection.response.status, 'OPEN');
+    assert.equal(objection.response.actorId, respondingActorId);
+    assert.ok(objection.response.sourceRefs.includes(opposeBeliefId));
+    assert.equal(objection.turn.kind, 'MOTION_OBJECTION');
+    assert.match(objection.turn.text, /itiraz ediyorum/i);
+    const amendmentMeeting = runtime.api.conversationMeetingGet(meeting.id);
+    const amendmentActorId = amendmentMeeting.speakingOrderActorIds[amendmentMeeting.currentSpeakerIndex];
+    const amendmentFactId = 'world-fact:meeting-test:motion-amendment';
+    const amendmentBeliefId = 'actor-belief:meeting-test:motion-amendment';
+    identities.worldFacts[amendmentFactId] = {
+        id: amendmentFactId, factType: 'MEETING_POLICY_POSITION', subjectActorId: amendmentActorId,
+        countryId: meeting.countryId,
+        publicSummary: 'Sanayi yatırımında kapsam ve denetim koşulları önergeye eklenmeli.',
+        position: 'AMEND', visibility: 'INSTITUTIONAL', occurredAt: story.clock,
+        originEventId: 'event:meeting-test:motion-amendment', version: 1
+    };
+    identities.actorBeliefs[amendmentBeliefId] = {
+        id: amendmentBeliefId, holderActorId: amendmentActorId, holderCountryId: meeting.countryId,
+        worldFactId: amendmentFactId, beliefStatus: 'VERIFIED', confidenceBps: 10000,
+        learnedAt: story.clock + 11,
+        source: { type: 'INSTITUTIONAL_RECORD', eventId: 'event:meeting-test:motion-amendment' }
+    };
+    const amendment = runtime.api.conversationMeetingMotionRespond(meeting.id, motionProposed.motion.id);
+    assert.equal(amendment.ok, true);
+    assert.equal(amendment.response.kind, 'AMENDMENT_REQUEST');
+    assert.match(amendment.turn.text, /Değişiklik talebimi/i);
+    const endorsementMeeting = runtime.api.conversationMeetingGet(meeting.id);
+    assert.equal(endorsementMeeting.speakingOrderActorIds[endorsementMeeting.currentSpeakerIndex],
+        meeting.chair.actorId);
+    const endorsement = runtime.api.conversationMeetingMotionRespond(meeting.id, motionProposed.motion.id);
+    assert.equal(endorsement.ok, true);
+    assert.equal(endorsement.response.kind, 'ENDORSEMENT');
+    assert.equal(endorsement.response.status, 'NOTED');
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    assert.match(runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent,
+        /İTİRAZ/);
+    assert.match(runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent,
+        /DEĞİŞİKLİK TALEBİ/);
+    assert.match(runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent,
+        /DESTEK/);
+    assert.ok(runtime.dom.window.document.querySelector('[data-conversation-amendment-decision="ACCEPT"]'));
+    runtime.dom.window.storyConversationWorkspaceClose();
+
+    assert.equal(runtime.api.conversationMeetingMotionAmendmentDecision(
+        meeting.id, motionProposed.motion.id, amendment.response.id, 'ACCEPT',
+        motionProposed.motion.text).code, 'MEETING_AMENDMENT_TEXT_INVALID');
+    const revisedText = 'Sanayi yatırımı kaynak tahsisi; kapsam, sorumluluk ve bağımsız kurum denetimi yazılı plana bağlansın.';
+    const amendmentAccepted = runtime.api.conversationMeetingMotionAmendmentDecision(
+        meeting.id, motionProposed.motion.id, amendment.response.id, 'ACCEPT', revisedText
+    );
+    assert.equal(amendmentAccepted.ok, true);
+    assert.equal(amendmentAccepted.response.status, 'ACCEPTED');
+    assert.equal(amendmentAccepted.motion.status, 'PENDING_CHAIR_REVIEW');
+    assert.equal(amendmentAccepted.motion.versions.length, 2);
+    assert.equal(amendmentAccepted.motion.versions[0].status, 'SUPERSEDED');
+    assert.equal(amendmentAccepted.motion.versions[1].status, 'ACTIVE');
+    assert.equal(amendmentAccepted.motion.versions[1].sourceResponseId, amendment.response.id);
+    assert.equal(amendmentAccepted.motion.text, revisedText);
+    assert.equal(amendmentAccepted.motion.chairReview, null);
+    assert.equal(amendmentAccepted.turn.kind, 'MOTION_AMENDMENT_ACCEPTED');
+    assert.equal(runtime.api.conversationMeetingMotionAmendmentDecision(
+        meeting.id, motionProposed.motion.id, amendment.response.id, 'REJECT', null).code,
+    'MEETING_AMENDMENT_ALREADY_DECIDED');
+    while (runtime.api.conversationMeetingGet(meeting.id)
+        .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex]
+        !== meeting.chair.actorId) {
+        assert.equal(runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null).ok, true);
+    }
+    const revisedReview = runtime.api.conversationMeetingMotionChairReview(
+        meeting.id, motionProposed.motion.id
+    );
+    assert.equal(revisedReview.ok, true);
+    assert.equal(revisedReview.motion.status, 'IN_ORDER');
+    assert.equal(revisedReview.motion.activeVersionId, amendmentAccepted.motion.versions[1].id);
+    assert.equal(revisedReview.motion.versions[1].chairReview.rulingTurnId, revisedReview.turn.id);
+    assert.equal(runtime.api.conversationMeetingMotionOpenVote(
+        meeting.id, motionProposed.motion.id).code, 'MEETING_VOTE_UNRESOLVED_OBJECTION');
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    const revisedUiText = runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent;
+    assert.match(revisedUiText, /ÖNERGE 1 · SÜRÜM 2/);
+    assert.match(revisedUiText, /KABUL EDİLDİ/);
+    assert.doesNotMatch(revisedUiText, /ACCEPTED|REJECTED|PENDING_CHAIR_REVIEW/);
+    assert.ok(runtime.dom.window.document.querySelector('[data-conversation-objection-refer]'));
+    runtime.dom.window.storyConversationWorkspaceClose();
+
+    const objectionReferred = runtime.api.conversationMeetingObjectionRefer(
+        meeting.id, motionProposed.motion.id, objection.response.id
+    );
+    assert.equal(objectionReferred.ok, true);
+    assert.equal(objectionReferred.response.status, 'REFERRED_TO_CHAIR');
+    assert.equal(objectionReferred.turn.kind, 'MOTION_OBJECTION_REFERRED');
+    assert.equal(runtime.api.conversationMeetingObjectionChairRule(
+        meeting.id, motionProposed.motion.id, objection.response.id).code,
+    'MEETING_CHAIR_TURN_REQUIRED');
+    while (runtime.api.conversationMeetingGet(meeting.id)
+        .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex]
+        !== meeting.chair.actorId) {
+        assert.equal(runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null).ok, true);
+    }
+    const objectionRuled = runtime.api.conversationMeetingObjectionChairRule(
+        meeting.id, motionProposed.motion.id, objection.response.id
+    );
+    assert.equal(objectionRuled.ok, true);
+    assert.equal(objectionRuled.response.status, 'RESOLVED_FOR_PROCEDURE');
+    assert.equal(objectionRuled.response.resolution.ruling, 'MOOT_BY_REVISION');
+    assert.equal(objectionRuled.response.resolution.preservesDissent, false);
+    assert.equal(objectionRuled.turn.kind, 'MOTION_OBJECTION_CHAIR_RULING');
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    const ruledUiText = runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent;
+    assert.match(ruledUiText, /USULEN ÇÖZÜLDÜ/);
+    assert.doesNotMatch(ruledUiText, /REFERRED_TO_CHAIR|RESOLVED_FOR_PROCEDURE/);
+    runtime.dom.window.storyConversationWorkspaceClose();
+
+    assert.equal(runtime.api.conversationMeetingMotionOpenVote(
+        meeting.id, motionProposed.motion.id).code, 'MEETING_CHAIR_TURN_REQUIRED');
+    assert.equal(runtime.api.conversationMeetingSubmitPlayerTurn(meeting.id,
+        'Usul borçları kapandı; güncel önerge sürümünün oylamaya açılmasını istiyorum.', null).ok, true);
+    while (runtime.api.conversationMeetingGet(meeting.id)
+        .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex]
+        !== meeting.chair.actorId) {
+        assert.equal(runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null).ok, true);
+    }
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    assert.ok(runtime.dom.window.document.querySelector('[data-conversation-motion-vote-open]'));
+    runtime.dom.window.storyConversationWorkspaceClose();
+    const voteOpened = runtime.api.conversationMeetingMotionOpenVote(
+        meeting.id, motionProposed.motion.id
+    );
+    assert.equal(voteOpened.ok, true);
+    assert.equal(voteOpened.voting.status, 'OPEN');
+    assert.equal(voteOpened.voting.motionVersionId, amendmentAccepted.motion.versions[1].id);
+    assert.equal(voteOpened.turn.kind, 'MOTION_VOTE_OPENED');
+    assert.equal(runtime.api.conversationMeetingMotionOpenVote(
+        meeting.id, motionProposed.motion.id).code, 'MEETING_VOTE_ALREADY_OPENED');
+    assert.equal(runtime.api.conversationMeetingMotionCastVote(
+        meeting.id, motionProposed.motion.id, 'MAYBE').code, 'MEETING_PLAYER_VOTE_INVALID');
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    assert.match(runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent,
+        /OYLAMA AÇIK/);
+    assert.ok(runtime.dom.window.document.querySelector('[data-conversation-motion-vote="YES"]'));
+    runtime.dom.window.storyConversationWorkspaceClose();
+    const playerVote = runtime.api.conversationMeetingMotionCastVote(
+        meeting.id, motionProposed.motion.id, 'YES'
+    );
+    assert.equal(playerVote.ok, true);
+    assert.equal(playerVote.vote.choice, 'YES');
+    assert.equal(playerVote.outcomeReceipt, null);
+    let completedVote = null;
+    for (let voteIndex = 1; voteIndex < meeting.participantActorIds.length; voteIndex++) {
+        const result = runtime.api.conversationMeetingMotionCastVote(
+            meeting.id, motionProposed.motion.id, null
+        );
+        assert.equal(result.ok, true);
+        completedVote = result;
+    }
+    assert.ok(completedVote.outcomeReceipt);
+    assert.ok(['ADOPTED', 'REJECTED'].includes(completedVote.outcomeReceipt.decision));
+    assert.equal(Object.values(completedVote.outcomeReceipt.tally)
+        .reduce((sum, value) => sum + value, 0), meeting.participantActorIds.length);
+    assert.equal(completedVote.outcomeReceipt.physicalMutation, false);
+    assert.equal(completedVote.motion.voting.status, 'COMPLETED');
+    assert.equal(completedVote.motion.outcomeReceiptId, completedVote.outcomeReceipt.id);
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    const completedVoteUi = runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent;
+    assert.match(completedVoteUi, /OYLAMA · TAMAMLANDI/);
+    assert.match(completedVoteUi, /TOPLANTI SONUÇ KAYDI · DÜNYAYA HENÜZ UYGULANMADI/);
+    assert.doesNotMatch(completedVoteUi, /ADOPTED|REJECTED|ABSTAIN|\bYES\b/);
     runtime.dom.window.storyConversationWorkspaceClose();
 
     const completion = runtime.api.conversationSessionBegin('Merhaba, görev için geldim.', {
@@ -268,6 +522,36 @@ try {
         .turns[0].sourceRefs.filter(ref => ref !== publicBeliefId);
     assert.ok(runtime.api.conversationSessionValidate(forgedGrounding).issues
         .some(row => row.code === 'MEETING_TURNS'));
+    const forgedStance = JSON.parse(JSON.stringify(snapshot));
+    forgedStance.meetingCases[0].turns[0].stance.rawPersonalityAxesExposed = true;
+    assert.ok(runtime.api.conversationSessionValidate(forgedStance).issues
+        .some(row => row.code === 'MEETING_TURNS'));
+    const forgedMotion = JSON.parse(JSON.stringify(snapshot));
+    forgedMotion.meetingCases[0].motions[0].chairReview.rulingTurnId = 'meeting-turn:missing';
+    assert.ok(runtime.api.conversationSessionValidate(forgedMotion).issues
+        .some(row => row.code === 'MEETING_MOTIONS'));
+    const forgedMotionResponse = JSON.parse(JSON.stringify(snapshot));
+    forgedMotionResponse.meetingCases[0].motions[0].responses[0].actorId = opened.session.playerActorId;
+    assert.ok(runtime.api.conversationSessionValidate(forgedMotionResponse).issues
+        .some(row => row.code === 'MEETING_MOTIONS'));
+    const forgedObjectionRuling = JSON.parse(JSON.stringify(snapshot));
+    forgedObjectionRuling.meetingCases[0].motions[0].responses[0]
+        .resolution.chairActorId = opened.session.playerActorId;
+    assert.ok(runtime.api.conversationSessionValidate(forgedObjectionRuling).issues
+        .some(row => row.code === 'MEETING_MOTIONS'));
+    const forgedVote = JSON.parse(JSON.stringify(snapshot));
+    forgedVote.meetingCases[0].votes[0].motionVersionId = forgedVote.meetingCases[0]
+        .motions[0].versions[0].id;
+    assert.ok(runtime.api.conversationSessionValidate(forgedVote).issues
+        .some(row => row.code === 'MEETING_VOTES'));
+    const forgedOutcome = JSON.parse(JSON.stringify(snapshot));
+    forgedOutcome.meetingCases[0].outcomeReceipts[0].tally.yes += 1;
+    assert.ok(runtime.api.conversationSessionValidate(forgedOutcome).issues
+        .some(row => row.code === 'MEETING_OUTCOME_RECEIPTS'));
+    const forgedMotionVersion = JSON.parse(JSON.stringify(snapshot));
+    forgedMotionVersion.meetingCases[0].motions[0].versions[1].text = 'Kaynak dışı sahte sürüm';
+    assert.ok(runtime.api.conversationSessionValidate(forgedMotionVersion).issues
+        .some(row => row.code === 'MEETING_MOTIONS'));
     const forgedPrivateVisibility = JSON.parse(JSON.stringify(snapshot));
     const note = forgedPrivateVisibility.meetingCases[0].privateNotes[0];
     const uninvolvedVisibility = forgedPrivateVisibility.meetingCases[0].visibilityMatrix.find(row =>
@@ -276,7 +560,9 @@ try {
     assert.ok(runtime.api.conversationSessionValidate(forgedPrivateVisibility).issues
         .some(row => row.code === 'MEETING_VISIBILITY_MATRIX'));
     assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 4);
-    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()), JSON.stringify(snapshot));
+    const restoredSnapshot = runtime.api.conversationSessionSnapshot();
+    const restoreDifference = firstDifference(restoredSnapshot, snapshot);
+    assert.equal(restoreDifference, null, `Kayıt geri yükleme farkı: ${JSON.stringify(restoreDifference)}`);
 
     const legacy = JSON.parse(JSON.stringify(snapshot));
     legacy.schemaVersion = 3;
@@ -296,11 +582,33 @@ try {
         && session.conversationCase.modeHistory.length === 1));
     assert.equal(runtime.api.conversationSessionValidate(migrated).ok, true);
 
+    const preVersionLedger = JSON.parse(JSON.stringify(snapshot));
+    preVersionLedger.meetingCases[0].votes = [];
+    preVersionLedger.meetingCases[0].outcomeReceipts = [];
+    preVersionLedger.meetingCases[0].outcomeReceiptId = null;
+    for (const motion of preVersionLedger.meetingCases[0].motions) {
+        delete motion.activeVersionId;
+        delete motion.versions;
+        delete motion.voting;
+        delete motion.outcomeReceiptId;
+        for (const response of motion.responses) {
+            delete response.motionVersionId;
+            if (response.status === 'OPEN' || response.status === 'NOTED') delete response.resolution;
+        }
+    }
+    const migratedMotions = runtime.api.conversationSessionMigrate(preVersionLedger);
+    assert.ok(migratedMotions.meetingCases[0].motions.every(motion =>
+        motion.versions.length === 1 && motion.activeVersionId === motion.versions[0].id));
+    assert.equal(runtime.api.conversationSessionValidate(migratedMotions).ok, true);
+
     process.stdout.write(`${JSON.stringify({
         ok: true,
         taskCompleted: completedTask.status,
         meetingParticipants: meeting.participants.length,
-        meetingTurns: meetingAfterTurns.turns.length,
+        meetingTurns: runtime.api.conversationMeetingGet(meeting.id).turns.length,
+        motions: runtime.api.conversationMeetingGet(meeting.id).motions.map(row => row.status),
+        motionResponses: runtime.api.conversationMeetingGet(meeting.id).motions[0].responses.map(row => row.kind),
+        motionVersions: runtime.api.conversationMeetingGet(meeting.id).motions[0].versions.length,
         meetingChairInstitution: meeting.chair.institutionType,
         modeHistory: runtime.api.conversationSessionCaseGet(sessionId).modeHistory.length,
         migratedSessions: migrated.sessions.length

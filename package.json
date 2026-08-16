@@ -74,6 +74,7 @@
     "story:dialogue-night-continuation-test": "node tests/story-dialogue-night-continuation.test.js",
     "story:character-behavior-qa": "node tools/story-character-behavior-qa.js",
     "story:build-map-raster": "node tools/make-story-map-raster.js",
+    "story:map-v2-test": "node tests/story-map-renderer-v2.test.js",
     "start": "electron .",
     "dist": "electron-builder --win --x64",
     "dist:dir": "electron-builder --win --x64 --dir",

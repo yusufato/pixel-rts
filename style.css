@@ -1314,7 +1314,13 @@ body[data-screen="story"] { background: #060a06; }
     inset: 0;
     pointer-events: none;
     z-index: 5;
-    background: repeating-linear-gradient(0deg, rgba(0,0,0,.17) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 54%, rgba(0,0,0,.52) 100%);
+    /* Harita fiziksel bir dünya yüzeyidir, CRT ekranı değil. Eski 3px tarama
+       çizgisi arazi, kıyı ve şehir atlaslarının bütün mikro ayrıntısını örtüyordu. */
+    background: radial-gradient(ellipse at center, transparent 72%, rgba(0,0,0,.20) 100%);
+}
+body[data-screen="story"] #war-room-stage::after {
+    background: radial-gradient(ellipse at center, transparent 76%, rgba(0,0,0,.12) 100%);
+    animation: none;
 }
 .story-map-label, .story-map-help, .story-map-legend { position: absolute; z-index: 8; pointer-events: none; color: var(--wr-dim); font-size: 9px; letter-spacing: 1.4px; }
 .story-map-label { top: 12px; left: 16px; padding: 5px 9px; border: 1px solid var(--wr-line); background: rgba(5,9,4,.78); color: var(--wr-amber); }
@@ -2607,6 +2613,18 @@ body[data-screen="game"][data-phase="battle"] .spawn-btn .btn-label, body[data-s
 .conversation-meeting-motion-list article.out_of_order { border-left-color: #c85f5f; }
 .conversation-meeting-motion-list header { display: flex; justify-content: space-between; gap: 8px; color: #c7a45f; font-size: 7px; }
 .conversation-meeting-motion-list p { margin: 0; color: #d0c3a8; font-size: 9px; line-height: 1.45; }
+.conversation-meeting-motion-response { display: grid; gap: 6px; padding: 5px 6px; border-left: 2px solid #78909a; background: rgba(120,144,154,.06); color: #9eafb5; font-size: 7px; }
+.conversation-meeting-motion-response > div { display: flex; justify-content: space-between; gap: 8px; }
+.conversation-meeting-motion-response footer { display: flex; flex-wrap: wrap; gap: 5px; }
+.conversation-meeting-motion-response.objection { border-left-color: #d45b5b; color: #d68181; }
+.conversation-meeting-motion-response.amendment_request { border-left-color: #d5a347; color: #d6b878; }
+.conversation-meeting-motion-response.endorsement { border-left-color: #4bc982; color: #79c99a; }
+.conversation-meeting-votes { display: grid; gap: 4px; padding: 6px; border: 1px solid rgba(77,201,129,.24); background: rgba(77,201,129,.04); color: #83cda2; font-size: 7px; }
+.conversation-meeting-vote { display: flex; justify-content: space-between; gap: 8px; color: #b8c9bf; }
+.conversation-meeting-vote-control { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.conversation-meeting-vote-control > b { width: 100%; color: #d5aa55; font-size: 7px; letter-spacing: 1px; }
+.conversation-meeting-outcome { display: grid; gap: 3px; padding: 7px; border-left: 2px solid #4dc981; background: rgba(77,201,129,.08); color: #bde7ce; font-size: 8px; }
+.conversation-meeting-outcome small { color: #6fa283; font-size: 6px; letter-spacing: .7px; }
 .conversation-meeting-turn-control { display: grid; gap: 7px; padding: 9px; border: 1px solid rgba(190,132,255,.22); }
 .conversation-meeting-turn-control label { color: #c89aff; font-size: 8px; letter-spacing: 1px; }
 .conversation-meeting-turn-control select { width: 100%; height: 32px; border: 1px solid #365348; border-radius: 3px; background: #0b1710; color: #cad8ce; font: 9px 'Share Tech Mono', monospace; }

@@ -1018,7 +1018,7 @@ function storyConversationMeetingCreate(sessionId, agendaText) {
             source: 'PLAYER_PROPOSED_AGENDA', worldMutation: false
         }],
         speakingOrderActorIds: participantActorIds.slice(), currentSpeakerIndex: 0,
-        turns: [], privateNotes: [], motions: [], votes: [], outcomeReceiptId: null,
+        turns: [], privateNotes: [], motions: [], votes: [], outcomeReceipts: [], outcomeReceiptId: null,
         visibilityMatrix: participantActorIds.map(actorId => ({
             actorId,
             visibleParticipantActorIds: participantActorIds.slice(),
@@ -1098,6 +1098,7 @@ function storyConversationMeetingAppendTurn(meeting, input) {
         visibility: 'MEETING_PUBLIC',
         sourceRefs: Array.from(new Set((input.sourceRefs || []).map(String))),
         grounding: input.grounding ? storyConversationClone(input.grounding) : null,
+        stance: input.stance ? storyConversationClone(input.stance) : null,
         knowledgePolicy: {
             agendaVisible: true, priorPublicTurnsVisible: true,
             ownPrivateContextOnly: true, otherPrivateContextReadable: false,
@@ -1164,6 +1165,430 @@ function storyConversationMeetingSendPrivateNote(meetingCaseId, recipientActorId
         meetingCase: storyConversationClone(meeting), worldMutation: false };
 }
 
+function storyConversationMeetingMotionPropose(meetingCaseId, text) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    if (meeting.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_NOT_OPEN', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const normalized = String(text == null ? '' : text).trim().replace(/\s+/g, ' ');
+    if (normalized.length < 12 || normalized.length > 600) {
+        return { ok: false, code: 'MEETING_MOTION_TEXT_INVALID', worldMutation: false };
+    }
+    if ((meeting.motions || []).length >= 6) {
+        return { ok: false, code: 'MEETING_MOTION_LIMIT', worldMutation: false };
+    }
+    const sequence = meeting.motions.length + 1;
+    const motionId = `${meeting.id}:motion:${sequence}`;
+    const versionId = `${motionId}:version:1`;
+    const motion = {
+        schemaVersion: 1, id: motionId, sequence,
+        agendaItemId: meeting.agendaItems[0].id, proposerActorId: session.playerActorId,
+        text: normalized, status: 'PENDING_CHAIR_REVIEW',
+        activeVersionId: versionId,
+        versions: [{
+            schemaVersion: 1, id: versionId, sequence: 1, text: normalized,
+            status: 'ACTIVE', createdByActorId: session.playerActorId,
+            sourceResponseId: null, chairReview: null,
+            createdAt: Number(STORY.clock) || 0, worldMutation: false
+        }],
+        chairReview: null, responses: [], voting: null, outcomeReceiptId: null,
+        proposedAt: Number(STORY.clock) || 0,
+        worldMutation: false
+    };
+    meeting.motions.push(motion);
+    meeting.updatedAt = motion.proposedAt || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_MOTION_PROPOSED', motion: storyConversationClone(motion),
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingMotionChairReview(meetingCaseId, motionId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    if (!motion) return { ok: false, code: 'MEETING_MOTION_NOT_FOUND', worldMutation: false };
+    if (motion.status !== 'PENDING_CHAIR_REVIEW') {
+        return { ok: false, code: 'MEETING_MOTION_ALREADY_REVIEWED', worldMutation: false };
+    }
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (currentActorId !== meeting.chair.actorId) {
+        return { ok: false, code: 'MEETING_CHAIR_TURN_REQUIRED', worldMutation: false };
+    }
+    const agendaTerms = storyConversationMeetingAgendaTerms(meeting.agendaItems[0].title);
+    const motionTerms = new Set(storyConversationMeetingAgendaTerms(motion.text));
+    const matchedTerms = agendaTerms.filter(term => motionTerms.has(term));
+    const inOrder = matchedTerms.length > 0;
+    const status = inOrder ? 'IN_ORDER' : 'OUT_OF_ORDER';
+    const rulingText = inOrder
+        ? 'Önerge gündemle bağlantılı ve usule uygun bulundu. Bu kayıt henüz kabul kararı değildir; oylama kapısı kapalıdır.'
+        : 'Önerge gündemle doğrulanabilir bağ kurmadığı için gündem dışı bırakıldı. Dünya kararı veya oylama oluşmadı.';
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId: meeting.chair.actorId, addressedActorId: motion.proposerActorId,
+        text: rulingText, kind: 'CHAIR_MOTION_RULING',
+        sourceRefs: [meeting.agendaItems[0].id, motion.id, meeting.chair.institutionId]
+    });
+    if (!turnResult.ok) return turnResult;
+    motion.status = status;
+    motion.chairReview = {
+        chairActorId: meeting.chair.actorId, chairInstitutionId: meeting.chair.institutionId,
+        authoritySource: 'CANONICAL_INSTITUTION_OFFICE',
+        matchedAgendaTerms: matchedTerms.slice(0, 12),
+        rulingTurnId: turnResult.turn.id, reviewedAt: Number(STORY.clock) || 0,
+        worldMutation: false
+    };
+    const activeVersion = motion.versions.find(row => row.id === motion.activeVersionId);
+    if (activeVersion) activeVersion.chairReview = storyConversationClone(motion.chairReview);
+    return { ok: true, code: `MEETING_MOTION_${status}`, motion: storyConversationClone(motion),
+        turn: turnResult.turn, meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingMotionRespond(meetingCaseId, motionId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    if (!motion) return { ok: false, code: 'MEETING_MOTION_NOT_FOUND', worldMutation: false };
+    if (motion.status !== 'IN_ORDER') {
+        return { ok: false, code: 'MEETING_MOTION_NOT_IN_ORDER', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const actorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (actorId === session.playerActorId) {
+        return { ok: false, code: 'MEETING_CHARACTER_TURN_REQUIRED', worldMutation: false };
+    }
+    if ((motion.responses || []).some(row => row.actorId === actorId)) {
+        return { ok: false, code: 'MEETING_MOTION_RESPONSE_ALREADY_RECORDED', worldMutation: false };
+    }
+    const participant = meeting.participants.find(row => row.actorId === actorId);
+    const grounding = storyConversationMeetingBeliefGrounding(meeting, participant);
+    const stance = storyConversationMeetingStanceEvaluate(meeting, participant, grounding, session.playerActorId);
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const groundedFact = grounding && identityLedger && identityLedger.worldFacts[grounding.worldFactId];
+    const explicitPosition = String(groundedFact && groundedFact.position || '').toUpperCase();
+    const kind = explicitPosition === 'OPPOSE' || (!explicitPosition && stance && stance.direction === 'OPPOSE')
+        ? 'OBJECTION'
+        : ['AMEND', 'CONDITIONAL'].includes(explicitPosition)
+            || (!explicitPosition && stance && ['LEAN_OPPOSE', 'UNDECIDED'].includes(stance.direction))
+            ? 'AMENDMENT_REQUEST' : 'ENDORSEMENT';
+    const summary = grounding && grounding.summary ? ` Kendi kaydım: “${grounding.summary}”` : '';
+    const text = kind === 'OBJECTION'
+        ? `Bu önergeye itiraz ediyorum.${summary} İtirazım henüz oy veya dünya kararı değildir.`
+        : kind === 'AMENDMENT_REQUEST'
+            ? `Önergenin kapsam, sorumluluk ve denetim koşulları açık yazılmadan destek vermiyorum.${summary} Değişiklik talebimi tutanağa geçiriyorum.`
+            : `Önergenin gündem doğrultusunda ilerlemesini destekliyorum.${summary} Bu söz henüz oy değildir.`;
+    const sequence = motion.responses.length + 1;
+    const responseId = `${motion.id}:response:${sequence}`;
+    const sourceRefs = [meeting.agendaItems[0].id, motion.id]
+        .concat(grounding ? [grounding.beliefId, grounding.worldFactId] : [])
+        .concat(stance ? stance.sourceRefs : []);
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId, addressedActorId: motion.proposerActorId, text,
+        kind: `MOTION_${kind}`, sourceRefs, grounding, stance
+    });
+    if (!turnResult.ok) return turnResult;
+    const response = {
+        schemaVersion: 1, id: responseId, sequence, motionId: motion.id,
+        motionVersionId: motion.activeVersionId,
+        actorId, kind, status: kind === 'ENDORSEMENT' ? 'NOTED' : 'OPEN',
+        stanceDirection: stance && stance.direction || 'UNDECIDED',
+        sourceRefs: Array.from(new Set(sourceRefs.map(String))),
+        turnId: turnResult.turn.id, referral: null, resolution: null,
+        createdAt: Number(STORY.clock) || 0,
+        worldMutation: false
+    };
+    motion.responses.push(response);
+    return { ok: true, code: `MEETING_MOTION_${kind}_RECORDED`, response: storyConversationClone(response),
+        turn: turnResult.turn, motion: storyConversationClone(motion),
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingMotionAmendmentDecision(meetingCaseId, motionId, responseId, decision, revisedText) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    if (!motion) return { ok: false, code: 'MEETING_MOTION_NOT_FOUND', worldMutation: false };
+    const response = (motion.responses || []).find(row => row.id === String(responseId));
+    if (!response || response.kind !== 'AMENDMENT_REQUEST') {
+        return { ok: false, code: 'MEETING_AMENDMENT_NOT_FOUND', worldMutation: false };
+    }
+    if (response.status !== 'OPEN') {
+        return { ok: false, code: 'MEETING_AMENDMENT_ALREADY_DECIDED', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (currentActorId !== session.playerActorId) {
+        return { ok: false, code: 'MEETING_PLAYER_TURN_REQUIRED', worldMutation: false };
+    }
+    const normalizedDecision = String(decision || '').toUpperCase();
+    if (!['ACCEPT', 'REJECT'].includes(normalizedDecision)) {
+        return { ok: false, code: 'MEETING_AMENDMENT_DECISION_INVALID', worldMutation: false };
+    }
+    let normalizedText = null;
+    if (normalizedDecision === 'ACCEPT') {
+        normalizedText = String(revisedText == null ? '' : revisedText).trim().replace(/\s+/g, ' ');
+        const agendaTerms = storyConversationMeetingAgendaTerms(meeting.agendaItems[0].title);
+        const revisedTerms = new Set(storyConversationMeetingAgendaTerms(normalizedText));
+        if (normalizedText.length < 12 || normalizedText.length > 600 || normalizedText === motion.text
+            || !agendaTerms.some(term => revisedTerms.has(term))) {
+            return { ok: false, code: 'MEETING_AMENDMENT_TEXT_INVALID', worldMutation: false };
+        }
+    }
+    const turnKind = normalizedDecision === 'ACCEPT'
+        ? 'MOTION_AMENDMENT_ACCEPTED' : 'MOTION_AMENDMENT_REJECTED';
+    const turnText = normalizedDecision === 'ACCEPT'
+        ? 'Değişiklik talebini kabul ediyorum. Güncellenmiş önerge yeniden başkan incelemesine sunulacaktır; henüz oy veya karar oluşmadı.'
+        : 'Değişiklik talebini reddediyorum. Mevcut önerge metni korunuyor; henüz oy veya karar oluşmadı.';
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId: session.playerActorId, addressedActorId: response.actorId,
+        text: turnText, kind: turnKind,
+        sourceRefs: [meeting.agendaItems[0].id, motion.id, response.id, motion.activeVersionId]
+    });
+    if (!turnResult.ok) return turnResult;
+    response.status = normalizedDecision === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED';
+    response.resolution = {
+        decision: normalizedDecision, decidedByActorId: session.playerActorId,
+        decisionTurnId: turnResult.turn.id, decidedAt: Number(STORY.clock) || 0,
+        worldMutation: false
+    };
+    if (normalizedDecision === 'ACCEPT') {
+        const previousVersion = motion.versions.find(row => row.id === motion.activeVersionId);
+        if (previousVersion) previousVersion.status = 'SUPERSEDED';
+        const versionSequence = motion.versions.length + 1;
+        const version = {
+            schemaVersion: 1, id: `${motion.id}:version:${versionSequence}`, sequence: versionSequence,
+            text: normalizedText, status: 'ACTIVE', createdByActorId: session.playerActorId,
+            sourceResponseId: response.id, chairReview: null,
+            createdAt: Number(STORY.clock) || 0, worldMutation: false
+        };
+        motion.versions.push(version);
+        motion.activeVersionId = version.id;
+        motion.text = normalizedText;
+        motion.status = 'PENDING_CHAIR_REVIEW';
+        motion.chairReview = null;
+    }
+    return { ok: true, code: `MEETING_AMENDMENT_${response.status}`,
+        response: storyConversationClone(response), motion: storyConversationClone(motion),
+        turn: turnResult.turn, meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingObjectionRefer(meetingCaseId, motionId, responseId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    const response = motion && (motion.responses || []).find(row => row.id === String(responseId));
+    if (!response || response.kind !== 'OBJECTION') {
+        return { ok: false, code: 'MEETING_OBJECTION_NOT_FOUND', worldMutation: false };
+    }
+    if (response.status !== 'OPEN') {
+        return { ok: false, code: 'MEETING_OBJECTION_NOT_OPEN', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (!session || currentActorId !== session.playerActorId) {
+        return { ok: false, code: 'MEETING_PLAYER_TURN_REQUIRED', worldMutation: false };
+    }
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId: session.playerActorId, addressedActorId: meeting.chair.actorId,
+        text: 'Açık itirazı usul kararı için toplantı başkanına sevk ediyorum. Bu sevk itirazı silmez ve henüz oylama başlatmaz.',
+        kind: 'MOTION_OBJECTION_REFERRED',
+        sourceRefs: [meeting.agendaItems[0].id, motion.id, response.id, response.motionVersionId]
+    });
+    if (!turnResult.ok) return turnResult;
+    response.status = 'REFERRED_TO_CHAIR';
+    response.referral = {
+        referredByActorId: session.playerActorId, referralTurnId: turnResult.turn.id,
+        referredAt: Number(STORY.clock) || 0, worldMutation: false
+    };
+    return { ok: true, code: 'MEETING_OBJECTION_REFERRED_TO_CHAIR',
+        response: storyConversationClone(response), turn: turnResult.turn,
+        motion: storyConversationClone(motion), meetingCase: storyConversationClone(meeting),
+        worldMutation: false };
+}
+
+function storyConversationMeetingObjectionChairRule(meetingCaseId, motionId, responseId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    const response = motion && (motion.responses || []).find(row => row.id === String(responseId));
+    if (!response || response.kind !== 'OBJECTION') {
+        return { ok: false, code: 'MEETING_OBJECTION_NOT_FOUND', worldMutation: false };
+    }
+    if (response.status !== 'REFERRED_TO_CHAIR') {
+        return { ok: false, code: 'MEETING_OBJECTION_NOT_REFERRED', worldMutation: false };
+    }
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (currentActorId !== meeting.chair.actorId) {
+        return { ok: false, code: 'MEETING_CHAIR_TURN_REQUIRED', worldMutation: false };
+    }
+    const ruling = response.motionVersionId !== motion.activeVersionId
+        ? 'MOOT_BY_REVISION' : 'DISSENT_RECORDED';
+    const text = ruling === 'MOOT_BY_REVISION'
+        ? 'İtiraz önceki önerge sürümüne aittir. Metin değiştiği için itiraz revizyonla konusuz kaldı; yeni sürüme otomatik karşı oy sayılmaz.'
+        : 'İtiraz güncel önerge sürümüne aittir. Muhalefet şerhi korunarak usul bakımından oylama önüne taşınabilir; bu karar itirazı destek oyuna çevirmez.';
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId: meeting.chair.actorId, addressedActorId: response.actorId,
+        text, kind: 'MOTION_OBJECTION_CHAIR_RULING',
+        sourceRefs: [meeting.agendaItems[0].id, motion.id, response.id,
+            response.motionVersionId, motion.activeVersionId, meeting.chair.institutionId]
+    });
+    if (!turnResult.ok) return turnResult;
+    response.status = 'RESOLVED_FOR_PROCEDURE';
+    response.resolution = {
+        ruling, chairActorId: meeting.chair.actorId,
+        chairInstitutionId: meeting.chair.institutionId,
+        authoritySource: 'CANONICAL_INSTITUTION_OFFICE',
+        rulingTurnId: turnResult.turn.id, decidedAt: Number(STORY.clock) || 0,
+        preservesDissent: ruling === 'DISSENT_RECORDED', worldMutation: false
+    };
+    return { ok: true, code: `MEETING_OBJECTION_${ruling}`,
+        response: storyConversationClone(response), turn: turnResult.turn,
+        motion: storyConversationClone(motion), meetingCase: storyConversationClone(meeting),
+        worldMutation: false };
+}
+
+function storyConversationMeetingMotionOpenVote(meetingCaseId, motionId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    if (!motion) return { ok: false, code: 'MEETING_MOTION_NOT_FOUND', worldMutation: false };
+    if (motion.status !== 'IN_ORDER' || !motion.chairReview
+        || !(motion.versions || []).some(version => version.id === motion.activeVersionId
+            && version.status === 'ACTIVE' && version.chairReview)) {
+        return { ok: false, code: 'MEETING_VOTE_CURRENT_VERSION_NOT_IN_ORDER', worldMutation: false };
+    }
+    if (motion.voting) return { ok: false, code: 'MEETING_VOTE_ALREADY_OPENED', worldMutation: false };
+    if ((motion.responses || []).some(response => response.kind === 'AMENDMENT_REQUEST'
+        && response.status === 'OPEN')) {
+        return { ok: false, code: 'MEETING_VOTE_OPEN_AMENDMENT', worldMutation: false };
+    }
+    if ((motion.responses || []).some(response => response.kind === 'OBJECTION'
+        && response.status !== 'RESOLVED_FOR_PROCEDURE')) {
+        return { ok: false, code: 'MEETING_VOTE_UNRESOLVED_OBJECTION', worldMutation: false };
+    }
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (currentActorId !== meeting.chair.actorId) {
+        return { ok: false, code: 'MEETING_CHAIR_TURN_REQUIRED', worldMutation: false };
+    }
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId: meeting.chair.actorId, addressedActorId: null,
+        text: 'Güncel önerge sürümü usule uygun ve açık usul borcu kalmadı. Oylamayı açıyorum; her katılımcı yalnız kendi söz sırasında bir oy kullanacaktır.',
+        kind: 'MOTION_VOTE_OPENED',
+        sourceRefs: [meeting.agendaItems[0].id, motion.id, motion.activeVersionId,
+            meeting.chair.institutionId]
+    });
+    if (!turnResult.ok) return turnResult;
+    motion.voting = {
+        schemaVersion: 1, status: 'OPEN', motionVersionId: motion.activeVersionId,
+        openedByActorId: meeting.chair.actorId,
+        chairInstitutionId: meeting.chair.institutionId,
+        authoritySource: 'CANONICAL_INSTITUTION_OFFICE', openTurnId: turnResult.turn.id,
+        openedAt: Number(STORY.clock) || 0, completedAt: null, worldMutation: false
+    };
+    return { ok: true, code: 'MEETING_MOTION_VOTE_OPENED', voting: storyConversationClone(motion.voting),
+        motion: storyConversationClone(motion), turn: turnResult.turn,
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingMotionCastVote(meetingCaseId, motionId, choice) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    if (!motion) return { ok: false, code: 'MEETING_MOTION_NOT_FOUND', worldMutation: false };
+    if (!motion.voting || motion.voting.status !== 'OPEN'
+        || motion.voting.motionVersionId !== motion.activeVersionId) {
+        return { ok: false, code: 'MEETING_VOTE_NOT_OPEN', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const actorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if ((meeting.votes || []).some(vote => vote.motionId === motion.id
+        && vote.motionVersionId === motion.activeVersionId && vote.actorId === actorId)) {
+        return { ok: false, code: 'MEETING_VOTE_ALREADY_CAST', worldMutation: false };
+    }
+    const participant = meeting.participants.find(row => row.actorId === actorId);
+    if (!participant) return { ok: false, code: 'MEETING_PARTICIPANT_NOT_FOUND', worldMutation: false };
+    const playerVote = actorId === session.playerActorId;
+    let normalizedChoice = String(choice || '').toUpperCase();
+    let basis = 'PLAYER_EXPLICIT_CHOICE';
+    let sourceRefs = [meeting.agendaItems[0].id, motion.id, motion.activeVersionId];
+    if (playerVote) {
+        if (!['YES', 'NO', 'ABSTAIN'].includes(normalizedChoice)) {
+            return { ok: false, code: 'MEETING_PLAYER_VOTE_INVALID', worldMutation: false };
+        }
+    } else {
+        const response = (motion.responses || []).find(row => row.actorId === actorId
+            && row.motionVersionId === motion.activeVersionId);
+        const grounding = storyConversationMeetingBeliefGrounding(meeting, participant);
+        const stance = storyConversationMeetingStanceEvaluate(meeting, participant, grounding,
+            session.playerActorId);
+        if (response && response.kind === 'ENDORSEMENT') normalizedChoice = 'YES';
+        else if (response && response.kind === 'OBJECTION'
+            && response.resolution && response.resolution.preservesDissent) normalizedChoice = 'NO';
+        else if (response && response.kind === 'AMENDMENT_REQUEST' && response.status === 'REJECTED') {
+            normalizedChoice = 'NO';
+        } else if (stance && ['SUPPORT', 'LEAN_SUPPORT'].includes(stance.direction)) normalizedChoice = 'YES';
+        else if (stance && ['OPPOSE', 'LEAN_OPPOSE'].includes(stance.direction)) normalizedChoice = 'NO';
+        else normalizedChoice = 'ABSTAIN';
+        basis = response ? `RECORDED_${response.kind}` : 'MEETING_STANCE';
+        sourceRefs = sourceRefs.concat(response ? [response.id].concat(response.sourceRefs || [])
+            : stance ? stance.sourceRefs || [] : []);
+    }
+    sourceRefs = Array.from(new Set(sourceRefs.map(String)));
+    const choiceLabels = { YES: 'kabul', NO: 'ret', ABSTAIN: 'çekimser' };
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId, addressedActorId: meeting.chair.actorId,
+        text: `Oyumu ${choiceLabels[normalizedChoice]} yönünde kullanıyorum. Bu oy yalnız güncel önerge sürümüne aittir.`,
+        kind: 'MOTION_VOTE', sourceRefs
+    });
+    if (!turnResult.ok) return turnResult;
+    const sequence = meeting.votes.length + 1;
+    const vote = {
+        schemaVersion: 1, id: `${meeting.id}:vote:${sequence}`, sequence,
+        motionId: motion.id, motionVersionId: motion.activeVersionId, actorId,
+        choice: normalizedChoice, basis, sourceRefs, turnId: turnResult.turn.id,
+        castAt: Number(STORY.clock) || 0, worldMutation: false
+    };
+    meeting.votes.push(vote);
+    const motionVotes = meeting.votes.filter(row => row.motionId === motion.id
+        && row.motionVersionId === motion.activeVersionId);
+    let outcomeReceipt = null;
+    if (motionVotes.length === meeting.participantActorIds.length) {
+        const tally = { yes: 0, no: 0, abstain: 0 };
+        for (const row of motionVotes) tally[row.choice.toLowerCase()]++;
+        const decision = tally.yes > tally.no ? 'ADOPTED' : 'REJECTED';
+        const receiptSequence = meeting.outcomeReceipts.length + 1;
+        outcomeReceipt = {
+            schemaVersion: 1, id: `${meeting.id}:outcome:${receiptSequence}`, sequence: receiptSequence,
+            meetingCaseId: meeting.id, agendaItemId: motion.agendaItemId, motionId: motion.id,
+            motionVersionId: motion.activeVersionId, decision, tally,
+            voteIds: motionVotes.map(row => row.id), completedByTurnId: turnResult.turn.id,
+            completedAt: Number(STORY.clock) || 0,
+            authoritySource: 'MEETING_RECORDED_VOTE', physicalMutation: false, worldMutation: false
+        };
+        meeting.outcomeReceipts.push(outcomeReceipt);
+        meeting.outcomeReceiptId = outcomeReceipt.id;
+        motion.outcomeReceiptId = outcomeReceipt.id;
+        motion.voting.status = 'COMPLETED';
+        motion.voting.completedAt = outcomeReceipt.completedAt;
+    }
+    return { ok: true, code: outcomeReceipt ? `MEETING_MOTION_${outcomeReceipt.decision}` : 'MEETING_VOTE_RECORDED',
+        vote: storyConversationClone(vote), outcomeReceipt: storyConversationClone(outcomeReceipt),
+        motion: storyConversationClone(motion), turn: turnResult.turn,
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
 function storyConversationMeetingAgendaTerms(text) {
     const stop = new Set(['acik', 'icin', 'ile', 've', 'veya', 'bir', 'bu', 'icin', 'uzere',
         'gibi', 'daha', 'olan', 'olarak', 'icin', 'sonra', 'once']);
@@ -1208,7 +1633,100 @@ function storyConversationMeetingBeliefGrounding(meeting, participant) {
     };
 }
 
-function storyConversationMeetingCharacterText(meeting, participant, grounding) {
+function storyConversationMeetingAgendaProfile(title) {
+    const folded = String(title || '').toLocaleLowerCase('tr-TR')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i');
+    const has = rows => rows.some(row => folded.includes(row));
+    return {
+        economy: has(['sanayi', 'ekonomi', 'yatirim', 'kaynak', 'butce', 'uretim', 'ticaret', 'sirket']),
+        security: has(['ordu', 'asker', 'guvenlik', 'savunma', 'harekat', 'tehdit', 'sinir']),
+        publicService: has(['halk', 'refah', 'saglik', 'egitim', 'konut', 'altyapi', 'belediye']),
+        governance: has(['kurum', 'yetki', 'denetim', 'sorumluluk', 'kanun', 'konsey', 'yonetim'])
+    };
+}
+
+function storyConversationMeetingStanceEvaluate(meeting, participant, grounding, playerActorId) {
+    if (!meeting || !participant || participant.actorId === playerActorId
+        || typeof storyCharacterIdentityView !== 'function') return null;
+    const identity = storyCharacterIdentityView(participant.actorId);
+    if (!identity) return null;
+    const profile = storyConversationMeetingAgendaProfile(meeting.agendaItems[0].title);
+    const axes = identity.coreAxes || {};
+    const values = identity.values || {};
+    const centered = value => (Number(value) || 50) - 50;
+    let score = 0;
+    const reasons = [];
+    if (profile.economy) {
+        const economyFit = ['COMPANY_OWNER', 'COMPANY_EXECUTIVE'].includes(identity.role) ? 1350 : 500;
+        score += economyFit + centered(axes.stateMarketOrientation) * 28;
+        reasons.push('ECONOMIC_INTEREST');
+    }
+    if (profile.security) {
+        score += centered(values.hawkishness) * 34
+            + (identity.role === 'COMMANDER' ? 1050 : identity.role === 'AGENT' ? 650 : 0);
+        reasons.push('SECURITY_POSTURE');
+    }
+    if (profile.publicService) {
+        score += centered(values.publicResponsiveness) * 30;
+        reasons.push('PUBLIC_CONSEQUENCE');
+    }
+    if (profile.governance) {
+        score += centered(axes.institutionalPosture) * 32;
+        reasons.push('INSTITUTIONAL_FIT');
+    }
+    const relation = typeof storyRelationshipView === 'function'
+        ? storyRelationshipView(participant.actorId, playerActorId) : null;
+    if (relation) {
+        const relationshipContribution = (Number(relation.trustBps) - 5000) * 0.34
+            + (Number(relation.respectBps) - 5000) * 0.18
+            - (Number(relation.hostilityBps) - 5000) * 0.31;
+        score += relationshipContribution;
+        reasons.push(relationshipContribution >= 0 ? 'WORKING_RELATIONSHIP' : 'RELATIONSHIP_RESERVATION');
+    }
+    if (grounding) {
+        const fact = typeof storyCharacterIdentityEnsure === 'function'
+            ? storyCharacterIdentityEnsure().worldFacts[grounding.worldFactId] : null;
+        const explicitPosition = String(fact && fact.position || '').toUpperCase();
+        if (explicitPosition === 'SUPPORT') score += 4200;
+        else if (explicitPosition === 'OPPOSE') score -= 4200;
+        reasons.push('SOURCED_ACTOR_BELIEF');
+    }
+    if (!profile.economy && !profile.security && !profile.publicService && !profile.governance) {
+        reasons.push('AGENDA_FIT_UNCLEAR');
+    }
+    score = Math.max(-10000, Math.min(10000, Math.round(score)));
+    const direction = score >= 3000 ? 'SUPPORT' : score >= 900 ? 'LEAN_SUPPORT'
+        : score <= -3000 ? 'OPPOSE' : score <= -900 ? 'LEAN_OPPOSE' : 'UNDECIDED';
+    const confidenceBps = Math.max(3000, Math.min(9800, Math.round(3800 + Math.abs(score) * 0.42
+        + (grounding ? grounding.confidenceBps * 0.18 : 0))));
+    const sourceRefs = [meeting.agendaItems[0].id, identity.id]
+        .concat(relation && relation.id ? [relation.id] : [])
+        .concat(grounding ? [grounding.beliefId, grounding.worldFactId] : []);
+    return {
+        schemaVersion: 1, direction, scoreBps: score, confidenceBps,
+        publicReasonCodes: Array.from(new Set(reasons)),
+        sourceRefs: Array.from(new Set(sourceRefs.map(String))),
+        rawPersonalityAxesExposed: false, rawRelationshipAxesExposed: false,
+        computedAt: Number(STORY.clock) || 0, worldMutation: false
+    };
+}
+
+function storyConversationMeetingStancePreview(meetingCaseId, actorId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    const session = storyConversationSessionFind(meeting.sessionId);
+    const participant = meeting.participants.find(row => row.actorId === String(actorId || ''));
+    if (!session || !participant) return { ok: false, code: 'MEETING_PARTICIPANT_NOT_FOUND', worldMutation: false };
+    const grounding = storyConversationMeetingBeliefGrounding(meeting, participant);
+    const stance = storyConversationMeetingStanceEvaluate(
+        meeting, participant, grounding, session.playerActorId
+    );
+    return stance ? { ok: true, code: 'MEETING_STANCE_READY', stance, worldMutation: false }
+        : { ok: false, code: 'MEETING_STANCE_UNAVAILABLE', worldMutation: false };
+}
+
+function storyConversationMeetingCharacterText(meeting, participant, grounding, stance) {
     const agenda = meeting.agendaItems[0].title;
     const previousCount = meeting.turns.filter(row => row.actorId === participant.actorId
         && row.kind === 'CHARACTER_PROCEDURAL_STATEMENT').length;
@@ -1223,7 +1741,14 @@ function storyConversationMeetingCharacterText(meeting, participant, grounding) 
             'Bu kaynağın sınırını aşmadan gündem değerlendirmemde dayanak olarak kullanıyorum.',
             'Diğer katılımcıların özel bilgisine erişmeden görüşümü bu kayıtla sınırlıyorum.'
         ];
-        return `${sourced} ${endings[previousCount % endings.length]}`;
+        const posture = stance && ({
+            SUPPORT: 'Bu nedenle gündemdeki çerçeveyi destekliyorum.',
+            LEAN_SUPPORT: 'Bu nedenle çerçeveyi desteklemeye yakınım; koşulların açık yazılmasını istiyorum.',
+            UNDECIDED: 'Bu kayıt tek başına karar vermeme yetmiyor; tutumum şimdilik açık.',
+            LEAN_OPPOSE: 'Bu nedenle çerçeveye mesafeliyim; çekinceler giderilmeden destek vermem.',
+            OPPOSE: 'Bu nedenle mevcut çerçeveye karşıyım.'
+        })[stance.direction];
+        return `${sourced} ${posture || ''} ${endings[previousCount % endings.length]}`.replace(/\s+/g, ' ').trim();
     }
     let candidates;
     if (participant.actorId === meeting.chair.actorId) candidates = [
@@ -1266,13 +1791,17 @@ function storyConversationMeetingGenerateCharacterTurn(meetingCaseId, addressedA
     }
     const participant = meeting.participants.find(row => row.actorId === actorId);
     const grounding = storyConversationMeetingBeliefGrounding(meeting, participant);
+    const stance = storyConversationMeetingStanceEvaluate(
+        meeting, participant, grounding, session && session.playerActorId
+    );
     return storyConversationMeetingAppendTurn(meeting, {
-        actorId, addressedActorId, text: storyConversationMeetingCharacterText(meeting, participant, grounding),
+        actorId, addressedActorId, text: storyConversationMeetingCharacterText(meeting, participant, grounding, stance),
         kind: 'CHARACTER_PROCEDURAL_STATEMENT',
         sourceRefs: [meeting.agendaItems[0].id].concat(
             actorId === meeting.chair.actorId ? [meeting.chair.institutionId] : [],
-            grounding ? [grounding.beliefId, grounding.worldFactId] : []),
-        grounding
+            grounding ? [grounding.beliefId, grounding.worldFactId] : [],
+            stance ? stance.sourceRefs : []),
+        grounding, stance
     });
 }
 
@@ -1293,9 +1822,33 @@ function storyConversationSessionMigrateLedger(saved) {
         if (!Array.isArray(meeting.privateNotes)) meeting.privateNotes = [];
         for (const turn of meeting.turns) {
             if (!Object.prototype.hasOwnProperty.call(turn, 'grounding')) turn.grounding = null;
+            if (!Object.prototype.hasOwnProperty.call(turn, 'stance')) turn.stance = null;
         }
         if (!Array.isArray(meeting.motions)) meeting.motions = [];
+        for (const motion of meeting.motions) {
+            if (!Array.isArray(motion.responses)) motion.responses = [];
+            if (!Object.prototype.hasOwnProperty.call(motion, 'voting')) motion.voting = null;
+            if (!Object.prototype.hasOwnProperty.call(motion, 'outcomeReceiptId')) motion.outcomeReceiptId = null;
+            if (!Array.isArray(motion.versions) || !motion.versions.length) {
+                motion.versions = [{
+                    schemaVersion: 1, id: `${motion.id}:version:1`, sequence: 1,
+                    text: motion.text, status: 'ACTIVE', createdByActorId: motion.proposerActorId,
+                    sourceResponseId: null, chairReview: storyConversationClone(motion.chairReview || null),
+                    createdAt: Number(motion.proposedAt) || 0, worldMutation: false
+                }];
+                motion.activeVersionId = motion.versions[0].id;
+            }
+            for (const response of motion.responses) {
+                if (!Object.prototype.hasOwnProperty.call(response, 'motionVersionId')) {
+                    response.motionVersionId = motion.versions[0].id;
+                }
+                if (!Object.prototype.hasOwnProperty.call(response, 'resolution')) response.resolution = null;
+                if (!Object.prototype.hasOwnProperty.call(response, 'referral')) response.referral = null;
+            }
+        }
         if (!Array.isArray(meeting.votes)) meeting.votes = [];
+        if (!Array.isArray(meeting.outcomeReceipts)) meeting.outcomeReceipts = [];
+        if (!Object.prototype.hasOwnProperty.call(meeting, 'outcomeReceiptId')) meeting.outcomeReceiptId = null;
         const participantActorIds = Array.isArray(meeting.participantActorIds)
             ? meeting.participantActorIds.slice() : [];
         const agendaIds = (meeting.agendaItems || []).map(row => row.id);
@@ -4176,6 +4729,19 @@ function storyConversationSessionValidateLedger(candidate) {
                     || !turn.sourceRefs.includes(turn.grounding.beliefId)
                     || !turn.sourceRefs.includes(turn.grounding.worldFactId)
                     || !['PUBLIC', 'INSTITUTIONAL'].includes(turn.grounding.visibility)))
+                || (turn.stance != null && (turn.stance.schemaVersion !== 1
+                    || !['SUPPORT', 'LEAN_SUPPORT', 'UNDECIDED', 'LEAN_OPPOSE', 'OPPOSE']
+                        .includes(turn.stance.direction)
+                    || !Number.isInteger(turn.stance.scoreBps) || turn.stance.scoreBps < -10000
+                    || turn.stance.scoreBps > 10000
+                    || !Number.isInteger(turn.stance.confidenceBps) || turn.stance.confidenceBps < 0
+                    || turn.stance.confidenceBps > 10000
+                    || !Array.isArray(turn.stance.publicReasonCodes)
+                    || !Array.isArray(turn.stance.sourceRefs)
+                    || turn.stance.sourceRefs.some(ref => !turn.sourceRefs.includes(ref))
+                    || turn.stance.rawPersonalityAxesExposed !== false
+                    || turn.stance.rawRelationshipAxesExposed !== false
+                    || turn.stance.worldMutation !== false))
                 || !turn.knowledgePolicy || turn.knowledgePolicy.ownPrivateContextOnly !== true
                 || turn.knowledgePolicy.otherPrivateContextReadable !== false
                 || turn.knowledgePolicy.rawWorldRead !== false)) {
@@ -4210,9 +4776,197 @@ function storyConversationSessionValidateLedger(candidate) {
                 || row.mayReadOtherPrivateContext !== false)) {
             add('MEETING_VISIBILITY_MATRIX', `${at}.visibilityMatrix`);
         }
-        if (!Array.isArray(meeting.motions)
-            || !Array.isArray(meeting.votes) || meeting.outcomeReceiptId !== null
-            || meeting.worldMutation !== false) add('MEETING_DECISION_BOUNDARY', at);
+        const meetingVotes = Array.isArray(meeting.votes) ? meeting.votes : [];
+        const outcomeReceipts = Array.isArray(meeting.outcomeReceipts) ? meeting.outcomeReceipts : [];
+        if (!Array.isArray(meeting.motions) || meeting.motions.length > 6
+            || meeting.motions.some((motion, motionIndex) => !motion
+                || motion.id !== `${meeting.id}:motion:${motionIndex + 1}`
+                || motion.sequence !== motionIndex + 1
+                || motion.agendaItemId !== meeting.agendaItems[0].id
+                || motion.proposerActorId !== (sourceSession && sourceSession.playerActorId)
+                || typeof motion.text !== 'string' || motion.text.length < 12 || motion.text.length > 600
+                || !Number.isFinite(motion.proposedAt)
+                || !Array.isArray(motion.versions) || motion.versions.length < 1
+                || motion.versions.length > 7
+                || motion.versions.filter(version => version.status === 'ACTIVE').length !== 1
+                || !motion.versions.some(version => version.id === motion.activeVersionId
+                    && version.status === 'ACTIVE' && version.text === motion.text)
+                || motion.versions.some((version, versionIndex) => !version
+                    || version.id !== `${motion.id}:version:${versionIndex + 1}`
+                    || version.sequence !== versionIndex + 1
+                    || typeof version.text !== 'string' || version.text.length < 12 || version.text.length > 600
+                    || !['ACTIVE', 'SUPERSEDED'].includes(version.status)
+                    || version.createdByActorId !== (sourceSession && sourceSession.playerActorId)
+                    || (versionIndex === 0 && version.sourceResponseId !== null)
+                    || (versionIndex > 0 && !motion.responses.some(response =>
+                        response.id === version.sourceResponseId && response.kind === 'AMENDMENT_REQUEST'
+                        && response.status === 'ACCEPTED'))
+                    || !Number.isFinite(version.createdAt) || version.worldMutation !== false)
+                || !Array.isArray(motion.responses) || motion.responses.length > meeting.participantActorIds.length
+                || (motion.status === 'OUT_OF_ORDER' && motion.responses.length !== 0)
+                || (motion.status === 'PENDING_CHAIR_REVIEW' && motion.versions.length === 1
+                    && motion.responses.length !== 0)
+                || motion.responses.some((response, responseIndex) => !response
+                    || response.id !== `${motion.id}:response:${responseIndex + 1}`
+                    || response.sequence !== responseIndex + 1 || response.motionId !== motion.id
+                    || !meeting.participantActorIds.includes(response.actorId)
+                    || response.actorId === (sourceSession && sourceSession.playerActorId)
+                    || !motion.versions.some(version => version.id === response.motionVersionId)
+                    || motion.responses.some((other, otherIndex) => otherIndex < responseIndex
+                        && other.actorId === response.actorId)
+                    || !['OBJECTION', 'AMENDMENT_REQUEST', 'ENDORSEMENT'].includes(response.kind)
+                    || (response.kind === 'ENDORSEMENT' && response.status !== 'NOTED')
+                    || (response.kind === 'OBJECTION'
+                        && !['OPEN', 'REFERRED_TO_CHAIR', 'RESOLVED_FOR_PROCEDURE'].includes(response.status))
+                    || (response.kind !== 'OBJECTION' && response.referral != null)
+                    || (response.kind === 'OBJECTION' && response.status === 'OPEN'
+                        && (response.referral != null || response.resolution != null))
+                    || (response.kind === 'OBJECTION' && response.status !== 'OPEN'
+                        && (!response.referral
+                            || response.referral.referredByActorId !== (sourceSession && sourceSession.playerActorId)
+                            || !publicTurnIds.includes(response.referral.referralTurnId)
+                            || !meeting.turns.some(turn => turn.id === response.referral.referralTurnId
+                                && turn.actorId === (sourceSession && sourceSession.playerActorId)
+                                && turn.kind === 'MOTION_OBJECTION_REFERRED')
+                            || !Number.isFinite(response.referral.referredAt)
+                            || response.referral.worldMutation !== false))
+                    || (response.kind === 'OBJECTION' && response.status === 'REFERRED_TO_CHAIR'
+                        && response.resolution != null)
+                    || (response.kind === 'OBJECTION' && response.status === 'RESOLVED_FOR_PROCEDURE'
+                        && (!response.resolution
+                            || !['MOOT_BY_REVISION', 'DISSENT_RECORDED'].includes(response.resolution.ruling)
+                            || response.resolution.chairActorId !== meeting.chair.actorId
+                            || response.resolution.chairInstitutionId !== meeting.chair.institutionId
+                            || response.resolution.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE'
+                            || !publicTurnIds.includes(response.resolution.rulingTurnId)
+                            || !meeting.turns.some(turn => turn.id === response.resolution.rulingTurnId
+                                && turn.actorId === meeting.chair.actorId
+                                && turn.kind === 'MOTION_OBJECTION_CHAIR_RULING')
+                            || response.resolution.preservesDissent
+                                !== (response.resolution.ruling === 'DISSENT_RECORDED')
+                            || !Number.isFinite(response.resolution.decidedAt)
+                            || response.resolution.worldMutation !== false))
+                    || (response.kind === 'AMENDMENT_REQUEST'
+                        && !['OPEN', 'ACCEPTED', 'REJECTED'].includes(response.status))
+                    || (response.kind === 'AMENDMENT_REQUEST' && response.status === 'OPEN'
+                        && response.resolution != null)
+                    || (response.kind === 'AMENDMENT_REQUEST' && response.status !== 'OPEN'
+                        && (!response.resolution
+                            || response.resolution.decision !== (response.status === 'ACCEPTED' ? 'ACCEPT' : 'REJECT')
+                            || response.resolution.decidedByActorId !== (sourceSession && sourceSession.playerActorId)
+                            || !publicTurnIds.includes(response.resolution.decisionTurnId)
+                            || !meeting.turns.some(turn => turn.id === response.resolution.decisionTurnId
+                                && turn.actorId === (sourceSession && sourceSession.playerActorId)
+                                && turn.kind === `MOTION_AMENDMENT_${response.status}`)
+                            || !Number.isFinite(response.resolution.decidedAt)
+                            || response.resolution.worldMutation !== false))
+                    || !['SUPPORT', 'LEAN_SUPPORT', 'UNDECIDED', 'LEAN_OPPOSE', 'OPPOSE']
+                        .includes(response.stanceDirection)
+                    || !Array.isArray(response.sourceRefs) || !response.sourceRefs.includes(motion.id)
+                    || !publicTurnIds.includes(response.turnId)
+                    || !meeting.turns.some(turn => turn.id === response.turnId
+                        && turn.actorId === response.actorId
+                        && turn.kind === `MOTION_${response.kind}`
+                        && turn.sourceRefs.includes(motion.id)
+                        && response.sourceRefs.every(ref => turn.sourceRefs.includes(ref)))
+                    || !Number.isFinite(response.createdAt) || response.worldMutation !== false)
+                || !['PENDING_CHAIR_REVIEW', 'IN_ORDER', 'OUT_OF_ORDER'].includes(motion.status)
+                || (motion.status === 'PENDING_CHAIR_REVIEW' && motion.chairReview !== null)
+                || (motion.status !== 'PENDING_CHAIR_REVIEW' && (!motion.chairReview
+                    || motion.chairReview.chairActorId !== meeting.chair.actorId
+                    || motion.chairReview.chairInstitutionId !== meeting.chair.institutionId
+                    || motion.chairReview.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE'
+                    || !Array.isArray(motion.chairReview.matchedAgendaTerms)
+                    || (motion.status === 'IN_ORDER' && motion.chairReview.matchedAgendaTerms.length === 0)
+                    || (motion.status === 'OUT_OF_ORDER' && motion.chairReview.matchedAgendaTerms.length !== 0)
+                    || !publicTurnIds.includes(motion.chairReview.rulingTurnId)
+                    || !Number.isFinite(motion.chairReview.reviewedAt)
+                    || !meeting.turns.some(turn => turn.id === motion.chairReview.rulingTurnId
+                        && turn.actorId === meeting.chair.actorId
+                        && turn.kind === 'CHAIR_MOTION_RULING'
+                        && turn.sourceRefs.includes(motion.id)
+                        && turn.sourceRefs.includes(meeting.chair.institutionId))
+                    || motion.chairReview.worldMutation !== false))
+                || (motion.voting == null && motion.outcomeReceiptId !== null)
+                || (motion.voting != null && (motion.voting.schemaVersion !== 1
+                    || !['OPEN', 'COMPLETED'].includes(motion.voting.status)
+                    || motion.voting.motionVersionId !== motion.activeVersionId
+                    || motion.status !== 'IN_ORDER'
+                    || motion.voting.openedByActorId !== meeting.chair.actorId
+                    || motion.voting.chairInstitutionId !== meeting.chair.institutionId
+                    || motion.voting.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE'
+                    || !publicTurnIds.includes(motion.voting.openTurnId)
+                    || !meeting.turns.some(turn => turn.id === motion.voting.openTurnId
+                        && turn.actorId === meeting.chair.actorId
+                        && turn.kind === 'MOTION_VOTE_OPENED'
+                        && turn.sourceRefs.includes(motion.id)
+                        && turn.sourceRefs.includes(motion.activeVersionId))
+                    || !Number.isFinite(motion.voting.openedAt)
+                    || (motion.voting.status === 'OPEN'
+                        && (motion.voting.completedAt !== null || motion.outcomeReceiptId !== null))
+                    || (motion.voting.status === 'COMPLETED'
+                        && (!Number.isFinite(motion.voting.completedAt) || !motion.outcomeReceiptId))
+                    || (motion.responses || []).some(response =>
+                        (response.kind === 'AMENDMENT_REQUEST' && response.status === 'OPEN')
+                        || (response.kind === 'OBJECTION' && response.status !== 'RESOLVED_FOR_PROCEDURE'))
+                    || motion.voting.worldMutation !== false))
+                || motion.worldMutation !== false)) {
+            add('MEETING_MOTIONS', `${at}.motions`);
+        }
+        if (!Array.isArray(meeting.votes)
+            || meetingVotes.length > meeting.participantActorIds.length * Math.max(1, meeting.motions.length)
+            || meetingVotes.some((vote, voteIndex) => {
+                const motion = meeting.motions.find(row => row.id === (vote && vote.motionId));
+                return !vote || vote.schemaVersion !== 1
+                    || vote.id !== `${meeting.id}:vote:${voteIndex + 1}` || vote.sequence !== voteIndex + 1
+                    || !motion || !motion.voting || vote.motionVersionId !== motion.voting.motionVersionId
+                    || !meeting.participantActorIds.includes(vote.actorId)
+                    || !['YES', 'NO', 'ABSTAIN'].includes(vote.choice)
+                    || meetingVotes.some((other, otherIndex) => otherIndex < voteIndex
+                        && other.motionId === vote.motionId
+                        && other.motionVersionId === vote.motionVersionId
+                        && other.actorId === vote.actorId)
+                    || typeof vote.basis !== 'string' || !vote.basis
+                    || !Array.isArray(vote.sourceRefs) || !vote.sourceRefs.includes(vote.motionId)
+                    || !vote.sourceRefs.includes(vote.motionVersionId)
+                    || !publicTurnIds.includes(vote.turnId)
+                    || !meeting.turns.some(turn => turn.id === vote.turnId
+                        && turn.actorId === vote.actorId && turn.kind === 'MOTION_VOTE'
+                        && vote.sourceRefs.every(ref => turn.sourceRefs.includes(ref)))
+                    || !Number.isFinite(vote.castAt) || vote.worldMutation !== false;
+            })) add('MEETING_VOTES', `${at}.votes`);
+        if (!Array.isArray(meeting.outcomeReceipts)
+            || outcomeReceipts.some((receipt, receiptIndex) => {
+                const motion = meeting.motions.find(row => row.id === (receipt && receipt.motionId));
+                const receiptVoteIds = receipt && Array.isArray(receipt.voteIds) ? receipt.voteIds : [];
+                const receiptVotes = meetingVotes.filter(vote => receiptVoteIds.includes(vote.id));
+                const tally = receiptVotes.reduce((sum, vote) => {
+                    sum[vote.choice.toLowerCase()]++;
+                    return sum;
+                }, { yes: 0, no: 0, abstain: 0 });
+                return !receipt || receipt.schemaVersion !== 1
+                    || receipt.id !== `${meeting.id}:outcome:${receiptIndex + 1}`
+                    || receipt.sequence !== receiptIndex + 1 || receipt.meetingCaseId !== meeting.id
+                    || !motion || receipt.agendaItemId !== motion.agendaItemId
+                    || receipt.motionVersionId !== motion.activeVersionId
+                    || motion.outcomeReceiptId !== receipt.id
+                    || !motion.voting || motion.voting.status !== 'COMPLETED'
+                    || !Array.isArray(receipt.voteIds)
+                    || receipt.voteIds.length !== meeting.participantActorIds.length
+                    || receiptVotes.length !== receipt.voteIds.length
+                    || new Set(receiptVotes.map(vote => vote.actorId)).size !== meeting.participantActorIds.length
+                    || JSON.stringify(receipt.tally) !== JSON.stringify(tally)
+                    || receipt.decision !== (tally.yes > tally.no ? 'ADOPTED' : 'REJECTED')
+                    || !publicTurnIds.includes(receipt.completedByTurnId)
+                    || receipt.completedByTurnId !== receiptVotes[receiptVotes.length - 1].turnId
+                    || !Number.isFinite(receipt.completedAt)
+                    || receipt.authoritySource !== 'MEETING_RECORDED_VOTE'
+                    || receipt.physicalMutation !== false || receipt.worldMutation !== false;
+            })
+            || (outcomeReceipts.length === 0 && meeting.outcomeReceiptId !== null)
+            || (outcomeReceipts.length > 0
+                && meeting.outcomeReceiptId !== outcomeReceipts[outcomeReceipts.length - 1].id)
+            || meeting.worldMutation !== false) add('MEETING_OUTCOME_RECEIPTS', at);
     }
     for (const [index, session] of (candidate.sessions || []).entries()) {
         if (!session.id || session.schemaVersion !== STORY_CONVERSATION_SESSION_SCHEMA_VERSION) add('SESSION_ID', `$.sessions[${index}]`);

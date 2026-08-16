@@ -7,7 +7,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_POLITICAL_OVERLAY_SCHEMA_VERSION = 1;
-const STORY_POLITICAL_OVERLAY_ADAPTER_VERSION = 'political-overlay-rgba-1';
+const STORY_POLITICAL_OVERLAY_ADAPTER_VERSION = 'political-overlay-rgba-3';
+// Fiziksel coğrafya önce okunur; devlet rengi yalnız yön bulma merceğidir.
+const STORY_POLITICAL_BORDER_ALPHA = 154;
+const STORY_POLITICAL_INTERIOR_ALPHA = 16;
 
 function storyPoliticalOverlayEnabled() {
     const enabled = typeof storyFeatureEnabled === 'function'
@@ -134,12 +137,12 @@ function storyPoliticalOverlayCreate(options) {
                 rgba[offset] = rgb[0] * 0.5 | 0;
                 rgba[offset + 1] = rgb[1] * 0.5 | 0;
                 rgba[offset + 2] = rgb[2] * 0.5 | 0;
-                rgba[offset + 3] = 230;
+                rgba[offset + 3] = STORY_POLITICAL_BORDER_ALPHA;
             } else {
                 rgba[offset] = rgb[0];
                 rgba[offset + 1] = rgb[1];
                 rgba[offset + 2] = rgb[2];
-                rgba[offset + 3] = 51;
+                rgba[offset + 3] = STORY_POLITICAL_INTERIOR_ALPHA;
             }
         }
     }
@@ -254,7 +257,7 @@ function storyPoliticalOverlayValidate(overlay, raster, nodes, states, options) 
                     add('BORDER_TOPOLOGY_MISMATCH', `$.borderMask[${index}]`, 'Sınır maskesi güncel sahiplik topolojisiyle uyuşmuyor.');
                     break;
                 }
-                if (alpha !== (expectedBorder ? 230 : 51)) {
+                if (alpha !== (expectedBorder ? STORY_POLITICAL_BORDER_ALPHA : STORY_POLITICAL_INTERIOR_ALPHA)) {
                     add('LAND_ALPHA_VALUE', `$.rgba[${index * 4 + 3}]`, 'Kara alfa değeri sınır/iç bölge sözleşmesiyle uyuşmuyor.');
                     break;
                 }

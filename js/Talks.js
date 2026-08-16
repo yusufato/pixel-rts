@@ -1295,12 +1295,58 @@ function storyTalkConversationMeetingHtml(session) {
         PENDING_CHAIR_REVIEW: 'BAŞKAN İNCELEMESİ BEKLİYOR',
         IN_ORDER: 'USULE UYGUN', OUT_OF_ORDER: 'GÜNDEM DIŞI'
     };
-    const motions = (meeting.motions || []).map(motion => `<article class="${esc(motion.status.toLowerCase())}">`
-        + `<header><b>ÖNERGE ${motion.sequence}</b><span>${esc(motionStatusLabels[motion.status] || motion.status)}</span></header>`
-        + `<p>${esc(motion.text)}</p>`
-        + (motion.status === 'PENDING_CHAIR_REVIEW' && currentSpeaker.actorId === meeting.chair.actorId
-            ? `<button class="story-btn" data-conversation-meeting-motion-review="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">BAŞKAN İNCELEMESİNİ YAP</button>` : '')
-        + `</article>`).join('');
+    const responseLabels = { OBJECTION: 'İTİRAZ', AMENDMENT_REQUEST: 'DEĞİŞİKLİK TALEBİ', ENDORSEMENT: 'DESTEK' };
+    const responseStatusLabels = {
+        OPEN: 'AÇIK', NOTED: 'KAYDA GEÇTİ', ACCEPTED: 'KABUL EDİLDİ', REJECTED: 'REDDEDİLDİ',
+        REFERRED_TO_CHAIR: 'BAŞKANA SEVK EDİLDİ', RESOLVED_FOR_PROCEDURE: 'USULEN ÇÖZÜLDÜ'
+    };
+    const voteChoiceLabels = { YES: 'KABUL', NO: 'RET', ABSTAIN: 'ÇEKİMSER' };
+    const motions = (meeting.motions || []).map(motion => {
+        const responses = (motion.responses || []).map(response => `<div class="conversation-meeting-motion-response ${
+            esc(response.kind.toLowerCase())}"><div><b>${esc((meeting.participants.find(row => row.actorId === response.actorId) || {}).name || response.actorId)}</b>`
+            + `<span>${esc(responseLabels[response.kind] || response.kind)} · ${esc(responseStatusLabels[response.status] || response.status)}</span></div>`
+            + (response.kind === 'AMENDMENT_REQUEST' && response.status === 'OPEN'
+                && currentSpeaker.actorId === session.playerActorId
+                ? `<textarea data-conversation-amendment-input="${esc(response.id)}" maxlength="600" rows="2" placeholder="Talebi kabul edeceksen güncellenmiş önerge metnini yaz..."></textarea>`
+                    + `<footer><button class="story-btn" data-conversation-amendment-decision="ACCEPT" data-response-id="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KABUL ET VE YENİ SÜRÜM OLUŞTUR</button>`
+                    + `<button class="story-btn" data-conversation-amendment-decision="REJECT" data-response-id="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">REDDET</button></footer>` : '')
+            + (response.kind === 'OBJECTION' && response.status === 'OPEN'
+                && currentSpeaker.actorId === session.playerActorId
+                ? `<button class="story-btn" data-conversation-objection-refer="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">BAŞKANA SEVK ET</button>` : '')
+            + (response.kind === 'OBJECTION' && response.status === 'REFERRED_TO_CHAIR'
+                && currentSpeaker.actorId === meeting.chair.actorId
+                ? `<button class="story-btn" data-conversation-objection-rule="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">İTİRAZ USUL KARARINI VER</button>` : '')
+            + `</div>`).join('');
+        const currentResponded = (motion.responses || []).some(row => row.actorId === currentSpeaker.actorId);
+        const motionVotes = (meeting.votes || []).filter(vote => vote.motionId === motion.id
+            && vote.motionVersionId === motion.activeVersionId);
+        const currentVoted = motionVotes.some(vote => vote.actorId === currentSpeaker.actorId);
+        const openProcedureDebt = (motion.responses || []).some(response =>
+            (response.kind === 'AMENDMENT_REQUEST' && response.status === 'OPEN')
+            || (response.kind === 'OBJECTION' && response.status !== 'RESOLVED_FOR_PROCEDURE'));
+        const voteRows = motionVotes.map(vote => `<div class="conversation-meeting-vote"><b>${esc((meeting.participants.find(row => row.actorId === vote.actorId) || {}).name || vote.actorId)}</b><span>${esc(voteChoiceLabels[vote.choice] || vote.choice)}</span></div>`).join('');
+        const receipt = (meeting.outcomeReceipts || []).find(row => row.id === motion.outcomeReceiptId);
+        const voteControl = motion.voting && motion.voting.status === 'OPEN' && !currentVoted
+            ? (currentSpeaker.actorId === session.playerActorId
+                ? `<div class="conversation-meeting-vote-control"><b>OYUNU KULLAN</b><button class="story-btn" data-conversation-motion-vote="YES" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KABUL</button><button class="story-btn" data-conversation-motion-vote="NO" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">RET</button><button class="story-btn" data-conversation-motion-vote="ABSTAIN" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">ÇEKİMSER</button></div>`
+                : `<button class="story-btn" data-conversation-motion-vote="AUTO" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KARAKTERİN OYUNU KAYDET</button>`)
+            : '';
+        return `<article class="${esc(motion.status.toLowerCase())}">`
+            + `<header><b>ÖNERGE ${motion.sequence} · SÜRÜM ${(motion.versions || []).length}</b><span>${esc(motionStatusLabels[motion.status] || motion.status)}</span></header>`
+            + `<p>${esc(motion.text)}</p>${responses}`
+            + (motion.voting ? `<div class="conversation-meeting-votes"><b>OYLAMA · ${motion.voting.status === 'COMPLETED' ? 'TAMAMLANDI' : 'AÇIK'}</b>${voteRows}</div>` : '')
+            + (receipt ? `<div class="conversation-meeting-outcome"><b>${receipt.decision === 'ADOPTED' ? 'ÖNERGE KABUL EDİLDİ' : 'ÖNERGE REDDEDİLDİ'}</b><span>Kabul ${receipt.tally.yes} · Ret ${receipt.tally.no} · Çekimser ${receipt.tally.abstain}</span><small>TOPLANTI SONUÇ KAYDI · DÜNYAYA HENÜZ UYGULANMADI</small></div>` : '')
+            + (motion.status === 'PENDING_CHAIR_REVIEW' && currentSpeaker.actorId === meeting.chair.actorId
+                ? `<button class="story-btn" data-conversation-meeting-motion-review="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">BAŞKAN İNCELEMESİNİ YAP</button>` : '')
+            + (motion.status === 'IN_ORDER' && currentSpeaker.actorId !== session.playerActorId && !currentResponded
+                && !motion.voting
+                ? `<button class="story-btn" data-conversation-meeting-motion-respond="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KARAKTERİN TEPKİSİNİ KAYDET</button>` : '')
+            + (motion.status === 'IN_ORDER' && !motion.voting && !openProcedureDebt
+                && currentSpeaker.actorId === meeting.chair.actorId
+                ? `<button class="story-btn" data-conversation-motion-vote-open="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">OYLAMAYI AÇ</button>` : '')
+            + voteControl
+            + `</article>`;
+    }).join('');
     const turnControl = playerTurn
         ? `<div class="conversation-meeting-turn-control"><label>SÖZ SENDE</label>`
             + `<select data-conversation-meeting-addressee><option value="">TÜM TOPLANTIYA</option>${addresseeOptions}</select>`
@@ -1309,7 +1355,8 @@ function storyTalkConversationMeetingHtml(session) {
         : `<div class="conversation-meeting-turn-control"><label>${esc(currentSpeaker && currentSpeaker.name || 'KARAKTER')} KONUŞACAK</label>`
             + `<select data-conversation-meeting-addressee><option value="">TÜM TOPLANTIYA</option>${addresseeOptions}</select>`
             + `<button class="story-btn" data-conversation-meeting-character-turn="${esc(meeting.id)}">KARAKTERİN SÖZÜNÜ AL</button></div>`;
-    return `<section class="conversation-meeting active"><header><span>RESMÎ TOPLANTI</span><small>ÖNERGE İNCELEMESİ AÇIK · OYLAMA KAPALI</small></header>`
+    const hasOpenVote = (meeting.motions || []).some(motion => motion.voting && motion.voting.status === 'OPEN');
+    return `<section class="conversation-meeting active"><header><span>RESMÎ TOPLANTI</span><small>${hasOpenVote ? 'OYLAMA AÇIK' : 'ÖNERGE VE USUL İŞLEMLERİ'}</small></header>`
         + `<div class="conversation-meeting-agenda"><b>GÜNDEM</b><p>${esc(meeting.agendaItems[0].title)}</p></div>`
         + `<div class="conversation-meeting-chair"><span>BAŞKAN</span><b>${esc(meeting.chair.name)}</b>`
         + `<small>${esc(STORY_TALK_INSTITUTION_LABELS[meeting.chair.institutionType] || meeting.chair.institutionType)} · KANONİK MAKAM</small></div>`
@@ -1326,7 +1373,7 @@ function storyTalkConversationMeetingHtml(session) {
         + (motions ? `<div class="conversation-meeting-motion-list">${motions}</div>` : '<p>Henüz önerge sunulmadı.</p>')
         + `<textarea data-conversation-meeting-motion-text maxlength="600" rows="2" placeholder="Gündeme bağlı, uygulanabilir önerge metni yaz..."></textarea>`
         + `<button class="story-btn" data-conversation-meeting-motion-propose="${esc(meeting.id)}">ÖNERGE SUN</button></section>`
-        + `<p class="conversation-meeting-boundary">Önerge ve başkanın usul incelemesi açıktır. Oylama, sonuç ve dünya etkisi henüz kapalıdır.</p></section>`;
+        + `<p class="conversation-meeting-boundary">Toplantı oyu yalnız güncel ve usule uygun önerge sürümünü sonuçlandırır. Sonuç kaydı, ayrı bir yetkili uygulama adaptörü olmadan dünyayı değiştirmez.</p></section>`;
 }
 
 function storyTalkConversationParticipantsHtml(meeting) {
@@ -1941,7 +1988,7 @@ function storyConversationWorkspaceOpen(listenerActorId, name, requestedSessionI
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     storyConversationWorkspaceRender();
-    const focusTarget = modal.querySelector('[data-conversation-input], [data-conversation-reply], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text], [data-conversation-new]');
+    const focusTarget = modal.querySelector('[data-conversation-input], [data-conversation-reply], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text], [data-conversation-amendment-input], [data-conversation-new]');
     if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
     return true;
 }
@@ -1980,7 +2027,7 @@ function storyConversationWorkspaceResponseSettled(responseId) {
     if (!responseVisible) return false;
     const active = document.activeElement;
     const protectedEditor = active && modal.contains(active)
-        && active.matches('[data-conversation-follow-up], [data-conversation-reply], [data-conversation-input], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text]');
+        && active.matches('[data-conversation-follow-up], [data-conversation-reply], [data-conversation-input], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text], [data-conversation-amendment-input]');
     if (protectedEditor && String(active.value || '').length) {
         modal.dataset.pendingConversationRender = '1';
         return true;
@@ -2118,6 +2165,92 @@ function storyConversationWorkspaceHandleClick(event) {
         storyFlash(result && result.ok
             ? (result.motion.status === 'IN_ORDER' ? 'Başkan önergeyi usule uygun buldu.' : 'Başkan önergeyi gündem dışı bıraktı.')
             : `Başkan incelemesi yapılamadı: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const meetingMotionRespond = event.target.closest('[data-conversation-meeting-motion-respond]');
+    if (meetingMotionRespond && typeof storyConversationMeetingMotionRespond === 'function') {
+        const result = storyConversationMeetingMotionRespond(
+            meetingMotionRespond.dataset.meetingId,
+            meetingMotionRespond.dataset.conversationMeetingMotionRespond
+        );
+        const responseLabels = { OBJECTION: 'itirazı', AMENDMENT_REQUEST: 'değişiklik talebi', ENDORSEMENT: 'desteği' };
+        storyFlash(result && result.ok
+            ? `Karakterin ${responseLabels[result.response.kind] || 'tepkisi'} tutanağa işlendi; bu henüz oy değildir.`
+            : `Önerge tepkisi kaydedilemedi: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const amendmentDecision = event.target.closest('[data-conversation-amendment-decision]');
+    if (amendmentDecision && typeof storyConversationMeetingMotionAmendmentDecision === 'function') {
+        const responseId = amendmentDecision.dataset.responseId;
+        const input = Array.from(modal.querySelectorAll('[data-conversation-amendment-input]'))
+            .find(row => row.dataset.conversationAmendmentInput === responseId);
+        const result = storyConversationMeetingMotionAmendmentDecision(
+            amendmentDecision.dataset.meetingId, amendmentDecision.dataset.motionId,
+            responseId, amendmentDecision.dataset.conversationAmendmentDecision,
+            input && input.value
+        );
+        storyFlash(result && result.ok
+            ? (result.response.status === 'ACCEPTED'
+                ? 'Değişiklik kabul edildi; yeni önerge sürümü başkan incelemesini bekliyor.'
+                : 'Değişiklik talebi reddedildi; mevcut önerge korundu.')
+            : `Değişiklik kararı uygulanamadı: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const objectionRefer = event.target.closest('[data-conversation-objection-refer]');
+    if (objectionRefer && typeof storyConversationMeetingObjectionRefer === 'function') {
+        const result = storyConversationMeetingObjectionRefer(
+            objectionRefer.dataset.meetingId, objectionRefer.dataset.motionId,
+            objectionRefer.dataset.conversationObjectionRefer
+        );
+        storyFlash(result && result.ok ? 'İtiraz başkanın usul kararına sevk edildi.'
+            : `İtiraz sevk edilemedi: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const objectionRule = event.target.closest('[data-conversation-objection-rule]');
+    if (objectionRule && typeof storyConversationMeetingObjectionChairRule === 'function') {
+        const result = storyConversationMeetingObjectionChairRule(
+            objectionRule.dataset.meetingId, objectionRule.dataset.motionId,
+            objectionRule.dataset.conversationObjectionRule
+        );
+        storyFlash(result && result.ok
+            ? (result.response.resolution.ruling === 'MOOT_BY_REVISION'
+                ? 'Başkan, eski sürüme ait itirazı revizyonla konusuz bıraktı.'
+                : 'Başkan muhalefet şerhini koruyarak itirazı usulen çözdü.')
+            : `İtiraz kararı verilemedi: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const voteOpen = event.target.closest('[data-conversation-motion-vote-open]');
+    if (voteOpen && typeof storyConversationMeetingMotionOpenVote === 'function') {
+        const result = storyConversationMeetingMotionOpenVote(
+            voteOpen.dataset.meetingId, voteOpen.dataset.conversationMotionVoteOpen
+        );
+        storyFlash(result && result.ok ? 'Başkan oylamayı açtı; katılımcılar sırayla oy kullanacak.'
+            : `Oylama açılamadı: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const voteCast = event.target.closest('[data-conversation-motion-vote]');
+    if (voteCast && typeof storyConversationMeetingMotionCastVote === 'function') {
+        const result = storyConversationMeetingMotionCastVote(
+            voteCast.dataset.meetingId, voteCast.dataset.motionId,
+            voteCast.dataset.conversationMotionVote === 'AUTO' ? null : voteCast.dataset.conversationMotionVote
+        );
+        storyFlash(result && result.ok
+            ? (result.outcomeReceipt
+                ? (result.outcomeReceipt.decision === 'ADOPTED' ? 'Oylama tamamlandı; önerge kabul edildi.' : 'Oylama tamamlandı; önerge reddedildi.')
+                : 'Oy kamusal tutanağa kaydedildi.')
+            : `Oy kaydedilemedi: ${result && result.code || 'UNKNOWN'}`);
         if (result && result.ok && typeof storySave === 'function') storySave();
         storyConversationWorkspaceRender();
         return;
@@ -2578,12 +2711,16 @@ function storyTalkBind() {
             return;
         }
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            const amendmentEditor = workspace.querySelector('[data-conversation-amendment-input]:focus');
             const button = workspace.querySelector('[data-conversation-meeting-player-turn]:focus')
                 ? workspace.querySelector('[data-conversation-meeting-player-send]')
                 : workspace.querySelector('[data-conversation-meeting-private-text]:focus')
                     ? workspace.querySelector('[data-conversation-meeting-private-send]')
                 : workspace.querySelector('[data-conversation-meeting-motion-text]:focus')
                     ? workspace.querySelector('[data-conversation-meeting-motion-propose]')
+                : amendmentEditor
+                    ? amendmentEditor.closest('.conversation-meeting-motion-response')
+                        ?.querySelector('[data-conversation-amendment-decision="ACCEPT"]')
                 : workspace.querySelector('[data-conversation-follow-up]:focus')
                     ? workspace.querySelector('[data-conversation-follow-up-send]')
                     : workspace.querySelector('[data-conversation-send], [data-conversation-reply-send]');

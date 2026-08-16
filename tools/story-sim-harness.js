@@ -707,6 +707,35 @@ function createRuntime(seed) {
             conversationMeetingSendPrivateNote: (meetingId, recipientActorId, text) => (
                 storyConversationMeetingSendPrivateNote(meetingId, recipientActorId, text)
             ),
+            conversationMeetingMotionPropose: (meetingId, text) => (
+                storyConversationMeetingMotionPropose(meetingId, text)
+            ),
+            conversationMeetingMotionChairReview: (meetingId, motionId) => (
+                storyConversationMeetingMotionChairReview(meetingId, motionId)
+            ),
+            conversationMeetingMotionRespond: (meetingId, motionId) => (
+                storyConversationMeetingMotionRespond(meetingId, motionId)
+            ),
+            conversationMeetingMotionAmendmentDecision: (meetingId, motionId, responseId, decision, revisedText) => (
+                storyConversationMeetingMotionAmendmentDecision(
+                    meetingId, motionId, responseId, decision, revisedText
+                )
+            ),
+            conversationMeetingObjectionRefer: (meetingId, motionId, responseId) => (
+                storyConversationMeetingObjectionRefer(meetingId, motionId, responseId)
+            ),
+            conversationMeetingObjectionChairRule: (meetingId, motionId, responseId) => (
+                storyConversationMeetingObjectionChairRule(meetingId, motionId, responseId)
+            ),
+            conversationMeetingMotionOpenVote: (meetingId, motionId) => (
+                storyConversationMeetingMotionOpenVote(meetingId, motionId)
+            ),
+            conversationMeetingMotionCastVote: (meetingId, motionId, choice) => (
+                storyConversationMeetingMotionCastVote(meetingId, motionId, choice)
+            ),
+            conversationMeetingStancePreview: (meetingId, actorId) => (
+                storyConversationMeetingStancePreview(meetingId, actorId)
+            ),
             conversationMeetingGenerateCharacterTurn: (meetingId, addressedActorId) => (
                 storyConversationMeetingGenerateCharacterTurn(meetingId, addressedActorId)
             ),
@@ -1473,7 +1502,8 @@ function createRuntime(seed) {
                         continue;
                     }
                     if (alpha === 0) landAlphaMissing++;
-                    if (alpha !== 51 && alpha !== 230) invalidLandAlpha++;
+                    if (alpha !== STORY_POLITICAL_INTERIOR_ALPHA
+                        && alpha !== STORY_POLITICAL_BORDER_ALPHA) invalidLandAlpha++;
                     if (overlay.borderMask[index]) borderPixels++;
                     else interiorPixels++;
                 }
