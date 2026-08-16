@@ -77,6 +77,8 @@ function macKos(ctx, seed, kolDeger) {
         '  if (SIM.battle && SIM.battle.winnerSide !== null) break;' +
         '  st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);' +
         '  if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);' +
+        // ILERI-BAKIS: TIKLER ARASINDA (stepSim'in ICINDE DEGIL - fork birimleri yeniden yaratir)
+        '  if (typeof battleLookaheadTick === "function") battleLookaheadTick(st);' +
         '} } finally { SIM.headless = ph; }' +
         'const oS = battleArmyObservation(true), oD = battleArmyObservation(false);' +
         'const b = SIM.battle || {};' +
