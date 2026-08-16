@@ -1048,7 +1048,21 @@ function battleApplyRecordedEvent(event) {
             if (!u || u.dead) continue;
             if (ab === 'lay_mines') {
                 if (u.type !== T.ENGINEER && u.type !== T.RECON) continue;   // keşif aracı da döşer (kullanıcı isteği)
-                SIM.mines.push({ x: u.x, y: u.y, r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46), isRed: u.isRed, armed: false, createdAt: SIM.tick * BATTLE_TICK_MS, armDelay: 1500 });
+                /* ALAN DÖŞEME: payload {x,y,r} varsa oyuncunun çizdiği daireye ızgarayla döşe.
+                   Yoksa (eski yol / kısayol tuşu) birimin bulunduğu noktaya tek mayın. */
+                const _mr = (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46);
+                const _t = SIM.tick * BATTLE_TICK_MS;
+                let _noktalar;
+                if (payload.x != null && payload.y != null && typeof mineAreaNoktalari === 'function') {
+                    _noktalar = mineAreaNoktalari(payload.x, payload.y, payload.r || 0)
+                        // ERİŞİM: döşeyen birimden uzaktaki noktalar düşer (mayın ışınlanmaz)
+                        .filter(p => Math.hypot(p.x - u.x, p.y - u.y) <= MINE_LAY_REACH);
+                } else {
+                    _noktalar = [{ x: u.x, y: u.y }];
+                }
+                for (const _p of _noktalar) {
+                    SIM.mines.push({ x: _p.x, y: _p.y, r: _mr, isRed: u.isRed, armed: false, createdAt: _t, armDelay: 1500 });
+                }
             } else if (ab === 'build_fortification') {
                 if (u.type !== T.ENGINEER) continue;
                 // ÜS SINIRI: emir sessizce yutulmasın — istihkâm boşuna yürüyüp

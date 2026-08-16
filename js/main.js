@@ -63,7 +63,16 @@ function queuePlayerCommand(type, payload) {
     }
     if (typeof pendingPlayerCommands !== 'undefined') pendingPlayerCommands.push({ type, payload });
 }
-canvas.addEventListener('mousemove', (e) => { const p = canvasPoint(e); mouseScreenX = p.x; mouseScreenY = p.y; });
+/* MAYIN ALANI: basılı-tut-sürükle ile yarıçap seçimi. Sürükleme SADECE görsel/niyet
+   durumudur; simülasyona tek bir `player-ability` komutu olarak gider (replay-güvenli). */
+let mineAreaDrag = null;
+canvas.addEventListener('mousemove', (e) => {
+    const p = canvasPoint(e); mouseScreenX = p.x; mouseScreenY = p.y;
+    if (mineAreaDrag) {
+        const w = screenToWorld(p.x, p.y);
+        mineAreaDrag.r = Math.min(MINE_AREA_MAX_R, Math.hypot(w.x - mineAreaDrag.x, w.y - mineAreaDrag.y));
+    }
+});
 canvas.addEventListener('mousedown', (e) => {
     const p = canvasPoint(e);
     if (e.button !== 0 || p.y > canvas.height - 110) return;
@@ -111,6 +120,12 @@ canvas.addEventListener('mousedown', (e) => {
                 // SOL-PANEL HEDEFLİ YETENEK: haritaya tık → seçili uygun birimler için player-ability kuyruğa (replay-güvenli)
                 const abId = selectedSupportMode.slice(8);
                 const meta = (typeof ABILITY_META !== 'undefined') ? ABILITY_META[abId] : null;
+                // ALAN YETENEĞİ (mayın): tık ile BİTMEZ — basılı tutup sürükleyerek yarıçap çizilir,
+                // emir mouseup'ta gider. Burada yalnız sürüklemeyi başlatırız.
+                if (meta && meta.area) {
+                    mineAreaDrag = { abId: abId, x: world.x, y: world.y, r: 0 };
+                    return;
+                }
                 const ids = units.filter(u => u.selected && playerCanControlBattleUnit(u) && (!meta || !meta.need || meta.need(u))).map(u => u.id);
                 if (ids.length) {
                     queuePlayerCommand('player-ability', { ability: abId, unitIds: ids, x: Math.round(world.x * 100) / 100, y: Math.round(world.y * 100) / 100 });
@@ -152,6 +167,26 @@ canvas.addEventListener('mousedown', (e) => {
 canvas.addEventListener('mouseup', (e) => {
     if (e.button !== 0) return;
     const p = canvasPoint(e);
+
+    // MAYIN ALANI bırakıldı → tek komut (merkez + yarıçap). Çok küçük sürükleme = tek nokta.
+    if (mineAreaDrag) {
+        const d = mineAreaDrag;
+        mineAreaDrag = null;
+        const meta = (typeof ABILITY_META !== 'undefined') ? ABILITY_META[d.abId] : null;
+        const ids = units.filter(u => u.selected && playerCanControlBattleUnit(u) && (!meta || !meta.need || meta.need(u))).map(u => u.id);
+        if (ids.length) {
+            queuePlayerCommand('player-ability', {
+                ability: d.abId, unitIds: ids,
+                x: Math.round(d.x * 100) / 100, y: Math.round(d.y * 100) / 100,
+                r: Math.round(Math.max(0, d.r) * 100) / 100
+            });
+            if (typeof battleLearnMessage === 'function') {
+                battleLearnMessage('💣 MAYIN ALANI ' + Math.round(d.r) + 'px — ' + mineAreaTahminAdet(d.r) + ' mayın', 1600);
+            }
+        }
+        cancelSupportMode();
+        return;
+    }
 
     if (phase === PHASE.DEPLOY) {
         isDragging = false;   // yerleştirme ve taşıma mousedown'da bitiyor
@@ -379,7 +414,9 @@ document.getElementById('btn-trench').addEventListener('click', (e) => {
 const ABILITY_META = {
     // KEŞİF ARACI da mayın döşer (kullanıcı isteği): hızlı, gizli ve ileride olan birim — geçiş noktasını
     // erken kapatmak doğal işi. İstihkâm hâlâ mayın temizleyen tek birim.
-    lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: false, need: u => u.type === T.ENGINEER || u.type === T.RECON },
+    // MAYIN: artık ALAN yeteneği — fareyle sürükleyip alanı sen çiziyorsun (kullanıcı 2026-08-16).
+    // `area:true` → hedefleme kipinde tık DEĞİL, basılı-tut-sürükle-bırak (yarıçap seçimi).
+    lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: true, area: true, need: u => u.type === T.ENGINEER || u.type === T.RECON },
     build_fortification: { label: 'ÜS KUR',     icon: '🏗',  active: true,  targeted: true,  need: u => u.type === T.ENGINEER },
     build_hospital:      { label: 'HASTANE KUR', icon: '🏥', active: true, targeted: true,  need: u => u.type === T.MEDIC },
     unload:              { label: 'İNDİR',      icon: '🪖', active: true,  targeted: false, need: u => u.transportSlots > 0 && u.cargo && u.cargo.length > 0 },
@@ -1396,6 +1433,17 @@ function drawMap() {
             for (const [kx, ky] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {   // köşe kuleleri
                 ctx.fillRect(Math.round(s.x + kx * zr - _k / 2), Math.round(s.y + ky * zr - _k / 2), _k, _k);
             }
+            // CAN ÇUBUĞU — üs artık yıkılabildiği için hasarı GÖRÜNÜR olmalı; yoksa
+            // oyuncu üssünün dövüldüğünü ancak yok olunca fark eder.
+            const _mx = t.maxHp || t.hp || 1, _or = Math.max(0, Math.min(1, (t.hp || 0) / _mx));
+            if (_or < 0.999) {
+                const _bw = zr * 1.2, _bh = Math.max(3, 5 * zoom);
+                const _bx = s.x - _bw / 2, _by = s.y - zr - _bh - 6 * zoom;
+                ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(_bx, _by, _bw, _bh);
+                ctx.fillStyle = _or > 0.5 ? '#4cff7c' : _or > 0.25 ? '#ffaa00' : '#ff3333';
+                ctx.fillRect(_bx, _by, _bw * _or, _bh);
+                ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 1; ctx.strokeRect(_bx, _by, _bw, _bh);
+            }
         }
 
         // Kum torbası ve mühimmat ikmal halkası.
@@ -1562,6 +1610,41 @@ function drawGhost() {
     ctx.strokeStyle = 'rgba(255, 255, 200, 0.1)'; ctx.lineWidth = 1; ctx.setLineDash([2, 8]);
     ctx.beginPath(); ctx.arc(mouseScreenX, mouseScreenY, vision * zoom, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
+}
+
+/* MAYIN ALANI ÖN İZLEMESİ — motorun kullandığı AYNI ızgara fonksiyonundan çizilir
+   (mineAreaNoktalari), böylece gördüğün nokta sayısı döşenecek sayıdır. Erişim dışı
+   kalacak noktalar SOLUK gösterilir: "buraya uzanamıyorum" bilgisi tıklamadan önce. */
+function drawMineAreaPreview() {
+    if (!mineAreaDrag || phase !== PHASE.BATTLE) return;
+    const d = mineAreaDrag;
+    const s = worldToScreen(d.x, d.y);
+    const zr = d.r * zoom;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,190,60,0.85)'; ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(2, zr), 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,190,60,0.08)'; ctx.fill();
+
+    const doseyen = units.filter(u => u.selected && playerCanControlBattleUnit(u) &&
+        (u.type === T.ENGINEER || u.type === T.RECON));
+    const noktalar = (typeof mineAreaNoktalari === 'function') ? mineAreaNoktalari(d.x, d.y, d.r) : [];
+    let ulasan = 0;
+    for (const p of noktalar) {
+        const erisir = doseyen.some(u => Math.hypot(p.x - u.x, p.y - u.y) <= MINE_LAY_REACH);
+        if (erisir) ulasan++;
+        const ps = worldToScreen(p.x, p.y);
+        ctx.fillStyle = erisir ? 'rgba(255,120,60,0.95)' : 'rgba(150,150,150,0.35)';
+        const rr = Math.max(2, 4 * zoom);
+        ctx.beginPath(); ctx.arc(ps.x, ps.y, rr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.font = `${Math.max(11, 13 * zoom)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = ulasan ? '#ffd24c' : '#ff7b7b';
+    ctx.fillText(ulasan + '/' + noktalar.length + ' mayın · ' + Math.round(d.r) + 'px',
+        s.x, s.y - Math.max(12, zr + 10));
+    ctx.restore();
 }
 
 function drawSelectionBox() {
@@ -1840,6 +1923,7 @@ function gameLoop(timestamp) {
     drawGhost();
     if (_cz) { zoom = _sZoom; camera.x = _sCamX; camera.y = _sCamY; }   // sinematik zoom geri al → HUD/minimap doğru kalır
     drawSelectionBox();
+    drawMineAreaPreview();   // mayın alanı sürükleme önizlemesi (seçim kutusunun üstünde)
     drawMinimap();
     updateUI();
     if (typeof refreshAbilityPanelIfChanged === 'function') refreshAbilityPanelIfChanged();   // sol-panel yetenek-seçici (seçim/mod değişince)

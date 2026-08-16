@@ -415,6 +415,7 @@ class Unit {
             this.engageCombat(now);
             this._samCokluHedef(now, dtSec);          // SAM: aynı anda 2. hava hedefi (kullanıcı isteği)
             this.fireSecondaryWeapons(now, dtSec);   // ÇOKLU-SİLAH: 2. silah (MBT makinelisi anti-piyade / komando yıkım-şarjı) ayrı hedefe ateş eder
+            this.attackEnemyBase(now, dtSec);        // YAPI: birim hedefi yoksa menzildeki düşman üssünü döv
             // BECERİ SIRASI: kuru birim zaten ateş edemez → ikmal, standoff'u ezer.
             // BECERİ SIRASI: jammer (silahsız, özel görev) → helo avı → ikmal → standoff.
             // SÖMÜRÜCÜ RAKİP HAVUZU en ÖNDE: dar-betikli bot, kod-AI'ın tüm hareket becerilerini ezer
@@ -2705,6 +2706,84 @@ class Unit {
                       speed: battleProjectileSpeed(this.type, true), maxLife: 3 });
             }
         }
+    }
+
+    /* ── DÜŞMAN ÜSSÜNÜ DÖV (kullanıcı 2026-08-16: "üssün canı olsun rakip üssü yıkabilsin") ──
+       Üssün `hp`/`maxHp` alanı VARDI ama hiçbir yerde azalmıyordu: yapı yıkılamazdı,
+       yalnız süresi dolunca silinirdi. Üs artık kalıcı olduğuna göre onu yıkmak da
+       mümkün olmalı, yoksa kurulan her üs sonsuza dek durur.
+       Veri zaten hazırdı: damageMatrix'te `structure` zırh tipi tanımlı ve bugüne dek
+       HİÇ kullanılmamış (he 1.0 · shaped 0.9 · ap 0.6 · frag 0.2 · small_arms 0.1 ·
+       sam 0.0). Yani topçu/ÇNRA üssü söker, tüfek neredeyse hiçbir şey yapmaz, SAM hiç.
+
+       ÖNCELİK BİRİMDE: canlı birim hedefi varken yapıya dönülmez — aksi halde üs,
+       ordunun ateşini üstüne çeken bir yem olurdu. */
+    attackEnemyBase(now, dtSec) {
+        if (this.dead || this.isFleeing || this.abandoned) return;
+        if (!SIM.trenches || !SIM.trenches.length) return;
+        const st = STATS[this.type];
+        if (!st || !st.weapons || !st.weapons.length || st.singleUse) return;
+        const w = st.weapons[0];
+        if (typeof weaponAktif === 'function' && !weaponAktif(w)) return;
+        if (!(w.targets || ['ground']).includes('ground')) return;   // yapı KARA hedeftir
+        const DM = (typeof UNITS_MODERN_DB !== 'undefined') ? UNITS_MODERN_DB.damageMatrix : null;
+        const eff = DM ? ((DM[w.damageType] || {}).structure || 0) : 0;
+        if (eff <= 0) return;                                        // SAM yapıya işlemez
+        if (this.maxAmmo > 0 && this.ammo <= 0) return;
+        const menzil = this.groundRange > 0 ? Math.min(this.range, this.groundRange) : this.range;
+        const minR = st.minRange || 0;
+
+        /* ÖNCELİK BİRİMDE — ama yalnız DÖVEBİLDİĞİ birim hedefi varsa.
+           İlk sürüm "attackTarget varsa çık" diyordu; ölçümde topçu, ölü bölgesindeki
+           (minRange içi) bir birime kilitlenip 'Çok Yakın' durumunda donuyor ve üsse de
+           ateş edemiyordu. Kilitli olmak, dövebiliyor olmak demek değil. */
+        if (this.attackTarget && !this.attackTarget.dead) {
+            const _t = this.attackTarget;
+            const _td = Math.hypot(_t.x - this.x, _t.y - this.y);
+            const _engellenmis =
+                (minR > 0 && _td < minR) ||
+                (typeof unitCanEngage === 'function' && !unitCanEngage(st, STATS[_t.type])) ||
+                (_td > this.engageRangeFor(_t));
+            if (!_engellenmis) return;
+        }
+
+        let hedef = null, hd = Infinity;
+        for (const t of SIM.trenches) {
+            if (t.isRed === this.isRed || t.hp == null || t.hp <= 0) continue;
+            const d = Math.hypot(t.x - this.x, t.y - this.y);
+            if (d > menzil || (minR > 0 && d < minR)) continue;
+            if (d > this.vision && !canSee(this.isRed, t.x, t.y, false)) continue;   // görmediğini dövemez
+            if (d < hd || (d === hd && hedef && (t.x + t.y) < (hedef.x + hedef.y))) { hd = d; hedef = t; }   // determinist
+        }
+        if (!hedef) return;
+
+        let hiz = this.isPanicking ? this.atkSpeed * 1.5 : this.atkSpeed;
+        if (this.suppression > PINNED_SUPPRESSION) hiz *= 2.4; else if (this.suppression > 50) hiz *= 1.5;
+        if (now - this.lastAttackTime < hiz) return;
+        this.lastAttackTime = now;
+        this._hicAtesEtmedi = false;
+        if (this.maxAmmo > 0) this.ammo = Math.max(0, this.ammo - 1);
+
+        const dmg = Math.max(1, Math.floor(w.damage * (w.salvo || 1) * eff * (this.xpBonus || 1)));
+        const oncekiHp = hedef.hp;
+        hedef.hp -= dmg;
+        this.combatState = 'Üs Dövüyor';
+        if (typeof battleRecordCombatEvent === 'function') {
+            battleRecordCombatEvent({
+                kind: 'BASE_HIT', attackerId: this.id, attackerSide: this.isRed ? 'red' : 'blue',
+                attackerType: this.type, targetId: -1, targetSide: hedef.isRed ? 'red' : 'blue',
+                targetType: -1, damage: dmg, hpBefore: Math.round(oncekiHp),
+                hpAfter: Math.round(Math.max(0, hedef.hp)), lethal: hedef.hp <= 0,
+                attackerX: Math.round(this.x * 100) / 100, attackerY: Math.round(this.y * 100) / 100,
+                targetX: Math.round(hedef.x * 100) / 100, targetY: Math.round(hedef.y * 100) / 100
+            });
+        }
+        if (typeof BATTLE_CREDIT !== 'undefined' && BATTLE_CREDIT.on) battleKredi(this, 'hasar', Math.min(dmg, oncekiHp));
+        if (!SIM.headless) {
+            if (typeof spawnTracer === 'function') spawnTracer(this.x, this.y, hedef.x, hedef.y, !!this.isIndirect);
+            if (hedef.hp <= 0 && typeof spawnExplosion === 'function') spawnExplosion(hedef.x, hedef.y, 2.2);
+        }
+        // hp<=0 olan yapıyı updateTrenches (sim tarafı) siler — burada listeye dokunulmaz.
     }
 
     fireSecondaryWeapons(now, dtSec) {

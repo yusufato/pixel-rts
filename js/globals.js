@@ -1551,6 +1551,60 @@ const HASTANE_KURMA_SN = 4.0;   // siper 3.0sn; hastane biraz daha uzun
 const MINE_TRIGGER_R = 65;      // basma yarıçapı (birim merkezine) — geçen birimi daha güvenilir yakalar
 const MINE_BLAST_R = 95;        // patlama alan-yarıçapı
 const MINE_DAMAGE = 260;        // he tabanlı (zırhlıya alt-yön etkili); matris ile çarpılır
+/* ── MAYIN ALANI (kullanıcı 2026-08-16: "mayını ne kadar alana yerleştireceğimi
+      mausum ile alan yaparak seçmeliyim") ──
+   Eskiden `lay_mines` birimin BULUNDUĞU noktaya tek mayın bırakıyordu. Artık oyuncu
+   fareyle bir daire çiziyor ve mayınlar o dairenin içine DÜZENLİ ızgarayla dizilir.
+
+   İki kural bu işi sömürüye kapatır:
+     · ERİŞİM: mayın ancak döşeyen birimin MINE_LAY_REACH'i içine konur. Harita
+       öbür ucuna daire çizip oraya mayın ışınlamak yok.
+     · ADET: alan ne kadar büyük olursa olsun tek emirde MINE_AREA_MAX_ADET mayın.
+
+   Izgara DETERMİNİST (RNG yok) ve ön izleme ile motor AYNI fonksiyonu çağırır —
+   böylece oyuncunun gördüğü nokta sayısı ile döşenen sayı asla ayrışmaz. */
+const MINE_AREA_MAX_R = 420;        // fareyle çizilebilecek en büyük yarıçap
+const MINE_AREA_SPACING = 78;       // ızgara adımı (MINE_TRIGGER_R'den geniş → mayınlar üst üste binmez)
+const MINE_AREA_MAX_ADET = 14;      // tek emirde en fazla mayın
+const MINE_LAY_REACH = 460;         // döşeyen birim bu mesafeden uzağa mayın koyamaz
+
+// Tek bir altıgen ızgara (kaydırmalı satırlar), merkezden dışa determinist sıralı.
+function mineIzgara(cx, cy, r, s) {
+    const out = [];
+    const n = Math.ceil(r / s) + 1;
+    for (let gy = -n; gy <= n; gy++) {
+        const y = cy + gy * s * 0.866;               // altıgen: satır aralığı √3/2
+        const kaydir = (gy & 1) ? s * 0.5 : 0;       // tek satırlar yarım adım kayar
+        for (let gx = -n - 1; gx <= n + 1; gx++) {
+            const x = cx + gx * s + kaydir;
+            const d = Math.hypot(x - cx, y - cy);
+            if (d > r) continue;
+            out.push({ x: x, y: y, d: d });
+        }
+    }
+    out.sort((a, b) => (a.d - b.d) || (a.x - b.x) || (a.y - b.y));
+    return out;
+}
+
+/* Merkez+yarıçaptan DETERMİNİST mayın noktaları.
+   ADET SINIRINI KÜMELEYEREK DEĞİL SEYRELTEREK uygular. İlk sürüm sınırı aşınca
+   merkezdeki ilk 14 noktayı alıyordu; sonuç: 200px daire ile 420px daire AYNI sıkı
+   kümeyi veriyordu, yani "ne kadar alan" seçimi 200px'ten sonra hiçbir şey ifade
+   etmiyordu. Artık ızgara adımı büyütülür: geniş alan aynı mayınları daha ARALIKLI
+   dizer. Oyuncu böylece yoğunluk ↔ kapsama takası yapar. */
+function mineAreaNoktalari(cx, cy, r) {
+    if (!(r > 0)) return [{ x: cx, y: cy }];        // sürüklemeden bırakıldı → tek mayın
+    let s = MINE_AREA_SPACING;
+    let out = mineIzgara(cx, cy, r, s);
+    let guard = 0;
+    while (out.length > MINE_AREA_MAX_ADET && guard++ < 60) {
+        s *= 1.12;
+        out = mineIzgara(cx, cy, r, s);
+    }
+    return out.slice(0, MINE_AREA_MAX_ADET);         // emniyet (döngü tıkanırsa)
+}
+function mineAreaTahminAdet(r) { return mineAreaNoktalari(0, 0, r).length; }
+
 // Deterministik mayın güncellemesi: düşman kara-birimi tetiklerse patla (alan-hasarı), mayını kaldır.
 function updateMines(now) {
     if (!SIM.mines.length) return;
