@@ -29,6 +29,12 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const N = Math.max(1, Number(arg('--tohum', 96)) || 96);
 const TOHUM0 = Number(arg('--tohum0', 100000)) || 100000;   // CYBORG havuzu (docs/IKI-MAKINE.md)
 const KOL = arg('--kol', null);                              // A/B'lenecek global adı
+/* --esitkomp: SALDIRAN ordusunu da savunanin kompozisyon kurallariyla kur.
+   NEDEN: BattleDeployment savunana IKI taban veriyor (AT >= %15 butce; dolayli+AA
+   alt-tur garantisi) ve ikisi de `config.isAttacker === false` sartli. Saldiranin
+   AT tabani ise `config.pro === true` istiyor -> pro:false kosuda saldiranin HIC
+   tabani yok. Bu bayrak, rol farkinin KOMPOZISYONDAN mi TAKTIKTEN mi geldigini ayirir. */
+const ESIT_KOMP = process.argv.includes('--esitkomp');
 const MAX_TIK = Number(arg('--maxtik', 7200)) || 7200;
 const CIKTI = arg('--json', null);
 
@@ -55,6 +61,15 @@ function macKos(ctx, seed, kolDeger) {
         '  brainIntel4:true, isAttacker:false, pro:false });' +
         'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
         'battleDeployManifest(mv, false, { source:"rol-dengesi", ally:true });' +
+        // SALDIRANI YENIDEN KUR (ayni kompozisyon kurallariyla). Rol DEGISMEZ - yalnizca ordu.
+        (ESIT_KOMP ? (
+            'for (let i = SIM.units.length - 1; i >= 0; i--) if (SIM.units[i].isRed) SIM.units.splice(i, 1);' +
+            'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;' +
+            'const mvR = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true,' +
+            '  brainIntel4:true, isAttacker:false, pro:false, isRed:true });' +
+            'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
+            'battleDeployManifest(mvR, true, { source:"rol-dengesi-esitkomp" });'
+        ) : '') +
         'startBattle();' +
         'const ph = SIM.headless; SIM.headless = true;' +
         'let st = 0;' +
@@ -100,6 +115,7 @@ function main() {
 
     console.log('ROL DENGESI — ' + N + ' tohum, iki tarafta da intel4 (tek asimetri: ROL)');
     if (KOL) console.log('  A/B kolu: ' + KOL + '  (kapali vs acik, ESLESTIRILMIS ayni tohumlar)');
+    if (ESIT_KOMP) console.log('  ESIT KOMPOZISYON: saldiran ordusu da savunan kurallariyla kuruldu');
     console.log('');
 
     const t0 = Date.now();
