@@ -60,6 +60,26 @@
 //  bagli degil ve eski motorda egitilmis (veri bayat). Analitik eleyici o kopruyu
 //  BEKLEMEDEN aramanin canliya baglanmasina yetiyor.
 //
+//  ⛔ KOK BULGU — HEDEF OLCUSU KARARSIZ (2026-08-17):
+//    secim kurali        ayni aday   20sn'de korunan kazanc
+//    5sn  -> 10sn           %53             %22
+//    10sn -> 20sn           %53             %13     <-- HEDEFIN KENDISI KARARSIZ
+//    ANALITIK -> 20sn        %0              %2
+//    BIRIM-CANI -> 20sn     %47             %12
+//
+//  10sn'de EN IYI cikan aday, 20sn'de kazancin yalnizca %13'unu koruyor ve ancak
+//  yari yariya ayni aday kaliyor. Yani argmax(marj@10sn) KALICI ustunluk degil
+//  GECICI takas seciyor. Rollout deterministik oldugu icin sayilar tekrar ediyor
+//  ve gurultu gibi GORUNMUYOR - ama atfedilebilirlik yok.
+//
+//  BU, BES NULL SONUCU TEK BASINA ACIKLIYOR: mac sonucu sonsuz-ufuk olcusudur;
+//  10sn'lik kazanc 20sn'de zaten %13'e dusuyorsa mac sonuna hicbir sey kalmiyor.
+//  "1sn rollout, analitik skordan KOTU" anomalisi de ayni sebepten (kisa ufuk
+//  gurultuyu olcuyor, geometri kalici yapiyi olcuyor).
+//
+//  COZUM YONU: daha cok aramak DEGIL, KARARLI BIR HEDEF. Nihai marji durumdan
+//  tahmin eden deger agi tam bunun icin var - hizi degil, HEDEF KARARLILIGI icin.
+//
 //    node tools/gelecek-yelpazesi.js --tohum 3 --birim 3 --yaricap 600 --yon 12 --halka 2
 // ═══════════════════════════════════════════════════════════════════════════
 const { tezgahKur } = require('./muharebe-tezgah.js');
@@ -77,6 +97,7 @@ const ANLAR = (arg('--anlar', '600,1400,2200') || '').split(',').map(Number).fil
 const UFUK0 = Math.max(5, Number(arg('--ufuk0', 20)) || 20);      // 1sn — UCUZ ON ELEME
 const UFUK1 = Math.max(20, Number(arg('--ufuk1', 100)) || 100);   // 5sn
 const UFUK2 = Math.max(40, Number(arg('--ufuk2', 200)) || 200);   // 10sn
+const UFUK3 = Math.max(60, Number(arg('--ufuk3', 400)) || 400);   // 20sn — HEDEF OLCUSU KARARLI MI?
 
 function kos(ctx, seed) {
     const kod = '(() => {' +
@@ -96,7 +117,7 @@ function kos(ctx, seed) {
         'startBattle(); SIM.headless = true;' +
         'const ANLAR = ' + JSON.stringify(ANLAR) + ', BIRIM = ' + BIRIM + ', R = ' + YARICAP + ';' +
         'const YON = ' + YON + ', HALKA = ' + HALKA + ';' +
-        'const U0 = ' + UFUK0 + ', U1 = ' + UFUK1 + ', U2 = ' + UFUK2 + ';' +
+        'const U0 = ' + UFUK0 + ', U1 = ' + UFUK1 + ', U2 = ' + UFUK2 + ', U3 = ' + UFUK3 + ';' +
         'const marj = () => { const a = battleArmyObservation(true), d = battleArmyObservation(false);' +
         '  return a.effectiveValue - d.effectiveValue; };' +
         'const out = []; let st = 0;' +
@@ -158,15 +179,19 @@ function kos(ctx, seed) {
         '      u._holdingPos = false;' +
         '      const hp0 = u.hp;' +
         '      let s2 = st, m0 = null, m1 = null, hp1 = null, sag1 = null;' +
-        '      for (let i = 0; i < U2 && phase === PHASE.BATTLE; i++) {' +
+        '      let m2 = null, hp2 = null;' +
+        '      for (let i = 0; i < U3 && phase === PHASE.BATTLE; i++) {' +
         '        s2 += BATTLE_TICK_MS; stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);' +
         '        if (i === U0 - 1) m0 = Math.round(marj() - basMarj);' +
         '        if (i === U1 - 1) { const uu = SIM.units.find(x => x.id === uid);' +
         '          m1 = Math.round(marj() - basMarj); hp1 = uu ? Math.round(uu.hp) : 0; sag1 = !!(uu && !uu.dead); }' +
+        '        if (i === U2 - 1) { const uu = SIM.units.find(x => x.id === uid);' +
+        '          m2 = Math.round(marj() - basMarj); hp2 = uu ? Math.round(uu.hp) : 0; }' +
         '      }' +
         '      const uu2 = SIM.units.find(x => x.id === uid);' +
-        '      skor.push({ nokta: nk.ad, statik: sk, marj1: m0, marj5: m1, marj10: Math.round(marj() - basMarj),' +
-        '        hp5: hp1, hp10: uu2 ? Math.round(uu2.hp) : 0, hp0: Math.round(hp0),' +
+        '      skor.push({ nokta: nk.ad, statik: sk, marj1: m0, marj5: m1, marj10: m2,' +
+        '        marj20: Math.round(marj() - basMarj),' +
+        '        hp5: hp1, hp10: hp2, hp20: uu2 ? Math.round(uu2.hp) : 0, hp0: Math.round(hp0),' +
         '        sag5: sag1, sag10: !!(uu2 && !uu2.dead) });' +
         '    }' +
         '    battleForkRestore(f);' +
@@ -237,6 +262,35 @@ function main() {
             if (n2) satir.push('K=' + K + ' %' + (toplamTam !== 0 ? (toplamElemeli / toplamTam * 100).toFixed(0) : '0'));
         }
         console.log('  ELEME [' + ad + ']: ' + satir.join('   '));
+    }
+    /* HEDEF OLCUSU KARARLI MI? 10sn'de en iyi cikan aday, 20sn'de de en iyi mi?
+       Degilse argmax(marj) KELEBEK ETKISI seciyor demektir ve tum arama gurultu
+       uzerinde calisiyor. Bu, bes null sonucun tek basina aciklamasi olurdu. */
+    {
+        const olc = (a, b) => {
+            let ayni = 0, n2 = 0, korunan = 0, toplam = 0;
+            for (const o of hepsi) {
+                const kal = o.skor.find(s3 => s3.nokta === 'KAL'); if (!kal) continue;
+                const g = o.skor.filter(s3 => s3[a] != null && s3[b] != null);
+                if (g.length < 3) continue;
+                const enA = g.slice().sort((x, y) => y[a] - x[a])[0];
+                const enB = g.slice().sort((x, y) => y[b] - x[b])[0];
+                if (enA.nokta === enB.nokta) ayni++;
+                korunan += enA[b] - kal[b];
+                toplam += enB[b] - kal[b];
+                n2++;
+            }
+            return { ayni, n2, oran: n2 ? ayni / n2 * 100 : 0, kazancOran: toplam !== 0 ? korunan / toplam * 100 : 0 };
+        };
+        console.log('  HEDEF OLCUSU KARARLILIGI (X ile secip Y ile puanla)');
+        for (const [a, b, ad] of [['marj5', 'marj10', '5sn -> 10sn'], ['marj10', 'marj20', '10sn -> 20sn'],
+                                  ['statik', 'marj20', 'ANALITIK -> 20sn'], ['hp10', 'marj20', 'BIRIM-CANI -> 20sn']]) {
+            const r = olc(a, b);
+            if (!r.n2) continue;
+            console.log('    ' + ad.padEnd(20) + 'ayni aday %' + r.oran.toFixed(0).padStart(3) +
+                '   kazancin %' + r.kazancOran.toFixed(0).padStart(3) + "'i korunuyor   n=" + r.n2);
+        }
+        console.log('');
     }
     const kz = hepsi.filter(x => x.kazanc != null).map(x => x.kazanc);
     if (kz.length) {
