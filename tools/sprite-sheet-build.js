@@ -197,48 +197,71 @@ app.whenReady().then(async () => {
         // ── 3) hedef tabakaya ciz ──
         const hed = tuval(G.GENIS, G.YUKSEK), hx = hed.getContext('2d');
         hx.imageSmoothingEnabled = false;
-        const kirmiziYap = (kaynakTuval) => {
-            const w = kaynakTuval.width, h = kaynakTuval.height;
-            const t = tuval(w, h), c2 = t.getContext('2d');
-            c2.drawImage(kaynakTuval, 0, 0);
-            const dd = c2.getImageData(0, 0, w, h), p = dd.data;
-            for (let i = 0; i < p.length; i += 4) {
-                if (!p[i+3]) continue;
-                const l = (p[i]*0.299 + p[i+1]*0.587 + p[i+2]*0.114) / 255;
-                p[i]   = Math.min(255, Math.round(60 + l * 195));
-                p[i+1] = Math.round(l * 74);
-                p[i+2] = Math.round(l * 62);
-            }
-            c2.putImageData(dd, 0, 0);
-            return t;
-        };
-        const cizHucre = (kaynakTuval, sx, sy, sw, sh, sutun) => {
-            const kenar = 18, ic = G.HUCRE - kenar * 2;
-            const o = Math.min(ic / sw, ic / sh);
+
+        /* ÖLÇEK BANDI — "bazı görseller büyük bazıları küçük" sorununun kökü.
+           Önceki sürüm her sprite'ı KENDİ hücresine sığdırıyordu (aspect-fit).
+           Sonuç ters dönüyordu: dar-uzun piyade (68×103) hücre yüksekliğine
+           şişiyor, geniş tank (222×109) genişliğe sığdığı için alçalıyordu —
+           piyade tanktan BÜYÜK görünüyordu.
+
+           Ham dünya oranını birebir uygulamak da olmuyor: hücre ekranda ~24px
+           (BASE_DRAW_SCALE 0.20 × zoom), piyade 6px'e düşüp kaybolurdu.
+
+           Bu yüzden sıra KORUNUR, aralık SIKIŞTIRILIR: kaynak ayak izine göre
+           en küçük birim hücrenin %62'sini, en büyüğü %100'ünü doldurur.
+           Tank > piyade kalır, ikisi de okunur kalır. */
+        const DOLGU_MIN = 0.62, DOLGU_MAX = 1.00;
+        const izler = sirali.map(k => Math.max(k.x1 - k.x0, k.y1 - k.y0));
+        const izMin = Math.min.apply(null, izler), izMax = Math.max.apply(null, izler);
+        const dolguOrani = iz => izMax > izMin
+            ? DOLGU_MIN + ((iz - izMin) / (izMax - izMin)) * (DOLGU_MAX - DOLGU_MIN)
+            : DOLGU_MAX;
+
+        /* Taraf rengi ARTIK SPRITE'A GÖMÜLMÜYOR. Eski sayfa hücreyi maviye/
+           kırmızıya boyuyordu; UNIT_ROTATE=true oldugu icin o kutu birimle
+           birlikte dönüyordu. Kutu artık Unit.draw'da DİK çizilir, sprite
+           içinde döner. Bu yüzden iki satır da birimin KENDİ renklerini taşır
+           (eski sayfa da öyleydi; kırmızıya boyamak benim hatamdı). */
+        const cizHucre = (kaynakTuval, sx, sy, sw, sh, sutun, dolgu) => {
+            const ic = G.HUCRE - 18 * 2;
+            const o = (ic * dolgu) / Math.max(sw, sh);
             const dw = Math.round(sw * o), dh = Math.round(sh * o);
             const dx = G.PAD + sutun * (G.HUCRE + G.PAD) + Math.round((G.HUCRE - dw) / 2);
-            for (const [satir, tuv] of [[0, kaynakTuval], [1, kirmiziYap(kaynakTuval)]]) {
+            for (const satir of [0, 1]) {
                 const dy = G.PAD + satir * (G.HUCRE + G.PAD) + Math.round((G.HUCRE - dh) / 2);
-                hx.drawImage(tuv, sx, sy, sw, sh, dx, dy, dw, dh);
+                hx.drawImage(kaynakTuval, sx, sy, sw, sh, dx, dy, dw, dh);
             }
+            return { dw, dh, dolgu: +dolgu.toFixed(3) };
         };
 
         /* Okuma sirasindaki her sprite, KENDI biriminin ROSTER SUTUNUNA yazilir.
            i'inci sprite i'inci sutuna DEGIL — bu ayrim ilk surumdeki hataydi. */
-        const yazilan = [];
+        const yazilan = [], dolgular = [];
         for (let i = 0; i < sirali.length && i < G.sutunlar.length; i++) {
             const k = sirali[i], hedefSutun = G.sutunlar[i];
             if (hedefSutun == null || hedefSutun < 0) continue;
-            cizHucre(kc, k.x0, k.y0, k.x1 - k.x0, k.y1 - k.y0, hedefSutun);
-            yazilan.push(hedefSutun);
+            const d = cizHucre(kc, k.x0, k.y0, k.x1 - k.x0, k.y1 - k.y0, hedefSutun,
+                dolguOrani(Math.max(k.x1 - k.x0, k.y1 - k.y0)));
+            yazilan.push(hedefSutun); dolgular.push(d.dolgu);
         }
         if (G.ek && G.ekSutun >= 0) {
             const eim = await yukle(G.ek);
             const { c: ec, d: ed } = ayikla(eim);
             const ek = bloklar(ed, ec.width, ec.height).sort((a,b) => b.say - a.say)[0];
-            if (ek) { cizHucre(ec, ek.x0, ek.y0, ek.x1 - ek.x0, ek.y1 - ek.y0, G.ekSutun); yazilan.push(G.ekSutun); }
+            if (ek) {
+                /* VARSAYIM: ek dosya ana tabakayla AYNI piksel yogunlugunda cizilmis
+                   (ikisi de ayni uretim turundan geldi), o yuzden ayak izi ayni banda
+                   sokuluyor. Yanlissa kamikaze orantisiz cikar — ciktida gozle bakilir. */
+                const d = cizHucre(ec, ek.x0, ek.y0, ek.x1 - ek.x0, ek.y1 - ek.y0, G.ekSutun,
+                    dolguOrani(Math.max(ek.x1 - ek.x0, ek.y1 - ek.y0)));
+                yazilan.push(G.ekSutun);
+                rapor.ekDolgu = d.dolgu;
+                rapor.ekIz = Math.max(ek.x1 - ek.x0, ek.y1 - ek.y0);
+            }
             rapor.ekYerlesti = !!ek;
         }
+        rapor.dolguAralik = [Math.min.apply(null, dolgular), Math.max.apply(null, dolgular)];
+        rapor.izAralik = [izMin, izMax];
         rapor.yazilanSutun = yazilan.length;
         rapor.bosSutun = Array.from({length: G.SUTUN}, (_, i) => i).filter(i => !yazilan.includes(i));
         rapor.png = hed.toDataURL('image/png');
@@ -260,6 +283,14 @@ app.whenReady().then(async () => {
             '  ->  ' + id.padEnd(24) + 'sutun ' + String(roster.indexOf(id)).padStart(2));
     }
     if (EK) console.log('  ek dosya              ->  ' + EK_BIRIM.padEnd(24) + 'sutun ' + roster.indexOf(EK_BIRIM));
+    if (sonuc.dolguAralik) {
+        console.log('');
+        console.log('OLCEK BANDI: kaynak ayak izi ' + sonuc.izAralik.join('..') + ' px  ->  hucre dolgusu ' +
+            (sonuc.dolguAralik[0] * 100).toFixed(0) + '%..' + (sonuc.dolguAralik[1] * 100).toFixed(0) + '%');
+        if (sonuc.ekDolgu != null) {
+            console.log('  ek (kamikaze) iz ' + sonuc.ekIz + ' px -> dolgu ' + (sonuc.ekDolgu * 100).toFixed(0) + '%');
+        }
+    }
     if (sonuc.bosSutun && sonuc.bosSutun.length) {
         console.log('  BOS KALAN SUTUN: ' + sonuc.bosSutun.map(i => i + ' (' + roster[i] + ')').join(', '));
     }

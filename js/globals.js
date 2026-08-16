@@ -33,11 +33,25 @@ const fogCtx = fogCanvas.getContext('2d');
 
 let isCameraInitialized = false;
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    fogCanvas.width = canvas.width;
-    fogCanvas.height = canvas.height;
-    
+    /* ARKA TAMPON, ELEMANIN KENDİ ÖLÇÜSÜNDEN türetilir — window.innerWidth'ten DEĞİL.
+       Yerleştirme fazında style.css tuvali `calc(100% - 330px)` daraltıyor (ordu
+       kompozisyonu paneline yer açmak için) ama arka tampon pencere genişliğinde
+       kalıyordu: 1522 piksellik tampon 1192 piksellik kutuya sıkışıyor ve savaş
+       alanı DİKEY olarak %28 geriliyordu. Ölçüldü — çarpıklık (dikey/yatay ölçek):
+           yerleştirme 1.2757   ·   savaş 0.9992
+       Savaşta tuval tam genişlik olduğu için kusur yalnız yerleştirmede görünüyordu;
+       birimler orada basık/uzun çiziliyordu. CSS genişliği FAZ DEĞİŞİMİNDE de
+       değiştiği için (resize olayı tetiklenmez) bu eşitleme her karede yapılır. */
+    const _w = Math.max(1, canvas.clientWidth || window.innerWidth);
+    const _h = Math.max(1, canvas.clientHeight || window.innerHeight);
+    if (canvas.width !== _w || canvas.height !== _h) {
+        canvas.width = _w;
+        canvas.height = _h;
+        fogCanvas.width = _w;
+        fogCanvas.height = _h;
+    }
+
+
     if (!isCameraInitialized && canvas.width > 0 && canvas.height > 0) {
         // İlk açılışta merkez geçit, dağ sıraları ve güney konuşlanma alanı birlikte görünür.
         zoom = Math.max(ZOOM_MIN, Math.min(0.65, canvas.width / (WORLD_W * 0.78)));

@@ -1717,10 +1717,12 @@ function gameLoop(timestamp) {
         requestAnimationFrame(gameLoop);
         return;
     }
-    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
-        resize();
-    }
-    
+    /* Bu kontrol vardı ama YANLIŞ REFERANSA bakıyordu: tampon `window.innerWidth`
+       ile karşılaştırılınca, tuval CSS'te daraltıldığı yerleştirme fazında hiçbir
+       zaman uyuşmazlık görmüyordu. Karşılaştırmayı resize() kendi içinde elemanın
+       ölçüsüne göre yapıyor. */
+    resize();
+
     if (!lastFrameTime) lastFrameTime = timestamp;
     const dt = Math.max(0, Math.min(250, timestamp - lastFrameTime));
     if (typeof updateCinematic === 'function') updateCinematic(dt / 1000);

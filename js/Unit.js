@@ -3140,6 +3140,26 @@ class Unit {
 
         const _flash = this.flashTimer > 0;                    // hit-flash: vuruşta beyaza yakın parlama
         const _abFilter = this.abandoned ? 'grayscale(1) brightness(0.72)' : null;   // TERK: gri/tarafsız görünüm
+
+        /* TARAF KUTUSU — mavinin arkasında mavi, kırmızının arkasında kırmızı.
+           Eskiden bu kutu SPRITE'IN İÇİNDEydi (icons.png hücresi komple boyalıydı),
+           yeni sanat saydam gelince taraf rengi kayboldu. Artık burada çizilir:
+             · DÖNMEZ. UNIT_ROTATE=true olduğu için sprite'a gömülü kutu birimle
+               birlikte dönüyordu; dik duran kutu okunur, dönen kare değil.
+             · Sprite ölçeğinden BAĞIMSIZ. Birimler artık hücreyi farklı oranlarda
+               dolduruyor (tank büyük, piyade küçük) ama taraf işareti hepsinde aynı
+               boyda kalır — sim'de çarpışma yarıçapı da hepsinde aynıdır.
+             · TERK edilmiş birim tarafsızdır → gri kutu. */
+        if (spriteReady()) {
+            const _kutu = this.abandoned ? 'rgba(150,150,150,'
+                : (this.isRed ? 'rgba(220,40,40,' : 'rgba(64,96,220,');
+            ctx.fillStyle = _kutu + '0.85)';
+            ctx.fillRect(s.x - dw / 2, s.y - dh / 2, dw, dh);
+            ctx.strokeStyle = _kutu + '1)';
+            ctx.lineWidth = Math.max(1, zoom);
+            ctx.strokeRect(s.x - dw / 2, s.y - dh / 2, dw, dh);
+        }
+
         if (UNIT_ROTATE) {
             ctx.save();
             ctx.translate(s.x, s.y);
