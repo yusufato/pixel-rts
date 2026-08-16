@@ -954,6 +954,19 @@ function battleForkRestore(fork) {
         BATTLE_FORENSIC.seq = fork.forensic.seq | 0;
     }
     if (fork.controllers && typeof battleForkRestoreControllers === 'function') battleForkRestoreControllers(fork.controllers, byId);
+    /* UZAMSAL IZGARAYI YENİDEN KUR — fork'un en ince kusuru buydu.
+       stepSim sırası: driveController(now) ÖNCE, SIM.spatialGrid.clear()+insert SONRA.
+       Yani AI her tik BİR ÖNCEKİ tikin ızgarasını okur. Restore ise birimleri YENİ
+       nesneler olarak kuruyor; ızgara ise eski nesneleri tutmaya devam ediyordu.
+       İkinci rollout'ta o eskiler rollout-1'in SONUNDAKİ konumlarındaydı → AI, restore
+       edilmiş dünyayı değil önceki denemenin dünyasını görüyordu.
+       ÖLÇÜLDÜ: sapma tam tik-0'da ve gözlem katmanında başlıyordu
+       (aynı temas için closestObserverDistance 118.8 vs 358.08 → farklı gözlemci).
+       Tek-atışlık fork'ta görünmez; aynı fork'u DEFALARCA oynatan arama için ölümcül. */
+    if (SIM.spatialGrid && typeof SIM.spatialGrid.clear === 'function') {
+        SIM.spatialGrid.clear();
+        for (const u of SIM.units) if (!u.dead && !u.loaded) SIM.spatialGrid.insert(u);
+    }
     SIM_RNG.state = fork.rngState >>> 0;   // birim yaratımının tükettiği srand'ı geri al (EN SON)
 }
 
