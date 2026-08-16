@@ -1517,6 +1517,34 @@ SIM.ctrlPosture = {};
 // gezici 300px halesinin altında: hastanenin üstünlüğü alan değil KALICILIK (sağlıkçı ölse de durur).
 const SIPER_R = 130;            // eski 105 (ondan önce 72)
 const HASTANE_R = 165;
+
+/* ── İLERİ ÜS (kullanıcı 2026-08-16: "istihkâm aracı siper değil ÜS kursun") ──
+   İstihkâmın kurduğu yapı işlev olarak zaten üstü (mühimmat + hava yakıt/tamir,
+   sınırsız dolum) — ama 60 SANİYEDE yok oluyordu. Bir dakikada buharlaşan şey üs
+   değildir: oyuncu kurar, ordusu oraya varmadan kaybolur.
+   Üs = KALICI + daha geniş + daha dayanıklı, karşılığında daha uzun kurulum ve
+   taraf başına SAYI SINIRI (kalıcı yapı sınırsız olursa saha üslerle dolar). */
+const US_R = 190;               // siper 130 → üs 190 (sahra hastanesi 165'ten de geniş)
+const US_HP = 700;              // siper 320 → üs 700 (kalıcı yapı yıkılabilir olmalı, kâğıt değil)
+const US_INSA_SN = 6.0;         // siper 3.0sn → üs 6.0sn (kalıcılığın bedeli)
+const US_MAX_TARAF = 4;         // taraf başına aynı anda en fazla 4 üs
+
+// A/B kolu: kapalıyken eski geçici siper (r=130, hp=320, 3sn, 60sn ömür) geri gelir.
+let BATTLE_ISTIHKAM_US = true;
+function battleIstihkamUs() {
+    return (typeof BATTLE_ISTIHKAM_US === 'undefined') || BATTLE_ISTIHKAM_US;
+}
+// Bir tarafın AYAKTA kaç üssü var (hastane sayılmaz — o ayrı bir tesis).
+function battleUsSayisi(isRed) {
+    if (typeof SIM === 'undefined' || !SIM.trenches) return 0;
+    let n = 0;
+    for (const t of SIM.trenches) {
+        if (t.isRed !== isRed || t.isHospital || t.destroyed) continue;
+        if (t.hp != null && t.hp <= 0) continue;
+        n++;
+    }
+    return n;
+}
 const HASTANE_HEAL_SN = 5;      // hp/sn — sağlıkçı halesi 6/sn; hastane biraz düşük ama sabit ve sürekli
 const HASTANE_KURMA_SN = 4.0;   // siper 3.0sn; hastane biraz daha uzun
 

@@ -1051,6 +1051,15 @@ function battleApplyRecordedEvent(event) {
                 SIM.mines.push({ x: u.x, y: u.y, r: (typeof MINE_TRIGGER_R !== 'undefined' ? MINE_TRIGGER_R : 46), isRed: u.isRed, armed: false, createdAt: SIM.tick * BATTLE_TICK_MS, armDelay: 1500 });
             } else if (ab === 'build_fortification') {
                 if (u.type !== T.ENGINEER) continue;
+                // ÜS SINIRI: emir sessizce yutulmasın — istihkâm boşuna yürüyüp
+                // hiçbir şey kurmazsa oyuncu "yetenek bozuk" sanır.
+                if (typeof battleIstihkamUs === 'function' && battleIstihkamUs() &&
+                    typeof battleUsSayisi === 'function' && battleUsSayisi(u.isRed) >= US_MAX_TARAF) {
+                    if (!SIM.headless && u.controlOwner === 'PLAYER' && typeof warRoomBattleEvent === 'function') {
+                        warRoomBattleEvent('ÜS SINIRI DOLU (' + US_MAX_TARAF + ') — önce bir üs yıkılmalı', 'warn');
+                    }
+                    continue;
+                }
                 u.buildTrenchTarget = { x: payload.x, y: payload.y };
                 u.manualTarget = null; u.manualMoveTarget = null; u.attackTarget = null;
             } else if (ab === 'build_hospital') {   // SAHRA HASTANESİ: sağlıkçı sabit tesis kurar (siperle aynı listeye)

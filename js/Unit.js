@@ -798,22 +798,33 @@ class Unit {
                 this.isMovingToManualTarget = true;
                 return false;
             } else {
+                const _us = battleIstihkamUs();
+                // ÜS SAYI SINIRI: kalıcı yapı sınırsız olursa saha üslerle dolar. Sınıra
+                // gelindiyse inşa boşuna sürmesin — emri düşür (istihkâm başka işe döner).
+                if (_us && battleUsSayisi(this.isRed) >= US_MAX_TARAF) {
+                    this.buildTrenchTarget = null;
+                    this.buildTrenchTimer = 0;
+                    return true;
+                }
                 this.buildTrenchTimer += frameScale / 60;
                 if (Math.random() < 0.1 && typeof spawnHitSparks !== 'undefined') spawnHitSparks(this.x, this.y);
-                if (this.buildTrenchTimer > 3.0) {
+                if (this.buildTrenchTimer > (_us ? US_INSA_SN : 3.0)) {
                     SIM.trenches.push({
                         x: this.x,
                         y: this.y,
-                        r: SIPER_R,                   // 72→105→130 (kullanıcı: "siper alanını da biraz büyüt")
+                        r: _us ? US_R : SIPER_R,      // siper 130 → üs 190
                         isRed: this.isRed,
-                        hp: 320,
-                        maxHp: 320,
+                        hp: _us ? US_HP : 320,
+                        maxHp: _us ? US_HP : 320,
+                        isBase: _us,                  // çizim/etiket bunu okur ("İLERİ ÜS")
                         providesSupply: true,
-                        providesAir: true,            // HELO-ÜSSÜ: hava birimi burada yakıt+mühimmat+TAMİR alır
-                        builderId: this.id,           // KREDİ: siperde tutulan dost-saniyesi ve dolum bu istihkâma yazılır
-                        refuelsLeft: null,            // KULLANICI-FIX: SINIRSIZ dolum — "üs kurulu olduğu sürece yakıt doldurabilir + tamir olabilir" (refuelsLeft=null → capLeft=Infinity, hak-tüketimi yok)
+                        providesAir: true,            // hava birimi burada yakıt+mühimmat+TAMİR alır
+                        builderId: this.id,           // KREDİ: üste tutulan dost-saniyesi ve dolum bu istihkâma yazılır
+                        refuelsLeft: null,            // SINIRSIZ dolum (refuelsLeft=null → capLeft=Infinity)
                         createdAt: now,
-                        expiresAt: now + SUPPLY_FIELD_DURATION_MS
+                        // ÜS KALICIDIR. Eskiden 60sn sonra siliniyordu; oyuncu kurup ordusu
+                        // oraya varmadan kayboluyordu. Artık yalnız YIKILARAK yok olur.
+                        expiresAt: _us ? 0 : (now + SUPPLY_FIELD_DURATION_MS)
                     });
                     if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) BATTLE_BALANCE.fieldsBuilt = (BATTLE_BALANCE.fieldsBuilt || 0) + 1;
                     this.buildTrenchTarget = null;
@@ -1235,6 +1246,8 @@ class Unit {
     // AI İSTİHKAM: aktif-yetenekleri kullan (insan-simetrisi) — (1) terk-edilmiş aracı ele geçir, (2) ileri siper/helipad kur.
     updateEngineerAI(now, dtSec) {
         if (this.buildTrenchTarget) return;   // zaten inşa ediyor
+        // ÜS SINIRI DOLDUYSA inşa kararı hiç alınmasın (istihkâm kapma/tamir/mayına dönsün).
+        const _usDolu = battleIstihkamUs() && battleUsSayisi(this.isRed) >= US_MAX_TARAF;
         // DURUŞ-BAĞI (analist): CONSOLIDATE (kazandık+lull) → kapma/tamir penceresi AÇIK; sahayı kontrol ettiğimiz için geometri gevşer.
         let _stance = null, _winning = false;
         {   // DETERMİNİZM: duruş SİM-durumundan (canlı kontrolör nesnesi replay'de YOK → sapma kaynağıydı)
@@ -1296,7 +1309,7 @@ class Unit {
                     if (t.isRed !== this.isRed) continue;
                     if (Math.hypot(t.x - this.x, t.y - hatY) < PRO_HOLD_TRENCH_GAP) { zincirVar = true; break; }
                 }
-                if (!zincirVar) {
+                if (!zincirVar && !_usDolu) {
                     if (Math.abs(this.y - hatY) > 70) {   // önce hatta in
                         this.targetX = this.x; this.targetY = hatY;
                         this.manualMoveTarget = { x: this.x, y: hatY }; this.isMovingToManualTarget = true;
@@ -1310,7 +1323,7 @@ class Unit {
         // (2) İLERİ SİPER/HELİPAD: yakında dost supply-field YOKSA → kur (kara-ikmal + helo yakıt)
         let hasField = false;
         for (const t of SIM.trenches) { if (t.isRed === this.isRed && t.providesSupply !== false && Math.hypot(t.x - this.x, t.y - this.y) < 520) { hasField = true; break; } }
-        if (!hasField) { this.buildTrenchTarget = { x: this.x, y: this.y }; return; }
+        if (!hasField && !_usDolu) { this.buildTrenchTarget = { x: this.x, y: this.y }; return; }
         // (3) MAYIN: field kurulu → ileri-hatta mayın döşe (yakında dost mayın yoksa, ~her 3sn)
         const fwd = this.isRed ? (this.y > WORLD_H * 0.28) : (this.y < WORLD_H * 0.72);   // orta-ileri bölge (savunma hattı)
         if (!fwd) return;

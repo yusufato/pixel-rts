@@ -301,7 +301,7 @@ function warRoomIssueOrder(order) {
         warRoomBattleEvent(`ATEŞ SERBEST — ${force.length} BİRLİK`, 'friendly');
     } else if (order === 'trench') {
         document.getElementById('btn-trench')?.click();
-        warRoomBattleEvent('SİPER KAZ EMRİ AKTİF', 'info');
+        warRoomBattleEvent('ÜS KUR EMRİ AKTİF', 'info');
     } else if (order === 'paradrop') {
         document.getElementById('btn-paradrop')?.click();
         warRoomBattleEvent('PARAŞÜT HEDEFLEME AKTİF', 'info');

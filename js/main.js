@@ -380,7 +380,7 @@ const ABILITY_META = {
     // KEŞİF ARACI da mayın döşer (kullanıcı isteği): hızlı, gizli ve ileride olan birim — geçiş noktasını
     // erken kapatmak doğal işi. İstihkâm hâlâ mayın temizleyen tek birim.
     lay_mines:           { label: 'MAYIN DÖŞE', icon: '💣', active: true,  targeted: false, need: u => u.type === T.ENGINEER || u.type === T.RECON },
-    build_fortification: { label: 'SİPER KAZ',  icon: '⛏',  active: true,  targeted: true,  need: u => u.type === T.ENGINEER },
+    build_fortification: { label: 'ÜS KUR',     icon: '🏗',  active: true,  targeted: true,  need: u => u.type === T.ENGINEER },
     build_hospital:      { label: 'HASTANE KUR', icon: '🏥', active: true, targeted: true,  need: u => u.type === T.MEDIC },
     unload:              { label: 'İNDİR',      icon: '🪖', active: true,  targeted: false, need: u => u.transportSlots > 0 && u.cargo && u.cargo.length > 0 },
     launch_drone:        { label: 'DRONE SAL',  icon: '🛩', active: true,  targeted: true,  need: u => u.type === T.DRONE_OPERATOR && (u.payloadCount == null || u.payloadCount > 0) },
@@ -1383,6 +1383,19 @@ function drawMap() {
             ctx.fillRect(Math.round(s.x - c * 0.28), Math.round(s.y - c), Math.round(c * 0.56), Math.round(c * 2));
             ctx.fillRect(Math.round(s.x - c), Math.round(s.y - c * 0.28), Math.round(c * 2), Math.round(c * 0.56));
             continue;
+        }
+
+        // ── İLERİ ÜS: siperden AYRI okunmalı (kalıcı yapı, 190 yarıçap). Siperin
+        //    kum-torbası halkasına ek olarak DIŞ çerçeve + köşe kuleleri çizilir.
+        if (t.isBase) {
+            ctx.strokeStyle = t.isRed ? 'rgba(255,150,130,0.55)' : 'rgba(120,235,175,0.55)';
+            ctx.lineWidth = 2 * zoom;
+            ctx.strokeRect(s.x - zr, s.y - zr, zr * 2, zr * 2);          // dış çerçeve = tesis
+            const _k = 5 * zoom;
+            ctx.fillStyle = t.isRed ? 'rgba(255,150,130,0.75)' : 'rgba(120,235,175,0.75)';
+            for (const [kx, ky] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {   // köşe kuleleri
+                ctx.fillRect(Math.round(s.x + kx * zr - _k / 2), Math.round(s.y + ky * zr - _k / 2), _k, _k);
+            }
         }
 
         // Kum torbası ve mühimmat ikmal halkası.
