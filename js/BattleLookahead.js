@@ -27,17 +27,49 @@
 //  güvenceye alındı — tools/ileri-model-kapisi.js (27/27).
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Teşhis sayaçları (hash DIŞI — simülasyona dokunmaz, yalnız ölçüm harness'i okur)
+const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0 };
+
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
 
 const LA_PERIYOT_TIK = 100;   // kaç tikte bir arama (100 = 5sn)
-const LA_BIRIM = 1;           // her aramada kaç birim için karar verilir (en değerliler)
+const LA_BIRIM = 5;           // her aramada kaç birim için karar verilir (en değerliler)
+/* YAYILIM KAPISI (bedava optimizasyon).
+   ÖLÇÜLDÜ (tools/gelecek-yelpazesi.js): kararların %29'unda adaylar arası yayılım
+   SIFIR — ne yaparsan yap sonuç aynı. Orada rollout saf israf. Analitik skorlar
+   birbirine yakınsa karar önemsizdir; aramayı hiç başlatma.
+   Eşik "düşman değeri" biriminde (analitik skorla aynı ölçek). */
+const LA_YAYILIM_ESIK = 100;
 const LA_YON = 8;             // aday yönü
 const LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
 const LA_YARICAP = 600;       // en dış halka
 const LA_DERIN = 3;           // analitik elemeden sonra GERÇEKTEN oynatılan aday
 const LA_UFUK = 100;          // rollout ufku (tik) — 100 = 5sn
 const LA_EMIR_SURESI = 120;   // verilen emir kaç tik korunur (AI onu hemen ezmesin)
+
+/* ── ORTAK KARAR: SIRALI TAAHHÜT (kullanıcı 2026-08-17) ──
+   Kusur: beş birimin beşi de AYNI başlangıç durumuna bakıp karar veriyordu, sonra
+   beş emir birden uygulanıyordu. Yani B, A'nın az önce aldığı kararı GÖRMÜYOR —
+   A'nın eski davranışını varsayıyordu.
+
+   TAM ÇAPRAZLAMA İMKÂNSIZ: 20 birim × 25 aday = 25^20 ≈ 10^28 kombinasyon.
+   SIRALI TAAHHÜT bunun büyük kısmını DOĞRUSAL maliyetle alır:
+     A'nın kararını ver → dünyaya İŞLE → B artık A'nın GERÇEK hamlesini görerek karar verir → ...
+   Maliyet değişmez (aynı sayıda rollout), yalnız sıra değişir.
+
+   Emir birime uygulandığı için sonraki birimin fork'u onu İÇİNDE taşır: fork,
+   emir verildikten SONRA alınır. */
+let LA_SIRALI = true;
+
+/* ── ÇİFT YÖNLÜ SIRA (kullanıcı 2026-08-17: "hem A'dan hem son birimden başlasın") ──
+   Sıralı taahhüdün zayıflığı: SIRA KEYFÎ. İlk karar veren birim diğerlerinden habersiz,
+   son karar veren hepsini görüyor. Yani ortak plan, birimleri hangi sırayla sorduğumuza
+   bağlı — ve hangi sıranın doğru olduğunu bilmiyoruz.
+   ÇÖZÜM: iki sırayı da dene (değerliden ucuza, ucuzdan değerliye), ortaya çıkan İKİ
+   ORTAK PLANI da oynat, iyisini uygula. Keyfîlik ölçüyle değiştirilmiş olur.
+   Maliyet ~2.1x (iki geçiş + iki ortak-plan değerlendirmesi). */
+let LA_CIFT_YON = true;
 
 function battleLookaheadAcik(isRed) {
     return isRed ? BATTLE_LOOKAHEAD_RED === true : BATTLE_LOOKAHEAD_BLUE === true;
@@ -92,6 +124,16 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     // 1) ANALİTİK ELEME (bedava). Determinist sıra: skor, sonra x, sonra y.
     for (const a of adaylar) a._s = battleLookaheadStatik(u0, a.x, a.y);
     adaylar.sort((a, b) => (b._s - a._s) || (a.x - b.x) || (a.y - b.y));
+
+    /* YAYILIM KAPISI: en iyi aday "yerinde kal"dan belirgin iyi değilse bu karar
+       önemsizdir → hiç oynatma. Rollout'un %100'ü buradan tasarruf edilir. */
+    const _kal = adaylar.find(a => a.kal);
+    if (_kal && (adaylar[0]._s - _kal._s) < LA_YAYILIM_ESIK) {
+        if (typeof BATTLE_LA_SAYAC !== 'undefined') BATTLE_LA_SAYAC.atlanan++;
+        return null;
+    }
+    if (typeof BATTLE_LA_SAYAC !== 'undefined') BATTLE_LA_SAYAC.arananan++;
+
     const derin = adaylar.slice(0, LA_DERIN);
     // "yerinde kal" hep sınansın: aramanın zarar vermediğini garanti eden taban.
     if (!derin.some(a => a.kal)) { const k = adaylar.find(a => a.kal); if (k) derin.push(k); }
@@ -124,6 +166,16 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     return (enIyi && !enIyi.kal) ? { x: enIyi.x, y: enIyi.y, skor: enIyiSkor } : null;
 }
 
+function battleLookaheadEmirVer(uid, karar) {
+    const u = SIM.units.find(x => x.id === uid);
+    if (!u || u.dead) return;
+    u.targetX = karar.x; u.targetY = karar.y;
+    u.manualMoveTarget = { x: karar.x, y: karar.y };
+    u.isMovingToManualTarget = true; u._holdingPos = false;
+    u._laUntilTick = SIM.tick + LA_EMIR_SURESI;   // emrin ömrü (AI hemen ezmesin)
+    BATTLE_LA_SAYAC.emir++;
+}
+
 /* TİKLER ARASINDA çağrılır. stepSim'in İÇİNDEN ÇAĞIRMA — fork/restore birimleri
    yeniden yaratır ve dış tikin döngülerini bozar. */
 function battleLookaheadTick(now) {
@@ -138,16 +190,56 @@ function battleLookaheadTick(now) {
             .sort((a, b) => (((STATS[b.type] && STATS[b.type].cost) || 0) - ((STATS[a.type] && STATS[a.type].cost) || 0)) || (a.id - b.id))
             .slice(0, LA_BIRIM)
             .map(u => u.id);
-        for (const uid of hedefler) {
-            const karar = battleLookaheadBirimKarari(uid, isRed, now);
-            if (!karar) continue;
-            const u = SIM.units.find(x => x.id === uid);
-            if (!u || u.dead) continue;
-            u.targetX = karar.x; u.targetY = karar.y;
-            u.manualMoveTarget = { x: karar.x, y: karar.y };
-            u.isMovingToManualTarget = true; u._holdingPos = false;
-            u._laUntilTick = SIM.tick + LA_EMIR_SURESI;   // emrin ömrü (AI hemen ezmesin)
+        if (!LA_SIRALI) {
+            // KÖR: tüm kararlar aynı başlangıç durumundan alınır, sonra birlikte uygulanır.
+            const bekleyen = [];
+            for (const uid of hedefler) {
+                const k = battleLookaheadBirimKarari(uid, isRed, now);
+                if (k) bekleyen.push([uid, k]);
+            }
+            for (const [uid, k] of bekleyen) battleLookaheadEmirVer(uid, k);
+            continue;
         }
+
+        /* SIRALI (+ istenirse ÇİFT YÖNLÜ). Bir sırayı dene: her birim kararını alır ve
+           emri HEMEN uygulanır → sıradaki birim onu görerek karar verir. Sonra ortaya
+           çıkan ORTAK PLAN oynatılıp puanlanır. */
+        const taban = battleForkCapture();
+        const dene = (sira) => {
+            battleForkRestore(taban);
+            const emirler = [];
+            for (const uid of sira) {
+                const k = battleLookaheadBirimKarari(uid, isRed, now);
+                if (k) { battleLookaheadEmirVer(uid, k); emirler.push([uid, k]); }
+            }
+            const bas = battleLookaheadMarj(isRed);
+            const f2 = battleForkCapture();
+            let s2 = now;
+            for (let i = 0; i < LA_UFUK && phase === PHASE.BATTLE; i++) {
+                s2 += BATTLE_TICK_MS;
+                stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);
+            }
+            const skor = battleLookaheadMarj(isRed) - bas;
+            battleForkRestore(f2);
+            return { emirler, skor };
+        };
+
+        const ileri = dene(hedefler);
+        let kazanan = ileri;
+        if (LA_CIFT_YON && hedefler.length > 1) {
+            const geri = dene(hedefler.slice().reverse());
+            // eşitlikte İLERİ kazanır (determinist)
+            // TEŞHİS: iki sıra AYNI planı mı üretiyor, yoksa farklı ama forward mı iyi?
+            const ayniPlan = ileri.emirler.length === geri.emirler.length &&
+                ileri.emirler.every(([id, k], i) => geri.emirler.some(([id2, k2]) =>
+                    id2 === id && Math.abs(k2.x - k.x) < 1 && Math.abs(k2.y - k.y) < 1));
+            if (ayniPlan) BATTLE_LA_SAYAC.ayniPlan++;
+            else if (ileri.skor === geri.skor) BATTLE_LA_SAYAC.farkliAmaEsitSkor++;
+            if (geri.skor > ileri.skor) { kazanan = geri; BATTLE_LA_SAYAC.geriKazandi++; }
+            else BATTLE_LA_SAYAC.ileriKazandi++;
+        }
+        battleForkRestore(taban);
+        for (const [uid, k] of kazanan.emirler) battleLookaheadEmirVer(uid, k);
     }
 }
 
