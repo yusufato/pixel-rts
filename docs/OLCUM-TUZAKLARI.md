@@ -223,3 +223,33 @@ ekranda 99px'e düşer; tersi durumda izgara sağ/alt tarafa taşar.
 `Unit.draw` → `battleUnitVisibleToViewer` DEPLOY'da karşı tarafı gizler ("konuşlandırma
 istihbarat değildir"). Teşhis için birim dizerken hepsini `myCanonicalSide` yap,
 yoksa yarısı sebepsiz kaybolur.
+
+---
+
+## I. ROL/TARAF KURGUSU (kendi yazdığın tezgâhta)
+
+**I1 — İki taraf AYNI kuralla kurulmalı; bayrak sırası bunu sessizce bozar.**
+`tools/rol-dengesi.js` saldıran↔savunan dengesini ölçmek için yazıldı: iki tarafta da
+aynı beyin, tek asimetri rol. Ama KIRMIZI (saldıran) ordu `openBattlefieldSession`
+**içinde** kuruluyor; `BATTLE_FORCE_VARIED` bayrağı oturumdan SONRA açılınca saldıran
+varied-*olmayan*, savunan varied-*olan* dağılımdan kuruldu. İki taraf farklı kurala
+tabiydi ve bu, ölçüyü **8-13 puan** kaydırdı:
+
+| | saldıran kazanma | marj |
+|---|---|---|
+| bozuk alet | %30.2 / %28.1 | −1321 / −1389 |
+| düzeltilmiş | %38.5 / %41.7 | −833 / −602 |
+
+Bozuk ölçüm "saldıran ezici biçimde kaybediyor" diyordu; gerçek tablo çok daha ılımlı.
+→ **Kural:** ordu kuran her bayrağı, orduların kurulduğu çağrıdan **önce** ayarla.
+Kurulum sonrası ayarlanan bayrak yalnız SONRAKİ tarafı etkiler.
+→ **Negatif kontrol:** iki tarafın manifest'ini (birim dağılımı/değeri) yazdır ve
+istatistiksel olarak aynı dağılımdan geldiklerini doğrula. Simetrik kurguda taraf-başı
+ordu değeri sistematik farklı çıkıyorsa alet bozuktur, motor değil.
+
+**I2 — Eşleştirilmiş A/B, kurgu hatasına DAYANIKLIDIR; mutlak oran değildir.**
+Aynı koşuda `BATTLE_ISTIHKAM_US` açık/kapalı eşleştirilmiş farkı, alet bozukken de
+düzeltildikten sonra da "anlamlı değil" verdi (t −0.29 → t 0.78). Çünkü kusur iki kolda
+da vardı ve fark alınca sadeleşti. Ama aynı koşudaki MUTLAK saldıran oranı çöptü.
+→ **Kural:** bir koşudan hem eşleştirilmiş fark hem mutlak oran okuyorsan, kurgu hatası
+ikisini AYNI ölçüde bozmaz. Farkı kurtaran şey oranı kurtarmaz.
