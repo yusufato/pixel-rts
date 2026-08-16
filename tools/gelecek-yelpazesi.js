@@ -42,18 +42,23 @@
 //  Canlı oyun için fazla; değer ağı (ρ 0.830) kaba eleme yapıp yalnız hayatta kalan
 //  3-5 adayı gerçekten oynatmalı.
 //
-//  UCUZ ON ELEME DENENDI — ZAYIF CIKTI (1sn rollout ile sirala, ilk K'yi 10sn oynat):
-//    K=3 -> kazancin %27'si   K=4 -> %38   K=6 -> %73   K=8 -> %84
-//  Yani 1sn'lik sonuc, 10sn'lik sonucu iyi YORDAMIYOR. Kazancin cogunu korumak icin
-//  24 adaydan 8'ini derin oynatmak gerekiyor:
-//    tam    : 24 x 203ms                 = 4.9sn
-//    elemeli: 24 x 20ms + 8 x 203ms      = 2.1sn   (%84 kazanc)
-//  2.3 kat ucuzluk ama HALA tek birimin tek karari icin 2.1sn -> canli oyuna yetmez.
+//  ON ELEME — IKI OLCUT KARSILASTIRILDI (korunan kazanc, K = derin oynatilan aday):
+//                            K=3    K=4    K=6    K=8
+//    1sn'lik ucuz rollout    %27    %38    %73    %84
+//    ANALITIK (oynatmadan)   %72    %73    %73    %82
 //
-//  BUNUN ANLAMI: bir mevzinin degeri ZAMANLA ortaya cikiyor; kisa rollout onu goremiyor.
-//  Dogru eleyici kisa rollout DEGIL, nihai marji durumdan tahmin eden DEGER AGI olmali
-//  (ro 0.830 ile egitilmis) — ama o model Python tarafinda kalmis, motora BAGLI DEGIL
-//  ve egitilmis dosya bu depoda yok. Aramanin canliya baglanmasi once o kopruye bagli.
+//  ANALITIK SKOR KAZANDI ve BEDAVA. 1sn rollout kotu bir yordayici cunku bir mevzinin
+//  degeri ZAMANLA ortaya cikiyor; ilk saniye onu goremiyor. Basit "ben onlari vururum,
+//  onlar beni vuramaz" hesabi ise dogru adayi ilk 3'e neredeyse hep sokuyor.
+//
+//  PRATIK TARIF (olculen):
+//    24 aday (MENZILE yayilmis) -> analitik skorla ilk 3 -> yalniz o 3'u 10sn oynat
+//    maliyet: 24 x ~0 + 3 x 203ms = 609ms   (tam tarama 4.9sn -> 8 KAT ucuz)
+//    korunan kazanc: %72  ->  ~105 marj / birim-karari
+//
+//  Yani DEGER AGI SART DEGIL. Egitilmis ag (ro 0.830) daha iyi eleyebilir ama motora
+//  bagli degil ve eski motorda egitilmis (veri bayat). Analitik eleyici o kopruyu
+//  BEKLEMEDEN aramanin canliya baglanmasina yetiyor.
 //
 //    node tools/gelecek-yelpazesi.js --tohum 3 --birim 3 --yaricap 600 --yon 12 --halka 2
 // ═══════════════════════════════════════════════════════════════════════════
@@ -121,7 +126,28 @@ function kos(ctx, seed) {
         '    }' +
         '    if (noktalar.length < 3) continue;' +
         '    const skor = [];' +
+        /* ANALITIK SKOR — adayi HIC OYNATMADAN puanla (mikrosaniye).
+           Fikir: iyi mevzi = ben onlari vurabiliyorum, onlar beni vuramiyor.
+             +  o noktadan MENZILIME giren dusman degeri   (firsat)
+             -  o noktayi KENDI menziline alan dusman degeri x2  (maruziyet)
+             +  yakin dost destegi (yalniz kalma cezasi)
+           Deger agi olmadan eleme yapabilir miyiz sorusunun ucuz cevabi. */
+        '    const statik = (px, py) => {' +
+        '      const benim = STATS[u0.type] ? (STATS[u0.type].range || 0) : 0;' +
+        '      let firsat = 0, maruz = 0, dost = 0;' +
+        '      for (const o of SIM.units) {' +
+        '        if (o.dead || o.loaded || o.abandoned) continue;' +
+        '        const d = Math.hypot(o.x - px, o.y - py);' +
+        '        const c = (STATS[o.type] && STATS[o.type].cost) || 0;' +
+        '        if (o.isRed === u0.isRed) { if (o.id !== uid && d < 700) dost += c * (1 - d / 700); continue; }' +
+        '        if (d <= benim) firsat += c;' +
+        '        const onun = STATS[o.type] ? (STATS[o.type].range || 0) : 0;' +
+        '        if (d <= onun) maruz += c;' +
+        '      }' +
+        '      return Math.round(firsat - maruz * 2 + dost * 0.15);' +
+        '    };' +
         '    for (const nk of noktalar) {' +
+        '      const sk = statik(nk.x, nk.y);' +
         '      battleForkRestore(f);' +
         '      const u = SIM.units.find(x => x.id === uid); if (!u) continue;' +
         // AI bu birimi yeniden yönlendirmesin: rollout boyunca oyuncu-kontrolü
@@ -139,7 +165,7 @@ function kos(ctx, seed) {
         '          m1 = Math.round(marj() - basMarj); hp1 = uu ? Math.round(uu.hp) : 0; sag1 = !!(uu && !uu.dead); }' +
         '      }' +
         '      const uu2 = SIM.units.find(x => x.id === uid);' +
-        '      skor.push({ nokta: nk.ad, marj1: m0, marj5: m1, marj10: Math.round(marj() - basMarj),' +
+        '      skor.push({ nokta: nk.ad, statik: sk, marj1: m0, marj5: m1, marj10: Math.round(marj() - basMarj),' +
         '        hp5: hp1, hp10: uu2 ? Math.round(uu2.hp) : 0, hp0: Math.round(hp0),' +
         '        sag5: sag1, sag10: !!(uu2 && !uu2.dead) });' +
         '    }' +
@@ -194,24 +220,23 @@ function main() {
     /* IKI ASAMALI ELEME (modelsiz): once 1sn'lik UCUZ rollout ile sirala, yalniz ilk K
        adayi 10sn oynat. Ayni rollout'un ara olcumleri kullanildigi icin bu simulasyon
        EK MALIYET GEREKTIRMEZ ve gercek iki-asamali aramayla birebir ayni sonucu verir. */
-    for (const K of [3, 4, 6, 8]) {
-        let toplamTam = 0, toplamElemeli = 0, n2 = 0;
-        for (const o of hepsi) {
-            const kal = o.skor.find(s3 => s3.nokta === 'KAL'); if (!kal) continue;
-            const gecerli = o.skor.filter(s3 => s3.marj1 != null);
-            if (gecerli.length <= K) continue;
-            const tamEnIyi = Math.max(...o.skor.map(s3 => s3.marj10));
-            const secilen = gecerli.slice().sort((a, b) => b.marj1 - a.marj1).slice(0, K);
-            const elemeliEnIyi = Math.max(...secilen.map(s3 => s3.marj10));
-            toplamTam += tamEnIyi - kal.marj10;
-            toplamElemeli += elemeliEnIyi - kal.marj10;
-            n2++;
+    for (const [ad, anahtar] of [['1sn rollout', 'marj1'], ['ANALITIK (oynatmadan)', 'statik']]) {
+        const satir = [];
+        for (const K of [3, 4, 6, 8]) {
+            let toplamTam = 0, toplamElemeli = 0, n2 = 0;
+            for (const o of hepsi) {
+                const kal = o.skor.find(s3 => s3.nokta === 'KAL'); if (!kal) continue;
+                const gecerli = o.skor.filter(s3 => s3[anahtar] != null);
+                if (gecerli.length <= K) continue;
+                const tamEnIyi = Math.max(...o.skor.map(s3 => s3.marj10));
+                const secilen = gecerli.slice().sort((a, b) => b[anahtar] - a[anahtar]).slice(0, K);
+                toplamTam += tamEnIyi - kal.marj10;
+                toplamElemeli += Math.max(...secilen.map(s3 => s3.marj10)) - kal.marj10;
+                n2++;
+            }
+            if (n2) satir.push('K=' + K + ' %' + (toplamTam !== 0 ? (toplamElemeli / toplamTam * 100).toFixed(0) : '0'));
         }
-        if (!n2) continue;
-        const oran = toplamTam !== 0 ? (toplamElemeli / toplamTam * 100) : 0;
-        console.log('  ELEME K=' + K + ' (1sn on-eleme -> ilk ' + K + ' derin): kazanc ' +
-            Math.round(toplamElemeli / n2) + '/' + Math.round(toplamTam / n2) +
-            ' = %' + oran.toFixed(0) + ' korunuyor   n=' + n2);
+        console.log('  ELEME [' + ad + ']: ' + satir.join('   '));
     }
     const kz = hepsi.filter(x => x.kazanc != null).map(x => x.kazanc);
     if (kz.length) {
