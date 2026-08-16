@@ -366,7 +366,16 @@ const BASE_DRAW_H = SP_H * BASE_DRAW_SCALE;
 const UNIT_RADIUS = Math.max(BASE_DRAW_W, BASE_DRAW_H) / 2;
 
 // ── BİRİM YÖNELİMİ (render-only; sim facingAngle'ı zaten hesaplıyor → eğitim/MP etkilenmez) ──
-const UNIT_ROTATE = true;            // tüm sprite facing yönüne döner (hedefe "düz" bakar)
+/* DÖNEN KUTU, DİK SPRITE (kullanıcı 2026-08-16: "birlik resmi dönmesin, kutusu dönsün").
+   Eskiden sprite dönüyordu; artık taraf kutusu (mavi/kırmızı) + seçim çerçevesi facing
+   yönüne döner, birimin çizimi DİK durur — pixel-art yamuk açılarda bozulmaz.
+
+   GEOMETRİ: dönen bir karenin içine sığan en büyük DİK kare, kenarının 1/√2'sidir.
+   Sprite kutunun içinde kalsın diye kutu bir miktar büyütülür ve sprite tam o
+   içteki kareye oturtulur — böylece 45°'de bile taşma olmaz. */
+const UNIT_ROTATE = true;            // taraf kutusu + seçim çerçevesi facing yönüne döner
+const UNIT_BOX_SCALE = 1.18;                             // kutu kenarı = dw × bu
+const UNIT_SPRITE_SCALE = UNIT_BOX_SCALE / Math.SQRT2;   // dik sprite = dönen kutunun iç karesi
 const UNIT_FACE_OFFSET = Math.PI / 2;// ÖN = dikdörtgenin UZUN kenarı (geniş cephe öne); kısa-kenar-ön istersen 0 yap
 const UNIT_TURN_SMOOTH = 0.5;        // GLOBAL dönüş hız çarpanı (hepsini topluca ayarla; 0.5 = yarı hız) — kullanıcı isteği: dönüş çok hızlıydı, yarıya indirildi
 

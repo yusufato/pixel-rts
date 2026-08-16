@@ -223,7 +223,12 @@ app.whenReady().then(async () => {
            içinde döner. Bu yüzden iki satır da birimin KENDİ renklerini taşır
            (eski sayfa da öyleydi; kırmızıya boyamak benim hatamdı). */
         const cizHucre = (kaynakTuval, sx, sy, sw, sh, sutun, dolgu) => {
-            const ic = G.HUCRE - 18 * 2;
+            /* İç boşluk KALDIRILDI (eskiden 18px). O boşluk sprite hücre kenarına
+               değmesin diye vardı; taraf kutusu artık kodda çizildiği için hücrenin
+               tamamı kullanılabilir. Kutu dönüp sprite dik durduğundan zaten
+               1/√2'lik bir pay var — üstüne bir de kenar payı bırakmak birimi
+               kutunun içinde gereksiz küçültüyordu. */
+            const ic = G.HUCRE;
             const o = (ic * dolgu) / Math.max(sw, sh);
             const dw = Math.round(sw * o), dh = Math.round(sh * o);
             const dx = G.PAD + sutun * (G.HUCRE + G.PAD) + Math.round((G.HUCRE - dw) / 2);

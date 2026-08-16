@@ -3105,7 +3105,12 @@ class Unit {
         while (_da > Math.PI) _da -= Math.PI * 2;
         while (_da < -Math.PI) _da += Math.PI * 2;
         this.drawAngle += _da * ((UNIT_TURN_RATE[this.type] || 0.09) * UNIT_TURN_SMOOTH);
-        const _ang = this.drawAngle + UNIT_FACE_OFFSET;    // sprite + seçim-kutusu çizim açısı
+        const _ang = this.drawAngle + UNIT_FACE_OFFSET;    // taraf-kutusu + seçim-çerçevesi açısı
+        const _kw = dw * UNIT_BOX_SCALE, _kh = dh * UNIT_BOX_SCALE;          // DÖNEN kutu
+        const _sw = dw * UNIT_SPRITE_SCALE, _sh = dh * UNIT_SPRITE_SCALE;    // DİK sprite (kutunun içi)
+        // Kutu döndüğü için kapladığı alan açıya göre değişir; dışına konan işaretler
+        // (can çubuğu, ön-burnu) 45°'de bile çakışmasın diye YARI KÖŞEGENe göre yerleşir.
+        const _kr = _kh * Math.SQRT1_2;
 
         if (this.selected && !this.isRed) {
             ctx.strokeStyle = '#00ff55';
@@ -3116,14 +3121,16 @@ class Unit {
             // Çerçeve yeniden birimle BİRLİKTE döner ve sprite sınırına TAM oturur (payı yok) →
             // gövdenin arkasında kaybolur. Fizik kutusu yine eksen-hizalı AABB'dir; seçim göstergesi
             // fizik göstergesi değildir.
+            // Çerçeve TARAF KUTUSUYLA aynı kare, aynı açı — ikisi tek parça okunur.
+            // (Kullanıcı: "yeşil şeyler kutunun dönmesi ile dönmüyor.")
             if (UNIT_ROTATE) {
                 ctx.save();
                 ctx.translate(s.x, s.y);
-                ctx.rotate(_ang);                          // seçim kutusu birimle birlikte döner
-                ctx.strokeRect(-dw / 2, -dh / 2, dw, dh);
+                ctx.rotate(_ang);
+                ctx.strokeRect(-_kw / 2, -_kh / 2, _kw, _kh);
                 ctx.restore();
             } else {
-                ctx.strokeRect(s.x - dw / 2 - 3, s.y - dh / 2 - 3, dw + 6, dh + 6);
+                ctx.strokeRect(s.x - _kw / 2 - 3, s.y - _kh / 2 - 3, _kw + 6, _kh + 6);
             }
         }
         if (this.ally) {   // Müttefik birlik işareti
@@ -3151,27 +3158,27 @@ class Unit {
                boyda kalır — sim'de çarpışma yarıçapı da hepsinde aynıdır.
              · TERK edilmiş birim tarafsızdır → gri kutu. */
         if (spriteReady()) {
-            const _kutu = this.abandoned ? 'rgba(150,150,150,'
-                : (this.isRed ? 'rgba(220,40,40,' : 'rgba(64,96,220,');
-            ctx.fillStyle = _kutu + '0.85)';
-            ctx.fillRect(s.x - dw / 2, s.y - dh / 2, dw, dh);
-            ctx.strokeStyle = _kutu + '1)';
+            // OPAK. Yarı saydamken altındaki arazi sızıyor ve kutu birimin parçası değil,
+            // "arkaya düşen renk" gibi duruyordu (kullanıcı 2026-08-16).
+            const _kutu = this.abandoned ? '150,150,150'
+                : (this.isRed ? '220,40,40' : '64,96,220');
+            ctx.save();
+            if (UNIT_ROTATE) { ctx.translate(s.x, s.y); ctx.rotate(_ang); }
+            else { ctx.translate(s.x, s.y); }
+            ctx.fillStyle = 'rgb(' + _kutu + ')';
+            ctx.fillRect(-_kw / 2, -_kh / 2, _kw, _kh);
+            ctx.strokeStyle = 'rgba(0,0,0,0.55)';              // koyu kenar → yeşil arazide sınır okunur
             ctx.lineWidth = Math.max(1, zoom);
-            ctx.strokeRect(s.x - dw / 2, s.y - dh / 2, dw, dh);
+            ctx.strokeRect(-_kw / 2, -_kh / 2, _kw, _kh);
+            ctx.restore();
         }
 
-        if (UNIT_ROTATE) {
-            ctx.save();
-            ctx.translate(s.x, s.y);
-            ctx.rotate(_ang);                                  // tüm sprite hedefe "düz" döner (yumuşak)
-            if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)'; else if (_abFilter) ctx.filter = _abFilter;
-            spriteReady() && ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -dw / 2, -dh / 2, dw, dh);
-            ctx.restore();                                     // restore filter'ı da sıfırlar
-        } else {
-            if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)'; else if (_abFilter) ctx.filter = _abFilter;
-            spriteReady() && ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, s.x - dw / 2, s.y - dh / 2, dw, dh);
-            if (_flash || _abFilter) ctx.filter = 'none';
-        }
+        /* SPRITE DİK ÇİZİLİR — dönen kutunun iç karesine oturur. Yön bilgisini artık
+           kutunun kendisi (ve UNIT_FRONT_MARKER burnu) taşıyor. */
+        if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)'; else if (_abFilter) ctx.filter = _abFilter;
+        spriteReady() && ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H,
+            s.x - _sw / 2, s.y - _sh / 2, _sw, _sh);
+        if (_flash || _abFilter) ctx.filter = 'none';
         if (this.abandoned) {   // TERK göstergesi (tarafsız — tamir eden ele geçirir)
             ctx.fillStyle = '#ccc'; ctx.font = `${Math.max(10, 12 * zoom)}px Arial`; ctx.textAlign = 'center';
             ctx.fillText('🏳️ terk', s.x, s.y - dh / 2 - 10 * zoom);
@@ -3183,7 +3190,7 @@ class Unit {
             const cx = Math.cos(fa), cy = Math.sin(fa);
             const px = -cy, py = cx;                            // facing'e dik (taban yönü)
             const off = UNIT_FACE_OFFSET;                       // ön-uç = leading edge mesafesi (offset'e göre)
-            const fr = (dw / 2) * Math.abs(Math.cos(off)) + (dh / 2) * Math.abs(Math.sin(off)) + 2 * zoom;
+            const fr = (_kw / 2) * Math.abs(Math.cos(off)) + (_kh / 2) * Math.abs(Math.sin(off)) + 2 * zoom;
             const fx = s.x + cx * fr, fy = s.y + cy * fr;
             const tip = 5 * zoom, half = 3 * zoom;
             ctx.beginPath();
@@ -3256,21 +3263,35 @@ class Unit {
 
         if (this.isAir && this.maxFuel > 0) {   // YAKIT göstergesi (çubuk + kalan-saniye; düşük=kırmızı, dönüyor=uyarı)
             const fr = Math.max(0, this.fuel / this.maxFuel);
-            const fw = dw * 0.9, fx = s.x - fw / 2, fy = s.y + dh / 2 + 4 * zoom;
+            // ÇUBUK kutuyla döner (can çubuğu gibi), YAZI dik kalır — dönen yazı okunmaz.
+            const fw = dw * 0.9;
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            if (UNIT_ROTATE) ctx.rotate(_ang);
+            const fx = -fw / 2, fy = _kh / 2 + 2 * zoom;      // kutunun alt kenarının hemen altı
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(fx, fy, fw, 3 * zoom);
             ctx.fillStyle = this._returningToBase ? '#ffcc00' : (fr < 0.3 ? '#ff5555' : '#55ff55');
             ctx.fillRect(fx, fy, fw * fr, 3 * zoom);
+            ctx.restore();
             const _secs = this.fuelBurn > 0 ? Math.ceil(this.fuel / this.fuelBurn) : 0;   // kalan sorti saniyesi
+            const _fty = s.y + _kr + 12 * zoom;               // yazı: dönen kutunun en dış köşesinin altında
             ctx.font = `${Math.max(9, 10 * zoom)}px Arial`; ctx.textAlign = 'center';
-            if (this._returningToBase) { ctx.fillStyle = '#ffcc00'; ctx.fillText('⛽ üsse', s.x, fy + 14 * zoom); }
-            else if (fr < 0.5) { ctx.fillStyle = fr < 0.3 ? '#ff8888' : '#ffe08a'; ctx.fillText(`⛽${_secs}s`, s.x, fy + 14 * zoom); }
+            if (this._returningToBase) { ctx.fillStyle = '#ffcc00'; ctx.fillText('⛽ üsse', s.x, _fty); }
+            else if (fr < 0.5) { ctx.fillStyle = fr < 0.3 ? '#ff8888' : '#ffe08a'; ctx.fillText(`⛽${_secs}s`, s.x, _fty); }
         }
 
+        /* CAN ÇUBUĞU (+ bastırma çubuğu, durum rozeti) KUTUYLA BİRLİKTE DÖNER.
+           Kullanıcı 2026-08-16: "yeşil şeyler kutunun dönmesi ile dönmüyor."
+           Dik duran çubuk, 45°'de elmasa dönen kutunun üstünde kopuk duruyordu;
+           kutu uzayında çizilince her açıda kutunun üst kenarına yapışık kalır. */
         const barW = dw + 6;
         const barH = Math.max(3, 4 * zoom);
-        const barX = s.x - barW / 2;
-        const barY = s.y - dh / 2 - 6 * zoom - 3;
         const ratio = Math.max(0, this.hp / this.maxHp);
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        if (UNIT_ROTATE) ctx.rotate(_ang);
+        const barX = -barW / 2;
+        const barY = -_kh / 2 - barH - 2 * zoom;      // kutunun üst kenarının hemen üstü
 
         ctx.fillStyle = '#222'; ctx.fillRect(barX, barY, barW, barH);
         ctx.fillStyle = ratio > 0.5 ? '#4cff7c' : ratio > 0.25 ? '#ffaa00' : '#ff3333';
@@ -3294,6 +3315,7 @@ class Unit {
             ctx.fill();
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.stroke();
         }
+        ctx.restore();
 
         // İnşaat Barı
         if (this.buildTrenchTimer > 0) {
