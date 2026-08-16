@@ -91,7 +91,12 @@ function unitLoaderBuild(db) {
             provides: u.provides || [], requires: u.requires || [], roleTags: u.roleTags || [],
             supply: u.cost.supply || 0, buildTime: u.cost.buildTime || 0,
             explodesOnDeath: u.explodesOnDeath || null, onDeath: u.onDeath || null,
-            resupplyRate: u.ammo ? u.ammo.resupplyRate : 0
+            resupplyRate: u.ammo ? u.ammo.resupplyRate : 0,
+            /* İNSANSIZ PLATFORM: içinde mürettebat yok → moral/panik konusu değil.
+               Roster'da ayrı bir alan yok; `category:"uav"` tam bu üç birimi verir
+               (recon_uav, armed_uav, loitering_munition). drone_operator İNSANLIdır
+               (kategorisi 'support'), o paniklemeye devam eder. */
+            unmanned: u.category === 'uav'
         };
     });
 
@@ -116,6 +121,28 @@ function unitPrimaryCanEngage(attackerStats, targetStats) {
     if (weaponAktif(w) && (w.targets || []).includes(tDomain)) return true;
     if (tDomain === 'air' && targetStats.singleUse && w.damageType === 'small_arms') return true;
     return false;
+}
+
+/* BU HEDEFE FİİLÎ ANGAJMAN MENZİLİ — `STATS.range` (en uzun silah) DEĞİL.
+   Kusur: SİHA'nın menzili 900 (yer mühimmatı) ama hava-hava füzesi 600. Birim
+   helikoptere kilitlenip "menzildeyim" diye 900'de DURUYOR, füze menziline hiç
+   girmiyor ve tek kurşun atmadan bekliyordu. Aynı sorun tank makinelisi havaya
+   açılınca MBT'de de olurdu (ana top 450 / makineli havaya 300).
+   Buradaki değer: hedefin alan-tipini (hava/kara) GERÇEKTEN vurabilen silahların
+   en uzun menzili. Hiçbiri vuramıyorsa 0. */
+function unitEngageRange(attackerStats, targetStats) {
+    if (!attackerStats || !attackerStats.weapons || !attackerStats.weapons.length) return 0;
+    const dom = (targetStats && targetStats.domain) || 'ground';
+    let en = 0;
+    for (const w of attackerStats.weapons) {
+        if (!weaponAktif(w)) continue;
+        const uygun = (w.targets || ['ground']).includes(dom) ||
+            (dom === 'air' && targetStats && targetStats.singleUse && w.damageType === 'small_arms');
+        if (!uygun) continue;
+        const r = (w.rangeByTarget && w.rangeByTarget[dom]) ? w.rangeByTarget[dom] : (w.range || 0);
+        if (r > en) en = r;
+    }
+    return en;
 }
 
 // hava/kara uygunluk: attacker'ın herhangi bir silahı target'ın domain'ini vurabiliyor mu?

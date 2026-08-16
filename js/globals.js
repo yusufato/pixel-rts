@@ -817,6 +817,24 @@ let BATTLE_HAVA_HAVA = true;
 // sayımına girmez, istihkâm tamir edip ele geçirebilir). Otomatik hedefleme onu zaten dışlıyordu ama
 // `performAttack` yalnız `dead` kontrolü yapıyordu → o an kilitli olan birim ateşe devam ediyordu.
 // OYUNCU EMRİ KORUNUR (kullanıcı şartı): manuel saldır-emri verilmişse ateş sürer.
+// ── SIKIŞMA MANEVRASI: ENGEL KONTROLÜ (kullanıcı 2026-08-16) ──
+// "çarpışmadan kaçınma bazen ortada hiçbir şey yokken çalışıyor ve birlikler sağa/sola
+// gereksiz hareket ediyor." Manevra yalnız "ilerleyemiyorum" sinyaline bakıyordu; önünde
+// gerçekten engel (arazi VEYA birim) olup olmadığını hiç sormuyordu.
+// ÖLÇÜLDÜ (tools/kusur-teshis.js, 3 maç): 298 tetiğin 124'ünde (%41.6) hiçbir engel yoktu.
+// Açıkken engelsiz tetik yana-adım üretmez, yalnız rota önbelleği tazelenir.
+// ── HEDEFE ÖZEL ANGAJMAN MENZİLİ (kullanıcı 2026-08-16: "SİHA havadan havaya atış yapamıyor") ──
+// Yaklaşma/ateş kararı `STATS.range` (EN UZUN silah) ile veriliyordu. SİHA'nın menzili 900'dür
+// (yer mühimmatı) ama hava-hava füzesi 600'dür: helikoptere kilitlenen SİHA 800px'te "menzildeyim"
+// deyip DURUYOR ve füzesini hiç kullanamıyordu. Açıkken menzil, hedefin alan-tipini gerçekten
+// vurabilen silahlardan hesaplanır. ÖLÇÜLDÜ: 800px'ten emirde en yakın mesafe 800 → 595, atış 0 → 1.
+let BATTLE_ANGAJMAN_MENZIL = true;
+
+let BATTLE_UNSTICK_ENGEL = true;
+function battleUnstickEngelKontrol() {
+    return (typeof BATTLE_UNSTICK_ENGEL === 'undefined') || BATTLE_UNSTICK_ENGEL;
+}
+
 let BATTLE_TESLIM_ATES_KES = true;
 function battleTeslimAtesKes() {
     return (typeof BATTLE_TESLIM_ATES_KES === 'undefined') || BATTLE_TESLIM_ATES_KES;

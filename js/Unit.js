@@ -272,6 +272,21 @@ class Unit {
             this.lastNearbyAllyCount = allyCount;
         }
 
+        /* ── İNSANSIZ PLATFORM PANİKLEMEZ (kullanıcı 2026-08-16) ──
+           Drone'un içinde korkacak kimse yok. Bu yalnız "mantıksız görünüyor" meselesi
+           de değildi: panikleyen kamikaze KAÇIYOR (fleeTarget'a yöneliyor) ve dahası
+           `performAttack` ilk satırda `isFleeing` görünce geri dönüyor — yani drone
+           hedefe dalsa BİLE patlayamıyordu. Ölçüldü (tools/kusur-teshis.js): 6 drone
+           400 tikte 889 tik panik / 658 tik kaçış; 6'sı da temasa girdi ama 3'ü patladı.
+           İnsanlı `drone_operator` etkilenmez (kategorisi 'uav' değil). */
+        if (STATS[this.type] && STATS[this.type].unmanned) {
+            this.panic = 0;
+            this.isPanicking = false;
+            this.isFleeing = false;
+            this.fleeTarget = null;
+            this.lastStandMorale = false;
+        } else {
+
         const hpRatio = this.hp / Math.max(1, this.maxHp);
         if (this.hasFledOnce && hpRatio <= 0.25) {
             this.lastStandMorale = true;
@@ -342,6 +357,8 @@ class Unit {
             this.fleeSince = null;
             this.fleeTarget = null;
         }
+
+        }   // ← insansız-platform kapısının kapanışı (yukarıda açıldı)
 
         if (this.isFleeing) {
             this.combatState = 'FLEE';
@@ -504,6 +521,45 @@ class Unit {
                     this.targetY - this.y,
                     this.targetX - this.x
                 );
+                /* ── ENGEL VAR MI? (kullanıcı: "ortada hiçbir şey yokken çalışıyor") ──
+                   Manevra bugüne dek YALNIZ "ilerleyemiyorum" sinyaline bakıyordu; önünde
+                   gerçekten bir şey olup olmadığını hiç sormuyordu. İki gerçek engel türü var:
+                   arazi (yol kapalı) ve önümdeki birim. İkisi de yoksa yana adım atmak
+                   sebepsiz bir sağa-sola savruluştur. */
+                let _engelArazi = false, _engelBirim = false;
+                if (typeof pathBlockedBetween === 'function') {
+                    _engelArazi = pathBlockedBetween(this.x, this.y, this.targetX, this.targetY);
+                }
+                {
+                    const _ileriX = Math.cos(_goalAngle), _ileriY = Math.sin(_goalAngle);
+                    const _bakis = UNIT_RADIUS * 2.6;         // bir birim boyu ileri
+                    const _px = this.x + _ileriX * _bakis, _py = this.y + _ileriY * _bakis;
+                    for (const o of SIM.spatialGrid.getNearby(_px, _py, _bakis)) {
+                        if (o === this || o.dead || o.loaded || o.isAir !== this.isAir) continue;
+                        // yalnız İLERİ yarım-düzlemdeki birim engeldir (arkamdaki beni tıkamaz)
+                        if ((o.x - this.x) * _ileriX + (o.y - this.y) * _ileriY <= 0) continue;
+                        if (Math.hypot(o.x - _px, o.y - _py) <= _bakis) { _engelBirim = true; break; }
+                    }
+                }
+                if (SIM._unstickSayac) {
+                    SIM._unstickSayac.tetik++;
+                    if (_engelArazi) SIM._unstickSayac.arazi++;
+                    if (_engelBirim) SIM._unstickSayac.birim++;
+                    if (_engelArazi || _engelBirim) SIM._unstickSayac.engelVar++;
+                    else SIM._unstickSayac.engelYok++;
+                }
+                // ENGEL YOKSA YANA ADIM YOK. Rota önbelleğini tazelemek yeter: birim
+                // hedefine DÜZ gitmeye devam eder, 92px'lik sebepsiz savruluş olmaz.
+                // (update()'ten `return` EDİLMEZ — o, birimin o tikteki tüm hareket ve
+                //  muharebe işleyişini keserdi; yalnız MANEVRA atlanır.)
+                const _bosTetik = battleUnstickEngelKontrol() && !_engelArazi && !_engelBirim;
+                if (_bosTetik) {
+                    this._navPath = null;
+                    this._navCd = 0;
+                    this._motionStalls = 0;
+                    this._unstickPoint = null;
+                    if (SIM._unstickSayac) SIM._unstickSayac.iptal = (SIM._unstickSayac.iptal || 0) + 1;
+                } else {
                 this._unstickAttempts = (this._unstickAttempts || 0) + 1;
                 // Aynı taraftaki engel boyunca aynı başarısız yan-adımı
                 // tekrarlama; her denemede tarafı deterministik olarak değiştir.
@@ -529,6 +585,7 @@ class Unit {
                 this._navPath = null;
                 this._navCd = 0;
                 this._motionStalls = 0;
+                }   // ← engel-var dalının kapanışı
             }
         }
         if (this._unstickPoint && SIM.tick < this._unstickUntilTick) {
@@ -1492,7 +1549,10 @@ class Unit {
 
             if (this.attackTarget) {
                 const d = Math.hypot(this.attackTarget.x - this.x, this.attackTarget.y - this.y);
-                if (d <= this.range) {
+                // HEDEFE ÖZEL MENZİL: `this.range` en uzun silahındır; o silah bu hedefi
+                // vuramıyorsa birim boşuna duruyordu (SİHA 900'de bekleyip 600'lük
+                // hava-hava füzesine hiç giremiyordu).
+                if (d <= this.engageRangeFor(this.attackTarget)) {
                     if (this.manualTarget) { this.targetX = this.x; this.targetY = this.y; }
                     this.performAttack(now);
                 } else if (this.manualTarget) {
@@ -1542,7 +1602,7 @@ class Unit {
             }
             if (_heloBreak) {
                 // zarf-dışına kırıldı (yukarıda targetX/Y ayarlandı) — bu tik angaje etme
-            } else if (d <= this.range) {
+            } else if (d <= this.engageRangeFor(this.attackTarget)) {   // hedefe özel menzil (bkz. engageRangeFor)
                 this.targetX = this.x;
                 this.targetY = this.y;
                 this.performAttack(now);
@@ -2348,6 +2408,17 @@ class Unit {
         return !!(this._canAmbush && this._stationaryT > 2);
     }
 
+    /* Bu hedefe yaklaşma/ateş kararında kullanılacak menzil. `this.range` en uzun
+       silahın menzilidir; hedefi o silah vuramıyorsa yanıltıcıdır (SİHA 900'de durup
+       600'lük hava-hava füzesini hiç kullanamıyordu). Komuta-halesi menzil artışı
+       korunur: sonuç asla this.range'i aşmaz. */
+    engageRangeFor(target) {
+        if (typeof BATTLE_ANGAJMAN_MENZIL !== 'undefined' && !BATTLE_ANGAJMAN_MENZIL) return this.range;   // A/B kolu: eski davranış
+        if (!target || typeof unitEngageRange !== 'function') return this.range;
+        const er = unitEngageRange(STATS[this.type], STATS[target.type]);
+        return er > 0 ? Math.min(this.range, er) : this.range;
+    }
+
     findBestVisibleEnemy() {
         let bestTarget = null;
         let bestScore = -Infinity;
@@ -2436,6 +2507,23 @@ class Unit {
                     if (_su.category === 'support' || _su.category === 'indirect' || _su.category === 'logistics' ||
                         _rt.includes('intel') || _rt.includes('air_search') || _rt.includes('anti_air')) sc *= 3;
                 }
+            }
+            /* KARA BİRİMİ HAVAYI YALNIZ İKİNCİL SİLAHLA VURABİLİYORSA O HEDEF SON TERCİHTİR.
+               Hedef edinme kapısı `unitCanEngage` (HERHANGİ silah), ateş kapısı ise
+               `unitPrimaryCanEngage`. İkisi ayrışınca birim hedefe KİLİTLENİR ama birincil
+               silahını ateşleyemez ("İkincil Silah" durumu). Tank makinelisi havaya
+               açılınca MBT'nin helikoptere kilitlenip ANA TOPUNU boşa tutması bu yüzden
+               mümkün oldu.
+
+               KURAL DAR TUTULDU — yalnız KARA→HAVA. İlk denemede kural genel yazılmıştı;
+               o hâliyle helo/SİHA'nın hava-hava füzesiyle vurduğu hedefi de düşürüyor ve
+               tam da düzeltilmek istenen hava muharebesini baltalıyordu (hava birimi
+               hedefe yaklaşmazsa 675/600px'lik füze menziline hiç giremez).
+               NOT: ikincil silah zaten attackTarget'tan BAĞIMSIZ ateş eder
+               (fireSecondaryWeapons) → bu düşürme makineliye ait ateşi engellemez. */
+            if (u.isAir && (__as.domain || 'ground') === 'ground' &&
+                typeof unitPrimaryCanEngage === 'function' && !unitPrimaryCanEngage(__as, STATS[u.type])) {
+                sc = (sc > 0 ? sc * 0.02 : sc * 50) - 1e6;
             }
             if (sc > bestScore) {
                 bestScore = sc;
@@ -2601,16 +2689,24 @@ class Unit {
             if (this[cdKey] > 0) continue;
             // MÜHİMMAT: perShot tanımlı ikincil silah depodan yer (helo hava-hava füzesi ATGM ile aynı 12'lik
             // depoyu paylaşır → hava muharebesi kara görevinden çalar). perShot yoksa eski davranış (MBT makinelisi bedava).
-            if (w.perShot > 0 && this.maxAmmo > 0 && this.ammo < w.perShot) continue;
+            if (w.perShot > 0 && this.maxAmmo > 0 && this.ammo < w.perShot) {
+                if (SIM._silahSayac) SIM._silahSayac.cephanesiz = (SIM._silahSayac.cephanesiz || 0) + 1;
+                continue;
+            }
             const wr = w.range || 0; if (wr <= 0) continue;
-            const near = SIM.spatialGrid.getNearby(this.x, this.y, wr);
+            /* HEDEFE GÖRE MENZİL — birincil silahta zaten vardı (SPAAG karaya kısa),
+               ikincilde okunmuyordu (ölü veri). Tank makinelisi havaya 300px, karaya
+               450px: namlu havaya kısa erişir. */
+            const _wrAir = (w.rangeByTarget && w.rangeByTarget.air) ? w.rangeByTarget.air : wr;
+            const _wrGnd = (w.rangeByTarget && w.rangeByTarget.ground) ? w.rangeByTarget.ground : wr;
+            const near = SIM.spatialGrid.getNearby(this.x, this.y, Math.max(_wrAir, _wrGnd));
             let best = null, bestScore = -1;
             for (const n of near) {
                 if (n.dead || n.loaded || n.isRed === this.isRed || n.abandoned) continue;
                 const dom = n.isAir ? 'air' : 'ground';
                 if (!(w.targets || ['ground']).includes(dom)) continue;
                 const d = Math.hypot(n.x - this.x, n.y - this.y);
-                if (d > wr || (w.minRange && d < w.minRange)) continue;
+                if (d > (n.isAir ? _wrAir : _wrGnd) || (w.minRange && d < w.minRange)) continue;
                 if (d > this.vision && !canSee(this.isRed, n.x, n.y, n.isAir)) continue;
                 if (n.isConcealed && n.isConcealed() && d > AMBUSH_DETECT) continue;
                 const arm = STATS[n.type] ? STATS[n.type].armorType : 'infantry';
@@ -2642,6 +2738,10 @@ class Unit {
             });
             this[cdKey] = w.rof > 0 ? 1 / w.rof : 999;
             if (w.perShot > 0 && this.maxAmmo > 0) this.ammo = Math.max(0, this.ammo - w.perShot);
+            if (SIM._silahSayac) {
+                const _k = (STATS[this.type].id || this.type) + ':w' + wi;
+                SIM._silahSayac[_k] = (SIM._silahSayac[_k] || 0) + 1;
+            }
             if (!SIM.headless && typeof spawnProjectile === 'function') {
                 const _tickSec = (typeof BATTLE_TICK_SEC !== 'undefined') ? BATTLE_TICK_SEC : 0.05;
                 spawnProjectile(this.x, this.y, { x: best.x, y: best.y },   // ikincil silah (MBT makinelisi/komando şarjı) → hafif iz-mermi
@@ -2652,7 +2752,15 @@ class Unit {
     }
 
     performAttack(now) {
-        if (!this.attackTarget || this.attackTarget.dead || this.isFleeing) return;
+        /* KAÇAN BİRİM ATEŞ ETMEZ — ama TEK-KULLANIMLIK MÜHİMMAT bunun konusu değil.
+           Kamikaze "ateş etmiyor", hedefe ÇARPIYOR; çarpma anında warhead'in patlamaması
+           fiziksel olarak anlamsız. Kullanıcı hatası "hedefe çarptığında patlamıyor"un
+           ikinci kökü buydu: drone panikleyip isFleeing olunca dalışı sürüyor ama
+           patlama bu satırda sessizce iptal ediliyordu. (Birinci kök: insansız platformun
+           hiç paniklememesi gerektiği — orada düzeltildi. Bu satır ikinci emniyet:
+           dron başka bir yoldan kaçar duruma düşse bile temas patlamayı üretir.) */
+        const _tekKullanim = !!(STATS[this.type] && STATS[this.type].singleUse);
+        if (!this.attackTarget || this.attackTarget.dead || (this.isFleeing && !_tekKullanim)) return;
         // ── TESLİM OLMUŞ (terk edilmiş) HEDEFE ATEŞ ETME (kullanıcı hatası) ──
         // Mission-kill'de mürettebat aracı terk eder (`abandoned`, gri/nötr, "Terk Edildi"). Otomatik
         // hedefleme onu ZATEN dışlıyor (findBestVisibleEnemy) — ama o an ona KİLİTLİ olan birim kilidini

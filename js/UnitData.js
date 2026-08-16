@@ -108,7 +108,8 @@ const UNITS_MODERN_DB = {
           "rof": 0.35, "aoe": 0.8, "targets": ["ground"], "indirect": false,
           "accuracy": { "base": 0.88, "optimalRange": 5, "falloff": 0.30, "vsMoving": 0.30, "ignoresCover": 0.4 } },
         { "name": "esgudumlu makineli", "damage": 10, "damageType": "small_arms", "range": 6, "minRange": 0,
-          "rof": 2.0, "aoe": 0, "targets": ["ground"], "indirect": false,
+          "rof": 2.0, "aoe": 0, "targets": ["ground", "air"], "indirect": false,
+          "rangeByTarget": { "air": 4, "ground": 6 },
           "accuracy": { "base": 0.75, "optimalRange": 3, "falloff": 0.40, "vsMoving": 0.30, "ignoresCover": 0.2 } }
       ],
       "ammo": { "capacity": 22, "perShot": 1, "resupplyRate": 1.5 },
