@@ -24,7 +24,25 @@
 //  yeniden yönlendirmesin. Bu bir davranış farkı yaratır AMA tüm adaylarda AYNI
 //  olduğu için KARŞILAŞTIRMA geçerli kalır (mutlak değerler değil, YAYILIM okunur).
 //
-//    node tools/gelecek-yelpazesi.js --tohum 3 --birim 3 --yaricap 500
+//  ÖLÇÜLEN DOYMA EĞRİSİ (2 tohum, 17 ölçüm, ufuk 10sn):
+//    aday   yayılım@10sn   KAZANÇ (en iyi − "yerinde kal")   t
+//     6.6       227              +116                       3.02
+//    12.6       316              +118                       3.06
+//    23.6       354              +146                       3.04   <-- DOYMA
+//    31.0       345              +136                       2.98
+//    47.0       374              +152                       3.25
+//  ~24 adaydan sonra kazanç artmıyor (146/136/152 gürültü içinde; std ~190, n=17).
+//  Aday sayısını 24'ten 47'ye çıkarmak maliyeti 2 katına çıkarıp KAZANÇ getirmiyor.
+//
+//  AYRICA: yön sayısını artırmak işe YARAMIYOR (6.6→12.6 aday = +2 kazanç),
+//  halka (mesafe) eklemek YARIYOR (12.6→23.6 = +28). Karar "ne tarafa" değil
+//  "NE KADAR UZAĞA". Gerçek arama tasarlanırken adaylar açıya değil MENZİLE yayılmalı.
+//
+//  MALİYET: 1 aday ≈ 203ms (10sn ufuk) → 24 aday ≈ 4.9sn (TEK birimin TEK kararı).
+//  Canlı oyun için fazla; değer ağı (ρ 0.830) kaba eleme yapıp yalnız hayatta kalan
+//  3-5 adayı gerçekten oynatmalı.
+//
+//    node tools/gelecek-yelpazesi.js --tohum 3 --birim 3 --yaricap 600 --yon 12 --halka 2
 // ═══════════════════════════════════════════════════════════════════════════
 const { tezgahKur } = require('./muharebe-tezgah.js');
 const vm = require('node:vm');
@@ -34,6 +52,9 @@ const N = Math.max(1, Number(arg('--tohum', 3)) || 3);
 const TOHUM0 = Number(arg('--tohum0', 100000)) || 100000;
 const BIRIM = Math.max(1, Number(arg('--birim', 3)) || 3);        // ölçüm başına kaç birim
 const YARICAP = Math.max(100, Number(arg('--yaricap', 500)) || 500);
+// DALLANMAYI BUYUT: yon sayisi x halka sayisi. Aday = 1 (KAL) + YON*HALKA.
+const YON = Math.max(3, Number(arg('--yon', 6)) || 6);
+const HALKA = Math.max(1, Number(arg('--halka', 1)) || 1);
 const ANLAR = (arg('--anlar', '600,1400,2200') || '').split(',').map(Number).filter(Boolean);
 const UFUK1 = Math.max(20, Number(arg('--ufuk1', 100)) || 100);   // 5sn
 const UFUK2 = Math.max(40, Number(arg('--ufuk2', 200)) || 200);   // 10sn
@@ -55,6 +76,7 @@ function kos(ctx, seed) {
         'battleDeployManifest(mv, false, { source:"yelpaze", ally:true });' +
         'startBattle(); SIM.headless = true;' +
         'const ANLAR = ' + JSON.stringify(ANLAR) + ', BIRIM = ' + BIRIM + ', R = ' + YARICAP + ';' +
+        'const YON = ' + YON + ', HALKA = ' + HALKA + ';' +
         'const U1 = ' + UFUK1 + ', U2 = ' + UFUK2 + ';' +
         'const marj = () => { const a = battleArmyObservation(true), d = battleArmyObservation(false);' +
         '  return a.effectiveValue - d.effectiveValue; };' +
@@ -73,12 +95,15 @@ function kos(ctx, seed) {
         '    const bx = u0.x, by = u0.y;' +
         // 6 yön + yerinde kal; geçilemez arazi elenir
         '    const noktalar = [{ ad:"KAL", x:bx, y:by }];' +
-        '    for (let k = 0; k < 6; k++) {' +
-        '      const a2 = (Math.PI * 2 * k) / 6;' +
-        '      const px = bx + Math.cos(a2) * R, py = by + Math.sin(a2) * R;' +
-        '      if (px < 60 || py < 60 || px > WORLD_W - 60 || py > WORLD_H - 60) continue;' +
-        '      if (typeof isPassableAt === "function" && !isPassableAt(px, py)) continue;' +
-        '      noktalar.push({ ad: "Y" + k, x: px, y: py });' +
+        '    for (let h = 1; h <= HALKA; h++) {' +
+        '      const rr = R * h / HALKA;' +
+        '      for (let k = 0; k < YON; k++) {' +
+        '        const a2 = (Math.PI * 2 * k) / YON + (h % 2 ? 0 : Math.PI / YON);' +   // halkalar kaydirmali
+        '        const px = bx + Math.cos(a2) * rr, py = by + Math.sin(a2) * rr;' +
+        '        if (px < 60 || py < 60 || px > WORLD_W - 60 || py > WORLD_H - 60) continue;' +
+        '        if (typeof isPassableAt === "function" && !isPassableAt(px, py)) continue;' +
+        '        noktalar.push({ ad: "H" + h + "Y" + k, x: px, y: py });' +
+        '      }' +
         '    }' +
         '    if (noktalar.length < 3) continue;' +
         '    const skor = [];' +
@@ -106,7 +131,11 @@ function kos(ctx, seed) {
         '    battleForkRestore(f);' +
         '    const g = k => skor.map(s3 => s3[k]).filter(v => v != null);' +
         '    const yay = k => { const v = g(k); return v.length ? Math.max(...v) - Math.min(...v) : 0; };' +
+        '    const kal = skor.find(s3 => s3.nokta === "KAL");' +
+        '    const enIyi10 = Math.max.apply(null, g("marj10"));' +
         '    out.push({ tik: an, birim: uid, tip: (STATS[u0.type] && STATS[u0.type].id) || u0.type,' +
+        '      enIyi10: enIyi10, kal10: kal ? kal.marj10 : null,' +
+        '      kazanc: kal ? (enIyi10 - kal.marj10) : null,' +
         '      aday: skor.length, yayilimMarj5: yay("marj5"), yayilimMarj10: yay("marj10"),' +
         '      yayilimHp10: yay("hp10"), olumVar: skor.some(s3 => !s3.sag10) && skor.some(s3 => s3.sag10),' +
         '      skor: skor });' +
@@ -145,6 +174,16 @@ function main() {
         ' = %' + (sifirYayilim / hepsi.length * 100).toFixed(1));
     console.log('  bazi noktada OLUP bazisinda SAG kalan birim : ' + olumFarki + '/' + hepsi.length +
         ' = %' + (olumFarki / hepsi.length * 100).toFixed(1) + '   (gidilen nokta OLUM-KALIM belirliyor)');
+    // ASIL KARAR OLCUSU: en iyi adayin "yerinde kal"a gore kazandirdigi marj.
+    // Yayilim "secim onemli mi" der; KAZANC "aramak ne kadar ISE YARAR" der.
+    const kz = hepsi.filter(x => x.kazanc != null).map(x => x.kazanc);
+    if (kz.length) {
+        const ok = kz.reduce((a, b) => a + b, 0) / kz.length;
+        const sd = Math.sqrt(kz.reduce((a, b) => a + (b - ok) ** 2, 0) / Math.max(1, kz.length - 1));
+        console.log('');
+        console.log('  KAZANC (en iyi aday - "yerinde kal") @10sn : ' + Math.round(ok) +
+            '  std ' + Math.round(sd) + '  t ' + (ok / (sd / Math.sqrt(kz.length))).toFixed(2));
+    }
 
     if (process.argv.includes('--ham')) {
         console.log('');
