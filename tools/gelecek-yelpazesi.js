@@ -42,6 +42,19 @@
 //  Canlı oyun için fazla; değer ağı (ρ 0.830) kaba eleme yapıp yalnız hayatta kalan
 //  3-5 adayı gerçekten oynatmalı.
 //
+//  UCUZ ON ELEME DENENDI — ZAYIF CIKTI (1sn rollout ile sirala, ilk K'yi 10sn oynat):
+//    K=3 -> kazancin %27'si   K=4 -> %38   K=6 -> %73   K=8 -> %84
+//  Yani 1sn'lik sonuc, 10sn'lik sonucu iyi YORDAMIYOR. Kazancin cogunu korumak icin
+//  24 adaydan 8'ini derin oynatmak gerekiyor:
+//    tam    : 24 x 203ms                 = 4.9sn
+//    elemeli: 24 x 20ms + 8 x 203ms      = 2.1sn   (%84 kazanc)
+//  2.3 kat ucuzluk ama HALA tek birimin tek karari icin 2.1sn -> canli oyuna yetmez.
+//
+//  BUNUN ANLAMI: bir mevzinin degeri ZAMANLA ortaya cikiyor; kisa rollout onu goremiyor.
+//  Dogru eleyici kisa rollout DEGIL, nihai marji durumdan tahmin eden DEGER AGI olmali
+//  (ro 0.830 ile egitilmis) — ama o model Python tarafinda kalmis, motora BAGLI DEGIL
+//  ve egitilmis dosya bu depoda yok. Aramanin canliya baglanmasi once o kopruye bagli.
+//
 //    node tools/gelecek-yelpazesi.js --tohum 3 --birim 3 --yaricap 600 --yon 12 --halka 2
 // ═══════════════════════════════════════════════════════════════════════════
 const { tezgahKur } = require('./muharebe-tezgah.js');
@@ -56,6 +69,7 @@ const YARICAP = Math.max(100, Number(arg('--yaricap', 500)) || 500);
 const YON = Math.max(3, Number(arg('--yon', 6)) || 6);
 const HALKA = Math.max(1, Number(arg('--halka', 1)) || 1);
 const ANLAR = (arg('--anlar', '600,1400,2200') || '').split(',').map(Number).filter(Boolean);
+const UFUK0 = Math.max(5, Number(arg('--ufuk0', 20)) || 20);      // 1sn — UCUZ ON ELEME
 const UFUK1 = Math.max(20, Number(arg('--ufuk1', 100)) || 100);   // 5sn
 const UFUK2 = Math.max(40, Number(arg('--ufuk2', 200)) || 200);   // 10sn
 
@@ -77,7 +91,7 @@ function kos(ctx, seed) {
         'startBattle(); SIM.headless = true;' +
         'const ANLAR = ' + JSON.stringify(ANLAR) + ', BIRIM = ' + BIRIM + ', R = ' + YARICAP + ';' +
         'const YON = ' + YON + ', HALKA = ' + HALKA + ';' +
-        'const U1 = ' + UFUK1 + ', U2 = ' + UFUK2 + ';' +
+        'const U0 = ' + UFUK0 + ', U1 = ' + UFUK1 + ', U2 = ' + UFUK2 + ';' +
         'const marj = () => { const a = battleArmyObservation(true), d = battleArmyObservation(false);' +
         '  return a.effectiveValue - d.effectiveValue; };' +
         'const out = []; let st = 0;' +
@@ -117,14 +131,15 @@ function kos(ctx, seed) {
         '      u.manualMoveTarget = { x: nk.x, y: nk.y }; u.isMovingToManualTarget = true;' +
         '      u._holdingPos = false;' +
         '      const hp0 = u.hp;' +
-        '      let s2 = st, m1 = null, hp1 = null, sag1 = null;' +
+        '      let s2 = st, m0 = null, m1 = null, hp1 = null, sag1 = null;' +
         '      for (let i = 0; i < U2 && phase === PHASE.BATTLE; i++) {' +
         '        s2 += BATTLE_TICK_MS; stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);' +
+        '        if (i === U0 - 1) m0 = Math.round(marj() - basMarj);' +
         '        if (i === U1 - 1) { const uu = SIM.units.find(x => x.id === uid);' +
         '          m1 = Math.round(marj() - basMarj); hp1 = uu ? Math.round(uu.hp) : 0; sag1 = !!(uu && !uu.dead); }' +
         '      }' +
         '      const uu2 = SIM.units.find(x => x.id === uid);' +
-        '      skor.push({ nokta: nk.ad, marj5: m1, marj10: Math.round(marj() - basMarj),' +
+        '      skor.push({ nokta: nk.ad, marj1: m0, marj5: m1, marj10: Math.round(marj() - basMarj),' +
         '        hp5: hp1, hp10: uu2 ? Math.round(uu2.hp) : 0, hp0: Math.round(hp0),' +
         '        sag5: sag1, sag10: !!(uu2 && !uu2.dead) });' +
         '    }' +
@@ -176,6 +191,28 @@ function main() {
         ' = %' + (olumFarki / hepsi.length * 100).toFixed(1) + '   (gidilen nokta OLUM-KALIM belirliyor)');
     // ASIL KARAR OLCUSU: en iyi adayin "yerinde kal"a gore kazandirdigi marj.
     // Yayilim "secim onemli mi" der; KAZANC "aramak ne kadar ISE YARAR" der.
+    /* IKI ASAMALI ELEME (modelsiz): once 1sn'lik UCUZ rollout ile sirala, yalniz ilk K
+       adayi 10sn oynat. Ayni rollout'un ara olcumleri kullanildigi icin bu simulasyon
+       EK MALIYET GEREKTIRMEZ ve gercek iki-asamali aramayla birebir ayni sonucu verir. */
+    for (const K of [3, 4, 6, 8]) {
+        let toplamTam = 0, toplamElemeli = 0, n2 = 0;
+        for (const o of hepsi) {
+            const kal = o.skor.find(s3 => s3.nokta === 'KAL'); if (!kal) continue;
+            const gecerli = o.skor.filter(s3 => s3.marj1 != null);
+            if (gecerli.length <= K) continue;
+            const tamEnIyi = Math.max(...o.skor.map(s3 => s3.marj10));
+            const secilen = gecerli.slice().sort((a, b) => b.marj1 - a.marj1).slice(0, K);
+            const elemeliEnIyi = Math.max(...secilen.map(s3 => s3.marj10));
+            toplamTam += tamEnIyi - kal.marj10;
+            toplamElemeli += elemeliEnIyi - kal.marj10;
+            n2++;
+        }
+        if (!n2) continue;
+        const oran = toplamTam !== 0 ? (toplamElemeli / toplamTam * 100) : 0;
+        console.log('  ELEME K=' + K + ' (1sn on-eleme -> ilk ' + K + ' derin): kazanc ' +
+            Math.round(toplamElemeli / n2) + '/' + Math.round(toplamTam / n2) +
+            ' = %' + oran.toFixed(0) + ' korunuyor   n=' + n2);
+    }
     const kz = hepsi.filter(x => x.kazanc != null).map(x => x.kazanc);
     if (kz.length) {
         const ok = kz.reduce((a, b) => a + b, 0) / kz.length;
