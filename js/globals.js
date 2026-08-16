@@ -830,6 +830,17 @@ let BATTLE_HAVA_HAVA = true;
 // vurabilen silahlardan hesaplanır. ÖLÇÜLDÜ: 800px'ten emirde en yakın mesafe 800 → 595, atış 0 → 1.
 let BATTLE_ANGAJMAN_MENZIL = true;
 
+// ── HOLD_FIRE YALNIZ MENZİL ÜSTÜNLÜĞÜ YOKKEN (2026-08-16) ──
+// `hold_fire` (pusu disiplini) birimi menzilinin %70'ine kadar susturuyordu. Tank avcısında bu,
+// varlık sebebini yok ediyordu: menzil 675, eşik 472, düşman tankın menzili 450 → 225px'lik
+// üstünlük 22px'e iniyordu. ÖLÇÜLDÜ (1v1, aynı tohum): açıkken TD ölüyor (tank 68 hp sağ),
+// kapalıyken tank ölüyor (TD 198 hp sağ). Yeni kural: düşman seni senin ona attığından daha
+// uzaktan vurabiliyorsa sabır DOĞRU (MANPADS 825 vs helo 900) — vuramıyorsa sabır zarar.
+let BATTLE_HOLD_FIRE_STANDOFF = true;
+function battleHoldFireStandoff() {
+    return (typeof BATTLE_HOLD_FIRE_STANDOFF === 'undefined') || BATTLE_HOLD_FIRE_STANDOFF;
+}
+
 let BATTLE_UNSTICK_ENGEL = true;
 function battleUnstickEngelKontrol() {
     return (typeof BATTLE_UNSTICK_ENGEL === 'undefined') || BATTLE_UNSTICK_ENGEL;

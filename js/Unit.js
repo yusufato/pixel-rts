@@ -2440,7 +2440,25 @@ class Unit {
 
             const d = Math.hypot(u.x - this.x, u.y - this.y);
             if (d > this.range * 1.5) continue;
-            if (this._canHoldFire && d > this.range * 0.7) continue;   // HOLD_FIRE: sabırlı — yalnız %70 menzilde ateşle (MANPADS/TD pusu disiplini)
+            /* HOLD_FIRE (pusu disiplini): yalnız %70 menzilde ateşle — AMA MENZİL
+               ÜSTÜNLÜĞÜN YOKSA. Sabır, düşman zaten sana gelmek zorundayken anlamlıdır;
+               onu senden UZAKTAN vuramadığı için beklersin. Sen daha uzağa atabiliyorsan
+               beklemek üstünlüğü karşılıksız teslim etmektir.
+               ÖLÇÜLDÜ (TD 675 menzil vs MBT 450, aynı tohum, 1v1):
+                 hold_fire açık  → ilk atış 462px → TD ÖLÜR   (tank 68 hp sağ)
+                 hold_fire kapalı→ ilk atış 666px → TANK ÖLÜR (TD 198 hp sağ)
+               hold_fire, TD'nin 225px'lik menzil üstünlüğünü 22px'e indiriyordu.
+               MANPADS'ta kural DEĞİŞMEZ: menzili 825, taarruz helosununki 900 →
+               üstünlüğü yok, pusu disiplini onun için hâlâ doğru. */
+            if (this._canHoldFire && d > this.range * 0.7) {
+                let _ustunluk = false;
+                if (battleHoldFireStandoff() && typeof unitEngageRange === 'function') {
+                    const _benim = this.engageRangeFor(u);
+                    const _onun = unitEngageRange(STATS[u.type], STATS[this.type]);
+                    _ustunluk = _benim > _onun;
+                }
+                if (!_ustunluk) continue;
+            }
             if (this.groundRange > 0 && !u.isAir && d > this.groundRange) continue;   // KARA-MENZİL SINIRI: SPAAG karaya yalnız kısa menzilden (hava menzili tam)
             if (__minR > 0 && d < __minR) continue;   // MİN-MENZİL ölü-bölge: havan/topçu yakına vuramaz (komando bunu sömürür)
 
