@@ -192,3 +192,34 @@ kullandığı ordu o mekaniği içermiyor olabilir (bu vakada içermiyordu).
 → **Düzeltme kalıbı:** birim-referansı taşıyan alanlar snapshot'ta **kimliğe** çevrilir
 (`attackTarget` zaten öyleydi; `cargo`/`carrier` unutulmuştu) ve restore'da tüm birimler
 kurulduktan SONRA çözülür.
+
+---
+
+## H. GÖRSEL ÇEKİM TUZAKLARI (canvas / Electron)
+
+**H1 — Gizli pencerede `capturePage` BAYAT kare döndürür.**
+Sprite tabakası yenilendikten sonra "26 birim gerçekten çiziliyor mu?" sorusu
+`show: false` bir `BrowserWindow` ile ölçüldü. Dört ayrı koşuda kare **piksel-aynı**
+çıktı — oysa her koşuda sahadaki birim sayısı farklıydı (23/25/26/29). Oyunun kendi
+ölçütleri de "26 birim görünür, 26'sı kamera içinde" diyordu. Yani sorun çizimde
+değil, **alette**ydi: gizli pencerede `requestAnimationFrame` durur, `capturePage`
+yükleme sırasında boyanmış önbellek yüzeyini geri verir.
+
+Yanıltıcı olan şu: **harita boyanmış görünüyordu** (arazi, sis çizgisi, HUD hepsi
+yerindeydi), bu yüzden "render çalışıyor, demek ki birimler çizilmiyor" sanıldı ve
+iki tur boşuna çizim yolunda hata arandı (`drawFogOfWar`, `battleUnitVisibleToViewer`).
+
+→ **Kural:** canvas içeriği ölçülecekse pencere **`show: true`** olmalı. DOM/panel
+çekimleri `show: false` ile çalışır (layout'ta boyanır), canvas çalışmaz.
+→ **Negatif kontrol:** iki koşunun karesi byte-aynı ise alet bayattır. Ölçümden önce
+kasten değişen bir şey (birim sayısı, saat) karede görünüyor mu diye bak.
+
+**H2 — Yerleşimi DÜNYA biriminde yazmak, `zoom≠1` iken izgarayı ekran dışına atar.**
+Ekran = `(x - camera.x) * zoom`. `zoom` 0.38 iken dünya-biriminde 260px aralık
+ekranda 99px'e düşer; tersi durumda izgara sağ/alt tarafa taşar.
+→ **Kural:** teşhis amaçlı yerleşimi ekran uzayında hesapla, sonra dünyaya çevir.
+
+**H3 — Konuşlandırma fazında rakip birim ÇİZİLMEZ.**
+`Unit.draw` → `battleUnitVisibleToViewer` DEPLOY'da karşı tarafı gizler ("konuşlandırma
+istihbarat değildir"). Teşhis için birim dizerken hepsini `myCanonicalSide` yap,
+yoksa yarısı sebepsiz kaybolur.
