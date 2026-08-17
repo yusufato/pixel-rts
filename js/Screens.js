@@ -65,9 +65,16 @@ function qmSelected(groupId, fallback) {
      intel4 (aramasiz) : saldiran %37.5   marj -742
      ONGORU (arama)    : saldiran %49.2   marj  +97
      FARK +839   t 2.87   (saptama tabani 819) -> ANLAMLI
-   Bu, listedeki iki beyin arasindaki farktan cok daha buyuk ve OLCULMUS bir fark;
-   yani gercek bir zorluk kademesi (intel4-pro'nun aksine, o intel4'u gecemedigi
-   icin listeden kaldirilmisti).
+   ⚠ AMA BU SAYI TAM KONFIGURASYONA AIT ve o konfigurasyon canlida OYNANMIYOR:
+   kare basina 3636ms harcayip oyunu donduruyor (kullanici raporu dogrulandi).
+   Oynanabilir hale getirmek icin kisilan surum AYRICA olculdu:
+       n=128: +403 t 1.44 (taban 784)
+       n=512: +203 t 1.51 (taban 377)  -> ANLAMLI DEGIL
+   Gucu 4 kat artirinca etki tahmini YARIYA dustu — kucuk-ya-da-sifir etkinin imzasi.
+   Yani su an bu kademe intel4'ten olculebilir bicimde GUCLU DEGIL. "En guclu"
+   etiketi geri cekildi; kademe DENEYSEL olarak duruyor.
+   Gercekten hem guclu hem oynanabilir surum icin arama ana iplikten cikmali
+   (Web Worker) ya da deger agi duzeltilmeli (birim-kosullu girdi + kisa ufuk).
 
    MALIYET: bos makinede 1.90x gercek zaman, ve arama YALNIZ AI birimlerinde kosar
    (oyuncunun birimleri `controlOwner === 'PLAYER'` suzgeciyle disarida). */

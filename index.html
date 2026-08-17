@@ -144,9 +144,15 @@
                         <button data-brain="intel3pro"><b>intel3-pro</b><small>taban beyin · daha kolay</small></button>
                         <button data-brain="intel4" class="selected"><b>intel4</b><small>mezun sürüm</small></button>
                         <!-- ÖNGÖRÜ: intel4 + ileri-bakış araması. Birimler hamlelerini
-                             TAHMİN etmez, fork alıp 5 saniye OYNATIP seçer.
-                             ÖLÇÜLDÜ n=128: intel4'e karşı +839 marj, t 2.87. -->
-                        <button data-brain="ongoru"><b>ÖNGÖRÜ</b><small>geleceği oynatır · en güçlü</small></button>
+                             TAHMİN etmez, fork alıp gerçekten OYNATIP seçer.
+                             ⚠ ETİKET DÜRÜSTLÜĞÜ: "+839 marj, t 2.87" ölçümü TAM
+                             konfigürasyona aittir (ufuk 100, derin 2, 20 birim) ve o
+                             konfigürasyon canlıda kare başına 3636ms harcayıp oyunu
+                             DONDURUYOR. Oynanabilir hâle getirmek için kısılan sürüm
+                             AYRICA ölçüldü: n=512'de +203, t 1.51, saptama tabanı 377
+                             -> ANLAMLI DEĞİL. Yani bu kademe şu an intel4'ten ölçülebilir
+                             biçimde güçlü DEĞİL; "en güçlü" etiketi geri çekildi. -->
+                        <button data-brain="ongoru"><b>ÖNGÖRÜ</b><small>deneysel · geleceği oynatır</small></button>
                     </div>
                 </div>
                 <div class="qm-row"><label>🎲 Tohum (boş = rastgele):
