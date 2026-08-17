@@ -28,7 +28,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Teşhis sayaçları (hash DIŞI — simülasyona dokunmaz, yalnız ölçüm harness'i okur)
-const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0 };
+const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0 };
 
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
@@ -71,6 +71,19 @@ let LA_SIRALI = true;
    Maliyet ~2.1x (iki geçiş + iki ortak-plan değerlendirmesi). */
 let LA_CIFT_YON = true;
 
+/* ── DEĞER AĞI HEDEFİ (2026-08-17) ──
+   ÖLÇÜLDÜ: argmax(marj@10sn) KARARSIZ bir hedef — 20sn'de kazancın %13'ü kalıyor.
+   Elle yazılmış sekiz alternatif ölçü de global marjı geçemedi (%48 tavan).
+   Değer ağı 10 saniyelik PENCEREYİ değil NİHAİ marjı tahmin eder (rho 0.864).
+   Rollout artık "10sn sonra marj ne oldu" diye değil, "10sn sonraki DURUMDAN
+   maçın sonu ne görünüyor" diye puanlanır.
+
+   ERKEN OYUN KAPISI: ağın kendi doğruluğu zamana bağlı — 0-30sn'de rho 0.389,
+   70sn+ 0.887. İlk saniyelerde ağa güvenmek gürültüyü hedef sanmak olur;
+   o pencerede eski marj-deltası kullanılır. */
+let LA_DEGER_AGI = true;
+const LA_AG_MIN_TIK = 600;    // 30sn — bundan önce ağ güvenilmez (rho 0.389)
+
 function battleLookaheadAcik(isRed) {
     return isRed ? BATTLE_LOOKAHEAD_RED === true : BATTLE_LOOKAHEAD_BLUE === true;
 }
@@ -106,6 +119,22 @@ function battleLookaheadAdaylar(u) {
         }
     }
     return out;
+}
+
+/* ADAY PUANI. Değer ağı açık ve güvenilir pencerede ise NİHAİ marj tahmini,
+   değilse eski davranış (ufuk sonundaki marj deltası).
+   Ağ kırmızı−mavi tahmin eder; savunan için işaret ters çevrilir. */
+function battleLookaheadSkor(isRed, basMarj) {
+    if (LA_DEGER_AGI && SIM.tick >= LA_AG_MIN_TIK &&
+        typeof battleValueNetDurum === 'function' && battleValueNetHazir()) {
+        const v = battleValueNetDurum();
+        if (v != null && isFinite(v)) {
+            BATTLE_LA_SAYAC.agKullanildi++;
+            return isRed ? v : -v;
+        }
+    }
+    BATTLE_LA_SAYAC.marjKullanildi++;
+    return battleLookaheadMarj(isRed) - basMarj;
 }
 
 function battleLookaheadMarj(isRed) {
@@ -156,7 +185,7 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
             s += BATTLE_TICK_MS;
             stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
         }
-        const skor = battleLookaheadMarj(isRed) - bas;
+        const skor = battleLookaheadSkor(isRed, bas);
         // eşitlikte determinist: önce skor, sonra x, sonra y
         if (skor > enIyiSkor || (skor === enIyiSkor && enIyi && (a.x < enIyi.x || (a.x === enIyi.x && a.y < enIyi.y)))) {
             enIyiSkor = skor; enIyi = a;
@@ -219,7 +248,7 @@ function battleLookaheadTick(now) {
                 s2 += BATTLE_TICK_MS;
                 stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);
             }
-            const skor = battleLookaheadMarj(isRed) - bas;
+            const skor = battleLookaheadSkor(isRed, bas);
             battleForkRestore(f2);
             return { emirler, skor };
         };
