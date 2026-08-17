@@ -72,9 +72,21 @@ Bu tanımın iki iyi özelliği var:
 | 5 birim, kör | −12 | −0.03 |
 | 5 birim, sıralı | −12 | −0.03 |
 | 5 birim, **değer ağı** | **+291** | 0.79 |
-| 5 birim, + rakip modeli | *(koşuyor)* | |
+| 5 birim, + rakip modeli | +272 | 0.68 |
+| **YIĞIN — 20 birim, ağ sıralama+kapı, tek geçiş** | **+1369** | **3.15 ✅** |
 
-Saptama tabanı n=48'de **±1000**. Beklenen etki bunun altında → hiçbiri anlamlı çıkmıyor.
+**KAPSAM BAĞLAYICI KISITTI.** Beş kol boyunca ordunun yalnız %4-20'si arama kullanıyordu ve
+hiçbiri gürültü tabanını aşmadı. 20 birime çıkınca etki **anlamlı** hale geldi (n=48, t 3.15,
+saptama tabanı ±1218) ve saldıran dezavantajı TERSİNE DÖNDÜ:
+
+```
+LA kapalı        saldıran %41.7   marj −523
+YIĞIN            saldıran %62.5   marj +846
+```
+
+Bütçe iki ÖLÇÜLMÜŞ NEGATİFTEN geldi: çift yönlü sıra (2×, no-op) ve rakip modeli
+(2.7×, kazanç yok) kapatıldı, o bütçe kapsama aktarıldı. Yani negatif sonuçlar
+boşa gitmedi — birikip pozitifi finanse ettiler.
 
 ### Öğrenilen üç ders
 1. **Hedef kararlıydı sanılıyordu, değildi.** `argmax(marj@10sn)` 20sn'de kazancın %13'ünü
