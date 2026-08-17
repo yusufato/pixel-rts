@@ -10,8 +10,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORY_MAP_RASTER_SCHEMA_VERSION = 1;
-const STORY_MAP_RASTER_ADAPTER_VERSION = 'canonical-map-raster-1';
-const STORY_MAP_RASTER_WIDTH = 820;
+const STORY_MAP_RASTER_ADAPTER_VERSION = 'canonical-map-raster-2';
+// V2 görsel harita, 820px tabanda küçük Ege adalarını ve girintili kıyıları
+// gözle görülür basamaklara indiriyordu. Kara, politik renk ve hit-test yine tek
+// kaynaktan gelsin; yalnız bu ortak kaynağın örnekleme yoğunluğunu ikiye katla.
+const STORY_MAP_RASTER_WIDTH = 1640;
 const STORY_MAP_RASTER_ASSET_SCHEMA_VERSION = 1;
 const STORY_MAP_RASTER_ASSET_ADAPTER_VERSION = 'canonical-map-raster-asset-1';
 const STORY_MAP_RASTER_ASSET_ENCODING = 'rle-int16-le-v1';
@@ -49,6 +52,15 @@ function storyMapRasterHashBytes(values) {
         hash = Math.imul(hash, 0x01000193);
     }
     return `fnv1a32:${(`00000000${(hash >>> 0).toString(16)}`).slice(-8)}`;
+}
+
+function storyMapRasterRegionCount(regionIds) {
+    const seen = new Set();
+    for (let index = 0; index < regionIds.length; index++) {
+        const id = regionIds[index];
+        if (id >= 0) seen.add(id);
+    }
+    return seen.size;
 }
 
 function storyMapRasterGeoHash() {
@@ -203,7 +215,7 @@ function storyMapRasterCreate(options) {
         diagnostics: {
             landCells,
             seaCells: landMask.length - landCells,
-            regionCount: new Set(Array.from(regionIds).filter(id => id >= 0)).size,
+            regionCount: storyMapRasterRegionCount(regionIds),
             buildMs: Math.max(0, Math.round((ended - started) * 1000) / 1000),
             warnings: []
         }
@@ -309,7 +321,7 @@ function storyMapRasterAssetDecode(asset, nodes) {
         diagnostics: {
             landCells,
             seaCells: pixelCount - landCells,
-            regionCount: new Set(Array.from(regionIds).filter(id => id >= 0)).size,
+            regionCount: storyMapRasterRegionCount(regionIds),
             buildMs: 0,
             decodeMs: Math.max(0, Math.round((ended - started) * 1000) / 1000),
             loadMode: 'asset',
@@ -565,6 +577,10 @@ function storyMapRasterDiagnostics() {
 }
 
 function storyMapPickNode(wx, wy) {
+    if (typeof storyHexPoliticalCellAtWorld === 'function') {
+        const cell = storyHexPoliticalCellAtWorld(wx, wy, STORY_WORLD_W, STORY_WORLD_H);
+        if (cell) return cell.assigned ? cell.regionId : -1;
+    }
     if (storyMapRasterEnabled()) {
         const raster = storyMapRasterEnsure();
         if (raster) {
@@ -579,8 +595,11 @@ function storyMapPickNode(wx, wy) {
     let hit = -1;
     let distance = 34 * 34;
     for (const node of STORY.nodes || []) {
-        const dx = node.lx * STORY_WORLD_W - wx;
-        const dy = node.ly * STORY_WORLD_H - wy;
+        const position = typeof storyHexSettlementNodePosition === 'function'
+            ? storyHexSettlementNodePosition(node, STORY_WORLD_W, STORY_WORLD_H)
+            : { x: node.lx * STORY_WORLD_W, y: node.ly * STORY_WORLD_H };
+        const dx = position.x - wx;
+        const dy = position.y - wy;
         const candidate = dx * dx + dy * dy;
         if (candidate < distance) {
             distance = candidate;

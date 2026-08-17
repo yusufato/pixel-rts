@@ -1,0 +1,794 @@
+# PIXEL RTS — Altıgen Dünya, Dinamik Şehir ve Fiziksel Lojistik Altyapı Planı
+
+**Belge sürümü:** 1.0  
+**Kapsam:** Hikâye modu stratejik dünya haritası  
+**Durum:** HXD-0–HXD-5 tamamlandı; HXD-6 aktif aşamadır  
+**Program kodu:** `HXD` — Hex Dünya Dönüşümü  
+**Ana kabul örneği:** Ankara → İstanbul fiziksel kara/demir yolu sevkiyatı  
+**Deniz kabul örneği:** İstanbul → İzmir veya İstanbul → Trabzon fiziksel gemi sevkiyatı
+
+## 1. Sonuç hedefi
+
+Hikâye dünyasının tek mekânsal gerçeği sürümlü bir altıgen ızgara olacaktır. Harita artık yalnız çizilen bir arka plan, şehirler sabit koordinatlı ikonlar ve lojistik de görünmeyen gecikme sayacı olmayacaktır.
+
+- Kara, deniz, kıyı, dağ, nehir, geçit ve arazi eğimi altıgen hücrelerde tanımlanır.
+- Mevcut 152 idarî bölge silinmez; her biri bir altıgen kümesinin idarî üst görünümü olur.
+- Şehir tek bir büyüyen/küçülen ikon değildir; çekirdek, ilçeler, önemli yapılar ve altyapı bağlantılarından oluşan dinamik bir yerleşim kümesidir.
+- Yol, demir yolu, enerji hattı ve veri hattı iki bölge arasındaki soyut bağ olmaktan çıkar; komşu altıgenler boyunca fiziksel segmentlerden oluşur.
+- Sipariş stoktan düşüp hedefte aniden belirmez. Sipariş, rezervasyon, yükleme, araç, güzergâh, hareket, aktarma, boşaltma ve mali uzlaşma zinciriyle taşınır.
+- Gemiler dekoratif resim değildir. Gerçek bir sevkiyat veya görev taşıyan, deniz hücrelerinde ilerleyen dünya varlıklarıdır.
+- Teknoloji yalnız `+% hız` vermez; yeni araç, hat, terminal, kapasite, güvenilirlik ve işletme yöntemi açar.
+- Oyuncu ve AI aynı yol yapma, rota bulma, araç atama, onarma ve kapasite ayırma API'lerini kullanır.
+
+## 2. Kritik mimari kararı: “Her şey tek hücrede” değil, “her şey altıgen dünyaya bağlı”
+
+Her nesneyi tek altıgenin içine zorlamak yanlış olur. Bu yaklaşım şehirleri masa oyunu piyonuna, yolları kırık zikzaklara ve limanları kara/deniz çelişkisine dönüştürür. Doğru ayrım şöyledir:
+
+| Katman | Gerçek sahibi | Örnek |
+|---|---|---|
+| Coğrafya | `HexCellV1` | arazi, yükseklik, eğim, su derinliği, kıyı kenarları |
+| Değişken hücre durumu | `HexStateV1` | sahiplik, kontrol, hasar, hava, kirlilik, görünürlük |
+| Yerleşim/saha | `WorldSiteV1` | şehir çekirdeği, ilçe, fabrika, depo, liman, istasyon |
+| Komşuluk altyapısı | `InfrastructureSegmentV1` | yol, ray, köprü, tünel, boru, enerji ve veri hattı |
+| Güzergâh | `TransportRouteV1` | birbiri ardına gelen hücre/segment/terminal dizisi |
+| Taşıma işi | `ShipmentV2` | kaynak, hedef, mal, miktar, sözleşme, rota, durum |
+| Hareketli dünya varlığı | `TransportAgentV1` | tır konvoyu, tren, gemi, ileride uçak veya otonom araç |
+| İdarî üst katman | mevcut `RegionModel` | 152 bölgenin altıgen kümeleri ve özetleri |
+
+Bu ayrımın sonucu:
+
+- Şehir merkezi yalnız geçerli kara hücresinde bulunur.
+- Kıyı şehri karada kalır; limanı kıyı kenarında ve ona komşu seyredilebilir deniz hücresinde bağlanır.
+- Yol bir hücre resmi değil, iki komşu hücre arasındaki fiziksel segmenttir.
+- Köprü ve tünel özel segmenttir; kara birimi bunlar olmadan suyu veya yasak eğimi geçemez.
+- Gemi yalnız seyredilebilir su hücreleri ve liman terminalleri arasında hareket eder.
+
+## 3. Mevcut sistemle ilişki
+
+Bu program çalışan sistemi çöpe atmayacaktır.
+
+### Korunacak sözleşmeler
+
+- Mevcut 152 bölgenin kalıcı kimlikleri korunur.
+- `WorldCommand → WorldEvent → Effect` nedensellik zinciri korunur.
+- Stok, sahipli lot, sipariş, ödeme rezervasyonu, sevkiyat manifestosu ve teslim fişi korunur.
+- Şirket, depo, tesis, nüfus, kurum ve karakter kimlikleri korunur.
+- PlayerKnowledge filtresi korunur; yabancı araç ve altyapı bilgisi otomatik olarak tam görünmez.
+- Sabit tik, adlandırılmış RNG akışları, kayıt/yükleme determinizmi ve A/B kapıları korunur.
+
+### Yükseltilecek eski yapılar
+
+- Faz 11 `RegionModel`: bölge merkezi/komşuluğu yerine altıgen üyeliği ve sınır kenarları eklenir.
+- Faz 14 `StoryInfrastructure`: 177 kara + 20 deniz soyut koridoru, makro rota önbelleği olarak kalır; fiziksel doğruluk segment grafından gelir.
+- Faz 14.2–14.6 harita raster/render: mevcut güzel arazi varlıkları silinmez; altıgen coğrafyanın materyal, doku ve LOD girdisi olur.
+- Faz 22/22.1 ekonomi ve lojistik: soyut rota gecikmesi gerçek taşıma planı, kapasite rezervasyonu ve hareketli araçla değiştirilir.
+- Faz 33.1 şehir seviye artışı: doğrudan `level +1` yerine inşaat projesi, malzeme, arazi ve nüfus koşullu yerleşim büyümesine göç eder.
+- Faz 42 teknoloji: soyut çarpan yerine tesis/araç/hat kabiliyeti ve kurulu taban dönüşümü üretir.
+- Faz 47+ savaş: stratejik ikmal, köprü, liman, demir yolu ve kesinti verisini aynı altıgen dünyadan alır.
+
+### Geçiş yasağı
+
+Eski ve yeni sistem aylarca iki ayrı dünya gerçeği olarak çift yazılamaz. Geçiş sırasında eski arayüz için salt-okunur adaptör olabilir; fiziksel mutasyon yalnız bir kanonik sisteme yazılmalıdır.
+
+## 4. Altıgen dünya sözleşmesi
+
+### 4.1 Koordinat ve yön
+
+- `pointy-top` eksenel `q/r` koordinatı kullanılır.
+- Kalıcı kimlik koordinattan türetilir: `hex:q:r`.
+- Komşu sırası sabit ve sürümlüdür; rota eşitliklerinde kimlik sırası deterministik bağ kırıcıdır.
+- Dünya ↔ ekran dönüşümü tek servistedir. Render, hit-test, yol, şehir ve AI ayrı dönüşüm yazamaz.
+- Harita sarılmayacaktır; dış dünya sınırı açıkça tanımlanır.
+
+### 4.2 Çözünürlük kararı
+
+Kenar uzunluğu tahminle kilitlenmeyecektir. `3000×2360` dünya için üç aday aynı veriyle ölçülür:
+
+| Aday | Yaklaşık toplam hücre | Amaç |
+|---|---:|---|
+| 20 dünya birimi | 6.873 | düşük maliyet / kaba ağ |
+| 16,1 dünya birimi | **10.584** | kabul edilen ana temel |
+| 12 dünya birimi | 19.074 | ayrıntılı şehir ve kıyı karşı-testi |
+
+Seçim; kıyı doğruluğu, şehir aralığı, rota kalitesi, 900 saniye simülasyon maliyeti, kayıt boyutu ve gerçek EXE render p95 ölçümüne göre bir kez yapılır. Canlı kayıt üretildikten sonra hücre boyutu sessizce değiştirilemez.
+
+### 4.3 `HexCellV1` değişmez coğrafya
+
+Her hücre en az şu alanları taşır:
+
+- kimlik ve `q/r`, dünya merkezi ve altı köşe;
+- `LAND / WATER / COAST / IMPASSABLE` sınıfı;
+- kara ve su kapsama oranı;
+- ortalama/minimum/maksimum yükseklik;
+- eğim, geçiş zorluğu ve dağ/geçit işareti;
+- su derinliği, deniz/göl/nehir kimliği ve seyir sınıfı;
+- biyom, toprak, iklim kuşağı ve doğal riskler;
+- altı kenar için kıyı, nehir, uçurum veya sınır bilgisi;
+- idarî bölge kimliği;
+- statik veri sürümü ve checksum.
+
+Kara/deniz kararı yalnız hücre merkezine bakılarak verilmez. Poligon kapsama oranı ve kenar kesişimleri kullanılır; aksi durumda ince kıyılar ve adalar kaybolur.
+
+### 4.4 `HexStateV1` değişken dünya
+
+- sahip ve fiilî kontrol;
+- altyapı ve savaş hasarı;
+- yangın, sel, kar, fırtına ve geçici geçiş cezası;
+- kirlilik, güvenlik ve erişim kısıtları;
+- keşif/görünürlük seviyesi;
+- hücre revizyonu ve son değişimin nedensellik kimliği.
+
+Statik ve dinamik veri ayrı tutulur. Bir yol kırıldığında bütün coğrafya varlığı yeniden kaydedilmez.
+
+## 5. İdarî bölge ve şehir dönüşümü
+
+### 5.1 Bölgeler
+
+Mevcut bölge kimlikleri altıgen kümelerine atanır. Her bölge:
+
+- üye hücreleri;
+- sınır kenarlarını;
+- kara/su alanını;
+- komşu bölgeleri;
+- şehir, tesis ve altyapı özetini;
+- makro rota düğümlerini taşır.
+
+Bölge komşuluğu artık elle tanımlanmış tek bağlantı değil, paylaşılan geçilebilir sınır ve ulaşım tesisinden türetilir. Politik sahiplik rengi hücre üyeliğinden çizilir; ayrı kıyı rasteriyle çelişmez.
+
+### 5.2 Şehirlerin karaya sabitlenmesi
+
+Her mevcut şehir için deterministik göç raporu üretilir:
+
+1. Eski koordinatın kapsadığı hücre bulunur.
+2. Hücre geçerli kara değilse en yakın uygun kara hücreleri aranır.
+3. Aynı idarî bölge, kıyı ilişkisi, topoğrafya ve mevcut bağlantı ağı puanlanır.
+4. Şehir çekirdeği en iyi geçerli hücreye taşınır.
+5. Eski/yeni konum ve mesafe raporlanır; sessiz büyük yer değiştirme reddedilir.
+6. Kıyı şehrine ayrı liman sahası ve deniz bağlantısı atanır.
+
+Zorunlu değişmezler:
+
+- şehir çekirdeği suda olamaz;
+- liman olmayan şehir deniz rotasına doğrudan bağlanamaz;
+- liman sahası kara kıyısı ile seyredilebilir suyu aynı terminalde birleştirmelidir;
+- hiçbir bina su hücresine kurulamaz; özel deniz yapısı ayrı sınıftır.
+
+### 5.3 Dinamik şehir modeli
+
+Şehir `tek ikon + level` olmayacaktır:
+
+- `CORE`: tarihî/idarî çekirdek;
+- `DISTRICT`: konut, ticaret, sanayi, askerî, lojistik ve karma ilçeler;
+- `LANDMARK/SITE`: belediye, fabrika, depo, hastane, liman, istasyon, enerji tesisi gibi önemli yapılar;
+- `UTILITY`: su, enerji, veri, atık ve toplu taşıma bağlantıları;
+- `CITY_FOOTPRINT`: şehrin işgal ettiği bitişik veya altyapıyla bağlı hücre kümesi.
+
+Şehir büyümesi şu zincir olmadan gerçekleşmez:
+
+`nüfus/iş talebi → arazi uygunluğu → imar/yetki → finansman → malzeme → iş gücü → altyapı bağlantısı → inşaat → kullanım izni → taşınma/üretim`
+
+Büyümeyi etkileyen gerçekler:
+
+- konut doluluğu ve nüfus baskısı;
+- iş, ücret, göç ve güvenlik;
+- arazi eğimi, su riski ve tarım arazisi bedeli;
+- yol, ray, enerji, su, veri ve atık kapasitesi;
+- kurum kapasitesi, ruhsat süresi, yolsuzluk ve kamulaştırma;
+- inşaat malzemesi, sermaye, şirket ve teknoloji;
+- savaş, afet, bakım ve terk edilme.
+
+Teknoloji şehir görünümünü ve işleyişini kurulu yapılar üzerinden değiştirir. Araştırma tamamlandığı anda bütün şehir bir gecede gelecek çağına dönüşmez.
+
+### 5.4 Şehir görselleştirmesi
+
+- Uzak görünüm: sabit ekran boyutunda şehir rozeti + nüfus/önem sınıfı; ters ölçekleme yok.
+- Orta görünüm: şehir ayak izi, ana ulaşım, liman/istasyon ve birkaç önemli siluet.
+- Yakın görünüm: ilçeler, gerçek önemli yapılar, şantiye, hasar ve yoğunluk.
+- Şehir sprite'ı zoom ile dünyada devleşmez; LOD varlıkları değişir.
+- Binalar nüfus ve teknolojiye göre kompoze edilir; rastgele dekor mekanik tesis gibi gösterilmez.
+
+### 5.5 2010–2100 görsel dil ve varlık sicili
+
+Oyun ömrü boyunca yüzlerce, bütün varyantlar sayıldığında `1.000+` görsel dosya beklenmektedir. Bu ölçek renderer içinde yıl/bina/ülke dallarıyla yönetilemez. Bütün fiziksel görünüm `story-visual-catalog-2010-2100-v1` sicilinden çözülür:
+
+- sanat dönemleri `MODERN_2010 / CONNECTED_2030 / AUTOMATED_2050 / ADAPTIVE_2075 / FRONTIER_2090`dır;
+- dönem yalnız sanat yönünü ve bulunabilecek varlık paketini belirler, teknolojiyi bedelsiz vermez;
+- araştırma görsel kademe için yalnız üst sınırdır; yeni görünüm kurulu ve işletilen tesis/altyapı kaydı olmadan açılamaz;
+- şehir, tarla, fabrika, maden, orman, yol, araç, karakter, hasar ve yangın ayrı ailelerdir; tek bir dev birleşik sprite olarak çoğaltılmaz;
+- mantıksal varlık kimliği dönem + kurulu kademe + fiziksel durumdan oluşur; sahiplik/ülke rengi ayrı maske katmanıdır;
+- paketler harita, görünür dönem, görünür bölge veya olay ihtiyacına göre yüklenir; `1.000+` dosyanın tamamı açılışta RAM/VRAM'e alınmaz;
+- her kayıt sürümlü fallback zinciri taşır. Eksik gelecek resmi kırık görsel üretmez fakat QA'da `fallbackDepth/fallbackReason` ile görünür borç bırakır;
+- deterministik varyant hücre/tesis kimliğinden seçilir; kamera zoom'u veya her render yeni rastgele görünüm üretemez;
+- `OPERATING / CONSTRUCTION / DAMAGED / BURNED / ABANDONED` durumları mekanik kayda bağlıdır. Süs amaçlı yangın, fabrika, tren veya gemi çizmek yasaktır.
+
+İlk çalışan dikey mevcut yerleşim atlasını fallback olarak korur; `CORE / RESIDENTIAL / INDUSTRIAL / CIVIC / DEFENSE / LOGISTICS` seçimini artık görsel sicil yapar. Böylece yeni atlas sayfası veya dönem paketi eklemek savaş/ekonomi kodunu değiştirmez.
+
+## 6. Dinamik altyapı
+
+### 6.1 Segment modeli
+
+Her fiziksel hat, komşu hücreler veya hücre içi terminal arasında segmenttir:
+
+- `ROAD_LOCAL`, `ROAD_TRUNK`, `MOTORWAY`;
+- `RAIL`, `RAIL_ELECTRIFIED`, ileride yüksek kapasiteli yük hattı;
+- `BRIDGE`, `TUNNEL`, `FERRY_LINK`;
+- `PORT_CHANNEL`, `SEA_LANE`, uygun yerde `INLAND_WATERWAY`;
+- `PIPELINE`, `POWER_LINE`, `DATA_LINK`;
+- ileride `AIR_CORRIDOR` ve özel otonom lojistik hatları.
+
+Her segment şu gerçekleri taşır:
+
+- yapım standardı ve izin verilen araç sınıfları;
+- teorik kapasite, ayrılmış kapasite ve anlık akış;
+- hız sınırı, eğim, hava ve arazi cezası;
+- durum/sağlık, bakım açığı ve arıza riski;
+- sahip, işletmeci, erişim, geçiş ücreti ve yaptırım;
+- inşa/onarım projesi, kullanılan malzeme ve iş gücü;
+- hasar kaynağı, kapanma ve son revizyon.
+
+### 6.2 Yol yapımı ve değişimi
+
+Yol çizme eylemi anında çizgi üretmez:
+
+`ihtiyaç → güzergâh etüdü → alternatifler → arazi/kamulaştırma → kurum kararı → finansman → ihale → malzeme ve iş gücü → segment segment inşaat → denetim → açılış`
+
+Oyuncu/AI:
+
+- yeni yol veya ray önerebilir;
+- mevcut hattı genişletebilir;
+- köprü/tünel/ferry seçebilir;
+- bakım bütçesi ayırabilir;
+- savaşta yıkabilir veya onarabilir;
+- erişim, ücret ve öncelik politikası koyabilir.
+
+Hatlar aşınır, kapasite kaybeder, kapanır ve yeniden yapılabilir. Rota sistemi altyapı revizyonu değiştiğinde etkilenen güzergâhları geçersiz kılar; her tikte bütün dünyayı tekrar aramaz.
+
+### 6.3 Görsel yol geometrisi
+
+Mantık altıgen komşuluğuna bağlı olsa da yol ekranda hücre merkezlerini birleştiren sert zikzak olmayacaktır. Segment zinciri, arazi ve terminal girişlerini koruyan deterministik spline/geometriye çevrilir. Görsel geometri fiziksel rotayı süsleyebilir fakat başka hücreden kestirme yapamaz.
+
+## 7. Fiziksel lojistik ve hareketli araçlar
+
+### 7.1 Siparişten teslimata kanonik zincir
+
+Ankara'daki bir alıcının İstanbul'dan sipariş vermesi örneği:
+
+1. Alıcı `OrderV2` açar; mal, miktar, teslim yeri, zaman ve ödeme koşulu bellidir.
+2. Satıcı gerçek stok/üretim kapasitesini ayırır.
+3. Ödeme veya kredi gerçek mali defterde rezerve edilir.
+4. `ShipmentV2` yükün kaynak deposunu ve hedef deposunu bağlar.
+5. Rota planlayıcı karayolu, demir yolu veya çok modlu adayları çıkarır.
+6. Uygun terminal ve araç/konvoy kapasitesi rezerve edilir.
+7. Yükleme süresi tamamlanınca araç fiziksel olarak yola çıkar.
+8. Araç segmentler üzerinde oyun zamanıyla ilerler; durma, kuyruk, hasar ve yeniden rota gerçek durumu değiştirir.
+9. Hedef terminalde boşaltma yapılır.
+10. Teslim fişi oluşmadan hedef stok artmaz ve satıcı nihai uzlaşma geliri yazmaz.
+
+Kaynak ve hedef tersse aynı zincir ters yönde çalışır; şehir adına özel kod yazılmaz.
+
+### 7.2 `TransportAgentV1`
+
+Her görünür taşıt en az şunları taşır:
+
+- kalıcı kimlik, araç/konvoy sınıfı ve işletmeci;
+- bağlı sevkiyat/manifesto kimlikleri;
+- mevcut segment, segment ilerlemesi ve yön;
+- hız, kapasite, yakıt/enerji, dayanıklılık ve mürettebat;
+- rota planı, sonraki terminal, ETA ve gecikme nedeni;
+- `LOADING / MOVING / WAITING / REROUTING / UNLOADING / STRANDED / DAMAGED / COMPLETED` durumu;
+- son hareket tikinin deterministik zaman damgası.
+
+### 7.3 Araç çözünürlüğü: gerçek ama ölçeklenebilir
+
+Dünyadaki her koli için bir tır üretilmeyecektir. Hibrit model kullanılır:
+
+- kanonik varlık sevkiyat lotu ve taşıma kapasitesidir;
+- aynı hat/zaman/işletmecideki küçük yükler deterministik konvoyda birleşebilir;
+- önemli, oyuncu bağlantılı, tehlikeli veya kamera yakınındaki sevkiyat fiziksel ajan olarak görünür;
+- uzaktaki sıradan trafik segment akışı olarak toplulaştırılabilir fakat konum/ETA/kapasite korunur;
+- kamera yaklaşınca ajan aynı kanonik ilerleme değerinden materyalize edilir; ışınlanmaz;
+- ambient araçlar açıkça kozmetiktir ve gerçek yük taşıyormuş gibi UI bilgisi vermez.
+
+### 7.4 Kara yolu taşımacılığı
+
+- Tır yalnız uygun yol standardında ilerler.
+- Yol yoksa arazi aracına izin veren ayrı maliyetli sınıf gerekir; sıradan tır tarladan kestirme yapamaz.
+- Trafik, kontrol noktası, hava, yakıt, sürücü/işçi ve yol hasarı süreyi etkiler.
+- Yol kesilirse araç güvenli hücrede bekler, geri döner veya geçerli alternatif bulur.
+
+### 7.5 Demir yolu
+
+- Tren yalnız kesintisiz uygun ray ve terminal arasında hareket eder.
+- Lokomotif, vagon kapasitesi, elektrifikasyon ve hat açıklığı/uyumluluğu dikkate alınır.
+- İstasyon kapasitesi, zaman penceresi ve aktarma maliyeti vardır.
+- Rayın tek segmenti kırıldığında tren suyun veya arazinin üzerinden atlamaz; bekleme/geri dönüş/aktarma gerekir.
+
+### 7.6 Deniz taşımacılığı
+
+- Dekoratif sabit gemiler ana haritadan kaldırılır veya yalnız gerçek `TransportAgentV1` ile değiştirilir.
+- Gemi limanda yüklenir, seyredilebilir su hücreleri/deniz koridorları boyunca ilerler ve hedef limanda boşaltılır.
+- Su derinliği, boğaz, kanal, liman kapasitesi, hava, abluka ve erişim hakkı rota seçimindedir.
+- Ankara gibi iç şehir doğrudan gemi göndermez; yük önce kara/ray ile limana, sonra gemiye aktarılır.
+- Liman kapalı veya işgal altındaysa yeni rota/terminal gerekir; yük hedef stoğa ışınlanmaz.
+
+## 8. Çok modlu rota motoru
+
+### 8.1 İki seviyeli arama
+
+Tek seferde on binlerce hücre üzerinde her sipariş için düz A* çalıştırmak yasaktır.
+
+- Makro katman: bölgeler, şehirler, terminaller ve ana koridor grafı.
+- Mikro katman: seçilen koridor içindeki altıgen/segment yolu.
+- Rota önbelleği anahtarı; kaynak, hedef, mod, araç sınıfı, erişim politikası ve altyapı revizyonunu içerir.
+- Hasar yalnız etkilenen koridor/segment önbelleğini bozar.
+- Aynı stok için eşzamanlı rotalar kapasiteyi sanal değil atomik rezervasyonla ayırır.
+
+### 8.2 Rota maliyeti
+
+En kısa mesafe tek amaç değildir. Adaylar şu vektörle karşılaştırılır:
+
+- teslim süresi;
+- taşıma ve aktarma maliyeti;
+- kapasite ve kuyruk;
+- güvenilirlik/hasar riski;
+- erişim, sınır, yaptırım ve geçiş ücreti;
+- enerji/yakıt ve emisyon politikası;
+- sözleşme son tarihi ve ceza riski.
+
+AI, oyuncunun göremediği gizli hasarı bedava bilmez. Kendi bilgisiyle rota seçer; keşif veya bildirim gelince yeniden planlar.
+
+## 9. Teknolojiyle gerçek dönüşüm
+
+Teknoloji ağacı aşağıdaki türde fiziksel kabiliyetler açmalıdır:
+
+- daha ağır/uzun ömürlü yol standardı;
+- gelişmiş asfalt, köprü, tünel ve bakım yöntemi;
+- daha yüksek kapasiteli veya elektrikli yük treni;
+- konteyner terminali ve daha hızlı aktarma;
+- daha büyük/etkin gemi ve gelişmiş liman ekipmanı;
+- soğuk zincir, tehlikeli madde ve özel kargo;
+- filo takip, dinamik rota ve akıllı trafik yönetimi;
+- elektrikli/hidrojenli/otonom kara aracı;
+- drone veya ileri hava kargo sistemi;
+- modüler/prefabrik inşaat ve akıllı şehir altyapısı.
+
+Araştırma yalnız yeteneği açar. Etkin sonuç için lisans, yetişmiş iş gücü, uygun tesis, araç üretimi/satın alımı, terminal dönüşümü, enerji ve bakım gerekir. Eski araçlar bir anda yok olmaz; filo yıllar içinde dönüşür.
+
+## 10. AI davranışı
+
+Şehir, şirket, devlet ve askerî AI aynı mekânsal dünyada farklı hedeflerle çalışır:
+
+- belediye: konut, hizmet erişimi, trafik, afet ve bütçe;
+- şirket: stok, maliyet, teslim süresi, müşteri, depo ve filo;
+- devlet: stratejik koridor, bölgesel eşitlik, güvenlik ve dış ticaret;
+- ordu: ikmal, yedeklilik, köprü/liman güvenliği ve cephe erişimi;
+- ajan/hasım: gerçek bilgisi varsa sabotaj, abluka veya dezenformasyon hedefi.
+
+AI yol yapmayı sırf puan büyütmek için değil, açıklanabilir ihtiyaçtan önermelidir. Her proje bir amaç, beklenen fayda, maliyet, alternatif, yetkili aktör ve sonradan ölçülen sonuç taşır.
+
+## 11. Savaş motoruyla sınır
+
+Stratejik altıgen dünya ile taktik savaş alanı aynı ölçek değildir.
+
+- Stratejik hücre; arazi, yaklaşma yönü, yol, köprü, hava, ikmal ve tahliye girdisi üretir.
+- Taktik motor kendi ince navigasyonunu kullanır.
+- Savaş sonucu stratejik segment hasarı, şehir sahası hasarı, kontrol ve araç kaybı olarak geri yazılır.
+- Bir stratejik köprünün yıkılması hem ekonomik rota hem askerî ikmal için aynı fiziksel gerçektir.
+- Taktik birlikleri doğrudan stratejik altıgen merkezlerine kilitlemek yasaktır.
+
+## 12. UI ve oyuncu deneyimi
+
+### Harita LOD
+
+- Uzak: ülkeler, ana şehirler, ana koridorlar, büyük filolar ve darboğazlar.
+- Orta: şehir ayak izi, yol/ray sınıfı, terminaller, gerçek konvoylar.
+- Yakın: ilçeler, yapılar, şantiye, segment hasarı, trafik ve araç durumu.
+- Altıgen sınırları uzakta gürültü üretmez; seçim/planlama veya yakın zoomda belirginleşir.
+
+### Çalışma alanları
+
+- Hücre: arazi, sahiplik, geçiş, risk ve üzerindeki gerçek varlıklar.
+- Şehir: büyüme nedeni, doluluk, ilçeler, yapılar, altyapı açığı ve projeler.
+- Lojistik: sipariş → sevkiyat → araç → rota → ETA → teslim fişi.
+- Altyapı: yeni hat, alternatif güzergâh, maliyet, malzeme, süre, kamulaştırma ve bakım.
+- Teknoloji: açılan kabiliyet, gereken kurulu taban ve dönüşüm projesi.
+
+Oyuncu ham on binlerce hücre tablosuna boğulmaz. Harita soruyu gösterir; ayrıntı seçilen şehir, hat, araç veya sevkiyat üzerinden açılır.
+
+## 13. Kayıt, göç ve uyumluluk
+
+Yeni kayıt ailesi en az şu varlıkları taşır:
+
+- `HexWorldV1` statik varlık kimliği/checksum referansı;
+- değişmiş `HexStateV1` hücreleri;
+- bölge → hücre üyeliği sürümü;
+- şehir ayak izleri ve sahalar;
+- altyapı segmentleri/projeleri;
+- terminaller, araçlar ve filolar;
+- aktif rotalar, kapasite rezervasyonları ve sevkiyat ilerlemesi.
+
+Göç sırası:
+
+1. Eski dünya salt-okunur açılır ve yedeklenir.
+2. Deterministik altıgen varlık üretilir/doğrulanır.
+3. Bölgeler hücre kümelerine bağlanır.
+4. Şehirler karaya, limanlar kıyıya göç ettirilir.
+5. Eski koridorlar fiziksel segment adaylarına dönüştürülür.
+6. Aktif sipariş/sevkiyatlar yeni rota planına bağlanır; mal veya para çoğaltılmaz.
+7. Nüfus, stok, şirket, tesis, sahiplik ve kaynak mutabakatı alınır.
+8. Yeni kayıt ayrı anahtara yazılır ve yeniden açılarak doğrulanır.
+9. Ancak kabul sonrası canlı yükleme yeni kayda geçirilir.
+
+Bozuk veya belirsiz göçte şehir/araç uydurulmaz; eski kayıt korunur ve işlem kodlu hata ile durur.
+
+## 14. Performans mimarisi
+
+- Statik hücre alanları nesne yığını yerine typed-array/SoA düzeninde tutulur.
+- Dünya chunk'lara bölünür; render, hit-test ve yakın ayrıntı yalnız görünür chunk'larda çalışır.
+- Region/HOT-WARM-COLD sistemi hücre ve araç aktivasyon bütçesine genişletilir.
+- Uzak sıradan sevkiyat hareketi toplulaştırılır, fakat kanonik ilerleme kaybolmaz.
+- Yol geometrisi, bölge sınırı ve arazi LOD'u revizyonla önbelleklenir.
+- Rota araması worker havuzuna uygun saf istek/sonuç sözleşmesi taşır; dünya mutasyonu ana sırada yapılır.
+- Aynı kaynak/koridor kapasitesi için kararlar atomik admission kapısından geçer.
+- Profil olmadan hücre sayısı, araç sayısı veya simülasyon sıklığı azaltılmaz.
+
+Ölçülecek bütçeler:
+
+- gerçek EXE harita render p50/p95/p99;
+- 900 saniye headless dünya süresi;
+- aktif 1.000/5.000/10.000 sevkiyat ölçeği;
+- rota önbellek isabeti ve yeniden planlama maliyeti;
+- kayıt boyutu ve yükleme süresi;
+- şehir büyümesi ve altyapı hasarı sonrası dirty-chunk maliyeti;
+- CPU, RAM ve GPU belleği ayrı ayrı.
+
+## 15. Uygulama programı
+
+Bu program mevcut ana fazları yeniden numaralandırmaz. Ana planın altına çapraz kesen `HXD` yükseltmesi olarak uygulanır.
+
+### HXD-0 — Sözleşme ve referans dondurma
+
+**Durum: `completed` —** Sonuçlar `HIKAYE_HEX_DUNYA_ENVANTERI.md` içinde donduruldu.
+
+- Mevcut şehir, bölge, raster, koridor, sipariş, sevkiyat, depo ve kayıt şemalarını envanterle.
+- Ankara–İstanbul ile İstanbul–İzmir/Trabzon referans senaryolarını sabitle.
+- Mevcut stok, para, rota, süre, harita ve save karmalarını kaydet.
+- Mevcut harita sanat varlıklarını koruma listesine al.
+
+**Çıkış:** Davranış değiştirmeyen baseline ve göç mutabakatı.
+
+### HXD-1 — Altıgen matematik ve statik varlık
+
+**Durum: `completed` —** `HexWorldV1`, build-time metadata varlığı, gerçek EXE/harness yükleme eşitliği ve hedefli testler geçti. Ana temel `10.584` hücredir.
+
+- Eksenel koordinat, komşuluk, dünya dönüşümü, hücre kimliği ve checksum.
+- Üç çözünürlük adayını üretip ölç.
+- Aynı girdinin byte düzeyinde aynı varlığı ürettiğini kanıtla.
+
+**Çıkış:** Seçilmiş, sürümü kilitlenmiş `HexWorldV1`.
+
+### HXD-2 — Coğrafya rasterinden hücre topolojisi
+
+**Durum: `completed_with_source_debt` —** `10.584` hücrenin tamamı kanonik `StoryMapRaster` üzerinden alan örneklemeli kara/su/kıyı sınıfına alındı. Ortak kenarlar simetrik bit maskeleriyle doğrulandı. Projede kanonik yükseklik/eğim ve iç-su türü kaynağı bulunmadığı için bunlar uydurulmadı; açık veri borcu olarak taşındı.
+
+- Kara/su kapsama, kıyı kenarı, yükseklik, eğim, dağ ve seyredilebilir su.
+- Ada, dar boğaz, kıyı ve göl karşı-testleri.
+- Kara ve deniz geçiş değişmezleri.
+
+Uygulanan gerçek kaynak ayrımı:
+
+- `StoryMapRaster.landMask/regionIds`: hücre başına 19 sabit örnekle kara kapsaması, bölge çoğunluğu ve kıyı sınıfı;
+- `GEO.ranges`: yalnız kategorik dağ koridoru ve geçilemez tepe adayı; metre veya eğim değildir;
+- `GEO.rivers`: kategorik nehir yakınlığı;
+- yükseklik/eğim/iç-su türü: `UNAVAILABLE_NO_CANONICAL_SOURCE` ve sonraki veri paketi borcu.
+
+İstanbul'un eski geometrik hücresi `%31,58` kara kapsamasıyla kara ulaşımına uygun çıkmadı. Kaynağı eğip bükmek yerine en yakın kara erişimli kıyı hücresine `15,684` dünya birimi deterministik göç uygulandı. Aynı kural bütün şehirlerde sürümlü göç raporuyla çalıştırıldı.
+
+**Çıkış:** Görselden bağımsız doğrulanmış fiziksel coğrafya.
+
+### HXD-3 — Bölgelerin altıgen kümelerine göçü
+
+**Durum: `completed` —** `152/152` bölge temsil ediliyor, `7.517` kara/kıyı hücresinin tamamı atanmış ve `2.953` fiziksel idarî sınır kenarı doğrulanmıştır. `HexPoliticalView` her hücre sahibini bölge sahibinden türetir; `460` devlet sınırı kenarı yalnız farklı sahipli komşulardan oluşur. Canlı bölge değerleri değiştirilmez veya çift yazılmaz.
+
+- 152 kimliği koru; üyelik, sınır ve komşuluk üret.
+- Sahiplik/politik overlay'i hücrelerden çiz.
+- Nüfus, şirket, tesis ve kaynak toplamlarını değiştirme.
+
+HXD-3.1 önemli semantik ayrımı kanıtladı: eski `node.neighbors` listesi fiziksel sınır değildir. Yeni geometri `362` fiziksel komşu çifti, eski liste `177` mantıksal bağlantı çifti üretir; yalnız `141` çift ortaktır. Bu nedenle eski liste yeni sınır grafiğinin üstüne kopyalanmayacak ve yeni fiziksel grafik de çalışan ulaşım/lojistik bağlantısı sanılmayacaktır.
+
+HXD-3.2 kapanış sonucu:
+
+- politik sahiplik `story-hex-political-view-1` ile salt-okunur hücre üyeliğinden türetildi;
+- nüfus, stok, şirket, tesis, depo, para, sahiplik ve altyapı kaynak/projeksiyon karması birebir eşitlendi;
+- piksel overlay altıgen üyelik ve sahiplik checksum'larını yayınlayarak HXD-5 render göçüne kadar ayrışmaya kapatıldı;
+- türetilmiş sidecar kayıt dosyasına yazılmadı; save/load sonrasında birebir yeniden üretildi;
+- fiziksel komşuluk ile ulaşım bağlantısı farklı API ve teşhis alanlarında korundu.
+
+**Çıkış:** Eski ve yeni bölge toplamları birebir.
+
+### HXD-4 — Şehir ve liman göçü
+
+**Durum: `completed_with_source_debt` —** `152/152` şehir kendi idarî bölgesindeki benzersiz, geçilebilir kara çekirdeğine bağlandı. Geometrik çekirdeği geçersiz olan `17` şehir deterministik taşındı; denizde/geçilemez dağda şehir kalmadı. `59` şehir liman hizmeti aldı ve bunlar `58` tekil fiziksel kıyı terminaline bağlandı. Eski 20 deniz koridorunun `29` zorunlu şehir ucunun tamamı geçerlidir.
+
+- Bütün şehirleri geçerli kara hücresine sabitle.
+- Kıyı şehirlerine gerçek liman terminali kur.
+- Yer değiştirme raporu ve kabul eşikleri.
+
+Kaynak geometri borcu gizlenmedi: İzmir'in kendi idarî bölgesinde, Beyrut'un ise mesafe tavanı içinde kendi bölgesinde uygun kıyı terminali yoktur. Mevcut deniz bağlantılarını sessizce silmek veya bölge rasterını boyamak yerine iki hizmet `LEGACY_GEOMETRY_FALLBACK` olarak en yakın gerçek terminale bağlandı. İzmir Bursa bölgesindeki terminali `101,944`, Beyrut Tel Aviv bölgesindeki terminali `89,530` dünya birimi mesafede kullanır. Beyrut ve Tel Aviv aynı kara/su kenarını kullandığı için fiziksel tesis bir kez oluşturulur, iki şehir hizmet kaydı aynı terminal kimliğine bağlanır.
+
+Yerleşim sidecar'ı kayıt dosyasına yazılmaz; `sourceHash fnv1a32:8bc563a0` ve `settlementHash fnv1a32:16e636c9` kayıt/yükleme sonrasında birebir yeniden türetilir. Typed-array yükü `3.648 bayt`tır.
+
+**Çıkış:** Denizde şehir `0`; geçersiz liman `0`.
+
+### HXD-5 — Altıgen render, seçim ve LOD
+
+**Durum: `complete` —** İlk bağlantı diliminde şehir sprite'ı, kamera merkezleme, panel odağı, yedek hit-test ve kara yolu uçları eski `lx/ly` koordinatı yerine HXD-4 çözülmüş şehir çekirdeğini kullanmaya başladı. Görsel liman ağı tahminî kıyı aramasından çıkarıldı; `58` fiziksel terminal ve mevcut `20` deniz bağlantısından türetiliyor.
+
+İkinci dilimde politik görünüm `hex-political-overlay-canvas-1` ile `7.517` atanmış kara/kıyı hücresini gerçek altıgen çokgenlerden üretmeye başladı. `460` devlet sınırı ortak kenarı yalnız bir kez çiziliyor; kara/su tıklaması aynı `storyHexWorldCellAt` çözümleyicisini kullanıyor. Yakın LOD grid'i `4,2×` oranından sonra açılıyor ve viewport culling kullanıyor: örnek `600×500` dünya penceresinde `10.584` yerine `506` hücre işlendi. Arazi ve grid aynı `fnv1a32:160c78e9` raster kaynağı ile `fnv1a32:76d987bd` coğrafya karmasını yayımlar; orta EXE görünümünde `307` hücre (`244` kara / `63` su), yakın görünümde `73` kara hücresi işlendi.
+
+Gerçek Electron kabulünde kanonik `1640×1290` politik canvas ilk yapımı sistem yüküne göre `21,1–55,1 ms` aralığında ölçüldü; önceki `6,729 ms` yalnız izole headless çizim maliyetiydi ve EXE değeri diye kullanılmayacaktır. İlk canlı profilde toplam p95 uzak/orta/yakın `349,9 / 438,7 / 406,0 ms` idi. Ağ, yerleşim ve komutan katmanları sürümlü ekran önbelleklerine alındı; hareketli saldırı/nabız işaretleri canlı bırakıldı. Yoğun sistem yükündeki muhafazakâr 45-kare sonuç `22,2 / 20,3 / 19,0 ms`, son otomatik kabul koşusu `7,5 / 7,5 / 6,0 ms` p95 verdi; ikisi de `33,4 ms` kapısının altındadır. On beş şehir hit-test örneğinde ortalama ve en yüksek hata `0`; konsol problemi `0` oldu. Uzak/orta/yakın ekran görüntüleri altıgen/arazi, şehir, etiket ve yol hizasını korudu.
+
+- Mevcut arazi/sanat katmanlarını altıgen coğrafyaya bağla.
+- Hücre/şehir/yol hit-test'ini tek dönüşüme geçir.
+- Uzak/orta/yakın şehir boyut ve yoğunluk davranışını düzelt.
+
+**Çıkış:** Görsel kalite, p95 render ve seçim doğruluğu kabulü.
+
+### HXD-6 — Dinamik şehir çekirdeği
+
+**Durum: `in_progress` — HXD-6.1 ayak izi, HXD-6.2 LOD, HXD-6.3 bellek izolasyonu ve HXD-6.4 görsel sicil bağlı.**
+
+- Şehir ayak izi, ilçe, önemli yapı, kapasite ve arazi uygunluğu.
+- Mevcut `level` değerini uyumluluk görünümüne indir.
+- İlk gerçek konut veya lojistik ilçe inşa zinciri.
+
+HXD-6.1'de `story-hex-urban-footprint-1`, bütün `152` şehri HXD-4 çekirdeğinden başlayarak nüfus sicili, zenginlik, altı üretim binası ve liman hizmetine göre `RESIDENTIAL / INDUSTRIAL / CIVIC / DEFENSE / LOGISTICS` ilçelerine ayırır. `level`, nüfus sicili veya `node.pop` bulunmadığında kullanılan açık `LEGACY_LEVEL_POPULATION_FALLBACK` dışında ayak izi kaynağı değildir. Başlangıçta bu fallback'i kullanan şehir sayısı `0`dır.
+
+Toplam `574` benzersiz fiziksel hücre vardır: `152` çekirdek, `196` konut, `81` sanayi, `44` sivil, `44` savunma ve `57` lojistik hücresi. İstenen `425` ilçenin `422`si yerleşti. Beyrut ve Tel Aviv bölgelerinde çekirdek dışında yalnız birer geçilebilir kara hücresi olduğu için toplam `3` ilçe başka bölgeye taşınmadı; adları ve açık miktarları kaynak coğrafya borcu olarak raporlanır. Sidecar `2.028 bayt`, ayak izi karması `fnv1a32:4999e71a`dır.
+
+Eski ekran-uzayı rastgele ilçe saçılımı, HXD-6 mevcutken kullanılmaz. Orta/yakın LOD ilçeleri kendi gerçek altıgen merkezlerinde çizilir. Soğuk prob bütün alt coğrafya sidecar'larıyla `147,158 ms`; önceden gruplanmış coğrafi adaylarla nüfus/bina değişimi sonrası sıcak rebuild `2,370 ms`, değişmeyen cache kontrolü `1,101 ms` ölçüldü. Gerçek Electron p95 uzak/orta/yakın `8,7 / 8,1 / 7,9 ms` ile HXD-5'in `33,4 ms` kapısını korudu.
+
+HXD-6.2'nin ilk görsel/etkileşim diliminde şehir sprite'ı sabit HUD pini olmaktan çıkarıldı. Başkent uzak/orta/yakın ölçekte `32 / 80 / 114 px`, tier-2 şehir `23 / 57 / 82 px`, küçük şehir `10 / 25 / 36 px` olur; yakınlaşırken hiçbir şehir küçülmez. Görsel kademe HXD-6 nüfusu ve fiziksel ilçe sayısından türetilir, `node.level` yalnız HXD-6 yoksa uyumluluk fallback'idir. Statik açık-deniz gemileri kaldırıldı: gerçek `TransportAgentV1` olmadan araç çizmek yasaktır.
+
+HXD-6.4'te `story-visual-catalog-2010-2100-v1` eklendi. Beş sanat dönemi, beş kurulu teknoloji kademesi, beş fiziksel durum ve sekiz tembel-yükleme paketi tek sözleşmede ayrıldı. Kritik değişmez otomatik testtedir: araştırılmış gelecek teknolojisi tek başına şehri değiştiremez; görsel kademe kurulu tesis ile araştırma tavanının küçüğüdür. Mevcut `4×4` yerleşim atlası kontrollü fallback olarak kalır ve renderer'ın çekirdek/ilçe satır seçimi sicile bağlanmıştır. Yeni dönem görselleri henüz üretilmediği için `CONNECTED_2030+`, hasar ve inşaat durumları açık `REQUESTED_ASSET_MISSING` borcu taşır.
+
+Sicilin ilk fiziksel manifesti altı şehir ailesini (`CORE / RESIDENTIAL / INDUSTRIAL / CIVIC / DEFENSE / LOGISTICS`) kayıt altına alır. Çözümleyici tam dönem/kademe/durum varlığından başlayıp aynı kademe, modern dönem ve son olarak modern baseline varlığa deterministik düşer; hiçbir kayıt yoksa sessiz boşluk yerine `NO_REGISTERED_ASSET_FALLBACK` üretir. Gerçek Electron kabulünde açılış tıklaması `1.689 ms`, ilk render `13,3 ms`; p95 uzak/orta/yakın `9,4 / 8,4 / 8,8 ms`, kamera etkileşimi `9,0 ms`, şehir hit-test hatası ve konsol problemi `0` oldu. Görsel kabul kareleri `qa-runtime/map-visual-catalog-v1` altındadır.
+
+Gerçek Electron kamera probu üç koşuda sabit p95'i uzak/orta/yakın `4,5–10,8 / 6,0–14,6 / 5,3–10,8 ms`, sürükleme+zoom p95'ini `4,5–12,2 ms` ölçtü. Yol, şehir, kıyı ve komutan ekran katmanları etkileşim sırasında kamera dönüşümüyle yeniden kullanılır; fare hareketleri `requestAnimationFrame` ile kare başına bire indirilir. CPU yüküne bağlı etkileşim-sonu kesin katman uzlaşması `163,2–369,3 ms` sürmektedir; en ağır koşuda `network 230,0`, `settlement 93,4`, `commander 30,6 ms` ölçüldü. Sürekli kasma çözülmüş olsa da bu tek-kare uzlaşma HXD-7 öncesi açık P1 performans borcudur.
+
+**Çıkış:** Nüfus/teknoloji/yapı nedeniyle görünür ve mekanik büyüyen tek şehir dikeyi.
+
+### HXD-7 — Fiziksel altyapı segmentleri
+
+- Yol/ray/köprü/tünel/liman/enerji/veri segment şeması.
+- Eski 591 koridoru makro üst katmana bağla.
+- Yapım, bakım, hasar, kapanma ve onarım durumları.
+
+**Çıkış:** Tek segmentin kırılması yalnız ilgili fiziksel akışı etkiler.
+
+### HXD-8 — Hiyerarşik ve çok modlu rota motoru
+
+- Makro koridor + mikro segment araması.
+- Kapasite rezervasyonu, erişim, maliyet, süre ve güvenilirlik.
+- Revision tabanlı hedefli cache invalidation.
+
+**Çıkış:** Aynı durum aynı rota; kırık hat güvenli yeniden planlama.
+
+### HXD-9 — `ShipmentV2` ve taşıma ajanı çekirdeği
+
+- Mevcut sipariş/lot/ödeme/manifestoyu koruyarak fiziksel hareket ekle.
+- Yükleme, hareket, bekleme, yeniden rota, boşaltma ve teslim fişi.
+- Uzak toplulaştırma ↔ yakın materyalizasyon eşitliği.
+- Haritada yalnız gerçek sevkiyat kaydına bağlı tır/tren/gemi/uçak görünür; dekoratif araç üretilmez.
+- Görsel ilerleme simülasyon saatinden ve rota mesafesinden türetilir; render FPS'i konumu değiştiremez.
+
+**Çıkış:** Araç varmadan hedef stok artamaz.
+
+### HXD-10 — Ankara–İstanbul kara yolu dikeyi
+
+- Gerçek depo ve şirketlerle sipariş oluştur.
+- Yol rotası, tır/konvoy, hareket, ETA, gecikme ve teslim.
+- Yol segmenti kırma, bekleme/alternatif rota ve onarım karşı-testleri.
+
+**Çıkış:** Uçtan uca oynanabilir ve gözlenebilir ilk fiziksel sevkiyat.
+
+### HXD-11 — Demir yolu ve aktarma
+
+- İstasyon, ray, tren, vagon kapasitesi ve zaman penceresi.
+- Ankara–İstanbul kara yolu/demir yolu seçimi.
+- Tır→tren veya tren→tır aktarması.
+
+**Çıkış:** Süre/maliyet/kapasiteye göre gerçek mod seçimi.
+
+### HXD-12 — Liman ve hareketli gemi
+
+- Liman yükleme/boşaltma, deniz rotası, gemi ve hava/abluka.
+- İstanbul–İzmir veya İstanbul–Trabzon gerçek sevkiyatı.
+- Sabit dekoratif gemilerin gerçek ajanlarla değiştirilmesi.
+
+**Çıkış:** Gemi hareketi görsel ve mekanik olarak aynı dünya gerçeği.
+
+### HXD-13 — Teknoloji ve filo/altyapı dönüşümü
+
+- Faz 42 kabiliyet sözleşmesine araç, hat, terminal ve kurulu taban bağla.
+- Eski/yeni filo birlikte yaşasın; satın alma, üretim, eğitim ve bakım gerçek olsun.
+
+**Çıkış:** Teknoloji yalnız sayı bonusu değil, gözlenebilir yeni davranış açar.
+
+### HXD-14 — AI, oyuncu eylemleri ve karakterler
+
+- Belediye/şirket/devlet/ordu için aynı proje ve lojistik API'si.
+- İsimli karakter; teklif, onay, ihale, anlaşmazlık, gecikme ve onarım kararlarına bağlanır.
+- Karakterlerin `TravelItineraryV1` kaydı bulunur: çıkış/varış sitesi, amaç, erişim seviyesi, seçilen rota, araç/konvoy kimliği, kalkış, ETA ve gerçek konum. Karakter toplantıya ışınlanamaz; tır, tren, gemi veya uçakla yaptığı gerçek yolculuk uygun LOD'da görünür.
+- Karakterin seyahati aynı kapasite, sınır, hasar ve abluka kurallarına tabidir. Gizli görev yalnız PlayerKnowledge görünürlüğünü değiştirir; fiziksel hareketi iptal etmez.
+- UI ham tablo yerine darboğaz ve gerçek eylem gösterir.
+
+**Çıkış:** En az bir AI ve bir oyuncu aynı kurallarla hat kurar veya sevkiyat yönetir.
+
+### HXD-15 — Savaş, kayıt göçü ve tam kabul
+
+- Stratejik ikmal, köprü/liman kesintisi ve savaş hasarı.
+- Eski kayıt göçü, bozuk kayıt güvenliği ve kesintisiz save/load.
+- 60/300/900 saniye, 30 yıl soak ve gerçek EXE performans kapıları.
+
+**Çıkış:** Yeni altıgen dünya tek kanonik çalışma zamanı olur; eski mutasyon yolu kapatılır.
+
+## 16. Zorunlu kabul matrisi
+
+### Coğrafya
+
+- Şehir merkezi denizde: `0`.
+- Limansız deniz bağlantısı: `0`.
+- Köprü/tünel/ferry olmadan yasak su/eğim geçişi: `0`.
+- Gemi seyredilemez hücrede: `0`.
+- Bölgeye atanmamış geçerli kara hücresi: `0` veya açıkça idarî dış alan.
+
+### Korunum
+
+- Sipariş açılması mal üretmez.
+- Yükleme kaynak stoğu/ayrılmış lotla mutabıktır.
+- Teslim fişi olmadan hedef stok artmaz.
+- İptal/kayıp/hasar para ve malı iki kez iade etmez.
+- Çok modlu aktarma toplam miktarı değiştirmez.
+
+### Dinamizm
+
+- Nüfus baskısı tek başına bedava şehir büyütmez.
+- Bina için arazi, yetki, şirket, iş gücü ve malzeme gerekir.
+- Yol/ray inşası segment segment ilerler.
+- Hasar kapasiteyi düşürür; onarım gerçek maliyet ve süre ister.
+- Teknoloji kurulu taban olmadan bütün dünyaya anlık uygulanmaz.
+
+### Determinizm ve kayıt
+
+- Aynı seed + komutlar aynı grid, rota, araç ve teslim sonucunu verir.
+- Yol ortasında kayıt/yükleme, kesintisiz koşuyla aynı konum/ETA/stoğu verir.
+- Kamera, zoom ve panel açmak rota veya ekonomi sonucunu değiştirmez.
+- Eski kayıt göçü nüfus, stok, şirket, tesis, para ve sahipliği korur.
+
+### Performans
+
+- Seçilen çözünürlük gerçek EXE p95 render bütçesini geçer.
+- 900 saniye test mevcut kabul süresini kontrolsüz katlamaz.
+- 10.000 sevkiyat stresinde bellek sürekli büyümez.
+- Bir segment hasarı bütün rota önbelleğini silmez.
+
+### Oynanabilirlik
+
+- Oyuncu siparişin hangi araçta ve nerede olduğunu görebilir.
+- Gecikmenin yol, terminal, kapasite, sınır, hava veya hasar nedeni açıklanır.
+- Oyuncu yakın LOD'da gerçek sevkiyat/seyahat taşıtını; uzak LOD'da aynı kayıtların kümelenmiş akışını görür. Görsel araç sayısı ile mekanik ajan sayısı mutabakatlıdır.
+- Bir karakter seyahatteyse konumu, ETA'sı ve kullandığı hat kayıt/yükleme sonrasında korunur; varıştan önce hedef şehirde eylem uygulayamaz.
+- Oyuncu en az bir hat yapma/onarım/öncelik eylemiyle sonucu değiştirebilir.
+- AI aynı eylemi aynı kaynak ve bilgi sınırlarıyla kullanır.
+
+## 17. Bilinçli olarak yapılmayacaklar
+
+- Her sivil otomobili tam dünya ajanı olarak simüle etmek.
+- Altıgeni yalnız görsel overlay yapıp eski koordinat fiziğini korumak.
+- Şehir büyümesini sprite ölçekleme veya doğrudan `level +1` ile taklit etmek.
+- Yol/rayı yalnız çizgi olarak çizip kapasite, inşa, bakım ve hasarı yok saymak.
+- Dekoratif gemiyi gerçek sevkiyatmış gibi göstermek.
+- Teknolojiyi yalnız küresel yüzde bonusuna indirgemek.
+- Altıgen yolları görselde sert merkezden-merkeze zikzak bırakmak.
+- Tüm eski kayıtları kıran tek adımlı ve geri dönüşsüz geçiş yapmak.
+
+## 18. İlk uygulanacak iş sırası
+
+Uygulamaya geçildiğinde ilk paket `HXD-0 → HXD-4` olmalıdır. Bunun nedeni araç çizmekten önce coğrafya ve şehir doğruluğunu çözmektir. İlk gerçek oynanabilir dikey ise `HXD-10 Ankara–İstanbul` olacaktır.
+
+Kritik sıra:
+
+1. mevcut sözleşmeleri ve referans sonuçları dondur;
+2. grid çözünürlüğünü ölçerek seç;
+3. kara/deniz/kıyı topolojisini kur;
+4. bütün şehirleri geçerli karaya ve limanları kıyıya göç ettir;
+5. render/hit-test'i yeni tek mekânsal kaynağa geçir;
+6. fiziksel yol segmenti + rota + sevkiyat + tır dikeyini tamamla;
+7. demir yolu ve gemiyi ekle;
+8. şehir büyümesi, teknoloji, AI ve savaşı aynı temele bağla;
+9. eski mutasyon yolunu ancak tam göç ve kabulden sonra kapat.
+
+Bu sıradan sapıp önce hareketli gemi veya şehir sprite'ı yapmak görsel ilerleme üretir fakat altyapı sorununu çözmez.
+
+## 19. Uygulama kaydı — Civilization tipi hücre sahipliği
+
+Durum: ilk görsel sahiplik dilimi uygulandı.
+
+- Orman, dağ, tarım/kırsal detay, maden ve petrol artık bir `cellId` üzerinden kanonik altıgene yerleşiyor.
+- Şehir ve ilçelerin ayırdığı kentsel hücreler doğal içerik üretiminden önce rezerve ediliyor.
+- Kara içeriği kıyı hücresine gevşek merkez kontrolüyle değil, `landCoverageBps >= 9400` koşuluyla kabul ediliyor ve son çizim altıgen sınırında kırpılıyor.
+- V2'de eski serbest koordinatlı orman/dağ/detay damgaları ve kaynak debug kareleri kapatıldı.
+- Şehir çekirdeği için ekran pikseline göre LOD büyütme/küçültme kaldırıldı. Fiziksel sınıf yalnız sabit dünya boyunu seçiyor; görünür boyu sadece kamera zoom'u belirliyor.
+- Doğal altıgen içerikleri tek dünya kanvasında önbellekleniyor; her karede binlerce atlas yerleşimi tekrar hesaplanmıyor.
+
+Bu dilim HXD-6'nın görsel/mekânsal temelidir; dinamik tesis inşası, nüfusla yayılan şehir hücreleri, teknolojiye göre değişen yapılar ve fiziksel taşıtlar sonraki sahip fazlarının borcudur.
+
+### HXD-6.1 — Hücre yüzeyi ve kamera önbelleği uygulama kaydı
+
+- Limanlar şehirlerle aynı fiziksel nesne sözleşmesine geçirildi; LOD'a göre boy değiştirmiyor.
+- Coğrafya `6000×4720` yüksek çözünürlüklü kanonik dünya yüzeyinde bir kez üretiliyor.
+- Altıgenin içinde küçük ikon gösterme yerine zemin ve biyom resmi hücre yüzeyini dolduruyor; gerçek kıyı maskesi son kırpmayı yapıyor.
+- Deniz, tekrar eden parlak su karolarına dönüştürülmedi; kesintisiz taban yüzeyi olarak tutuldu.
+- Hassas kamera koordinatları pahalı sunum önbelleklerinin anahtarından çıkarıldı. Dört anlamsal zoom bandı ve kaba dünya bölgesi kullanılıyor.
+- Kamera etkileşimi sonundaki yeniden uzlaştırma ölçümü `349.4 ms` değerinden `5.9 ms` değerine düştü.
+
+Borç: komşu-altıgen biyom geçişi için altı yönlü autotile/kenar harmanlama atlası gerekir. Yüksek örnekleme çözünürlüğü kaynak atlas çeşitliliği eksikliğini tek başına çözmez.
+
+### HXD-6.2 — Şehir-öncelikli açılış ve 60 FPS kabulü
+
+- Hikâye haritasının sunum döngüsündeki eski `50 ms` / yaklaşık `20 FPS` kilidi kaldırıldı; hedef kare aralığı `1000/60 ms` oldu.
+- `6000×4720` doğal altıgen yüzey artık ilk harita karesinde `10.584` hücreyi tek görevde çizmez. En fazla `4 ms` ana iş parçacığı bütçeli `requestAnimationFrame` dilimlerinde üretilir ve yalnız tamamlanınca atomik olarak canlı yüzeyle değiştirilir.
+- Yüzey hazırlanırken şehir, etiket, yol ve etkileşim katmanları ilk karede çizilir. Eski tamamlanmış yüzey varsa yeni yüzey hazırlanırken korunur; atlas decode olayı haritayı boşaltmaz.
+- `2,2 MB` modern şehir atlası menü/karakter aşamasında yüksek öncelikle yüklenmeye ve asenkron decode edilmeye başlar.
+- V2 açıkken her atlasın yüklenmesi milyonlarca piksellik prosedürel arazi tabanını tekrar üretmez. Önceki davranış bir açılışta birden çok tam raster üretip şehir onload olayını ana iş parçacığının arkasında bırakıyordu.
+- Politik sınır ve görünür altıgen ızgara katmanları anlamsal zoom bandı + kaba kamera bölgesiyle önbelleğe alındı. Canlı hover ve sahiplik değişimleri anahtara dahil edildi.
+
+Gerçek Electron kabulü (`qa-runtime/map-60fps-city-first-v2/`): uzak/orta/yakın p95 `12,2 / 11,6 / 12,0 ms`; kamera sürükleme+zoom p95 `12,5 ms`; etkileşim-sonu uzlaşma `6,7 ms`; hit-test ortalama/en yüksek hata `0 / 0`; `MAPTEST_PROBLEMS []`. Önceki aynı koşu `21,4 / 23,2 / 20,1 ms` ile yeni `16,7 ms` kapısını geçememişti. Böylece HXD-6.2 içindeki tek-kare ağ/şehir uzlaşma ve 20 FPS döngü borcu kapandı.
+
+### HXD-6.3 — LLM bellek izolasyonu ve gerçek ilk şehir karesi
+
+Savaş AI'sinin sekiz CPU işçisi çalışırken `15,71 GiB` fiziksel belleğin yalnız `4,87–5,85 GiB` kadarı boş kaldı. Yerel 8B host daha önce yaklaşık `4,9 GB` çalışma kümesiyle ölçüldüğü için model + Electron + yüksek çözünürlüklü canvas birleşimi sayfalama sınırına giriyordu. RTX 4060 üzerinde `7956 MiB` VRAM boş olmasına rağmen darboğaz sistem RAM'iydi.
+
+- LLM ayarının açık olması artık menüde, harita girişinde veya karakter AI'sinin on saniyelik tikinde modeli yüklemez.
+- Model yalnız gerçek oyuncu sohbeti gerektiğinde başlar; `6,25 GiB` boş RAM yoksa açıklamalı ve yeniden denenebilir deterministik yedeğe düşer.
+- En az `8 GiB` boş RAM'de `8192`, daha düşük güvenli aralıkta `4096` bağlam ayrılır. Ayar kapanınca veya beş dakika kullanılmayınca host belleği serbest bırakır.
+- İlk harita karesi ayrıntılı prosedürel tabanı senkron üretmez; kanonik rasterdan hızlı taban çizer. Ayrıntılı altıgen yüzey 4 ms hedefiyle arkada hazırlanır. Artık su ve boş hücrelerde kırpma/draw çağrısı yapılmaz; düşük rAF koşulunda işi geciktirmemek için dilim üst sınırı `768` hücredir, zaman bütçesi `24` hücreden sonra her adımda kesme hakkına sahiptir.
+
+Gerçek Electron bellek-baskısı kabulü (`qa-runtime/map-fast-start-memory-gate-final/`): haritaya giriş `4788 ms` değerinden `966 ms` değerine düştü; şehir atlası ve şehir katmanı ilk karede hazırdı; ilk altıgen iş dilimi `0,5 ms`; uzak/orta/yakın p95 `3,9 / 4,6 / 3,8 ms`; etkileşim p95 `5,8 ms`; `MAPTEST_PROBLEMS []`.
+
+### HXD-6.4 — 2010–2100 görsel dil ve varlık manifesti
+
+- Beş sanat dönemi, kurulu teknoloji kademesinden ayrıldı; yıl tek başına yükseltme değildir.
+- İlk altı şehir ailesi sürümlü manifestte kayıtlıdır; eksik dönem/durum resmi ölçülebilir fallback borcu üretir.
+- Sekiz paket sınıfı, gelecekteki `1.000+` dosyanın tamamının açılışta yüklenmesini engelleyecek yükleme sınırını tanımlar.
+- Renderer çekirdek ve ilçe atlas seçimini sicilden alır; mekanik kayıt olmadan fabrika, taşıt, hasar veya yangın resmi gösteremez.
+
+Gerçek Electron kabulünde son manifest çözümleyicisiyle p95 uzak/orta/yakın `10,0 / 10,1 / 7,0 ms`, etkileşim `6,8 ms`; hit-test hatası ve konsol problemi `0` kaldı.
+
+### HXD-6.5 — Fiziksel arazi kullanımı ve tesis sicili (`in_progress`)
+
+Bir altıgene resim yerleştirmek araziyi mekanik olarak kullanılmış saymayacaktır. Önce iki kanonik kayıt kurulacaktır:
+
+- `LandUseCellV1`: hücre, doğal örtü, yasal/aktif kullanım, toprak-su uygunluğu, cevher ve odun stoku, kirlilik, hasar ve bağlı tesis kimlikleri;
+- `PhysicalSiteV1`: tesis türü, kapladığı hücreler, sahip/işletmeci, kurulu teknoloji, kapasite, girdiler/çıktılar, inşa-bakım-hasar-terk durumu ve görsel tarif kimliği.
+
+İlk tür sözlüğü `NATURAL / RESIDENTIAL / COMMERCIAL / CIVIC / AGRICULTURE / FORESTRY / EXTRACTION / INDUSTRIAL / ENERGY / LOGISTICS / DEFENSE` olacaktır. Aynı hücrede sınırsız ikon yığılması yasaktır; ana arazi kullanımı ve altyapı/özel tesis yuvaları arazi kapasitesiyle sınırlanır. Orman kesilirse yalnız ağaç resmi kaybolmaz: odun stoğu, erozyon, su tutma, yangın ve karbon durumu değişir. Savaşta yanma/enkaz da yalnız efekt değil, üretim ve geçişe etki eden fiziksel durumdur.
+
+İlk kabul dikeyi, mevcut şirket tesislerinden birini gerçek hücre ve `PhysicalSiteV1` kaydına bağlayacak; tesis atlası yalnız bu kayıt işletimdeyse çizilecektir. Ardından aynı kaydın `CONSTRUCTION → OPERATING → DAMAGED/BURNED → REPAIR` döngüsü kurulacaktır.
+
+İlk salt-okunur dilim `story-hex-land-use-sites-1` ile bağlandı. Mevcut şehir ayak izindeki her çekirdek/ilçe `LandUseCellV1` kaydı alır; uygun `INDUSTRIAL / DEFENSE` hücreleri birer site yuvası taşır. Şirket tesisleri kapasite önceliğiyle yalnız uyumlu ve boş hücreye yerleşir. Aynı altıgende birden fazla tesis yasaktır. Tarım ve çıkarım tesisi şehir hücresine zorlanmaz; kırsal arazi modeli gelene kadar `RURAL_LAND_USE_NOT_IMPLEMENTED` olarak sayılır. Aktif şirket yatırımı tesisi yok etmeden `constructionState: EXPANDING` üretir; kayyum durumu fiziksel yıkım sayılmaz.
+
+İlçe okunabilirliği de fiziksel altıgen oranına bağlandı. Yaklaşık `27,9` dünya birimi genişliğindeki hücrede önceki `10 / 12` birim ilçe görseli tier-2/tier-3 için `16 / 18` birime çıkarıldı. İlçeler hücrenin yaklaşık `%57–65` genişliğini kullanır; `19 / 27` birim şehir çekirdeğinden küçük ve bütün zoomlarda sabit dünya boyutundadır.
+
+Gerçek canlı dünya kabulünde `574 LandUseCellV1`, `124 PhysicalSiteV1` ve `299` açık yerleştirme borcu sayıldı. Borcun `175`i tarım/çıkarım için kırsal arazi modelinin bulunmaması, `124`ü uyumlu şehir hücresinde boş tekil site yuvası kalmamasıdır; toplam `423` şirket tesisi eksiksiz biçimde ya fiziksel siteye ya açık borca hesaplandı. Hücre başına en yüksek tesis sayısı `1`dir. Renderer p95 uzak/orta/yakın `10,3 / 10,7 / 11,8 ms`, etkileşim `12,0 ms`; hit-test hatası ve konsol problemi `0`, sonuç `MAPTEST_OK` oldu. Görsel kabul kareleri `qa-runtime/map-district-sites-hxd65` altındadır.
+
+İkinci salt-okunur dilim `story-hex-natural-resources-1` ile tamamlandı. `10.584` hücrenin kanonik kara/kıyı/dağ verisi ile deterministik doğal örtüsü tek sicile alındı: `3.067 WATER`, `960 COAST`, `3.140 OPEN_LAND`, `1.206 FOREST`, `277 MOUNTAIN`, `1.934 DRYLAND`. Petrol, yalnız `STORY_TERRAIN.oil` kanıtından `15` yatağa; mineral, yalnız `node.mine` bölgesel kanıtından deterministik yerelleştirmeyle `23` yatağa dönüştü. Ekonomide uzman iş gücü/ileri teknoloji havzası olan `18 pts` işaretinin eski renderer tarafından maden sayılması kaldırıldı ve tanıda açıkça reddedildi. Dört kaynak işareti güvenli hücreye çözülemediği için borçta kaldı; rezerv miktarı uydurulmadı (`UNQUANTIFIED_SPATIAL_STOCK_PENDING`).
+
+Çıkarım tesisleri aynı bölgedeki boş petrol/mineral yatağına gerçek `LandUseCellV1 + PhysicalSiteV1` bağıyla yerleşir; yatağı olmayan tesis ikon üretmez. Enerji şirketi petrol kuyusu varsayılmadı. Canlı dünyada kayıt `597` arazi hücresi, `147` fiziksel site ve `276` açık borca ilerledi. Çıkarım borcu kapandı; kalanların `152`si kanonik toprak/ürün uygunluğu bulunmadığı için tarım, `124`ü boş uyumlu şehir yuvası bulunmadığı için sanayi/savunma imar borcudur. Toplam `423` tesis yine eksiksiz hesaplanır, hücre başına en fazla site `1`dir.
+
+Doğal yüzey, boş/su hücrelerinde iş üretmeyen sekiz dilimde tamamlandı: `244` dağ, `1.101` orman, `23` işletilen maden ve `365` seyrek doğal ayrıntı çizildi; işletilmeyen yatak tesis resmi üretmedi. En ağır toplam dilim (son maske dahil) `6,8 ms`, normal iş dilimi `2,1 ms` oldu. Düşük rAF kabulünde toplam hazırlık `4,18 sn` sürdüğü için atomik son-kare değişimi kaldırıldı: merkezden dışarı ilerleyen aynı canvas ilk dilimden itibaren gösterilir, şehir/arayüz katmanı beklemez. Canlı p95 uzak/orta/yakın `6,6 / 5,8 / 6,0 ms`, etkileşim `6,6 ms`; hit-test ve konsol problemi `0`, `MAPTEST_OK`. Kabul kareleri `qa-runtime/map-natural-progressive-final` altındadır.
+
+Kamera sürükleme kabulünde ekran boyutundaki şehir cache'inin yeni kadraja giren alanı içermediği saptandı: eski canvas dönüşümle taşınıyor, fakat yeni şehirler fare bırakılana kadar şeffaf bölgede kalıyordu. Bütün ekran katmanlarını veya tam şehir tarifini her kare yeniden kuran iki deneme sırasıyla `125,8 ms` ve `78,6 ms` p95 ürettiği için reddedildi. Kabul edilen çözüm, cache dışından yeni kadraja giren kanonik şehir çekirdeklerini `urbanModel` koordinatlarından doğrudan bulur; sürükleme boyunca düşük maliyetli pixel şehir LOD'u ve adı çizilir, bırakınca tam şehir/ilçe/tesis canvas'ı kurulur. Uzak-kadro probunda Dublin fare bırakılmadan göründü; canlı LOD en fazla `0,3 ms`, sürükleme p95 `7,9 ms`, maksimum `9,2 ms`, sonuç `MAPTEST_OK`. Kabul kareleri `qa-runtime/map-live-pan-canonical-final` altındadır.
+
+Sonraki HXD-6.5 veri engeli açıktır: hücre bazlı kanonik toprak sınıfı ve nicel orman stoğu yoktur. Hesaplanan `5.039` arable-candidate yalnız aday sıralamasıdır; tarım kurma izni veya gerçek tarla değildir. Bu nedenle `152` tarım tesisi sahte tarlaya çevrilmeyecek. Şehirde yuva bulamayan `124` tesis de aynı hücreye yığılmayacak; yeni sanayi/savunma ilçesi için gerçek imar ve inşaat talebi üretecektir. Sonraki uygulama sırası: toprak/ürün kanıt şeması → tarımsal site yerleştirme → doğal stok ve tüketim → imar talebi/dinamik ilçe genişlemesi.

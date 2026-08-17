@@ -11,6 +11,11 @@ const STORY_POLITICAL_OVERLAY_ADAPTER_VERSION = 'political-overlay-rgba-3';
 // Fiziksel coğrafya önce okunur; devlet rengi yalnız yön bulma merceğidir.
 const STORY_POLITICAL_BORDER_ALPHA = 154;
 const STORY_POLITICAL_INTERIOR_ALPHA = 16;
+const STORY_HEX_POLITICAL_OVERLAY_ADAPTER_VERSION = 'hex-political-overlay-canvas-1';
+const STORY_HEX_POLITICAL_EDGE_CORNERS = Object.freeze([
+    Object.freeze([0, 1]), Object.freeze([5, 0]), Object.freeze([4, 5]),
+    Object.freeze([3, 4]), Object.freeze([2, 3]), Object.freeze([1, 2])
+]);
 
 function storyPoliticalOverlayEnabled() {
     const enabled = typeof storyFeatureEnabled === 'function'
@@ -54,6 +59,245 @@ function storyPoliticalOverlayRgb(value) {
         : [136, 136, 136];
 }
 
+function storyHexPoliticalOverlayEnabled() {
+    return typeof storyHexWorldEnsure === 'function'
+        && typeof storyHexRegionsEnsure === 'function'
+        && typeof storyHexPoliticalViewEnsure === 'function';
+}
+
+function storyHexPoliticalOverlayModel(options) {
+    options = options || {};
+    const world = options.world || storyHexWorldEnsure();
+    const regions = options.regions || storyHexRegionsEnsure();
+    const political = options.political || storyHexPoliticalViewEnsure();
+    const states = options.states || STORY.states || [];
+    const width = Number(options.width) || STORY_MAP_RASTER_WIDTH;
+    const height = Number(options.height) || Math.round(width * world.height / world.width);
+    const palette = states.map(state => `${Number(state.id)}:${String(state.color || '#888888').toLowerCase()}`).join(',');
+    return {
+        adapterVersion: STORY_HEX_POLITICAL_OVERLAY_ADAPTER_VERSION,
+        width,
+        height,
+        worldLayoutHash: world.layoutHash,
+        membershipHash: regions.membershipHash,
+        ownershipHash: political.ownershipHash,
+        renderHash: storyPoliticalOverlayHashString([
+            STORY_HEX_POLITICAL_OVERLAY_ADAPTER_VERSION,
+            world.layoutHash,
+            regions.membershipHash,
+            political.ownershipHash,
+            palette,
+            width,
+            height
+        ].join('|')),
+        assignedCellCount: regions.diagnostics.assignedCellCount,
+        nationalBorderEdgeCount: political.diagnostics.nationalBorderEdgeCount,
+        scaleX: width / world.width,
+        scaleY: height / world.height
+    };
+}
+
+function storyHexPoliticalCellAtWorld(wx, wy, renderWidth, renderHeight) {
+    if (!storyHexPoliticalOverlayEnabled()) return null;
+    const world = storyHexWorldEnsure();
+    const width = Math.max(1, Number(renderWidth) || Number(typeof STORY_WORLD_W !== 'undefined' ? STORY_WORLD_W : world.width));
+    const height = Math.max(1, Number(renderHeight) || Number(typeof STORY_WORLD_H !== 'undefined' ? STORY_WORLD_H : world.height));
+    const cell = storyHexWorldCellAt(
+        world,
+        Number(wx) / width * world.width,
+        Number(wy) / height * world.height
+    );
+    if (!cell) return null;
+    const regions = storyHexRegionsEnsure();
+    const political = storyHexPoliticalViewEnsure();
+    const regionId = Number(regions.cellRegionIds[cell.index]);
+    return Object.assign({}, cell, {
+        regionId,
+        ownerId: Number(political.cellOwnerIds[cell.index]),
+        assigned: regionId >= 0
+    });
+}
+
+function storyHexVisibleCellIndices(bounds, renderWidth, renderHeight) {
+    if (!storyHexPoliticalOverlayEnabled()) return [];
+    const world = storyHexWorldEnsure();
+    const width = Math.max(1, Number(renderWidth) || world.width);
+    const height = Math.max(1, Number(renderHeight) || world.height);
+    const minX = Number(bounds && bounds.minX) / width * world.width - world.radius;
+    const maxX = Number(bounds && bounds.maxX) / width * world.width + world.radius;
+    const minY = Number(bounds && bounds.minY) / height * world.height - world.radius;
+    const maxY = Number(bounds && bounds.maxY) / height * world.height + world.radius;
+    const result = [];
+    for (let row = 0; row < world.rowCount; row++) {
+        const start = Number(world.rowOffsets[row]);
+        const end = Number(world.rowOffsets[row + 1]);
+        if (start >= end) continue;
+        const centerY = Number(world.centerY[start]);
+        if (centerY < minY || centerY > maxY) continue;
+        for (let index = start; index < end; index++) {
+            const centerX = Number(world.centerX[index]);
+            if (centerX >= minX && centerX <= maxX) result.push(index);
+        }
+    }
+    return result;
+}
+
+function storyHexPoliticalOverlayEnsureCanvas() {
+    if (!storyHexPoliticalOverlayEnabled() || typeof document === 'undefined') return null;
+    const raster = typeof storyMapRasterEnsure === 'function' ? storyMapRasterEnsure() : null;
+    const world = storyHexWorldEnsure();
+    const regions = storyHexRegionsEnsure();
+    const political = storyHexPoliticalViewEnsure();
+    const width = raster ? raster.width : STORY_MAP_RASTER_WIDTH;
+    const height = raster ? raster.height : Math.round(width * world.height / world.width);
+    const model = storyHexPoliticalOverlayModel({ world, regions, political, states: STORY.states, width, height });
+    if (STORY._hexOwnerCache && STORY._hexOwnerKey === model.renderHash
+        && STORY._hexOwnerCache.width === width && STORY._hexOwnerCache.height === height) {
+        return STORY._hexOwnerCache;
+    }
+    const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    let canvas = STORY._hexOwnerCache;
+    if (!canvas || canvas.width !== width || canvas.height !== height) {
+        canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+    }
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, width, height);
+    const colors = new Map((STORY.states || []).map(state => [Number(state.id), String(state.color || '#888888')]));
+    const cellsByOwner = new Map();
+    for (let index = 0; index < world.cellCount; index++) {
+        const regionId = Number(regions.cellRegionIds[index]);
+        if (regionId < 0) continue;
+        const ownerId = Number(political.cellOwnerIds[index]);
+        if (!cellsByOwner.has(ownerId)) cellsByOwner.set(ownerId, []);
+        cellsByOwner.get(ownerId).push(index);
+    }
+    context.save();
+    context.globalAlpha = STORY_POLITICAL_INTERIOR_ALPHA / 255;
+    for (const [ownerId, indices] of cellsByOwner.entries()) {
+        context.beginPath();
+        for (const index of indices) {
+            const corners = storyHexWorldCorners(
+                world,
+                Number(world.qValues[index]),
+                Number(world.rValues[index])
+            );
+            context.moveTo(corners[0].x * model.scaleX, corners[0].y * model.scaleY);
+            for (let corner = 1; corner < corners.length; corner++) {
+                context.lineTo(corners[corner].x * model.scaleX, corners[corner].y * model.scaleY);
+            }
+            context.closePath();
+        }
+        context.fillStyle = colors.get(ownerId) || '#888888';
+        context.fill();
+    }
+    context.globalAlpha = STORY_POLITICAL_BORDER_ALPHA / 255;
+    context.strokeStyle = '#17140e';
+    context.lineWidth = 1.35;
+    context.lineCap = 'round';
+    context.beginPath();
+    let drawnBorderEdges = 0;
+    for (let index = 0; index < world.cellCount; index++) {
+        const mask = Number(political.nationalBorderMask[index]);
+        if (!mask) continue;
+        const q = Number(world.qValues[index]);
+        const r = Number(world.rValues[index]);
+        const corners = storyHexWorldCorners(world, q, r);
+        for (let direction = 0; direction < 6; direction++) {
+            if (!((mask >> direction) & 1)) continue;
+            const delta = STORY_HEX_WORLD_NEIGHBOR_DIRECTIONS[direction];
+            const neighbor = storyHexWorldIndex(world, q + delta[0], r + delta[1]);
+            if (neighbor >= 0 && neighbor < index) continue;
+            const edge = STORY_HEX_POLITICAL_EDGE_CORNERS[direction];
+            context.moveTo(corners[edge[0]].x * model.scaleX, corners[edge[0]].y * model.scaleY);
+            context.lineTo(corners[edge[1]].x * model.scaleX, corners[edge[1]].y * model.scaleY);
+            drawnBorderEdges++;
+        }
+    }
+    // V2 sınırı bu rastera gömmez. Raster çizgisi yakın zoomda kaynak ölçeğiyle
+    // birlikte büyüyüp arazi yükseltisi gibi 10px'lik koyu duvara dönüşüyordu.
+    // Canlı sınır aşağıdaki ekran-uzayı çizicisinde sabit kalınlıkla çizilir.
+    if (typeof storyMapV2Enabled !== 'function' || !storyMapV2Enabled()) context.stroke();
+    context.restore();
+    const finished = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    STORY._hexOwnerCache = canvas;
+    STORY._hexOwnerKey = model.renderHash;
+    STORY._hexOwnerOverlaySource = Object.assign({}, model, {
+        ownerGroupCount: cellsByOwner.size,
+        drawnBorderEdges,
+        buildMs: Math.round((finished - started) * 1000) / 1000
+    });
+    return canvas;
+}
+
+function storyHexPoliticalBorderSegmentsEnsure() {
+    if (!storyHexPoliticalOverlayEnabled()) return [];
+    const world = storyHexWorldEnsure();
+    const political = storyHexPoliticalViewEnsure();
+    const key = `${world.layoutHash}|${political.ownershipHash}`;
+    if (STORY._hexPoliticalBorderSegments
+        && STORY._hexPoliticalBorderSegmentsKey === key) return STORY._hexPoliticalBorderSegments;
+    const segments = [];
+    for (let index = 0; index < world.cellCount; index++) {
+        const mask = Number(political.nationalBorderMask[index]);
+        if (!mask) continue;
+        const q = Number(world.qValues[index]);
+        const r = Number(world.rValues[index]);
+        const corners = storyHexWorldCorners(world, q, r);
+        for (let direction = 0; direction < 6; direction++) {
+            if (!((mask >> direction) & 1)) continue;
+            const delta = STORY_HEX_WORLD_NEIGHBOR_DIRECTIONS[direction];
+            const neighbor = storyHexWorldIndex(world, q + delta[0], r + delta[1]);
+            if (neighbor >= 0 && neighbor < index) continue;
+            const edge = STORY_HEX_POLITICAL_EDGE_CORNERS[direction];
+            segments.push({
+                x1: corners[edge[0]].x / world.width,
+                y1: corners[edge[0]].y / world.height,
+                x2: corners[edge[1]].x / world.width,
+                y2: corners[edge[1]].y / world.height
+            });
+        }
+    }
+    STORY._hexPoliticalBorderSegments = segments;
+    STORY._hexPoliticalBorderSegmentsKey = key;
+    return segments;
+}
+
+function storyDrawHexPoliticalBorders(ctx) {
+    if (!ctx || typeof storyW2S !== 'function' || typeof STORY_WORLD_W === 'undefined') return 0;
+    const segments = storyHexPoliticalBorderSegmentsEnsure();
+    if (!segments.length) return 0;
+    const ratio = typeof storyMapV2ZoomRatio === 'function'
+        ? storyMapV2ZoomRatio(storyCam, STORY._minZoom || storyCam.zoom) : 1;
+    const outer = Math.min(2.8, 1.45 + Math.log2(Math.max(1, ratio)) * .22);
+    let visible = 0;
+    const drawPath = countVisible => {
+        ctx.beginPath();
+        for (const segment of segments) {
+            const a = storyW2S(segment.x1 * STORY_WORLD_W, segment.y1 * STORY_WORLD_H);
+            const b = storyW2S(segment.x2 * STORY_WORLD_W, segment.y2 * STORY_WORLD_H);
+            if ((a.x < -6 && b.x < -6) || (a.x > STORY._cw + 6 && b.x > STORY._cw + 6)
+                || (a.y < -6 && b.y < -6) || (a.y > STORY._ch + 6 && b.y > STORY._ch + 6)) continue;
+            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+            if (countVisible) visible++;
+        }
+    };
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    drawPath(true); ctx.strokeStyle = 'rgba(20,18,13,.66)'; ctx.lineWidth = outer; ctx.stroke();
+    drawPath(false); ctx.strokeStyle = 'rgba(220,181,78,.34)'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.restore();
+    STORY._hexPoliticalBorderDiagnostics = { total: segments.length, visible,
+        outerPx: Math.round(outer * 100) / 100 };
+    return visible;
+}
+
+function storyHexPoliticalOverlayDiagnostics() {
+    return STORY._hexOwnerOverlaySource
+        ? Object.assign({ disabled: false }, STORY._hexOwnerOverlaySource)
+        : { adapterVersion: STORY_HEX_POLITICAL_OVERLAY_ADAPTER_VERSION, disabled: !storyHexPoliticalOverlayEnabled() };
+}
+
 function storyPoliticalOverlayOwnerKey(raster, nodes, states) {
     const owners = (nodes || []).map(node => `${Number(node.id)}:${Number(node.owner)}`).join(',');
     const palette = (states || []).map(state => `${Number(state.id)}:${String(state.color || '#888888').toLowerCase()}`).join(',');
@@ -89,6 +333,16 @@ function storyPoliticalOverlayCreate(options) {
     if (!raster) return null;
     const nodes = options.nodes || STORY.nodes || [];
     const states = options.states || STORY.states || [];
+    const hexPolitical = typeof storyHexPoliticalViewEnsure === 'function'
+        ? (nodes === STORY.nodes
+            ? storyHexPoliticalViewEnsure()
+            : storyHexPoliticalViewCreate({
+                world: storyHexWorldEnsure(),
+                model: storyHexRegionsEnsure(),
+                nodes,
+                loadMode: 'overlay-input'
+            }))
+        : null;
     const tables = storyPoliticalOverlayOwnerTables(nodes, states);
     const pixelCount = raster.width * raster.height;
     const rgba = new Uint8ClampedArray(pixelCount * 4);
@@ -155,6 +409,8 @@ function storyPoliticalOverlayCreate(options) {
         sourceHash: raster.sourceHash,
         landHash: raster.landHash,
         regionHash: raster.regionHash,
+        hexMembershipHash: hexPolitical ? hexPolitical.membershipHash : null,
+        hexOwnershipHash: hexPolitical ? hexPolitical.ownershipHash : null,
         ownerHash: storyPoliticalOverlayOwnerKey(raster, nodes, states),
         rgbaHash: storyPoliticalOverlayHashBytes(rgba),
         borderHash: storyPoliticalOverlayHashBytes(borderMask),
@@ -203,6 +459,22 @@ function storyPoliticalOverlayValidate(overlay, raster, nodes, states, options) 
     }
     if (raster && overlay.ownerHash !== storyPoliticalOverlayOwnerKey(raster, nodes, states)) {
         add('OWNER_HASH_MISMATCH', '$.ownerHash', 'Politik overlay güncel sahiplik/palet revizyonuna ait değil.');
+    }
+    if (typeof storyHexPoliticalViewEnsure === 'function') {
+        const hexPolitical = nodes === STORY.nodes
+            ? storyHexPoliticalViewEnsure()
+            : storyHexPoliticalViewCreate({
+                world: storyHexWorldEnsure(),
+                model: storyHexRegionsEnsure(),
+                nodes,
+                loadMode: 'overlay-validation'
+            });
+        if (overlay.hexMembershipHash !== hexPolitical.membershipHash) {
+            add('HEX_MEMBERSHIP_HASH_MISMATCH', '$.hexMembershipHash', 'Politik overlay güncel altıgen üyeliğine bağlı değil.');
+        }
+        if (overlay.hexOwnershipHash !== hexPolitical.ownershipHash) {
+            add('HEX_OWNERSHIP_HASH_MISMATCH', '$.hexOwnershipHash', 'Politik overlay güncel altıgen sahipliğine bağlı değil.');
+        }
     }
     if (deep && overlay.rgba instanceof Uint8ClampedArray && overlay.rgba.length === pixelCount * 4
         && overlay.borderMask instanceof Uint8Array && overlay.borderMask.length === pixelCount && raster) {
@@ -335,6 +607,8 @@ function storyPoliticalOverlayEnsureCanvas() {
         sourceHash: overlay.sourceHash,
         landHash: overlay.landHash,
         regionHash: overlay.regionHash,
+        hexMembershipHash: overlay.hexMembershipHash,
+        hexOwnershipHash: overlay.hexOwnershipHash,
         ownerHash: overlay.ownerHash,
         rgbaHash: overlay.rgbaHash,
         borderHash: overlay.borderHash,

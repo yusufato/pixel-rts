@@ -8,7 +8,7 @@
     'use strict';
 
     const CONFIG = Object.freeze({
-        version: 'story-map-v2-flat-world-2',
+        version: 'story-map-v2-flat-world-5',
         maxZoom: 5,
         overviewRatio: 1.55,
         minorVisibleRatio: 1,
@@ -16,8 +16,21 @@
         // reserved for extreme inspection zoom where source pixels would become
         // visibly larger than the art's intended pixel scale.
         smoothTerrainRatio: 4,
-        settlementBasePx: Object.freeze({ 1: 10, 2: 24, 3: 34 }),
-        settlementMaxPx: Object.freeze({ 1: 30, 2: 70, 3: 108 })
+        // Civilization-style contract: city art owns a fixed physical footprint
+        // in world units. Camera zoom is the only scale operation; no LOD curve
+        // may secretly enlarge or shrink the city relative to its hex.
+        settlementWorldSize: Object.freeze({ 1: 12, 2: 19, 3: 27 }),
+        // District art must be legible inside a 27.9 world-unit wide hex. The
+        // previous 10/12 values occupied roughly one third of the cell and read
+        // as noise. These remain below their 19/27 city cores while filling
+        // about 57–65% of the hex width at every camera zoom.
+        districtWorldSize: Object.freeze({ 2: 16, 3: 18 }),
+        // Ports follow the same physical-object contract as cities. Their
+        // world footprint never switches at an arbitrary LOD threshold.
+        portWorldSize: Object.freeze({ 2: 8, 3: 10 }),
+        // One high-resolution world surface replaces the low-resolution
+        // screen-space ground pass that used to rebuild on every camera frame.
+        hexSurfaceScale: 2
     });
 
     const RURAL_VARIANTS = Object.freeze({
@@ -44,6 +57,22 @@
 
     function zoomRatio(cam, minimum) {
         return Math.max(1, (Number(cam && cam.zoom) || 1) / Math.max(.0001, Number(minimum) || 1));
+    }
+
+    function visualZoomBand(cam, minimum) {
+        const ratio = zoomRatio(cam, minimum);
+        if (ratio < 1.55) return 'OVERVIEW';
+        if (ratio < 3.4) return 'REGIONAL';
+        if (ratio < 8) return 'DISTRICT';
+        return 'LOCAL';
+    }
+
+    function cameraBucket(cam, width, height) {
+        const zoom = Math.max(.0001, Number(cam && cam.zoom) || 1);
+        const centerX = Number(cam && cam.x || 0) + Number(width || 0) / (2 * zoom);
+        const centerY = Number(cam && cam.y || 0) + Number(height || 0) / (2 * zoom);
+        const span = 360;
+        return `${Math.floor(centerX / span)}:${Math.floor(centerY / span)}`;
     }
 
     function worldToScreen(wx, wy, cam) {
@@ -99,31 +128,60 @@
 
     function settlementMetrics(node, options) {
         const opts = options || {};
-        const level = Math.max(1, Math.min(3, Number(node && node.level) | 0 || 1));
+        const level = Math.max(1, Math.min(3,
+            Number(opts.visualLevel == null ? node && node.level : opts.visualLevel) | 0 || 1));
         const ratio = zoomRatio(opts.cam, opts.minZoom);
         const important = !!(opts.commander || opts.selected || opts.actionable || level >= 2);
         if (level === 1 && ratio < CONFIG.minorVisibleRatio && !important) return { hidden: true, level, ratio, size: 0, half: 0 };
-        // One monotonic curve replaces the old far/near size switch. At every
-        // zoom step size can only stay equal or grow; it can never pop smaller.
-        // Capitals must already read as urban anchors in overview, while the
-        // gentler exponent prevents them from exploding at regional zoom.
-        const growth = Math.pow(ratio, .58);
-        const size = Math.round(Math.min(CONFIG.settlementMaxPx[level], CONFIG.settlementBasePx[level] * growth));
-        return { hidden: false, level, ratio, size: Math.max(5, size), half: Math.max(3, Math.round(size * .31)) };
+        const worldSize = CONFIG.settlementWorldSize[level];
+        const size = worldSize * Math.max(.0001, Number(opts.cam && opts.cam.zoom) || 1);
+        return { hidden: false, level, ratio, worldSize, size,
+            half: Math.max(1.5, size * .31) };
+    }
+
+    function settlementDistrictMetrics(node, options) {
+        const opts = options || {};
+        const level = Math.max(1, Math.min(3,
+            Number(opts.visualLevel == null ? node && node.level : opts.visualLevel) | 0 || 1));
+        const ratio = zoomRatio(opts.cam, opts.minZoom);
+        if (level < 2 || ratio < 3.4) return { visible: false, level, ratio, count: 0, spreadPx: 0, sizePx: 0 };
+        const count = level >= 3 ? Math.min(8, 4 + Math.floor(Math.log2(ratio))) : 3;
+        const worldSize = CONFIG.districtWorldSize[level >= 3 ? 3 : 2];
+        return {
+            visible: true,
+            level,
+            ratio,
+            count,
+            worldSize,
+            spreadPx: (level >= 3 ? 25 : 20) * Math.max(.0001, Number(opts.cam && opts.cam.zoom) || 1),
+            sizePx: worldSize * Math.max(.0001, Number(opts.cam && opts.cam.zoom) || 1)
+        };
+    }
+
+    function portMetrics(level, options) {
+        const opts = options || {};
+        const tier = Math.max(2, Math.min(3, Number(level) | 0 || 2));
+        const worldSize = CONFIG.portWorldSize[tier];
+        const size = worldSize * Math.max(.0001, Number(opts.cam && opts.cam.zoom) || 1);
+        return { tier, worldSize, size };
     }
 
     function ruralMetrics(ratio) {
         const r = Math.max(1, Number(ratio) || 1);
         const local = r >= 8;
+        const overview = r < 1.6;
         return {
-            // Overview/regional LOD uses broad terrain habitats. Only local LOD
-            // reveals authored farms and hamlets, preventing polka-dot villages.
+            // Keep roughly the same screen-space rhythm at regional/local LOD.
+            // The old 58/54 world-unit grid expanded to 128–240 screen pixels,
+            // exposing every atlas cell as an isolated circular stamp.
             local,
-            cellWorld: local ? 60 : r < 1.6 ? 90 : 50,
-            sizePx: Math.round(local ? Math.min(122, 82 + Math.pow(r - 7, .54) * 15)
-                : Math.min(120, 78 + Math.pow(r, .48) * 14)),
-            alpha: local ? .78 : (r < 1.6 ? .38 : .48),
-            density: local ? .34 : (r < 1.6 ? .84 : .72)
+            cellWorld: overview ? 96 : local ? 14 : 20,
+            // Overview receives broad habitat masses. Regional LOD replaces
+            // them with smaller overlapping fragments; local LOD switches to
+            // farms/hamlets without allowing scenery to rival a capital icon.
+            sizePx: Math.round(overview ? 74 : local ? Math.min(66, 59 + Math.log2(r / 8 + 1) * 4) : 58),
+            alpha: overview ? .30 : local ? .19 : .24,
+            density: overview ? .78 : local ? .50 : .44
         };
     }
 
@@ -132,6 +190,333 @@
         let h = ((x | 0) * 73856093) ^ ((y | 0) * 19349663);
         h = (h ^ (h >>> 13)) >>> 0;
         return (h % 1024) / 1024;
+    }
+
+    function coastlineMetrics(ratio) {
+        const r = Math.max(1, Number(ratio) || 1);
+        const coastPx = Math.min(2.7, 1.15 + Math.log2(r) * .34);
+        return {
+            coastPx,
+            shadowPx: coastPx + 1.65,
+            foamPx: Math.min(1.45, .72 + Math.log2(r) * .16),
+            foamOffsetPx: Math.min(3.1, 1.25 + Math.log2(r) * .38),
+            foamAlpha: Math.min(.68, .34 + Math.log2(r) * .08),
+            dashPx: r < 1.7 ? [3, 5] : [5, 7]
+        };
+    }
+
+    function mountainPlacements(range, scale, rangeIndex) {
+        const points = range && Array.isArray(range.pts) ? range.pts : [];
+        const f = Math.max(.01, Number(scale) || 1);
+        const strength = Math.min(1, Math.max(.2, Number(range && range.str) || .5));
+        const baseSize = (52 + strength * 25) * (f / .9) * .62;
+        const placements = [];
+        for (let index = 0; index + 1 < points.length; index++) {
+            const a = points[index], b = points[index + 1];
+            const ax = Number(a[0]) * f, ay = Number(a[1]) * f;
+            const bx = Number(b[0]) * f, by = Number(b[1]) * f;
+            const dx = bx - ax, dy = by - ay, length = Math.hypot(dx, dy);
+            if (!(length > .1)) continue;
+            const count = Math.max(1, Math.ceil(length / Math.max(17, baseSize * .45)));
+            const nx = -dy / length, ny = dx / length;
+            const tangent = Math.atan2(dy, dx);
+            for (let part = 0; part < count; part++) {
+                const t = (part + .5) / count;
+                const h1 = ruralHash((rangeIndex | 0) * 701 + index * 43 + part * 17, 1901);
+                const h2 = ruralHash((rangeIndex | 0) * 313 + index * 79 + part * 29, 811);
+                const size = baseSize * (.86 + h1 * .25);
+                const lateral = (h2 - .5) * size * .13;
+                placements.push({
+                    x: ax + dx * t + nx * lateral,
+                    y: ay + dy * t + ny * lateral,
+                    size,
+                    // Keep peaks upright; tangent only adds restrained chain
+                    // flow instead of tipping a whole mountain on its side.
+                    rotation: Math.max(-.18, Math.min(.18, Math.sin(tangent) * .12 + (h1 - .5) * .06)),
+                    flipX: h2 > .5,
+                    segment: index,
+                    part
+                });
+            }
+        }
+        return placements;
+    }
+
+    function roadControlPoints(a, b, seed) {
+        const start = { x: Number(a && a.x) || 0, y: Number(a && a.y) || 0 };
+        const end = { x: Number(b && b.x) || 0, y: Number(b && b.y) || 0 };
+        const dx = end.x - start.x, dy = end.y - start.y;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const nx = -dy / length, ny = dx / length;
+        const direction = ruralHash((seed | 0) * 47 + 13, 409) > .5 ? 1 : -1;
+        const bend = Math.min(28, length * (.038 + ruralHash((seed | 0) * 71 + 7, 811) * .025));
+        const points = [start];
+        for (let index = 1; index <= 3; index++) {
+            const t = index / 4;
+            const wave = Math.sin(Math.PI * t) * bend * direction
+                + Math.sin(Math.PI * 2 * t) * bend * .22
+                    * (ruralHash((seed | 0) * 101 + index * 19, 1201) > .5 ? 1 : -1);
+            points.push({ x: start.x + dx * t + nx * wave, y: start.y + dy * t + ny * wave });
+        }
+        points.push(end);
+        return points;
+    }
+
+    function traceRoundedPath(ctx, points) {
+        if (!ctx || !Array.isArray(points) || points.length < 2) return false;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let index = 1; index < points.length - 1; index++) {
+            const point = points[index], next = points[index + 1];
+            ctx.quadraticCurveTo(point.x, point.y, (point.x + next.x) * .5, (point.y + next.y) * .5);
+        }
+        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        return true;
+    }
+
+    // Build one canonical coastline from the shared land mask. Horizontal and
+    // vertical runs are merged so the live renderer draws a few long paths,
+    // not one operation per raster pixel. nx/ny always points from land to sea
+    // and is later used to place the pale foam on the water side.
+    function buildCoastSegments(raster) {
+        if (!raster || !(raster.width > 0) || !(raster.height > 0) || !raster.landMask) return [];
+        const width = raster.width | 0, height = raster.height | 0;
+        const mask = raster.landMask;
+        const land = (x, y) => x >= 0 && y >= 0 && x < width && y < height
+            ? !!mask[y * width + x] : false;
+        const segments = [];
+        const appendRun = (horizontal, fixed, from, to, nx, ny) => {
+            if (to <= from) return;
+            segments.push(horizontal
+                ? { x1: from / width, y1: fixed / height, x2: to / width, y2: fixed / height, nx, ny }
+                : { x1: fixed / width, y1: from / height, x2: fixed / width, y2: to / height, nx, ny });
+        };
+
+        for (let y = 0; y <= height; y++) {
+            let start = -1, runNy = 0;
+            for (let x = 0; x <= width; x++) {
+                const above = x < width && land(x, y - 1);
+                const below = x < width && land(x, y);
+                const ny = above === below ? 0 : (above ? 1 : -1);
+                if (ny !== runNy) {
+                    if (runNy) appendRun(true, y, start, x, 0, runNy);
+                    start = ny ? x : -1;
+                    runNy = ny;
+                }
+            }
+        }
+        for (let x = 0; x <= width; x++) {
+            let start = -1, runNx = 0;
+            for (let y = 0; y <= height; y++) {
+                const left = y < height && land(x - 1, y);
+                const right = y < height && land(x, y);
+                const nx = left === right ? 0 : (left ? 1 : -1);
+                if (nx !== runNx) {
+                    if (runNx) appendRun(false, x, start, y, runNx, 0);
+                    start = nx ? y : -1;
+                    runNx = nx;
+                }
+            }
+        }
+        return segments;
+    }
+
+    function buildCoastContours(raster) {
+        if (!raster || !(raster.width > 0) || !(raster.height > 0) || !raster.landMask) return [];
+        const width = raster.width | 0, height = raster.height | 0;
+        const mask = raster.landMask;
+        const land = (x, y) => x >= 0 && y >= 0 && x < width && y < height
+            ? !!mask[y * width + x] : false;
+        const outgoing = new Map();
+        const add = (x1, y1, x2, y2) => {
+            const key = `${x1},${y1}`;
+            const edge = { x1, y1, x2, y2, used: false };
+            if (!outgoing.has(key)) outgoing.set(key, []);
+            outgoing.get(key).push(edge);
+        };
+        for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+            if (!land(x, y)) continue;
+            // Clockwise screen-space winding: sea stays on the right side.
+            if (!land(x, y - 1)) add(x, y, x + 1, y);
+            if (!land(x + 1, y)) add(x + 1, y, x + 1, y + 1);
+            if (!land(x, y + 1)) add(x + 1, y + 1, x, y + 1);
+            if (!land(x - 1, y)) add(x, y + 1, x, y);
+        }
+        const contours = [];
+        for (const edges of outgoing.values()) for (const first of edges) {
+            if (first.used) continue;
+            const points = [{ x: first.x1 / width, y: first.y1 / height }];
+            let edge = first;
+            const startKey = `${first.x1},${first.y1}`;
+            let closed = false;
+            let guard = 0;
+            while (edge && !edge.used && guard++ <= mask.length * 4) {
+                edge.used = true;
+                points.push({ x: edge.x2 / width, y: edge.y2 / height });
+                const key = `${edge.x2},${edge.y2}`;
+                if (key === startKey) { closed = true; break; }
+                const next = (outgoing.get(key) || []).filter(candidate => !candidate.used);
+                if (next.length <= 1) edge = next[0] || null;
+                else {
+                    // Diagonally touching islands share a raster vertex. Keep
+                    // the sea on the right by taking the strongest right turn;
+                    // otherwise two islands can collapse into a figure-eight.
+                    const inX = edge.x2 - edge.x1, inY = edge.y2 - edge.y1;
+                    edge = next.slice().sort((a, b) => {
+                        const ax = a.x2 - a.x1, ay = a.y2 - a.y1;
+                        const bx = b.x2 - b.x1, by = b.y2 - b.y1;
+                        const aa = Math.atan2(inX * ay - inY * ax, inX * ax + inY * ay);
+                        const ba = Math.atan2(inX * by - inY * bx, inX * bx + inY * by);
+                        return ba - aa;
+                    })[0];
+                }
+            }
+            if (closed && points.length >= 4) {
+                const last = points[points.length - 1];
+                if (last.x === points[0].x && last.y === points[0].y) points.pop();
+                let minX = 1, minY = 1, maxX = 0, maxY = 0;
+                for (const point of points) {
+                    minX = Math.min(minX, point.x); minY = Math.min(minY, point.y);
+                    maxX = Math.max(maxX, point.x); maxY = Math.max(maxY, point.y);
+                }
+                contours.push({ points, minX, minY, maxX, maxY });
+            }
+        }
+        return contours;
+    }
+
+    function smoothCoastPath(ctx, points, offsetPx) {
+        if (!points || points.length < 3) return;
+        const shifted = points.map((point, index) => {
+            if (!offsetPx) return point;
+            const previous = points[(index + points.length - 1) % points.length];
+            const next = points[(index + 1) % points.length];
+            const dx = next.x - previous.x, dy = next.y - previous.y;
+            const length = Math.max(.001, Math.hypot(dx, dy));
+            return { x: point.x + dy / length * offsetPx, y: point.y - dx / length * offsetPx };
+        });
+        const first = shifted[0], last = shifted[shifted.length - 1];
+        ctx.moveTo((last.x + first.x) * .5, (last.y + first.y) * .5);
+        for (let index = 0; index < shifted.length; index++) {
+            const current = shifted[index], next = shifted[(index + 1) % shifted.length];
+            ctx.quadraticCurveTo(current.x, current.y, (current.x + next.x) * .5, (current.y + next.y) * .5);
+        }
+        ctx.closePath();
+    }
+
+    function smoothCoastPoints(points) {
+        if (!Array.isArray(points) || points.length < 12) return points || [];
+        let result = points.map(point => ({ x: point.x, y: point.y }));
+        // Two conservative circular low-pass passes remove the raster's visible
+        // one-cell staircase while staying inside roughly one source cell of
+        // the canonical mask. Small islands are deliberately left untouched.
+        for (let pass = 0; pass < 2; pass++) {
+            result = result.map((_point, index) => {
+                const count = result.length;
+                const a = result[(index + count - 2) % count];
+                const b = result[(index + count - 1) % count];
+                const c = result[index];
+                const d = result[(index + 1) % count];
+                const e = result[(index + 2) % count];
+                return {
+                    x: (a.x + b.x * 2 + c.x * 4 + d.x * 2 + e.x) / 10,
+                    y: (a.y + b.y * 2 + c.y * 4 + d.y * 2 + e.y) / 10
+                };
+            });
+        }
+        return result;
+    }
+
+    function drawCoastline(ctx) {
+        if (!ctx || typeof STORY === 'undefined' || typeof storyMapRasterEnsure !== 'function') return 0;
+        const raster = storyMapRasterEnsure();
+        if (!raster) return 0;
+        let cache = STORY._mapV2CoastlineCache;
+        if (!cache || cache.raster !== raster || cache.landHash !== raster.landHash) {
+            cache = {
+                raster,
+                landHash: raster.landHash,
+                segments: buildCoastSegments(raster),
+                contours: buildCoastContours(raster).map(contour => Object.assign({}, contour, {
+                    renderPoints: smoothCoastPoints(contour.points)
+                }))
+            };
+            STORY._mapV2CoastlineCache = cache;
+        }
+        const ratio = zoomRatio(storyCam, STORY._minZoom || storyCam.zoom);
+        const metrics = coastlineMetrics(ratio);
+        const screenKey = [STORY._cw, STORY._ch,
+            visualZoomBand(storyCam, STORY._minZoom || storyCam.zoom),
+            cameraBucket(storyCam, STORY._cw, STORY._ch), cache.landHash].join('|');
+        let screen = cache.screen;
+        if (!screen || !screen.canvas || screen.canvas.width !== STORY._cw
+            || screen.canvas.height !== STORY._ch) {
+            const canvas = document.createElement('canvas');
+            canvas.width = STORY._cw; canvas.height = STORY._ch;
+            screen = cache.screen = { canvas, key: null, view: null, visible: 0 };
+        }
+        const reuseInteraction = !!(STORY._mapInteracting && screen.key);
+        if (reuseInteraction || screen.key === screenKey) {
+            if (typeof storyDrawScreenLayerForCamera === 'function') {
+                storyDrawScreenLayerForCamera(ctx, screen.canvas, screen.view);
+            } else ctx.drawImage(screen.canvas, 0, 0);
+            STORY._mapV2Coastline = {
+                total: cache.segments.length, contours: cache.contours.length,
+                visible: screen.visible, ratio: Math.round(ratio * 100) / 100,
+                coastPx: Math.round(metrics.coastPx * 100) / 100,
+                cached: true, reusedInteraction: reuseInteraction
+            };
+            return screen.visible;
+        }
+        const paint = screen.canvas.getContext('2d');
+        paint.clearRect(0, 0, screen.canvas.width, screen.canvas.height);
+        const padding = metrics.shadowPx + metrics.foamOffsetPx + 3;
+        const visible = [];
+        for (const contour of cache.contours) {
+            const topLeft = worldToScreen(contour.minX * STORY_WORLD_W, contour.minY * STORY_WORLD_H, storyCam);
+            const bottomRight = worldToScreen(contour.maxX * STORY_WORLD_W, contour.maxY * STORY_WORLD_H, storyCam);
+            if (bottomRight.x < -padding || topLeft.x > STORY._cw + padding
+                || bottomRight.y < -padding || topLeft.y > STORY._ch + padding) continue;
+            visible.push(contour.renderPoints.map(point => worldToScreen(
+                point.x * STORY_WORLD_W, point.y * STORY_WORLD_H, storyCam
+            )));
+        }
+        const path = (offset) => {
+            paint.beginPath();
+            for (const contour of visible) smoothCoastPath(paint, contour, offset);
+        };
+        paint.save();
+        paint.lineCap = 'round';
+        paint.lineJoin = 'round';
+        path(0);
+        paint.strokeStyle = 'rgba(2,25,39,0.82)';
+        paint.lineWidth = metrics.shadowPx;
+        paint.stroke();
+        path(0);
+        paint.strokeStyle = 'rgba(222,181,77,0.88)';
+        paint.lineWidth = metrics.coastPx;
+        paint.stroke();
+        path(metrics.foamOffsetPx);
+        paint.setLineDash(metrics.dashPx);
+        paint.lineDashOffset = -2;
+        paint.strokeStyle = `rgba(170,225,218,${metrics.foamAlpha})`;
+        paint.lineWidth = metrics.foamPx;
+        paint.stroke();
+        paint.restore();
+        screen.key = screenKey;
+        screen.view = { x: Number(storyCam.x) || 0, y: Number(storyCam.y) || 0,
+            zoom: Math.max(.0001, Number(storyCam.zoom) || 1) };
+        screen.visible = visible.length;
+        ctx.drawImage(screen.canvas, 0, 0);
+        STORY._mapV2Coastline = {
+            total: cache.segments.length,
+            contours: cache.contours.length,
+            visible: visible.length,
+            ratio: Math.round(ratio * 100) / 100,
+            coastPx: Math.round(metrics.coastPx * 100) / 100,
+            cached: false, reusedInteraction: false
+        };
+        return visible.length;
     }
 
     function ruralNearStrategicNode(wx, wy, radius) {
@@ -149,7 +534,9 @@
     function ruralOnLand(raster, wx, wy, footprint) {
         const nx = wx / STORY_WORLD_W, ny = wy / STORY_WORLD_H;
         const fx = footprint / STORY_WORLD_W, fy = footprint / STORY_WORLD_H;
-        const points = [[0, 0], [-fx, 0], [fx, 0], [0, -fy], [0, fy]];
+        const points = [[0, 0], [-fx, 0], [fx, 0], [0, -fy], [0, fy],
+            [-fx * .72, -fy * .72], [fx * .72, -fy * .72],
+            [-fx * .72, fy * .72], [fx * .72, fy * .72]];
         for (const point of points) {
             if (!storyMapRasterSample(raster, nx + point[0], ny + point[1]).land) return false;
         }
@@ -205,20 +592,24 @@
             const regionalWeight = .45 + regional * .75;
             if (ruralHash(gx + 211, gy + 977) > metrics.density * biomeDensity * regionalWeight
                 || (ny > .72 && regional < .55)) continue;
-            const footprint = Math.max(22, metrics.sizePx / storyCam.zoom * .24);
+            // Atlas hücresinin yalnız merkezi değil gerçek ekrandaki köşeleri
+            // de karada kalmalı. Eski .24 katsayısı büyük orman/tarla lekesinin
+            // yarısından azını ölçüyor, kıyıda denize taşmasına izin veriyordu.
+            const footprint = Math.max(22, metrics.sizePx / storyCam.zoom * .72);
             if (!ruralOnLand(raster, wx, wy, footprint)
-                || ruralNearStrategicNode(wx, wy, Math.max(48, footprint * 1.5))) continue;
+                || ruralNearStrategicNode(wx, wy,
+                    Math.max(12, metrics.sizePx / storyCam.zoom * .92))) continue;
 
             let drawAtlas = atlas, cell;
             const forestRoll = ruralHash(gx + 1877, gy + 421);
             const forested = ny < .53
                 ? (regional > .48 || forestRoll > .68)
                 : (regional > .62 && forestRoll > .72);
-            if (!metrics.local && forested && forestAtlas && forestAtlas.ready) {
+            if (forested && forestAtlas && forestAtlas.ready) {
                 drawAtlas = forestAtlas;
                 const row = ny > .53 ? 1 : (regional > .70 ? 0 : 2);
                 cell = row * 4 + Math.floor(ruralHash(gx + 1301, gy + 367) * 4);
-            } else if (!metrics.local && terrainAtlas && terrainAtlas.ready) {
+            } else if (terrainAtlas && terrainAtlas.ready) {
                 drawAtlas = terrainAtlas;
                 const row = ny > .72 ? 3 : ny > .53 ? 2 : (regional > .57 ? 0 : 1);
                 cell = row * 4 + Math.floor(ruralHash(gx + 1301, gy + 367) * 4);
@@ -234,9 +625,8 @@
             const col = cell % drawAtlas.cols, row = Math.floor(cell / drawAtlas.cols);
             const point = worldToScreen(wx, wy, storyCam);
             const size = metrics.sizePx * (.88 + ruralHash(gx + 59, gy + 1601) * .28);
-            const aspect = metrics.local ? (.88 + ruralHash(gx + 233, gy + 811) * .24)
-                : (.82 + ruralHash(gx + 233, gy + 811) * .50);
-            const drawW = size * aspect, drawH = size * (metrics.local ? .90 : .78);
+            const aspect = .82 + ruralHash(gx + 233, gy + 811) * .50;
+            const drawW = size * aspect, drawH = size * .78;
             if (point.x < -drawW || point.y < -drawH || point.x > STORY._cw + drawW || point.y > STORY._ch + drawH) continue;
 
             ctx.globalAlpha = metrics.alpha * (.88 + ruralHash(gx + 401, gy + 271) * .12);
@@ -258,91 +648,291 @@
         return drawn;
     }
 
-    function drawGroundDetail(ctx) {
-        if (!ctx || typeof storyMapAtlasEnsure !== 'function' || typeof storyMapRasterEnsure !== 'function'
-            || typeof storyMapRasterSample !== 'function' || typeof STORY === 'undefined') return 0;
-        const ratio = zoomRatio(storyCam, STORY._minZoom || storyCam.zoom);
-        if (ratio < 4.6 || typeof storyMapAtlasReady !== 'function' || !storyMapAtlasReady('groundDetail')) return 0;
-        const atlas = storyMapAtlasEnsure().groundDetail;
+    function hexNaturalNow() {
+        return typeof performance !== 'undefined' && performance.now
+            ? performance.now() : Date.now();
+    }
+
+    function hexNaturalRequestFrame(callback) {
+        if (typeof root.requestAnimationFrame === 'function') {
+            return root.requestAnimationFrame(callback);
+        }
+        if (typeof root.setTimeout === 'function') {
+            return root.setTimeout(() => callback(hexNaturalNow()), 0);
+        }
+        return null;
+    }
+
+    function invalidateHexNaturalContents(reason) {
+        if (typeof STORY === 'undefined') return false;
+        const job = STORY._hexNaturalContentsJob;
+        if (job) job.cancelled = true;
+        STORY._hexNaturalContentsJob = null;
+        // Keep the completed surface on screen while its replacement is built.
+        // Dropping the canvas here caused a blank terrain flash and made cities
+        // appear to load after the map whenever an atlas finished decoding.
+        STORY._hexNaturalContentsKey = null;
+        STORY._hexNaturalContentsInvalidation = String(reason || 'unknown');
+        return true;
+    }
+
+    function hexNaturalLandMask(raster) {
+        let landMask = STORY._hexNaturalLandMask;
+        if (landMask && STORY._hexNaturalLandMaskRaster === raster) return landMask;
+        landMask = document.createElement('canvas');
+        landMask.width = raster.width; landMask.height = raster.height;
+        const maskPaint = landMask.getContext('2d');
+        const maskImage = maskPaint.createImageData(raster.width, raster.height);
+        for (let i = 0; i < raster.landMask.length; i++) {
+            const pixel = i * 4;
+            maskImage.data[pixel] = maskImage.data[pixel + 1] = maskImage.data[pixel + 2] = 255;
+            maskImage.data[pixel + 3] = raster.landMask[i] ? 255 : 0;
+        }
+        maskPaint.putImageData(maskImage, 0, 0);
+        STORY._hexNaturalLandMask = landMask;
+        STORY._hexNaturalLandMaskRaster = raster;
+        return landMask;
+    }
+
+    function paintHexNaturalCell(job, index) {
+        const { world, geography, occupied, natural, paint, scaleX, scaleY,
+            baseWorld, counts } = job;
+        const coverage = Number(geography.landCoverageBps[index]);
+        if (coverage < 9400 || occupied.has(index)) return;
+        const cx = Number(world.centerX[index]) * scaleX;
+        const cy = Number(world.centerY[index]) * scaleY;
+        const latitude = Number(world.centerY[index]) / Number(world.height);
+        const seedA = ruralHash(Number(world.qValues[index]) * 131 + 17,
+            Number(world.rValues[index]) * 197 + 31);
+        const seedB = ruralHash(Number(world.qValues[index]) * 313 + 71,
+            Number(world.rValues[index]) * 89 + 911);
+        const registeredResource = STORY_HEX_NATURAL_RESOURCE_NAMES[
+            Number(natural.resourceCodes[index])
+        ] || 'NONE';
+        const resource = job.operatingResourceCells.has(index)
+            ? registeredResource : 'NONE';
+        const cover = STORY_HEX_NATURAL_COVER_NAMES[
+            Number(natural.coverCodes[index])
+        ] || 'OPEN_LAND';
+        let atlas = null, variant = 0, size = baseWorld * 2.04, alpha = .94, kind = null;
+        if (resource === 'PETROLEUM') {
+            atlas = 'settlements'; variant = 8; size = baseWorld * 1.86; kind = 'OIL';
+        } else if (resource === 'MINERAL') {
+            atlas = 'ruralEnvironment'; variant = 9; size = baseWorld * 1.96; kind = 'MINE';
+        } else if (cover === 'MOUNTAIN') {
+            const mountain = Number(geography.mountainIntensityBps[index]);
+            atlas = 'mountains';
+            const band = latitude > .68 ? 3 : latitude < .32 ? 2
+                : mountain >= 6500 ? 1 : 0;
+            variant = band * 4 + Math.floor(seedB * 4);
+            size = baseWorld * 2.16; alpha = .98; kind = 'MOUNTAIN';
+        } else if (cover === 'FOREST') {
+            atlas = 'forests';
+            const band = latitude > .68 ? 3 : latitude < .30 ? 2 : seedB > .55 ? 0 : 1;
+            variant = band * 4 + Math.floor(seedB * 4);
+            size = baseWorld * 2.10; alpha = .98; kind = 'FOREST';
+        } else if (seedA > .90) {
+            // Tarım alanı değildir: yalnız seyrek doğal yüzey ayrıntısıdır.
+            atlas = 'terrainDetail';
+            const row = latitude > .70 ? 3 : latitude > .56 ? 2 : seedB > .62 ? 1 : 0;
+            variant = row * 4 + Math.floor(seedB * 4);
+            size = baseWorld * 2.08; alpha = .74; kind = 'TERRAIN';
+        }
+        if (!atlas) return;
+
+        // Kırpma yolu yalnız gerçekten görsel çizen hücrelerde kurulur. Taban
+        // kara dokusunu StoryMapRaster taşır; su ve boş arazi burada iş üretmez.
+        paint.save();
+        paint.beginPath();
+        for (let corner = 0; corner < 6; corner++) {
+            const angle = Math.PI / 180 * (60 * corner - 30);
+            const hx = cx + baseWorld * .99 * Math.cos(angle);
+            const hy = cy + baseWorld * .99 * Math.sin(angle);
+            if (!corner) paint.moveTo(hx, hy); else paint.lineTo(hx, hy);
+        }
+        paint.closePath();
+        paint.clip();
+        storyDrawAtlasCell(paint, atlas, variant, cx, cy + size * .5,
+            size, size, alpha, 0, seedB > .5);
+        counts[kind]++;
+        paint.restore();
+    }
+
+    function finishHexNaturalContents(job) {
+        if (job.cancelled || STORY._hexNaturalContentsJob !== job) return;
+        const finishStarted = hexNaturalNow();
+        const landMask = hexNaturalLandMask(job.raster);
+        job.paint.save();
+        job.paint.globalCompositeOperation = 'destination-in';
+        job.paint.imageSmoothingEnabled = true;
+        job.paint.drawImage(landMask, 0, 0, job.canvas.width, job.canvas.height);
+        job.paint.restore();
+        const finished = hexNaturalNow();
+        job.maxSliceMs = Math.max(job.maxSliceMs, finished - finishStarted);
+        STORY._hexNaturalContentsCanvas = job.canvas;
+        STORY._hexNaturalContentsKey = job.key;
+        STORY._hexNaturalContentsJob = null;
+        STORY._hexNaturalContentsBuild = {
+            adapterVersion: 'hex-natural-surface-5-natural-registry', key: job.key,
+            counts: job.counts, renderScale: job.renderScale,
+            occupiedCellCount: job.occupied.size,
+            resourceCellCount: job.natural.deposits.length,
+            operatingResourceCellCount: job.operatingResourceCells.size,
+            width: job.canvas.width, height: job.canvas.height,
+            buildMs: finished - job.startedAt, frameCount: job.frameCount,
+            maxSliceMs: job.maxSliceMs, frameBudgetMs: job.frameBudgetMs
+        };
+        // Son dilim yalnız tanı kaydını kapatır. Canvas ilk dilimden beri aynı
+        // nesne olarak görünür; doğal örtü sonunda tek karede patlamaz.
+        hexNaturalRequestFrame(() => {
+            if (typeof storyRender === 'function'
+                && (typeof APP_SCREEN === 'undefined' || APP_SCREEN === 'story')) storyRender();
+        });
+    }
+
+    function processHexNaturalContents(job) {
+        if (job.cancelled || STORY._hexNaturalContentsJob !== job) return;
+        const sliceStarted = hexNaturalNow();
+        let painted = 0;
+        while (job.cursor < job.order.length) {
+            paintHexNaturalCell(job, job.order[job.cursor++]);
+            painted++;
+            // Always make useful progress, then yield before consuming a 60 FPS frame.
+            // Canvas commands may be queued without advancing performance.now()
+            // and flush together later. A hard cell ceiling prevents that GPU
+            // flush from turning a nominal 4 ms slice into a 100+ ms hitch.
+            if (painted >= 768
+                || (painted >= 24 && hexNaturalNow() - sliceStarted >= job.frameBudgetMs)) break;
+        }
+        const sliceMs = hexNaturalNow() - sliceStarted;
+        job.frameCount++;
+        job.maxSliceMs = Math.max(job.maxSliceMs, sliceMs);
+        job.lastSliceMs = sliceMs;
+        STORY._hexNaturalContentsProgress = {
+            key: job.key, completed: job.cursor, total: job.order.length,
+            ratio: job.cursor / Math.max(1, job.order.length),
+            frameCount: job.frameCount, lastSliceMs: job.lastSliceMs,
+            maxSliceMs: job.maxSliceMs, frameBudgetMs: job.frameBudgetMs
+        };
+        if (job.cursor >= job.order.length) finishHexNaturalContents(job);
+        else hexNaturalRequestFrame(() => {
+            processHexNaturalContents(job);
+            if (typeof storyRender === 'function'
+                && (typeof APP_SCREEN === 'undefined' || APP_SCREEN === 'story')) storyRender();
+        });
+    }
+
+    function ensureHexNaturalContentsCanvas() {
+        if (typeof STORY === 'undefined' || typeof storyHexWorldEnsure !== 'function'
+            || typeof storyHexGeographyEnsure !== 'function'
+            || typeof storyMapAtlasReady !== 'function' || typeof storyDrawAtlasCell !== 'function'
+            || typeof storyMapRasterEnsure !== 'function'
+            || typeof storyHexNaturalResourcesEnsure !== 'function'
+            || typeof storyHexSitesEnsure !== 'function') return null;
+        const required = ['mountains', 'forests', 'groundDetail',
+            'terrainDetail', 'ruralEnvironment', 'settlements'];
+        if (!required.every(storyMapAtlasReady)) return null;
+        const world = storyHexWorldEnsure();
+        const geography = storyHexGeographyEnsure();
+        const natural = storyHexNaturalResourcesEnsure();
+        const physicalSites = storyHexSitesEnsure();
         const raster = storyMapRasterEnsure();
-        if (!atlas || !atlas.ready || !raster) return 0;
-        const tileWorld = 112;
-        const sw = atlas.img.naturalWidth / atlas.cols;
-        const sh = atlas.img.naturalHeight / atlas.rows;
-        const localDetail = ratio >= 8;
-        const alpha = localDetail
-            ? Math.min(.76, .64 + (ratio - 8) * .018)
-            : Math.min(.28, .14 + (ratio - 4.6) * .024);
-        let layer = STORY._mapV2GroundLayer;
-        if (!layer || layer.width !== STORY._cw || layer.height !== STORY._ch) {
-            layer = document.createElement('canvas'); layer.width = STORY._cw; layer.height = STORY._ch;
-            STORY._mapV2GroundLayer = layer;
+        if (!raster || !natural || !physicalSites) return null;
+        const urban = typeof storyHexUrbanFootprintsEnsure === 'function'
+            ? storyHexUrbanFootprintsEnsure() : null;
+        const renderScale = CONFIG.hexSurfaceScale;
+        const operatingResourceCells = new Set((physicalSites.sites || [])
+            .filter(site => site.siteType === 'EXTRACTION')
+            .map(site => Number(site.cellIndex)));
+        const resourceOperationKey = Array.from(operatingResourceCells)
+            .sort((a, b) => a - b).join(',');
+        const key = ['hex-natural-surface-5', world.layoutHash, geography.geographyHash,
+            natural.registryHash, urban && urban.footprintHash || '-', STORY_WORLD_W,
+            STORY_WORLD_H, resourceOperationKey, renderScale].join('|');
+        if (STORY._hexNaturalContentsCanvas && STORY._hexNaturalContentsKey === key) return STORY._hexNaturalContentsCanvas;
+        if (STORY._hexNaturalContentsJob && STORY._hexNaturalContentsJob.key === key) {
+            return STORY._hexNaturalContentsCanvas || null;
         }
-        let mask = STORY._mapV2LandMask;
-        if (!mask || STORY._mapV2LandMaskRaster !== raster) {
-            mask = document.createElement('canvas'); mask.width = raster.width; mask.height = raster.height;
-            const mg = mask.getContext('2d'), image = mg.createImageData(raster.width, raster.height);
-            for (let i = 0; i < raster.landMask.length; i++) {
-                const k = i * 4, a = raster.landMask[i] ? 255 : 0;
-                image.data[k] = image.data[k + 1] = image.data[k + 2] = 255; image.data[k + 3] = a;
-            }
-            mg.putImageData(image, 0, 0);
-            STORY._mapV2LandMask = mask; STORY._mapV2LandMaskRaster = raster;
-        }
-        const dg = layer.getContext('2d');
-        dg.clearRect(0, 0, layer.width, layer.height);
-        dg.imageSmoothingEnabled = true; dg.imageSmoothingQuality = 'high';
-        let drawn = 0;
-        // Two half-offset passes feather cell boundaries without inventing new
-        // art. The canonical land mask is applied afterwards in one operation.
-        for (let pass = 0; pass < 2; pass++) {
-            const offset = pass ? -tileWorld * .5 : 0;
-            const x0 = Math.floor((storyCam.x - offset) / tileWorld) - 1;
-            const y0 = Math.floor((storyCam.y - offset) / tileWorld) - 1;
-            const x1 = Math.ceil((storyCam.x + STORY._cw / storyCam.zoom - offset) / tileWorld) + 1;
-            const y1 = Math.ceil((storyCam.y + STORY._ch / storyCam.zoom - offset) / tileWorld) + 1;
-            dg.globalAlpha = pass ? .36 : .76;
-            for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) {
-                const wx = gx * tileWorld + offset, wy = gy * tileWorld + offset;
-                if (wx + tileWorld <= 0 || wy + tileWorld <= 0 || wx >= STORY_WORLD_W || wy >= STORY_WORLD_H) continue;
-                const ny = (wy + tileWorld * .5) / STORY_WORLD_H;
-                const h = typeof storyHash === 'function'
-                    ? storyHash(gx * 97 + 31 + pass * 719, gy * 131 + 17 + pass * 313)
-                    : ((gx * 17 + gy * 31 + pass * 19) & 255) / 255;
-                const row = ny > .68 ? (h > .55 ? 3 : 2) : (h > .58 ? 1 : 0);
-                const col = Math.min(3, Math.floor(h * 4));
-                const s = worldToScreen(wx, wy, storyCam);
-                const dw = tileWorld * storyCam.zoom + 1.5;
-                const dh = tileWorld * storyCam.zoom + 1.5;
-                dg.drawImage(atlas.img, col * sw, row * sh, sw, sh,
-                    Math.floor(s.x), Math.floor(s.y), Math.ceil(dw), Math.ceil(dh));
-                drawn++;
-            }
-        }
-        dg.globalAlpha = 1;
-        dg.globalCompositeOperation = 'destination-in';
-        blit(dg, mask, 1, storyCam, STORY._cw, STORY._ch, STORY_WORLD_W, STORY_WORLD_H);
-        dg.globalCompositeOperation = 'source-over';
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.globalCompositeOperation = 'soft-light';
-        ctx.drawImage(layer, 0, 0);
-        ctx.restore();
-        STORY._mapV2GroundDetail = { drawn, ratio: Math.round(ratio * 100) / 100, alpha };
-        return drawn;
+        if (STORY._hexNaturalContentsJob) STORY._hexNaturalContentsJob.cancelled = true;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(STORY_WORLD_W * renderScale));
+        canvas.height = Math.max(1, Math.round(STORY_WORLD_H * renderScale));
+        const paint = canvas.getContext('2d');
+        paint.clearRect(0, 0, canvas.width, canvas.height);
+        paint.imageSmoothingEnabled = true;
+        paint.imageSmoothingQuality = 'high';
+        const scaleX = canvas.width / world.width;
+        const scaleY = canvas.height / world.height;
+        const occupied = new Set(urban && urban.cellIndices ? Array.from(urban.cellIndices) : []);
+        const order = Array.from({ length: world.cellCount }, (_, index) => index)
+            .filter(index => Number(geography.landCoverageBps[index]) >= 9400
+                && !occupied.has(index))
+            .sort((a, b) => {
+                const ad = Math.abs(Number(world.centerX[a]) - Number(world.width) * .5)
+                    + Math.abs(Number(world.centerY[a]) - Number(world.height) * .55);
+                const bd = Math.abs(Number(world.centerX[b]) - Number(world.width) * .5)
+                    + Math.abs(Number(world.centerY[b]) - Number(world.height) * .55);
+                return ad - bd || a - b;
+            });
+        const counts = { MOUNTAIN: 0, FOREST: 0, MINE: 0, OIL: 0, TERRAIN: 0 };
+        const baseWorld = Number(world.radius) * Math.min(scaleX, scaleY);
+        const job = {
+            key, world, geography, natural, physicalSites, raster, urban, renderScale,
+            canvas, paint, scaleX, scaleY, occupied, operatingResourceCells,
+            order, counts, baseWorld,
+            cursor: 0, cancelled: false, startedAt: hexNaturalNow(), frameCount: 0,
+            maxSliceMs: 0, lastSliceMs: 0, frameBudgetMs: 4
+        };
+        STORY._hexNaturalContentsJob = job;
+        // Kısmi canvas güvenle yeniden kullanılabilir: ana şehir/arayüz katmanı
+        // bundan bağımsızdır ve her dilim kendi hücrelerini tek kez boyar.
+        STORY._hexNaturalContentsCanvas = canvas;
+        STORY._hexNaturalContentsKey = key;
+        STORY._hexNaturalContentsProgress = {
+            key, completed: 0, total: order.length, ratio: 0,
+            frameCount: 0, lastSliceMs: 0, maxSliceMs: 0, frameBudgetMs: job.frameBudgetMs
+        };
+        hexNaturalRequestFrame(() => processHexNaturalContents(job));
+        return canvas;
+    }
+
+    function drawHexNaturalContents(ctx) {
+        const canvas = ensureHexNaturalContentsCanvas();
+        if (!ctx || !canvas) return 0;
+        blit(ctx, canvas, 1, storyCam, STORY._cw, STORY._ch, STORY_WORLD_W, STORY_WORLD_H);
+        STORY._mapV2HexContents = Object.assign({}, STORY._hexNaturalContentsBuild || {}, {
+            zoom: Number(storyCam.zoom)
+        });
+        return Object.values(STORY._hexNaturalContentsBuild && STORY._hexNaturalContentsBuild.counts || {})
+            .reduce((total, value) => total + Number(value || 0), 0);
     }
 
     root.STORY_MAP_RENDERER_V2 = CONFIG;
     root.storyMapV2Enabled = enabled;
     root.storyMapV2MinZoom = minZoom;
     root.storyMapV2ZoomRatio = zoomRatio;
+    root.storyMapV2VisualZoomBand = visualZoomBand;
+    root.storyMapV2CameraBucket = cameraBucket;
     root.storyMapV2WorldToScreen = worldToScreen;
     root.storyMapV2ScreenToWorld = screenToWorld;
     root.storyMapV2ClampCamera = clampCamera;
     root.storyMapV2CenterCamera = centerCamera;
     root.storyMapV2Blit = blit;
     root.storyMapV2SettlementMetrics = settlementMetrics;
+    root.storyMapV2SettlementDistrictMetrics = settlementDistrictMetrics;
     root.storyMapV2RuralMetrics = ruralMetrics;
+    root.storyMapV2CoastlineMetrics = coastlineMetrics;
+    root.storyMapV2MountainPlacements = mountainPlacements;
+    root.storyMapV2RoadControlPoints = roadControlPoints;
+    root.storyMapV2TraceRoundedPath = traceRoundedPath;
+    root.storyMapV2BuildCoastSegments = buildCoastSegments;
+    root.storyMapV2BuildCoastContours = buildCoastContours;
+    root.storyMapV2SmoothCoastPoints = smoothCoastPoints;
+    root.storyMapV2DrawCoastline = drawCoastline;
+    root.storyMapV2RuralOnLand = ruralOnLand;
     root.storyMapV2DrawRuralEnvironment = drawRuralEnvironment;
-    root.storyMapV2DrawGroundDetail = drawGroundDetail;
+    root.storyMapV2EnsureHexNaturalContentsCanvas = ensureHexNaturalContentsCanvas;
+    root.storyMapV2DrawHexNaturalContents = drawHexNaturalContents;
+    root.storyMapV2InvalidateHexNaturalContents = invalidateHexNaturalContents;
+    root.storyMapV2PortMetrics = portMetrics;
 })(typeof window !== 'undefined' ? window : globalThis);

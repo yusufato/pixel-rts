@@ -53,6 +53,13 @@ function storyMapCacheClearOwner() {
     STORY._ownerKey = null;
     STORY._ownerOverlayData = null;
     STORY._ownerOverlaySource = null;
+    STORY._hexOwnerKey = null;
+    STORY._hexOwnerOverlaySource = null;
+    STORY._networkLayerKey = null;
+    STORY._settlementLayerKey = null;
+    STORY._commanderLayerKey = null;
+    if (STORY._politicalBorderLayerCache) STORY._politicalBorderLayerCache.key = null;
+    if (STORY._hexGridLayerCache) STORY._hexGridLayerCache.key = null;
     // _ownerCache canvas belleği kasıtlı olarak korunur ve rebuild'de yeniden kullanılır.
 }
 
@@ -60,6 +67,11 @@ function storyMapCacheClearTerrain() {
     STORY._terrainCache = null;
     STORY._geoTerrain = null;
     STORY._geoTerrainSource = null;
+    STORY._networkLayerKey = null;
+    STORY._settlementLayerKey = null;
+    STORY._commanderLayerKey = null;
+    if (STORY._politicalBorderLayerCache) STORY._politicalBorderLayerCache.key = null;
+    if (STORY._hexGridLayerCache) STORY._hexGridLayerCache.key = null;
 }
 
 function storyMapCacheClearWarp() {
@@ -146,6 +158,11 @@ function storyMapCacheDiagnostics() {
             geoTerrain: !!STORY._geoTerrain,
             ownerCanvas: !!STORY._ownerCache,
             ownerData: !!STORY._ownerOverlayData,
+            hexOwnerCanvas: !!STORY._hexOwnerCache,
+            hexOwnerData: !!STORY._hexOwnerOverlaySource,
+            networkScreenLayer: !!STORY._networkLayerCanvas,
+            settlementScreenLayer: !!STORY._settlementLayerCanvas,
+            commanderScreenLayer: !!STORY._commanderLayerCanvas,
             warpPlan: !!STORY._warpPlanCache
         }
     };
