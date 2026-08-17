@@ -116,6 +116,37 @@ Sonra yalnız ilk 2-3 aday gerçekten oynatılsın (doğrulama için).
 **KAPI:** ağ-ile-doğrudan seçim, rollout'lu seçimle aynı adayı ne sıklıkla seçiyor?
 `tools/gelecek-yelpazesi.js` yöntemiyle ölçülür. **≥%70 örtüşme** → geç.
 
+#### ⛔ A1 ÖLÇÜLDÜ — KAPIYI GEÇMEDİ (2026-08-17, 3 tohum / 26 ölçüm / 23.8 aday)
+
+| eleme kuralı | K=3 | K=4 | K=6 | K=8 |
+|---|---:|---:|---:|---:|
+| 1sn rollout | %26 | %35 | %68 | %78 |
+| ANALİTİK (bedava) | %45 | %67 | %72 | %73 |
+| **AĞ-DOĞRUDAN** | **%50** | %61 | **%77** | **%79** |
+
+Ağ-doğrudan, analitik skorla **aynı sınıfta** — K=3'te biraz iyi (50 vs 45), K=4'te
+biraz kötü (61 vs 67). Yani rollout'u ELEYECEK kadar isabetli değil: ilk 3'e inince
+kazancın yarısı gidiyor, %70+ için hâlâ 6-8 rollout gerekiyor.
+
+**Maliyet hesabı çöküyor:**
+```
+bugün : 25 analitik (bedava) + 3 rollout          = 318 ms
+A1 ile: 25 ağ (25 ms)        + 6 rollout (%77)    = 661 ms   ← DAHA PAHALI
+```
+
+**Neden:** ışınlama yaklaşıklığı. Ağ birimi hedefte *hazır* görüyor; 5 saniyede
+yürümesini, yolda maruz kalacaklarını ve düşmanın o sırada yaptıklarını görmüyor.
+Ağın eğitildiği şey "bu durumdan sonuç ne" — "bu noktaya gidersem ne olur" değil.
+
+**KALAN DEĞERİ:** analitik eleyicinin yerine geçebilir (aynı maliyet sınıfı, K=3/6/8'de
+biraz daha iyi). Ama vaat edilen 6 katlık maliyet kesintisini VERMİYOR.
+
+**A3 (kapsam) için bütçe başka yerden bulunmalı.** Üç aday:
+- rollout'ları işçi ipliklerine dağıt (birbirinden bağımsızlar) — ölçülmedi
+- ağ-doğrudan skorla BİRİMİ ATLA: hiçbir aday "yerinde kal"ı belirgin geçmiyorsa o
+  birim için hiç rollout yapma (bugünkü analitik yayılım kapısının ağ sürümü)
+- ufku 5sn'den kısalt — ama kısa ufuk gürültülü, ölçüldü
+
 ### A2 — Baskınlık ölçümü (ölçüm borcu)
 Her kararda: seçilen aday, tüm düşman cevaplarına karşı kazandı mı? İkinciyle farkı ne?
 `BATTLE_LA_SAYAC`'a eklenir. Maliyeti sıfır.

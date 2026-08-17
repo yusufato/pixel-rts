@@ -169,6 +169,8 @@ function kos(ctx, seed) {
         '    };' +
         '    for (const nk of noktalar) {' +
         '      const sk = statik(nk.x, nk.y);' +
+        // A1: adayi OYNATMADAN deger agiyla puanla (birimi gecici tasi -> sor -> geri koy)
+        '      const ag = (typeof battleLookaheadAgSkor === "function") ? battleLookaheadAgSkor(u0, nk.x, nk.y) : null;' +
         '      battleForkRestore(f);' +
         '      const u = SIM.units.find(x => x.id === uid); if (!u) continue;' +
         // AI bu birimi yeniden yönlendirmesin: rollout boyunca oyuncu-kontrolü
@@ -189,7 +191,7 @@ function kos(ctx, seed) {
         '          m2 = Math.round(marj() - basMarj); hp2 = uu ? Math.round(uu.hp) : 0; }' +
         '      }' +
         '      const uu2 = SIM.units.find(x => x.id === uid);' +
-        '      skor.push({ nokta: nk.ad, statik: sk, marj1: m0, marj5: m1, marj10: m2,' +
+        '      skor.push({ nokta: nk.ad, statik: sk, ag: ag, marj1: m0, marj5: m1, marj10: m2,' +
         '        marj20: Math.round(marj() - basMarj),' +
         '        hp5: hp1, hp10: hp2, hp20: uu2 ? Math.round(uu2.hp) : 0, hp0: Math.round(hp0),' +
         '        sag5: sag1, sag10: !!(uu2 && !uu2.dead) });' +
@@ -245,7 +247,8 @@ function main() {
     /* IKI ASAMALI ELEME (modelsiz): once 1sn'lik UCUZ rollout ile sirala, yalniz ilk K
        adayi 10sn oynat. Ayni rollout'un ara olcumleri kullanildigi icin bu simulasyon
        EK MALIYET GEREKTIRMEZ ve gercek iki-asamali aramayla birebir ayni sonucu verir. */
-    for (const [ad, anahtar] of [['1sn rollout', 'marj1'], ['ANALITIK (oynatmadan)', 'statik']]) {
+    for (const [ad, anahtar] of [['1sn rollout', 'marj1'], ['ANALITIK (oynatmadan)', 'statik'],
+                                 ['AG-DOGRUDAN (oynatmadan)', 'ag']]) {
         const satir = [];
         for (const K of [3, 4, 6, 8]) {
             let toplamTam = 0, toplamElemeli = 0, n2 = 0;
