@@ -37,7 +37,8 @@ const MUHAREBE_KAYNAK = [
     'js/BattleSelectorModel.js', 'js/BattleCoach.js', 'js/BattleBeonai.js',
     'js/MapData.js', 'js/MapImage.js',
     'js/VFX.js', 'js/Support.js', 'js/Unit.js', 'js/BattleDeployment.js', 'js/main.js',
-    'js/BattleLookahead.js'
+    'js/BattleLookahead.js',
+    'js/BattleValueModel.js', 'js/BattleValueNet.js'
 ];
 
 function sahteContext(canvas) {
