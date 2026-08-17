@@ -216,6 +216,29 @@ Negatif kontrol: capture'dan mayınlar kasten atılır → kapı DÜŞMELİ.
 ⚠ Bu kapı arama açıkken değil, **fork'un kendisinde** koşar — yani aramadan bağımsız
 olarak fork'u kullanan her şeyi (rollout, ışınlama denemeleri, gelecekte Worker) korur.
 
+### Hash'in görmediği alanlar için: `tools/fork-derin-denetim.js` (YENİ)
+
+Fork kapısı hash'le sınar, ama hash bir SEÇKİ: `manualMoveTarget`, `_laUntilTick`,
+kontrolör ağacının çoğu alanı hash'te yok. Mayın kusuru hash'e girene kadar tam da bu
+yüzden görünmedi. Bu araç hash yerine **durumun kendisini** gezip alan alan diffliyor
+(birimler + kontrolör ağacı + siper/mayın/destek/bekleyen-vuruş/duruş/para/forensik).
+
+**Sonuç: 8 kontrol noktası, nokta başına 15–43 bin alan, FARK 0 → fork sızdırmıyor.**
+
+Araç yazılırken iki kez kendi kendini yanılttı ve ikisi de kayda değer:
+1. **Sahte 2435 fark:** döngü tespiti "görülmüş her nesne" ile yapılıyordu; `replayClone`
+   takma adları kırdığı için paylaşılan referanslar fark gibi görünüyordu. Doğrusu
+   **ata zinciri** — yalnız gerçek döngüde tetiklenir.
+2. **Kör negatif kontrol:** "40 yakalandı" sanılan sayı aslında `_seenEnemyRefs`
+   artefaktıydı; mayın sabotajı hiç yakalanmamıştı çünkü o tohumda mayın yoktu.
+   Düzeltme: sabotaj siperleri de düşürür + negatif kontrol **en çok içeriği olan
+   tohumda** koşar (ölçülerek seçilir, tahminle değil).
+
+Tek "fark" bilinen ve **doğrulanmış** istisna: `_seenEnemyRefs` ölü-vekili. Fork yalnız
+sağ birimleri taşır, ölü düşman `{id,dead,type}` vekiliyle döner. Tüketicilerin sadece
+`ref.dead` ve `ref.type` okuduğu **koddan doğrulandı** (BattlePerception.js:109 ve :206),
+varsayılmadı.
+
 ---
 
 ## F · BUGÜNÜN DESENİ — "bilgi var, kullanan yok"
