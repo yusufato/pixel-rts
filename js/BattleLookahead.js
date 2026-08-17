@@ -98,7 +98,14 @@ let LA_DEGER_AGI = true;
    MALİYET: aday × rakip-tepkisi. LA_RAKIP=3 ile üç kat.
    UYARI: çeşitlendirme GERÇEKTEN farklı gelecek üretmiyorsa bu üç kat BOŞA gider.
    Bu yüzden BATTLE_LA_SAYAC.rakipYayilim ile ölçülür — sıfırsa kapatılmalı. */
-let LA_RAKIP = 3;             // aday başına kaç düşman tepkisi (1 = eski davranış)
+/* ÖLÇÜLDÜ VE KAPATILDI (48 tohum, eşleştirilmiş):
+     yalnız değer ağı        marj +291  t 0.79   maliyet 1×
+     + rakip modeli (3 tepki) marj +272  t 0.68   maliyet 2.7×
+   Çeşitlendirme GERÇEKTİ (tepkiler arası yayılım 94 marj) ama en kötü duruma göre
+   seçmek ölçülebilir kazanç getirmedi. 2.7 kat maliyet karşılıksız — ve o bütçe
+   KAPSAMA (daha çok birim) harcanırsa ölçülmüş kaldıraç oradadır.
+   Mekanizma SİLİNMEDİ: diğer eksenler geliştikten sonra tekrar denenebilir. */
+let LA_RAKIP = 1;             // aday başına kaç düşman tepkisi (3 = minimax, ölçüldü: kazanç yok)
 const LA_RAKIP_KAYMA = 20;    // tepkiler arası karar-anı kayması (tik)
 const LA_AG_MIN_TIK = 600;    // 30sn — bundan önce ağ güvenilmez (rho 0.389)
 
@@ -121,6 +128,25 @@ function battleLookaheadStatik(u, px, py) {
         if (d <= onun) maruz += c;
     }
     return firsat - maruz * 2 + dost * 0.15;
+}
+
+/* ── AĞ-DOĞRUDAN SKOR (A1): adayı OYNATMADAN, ağa sorarak puanla ──
+   Değer ağı zaten "bu durumdan maçın sonu ne" diye tahmin ediyor. Rollout'u ondan
+   ÖNCE koymak için bir sebebimiz yok: birimi aday noktaya geçici olarak taşı, ağa sor,
+   geri koy. FORK'A BİLE GEREK YOK — battleDurumOzellik SIM.units konumlarını doğrudan
+   tarar, ızgarayı değil. Maliyet ~1ms (rollout 106ms).
+
+   YAKLAŞIKLIK: birim oraya ışınlanmış gibi değerlendirilir; 5 saniyede YÜRÜYEREK
+   gitmesi ve o sırada düşmanın yaptıkları hesaba katılmaz. Bu yüzden A1'in kapısı
+   "rollout'la aynı adayı ne sıklıkla seçiyor" olmalı — ölçülmeden kullanılmaz. */
+function battleLookaheadAgSkor(u, px, py) {
+    if (typeof battleValueNetDurum !== 'function' || !battleValueNetHazir()) return null;
+    const ex = u.x, ey = u.y;
+    u.x = px; u.y = py;
+    let v = null;
+    try { v = battleValueNetDurum(); } finally { u.x = ex; u.y = ey; }
+    if (v == null || !isFinite(v)) return null;
+    return u.isRed ? v : -v;
 }
 
 // ── ADAY NOKTALAR: halkalı yelpaze (menzile yayılır), arazi süzgeçli ──
@@ -308,5 +334,6 @@ function battleLookaheadTick(now) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { battleLookaheadTick, battleLookaheadBirimKarari, battleLookaheadStatik };
+    module.exports = { battleLookaheadTick, battleLookaheadBirimKarari, battleLookaheadStatik,
+        battleLookaheadAgSkor };
 }
