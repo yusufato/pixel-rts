@@ -596,9 +596,10 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
                 // [5] ROLLOUT SKORU: birim-kosullu deger agi bunu ogrenecek.
                 // Oynatilmamis aday olursa null kalir (egitimde ACIKCA atlanir).
                 (a._skor == null || !isFinite(a._skor)) ? null : _yuv(a._skor),
-                // [6..11] ADAY NOKTASININ CEVRESI: orman, siper, ikmal, yukselti,
-                // tehdit-degeri, tehdit-sayisi. Bugune kadar ag bunlarin HICBIRINI
-                // gormuyordu — ortu tek basina hasari %70 degistirebiliyor.
+                // [6..12] ADAY NOKTASININ CEVRESI: orman, siper, ikmal, yukselti,
+                // tehdit-degeri, tehdit-sayisi, GELEN-ATES. Bugune kadar ag bunlarin
+                // HICBIRINI gormuyordu — ortu tek basina hasari %70 degistirebiliyor,
+                // ve havadaki mermi hic sayilmiyordu.
                 ...battleLaNoktaCevresi(a.x, a.y, isRed).map(_yuv)]);
             const _k = enIyi ? derin.indexOf(enIyi) : -1;
             if (_k >= 0) BATTLE_LA_KAYIT.buf.push({
@@ -637,7 +638,7 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
    Hepsi noktanın SAF fonksiyonu (Unit.updateTerrainBonuses ile aynı kaynaklar),
    sim durumuna DOKUNMAZ. Maliyet: aday başına bir ızgara sorgusu — rollout'un
    yanında ölçülemez.
-   Dönüş: [orman, kendi-siperi, ikmal, yükselti, tehdit-değeri, tehdit-sayısı] */
+   Dönüş: [orman, kendi-siperi, ikmal, yükselti, tehdit-değeri, tehdit-sayısı, GELEN-ATEŞ] */
 function battleLaNoktaCevresi(x, y, isRed) {
     let orman = 0;
     if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid') {
@@ -654,6 +655,24 @@ function battleLaNoktaCevresi(x, y, isRed) {
         siper = 1; ikmal = (t.providesSupply !== false) ? 1 : 0; break;
     }
     const yuk = (typeof elevationAt === 'function') ? elevationAt(x, y) : 0.5;
+    /* ── GELEN ATEŞ (kullanıcı: "rakibin ÇNRA'sı şu alana vuruyor haberi gidiyor mu") ──
+       CEVAP BUGÜNE KADAR: HAYIR. `SIM.pendingHits` uçmakta olan her merminin nereye
+       (cx,cy) ve ne zaman (arriveTick) düşeceğini, patlama yarıçapıyla birlikte TAM
+       tutuyor. Ama kod taramasında bu veri yalnız PUSH ediliyor ve varış anında
+       uygulanıyor — hiçbir karar yolunda OKUNMUYOR. Hiçbir birim baraj altından
+       çekilmiyor, hiçbir aday puanı bunu görmüyor.
+       Sonuç: üstüne baraj düşmek üzere olan nokta, güvenli noktayla AYNI görünüyordu.
+       Rollout ise bunu görüyor (mermi 5sn içinde düşüyor) — eleyicinin kötü
+       sıralamasının kaynaklarından biri bu olabilir.
+       ÖLÇÜLDÜ: adayların %6.9'u rollout ufku içinde vuruluyor (orman %0, siper %9). */
+    let gelen = 0;
+    const _ufuk = (typeof LA_UFUK !== 'undefined') ? LA_UFUK : 100;
+    for (const ph of (SIM.pendingHits || [])) {
+        if (ph.atkIsRed === isRed) continue;                    // kendi ateşimiz tehdit değil
+        if (ph.arriveTick > SIM.tick + _ufuk) continue;         // ufuk dışında düşecek
+        const r = Math.max(ph.blastR || 0, ph.splashR || 0, ph.suppR || 0, 60);
+        if (Math.hypot((ph.cx || 0) - x, (ph.cy || 0) - y) <= r) gelen += (ph.dmg || 0);
+    }
     /* TEHDİT: bu noktayı MENZİLİNE ALAN düşmanların toplam değeri. Aday noktanın
        "vurulabilirliği" — rollout'un simüle ettiği şeyin en doğrudan vekili. */
     let tDeger = 0, tSay = 0;
@@ -665,7 +684,7 @@ function battleLaNoktaCevresi(x, y, isRed) {
             tDeger += ((STATS[o.type] && STATS[o.type].cost) || 0); tSay++;
         }
     }
-    return [orman, siper, ikmal, yuk, tDeger / 3000, tSay / 12];
+    return [orman, siper, ikmal, yuk, tDeger / 3000, tSay / 12, gelen / 200];
 }
 
 /* ── ELEME + YAYILIM KAPISI, rollout'suz ────────────────────────────────────
