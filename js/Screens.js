@@ -55,18 +55,40 @@ function qmSelected(groupId, fallback) {
 // farki vaat etmek olurdu. beonai PASIF: klon-v2 96 bagimsiz macta kod-AI'dan ANLAMLI KOTU (t −2.85).
 // Anahtarlar GERIYE DONUK CALISIR (eski kayit/telemetri 'intel4pro'/'beonai' yazmis olabilir):
 // ikisi de intel4'e duser, sessizce baska bir beyin oynamaz.
+/* ── UCUNCU ZORLUK: ONGORU (2026-08-17) ──────────────────────────────────────
+   Yeni beyin degil, intel4'un UZERINE binen bir ARAMA katmani: her 5 saniyede en
+   degerli 20 birim icin aday mevziler URETILIR ve her biri fork alinip GERCEKTEN
+   5 saniye oynatilir; sonuc deger agiyla puanlanip en iyisi emir olur.
+   Yani birim "su noktaya gidersem ne olur"u tahmin etmez, SIMULE EDER.
+
+   OLCULDU (tools/rol-dengesi-paralel.js, n=128, eslestirilmis, tohum 100000+):
+     intel4 (aramasiz) : saldiran %37.5   marj -742
+     ONGORU (arama)    : saldiran %49.2   marj  +97
+     FARK +839   t 2.87   (saptama tabani 819) -> ANLAMLI
+   Bu, listedeki iki beyin arasindaki farktan cok daha buyuk ve OLCULMUS bir fark;
+   yani gercek bir zorluk kademesi (intel4-pro'nun aksine, o intel4'u gecemedigi
+   icin listeden kaldirilmisti).
+
+   MALIYET: bos makinede 1.90x gercek zaman, ve arama YALNIZ AI birimlerinde kosar
+   (oyuncunun birimleri `controlOwner === 'PLAYER'` suzgeciyle disarida). */
 const QM_BEYIN = {
-    intel3pro: { intel4: false, pro: false, beonai: null,  ad: 'intel3-pro' },
-    intel4:    { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
+    intel3pro: { intel4: false, pro: false, beonai: null,  arama: false, ad: 'intel3-pro' },
+    intel4:    { intel4: true,  pro: false, beonai: null,  arama: false, ad: 'intel4' },
+    ongoru:    { intel4: true,  pro: false, beonai: null,  arama: true,  ad: 'ONGORU' },
     // ── ARTIK SECILEMEZ (geriye donuk esleme) ──
-    intel4pro: { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
-    beonai:    { intel4: true,  pro: false, beonai: null,  ad: 'intel4' },
+    intel4pro: { intel4: true,  pro: false, beonai: null,  arama: false, ad: 'intel4' },
+    beonai:    { intel4: true,  pro: false, beonai: null,  arama: false, ad: 'intel4' },
 };
 function quickMatchApplyBrain(anahtar) {
     const b = QM_BEYIN[anahtar] || QM_BEYIN.intel4;   // varsayilan artik intel4 (en guclu kalan beyin)
     if (typeof BATTLE_INTEL4_RED !== 'undefined') BATTLE_INTEL4_RED = b.intel4;
     if (typeof BATTLE_INTEL4PRO_RED !== 'undefined') BATTLE_INTEL4PRO_RED = b.pro;
     if (typeof BATTLE_BEONAI_RED !== 'undefined') BATTLE_BEONAI_RED = b.beonai;
+    /* ARAMA KATMANI — zorluk secimine bagli. `BATTLE_LOOKAHEAD_LIVE` startBattle'da
+       okunur; burada kapatirsak ONGORU disindaki kademeler aramasiz oynar.
+       ONEMLI: arama yalnizca RAKIP icin degil, AI olan HER birim icin acilir; oyuncunun
+       birimleri zaten suzgecle disarida. Boylece muttefik AI de kademeye uyar. */
+    if (typeof BATTLE_LOOKAHEAD_LIVE !== 'undefined') BATTLE_LOOKAHEAD_LIVE = !!b.arama;
     // Oyuncu tarafi (mavi) hicbir beyin almaz — dost AI kendi varsayilaniyla kalir.
     if (typeof BATTLE_INTEL4PRO_BLUE !== 'undefined') BATTLE_INTEL4PRO_BLUE = false;
     if (typeof BATTLE_BEONAI_BLUE !== 'undefined') BATTLE_BEONAI_BLUE = null;

@@ -46,7 +46,7 @@ let BATTLE_LOOKAHEAD_BLUE = false;
 
    KAPALI TUTULACAK YERLER: replay (kayıt zaten emirleri taşıyor) ve çok-oyunculu
    (iki istemci bağımsız arama koşarsa lockstep sapar — ayrı karar). */
-let BATTLE_LOOKAHEAD_LIVE = true;
+let BATTLE_LOOKAHEAD_LIVE = false;   // zorluk seciminden acilir (Screens.js QM_BEYIN.ongoru)
 
 /* ARAMA PERİYODU. Dönüşüm denemesi (periyot sabit, BİRİM kıs) kazancı öldürdü
    (+191 t 0.47). Tersi denenmedi: birim sayısını KORU, periyodu UZAT. Kapsam tam
