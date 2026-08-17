@@ -17,7 +17,14 @@ def arg(a, d=None):
 
 MODEL = arg('--model', 'qa-runtime/politika-model.pt')
 OUT = arg('--out', 'js/BattlePolicyModel.js')
-BASAMAK = int(arg('--basamak', 6))
+# BASAMAK 8 — OLCULEREK secildi, tahminle degil. Kopru kapisindaki max logit farki:
+#     6 basamak -> 2.25e-03   (KAPI DUSUYOR, esik 1e-3)
+#     8 basamak -> 6.67e-05   (34x iyi, +150KB)
+#    10 basamak -> 4.18e-05   (plato: kalan fark float32 toplama SIRASINDAN, indirilemez)
+# Sebep: 488 boyutlu ic carpim + 128 gizli birim, agirlik basina 1e-6'lik yuvarlama
+# hatasini ~1e-3'e kadar biriktiriyor. Deger agi (BattleValueModel.js) hala 6 basamak;
+# orada cikti siralama icin kullanildigindan tolere edilebilir ama bilinsin.
+BASAMAK = int(arg('--basamak', 8))
 
 ck = torch.load(MODEL, map_location='cpu', weights_only=False)
 sd = ck['model']
@@ -27,11 +34,13 @@ def liste(t):
 
 paket = {
     'gx': int(ck['gx']), 'gy': int(ck['gy']),
-    'sdim': int(ck['sdim']), 'bdim': int(ck['bdim']), 'sinif': int(ck['sinif']),
+    'sdim': int(ck['sdim']), 'bdim': int(ck['bdim']), 'cdim': int(ck['cdim']),
+    'secenek': int(ck['secenek']),
     'rmu': liste(torch.as_tensor(ck['rmu'])), 'rsd': liste(torch.as_tensor(ck['rsd'])),
     'smu': liste(torch.as_tensor(ck['smu'])), 'ssd': liste(torch.as_tensor(ck['ssd'])),
     'bmu': liste(torch.as_tensor(ck['bmu'])), 'bsd': liste(torch.as_tensor(ck['bsd'])),
-    'dogruluk': float(ck.get('dogruluk', 0)), 'tabanEleyici': float(ck.get('taban_eleyici', 0)),
+    'cmu': liste(torch.as_tensor(ck['cmu'])), 'csd': liste(torch.as_tensor(ck['csd'])),
+    'dogruluk': float(ck.get('dogruluk', 0)), 'tabanEleyici': float(ck.get('taban', 0)),
     'karar': int(ck.get('karar', 0)), 'mac': int(ck.get('mac', 0)),
     'w': {}
 }
@@ -48,7 +57,8 @@ with open(OUT, 'w', encoding='utf-8') as f:
     f.write("if (typeof module !== 'undefined' && module.exports) module.exports = { BATTLE_POLICY_MODEL };\n")
 
 print('yazildi: %s' % OUT)
-print('  dogruluk %.3f (eleyici tabani %.3f) | sinif %d | raster %dx%d | katman %d'
-      % (paket['dogruluk'], paket['tabanEleyici'], paket['sinif'], paket['gy'], paket['gx'], len(paket['w'])))
+print('  dogruluk %.3f (taban %.3f) | secenek %d | cdim %d | raster %dx%d | katman %d'
+      % (paket['dogruluk'], paket['tabanEleyici'], paket['secenek'], paket['cdim'],
+         paket['gy'], paket['gx'], len(paket['w'])))
 for k, v in paket['w'].items():
     print('    %-20s %s' % (k, v['sekil']))

@@ -13,14 +13,24 @@
 //    · eleyici "yerinde kal"ı HİÇ birinci sıralamıyor (%0), oysa rollout %31 kal diyor
 //  Yani öğrenilecek şey elde zaten olan ucuz skorun kopyası DEĞİL.
 //
-//  ÇIKTI UZAYI: 25 sınıf. 0 = yerinde kal, 1..24 = halka × yön (birime GÖRE).
-//  Sınıf → nokta dönüşümü battleLookaheadSinifNokta() ile üreteç formülünün AYNISI.
+//  ── GÖREV: 25 SINIF DEĞİL, 3 SEÇENEK ──
+//  Arama adayları ucuz skora göre sıralar ve YALNIZ ilk ikisini (LA_DERIN=2) artı
+//  "yerinde kal"ı oynatır. Nihai seçim tanım gereği bu üçünden biri:
+//      0 = eleyici #1'i onayla · 1 = eleyici #2'ye dön · 2 = yerinde kal
+//  Ölçüldü (9853 karar): %43.6 / %30.7 / %25.7 — toplam tam %100, küme kapalı.
+//
+//  ⚠ İLK SÜRÜM ÖLÇÜLEREK ÇÖPE ATILDI: (durum, birim) → "hangi kafes sınıfı" kurgusu
+//  öğrenilemezdi, çünkü ağın girdisinde SEÇENEKLERİN KENDİSİ yoktu — #1 ile #2'nin
+//  nerede olduğu ya da ucuz skorun onları nasıl puanladığı hiç geçmiyordu. Sonuç:
+//  tahminlerin %94'ü tek seçeneğe yığıldı (bedava "hep #1" tabanına çökme).
+//  Bu sürümde her seçenek KENDİ özniteliğiyle girdiye girer.
 //
 //  MİMARİ (tools/politika-egit-gpu.py ile birebir aynı olmak ZORUNDA):
 //    CNN   : Conv(8→32,3x3,pad1) ReLU → Conv(32→32,3x3,pad1) ReLU → AdaptiveAvgPool(3x4) → 384
 //    MLP   : Linear(sdim→64) ReLU
 //    Birim : Linear(bdim→32) ReLU
-//    Baş   : Linear(480→128) ReLU → Linear(128→25)
+//    Baş   : Linear(480+cdim→128) ReLU → Linear(128→1)  — HER SEÇENEK İÇİN AYRI ÇAĞRILIR
+//  Bağlam (CNN+MLP+Birim) bir kez hesaplanır, üç seçenekte paylaşılır.
 //
 //  ÖZNİTELİK TEK KAYNAKTAN: battleDurumOzellik() — eğitim verisini üreten
 //  tools/politika-veri.js de AYNI fonksiyonu çağırır. İki kopya olsaydı en ufak sapma
@@ -57,14 +67,40 @@ function battlePolicyNetBirimOz(u) {
             (st && st.cost ? st.cost : 0) / 1000].map(yuv);
 }
 
-/* r: KANAL*GY*GX düz dizi, s: skaler dizi, b: birim özniteliği.
-   Dönüş: 25 uzunluğunda logit dizisi (softmax UYGULANMAZ — argmax ve sıralama için
-   gereksiz; olasılık isteyen çağıran kendisi normalize eder). */
-function battlePolicyNetLogit(r, s, b) {
+/* SEÇENEK ÖZNİTELİĞİ — tools/politika-egit-gpu.py'deki `C` bloğuyla BİREBİR aynı
+   sıra ve türetme olmak ZORUNDA:
+     [sıra/2, kal?, analitik, ağ, analitik−#1, ağ−#1, dx, dy]
+   `sec`: her biri {sinif, _s, _ag, x, y} taşıyan, aramanın oynattığı sıradaki liste.
+   Dönüş: SEC×CDIM düz dizi. */
+function battlePolicyNetSecenekOz(u, sec) {
+    if (!u || !sec || !sec.length) return null;
+    const M = BATTLE_POLICY_MODEL;
+    const n = sec.length, cd = M.cdim;
+    const ana0 = sec[0]._s == null ? 0 : sec[0]._s;
+    const ag0 = sec[0]._ag == null ? 0 : sec[0]._ag;
+    const yuv = (v) => Math.round(v * 1e4) / 1e4;   // kayıt tarafıyla aynı yuvarlama
+    const out = new Float32Array(n * cd);
+    for (let i = 0; i < n; i++) {
+        const a = sec[i];
+        const ana = yuv(a._s == null ? 0 : a._s), ag = yuv(a._ag == null ? 0 : a._ag);
+        const f = [i / Math.max(1, n - 1), (a.sinif | 0) === 0 ? 1 : 0,
+                   ana, ag, ana - yuv(ana0), ag - yuv(ag0),
+                   yuv((a.x - u.x) / LA_YARICAP), yuv((a.y - u.y) / LA_YARICAP)];
+        for (let j = 0; j < cd; j++) out[i * cd + j] = f[j];
+    }
+    return out;
+}
+
+/* r: KANAL*GY*GX düz dizi, s: skaler dizi, b: birim özniteliği,
+   c: SEC×cdim seçenek özniteliği (battlePolicyNetSecenekOz çıktısı).
+   Dönüş: SEC uzunluğunda logit dizisi (softmax UYGULANMAZ — argmax için gereksiz). */
+function battlePolicyNetLogit(r, s, b, c) {
     if (!battlePolicyNetHazir()) return null;
     const M = BATTLE_POLICY_MODEL, W = M.w;
-    const GX = M.gx, GY = M.gy, K = 8, SINIF = M.sinif;
+    const GX = M.gx, GY = M.gy, K = 8, CDIM = M.cdim;
     if (!r || r.length !== K * GY * GX || !s || s.length !== M.sdim || !b || b.length !== M.bdim) return null;
+    if (!c || c.length % CDIM !== 0) return null;
+    const SEC = c.length / CDIM;
 
     // ── normalizasyon: raster KANAL BAŞINA (eleman başına DEĞİL) ──
     const rn = new Float32Array(K * GY * GX);
@@ -83,6 +119,13 @@ function battlePolicyNetLogit(r, s, b) {
     for (let i = 0; i < M.bdim; i++) {
         const sd = M.bsd[i] || 1;
         bn[i] = (b[i] - M.bmu[i]) / (sd === 0 ? 1 : sd);
+    }
+    /* Seçenek özniteliği: eğitimde istatistikler (0,1) eksenlerinde alındı — yani
+       seçenek ekseni boyunca da ortalandı. Üç seçenek AYNI ölçeğe oturmalı. */
+    const cn = new Float32Array(c.length);
+    for (let i = 0; i < SEC; i++) for (let j = 0; j < CDIM; j++) {
+        const sd = M.csd[j] || 1;
+        cn[i * CDIM + j] = (c[i * CDIM + j] - M.cmu[j]) / (sd === 0 ? 1 : sd);
     }
 
     // ── conv1: 8→32, 3x3, pad 1, ReLU ──
@@ -164,41 +207,53 @@ function battlePolicyNetLogit(r, s, b) {
         bo[o] = acc > 0 ? acc : 0;
     }
 
-    // ── Baş: Linear(480→128) ReLU → Linear(128→SINIF) ──
-    const GIRIS = 384 + 64 + 32;
-    const cat = new Float32Array(GIRIS);
+    /* ── Baş: Linear(480+cdim→128) ReLU → Linear(128→1), HER SEÇENEK İÇİN ──
+       Bağlam (pooled+mo+bo) üç seçenekte ORTAK; yalnız son cdim alan değişir.
+       Bu yüzden bağlamın katkısı bir kez toplanır, seçenek başına yalnız cdim
+       çarpım eklenir — üç kez 480 çarpım yapmak saf israf olurdu. */
+    const BAGLAM = 384 + 64 + 32;
+    const cat = new Float32Array(BAGLAM);
     cat.set(pooled, 0); cat.set(mo, 384); cat.set(bo, 448);
     const h3w = W['bas.0.weight'].v, h3b = W['bas.0.bias'].v;
-    const h3 = new Float32Array(128);
+    const GIRIS = BAGLAM + CDIM;
+    const taban = new Float32Array(128);
     for (let o = 0; o < 128; o++) {
         let acc = h3b[o];
         const wb = o * GIRIS;
-        for (let i = 0; i < GIRIS; i++) acc += cat[i] * h3w[wb + i];
-        h3[o] = acc > 0 ? acc : 0;
+        for (let i = 0; i < BAGLAM; i++) acc += cat[i] * h3w[wb + i];
+        taban[o] = acc;
     }
     const o4w = W['bas.2.weight'].v, o4b = W['bas.2.bias'].v;
-    const out = new Float32Array(SINIF);
-    for (let o = 0; o < SINIF; o++) {
-        let acc = o4b[o];
-        const wb = o * 128;
-        for (let i = 0; i < 128; i++) acc += h3[i] * o4w[wb + i];
-        out[o] = acc;
+    const out = new Float32Array(SEC);
+    const h3 = new Float32Array(128);
+    for (let k = 0; k < SEC; k++) {
+        for (let o = 0; o < 128; o++) {
+            let acc = taban[o];
+            const wb = o * GIRIS + BAGLAM;
+            for (let j = 0; j < CDIM; j++) acc += cn[k * CDIM + j] * h3w[wb + j];
+            h3[o] = acc > 0 ? acc : 0;
+        }
+        let acc = o4b[0];
+        for (let i = 0; i < 128; i++) acc += h3[i] * o4w[i];
+        out[k] = acc;
     }
     return out;
 }
 
-/* MEVCUT SİM DURUMUNDAN bir birim için sınıf sıralaması.
-   Dönüş: logit dizisi ya da null. */
-function battlePolicyNetBirim(u) {
-    if (!battlePolicyNetHazir() || !u) return null;
-    const oz = battleDurumOzellik(BATTLE_POLICY_MODEL.gx, BATTLE_POLICY_MODEL.gy);
-    if (!oz) return null;
+/* MEVCUT SİM DURUMUNDAN bir birim + seçenek listesi için logitler.
+   `oz` dışarıdan verilir: bir arama turunda durum DEĞİŞMEZ, rasteri birim başına
+   yeniden üretmek işin en pahalı parçasını N'e katlardı. */
+function battlePolicyNetBirim(u, sec, oz) {
+    if (!battlePolicyNetHazir() || !u || !sec || !sec.length) return null;
+    const _oz = oz || battleDurumOzellik(BATTLE_POLICY_MODEL.gx, BATTLE_POLICY_MODEL.gy);
+    if (!_oz) return null;
     const b = battlePolicyNetBirimOz(u);
-    if (!b) return null;
-    return battlePolicyNetLogit(oz.r, oz.s, b);
+    const c = battlePolicyNetSecenekOz(u, sec);
+    if (!b || !c) return null;
+    return battlePolicyNetLogit(_oz.r, _oz.s, b, c);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { battlePolicyNetLogit, battlePolicyNetBirim, battlePolicyNetHazir,
-        battlePolicyNetBirimOz };
+        battlePolicyNetBirimOz, battlePolicyNetSecenekOz };
 }

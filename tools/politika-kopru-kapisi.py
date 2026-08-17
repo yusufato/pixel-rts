@@ -24,10 +24,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 ck = torch.load(MODEL, map_location='cpu', weights_only=False)
 GX, GY, KANAL = int(ck['gx']), int(ck['gy']), 8
-SDIM, BDIM, SINIF = int(ck['sdim']), int(ck['bdim']), int(ck['sinif'])
+SDIM, BDIM, CDIM = int(ck['sdim']), int(ck['bdim']), int(ck['cdim'])
+SECENEK = int(ck['secenek'])
 
 class Model(nn.Module):
-    def __init__(self, sdim, bdim):
+    def __init__(self, sdim, bdim, cdim):
         super().__init__()
         self.cnn = nn.Sequential(
             nn.Conv2d(KANAL, 32, 3, padding=1), nn.ReLU(),
@@ -35,11 +36,15 @@ class Model(nn.Module):
             nn.AdaptiveAvgPool2d((3, 4)), nn.Flatten())
         self.mlp = nn.Sequential(nn.Linear(sdim, 64), nn.ReLU())
         self.bir = nn.Sequential(nn.Linear(bdim, 32), nn.ReLU())
-        self.bas = nn.Sequential(nn.Linear(384 + 64 + 32, 128), nn.ReLU(), nn.Linear(128, SINIF))
-    def forward(self, r, s, b):
-        return self.bas(torch.cat([self.cnn(r), self.mlp(s), self.bir(b)], 1))
+        self.bas = nn.Sequential(nn.Linear(384 + 64 + 32 + cdim, 128), nn.ReLU(),
+                                 nn.Linear(128, 1))
+    def forward(self, r, s, b, c):
+        ctx = torch.cat([self.cnn(r), self.mlp(s), self.bir(b)], 1)
+        n, k, cd = c.shape
+        ctx = ctx.unsqueeze(1).expand(n, k, ctx.shape[1])
+        return self.bas(torch.cat([ctx, c], 2)).squeeze(2)
 
-model = Model(SDIM, BDIM)
+model = Model(SDIM, BDIM, CDIM)
 model.load_state_dict(ck['model'])
 model.eval()
 
@@ -54,22 +59,34 @@ idx = {o['i']: np.array(o['logit'], dtype=np.float64) for o in jd['ornek']}
 print(f"JS ornegi: {jd['n']} karar")
 
 satirlar = open(VERI, encoding='utf-8').read().split('\n')
-R, S, B, KEYS = [], [], [], []
+R, S, B, O, KEYS = [], [], [], [], []
 for i in sorted(idx):
     d = json.loads(satirlar[i])
-    R.append(d['r']); S.append(d['s']); B.append(d['b']); KEYS.append(i)
+    R.append(d['r']); S.append(d['s']); B.append(d['b']); O.append(d['o']); KEYS.append(i)
 
 # NOT: normalizasyon .pt icindeki istatistiklerle yapilir - egitimdeki AYNI degerler.
 rmu = np.asarray(ck['rmu'], dtype=np.float32); rsd = np.asarray(ck['rsd'], dtype=np.float32)
 smu = np.asarray(ck['smu'], dtype=np.float32); ssd = np.asarray(ck['ssd'], dtype=np.float32)
 bmu = np.asarray(ck['bmu'], dtype=np.float32); bsd = np.asarray(ck['bsd'], dtype=np.float32)
+cmu = np.asarray(ck['cmu'], dtype=np.float32); csd = np.asarray(ck['csd'], dtype=np.float32)
 
 Rn = (np.array(R, dtype=np.float32).reshape(-1, KANAL, GY, GX) - rmu) / rsd
 Sn = (np.array(S, dtype=np.float32) - smu) / ssd
 Bn = (np.array(B, dtype=np.float32) - bmu) / bsd
 
+# SECENEK OZNITELIGI — egitimdeki `C` blogunun AYNISI (sira, kal?, ana, ag, farklar, dx, dy)
+Oh = np.array(O, dtype=np.float32)
+_n = Oh.shape[0]
+_sira = np.tile(np.arange(SECENEK, dtype=np.float32), (_n, 1)) / (SECENEK - 1)
+_kal = (Oh[:, :, 0] == 0).astype(np.float32)
+_ana = Oh[:, :, 1]; _ag = Oh[:, :, 2]
+C = np.stack([_sira, _kal, _ana, _ag, _ana - _ana[:, 0:1], _ag - _ag[:, 0:1],
+              Oh[:, :, 3], Oh[:, :, 4]], axis=2).astype(np.float32)
+Cn = (C - cmu) / csd
+
 with torch.no_grad():
-    py = model(torch.tensor(Rn), torch.tensor(Sn), torch.tensor(Bn)).numpy().astype(np.float64)
+    py = model(torch.tensor(Rn), torch.tensor(Sn), torch.tensor(Bn),
+               torch.tensor(Cn)).numpy().astype(np.float64)
 
 jsl = np.stack([idx[k] for k in KEYS])
 fark = np.abs(py - jsl)

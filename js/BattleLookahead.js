@@ -62,6 +62,10 @@ let LA_AG_KAPI = true;        // kapı ağ skoruna baksın (analitikten isabetli
      analitik p10 22  · medyan 551  · p75 1931 · p90 2914
    15 ≈ p40 → kararların ~%40'ı atlanır (analitik kapının %27'sinden fazla). */
 const LA_AG_ESIK = 15;
+/* AĞ ÖN SÜZGECİ: değer ağına kaç adayın sorulacağı (analitik olarak en iyi N).
+   0 = hepsi (eski davranış, canlı bütçeye SIĞMIYOR — ölçüm battleLookaheadEleVeKapi'de).
+   5, ölçülmüş "analitik ön eleme K=3 kazancın %72'sini korur" bulgusundan cömert seçildi. */
+let LA_AG_ADAY = 5;
 const LA_YON = 8;             // aday yönü
 const LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
 const LA_YARICAP = 600;       // en dış halka
@@ -334,31 +338,51 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     }
     battleForkRestore(fork);
 
-    /* KARAR DEFTERİ: durum + aramanın SEÇTİĞİ sınıf. Öznitelik, değer ağıyla AYNI
-       kaynaktan (battleDurumOzellik) + birime özgü alanlar — politika ağı "bu durumda
-       BU birim nereye gitmeli" öğrenecek.
+    /* ── KARAR DEFTERİ ────────────────────────────────────────────────────
+       Öznitelik değer ağıyla AYNI kaynaktan (battleDurumOzellik) + birime özgü
+       alanlar + SEÇENEKLERİN KENDİSİ.
 
-       `elenen`: yayılım kapısı yüzünden erken dönen kararlar buraya HİÇ gelmez; onlar
-       "yerinde kal" örneği değil, "arama karar vermedi" durumudur. Karıştırılırsa model
-       hareketsizliğe doğru yanlı eğitilir. */
+       SEÇENEKLERİ YAZMAK ŞART — ölçülerek öğrenildi. İlk sürümde yalnız (durum, birim)
+       yazılıyordu ve etiket "hangi seçenek" idi. O kurgu ÖĞRENİLEMEZ: arama #1 ile #2
+       arasında seçim yapıyor, ama ağın girdisinde o iki noktanın NEREDE olduğu ya da
+       ucuz skorun onları NASIL puanladığı hiç yoktu. Aynı durum + aynı birim, farklı
+       aday geometrisi → ağ için AYIRT EDİLEMEZ. Sonuç: ağ tahminlerinin %94'ünü tek
+       seçeneğe yığdı, yani bedava "hep #1" tabanına çöktü (doğruluk %42.2 vs taban %43.4).
+       Veri hacmi sorunu DEĞİLDİ; girdi ayırt edici bilgiyi taşımıyordu.
+
+       `k`: seçilen seçeneğin indeksi (0=#1, 1=#2, 2=kal) — etiket doğrudan budur.
+       `o`: her seçenek için [sınıf, analitik skor, ağ skoru, dx, dy].
+       Ölçekleme yok: ham yazılır, normalizasyon eğitimde (yalnız eğitim kümesinden).
+
+       `elenen`: yayılım kapısına takılan kararlar buraya HİÇ gelmez; onlar "yerinde kal"
+       örneği değil, "arama karar vermedi" durumudur. Karıştırılırsa model hareketsizliğe
+       doğru yanlı eğitilir. */
     if (BATTLE_LA_KAYIT.on && BATTLE_LA_KAYIT.buf.length < BATTLE_LA_KAYIT.cap &&
         typeof battleDurumOzellik === 'function') {
         const _oz = battleDurumOzellik(16, 10);
         if (_oz) {
             const _u = SIM.units.find(x => x.id === uid);
             const _st = _u ? STATS[_u.type] : null;
-            const _y = enIyi ? (enIyi.sinif | 0) : 0;
             // 4 ondalık: ham dosya 5.7KB/kayıt idi, yuvarlamayla ~yarısı. Kayıp 1e-4,
             // özniteliklerin kendi gürültüsünün çok altında.
             const _yuv = (v) => Math.round(v * 1e4) / 1e4;
-            BATTLE_LA_KAYIT.buf.push({
+            /* SEÇENEK LİSTESİ, aramanın GERÇEKTEN oynattığı sırayla: `derin`.
+               Buradan türetmek zorunlu — `adaylar.slice(0,2)` diye yeniden kurmak,
+               "kal derin'de yoksa sonuna eklenir" kuralını kaçırır ve etiketi kaydırırdı. */
+            const _sec = derin.map(a => [a.sinif | 0,
+                _yuv(a._s == null ? 0 : a._s), _yuv(a._ag == null ? 0 : a._ag),
+                _yuv((a.x - u0.x) / LA_YARICAP), _yuv((a.y - u0.y) / LA_YARICAP)]);
+            const _k = enIyi ? derin.indexOf(enIyi) : -1;
+            if (_k >= 0) BATTLE_LA_KAYIT.buf.push({
                 r: _oz.r.map(_yuv), s: _oz.s.map(_yuv),
                 b: _u ? [_u.x / WORLD_W, _u.y / WORLD_H, _u.type / 26,
                         _u.hp / Math.max(1, _u.maxHp), _u.isRed ? 1 : 0,
                         (_st && _st.range ? _st.range : 0) / 2000,
                         (_st && _st.cost ? _st.cost : 0) / 1000].map(_yuv) : null,
-                y: _y,
-                e: _eleyiciSinif,   // eleyicinin #1'i (y ile farkı = rollout'un kattığı sinyal)
+                o: _sec,            // seçenekler (ağın ARALARINDA seçim yaptığı şeyler)
+                k: _k,              // ETİKET: seçilen seçeneğin indeksi
+                y: enIyi ? (enIyi.sinif | 0) : 0,   // kafes sınıfı (teşhis)
+                e: _eleyiciSinif,                   // eleyicinin #1'i (teşhis)
                 tik: SIM.tick
             });
         }
@@ -374,13 +398,30 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
    Kapı zaten UCUZ — ölçülen maliyet rollout'ta, elemede değil.
    Dönüş: sıralı aday listesi, ya da kapıya takıldıysa null. */
 function battleLookaheadEleVeKapi(u0) {
-    const adaylar = battleLookaheadAdaylar(u0);
+    let adaylar = battleLookaheadAdaylar(u0);
     if (adaylar.length < 3) return null;
     const _agAcik = LA_AG_KAPI && typeof battleLookaheadAgSkor === 'function' && battleValueNetHazir();
-    for (const a of adaylar) {
-        a._s = battleLookaheadStatik(u0, a.x, a.y);
-        a._ag = _agAcik ? battleLookaheadAgSkor(u0, a.x, a.y) : null;
+    // Analitik skor BEDAVA (rollout yok, ağ yok) — her zaman hepsine bakılır.
+    for (const a of adaylar) a._s = battleLookaheadStatik(u0, a.x, a.y);
+
+    /* ── AĞ ÖN SÜZGECİ: ağ yalnız analitik olarak en iyi LA_AG_ADAY adaya sorulur ──
+       ÖLÇÜLDÜ (bu dosyanın başlığı): ağı HER adaya sormak, politika kipinin
+       maliyetinin %100'üydü — rollout'suz kip 61.8sn, ağ eleyicisi kapalıyken 6.0sn
+       (aramasız taban 6.1sn). Yani darboğaz rollout DEĞİL, aday başına değer-ağı
+       çağrısı: 25 aday × 20 birim = 500 CNN geçişi/tur.
+       Kısıtlamanın güvenli olduğu da ölçülmüş: analitik ön eleme K=3'te kazancın
+       %72'sini koruyor ve bedava. LA_AG_ADAY=5 o ölçümden cömert seçildi.
+       0 = süzgeç yok (eski davranış). */
+    if (_agAcik && LA_AG_ADAY > 0 && adaylar.length > LA_AG_ADAY + 1) {
+        const kal0 = adaylar.find(a => a.kal);
+        const sirali = adaylar.slice().sort((a, b) => (b._s - a._s) || (a.x - b.x) || (a.y - b.y));
+        const secili = sirali.slice(0, LA_AG_ADAY);
+        // "yerinde kal" HER ZAMAN havuzda kalmalı: yayılım kapısı onu referans alıyor.
+        if (kal0 && !secili.includes(kal0)) secili.push(kal0);
+        adaylar = secili;
     }
+    for (const a of adaylar) a._ag = _agAcik ? battleLookaheadAgSkor(u0, a.x, a.y) : null;
+
     const _puan = a => (_agAcik && a._ag != null) ? a._ag : a._s;
     adaylar.sort((a, b) => (_puan(b) - _puan(a)) || (a.x - b.x) || (a.y - b.y));
     const _kal = adaylar.find(a => a.kal);
@@ -406,21 +447,22 @@ function battleLookaheadPolitikaKarari(uid, oz) {
     if (!adaylar) { BATTLE_LA_SAYAC.atlanan++; return null; }
     BATTLE_LA_SAYAC.arananan++;
 
-    const b = battlePolicyNetBirimOz(u0);
-    const lg = b ? battlePolicyNetLogit(oz.r, oz.s, b) : null;
-    if (!lg) return null;
+    /* SEÇENEK LİSTESİ, aramanın kurduğuyla BİREBİR AYNI kural: ilk LA_DERIN aday,
+       ve "yerinde kal" içlerinde yoksa sonuna eklenir. Politika tam da bu üçlü
+       üzerinde eğitildi; başka bir liste kurmak onu eğitilmediği bir seçim
+       kümesine sokardı. */
+    const sec = adaylar.slice(0, LA_DERIN);
+    if (!sec.some(a => a.kal)) { const k = adaylar.find(a => a.kal); if (k) sec.push(k); }
 
-    /* Politikanın seçtiği sınıf ÜRETİLEBİLİR olmayabilir: aday kafesindeki bazı
-       noktalar arazi/sınır süzgecine takılıp elenmiş olabilir. O yüzden logit
-       sırasında ilerleyip GERÇEKTEN var olan ilk adayı al — uydurma nokta üretme. */
-    const sira = Array.from({ length: lg.length }, (_, i) => i);
-    sira.sort((a, c) => (lg[c] - lg[a]) || (a - c));   // eşitlikte küçük sınıf: determinist
-    for (const sinif of sira) {
-        if (sinif === 0) { BATTLE_LA_SAYAC.politikaKal++; return null; }   // "yerinde kal"
-        const a = adaylar.find(x => x.sinif === sinif);
-        if (a) { BATTLE_LA_SAYAC.politikaEmir++; return { x: a.x, y: a.y, skor: lg[sinif] }; }
-    }
-    return null;
+    const lg = battlePolicyNetBirim(u0, sec, oz);
+    if (!lg || lg.length !== sec.length) return null;
+
+    let en = 0;
+    for (let i = 1; i < lg.length; i++) if (lg[i] > lg[en]) en = i;   // eşitlikte ilk: determinist
+    const a = sec[en];
+    if (!a || a.kal) { BATTLE_LA_SAYAC.politikaKal++; return null; }
+    BATTLE_LA_SAYAC.politikaEmir++;
+    return { x: a.x, y: a.y, skor: lg[en] };
 }
 
 function battleLookaheadEmirVer(uid, karar) {

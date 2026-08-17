@@ -38,6 +38,16 @@ const MAX_TIK = Number(arg('--maxtik', 7200)) || 7200;
 // arama pahalı (~1 CPU-sn / oyun-sn). Tek taraf = yarı maliyet, ama tek tarafın
 // dağılımını öğreniriz. İki taraf = tam maliyet, simetrik veri. Varsayılan: iki taraf.
 const TARAF = String(arg('--taraf', 'iki'));
+/* AĞ ÖN SÜZGECİ — CANLI KİPLE AYNI OLMAK ZORUNDA.
+   Politika, hangi seçenek kümesi üzerinde eğitilirse çıkarımda da o kümeyi görmeli.
+   LA_AG_ADAY, değer ağına sorulan aday sayısını belirler ve hem SIRALAMAYI (yani
+   #1/#2'nin kim olduğunu) hem de yayılım kapısını değiştirir. Eğitim ile çıkarım
+   burada ayrışırsa politika hiç görmediği bir seçim kümesine salınır ve bu MAÇ
+   SONUCUNDAN GÖRÜLEMEZ — sessizce kötü oynar.
+   ÖLÇÜLDÜ (tools/politika-kip-kapisi.js, 60sn oyun, tek taraf):
+     LA_AG_ADAY=0 (hepsi) → politika kipi 61.8sn CPU (0.97× gerçek zaman, SIĞMAZ)
+     LA_AG_ADAY=5         → politika kipi 15.1sn CPU (3.98× gerçek zaman, SIĞAR) */
+const AG_ADAY = Number(arg('--agaday', 5));
 
 function main() {
     const { ctx, hatalar } = tezgahKur();
@@ -50,6 +60,7 @@ function main() {
 
     console.log('POLITIKA VERISI — aramanin kararlari');
     console.log('  mac: ' + MAC + '   tohum: ' + OFS + '..' + (OFS + MAC - 1));
+    console.log('  LA_AG_ADAY: ' + AG_ADAY + '  (canli kiple AYNI olmali)');
 
     for (let i = 0; i < MAC; i++) {
         const seed = OFS + i;
@@ -68,6 +79,7 @@ function main() {
             'if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;' +
             'battleDeployManifest(mv, false, { source:"politika", ally:true });' +
             'startBattle(); SIM.headless = true;' +
+            'if (typeof LA_AG_ADAY !== "undefined") LA_AG_ADAY = ' + AG_ADAY + ';' +
             // arama açık taraf(lar): iki taraf = simetrik veri, tek taraf = yarı maliyet
             'BATTLE_LOOKAHEAD_RED = ' + (TARAF !== 'mavi') + ';' +
             'BATTLE_LOOKAHEAD_BLUE = ' + (TARAF !== 'kirmizi') + ';' +
@@ -81,7 +93,7 @@ function main() {
             '} } finally { BATTLE_LA_KAYIT.on = false; BATTLE_LOOKAHEAD_RED = false; BATTLE_LOOKAHEAD_BLUE = false; }' +
             'const oS = battleArmyObservation(true), oD = battleArmyObservation(false);' +
             'const nihai = Math.round(oS.effectiveValue - oD.effectiveValue);' +
-            'const out = BATTLE_LA_KAYIT.buf.map(k => ({ r:k.r, s:k.s, b:k.b, y:k.y, e:k.e, tik:k.tik, nihai:nihai }));' +
+            'const out = BATTLE_LA_KAYIT.buf.map(k => ({ r:k.r, s:k.s, b:k.b, o:k.o, k:k.k, y:k.y, e:k.e, tik:k.tik, nihai:nihai }));' +
             'BATTLE_LA_KAYIT.buf.length = 0;' +
             'return JSON.stringify({ seed:' + seed + ', ornek: out, sinif: battleLookaheadSinifSayisi(), bitis: SIM.tick });' +
             '})()';
