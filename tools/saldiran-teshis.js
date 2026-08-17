@@ -57,7 +57,14 @@ function macKos(ctx, seed) {
         '    oldu.add(u.id);' +
         '    olum.push({ red: !!u.isRed, tip: u.type, tik: SIM.tick, y: Math.round(u.y),' +
         '      deger: deger(u), maxAmmo: u.maxAmmo || 0, ammo: u.ammo || 0,' +
-        '      hicAtes: u._hicAtesEtmedi !== false });' +
+        '      hicAtes: u._hicAtesEtmedi !== false, durum: u.combatState || null,' +
+        // YEREL KUVVET ORANI olum aninda: dost/dusman DEGERI 900px icinde.
+        // "Saldiran parca parca mi variyor" sorusunun dogrudan olcusu.
+        '      yerel: (() => { let d = 0, e = 0;' +
+        '        for (const o of SIM.units) { if (o.dead || o === u) continue;' +
+        '          if (Math.hypot(o.x - u.x, o.y - u.y) > 900) continue;' +
+        '          if (o.isRed === u.isRed) d += deger(o); else e += deger(o); }' +
+        '        return e > 0 ? +(d / e).toFixed(3) : null; })() });' +
         '  }' +
         '  if (SIM.tick % 200 === 0) {' +
         '    let sy = 0, sn2 = 0, dy = 0, dn = 0, ent = 0, entN = 0;' +
@@ -80,7 +87,11 @@ function macKos(ctx, seed) {
         '    ilerleme.push({ tik: SIM.tick, salY: sn2 ? Math.round(sy / sn2) : null,' +
         '      savY: dn ? Math.round(dy / dn) : null, savSiper: entN ? +(ent / entN).toFixed(3) : null,' +
         '      salCanli: sn2, savCanli: dn, salDurus: salDurus, savDurus: savDurus, salKapi: salKapi,' +
-        '      salOn: salOn!=null?Math.round(salOn):null, savOn: savOn!=null?Math.round(savOn):null });' +
+        '      salOn: salOn!=null?Math.round(salOn):null, savOn: savOn!=null?Math.round(savOn):null,' +
+        '      durum: (() => { const r = { sal:{}, sav:{} };' +
+        '        for (const o of SIM.units) { if (o.dead) continue;' +
+        '          const k = o.isRed ? "sal" : "sav"; const c = o.combatState || "(yok)";' +
+        '          r[k][c] = (r[k][c] || 0) + 1; } return r; })() });' +
         '  }' +
         '} } finally { SIM.headless = ph; }' +
         'const oS = battleArmyObservation(true), oD = battleArmyObservation(false);' +
@@ -89,6 +100,10 @@ function macKos(ctx, seed) {
         '  marj: Math.round(oS.effectiveValue - oD.effectiveValue),' +
         '  kazanan: (b.winnerSide === true ? "saldiran" : b.winnerSide === false ? "savunan" : null),' +
         '  bitisTik: SIM.tick, olum: olum, ilerleme: ilerleme,' +
+        // TERK (mission-kill): taraf basi kaybedilen DEGER + tip. Terk edilmis birim
+        // olu degil ama tarafsiz -> savasan icin kayip. Ekranda "Terk Edildi".
+        '  terk: SIM.units.filter(u => u.abandoned).map(u => ({ red: !!u.isRed, tip: u.type, deger: deger(u) })),' +
+        '  terkToplam: (typeof BATTLE_BALANCE !== "undefined" && BATTLE_BALANCE.on) ? BATTLE_BALANCE.abandoned : null,' +
         '  dunyaY: WORLD_H });' +
         '})()';
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'st-' + seed + '.js' }));
@@ -178,6 +193,61 @@ function main() {
     console.log('  TAARRUZ KAPISI (strikeGateOpen): acik %' + (kapiSay.acik / topK * 100).toFixed(1) +
         '  kapali %' + (kapiSay.kapali / topK * 100).toFixed(1) + '  bilinmiyor %' + (kapiSay.yok / topK * 100).toFixed(1));
     console.log('');
+
+    // ── 4c. TEMAS PENCERESI (30-90sn) DURUM DAGILIMI
+    {
+        const say = { sal: {}, sav: {} };
+        for (const m of maclar) for (const s2 of m.ilerleme) {
+            const sn = s2.tik * 0.05;
+            if (sn < 30 || sn > 90 || !s2.durum) continue;
+            for (const k of ['sal', 'sav']) for (const [c, n2] of Object.entries(s2.durum[k] || {})) say[k][c] = (say[k][c] || 0) + n2;
+        }
+        const top = k => Object.values(say[k]).reduce((a, b) => a + b, 0) || 1;
+        const tumDurum = [...new Set([...Object.keys(say.sal), ...Object.keys(say.sav)])]
+            .sort((a, b) => (say.sav[b] || 0) + (say.sal[b] || 0) - (say.sav[a] || 0) - (say.sal[a] || 0));
+        console.log('  TEMAS PENCERESI (30-90sn) BIRIM DURUMU');
+        console.log('    durum'.padEnd(24) + 'saldiran'.padStart(10) + 'savunan'.padStart(10));
+        for (const c of tumDurum.slice(0, 9)) {
+            const a = (say.sal[c] || 0) / top('sal') * 100, b = (say.sav[c] || 0) / top('sav') * 100;
+            if (a < 0.5 && b < 0.5) continue;
+            console.log('    ' + c.padEnd(22) + ('%' + a.toFixed(1)).padStart(10) + ('%' + b.toFixed(1)).padStart(10));
+        }
+        console.log('');
+    }
+
+    // ── 4d. OLUM ANINDA YEREL KUVVET ORANI (900px)
+    {
+        console.log('  OLUM ANINDA YEREL KUVVET ORANI (dost deger / dusman deger, 900px)');
+        for (const [ad, red] of [['saldiran', true], ['savunan', false]]) {
+            const v = maclar.flatMap(m => m.olum).filter(o => o.red === red && o.yerel != null).map(o => o.yerel);
+            v.sort((a, b) => a - b);
+            const ort = v.reduce((a, b) => a + b, 0) / Math.max(1, v.length);
+            const med = v.length ? v[Math.floor(v.length / 2)] : 0;
+            const ezik = v.filter(x => x < 1).length / Math.max(1, v.length) * 100;
+            console.log('    ' + ad.padEnd(10) + 'n ' + String(v.length).padStart(4) +
+                '   ort ' + ort.toFixed(2) + '   medyan ' + med.toFixed(2) +
+                '   sayica AZKEN olme orani %' + ezik.toFixed(1));
+        }
+        console.log('    (1.00 = esit; <1 = birim SAYICA AZKEN oldu)');
+        console.log('');
+    }
+
+    // ── 4e. TERK (mission-kill) DEGER MUHASEBESI
+    {
+        console.log('  MAC SONU TERK EDILMIS (mission-kill) DEGER — tohum basina ortalama');
+        for (const [ad, red] of [['saldiran', true], ['savunan', false]]) {
+            const t = maclar.flatMap(m => m.terk).filter(x => x.red === red);
+            const deg = t.reduce((a, x) => a + x.deger, 0) / N;
+            console.log('    ' + ad.padEnd(10) + 'adet ' + (t.length / N).toFixed(2).padStart(6) +
+                '   deger ' + String(Math.round(deg)).padStart(5));
+        }
+        const tipDeg = {};
+        for (const m of maclar) for (const x of m.terk) if (x.red) tipDeg[x.tip] = (tipDeg[x.tip] || 0) + x.deger;
+        const adOf = t => vm.runInContext('(STATS[' + t + '] && STATS[' + t + '].id) || "?"', ctx);
+        const ilk = Object.entries(tipDeg).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        console.log('    saldiranin en cok terk ettigi: ' + ilk.map(([t, v]) => adOf(Number(t)) + ' ' + Math.round(v)).join(', '));
+        console.log('');
+    }
 
     // ── 5. SALDIRANI EN COK KAYBETTIREN TIPLER
     const kayip = {};
