@@ -29,6 +29,22 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const N = Math.max(1, Number(arg('--tohum', 96)) || 96);
 const TOHUM0 = Number(arg('--tohum0', 100000)) || 100000;   // CYBORG havuzu (docs/IKI-MAKINE.md)
 const KOL = arg('--kol', null);                              // A/B'lenecek global adı
+/* --koldeger "a,b": kol değerleri (varsayılan false,true). Sayısal kipler için gerekli —
+   örn. LA_POLITIKA 0/1 bekler; `true` göndermek kipi SESSİZCE kapalı bırakırdı. */
+const KOL_DEGER = (() => {
+    const v = arg('--koldeger', null);
+    if (!v) return [false, true];
+    return v.split(',').map(x => {
+        const t = x.trim();
+        if (t === 'true') return true;
+        if (t === 'false') return false;
+        const n = Number(t);
+        return isFinite(n) && t !== '' ? n : t;
+    });
+})();
+/* --ayar "X=1;Y=2": HER İKİ KOLA da uygulanan sabitler. Kolları ayıran tek değişken
+   --kol olmalı; buraya konan her şey iki kolda da AYNI kalır (tek-değişken kuralı). */
+const AYAR = arg('--ayar', null);
 /* --esitkomp: SALDIRAN ordusunu da savunanin kompozisyon kurallariyla kur.
    NEDEN: BattleDeployment savunana IKI taban veriyor (AT >= %15 butce; dolayli+AA
    alt-tur garantisi) ve ikisi de `config.isAttacker === false` sartli. Saldiranin
@@ -45,6 +61,7 @@ function macKos(ctx, seed, kolDeger) {
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
         'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
         (KOL ? (KOL + ' = ' + JSON.stringify(kolDeger) + ';') : '') +
+        (AYAR ? (AYAR.split(';').map(s => s.trim()).filter(Boolean).join('; ') + ';') : '') +
         // CANLI BUTCE denemesi: ufku disaridan ayarla (rol-dengesi --ufuk)
         (process.argv.indexOf('--ufuk') >= 0 ? ('if (typeof LA_UFUK !== "undefined") LA_UFUK = ' + Number(process.argv[process.argv.indexOf('--ufuk')+1]) + ';') : '') +
         // DONUSUM: turda kac birim aransin (+ emir omru ona gore uzatilir)
@@ -121,12 +138,13 @@ function main() {
     if (hatalar.length) { console.log('TEZGAH HATASI:\n  ' + hatalar.join('\n  ')); process.exit(1); }
 
     console.log('ROL DENGESI — ' + N + ' tohum, iki tarafta da intel4 (tek asimetri: ROL)');
-    if (KOL) console.log('  A/B kolu: ' + KOL + '  (kapali vs acik, ESLESTIRILMIS ayni tohumlar)');
+    if (KOL) console.log('  A/B kolu: ' + KOL + ' = ' + JSON.stringify(KOL_DEGER[0]) + ' vs ' + JSON.stringify(KOL_DEGER[1]) + '  (ESLESTIRILMIS ayni tohumlar)');
+    if (AYAR) console.log('  iki kolda da sabit: ' + AYAR);
     if (ESIT_KOMP) console.log('  ESIT KOMPOZISYON: saldiran ordusu da savunan kurallariyla kuruldu');
     console.log('');
 
     const t0 = Date.now();
-    const kollar = KOL ? [false, true] : [null];
+    const kollar = KOL ? KOL_DEGER : [null];
     const sonuc = {};
     for (const kd of kollar) {
         const kayit = [];
@@ -145,7 +163,7 @@ function main() {
     console.log(bas); console.log('-'.repeat(bas.length));
     for (const kd of kollar) {
         const o = sonuc[String(kd)].ozet;
-        console.log((KOL ? (kd ? 'acik' : 'kapali') : 'taban').padEnd(8) +
+        console.log((KOL ? ('kol=' + JSON.stringify(kd)) : 'taban').padEnd(8) +
             String(o.mac).padStart(5) + (('%' + (o.saldiranOran * 100).toFixed(1))).padStart(11) +
             String(o.marjOrt).padStart(9) + String(o.marjStd).padStart(9) + String(o.t).padStart(8) +
             String(o.ortSn).padStart(10) + String(o.ortUs).padStart(7) + String(o.ortMayin).padStart(8));
@@ -155,7 +173,7 @@ function main() {
 
     if (KOL) {
         // ESLESTIRILMIS FARK: ayni tohumda acik-kapali. Tohum gurultusu dusar.
-        const a = sonuc['true'].kayit, k = sonuc['false'].kayit;
+        const a = sonuc[String(KOL_DEGER[1])].kayit, k = sonuc[String(KOL_DEGER[0])].kayit;
         const fark = a.map((x, i) => x.marj - k[i].marj);
         const n = fark.length;
         const ort = fark.reduce((s, v) => s + v, 0) / n;
@@ -163,7 +181,7 @@ function main() {
         const std = Math.sqrt(varyans);
         const t = ort / (std / Math.sqrt(n));
         console.log('');
-        console.log('  ESLESTIRILMIS FARK (acik - kapali): ort ' + Math.round(ort) +
+        console.log('  ESLESTIRILMIS FARK (' + JSON.stringify(KOL_DEGER[1]) + ' - ' + JSON.stringify(KOL_DEGER[0]) + '): ort ' + Math.round(ort) +
             '  std ' + Math.round(std) + '  t ' + t.toFixed(2) +
             (Math.abs(t) >= 2 ? '  -> ANLAMLI' : '  -> anlamli DEGIL'));
         console.log('  (pozitif = kol SALDIRANIN isine yariyor, negatif = SAVUNANIN)');

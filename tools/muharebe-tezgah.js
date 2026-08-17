@@ -38,8 +38,15 @@ const MUHAREBE_KAYNAK = [
     'js/MapData.js', 'js/MapImage.js',
     'js/VFX.js', 'js/Support.js', 'js/Unit.js', 'js/BattleDeployment.js', 'js/main.js',
     'js/BattleLookahead.js',
-    'js/BattleValueModel.js', 'js/BattleValueNet.js'
+    'js/BattleValueModel.js', 'js/BattleValueNet.js',
+    // Politika ağı (R1 damıtma). Model dosyası HENÜZ ÜRETİLMEMİŞ olabilir —
+    // eksikse tezgâh sessizce onsuz kurulur (battlePolicyNetHazir() false döner
+    // ve LA_POLITIKA kipi kendini kapatır). Bkz. ISTEGE_BAGLI.
+    'js/BattlePolicyModel.js', 'js/BattlePolicyNet.js'
 ];
+
+// Henüz üretilmemiş olabilecek kaynaklar: yoklukları HATA değildir.
+const ISTEGE_BAGLI = new Set(['js/BattlePolicyModel.js']);
 
 function sahteContext(canvas) {
     const bos = () => {};
@@ -91,7 +98,9 @@ function tezgahKurMini() {
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBC.js'))) kaynaklar.push('js/BattleBeonaiModelBC.js');
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBCv2.js'))) kaynaklar.push('js/BattleBeonaiModelBCv2.js');
-    for (const rel of kaynaklar) {
+    // ISTEGE_BAGLI: henuz uretilmemis egitim ciktilari (yoklugu hata degil)
+    const kaynaklarF = kaynaklar.filter(r => !ISTEGE_BAGLI.has(r) || fs.existsSync(path.resolve(ROOT, r)));
+    for (const rel of kaynaklarF) {
         try { vm.runInContext(fs.readFileSync(path.resolve(ROOT, rel), 'utf8'), ctx, { filename: rel }); }
         catch (e) { hatalar.push(rel + ': ' + e.message); }
     }
@@ -174,7 +183,9 @@ function tezgahKur() {
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModels.js'))) kaynaklar.push('js/BattleBeonaiModels.js');
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBC.js'))) kaynaklar.push('js/BattleBeonaiModelBC.js');
     if (fs.existsSync(path.resolve(ROOT, 'js/BattleBeonaiModelBCv2.js'))) kaynaklar.push('js/BattleBeonaiModelBCv2.js');
-    for (const rel of kaynaklar) {
+    // ISTEGE_BAGLI: henuz uretilmemis egitim ciktilari (yoklugu hata degil)
+    const kaynaklarF = kaynaklar.filter(r => !ISTEGE_BAGLI.has(r) || fs.existsSync(path.resolve(ROOT, r)));
+    for (const rel of kaynaklarF) {
         const p = path.resolve(ROOT, rel);
         const kod = fs.readFileSync(p, 'utf8');
         try {
