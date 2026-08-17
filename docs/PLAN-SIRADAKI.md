@@ -23,16 +23,14 @@ elendi; ben onu bir saatlik kapıya sokmuştum.
 
 ---
 
-## A · ÖNCE BİTMESİ GEREKEN (akışta)
+## A · BİTTİ — sonuç aşağıda (⛔ KAPANDI bölümü)
 
 | iş | durum |
 |---|---|
-| Birim-koşullu değer ağı verisi | toplanıyor (42 maç, `--agaday 0 --derin 4`) |
-| → eğit + **karar içi sıralama** kapısı | veri bekliyor |
-| → ablasyon: hangi girdi grubu taşıdı | veri bekliyor |
-
-**Kapı:** ağ, aynı kararda en iyi adayı bugünkü eleyiciden daha sık bulabiliyor mu?
-Geçerse ışınlama rollout'un yerine geçebilir → GPU çarpanı harcanabilir hale gelir.
+| Birim-koşullu değer ağı verisi | ✔ 42 maç, 24.480 karar, 121.331 aday |
+| → eğit + **karar içi sıralama** kapısı | ✔ 4 formülasyon, hepsi taban altı |
+| Bedava etiket verisi | ✔ 540 maç, 626 bin etiket, 20 dk |
+| → eğit + aynı kapı | ✔ %25.5 vs taban %50.2 |
 
 ---
 
@@ -60,7 +58,43 @@ tutturmak birimi öldürebilir. Ölçülmeden bağlanmaz.
 
 ---
 
-## D · YENİ VERİ KAYNAĞI (henüz kurulmadı)
+## ⛔ KAPANDI — "değerlendirme, simülasyonun yerine geçebilir" (2026-08-17)
+
+Bu, GPU yolunun dayandığı varsayımdı. **Beş formülasyon, iki veri seti, 5× ölçekleme —
+hepsi düştü.** Ölçü: rollout veri setinde karar-içi sıralama.
+
+| yöntem | sıralama |
+|---|---:|
+| rastgele | %20.2 |
+| **bugünkü eleyici (`_ag`)** | **%50.2** |
+| MSE, ham hedef | %21.5 |
+| MSE, karar-içi merkezlenmiş | %21.2 |
+| listewise softmax + CE | %28.8 |
+| artık bağlantı (eleyicinin üstüne, başlangıçta = taban) | %29.7 |
+| bedava etiket ağı (313 bin örnek, 5× veri) | %25.5 |
+
+### Neden — ve bu bir tasarım hatası değil
+
+`_ag`'yi "bir öznitelik" sanmıştım. Değil: **birimi aday noktaya taşıyıp değer ağını
+yeniden çalıştırıyor.** Tahmin etmiyor, HESAPLIYOR — raster gerçekten değişiyor.
+Eğittiğim ağlar ise zaten ucuz olan (7.87ms) bir hesabın çıktısını tahmin etmeye
+çalışıyordu; kazanacak bir şey yok.
+
+Asıl istenen, rollout'un eleyiciye yaptığı **düzeltme**ydi ("ışınlanmış birim ≠ yürüyen
+birim"). O fark durum özniteliklerinden **öğrenilebilir değil**.
+
+### Sonucu
+
+- **GPU'nun 1600× çarpanı simülasyon satın alamaz** — artık ölçülmüş, varsayım değil.
+  WebGPU portu haftalar sürecekti ve yanlış cevabı hızlandıracaktı.
+- GPU'nun KALAN gerekçesi yalnız eleyicinin kendi maliyeti (`LA_AG_ADAY=0`'a dönmek) —
+  daha küçük ve bağımsız ölçüm ister.
+- **"Veri az" teşhisi de çürüdü:** 33 maçtan 540 maça, 121 binden 626 bin örneğe
+  çıkıldı, hiçbir şey değişmedi. Kısıt veri değil, hedefin öğrenilebilirliği.
+
+---
+
+## D · BEDAVA ETİKET — kuruldu, kullanıldı, sonuç yukarıda
 
 **Her gerçek maç zaten bir rollout.** Şu an her etiket için fork alıp 5 saniye simüle
 ediyoruz; oysa gerçek maçta o 5 saniye zaten oynanıyor.
@@ -76,8 +110,11 @@ Atıf sorunu kredi defteriyle çözülüyor: her birimin **kendi** ürettiği ay
 **Tuzak:** karşı-olgusal yok (yalnız gidilen yerler görülüyor) → dağılım kayması.
 Çözüm: toplamada keşif gürültüsü.
 
-**Tarif:** bedava etiketle ön eğitim (temsil) → rollout etiketiyle ince ayar (sıralama).
-Bu, "genişlik ×4 kötüleştiriyor" bulgusunu da açıklıyor: sorun veri azlığıydı.
+**SONUÇ:** 540 maç, 626 bin etiket, 20 dakikada toplandı (aramalı toplamanın 5 katı veri,
+1/3 sürede). Ama karar-içi sıralamada %25.5 — tabanın 25 puan altında.
+Hat çalışıyor ve tekrar kullanılabilir; ama bu hedef için yetmedi.
+
+⚠ Etiket seyrek: birimin kendi kredi hanesi 10 saniyede %83 oranında hiç değişmiyor.
 
 ---
 
@@ -108,10 +145,19 @@ oynatılan 2'nin içinde bile değil.
 
 ---
 
-## Öncelik gerekçesi
+## Öncelik gerekçesi (2026-08-17 sonrası, GÜNCEL)
 
-1. **A** — akışta, ve B/D'nin ne kadar değerli olduğunu belirliyor
-2. **B (emir ömrü)** — en ucuz aday, kazanç zaten üretilmiş işin israfını geri alıyor
-3. **E (gerçek tavan)** — GPU yatırımından ÖNCE, çünkü tüm yol o varsayıma dayanıyor
-4. **D (bedava etiket)** — A zayıf çıkarsa asıl kaldıraç; veri azlığı ölçülmüş kısıt
-5. **B (uzun ufuk)** — ön kapıyı geçti ama maç kapısı pahalı
+Değer-ağı/GPU dalı kapandığına göre kalanlar:
+
+1. **Emir ömrü** — en ucuz aday. Emirlerin %50'si 1 saniyede eziliyor; +839 bu israfla
+   elde edilmiş. Koruma (`_laUntilTick`) yazılmış ama bağlanmamış. Ön kapı gerekmez
+   (kusur kesin), doğrudan maç kapısı. ⚠ Ezmenin meşru sebepleri olabilir → ölçülmeden bağlanmaz.
+2. **Worker** — ölçülmüş +839'u TAM güçle oyuna taşıyan tek yol. Mühendislik işi,
+   araştırma değil. Yol haritasının en baştaki cevabıydı; "bütçe duvarı çözüldü" diyerek
+   erken elemiştim (verimi gecikme sanmıştım).
+3. **Uzun ufuk (10-15sn)** — ön kapıyı geçti (%28.6 karar değişiyor). Ufku KISALTMAK
+   ölçülüp öldürülmüş, UZATMAK hiç denenmemiş.
+4. **Gerçek tavan** — 25 adayı oynatan arama gerçek maçta kazanıyor mu? Kısa maçlarla ~1 saat.
+5. **Rakip modeli** — katman atfına göre insan farkının %47'si durum değerlendirmede;
+   aramanın dokunduğu katmanda fark %0. En büyük ölçülmüş kaldıraç, ama en pahalı.
+6. **Eylem uzayını genişletmek** (çekil / ateş kes / hedef seç) — %40'lık yürütme katmanı.

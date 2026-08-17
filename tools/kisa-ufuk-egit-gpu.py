@@ -117,15 +117,22 @@ smu, ssd = S[tr].mean(0), S[tr].std(0) + 1e-6
 ys = Y[tr].std() + 1e-6
 Rn = (R - rmu) / rsd; Sn = (S - smu) / ssd
 
+# --genislik: kanal/gizli katman carpani. "Agi buyutelim" iddiasini OLCUYE cevirir.
+# Kapasite baglayiciysa rho genislikle YUKSELIR; degilse PLATO yapar ve daha buyuk ag
+# yalnizca daha pahali olur (cikarimda JS'te 7.87ms zaten en buyuk kalem).
+G = float(arg('--genislik', 1))
+_C1 = max(8, int(32 * G)); _C2 = max(8, int(32 * G))
+_MH = max(16, int(64 * G)); _BH = max(32, int(128 * G))
+
 class Model(nn.Module):
     def __init__(self, sdim):
         super().__init__()
         self.cnn = nn.Sequential(
-            nn.Conv2d(KANAL, 32, 3, padding=1), nn.ReLU(),
-            nn.Conv2d(32, 32, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(KANAL, _C1, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(_C1, _C2, 3, padding=1), nn.ReLU(),
             nn.AdaptiveAvgPool2d((3, 4)), nn.Flatten())
-        self.mlp = nn.Sequential(nn.Linear(sdim, 64), nn.ReLU())
-        self.bas = nn.Sequential(nn.Linear(384 + 64, 128), nn.ReLU(), nn.Linear(128, 1))
+        self.mlp = nn.Sequential(nn.Linear(sdim, _MH), nn.ReLU())
+        self.bas = nn.Sequential(nn.Linear(_C2 * 12 + _MH, _BH), nn.ReLU(), nn.Linear(_BH, 1))
     def forward(self, r, s):
         return self.bas(torch.cat([self.cnn(r), self.mlp(s)], 1))
 
@@ -162,7 +169,8 @@ gercek = Y[te]
 rho = spearman(pv, gercek)
 isaret = float(((pv > 0) == (gercek > 0)).mean())
 print('')
-print(f'cihaz {dev} | epok {ep+1} | dogrulama kaybi {en_iyi:.4f}')
+_par = sum(p.numel() for p in model.parameters())
+print(f'cihaz {dev} | epok {ep+1} | dogrulama kaybi {en_iyi:.4f} | genislik x{G} | parametre {_par}')
 print(f'KISA UFUK ({UFUK} tik = {UFUK/20:.0f}sn) AGI')
 print(f'  Spearman {rho:.3f}   isaret dogrulugu %{isaret*100:.0f}')
 print(f'  nihai-marj tabanina gore: {rho - rho_nihai:+.3f}')

@@ -128,7 +128,7 @@ def karar_ici(pred):
     for idx in _gruplar.values():
         if len(idx) < 2: continue
         p = [pred[_yer[i]] for i in idx]
-        gg = [Y[i] for i in idx]
+        gg = [Y_ham[i] for i in idx]
         if int(np.argmax(p)) == int(np.argmax(gg)): dogru += 1
         toplam += 1
     return (dogru / toplam if toplam else float('nan')), toplam
@@ -162,6 +162,25 @@ rmu, rsd = R[tr].mean((0,2,3), keepdims=True), R[tr].std((0,2,3), keepdims=True)
 smu, ssd = S[tr].mean(0), S[tr].std(0) + 1e-6
 bmu, bsd = B[tr].mean(0), B[tr].std(0) + 1e-6
 cmu, csd = C[tr].mean(0), C[tr].std(0) + 1e-6
+# ═══ KARAR-ICI MERKEZLEME (olculmus hata duzeltmesi) ═══
+# ILK SURUM: hedef HAM rollout skoru, kayip MSE. Sonuc CELISKILIYDI:
+#     genel korelasyon  0.901 (taban 0.763)  -> COK IYI
+#     karar ici siralama %21.5 (taban %51.0) -> COK KOTU
+# Teshis: `_ag` zaten agin GIRDISINDE. Girdisindeki bir sinyalden daha kotu siralama
+# yapmasi bilgi eksikligi degil HEDEF HATASI demek. MSE'nin varyansi "hangi durumdayiz"
+# farkindan geliyor; ayni karar icindeki kucuk aday farklari kayba neredeyse hic katki
+# vermiyor, ag onlari GORMEZDEN GELMEYI ogreniyor.
+# DUZELTME: her KARARIN kendi ortalamasi cikarilir. Geriye yalnizca "bu aday, bu kararin
+# ortalamasindan ne kadar iyi" kalir — siralamanin sordugu tam olarak budur.
+# (Cikarimda sorun degil: argmax karar ICINDE aliniyor, sabit kayma siralamayi bozmaz.)
+_karar_anahtar = [(MAC[i], TIK[i], tuple(B[i])) for i in range(len(Y))]
+_ort = {}
+for i, k in enumerate(_karar_anahtar): _ort.setdefault(k, []).append(Y[i])
+_ort = {k: float(np.mean(v)) for k, v in _ort.items()}
+Y_ham = Y.copy()
+Y = np.array([Y[i] - _ort[_karar_anahtar[i]] for i in range(len(Y))], dtype=np.float32)
+print(f'  karar-ici merkezleme: {len(_ort)} karar   hedef std {Y_ham.std():.1f} -> {Y.std():.1f}')
+
 ys = Y[tr].std() + 1e-6
 Rn = (R - rmu) / rsd; Sn = (S - smu) / ssd; Bn = (B - bmu) / bsd; Cn = (C - cmu) / csd
 
@@ -176,8 +195,52 @@ class Model(nn.Module):
         self.mlp = nn.Sequential(nn.Linear(sdim, _MH), nn.ReLU())
         self.bir = nn.Sequential(nn.Linear(bdim + cdim, _MH), nn.ReLU())
         self.bas = nn.Sequential(nn.Linear(_C1*12 + _MH*2, _BH), nn.ReLU(), nn.Linear(_BH, 1))
+        # son katman SIFIRDAN baslar -> baslangicta cikti = tam olarak eleyici skoru
+        nn.init.zeros_(self.bas[2].weight); nn.init.zeros_(self.bas[2].bias)
+        self.agAgirlik = nn.Parameter(torch.ones(1))
     def forward(self, r, s, b, c):
-        return self.bas(torch.cat([self.cnn(r), self.mlp(s), self.bir(torch.cat([b, c], 1))], 1))
+        duzeltme = self.bas(torch.cat([self.cnn(r), self.mlp(s), self.bir(torch.cat([b, c], 1))], 1))
+        # ARTIK BAGLANTI: ag SIFIRDAN ogrenmiyor, ELEYICININ USTUNE duzeltme ogreniyor.
+        # Gerekcesi olculdu: `_ag` zaten girdide ve tek basina %51.0 yapiyor, ama ag
+        # %28.8 yapti — yani kendi girdisindeki sinyali BOZUYOR. Sebep mimari: `_ag`,
+        # 480 boyutlu baglamin yaninda 11 aday alanindan biri; baglam onu yutuyor.
+        # Bu baglantiyla ag baslangicta TABANA ESIT olur (duzeltme~0) ve ancak
+        # gercekten iyilestirebiliyorsa ondan sapar. Taban-alti'na dusmesi yapisal
+        # olarak zorlasir.
+        return self.agAgirlik * c[:, 2:3] + duzeltme
+
+# ═══ LISTEWISE SIRALAMA KAYBI (ikinci duzeltme) ═══
+# MSE ile iki deneme de coktu (%21.5 ve %21.2, taban %51.0). Sebep artik net:
+# karar-ici fark toplam varyansin yalnizca %3.8'i (std 63.9 / 1699.5). Bagimsiz
+# regresyon o kadar zayif bir sinyali GORMEZDEN gelmeyi ogreniyor.
+# KANIT KI DOGRU KAYIP CALISIYOR: bugun POLITIKA agi tam bu durumdaydi ve secenekler
+# uzerinde softmax+capraz-entropi ile taban %45 -> %58.1 yapti.
+# Ders (bugun UCUNCU kez): gorev SIRALAMA ise kayip da KARSILASTIRMA uzerinde olmali.
+# Burada her KARAR bir liste; ag adaylara puan verir, softmax karar ICINDE alinir,
+# hedef gercek en iyi adaydir.
+_tr_idx = np.where(tr)[0]
+_tr_grup = {}
+for g in _tr_idx:
+    _tr_grup.setdefault((MAC[g], TIK[g], tuple(B[g])), []).append(int(g))
+_tr_listeler = [v for v in _tr_grup.values() if len(v) >= 2]
+_MAKS_ADAY = max(len(v) for v in _tr_listeler)
+print(f'  listewise: {len(_tr_listeler)} karar listesi, karar basina en fazla {_MAKS_ADAY} aday')
+
+def _paketle(listeler):
+    """Karar listelerini (N, K) dolgulu tensorlere cevir + gecerlilik maskesi + hedef."""
+    n = len(listeler)
+    idx = np.zeros((n, _MAKS_ADAY), dtype=np.int64)
+    msk = np.zeros((n, _MAKS_ADAY), dtype=np.float32)
+    hed = np.zeros(n, dtype=np.int64)
+    for i, L in enumerate(listeler):
+        for j, g in enumerate(L[:_MAKS_ADAY]):
+            idx[i, j] = g; msk[i, j] = 1.0
+        hed[i] = int(np.argmax([Y_ham[g] for g in L[:_MAKS_ADAY]]))
+    return idx, msk, hed
+
+_tIdx, _tMsk, _tHed = _paketle(_tr_listeler)
+tIdx = torch.tensor(_tIdx, device=dev); tMsk = torch.tensor(_tMsk, device=dev)
+tHed = torch.tensor(_tHed, device=dev)
 
 torch.manual_seed(20260817)
 model = Model(S.shape[1], B.shape[1], C.shape[1]).to(dev)
@@ -189,16 +252,35 @@ yt = torch.tensor(Y[tr]/ys, device=dev).unsqueeze(1)
 rv, sv, bv, cv = T(Rn,te), T(Sn,te), T(Bn,te), T(Cn,te)
 yv = torch.tensor(Y[te]/ys, device=dev).unsqueeze(1)
 
-N = rt.shape[0]; PARTI = min(512, N)
+# TUM ornekleri tek tensorde tut: listewise parti, GLOBAL indislerle secim yapar.
+Rn_t = torch.tensor(Rn, device=dev); Sn_t = torch.tensor(Sn, device=dev)
+Bn_t = torch.tensor(Bn, device=dev); Cn_t = torch.tensor(Cn, device=dev)
+ceLoss = nn.CrossEntropyLoss()
+
+def _liste_skor(idx, msk):
+    d = idx.shape
+    f = idx.reshape(-1)
+    p = model(Rn_t[f], Sn_t[f], Bn_t[f], Cn_t[f]).reshape(d)
+    return p.masked_fill(msk < 0.5, -1e9)   # dolgu adaylar yarisa girmez
+
+NL = tIdx.shape[0]; PARTI = min(256, NL)
+# Dogrulama: test listeleri
+_te_listeler = [v for v in _gruplar.values() if len(v) >= 2]
+_vIdx, _vMsk, _vHed = _paketle(_te_listeler)
+vIdx = torch.tensor(_vIdx, device=dev); vMsk = torch.tensor(_vMsk, device=dev)
+vHed = torch.tensor(_vHed, device=dev)
+
 en_iyi, bekle, durum = 9e9, 0, None
 for ep in range(EPOK):
     model.train()
-    perm = torch.randperm(N, device=dev)
-    for i in range(0, N, PARTI):
+    perm = torch.randperm(NL, device=dev)
+    for i in range(0, NL, PARTI):
         ix = perm[i:i+PARTI]
-        opt.zero_grad(); lossf(model(rt[ix], st[ix], bt[ix], ct[ix]), yt[ix]).backward(); opt.step()
+        opt.zero_grad()
+        ceLoss(_liste_skor(tIdx[ix], tMsk[ix]), tHed[ix]).backward()
+        opt.step()
     model.eval()
-    with torch.no_grad(): vl = lossf(model(rv, sv, bv, cv), yv).item()
+    with torch.no_grad(): vl = ceLoss(_liste_skor(vIdx, vMsk), vHed).item()
     if vl < en_iyi - 1e-4:
         en_iyi, bekle = vl, 0
         durum = {k: v.detach().clone() for k, v in model.state_dict().items()}
