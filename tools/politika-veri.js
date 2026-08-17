@@ -48,6 +48,12 @@ const TARAF = String(arg('--taraf', 'iki'));
      LA_AG_ADAY=0 (hepsi) → politika kipi 61.8sn CPU (0.97× gerçek zaman, SIĞMAZ)
      LA_AG_ADAY=5         → politika kipi 15.1sn CPU (3.98× gerçek zaman, SIĞAR) */
 const AG_ADAY = Number(arg('--agaday', 5));
+/* --derin: kac aday GERCEKTEN oynatilsin (LA_DERIN).
+   DEGER-AGI VERISI icin yukseltilir. Sebep dagilim uyusmazligi: cikarimda 25 adayin
+   hepsini puanlamak isteyecegiz, ama etiket YALNIZ oynatilan adaylar icin var.
+   derin=2 ile ag, "en iyi 2" disindaki adaylari HIC gormeden onlari puanlamaya
+   calisirdi — bugun politika aginda tam bu sinif hata yasandi. */
+const DERIN = Number(arg('--derin', 0));
 
 function main() {
     const { ctx, hatalar } = tezgahKur();
@@ -60,7 +66,7 @@ function main() {
 
     console.log('POLITIKA VERISI — aramanin kararlari');
     console.log('  mac: ' + MAC + '   tohum: ' + OFS + '..' + (OFS + MAC - 1));
-    console.log('  LA_AG_ADAY: ' + AG_ADAY + '  (canli kiple AYNI olmali)');
+    console.log('  LA_AG_ADAY: ' + AG_ADAY + '   LA_DERIN: ' + (DERIN || 'varsayilan'));
 
     for (let i = 0; i < MAC; i++) {
         const seed = OFS + i;
@@ -80,6 +86,7 @@ function main() {
             'battleDeployManifest(mv, false, { source:"politika", ally:true });' +
             'startBattle(); SIM.headless = true;' +
             'if (typeof LA_AG_ADAY !== "undefined") LA_AG_ADAY = ' + AG_ADAY + ';' +
+            (DERIN > 0 ? ('if (typeof LA_DERIN !== "undefined") LA_DERIN = ' + DERIN + ';') : '') +
             // arama açık taraf(lar): iki taraf = simetrik veri, tek taraf = yarı maliyet
             'BATTLE_LOOKAHEAD_RED = ' + (TARAF !== 'mavi') + ';' +
             'BATTLE_LOOKAHEAD_BLUE = ' + (TARAF !== 'kirmizi') + ';' +

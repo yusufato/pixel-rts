@@ -35,6 +35,7 @@ const TARAF = arg('--taraf', 'iki');
 const MAX_TIK = Number(arg('--maxtik', 7200)) || 7200;
 // Ag on suzgeci: canli kiple AYNI olmali (bkz. politika-veri.js aciklamasi)
 const AG_ADAY = Number(arg('--agaday', 5));
+const DERIN = Number(arg('--derin', 0));
 
 fs.mkdirSync(HEDEF, { recursive: true });
 
@@ -49,7 +50,7 @@ for (let i = 0; i < ISCI; i++) {
 }
 
 console.log('POLITIKA VERISI — PARALEL');
-console.log('  mac: ' + MAC + '   isci: ' + isler.length + '   taraf: ' + TARAF + '   LA_AG_ADAY: ' + AG_ADAY);
+console.log('  mac: ' + MAC + '   isci: ' + isler.length + '   taraf: ' + TARAF + '   LA_AG_ADAY: ' + AG_ADAY + '   LA_DERIN: ' + (DERIN||'vars'));
 console.log('  tohum bandi: ' + TOHUM0 + '..' + (TOHUM0 + MAC - 1) + '  (olcum bandi 100000+/150000+ ile AYRIK)');
 console.log('  cikti: ' + HEDEF);
 console.log('');
@@ -64,6 +65,7 @@ function isciKos(is) {
         const args = [path.join(ROOT, 'tools', 'politika-veri.js'),
             '--mac', String(is.mac), '--tohumofs', String(is.tohum0),
             '--taraf', TARAF, '--maxtik', String(MAX_TIK), '--agaday', String(AG_ADAY),
+            ...(DERIN > 0 ? ['--derin', String(DERIN)] : []),
             '--out', out];
         const p = spawn(process.execPath, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
         let son = '';

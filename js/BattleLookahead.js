@@ -535,6 +535,16 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
         if (!tepkiSkor.length) continue;
         // EN KÖTÜ DURUM: mevzi ancak düşmanın en iyi cevabına karşı da iyiyse iyidir
         const skor = Math.min.apply(null, tepkiSkor);
+        /* ADAYIN ROLLOUT SKORU — birim-koşullu değer ağının EĞİTİM HEDEFİ.
+           Neden bu, "10sn sonraki marj" değil: global marj değişimi o andaki TÜM
+           birimler için AYNI sayıdır. Ona "hangi birim" girdisini eklersek ağ o
+           girdiyi gürültü olarak öğrenir — bugün politika ağında tam bu yaşandı
+           (seçenekler girdide yokken tahminlerin %94'ü tek cevaba çöktü).
+           Rollout skoru ise hem BİRİME hem ADAYA bağlı: "bu birim şuraya giderse
+           5 saniyelik gerçek simülasyon sonunda değer ne olur". Ağ bunu öğrenirse
+           ışınlama rollout'un YERİNE geçebilir — GPU'nun çarpanını harcanabilir
+           kılan döviz kuru budur. Ve hesap zaten yapılıyor; yalnız atılıyordu. */
+        a._skor = skor;
         if (tepkiSkor.length > 1) {
             BATTLE_LA_SAYAC.rakipYayilimTop += (Math.max.apply(null, tepkiSkor) - skor);
             BATTLE_LA_SAYAC.rakipOlcum++;
@@ -582,7 +592,10 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
                "kal derin'de yoksa sonuna eklenir" kuralını kaçırır ve etiketi kaydırırdı. */
             const _sec = derin.map(a => [a.sinif | 0,
                 _yuv(a._s == null ? 0 : a._s), _yuv(a._ag == null ? 0 : a._ag),
-                _yuv((a.x - u0.x) / LA_YARICAP), _yuv((a.y - u0.y) / LA_YARICAP)]);
+                _yuv((a.x - u0.x) / LA_YARICAP), _yuv((a.y - u0.y) / LA_YARICAP),
+                // [5] ROLLOUT SKORU: birim-kosullu deger agi bunu ogrenecek.
+                // Oynatilmamis aday olursa null kalir (egitimde ACIKCA atlanir).
+                (a._skor == null || !isFinite(a._skor)) ? null : _yuv(a._skor)]);
             const _k = enIyi ? derin.indexOf(enIyi) : -1;
             if (_k >= 0) BATTLE_LA_KAYIT.buf.push({
                 r: _oz.r.map(_yuv), s: _oz.s.map(_yuv),
