@@ -23,6 +23,11 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const N = Math.max(1, Number(arg('--tohum', 4)) || 4);
 const TOHUM0 = Number(arg('--tohum0', 500000)) || 500000;
 const MAX_TIK = Number(arg('--maxtik', 1200)) || 1200;
+/* --koruma N : emir ömrü koruması açıkken de kapı geçilmeli. ZORUNLU, çünkü koruma
+   `applyBattleOrder` içinde SIM.tick ve `_laUntilTick` okuyor; kontrolör emri hem
+   canlıda hem replay'de AYNI fonksiyondan geçtiği için kapı iki yolda da aynı kararı
+   vermeli. Vermezse kayıt sessizce bozulur. */
+const KORUMA = Math.max(0, Number(arg('--koruma', 0)) || 0);
 
 function kos(ctx, seed, kayitAcik) {
     const kod = '(() => {' +
@@ -41,6 +46,7 @@ function kos(ctx, seed, kayitAcik) {
         'battleDeployManifest(mv, false, { source:"replaykapi", ally:true });' +
         'startBattle(); SIM.headless = true;' +
         'BATTLE_LOOKAHEAD_RED = true; BATTLE_LOOKAHEAD_BLUE = false;' +
+        'BATTLE_LA_EMIR_KORUMA = ' + KORUMA + ';' +
         // NEGATİF KONTROL kolu: emirleri KAYDETME (kapı bunu YAKALAMALI)
         (kayitAcik ? '' : 'const _eskiKayit = battleRecordEvent; battleRecordEvent = function(t, p, k){ if (t === "lookahead-order") return; return _eskiKayit(t, p, k); };') +
         'let st = 0, emir = 0;' +

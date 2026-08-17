@@ -75,6 +75,24 @@ function battleKamikazeMi(unit) {
     return !!(s && s.singleUse && s.domain === 'air');
 }
 
+/* ARAMA EMRİ YÜRÜRLÜKTE Mİ? İleri-bakış bir birime hedef verdiğinde `_laUntilTick`
+   damgası koyar; bu damga geçerliyken kod-AI'nın emri o birimi ATLAR (emir hiç
+   uygulanmaz → birim kendi otomatik davranışına döner, aynı kamikaze/hedef-uygunluk
+   atlamalarındaki gibi).
+
+   REPLAY SÖZLEŞMESİ: kontrolör emri canlıda da replay'de de AYNI fonksiyondan geçer
+   (BattleSession, 'controller-order' → applyBattleOrder) ve `_laUntilTick` replay'de
+   'lookahead-order' işleyicisinde aynı tikte kuruluyor → kapı iki yolda da AYNI
+   sonucu verir. Kapıyı çağıranın içine değil BURAYA koymanın sebebi budur.
+
+   OYUNCUNUN BİRİMİ KORUMA DIŞI: onun emri zaten player-* yolundan gelir; buradaki
+   süzgeç kod-AI emirleri içindir. */
+function battleLaEmirKorumali(unit, bit) {
+    if (typeof BATTLE_LA_EMIR_KORUMA === 'undefined' || !(BATTLE_LA_EMIR_KORUMA & bit)) return false;
+    if (!unit || unit.controlOwner === 'PLAYER') return false;
+    return ((unit._laUntilTick | 0) > (SIM.tick | 0));
+}
+
 function applyBattleOrder(rawOrder) {
     const order = normalizeBattleOrder(rawOrder);
     if (order.kind === BATTLE_ORDER_KIND.MOVE) {
@@ -85,6 +103,8 @@ function applyBattleOrder(rawOrder) {
             // Oyuncu emri ayri yoldan (player-move) gelir ve etkilenmez.
             if (typeof battleHedefUygun === 'function' && battleHedefUygun(unit.isRed) &&
                 battleKamikazeMi(unit)) continue;
+            // ARAMA EMRİ: hâlâ yürürlükteyse grup hareketi onu EZMESİN (ölçüm: ezmelerin %62'si burada)
+            if (battleLaEmirKorumali(unit, LA_KORUMA_MOVE)) continue;
             const safe = typeof terrainSafePoint === 'function'
                 ? terrainSafePoint(destination.x, destination.y)
                 : destination;
@@ -117,6 +137,10 @@ function applyBattleOrder(rawOrder) {
             if (typeof battleHedefUygun === 'function' && battleHedefUygun(unit.isRed) &&
                 typeof unitCanEngage === 'function' &&
                 !unitCanEngage(STATS[unit.type], STATS[target.type])) continue;
+            // ARAMA EMRİ: SALDIR emri hareket hedefini siliyordu (ezmelerin %22'si).
+            // Ayrık bit — bunun meşru tepki olma ihtimali MOVE'dan yüksek (medyan yaş 0 tik,
+            // %33'ünde düşman 400px içinde) → kapıda ayrı sınanır.
+            if (battleLaEmirKorumali(unit, LA_KORUMA_ATTACK)) continue;
             unit.manualTarget = target;
             unit.manualMoveTarget = null;
             unit.isMovingToManualTarget = false;
@@ -125,6 +149,7 @@ function applyBattleOrder(rawOrder) {
         for (const id of order.unitIds) {
             const unit = battleUnitById(id);
             if (!unit) continue;
+            if (battleLaEmirKorumali(unit, LA_KORUMA_HOLD)) continue;   // arama onu YOLA çıkardı
             unit.targetX = unit.x;
             unit.targetY = unit.y;
             unit.manualMoveTarget = null;
@@ -134,6 +159,7 @@ function applyBattleOrder(rawOrder) {
         for (const id of order.unitIds) {
             const unit = battleUnitById(id);
             if (!unit) continue;
+            if (battleLaEmirKorumali(unit, LA_KORUMA_SERBEST)) continue;
             unit.manualTarget = null;
             unit.manualMoveTarget = null;
             unit.isMovingToManualTarget = false;
@@ -332,8 +358,22 @@ function battleControllersSyncOwnership() {
         } else if (!unit.isRed && unit.ally && allyController) {
             assignUnitController(unit, allyController.id, CONTROL_OWNER.ALLY_AI);
         } else if (!unit.isRed && !unit.ally) {
+            /* SAHİPSİZ MAVİ BİRİM → OYUNCU. Bu dal `assignUnitController`'dan GEÇMEZ,
+               dolayısıyla eskiden replay'e HİÇ yazılmıyordu. Sahiplik maç ortasında
+               değişebiliyor: ele geçirme (Unit.js:181) aracın `controllerId`'sini siler,
+               canlıda sync burada PLAYER'a çevirir; replay'de sync hiç koşmaz
+               (mode:'replay' kontrolör kurmuyor) → birim ENEMY_AI kalır ve hash sapar.
+               ÖLÇÜLDÜ (tohum 500003): tik 1047 ele geçirme → tik 1049 canlı PLAYER /
+               replay ENEMY_AI. Değişim anında olay yazılır (her tik DEĞİL). */
+            const _degisti = (unit.controlOwner !== CONTROL_OWNER.PLAYER) || (unit.controllerId != null);
             unit.controlOwner = CONTROL_OWNER.PLAYER;
             unit.controllerId = null;
+            if (_degisti && typeof BATTLE_REPLAY !== 'undefined' && BATTLE_REPLAY.initialState &&
+                typeof battleRecordEvent === 'function') {
+                battleRecordEvent('controller-assignment', {
+                    unitId: unit.id, controllerId: null, owner: unit.controlOwner
+                });
+            }
         }
     }
 }

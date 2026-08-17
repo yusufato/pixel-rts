@@ -38,11 +38,50 @@ elendi; ben onu bir saatlik kapıya sokmuştum.
 
 | iş | ön kapı | neden önemli |
 |---|---|---|
-| **Emir ömrü** (`_laUntilTick` bağla) | — | emirlerin %50'si 1 saniyede eziliyor; +839 bu israfla elde edilmiş |
+| **Emir ömrü** (`BATTLE_LA_EMIR_KORUMA`) | ✔ mekanizma geçti | varış %13,8 → %36,2 |
 | **10-15sn ufuk** | %28,6 karar değişti | ufku KISALTMAK ölçülüp öldürülmüş, UZATMAK hiç denenmemiş |
 
-⚠ Emir ömrü için uyarı: ezmenin meşru sebepleri olabilir (düşman belirdi). Zorla
-tutturmak birimi öldürebilir. Ölçülmeden bağlanmaz.
+### Emir ömrü — teşhis (2026-08-17, `tools/emir-ezen.js` YENİ)
+
+Uyarı yerindeydi: **"emir 0,6sn'de eziliyor" ölçümü üç ayrı olayı tek torbaya
+koyuyordu.** Ayrıldı (varış / "yerinde kal" / gerçek ezme) ve gerçek tablo çıktı:
+
+- ezmelerin **%85'i gerçek** ezme, %15'i hedefe VARIŞ (yani emir yerine getirilmiş)
+- ezenin **tamamı** `applyBattleOrder`: MOVE %62 · ATTACK %22 · HOLD %8
+- MOVE ezmeleri **tepki değil**: medyan yaş 20 tik, %45'i ters yönde, yalnız %2,8'i
+  kaçan birim, %4,6'sında düşman 400px içinde
+- verilen her emrin **%44,7'si** açıklanamayan ezmeye uğruyor
+
+Bu yüzden koruma tek anahtar değil **bit maskesi** (1 MOVE · 2 HOLD · 4 ATTACK ·
+8 SERBEST): ATTACK ezmesinin medyan yaşı 0 tik ve %33'ünde düşman yakında — o meşru
+tepki olabilir, MOVE için aynı savunma yok.
+
+Mekanizma kapısı (doğru ölçü "emir yaşadı mı" değil **"hedefe VARDI mı"**):
+
+| koruma | emir hedefe VARDI | ezmenin medyan yaşı |
+|---|---:|---:|
+| 0 (taban) | %13,8 | 10 tik |
+| 1 (MOVE) | %30,8 | 40 tik |
+| 3 (+HOLD) | %30,4 | 30 tik |
+| 15 (tam) | **%36,2** | 100 tik |
+
+### Maç kapısı — koruma 15 vs 0 (2026-08-18, n=192 eşleştirilmiş, 94,6 dk)
+
+| kol | saldıran % | marj ort | t |
+|---|---:|---:|---:|
+| 0 (koruma yok) | %46,4 | −40 | −0,21 |
+| **15 (tam koruma)** | **%57,3** | **+446** | **2,29** |
+
+**Eşleştirilmiş fark: +486, t 2,10, n=192.**
+
+⚠ **Ama karar VERİLMEDİ.** Aracın kendi uyarısı: bu n ile ancak |etki| ≥ 648 güvenle
+yakalanır, ölçülen 486 **bunun altında**. Yani test bu büyüklükteki bir etkiyi
+güvenilir yakalayacak güçte değildi → tahmin gürültülü ve kazananın-laneti riski var.
+t 2,10 bu projede tek başına karar verdirmez (bkz. `docs/OLCUM-TUZAKLARI.md`).
+**TAZE tohumlarla doğrulama şart** → E kapısı (tohum0 100192, n=192; birleşince n=384,
+saptama tabanı ±458'e iner).
+
+⚠ VARSAYILAN 0 — doğrulama kapısı geçmeden açılmaz.
 
 ---
 
@@ -129,6 +168,56 @@ kazanıyor? Tam ayarda ~25 saat; kısa maçlarla (120sn) 8 işçide **~1 saat** 
 
 ---
 
+## E2 · ⚠ ARAMANIN FORK'U MAYINLARI SİLİYORDU (2026-08-17, ölçüldü ve düzeltildi)
+
+Emir ömrü işine başlarken zorunlu replay kapısı koşuldu ve **taban durumda düştü**
+(4/4 geçmesi gerekirken 2/4). Sapma alanı tahminle değil ölçümle bulundu
+(`tools/replay-sapma-teshis.js` YENİ — hangi birimin hangi alanı, tik çözünürlüğünde).
+
+**İki bağımsız kök neden çıktı:**
+
+| # | kusur | kanıt |
+|---|---|---|
+| 1 | `battleForkRestore` mayın dizisini **temizliyor**, `battleForkCapture` mayınları **hiç almıyordu** | tohum 500003, tik 801: canlı 0 mayın / replay 1 |
+| 2 | Sahiplik senkronu replay'de koşmuyor; **ele geçirme** `controllerId`'yi siliyor | tik 1047 ele geçirme → tik 1049 canlı `PLAYER` / replay `ENEMY_AI` |
+
+**1'in ağırlığı replay'in ötesinde:** aramanın HER rollout turu (100 tikte bir)
+haritadaki **iki tarafın da bütün mayınlarını kalıcı olarak siliyordu.** Yani:
+
+- Canlı oyunda **ÖNGÖRÜ seviyesi mayın alanlarını yok ediyordu** (oyuncununkiler dahil).
+- Arama açık koşularda mayın lehine olan taraf sessizce cezalandırılıyordu →
+  **aramanın ölçülmüş +839'u bu kirlilikle elde edildi**, yeniden ölçülmeli.
+
+Kapı neden görmedi: `battleStateHash` mayınları HİÇ saymıyordu (`battleStateHashParts`
+sayıyordu — asıl hash saymıyordu). Sapma ancak dolaylı etkisi birim durumuna
+yansıyınca, 240 tik sonra fark ediliyordu. **Mayınlar artık hash'te.**
+
+Düzeltmeler: fork mayın capture/restore · `_mineTimer` snapshot'a · mayınlar hash'e ·
+sahiplik değişimi `controller-assignment` olayı olarak kaydediliyor · motor sürümü
+`-mayinfork` ile damgalandı. **Kapı: 6/6 temiz, 2000 tik, koruma=15, negatif kontrol
+hâlâ yakalıyor.**
+
+Ayrıca kayıtlı bir iddia çürüdü: *"ele geçirme HİÇ olmuyor"* — oluyor
+(Unit.js:178-186 tetikleniyor, tohum 500003 tik 1047).
+
+### Kusurun ASIL sebebi: KAPI YOKTU → `tools/fork-kapisi.js` (YENİ, kalıcı)
+
+Mayın kaçağı aylarca görünmedi çünkü fork sınırını sınayan bir kapı hiç yazılmamıştı.
+Yazıldı ve **iki ayrı ölçü** taşıyor (biri diğerini yakalamaz):
+
+| ölçü | ne sınar | hangi kaçağı yakalar |
+|---|---|---|
+| **SADAKAT** | `hash(capture öncesi) == hash(restore sonrası)` | mayın kusuru (restore siliyordu) |
+| **TEKRAR** | aynı fork'tan N rollout aynı hash | kontrolör kaçağı (rollout-1 zemini kirletiyordu) |
+
+Negatif kontrol: capture'dan mayınlar kasten atılır → kapı DÜŞMELİ.
+**Durum: SADAKAT 6/6 · TEKRAR 6/6 · negatif kontrol yakaladı → GEÇTİ.**
+
+⚠ Bu kapı arama açıkken değil, **fork'un kendisinde** koşar — yani aramadan bağımsız
+olarak fork'u kullanan her şeyi (rollout, ışınlama denemeleri, gelecekte Worker) korur.
+
+---
+
 ## F · BUGÜNÜN DESENİ — "bilgi var, kullanan yok"
 
 Üç bağımsız örnek çıktı ve muhtemelen daha var:
@@ -137,7 +226,7 @@ kazanıyor? Tam ayarda ~25 saat; kısa maçlarla (120sn) 8 işçide **~1 saat** 
 |---|---|
 | `SIM.pendingHits` (gelen ateş: nereye, ne zaman, yarıçap) | tam kayıt, **hiç okunmuyor** |
 | Kredi defteri 5 kanalı (`gorusTekil`, `tespit`, `siperTik`, `havaCaydirma`, `kapma`) | tanımlı, **hiç yazılmıyor** |
-| `_laUntilTick` (emir ömrü koruması) | atanıyor, **hiç okunmuyor** |
+| `_laUntilTick` (emir ömrü koruması) | atanıyor, **hiç okunmuyor** → 2026-08-17 BAĞLANDI (`BATTLE_LA_EMIR_KORUMA`) |
 
 Kullanıcının teşhisi — *"AI'nin potansiyeli var ama kullanamıyor"* — ölçüldüğü her
 yerde doğrulandı. Tavan ölçümü de aynı yöne: en iyi aday kararların **%72'sinde**

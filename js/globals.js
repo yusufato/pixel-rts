@@ -1544,6 +1544,30 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── ARAMA EMRİNİN ÖMRÜ (bit maskesi) ──────────────────────────────────────
+   İleri-bakış araması bir birime "şuraya git" dediğinde `_laUntilTick` damgası
+   koyuyordu ama o damga HİÇ OKUNMUYORDU: kod-AI kontrolörü bir sonraki karar
+   turunda emri eziyordu.
+
+   ÖLÇÜLDÜ (tools/emir-ezen.js, 2 maç / 217 emir) — ezmeyi ÜÇ farklı olaydan
+   ayırdıktan sonra (varış / kal / gerçek ezme):
+     · %85 gerçek ezme (yol yarıda kesildi), %15 varış
+     · ezenin TAMAMI applyBattleOrder: MOVE %62 · ATTACK %22 · HOLD %8
+     · MOVE ezmelerinin medyan yaşı 20 tik, %45'i TERS yönde, yalnız %2.8'i
+       kaçan birim ve %4.6'sında düşman 400px içinde → TEPKİ DEĞİL
+     · verilen her emrin %44.7'si "açıklanamayan" ezmeye uğruyor
+
+   BİT MASKESİ, tek anahtar değil: üç ezenin profili çok farklı. ATTACK ezmesinin
+   medyan yaşı 0 tik ve %33'ünde düşman 400px içinde — o meşru tepki OLABİLİR;
+   MOVE için aynı savunma yok. Kapatılacak kısım ölçülerek seçilsin diye ayrık.
+     1 = MOVE   2 = HOLD   4 = ATTACK   8 = FREE_FIRE      (0 = koruma yok)
+   Öneri kolları: 1 (yalnız MOVE) · 3 (MOVE+HOLD) · 15 (tam).
+
+   ⚠ Zorla tutturmak birimi öldürebilir → maç kapısından geçmeden VARSAYILAN AÇILMAZ.
+   Kapı: tools/rol-dengesi-paralel.js --kol BATTLE_LA_EMIR_KORUMA --koldeger 0,N */
+let BATTLE_LA_EMIR_KORUMA = 0;
+const LA_KORUMA_MOVE = 1, LA_KORUMA_HOLD = 2, LA_KORUMA_ATTACK = 4, LA_KORUMA_SERBEST = 8;
+
 // A/B kolu: kapalıyken eski geçici siper (r=130, hp=320, 3sn, 60sn ömür) geri gelir.
 let BATTLE_ISTIHKAM_US = true;
 function battleIstihkamUs() {

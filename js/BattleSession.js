@@ -2,7 +2,7 @@
 // Hızlı Maç, Hikâye, Multiplayer ve QA aynı reset, harita, RNG ve kural
 // kurulumundan geçer. Modlar yalnız başlangıç verisi sağlar; motor değiştiremez.
 
-const BATTLE_ENGINE_VERSION = 'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair-a2a-tedarik6';   // 2026-08-08 ALTI DAVRANIS DEGISIKLIGI: tahsis metrigi (para bazli en-buyuk-kalan), konuslandirma
+const BATTLE_ENGINE_VERSION = 'battlefield-v4-roster25-intel4-deferdmg-s2-posture-pdair-a2a-tedarik6-mayinfork';   // 2026-08-17: fork mayinlari siliyordu (davranis degisti) + mayinlar hash'e girdi
 // derinligi (nitelikten turetilir + 150px adim + geriye-de-bakan carpisma aramasi), kesif onceligi
 // (gozlem > kendini-savunma), hava savunma kovasi (air_defense -> FIRE_SUPPORT), SUPPORT yurutme dali,
 // birim agirliklari (SPAAG 0.09, SUPPLY 0.05).
@@ -650,7 +650,11 @@ function battleUnitSnapshot(unit) {
            bozulur (yarım kalmış rota re-derive edilemez, oyuncu emrinden türetilmiştir). */
         mineRoute: unit.mineRoute && unit.mineRoute.length
             ? unit.mineRoute.map(p => ({ x: p.x, y: p.y })) : null,
-        _mineLayTimer: unit._mineLayTimer || 0
+        _mineLayTimer: unit._mineLayTimer || 0,
+        /* AI MAYIN SOĞUMASI (Unit.js:1405, ~3sn). Aynı denetimde yakalandı: fork'a
+           yazılmazsa geri yüklenen istihkâm soğumayı SIFIRLANMIŞ bulur (undefined→0)
+           ve bir sonraki karede hemen mayın döşer → rollout'lar mayın ritmini kaydırır. */
+        _mineTimer: unit._mineTimer || 0
     };
 }
 
@@ -746,6 +750,14 @@ function battleStateHash() {
         mix(Math.round(field.x * 100)); mix(Math.round(field.y * 100));
         mix(field.isRed ? 1 : 0); mix(Math.round((field.hp || 0) * 100)); mix(field.expiresAt || 0);
         mix(field.refuelsLeft == null ? '-' : field.refuelsLeft);   // helo-üssü kalan dolum-hakkı (değişir → hash-şart)
+    }
+    /* MAYINLAR HASH'E — 2026-08-17'ye kadar YOKTU ve bu, sapma dedektörünü KÖR bıraktı:
+       fork mayınları siliyordu, canlı↔replay tik 801'de ayrılıyordu ama dedektör ancak
+       tik 1060'ta (mayının dolaylı etkisi birim durumuna yansıyınca) uyanıyordu.
+       battleStateHashParts `t` bölümü mayınları zaten sayıyordu — asıl hash saymıyordu. */
+    for (const mine of (SIM.mines || []).slice().sort((a, b) => (a.x - b.x) || (a.y - b.y))) {
+        mix(Math.round(mine.x * 100)); mix(Math.round(mine.y * 100));
+        mix(mine.isRed ? 1 : 0); mix(mine.armed ? 1 : 0);
     }
     for (const spawn of pendingSupportSpawns || []) {
         mix(spawn.spawnAt); mix(spawn.type); mix(spawn.isRed ? 1 : 0);
@@ -913,6 +925,14 @@ function battleForkCapture() {
         nextId: Unit.nextId || 0,
         units: SIM.units.filter(u => !u.dead).map(battleForkUnitSnapshot),
         trenches: (SIM.trenches || []).map(replayClone),
+        /* MAYINLAR — KUSUR 2026-08-17: battleForkRestore mayın dizisini TEMİZLİYORDU ama
+           capture onu HİÇ ALMIYORDU. Sonuç: aramanın her rollout'u haritadaki BÜTÜN
+           mayınları (iki tarafın da) kalıcı olarak siliyordu. Canlı oyunda ÖNGÖRÜ
+           seviyesi mayın alanlarını yok ediyor, ve arama açık koşularda mayın lehine
+           olan taraf sessizce cezalandırılıyordu.
+           TEŞHİS: canlıda 0 mayın, replay'de 1 (tools/replay-sapma-teshis.js, tohum 500003).
+           Ana hash mayınları saymadığı için sapma dedektörü 240 tik geç uyanıyordu. */
+        mines: (SIM.mines || []).map(replayClone),
         activeSupports: (typeof activeSupports !== 'undefined') ? replayClone(activeSupports) : null,
         pendingSupportSpawns: (typeof pendingSupportSpawns !== 'undefined') ? replayClone(pendingSupportSpawns) : null,
         pendingHits: SIM.pendingHits ? replayClone(SIM.pendingHits) : null,   // DEFERRED-DAMAGE: uçuşta-vuruşlar fork-sınırından geçmeli (skaler → replayClone güvenli)
@@ -950,6 +970,7 @@ function battleForkRestore(fork) {
         }
     }
     for (const f of fork.trenches || []) SIM.trenches.push(replayClone(f));
+    if (SIM.mines) for (const m of fork.mines || []) SIM.mines.push(replayClone(m));   // temizleniyordu ama geri konmuyordu (bkz. capture)
     const restoreArr = (live, saved) => { if (typeof live === 'undefined' || !live || !saved) return; live.length = 0; for (const x of saved) live.push(replayClone(x)); };
     if (typeof activeSupports !== 'undefined') restoreArr(activeSupports, fork.activeSupports);
     if (typeof pendingSupportSpawns !== 'undefined') restoreArr(pendingSupportSpawns, fork.pendingSupportSpawns);
@@ -1280,6 +1301,11 @@ function battleApplyRecordedEvent(event) {
 function battleReplayDrive() {
     const driver = BATTLE_REPLAY_DRIVER;
     if (!driver.active || !driver.source) return;
+    /* NOT (2026-08-17): burada `battleControllersSyncOwnership()` çağırmak DENENDİ ve
+       işe yaramaz — replay oturumunda (mode:'replay') hiç kontrolör kurulmuyor, sync
+       ilk satırında `BATTLE_CONTROLLERS.size` sıfır olduğu için dönüyor. Sahiplik
+       değişimi bu yüzden OLAY olarak kaydediliyor (BattleController.js, sync'in
+       PLAYER dalı) — 'controller-posture' ve 'lookahead-order' ile aynı desen. */
     const events = driver.source.events || [];
     while (driver.eventIndex < events.length && events[driver.eventIndex].tick <= SIM.tick) {
         const event = events[driver.eventIndex++];
