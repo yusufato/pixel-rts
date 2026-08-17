@@ -28,7 +28,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Teşhis sayaçları (hash DIŞI — simülasyona dokunmaz, yalnız ölçüm harness'i okur)
-const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0, rakipYayilimTop: 0, rakipOlcum: 0, politikaKal: 0, politikaEmir: 0 };
+const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0, rakipYayilimTop: 0, rakipOlcum: 0, politikaKal: 0, politikaEmir: 0, kuyrukAtilan: 0, enKotuTikMs: 0 };
 
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
@@ -53,6 +53,32 @@ let BATTLE_LOOKAHEAD_LIVE = false;   // zorluk seciminden acilir (Screens.js QM_
    kalır, maliyet zamana yayılır — canlı bütçe için tek kalan ucuz kaldıraç. */
 let LA_PERIYOT_TIK = 100;     // kaç tikte bir arama (100 = 5sn)
 let LA_BIRIM = 20;            // kapsam: ordunun tamamına yakını (A3)
+
+/* ── TİKE YAYMA (canlı oyun donması) ──────────────────────────────────────
+   KULLANICI RAPORU: "oyun her 5 saniyede bir 2-3 saniye donuyor."
+
+   BENİM ÖLÇÜM HATAM: maliyeti "1.90× gerçek zaman" diye raporlamıştım. O sayı
+   VERİM (60sn oyun / 31.6sn CPU). Ama oyunu donduran şey verim değil GECİKME:
+   o 31.6sn'nin tamamı 12 turda, tur başına ~2.2sn'lik TEK BLOK hâlinde harcanıyor.
+   Ortalama sığıyor, kare bütçesi patlıyor. Yol haritası bunu zaten yazmıştı
+   ("karar başına iş dilimlenmeli") — okudum ve yine de blok hâlinde sevk ettim.
+
+   ÇÖZÜM: turun birimleri KUYRUĞA alınır, her tik en fazla LA_TIK_BIRIM tanesi
+   işlenir. Toplam iş ve kapsam AYNI kalır (20 birim, 5sn ufuk, 5sn periyot) —
+   yalnız zamana yayılır. En kötü tek-tik maliyeti ~20 kat düşer.
+
+   NEDEN TİK-BAZLI, DUVAR-SAATİ DEĞİL: "8ms dolana kadar işle" demek, kararları
+   makine hızına bağlar → aynı tohum farklı makinede farklı oynar, ölçüm ve
+   replay tekrar üretilemez olur. Tik-bazlı dilim determinist kalır.
+
+   YAN ETKİ (bilinçli): birimler artık aynı ANDA değil, sırayla birkaç tik arayla
+   karar veriyor. Sıralı taahhüt zaten bunu yapıyordu (her birim öncekinin emrini
+   görüyordu); şimdi arada sim de ilerliyor, yani karar DAHA TAZE durumdan alınıyor.
+   Ama bu, +839'un ölçüldüğü konfigürasyon DEĞİL → yeniden ölçülmeli.
+
+   0 = yayma yok (tezgâh/ölçüm davranışı: tüm tur tek tikte). */
+let LA_TIK_BIRIM = 0;
+const BATTLE_LA_KUYRUK = [];   // bekleyen kararlar: {uid, isRed}
 /* ── DÖNÜŞÜMLÜ ARAMA (canlı bütçe) ──
    ÖLÇÜLDÜ: kısa ufuk kazancı ÖLDÜRÜYOR (1sn ufuk +33 t 0.08 vs 5sn +1369 t 3.15).
    Yani bütçe UFUKTAN kısılamaz — kazanç gerçekten 5 saniye simüle etmekten geliyor.
@@ -120,6 +146,11 @@ let LA_SIRALI = true;
    zaten aynıydı. Maliyeti 2× — o bütçe KAPSAMA harcanınca 5 birim yerine 20 birim
    aranabiliyor. Mekanizma silinmedi, bayraklı duruyor. */
 let LA_CIFT_YON = false;
+
+/* Tek-sıra hızlı yolu. Yalnız DOĞRULAMA için kapatılabilir: kapalıyken eski
+   (fork + atılan plan-rollout) yolu koşar. İkisinin AYNI sonucu vermesi gerekir;
+   bu bayrak o eşitliği ölçülebilir kılar — "davranış aynı" demek yetmez. */
+let LA_HIZLI_YOL = true;
 
 /* ── DEĞER AĞI HEDEFİ (2026-08-17) ──
    ÖLÇÜLDÜ: argmax(marj@10sn) KARARSIZ bir hedef — 20sn'de kazancın %13'ü kalıyor.
@@ -671,7 +702,29 @@ function battleLookaheadEmirVer(uid, karar, kayit) {
    yeniden yaratır ve dış tikin döngülerini bozar. */
 function battleLookaheadTick(now) {
     if (typeof SIM === 'undefined' || !SIM.units || phase !== PHASE.BATTLE) return;
+
+    /* KUYRUK BOŞALTMA (tike yayma açıkken). Periyot tiki olmasa da her tikte
+       birkaç bekleyen karar işlenir → tur tek blok yerine zamana yayılır. */
+    if (LA_TIK_BIRIM > 0 && BATTLE_LA_KUYRUK.length) {
+        let n = 0;
+        while (BATTLE_LA_KUYRUK.length && n < LA_TIK_BIRIM) {
+            const is = BATTLE_LA_KUYRUK.shift();
+            n++;
+            if (!battleLookaheadAcik(is.isRed)) continue;
+            const k = battleLookaheadBirimKarari(is.uid, is.isRed, now);
+            if (k) battleLookaheadEmirVer(is.uid, k, true);   // NİHAİ → replay'e yaz
+        }
+    }
+
     if ((SIM.tick % LA_PERIYOT_TIK) !== 0) return;
+    /* Yeni tur: eski kuyruk BOŞALTILIR. Bir önceki turun artıkları bu tura
+       taşınırsa karar sırası kayar ve kuyruk hiç kapanmadan büyüyebilir
+       (yavaş makinede sonsuz birikme). Kaçırılan karar, bir sonraki turda
+       zaten yeniden değerlendirilecek. */
+    if (LA_TIK_BIRIM > 0 && BATTLE_LA_KUYRUK.length) {
+        BATTLE_LA_SAYAC.kuyrukAtilan += BATTLE_LA_KUYRUK.length;
+        BATTLE_LA_KUYRUK.length = 0;
+    }
 
     for (const isRed of [true, false]) {
         if (!battleLookaheadAcik(isRed)) continue;
@@ -724,6 +777,37 @@ function battleLookaheadTick(now) {
         /* SIRALI (+ istenirse ÇİFT YÖNLÜ). Bir sırayı dene: her birim kararını alır ve
            emri HEMEN uygulanır → sıradaki birim onu görerek karar verir. Sonra ortaya
            çıkan ORTAK PLAN oynatılıp puanlanır. */
+        /* ── TEK SIRA HIZLI YOLU (LA_CIFT_YON kapalıyken) ────────────────────
+           `dene()` ortak planı puanlamak için 100 tiklik TAM bir rollout koşuyor.
+           Ama çift yön kapalıyken karşılaştırılacak İKİNCİ plan yok — o skor
+           hesaplanıp ATILIYOR. Turun en pahalı tek parçası, sonucu kullanılmadan.
+
+           Ayrıca dış fork/restore da gereksiz: `dene` emirleri uyguluyor, sonra
+           taban geri yükleniyor, sonra AYNI emirler yeniden uygulanıyor.
+
+           Bu yol ikisini de atlar: birim kararını al, emri HEMEN uygula (sıralı
+           taahhüt korunur — sıradaki birim öncekinin gerçek hamlesini görür).
+           DAVRANIŞ AYNI: rollout fork/restore ile tamamen geri alınıyordu.
+           Eşitlik md5 ile doğrulandı (aynı tohumlarda birebir aynı çıktı).
+
+           KAZANÇ: tur başına bir tam-plan rollout'u (~%20 maliyet) ve daha da
+           önemlisi tur artık BÖLÜNEBİLİR hâle gelir — her birim kararı kendi
+           içinde atomik (kendi fork/restore'u var), dış bariyer kalkınca kararlar
+           tiklere yayılabilir. Canlı oyundaki 2-3sn'lik donmanın çözümü budur. */
+        if (!LA_CIFT_YON && LA_HIZLI_YOL) {
+            if (LA_TIK_BIRIM > 0) {
+                // TİKE YAY: kararları kuyruğa koy, tikler boyunca işlensin.
+                for (const uid of hedefler) BATTLE_LA_KUYRUK.push({ uid, isRed });
+            } else {
+                for (const uid of hedefler) {
+                    const k = battleLookaheadBirimKarari(uid, isRed, now);
+                    if (k) battleLookaheadEmirVer(uid, k, true);   // NİHAİ → replay'e yaz
+                }
+            }
+            BATTLE_LA_SAYAC.ileriKazandi++;
+            continue;
+        }
+
         const taban = battleForkCapture();
         const dene = (sira) => {
             battleForkRestore(taban);

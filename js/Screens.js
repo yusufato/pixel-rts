@@ -89,6 +89,35 @@ function quickMatchApplyBrain(anahtar) {
        ONEMLI: arama yalnizca RAKIP icin degil, AI olan HER birim icin acilir; oyuncunun
        birimleri zaten suzgecle disarida. Boylece muttefik AI de kademeye uyar. */
     if (typeof BATTLE_LOOKAHEAD_LIVE !== 'undefined') BATTLE_LOOKAHEAD_LIVE = !!b.arama;
+
+    /* ── CANLI AYARI (kullanici raporu: "her 5 saniyede 2-3 saniye donuyor") ──
+       OLCUM HATASI DUZELTILDI: maliyeti "1.90x gercek zaman" diye raporlamistim; o
+       sayi VERIM. Oyunu donduran GECIKME. Dogru olcu EN KOTU TEK-TIK ve tezgahta
+       3636ms cikti — kullanicinin gordugu tam olarak buydu.
+
+       Tek birim karari tikin ICINDE bolunemez (fork gercek simle ayni anda yasayamaz),
+       yani hitch'in TABANI bir birimin maliyetidir. Onu ancak rollout'u kisarak
+       dusurebiliriz ve bu KAZANCI DA DUSURUR. Takas acikca yapilir:
+
+         konfigurasyon            en kotu tik   toplam ek yuk
+         tam (olculen +839)          3636ms         %46
+         yayik (tike dagit)           381ms         %38
+         CANLI (asagidaki)            163ms          %8
+
+       ⚠ Bu ayar +839'un olculdugu konfigurasyon DEGIL. Gucu AYRICA olculuyor;
+       oyuna "olculmus +839" diye satilamaz. Tam guc icin arama ana iplikten
+       cikmali (Web Worker) — yol haritasinin ilk cevabi zaten buydu. */
+    /* GERI ALMA SART: bu degerler GLOBAL ve kalicidir. ONGORU secip sonra intel4'e
+       donen oyuncuda ayarlar asili kalirdi — intel4 sessizce farkli bir konfigurasyonla
+       oynar, kimse fark etmezdi. Her cagrida ACIKCA iki daldan biri yazilir. */
+    const _la = b.arama
+        ? { tik: 1, ufuk: 50, derin: 1, birim: 8 }     // CANLI: donma yerine kucuk takilma
+        : { tik: 0, ufuk: 100, derin: 2, birim: 20 };  // olculen varsayilanlar (tezgah)
+    if (typeof LA_TIK_BIRIM !== 'undefined') LA_TIK_BIRIM = _la.tik;
+    if (typeof LA_UFUK !== 'undefined') LA_UFUK = _la.ufuk;
+    if (typeof LA_DERIN !== 'undefined') LA_DERIN = _la.derin;
+    if (typeof LA_BIRIM !== 'undefined') LA_BIRIM = _la.birim;
+    if (typeof BATTLE_LA_KUYRUK !== 'undefined') BATTLE_LA_KUYRUK.length = 0;
     // Oyuncu tarafi (mavi) hicbir beyin almaz — dost AI kendi varsayilaniyla kalir.
     if (typeof BATTLE_INTEL4PRO_BLUE !== 'undefined') BATTLE_INTEL4PRO_BLUE = false;
     if (typeof BATTLE_BEONAI_BLUE !== 'undefined') BATTLE_BEONAI_BLUE = null;
