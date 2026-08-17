@@ -68,8 +68,11 @@ for d in DOSYALAR:
                 if len(c) < 6 or c[5] is None:
                     _atlanan += 1; continue     # oynatilmamis aday: ETIKETI YOK
                 R.append(o['r']); S.append(o['s']); B.append(o['b'])
+                # c = [sinif, analitik, ag, dx, dy, SKOR, orman, siper, ikmal, yukselti,
+                #      tehditDeger, tehditSay]
                 C.append([1.0 if (c[0] == 0) else 0.0,   # "yerinde kal" bayragi
-                          c[1], c[2], c[3], c[4]])       # analitik, ag, dx, dy
+                          c[1], c[2], c[3], c[4]]        # analitik, ag, dx, dy
+                         + [float(x) for x in (c[6:12] if len(c) >= 12 else [0]*6)])
                 Y.append(float(c[5]))
                 MAC.append(mac); TIK.append(o['tik'])
             if len(Y) > MAKS: break
@@ -129,6 +132,31 @@ def karar_ici(pred):
         if int(np.argmax(p)) == int(np.argmax(gg)): dogru += 1
         toplam += 1
     return (dogru / toplam if toplam else float('nan')), toplam
+
+# ── ABLASYON: hangi oznitelik grubu GERCEKTEN katki yapiyor? ──
+# Toplama pahali (saat), egitim bedava (saniye). O yuzden ZENGIN toplanir ve
+# atfetme egitimde yapilir — her grubu ayri ayri kapatip farki olcerek.
+# "Bir ton girdi ekle" tuzagina karsi tek savunma budur: eklenen her alanin
+# KENDI katkisi gorunur olur, aksi halde olu alanlar sessizce gurultu tasir.
+KAPAT = set((arg('--kapat', '') or '').split(',')) - {''}
+_C_AD = ['kal', 'analitik', 'ag', 'dx', 'dy', 'orman', 'siper', 'ikmal', 'yukselti', 'tehditDeger', 'tehditSay']
+_GRUP = {
+    'aday-geometri': ['dx', 'dy'],
+    'ucuz-skor':     ['analitik', 'ag'],
+    'arazi':         ['orman', 'siper', 'ikmal', 'yukselti'],
+    'tehdit':        ['tehditDeger', 'tehditSay'],
+}
+if KAPAT:
+    _kapali = set()
+    for g in KAPAT:
+        if g in _GRUP: _kapali.update(_GRUP[g])
+        elif g == 'birim-hazirlik': pass          # B icinde, asagida
+        else: print(f'  ! bilinmeyen grup: {g}')
+    for ad in _kapali:
+        if ad in _C_AD: C[:, _C_AD.index(ad)] = 0.0
+    if 'birim-hazirlik' in KAPAT and B.shape[1] >= 12:
+        B[:, 7:12] = 0.0                          # mermi, bastirilma, kacis, orman, siper
+    print(f'  ABLASYON: kapatilan grup(lar) = {sorted(KAPAT)}')
 
 rmu, rsd = R[tr].mean((0,2,3), keepdims=True), R[tr].std((0,2,3), keepdims=True) + 1e-6
 smu, ssd = S[tr].mean(0), S[tr].std(0) + 1e-6

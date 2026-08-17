@@ -595,14 +595,27 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
                 _yuv((a.x - u0.x) / LA_YARICAP), _yuv((a.y - u0.y) / LA_YARICAP),
                 // [5] ROLLOUT SKORU: birim-kosullu deger agi bunu ogrenecek.
                 // Oynatilmamis aday olursa null kalir (egitimde ACIKCA atlanir).
-                (a._skor == null || !isFinite(a._skor)) ? null : _yuv(a._skor)]);
+                (a._skor == null || !isFinite(a._skor)) ? null : _yuv(a._skor),
+                // [6..11] ADAY NOKTASININ CEVRESI: orman, siper, ikmal, yukselti,
+                // tehdit-degeri, tehdit-sayisi. Bugune kadar ag bunlarin HICBIRINI
+                // gormuyordu — ortu tek basina hasari %70 degistirebiliyor.
+                ...battleLaNoktaCevresi(a.x, a.y, isRed).map(_yuv)]);
             const _k = enIyi ? derin.indexOf(enIyi) : -1;
             if (_k >= 0) BATTLE_LA_KAYIT.buf.push({
                 r: _oz.r.map(_yuv), s: _oz.s.map(_yuv),
+                /* BIRIM: konum, tip, HP, taraf, menzil, maliyet + SAVAS HAZIRLIGI.
+                   Eskiden yalniz HP vardi; oysa 5 saniyede ne olacagini mühimmat,
+                   bastirilma ve kacis hali dogrudan belirliyor — mühimmatsiz birim
+                   mukemmel mevziye gitse de ates edemez. */
                 b: _u ? [_u.x / WORLD_W, _u.y / WORLD_H, _u.type / 26,
                         _u.hp / Math.max(1, _u.maxHp), _u.isRed ? 1 : 0,
                         (_st && _st.range ? _st.range : 0) / 2000,
-                        (_st && _st.cost ? _st.cost : 0) / 1000].map(_yuv) : null,
+                        (_st && _st.cost ? _st.cost : 0) / 1000,
+                        _u.maxAmmo ? (_u.ammo || 0) / _u.maxAmmo : 1,
+                        (_u.suppression || 0) / 100,
+                        _u.isFleeing ? 1 : 0,
+                        _u.inForest ? 1 : 0,
+                        _u.inTrench ? 1 : 0].map(_yuv) : null,
                 o: _sec,            // seçenekler (ağın ARALARINDA seçim yaptığı şeyler)
                 k: _k,              // ETİKET: seçilen seçeneğin indeksi
                 y: enIyi ? (enIyi.sinif | 0) : 0,   // kafes sınıfı (teşhis)
@@ -612,6 +625,47 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
         }
     }
     return (enIyi && !enIyi.kal) ? { x: enIyi.x, y: enIyi.y, skor: enIyiSkor } : null;
+}
+
+/* ── ADAY NOKTASININ ÇEVRESİ ────────────────────────────────────────────────
+   Değer ağının en büyük kör noktası: aday noktanın NEREDE olduğu hakkında hiçbir
+   şey bilmiyordu. Oysa motorda örtü hasarı %70'e kadar azaltıyor
+   (js/globals.js: cover = inForest*0.4 + inTrench*0.3) ve bu bilgi ne raster'da
+   ne aday özniteliğinde geçiyordu. Ağ, ormana mı açık alana mı gidildiğini
+   göremeden "orada ne olur" sorusunu cevaplamaya çalışıyordu.
+
+   Hepsi noktanın SAF fonksiyonu (Unit.updateTerrainBonuses ile aynı kaynaklar),
+   sim durumuna DOKUNMAZ. Maliyet: aday başına bir ızgara sorgusu — rollout'un
+   yanında ölçülemez.
+   Dönüş: [orman, kendi-siperi, ikmal, yükselti, tehdit-değeri, tehdit-sayısı] */
+function battleLaNoktaCevresi(x, y, isRed) {
+    let orman = 0;
+    if (typeof MAP_MODE !== 'undefined' && MAP_MODE === 'grid') {
+        orman = (typeof terrainTypeAt === 'function' && terrainTypeAt(x, y) === TERRAIN.FOREST) ? 1 : 0;
+    } else if (typeof terrainFeatures !== 'undefined') {
+        for (const t of terrainFeatures) {
+            if (t.type === TERRAIN.FOREST && Math.hypot(x - t.x, y - t.y) < t.r) { orman = 1; break; }
+        }
+    }
+    let siper = 0, ikmal = 0;
+    for (const t of (SIM.trenches || [])) {
+        if (t.isRed !== isRed || t.isHospital) continue;
+        if (Math.hypot(x - t.x, y - t.y) >= t.r) continue;
+        siper = 1; ikmal = (t.providesSupply !== false) ? 1 : 0; break;
+    }
+    const yuk = (typeof elevationAt === 'function') ? elevationAt(x, y) : 0.5;
+    /* TEHDİT: bu noktayı MENZİLİNE ALAN düşmanların toplam değeri. Aday noktanın
+       "vurulabilirliği" — rollout'un simüle ettiği şeyin en doğrudan vekili. */
+    let tDeger = 0, tSay = 0;
+    if (SIM.spatialGrid) {
+        for (const o of SIM.spatialGrid.getNearby(x, y, 1400)) {
+            if (o.dead || o.loaded || o.abandoned || o.isRed === isRed) continue;
+            const d = Math.hypot(o.x - x, o.y - y);
+            if (d > (o.range || 0)) continue;
+            tDeger += ((STATS[o.type] && STATS[o.type].cost) || 0); tSay++;
+        }
+    }
+    return [orman, siper, ikmal, yuk, tDeger / 3000, tSay / 12];
 }
 
 /* ── ELEME + YAYILIM KAPISI, rollout'suz ────────────────────────────────────
