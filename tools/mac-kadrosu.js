@@ -41,14 +41,27 @@ function kadro(ctx, seed) {
         '  if (u.dead || !u.isRed) continue;' +
         '  const s = STATS[u.type] || {};' +
         '  const ad = s.id || ("tip" + u.type);' +
-        '  if (!say[ad]) say[ad] = { n:0, maliyet: s.cost || 0 };' +
+        '  if (!say[ad]) say[ad] = { n:0, maliyet: s.cost || 0, tr: s.name || ad };' +
         '  say[ad].n++; toplam += (s.cost || 0); adet++;' +
         '}' +
-        'return JSON.stringify({ seed:' + seed + ', attackerSide:' + attackerSide + ',' +
+        'const trAd = {}; for (const k in say) trAd[k] = say[k].tr;' +
+        'return JSON.stringify({ seed:' + seed + ', attackerSide:' + attackerSide + ', trAd,' +
         '  harita: (SIM.battle && SIM.battle.mapId), say, toplam, adet });' +
         '})()';
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'kadro-' + seed + '.js' }));
 }
+
+/* Oyundaki spawn-bar gruplari — js/main.js SPAWN_CATEGORIES ile AYNI SIRA ve AYNI
+   icerik olmak zorunda. Kaydiginda liste oyuncuyu yanlis yere baktirir. */
+const GRUPLAR = [
+    { label: '👣 PIYADE',      ids: ['infantry', 'at_team', 'mortar_team', 'manpads_team', 'commando'] },
+    { label: '🛡️ ZIRHLI',      ids: ['mbt', 'ifv', 'tank_destroyer'] },
+    { label: '💥 DOLAYLI',     ids: ['artillery', 'mlrs', 'ballistic_missile'] },
+    { label: '🎯 HAVA-SAV.',   ids: ['spaag', 'sam_battery'] },
+    { label: '✈️ HAVA',        ids: ['attack_helo', 'transport_helo', 'recon_uav', 'armed_uav', 'drone_operator'] },
+    { label: '📡 KESIF/EH',    ids: ['scout_vehicle', 'counter_battery_radar', 'ew_vehicle'] },
+    { label: '🚑 DESTEK',      ids: ['medic', 'engineer', 'supply_truck', 'command_vehicle'] }
+];
 
 function main() {
     const { ctx, hatalar } = tezgahKur();
@@ -58,12 +71,30 @@ function main() {
     console.log('');
     for (const seed of TOHUMLAR) {
         const r = kadro(ctx, seed);
+        const AD_TR = r.trAd || {};   // Turkce adlar MOTORDAN (STATS[].name) — elle yazilmaz
         console.log('  ══ TOHUM ' + seed + ' ══   rakip ' + (r.attackerSide ? 'SALDIRAN' : 'SAVUNAN') +
             '   toplam ' + r.adet + ' birim / ' + r.toplam + ' TL');
-        const sirali = Object.entries(r.say).sort((a, b) => (b[1].n * b[1].maliyet) - (a[1].n * a[1].maliyet));
-        for (const [ad, v] of sirali) {
-            console.log('     ' + String(v.n).padStart(2) + ' ×  ' + ad.padEnd(20) +
-                String(v.maliyet).padStart(5) + ' TL   = ' + String(v.n * v.maliyet).padStart(5));
+        /* SIRA: oyundaki SPAWN-BAR grup sirasiyla AYNI (js/main.js SPAWN_CATEGORIES).
+           Maliyete gore siralamak "listeden tek tek ara" demekti; oyuncu birligi
+           ekranda grup grup kuruyor, liste de o sirayla okunmali. */
+        let kalan = Object.assign({}, r.say);
+        for (const g of GRUPLAR) {
+            const satirlar = g.ids.filter(id => kalan[id]);
+            if (!satirlar.length) continue;
+            let gTop = 0;
+            for (const id of satirlar) gTop += kalan[id].n * kalan[id].maliyet;
+            console.log('     ' + g.label + '  (' + gTop + ' TL)');
+            for (const id of satirlar) {
+                const v = kalan[id];
+                console.log('        ' + String(v.n).padStart(2) + ' ×  ' + (AD_TR[id] || id).padEnd(22) +
+                    String(v.maliyet).padStart(5) + ' TL  = ' + String(v.n * v.maliyet).padStart(5));
+                delete kalan[id];
+            }
+        }
+        // GRUPSUZ KALAN olmamali; olursa SESSIZCE dusurmek yerine gorunur yapilir.
+        const artan = Object.keys(kalan);
+        if (artan.length) {
+            console.log('     ! GRUPSUZ (spawn-barda yok): ' + artan.join(', '));
         }
         console.log('');
     }
