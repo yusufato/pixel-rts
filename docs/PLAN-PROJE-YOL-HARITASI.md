@@ -26,10 +26,21 @@ Canlı oyuna sığdırmak için üç yol denendi, **hiçbiri kazancı korumadı*
 | **20 birim/tur, 5sn ufuk** (kanıtlanmış) | **+1369** | **3.15** | ❌ %100 çekirdek |
 | 1sn ufuk | +33 | 0.08 | ✅ ama kazanç YOK |
 | dönüşümlü (5 birim/tur, emir 20sn) | +191 | 0.47 | ✅ ama kazanç YOK |
+| **uzun periyot** (20 birim, 15sn'de bir) | +153 | 0.42 | ✅ ama kazanç YOK |
 | ışınlama (hiç rollout, A1) | eleyici olarak vasat | — | ✅ ama kazanç YOK |
 
-**Sonuç:** kazanç, TAM konfigürasyondan geliyor — 5 saniyelik gerçek simülasyon ve geniş
-kapsam. İkisi de kısılamıyor. Değer ağı rollout'un YERİNE geçmiyor, sonunu PUANLIYOR.
+**Sonuç:** kazanç ÜÇ boyutun ÇARPIMINDAN geliyor ve hangisi kısılırsa kısılsın ölüyor:
+
+```
+GERÇEK SİMÜLASYON (5sn)  ×  TAM KAPSAM (20 birim)  ×  YÜKSEK SIKLIK (5sn'de bir)
+     1sn → +33                  5 birim → +191            15sn → +153
+```
+
+Bu, mekanizmanın ne olduğunu da söylüyor: kazanç birkaç akıllı hamleden değil, **tüm
+kuvvetin sürekli yeniden yönlendirilmesinden** geliyor. Değer ağı rollout'un YERİNE
+geçmiyor, sonunu PUANLIYOR.
+
+**Karar:** ucuzlatma yolu KAPANDI. Canlı oyun için tek yol aramayı ana iplikten çıkarmak.
 
 ### DOĞRU YOL: ayrı iş parçacığı (Web Worker)
 

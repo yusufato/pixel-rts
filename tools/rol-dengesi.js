@@ -48,6 +48,7 @@ function macKos(ctx, seed, kolDeger) {
         // CANLI BUTCE denemesi: ufku disaridan ayarla (rol-dengesi --ufuk)
         (process.argv.indexOf('--ufuk') >= 0 ? ('if (typeof LA_UFUK !== "undefined") LA_UFUK = ' + Number(process.argv[process.argv.indexOf('--ufuk')+1]) + ';') : '') +
         // DONUSUM: turda kac birim aransin (+ emir omru ona gore uzatilir)
+        (process.argv.indexOf('--periyot') >= 0 ? ('if (typeof LA_PERIYOT_TIK !== "undefined") { LA_PERIYOT_TIK = ' + Number(process.argv[process.argv.indexOf('--periyot')+1]) + '; LA_EMIR_SURESI = Math.round(' + Number(process.argv[process.argv.indexOf('--periyot')+1]) + ' * 1.4); }') : '') +
         (process.argv.indexOf('--tur') >= 0 ? ('if (typeof LA_TUR_BIRIM !== "undefined") { LA_TUR_BIRIM = ' + Number(process.argv[process.argv.indexOf('--tur')+1]) + '; LA_EMIR_SURESI = 400; }') : '') +
         'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;' +
         'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;' +

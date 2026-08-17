@@ -33,7 +33,10 @@ const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, ger
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
 
-const LA_PERIYOT_TIK = 100;   // kaç tikte bir arama (100 = 5sn)
+/* ARAMA PERİYODU. Dönüşüm denemesi (periyot sabit, BİRİM kıs) kazancı öldürdü
+   (+191 t 0.47). Tersi denenmedi: birim sayısını KORU, periyodu UZAT. Kapsam tam
+   kalır, maliyet zamana yayılır — canlı bütçe için tek kalan ucuz kaldıraç. */
+let LA_PERIYOT_TIK = 100;     // kaç tikte bir arama (100 = 5sn)
 let LA_BIRIM = 20;            // kapsam: ordunun tamamına yakını (A3)
 /* ── DÖNÜŞÜMLÜ ARAMA (canlı bütçe) ──
    ÖLÇÜLDÜ: kısa ufuk kazancı ÖLDÜRÜYOR (1sn ufuk +33 t 0.08 vs 5sn +1369 t 3.15).
