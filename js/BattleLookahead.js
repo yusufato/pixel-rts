@@ -35,6 +35,14 @@ let BATTLE_LOOKAHEAD_BLUE = false;
 
 const LA_PERIYOT_TIK = 100;   // kaç tikte bir arama (100 = 5sn)
 let LA_BIRIM = 20;            // kapsam: ordunun tamamına yakını (A3)
+/* ── DÖNÜŞÜMLÜ ARAMA (canlı bütçe) ──
+   ÖLÇÜLDÜ: kısa ufuk kazancı ÖLDÜRÜYOR (1sn ufuk +33 t 0.08 vs 5sn +1369 t 3.15).
+   Yani bütçe UFUKTAN kısılamaz — kazanç gerçekten 5 saniye simüle etmekten geliyor.
+   Kalan tek kaldıraç: her turda AZ birim ara, turlar arasında SIRAYLA dolaş.
+   Kapsam zamana yayılır; anlık maliyet TUR_BIRIM/LA_BIRIM oranında düşer.
+   Emir ömrü de uzatılmalı, yoksa birim sırası gelene kadar emirsiz kalır.
+   0 = dönüşüm yok (tezgâh davranışı, kanıtlanmış konfigürasyon). */
+let LA_TUR_BIRIM = 0;
 /* YAYILIM KAPISI (bedava optimizasyon).
    ÖLÇÜLDÜ (tools/gelecek-yelpazesi.js): kararların %29'unda adaylar arası yayılım
    SIFIR — ne yaparsan yap sonuç aynı. Orada rollout saf israf. Analitik skorlar
@@ -55,8 +63,15 @@ const LA_YON = 8;             // aday yönü
 const LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
 const LA_YARICAP = 600;       // en dış halka
 let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→2: bütçe kapsama gitti)
-const LA_UFUK = 100;          // rollout ufku (tik) — 100 = 5sn
-const LA_EMIR_SURESI = 120;   // verilen emir kaç tik korunur (AI onu hemen ezmesin)
+/* ROLLOUT UFKU. Değer ağı zaten "bu durumdan maçın sonu ne" diye tahmin ettiği için
+   ufkun UZUN olması gerekmez — kısa rollout birimi yola çıkarır, gerisini ağ söyler.
+   (AlphaZero'da yaprak doğrudan değer ağıyla puanlanır, rollout yoktur.)
+   A1 denemesi hiç-rollout'u sınadı ve düştü: ışınlanmış birim yürüyen birimle aynı
+   değil. Kısa rollout ikisinin arası. Canlı oyun bütçesi için kritik: 5sn ufuk
+   106ms, 1sn ufuk ~21ms. */
+let LA_UFUK = 100;            // rollout ufku (tik) — 100 = 5sn
+let LA_EMIR_SURESI = 120;     // verilen emir kaç tik korunur (AI onu hemen ezmesin)
+   /* dönüşümde emir ömrü, birimin sırasının tekrar gelmesine kadar yetmeli */
 
 /* ── ORTAK KARAR: SIRALI TAAHHÜT (kullanıcı 2026-08-17) ──
    Kusur: beş birimin beşi de AYNI başlangıç durumuna bakıp karar veriyordu, sonra
@@ -304,11 +319,19 @@ function battleLookaheadTick(now) {
     for (const isRed of [true, false]) {
         if (!battleLookaheadAcik(isRed)) continue;
         // En DEĞERLİ birimler: karar kaldıracı en yüksek olanlar. Determinist sıra.
-        const hedefler = SIM.units
+        let _sirali = SIM.units
             .filter(u => !u.dead && u.isRed === isRed && !u.loaded && !u.abandoned && !u.isAir)
             .sort((a, b) => (((STATS[b.type] && STATS[b.type].cost) || 0) - ((STATS[a.type] && STATS[a.type].cost) || 0)) || (a.id - b.id))
-            .slice(0, LA_BIRIM)
-            .map(u => u.id);
+            .slice(0, LA_BIRIM);
+        /* DÖNÜŞÜM: tur indeksi TIK'ten türetilir → determinist (duvar saati DEĞİL).
+           Duvar saatiyle dilimlemek replay ve çok-oyunculu lockstep'i bozardı. */
+        if (LA_TUR_BIRIM > 0 && _sirali.length > LA_TUR_BIRIM) {
+            const _tur = Math.floor(SIM.tick / LA_PERIYOT_TIK);
+            const _pencere = Math.ceil(_sirali.length / LA_TUR_BIRIM);
+            const _bas = (_tur % _pencere) * LA_TUR_BIRIM;
+            _sirali = _sirali.slice(_bas, _bas + LA_TUR_BIRIM);
+        }
+        const hedefler = _sirali.map(u => u.id);
         if (!LA_SIRALI) {
             // KÖR: tüm kararlar aynı başlangıç durumundan alınır, sonra birlikte uygulanır.
             const bekleyen = [];

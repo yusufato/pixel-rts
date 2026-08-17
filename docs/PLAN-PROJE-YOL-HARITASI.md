@@ -16,6 +16,38 @@ ya da açık bir borca dayanır; tahmine dayanan hiçbir madde yoktur.
 Bu, "ölçüldü ama bağlanmadı" hatasının aynısı: değer ağı da aylarca böyle durmuştu
 (ρ 0.830, motora hiç bağlanmamış).
 
+### ⛔ BÜTÇE DUVARI ÖLÇÜLDÜ — ucuzlatma denemelerinin ÜÇÜ DE ÖLDÜ
+
+Kanıtlanmış kazanç, tezgâhta **80sn oyun için 79sn CPU** harcıyor — bir çekirdeğin tamamı.
+Canlı oyuna sığdırmak için üç yol denendi, **hiçbiri kazancı korumadı**:
+
+| konfigürasyon | marj farkı | t | canlıya sığar mı |
+|---|---:|---:|---|
+| **20 birim/tur, 5sn ufuk** (kanıtlanmış) | **+1369** | **3.15** | ❌ %100 çekirdek |
+| 1sn ufuk | +33 | 0.08 | ✅ ama kazanç YOK |
+| dönüşümlü (5 birim/tur, emir 20sn) | +191 | 0.47 | ✅ ama kazanç YOK |
+| ışınlama (hiç rollout, A1) | eleyici olarak vasat | — | ✅ ama kazanç YOK |
+
+**Sonuç:** kazanç, TAM konfigürasyondan geliyor — 5 saniyelik gerçek simülasyon ve geniş
+kapsam. İkisi de kısılamıyor. Değer ağı rollout'un YERİNE geçmiyor, sonunu PUANLIYOR.
+
+### DOĞRU YOL: ayrı iş parçacığı (Web Worker)
+
+Aramayı ucuzlatmak yerine **ana iş parçacığından çıkarmak** gerekiyor. Worker'ın kendi
+global kapsamı var → motorun ikinci bir örneği orada yaşayabilir.
+
+```
+ana iplik:  fork al (2.1ms) → worker'a yolla → oyun akmaya devam eder
+worker:     aramayı tam konfigürasyonla koş (~5sn)
+ana iplik:  gelen emirleri KAYITLI OLAY olarak kuyruğa al
+```
+
+**Determinizm:** emirler oyuncu komutlarıyla aynı yoldan (`player-ability` deseni) tik
+sınırında uygulanır ve replay'e KAYDEDİLİR. Replay yeniden arama yapmaz, kaydı oynatır →
+tekrar üretilebilir kalır.
+**Çok oyunculu:** her istemci bağımsız arama yaparsa sapar. MP'de ya kapatılmalı ya da
+host yetkili olmalı — ayrı karar.
+
 ### Yapılacaklar
 1. `index.html`'e üç dosya: `BattleStateFeatures` (varsa), `BattleValueModel`, `BattleValueNet`, `BattleLookahead`
 2. `gameLoop`'ta **tikler arasına** `battleLookaheadTick(now)` — `stepSim`'in İÇİNE ASLA

@@ -45,6 +45,10 @@ function macKos(ctx, seed, kolDeger) {
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
         'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
         (KOL ? (KOL + ' = ' + JSON.stringify(kolDeger) + ';') : '') +
+        // CANLI BUTCE denemesi: ufku disaridan ayarla (rol-dengesi --ufuk)
+        (process.argv.indexOf('--ufuk') >= 0 ? ('if (typeof LA_UFUK !== "undefined") LA_UFUK = ' + Number(process.argv[process.argv.indexOf('--ufuk')+1]) + ';') : '') +
+        // DONUSUM: turda kac birim aransin (+ emir omru ona gore uzatilir)
+        (process.argv.indexOf('--tur') >= 0 ? ('if (typeof LA_TUR_BIRIM !== "undefined") { LA_TUR_BIRIM = ' + Number(process.argv[process.argv.indexOf('--tur')+1]) + '; LA_EMIR_SURESI = 400; }') : '') +
         'if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;' +
         'if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;' +
         /* VARIED, OTURUMDAN ÖNCE AÇILMALI. Kırmızı (saldıran) ordu openBattlefieldSession
