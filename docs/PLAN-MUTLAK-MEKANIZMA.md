@@ -84,6 +84,14 @@ LA kapalı        saldıran %41.7   marj −523
 YIĞIN            saldıran %62.5   marj +846
 ```
 
+**DOĞRULANDI — bağımsız tohum kümesinde tekrarlandı (150000+):**
+
+| koşu | tohum | marj farkı | t | saldıran |
+|---|---|---:|---:|---|
+| ilk | 100000+ | +1369 | 3.15 | %41.7 → %62.5 |
+| doğrulama | 150000+ | +1154 | 2.94 | %39.6 → %58.3 |
+| **birleşik** | **n=96** | **+1261** | **≈4.3** | **ort +19.8 puan** |
+
 Bütçe iki ÖLÇÜLMÜŞ NEGATİFTEN geldi: çift yönlü sıra (2×, no-op) ve rakip modeli
 (2.7×, kazanç yok) kapatıldı, o bütçe kapsama aktarıldı. Yani negatif sonuçlar
 boşa gitmedi — birikip pozitifi finanse ettiler.
