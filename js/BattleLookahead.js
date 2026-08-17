@@ -34,17 +34,27 @@ let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kul
 let BATTLE_LOOKAHEAD_BLUE = false;
 
 const LA_PERIYOT_TIK = 100;   // kaç tikte bir arama (100 = 5sn)
-const LA_BIRIM = 5;           // her aramada kaç birim için karar verilir (en değerliler)
+let LA_BIRIM = 20;            // kapsam: ordunun tamamına yakını (A3)
 /* YAYILIM KAPISI (bedava optimizasyon).
    ÖLÇÜLDÜ (tools/gelecek-yelpazesi.js): kararların %29'unda adaylar arası yayılım
    SIFIR — ne yaparsan yap sonuç aynı. Orada rollout saf israf. Analitik skorlar
    birbirine yakınsa karar önemsizdir; aramayı hiç başlatma.
    Eşik "düşman değeri" biriminde (analitik skorla aynı ölçek). */
 const LA_YAYILIM_ESIK = 100;
+let LA_AG_KAPI = true;        // kapı ağ skoruna baksın (analitikten isabetli)
+/* AĞ EŞİĞİ VERİDEN TÜRETİLDİ. İlk denemede 120 koydum ve kapı kararların %99.3'ünü
+   kesti. Sebep öğretici: ağ TÜM MAÇIN sonucunu tahmin ediyor; tek bir birimi 600px
+   oynatmak o tahmini çok az değiştiriyor. Yani ağ farkları analitik farklardan ~30 kat
+   küçük — aynı ölçekte eşik koymak hatalıydı.
+   ÖLÇÜLEN DAĞILIM (250 karar):
+     ağ       p10 9.2 · medyan 18.5 · p75 34.9 · p90 55.8
+     analitik p10 22  · medyan 551  · p75 1931 · p90 2914
+   15 ≈ p40 → kararların ~%40'ı atlanır (analitik kapının %27'sinden fazla). */
+const LA_AG_ESIK = 15;
 const LA_YON = 8;             // aday yönü
 const LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
 const LA_YARICAP = 600;       // en dış halka
-const LA_DERIN = 3;           // analitik elemeden sonra GERÇEKTEN oynatılan aday
+let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→2: bütçe kapsama gitti)
 const LA_UFUK = 100;          // rollout ufku (tik) — 100 = 5sn
 const LA_EMIR_SURESI = 120;   // verilen emir kaç tik korunur (AI onu hemen ezmesin)
 
@@ -69,7 +79,10 @@ let LA_SIRALI = true;
    ÇÖZÜM: iki sırayı da dene (değerliden ucuza, ucuzdan değerliye), ortaya çıkan İKİ
    ORTAK PLANI da oynat, iyisini uygula. Keyfîlik ölçüyle değiştirilmiş olur.
    Maliyet ~2.1x (iki geçiş + iki ortak-plan değerlendirmesi). */
-let LA_CIFT_YON = true;
+/* ÖLÇÜLDÜ VE KAPATILDI: ters sıra 12 turun HİÇBİRİNDE kazanmadı, planların %90'ı
+   zaten aynıydı. Maliyeti 2× — o bütçe KAPSAMA harcanınca 5 birim yerine 20 birim
+   aranabiliyor. Mekanizma silinmedi, bayraklı duruyor. */
+let LA_CIFT_YON = false;
 
 /* ── DEĞER AĞI HEDEFİ (2026-08-17) ──
    ÖLÇÜLDÜ: argmax(marj@10sn) KARARSIZ bir hedef — 20sn'de kazancın %13'ü kalıyor.
@@ -194,16 +207,32 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     const adaylar = battleLookaheadAdaylar(u0);
     if (adaylar.length < 3) return null;
 
-    // 1) ANALİTİK ELEME (bedava). Determinist sıra: skor, sonra x, sonra y.
-    for (const a of adaylar) a._s = battleLookaheadStatik(u0, a.x, a.y);
-    adaylar.sort((a, b) => (b._s - a._s) || (a.x - b.x) || (a.y - b.y));
+    /* 1) ELEME. Ağ açıksa adaylar AĞ skoruna göre sıralanır (eleme ölçümünde analitikten
+       biraz iyi: K=3'te %50 vs %45), yoksa analitik.
+       ÖNEMLİ: sıralama ve kapı AYNI skoru kullanmalı. İlk sürümde adaylar ANALİTİĞE göre
+       sıralanıp kapı AĞA bakıyordu — kapı "analitik-en-iyi"yi ağla puanlıyordu, oysa eşik
+       "ağ-en-iyi" dağılımından türetilmişti. Uyumsuzluk kararların %87'sini kesti. */
+    const _agAcik = LA_AG_KAPI && typeof battleLookaheadAgSkor === 'function' && battleValueNetHazir();
+    for (const a of adaylar) {
+        a._s = battleLookaheadStatik(u0, a.x, a.y);
+        a._ag = _agAcik ? battleLookaheadAgSkor(u0, a.x, a.y) : null;
+    }
+    const _puan = a => (_agAcik && a._ag != null) ? a._ag : a._s;
+    adaylar.sort((a, b) => (_puan(b) - _puan(a)) || (a.x - b.x) || (a.y - b.y));
 
     /* YAYILIM KAPISI: en iyi aday "yerinde kal"dan belirgin iyi değilse bu karar
        önemsizdir → hiç oynatma. Rollout'un %100'ü buradan tasarruf edilir. */
+    /* KAPI — artık AĞ skoruna bakar. Analitik skor bedava ama ağ daha isabetli
+       (eleme ölçümünde K=3'te %50 vs %45). Kapı bir BİRİMİ tümüyle atlıyor, yani
+       isabet doğrudan tasarrufa çevriliyor: gereksiz birimde 2 rollout kazanılır.
+       Ağ yoksa (model yüklenmemiş) analitik skora düşer. */
     const _kal = adaylar.find(a => a.kal);
-    if (_kal && (adaylar[0]._s - _kal._s) < LA_YAYILIM_ESIK) {
-        if (typeof BATTLE_LA_SAYAC !== 'undefined') BATTLE_LA_SAYAC.atlanan++;
-        return null;
+    if (_kal) {
+        const _esik = (_agAcik && _kal._ag != null) ? LA_AG_ESIK : LA_YAYILIM_ESIK;
+        if ((_puan(adaylar[0]) - _puan(_kal)) < _esik) {
+            if (typeof BATTLE_LA_SAYAC !== 'undefined') BATTLE_LA_SAYAC.atlanan++;
+            return null;
+        }
     }
     if (typeof BATTLE_LA_SAYAC !== 'undefined') BATTLE_LA_SAYAC.arananan++;
 
