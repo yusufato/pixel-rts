@@ -81,7 +81,11 @@ for _d in DOSYALAR:
             # giremez. Sessizce yanlis ogrenmektense ACIKCA sayilip atlanir.
             if d.get('b') is None or not d.get('o') or d.get('k') is None:
                 _eksik += 1; continue
-            if len(d['o']) != SECENEK: _eksik += 1; continue
+            # 2 VEYA 3 SECENEK ikisi de gecerli: "yerinde kal" zaten ilk ikideyse ucuncu
+            # eklenmez (arama: derin = slice(0,2), kal yoksa eklenir). Olculdu: %9.6'si
+            # 2 secenekli. Bunlari atmak hem veri kaybi hem de EGITIM/CIKARIM UYUSMAZLIGI
+            # olurdu - cikarimda o durumlar geliyor ama model onlari hic gormemis olurdu.
+            if not (2 <= len(d['o']) <= SECENEK): _eksik += 1; continue
             R.append(d['r']); S.append(d['s']); B.append(d['b'])
             O.append(d['o']); K.append(d['k'])
             MAC.append(os.path.basename(_d) + '#' + str(d.get('nihai', 0)))
@@ -99,7 +103,13 @@ if len(K) < MIN:
 R = np.array(R, dtype=np.float32).reshape(-1, KANAL, GY, GX)
 S = np.array(S, dtype=np.float32)
 B = np.array(B, dtype=np.float32)
-Oham = np.array(O, dtype=np.float32)          # (N, 3, 5) = [sinif, analitik, ag, dx, dy]
+# DEGISKEN SECENEK SAYISI -> SECENEK'e doldurulur + GECERLILIK MASKESI.
+# Maskesiz doldurma, olmayan bir secenegi gercekmis gibi yarisa sokardi.
+Oham = np.zeros((len(O), SECENEK, 5), dtype=np.float32)
+MASKE = np.zeros((len(O), SECENEK), dtype=np.float32)
+for _j, _o in enumerate(O):
+    Oham[_j, :len(_o)] = np.array(_o, dtype=np.float32)
+    MASKE[_j, :len(_o)] = 1.0
 K = np.array(K, dtype=np.int64)
 MAC = np.array(MAC); TIK = np.array(TIK, dtype=np.float32)
 
@@ -111,8 +121,11 @@ MAC = np.array(MAC); TIK = np.array(TIK, dtype=np.float32)
 #  · FARKLAR acikca verilir (skor - #1'in skoru). Ag bunu cikarabilirdi ama sinirli veriyle
 #    hazir vermek ogrenmeyi kolaylastirir; karar zaten farklarla ilgili.
 #  · sira indeksi korunur: siralama bilgisi (hangisi #1) kaybolmasin.
+#  · sira HAM INDIS (0,1,2) — i/(n-1) DEGIL. Normalize edilseydi 2 secenekli kararda
+#    ikinci secenek 1.0, 3 secenekli kararda 0.5 olurdu; ayni "ikinci sira" iki farkli
+#    sayiya duserdi ve model sayidan bagimsiz olamazdi.
 N = Oham.shape[0]
-sira = np.tile(np.arange(SECENEK, dtype=np.float32), (N, 1)) / (SECENEK - 1)
+sira = np.tile(np.arange(SECENEK, dtype=np.float32), (N, 1))
 isKal = (Oham[:, :, 0] == 0).astype(np.float32)
 ana = Oham[:, :, 1]; ag = Oham[:, :, 2]
 anaF = ana - ana[:, 0:1]
@@ -156,8 +169,13 @@ smu, ssd = S[tr].mean(0), S[tr].std(0) + 1e-6
 bmu, bsd = B[tr].mean(0), B[tr].std(0) + 1e-6
 # Secenek ozniteligi SECENEK EKSENI BOYUNCA da ortalanir (0,1): uc secenek AYNI
 # olcege oturmali, yoksa "sira 0" ile "sira 2" farkli birimlerde olurdu.
-cmu, csd = C[tr].mean((0,1)), C[tr].std((0,1)) + 1e-6
-Rn = (R - rmu) / rsd; Sn = (S - smu) / ssd; Bn = (B - bmu) / bsd; Cn = (C - cmu) / csd
+# Yalniz GECERLI secenekler istatistige girer: dolgu satirlari sifir olduklari icin
+# ortalamayi asagi ceker ve olcegi bozardi.
+_gec = MASKE[tr].astype(bool)
+_Ctr = C[tr][_gec]                      # (gecerli_secenek_sayisi, CDIM)
+cmu, csd = _Ctr.mean(0), _Ctr.std(0) + 1e-6
+Rn = (R - rmu) / rsd; Sn = (S - smu) / ssd; Bn = (B - bmu) / bsd
+Cn = ((C - cmu) / csd) * MASKE[:, :, None]   # dolgu KESIN sifir kalsin
 
 class Model(nn.Module):
     """Baglam (durum+birim) bir kez kodlanir, her SECENEK o baglamla birlikte puanlanir.
@@ -173,11 +191,14 @@ class Model(nn.Module):
         self.bir = nn.Sequential(nn.Linear(bdim, 32), nn.ReLU())
         self.bas = nn.Sequential(nn.Linear(384 + 64 + 32 + cdim, 128), nn.ReLU(),
                                  nn.Linear(128, 1))
-    def forward(self, r, s, b, c):
+    def forward(self, r, s, b, c, m=None):
         ctx = torch.cat([self.cnn(r), self.mlp(s), self.bir(b)], 1)   # (N, 480)
         n, k, cd = c.shape
         ctx = ctx.unsqueeze(1).expand(n, k, ctx.shape[1])             # her secenege ayni baglam
-        return self.bas(torch.cat([ctx, c], 2)).squeeze(2)            # (N, 3) logit
+        lg = self.bas(torch.cat([ctx, c], 2)).squeeze(2)              # (N, K) logit
+        # GECERSIZ SECENEK YARISA GIRMEZ: -inf yerine buyuk negatif (softmax'ta NaN olmasin)
+        if m is not None: lg = lg.masked_fill(m < 0.5, -1e9)
+        return lg
 
 torch.manual_seed(20260817)
 model = Model(S.shape[1], B.shape[1], CDIM).to(dev)
@@ -186,10 +207,10 @@ lossf = nn.CrossEntropyLoss()
 
 rt = torch.tensor(Rn[tr], device=dev); st = torch.tensor(Sn[tr], device=dev)
 bt = torch.tensor(Bn[tr], device=dev); ct = torch.tensor(Cn[tr], device=dev)
-kt = torch.tensor(K[tr], device=dev)
+kt = torch.tensor(K[tr], device=dev); mt = torch.tensor(MASKE[tr], device=dev)
 rv = torch.tensor(Rn[te], device=dev); sv = torch.tensor(Sn[te], device=dev)
 bv = torch.tensor(Bn[te], device=dev); cv = torch.tensor(Cn[te], device=dev)
-kv = torch.tensor(K[te], device=dev)
+kv = torch.tensor(K[te], device=dev); mv_ = torch.tensor(MASKE[te], device=dev)
 
 NT = rt.shape[0]; PARTI = min(512, NT)
 en_iyi, bekle, en_iyi_durum = 9e9, 0, None
@@ -199,11 +220,11 @@ for ep in range(EPOK):
     for i in range(0, NT, PARTI):
         ix = perm[i:i+PARTI]
         opt.zero_grad()
-        lossf(model(rt[ix], st[ix], bt[ix], ct[ix]), kt[ix]).backward()
+        lossf(model(rt[ix], st[ix], bt[ix], ct[ix], mt[ix]), kt[ix]).backward()
         opt.step()
     model.eval()
     with torch.no_grad():
-        vl = lossf(model(rv, sv, bv, cv), kv).item()
+        vl = lossf(model(rv, sv, bv, cv, mv_), kv).item()
     if vl < en_iyi - 1e-4:
         en_iyi, bekle = vl, 0
         en_iyi_durum = {k: v.detach().clone() for k, v in model.state_dict().items()}
@@ -214,7 +235,7 @@ if en_iyi_durum: model.load_state_dict(en_iyi_durum)
 
 model.eval()
 with torch.no_grad():
-    lg = model(rv, sv, bv, cv).cpu().numpy()
+    lg = model(rv, sv, bv, cv, mv_).cpu().numpy()
 tah = lg.argmax(1)
 dog = float((tah == K[te]).mean())
 print('')
@@ -251,5 +272,6 @@ if KAYDET:
                 'bmu': bmu, 'bsd': bsd, 'cmu': cmu, 'csd': csd,
                 'sdim': int(S.shape[1]), 'bdim': int(B.shape[1]), 'cdim': int(CDIM),
                 'gx': GX, 'gy': GY, 'secenek': SECENEK, 'dogruluk': dog,
+                'maskeli': True,
                 'taban': t_ele, 'karar': int(len(K)), 'mac': len(maclar)}, KAYDET)
     print(f'\nmodel kaydedildi: {KAYDET}')

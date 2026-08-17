@@ -38,11 +38,13 @@ class Model(nn.Module):
         self.bir = nn.Sequential(nn.Linear(bdim, 32), nn.ReLU())
         self.bas = nn.Sequential(nn.Linear(384 + 64 + 32 + cdim, 128), nn.ReLU(),
                                  nn.Linear(128, 1))
-    def forward(self, r, s, b, c):
+    def forward(self, r, s, b, c, m=None):
         ctx = torch.cat([self.cnn(r), self.mlp(s), self.bir(b)], 1)
         n, k, cd = c.shape
         ctx = ctx.unsqueeze(1).expand(n, k, ctx.shape[1])
-        return self.bas(torch.cat([ctx, c], 2)).squeeze(2)
+        lg = self.bas(torch.cat([ctx, c], 2)).squeeze(2)
+        if m is not None: lg = lg.masked_fill(m < 0.5, -1e9)
+        return lg
 
 model = Model(SDIM, BDIM, CDIM)
 model.load_state_dict(ck['model'])
@@ -74,24 +76,36 @@ Rn = (np.array(R, dtype=np.float32).reshape(-1, KANAL, GY, GX) - rmu) / rsd
 Sn = (np.array(S, dtype=np.float32) - smu) / ssd
 Bn = (np.array(B, dtype=np.float32) - bmu) / bsd
 
-# SECENEK OZNITELIGI — egitimdeki `C` blogunun AYNISI (sira, kal?, ana, ag, farklar, dx, dy)
-Oh = np.array(O, dtype=np.float32)
+# SECENEK OZNITELIGI — egitimdeki `C` blogunun AYNISI (sira HAM INDIS, kal?, ana, ag, farklar, dx, dy)
+# Degisken secenek sayisi: doldur + maskele (egitimdeki kurgunun aynisi).
+Oh = np.zeros((len(O), SECENEK, 5), dtype=np.float32)
+Mk = np.zeros((len(O), SECENEK), dtype=np.float32)
+for _j, _o in enumerate(O):
+    Oh[_j, :len(_o)] = np.array(_o, dtype=np.float32)
+    Mk[_j, :len(_o)] = 1.0
 _n = Oh.shape[0]
-_sira = np.tile(np.arange(SECENEK, dtype=np.float32), (_n, 1)) / (SECENEK - 1)
+_sira = np.tile(np.arange(SECENEK, dtype=np.float32), (_n, 1))
 _kal = (Oh[:, :, 0] == 0).astype(np.float32)
 _ana = Oh[:, :, 1]; _ag = Oh[:, :, 2]
 C = np.stack([_sira, _kal, _ana, _ag, _ana - _ana[:, 0:1], _ag - _ag[:, 0:1],
               Oh[:, :, 3], Oh[:, :, 4]], axis=2).astype(np.float32)
-Cn = (C - cmu) / csd
+Cn = ((C - cmu) / csd) * Mk[:, :, None]
 
 with torch.no_grad():
     py = model(torch.tensor(Rn), torch.tensor(Sn), torch.tensor(Bn),
-               torch.tensor(Cn)).numpy().astype(np.float64)
+               torch.tensor(Cn), torch.tensor(Mk)).numpy().astype(np.float64)
+# JS yalniz VAR OLAN secenekleri puanlar; Python maskeli -1e9 uretir. Karsilastirma
+# yalniz gecerli sutunlarda yapilmali.
+GECERLI = Mk.astype(bool)
 
-jsl = np.stack([idx[k] for k in KEYS])
-fark = np.abs(py - jsl)
+# JS cikti uzunlugu secenek sayisi kadar; ayni sekle doldur.
+jsl = np.full_like(py, -1e9)
+for _r, _k in enumerate(KEYS):
+    _v = idx[_k]
+    jsl[_r, :len(_v)] = _v
+fark = np.abs(py - jsl) * GECERLI          # yalniz gercek secenekler
 maxf = float(fark.max())
-ortf = float(fark.mean())
+ortf = float(fark.sum() / max(1, GECERLI.sum()))
 uyum = float((py.argmax(1) == jsl.argmax(1)).mean())
 
 print('')

@@ -69,22 +69,29 @@ function battlePolicyNetBirimOz(u) {
 
 /* SEÇENEK ÖZNİTELİĞİ — tools/politika-egit-gpu.py'deki `C` bloğuyla BİREBİR aynı
    sıra ve türetme olmak ZORUNDA:
-     [sıra/2, kal?, analitik, ağ, analitik−#1, ağ−#1, dx, dy]
+     [sıra, kal?, analitik, ağ, analitik−#1, ağ−#1, dx, dy]
+
+   `sıra` HAM İNDİS (0,1,2) — i/(n−1) DEĞİL. Seçenek sayısı 2 de olabilir 3 de
+   ("yerinde kal" zaten ilk ikideyse üçüncü eklenmez; ölçüldü: kararların %9.6'sı).
+   Normalize edilseydi aynı "ikinci sıra" iki farklı sayıya düşer, model seçenek
+   sayısından bağımsız olamazdı. Eğitimde de ham indis kullanılır ve eksik seçenek
+   MASKELENİR; burada zaten yalnız var olan seçenekler puanlanır — eşdeğeri.
+
    `sec`: her biri {sinif, _s, _ag, x, y} taşıyan, aramanın oynattığı sıradaki liste.
    Dönüş: SEC×CDIM düz dizi. */
 function battlePolicyNetSecenekOz(u, sec) {
     if (!u || !sec || !sec.length) return null;
     const M = BATTLE_POLICY_MODEL;
     const n = sec.length, cd = M.cdim;
-    const ana0 = sec[0]._s == null ? 0 : sec[0]._s;
-    const ag0 = sec[0]._ag == null ? 0 : sec[0]._ag;
     const yuv = (v) => Math.round(v * 1e4) / 1e4;   // kayıt tarafıyla aynı yuvarlama
+    const ana0 = yuv(sec[0]._s == null ? 0 : sec[0]._s);
+    const ag0 = yuv(sec[0]._ag == null ? 0 : sec[0]._ag);
     const out = new Float32Array(n * cd);
     for (let i = 0; i < n; i++) {
         const a = sec[i];
         const ana = yuv(a._s == null ? 0 : a._s), ag = yuv(a._ag == null ? 0 : a._ag);
-        const f = [i / Math.max(1, n - 1), (a.sinif | 0) === 0 ? 1 : 0,
-                   ana, ag, ana - yuv(ana0), ag - yuv(ag0),
+        const f = [i, (a.sinif | 0) === 0 ? 1 : 0,
+                   ana, ag, ana - ana0, ag - ag0,
                    yuv((a.x - u.x) / LA_YARICAP), yuv((a.y - u.y) / LA_YARICAP)];
         for (let j = 0; j < cd; j++) out[i * cd + j] = f[j];
     }

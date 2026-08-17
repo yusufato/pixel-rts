@@ -1529,6 +1529,21 @@ const US_HP = 700;              // siper 320 → üs 700 (kalıcı yapı yıkıl
 const US_INSA_SN = 6.0;         // siper 3.0sn → üs 6.0sn (kalıcılığın bedeli)
 const US_MAX_TARAF = 4;         // taraf başına aynı anda en fazla 4 üs
 
+/* ── ELE GEÇİRME TEHLİKE KAPISI ────────────────────────────────────────────
+   KULLANICI SAHADA GÖRDÜ: istihkâm aracı beyaz bayrak çekmiş (terk edilmiş) aracın
+   üstüne ÖLÜMÜNE yürüyor.
+
+   KÖK NEDEN (js/Unit.js, updateEngineerAI): kapma bloğu KOŞULSUZ ÖNCELİKti ve `return`
+   ile çıkıyordu. Aynı fonksiyonda 20 satır AŞAĞIDA duran `closeThreat` kontrolüne
+   (kendi çevresinde 360px düşman) kapma yolu HİÇ ulaşmıyordu. Üstelik arama yarıçapı
+   1300px — yani haritanın yarısındaki bir enkaz için düşman ateşine yürüyordu.
+
+   Enkaz değerlidir ama istihkâm ondan pahalıdır: öldüğünde siper/üs, mayın ve tamir
+   yeteneği de gider. Kapma İPTAL EDİLMİYOR, yalnız ölümcül olduğunda erteleniyor. */
+let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
+const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
+const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
+
 // A/B kolu: kapalıyken eski geçici siper (r=130, hp=320, 3sn, 60sn ömür) geri gelir.
 let BATTLE_ISTIHKAM_US = true;
 function battleIstihkamUs() {

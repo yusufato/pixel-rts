@@ -629,6 +629,17 @@ buildSpawnBar();
 function startBattle() {
     if (phase !== PHASE.DEPLOY) return;
 
+    /* İLERİ-BAKIŞ: canlı maçta AI tarafları için aç (ölçüm +839 marj, t 2.87, n=128).
+       Oyuncunun birimleri battleLookaheadTick içinde `controlOwner === 'PLAYER'`
+       süzgeciyle zaten dışarıda; iki bayrağı da açmak yalnız AI birimlerini kapsar.
+       ÇOK OYUNCULU'da KAPALI: iki istemci bağımsız arama koşarsa lockstep sapar. */
+    if (typeof BATTLE_LOOKAHEAD_LIVE !== 'undefined' && BATTLE_LOOKAHEAD_LIVE &&
+        typeof battleLookaheadTick === 'function') {
+        const _mp = (typeof MP !== 'undefined' && MP.active);   // gameLoop ile aynı ölçüt
+        BATTLE_LOOKAHEAD_RED = !_mp;
+        BATTLE_LOOKAHEAD_BLUE = !_mp;
+    }
+
     // RNG ortak savaş oturumu açılırken yalnız bir kez tohumlanır.
     // Eski/harici bir çağrı oturum açmadan buraya gelirse güvenli bir tohum oluştur.
     if ((typeof BATTLE_SESSION === 'undefined' || !BATTLE_SESSION.active) &&
@@ -1878,6 +1889,14 @@ function gameLoop(timestamp) {
                 const driveController = BATTLE_REPLAY_DRIVER.active ? battleReplayDrive : battleControllersDrive;
                 stepSim(simulationTime, BATTLE_TICK_SEC, driveController, true);
                 updateSupport(BATTLE_TICK_SEC, simulationTime);
+                /* İLERİ-BAKIŞ ARAMASI — TİKLER ARASINDA, stepSim'in İÇİNDE ASLA.
+                   Arama fork alıp birimleri YENİDEN YARATIR; stepSim'in içinden
+                   çağrılsa dış tikin SIM.units üzerinde gezinen indeksleri bozulurdu.
+                   Replay'de KAPALI: kayıt zaten üretilmiş emirleri taşıyor; yeniden
+                   arama yapmak replay'i canlıdan saptırırdı. */
+                if (typeof battleLookaheadTick === 'function' && !BATTLE_REPLAY_DRIVER.active) {
+                    battleLookaheadTick(simulationTime);
+                }
                 battleAccumulatorMs -= BATTLE_TICK_MS;
                 steps++;
             }

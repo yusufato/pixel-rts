@@ -29,7 +29,7 @@ function secenekOz(o, cdim) {
     const ana0 = o[0][1], ag0 = o[0][2];
     const out = new Float32Array(n * cdim);
     for (let i = 0; i < n; i++) {
-        const f = [i / Math.max(1, n - 1), o[i][0] === 0 ? 1 : 0,
+        const f = [i, o[i][0] === 0 ? 1 : 0,
                    o[i][1], o[i][2], o[i][1] - ana0, o[i][2] - ag0, o[i][3], o[i][4]];
         for (let j = 0; j < cdim; j++) out[i * cdim + j] = f[j];
     }

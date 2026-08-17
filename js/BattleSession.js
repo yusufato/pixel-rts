@@ -566,8 +566,22 @@ function exportBattleDiagnosticReport(summary = null) {
 // (BattleDeployment.js:1244/1464 — sim döngüsünden SONRA özet üretirler), karar
 // yolunda DEĞİL. Determinizm kapıları replay'i kullandığı için orada AÇIK kalmalı.
 let BATTLE_REPLAY_KAYITSIZ = false;
+
+/* ── GÖLGE SİMÜLASYON ────────────────────────────────────────────────────────
+   İleri-bakış araması fork alıp GERÇEKTEN stepSim koşturur. O tikler OLMADI:
+   fork geri yüklenince simülasyon durumu geri gelir — AMA KAYIT GERİ GELMEZ.
+
+   ÖLÇÜLDÜ (tools/arama-replay-kapisi.js): bu yüzden arama açıkken replay 120-220.
+   tiklerde SAPIYORDU. Üç ayrı sızıntı vardı:
+     · rollout içindeki AI kontrolörleri 'controller-order' olayı KAYDEDİYORDU
+       (hiç yaşanmamış emirler kaydın içine giriyordu)
+     · rollout tikleri hash kuyruğuna HAYALET hash yazıyordu
+     · telemetri örnekleri ("Ham JSON İndir") rollout durumlarıyla kirleniyordu
+
+   Bu bayrak açıkken hiçbir kalıcı kayıt yapılmaz. Arama rollout'ları sarar. */
+let BATTLE_SIM_GOLGE = false;
 function battleRecordEvent(type, payload = {}, tick = null) {
-    if (BATTLE_REPLAY_KAYITSIZ) return;
+    if (BATTLE_REPLAY_KAYITSIZ || BATTLE_SIM_GOLGE) return;   // gölge tikler kayda GİRMEZ
     if (!BATTLE_SESSION.active || BATTLE_REPLAY.playback) return;
     BATTLE_REPLAY.events.push({
         tick: Number.isFinite(tick) ? tick : (SIM.tick || 0),
@@ -776,6 +790,8 @@ function battleStateHashParts() {
 }
 
 function battleMaybeRecordHash() {
+    // GÖLGE: rollout tikleri ne hash ne telemetri üretir (ikisi de kalıcı kayıt).
+    if (BATTLE_SIM_GOLGE) return;
     battleCaptureTelemetrySample();
     if (!BATTLE_SESSION.active || !BATTLE_REPLAY.initialState || (SIM.tick % 20) !== 0) return;
     const actual = battleStateHash();
@@ -1233,6 +1249,21 @@ function battleApplyRecordedEvent(event) {
         unit.controlOwner = payload.owner || unit.controlOwner;
     } else if (event.type === 'controller-order' && typeof applyBattleOrder === 'function') {
         applyBattleOrder(payload);
+    } else if (event.type === 'lookahead-order') {
+        /* İLERİ-BAKIŞ EMRİ: replay'de arama KOŞMAZ (js/main.js gameLoop) — canlıda
+           üretilmiş nihai emir buradan geri konur. Mutasyonlar battleLookaheadEmirVer
+           ile BİREBİR aynı olmak zorunda; en ufak fark hash sapması demektir.
+           `player-move`daki dersin aynısı: kayıttaki hedef NİHAİdir, yeniden
+           terrainSafePoint'ten geçirilmez. */
+        const unit = battleUnitById(payload.id);
+        if (unit && !unit.dead) {
+            unit.targetX = payload.x;
+            unit.targetY = payload.y;
+            unit.manualMoveTarget = { x: payload.x, y: payload.y };
+            unit.isMovingToManualTarget = true;
+            unit._holdingPos = false;
+            unit._laUntilTick = SIM.tick + (typeof LA_EMIR_SURESI !== 'undefined' ? LA_EMIR_SURESI : 120);
+        }
     } else if (event.type === 'controller-posture') {
         // KONTROLÖR DURUŞU: replay'de kontrolör KOŞMAZ; birimlerin okuduğu duruşu kayıttan geri koy (canlı=replay).
         if (SIM.ctrlPosture && payload.controllerId) {

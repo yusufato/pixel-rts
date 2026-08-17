@@ -529,6 +529,15 @@
     <script src="js/BattleController.js"></script>
     <script src="js/BattleCommander.js"></script>
     <script src="js/BattleStateFeatures.js"></script>
+    <!-- İLERİ-BAKIŞ ARAMASI + DEĞER AĞI.
+         ÖLÇÜLDÜ (n=128, eşleştirilmiş): arama saldıran oranını %37.5 → %49.2'ye
+         çıkarıyor, marj farkı +839, t 2.87 (saptama tabanı 819).
+         Aylarca "ölçüldü ama bağlanmadı" durumundaydı: canlı bütçeye sığmıyordu.
+         Ağ ön süzgeci (LA_AG_ADAY=5) maliyeti 2.2 kat düşürdü → boş makinede
+         1.90× gerçek zaman, ve oyunda arama YALNIZ AI tarafında koşar. -->
+    <script src="js/BattleValueModel.js"></script>
+    <script src="js/BattleValueNet.js"></script>
+    <script src="js/BattleLookahead.js"></script>
     <script src="js/BattleFeatures.js"></script>
     <script src="js/BattleSelector.js"></script>
     <script src="js/BattleOracle.js"></script>

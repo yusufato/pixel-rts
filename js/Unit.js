@@ -1292,6 +1292,29 @@ class Unit {
     }
 
     // ── YAKIT/SORTİ (hava birimleri): uçarken yak → %30 altı üsse dön → üste ikmal → biter DÜŞER (kamikaze tek-yön hariç) ──
+    /* ELE GEÇİRME TEHLİKE KAPISI — kullanıcının sahada gördüğü kusur.
+       İstihkâm, terk edilmiş aracın üstüne düşman ateşi altında yürüyüp ölüyordu:
+       kapma bloğu koşulsuz önceliktı ve aşağıdaki `closeThreat` kontrolüne hiç
+       ulaşmıyordu. Burada İKİ nokta da sınanır — hedefin çevresi VE kendi çevresi;
+       yalnız hedefe bakmak, yol boyunca pusuya yürümeyi engellemezdi.
+       Yalnız GERÇEK tehdit sayılır: teslim olmuş/ölü/yüklü birim tehdit değildir,
+       hava birimi de istihkâmı kovalamaz. */
+    _kapmaTehlikeli(hedef) {
+        if (typeof BATTLE_KAPMA_TEHLIKE !== 'undefined' && !BATTLE_KAPMA_TEHLIKE) return false;
+        const tehditVar = (x, y, r) => {
+            const yakin = SIM.spatialGrid.getNearby(x, y, r);
+            for (const o of yakin) {
+                if (o.dead || o.abandoned || o.loaded || o.isAir) continue;
+                if (o.isRed === this.isRed) continue;
+                if (Math.hypot(o.x - x, o.y - y) > r) continue;   // ızgara kutusu yarıçaptan geniş
+                return true;
+            }
+            return false;
+        };
+        return tehditVar(hedef.x, hedef.y, KAPMA_TEHLIKE_R) ||
+               tehditVar(this.x, this.y, KAPMA_KENDI_R);
+    }
+
     // AI İSTİHKAM: aktif-yetenekleri kullan (insan-simetrisi) — (1) terk-edilmiş aracı ele geçir, (2) ileri siper/helipad kur.
     updateEngineerAI(now, dtSec) {
         if (this.buildTrenchTarget) return;   // zaten inşa ediyor
@@ -1312,7 +1335,9 @@ class Unit {
             const notDeep = (_consolidate || _winning) ? true : (this.isRed ? (o.y < WORLD_H * 0.70) : (o.y > WORLD_H * 0.30));
             if (!notDeep) continue;
             const d = Math.hypot(o.x - this.x, o.y - this.y);
-            if (d < 1300 && d < capD) { capD = d; cap = o; }   // geniş yarıçap: enkaz değerli, uzaktan bile gidip kap
+            if (!(d < 1300 && d < capD)) continue;   // geniş yarıçap: enkaz değerli, uzaktan bile gidip kap
+            if (this._kapmaTehlikeli(o)) continue;   // ama ölümüne değil (bkz. BATTLE_KAPMA_TEHLIKE)
+            capD = d; cap = o;
         }
         if (cap) {
             if (capD > 70) { this.targetX = cap.x; this.targetY = cap.y; this.manualMoveTarget = { x: cap.x, y: cap.y }; this.isMovingToManualTarget = true; }

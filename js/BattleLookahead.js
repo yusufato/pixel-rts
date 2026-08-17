@@ -33,6 +33,21 @@ const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, ger
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
 
+/* CANLI OYUNDA VARSAYILAN AÇIK.
+   ÖLÇÜLDÜ (tools/rol-dengesi-paralel.js, n=128, eşleştirilmiş, tohum 100000+):
+     aramasız  saldıran %37.5  marj −742
+     arama     saldıran %49.2  marj  +97
+     FARK +839, t 2.87  (saptama tabanı 819) → ANLAMLI
+   Yani arama yalnız güçlendirmiyor, rol dengesini de %50'ye yaklaştırıyor.
+
+   BÜTÇE: ağ ön süzgeciyle (LA_AG_ADAY=5) boş makinede 1.90× gerçek zaman ve arama
+   YALNIZ AI birimlerinde koşar (oyuncunun birimleri süzgeçle dışarıda).
+   Kare bütçesi aşılırsa `battleLookaheadTick` zaten periyodik (5sn'de bir).
+
+   KAPALI TUTULACAK YERLER: replay (kayıt zaten emirleri taşıyor) ve çok-oyunculu
+   (iki istemci bağımsız arama koşarsa lockstep sapar — ayrı karar). */
+let BATTLE_LOOKAHEAD_LIVE = true;
+
 /* ARAMA PERİYODU. Dönüşüm denemesi (periyot sabit, BİRİM kıs) kazancı öldürdü
    (+191 t 0.47). Tersi denenmedi: birim sayısını KORU, periyodu UZAT. Kapsam tam
    kalır, maliyet zamana yayılır — canlı bütçe için tek kalan ucuz kaldıraç. */
@@ -117,6 +132,141 @@ let LA_CIFT_YON = false;
    70sn+ 0.887. İlk saniyelerde ağa güvenmek gürültüyü hedef sanmak olur;
    o pencerede eski marj-deltası kullanılır. */
 let LA_DEGER_AGI = true;
+
+/* ── ÇOK KANALLI PUANLAMA (kullanıcı isteği) ────────────────────────────────
+   SORUN: rollout TEK SAYIYLA puanlanıyor (değer ağı → nihai marj). Ödül defteri
+   kurulurken ölçülmüştü: tek getiri lensi ÜÇ KEZ yanılttı. En net örnek topçu —
+   imha lensinde getirisi ×0.04 ("işe yaramaz") ama ürünü imha değil BASKI (415.6).
+
+   AĞIRLIKLAR ELLE VERİLMEDİ: bu projede sekiz elle yazılmış hedef ölçüsü denendi ve
+   hiçbiri global marjı geçemedi. Ağırlıklar `tools/kredi-agirlik.py` ile 1600 maçtan
+   türetildi (ridge, maç-bazlı ayrık test).
+
+   ⚠ İKİ ÖLÇÜLMÜŞ UYARI — bu kip AÇILMADAN ÖNCE okunmalı:
+
+   1) TOTOLOJİ. Ham regresyonda R² 0.930 çıkıyor ama bu sahte: `imhaDeger − emilen`
+      zaten marjın TANIMI. Onlar skordan ÇIKARILDI (değer ağı onları zaten sayıyor;
+      eklemek çift sayma olurdu). Kalan kanalların EK katkısı yalnız +0.0415 R².
+
+   2) `baski` AĞIRLIĞI ~SIFIR (+0.0001). Yani maç düzeyinde baskının artık değeri YOK —
+      çünkü maç bitene kadar değeri zaten marja dönüşmüş oluyor. AMA aramanın penceresi
+      5 SANİYE; o pencerede baskı henüz marja dönüşmemiştir. Maç düzeyindeki regresyon
+      bu soruyu GÖREMEZ. Yani buradaki ağırlık tablosu, tam da motive eden mekanizma
+      için muhtemelen KÖR. Doğru alet, pencere-içi kredi akışını sonraki 30sn'lik marj
+      değişimine bağlayan bir ölçüm olurdu — o veri henüz toplanmadı.
+
+   Bazı katsayılar (kurtarma −53, panik −0.08) ters işaretli. Ortak-doğrusallık 0.95;
+   tek tek işaretlere GÜVENİLMEZ. Elle düzeltilmedi — düzeltmek ölçümü kanıya çevirirdi.
+
+   KARAR YERİ: yalnız maç kapısı (rol-dengesi-paralel --kol BATTLE_LA_KANAL). */
+let BATTLE_LA_KANAL = false;      // ÖLÇÜLMEDİ → varsayılan KAPALI
+const LA_KANAL_AGIRLIK = {        // TL/birim, tools/kredi-agirlik.py artık modeli (R² 0.299)
+    iyilestirme: 0.9600, panik: -0.0787, muhimmat: 2.3615, mayin: 29.9592,
+    kurtarma: -53.2304, yakitDolum: 0.1340, rally: 90.9107, haleTik: 0.0016,
+    kuruEngel: 6.1189, jamTik: -0.0035, tasinan: 1.4994, baski: 0.0001
+};
+
+/* ── BİRİME KENDİNİ TANIT (kullanıcı isteği) ────────────────────────────────
+   Kusur: aday, ORDUNUN TAMAMININ marjıyla puanlanıyor. Yani keşif aracı "şuraya
+   gidersem ordunun marjı ne olur" diye soruyor — "GÖREVİMİ daha iyi yapar mıyım"
+   diye değil. Tek bir birimin 600px oynaması global marjı zar zor kıpırdatır
+   (ölçüldü: ağ farkları analitik farklardan ~30 kat küçük), yani rol katkısı
+   gürültüde kayboluyor.
+
+   Ödül defteri zaten "her birimin KENDİ işi ayrı sütun" diye kurulmuştu; burada o
+   tasarım nihayet karara bağlanıyor: birimin KENDİ kanal üretimi, KENDİ rolünün
+   kanallarıyla puanlanır. Topçu için baskı, keşif için görüş/tespit, istihkâm için
+   siper/mayın/kapma, sağlıkçı için iyileştirme.
+
+   ⚠ Bu ağırlıklar ROL EŞLEMESİDİR (hangi kanal kimin işi), BÜYÜKLÜK değil —
+   büyüklük LA_KANAL_AGIRLIK'ten (veriden türetilmiş TL/birim) gelir. Yani elle
+   verilen tek şey "kimin işi ne", ki o zaten birim tanımından okunan bir olgu.
+   KARAR YERİ yine maç kapısı. */
+let BATTLE_LA_ROL = false;        // ÖLÇÜLMEDİ → varsayılan KAPALI
+let LA_ROL_CARPAN = 3.0;          // birimin KENDİ katkısı taraf-toplamına göre kaç kat sayılsın
+const LA_ROL_KANAL = {
+    artillery:   ['baski', 'panik'],
+    mlrs:        ['baski', 'panik'],
+    recon:       ['gorusTekil', 'tespit'],
+    scout_vehicle: ['gorusTekil', 'tespit'],
+    uav:         ['gorusTekil', 'tespit'],
+    engineer:    ['siperTik', 'mayin', 'kapma'],
+    medic:       ['iyilestirme', 'kurtarma'],
+    supply:      ['muhimmat', 'yakitDolum', 'kuruEngel'],
+    ew:          ['jamTik'],
+    command:     ['haleTik', 'rally'],
+    transport:   ['tasinan'],
+    air_defense: ['havaCaydirma', 'havaHasar']
+};
+
+/* Birimin rol kanallarını bul. Önce UnitData'daki kategori/etiket, olmazsa tip adı.
+   Eşleşme yoksa null → rol terimi o birim için hiç uygulanmaz (uydurma yapılmaz). */
+function battleLaRolKanallari(u) {
+    if (!u || typeof STATS === 'undefined') return null;
+    const s = STATS[u.type]; if (!s) return null;
+    const anahtarlar = [];
+    if (s.id) anahtarlar.push(String(s.id));
+    if (s.category) anahtarlar.push(String(s.category));
+    for (const t of (s.roleTags || [])) anahtarlar.push(String(t));
+    for (const a of anahtarlar) if (LA_ROL_KANAL[a]) return LA_ROL_KANAL[a];
+    return null;
+}
+
+/* Birimin KENDİ kredi satırının anlık kopyası (yalnız rol kanalları). */
+function battleLaRolTopla(uid, kanallar) {
+    const t = {};
+    for (const c of kanallar) t[c] = 0;
+    if (typeof BATTLE_CREDIT === 'undefined' || !BATTLE_CREDIT.birim) return t;
+    const b = BATTLE_CREDIT.birim[uid];
+    if (b) for (const c of kanallar) t[c] = b[c] || 0;
+    return t;
+}
+function battleLaRolSkor(uid, kanallar, oncesi) {
+    const simdi = battleLaRolTopla(uid, kanallar);
+    let s = 0;
+    for (const c of kanallar) {
+        const w = LA_KANAL_AGIRLIK[c];
+        if (w == null) continue;   // veriden ağırlığı olmayan kanal (ör. ölü sütun) sayılmaz
+        s += w * (simdi[c] - oncesi[c]);
+    }
+    return s * LA_ROL_CARPAN;
+}
+
+/* Defterin ANLIK toplamı (taraf başına). Fork bu defteri GERİ ALMAZ — bu yüzden
+   çağıran, arama öncesi durumu saklayıp sonra geri yüklemek ZORUNDA; yoksa rollout'ta
+   biriken kredi gerçek maçın defterine sızar ve telemetri çöpe döner. */
+function battleLaKanalTopla(isRed) {
+    const t = {};
+    for (const c in LA_KANAL_AGIRLIK) t[c] = 0;
+    if (typeof BATTLE_CREDIT === 'undefined' || !BATTLE_CREDIT.birim) return t;
+    for (const id in BATTLE_CREDIT.birim) {
+        const b = BATTLE_CREDIT.birim[id];
+        if (!!b.isRed !== !!isRed) continue;
+        for (const c in LA_KANAL_AGIRLIK) t[c] += (b[c] || 0);
+    }
+    return t;
+}
+function battleLaKanalSkor(oncesiK, oncesiM, isRed) {
+    const k = battleLaKanalTopla(true), m = battleLaKanalTopla(false);
+    let s = 0;
+    for (const c in LA_KANAL_AGIRLIK) {
+        const dK = (k[c] - oncesiK[c]), dM = (m[c] - oncesiM[c]);
+        s += LA_KANAL_AGIRLIK[c] * (isRed ? (dK - dM) : (dM - dK));
+    }
+    return s;
+}
+/* Defteri derin kopyala / geri yükle (fork kapsamı dışında olduğu için elle). */
+function battleLaKrediSakla() {
+    if (typeof BATTLE_CREDIT === 'undefined') return null;
+    const kop = {};
+    for (const id in BATTLE_CREDIT.birim) kop[id] = Object.assign({}, BATTLE_CREDIT.birim[id]);
+    return { on: BATTLE_CREDIT.on, birim: kop };
+}
+function battleLaKrediGeriYukle(sakli) {
+    if (!sakli || typeof BATTLE_CREDIT === 'undefined') return;
+    BATTLE_CREDIT.on = sakli.on;
+    BATTLE_CREDIT.birim = sakli.birim;
+}
 
 /* ── POLİTİKA KİPİ (R1: damıtma) ────────────────────────────────────────────
    0 = kapalı (tam arama)
@@ -296,13 +446,35 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     if (!derin.some(a => a.kal)) { const k = adaylar.find(a => a.kal); if (k) derin.push(k); }
 
     // 2) DERİN DEĞERLENDİRME: her adayı gerçekten oynat — her RAKİP TEPKİSİ için ayrı.
+    /* GÖLGE: buradan sonraki tikler OLMADI. Kayıt/hash/telemetri kapatılmazsa
+       rollout'ların ürettiği olaylar replay'e sızar (ölçüldü: replay 120. tikte
+       sapıyordu). Bayrak try/finally ile geri alınır — istisna kaçarsa oyun
+       sessizce kayıtsız kalırdı. */
+    const _golgeOnce = BATTLE_SIM_GOLGE;
+    BATTLE_SIM_GOLGE = true;
     const fork = battleForkCapture();
     const bas = battleLookaheadMarj(isRed);
+    /* ÇOK KANALLI PUANLAMA açıksa defter rollout boyunca çalışmalı. Defter fork
+       KAPSAMI DIŞINDA olduğu için elle saklanır: aksi hâlde rollout'ta biriken kredi
+       gerçek maçın defterine sızar ve "Ham JSON" telemetrisi çöpe döner. */
+    const _defterGerek = BATTLE_LA_KANAL || BATTLE_LA_ROL;
+    const _krediSakli = _defterGerek ? battleLaKrediSakla() : null;
+    if (_defterGerek && typeof BATTLE_CREDIT !== 'undefined') {
+        BATTLE_CREDIT.on = true;
+        battleKrediKayit(u0);   // birimin satırı yoksa aç (rol terimi ondan okuyacak)
+    }
+    // ROL: birimin KENDİ görev kanalları (yoksa rol terimi uygulanmaz)
+    const _rolKanal = BATTLE_LA_ROL ? battleLaRolKanallari(u0) : null;
     let enIyi = null, enIyiSkor = -Infinity;
     for (const a of derin) {
         const tepkiSkor = [];
         for (let rk = 0; rk < Math.max(1, LA_RAKIP); rk++) {
             battleForkRestore(fork);
+            // Kanal deltası ADAY BAŞINA ölçülür: fork durumu geri alır ama defter almaz,
+            // o yüzden başlangıç toplamı her rollout'tan hemen ÖNCE alınmalı.
+            const _k0 = BATTLE_LA_KANAL ? battleLaKanalTopla(true) : null;
+            const _m0 = BATTLE_LA_KANAL ? battleLaKanalTopla(false) : null;
+            const _r0 = _rolKanal ? battleLaRolTopla(uid, _rolKanal) : null;
             const u = SIM.units.find(x => x.id === uid);
             if (!u) continue;
             u.controlOwner = 'PLAYER';                 // rollout içinde AI onu yeniden yönlendirmesin
@@ -322,7 +494,12 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
                 s += BATTLE_TICK_MS;
                 stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
             }
-            tepkiSkor.push(battleLookaheadSkor(isRed, bas));
+            let _sk = battleLookaheadSkor(isRed, bas);
+            // Kanal katkısı marj ölçeğinde (TL) olduğu için doğrudan toplanabilir.
+            if (BATTLE_LA_KANAL && _k0) _sk += battleLaKanalSkor(_k0, _m0, isRed);
+            // ROL: birimin KENDİ görev üretimi (aynı TL ölçeği, LA_ROL_CARPAN katıyla)
+            if (_r0) _sk += battleLaRolSkor(uid, _rolKanal, _r0);
+            tepkiSkor.push(_sk);
         }
         if (!tepkiSkor.length) continue;
         // EN KÖTÜ DURUM: mevzi ancak düşmanın en iyi cevabına karşı da iyiyse iyidir
@@ -337,6 +514,9 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
         }
     }
     battleForkRestore(fork);
+    BATTLE_SIM_GOLGE = _golgeOnce;   // gölge biter: bundan sonrası GERÇEK
+    // Defteri arama ÖNCESİ hâline döndür: rollout'ların kredisi gerçek maça sızmasın.
+    if (_krediSakli) battleLaKrediGeriYukle(_krediSakli);
 
     /* ── KARAR DEFTERİ ────────────────────────────────────────────────────
        Öznitelik değer ağıyla AYNI kaynaktan (battleDurumOzellik) + birime özgü
@@ -465,7 +645,16 @@ function battleLookaheadPolitikaKarari(uid, oz) {
     return { x: a.x, y: a.y, skor: lg[en] };
 }
 
-function battleLookaheadEmirVer(uid, karar) {
+/* `kayit`: emri REPLAY'e yaz. YALNIZ NİHAİ emirler için true olmalı.
+   Neden parametre: bu fonksiyon deneme rollout'ları sırasında da çağrılıyor
+   (sıralı taahhütte her aday sırası denenirken). Koşulsuz kaydetmek, hiç
+   uygulanmamış deneme emirlerini replay'e sokar ve replay canlıdan sapardı.
+
+   REPLAY SÖZLEŞMESİ: replay'de arama KOŞMAZ (js/main.js, gameLoop) — kayıttaki
+   emirler oynatılır. Bu, kontrolör emirlerinin ('controller-order') izlediği
+   desenin aynısıdır. Kaydedilmeseydi canlıda aramanın sürüklediği birimler
+   replay'de yerinde kalır ve hash kontrolü sapma verirdi. */
+function battleLookaheadEmirVer(uid, karar, kayit) {
     const u = SIM.units.find(x => x.id === uid);
     if (!u || u.dead) return;
     u.targetX = karar.x; u.targetY = karar.y;
@@ -473,6 +662,9 @@ function battleLookaheadEmirVer(uid, karar) {
     u.isMovingToManualTarget = true; u._holdingPos = false;
     u._laUntilTick = SIM.tick + LA_EMIR_SURESI;   // emrin ömrü (AI hemen ezmesin)
     BATTLE_LA_SAYAC.emir++;
+    if (kayit && typeof battleRecordEvent === 'function') {
+        battleRecordEvent('lookahead-order', { id: uid, x: karar.x, y: karar.y });
+    }
 }
 
 /* TİKLER ARASINDA çağrılır. stepSim'in İÇİNDEN ÇAĞIRMA — fork/restore birimleri
@@ -484,8 +676,14 @@ function battleLookaheadTick(now) {
     for (const isRed of [true, false]) {
         if (!battleLookaheadAcik(isRed)) continue;
         // En DEĞERLİ birimler: karar kaldıracı en yüksek olanlar. Determinist sıra.
+        /* OYUNCUNUN BİRİMİNE ASLA DOKUNMA. Canlı oyunda arama iki tarafta da açık
+           olabilir; oyuncunun kendi birimlerini arama sürüklerse oyun elinden alınmış
+           olur. `controlOwner === 'PLAYER'` tek doğru süzgeç — hangi tarafın insan
+           olduğunu tahmin etmeye gerek bırakmaz (sömürücü katmanı da aynı kuralı
+           kullanıyor: js/BattleExploiters.js "oyuncunun birimine KARISMA"). */
         let _sirali = SIM.units
-            .filter(u => !u.dead && u.isRed === isRed && !u.loaded && !u.abandoned && !u.isAir)
+            .filter(u => !u.dead && u.isRed === isRed && !u.loaded && !u.abandoned && !u.isAir &&
+                         u.controlOwner !== 'PLAYER')
             .sort((a, b) => (((STATS[b.type] && STATS[b.type].cost) || 0) - ((STATS[a.type] && STATS[a.type].cost) || 0)) || (a.id - b.id))
             .slice(0, LA_BIRIM);
         /* DÖNÜŞÜM: tur indeksi TIK'ten türetilir → determinist (duvar saati DEĞİL).
@@ -507,7 +705,7 @@ function battleLookaheadTick(now) {
             if (!_oz) continue;
             for (const uid of hedefler) {
                 const k = battleLookaheadPolitikaKarari(uid, _oz);
-                if (k) battleLookaheadEmirVer(uid, k);
+                if (k) battleLookaheadEmirVer(uid, k, true);   // NİHAİ → replay'e yaz
             }
             continue;
         }
@@ -519,7 +717,7 @@ function battleLookaheadTick(now) {
                 const k = battleLookaheadBirimKarari(uid, isRed, now);
                 if (k) bekleyen.push([uid, k]);
             }
-            for (const [uid, k] of bekleyen) battleLookaheadEmirVer(uid, k);
+            for (const [uid, k] of bekleyen) battleLookaheadEmirVer(uid, k, true);   // NİHAİ → replay'e yaz
             continue;
         }
 
@@ -535,6 +733,8 @@ function battleLookaheadTick(now) {
                 if (k) { battleLookaheadEmirVer(uid, k); emirler.push([uid, k]); }
             }
             const bas = battleLookaheadMarj(isRed);
+            const _g2 = BATTLE_SIM_GOLGE;
+            BATTLE_SIM_GOLGE = true;              // ortak-plan rollout'u da GÖLGE
             const f2 = battleForkCapture();
             let s2 = now;
             for (let i = 0; i < LA_UFUK && phase === PHASE.BATTLE; i++) {
@@ -543,6 +743,7 @@ function battleLookaheadTick(now) {
             }
             const skor = battleLookaheadSkor(isRed, bas);
             battleForkRestore(f2);
+            BATTLE_SIM_GOLGE = _g2;
             return { emirler, skor };
         };
 
@@ -561,12 +762,13 @@ function battleLookaheadTick(now) {
             else BATTLE_LA_SAYAC.ileriKazandi++;
         }
         battleForkRestore(taban);
-        for (const [uid, k] of kazanan.emirler) battleLookaheadEmirVer(uid, k);
+        for (const [uid, k] of kazanan.emirler) battleLookaheadEmirVer(uid, k, true);   // NİHAİ → replay'e yaz
     }
 }
 
 if (typeof module !== 'undefined') {
     module.exports = { battleLookaheadTick, battleLookaheadBirimKarari, battleLookaheadStatik,
         battleLookaheadAgSkor, battleLookaheadSinifNokta, battleLookaheadSinifSayisi,
-        battleLookaheadEleVeKapi, battleLookaheadPolitikaKarari };
+        battleLookaheadEleVeKapi, battleLookaheadPolitikaKarari,
+        battleLaKanalSkor, battleLaKanalTopla, battleLaRolKanallari, battleLaRolSkor };
 }
