@@ -28,7 +28,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Teşhis sayaçları (hash DIŞI — simülasyona dokunmaz, yalnız ölçüm harness'i okur)
-const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0 };
+const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0, rakipYayilimTop: 0, rakipOlcum: 0 };
 
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
@@ -82,6 +82,24 @@ let LA_CIFT_YON = true;
    70sn+ 0.887. İlk saniyelerde ağa güvenmek gürültüyü hedef sanmak olur;
    o pencerede eski marj-deltası kullanılır. */
 let LA_DEGER_AGI = true;
+
+/* ── RAKİP DE GELECEĞİ GÖRSÜN (kullanıcı 2026-08-17) ──
+   Şu ana kadar her aday için TEK gelecek oynatıldı: "şuraya gidersem ve düşman
+   HER ZAMANKİ GİBİ davranırsa ne olur". Eksik olan: düşman X yaparsa ne olur,
+   Y yaparsa ne olur — ve ben EN KÖTÜ ihtimale göre mi seçmeliyim?
+
+   RAKİP ÇEŞİTLENDİRME: düşman kontrolörünün yeniden-karar anını kaydırırız
+   (0 / +20 / +40 tik). Aynı durumdan farklı anlarda plan yapan düşman farklı
+   tepki verir. Determinist (RNG yok), ucuz, ve motor semantiğine dokunmaz.
+
+   SEÇİM KURALI: EN KÖTÜ durum (minimax). Bir mevzi ancak düşmanın en iyi
+   cevabına karşı da iyiyse gerçekten iyidir.
+
+   MALİYET: aday × rakip-tepkisi. LA_RAKIP=3 ile üç kat.
+   UYARI: çeşitlendirme GERÇEKTEN farklı gelecek üretmiyorsa bu üç kat BOŞA gider.
+   Bu yüzden BATTLE_LA_SAYAC.rakipYayilim ile ölçülür — sıfırsa kapatılmalı. */
+let LA_RAKIP = 3;             // aday başına kaç düşman tepkisi (1 = eski davranış)
+const LA_RAKIP_KAYMA = 20;    // tepkiler arası karar-anı kayması (tik)
 const LA_AG_MIN_TIK = 600;    // 30sn — bundan önce ağ güvenilmez (rho 0.389)
 
 function battleLookaheadAcik(isRed) {
@@ -167,25 +185,42 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     // "yerinde kal" hep sınansın: aramanın zarar vermediğini garanti eden taban.
     if (!derin.some(a => a.kal)) { const k = adaylar.find(a => a.kal); if (k) derin.push(k); }
 
-    // 2) DERİN DEĞERLENDİRME: her adayı gerçekten oynat.
+    // 2) DERİN DEĞERLENDİRME: her adayı gerçekten oynat — her RAKİP TEPKİSİ için ayrı.
     const fork = battleForkCapture();
     const bas = battleLookaheadMarj(isRed);
     let enIyi = null, enIyiSkor = -Infinity;
     for (const a of derin) {
-        battleForkRestore(fork);
-        const u = SIM.units.find(x => x.id === uid);
-        if (!u) continue;
-        u.controlOwner = 'PLAYER';                 // rollout içinde AI onu yeniden yönlendirmesin
-        u.manualTarget = null; u.attackTarget = null;
-        u.targetX = a.x; u.targetY = a.y;
-        u.manualMoveTarget = { x: a.x, y: a.y };
-        u.isMovingToManualTarget = true; u._holdingPos = false;
-        let s = now;
-        for (let i = 0; i < LA_UFUK && phase === PHASE.BATTLE; i++) {
-            s += BATTLE_TICK_MS;
-            stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
+        const tepkiSkor = [];
+        for (let rk = 0; rk < Math.max(1, LA_RAKIP); rk++) {
+            battleForkRestore(fork);
+            const u = SIM.units.find(x => x.id === uid);
+            if (!u) continue;
+            u.controlOwner = 'PLAYER';                 // rollout içinde AI onu yeniden yönlendirmesin
+            u.manualTarget = null; u.attackTarget = null;
+            u.targetX = a.x; u.targetY = a.y;
+            u.manualMoveTarget = { x: a.x, y: a.y };
+            u.isMovingToManualTarget = true; u._holdingPos = false;
+            // RAKİP TEPKİSİ k: düşman kontrolörü k*kayma tik SONRA yeniden plan yapar
+            if (rk > 0 && typeof BATTLE_CONTROLLERS !== 'undefined') {
+                for (const c of BATTLE_CONTROLLERS.values()) {
+                    if (!c || c.side === isRed) continue;   // yalnız RAKİP
+                    c.nextDecisionTick = (c.nextDecisionTick | 0) + rk * LA_RAKIP_KAYMA;
+                }
+            }
+            let s = now;
+            for (let i = 0; i < LA_UFUK && phase === PHASE.BATTLE; i++) {
+                s += BATTLE_TICK_MS;
+                stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
+            }
+            tepkiSkor.push(battleLookaheadSkor(isRed, bas));
         }
-        const skor = battleLookaheadSkor(isRed, bas);
+        if (!tepkiSkor.length) continue;
+        // EN KÖTÜ DURUM: mevzi ancak düşmanın en iyi cevabına karşı da iyiyse iyidir
+        const skor = Math.min.apply(null, tepkiSkor);
+        if (tepkiSkor.length > 1) {
+            BATTLE_LA_SAYAC.rakipYayilimTop += (Math.max.apply(null, tepkiSkor) - skor);
+            BATTLE_LA_SAYAC.rakipOlcum++;
+        }
         // eşitlikte determinist: önce skor, sonra x, sonra y
         if (skor > enIyiSkor || (skor === enIyiSkor && enIyi && (a.x < enIyi.x || (a.x === enIyi.x && a.y < enIyi.y)))) {
             enIyiSkor = skor; enIyi = a;
