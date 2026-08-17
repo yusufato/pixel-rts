@@ -40,12 +40,42 @@ Bu, mekanizmanın ne olduğunu da söylüyor: kazanç birkaç akıllı hamleden 
 kuvvetin sürekli yeniden yönlendirilmesinden** geliyor. Değer ağı rollout'un YERİNE
 geçmiyor, sonunu PUANLIYOR.
 
-**Karar:** ucuzlatma yolu KAPANDI. Canlı oyun için tek yol aramayı ana iplikten çıkarmak.
+### ⚠ BU BÖLÜMÜN TEŞHİSİ DÜZELTİLDİ (2026-08-17)
 
-### DOĞRU YOL: ayrı iş parçacığı (Web Worker)
+Yukarıdaki tablo doğru ama **sebep yanlış atfedilmişti**. "Maliyet rollout'tan geliyor"
+varsayılıyordu; ölçüldü, öyle değilmiş.
 
-Aramayı ucuzlatmak yerine **ana iş parçacığından çıkarmak** gerekiyor. Worker'ın kendi
-global kapsamı var → motorun ikinci bir örneği orada yaşayabilir.
+`tools/politika-kip-kapisi.js` (60sn oyun, tek taraf):
+
+| kip | CPU | oyun/CPU |
+|---|---:|---:|
+| aramasız (taban) | 6.0sn | 9.9× |
+| tam arama | 235.4sn | 0.25× |
+| **rollout'suz** (politika kipi) | 61.8sn | 0.97× |
+| rollout'suz **+ ağ eleyicisi kapalı** | **6.0sn** | **9.9×** |
+
+Rollout tümüyle atıldığında maliyet yalnız 4 kat düştü. Ağ eleyicisi de kapatılınca
+**tabana** indi. Yani maliyetin çoğu, değer ağının **aday başına** çağrılmasıydı:
+25 aday × 20 birim = **500 CNN geçişi/tur**.
+
+**Düzeltme (`LA_AG_ADAY = 5`):** ağ yalnız analitik en iyi 5 adaya sorulur — bu kısıtın
+güvenli olduğu zaten ölçülmüştü (*analitik ön eleme K=3 kazancın %72'sini korur, bedava*).
+
+| kip | CPU | oyun/CPU |
+|---|---:|---:|
+| tam arama | 105.0sn | 0.57× (hâlâ sığmıyor) |
+| **politika kipi** | **15.1sn** | **3.98× ✅ SIĞIYOR** |
+
+**Karar değişti:** Web Worker ZORUNLU DEĞİL. Damıtılmış politika canlı bütçeye zaten
+sığıyor. Worker, tam aramayı canlıya taşımak istenirse hâlâ bir seçenek — ama artık
+tek yol değil ve öncelikli de değil.
+
+**AÇIK BORÇ:** `LA_AG_ADAY=5` aramanın davranışını değiştiriyor (atlanan karar 53→137).
+Kanıtlanmış +1262 bu konfigürasyonda **yeniden ölçülmedi**.
+
+Ayrıntı: `docs/PLAN-POLITIKA-DAMITMA.md`.
+
+### Alternatif (artık zorunlu değil): ayrı iş parçacığı (Web Worker)
 
 ```
 ana iplik:  fork al (2.1ms) → worker'a yolla → oyun akmaya devam eder
@@ -60,7 +90,10 @@ tekrar üretilebilir kalır.
 host yetkili olmalı — ayrı karar.
 
 ### Yapılacaklar
+0. **Politika damıtma kapısı** (`docs/PLAN-POLITIKA-DAMITMA.md`) — canlıya sığan tek
+   aday bu; sonucu 1. maddenin hangi dosyaları yükleyeceğini belirler.
 1. `index.html`'e üç dosya: `BattleStateFeatures` (varsa), `BattleValueModel`, `BattleValueNet`, `BattleLookahead`
+   (+ politika kapıyı geçerse `BattlePolicyModel`, `BattlePolicyNet`)
 2. `gameLoop`'ta **tikler arasına** `battleLookaheadTick(now)` — `stepSim`'in İÇİNE ASLA
    (fork/restore birimleri yeniden yaratır, dış tikin döngüleri bozulur)
 3. **Çok oyunculu kilit adım:** arama emir üretiyor; lockstep'te iki taraf aynı emri üretmeli.
