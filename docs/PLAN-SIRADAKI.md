@@ -65,23 +65,29 @@ Mekanizma kapısı (doğru ölçü "emir yaşadı mı" değil **"hedefe VARDI m�
 | 3 (+HOLD) | %30,4 | 30 tik |
 | 15 (tam) | **%36,2** | 100 tik |
 
-### Maç kapısı — koruma 15 vs 0 (2026-08-18, n=192 eşleştirilmiş, 94,6 dk)
+### Maç kapıları — 2026-08-18 gecesi (hepsi n=192 eşleştirilmiş, tohum 100000+)
 
-| kol | saldıran % | marj ort | t |
-|---|---:|---:|---:|
-| 0 (koruma yok) | %46,4 | −40 | −0,21 |
-| **15 (tam koruma)** | **%57,3** | **+446** | **2,29** |
+| kapı | kol | saldıran % | eşleştirilmiş fark | t | saptama tabanı |
+|---|---|---:|---:|---:|---:|
+| A | koruma **15** vs 0 | %57,3 vs %46,4 | **+486** | 2,10 | 648 ⚠ |
+| C | koruma **1** vs 0 (yalnız MOVE) | %58,9 vs %46,4 | **+552** | 2,72 | 568 ⚠ |
+| D | ufuk **200** vs 100 (10sn vs 5sn) | %52,3 vs %45,3 | +357 | 1,34 | 745 ✗ |
 
-**Eşleştirilmiş fark: +486, t 2,10, n=192.**
+**Okuma:**
+- İki koruma kolu da pozitif ve **birbirine yakın**; MOVE-only (1) tam korumadan (15)
+  geri kalmıyor — üstelik çok daha küçük bir davranış değişikliği.
+- ⚠ İkisinde de ölçülen etki **saptama tabanının altında**: test bu büyüklükteki bir
+  etkiyi güvenilir yakalayacak güçte değildi → kazananın-laneti riski. t 2,1–2,7 bu
+  projede tek başına karar verdirmez (`docs/OLCUM-TUZAKLARI.md`).
+- **A ve C üst üste TOPLANAMAZ:** aynı tohumları ve aynı kontrol kolunu paylaşıyorlar,
+  gürültüleri korelasyonlu. "1, 15'ten iyi" demek için doğrudan kapı gerekir.
+- D anlamsız çıktı ama **kanıt yokluğu**, yokluğun kanıtı değil: +357'yi doğrulamak
+  n≈557 ister (~5 saat). Şimdilik beklemede.
 
-⚠ **Ama karar VERİLMEDİ.** Aracın kendi uyarısı: bu n ile ancak |etki| ≥ 648 güvenle
-yakalanır, ölçülen 486 **bunun altında**. Yani test bu büyüklükteki bir etkiyi
-güvenilir yakalayacak güçte değildi → tahmin gürültülü ve kazananın-laneti riski var.
-t 2,10 bu projede tek başına karar verdirmez (bkz. `docs/OLCUM-TUZAKLARI.md`).
-**TAZE tohumlarla doğrulama şart** → E kapısı (tohum0 100192, n=192; birleşince n=384,
-saptama tabanı ±458'e iner).
+**Koşan/kuyruktaki doğrulamalar** (taze tohum, A/C ile ORTAK tohum yok):
+E = 15 vs 0 (100192+) · F = 1 vs 0 (100192+) · G = **1 vs 15 doğrudan** (100384+)
 
-⚠ VARSAYILAN 0 — doğrulama kapısı geçmeden açılmaz.
+⚠ VARSAYILAN 0 — doğrulama kapıları geçmeden açılmaz.
 
 ---
 
@@ -186,7 +192,24 @@ haritadaki **iki tarafın da bütün mayınlarını kalıcı olarak siliyordu.**
 
 - Canlı oyunda **ÖNGÖRÜ seviyesi mayın alanlarını yok ediyordu** (oyuncununkiler dahil).
 - Arama açık koşularda mayın lehine olan taraf sessizce cezalandırılıyordu →
-  **aramanın ölçülmüş +839'u bu kirlilikle elde edildi**, yeniden ölçülmeli.
+  **aramanın ölçülmüş +839'u bu kirlilikle elde edildi**, yeniden ölçüldü ↓
+
+### ✔ ARAMA YENİDEN ÖLÇÜLDÜ (B kapısı, temiz kod, n=192)
+
+| kol | saldıran % | marj ort | t |
+|---|---:|---:|---:|
+| arama KAPALI | %35,9 | −775 | −4,18 |
+| arama AÇIK | %46,4 | −40 | −0,21 |
+
+**Eşleştirilmiş fark: +735, t 3,55 — saptama tabanı 580, ölçülen etki TABANIN ÜSTÜNDE.**
+
+Bu gecenin tek **tam güçlü** sonucu bu. Arama, mayın kusuru düzeltildikten sonra da
+çalışıyor: eski +839 yerine +735 — aynı büyüklük sınıfı, ama artık temiz kodla ve
+saptama tabanının üstünde ölçülmüş. Yani mayın kaçağı ölçümü şişirmiş ama
+**yaratmamış**; aramanın değeri gerçek.
+
+Yan bulgu: arama kapalıyken saldıran %35,9 (t −4,18) — yani bu kurulumda savunan
+yapısal olarak avantajlı ve arama bu farkı büyük ölçüde kapatıyor.
 
 Kapı neden görmedi: `battleStateHash` mayınları HİÇ saymıyordu (`battleStateHashParts`
 sayıyordu — asıl hash saymıyordu). Sapma ancak dolaylı etkisi birim durumuna
