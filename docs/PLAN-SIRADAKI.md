@@ -322,12 +322,31 @@ Bu yüzden oran, gecikme olmadan bile 1,0'ın çok altında çıkıyor.
 **Düzeltme:** oran yerine **eşleştirilmiş ham fark** (`s_taze − s_bayat`) + t testi.
 Yanlılığı taşır ama SABİT taşır → gecikmeler ARASINDAKİ fark yorumlanabilir.
 
+| gecikme | ham fark (taze − bayat) | se | t |
+|---|---:|---:|---:|
+| ≈0 sn (KONTROL) | 17,6 | 8,1 | 2,18 |
+| 3,0 sn | 9,9 | 8,5 | 1,16 |
+| 5,0 sn | 11,4 | 5,1 | 2,22 |
+
+**Fark gecikmeyle BÜYÜMÜYOR.** k≈0'da 17,6 çıkması aletin yanlılık tabanıdır
+(yansız olsa 0 olmalıydı); 3sn ve 5sn'deki değerler bunun altında/eşit.
+
+**Dürüst sonuç: 5 saniyeye kadar gecikme maliyeti ÖLÇÜLEMEDİ.** Ama "yok" demiyorum —
+aletin çözünürlüğü ±16 puan (2×se) ve bir kararın "yerinde kal"a göre tipik değeri
+~47 puan. Yani **%35'e varan bir gecikme maliyeti bu aletin altında saklanabilir.**
+
 ### Worker tasarımı: hangi seçenek?
 
-Öngörülü worker (fork'u al, dünyayı k tik kendin ilerlet, oradan ara) hâlâ **doğru bir
-tasarım** — AI-vs-AI'da tam doğru, çünkü sim deterministik ve kontrolörler + `rngState`
-fork'un içinde. Ama artık bunu **ölçüm gerektirdiği için değil**, ücretsiz doğruluk
-olduğu için savunuyorum. "Gecikme değerin yarısını yiyor" iddiası **dayanaksızdı**.
+**Düz worker artık elenmiş DEĞİL** — icat ettiğim itiraz ölçümde durmadı.
+
+Öngörülü worker (fork'u al, dünyayı k tik kendin ilerlet, oradan ara) yine de tercih:
+AI-vs-AI'da **tam doğru** (sim deterministik, kontrolörler + `rngState` fork'un içinde),
+maliyeti k tiklik ekstra simülasyon — worker'da zaten 2,8sn arama yapılıyor, yanında
+3sn'lik ilerletme ucuz. Yani ücretsiz-e-yakın doğruluk; **ölçüm zorunlu kıldığı için
+değil.** "Gecikme değerin yarısını yiyor" iddiası geri çekildi.
+
+Sıradaki adım artık ölçüm değil **inşa**: worker iskeleti + `importScripts` ile muharebe
+zinciri + fork köprüsü. Kapı hazır (`fork-kapisi.js` + `arama-replay-kapisi.js`).
 
 ---
 
