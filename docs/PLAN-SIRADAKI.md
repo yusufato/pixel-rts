@@ -98,9 +98,24 @@ havuzlanabilir, aynı tohumlular TOPLANAMAZ). Havuzda bile etki saptama tabanın
 
 Bu tam beklenen desen: ilk kapı şanslı çıkmış, doğrulama küçültmüş. Karar hâlâ YOK.
 
-**Kuyrukta:** F = 1 vs 0 (100192+) · G = **1 vs 15 doğrudan** (100384+)
+### F doğrulaması da ÇÖKTÜ → emir ömrü İSPATLANMADI
 
-⚠ VARSAYILAN 0 — doğrulama kapıları geçmeden açılmaz.
+| kol | ilk kapı | taze tohumla doğrulama | havuz (n=384) | saptama tabanı |
+|---|---:|---:|---:|---:|
+| koruma 1 (MOVE) | +552 (t 2,72) | **+64 (t 0,29)** | +328 (t 2,20) | 419 ⚠ |
+| koruma 15 (tam) | +486 (t 2,10) | **+277 (t 1,12)** | +388 (t 2,30) | 473 ⚠ |
+
+Dört bağımsız kapının dördü de pozitif (işaret tutarlı) ama **her doğrulama büyüklüğü
+küçülttü** ve havuzda bile etki saptama tabanının altında. Bu etkiyi (~+350) kanıtlamak
+arm başına **n≈630** ister; elde 384 → arm başına ~3 saat daha ölçüm.
+
+**KARAR: varsayılan 0 kalıyor, iş RAFA kaldırıldı.** Gerekçe ekonomik: aramanın kendisi
+zaten kanıtlanmış +735 veriyor ve oyunda KISILMIŞ koşuyor. ~+350'lik bir mikro-ayarı
+5 saat ölçmektense, kanıtlanmış +735'i tam güçle oyuna sokmak (Worker) daha büyük kaldıraç.
+
+G kapısı (1 vs 15 doğrudan) 65. dakikasında makine kapatılınca kesildi — sonuç yok.
+
+**Yeniden açılırsa:** `BATTLE_LA_EMIR_KORUMA` bağlı ve çalışıyor; tek eksik n.
 
 ---
 
@@ -345,8 +360,34 @@ maliyeti k tiklik ekstra simülasyon — worker'da zaten 2,8sn arama yapılıyor
 3sn'lik ilerletme ucuz. Yani ücretsiz-e-yakın doğruluk; **ölçüm zorunlu kıldığı için
 değil.** "Gecikme değerin yarısını yiyor" iddiası geri çekildi.
 
-Sıradaki adım artık ölçüm değil **inşa**: worker iskeleti + `importScripts` ile muharebe
-zinciri + fork köprüsü. Kapı hazır (`fork-kapisi.js` + `arama-replay-kapisi.js`).
+### ✔ MİMARİ KANITLANDI: `tools/worker-kapisi.js` (YENİ)
+
+Tarayıcı Worker'ı yazmadan önce mimari Node `worker_threads` ile provaya alındı —
+işçi kendi dünyasını kurar, ana taraftan gelen **yalnız fork'u** yükler, arar, emirleri
+döndürür. İki ayrı iddia ayrı ayrı sınandı:
+
+| ölçü | soru | sonuç |
+|---|---|---|
+| **EMİR EŞİTLİĞİ** | fork tek başına yeterli mesaj mı? | **3/3** (11 emir, birebir) |
+| **ÖNGÖRÜ EŞİTLİĞİ** | işçi geleceği birebir tahmin edebiliyor mu? | **3/3** (hash eşit) |
+
+Negatif kontrol (fork'tan mayınlar atılır) sapmayı yakaladı → kapı kör değil.
+
+**Öngörü eşitliği kritik olan:** işçi dünyayı 100 tik (5sn) kendi ilerletip oradan
+arıyor ve vardığı durum ana iş parçacığınınkiyle **birebir aynı**. Yani öngörülü worker
+bir yaklaşıklık değil, AI-vs-AI'da tam doğru — ölçüldü, varsayılmadı.
+
+⚠ Kapı ilk koşuda **boşa geçti**: `--ileri 60` ile T+60 arama periyoduna denk gelmiyordu,
+iki taraf da 0 emir üretti ve "0/0 eşit" diye YEŞİL yandı. Araca "hiç emir üretilmediyse
+SONUÇSUZ" koruması eklendi. (Bu gecenin üçüncü kör-kontrol vakası.)
+
+### Kalan iş: tarayıcı tarafı
+
+1. `js/lookahead-worker.js` — `importScripts` ile muharebe zinciri (tezgâhın
+   `MUHAREBE_KAYNAK` listesi birebir kullanılabilir)
+2. `js/BattleWorkerKopru.js` — fork gönder / emir al / uygula
+3. `js/BattleLookahead.js`'e tek kanca + `index.html`'e tek `<script>` satırı
+   (⚠ `index.html` kullanıcının üzerinde çalıştığı dosya — o satır ona bırakılacak)
 
 ---
 
