@@ -485,7 +485,11 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
        `BATTLE_GOZCU_INTEL4` kapalı ve `BATTLE_GOZCU_KAT` = 3 iken davranış eskisiyle
        BİREBİR aynıdır. Maç kapısı geçmeden açılmaz. */
     const _proMu = !!(config && config.pro === true);
-    const _intel4Kapsam = (typeof BATTLE_GOZCU_INTEL4 !== 'undefined') && BATTLE_GOZCU_INTEL4 === true;
+    /* YALNIZ AI TARAFI (kirmizi). Bayrak global; iki tarafa birden uygulanirsa A/B
+       tek degiskenli olmaz ve rol dengesinde etkiler birbirini goturur. Canli oyunda
+       AI zaten kirmizi (`battleAutoDeploySession` isRed:true gonderiyor). */
+    const _intel4Kapsam = (typeof BATTLE_GOZCU_INTEL4 !== 'undefined') && BATTLE_GOZCU_INTEL4 === true &&
+        !!(config && config.isRed === true);
     if (!_proMu && !_intel4Kapsam) return;
     if (_proMu && deploymentProDeltaKapali('spotterRequirement', config)) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
@@ -581,8 +585,28 @@ function battleDestekIcinYerAc(types, spent, remaining, maliyet, korunanTipler) 
 // KURAL: şarjörü PRO_LOJISTIK_KUCUK_SARJOR'dan küçük-eşit VE maliyeti PRO_LOJISTIK_MIN_TL'den
 // büyük-eşit silahlı birim varsa, orduda en az PRO_LOJISTIK_MIN adet resupply-aura birimi bulunur.
 function battleLojistikKuraliUygula(types, spent, remaining, config) {
-    if (!(config && config.pro === true)) return;
-    if (deploymentProDeltaKapali('logisticsRequirement', config)) return;
+    /* ── KAPSAM: GÖZCÜ KURALIYLA AYNI BOŞLUK (kullanıcının 2. maçı, 2026-08-18) ──
+       ÖLÇÜLDÜ (tools/lojistik-teshis.js, AI SAVUNAN + arama açık — kullanıcının oynadığı
+       kurulum): AI'nın ikmal aracı ölünce ayakta kalan dolaylı ateş birimlerinin cephanesi
+       %59 → %3'e düşüyor ve örnek başına 1.32 birim tamamen KURU kalıyor. Birimler sağ
+       (1.75/örnek), yani sorun hayatta kalma değil gerçekten İKMAL.
+       Kullanıcının maçında: ikmal 52sn'de öldü, RESUPPLY kırmızı 6 / mavi 215, topçu
+       90sn'de kurudu ve 170 saniye boş gezdi. Maç 140sn'de berabereydi.
+
+       ⚠ İLK ÖLÇÜM YANLIŞ CEVAP VERDİ: AI'yı SALDIRAN ve ARAMASIZ koşturmuştum; o kurguda
+       ikmal öldüğünde dolaylı ateş ZATEN ölmüş oluyor (0.00 birim/örnek) ve desen
+       görünmüyordu. Kurulum kullanıcının maçıyla aynı olmalıydı.
+
+       Kural `pro` beyninde zaten var; ÖNGÖRÜ pro DEĞİL → hiç çalışmıyordu. Kapsam ve
+       asgari sayı dışarı alındı. VARSAYILAN DEĞİŞMEDİ. */
+    const _proMu = !!(config && config.pro === true);
+    /* YALNIZ AI TARAFI (kirmizi). Bayrak global; iki tarafa birden uygulanirsa A/B
+       tek degiskenli olmaz ve rol dengesinde etkiler birbirini goturur. Canli oyunda
+       AI zaten kirmizi (`battleAutoDeploySession` isRed:true gonderiyor). */
+    const _intel4Kapsam = (typeof BATTLE_LOJISTIK_INTEL4 !== 'undefined') && BATTLE_LOJISTIK_INTEL4 === true &&
+        !!(config && config.isRed === true);
+    if (!_proMu && !_intel4Kapsam) return;
+    if (_proMu && deploymentProDeltaKapali('logisticsRequirement', config)) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
     const kaynakTipleri = [];
     for (const t in STATS) { const st = STATS[t]; if (st && st.aura && st.aura.type === 'resupply') kaynakTipleri.push(Number(t)); }
@@ -596,7 +620,11 @@ function battleLojistikKuraliUygula(types, spent, remaining, config) {
     if (!kucukSarjor) return;
     let kaynak = types.filter(t => kaynakTipleri.includes(t)).length;
     let guard = 0;
-    while (kaynak < PRO_LOJISTIK_MIN && guard++ < 4) {
+    /* ASGARİ SAYI dışarıdan ayarlanabilir: tek ikmal aracı ölünce ordu kalıcı olarak
+       kuruyor (ölçüm yukarıda). Yedek almanın bedeli 250₺ (bütçenin %3.8'i). */
+    const _min = (typeof BATTLE_LOJISTIK_MIN !== 'undefined' && BATTLE_LOJISTIK_MIN > 0)
+        ? BATTLE_LOJISTIK_MIN : PRO_LOJISTIK_MIN;
+    while (kaynak < _min && guard++ < 4) {
         const enUcuz = kaynakTipleri.slice().sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
         if (enUcuz != null && STATS[enUcuz].cost > remaining.money) {
             battleDestekIcinYerAc(types, spent, remaining, STATS[enUcuz].cost, kaynakTipleri);

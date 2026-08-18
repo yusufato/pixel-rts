@@ -1544,6 +1544,16 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── LOJİSTİK KURALININ KAPSAMI (A/B kolu) ─────────────────────────────────
+   Kullanıcının maçından çıktı: AI'nın TEK ikmal aracı 52sn'de öldü, sonrasında RESUPPLY
+   sıfır (oyuncu 215) ve topçusu 170 saniye boş gezdi. Tezgâhta AYNI KURULUMDA (AI savunan
+   + arama açık) doğrulandı: ikmal ölünce dolaylı ateşin cephanesi %59 → %3, örnek başına
+   1.32 birim tamamen kuru — birimler ise ayakta. Yani sorun hayatta kalma değil İKMAL.
+   `battleLojistikKuraliUygula` zaten yazılmış ama gözcü kuralıyla aynı boşlukta: yalnız
+   `pro` beyninde koşuyor. VARSAYILAN = ESKİ DAVRANIŞ. Maç kapısı geçmeden açılmaz. */
+let BATTLE_LOJISTIK_INTEL4 = false;   // kuralı intel4 (pro olmayan) ordulara da uygula
+let BATTLE_LOJISTIK_MIN = 0;          // 0 = PRO_LOJISTIK_MIN kullan; 2 = yedek ikmal aracı
+
 /* ── GÖZCÜ KURALININ KAPSAMI (A/B kolu) ────────────────────────────────────
    Kullanıcının gerçek maçında ölçüldü: AI topçusu ateş fırsatlarının %64'ünde
    "Gözcü Yok"; oyuncuda hiç yok (oyuncu 3 keşif, AI 1). Kural `battleGozcuKuraliUygula`
