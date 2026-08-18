@@ -6,6 +6,82 @@ Damgasız satır yoktur: her iş ya ÖLÇÜLDÜ, ya ÖN KAPIYI GEÇTİ, ya HENÜ
 
 ---
 
+---
+
+# ⭐ 2026-08-19 GECESİ — SONUÇ TABLOSU (sabah ilk buraya bak)
+
+## KAPIYI GEÇEN TEK ŞEY: uzun ufuk. Ve uygulandı.
+
+| kapı | n | eşleştirilmiş fark | t | saptama tabanı | sonuç |
+|---|---|---|---|---|---|
+| **H3 · LA_UFUK 100→200** | 128 | **+874** | 3,13 | 783 | **TABANIN ÜSTÜNDE** |
+| **D+H3 havuz** (ayrık tohum) | 256 | **+603** | 3,13 | 540 | **TABANIN ÜSTÜNDE** |
+| H1 · LA_DERIN 2→5 | 128 | +656 | 2,43 | 755 | az altında → doğrulama kuyrukta |
+| H2 · yayılım kapısı gevşek | 128 | +330 | 1,32 | 700 | anlamlı değil |
+
+Saldıran galibiyeti **%50,0 → %63,3**. Tohumlar ayrık (D `100000..127`, H3 `109000..127`);
+D tek başına anlamlı **değildi** (+357, t 1,34) — kararı veren önceden kararlaştırılmış
+**tekrar**, havuz yalnızca onu güçlendiriyor.
+
+**Uygulandı**: `js/lookahead-worker.js` → `LA_UFUK = 200`. Ana iplikte değil (orada donma
+demek). Canlıda yalnız ÖNGÖRÜ kademesinde açılır ve o kademede işçi devrede — yani kazanç
+gerçekten oyuna iniyor. Bedeli `tools/ufuk-maliyet.js` ile ölçüldü: **×1,58** (ufuk 300 ×2,22),
+beklenen ×2,00'ın altında çünkü tur maliyetinin bir kısmı ufuktan bağımsız sabit iş.
+
+## Gecenin dersi
+
+Aynı gece beş **çevre düzeltmesi** denendi — gözcü, lojistik, emir ömrü, demet, yayılım
+kapısı — **hepsi** saptama tabanının altında kaldı. Kaldıraç aramanın kendisinde çıktı.
+Worker kapasiteyi açtı; kazandıran, o kapasiteyi *kullanmak*. Kuyruktaki iki faz bu
+ekseni sonuna kadar sürüyor.
+
+## Kuyrukta (sabaha kadar)
+
+| faz | kapı | soru |
+|---|---|---|
+| 3 | K1 | karşı-batarya herkese açılsın mı |
+| 4 | M0 / M1 | `_menzileGir` — kısa menzilli birim öne gitsin mi |
+| 5 | U0 · K0b · H1b · H4 · W0 | ufuk maliyeti · düzeltilmiş mekanizma · LA_DERIN doğrulama · ufuk 200 vs 300 · canlı tarayıcı |
+| 6 | P1 · P2 | karar sıklığı 100→50 tik · aday genişliği halka 3→5 |
+
+## Ölçülüp GERİ ÇEKİLEN üç iddia (kod değişmedi)
+
+1. **"16 birim navigasyon tıkanıklığından ateş edemedi."** `navBlocked` "takılı" demek
+   değil, "hedefe düz çizgi arazi tarafından kapalı" demek. Gerçek takılma ölçüsü
+   eklenince kova **tamamen boşaldı**.
+2. **"MANPADS menzilinde düşman varken hedef seçmiyor."** `menzilimdeDusman` kara
+   düşmanını da sayıyor; MANPADS/SAM karaya ateş edemez. Doğru davranıyordu.
+3. **"Kamikaze dronları SAM şemsiyesi altında doğduğu için ölüyor."** Ölçüldü: şemsiye
+   altında %20, dışında %19 → **fark yok**. Mekanizma bilinmediği için maç kapısı
+   harcanmadı.
+
+## Aletlerde bulunan üç kusur
+
+1. `tools/karsi-batarya-mekanizma.js` **çöktü** (`performAttack` global değil, Unit metodu).
+   Artık telemetri `combatEvents`'ten sayıyor — gerçek maçlarla aynı ölçü.
+2. `LA_HALKA`/`LA_YON`/`LA_YARICAP` **`const`** idi: A/B tezgâhı onları değiştiremiyordu ve
+   bir kapı açılsa "fark yok" diye **sahte** sonuç verirdi. `let` yapıldı; tezgâh artık kol
+   atamasını **geri okuyup doğruluyor** (negatif kontrol geçti).
+3. **İşçi köprüsü sayaçları maç başına sıfırlanmıyordu.** 4 gerçek maçta "emir 169/279/369/463"
+   göründü; gerçek maç başına 169/110/90/94 idi. Bu, kısa süre "işçi emirleri replay'e
+   yazılmıyor" gibi ciddi bir motor kusuru şüphesi doğurdu — motorda kusur **yoktu**.
+   Sıfırlama eklendi + analiz aracına çapraz doğrulama nöbetçisi kondu.
+
+## Açık uçlar (kanıt var, karar yok)
+
+- **Aramanın payı emirlerin yalnız %10-19'u.** Gerçek maç başına: tur 29-72, emir 90-169,
+  buna karşılık kontrolör emri 404-1071. Arama turda ~4 birim oynatıyor, ~8'i yayılım
+  kapısına takılıyor (eleme %64-71). Kanıtlanmış kaldıraç bu kadar dar bir yüzeyden
+  geliyor — payı büyütmek (faz 6 · P1) doğrudan bunu hedefliyor.
+- **Arama hava birimlerine hiç dokunmuyor** (`!u.isAir` süzgeci). Helo AI'nın 1 numaralı
+  katili olarak ölçülmüştü; SİHA ve kamikaze de aramanın dışında.
+- **Kamikaze %19 isabet** (32 dronun 6'sı). Bütçe kaybı değil (operatör yükü, yeniden
+  doluyor) ama 25 saniyelik dolum döngüsü boşa gidiyor. Mekanizma **bilinmiyor**.
+- **Piyade sınıfı boşta**: menzil 300px, en yakın düşmana ortalama 1031-1397px. 4 maçta
+  ateş etmeyen 49 birimin 17'si bu sınıf. `_menzileGir` kuralı (M1 kapısı) tam bunu hedefliyor.
+
+---
+
 ## Bugün kurulan ölçüm disiplini (her iş buradan geçer)
 
 ```
