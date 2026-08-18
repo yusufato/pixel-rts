@@ -107,6 +107,59 @@ Maç kapısı da ispatlamamıştı (+364, t 1,35).
 
 ---
 
+## İkinci tur: "boşta duran birim" tek tek adlandırıldı (2026-08-19)
+
+`tools/atmayan-birim.js` — 4 maçın her AI birimi için "hiç isabet ettirdi mi, ettirmediyse
+neden" sorusunu ham kayıttan yanıtlar. Silahsız birimler (radar/ikmal/sağlık/EW/karargâh)
+ve uçak gelmemiş hava savunması rapordan **hariç**; ikisi de daha önce yapılmış haksız
+suçlamalar.
+
+Dört maçta sayılabilir 115 birimin **49'u** hiç isabet ettirmedi. Teşhis dağılımı:
+
+| neden | birim | ne demek |
+|---|---|---|
+| menziline düşman hiç girmedi | **17** | konumlandırma / menzil uyumsuzluğu |
+| kamikaze, hedefe varamadan öldü | **22** | aşağıda ayrı incelendi |
+| bastırılmış | 5 | ateş altında kalmış |
+| hava savunması, uçak gelmedi | 4 | **kusur değil** |
+| menzilde ama hedef seçmemiş | 1 | hedefleme |
+
+**En büyük tek sınıf piyade.** Menzili 300px, ama en yakın düşmana ortalama uzaklığı
+1031-1397px. Yani düşman hiç 300px'e girmiyor ve piyade maç boyunca bekliyor. Tanksavar
+(525px) da aynı durumda. Bu, birinci turdaki menzil-uyumsuzluğu bulgusunun birim adıyla
+söylenmiş hali ve `_menzileGir` kuralının (`BATTLE_MENZILE_GIR`) hedeflediği şeyin ta
+kendisi — maç kapısı M1 bunu ölçüyor.
+
+### İki yanlış teşhis, uygulanmadan geri çekildi
+
+**"16 birim navigasyon tıkanıklığından ateş edemedi."** YANLIŞ. `navBlocked` telemetride
+"birimden hedefine DÜZ ÇİZGİ arazi tarafından kapalı" demek — birim engelin etrafından
+yürüyor olabilir. Gerçek takılma ölçüsü (uzak hedefi varken ardışık örneklerde 1,5px'ten
+az kıpırdama) eklendiğinde bu kova **tamamen boşaldı**: tek bir birim bile takılı değildi.
+
+**"MANPADS menzilinde düşman varken hedef seçmiyor."** YANLIŞ. `menzilimdeDusman` alanı
+kara düşmanları da sayıyor; MANPADS/SAM karaya ateş edemez. Yalnız hava düşmanına göre
+yeniden hesaplandığında bu birimler **doğru davranıyor** çıktı.
+
+## Kamikaze dronları: %19 isabet, mekanizması açıklanamadı
+
+32 kamikaze dronun yalnız **6'sı** (%19) isabet ettirdi; ortalama ömür 6,2sn. İki maçta
+8 dronun **tamamı** sıfır hasarla düştü (hepsini SAM vurdu). Toplam ürün 2025 hasar.
+
+Bütçe kaybı **değil**: kamikaze 90₺ ama satın alınmıyor, dron operatörünün yükü
+(`payload count:2, reloadMs:25000`) — yani yeniden doluyor. Kaybedilen bütçe değil, 25
+saniyelik dolum döngüsü.
+
+Doktrin **açık**: `updateOperatorAI` SEAD önceliği dahil çalışıyor (`battleDelta` intel4'te
+varsayılan açık, pro gerekmiyor). Yani %19, doktrin devredeyken alınmış rakam.
+
+**Denenen açıklama çürütüldü**: "operatör 1800px'e kadar salıyor, SAM menzili 1650 — dron
+şemsiye altında doğuyor" hipotezi ölçüldü. Doğduğunda şemsiye altında olanlar %20,
+dışında olanlar %19 → **fark yok**. Kod değiştirilmedi; mekanizma hâlâ bilinmiyor,
+o yüzden bu konuda maç kapısı harcanmadı.
+
+---
+
 ## Açık kalan
 
 Fırsat oranındaki 2 katlık farkın kaynağı **tam açıklanamadı**. Boşta birimler (2-4) bunun
