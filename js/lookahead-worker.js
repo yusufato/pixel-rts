@@ -282,11 +282,26 @@ function laWorkerAra(m) {
 
     LA_W_EMIRLER = [];
     var kararAni = (SIM.tick % periyot) === 0;   // hizalama tuttu mu (kapi icin)
+    /* ARANAN BIRIM SAYISI: "isci tam ayarla mi kostu" sorusunu ham kayit KENDI cevaplasin.
+       Telemetri ana ipligin LA_* degerlerini yaziyor ve onlar KISILMIS (ufuk 50/derin 1/
+       birim 8) — isci onlari EZIYOR ama bu hicbir yere yazilmiyordu. Yani "worker tam
+       gucte mi" sorusu ham kayittan cevaplanamiyordu; ancak koda bakarak varsayilabilirdi.
+       BATTLE_LA_SAYAC.arananan farkini almak, gercekten kac birim icin rollout kosuldugunu
+       verir (atlanan = yayilim kapisina takilanlar). */
+    var _s0 = (typeof BATTLE_LA_SAYAC !== 'undefined')
+        ? { aranan: BATTLE_LA_SAYAC.arananan | 0, atlanan: BATTLE_LA_SAYAC.atlanan | 0 } : null;
     battleLookaheadTick(s);
+    var _s1 = (typeof BATTLE_LA_SAYAC !== 'undefined')
+        ? { aranan: BATTLE_LA_SAYAC.arananan | 0, atlanan: BATTLE_LA_SAYAC.atlanan | 0 } : null;
     var t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
     return { emirler: LA_W_EMIRLER.slice(), ongoruHash: ongoruHash, ongoruParca: ongoruParca,
         ayarSonra: laWorkerAyarOku(), izler: izler, dokum: dokum,
         gercekIleri: ileri, kararAni: kararAni, tik: SIM.tick,
+        /* ISCININ GERCEKTEN KULLANDIGI AYAR — ana ipligin degil. */
+        ayarKullanilan: { ufuk: LA_UFUK, derin: LA_DERIN, birim: LA_BIRIM,
+                          turBirim: LA_TUR_BIRIM, tikBirim: LA_TIK_BIRIM, periyot: periyot },
+        aranan: (_s0 && _s1) ? (_s1.aranan - _s0.aranan) : null,
+        atlanan: (_s0 && _s1) ? (_s1.atlanan - _s0.atlanan) : null,
         sure: Math.round(t1 - t0) };
 }
 
@@ -298,7 +313,9 @@ self.onmessage = function (ev) {
             if (!LA_W_HAZIR) { self.postMessage({ tip: 'hata', id: m.id, mesaj: 'isci HAZIR degil' }); return; }
             var r = laWorkerAra(m);
             self.postMessage({ tip: 'emir', id: m.id, emirler: r.emirler, ongoruHash: r.ongoruHash, ongoruParca: r.ongoruParca, ayarSonra: r.ayarSonra, izler: r.izler, dokum: r.dokum,
-                gercekIleri: r.gercekIleri, kararAni: r.kararAni, sure: r.sure });
+                gercekIleri: r.gercekIleri, kararAni: r.kararAni,
+                ayarKullanilan: r.ayarKullanilan, aranan: r.aranan, atlanan: r.atlanan,
+                sure: r.sure });
         }
     } catch (e) {
         self.postMessage({ tip: 'hata', id: m.id, mesaj: String(e && e.message || e) });

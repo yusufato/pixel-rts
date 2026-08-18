@@ -81,6 +81,21 @@ function analiz(yol) {
             ' · öngörü sapması ' + w.sapma + ' · geç kalan ' + w.gecKalan);
         console.log('     işçi: açık ' + w.acik + ' · hazır ' + w.hazir + ' · ort tur ' + w.ortSureMs +
             'ms · pencere ' + w.pencereTik + ' tik');
+        /* ⚠ Yukarıdaki "bayraklar" satırındaki LA_* ANA İPLİĞİN değerleridir ve ÖNGÖRÜ
+           kademesinde KISILMIŞTIR (ufuk 50/derin 1/birim 8). İşçi onları ezer. Aşağıdaki
+           satır işçinin GERÇEKTEN kullandığıdır — "worker tam güçte mi" sorusunun cevabı. */
+        if (w.isciAyar) {
+            const a = w.isciAyar;
+            const tam = a.ufuk >= 100 && a.derin >= 2 && a.birim >= 20;
+            console.log('     ⭐ İŞÇİNİN KULLANDIĞI AYAR: ufuk ' + a.ufuk + ' · derin ' + a.derin +
+                ' · birim ' + a.birim + ' · periyot ' + a.periyot +
+                (tam ? '   → TAM GÜÇ ✓' : '   → KISILMIŞ ✗'));
+            console.log('     rollout koşulan birim ' + (w.aranan || 0) +
+                ' · yayılım kapısına takılan ' + (w.atlanan || 0) +
+                '  (tur başına ' + say((w.aranan || 0) / Math.max(1, w.tur), 1) + ')');
+        } else {
+            console.log('     ⚠ işçi ayarı kayıtta YOK (eski kayıt) — tam güç doğrulanamıyor');
+        }
     }
     if (!laEmir.length) {
         console.log('     lookahead-order olayı: 0  →  ARAMA HİÇ ÇALIŞMAMIŞ');

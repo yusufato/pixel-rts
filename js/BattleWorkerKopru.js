@@ -35,6 +35,8 @@ var BATTLE_LA_WORKER = {
     bekleyenTik: 0,       // isteğin gönderildiği tik (bekçi bunu kullanır)
     ustUsteHata: 0,       // arka arkaya cevapsız/başarısız tur
     dusen: 0,             // bekçinin iptal ettiği tur
+    isciAyar: null,       // işçinin GERÇEKTEN kullandığı LA_* (ana ipliğinki DEĞİL)
+    aranan: 0, atlanan: 0,// tur başına rollout koşulan / yayılım kapısına takılan birim
     bosTur: 0,            // işçi cevapladı ama HİÇ emir yok (sessiz başarısızlık göstergesi)
     hizasiz: 0,           // işçi karar anına hizalayamadı (olmamalı)
     tur: 0, emir: 0, sapma: 0, gecKalan: 0, hata: 0, isinmaAtlanan: 0,
@@ -137,6 +139,9 @@ function battleLaWorkerMesaj(m) {
         BATTLE_LA_WORKER.hedefTik = BATTLE_LA_WORKER.gonderTik + (m.gercekIleri | 0);
     }
     if (m.kararAni === false) BATTLE_LA_WORKER.hizasiz++;
+    if (m.ayarKullanilan) BATTLE_LA_WORKER.isciAyar = m.ayarKullanilan;
+    if (m.aranan != null) BATTLE_LA_WORKER.aranan += m.aranan | 0;
+    if (m.atlanan != null) BATTLE_LA_WORKER.atlanan += m.atlanan | 0;
     /* BOŞ TUR: işçi cevapladı ama emir yok. Birkaç boş tur normaldir (arama "yerinde kal"
        diyebilir); SÜREKLİ boş tur, aramanın hiç koşmadığının işaretidir — kullanıcının
        maçında tam bu oldu ve hiçbir sayaç kırmızı yanmıyordu. */
@@ -283,6 +288,7 @@ function battleLaWorkerDurum() {
     return { acik: w.acik, hazir: w.hazir, tur: w.tur, emir: w.emir, sapma: w.sapma,
         gecKalan: w.gecKalan, hata: w.hata, isinmaAtlanan: w.isinmaAtlanan,
         dusen: w.dusen, ustUsteHata: w.ustUsteHata, bosTur: w.bosTur, hizasiz: w.hizasiz,
+        isciAyar: w.isciAyar, aranan: w.aranan, atlanan: w.atlanan,
         ortSureMs: w.ortSure, pencereTik: w.ileri };
 }
 
