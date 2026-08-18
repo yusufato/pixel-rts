@@ -298,3 +298,35 @@ göreli-yol yüzünden kaçırmayan bir süzgeçle), sonra yenisini başlat.
 Her kapı başlangıçta kodu yükler. Kuyruğun ortasında `js/` değiştirmek, B'nin X kodunda,
 C'nin Y kodunda koşması demektir — tek bir kapının iç karşılaştırması bozulmaz ama
 **kapılar birbiriyle kıyaslanamaz** hâle gelir ve bu çıktıdan GÖRÜNMEZ.
+
+---
+
+## Tarayıcı kapısı tuzakları (2026-08-18 — Worker'ı sınarken üçü de yaşandı)
+
+### 1. Tarayıcı ÖNBELLEĞİ düzeltmeyi yutar
+
+Kalıcı `--user-data-dir` ile koşan headless tarayıcı `js/*.js` dosyalarını önbellekten
+verir. Motorda yapılan düzeltme sayfaya **hiç ulaşmaz** ve kapı düşmeye devam eder —
+"düzeltme işe yaramadı" diye görünür ama ölçülen şey ESKİ koddur. Bu, gerçek bir
+düzeltmeyi (JSON `-Infinity`) neredeyse geri aldıracaktı.
+
+→ **Kural:** tarayıcı kapısı **her koşuda taze profille** açılır (`tools/tarayici-kapi-kos.js`
+bunu yapar ve profili sonunda siler).
+
+### 2. `--virtual-time-budget --dump-dom` asenkron kapıyı ölçemez
+
+Sayfa işçiyi beklerken ana iş parçacığı BOŞTA kalır → sanal zaman anında dolar → DOM,
+işçi cevap vermeden dökülür. Çıktı hep "yarım" görünür (bizde her seferinde "işçi HAZIR"
+satırında kesiliyordu) ve bu bir **hata gibi değil, sonuç gibi** okunur.
+
+→ **Kural:** asenkron tarayıcı kapıları CDP ile, `window.__KAPI_SONUC` dolana kadar
+GERÇEK zamanda yoklanır.
+
+### 3. "İşçi farklı davranıyor" demeden önce ANA TARAFI sına
+
+Worker sapması günlerce işçiye yüklenebilir. Bizde kök neden motordaydı: aynı fork'tan
+iki koşu ana iş parçacığında bile ayrılıyordu. Bunu gösteren tek satırlık ölçüm
+(kendi kendine tutarlılık) teşhisi anında doğru yere çevirdi.
+
+→ **Kural:** iki ortam karşılaştırılırken önce **her ortamın kendi içinde**
+tekrarlanabilir olduğu ölçülür. Değilse karşılaştırma anlamsızdır.

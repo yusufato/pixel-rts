@@ -55,7 +55,7 @@ function kos(ctx, seed, sabotaj) {
   battleForkCapture = function () { const f = _eskiCapture(); f.mines = []; return f; };
   ` : ''}
 
-  const sadakat = [], tekrar = [], detay = [];
+  const sadakat = [], tekrar = [], json = [], detay = [];
   let st = 0, nokta = 0;
   while (SIM.tick < ${(NOKTA + 1) * ARA + 50} && phase === PHASE.BATTLE && nokta < ${NOKTA}) {
     if (SIM.battle && SIM.battle.winnerSide !== null) break;
@@ -77,6 +77,25 @@ function kos(ctx, seed, sabotaj) {
         parca: ['g','b','u','t','s'].filter(k => onceP[k] !== sonraP[k]).join(',') || '(yok)' });
     }
 
+    /* C) JSON SADAKATI — fork'un NESNE hali ile JSON'dan gecmis hali DENK mi?
+       KUSUR (2026-08-18): degildi. lastFieldBuiltAt ve lastFireWindowTick alanlari
+       -Infinity idi; JSON onlari null yapiyordu ve geri yuklenen dunya ~20 tik sonra
+       AYRILIYORDU. Worker fork'u JSON ile tasidigi icin bu, "isci farkli oynuyor" gibi
+       gorunup teshisi isciye yonlendirdi — oysa kusur MOTORDAYDI ve ana taraf kendi
+       icinde bile tekrarlanamiyordu. Bu olcu o sinifi kalici olarak kapatir. */
+    const jf = JSON.parse(JSON.stringify(f));
+    const jkos = (fk) => {
+      battleForkRestore(fk);
+      let s3 = st;
+      for (let i = 0; i < ${UFUK} && phase === PHASE.BATTLE; i++) {
+        s3 += BATTLE_TICK_MS; stepSim(s3, BATTLE_TICK_SEC, battleControllersDrive, false);
+      }
+      return battleStateHash();
+    };
+    const jNesne = jkos(f), jJson = jkos(jf);
+    json.push({ tik: SIM.tick, ok: jNesne === jJson });
+    if (jNesne !== jJson) detay.push({ tik: SIM.tick, tur: 'JSON', parca: jNesne + ' vs ' + jJson });
+
     // B) AYNI FORK'TAN ${TEKRAR} ROLLOUT — hepsi ayni hash vermeli
     const hh = [];
     for (let r = 0; r < ${TEKRAR}; r++) {
@@ -95,7 +114,7 @@ function kos(ctx, seed, sabotaj) {
     BATTLE_SIM_GOLGE = _g;
   }
   ${sabotaj ? 'battleForkCapture = _eskiCapture;' : ''}
-  return JSON.stringify({ seed:${seed}, sadakat, tekrar, detay, tik: SIM.tick });
+  return JSON.stringify({ seed:${seed}, sadakat, tekrar, json, detay, tik: SIM.tick });
 })()`;
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'fk-' + seed + '.js' }));
 }
@@ -105,14 +124,17 @@ function main() {
     if (hatalar.length) { console.log('TEZGAH HATASI:\n  ' + hatalar.join('\n  ')); process.exit(1); }
     console.log('FORK KAPISI — ' + N + ' tohum x ' + NOKTA + ' nokta, ' + TEKRAR + ' tekrar, ufuk ' + UFUK + ' tik');
     console.log('');
-    let sT = 0, sOk = 0, tT = 0, tOk = 0;
+    let sT = 0, sOk = 0, tT = 0, tOk = 0, jT = 0, jOk = 0;
     for (let i = 0; i < N; i++) {
         const seed = TOHUM0 + i;
         const r = kos(ctx, seed, false);
         const so = r.sadakat.filter(x => x.ok).length, tk = r.tekrar.filter(x => x.ok).length;
+        const jk = (r.json || []).filter(x => x.ok).length;
         sT += r.sadakat.length; sOk += so; tT += r.tekrar.length; tOk += tk;
+        jT += (r.json || []).length; jOk += jk;
         console.log('  tohum ' + seed + '   SADAKAT ' + so + '/' + r.sadakat.length +
-            '   TEKRAR ' + tk + '/' + r.tekrar.length + '   (' + r.tik + ' tik)');
+            '   TEKRAR ' + tk + '/' + r.tekrar.length + '   JSON ' + jk + '/' + (r.json || []).length +
+            '   (' + r.tik + ' tik)');
         for (const d of r.detay) console.log('    ! tik ' + d.tik + '  ' + d.tur + '  ' + d.parca);
     }
     console.log('');
@@ -122,8 +144,9 @@ function main() {
     console.log('  sadakat DUSEN nokta: ' + nSad + '/' + n.sadakat.length + '   ' +
         (nSad > 0 ? 'YAKALANDI (kapi CALISIYOR)' : '*** KACIRDI -> KAPI KOR ***'));
     console.log('');
-    console.log('  SADAKAT: ' + sOk + '/' + sT + '   TEKRAR: ' + tOk + '/' + tT);
-    const gecti = sOk === sT && tOk === tT && nSad > 0;
+    console.log('  SADAKAT: ' + sOk + '/' + sT + '   TEKRAR: ' + tOk + '/' + tT + '   JSON: ' + jOk + '/' + jT);
+    console.log('  (JSON = forkun nesne hali ile JSON hali DENK mi — Worker bunu tasiyor)');
+    const gecti = sOk === sT && tOk === tT && jOk === jT && nSad > 0;
     console.log('  KAPI: ' + (gecti ? 'GECTI' : 'DUSTU'));
     process.exit(gecti ? 0 : 1);
 }

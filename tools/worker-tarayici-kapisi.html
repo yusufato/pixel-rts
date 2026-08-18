@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>ARAMA WORKER — TARAYICI KAPISI</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  TARAYICI KAPISI — worker'ın GERÇEK Web Worker olarak çalıştığını kanıtlar.
+
+  NEDEN AYRI SAYFA: `index.html` kullanıcının üzerinde çalıştığı dosya. Worker'ı
+  oraya bağlamadan ÖNCE, tarayıcı yolunun uçtan uca çalıştığı burada sınanır —
+  index.html'e tek satır eklemek ancak bu kapı geçtikten sonra anlamlı.
+
+  NE SINANIYOR (Node provasının aynısı, ama GERÇEK Worker'da):
+    1) İşçi muharebe zincirini `importScripts` ile yükleyebiliyor mu (DOM YOK)
+    2) EMİR EŞİTLİĞİ  — işçinin ürettiği emirler ana iş parçacığınınkiyle aynı mı
+    3) ÖNGÖRÜ EŞİTLİĞİ — işçinin k tik ileri sardığı durumun hash'i tutuyor mu
+  Negatif kontrol: fork'tan mayınlar atılır → öngörü hash'i SAPMALI.
+
+  KOŞTURMA: bu dosyayı tarayıcıda aç (file:// çalışmaz — Worker aynı-kaynak ister).
+    python -m http.server 8123 --bind 127.0.0.1   (depo kokunden)
+    node tools/tarayici-kapi-kos.js   →   http://localhost:8123/tools/worker-tarayici-kapisi.html
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  body { background:#0b0d10; color:#d8dee9; font:13px/1.5 "Consolas",monospace; padding:16px; }
+  h1 { font-size:15px; color:#e0a458; margin:0 0 12px; }
+  .ok { color:#7bc96f; } .kotu { color:#e06c75; } .not { color:#7a828e; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>ARAMA WORKER — TARAYICI KAPISI</h1>
+<pre id="cikti">kuruluyor…</pre>
+
+<!--
+  KENDİNİ TAMAMLAYAN DOM — muharebe zinciri yüklenirken index.html'deki düğümlere
+  dokunuyor (globals.js:20 `getElementById('game').getContext`, main.js:69
+  `addEventListener`...). Bu kapı sayfası o düğümlerin tamamını taşımaz; istenen id
+  yoksa uygun türde üretilir. jsdom tezgâhındaki kuralın AYNISI — orada da bu yol
+  seçilmişti çünkü null döndürmek Electron'dan DAHA UZAK bir davranış.
+-->
+<script>
+(function () {
+  /* ÇİZİM DÖNGÜSÜ KAPALI: `startBattle()` oyunun kendi `gameLoop`'unu rAF ile başlatır.
+     Bu kapı simülasyonu ELLE ilerletiyor; döngü de koşarsa tik sayacı ikiye katlanır ve
+     karşılaştırma anlamsızlaşır (ayrıca main.js MP yolundaki `myCanonicalSide`'a düşüp
+     patlıyordu — bu sayfa Net.js/MP.js yüklemiyor). jsdom tezgâhı da aynısını yapıyor. */
+  window.requestAnimationFrame = function () { return 0; };
+  window.cancelAnimationFrame = function () {};
+
+  const eskiById = document.getElementById.bind(document);
+  document.getElementById = function (id) {
+    const v = eskiById(id);
+    if (v) return v;
+    const ad = String(id);
+    const tur = /canvas/i.test(ad) ? 'canvas' : (/sprite|image|img|sheet/i.test(ad) ? 'img' : 'div');
+    const el = document.createElement(tur);
+    el.id = ad;
+    if (tur === 'canvas') { el.width = 1024; el.height = 768; }
+    /* getContext HER uretilen dugume takilir. Ders mini-dom.js'te kayitli:
+       "id'den tur tahmini guvenilmez — 'minimap' adinda canvas gecmiyor ama canvas'tir."
+       Tarayicida sahte baglam uydurmaya gerek yok: gercek bir canvas'in gercek baglamini
+       veriyoruz, boylece cizim cagrilari da dogru davraniyor. */
+    if (tur !== 'canvas') {
+      const yedek = document.createElement('canvas');
+      yedek.width = 1024; yedek.height = 768;
+      el.getContext = (t, o) => yedek.getContext(t || '2d', o);
+      el.toDataURL = () => yedek.toDataURL();
+      if (!('width' in el)) { el.width = 1024; el.height = 768; }
+    }
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    return el;
+  };
+  const eskiQS = document.querySelector.bind(document);
+  document.querySelector = function (sec) {
+    const v = eskiQS(sec);
+    if (v) return v;
+    const m = /^#([\w-]+)$/.exec(String(sec));
+    return m ? document.getElementById(m[1]) : null;
+  };
+})();
+</script>
+
+<!-- Muharebe zinciri: index.html ile AYNI SIRA (yalnız muharebe için gerekenler) -->
+<script src="../js/UnitData.js"></script>
+<script src="../js/UnitFeatures.js"></script>
+<script src="../js/UnitLoader.js"></script>
+<script src="../js/globals.js"></script>
+<script src="../js/BattleRules.js"></script>
+<script src="../js/BattleSession.js"></script>
+<script src="../js/BattlePerception.js"></script>
+<script src="../js/BattleSituation.js"></script>
+<script src="../js/BattlePlanning.js"></script>
+<script src="../js/BattleExecution.js"></script>
+<script src="../js/BattleExploiters.js"></script>
+<script src="../js/OperationGrammar.js"></script>
+<script src="../js/BattleSpaceTime.js"></script>
+<script src="../js/BattleStateFeatures.js"></script>
+<script src="../js/BattleBlackboard.js"></script>
+<script src="../js/BattleTargeting.js"></script>
+<script src="../js/CommanderProfiles.js"></script>
+<script src="../js/BattleController.js"></script>
+<script src="../js/BattleCommander.js"></script>
+<script src="../js/BattleFeatures.js"></script>
+<script src="../js/BattleSelector.js"></script>
+<script src="../js/BattleOracle.js"></script>
+<script src="../js/BattleSelectorModel.js"></script>
+<script src="../js/BattleCoach.js"></script>
+<script src="../js/BattleBeonai.js"></script>
+<script src="../js/MapData.js"></script>
+<script src="../js/MapImage.js"></script>
+<script src="../js/VFX.js"></script>
+<script src="../js/Support.js"></script>
+<script src="../js/Unit.js"></script>
+<script src="../js/BattleDeployment.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/BattleLookahead.js"></script>
+<script src="../js/BattleValueModel.js"></script>
+<script src="../js/BattleValueNet.js"></script>
+<!-- İSTEĞE BAĞLI EĞİTİM ÇIKTILARI — `index.html` bunları YÜKLÜYOR ve işçi de yüklüyor.
+     Sayfa yüklemezse ana taraf ile işçi FARKLI kod tabanında koşar; bu, "öngörü tutmuyor"
+     diye görünen ama aslında kurgu hatası olan bir sapma üretir. Simetri şart. -->
+<script src="../js/BattlePolicyNet.js"></script>
+<script src="../js/BattleBeonaiModels.js"></script>
+<script src="../js/BattleBeonaiModelBC.js"></script>
+<script src="../js/BattleBeonaiModelBCv2.js"></script>
+
+<script>
+/* Boyut URL'den ayarlanir: ?nokta=1&ara=200 gibi. NEDEN: her kontrol noktasi bir TAM
+   arama turu (olculdu ~2.8sn) + 100 tiklik rollout demek; varsayilan boyut headless
+   kosuda zaman butcesini asiyordu. Kucuk kosu YOLU dogrular, buyuk kosu GUVEN verir. */
+const _q = new URLSearchParams(location.search);
+const TOHUM = +(_q.get('tohum') || 740000), ARA = +(_q.get('ara') || 400),
+      NOKTA = +(_q.get('nokta') || 3), ILERI = +(_q.get('ileri') || 100);
+const cikti = document.getElementById('cikti');
+const satirlar = [];
+function yaz(s, sinif) { satirlar.push(sinif ? '<span class="' + sinif + '">' + s + '</span>' : s); cikti.innerHTML = satirlar.join('\n'); }
+
+let emirler = [];
+(function emirKancasi() {
+  const eski = battleLookaheadEmirVer;
+  battleLookaheadEmirVer = function (uid, karar, kayit) {
+    if (kayit) emirler.push({ uid: uid, x: karar.x, y: karar.y });
+    return eski(uid, karar, kayit);
+  };
+})();
+
+/* AI ayar yuzeyi — bu kapi sayfasi kopruyu YUKLEMIYOR (worker'i dogrudan suruyor),
+   o yuzden ayni liste burada da var. */
+const AYAR_ANAHTAR = [
+    'BATTLE_INTEL4_RED', 'BATTLE_INTEL4_BLUE', 'BATTLE_INTEL4PRO_RED', 'BATTLE_INTEL4PRO_BLUE',
+    'BATTLE_POSTURE_GATE', 'BATTLE_SECTOR_COMMAND', 'BATTLE_SECTOR_COMMAND_RED', 'BATTLE_SECTOR_COMMAND_BLUE',
+    'BATTLE_BEONAI_RED', 'BATTLE_BEONAI_BLUE', 'BATTLE_EXPLOITER_RED', 'BATTLE_EXPLOITER_BLUE',
+    'BATTLE_FORCE_DOCTRINE', 'BATTLE_JAM_PARTIAL', 'BATTLE_JAM_RECON', 'BATTLE_SPAWN_LOADED',
+    'BATTLE_KAPMA_TEHLIKE', 'BATTLE_ISTIHKAM_US', 'BATTLE_LA_EMIR_KORUMA',
+    'LA_PERIYOT_TIK', 'LA_BIRIM', 'LA_TUR_BIRIM', 'LA_YARICAP', 'LA_AG_ADAY', 'LA_AG_ESIK',
+    'LA_RAKIP', 'LA_SIRALI', 'LA_CIFT_YON', 'LA_HIZLI_YOL', 'LA_DEGER_AGI', 'LA_AG_MIN_TIK',
+    'LA_POLITIKA', 'LA_EMIR_SURESI', 'LA_KANAL_AGIRLIK'
+];
+function ayarTopla() {
+  const o = {};
+  for (const k of AYAR_ANAHTAR) {
+    try { const v = eval('typeof ' + k + ' === "undefined" ? undefined : ' + k); if (v !== undefined) o[k] = v; }
+    catch (e) {}
+  }
+  return o;
+}
+
+function oturumKur() {
+  BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+  if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+  if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+  if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+  openBattlefieldSession({ mode:'quick', mapId:-2, seed:TOHUM, attackerSide:true,
+    durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+  BATTLE_REPLAY.telemetry = null; BATTLE_REPLAY_KAYITSIZ = true;
+  const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true,
+    brainIntel4:true, isAttacker:false, pro:false });
+  if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+  battleDeployManifest(mv, false, { source:'wtk', ally:true });
+  startBattle(); SIM.headless = true;
+  BATTLE_LOOKAHEAD_RED = true; BATTLE_LOOKAHEAD_BLUE = false;
+}
+
+const isci = new Worker('../js/lookahead-worker.js');
+let cozucu = null;
+isci.onmessage = (ev) => { if (cozucu) { const c = cozucu; cozucu = null; c(ev.data); } };
+isci.onerror = (e) => { yaz('İŞÇİ HATASI: ' + (e && e.message), 'kotu'); };
+const sor = (m) => new Promise(c => { cozucu = c; isci.postMessage(m); });
+
+(async () => {
+  try {
+    oturumKur();
+    yaz('oturum kuruldu (tohum ' + TOHUM + '), işçi kuruluyor…', 'not');
+    const h = await sor({ tip:'kur', oturum:{ mapId:-2, seed:TOHUM, attackerSide:true,
+      durationSec:360, playerMoney:6500, enemyMoney:6500 } });
+    if (h.tip !== 'hazir') { yaz('İŞÇİ KURULAMADI: ' + h.mesaj, 'kotu'); return; }
+    yaz('işçi HAZIR — muharebe zinciri Worker içinde yüklendi (DOM yok)', 'ok');
+    // ORTAM İMZASI: iki taraf aynı zeminde mi? (arazi fork'la GİTMİYOR, oturumdan üretiliyor)
+    const benim = (function () {
+      let h = 2166136261 >>> 0;
+      const kat = (v) => { const s = String(v); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; } };
+      if (typeof terrainGrid !== 'undefined' && terrainGrid) { kat(terrainGrid.length); for (let i = 0; i < terrainGrid.length; i++) kat(terrainGrid[i]); }
+      else kat('ARAZI-YOK');
+      if (typeof bridgeSet !== 'undefined' && bridgeSet) { kat('kopru'); kat([...bridgeSet].sort().join('|')); }
+      let sh = 2166136261 >>> 0;
+      const kat2 = (v) => { const s = String(v); for (let i = 0; i < s.length; i++) { sh ^= s.charCodeAt(i); sh = (sh * 16777619) >>> 0; } };
+      for (const k of Object.keys(STATS).sort()) { const st = STATS[k]; kat2(k); for (const f of Object.keys(st).sort()) { kat2(f); kat2(st[f]); } }
+      return { arazi:(h>>>0).toString(16), dunya: WORLD_W + 'x' + WORLD_H,
+               birimTipi: Object.keys(STATS).length, motor: BATTLE_ENGINE_VERSION,
+               statsImza: (sh>>>0).toString(16),
+               degerAgi: (typeof battleValueNetHazir === 'function') ? !!battleValueNetHazir() : 'yok',
+               politikaAgi: (typeof battlePolicyNetHazir === 'function') ? !!battlePolicyNetHazir() : 'yok',
+               secici: (typeof battleSelectorModelHazir === 'function') ? !!battleSelectorModelHazir() : 'yok',
+               beonai: (typeof battleBeonaiDurum === 'function') ? JSON.stringify(battleBeonaiDurum()) : 'yok' };
+    })();
+    const im = h.imza || {};
+    const esitMi = (k) => benim[k] === im[k];
+    yaz('ORTAM IMZASI  ana / isci');
+    benim.ayar = JSON.stringify(ayarTopla());
+    for (const k of ['arazi','dunya','birimTipi','motor','statsImza','degerAgi','politikaAgi','secici','beonai']) {
+      yaz('  ' + k.padEnd(10) + String(benim[k]) + '  /  ' + String(im[k]) +
+          (esitMi(k) ? '   ESIT ✓' : '   FARKLI ✗'), esitMi(k) ? 'ok' : 'kotu');
+    }
+    yaz('');
+
+    let st = 0, emirOk = 0, ongOk = 0, top = 0, emirSay = 0;
+    for (let n = 1; n <= NOKTA; n++) {
+      while (SIM.tick % ARA !== 0 || SIM.tick === 0 || SIM.tick < (n - 1) * ARA + 1) {
+        if (SIM.battle && SIM.battle.winnerSide !== null) break;
+        if (phase !== PHASE.BATTLE) break;
+        st += BATTLE_TICK_MS;
+        stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+        if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+        emirler = [];
+        battleLookaheadTick(st);
+      }
+      const g = BATTLE_SIM_GOLGE; BATTLE_SIM_GOLGE = true;
+      const fork = JSON.stringify(battleForkCapture());
+      // ANA TARAF REFERANSI: işçinin yapacağının aynısı
+      const geri = battleForkCapture();
+      let s = st;
+      const refIz = [];
+      for (let i = 0; i < ILERI; i++) {
+        s += BATTLE_TICK_MS;
+        stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
+        if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, s);
+        refIz.push(battleStateHash() + '|' + (typeof battleStateHashParts === 'function' ? Object.values(battleStateHashParts()).join('.') : ''));
+      }
+      const refHash = battleStateHash();
+      const refParca = (typeof battleStateHashParts === 'function') ? battleStateHashParts() : null;
+      emirler = [];
+      battleLookaheadTick(s);
+      const refEmir = emirler.slice();
+      battleForkRestore(geri);
+      BATTLE_SIM_GOLGE = g;
+
+      /* KENDI KENDINE TUTARLILIK — isciyi suclamadan ONCE ana tarafi sina.
+         Ayni forktan ayni ilerletme IKI KEZ kosulur; ayni cikmiyorsa sorun iscide
+         degil MOTORDA (fork disinda kalan bir durum sonucu etkiliyor) demektir ve
+         o zaman butun rollout-tabanli olcumlerimiz de supheli olur. */
+      const _iz2 = (() => {
+        const gg = BATTLE_SIM_GOLGE; BATTLE_SIM_GOLGE = true;
+        const kayit = battleForkCapture();
+        battleForkRestore(JSON.parse(fork));
+        let ss = st; const iz = [];
+        for (let i = 0; i < ILERI; i++) {
+          ss += BATTLE_TICK_MS;
+          stepSim(ss, BATTLE_TICK_SEC, battleControllersDrive, false);
+          if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, ss);
+          iz.push(battleStateHash());
+        }
+        battleForkRestore(kayit); BATTLE_SIM_GOLGE = gg;
+        return iz;
+      })();
+      let kendiIlk = -1;
+      for (let i = 0; i < Math.min(refIz.length, _iz2.length); i++) {
+        if (String(refIz[i]).split('|')[0] !== _iz2[i]) { kendiIlk = i; break; }
+      }
+      yaz('    ANA TARAF KENDI ICINDE: ' + (kendiIlk < 0 ? 'TEKRARLANABILIR ✓' :
+          ('AYNI FORKTAN IKI KOSU AYRILDI @ ' + (kendiIlk + 1) + '. tik ✗')),
+          kendiIlk < 0 ? 'ok' : 'kotu');
+
+      const cev = await sor({ tip:'ara', id:n, fork:fork, now:st, ileri:ILERI,
+        kirmizi:true, mavi:false, koruma:0, ayar:ayarTopla(), izle:true });
+      const ikinciSor = (ix) => sor({ tip:'ara', id:900+ix, fork:fork, now:st, ileri:ILERI,
+        kirmizi:true, mavi:false, koruma:0, ayar:ayarTopla(), dokumIx:ix });
+      const benimDokum = (ix) => {
+        const g3 = BATTLE_SIM_GOLGE; BATTLE_SIM_GOLGE = true;
+        const kaydet = battleForkCapture();
+        battleForkRestore(JSON.parse(fork));
+        let s3 = st;
+        for (let i = 0; i <= ix; i++) {
+          s3 += BATTLE_TICK_MS;
+          stepSim(s3, BATTLE_TICK_SEC, battleControllersDrive, false);
+          if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, s3);
+        }
+        const d = SIM.units.filter(x => !x.dead).slice().sort((a,b)=>a.id-b.id).map(u => [u.id,u.type,u.isRed?1:0,u.ally?1:0,
+          u.controlOwner||'-',u.controllerId||'-',Math.round(u.x*100),Math.round(u.y*100),Math.round(u.hp*100),
+          Math.round((u.ammo||0)*100),Math.round((u.suppression||0)*100),u.isFleeing?1:0,
+          (u.attackTarget&&!u.attackTarget.dead)?u.attackTarget.id:0,Math.round((u.targetX||0)*100),
+          Math.round((u.targetY||0)*100),u.operatorId!=null?u.operatorId:'-',u.payloadCount!=null?u.payloadCount:'-',
+          Math.round(u._reloadTimer||0),u._retired?1:0,u._refuelBaseKey||'-',
+          u.manualMoveTarget?(Math.round(u.manualMoveTarget.x*100)+','+Math.round(u.manualMoveTarget.y*100)):'-',
+          u.isMovingToManualTarget?1:0,u._holdingPos?1:0,u._laUntilTick|0,
+          Math.round((u.fuel||0)*100),u.combatState||'-',Math.round((u.panic||0)*100)]);
+        battleForkRestore(kaydet); BATTLE_SIM_GOLGE = g3;
+        return d;
+      };
+      if (cev.tip !== 'emir') { yaz('tik ' + SIM.tick + ' — İŞÇİ HATASI: ' + cev.mesaj, 'kotu'); continue; }
+
+      const anah = (e) => e.map(o => o.uid + '@' + Math.round(o.x*100) + ',' + Math.round(o.y*100)).sort().join(' | ');
+      const eE = anah(refEmir) === anah(cev.emirler);
+      const oE = refHash === cev.ongoruHash;
+      top++; emirSay += refEmir.length;
+      if (eE) emirOk++;
+      if (oE) ongOk++;
+      if (cev.izler && cev.izler.length) {
+        let ilk = -1;
+        for (let i = 0; i < Math.min(refIz.length, cev.izler.length); i++) {
+          if (refIz[i] !== cev.izler[i]) { ilk = i; break; }
+        }
+        yaz('    ILK SAPAN TIK: ' + (ilk < 0 ? '(yok — ilerletme birebir)' :
+            ('ilerletmenin ' + (ilk + 1) + '. tiki  → mutlak tik ' + (SIM.tick + ilk + 1))),
+            ilk < 0 ? 'ok' : 'kotu');
+        if (ilk >= 0) {
+          const ad = ['g','b','u','t','s'];
+          const pa = String(refIz[ilk]).split('|')[1].split('.');
+          const pb = String(cev.izler[ilk]).split('|')[1].split('.');
+          const sp = ad.filter((k, i) => pa[i] !== pb[i]);
+          yaz('    o tikte ILK sapan parca: ' + (sp.join(',') || '(yalniz tam hash)') +
+              '   [g=global b=mac u=birim t=siper/mayin s=destek]', 'kotu');
+          const ALAN = ['id','type','isRed','ally','controlOwner','controllerId','x','y','hp','ammo','suppression','isFleeing','attackTargetId','targetX','targetY','operatorId','payloadCount','reloadTimer','retired','refuelBaseKey','manualMoveTarget','isMovingToManual','holdingPos','laUntilTick','fuel','combatState','panic'];
+          const dA = benimDokum(ilk);
+          const cev2 = await ikinciSor(ilk);
+          if (cev2 && cev2.dokum) {
+            const A = new Map(dA.map(r => [r[0], r]));
+            const B = new Map(cev2.dokum.map(r => [r[0], r]));
+            let n2 = 0;
+            const idler = new Set([...A.keys(), ...B.keys()]);
+            for (const id of idler) {
+              const a = A.get(id), b = B.get(id);
+              if (!a) { yaz('      birim ' + id + ' YALNIZ ISCIDE', 'kotu'); n2++; continue; }
+              if (!b) { yaz('      birim ' + id + ' YALNIZ ANADA', 'kotu'); n2++; continue; }
+              for (let i = 0; i < a.length; i++) if (String(a[i]) !== String(b[i])) {
+                if (n2 < 12) yaz('      birim ' + id + ' tip ' + a[1] + '  ' + ALAN[i] +
+                                 ':  ana=' + a[i] + '  isci=' + b[i], 'kotu');
+                n2++;
+              }
+            }
+            yaz('      toplam alan farki: ' + n2, n2 ? 'kotu' : 'ok');
+          }
+        }
+      }
+      if (cev.ayarSonra) {
+        const benimA = ayarTopla(), fark = [];
+        for (const k of AYAR_ANAHTAR) {
+          const x = JSON.stringify(benimA[k]), y = JSON.stringify(cev.ayarSonra[k]);
+          if (x !== y) fark.push(k + ' ana=' + x + ' isci=' + y);
+        }
+        yaz('    UYGULAMA SONRASI ayar farki: ' + (fark.length ? fark.join(' · ') : '(yok)'),
+            fark.length ? 'kotu' : 'ok');
+      }
+      if (!oE && refParca && cev.ongoruParca) {
+        const sapan = ['g','b','u','t','s'].filter(k => refParca[k] !== cev.ongoruParca[k]);
+        yaz('    sapan parca: ' + (sapan.join(',') || '(yok)') +
+            '   [g=global b=mac u=birim t=siper/mayin s=destek]', 'kotu');
+      }
+      yaz('tik ' + String(SIM.tick).padStart(5) + '   fork ' + Math.round(fork.length/1024) + 'KB' +
+        '   emir ' + refEmir.length + '/' + cev.emirler.length +
+        '   EMIR ' + (eE ? 'ESIT ✓' : 'FARKLI ✗') +
+        '   ONGORU ' + (oE ? 'ESIT ✓' : 'FARKLI ✗') +
+        '   isci ' + cev.sure + 'ms', (eE && oE) ? 'ok' : 'kotu');
+    }
+
+    // NEGATİF KONTROL
+    yaz('');
+    const g2 = BATTLE_SIM_GOLGE; BATTLE_SIM_GOLGE = true;
+    const f2 = battleForkCapture();
+    const mayinSay = (f2.mines || []).length;
+    f2.mines = [];
+    const geri2 = battleForkCapture();
+    let s2 = st;
+    for (let i = 0; i < ILERI; i++) { s2 += BATTLE_TICK_MS; stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false); if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, s2); }
+    const negRef = battleStateHash();
+    battleForkRestore(geri2); BATTLE_SIM_GOLGE = g2;
+    const negCev = await sor({ tip:'ara', id:999, fork:JSON.stringify(f2), now:st, ileri:ILERI, kirmizi:true, mavi:false, koruma:0, ayar:ayarTopla(), izle:true });
+    const negYak = negCev.ongoruHash !== negRef;
+    yaz('NEGATIF KONTROL (fork\'tan ' + mayinSay + ' mayin atildi): ' +
+      (mayinSay === 0 ? '! mayin YOK — uygulanamadi' : (negYak ? 'SAPMA YAKALANDI ✓' : 'KACIRDI ✗')),
+      mayinSay === 0 ? 'not' : (negYak ? 'ok' : 'kotu'));
+
+    yaz('');
+    const gecti = emirOk === top && ongOk === top && emirSay > 0 && (mayinSay === 0 || negYak);
+    yaz('EMIR ESITLIGI  : ' + emirOk + '/' + top + '   [' + emirSay + ' emir]' +
+      (emirSay === 0 ? '  *** SONUCSUZ: hic emir uretilmedi ***' : ''), emirSay ? '' : 'kotu');
+    yaz('ONGORU ESITLIGI: ' + ongOk + '/' + top);
+    yaz('KAPI: ' + (gecti ? 'GECTI' : 'DUSTU'), gecti ? 'ok' : 'kotu');
+    document.title = (gecti ? 'GECTI' : 'DUSTU') + ' — worker tarayici kapisi';
+    window.__KAPI_SONUC = { gecti, emirOk, ongOk, top, emirSay, negYak, mayinSay };
+  } catch (e) {
+    yaz('ÇÖKTÜ: ' + (e && e.stack || e), 'kotu');
+    window.__KAPI_SONUC = { gecti:false, hata:String(e && e.message || e) };
+  }
+})();
+</script>
+</body>
+</html>

@@ -33,6 +33,19 @@ const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, ger
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
 
+/* ── WORKER KİPİ: arama ana iş parçacığından ÇIKAR ────────────────────────
+   Açıkken arama turu `js/lookahead-worker.js`'e devredilir ve ana iş parçacığı o tur
+   hiç arama yapmaz. Kazanç: TAM ayar (ufuk 100 / derin 2) oynanabilir hâle gelir.
+   Ölçülen gerekçe: tam ayar +735 (t 3.55, saptama tabanının üstünde) ama tur 2834ms —
+   ana iş parçacığında koşarsa oyun donuyor (kullanıcı sahada gördü).
+
+   Mimari ölçülerek doğrulandı (tools/worker-kapisi.js): emir eşitliği 3/3, öngörü
+   eşitliği 3/3, negatif kontrol yakalıyor.
+
+   ⚠ Varsayılan KAPALI: tarayıcıda uçtan uca sınanmadan açılmaz. `js/BattleWorkerKopru.js`
+   yüklü değilse (ör. Node tezgâhı) kanca kendiliğinden atlanır. */
+let BATTLE_LA_WORKER_KIP = false;
+
 /* CANLI OYUNDA VARSAYILAN AÇIK.
    ÖLÇÜLDÜ (tools/rol-dengesi-paralel.js, n=128, eşleştirilmiş, tohum 100000+):
      aramasız  saldıran %37.5  marj −742
@@ -803,6 +816,21 @@ function battleLookaheadTick(now) {
     }
 
     if ((SIM.tick % LA_PERIYOT_TIK) !== 0) return;
+
+    /* ── WORKER'A DEVİR ────────────────────────────────────────────────────
+       Köprü fork'u işçiye yollar ve HEMEN döner; emirler birkaç yüz ms sonra
+       `battleLookaheadEmirVer(..., true)` ile uygulanır (replay sözleşmesi korunur).
+       `true` dönerse bu tur ana iş parçacığında arama YAPILMAZ.
+       Köprü yüklü değilse (Node tezgâhı, eski index.html) kanca sessizce atlanır —
+       davranış birebir eskisi gibi kalır. */
+    if (BATTLE_LA_WORKER_KIP && typeof battleLaWorkerTur === 'function') {
+        if (typeof battleLaWorkerKur === 'function' &&
+            typeof BATTLE_LA_WORKER !== 'undefined' && !BATTLE_LA_WORKER.isci) {
+            battleLaWorkerKur();
+        }
+        if (battleLaWorkerTur(now)) return;
+    }
+
     /* Yeni tur: eski kuyruk BOŞALTILIR. Bir önceki turun artıkları bu tura
        taşınırsa karar sırası kayar ve kuyruk hiç kapanmadan büyüyebilir
        (yavaş makinede sonsuz birikme). Kaçırılan karar, bir sonraki turda

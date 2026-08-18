@@ -886,6 +886,33 @@ function battleRestoreInitialState(initialState) {
 // ═══ BattleForkState.v1 — karşı-olgusal rollout için EKSİKSİZ fork ═══════════════════════
 // initialState snapshot'ından FARKLI: tik/zaman + TÜM birim iç durumu (attackTarget dahil) +
 // supports + rng korunur. Birim ref'leri (attackTarget/manualTarget) id ile serileşir, geri bağlanır.
+/* ── FORK JSON-KANONİK OLMALI ──────────────────────────────────────────────
+   KUSUR (ölçülerek bulundu, 2026-08-18): `battleForkRestore(f)` ile
+   `battleForkRestore(JSON.parse(JSON.stringify(f)))` AYNI sonucu vermiyordu.
+   Sebep: birim anlık görüntüsünde `lastFieldBuiltAt = -Infinity` vardı; JSON onu
+   `null`'a çeviriyor, geri yüklenen istihkâm siper-soğumasını SIFIRLANMIŞ buluyor ve
+   ~20 tik sonra farklı karar veriyordu.
+
+   NEDEN ÖNEMLİ: Worker fork'u JSON ile taşıyor. Yani bu kusur "işçi ana iş
+   parçacığından farklı oynuyor" olarak görünüyordu — teşhis işçiyi suçlarken asıl
+   sorun MOTORDAYDI. Ana taraf kendi içinde bile tekrarlanamıyordu (aynı fork, iki
+   koşu, 21. tikte ayrılma).
+
+   Çözüm: sonlu-olmayan sayılar taşınabilir bir işaretçiye çevrilir ve geri yüklemede
+   aynen geri konur. Böylece fork'un JSON hâli ile nesne hâli DENK olur. */
+const _FORK_NF = { inf: ' +Inf', ninf: ' -Inf', nan: ' NaN' };
+function _forkSayiKodla(v) {
+    if (typeof v !== 'number' || Number.isFinite(v)) return v;
+    return Number.isNaN(v) ? _FORK_NF.nan : (v > 0 ? _FORK_NF.inf : _FORK_NF.ninf);
+}
+function _forkSayiCoz(v) {
+    if (typeof v !== 'string') return v;
+    if (v === _FORK_NF.inf) return Infinity;
+    if (v === _FORK_NF.ninf) return -Infinity;
+    if (v === _FORK_NF.nan) return NaN;
+    return v;
+}
+
 function battleForkUnitSnapshot(u) {
     const s = {};
     for (const k in u) {
@@ -900,6 +927,7 @@ function battleForkUnitSnapshot(u) {
         // hemen bırakıyordu, artık gerçekten taşıyor ve döngü kapanıyor.
         if (k === 'cargo') { s.__cargoIds = Array.isArray(v) ? v.filter(z => z && !z.dead).map(z => z.id) : []; continue; }
         if (k === 'carrier') { s.__carrierId = (v && !v.dead) ? v.id : null; continue; }
+        if (typeof v === 'number' && !Number.isFinite(v)) { s[k] = _forkSayiKodla(v); continue; }   // JSON-kanonik
         s[k] = (v && typeof v === 'object') ? replayClone(v) : v;
     }
     return s;
@@ -909,7 +937,7 @@ function battleForkRestoreUnit(s) {
     for (const k in s) {
         if (k === '__attackTargetId' || k === '__manualTargetId') continue;
         if (k === '__cargoIds' || k === '__carrierId') continue;
-        u[k] = (s[k] && typeof s[k] === 'object') ? replayClone(s[k]) : s[k];
+        u[k] = (s[k] && typeof s[k] === 'object') ? replayClone(s[k]) : _forkSayiCoz(s[k]);
     }
     u.dead = false;
     return u;
@@ -1022,7 +1050,7 @@ function battleForkCaptureControllers() {
             lastPlanDecision: replayClone(c.lastPlanDecision), decisionHistory: replayClone(c.decisionHistory) };
         if (c.perception) cs.perc = { contacts: _forkCloneMap(c.perception.contacts), lastObservation: replayClone(c.perception.lastObservation), initialFriendlyValue: c.perception.initialFriendlyValue };
         if (c.planCommitment) cs.commit = { current: replayClone(c.planCommitment.current), sequence: c.planCommitment.sequence, transitionHistory: replayClone(c.planCommitment.transitionHistory), lastDecision: replayClone(c.planCommitment.lastDecision) };
-        if (c.taskExecutor) cs.exec = { states: _forkCloneMap(c.taskExecutor.states), transitionHistory: replayClone(c.taskExecutor.transitionHistory), operation: replayClone(c.taskExecutor.operation), operationHistory: replayClone(c.taskExecutor.operationHistory), lastFireWindowTick: c.taskExecutor.lastFireWindowTick, lastTelemetry: replayClone(c.taskExecutor.lastTelemetry) };
+        if (c.taskExecutor) cs.exec = { states: _forkCloneMap(c.taskExecutor.states), transitionHistory: replayClone(c.taskExecutor.transitionHistory), operation: replayClone(c.taskExecutor.operation), operationHistory: replayClone(c.taskExecutor.operationHistory), lastFireWindowTick: _forkSayiKodla(c.taskExecutor.lastFireWindowTick), lastTelemetry: replayClone(c.taskExecutor.lastTelemetry) };
         /* FORK BOŞLUĞU KAPATILDI (2026-08-16, ölçülerek bulundu).
            Yakalama açık bir izin listesi; listede olmayan alan geri yüklenmiyordu.
            ÖLÇÜLDÜ: aynı fork'tan 3 rollout 3 FARKLI hash veriyordu (saf fizik 3/3 aynı
@@ -1088,7 +1116,7 @@ function battleForkRestoreControllers(saved, byId) {
         c.lastPlanDecision = replayClone(cs.lastPlanDecision); c.decisionHistory = replayClone(cs.decisionHistory) || [];
         if (c.perception && cs.perc) { _forkLoadMap(c.perception.contacts, cs.perc.contacts); c.perception.lastObservation = replayClone(cs.perc.lastObservation); c.perception.initialFriendlyValue = cs.perc.initialFriendlyValue; }
         if (c.planCommitment && cs.commit) { c.planCommitment.current = replayClone(cs.commit.current); c.planCommitment.sequence = cs.commit.sequence; c.planCommitment.transitionHistory = replayClone(cs.commit.transitionHistory) || []; c.planCommitment.lastDecision = replayClone(cs.commit.lastDecision); }
-        if (c.taskExecutor && cs.exec) { _forkLoadMap(c.taskExecutor.states, cs.exec.states); c.taskExecutor.transitionHistory = replayClone(cs.exec.transitionHistory) || []; c.taskExecutor.operation = replayClone(cs.exec.operation); c.taskExecutor.operationHistory = replayClone(cs.exec.operationHistory) || []; c.taskExecutor.lastFireWindowTick = cs.exec.lastFireWindowTick; c.taskExecutor.lastTelemetry = replayClone(cs.exec.lastTelemetry); }
+        if (c.taskExecutor && cs.exec) { _forkLoadMap(c.taskExecutor.states, cs.exec.states); c.taskExecutor.transitionHistory = replayClone(cs.exec.transitionHistory) || []; c.taskExecutor.operation = replayClone(cs.exec.operation); c.taskExecutor.operationHistory = replayClone(cs.exec.operationHistory) || []; c.taskExecutor.lastFireWindowTick = _forkSayiCoz(cs.exec.lastFireWindowTick); c.taskExecutor.lastTelemetry = replayClone(cs.exec.lastTelemetry); }
         // FORK BOŞLUĞU (bkz. capture tarafındaki not): blackboard + sektör + durum-analizi
         if (c.blackboard && cs.bb) { for (const k in c.blackboard) delete c.blackboard[k]; Object.assign(c.blackboard, replayClone(cs.bb)); }
         if (cs.ek) {   // son 12 alan (bkz. capture tarafındaki not)
