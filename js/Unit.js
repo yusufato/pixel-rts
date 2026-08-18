@@ -422,7 +422,7 @@ class Unit {
             // (amacı iyi oynamak değil, ÖLÇÜLMÜŞ bir insan sömürüsünü birebir tekrarlamak).
             // Kapalıyken (varsayılan) tek bir bayrak okuması → eski davranış birebir aynı.
             const _somuru = (typeof exploiterHeloTaciz === 'function') && exploiterHeloTaciz(this);
-            if (!_somuru && !this._komutaMerkez() && !this._ikmalRefakat() && !this._havaSemsiye() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
+            if (!_somuru && !this._komutaMerkez() && !this._ikmalRefakat() && !this._havaSemsiye() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas() && !this._menzileGir()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
         // NOT (B.1 runtime-ayrışma DENENDİ ve GERİ ALINDI): ölçüm max 15→15 / avg 4.42→4.44 (uzamsal-doygun: 15 birim sınırlı-sektörde
@@ -1984,6 +1984,75 @@ class Unit {
         this._pressingAssault = 0;
         if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
             BATTLE_BALANCE.icreepBind = (BATTLE_BALANCE.icreepBind || 0) + 1;
+        }
+        return true;
+    }
+
+
+    /* ── MENZİLE GİR: kısa menzilli DOĞRUDAN ateş, düşmanın erişemeyeceği yerde beklemesin ──
+       KULLANICININ 4 GERÇEK MAÇINDAN ÖLÇÜLDÜ (2026-08-18, docs/OYUNCU-MACLARI-BULGULAR.md):
+         · AI ile oyuncu neredeyse AYNI mesafede duruyor (medyan 1137-1336px vs 1092-1125px)
+         · ama menzile ORANI çok farklı: AI 2.17-3.09 · oyuncu 1.24-1.82
+           (yani AI'nın silahı, düşmanın durduğu yere 2-3 kat yetmiyor)
+         · ateş edebilir konumda geçen zaman: AI %12-22 · oyuncu %23-35
+         · fırsat/canlı-örnek: AI 0.16 · oyuncu 0.31   (atış: 0.032 vs 0.078)
+       AI'nın 20 silahlı biriminin 12'si kısa menzilli DOĞRUDAN ateş (tanksavar×8 525px,
+       piyade×4 300px) ve onları öne çeken HİÇBİR ŞEY YOK. `_dolayliYaklas` yalnız DOLAYLI
+       ateşe bakıyor (ve o da pro-kapılı).
+
+       Bu kural onun doğrudan-ateş kardeşi. AYNI güvenlik yapısı:
+         · yalnız hedefi OLMAYAN birim (menzilinde düşman varsa dokunma — iş başında)
+         · yalnız düşman menzilin PRO_ICREEP_HEDEF katından UZAKSA
+         · kendi ÖN HATTININ gerisinde kalır (tek başına dalmaz — kayıtlı kusur sınıfı:
+           öne çıkıp ölen konumlandırma becerileri elendi)
+         · kuru birim öne gitmez
+       Determinist: mesafe aritmetiği, RNG yok. Dönüş: true ise hareketi devraldı.
+       ⚠ VARSAYILAN KAPALI. Yaklaşmak ateş altına girmek demektir; kazanç mı kayıp mı
+       olduğu maç kapısında ölçülür. */
+    _menzileGir() {
+        if (typeof BATTLE_MENZILE_GIR === 'undefined' || BATTLE_MENZILE_GIR !== true) return false;
+        if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
+        if (this.controlOwner === 'PLAYER' || !this.speed) return false;
+        if (this.isIndirect) return false;                      // dolaylı ateşin kendi kuralı var
+        if (this.isAir || this._retired) return false;
+        const _st = STATS[this.type];
+        if (!_st || !_st.weapons || !_st.weapons.length) return false;   // silahsız birim öne gitmez
+        if (this.range >= MENZILE_GIR_UST) return false;        // zaten uzun menzilli
+        if (this.maxAmmo > 0 && this.ammo <= 0) return false;   // kuru birim öne gitmez
+
+        let ex = 0, ey = 0, ed = Infinity;
+        for (const e of SIM.units) {
+            if (e.dead || e.loaded || e.abandoned || e.isRed === this.isRed) continue;
+            if (e.isAir) continue;                              // kara birimi uçağa yürümez
+            const d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d < ed) { ed = d; ex = e.x; ey = e.y; }
+        }
+        if (ed === Infinity || ed <= this.range * MENZILE_GIR_HEDEF) return false;   // zaten menzilde/yakın
+        if (ed > MENZILE_GIR_AZAMI) return false;               // çok uzak: harita boyu yürüyüş değil
+
+        // ÖN HAT: en ileri dost doğrudan-ateş birimi. Onun ötesine TEK BAŞINA geçmeyiz.
+        let hatY = null;
+        for (const f of SIM.units) {
+            if (f.dead || f.loaded || f.abandoned || f.isRed !== this.isRed || f === this) continue;
+            const fs = STATS[f.type];
+            if (!fs || !fs.weapons || !fs.weapons.length) continue;
+            if (fs.weapons[0].indirect) continue;
+            if (hatY === null) hatY = f.y;
+            else hatY = this.isRed ? Math.max(hatY, f.y) : Math.min(hatY, f.y);
+        }
+        if (hatY === null) return false;
+
+        const t = (ed - this.range * MENZILE_GIR_HEDEF) / ed;
+        let hx = this.x + (ex - this.x) * t, hy = this.y + (ey - this.y) * t;
+        const sinir = this.isRed ? hatY + MENZILE_GIR_HAT_ILERI : hatY - MENZILE_GIR_HAT_ILERI;
+        if (this.isRed ? hy > sinir : hy < sinir) hy = sinir;
+        if (this.isRed ? hy <= this.y : hy >= this.y) return false;   // ileri gitmiyorsa dokunma
+
+        this.targetX = hx; this.targetY = hy;
+        this.isMovingToManualTarget = true;
+        this._holdingPos = false;
+        if (typeof BATTLE_BALANCE !== 'undefined' && BATTLE_BALANCE.on) {
+            BATTLE_BALANCE.menzileGirBind = (BATTLE_BALANCE.menzileGirBind || 0) + 1;
         }
         return true;
     }

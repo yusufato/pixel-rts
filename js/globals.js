@@ -1544,6 +1544,19 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── MENZİLE GİR (A/B kolu) — kısa menzilli doğrudan ateş beklemesin ───────
+   Kullanıcının 4 gerçek maçından ölçüldü: AI ile oyuncu aynı mesafede duruyor ama AI'nın
+   silahı yetmiyor (mesafe/menzil oranı AI 2.17-3.09 · oyuncu 1.24-1.82). AI'nın 20 silahlı
+   biriminin 12'si kısa menzilli doğrudan ateş ve onları öne çeken hiçbir kural yok —
+   `_dolayliYaklas` yalnız dolaylı ateşe bakıyor ve o da pro-kapılı.
+   Ayrıntı: docs/OYUNCU-MACLARI-BULGULAR.md · kural: js/Unit.js `_menzileGir`.
+   ⚠ VARSAYILAN KAPALI: yaklaşmak ateş altına girmektir, maç kapısı karar verir. */
+let BATTLE_MENZILE_GIR = false;
+const MENZILE_GIR_HEDEF = 0.85;     // düşmanı kendi menzilinin bu kesrine alacak noktaya yürü
+const MENZILE_GIR_UST = 900;        // bu menzilin üstündeki birim (havan/topçu sınıfı) konu dışı
+const MENZILE_GIR_AZAMI = 2200;     // bundan uzak düşman için harita boyu yürüyüş yapılmaz
+const MENZILE_GIR_HAT_ILERI = 120;  // kendi ön hattının en fazla bu kadar önüne geçebilir
+
 /* ── KARŞI-BATARYA HERKESE (A/B kolu) ──────────────────────────────────────
    Kullanıcının 4 maçında kontrollü olarak bulundu: AI, kendisini öldüren düşman
    topçusuna 214 saniyede 1 kez ateş etti. Sebep `js/BattleTargeting.js`'teki `hasArea`
