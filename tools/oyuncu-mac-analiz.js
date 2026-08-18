@@ -76,6 +76,13 @@ function analiz(yol) {
     }
     if (ozet.aramaWorker) {
         const w = ozet.aramaWorker;
+        if (w.sapmaOlcum) {
+            console.log('     ⭐ ÖNGÖRÜ SAPMASININ BÜYÜKLÜĞÜ (' + w.sapmaOlcum + ' turda ölçüldü):');
+            console.log('        ortalama birim konum hatası ' + w.sapmaPxOrt + 'px · en kötü tur ' +
+                w.sapmaPxEnKotu + 'px · >100px sapan birim payı %' + ((w.sapmaCiddiPay || 0) * 100).toFixed(1) +
+                ' · öngörüde sağ olup gerçekte ölmüş %' + ((w.sapmaKayipPay || 0) * 100).toFixed(1));
+            console.log('        (hash sapması İKİLİdir ve insan oynarken hep tutmaz — karar BU satıra bakar)');
+        }
         console.log('     köprü: tur ' + w.tur + ' · emir ' + w.emir + ' · ısınmada atlanan ' + (w.isinmaAtlanan||0) +
             ' · bekçi düşürdü ' + (w.dusen || 0) + ' · hata ' + w.hata +
             ' · öngörü sapması ' + w.sapma + ' · geç kalan ' + w.gecKalan);

@@ -36,6 +36,13 @@ var BATTLE_LA_WORKER = {
     ustUsteHata: 0,       // arka arkaya cevapsız/başarısız tur
     dusen: 0,             // bekçinin iptal ettiği tur
     isciAyar: null,       // işçinin GERÇEKTEN kullandığı LA_* (ana ipliğinki DEĞİL)
+    /* ÖNGÖRÜ SAPMA BÜYÜKLÜĞÜ (hash DEĞİL). hash tam-eşitlik arar ve insan oynarken
+       neredeyse hep tutmaz; asıl soru KAÇ PİKSEL saptığıdır. */
+    sapmaOlcum: 0,        // kaç turda büyüklük ölçülebildi
+    sapmaPxTop: 0,        // ortalama birim konum hatası toplamı (px)
+    sapmaPxEnKotu: 0,     // en kötü turdaki ortalama hata
+    sapmaBirimTop: 0,     // 'ciddi sapan' birim oranı toplamı (>100px)
+    sapmaKayipTop: 0,     // öngörüde olup gerçekte olmayan (ya da tersi) birim oranı
     aranan: 0, atlanan: 0,// tur başına rollout koşulan / yayılım kapısına takılan birim
     bosTur: 0,            // işçi cevapladı ama HİÇ emir yok (sessiz başarısızlık göstergesi)
     hizasiz: 0,           // işçi karar anına hizalayamadı (olmamalı)
@@ -159,7 +166,11 @@ function battleLaWorkerMesaj(m) {
        bayat emirden de kötüdür ve öngörü doğrulaması da anlamsızlaşıyordu (her cevap
        "geç kalan" sayılıyordu). Emir kuyruğa alınır, `battleLaWorkerTikUygula` onu
        hedef tikte indirir ve TAM O ANDA öngörü hash'ini doğrular. */
-    BATTLE_LA_WORKER.bekleyenEmir = { emirler: m.emirler || [], ongoruHash: m.ongoruHash || null };
+    /* ⚠ ongoruBirim'i de TASI: isci gonderiyordu ama pakete konmuyordu ve buyukluk
+       olcumu sessizce hic kosmuyordu (sapmaOlcum 0). Olcum "0px" diye YANLIS bir rakam
+       basmadi, "hic olculmedi" dedi — bu yuzden yakalandi. */
+    BATTLE_LA_WORKER.bekleyenEmir = { emirler: m.emirler || [], ongoruHash: m.ongoruHash || null,
+        ongoruBirim: m.ongoruBirim || null };
     battleLaWorkerTikUygula();
 }
 
@@ -181,6 +192,35 @@ function battleLaWorkerTikUygula() {
     if (paket.ongoruHash && typeof battleStateHash === 'function') {
         if (SIM.tick === w.hedefTik) {
             if (battleStateHash() !== paket.ongoruHash) w.sapma++;
+            /* ── BÜYÜKLÜK ÖLÇÜMÜ ──────────────────────────────────────────────
+               `sapma` yalnız "birebir aynı mı" der. İnsan oynarken bu hep hayırdır ve
+               tek başına yanıltıcıdır (bu hata bir kez yapıldı: 52/54'ten "öngörü hiç
+               tutmuyor" sonucu çıkarıldı). Asıl ölçü: öngörülen konumlarla gerçek
+               konumlar arasındaki ORTALAMA HATA ve ciddi sapan birim oranı. */
+            if (paket.ongoruBirim && paket.ongoruBirim.length) {
+                var gercek = new Map();
+                for (var gi = 0; gi < SIM.units.length; gi++) {
+                    var gu = SIM.units[gi];
+                    if (!gu.dead) gercek.set(gu.id, gu);
+                }
+                var top = 0, n = 0, ciddi = 0, kayip = 0;
+                for (var pi = 0; pi < paket.ongoruBirim.length; pi++) {
+                    var e = paket.ongoruBirim[pi];
+                    var u2 = gercek.get(e[0]);
+                    if (!u2) { kayip++; continue; }          // öngörüde sağ, gerçekte ölmüş
+                    var dd = Math.hypot(u2.x - e[1], u2.y - e[2]);
+                    top += dd; n++;
+                    if (dd > 100) ciddi++;
+                }
+                if (n) {
+                    var ortHata = top / n;
+                    w.sapmaOlcum++;
+                    w.sapmaPxTop += ortHata;
+                    if (ortHata > w.sapmaPxEnKotu) w.sapmaPxEnKotu = ortHata;
+                    w.sapmaBirimTop += ciddi / n;
+                    w.sapmaKayipTop += kayip / paket.ongoruBirim.length;
+                }
+            }
         } else {
             w.gecKalan++;      // hedef tik kaçırıldı (cevap çok geç geldi) — pencere büyüyecek
         }
@@ -289,6 +329,11 @@ function battleLaWorkerDurum() {
         gecKalan: w.gecKalan, hata: w.hata, isinmaAtlanan: w.isinmaAtlanan,
         dusen: w.dusen, ustUsteHata: w.ustUsteHata, bosTur: w.bosTur, hizasiz: w.hizasiz,
         isciAyar: w.isciAyar, aranan: w.aranan, atlanan: w.atlanan,
+        sapmaOlcum: w.sapmaOlcum,
+        sapmaPxOrt: w.sapmaOlcum ? Math.round(w.sapmaPxTop / w.sapmaOlcum) : null,
+        sapmaPxEnKotu: Math.round(w.sapmaPxEnKotu),
+        sapmaCiddiPay: w.sapmaOlcum ? +(w.sapmaBirimTop / w.sapmaOlcum).toFixed(3) : null,
+        sapmaKayipPay: w.sapmaOlcum ? +(w.sapmaKayipTop / w.sapmaOlcum).toFixed(3) : null,
         ortSureMs: w.ortSure, pencereTik: w.ileri };
 }
 

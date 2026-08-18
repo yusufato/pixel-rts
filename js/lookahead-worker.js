@@ -279,6 +279,20 @@ function laWorkerAra(m) {
        ÖLÇÜMLE cevaplanır (g=global b=maç u=birim t=siper/mayın s=destek/bekleyen).
        Bu gece aynı ders üç kez alındı: kontrolü koşmayan teşhis yanıltıyor. */
     var ongoruParca = (typeof battleStateHashParts === 'function') ? battleStateHashParts() : null;
+    /* ÖNGÖRÜNÜN BÜYÜKLÜK ÖLÇÜSÜ — hash YETMEZ.
+       KUSUR (kendi raporumda, 2026-08-18): "öngörü sapması 52/54" diye rapor ettim ve
+       bundan "işçinin öngördüğü dünya neredeyse hiç gerçekleşmiyor" sonucunu çıkardım.
+       Yanlış çıkarım: `battleStateHash` TAM EŞİTLİK arar; insan oynarken tek bir birimin
+       konumu 0.01px kayınca hash tutmaz. Yani o sayı sapmanın BÜYÜKLÜĞÜNÜ değil, sadece
+       "birebir aynı değil"i ölçüyordu — ve bir insan varken bu neredeyse garanti.
+       Burada öngörülen dünyanın birim parmak izi de gönderilir; köprü hedef tikte gerçek
+       dünyayla karşılaştırıp KAÇ PİKSEL saptığını ölçer. Karar buna göre verilir. */
+    var ongoruBirim = [];
+    for (var _i = 0; _i < SIM.units.length; _i++) {
+        var _u = SIM.units[_i];
+        if (_u.dead) continue;
+        ongoruBirim.push([_u.id, Math.round(_u.x), Math.round(_u.y), Math.round(_u.hp)]);
+    }
 
     LA_W_EMIRLER = [];
     var kararAni = (SIM.tick % periyot) === 0;   // hizalama tuttu mu (kapi icin)
@@ -298,6 +312,7 @@ function laWorkerAra(m) {
         ayarSonra: laWorkerAyarOku(), izler: izler, dokum: dokum,
         gercekIleri: ileri, kararAni: kararAni, tik: SIM.tick,
         /* ISCININ GERCEKTEN KULLANDIGI AYAR — ana ipligin degil. */
+        ongoruBirim: ongoruBirim,
         ayarKullanilan: { ufuk: LA_UFUK, derin: LA_DERIN, birim: LA_BIRIM,
                           turBirim: LA_TUR_BIRIM, tikBirim: LA_TIK_BIRIM, periyot: periyot },
         aranan: (_s0 && _s1) ? (_s1.aranan - _s0.aranan) : null,
@@ -315,6 +330,7 @@ self.onmessage = function (ev) {
             self.postMessage({ tip: 'emir', id: m.id, emirler: r.emirler, ongoruHash: r.ongoruHash, ongoruParca: r.ongoruParca, ayarSonra: r.ayarSonra, izler: r.izler, dokum: r.dokum,
                 gercekIleri: r.gercekIleri, kararAni: r.kararAni,
                 ayarKullanilan: r.ayarKullanilan, aranan: r.aranan, atlanan: r.atlanan,
+                ongoruBirim: r.ongoruBirim,
                 sure: r.sure });
         }
     } catch (e) {
