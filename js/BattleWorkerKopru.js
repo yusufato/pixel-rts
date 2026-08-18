@@ -82,7 +82,29 @@ var BATTLE_LA_WORKER_URL = (function () {
     return 'js/lookahead-worker.js';
 })();
 
-function battleLaWorkerKur() {
+/* ⚠ SAYAÇLARI MAÇ BAŞINDA SIFIRLA — YOKSA OTURUM BOYUNCA BİRİKİR.
+   KUSUR (kullanıcının 4 gerçek maçında bulundu, 2026-08-19): işçi köprüsü aynı sayfada
+   arka arkaya oynanan maçlarda kapanmıyor, sayaçlar sıfırlanmıyordu. Telemetriye yazılan
+   `aramaWorker.emir` 4 maçta 169 / 279 / 369 / 463 göründü; oysa maç başına GERÇEK sayı
+   169 / 110 / 90 / 94 idi (farklar `lookahead-order` olay sayısıyla BİREBİR eşleşti).
+   Yani rapor 5 kata kadar şişikti ve "işçi emirlerinin çoğu replay'e yazılmıyor" gibi
+   YANLIŞ bir motor kusuru şüphesi doğurdu. Motorda kusur YOKTU; alet yanlış sayıyordu.
+   `tur`, `sapma`, `bosTur`, `aranan`, `atlanan` da aynı şekilde birikiyordu. */
+function battleLaWorkerSayaclariSifirla() {
+    var w = BATTLE_LA_WORKER;
+    w.tur = 0; w.emir = 0; w.sapma = 0; w.gecKalan = 0; w.hata = 0;
+    w.isinmaAtlanan = 0; w.dusen = 0; w.ustUsteHata = 0; w.bosTur = 0; w.hizasiz = 0;
+    w.aranan = 0; w.atlanan = 0; w.ortSure = 0; w.sonSure = 0;
+    w.ileri = 100;        // öngörü penceresi de taze başlar (ortSure sıfırlandı)
+    w.bekleyenEmir = null; w.bekleyen = 0;   // önceki maçtan sarkan istek/emir kalmasın
+    w.sapmaOlcum = 0; w.sapmaPxTop = 0; w.sapmaPxEnKotu = 0; w.sapmaBirimTop = 0; w.sapmaKayipTop = 0;
+}
+
+/* `yeniMac` AÇIKÇA verilir. Sıfırlamayı koşulsuz yapmak yanlış olurdu: köprü maç
+   ORTASINDA bir hatadan sonra yeniden kurulabilir ve o zaman `hata`/`dusen` sayaçlarını
+   silmek, kusuru raporun gözünden kaçırırdı. Yalnız `startBattle` yolu true geçer. */
+function battleLaWorkerKur(yeniMac) {
+    if (yeniMac === true) battleLaWorkerSayaclariSifirla();
     if (BATTLE_LA_WORKER.isci) return true;
     if (typeof Worker !== 'function') return false;                       // Worker yok
     if (typeof MP !== 'undefined' && MP && MP.active) return false;       // MP: lockstep, açılmaz

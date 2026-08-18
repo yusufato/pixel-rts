@@ -648,7 +648,7 @@ function startBattle() {
        İlk arama turu tik 100'de (5sn) geliyor; burada başlatılırsa o tura yetişir.
        Geç kalırsa köprü o turu atlar (donma yerine), ama atlamamak daha iyi. */
     if (typeof BATTLE_LA_WORKER_KIP !== 'undefined' && BATTLE_LA_WORKER_KIP &&
-        typeof battleLaWorkerKur === 'function') battleLaWorkerKur();
+        typeof battleLaWorkerKur === 'function') battleLaWorkerKur(true);   // true = YENİ MAÇ → sayaçlar sıfırlanır
 
     // RNG ortak savaş oturumu açılırken yalnız bir kez tohumlanır.
     // Eski/harici bir çağrı oturum açmadan buraya gelirse güvenli bir tohum oluştur.

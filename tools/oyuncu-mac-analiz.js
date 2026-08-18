@@ -83,6 +83,19 @@ function analiz(yol) {
                 ' · öngörüde sağ olup gerçekte ölmüş %' + ((w.sapmaKayipPay || 0) * 100).toFixed(1));
             console.log('        (hash sapması İKİLİdir ve insan oynarken hep tutmaz — karar BU satıra bakar)');
         }
+        /* ⭐ ÇAPRAZ DOĞRULAMA — iki bağımsız sayaç aynı şeyi saymalı.
+           Köprünün `emir` sayacı ile replay'e yazılan `lookahead-order` olay sayısı EŞİT
+           olmalı (emir uygulanınca olay da yazılır). 2026-08-19'da bunlar 5 kata kadar
+           ayrıştı ve bu, "işçi emirlerinin çoğu replay'e yazılmıyor" gibi ciddi bir motor
+           kusuru şüphesi doğurdu. Gerçek sebep: köprü sayaçları maç başına SIFIRLANMIYOR,
+           oturum boyunca birikiyordu (aynı sayfada arka arkaya oynanan maçlar). Motorda
+           kusur yoktu. Sayaç sıfırlaması eklendi; bu satır da nöbetçi olarak kaldı. */
+        if (w.emir !== laEmir.length) {
+            console.log('     ⚠ SAYAÇ UYUŞMAZLIĞI: köprü ' + w.emir + ' emir diyor, replayde ' +
+                laEmir.length + ' lookahead-order var (fark ' + (w.emir - laEmir.length) + ').');
+            console.log('        Eski kayıtlarda bu NORMAL: sayaçlar maç başına sıfırlanmıyordu,');
+            console.log('        fark önceki maçların toplamıdır. Yeni kayıtta çıkarsa GERÇEK kusurdur.');
+        }
         console.log('     köprü: tur ' + w.tur + ' · emir ' + w.emir + ' · ısınmada atlanan ' + (w.isinmaAtlanan||0) +
             ' · bekçi düşürdü ' + (w.dusen || 0) + ' · hata ' + w.hata +
             ' · öngörü sapması ' + w.sapma + ' · geç kalan ' + w.gecKalan);
