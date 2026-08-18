@@ -453,3 +453,40 @@ Değer-ağı/GPU dalı kapandığına göre kalanlar:
 5. **Rakip modeli** — katman atfına göre insan farkının %47'si durum değerlendirmede;
    aramanın dokunduğu katmanda fark %0. En büyük ölçülmüş kaldıraç, ama en pahalı.
 6. **Eylem uzayını genişletmek** (çekil / ateş kes / hedef seç) — %40'lık yürütme katmanı.
+
+---
+
+## H · ÖLÇÜM EKONOMİSİ — üç iş aynı yere düştü (2026-08-18)
+
+Kullanıcının iki gerçek maçı üç ayrı düzeltme adayı üretti. Üçü de **mekanizma kapısını
+geçti, maç kapısını geçemedi** ve hepsi aynı bantta:
+
+| iş | mekanizma | maç etkisi | saptama tabanı |
+|---|---|---:|---:|
+| emir ömrü (koruma 1) | hedefe varış %13,8 → %30,8 | +328 (t 2,20, n=384) | 419 ⚠ |
+| lojistik yedek ikmal | ikmal ölünce cephane %3 → %21 | +364 (t 1,35, n=96) | 752 ⚠ |
+| gözcü eşiği 3 → 2 | "Gözcü Yok" −1,6 puan | ölçülmedi (mekanizma küçük) | — |
+
+**Bu bir tesadüf değil, bu projenin ölçüm ekonomisi.** Maç marjı std ≈ 2600; +350'lik bir
+etkiyi %80 güçle yakalamak **n ≈ 440** ister (≈3 saat). Üç işi ayrı ayrı ispatlamak
+9 saat eder. Aramanın kendisi (+833, t 4,34) tabanın açık ara üstünde olduğu için tek
+seferde kanıtlanmıştı — kalan işler o büyüklükte değil.
+
+### Çıkarılan strateji: DEMET
+
+Üçü **bağımsız mekanizmalar** (yürütme / ikmal / tespit). Bağımsızlarsa etkiler toplanır
+ve ~+1000'lik bir demet n=96'da saptanabilir. `BATTLE_AI_DEMET` üçünü birlikte açar.
+
+Bağlandığı ÖLÇÜLDÜ (gözle doğrulanmadı — bu oturumda "koda baktım, doğru" birkaç kez
+yanıldı): ordu ikmal 1→2, keşif 2→3, bedel 1 birim; emir koruması demette MOVE'u koruyor,
+ATTACK'i korumuyor.
+
+⚠ Demet geçerse "hangisi taşıyor" AYRI bir soru olarak kalır — ama önce "birlikte
+değerler mi" sorusunun cevabı gerekir.
+
+### Worker — BİTTİ
+
+Canlı kapı: en kötü kare 4432ms → 37ms · arama gerçekten koşuyor (kullanıcının 2. maçında
+54 tur, 206 emir, tüm emirlerin %26,6'sı) · işçi kendi ayarını bildiriyor (ufuk 100 /
+derin 2 / birim 20 = TAM GÜÇ) · öngörü sapması AI-vs-AI'da **0px** (ölçüldü).
+İnsan maçındaki sapma büyüklüğü kullanıcının bir sonraki maçında ilk kez görülecek.
