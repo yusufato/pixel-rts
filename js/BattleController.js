@@ -88,7 +88,13 @@ function battleKamikazeMi(unit) {
    OYUNCUNUN BİRİMİ KORUMA DIŞI: onun emri zaten player-* yolundan gelir; buradaki
    süzgeç kod-AI emirleri içindir. */
 function battleLaEmirKorumali(unit, bit) {
-    if (typeof BATTLE_LA_EMIR_KORUMA === 'undefined' || !(BATTLE_LA_EMIR_KORUMA & bit)) return false;
+    /* DEMET: `BATTLE_AI_DEMET` açıkken koruma MOVE (bit 1) olarak devrededir — ölçülen
+       iki koldan (1 ve 15) daha küçük davranış değişikliği olanı, çünkü havuzda ikisi
+       de aynı bandaydı (+328 / +388) ve MOVE-only daha az risk taşıyor. */
+    const _maske = (typeof BATTLE_LA_EMIR_KORUMA !== 'undefined' && BATTLE_LA_EMIR_KORUMA)
+        ? BATTLE_LA_EMIR_KORUMA
+        : (((typeof BATTLE_AI_DEMET !== 'undefined') && BATTLE_AI_DEMET === true) ? 1 : 0);
+    if (!(_maske & bit)) return false;
     if (!unit || unit.controlOwner === 'PLAYER') return false;
     return ((unit._laUntilTick | 0) > (SIM.tick | 0));
 }

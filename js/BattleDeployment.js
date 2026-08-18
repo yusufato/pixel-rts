@@ -488,7 +488,8 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
     /* YALNIZ AI TARAFI (kirmizi). Bayrak global; iki tarafa birden uygulanirsa A/B
        tek degiskenli olmaz ve rol dengesinde etkiler birbirini goturur. Canli oyunda
        AI zaten kirmizi (`battleAutoDeploySession` isRed:true gonderiyor). */
-    const _intel4Kapsam = (typeof BATTLE_GOZCU_INTEL4 !== 'undefined') && BATTLE_GOZCU_INTEL4 === true &&
+    const _demet = (typeof BATTLE_AI_DEMET !== 'undefined') && BATTLE_AI_DEMET === true;
+    const _intel4Kapsam = (((typeof BATTLE_GOZCU_INTEL4 !== 'undefined') && BATTLE_GOZCU_INTEL4 === true) || _demet) &&
         !!(config && config.isRed === true);
     if (!_proMu && !_intel4Kapsam) return;
     if (_proMu && deploymentProDeltaKapali('spotterRequirement', config)) return;
@@ -519,8 +520,9 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
         const menzil = st.range || 0, gorus = st.vision || 0;
         /* EŞİK DIŞARIDAN AYARLANABİLİR: 3 katı balistik füzeye göreydi; topçu 2.50'de
            kalıyor ve kör bekliyordu (ölçüldü: fırsatlarının %64'ü "Gözcü Yok"). */
-        const _kat = (typeof BATTLE_GOZCU_KAT !== 'undefined' && BATTLE_GOZCU_KAT > 0)
-            ? BATTLE_GOZCU_KAT : PRO_SPOTTER_KAT;
+        const _kat = (typeof BATTLE_GOZCU_KAT !== 'undefined' && BATTLE_GOZCU_KAT > 0 && BATTLE_GOZCU_KAT !== 3)
+            ? BATTLE_GOZCU_KAT
+            : (((typeof BATTLE_AI_DEMET !== 'undefined') && BATTLE_AI_DEMET === true) ? 2 : PRO_SPOTTER_KAT);
         return gorus > 0 && menzil > gorus * (havaMi ? PRO_SPOTTER_HAVA_KAT : _kat);
     };
 
@@ -603,7 +605,8 @@ function battleLojistikKuraliUygula(types, spent, remaining, config) {
     /* YALNIZ AI TARAFI (kirmizi). Bayrak global; iki tarafa birden uygulanirsa A/B
        tek degiskenli olmaz ve rol dengesinde etkiler birbirini goturur. Canli oyunda
        AI zaten kirmizi (`battleAutoDeploySession` isRed:true gonderiyor). */
-    const _intel4Kapsam = (typeof BATTLE_LOJISTIK_INTEL4 !== 'undefined') && BATTLE_LOJISTIK_INTEL4 === true &&
+    const _demet = (typeof BATTLE_AI_DEMET !== 'undefined') && BATTLE_AI_DEMET === true;
+    const _intel4Kapsam = (((typeof BATTLE_LOJISTIK_INTEL4 !== 'undefined') && BATTLE_LOJISTIK_INTEL4 === true) || _demet) &&
         !!(config && config.isRed === true);
     if (!_proMu && !_intel4Kapsam) return;
     if (_proMu && deploymentProDeltaKapali('logisticsRequirement', config)) return;
@@ -623,7 +626,8 @@ function battleLojistikKuraliUygula(types, spent, remaining, config) {
     /* ASGARİ SAYI dışarıdan ayarlanabilir: tek ikmal aracı ölünce ordu kalıcı olarak
        kuruyor (ölçüm yukarıda). Yedek almanın bedeli 250₺ (bütçenin %3.8'i). */
     const _min = (typeof BATTLE_LOJISTIK_MIN !== 'undefined' && BATTLE_LOJISTIK_MIN > 0)
-        ? BATTLE_LOJISTIK_MIN : PRO_LOJISTIK_MIN;
+        ? BATTLE_LOJISTIK_MIN
+        : (((typeof BATTLE_AI_DEMET !== 'undefined') && BATTLE_AI_DEMET === true) ? 2 : PRO_LOJISTIK_MIN);
     while (kaynak < _min && guard++ < 4) {
         const enUcuz = kaynakTipleri.slice().sort((a, b) => STATS[a].cost - STATS[b].cost)[0];
         if (enUcuz != null && STATS[enUcuz].cost > remaining.money) {

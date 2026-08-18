@@ -106,6 +106,8 @@ let LA_TUR_BIRIM = 0;
    birbirine yakınsa karar önemsizdir; aramayı hiç başlatma.
    Eşik "düşman değeri" biriminde (analitik skorla aynı ölçek). */
 const LA_YAYILIM_ESIK = 100;
+/* Kapının SIKILIĞI dışarıdan ayarlanır (A/B). 1 = mevcut. Bkz. battleLookaheadEleVeKapi. */
+let LA_KAPI_CARPAN = 1;
 let LA_AG_KAPI = true;        // kapı ağ skoruna baksın (analitikten isabetli)
 /* AĞ EŞİĞİ VERİDEN TÜRETİLDİ. İlk denemede 120 koydum ve kapı kararların %99.3'ünü
    kesti. Sebep öğretici: ağ TÜM MAÇIN sonucunu tahmin ediyor; tek bir birimi 600px
@@ -736,7 +738,15 @@ function battleLookaheadEleVeKapi(u0) {
     adaylar.sort((a, b) => (_puan(b) - _puan(a)) || (a.x - b.x) || (a.y - b.y));
     const _kal = adaylar.find(a => a.kal);
     if (_kal) {
-        const _esik = (_agAcik && _kal._ag != null) ? LA_AG_ESIK : LA_YAYILIM_ESIK;
+        /* KAPI ÇARPANI (A/B kolu) — kapı NE KADAR eliyor?
+           ÖLÇÜLDÜ (worker'ın kendi raporu, 2026-08-18): tur başına aranan 33 / atlanan 61,
+           yani arama kendisine verilen birimlerin ancak %35'i için rollout koşuyor.
+           Belgelenen beklenti "%40 atlanır" idi; gerçek %65. Kapı bedava optimizasyon
+           diye konmuştu ama bu oranda artık bir BÜTÇE KISITI gibi davranıyor olabilir.
+           Çarpan 1 = mevcut davranış (varsayılan). 0.25 = kapı gevşer, daha çok birim
+           aranır. Kazanç mı maliyet mi olduğu maç kapısında ölçülür. */
+        const _carpan = (typeof LA_KAPI_CARPAN !== 'undefined' && LA_KAPI_CARPAN >= 0) ? LA_KAPI_CARPAN : 1;
+        const _esik = ((_agAcik && _kal._ag != null) ? LA_AG_ESIK : LA_YAYILIM_ESIK) * _carpan;
         if ((_puan(adaylar[0]) - _puan(_kal)) < _esik) return null;
     }
     return adaylar;

@@ -1544,6 +1544,19 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── AI DEMETİ (A/B kolu) — küçük düzeltmeleri BİRLİKTE ölçmek ─────────────
+   ÖLÇÜM EKONOMİSİ: bu projede aranan etkiler 300-500 bandında ve maç marjı std ≈ 2600.
+   Tek tek ölçmek arm başına n≈400-600 (2-3 saat) istiyor ve üç ayrı iş de tabanın
+   altında kaldı:
+     emir ömrü koruma 1 : +328 (t 2.20, n=384)   → ispatlanmadı
+     lojistik yedek     : +364 (t 1.35, n=96)    → ispatlanmadı
+     gözcü eşiği        : mekanizma −1.6 puan    → küçük
+   Üçü BAĞIMSIZ mekanizmalar (emir ömrü = yürütme, lojistik = ikmal, gözcü = tespit).
+   Bağımsızlarsa etkiler toplanır ve ~+1000'lik bir demet n=96'da SAPTANABİLİR.
+   Bu bayrak üçünü birlikte açar; tek değişkenli A/B mümkün olsun diye ayrı tutuldu.
+   ⚠ Demet geçerse tek tek hangisinin taşıdığı AYRI bir soru olarak kalır. */
+let BATTLE_AI_DEMET = false;
+
 /* ── LOJİSTİK KURALININ KAPSAMI (A/B kolu) ─────────────────────────────────
    Kullanıcının maçından çıktı: AI'nın TEK ikmal aracı 52sn'de öldü, sonrasında RESUPPLY
    sıfır (oyuncu 215) ve topçusu 170 saniye boş gezdi. Tezgâhta AYNI KURULUMDA (AI savunan
