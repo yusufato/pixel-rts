@@ -297,33 +297,37 @@ araştırılacak bir şey değil — fork'un kendisi.
 
 Ana iş parçacığında kalan yük tur başına ~10ms. Kabul.
 
-### Ama GECİKME pahalı (`tools/emir-bayatlama.js`)
+### GECİKME — ilk okumam YANLIŞTI, aracın kendi verisi çürüttü
 
-Worker'ın emri ~2,8sn (≈56 tik) sonra iner; karar T anındaki dünyaya göre verilmişti.
-Ölçü: aramanın kendi para biriminde, "bayat emir taze emrin ne kadarını korur"
-(havuzlanmış: Σ(bayat−kal) / Σ(taze−kal); oran-medyanı payda sıfıra yaklaşınca
-patladığı için kullanılmadı).
+`tools/emir-bayatlama.js` ilk sürümü "3sn gecikmede değerin **%45,9'u** korunuyor"
+dedi ve ben bundan "worker öngörülü olmalı" sonucunu çıkardım. **Geri çekiyorum.**
 
-| gecikme | korunan değer |
+Eğriyi çıkarınca desen bozuldu — gecikme arttıkça kayıp ARTMIYOR:
+
+| gecikme | havuzlanmış "korunan değer" |
 |---|---:|
-| 60 tik (3,0sn) | **%45,9** |
+| **1 tik (≈0 sn — KONTROL)** | **%43,5** |
+| 20 tik (1,0sn) | %37,3 |
+| 60 tik (3,0sn) | %45,9 |
+| 100 tik (5,0sn) | %44,7 |
 
-Üstelik 85 kararın 14'ünde (%16) birim o pencerede **ölüyor**. Yani düz worker
-aramanın değerinin yarısını gecikmeye veriyor.
+**Gecikme sıfırken bile %43,5.** Yani ölçtüğüm şey gecikme değil, aracın tabanı.
+Karar-başı medyan oran k=1'de tam **1,00** (çoğu kararda bayat = taze, beklendiği gibi);
+havuzlanmış oranı birkaç uç karar sürüklüyor.
 
-### Sonuç: worker ÖNGÖRÜLÜ olmalı
+**Kök neden:** `s_taze`, aynı anda LA_DERIN adayın **rollout skorları üzerinden max**
+alıyor. Max-over-gürültü sistematik olarak şişer — skor seviyesinde kazananın laneti.
+Bu yüzden oran, gecikme olmadan bile 1,0'ın çok altında çıkıyor.
 
-Doğru tasarım, fork'u gönderip olduğu yerden aratmak değil: **worker fork'u alır,
-dünyayı k tik KENDİ İLERLETİR, sonra o tahmini durumdan arar.** Emir indiğinde
-hesaplandığı duruma iner.
+**Düzeltme:** oran yerine **eşleştirilmiş ham fark** (`s_taze − s_bayat`) + t testi.
+Yanlılığı taşır ama SABİT taşır → gecikmeler ARASINDAKİ fark yorumlanabilir.
 
-Ve bu bir yaklaşıklık değil — **AI-vs-AI'da tam doğru**: sim deterministik, kontrolörler
-fork'un içinde, `rngState` fork'ta. Worker'ın k tik ilerlettiği dünya, ana iş
-parçacığının k tik sonra bulunduğu dünyanın **aynısıdır**. Tek hata kaynağı o 3 saniyede
-**oyuncunun** yaptıklarıdır (kendi birimleri aramanın dışında ama dünyayı değiştiriyorlar).
+### Worker tasarımı: hangi seçenek?
 
-⚠ Ölçülmeden yazılmayacak sonraki adım: "oyuncu girdisi 3 saniyede tahmini ne kadar
-saptırıyor?" — bu, öngörülü worker'ın tek açık riski.
+Öngörülü worker (fork'u al, dünyayı k tik kendin ilerlet, oradan ara) hâlâ **doğru bir
+tasarım** — AI-vs-AI'da tam doğru, çünkü sim deterministik ve kontrolörler + `rngState`
+fork'un içinde. Ama artık bunu **ölçüm gerektirdiği için değil**, ücretsiz doğruluk
+olduğu için savunuyorum. "Gecikme değerin yarısını yiyor" iddiası **dayanaksızdı**.
 
 ---
 

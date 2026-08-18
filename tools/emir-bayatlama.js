@@ -161,7 +161,23 @@ function main() {
     const mesafe = hepsi.map(k => k.mesafe).sort((a, b) => a - b);
     console.log('');
     console.log('  degerlendirilen karar: ' + oranlar.length + '   (bu arada olen birim: ' + oldu + ')');
-    console.log('  KORUNAN DEGER — HAVUZLANMIS (asil olcu): ' + (havuz * 100).toFixed(1) + '%');
+    /* ⚠ ASIL OLCU ORAN DEGIL, ESLESTIRILMIS HAM FARK (sTaze - sBayat).
+       OLCULEREK ogrenildi: havuzlanmis oran gecikme 1 tikte de %43.5, 20'de %37.3,
+       60'ta %45.9, 100'de %44.7 — yani gecikmeden BAGIMSIZ bir taban artefakti.
+       Sebep: sTaze, ayni anda LA_DERIN adayin ROLLOUT skorlari uzerinden MAX aliyor;
+       max-over-gurultu sistematik olarak sisiyor (skor seviyesinde kazananin laneti).
+       Oran bu sisme yuzunden gecikme olmadan bile 1.0'in cok altinda cikiyor.
+       Ham fark bu yanliligi TASIR ama SABIT tasir → gecikmeler ARASINDAKI fark
+       yorumlanabilir. Karar kurali: gecikme k'daki fark, k≈0'daki farktan ANLAMLI
+       buyukse gecikme gercekten pahalidir. */
+    const farklar = hepsi.map(k => k.sTaze - k.sBayat);
+    const fOrt = farklar.reduce((a, b) => a + b, 0) / farklar.length;
+    const fStd = Math.sqrt(farklar.reduce((a, b) => a + (b - fOrt) * (b - fOrt), 0) / Math.max(1, farklar.length - 1));
+    const fSe = fStd / Math.sqrt(farklar.length);
+    console.log('  ESLESTIRILMIS HAM FARK (taze - bayat): ' + fOrt.toFixed(1) +
+        '   std ' + fStd.toFixed(0) + '   se ' + fSe.toFixed(1) + '   t ' + (fOrt / fSe).toFixed(2) +
+        '   n ' + farklar.length);
+    console.log('  KORUNAN DEGER — havuzlanmis oran (⚠ gecikmeden BAGIMSIZ taban ~%44 var): ' + (havuz * 100).toFixed(1) + '%');
     console.log('    ham: bayat toplam ' + Math.round(payBayat) + '  vs  taze toplam ' + Math.round(payTaze) + '  (kal tabanina gore)');
     console.log('  karar-basi oran (kirilgan, bilgi icin): medyan ' + p(0.5).toFixed(2) +
         '   ortalama ' + ort.toFixed(2));
