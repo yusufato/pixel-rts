@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>ARAMA WORKER — CANLI KAPI (donma ölçümü)</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  CANLI KAPI — köprü kullanıcının gördüğü kusuru gerçekten çözüyor mu?
+
+  Kullanıcının raporu: "oyun her 5 saniyede bir 2-3 saniye donuyor."
+  Doğru ölçü VERİM DEĞİL GECİKME: bir karede ana iş parçacığının bloke kaldığı
+  EN UZUN süre. (Bu ölçüm hatası bir kez yapıldı: maliyet "1.90× verim" diye
+  raporlanmıştı, oysa donduran en kötü tek-tik 3636ms idi.)
+
+  Üç kol, AYNI tohum ve AYNI tik sayısı:
+    A) arama KAPALI              — taban
+    B) arama TAM ayar, ANA İPLİK — kusurun kendisi (donma burada görünmeli)
+    C) arama TAM ayar, WORKER    — çözüm iddiası
+
+  Kabul: C'nin en kötü karesi B'nin çok altında ve A'ya yakın olmalı; ayrıca
+  C gerçekten arama yapmalı (tur > 0, emir > 0) — yoksa "donma yok" bedavaya gelir.
+
+    python -m http.server 8123 --bind 127.0.0.1      (depo kökünden)
+    node tools/tarayici-kapi-kos.js --url "http://localhost:8123/tools/worker-canli-kapisi.html"
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  body { background:#0b0d10; color:#d8dee9; font:13px/1.6 "Consolas",monospace; padding:16px; }
+  h1 { font-size:15px; color:#e0a458; margin:0 0 12px; }
+  .ok { color:#7bc96f; } .kotu { color:#e06c75; } .not { color:#7a828e; }
+  pre { white-space:pre-wrap; margin:0; }
+</style>
+</head>
+<body>
+<h1>ARAMA WORKER — CANLI KAPI (donma ölçümü)</h1>
+<pre id="cikti">kuruluyor…</pre>
+
+<script>
+(function () {
+  // Oyunun kendi çizim döngüsü kapalı: bu kapı simülasyonu ELLE sürüyor.
+  window.requestAnimationFrame = function () { return 0; };
+  window.cancelAnimationFrame = function () {};
+  const eskiById = document.getElementById.bind(document);
+  document.getElementById = function (id) {
+    const v = eskiById(id); if (v) return v;
+    const ad = String(id);
+    const tur = /canvas/i.test(ad) ? 'canvas' : (/sprite|image|img|sheet/i.test(ad) ? 'img' : 'div');
+    const el = document.createElement(tur);
+    el.id = ad;
+    if (tur === 'canvas') { el.width = 1024; el.height = 768; }
+    if (tur !== 'canvas') {
+      const yedek = document.createElement('canvas'); yedek.width = 1024; yedek.height = 768;
+      el.getContext = (t, o) => yedek.getContext(t || '2d', o);
+      el.toDataURL = () => yedek.toDataURL();
+    }
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    return el;
+  };
+  const eskiQS = document.querySelector.bind(document);
+  document.querySelector = function (sec) {
+    const v = eskiQS(sec); if (v) return v;
+    const m = /^#([\w-]+)$/.exec(String(sec));
+    return m ? document.getElementById(m[1]) : null;
+  };
+})();
+</script>
+
+<script src="../js/UnitData.js"></script>
+<script src="../js/UnitFeatures.js"></script>
+<script src="../js/UnitLoader.js"></script>
+<script src="../js/globals.js"></script>
+<script src="../js/BattleRules.js"></script>
+<script src="../js/BattleSession.js"></script>
+<script src="../js/BattlePerception.js"></script>
+<script src="../js/BattleSituation.js"></script>
+<script src="../js/BattlePlanning.js"></script>
+<script src="../js/BattleExecution.js"></script>
+<script src="../js/BattleExploiters.js"></script>
+<script src="../js/OperationGrammar.js"></script>
+<script src="../js/BattleSpaceTime.js"></script>
+<script src="../js/BattleStateFeatures.js"></script>
+<script src="../js/BattleBlackboard.js"></script>
+<script src="../js/BattleTargeting.js"></script>
+<script src="../js/CommanderProfiles.js"></script>
+<script src="../js/BattleController.js"></script>
+<script src="../js/BattleCommander.js"></script>
+<script src="../js/BattleFeatures.js"></script>
+<script src="../js/BattleSelector.js"></script>
+<script src="../js/BattleOracle.js"></script>
+<script src="../js/BattleSelectorModel.js"></script>
+<script src="../js/BattleCoach.js"></script>
+<script src="../js/BattleBeonai.js"></script>
+<script src="../js/MapData.js"></script>
+<script src="../js/MapImage.js"></script>
+<script src="../js/VFX.js"></script>
+<script src="../js/Support.js"></script>
+<script src="../js/Unit.js"></script>
+<script src="../js/BattleDeployment.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/BattleLookahead.js"></script>
+<script src="../js/BattleWorkerKopru.js"></script>
+<script src="../js/BattleValueModel.js"></script>
+<script src="../js/BattleValueNet.js"></script>
+<script src="../js/BattlePolicyNet.js"></script>
+<script src="../js/BattleBeonaiModels.js"></script>
+<script src="../js/BattleBeonaiModelBC.js"></script>
+<script src="../js/BattleBeonaiModelBCv2.js"></script>
+
+<script>
+const _q = new URLSearchParams(location.search);
+const TOHUM = +(_q.get('tohum') || 760000);
+const TIK   = +(_q.get('tik') || 600);          // kaç tik oynansın
+const DILIM = +(_q.get('dilim') || 5);          // bir "kare"de kaç tik (gerçek oyunda ~1-3)
+
+const cikti = document.getElementById('cikti');
+const satirlar = [];
+const yaz = (s, c) => { satirlar.push(c ? '<span class="' + c + '">' + s + '</span>' : s); cikti.innerHTML = satirlar.join('\n'); };
+const bekle = (ms) => new Promise(c => setTimeout(c, ms));
+
+function oturumKur() {
+  BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;
+  if (typeof BATTLE_POSTURE_GATE !== 'undefined') BATTLE_POSTURE_GATE = true;
+  if (typeof BATTLE_SECTOR_COMMAND !== 'undefined') BATTLE_SECTOR_COMMAND = true;
+  if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = true;
+  openBattlefieldSession({ mode:'quick', mapId:-2, seed:TOHUM, attackerSide:true,
+    durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
+  BATTLE_REPLAY.telemetry = null; BATTLE_REPLAY_KAYITSIZ = true;
+  const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true,
+    brainIntel4:true, isAttacker:false, pro:false });
+  if (typeof BATTLE_FORCE_VARIED !== 'undefined') BATTLE_FORCE_VARIED = false;
+  battleDeployManifest(mv, false, { source:'wck', ally:true });
+  startBattle(); SIM.headless = true;
+}
+
+/* BİR KOL: maçı TIK tik oynat, her "kare"de ana iş parçacığının bloke kaldığı süreyi ölç.
+   Kareler arasında gerçek bir await var — worker'ın cevap verebilmesi için ŞART
+   (senkron döngüde mesaj kuyruğu hiç işlenmez ve worker asla "cevap vermiş" olmaz). */
+async function kol(ad, arama, workerKip) {
+  oturumKur();
+  BATTLE_LOOKAHEAD_RED = arama; BATTLE_LOOKAHEAD_BLUE = false;
+  if (typeof BATTLE_LA_WORKER_KIP !== 'undefined') BATTLE_LA_WORKER_KIP = workerKip;
+  if (typeof battleLaWorkerKapat === 'function') battleLaWorkerKapat();
+  // TAM AYAR (ölçülen +735 konfigürasyonu) — kısılmış ayar bu kapının konusu değil
+  LA_UFUK = 100; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
+
+  let st = 0, enKotu = 0, toplam = 0, kare = 0;
+  const kareler = [];
+  while (SIM.tick < TIK && phase === PHASE.BATTLE) {
+    const t0 = performance.now();
+    for (let i = 0; i < DILIM && SIM.tick < TIK; i++) {
+      st += BATTLE_TICK_MS;
+      stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);
+      if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, st);
+      if (arama && typeof battleLookaheadTick === 'function') battleLookaheadTick(st);
+    }
+    const dt = performance.now() - t0;
+    kareler.push(dt);
+    if (dt > enKotu) enKotu = dt;
+    toplam += dt; kare++;
+    /* GERÇEK ZAMAN TEMPOSU — ŞART. İlk sürüm kareleri arka arkaya koşturuyordu ve 900 tik
+       ~1 saniyede bitiyordu; işçinin bir turu ~2.5sn sürdüğü için CEVAP HİÇ YETİŞMİYORDU
+       (tur 1, emir 0). Bu, "worker çalışmıyor" gibi görünen ama aslında testin oyundan
+       45 kat hızlı koşmasından doğan bir ölçüm hatasıydı. Oyunda bir kare DILIM×50ms
+       sürer; kapı da o tempoyu tutar. */
+    const hedef = DILIM * BATTLE_TICK_MS;
+    await bekle(Math.max(0, hedef - dt));
+  }
+  // Uçuşta kalan son isteğin inmesine izin ver (emir sayacı eksik görünmesin)
+  for (let i = 0; i < 60 && BATTLE_LA_WORKER && BATTLE_LA_WORKER.bekleyen; i++) await bekle(100);
+  kareler.sort((a, b) => a - b);
+  const d = (typeof battleLaWorkerDurum === 'function') ? battleLaWorkerDurum() : null;
+  return { ad, enKotu, ort: toplam / Math.max(1, kare), p95: kareler[Math.floor(kareler.length * 0.95)] || 0,
+           kare, tik: SIM.tick, durum: d };
+}
+
+(async () => {
+  try {
+    yaz('tohum ' + TOHUM + ' · ' + TIK + ' tik · kare başına ' + DILIM + ' tik', 'not');
+    yaz('');
+    const A = await kol('A arama KAPALI', false, false);
+    yaz('A) arama KAPALI            en kötü kare ' + A.enKotu.toFixed(0) + 'ms   p95 ' + A.p95.toFixed(0) + 'ms   ort ' + A.ort.toFixed(1) + 'ms');
+    const B = await kol('B ana iplik', true, false);
+    yaz('B) TAM ayar, ANA İPLİK     en kötü kare ' + B.enKotu.toFixed(0) + 'ms   p95 ' + B.p95.toFixed(0) + 'ms   ort ' + B.ort.toFixed(1) + 'ms', 'kotu');
+    const C = await kol('C worker', true, true);
+    const d = C.durum || {};
+    yaz('C) TAM ayar, WORKER        en kötü kare ' + C.enKotu.toFixed(0) + 'ms   p95 ' + C.p95.toFixed(0) + 'ms   ort ' + C.ort.toFixed(1) + 'ms', 'ok');
+    yaz('');
+    yaz('   worker: tur ' + (d.tur|0) + '   uygulanan emir ' + (d.emir|0) +
+        '   öngörü sapması ' + (d.sapma|0) + '   geç kalan ' + (d.gecKalan|0) +
+        '   hata ' + (d.hata|0) + '   isinma-atlanan ' + (d.isinmaAtlanan|0) +
+        '   ort tur ' + (d.ortSureMs|0) + 'ms   pencere ' + (d.pencereTik|0) + ' tik');
+    yaz('');
+    const calisti = (d.tur | 0) > 0 && (d.emir | 0) > 0;
+    const donmaCozuldu = C.enKotu < B.enKotu * 0.5;
+    const tabanaYakin = C.enKotu < A.enKotu * 3 + 50;
+    yaz('ARAMA GERÇEKTEN KOŞTU     : ' + (calisti ? 'EVET ✓' : 'HAYIR ✗ (donma yok ama arama da yok)'), calisti ? 'ok' : 'kotu');
+    yaz('DONMA ÇÖZÜLDÜ (C < B/2)   : ' + (donmaCozuldu ? 'EVET ✓' : 'HAYIR ✗'), donmaCozuldu ? 'ok' : 'kotu');
+    yaz('TABANA YAKIN (C ≈ A)      : ' + (tabanaYakin ? 'EVET ✓' : 'HAYIR ✗'), tabanaYakin ? 'ok' : 'kotu');
+    const gecti = calisti && donmaCozuldu && tabanaYakin;
+    yaz('KAPI: ' + (gecti ? 'GECTI' : 'DUSTU'), gecti ? 'ok' : 'kotu');
+    window.__KAPI_SONUC = { gecti, A:{enKotu:A.enKotu,p95:A.p95}, B:{enKotu:B.enKotu,p95:B.p95},
+                            C:{enKotu:C.enKotu,p95:C.p95}, worker:d };
+  } catch (e) {
+    yaz('ÇÖKTÜ: ' + (e && e.stack || e), 'kotu');
+    window.__KAPI_SONUC = { gecti:false, hata:String(e && e.message || e) };
+  }
+})();
+</script>
+</body>
+</html>

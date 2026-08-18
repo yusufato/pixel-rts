@@ -97,6 +97,13 @@ function quickMatchApplyBrain(anahtar) {
        birimleri zaten suzgecle disarida. Boylece muttefik AI de kademeye uyar. */
     if (typeof BATTLE_LOOKAHEAD_LIVE !== 'undefined') BATTLE_LOOKAHEAD_LIVE = !!b.arama;
 
+    /* WORKER KIPI — arama ana iplikten CIKAR. Asagidaki kisilmis ayar artik YEDEK:
+       worker acilabilirse arama TAM ayarla iscide kosar (olculen +735 konfigurasyonu),
+       acilamazsa (Worker yok / kurulum hatasi / MP) kopru false doner ve ana iplik
+       kisilmis ayarla devam eder. Yani kademe her durumda calisir, yalnizca GUCU degisir.
+       Kapilar: tools/worker-kapisi.js (Node) + tools/worker-tarayici-kapisi.html (tarayici). */
+    if (typeof BATTLE_LA_WORKER_KIP !== 'undefined') BATTLE_LA_WORKER_KIP = !!b.arama;
+
     /* ── CANLI AYARI (kullanici raporu: "her 5 saniyede 2-3 saniye donuyor") ──
        OLCUM HATASI DUZELTILDI: maliyeti "1.90x gercek zaman" diye raporlamistim; o
        sayi VERIM. Oyunu donduran GECIKME. Dogru olcu EN KOTU TEK-TIK ve tezgahta

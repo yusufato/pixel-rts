@@ -802,6 +802,11 @@ function battleLookaheadEmirVer(uid, karar, kayit) {
 function battleLookaheadTick(now) {
     if (typeof SIM === 'undefined' || !SIM.units || phase !== PHASE.BATTLE) return;
 
+    /* WORKER EMİRLERİ — HER TİKTE kontrol edilir, arama periyodunda değil. İşçi dünyayı
+       k tik ileri sarıp oradan aradı; emir tam o tikte inmeli. Hedef tik periyoda denk
+       gelmeyebileceği için bu kanca en başta, periyot kontrolünden ÖNCE durur. */
+    if (typeof battleLaWorkerTikUygula === 'function') battleLaWorkerTikUygula();
+
     /* KUYRUK BOŞALTMA (tike yayma açıkken). Periyot tiki olmasa da her tikte
        birkaç bekleyen karar işlenir → tur tek blok yerine zamana yayılır. */
     if (LA_TIK_BIRIM > 0 && BATTLE_LA_KUYRUK.length) {

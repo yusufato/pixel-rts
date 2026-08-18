@@ -31,7 +31,8 @@ var BATTLE_LA_WORKER = {
     gonderTik: 0,         // isteğin gönderildiği tik
     hedefTik: 0,          // emrin inmesi beklenen tik (gonderTik + ileri)
     ileri: 100,           // öngörü penceresi (tik) — ölçülen tur süresine göre ayarlanır
-    tur: 0, emir: 0, sapma: 0, gecKalan: 0, hata: 0,
+    bekleyenEmir: null,   // işçiden gelen ama vakti gelmemiş emirler
+    tur: 0, emir: 0, sapma: 0, gecKalan: 0, hata: 0, isinmaAtlanan: 0,
     sonSure: 0, ortSure: 0
 };
 
@@ -43,17 +44,33 @@ function battleLaWorkerPencere(sureMs) {
     return Math.max(40, Math.min(200, tik));
 }
 
+/* İŞÇİ DOSYASININ YOLU — sayfaya göre DEĞİL, KÖPRÜNÜN KENDİ konumuna göre çözülür.
+   KUSUR (ölçülerek bulundu, canlı kapı): sabit 'js/lookahead-worker.js' yazılıydı ve
+   köprü `tools/` altındaki bir kapı sayfasından yüklenince yol `/tools/js/...` olup
+   404 veriyordu. Köprü sessizce kapanıyor, oyun kısılmış ana-iplik aramasına düşüyordu —
+   yani "worker açık" sanılan bir kurulumda worker HİÇ ÇALIŞMIYORDU. `currentScript`
+   betik YÜKLENİRKEN okunur (sonra null olur), o yüzden burada bir kez hesaplanır. */
+var BATTLE_LA_WORKER_URL = (function () {
+    try {
+        var s = (typeof document !== 'undefined' && document.currentScript) ? document.currentScript.src : '';
+        if (s) return s.replace(/[^/]*$/, 'lookahead-worker.js');
+    } catch (e) {}
+    return 'js/lookahead-worker.js';
+})();
+
 function battleLaWorkerKur() {
     if (BATTLE_LA_WORKER.isci) return true;
     if (typeof Worker !== 'function') return false;                       // Worker yok
     if (typeof MP !== 'undefined' && MP && MP.active) return false;       // MP: lockstep, açılmaz
     try {
-        var w = new Worker('js/lookahead-worker.js');
+        var w = new Worker(BATTLE_LA_WORKER_URL);
         w.onmessage = function (ev) { battleLaWorkerMesaj(ev.data || {}); };
         w.onerror = function (e) {
             BATTLE_LA_WORKER.hata++;
             BATTLE_LA_WORKER.acik = false;
-            console.warn('[arama-worker] hata, köprü kapatıldı:', e && e.message);
+            // Yolu da bas: en olası sebep işçi dosyasının bulunamaması (404).
+            console.warn('[arama-worker] hata, köprü kapatıldı:', (e && e.message) || e,
+                '| işçi yolu:', BATTLE_LA_WORKER_URL);
         };
         BATTLE_LA_WORKER.isci = w;
         BATTLE_LA_WORKER.acik = true;
@@ -81,6 +98,7 @@ function battleLaWorkerKapat() {
     BATTLE_LA_WORKER.acik = false;
     BATTLE_LA_WORKER.hazir = false;
     BATTLE_LA_WORKER.bekleyen = 0;
+    BATTLE_LA_WORKER.bekleyenEmir = null;
 }
 
 function battleLaWorkerMesaj(m) {
@@ -100,31 +118,60 @@ function battleLaWorkerMesaj(m) {
         ? Math.round(BATTLE_LA_WORKER.ortSure * 0.7 + (m.sure | 0) * 0.3) : (m.sure | 0);
     BATTLE_LA_WORKER.ileri = battleLaWorkerPencere(BATTLE_LA_WORKER.ortSure);
 
-    /* ÖNGÖRÜ DOĞRULAMASI — köprünün en önemli satırı. Emir, işçinin öngördüğü duruma
-       göre hesaplandı; gerçekten o duruma mı indi? Hash tutmazsa emir yine uygulanır
-       (kötü emir, emirsizlikten iyi olabilir) ama SAYILIR. Sapma sürekliyse öngörü
-       penceresi yanlıştır ya da oyuncu araya giriyordur — ikisi de görünür olmalı. */
-    if (m.ongoruHash && typeof battleStateHash === 'function' && SIM.tick === BATTLE_LA_WORKER.hedefTik) {
-        if (battleStateHash() !== m.ongoruHash) BATTLE_LA_WORKER.sapma++;
-    } else if (SIM.tick !== BATTLE_LA_WORKER.hedefTik) {
-        BATTLE_LA_WORKER.gecKalan++;    // cevap penceresi kaçırdı (pencere büyüyecek)
-    }
+    /* EMİRLER HEMEN DEĞİL, HEDEF TİKTE UYGULANIR.
+       İşçi dünyayı `ileri` tik ileri sarıp ORADAN aradı; emir o ana aittir. Cevap
+       genelde ERKEN döner (ölçüldü: tur ~1.4sn ≈ 28 tik, pencere ~49 tik). İlk sürüm
+       emri geldiği anda uyguluyordu — yani GELECEĞE ait bir emri ŞİMDİ işliyordu; bu
+       bayat emirden de kötüdür ve öngörü doğrulaması da anlamsızlaşıyordu (her cevap
+       "geç kalan" sayılıyordu). Emir kuyruğa alınır, `battleLaWorkerTikUygula` onu
+       hedef tikte indirir ve TAM O ANDA öngörü hash'ini doğrular. */
+    BATTLE_LA_WORKER.bekleyenEmir = { emirler: m.emirler || [], ongoruHash: m.ongoruHash || null };
+    battleLaWorkerTikUygula();
+}
 
-    var em = m.emirler || [];
+/* HER TİKTE çağrılır (battleLookaheadTick'in başından). Vakti gelen işçi emirlerini
+   indirir. Ayrı fonksiyon olmasının sebebi: `battleLaWorkerTur` yalnız arama periyodu
+   tiklerinde çağrılıyor, oysa hedef tik periyoda denk gelmeyebilir. */
+function battleLaWorkerTikUygula() {
+    var w = BATTLE_LA_WORKER;
+    if (!w.bekleyenEmir) return;
+    if (typeof SIM === 'undefined' || SIM.tick < w.hedefTik) return;   // vakti gelmedi
+
+    var paket = w.bekleyenEmir;
+    w.bekleyenEmir = null;
+
+    /* ÖNGÖRÜ DOĞRULAMASI — köprünün en önemli satırı. Emir, işçinin öngördüğü duruma
+       göre hesaplandı; gerçekten o duruma mı indi? Tutmazsa emir YİNE uygulanır (kötü
+       emir emirsizlikten iyi olabilir) ama SAYILIR. AI-vs-AI'da sıfır olmalı; oyuncu
+       o pencerede oynarsa artar — köprü bunu tahmin etmez, ölçer. */
+    if (paket.ongoruHash && typeof battleStateHash === 'function') {
+        if (SIM.tick === w.hedefTik) {
+            if (battleStateHash() !== paket.ongoruHash) w.sapma++;
+        } else {
+            w.gecKalan++;      // hedef tik kaçırıldı (cevap çok geç geldi) — pencere büyüyecek
+        }
+    }
+    var em = paket.emirler;
     for (var i = 0; i < em.length; i++) {
-        var u = SIM.units.find(function (x) { return x.id === em[i].uid; });
+        var uid = em[i].uid;
+        var u = SIM.units.find(function (x) { return x.id === uid; });
         if (!u || u.dead) continue;
         if (u.controlOwner === 'PLAYER') continue;    // oyuncunun birimine ASLA dokunma
         // `kayit=true` → 'lookahead-order' olarak replay'e yazılır (sözleşme korunur)
-        battleLookaheadEmirVer(em[i].uid, { x: em[i].x, y: em[i].y }, true);
-        BATTLE_LA_WORKER.emir++;
+        battleLookaheadEmirVer(uid, { x: em[i].x, y: em[i].y }, true);
+        w.emir++;
     }
 }
 
 /* Arama turunda `battleLookaheadTick` yerine BU çağrılır. Dönüş `true` ise tur işçiye
    devredildi ve ana iş parçacığı arama YAPMAZ. */
 function battleLaWorkerTur(now) {
-    if (!BATTLE_LA_WORKER.acik || !BATTLE_LA_WORKER.hazir) return false;
+    if (!BATTLE_LA_WORKER.acik) return false;     // köprü yok/başarısız → ana iplik devralsın
+    /* ISINMA: işçi kuruluyor (zinciri yükleyip oturumu açıyor, birkaç saniye). Bu turu
+       ANA İPLİK ÜSTLENMEMELİ — ölçüldü: maç başındaki tek kare 5343ms sürüyordu, yani
+       worker'lı kurulum donmayı ÇÖZMEK yerine maç başına yığıyordu. Bir-iki arama turunu
+       atlamak, oyunu 5 saniye dondurmaktan iyidir. */
+    if (!BATTLE_LA_WORKER.hazir) { BATTLE_LA_WORKER.isinmaAtlanan++; return true; }
     if (BATTLE_LA_WORKER.bekleyen) return true;   // hâlâ çalışıyor: tur ATLANIR (ikinci istek yığmaz)
     var fork;
     try {
@@ -161,7 +208,7 @@ var BATTLE_LA_AYAR_ANAHTAR = [
     'BATTLE_BEONAI_RED', 'BATTLE_BEONAI_BLUE', 'BATTLE_EXPLOITER_RED', 'BATTLE_EXPLOITER_BLUE',
     'BATTLE_FORCE_DOCTRINE', 'BATTLE_JAM_PARTIAL', 'BATTLE_JAM_RECON', 'BATTLE_SPAWN_LOADED',
     'BATTLE_KAPMA_TEHLIKE', 'BATTLE_ISTIHKAM_US', 'BATTLE_LA_EMIR_KORUMA',
-    'LA_PERIYOT_TIK', 'LA_BIRIM', 'LA_TUR_BIRIM', 'LA_YARICAP', 'LA_AG_ADAY', 'LA_AG_ESIK',
+    'LA_PERIYOT_TIK', 'LA_YARICAP', 'LA_AG_ADAY', 'LA_AG_ESIK',
     'LA_RAKIP', 'LA_SIRALI', 'LA_CIFT_YON', 'LA_HIZLI_YOL', 'LA_DEGER_AGI', 'LA_AG_MIN_TIK',
     'LA_POLITIKA', 'LA_EMIR_SURESI', 'LA_KANAL_AGIRLIK'
 ];
@@ -180,9 +227,11 @@ function battleLaWorkerAyarTopla() {
 function battleLaWorkerDurum() {
     var w = BATTLE_LA_WORKER;
     return { acik: w.acik, hazir: w.hazir, tur: w.tur, emir: w.emir, sapma: w.sapma,
-        gecKalan: w.gecKalan, hata: w.hata, ortSureMs: w.ortSure, pencereTik: w.ileri };
+        gecKalan: w.gecKalan, hata: w.hata, isinmaAtlanan: w.isinmaAtlanan,
+        ortSureMs: w.ortSure, pencereTik: w.ileri };
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { battleLaWorkerKur, battleLaWorkerKapat, battleLaWorkerTur, battleLaWorkerDurum };
+    module.exports = { battleLaWorkerKur, battleLaWorkerKapat, battleLaWorkerTur,
+        battleLaWorkerTikUygula, battleLaWorkerDurum };
 }

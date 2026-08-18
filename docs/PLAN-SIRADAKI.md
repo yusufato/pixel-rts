@@ -381,13 +381,44 @@ bir yaklaşıklık değil, AI-vs-AI'da tam doğru — ölçüldü, varsayılmad�
 iki taraf da 0 emir üretti ve "0/0 eşit" diye YEŞİL yandı. Araca "hiç emir üretilmediyse
 SONUÇSUZ" koruması eklendi. (Bu gecenin üçüncü kör-kontrol vakası.)
 
-### Kalan iş: tarayıcı tarafı
+### ✔ WORKER BİTTİ VE OYUNA BAĞLANDI (2026-08-18)
 
-1. `js/lookahead-worker.js` — `importScripts` ile muharebe zinciri (tezgâhın
-   `MUHAREBE_KAYNAK` listesi birebir kullanılabilir)
-2. `js/BattleWorkerKopru.js` — fork gönder / emir al / uygula
-3. `js/BattleLookahead.js`'e tek kanca + `index.html`'e tek `<script>` satırı
-   (⚠ `index.html` kullanıcının üzerinde çalıştığı dosya — o satır ona bırakılacak)
+`js/lookahead-worker.js` · `js/BattleWorkerKopru.js` · `js/MiniDom.js` (DOM shim, tek
+kopya) · `js/BattleLookahead.js`'e tek kanca · `index.html`'e tek `<script>` satırı ·
+ÖNGÖRÜ kademesi seçilince `BATTLE_LA_WORKER_KIP` açılıyor.
+
+**CANLI KAPI — kullanıcının gördüğü kusur ölçülerek çözüldü** (`tools/worker-canli-kapisi.html`):
+
+| kol | en kötü kare | p95 |
+|---|---:|---:|
+| arama KAPALI | 31ms | 12ms |
+| tam ayar, ANA İPLİK | **4432ms** | 1555ms |
+| tam ayar, **WORKER** | **37ms** | 24ms |
+
+Arama gerçekten koştu (3 tur, 3 emir, öngörü sapması **0**). Yani donma kaybolurken
+güç kaybolmadı — "donma yok ama arama da yok" tuzağı kapıda ayrıca sınanıyor.
+
+**Kapılar:** fork (SADAKAT/TEKRAR/JSON 4/4) · arama↔replay 4/4 · worker Node 2/2 ·
+worker tarayıcı 2/2 · canlı kapı GEÇTİ.
+
+### İnşa sırasında bulunan GERÇEK kusurlar (hepsi ölçülerek)
+
+| # | kusur | nasıl görünüyordu |
+|---|---|---|
+| 1 | **fork JSON'dan geçince bozuluyor** (`-Infinity` → `null`) | "işçi farklı oynuyor" — oysa ana taraf KENDİ İÇİNDE tekrarlanamıyordu |
+| 2 | işçi `gameLoop`'a giriyordu (Worker'da `rAF` VAR) | işçi kendi maçını oynayıp fork'un üstüne yazıyordu |
+| 3 | işçi AI ayarlarını hiç kurmuyordu | işçi başka beyinle koşuyordu |
+| 4 | worker yolu sayfaya göre çözülüyordu | köprü sessizce kapanıp kısılmış aramaya düşüyordu |
+| 5 | ısınma turunu ana iplik üstleniyordu | maç başında tek kare **5343ms** |
+| 6 | emirler geldiği anda uygulanıyordu | öngörülen ana ait emir ERKEN iniyordu (bayattan kötü) |
+
+(1) en önemlisi: motorda bir kusurdu, worker onu yalnızca **görünür** kıldı.
+
+### Kalan açık
+
+⚠ **Worker'ın maç KAZANDIRDIĞI ölçülmedi.** Kanıtlanan şey "tam ayar artık
+oynanabilir"; tam ayarın değeri (+735) ayrı bir kurulumda ölçülmüştü. Canlı kurulumda
+worker'lı ÖNGÖRÜ vs kısılmış ÖNGÖRÜ maç kapısı henüz koşulmadı.
 
 ---
 

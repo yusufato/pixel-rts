@@ -96,7 +96,7 @@ var LA_W_AYAR_ANAHTAR = [
     'BATTLE_BEONAI_RED', 'BATTLE_BEONAI_BLUE', 'BATTLE_EXPLOITER_RED', 'BATTLE_EXPLOITER_BLUE',
     'BATTLE_FORCE_DOCTRINE', 'BATTLE_JAM_PARTIAL', 'BATTLE_JAM_RECON', 'BATTLE_SPAWN_LOADED',
     'BATTLE_KAPMA_TEHLIKE', 'BATTLE_ISTIHKAM_US', 'BATTLE_LA_EMIR_KORUMA',
-    'LA_PERIYOT_TIK', 'LA_BIRIM', 'LA_TUR_BIRIM', 'LA_YARICAP', 'LA_AG_ADAY', 'LA_AG_ESIK',
+    'LA_PERIYOT_TIK', 'LA_YARICAP', 'LA_AG_ADAY', 'LA_AG_ESIK',
     'LA_RAKIP', 'LA_SIRALI', 'LA_CIFT_YON', 'LA_HIZLI_YOL', 'LA_DEGER_AGI', 'LA_AG_MIN_TIK',
     'LA_POLITIKA', 'LA_EMIR_SURESI', 'LA_KANAL_AGIRLIK'
 ];
@@ -239,9 +239,12 @@ function laWorkerAra(m) {
     BATTLE_LOOKAHEAD_RED = !!m.kirmizi;
     BATTLE_LOOKAHEAD_BLUE = !!m.mavi;
     if (typeof BATTLE_LA_EMIR_KORUMA !== 'undefined') BATTLE_LA_EMIR_KORUMA = m.koruma | 0;
-    /* TAM AYAR: işçinin varlık sebebi bu. Ana iş parçacığındaki kısılmış ayar
-       (ufuk 50 / derin 1 / birim 8) donmayı önlemek içindi; burada donacak bir kare yok. */
-    LA_UFUK = 100; LA_DERIN = 2; LA_TIK_BIRIM = 0;
+    /* TAM AYAR — işçinin VARLIK SEBEBİ bu. Ana iş parçacığındaki kısılmış ayar
+       (ufuk 50 / derin 1 / birim 8) donmayı önlemek içindi; burada donacak bir kare yok.
+       Bu beş değer ana taraftan GELMEZ (ayar listesinde yoklar) — gelselerdi işçi de
+       kısılırdı ve worker'ın tek amacı boşa giderdi. Değerler +735'in ölçüldüğü
+       konfigürasyonun ta kendisi (tezgâh varsayılanları). */
+    LA_UFUK = 100; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
 
     var s = m.now;
     /* TIK TIK HASH: sapma olursa "hangi tikte" sorusu tahminle degil olcumle cevaplanir.

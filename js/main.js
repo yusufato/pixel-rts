@@ -639,6 +639,16 @@ function startBattle() {
         BATTLE_LOOKAHEAD_RED = !_mp;
         BATTLE_LOOKAHEAD_BLUE = !_mp;
     }
+    /* ARAMA İŞÇİSİ: yeni maç → ESKİ İŞÇİYİ KAPAT. İşçi kurulurken oturumun harita/tohum
+       parametreleriyle kendi dünyasını kuruyor; önceki maçtan kalan işçi YANLIŞ haritada
+       arama yapardı ve köprü onu "hazır" sanıp kullanırdı. Kapatma ucuz: bir sonraki
+       arama turunda köprü kendini yeniden kurar. */
+    if (typeof battleLaWorkerKapat === 'function') battleLaWorkerKapat();
+    /* İŞÇİYİ ERKEN KUR: kurulum birkaç saniye sürüyor (zinciri yükleyip oturumu açıyor).
+       İlk arama turu tik 100'de (5sn) geliyor; burada başlatılırsa o tura yetişir.
+       Geç kalırsa köprü o turu atlar (donma yerine), ama atlamamak daha iyi. */
+    if (typeof BATTLE_LA_WORKER_KIP !== 'undefined' && BATTLE_LA_WORKER_KIP &&
+        typeof battleLaWorkerKur === 'function') battleLaWorkerKur();
 
     // RNG ortak savaş oturumu açılırken yalnız bir kez tohumlanır.
     // Eski/harici bir çağrı oturum açmadan buraya gelirse güvenli bir tohum oluştur.
