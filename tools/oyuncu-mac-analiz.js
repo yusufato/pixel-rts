@@ -39,6 +39,14 @@ function dosyalar() {
 const say = (n, g = 0) => (n == null || !isFinite(n)) ? '-' : n.toFixed(g);
 const yuz = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '-';
 
+/* Silahsiz ve yalniz-hava tipleri. Kayitta silah bilgisi YOK, o yuzden burada tutulur.
+   Liste degisirse `node -e` ile STATS'tan yeniden uretilebilir:
+     silahsiz = weapons dizisi bos · aa = weapons[0].targets 'ground' icermiyor */
+const veri = {
+    silahsizTipler: [11, 15, 16, 20, 21, 22, 23, 24, 25],   // radar, tasima, kesif-IHA, EW, saglik, istihkam, ikmal, HQ, dron-operator
+    aaTipler: [3, 13]                                        // MANPADS, SAM (yalniz hava)
+};
+
 function analiz(yol) {
     const d = JSON.parse(fs.readFileSync(yol, 'utf8'));
     const r = d.replay || d;
@@ -138,6 +146,49 @@ function analiz(yol) {
         console.log('     mavi       : hasar ' + say(mHasar, 0) + ' · öldürme ' + mOldurdu +
             ' · yan/arka vuruş ' + mFlank + ' (' + yuz(mFlank, co.filter(e => e.attackerSide !== 'red').length) + ')');
         console.log('     atış türleri: ' + Object.entries(tur).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + '×' + v).join(' · '));
+    }
+
+    // ── 3b) ⭐ TETİK ORANI — "menzilinde hedef varken ateş ediyor mu" ─────
+    /* ⚠ UYGUNLUK SÜZGECİ ŞART. İlk elde bu ölçü SÜZGEÇSİZ alındı ve AI'yı 3.1 kat kötü
+       gösterdi. Yanlıştı: `menzilimdeDusman` hedefin VURULABİLİR olup olmadığına bakmaz.
+       AI'nın en çok "fırsatı" olan üç birimi aslında ateş EDEMEZ:
+         · tip 11 "Hava-Arama Radarı" — atk 0, weapons [] (silahsız sensör), 460 sahte fırsat
+         · SAM / MANPADS — yalnız hava hedefi vurur, karadaki düşman fırsat değildir
+       Süzgeçten sonra fark 3.1× değil 1.7× çıktı. Süzgeç olmadan bu araç AI hakkında
+       YANLIŞ ama inandırıcı bir suçlama üretir. */
+    const SILAHSIZ_TIP = new Set(veri.silahsizTipler || []);
+    const AA_TIP = new Set(veri.aaTipler || []);
+    const uygun = (tp) => !SILAHSIZ_TIP.has(tp) && !AA_TIP.has(tp);
+    if (ornekler.length && co.length) {
+        const firsat = new Map(), tipi = new Map();
+        for (const o of ornekler) {
+            for (const u of (o.units || [])) {
+                if ((u.hp || 0) <= 0) continue;
+                tipi.set(u.id, [u.side, u.type]);
+                if ((u.menzilimdeDusman || 0) > 0 && uygun(u.type)) {
+                    firsat.set(u.id, (firsat.get(u.id) || 0) + 1);
+                }
+            }
+        }
+        const atis = new Map();
+        for (const e of co) {
+            if (e.attackerId == null) continue;
+            atis.set(e.attackerId, (atis.get(e.attackerId) || 0) + 1);
+        }
+        console.log('');
+        console.log('  ⭐ TETİK ORANI (yalnız karayı vurabilen SİLAHLI birimler)');
+        for (const taraf of ['red', 'blue']) {
+            let f = 0, a = 0, n = 0;
+            for (const [id, [s2, tp]] of tipi) {
+                if (s2 !== taraf || !uygun(tp)) continue;
+                n++; f += firsat.get(id) || 0; a += atis.get(id) || 0;
+            }
+            console.log('     ' + (taraf === 'red' ? 'kırmızı(AI)' : 'mavi       ') +
+                ': ' + n + ' birim · fırsat ' + f + ' · atış ' + a +
+                ' · TETİK ' + say(a / Math.max(1, f) * 100, 1) + '/100 fırsat');
+        }
+        console.log('     (fırsat = menzilinde düşman olan 0.5sn örneği. Düşük tetik: ateş etmiyor;');
+        console.log('      düşük FIRSAT: menzile hiç giremiyor — ikisi FARKLI kusur.)');
     }
 
     // ── 4) AI DAĞILIMI (blob kusuru) ─────────────────────────────────────

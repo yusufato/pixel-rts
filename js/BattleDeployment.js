@@ -472,8 +472,22 @@ function deploymentProDeltaKapali(key, config) {
 // tersine çevirmişti. Bu kural normal orduda ölçülerek türetildi.
 // HER İKİ KURUCU YOLA da uygulanır (tarif modu sezgisel zinciri tamamen atlıyor).
 function battleGozcuKuraliUygula(types, spent, remaining, config) {
-    if (!(config && config.pro === true)) return;
-    if (deploymentProDeltaKapali('spotterRequirement', config)) return;
+    /* ── KAPSAM: NEDEN pro'DAN ÇIKARILDI (kullanıcının gerçek maçı, 2026-08-18) ──
+       Ham kayıt: AI'nın TOPÇUSU ateş fırsatlarının %64'ünde "Gözcü Yok" durumunda
+       (253/394 örnek). Oyuncuda bu durum HİÇ yok — çünkü oyuncu 3 keşif almış, AI 1.
+       İki ayrı boşluk çıktı:
+         1) Kural yalnız `config.pro === true` iken koşuyordu. Oyuncunun oynadığı ÖNGÖRÜ
+            kademesi `pro:false` → kural HİÇ çalışmıyordu.
+         2) Eşik (PRO_SPOTTER_KAT = 3) BALİSTİK füze için kalibre edilmişti. Topçunun
+            menzil/görüş oranı 2.50 → kural pro'da AÇIK OLSA BİLE topçuyu tetiklemezdi.
+            (Ordudaki hiçbir birim 3'ü aşmıyor: havan 1.50 · SAM 1.83 · ÇNRA 1.00.)
+       Bu yüzden iki değişken de dışarı alındı ve A/B'ye bağlandı. VARSAYILAN DEĞİŞMEDİ:
+       `BATTLE_GOZCU_INTEL4` kapalı ve `BATTLE_GOZCU_KAT` = 3 iken davranış eskisiyle
+       BİREBİR aynıdır. Maç kapısı geçmeden açılmaz. */
+    const _proMu = !!(config && config.pro === true);
+    const _intel4Kapsam = (typeof BATTLE_GOZCU_INTEL4 !== 'undefined') && BATTLE_GOZCU_INTEL4 === true;
+    if (!_proMu && !_intel4Kapsam) return;
+    if (_proMu && deploymentProDeltaKapali('spotterRequirement', config)) return;
     if (!remaining || !Object.prototype.hasOwnProperty.call(remaining, 'money')) return;
     // İKİ AYRI GÖZCÜ SINIFI:
     //  KARA hedefi: normal keşif (scout/İHA) aydınlatır — ama airRadar TAŞIYAN birim kara görüşü VERMEZ.
@@ -499,7 +513,11 @@ function battleGozcuKuraliUygula(types, spent, remaining, config) {
         const havaSilahi = Array.isArray(w.targets) && w.targets.includes('air') && !w.targets.includes('ground');
         if (havaMi !== havaSilahi) return false;
         const menzil = st.range || 0, gorus = st.vision || 0;
-        return gorus > 0 && menzil > gorus * (havaMi ? PRO_SPOTTER_HAVA_KAT : PRO_SPOTTER_KAT);
+        /* EŞİK DIŞARIDAN AYARLANABİLİR: 3 katı balistik füzeye göreydi; topçu 2.50'de
+           kalıyor ve kör bekliyordu (ölçüldü: fırsatlarının %64'ü "Gözcü Yok"). */
+        const _kat = (typeof BATTLE_GOZCU_KAT !== 'undefined' && BATTLE_GOZCU_KAT > 0)
+            ? BATTLE_GOZCU_KAT : PRO_SPOTTER_KAT;
+        return gorus > 0 && menzil > gorus * (havaMi ? PRO_SPOTTER_HAVA_KAT : _kat);
     };
 
     const al = (tipler, mevcut, hedef) => {

@@ -1544,6 +1544,17 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── GÖZCÜ KURALININ KAPSAMI (A/B kolu) ────────────────────────────────────
+   Kullanıcının gerçek maçında ölçüldü: AI topçusu ateş fırsatlarının %64'ünde
+   "Gözcü Yok"; oyuncuda hiç yok (oyuncu 3 keşif, AI 1). Kural `battleGozcuKuraliUygula`
+   zaten yazılmış ve balistik füzede ölçülerek işe yaradığı gösterilmiş, ama:
+     · yalnız `pro` beyninde koşuyor (ÖNGÖRÜ pro DEĞİL → hiç çalışmıyor)
+     · eşiği 3× (balistik için); topçu 2.50'de kalıyor → tetiklemiyor
+   İkisi de buradan açılır. VARSAYILAN = ESKİ DAVRANIŞ (kapalı / 3×).
+   ⚠ Gözcü almak bütçeden muharip birim eksiltir → maç kapısı geçmeden açılmaz. */
+let BATTLE_GOZCU_INTEL4 = false;   // kuralı intel4 (pro olmayan) ordulara da uygula
+let BATTLE_GOZCU_KAT = 3;          // menzil/görüş eşiği (2 → topçuyu kapsar)
+
 /* ── ARAMA EMRİNİN ÖMRÜ (bit maskesi) ──────────────────────────────────────
    İleri-bakış araması bir birime "şuraya git" dediğinde `_laUntilTick` damgası
    koyuyordu ama o damga HİÇ OKUNMUYORDU: kod-AI kontrolörü bir sonraki karar
