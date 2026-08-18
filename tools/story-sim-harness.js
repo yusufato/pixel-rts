@@ -16,6 +16,8 @@ const STORY_SOURCES = [
     'js/terrainData.js',
     'js/techTree.js',
     'js/geoData.js',
+    'js/StoryHexWorldAsset.js',
+    'js/StoryHexWorld.js',
     'js/Story.js',
     'js/StoryFeatures.js',
     'js/StoryRegions.js',
@@ -45,6 +47,15 @@ const STORY_SOURCES = [
     'js/StoryEconomicAI.js',
     'js/StoryMapRasterAsset.js',
     'js/StoryMapRaster.js',
+    'js/StoryHexGeography.js',
+    'js/StoryHexNaturalResources.js',
+    'js/StoryHexRegions.js',
+    'js/StoryHexSettlements.js',
+    'js/StoryHexRoads.js',
+    'js/StoryHexUrban.js',
+    'js/StoryHexAgriculture.js',
+    'js/StoryHexSites.js',
+    'js/StoryHexConstruction.js',
     'js/StoryPoliticalOverlay.js',
     'js/StoryMapCache.js',
     'js/StoryRng.js',
@@ -1255,6 +1266,320 @@ function createRuntime(seed) {
                 }
                 return storyEconomicAIValidate(candidate);
             },
+            hexWorldEnsure: () => storyHexWorldEnsure(),
+            hexWorldCreate: radius => storyHexWorldCreate({ radius: Number(radius), loadMode: 'probe-candidate' }),
+            hexWorldDiagnostics: () => storyHexWorldDiagnostics(),
+            validateHexWorld: world => storyHexWorldValidate(world, STORY_HEX_WORLD_ASSET),
+            hexWorldSameInstance: () => storyHexWorldEnsure() === storyHexWorldEnsure(),
+            hexWorldCellAt: (x, y) => storyHexWorldCellAt(storyHexWorldEnsure(), x, y),
+            hexWorldNeighbors: (q, r) => storyHexWorldNeighbors(storyHexWorldEnsure(), q, r),
+            hexWorldInventory: () => {
+                const infrastructure = storyInfrastructureSnapshot();
+                const trade = storyTradeClone(STORY.tradeLogistics);
+                const company = STORY.companyEconomy || {};
+                return {
+                    geoWidth: Number(GEO.W),
+                    geoHeight: Number(GEO.H),
+                    geoCityCount: Array.isArray(GEO_CITIES) ? GEO_CITIES.length : 0,
+                    geoRoadCount: Array.isArray(GEO_ROADS) ? GEO_ROADS.length : 0,
+                    regionCount: Array.isArray(STORY.nodes) ? STORY.nodes.length : 0,
+                    infrastructureSchemaVersion: infrastructure.schemaVersion,
+                    infrastructureCorridorCount: infrastructure.corridors.length,
+                    infrastructureByMode: Object.assign({}, infrastructure.summary.byMode),
+                    tradeSchemaVersion: trade.schemaVersion,
+                    initialOrderCount: trade.orders.length,
+                    initialShipmentCount: trade.shipments.length,
+                    facilityCount: company.facilities ? Object.keys(company.facilities).length : 0,
+                    warehouseCount: company.warehouses ? Object.keys(company.warehouses).length : 0
+                };
+            },
+            hexWorldCityAnchor: name => {
+                const city = (GEO_CITIES || []).find(candidate => candidate.name === String(name));
+                if (!city) return null;
+                const world = storyHexWorldEnsure();
+                const worldX = Number(city.x) / Number(GEO.W) * world.width;
+                const worldY = Number(city.y) / Number(GEO.H) * world.height;
+                return {
+                    name: city.name,
+                    geo: { x: Number(city.x), y: Number(city.y) },
+                    world: { x: worldX, y: worldY },
+                    cell: storyHexWorldCellAt(world, worldX, worldY)
+                };
+            },
+            hexWorldInvalidAsset: kind => {
+                const candidate = Object.assign({}, STORY_HEX_WORLD_ASSET);
+                if (kind === 'width') candidate.width += 1;
+                else if (kind === 'radius') candidate.radius += 1;
+                else if (kind === 'count') candidate.cellCount = -1;
+                else if (kind === 'hash') candidate.layoutHash = 'fnv1a32:badc0ffe';
+                const assetValidation = storyHexWorldAssetValidation(candidate);
+                if (!assetValidation.ok) return assetValidation;
+                const world = storyHexWorldCreate(Object.assign({}, candidate, { loadMode: 'invalid-probe' }));
+                const validation = storyHexWorldValidate(world, candidate);
+                return { ok: validation.ok, code: validation.ok ? null : validation.issues[0].code };
+            },
+            hexGeographyEnsure: () => storyHexGeographyEnsure(),
+            hexGeographyCreate: () => storyHexGeographyCreate({
+                world: storyHexWorldEnsure(),
+                raster: storyMapRasterEnsure(),
+                geo: GEO,
+                loadMode: 'probe-repeat'
+            }),
+            hexGeographySummary: geography => storyHexGeographySummary(
+                geography || storyHexGeographyEnsure()
+            ),
+            validateHexGeography: geography => storyHexGeographyValidate(
+                geography,
+                storyHexWorldEnsure(),
+                storyMapRasterEnsure()
+            ),
+            hexGeographySameInstance: () => (
+                storyHexGeographyEnsure() === storyHexGeographyEnsure()
+            ),
+            hexGeographyCity: name => {
+                const city = (GEO_CITIES || []).find(candidate => candidate.name === String(name));
+                if (!city) return null;
+                const world = storyHexWorldEnsure();
+                const geography = storyHexGeographyEnsure();
+                const worldX = Number(city.x) / Number(GEO.W) * world.width;
+                const worldY = Number(city.y) / Number(GEO.H) * world.height;
+                const geometricAnchor = storyHexWorldCellAt(world, worldX, worldY);
+                const geometricGeography = geometricAnchor
+                    ? storyHexGeographyCell(
+                        geography,
+                        world,
+                        geometricAnchor.q,
+                        geometricAnchor.r
+                    )
+                    : null;
+                const resolution = storyHexGeographyResolveLandAnchor(
+                    geography,
+                    world,
+                    worldX,
+                    worldY,
+                    {
+                        preferCoast: !!(geometricGeography
+                            && (geometricGeography.terrain === 'COAST'
+                                || geometricGeography.terrain === 'WATER'))
+                    }
+                );
+                return {
+                    name: city.name,
+                    geo: { x: Number(city.x), y: Number(city.y) },
+                    world: { x: worldX, y: worldY },
+                    geometricAnchor,
+                    geometricGeography,
+                    anchor: resolution && resolution.resolved,
+                    geography: resolution && resolution.geography,
+                    relocated: !!(resolution && resolution.relocated),
+                    relocationDistance: resolution ? resolution.distance : null,
+                    preferredCoast: !!(resolution && resolution.preferredCoast)
+                };
+            },
+            hexGeographyInvalidCase: kind => {
+                const source = storyHexGeographyEnsure();
+                const candidate = Object.assign({}, source);
+                if (kind === 'coverage') {
+                    candidate.landCoverageBps = source.landCoverageBps.slice();
+                    candidate.landCoverageBps[0] = 10001;
+                } else if (kind === 'terrain') {
+                    candidate.terrainClass = source.terrainClass.slice();
+                    candidate.terrainClass[0] = 9;
+                } else if (kind === 'edge') {
+                    candidate.landEdgeMask = source.landEdgeMask.slice();
+                    candidate.landEdgeMask[0] ^= 1;
+                } else if (kind === 'elevation') {
+                    candidate.elevationStatus = 'FABRICATED_METERS';
+                }
+                return storyHexGeographyValidate(
+                    candidate,
+                    storyHexWorldEnsure(),
+                    storyMapRasterEnsure()
+                );
+            },
+            hexRegionsEnsure: () => storyHexRegionsEnsure(),
+            hexRegionsCreate: () => storyHexRegionsCreate({
+                world: storyHexWorldEnsure(),
+                geography: storyHexGeographyEnsure(),
+                nodes: STORY.nodes,
+                loadMode: 'probe-repeat'
+            }),
+            validateHexRegions: model => storyHexRegionsValidate(
+                model,
+                storyHexWorldEnsure(),
+                storyHexGeographyEnsure(),
+                STORY.nodes
+            ),
+            hexRegionsSameInstance: () => storyHexRegionsEnsure() === storyHexRegionsEnsure(),
+            hexRegionsInvalidCase: kind => {
+                const source = storyHexRegionsEnsure();
+                const candidate = Object.assign({}, source);
+                if (kind === 'membership') {
+                    candidate.cellRegionIds = source.cellRegionIds.slice();
+                    const index = candidate.cellRegionIds.findIndex(value => value >= 0);
+                    candidate.cellRegionIds[index] = -1;
+                } else if (kind === 'count') {
+                    candidate.regionCellCounts = source.regionCellCounts.slice();
+                    candidate.regionCellCounts[0] += 1;
+                } else if (kind === 'hash') {
+                    candidate.membershipHash = 'fnv1a32:badc0ffe';
+                }
+                return storyHexRegionsValidate(
+                    candidate,
+                    storyHexWorldEnsure(),
+                    storyHexGeographyEnsure(),
+                    STORY.nodes
+                );
+            },
+            hexPoliticalEnsure: () => storyHexPoliticalViewEnsure(),
+            hexPoliticalCreate: () => storyHexPoliticalViewCreate({
+                world: storyHexWorldEnsure(),
+                model: storyHexRegionsEnsure(),
+                nodes: STORY.nodes,
+                loadMode: 'probe-repeat'
+            }),
+            validateHexPolitical: view => storyHexPoliticalViewValidate(
+                view,
+                storyHexWorldEnsure(),
+                storyHexRegionsEnsure(),
+                STORY.nodes
+            ),
+            hexPoliticalSameInstance: () => storyHexPoliticalViewEnsure() === storyHexPoliticalViewEnsure(),
+            hexPoliticalRasterAgreement: () => {
+                const view = storyHexPoliticalViewEnsure();
+                const tables = storyPoliticalOverlayOwnerTables(STORY.nodes, STORY.states);
+                const mismatches = [];
+                for (let regionId = 0; regionId < view.regionCount; regionId++) {
+                    if (Number(view.ownerByRegion[regionId]) !== Number(tables.ownerByRegion[regionId])) {
+                        mismatches.push(regionId);
+                    }
+                }
+                return { ok: mismatches.length === 0, mismatches };
+            },
+            hexPoliticalOverlayModel: () => storyHexPoliticalOverlayModel(),
+            hexPoliticalOverlayEnsureCanvas: () => storyHexPoliticalOverlayEnsureCanvas(),
+            hexPoliticalOverlayDiagnostics: () => storyHexPoliticalOverlayDiagnostics(),
+            hexPoliticalOverlayPickSamples: () => {
+                const world = storyHexWorldEnsure();
+                const regions = storyHexRegionsEnsure();
+                const assignedIndex = regions.cellRegionIds.findIndex(value => value >= 0);
+                const waterIndex = regions.cellRegionIds.findIndex(value => value < 0);
+                const sample = index => ({
+                    index,
+                    expectedRegionId: Number(regions.cellRegionIds[index]),
+                    picked: storyHexPoliticalCellAtWorld(
+                        Number(world.centerX[index]),
+                        Number(world.centerY[index]),
+                        world.width,
+                        world.height
+                    )
+                });
+                return { assigned: sample(assignedIndex), water: sample(waterIndex) };
+            },
+            hexPoliticalVisibleSample: () => {
+                const world = storyHexWorldEnsure();
+                const bounds = { minX: 1100, minY: 800, maxX: 1700, maxY: 1300 };
+                const indices = storyHexVisibleCellIndices(bounds, world.width, world.height);
+                return {
+                    bounds,
+                    count: indices.length,
+                    unique: new Set(indices).size === indices.length,
+                    bounded: indices.every(index => (
+                        Number(world.centerX[index]) >= bounds.minX - world.radius
+                        && Number(world.centerX[index]) <= bounds.maxX + world.radius
+                        && Number(world.centerY[index]) >= bounds.minY - world.radius
+                        && Number(world.centerY[index]) <= bounds.maxY + world.radius
+                    )),
+                    culled: indices.length > 0 && indices.length < world.cellCount
+                };
+            },
+            hexPoliticalInvalidCase: kind => {
+                const source = storyHexPoliticalViewEnsure();
+                const candidate = Object.assign({}, source);
+                if (kind === 'owner') {
+                    candidate.cellOwnerIds = source.cellOwnerIds.slice();
+                    const index = candidate.cellOwnerIds.findIndex(owner => owner >= 0);
+                    candidate.cellOwnerIds[index] += 1;
+                } else if (kind === 'border') {
+                    candidate.nationalBorderMask = source.nationalBorderMask.slice();
+                    candidate.nationalBorderMask[0] ^= 1;
+                } else if (kind === 'hash') {
+                    candidate.ownershipHash = 'fnv1a32:badc0ffe';
+                }
+                return storyHexPoliticalViewValidate(
+                    candidate,
+                    storyHexWorldEnsure(),
+                    storyHexRegionsEnsure(),
+                    STORY.nodes
+                );
+            },
+            hexRegionsReconcile: () => storyHexRegionsReconcile(storyHexRegionsEnsure()),
+            hexSettlementsEnsure: () => storyHexSettlementsEnsure(),
+            hexSettlementsCreate: () => storyHexSettlementsCreate({
+                world: storyHexWorldEnsure(),
+                geography: storyHexGeographyEnsure(),
+                regions: storyHexRegionsEnsure(),
+                cities: GEO_CITIES,
+                loadMode: 'probe-repeat'
+            }),
+            validateHexSettlements: model => storyHexSettlementsValidate(
+                model,
+                storyHexWorldEnsure(),
+                storyHexGeographyEnsure(),
+                storyHexRegionsEnsure(),
+                GEO_CITIES
+            ),
+            hexSettlementsSameInstance: () => storyHexSettlementsEnsure() === storyHexSettlementsEnsure(),
+            hexUrbanEnsure: () => storyHexUrbanFootprintsEnsure(),
+            hexUrbanCreate: () => storyHexUrbanFootprintsCreate({
+                world: storyHexWorldEnsure(),
+                geography: storyHexGeographyEnsure(),
+                settlements: storyHexSettlementsEnsure(),
+                nodes: STORY.nodes,
+                loadMode: 'probe-repeat'
+            }),
+            validateHexUrban: model => storyHexUrbanFootprintsValidate(
+                model,
+                storyHexWorldEnsure(),
+                storyHexGeographyEnsure(),
+                storyHexSettlementsEnsure(),
+                STORY.nodes
+            ),
+            hexUrbanSameInstance: () => storyHexUrbanFootprintsEnsure() === storyHexUrbanFootprintsEnsure(),
+            hexUrbanReset: () => storyHexUrbanResetCache(),
+            hexSettlementNodePosition: (cityId, width, height) => storyHexSettlementNodePosition(
+                STORY.nodes[Number(cityId)],
+                Number(width) || 3000,
+                Number(height) || 2360
+            ),
+            hexSettlementInvalidCase: kind => {
+                const source = storyHexSettlementsEnsure();
+                const candidate = Object.assign({}, source);
+                if (kind === 'core-water') {
+                    candidate.coreCellIndices = source.coreCellIndices.slice();
+                    const geography = storyHexGeographyEnsure();
+                    candidate.coreCellIndices[0] = geography.terrainClass.findIndex(
+                        terrain => terrain === STORY_HEX_TERRAIN_WATER
+                    );
+                } else if (kind === 'port-water') {
+                    candidate.portWaterCellIndices = source.portWaterCellIndices.slice();
+                    const cityId = source.portFlags.findIndex(flag => flag === 1);
+                    candidate.portWaterCellIndices[cityId] = source.portLandCellIndices[cityId];
+                } else if (kind === 'required-port') {
+                    candidate.portFlags = source.portFlags.slice();
+                    const cityId = source.requiredPortFlags.findIndex(flag => flag === 1);
+                    candidate.portFlags[cityId] = 0;
+                } else if (kind === 'hash') {
+                    candidate.settlementHash = 'fnv1a32:badc0ffe';
+                }
+                return storyHexSettlementsValidate(
+                    candidate,
+                    storyHexWorldEnsure(),
+                    storyHexGeographyEnsure(),
+                    storyHexRegionsEnsure(),
+                    GEO_CITIES
+                );
+            },
             regionalTamperedCommit: (regionId, proposal) => {
                 const candidate = storyRegionalClone(proposal);
                 const outputId = Object.keys(candidate.produced || {})[0];
@@ -1475,6 +1800,7 @@ function createRuntime(seed) {
             politicalOverlayHashBytes: values => storyPoliticalOverlayHashBytes(values),
             validatePoliticalOverlay: overlay => storyPoliticalOverlayValidate(overlay),
             politicalOverlayDiagnostics: () => storyPoliticalOverlayDiagnostics(),
+            politicalOverlayInvalidate: reason => storyPoliticalOverlayInvalidate(reason),
             politicalOverlayEnsureCanvas: () => {
                 const canvas = storyPoliticalOverlayEnsureCanvas();
                 return canvas ? {
@@ -7961,6 +8287,565 @@ function probeCityDossier(seed = 2032) {
     };
 }
 
+function probeHexWorldFoundation(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true
+        });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const started = process.hrtime.bigint();
+        const world = runtime.api.hexWorldEnsure();
+        const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const diagnostics = runtime.api.hexWorldDiagnostics();
+        const validation = runtime.api.validateHexWorld(world);
+        const inventory = runtime.api.hexWorldInventory();
+        const ankara = runtime.api.hexWorldCityAnchor('Ankara');
+        const istanbul = runtime.api.hexWorldCityAnchor('İstanbul');
+        const candidates = [20, 16.1, 12].map(radius => {
+            const candidate = runtime.api.hexWorldCreate(radius);
+            return {
+                radius,
+                cellCount: candidate.cellCount,
+                rowCount: candidate.rowCount,
+                byteLength: candidate.diagnostics.byteLength
+            };
+        });
+        const sampleIndices = [0, Math.floor(world.cellCount / 2), world.cellCount - 1];
+        const roundTrips = sampleIndices.map(index => {
+            const picked = runtime.api.hexWorldCellAt(world.centerX[index], world.centerY[index]);
+            return { index, pickedIndex: picked ? picked.index : -1, ok: !!picked && picked.index === index };
+        });
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        return {
+            beforeHash,
+            afterHash,
+            worldNeutral: beforeHash === afterHash,
+            buildMs: Math.round(buildMs * 1000) / 1000,
+            diagnostics,
+            validation,
+            inventory,
+            sameInstance: runtime.api.hexWorldSameInstance(),
+            candidates,
+            anchors: {
+                ankara,
+                istanbul,
+                distinctCells: !!(ankara && istanbul && ankara.cell && istanbul.cell
+                    && ankara.cell.id !== istanbul.cell.id)
+            },
+            roundTrips,
+            cornerNeighborCount: runtime.api.hexWorldNeighbors(0, 0).length,
+            invalid: {
+                width: runtime.api.hexWorldInvalidAsset('width'),
+                radius: runtime.api.hexWorldInvalidAsset('radius'),
+                count: runtime.api.hexWorldInvalidAsset('count'),
+                hash: runtime.api.hexWorldInvalidAsset('hash')
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
+function probeHexGeography(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true
+        });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const started = process.hrtime.bigint();
+        const geography = runtime.api.hexGeographyEnsure();
+        const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const validation = runtime.api.validateHexGeography(geography);
+        const summary = runtime.api.hexGeographySummary(geography);
+        const repeat = runtime.api.hexGeographyCreate();
+        const ankara = runtime.api.hexGeographyCity('Ankara');
+        const istanbul = runtime.api.hexGeographyCity('İstanbul');
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        const classifiedCells = Object.values(summary.counts)
+            .reduce((total, count) => total + Number(count), 0);
+        const landFlag = 1;
+        return {
+            beforeHash,
+            afterHash,
+            worldNeutral: beforeHash === afterHash,
+            buildMs: Math.round(buildMs * 1000) / 1000,
+            validation,
+            summary,
+            diagnostics: Object.assign({}, geography.diagnostics, {
+                sourceHash: geography.sourceHash,
+                geographyHash: geography.geographyHash,
+                cellCount: geography.cellCount,
+                elevationStatus: geography.elevationStatus
+            }),
+            sameInstance: runtime.api.hexGeographySameInstance(),
+            deterministic: geography.sourceHash === repeat.sourceHash
+                && geography.geographyHash === repeat.geographyHash,
+            cellCountConserved: classifiedCells === geography.cellCount,
+            mountainSourcePresent: summary.mountainCells > 0,
+            riverSourcePresent: summary.riverCells > 0,
+            elevationHonest: geography.elevationStatus === 'UNAVAILABLE_NO_CANONICAL_SOURCE',
+            anchors: {
+                ankara,
+                istanbul,
+                ankaraLandTraversable: !!(ankara && ankara.geography
+                    && (ankara.geography.movementMask & landFlag)),
+                istanbulLandTraversable: !!(istanbul && istanbul.geography
+                    && (istanbul.geography.movementMask & landFlag)),
+                istanbulCoastal: !!(istanbul && istanbul.geography
+                    && (istanbul.geography.terrain === 'COAST'
+                        || istanbul.geography.coastEdgeMask !== 0))
+            },
+            invalid: {
+                coverage: runtime.api.hexGeographyInvalidCase('coverage'),
+                terrain: runtime.api.hexGeographyInvalidCase('terrain'),
+                edge: runtime.api.hexGeographyInvalidCase('edge'),
+                elevation: runtime.api.hexGeographyInvalidCase('elevation')
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
+function probeHexRegions(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    try {
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true
+        });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const beforeTotals = {
+            population: round(story.nodes.reduce((sum, node) => sum + Number(node.pop || 0), 0)),
+            wealth: round(story.nodes.reduce((sum, node) => sum + Number(node.wealth || 0), 0)),
+            facilities: round(story.nodes.reduce((sum, node) => sum + Number(node.fac || 0), 0)),
+            garrison: round(story.nodes.reduce((sum, node) => sum + Number(node.garrison || 0), 0))
+        };
+        const started = process.hrtime.bigint();
+        const model = runtime.api.hexRegionsEnsure();
+        const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const validation = runtime.api.validateHexRegions(model);
+        const repeat = runtime.api.hexRegionsCreate();
+        const counts = Array.from(model.regionCellCounts);
+        const afterTotals = {
+            population: round(story.nodes.reduce((sum, node) => sum + Number(node.pop || 0), 0)),
+            wealth: round(story.nodes.reduce((sum, node) => sum + Number(node.wealth || 0), 0)),
+            facilities: round(story.nodes.reduce((sum, node) => sum + Number(node.fac || 0), 0)),
+            garrison: round(story.nodes.reduce((sum, node) => sum + Number(node.garrison || 0), 0))
+        };
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        return {
+            buildMs: Math.round(buildMs * 1000) / 1000,
+            validation,
+            diagnostics: Object.assign({}, model.diagnostics, {
+                sourceHash: model.sourceHash,
+                membershipHash: model.membershipHash,
+                regionCount: model.regionCount,
+                cellCount: model.cellCount
+            }),
+            worldNeutral: beforeHash === afterHash,
+            totalsConserved: JSON.stringify(beforeTotals) === JSON.stringify(afterTotals),
+            beforeTotals,
+            afterTotals,
+            sameInstance: runtime.api.hexRegionsSameInstance(),
+            deterministic: model.sourceHash === repeat.sourceHash
+                && model.membershipHash === repeat.membershipHash,
+            allRegionsRepresented: model.diagnostics.representedRegionCount === model.regionCount,
+            noUnassignedLand: model.diagnostics.unassignedLandCells === 0,
+            membershipCountConserved: counts.reduce((sum, count) => sum + count, 0)
+                === model.diagnostics.assignedCellCount,
+            regionCellRange: {
+                min: Math.min(...counts),
+                max: Math.max(...counts)
+            },
+            invalid: {
+                membership: runtime.api.hexRegionsInvalidCase('membership'),
+                count: runtime.api.hexRegionsInvalidCase('count'),
+                hash: runtime.api.hexRegionsInvalidCase('hash')
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+}
+
+function probeHexRegionReconciliation(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    try {
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true
+        });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const started = process.hrtime.bigint();
+        const political = runtime.api.hexPoliticalEnsure();
+        const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const validation = runtime.api.validateHexPolitical(political);
+        const repeat = runtime.api.hexPoliticalCreate();
+        const reconciliation = runtime.api.hexRegionsReconcile();
+        const rasterAgreement = runtime.api.hexPoliticalRasterAgreement();
+        const overlay = runtime.api.politicalOverlayCreate();
+        const overlayValidation = runtime.api.validatePoliticalOverlay(overlay);
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const saved = JSON.parse(savedRaw);
+        main = {
+            buildMs: Math.round(buildMs * 1000) / 1000,
+            validation,
+            overlayValidation,
+            worldNeutral: beforeHash === afterHash,
+            sameInstance: runtime.api.hexPoliticalSameInstance(),
+            deterministic: political.sourceHash === repeat.sourceHash
+                && political.ownershipHash === repeat.ownershipHash,
+            allAssignedCellsOwned: political.diagnostics.ownedCellCount
+                === runtime.api.hexRegionsEnsure().diagnostics.assignedCellCount,
+            nationalBordersPresent: political.diagnostics.nationalBorderEdgeCount > 0,
+            rasterOwnerAgreement: rasterAgreement.ok,
+            overlayHexLinked: overlay.hexMembershipHash === political.membershipHash
+                && overlay.hexOwnershipHash === political.ownershipHash,
+            reconciliationEqual: reconciliation.equal,
+            referencesValid: reconciliation.referencesValid,
+            sidecarsNotPersisted: !Object.prototype.hasOwnProperty.call(saved, 'hexRegions')
+                && !Object.prototype.hasOwnProperty.call(saved, 'hexPolitical'),
+            diagnostics: Object.assign({}, political.diagnostics, {
+                sourceHash: political.sourceHash,
+                ownershipHash: political.ownershipHash,
+                membershipHash: political.membershipHash
+            }),
+            reconciliation,
+            invalid: {
+                owner: runtime.api.hexPoliticalInvalidCase('owner'),
+                border: runtime.api.hexPoliticalInvalidCase('border'),
+                hash: runtime.api.hexPoliticalInvalidCase('hash')
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const regions = restoredRuntime.api.hexRegionsEnsure();
+        const political = restoredRuntime.api.hexPoliticalEnsure();
+        const reconciliation = restoredRuntime.api.hexRegionsReconcile();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateHexPolitical(political),
+            exactDerived: regions.membershipHash === main.diagnostics.membershipHash
+                && political.ownershipHash === main.diagnostics.ownershipHash
+                && reconciliation.sourceHash === main.reconciliation.sourceHash
+                && reconciliation.projectedHash === main.reconciliation.projectedHash,
+            membershipHash: regions.membershipHash,
+            ownershipHash: political.ownershipHash,
+            reconciliationHash: reconciliation.projectedHash
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+    return { main, restored };
+}
+
+function probeHexSettlements(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    try {
+        runtime.api.newCampaign({
+            seed,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true
+        });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const started = process.hrtime.bigint();
+        const model = runtime.api.hexSettlementsEnsure();
+        const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const validation = runtime.api.validateHexSettlements(model);
+        const repeat = runtime.api.hexSettlementsCreate();
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        const relocated = model.records.filter(record => record.relocated)
+            .map(record => ({
+                cityId: record.cityId,
+                name: record.name,
+                from: record.geometricCore.id,
+                to: record.core.id,
+                distance: Math.round(record.coreDistance * 1000) / 1000,
+                geometricTerrain: record.geometricTerrain.terrain,
+                geometricCoverageBps: record.geometricTerrain.landCoverageBps
+            }))
+            .sort((a, b) => b.distance - a.distance || a.cityId - b.cityId);
+        const ports = model.records.filter(record => record.port)
+            .map(record => ({
+                cityId: record.cityId,
+                name: record.name,
+                required: record.requiredPort,
+                land: record.port.land.id,
+                water: record.port.water.id,
+                distance: Math.round(record.port.distance * 1000) / 1000
+            }));
+        const recordsByName = new Map(model.records.map(record => [record.name, record]));
+        const renderAnchors = model.records.map(record => ({
+            cityId: record.cityId,
+            expected: record.core.center,
+            actual: runtime.api.hexSettlementNodePosition(record.cityId, 3000, 2360)
+        }));
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const saved = JSON.parse(savedRaw);
+        main = {
+            buildMs: Math.round(buildMs * 1000) / 1000,
+            validation,
+            worldNeutral: beforeHash === afterHash,
+            sameInstance: runtime.api.hexSettlementsSameInstance(),
+            deterministic: model.sourceHash === repeat.sourceHash
+                && model.settlementHash === repeat.settlementHash,
+            cityCountExact: model.cityCount === 152 && model.records.length === 152,
+            allCoresValid: validation.ok && model.diagnostics.uniqueCoreCount === model.cityCount,
+            noCityInWater: model.records.every(record => (
+                (record.coreTerrain.movementMask & 1) !== 0
+                && record.coreTerrain.terrain !== 'WATER'
+                && record.coreTerrain.terrain !== 'IMPASSABLE'
+            )),
+            identityPreserved: model.records.every(record => (
+                story.nodes[record.cityId]
+                && story.nodes[record.cityId].name === record.name
+                && record.coreTerrain.regionId === record.cityId
+            )),
+            renderAnchorsExact: renderAnchors.every(anchor => (
+                anchor.actual.source === 'HEX_SETTLEMENT_CORE'
+                && anchor.actual.cellId === model.records[anchor.cityId].core.id
+                && Math.abs(anchor.actual.x - anchor.expected.x) < 0.0001
+                && Math.abs(anchor.actual.y - anchor.expected.y) < 0.0001
+            )),
+            allRequiredPortsValid: model.diagnostics.missingRequiredPortCount === 0
+                && model.records.filter(record => record.requiredPort)
+                    .every(record => !!record.port),
+            sidecarNotPersisted: !Object.prototype.hasOwnProperty.call(saved, 'hexSettlements'),
+            diagnostics: Object.assign({}, model.diagnostics, {
+                sourceHash: model.sourceHash,
+                settlementHash: model.settlementHash
+            }),
+            relocated,
+            ports,
+            references: {
+                ankara: recordsByName.get('Ankara'),
+                istanbul: recordsByName.get('İstanbul'),
+                izmir: recordsByName.get('İzmir')
+            },
+            invalid: {
+                coreWater: runtime.api.hexSettlementInvalidCase('core-water'),
+                portWater: runtime.api.hexSettlementInvalidCase('port-water'),
+                requiredPort: runtime.api.hexSettlementInvalidCase('required-port'),
+                hash: runtime.api.hexSettlementInvalidCase('hash')
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const model = restoredRuntime.api.hexSettlementsEnsure();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateHexSettlements(model),
+            exactDerived: model.sourceHash === main.diagnostics.sourceHash
+                && model.settlementHash === main.diagnostics.settlementHash
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+    return { main, restored };
+}
+
+function probeHexUrban(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    let savedRaw;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const started = process.hrtime.bigint();
+        const model = runtime.api.hexUrbanEnsure();
+        const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const validation = runtime.api.validateHexUrban(model);
+        const repeat = runtime.api.hexUrbanCreate();
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        const levelNode = story.nodes.find(node => {
+            const region = story.population && story.population.regions
+                && story.population.regions[`region:${node.id}`];
+            return !!region;
+        });
+        const levelBefore = levelNode.level;
+        levelNode.level = levelBefore >= 3 ? 1 : levelBefore + 1;
+        runtime.api.hexUrbanReset();
+        const levelChanged = runtime.api.hexUrbanEnsure();
+        levelNode.level = levelBefore;
+        runtime.api.hexUrbanReset();
+        const levelRestored = runtime.api.hexUrbanEnsure();
+
+        const investmentNode = story.nodes.find(node => Number(node.fac || 0) === 0) || story.nodes[0];
+        const facBefore = Number(investmentNode.fac || 0);
+        investmentNode.fac = Math.min(3, facBefore + 3);
+        runtime.api.hexUrbanReset();
+        const dynamicStarted = process.hrtime.bigint();
+        const investmentChanged = runtime.api.hexUrbanEnsure();
+        const dynamicRebuildMs = Number(process.hrtime.bigint() - dynamicStarted) / 1e6;
+        const cachedStarted = process.hrtime.bigint();
+        runtime.api.hexUrbanEnsure();
+        const cachedEnsureMs = Number(process.hrtime.bigint() - cachedStarted) / 1e6;
+        investmentNode.fac = facBefore;
+        runtime.api.hexUrbanReset();
+        const investmentRestored = runtime.api.hexUrbanEnsure();
+
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        const saved = JSON.parse(savedRaw);
+        const references = Object.fromEntries(['Ankara', 'İstanbul', 'İzmir'].map(name => {
+            const record = model.records.find(row => row.name === name);
+            return [name, record ? {
+                cityId: record.cityId,
+                populationPeople: record.populationPeople,
+                populationSource: record.populationSource,
+                requestedDistrictCount: record.requestedDistrictCount,
+                allocatedDistrictCount: record.allocatedDistrictCount,
+                cells: record.districts.map(district => `${district.kind}:${district.id}`)
+            } : null];
+        }));
+        main = {
+            buildMs: Math.round(buildMs * 1000) / 1000,
+            validation,
+            worldNeutral: beforeHash === afterHash,
+            sameInstance: runtime.api.hexUrbanSameInstance(),
+            deterministic: model.sourceHash === repeat.sourceHash
+                && model.footprintHash === repeat.footprintHash,
+            allCitiesPresent: model.cityCount === 152 && model.records.length === 152,
+            capacityShortfallExplicit: model.diagnostics.truncatedCityCount
+                    === model.records.filter(record => record.truncated).length
+                && model.diagnostics.unallocatedDistrictCount
+                    === model.records.reduce((sum, record) => sum
+                        + Math.max(0, record.requestedDistrictCount - record.allocatedDistrictCount), 0)
+                && model.diagnostics.truncatedCityNames.join('|') === 'Beyrut|Tel Aviv',
+            uniqueCells: model.diagnostics.uniqueOccupiedCellCount === model.diagnostics.footprintCellCount,
+            levelDemotedWhenPopulationKnown: levelChanged.sourceHash === model.sourceHash
+                && levelChanged.footprintHash === model.footprintHash,
+            investmentChangesFootprint: investmentChanged.sourceHash !== model.sourceHash
+                && investmentChanged.footprintHash !== model.footprintHash,
+            dynamicRebuildUnderBudget: dynamicRebuildMs <= 20,
+            restorationExact: levelRestored.sourceHash === model.sourceHash
+                && levelRestored.footprintHash === model.footprintHash
+                && investmentRestored.sourceHash === model.sourceHash
+                && investmentRestored.footprintHash === model.footprintHash,
+            sidecarNotPersisted: !Object.prototype.hasOwnProperty.call(saved, 'hexUrban'),
+            diagnostics: Object.assign({}, model.diagnostics, {
+                sourceHash: model.sourceHash,
+                footprintHash: model.footprintHash,
+                coldBuildMs: Math.round(buildMs * 1000) / 1000,
+                dynamicRebuildMs: Math.round(dynamicRebuildMs * 1000) / 1000,
+                cachedEnsureMs: Math.round(cachedEnsureMs * 1000) / 1000
+            }),
+            references
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const model = restoredRuntime.api.hexUrbanEnsure();
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateHexUrban(model),
+            exactDerived: model.sourceHash === main.diagnostics.sourceHash
+                && model.footprintHash === main.diagnostics.footprintHash
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+    return { main, restored };
+}
+
+function probeHexRender(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let main;
+    try {
+        runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const story = runtime.api.state();
+        const beforeHash = hashSnapshot(stateSnapshot(story));
+        const model = runtime.api.hexPoliticalOverlayModel();
+        const repeat = runtime.api.hexPoliticalOverlayModel();
+        const samples = runtime.api.hexPoliticalOverlayPickSamples();
+        const visible = runtime.api.hexPoliticalVisibleSample();
+        const afterHash = hashSnapshot(stateSnapshot(story));
+        const originalOwner = Number(story.nodes[0].owner);
+        story.nodes[0].owner = originalOwner === 0 ? 1 : 0;
+        runtime.api.politicalOverlayInvalidate('hex-render-probe-owner-change');
+        const changed = runtime.api.hexPoliticalOverlayModel();
+        story.nodes[0].owner = originalOwner;
+        runtime.api.politicalOverlayInvalidate('hex-render-probe-owner-restore');
+        const restored = runtime.api.hexPoliticalOverlayModel();
+        main = {
+            model,
+            deterministic: repeat.renderHash === model.renderHash
+                && repeat.ownershipHash === model.ownershipHash,
+            rendererAvailable: typeof runtime.api.hexPoliticalOverlayEnsureCanvas === 'function',
+            worldNeutral: beforeHash === afterHash,
+            assignedPickExact: !!(samples.assigned.picked
+                && samples.assigned.picked.regionId === samples.assigned.expectedRegionId
+                && samples.assigned.picked.assigned === true),
+            waterPickRejected: !!(samples.water.picked
+                && samples.water.picked.assigned === false
+                && samples.water.picked.regionId === -1),
+            visibleCullingValid: visible.unique && visible.bounded && visible.culled,
+            ownerChangeInvalidated: changed.ownershipHash !== model.ownershipHash
+                && changed.renderHash !== model.renderHash,
+            ownerRestoreExact: restored.ownershipHash === model.ownershipHash
+                && restored.renderHash === model.renderHash,
+            samples,
+            visible,
+            changed,
+            restored
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+    return { main };
+}
+
 function probeCanonicalMapRaster(seed = 2032) {
     const runtime = createRuntime(seed >>> 0);
     let main;
@@ -8177,6 +9062,7 @@ function probePoliticalOverlay(seed = 2032) {
         const legacyWallMs = Number(process.hrtime.bigint() - legacyStarted) / 1e6;
         disabled = {
             diagnostics: disabledRuntime.api.politicalOverlayDiagnostics(),
+            hexDiagnostics: disabledRuntime.api.hexPoliticalOverlayDiagnostics(),
             directCanvas: disabledRuntime.api.politicalOverlayEnsureCanvas(),
             render: legacyRender,
             wallTimeMs: Math.round(legacyWallMs * 1000) / 1000
@@ -17909,6 +18795,13 @@ module.exports = {
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
     probeCityDossier,
+    probeHexWorldFoundation,
+    probeHexGeography,
+    probeHexRegions,
+    probeHexRegionReconciliation,
+    probeHexSettlements,
+    probeHexUrban,
+    probeHexRender,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
     probePrebuiltMapRaster,
