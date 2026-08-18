@@ -253,3 +253,48 @@ düzeltildikten sonra da "anlamlı değil" verdi (t −0.29 → t 0.78). Çünk�
 da vardı ve fark alınca sadeleşti. Ama aynı koşudaki MUTLAK saldıran oranı çöptü.
 → **Kural:** bir koşudan hem eşleştirilmiş fark hem mutlak oran okuyorsan, kurgu hatası
 ikisini AYNI ölçüde bozmaz. Farkı kurtaran şey oranı kurtarmaz.
+
+---
+
+## Gece kuyruğu tuzakları (2026-08-18 — üçü de yaşandı, üçü de ölçümü sessizce bozabilirdi)
+
+Uzun ölçüm kuyruklarını gözetimsiz koşarken üç ayrı hata çıktı. Hiçbiri sayıları
+"yanlış" göstermez — **koşuyu hiç yaptırmaz ya da iki koşuyu üst üste bindirir**, ki
+ikisi de fark edilmezse geceyi çöpe atar.
+
+### 1. "node işlemi kalmayana kadar bekle" ASLA çalışmaz
+
+Makinede sürekli ayakta duran node süreçleri var (MCP sunucuları). `node sayısı <= 1`
+koşulu hiçbir zaman sağlanmaz → kuyruk 6 saat boş bekler ve hiçbir şey koşmaz.
+Yakalanma sebebi şans oldu (süreç listesine bakıldı).
+
+→ **Kural:** bekleme koşulu SÜREÇ SAYISI değil, önceki koşunun **log'a yazdığı bitiş
+damgası** olmalı. Süreç sayımı ayrıca yanlıştır çünkü:
+- ebeveyn `node tools/x.js` (göreli yol) ile başlatılınca komut satırında depo adı GEÇMEZ
+  → `CommandLine -like '*pixel-rts*'` süzgeci ebeveyni KAÇIRIR
+- kapılar arasında işçiler ölür, ebeveyn yaşar → sayım bir an sıfıra düşer ve bekleyen
+  kuyruk ERKEN başlar (iki kapı aynı anda = işçiler CPU/RAM için dövüşür)
+
+### 2. Koşan bir bash betiğini DÜZENLEME
+
+Bash betiği bayt konumundan **artımlı okur**. Koşarken dosyayı düzenlemek, bekleme
+döngüsünden çıktıktan sonra kaymış bir konumdan devam etmesine yol açar → ya çöp
+çalıştırır ya sessizce çıkar. Bu gece bir kuyruk tam bunu yaptı: bekleme mesajını
+yazdı, sonra hiçbir kapıyı koşmadan öldü.
+
+→ **Kural:** kuyruk koşarken betiği düzenleme. Değişiklik gerekiyorsa **yeni dosya** yaz.
+
+### 3. `TaskStop` torunları öldürmeyebilir
+
+Durdurulan kuyruğun bash süreci saatler sonra hâlâ canlıydı ve bekleme döngüsünden
+çıktı. Şansa zarar vermedi (düzenlenmiş dosya yüzünden çıktı) ama koşan bir kapıyla
+çakışabilirdi.
+
+→ **Kural:** kuyruk durdurduktan sonra süreç listesini **gözle doğrula** (ebeveyni
+göreli-yol yüzünden kaçırmayan bir süzgeçle), sonra yenisini başlat.
+
+### 4. `js/` dosyaları kuyruk koşarken DONDURULUR
+
+Her kapı başlangıçta kodu yükler. Kuyruğun ortasında `js/` değiştirmek, B'nin X kodunda,
+C'nin Y kodunda koşması demektir — tek bir kapının iç karşılaştırması bozulmaz ama
+**kapılar birbiriyle kıyaslanamaz** hâle gelir ve bu çıktıdan GÖRÜNMEZ.
