@@ -277,6 +277,56 @@ varsayılmadı.
 
 ---
 
+## G · WORKER — ölçüldü, ve tasarım DEĞİŞTİ (2026-08-18)
+
+"Mühendislik işi, araştırma değil" diye sıraya koymuştum. Yazmadan önce iki şey
+ölçüldü ve ikincisi tasarımı değiştirdi.
+
+### Maliyet SORUN DEĞİL (`tools/worker-fizibilite.js`)
+
+Anahtar içgörü: **`battleForkCapture()` zaten dünyanın tam serileştirmesi** ve
+`fork-derin-denetim.js` onun eksiksiz olduğunu ölçtü. Yani worker'a ne gönderileceği
+araştırılacak bir şey değil — fork'un kendisi.
+
+| | ölçüm |
+|---|---|
+| fork boyutu | 612 KB (423–770) |
+| stringify + parse | **10,3 ms** |
+| arama turu (tam ayar) | **2834 ms** (en kötü 6622) |
+| serileştirme / arama | **%0,4** |
+
+Ana iş parçacığında kalan yük tur başına ~10ms. Kabul.
+
+### Ama GECİKME pahalı (`tools/emir-bayatlama.js`)
+
+Worker'ın emri ~2,8sn (≈56 tik) sonra iner; karar T anındaki dünyaya göre verilmişti.
+Ölçü: aramanın kendi para biriminde, "bayat emir taze emrin ne kadarını korur"
+(havuzlanmış: Σ(bayat−kal) / Σ(taze−kal); oran-medyanı payda sıfıra yaklaşınca
+patladığı için kullanılmadı).
+
+| gecikme | korunan değer |
+|---|---:|
+| 60 tik (3,0sn) | **%45,9** |
+
+Üstelik 85 kararın 14'ünde (%16) birim o pencerede **ölüyor**. Yani düz worker
+aramanın değerinin yarısını gecikmeye veriyor.
+
+### Sonuç: worker ÖNGÖRÜLÜ olmalı
+
+Doğru tasarım, fork'u gönderip olduğu yerden aratmak değil: **worker fork'u alır,
+dünyayı k tik KENDİ İLERLETİR, sonra o tahmini durumdan arar.** Emir indiğinde
+hesaplandığı duruma iner.
+
+Ve bu bir yaklaşıklık değil — **AI-vs-AI'da tam doğru**: sim deterministik, kontrolörler
+fork'un içinde, `rngState` fork'ta. Worker'ın k tik ilerlettiği dünya, ana iş
+parçacığının k tik sonra bulunduğu dünyanın **aynısıdır**. Tek hata kaynağı o 3 saniyede
+**oyuncunun** yaptıklarıdır (kendi birimleri aramanın dışında ama dünyayı değiştiriyorlar).
+
+⚠ Ölçülmeden yazılmayacak sonraki adım: "oyuncu girdisi 3 saniyede tahmini ne kadar
+saptırıyor?" — bu, öngörülü worker'ın tek açık riski.
+
+---
+
 ## F · BUGÜNÜN DESENİ — "bilgi var, kullanan yok"
 
 Üç bağımsız örnek çıktı ve muhtemelen daha var:
@@ -300,9 +350,8 @@ Değer-ağı/GPU dalı kapandığına göre kalanlar:
 1. **Emir ömrü** — en ucuz aday. Emirlerin %50'si 1 saniyede eziliyor; +839 bu israfla
    elde edilmiş. Koruma (`_laUntilTick`) yazılmış ama bağlanmamış. Ön kapı gerekmez
    (kusur kesin), doğrudan maç kapısı. ⚠ Ezmenin meşru sebepleri olabilir → ölçülmeden bağlanmaz.
-2. **Worker** — ölçülmüş +839'u TAM güçle oyuna taşıyan tek yol. Mühendislik işi,
-   araştırma değil. Yol haritasının en baştaki cevabıydı; "bütçe duvarı çözüldü" diyerek
-   erken elemiştim (verimi gecikme sanmıştım).
+2. **Worker** — ölçülmüş **+735**'i TAM güçle oyuna taşıyan tek yol. "Mühendislik işi,
+   araştırma değil" demiştim; **yanlıştı** — ölçünce bir araştırma sorusu çıktı (aşağıda).
 3. **Uzun ufuk (10-15sn)** — ön kapıyı geçti (%28.6 karar değişiyor). Ufku KISALTMAK
    ölçülüp öldürülmüş, UZATMAK hiç denenmemiş.
 4. **Gerçek tavan** — 25 adayı oynatan arama gerçek maçta kazanıyor mu? Kısa maçlarla ~1 saat.
