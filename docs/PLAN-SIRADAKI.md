@@ -84,8 +84,21 @@ Mekanizma kapısı (doğru ölçü "emir yaşadı mı" değil **"hedefe VARDI m�
 - D anlamsız çıktı ama **kanıt yokluğu**, yokluğun kanıtı değil: +357'yi doğrulamak
   n≈557 ister (~5 saat). Şimdilik beklemede.
 
-**Koşan/kuyruktaki doğrulamalar** (taze tohum, A/C ile ORTAK tohum yok):
-E = 15 vs 0 (100192+) · F = 1 vs 0 (100192+) · G = **1 vs 15 doğrudan** (100384+)
+### E doğrulaması — A'yı DOĞRULAMADI (kazananın laneti)
+
+| kapı | tohum | koruma 15 vs 0 | t |
+|---|---|---:|---:|
+| A | 100000+ | +486 | 2,10 |
+| **E** | **100192+ (taze)** | **+277** | **1,12** ✗ |
+| **havuz** | n=384 | **+388** | **2,30** |
+
+Havuz ters-varyans ağırlığıyla (`tools/kapi-birlestir.js` YENİ — ayrı tohumlu kapılar
+havuzlanabilir, aynı tohumlular TOPLANAMAZ). Havuzda bile etki saptama tabanının
+(±473) **altında**; bu büyüklüğü %80 güçle yakalamak **n≈572** ister (elde 384).
+
+Bu tam beklenen desen: ilk kapı şanslı çıkmış, doğrulama küçültmüş. Karar hâlâ YOK.
+
+**Kuyrukta:** F = 1 vs 0 (100192+) · G = **1 vs 15 doğrudan** (100384+)
 
 ⚠ VARSAYILAN 0 — doğrulama kapıları geçmeden açılmaz.
 
