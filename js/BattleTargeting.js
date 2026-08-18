@@ -64,7 +64,28 @@ function scoreTarget(contact, ownUnits, blackboard, weights) {
     const tIndirect = (tSt && tSt.weapons && tSt.weapons[0] && tSt.weapons[0].indirect) || tRoles.includes('artillery') || (typeof T !== 'undefined' && (tType === T.ARTILLERY || tType === T.MLRS || tType === T.MORTAR || tType === T.BALLISTIC));
     // INTEL4-delta (flag-kapılı, grup-tarafına göre): karşı-batarya öncelendirmesi intel3pro'da yok.
     const _cbBrain = (typeof battleDelta === 'function') && ownUnits[0] && battleDelta(ownUnits[0].isRed, 'micro');
-    if (hasArea && tIndirect && _cbBrain) score += W.counterBattery;
+    /* ── KARŞI-BATARYA HERKESE (A/B kolu) ──────────────────────────────────
+       KUSUR (kullanıcının 4 maçında KONTROLLÜ olarak bulundu, 2026-08-18):
+       Üç maç AYNI tohum, AYNI AI ordusu (25 birim, 8'i tanksavar). Tek değişen
+       oyuncunun ordusu:
+         · oyuncuda dolaylı ateş YOK  → AI KAZANDI (süre doldu)
+         · oyuncuda TOPÇU×3           → AI 214sn'de imha edildi
+         · oyuncuda HAVAN×3 + ÇNRA    → AI 246sn'de imha edildi
+       Ve AI o topçulara neredeyse HİÇ ateş etmedi:
+         TOPÇU×3 maçı: 214 saniye boyunca TOPLAM 1 ATIŞ (%0). Oyuncunun topçusu 122 atış
+         yaptı ve zamanın %50'sinde AI'nın menzilindeydi. AI atışlarının %68'ini ZIRHLI'ya
+         harcadı. HAVAN×3 maçı: 8 atış (%6), havanlar zamanın %83-97'sinde menzildeydi.
+
+       SEBEP `hasArea`: karşı-batarya önceliği YALNIZ ateş eden grubun KENDİSİNDE dolaylı
+       ateş varsa uygulanıyor. AI'nın 25 biriminin 2'si dolaylı → grupların çoğu düşman
+       topçusunu hiç öncelemiyor. Oysa düşman topçusunu susturmak dolaylı ateşi olmayan
+       birimin de işine yarar; hatta ONUN işine daha çok yarar çünkü kapatıp vurabilir.
+
+       ⚠ Bu bir DAVRANIŞ değişikliği (hedef önceliği), kompozisyon değil. Ölçüldü:
+       kompozisyon değiştiren A/B'lerin marj std'si 3781, davranış değiştirenlerin ~2600 —
+       yani bu kolun saptama tabanı daha düşük olacak. VARSAYILAN KAPALI. */
+    const _herkes = (typeof BATTLE_KARSI_BATARYA_HERKES !== 'undefined') && BATTLE_KARSI_BATARYA_HERKES === true;
+    if ((hasArea || _herkes) && tIndirect && _cbBrain) score += W.counterBattery;
     return score * (contact.confidence != null ? contact.confidence : 1);
 }
 

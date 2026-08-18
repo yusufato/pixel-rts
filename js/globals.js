@@ -1544,6 +1544,13 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── KARŞI-BATARYA HERKESE (A/B kolu) ──────────────────────────────────────
+   Kullanıcının 4 maçında kontrollü olarak bulundu: AI, kendisini öldüren düşman
+   topçusuna 214 saniyede 1 kez ateş etti. Sebep `js/BattleTargeting.js`'teki `hasArea`
+   koşulu — karşı-batarya önceliği yalnız ateş eden grubun KENDİSİNDE dolaylı ateş varsa
+   uygulanıyor. Ayrıntılı gerekçe orada. VARSAYILAN KAPALI. */
+let BATTLE_KARSI_BATARYA_HERKES = false;
+
 /* ── AI DEMETİ (A/B kolu) — küçük düzeltmeleri BİRLİKTE ölçmek ─────────────
    ÖLÇÜM EKONOMİSİ: bu projede aranan etkiler 300-500 bandında ve maç marjı std ≈ 2600.
    Tek tek ölçmek arm başına n≈400-600 (2-3 saat) istiyor ve üç ayrı iş de tabanın
