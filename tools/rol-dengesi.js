@@ -60,7 +60,24 @@ function macKos(ctx, seed, kolDeger) {
     const kod = '(() => {' +
         'BATTLE_INTEL4_RED = true; BATTLE_INTEL4_BLUE = true;' +
         'BATTLE_INTEL4PRO_RED = false; BATTLE_INTEL4PRO_BLUE = false;' +
-        (KOL ? (KOL + ' = ' + JSON.stringify(kolDeger) + ';') : '') +
+        /* KARAR SIKLIGI TEK BASINA A/B'LENEMEZ — EMIR OMRU ONA BAGLI.
+           `LA_PERIYOT_TIK` 100->50 yapilip `LA_EMIR_SURESI` 120'de birakilirsa, tik 50'de
+           alinan yeni karar hala korunan ESKI emrin altinda kalir ve kol "ise yaramadi"
+           gibi gorunur — oysa olculen sey karar sikligi degil, emrin bastirilmasidir.
+           Mevcut `--periyot` bayragi bu ikisini zaten TEK knob sayiyor (omur = periyot*1.4);
+           kol olarak kullanildiginda da ayni birlestirme uygulanir. Yani bu kol bilerek
+           bir DEMET'tir: "daha sik karar ver, emri ona gore kisalt". */
+        (KOL === 'LA_PERIYOT_TIK' ? ('LA_EMIR_SURESI = ' + Math.round(Number(kolDeger) * 1.4) + ';') : '') +
+        /* A/B KOLU GERCEKTEN UYGULANDI MI? — SESSIZ BOS KAPI SINIFI
+           Kol global'i `const` ilan edilmisse (or. LA_HALKA, LA_YON, LA_YARICAP) bu atama
+           ya patlar ya da hicbir sey yapmaz; ikinci halde kapi "fark yok" der ve bu SAHTE
+           bir sonuctur — iki kol da AYNI degeri kosmustur. Ayni sinif hata bu projede
+           birden cok kez yasandi (bkz. docs/OLCUM-TUZAKLARI.md), o yuzden atama artik
+           GERI OKUNUP dogrulanir; tutmuyorsa mac sessizce degil GURULTUYLE duser. */
+        (KOL ? (KOL + ' = ' + JSON.stringify(kolDeger) + ';' +
+                'if (typeof ' + KOL + ' === "undefined") throw new Error("A/B KOLU TANIMSIZ: ' + KOL + '");' +
+                'if (JSON.stringify(' + KOL + ') !== ' + JSON.stringify(JSON.stringify(kolDeger)) + ') ' +
+                'throw new Error("A/B KOLU UYGULANMADI (const mu?): ' + KOL + ' = " + JSON.stringify(' + KOL + ') + " beklenen ' + JSON.stringify(kolDeger).replace('"','\\"') + '");') : '') +
         (AYAR ? (AYAR.split(';').map(s => s.trim()).filter(Boolean).join('; ') + ';') : '') +
         // CANLI BUTCE denemesi: ufku disaridan ayarla (rol-dengesi --ufuk)
         (process.argv.indexOf('--ufuk') >= 0 ? ('if (typeof LA_UFUK !== "undefined") LA_UFUK = ' + Number(process.argv[process.argv.indexOf('--ufuk')+1]) + ';') : '') +

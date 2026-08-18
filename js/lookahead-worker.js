@@ -244,7 +244,19 @@ function laWorkerAra(m) {
        Bu beş değer ana taraftan GELMEZ (ayar listesinde yoklar) — gelselerdi işçi de
        kısılırdı ve worker'ın tek amacı boşa giderdi. Değerler +735'in ölçüldüğü
        konfigürasyonun ta kendisi (tezgâh varsayılanları). */
-    LA_UFUK = 100; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
+    /* ⭐ UFUK 100 -> 200 (2026-08-19 — KANITLANDI, tek satirlik kazanc)
+         · H3 tek basina : n=128  fark +874  t 3.13  · saptama tabani 783  -> TABANIN USTUNDE
+         · D + H3 havuz  : n=256  fark +603  t 3.13  · saptama tabani 540  -> TABANIN USTUNDE
+       Tohumlar AYRIK (D 100000..100127 · H3 109000..109127) — ayni mac iki kez sayilmadi.
+       D tek basina ANLAMLI DEGILDI (+357, t 1.34); karari veren onceden kararlastirilmis
+       TEKRAR'dir, havuz yalnizca onu guclendirir. Galibiyet: saldiran %50.0 -> %63.3.
+
+       NEDEN BURADA, ana iplikte DEGIL: ufku iki katina cikarmak rollout maliyetini de iki
+       katina cikarir. Ana iplikte bu DONMA demektir (worker oncesi tur 4432ms olculmustu).
+       Isci ayri bir iplikte kostugu icin donacak kare yok. Yani worker kapasiteyi acti;
+       kazanci veren, o kapasiteyi KULLANAN bu satirdir — gecenin bes "kucuk duzeltme"
+       denemesinin hepsi tabanin altinda kaldi, kaldirac aramada cikti. */
+    LA_UFUK = 200; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
 
     var s = m.now;
     /* ⭐ İLERİ SARMA PERİYOT SINIRINA HİZALANIR — YOKSA ARAMA HİÇ KOŞMAZ.

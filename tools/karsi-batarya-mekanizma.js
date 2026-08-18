@@ -28,7 +28,7 @@ function kos(seed, acik) {
   if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = true;
   openBattlefieldSession({ mode:"quick", mapId:-2, seed:${seed}, attackerSide:false,
     durationSec:360, playerMoney:6500, enemyMoney:6500, show:false });
-  BATTLE_REPLAY.telemetry = null; BATTLE_REPLAY_KAYITSIZ = true;
+  BATTLE_REPLAY_KAYITSIZ = true;   // telemetri ACIK kalir: combatEvents'ten sayacagiz
   const mv = battleBuildArmyManifest(6500, { maxUnits:48, combatFocused:true, varied:true,
     brainIntel4:true, isAttacker:true, pro:false });
   if (typeof BATTLE_FORCE_VARIED !== "undefined") BATTLE_FORCE_VARIED = false;
@@ -55,13 +55,11 @@ function kos(seed, acik) {
   const topcuId = new Set(SIM.units.filter(u => !u.isRed && !u.dead &&
       (u.type === T.ARTILLERY || u.type === T.MORTAR)).map(u => u.id));
 
-  /* AI'nin atislarini say: hedefi dusman topcusu mu? performAttack sarilir. */
-  let kAtis = 0, kTopcuAtis = 0;
-  const _eski = performAttack;
-  performAttack = function (a, h) {
-    if (a && a.isRed && h) { kAtis++; if (topcuId.has(h.id)) kTopcuAtis++; }
-    return _eski.apply(this, arguments);
-  };
+  /* ⚠ ILK SURUM performAttack'i sarmaya calisti ve COKTU: o bir GLOBAL FONKSIYON DEGIL,
+     Unit sinifinin metodu. Arac hic kosmadi, kuyruk da mac kapisini yine de baslatti
+     (kuyruk mekanizma sonucuna BAKMIYORDU — o da duzeltildi).
+     Dogru kaynak: telemetri combatEvents — kullanicinin gercek maclarinda kullandigim
+     AYNI olcu. Boylece tezgah rakami ile mac rakami kiyaslanabilir kalir. */
   let st = 0;
   while (SIM.tick < ${MAX_TIK} && phase === PHASE.BATTLE) {
     if (SIM.battle && SIM.battle.winnerSide !== null) break;
@@ -69,7 +67,13 @@ function kos(seed, acik) {
     if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);
     if (typeof battleLookaheadTick === "function") battleLookaheadTick(st);
   }
-  performAttack = _eski;
+  const _co = (BATTLE_REPLAY.telemetry && BATTLE_REPLAY.telemetry.combatEvents) || [];
+  let kAtis = 0, kTopcuAtis = 0;
+  for (const e of _co) {
+    if (e.attackerSide !== 'red') continue;
+    kAtis++;
+    if (topcuId.has(e.targetId)) kTopcuAtis++;
+  }
   const sag = SIM.units.filter(u => !u.dead && topcuId.has(u.id)).length;
   const oS = battleArmyObservation(true), oD = battleArmyObservation(false);
   return JSON.stringify({ seed:${seed}, acik:${acik}, topcu: topcuId.size, sagTopcu: sag,

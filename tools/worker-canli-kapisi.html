@@ -191,6 +191,13 @@ async function kol(ad, arama, workerKip) {
         '   hata ' + (d.hata|0) + '   BOS TUR ' + (d.bosTur|0) + '   hizasiz ' + (d.hizasiz|0) +
         '   isinma-atlanan ' + (d.isinmaAtlanan|0) +
         '   ort tur ' + (d.ortSureMs|0) + 'ms   pencere ' + (d.pencereTik|0) + ' tik');
+    /* UFUK 200'e cikarildi (KANITLANDI +603). Bedeli: tur suresi x1.58 -> pencere buyur
+       -> ongoru sapmasi buyur. AI-vs-AI'da sapma zaten 0 olmali; asil deger PENCERE ve
+       TUR SURESI satiridir; insan macinda sapmanin BUYUKLUGU (px) ayrica olculur. */
+    yaz('   ufuk-200 bedeli: ort tur ' + (d.ortSureMs|0) + 'ms · pencere ' + (d.pencereTik|0) +
+        ' tik (' + ((d.pencereTik|0) * 0.05).toFixed(1) + 'sn) · sapma buyuklugu ' +
+        (d.sapmaPxOrt == null ? '-' : d.sapmaPxOrt + 'px') +
+        (d.isciAyar ? '   [isci ufku ' + d.isciAyar.ufuk + ']' : ''));
     yaz('');
     /* ⚠ "tur > 0 && emir > 0" YETMEZ: kullanicinin gercek macinda isci 45 tur kostu, ilki
        6 emir verdi, kalan 44'u SESSIZCE bos dondu (pencere karar anina hizali degildi) ve

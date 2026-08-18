@@ -122,9 +122,13 @@ const LA_AG_ESIK = 15;
    0 = hepsi (eski davranış, canlı bütçeye SIĞMIYOR — ölçüm battleLookaheadEleVeKapi'de).
    5, ölçülmüş "analitik ön eleme K=3 kazancın %72'sini korur" bulgusundan cömert seçildi. */
 let LA_AG_ADAY = 5;
-const LA_YON = 8;             // aday yönü
-const LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
-const LA_YARICAP = 600;       // en dış halka
+/* ⚠ Su uc deger `const` idi; A/B tezgahi onlari degistiremiyordu ve bir kapi acilsa
+   "fark yok" diye SAHTE bir sonuc verirdi (iki kol da ayni degeri kosardi). `let`
+   yapildi — davranis degismedi, yalnizca olculebilir hale geldiler. Tezgah artik
+   kolun uygulandigini geri okuyup dogruluyor (tools/rol-dengesi.js). */
+let LA_YON = 8;             // aday yönü
+let LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
+let LA_YARICAP = 600;       // en dış halka
 let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→2: bütçe kapsama gitti)
 /* ROLLOUT UFKU. Değer ağı zaten "bu durumdan maçın sonu ne" diye tahmin ettiği için
    ufkun UZUN olması gerekmez — kısa rollout birimi yola çıkarır, gerisini ağ söyler.
