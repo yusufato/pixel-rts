@@ -330,3 +330,50 @@ iki koşu ana iş parçacığında bile ayrılıyordu. Bunu gösteren tek satır
 
 → **Kural:** iki ortam karşılaştırılırken önce **her ortamın kendi içinde**
 tekrarlanabilir olduğu ölçülür. Değilse karşılaştırma anlamsızdır.
+
+---
+
+## Ham kayıt / A/B tuzakları (2026-08-19 gecesi — dördü de yaşandı)
+
+Bu geceki dört tuzağın ortak yanı: **hepsi "sonuç" üretti.** Hiçbiri hata vermedi, hepsi
+okunabilir bir sayı bastı ve o sayı yanlıştı.
+
+### 1. `const` ilan edilmiş global A/B'lenemez — kapı "fark yok" der
+
+`LA_HALKA`, `LA_YON`, `LA_YARICAP` `const` idi. A/B tezgâhı kol değerini vm bağlamına
+enjekte ediyor; `const`a atama ya patlar ya hiçbir şey yapmaz. İkinci halde **iki kol da
+aynı değeri koşar** ve kapı "anlamlı değil" der — teknik olarak doğru, anlamca sahte.
+
+**Karşı önlem (uygulandı):** `tools/rol-dengesi.js` kol atamasından sonra değeri **geri
+okuyup** doğruluyor; tutmuyorsa maç sessizce değil gürültüyle düşüyor. Negatif kontrol:
+hâlâ `const` olan `LA_YAYILIM_ESIK` ile kapı gerçekten düştü.
+
+**Kural:** yeni bir knob'u A/B'ye sokmadan önce `let` mi diye bak; sonra 2 tohumluk bir
+koşuyla iki kolun **farklı sonuç ürettiğini** gör. Aynı marj = knob ölü.
+
+### 2. Telemetri alan adını anlamını bilmeden okuma (`navBlocked`)
+
+`navBlocked` "birim takılı" sanıldı ve 4 maçta 16 birim "navigasyon tıkanıklığı" diye
+etiketlendi. Alanın gerçek tanımı: **hedefe düz çizgi arazi tarafından kapalı**
+(`pathBlockedBetween`). Birim engelin etrafından yürüyor olabilir — nitekim yürüyordu.
+Gerçek takılma ölçüsü (uzak hedefi varken ardışık örneklerde <1,5px oynama) eklenince
+kova **tamamen boşaldı**.
+
+**Kural:** bir alandan teşhis üretmeden önce onu **yazan satırı** oku.
+
+### 3. Genel bir alanı özel bir birime uygulama (`menzilimdeDusman` + hava savunması)
+
+`menzilimdeDusman` menzildeki *her* düşmanı sayar. MANPADS/SAM karaya ateş edemez; menzilinde
+bir tank varken "hedef seçmemiş" demek onu haksız suçlamaktır. Yalnız hava düşmanına göre
+yeniden hesaplanınca bu birimler **doğru davranıyor** çıktı.
+
+**Kural:** "X yapmıyor" demeden önce X'in o birim için **mümkün** olduğunu doğrula.
+(Aynı sınıfın önceki örneği: silahsız radar/ikmal birimlerini "ateş etmiyor" diye saymak.)
+
+### 4. Kuyruk, mekanizma kapısının sonucuna bakmıyordu
+
+Kural şuydu: *mekanizma ölçümü geçmezse maç kapısı harcanmaz.* Kuyruk betiği bunu
+uygulamıyordu — K0 ilk satırında çöktü, K1 (60 dakikalık maç kapısı) yine de başladı.
+Kural belgede vardı, kodda yoktu.
+
+**Kural:** disiplin cümlesi betikte `if` olarak görünmüyorsa, o disiplin yok.
