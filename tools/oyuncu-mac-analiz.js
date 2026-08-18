@@ -59,6 +59,21 @@ function analiz(yol) {
     const ctrlEmir = olaylar.filter(e => e.type === 'controller-order');
     console.log('');
     console.log('  ⭐ ARAMA (ÖNGÖRÜ) KOŞTU MU');
+    /* Köprünün KENDİ sayaçları (yeni kayıtlarda var). Olay saymak DOLAYLI; bu doğrudan. */
+    if (ozet.aramaAcik) {
+        const a = ozet.aramaAcik;
+        console.log('     bayraklar: kırmızı ' + a.kirmizi + ' · mavi ' + a.mavi +
+            ' · workerKip ' + a.workerKip + ' · emirKoruma ' + a.emirKoruma +
+            (a.ayar ? ('   [ufuk ' + a.ayar.ufuk + ' derin ' + a.ayar.derin + ' birim ' + a.ayar.birim + ']') : ''));
+    }
+    if (ozet.aramaWorker) {
+        const w = ozet.aramaWorker;
+        console.log('     köprü: tur ' + w.tur + ' · emir ' + w.emir + ' · ısınmada atlanan ' + (w.isinmaAtlanan||0) +
+            ' · bekçi düşürdü ' + (w.dusen || 0) + ' · hata ' + w.hata +
+            ' · öngörü sapması ' + w.sapma + ' · geç kalan ' + w.gecKalan);
+        console.log('     işçi: açık ' + w.acik + ' · hazır ' + w.hazir + ' · ort tur ' + w.ortSureMs +
+            'ms · pencere ' + w.pencereTik + ' tik');
+    }
     if (!laEmir.length) {
         console.log('     lookahead-order olayı: 0  →  ARAMA HİÇ ÇALIŞMAMIŞ');
         console.log('     (ÖNGÖRÜ kademesi seçilmedi ya da worker açılamadı. Bu maçtan');

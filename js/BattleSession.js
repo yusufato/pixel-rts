@@ -532,7 +532,25 @@ function battleRecordPerformanceSample(sample = {}) {
 function battleFinalizeTelemetry(summary) {
     if (!BATTLE_REPLAY.telemetry) return;
     battleCaptureTelemetrySample();
-    BATTLE_REPLAY.telemetry.finalSummary = replayClone(summary);
+    const _oz = replayClone(summary) || {};
+    /* ARAMA/WORKER DURUMU — ham kayit "arama kostu mu" sorusunu KENDI cevaplasin.
+       KUSUR (kullanicinin gercek maci, 2026-08-18): isci TEK tur cevaplayip sustu; bu
+       ancak lookahead-order olaylarini sayarak DOLAYLI anlasildi. Koprunun kendi
+       sayaclari (tur/atlanan/dusen/hata/sapma) hicbir yere yazilmiyordu, yani "neden
+       sustu" sorusu ham kayittan CEVAPLANAMIYORDU. Artik yaziliyor. */
+    _oz.aramaAcik = {
+        kirmizi: (typeof BATTLE_LOOKAHEAD_RED !== 'undefined') && BATTLE_LOOKAHEAD_RED === true,
+        mavi: (typeof BATTLE_LOOKAHEAD_BLUE !== 'undefined') && BATTLE_LOOKAHEAD_BLUE === true,
+        workerKip: (typeof BATTLE_LA_WORKER_KIP !== 'undefined') && BATTLE_LA_WORKER_KIP === true,
+        emirKoruma: (typeof BATTLE_LA_EMIR_KORUMA !== 'undefined') ? (BATTLE_LA_EMIR_KORUMA | 0) : 0,
+        ayar: { ufuk: (typeof LA_UFUK !== 'undefined') ? LA_UFUK : null,
+                derin: (typeof LA_DERIN !== 'undefined') ? LA_DERIN : null,
+                birim: (typeof LA_BIRIM !== 'undefined') ? LA_BIRIM : null,
+                tikBirim: (typeof LA_TIK_BIRIM !== 'undefined') ? LA_TIK_BIRIM : null }
+    };
+    _oz.aramaWorker = (typeof battleLaWorkerDurum === 'function') ? replayClone(battleLaWorkerDurum()) : null;
+    _oz.aramaSayac = (typeof BATTLE_LA_SAYAC !== 'undefined') ? replayClone(BATTLE_LA_SAYAC) : null;
+    BATTLE_REPLAY.telemetry.finalSummary = _oz;
 }
 
 // ANALİST-İSTEĞİ: build'de HANGİ MEKANİKLER aktifti kayıttan OKUNABİLİR olsun → hangi karşılaştırmanın hangi mekanik-kümesinde

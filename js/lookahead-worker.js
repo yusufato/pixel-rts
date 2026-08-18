@@ -247,11 +247,24 @@ function laWorkerAra(m) {
     LA_UFUK = 100; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
 
     var s = m.now;
-    /* TIK TIK HASH: sapma olursa "hangi tikte" sorusu tahminle degil olcumle cevaplanir.
-       Mayin kusurunu bulan yontemin aynisi (tools/replay-sapma-teshis.js). Maliyeti
-       yalnizca teshis kosularinda odenir: m.izle yoksa dizi bos kalir. */
+    /* ⭐ İLERİ SARMA PERİYOT SINIRINA HİZALANIR — YOKSA ARAMA HİÇ KOŞMAZ.
+       KUSUR (kullanıcının gerçek maçında bulundu, 2026-08-18): `battleLookaheadTick`
+       yalnız `SIM.tick % LA_PERIYOT_TIK === 0` anında karar verir. Köprü ise öngörü
+       penceresini ÖLÇÜLEN tur süresinden türetiyor (40, 49, 107 tik...). Hedef tik
+       periyoda denk gelmeyince fonksiyon hemen dönüyor ve tur BOŞ bitiyordu.
+       Gerçek maçta bu şöyle göründü: ilk tur `ileri=100` ile tesadüfen hizalı (6 emir),
+       sonraki 44 tur SESSİZCE boş — worker açık, hata yok, ama arama YOK.
+       En kötü türden sessiz başarısızlık: her sayaç yeşil, iş yapılmıyor.
+
+       Hizalama İŞÇİDE yapılır, köprüde değil: `LA_PERIYOT_TIK` burada kesin bilinir ve
+       köprünün hesabı ne olursa olsun sonuç doğru olur. Kullanılan gerçek değer köprüye
+       geri bildirilir ki hedef tik (emrin ineceği an) doğru hesaplansın. */
+    var periyot = (typeof LA_PERIYOT_TIK !== 'undefined' && LA_PERIYOT_TIK > 0) ? LA_PERIYOT_TIK : 100;
+    var ileri = Math.max(0, m.ileri | 0);
+    var kalan = (SIM.tick + ileri) % periyot;
+    if (kalan !== 0) ileri += (periyot - kalan);          // bir sonraki karar anına kadar sar
     var izler = [], dokum = null;
-    for (var i = 0; i < m.ileri; i++) {
+    for (var i = 0; i < ileri; i++) {
         s += BATTLE_TICK_MS;
         stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
         if (typeof updateSupport === 'function') updateSupport(BATTLE_TICK_SEC, s);
@@ -268,9 +281,13 @@ function laWorkerAra(m) {
     var ongoruParca = (typeof battleStateHashParts === 'function') ? battleStateHashParts() : null;
 
     LA_W_EMIRLER = [];
+    var kararAni = (SIM.tick % periyot) === 0;   // hizalama tuttu mu (kapi icin)
     battleLookaheadTick(s);
     var t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
-    return { emirler: LA_W_EMIRLER.slice(), ongoruHash: ongoruHash, ongoruParca: ongoruParca, ayarSonra: laWorkerAyarOku(), izler: izler, dokum: dokum, sure: Math.round(t1 - t0) };
+    return { emirler: LA_W_EMIRLER.slice(), ongoruHash: ongoruHash, ongoruParca: ongoruParca,
+        ayarSonra: laWorkerAyarOku(), izler: izler, dokum: dokum,
+        gercekIleri: ileri, kararAni: kararAni, tik: SIM.tick,
+        sure: Math.round(t1 - t0) };
 }
 
 self.onmessage = function (ev) {
@@ -280,7 +297,8 @@ self.onmessage = function (ev) {
         if (m.tip === 'ara') {
             if (!LA_W_HAZIR) { self.postMessage({ tip: 'hata', id: m.id, mesaj: 'isci HAZIR degil' }); return; }
             var r = laWorkerAra(m);
-            self.postMessage({ tip: 'emir', id: m.id, emirler: r.emirler, ongoruHash: r.ongoruHash, ongoruParca: r.ongoruParca, ayarSonra: r.ayarSonra, izler: r.izler, dokum: r.dokum, sure: r.sure });
+            self.postMessage({ tip: 'emir', id: m.id, emirler: r.emirler, ongoruHash: r.ongoruHash, ongoruParca: r.ongoruParca, ayarSonra: r.ayarSonra, izler: r.izler, dokum: r.dokum,
+                gercekIleri: r.gercekIleri, kararAni: r.kararAni, sure: r.sure });
         }
     } catch (e) {
         self.postMessage({ tip: 'hata', id: m.id, mesaj: String(e && e.message || e) });

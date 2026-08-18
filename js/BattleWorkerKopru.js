@@ -32,7 +32,16 @@ var BATTLE_LA_WORKER = {
     hedefTik: 0,          // emrin inmesi beklenen tik (gonderTik + ileri)
     ileri: 100,           // öngörü penceresi (tik) — ölçülen tur süresine göre ayarlanır
     bekleyenEmir: null,   // işçiden gelen ama vakti gelmemiş emirler
+    bekleyenTik: 0,       // isteğin gönderildiği tik (bekçi bunu kullanır)
+    ustUsteHata: 0,       // arka arkaya cevapsız/başarısız tur
+    dusen: 0,             // bekçinin iptal ettiği tur
+    bosTur: 0,            // işçi cevapladı ama HİÇ emir yok (sessiz başarısızlık göstergesi)
+    hizasiz: 0,           // işçi karar anına hizalayamadı (olmamalı)
     tur: 0, emir: 0, sapma: 0, gecKalan: 0, hata: 0, isinmaAtlanan: 0,
+    /* SABIR: bir istek en fazla kaç tik bekletilir. İşçi turu ölçülen ~1.4-4.3sn
+       (28-86 tik); 400 tik (20sn) bunun çok üstünde, yani yavaş makinede yanlış
+       alarm vermez ama ölü işçiyi de maç boyu taşımaz. */
+    sabirTik: 400, sabirTur: 3,
     sonSure: 0, ortSure: 0
 };
 
@@ -41,7 +50,13 @@ var BATTLE_LA_WORKER = {
    20 tik = 1sn tampon; alt sınır 40 tik (2sn), üst sınır 200 tik (10sn). */
 function battleLaWorkerPencere(sureMs) {
     var tik = Math.ceil((sureMs || 0) / (typeof BATTLE_TICK_MS !== 'undefined' ? BATTLE_TICK_MS : 50)) + 20;
-    return Math.max(40, Math.min(200, tik));
+    tik = Math.max(40, Math.min(200, tik));
+    /* KARAR ANINA HİZALA: arama yalnız `LA_PERIYOT_TIK` katlarında karar veriyor.
+       Hizasız pencere → işçi boş dönüyor (bkz. js/lookahead-worker.js'teki kusur notu).
+       İşçi bunu ayrıca kendi düzeltiyor; burada da hizalamak, gönderilen değerin
+       gerçekte kullanılanla aynı olmasını sağlar (sayaçlar yanıltmasın). */
+    var periyot = (typeof LA_PERIYOT_TIK !== 'undefined' && LA_PERIYOT_TIK > 0) ? LA_PERIYOT_TIK : 100;
+    return Math.ceil(tik / periyot) * periyot;
 }
 
 /* İŞÇİ DOSYASININ YOLU — sayfaya göre DEĞİL, KÖPRÜNÜN KENDİ konumuna göre çözülür.
@@ -111,7 +126,21 @@ function battleLaWorkerMesaj(m) {
     }
     if (m.tip !== 'emir') return;
     BATTLE_LA_WORKER.bekleyen = 0;
+    BATTLE_LA_WORKER.ustUsteHata = 0;                 // cevap geldi: bekçi sayacı sıfırlanır
     if (m.id !== BATTLE_LA_WORKER.sonId) return;      // bayat cevap (yeni tur başlamış)
+
+    /* İŞÇİNİN KULLANDIĞI GERÇEK İLERİ SARMA — köprününki değil. İşçi pencereyi karar
+       anına (LA_PERIYOT_TIK katı) hizalıyor; hedef tik ona göre hesaplanmazsa emirler
+       yanlış tikte iner ve öngörü doğrulaması anlamsızlaşır. */
+    if (m.gercekIleri != null) {
+        BATTLE_LA_WORKER.ileri = m.gercekIleri | 0;
+        BATTLE_LA_WORKER.hedefTik = BATTLE_LA_WORKER.gonderTik + (m.gercekIleri | 0);
+    }
+    if (m.kararAni === false) BATTLE_LA_WORKER.hizasiz++;
+    /* BOŞ TUR: işçi cevapladı ama emir yok. Birkaç boş tur normaldir (arama "yerinde kal"
+       diyebilir); SÜREKLİ boş tur, aramanın hiç koşmadığının işaretidir — kullanıcının
+       maçında tam bu oldu ve hiçbir sayaç kırmızı yanmıyordu. */
+    if (!(m.emirler || []).length) BATTLE_LA_WORKER.bosTur++;
 
     BATTLE_LA_WORKER.sonSure = m.sure | 0;
     BATTLE_LA_WORKER.ortSure = BATTLE_LA_WORKER.ortSure
@@ -172,7 +201,31 @@ function battleLaWorkerTur(now) {
        worker'lı kurulum donmayı ÇÖZMEK yerine maç başına yığıyordu. Bir-iki arama turunu
        atlamak, oyunu 5 saniye dondurmaktan iyidir. */
     if (!BATTLE_LA_WORKER.hazir) { BATTLE_LA_WORKER.isinmaAtlanan++; return true; }
-    if (BATTLE_LA_WORKER.bekleyen) return true;   // hâlâ çalışıyor: tur ATLANIR (ikinci istek yığmaz)
+    if (BATTLE_LA_WORKER.bekleyen) {
+        /* ── BEKÇİ ──────────────────────────────────────────────────────────
+           KUSUR (kullanıcının gerçek maçında görüldü, 2026-08-18): işçi TEK tur
+           cevapladı (tik 219, 6 emir) ve sonra sustu. `bekleyen` bir daha sıfırlanmadı,
+           köprü 4440 tik boyunca her turu "hâlâ çalışıyor" diye ATLADI ve maçı baştan
+           sona düz intel4 sürdü. Donma çözülmüştü ama ARAMA DA YOKTU — en kötü sessiz
+           başarısızlık türü: her şey çalışıyor gibi görünüyor.
+           Tek bir kayıp cevap aramayı MAÇ BOYU kapatamamalı. */
+        if (SIM.tick - BATTLE_LA_WORKER.bekleyenTik > BATTLE_LA_WORKER.sabirTik) {
+            BATTLE_LA_WORKER.bekleyen = 0;
+            BATTLE_LA_WORKER.dusen++;
+            BATTLE_LA_WORKER.ustUsteHata++;
+            BATTLE_LA_WORKER.bekleyenEmir = null;
+            /* ART ARDA başarısızlık → köprüyü kapat, ana iplik devralsın. Kısılmış ayarla
+               arama, aramasızlıktan iyidir; sessizce arama-yok durumunda kalmaktan da. */
+            if (BATTLE_LA_WORKER.ustUsteHata >= BATTLE_LA_WORKER.sabirTur) {
+                console.warn('[arama-worker] ' + BATTLE_LA_WORKER.ustUsteHata +
+                    ' tur üst üste cevapsız → köprü kapatıldı, arama ana iplikte sürüyor');
+                battleLaWorkerKapat();
+                return false;      // bu turu ANA İPLİK yapsın
+            }
+            return false;          // tek seferlik kayıp: bu turu ana iplik üstlensin
+        }
+        return true;   // hâlâ makul süre içinde çalışıyor: tur ATLANIR (ikinci istek yığmaz)
+    }
     var fork;
     try {
         var g = (typeof BATTLE_SIM_GOLGE !== 'undefined') ? BATTLE_SIM_GOLGE : false;
@@ -185,6 +238,7 @@ function battleLaWorkerTur(now) {
     }
     BATTLE_LA_WORKER.sonId++;
     BATTLE_LA_WORKER.bekleyen = 1;
+    BATTLE_LA_WORKER.bekleyenTik = SIM.tick;
     BATTLE_LA_WORKER.tur++;
     BATTLE_LA_WORKER.gonderTik = SIM.tick;
     BATTLE_LA_WORKER.hedefTik = SIM.tick + BATTLE_LA_WORKER.ileri;
@@ -228,6 +282,7 @@ function battleLaWorkerDurum() {
     var w = BATTLE_LA_WORKER;
     return { acik: w.acik, hazir: w.hazir, tur: w.tur, emir: w.emir, sapma: w.sapma,
         gecKalan: w.gecKalan, hata: w.hata, isinmaAtlanan: w.isinmaAtlanan,
+        dusen: w.dusen, ustUsteHata: w.ustUsteHata, bosTur: w.bosTur, hizasiz: w.hizasiz,
         ortSureMs: w.ortSure, pencereTik: w.ileri };
 }
 

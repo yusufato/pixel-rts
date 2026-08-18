@@ -188,13 +188,19 @@ async function kol(ad, arama, workerKip) {
     yaz('');
     yaz('   worker: tur ' + (d.tur|0) + '   uygulanan emir ' + (d.emir|0) +
         '   öngörü sapması ' + (d.sapma|0) + '   geç kalan ' + (d.gecKalan|0) +
-        '   hata ' + (d.hata|0) + '   isinma-atlanan ' + (d.isinmaAtlanan|0) +
+        '   hata ' + (d.hata|0) + '   BOS TUR ' + (d.bosTur|0) + '   hizasiz ' + (d.hizasiz|0) +
+        '   isinma-atlanan ' + (d.isinmaAtlanan|0) +
         '   ort tur ' + (d.ortSureMs|0) + 'ms   pencere ' + (d.pencereTik|0) + ' tik');
     yaz('');
-    const calisti = (d.tur | 0) > 0 && (d.emir | 0) > 0;
+    /* ⚠ "tur > 0 && emir > 0" YETMEZ: kullanicinin gercek macinda isci 45 tur kostu, ilki
+       6 emir verdi, kalan 44'u SESSIZCE bos dondu (pencere karar anina hizali degildi) ve
+       bu kapi yine de gecerdi. Kapi artik BOS TUR ORANINI da sinar. */
+    const bosOran = (d.tur | 0) ? (d.bosTur | 0) / (d.tur | 0) : 1;
+    const calisti = (d.tur | 0) > 0 && (d.emir | 0) > 0 && bosOran < 0.5 && (d.hizasiz | 0) === 0;
     const donmaCozuldu = C.enKotu < B.enKotu * 0.5;
     const tabanaYakin = C.enKotu < A.enKotu * 3 + 50;
-    yaz('ARAMA GERÇEKTEN KOŞTU     : ' + (calisti ? 'EVET ✓' : 'HAYIR ✗ (donma yok ama arama da yok)'), calisti ? 'ok' : 'kotu');
+    yaz('ARAMA GERÇEKTEN KOŞTU     : ' + (calisti ? 'EVET ✓' : 'HAYIR ✗ (donma yok ama arama da yok)') +
+        '   [boş tur oranı %' + (bosOran * 100).toFixed(0) + ']', calisti ? 'ok' : 'kotu');
     yaz('DONMA ÇÖZÜLDÜ (C < B/2)   : ' + (donmaCozuldu ? 'EVET ✓' : 'HAYIR ✗'), donmaCozuldu ? 'ok' : 'kotu');
     yaz('TABANA YAKIN (C ≈ A)      : ' + (tabanaYakin ? 'EVET ✓' : 'HAYIR ✗'), tabanaYakin ? 'ok' : 'kotu');
     const gecti = calisti && donmaCozuldu && tabanaYakin;
