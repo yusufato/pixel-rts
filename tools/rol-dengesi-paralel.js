@@ -61,17 +61,33 @@ if (process.argv.includes('--esitkomp')) EKLER.push('--esitkomp');
 fs.mkdirSync(GECICI, { recursive: true });
 
 const TOPLAM = DOGRULA ? 8 : N;
-// BİTİŞİK dilim: eşleştirme işçi içinde korunur, tohum kümesi bütün olarak aynı kalır.
-const pay = Math.ceil(TOPLAM / ISCI);
+/* ── IS KUYRUGU: sabit dilim yerine KUCUK PARCALAR ────────────────────────────
+   ESKI TASARIM tohumlari basta ISCI parcaya bolerdi (128 tohum / 9 isci = 14'er).
+   Iki kaybi olculdu:
+     1. ARTCI KAYBI. C3'te isciler 120.3 · 122.3 · 124.7 · 130.7 · 132.2 · 134.3 ·
+        143.6 · 145.0 dakikada bitti: ortalama 131.6 ama KAPI 145'te bitti, cunku
+        herkes en yavas isciyi bekliyor. Son 25 dakikada makinenin yarisi bostaydi
+        -> ~%10 duvar saati cope.
+     2. ISCI SAYISI DONDU. Basta bir kez hesaplaniyordu; kosarken RAM bosalsa bile
+        yeni isci eklenemiyordu.
+   YENI TASARIM: is kucuk parcalara bolunur, havuz bir parca bitince sıradakini
+   baslatir. Artci kaybi parca boyuna iner, ve havuz genisligi her parca basiminda
+   YENIDEN hesaplanir (RAM bosaldikca buyur).
+   ⚠ SONUCLARI DEGISTIRMEZ: maclar tohum basina deterministik, hangi surecin hangi
+   tohumu kostugu sonucu etkilemez. Eslestirilmis fark da zaten TOHUMA gore hizaliyor
+   (asagida `m0.has(k.seed)`), yani parca sirasi da onemsiz. Bu, "birebir esdeger"
+   sinifindan bir optimizasyon — bu depoda YAKLASIKLIKLA ucuzlatma uc kez coktu
+   (isinlama, ucuz puanlayici siralamasi, 5Hz kaba adim), esdeger olanlar guvenli. */
+const PARCA = Math.max(1, Number(arg('--parca', 0)) ||
+    Math.max(2, Math.ceil(TOPLAM / Math.max(1, ISCI * 4))));
 const isler = [];
-for (let i = 0; i < ISCI; i++) {
-    const bas = TOHUM0 + i * pay;
-    const adet = Math.min(pay, TOHUM0 + TOPLAM - bas);
-    if (adet > 0) isler.push({ idx: i, tohum0: bas, n: adet });
+for (let i = 0, bas = TOHUM0; bas < TOHUM0 + TOPLAM; i++, bas += PARCA) {
+    isler.push({ idx: i, tohum0: bas, n: Math.min(PARCA, TOHUM0 + TOPLAM - bas) });
 }
 
 console.log('ROL DENGESI — PARALEL');
-console.log('  tohum: ' + TOHUM0 + '..' + (TOHUM0 + TOPLAM - 1) + '   isci: ' + isler.length);
+console.log('  tohum: ' + TOHUM0 + '..' + (TOHUM0 + TOPLAM - 1) +
+    '   parca: ' + isler.length + ' x ' + PARCA + ' tohum   havuz: ' + ISCI + ' (dinamik)');
 if (EKLER.length) console.log('  aktarilan: ' + EKLER.join(' '));
 console.log('');
 
@@ -88,7 +104,7 @@ function isciKos(is) {
         p.stderr.on('data', (d) => { const s = String(d).trim(); if (s) console.log('  [' + is.idx + '] ! ' + s.slice(0, 200)); });
         p.on('close', (kod) => {
             biten++;
-            console.log('  isci ' + is.idx + ' bitti (kod ' + kod + ')   ' + biten + '/' + isler.length +
+            console.log('  parca ' + is.idx + ' bitti (kod ' + kod + ')   ' + biten + '/' + isler.length +
                 '   ' + ((Date.now() - t0) / 60000).toFixed(1) + 'dk');
             cozum({ out, kod, is });
         });
@@ -105,9 +121,44 @@ function ozet(kayit) {
         t: ort / (std / Math.sqrt(Math.max(1, n))) };
 }
 
-Promise.all(isler.map(isciKos)).then((sonuclar) => {
+/* HAVUZ: en fazla `hedefHavuz()` surec ayni anda. Bir parca bitince siradaki baslar.
+   Havuz genisligi her seferinde YENIDEN hesaplanir: kosan surecler zaten RAM tuttugu
+   icin `bos RAM / 0.8GB` kadar DAHA surec eklenebilir demektir. Cekirdek payi tavan.
+   ⚠ Kucultmez — koşan sureci oldurmek isi cope atardi; yalnizca YENI parca basmaz. */
+function hedefHavuz(aktif) {
+    const cek = Math.max(1, (os.cpus() || []).length - 4);
+    const ekBellek = Math.floor((os.freemem() / 1e9) / 0.8);
+    return Math.max(1, Math.min(ISCI, cek, aktif + Math.max(0, ekBellek)));
+}
+
+function havuzKos(isler) {
+    return new Promise((cozum) => {
+        const sonuclar = [];
+        let sira = 0, aktif = 0, sonBildirilen = 0;
+        function doldur() {
+            const hedef = hedefHavuz(aktif);
+            if (hedef !== sonBildirilen && sira < isler.length) {
+                console.log('  [havuz] genislik ' + hedef + '   (bos RAM ' +
+                    (os.freemem() / 1e9).toFixed(1) + ' GB)');
+                sonBildirilen = hedef;
+            }
+            while (aktif < hedef && sira < isler.length) {
+                aktif++;
+                isciKos(isler[sira++]).then((r) => {
+                    sonuclar.push(r); aktif--;
+                    if (sira >= isler.length && aktif === 0) cozum(sonuclar);
+                    else doldur();
+                });
+            }
+            if (sira >= isler.length && aktif === 0) cozum(sonuclar);
+        }
+        doldur();
+    });
+}
+
+havuzKos(isler).then((sonuclar) => {
     const coken = sonuclar.filter(s => s.kod !== 0);
-    if (coken.length) console.log('  ! COKEN ISCI: ' + coken.map(s => s.is.idx).join(', '));
+    if (coken.length) console.log('  ! COKEN PARCA: ' + coken.map(s => s.is.idx).join(', '));
 
     // Kolları birleştir. Tohum sırası korunur ki EŞLEŞTİRME bozulmasın.
     const kollar = {};
