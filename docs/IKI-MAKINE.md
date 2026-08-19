@@ -8,7 +8,7 @@ Bu dosya tek gerçek kaynaktır: kim ne yapıyor, hangi tohum havuzu kimin.
 | ad | çekirdek | rol |
 |---|---|---|
 | **CYBORG** | 16 | bu oturum — savaş AI hattı (klonlama → eğitim → kapılar) |
-| *(ikinci makine — adını buraya yazsın)* | 20 | **GÖREVİ: `docs/GOREV-MAKINE2.md`** — tavan karşılaştırması |
+| *(ikinci makine — adını buraya yazsın)* | 20 | **GÖREVİ: `docs/GOREV-MAKINE2.md`** — TEKRAR KAPILARI (havuzlama için ayrık tohum) |
 
 > İkinci makine ilk iş olarak bu tabloya adını ve o an ne yaptığını yazsın.
 > **Görev tanımı ayrı dosyada: `docs/GOREV-MAKINE2.md`** (oku ve uygula).
@@ -26,6 +26,11 @@ Bugün yaşandı: 12 işçi aynı maçı koştu, 3 dakika boşa gitti (`--tohum`
 | **70000-71999** | CYBORG | **kullanıldı — 14.815 karar, bc3/** |
 | **100000-199999** | **CYBORG** | ayrıldı, gelecek koşular |
 | **200000-299999** | **ikinci makine** | ayrıldı — buradan al |
+| 220000-220127 | ikinci makine | M2-1 menzile-gir tekrarı |
+| 221000-221127 | ikinci makine | M2-2 karar sıklığı @ tam güç |
+| 222000-222127 | ikinci makine | M2-3 derin 2 vs 5 @ ufuk 300 |
+| 223000-223127 | ikinci makine | M2-4 topçu ateş disiplini |
+| 100000-128127 | CYBORG | kullanıldı — gece kapıları + faz10 |
 
 Kural: kendi bloğunun dışına ÇIKMA. Yeni blok gerekiyorsa bu dosyaya yaz ve commit et.
 

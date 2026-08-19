@@ -30,14 +30,17 @@ const GECICI = path.join(ROOT, 'qa-runtime', 'rol-dengesi-paralel');
    ve kullaniciya (oyun oynayabilmeli) birakiliyor.
    ⚠ AMA DARBOGAZ CEKIRDEK DEGIL BELLEK CIKTI (olculdu 2026-08-19): 14 node sureci
    4.7GB kullaniyordu, en buyugu 0.8GB, ve 15.7GB'lik makinede yalnizca 3GB bostu.
-   Isci eklemek takas yaptirir ve YAVASLATIR. O yuzden tavan 12 degil 10, ve RAM
-   varsayimi olculen TEPE degere (0.8GB) cekildi — 0.6 fazla iyimserdi.
+   Isci eklemek takas yaptirir ve YAVASLATIR. RAM varsayimi olculen TEPE degere
+   (0.8GB) cekildi — 0.6 fazla iyimserdi.
+   ⚠ SABIT TAVAN KALDIRILDI: 10 yaziyordu ve o rakam BU makineye ozeldi (16 mantiksal
+   cekirdek). Ikinci makinede 20 cekirdek var; sabit 10 orada yarisini bosa dusururdu.
+   Tavan artik cekirdekten turuyor (cpus-4) ve pratikte RAM korumasi zaten baglayici.
    ⚠ SONUCU ETKILEMEZ: maclar tohum basina deterministik; isci sayisi yalnizca DUVAR
    SAATINI degistirir, marjlari degil. */
 function varsayilanIsci() {
     const cek = Math.max(1, (os.cpus() || []).length - 4);
     const ram = Math.max(1, Math.floor((os.freemem() / 1e9) / 0.8));
-    return Math.max(1, Math.min(cek, ram, 10));
+    return Math.max(1, Math.min(cek, ram));
 }
 
 const N = Math.max(1, Number(arg('--tohum', 96)) || 96);

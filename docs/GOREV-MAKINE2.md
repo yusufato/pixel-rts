@@ -1,132 +1,167 @@
-# GÖREV — İKİNCİ MAKİNE
+# GÖREV — İKİNCİ MAKİNE (2026-08-19 sürümü)
 
-> Bu dosya ikinci makinedeki oturum için yazıldı. **CYBORG** (16 çekirdek, GPU) tarafından
-> hazırlandı. Kullanıcı sana muhtemelen "bu dosyayı oku ve uygula" dedi — aşağısı görevin.
+> Bu dosya ikinci makinedeki oturum için yazıldı. **CYBORG** (16 mantıksal çekirdek) tarafından
+> hazırlandı. Kullanıcı sana "işleme başla" dediğinde: **önce bu dosyayı sonuna kadar oku**,
+> sonra 1. bölümden sırayla uygula.
 
 ---
 
 ## 0. KİMLİK VE SINIRLAR
 
-Sen **ikinci makinesin** (20 çekirdek, Intel i5 14. nesil, ~5 GB boş RAM).
-Diğer makinenin adı **CYBORG**; şu anda savaş AI'sinin **karar uzayını genişletiyor**.
+Sen **ikinci makinesin** (20 çekirdek). Diğer makine **CYBORG**; şu anda kendi kapı kuyruğunu
+koşuyor (faz10 → faz9) ve `js/` altında çalışıyor.
 
-**DOKUNMA:** `js/` altındaki hiçbir dosya. Orada CYBORG çalışıyor, aynı anda ikimizin dokunması
-çakışma üretir.
-**SENİN ALANIN:** `docs/` ve `qa-runtime/`.
+**DOKUNMA:** `js/` altındaki hiçbir dosya, `tools/gece-kuyrugu-*.sh`, `tools/rol-dengesi*.js`.
+CYBORG oralarda çalışıyor; aynı anda ikimizin dokunması çakışma üretir.
+
+**SENİN ALANIN:** `docs/kayit-m2/` (kendi log'ların) ve bu dosyanın sonundaki rapor bölümü.
+
+**HİÇBİR ŞEY SEVK ETME.** Varsayılan değer değiştirme, bayrak açma, motor dosyası düzenleme
+yok. Sen bir **ölçüm makinesisin**; hüküm birleşik kanıtla verilir.
 
 ---
 
 ## 1. İLK İŞ (sırayla, atlama)
 
-```
-git fetch && git checkout savas-ai-mikrofix-konsantrasyon && git pull
-```
-
-1. **`docs/IKI-MAKINE.md`** oku. Makine tablosundaki ikinci satıra **kendi adını** ve o an ne
-   yaptığını yaz (commit'i sona bırakabilirsin).
-2. **`docs/OLCUM-TUZAKLARI.md`** oku. Bu projede aynı ölçüm hataları **defalarca** tekrarlandı;
-   teşhis kurmadan önce okunması kuraldır.
-3. **`docs/SAVAS-AI-YON.md`** oku — neden bu işi yaptığımızı orada bulursun.
-4. Determinizmi doğrula (kendi checkout'unun sağlam olduğunun kanıtı):
-   - `ELECTRON_RUN_AS_NODE` ortam değişkenini **temizle**
-   - `npx electron . --forktest`
-   - **`FORKTEST_OK`** görmelisin. Görmezsen **DUR ve bildir** — ölçüme başlama.
-
----
-
-## 2. ASIL GÖREV — "tavan" karşılaştırması
-
-### Soru
-**Mükemmel seçici** (her kararda tüm adayları gerçekten yuvarlayıp en iyisini seçen, yani hile
-yapan bir üst sınır) kod-AI'yı yenebiliyor mu?
-
-Şu anki cevap: **+771 marj, t 1.80** → *anlamlı değil*. Ve bu **dar** bir uzayda ölçüldü: bir
-kararda AI'ın seçebildiği yalnız **3 ayrık nokta** var, 45 saniyede bir, maç başına 7.5 karar.
-
-CYBORG şu an o uzayı genişletiyor. Senin işin şunu ölçmek:
-
-> **Uzayı genişletmek tavanı yükseltiyor mu?**
-
-Cevap "hayır" ise, haftalarca yanlış yöne gitmekten kurtuluruz. Bu yüzden bu ölçüm projenin en
-kritik sayısıdır.
-
-### İki kol, AYNI tohumlar
-
-```
-DAR:
-node tools/beonai-mac-kapisi.js --surum ORACLE --tohum 12 --atla <OFS> --rol her \
-  --out qa-runtime/tavan-dar-<OFS>.json
-
-GENİŞ:
-node tools/beonai-mac-kapisi.js --surum ORACLE --tohum 12 --atla <OFS> --rol her \
-  --gramer-v2 --kota 96 --out qa-runtime/tavan-genis-<OFS>.json
+```bash
+git pull                      # CYBORG'un motoru ve araçları güncel olmalı
+node --version                # 20+ bekleniyor
 ```
 
-`--atla` tohum dilimini kaydırır. Havuz **72 tohum**; `--atla` değerlerini **0, 12, 24, 36, 48, 60**
-diye ayır ki paralel örnekler **aynı maçı koşmasın**.
+**Zorunlu okuma — bu üçü olmadan hiçbir sayıyı yorumlama:**
 
-> ⚠ Bu projede 12 işçinin **hepsi aynı maçı koştu** ve koşu boşa gitti (dosya boyutları birebir
-> aynıydı). Başlattığın örneklerin çıktılarındaki tohumların **farklı olduğunu doğrula**.
-
----
-
-## 3. RAM — TAHMİN ETME, ÖLÇ
-
-Bu makinede ~5 GB boş. CYBORG'da ölçülen: veri-üretim aracı **süreç başına 700-850 MB** ve koşu
-ilerledikçe **büyüyor**. Bu araç ayrıca **fork alıyor** (sahnenin tam kopyası), daha çok yiyebilir.
-
-- **2 örnekle başla.**
-- 10 dakika sonra gerçek tüketimi ölç:
-  ```powershell
-  Get-Process node | Select-Object Id,@{N='MB';E={[math]::Round($_.WorkingSet64/1MB)}}
-  ```
-- **Boş-RAM farkından hesaplama** — yanıltıyor (CYBORG bu hatayı iki kez yaptı).
-- Boş RAM **1 GB'ın altına inerse bir örnek kapat**. Sayfalama hızı **düşürür**: CYBORG'da 6/9/12
-  işçi aynı hızı verdi, yani çekirdek eklemek bir noktadan sonra kazandırmıyor.
-
----
-
-## 4. SÜRE BEKLENTİSİ
-
-ORACLE kolu her kararda tüm adayları yuvarlar → maç başına **~200 sn** beklenir.
-`--tohum 12 --rol her` = 24 maç ≈ **80 dk**.
-
-**Önce BİR dilim bitir, gerçek süreyi gör, sonra devam et.** (Tahmine göre gece planlama.)
-
----
-
-## 5. ÇIKTI
-
-`docs/TAVAN-OLCUMU.md` dosyası oluştur. Her kol (DAR / GENİŞ) için şunları yaz:
-
-| alan | not |
+| dosya | neden |
 |---|---|
-| eşleştirilmiş marj | |
-| std. hata | |
-| **t** | |
-| lehte kaç/kaç | |
-| galibiyet oranı (taban → oracle) | |
-| kaç maç | |
-| kullanılan tohum dilimleri | çakışma kanıtı |
+| `docs/OLCUM-TUZAKLARI.md` | 10 tuzak. Hepsi **yaşandı**, hepsi ölçümü sessizce bozuyordu. |
+| `docs/KAPI-DEFTERI.md` | bugüne kadarki bütün kapı sonuçları tek tabloda |
+| `docs/PLAN-SIRADAKI.md` | en üstteki "2026-08-19 gecesi" bölümü — nerede olduğumuz |
 
-Sonra `docs/IKI-MAKINE.md` durum defterine satır ekle, **commit + push** et.
+**En kritik iki kural, özet olarak:**
 
----
-
-## 6. KURALLAR (bu proje bunlarda ısrarcı)
-
-- `|t| < 2` ise **"fark yok" DEME**, **"fark GÖSTERİLEMEDİ"** de. İkisi aynı şey değil.
-- **Bağlanma kanıtı olmadan tablo okuma.** ORACLE kolunda çıktıdaki `bagli` alanı
-  `"ORACLE-POLITIKA"` olmalı; değilse ölçüm boştur.
-- Örneklem < 24 maç ise **hüküm verme**.
-- Bir şey ters giderse **DUR ve bildir**; sessizce devam etme, tahminle doldurma.
-- Ölçmediğin bir şeyi ölçmüş gibi yazma.
+1. **Hüküm `t`'ye göre değil SAPTAMA TABANINA göre verilir.** Bu depoda maç marjının std'si
+   ~2600-3800; n=128'de ancak |etki| ≳ 700-900 güvenle yakalanır. `t = 2.4` görüp "anlamlı"
+   demek bu gürültüde yanıltıcıdır.
+2. **Taban altı iki ayrı şeydir:** std çok küçükse (<900) kol dünyayı kıpırdatmıyordur
+   (*etki yok*); std normalse yalnızca bu n ile göremiyoruzdur (*ölçülemedi* — etkisiz
+   demek **değil**).
 
 ---
 
-## 7. BİTİNCE
+## 2. GÖREVİN: TEKRAR KAPILARI (havuzlama için)
 
-Kullanıcıya şunu söyle: **geniş uzayın tavanı dar uzayınkinden yüksek mi, ve fark anlamlı mı.**
-Tek cümlelik cevap yeterli; ayrıntı `docs/TAVAN-OLCUMU.md`'de dursun.
+En büyük sorunumuz saptama tabanının yüksek olması. Aynı soruyu **ayrık tohumlarda** ikinci
+kez ölçersek n=128 → 256 olur ve taban ~780'den ~550'ye iner. Bu, "ölçülemedi" damgalı
+sonuçların çoğunu karara bağlar.
 
-Bu sonuç CYBORG'un adım 3'ü sürdürüp sürdürmeyeceğini belirleyecek.
+Bu yöntem bu projede **iki kez işe yaradı**: `LA_UFUK 100→200` ve `LA_DERIN 2→5` ikisi de tek
+başına tabanın altındaydı, ayrık tohumlarla havuzlanınca geçti.
+
+### TOHUM HAVUZUN: `200000-299999` — dışına ÇIKMA
+
+Bu kural mutlak. Aynı tohum iki makinede koşarsa havuzlama **aynı maçı iki kez sayar** ve
+etkiyi olduğundan güçlü gösterir. `tools/kapi-ozet.js --havuz` çakışmayı denetler ve
+çakışma görürse havuzlamayı reddeder — ama en baştan çakıştırmamak senin işin.
+
+### Koşacağın kapılar (bu sırayla)
+
+Hepsi `tools/rol-dengesi-paralel.js` ile, hepsi `--tohum 128`.
+
+```bash
+# M2-1 · MENZILE GIR tekrari  (CYBORG'da M1: +748, taban 768 — 20 birim altinda kaldi!)
+#        ⚠ AYAR YOK: M1 tezgah varsayilaninda kosuldu (ufuk 100/derin 2). Havuz ancak
+#        AYNI kosullarda mesru — buraya LA_UFUK/LA_DERIN EKLEME.
+node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 220000 \
+  --kol BATTLE_MENZILE_GIR --koldeger false,true \
+  --ayar "BATTLE_LOOKAHEAD_RED=true"
+
+# M2-2 · KARAR SIKLIGI @ tam guc  (CYBORG'da P1 ufuk 200'de GECTI: +808, galibiyet %63->%75)
+node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 221000 \
+  --kol LA_PERIYOT_TIK --koldeger 100,50 \
+  --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5"
+
+# M2-3 · DERIN 5 ufuk 300'un ustune katiyor mu
+node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 222000 \
+  --kol LA_DERIN --koldeger 2,5 \
+  --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300"
+
+# M2-4 · TOPCU ATES DISIPLINI @ tam guc
+node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 223000 \
+  --kol BATTLE_TOPCU_DURAGAN --koldeger false,true \
+  --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5"
+```
+
+Her kapıyı kendi log'una yaz:
+```bash
+node tools/rol-dengesi-paralel.js ... 2>&1 | tee -a docs/kayit-m2/m2.log
+```
+
+### KOŞMA — bu ikisi CYBORG'da zaten kapandı
+
+- `LA_KABA_ADIM` (5Hz rollout): **−2390, t −9.13** ile düştü. Tekrar gerekmiyor.
+- `BATTLE_KARSI_BATARYA_HERKES`: **etki yok** (std 366). Kapandı.
+
+---
+
+## 3. İŞÇİ SAYISI — varsayma, ÖLÇ
+
+`tools/rol-dengesi-paralel.js` işçi sayısını kendi seçer: `min(çekirdek−4, boşRAM/0.8GB)`.
+Sabit tavan **kaldırıldı** çünkü o rakam CYBORG'a özeldi.
+
+Senin makinende 20 çekirdek var ama kayıtta **~5 GB boş RAM** yazıyor. 0.8 GB/işçi ile bu
+**6 işçi** demek — yani çekirdek değil **bellek** bağlayıcı olabilir. CYBORG'da tam bu yaşandı.
+
+Başlamadan önce kontrol et:
+```bash
+node -e "const os=require('os');console.log('cekirdek',os.cpus().length,'· bos RAM GB',(os.freemem()/1e9).toFixed(1),'· secilecek isci',Math.max(1,Math.min(os.cpus().length-4,Math.floor(os.freemem()/1e9/0.8))))"
+```
+Boş RAM azsa **önce uygulama kapat** — CYBORG'da ölçüldü: bellek boşaltmak, işlemciyi
+hızlandırmaktan daha çok kazandırıyor. Gerekirse `--isci N` ile elle ver, ama fiziksel RAM'i
+**aşma**: takas başlarsa iş hızlanmaz, çakılır.
+
+---
+
+## 4. BİTİNCE: RAPORLA VE PUSH ET
+
+```bash
+node tools/kapi-ozet.js --log docs/kayit-m2/m2.log --havuz   # kendi sonuçların
+git add docs/kayit-m2/ docs/GOREV-MAKINE2.md
+git commit -m "M2: <kapi adi> sonucu — <fark> (t <t>, taban <taban>)"
+git push
+```
+
+CYBORG `git pull` ile senin sonuçlarını alıp kendi ölçümleriyle **havuzlayacak**
+(`tools/kapi-ozet.js --havuz` ters-varyans ağırlığıyla birleştirir ve tohum çakışmasını
+denetler).
+
+### Rapor formatı — her kapı için tek satır
+
+| kapı | n | fark | std | t | taban | hüküm |
+|---|---|---|---|---|---|---|
+| *(buraya yaz)* | | | | | | |
+
+Hüküm sütununu **kendin yorumlama**: `|fark| ≥ taban` ise "geçti", değilse std'ye bakıp
+"etki yok" ya da "ölçülemedi" yaz. İkisini karıştırma.
+
+---
+
+## 5. BİR ŞEY TERS GİDERSE
+
+- **Kapı çöktü:** log'daki hatayı olduğu gibi yapıştır, kendi başına motor dosyası düzeltme.
+- **Sonuç saçma görünüyor** (ör. iki kol birebir aynı marj): büyük ihtimalle kol
+  uygulanmamıştır. `tools/rol-dengesi.js` kol atamasını geri okuyup doğruluyor ve tutmuyorsa
+  gürültüyle düşüyor — ama sessiz bir durum görürsen **rapor et, yorumlama**.
+- **Makine uyuyor:** prizde uyku/hazırda bekletmeyi kapat (`powercfg /change standby-timeout-ac 0`).
+  CYBORG'da yaşandı; uyku ölçümü bozmaz (süreçler askıya alınır, öldürülmez) ama saat kaybettirir.
+
+---
+
+## 6. NEDEN BU İŞ ÖNEMLİ
+
+CYBORG'un ölçtüğü tam güç konfigürasyonu (`ufuk 300 + derin 5`) **%79,7 saldıran galibiyeti**
+verdi — bu projede ölçülen en yüksek oran. Ama sıradaki birkaç sonuç saptama tabanının hemen
+altında kalmış durumda; onları karara bağlayan şey senin ayrık tohumların olacak.
+
+Bir de bugün öğrenilen ve senin de uyman gereken ders var: bu motorda **yaklaşıklıkla
+ucuzlatma** üç kez çöktü (ışınlama, ucuz puanlayıcıyla sıralama, 5Hz kaba adım).
+**Birebir eşdeğer** optimizasyonlar güvenli, yaklaşıklıklar değil. Bir hızlandırma fikrin
+olursa önce küçük bir kapıda sına — ucuzluğunu peşinen sayma.
