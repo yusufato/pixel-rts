@@ -136,6 +136,9 @@ let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→
    A1 denemesi hiç-rollout'u sınadı ve düştü: ışınlanmış birim yürüyen birimle aynı
    değil. Kısa rollout ikisinin arası. Canlı oyun bütçesi için kritik: 5sn ufuk
    106ms, 1sn ufuk ~21ms. */
+/* ARAMA HAVA BİRİMLERİNİ DE KAPSASIN MI (A/B kolu, varsayılan KAPALI).
+   Gerekçe ve kamikaze istisnası için yukarıdaki süzgeç açıklamasına bak. */
+let BATTLE_LA_HAVA = false;
 let LA_UFUK = 100;            // rollout ufku (tik) — 100 = 5sn
 let LA_EMIR_SURESI = 120;     // verilen emir kaç tik korunur (AI onu hemen ezmesin)
    /* dönüşümde emir ömrü, birimin sırasının tekrar gelmesine kadar yetmeli */
@@ -868,7 +871,18 @@ function battleLookaheadTick(now) {
            olduğunu tahmin etmeye gerek bırakmaz (sömürücü katmanı da aynı kuralı
            kullanıyor: js/BattleExploiters.js "oyuncunun birimine KARISMA"). */
         let _sirali = SIM.units
-            .filter(u => !u.dead && u.isRed === isRed && !u.loaded && !u.abandoned && !u.isAir &&
+            /* HAVA BİRİMLERİ ARAMANIN DIŞINDAYDI. Ölçüm (kullanıcının 4 gerçek maçı,
+               2026-08-19): arama emirlerin yalnız %10-19'unu veriyor ve helo bu projede
+               "AI'nın 1 numaralı katili" olarak ölçülmüştü (%22) — yani aramanın hiç
+               dokunmadığı bir sınıf, sonucun büyük bölümünü belirliyor. Bayrak açıkken
+               helo/SİHA/keşif-İHA da aranır.
+               KAMİKAZE HARİÇ ve bu bilerek: dalış taahhüdünü KENDİ mantığı yönetiyor
+               (js/BattleController.js: "AI'nin hareket emri onu KAPSAMAZ" — titremenin
+               kök nedeni buydu). Aramanın ona emir vermesi o kusuru geri getirirdi.
+               ⚠ VARSAYILAN KAPALI: kapalıyken süzgeç birebir eskisi, davranış aynı. */
+            .filter(u => !u.dead && u.isRed === isRed && !u.loaded && !u.abandoned &&
+                         (!u.isAir || (typeof BATTLE_LA_HAVA !== 'undefined' && BATTLE_LA_HAVA === true &&
+                                       typeof T !== 'undefined' && u.type !== T.KAMIKAZE)) &&
                          u.controlOwner !== 'PLAYER')
             .sort((a, b) => (((STATS[b.type] && STATS[b.type].cost) || 0) - ((STATS[a.type] && STATS[a.type].cost) || 0)) || (a.id - b.id))
             .slice(0, LA_BIRIM);

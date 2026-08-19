@@ -377,3 +377,33 @@ uygulamıyordu — K0 ilk satırında çöktü, K1 (60 dakikalık maç kapısı)
 Kural belgede vardı, kodda yoktu.
 
 **Kural:** disiplin cümlesi betikte `if` olarak görünmüyorsa, o disiplin yok.
+
+### 5. Koşan bir bash betiğini düzenleme
+
+Bash betikleri **artımlı** okunur: yorumlayıcı dosyada bir bayt konumu tutar ve sıradaki
+komutu oradan okur. Betik koşarken dosyanın uzunluğu değişirse süreç, dosyanın ortasından
+saçma bir noktadan devam eder. `--bekle` ile kuyrukta bekleyen bir faz betiğini
+düzenlediğimde tam bu oldu; süreç öldürülüp yeniden başlatıldı.
+
+**Kural:** kuyrukta bekleyen bir betiği düzenledikten sonra **öldür ve yeniden başlat**.
+Düzenlemenin işe yaradığını varsayma.
+
+### 6. Knob'u sevk edilmeyen konfigürasyonda ölçme
+
+Tezgâhın varsayılanı `LA_UFUK=100`; oyuna sevk edilen değer artık 200. Yeni bir knob'u
+tezgâh varsayılanında ölçmek, "ufuk 100 iken bu knob kazandırır mı" sorusunu cevaplar —
+o soruyu kimse sormuyor.
+
+**Kural:** yeni knob **sevk edilen** konfigürasyonda ölçülür. Tek istisna **tekrar**
+ölçümleridir: onlar havuzlanacakları ölçümle aynı koşulda kalmak zorundadır.
+
+### 7. Motor dosyasını kapılar koşarken düzenleme
+
+Tezgâh süreçleri motor dosyalarını **başlangıçta bir kez** okur. Yani koşmakta olan bir
+kapı etkilenmez, ama sonra başlayan kapı **farklı kod** koşar — aynı gecenin iki kapısı
+kıyaslanamaz hale gelebilir.
+
+**Kural:** kapılar koşarken yalnız **davranış-nötr** düzenleme yap (yeni bayrak varsayılan
+kapalı, `const`→`let`, yorum). Davranışı değiştiren düzenleme kuyruk boşalınca yapılır —
+ve nötrlük varsayılmaz, koşulun tezgâhta yürümediği **gösterilir** (örn. `BATTLE_LA_WORKER_KIP`
+tezgâhta hiç açılmıyor, `js/BattleWorkerKopru.js` zincirde yok).
