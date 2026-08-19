@@ -255,7 +255,17 @@ function laWorkerAra(m) {
        katina cikarir. Ana iplikte bu DONMA demektir (worker oncesi tur 4432ms olculmustu).
        Isci ayri bir iplikte kostugu icin donacak kare yok. Yani worker kapasiteyi acti;
        kazanci veren, o kapasiteyi KULLANAN bu satirdir — gecenin bes "kucuk duzeltme"
-       denemesinin hepsi tabanin altinda kaldi, kaldirac aramada cikti. */
+       denemesinin hepsi tabanin altinda kaldi, kaldirac aramada cikti.
+
+       BEDELIN IKINCI YARISI (olculdu, 2026-08-19): kopru ongoru penceresini OLCULEN tur
+       suresinden turetiyor (battleLaWorkerPencere: ceil(ms/50)+20, alt 40 ust 200, sonra
+       periyoda hizalanir). Yani pencere ancak ORTALAMA TUR 4.0 SANIYEYI asarsa 100 -> 200
+       tike cikar ve o zaman emir 5sn degil 10sn ileriden verilir (sapma buyur).
+       Kullanicinin gercek maclarinda tur 194-491ms olculdu; ufuk 200 ile ~306-776ms
+       beklenir, yani esige 5-13 kat marj var. AMA yuklu bir makinede bu esik ASILIR:
+       gece kuyrugu koserken ayni kapida tur 10433ms cikti ve pencere gercekten 200'e
+       tirmandi. Bu bir kusur DEGIL (yavas isci icin daha uzun tampon dogrudur), ama
+       ufuk 200'un yavas makinede ikinci bir bedeli oldugu bilinsin. */
     LA_UFUK = 200; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
 
     var s = m.now;
