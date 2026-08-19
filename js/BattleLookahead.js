@@ -28,7 +28,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Teşhis sayaçları (hash DIŞI — simülasyona dokunmaz, yalnız ölçüm harness'i okur)
-const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0, rakipYayilimTop: 0, rakipOlcum: 0, politikaKal: 0, politikaEmir: 0, kuyrukAtilan: 0, enKotuTikMs: 0 };
+const BATTLE_LA_SAYAC = { atlanan: 0, arananan: 0, emir: 0, ileriKazandi: 0, geriKazandi: 0, ayniPlan: 0, farkliAmaEsitSkor: 0, agKullanildi: 0, marjKullanildi: 0, rakipYayilimTop: 0, rakipOlcum: 0, politikaKal: 0, politikaEmir: 0, kuyrukAtilan: 0, enKotuTikMs: 0, kademeElenen: 0 };
 
 let BATTLE_LOOKAHEAD_RED = false;    // saldıran (kırmızı) ileri-bakış kullansın mı
 let BATTLE_LOOKAHEAD_BLUE = false;
@@ -139,6 +139,12 @@ let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→
 /* ARAMA HAVA BİRİMLERİNİ DE KAPSASIN MI (A/B kolu, varsayılan KAPALI).
    Gerekçe ve kamikaze istisnası için yukarıdaki süzgeç açıklamasına bak. */
 let BATTLE_LA_HAVA = false;
+/* KADEMELİ ELEME — bkz. battleLookaheadBirimKarari içindeki uzun açıklama.
+   LA_KADEME = 0 -> kapalı (davranış birebir eski). >0 ise ön eleme rollout'unun tik sayısı.
+   LA_KADEME_KALAN = tam ufka çıkacak finalist sayısı ("yerinde kal" hep yer alır). */
+let LA_KADEME = 0;
+let LA_KADEME_KALAN = 2;
+
 let LA_UFUK = 100;            // rollout ufku (tik) — 100 = 5sn
 let LA_EMIR_SURESI = 120;     // verilen emir kaç tik korunur (AI onu hemen ezmesin)
    /* dönüşümde emir ömrü, birimin sırasının tekrar gelmesine kadar yetmeli */
@@ -518,6 +524,59 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
     }
     // ROL: birimin KENDİ görev kanalları (yoksa rol terimi uygulanmaz)
     const _rolKanal = BATTLE_LA_ROL ? battleLaRolKanallari(u0) : null;
+    /* ── KADEMELİ ELEME (successive halving) — TAM GÜCÜ UCUZLATIR ────────────────
+       ÖLÇÜLDÜ (tools/arama-profil.js, 2026-08-19): turun **%94,5'i** rollout, rollout'un
+       %72,8'i `unit.update` + %17,9'u rakip kontrolörü. Yani maliyet tam olarak
+       `aday × ufuk × birim` ile artıyor ve tam güçte (derin 5 × ufuk 300) birim başına
+       1500 tik simülasyon demek. Eleyici ağı artık darboğaz DEĞİL (%2,9).
+
+       Fikir: 5 adayın hepsini 300 tik oynatmak israf. Önce hepsini KISA (LA_KADEME tik)
+       oynat, sonra yalnız finalistleri tam ufka çıkar.
+         maliyet: 5×60 + 2×300 = 900   (tam güç 5×300 = 1500)  → %40 tasarruf
+
+       ⚠ "YERİNDE KAL" ELENEMEZ. Ona hep bir finalist yeri ayrılır: kal adayı aramanın
+       zarar vermediğini garanti eden tabandır (yukarıda bu yüzden zorla `derin`e ekleniyor).
+       Kısa ön elemede tesadüfen kötü görünüp elenirse o garanti kaybolurdu.
+
+       ⚠ YALNIZ VARSAYILAN KURULUMDA: kanal/rol defteri açıksa devreye GİRMEZ. O terimler
+       aday başına defter deltası okuyor ve ön eleme araya rollout soktuğu için delta
+       kirlenirdi. LA_RAKIP>1 ise de girmez (her adayın birden çok tepki rollout'u var).
+
+       ⚠ VARSAYILAN KAPALI (LA_KADEME=0): davranışı değiştiren bir YAKLAŞIKLIK, maç kapısı
+       hüküm verir. Determinist: eşitlikte skor→x→y sırası, RNG yok. */
+    if (LA_KADEME > 0 && derin.length > LA_KADEME_KALAN &&
+        Math.max(1, LA_RAKIP) === 1 && !BATTLE_LA_KANAL && !_rolKanal) {
+        const on = [];
+        for (const a of derin) {
+            battleForkRestore(fork);
+            const u = SIM.units.find(x => x.id === uid);
+            if (!u) { on.push({ a, s: -Infinity }); continue; }
+            u.controlOwner = 'PLAYER';
+            u.manualTarget = null; u.attackTarget = null;
+            u.targetX = a.x; u.targetY = a.y;
+            u.manualMoveTarget = { x: a.x, y: a.y };
+            u.isMovingToManualTarget = true; u._holdingPos = false;
+            let s2 = now;
+            for (let i = 0; i < LA_KADEME && phase === PHASE.BATTLE; i++) {
+                s2 += BATTLE_TICK_MS;
+                stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);
+            }
+            on.push({ a, s: battleLookaheadSkor(isRed, bas) });
+        }
+        on.sort((p, q) => (q.s - p.s) || (p.a.x - q.a.x) || (p.a.y - q.a.y));
+        const kalAday = derin.find(x => x.kal);
+        const secilen = [];
+        for (const o of on) {
+            if (secilen.length >= LA_KADEME_KALAN) break;
+            secilen.push(o.a);
+        }
+        if (kalAday && !secilen.includes(kalAday)) secilen[secilen.length - 1] = kalAday;   // taban garantisi
+        BATTLE_LA_SAYAC.kademeElenen += (derin.length - secilen.length);
+        derin.length = 0;
+        for (const a of secilen) derin.push(a);
+        battleForkRestore(fork);
+    }
+
     let enIyi = null, enIyiSkor = -Infinity;
     for (const a of derin) {
         const tepkiSkor = [];

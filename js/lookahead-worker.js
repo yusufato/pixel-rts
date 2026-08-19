@@ -266,7 +266,15 @@ function laWorkerAra(m) {
        gece kuyrugu koserken ayni kapida tur 10433ms cikti ve pencere gercekten 200'e
        tirmandi. Bu bir kusur DEGIL (yavas isci icin daha uzun tampon dogrudur), ama
        ufuk 200'un yavas makinede ikinci bir bedeli oldugu bilinsin. */
-    LA_UFUK = 200; LA_DERIN = 2; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
+    /* ⭐ TAM GUC (2026-08-19, kullanici karari: "tam gucte calissin"). Her iki knob da
+       AYRI AYRI kapidan gecti — ikisi de "canli butceye sigmadigi icin kisilmis" ayarlardi
+       ve worker o butceyi kaldirdi:
+         LA_UFUK 100->200 : havuz n=256  +603  t 3.13  taban 540
+         LA_UFUK 200->300 : n=128        +980  t 3.39  taban 810   (H4)
+         LA_DERIN 2->5    : havuz n=256  +607  t 3.15  taban 540   (H1+H1b)
+       ⚠ TOPLANMA VARSAYILMADI: bu depoda demet etkileri toplanmamisti. Ikisinin BIRLIKTE
+       yalniz-ufuk-300'u gectigi ayri bir kapiyla sinaniyor; gecmezse ucuz olan tutulur. */
+    LA_UFUK = 300; LA_DERIN = 5; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
 
     var s = m.now;
     /* ⭐ İLERİ SARMA PERİYOT SINIRINA HİZALANIR — YOKSA ARAMA HİÇ KOŞMAZ.
