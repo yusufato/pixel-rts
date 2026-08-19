@@ -31,6 +31,7 @@ const UFUK = Number(arg('--ufuk', 300)) || 300;
 const DERIN = Number(arg('--derin', 5)) || 5;
 const ARA = Number(arg('--ara', 500)) || 500;
 const KADEME = Number(arg('--kademe', 0)) || 0;   // 0 = kapali (tam guc, on eleme yok)
+const KABA = Number(arg('--kaba', 1)) || 1;       // 1 = sim ile ayni (20Hz) · 4 = 5Hz
 
 const { ctx, hatalar } = tezgahKur();
 if (hatalar.length) { console.log('TEZGAH HATASI:\n  ' + hatalar.join('\n  ')); process.exit(1); }
@@ -51,6 +52,7 @@ const kod = `(() => {
   BATTLE_LOOKAHEAD_RED = true; BATTLE_LOOKAHEAD_BLUE = false;
   LA_UFUK = ${UFUK}; LA_DERIN = ${DERIN}; LA_TIK_BIRIM = 0; LA_BIRIM = 20; LA_TUR_BIRIM = 0;
   if (typeof LA_KADEME !== "undefined") LA_KADEME = ${KADEME};
+  if (typeof LA_KABA_ADIM !== "undefined") LA_KABA_ADIM = ${KABA};
 
   /* SARMALAMA — hepsi ust duzey \`function\` bildirimi oldugu icin global ozellik ve
      yazilabilir. (Bir onceki aracimda \`performAttack\`i sarmaya calisip coktum: o bir
@@ -134,7 +136,7 @@ const kod = `(() => {
       ic: { birim:S.birim, carpisma:S.carpisma, kural:S.kural, mayin:S.mayin, siper:S.siper, hasar:S.hasar, olum:S.olum,
             ktrl:S.ktrl, komut:S.komut, dagger:S.dagger, hash:S.hash, ornek:S.ornek, nBirim:S.n } });
   }
-  return JSON.stringify({ seed:${SEED}, ufuk:${UFUK}, derin:${DERIN}, kademe:${KADEME}, sarildi, olcum,
+  return JSON.stringify({ seed:${SEED}, ufuk:${UFUK}, derin:${DERIN}, kademe:${KADEME}, kaba:${KABA}, sarildi, olcum,
     kademeElenen: (typeof BATTLE_LA_SAYAC !== "undefined") ? BATTLE_LA_SAYAC.kademeElenen : 0 });
 })()`;
 
@@ -142,7 +144,8 @@ const r = JSON.parse(vm.runInContext(kod, ctx, { filename: 'ap.js' }));
 const eksik = Object.entries(r.sarildi).filter(([, v]) => !v).map(([k]) => k);
 console.log('');
 console.log('ARAMA PROFİLİ — tohum ' + r.seed + '   ufuk ' + r.ufuk + ' · derin ' + r.derin +
-    (r.kademe ? ('   · KADEMELİ ELEME ' + r.kademe + ' tik (elenen aday ' + r.kademeElenen + ')') : '   · kademe KAPALI'));
+    (r.kademe ? ('   · kademe ' + r.kademe + ' tik') : '   · kademe kapalı') +
+    ((r.kaba > 1) ? ('   · KABA ADIM ×' + r.kaba + ' (' + Math.round(20 / r.kaba) + 'Hz)') : '   · 20Hz'));
 if (eksik.length) console.log('  ⚠ SARILAMAYAN (global fonksiyon değil): ' + eksik.join(', ') + ' — o satır 0 görünür');
 console.log('');
 if (!r.olcum.length) { console.log('  ölçüm yok'); process.exit(0); }
@@ -196,9 +199,10 @@ console.log('  stepSim çağrısı ' + T(o => o.nRollout) + '   ·   restore ' +
     '   ·   eleme ' + T(o => o.nEleme) + '   ·   aranan birim ' + T(o => o.aranan));
 /* BEKLENEN, KADEMEYI DE HESABA KATAR — yoksa kademe acikken "gercek beklenenden az"
    diye yaniltici gorunurdu (ilk surumde oyle basiyordu). */
-const bekl = r.kademe
+const kabaB = Math.max(1, r.kaba || 1);
+const bekl = Math.round((r.kademe
     ? T(o => o.aranan) * (r.derin * r.kademe + 2 * r.ufuk)
-    : T(o => o.aranan) * r.derin * r.ufuk;
+    : T(o => o.aranan) * r.derin * r.ufuk) / kabaB);
 console.log('  BEKLENEN stepSim = aranan × derin × ufuk = ' + bekl +
     (T(o => o.nRollout) > bekl * 1.15 ? '   ⚠ GERÇEK BUNDAN FAZLA — fazlalık nereden?' : '   ✓ tutuyor'));
 console.log('');

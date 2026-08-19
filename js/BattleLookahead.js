@@ -142,6 +142,10 @@ let BATTLE_LA_HAVA = false;
 /* KADEMELİ ELEME — bkz. battleLookaheadBirimKarari içindeki uzun açıklama.
    LA_KADEME = 0 -> kapalı (davranış birebir eski). >0 ise ön eleme rollout'unun tik sayısı.
    LA_KADEME_KALAN = tam ufka çıkacak finalist sayısı ("yerinde kal" hep yer alır). */
+/* ROLLOUT ADIM KABALIGI: 1 = sim ile ayni (20Hz, kapali) · 4 = 5Hz.
+   Ayrinti ve SIM.tick hizalama gerekcesi icin `battleRolloutIlerlet`e bak. */
+let LA_KABA_ADIM = 1;
+
 let LA_KADEME = 0;
 let LA_KADEME_KALAN = 2;
 
@@ -479,6 +483,35 @@ function battleLookaheadMarj(isRed) {
 
 /* TEK BİRİM İÇİN KARAR: adayları üret → analitik ele → ilk LA_DERIN'i OYNAT → en iyiyi seç.
    Dönüş: {x, y} veya null. Fork/restore burada yapılır; çağıran temiz durumla devam eder. */
+/* ── ROLLOUT İLERLETME — TEK KAPI (kaba adım burada uygulanır) ────────────────────
+   ÖLÇÜLDÜ (tools/arama-profil.js): tur süresinin %94,5'i rollout. Rollout maliyeti
+   `aday × ufuk × birim × tik`. Sim 20Hz adımlıyor; rollout'u DAHA KABA adımlamak
+   maliyeti doğrudan böler — RTS AI'da standart "düşük sadakatli ileri model" tekniği.
+   `LA_KABA_ADIM = 4` → 5Hz, yani aynı ufuk için 4 kat az adım.
+
+   ⚠ `SIM.tick` HİZALAMASI ŞART. Motorun tik-anahtarlı mantığı var: kontrolör
+   `nextDecisionTick = SIM.tick + aralık` ile karar veriyor, emir ömrü `_laUntilTick`
+   ile bitiyor. `stepSim` tik sayacını her çağrıda YALNIZ 1 artırır; kaba adımda bunu
+   düzeltmezsek rakip, simüle edilen zamanda 4 KAT SIK karar verir ve rollout gerçeğe
+   benzemez — yani ölçtüğümüz şey artık oyun olmaz. Bu yüzden adım başına eksik kalan
+   `adim-1` tik burada elle eklenir.
+
+   ⚠ Son adım ufku AŞMAZ (`Math.min`): ufuk 300, kaba 4 iken 75 tam adım; ufuk kaba'nın
+   katı değilse son adım kısalır, böylece iki kol AYNI simüle-zamanı görür.
+
+   ⚠ VARSAYILAN 1 (kapalı): bu bir YAKLAŞIKLIK — birim adım başına 4× yol alır, çarpışma
+   ve varış çözünürlüğü kabalaşır. Hükmü maç kapısı verir. */
+function battleRolloutIlerlet(s, tik) {
+    const kaba = Math.max(1, LA_KABA_ADIM | 0);
+    for (let i = 0; i < tik && phase === PHASE.BATTLE; i += kaba) {
+        const adim = Math.min(kaba, tik - i);
+        s += BATTLE_TICK_MS * adim;
+        stepSim(s, BATTLE_TICK_SEC * adim, battleControllersDrive, false);
+        if (adim > 1 && typeof SIM !== 'undefined') SIM.tick = (SIM.tick | 0) + (adim - 1);
+    }
+    return s;
+}
+
 function battleLookaheadBirimKarari(uid, isRed, now) {
     const u0 = SIM.units.find(x => x.id === uid);
     if (!u0 || u0.dead) return null;
@@ -556,11 +589,7 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
             u.targetX = a.x; u.targetY = a.y;
             u.manualMoveTarget = { x: a.x, y: a.y };
             u.isMovingToManualTarget = true; u._holdingPos = false;
-            let s2 = now;
-            for (let i = 0; i < LA_KADEME && phase === PHASE.BATTLE; i++) {
-                s2 += BATTLE_TICK_MS;
-                stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);
-            }
+            battleRolloutIlerlet(now, LA_KADEME);
             on.push({ a, s: battleLookaheadSkor(isRed, bas) });
         }
         on.sort((p, q) => (q.s - p.s) || (p.a.x - q.a.x) || (p.a.y - q.a.y));
@@ -601,11 +630,7 @@ function battleLookaheadBirimKarari(uid, isRed, now) {
                     c.nextDecisionTick = (c.nextDecisionTick | 0) + rk * LA_RAKIP_KAYMA;
                 }
             }
-            let s = now;
-            for (let i = 0; i < LA_UFUK && phase === PHASE.BATTLE; i++) {
-                s += BATTLE_TICK_MS;
-                stepSim(s, BATTLE_TICK_SEC, battleControllersDrive, false);
-            }
+            battleRolloutIlerlet(now, LA_UFUK);
             let _sk = battleLookaheadSkor(isRed, bas);
             // Kanal katkısı marj ölçeğinde (TL) olduğu için doğrudan toplanabilir.
             if (BATTLE_LA_KANAL && _k0) _sk += battleLaKanalSkor(_k0, _m0, isRed);
@@ -1026,11 +1051,7 @@ function battleLookaheadTick(now) {
             const _g2 = BATTLE_SIM_GOLGE;
             BATTLE_SIM_GOLGE = true;              // ortak-plan rollout'u da GÖLGE
             const f2 = battleForkCapture();
-            let s2 = now;
-            for (let i = 0; i < LA_UFUK && phase === PHASE.BATTLE; i++) {
-                s2 += BATTLE_TICK_MS;
-                stepSim(s2, BATTLE_TICK_SEC, battleControllersDrive, false);
-            }
+            battleRolloutIlerlet(now, LA_UFUK);
             const skor = battleLookaheadSkor(isRed, bas);
             battleForkRestore(f2);
             BATTLE_SIM_GOLGE = _g2;
