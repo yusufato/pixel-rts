@@ -3,20 +3,6 @@
 **Bu dosya ÜRETİLİR, elle yazılmaz.** Yeniden üretmek için:
 
 ```
-{ sed -n '1,/^```$/p' docs/KAPI-DEFTERI.md; node tools/kapi-ozet.js --havuz; echo '```'; } > /tmp/x && mv /tmp/x docs/KAPI-DEFTERI.md
-```
-
-⚠ **NEDEN VAR:** ham kapı log'ları `qa-runtime/` altında ve o dizin **`.gitignore`'da**.
-Yani iki gecelik bütün ölçümler versiyon kontrolünün dışındaydı; dizin temizlense hepsi
-giderdi. Ham log'ların kopyası artık `docs/kayit/` altında (izleniyor), bu dosya da
-onların damıtılmış hâli.
-
-**Hüküm `t`'ye değil SAPTAMA TABANINA göre verilir.** Bu depoda maç marjının std'si
-~2600-3800; n=128'de ancak |etki| ≳ 700-900 güvenle yakalanır. Taban altı ikiye ayrılır:
-`ETKI YOK` (std çok küçük → kol dünyayı kıpırdatmıyor) ile `olculemedi` (std normal →
-bu n ile göremiyoruz; *etkisiz demek değil*).
-
-```
 
 KAPI ÖZETİ — gece-faz2.log, gece-gpu.log, gece-kapi.log, gece-stdout.log
 
@@ -35,7 +21,8 @@ KAPI ÖZETİ — gece-faz2.log, gece-gpu.log, gece-kapi.log, gece-stdout.log
   H4: LA_UFUK 200 vs 300 (kazanani zorla)         128     980   3273   3.39    810  GECTI (+)
   P1: LA_PERIYOT_TIK 100 vs 50 (karar sikligi,    128    -808   3164  -2.89    783  GECTI (-)
   P2: LA_HALKA 3 vs 5 (aday genisligi 24->40)     128    -299   2689  -1.26    666  olculemedi
-  C3: LA_KABA_ADIM 1 vs 4 (20Hz vs 5Hz rollout)     —       —      —      —      —  suruyor
+  C3: LA_KABA_ADIM 1 vs 4 (20Hz vs 5Hz rollout)   128   -2390   2963  -9.13    733  GECTI (-)
+  C5: LA_AG_KAPI true vs false (aday siralamasi     —       —      —      —      —  suruyor
   B: arama taban (arama kapali vs acik)           192     735   2872   3.55    580  GECTI (+)
   C: emir omru koruma 0 vs 1 (yalniz MOVE)        192     552   2812   2.72    568  olculemedi
   D: ufuk 100 vs 200 tik (5sn vs 10sn)            128     357   3009   1.34    745  olculemedi

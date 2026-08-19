@@ -438,3 +438,29 @@ girdiye koymamıştı ve tahminlerin %94'ü tek seçeneğe çökmüştü. Aynı 
 
 **Kural:** bir modeli yeni bir işte kullanmadan önce, o işteki isabetini **rastgele tabana
 karşı** ölç. Eğitim metriği (ρ, doğruluk) başka bir sorunun cevabıdır.
+
+### 10. "Düşük sadakatli ileri model" bu motorda ÇALIŞMIYOR
+
+RTS AI literatürünün standart ucuzlatma tekniği: rollout'u tam simülasyonla değil kaba/
+soyut bir modelle koştur (SparCraft'ın Lanchester tipi çarpışma modeli gibi). Bu motorda
+denendi ve **ezici biçimde düştü**.
+
+`LA_KABA_ADIM = 4` (rollout 20Hz yerine 5Hz; aynı ufuk, 4 kat az adım), n=128, tam güç:
+
+| kol | saldıran galibiyeti | marj |
+|---|---|---|
+| 20Hz | **%79,7** | +1902 |
+| 5Hz | %41,4 | −488 |
+
+Eşleştirilmiş fark **−2390**, t −9,13, saptama tabanı 733. Yani kayıp, tabanın **3,3 katı**
+ve o güne kadar ölçülen en büyük kazancın (ufuk 200→300, +980) **iki buçuk katı**.
+2,2 katlık hız kazancı bunun yanında hiçbir şey.
+
+**Ders:** bu oyunun sonucu ince taneli simülasyona duyarlı. Rollout kabalaştırıldığında
+"hayal" gerçeğe benzemiyor ve ona dayanan karar kötüleşiyor. Aynı ailenin diğer üyeleri
+de bu yüzden düşmüştü: *ışınlama* (değerlendirme simülasyonun yerine geçemez, 5 formülasyon)
+ve *ucuz puanlayıcıyla sıralama* (analitik ve değer ağı rastgeleden iyi değil).
+
+**Kural:** bu motorda maliyeti **yaklaşıklıkla** düşürme girişimleri varsayılan olarak
+şüphelidir; **birebir eşdeğer** optimizasyonlar (aynı sonucu daha hızlı üretenler) güvenlidir.
+Yaklaşıklık öneriliyorsa önce küçük bir kapıda sınanmalı — ucuzluğu peşinen sayılmamalı.
