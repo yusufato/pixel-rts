@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-#  FAZ 10 — TAM GUC + MINIMUM MALIYET (kullanici karari 2026-08-19)
+#  FAZ 10 — "TAM GUC, MINIMUM MALIYET" KAPILARI
 #
-#  YENI TABAN: isci artik LA_UFUK=300, LA_DERIN=5. Ikisi de AYRI AYRI kapidan gecti:
-#    LA_UFUK 100->200 : havuz n=256  +603  t 3.13  taban 540
-#    LA_UFUK 200->300 : n=128        +980  t 3.39  taban 810
-#    LA_DERIN 2->5    : havuz n=256  +607  t 3.15  taban 540
-#  FAZ 7/8/9 IPTAL EDILDI: hepsi ufuk 200 / derin 2 tabaninda olcecekti, yani artik
-#  SEVK EDILMEYEN bir konfigurasyonda (docs/OLCUM-TUZAKLARI.md, 6. tuzak).
+#  SEVK EDILEN TABAN: isci LA_UFUK=300, LA_DERIN=5 (ikisi de ayri ayri kapidan gecti).
+#  Bu fazin isi, o tam gucu UCUZLATAN yaklasikliklarin KALITEYI BOZUP BOZMADIGINI olcmek.
 #
-#  MALIYET PROFILI OLCULDU (tools/arama-profil.js):
-#    tur suresinin %94.5'i rollout · rollout'un %72.8'i unit.update + %17.9'u rakip
-#    kontroloru · eleyici agi yalnizca %2.9 (eski kisitli ayarda darbogaz OYDU, artik degil).
-#    Maliyet tam olarak `aday × ufuk × birim`. Tam guc = birim basina 1500 tik.
+#  MALIYET PROFILI (tools/arama-profil.js): turun %94.5'i rollout · rollout'un %72.8'i
+#  unit.update + %17.9'u rakip kontroloru · eleme yalnizca %2.9. Maliyet tam olarak
+#  `aday × ufuk × birim × tik`.
 #
-#  C2 — TOPLANMA VAR MI? derin 5, ufuk 300'UN USTUNE bir sey katiyor mu? Ikisi de ayri
-#       ayri kanitlandi ama bu depoda DEMET etkileri toplanmamisti. Katmiyorsa derin 2'ye
-#       donulur ve maliyet %60 duser — en buyuk tek tasarruf firsati bu.
-#  C1 — KADEMELI ELEME kaliteyi bozuyor mu? 5 adayi 60 tik oynat, finalist 2'sini 300'e
-#       tamamla ("yerinde kal" hep finalist). Olculdu: birim basina rollout tiki
-#       1600 -> 915 (%43 az). Kayipsizsa tam guc %43 ucuzlar.
-#  T0/T1 — TOPCU ATES DISIPLINI (gecenin en guclu yeni teshisi; gerekce faz9 basliginda).
+#  ⚠ HER KOL AYNI TABANA KARSI OLCULUR (tam guc, yaklasikliklar KAPALI). Yaklasikliklari
+#  ust uste ekleyip tek kapidan gecirmek, hangisinin ne kattigini ayristirilamaz kilardi —
+#  bu depoda "demet" ile tam bu yasandi (etkiler toplanmamisti). Gecenler benimsenir,
+#  sonra BIRLESIK konfigurasyon TEK bir kapiyla dogrulanir.
+#
+#  C3  KABA ADIM 20Hz -> 5Hz. Olculdu: birim basina 1600 -> 400 adim (kademe kapaliyken),
+#      tur 2.79x hizli. Esdegerligi kanitlandi (LA_KABA_ADIM=1 iken marj BIREBIR ayni).
+#      EN BUYUK TEK TASARRUF — o yuzden ilk sirada.
+#  C1  KADEMELI ELEME (5 aday 60 tik -> finalist 2 tam ufuk; "yerinde kal" elenemez).
+#      Olculdu: birim basina rollout tiki 1600 -> 915.
+#  C2  DERIN 5 gercekten katiyor mu? Ikisi de ayri ayri kanitlandi ama bu depoda demet
+#      etkileri toplanmamisti. Katmiyorsa derin 2'ye donulur ve maliyet %60 duser.
+#  T0/T1 TOPCU ATES DISIPLINI — gecenin en guclu yeni teshisi (AI dolaylisi zamanin
+#      %42'sinde HAREKET halinde, oyuncununki %13; birim basina isabet 23.0 vs 44.5).
 #
 #    bash tools/gece-kuyrugu-faz10.sh --bekle
 # ═══════════════════════════════════════════════════════════════════════════
@@ -47,21 +49,33 @@ if [ "${1:-}" = "--bekle" ]; then
     done
 fi
 
-# C2 — derin 5, ufuk 300'un ustune katiyor mu? (katmiyorsa maliyet %60 duser)
+# C3 — 20Hz vs 5Hz rollout (en buyuk tasarruf: adim 4x az)
+kapi "C3: LA_KABA_ADIM 1 vs 4 (20Hz vs 5Hz rollout) @ tam guc" \
+    node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 126000 \
+    --kol LA_KABA_ADIM --koldeger 1,4 --ayar "$TABAN"
+
+# C4 — KARAR SIKLIGI, tam gucte. P1 bunu ufuk 200/derin 2'de olctu ve GECTI:
+#      fark (100-50) = -808, yani periyot 50 lehine +808, taban 783. Galibiyet %63.3 -> %75.0
+#      (gecenin en yuksegi). AMA periyodu yariya indirmek tur sayisini IKI KATINA cikarir —
+#      P1 kazancini CPU ile satin aldi. 5Hz + kademe tasarrufu tam da bunu karsilamak icin;
+#      once sevk edilen tabanda dogrulanmali, sonra varsayilan cevrilir.
+kapi "C4: LA_PERIYOT_TIK 100 vs 50 @ tam guc (karar sikligi)"     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 127000     --kol LA_PERIYOT_TIK --koldeger 100,50 --ayar "$TABAN"
+
+# C1 — kademeli eleme kaliteyi boziyor mu
+kapi "C1: LA_KADEME 0 vs 60 @ tam guc" \
+    node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 125000 \
+    --kol LA_KADEME --koldeger 0,60 --ayar "$TABAN"
+
+# C2 — derin 5, ufuk 300'un ustune katiyor mu (katmiyorsa maliyet %60 duser)
 kapi "C2: LA_DERIN 2 vs 5 @ ufuk 300 (toplanma var mi)" \
     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 124000 \
     --kol LA_DERIN --koldeger 2,5 --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300"
-
-# C1 — kademeli eleme kaliteyi bozuyor mu? (bozmuyorsa tam guc %43 ucuzlar)
-kapi "C1: LA_KADEME 0 vs 60 @ tam guc (ucuzlatma bedava mi)" \
-    node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 125000 \
-    --kol LA_KADEME --koldeger 0,60 --ayar "$TABAN"
 
 # T0 — topcu ates disiplini MEKANIZMA (mac kapisindan ONCE)
 kapi "T0: TOPCU DURAGAN mekanizma" \
     node tools/topcu-duragan-mekanizma.js --mac 6 --tohum0 130000
 
-# T1 — topcu ates disiplini MAC KAPISI, yeni tabanda
+# T1 — topcu ates disiplini MAC KAPISI
 kapi "T1: BATTLE_TOPCU_DURAGAN kapali vs acik @ tam guc" \
     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 123000 \
     --kol BATTLE_TOPCU_DURAGAN --koldeger false,true --ayar "$TABAN"
