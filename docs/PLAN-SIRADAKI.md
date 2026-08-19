@@ -95,6 +95,15 @@ Mekanizma aracı düzeltildi: artık sonuç sütununa da bakıp uyarı basıyor 
 - **Piyade sınıfı boşta**: menzil 300px, en yakın düşmana ortalama 1031-1397px. 4 maçta
   ateş etmeyen 49 birimin 17'si bu sınıf. Ama M0 gösterdi ki **yürüyerek menzile girmek
   çözüm değil** — girenler ölüyor.
+- **⭐ SALDIRAN ORDUSU YAPISAL OLARAK UYUMSUZ (ölçüldü, 8 tohum).** AI saldırırken
+  bütçesinin **%48'ini menzili 600px'in altındaki birimlere** harcıyor (savunanken %40 —
+  yani rolüne göre neredeyse hiç ayrışmıyor). 9,5 yaya piyade sınıfı birime karşılık
+  **1,4 taşıyıcı** alıyor. Sonuç zinciri artık uçtan uca ölçülü:
+  bütçenin yarısı kısa menzilli → düşman 2,8× menzil uzakta duruyor → o birimler hiç ateş
+  etmiyor (49 boşta birimin 17'si) → yürüyerek yaklaşırlarsa ölüyorlar (M0: sağ kalan
+  12,7→5,2) → taşınabilirler ama AI taşımayı **hiç** kullanmıyor (4 maçta 0 bindirme).
+  **Karar kullanıcınındır**: bu bir knob değil, ya kompozisyon ya taşıma davranışı
+  değişikliği. Gece kuyruğuna EKLENMEDİ.
 - **AI piyadesini hiç TAŞIMIYOR.** 4 gerçek maçta tek bir bindirme/indirme yok (birim
   örneklerden hiç kaybolup dönmüyor) ve AI maç başına yalnız **1** taşıyıcı alıyor
   (mekanize + nakliye helo toplam). Yani menzil sorununun bilinen askerî çözümü —
