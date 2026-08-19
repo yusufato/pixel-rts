@@ -1544,6 +1544,15 @@ let BATTLE_KAPMA_TEHLIKE = true;   // A/B kolu
 const KAPMA_TEHLIKE_R = 420;       // hedefin çevresinde bu yarıçapta düşman varsa gitme
 const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat ile aynı ölçek)
 
+/* ── TOPÇU ATEŞ DİSİPLİNİ (A/B kolu) — ateş edebilen dolaylı birim yerinden oynamasın ──
+   Kullanıcının 4 gerçek maçından: AI'nın dolaylı birimleri zamanın %42'sinde hareket
+   halinde, oyuncununkiler %13. Birim başına isabet AI 23,0 · oyuncu 44,5. Menzilde geçen
+   zaman ise neredeyse aynı (%56 / %60) — yani konum değil, sürekli yolda olmak sorun.
+   Kural: hedefi + mühimmatı olan dolaylı birim MOVE emrini yok sayar; BASTIRILMIŞSA
+   yok saymaz (shoot-and-scoot meşru). Ayrıntı: js/BattleController.js `battleTopcuDuraganMi`.
+   ⚠ VARSAYILAN KAPALI: yerinde kalmak karşı-batarya yemek olabilir, hükmü maç kapısı verir. */
+let BATTLE_TOPCU_DURAGAN = false;
+
 /* ── MENZİLE GİR (A/B kolu) — kısa menzilli doğrudan ateş beklemesin ───────
    Kullanıcının 4 gerçek maçından ölçüldü: AI ile oyuncu aynı mesafede duruyor ama AI'nın
    silahı yetmiyor (mesafe/menzil oranı AI 2.17-3.09 · oyuncu 1.24-1.82). AI'nın 20 silahlı

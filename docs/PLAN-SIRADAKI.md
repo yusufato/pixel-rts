@@ -52,13 +52,45 @@ saptama tabanı 90. Buradaki asıl bilgi std: eşleştirilmiş fark std'si **366
 yerine). Yani bu bayrak maç sonucunu neredeyse hiç kıpırdatmıyor — bu "ölçemedik" değil,
 güvenle **"etki yok"**. Kapandı.
 
-**M0 · `_menzileGir` mekanizması → çalışıyor AMA sonucu bozuyor.** Kısa menzilli birimin
-menzilde geçirdiği zaman %20,7 → **%58,9** (kural gerçekten yürüyor). Ama aynı 6 tohumda
-sağ kalan AI birimi **12,7 → 5,2** ve ortalama marj **+2071 → −160**. Birimler menzile
-giriyor ve yolda ölüyorlar — bu depoda kayıtlı kusur sınıfı: *"öne çıkıp ölen konumlandırma
-becerileri elendi"*. M1 maç kapısı (n=128) hükmü verecek; **beklenti negatif**.
-Mekanizma aracı düzeltildi: artık sonuç sütununa da bakıp uyarı basıyor (ilk sürüm, sonuç
-çökerken tertemiz bir "maç kapısına girebilir" damgası veriyordu).
+**⭐ M1 · `_menzileGir` → +748 (t 2,73), tabanın 20 ALTINDA — ve benim tahminimi çürüttü.**
+Galibiyet %50,8 → **%64,1**, marj −86 → +662. Saptama tabanı 768; ölçülen 748. Yani
+neredeyse geçiyor ve **tekrar hak ediyor** (faz 9 · M1b, taze tohum, havuz için).
+
+⚠ **Neden yanlış bekledim — kaydediyorum çünkü hata sınıfı yeni.** Mekanizma kapısı M0
+"sonuç kötüleşiyor" demişti (sağ kalan 12,7→5,2, marj +2071→−160) ve ben negatif bekledim.
+Ama **M0 kuralı AI SAVUNURKEN ölçüyor** (`tools/menzile-gir-mekanizma.js:31` `isAttacker:true`
+→ kuralı taşıyan taraf savunan), **M1 ise saldıranı**. Savunanın menzile yürümesi yanlış,
+saldıranın doğru — iki kapı **farklı soruyu** cevaplamış. *Mekanizma kapısı ile maç kapısı
+aynı rolü ölçmeliydi.* Mekanizma aracı ayrıca düzeltildi: artık sonuç sütununa da bakıp
+uyarı basıyor (ilk sürüm, sonuç çökerken tertemiz bir "maç kapısına girebilir" damgası veriyordu).
+
+## ⭐ Gecenin ikinci yeni teşhisi: AI'nın topçusu ateş etmiyor, YÜRÜYOR
+
+Kullanıcının 4 gerçek maçından, dolaylı birimlerin canlı geçirdiği zamanın dağılımı:
+
+| | AI | oyuncu |
+|---|---|---|
+| **HAREKETTE** | **%42** | **%13** |
+| menzilde düşman var | %56 | %60 |
+| hedefi var | %39 | %50 |
+| bastırılmış | %12 | %2 |
+
+Dolaylı ateş yürürken atamaz. Sonuç: **birim başına isabet AI 23,0 · oyuncu 44,5** (1,9×) —
+oysa birim sayıları benzer (9 / 11). Bir maçta oyuncunun **tek** havanı 145 isabet yaptı,
+AI'nın iki tüpü toplam 62. Menzil sorunu **değil** (menzilde geçen zaman neredeyse aynı).
+
+Yükün kaynağı **arama değil kontrolör**: dolaylı birim başına maç boyunca arama 6,1 emir
+verirken kontrolör **66,6** veriyor (124 MOVE + 378 ATTACK + 97 HOLD).
+
+Ayrıca: AI birim başına oyuncunun **2 katı panikliyor** (3,1 / 1,5) — oyuncunun dolaylı
+ateş üstünlüğünün doğrudan sonucu. Ve karşı-batarya **asimetrik değil**: iki taraf da
+dolaylı isabetlerinin %6'sını düşman topçusuna yöneltiyor; fark hedef seçiminde değil
+**hacimde**.
+
+`BATTLE_TOPCU_DURAGAN` (varsayılan kapalı): hedefi ve mühimmatı olan dolaylı birim MOVE
+emrini yok sayar; **bastırılmışsa yok saymaz** (shoot-and-scoot meşru bırakıldı).
+2 tohumluk ön ölçüm: hareket %79,3 → %53,5, dolaylı isabet ~4×, marj +1000.
+Kapılar faz 9'da (T0 mekanizma + T1 maç).
 
 ## Kuyrukta (sabaha kadar)
 

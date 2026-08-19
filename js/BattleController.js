@@ -87,6 +87,34 @@ function battleKamikazeMi(unit) {
 
    OYUNCUNUN BİRİMİ KORUMA DIŞI: onun emri zaten player-* yolundan gelir; buradaki
    süzgeç kod-AI emirleri içindir. */
+/* ── TOPÇU ATEŞ DİSİPLİNİ: ateş edebilen dolaylı birim yerinden oynatılmaz ──────────
+   KULLANICININ 4 GERÇEK MAÇINDAN ÖLÇÜLDÜ (2026-08-19). AI'nın dolaylı birimleri, canlı
+   geçirdikleri zamanın **%42'sinde hareket halinde**; oyuncununkiler **%13**. Dolaylı
+   ateş yürürken atamaz, ve sonuç tam da bu: birim başına isabet AI 23,0 · oyuncu 44,5.
+   Menzil sorunu DEĞİL — menzilde geçen zaman iki tarafta neredeyse aynı (%56 / %60).
+
+   Yükün kaynağı ARAMA değil KONTROLÖR: dolaylı birim başına maç boyunca arama 6,1 emir
+   verirken kontrolör 66,6 veriyor (124 MOVE + 378 ATTACK + 97 HOLD, 9 birim / 4 maç).
+   Yani grup hareketi topçuyu sürekli yolda tutuyor.
+
+   Kural: birimin hedefi ve mühimmatı varsa, MOVE emri ONU KAPSAMAZ. Bastırılmışsa kural
+   DEVREDE DEĞİL — o zaman yer değiştirmek (shoot-and-scoot) meşru; AI'nın tüpleri zaten
+   oyuncununkinden 6 kat fazla bastırılıyor (%12 / %2) ve o kaçışı engellemek istemiyoruz.
+   Determinist: yalnız durum okur, RNG yok.
+   ⚠ VARSAYILAN KAPALI. Yerinde kalmak karşı-batarya yemek demek olabilir; hükmü maç kapısı verir. */
+function battleTopcuDuraganMi(unit) {
+    if (typeof BATTLE_TOPCU_DURAGAN === 'undefined' || BATTLE_TOPCU_DURAGAN !== true) return false;
+    if (!unit || unit.dead || unit.loaded || unit.abandoned) return false;
+    if (unit.controlOwner === 'PLAYER') return false;      // oyuncunun birimine ASLA dokunma
+    if (!unit.isIndirect) return false;
+    if (unit.maxAmmo > 0 && unit.ammo <= 0) return false;  // kuru tüp yer değiştirebilir
+    if ((unit.suppression || 0) > 0.3) return false;       // bastırılmışsa kaçmasına izin ver
+    if (unit.isFleeing || unit.isPanicking) return false;
+    // Ateş edebileceği bir hedef var mı? (kilitli hedef ya da menzilde düşman)
+    if (unit.attackTarget && !unit.attackTarget.dead) return true;
+    return false;
+}
+
 function battleLaEmirKorumali(unit, bit) {
     /* DEMET: `BATTLE_AI_DEMET` açıkken koruma MOVE (bit 1) olarak devrededir — ölçülen
        iki koldan (1 ve 15) daha küçük davranış değişikliği olanı, çünkü havuzda ikisi
@@ -111,6 +139,8 @@ function applyBattleOrder(rawOrder) {
                 battleKamikazeMi(unit)) continue;
             // ARAMA EMRİ: hâlâ yürürlükteyse grup hareketi onu EZMESİN (ölçüm: ezmelerin %62'si burada)
             if (battleLaEmirKorumali(unit, LA_KORUMA_MOVE)) continue;
+            // ATEŞ EDEBİLEN DOLAYLI BİRİM YERİNDEN OYNAMAZ (A/B kolu, varsayılan KAPALI)
+            if (battleTopcuDuraganMi(unit)) continue;
             const safe = typeof terrainSafePoint === 'function'
                 ? terrainSafePoint(destination.x, destination.y)
                 : destination;

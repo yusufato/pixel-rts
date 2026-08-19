@@ -407,3 +407,15 @@ kıyaslanamaz hale gelebilir.
 kapalı, `const`→`let`, yorum). Davranışı değiştiren düzenleme kuyruk boşalınca yapılır —
 ve nötrlük varsayılmaz, koşulun tezgâhta yürümediği **gösterilir** (örn. `BATTLE_LA_WORKER_KIP`
 tezgâhta hiç açılmıyor, `js/BattleWorkerKopru.js` zincirde yok).
+
+### 8. Mekanizma kapısı ile maç kapısı FARKLI ROLÜ ölçüyordu
+
+`_menzileGir` mekanizma kapısı (M0) kuralı **AI savunurken** ölçtü ve "sonuç kötüleşiyor"
+dedi (marj +2071 → −160). Ben buna bakıp maç kapısından negatif bekledim. Maç kapısı (M1)
+**saldıranı** ölçtü ve **+748** çıktı (galibiyet %50,8 → %64,1).
+
+İkisi de doğruydu: savunanın menzile yürümesi yanlış, saldıranın doğru. Ama iki kapı
+**farklı soruyu** cevapladığı için mekanizma kapısı beni yanlış yönlendirdi.
+
+**Kural:** mekanizma kapısı, maç kapısının ölçeceği **aynı rolü** kurmalı. Kurmuyorsa bunu
+çıktısına yazmalı ki sonucu okuyan iki kapıyı aynı sanmasın.
