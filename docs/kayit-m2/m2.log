@@ -184,3 +184,11 @@ ROL DENGESI — PARALEL
   aktarilan: --kol LA_UFUK --koldeger 300,400 --ayar BATTLE_LOOKAHEAD_RED=true;LA_DERIN=5
 
   [havuz] genislik 11   (bos RAM 9.0 GB)
+  parca 0 bitti (kod 0)   1/64   16.7dk
+  [havuz] genislik 15   (bos RAM 4.1 GB)
+  parca 4 bitti (kod 0)   2/64   16.9dk
+  [havuz] genislik 16   (bos RAM 3.5 GB)
+  parca 5 bitti (kod 0)   3/64   17.1dk
+  parca 6 bitti (kod 0)   4/64   18.8dk
+  parca 10 bitti (kod 0)   5/64   21.5dk
+  parca 8 bitti (kod 0)   6/64   22.4dk
