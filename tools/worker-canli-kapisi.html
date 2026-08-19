@@ -203,7 +203,18 @@ async function kol(ad, arama, workerKip) {
        6 emir verdi, kalan 44'u SESSIZCE bos dondu (pencere karar anina hizali degildi) ve
        bu kapi yine de gecerdi. Kapi artik BOS TUR ORANINI da sinar. */
     const bosOran = (d.tur | 0) ? (d.bosTur | 0) / (d.tur | 0) : 1;
-    const calisti = (d.tur | 0) > 0 && (d.emir | 0) > 0 && bosOran < 0.5 && (d.hizasiz | 0) === 0;
+    /* ⚠ VERI YETERSIZSE "DUSTU" DEME. Yuklu bir makinede isci turu 10sn'ye cikti ve testin
+       tamaminda YALNIZ 2 tur oldu; kapi bos-tur oranini 1/2 okuyup "DUSTU" dedi. Iki turluk
+       bir oranin hukmu yoktur — bu bir BASARISIZLIK degil OLCUMSUZLUKTUR ve ikisini ayni
+       damgayla raporlamak yanlis alarm uretir (ya da gercek kusuru yutar). */
+    const YETER_TUR = 6;
+    const yeterliVeri = (d.tur | 0) >= YETER_TUR;
+    if (!yeterliVeri) {
+        yaz('⚠ VERI YETERSIZ: yalnizca ' + (d.tur | 0) + ' tur olustu (en az ' + YETER_TUR + ' gerekir).', 'kotu');
+        yaz('   Muhtemel sebep: makine yuklu (isci turu ' + (d.ortSureMs | 0) + 'ms) ya da test suresi kisa.', 'not');
+        yaz('   Bu kapi MUTLAK ms olcer; bos makinede kosturulmalidir.', 'not');
+    }
+    const calisti = yeterliVeri && (d.emir | 0) > 0 && bosOran < 0.5 && (d.hizasiz | 0) === 0;
     const donmaCozuldu = C.enKotu < B.enKotu * 0.5;
     const tabanaYakin = C.enKotu < A.enKotu * 3 + 50;
     yaz('ARAMA GERÇEKTEN KOŞTU     : ' + (calisti ? 'EVET ✓' : 'HAYIR ✗ (donma yok ama arama da yok)') +
@@ -211,8 +222,9 @@ async function kol(ad, arama, workerKip) {
     yaz('DONMA ÇÖZÜLDÜ (C < B/2)   : ' + (donmaCozuldu ? 'EVET ✓' : 'HAYIR ✗'), donmaCozuldu ? 'ok' : 'kotu');
     yaz('TABANA YAKIN (C ≈ A)      : ' + (tabanaYakin ? 'EVET ✓' : 'HAYIR ✗'), tabanaYakin ? 'ok' : 'kotu');
     const gecti = calisti && donmaCozuldu && tabanaYakin;
+    if (!yeterliVeri) yaz('KAPI SONUCU HUKUMSUZ (veri yetersiz) — bos makinede tekrarla.', 'kotu');
     yaz('KAPI: ' + (gecti ? 'GECTI' : 'DUSTU'), gecti ? 'ok' : 'kotu');
-    window.__KAPI_SONUC = { gecti, A:{enKotu:A.enKotu,p95:A.p95}, B:{enKotu:B.enKotu,p95:B.p95},
+    window.__KAPI_SONUC = { gecti, yeterliVeri, A:{enKotu:A.enKotu,p95:A.p95}, B:{enKotu:B.enKotu,p95:B.p95},
                             C:{enKotu:C.enKotu,p95:C.p95}, worker:d };
   } catch (e) {
     yaz('ÇÖKTÜ: ' + (e && e.stack || e), 'kotu');
