@@ -102,13 +102,23 @@ Mekanizma aracı düzeltildi: artık sonuç sütununa da bakıp uyarı basıyor 
   (bu depoda tam bu hatayı önlemek için yazılmış: *"tek getiri lensi üç kez yanlış hedef
   gösterdi"*) piyadeyi şöyle ölçüyor:
 
-  | birim | TL | imha/TL | hasar/TL | PANİK | BASKI |
-  |---|---|---|---|---|---|
-  | **piyade** | 100 | — | 2,37 | 304 | **690** |
-  | topçu | 450 | — | 0,64 | 42 | 100 |
+  (6 tohum; her sütun **birim başına ve maliyete bölünmüş** — "1 TL karşılığı ne üretti")
 
-  Piyade hiç **öldürmüyor** (imha/TL boş) ama ordunun en büyük **baskı** üreticisi — ₺
-  başına topçunun 6,9 katı. Yani piyade israf değil; ürünü baskı ve temasta ödüyor.
+  | birim | TL | imha/TL | hasar/TL | PANİK | BASKI | emilen | GÖRÜŞ |
+  |---|---|---|---|---|---|---|---|
+  | **piyade** | 100 | 0,45 | 0,87 | 96 | **260** | **1,80** | **1,86** |
+  | havan | 180 | 0,50 | 0,99 | 47 | 229 | 0,66 | 0,37 |
+  | ÇNRA | 650 | 0,44 | 0,95 | 55 | **342** | 0,25 | 0,79 |
+  | topçu | 450 | 0,07 | 0,54 | 28 | 103 | 0,50 | 0,13 |
+  | tanksavar | 170 | **1,17** | **1,80** | 101 | 29 | 0,75 | 0,61 |
+
+  Piyade yıldız değil ama **israf da değil**: ₺ başına baskıda ikinci (260, topçunun 2,5
+  katı), hasar emmede ve görüşte birinci, üstelik öldürüyor da (0,45). 100₺'ye dört kanalda
+  birden üretiyor.
+
+  ⚠ Bu tabloyu bir kez **tek tohumla** okudum ve "piyade hiç öldürmüyor, baskıda topçunun
+  6,9 katı" diye yazdım — ikisi de tek-tohum yapaylığıydı. 6 tohum düzeltti. Aynı gecede
+  üçüncü kez ince örnekten fazla iddia çıkarmışım.
 
   Gerçek zincir şu: piyade **temasa hiç girmiyor**. Tezgâhta (AI vs AI) iki taraf da
   ilerlediği için temas oluyor ve piyade kazandırıyor; kullanıcının maçlarında kullanıcı
