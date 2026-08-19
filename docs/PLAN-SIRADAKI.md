@@ -10,6 +10,16 @@ Damgasız satır yoktur: her iş ya ÖLÇÜLDÜ, ya ÖN KAPIYI GEÇTİ, ya HENÜ
 
 # ⭐ 2026-08-19 GECESİ — SONUÇ TABLOSU (sabah ilk buraya bak)
 
+```
+node tools/kapi-ozet.js --havuz      # tüm kapılar tek tabloda + ters-varyans havuzu
+```
+
+Bu komut gece kuyruğunun **o ana kadarki** tüm sonuçlarını basar; aşağıdaki tablo yazıldığı
+andaki durumdur, komut ise günceldir. Hüküm `t`'ye değil **saptama tabanına** göre verilir
+ve taban altı ikiye ayrılır: `ETKI YOK` (std çok küçük → kol dünyayı kıpırdatmıyor) ile
+`olculemedi` (std normal → bu n ile göremiyoruz; *etkisiz demek değil*).
+
+
 ## KAPIYI GEÇEN TEK ŞEY: uzun ufuk. Ve uygulandı.
 
 | kapı | n | eşleştirilmiş fark | t | saptama tabanı | sonuç |
