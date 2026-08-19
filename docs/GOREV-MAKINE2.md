@@ -118,6 +118,54 @@ hızlandırmaktan daha çok kazandırıyor. Gerekirse `--isci N` ile elle ver, a
 
 ---
 
+## 3b. ⚠ VS CODE KAPANINCA WINDOWS SENİ YAVAŞLATIR — ÖNCE BUNU KUR
+
+**CYBORG'da yaşandı ve saatlere mal oldu.** VS Code kapatılınca etkileşimli oturum kalmıyor,
+Windows node süreçlerini **arka plan** sayıp EcoQoS güç kısıtlaması uyguluyor. Sonuç ölçüldü:
+
+| | CPU meşgul | efektif saat |
+|---|---|---|
+| VS Code açıkken | %62 | 3156 MHz |
+| **VS Code kapandıktan sonra** | **%12** | **1392 MHz** |
+
+Süreçler ölmüyor — **2,3 kat yavaşlıyor**. Ayrıca hibrit işlemcilerde Windows arka plan işini
+bilerek **E-çekirdeklere** atar; "işler yanlışlıkla sanal işlemcilerde başladı" diye görünen
+şey genelde budur ve **kendiliğinden düzelmez**, sonraki kapı da aynı yere düşer.
+
+### Kuyruğu başlatmadan ÖNCE uygula
+
+**Yönetici PowerShell'de** (bu komut yönetici ister):
+```powershell
+powercfg /powerthrottling disable /path "C:\Program Files
+odejs
+ode.exe"
+```
+
+Normal PowerShell'de (yönetici gerekmez):
+```powershell
+powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
+powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFBOOSTMODE 2
+powercfg /setactive SCHEME_CURRENT
+powercfg /change standby-timeout-ac 0
+powercfg /change hibernate-timeout-ac 0
+```
+
+### Sonra DOĞRULA (kapatmadan önce, kapattıktan sonra)
+
+```powershell
+$d = Get-CimInstance Win32_PerfFormattedData_Counters_ProcessorInformation | ? { $_.Name -eq '_Total' }
+"CPU %$($d.PercentProcessorTime)  ·  saat " + [math]::Round((Get-CimInstance Win32_Processor).MaxClockSpeed * $d.PercentProcessorPerformance/100) + " MHz"
+```
+
+⚠ **Tek ölçümle karar verme** — bu büyüklük ±%10 salınır. 8-10 örnek al, ortalamasına bak.
+Ve kıyası **yalnız aynı işçi sayısında** yap; yük değişince rakam değişir ve karşılaştırma
+anlamsızlaşır (CYBORG'da bu hata birkaç kez yapıldı).
+
+Kapattıktan sonra CPU meşguliyeti yarıya düştüyse muafiyet tutmamıştır — yönetici komutunu
+tekrar kontrol et.
+
+---
+
 ## 4. BİTİNCE: RAPORLA VE PUSH ET
 
 ```bash
