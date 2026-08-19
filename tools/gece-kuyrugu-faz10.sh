@@ -54,6 +54,16 @@ kapi "C3: LA_KABA_ADIM 1 vs 4 (20Hz vs 5Hz rollout) @ tam guc" \
     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 126000 \
     --kol LA_KABA_ADIM --koldeger 1,4 --ayar "$TABAN"
 
+# C5 — ADAY SIRALAMASINI DEGER AGI MI KURSUN? (kalite + maliyet ayni anda)
+#      OLCULDU (tools/ucuz-puan-ongoru.js, 4 tohum / 55 birim-karari): adaylarin hangi
+#      LA_DERIN tanesinin rollout'a girecegini eleyicinin siralamasi belirliyor ve o
+#      siralamayi `_puan = _ag ?? _s` ile DEGER AGI kuruyor. Tam rollout'un birincisini
+#      tutturma orani:  analitik %19.9 · deger agi %10.8 · rastgele taban ~%18.
+#      Yani ag bu is icin rastgeleden IYI DEGIL (kotu oldugu iddiasi n=55'te anlamli
+#      degil, z~-1.37 — o yuzden "iyi degil" deniyor, "kotu" degil).
+#      LA_AG_KAPI=false siralamayi analitige dusurur VE ag cagrilarini tamamen kaldirir.
+kapi "C5: LA_AG_KAPI true vs false (aday siralamasini ag mi kursun) @ tam guc"     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 128000     --kol LA_AG_KAPI --koldeger true,false --ayar "$TABAN"
+
 # C4 — KARAR SIKLIGI, tam gucte. P1 bunu ufuk 200/derin 2'de olctu ve GECTI:
 #      fark (100-50) = -808, yani periyot 50 lehine +808, taban 783. Galibiyet %63.3 -> %75.0
 #      (gecenin en yuksegi). AMA periyodu yariya indirmek tur sayisini IKI KATINA cikarir —
@@ -61,15 +71,15 @@ kapi "C3: LA_KABA_ADIM 1 vs 4 (20Hz vs 5Hz rollout) @ tam guc" \
 #      once sevk edilen tabanda dogrulanmali, sonra varsayilan cevrilir.
 kapi "C4: LA_PERIYOT_TIK 100 vs 50 @ tam guc (karar sikligi)"     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 127000     --kol LA_PERIYOT_TIK --koldeger 100,50 --ayar "$TABAN"
 
-# C1 — kademeli eleme kaliteyi boziyor mu
-kapi "C1: LA_KADEME 0 vs 60 @ tam guc" \
-    node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 125000 \
-    --kol LA_KADEME --koldeger 0,60 --ayar "$TABAN"
-
 # C2 — derin 5, ufuk 300'un ustune katiyor mu (katmiyorsa maliyet %60 duser)
 kapi "C2: LA_DERIN 2 vs 5 @ ufuk 300 (toplanma var mi)" \
     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 124000 \
     --kol LA_DERIN --koldeger 2,5 --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300"
+
+# C1 — kademeli eleme kaliteyi boziyor mu
+kapi "C1: LA_KADEME 0 vs 60 @ tam guc" \
+    node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 125000 \
+    --kol LA_KADEME --koldeger 0,60 --ayar "$TABAN"
 
 # T0 — topcu ates disiplini MEKANIZMA (mac kapisindan ONCE)
 kapi "T0: TOPCU DURAGAN mekanizma" \
