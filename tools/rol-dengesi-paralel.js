@@ -37,10 +37,17 @@ const GECICI = path.join(ROOT, 'qa-runtime', 'rol-dengesi-paralel');
    Tavan artik cekirdekten turuyor (cpus-4) ve pratikte RAM korumasi zaten baglayici.
    ⚠ SONUCU ETKILEMEZ: maclar tohum basina deterministik; isci sayisi yalnizca DUVAR
    SAATINI degistirir, marjlari degil. */
+/* ⚠ TAVAN ARTIK RAM'DEN DEGIL CEKIRDEKTEN TURUYOR — ve bu bilerek.
+   ONCEKI SURUMDE HATA VARDI: tavan basta bir kez `min(cekirdek, bosRAM/0.8)` diye
+   hesaplaniyordu. Kapi RAM az iken baslarsa tavan orada KILITLENIYORDU; kullanici
+   sonradan VS Code'u kapatip 4 GB bosaltsa bile havuz buyuyemiyordu — yani dinamik
+   havuzun varlik sebebi bosa gidiyordu.
+   Dogrusu: TAVAN cekirdek payidir (cpus-4, isletim sistemi + kullaniciya pay).
+   RAM kisiti DINAMIK olarak `hedefHavuz()` icinde uygulanir: her parca basiminda
+   `aktif + bosRAM/0.8` kadar surec olabilir. Boylece kapi dar baslar, RAM bosaldikca
+   kendiliginden genisler ve fiziksel RAM asilmaz. `--isci N` ile elle sert tavan verilebilir. */
 function varsayilanIsci() {
-    const cek = Math.max(1, (os.cpus() || []).length - 4);
-    const ram = Math.max(1, Math.floor((os.freemem() / 1e9) / 0.8));
-    return Math.max(1, Math.min(cek, ram));
+    return Math.max(1, (os.cpus() || []).length - 4);
 }
 
 const N = Math.max(1, Number(arg('--tohum', 96)) || 96);
