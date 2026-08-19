@@ -187,6 +187,21 @@ function main() {
         const kayit = [];
         for (const s of TOHUMLAR) {
             kayit.push(macKos(ctx, s, kd));
+            /* ── ILERLEME DOSYASI: uzun kapilarda KORLUGU kaldirir ──────────────────
+               KUSUR (2026-08-19): sonuc yalnizca kapi BITINCE yaziliyordu. Tam gucte bir
+               kapi 5-6 saat suruyor ve o sure boyunca disaridan "ne kadar ilerledi"
+               sorusunun cevabi YOKTU — gecici dosyalarda hala BIR ONCEKI kapinin verisi
+               duruyordu, ki bu yanlis okumaya da acik (117xxx tohumlarini 126xxx sanmak
+               isten degil). Her 8 macta bir kucuk ilerleme dosyasi yazilir; birkac yuz
+               bayt ve olcumu ETKILEMEZ — yalnizca gozlem icin. */
+            if (CIKTI && kayit.length % 8 === 0) {
+                try {
+                    fs.writeFileSync(path.resolve(CIKTI) + '.ilerleme',
+                        JSON.stringify({ kol: String(kd), biten: kayit.length, hedef: N,
+                            tohum0: TOHUMLAR[0], sonTohum: s,
+                            gecenSn: Math.round((Date.now() - t0) / 1000) }));
+                } catch (e) { /* gozlem dosyasi olcumu dusurmemeli */ }
+            }
             if (kayit.length % 16 === 0) process.stdout.write('  ' + (KOL ? (kd ? 'acik ' : 'kapali ') : '') + kayit.length + '/' + N + '\r');
         }
         sonuc[String(kd)] = { kayit: kayit, ozet: ozet(kayit) };
