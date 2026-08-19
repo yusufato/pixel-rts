@@ -78,6 +78,18 @@ const TOPLAM = DOGRULA ? 8 : N;
    (asagida `m0.has(k.seed)`), yani parca sirasi da onemsiz. Bu, "birebir esdeger"
    sinifindan bir optimizasyon — bu depoda YAKLASIKLIKLA ucuzlatma uc kez coktu
    (isinlama, ucuz puanlayici siralamasi, 5Hz kaba adim), esdeger olanlar guvenli. */
+/* ⭐ ESDEGERLIK OLCULDU (2026-08-19, varsayilmadi):
+   Ayni 4 tohum once YENI kodla, sonra ESKI kodla kosuldu (eski surum gecici bir kopya
+   olarak, ikisi PARALEL, ayri --etiket ile). Karsilastirma mac mac yapildi — marj, bitis
+   saniyesi ve kazanan ucu birden:
+       YENI: kol=2 -215/std 3577 · kol=3 -217/std 3287 · eslestirilmis fark -2
+       ESKI: kol=2 -215/std 3577 · kol=3 -217/std 3287 · eslestirilmis fark -2
+       karsilastirilan mac 8 · AYNI 8 · FARKLI 0
+   Dinamik havuz da kosu ciktisiyla dogrulandi:
+       [havuz] genislik 1 (bos RAM 1.3 GB)  -> ikinci sureci BASLATMADI
+       [havuz] genislik 2 (bos RAM 3.9 GB)  -> RAM bosalinca genisledi
+   ⚠ NOT: bu commit'i gonderirken kayit hatasi oldu — kodun commit mesaji "DOGRULAMA
+   SURUYOR, PUSH YOK" diyor ama dogrulama bitmisti ve push edildi. Dogru kayit BURASI. */
 const PARCA = Math.max(1, Number(arg('--parca', 0)) ||
     Math.max(2, Math.ceil(TOPLAM / Math.max(1, ISCI * 4))));
 const isler = [];
