@@ -1,0 +1,212 @@
+=== M2 KUYRUGU BASLADI 2026-08-19 16:51 ===
+
+════════════════════════════════════════════════════════════
+### M2-1: BATTLE_MENZILE_GIR false vs true (M1 tekrari, havuz icin)   basladi 2026-08-19 16:51
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 220000 --kol BATTLE_MENZILE_GIR --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 220000..220127   isci: 4
+  aktarilan: --kol BATTLE_MENZILE_GIR --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true
+
+  [3] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [1] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [2] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [0] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [3] ! Node.js v26.4.0
+  isci 0 bitti (kod 1)   1/4   0.0dk
+  isci 3 bitti (kod 1)   2/4   0.0dk
+  isci 2 bitti (kod 1)   3/4   0.0dk
+  isci 1 bitti (kod 1)   4/4   0.0dk
+  ! COKEN ISCI: 0, 1, 2, 3
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+
+  sure: 0.0dk
+### M2-1: BATTLE_MENZILE_GIR false vs true (M1 tekrari, havuz icin) bitti 16:51  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-2: LA_PERIYOT_TIK 100 vs 50 @ tam guc   basladi 2026-08-19 16:51
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 221000 --kol LA_PERIYOT_TIK --koldeger 100,50 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 221000..221127   isci: 4
+  aktarilan: --kol LA_PERIYOT_TIK --koldeger 100,50 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  [0] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  isci 0 bitti (kod 1)   1/4   0.0dk
+  [1] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [3] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [2] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [2] ! Node.js v26.4.0
+  isci 1 bitti (kod 1)   2/4   0.0dk
+  isci 2 bitti (kod 1)   3/4   0.0dk
+  isci 3 bitti (kod 1)   4/4   0.0dk
+  ! COKEN ISCI: 0, 1, 2, 3
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+
+  sure: 0.0dk
+### M2-2: LA_PERIYOT_TIK 100 vs 50 @ tam guc bitti 16:51  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-3: LA_DERIN 2 vs 5 @ ufuk 300   basladi 2026-08-19 16:51
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 222000 --kol LA_DERIN --koldeger 2,5 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 222000..222127   isci: 4
+  aktarilan: --kol LA_DERIN --koldeger 2,5 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300
+
+  [0] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [1] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  isci 0 bitti (kod 1)   1/4   0.0dk
+  isci 1 bitti (kod 1)   2/4   0.0dk
+  [2] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  isci 2 bitti (kod 1)   3/4   0.0dk
+  [3] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  isci 3 bitti (kod 1)   4/4   0.0dk
+  ! COKEN ISCI: 0, 1, 2, 3
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+
+  sure: 0.0dk
+### M2-3: LA_DERIN 2 vs 5 @ ufuk 300 bitti 16:51  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-4: BATTLE_TOPCU_DURAGAN false vs true @ tam guc   basladi 2026-08-19 16:51
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 223000 --kol BATTLE_TOPCU_DURAGAN --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 223000..223127   isci: 4
+  aktarilan: --kol BATTLE_TOPCU_DURAGAN --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  [0] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [2] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  [1] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  isci 0 bitti (kod 1)   1/4   0.0dk
+  isci 2 bitti (kod 1)   2/4   0.0dk
+  isci 1 bitti (kod 1)   3/4   0.0dk
+  [3] ! node:internal/modules/cjs/loader:1572
+  throw err;
+  ^
+
+Error: Cannot find module 'jsdom'
+Require stack:
+- C:\Users\osman\Desktop\pixel-rts-main\tools\muharebe-tezgah.js
+- C:\Users\osman\Deskto
+  isci 3 bitti (kod 1)   4/4   0.0dk
+  ! COKEN ISCI: 0, 1, 2, 3
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+
+  sure: 0.0dk
+### M2-4: BATTLE_TOPCU_DURAGAN false vs true @ tam guc bitti 16:51  (cikis 0)
+=== M2 KUYRUGU BITTI 2026-08-19 16:51 ===

@@ -1,0 +1,97 @@
+=== M2 KUYRUGU BASLADI 2026-08-19 17:05 ===
+
+════════════════════════════════════════════════════════════
+### M2-1: BATTLE_MENZILE_GIR false vs true (M1 tekrari, havuz icin)   basladi 2026-08-19 17:05
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 220000 --kol BATTLE_MENZILE_GIR --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 220000..220127   isci: 6
+  aktarilan: --kol BATTLE_MENZILE_GIR --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true
+
+  isci 5 bitti (kod 0)   1/6   56.5dk
+  isci 1 bitti (kod 0)   2/6   60.5dk
+  isci 4 bitti (kod 0)   3/6   61.6dk
+  isci 2 bitti (kod 0)   4/6   62.2dk
+  isci 0 bitti (kod 0)   5/6   63.2dk
+  isci 3 bitti (kod 0)   6/6   63.7dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=false       128      %42.2     -536     2625   -2.31
+kol=true        128      %60.9      686     2319    3.35
+
+  ESLESTIRILMIS FARK (true - false): n 128   ort 1222   std 3229   t 4.28  -> ANLAMLI
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 799 guvenle yakalanir.
+
+  sure: 63.7dk
+### M2-1: BATTLE_MENZILE_GIR false vs true (M1 tekrari, havuz icin) bitti 18:09  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-2: LA_PERIYOT_TIK 100 vs 50 @ tam guc   basladi 2026-08-19 18:09
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 221000 --kol LA_PERIYOT_TIK --koldeger 100,50 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 221000..221127   isci: 10
+  aktarilan: --kol LA_PERIYOT_TIK --koldeger 100,50 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  isci 9 bitti (kod 0)   1/10   156.8dk
+  isci 7 bitti (kod 0)   2/10   172.7dk
+  isci 4 bitti (kod 0)   3/10   192.9dk
+  isci 6 bitti (kod 0)   4/10   194.6dk
+  isci 1 bitti (kod 0)   5/10   198.3dk
+  isci 2 bitti (kod 0)   6/10   198.7dk
+  isci 8 bitti (kod 0)   7/10   205.7dk
+  isci 0 bitti (kod 0)   8/10   208.2dk
+  isci 5 bitti (kod 0)   9/10   209.1dk
+  isci 3 bitti (kod 0)   10/10   217.9dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=50          128      %93.8     3003     1769   19.20
+kol=100         128      %85.9     2316     2116   12.38
+
+  ESLESTIRILMIS FARK (100 - 50): n 128   ort -687   std 2474   t -3.14  -> ANLAMLI
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 612 guvenle yakalanir.
+
+  sure: 217.9dk
+### M2-2: LA_PERIYOT_TIK 100 vs 50 @ tam guc bitti 21:47  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-3: LA_DERIN 2 vs 5 @ ufuk 300   basladi 2026-08-19 21:47
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 222000 --kol LA_DERIN --koldeger 2,5 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 222000..222127   isci: 10
+  aktarilan: --kol LA_DERIN --koldeger 2,5 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300
+
+  isci 7 bitti (kod 0)   1/10   80.9dk
+  isci 3 bitti (kod 0)   2/10   84.3dk
+  isci 0 bitti (kod 0)   3/10   85.4dk
+  isci 6 bitti (kod 0)   4/10   85.9dk
+  isci 9 bitti (kod 0)   5/10   87.1dk
+  isci 4 bitti (kod 0)   6/10   89.1dk
+  isci 1 bitti (kod 0)   7/10   93.4dk
+  isci 5 bitti (kod 0)   8/10   97.6dk
+  isci 8 bitti (kod 0)   9/10   99.9dk
+  isci 2 bitti (kod 0)   10/10   101.0dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=2           128      %72.7     1542     2418    7.22
+kol=5           128      %91.4     2496     1964   14.38
+
+  ESLESTIRILMIS FARK (5 - 2): n 128   ort 954   std 2667   t 4.05  -> ANLAMLI
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 660 guvenle yakalanir.
+
+  sure: 101.0dk
+### M2-3: LA_DERIN 2 vs 5 @ ufuk 300 bitti 23:28  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-4: BATTLE_TOPCU_DURAGAN false vs true @ tam guc   basladi 2026-08-19 23:28
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 223000 --kol BATTLE_TOPCU_DURAGAN --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 223000..223127   parca: 64 x 2 tohum   havuz: 16 (dinamik)
+  aktarilan: --kol BATTLE_TOPCU_DURAGAN --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  [havuz] genislik 5   (bos RAM 4.1 GB)

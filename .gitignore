@@ -41,3 +41,9 @@ cuda-runtime/
 
 # sprite aracinin otomatik yedegi (bir onceki icons.png; git gecmisinde zaten var)
 icons.onceki.png
+
+# M2 kapi kayitlari — ustteki *.log kuralindan MUAF.
+# tools/m2-rapor-dongusu.sh bunlari gece boyunca commit+push eder; ignore'da
+# kalirlarsa dongunun `git status --porcelain docs/kayit-m2/` kosulu hicbir zaman
+# saglanmaz ve sonuclar diskte kalir (emsal: a2a29fc, qa-runtime ayni tuzaga dusmustu).
+!docs/kayit-m2/*.log
