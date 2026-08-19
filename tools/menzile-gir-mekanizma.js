@@ -95,3 +95,22 @@ console.log('');
 console.log('  DEGISIM: menzilde gecen zaman %' + (pk * 100).toFixed(1) + ' -> %' + (pa * 100).toFixed(1));
 console.log('  KARAR: ' + (pa > pk * 1.3 ? 'mekanizma CALISIYOR -> mac kapisina girebilir'
     : 'etki kucuk -> mac kapisi HARCANMAZ'));
+
+/* ⚠ MEKANIZMA KAPISI YALNIZ "KURAL TETIKLENIYOR MU" SORUSUNU CEVAPLAR.
+   Ilk surumde yalnizca yukaridaki satir basiliyordu ve kural sonucu AGIR BICIMDE
+   kotulestirdigi halde temiz bir "mac kapisina girebilir" damgasi veriyordu. Sonuc
+   sutunlari zaten ekrandaydi ama karar cumlesi onlara BAKMIYORDU — okuyanin gozunden
+   kacabilecek bir celiski. Asagidaki satir onu acikca soyler.
+   ⚠ VE GUCU DUSUKTUR: 6 tohumda marj std'si ~2600, yani se ~1060. Buradaki fark
+   YONU gosterir, BUYUKLUGU degil; hukum yalnizca mac kapisinindir. */
+const mjK = top[false].mj / MAC, mjA = top[true].mj / MAC;
+const kK = top[false].k / MAC, kA = top[true].k / MAC;
+console.log('');
+console.log('  SONUC ISARETI (dusuk guc, yon gosterir): marj ' + Math.round(mjK) + ' -> ' + Math.round(mjA) +
+    '  (fark ' + (mjA - mjK >= 0 ? '+' : '') + Math.round(mjA - mjK) + ')' +
+    '   sag kalan AI birimi ' + kK.toFixed(1) + ' -> ' + kA.toFixed(1));
+if (mjA < mjK - 800 || kA < kK * 0.7) {
+    console.log('  ⚠ UYARI: mekanizma calisiyor AMA sonuc ve/veya sagkalim BELIRGIN KOTULESIYOR.');
+    console.log('     Bu, bu depoda kayitli bir kusur sinifi: "one cikip olen konumlandirma');
+    console.log('     becerileri elendi". Mac kapisi yine de kosulabilir, ama beklenti NEGATIF.');
+}

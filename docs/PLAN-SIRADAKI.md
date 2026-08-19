@@ -35,6 +35,21 @@ kapısı — **hepsi** saptama tabanının altında kaldı. Kaldıraç aramanın
 Worker kapasiteyi açtı; kazandıran, o kapasiteyi *kullanmak*. Kuyruktaki iki faz bu
 ekseni sonuna kadar sürüyor.
 
+## Gece boyunca kapanan kapılar
+
+**K1 · karşı-batarya herkese açılsın mı → HAYIR, güvenle.** n=128, fark **−32**, t −0,98,
+saptama tabanı 90. Buradaki asıl bilgi std: eşleştirilmiş fark std'si **366** (tipik 2600-3800
+yerine). Yani bu bayrak maç sonucunu neredeyse hiç kıpırdatmıyor — bu "ölçemedik" değil,
+güvenle **"etki yok"**. Kapandı.
+
+**M0 · `_menzileGir` mekanizması → çalışıyor AMA sonucu bozuyor.** Kısa menzilli birimin
+menzilde geçirdiği zaman %20,7 → **%58,9** (kural gerçekten yürüyor). Ama aynı 6 tohumda
+sağ kalan AI birimi **12,7 → 5,2** ve ortalama marj **+2071 → −160**. Birimler menzile
+giriyor ve yolda ölüyorlar — bu depoda kayıtlı kusur sınıfı: *"öne çıkıp ölen konumlandırma
+becerileri elendi"*. M1 maç kapısı (n=128) hükmü verecek; **beklenti negatif**.
+Mekanizma aracı düzeltildi: artık sonuç sütununa da bakıp uyarı basıyor (ilk sürüm, sonuç
+çökerken tertemiz bir "maç kapısına girebilir" damgası veriyordu).
+
 ## Kuyrukta (sabaha kadar)
 
 | faz | kapı | soru |
@@ -78,7 +93,12 @@ ekseni sonuna kadar sürüyor.
 - **Kamikaze %19 isabet** (32 dronun 6'sı). Bütçe kaybı değil (operatör yükü, yeniden
   doluyor) ama 25 saniyelik dolum döngüsü boşa gidiyor. Mekanizma **bilinmiyor**.
 - **Piyade sınıfı boşta**: menzil 300px, en yakın düşmana ortalama 1031-1397px. 4 maçta
-  ateş etmeyen 49 birimin 17'si bu sınıf. `_menzileGir` kuralı (M1 kapısı) tam bunu hedefliyor.
+  ateş etmeyen 49 birimin 17'si bu sınıf. Ama M0 gösterdi ki **yürüyerek menzile girmek
+  çözüm değil** — girenler ölüyor.
+- **AI piyadesini hiç TAŞIMIYOR.** 4 gerçek maçta tek bir bindirme/indirme yok (birim
+  örneklerden hiç kaybolup dönmüyor) ve AI maç başına yalnız **1** taşıyıcı alıyor
+  (mekanize + nakliye helo toplam). Yani menzil sorununun bilinen askerî çözümü —
+  piyadeyi araçla götür — motorda var ama AI kullanmıyor. Ölçüldü, kapı harcanmadı.
 
 ---
 
