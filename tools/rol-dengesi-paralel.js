@@ -24,10 +24,20 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const ROOT = path.resolve(__dirname, '..');
 const GECICI = path.join(ROOT, 'qa-runtime', 'rol-dengesi-paralel');
 
+/* ⚠ SABIT TAVAN 8 IDI ve BAGLAYICI KISITTI: 16 cekirdekli makinede 6 cekirdek bos
+   kaliyordu. Tam gucte (ufuk 300 / derin 5) kapilar saatler suruyor ve bu tavan
+   dogrudan takvimi belirliyor. Tavan 12'ye cikarildi — 4 cekirdek isletim sistemine
+   ve kullaniciya (oyun oynayabilmeli) birakiliyor.
+   ⚠ AMA DARBOGAZ CEKIRDEK DEGIL BELLEK CIKTI (olculdu 2026-08-19): 14 node sureci
+   4.7GB kullaniyordu, en buyugu 0.8GB, ve 15.7GB'lik makinede yalnizca 3GB bostu.
+   Isci eklemek takas yaptirir ve YAVASLATIR. O yuzden tavan 12 degil 10, ve RAM
+   varsayimi olculen TEPE degere (0.8GB) cekildi — 0.6 fazla iyimserdi.
+   ⚠ SONUCU ETKILEMEZ: maclar tohum basina deterministik; isci sayisi yalnizca DUVAR
+   SAATINI degistirir, marjlari degil. */
 function varsayilanIsci() {
-    const cek = Math.max(1, (os.cpus() || []).length - 2);
-    const ram = Math.max(1, Math.floor((os.freemem() / 1e9) / 0.6));
-    return Math.max(1, Math.min(cek, ram, 8));
+    const cek = Math.max(1, (os.cpus() || []).length - 4);
+    const ram = Math.max(1, Math.floor((os.freemem() / 1e9) / 0.8));
+    return Math.max(1, Math.min(cek, ram, 10));
 }
 
 const N = Math.max(1, Number(arg('--tohum', 96)) || 96);
