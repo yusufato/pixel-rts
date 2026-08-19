@@ -93,18 +93,23 @@ function warRoomApplyLLM(on) {
     const note = document.getElementById('wr-llm-note');
     const bridge = (typeof window !== 'undefined' && window.PIXEL && window.PIXEL.llm) ? window.PIXEL.llm : null;
     if (!note) return;
-    if (!on) { note.textContent = 'Kapalı — komutan sohbetleri hazır metinlerden yazılıyor.'; return; }
+    if (!on) {
+        note.textContent = 'Kapalı — komutan sohbetleri hazır metinlerden yazılıyor.';
+        if (bridge && typeof bridge.stop === 'function') Promise.resolve(bridge.stop()).catch(() => null);
+        return;
+    }
     if (!bridge) { note.textContent = 'Tarayıcı sürümünde yapay anlatıcı yok; masaüstü sürümü gerekir. Hazır metinler kullanılıyor.'; return; }
-    note.textContent = 'Model yükleniyor…';
-    // BELLEK DÜZELTMESİ: yükleme artık YALNIZ buradan (kullanıcı anlatıcıyı açınca) ya da
-    // ilk metin üretiminden tetiklenir. llmProbe() salt bilgi verir, model yüklemez.
-    const _yukle = (typeof llmEnsure === 'function') ? llmEnsure : llmProbe;
-    if (typeof _yukle === 'function') {
-        Promise.resolve(_yukle()).then(() => {
+    note.textContent = 'Hazır — model ilk gerçek karakter sohbetinde yüklenecek.';
+    // Ayarın açık olması yalnız izin verir; 5 GB modeli menüde veya dünya haritası
+    // açılırken yüklemek şehir atlası/canvas tahsislerini sayfalama kuyruğuna itiyordu.
+    if (typeof llmProbe === 'function') {
+        Promise.resolve(llmProbe()).then(() => {
             if (!LLM.enabled) return;                   // arada kapatılmış olabilir
             note.textContent = LLM.ready
                 ? 'Açık — sohbetleri ' + (LLM.model || 'yerel model') + ' yazıyor.'
-                : 'Model bulunamadı' + (LLM.error ? ' (' + LLM.error + ')' : '') + '; hazır metinler kullanılıyor.';
+                : LLM.error
+                    ? 'Model beklemede (' + LLM.error + '); hazır metinler kullanılıyor.'
+                    : 'Hazır — model ilk gerçek karakter sohbetinde yüklenecek.';
         });
     }
 }

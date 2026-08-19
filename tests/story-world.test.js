@@ -67,6 +67,11 @@ const {
     probeNegotiationDeliveryLifecycle,
     probeContactDirectory,
     probeCityDossier,
+    probeHexWorldFoundation,
+    probeHexGeography,
+    probeHexRegions,
+    probeHexRegionReconciliation,
+    probeHexSettlements,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
     probePrebuiltMapRaster,
@@ -5150,10 +5155,145 @@ function run() {
     assert.equal(cityDossierProbe.disabled.disabled, true, 'ui.cityDossier kapalıyken yeni görünüm güvenle kapanmalı.');
     assert.equal(cityDossierProbe.ab.equal, true, 'Şehir dosyası açık/kapalı normal dünya karmasını değiştirmemeli.');
 
+    const hexWorldProbe = storyTestResult('hexWorldProbe', probeHexWorldFoundation);
+    assert.equal(hexWorldProbe.validation.ok, true, 'HexWorldV1 kendi sözleşmesini geçmeli.');
+    assert.equal(hexWorldProbe.worldNeutral, true, 'Altıgen sidecar canlı dünya durumunu değiştirmemeli.');
+    assert.equal(hexWorldProbe.diagnostics.loadMode, 'asset', 'Gerçek runtime build-time HexWorld varlığını kullanmalı.');
+    assert.equal(hexWorldProbe.diagnostics.width, 3000, 'HexWorld kanonik 3000 dünya genişliğini kullanmalı.');
+    assert.equal(hexWorldProbe.diagnostics.height, 2360, 'HexWorld kanonik 2360 dünya yüksekliğini kullanmalı.');
+    assert.equal(hexWorldProbe.diagnostics.radius, 16.1, 'Ana aday 16,1 dünya birimi yarıçap kullanmalı.');
+    assert.equal(hexWorldProbe.diagnostics.cellCount, 10584, 'Ana aday tam 10.584 altıgen üretmeli.');
+    assert.equal(hexWorldProbe.inventory.regionCount, 152, 'HXD-0 mevcut 152 bölge kimliğini korumalı.');
+    assert.equal(hexWorldProbe.inventory.infrastructureCorridorCount, 591, 'HXD-0 mevcut 591 koridoru baseline olarak dondurmalı.');
+    assert.equal(hexWorldProbe.sameInstance, true, 'Değişmeyen HexWorld runtime içinde yeniden kurulmamalı.');
+    assert.equal(hexWorldProbe.anchors.distinctCells, true, 'Ankara ve İstanbul farklı kanonik altıgenlere bağlanmalı.');
+    assert.ok(hexWorldProbe.anchors.ankara.cell, 'Ankara için kanonik altıgen ankrajı bulunmalı.');
+    assert.ok(hexWorldProbe.anchors.istanbul.cell, 'İstanbul için kanonik altıgen ankrajı bulunmalı.');
+    assert.equal(hexWorldProbe.roundTrips.every(item => item.ok), true, 'Örnek hücre merkezleri world→axial dönüşümünde korunmalı.');
+    assert.equal(hexWorldProbe.cornerNeighborCount, 2, 'Dünya köşesi yalnız geçerli iki komşuyu taşımalı.');
+    assert.ok(hexWorldProbe.candidates[0].cellCount < hexWorldProbe.candidates[1].cellCount);
+    assert.ok(hexWorldProbe.candidates[1].cellCount < hexWorldProbe.candidates[2].cellCount);
+    assert.equal(hexWorldProbe.invalid.width.ok, false, 'Yanlış genişlikli HexWorld asset reddedilmeli.');
+    assert.equal(hexWorldProbe.invalid.radius.ok, false, 'Yanlış yarıçaplı HexWorld asset reddedilmeli.');
+    assert.equal(hexWorldProbe.invalid.count.ok, false, 'Geçersiz hücre sayılı HexWorld asset reddedilmeli.');
+    assert.equal(hexWorldProbe.invalid.hash.ok, false, 'Bozuk yerleşim karmalı HexWorld asset reddedilmeli.');
+    assert.ok(hexWorldProbe.buildMs < 100, `HexWorld kurulumu 100 ms altında kalmalı: ${hexWorldProbe.buildMs} ms`);
+
+    const hexGeographyProbe = storyTestResult('hexGeographyProbe', probeHexGeography);
+    assert.equal(hexGeographyProbe.validation.ok, true, 'HexGeographyV1 kendi sözleşmesini geçmeli.');
+    assert.equal(hexGeographyProbe.worldNeutral, true, 'Coğrafya sidecar canlı dünya durumunu değiştirmemeli.');
+    assert.equal(hexGeographyProbe.deterministic, true, 'Aynı kaynaklar aynı coğrafya checksum’ını üretmeli.');
+    assert.equal(hexGeographyProbe.sameInstance, true, 'Değişmeyen coğrafya runtime içinde yeniden kurulmamalı.');
+    assert.equal(hexGeographyProbe.cellCountConserved, true, 'Her altıgen tam bir arazi sınıfına girmeli.');
+    assert.ok(hexGeographyProbe.summary.counts.WATER > 0, 'Dünya su altıgenleri içermeli.');
+    assert.ok(hexGeographyProbe.summary.counts.LAND > 0, 'Dünya kara altıgenleri içermeli.');
+    assert.ok(hexGeographyProbe.summary.counts.COAST > 0, 'Dünya kıyı altıgenleri içermeli.');
+    assert.equal(hexGeographyProbe.mountainSourcePresent, true, 'GEO dağ koridorları altıgenlere yansıtılmalı.');
+    assert.equal(hexGeographyProbe.riverSourcePresent, true, 'GEO nehir koridorları altıgenlere yansıtılmalı.');
+    assert.equal(hexGeographyProbe.elevationHonest, true, 'Kanonik yükseklik yokken sahte metre/eğim üretilmemeli.');
+    assert.equal(hexGeographyProbe.anchors.ankaraLandTraversable, true, 'Ankara kara erişimine sahip olmalı.');
+    assert.equal(hexGeographyProbe.anchors.istanbulLandTraversable, true, 'İstanbul kara erişimine sahip olmalı.');
+    assert.equal(hexGeographyProbe.anchors.istanbulCoastal, true, 'İstanbul kıyı ilişkisini korumalı.');
+    assert.equal(hexGeographyProbe.invalid.coverage.ok, false, 'Geçersiz kara kapsaması reddedilmeli.');
+    assert.equal(hexGeographyProbe.invalid.terrain.ok, false, 'Bilinmeyen arazi sınıfı reddedilmeli.');
+    assert.equal(hexGeographyProbe.invalid.edge.ok, false, 'Asimetrik ortak kenar reddedilmeli.');
+    assert.equal(hexGeographyProbe.invalid.elevation.ok, false, 'Sahte yükseklik kaynağı reddedilmeli.');
+    assert.ok(hexGeographyProbe.buildMs < 1000,
+        `HexGeography kurulumu bir saniyeyi aşmamalı: ${hexGeographyProbe.buildMs} ms`);
+
+    const hexRegionsProbe = storyTestResult('hexRegionsProbe', probeHexRegions);
+    assert.equal(hexRegionsProbe.validation.ok, true, 'HexRegionsV1 kendi sözleşmesini geçmeli.');
+    assert.equal(hexRegionsProbe.worldNeutral, true, 'İdarî altıgen sidecar canlı dünyayı değiştirmemeli.');
+    assert.equal(hexRegionsProbe.totalsConserved, true, 'Nüfus, servet, tesis ve garnizon toplamları korunmalı.');
+    assert.equal(hexRegionsProbe.diagnostics.regionCount, 152, 'Bütün 152 idarî kimlik korunmalı.');
+    assert.equal(hexRegionsProbe.allRegionsRepresented, true, 'Her idarî bölge en az bir altıgende temsil edilmeli.');
+    assert.equal(hexRegionsProbe.noUnassignedLand, true, 'Sahipsiz kara/kıyı altıgeni kalmamalı.');
+    assert.equal(hexRegionsProbe.membershipCountConserved, true, 'CSR üyeliği atanmış hücre sayısını korumalı.');
+    assert.equal(hexRegionsProbe.deterministic, true, 'Aynı coğrafya aynı bölge üyeliği checksum’ını üretmeli.');
+    assert.equal(hexRegionsProbe.sameInstance, true, 'Değişmeyen idarî sidecar yeniden kurulmamalı.');
+    assert.ok(hexRegionsProbe.diagnostics.borderEdgeCount > 0, 'Fiziksel idarî sınır kenarları üretilmeli.');
+    assert.ok(hexRegionsProbe.diagnostics.physicalNeighborPairCount > 0, 'Fiziksel bölge komşuluk grafiği boş olmamalı.');
+    assert.equal(hexRegionsProbe.invalid.membership.ok, false, 'Sahipsiz bırakılan kara üyeliği reddedilmeli.');
+    assert.equal(hexRegionsProbe.invalid.count.ok, false, 'Bozuk CSR bölge sayacı reddedilmeli.');
+    assert.equal(hexRegionsProbe.invalid.hash.ok, false, 'Bozuk üyelik checksum’ı reddedilmeli.');
+    assert.ok(hexRegionsProbe.buildMs < 1000,
+        `HexRegions kurulumu bir saniyeyi aşmamalı: ${hexRegionsProbe.buildMs} ms`);
+
+    const hexReconciliationProbe = storyTestResult(
+        'hexRegionReconciliationProbe',
+        probeHexRegionReconciliation
+    );
+    assert.equal(hexReconciliationProbe.main.validation.ok, true, 'HexPoliticalView kendi sözleşmesini geçmeli.');
+    assert.equal(hexReconciliationProbe.main.overlayValidation.ok, true, 'Piksel overlay altıgen sahiplik kaynağına bağlı kalmalı.');
+    assert.equal(hexReconciliationProbe.main.worldNeutral, true, 'Sahiplik/mutabakat görünümü canlı dünyayı değiştirmemeli.');
+    assert.equal(hexReconciliationProbe.main.allAssignedCellsOwned, true, 'Her atanmış kara/kıyı hücresi ülke sahibi taşımalı.');
+    assert.equal(hexReconciliationProbe.main.nationalBordersPresent, true, 'Ülke sahipliği geçişleri fiziksel sınır üretmeli.');
+    assert.equal(hexReconciliationProbe.main.rasterOwnerAgreement, true, 'Piksel ve altıgen katmanın bölge sahip tabloları uyuşmalı.');
+    assert.equal(hexReconciliationProbe.main.overlayHexLinked, true, 'Mevcut overlay altıgen üyelik ve sahiplik checksum’ını yayımlamalı.');
+    assert.equal(hexReconciliationProbe.main.reconciliationEqual, true, 'Kaynak ve altıgen projeksiyon ekonomi toplamları birebir olmalı.');
+    assert.equal(hexReconciliationProbe.main.referencesValid, true, 'Nüfus, stok, tesis ve depo bölge referansları geçerli kalmalı.');
+    assert.equal(hexReconciliationProbe.main.sidecarsNotPersisted, true, 'Türetilmiş HXD sidecar kayıt dosyasını şişirmemeli.');
+    assert.equal(hexReconciliationProbe.restored.loaded, true, 'HXD öncesi biçimde kalan kayıt açılabilmeli.');
+    assert.equal(hexReconciliationProbe.restored.validation.ok, true, 'Yüklemede yeniden türetilen sahiplik geçerli olmalı.');
+    assert.equal(hexReconciliationProbe.restored.exactDerived, true, 'Üyelik, sahiplik ve ekonomi mutabakatı yüklemede birebir yeniden türemeli.');
+    assert.equal(hexReconciliationProbe.main.invalid.owner.ok, false, 'Bölgesinden koparılmış hücre sahibi reddedilmeli.');
+    assert.equal(hexReconciliationProbe.main.invalid.border.ok, false, 'Sahipliksiz sahte devlet sınırı reddedilmeli.');
+    assert.equal(hexReconciliationProbe.main.invalid.hash.ok, false, 'Bozuk politik checksum reddedilmeli.');
+
+    const hexSettlementsProbe = storyTestResult('hexSettlementsProbe', probeHexSettlements);
+    assert.equal(hexSettlementsProbe.main.validation.ok, true, 'HexSettlements kendi sözleşmesini geçmeli.');
+    assert.equal(hexSettlementsProbe.main.worldNeutral, true, 'Şehir/liman sidecar canlı dünyayı değiştirmemeli.');
+    assert.equal(hexSettlementsProbe.main.cityCountExact, true, 'Bütün 152 şehir eksiksiz temsil edilmeli.');
+    assert.equal(hexSettlementsProbe.main.allCoresValid, true, 'Şehir çekirdekleri benzersiz ve geçerli olmalı.');
+    assert.equal(hexSettlementsProbe.main.noCityInWater, true, 'Denizde veya geçilemez dağda şehir çekirdeği kalmamalı.');
+    assert.equal(hexSettlementsProbe.main.identityPreserved, true, 'Şehir çekirdeği kendi idarî bölge kimliğini korumalı.');
+    assert.equal(hexSettlementsProbe.main.renderAnchorsExact, true, 'Render, kamera ve hit-test şehirleri çözülmüş altıgen çekirdeğinden okumalı.');
+    assert.equal(hexSettlementsProbe.main.allRequiredPortsValid, true, 'Mevcut deniz koridorlarının bütün uçları gerçek liman terminali taşımalı.');
+    assert.equal(hexSettlementsProbe.main.diagnostics.portCount, 59, 'Kıyı eşiği dışındaki iç şehirler kendiliğinden liman kazanmamalı.');
+    assert.equal(hexSettlementsProbe.main.diagnostics.uniquePortTerminalCount, 58, 'Paylaşılan kıyı tesisi tek fiziksel terminal sayılmalı.');
+    assert.equal(hexSettlementsProbe.main.diagnostics.sharedPortTerminals.length, 1, 'Paylaşılan fiziksel terminal borcu açıkça raporlanmalı.');
+    assert.deepEqual(hexSettlementsProbe.main.diagnostics.legacyGeometryFallbackPortNames, ['İzmir', 'Beyrut'], 'Eski geometri nedeniyle başka bölge kıyısını kullanan limanlar görünür kalmalı.');
+    assert.equal(hexSettlementsProbe.main.sidecarNotPersisted, true, 'Türetilmiş şehir sidecar save dosyasını şişirmemeli.');
+    assert.equal(hexSettlementsProbe.restored.loaded, true, 'Şehir sidecar yazılmadan kayıt yeniden açılabilmeli.');
+    assert.equal(hexSettlementsProbe.restored.validation.ok, true, 'Yüklemede yeniden türeyen şehir/limanlar geçerli olmalı.');
+    assert.equal(hexSettlementsProbe.restored.exactDerived, true, 'Şehir ve liman ankrajları yüklemede birebir yeniden türemeli.');
+    assert.equal(hexSettlementsProbe.main.invalid.coreWater.ok, false, 'Suya taşınmış şehir çekirdeği reddedilmeli.');
+    assert.equal(hexSettlementsProbe.main.invalid.portWater.ok, false, 'Kara hücresine bağlanan liman su terminali reddedilmeli.');
+    assert.equal(hexSettlementsProbe.main.invalid.requiredPort.ok, false, 'Deniz koridoru ucu limansız bırakılamamalı.');
+    assert.equal(hexSettlementsProbe.main.invalid.hash.ok, false, 'Bozuk yerleşim checksum reddedilmeli.');
+
+    const hexUrbanProbe = storyTestResult('hexUrbanProbe', probeHexUrban);
+    assert.equal(hexUrbanProbe.main.validation.ok, true, 'Dinamik şehir ayak izi kendi sözleşmesini geçmeli.');
+    assert.equal(hexUrbanProbe.main.worldNeutral, true, 'Şehir ayak izi sidecar canlı dünyayı değiştirmemeli.');
+    assert.equal(hexUrbanProbe.main.deterministic, true, 'Aynı nüfus/bina/coğrafya aynı şehir ayak izini üretmeli.');
+    assert.equal(hexUrbanProbe.main.allCitiesPresent, true, 'Bütün 152 şehir dinamik ayak izi taşımalı.');
+    assert.equal(hexUrbanProbe.main.capacityShortfallExplicit, true, 'Araziye sığmayan ilçeler şehir adı ve açık miktarla raporlanmalı.');
+    assert.equal(hexUrbanProbe.main.uniqueCells, true, 'İki şehir veya ilçe aynı fiziksel altıgeni kullanmamalı.');
+    assert.equal(hexUrbanProbe.main.levelDemotedWhenPopulationKnown, true, 'Nüfus sicili varken legacy level şehir alanının ana kaynağı olmamalı.');
+    assert.equal(hexUrbanProbe.main.investmentChangesFootprint, true, 'Gerçek bina yatırımı şehir ayak izini değiştirmeli.');
+    assert.equal(hexUrbanProbe.main.dynamicRebuildUnderBudget, true, 'Nüfus/bina değişimi sonrası sıcak ayak izi rebuild’i 20 ms bütçesini aşmamalı.');
+    assert.equal(hexUrbanProbe.main.restorationExact, true, 'Nüfus/bina girdisi geri alındığında ayak izi checksum’ı birebir dönmeli.');
+    assert.equal(hexUrbanProbe.main.sidecarNotPersisted, true, 'Türetilmiş şehir ayak izi kayıt dosyasını şişirmemeli.');
+    assert.equal(hexUrbanProbe.restored.loaded, true, 'Şehir ayak izi yazılmadan kayıt yeniden açılabilmeli.');
+    assert.equal(hexUrbanProbe.restored.validation.ok, true, 'Yüklemede yeniden türeyen şehir ayak izi geçerli olmalı.');
+    assert.equal(hexUrbanProbe.restored.exactDerived, true, 'Şehir ayak izi yüklemede birebir yeniden türemeli.');
+
+    const hexRenderProbe = storyTestResult('hexRenderProbe', probeHexRender);
+    assert.equal(hexRenderProbe.main.deterministic, true, 'Altıgen politik render modeli aynı girdide aynı checksum’ı üretmeli.');
+    assert.equal(hexRenderProbe.main.rendererAvailable, true, 'Altıgen politik canvas renderer gerçek runtime API’sinde bağlı olmalı.');
+    assert.equal(hexRenderProbe.main.worldNeutral, true, 'Altıgen render canlı dünya durumunu değiştirmemeli.');
+    assert.equal(hexRenderProbe.main.assignedPickExact, true, 'Kara hücresi tıklaması kanonik bölge kimliğini vermeli.');
+    assert.equal(hexRenderProbe.main.waterPickRejected, true, 'Su hücresi şehir/bölge seçmemeli.');
+    assert.equal(hexRenderProbe.main.visibleCullingValid, true, 'Yakın LOD grid’i dünya çapındaki 10.584 hücreyi değil yalnız görünür hücreleri dolaşmalı.');
+    assert.equal(hexRenderProbe.main.ownerChangeInvalidated, true, 'Fetih/sahiplik değişimi altıgen politik cache’i geçersiz kılmalı.');
+    assert.equal(hexRenderProbe.main.ownerRestoreExact, true, 'Sahiplik geri alındığında altıgen render karması birebir dönmeli.');
+    assert.equal(hexRenderProbe.main.model.assignedCellCount, 7517, 'Altıgen politik render bütün atanmış kara/kıyı hücrelerini çizmelidir.');
+    assert.equal(hexRenderProbe.main.model.nationalBorderEdgeCount, 460, 'Altıgen politik render yalnız gerçek devlet sınırı kenarlarını kullanmalıdır.');
+
     const mapRasterProbe = storyTestResult('mapRasterProbe', probeCanonicalMapRaster);
     assert.equal(mapRasterProbe.main.validation.ok, true, 'Kanonik harita rasterı kendi sözleşmesini geçmeli.');
     assert.equal(mapRasterProbe.main.uiNeutral, true, 'Raster üretmek kalıcı dünya durumunu değiştirmemeli.');
-    assert.equal(mapRasterProbe.main.raster.width, 820, 'Kanonik raster planlanan 820 piksel taban genişliği kullanmalı.');
+    assert.equal(mapRasterProbe.main.raster.width, 1640, 'Kanonik raster ayrıntılı 1640 piksel taban genişliği kullanmalı.');
     assert.equal(mapRasterProbe.main.raster.regionCount, 152, 'Kanonik raster 152 bölgenin tamamını temsil etmeli.');
     assert.equal(
         mapRasterProbe.main.worldMapDiagnostics.sourceHash,
@@ -5173,7 +5313,7 @@ function run() {
     assert.equal(mapRasterProbe.main.overlay.landRegionMissing, 0, 'Politik grid kara hücresini bölgesiz bırakmamalı.');
     assert.equal(
         mapRasterProbe.main.overlay.source.adapterVersion,
-        'canonical-map-raster-1',
+        'canonical-map-raster-2',
         'Politik grid kaynak kimliğini kanonik raster olarak yayınlamalı.'
     );
     assert.equal(
@@ -5243,10 +5383,10 @@ function run() {
         prebuiltRasterProbe.generated.hashes,
         'Build-time varlık ve runtime fallback aynı kanonik checksum’ları üretmeli.'
     );
-    assert.equal(prebuiltRasterProbe.asset.asset.width, 820, 'Build-time varlık kanonik genişliği taşımalı.');
-    assert.equal(prebuiltRasterProbe.asset.asset.height, 645, 'Build-time varlık kanonik yüksekliği taşımalı.');
-    assert.equal(prebuiltRasterProbe.asset.asset.payloadBytes, 43064, 'RLE payload boyutu beklenen deterministik değerde olmalı.');
-    assert.equal(prebuiltRasterProbe.asset.asset.runCount, 10766, 'RLE kayıt sayısı deterministik olmalı.');
+    assert.equal(prebuiltRasterProbe.asset.asset.width, 1640, 'Build-time varlık kanonik genişliği taşımalı.');
+    assert.equal(prebuiltRasterProbe.asset.asset.height, 1290, 'Build-time varlık kanonik yüksekliği taşımalı.');
+    assert.equal(prebuiltRasterProbe.asset.asset.payloadBytes, 86640, 'RLE payload boyutu beklenen deterministik değerde olmalı.');
+    assert.equal(prebuiltRasterProbe.asset.asset.runCount, 21660, 'RLE kayıt sayısı deterministik olmalı.');
     assert.ok(
         prebuiltRasterProbe.asset.asset.payloadBytes < prebuiltRasterProbe.asset.asset.rawPixelCount * 0.1,
         'Sıkıştırılmış varlık piksel başına 0,1 bayttan küçük olmalı.'
@@ -5295,8 +5435,8 @@ function run() {
     const politicalOverlayProbe = storyTestResult('politicalOverlayProbe', probePoliticalOverlay);
     assert.equal(politicalOverlayProbe.main.uiNeutral, true, 'Politik ImageData üretimi kalıcı dünya durumunu değiştirmemeli.');
     assert.equal(politicalOverlayProbe.main.audit.validation.ok, true, 'Politik RGBA/sınır çıktısı kendi sözleşmesini geçmeli.');
-    assert.equal(politicalOverlayProbe.main.first.width, 820, 'Politik overlay kanonik 820 piksel genişliği kullanmalı.');
-    assert.equal(politicalOverlayProbe.main.first.height, 645, 'Politik overlay kanonik raster yüksekliğini kullanmalı.');
+    assert.equal(politicalOverlayProbe.main.first.width, 1640, 'Politik overlay kanonik 1640 piksel genişliği kullanmalı.');
+    assert.equal(politicalOverlayProbe.main.first.height, 1290, 'Politik overlay kanonik raster yüksekliğini kullanmalı.');
     assert.equal(politicalOverlayProbe.main.first.fillRectCalls, 0, 'Yeni politik overlay hücre başına fillRect kullanmamalı.');
     assert.equal(politicalOverlayProbe.main.first.putImageDataCalls, 1, 'İlk politik overlay tek putImageData ile yazılmalı.');
     assert.equal(politicalOverlayProbe.main.first.source.putImageDataCalls, 1, 'Overlay kaynağı tek ImageData yazımını yayınlamalı.');
@@ -5336,6 +5476,10 @@ function run() {
     assert.equal(politicalOverlayProbe.main.transfer.sameCanvasAfterTransfer, true, 'Fetih mevcut kanonik canvas belleğini yeniden kullanmalı.');
     assert.equal(politicalOverlayProbe.main.transfer.fillRectCalls, 0, 'Fetih rebuild’i fillRect kullanmamalı.');
     assert.equal(politicalOverlayProbe.main.transfer.putImageDataCalls, 2, 'İlk üretim ve fetih toplam iki ImageData yazımı yapmalı.');
+    assert.equal(politicalOverlayProbe.disabled.hexDiagnostics.adapterVersion, 'hex-political-overlay-canvas-1', 'Canlı harita renderı altıgen politik canvas adaptörünü kullanmalı.');
+    assert.equal(politicalOverlayProbe.disabled.hexDiagnostics.assignedCellCount, 7517, 'Canlı altıgen politik canvas bütün atanmış kara/kıyı hücrelerini çizmelidir.');
+    assert.equal(politicalOverlayProbe.disabled.hexDiagnostics.nationalBorderEdgeCount, 460, 'Altıgen politik model gerçek devlet sınırı sayısını korumalı.');
+    assert.equal(politicalOverlayProbe.disabled.hexDiagnostics.drawnBorderEdges, 460, 'Her devlet sınırı ortak kenarı canvas üzerinde yalnız bir kez çizilmelidir.');
     assert.ok(
         politicalOverlayProbe.main.invalid.source.issues.some(issue => issue.code === 'SOURCE_HASH_MISMATCH'),
         'Farklı kanonik kaynağa ait politik overlay reddedilmeli.'

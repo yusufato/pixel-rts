@@ -1106,6 +1106,12 @@ body.wr-crt-off #war-room-stage::after { display: none; }
     border: 1px solid var(--wr-line); border-radius: 4px; cursor: pointer; transition: all .15s ease; }
 .city-btn:hover:not(:disabled), .city-btn:focus-visible { border-color: var(--wr-amber); background: rgba(255,176,0,.14); outline: none; }
 .city-btn:disabled { opacity: 0.4; cursor: default; }
+.city-construction-draft { display: grid; gap: 8px; margin: 8px 0 12px; padding: 10px;
+    border: 1px solid rgba(255,176,0,.28); background: rgba(10,25,16,.72); }
+.city-construction-draft > b { color: var(--wr-amber); font-size: 10px; letter-spacing: 1px; }
+.city-construction-draft > span { color: var(--wr-muted); font-size: 9px; line-height: 1.55; }
+.city-construction-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.city-construction-actions .city-btn { flex: 1 1 120px; }
 .city-max { font-size: 11px; color: #4cff7c; align-self: center; }
 
 /* ŞEHRE GİR: şehir şeridi (navigasyon) */

@@ -10,8 +10,8 @@
 //  veriyle çözülür. Bugünkü tek yerleşim atlası ilk fiziksel fallback'tir.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const STORY_VISUAL_CATALOG_SCHEMA_VERSION = 1;
-const STORY_VISUAL_CATALOG_VERSION = 'story-visual-catalog-2010-2100-v1';
+const STORY_VISUAL_CATALOG_SCHEMA_VERSION = 3;
+const STORY_VISUAL_CATALOG_VERSION = 'story-visual-catalog-2010-2100-v3';
 
 const STORY_VISUAL_PERIODS = Object.freeze([
     { id: 'MODERN_2010', from: 2010, to: 2029, artDirection: 'contemporary' },
@@ -36,7 +36,7 @@ const STORY_VISUAL_ASSET_PACKS = Object.freeze([
     { id: 'urban-core', load: 'VISIBLE_ERA', families: ['core', 'residential', 'civic'] },
     { id: 'urban-industry', load: 'VISIBLE_ERA', families: ['industrial', 'energy', 'extraction'] },
     { id: 'urban-logistics', load: 'VISIBLE_ERA', families: ['logistics', 'port', 'warehouse'] },
-    { id: 'land-use', load: 'VISIBLE_REGION', families: ['agriculture', 'forestry', 'mine'] },
+    { id: 'land-use', load: 'VISIBLE_REGION', families: ['agriculture', 'forestry', 'mine', 'renewable'] },
     { id: 'infrastructure', load: 'VISIBLE_REGION', families: ['road', 'rail', 'utility'] },
     { id: 'mobile-agents', load: 'VISIBLE_REGION', families: ['truck', 'train', 'ship', 'aircraft', 'character'] },
     { id: 'conflict-state', load: 'ON_DEMAND', families: ['fortification', 'damage', 'fire', 'ruin'] }
@@ -51,10 +51,66 @@ const STORY_VISUAL_URBAN_KIND = Object.freeze({
     LOGISTICS: { family: 'logistics', packId: 'urban-logistics', legacyAtlasRow: 2 }
 });
 
+const STORY_VISUAL_CONSTRUCTION_FAMILIES = Object.freeze({
+    RESIDENTIAL: { row: 0, family: 'residential' },
+    INDUSTRIAL: { row: 1, family: 'industrial' },
+    LOGISTICS: { row: 2, family: 'logistics' },
+    CIVIC: { row: 3, family: 'civic' }
+});
+
+const STORY_VISUAL_CONSTRUCTION_PHASES = Object.freeze({
+    FOUNDATION: { column: 0, minProgressBps: 0 },
+    STRUCTURE: { column: 1, minProgressBps: 3300 },
+    OPERATING: { column: 2, minProgressBps: 10000 },
+    DAMAGED: { column: 3, minProgressBps: 0 }
+});
+
+const STORY_VISUAL_CLIMATE_ZONES = Object.freeze({
+    TEMPERATE: { column: 0 },
+    DRY: { column: 1 },
+    BOREAL: { column: 2 },
+    COASTAL: { column: 3 }
+});
+
+const STORY_VISUAL_A2_URBAN_FAMILIES = Object.freeze({
+    CORE: { row: 0, family: 'core', packId: 'urban-core' },
+    RESIDENTIAL: { row: 1, family: 'residential', packId: 'urban-core' },
+    CIVIC: { row: 2, family: 'civic', packId: 'urban-core' },
+    INDUSTRIAL: { row: 3, family: 'industrial', packId: 'urban-industry' }
+});
+
+const STORY_VISUAL_DAMAGE_STATES = Object.freeze({
+    OPERATING: { column: 0 },
+    DAMAGED: { column: 1 },
+    BURNED: { column: 2 },
+    ABANDONED: { column: 3 }
+});
+
+const STORY_VISUAL_SPECIAL_FAMILIES = Object.freeze({
+    LOGISTICS: { row: 0, family: 'logistics', packId: 'urban-logistics' },
+    ENERGY: { row: 1, family: 'energy', packId: 'urban-industry' },
+    EXTRACTION: { row: 2, family: 'extraction', packId: 'urban-industry' },
+    DEFENSE: { row: 3, family: 'defense', packId: 'conflict-state' }
+});
+
+const STORY_VISUAL_LAND_USE_FAMILIES = Object.freeze({
+    AGRICULTURE: { row: 0, family: 'agriculture' },
+    FORESTRY: { row: 1, family: 'forestry' },
+    MINE: { row: 2, family: 'mine' },
+    RENEWABLE: { row: 3, family: 'renewable' }
+});
+
+const STORY_VISUAL_LAND_USE_PHASES = Object.freeze({
+    SETUP: { column: 0 },
+    OPERATING: { column: 1 },
+    DAMAGED: { column: 2 },
+    RECLAIMED: { column: 3 }
+});
+
 // İlk manifest mevcut modern atlasın fiziksel olarak sunduğu altı aileyi ilan
 // eder. Yeni resim/atlas eklemek renderer değişikliği değil, bu manifestin veri
 // üretim adımı olacaktır. CORE satırı nüfus seviyesine göre tarifte tamamlanır.
-const STORY_VISUAL_ASSET_MANIFEST = Object.freeze(Object.entries(STORY_VISUAL_URBAN_KIND)
+const STORY_VISUAL_BASELINE_URBAN_ASSETS = Object.entries(STORY_VISUAL_URBAN_KIND)
     .map(([kind, definition]) => Object.freeze({
         id: `urban.${kind.toLowerCase()}.baseline.operating.modern_2010`,
         packId: definition.packId,
@@ -64,7 +120,68 @@ const STORY_VISUAL_ASSET_MANIFEST = Object.freeze(Object.entries(STORY_VISUAL_UR
         periodId: 'MODERN_2010',
         visualStage: 0,
         condition: 'OPERATING'
-    })));
+    }));
+
+const STORY_VISUAL_CONSTRUCTION_ASSETS = Object.entries(STORY_VISUAL_CONSTRUCTION_FAMILIES)
+    .flatMap(([projectType, family]) => Object.entries(STORY_VISUAL_CONSTRUCTION_PHASES)
+        .map(([phase, phaseDefinition]) => Object.freeze({
+            id: `construction.${family.family}.${phase.toLowerCase()}.modern_2010`,
+            packId: STORY_VISUAL_URBAN_KIND[projectType]
+                ? STORY_VISUAL_URBAN_KIND[projectType].packId : 'urban-core',
+            family: family.family,
+            atlasKey: 'constructionModern',
+            atlasCell: family.row * 4 + phaseDefinition.column,
+            atlasRow: family.row,
+            atlasColumn: phaseDefinition.column,
+            periodId: 'MODERN_2010',
+            visualStage: 0,
+            condition: phase === 'FOUNDATION' || phase === 'STRUCTURE'
+                ? 'CONSTRUCTION' : phase
+        })));
+
+function storyVisualGridAssets(domain, atlasKey, rows, columns, columnField) {
+    return Object.entries(rows).flatMap(([rowId, row]) => Object.entries(columns)
+        .map(([columnId, column]) => Object.freeze({
+            id: `${domain}.${row.family}.${columnId.toLowerCase()}.modern_2010`,
+            packId: row.packId || 'land-use',
+            family: row.family,
+            [columnField]: columnId,
+            atlasKey,
+            atlasCell: row.row * 4 + column.column,
+            atlasRow: row.row,
+            atlasColumn: column.column,
+            periodId: 'MODERN_2010',
+            visualStage: 0,
+            condition: columnField === 'condition' ? columnId : 'OPERATING',
+            sourceRowId: rowId
+        })));
+}
+
+const STORY_VISUAL_URBAN_CLIMATE_ASSETS = storyVisualGridAssets(
+    'urban-climate', 'urbanClimateModern', STORY_VISUAL_A2_URBAN_FAMILIES,
+    STORY_VISUAL_CLIMATE_ZONES, 'climateZone'
+);
+const STORY_VISUAL_URBAN_DAMAGE_ASSETS = storyVisualGridAssets(
+    'urban-damage', 'urbanDamageModern', STORY_VISUAL_A2_URBAN_FAMILIES,
+    STORY_VISUAL_DAMAGE_STATES, 'condition'
+);
+const STORY_VISUAL_SPECIAL_ASSETS = storyVisualGridAssets(
+    'special', 'specialFacilitiesModern', STORY_VISUAL_SPECIAL_FAMILIES,
+    STORY_VISUAL_CLIMATE_ZONES, 'climateZone'
+);
+const STORY_VISUAL_LAND_USE_ASSETS = storyVisualGridAssets(
+    'land-use', 'landUseModern', STORY_VISUAL_LAND_USE_FAMILIES,
+    STORY_VISUAL_LAND_USE_PHASES, 'lifecyclePhase'
+);
+
+const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
+    ...STORY_VISUAL_BASELINE_URBAN_ASSETS,
+    ...STORY_VISUAL_CONSTRUCTION_ASSETS,
+    ...STORY_VISUAL_URBAN_CLIMATE_ASSETS,
+    ...STORY_VISUAL_URBAN_DAMAGE_ASSETS,
+    ...STORY_VISUAL_SPECIAL_ASSETS,
+    ...STORY_VISUAL_LAND_USE_ASSETS
+]);
 
 function storyVisualClampInt(value, min, max) {
     return Math.max(min, Math.min(max, Math.floor(Number(value) || 0)));
@@ -181,6 +298,183 @@ function storyVisualResolveAsset(recipe, manifest) {
     };
 }
 
+function storyVisualConstructionProgressBps(command, physicalSite) {
+    if (command && command.status === 'COMPLETED') return 10000;
+    const duration = Math.max(0, Number(command && command.requirements
+        && command.requirements.durationDays) || 0);
+    const remaining = Math.max(0, Number(command && command.remainingDays) || 0);
+    if (duration) {
+        return storyVisualClampInt(Math.round((1 - remaining / duration) * 10000), 0, 10000);
+    }
+    const explicit = Number(physicalSite && physicalSite.constructionProgressBps);
+    if (Number.isFinite(explicit)) return storyVisualClampInt(explicit, 0, 10000);
+    return 0;
+}
+
+function storyVisualConstructionPhase(command, physicalSite) {
+    const condition = storyVisualNormalizeCondition(physicalSite && physicalSite.lifecycleState);
+    if (condition === 'DAMAGED' || condition === 'BURNED') return 'DAMAGED';
+    if (command && command.status === 'COMPLETED' || condition === 'OPERATING') return 'OPERATING';
+    return storyVisualConstructionProgressBps(command, physicalSite) >= 3300
+        ? 'STRUCTURE' : 'FOUNDATION';
+}
+
+function storyVisualConstructionRecipe(input) {
+    const spec = input || {};
+    const command = spec.command || null;
+    const physicalSite = spec.physicalSite || null;
+    const projectType = String(spec.projectType || command && command.projectType
+        || physicalSite && physicalSite.siteType || 'RESIDENTIAL').toUpperCase();
+    const definition = STORY_VISUAL_CONSTRUCTION_FAMILIES[projectType]
+        || STORY_VISUAL_CONSTRUCTION_FAMILIES.RESIDENTIAL;
+    const phase = storyVisualConstructionPhase(command, physicalSite);
+    const period = storyVisualPeriodForYear(spec.year == null
+        ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
+    const requestedId = `construction.${definition.family}.${phase.toLowerCase()}.${period.id.toLowerCase()}`;
+    const fallbackIds = [
+        requestedId,
+        `construction.${definition.family}.${phase.toLowerCase()}.modern_2010`
+    ].filter((id, index, rows) => rows.indexOf(id) === index);
+    const entries = Array.isArray(spec.assetManifest)
+        ? spec.assetManifest : STORY_VISUAL_ASSET_MANIFEST;
+    const byId = new Map(entries.map(entry => [entry.id, entry]));
+    let entry = null, fallbackDepth = fallbackIds.length;
+    for (let index = 0; index < fallbackIds.length; index++) {
+        if (!byId.has(fallbackIds[index])) continue;
+        entry = byId.get(fallbackIds[index]);
+        fallbackDepth = index;
+        break;
+    }
+    return {
+        schemaVersion: STORY_VISUAL_CATALOG_SCHEMA_VERSION,
+        catalogVersion: STORY_VISUAL_CATALOG_VERSION,
+        projectType,
+        family: definition.family,
+        phase,
+        progressBps: storyVisualConstructionProgressBps(command, physicalSite),
+        periodId: period.id,
+        requestedAssetId: requestedId,
+        resolvedAssetId: entry && entry.id || null,
+        atlasKey: entry && entry.atlasKey || 'constructionModern',
+        atlasCell: entry && Number(entry.atlasCell),
+        fallbackDepth,
+        fallbackReason: entry ? (fallbackDepth ? 'PERIOD_ASSET_MISSING' : null)
+            : 'NO_REGISTERED_CONSTRUCTION_ASSET',
+        assetMissing: !entry
+    };
+}
+
+function storyVisualClimateZone(input) {
+    const spec = input || {};
+    const explicit = String(spec.climateZone || '').toUpperCase();
+    if (STORY_VISUAL_CLIMATE_ZONES[explicit]) return explicit;
+    const node = spec.node || null;
+    if (node && (node.port || node.isPort || node.coastal)) return 'COASTAL';
+    const latitudeY = Number(node && (node.ly ?? node.normalizedY));
+    if (Number.isFinite(latitudeY)) {
+        if (latitudeY <= .31) return 'BOREAL';
+        if (latitudeY >= .67) return 'DRY';
+    }
+    return 'TEMPERATE';
+}
+
+function storyVisualResolveVariant(domain, family, variant, period, manifest) {
+    const periodId = String(period && period.id || period || 'MODERN_2010').toLowerCase();
+    const stem = `${domain}.${String(family).toLowerCase()}.${String(variant).toLowerCase()}`;
+    const candidates = [`${stem}.${periodId}`, `${stem}.modern_2010`]
+        .filter((id, index, rows) => rows.indexOf(id) === index);
+    const entries = Array.isArray(manifest) ? manifest : STORY_VISUAL_ASSET_MANIFEST;
+    const byId = new Map(entries.map(entry => [entry.id, entry]));
+    for (let index = 0; index < candidates.length; index++) {
+        const entry = byId.get(candidates[index]);
+        if (!entry) continue;
+        return {
+            assetMissing: false,
+            requestedAssetId: candidates[0],
+            resolvedAssetId: entry.id,
+            atlasKey: entry.atlasKey,
+            atlasCell: Number(entry.atlasCell),
+            fallbackDepth: index,
+            fallbackReason: index ? 'PERIOD_ASSET_MISSING' : null
+        };
+    }
+    return {
+        assetMissing: true,
+        requestedAssetId: candidates[0],
+        resolvedAssetId: null,
+        atlasKey: null,
+        atlasCell: null,
+        fallbackDepth: candidates.length,
+        fallbackReason: 'NO_REGISTERED_VARIANT_ASSET'
+    };
+}
+
+function storyVisualSpecialFamily(input) {
+    const spec = input || {};
+    const kind = String(spec.kind || '').toUpperCase();
+    if (kind === 'LOGISTICS' || kind === 'DEFENSE') return kind;
+    const site = spec.physicalSite || {};
+    const siteType = String(site.siteType || '').toUpperCase();
+    const sector = String(site.sectorId || '').toLowerCase();
+    if (siteType === 'LOGISTICS') return 'LOGISTICS';
+    if (siteType === 'DEFENSE' || sector.includes('defense')) return 'DEFENSE';
+    if (siteType === 'ENERGY' || sector.includes('energy')) return 'ENERGY';
+    if (['EXTRACTION', 'MINE', 'MINERAL'].includes(siteType)
+        || sector.includes('extract') || sector.includes('mining')) return 'EXTRACTION';
+    return null;
+}
+
+function storyVisualUrbanPresentationRecipe(input) {
+    const spec = input || {};
+    const mechanics = storyVisualUrbanRecipe(spec);
+    const period = storyVisualPeriodForYear(spec.year == null
+        ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
+    const climateZone = storyVisualClimateZone(spec);
+    const condition = storyVisualNormalizeCondition(spec.condition
+        || spec.physicalSite && spec.physicalSite.lifecycleState || mechanics.condition);
+    const specialFamily = storyVisualSpecialFamily(spec);
+    let art;
+    if (specialFamily) {
+        const row = STORY_VISUAL_SPECIAL_FAMILIES[specialFamily];
+        art = storyVisualResolveVariant('special', row.family, climateZone, period,
+            spec.assetManifest);
+    } else {
+        const family = STORY_VISUAL_A2_URBAN_FAMILIES[mechanics.kind]
+            || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
+        if (['DAMAGED', 'BURNED', 'ABANDONED'].includes(condition)) {
+            art = storyVisualResolveVariant('urban-damage', family.family, condition,
+                period, spec.assetManifest);
+        } else {
+            art = storyVisualResolveVariant('urban-climate', family.family, climateZone,
+                period, spec.assetManifest);
+        }
+    }
+    return Object.assign({}, mechanics, art, {
+        climateZone,
+        condition,
+        presentationSource: specialFamily ? `SPECIAL_${specialFamily}`
+            : condition === 'OPERATING' || condition === 'CONSTRUCTION'
+                ? 'URBAN_CLIMATE' : 'URBAN_DAMAGE'
+    });
+}
+
+function storyVisualLandUseRecipe(input) {
+    const spec = input || {};
+    const type = String(spec.landUseType || spec.family || 'AGRICULTURE').toUpperCase();
+    const family = STORY_VISUAL_LAND_USE_FAMILIES[type]
+        || STORY_VISUAL_LAND_USE_FAMILIES.AGRICULTURE;
+    const lifecycle = String(spec.lifecyclePhase || spec.lifecycleState || 'OPERATING').toUpperCase();
+    const phase = STORY_VISUAL_LAND_USE_PHASES[lifecycle] ? lifecycle
+        : lifecycle === 'CONSTRUCTION' ? 'SETUP'
+            : ['DAMAGED', 'BURNED'].includes(lifecycle) ? 'DAMAGED'
+                : lifecycle === 'ABANDONED' ? 'RECLAIMED' : 'OPERATING';
+    const period = storyVisualPeriodForYear(spec.year == null
+        ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
+    return Object.assign({ family: family.family, lifecyclePhase: phase, periodId: period.id },
+        storyVisualResolveVariant('land-use', family.family, phase, period,
+            spec.assetManifest));
+}
+
 function storyVisualUrbanRecipe(input) {
     const spec = input || {};
     const kind = String(spec.kind || 'CORE').toUpperCase();
@@ -271,7 +565,14 @@ function storyVisualCatalogValidate() {
         if (!entry.id || assetIds.has(entry.id)) issues.push(`DUPLICATE_ASSET:${entry.id || '?'}`);
         assetIds.add(entry.id);
         if (!packIds.has(entry.packId)) issues.push(`ASSET_UNKNOWN_PACK:${entry.id}:${entry.packId}`);
-        if (entry.atlasKey !== 'settlements') issues.push(`ASSET_UNKNOWN_ATLAS:${entry.id}`);
+        if (!['settlements', 'constructionModern', 'urbanClimateModern',
+            'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern'].includes(entry.atlasKey)) {
+            issues.push(`ASSET_UNKNOWN_ATLAS:${entry.id}`);
+        }
+        if (entry.atlasKey !== 'settlements'
+            && (!Number.isInteger(entry.atlasCell) || entry.atlasCell < 0 || entry.atlasCell > 15)) {
+            issues.push(`ASSET_INVALID_CELL:${entry.id}`);
+        }
     }
     return { ok: issues.length === 0, issues };
 }
@@ -285,6 +586,14 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_CONDITIONS,
         STORY_VISUAL_ASSET_PACKS,
         STORY_VISUAL_URBAN_KIND,
+        STORY_VISUAL_CONSTRUCTION_FAMILIES,
+        STORY_VISUAL_CONSTRUCTION_PHASES,
+        STORY_VISUAL_CLIMATE_ZONES,
+        STORY_VISUAL_A2_URBAN_FAMILIES,
+        STORY_VISUAL_DAMAGE_STATES,
+        STORY_VISUAL_SPECIAL_FAMILIES,
+        STORY_VISUAL_LAND_USE_FAMILIES,
+        STORY_VISUAL_LAND_USE_PHASES,
         STORY_VISUAL_ASSET_MANIFEST,
         storyVisualPeriodForYear,
         storyVisualNormalizeCondition,
@@ -294,6 +603,14 @@ if (typeof module !== 'undefined' && module.exports) {
         storyVisualLegacyUrbanRow,
         storyVisualAssetFallbackIds,
         storyVisualResolveAsset,
+        storyVisualConstructionProgressBps,
+        storyVisualConstructionPhase,
+        storyVisualConstructionRecipe,
+        storyVisualClimateZone,
+        storyVisualResolveVariant,
+        storyVisualSpecialFamily,
+        storyVisualUrbanPresentationRecipe,
+        storyVisualLandUseRecipe,
         storyVisualUrbanRecipe,
         storyVisualCatalogValidate
     };

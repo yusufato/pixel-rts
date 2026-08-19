@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('PIXEL', {
         status: () => ipcRenderer.invoke('llm:status'),
         // Kullanıcı yapay anlatıcıyı açtığında çağrılır → modeli ŞİMDİ yükle.
         start: () => ipcRenderer.invoke('llm:start'),
+        // Ayar kapatıldığında veya bellek geri istenince model sürecini serbest bırakır.
+        stop: () => ipcRenderer.invoke('llm:stop'),
         // { system, prompt, maxTokens, temperature, jsonSchema? } → Promise<string|null>
         // null = model yok/hazır değil/zaman aşımı → oyun birleşim üretecine düşer
         generate: req => ipcRenderer.invoke('llm:generate', req),

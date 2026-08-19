@@ -1113,8 +1113,14 @@ function storyCityGrowthTick(dt) {
                 / ((typeof STORY_CALENDAR !== 'undefined'
                     && Number(STORY_CALENDAR.secondsPerYear)) || 120);
             const strikeMultiplier = strike ? 0.25 : 1;
+            // Eski dünyanın 140 binlik tavanı başlangıç yapı stokunun uyumluluk
+            // karşılığıdır. Yalnız tamamlanma makbuzlu yeni konut bu tavanı açar;
+            // çizilmiş fakat tamamlanmamış ilçe nüfus kapasitesi üretmez.
+            const housingPopulationCap = typeof storyHexConstructionHousingPopulationCap === 'function'
+                ? storyHexConstructionHousingPopulationCap(`region:${Number(n.id)}`, 140)
+                : 140;
             n.pop = Math.max(4, Math.min(
-                140,
+                housingPopulationCap,
                 n.pop + n.pop * annualRate * years * strikeMultiplier
             ));
         } else {

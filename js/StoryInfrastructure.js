@@ -529,7 +529,10 @@ function storyInfrastructureEndpointOwners(corridor) {
 function storyInfrastructureEffectiveCapacity(corridor) {
     if (!corridor || !corridor.enabled) return 0;
     const remainingBps = Math.max(0, 10000 - (Number(corridor.damageBps) || 0));
-    return Math.max(0, Math.floor((Number(corridor.baseCapacity) || 0) * remainingBps / 10000));
+    const physicalBps = typeof storyHexInfrastructureCorridorFactorBps === 'function'
+        ? storyHexInfrastructureCorridorFactorBps(corridor.id) : 10000;
+    return Math.max(0, Math.floor((Number(corridor.baseCapacity) || 0)
+        * remainingBps / 10000 * physicalBps / 10000));
 }
 
 function storyInfrastructureCorridorView(corridor) {

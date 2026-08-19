@@ -49,7 +49,7 @@ const STORY_CITY_DOSSIER_LEDGER_GROUPS = Object.freeze({
     economy: Object.freeze({
         genel: ['regionalEconomy'],
         butce: ['stateBudget'],
-        sirketler: ['companyEconomy', 'economicAI', 'marketPrices'],
+        sirketler: ['companyEconomy', 'economicAI', 'marketPrices', 'hexConstruction'],
         piyasa: ['marketPrices'],
         lojistik: ['tradeLogistics', 'infrastructureGraph'],
         fraksiyonlar: ['powerCenters', 'collectiveAction', 'publicOpinion']
@@ -1147,6 +1147,10 @@ function storyCityDossierRenderCompanies(view) {
     const bank = country && country.bank;
     const facilities = Array.isArray(local.facilities) ? local.facilities : [];
     const projects = Array.isArray(local.projects) ? local.projects : [];
+    const physicalConstruction = view.isOwn && typeof storyHexConstructionRegionView === 'function'
+        ? storyHexConstructionRegionView(view.regionId) : null;
+    const constructionPlayer = view.isOwn && typeof storyHexConstructionPlayerView === 'function'
+        ? storyHexConstructionPlayerView(view.regionId) : null;
     const policyFact = view.facts.economicPolicy;
     const policy = policyFact && policyFact.value;
     const decisions = [];
@@ -1176,6 +1180,60 @@ function storyCityDossierRenderCompanies(view) {
         `<div><span>${storyCityDossierEscape(storyCityDossierLabel(project.sectorId, STORY_DOSSIER_SECTOR_LABELS))}</span><b>${storyCityDossierEscape(storyCityDossierLabel(project.status, STORY_DOSSIER_STATUS_LABELS))}</b>`
         + `<small>${storyCityDossierNumber(project.remainingDays)} gün · +${storyCityDossierNumber(project.capacityIncrease)} kapasite</small></div>`
     )).join('');
+    const constructionRows = physicalConstruction
+        ? (physicalConstruction.applications || []).map(application => {
+            const typeLabel = { RESIDENTIAL: 'KONUT', INDUSTRIAL: 'SANAYİ', LOGISTICS: 'LOJİSTİK' }[application.projectType] || application.projectType;
+            const statusLabel = {
+                PENDING_AUTHORITY: 'KURUM İNCELEMESİNDE', AUTHORIZED: 'İZİN VERİLDİ',
+                REJECTED: 'REDDEDİLDİ', RESOURCE_BLOCKED: 'KAYNAK BEKLİYOR',
+                COMMAND_CREATED: 'İNŞAAT EMRİ OLUŞTU', CANCELLED: 'İPTAL EDİLDİ'
+            }[application.status] || application.status;
+            const detail = application.status === 'REJECTED'
+                ? `RET: ${application.rejectionReason || 'BELİRTİLMEDİ'}`
+                : application.status === 'RESOURCE_BLOCKED'
+                    ? `KAYNAK: ${application.resourceBlockReason || 'BLOKE'}`
+                    : `HÜCRE: ${application.targetCellId}`;
+            return `<div><span>${storyCityDossierEscape(typeLabel)}</span>`
+                + `<b>${storyCityDossierEscape(statusLabel)}</b>`
+                + `<small>${storyCityDossierEscape(detail)}</small></div>`;
+        }).join('') + (physicalConstruction.commands || []).map(command => {
+            const typeLabel = { RESIDENTIAL: 'KONUT', INDUSTRIAL: 'SANAYİ', LOGISTICS: 'LOJİSTİK' }[command.projectType] || command.projectType;
+            const statusLabel = {
+                AWAITING_REQUIREMENTS: 'EKSİKLER BEKLENİYOR', AUTHORIZED: 'BAŞLAMAYA HAZIR',
+                BUILDING: 'İNŞA EDİLİYOR', COMPLETED: 'TAMAMLANDI', CANCELLED: 'İPTAL EDİLDİ'
+            }[command.status] || command.status;
+            const progress = command.requirements && Number(command.requirements.durationDays) > 0
+                ? Math.max(0, Math.min(100, Math.round((1 - Number(command.remainingDays || 0)
+                    / Number(command.requirements.durationDays)) * 100))) : 0;
+            return `<div><span>${storyCityDossierEscape(typeLabel)}</span>`
+                + `<b>${storyCityDossierEscape(statusLabel)}</b>`
+                + `<small>${storyCityDossierEscape(command.targetCellId)} · %${progress}</small></div>`;
+        }).join('') : '';
+    let constructionActions = '';
+    if (constructionPlayer) {
+        const reasonLabels = {
+            COMPANY_ROLE_REQUIRED: 'Bu işlem için şirket sahibi/yöneticisi rolü gerekiyor.',
+            PLAYER_COMPANY_UNAVAILABLE: 'Rolüne bağlı çalışan ve lisanslı şirket bulunamadı.',
+            REGION_OUTSIDE_PLAYER_JURISDICTION: 'Yalnız kendi ülkenin bölgesinde başvuru yapabilirsin.'
+        };
+        if (!constructionPlayer.allowed) {
+            constructionActions = `<div class="city-dossier-empty"><b>BAŞVURU YETKİSİ YOK</b><span>${storyCityDossierEscape(reasonLabels[constructionPlayer.lockedReason] || constructionPlayer.lockedReason)}</span></div>`;
+        } else if (constructionPlayer.draft) {
+            const draft = constructionPlayer.draft;
+            constructionActions = `<div class="city-construction-draft"><b>${storyCityDossierEscape(draft.projectType)} İMAR TASLAĞI</b>`
+                + `<span>${draft.selectedCellId ? `Seçilen altıgen: ${storyCityDossierEscape(draft.selectedCellId)}` : 'Haritada yakın görünüme geç; yeşil aday altıgenlerden birine tıkla.'}</span>`
+                + `<div class="city-construction-actions">`
+                + `<button class="city-btn hex-construction-submit" ${draft.selectedCellId ? '' : 'disabled'}>BAŞVURUYU GÖNDER</button>`
+                + `<button class="city-btn hex-construction-cancel">VAZGEÇ</button></div></div>`;
+        } else {
+            constructionActions = `<div class="city-construction-draft"><b>${storyCityDossierEscape(constructionPlayer.company.name)}</b>`
+                + `<span>Şirket nakdi: ${storyCityDossierNumber(constructionPlayer.company.cash)} devlet kredisi. Proje seç; uygun boş altıgenler haritada gösterilecek.</span>`
+                + `<div class="city-construction-actions">`
+                + ['RESIDENTIAL', 'INDUSTRIAL', 'LOGISTICS'].map(type => (
+                    `<button class="city-btn hex-construction-begin" data-project-type="${type}">${storyCityDossierEscape({ RESIDENTIAL: 'KONUT', INDUSTRIAL: 'SANAYİ', LOGISTICS: 'LOJİSTİK' }[type])}</button>`
+                )).join('') + `</div></div>`;
+        }
+    }
     const decisionRows = decisions.map(decision => {
         const selected = decision.selectedAction || 'HOLD';
         const execution = decision.execution || {};
@@ -1193,6 +1251,10 @@ function storyCityDossierRenderCompanies(view) {
         + (rows ? `<div class="city-route-list">${rows}</div>` : `<div class="city-dossier-empty"><b>KAYITLI TESİS YOK</b><span>Bu bölgede çalışan sektör kapasitesi bulunmuyor.</span></div>`)
         + `</section><section class="city-dossier-sec"><h3>YATIRIM PROJELERİ</h3>`
         + (projectRows ? `<div class="city-fact-grid">${projectRows}</div>` : `<div class="city-hint">İnşa hâlinde veya tamamlanmış kayıtlı kapasite yatırımı yok.</div>`)
+        + `</section><section class="city-dossier-sec"><h3>FİZİKSEL İMAR BAŞVURULARI</h3>`
+        + constructionActions
+        + (constructionRows ? `<div class="city-fact-grid">${constructionRows}</div>`
+            : `<div class="city-hint">Bu bölgede kayıtlı altıgen imar başvurusu veya fiziksel inşaat emri yok.</div>`)
         + `</section><section class="city-dossier-sec"><h3>EKONOMİK KARAR GEREKÇELERİ</h3>`
         + (decisionRows ? `<div class="city-fact-grid">${decisionRows}</div>`
             : `<div class="city-hint">Henüz uygulanmış veya bekletilmiş kayıtlı ekonomik karar yok.</div>`)

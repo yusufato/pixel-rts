@@ -744,6 +744,8 @@ function storyInstitutionExecuteAction(requestId, input) {
     if (!executorOk) return { ok: false, status: 'DENIED', reason: 'ACTOR_NOT_EXECUTOR' };
     request.status = 'EXECUTED';
     request.executedAt = storyInstitutionRound(STORY.clock);
+    request.executedByActorId = actor.actorId;
+    request.executedBySourceId = actor.sourceId;
     request.updatedAt = request.executedAt;
     request.result = { status: 'RECORDED', physicalMutation: false, effectModel: STORY_INSTITUTION_POLICY.effectModel };
     storyInstitutionRecordEvent(ledger, 'ACTION_EXECUTED', {

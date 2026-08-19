@@ -1235,15 +1235,18 @@ function storyCouncilSkillBars(sk) {
 function storyCamCenterOn(node) {
     const cv = document.getElementById('storyCanvas'); if (!cv || !node) return;
     storyResize();   // boyut tazele (bayat cv.width fix)
+    const position = typeof storyHexSettlementNodePosition === 'function'
+        ? storyHexSettlementNodePosition(node, STORY_WORLD_W, STORY_WORLD_H)
+        : { x: node.lx * STORY_WORLD_W, y: node.ly * STORY_WORLD_H };
     if (typeof storyMapV2Enabled === 'function' && storyMapV2Enabled()) {
         STORY._cw = cv.width; STORY._ch = cv.height;
-        storyMapV2CenterCamera(storyCam, node.lx * STORY_WORLD_W, node.ly * STORY_WORLD_H, cv.width, cv.height);
+        storyMapV2CenterCamera(storyCam, position.x, position.y, cv.width, cv.height);
         storyClampCam(cv.width, cv.height);
         return;
     }
     STORY._cw = cv.width; STORY._ch = cv.height;                     // WARP: düğüm ekran ortasına
-    storyCam.x = node.lx * STORY_WORLD_W - (cv.width / 2) / storyCam.zoom;
-    storyCam.y = node.ly * STORY_WORLD_H - storyVyOf(0.5) / storyCam.zoom;
+    storyCam.x = position.x - (cv.width / 2) / storyCam.zoom;
+    storyCam.y = position.y - storyVyOf(0.5) / storyCam.zoom;
     storyClampCam(cv.width, cv.height);
 }
 function storyCouncilUpdate() {
@@ -1457,6 +1460,27 @@ function storyInit() {
     });
     document.getElementById('economy-body')?.addEventListener('click', (e) => {
         const button = e.target.closest('button'); if (!button || button.disabled) return;
+        if (button.classList.contains('hex-construction-begin')) {
+            const view = STORY._economyView;
+            const result = typeof storyHexConstructionPlayerBegin === 'function'
+                ? storyHexConstructionPlayerBegin(view && view.regionId, button.dataset.projectType)
+                : { ok: false, code: 'CONSTRUCTION_UI_UNAVAILABLE' };
+            if (!result.ok && typeof storyFlash === 'function') storyFlash(`İmar taslağı açılamadı: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('hex-construction-cancel')) {
+            if (typeof storyHexConstructionPlayerCancelDraft === 'function') storyHexConstructionPlayerCancelDraft();
+            return;
+        }
+        if (button.classList.contains('hex-construction-submit')) {
+            const result = typeof storyHexConstructionPlayerSubmitDraft === 'function'
+                ? storyHexConstructionPlayerSubmitDraft()
+                : { ok: false, code: 'CONSTRUCTION_UI_UNAVAILABLE' };
+            if (typeof storyFlash === 'function') storyFlash(result.ok
+                ? 'İmar başvurusu yerel kurumun karar zincirine gönderildi.'
+                : `İmar başvurusu gönderilemedi: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
         if (button.classList.contains('economy-sub')) {
             STORY._economySub = button.dataset.sub;
             return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
@@ -1524,7 +1548,10 @@ function storyInit() {
             if (typeof storyMapPickNode === 'function') return storyMapPickNode(wx, wy);
             let hit = -1, hd = 34 * 34;
             for (const n of STORY.nodes) {
-                const dx = n.lx * STORY_WORLD_W - wx, dy = n.ly * STORY_WORLD_H - wy;
+                const position = typeof storyHexSettlementNodePosition === 'function'
+                    ? storyHexSettlementNodePosition(n, STORY_WORLD_W, STORY_WORLD_H)
+                    : { x: n.lx * STORY_WORLD_W, y: n.ly * STORY_WORLD_H };
+                const dx = position.x - wx, dy = position.y - wy;
                 const d = dx * dx + dy * dy;
                 if (d < hd) { hd = d; hit = n.id; }
             }
@@ -1532,8 +1559,26 @@ function storyInit() {
         };
         // SÜRÜKLE-PAN: basılı tutup gez = kamera; kısa tık (sürüklemeden) = düğüm seç
         // WARP: imlecin altındaki DÜNYA noktası parmağa yapışsın diye s2w farkıyla kaydır
-        let dragging = false, moved = false, lastX = 0, lastY = 0;
-        cv.addEventListener('mousedown', (e) => { dragging = true; moved = false; lastX = e.clientX; lastY = e.clientY; });
+        let dragging = false, moved = false, lastX = 0, lastY = 0, mapRenderFrame = 0;
+        const scheduleMapRender = () => {
+            if (mapRenderFrame) return;
+            mapRenderFrame = requestAnimationFrame(() => {
+                mapRenderFrame = 0;
+                storyRender();
+            });
+        };
+        const finishMapInteraction = () => {
+            STORY._mapInteracting = false;
+            if (STORY._mapInteractionTimer) {
+                clearTimeout(STORY._mapInteractionTimer);
+                STORY._mapInteractionTimer = null;
+            }
+            scheduleMapRender();
+        };
+        cv.addEventListener('mousedown', (e) => {
+            dragging = true; moved = false; lastX = e.clientX; lastY = e.clientY;
+            STORY._mapInteracting = true;
+        });
         window.addEventListener('mousemove', (e) => {
             if (!dragging) return;
             if (Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) > 3) moved = true;
@@ -1542,10 +1587,18 @@ function storyInit() {
             const a = storyS2W((lastX - rect.left) * sc, (lastY - rect.top) * scy);
             const b = storyS2W((e.clientX - rect.left) * sc, (e.clientY - rect.top) * scy);
             storyCam.x += a.x - b.x; storyCam.y += a.y - b.y; lastX = e.clientX; lastY = e.clientY;
-            storyClampCam(cv.width, cv.height); cv.style.cursor = 'grabbing'; storyRender();
+            storyClampCam(cv.width, cv.height); cv.style.cursor = 'grabbing'; scheduleMapRender();
         });
         window.addEventListener('mouseup', (e) => {
+            const wasDragging = dragging;
+            STORY._mapInteracting = false;
             if (dragging && !moved) {
+                if (STORY._hexConstructionPickMode && typeof storyHexConstructionPlayerPickCell === 'function') {
+                    const picked = storyHexConstructionPlayerPickCell(STORY._hoverHexCellId);
+                    if (!picked.ok && typeof storyFlash === 'function') storyFlash('Bu altıgen seçili proje için uygun değil.');
+                    dragging = false; cv.style.cursor = 'grab'; scheduleMapRender();
+                    return;
+                }
                 // ŞEHRE GİR paneli açıkken harita tıklaması paneli KAPATMAZ, odağı o şehre taşır
                 // (şehir seçmek panelin doğal kullanımı — kapatmak akışı bozardı).
                 if (STORY._cityOpen || STORY._economyOpen) {
@@ -1562,15 +1615,25 @@ function storyInit() {
                 else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); }
             }
             dragging = false; cv.style.cursor = 'grab';
+            if (wasDragging) scheduleMapRender();
         });
         cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
             if (dragging) return;
             const w = worldFromEvent(e);
-            cv.style.cursor = pickNode(w.x, w.y) >= 0 ? 'pointer' : 'grab';
+            if (typeof storyHexPoliticalCellAtWorld === 'function') {
+                const cell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
+                STORY._hoverHexCellId = cell ? cell.id : null;
+            }
+            cv.style.cursor = STORY._hexConstructionPickMode
+                && STORY._hexConstructionDraft
+                && STORY._hexConstructionDraft.candidateCellIds.includes(STORY._hoverHexCellId)
+                ? 'crosshair' : (pickNode(w.x, w.y) >= 0 ? 'pointer' : 'grab');
         });
+        cv.addEventListener('mouseleave', () => { STORY._hoverHexCellId = null; });
         // ZOOM: fare tekerleği (imlecin altındaki dünya-noktası sabit kalır)
         cv.addEventListener('wheel', (e) => {
             e.preventDefault();
+            STORY._mapInteracting = true;
             const rect = cv.getBoundingClientRect();
             const mx = (e.clientX - rect.left) * (cv.width / rect.width);
             const my = (e.clientY - rect.top) * (cv.height / rect.height);
@@ -1582,7 +1645,9 @@ function storyInit() {
             const u = my / cv.height, vy = flatV2 ? my : storyVyOf(u);
             const vx = flatV2 ? mx : (mx - cv.width / 2) / storySxOf(u) + cv.width / 2;
             storyCam.x = wpt.x - vx / storyCam.zoom; storyCam.y = wpt.y - vy / storyCam.zoom;
-            storyClampCam(cv.width, cv.height); storyRender();
+            storyClampCam(cv.width, cv.height); scheduleMapRender();
+            if (STORY._mapInteractionTimer) clearTimeout(STORY._mapInteractionTimer);
+            STORY._mapInteractionTimer = setTimeout(finishMapInteraction, 120);
         }, { passive: false });
         cv.style.cursor = 'grab';
     }

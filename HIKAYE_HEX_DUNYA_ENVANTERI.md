@@ -205,3 +205,27 @@ Statik şehir sprite'ı artık çözülmüş altıgen çekirdeğe oturur. Sırad
 `story-hex-urban-footprint-1` bağlıdır. `152` şehir `574` benzersiz fiziksel hücre kullanır: `152 CORE`, `196 RESIDENTIAL`, `81 INDUSTRIAL`, `44 CIVIC`, `44 DEFENSE`, `57 LOGISTICS`. Nüfus sicili mevcutken `level` değişimi kaynak/ayak izi karmasını değiştirmez; gerçek bina yatırımı değiştirir ve geri alındığında checksum birebir döner. Sidecar kayıt dosyasına yazılmaz; `2.028 bayt`, `sourceHash fnv1a32:84ac5930`, `footprintHash fnv1a32:4999e71a`.
 
 Beyrut ve Tel Aviv'in idarî bölgeleri fiziksel ilçe kapasitesi bakımından yetersizdir. İstenen `425` ilçenin `422`si yerleşti; eksik `3` ilçe başka bölgeye kaçırılmadı ve açık kaynak borcu olarak tutuldu. HXD-6 henüz tamamlanmadı: sıradaki dikey gerçek konut/lojistik inşa emri, kapasite bedeli ve şehir dossier açıklamasıdır.
+
+### HXD-6.3 fiziksel tesis ve render envanteri
+
+Şehir kompozisyonları kamera hareketinde yeniden üretilmez. İki görsel dünya katmanı (`CORE`, `DISTRICTS`) toplam yaklaşık `56,64 MB` çözülmüş RAM bitmap karosu olarak tutulur; gerçek sürükleme kabulünde üretim seri numarası `1`, tekrar üretim `0` ve kadro dışından gelen şehrin fare bırakılmadan görünmesi doğrulandı.
+
+`423` mevcut şirket tesisinin `262`si benzersiz fiziksel altıgene bağlıdır. Bunların `115`i, hazır ilçe yuvası dolu olduğu için aynı idarî bölgedeki kanonik boş araziye `EXISTING_FACILITY_MIGRATION` kaynağıyla yerleştirildi. `9` sanayi/savunma/enerji tesisi uygun bölge-içi hücre yokluğu, `152` tarım tesisi gerçek toprak/yağış/ürün kanıtı yokluğu nedeniyle açık kaldı. Bu `161` kayıt başka bölgeye taşınmış veya sahte kapasiteyle kapatılmış değildir.
+
+### HXD-6.4 RAM katmanı envanteri
+
+Gerçek Electron `qa-runtime/map-district-port-resolution-final` kabulünde değişmeyen harita resmi RAM dünya karolarına ayrılmıştır: doğal altıgen yüzey `113,28 MB`, 4× ana şehir + 8× seyrek ilçe `1.128.009.728 bayt`, 0,5× yol/deniz yolu `14,16 MB`, ayrı 2× seyrek liman `17.563.648 bayt`, siyasi sınır `7,08 MB`, kıyı `14,16 MB`; toplam `1.294.253.376 bayt / 1234,3 MiB`. İlçe doğrusal çözünürlüğü önceki sürüme göre 2×, liman doğrusal çözünürlüğü 4× arttı; fiziksel dünya boyutları değişmedi. Kamera/zoom boyunca yeniden üretim yoktur. Uzak/orta/yakın/etkileşim p95 yaklaşık `10,3 / 11,1 / 8,4 / 8,4 ms` ile 60 FPS bütçesinin içindedir. Yüksek kalite düşük RAM cihazları için adaptif kademe borcu doğurur.
+
+RAM'e alma dünya gerçeğini dondurmaz. Sahiplik, geometri, çağ veya ilgili altyapı kaynağı değiştiğinde yalnız etkilenen katman bırakılıp yeniden üretilir. Hareketli taşıt/karakter/ordu ile hover, seçim ve emir işaretleri canlı katmanda kalır; bunların görsel atlası RAM'dedir fakat konumu her kare güncellenir.
+
+### HXD-7.1 altıgen kara yolu envanteri
+
+`story-hex-roads-1`, çizilen `166` kara bağlantısını `987` ortak-kenarlı hücre adımına bağlar. Su/geçilemez hücre ve komşuluk atlaması sıfırdır. Kara zinciri bulunamayan yedi eski GEO kenarı çizimden çıkarılmıştır; bunlar ada/boğaz geçişidir ve deniz, tünel veya köprü koridoru olarak ayrıca sınıflandırılmalıdır. Fiziksel yol segmenti kapasitesi, bakım, hasar, onarım ve taşıt ilerlemesi henüz bu ara kabulün kapsamında değildir.
+
+### HXD-6.6 fiziksel inşaat envanteri
+
+`story-hex-construction-command-1`, yeni konut/sanayi/lojistik yapımını gerçek hedef hücre, arazi kanıtı, kurum kararı, şirket escrow'u, bölgesel malzeme, ayrılmış iş gücü, süre ve çevre bedeline bağlar. Yetki veya kaynak eksikse kayıt `AWAITING_REQUIREMENTS` kalır; LLM ya da şablon onay uyduramaz. Başlayan/tamamlanan komut arazi/site siciline girer, tamamlanma makbuzu save/load içinde korunur. Sonraki envanter borcu bu kapasitenin konut, üretim ve lojistik tüketicilerine devreye alınması ile oyuncu/AI başvuru yüzeyidir.
+
+### HXD-6.7 devreye alınmış kapasite envanteri
+
+Tamamlanan makbuz bölgesel konut, lojistik terminal ve sektör bazlı sanayi kapasitesi üretir. Konut organik nüfus tavanını gerçek kapasite kadar açar; sanayi gerçek şirket tesisi ve `regionalEconomy.sectorCapacity` kaydını birlikte artırır. Şirket escrow'u yatırım gideri ve piyasa takas kaydıyla kapanmadan kapasite oluşmaz. Lojistik kapasitesi kayıtlıdır ancak HXD-7 segmentine tahsis edilmediği için henüz koridor verimini değiştirmez. Açık borç oyuncu/AI başvuru arayüzü, kurum onayı ve dossier ilerleme görünümüdür.

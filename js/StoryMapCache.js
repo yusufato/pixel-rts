@@ -49,6 +49,26 @@ function storyMapPaletteKey() {
         : raw;
 }
 
+function storyMapCacheReleaseWorldLayer(layer) {
+    if (!layer) return;
+    if (typeof storyReleaseWorldRamLayer === 'function') {
+        storyReleaseWorldRamLayer(layer);
+        return;
+    }
+    for (const tile of (layer.tiles || [])) {
+        if (tile && tile.bitmap && typeof tile.bitmap.close === 'function') {
+            try { tile.bitmap.close(); } catch (_error) { /* best effort */ }
+        }
+    }
+}
+
+function storyMapCacheReleaseWorldLayers(group) {
+    if (!group) return;
+    const layers = group.layers || group.worldLayers || null;
+    if (layers) Object.values(layers).forEach(storyMapCacheReleaseWorldLayer);
+    if (group.layer) storyMapCacheReleaseWorldLayer(group.layer);
+}
+
 function storyMapCacheClearOwner() {
     STORY._ownerKey = null;
     STORY._ownerOverlayData = null;
@@ -58,17 +78,27 @@ function storyMapCacheClearOwner() {
     STORY._networkLayerKey = null;
     STORY._settlementLayerKey = null;
     STORY._commanderLayerKey = null;
+    storyMapCacheReleaseWorldLayers(STORY._politicalBorderWorldLayer);
+    STORY._politicalBorderWorldLayer = null;
     if (STORY._politicalBorderLayerCache) STORY._politicalBorderLayerCache.key = null;
     if (STORY._hexGridLayerCache) STORY._hexGridLayerCache.key = null;
     // _ownerCache canvas belleği kasıtlı olarak korunur ve rebuild'de yeniden kullanılır.
 }
 
 function storyMapCacheClearTerrain() {
+    storyMapCacheReleaseWorldLayers(STORY._settlementWorldLayers);
+    storyMapCacheReleaseWorldLayers(STORY._networkWorldLayers);
+    storyMapCacheReleaseWorldLayers(STORY._politicalBorderWorldLayer);
+    storyMapCacheReleaseWorldLayers(STORY._mapV2CoastlineCache);
     STORY._terrainCache = null;
     STORY._geoTerrain = null;
     STORY._geoTerrainSource = null;
     STORY._networkLayerKey = null;
     STORY._settlementLayerKey = null;
+    STORY._settlementWorldLayers = null;
+    STORY._networkWorldLayers = null;
+    STORY._politicalBorderWorldLayer = null;
+    STORY._mapV2CoastlineCache = null;
     STORY._commanderLayerKey = null;
     if (STORY._politicalBorderLayerCache) STORY._politicalBorderLayerCache.key = null;
     if (STORY._hexGridLayerCache) STORY._hexGridLayerCache.key = null;
@@ -163,6 +193,12 @@ function storyMapCacheDiagnostics() {
             networkScreenLayer: !!STORY._networkLayerCanvas,
             settlementScreenLayer: !!STORY._settlementLayerCanvas,
             commanderScreenLayer: !!STORY._commanderLayerCanvas,
+            naturalWorldRam: !!STORY._hexNaturalContentsRamTiles,
+            settlementWorldRam: !!STORY._settlementWorldLayers,
+            networkWorldRam: !!STORY._networkWorldLayers,
+            politicalBorderWorldRam: !!STORY._politicalBorderWorldLayer,
+            coastlineWorldRam: !!(STORY._mapV2CoastlineCache
+                && STORY._mapV2CoastlineCache.worldLayers),
             warpPlan: !!STORY._warpPlanCache
         }
     };

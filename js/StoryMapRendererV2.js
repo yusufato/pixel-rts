@@ -25,9 +25,15 @@
         // as noise. These remain below their 19/27 city cores while filling
         // about 57–65% of the hex width at every camera zoom.
         districtWorldSize: Object.freeze({ 2: 16, 3: 18 }),
+        // Raster density is independent from physical footprint. Districts keep
+        // the same hex size while their persistent art uses 2x more pixels.
+        districtRasterScale: 8,
         // Ports follow the same physical-object contract as cities. Their
         // world footprint never switches at an arbitrary LOD threshold.
         portWorldSize: Object.freeze({ 2: 8, 3: 10 }),
+        // Ports leave the 0.5x road layer and use a dedicated 2x layer: 4x the
+        // former linear density without inflating the complete road network.
+        portRasterScale: 2,
         // One high-resolution world surface replaces the low-resolution
         // screen-space ground pass that used to rebuild on every camera frame.
         hexSurfaceScale: 2
@@ -433,6 +439,9 @@
         if (!raster) return 0;
         let cache = STORY._mapV2CoastlineCache;
         if (!cache || cache.raster !== raster || cache.landHash !== raster.landHash) {
+            if (cache && cache.worldLayers && typeof storyReleaseWorldRamLayer === 'function') {
+                Object.values(cache.worldLayers).forEach(storyReleaseWorldRamLayer);
+            }
             cache = {
                 raster,
                 landHash: raster.landHash,
@@ -445,6 +454,74 @@
         }
         const ratio = zoomRatio(storyCam, STORY._minZoom || storyCam.zoom);
         const metrics = coastlineMetrics(ratio);
+        if (typeof storyCreateWorldRamLayer === 'function'
+            && typeof storyDrawWorldRamLayer === 'function') {
+            if (!cache.worldLayers) {
+                cache.worldLayers = Object.create(null);
+                const buildMode = (id, metricRatio, widthScale) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = STORY_WORLD_W;
+                    canvas.height = STORY_WORLD_H;
+                    const paint = canvas.getContext('2d');
+                    const fixed = coastlineMetrics(metricRatio);
+                    const contours = cache.contours.map(contour => contour.renderPoints.map(point => ({
+                        x: point.x * STORY_WORLD_W,
+                        y: point.y * STORY_WORLD_H
+                    })));
+                    const path = offset => {
+                        paint.beginPath();
+                        for (const contour of contours) smoothCoastPath(paint, contour, offset);
+                    };
+                    paint.save();
+                    paint.lineCap = 'round';
+                    paint.lineJoin = 'round';
+                    path(0);
+                    paint.strokeStyle = 'rgba(2,25,39,0.82)';
+                    paint.lineWidth = fixed.shadowPx * widthScale;
+                    paint.stroke();
+                    path(0);
+                    paint.strokeStyle = 'rgba(222,181,77,0.88)';
+                    paint.lineWidth = fixed.coastPx * widthScale;
+                    paint.stroke();
+                    path(fixed.foamOffsetPx * widthScale);
+                    paint.setLineDash(fixed.dashPx.map(value => value * widthScale));
+                    paint.lineDashOffset = -2 * widthScale;
+                    paint.strokeStyle = `rgba(170,225,218,${fixed.foamAlpha})`;
+                    paint.lineWidth = fixed.foamPx * widthScale;
+                    paint.stroke();
+                    paint.restore();
+                    return storyCreateWorldRamLayer(canvas, {
+                        mode: id,
+                        worldScale: .5
+                    });
+                };
+                // Overview strokes are authored at 4x world width so the
+                // minimum zoom still receives a crisp one-pixel coastline.
+                cache.worldLayers.OVERVIEW = buildMode('OVERVIEW', 1, 4);
+                cache.worldLayers.LOCAL = buildMode('LOCAL', 4, 1);
+                cache.worldBuilds = (Number(cache.worldBuilds) || 0) + 1;
+                cache.worldBytes = Object.values(cache.worldLayers).reduce(
+                    (sum, layer) => sum + Number(layer && layer.estimatedBytes || 0), 0);
+            }
+            const mode = ratio < 1.7 ? 'OVERVIEW' : 'LOCAL';
+            const layer = cache.worldLayers[mode];
+            const drawnTiles = storyDrawWorldRamLayer(ctx, layer);
+            STORY._mapV2Coastline = {
+                total: cache.segments.length,
+                contours: cache.contours.length,
+                visible: cache.contours.length,
+                ratio: Math.round(ratio * 100) / 100,
+                coastPx: Math.round(metrics.coastPx * 100) / 100,
+                cached: true,
+                ramResident: true,
+                mode,
+                builds: cache.worldBuilds,
+                ramBytes: cache.worldBytes,
+                tileCount: layer && layer.tiles ? layer.tiles.length : 0,
+                drawnTiles
+            };
+            return cache.contours.length;
+        }
         const screenKey = [STORY._cw, STORY._ch,
             visualZoomBand(storyCam, STORY._minZoom || storyCam.zoom),
             cameraBucket(storyCam, STORY._cw, STORY._ch), cache.landHash].join('|');
@@ -698,7 +775,7 @@
         const { world, geography, occupied, natural, paint, scaleX, scaleY,
             baseWorld, counts } = job;
         const coverage = Number(geography.landCoverageBps[index]);
-        if (coverage < 9400 || occupied.has(index)) return;
+        if (coverage < 9400) return;
         const cx = Number(world.centerX[index]) * scaleX;
         const cy = Number(world.centerY[index]) * scaleY;
         const latitude = Number(world.centerY[index]) / Number(world.height);
@@ -715,7 +792,21 @@
             Number(natural.coverCodes[index])
         ] || 'OPEN_LAND';
         let atlas = null, variant = 0, size = baseWorld * 2.04, alpha = .94, kind = null;
-        if (resource === 'PETROLEUM') {
+        const physicalLandUseSite = job.landUseSiteByCellIndex.get(index) || null;
+        if (physicalLandUseSite && typeof storyVisualLandUseRecipe === 'function') {
+            const recipe = storyVisualLandUseRecipe({
+                landUseType: physicalLandUseSite.landUseType,
+                lifecycleState: physicalLandUseSite.lifecycleState,
+                year: typeof STORY !== 'undefined' ? STORY.year : 2010
+            });
+            atlas = recipe.atlasKey;
+            variant = recipe.atlasCell;
+            size = baseWorld * 2.08;
+            alpha = .98;
+            kind = 'LAND_USE';
+        } else if (occupied.has(index)) {
+            return;
+        } else if (resource === 'PETROLEUM') {
             atlas = 'settlements'; variant = 8; size = baseWorld * 1.86; kind = 'OIL';
         } else if (resource === 'MINERAL') {
             atlas = 'ruralEnvironment'; variant = 9; size = baseWorld * 1.96; kind = 'MINE';
@@ -782,12 +873,105 @@
             buildMs: finished - job.startedAt, frameCount: job.frameCount,
             maxSliceMs: job.maxSliceMs, frameBudgetMs: job.frameBudgetMs
         };
+        promoteHexNaturalContentsToRamTiles(job.canvas, job.key, job.renderScale);
         // Son dilim yalnız tanı kaydını kapatır. Canvas ilk dilimden beri aynı
         // nesne olarak görünür; doğal örtü sonunda tek karede patlamaz.
         hexNaturalRequestFrame(() => {
             if (typeof storyRender === 'function'
                 && (typeof APP_SCREEN === 'undefined' || APP_SCREEN === 'story')) storyRender();
         });
+    }
+
+    function releaseHexNaturalRamTiles(reason) {
+        const cache = STORY._hexNaturalContentsRamTiles;
+        if (cache && Array.isArray(cache.tiles)) {
+            for (const tile of cache.tiles) {
+                if (tile && tile.bitmap && typeof tile.bitmap.close === 'function') {
+                    tile.bitmap.close();
+                }
+            }
+        }
+        STORY._hexNaturalContentsRamTiles = null;
+        STORY._hexNaturalContentsRamInvalidation = String(reason || 'unknown');
+    }
+
+    function promoteHexNaturalContentsToRamTiles(canvas, key, renderScale) {
+        if (!canvas || typeof createImageBitmap !== 'function') return;
+        releaseHexNaturalRamTiles('replacement');
+        const tileSize = 1024;
+        const cache = {
+            key,
+            renderScale: Number(renderScale) || 1,
+            tiles: [],
+            ready: false,
+            readyCount: 0,
+            byteLength: Number(canvas.width) * Number(canvas.height) * 4
+        };
+        STORY._hexNaturalContentsRamTiles = cache;
+        const jobs = [];
+        for (let y = 0; y < canvas.height; y += tileSize) {
+            for (let x = 0; x < canvas.width; x += tileSize) {
+                const width = Math.min(tileSize, canvas.width - x);
+                const height = Math.min(tileSize, canvas.height - y);
+                const tile = { x, y, width, height, bitmap: null };
+                cache.tiles.push(tile);
+                jobs.push(createImageBitmap(canvas, x, y, width, height).then(bitmap => {
+                    tile.bitmap = bitmap;
+                    cache.readyCount++;
+                }));
+            }
+        }
+        Promise.all(jobs).then(() => {
+            if (STORY._hexNaturalContentsRamTiles !== cache
+                || STORY._hexNaturalContentsKey !== key) {
+                releaseHexNaturalRamTiles('stale-promotion');
+                return;
+            }
+            cache.ready = true;
+            // Bitmapler bağımsız çözülmüş kaynaklardır. Büyük çalışma canvas'ının
+            // piksel backing store'u artık tutulmaz; referans yalnız uyumluluk
+            // için 1×1 yüzey olarak kalır.
+            canvas.width = 1;
+            canvas.height = 1;
+            if (typeof storyRender === 'function'
+                && (typeof APP_SCREEN === 'undefined' || APP_SCREEN === 'story')) storyRender();
+        }).catch(() => {
+            releaseHexNaturalRamTiles('promotion-failed');
+        });
+    }
+
+    function drawHexNaturalRamTiles(ctx, cache) {
+        if (!ctx || !cache || !cache.ready || !Array.isArray(cache.tiles)) return 0;
+        const zoom = Math.max(.0001, Number(storyCam.zoom) || 1);
+        const scale = Math.max(.0001, Number(cache.renderScale) || 1);
+        const viewLeft = Number(storyCam.x) || 0;
+        const viewTop = Number(storyCam.y) || 0;
+        const viewRight = viewLeft + Number(STORY._cw || 0) / zoom;
+        const viewBottom = viewTop + Number(STORY._ch || 0) / zoom;
+        let drawn = 0;
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        for (const tile of cache.tiles) {
+            if (!tile.bitmap) continue;
+            const tileLeft = tile.x / scale;
+            const tileTop = tile.y / scale;
+            const tileRight = (tile.x + tile.width) / scale;
+            const tileBottom = (tile.y + tile.height) / scale;
+            const ix0 = Math.max(tileLeft, viewLeft);
+            const iy0 = Math.max(tileTop, viewTop);
+            const ix1 = Math.min(tileRight, viewRight);
+            const iy1 = Math.min(tileBottom, viewBottom);
+            if (!(ix1 > ix0) || !(iy1 > iy0)) continue;
+            ctx.drawImage(tile.bitmap,
+                (ix0 - tileLeft) * scale, (iy0 - tileTop) * scale,
+                (ix1 - ix0) * scale, (iy1 - iy0) * scale,
+                (ix0 - viewLeft) * zoom, (iy0 - viewTop) * zoom,
+                (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
+            drawn++;
+        }
+        ctx.restore();
+        return drawn;
     }
 
     function processHexNaturalContents(job) {
@@ -830,7 +1014,7 @@
             || typeof storyHexNaturalResourcesEnsure !== 'function'
             || typeof storyHexSitesEnsure !== 'function') return null;
         const required = ['mountains', 'forests', 'groundDetail',
-            'terrainDetail', 'ruralEnvironment', 'settlements'];
+            'terrainDetail', 'ruralEnvironment', 'settlements', 'landUseModern'];
         if (!required.every(storyMapAtlasReady)) return null;
         const world = storyHexWorldEnsure();
         const geography = storyHexGeographyEnsure();
@@ -844,11 +1028,37 @@
         const operatingResourceCells = new Set((physicalSites.sites || [])
             .filter(site => site.siteType === 'EXTRACTION')
             .map(site => Number(site.cellIndex)));
+        const landUseSiteByCellIndex = new Map();
+        for (const site of physicalSites.sites || []) {
+            const siteType = String(site.siteType || '').toUpperCase();
+            const visualFamily = String(site.visualFamily || '').toUpperCase();
+            let landUseType = null;
+            if (siteType === 'AGRICULTURE' || visualFamily === 'AGRICULTURE') landUseType = 'AGRICULTURE';
+            else if (siteType === 'FORESTRY' || visualFamily === 'FORESTRY') landUseType = 'FORESTRY';
+            else if (siteType === 'EXTRACTION' || visualFamily === 'MINE'
+                || visualFamily === 'MINERAL' || visualFamily === 'EXTRACTION') landUseType = 'MINE';
+            else if (siteType === 'RENEWABLE' || visualFamily === 'RENEWABLE') landUseType = 'RENEWABLE';
+            // Generic ENERGY is deliberately not presented as renewable. The
+            // simulation must explicitly prove that technology/fuel family.
+            const cellIndex = Number(site.cellIndex);
+            if (!landUseType || !Number.isInteger(cellIndex) || cellIndex < 0
+                || cellIndex >= Number(world.cellCount)) continue;
+            landUseSiteByCellIndex.set(cellIndex, {
+                siteId: site.id,
+                landUseType,
+                lifecycleState: String(site.lifecycleState || 'OPERATING')
+            });
+        }
         const resourceOperationKey = Array.from(operatingResourceCells)
             .sort((a, b) => a - b).join(',');
+        const landUseOperationKey = Array.from(landUseSiteByCellIndex.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([index, site]) => `${index}:${site.siteId}:${site.landUseType}:${site.lifecycleState}`)
+            .join(',');
         const key = ['hex-natural-surface-5', world.layoutHash, geography.geographyHash,
             natural.registryHash, urban && urban.footprintHash || '-', STORY_WORLD_W,
-            STORY_WORLD_H, resourceOperationKey, renderScale].join('|');
+            STORY_WORLD_H, physicalSites.sourceHash || physicalSites.registryHash || '-',
+            resourceOperationKey, landUseOperationKey, renderScale].join('|');
         if (STORY._hexNaturalContentsCanvas && STORY._hexNaturalContentsKey === key) return STORY._hexNaturalContentsCanvas;
         if (STORY._hexNaturalContentsJob && STORY._hexNaturalContentsJob.key === key) {
             return STORY._hexNaturalContentsCanvas || null;
@@ -866,7 +1076,7 @@
         const occupied = new Set(urban && urban.cellIndices ? Array.from(urban.cellIndices) : []);
         const order = Array.from({ length: world.cellCount }, (_, index) => index)
             .filter(index => Number(geography.landCoverageBps[index]) >= 9400
-                && !occupied.has(index))
+                && (!occupied.has(index) || landUseSiteByCellIndex.has(index)))
             .sort((a, b) => {
                 const ad = Math.abs(Number(world.centerX[a]) - Number(world.width) * .5)
                     + Math.abs(Number(world.centerY[a]) - Number(world.height) * .55);
@@ -874,11 +1084,12 @@
                     + Math.abs(Number(world.centerY[b]) - Number(world.height) * .55);
                 return ad - bd || a - b;
             });
-        const counts = { MOUNTAIN: 0, FOREST: 0, MINE: 0, OIL: 0, TERRAIN: 0 };
+        const counts = { MOUNTAIN: 0, FOREST: 0, MINE: 0, OIL: 0, TERRAIN: 0, LAND_USE: 0 };
         const baseWorld = Number(world.radius) * Math.min(scaleX, scaleY);
         const job = {
             key, world, geography, natural, physicalSites, raster, urban, renderScale,
             canvas, paint, scaleX, scaleY, occupied, operatingResourceCells,
+            landUseSiteByCellIndex,
             order, counts, baseWorld,
             cursor: 0, cancelled: false, startedAt: hexNaturalNow(), frameCount: 0,
             maxSliceMs: 0, lastSliceMs: 0, frameBudgetMs: 4
@@ -899,9 +1110,20 @@
     function drawHexNaturalContents(ctx) {
         const canvas = ensureHexNaturalContentsCanvas();
         if (!ctx || !canvas) return 0;
-        blit(ctx, canvas, 1, storyCam, STORY._cw, STORY._ch, STORY_WORLD_W, STORY_WORLD_H);
+        const ramTiles = STORY._hexNaturalContentsRamTiles;
+        // Yeni yüzey dilimler halinde hazırlanırken önceki tamamlanmış RAM
+        // karoları görünmeye devam eder; harita boş bir kareye düşmez.
+        const drawnRamTiles = ramTiles && ramTiles.ready
+            ? drawHexNaturalRamTiles(ctx, ramTiles) : 0;
+        if (!drawnRamTiles) {
+            blit(ctx, canvas, 1, storyCam, STORY._cw, STORY._ch, STORY_WORLD_W, STORY_WORLD_H);
+        }
         STORY._mapV2HexContents = Object.assign({}, STORY._hexNaturalContentsBuild || {}, {
-            zoom: Number(storyCam.zoom)
+            zoom: Number(storyCam.zoom),
+            ramResident: !!drawnRamTiles,
+            drawnRamTiles,
+            ramTileCount: ramTiles && ramTiles.tiles ? ramTiles.tiles.length : 0,
+            ramBytes: ramTiles ? ramTiles.byteLength : 0
         });
         return Object.values(STORY._hexNaturalContentsBuild && STORY._hexNaturalContentsBuild.counts || {})
             .reduce((total, value) => total + Number(value || 0), 0);

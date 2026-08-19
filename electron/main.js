@@ -29,6 +29,13 @@ let win = null;
 // Kullanıcının makinesi 12 paralel işçiyle bu yüzden dondu.
 const TEST_BAYRAKLARI = new Set(["--smoke","--uitest","--battletest","--maptest","--ailab","--realrepro","--grammartest","--forktest","--recipeab","--recipebase","--membreak","--recipeaudit","--zonedrift","--ratiotest","--comptest","--armydump","--budgetprobe","--intel4pro","--matchtimeline","--intel4selfplay","--intel4exam","--pdtest","--divdiag","--defersoak","--defertest","--benchmark","--liverepro","--oracletest","--versus","--selfplay","--varietytest","--coach","--coachwatch","--learntest","--humancapture","--snaptest","--doctrinetournament","--handicaprec","--gradrec","--profilecheck","--vshandicap","--vsrec","--ablation","--vstournament","--ladder","--aibattery","--modelsmoke","--selectorlive","--oracledata","--oracleseq","--oracledagger","--diagvs","--unitdump","--fixverify","--precisiontest","--replaycheck","--playtest","--hudtest","--beyintest","--izle"]);
 const TEST_KIPI = process.argv.some(a => TEST_BAYRAKLARI.has(a));
+// Harita kabulü gerçek GPU yolunu kullanır fakat canlı oyunla aynı Chromium
+// cache'ini paylaşmaz. Aynı profil iki Electron örneğinde açıldığında Windows
+// GPU cache kilidi p95'i sahte biçimde yükseltiyordu. Süreç başına profil;
+// oyuncunun kayıtlarına, ayarlarına ve açık oyun oturumuna dokunmadan ölçer.
+if (process.argv.includes('--maptest')) {
+    app.setPath('userData', path.join(os.tmpdir(), 'pixel-rts-maptest', String(process.pid)));
+}
 
 function createWindow() {
     win = new BrowserWindow({
@@ -207,13 +214,19 @@ app.whenReady().then(() => {
             const storyOpenStarted = Date.now();
             await click('#char-go');
             const storyOpenClickMs = Date.now() - storyOpenStarted;
+            // Renderer kabulü aynı dünya karesini ölçer. Simülasyon akarsa
+            // şirket/site değişiklikleri yüzey anahtarını test ortasında yeniler.
+            await js(`(() => { STORY.paused = true; return { clock: STORY.clock }; })()`);
             const startup = await js(`(() => ({
                 clickMs: ${storyOpenClickMs},
                 atlasReady: typeof storyMapAtlasReady === 'function' && storyMapAtlasReady('settlements'),
-                settlementLayerReady: !!(STORY._settlementLayerKey && STORY._settlementLayerCanvas),
+                settlementLayerReady: !!(STORY._settlementLayerKey
+                    && STORY._settlementWorldLayers),
                 settlementBuildMs: Number(STORY._settlementLayerDiagnostics && STORY._settlementLayerDiagnostics.buildMs || 0),
                 naturalResources: typeof storyHexNaturalResourcesEnsure === 'function'
                     ? storyHexNaturalResourcesEnsure().diagnostics : null,
+                agricultureEvidence: typeof storyHexAgricultureEnsure === 'function'
+                    ? storyHexAgricultureEnsure().diagnostics : null,
                 physicalSites: typeof storyHexSitesEnsure === 'function'
                     ? storyHexSitesEnsure().diagnostics : null,
                 hexSurfaceReady: !!STORY._hexNaturalContentsCanvas,
@@ -225,6 +238,31 @@ app.whenReady().then(() => {
                 problems.push('şehir ilk karede hazır değil: ' + JSON.stringify(startup));
             }
             await sleep(1400);
+            // İlk kare kabulü yukarıda ayrı tutulur. Kararlı 60 FPS ölçümünü,
+            // dilimli doğal yüzey üretimi render işçisiyle hâlâ CPU yarışındayken
+            // almak iki farklı bütçeyi birbirine karıştırır. Hazır olma süresi de
+            // gizlenmez; kendi metriği ve zaman aşımıyla ayrıca raporlanır.
+            const surfaceWaitStarted = Date.now();
+            let surfaceState = null;
+            do {
+                surfaceState = await js(`(() => ({
+                    ready: !!STORY._hexNaturalContentsCanvas
+                        && !!STORY._hexNaturalContentsProgress
+                        && Number(STORY._hexNaturalContentsProgress.ratio) >= 1,
+                    progress: STORY._hexNaturalContentsProgress || null,
+                    build: STORY._hexNaturalContentsDiagnostics || null
+                }))()`);
+                if (surfaceState && surfaceState.ready) break;
+                await sleep(100);
+            } while (Date.now() - surfaceWaitStarted < 20000);
+            const surfaceReady = {
+                waitMs: Date.now() - surfaceWaitStarted,
+                ready: !!(surfaceState && surfaceState.ready),
+                progress: surfaceState && surfaceState.progress || null,
+                build: surfaceState && surfaceState.build || null
+            };
+            console.log('MAPTEST_SURFACE_READY ' + JSON.stringify(surfaceReady));
+            if (!surfaceReady.ready) problems.push('doğal yüzey 20 sn içinde hazır olmadı');
             const setZoom = z => js(`(() => { try { const cv=document.getElementById('storyCanvas'); storyCam.zoom=${z}; storyCenterCamOnPlayer(); storyClampCam(cv.width,cv.height); storyRender(); const sizes={}; for(const level of [1,2,3]){ const nd=STORY.nodes.find(n=>(n.level|0)===level); if(nd&&typeof storyMapV2SettlementMetrics==='function'){ const m=storyMapV2SettlementMetrics(nd,{cam:storyCam,minZoom:STORY._minZoom}); sizes[level]=m.hidden?0:m.size; }} return {zoom:storyCam.zoom, pp:(typeof storyPP==='function'?storyPP():null), min:STORY._minZoom,renderer:STORY._mapRendererVersion||'legacy',settlementPx:sizes,hexGrid:STORY._hexGridDiagnostics||null,hexPolitical:(typeof storyHexPoliticalOverlayDiagnostics==='function'?storyHexPoliticalOverlayDiagnostics():null)}; } catch(e){return {err:e.message};} })()`);
             const focusCity = (name, zoom) => js(`(() => { try {
                 const cv=document.getElementById('storyCanvas');
@@ -272,7 +310,9 @@ app.whenReady().then(() => {
                 storyCam.x=original.x;storyCam.y=original.y;storyCam.zoom=original.z;storyClampCam(cv.width,cv.height);storyRender();
                 times.sort((a,b)=>a-b); const sum=times.reduce((a,b)=>a+b,0);
                 return {samples:times.length,avgMs:+(sum/times.length).toFixed(3),p95Ms:+times[Math.min(times.length-1,Math.floor(times.length*.95))].toFixed(3),maxMs:+times[times.length-1].toFixed(3),settleMs:+settleMs.toFixed(3),reusedNetwork,reusedSettlement,reusedCommander,
-                    settleBuildMs,liveSettlementRebuilds,maxSettlementViewLagPx:+maxSettlementViewLagPx.toFixed(3),maxIncomingTiming};
+                    settleBuildMs,liveSettlementRebuilds,maxSettlementViewLagPx:+maxSettlementViewLagPx.toFixed(3),maxIncomingTiming,
+                    settlementWorld:{serial:Number(STORY._settlementWorldLayerBuildSerial||0),hits:Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.hits||0),token:String(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.token||''),
+                        worldDrawMs:Number(STORY._settlementLayerDiagnostics&&STORY._settlementLayerDiagnostics.worldDrawMs||0),overlayDrawMs:Number(STORY._settlementLayerDiagnostics&&STORY._settlementLayerDiagnostics.overlayDrawMs||0),drawnTiles:Number(STORY._settlementLayerDiagnostics&&STORY._settlementLayerDiagnostics.worldLayerDrawnTiles||0),bitmapReady:Number(STORY._settlementLayerDiagnostics&&STORY._settlementLayerDiagnostics.worldLayerBitmapReady||0)}};
             } catch(e){ STORY._mapInteracting=false; return {err:e.message}; } })()`);
             const measureDragReveal = () => js(`(() => { try {
                 const cv=document.getElementById('storyCanvas');
@@ -288,11 +328,20 @@ app.whenReady().then(() => {
                 if(!target) return {err:'kadro dışında test şehri bulunamadı'};
                 const anchor=storyHexSettlementNodePosition(target,STORY_WORLD_W,STORY_WORLD_H);
                 STORY._mapInteracting=true;
+                const buildsBefore=Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.builds||0);
                 storyMapV2CenterCamera(storyCam,anchor.x,anchor.y,cv.width,cv.height);
                 storyClampCam(cv.width,cv.height); storyRender();
                 const ids=STORY._settlementLayerDiagnostics&&STORY._settlementLayerDiagnostics.liveIncomingNodeIds||[];
+                const buildsAfterFirst=Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.builds||0);
+                storyRender();
+                const buildsAfterRepeat=Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.builds||0);
                 const result={targetId:target.id,targetName:target.name,drawnBeforeRelease:ids.includes(target.id),
-                    liveIncomingCount:ids.length};
+                    liveIncomingCount:ids.length,
+                    firstPassNewSpriteBuilds:buildsAfterFirst-buildsBefore,
+                    repeatNewSpriteBuilds:buildsAfterRepeat-buildsAfterFirst,
+                    persistentSpriteCount:Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.layers?Object.keys(STORY._settlementWorldLayers.layers).length:0),
+                    estimatedSpriteBytes:Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.estimatedBytes||0),
+                    worldLayerBuildMs:Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.buildMs||0)};
                 STORY._mapInteracting=false;
                 storyCam.x=original.x;storyCam.y=original.y;storyCam.zoom=original.z;
                 storyClampCam(cv.width,cv.height);storyRender();
@@ -321,6 +370,9 @@ app.whenReady().then(() => {
             if (!dragReveal || dragReveal.err || !dragReveal.drawnBeforeRelease) {
                 problems.push(`kamera sürükleme: yeni şehir fare bırakılmadan çizilmedi ${JSON.stringify(dragReveal)}`);
             }
+            if (dragReveal && Number(dragReveal.repeatNewSpriteBuilds) !== 0) {
+                problems.push(`kamera sürükleme: aynı şehir RAM yerine yeniden üretildi ${JSON.stringify(dragReveal)}`);
+            }
             // HIT-TEST round-trip: her node için ekran-konumu → storyS2W → dünya; ortalama hata (px)
             const rt = await js(`(() => { try {
                 let n=0, sumErr=0, maxErr=0;
@@ -345,6 +397,46 @@ app.whenReady().then(() => {
             }))()`);
             console.log('MAPTEST_NATURAL_BUILD ' + JSON.stringify(naturalBuild));
             if (!naturalBuild || !naturalBuild.ready) problems.push('doğal yüzey tamamlanmadı: ' + JSON.stringify(naturalBuild));
+            const ramLayers = await js(`(() => { const natural=STORY._mapV2HexContents||{};
+                const cities=STORY._settlementWorldLayers||{};
+                const network=STORY._networkWorldLayers||{};
+                const ports=STORY._portWorldLayer||{};
+                const borders=STORY._politicalBorderWorldLayer||{};
+                const coast=STORY._mapV2CoastlineCache||{};
+                const borderBytes=Number(borders.layer&&borders.layer.estimatedBytes||0);
+                const coastBytes=Number(coast.worldBytes||0);
+                const portBytes=Number(ports.layer&&ports.layer.estimatedBytes||0);
+                const values={naturalBytes:Number(natural.ramBytes||0),cityBytes:Number(cities.estimatedBytes||0),
+                    networkBytes:Number(network.estimatedBytes||0),portBytes,borderBytes,coastBytes,
+                    districtRasterScale:Number(cities.layers&&cities.layers.DISTRICTS
+                        && cities.layers.DISTRICTS.worldScale||0),
+                    portRasterScale:Number(ports.layer&&ports.layer.worldScale||0),
+                    networkBuilds:Number(network.builds||0),networkHits:Number(network.hits||0),
+                    borderBuilds:Number(borders.builds||0),borderHits:Number(borders.hits||0),
+                    coastBuilds:Number(coast.worldBuilds||0),
+                    hexRoads:typeof storyHexRoadDiagnostics==='function'?storyHexRoadDiagnostics():null,
+                    hexInfrastructure:typeof storyHexInfrastructureDiagnostics==='function'
+                        ?storyHexInfrastructureDiagnostics():null};
+                values.totalBytes=values.naturalBytes+values.cityBytes+values.networkBytes+portBytes+borderBytes+coastBytes;
+                values.totalMiB=+(values.totalBytes/1048576).toFixed(1); return values; })()`);
+            console.log('MAPTEST_RAM_LAYERS ' + JSON.stringify(ramLayers));
+            if (!ramLayers || ramLayers.networkBuilds !== 1 || ramLayers.borderBuilds !== 1 || ramLayers.coastBuilds !== 1) {
+                problems.push('RAM harita katmanı beklenmedik yeniden üretim: ' + JSON.stringify(ramLayers));
+            }
+            if (!ramLayers || ramLayers.districtRasterScale !== 8 || ramLayers.portRasterScale !== 2) {
+                problems.push('şehir/liman raster çözünürlüğü sözleşmesi bozuk: ' + JSON.stringify(ramLayers));
+            }
+            if (!ramLayers || !ramLayers.hexRoads || ramLayers.hexRoads.routeCount < 1
+                || ramLayers.hexRoads.waterStepCount !== 0
+                || ramLayers.hexRoads.invalidNeighborCount !== 0) {
+                problems.push('altıgen yol zinciri geçersiz: ' + JSON.stringify(ramLayers && ramLayers.hexRoads));
+            }
+            if (!ramLayers || !ramLayers.hexInfrastructure
+                || ramLayers.hexInfrastructure.sourceLandCorridorCount < 1
+                || ramLayers.hexInfrastructure.physicalSegmentCount < 1) {
+                problems.push('fiziksel segment sicili geçersiz: '
+                    + JSON.stringify(ramLayers && ramLayers.hexInfrastructure));
+            }
             console.log('MAPTEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 6)));
             console.log(problems.length ? 'MAPTEST_FAIL' : 'MAPTEST_OK');
             setTimeout(() => app.exit(problems.length ? 1 : 0), 300);

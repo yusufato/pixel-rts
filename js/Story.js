@@ -522,6 +522,7 @@ function storyNewCampaign(config = {}) {
     if (typeof storyActivationReset === 'function') storyActivationReset();
     if (typeof storyAggregationReset === 'function') storyAggregationReset();
     if (typeof storyInfrastructureReset === 'function') storyInfrastructureReset({ generatedAt: 0 });
+    if (typeof storyHexInfrastructureReset === 'function') storyHexInfrastructureReset();
     if (typeof storyResourceTaxonomyReset === 'function') storyResourceTaxonomyReset();
     if (typeof storyProductionReset === 'function') storyProductionReset();
     if (typeof storyPopulationReset === 'function') storyPopulationReset();
@@ -627,6 +628,9 @@ function storySave() {
             infrastructureGraph: (typeof storyInfrastructureForSave === 'function')
                 ? storyInfrastructureForSave()
                 : STORY.infrastructureGraph,
+            hexInfrastructureSegments: (typeof storyHexInfrastructureForSave === 'function')
+                ? storyHexInfrastructureForSave()
+                : STORY.hexInfrastructureSegments,
             resourceTaxonomy: (typeof storyResourceTaxonomyForSave === 'function')
                 ? storyResourceTaxonomyForSave()
                 : STORY.resourceTaxonomy,
@@ -708,6 +712,9 @@ function storySave() {
             companyEconomy: (typeof storyCompanyForSave === 'function')
                 ? storyCompanyForSave()
                 : STORY.companyEconomy,
+            hexConstruction: (typeof storyHexConstructionForSave === 'function')
+                ? storyHexConstructionForSave()
+                : STORY.hexConstruction,
             economicAI: (typeof storyEconomicAIForSave === 'function')
                 ? storyEconomicAIForSave()
                 : STORY.economicAI,
@@ -780,11 +787,19 @@ function storyLoad() {
         // defterinde saklanir. Butce dogrulamasi gercek sirket escrow aynasini
         // gorebilmek icin sirket/commerce defterinden sonra yuklenmelidir.
         if (typeof storyCompanyRestore === 'function') storyCompanyRestore(d.companyEconomy);
+        if (typeof storyHexConstructionRestore === 'function') {
+            const constructionRestore = storyHexConstructionRestore(d.hexConstruction);
+            if (!constructionRestore.ok) throw new Error(constructionRestore.code);
+        }
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
         if (typeof storyOpinionRestore === 'function') storyOpinionRestore(d.publicOpinion);
         STORY._geoMap = !!(STORY.nodes[0] && STORY.nodes[0].geo);   // gerçek-Avrupa kaydı mı?
         storyBuildLandGrid();                     // kayıttan pixel kara-maskeyi yeniden üret
+        if (typeof storyHexInfrastructureRestore === 'function') {
+            const segmentRestore = storyHexInfrastructureRestore(d.hexInfrastructureSegments);
+            if (!segmentRestore.ok) throw new Error(segmentRestore.code);
+        }
         // Güncel GEO kaydı kendi şehir/petrol/maden dağılımını zaten taşır.
         // STORY_TERRAIN koordinatlarıyla tekrar rasterize etmek kayıtlı ekonomiyi
         // sessizce değiştiriyordu. Yalnız eski, GEO olmayan kayıtta backfill yap.
@@ -1603,7 +1618,9 @@ function storyAdvanceStep(dtSec) {
         if (typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_economyDt); // Faz 19 bölgesel piyasa/fiyat
         if (typeof storyBudgetTick === 'function') storyBudgetTick(_economyDt); // Faz 20 devlet bütçesi/borç/faiz
         if (typeof storyCompanyTick === 'function') storyCompanyTick(_economyDt); // Faz 21 şirket/banka/tesis/yatırım
+        if (typeof storyHexConstructionTickSeconds === 'function') storyHexConstructionTickSeconds(_economyDt); // HXD-6 fiziksel imar/inşaat
         if (typeof storyEconomicAITick === 'function') storyEconomicAITick(_economyDt); // Faz 22 hilesiz ekonomik aday/seçim
+        if (typeof storyHexConstructionEconomicAITick === 'function') storyHexConstructionEconomicAITick(_economyDt); // HXD-6.8 aynı imar kapısını kullanan şirket AI
     }
     const _growthDt = _storyDue('city-growth', '_accGrow', 5);
     if (_growthDt > 0 && typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_growthDt); // organik şehir büyümesi

@@ -460,11 +460,9 @@ function storyCharacterArbiterLiveAvailable() {
 function storyCharacterArbiterLiveWarmup() {
     const state = storyCharacterArbiterLiveState();
     if (typeof state.testAdapter === 'function' || storyCharacterArbiterLiveAvailable()) return true;
-    if (state.warmupStarted || !storyCharacterArbiterEnabled()
-        || typeof llmBridge !== 'function' || !llmBridge()
-        || typeof llmEnsure !== 'function') return false;
-    state.warmupStarted = true;
-    Promise.resolve(llmEnsure()).catch(() => null);
+    // Dünya AI'sinin 10 saniyelik tıkı 5 GB modeli sessizce yüklememeli.
+    // Model gerçek bir oyuncu sohbetinde zaten açıksa hakem onu kullanır;
+    // değilse deterministik seçici kesintisiz devam eder.
     return false;
 }
 

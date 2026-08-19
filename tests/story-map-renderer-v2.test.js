@@ -41,6 +41,10 @@ const portSizes = [.35, 2.2, 4.5].map(zoom => context.storyMapV2PortMetrics(
 ).size);
 assert(portSizes.every((size, index) => Math.abs(size / [.35, 2.2, 4.5][index] - 10) < 1e-9),
     `port must keep one fixed world-space size at every zoom: ${portSizes}`);
+assert.strictEqual(context.STORY_MAP_RENDERER_V2.districtRasterScale, 8,
+    'district RAM art must use twice the former 4x raster density');
+assert.strictEqual(context.STORY_MAP_RENDERER_V2.portRasterScale, 2,
+    'port RAM art must use four times the 0.5x network raster density');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: .35 }, .35), 'OVERVIEW');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: 2.2 }, .35), 'DISTRICT');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: 4.5 }, .35), 'LOCAL');
