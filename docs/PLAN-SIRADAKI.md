@@ -125,8 +125,25 @@ Mekanizma aracı düzeltildi: artık sonuç sütununa da bakıp uyarı basıyor 
   mesafede durup topçu/helo kullandığı için piyade 300px'e **hiç** yaklaşamıyor. Yürüyerek
   yaklaşmak da öldürüyor (M0: sağ kalan 12,7→5,2).
 
-  **Eyleme dönük sonuç: sorun taşımadır.** Motorda taşıma var, AI **hiç** kullanmıyor
-  (4 maçta 0 bindirme, maç başına 1,4 taşıyıcı). Kompozisyonu kısmak yanlış olurdu.
+  **Eyleme dönük sonuç: sorun taşımadır — ve nedeni kesin.** Motorda `transportSlots`
+  **yalnız hava birimlerinde** tanımlı (`js/Unit.js:108`; kodun kendi notu: *"AI: YALNIZ
+  nakliye-heli OTO-ferry. Kara-araç taşıması YOK"*). Yani piyadeyi taşıyabilen **tek** birim
+  NAKLİYE HELİKOPTERİ (tip 15). AI onu **hiç almıyor**:
+
+  | | maç başına nakliye helo | maç başına yaya piyade |
+  |---|---|---|
+  | saldıran (12 manifest tohumu) | **0,00** | 8,8 |
+  | savunan (12 manifest tohumu) | **0,00** | 9,3 |
+  | kullanıcının 4 gerçek maçı | **0** | 4 piyade + 4-8 tanksavar |
+
+  Yani AI her maç ~9 yaya birim alıyor ve onları teslim edebilecek tek aracı hiç satın
+  almıyor. Kompozisyonu kısmak yanlış olurdu; eksik olan **ulaştırma**.
+
+  **Deneyin doğru kurgusu (dikkat, bir tuzak var):** `BATTLE_RECIPE_RED` ile tarif vermek
+  BU İŞE YARAMAZ — `battleBuildArmyFromRecipe` orduyu baştan kurar, yani B kolu "doğal ordu
+  + 2 helo" değil bambaşka bir ordu olur ve fark ayrıştırılamaz. Doğru kurgu için manifest
+  kurucusuna "saldırana N nakliye helo zorla, farkı fazla piyadeden karşıla" diye küçük bir
+  bayrak gerekir. Yazılmadı — kuyruk zaten dolu ve bu bir tasarım kararı.
 
   ⚠ Ve bu bir **oyuncu-uyarlama** sorunu: AI-vs-AI kapısı kullanıcının mesafede durma
   tarzını üretmediği için, burada açılacak bir maç kapısı muhtemelen "fark yok" derdi.

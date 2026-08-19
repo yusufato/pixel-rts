@@ -42,6 +42,23 @@ const KOL_DEGER = (() => {
         return isFinite(n) && t !== '' ? n : t;
     });
 })();
+/* --tarif <dosya.json>: KOMPOZİSYON A/B'si. Kol değeri bir sayı ya da bayrak olamayacak
+   kadar büyük olduğunda (ordu tarifi) kullanılır: A kolu tarifsiz (motorun kendi ordusu),
+   B kolu dosyadaki tarifle kurulur (`BATTLE_RECIPE_RED` — motor bunu zaten okuyor,
+   js/BattleDeployment.js:1293). `--koldeger` virgülle ayrıldığı için JSON oradan
+   geçirilemez; bu yüzden ayrı bir kapı.
+   ⚠ KOMPOZİSYON KOLLARI DAHA GÜRÜLTÜLÜDÜR: bu depoda ölçülen marj std'si ~3781 (normal
+   ~2600), yani aynı n ile saptama tabanı ~%45 daha yüksektir. Sonucu ona göre oku.
+
+   ⚠⚠ VE BU KAPI "DOĞAL ORDU + ŞU BİRİM" DENEYİ İÇİN UYGUN DEĞİL. `battleBuildArmyFromRecipe`
+   orduyu tarifden BAŞTAN kurar (`paylar` kategori dağılımını da belirler) — yani B kolu
+   "doğal ordu artı 2 nakliye helo" değil, BAMBAŞKA bir ordudur ve fark hangi değişiklikten
+   geldiği ayrıştırılamaz. Tek bir birimi doğal orduya EKLEMEK istiyorsan bunun için
+   manifest kurucusunda ayrı bir kapı gerekir; bu kapı yalnız TARİFTEN TARİFE kıyas içindir.
+   (Bu not, tam bu tuzağa düşmek üzereyken yazıldı.) */
+const TARIF_DOSYA = arg('--tarif', null);
+const TARIF = TARIF_DOSYA ? JSON.parse(require('node:fs').readFileSync(TARIF_DOSYA, 'utf8')) : null;
+
 /* --ayar "X=1;Y=2": HER İKİ KOLA da uygulanan sabitler. Kolları ayıran tek değişken
    --kol olmalı; buraya konan her şey iki kolda da AYNI kalır (tek-değişken kuralı). */
 const AYAR = arg('--ayar', null);
@@ -74,6 +91,7 @@ function macKos(ctx, seed, kolDeger) {
            bir sonuctur — iki kol da AYNI degeri kosmustur. Ayni sinif hata bu projede
            birden cok kez yasandi (bkz. docs/OLCUM-TUZAKLARI.md), o yuzden atama artik
            GERI OKUNUP dogrulanir; tutmuyorsa mac sessizce degil GURULTUYLE duser. */
+        (TARIF ? ('BATTLE_RECIPE_RED = ' + (kolDeger ? JSON.stringify(TARIF) : 'null') + ';') : '') +
         (KOL ? (KOL + ' = ' + JSON.stringify(kolDeger) + ';' +
                 'if (typeof ' + KOL + ' === "undefined") throw new Error("A/B KOLU TANIMSIZ: ' + KOL + '");' +
                 'if (JSON.stringify(' + KOL + ') !== ' + JSON.stringify(JSON.stringify(kolDeger)) + ') ' +
@@ -155,13 +173,15 @@ function main() {
     if (hatalar.length) { console.log('TEZGAH HATASI:\n  ' + hatalar.join('\n  ')); process.exit(1); }
 
     console.log('ROL DENGESI — ' + N + ' tohum, iki tarafta da intel4 (tek asimetri: ROL)');
+    if (TARIF) console.log('  A/B kolu: ORDU TARIFI  ' + TARIF_DOSYA +
+        '  (A = tarifsiz, B = tarifli)   ⚠ kompozisyon kolu: std ~3781, taban ~%45 yuksek');
     if (KOL) console.log('  A/B kolu: ' + KOL + ' = ' + JSON.stringify(KOL_DEGER[0]) + ' vs ' + JSON.stringify(KOL_DEGER[1]) + '  (ESLESTIRILMIS ayni tohumlar)');
     if (AYAR) console.log('  iki kolda da sabit: ' + AYAR);
     if (ESIT_KOMP) console.log('  ESIT KOMPOZISYON: saldiran ordusu da savunan kurallariyla kuruldu');
     console.log('');
 
     const t0 = Date.now();
-    const kollar = KOL ? KOL_DEGER : [null];
+    const kollar = KOL ? KOL_DEGER : (TARIF ? [false, true] : [null]);
     const sonuc = {};
     for (const kd of kollar) {
         const kayit = [];
