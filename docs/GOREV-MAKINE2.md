@@ -62,38 +62,36 @@ Bu kural mutlak. Aynı tohum iki makinede koşarsa havuzlama **aynı maçı iki 
 etkiyi olduğundan güçlü gösterir. `tools/kapi-ozet.js --havuz` çakışmayı denetler ve
 çakışma görürse havuzlamayı reddeder — ama en baştan çakıştırmamak senin işin.
 
-### Koşacağın kapılar (bu sırayla)
+### Koşacağın kapılar — TEK KOMUT, ve `nohup` ŞART
 
-Hepsi `tools/rol-dengesi-paralel.js` ile, hepsi `--tohum 128`.
+Dört kapı `tools/m2-kuyruk.sh` içinde sırayla tanımlı. **Ön planda çalıştırma:**
 
 ```bash
-# M2-1 · MENZILE GIR tekrari  (CYBORG'da M1: +748, taban 768 — 20 birim altinda kaldi!)
-#        ⚠ AYAR YOK: M1 tezgah varsayilaninda kosuldu (ufuk 100/derin 2). Havuz ancak
-#        AYNI kosullarda mesru — buraya LA_UFUK/LA_DERIN EKLEME.
-node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 220000 \
-  --kol BATTLE_MENZILE_GIR --koldeger false,true \
-  --ayar "BATTLE_LOOKAHEAD_RED=true"
-
-# M2-2 · KARAR SIKLIGI @ tam guc  (CYBORG'da P1 ufuk 200'de GECTI: +808, galibiyet %63->%75)
-node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 221000 \
-  --kol LA_PERIYOT_TIK --koldeger 100,50 \
-  --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5"
-
-# M2-3 · DERIN 5 ufuk 300'un ustune katiyor mu
-node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 222000 \
-  --kol LA_DERIN --koldeger 2,5 \
-  --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300"
-
-# M2-4 · TOPCU ATES DISIPLINI @ tam guc
-node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 223000 \
-  --kol BATTLE_TOPCU_DURAGAN --koldeger false,true \
-  --ayar "BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5"
+nohup bash tools/m2-kuyruk.sh > /dev/null 2>&1 &
 ```
 
-Her kapıyı kendi log'una yaz:
+⚠ **`nohup ... &` olmadan başlatırsan, kullanıcı VS Code'u kapattığı anda kapılar ÖLÜR.**
+Saatlerce koşacak bir işi oturuma bağlamak, saatlerin çöpe gitmesi demektir. `nohup` ile
+başlatılan süreç yetim kalır, işletim sistemine bağlanır ve oturum kapansa da devam eder —
+CYBORG'da 20+ saatlik kuyruk tam bu şekilde oturumdan bağımsız koşuyor.
+
+İzleme:
 ```bash
-node tools/rol-dengesi-paralel.js ... 2>&1 | tee -a docs/kayit-m2/m2.log
+tail -f docs/kayit-m2/m2.log      # ilerleme
+ps | grep node                     # canli mi
 ```
+
+Kuyruğun içeriği (elle koşmak zorunda değilsin, betikte yazılı):
+
+| sıra | kapı | tohum | not |
+|---|---|---|---|
+| M2-1 | `BATTLE_MENZILE_GIR` false/true | 220000 | **en kritik** — CYBORG'da +748, taban 768 (20 birim altında) |
+| M2-2 | `LA_PERIYOT_TIK` 100/50 @ tam güç | 221000 | P1 ufuk 200'de geçti (+808) |
+| M2-3 | `LA_DERIN` 2/5 @ ufuk 300 | 222000 | toplanma var mı |
+| M2-4 | `BATTLE_TOPCU_DURAGAN` false/true @ tam güç | 223000 | yeni teşhis |
+
+⚠ M2-1'e **tam güç ayarı EKLEME**. M1 tezgâh varsayılanında koşuldu (ufuk 100 / derin 2) ve
+havuz ancak aynı koşullarda meşrudur. Betikte doğrusu yazılı, değiştirme.
 
 ### KOŞMA — bu ikisi CYBORG'da zaten kapandı
 
