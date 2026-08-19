@@ -153,10 +153,23 @@ saniyelik dolum döngüsü.
 Doktrin **açık**: `updateOperatorAI` SEAD önceliği dahil çalışıyor (`battleDelta` intel4'te
 varsayılan açık, pro gerekmiyor). Yani %19, doktrin devredeyken alınmış rakam.
 
-**Denenen açıklama çürütüldü**: "operatör 1800px'e kadar salıyor, SAM menzili 1650 — dron
-şemsiye altında doğuyor" hipotezi ölçüldü. Doğduğunda şemsiye altında olanlar %20,
-dışında olanlar %19 → **fark yok**. Kod değiştirilmedi; mekanizma hâlâ bilinmiyor,
-o yüzden bu konuda maç kapısı harcanmadı.
+**Üç ölçüm, iki çürütülmüş hipotez, bir sağlam olgu:**
+
+*Olgu*: 32 dronun **20'si havada düşürüldü** (%63) ve düşme noktaları erken değil —
+gidecekleri yolun ortalama **%72'sini** katetmişler (medyan %66; ilk üçte birde düşen
+**sıfır**, son üçte birde 11). Yani sorun fırlatma yeri ya da rota değil: dron hedefin
+etrafındaki kısa menzilli AA balonuna giriyor ve orada düşüyor.
+
+*Çürütülen 1 — "şemsiye altında doğuyor"*: doğduğunda AA şemsiyesi altında olanlar %20,
+dışında olanlar %19 → **fark yok**.
+
+*Çürütülen 2 — "teker teker gidiyor, doygunluk yok"*: dalga boyu 1 olan dronlar %36,
+dalga boyu 2 olanlar %0, 3+ olanlar %18 isabet ettirdi → **düzenli ilişki yok**, hatta
+tekler en iyisi. (n = 11/10/11; gürültü baskın.)
+
+**Sonuç: mekanizma bulunamadı ve bu veriyle (n=32) bulunamaz.** İki hipotez ölçülüp
+elendi, kod değiştirilmedi, maç kapısı harcanmadı. Konu bilerek açık bırakılıyor —
+yeniden açılacaksa daha çok maç gerekir, tahmin değil.
 
 ---
 
