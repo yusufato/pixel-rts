@@ -419,3 +419,22 @@ dedi (marj +2071 → −160). Ben buna bakıp maç kapısından negatif bekledim
 
 **Kural:** mekanizma kapısı, maç kapısının ölçeceği **aynı rolü** kurmalı. Kurmuyorsa bunu
 çıktısına yazmalı ki sonucu okuyan iki kapıyı aynı sanmasın.
+
+### 9. Bir puanlayıcıyı eğitilmediği soruya koşmak
+
+Değer ağı **durum değeri** tahmin etmek için eğitildi ve orada iyi: ρ 0,86. Ama arama onu
+başka bir işte kullanıyor — bir birimin 5-6 hedef noktasını **sıralamak**
+(`battleLookaheadEleVeKapi`: `_puan = _ag ?? _s`). Ölçüldü (55 birim-kararı): tam
+rollout'un birincisini tutturma oranı **%10,8**, rastgele taban ~%18. Yani bu iş için
+bilgi taşımıyor.
+
+Sebep kategorik: adaylar birbirinden **tek bir birimin nereye yürüyeceği** kadar farklı;
+global durum değeri bu farkla neredeyse hiç değişmiyor. ρ 0,86'lık bir durum-değeri
+tahmincisi, birbirine bu kadar yakın durumları ayırt edebileceği anlamına gelmez.
+
+⚠ Bu, bu depoda **ikinci kez** yaşanıyor. Politika ağının ilk sürümü de seçenekleri
+girdiye koymamıştı ve tahminlerin %94'ü tek seçeneğe çökmüştü. Aynı hata sınıfı:
+*seçenekler arasında ayrım yapacak bilgi girdide yoksa, model seçenekleri sıralayamaz.*
+
+**Kural:** bir modeli yeni bir işte kullanmadan önce, o işteki isabetini **rastgele tabana
+karşı** ölç. Eğitim metriği (ρ, doğruluk) başka bir sorunun cevabıdır.
