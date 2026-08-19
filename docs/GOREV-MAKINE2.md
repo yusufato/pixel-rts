@@ -136,9 +136,7 @@ bilerek **E-çekirdeklere** atar; "işler yanlışlıkla sanal işlemcilerde ba�
 
 **Yönetici PowerShell'de** (bu komut yönetici ister):
 ```powershell
-powercfg /powerthrottling disable /path "C:\Program Files
-odejs
-ode.exe"
+powercfg /powerthrottling disable /path "C:\Program Files\nodejs\node.exe"
 ```
 
 Normal PowerShell'de (yönetici gerekmez):
