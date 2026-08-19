@@ -30,6 +30,10 @@ Bugün yaşandı: 12 işçi aynı maçı koştu, 3 dakika boşa gitti (`--tohum`
 | 221000-221127 | ikinci makine | M2-2 karar sıklığı @ tam güç |
 | 222000-222127 | ikinci makine | M2-3 derin 2 vs 5 @ ufuk 300 |
 | 223000-223127 | ikinci makine | M2-4 topçu ateş disiplini |
+| 224000-224127 | ikinci makine | M2-5 LA_UFUK 300 vs 400 (2. parti) |
+| 225000-225127 | ikinci makine | M2-6 LA_AG_KAPI (C5 tekrarı) |
+| 226000-226127 | ikinci makine | M2-7 LA_HALKA @ tam güç |
+| 227000-227127 | ikinci makine | M2-8 LA_YARICAP @ tam güç |
 | 100000-128127 | CYBORG | kullanıldı — gece kapıları + faz10 |
 
 Kural: kendi bloğunun dışına ÇIKMA. Yeni blok gerekiyorsa bu dosyaya yaz ve commit et.
