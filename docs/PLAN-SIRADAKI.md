@@ -95,15 +95,32 @@ Mekanizma aracı düzeltildi: artık sonuç sütununa da bakıp uyarı basıyor 
 - **Piyade sınıfı boşta**: menzil 300px, en yakın düşmana ortalama 1031-1397px. 4 maçta
   ateş etmeyen 49 birimin 17'si bu sınıf. Ama M0 gösterdi ki **yürüyerek menzile girmek
   çözüm değil** — girenler ölüyor.
-- **⭐ SALDIRAN ORDUSU YAPISAL OLARAK UYUMSUZ (ölçüldü, 8 tohum).** AI saldırırken
-  bütçesinin **%48'ini menzili 600px'in altındaki birimlere** harcıyor (savunanken %40 —
-  yani rolüne göre neredeyse hiç ayrışmıyor). 9,5 yaya piyade sınıfı birime karşılık
-  **1,4 taşıyıcı** alıyor. Sonuç zinciri artık uçtan uca ölçülü:
-  bütçenin yarısı kısa menzilli → düşman 2,8× menzil uzakta duruyor → o birimler hiç ateş
-  etmiyor (49 boşta birimin 17'si) → yürüyerek yaklaşırlarsa ölüyorlar (M0: sağ kalan
-  12,7→5,2) → taşınabilirler ama AI taşımayı **hiç** kullanmıyor (4 maçta 0 bindirme).
-  **Karar kullanıcınındır**: bu bir knob değil, ya kompozisyon ya taşıma davranışı
-  değişikliği. Gece kuyruğuna EKLENMEDİ.
+- **⭐ SORUN KOMPOZİSYON DEĞİL, TESLİMAT (kendi iddiamı düzelttim).**
+  Önce şöyle yazmıştım: *saldıran bütçesinin %48'ini menzili 600px altındaki birimlere
+  harcıyor (savunanken %40), 9,5 yaya piyadeye karşılık 1,4 taşıyıcı — ordu yapısal
+  olarak uyumsuz.* Rakamlar doğru ama **çıkarım yanlıştı**. `tools/odul-defteri.js`
+  (bu depoda tam bu hatayı önlemek için yazılmış: *"tek getiri lensi üç kez yanlış hedef
+  gösterdi"*) piyadeyi şöyle ölçüyor:
+
+  | birim | TL | imha/TL | hasar/TL | PANİK | BASKI |
+  |---|---|---|---|---|---|
+  | **piyade** | 100 | — | 2,37 | 304 | **690** |
+  | topçu | 450 | — | 0,64 | 42 | 100 |
+
+  Piyade hiç **öldürmüyor** (imha/TL boş) ama ordunun en büyük **baskı** üreticisi — ₺
+  başına topçunun 6,9 katı. Yani piyade israf değil; ürünü baskı ve temasta ödüyor.
+
+  Gerçek zincir şu: piyade **temasa hiç girmiyor**. Tezgâhta (AI vs AI) iki taraf da
+  ilerlediği için temas oluyor ve piyade kazandırıyor; kullanıcının maçlarında kullanıcı
+  mesafede durup topçu/helo kullandığı için piyade 300px'e **hiç** yaklaşamıyor. Yürüyerek
+  yaklaşmak da öldürüyor (M0: sağ kalan 12,7→5,2).
+
+  **Eyleme dönük sonuç: sorun taşımadır.** Motorda taşıma var, AI **hiç** kullanmıyor
+  (4 maçta 0 bindirme, maç başına 1,4 taşıyıcı). Kompozisyonu kısmak yanlış olurdu.
+
+  ⚠ Ve bu bir **oyuncu-uyarlama** sorunu: AI-vs-AI kapısı kullanıcının mesafede durma
+  tarzını üretmediği için, burada açılacak bir maç kapısı muhtemelen "fark yok" derdi.
+  Kapı seçimi buna göre yapılmalı. **Karar kullanıcınındır**, gece kuyruğuna eklenmedi.
 - **AI piyadesini hiç TAŞIMIYOR.** 4 gerçek maçta tek bir bindirme/indirme yok (birim
   örneklerden hiç kaybolup dönmüyor) ve AI maç başına yalnız **1** taşıyıcı alıyor
   (mekanize + nakliye helo toplam). Yani menzil sorununun bilinen askerî çözümü —
