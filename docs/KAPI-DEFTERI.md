@@ -67,3 +67,42 @@ KAPI ÖZETİ — m2.log
   olculemedi = taban altı ama std normal → bu n ile GÖREMİYORUZ (etkisiz DEMEK DEĞİL)
 
 ```
+
+
+---
+
+## T1 — TOPÇU ATEŞ DİSİPLİNİ (2026-08-20, bu makine) · **SEVK YOK**
+
+`BATTLE_TOPCU_DURAGAN false vs true @ tam güç`, n=128, tohum 123000-123127, 396 dk.
+
+| kol | maç | saldıran% | marjOrt | marjStd | t |
+|---|---|---|---|---|---|
+| false | 128 | %87,5 | 2317 | 1720 | 15,24 |
+| true | 128 | **%93,8** | 2635 | 1392 | 21,42 |
+
+Eşleştirilmiş fark **+318**, std 1319, t 2,73 · **saptama tabanı 326** → **8 puanla altında.**
+
+### ⚠ HAVUZLAMA DENENDİ VE GERİ ÇEKİLDİ
+
+M2-4 aynı soruyu ayrık tohumda ölçmüştü (+349, std 2105, taban 521). Ters-varyans
+havuzlaması **+327 vs taban 277** veriyor, yani "geçti" görünüyordu. **Meşru değil:**
+
+| olay | zaman |
+|---|---|
+| M2-4 bitti | 2026-08-20 **01:25** |
+| commit `92ef7a9` — `LA_AG_KAPI` true→false, `BATTLE_MENZILE_GIR` false→true | **08:02** |
+| T1 başladı | **09:17** |
+
+İki kapı **farklı tabanda** koştu. `tools/m2-kuyruk.sh` bu kuralı zaten yazıyor:
+*"havuz ancak AYNI koşullarda meşrudur"*. Farklı tabandaki iki ölçümü havuzlamak,
+ölçülen etkiyi değil taban farkını da içine katar.
+
+### Sıradaki adım
+
+Aynı soruyu **güncel tabanda** ve **ayrık tohumda** bir kez daha ölç (makine 2, havuz
+228000-228127). O sonuç T1 ile havuzlanabilir → n=256. Beklenen taban ~230-280; iki
+ölçüm de +300 civarındaysa geçer.
+
+⚠ **U400b koşarken `BATTLE_TOPCU_DURAGAN` varsayılanı DEĞİŞTİRİLMEYECEK.** Kapı her parça
+için taze node süreci açıyor ve dosyaları yeniden okuyor; ortada bayrak çevirmek kapının
+ilk ve son parçalarını farklı kodla koşturur. Sevk kararı kuyruk boşalınca uygulanır.
