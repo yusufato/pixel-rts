@@ -1096,23 +1096,80 @@ function storyCityDossierRenderInfrastructureProjects(view) {
                 : block.code === 'ROUTE_CASH_UNAVAILABLE' ? 'NAKİT' : 'İŞGÜCÜ';
             return `${resource}: gereken ${storyCityDossierNumber(block.required)}, mevcut ${storyCityDossierNumber(block.available)}`;
         });
+        const submitBlocks = project.submissionKind === 'COMPANY_PROPOSAL'
+            ? resourceBlocks.filter(block => block.code === 'ROUTE_CASH_UNAVAILABLE')
+            : resourceBlocks;
+        const routeRequests = (project.rightOfWayRequests || []).filter(request =>
+            request.mode === draft.mode && request.fromRegionId === draft.fromRegionId
+            && request.toRegionId === draft.toRegionId);
+        const requestByRegion = Object.fromEntries(routeRequests.map(request =>
+            [request.targetRegionId, request]));
+        const rightOfWayRows = (draft.foreignRegionIds || []).map(regionId => {
+            const request = requestByRegion[regionId];
+            const pending = request && request.status === 'PENDING_FOREIGN_EXECUTIVE';
+            const countered = request && request.status === 'COUNTERED';
+            const granted = request && request.status === 'GRANTED';
+            const offer = Math.max(10, Math.ceil((Number(req.cash) || 0) * .1));
+            const evidenceCandidates = draft.rightOfWayEvidenceByRegion
+                && draft.rightOfWayEvidenceByRegion[regionId] || [];
+            return `<div class=\"city-infrastructure-permit\"><span>${storyCityDossierEscape(storyCityDossierRegionName(regionId))}</span>`
+                + `<b>${granted ? 'GEÇİŞ HAKKI VERİLDİ' : countered ? `KARŞI TEKLİF · ${storyCityDossierNumber(request.counterOffer && request.counterOffer.compensationCash)} KREDİ` : pending ? 'YABANCI YÜRÜTME KARARI BEKLİYOR' : request && request.status === 'REJECTED' ? 'TALEP REDDEDİLDİ' : 'GEÇİŞ HAKKI YOK'}</b>`
+                + (countered ? `<div class=\"city-construction-actions\"><button class=\"city-btn infrastructure-right-of-way-counter\" data-request=\"${storyCityDossierEscape(request.id)}\" data-action=\"ACCEPT\">KARŞI TEKLİFİ KABUL ET</button><button class=\"city-btn infrastructure-right-of-way-counter\" data-request=\"${storyCityDossierEscape(request.id)}\" data-action=\"REJECT\">REDDET</button></div>` : '')
+                + (!pending && !countered && !granted ? `<button class=\"city-btn infrastructure-right-of-way-request\" data-region=\"${storyCityDossierEscape(regionId)}\" data-compensation=\"${offer}\">DİPLOMATİK TALEP OLUŞTUR · ${offer}</button>` : '')
+                + (!pending && !countered && !granted && evidenceCandidates.length
+                    ? `<div class=\"city-infrastructure-evidence\"><small>MEVCUT KAYDI BU ROTAYA BAĞLA</small>${evidenceCandidates.map(candidate => `<button class=\"city-btn infrastructure-right-of-way-request\" data-region=\"${storyCityDossierEscape(regionId)}\" data-compensation=\"${offer}\" data-evidence-kind=\"${storyCityDossierEscape(candidate.sourceEvidence.kind)}\" data-evidence-id=\"${storyCityDossierEscape(candidate.sourceEvidence.id)}\" data-route-key=\"${storyCityDossierEscape(candidate.sourceEvidence.routeKey)}\">${storyCityDossierEscape(candidate.label)}</button>`).join('')}</div>` : '')
+                + `</div>`;
+        }).join('');
         actions = `<div class="city-construction-draft"><b>${storyCityDossierEscape(draft.mode)} · ${storyCityDossierEscape(storyCityDossierRegionName(draft.toRegionId))}</b>`
-            + `<span>${storyCityDossierNumber(req.edgeCount)} kenar · ${storyCityDossierNumber(req.durationDays)} gün · ${storyCityDossierNumber(req.cash)} devlet kredisi · ${storyCityDossierNumber(req.workforce)} çalışan</span>`
+            + `<span>${storyCityDossierNumber(req.edgeCount)} kenar · ${storyCityDossierNumber(req.durationDays)} gün · ${storyCityDossierNumber(req.cash)} ${project.submissionKind === 'COMPANY_PROPOSAL' ? 'şirket escrow bedeli' : 'devlet kredisi'} · ${storyCityDossierNumber(req.workforce)} çalışan</span>`
             + `<span>Malzeme: ${Object.entries(req.materials || {}).map(([id, amount]) => `${storyCityDossierEscape(STORY_DOSSIER_RESOURCE_LABELS[id] || id)} ${storyCityDossierNumber(amount)}`).join(' · ')}</span>`
             + (blocks.length ? `<span>ENGEL: ${blocks.map(storyCityDossierEscape).join(' · ')}</span>` : '')
             + (resourceBlockText.length ? `<span>KAYNAK EKSİĞİ: ${resourceBlockText.map(storyCityDossierEscape).join(' · ')}</span>` : '')
-            + `<div class="city-construction-actions"><button class="city-btn infrastructure-route-submit" ${blocks.length || resourceBlocks.length ? 'disabled' : ''}>PROJEYİ BAŞLAT</button>`
+            + `<div class="city-construction-actions"><button class="city-btn infrastructure-route-submit" ${blocks.length || submitBlocks.length ? 'disabled' : ''}>${project.submissionKind === 'COMPANY_PROPOSAL' ? 'TEKLİFİ VE ESCROW BEDELİNİ GÖNDER' : 'PROJEYİ BAŞLAT'}</button>`
             + `<button class="city-btn infrastructure-route-cancel">VAZGEÇ</button></div></div>`;
+        if (rightOfWayRows) actions += `<div class=\"city-infrastructure-permits\"><small>YABANCI GEÇİŞ DOSYALARI</small>${rightOfWayRows}</div>`;
     } else {
+        const targetFilter = STORY._infrastructureRouteTargetFilter
+            && STORY._infrastructureRouteTargetFilter.fromRegionId === String(view.regionId)
+            ? String(STORY._infrastructureRouteTargetFilter.query || '') : '';
+        const targetSearchKey = value => String(value || '').normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('tr-TR');
+        const normalizedTargetFilter = targetSearchKey(targetFilter.trim());
+        const visibleTargetIds = new Set(project.destinations
+            .filter(destination => !normalizedTargetFilter
+                || targetSearchKey(destination.name).includes(normalizedTargetFilter))
+            .slice(0, normalizedTargetFilter ? 24 : 12)
+            .map(destination => destination.regionId));
         actions = `<div class="city-construction-draft"><b>YENİ FİZİKSEL GÜZERGÂH</b>`
             + `<span>Önce ulaşım türünü, sonra yakın hedefi seç.</span><div class="city-construction-actions">`
             + ['LAND', 'RAIL', 'SEA'].map(mode => `<button class="city-btn infrastructure-route-mode${project.selectedMode === mode ? ' active' : ''}" data-mode="${mode}" data-from="${storyCityDossierEscape(view.regionId)}">${mode}</button>`).join('')
-            + `</div>` + (project.selectedMode ? `<div class="city-construction-actions">`
-                + project.destinations.slice(0, 10).map(destination =>
-                    `<button class="city-btn infrastructure-route-select" data-mode="${storyCityDossierEscape(project.selectedMode)}" data-from="${storyCityDossierEscape(view.regionId)}" data-to="${storyCityDossierEscape(destination.regionId)}">${storyCityDossierEscape(destination.name)}</button>`).join('')
-                + `</div>` : '')
+            + `</div>` + (project.selectedMode
+                ? `<div class="city-infrastructure-target-picker"><label>HEDEF ARA</label>`
+                    + `<input class="infrastructure-route-target-filter" type="search" maxlength="64" autocomplete="off" spellcheck="false" data-from="${storyCityDossierEscape(view.regionId)}" value="${storyCityDossierEscape(targetFilter)}" placeholder="Şehir veya bölge adı...">`
+                    + `<small class="infrastructure-route-target-count">${visibleTargetIds.size} / ${project.destinations.length} hedef gösteriliyor</small>`
+                    + `<div class="city-construction-actions infrastructure-route-targets">`
+                    + project.destinations.map(destination =>
+                        `<button class="city-btn infrastructure-route-select" ${visibleTargetIds.has(destination.regionId) ? '' : 'hidden'} data-search="${storyCityDossierEscape(targetSearchKey(destination.name))}" data-mode="${storyCityDossierEscape(project.selectedMode)}" data-from="${storyCityDossierEscape(view.regionId)}" data-to="${storyCityDossierEscape(destination.regionId)}">${storyCityDossierEscape(destination.name)}</button>`).join('')
+                    + `</div></div>` : '')
             + `</div>`;
     }
+    const proposalStatus = { PENDING_EXECUTIVE: 'YÜRÜTME KARARI BEKLİYOR',
+        RESOURCE_BLOCKED: 'KAYNAK BEKLİYOR', COMMAND_CREATED: 'ŞANTİYEYE DÖNÜŞTÜ',
+        REJECTED: 'REDDEDİLDİ', CANCELLED: 'İPTAL EDİLDİ' };
+    const proposalActions = proposal => project.actor && project.actor.role === 'EXECUTIVE'
+        && ['PENDING_EXECUTIVE', 'RESOURCE_BLOCKED'].includes(proposal.status)
+        ? '<div class="city-construction-actions"><button class="city-btn infrastructure-proposal-decision" data-proposal-id="'
+            + storyCityDossierEscape(proposal.id) + '" data-decision="APPROVE">ONAYLA</button>'
+            + '<button class="city-btn infrastructure-proposal-decision" data-proposal-id="'
+            + storyCityDossierEscape(proposal.id) + '" data-decision="REJECT">REDDET / ESCROW İADE</button></div>'
+        : '';
+    const proposalRows = (project.proposals || []).map(proposal => {
+        const evidence = proposal.spec && proposal.spec.aiDecisionEvidence;
+        const origin = proposal.origin === 'ECONOMIC_AI'
+            ? 'AI ŞİRKET BAŞVURUSU' : 'OYUNCU ŞİRKET BAŞVURUSU';
+        return `<div class="city-construction-draft" data-proposal="${storyCityDossierEscape(proposal.id)}"><b>${storyCityDossierEscape(proposal.mode)} - ${storyCityDossierEscape(storyCityDossierRegionName(proposal.toRegionId))}</b><span>${origin} · ${storyCityDossierEscape(proposalStatus[proposal.status] || proposal.status)} · ESCROW ${storyCityDossierNumber(proposal.escrowReservation && proposal.escrowReservation.cash)}</span>${evidence ? `<span>GEREKÇE: ${storyCityDossierEscape(evidence.reason)} · ihtiyaç skoru ${storyCityDossierNumber(evidence.score)} · kıtlık ${storyCityDossierNumber(evidence.shortageCount)}</span>` : ''}${proposal.resourceBlockReason ? `<span>ENGEL: ${storyCityDossierEscape(proposal.resourceBlockReason)}</span>` : ''}${proposalActions(proposal)}</div>`;
+    }).join('');
+    if (proposalRows) actions += `<h3>ŞİRKET ALTYAPI TEKLİFLERİ</h3>${proposalRows}`;
     const rows = project.commands.map(command => {
         const duration = Number(command.requirements && command.requirements.durationDays) || 1;
         const progress = Math.max(0, Math.min(100,

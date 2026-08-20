@@ -892,14 +892,33 @@ function createRuntime(seed) {
             infrastructureForSave: () => storyInfrastructureForSave(),
             infrastructureNetworkHash: corridors => storyInfrastructureNetworkHash(corridors),
             infrastructureWorkLedger: () => storyInfrastructureWorkForSave(),
+            infrastructureWorkRestore: saved => storyInfrastructureWorkRestore(saved),
             infrastructureRouteCandidate: spec => storyInfrastructureRouteCandidate(spec),
             infrastructureRoutePlayerView: regionId => storyInfrastructureRoutePlayerView(regionId),
             infrastructureRoutePlayerChooseMode: (regionId, mode) =>
                 storyInfrastructureRoutePlayerChooseMode(regionId, mode),
+            infrastructureRoutePlayerSetTargetFilter: (regionId, query) =>
+                storyInfrastructureRoutePlayerSetTargetFilter(regionId, query),
             infrastructureRoutePlayerSelect: (fromRegionId, toRegionId, mode) =>
                 storyInfrastructureRoutePlayerSelect(fromRegionId, toRegionId, mode),
             infrastructureRoutePlayerSubmitDraft: () => storyInfrastructureRoutePlayerSubmitDraft(),
             infrastructureRoutePlayerCancelDraft: () => storyInfrastructureRoutePlayerCancelDraft(),
+            infrastructureRoutePlayerDecideProposal: (proposalId, decision) =>
+                storyInfrastructureRoutePlayerDecideProposal(proposalId, decision),
+            infrastructureRouteEconomicAiApply: (company, options) =>
+                storyInfrastructureRouteEconomicAiApply(company, options),
+            infrastructureRouteEconomicAiTick: (dtSec, options) =>
+                storyInfrastructureRouteEconomicAiTick(dtSec, options),
+            infrastructureRightOfWayPlayerRequest: (regionId, compensationCash, sourceEvidence) =>
+                storyInfrastructureRightOfWayPlayerRequest(regionId, compensationCash, sourceEvidence),
+            infrastructureRightOfWayDecide: (requestId, decision, options) =>
+                storyInfrastructureRightOfWayDecide(requestId, decision, options),
+            infrastructureRightOfWayCounterRespond: (requestId, action, options) =>
+                storyInfrastructureRightOfWayCounterRespond(requestId, action, options),
+            infrastructureRightOfWayRevoke: (requestId, reason, options) =>
+                storyInfrastructureRightOfWayRevoke(requestId, reason, options),
+            infrastructureRightOfWayAiTick: options =>
+                storyInfrastructureRightOfWayAiTick(options),
             infrastructureRouteProjectHtml: nodeId =>
                 storyCityDossierRenderInfrastructureProjects(storyCityDossierBuild(Number(nodeId))),
             infrastructureRouteReserveAndSubmit: (spec, options) =>

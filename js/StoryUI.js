@@ -587,6 +587,131 @@ function storyPauseFlagUpdate() {
         bayrak.setAttribute('aria-hidden', goster ? 'false' : 'true');
 }
 
+const STORY_REGION_SITE_LABELS = Object.freeze({
+    INDUSTRIAL: 'FABRİKA / SANAYİ TESİSİ', EXTRACTION: 'MADEN / ÇIKARIM TESİSİ',
+    AGRICULTURE: 'TARIM TESİSİ', ENERGY: 'ENERJİ TESİSİ', LOGISTICS: 'LOJİSTİK TESİSİ',
+    DEFENSE: 'SAVUNMA TESİSİ', CIVIC: 'KAMU TESİSİ', RESIDENTIAL: 'KONUT TESİSİ'
+});
+const STORY_REGION_USE_LABELS = Object.freeze({
+    CORE: 'ŞEHİR MERKEZİ', RESIDENTIAL: 'KONUT İLÇESİ', INDUSTRIAL: 'SANAYİ İLÇESİ',
+    CIVIC: 'KAMU İLÇESİ', DEFENSE: 'SAVUNMA İLÇESİ', LOGISTICS: 'LOJİSTİK İLÇESİ',
+    AGRICULTURE: 'TARIM ALANI', EXTRACTION: 'MADEN ALANI'
+});
+const STORY_REGION_OWNER_LABELS = Object.freeze({
+    STATE: 'KAMU / KURUMSAL', DOMESTIC_PRIVATE: 'YERLİ ÖZEL SERMAYE',
+    FOUNDER: 'BAĞIMSIZ KURUCU', FOREIGN_PRIVATE: 'YABANCI ÖZEL SERMAYE'
+});
+function storyRegionNumber(value) {
+    const match = String(value == null ? '' : value).match(/(-?\d+)$/);
+    return match ? Number(match[1]) : null;
+}
+function storyRegionFormatNumber(value) {
+    return Math.max(0, Math.round(Number(value) || 0)).toLocaleString('tr-TR');
+}
+function storyRegionSelectionResolve(selected) {
+    const fallback = selected ? { kind: 'CITY', nodeId: selected.id, regionId: `region:${selected.id}` } : null;
+    const ref = STORY._selectedMapEntity;
+    if (!ref || !selected || storyRegionNumber(ref.regionId) !== Number(selected.id)) return fallback;
+    if (ref.kind === 'CITY' || typeof storyHexSitesEnsure !== 'function') return fallback;
+    try {
+        const model = storyHexSitesEnsure();
+        const land = model.landUseByCellId[String(ref.cellId)] || null;
+        if (!land || storyRegionNumber(land.regionId) !== Number(selected.id)) return fallback;
+        const siteId = (model.siteIdsByCellId[String(ref.cellId)] || [])[0];
+        const site = siteId ? model.siteById[siteId] : null;
+        return { kind: site ? 'SITE' : 'DISTRICT', nodeId: selected.id,
+            regionId: land.regionId, cellId: land.cellId, land, site };
+    } catch (_) { return fallback; }
+}
+function storyRegionOwnershipHtml(company) {
+    if (!company) return '<span>Mülkiyet kaydı doğrulanmadı</span>';
+    const rows = (company.owners || []).map(owner => {
+        const label = STORY_REGION_OWNER_LABELS[owner.ownerType] || owner.ownerType || 'BİLİNMEYEN PAY';
+        const percent = Math.round(Number(owner.shareBps) || 0) / 100;
+        return `<span><b>${storyProjectionEscape(label)}</b><em>%${percent.toLocaleString('tr-TR')}</em></span>`;
+    }).join('');
+    return `<strong>${storyProjectionEscape(company.name || company.id)}</strong>${rows || '<span>Ortaklık payı yayımlanmadı</span>'}`;
+}
+function storyRegionPopulation(selected) {
+    const regionId = `region:${selected.id}`;
+    const population = typeof storyPopulationRegionView === 'function' ? storyPopulationRegionView(regionId) : null;
+    const labor = typeof storyPopulationLaborSupply === 'function' ? storyPopulationLaborSupply(regionId, 1) : null;
+    return {
+        people: population ? storyRegionFormatNumber(population.populationPeople) : 'KAYIT YOK',
+        workers: labor && labor.status !== 'UNAVAILABLE' ? storyRegionFormatNumber(labor.availableWorkersPeople) : 'KAYIT YOK'
+    };
+}
+function storyRegionLocalOffice(selected) {
+    const view = typeof storyInstitutionRegionView === 'function' ? storyInstitutionRegionView(`region:${selected.id}`) : null;
+    const holder = view && view.institution && view.institution.officeHolder;
+    return holder ? { name: holder.name,
+        provisional: holder.actorType === 'COLLECTIVE_OFFICE' || /PRE_PHASE/.test(String(holder.model || '')) } : null;
+}
+function storyRegionContextHtml(selected, selection, owner, basics) {
+    const esc = storyProjectionEscape;
+    const pop = storyRegionPopulation(selected);
+    const office = storyRegionLocalOffice(selected);
+    const cityButton = `<button class=\"story-context-action\" data-story-enter-city=\"${selected.id}\">ŞEHRE GİR · ${esc(selected.name)}</button>`;
+    if (selection && selection.kind === 'SITE') {
+        const site = selection.site;
+        const company = typeof storyCompanyById === 'function' ? storyCompanyById(site.ownerCompanyId) : null;
+        const operator = typeof storyCompanyById === 'function' ? storyCompanyById(site.operatorCompanyId) : null;
+        const type = STORY_REGION_SITE_LABELS[site.siteType] || STORY_REGION_USE_LABELS[site.siteType] || site.siteType;
+        return `<div class=\"story-node-heading\"><b>${esc(company && company.name || type)}</b><span class=\"story-node-state\">TESİS</span></div>`
+            + `<div class=\"story-context-parent\">${esc(selected.name)} idarî bölgesine bağlı · ${esc(selection.cellId)}</div>`
+            + `<div class=\"story-brief-grid\"><div class=\"story-brief-cell\">TESİS TÜRÜ<b>${esc(type)}</b></div>`
+            + `<div class=\"story-brief-cell\">İŞLETEN<b>${esc(operator && operator.name || 'DOĞRULANMADI')}</b></div>`
+            + `<div class=\"story-brief-cell\">KAPASİTE<b>${storyRegionFormatNumber(site.capacity)}</b></div>`
+            + `<div class=\"story-brief-cell\">DURUM<b>${esc(site.operatingStatus || site.lifecycleState || 'KAYIT YOK')}</b></div></div>`
+            + `<div class=\"story-ownership\"><small>MÜLKİYET DAĞILIMI</small>${storyRegionOwnershipHtml(company)}</div>`
+            + `<div class=\"story-brief-note\">BÖLGE NÜFUSU: ${pop.people}<br>BÖLGEDE KULLANILABİLİR İŞGÜCÜ: ${pop.workers}</div>${cityButton}`;
+    }
+    if (selection && selection.kind === 'DISTRICT') {
+        const land = selection.land;
+        const use = STORY_REGION_USE_LABELS[land.activeUse] || land.activeUse || 'İLÇE';
+        const sites = (land.siteIds || []).map(id => {
+            try { return storyHexSitesEnsure().siteById[id]; } catch (_) { return null; }
+        }).filter(Boolean);
+        const owners = sites.map(site => typeof storyCompanyById === 'function' ? storyCompanyById(site.ownerCompanyId) : null).filter(Boolean);
+        return `<div class=\"story-node-heading\"><b>${esc(selected.name)} · ${esc(use)}</b><span class=\"story-node-state\">İLÇE</span></div>`
+            + `<div class=\"story-context-parent\">Fiziksel altıgen: ${esc(selection.cellId)}</div>`
+            + `<div class=\"story-brief-grid\"><div class=\"story-brief-cell\">ARAZİ KULLANIMI<b>${esc(use)}</b></div>`
+            + `<div class=\"story-brief-cell\">YAPI / TESİS<b>${sites.length}</b></div>`
+            + `<div class=\"story-brief-cell\">ŞEHİR NÜFUSU<b>${pop.people}</b></div>`
+            + `<div class=\"story-brief-cell\">BÖLGE İŞGÜCÜ<b>${pop.workers}</b></div></div>`
+            + (owners.length ? `<div class=\"story-ownership\"><small>BU ALTIGENDEKİ SAHİPLER</small>${owners.map(storyRegionOwnershipHtml).join('')}</div>`
+                : '<div class=\"story-brief-note\">Bu ilçede kayıtlı özel/kamusal yapı sahibi yok. İlçe nüfusu henüz altıgen bazında muhasebeleştirilmedi.</div>')
+            + cityButton;
+    }
+    return `<div class=\"story-node-heading\"><b>${esc(selected.name)}</b><span class=\"story-node-state\" style=\"color:${basics.stateColor}\">${basics.stateText}</span></div>`
+        + `<div class=\"story-brief-grid\"><div class=\"story-brief-cell\">TÜR<b>${esc(basics.type)}</b></div>`
+        + `<div class=\"story-brief-cell\">KONTROL<b style=\"color:${owner && owner.color || '#ffe9bf'}\">${esc(owner && owner.name || '-')}</b></div>`
+        + `<div class=\"story-brief-cell\">NÜFUS<b>${pop.people}</b></div><div class=\"story-brief-cell\">KULLANILABİLİR İŞGÜCÜ<b>${pop.workers}</b></div>`
+        + `<div class=\"story-brief-cell\">BELEDİYE / YEREL MAKAM<b>${esc(office ? office.name : 'ATANMADI')}</b></div>`
+        + `<div class=\"story-brief-cell\">GARNİZON<b>${esc(basics.force)}</b></div></div>`
+        + (office && office.provisional ? '<div class=\"story-context-warning\">Geçici kolektif yerel makam; kişisel belediye başkanı karakter fazında bağlanacak.</div>' : '')
+        + `<div class=\"story-brief-note\">${esc(basics.rewardLabel)}: ${esc(basics.reward)}<br>ORDU DOKTRİNİ: ${esc(basics.doctrine)}<br>SAVAŞ HARİTASI: ${esc(basics.mapName)}</div>${cityButton}`;
+}
+function storyRegionEntityAtWorld(x, y) {
+    if (typeof storyHexPoliticalCellAtWorld !== 'function' || typeof storyHexSitesEnsure !== 'function') return null;
+    try {
+        const cell = storyHexPoliticalCellAtWorld(x, y, STORY_WORLD_W, STORY_WORLD_H);
+        if (!cell) return null;
+        const model = storyHexSitesEnsure();
+        const land = model.landUseByCellId[String(cell.id)] || null;
+        if (!land) return null;
+        const siteId = (model.siteIdsByCellId[String(cell.id)] || [])[0] || null;
+        return { kind: siteId ? 'SITE' : 'DISTRICT', cellId: cell.id,
+            siteId, regionId: land.regionId, nodeId: storyRegionNumber(land.regionId) };
+    } catch (_) { return null; }
+}
+function storySelectRegionEntityAtWorld(x, y) {
+    const entity = storyRegionEntityAtWorld(x, y);
+    if (!entity || !Number.isInteger(entity.nodeId) || !storyNode(entity.nodeId)) return false;
+    storySelectNode(entity.nodeId, entity);
+    return true;
+}
+
 function storyPanelUpdate() {
     const me = storyPlayerState(); if (!me) return;
     storyToolsApplyRole();   // kusur 14 — yalnız görünürlük/sıra, dünya durumu değişmez
@@ -664,7 +789,12 @@ function storyPanelUpdate() {
         const reward = hostile ? '+120 puan · fetih · veteran ilerlemesi' : current ? 'Komuta ve ikmal merkezi' : 'Güvenli intikal';
         const rewardLabel = hostile ? 'ZAFER GETİRİSİ' : current ? 'BÖLGE İŞLEVİ' : 'İNTİKAL SONUCU';
         const forceLabel = hostile ? 'GARNİZON / TAHMİNİ GÜÇ' : 'GARNİZON';
-        const nextInfoHtml = selected ?
+        const force = hostile ? `${selected.garrison || 0} / ~${foeTotal}` : String(selected && selected.garrison || 0);
+        const selection = storyRegionSelectionResolve(selected);
+        const contextInfoHtml = selected ? storyRegionContextHtml(selected, selection, owner, {
+            type, stateText, stateColor, mapName, doctrine, reward, rewardLabel, forceLabel, force
+        }) : '<div class=\"story-brief-note\">Haritada bir şehir seçerek harekât brifingini aç.</div>';
+        const legacyInfoHtml = selected ?
             `<div class="story-node-heading"><b>${selected.name}</b><span class="story-node-state" style="color:${stateColor}">${stateText}</span></div>` +
             `<div class="story-brief-grid">` +
                 `<div class="story-brief-cell">TÜR<b>${type}</b></div>` +
@@ -673,7 +803,7 @@ function storyPanelUpdate() {
                 `<div class="story-brief-cell">${forceLabel}<b>${hostile ? `${selected.garrison || 0} / ~${foeTotal}` : (selected.garrison || 0)}</b></div>` +
             `</div><div class="story-brief-note">${rewardLabel}: ${reward}<br>ORDU DOKTRİNİ: ${doctrine}</div>` :
             `<div class="story-brief-note">Haritada bir şehir seçerek harekât brifingini aç.</div>`;
-        storyUiSetHtml(info, nextInfoHtml);
+        storyUiSetHtml(info, contextInfoHtml);
 
         if (action) {
             action.disabled = current || !adjacent;
@@ -1433,6 +1563,13 @@ function storyInit() {
     document.getElementById('story-action-btn')?.addEventListener('click', () => {
         if (STORY.selectedNodeId != null) storyNodeClicked(STORY.selectedNodeId);
     });
+    document.getElementById('story-node-info')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-story-enter-city]');
+        if (!button) return;
+        const nodeId = Number(button.dataset.storyEnterCity);
+        if (storyNode(nodeId)) storySelectNode(nodeId);
+        if (typeof storyCityOpen === 'function') storyCityOpen();
+    });
     document.getElementById('story-return-btn')?.addEventListener('click', storyReturnToWorld);
     // KONSEY + TEKNOLOJİ drawer bağlamaları (sol araç çubuğu)
     document.getElementById('story-council-btn')?.addEventListener('click', storyCouncilToggle);
@@ -1486,6 +1623,46 @@ function storyInit() {
                 ? 'Fiziksel güzergâh şantiyesi başladı.' : `Güzergâh başlatılamadı: ${result.code}`);
             return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
         }
+        if (button.classList.contains('infrastructure-right-of-way-request')) {
+            const sourceEvidence = button.dataset.evidenceKind ? {
+                kind: button.dataset.evidenceKind,
+                id: button.dataset.evidenceId,
+                routeKey: button.dataset.routeKey,
+                targetRegionId: button.dataset.region
+            } : null;
+            const result = typeof storyInfrastructureRightOfWayPlayerRequest === 'function'
+                ? storyInfrastructureRightOfWayPlayerRequest(
+                    button.dataset.region, Number(button.dataset.compensation) || 0, sourceEvidence)
+                : { ok: false, code: 'RIGHT_OF_WAY_UI_UNAVAILABLE' };
+            if (typeof storyFlash === 'function') storyFlash(result.ok
+                ? 'Diplomatik geçiş hakkı talebi hedef yürütmeye gönderildi.'
+                : `Geçiş hakkı talebi açılamadı: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('infrastructure-right-of-way-counter')) {
+            const result = typeof storyInfrastructureRightOfWayPlayerRespondCounter === 'function'
+                ? storyInfrastructureRightOfWayPlayerRespondCounter(
+                    button.dataset.request, button.dataset.action)
+                : { ok: false, code: 'RIGHT_OF_WAY_COUNTER_UI_UNAVAILABLE' };
+            if (typeof storyFlash === 'function') storyFlash(result.ok
+                ? (button.dataset.action === 'ACCEPT'
+                    ? 'Karşı teklif kabul edildi; geçiş hakkı rota dosyasına işlendi.'
+                    : 'Karşı teklif reddedildi.')
+                : `Karşı teklif yanıtlanamadı: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('infrastructure-proposal-decision')) {
+            const result = typeof storyInfrastructureRoutePlayerDecideProposal === 'function'
+                ? storyInfrastructureRoutePlayerDecideProposal(
+                    button.dataset.proposalId, button.dataset.decision)
+                : { ok: false, code: 'INFRASTRUCTURE_PROPOSAL_UI_UNAVAILABLE' };
+            if (typeof storyFlash === 'function') storyFlash(result.ok
+                ? (button.dataset.decision === 'APPROVE'
+                    ? 'Şirket teklifi onaylandı ve fiziksel şantiye başladı.'
+                    : 'Şirket teklifi reddedildi; escrow şirkete iade edildi.')
+                : `Teklif kararı uygulanamadı: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
         if (button.classList.contains('hex-construction-begin')) {
             const view = STORY._economyView;
             const result = typeof storyHexConstructionPlayerBegin === 'function'
@@ -1519,6 +1696,28 @@ function storyInit() {
             if (typeof storyCamCenterOn === 'function') storyCamCenterOn(node);
             return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
         }
+    });
+    document.getElementById('economy-body')?.addEventListener('input', (event) => {
+        const input = event.target.closest('.infrastructure-route-target-filter');
+        if (!input) return;
+        const normalize = value => String(value || '').normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('tr-TR').trim();
+        const query = normalize(input.value);
+        if (typeof storyInfrastructureRoutePlayerSetTargetFilter === 'function') {
+            storyInfrastructureRoutePlayerSetTargetFilter(input.dataset.from, input.value);
+        }
+        const picker = input.closest('.city-infrastructure-target-picker');
+        const buttons = picker ? [...picker.querySelectorAll('.infrastructure-route-select')] : [];
+        let shown = 0;
+        const limit = query ? 24 : 12;
+        for (const button of buttons) {
+            const match = !query || normalize(button.dataset.search).includes(query);
+            const visible = match && shown < limit;
+            button.hidden = !visible;
+            if (visible) shown++;
+        }
+        const count = picker && picker.querySelector('.infrastructure-route-target-count');
+        if (count) count.textContent = `${shown} / ${buttons.length} hedef gösteriliyor`;
     });
     document.getElementById('army-close')?.addEventListener('click', storyArmyClose);
     document.getElementById('story-city-btn')?.addEventListener('click', storyCityToggle);
@@ -1632,13 +1831,15 @@ function storyInit() {
                     if (hit >= 0) {
                         storySelectNode(hit);
                         if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
+                    } else if (storySelectRegionEntityAtWorld(w.x, w.y)) {
+                        if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
                     } else {
                         if (STORY._cityOpen) storyCityClose();
                         if (STORY._economyOpen) storyEconomyClose();
                     }
                 }
                 else if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); }   // diğer paneller: haritaya tık = kapat
-                else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); }
+                else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); else storySelectRegionEntityAtWorld(w.x, w.y); }
             }
             dragging = false; cv.style.cursor = 'grab';
             if (wasDragging) scheduleMapRender();
@@ -1650,10 +1851,11 @@ function storyInit() {
                 const cell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
                 STORY._hoverHexCellId = cell ? cell.id : null;
             }
+            const regionEntity = storyRegionEntityAtWorld(w.x, w.y);
             cv.style.cursor = STORY._hexConstructionPickMode
                 && STORY._hexConstructionDraft
                 && STORY._hexConstructionDraft.candidateCellIds.includes(STORY._hoverHexCellId)
-                ? 'crosshair' : (pickNode(w.x, w.y) >= 0 ? 'pointer' : 'grab');
+                ? 'crosshair' : (pickNode(w.x, w.y) >= 0 || regionEntity ? 'pointer' : 'grab');
         });
         cv.addEventListener('mouseleave', () => { STORY._hoverHexCellId = null; });
         // ZOOM: fare tekerleği (imlecin altındaki dünya-noktası sabit kalır)

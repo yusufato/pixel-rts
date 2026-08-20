@@ -1015,9 +1015,13 @@ function storyContinue() {
 function storyAreAdjacent(aId, bId) {
     const a = storyNode(aId); return !!(a && a.neighbors.indexOf(bId) >= 0);
 }
-function storySelectNode(id) {
+function storySelectNode(id, mapEntity) {
     if (!storyNode(id)) return;
     STORY.selectedNodeId = id;
+    // Harita seçimi artık yalnız şehir düğümü değildir. Fabrika/ilçe seçimi aynı
+    // idarî şehri odaklar, fakat sağ brifing paneli tıklanan fiziksel varlığı
+    // korur. Eski çağrılar doğal olarak şehir dosyasına döner.
+    STORY._selectedMapEntity = mapEntity || { kind: 'CITY', nodeId: id, regionId: `region:${id}` };
     if (typeof storyBriefSetTab === 'function') storyBriefSetTab('region');
     if (STORY._cityOpen && typeof storyCityUpdate === 'function') storyCityUpdate();   // ŞEHRE GİR açıksa panel yeni şehre döner
     storyRender();

@@ -1112,6 +1112,25 @@ body.wr-crt-off #war-room-stage::after { display: none; }
 .city-construction-draft > span { color: var(--wr-muted); font-size: 9px; line-height: 1.55; }
 .city-construction-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .city-construction-actions .city-btn { flex: 1 1 120px; }
+.city-infrastructure-target-picker { display: grid; gap: 6px; padding-top: 2px; }
+.city-infrastructure-target-picker > label { color: var(--wr-amber); font-size: 8px; letter-spacing: 1.2px; }
+.city-infrastructure-target-picker > input { width: 100%; min-height: 32px; padding: 6px 8px;
+    border: 1px solid rgba(255,176,0,.34); background: rgba(0,12,8,.72); color: var(--wr-paper);
+    font: 10px 'Share Tech Mono', monospace; outline: none; }
+.city-infrastructure-target-picker > input:focus { border-color: var(--wr-amber); box-shadow: 0 0 0 1px rgba(255,176,0,.12); }
+.city-infrastructure-target-picker > small { color: var(--wr-muted); font-size: 8px; }
+.infrastructure-route-targets { max-height: 180px; overflow-y: auto; align-content: flex-start; }
+.infrastructure-route-targets .city-btn[hidden] { display: none; }
+.city-infrastructure-permits { display: grid; gap: 6px; padding: 8px; border: 1px solid rgba(255,176,0,.22); }
+.city-infrastructure-permits > small { color: var(--wr-amber); font-size: 8px; letter-spacing: 1.2px; }
+.city-infrastructure-permit { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 8px; padding: 6px; background: rgba(0,0,0,.18); }
+.city-infrastructure-permit span { color: var(--wr-amber-bright); font-size: 10px; }
+.city-infrastructure-permit b { color: var(--wr-muted); font-size: 8px; font-weight: 400; }
+.city-infrastructure-permit button { grid-column: 1 / -1; }
+.city-infrastructure-evidence { grid-column: 1 / -1; display: grid; gap: 5px;
+    padding-top: 5px; border-top: 1px solid rgba(255,176,0,.14); }
+.city-infrastructure-evidence > small { color: var(--wr-muted); font-size: 7px; letter-spacing: 1px; }
+.city-infrastructure-evidence .city-btn { width: 100%; text-align: left; font-size: 8px; }
 .city-max { font-size: 11px; color: #4cff7c; align-self: center; }
 
 /* ŞEHRE GİR: şehir şeridi (navigasyon) */
@@ -1400,6 +1419,16 @@ body[data-screen="story"] #war-room-stage::after {
 .story-brief-cell { min-height: 52px; padding: 8px; border: 1px solid var(--wr-line); background: rgba(255,176,0,.025); color: var(--wr-muted); font-size: 9px; line-height: 1.35; }
 .story-brief-cell b { display: block; margin-top: 4px; color: var(--wr-amber-bright); font-size: 12px; font-weight: 400; }
 .story-brief-note { margin-top: 10px; padding: 9px 10px; border-left: 2px solid var(--wr-amber); background: rgba(255,176,0,.045); color: var(--wr-muted); font-size: 10px; line-height: 1.45; }
+.story-context-parent { margin-top: 8px; color: var(--wr-muted); font-size: 9px; line-height: 1.45; }
+.story-context-warning { margin-top: 8px; padding: 7px 9px; border: 1px dashed rgba(255,176,0,.32); color: var(--wr-muted); font-size: 9px; line-height: 1.4; }
+.story-ownership { display: grid; gap: 6px; margin-top: 10px; padding: 9px; border: 1px solid var(--wr-line); background: rgba(0,0,0,.18); }
+.story-ownership > small { color: var(--wr-amber); font-size: 8px; letter-spacing: 1.4px; }
+.story-ownership > strong { color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; }
+.story-ownership > span { display: flex; justify-content: space-between; gap: 8px; color: var(--wr-muted); font-size: 9px; }
+.story-ownership > span b { color: var(--wr-muted); font-weight: 400; }
+.story-ownership > span em { color: var(--wr-green); font-style: normal; }
+.story-context-action { width: 100%; min-height: 36px; margin-top: 10px; border: 1px solid var(--wr-amber); border-radius: 4px; background: rgba(255,176,0,.07); color: var(--wr-amber-bright); font: 10px 'Share Tech Mono', monospace; letter-spacing: 1px; cursor: pointer; }
+.story-context-action:hover, .story-context-action:focus-visible { background: rgba(255,176,0,.14); outline: 2px solid var(--wr-focus); }
 .story-action-btn { width: 100%; min-height: 46px; margin-top: auto; border: 1px solid var(--wr-green); border-radius: 6px; background: rgba(74,222,128,.1); color: #d9ffe6; font: 12px 'Share Tech Mono', monospace; letter-spacing: 1.3px; cursor: pointer; }
 .story-action-btn:hover:not(:disabled), .story-action-btn:focus-visible { background: rgba(74,222,128,.18); box-shadow: 0 0 18px rgba(74,222,128,.16); outline: none; }
 .story-action-btn.hostile { border-color: var(--wr-red); background: rgba(255,107,107,.08); color: #ffd5d5; }

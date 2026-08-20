@@ -246,7 +246,23 @@ SEA inşa adayı iki gerçek liman sitesini (kıyı kara hücresi + komşu seyre
 
 ### HXD-7.4.3a oyuncu proje yüzeyi envanteri
 
-Ekonomi/lojistik yüzeyi yürütme rolüne iki aşamalı mod→hedef seçimi, gerçek hex rota/maliyet/süre/malzeme önizlemesi, tıklama öncesi nakit-stok-işgücü kapısı ve açık şantiye ilerlemesi verir. Diğer roller kilit nedenini görür; yabancı geçiş hakkı uydurulmaz. Ankara–İzmir RAIL UI kabulü `10` kenar / `60` gün / `250` kredi / `100` işçi üretti ve gerçek hammadde-parça açıklarını submit öncesinde yakaladı. Şirket başvurusu, diplomatik geçiş izni, AI tüketicisi ve Electron görsel kabulü açık borçtur.
+Ekonomi/lojistik yüzeyi yürütme rolüne iki aşamalı mod→hedef seçimi, gerçek hex rota/maliyet/süre/malzeme önizlemesi, tıklama öncesi nakit-stok-işgücü kapısı ve açık şantiye ilerlemesi verir. Diğer roller kilit nedenini görür; yabancı geçiş hakkı uydurulmaz. Ankara–İzmir RAIL UI kabulü `10` kenar / `60` gün / `250` kredi / `100` işçi üretti ve gerçek hammadde-parça açıklarını submit öncesinde yakaladı. Diplomatik geçiş ve AI tüketicisi HXD-7.4.3c/d ile kapandı; Electron görsel kabulü açık borçtur.
+
+### HXD-7.4.3b şirket teklifi ve yürütme kararı envanteri
+
+Doğrulanmış şirket rolü yerli LAND/RAIL/SEA taslağını devlet emri gibi başlatmaz; şirket nakdini proje escrow'una alarak kalıcı teklif dosyası üretir. Malzeme ve işgücü yürütme onayına kadar tüketilmez. Aynı ülkenin yürütmesi panelden onay veya red verir: red escrow'u idempotent iade eder; onay güzergâh/yetki/kaynakları yeniden ölçer ve mevcut escrow'u ikinci kez çekmeden fiziksel şantiyeye bağlar. Kaynak eksikliği teklifi silmez, `RESOURCE_BLOCKED` olarak bekletir. İzole escrow/onay/red/save-load testi ve gerçek runtime şirket→yürütme UI kabulü geçmiştir.
+
+### HXD-7.4.3b.1 bağlamsal Bölge paneli envanteri
+
+Harita seçimi artık yalnız şehir ikonunu çözmez; fiziksel altıgen sicilinden ilçe ve tesis de seçilebilir. Sağ panel tesis için gerçek şirket/işletmeci/kapasite/ortaklık, ilçe için arazi kullanımı/yapı sayısı/şehir nüfusu/bölgesel işgücü, şehir için nüfus/işgücü/yerel makam/garnizon gösterir. Şehir dosyasında doğrudan `ŞEHRE GİR` eylemi vardır. İlçe nüfusu ve kişisel belediye başkanı henüz kanonik değilse UI sayı veya karakter uydurmaz; açık veri borcu gösterir. `story-region-context-ui.test.js` şehir–ilçe–fabrika ve altıgen seçim kabulünü kilitler.
+
+### HXD-7.4.3c yabancı geçiş hakkı envanteri
+
+Yabancı transit bölge rota üzerinde gerçekten bulunmadan ve diplomatik/sohbet/müzakere kaynak kimliği olmadan geçiş dosyası açılamaz. Dosya rota+bölge+başvuran ülke kimliğine bağlıdır; yalnız hedef ülkenin yürütmesi karar verebilir. Konuşma/müzakere kimliği gerçekten var olan, başvuranın taraf olduğu ve hedef ülke aktörünü içeren kayda dayanır; panel seçimi kaydı aynı rota+bölgeye bağlar, ilgisiz/yabancı kayıtları filtreler. AI olumlu skorda kabul, savaş/güvenlik riskinde red, pazarlık bandında bağlayıcı olmayan karşı teklif verir; yalnız başvuran kabul ederse `GRANTED` doğar. Verilmiş kanıt rota çözücüsüne otomatik eklenir ve kabul edilen bedel maliyeti yükseltir. Tamamlanmada şirket takas havuzuna kaçmayan bedel hedef devlet bütçesine aktarılır; kalıcı ödeme satırları hata ve save/load sonrasında çift ödemeyi engeller. İzin varsayılan beş yıllık süre taşır; süre sonu veya yalnız hedef yürütmenin gerekçeli geri alması kaydı `REVOKED` yapar. `story-infrastructure-right-of-way.test.js` ile `story-infrastructure-right-of-way-ai.test.js` kanıt, mahremiyet, yetki, idempotensi, karşı teklif, mali kapanış, AI savaş kapısı, ücretsiz/süreli izin, geri alma ve save/load sözleşmesini doğrular. Mekanik dilim tamamlanmıştır; gerçek Electron ekran kabulü açık görsel borçtur.
+
+### HXD-7.4.3d hedef seçimi ve AI başvuru envanteri
+
+Güzergâh hedef listesi ilk on şehirde kesilmez: bütün yasal hedef kimlikleri aranabilir tutulur, boş görünüm en yakın `12`, sorgulu görünüm en fazla `24` sonucu çizer. Arama ekonomi panelini her tuşta yeniden üretmez ve zorunlu yenilemede sorgusunu korur. Ekonomik AI her `90` dünya gününde gerçek şirket tesisi, sektör kıtlığı, nüfus, mesafe, fiziksel rota ve mevcut koridorlardan en fazla iki teklif üretir; skor `600` altındaysa şirket parası harcanmaz. Kabul edilen aday aynı teklif API'sinde gerçek nakdi escrow'a taşır. Yabancı geçiş aynı diplomatik dosyayı, karşı teklif aynı başvuran yanıtını kullanır. Oyuncu ülkesinin yürütme kararı AI tarafından alınmaz; diğer AI yürütmeleri de aynı kaynak kapısından geçer ve eksikte `RESOURCE_BLOCKED` kalır. En fazla `240` açıklanabilir karar save/load ile korunur. Gerçek kampanya testi `6400` skorlu LAND teklifini, escrow'u, oyuncu karar korumasını ve şantiye komutunu doğruladı. Mekanik dilim tamamlandı; Electron görsel kabulü açıktır.
 
 ### HXD-6.6 fiziksel inşaat envanteri
 
