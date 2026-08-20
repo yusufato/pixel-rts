@@ -464,3 +464,71 @@ ve *ucuz puanlayıcıyla sıralama* (analitik ve değer ağı rastgeleden iyi de
 **Kural:** bu motorda maliyeti **yaklaşıklıkla** düşürme girişimleri varsayılan olarak
 şüphelidir; **birebir eşdeğer** optimizasyonlar (aynı sonucu daha hızlı üretenler) güvenlidir.
 Yaklaşıklık öneriliyorsa önce küçük bir kapıda sınanmalı — ucuzluğu peşinen sayılmamalı.
+
+---
+
+## 11. tuzak — İKİ KAPI AYNI ÇIKTI DİZİNİNİ PAYLAŞIYORDU (2026-08-20, canlı yakalandı)
+
+**Belirti:** `tools/rol-dengesi-paralel.js` her koşuda parça sonuçlarını
+`qa-runtime/rol-dengesi-paralel/rol-<idx>.json` diye **sabit** adlarla yazıyordu. faz11'in
+C2b kapısı (`LA_DERIN 2 vs 5`) ile faz12'nin T1 kapısı (`BATTLE_TOPCU_DURAGAN false vs true`)
+bir süre birlikte koştu ve **aynı dosyaları** ezdiler.
+
+**Neden sessizdi:** toplayıcı yalnız `if (!fs.existsSync(s.out)) continue;` diyordu.
+`existsSync` bayatlığı görmez. Bir parça çökerse (ya da hiç koşmamışsa) oradaki **önceki
+kapıya ait** dosya okunur ve sonuca karışır.
+
+**Ölçüldü:** yakalandığı an dizinde 19 dosya `2/5` kollarını (C2b), yalnız 3 dosya
+`false/true` kollarını (T1) taşıyordu. T1 o an bitseydi **19 parçalık yabancı deney
+verisini** kendi sonucuna katacak, kapı sessizce yanlış cevap verecekti.
+
+**Nasıl fark edildi:** log'da bir satır kırıktı — `LE_TOPCU_DURAGAN --koldeger ...` diye
+başlıyordu, başı yenmişti. İki süreç aynı log dosyasına eşzamanlı `>>` yaptığı için
+satırlar iç içe geçmişti. Kırık satır, iki kapının birlikte koştuğunun ilk ipucuydu.
+
+**Düzeltme (iki savunma hattı):**
+1. Çıktı dizini artık koşuya özel: `rol-dengesi-paralel/<kol>-<tohum0>/`. İki kapı aynı
+   dosyaya **fiziksel olarak dokunamaz**. Dizin koşu başında temizlenir (aynı kapının
+   yarım kalmış önceki koşusundan artan dosya da bayattır).
+2. Toplayıcı her parça dosyasının **kol adını** `--koldeger` ile karşılaştırır; yabancı
+   kol görürse **gürültülü çöker**, sessizce devam etmez.
+
+**Kural:** paralel bir tezgâhın ara dosyaları **koşuyu tanımlayan parametrelerden** ad
+almalı. Ve "dosya var mı" bir geçerlilik denetimi değildir — dosyanın **bu koşuya ait
+olduğu** ayrıca doğrulanmalı.
+
+**İkinci kural:** iki kuyruk betiği **aynı log dosyasına yazmamalı**. Eşzamanlı `>>`
+satırları böler; bozulan satır en iyi ihtimalle kafa karıştırır, en kötüsünde kapının
+hangi ayarla koştuğunu okunamaz yapar.
+
+
+---
+
+## 12. tuzak — "KANCA TETİKLENDİ" DAVRANIŞ DEĞİŞTİ DEMEK DEĞİL (2026-08-20)
+
+**Belirti:** karşı-plan kancası eklendi, telemetri `karsiPlanDerinNisan` tepkisinin
+**3/3 maçta** işaretlendiğini gösterdi. "Bağlantı çalışıyor" diye okundu. Sonra bir
+tohumda maç sonucu **birebir aynı** çıktı — 88 kez nişan ezilmiş olmasına rağmen.
+
+**Kök neden:** işaret, *niyetin* kaydı. `battleProfileMarkReaction` çağrısı kodun o
+satıra ULAŞTIĞINI söyler; birimlerin farklı hareket ettiğini söylemez. Bu vakada:
+
+- nişan `contract.destination`'a yazılıyordu,
+- yürütme o alanı yalnız `FIRE_SUPPORT` dalında okuyordu,
+- ve ondan da önce, görünür temas varsa grup saldırıp `return` ediyordu.
+
+Yani kanca "çalışıyor", yazdığı alan **hiç okunmuyordu**.
+
+**Ayırt eden ölçü:** *niyet sayacı* değil **emir sayacı**. Planlama tarafında nişan 21-24
+kez uygulanıyordu ama yürütmede gerçek emir yalnız **1** kez çıkıyordu — aradaki uçurum
+kusuru anında gösterdi (grup çoğu çevrimde boştu). İkisi ayrı sayılmasaydı görülmezdi.
+
+**Kural:** bir davranış değişikliğinin bağlandığını kanıtlamak için ölç:
+1. koşul kaç kez sağlandı (niyet),
+2. kaç kez **emir üretildi** (eylem),
+3. ve mümkünse aynı tohumda sonuç **byte-aynı mı** (negatif kontrol).
+Üçü ayrı ayrı. Yalnız (1)'e bakmak "bağlandı" yanılgısı üretir.
+
+**İkinci kural:** aynı tohumda sonucun birebir aynı çıkması bir HATA değil, en güçlü
+teşhis aracıdır — "bu değişiklik hiçbir şeye dokunmadı"nın kesin kanıtıdır. Ölçüm aracı
+bunu görebilecek şekilde kurulmalı (ham değerler yuvarlanmadan karşılaştırılmalı).

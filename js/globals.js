@@ -1175,6 +1175,34 @@ function battleThreatClassOf(type) {
    (tools/taktik-tespit-olcum.js). Önce isabetinin RASTGELE TABANA karşı ölçülmesi,
    sonra karşı-plana bağlanması gerekiyor — bu depoda bir modeli eğitilmediği işte
    kullanmak iki kez zarar verdi (9. tuzak). */
+/* KARŞI-PLAN bayrakları. VARSAYILAN KAPALI: kapı geçene dek hiçbir maçta davranış
+   değişmez. battleTaktikTespit() ile aynı yerde durur ki tespit ve tepki birlikte
+   okunsun. ⚠ Karşı-plan inanç katmanına bağımlıdır: battleDelta(taraf, "profile")
+   kapalıysa _threatProfile hiç dolmaz ve bayrak açık olsa bile SESSİZ NO-OP olur.
+   Bu yüzden A/B kurarken profile HER İKİ KOLDA da açık olmalı — yoksa ölçülen şey
+   karşı-plan değil 'inanç katmanını açmak' olur. */
+let BATTLE_KARSI_PLAN = false;
+let BATTLE_KARSI_PLAN_GUVEN = 0.55;   // battleTaktikTespit güveni bu eşiğin altındaysa tetiklenmez
+/* Derin nişanı hangi gruplar alsın. 'flank' = yalnız kanat grubu baskın yapar (doktriner:
+   MAIN düşman hattını sabitlerken FLANK topları sökmeye gider). 'mainflank' = kütle de gider
+   (daha sert ama hattı yarmadan derine yürüme riski). Ölçülmeden varsayılan değiştirilmez. */
+let BATTLE_KARSI_PLAN_KAPSAM = 'flank';
+/* KAPATMA (konsantrasyon) bileseni AYRI bayrak — cunku ATFI KARISTIRIYORDU. Karsi-plan
+   ilk surumde hem yayilmayi kapatiyor hem derin nisan veriyordu; olcumde kutle UZAKLASTI
+   ve hangi bilesenin sorumlu oldugu okunamadi. Olculdu (n=3): konsantrasyon acikken
+   ort. mesafe +238px (t 2.85) ve bir tohumda kuvvet 282px GERI gitti. Bilesen o yuzden
+   varsayilan KAPALI; acilacaksa kendi kapisini gecerek acilir. */
+let BATTLE_KARSI_PLAN_KAPAT = false;
+/* KARSI-PLAN TELEMETRISI — varsayilan null: hicbir sey sayilmaz, davranis degismez.
+   Olcum araci bunu bir nesneye set ederek kancalarin KAC KEZ ve NE ZAMAN calistigini
+   okur. Gerekce: dolayli kanitla (mac sonucu ayni mi degil mi) donup durdum; nisanin
+   uygulanip uygulanmadigini DOGRUDAN saymak gerekiyordu. */
+let BATTLE_KP_TELEMETRI = null;
+/* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
+   Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
+   Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */
+let BATTLE_KARSI_PLAN_SURE = 0;
+
 const TAKTIK_BASTIRMA_ESIK = 0.3;    // birim "bastırılmış" sayılır (suppression)
 const TAKTIK_BASTIRMA_PAY = 0.15;    // canlı birimlerin bu kadarı bastırılmışsa "yüksek"
 const TAKTIK_ERISIM_CARPAN = 1.15;   // kaynak, menzilimizin bu katından uzaksa "erişemiyoruz"
@@ -1222,6 +1250,72 @@ function battleTaktikTespit(controller) {
                  erisemeyenPay: +erisPay.toFixed(3), ikisiBirden: bastirilanErisemeyen,
                  canliSilahli: canli, kaynak: alan.estPos }
     };
+}
+
+/* KARŞI-PLAN AKTİF Mİ — tek karar noktası. Hem sektör ataması hem derin-nişan bunu sorar,
+   böylece eşik/rol/bayrak mantığı iki yerde ayrışmaz.
+   ⚠ ÖNBELLEK YOK, bilerek: sonucu kontrolör nesnesinde tutmak, ileri-bakış rollout'u
+   SIM.tick'i ilerletirken canlı tarafın rollout'un değerini okumasına yol açardı — bu
+   depoda bir kez yaşanmış sapma sınıfı (canlı↔replay). Maliyet: 48 birimlik bir döngü,
+   plan çevriminde grup başına birkaç kez. Ölçülebilir değil.
+   v1 KAPSAMI SALDIRAN: savunanın standoff cevabı (hattı bırakıp topa gitmek) ayrı bir
+   maliyet doğurur ve ayrı ölçülmeli. */
+function battleKarsiPlanAktif(controller) {
+    if (typeof BATTLE_KARSI_PLAN === 'undefined' || !BATTLE_KARSI_PLAN) return null;
+    if (!controller) return null;
+    const DEF = (typeof BATTLE_ROLE !== 'undefined') ? BATTLE_ROLE.DEFENDER : 'defender';
+    const sit = controller.lastSituation;
+    if (sit && sit.role === DEF) return null;
+    if (typeof battleTaktikTespit !== 'function') return null;
+    const t = battleTaktikTespit(controller);
+    const esik = (typeof BATTLE_KARSI_PLAN_GUVEN !== 'undefined') ? BATTLE_KARSI_PLAN_GUVEN : 0.55;
+    const ok = !!(t && t.taktik === 'STANDOFF_ATIS' && t.guven >= esik && t.kanit && t.kanit.kaynak);
+    if (BATTLE_KP_TELEMETRI) {
+        BATTLE_KP_TELEMETRI.sorgu = (BATTLE_KP_TELEMETRI.sorgu | 0) + 1;
+        if (ok) BATTLE_KP_TELEMETRI.aktif = (BATTLE_KP_TELEMETRI.aktif | 0) + 1;
+    }
+
+    /* ── TAAHHÜT (hysteresis) ────────────────────────────────────────────────────
+       ÖLÇÜLEN SORUN (n=10, tools/karsi-plan-olcum.js): baskın SALINIYORDU. Birlik
+       kaynağa doğru yürüyünce bastırma düşüyor -> tespit sönüyor -> baskın kalkıyor ->
+       birlik görünür temasa dönüyor -> yeniden bastırılıyor -> baskın yeniden başlıyor.
+       Sonuç: emir maç başına 3-27 kez, ve etkisi frekansla değişiyordu:
+           baskın >= 10 olan 4 tohum -> kaynağa mesafe ort. -161px
+           baskın <  10 olan 6 tohum -> ort. +95px
+       Toplamda anlamsız (t -0.09), çünkü iki grup birbirini götürüyordu.
+
+       Çözüm bu depoda zaten kullanılan desen: KİLİT. Sektör ana-çabası 70sn kilitli
+       kalıyor (mainSectorLockUntilTick), hedef-odağı histerezis marjıyla korunuyor.
+       Karşı-plan da bir kez tetiklenince BATTLE_KARSI_PLAN_SURE tik boyunca taahhüt
+       eder: bastırma kesilse bile kaynağa yürümeye devam eder. Bir manevra, ancak
+       tamamlanırsa manevradır.
+
+       ⚠ Durum kontrolör nesnesinde tutuluyor — sectorState ile AYNI desen, aynı
+       gerekçeyle kabul edilebilir. Tik ile anahtarlandığı için ileri-bakış rollout'u
+       kendi tikinde okur/yazar. */
+    const SURE = (typeof BATTLE_KARSI_PLAN_SURE !== 'undefined') ? (BATTLE_KARSI_PLAN_SURE | 0) : 0;
+    if (SURE > 0) {
+        const tik = (typeof SIM !== 'undefined' && SIM.tick) || 0;
+        const durum = controller._karsiPlanDurum ||
+            (controller._karsiPlanDurum = { bitisTik: 0, kaynak: null, guven: 0 });
+        if (ok) {
+            durum.bitisTik = tik + SURE;
+            durum.kaynak = { x: t.kanit.kaynak.x, y: t.kanit.kaynak.y };
+            durum.guven = t.guven;
+            return t;
+        }
+        if (tik < durum.bitisTik && durum.kaynak) {
+            if (BATTLE_KP_TELEMETRI) {
+                BATTLE_KP_TELEMETRI.kilitli = (BATTLE_KP_TELEMETRI.kilitli | 0) + 1;
+            }
+            return { taktik: 'STANDOFF_ATIS', guven: durum.guven, kilit: true,
+                kanit: { kaynak: durum.kaynak, taahhut: true } };
+        }
+        return null;
+    }
+
+    if (!ok) return null;
+    return t;
 }
 
 // TEHDİT-PROFİLİ sınıf-AKTİF mi (gated 'profile' + detected): reaksiyonlar bunu sorar.

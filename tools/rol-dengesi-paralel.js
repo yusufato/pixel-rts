@@ -22,7 +22,7 @@ const os = require('node:os');
 
 function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.argv[i + 1] : d; }
 const ROOT = path.resolve(__dirname, '..');
-const GECICI = path.join(ROOT, 'qa-runtime', 'rol-dengesi-paralel');
+const GECICI_KOK = path.join(ROOT, 'qa-runtime', 'rol-dengesi-paralel');
 
 /* ⚠ SABIT TAVAN 8 IDI ve BAGLAYICI KISITTI: 16 cekirdekli makinede 6 cekirdek bos
    kaliyordu. Tam gucte (ufuk 300 / derin 5) kapilar saatler suruyor ve bu tavan
@@ -55,6 +55,18 @@ const TOHUM0 = Number(arg('--tohum0', 100000)) || 100000;
 const ISCI = Math.max(1, Number(arg('--isci', varsayilanIsci())) || 1);
 const ETIKET = arg('--etiket', 'rol');
 const DOGRULA = process.argv.includes('--dogrula');
+/* ⚠ CIKTI DIZINI KOSUYA OZEL — 2026-08-20, GERCEK BIR KARISMADAN SONRA EKLENDI.
+   Eskiden her kosu ayni dizine rol-<idx>.json yaziyordu. Iki kapi ayni anda kosunca
+   (faz11 C2b = LA_DERIN, faz12 T1 = BATTLE_TOPCU_DURAGAN) birbirlerinin parcalarini
+   ezdiler. Daha kotusu: bir parca cokerse toplayici oradaki BAYAT dosyayi kendi
+   sonucu sanip okur — asagidaki existsSync bayatligi GORMEZ. Olculdu: T1 o an
+   bitseydi 19 parcalik yabanci deney verisini kendi sonucuna karistiracakti ve
+   sonuc sessizce yanlis cikacakti. Dizin (kol + tohum0) ile adlandirilir; iki kapi
+   artik ayni dosyaya asla dokunamaz. */
+const KOL_ADI = String(arg('--kol', 'kolsuz'));
+const KOL_DEGERLERI = String(arg('--koldeger', '')).split(',').map((x) => x.trim()).filter(Boolean);
+const KOSU_ETIKETI = (KOL_ADI + '-' + TOHUM0).replace(/[^A-Za-z0-9_.-]/g, '_');
+const GECICI = path.join(GECICI_KOK, KOSU_ETIKETI);
 
 // Kol tanımlayıcı bayraklar AYNEN aktarılır (tek-değişken kuralı korunur).
 const GECIRILEN = ['--kol', '--koldeger', '--ayar', '--maxtik', '--ufuk', '--periyot', '--tur'];
@@ -66,6 +78,11 @@ for (const bayrak of GECIRILEN) {
 if (process.argv.includes('--esitkomp')) EKLER.push('--esitkomp');
 
 fs.mkdirSync(GECICI, { recursive: true });
+// Dizin bu kosuya ozel; icindeki her sey ayni kapinin YARIM KALMIS onceki kosusundan
+// artmistir. Birakilirsa cokan parcanin yerine bayat veri okunur -> temizle.
+for (const eskiDosya of fs.readdirSync(GECICI)) {
+    try { fs.unlinkSync(path.join(GECICI, eskiDosya)); } catch (e) { /* yok say */ }
+}
 
 const TOPLAM = DOGRULA ? 8 : N;
 /* ── IS KUYRUGU: sabit dilim yerine KUCUK PARCALAR ────────────────────────────
@@ -185,6 +202,14 @@ havuzKos(isler).then((sonuclar) => {
         if (!fs.existsSync(s.out)) continue;
         const d = JSON.parse(fs.readFileSync(s.out, 'utf8'));
         for (const k of Object.keys(d)) {
+            // Ikinci savunma hatti: dosyadaki kol adi bu kosunun kollarindan biri
+            // olmali. Degilse SESSIZCE devam etme — bu, yukarida anlatilan
+            // karismanin tam imzasidir.
+            if (KOL_DEGERLERI.length && !KOL_DEGERLERI.includes(k)) {
+                throw new Error('YABANCI KOL "' + k + '" -> ' + s.out +
+                    '  (beklenen: ' + KOL_DEGERLERI.join(',') + ').' +
+                    '  Bu dosya baska bir kapiya ait; sonuc GUVENILMEZ.');
+            }
             if (!kollar[k]) kollar[k] = [];
             kollar[k].push(...d[k].kayit);
         }

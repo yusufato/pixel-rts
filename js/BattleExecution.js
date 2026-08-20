@@ -670,6 +670,71 @@ class TaskExecutionManager {
             return null;
         }
         const phase = this.operation?.phase;
+        /* ── KARSI-PLAN BASKINI (STANDOFF_ATIS) ────────────────────────────────────
+           OLCUMLE BULUNAN YAPISAL GERCEK (2026-08-20): cikarimdan HAREKETE giden kanal
+           YOKTU. Iki deneme once olctu ve ikisi de coktu:
+             1) assignSectors ana-cabasini cikarilan kaynaga cevirmek -> sektorler x-bandi,
+                topcu zaten ayni bantta; YAPISAL NO-OP (tohum 143001 birebir ayni).
+             2) planningContractDestination nisanini kaynaga cevirmek -> 88 kez uygulandi,
+                mac YINE birebir ayni. Sebep bu dosyada: asagidaki dalda gorunur temas
+                varsa grup ona saldirip return ediyor; contract.route/destination hic
+                okunmuyor (destination yalniz FIRE_SUPPORT dalinda kullaniliyor).
+
+           Yani AI yalnizca GORDUGUNE dogru hareket edebiliyordu. Standoff semasinin
+           calismasinin sebebi tam olarak buydu: perde birlikler gorunur, toplar degil.
+
+           Bu blok o kanali acar: karsi-plan aktifken secilen grup temasi BIRAKIR ve
+           cikarilan kaynaga yurur. Bilerek en uste konuldu — butun faz dallarindan once,
+           cunku baskinin anlami "gordugunle oyalanma".
+           ⚠ Bedeli var: baskin grubu yolda ates altinda kalir. O yuzden VARSAYILAN KAPALI
+           ve kapsam varsayilani FLANK (kutle degil kanat gider). */
+        {
+            const _kp = (typeof battleKarsiPlanAktif === 'function')
+                ? battleKarsiPlanAktif(this.controller) : null;
+            if (_kp) {
+                const _kapsam = (typeof BATTLE_KARSI_PLAN_KAPSAM !== 'undefined')
+                    ? BATTLE_KARSI_PLAN_KAPSAM : 'flank';
+                const _baskinci = (contract.groupRole === TASK_GROUP_ROLE.FLANK) ||
+                    (_kapsam === 'mainflank' && contract.groupRole === TASK_GROUP_ROLE.MAIN);
+                if (_baskinci) {
+                    const _kaynak = _kp.kanit.kaynak;
+                    /* NEDEN AZ EMIR CIKIYOR — sayaclar. Olculdu: karsi-plan zamanin %82'sinde
+                       aktif, ama baskin emri mac basina yalniz 3-27 kez cikiyordu. Taahhut
+                       kilidi eklemek sayilari HIC degistirmedi (birebir ayni) -> sinirlayan
+                       tespit degil. Uc aday kaldi: bu dal hic cagrilmiyor, "varildi" sayiliyor,
+                       ya da shouldRefresh bogazliyor. Ucunu de ayri say. */
+                    if (typeof BATTLE_KP_TELEMETRI !== 'undefined' && BATTLE_KP_TELEMETRI) {
+                        BATTLE_KP_TELEMETRI.cagri = (BATTLE_KP_TELEMETRI.cagri | 0) + 1;
+                        if (executionArrived(units, _kaynak, 160)) {
+                            BATTLE_KP_TELEMETRI.engelVarildi = (BATTLE_KP_TELEMETRI.engelVarildi | 0) + 1;
+                        } else if (!this.shouldRefresh(state, tick)) {
+                            BATTLE_KP_TELEMETRI.engelYenile = (BATTLE_KP_TELEMETRI.engelYenile | 0) + 1;
+                        }
+                    }
+                    if (!executionArrived(units, _kaynak, 160) && this.shouldRefresh(state, tick)) {
+                        if (typeof BATTLE_KP_TELEMETRI !== 'undefined' && BATTLE_KP_TELEMETRI) {
+                            BATTLE_KP_TELEMETRI.baskin = (BATTLE_KP_TELEMETRI.baskin | 0) + 1;
+                        }
+                        if (typeof battleProfileMarkReaction === 'function' && this.controller) {
+                            battleProfileMarkReaction(this.controller, 'areaAlpha', 'karsiPlanBaskin', tick);
+                        }
+                        return this.markOrder(state, executionMoveOrder(contract, units, _kaynak,
+                            'TASK:' + contract.id + ':KARSI_PLAN_BASKIN'), tick);
+                    }
+                    /* ⭐ BASKIN GRUBU SAHIPLENIR — olculerek bulundu.
+                       Sayaclar: dal 274 kez cagrildi, 265'inde (%97) shouldRefresh bogazladi,
+                       yalnizca 9 emir cikti. Bogazlanan cagrilarda akis ASAGI dusuyordu ve
+                       oradaki saldiri dali DAHA KISA yenileme araligi (TASK_ACTION_REFRESH_TICKS)
+                       kullandigi icin grubu aninda gorunur temasa geri kosuyordu. Yani baskin
+                       her seferinde kendi altindaki dal tarafindan eziliyordu.
+                       Cozum: baskin aktifken bu grup BASKA emir ALMAZ. Yenileme penceresi
+                       kapaliysa "emir yok" doner ve birlik yuruyusune devam eder.
+                       Bedeli bilincli: baskin grubu yolda kendini savunmaz. Bir manevra
+                       ancak tamamlanirsa manevradir. */
+                    return null;
+                }
+            }
+        }
         if (phase === OPERATION_EXECUTION_PHASE.ASSEMBLE) {
             if (OPERATION_COMBAT_ROLES.has(contract.groupRole) ||
                 contract.groupRole === TASK_GROUP_ROLE.RECON) {

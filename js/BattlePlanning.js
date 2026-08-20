@@ -596,6 +596,14 @@ function sectorBand(name) {
     if (name === 'right') return { xMin: WORLD_W * 2 / 3, xMax: WORLD_W };
     return { xMin: WORLD_W / 3, xMax: WORLD_W * 2 / 3 };
 }
+// Dünya-x -> sektör adı. sectorBounds/sectorCenterX ile AYNI sınırları kullanır (WORLD_W/3).
+// Karşı-plan bunu çıkarılmış (görülmeyen) kaynak konumunu sektöre çevirmek için kullanır.
+function sectorOfX(x) {
+    if (!(x >= 0)) return "center";
+    if (x < WORLD_W / 3) return "left";
+    if (x < WORLD_W * 2 / 3) return "center";
+    return "right";
+}
 function sectorCenterX(name) {
     if (name === 'left') return WORLD_W / 6;
     if (name === 'right') return WORLD_W * 5 / 6;
@@ -621,10 +629,34 @@ function assignSectors(taskGroups, situation, controller) {
     // FAZ 4 HİSTEREZİS: mevcut ana-çaba 70s kilitli kalır (titreme/kuvvet-savurma önlenir); ancak kilit bitince VEYA
     // düşman belirgin-kaydıysa (aday-sektör mevcudun 1.5×'i) kayar. Deterministik (SIM.tick, RNG yok).
     const now = (typeof SIM !== 'undefined' && SIM.tick) || 0;
+    /* ── KARŞI-PLAN: STANDOFF_ATIS ─────────────────────────────────────────────
+       Yukarıdaki ana-çaba seçimi GÖRÜLEN düşman değerinden yapılıyor (situation.sectors).
+       Standoff'un tanımı ise kaynağın görülmemesidir: menzilimizin dışından dolaylı
+       ateşle bastırılıyoruz. Görme-tabanlı seçim bizi ateşin geldiği yere DEĞİL önümüzdeki
+       perde birliklere yöneltir — şemanın işlemesinin sebebi tam olarak budur.
+       Karşı-plan iki şey yapar: (a) forensik inançtan gelen ÇIKARILMIŞ konumu ana-çaba
+       yapar, (b) beklemek yerine kapatma hamlesini seçtirir (bastırma altında beklemek
+       kesin kayıptır; assembly duruşu alan-ateşinden korur ama ateşi SUSTURMAZ).
+       Ölçülen tespit kalitesi (6 tohum, tools/taktik-tespit-olcum.js):
+         STANDOFF %75,9 tespit · KONTROL %0,0 yanlış alarm · ilk tespit tik 120 (6sn).
+       v1 kapsamı SALDIRAN. Savunanın standoff cevabı ayrı bir soru (hattı bırakmak
+       başka bir maliyet doğurur) — ölçülmeden açılmayacak. */
+    let karsiPlan = null;
+    {
+        const t = battleKarsiPlanAktif(controller);
+        if (t) {
+            karsiPlan = t;
+            candidate = sectorOfX(t.kanit.kaynak.x);
+            if (typeof battleProfileMarkReaction === "function") {
+                battleProfileMarkReaction(controller, "areaAlpha", "karsiPlanStandoff", now);
+            }
+        }
+    }
     let mainSector = (st && SECTOR_NAMES.includes(st.mainSector)) ? st.mainSector : candidate;
     if (candidate !== mainSector) {
         const curVal = (situation && situation.sectors && situation.sectors[mainSector] && situation.sectors[mainSector].enemyValue) || 0;
-        const strongShift = bestEnemy > curVal * 1.5;
+        // Karşı-plan tetiklendiğinde 70sn kilit BEKLENMEZ: bastırma altında geçen her saniye kayıp.
+        const strongShift = !!karsiPlan || bestEnemy > curVal * 1.5;
         if (now >= ((st && st.mainSectorLockUntilTick) || 0) || strongShift) mainSector = candidate;
     }
     if (st && st.mainSector !== mainSector) { st.mainSector = mainSector; st.mainSectorLockUntilTick = now + 1400; st.mainEffortShiftCount = (st.mainEffortShiftCount || 0) + 1; }
@@ -635,7 +667,9 @@ function assignSectors(taskGroups, situation, controller) {
     // ASSEMBLY-AREA DOKTRİNİ (analist anti-yumak): SAVUNAN her zaman YAYILIR (geniş hat). SALDIRAN hazırlıkta (STRIKE-DIŞI)
     // YAYILIR (assembly, alan-ateşine=ÇNRA mezar sunmaz), yalnız HÜCUM anında (STRIKE) konsantre olur.
     const striking = situation && situation.operationalPosture && situation.operationalPosture.stance === 'STRIKE';
-    const spread = isDefender || !striking;
+    // Karşı-plan STRIKE gibi davranır: hazırlık duruşunda kalmak, susturulamayan bir ateşin
+    // altında beklemek demektir. Kapatma hamlesi = kütle + FLANK pincer çıkarılmış sektöre.
+    const spread = isDefender || !(striking || (karsiPlan && typeof BATTLE_KARSI_PLAN_KAPAT !== "undefined" && BATTLE_KARSI_PLAN_KAPAT));
     for (const g of taskGroups) {
         if (spread) {
             // GENİŞ HAT / ASSEMBLY: grupları AYRI sektörlere yay (yumak→alan-ateşi mezarı çözülür)
@@ -755,6 +789,49 @@ function planningContractDestination(controller, group, objective, friendlyCentr
         (group.role === TASK_GROUP_ROLE.MAIN || group.role === TASK_GROUP_ROLE.FIXING || group.role === TASK_GROUP_ROLE.FLANK)) {
         const _anti = planningAntiAim(controller, group, aim);
         if (_anti) aim = { x: _anti.x, y: aim.y * 0.5 + _anti.y * 0.5 };   // x tam, y yarı (derinlik kuralı korunur)
+    }
+    /* ── KARŞI-PLAN: DERİN NİŞAN (STANDOFF_ATIS) ───────────────────────────────────
+       ⚠ İLK DENEME YANLIŞ KATMANDAYDI ve ÖLÇÜMLE ÇÜRÜTÜLDÜ. Sektör atamasını çıkarılan
+       kaynağa çevirmek bu haritada YAPISAL NO-OP: sektörler x-bandı, çıkarılan topçu
+       zaten ana-çabanın x-bandındaydı (center), iki kolda anaCaba hep aynı çıktı.
+       Ölçüm (tools/karsi-plan-teshis.js, tohum 143000): kırmızı y≈1150→1800, topçu
+       y≈2889. Boşluk x'te değil DERİNLİKTE.
+
+       Ve derinlik yukarıda bilerek geri çekiliyor:
+           ay = objective.y * 0.42 + homeY * 0.58   (saldıran, STRIKE-dışı toplanma)
+       Bu duruş alan-ateşine mezar sunmamak için doğru; ama SUSTURULAMAYAN bir ateşin
+       altında beklemek kesin kayıptır — standoff şemasının işlemesinin sebebi tam budur.
+
+       Karşı-plan nişanı derinlikte düzeltir: çıkarılmış kaynak DOĞRUDAN hedef olur.
+       Kapsam varsayılanı FLANK (doktriner: MAIN hattı sabitler, FLANK topları söker;
+       planningChooseFlankPoint zaten kanattan yaklaşma noktası üretiyor).
+       Çıkarımın doğruluğu ölçüldü: kaynak (2689,2889) vs gerçek dolaylı merkez
+       (2385,2873) — 150-300px. Nişan için fazlasıyla yeterli. */
+    {
+        const _kp = (typeof battleKarsiPlanAktif === 'function') ? battleKarsiPlanAktif(controller) : null;
+        if (_kp) {
+            const _kapsam = (typeof BATTLE_KARSI_PLAN_KAPSAM !== 'undefined') ? BATTLE_KARSI_PLAN_KAPSAM : 'flank';
+            const _hedefRol = (group.role === TASK_GROUP_ROLE.FLANK) ||
+                (_kapsam === 'mainflank' && group.role === TASK_GROUP_ROLE.MAIN);
+            if (_hedefRol) {
+                const _eski = aim;
+                aim = planningClampPoint({ x: _kp.kanit.kaynak.x, y: _kp.kanit.kaynak.y });
+                if (typeof BATTLE_KP_TELEMETRI !== 'undefined' && BATTLE_KP_TELEMETRI) {
+                    BATTLE_KP_TELEMETRI.nisan = (BATTLE_KP_TELEMETRI.nisan | 0) + 1;
+                    if (!BATTLE_KP_TELEMETRI.ornek) BATTLE_KP_TELEMETRI.ornek = [];
+                    if (BATTLE_KP_TELEMETRI.ornek.length < 6) {
+                        BATTLE_KP_TELEMETRI.ornek.push({ rol: group.role,
+                            eski: { x: Math.round(_eski.x), y: Math.round(_eski.y) },
+                            yeni: { x: Math.round(aim.x), y: Math.round(aim.y) },
+                            tik: (typeof SIM !== 'undefined' && SIM.tick) || 0 });
+                    }
+                }
+                if (typeof battleProfileMarkReaction === 'function') {
+                    battleProfileMarkReaction(controller, 'areaAlpha', 'karsiPlanDerinNisan',
+                        (typeof SIM !== 'undefined' && SIM.tick) || 0);
+                }
+            }
+        }
     }
     objective = aim;
     let dest;

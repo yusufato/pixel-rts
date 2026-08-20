@@ -121,3 +121,148 @@ mesafe/menzil oranı.
   bu yüzden yanlış yorumlandı).
 - AI-vs-AI kapısı oyuncunun tarzını üretmez; karşı-taktik kapıları **sömürücü bota karşı**
   kurulmalı, doğal AI'ya karşı değil.
+
+---
+
+# 2026-08-20 — ZİNCİRİN İLK İKİ HALKASI ÖLÇÜLDÜ
+
+## Halka 1 — TESPİT: **GEÇTİ**
+
+`tools/taktik-tespit-olcum.js`, 6 tohum, iki koşul aynı tohumda (maviye dolaylı ateş
+zorlanmış vs tamamen çıkarılmış):
+
+| koşul | örnek | tespit | oran | ort güven | ilk tespit |
+|---|---|---|---|---|---|
+| STANDOFF | 237 | 180 | **%75,9** | 0,917 | tik 120 (6,0sn) |
+| KONTROL | 194 | 0 | **%0,0** | — | — |
+
+194 kontrol örneğinde **tek yanlış alarm yok**. Ayrım 75,9 puan. Kabul ölçütü ham tespit
+oranı değil *yanlış alarm + gecikme* idi; ikisi de fazlasıyla iyi.
+
+Konum kestirimi de ölçüldü (`tools/karsi-plan-teshis.js`): çıkarılan kaynak (2689, 2889)
+— mavinin gerçek dolaylı-ateş birimlerinin merkezi (2385, 2873). Hata 150-300px. Nişan
+almak için fazlasıyla yeterli.
+
+## Halka 2 — KARŞI-PLAN: **ÜÇ KATMANDA DA ÖLÜ KANAL BULUNDU**
+
+Karşı-planı bağlamak için üç ayrı katman denendi. Üçünün de sonucu ölçüldü:
+
+| deneme | katman | sonuç |
+|---|---|---|
+| 1. ana-çabayı çıkarılan sektöre çevir | `assignSectors` | **yapısal NO-OP** |
+| 2. nişanı çıkarılan kaynağa çevir | `planningContractDestination` | **ölü kanal** |
+| 3. doğrudan hareket emri | `coordinatedContractOrder` | kanal açıldı, davranış değişti |
+
+**1) Sektör NO-OP.** Sektörler x-bandı (`left/center/right`, WORLD_W/3). Çıkarılan topçu
+zaten ana-çabanın bandındaydı (`center`); iki kolda `mainSector` hep aynı çıktı. Kod
+zaten bunu yazıyordu (*"bu harita tek-eksenli cephe-çatışması"*) — asıl boşluk **y**'de:
+kırmızı y≈1150→1800, topçu y≈2889.
+
+**2) Nişan ölü kanal.** Nişan bir maçta **88 kez** çıkarılan kaynağa çevrildi
+((2310,1529) → (2677,2943)) ve maç **birebir aynı** çıktı. Sebep `js/BattleExecution.js`:
+
+```js
+const point = contract.groupRole === TASK_GROUP_ROLE.FIRE_SUPPORT
+    ? contract.destination : contract.route?.[0];
+```
+
+`destination` yalnız FIRE_SUPPORT dalında okunuyor. Dahası, ondan da önce: görünür temas
+varsa grup ona saldırıp **`return`** ediyor — rota hiç okunmuyor.
+
+### ⭐ ASIL BULGU — plan belgesinin teşhisi düzeltiliyor
+
+Bu belge "karşı-plan **müfreze soyutlamasını** zorunlu kılar" diyordu. Ölçüm bunu
+düzeltiyor: **müfreze soyutlaması zaten var** (task-group'lar, MAIN/FIXING/FLANK/RECON,
+sektör, rol-başı derinlik kuralları). Eksik olan başka bir şey:
+
+> **AI yalnızca GÖRDÜĞÜNE doğru hareket edebiliyordu.** Çıkarımdan (inanç) harekete giden
+> bir kanal yoktu. Hareket, sektör-başına *görünür* temas odağından türüyordu.
+
+Standoff şemasının işlemesinin sebebi tam olarak budur: perde birlikler görünür, toplar
+görünmez. Rakip görünmeyen bir yerden vururken AI'nın elindeki tek "plan" görünen şeye
+saldırmaktır. İnanç katmanı doğru cevabı **biliyordu** ama söyleyecek kanalı yoktu.
+
+**3) Açılan kanal.** `coordinatedContractOrder` en başına karşı-plan baskını eklendi:
+karşı-plan aktifken seçilen grup teması bırakır ve çıkarılan kaynağa yürür.
+
+İlk ölçüm (n=3, `--kapsam mainflank`): baskın emri maç başına 4-9 kez çıkıyor, 3 tohumun
+2'sinde yön doğru (mesafe −61/−103px, kuvvet ilerliyor, biri ilk kez topçunun 800px'ine
+giriyor), 1'inde ters (+382px). **n=3 karar için çok küçük** — 10 tohumluk ölçüm koşuyor.
+
+⚠ **GERİ ÇEKİLEN ARA İDDİA:** "FLANK grubu boş" demiştim — **yanlıştı**. Sektör-komuta
+açıkken FLANK payı %15 ve ölçüm dalın gerçekten çağrıldığını gösteriyor (`cagri` 87/58).
+Az emir çıkmasının sebebi başkaydı — aşağıdaki boğaz.
+
+## Bayraklar (hepsi VARSAYILAN KAPALI — davranış değişmedi)
+
+| bayrak | varsayılan | ne yapar |
+|---|---|---|
+| `BATTLE_KARSI_PLAN` | `false` | ana anahtar |
+| `BATTLE_KARSI_PLAN_GUVEN` | `0.55` | tespit güven eşiği |
+| `BATTLE_KARSI_PLAN_KAPSAM` | `'flank'` | baskını kim yapar (`flank` / `mainflank`) |
+| `BATTLE_KARSI_PLAN_KAPAT` | `false` | yayılma yerine konsantrasyon (ayrı ölçüldü, **zararlı**) |
+| `BATTLE_KP_TELEMETRI` | `null` | sayaç kancası (null = sıfır maliyet) |
+
+⚠ Karşı-plan **inanç katmanına bağımlı**: `BATTLE_INTEL4_DELTAS.profile` varsayılan
+`false`. Kapalıyken bayrak açık olsa bile sessiz no-op. A/B kurarken profile **her iki
+kolda** açık olmalı; yoksa ölçülen şey karşı-plan değil "inanç katmanını açmak" olur.
+
+## Sıradaki
+
+1. 10 tohumluk mekanizma ölçümü (koşuyor) — mesafe/bastırma/dolaylıÖlü.
+2. Yön doğrulanırsa: baskın **sürekliliği** (şu an emir tek seferlik, durum makinesi
+   birkaç tik sonra tekrar görünür temasa dönüyor) — kalıcı görev durumu gerekiyor.
+3. Sonra maç kapısı, ve **sömürücü bota karşı** (doğal AI'ya karşı değil).
+
+
+## Halka 2 — SONUÇ: **KAPI GEÇİLMEDİ** (ama sebebi ölçüldü)
+
+### Önce bulunan boğaz: baskın kendi altındaki dal tarafından eziliyordu
+
+Sayaclar (tek maç): dal **274** kez çağrıldı, **265**'inde (%97) `shouldRefresh` boğazladı,
+yalnız **9** emir çıktı. Boğazlanan çağrılarda akış aşağı düşüyor ve oradaki saldırı dalı
+**daha kısa** yenileme aralığı kullandığı için grubu anında görünür temasa geri koşuyordu.
+Düzeltme: baskın aktifken grup başka emir almaz (`return null`). Emir sayısı 9→23'e çıktı.
+
+⚠ **Salinim hipotezi ÇÜRÜTÜLDÜ.** "Tespit sönüyor, baskın kalkıyor" diye düşünüp
+taahhüt kilidi (30sn) ekledim; `baskinEmri` sayıları **birebir aynı** kaldı (7/4/4/3).
+Tespit zaten zamanın %82'sinde aktifti — sınırlayan o değildi.
+
+### Nihai ölçüm (n=10, kapsam=mainflank, sahiplenme + taahhüt)
+
+| metrik | fark (açık − kapalı) | t | okuma |
+|---|---|---|---|
+| kaynağa mesafe | +29 px | 0,49 | **kapatma yok** |
+| bastırma | −7,0 puan | −2,24 | anlamlı, yön doğru |
+| ölen mavi dolaylı | +0,10 birim | 0,25 | **topçu sökülmüyor** |
+| maç marjı | −105 TL | −0,10 | maliyeti de yok |
+
+Kanca 10/10 tetikledi, kapalı kolda 0/10. Yani **bağlantı sağlam, manevra başarısız**.
+
+### Neden başarısız — ve doğru cevap
+
+Topa yürümek bu motorda kaybediyor: kaynak düşman hattının **arkasında**, oraya yürüyen
+kuvvet hatta ölüyor (kanat-only kolda hayatta kalan kırmızı kütlesinin y'si 1720→925,
+yani neredeyse başlangıç hattına düşüyor). Kod bunu zaten bir yerde yazıyordu:
+*"Erime maneuver-değil CEPHEDEN-SÖMÜRÜ sorunu."*
+
+Gerçek dünyada standoff'un cevabı yürümek değil **karşı-batarya ateşi**dir. Ve burada
+aynı mimari boşluk **ateş katmanında** da çıktı:
+
+> Mevcut karşı-batarya (`BATTLE_KARSI_BATARYA_HERKES`) yalnız **temas listesindeki**
+> düşmana hedef-puanı bonusu veriyor. Standoff'ta toplar temas **değil**. Eski deneyin
+> "etki yok" çıkmasının sebebi buydu: bonus hiç aday bulamıyordu.
+
+**AI yalnız gördüğüne yürüyebiliyor VE yalnız gördüğüne ateş edebiliyor.**
+
+### Sonraki iş: NOKTAYA ATEŞ GÖREVİ (dürüst sürüm)
+
+`executionAttackOrder` **kimlikle** çalışıyor (`targetId`) ve `applyBattleOrder`'daki ATTACK
+dalında **görünürlük denetimi yok**. Yani forensik `sourceIds`'e ateş emri vermek
+teknik olarak şu an mümkün — **ama yapılmayacak**: bu, AI'ya görmediği birimi kusursuz
+nişanlama verir, yani hile olur. Kullanıcının hedefi "karşıda gerçek bir komutan" hissi;
+hile bunun tam zıddı.
+
+Dürüst sürüm: **noktaya ateş görevi** — `estPos`'a, kendi 150-300px hatasıyla. Bu yeni bir
+emir türü demek (replay + lockstep'ten geçmesi gerekir) ve asıl değeri şu: mimari boşluğu
+**genel olarak** kapatır — AI ilk kez "bildiği ama görmediği" bir yere karşılık verebilir.
