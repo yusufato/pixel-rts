@@ -224,6 +224,10 @@ function storyHexInfrastructureSeaEdgeId(a, b) {
     return `segment:sea:${Math.min(Number(a), Number(b))}:${Math.max(Number(a), Number(b))}`;
 }
 
+function storyHexInfrastructureRailEdgeId(a, b) {
+    return `segment:rail:${Math.min(Number(a), Number(b))}:${Math.max(Number(a), Number(b))}`;
+}
+
 function storyHexInfrastructurePortEdgeId(terminalId, landIndex, waterIndex) {
     return `segment:port:${Number(terminalId)}:${Number(landIndex)}:${Number(waterIndex)}`;
 }
@@ -319,12 +323,21 @@ function storyHexInfrastructureSegmentKind(geography, a, b) {
     return 'ROAD';
 }
 
+function storyHexInfrastructureRailSegmentKind(geography, a, b) {
+    const landKind = storyHexInfrastructureSegmentKind(geography, a, b);
+    if (landKind === 'BRIDGE') return 'RAIL_BRIDGE';
+    if (landKind === 'TUNNEL') return 'RAIL_TUNNEL';
+    return 'RAIL_TRACK';
+}
+
 function storyHexInfrastructureBuild(world, geography, settlements, corridors) {
     const segmentsById = new Map();
     const corridorSegmentIds = {};
     const corridorCellPaths = {};
     const failedCorridors = [];
     const landCorridors = (corridors || []).filter(corridor => corridor && corridor.mode === 'LAND')
+        .slice().sort((a, b) => String(a.id).localeCompare(String(b.id), 'en'));
+    const railCorridors = (corridors || []).filter(corridor => corridor && corridor.mode === 'RAIL')
         .slice().sort((a, b) => String(a.id).localeCompare(String(b.id), 'en'));
     const seaCorridors = (corridors || []).filter(corridor => corridor && corridor.mode === 'SEA')
         .slice().sort((a, b) => String(a.id).localeCompare(String(b.id), 'en'));
@@ -353,6 +366,49 @@ function storyHexInfrastructureBuild(world, geography, settlements, corridors) {
                 segment = {
                     schemaVersion: STORY_HEX_INFRASTRUCTURE_SCHEMA_VERSION,
                     id, mode: 'LAND', kind: storyHexInfrastructureSegmentKind(geography, a, b),
+                    endpointCellIndices: [Math.min(a, b), Math.max(a, b)],
+                    corridorIds: [],
+                    lengthWorld: Math.round(Math.hypot(dx, dy) * 1000) / 1000,
+                    baseCapacity: Math.max(1, Number(corridor.baseCapacity) || 1),
+                    maintenanceBps: 10000, damageBps: 0, enabled: true,
+                    lifecycleState: 'OPERATING', repairRemainingSeconds: 0
+                };
+                segmentsById.set(id, segment);
+            }
+            segment.baseCapacity = Math.max(segment.baseCapacity,
+                Math.max(1, Number(corridor.baseCapacity) || 1));
+            if (!segment.corridorIds.includes(corridor.id)) segment.corridorIds.push(corridor.id);
+            segmentIds.push(id);
+        }
+        corridorSegmentIds[corridor.id] = segmentIds;
+        corridorCellPaths[corridor.id] = path.slice();
+    }
+    for (const corridor of railCorridors) {
+        const cityA = storyHexInfrastructureLegacyRegionId(corridor.endpointRegionIds[0]);
+        const cityB = storyHexInfrastructureLegacyRegionId(corridor.endpointRegionIds[1]);
+        const start = Number(settlements.coreCellIndices[cityA]);
+        const end = Number(settlements.coreCellIndices[cityB]);
+        const path = Number.isInteger(start) && Number.isInteger(end)
+            ? storyHexRoadFindPath(world, geography, start, end) : [];
+        if (path.length < 2) {
+            corridorSegmentIds[corridor.id] = [];
+            failedCorridors.push({ corridorId: corridor.id,
+                endpointRegionIds: corridor.endpointRegionIds.slice(),
+                reason: 'NO_PHYSICAL_RAIL_PATH' });
+            continue;
+        }
+        const segmentIds = [];
+        for (let index = 1; index < path.length; index++) {
+            const a = Number(path[index - 1]), b = Number(path[index]);
+            const id = storyHexInfrastructureRailEdgeId(a, b);
+            let segment = segmentsById.get(id);
+            if (!segment) {
+                const dx = Number(world.centerX[a]) - Number(world.centerX[b]);
+                const dy = Number(world.centerY[a]) - Number(world.centerY[b]);
+                segment = {
+                    schemaVersion: STORY_HEX_INFRASTRUCTURE_SCHEMA_VERSION,
+                    id, mode: 'RAIL',
+                    kind: storyHexInfrastructureRailSegmentKind(geography, a, b),
                     endpointCellIndices: [Math.min(a, b), Math.max(a, b)],
                     corridorIds: [],
                     lengthWorld: Math.round(Math.hypot(dx, dy) * 1000) / 1000,
@@ -474,23 +530,31 @@ function storyHexInfrastructureBuild(world, geography, settlements, corridors) {
         corridorCellPaths,
         diagnostics: {
             sourceLandCorridorCount: landCorridors.length,
+            sourceRailCorridorCount: railCorridors.length,
             sourceSeaCorridorCount: seaCorridors.length,
             physicalSegmentCount: segments.length,
             landSegmentCount: segments.filter(segment => segment.mode === 'LAND').length,
+            railSegmentCount: segments.filter(segment => segment.mode === 'RAIL').length,
             seaSegmentCount: segments.filter(segment => segment.mode === 'SEA').length,
             portAccessSegmentCount: segments.filter(segment => segment.kind === 'PORT_ACCESS').length,
             straitSegmentCount: segments.filter(segment => segment.kind === 'STRAIT').length,
             sharedSegmentCount: segments.filter(segment => segment.corridorIds
                 .filter(id => graphById.get(id)
-                    && ['LAND', 'SEA'].includes(graphById.get(id).mode)).length > 1).length,
+                    && ['LAND', 'SEA', 'RAIL'].includes(graphById.get(id).mode)).length > 1).length,
             bridgeSegmentCount: segments.filter(segment => segment.kind === 'BRIDGE').length,
             tunnelSegmentCount: segments.filter(segment => segment.kind === 'TUNNEL').length,
+            railBridgeSegmentCount: segments.filter(segment =>
+                segment.kind === 'RAIL_BRIDGE').length,
+            railTunnelSegmentCount: segments.filter(segment =>
+                segment.kind === 'RAIL_TUNNEL').length,
             failedCorridorCount: failedCorridors.length,
             failedLandCorridorCount: failedCorridors.filter(row =>
                 String(row.reason).includes('LAND')).length,
             failedSeaCorridorCount: failedCorridors.filter(row =>
                 String(row.reason).includes('SEA')
                 || String(row.reason).includes('PORT')).length,
+            failedRailCorridorCount: failedCorridors.filter(row =>
+                String(row.reason).includes('RAIL')).length,
             failedCorridors
         }
     };

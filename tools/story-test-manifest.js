@@ -189,7 +189,7 @@ const STORY_TEST_TASKS = Object.freeze([
         requiredTrue: ['main.worldNeutral', 'main.validation.ok', 'main.sameInstance',
             'main.deterministic', 'main.cityCountExact', 'main.allCoresValid',
             'main.noCityInWater', 'main.identityPreserved', 'main.allRequiredPortsValid',
-            'main.allSeaCorridorsPhysical',
+            'main.allSeaCorridorsPhysical', 'main.allRailCorridorsPhysical',
             'main.sidecarNotPersisted', 'restored.loaded', 'restored.validation.ok',
             'restored.exactDerived'] },
     { key: 'hexUrbanProbe', fn: 'probeHexUrban', weight: 6, args: [],

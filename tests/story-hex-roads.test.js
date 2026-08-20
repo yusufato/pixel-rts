@@ -59,12 +59,15 @@ const segments = vm.runInContext(`(() => {
     const corridors = [
         { id: 'corridor:land:0:2', mode: 'LAND', endpointRegionIds: ['region:0', 'region:2'], baseCapacity: 100 },
         { id: 'corridor:land:1:2', mode: 'LAND', endpointRegionIds: ['region:1', 'region:2'], baseCapacity: 80 },
+        { id: 'corridor:rail:0:2', mode: 'RAIL', endpointRegionIds: ['region:0', 'region:2'], baseCapacity: 120 },
         { id: 'corridor:energy:0:2:land', mode: 'ENERGY', parentCorridorId: 'corridor:land:0:2', endpointRegionIds: ['region:0', 'region:2'], baseCapacity: 70 }
     ];
     const registry = storyHexInfrastructureBuild(world, geography,
         { coreCellIndices: cores }, corridors);
     const shared = registry.segments.find(segment => segment.corridorIds.includes('corridor:land:0:2')
         && segment.corridorIds.includes('corridor:land:1:2'));
+    const rail = registry.segments.find(segment =>
+        segment.corridorIds.includes('corridor:rail:0:2'));
     shared.damageBps = 5000;
     return {
         segmentCount: registry.segments.length,
@@ -73,7 +76,12 @@ const segments = vm.runInContext(`(() => {
         sharedCorridors: shared.corridorIds.slice(),
         damagedFactorBps: storyHexInfrastructureSegmentFactorBps(shared),
         inheritedEnergySegments: registry.corridorSegmentIds['corridor:energy:0:2:land'].length,
-        parentLandSegments: registry.corridorSegmentIds['corridor:land:0:2'].length
+        parentLandSegments: registry.corridorSegmentIds['corridor:land:0:2'].length,
+        railSegmentCount: registry.corridorSegmentIds['corridor:rail:0:2'].length,
+        railMode: rail.mode,
+        railDistinctFromRoad: !registry.corridorSegmentIds['corridor:land:0:2']
+            .includes(rail.id),
+        railFactorBps: storyHexInfrastructureSegmentFactorBps(rail)
     };
 })()`, context);
 
@@ -86,6 +94,12 @@ assert.strictEqual(segments.damagedFactorBps, 5000,
     '50% physical damage must reduce the segment condition factor to 50%');
 assert.strictEqual(segments.inheritedEnergySegments, segments.parentLandSegments,
     'overlay and parent corridor must reference the same segment chain');
+assert(segments.railSegmentCount > 0, 'rail corridor must receive a physical hex chain');
+assert.strictEqual(segments.railMode, 'RAIL');
+assert.strictEqual(segments.railDistinctFromRoad, true,
+    'road and rail on the same hex edge must keep separate physical identities');
+assert.strictEqual(segments.railFactorBps, 10000,
+    'damaging a road segment must not silently damage the parallel rail track');
 
 const seaSegments = vm.runInContext(`(() => {
     const world = storyHexWorldCreate({ width: 300, height: 180, radius: 16.1 });

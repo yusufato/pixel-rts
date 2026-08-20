@@ -1394,3 +1394,12 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Harita artık iki liman arasında dekoratif Bezier eğrisi çizmez. Kalıcı ağ RAM katmanı fiziksel `corridorCellPaths` zincirini rasterize eder; motorun kapasite gördüğü rota ile oyuncunun gördüğü rota aynıdır.
 - Tek işçili gerçek dünya `hexSettlementsProbe` zorunlu `allSeaCorridorsPhysical` kapısıyla geçti. Ağır Electron/FPS kabulü, eşzamanlı sekiz savaş-AI işçisi CPU'yu doyurduğu için ertelendi.
 - Sıradaki iş **HXD-7.3 ray segmentleri ve modal altyapı kimliği**dir. Bakım/inşa ekonomisi HXD-7.4, hareketli taşıt ve gerçek teslimat HXD-9 kapsamındadır.
+
+## HXD-7.3 — ray segmentleri ve modal altyapı kimliği (`implemented`)
+
+- Ray ağı kara yollarından türetilmedi. Ankara–İstanbul omurgası, Balkan/Orta Avrupa bağlantıları, Doğu Avrupa kolları ve seçili Akdeniz/Ortadoğu hatlarından oluşan açık tanımlı `40` RAIL koridoru ayrı katalog kimliğiyle kuruldu. Gerçek dünya probunda bu koridorların tamamı fiziksel altıgen zincirine bağlandı; başarısız ray koridoru `0`dır.
+- Fiziksel sicil `277` ray segmenti taşır: `13` `RAIL_BRIDGE`, `2` `RAIL_TUNNEL`, kalanları `RAIL_TRACK`tır. Aynı altıgen kenarından geçen ROAD ve RAIL ayrı segment kimliği, kapasite, hasar, bakım ve kapanma durumu taşır; yolun vurulması paralel rayı kendiliğinden bozmaz.
+- Kalıcı ağ RAM katmanı motorun `corridorCellPaths` zincirinden ray altlığı ve kesikli ray merkezi üretir. Hasarlı/kapalı ray yalnız kendi fiziksel kenarında durum rengi taşır; çizilen rota ile kapasite motorunun kullandığı rota aynıdır.
+- Ray kataloğu eklenmeden önce üretilmiş kompakt altyapı kayıtları yalnız tanınan eski ağ karmasıyla kabul edilir. Bilinen eski koridor hasarı korunur, `40` yeni ray varsayılan durumla eklenir ve kayıt teşhisine açık backfill uyarısı yazılır. Rastgele veya bozuk ağ karması bu ayrıcalığı alamaz; güvenli yeniden kurulum davranışı korunur.
+- Mevcut `railways` teknoloji etkisi fiziksel hat kaynağı sayılmadı. Ticaret ve göç henüz RAIL'i otomatik seçmez; aksi davranış tamamlanmamış ağı sahte ekonomik kapasiteye dönüştürürdü. Modal rota seçimi, tren/araç hareketi ve teslimat HXD-9 kapsamındadır.
+- Sıradaki iş **HXD-7.4 bakım iş emri, segment onarımı ve yeni altyapı inşa ekonomisi**dir. İnşa emri gerçek kurum yetkisi, şirket/Devlet finansmanı, malzeme, işgücü, süre ve fiziksel hedef segment olmadan sonuç üretemez.

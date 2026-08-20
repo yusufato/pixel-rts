@@ -670,6 +670,8 @@ function run() {
     assert.equal(infrastructureProbe.main.worldValidation.ok, true, 'Altyapı koridorlu V2 dünya geçerli kalmalı.');
     assert.ok(infrastructureProbe.main.snapshotBefore.summary.byMode.LAND > 0, 'Kara koridorları üretilmeli.');
     assert.ok(infrastructureProbe.main.snapshotBefore.summary.byMode.SEA > 0, 'Açık tanımlı deniz koridorları üretilmeli.');
+    assert.ok(infrastructureProbe.main.snapshotBefore.summary.byMode.RAIL > 0,
+        'Açık tanımlı ray koridorları üretilmeli.');
     assert.equal(
         infrastructureProbe.main.snapshotBefore.summary.byMode.ENERGY,
         infrastructureProbe.main.snapshotBefore.summary.byMode.LAND
@@ -763,6 +765,16 @@ function run() {
     assert.equal(infrastructureProbe.restored.validation.ok, true, 'Yüklenen altyapı görünümü geçerli olmalı.');
     assert.equal(infrastructureProbe.restored.exactPolicy, true, 'Kompakt altyapı kaydı yüklemede birebir korunmalı.');
     assert.equal(infrastructureProbe.restored.exactSnapshot, true, 'Altyapı hasarı ve erişim görünümü yüklemede birebir korunmalı.');
+    assert.equal(infrastructureProbe.additiveMigration.loaded, true,
+        'Ray öncesi kompakt altyapı kaydı eklemeli katalog göçüyle açılabilmeli.');
+    assert.equal(infrastructureProbe.additiveMigration.validation.ok, true,
+        'Ray öncesi kayıttan üretilen modal altyapı görünümü geçerli olmalı.');
+    assert.equal(infrastructureProbe.additiveMigration.preservedDamageBps, 4200,
+        'Eklemeli ray göçü bilinen eski kara koridorunun hasarını korumalı.');
+    assert.equal(infrastructureProbe.additiveMigration.railCorridorCount, 40,
+        'Eklemeli ray göçü yeni 40 ray koridorunu varsayılan durumla eklemeli.');
+    assert.equal(infrastructureProbe.additiveMigration.warned, true,
+        'Eklemeli katalog göçü sessiz olmamalı; kayıt teşhisinde uyarı bırakmalı.');
     assert.equal(infrastructureProbe.legacy.loaded, true, 'Altyapı grafı taşımayan eski kayıt açılmalı.');
     assert.equal(infrastructureProbe.legacy.validation.ok, true, 'Eski kayıt güncel geçerli altyapı grafı üretmeli.');
     assert.equal(infrastructureProbe.legacy.policy.diagnostics.backfilled, true, 'Eski kayıt altyapı backfill’i sessiz olmamalı.');
@@ -5253,6 +5265,10 @@ function run() {
         'Bütün deniz koridorları iki liman ucu ve komşu su-altıgen segment zinciri taşımalı.');
     assert.equal(hexSettlementsProbe.main.physicalInfrastructure.sourceSeaCorridorCount, 20,
         'Açık tanımlı yirmi deniz koridorunun tamamı fiziksel sicile girmeli.');
+    assert.equal(hexSettlementsProbe.main.allRailCorridorsPhysical, true,
+        'Bütün açık ray koridorları ayrı fiziksel RAIL segment zinciri taşımalı.');
+    assert.equal(hexSettlementsProbe.main.physicalInfrastructure.sourceRailCorridorCount, 40,
+        'Açık tanımlı kırk ray koridorunun tamamı fiziksel sicile girmeli.');
     assert.equal(hexSettlementsProbe.main.diagnostics.portCount, 59, 'Kıyı eşiği dışındaki iç şehirler kendiliğinden liman kazanmamalı.');
     assert.equal(hexSettlementsProbe.main.diagnostics.uniquePortTerminalCount, 58, 'Paylaşılan kıyı tesisi tek fiziksel terminal sayılmalı.');
     assert.equal(hexSettlementsProbe.main.diagnostics.sharedPortTerminals.length, 1, 'Paylaşılan fiziksel terminal borcu açıkça raporlanmalı.');

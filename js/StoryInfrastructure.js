@@ -10,7 +10,7 @@
 
 const STORY_INFRASTRUCTURE_SCHEMA_VERSION = 1;
 const STORY_INFRASTRUCTURE_ADAPTER_VERSION = 'story-infrastructure-graph-1';
-const STORY_INFRASTRUCTURE_MODES = Object.freeze(['LAND', 'SEA', 'ENERGY', 'DATA']);
+const STORY_INFRASTRUCTURE_MODES = Object.freeze(['LAND', 'SEA', 'RAIL', 'ENERGY', 'DATA']);
 const STORY_INFRASTRUCTURE_ACCESS_POLICIES = Object.freeze(['ENDPOINT_OWNERS', 'PUBLIC']);
 const STORY_INFRASTRUCTURE_VALID_GRAPHS = new WeakSet();
 
@@ -37,6 +37,26 @@ const STORY_INFRASTRUCTURE_SEA_LINKS = Object.freeze([
     ['Stokholm', 'Helsinki'],
     ['Helsinki', 'Tallinn'],
     ['Gdansk', 'Stokholm']
+]);
+
+// HXD-7.3: Bunlar karayolundan tahmin edilmez. 2032 başlangıç dünyasında
+// açıkça var olduğu kabul edilen ana şehirlerarası ray omurgasıdır. İstasyon,
+// hat kapasitesi ve hasarı ROAD kimliğinden ayrı kalır.
+const STORY_INFRASTRUCTURE_RAIL_LINKS = Object.freeze([
+    ['Ankara', 'İstanbul'], ['İstanbul', 'Sofya'], ['Sofya', 'Belgrad'],
+    ['Belgrad', 'Budapeşte'], ['Budapeşte', 'Viyana'], ['Viyana', 'Prag'],
+    ['Prag', 'Berlin'], ['Berlin', 'Hamburg'], ['Berlin', 'Varşova'],
+    ['Varşova', 'Krakov'], ['Krakov', 'Budapeşte'], ['Varşova', 'Minsk'],
+    ['Minsk', 'Moskova'], ['Minsk', 'Kiev'], ['Kiev', 'Odesa'],
+    ['Kiev', 'Harkiv'], ['Harkiv', 'Moskova'], ['Bükreş', 'Sofya'],
+    ['Bükreş', 'Budapeşte'], ['Venedik', 'Zagreb'], ['Zagreb', 'Belgrad'],
+    ['Milano', 'Venedik'], ['Bologna', 'Milano'], ['Bologna', 'Venedik'],
+    ['Roma', 'Bologna'], ['Roma', 'Napoli'], ['Paris', 'Lille'],
+    ['Lille', 'Brüksel'], ['Brüksel', 'Amsterdam'], ['Amsterdam', 'Hamburg'],
+    ['Paris', 'Lyon'], ['Lyon', 'Marsilya'], ['Lyon', 'Zürih'],
+    ['Zürih', 'Milano'], ['Madrid', 'Zaragoza'], ['Zaragoza', 'Barselona'],
+    ['Helsinki', 'St. Petersburg'], ['Kahire', 'İskenderiye'],
+    ['Şam', 'Halep'], ['Bağdat', 'Musul']
 ]);
 
 function storyInfrastructureEnabled() {
@@ -105,8 +125,8 @@ function storyInfrastructureDistance(a, b) {
 function storyInfrastructurePhysicalDefinition(mode, a, b) {
     const endpoints = storyInfrastructureEndpoints(a.id, b.id);
     const distance = storyInfrastructureDistance(a, b);
-    const base = mode === 'SEA' ? 1050 : 1350;
-    const distancePenalty = mode === 'SEA' ? 2.5 : 4;
+    const base = mode === 'SEA' ? 1050 : mode === 'RAIL' ? 1650 : 1350;
+    const distancePenalty = mode === 'SEA' ? 2.5 : mode === 'RAIL' ? 3.2 : 4;
     const baseCapacity = Math.max(120, Math.round(base / (1 + distance * distancePenalty)));
     return {
         schemaVersion: STORY_INFRASTRUCTURE_SCHEMA_VERSION,
@@ -119,8 +139,12 @@ function storyInfrastructurePhysicalDefinition(mode, a, b) {
         damageBps: 0,
         enabled: true,
         distance,
-        costPerUnit: storyInfrastructureRound((mode === 'SEA' ? 1.35 : 1) + distance * 8, 4),
-        latencySeconds: storyInfrastructureRound((mode === 'SEA' ? 3 : 1) + distance * 40, 4),
+        costPerUnit: storyInfrastructureRound((
+            mode === 'SEA' ? 1.35 : mode === 'RAIL' ? .72 : 1
+        ) + distance * (mode === 'RAIL' ? 5.2 : 8), 4),
+        latencySeconds: storyInfrastructureRound((
+            mode === 'SEA' ? 3 : mode === 'RAIL' ? .7 : 1
+        ) + distance * (mode === 'RAIL' ? 24 : 40), 4),
         accessPolicy: 'ENDPOINT_OWNERS'
     };
 }
@@ -197,9 +221,22 @@ function storyInfrastructureDefinitions() {
         physical.push(storyInfrastructurePhysicalDefinition('SEA', a, b));
     }
 
+    const railKeys = new Set();
+    for (const pair of STORY_INFRASTRUCTURE_RAIL_LINKS) {
+        const a = byName.get(pair[0]);
+        const b = byName.get(pair[1]);
+        if (!a || !b || a.id === b.id) continue;
+        const endpoints = storyInfrastructureEndpoints(a.id, b.id);
+        const key = endpoints.join('|');
+        if (railKeys.has(key)) continue;
+        railKeys.add(key);
+        physical.push(storyInfrastructurePhysicalDefinition('RAIL', a, b));
+    }
+
     physical.sort((a, b) => a.id.localeCompare(b.id));
     const corridors = physical.slice();
-    for (const parent of physical) {
+    for (const parent of physical.filter(corridor =>
+        ['LAND', 'SEA'].includes(corridor.mode))) {
         corridors.push(storyInfrastructureOverlayDefinition('ENERGY', parent));
         corridors.push(storyInfrastructureOverlayDefinition('DATA', parent));
     }
@@ -384,6 +421,7 @@ function storyInfrastructureRestore(saved) {
         });
     }
     let candidate;
+    let additiveNetworkMigration = false;
     if (Array.isArray(saved.corridors)) {
         // Erken Faz 14 geliştirme kayıtları için tam-graf uyumluluğu.
         candidate = storyInfrastructureClone(saved);
@@ -403,7 +441,18 @@ function storyInfrastructureRestore(saved) {
             add('TOPOLOGY_HASH_MISMATCH', '$.topologyHash', 'Kompakt altyapı kaydı güncel topolojiye ait değil.');
         }
         if (saved.networkHash !== base.networkHash) {
-            add('NETWORK_HASH_MISMATCH', '$.networkHash', 'Kompakt altyapı kaydı güncel ağ tanımıyla uyuşmuyor.');
+            // Compact saves only carry mutable state by stable corridor id.
+            // An additive catalog revision (for example HXD-7.3 RAIL) can safely
+            // backfill new defaults while preserving every still-known old id.
+            const legacyWithoutRailHash = storyInfrastructureNetworkHash(
+                base.corridors.filter(corridor => corridor.mode !== 'RAIL')
+            );
+            if (saved.networkHash === legacyWithoutRailHash) {
+                additiveNetworkMigration = true;
+            } else {
+                add('NETWORK_HASH_MISMATCH', '$.networkHash',
+                    'Kompakt altyapı kaydı güncel veya tanınan eklemeli ağ tanımıyla uyuşmuyor.');
+            }
         }
         if (!Number.isInteger(Number(saved.damageRevision)) || Number(saved.damageRevision) < 0) {
             add('INVALID_DAMAGE_REVISION', '$.damageRevision', 'Kompakt hasar revizyonu negatif olmayan tamsayı olmalı.');
@@ -451,6 +500,14 @@ function storyInfrastructureRestore(saved) {
         base.diagnostics = saved.diagnostics
             ? storyInfrastructureClone(saved.diagnostics)
             : base.diagnostics;
+        if (additiveNetworkMigration) {
+            base.diagnostics.backfilled = true;
+            base.diagnostics.warnings = Array.isArray(base.diagnostics.warnings)
+                ? base.diagnostics.warnings.slice() : [];
+            base.diagnostics.warnings.push(
+                'Altyapı kataloğu genişledi; bilinen eski koridor durumları korunup yeni koridorlar varsayılan durumla eklendi.'
+            );
+        }
         candidate = base;
     }
     const validation = storyInfrastructureGraphValidate(candidate);
@@ -555,9 +612,9 @@ function storyInfrastructureCorridorView(corridor) {
 function storyInfrastructureSummary(corridors) {
     const summary = {
         total: 0,
-        byMode: { LAND: 0, SEA: 0, ENERGY: 0, DATA: 0 },
-        baseCapacityByMode: { LAND: 0, SEA: 0, ENERGY: 0, DATA: 0 },
-        effectiveCapacityByMode: { LAND: 0, SEA: 0, ENERGY: 0, DATA: 0 },
+        byMode: { LAND: 0, SEA: 0, RAIL: 0, ENERGY: 0, DATA: 0 },
+        baseCapacityByMode: { LAND: 0, SEA: 0, RAIL: 0, ENERGY: 0, DATA: 0 },
+        effectiveCapacityByMode: { LAND: 0, SEA: 0, RAIL: 0, ENERGY: 0, DATA: 0 },
         damaged: 0,
         blocked: 0
     };

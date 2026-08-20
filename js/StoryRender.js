@@ -1420,6 +1420,51 @@ function storyDrawMaritimeOverlay(ctx, farMap, includePorts) {
     ctx.restore();
 }
 
+function storyDrawPhysicalRailOverlay(ctx, farMap) {
+    if (typeof storyHexInfrastructureSegmentsEnsure !== 'function'
+        || typeof storyHexInfrastructureSegmentFactorBps !== 'function'
+        || typeof storyHexWorldEnsure !== 'function') return 0;
+    const registry = STORY.hexInfrastructureSegments
+        || storyHexInfrastructureSegmentsEnsure();
+    const world = storyHexWorldEnsure();
+    if (!registry || !world) return 0;
+    const rails = registry.segments.filter(segment => segment.mode === 'RAIL');
+    const drawPass = (width, color, dash) => {
+        ctx.lineWidth = width;
+        ctx.strokeStyle = color;
+        if (typeof ctx.setLineDash === 'function') ctx.setLineDash(dash || []);
+        for (const segment of rails) {
+            const a = Number(segment.endpointCellIndices[0]);
+            const b = Number(segment.endpointCellIndices[1]);
+            const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
+            const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
+            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+        }
+    };
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    drawPass(farMap ? 1.8 : 2.6, 'rgba(31,35,31,.82)', []);
+    drawPass(farMap ? .7 : 1.05, 'rgba(207,190,132,.78)', farMap ? [2, 2] : [4, 2]);
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    for (const segment of rails) {
+        const factor = storyHexInfrastructureSegmentFactorBps(segment);
+        if (factor >= 10000) continue;
+        const a = Number(segment.endpointCellIndices[0]);
+        const b = Number(segment.endpointCellIndices[1]);
+        const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
+        const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+        ctx.strokeStyle = factor <= 0 ? 'rgba(142,28,22,.98)'
+            : factor < 5000 ? 'rgba(224,83,27,.95)' : 'rgba(234,164,50,.9)';
+        ctx.lineWidth = farMap ? 1.4 : 2.1;
+        if (factor <= 0 && typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 2]);
+        ctx.stroke();
+        if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    }
+    ctx.restore();
+    return rails.length;
+}
+
 function storySecondaryRoadsEnsure() {
     const CT = (typeof GEO_CITIES !== 'undefined') ? GEO_CITIES : [];
     const RD = (typeof GEO_ROADS !== 'undefined') ? GEO_ROADS : [];
@@ -1846,6 +1891,7 @@ function storyNetworkWorldLayersEnsure() {
             storyDrawMaritimeOverlay(paint, mode.farMap, false);
             storyDrawPrimaryRoadOverlay(paint, mode.farMap);
             storyDrawSecondaryRoadOverlay(paint, mode.farMap);
+            storyDrawPhysicalRailOverlay(paint, mode.farMap);
             layers[mode.id] = storyCreateWorldRamLayer(canvas, {
                 mode: mode.id,
                 worldScale: .5

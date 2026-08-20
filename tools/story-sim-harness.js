@@ -889,6 +889,7 @@ function createRuntime(seed) {
             infrastructureGraph: () => storyInfrastructureClone(STORY.infrastructureGraph),
             validateInfrastructureGraph: graph => storyInfrastructureGraphValidate(graph),
             infrastructureForSave: () => storyInfrastructureForSave(),
+            infrastructureNetworkHash: corridors => storyInfrastructureNetworkHash(corridors),
             infrastructureCorridorIds: (regionId, mode) => storyInfrastructureCorridorIdsForRegion(regionId, mode),
             infrastructureSetDamage: (corridorId, damageBps, options) => storyInfrastructureSetDamage(corridorId, damageBps, options),
             infrastructureFindRoute: (fromRegionId, toRegionId, options) => storyInfrastructureFindRoute(fromRegionId, toRegionId, options),
@@ -5020,6 +5021,7 @@ function probeInfrastructureGraph(seed = 2032) {
     const runtime = createRuntime(seed >>> 0);
     let main;
     let savedRaw;
+    let legacyWithoutRailHash;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         const story = runtime.api.state();
@@ -5124,6 +5126,9 @@ function probeInfrastructureGraph(seed = 2032) {
         const savedPayload = JSON.parse(savedRaw);
         const savedGraph = runtime.api.infrastructureGraph();
         const savedSnapshot = runtime.api.infrastructureSnapshot();
+        legacyWithoutRailHash = runtime.api.infrastructureNetworkHash(
+            graphBefore.corridors.filter(corridor => corridor.mode !== 'RAIL')
+        );
         main = {
             beforeHash,
             afterHash,
@@ -5188,6 +5193,33 @@ function probeInfrastructureGraph(seed = 2032) {
         };
     } finally {
         restoredRuntime.dom.window.close();
+    }
+
+    const additiveSave = JSON.parse(savedRaw);
+    additiveSave.infrastructureGraph.networkHash = legacyWithoutRailHash;
+    const additiveRuntime = createRuntime(seed >>> 0);
+    let additiveMigration;
+    try {
+        additiveRuntime.api.putSavedRaw(JSON.stringify(additiveSave));
+        const loaded = additiveRuntime.api.loadNow();
+        const policy = additiveRuntime.api.infrastructureForSave();
+        const snapshot = additiveRuntime.api.infrastructureSnapshot();
+        const preservedCorridor = snapshot.corridors.find(corridor => corridor.id === main.firstCorridorId);
+        additiveMigration = {
+            loaded,
+            policy,
+            snapshot,
+            validation: additiveRuntime.api.validateInfrastructureSnapshot(snapshot),
+            legacyWithoutRailHash,
+            preservedDamageBps: preservedCorridor ? preservedCorridor.damageBps : null,
+            railCorridorCount: snapshot.summary && snapshot.summary.byMode
+                ? Number(snapshot.summary.byMode.RAIL) || 0 : 0,
+            warned: !!(policy.diagnostics
+                && Array.isArray(policy.diagnostics.warnings)
+                && policy.diagnostics.warnings.some(message => String(message).includes('katalo')))
+        };
+    } finally {
+        additiveRuntime.dom.window.close();
     }
 
     const legacySave = JSON.parse(savedRaw);
@@ -5267,6 +5299,7 @@ function probeInfrastructureGraph(seed = 2032) {
     return {
         main,
         restored,
+        additiveMigration,
         legacy,
         corrupt,
         disabled,
@@ -8655,6 +8688,9 @@ function probeHexSettlements(seed = 2032) {
                 && physicalInfrastructure.failedSeaCorridorCount === 0
                 && physicalInfrastructure.seaSegmentCount > physicalInfrastructure.sourceSeaCorridorCount
                 && physicalInfrastructure.portAccessSegmentCount > 0,
+            allRailCorridorsPhysical: physicalInfrastructure.sourceRailCorridorCount > 0
+                && physicalInfrastructure.failedRailCorridorCount === 0
+                && physicalInfrastructure.railSegmentCount > physicalInfrastructure.sourceRailCorridorCount,
             sidecarNotPersisted: !Object.prototype.hasOwnProperty.call(saved, 'hexSettlements'),
             diagnostics: Object.assign({}, model.diagnostics, {
                 sourceHash: model.sourceHash,
