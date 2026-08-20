@@ -187,8 +187,8 @@ denetler).
 | M2-4 `BATTLE_TOPCU_DURAGAN` false→true | 128 | +349 | 2105 | 1.87 | 521 | ölçülemedi |
 | M2-5 `LA_UFUK` 300→400 @ derin 5 | 128 | +440 | 2131 | 2.34 | 527 | ölçülemedi |
 | M2-6 `LA_AG_KAPI` true→false | 128 | **+976** | 2229 | 4.96 | 552 | **GEÇTİ (+)** → kapalı kazandı |
-| M2-7 `LA_HALKA` 3→5 | — | — | — | — | — | sürüyor |
-| M2-8 `LA_YARICAP` 600→900 | — | — | — | — | — | sırada |
+| M2-7 `LA_HALKA` 3→5 | 128 | −189 | 2587 | −0.83 | 640 | ölçülemedi |
+| M2-8 `LA_YARICAP` 600→900 | — | — | — | — | — | **koşulmadı** (07:50'de başladı, 08:20'de durduruldu) |
 
 Tohum havuzu: 1. parti `220000-223127`, 2. parti `224000-227127` — CYBORG'unkilerle ayrık.
 
@@ -196,8 +196,13 @@ Tohum havuzu: 1. parti `220000-223127`, 2. parti `224000-227127` — CYBORG'unki
 |440| < taban 527. Bu, görev dosyasının 1. bölümündeki kuralın tam vakası. Std 2131 normal
 aralıkta olduğu için "etki yok" da denemez — yalnızca bu n ile görülemedi.
 
-**M2-4 ve M2-5 tekrar hak ediyor** (ikisi de taban altı, std normal): ayrık tohumda ikinci
-ölçüm havuzlanırsa taban ~520'den ~370'e iner ve ikisi de karara bağlanabilir.
+**M2-4, M2-5 ve M2-7 tekrar hak ediyor** (üçü de taban altı, std normal): ayrık tohumda ikinci
+ölçüm havuzlanırsa taban ~520-640'tan ~370-450'ye iner ve karara bağlanabilirler.
+
+⚠ **M2-8 KOŞULMADI.** `LA_YARICAP` kapısı 07:50'de başladı ama 08:20'de kullanıcı isteğiyle
+durduruldu (64 parçanın 3'ü bitmişti). Kısmi sonuç **yok**, log'da tablo yok — akşam
+**baştan** koşulmalı. Tohum havuzu `227000-227127` hâlâ ayrık ve kullanılabilir; hiçbir
+tohum tamamlanmış sayılmadığı için havuz kirlenmedi.
 
 **Havuzlama:** bu makinede `--havuz` "havuzlanacak tekrar yok" diyor — CYBORG'un log'ları bu
 depoda değil. Havuzu CYBORG kendi tarafında, bu log'u çekerek kuracak.
