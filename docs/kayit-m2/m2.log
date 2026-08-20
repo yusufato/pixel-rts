@@ -243,3 +243,33 @@ ROL DENGESI — PARALEL
   parca 49 bitti (kod 0)   53/64   111.4dk
   parca 56 bitti (kod 0)   54/64   111.7dk
   parca 51 bitti (kod 0)   55/64   112.5dk
+  parca 55 bitti (kod 0)   56/64   114.2dk
+  parca 53 bitti (kod 0)   57/64   115.1dk
+  parca 61 bitti (kod 0)   58/64   115.5dk
+  parca 52 bitti (kod 0)   59/64   116.1dk
+  parca 62 bitti (kod 0)   60/64   117.4dk
+  parca 54 bitti (kod 0)   61/64   117.5dk
+  parca 59 bitti (kod 0)   62/64   118.2dk
+  parca 57 bitti (kod 0)   63/64   118.4dk
+  parca 63 bitti (kod 0)   64/64   122.3dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=300         128      %86.7     2393     2153   12.58
+kol=400         128      %90.6     2833     1895   16.91
+
+  ESLESTIRILMIS FARK (400 - 300): n 128   ort 440   std 2131   t 2.34  -> ANLAMLI
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 527 guvenle yakalanir.  (olculen etki BUNUN ALTINDA)
+
+  sure: 122.3dk
+### M2-5: LA_UFUK 300 vs 400 @ derin 5 (ufuk hala oduyor mu) bitti 03:27  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-6: LA_AG_KAPI true vs false @ tam guc (C5 tekrari)   basladi 2026-08-20 03:27
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 225000 --kol LA_AG_KAPI --koldeger true,false --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 225000..225127   parca: 64 x 2 tohum   havuz: 16 (dinamik)
+  aktarilan: --kol LA_AG_KAPI --koldeger true,false --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  [havuz] genislik 11   (bos RAM 9.0 GB)
