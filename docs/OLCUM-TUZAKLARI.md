@@ -595,3 +595,35 @@ burada olurdu). `C2 = 0` çıktı, yani bu yolda kusur yok.
 
 **Bu turda üçüncü geri çekme.** Deseni not et: ölçüm aracı motoru taklit ettiğinde
 yanılıyor, motoru çağırdığında yanılmıyor.
+
+
+---
+
+## 15. tuzak — TEDAVİ BİRİMİ ÖLDÜRÜYORSA "İYİLEŞME" SAHTEDİR (2026-08-20)
+
+**Belirti:** `indirectCreep` (kısa menzilli dolaylı ateşi menzile sokan kural) triyajında:
+
+| metrik | taban | kural açık |
+|---|---|---|
+| topçu boşta oranı | %54,6 | **%35,4** |
+| Cephanesiz örnek | 311 | **0** |
+
+İki metrik de "büyük iyileşme" diyor. **İkisi de sahte.**
+
+**Gerçek:** aynı 6 tohumun **6'sında da** maç sonunda **sağ kalan topçu SIFIR** (tabanda
+0/3/0/3/2/1). Kural topçuyu öne sürüyor ve topçu ölüyor. Ölü topçu boşta kalamaz,
+mühimmatı da bitmez — metrikler "düzeldi" çünkü **popülasyon yok oldu.**
+
+Birim-örneği sayısı da bunu söylüyordu: 1234 → 398. Ama örnek sayısına bakmayı akla
+getirmeyen bir okuma, bu kolu maç kapısına gönderirdi (6 saat).
+
+**Kural:** "X oranı" biçimindeki her metrik, X'i taşıyan birimler **ayakta olduğu sürece**
+anlamlıdır. Tedavi o birimleri öldürüyorsa oran iyileşir ve seni yanıltır.
+Her davranış ölçümünde **hayatta kalma ayrıca ve görünür şekilde** raporlanmalı.
+
+**Ölçüm aracına yansıması:** `tools/topcu-bosta.js` artık maç sonu sağ-topçu sayısını
+yazıyor ve her maçta sıfırsa **kolu açıkça eliyor**. Ayrıca "kaç birim-örneği" sayısı
+başlıkta duruyor — iki kol arasında 3× fark varsa bu bir uyarıdır, dipnot değil.
+
+⚠ Bu, 13. tuzağın (payda kayması) akrabası ama farkı önemli: orada payda **maç süresiyle**
+değişiyordu, burada **birimlerin ölmesiyle**. İkisi de "oran" metriklerini bozuyor.

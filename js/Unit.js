@@ -1945,7 +1945,15 @@ class Unit {
     // konumlandırma becerileri (jammerPost) tam da öne çıkıp öldükleri için düşmüştü.
     // Determinist: mesafe aritmetiği, RNG yok. Dönüş: true ise hareketi devraldı.
     _dolayliYaklas() {
-        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'indirectCreep')) return false;
+        /* KAPSAM (2026-08-20): pro-only, ONGORU'de hic kosmuyor. Bagimsiz olarak ayni
+           kusuru yeniden buldum (tools/topcu-bosta.js, AI SALDIRAN): topcunun bosta
+           gectigi zamanin %37.7'si "menzilde hic dusman yok" kovasinda — bu kuralin
+           teshisiyle ayni ("tiklerin %48'inde menzilinde dusman olmadigi icin bos").
+           VARSAYILAN = ESKI DAVRANIS. */
+        const _yaklasKapsam = (typeof BATTLE_DOLAYLI_YAKLAS_INTEL4 !== 'undefined') &&
+            BATTLE_DOLAYLI_YAKLAS_INTEL4 === true;
+        if (!_yaklasKapsam &&
+            (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'indirectCreep'))) return false;
         if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
         if (this.controlOwner === 'PLAYER' || !this.speed || !this.isIndirect) return false;
         if (this.range > PRO_ICREEP_MAX_MENZIL) return false;   // uzun menzilli (topçu/ÇNRA/balistik) bu kuralın konusu değil

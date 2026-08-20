@@ -1258,6 +1258,16 @@ let BATTLE_IKMAL_REFAKAT_INTEL4 = false;
    anlamli cikmadi — yani bu bir kazanc VAADI degil, bir OLCUM ADAYI.
    VARSAYILAN KAPALI. */
 let BATTLE_TOPCU_KUTLE_INTEL4 = false;
+
+/* ── KISA MENZILLI DOLAYLI ATES MENZILE GIRER (pro 'indirectCreep' -> ONGORU) ──
+   Kuralin kendi teshisi: "dolayli ates muhimmati varken tiklerin %48'inde MENZILINDE
+   DUSMAN OLMADIGI icin bos duruyor; gorus %0, olu bolge %0, hedefleme filtresi %0 —
+   sebep tek basina KONUM." Bagimsiz olarak ayni sonuca vardim (tools/topcu-bosta.js):
+   bosta gecen zamanin %37.7'si "menzilde hic dusman yok" kovasinda.
+   Guvenlik sarti kuralin icinde: kendi ON HATTININ gerisinde kalir (PRO_ICREEP_HAT_GERI)
+   — one cikip olen konumlandirma becerileri (jammerPost) bu yuzden elenmisti.
+   VARSAYILAN KAPALI. */
+let BATTLE_DOLAYLI_YAKLAS_INTEL4 = false;
 /* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
    Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
    Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */

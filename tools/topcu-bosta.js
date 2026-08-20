@@ -34,6 +34,10 @@ const TAKIP = false;
 /* --refakat : depoda ZATEN YAZILI olan 'supplyEscort' kuralini ONGORU'de acar.
    Ayni isi yapan yarismaci surum; kazanan mac kapisina gider, kaybeden SILINIR. */
 const REFAKAT = process.argv.includes('--refakat');
+/* --yaklas : pro 'indirectCreep' kuralini ONGORU'de acar. Hedefi A KOVASI:
+   "menzilde hic dusman yok" (%37.7). Kisa menzilli dolayliyi one alir, ama kendi
+   on hattinin gerisinde tutar. */
+const YAKLAS = process.argv.includes('--yaklas');
 
 const { ctx } = tezgahKur();
 const taban = JSON.parse(fs.readFileSync('qa-runtime/gercekci-taban.json', 'utf8'));
@@ -49,6 +53,7 @@ function kos(seed) {
 '  if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;\n' +
 '  BATTLE_KARSI_PLAN = false;\n' +
 '  BATTLE_IKMAL_REFAKAT_INTEL4 = ' + (REFAKAT ? 'true' : 'false') + ';\n' +
+'  BATTLE_DOLAYLI_YAKLAS_INTEL4 = ' + (YAKLAS ? 'true' : 'false') + ';\n' +
 '  BATTLE_KP_TELEMETRI = { ikmalEmri: 0 };\n' +
 '  BATTLE_RECIPE_BLUE = ' + JSON.stringify(TARIF) + ';\n' +
 '  BATTLE_RECIPE_RED = null;\n' +
@@ -178,19 +183,21 @@ function kos(seed) {
 
 console.log('');
 console.log('TOPCU NEDEN BOSTA   ' + MAC + ' tohum   rakip=' + (STANDOFF ? 'STANDOFF (dolayli zorlanmis)' : 'duz taban'));
-console.log('  KOL: ' + (TAKIP ? 'IKMAL_TAKIP (benim)' : REFAKAT ? 'IKMAL_REFAKAT (mevcut supplyEscort)' : 'TABAN'));
+console.log('  KOL: ' + (REFAKAT ? 'IKMAL_REFAKAT (supplyEscort)' : YAKLAS ? 'DOLAYLI_YAKLAS (indirectCreep)' : 'TABAN'));
 console.log('');
 const T = { birimOrn: 0, atesli: 0, A: 0, B: 0, C: 0, D: 0, C1: 0, C2: 0, C3: 0 };
 const durum = {}, cTip = {};
 let cY = 0, cYN = 0, cAday = 0, cAdayN = 0;
 const cS = { say: 0, ikmalYok: 0, yakin: 0, mes: 0, mesN: 0 };
 const ikS = { emir: 0, olu: 0, olumSn: 0 };
+const sagListe = [];
 for (let i = 0; i < MAC; i++) {
     const r = kos(TOHUM0 + i);
     for (const f of ['birimOrn', 'atesli', 'A', 'B', 'C', 'D', 'C1', 'C2', 'C3']) T[f] += (r[f] || 0);
     for (const k of Object.keys(r.durum || {})) durum[k] = (durum[k] || 0) + r.durum[k];
     for (const k of Object.keys(r.cTip || {})) cTip[k] = (cTip[k] || 0) + r.cTip[k];
     if (r.cYakin != null) { cY += r.cYakin; cYN++; }
+    sagListe.push(r.topSayi | 0);
     ikS.emir += r.ikmalEmri || 0;
     if (r.ikmalOlumSn != null) { ikS.olu++; ikS.olumSn += r.ikmalOlumSn; }
     cS.say += r.cephSay || 0; cS.ikmalYok += r.cephIkmalYok || 0; cS.yakin += r.cephYakin || 0;
@@ -216,6 +223,21 @@ console.log('    C · menzilde var, GOZCU VAR       ' + P(T.C).padStart(7) + '  
 console.log('    D · baska durum kodu              ' + P(T.D).padStart(7) + '   -> ' +
     Object.keys(durum).filter((k) => k !== 'READY').sort((a, b) => durum[b] - durum[a]).slice(0, 3)
         .map((k) => k + ' ' + durum[k]).join(' · '));
+console.log('');
+/* ⛔ HAYATTA KALMA KAPISI — 15. tuzak, indirectCreep triyajinda yasandi.
+   "Bosta oranu" gibi metrikler AYAKTA olan birimler uzerinden hesaplanir. Tedavi
+   birimi OLDURUYORSA oran sahte iyilesir: olu topcu bosta kalamaz, muhimmati da
+   bitmez. indirectCreep'te tam bu oldu — bosta %54.6 -> %35.4 ve Cephanesiz 311 -> 0
+   "iyilesme" gorundu, ama 6 tohumun 6'sinda da mac sonunda SAG TOPCU SIFIRDI.
+   Bu yuzden hayatta kalma AYRICA ve GORUNUR sekilde raporlanir. */
+const sagToplam = sagListe.reduce((a, b) => a + b, 0);
+const sifirMac = sagListe.filter((x) => x === 0).length;
+console.log('  ⚑ HAYATTA KALMA: mac sonunda sag topcu toplam ' + sagToplam +
+    '   (sifir topcuyla biten mac: ' + sifirMac + '/' + sagListe.length + ')');
+if (sifirMac === sagListe.length && sagListe.length > 1) {
+    console.log('    ⛔ HER MACTA SIFIR — bu koldaki "iyilesmeler" SAHTE olabilir:');
+    console.log('       olu topcu bosta kalmaz, cephanesi de bitmez. Kol ELENIR.');
+}
 console.log('');
 console.log('  IKMAL: faz-bagimsiz ileri emir ' + ikS.emir +
     '   ikmal araci olen mac ' + ikS.olu + '/' + MAC +
