@@ -253,3 +253,22 @@ ROL DENGESI — PARALEL
   parca 52 bitti (kod 0)   55/64   108.3dk
   parca 57 bitti (kod 0)   56/64   108.5dk
   parca 55 bitti (kod 0)   57/64   108.7dk
+  parca 58 bitti (kod 0)   58/64   111.4dk
+  parca 59 bitti (kod 0)   59/64   112.7dk
+  parca 56 bitti (kod 0)   60/64   113.5dk
+  parca 61 bitti (kod 0)   61/64   113.9dk
+  parca 60 bitti (kod 0)   62/64   114.9dk
+  parca 62 bitti (kod 0)   63/64   115.3dk
+  parca 63 bitti (kod 0)   64/64   116.9dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=false       128      %84.4     2103     1903   12.50
+kol=true        128      %87.5     2108     1869   12.76
+
+  ESLESTIRILMIS FARK (true - false): n 128   ort 5   std 1632   t 0.04  -> anlamli DEGIL
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 404 guvenle yakalanir.  (olculen etki BUNUN ALTINDA)
+
+  sure: 116.9dk
+### M2-11: BATTLE_TOPCU_KUTLE_INTEL4 false vs true @ tam guc bitti 02:28  (cikis 0)
+=== M2 3. PARTI BITTI 2026-08-21 02:28 ===

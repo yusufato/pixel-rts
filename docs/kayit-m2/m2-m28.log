@@ -1,0 +1,7 @@
+=== M2-8 ARTIK KAPI BASLADI 2026-08-21 02:28  git c1dab5f ===
+
+════════════════════════════════════════════════════════════
+### M2-8: LA_YARICAP 600 vs 900 @ tam guc (aday erisimi, GUNCEL taban)   basladi 2026-08-21 02:28
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 227000 --kol LA_YARICAP --koldeger 600,900 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+### git: c1dab5f
+════════════════════════════════════════════════════════════
