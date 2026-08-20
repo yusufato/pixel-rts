@@ -67,3 +67,37 @@ ROL DENGESI — PARALEL
   parca 49 bitti (kod 0)   50/64   128.9dk
   parca 50 bitti (kod 0)   51/64   132.2dk
   parca 51 bitti (kod 0)   52/64   134.8dk
+  parca 56 bitti (kod 0)   53/64   136.3dk
+  parca 55 bitti (kod 0)   54/64   137.1dk
+  parca 53 bitti (kod 0)   55/64   137.4dk
+  parca 52 bitti (kod 0)   56/64   138.8dk
+  parca 62 bitti (kod 0)   57/64   139.7dk
+  parca 54 bitti (kod 0)   58/64   139.9dk
+  parca 57 bitti (kod 0)   59/64   140.0dk
+  parca 61 bitti (kod 0)   60/64   140.0dk
+  parca 58 bitti (kod 0)   61/64   142.1dk
+  parca 60 bitti (kod 0)   62/64   143.9dk
+  parca 63 bitti (kod 0)   63/64   144.2dk
+  parca 59 bitti (kod 0)   64/64   145.0dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=false       128      %86.7     2251     1791   14.22
+kol=true        128      %96.1     2795     1243   25.44
+
+  ESLESTIRILMIS FARK (true - false): n 128   ort 544   std 1508   t 4.09  -> ANLAMLI
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 373 guvenle yakalanir.
+
+  sure: 145.0dk
+### M2-9: BATTLE_TOPCU_DURAGAN false vs true @ tam guc (T1 havuzu, GUNCEL taban) bitti 22:29  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-10: BATTLE_IKMAL_REFAKAT_INTEL4 false vs true @ tam guc   basladi 2026-08-20 22:29
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 229000 --kol BATTLE_IKMAL_REFAKAT_INTEL4 --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+### git: 98dd6f0
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 229000..229127   parca: 64 x 2 tohum   havuz: 16 (dinamik)
+  aktarilan: --kol BATTLE_IKMAL_REFAKAT_INTEL4 --koldeger false,true --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  [havuz] genislik 11   (bos RAM 8.9 GB)
