@@ -150,3 +150,22 @@ dolaylı ateş için varsayılan puan `sc = -d`, yani sadece en yakın.
 `localRatio` · `adUmbrella` · `jammerPost` · `heloMass` · `engineerForward`
 
 Her biri için önce "kendi metriğini kımıldatıyor mu" ölçülecek.
+
+
+### Triyaj sonuçları (2026-08-20, sürüyor)
+
+| delta | kapsam bayrağı | triyaj | hüküm |
+|---|---|---|---|
+| `supplyEscort` | `BATTLE_IKMAL_REFAKAT_INTEL4` | cephanesiz 311→**2** · ikmal ölen maç 3/6→**2/6** | **M2-10 kuyrukta** |
+| `indirectMassing`+`counterBattery` | `BATTLE_TOPCU_KUTLE_INTEL4` | kütle +0,75 (t 2,92) · cbPay %0→**%27** (t 3,56) | **M2-11 kuyrukta** |
+| `indirectCreep` | `BATTLE_DOLAYLI_YAKLAS_INTEL4` | boşta %54,6→%35,4 ve cephanesiz 311→0 **ama 6/6 tohumda sağ topçu SIFIR** | **ELENDİ** (15. tuzak) |
+| `armorFace` | `BATTLE_ZIRH_YONU_INTEL4` | zayıfPay −1,2 puan (t −0,17) · alınan hasar +213 | **ölçülemedi**, kuyruğa alınmadı |
+
+**`armorFace` notu:** hüküm "etkisiz" değil **ölçülemedi** — std 17,3 / n=6 ile ancak
+≥20 puanlık etki görülebilirdi. Ama tavan da düşük görünüyor: bu kurulumda taban
+zayıf-taraf payı **%16,8**, kuralın belgelediği **%37**'nin yarısı. Belgelenen teşhis
+`seed2024` izole kurulumundan; benimki 6 tohum + saldıran tarifi. Daha fazla tohum
+harcamadan önce daha büyük kusurlara bakmak daha verimli.
+
+**Triyaj ekonomisi:** dört adayın ikisi ~20'şer dakikada elendi/askıya alındı. Maç
+kapısına gitselerdi 12 saat harcanacaktı.

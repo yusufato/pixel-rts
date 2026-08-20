@@ -1908,7 +1908,14 @@ class Unit {
     // becerilerinin (jammerPost/resupplyRun) aksine hareket maliyeti YOK. Ateşi de engellemez
     // (namlu-arkı kontrolü yok; hasar yalnız facingAngle'dan okunuyor).
     _zirhYonlendir() {
-        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'armorFace')) return;
+        /* KAPSAM (2026-08-20): pro-only, ONGORU'de hic kosmuyor. Kuralin kendi notu
+           "BEDAVA BECERI: yalniz yon degisir, birim yerinden oynamaz" — yani bugun
+           indirectCreep'i eleyen "one cikip olme" tuzagina yapisal olarak dusemez.
+           VARSAYILAN = ESKI DAVRANIS. */
+        const _zirhKapsam = (typeof BATTLE_ZIRH_YONU_INTEL4 !== 'undefined') &&
+            BATTLE_ZIRH_YONU_INTEL4 === true;
+        if (!_zirhKapsam &&
+            (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'armorFace'))) return;
         if (this.dead || this.loaded || this.abandoned || this.isFleeing) return;
         if (this.controlOwner === 'PLAYER') return;   // oyuncunun birimini döndürmeyiz
         const st = STATS[this.type];

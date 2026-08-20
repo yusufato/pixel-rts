@@ -1268,6 +1268,17 @@ let BATTLE_TOPCU_KUTLE_INTEL4 = false;
    — one cikip olen konumlandirma becerileri (jammerPost) bu yuzden elenmisti.
    VARSAYILAN KAPALI. */
 let BATTLE_DOLAYLI_YAKLAS_INTEL4 = false;
+
+/* ── YONLU ZIRHI KORU (pro 'armorFace' -> ONGORU) ────────────────────────
+   Teshis: yonlu-zirhli birimlerin maruziyeti ON %63 / YAN %27 / ARKA %10 — yani
+   %37'si zirhin zayif tarafindan. Savunan MBT en kotusu: %42/%56/%1.
+   Sebep: facingAngle once HAREKET yonune, sonra ATIS HEDEFINE kuruluyor; ikisi de
+   "beni kim vuruyor" sorusunu sormuyor. Kural: burnu, seni VURABILEN dusmanlarin
+   hasar-agirlikli merkezine dondurur.
+   ⭐ BEDAVA BECERI: yalnizca yon degisir, birim yerinden oynamaz ve atesi engellemez —
+   bu yuzden indirectCreep'i eleyen "one cikip olme" tuzagina dusemez.
+   VARSAYILAN KAPALI. */
+let BATTLE_ZIRH_YONU_INTEL4 = false;
 /* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
    Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
    Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */
