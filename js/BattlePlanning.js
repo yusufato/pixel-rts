@@ -807,6 +807,8 @@ function planningContractDestination(controller, group, objective, friendlyCentr
        planningChooseFlankPoint zaten kanattan yaklaşma noktası üretiyor).
        Çıkarımın doğruluğu ölçüldü: kaynak (2689,2889) vs gerçek dolaylı merkez
        (2385,2873) — 150-300px. Nişan için fazlasıyla yeterli. */
+    // Aşağıdaki dest hesabının görmesi gerekiyor (bkz. FIRE_SUPPORT dalı) → blok DIŞINDA.
+    let _kpMevzi = false;
     {
         const _kp = (typeof battleKarsiPlanAktif === 'function') ? battleKarsiPlanAktif(controller) : null;
         if (_kp) {
@@ -846,6 +848,7 @@ function planningContractDestination(controller, group, objective, friendlyCentr
                     const _ileri = Math.max(0, _d - _menzil * 0.85);
                     const _eskiT = aim;
                     aim = planningClampPoint({ x: _o.x + (_dx / _d) * _ileri, y: _o.y + (_dy / _d) * _ileri });
+                    _kpMevzi = true;   // dest %55'e kırpılmasın — bu zaten atış mevzisi
                     if (typeof BATTLE_KP_TELEMETRI !== 'undefined' && BATTLE_KP_TELEMETRI) {
                         BATTLE_KP_TELEMETRI.mevzi = (BATTLE_KP_TELEMETRI.mevzi | 0) + 1;
                         if (!BATTLE_KP_TELEMETRI.ornek) BATTLE_KP_TELEMETRI.ornek = [];
@@ -889,7 +892,19 @@ function planningContractDestination(controller, group, objective, friendlyCentr
     objective = aim;
     let dest;
     if (group.role === TASK_GROUP_ROLE.FLANK) dest = planningChooseFlankPoint(objective, origin);
-    else if (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) dest = _defDeep ? planningSafePoint(objective) : planningPointBetween(origin, objective, 0.55);   // savunan: derin-mevzi; saldıran: erken-destek
+    /* KARŞI-BATARYA MEVZİSİ: normalde saldıranın ateş-desteği objektifin %55'ine gider
+       (erken-destek). Ama karşı-plan 'topcu' kapsamında objektif ZATEN hesaplanmış bir
+       ATIŞ MEVZİSİDİR — menzilin %85'i kadar içeri girecek şekilde. Onu tekrar %55'e
+       kırpmak mevziyi menzil dışında bırakır, yani düzeltmeyi sessizce iptal eder. */
+    else if (group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) {
+        /* KOŞULSUZ İLERİ (kontrol kolu). Karşı-plan 'topcu' kapsamı mekanizma kapısını
+           geçti; ama kazanç İNANÇTAN mı geliyor yoksa sadece "topçuyu ileri sür"den mi?
+           Bu bayrak o kontrolü kurar: koşuldan bağımsız olarak ateş-desteğini daha ileri
+           taşır. Varsayılan 0.55 = ESKİ DAVRANIŞ, byte-aynı. */
+        const _ileriPay = (typeof BATTLE_TOPCU_ILERI !== 'undefined') ? BATTLE_TOPCU_ILERI : 0.55;
+        dest = (_defDeep || _kpMevzi) ? planningSafePoint(objective)
+            : planningPointBetween(origin, objective, _ileriPay);   // savunan: derin-mevzi; saldıran: erken-destek
+    }
     else if (group.role === TASK_GROUP_ROLE.RECON) dest = planningPointBetween(origin, objective, 0.72);          // keşif ÖNDE tarar+gözcülük eder (topçunun 0.55'inin önünde → dolaylı ateşe göz olur), ama hedefe tam dalmaz
     else if (group.role === TASK_GROUP_ROLE.SUPPORT) dest = _defDeep ? planningSafePoint(objective) : planningPointBetween(origin, objective, 0.3);
     else if (group.role === TASK_GROUP_ROLE.RESERVE) dest = planningPointBetween(origin, objective, 0.2);

@@ -266,3 +266,72 @@ hile bunun tam zıddı.
 Dürüst sürüm: **noktaya ateş görevi** — `estPos`'a, kendi 150-300px hatasıyla. Bu yeni bir
 emir türü demek (replay + lockstep'ten geçmesi gerekir) ve asıl değeri şu: mimari boşluğu
 **genel olarak** kapatır — AI ilk kez "bildiği ama görmediği" bir yere karşılık verebilir.
+
+
+---
+
+# 2026-08-20 (2. tur) — KARSI-BATARYA DENEMESI: **IKI IDDIA GERI CEKILDI**
+
+## Geri cekilen 1: "dusman topcusu HIC hedeflenmiyor (%0,0)"
+
+Bu, 4 tohumda (145000-145003) olculmustu ve **8 taze tohumda (146000-146007)
+tekrarlanmadi**: ayni taban kolunda hedeflenme **%9**. Yani "hic" degil, "az".
+Kusur gercek ama buyuklugu abartilmisti — bu depoda defalarca yasanan kucuk-n hatasi.
+
+Ayrica ilk olcumun kendisi bir normalizasyon kusuru tasiyordu (bkz. asagida).
+
+## Geri cekilen 2: "karsi-batarya mevzisi mekanizma kapisini gecti"
+
+Ilk okuma (4 tohum, kusurlu normalizasyon): menzilde +39.7 · gozcu +44.3 ·
+**KILITLI +25.9 puan**. Bu sonuc **gecersiz**.
+
+Duzeltilmis olcum (8 taze tohum, ortak-kova normalizasyonu):
+
+| metrik | kapali | acik | fark |
+|---|---|---|---|
+| menzilde | %48 | %59 | +11,2 puan |
+| gozcu | %29 | %46 | +16,4 puan |
+| **hedeflenmis (KILITLI)** | **%9** | **%2** | **-6,8 puan** |
+| topcu bosta | %33 | %28 | -5,0 puan |
+| olen dusman topcusu | 5/48 | 4/48 | **-1** |
+| mac suresi | 97sn | 149sn | **+52sn** |
+| marj | -674 | -1196 | -522 TL |
+
+Topcu menzile **giriyor** (menzilde ve gozcu ikisi de yukseliyor) ama **daha az ates
+ediyor** ve dusman topcusunu **daha az olduruyor**. Ustune mac 52sn uzuyor.
+
+**Muhtemel sebep (olculmedi):** ates-destegini karsi-batarya mevzisine cekmek, ana
+taarruzu destegisiz birakiyor; taarruz duruyor, mac uzuyor, ve ileri cikan topcu
+menzile girse bile daha kotu durumda ates ediyor.
+
+## Normalizasyon kusuru (13. tuzak)
+
+Karsi-plan macin **suresini** degistiriyor (97 -> 149sn). Oran metrikleri ornek-basina
+hesaplandigi icin **payda degisiyordu**. Once acik kol tam sureye gitti ve oranlar sahte
+**dustu**; sabit pencere konunca bu sefer kapali kol pencereden once bitti ve oranlar
+sahte **yukseldi**. Ikisi de gercek degil.
+
+Cozum: ornekler 300-tiklik kovalara yazilir, ozet yalniz **iki kolun da ornek verdigi**
+kovalari toplar. Sonuc metrikleri (olen topcu, marj, sure) tam mactan alinir.
+
+## Zincirin guncel durumu
+
+| halka | durum |
+|---|---|
+| gozlem -> INANC | calisiyor (varsayilan KAPALI: `BATTLE_INTEL4_DELTAS.profile`) |
+| inanc -> TAKTIK SINIFI | **GECTI** — %75,9 tespit / %0,0 yanlis alarm / 6sn gecikme |
+| taktik -> KARSI-PLAN | **UC DENEME, UCU DE BASARISIZ** |
+| karsi-plan -> kalibre kazanma tahmini | baslanmadi |
+
+Basarisiz uc deneme: (1) kanat/kutle baskini — topa yurumek kaybediyor;
+(2) derin nisan — olu kanal; (3) karsi-batarya mevzisi — hedeflenme dusuyor, mac uzuyor.
+
+**Ayakta kalan gercekler:**
+- Tespit kaliteli ve ucuz. Sorun tespit degil, tespitin ARDINDAN ne yapilacagi.
+- Kirmizinin topcusu zamanin **%33'unde bosta** (hedefsiz READY). Bu, karsi-plandan
+  BAGIMSIZ bir kusur ve hala acik.
+- Gozcu kurali %29 saglaniyor ama hedeflenme %9 — arada **20 puanlik** hedef-onceligi
+  boslugu var (karsi-plan bunu kapatmadi, buyuttu).
+
+**Tum `BATTLE_KARSI_PLAN*` bayraklari VARSAYILAN KAPALI kaldi** — oyunun davranisi bu
+turda da degismedi.

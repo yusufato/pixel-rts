@@ -532,3 +532,36 @@ kusuru anında gösterdi (grup çoğu çevrimde boştu). İkisi ayrı sayılmasa
 **İkinci kural:** aynı tohumda sonucun birebir aynı çıkması bir HATA değil, en güçlü
 teşhis aracıdır — "bu değişiklik hiçbir şeye dokunmadı"nın kesin kanıtıdır. Ölçüm aracı
 bunu görebilecek şekilde kurulmalı (ham değerler yuvarlanmadan karşılaştırılmalı).
+
+
+---
+
+## 13. tuzak — TEDAVİ MAÇ SÜRESİNİ DEĞİŞTİRİNCE ORAN METRİKLERİ YALAN SÖYLER (2026-08-20)
+
+**Belirti:** karşı-batarya mevzisi ölçümünde ilk tohum şunu verdi:
+
+| metrik | kapalı | açık |
+|---|---|---|
+| örnek sayısı | 79 | **180** |
+| düşman topçusu görünür | %90 | **%13** |
+
+"Karşı-plan görüşü öldürdü" gibi okunuyor. **Yanlış.** Gerçekte olan: açık kolda maç
+bitmedi ve tam süreye (360sn) gitti. Kapalı kol 158sn'de bitmişti. Oran metrikleri
+*örnek başına* hesaplandığı için **payda değişti** — maçın sonundaki ölü/durgun dakikalar
+paydayı şişirdi ve bütün oranları aşağı çekti.
+
+**Kök kural:** bir tedavi maçın **süresini** değiştiriyorsa, örnek-başı oranlar iki kol
+arasında karşılaştırılamaz. Ölçtüğün şey davranış değil, maçın ne kadar sürdüğü.
+
+**Düzeltme (iki katmanlı):**
+1. **Oran metrikleri sabit tik penceresinde** toplanır (`--pencere`, varsayılan 3000 tik
+   = 150sn). Payda iki kolda birebir aynı olur.
+2. **Sonuç metrikleri tam maçtan** alınır (ölen düşman topçusu, marj, süre) — çünkü
+   onların doğru paydası maçın kendisidir.
+
+**Ve süre farkının kendisi bir bulgudur, gürültü değil.** Bu vakada açık kolun maçı
+uzatması gerçek bir etki: topçuyu ileri çekmek taarruz temposunu düşürüyor olabilir.
+O yüzden `sure` artık raporun içinde — gizlenmiyor, ayrıca ölçülüyor.
+
+**Genel biçim:** `X başına Y` yazan her metrikte, tedavinin **X'i** değiştirip
+değiştirmediğini sor. Değiştiriyorsa X'i sabitle ya da X'in kendisini ayrıca raporla.

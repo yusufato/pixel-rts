@@ -1226,6 +1226,12 @@ let BATTLE_KARSI_PLAN_KAPAT = false;
    okur. Gerekce: dolayli kanitla (mac sonucu ayni mi degil mi) donup durdum; nisanin
    uygulanip uygulanmadigini DOGRUDAN saymak gerekiyordu. */
 let BATTLE_KP_TELEMETRI = null;
+/* ATES-DESTEGI ILERI PAYI (kontrol kolu). Saldiranin ates-destegi normalde objektifin
+   %55'ine gider (erken-destek). Karsi-plan 'topcu' kapsami mekanizma kapisini gecti
+   (menzilde +39.7, gozcu +44.3, KILITLI +25.9 puan) — ama bu kazancin INANCTAN mi yoksa
+   sadece "topcuyu ileri sur"den mi geldigini ayirmak gerekiyor. Bu bayrak o kontroldur:
+   kosuldan bagimsiz ileri tasir. VARSAYILAN 0.55 = eski davranis, byte-ayni. */
+let BATTLE_TOPCU_ILERI = 0.55;
 /* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
    Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
    Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */
