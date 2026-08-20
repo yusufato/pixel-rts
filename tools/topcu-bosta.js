@@ -38,6 +38,10 @@ const REFAKAT = process.argv.includes('--refakat');
    "menzilde hic dusman yok" (%37.7). Kisa menzilli dolayliyi one alir, ama kendi
    on hattinin gerisinde tutar. */
 const YAKLAS = process.argv.includes('--yaklas');
+/* --delta <ad> : herhangi bir pro-deltayi triyaj kancasiyla acar (BATTLE_PRO_DELTA_TRIYAJ).
+   Boylece bu arac tek bir kurala degil, topcu davranisini etkileyen HER deltaya bakabilir.
+   ⚠ Arama KAPALI kosar; kanca isciye tasinmiyor. */
+const DELTA = arg('--delta', null);
 
 const { ctx } = tezgahKur();
 const taban = JSON.parse(fs.readFileSync('qa-runtime/gercekci-taban.json', 'utf8'));
@@ -54,6 +58,7 @@ function kos(seed) {
 '  BATTLE_KARSI_PLAN = false;\n' +
 '  BATTLE_IKMAL_REFAKAT_INTEL4 = ' + (REFAKAT ? 'true' : 'false') + ';\n' +
 '  BATTLE_DOLAYLI_YAKLAS_INTEL4 = ' + (YAKLAS ? 'true' : 'false') + ';\n' +
+'  BATTLE_PRO_DELTA_TRIYAJ = ' + (DELTA ? JSON.stringify([DELTA]) : 'null') + ';\n' +
 '  BATTLE_KP_TELEMETRI = { ikmalEmri: 0 };\n' +
 '  BATTLE_RECIPE_BLUE = ' + JSON.stringify(TARIF) + ';\n' +
 '  BATTLE_RECIPE_RED = null;\n' +
@@ -183,7 +188,7 @@ function kos(seed) {
 
 console.log('');
 console.log('TOPCU NEDEN BOSTA   ' + MAC + ' tohum   rakip=' + (STANDOFF ? 'STANDOFF (dolayli zorlanmis)' : 'duz taban'));
-console.log('  KOL: ' + (REFAKAT ? 'IKMAL_REFAKAT (supplyEscort)' : YAKLAS ? 'DOLAYLI_YAKLAS (indirectCreep)' : 'TABAN'));
+console.log('  KOL: ' + (DELTA ? ('pro-delta ' + DELTA) : REFAKAT ? 'IKMAL_REFAKAT (supplyEscort)' : YAKLAS ? 'DOLAYLI_YAKLAS (indirectCreep)' : 'TABAN'));
 console.log('');
 const T = { birimOrn: 0, atesli: 0, A: 0, B: 0, C: 0, D: 0, C1: 0, C2: 0, C3: 0 };
 const durum = {}, cTip = {};

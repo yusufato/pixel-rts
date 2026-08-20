@@ -221,3 +221,20 @@ maliyetsiz bir doğrulaması — triyaj bile küçük n ile sıralama yapmamalı
 11 delta tarandı · **2'si kuyruğa girdi** · 4'ü elendi (no-op / zararlı / birim
 öldürüyor) · 5'i "ölçülemedi" damgasıyla listede kaldı. Hepsi maç kapısına gitseydi
 **~66 saat** harcanacaktı.
+
+
+### `ammoDiscipline` — kendi metriğiyle ölçüldü, `supplyEscort` ile örtüşüyor
+
+| metrik | taban | `ammoDiscipline` | `supplyEscort` |
+|---|---|---|---|
+| topçu boşta oranı | %54,6 | %26,7 | %32,9 |
+| **Cephanesiz örnek** | 311 | **41** | **2** |
+| sağ topçu (6 tohum toplam) | 9 | **6** | — |
+| sıfır topçuyla biten maç | 2/6 | **4/6** | — |
+
+Mühimmat tasarrufu gerçek (311→41) ama **topçu sağkalımı düşüyor**. Ve `supplyEscort`
+aynı sorunu daha iyi çözüyor (311→**2**) ve üstelik ikmal aracının ölümünü de azaltıyor
+(3/6→2/6). İkisi aynı boşluğu doldurduğu için `ammoDiscipline` şimdilik gereksiz.
+
+**Karar:** `supplyEscort` maç kapısını (M2-10) geçerse `ammoDiscipline` tekrar
+bakılmaz. Geçmezse sıradaki aday olur.
