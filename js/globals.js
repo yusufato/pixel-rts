@@ -1152,6 +1152,78 @@ function battleThreatClassOf(type) {
     if (tags.includes('intel') || tags.includes('spotter')) out.recon = 1;
     return Object.keys(out).sort();
 }
+/* ═══ TAKTİK TESPİTİ — "rakip hangi ŞEMAYI uyguluyor?" ═══════════════════════════════
+   İnanç katmanı (`updateThreatProfile`) "beni ne vurdu" der: areaAlpha / air / infiltrator
+   / recon. Bu bir sınıf, bir ŞEMA değil. Karşı-plan kurabilmek için gereken şudur:
+   *"rakip mesafede durup dolaylı ateşle yıpratma uyguluyor"*.
+
+   İLK ŞEMA: STANDOFF_ATIS. Kullanıcının 4 gerçek maçından ölçüldü
+   (docs/OYUNCU-MACLARI-BULGULAR.md) — oyuncunun fiilen uyguladığı şema buydu:
+     · oyuncunun dolaylı isabeti 490, AI'nın 207 (2,4×)
+     · AI birim başına oyuncunun 2 katı panikliyor (3,1 / 1,5)
+     · AI'nın kısa menzilli birimleri düşmana ortalama 2,79× menzil uzakta
+
+   ÜÇ KOŞUL BİRDEN aranır — biri tek başına yetmez:
+     1. areaAlpha tespit edildi (forensik: dolaylı/AoE bir şey bize vuruyor)
+     2. BASTIRILMA yüksek: birimlerimizin belirgin bir kısmı bastırılmış
+     3. ERİŞEMİYORUZ: tahmini kaynak, bastırılan birimlerimizin menzilinin ötesinde
+
+   Üçüncüsü şemayı "sadece topçu yiyoruz"dan ayıran şey. Karşılık verebiliyorsak bu bir
+   ateş düellosudur, standoff değil — ve karşı-planı da farklıdır.
+
+   ⚠ SAF FONKSİYON, DAVRANIŞA BAĞLI DEĞİL. Şu an yalnızca ölçüm aracı çağırıyor
+   (tools/taktik-tespit-olcum.js). Önce isabetinin RASTGELE TABANA karşı ölçülmesi,
+   sonra karşı-plana bağlanması gerekiyor — bu depoda bir modeli eğitilmediği işte
+   kullanmak iki kez zarar verdi (9. tuzak). */
+const TAKTIK_BASTIRMA_ESIK = 0.3;    // birim "bastırılmış" sayılır (suppression)
+const TAKTIK_BASTIRMA_PAY = 0.15;    // canlı birimlerin bu kadarı bastırılmışsa "yüksek"
+const TAKTIK_ERISIM_CARPAN = 1.15;   // kaynak, menzilimizin bu katından uzaksa "erişemiyoruz"
+
+function battleTaktikTespit(controller) {
+    const bos = { taktik: null, guven: 0, kanit: null };
+    if (!controller || !controller.perception) return bos;
+    const cls = controller.perception._threatProfile && controller.perception._threatProfile.classes;
+    if (!cls) return bos;                       // inanç katmanı kapalı (battleDelta 'profile')
+    const alan = cls.areaAlpha;
+    if (!alan || !alan.detected || !alan.estPos) return bos;
+
+    const isRed = controller.side === true;
+    let canli = 0, bastirilan = 0, erisemeyen = 0, bastirilanErisemeyen = 0;
+    for (const u of SIM.units) {
+        if (u.dead || u.loaded || u.abandoned || u.isRed !== isRed) continue;
+        const st = STATS[u.type];
+        if (!st || !st.weapons || !st.weapons.length) continue;   // silahsız birim şema kanıtı değil
+        canli++;
+        const bas = (u.suppression || 0) > TAKTIK_BASTIRMA_ESIK;
+        if (bas) bastirilan++;
+        const d = Math.hypot(alan.estPos.x - u.x, alan.estPos.y - u.y);
+        const uzak = d > (u.range || 0) * TAKTIK_ERISIM_CARPAN;
+        if (uzak) erisemeyen++;
+        if (bas && uzak) bastirilanErisemeyen++;
+    }
+    if (!canli) return bos;
+
+    const basPay = bastirilan / canli;
+    const erisPay = erisemeyen / canli;
+    if (basPay < TAKTIK_BASTIRMA_PAY) return bos;   // bastırılma yoksa şema yok
+
+    /* GÜVEN: üç sinyalin ÇARPIMI değil, ağırlıklı ortalaması — biri zayıfsa şema yine
+       de olabilir (ör. yeni başlamış bastırma). Ama üçü de gerekli olduğu için eşikler
+       yukarıda ayrıca kapı görevi görüyor. */
+    const guven = Math.min(1,
+        0.40 * Math.min(1, alan.confidence) +
+        0.35 * Math.min(1, basPay / 0.35) +
+        0.25 * erisPay);
+
+    return {
+        taktik: 'STANDOFF_ATIS',
+        guven: +guven.toFixed(3),
+        kanit: { alanGuven: +(alan.confidence || 0).toFixed(2), bastirilanPay: +basPay.toFixed(3),
+                 erisemeyenPay: +erisPay.toFixed(3), ikisiBirden: bastirilanErisemeyen,
+                 canliSilahli: canli, kaynak: alan.estPos }
+    };
+}
+
 // TEHDİT-PROFİLİ sınıf-AKTİF mi (gated 'profile' + detected): reaksiyonlar bunu sorar.
 function battleThreatActive(controller, className) {
     if (!controller || typeof battleDelta !== 'function' || !battleDelta(controller.side, 'profile')) return false;

@@ -11,13 +11,31 @@ basit taktiklerle AI'yı kandırıp kendini avutamasınlar."*
 
 ```
 gözlem → İNANÇ → taktik sınıfı → karşı-plan → kalibre kazanma tahmini
-          ✔ VAR    ✘ YOK          ✘ YOK        ✘ YOK
+     VAR ama KAPALI   ✔ YAZILDI      ✘ YOK        ✘ YOK
 ```
 
-**İnanç katmanı zaten çalışıyor.** `js/BattlePerception.js` → `updateThreatProfile`:
-forensik çıkarım ("beni ne vurdu, hangi silah sınıfı, nereden"), `battleDelta(...,'profile')`
-kapılı, determinist. Kendi yorumu: *"Davranış-nötr (Faz A) — yalnız inanç+telemetri."*
-Yani AI rakibi **okuyor ama okuduğuyla hiçbir şey yapmıyor.** Zincir ikinci halkada kopuk.
+**2026-08-20 ilerleme:** `battleTaktikTespit()` yazıldı (js/globals.js) ve ilk şeması
+`STANDOFF_ATIS` ölçüldü — `tools/taktik-tespit-olcum.js`, iki koşul aynı tohumda
+(maviye dolaylı ateş zorlanmış vs tamamen çıkarılmış):
+
+| koşul | tespit oranı | ort güven | ilk tespit |
+|---|---|---|---|
+| STANDOFF | %38,5 | 0,936 | tik 120 (6sn) |
+| KONTROL | **%0,0** | — | — |
+
+**Yanlış alarm sıfır**, şema başladıktan 6 saniye sonra yakalıyor. Ham oranın düşük
+görünmesi paydadan: mavinin ateş etmediği anlar da sayılıyor, şema aralıklı uygulanıyor.
+Karşı-plan tetikleyicisi için asıl ölçüt yanlış alarm + gecikme, ikisi de iyi.
+
+**İnanç katmanı var — ama VARSAYILAN KAPALI.** ⚠ Bunu ilk yazdığımda "çalışıyor" demiştim,
+yanlıştı: `js/globals.js:436` → `BATTLE_INTEL4_DELTAS = { ..., profile: false, ... }`.
+Yani `updateThreatProfile` hiç koşmuyor. İlk tespit ölçümümde **0/41** çıktı ve sebep buydu.
+
+Açıldığında çalışıyor: forensik çıkarım ("beni ne vurdu, hangi sınıf, nereden"), determinist,
+sınıflar `areaAlpha / air / infiltrator / recon`, her sınıf için
+`{detected, confidence, estPos, sourceIds}` ve kaynak birimler teyitli ölene dek kalıcı.
+Kendi yorumu: *"Davranış-nötr (Faz A) — yalnız inanç+telemetri."*
+Yani AI rakibi okuyabilir ama **ne okuyor ne de okuduğuyla bir şey yapıyor.**
 
 `BattleSituation.js:395` bu profili `threatProfile` olarak taşıyor — yani veri planlama
 katmanına **ulaşıyor**, orada kullanılmıyor.
