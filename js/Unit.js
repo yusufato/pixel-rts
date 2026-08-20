@@ -421,7 +421,12 @@ class Unit {
             // SÖMÜRÜCÜ RAKİP HAVUZU en ÖNDE: dar-betikli bot, kod-AI'ın tüm hareket becerilerini ezer
             // (amacı iyi oynamak değil, ÖLÇÜLMÜŞ bir insan sömürüsünü birebir tekrarlamak).
             // Kapalıyken (varsayılan) tek bir bayrak okuması → eski davranış birebir aynı.
-            const _somuru = (typeof exploiterHeloTaciz === 'function') && exploiterHeloTaciz(this);
+            /* SÖMÜRÜCÜ HAVUZU — havuza #2 eklendi (2026-08-20): `yerel_ustunluk`.
+               Kısa devre: helo botu hareketi ezerse ikincisi hiç çağrılmaz. İki bayrak da
+               null (varsayılan) olduğunda ikisi de ilk satırda dönüyor → eski davranış
+               birebir aynı. */
+            const _somuru = ((typeof exploiterHeloTaciz === 'function') && exploiterHeloTaciz(this)) ||
+                ((typeof exploiterYerelUstunluk === 'function') && exploiterYerelUstunluk(this));
             if (!_somuru && !this._komutaMerkez() && !this._ikmalRefakat() && !this._havaSemsiye() && !this._jammerSemsiye() && !this._jammerKonuslan() && !this._heloAvlan() && !this._ikmaleGit() && !this._dolayliYaklas() && !this._menzileGir()) this._standoffKac();   // hepsi ateşten SONRA → atışı kesmez, yalnız hareketi ezer
         }
 
