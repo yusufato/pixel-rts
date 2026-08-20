@@ -167,5 +167,19 @@ zayıf-taraf payı **%16,8**, kuralın belgelediği **%37**'nin yarısı. Belgel
 `seed2024` izole kurulumundan; benimki 6 tohum + saldıran tarifi. Daha fazla tohum
 harcamadan önce daha büyük kusurlara bakmak daha verimli.
 
-**Triyaj ekonomisi:** dört adayın ikisi ~20'şer dakikada elendi/askıya alındı. Maç
-kapısına gitselerdi 12 saat harcanacaktı.
+| `antiMatch` | `BATTLE_ANTI_ESLESME_INTEL4` | fren **2068 kez bağladı** (kapalı kolda 0) ama sağkalım **−3,33 birim**, marj −1367 | **kuyruğa alınmadı** |
+
+**`antiMatch` notu:** bağlanma sorunu yok — kural gerçekten çalışıyor. Sorun sonuçta:
+sağ kalan kırmızı birim 6 tohumun 4'ünde düşüyor (11→3, 10→2, 10→4). t −1,81 ile
+anlamlılık eşiğinin altında, ama **sağkalımı düşüren bir "fren"** güçlü kanıt olmadan
+kuyruğa girmez. Muhtemel mekanizma (ölçülmedi): yanlış aleti geride tutmak kütleyi
+böler ve birlikler tek tek yeniliyor.
+
+**Triyaj ekonomisi:** beş aday ~2 saatte elendi. İkisi kuyruğa girdi, üçü elendi/askıya
+alındı. Hepsi maç kapısına gitseydi **30 saat** harcanacaktı.
+
+### Triyajın üç sorusu (bu turda oturdu)
+
+1. **Bağlanıyor mu?** (`BATTLE_BALANCE` sayaçları — 10 dk). Bağlamıyorsa iş biter.
+2. **Kendi metriğini kımıldatıyor mu?** Kımıldatmıyorsa maç kapısına girmez.
+3. **Hayatta kalma ne oldu?** (15. tuzak). Metrik iyileşip birim ölüyorsa iyileşme sahte.

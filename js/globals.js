@@ -1279,6 +1279,17 @@ let BATTLE_DOLAYLI_YAKLAS_INTEL4 = false;
    bu yuzden indirectCreep'i eleyen "one cikip olme" tuzagina dusemez.
    VARSAYILAN KAPALI. */
 let BATTLE_ZIRH_YONU_INTEL4 = false;
+
+/* ── ANTI-ESLESME FRENI (pro 'antiMatch' -> ONGORU) ─────────────────────
+   KULLANICI DOKTRINI: "kutleyi buyutucem diye piyadeleri dolaylinin onune koyarsan
+   olurler; dolaylilar tanka vurursa hicbir sey olmaz — birimleri ANTI kullan."
+   OLCULDU (tools/anti-eslesme.js, 16 mac): temas anindaki yerel dost kutlesinin
+   %22-27'si YANLIS ALET, ve temaslarin %19-23'unde sayi-orani >=1.5 (mevcut kurallar
+   "iyi" der) iken ETKI-orani <1.0 (dovus kaybediliyor).
+   Mevcut assaultCohesion/localRatio yalniz KAFA SAYAR; bu delta ayni kapiyi ETKI ile kurar.
+   FREN niteliginde: birim yeniden konumlandirilmaz, yalniz yanlis alet kapatmaz.
+   VARSAYILAN KAPALI. */
+let BATTLE_ANTI_ESLESME_INTEL4 = false;
 /* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
    Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
    Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */

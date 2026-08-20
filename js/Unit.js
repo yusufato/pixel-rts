@@ -1790,7 +1790,14 @@ class Unit {
                     if (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'antiMatch')) BATTLE_BALANCE.antiMatchOn = (BATTLE_BALANCE.antiMatchOn || 0) + 1;
                     if (standOff) BATTLE_BALANCE.antiMatchPreStand = (BATTLE_BALANCE.antiMatchPreStand || 0) + 1;
                 }
-                if (!standOff && typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'antiMatch')) {
+                /* KAPSAM (2026-08-20): pro-only, ONGORU'de hic kosmuyor. Bu delta bir FREN
+                   (yanlis alet kapatmaz, dogru alet girer) — birimi yeniden konumlandirmadigi
+                   icin indirectCreep'i eleyen "one cik -> ol" tuzagina dusemez.
+                   VARSAYILAN = ESKI DAVRANIS. */
+                const _antiKapsam = (typeof BATTLE_ANTI_ESLESME_INTEL4 !== 'undefined') &&
+                    BATTLE_ANTI_ESLESME_INTEL4 === true;
+                if (!standOff && (_antiKapsam ||
+                    (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'antiMatch')))) {
                     // KESİT NEREDE ALINIR: birimin ALTINDA değil, GİRECEĞİ DÖVÜŞÜN YERİNDE (hedefin çevresi).
                     // İlk sürüm kesiti birimin altından aldı ve HİÇ bağlamadı (ölçüldü: bind=0/3000 tik) —
                     // çünkü birim menzil dışından kapatırken düşman çoğu zaman 600px'in ötesinde kalıyor.
