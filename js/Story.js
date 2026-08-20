@@ -523,6 +523,7 @@ function storyNewCampaign(config = {}) {
     if (typeof storyAggregationReset === 'function') storyAggregationReset();
     if (typeof storyInfrastructureReset === 'function') storyInfrastructureReset({ generatedAt: 0 });
     if (typeof storyHexInfrastructureReset === 'function') storyHexInfrastructureReset();
+    if (typeof storyInfrastructureWorkRestore === 'function') storyInfrastructureWorkRestore(null);
     if (typeof storyResourceTaxonomyReset === 'function') storyResourceTaxonomyReset();
     if (typeof storyProductionReset === 'function') storyProductionReset();
     if (typeof storyPopulationReset === 'function') storyPopulationReset();
@@ -715,6 +716,9 @@ function storySave() {
             hexConstruction: (typeof storyHexConstructionForSave === 'function')
                 ? storyHexConstructionForSave()
                 : STORY.hexConstruction,
+            infrastructureWorks: (typeof storyInfrastructureWorkForSave === 'function')
+                ? storyInfrastructureWorkForSave()
+                : STORY.infrastructureWorks,
             economicAI: (typeof storyEconomicAIForSave === 'function')
                 ? storyEconomicAIForSave()
                 : STORY.economicAI,
@@ -790,6 +794,10 @@ function storyLoad() {
         if (typeof storyHexConstructionRestore === 'function') {
             const constructionRestore = storyHexConstructionRestore(d.hexConstruction);
             if (!constructionRestore.ok) throw new Error(constructionRestore.code);
+        }
+        if (typeof storyInfrastructureWorkRestore === 'function') {
+            const workRestore = storyInfrastructureWorkRestore(d.infrastructureWorks);
+            if (!workRestore.ok) throw new Error(workRestore.code);
         }
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);
@@ -1619,6 +1627,7 @@ function storyAdvanceStep(dtSec) {
         if (typeof storyBudgetTick === 'function') storyBudgetTick(_economyDt); // Faz 20 devlet bütçesi/borç/faiz
         if (typeof storyCompanyTick === 'function') storyCompanyTick(_economyDt); // Faz 21 şirket/banka/tesis/yatırım
         if (typeof storyHexConstructionTickSeconds === 'function') storyHexConstructionTickSeconds(_economyDt); // HXD-6 fiziksel imar/inşaat
+        if (typeof storyInfrastructureWorkTickSeconds === 'function') storyInfrastructureWorkTickSeconds(_economyDt); // HXD-7.4 fiziksel bakım/onarım
         if (typeof storyEconomicAITick === 'function') storyEconomicAITick(_economyDt); // Faz 22 hilesiz ekonomik aday/seçim
         if (typeof storyHexConstructionEconomicAITick === 'function') storyHexConstructionEconomicAITick(_economyDt); // HXD-6.8 aynı imar kapısını kullanan şirket AI
     }

@@ -232,6 +232,10 @@ RAM'e alma dünya gerçeğini dondurmaz. Sahiplik, geometri, çağ veya ilgili a
 
 `40/40` açık tanımlı RAIL koridoru kara yollarından bağımsız modal kimlikle fiziksel altıgen zincirine bağlandı. Sicil `277` ray segmenti taşır: `13` ray köprüsü, `2` ray tüneli ve `0` başarısız koridor. Paralel ROAD/RAIL kenarları ayrı kimlik ve hasar durumuna sahiptir; bir yol kesintisi rayı otomatik kesmez. Kalıcı ağ RAM katmanı fiziksel ray zincirini çizer. Ray öncesi tanınan kompakt kayıt karması eski hasarı koruyup yeni rayları varsayılan durumla ekleyebilir; bilinmeyen karma reddedilir. Rayı kullanan gerçek tren, karakter, yük ve teslimat HXD-9; bakım ve yeni segment inşa emri HXD-7.4 borcudur.
 
+### HXD-7.4.1 bakım/onarım envanteri
+
+Fiziksel ROAD/SEA/RAIL segmenti artık yetki, gerçek şirket veya devlet nakdi, bölgesel malzeme, ayrılmış işgücü ve süre taşıyan kalıcı iş emriyle onarılabilir. Segment süre boyunca `UNDER_REPAIR` durumunu ve kalan oyun saniyesini taşır; bitmeden hasar silinmez. Tamamlanma tüketim ve karar kimlikli makbuz üretir. Yeni güzergâh/segment inşası, çok hücreli şantiye ve başvuru arayüzü HXD-7.4.2 borcudur.
+
 ### HXD-6.6 fiziksel inşaat envanteri
 
 `story-hex-construction-command-1`, yeni konut/sanayi/lojistik yapımını gerçek hedef hücre, arazi kanıtı, kurum kararı, şirket escrow'u, bölgesel malzeme, ayrılmış iş gücü, süre ve çevre bedeline bağlar. Yetki veya kaynak eksikse kayıt `AWAITING_REQUIREMENTS` kalır; LLM ya da şablon onay uyduramaz. Başlayan/tamamlanan komut arazi/site siciline girer, tamamlanma makbuzu save/load içinde korunur. Sonraki envanter borcu bu kapasitenin konut, üretim ve lojistik tüketicilerine devreye alınması ile oyuncu/AI başvuru yüzeyidir.

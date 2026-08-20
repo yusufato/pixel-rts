@@ -56,6 +56,7 @@ const STORY_SOURCES = [
     'js/StoryHexAgriculture.js',
     'js/StoryHexSites.js',
     'js/StoryHexConstruction.js',
+    'js/StoryInfrastructureWorks.js',
     'js/StoryPoliticalOverlay.js',
     'js/StoryMapCache.js',
     'js/StoryRng.js',
