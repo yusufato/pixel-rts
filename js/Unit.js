@@ -3536,8 +3536,46 @@ class Unit {
         /* SPRITE DİK ÇİZİLİR — dönen kutunun iç karesine oturur. Yön bilgisini artık
            kutunun kendisi (ve UNIT_FRONT_MARKER burnu) taşıyor. */
         if (_flash) ctx.filter = 'brightness(2.6) saturate(0.4)'; else if (_abFilter) ctx.filter = _abFilter;
-        spriteReady() && ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H,
-            s.x - _sw / 2, s.y - _sh / 2, _sw, _sh);
+        /* YÖN: sprite'lar yandan ve HEPSİ sağa bakıyor → sola giden birim yatay çevrilir.
+           Eşikli (histerezis) çünkü dikeye yakın açıda cos salınır ve sprite titrer. */
+        if (typeof UNIT_SPRITE_FLIP !== 'undefined' && UNIT_SPRITE_FLIP) {
+            const _cos = Math.cos(this.drawAngle);
+            const _esik = (typeof UNIT_FLIP_ESIK !== 'undefined') ? UNIT_FLIP_ESIK : 0.25;
+            if (_cos < -_esik) this._solaBakiyor = true;
+            else if (_cos > _esik) this._solaBakiyor = false;
+        }
+        if (spriteReady()) {
+            const _yon = this._solaBakiyor ? -1 : 1;
+            /* MANGA: yaya birimler N figür olarak çizilir (simülasyon yine TEK birim).
+               Figür sayısı can oranından gelir → manga eridikçe ekranda da erir.
+               Ofsetler birim kimliğinden türetilir: sabit dizilim, kare kare titremez. */
+            if (typeof battleMangaMi === 'function' && battleMangaMi(this.type)) {
+                const _n = Math.max(1, Math.ceil(UNIT_SQUAD_N * Math.max(0, Math.min(1,
+                    this.maxHp ? this.hp / this.maxHp : 1))));
+                const _fw = _sw * UNIT_SQUAD_OLCEK, _fh = _sh * UNIT_SQUAD_OLCEK;
+                const _yay = _sw * UNIT_SQUAD_YAY;
+                for (let _i = 0; _i < _n; _i++) {
+                    // Deterministik dizilim: kimlik + sıra → sabit ofset (RNG YOK).
+                    const _h = ((this.id * 2654435761 + _i * 40503) >>> 0);
+                    const _ox = (((_h & 255) / 255) - 0.5) * _yay * 2 * _yon;
+                    const _oy = ((((_h >>> 8) & 255) / 255) - 0.5) * _yay;
+                    ctx.save();
+                    ctx.translate(s.x + _ox, s.y + _oy);
+                    if (_yon < 0) ctx.scale(-1, 1);
+                    ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -_fw / 2, -_fh / 2, _fw, _fh);
+                    ctx.restore();
+                }
+            } else if (_yon < 0) {
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H, -_sw / 2, -_sh / 2, _sw, _sh);
+                ctx.restore();
+            } else {
+                ctx.drawImage(spriteSheet, this.sx, this.sy, SP_W, SP_H,
+                    s.x - _sw / 2, s.y - _sh / 2, _sw, _sh);
+            }
+        }
         if (_flash || _abFilter) ctx.filter = 'none';
         if (this.abandoned) {   // TERK göstergesi (tarafsız — tamir eden ele geçirir)
             ctx.fillStyle = '#ccc'; ctx.font = `${Math.max(10, 12 * zoom)}px Arial`; ctx.textAlign = 'center';

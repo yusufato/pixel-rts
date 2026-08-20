@@ -378,6 +378,34 @@ const UNIT_BOX_SCALE = 1.18;                             // kutu kenarı = dw ×
 const UNIT_SPRITE_SCALE = UNIT_BOX_SCALE / Math.SQRT2;   // dik sprite = dönen kutunun iç karesi
 const UNIT_FACE_OFFSET = Math.PI / 2;// ÖN = dikdörtgenin UZUN kenarı (geniş cephe öne); kısa-kenar-ön istersen 0 yap
 const UNIT_TURN_SMOOTH = 0.5;        // GLOBAL dönüş hız çarpanı (hepsini topluca ayarla; 0.5 = yarı hız) — kullanıcı isteği: dönüş çok hızlıydı, yarıya indirildi
+/* YÖN-ÇEVİRME (render-only). icons.png YANDAN çizilmiş piksel-art ve hücrelerin TAMAMI
+   SAĞA bakıyor; çizim kodunda hiçbir yerde yatay çevirme yoktu. Sonuç: sola yürüyen tank
+   namlusunu geriye doğru tutuyordu, sola koşan piyade geri geri gidiyordu. Yandan sanatla
+   yönü göstermenin doğru yolu budur (döndürmek profil sanatı bozar — sprite bu yüzden dik
+   çiziliyor). Simülasyona dokunmaz: yalnız draw() içinde, headless'ta hiç çalışmaz.
+   ⚠ HİSTEREZİS ZORUNLU: dikeye yakın açılarda cos(θ) sıfır civarında salınır ve sprite her
+   karede taraf değiştirir. Bu deponun "birlik titremesi" dersi tam olarak buydu — eşiksiz
+   her karede yön değiştiren bir şey yazma. Eşik aşılmadıkça önceki yön KORUNUR. */
+const UNIT_SPRITE_FLIP = true;
+const UNIT_FLIP_ESIK = 0.25;         // |cos| bunun altındaysa (dikeye yakın) yön DEĞİŞMEZ
+
+/* MANGA ÇİZİMİ (render-only). KULLANICI: "piyade 5 kişi ancak tek tek bir çatı altında ve
+   resim ile gösteriliyor." Doğru: bir piyade birimi tek sprite olarak çiziliyordu.
+   Askerler AYRI VARLIK yapılmaz — varlık sayısını ~5× artırır ve ileri-bakış aramasının
+   maliyetini aynı oranda katlar (arama bu projenin en büyük ölçülmüş kazancı: ufuk +980).
+   CoH da mangayı tek komuta nesnesi olarak tutar, yalnız N figür ÇİZER. Biz de öyle:
+   simülasyon tek birim, çizim N figür. Ölü sayısı can oranından düşer — manga eridikçe
+   ekranda da erir. Ofsetler birim kimliğinden türetilir → sabit dizilim, titremez. */
+const UNIT_SQUAD_RENDER = true;
+const UNIT_SQUAD_N = 5;              // tam canda kaç figür
+const UNIT_SQUAD_YAY = 0.62;         // figür ofsetlerinin sprite genişliğine oranı
+const UNIT_SQUAD_OLCEK = 0.58;       // her figür tek-sprite'a göre bu oranda küçülür
+// Manga çizilecek tipler: yaya (armorType 'infantry'). Araç/uçak tek gövdedir.
+function battleMangaMi(type) {
+    if (typeof UNIT_SQUAD_RENDER === 'undefined' || !UNIT_SQUAD_RENDER) return false;
+    const s = (typeof STATS !== 'undefined') ? STATS[type] : null;
+    return !!(s && s.armorType === 'infantry');
+}
 
 // ── RENDER ARA-DEĞERİ (60 FPS pürüzsüzlüğü; SİM'e DOKUNMAZ) ──
 // Sim sabit 20 Hz adım atar (BATTLE_TICK_MS=50), ekran 60 fps çizer. Ara-değer yoksa birim iki kare

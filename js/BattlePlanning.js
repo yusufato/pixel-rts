@@ -811,7 +811,60 @@ function planningContractDestination(controller, group, objective, friendlyCentr
         const _kp = (typeof battleKarsiPlanAktif === 'function') ? battleKarsiPlanAktif(controller) : null;
         if (_kp) {
             const _kapsam = (typeof BATTLE_KARSI_PLAN_KAPSAM !== 'undefined') ? BATTLE_KARSI_PLAN_KAPSAM : 'flank';
-            const _hedefRol = (group.role === TASK_GROUP_ROLE.FLANK) ||
+            /* ── 'topcu' KAPSAMI: KARŞI-BATARYA MEVZİSİ ────────────────────────────
+               ÖLÇÜLDÜ (tools/topcu-erisilebilirlik.js, 4 tohum / 142 örnek):
+                 mavi topçu GÖRÜNÜR              %66,9
+                 kırmızının topçusu MENZİLDE     %35,9
+                 GÖZCÜ kuralı sağlanıyor         %20,4
+                 fiilen HEDEFLENMİŞ              %0,0      <-- hiç
+               Ve kırmızının topçusu zamanın %44,3'ünde BOŞTA (READY, hedefsiz);
+               ateş ettiğinde ortalama 759px'e atıyor. Düşmanın topu 1516px'te,
+               kırmızı topçusunun ortalama menzili 875px.
+
+               Yani standoff bir GÖRME sorunu DEĞİL: top görünüyor, ama kendi
+               topçumuz erim dışında oturuyor ve boşta bekliyor. Doğru karşı-plan
+               "topa yürümek" değil (o ölçüldü ve kaybetti) — KENDİ TOPÇUNU MENZİLE
+               SOKMAK. Gerçek karşı-batarya doktrini de budur.
+
+               Ve bu rol tam da yürütmenin contract.destination'ı OKUDUĞU tek roldür
+               (BattleExecution: FIRE_SUPPORT ? contract.destination : route[0]) —
+               yani kanal zaten açık, kütleyi hatta sürmeye gerek yok. */
+            if (_kapsam === 'topcu' && group.role === TASK_GROUP_ROLE.FIRE_SUPPORT) {
+                const _kay = _kp.kanit.kaynak;
+                let _menzil = 0;
+                for (const _t of Object.keys(group.composition || {})) {
+                    const _s = STATS[Number(_t)];
+                    if (_s && _s.weapons && _s.weapons[0] && _s.weapons[0].indirect) {
+                        _menzil = Math.max(_menzil, _s.range || 0);
+                    }
+                }
+                if (_menzil > 0) {
+                    const _o = group.centroid || friendlyCentroid || origin;
+                    const _dx = _kay.x - _o.x, _dy = _kay.y - _o.y;
+                    const _d = Math.hypot(_dx, _dy) || 1;
+                    // Menzilin %85'i kadar İÇERİ gir (kenardan atış saçılmayla boşa gider).
+                    const _ileri = Math.max(0, _d - _menzil * 0.85);
+                    const _eskiT = aim;
+                    aim = planningClampPoint({ x: _o.x + (_dx / _d) * _ileri, y: _o.y + (_dy / _d) * _ileri });
+                    if (typeof BATTLE_KP_TELEMETRI !== 'undefined' && BATTLE_KP_TELEMETRI) {
+                        BATTLE_KP_TELEMETRI.mevzi = (BATTLE_KP_TELEMETRI.mevzi | 0) + 1;
+                        if (!BATTLE_KP_TELEMETRI.ornek) BATTLE_KP_TELEMETRI.ornek = [];
+                        if (BATTLE_KP_TELEMETRI.ornek.length < 6) {
+                            BATTLE_KP_TELEMETRI.ornek.push({ rol: 'FIRE_SUPPORT', menzil: _menzil,
+                                mesafe: Math.round(_d), ileri: Math.round(_ileri),
+                                eski: { x: Math.round(_eskiT.x), y: Math.round(_eskiT.y) },
+                                yeni: { x: Math.round(aim.x), y: Math.round(aim.y) },
+                                tik: (typeof SIM !== 'undefined' && SIM.tick) || 0 });
+                        }
+                    }
+                    if (typeof battleProfileMarkReaction === 'function') {
+                        battleProfileMarkReaction(controller, 'areaAlpha', 'karsiPlanTopcuMevzi',
+                            (typeof SIM !== 'undefined' && SIM.tick) || 0);
+                    }
+                }
+            }
+
+            const _hedefRol = (group.role === TASK_GROUP_ROLE.FLANK && _kapsam !== 'topcu') ||
                 (_kapsam === 'mainflank' && group.role === TASK_GROUP_ROLE.MAIN);
             if (_hedefRol) {
                 const _eski = aim;
