@@ -27,6 +27,10 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const MAC = Math.max(1, Number(arg('--mac', 6)) || 6);
 const TOHUM0 = Number(arg('--tohum0', 147000)) || 147000;
 const STANDOFF = !process.argv.includes('--duz');   // varsayilan: rakipte dolayli ates zorlanmis
+/* --takip : BATTLE_IKMAL_TAKIP acik kosar (ikmal her fazda ihtiyaci olanin yanina gider).
+   ⚠ Bedeli olabilir: ikmal araci kirilgan ve ileri gitmek onu oldurebilir. O yuzden
+   ikmalin OLUM ANI da sayilir — kazanci kaybi ile birlikte okunmali. */
+const TAKIP = process.argv.includes('--takip');
 
 const { ctx } = tezgahKur();
 const taban = JSON.parse(fs.readFileSync('qa-runtime/gercekci-taban.json', 'utf8'));
@@ -41,6 +45,8 @@ function kos(seed) {
 '  if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;\n' +
 '  if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;\n' +
 '  BATTLE_KARSI_PLAN = false;\n' +
+'  BATTLE_IKMAL_TAKIP = ' + (TAKIP ? 'true' : 'false') + ';\n' +
+'  BATTLE_KP_TELEMETRI = { ikmalEmri: 0 };\n' +
 '  BATTLE_RECIPE_BLUE = ' + JSON.stringify(TARIF) + ';\n' +
 '  BATTLE_RECIPE_RED = null;\n' +
 '  openBattlefieldSession({ mode:"quick", mapId:-2, seed:' + seed + ', attackerSide:true,\n' +
@@ -53,9 +59,12 @@ function kos(seed) {
 '  BATTLE_LOOKAHEAD_RED = false; BATTLE_LOOKAHEAD_BLUE = false;\n' +
 '\n' +
 '  let st = 0, birimOrn = 0, atesli = 0;\n' +
+'  let ikmalOlumTik = null, ikmalBas = 0;\n' +
+'  for (const u of SIM.units) if (u.isRed && u.type === T.SUPPLY) ikmalBas++;\n' +
 '  let A = 0, B = 0, C = 0, D = 0;\n' +
 '  const durum = {};\n' +
 '  let cYakin = 0, cN = 0, cAday = 0;\n' +
+'  let cephSay = 0, cephIkmalYok = 0, cephMes = 0, cephMesN = 0, cephYakin = 0;\n' +
 '  const cTip = {};\n' +
 '\n' +
 '  while (phase === PHASE.BATTLE && SIM.tick < 7200) {\n' +
@@ -63,6 +72,11 @@ function kos(seed) {
 '    st += BATTLE_TICK_MS; stepSim(st, BATTLE_TICK_SEC, battleControllersDrive, false);\n' +
 '    if (typeof updateSupport === "function") updateSupport(BATTLE_TICK_SEC, st);\n' +
 '    if (SIM.tick % 40 !== 0) continue;\n' +
+'    if (ikmalOlumTik == null && ikmalBas) {\n' +
+'      let sag = 0;\n' +
+'      for (const u of SIM.units) if (u.isRed && u.type === T.SUPPLY && !u.dead && !u.abandoned) sag++;\n' +
+'      if (!sag) ikmalOlumTik = SIM.tick;\n' +
+'    }\n' +
 '\n' +
 '    for (const r of SIM.units) {\n' +
 '      if (r.dead || r.abandoned || r.loaded || !r.isRed || !r.isIndirect) continue;\n' +
@@ -70,7 +84,26 @@ function kos(seed) {
 '      if (r.attackTarget) { atesli++; continue; }\n' +
 '      const ds = String(r.combatState || "?");\n' +
 '      durum[ds] = (durum[ds] || 0) + 1;\n' +
-'      if (ds !== "READY") { D++; continue; }\n' +
+'      if (ds !== "READY") {\n' +
+'        D++;\n' +
+'        /* CEPHANESIZ ANLARDA IKMAL NEREDE? Savunan kurulumda ikmal olumu topcuyu\n' +
+'           kurutmuyordu (cephane %51, kuru 0.00) ama SALDIRAN kurulumda topcu zamanin\n' +
+'           %25inde cephanesiz. Hipotez: ileri giden topcu ikmalinden kopuyor. */\n' +
+'        if (ds.indexOf("ephanesiz") >= 0) {\n' +
+'          let yakinIkmal = 1e9, ikmalVar = 0;\n' +
+'          for (const s2 of SIM.units) {\n' +
+'            if (s2.dead || s2.abandoned || s2.loaded || !s2.isRed) continue;\n' +
+'            if (s2.type !== T.SUPPLY && s2.type !== T.ENGINEER) continue;\n' +
+'            ikmalVar++;\n' +
+'            const d2 = Math.hypot(s2.x - r.x, s2.y - r.y);\n' +
+'            if (d2 < yakinIkmal) yakinIkmal = d2;\n' +
+'          }\n' +
+'          cephSay++;\n' +
+'          if (!ikmalVar) cephIkmalYok++;\n' +
+'          else { cephMes += yakinIkmal; cephMesN++; if (yakinIkmal <= 400) cephYakin++; }\n' +
+'        }\n' +
+'        continue;\n' +
+'      }\n' +
 '\n' +
 '      /* BOSTA + READY: menzilde dusman var mi, varsa gozcu saglaniyor mu */\n' +
 '      let menzilde = 0, gozculu = 0, yakin = 1e9, ornekHedef = null;\n' +
@@ -99,30 +132,49 @@ function kos(seed) {
 '    }\n' +
 '  }\n' +
 '  let rN = 0, rMenzil = 0;\n' +
-'  for (const r of SIM.units) if (r.isRed && r.isIndirect) { rN++; rMenzil += (r.range || 0); }\n' +
+'  /* ⚠ SAG KALAN topcu — KOMPOZISYON DEGIL. Olu birimler SIM.units icinden siliniyor\n' +
+'     (js/main.js:1807 splice) ama filtresiz sayarsan yine yanilirsin: iki kolun mac\n' +
+'     sonundaki sag-kalan sayisi farkli olunca "farkli ordu kurulmus" saniyorsun.\n' +
+'     Bu tam olarak yasandi: ayni tohumda kapali 0 / acik 3 gorundu. */\n' +
+'  for (const r of SIM.units) {\n' +
+'    if (!r.isRed || !r.isIndirect || r.dead || r.abandoned) continue;\n' +
+'    rN++; rMenzil += (r.range || 0);\n' +
+'  }\n' +
 '  return JSON.stringify({ birimOrn: birimOrn, atesli: atesli, A: A, B: B, C: C, D: D,\n' +
 '    durum: durum, cYakin: cN ? cYakin / cN : null, cAday: C ? cAday / C : 0, cTip: cTip,\n' +
-'    topSayi: rN, topMenzil: rN ? rMenzil / rN : 0, sure: Math.round(SIM.tick * 0.05) });\n' +
+'    topSayi: rN, topMenzil: rN ? rMenzil / rN : 0, sure: Math.round(SIM.tick * 0.05),\n' +
+'    cephSay: cephSay, cephIkmalYok: cephIkmalYok, cephYakin: cephYakin,\n' +
+'    cephMes: cephMesN ? cephMes / cephMesN : null,\n' +
+'    ikmalBas: ikmalBas,\n' +
+'    ikmalOlumSn: ikmalOlumTik == null ? null : Math.round(ikmalOlumTik * 0.05),\n' +
+'    ikmalEmri: (BATTLE_KP_TELEMETRI && BATTLE_KP_TELEMETRI.ikmalEmri) | 0 });\n' +
 '})()';
     return JSON.parse(vm.runInContext(kod, ctx, { filename: 'tb-' + seed + '.js' }));
 }
 
 console.log('');
 console.log('TOPCU NEDEN BOSTA   ' + MAC + ' tohum   rakip=' + (STANDOFF ? 'STANDOFF (dolayli zorlanmis)' : 'duz taban'));
+console.log('  IKMAL TAKIBI: ' + (TAKIP ? 'ACIK (BATTLE_IKMAL_TAKIP=true)' : 'kapali'));
 console.log('');
 const T = { birimOrn: 0, atesli: 0, A: 0, B: 0, C: 0, D: 0 };
 const durum = {}, cTip = {};
 let cY = 0, cYN = 0, cAday = 0, cAdayN = 0;
+const cS = { say: 0, ikmalYok: 0, yakin: 0, mes: 0, mesN: 0 };
+const ikS = { emir: 0, olu: 0, olumSn: 0 };
 for (let i = 0; i < MAC; i++) {
     const r = kos(TOHUM0 + i);
     for (const f of ['birimOrn', 'atesli', 'A', 'B', 'C', 'D']) T[f] += r[f];
     for (const k of Object.keys(r.durum || {})) durum[k] = (durum[k] || 0) + r.durum[k];
     for (const k of Object.keys(r.cTip || {})) cTip[k] = (cTip[k] || 0) + r.cTip[k];
     if (r.cYakin != null) { cY += r.cYakin; cYN++; }
+    ikS.emir += r.ikmalEmri || 0;
+    if (r.ikmalOlumSn != null) { ikS.olu++; ikS.olumSn += r.ikmalOlumSn; }
+    cS.say += r.cephSay || 0; cS.ikmalYok += r.cephIkmalYok || 0; cS.yakin += r.cephYakin || 0;
+    if (r.cephMes != null) { cS.mes += r.cephMes; cS.mesN++; }
     if (r.C) { cAday += r.cAday; cAdayN++; }
     const bosta = r.A + r.B + r.C + r.D;
     const p = (x) => bosta ? (100 * x / bosta).toFixed(0).padStart(3) + '%' : '  —';
-    console.log('  tohum ' + (TOHUM0 + i) + '  topcu ' + r.topSayi + ' (menzil ' + Math.round(r.topMenzil) + ')' +
+    console.log('  tohum ' + (TOHUM0 + i) + '  sagTopcu ' + r.topSayi + ' (menzil ' + Math.round(r.topMenzil) + ')' +
         '   bosta ' + (r.birimOrn ? (100 * bosta / r.birimOrn).toFixed(0) : 0) + '%' +
         '   ->  A(menzilde yok) ' + p(r.A) + '   B(gozcu yok) ' + p(r.B) +
         '   C(HEDEF SECIMI) ' + p(r.C) + '   D(baska durum) ' + p(r.D) +
@@ -141,6 +193,18 @@ console.log('    D · baska durum kodu              ' + P(T.D).padStart(7) + '  
     Object.keys(durum).filter((k) => k !== 'READY').sort((a, b) => durum[b] - durum[a]).slice(0, 3)
         .map((k) => k + ' ' + durum[k]).join(' · '));
 console.log('');
+console.log('  IKMAL: faz-bagimsiz ileri emir ' + ikS.emir +
+    '   ikmal araci olen mac ' + ikS.olu + '/' + MAC +
+    (ikS.olu ? ('   ort. olum ' + Math.round(ikS.olumSn / ikS.olu) + 'sn') : ''));
+console.log('');
+if (cS.say) {
+    console.log('  CEPHANESIZ ANLARDA IKMAL NEREDE  (' + cS.say + ' ornek)');
+    console.log('    hic ikmal/istihkam KALMAMIS   : ' + (100 * cS.ikmalYok / cS.say).toFixed(1) + '%');
+    console.log('    ikmal VAR ve 400px icinde     : ' + (100 * cS.yakin / cS.say).toFixed(1) +
+        '%   <- hale menzilinde ama yine kuru');
+    console.log('    en yakin ikmale ort. mesafe   : ' + (cS.mesN ? Math.round(cS.mes / cS.mesN) + 'px' : '—'));
+    console.log('');
+}
 if (T.C) {
     console.log('  C KOVASI AYRINTI (topcu ates edebilecekken durdugu anlar)');
     console.log('    ornek basina uygun hedef sayisi : ' + (cAdayN ? (cAday / cAdayN).toFixed(1) : '—'));
