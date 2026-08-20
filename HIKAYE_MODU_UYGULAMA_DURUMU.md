@@ -1385,3 +1385,12 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Gerçek Electron `qa-runtime/hxd71-physical-segments-gate` kabulünde `955` segment, `84` paylaşım, `12` açık coğrafya borcu; yol su adımı ve geçersiz komşuluk `0` oldu. P95 uzak/orta/yakın/etkileşim `15,8 / 10,2 / 11,4 / 15,6 ms`, hit-test `0 px`, `MAPTEST_OK`.
 - İlk kapsamlı ticaret probu kapasite okumasındaki yinelenen `ensure` zinciri nedeniyle `15+ dakika` zaman aşımına uğradı. Yerleşik segment sidecar'ı için doğrudan sıcak okuma eklendikten sonra aynı `tradeProbe` stok/escrow/sevkiyat korunumuyla `30,4 sn`, `infrastructureProbe` `21,3 sn` içinde geçti. Fiziksel zincirsiz koridorlar performans uğruna yeniden açılmadı.
 - Sıradaki iş **HXD-7.2 fiziksel deniz segmentleri, liman uçları ve feribot/boğaz sözleşmesi**dir. Ray, bakım iş emri ve segment inşa ekonomisi HXD-7.3–7.4'te; hareketli araç ve teslimat HXD-9'da açılır.
+
+## HXD-7.2 — fiziksel deniz segmentleri ve liman uçları (`implemented`)
+
+- `story-hex-infrastructure-segments-2`, açık tanımlı `20` SEA koridorunun tamamını fiziksel liman kara ucu → liman su ucu → komşu deniz altıgenleri → karşı liman zincirine bağlar. Gerçek 152 şehir probunda `202` SEA segmenti, `29` paylaşılan `PORT_ACCESS` ve `21` kayıtlı `STRAIT` darboğazı üretildi; başarısız deniz koridoru `0`dır.
+- Deniz ve liman segmentleri kara segmentleriyle aynı kapasite, bakım, hasar, kapanma, onarım ve kompakt kayıt sözleşmesini kullanır. ENERGY/DATA katmanı bir SEA koridoruna bağlıysa yeni geometri uydurmaz; aynı fiziksel deniz zincirini miras alır. HXD-7.1 şema-1 kayıtları, uyumlu kara hasar durumlarını kaybetmeden şema-2'ye göçer.
+- Atina–İzmir eski kıyı rasterinde saf su bileşeni kopuktu. Eşik gevşetilip kara üzerinden gemi yürütülmedi: yalnız en çok `7000 bps` kara örnekli karma kıyı hücresi yüksek maliyetli ve açık `STRAIT` segmenti olabilir; daha katı kara hücresi kesin yasaktır.
+- Harita artık iki liman arasında dekoratif Bezier eğrisi çizmez. Kalıcı ağ RAM katmanı fiziksel `corridorCellPaths` zincirini rasterize eder; motorun kapasite gördüğü rota ile oyuncunun gördüğü rota aynıdır.
+- Tek işçili gerçek dünya `hexSettlementsProbe` zorunlu `allSeaCorridorsPhysical` kapısıyla geçti. Ağır Electron/FPS kabulü, eşzamanlı sekiz savaş-AI işçisi CPU'yu doyurduğu için ertelendi.
+- Sıradaki iş **HXD-7.3 ray segmentleri ve modal altyapı kimliği**dir. Bakım/inşa ekonomisi HXD-7.4, hareketli taşıt ve gerçek teslimat HXD-9 kapsamındadır.

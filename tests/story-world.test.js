@@ -5249,6 +5249,10 @@ function run() {
     assert.equal(hexSettlementsProbe.main.identityPreserved, true, 'Şehir çekirdeği kendi idarî bölge kimliğini korumalı.');
     assert.equal(hexSettlementsProbe.main.renderAnchorsExact, true, 'Render, kamera ve hit-test şehirleri çözülmüş altıgen çekirdeğinden okumalı.');
     assert.equal(hexSettlementsProbe.main.allRequiredPortsValid, true, 'Mevcut deniz koridorlarının bütün uçları gerçek liman terminali taşımalı.');
+    assert.equal(hexSettlementsProbe.main.allSeaCorridorsPhysical, true,
+        'Bütün deniz koridorları iki liman ucu ve komşu su-altıgen segment zinciri taşımalı.');
+    assert.equal(hexSettlementsProbe.main.physicalInfrastructure.sourceSeaCorridorCount, 20,
+        'Açık tanımlı yirmi deniz koridorunun tamamı fiziksel sicile girmeli.');
     assert.equal(hexSettlementsProbe.main.diagnostics.portCount, 59, 'Kıyı eşiği dışındaki iç şehirler kendiliğinden liman kazanmamalı.');
     assert.equal(hexSettlementsProbe.main.diagnostics.uniquePortTerminalCount, 58, 'Paylaşılan kıyı tesisi tek fiziksel terminal sayılmalı.');
     assert.equal(hexSettlementsProbe.main.diagnostics.sharedPortTerminals.length, 1, 'Paylaşılan fiziksel terminal borcu açıkça raporlanmalı.');

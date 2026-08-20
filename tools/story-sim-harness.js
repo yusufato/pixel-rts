@@ -1515,6 +1515,7 @@ function createRuntime(seed) {
             },
             hexRegionsReconcile: () => storyHexRegionsReconcile(storyHexRegionsEnsure()),
             hexSettlementsEnsure: () => storyHexSettlementsEnsure(),
+            hexInfrastructureDiagnostics: () => storyHexInfrastructureDiagnostics(),
             hexSettlementsCreate: () => storyHexSettlementsCreate({
                 world: storyHexWorldEnsure(),
                 geography: storyHexGeographyEnsure(),
@@ -8589,6 +8590,7 @@ function probeHexSettlements(seed = 2032) {
         const model = runtime.api.hexSettlementsEnsure();
         const buildMs = Number(process.hrtime.bigint() - started) / 1e6;
         const validation = runtime.api.validateHexSettlements(model);
+        const physicalInfrastructure = runtime.api.hexInfrastructureDiagnostics();
         const repeat = runtime.api.hexSettlementsCreate();
         const afterHash = hashSnapshot(stateSnapshot(story));
         const relocated = model.records.filter(record => record.relocated)
@@ -8648,6 +8650,11 @@ function probeHexSettlements(seed = 2032) {
             allRequiredPortsValid: model.diagnostics.missingRequiredPortCount === 0
                 && model.records.filter(record => record.requiredPort)
                     .every(record => !!record.port),
+            physicalInfrastructure,
+            allSeaCorridorsPhysical: physicalInfrastructure.sourceSeaCorridorCount > 0
+                && physicalInfrastructure.failedSeaCorridorCount === 0
+                && physicalInfrastructure.seaSegmentCount > physicalInfrastructure.sourceSeaCorridorCount
+                && physicalInfrastructure.portAccessSegmentCount > 0,
             sidecarNotPersisted: !Object.prototype.hasOwnProperty.call(saved, 'hexSettlements'),
             diagnostics: Object.assign({}, model.diagnostics, {
                 sourceHash: model.sourceHash,

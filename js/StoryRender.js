@@ -1270,8 +1270,11 @@ function storyCoastalNetworkEnsure() {
     if (typeof storyHexSettlementsEnsure === 'function') {
         const settlements = storyHexSettlementsEnsure();
         const hexWorld = storyHexWorldEnsure();
+        const physical = typeof storyHexInfrastructureSegmentsEnsure === 'function'
+            ? storyHexInfrastructureSegmentsEnsure() : null;
         const cachedHex = STORY._coastalNetwork;
-        if (cachedHex && cachedHex.settlementHash === settlements.settlementHash) return cachedHex;
+        if (cachedHex && cachedHex.settlementHash === settlements.settlementHash
+            && cachedHex.physicalHash === (physical && physical.topologyHash || null)) return cachedHex;
         const ports = settlements.records.filter(record => record.port).map(record => ({
             node: STORY.nodes[record.cityId],
             terminalId: record.port.terminalId,
@@ -1288,10 +1291,22 @@ function storyCoastalNetworkEnsure() {
             if (!a || !b) continue;
             const key = a.node.id < b.node.id
                 ? `${a.node.id}:${b.node.id}` : `${b.node.id}:${a.node.id}`;
-            if (!seen.has(key)) { seen.add(key); links.push({ a, b, key }); }
+            if (!seen.has(key)) {
+                seen.add(key);
+                const corridorId = `corridor:sea:${key}`;
+                const cellPath = physical && physical.corridorCellPaths
+                    && physical.corridorCellPaths[corridorId] || [];
+                const route = cellPath.map(cellIndex => ({
+                    cellIndex: Number(cellIndex),
+                    lx: Number(hexWorld.centerX[cellIndex]) / Number(hexWorld.width),
+                    ly: Number(hexWorld.centerY[cellIndex]) / Number(hexWorld.height)
+                }));
+                links.push({ a, b, key, corridorId, route });
+            }
         }
         STORY._coastalNetwork = {
             settlementHash: settlements.settlementHash,
+            physicalHash: physical && physical.topologyHash || null,
             nodeCount: STORY.nodes.length,
             ports,
             links
@@ -1378,11 +1393,26 @@ function storyDrawMaritimeOverlay(ctx, farMap, includePorts) {
         const a = storyW2S(link.a.lx * STORY_WORLD_W, link.a.ly * STORY_WORLD_H);
         const b = storyW2S(link.b.lx * STORY_WORLD_W, link.b.ly * STORY_WORLD_H);
         if (a.u < -.08 || a.u > 1.08 || b.u < -.08 || b.u > 1.08) continue;
-        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-        const dx = b.x - a.x, dy = b.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
-        const bend = Math.min(22, len * .10) * (storyHash(link.a.node.id + 91, link.b.node.id + 37) > .5 ? 1 : -1);
-        ctx.beginPath(); ctx.moveTo(a.x, a.y);
-        ctx.quadraticCurveTo(mx - dy / len * bend, my + dx / len * bend, b.x, b.y);
+        const route = (link.route || []).map(point =>
+            storyW2S(point.lx * STORY_WORLD_W, point.ly * STORY_WORLD_H));
+        if (route.length >= 2) {
+            if (typeof storyMapV2TraceRoundedPath === 'function') {
+                storyMapV2TraceRoundedPath(ctx, route);
+            } else {
+                ctx.beginPath(); ctx.moveTo(route[0].x, route[0].y);
+                for (let index = 1; index < route.length; index++) {
+                    ctx.lineTo(route[index].x, route[index].y);
+                }
+            }
+        } else {
+            const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const len = Math.max(1, Math.hypot(dx, dy));
+            const bend = Math.min(22, len * .10)
+                * (storyHash(link.a.node.id + 91, link.b.node.id + 37) > .5 ? 1 : -1);
+            ctx.beginPath(); ctx.moveTo(a.x, a.y);
+            ctx.quadraticCurveTo(mx - dy / len * bend, my + dx / len * bend, b.x, b.y);
+        }
         ctx.stroke();
     }
     ctx.setLineDash([]);

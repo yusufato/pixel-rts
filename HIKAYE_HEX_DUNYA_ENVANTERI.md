@@ -224,6 +224,10 @@ RAM'e alma dünya gerçeğini dondurmaz. Sahiplik, geometri, çağ veya ilgili a
 
 `story-hex-roads-1`, çizilen `166` kara bağlantısını `987` ortak-kenarlı hücre adımına bağlar. Su/geçilemez hücre ve komşuluk atlaması sıfırdır. Kara zinciri bulunamayan yedi eski GEO kenarı çizimden çıkarılmıştır; bunlar ada/boğaz geçişidir ve deniz, tünel veya köprü koridoru olarak ayrıca sınıflandırılmalıdır. Fiziksel yol segmenti kapasitesi, bakım, hasar, onarım ve taşıt ilerlemesi henüz bu ara kabulün kapsamında değildir.
 
+### HXD-7.2 fiziksel deniz envanteri
+
+`20/20` makro deniz koridoru gerçek liman terminallerine ve sıralı su-altıgen zincirine bağlandı. Sicil `202` deniz segmenti taşır: `29` paylaşılan liman erişimi ve `21` karma kıyı/boğaz darboğazı; fiziksel deniz yolu bulamayan koridor yoktur. Her zincir iki `PORT_ACCESS` ucu taşır ve SEA tabanlı enerji/veri katmanı aynı segment kimliklerini kullanır. Dekoratif liman eğrileri kaldırılmış, RAM ağ katmanı motorun kullandığı `corridorCellPaths` rotasını çizer hale getirilmiştir. HXD-7.1 şema-1 hasar kayıtları şema-2'ye göçebilir. Ray türleri, bakım emri ve yeni segment inşası HXD-7.3–7.4 borcudur; hareket eden gemi/feribot HXD-9'dan önce uydurulmayacaktır.
+
 ### HXD-6.6 fiziksel inşaat envanteri
 
 `story-hex-construction-command-1`, yeni konut/sanayi/lojistik yapımını gerçek hedef hücre, arazi kanıtı, kurum kararı, şirket escrow'u, bölgesel malzeme, ayrılmış iş gücü, süre ve çevre bedeline bağlar. Yetki veya kaynak eksikse kayıt `AWAITING_REQUIREMENTS` kalır; LLM ya da şablon onay uyduramaz. Başlayan/tamamlanan komut arazi/site siciline girer, tamamlanma makbuzu save/load içinde korunur. Sonraki envanter borcu bu kapasitenin konut, üretim ve lojistik tüketicilerine devreye alınması ile oyuncu/AI başvuru yüzeyidir.
