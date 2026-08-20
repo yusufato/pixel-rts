@@ -181,7 +181,26 @@ denetler).
 
 | kapı | n | fark | std | t | taban | hüküm |
 |---|---|---|---|---|---|---|
-| *(buraya yaz)* | | | | | | |
+| M2-1 `BATTLE_MENZILE_GIR` false→true | 128 | **+1222** | 3229 | 4.28 | 799 | **GEÇTİ (+)** |
+| M2-2 `LA_PERIYOT_TIK` 100→50 | 128 | **−687** | 2474 | −3.14 | 612 | **GEÇTİ (−)** → 50 kazandı |
+| M2-3 `LA_DERIN` 2→5 @ ufuk 300 | 128 | **+954** | 2667 | 4.05 | 660 | **GEÇTİ (+)** → derin 5 |
+| M2-4 `BATTLE_TOPCU_DURAGAN` false→true | 128 | +349 | 2105 | 1.87 | 521 | ölçülemedi |
+| M2-5 `LA_UFUK` 300→400 @ derin 5 | 128 | +440 | 2131 | 2.34 | 527 | ölçülemedi |
+| M2-6 `LA_AG_KAPI` true→false | 128 | **+976** | 2229 | 4.96 | 552 | **GEÇTİ (+)** → kapalı kazandı |
+| M2-7 `LA_HALKA` 3→5 | — | — | — | — | — | sürüyor |
+| M2-8 `LA_YARICAP` 600→900 | — | — | — | — | — | sırada |
+
+Tohum havuzu: 1. parti `220000-223127`, 2. parti `224000-227127` — CYBORG'unkilerle ayrık.
+
+⚠ **M2-5 için uyarı — `t` tuzağı.** Araç `t 2.34` için "ANLAMLI" bassa da hüküm **ölçülemedi**:
+|440| < taban 527. Bu, görev dosyasının 1. bölümündeki kuralın tam vakası. Std 2131 normal
+aralıkta olduğu için "etki yok" da denemez — yalnızca bu n ile görülemedi.
+
+**M2-4 ve M2-5 tekrar hak ediyor** (ikisi de taban altı, std normal): ayrık tohumda ikinci
+ölçüm havuzlanırsa taban ~520'den ~370'e iner ve ikisi de karara bağlanabilir.
+
+**Havuzlama:** bu makinede `--havuz` "havuzlanacak tekrar yok" diyor — CYBORG'un log'ları bu
+depoda değil. Havuzu CYBORG kendi tarafında, bu log'u çekerek kuracak.
 
 Hüküm sütununu **kendin yorumlama**: `|fark| ≥ taban` ise "geçti", değilse std'ye bakıp
 "etki yok" ya da "ölçülemedi" yaz. İkisini karıştırma.
