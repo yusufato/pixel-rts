@@ -423,7 +423,8 @@ app.whenReady().then(() => {
             if (!ramLayers || ramLayers.networkBuilds !== 1 || ramLayers.borderBuilds !== 1 || ramLayers.coastBuilds !== 1) {
                 problems.push('RAM harita katmanı beklenmedik yeniden üretim: ' + JSON.stringify(ramLayers));
             }
-            if (!ramLayers || ramLayers.districtRasterScale !== 8 || ramLayers.portRasterScale !== 2) {
+            if (!ramLayers || ramLayers.districtRasterScale !== 8
+                || ramLayers.portRasterScale !== 4) {
                 problems.push('şehir/liman raster çözünürlüğü sözleşmesi bozuk: ' + JSON.stringify(ramLayers));
             }
             if (!ramLayers || !ramLayers.hexRoads || ramLayers.hexRoads.routeCount < 1

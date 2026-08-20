@@ -8,8 +8,9 @@
     'use strict';
 
     const CONFIG = Object.freeze({
-        version: 'story-map-v2-flat-world-5',
-        maxZoom: 5,
+        version: 'story-map-v2-flat-world-6-readable-camera',
+        maxZoom: 7.5,
+        presentationScale: 1.5,
         overviewRatio: 1.55,
         minorVisibleRatio: 1,
         // Keep authored pixel texture crisp through regional zoom. Smoothing is
@@ -31,9 +32,9 @@
         // Ports follow the same physical-object contract as cities. Their
         // world footprint never switches at an arbitrary LOD threshold.
         portWorldSize: Object.freeze({ 2: 8, 3: 10 }),
-        // Ports leave the 0.5x road layer and use a dedicated 2x layer: 4x the
+        // Ports leave the 0.5x road layer and use a dedicated 4x layer: 8x the
         // former linear density without inflating the complete road network.
-        portRasterScale: 2,
+        portRasterScale: 4,
         // One high-resolution world surface replaces the low-resolution
         // screen-space ground pass that used to rebuild on every camera frame.
         hexSurfaceScale: 2
@@ -58,7 +59,8 @@
         const wh = Math.max(1, Number(worldHeight) || 1);
         // Keep the current fill-first framing. Projection itself is now flat;
         // no hidden perspective width multiplier participates in this value.
-        return Math.max(w / (ww * 1.12), h / (wh * 1.06));
+        return Math.max(w / (ww * 1.12), h / (wh * 1.06))
+            * CONFIG.presentationScale;
     }
 
     function zoomRatio(cam, minimum) {

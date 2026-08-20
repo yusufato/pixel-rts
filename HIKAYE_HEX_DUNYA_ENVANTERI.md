@@ -216,6 +216,8 @@ Beyrut ve Tel Aviv'in idarî bölgeleri fiziksel ilçe kapasitesi bakımından y
 
 Gerçek Electron `qa-runtime/map-district-port-resolution-final` kabulünde değişmeyen harita resmi RAM dünya karolarına ayrılmıştır: doğal altıgen yüzey `113,28 MB`, 4× ana şehir + 8× seyrek ilçe `1.128.009.728 bayt`, 0,5× yol/deniz yolu `14,16 MB`, ayrı 2× seyrek liman `17.563.648 bayt`, siyasi sınır `7,08 MB`, kıyı `14,16 MB`; toplam `1.294.253.376 bayt / 1234,3 MiB`. İlçe doğrusal çözünürlüğü önceki sürüme göre 2×, liman doğrusal çözünürlüğü 4× arttı; fiziksel dünya boyutları değişmedi. Kamera/zoom boyunca yeniden üretim yoktur. Uzak/orta/yakın/etkileşim p95 yaklaşık `10,3 / 11,1 / 8,4 / 8,4 ms` ile 60 FPS bütçesinin içindedir. Yüksek kalite düşük RAM cihazları için adaptif kademe borcu doğurur.
 
+Okunabilirlik denemesinde koordinat dünyasını ve hücre yarıçapını gerçek 1,5× büyütmek bütün dünya raster alanını 2,25× artırdı ve 60 FPS'i bozdu; bu yol reddedildi. Kabul edilen sunum sözleşmesi 3000×2360 / 10.584 hücreyi korur, minimum kamera yakınlığını 1,5× ve azami zoom'u 5'ten 7,5'e çıkarır. Altıgenler ve içindeki varlıklar ekranda birlikte büyür; veri kimlikleri ve lojistik mesafeleri değişmez. Liman katmanı önceki 2×'ten 4× rastere yükseltilmiştir. Nihai FPS tekrar ölçümü, arka plandaki sekiz yoğun savaş-AI Node işçisi durduğunda yapılacaktır.
+
 RAM'e alma dünya gerçeğini dondurmaz. Sahiplik, geometri, çağ veya ilgili altyapı kaynağı değiştiğinde yalnız etkilenen katman bırakılıp yeniden üretilir. Hareketli taşıt/karakter/ordu ile hover, seçim ve emir işaretleri canlı katmanda kalır; bunların görsel atlası RAM'dedir fakat konumu her kare güncellenir.
 
 ### HXD-7.1 altıgen kara yolu envanteri

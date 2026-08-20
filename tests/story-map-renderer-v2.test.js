@@ -43,8 +43,8 @@ assert(portSizes.every((size, index) => Math.abs(size / [.35, 2.2, 4.5][index] -
     `port must keep one fixed world-space size at every zoom: ${portSizes}`);
 assert.strictEqual(context.STORY_MAP_RENDERER_V2.districtRasterScale, 8,
     'district RAM art must use twice the former 4x raster density');
-assert.strictEqual(context.STORY_MAP_RENDERER_V2.portRasterScale, 2,
-    'port RAM art must use four times the 0.5x network raster density');
+assert.strictEqual(context.STORY_MAP_RENDERER_V2.portRasterScale, 4,
+    'port RAM art must use twice the previous 2x dedicated raster density');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: .35 }, .35), 'OVERVIEW');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: 2.2 }, .35), 'DISTRICT');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: 4.5 }, .35), 'LOCAL');
@@ -72,6 +72,11 @@ const framed = { x: 999, y: 999, zoom: .01 };
 const computedMin = context.storyMapV2ClampCamera(framed, 1200, 700, 3200, 1800);
 assert(framed.zoom >= computedMin, 'camera must respect minimum zoom');
 assert(framed.zoom <= context.STORY_MAP_RENDERER_V2.maxZoom, 'camera must respect maximum zoom');
+const fittedMin = Math.max(1200 / (3200 * 1.12), 700 / (1800 * 1.06));
+assert(Math.abs(computedMin / fittedMin - 1.5) < 1e-9,
+    'campaign presentation must enlarge hexes and contents together by 1.5x');
+assert.strictEqual(context.STORY_MAP_RENDERER_V2.maxZoom, 7.5,
+    'maximum inspection zoom must grow with the 1.5x presentation scale');
 
 const ruralSizes = [1, 3, 10].map(ratio => context.storyMapV2RuralMetrics(ratio).sizePx);
 assert(ruralSizes[0] > ruralSizes[2] && ruralSizes[1] <= ruralSizes[2],

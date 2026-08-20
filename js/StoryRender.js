@@ -834,7 +834,8 @@ function storyDrawSettlementSprite(ctx, node, px, py, farMap, scale, options) {
             }
         }
     }
-    if (typeof storyMapV2SettlementDistrictMetrics === 'function') {
+    if (!(options && options.disableDistricts)
+        && typeof storyMapV2SettlementDistrictMetrics === 'function') {
         const district = storyMapV2SettlementDistrictMetrics(node, Object.assign({
             cam: storyCam,
             minZoom: STORY._minZoom || storyMinZoom(STORY._cw || 800, STORY._ch || 600),
@@ -1004,7 +1005,8 @@ function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesMod
         worldPositions[node.id] = { x: Number(anchor.x), y: Number(anchor.y) };
         let minX = Number(anchor.x), maxX = minX, minY = Number(anchor.y), maxY = minY;
         const footprint = urbanModel && urbanModel.records && urbanModel.records[node.id];
-        if (hexWorld && footprint && Array.isArray(footprint.districts)) {
+        if (!mode.disableDistricts && hexWorld && footprint
+            && Array.isArray(footprint.districts)) {
             for (const district of footprint.districts) {
                 if (!district || !district.center) continue;
                 const wx = Number(district.center.x) / Number(hexWorld.width) * STORY_WORLD_W;
@@ -1044,6 +1046,7 @@ function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesMod
                 paint, entry.node, entry.anchor.x, entry.anchor.y, false, 1, {
                     actionable: true,
                     minZoom: mode.minZoom,
+                    disableDistricts: !!mode.disableDistricts,
                     urbanFootprint: entry.footprint,
                     physicalSites: physicalSitesModel
                 }
@@ -1083,7 +1086,7 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         ? (visualPeriodValue.id || visualPeriodValue.key
             || JSON.stringify(visualPeriodValue)) : visualPeriodValue;
     const token = [
-        'settlement-world-layers-4-core4x-district8x',
+        'settlement-world-layers-6-core4-district8-sparse',
         storySettlementAtlasesReady() ? 'ready' : 'loading',
         urbanModel && urbanModel.footprintHash || 'no-urban',
         physicalSitesModel && physicalSitesModel.registryHash || 'no-sites',
@@ -1103,7 +1106,8 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         cw: STORY._cw, ch: STORY._ch
     };
     const modes = [
-        { id: 'CORE', minZoom: 1, renderScale: 4 },
+        { id: 'CORE', minZoom: 1, renderScale: 4,
+            sparse: true, disableDistricts: true },
         { id: 'DISTRICTS', minZoom: .25,
             renderScale: Number(typeof STORY_MAP_RENDERER_V2 !== 'undefined'
                 && STORY_MAP_RENDERER_V2.districtRasterScale) || 8,
@@ -2502,7 +2506,7 @@ function storyBuildLandGrid() {
     if (typeof STORY_TERRAIN !== 'undefined' && STORY_TERRAIN.land) {
         const w = STORY_TERRAIN.w, h = STORY_TERRAIN.h, mask = STORY_TERRAIN.land;
         STORY_GW = w; STORY_GH = h;
-        STORY_WORLD_W = 3000; STORY_WORLD_H = Math.round(3000 * h / w);   // dünya = harita oranı, ~3000 geniş → NN upscale
+        STORY_WORLD_W = 3000; STORY_WORLD_H = Math.round(3000 * h / w);
         const grid = new Array(w * h).fill(-1);
         for (let gy = 0; gy < h; gy++) {
             for (let gx = 0; gx < w; gx++) {
