@@ -521,9 +521,9 @@ function storyNewCampaign(config = {}) {
     if (typeof storyRegionReset === 'function') storyRegionReset({ generatedAt: 0 });
     if (typeof storyActivationReset === 'function') storyActivationReset();
     if (typeof storyAggregationReset === 'function') storyAggregationReset();
+    if (typeof storyInfrastructureWorkRestore === 'function') storyInfrastructureWorkRestore(null);
     if (typeof storyInfrastructureReset === 'function') storyInfrastructureReset({ generatedAt: 0 });
     if (typeof storyHexInfrastructureReset === 'function') storyHexInfrastructureReset();
-    if (typeof storyInfrastructureWorkRestore === 'function') storyInfrastructureWorkRestore(null);
     if (typeof storyResourceTaxonomyReset === 'function') storyResourceTaxonomyReset();
     if (typeof storyProductionReset === 'function') storyProductionReset();
     if (typeof storyPopulationReset === 'function') storyPopulationReset();
@@ -779,6 +779,10 @@ function storyLoad() {
         if (typeof storyRegionRestore === 'function') storyRegionRestore(d.regionModel);
         if (typeof storyActivationRestore === 'function') storyActivationRestore(d.activationPolicy);
         if (typeof storyAggregationRestore === 'function') storyAggregationRestore(d.aggregationPolicy);
+        if (typeof storyInfrastructureWorkRestore === 'function') {
+            const workRestore = storyInfrastructureWorkRestore(d.infrastructureWorks);
+            if (!workRestore.ok) throw new Error(workRestore.code);
+        }
         if (typeof storyInfrastructureRestore === 'function') storyInfrastructureRestore(d.infrastructureGraph);
         if (typeof storyResourceTaxonomyRestore === 'function') storyResourceTaxonomyRestore(d.resourceTaxonomy);
         if (typeof storyProductionRestore === 'function') storyProductionRestore(d.productionSectors);
@@ -794,10 +798,6 @@ function storyLoad() {
         if (typeof storyHexConstructionRestore === 'function') {
             const constructionRestore = storyHexConstructionRestore(d.hexConstruction);
             if (!constructionRestore.ok) throw new Error(constructionRestore.code);
-        }
-        if (typeof storyInfrastructureWorkRestore === 'function') {
-            const workRestore = storyInfrastructureWorkRestore(d.infrastructureWorks);
-            if (!workRestore.ok) throw new Error(workRestore.code);
         }
         if (typeof storyBudgetRestore === 'function') storyBudgetRestore(d.stateBudget);
         if (typeof storyEconomicAIRestore === 'function') storyEconomicAIRestore(d.economicAI);

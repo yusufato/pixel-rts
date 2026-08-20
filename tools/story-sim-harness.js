@@ -891,6 +891,14 @@ function createRuntime(seed) {
             validateInfrastructureGraph: graph => storyInfrastructureGraphValidate(graph),
             infrastructureForSave: () => storyInfrastructureForSave(),
             infrastructureNetworkHash: corridors => storyInfrastructureNetworkHash(corridors),
+            infrastructureWorkLedger: () => storyInfrastructureWorkForSave(),
+            infrastructureRouteCandidate: spec => storyInfrastructureRouteCandidate(spec),
+            infrastructureRouteReserveAndSubmit: (spec, options) =>
+                storyInfrastructureRouteReserveAndSubmit(spec, options),
+            infrastructureRouteStart: (commandId, options) =>
+                storyInfrastructureRouteStart(commandId, options),
+            infrastructureWorkTick: (worldDays, options) =>
+                storyInfrastructureWorkTick(worldDays, options),
             infrastructureCorridorIds: (regionId, mode) => storyInfrastructureCorridorIdsForRegion(regionId, mode),
             infrastructureSetDamage: (corridorId, damageBps, options) => storyInfrastructureSetDamage(corridorId, damageBps, options),
             infrastructureFindRoute: (fromRegionId, toRegionId, options) => storyInfrastructureFindRoute(fromRegionId, toRegionId, options),
@@ -1518,6 +1526,11 @@ function createRuntime(seed) {
             hexRegionsReconcile: () => storyHexRegionsReconcile(storyHexRegionsEnsure()),
             hexSettlementsEnsure: () => storyHexSettlementsEnsure(),
             hexInfrastructureDiagnostics: () => storyHexInfrastructureDiagnostics(),
+            hexInfrastructureCorridorPath: corridorId => {
+                const registry = storyHexInfrastructureSegmentsEnsure();
+                return registry && registry.corridorCellPaths[String(corridorId)]
+                    ? registry.corridorCellPaths[String(corridorId)].slice() : [];
+            },
             hexSettlementsCreate: () => storyHexSettlementsCreate({
                 world: storyHexWorldEnsure(),
                 geography: storyHexGeographyEnsure(),

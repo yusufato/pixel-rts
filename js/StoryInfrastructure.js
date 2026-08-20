@@ -233,6 +233,12 @@ function storyInfrastructureDefinitions() {
         physical.push(storyInfrastructurePhysicalDefinition('RAIL', a, b));
     }
 
+    if (typeof storyInfrastructureRouteCorridorDefinitions === 'function') {
+        for (const corridor of storyInfrastructureRouteCorridorDefinitions()) {
+            if (!physical.some(existing => existing.id === corridor.id)) physical.push(corridor);
+        }
+    }
+
     physical.sort((a, b) => a.id.localeCompare(b.id));
     const corridors = physical.slice();
     for (const parent of physical.filter(corridor =>

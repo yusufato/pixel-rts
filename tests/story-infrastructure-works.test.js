@@ -6,6 +6,10 @@ const {
     storyInfrastructureWorkPreflight,
     storyInfrastructureWorkSubmit,
     storyInfrastructureWorkReserveAndSubmit,
+    storyInfrastructureRouteCandidate,
+    storyInfrastructureRouteReserveAndSubmit,
+    storyInfrastructureRouteStart,
+    storyInfrastructureRouteCorridorDefinitions,
     storyInfrastructureWorkStart,
     storyInfrastructureWorkTick,
     storyInfrastructureWorkForSave,
@@ -106,10 +110,82 @@ storyInfrastructureWorkTick(fundedSubmit.command.requirements.durationDays,
 assert.equal(balances.escrow, 0);
 assert(balances.settled > 0, 'completion must settle reserved company cash');
 
+const routeRoot = {};
+const routeBalances = { cash: 1000, workers: 1000,
+    stocks: { raw_materials: 1000, industrial_parts: 1000, electronics: 1000 },
+    escrow: 0, settled: 0 };
+const routeEconomy = {
+    cashAvailable: () => routeBalances.cash,
+    cashReserve: (_type, _id, amount) => {
+        routeBalances.cash -= amount; routeBalances.escrow += amount; return { ok: true };
+    },
+    cashRollback: (_type, _id, amount) => {
+        routeBalances.cash += amount; routeBalances.escrow -= amount; return { ok: true };
+    },
+    cashSettle: (_type, _id, amount) => {
+        routeBalances.escrow -= amount; routeBalances.settled += amount; return { ok: true };
+    },
+    stock: (_region, resourceId) => routeBalances.stocks[resourceId],
+    stockDelta: (_region, resourceId, amount) => {
+        routeBalances.stocks[resourceId] += amount; return { ok: true };
+    },
+    availableWorkers: () => routeBalances.workers
+};
+const routeContext = {
+    root: routeRoot,
+    world: { cellCount: 3 },
+    geography: {
+        regionIds: Int16Array.from([0, 2, 1]),
+        landCoverageBps: Uint16Array.from([10000, 9000, 10000]),
+        mountainIntensityBps: Uint16Array.from([0, 0, 0])
+    },
+    settlements: { coreCellIndices: Int32Array.from([0, 2, 1]) },
+    graph: { corridors: [] },
+    findLandPath: () => [0, 1, 2],
+    economy: routeEconomy
+};
+const routeBase = {
+    mode: 'RAIL', fromRegionId: 'region:0', toRegionId: 'region:1',
+    ownerType: 'STATE', ownerId: 'country:0', fundingRegionId: 'region:0',
+    permission: spec.permission,
+    environmentalAssessment: { assessmentId: 'eia:1', mitigationId: 'mitigation:1', restorationCash: 5 }
+};
+const missingRights = storyInfrastructureRouteCandidate(routeBase, routeContext);
+assert(missingRights.blockReasons.some(reason => reason.startsWith('RIGHT_OF_WAY_REQUIRED:')));
+const routeSpec = Object.assign({}, routeBase, { rightOfWay: {
+    evidenceByRegion: { 'region:0': 'row:0', 'region:1': 'row:1', 'region:2': 'row:2' },
+    compensationCash: 10
+} });
+const routeSubmitted = storyInfrastructureRouteReserveAndSubmit(routeSpec, routeContext);
+assert.equal(routeSubmitted.ok, true);
+assert.equal(routeSubmitted.command.pathCellIndices.length, 3);
+assert.equal(storyInfrastructureRouteStart(routeSubmitted.command.id, routeContext).ok, true);
+const routeCompleted = storyInfrastructureWorkTick(
+    routeSubmitted.command.requirements.durationDays, routeContext);
+assert.equal(routeCompleted.completedRoutes.length, 1);
+assert.equal(routeRoot.infrastructureWorks.routes.length, 1);
+assert.equal(routeBalances.escrow, 0);
+global.STORY = { infrastructureWorks: routeRoot.infrastructureWorks,
+    regionModel: { regions: [
+        { id: 'region:0', center: { x: 0, y: 0 } },
+        { id: 'region:1', center: { x: 1, y: 0 } }
+    ] } };
+global.storyInfrastructurePhysicalDefinition = (mode, a, b) => ({
+    id: `base:${mode}:${a.id}:${b.id}`, mode,
+    endpointRegionIds: [a.id, b.id]
+});
+const dynamicDefinitions = storyInfrastructureRouteCorridorDefinitions();
+assert.equal(dynamicDefinitions.length, 1);
+assert.equal(dynamicDefinitions[0].id, routeRoot.infrastructureWorks.routes[0].corridorId);
+delete global.STORY;
+delete global.storyInfrastructurePhysicalDefinition;
+
 console.log('STORY_INFRASTRUCTURE_WORKS_OK', JSON.stringify({
     requirements,
     receiptId: completed.completed[0].id,
     registryRevision: f.registry.revision,
     ledgerRevision: storyInfrastructureWorkEnsure(f.root).revision,
-    fundedCashSettled: balances.settled
+    fundedCashSettled: balances.settled,
+    builtRoute: routeRoot.infrastructureWorks.routes[0].corridorId,
+    routeCashSettled: routeBalances.settled
 }));

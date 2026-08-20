@@ -1465,6 +1465,33 @@ function storyDrawPhysicalRailOverlay(ctx, farMap) {
     return rails.length;
 }
 
+function storyDrawInfrastructureRouteConstructionOverlay(ctx, farMap) {
+    const ledger = STORY.infrastructureWorks;
+    const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
+    const commands = ledger && Array.isArray(ledger.routeCommands)
+        ? ledger.routeCommands.filter(command => command.status === 'IN_PROGRESS') : [];
+    if (!world || !commands.length) return 0;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const command of commands) {
+        const path = command.pathCellIndices || [];
+        if (path.length < 2) continue;
+        ctx.beginPath();
+        path.forEach((cellIndex, index) => {
+            const point = storyW2S(Number(world.centerX[cellIndex]), Number(world.centerY[cellIndex]));
+            if (!index) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y);
+        });
+        ctx.strokeStyle = command.mode === 'RAIL'
+            ? 'rgba(255,184,55,.94)' : 'rgba(238,138,42,.9)';
+        ctx.lineWidth = farMap ? 2 : 3.5;
+        if (typeof ctx.setLineDash === 'function') ctx.setLineDash(farMap ? [3, 3] : [7, 4]);
+        ctx.stroke();
+    }
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    ctx.restore();
+    return commands.length;
+}
+
 function storySecondaryRoadsEnsure() {
     const CT = (typeof GEO_CITIES !== 'undefined') ? GEO_CITIES : [];
     const RD = (typeof GEO_ROADS !== 'undefined') ? GEO_ROADS : [];
@@ -1633,6 +1660,7 @@ function storyNetworkLayerKey(farMap) {
         roadRegistry && roadRegistry.key || '-',
         physicalSegments && physicalSegments.topologyHash || '-',
         physicalSegments && physicalSegments.revision || 0,
+        STORY.infrastructureWorks && STORY.infrastructureWorks.revision || 0,
         typeof GEO_ROADS !== 'undefined' ? GEO_ROADS.length : 0,
         typeof STORY_INFRASTRUCTURE_SEA_LINKS !== 'undefined'
             ? STORY_INFRASTRUCTURE_SEA_LINKS.length : 0
@@ -1892,6 +1920,7 @@ function storyNetworkWorldLayersEnsure() {
             storyDrawPrimaryRoadOverlay(paint, mode.farMap);
             storyDrawSecondaryRoadOverlay(paint, mode.farMap);
             storyDrawPhysicalRailOverlay(paint, mode.farMap);
+            storyDrawInfrastructureRouteConstructionOverlay(paint, mode.farMap);
             layers[mode.id] = storyCreateWorldRamLayer(canvas, {
                 mode: mode.id,
                 worldScale: .5

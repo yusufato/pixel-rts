@@ -236,6 +236,10 @@ RAM'e alma dünya gerçeğini dondurmaz. Sahiplik, geometri, çağ veya ilgili a
 
 Fiziksel ROAD/SEA/RAIL segmenti artık yetki, gerçek şirket veya devlet nakdi, bölgesel malzeme, ayrılmış işgücü ve süre taşıyan kalıcı iş emriyle onarılabilir. Segment süre boyunca `UNDER_REPAIR` durumunu ve kalan oyun saniyesini taşır; bitmeden hasar silinmez. Tamamlanma tüketim ve karar kimlikli makbuz üretir. Yeni güzergâh/segment inşası, çok hücreli şantiye ve başvuru arayüzü HXD-7.4.2 borcudur.
 
+### HXD-7.4.2a dinamik kara/ray güzergâh envanteri
+
+Yeni LAND/RAIL başvurusu iki gerçek şehir çekirdeği arasında geçilebilir altıgen zincir, geçtiği bütün bölgelerden geçiş hakkı, gerekli çevre/azaltım kararı, gerçek finansman, malzeme, işgücü ve süre ister. Aktif şantiye onaylı çok-segmentli rotada görünür; kapasite yalnız tamamlanma makbuzundan sonra doğar. Ankara–İzmir kabul hattı `10` yeni fiziksel ray segmenti üretmiş, toplamı `287`ye çıkarmış ve save/load sonrasında aynı hücre zincirini korumuştur. Yeni liman/SEA başvurusu HXD-7.4.2b; oyuncu/AI başvuru yüzeyi HXD-7.4.3 borcudur.
+
 ### HXD-6.6 fiziksel inşaat envanteri
 
 `story-hex-construction-command-1`, yeni konut/sanayi/lojistik yapımını gerçek hedef hücre, arazi kanıtı, kurum kararı, şirket escrow'u, bölgesel malzeme, ayrılmış iş gücü, süre ve çevre bedeline bağlar. Yetki veya kaynak eksikse kayıt `AWAITING_REQUIREMENTS` kalır; LLM ya da şablon onay uyduramaz. Başlayan/tamamlanan komut arazi/site siciline girer, tamamlanma makbuzu save/load içinde korunur. Sonraki envanter borcu bu kapasitenin konut, üretim ve lojistik tüketicilerine devreye alınması ile oyuncu/AI başvuru yüzeyidir.
