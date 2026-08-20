@@ -1233,20 +1233,21 @@ let BATTLE_KP_TELEMETRI = null;
    kosuldan bagimsiz ileri tasir. VARSAYILAN 0.55 = eski davranis, byte-ayni. */
 let BATTLE_TOPCU_ILERI = 0.55;
 
-/* ── IKMAL TAKIBI ──────────────────────────────────────────────────────────
-   OLCULDU (tools/topcu-bosta.js, 6 tohum / 1234 birim-ornegi, AI SALDIRAN):
-   topcunun bosta gectigi zamanin yarisi CEPHANESIZ — toplam topcu zamaninin %25'i.
-   Cephanesiz anlarda ikmal nerede:
-       hic ikmal/istihkam kalmamis   %8.7
-       ikmal VAR ve 400px icinde     %0.0    <-- HIC
-       en yakin ikmale ort. mesafe   1180px  (ikmal halesi 400px)
-   Sorun hayatta kalma degil (ikmal sag), hale hizi da degil (kimse menzilde degil):
-   KONUM. Sebep js/BattleExecution.js'te: SUPPORT'un "ihtiyaci olanin yanina git"
-   dali yalniz FIRE_WINDOW fazinda kosuyor ve o faz 8-14 saniye suruyor.
-   Bayrak acilinca ayni dal TUM fazlarda kosar.
-   ⚠ Kusur ROLE BAGLI: AI savunurken gorunmuyor (cephane %51-60, kuru birim 0.00).
-   VARSAYILAN KAPALI — mac kapisi gecmeden acilmaz. */
-let BATTLE_IKMAL_TAKIP = false;
+
+/* ── IKMAL REFAKATI (yazilmis kuralin ONGORU'ye acilmasi) ─────────────────
+   `_ikmalRefakat()` / pro-delta 'supplyEscort' zaten yazilmis ama pro deltasinda BILE
+   kapali (supplyEscort:false) — yani hic sevk edilmemis, ve ONGORU pro olmadigi icin
+   hic kosmuyor. Ayni kusuru bagimsiz olarak yeniden buldum, o yuzden IKISI YARISTIRILIR:
+
+     BATTLE_IKMAL_TAKIP        (benim) — SUPPORT sozlesme hedefi tum fazlarda "muhtacin yanina"
+     BATTLE_IKMAL_REFAKAT_INTEL4 (mevcut) — arac dolayli-kumenin yanina, dolayliya 3x agirlik,
+                                 kumeyi halenin %60'ina alir, ve TEHDIT KAPISI var
+                                 (PRO_SUPPLY_TEHDIT 900px: dusman yakinsa ilerlemez)
+
+   Tehdit kapisi onemli: benim surumumde ikmal araci olen mac 3/6 -> 5/6 cikmisti.
+   Mekanizma karsilastirmasi kazanani sever; kaybeden SILINIR (iki ayni-isi-yapan
+   bayrak birakmak sonraki turda karisiklik uretir). VARSAYILAN KAPALI. */
+let BATTLE_IKMAL_REFAKAT_INTEL4 = false;
 /* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
    Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
    Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */

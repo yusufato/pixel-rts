@@ -213,8 +213,11 @@ function executionAntiLateral(unitType, point, sideX, sideY, contacts) {
 }
 
 /* DESTEK HEDEFI — "ihtiyaci olanin yanina git" noktasini secer.
-   Govde FIRE_WINDOW dalindan BURAYA tasindi ki tek kaynak olsun: hem o dal hem de
-   faz-bagimsiz ikmal-takibi (BATTLE_IKMAL_TAKIP) ayni hesabi kullansin. */
+   Govde FIRE_WINDOW dalindan BURAYA tasindi (davranis-notr, yedekle dogrulandi).
+   NOT (2026-08-20): bir ara bu hesabi TUM fazlarda kosturan BATTLE_IKMAL_TAKIP bayragi
+   eklenmisti; olcumde depoda ZATEN YAZILI olan 'supplyEscort' kurali onu her eksende
+   yendi (cephanesiz ornek 14 vs 2, ikmal olen mac 5/6 vs 2/6) ve bayrak SILINDI.
+   Kazanan yol: js/Unit.js `_ikmalRefakat()` + BATTLE_IKMAL_REFAKAT_INTEL4. */
 function executionDestekHedefi(contract, units, observation) {
     const own = observation?.ownUnits || [];
     const kendiId = new Set(units.map(u => u.id));
@@ -707,37 +710,6 @@ class TaskExecutionManager {
             return null;
         }
         const phase = this.operation?.phase;
-        /* ── IKMAL TAKIBI (BATTLE_IKMAL_TAKIP) ─────────────────────────────────────
-           OLCULDU (tools/topcu-bosta.js, 6 tohum / 1234 birim-ornegi, AI SALDIRAN):
-           topcu zamaninin %25'i CEPHANESIZ geciyor. Ve cephanesiz anlarda:
-               hic ikmal/istihkam kalmamis      %8.7
-               ikmal VAR ve 400px icinde        %0.0     <-- HIC
-               en yakin ikmale ort. mesafe      1180px   (hale 400px)
-           Yani sorun hayatta kalma DEGIL (ikmal sag), hale hizi da DEGIL (kimse
-           menzilde degil) — KONUM. Ikmal topcuyu takip etmiyor.
-
-           SEBEP BU DOSYADA: SUPPORT'un "ihtiyaci olanin yanina git" dali yalnizca
-           FIRE_WINDOW fazinda kosuyor, ve o faz 8-14 saniye suruyor
-           (OPERATION_FIRE_MIN/MAX_TICKS). Kalan zamanda ikmal planlanan noktasinda
-           kaliyor — o nokta objektifin %30'u (planningPointBetween .. 0.3), topcu ise
-           %55+ derinlige gidiyor. 1180px acigi bunu uretiyor.
-
-           ⚠ Savunan kurulumda bu kusur GORUNMUYOR (cephane %51-60, kuru birim 0.00):
-           savunan top ikmalin dibinde oturuyor. Kusur ROLE BAGLI.
-           VARSAYILAN KAPALI — mac kapisi gecmeden acilmaz. */
-        if (typeof BATTLE_IKMAL_TAKIP !== 'undefined' && BATTLE_IKMAL_TAKIP &&
-            contract.groupRole === TASK_GROUP_ROLE.SUPPORT &&
-            phase !== OPERATION_EXECUTION_PHASE.FIRE_WINDOW) {
-            const _h = executionDestekHedefi(contract, units, observation);
-            if (_h && !executionArrived(units, _h, 115) && this.shouldRefresh(state, tick)) {
-                if (typeof BATTLE_KP_TELEMETRI !== 'undefined' && BATTLE_KP_TELEMETRI) {
-                    BATTLE_KP_TELEMETRI.ikmalEmri = (BATTLE_KP_TELEMETRI.ikmalEmri | 0) + 1;
-                }
-                return this.markOrder(state, executionMoveOrder(contract, units, _h,
-                    'TASK:' + contract.id + ':SUPPORT_TO_NEED_ALLPHASE'), tick);
-            }
-            return null;
-        }
         /* ── KARSI-PLAN BASKINI (STANDOFF_ATIS) ────────────────────────────────────
            OLCUMLE BULUNAN YAPISAL GERCEK (2026-08-20): cikarimdan HAREKETE giden kanal
            YOKTU. Iki deneme once olctu ve ikisi de coktu:

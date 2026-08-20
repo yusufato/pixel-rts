@@ -27,10 +27,13 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const MAC = Math.max(1, Number(arg('--mac', 6)) || 6);
 const TOHUM0 = Number(arg('--tohum0', 147000)) || 147000;
 const STANDOFF = !process.argv.includes('--duz');   // varsayilan: rakipte dolayli ates zorlanmis
-/* --takip : BATTLE_IKMAL_TAKIP acik kosar (ikmal her fazda ihtiyaci olanin yanina gider).
-   ⚠ Bedeli olabilir: ikmal araci kirilgan ve ileri gitmek onu oldurebilir. O yuzden
-   ikmalin OLUM ANI da sayilir — kazanci kaybi ile birlikte okunmali. */
-const TAKIP = process.argv.includes('--takip');
+/* Ikmal araci kirilgan; ileri gitmek onu oldurebilir. O yuzden OLUM ANI da sayilir —
+   kazanc kaybi ile birlikte okunmali. (Bir ara BATTLE_IKMAL_TAKIP diye kendi surumum
+   vardi; mevcut supplyEscort kurali onu her eksende yendi ve o bayrak silindi.) */
+const TAKIP = false;
+/* --refakat : depoda ZATEN YAZILI olan 'supplyEscort' kuralini ONGORU'de acar.
+   Ayni isi yapan yarismaci surum; kazanan mac kapisina gider, kaybeden SILINIR. */
+const REFAKAT = process.argv.includes('--refakat');
 
 const { ctx } = tezgahKur();
 const taban = JSON.parse(fs.readFileSync('qa-runtime/gercekci-taban.json', 'utf8'));
@@ -45,7 +48,7 @@ function kos(seed) {
 '  if (typeof BATTLE_POSTURE_GATE !== "undefined") BATTLE_POSTURE_GATE = true;\n' +
 '  if (typeof BATTLE_SECTOR_COMMAND !== "undefined") BATTLE_SECTOR_COMMAND = true;\n' +
 '  BATTLE_KARSI_PLAN = false;\n' +
-'  BATTLE_IKMAL_TAKIP = ' + (TAKIP ? 'true' : 'false') + ';\n' +
+'  BATTLE_IKMAL_REFAKAT_INTEL4 = ' + (REFAKAT ? 'true' : 'false') + ';\n' +
 '  BATTLE_KP_TELEMETRI = { ikmalEmri: 0 };\n' +
 '  BATTLE_RECIPE_BLUE = ' + JSON.stringify(TARIF) + ';\n' +
 '  BATTLE_RECIPE_RED = null;\n' +
@@ -175,7 +178,7 @@ function kos(seed) {
 
 console.log('');
 console.log('TOPCU NEDEN BOSTA   ' + MAC + ' tohum   rakip=' + (STANDOFF ? 'STANDOFF (dolayli zorlanmis)' : 'duz taban'));
-console.log('  IKMAL TAKIBI: ' + (TAKIP ? 'ACIK (BATTLE_IKMAL_TAKIP=true)' : 'kapali'));
+console.log('  KOL: ' + (TAKIP ? 'IKMAL_TAKIP (benim)' : REFAKAT ? 'IKMAL_REFAKAT (mevcut supplyEscort)' : 'TABAN'));
 console.log('');
 const T = { birimOrn: 0, atesli: 0, A: 0, B: 0, C: 0, D: 0, C1: 0, C2: 0, C3: 0 };
 const durum = {}, cTip = {};

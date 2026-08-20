@@ -2066,7 +2066,15 @@ class Unit {
     // düştü); burada ARAÇ topçuya geliyor. Topçu mevziinde kalır, aracın zaten tek işi budur.
     // Determinist: ihtiyaç-ağırlıklı merkez, RNG yok. Dönüş: true ise hareketi devraldı.
     _ikmalRefakat() {
-        if (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'supplyEscort')) return false;
+        /* KAPSAM (2026-08-20): kural yazilmis ama pro deltasinda bile KAPALI (supplyEscort:false),
+           yani hic sevk edilmemis. ONGORU pro DEGIL — dolayisiyla hic kosmuyor.
+           Bagimsiz olarak ayni kusuru yeniden buldum (tools/topcu-bosta.js, AI SALDIRAN):
+           topcu zamaninin %25.2'si cephanesiz, cephanesizken en yakin ikmal 1180px (hale 400px).
+           Bu kuralin teshisi ayni aileden: "ikmal araci dolayli-kumenin merkezine ort. 712px".
+           Kapsam disari alindi ki ONGORU'de de olculebilsin. VARSAYILAN = ESKI DAVRANIS. */
+        const _kapsam = (typeof BATTLE_IKMAL_REFAKAT_INTEL4 !== 'undefined') &&
+            BATTLE_IKMAL_REFAKAT_INTEL4 === true;
+        if (!_kapsam && (typeof battleProDelta !== 'function' || !battleProDelta(this.isRed, 'supplyEscort'))) return false;
         if (this.dead || this.loaded || this.abandoned || this.isFleeing) return false;
         if (this.controlOwner === 'PLAYER' || !this.speed || this._returningToBase) return false;
         const st = STATS[this.type];
