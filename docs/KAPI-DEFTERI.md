@@ -183,3 +183,41 @@ alındı. Hepsi maç kapısına gitseydi **30 saat** harcanacaktı.
 1. **Bağlanıyor mu?** (`BATTLE_BALANCE` sayaçları — 10 dk). Bağlamıyorsa iş biter.
 2. **Kendi metriğini kımıldatıyor mu?** Kımıldatmıyorsa maç kapısına girmez.
 3. **Hayatta kalma ne oldu?** (15. tuzak). Metrik iyileşip birim ölüyorsa iyileşme sahte.
+
+
+### Toplu triyaj — 11 delta tarandı (2026-08-20)
+
+`tools/delta-triyaj.js` + `BATTLE_PRO_DELTA_TRIYAJ` kancası ile her delta tek başına
+açılıp üç soru soruldu: **bağlıyor mu · hayatta kalma · sonuç**.
+
+| delta | bağlanma | Δsağ (n=10) | Δmarj | hüküm |
+|---|---|---|---|---|
+| `supplyEscort` | ✔ | — | — | **M2-10 kuyrukta** (kendi metriği: cephanesiz 311→2) |
+| `indirectMassing`+`counterBattery` | ✔ | — | — | **M2-11 kuyrukta** (cbPay %0→%27) |
+| `ammoDiscipline` | (sayaç yok) | +1,20 (t 1,14) | +651 | aday, ölçülemedi |
+| `localRatio` | 399 | +1,20 (t 0,98) | +727 | aday, ölçülemedi |
+| `killFocus` | (sayaç yok) | **+0,00** (t 0,00) | +155 | **n=4'te yanılttı** |
+| `commandCenter` | (sayaç yok) | 0,00 · marj **+0** | +0 | **NO-OP, elendi** |
+| `adUmbrella` | 4355 | −0,25 | −1147 | negatif |
+| `massMatch` | (sayaç yok) | −1,75 | −1875 | negatif |
+| `indirectCreep` | ✔ | — | — | **elendi** (6/6 tohumda topçu ölüyor) |
+| `armorFace` | ✔ | — | — | ölçülemedi, taban kusur küçük |
+| `antiMatch` | 2068 | −3,33 (t −1,81) | −1367 | alınmadı |
+
+### ⚠ `killFocus` — küçük-n'in canlı gösterisi
+
+| n | Δsağ | Δmarj |
+|---|---|---|
+| 4 | **+2,50** | **+1160** |
+| 10 | **+0,00** | +155 |
+
+n=4'te listenin en iyisiydi ve tek başına maç kapısına gönderilecek gibi duruyordu.
+n=10'da tamamen düzleşti. Bu deponun "3-6 tohumluk A/B'ler şüphelidir" kuralının
+maliyetsiz bir doğrulaması — triyaj bile küçük n ile sıralama yapmamalı, yalnız
+**eleme** yapmalı.
+
+### Bugünün triyaj bilançosu
+
+11 delta tarandı · **2'si kuyruğa girdi** · 4'ü elendi (no-op / zararlı / birim
+öldürüyor) · 5'i "ölçülemedi" damgasıyla listede kaldı. Hepsi maç kapısına gitseydi
+**~66 saat** harcanacaktı.
