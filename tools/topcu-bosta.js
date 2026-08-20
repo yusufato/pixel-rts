@@ -61,7 +61,7 @@ function kos(seed) {
 '  let st = 0, birimOrn = 0, atesli = 0;\n' +
 '  let ikmalOlumTik = null, ikmalBas = 0;\n' +
 '  for (const u of SIM.units) if (u.isRed && u.type === T.SUPPLY) ikmalBas++;\n' +
-'  let A = 0, B = 0, C = 0, D = 0;\n' +
+'  let A = 0, B = 0, C = 0, D = 0, C1 = 0, C2 = 0, C3 = 0;\n' +
 '  const durum = {};\n' +
 '  let cYakin = 0, cN = 0, cAday = 0;\n' +
 '  let cephSay = 0, cephIkmalYok = 0, cephMes = 0, cephMesN = 0, cephYakin = 0;\n' +
@@ -114,6 +114,15 @@ function kos(seed) {
 '        const d = Math.hypot(e.x - r.x, e.y - r.y);\n' +
 '        if (d < yakin) yakin = d;\n' +
 '        if (d > (r.range || 0)) continue;\n' +
+'        /* ⚠ ASGARI MENZIL (olu bolge) — ILK SURUMDE YOKTU ve C kovasini SISIRDI.\n' +
+'           Havan 3 / topcu 5 / CNRA 8 / balistik 20 (tile). CNRA icin 800px demek;\n' +
+'           ilk olcumde "en yakin dusman 749px" cikmisti, yani o hedeflerin bir kismi\n' +
+'           vurulamaz olu bolgedeydi ve "kacirilmis firsat" diye sayilmisti.\n' +
+'           Motor da tam bu denetimi yapiyor: Unit.js "__minR > 0 && d < __minR". */\n' +
+'        const _mr = (STATS[r.type] && STATS[r.type].minRange) || 0;\n' +
+'        if (_mr > 0 && d < _mr) continue;\n' +
+'        /* KARA-MENZIL SINIRI (SPAAG gibi): motor ayrica bunu da suzuyor. */\n' +
+'        if (r.groundRange > 0 && !e.isAir && d > r.groundRange) continue;\n' +
 '        menzilde++;\n' +
 '        /* HEDEF UYGUNLUGU da sart: vuramayacagi hedef "kacirilmis firsat" degildir.\n' +
 '           Bu denetim ilk surumde YOKTU ve C kovasini sisirmis olabilir. */\n' +
@@ -126,6 +135,17 @@ function kos(seed) {
 '      if (!menzilde) { A++; continue; }\n' +
 '      if (!gozculu) { B++; continue; }\n' +
 '      C++;\n' +
+'      /* C KOVASINI IKIYE BOL — MOTORUN KENDI SUZGECIYLE.\n' +
+'         Filtreleri elle taklit etmek yanilticiydi (minRange denetimini ilk surumde\n' +
+'         unutmustum). Dogrusu motorun kendi fonksiyonunu cagirmak:\n' +
+'           C1: findBestVisibleEnemy() NULL   -> motorun suzgeci eliyor, benim filtrem gevsek\n' +
+'           C2: aday VAR ama birim ates etmiyor -> CAGIRAN taraftaki kapi (asil bug)\n' +
+'         ⚠ Saf okuma: findBestVisibleEnemy sim durumunu degistirmez. */\n' +
+'      let _aday = null;\n' +
+'      try { _aday = r.findBestVisibleEnemy(); } catch (_e) { _aday = null; }\n' +
+'      if (!_aday) C1++;\n' +
+'      else if (_aday.dist <= (r.range || 0)) C2++;\n' +
+'      else C3++;\n' +
 '      cAday += gozculu;\n' +
 '      if (yakin < 1e9) { cYakin += yakin; cN++; }\n' +
 '      if (ornekHedef) { const t = "tip" + ornekHedef.type; cTip[t] = (cTip[t] || 0) + 1; }\n' +
@@ -142,6 +162,7 @@ function kos(seed) {
 '  }\n' +
 '  return JSON.stringify({ birimOrn: birimOrn, atesli: atesli, A: A, B: B, C: C, D: D,\n' +
 '    durum: durum, cYakin: cN ? cYakin / cN : null, cAday: C ? cAday / C : 0, cTip: cTip,\n' +
+'    C1: C1, C2: C2, C3: C3,\n' +
 '    topSayi: rN, topMenzil: rN ? rMenzil / rN : 0, sure: Math.round(SIM.tick * 0.05),\n' +
 '    cephSay: cephSay, cephIkmalYok: cephIkmalYok, cephYakin: cephYakin,\n' +
 '    cephMes: cephMesN ? cephMes / cephMesN : null,\n' +
@@ -156,14 +177,14 @@ console.log('');
 console.log('TOPCU NEDEN BOSTA   ' + MAC + ' tohum   rakip=' + (STANDOFF ? 'STANDOFF (dolayli zorlanmis)' : 'duz taban'));
 console.log('  IKMAL TAKIBI: ' + (TAKIP ? 'ACIK (BATTLE_IKMAL_TAKIP=true)' : 'kapali'));
 console.log('');
-const T = { birimOrn: 0, atesli: 0, A: 0, B: 0, C: 0, D: 0 };
+const T = { birimOrn: 0, atesli: 0, A: 0, B: 0, C: 0, D: 0, C1: 0, C2: 0, C3: 0 };
 const durum = {}, cTip = {};
 let cY = 0, cYN = 0, cAday = 0, cAdayN = 0;
 const cS = { say: 0, ikmalYok: 0, yakin: 0, mes: 0, mesN: 0 };
 const ikS = { emir: 0, olu: 0, olumSn: 0 };
 for (let i = 0; i < MAC; i++) {
     const r = kos(TOHUM0 + i);
-    for (const f of ['birimOrn', 'atesli', 'A', 'B', 'C', 'D']) T[f] += r[f];
+    for (const f of ['birimOrn', 'atesli', 'A', 'B', 'C', 'D', 'C1', 'C2', 'C3']) T[f] += (r[f] || 0);
     for (const k of Object.keys(r.durum || {})) durum[k] = (durum[k] || 0) + r.durum[k];
     for (const k of Object.keys(r.cTip || {})) cTip[k] = (cTip[k] || 0) + r.cTip[k];
     if (r.cYakin != null) { cY += r.cYakin; cYN++; }
@@ -206,6 +227,11 @@ if (cS.say) {
     console.log('');
 }
 if (T.C) {
+    console.log('  C KOVASI, MOTORUN KENDI SUZGECIYLE BOLUNDU');
+    console.log('    C1 · motorun suzgeci eliyor   : ' + T.C1 + '   (benim filtrem gevsek demek)');
+    console.log('    C2 · aday VAR ama ates YOK    : ' + T.C2 + '   <- CAGIRAN taraftaki kapi = asil bug');
+    console.log('    C3 · aday var, menzil disinda : ' + T.C3);
+    console.log('');
     console.log('  C KOVASI AYRINTI (topcu ates edebilecekken durdugu anlar)');
     console.log('    ornek basina uygun hedef sayisi : ' + (cAdayN ? (cAday / cAdayN).toFixed(1) : '—'));
     console.log('    en yakin dusman mesafesi        : ' + (cYN ? Math.round(cY / cYN) + 'px' : '—'));

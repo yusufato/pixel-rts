@@ -565,3 +565,33 @@ O yüzden `sure` artık raporun içinde — gizlenmiyor, ayrıca ölçülüyor.
 
 **Genel biçim:** `X başına Y` yazan her metrikte, tedavinin **X'i** değiştirip
 değiştirmediğini sor. Değiştiriyorsa X'i sabitle ya da X'in kendisini ayrıca raporla.
+
+
+---
+
+## 14. tuzak — MOTORUN KOŞULLARINI YENİDEN YAZMA, MOTORU ÇAĞIR (2026-08-20)
+
+**Belirti:** "topçu, vurabileceği bir hedef varken zamanın %11'inde boşta duruyor" diye
+bir kusur raporladım. Ölçüm aracı motorun hedef-edinme koşullarını **elle taklit**
+ediyordu: menzilde mi · `unitCanEngage` · `artilleryHasSight`.
+
+**Gerçek:** motorun kendi `findBestVisibleEnemy()` fonksiyonunu çağırınca 74 örneğin
+**74'ünde de `null`** döndü. Yani motor haklı, geçerli hedef yok. Kusur yok.
+
+**Fark nereden çıktı:** ben `artilleryHasSight` (görüş hattı ya da dost gözcü) kullandım;
+motor hedef edinirken `canSee(isRed, x, y)` (sis örtüsü) kullanıyor. İkisi farklı sorular.
+Ayrıca ilk sürümde **asgari menzil** denetimi de yoktu (havan 3 / topçu 5 / ÇNRA 8 tile) —
+onu sonradan ekledim, o hiçbir şeyi elemedi ama eklenmeseydi ayrı bir yanlış üretecekti.
+
+**Kural:** "motor burada X yapmalıydı" tipinde bir iddia ölçerken motorun koşullarını
+**yeniden yazma** — o koşullar onlarca satır, bayrak-kapılı ve zamanla değişiyor. Motorun
+kendi karar fonksiyonunu **çağır** ve dönüşünü oku. Fonksiyon saf değilse (durum
+değiştiriyorsa) o zaman koşulları taklit et, ama taklit ettiğin her koşulu tek tek listele
+ve eksik olanı ara.
+
+**Ölçüm aracına yansıması:** C kovası artık motorun süzgeciyle ikiye bölünüyor —
+`C1` motorun elediği (benim filtrem gevşek) · `C2` motorda aday VAR ama ateş yok (asıl bug
+burada olurdu). `C2 = 0` çıktı, yani bu yolda kusur yok.
+
+**Bu turda üçüncü geri çekme.** Deseni not et: ölçüm aracı motoru taklit ettiğinde
+yanılıyor, motoru çağırdığında yanılmıyor.
