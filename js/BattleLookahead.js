@@ -108,7 +108,19 @@ let LA_TUR_BIRIM = 0;
 const LA_YAYILIM_ESIK = 100;
 /* Kapının SIKILIĞI dışarıdan ayarlanır (A/B). 1 = mevcut. Bkz. battleLookaheadEleVeKapi. */
 let LA_KAPI_CARPAN = 1;
-let LA_AG_KAPI = true;        // kapı ağ skoruna baksın (analitikten isabetli)
+/* ⭐ SEVK EDILDI 2026-08-20: KAPATILDI. Iki bagimsiz maç kapisi, ayrik tohum:
+     C5  (CYBORG,  n=128): +812  t 3.97  taban 573  -> GECTI
+     M2-6(makine2, n=128): +976  t 4.96  taban 552  -> GECTI
+     HAVUZ n=256: +897  se 142  t 6.32  taban 398  -> TABANIN COK USTUNDE
+   Yani agi aday siralamasindan cikarmak KAZANDIRIYOR. Sebebi once mekanizma olcumuyle
+   bulunmustu (tools/ucuz-puan-ongoru.js, 55 birim-karari): ag, tam rollout'un birincisini
+   %10.8 tutturuyor, rastgele taban ~%18 — yani bu is icin bilgi TASIMIYOR. Ag DURUM DEGERI
+   icin egitildi (rho 0.86) ve orada iyi; ama adaylar birbirinden tek bir birimin nereye
+   yuruyecegi kadar farkli ve global durum degeri o farkla degismiyor.
+   ⚠ Ag hala ROLLOUT YAPRAGINDA kullaniliyor (battleLookaheadSkor, LA_DEGER_AGI bayragi) —
+   kapatilan yalnizca ADAY SIRALAMASI ve on suzgec. Bu ayrim onemli.
+   Yan kazanc: aday basina deger-agi cagrisi da kalkti (turun ~%2.9'u). */
+let LA_AG_KAPI = false;
 /* AĞ EŞİĞİ VERİDEN TÜRETİLDİ. İlk denemede 120 koydum ve kapı kararların %99.3'ünü
    kesti. Sebep öğretici: ağ TÜM MAÇIN sonucunu tahmin ediyor; tek bir birimi 600px
    oynatmak o tahmini çok az değiştiriyor. Yani ağ farkları analitik farklardan ~30 kat

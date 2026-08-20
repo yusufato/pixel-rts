@@ -1560,7 +1560,15 @@ let BATTLE_TOPCU_DURAGAN = false;
    `_dolayliYaklas` yalnız dolaylı ateşe bakıyor ve o da pro-kapılı.
    Ayrıntı: docs/OYUNCU-MACLARI-BULGULAR.md · kural: js/Unit.js `_menzileGir`.
    ⚠ VARSAYILAN KAPALI: yaklaşmak ateş altına girmektir, maç kapısı karar verir. */
-let BATTLE_MENZILE_GIR = false;
+/* ⭐ SEVK EDILDI 2026-08-20: ACILDI. Iki bagimsiz maç kapisi, ayrik tohum:
+     M1  (CYBORG,  n=128): +748  t 2.73  taban 768  -> tabanin 20 birim ALTINDA
+     M2-1(makine2, n=128): +1222 t 4.28  taban 799  -> GECTI
+     HAVUZ n=256: +975  se 198  t 4.93  taban 554  -> TABANIN USTUNDE
+   ⚠ MEKANIZMA KAPISI (M0) BUNU YANLIS GOSTERMISTI: "sag kalan 12.7->5.2, marj +2071->-160"
+   diyordu ve ben negatif bekledim. Sebep: M0 kurali AI SAVUNURKEN olcuyor, mac kapisi
+   SALDIRANI. Savunanin menzile yurumesi yanlis, saldiranin dogru. (docs/OLCUM-TUZAKLARI.md
+   8. tuzak.) Bu yuzden kural SALDIRAN icin acildi ve varsayilan boyle kaliyor. */
+let BATTLE_MENZILE_GIR = true;
 const MENZILE_GIR_HEDEF = 0.85;     // düşmanı kendi menzilinin bu kesrine alacak noktaya yürü
 const MENZILE_GIR_UST = 900;        // bu menzilin üstündeki birim (havan/topçu sınıfı) konu dışı
 const MENZILE_GIR_AZAMI = 2200;     // bundan uzak düşman için harita boyu yürüyüş yapılmaz
