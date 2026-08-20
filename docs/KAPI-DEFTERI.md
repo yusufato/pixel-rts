@@ -238,3 +238,53 @@ aynı sorunu daha iyi çözüyor (311→**2**) ve üstelik ikmal aracının öl�
 
 **Karar:** `supplyEscort` maç kapısını (M2-10) geçerse `ammoDiscipline` tekrar
 bakılmaz. Geçmezse sıradaki aday olur.
+
+
+---
+
+## U400b — LA_UFUK 300 vs 400 @ derin 5 (2026-08-20, bu makine) · **SEVK YOK**
+
+n=128, tohum 131000-131127, 322 dk.
+
+| kol | maç | saldıran% | marjOrt | marjStd |
+|---|---|---|---|---|
+| 300 | 128 | %85,9 | 2204 | 1708 |
+| 400 | 128 | %90,6 | 2345 | 1578 |
+
+Eşleştirilmiş fark **+141**, std 1477, t 1,08 · **saptama tabanı 366** → **ölçülemedi.**
+
+M2-5 aynı soruyu +440 (taban 527) vermişti — o da tabanın altında, **ve 08:02'deki
+taban değişikliğinden önce koştuğu için havuzlanamaz** (T1/M2-4 ile aynı sorun).
+
+**Karar: sevk yok.** Ufuk 400'ün rollout maliyeti %33 daha yüksek; ölçülemeyen kazanç +
+gerçek maliyet = hayır. **Ufuk merdiveni 300'de duruyor** (100→200 +603, 200→300 +980,
+300→400 ölçülemedi). Bu, tepe noktasını bulduğumuz anlamına gelmiyor ama bu n ile
+görülebilecek bir kazanç kalmadığı anlamına geliyor.
+
+---
+
+## ⭐ SÖMÜRÜ KAPISI kuruldu (2026-08-20) — `tools/somuru-kapisi.js`
+
+**Neden ayrı bir kapı:** maç marjı kapısı ucuzlatılamıyor (T1'in 128 maçlık ham kaydıyla
+test edildi: kazanan-değişimi z 2,14 < marj t 2,73; kırpma post-hoc). Yani daha keskin
+metriği olan **başka bir soru** sormak gerekiyor. Sömürü gücü tam olarak o:
+
+    sağkalım(bot KAPALI) − sağkalım(bot AÇIK)  =  SÖMÜRÜ GÜCÜ (puan)
+
+**İlk taban (n=16 = 8 tohum × 2 rol), `docs/kayit/somuru-taban.json`:**
+
+| bot | bağlanma | sömürü gücü | AI marjı |
+|---|---|---|---|
+| `helo_harass` | 12518 (16/16 maç) | **−10,63** puan (t −1,14) | +1509 TL |
+| `yerel_ustunluk` | 59049 (16/16 maç) | **+10,84** puan (t 1,78, taban 17,08) | **−3659 TL** |
+
+`helo_harass` negatif — AI ona karşı **daha iyi** dayanıyor. Bu, botun kendi dosyasındaki
+"üçüncü eleme" notuyla tutarlı.
+
+**`yerel_ustunluk` (bugün yazılan sömürücü #2)** ölçülmüş insan imzasının tercümesi:
+*vurulma anında çevrende 8,9 dost / 1,2 düşman olsun* (AI'da 6,9 / 3,4). Sağkalım metriği
+tabanın altında kalıyor ama **AI marjı −3659** — normal kapı tabanımızın (~700) beş katı.
+
+⚠ **Metodolojik not:** hangi metriğin daha keskin olduğu **sömürücüye göre değişiyor**.
+Bu yüzden kapı artık ikisini de tam istatistikle yazıyor — sonradan "hangisine bakalım"
+diye seçim yapmak (post-hoc) engellensin diye.

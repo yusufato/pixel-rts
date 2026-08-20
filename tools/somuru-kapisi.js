@@ -147,8 +147,17 @@ for (const somuru of HAVUZ) {
         ')   kapali kolda ' + kapaliBind + ' (0 olmali)');
     console.log('     SOMURU GUCU: ' + (g.ort >= 0 ? '+' : '') + g.ort.toFixed(2) + ' puan sagkalim' +
         '   std ' + g.std.toFixed(2) + '   t ' + g.t.toFixed(2) + '   saptama tabani ' + g.taban.toFixed(2));
-    console.log('     AI marji: ' + (istat(marjFark).ort >= 0 ? '+' : '') +
-        Math.round(istat(marjFark).ort) + ' TL (bot acikken)');
+    /* MARJI DA TAM ISTATISTIKLE YAZ — ilk kosuda sagkalim tabanin ALTINDA kalirken
+       marj etkisi devasa cikti (yerel_ustunluk: sagkalim +10.84 / taban 17.08 ama marj
+       -3659). Yani hangi metrigin daha keskin oldugu SOMURUCUYE GORE degisiyor; ikisini
+       birden yazmak, sonradan "hangisine bakalim" diye secim yapmayi (post-hoc) onler. */
+    const m = istat(marjFark);
+    console.log('     AI marji: ' + (m.ort >= 0 ? '+' : '') + Math.round(m.ort) + ' TL' +
+        '   std ' + Math.round(m.std) + '   t ' + m.t.toFixed(2) +
+        '   saptama tabani ' + Math.round(m.taban) +
+        '   ' + (Math.abs(m.ort) >= m.taban ? '** TABANIN USTUNDE **' : 'taban alti'));
+    sonuc[somuru].marj = Math.round(m.ort);
+    sonuc[somuru].marjStd = Math.round(m.std);
 
     if (!bind) {
         console.log('     ⛔ BOT HIC BAGLAMADI — olcum anlamsiz, kapi KIRMIZI.');

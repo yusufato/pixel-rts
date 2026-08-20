@@ -1,0 +1,19 @@
+{
+ "tarih": "2026-08-20",
+ "mac": 8,
+ "tohum0": 160000,
+ "somuru": {
+  "helo_harass": {
+   "guc": -10.63,
+   "std": 37.28,
+   "n": 16,
+   "bind": 12518
+  },
+  "yerel_ustunluk": {
+   "guc": 10.84,
+   "std": 24.4,
+   "n": 16,
+   "bind": 59049
+  }
+ }
+}
