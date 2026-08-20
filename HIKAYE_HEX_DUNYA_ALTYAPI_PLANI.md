@@ -721,6 +721,11 @@ fiziksel sevkiyat sözleşmesini yeniden yazmayacaktır.
 
 ### HXD-9C — 3D hikâye sunumu karar kapısı
 
+Bu fazın ayrıntılı ve bağlayıcı uygulama planı
+`HIKAYE_3D_GECIS_PLANI.md` dosyasındadır. Ana plan faz sırasını, 3D plan ise
+renderer sözleşmesini, varlık hattını, bellek bütçesini ve GO/NO-GO kapılarını
+yönetir.
+
 Simülasyon 3D motora taşınmayacak; mevcut altıgen, stok, karakter, savaş,
 lojistik ve nedensellik defterleri tek otorite kalacaktır. Denenecek şey yalnız
 `StoryRender` yerine aynı defterlerden beslenen Three.js/WebGL sunum
