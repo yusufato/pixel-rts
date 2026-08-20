@@ -1224,6 +1224,14 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - `hexGeographyProbe`, `hexWorldProbe` ve `mapRasterProbe` ayrı ayrı çıkış kodu `0` verdi. Coğrafya probu dünya durumunu değiştirmedi, aynı girdide aynı checksum'ı üretti ve runtime cache kimliğini korudu. Tam regresyon bu sidecar diliminde yeniden çalıştırılmadı.
 - HXD-0, HXD-1 ve HXD-2 tamamlandı. Sıradaki aşama **HXD-3 — 152 idarî bölgenin altıgen kümelerine kayıpsız göçü**dür.
 
+## HXD-7.4.2b — dinamik liman ve fiziksel deniz güzergâhı (`implemented`)
+
+- `SEA` başvurusu artık şehir merkezi arasında soyut çizgi üretmez. Her uç için geçerli kıyı kara hücresi ve ortak kenarlı seyredilebilir su hücresi çözülür; iki su terminali arasında gerçek altıgen deniz zinciri bulunamazsa başvuru reddedilir. Başlangıçta limanı olmayan fakat fiziksel kıyı sitesi bulunan şehir için proje yeni terminal gereksinimi taşır.
+- İki liman ev sahibi bölgesinden geçiş/kıyı kullanım kanıtı ve ayrıca liman otoritesi kanıtı zorunludur. Deniz projesi her durumda çevresel değerlendirme + azaltım kararı ister; yeni terminal ve coğrafi fallback tarama/dolgu maliyetini mekanik olarak büyütür. Genel kurum kararı, yetkili aktör, finansman, bölgesel hammadde/parça/elektronik ve işgücü kapıları LAND/RAIL ile aynıdır.
+- Aktif deniz şantiyesi haritada mavi kesikli, onaylanmış rıhtım–su yolu–rıhtım zinciriyle görünür. Süre dolduğunda makbuz liman sitelerini, otorite kanıtlarını, çevre kararını, rota hücrelerini ve tüketimi saklar. Tamamlanan SEA uçları yerleşim kaynak sözleşmesine girer; yerleşim, makro altyapı ve fiziksel segment önbellekleri bu sırayla yenilenir.
+- Gerçek Nantes–Cork kabulünde Nantes başlangıçta limansızdı. Tamamlanma Nantes kara/su terminalini üretti, SEA koridoru `20 → 21` oldu; sicil `216` SEA segmenti ve `31` `PORT_ACCESS` taşıdı, başarısız deniz koridoru `0` kaldı. Save/load sonrasında aynı liman gereksinimi ve onaylı fiziksel hücre zinciri birebir korundu.
+- HXD-7.4.2 inşa motorunun açık borcu artık oyuncu/AI başvuru ve ilerleme yüzeyidir. Sıradaki **HXD-7.4.3**, rol/yetki projeksiyonuna göre güzergâh seçimi, eksik izinlerin açıklanması, maliyet/süre önizlemesi, başlatma ve şantiye ilerlemesini UI ile eyleme açar.
+
 ## HXD-3.1 ara kabul — üyelik ve fiziksel sınır
 
 - `js/StoryHexRegions.js`, `story-hex-regions-1` salt-okunur sidecar'ıyla `152/152` eski idarî kimliği korudu. `7.517` kara/kıyı hücresinin tamamı atandı; sahipsiz hücre ve temsil edilmeyen bölge sayısı sıfırdır. Bölge kümeleri `3–459` hücre aralığındadır.

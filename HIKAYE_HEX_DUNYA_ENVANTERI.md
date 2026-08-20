@@ -240,6 +240,10 @@ Fiziksel ROAD/SEA/RAIL segmenti artık yetki, gerçek şirket veya devlet nakdi,
 
 Yeni LAND/RAIL başvurusu iki gerçek şehir çekirdeği arasında geçilebilir altıgen zincir, geçtiği bütün bölgelerden geçiş hakkı, gerekli çevre/azaltım kararı, gerçek finansman, malzeme, işgücü ve süre ister. Aktif şantiye onaylı çok-segmentli rotada görünür; kapasite yalnız tamamlanma makbuzundan sonra doğar. Ankara–İzmir kabul hattı `10` yeni fiziksel ray segmenti üretmiş, toplamı `287`ye çıkarmış ve save/load sonrasında aynı hücre zincirini korumuştur. Yeni liman/SEA başvurusu HXD-7.4.2b; oyuncu/AI başvuru yüzeyi HXD-7.4.3 borcudur.
 
+### HXD-7.4.2b dinamik liman/deniz güzergâhı envanteri
+
+SEA inşa adayı iki gerçek liman sitesini (kıyı kara hücresi + komşu seyredilebilir su hücresi) ve aralarındaki ortak-kenarlı su zincirini başvurudan önce çözer. Her iki ev sahibi bölgenin kıyı kullanım ve liman otoritesi kanıtı, çevresel değerlendirme/azaltım, kurum kararı, nakit, malzeme, işgücü ve süre olmadan kapasite doğmaz. Başlangıçta limansız Nantes–Cork kabul hattı Nantes terminalini inşa etmiş, deniz koridorlarını `20 → 21`, fiziksel SEA segmentlerini `202 → 216`, liman erişimlerini `29 → 31` yapmış; başarısız SEA hattı `0` kalmıştır. Kayıt/yükleme aynı rıhtım–su yolu–rıhtım hücre zincirini korur. Açık borç HXD-7.4.3 oyuncu/AI başvuru ve ilerleme arayüzüdür.
+
 ### HXD-6.6 fiziksel inşaat envanteri
 
 `story-hex-construction-command-1`, yeni konut/sanayi/lojistik yapımını gerçek hedef hücre, arazi kanıtı, kurum kararı, şirket escrow'u, bölgesel malzeme, ayrılmış iş gücü, süre ve çevre bedeline bağlar. Yetki veya kaynak eksikse kayıt `AWAITING_REQUIREMENTS` kalır; LLM ya da şablon onay uyduramaz. Başlayan/tamamlanan komut arazi/site siciline girer, tamamlanma makbuzu save/load içinde korunur. Sonraki envanter borcu bu kapasitenin konut, üretim ve lojistik tüketicilerine devreye alınması ile oyuncu/AI başvuru yüzeyidir.

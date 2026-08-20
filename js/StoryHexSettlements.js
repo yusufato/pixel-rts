@@ -31,6 +31,22 @@ function storyHexSettlementRequiredPortNames() {
         ? STORY_INFRASTRUCTURE_SEA_LINKS : [])) {
         for (const name of pair || []) names.add(String(name));
     }
+    // HXD-7.4.2b: A commissioned player/AI sea corridor is also a durable
+    // port requirement.  Keeping this in the settlement source contract makes
+    // port terminals rebuild deterministically after save/load; the route is
+    // never represented by a macro-only line whose endpoint has no quay.
+    const routes = typeof STORY !== 'undefined' && STORY.infrastructureWorks
+        && Array.isArray(STORY.infrastructureWorks.routes)
+        ? STORY.infrastructureWorks.routes : [];
+    const cities = typeof GEO_CITIES !== 'undefined' ? GEO_CITIES : [];
+    for (const route of routes) {
+        if (!route || String(route.mode).toUpperCase() !== 'SEA') continue;
+        for (const regionId of [route.fromRegionId, route.toRegionId]) {
+            const match = /^region:(\d+)$/.exec(String(regionId || ''));
+            const city = match && cities[Number(match[1])];
+            if (city && city.name != null) names.add(String(city.name));
+        }
+    }
     return names;
 }
 

@@ -1481,8 +1481,8 @@ function storyDrawInfrastructureRouteConstructionOverlay(ctx, farMap) {
             const point = storyW2S(Number(world.centerX[cellIndex]), Number(world.centerY[cellIndex]));
             if (!index) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y);
         });
-        ctx.strokeStyle = command.mode === 'RAIL'
-            ? 'rgba(255,184,55,.94)' : 'rgba(238,138,42,.9)';
+        ctx.strokeStyle = command.mode === 'RAIL' ? 'rgba(255,184,55,.94)'
+            : command.mode === 'SEA' ? 'rgba(72,205,231,.94)' : 'rgba(238,138,42,.9)';
         ctx.lineWidth = farMap ? 2 : 3.5;
         if (typeof ctx.setLineDash === 'function') ctx.setLineDash(farMap ? [3, 3] : [7, 4]);
         ctx.stroke();

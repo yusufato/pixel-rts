@@ -16,13 +16,16 @@ const STORY_INFRA_WORK_POLICY = Object.freeze({
     SEA: Object.freeze({ cash: 70, materials: Object.freeze({ raw_materials: 12, industrial_parts: 10, electronics: 1 }), workforce: 40, durationDays: 35 }),
     RAIL: Object.freeze({ cash: 55, materials: Object.freeze({ raw_materials: 10, industrial_parts: 9, electronics: 1 }), workforce: 32, durationDays: 28 })
 });
-const STORY_INFRA_ROUTE_MODES = Object.freeze(['LAND', 'RAIL']);
+const STORY_INFRA_ROUTE_MODES = Object.freeze(['LAND', 'SEA', 'RAIL']);
 const STORY_INFRA_ROUTE_POLICY = Object.freeze({
     LAND: Object.freeze({ cashPerEdge: 16, rawPerEdge: 3, partsPerEdge: 2,
         workforcePerEdge: 7, daysPerEdge: 4, bridgeCash: 18, tunnelCash: 34 }),
     RAIL: Object.freeze({ cashPerEdge: 25, rawPerEdge: 4, partsPerEdge: 4,
         electronicsPerEdge: .25, workforcePerEdge: 10, daysPerEdge: 6,
-        bridgeCash: 28, tunnelCash: 50 })
+        bridgeCash: 28, tunnelCash: 50 }),
+    SEA: Object.freeze({ cashPerEdge: 12, rawPerEdge: 2, partsPerEdge: 2,
+        electronicsPerEdge: .15, workforcePerEdge: 5, daysPerEdge: 3,
+        portCash: 90, dredgingCash: 45 })
 });
 
 function storyInfrastructureWorkClone(value) {
@@ -55,7 +58,9 @@ function storyInfrastructureRouteContext(options) {
         settlements: opts.settlements || (typeof storyHexSettlementsEnsure === 'function' ? storyHexSettlementsEnsure() : null),
         natural: opts.natural || (typeof storyHexNaturalResourcesEnsure === 'function' ? storyHexNaturalResourcesEnsure() : null),
         graph: opts.graph || (typeof storyInfrastructureEnsure === 'function' ? storyInfrastructureEnsure() : null),
-        findLandPath: opts.findLandPath || (typeof storyHexRoadFindPath === 'function' ? storyHexRoadFindPath : null)
+        findLandPath: opts.findLandPath || (typeof storyHexRoadFindPath === 'function' ? storyHexRoadFindPath : null),
+        findSeaPath: opts.findSeaPath || (typeof storyHexInfrastructureFindSeaPath === 'function'
+            ? storyHexInfrastructureFindSeaPath : null)
     };
 }
 
@@ -79,6 +84,39 @@ function storyInfrastructureRouteSegmentKind(mode, geography, a, b) {
     return mode === 'RAIL' ? (base === 'ROAD' ? 'RAIL_TRACK' : `RAIL_${base}`) : base;
 }
 
+function storyInfrastructureRoutePortCandidate(context, cityId) {
+    if (!context || !context.world || !context.geography || !context.settlements) return null;
+    const settlements = context.settlements;
+    const existing = Number(settlements.portTerminalIds[cityId]) >= 0
+        && Number(settlements.portLandCellIndices[cityId]) >= 0
+        && Number(settlements.portWaterCellIndices[cityId]) >= 0;
+    if (existing) return {
+        cityId, existing: true,
+        landIndex: Number(settlements.portLandCellIndices[cityId]),
+        waterIndex: Number(settlements.portWaterCellIndices[cityId]),
+        hostRegionId: Number(settlements.portHostRegionIds[cityId]),
+        fallback: !!Number(settlements.portFallbackFlags[cityId]), distance: 0
+    };
+    const cities = typeof GEO_CITIES !== 'undefined' ? GEO_CITIES : [];
+    const city = cities[cityId];
+    if (!city || typeof storyHexSettlementNearestPort !== 'function') return null;
+    const x = Number(city.x) / Number(GEO.W) * context.world.width;
+    const y = Number(city.y) / Number(GEO.H) * context.world.height;
+    const local = storyHexSettlementNearestPort(context.world, context.geography, cityId, x, y);
+    const fallback = local ? null
+        : storyHexSettlementNearestPort(context.world, context.geography, null, x, y);
+    const selected = local || fallback;
+    if (!selected) return null;
+    const distance = Math.sqrt(selected.distanceSq);
+    const maxFallback = typeof STORY_HEX_SETTLEMENT_PORT_FALLBACK_MAX_DISTANCE !== 'undefined'
+        ? STORY_HEX_SETTLEMENT_PORT_FALLBACK_MAX_DISTANCE : 128.8;
+    if (!local && distance > maxFallback) return null;
+    return { cityId, existing: false, landIndex: selected.landIndex,
+        waterIndex: selected.waterIndex,
+        hostRegionId: Number(context.geography.regionIds[selected.landIndex]),
+        fallback: !local, distance };
+}
+
 function storyInfrastructureRouteCandidate(spec, options) {
     spec = spec || {};
     const context = storyInfrastructureRouteContext(options);
@@ -89,32 +127,61 @@ function storyInfrastructureRouteCandidate(spec, options) {
     const to = storyInfrastructureRouteRegionNumber(toRegionId);
     const blocks = [];
     if (!STORY_INFRA_ROUTE_MODES.includes(mode)) blocks.push('ROUTE_MODE_UNSUPPORTED');
-    if (!context.world || !context.geography || !context.settlements || !context.findLandPath) {
+    const routeFinderAvailable = mode === 'SEA' ? context.findSeaPath : context.findLandPath;
+    if (!context.world || !context.geography || !context.settlements || !routeFinderAvailable) {
         blocks.push('HEX_CONTEXT_UNAVAILABLE');
     }
     if (from < 0 || to < 0 || from === to) blocks.push('ROUTE_ENDPOINT_INVALID');
-    const start = context.settlements && Number(context.settlements.coreCellIndices[from]);
-    const end = context.settlements && Number(context.settlements.coreCellIndices[to]);
-    const path = blocks.includes('HEX_CONTEXT_UNAVAILABLE') || !Number.isInteger(start)
+    const ports = mode === 'SEA' && !blocks.includes('HEX_CONTEXT_UNAVAILABLE')
+        ? [storyInfrastructureRoutePortCandidate(context, from),
+            storyInfrastructureRoutePortCandidate(context, to)] : [];
+    if (mode === 'SEA' && ports.some(port => !port)) blocks.push('PORT_SITE_UNAVAILABLE');
+    const start = mode === 'SEA' ? ports[0] && ports[0].waterIndex
+        : context.settlements && Number(context.settlements.coreCellIndices[from]);
+    const end = mode === 'SEA' ? ports[1] && ports[1].waterIndex
+        : context.settlements && Number(context.settlements.coreCellIndices[to]);
+    const routePath = blocks.includes('HEX_CONTEXT_UNAVAILABLE') || !Number.isInteger(start)
         || !Number.isInteger(end) ? []
-        : context.findLandPath(context.world, context.geography, start, end);
+        : routeFinderAvailable(context.world, context.geography, start, end);
+    const path = mode === 'SEA' && routePath.length && ports.every(Boolean)
+        ? [ports[0].landIndex, ...routePath, ports[1].landIndex] : routePath;
     if (!path.length) blocks.push('NO_PHYSICAL_ROUTE');
     const endpointKey = [fromRegionId, toRegionId].sort().join('|');
     const duplicate = context.graph && context.graph.corridors.some(corridor =>
         corridor.mode === mode && corridor.endpointRegionIds.slice().sort().join('|') === endpointKey);
     if (duplicate) blocks.push('ROUTE_ALREADY_EXISTS');
     const kinds = [];
-    for (let index = 1; index < path.length; index++) {
-        kinds.push(storyInfrastructureRouteSegmentKind(mode, context.geography,
-            path[index - 1], path[index]));
+    if (mode === 'SEA' && routePath.length) {
+        kinds.push('PORT_ACCESS');
+        for (let index = 1; index < routePath.length; index++) {
+            kinds.push(typeof storyHexInfrastructureSeaSegmentKind === 'function'
+                ? storyHexInfrastructureSeaSegmentKind(context.world, context.geography,
+                    routePath[index - 1], routePath[index]) : 'SEA_LANE');
+        }
+        kinds.push('PORT_ACCESS');
+    } else {
+        for (let index = 1; index < path.length; index++) {
+            kinds.push(storyInfrastructureRouteSegmentKind(mode, context.geography,
+                path[index - 1], path[index]));
+        }
     }
-    const crossedRegionIds = Array.from(new Set(path.map(index =>
-        Number(context.geography.regionIds[index])).filter(Number.isInteger)
-        .filter(id => id >= 0).map(id => `region:${id}`))).sort();
+    const crossedRegionIds = mode === 'SEA'
+        ? Array.from(new Set(ports.filter(Boolean).map(port => port.hostRegionId)
+            .filter(id => id >= 0).map(id => `region:${id}`))).sort()
+        : Array.from(new Set(path.map(index => Number(context.geography.regionIds[index]))
+            .filter(Number.isInteger).filter(id => id >= 0)
+            .map(id => `region:${id}`))).sort();
     const rightOfWay = spec.rightOfWay || {};
     const evidence = rightOfWay.evidenceByRegion || {};
     for (const regionId of crossedRegionIds) {
         if (!String(evidence[regionId] || '')) blocks.push(`RIGHT_OF_WAY_REQUIRED:${regionId}`);
+    }
+    const portAuthority = spec.portAuthority || {};
+    const portEvidence = portAuthority.evidenceByRegion || {};
+    if (mode === 'SEA') {
+        for (const regionId of crossedRegionIds) {
+            if (!String(portEvidence[regionId] || '')) blocks.push(`PORT_AUTHORITY_REQUIRED:${regionId}`);
+        }
     }
     const forestCode = typeof STORY_HEX_NATURAL_COVER_NAMES !== 'undefined'
         ? STORY_HEX_NATURAL_COVER_NAMES.indexOf('FOREST') : -1;
@@ -123,7 +190,7 @@ function storyInfrastructureRouteCandidate(spec, options) {
     const bridgeCount = kinds.filter(kind => String(kind).includes('BRIDGE')).length;
     const tunnelCount = kinds.filter(kind => String(kind).includes('TUNNEL')).length;
     const environmental = spec.environmentalAssessment || {};
-    if ((forestCellCount || bridgeCount || tunnelCount)
+    if ((mode === 'SEA' || forestCellCount || bridgeCount || tunnelCount)
         && (!String(environmental.assessmentId || '') || !String(environmental.mitigationId || ''))) {
         blocks.push('ENVIRONMENTAL_ASSESSMENT_REQUIRED');
     }
@@ -137,6 +204,9 @@ function storyInfrastructureRouteCandidate(spec, options) {
         mode, fromRegionId, toRegionId, startCellIndex: start, endCellIndex: end,
         pathCellIndices: path.slice(), segmentKinds: kinds,
         crossedRegionIds, forestCellCount, bridgeCount, tunnelCount,
+        portSites: ports.map(port => port && Object.assign({}, port)),
+        portAuthority: { evidenceByRegion: Object.assign({}, portEvidence),
+            dredgingPermitId: String(portAuthority.dredgingPermitId || '') },
         rightOfWay: { evidenceByRegion: Object.assign({}, evidence),
             compensationCash: Math.max(0, Number(rightOfWay.compensationCash) || 0) },
         environmentalAssessment: {
@@ -158,8 +228,15 @@ function storyInfrastructureRouteRequirements(candidate) {
     const policy = candidate && STORY_INFRA_ROUTE_POLICY[candidate.mode];
     if (!policy || !candidate.pathCellIndices.length) return null;
     const edges = Math.max(1, candidate.pathCellIndices.length - 1);
+    const newPortCount = candidate.mode === 'SEA'
+        ? candidate.portSites.filter(port => port && !port.existing).length : 0;
+    const fallbackPortCount = candidate.mode === 'SEA'
+        ? candidate.portSites.filter(port => port && port.fallback).length : 0;
     const cash = Math.ceil(edges * policy.cashPerEdge
-        + candidate.bridgeCount * policy.bridgeCash + candidate.tunnelCount * policy.tunnelCash
+        + candidate.bridgeCount * (policy.bridgeCash || 0)
+        + candidate.tunnelCount * (policy.tunnelCash || 0)
+        + newPortCount * (policy.portCash || 0)
+        + fallbackPortCount * (policy.dredgingCash || 0)
         + candidate.rightOfWay.compensationCash + candidate.environmentalAssessment.restorationCash);
     const materials = {
         raw_materials: Math.ceil(edges * policy.rawPerEdge),
@@ -169,7 +246,8 @@ function storyInfrastructureRouteRequirements(candidate) {
         Math.ceil(edges * policy.electronicsPerEdge));
     return { cash, materials,
         workforce: Math.ceil(edges * policy.workforcePerEdge),
-        durationDays: Math.ceil(edges * policy.daysPerEdge), edgeCount: edges };
+        durationDays: Math.ceil(edges * policy.daysPerEdge), edgeCount: edges,
+        newPortCount, fallbackPortCount };
 }
 
 function storyInfrastructureRouteCorridorDefinitions() {
@@ -602,6 +680,8 @@ function storyInfrastructureWorkTick(worldDays, options) {
             crossedRegionIds: command.crossedRegionIds.slice(),
             rightOfWay: storyInfrastructureWorkClone(command.rightOfWay),
             environmentalAssessment: storyInfrastructureWorkClone(command.environmentalAssessment),
+            portSites: storyInfrastructureWorkClone(command.portSites || []),
+            portAuthority: storyInfrastructureWorkClone(command.portAuthority || {}),
             consumed: storyInfrastructureWorkClone(command.resourceReservation),
             permissionDecisionId: command.permission.decisionId,
             completedAt: typeof STORY !== 'undefined' ? Number(STORY.clock) || 0 : 0
@@ -611,6 +691,7 @@ function storyInfrastructureWorkTick(worldDays, options) {
             corridorId, receiptId: receipt.id, mode: command.mode,
             fromRegionId: command.fromRegionId, toRegionId: command.toRegionId,
             pathCellIndices: command.pathCellIndices.slice(),
+            portSites: storyInfrastructureWorkClone(command.portSites || []),
             commissionedAt: receipt.completedAt
         };
         ledger.routes.push(route); ledger.receipts.push(receipt);
@@ -623,6 +704,10 @@ function storyInfrastructureWorkTick(worldDays, options) {
         if (typeof STORY !== 'undefined') STORY._networkLayerKey = null;
     }
     if (completedRoutes.length && typeof storyInfrastructureReset === 'function') {
+        if (completedRoutes.some(receipt => receipt.mode === 'SEA')) {
+            if (typeof storyHexSettlementsResetCache === 'function') storyHexSettlementsResetCache();
+            if (typeof STORY !== 'undefined') STORY._hexRoadRegistry = null;
+        }
         storyInfrastructureReset({ generatedAt: typeof STORY !== 'undefined' ? Number(STORY.clock) || 0 : 0 });
         if (typeof storyHexInfrastructureReset === 'function') storyHexInfrastructureReset();
     }
