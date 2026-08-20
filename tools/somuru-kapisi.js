@@ -36,7 +36,12 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const MAC = Math.max(1, Number(arg('--mac', 8)) || 8);
 const TOHUM0 = Number(arg('--tohum0', 160000)) || 160000;
 const TABAN_YAZ = process.argv.includes('--taban-yaz');
-const HAVUZ = String(arg('--havuz', 'helo_harass,yerel_ustunluk'))
+/* ⚠ 'yerel_ustunluk' VARSAYILAN HAVUZDA DEGIL: kalibrasyon sinavini GECEMEDI
+   (tools/somurucu-kalibrasyon.js). Insanin imzasi 7.4:1; bot en seciki halinde 3.11'e
+   cikiyor ve o noktada AI'nin sagkalimi %4 -> %81 firliyor, yani bot maci hediye ediyor.
+   Kalibre olmayan bota karsi alinan sonuc AI'i degil BOTU olcer. --havuz ile acikca
+   istenirse kosar. */
+const HAVUZ = String(arg('--havuz', 'helo_harass'))
     .split(',').map((x) => x.trim()).filter(Boolean);
 const TABAN_YOL = path.join(__dirname, '..', 'docs', 'kayit', 'somuru-taban.json');
 

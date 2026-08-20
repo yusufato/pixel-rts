@@ -288,3 +288,34 @@ tabanın altında kalıyor ama **AI marjı −3659** — normal kapı tabanımı
 ⚠ **Metodolojik not:** hangi metriğin daha keskin olduğu **sömürücüye göre değişiyor**.
 Bu yüzden kapı artık ikisini de tam istatistikle yazıyor — sonradan "hangisine bakalım"
 diye seçim yapmak (post-hoc) engellensin diye.
+
+
+### ⛔ `yerel_ustunluk` KALİBRASYON SINAVINI GEÇEMEDİ — havuzdan çıkarıldı
+
+Deponun kendi kuralı: *"sömürücü kullanıcının imzasını TAKLİT etmeli; yeterince iyi
+değilse önce BOTU düzeltiriz, sonra AI'ı ölçeriz."* `tools/somurucu-kalibrasyon.js`
+tam bu soruyu soruyor: **bot vurulduğunda çevresinde kaç dost / kaç düşman var?**
+
+Hedef (insan, ölçülmüş): **8,9 / 1,2 = 7,4:1** · Kıyas (AI): 6,9 / 3,4 = 2,0:1
+
+| eşik (`EXP_YU_ORAN`) | botun eriştiği oran | kod-AI sağkalımı | kod-AI marjı |
+|---|---|---|---|
+| 3,0 | 2,61 | %15,5 → %30,4 | −2331 → −1880 |
+| 5,0 | 2,38 | %4,0 → **%45,8** | −2858 → +200 |
+| 8,0 | **3,11** | %4,0 → **%81,4** | −2858 → **+1037** |
+
+Eşiği yükseltmek botu daha seçici yapıyor (2,38 → 3,11) ama **AI'ya maçı hediye ediyor**.
+En seçici hâlinde bile insanın 7,4'üne ulaşamıyor.
+
+**Kök sebep:** insanın yerel üstünlüğü **temastan kaçınarak** elde edilemiyor. İnsan onu
+*manevrayla* kuruyor: kütleyi düşmanın olmadığı yere yığıp oradan vuruyor. Kaynak belge
+zaten uyarmıştı: *"oran tek başına yeterli değil, gerekli görünüyor."*
+
+**⭐ YAKINSAMA — aynı duvara ikinci kez çarpıldı.** Karşı-plan halkası da, bu sömürücü de
+aynı şeyi istiyor: *kütleyi topla, zayıf noktaya vur.* Motorun birim-başına eylem uzayı
+bunu ifade edemiyor. İki bağımsız yönden aynı sonuca varmak, bunun tesadüf değil
+**yapısal** olduğunu söylüyor.
+
+**Yapılan:** bot silinmedi (belgeli ve çalışır) ama kapının **varsayılan havuzundan
+çıkarıldı** ve tabanda `kalibre: false` damgası taşıyor. Kalibre olmayan bota karşı
+alınan sonuç AI'ı değil BOTU ölçer.

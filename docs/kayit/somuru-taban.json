@@ -7,13 +7,16 @@
    "guc": -10.63,
    "std": 37.28,
    "n": 16,
-   "bind": 12518
+   "bind": 12518,
+   "kalibre": true
   },
   "yerel_ustunluk": {
    "guc": 10.84,
    "std": 24.4,
    "n": 16,
-   "bind": 59049
+   "bind": 59049,
+   "kalibre": false,
+   "not": "KALIBRE DEGIL: erisilen oran 3.11, insan imzasi 7.4; esik yukseltince AI sagkalimi %4->%81. Kapida KULLANILMAZ."
   }
  }
 }
