@@ -189,6 +189,8 @@ function storyCityDossierPanelRevision(node, surface, active) {
     if (active === 'tarih' || active === 'lojistik') {
         parts.push(`cause:${STORY.causality && Number(STORY.causality.nextSequence) || 0}`);
     }
+    if (active === 'lojistik') parts.push(`infraWork:${STORY.infrastructureWorks
+        && Number(STORY.infrastructureWorks.revision) || 0}`);
     if (active === 'tarih') parts.push(`age:${Math.floor(Number(STORY.clock) || 0)}`);
     return parts.join('|');
 }
@@ -1072,6 +1074,58 @@ function storyEconomyRenderOverview(view) {
     return html + `</section>`;
 }
 
+function storyCityDossierRenderInfrastructureProjects(view) {
+    if (!view.isOwn || typeof storyInfrastructureRoutePlayerView !== 'function') return '';
+    const project = storyInfrastructureRoutePlayerView(view.regionId);
+    const reason = { EXECUTIVE_ROLE_REQUIRED: 'Devlet güzergâhını doğrudan başlatmak için yürütme rolü gerekir.',
+        REGION_OUTSIDE_PLAYER_JURISDICTION: 'Bu bölge senin yönetim alanında değil.',
+        PLAYER_ACTOR_UNAVAILABLE: 'Oyuncu karakter makamı doğrulanamadı.' };
+    const status = { AUTHORIZED: 'BAŞLAMAYA HAZIR', IN_PROGRESS: 'İNŞA EDİLİYOR',
+        COMPLETED: 'TAMAMLANDI', CANCELLED: 'İPTAL EDİLDİ' };
+    let actions = '';
+    if (!project.allowed) {
+        actions = `<div class="city-dossier-empty"><b>GÜZERGÂH BAŞLATMA YETKİSİ YOK</b>`
+            + `<span>${storyCityDossierEscape(reason[project.lockedReason] || project.lockedReason)}</span></div>`;
+    } else if (project.draft) {
+        const draft = project.draft, req = draft.requirements || {};
+        const blocks = draft.candidate && draft.candidate.blockReasons || [];
+        const resourceBlocks = draft.resourceBlocks || [];
+        const resourceBlockText = resourceBlocks.map(block => {
+            const resource = block.resourceId
+                ? (STORY_DOSSIER_RESOURCE_LABELS[block.resourceId] || block.resourceId)
+                : block.code === 'ROUTE_CASH_UNAVAILABLE' ? 'NAKİT' : 'İŞGÜCÜ';
+            return `${resource}: gereken ${storyCityDossierNumber(block.required)}, mevcut ${storyCityDossierNumber(block.available)}`;
+        });
+        actions = `<div class="city-construction-draft"><b>${storyCityDossierEscape(draft.mode)} · ${storyCityDossierEscape(storyCityDossierRegionName(draft.toRegionId))}</b>`
+            + `<span>${storyCityDossierNumber(req.edgeCount)} kenar · ${storyCityDossierNumber(req.durationDays)} gün · ${storyCityDossierNumber(req.cash)} devlet kredisi · ${storyCityDossierNumber(req.workforce)} çalışan</span>`
+            + `<span>Malzeme: ${Object.entries(req.materials || {}).map(([id, amount]) => `${storyCityDossierEscape(STORY_DOSSIER_RESOURCE_LABELS[id] || id)} ${storyCityDossierNumber(amount)}`).join(' · ')}</span>`
+            + (blocks.length ? `<span>ENGEL: ${blocks.map(storyCityDossierEscape).join(' · ')}</span>` : '')
+            + (resourceBlockText.length ? `<span>KAYNAK EKSİĞİ: ${resourceBlockText.map(storyCityDossierEscape).join(' · ')}</span>` : '')
+            + `<div class="city-construction-actions"><button class="city-btn infrastructure-route-submit" ${blocks.length || resourceBlocks.length ? 'disabled' : ''}>PROJEYİ BAŞLAT</button>`
+            + `<button class="city-btn infrastructure-route-cancel">VAZGEÇ</button></div></div>`;
+    } else {
+        actions = `<div class="city-construction-draft"><b>YENİ FİZİKSEL GÜZERGÂH</b>`
+            + `<span>Önce ulaşım türünü, sonra yakın hedefi seç.</span><div class="city-construction-actions">`
+            + ['LAND', 'RAIL', 'SEA'].map(mode => `<button class="city-btn infrastructure-route-mode${project.selectedMode === mode ? ' active' : ''}" data-mode="${mode}" data-from="${storyCityDossierEscape(view.regionId)}">${mode}</button>`).join('')
+            + `</div>` + (project.selectedMode ? `<div class="city-construction-actions">`
+                + project.destinations.slice(0, 10).map(destination =>
+                    `<button class="city-btn infrastructure-route-select" data-mode="${storyCityDossierEscape(project.selectedMode)}" data-from="${storyCityDossierEscape(view.regionId)}" data-to="${storyCityDossierEscape(destination.regionId)}">${storyCityDossierEscape(destination.name)}</button>`).join('')
+                + `</div>` : '')
+            + `</div>`;
+    }
+    const rows = project.commands.map(command => {
+        const duration = Number(command.requirements && command.requirements.durationDays) || 1;
+        const progress = Math.max(0, Math.min(100,
+            Math.round((1 - Number(command.remainingDays) / duration) * 100)));
+        const other = command.fromRegionId === view.regionId ? command.toRegionId : command.fromRegionId;
+        return `<div><span>${storyCityDossierEscape(command.mode)} · ${storyCityDossierEscape(storyCityDossierRegionName(other))}</span>`
+            + `<b>${storyCityDossierEscape(status[command.status] || command.status)}</b>`
+            + `<small>%${progress} · ${storyCityDossierNumber(command.remainingDays)} gün</small></div>`;
+    }).join('');
+    return `<section class="city-dossier-sec"><h3>YENİ ALTYAPI PROJESİ</h3>${actions}`
+        + (rows ? `<div class="city-fact-grid">${rows}</div>` : '') + `</section>`;
+}
+
 function storyCityDossierRenderLogistics(view) {
     if (!view.isOwn) {
         return `<section class="city-dossier-empty"><b>ALTYAPI İSTİHBARATI YOK</b>`
@@ -1519,7 +1573,8 @@ function storyEconomyRender(view, active) {
         if (active === 'butce') content = storyCityDossierRenderBudget(view);
         else if (active === 'sirketler') content = storyCityDossierRenderCompanies(view);
         else if (active === 'piyasa') content = storyCityDossierRenderMarket(view);
-        else if (active === 'lojistik') content = storyCityDossierRenderLogistics(view);
+        else if (active === 'lojistik') content = storyCityDossierRenderInfrastructureProjects(view)
+            + storyCityDossierRenderLogistics(view);
         else if (active === 'fraksiyonlar') {
             const match = /^country:(-?\d+)$/.exec(String(view.ownerId || ''));
             const ownerState = match && typeof storyState === 'function' ? storyState(Number(match[1])) : null;

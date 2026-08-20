@@ -1232,6 +1232,14 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Gerçek Nantes–Cork kabulünde Nantes başlangıçta limansızdı. Tamamlanma Nantes kara/su terminalini üretti, SEA koridoru `20 → 21` oldu; sicil `216` SEA segmenti ve `31` `PORT_ACCESS` taşıdı, başarısız deniz koridoru `0` kaldı. Save/load sonrasında aynı liman gereksinimi ve onaylı fiziksel hücre zinciri birebir korundu.
 - HXD-7.4.2 inşa motorunun açık borcu artık oyuncu/AI başvuru ve ilerleme yüzeyidir. Sıradaki **HXD-7.4.3**, rol/yetki projeksiyonuna göre güzergâh seçimi, eksik izinlerin açıklanması, maliyet/süre önizlemesi, başlatma ve şantiye ilerlemesini UI ile eyleme açar.
 
+## HXD-7.4.3a — oyuncu altyapı proje yüzeyi (`implemented-first-vertical`)
+
+- Ekonomi panelinin `LOJİSTİK` sekmesi artık yalnız koridor verisi okumuyor. Yürütme rolü önce LAND/RAIL/SEA türünü, sonra en yakın yerli hedeflerden birini seçerek fiziksel güzergâh taslağı açabilir. Bilgi kalabalığı yaratmamak için 30 birleşik seçenek yerine iki kademeli `3 mod → en fazla 10 hedef` akışı kullanılır.
+- Taslak gerçek hex kenar sayısını, süreyi, devlet kredisi maliyetini, işgücünü, malzeme kalemlerini, yeni liman sayısını ve fiziksel/yetkisel engelleri gösterir. Devlet nakdi, bölgesel stok ve ayrılabilir işgücü de başlatma tıklamasından önce ölçülür; eksik kaynak kalem/gerçek mevcut/gereken miktarla görünür ve düğme kapalı kalır.
+- Komutan, ajan ve şirket rolüne yürütme imzası veya devlet bütçesi uydurulmaz. Yabancı bölgeden geçen rota otomatik hak üretmez; `FOREIGN_RIGHT_OF_WAY_REQUIRED` ile bloke olur. Yürütmenin kendi ülkesindeki rota gerçek iş emrine ve şantiyeye girer; açık emirlerin yüzde ilerlemesi, kalan günü ve durumu aynı panelde görünür.
+- Runtime kabulünde varsayılan komutan rolü `EXECUTIVE_ROLE_REQUIRED` ile kilitlendi; yürütme Ankara çıkışında `24` yerli hedef gördü. Ankara–İzmir RAIL taslağı `10` kenar, `60` gün, `250` devlet kredisi, `100` işçi olarak hesaplandı; gerçek bölgesel hammadde/parça açıkları başlatmadan önce gösterildi.
+- Açık HXD-7.4.3 borcu: şirket rolünün teklif/escrow başvurusu ve yürütme onayı, yabancı geçiş hakkının diplomasi/sohbet kararıyla edinilmesi, hedef arama/filtre, AI başvurularının aynı API'den geçmesi ve gerçek Electron ekran kabulü. Bunlar kapanmadan HXD-7.4.3 bütünü tamamlandı sayılmaz.
+
 ## HXD-3.1 ara kabul — üyelik ve fiziksel sınır
 
 - `js/StoryHexRegions.js`, `story-hex-regions-1` salt-okunur sidecar'ıyla `152/152` eski idarî kimliği korudu. `7.517` kara/kıyı hücresinin tamamı atandı; sahipsiz hücre ve temsil edilmeyen bölge sayısı sıfırdır. Bölge kümeleri `3–459` hücre aralığındadır.

@@ -893,6 +893,15 @@ function createRuntime(seed) {
             infrastructureNetworkHash: corridors => storyInfrastructureNetworkHash(corridors),
             infrastructureWorkLedger: () => storyInfrastructureWorkForSave(),
             infrastructureRouteCandidate: spec => storyInfrastructureRouteCandidate(spec),
+            infrastructureRoutePlayerView: regionId => storyInfrastructureRoutePlayerView(regionId),
+            infrastructureRoutePlayerChooseMode: (regionId, mode) =>
+                storyInfrastructureRoutePlayerChooseMode(regionId, mode),
+            infrastructureRoutePlayerSelect: (fromRegionId, toRegionId, mode) =>
+                storyInfrastructureRoutePlayerSelect(fromRegionId, toRegionId, mode),
+            infrastructureRoutePlayerSubmitDraft: () => storyInfrastructureRoutePlayerSubmitDraft(),
+            infrastructureRoutePlayerCancelDraft: () => storyInfrastructureRoutePlayerCancelDraft(),
+            infrastructureRouteProjectHtml: nodeId =>
+                storyCityDossierRenderInfrastructureProjects(storyCityDossierBuild(Number(nodeId))),
             infrastructureRouteReserveAndSubmit: (spec, options) =>
                 storyInfrastructureRouteReserveAndSubmit(spec, options),
             infrastructureRouteStart: (commandId, options) =>

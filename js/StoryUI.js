@@ -1460,6 +1460,32 @@ function storyInit() {
     });
     document.getElementById('economy-body')?.addEventListener('click', (e) => {
         const button = e.target.closest('button'); if (!button || button.disabled) return;
+        if (button.classList.contains('infrastructure-route-mode')) {
+            const result = typeof storyInfrastructureRoutePlayerChooseMode === 'function'
+                ? storyInfrastructureRoutePlayerChooseMode(button.dataset.from, button.dataset.mode)
+                : { ok: false, code: 'INFRASTRUCTURE_ROUTE_UI_UNAVAILABLE' };
+            if (!result.ok && typeof storyFlash === 'function') storyFlash(`Ulaşım türü seçilemedi: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('infrastructure-route-select')) {
+            const result = typeof storyInfrastructureRoutePlayerSelect === 'function'
+                ? storyInfrastructureRoutePlayerSelect(button.dataset.from, button.dataset.to, button.dataset.mode)
+                : { ok: false, code: 'INFRASTRUCTURE_ROUTE_UI_UNAVAILABLE' };
+            if (!result.ok && typeof storyFlash === 'function') storyFlash(`Güzergâh taslağı açılamadı: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('infrastructure-route-cancel')) {
+            if (typeof storyInfrastructureRoutePlayerCancelDraft === 'function') storyInfrastructureRoutePlayerCancelDraft();
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
+        if (button.classList.contains('infrastructure-route-submit')) {
+            const result = typeof storyInfrastructureRoutePlayerSubmitDraft === 'function'
+                ? storyInfrastructureRoutePlayerSubmitDraft()
+                : { ok: false, code: 'INFRASTRUCTURE_ROUTE_UI_UNAVAILABLE' };
+            if (typeof storyFlash === 'function') storyFlash(result.ok
+                ? 'Fiziksel güzergâh şantiyesi başladı.' : `Güzergâh başlatılamadı: ${result.code}`);
+            return (typeof storyEconomyUpdate === 'function') && storyEconomyUpdate();
+        }
         if (button.classList.contains('hex-construction-begin')) {
             const view = STORY._economyView;
             const result = typeof storyHexConstructionPlayerBegin === 'function'

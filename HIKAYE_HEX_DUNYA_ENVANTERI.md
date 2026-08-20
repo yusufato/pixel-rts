@@ -244,6 +244,10 @@ Yeni LAND/RAIL başvurusu iki gerçek şehir çekirdeği arasında geçilebilir 
 
 SEA inşa adayı iki gerçek liman sitesini (kıyı kara hücresi + komşu seyredilebilir su hücresi) ve aralarındaki ortak-kenarlı su zincirini başvurudan önce çözer. Her iki ev sahibi bölgenin kıyı kullanım ve liman otoritesi kanıtı, çevresel değerlendirme/azaltım, kurum kararı, nakit, malzeme, işgücü ve süre olmadan kapasite doğmaz. Başlangıçta limansız Nantes–Cork kabul hattı Nantes terminalini inşa etmiş, deniz koridorlarını `20 → 21`, fiziksel SEA segmentlerini `202 → 216`, liman erişimlerini `29 → 31` yapmış; başarısız SEA hattı `0` kalmıştır. Kayıt/yükleme aynı rıhtım–su yolu–rıhtım hücre zincirini korur. Açık borç HXD-7.4.3 oyuncu/AI başvuru ve ilerleme arayüzüdür.
 
+### HXD-7.4.3a oyuncu proje yüzeyi envanteri
+
+Ekonomi/lojistik yüzeyi yürütme rolüne iki aşamalı mod→hedef seçimi, gerçek hex rota/maliyet/süre/malzeme önizlemesi, tıklama öncesi nakit-stok-işgücü kapısı ve açık şantiye ilerlemesi verir. Diğer roller kilit nedenini görür; yabancı geçiş hakkı uydurulmaz. Ankara–İzmir RAIL UI kabulü `10` kenar / `60` gün / `250` kredi / `100` işçi üretti ve gerçek hammadde-parça açıklarını submit öncesinde yakaladı. Şirket başvurusu, diplomatik geçiş izni, AI tüketicisi ve Electron görsel kabulü açık borçtur.
+
 ### HXD-6.6 fiziksel inşaat envanteri
 
 `story-hex-construction-command-1`, yeni konut/sanayi/lojistik yapımını gerçek hedef hücre, arazi kanıtı, kurum kararı, şirket escrow'u, bölgesel malzeme, ayrılmış iş gücü, süre ve çevre bedeline bağlar. Yetki veya kaynak eksikse kayıt `AWAITING_REQUIREMENTS` kalır; LLM ya da şablon onay uyduramaz. Başlayan/tamamlanan komut arazi/site siciline girer, tamamlanma makbuzu save/load içinde korunur. Sonraki envanter borcu bu kapasitenin konut, üretim ve lojistik tüketicilerine devreye alınması ile oyuncu/AI başvuru yüzeyidir.

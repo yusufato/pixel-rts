@@ -354,6 +354,154 @@ function storyInfrastructureRouteStart(commandId, options) {
     return { ok: true, command: storyInfrastructureWorkClone(command) };
 }
 
+function storyInfrastructureRoutePlayerActor() {
+    if (typeof STORY === 'undefined' || !STORY.commander) return null;
+    return {
+        actorId: `character:${Number(STORY.playerStateId)}:${Number(STORY.commander.id)}`,
+        countryId: `country:${Number(STORY.playerStateId)}`,
+        role: String(STORY.commander.creationRole || STORY.playerRole || 'COMMANDER').toUpperCase()
+    };
+}
+
+function storyInfrastructureRoutePlayerSpec(fromRegionId, toRegionId, mode) {
+    const actor = storyInfrastructureRoutePlayerActor();
+    const from = storyInfrastructureRouteRegionNumber(fromRegionId);
+    const to = storyInfrastructureRouteRegionNumber(toRegionId);
+    const nodes = typeof STORY !== 'undefined' ? STORY.nodes || [] : [];
+    const ownsEndpoints = [from, to].every(id => nodes[id]
+        && Number(nodes[id].owner) === Number(STORY.playerStateId));
+    if (!actor) return { ok: false, code: 'PLAYER_ACTOR_UNAVAILABLE' };
+    if (actor.role !== 'EXECUTIVE') return { ok: false, code: 'EXECUTIVE_ROLE_REQUIRED' };
+    if (!ownsEndpoints) return { ok: false, code: 'ENDPOINT_OUTSIDE_PLAYER_JURISDICTION' };
+    const base = {
+        mode: String(mode || '').toUpperCase(), fromRegionId: String(fromRegionId),
+        toRegionId: String(toRegionId), ownerType: 'STATE', ownerId: actor.countryId,
+        fundingRegionId: String(fromRegionId),
+        permission: { approved: true, institutionId: 'institution:executive',
+            decisionId: `player-infrastructure:${Number(STORY.clock) || 0}`,
+            authorityActorId: actor.actorId },
+        environmentalAssessment: { assessmentId: 'institution:environmental-review',
+            mitigationId: 'policy:mandatory-restoration', restorationCash: 0 }
+    };
+    const preview = storyInfrastructureRouteCandidate(base);
+    const foreign = preview.crossedRegionIds.filter(regionId => {
+        const id = storyInfrastructureRouteRegionNumber(regionId);
+        return !nodes[id] || Number(nodes[id].owner) !== Number(STORY.playerStateId);
+    });
+    const ownRegions = preview.crossedRegionIds.filter(regionId => !foreign.includes(regionId));
+    const spec = Object.assign({}, base, {
+        rightOfWay: { evidenceByRegion: Object.fromEntries(ownRegions
+            .map(regionId => [regionId, `executive-right-of-way:${regionId}`])), compensationCash: 0 },
+        portAuthority: { evidenceByRegion: Object.fromEntries(ownRegions
+            .map(regionId => [regionId, `national-port-authority:${regionId}`])),
+            dredgingPermitId: base.mode === 'SEA' ? 'national-dredging-permit' : '' }
+    });
+    const candidate = storyInfrastructureRouteCandidate(spec);
+    if (foreign.length) candidate.blockReasons.push(...foreign.map(id =>
+        `FOREIGN_RIGHT_OF_WAY_REQUIRED:${id}`));
+    candidate.blockReasons = Array.from(new Set(candidate.blockReasons));
+    candidate.ok = candidate.blockReasons.length === 0;
+    return { ok: true, actor, spec, candidate,
+        requirements: storyInfrastructureRouteRequirements(candidate), foreignRegionIds: foreign };
+}
+
+function storyInfrastructureRoutePlayerView(fromRegionId) {
+    const actor = storyInfrastructureRoutePlayerActor();
+    const ledger = storyInfrastructureWorkEnsure();
+    const from = storyInfrastructureRouteRegionNumber(fromRegionId);
+    const nodes = typeof STORY !== 'undefined' ? STORY.nodes || [] : [];
+    const ownsOrigin = !!(nodes[from] && Number(nodes[from].owner) === Number(STORY.playerStateId));
+    const allowed = !!(actor && actor.role === 'EXECUTIVE' && ownsOrigin);
+    const destinations = nodes.filter(node => Number(node.id) !== from
+        && Number(node.owner) === Number(STORY.playerStateId))
+        .map(node => ({ regionId: `region:${node.id}`, name: String(node.name),
+            distance: nodes[from] ? Math.hypot(Number(node.lx) - Number(nodes[from].lx),
+                Number(node.ly) - Number(nodes[from].ly)) : 0 }))
+        .sort((a, b) => a.distance - b.distance || a.name.localeCompare(b.name, 'tr'));
+    const draft = STORY._infrastructureRouteDraft
+        && STORY._infrastructureRouteDraft.fromRegionId === String(fromRegionId)
+        ? storyInfrastructureWorkClone(STORY._infrastructureRouteDraft) : null;
+    const selectedMode = STORY._infrastructureRouteModeDraft
+        && STORY._infrastructureRouteModeDraft.fromRegionId === String(fromRegionId)
+        ? String(STORY._infrastructureRouteModeDraft.mode || '') : null;
+    return { allowed, lockedReason: !actor ? 'PLAYER_ACTOR_UNAVAILABLE'
+        : !ownsOrigin ? 'REGION_OUTSIDE_PLAYER_JURISDICTION'
+            : actor.role !== 'EXECUTIVE' ? 'EXECUTIVE_ROLE_REQUIRED' : null,
+        actor, fromRegionId: String(fromRegionId), destinations, draft, selectedMode,
+        commands: storyInfrastructureWorkClone((ledger.routeCommands || []).filter(command =>
+            command.fromRegionId === String(fromRegionId) || command.toRegionId === String(fromRegionId))) };
+}
+
+function storyInfrastructureRoutePlayerChooseMode(fromRegionId, mode) {
+    const view = storyInfrastructureRoutePlayerView(fromRegionId);
+    const selected = String(mode || '').toUpperCase();
+    if (!view.allowed) return { ok: false, code: view.lockedReason };
+    if (!STORY_INFRA_ROUTE_MODES.includes(selected)) return { ok: false, code: 'ROUTE_MODE_UNSUPPORTED' };
+    STORY._infrastructureRouteModeDraft = { fromRegionId: String(fromRegionId), mode: selected };
+    if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
+    return { ok: true, mode: selected };
+}
+
+function storyInfrastructureRoutePlayerResourceBlocks(resolved) {
+    const req = resolved && resolved.requirements;
+    const spec = resolved && resolved.spec;
+    if (!req || !spec) return [{ code: 'ROUTE_REQUIREMENTS_UNAVAILABLE' }];
+    const economy = storyInfrastructureWorkEconomy();
+    const ledger = storyInfrastructureWorkEnsure();
+    const blocks = [];
+    const cash = Number(economy.cashAvailable(spec.ownerType, spec.ownerId)) || 0;
+    if (cash + 1e-6 < req.cash) blocks.push({ code: 'ROUTE_CASH_UNAVAILABLE',
+        required: req.cash, available: cash });
+    const workers = Math.max(0, Number(economy.availableWorkers(spec.fundingRegionId))
+        - storyInfrastructureWorkReservedWorkforce(ledger, spec.fundingRegionId));
+    if (workers + 1e-6 < req.workforce) blocks.push({ code: 'ROUTE_WORKFORCE_UNAVAILABLE',
+        required: req.workforce, available: workers });
+    for (const [resourceId, required] of Object.entries(req.materials || {})) {
+        const available = Number(economy.stock(spec.fundingRegionId, resourceId)) || 0;
+        if (available + 1e-6 < required) blocks.push({ code: 'ROUTE_MATERIAL_UNAVAILABLE',
+            resourceId, required, available });
+    }
+    return blocks;
+}
+
+function storyInfrastructureRoutePlayerSelect(fromRegionId, toRegionId, mode) {
+    const result = storyInfrastructureRoutePlayerSpec(fromRegionId, toRegionId, mode);
+    if (!result.ok) return result;
+    STORY._infrastructureRouteDraft = { fromRegionId: String(fromRegionId),
+        toRegionId: String(toRegionId), mode: String(mode).toUpperCase(),
+        candidate: result.candidate, requirements: result.requirements,
+        resourceBlocks: storyInfrastructureRoutePlayerResourceBlocks(result),
+        foreignRegionIds: result.foreignRegionIds, createdAt: Number(STORY.clock) || 0 };
+    if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
+    return { ok: true, draft: storyInfrastructureWorkClone(STORY._infrastructureRouteDraft) };
+}
+
+function storyInfrastructureRoutePlayerCancelDraft() {
+    if (typeof STORY !== 'undefined') {
+        STORY._infrastructureRouteDraft = null;
+        STORY._infrastructureRouteModeDraft = null;
+    }
+    if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
+    return { ok: true };
+}
+
+function storyInfrastructureRoutePlayerSubmitDraft() {
+    const draft = typeof STORY !== 'undefined' && STORY._infrastructureRouteDraft;
+    if (!draft) return { ok: false, code: 'ROUTE_DRAFT_MISSING' };
+    const resolved = storyInfrastructureRoutePlayerSpec(draft.fromRegionId, draft.toRegionId, draft.mode);
+    if (!resolved.ok) return resolved;
+    if (!resolved.candidate.ok) return { ok: false,
+        code: resolved.candidate.blockReasons[0] || 'ROUTE_REQUIREMENTS_INCOMPLETE' };
+    const submitted = storyInfrastructureRouteReserveAndSubmit(resolved.spec);
+    if (!submitted.ok) return submitted;
+    const started = storyInfrastructureRouteStart(submitted.command.id);
+    if (!started.ok) return started;
+    STORY._infrastructureRouteDraft = null;
+    STORY._infrastructureRouteModeDraft = null;
+    if (typeof storyCityDossierPanelReset === 'function') storyCityDossierPanelReset();
+    return { ok: true, command: started.command };
+}
+
 function storyInfrastructureWorkEconomy(options) {
     if (options && options.economy) return options.economy;
     return {
@@ -753,6 +901,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {
     storyInfrastructureRouteRequirements,
     storyInfrastructureRouteReserveAndSubmit,
     storyInfrastructureRouteStart,
+    storyInfrastructureRoutePlayerView,
+    storyInfrastructureRoutePlayerChooseMode,
+    storyInfrastructureRoutePlayerSelect,
+    storyInfrastructureRoutePlayerCancelDraft,
+    storyInfrastructureRoutePlayerSubmitDraft,
     storyInfrastructureRouteCorridorDefinitions,
     storyInfrastructureWorkStart,
     storyInfrastructureWorkTick,
