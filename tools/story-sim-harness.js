@@ -52,6 +52,8 @@ const STORY_SOURCES = [
     'js/StoryHexRegions.js',
     'js/StoryHexSettlements.js',
     'js/StoryHexRoads.js',
+    'js/StoryRoutePlanner.js',
+    'js/StoryTransportAgents.js',
     'js/StoryHexUrban.js',
     'js/StoryHexAgriculture.js',
     'js/StoryHexSites.js',
@@ -1554,6 +1556,25 @@ function createRuntime(seed) {
             hexRegionsReconcile: () => storyHexRegionsReconcile(storyHexRegionsEnsure()),
             hexSettlementsEnsure: () => storyHexSettlementsEnsure(),
             hexInfrastructureDiagnostics: () => storyHexInfrastructureDiagnostics(),
+            hexInfrastructureSetSegmentDamage: (segmentId, damageBps, options) =>
+                storyHexInfrastructureSetSegmentDamage(segmentId, damageBps, options),
+            routePlannerPlan: (fromRegionId, toRegionId, options) =>
+                storyRoutePlannerPlan(fromRegionId, toRegionId, options),
+            routePlannerReserve: (plan, amount, options) =>
+                storyRoutePlannerReserve(plan, amount, options),
+            routePlannerRelease: (reservationId, reason, options) =>
+                storyRoutePlannerRelease(reservationId, reason, options),
+            routePlannerDiagnostics: () => storyRoutePlannerDiagnostics(),
+            routePlannerForSave: () => storyRoutePlannerForSave(),
+            routePlannerRestore: saved => storyRoutePlannerRestore(saved),
+            maritimeConditionSet: (corridorId, spec) =>
+                storyMaritimeConditionSet(corridorId, spec),
+            maritimeConditionClear: corridorId =>
+                storyMaritimeConditionClear(corridorId),
+            maritimeConditionForCorridor: corridorId =>
+                storyMaritimeConditionForCorridor(corridorId),
+            maritimeConditionForSave: () => storyMaritimeConditionForSave(),
+            maritimeConditionRestore: saved => storyMaritimeConditionRestore(saved),
             hexInfrastructureCorridorPath: corridorId => {
                 const registry = storyHexInfrastructureSegmentsEnsure();
                 return registry && registry.corridorCellPaths[String(corridorId)]

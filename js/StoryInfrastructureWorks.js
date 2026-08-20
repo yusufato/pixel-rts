@@ -1758,6 +1758,12 @@ function storyInfrastructureWorkStart(commandId, options) {
     segment.lifecycleState = 'UNDER_REPAIR';
     segment.repairRemainingSeconds = storyInfrastructureWorkDaysToSeconds(command.remainingDays);
     registry.revision++; ledger.revision++;
+    if (typeof storyRoutePlannerInvalidate === 'function') {
+        storyRoutePlannerInvalidate({
+            segmentIds: [segment.id],
+            corridorIds: segment.corridorIds || []
+        });
+    }
     if (typeof STORY !== 'undefined') STORY._networkLayerKey = null;
     return { ok: true, command: storyInfrastructureWorkClone(command) };
 }
@@ -1803,6 +1809,12 @@ function storyInfrastructureWorkTick(worldDays, options) {
         completed.push(storyInfrastructureWorkClone(receipt));
         registry.revision++;
         if (typeof STORY !== 'undefined' && STORY.infrastructureGraph) STORY.infrastructureGraph.damageRevision++;
+        if (typeof storyRoutePlannerInvalidate === 'function') {
+            storyRoutePlannerInvalidate({
+                segmentIds: [segment.id],
+                corridorIds: segment.corridorIds || []
+            });
+        }
     }
     for (const command of ledger.routeCommands || []) {
         if (command.status !== 'IN_PROGRESS') continue;

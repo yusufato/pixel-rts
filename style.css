@@ -1429,6 +1429,34 @@ body[data-screen="story"] #war-room-stage::after {
 .story-ownership > span em { color: var(--wr-green); font-style: normal; }
 .story-context-action { width: 100%; min-height: 36px; margin-top: 10px; border: 1px solid var(--wr-amber); border-radius: 4px; background: rgba(255,176,0,.07); color: var(--wr-amber-bright); font: 10px 'Share Tech Mono', monospace; letter-spacing: 1px; cursor: pointer; }
 .story-context-action:hover, .story-context-action:focus-visible { background: rgba(255,176,0,.14); outline: 2px solid var(--wr-focus); }
+.story-logistics-box { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--wr-line); }
+.story-logistics-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--wr-muted); font-size: 8px; letter-spacing: 1px; }
+.story-logistics-title b { color: var(--wr-amber); font-size: 9px; font-weight: 400; letter-spacing: 1.5px; }
+.story-logistics-stock { margin-top: 8px; padding: 6px 7px; border-left: 2px solid var(--wr-green); background: rgba(74,222,128,.035); color: var(--wr-muted); font-size: 8px; }
+.story-logistics-stock b { float: right; color: var(--wr-green); font-weight: 400; }
+.story-logistics-form { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px; }
+.story-logistics-form label { display: grid; gap: 4px; color: var(--wr-muted); font-size: 8px; letter-spacing: 1px; }
+.story-logistics-control { width: 100%; min-width: 0; height: 29px; padding: 4px 6px; border: 1px solid rgba(255,176,0,.22); border-radius: 3px; background: #07120d; color: var(--wr-amber-bright); font: 9px 'Share Tech Mono', monospace; }
+.story-logistics-control:focus { border-color: var(--wr-green); outline: 1px solid rgba(74,222,128,.35); }
+.story-logistics-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 7px; padding: 7px; border: 1px solid rgba(74,222,128,.18); background: rgba(74,222,128,.025); }
+.story-logistics-preview span { display: flex; justify-content: space-between; gap: 5px; color: var(--wr-muted); font-size: 7px; }
+.story-logistics-preview b { color: var(--wr-green); font-weight: 400; text-align: right; }
+.story-logistics-preview span:first-child { grid-column: 1 / -1; }
+.story-logistics-preview.unavailable { display: block; border-color: rgba(255,107,107,.28); color: var(--wr-red); font-size: 8px; }
+.story-logistics-dispatch { margin-top: 8px; }
+.story-logistics-dispatch:disabled { opacity: .45; cursor: not-allowed; }
+.story-logistics-feedback { margin-top: 7px; padding: 6px 7px; border: 1px solid currentColor; font-size: 8px; line-height: 1.4; }
+.story-logistics-feedback.ok { color: var(--wr-green); }
+.story-logistics-feedback.bad { color: var(--wr-red); }
+.story-shipment-list { display: grid; gap: 5px; margin-top: 8px; }
+.story-shipment-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; padding: 7px; border: 1px solid rgba(74,222,128,.2); background: rgba(74,222,128,.025); }
+.story-shipment-row.held { border-color: rgba(255,107,107,.42); }
+.story-shipment-row small, .story-shipment-row span { display: block; color: var(--wr-muted); font-size: 7px; line-height: 1.35; }
+.story-shipment-row b { display: block; margin: 2px 0; color: var(--wr-amber-bright); font-size: 9px; font-weight: 400; }
+.story-shipment-row em { color: var(--wr-green); font-size: 8px; font-style: normal; text-align: right; }
+.story-shipment-row.held em { color: var(--wr-red); }
+.story-shipment-row em small { margin-top: 3px; text-align: right; }
+.story-logistics-empty { padding: 8px; border: 1px dashed rgba(255,176,0,.16); color: var(--wr-dim); font-size: 8px; line-height: 1.4; }
 .story-action-btn { width: 100%; min-height: 46px; margin-top: auto; border: 1px solid var(--wr-green); border-radius: 6px; background: rgba(74,222,128,.1); color: #d9ffe6; font: 12px 'Share Tech Mono', monospace; letter-spacing: 1.3px; cursor: pointer; }
 .story-action-btn:hover:not(:disabled), .story-action-btn:focus-visible { background: rgba(74,222,128,.18); box-shadow: 0 0 18px rgba(74,222,128,.16); outline: none; }
 .story-action-btn.hostile { border-color: var(--wr-red); background: rgba(255,107,107,.08); color: #ffd5d5; }

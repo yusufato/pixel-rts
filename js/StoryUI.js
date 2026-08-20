@@ -647,6 +647,154 @@ function storyRegionLocalOffice(selected) {
     return holder ? { name: holder.name,
         provisional: holder.actorType === 'COLLECTIVE_OFFICE' || /PRE_PHASE/.test(String(holder.model || '')) } : null;
 }
+const STORY_REGION_LOGISTICS_MODE_LABELS = Object.freeze({
+    AUTO: 'EN UYGUN ROTAYI SEÇ', LAND: 'TIR KONVOYU', RAIL: 'YÜK TRENİ', SEA: 'KARGO GEMİSİ'
+});
+const STORY_REGION_LOGISTICS_STATE_LABELS = Object.freeze({
+    QUEUED: 'TERMİNAL SIRASINDA', LOADING: 'YÜKLENİYOR', MOVING: 'YOLDA',
+    WAITING: 'ENGELDE BEKLİYOR', TRANSFERRING: 'AKTARILIYOR',
+    UNLOADING: 'BOŞALTILIYOR', DELIVERED: 'TESLİM EDİLDİ', LOST: 'KAYBEDİLDİ'
+});
+const STORY_REGION_LOGISTICS_HOLD_LABELS = Object.freeze({
+    MARITIME_BLOCKADE: 'ABLUKADA BEKLİYOR',
+    MARITIME_WEATHER_CLOSED: 'HAVA NEDENİYLE BEKLİYOR',
+    PHYSICAL_SEGMENT_MISSING: 'FİZİKSEL HAT KAYIP',
+    CORRIDOR_MISSING: 'KORİDOR KAYIP',
+    TRANSIT_ACCESS_DENIED: 'GEÇİŞ İZNİ YOK',
+    PHYSICAL_SEGMENT_BLOCKED: 'HAT HASARLI'
+});
+function storyRegionLogisticsResourceLabel(resourceId) {
+    const definition = typeof STORY_RESOURCE_DEFINITIONS !== 'undefined'
+        ? STORY_RESOURCE_DEFINITIONS.find(row => row.id === String(resourceId)) : null;
+    return definition ? definition.label : String(resourceId || '').toLocaleUpperCase('tr-TR');
+}
+function storyRegionLogisticsDraft(selected) {
+    const sourceRegionId = `region:${selected.id}`;
+    let draft = STORY._regionLogisticsDraft;
+    if (!draft || draft.sourceRegionId !== sourceRegionId) {
+        const targets = (STORY.nodes || []).filter(node => node && node.id !== selected.id
+            && Number(node.owner) === Number(selected.owner));
+        const regional = typeof storyRegionalRegionView === 'function'
+            ? storyRegionalRegionView(sourceRegionId) : null;
+        const resources = typeof STORY_TRADE_TRANSPORTABLE !== 'undefined'
+            ? STORY_TRADE_TRANSPORTABLE.slice() : [];
+        resources.sort((a, b) => Number(regional && regional.stocks[b] || 0)
+            - Number(regional && regional.stocks[a] || 0));
+        draft = STORY._regionLogisticsDraft = {
+            sourceRegionId, targetRegionId: targets[0] ? `region:${targets[0].id}` : '',
+            resourceId: resources[0] || '', quantity: '1', transportMode: 'AUTO', feedback: ''
+        };
+    }
+    return draft;
+}
+function storyRegionLogisticsShipmentEta(shipment) {
+    const agent = shipment && shipment.transportAgent;
+    const steps = shipment && shipment.physicalRoute && shipment.physicalRoute.steps || [];
+    if (!agent || !steps.length) return Math.max(0, Number(shipment && shipment.legRemainingSeconds) || 0);
+    let seconds = Math.max(0, Number(agent.phaseRemainingSeconds) || 0);
+    const index = Math.max(0, Math.min(steps.length, Number(agent.stepIndex) || 0));
+    for (let i = index; i < steps.length; i++) {
+        const duration = Math.max(0, Number(steps[i].plannedDurationSeconds) || 0);
+        seconds += i === index ? duration * (1 - Math.max(0, Math.min(1,
+            Number(agent.stepProgressBps || 0) / 10000))) : duration;
+    }
+    if (index < steps.length) seconds += 0.5;
+    return seconds;
+}
+function storyRegionLogisticsProgress(shipment) {
+    const agent = shipment && shipment.transportAgent;
+    const count = shipment && shipment.physicalRoute && shipment.physicalRoute.steps
+        ? shipment.physicalRoute.steps.length : 0;
+    if (!agent || !count) return 0;
+    if (agent.state === 'UNLOADING' || agent.state === 'DELIVERED') return 100;
+    return Math.max(0, Math.min(100, ((Number(agent.stepIndex) || 0)
+        + Number(agent.stepProgressBps || 0) / 10000) / count * 100));
+}
+function storyRegionLogisticsPreview(selected, draft) {
+    if (!draft.targetRegionId || !draft.resourceId
+        || typeof storyRoutePlannerPlan !== 'function') return null;
+    const modes = draft.transportMode === 'AUTO'
+        ? (typeof storyTradePhysicalModes === 'function'
+            ? storyTradePhysicalModes(draft.resourceId) : ['LAND'])
+        : [draft.transportMode];
+    return storyRoutePlannerPlan(draft.sourceRegionId, draft.targetRegionId, {
+        modes: modes.filter(mode => ['LAND', 'RAIL', 'SEA'].includes(mode)),
+        authorizedCountryIds: [`country:${selected.owner}`],
+        minCapacity: Math.max(0, Number(draft.quantity) || 0),
+        transferCost: typeof STORY_TRADE_TRANSFER_COST === 'number'
+            ? STORY_TRADE_TRANSFER_COST : 0.1,
+        transferLatencySeconds: typeof STORY_TRADE_TRANSFER_LATENCY_SECONDS === 'number'
+            ? STORY_TRADE_TRANSFER_LATENCY_SECONDS : 2,
+        knowledgeMode: 'TRUTH', useCache: true
+    });
+}
+function storyRegionLogisticsHtml(selected) {
+    const me = typeof storyPlayerState === 'function' ? storyPlayerState() : null;
+    if (!me || Number(selected.owner) !== Number(me.id)
+        || typeof storyTradeRegionView !== 'function'
+        || typeof storyRegionalRegionView !== 'function') return '';
+    const esc = storyProjectionEscape;
+    const draft = storyRegionLogisticsDraft(selected);
+    const regional = storyRegionalRegionView(draft.sourceRegionId);
+    const trade = storyTradeRegionView(draft.sourceRegionId) || { incoming: [], outgoing: [] };
+    const targets = (STORY.nodes || []).filter(node => node && node.id !== selected.id
+        && Number(node.owner) === Number(me.id));
+    const resources = typeof STORY_TRADE_TRANSPORTABLE !== 'undefined'
+        ? STORY_TRADE_TRANSPORTABLE : [];
+    const modes = typeof storyTradePhysicalModes === 'function'
+        ? storyTradePhysicalModes(draft.resourceId) : ['LAND'];
+    if (draft.transportMode !== 'AUTO' && !modes.includes(draft.transportMode)) draft.transportMode = 'AUTO';
+    const stock = Math.max(0, Number(regional && regional.stocks[draft.resourceId]) || 0);
+    const preview = storyRegionLogisticsPreview(selected, draft);
+    const targetOptions = targets.map(node => `<option value="region:${node.id}"${draft.targetRegionId === `region:${node.id}` ? ' selected' : ''}>${esc(node.name)}</option>`).join('');
+    const resourceOptions = resources.map(id => `<option value="${esc(id)}"${draft.resourceId === id ? ' selected' : ''}>${esc(storyRegionLogisticsResourceLabel(id))} · ${storyRegionFormatNumber(regional && regional.stocks[id] || 0)}</option>`).join('');
+    const modeOptions = ['AUTO'].concat(modes).map(id => `<option value="${id}"${draft.transportMode === id ? ' selected' : ''}>${esc(STORY_REGION_LOGISTICS_MODE_LABELS[id] || id)}</option>`).join('');
+    const shipments = trade.outgoing.concat(trade.incoming).slice(0, 8);
+    const shipmentHtml = shipments.length ? shipments.map(shipment => {
+        const outgoing = shipment.sourceRegionId === draft.sourceRegionId;
+        const otherId = outgoing ? shipment.targetRegionId : shipment.sourceRegionId;
+        const other = typeof storyTradeNode === 'function' ? storyTradeNode(otherId) : null;
+        const agent = shipment.transportAgent || {};
+        const stateBase = STORY_REGION_LOGISTICS_HOLD_LABELS[shipment.holdReason]
+            || STORY_REGION_LOGISTICS_STATE_LABELS[agent.state]
+            || (shipment.status === 'HELD' ? 'SEVKİYAT DURDU' : shipment.status);
+        const state = agent.state === 'QUEUED' && Number(agent.terminalQueuePosition) > 0
+            ? `${stateBase} · ${Number(agent.terminalQueuePosition)}. SIRA` : stateBase;
+        const mode = STORY_REGION_LOGISTICS_MODE_LABELS[agent.mode || shipment.mode]
+            || agent.vehicleClass || shipment.mode;
+        const eta = storyRegionLogisticsShipmentEta(shipment);
+        const progress = storyRegionLogisticsProgress(shipment);
+        return `<div class="story-shipment-row${shipment.status === 'HELD' ? ' held' : ''}"><div><small>${outgoing ? 'GİDEN' : 'GELEN'} · ${esc(mode)}</small><b>${esc(storyRegionLogisticsResourceLabel(shipment.resourceId))} · ${storyRegionFormatNumber(shipment.quantity)}</b><span>${esc(selected.name)} ${outgoing ? '→' : '←'} ${esc(other && other.name || otherId)}</span></div><em>${esc(state)}<small>%${Math.round(progress)} · ${eta > 0 ? `~${eta.toFixed(1)} sn` : 'VARIŞ'}</small></em></div>`;
+    }).join('') : '<div class="story-logistics-empty">Bu şehirde hareket hâlinde fiziksel sevkiyat yok.</div>';
+    const maritimeWarnings = preview && preview.ok && typeof storyMaritimeConditionForCorridor === 'function'
+        ? (preview.corridorIds || []).map(id => storyMaritimeConditionForCorridor(id))
+            .filter(Boolean).map(row => row.blockaded ? 'ABLUKA'
+                : Number(row.weatherFactorBps) < 10000
+                    ? `DENİZ HIZI %${Math.round(Number(row.weatherFactorBps) / 100)}` : null)
+            .filter(Boolean) : [];
+    const previewHtml = preview && preview.ok
+        ? `<div class="story-logistics-preview"><span>PLAN <b>${preview.modes.map(mode => STORY_REGION_LOGISTICS_MODE_LABELS[mode] || mode).join(' → ')}</b></span><span>ETA <b>${Number(preview.totalLatencySeconds || 0).toFixed(1)} sn</b></span><span>MALİYET <b>${Number(preview.totalCost || 0).toFixed(2)}</b></span><span>DARBOĞAZ <b>${storyRegionFormatNumber(preview.bottleneckCapacity)}</b></span><span>GÜVENİLİRLİK <b>%${Math.round(Number(preview.reliabilityBps || 0) / 100)}</b></span><span>AKTARMA <b>${(preview.transferRegionIds || []).length}</b></span>${maritimeWarnings.length ? `<span>DENİZ UYARISI <b>${esc(maritimeWarnings.join(' · '))}</b></span>` : ''}</div>`
+        : `<div class="story-logistics-preview unavailable">ROTA ÖNİZLEMESİ: ${esc(preview && preview.reason || 'SEÇİM BEKLİYOR')}</div>`;
+    return `<section class="story-logistics-box"><div class="story-logistics-title"><b>ŞEHİR LOJİSTİĞİ</b><span>${trade.outgoing.length} giden · ${trade.incoming.length} gelen</span></div><div class="story-logistics-stock">SEÇİLİ STOK <b>${storyRegionFormatNumber(stock)} · ${esc(storyRegionLogisticsResourceLabel(draft.resourceId))}</b></div><div class="story-logistics-form"><label>HEDEF ŞEHİR<select class="story-logistics-control" data-story-logistics-field="targetRegionId" id="story-logistics-target">${targetOptions}</select></label><label>YÜK<select class="story-logistics-control" data-story-logistics-field="resourceId" id="story-logistics-resource">${resourceOptions}</select></label><label>MİKTAR<input class="story-logistics-control" data-story-logistics-field="quantity" id="story-logistics-quantity" type="number" min="0.001" step="1" value="${esc(draft.quantity)}"></label><label>TAŞIMA<select class="story-logistics-control" data-story-logistics-field="transportMode" id="story-logistics-mode">${modeOptions}</select></label></div>${previewHtml}<button class="story-context-action story-logistics-dispatch" data-story-logistics-dispatch="1"${!targetOptions || !resources.length || !(preview && preview.ok) ? ' disabled' : ''}>SİPARİŞİ OLUŞTUR VE SEVK ET</button>${draft.feedback ? `<div class="story-logistics-feedback${draft.feedbackOk ? ' ok' : ' bad'}">${esc(draft.feedback)}</div>` : ''}<div class="story-shipment-list">${shipmentHtml}</div></section>`;
+}
+function storyRegionLogisticsDispatch() {
+    const draft = STORY._regionLogisticsDraft;
+    if (!draft || typeof storyTradeCreateOrder !== 'function'
+        || typeof storyTradeDispatchOrder !== 'function') return { ok: false, code: 'LOGISTICS_API_MISSING' };
+    const quantity = Math.max(0, Number(draft.quantity) || 0);
+    const created = storyTradeCreateOrder({ sourceRegionId: draft.sourceRegionId,
+        targetRegionId: draft.targetRegionId, resourceId: draft.resourceId, quantity,
+        transportMode: draft.transportMode === 'AUTO' ? null : draft.transportMode,
+        priority: 100, source: 'PLAYER_REGION_LOGISTICS_UI', exportReserveBps: 0 });
+    if (!created.ok) return created;
+    const dispatched = storyTradeDispatchOrder(created.order, quantity);
+    if (!dispatched.ok) {
+        created.order.status = 'CANCELLED';
+        created.order.updatedAt = Number(STORY.clock) || 0;
+        created.order.lastFailure = dispatched.code || 'DISPATCH_FAILED';
+    }
+    return dispatched.ok ? Object.assign({ order: created.order }, dispatched) : dispatched;
+}
 function storyRegionContextHtml(selected, selection, owner, basics) {
     const esc = storyProjectionEscape;
     const pop = storyRegionPopulation(selected);
@@ -690,7 +838,7 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
         + `<div class=\"story-brief-cell\">BELEDİYE / YEREL MAKAM<b>${esc(office ? office.name : 'ATANMADI')}</b></div>`
         + `<div class=\"story-brief-cell\">GARNİZON<b>${esc(basics.force)}</b></div></div>`
         + (office && office.provisional ? '<div class=\"story-context-warning\">Geçici kolektif yerel makam; kişisel belediye başkanı karakter fazında bağlanacak.</div>' : '')
-        + `<div class=\"story-brief-note\">${esc(basics.rewardLabel)}: ${esc(basics.reward)}<br>ORDU DOKTRİNİ: ${esc(basics.doctrine)}<br>SAVAŞ HARİTASI: ${esc(basics.mapName)}</div>${cityButton}`;
+        + `<div class=\"story-brief-note\">${esc(basics.rewardLabel)}: ${esc(basics.reward)}<br>ORDU DOKTRİNİ: ${esc(basics.doctrine)}<br>SAVAŞ HARİTASI: ${esc(basics.mapName)}</div>${cityButton}${storyRegionLogisticsHtml(selected)}`;
 }
 function storyRegionEntityAtWorld(x, y) {
     if (typeof storyHexPoliticalCellAtWorld !== 'function' || typeof storyHexSitesEnsure !== 'function') return null;
@@ -803,7 +951,9 @@ function storyPanelUpdate() {
                 `<div class="story-brief-cell">${forceLabel}<b>${hostile ? `${selected.garrison || 0} / ~${foeTotal}` : (selected.garrison || 0)}</b></div>` +
             `</div><div class="story-brief-note">${rewardLabel}: ${reward}<br>ORDU DOKTRİNİ: ${doctrine}</div>` :
             `<div class="story-brief-note">Haritada bir şehir seçerek harekât brifingini aç.</div>`;
-        storyUiSetHtml(info, contextInfoHtml);
+        const logisticsFocused = document.activeElement && info.contains(document.activeElement)
+            && document.activeElement.classList.contains('story-logistics-control');
+        if (!logisticsFocused) storyUiSetHtml(info, contextInfoHtml);
 
         if (action) {
             action.disabled = current || !adjacent;
@@ -1563,7 +1713,38 @@ function storyInit() {
     document.getElementById('story-action-btn')?.addEventListener('click', () => {
         if (STORY.selectedNodeId != null) storyNodeClicked(STORY.selectedNodeId);
     });
+    document.getElementById('story-node-info')?.addEventListener('input', (event) => {
+        const field = event.target.closest('[data-story-logistics-field]');
+        if (!field || !STORY._regionLogisticsDraft) return;
+        STORY._regionLogisticsDraft[field.dataset.storyLogisticsField] = field.value;
+        STORY._regionLogisticsDraft.feedback = '';
+    });
+    document.getElementById('story-node-info')?.addEventListener('change', (event) => {
+        const field = event.target.closest('[data-story-logistics-field]');
+        if (!field || !STORY._regionLogisticsDraft) return;
+        STORY._regionLogisticsDraft[field.dataset.storyLogisticsField] = field.value;
+        STORY._regionLogisticsDraft.feedback = '';
+        storyPanelUpdate();
+    });
     document.getElementById('story-node-info')?.addEventListener('click', (event) => {
+        const dispatch = event.target.closest('[data-story-logistics-dispatch]');
+        if (dispatch) {
+            const result = storyRegionLogisticsDispatch();
+            const labels = { NO_EXPORTABLE_STOCK: 'Seçilen yük için gönderilebilir stok yok.',
+                NO_ROUTE: 'Bu taşıma türüyle fiziksel rota bulunamadı.',
+                CORRIDOR_CAPACITY_EXHAUSTED: 'Koridor kapasitesi dolu.',
+                TRANSPORT_MODE_NOT_AVAILABLE: 'Bu yük seçilen araçla taşınamaz.',
+                PHYSICAL_ROUTE_RESERVATION_UNAVAILABLE: 'Fiziksel yol rezervasyonu kurulamadı.',
+                INVALID_ORDER_QUANTITY: 'Miktar sıfırdan büyük olmalı.' };
+            if (STORY._regionLogisticsDraft) {
+                STORY._regionLogisticsDraft.feedbackOk = !!result.ok;
+                STORY._regionLogisticsDraft.feedback = result.ok
+                    ? `${storyRegionFormatNumber(result.shipment && result.shipment.quantity || 0)} birim fiziksel sevkiyata çıktı.`
+                    : (labels[result.code] || `Sevk reddedildi: ${result.code || 'BİLİNMEYEN HATA'}`);
+            }
+            storyPanelUpdate();
+            return;
+        }
         const button = event.target.closest('[data-story-enter-city]');
         if (!button) return;
         const nodeId = Number(button.dataset.storyEnterCity);

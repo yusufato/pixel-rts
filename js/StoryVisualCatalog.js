@@ -107,6 +107,24 @@ const STORY_VISUAL_LAND_USE_PHASES = Object.freeze({
     RECLAIMED: { column: 3 }
 });
 
+// HXD-9B: hareketli görsel yalnız ShipmentV2 üzerindeki gerçek araç sınıfından
+// çözülür. Bu kayıtlar dekoratif trafik üretmez; renderer yalnız taşıma
+// defterinin verdiği ajan için buradaki atlas anahtarını kullanır.
+const STORY_VISUAL_TRANSPORT_CLASSES = Object.freeze({
+    ROAD_CONVOY: {
+        family: 'truck', atlasKey: 'transportRoad', atlasCell: 0,
+        source: 'assets/maps/transport-road-convoy-modern-v1.png'
+    },
+    FREIGHT_TRAIN: {
+        family: 'train', atlasKey: 'transportRail', atlasCell: 0,
+        source: 'assets/maps/transport-freight-train-modern-v1.png'
+    },
+    CARGO_SHIP: {
+        family: 'ship', atlasKey: 'transportSea', atlasCell: 0,
+        source: 'assets/maps/transport-cargo-ship-modern-v1.png'
+    }
+});
+
 // İlk manifest mevcut modern atlasın fiziksel olarak sunduğu altı aileyi ilan
 // eder. Yeni resim/atlas eklemek renderer değişikliği değil, bu manifestin veri
 // üretim adımı olacaktır. CORE satırı nüfus seviyesine göre tarifte tamamlanır.
@@ -173,6 +191,19 @@ const STORY_VISUAL_LAND_USE_ASSETS = storyVisualGridAssets(
     'land-use', 'landUseModern', STORY_VISUAL_LAND_USE_FAMILIES,
     STORY_VISUAL_LAND_USE_PHASES, 'lifecyclePhase'
 );
+const STORY_VISUAL_TRANSPORT_ASSETS = Object.entries(STORY_VISUAL_TRANSPORT_CLASSES)
+    .map(([vehicleClass, definition]) => Object.freeze({
+        id: `mobile.${definition.family}.baseline.operating.modern_2010`,
+        packId: 'mobile-agents',
+        family: definition.family,
+        vehicleClass,
+        atlasKey: definition.atlasKey,
+        atlasCell: definition.atlasCell,
+        source: definition.source,
+        periodId: 'MODERN_2010',
+        visualStage: 0,
+        condition: 'OPERATING'
+    }));
 
 const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_BASELINE_URBAN_ASSETS,
@@ -180,8 +211,30 @@ const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_URBAN_CLIMATE_ASSETS,
     ...STORY_VISUAL_URBAN_DAMAGE_ASSETS,
     ...STORY_VISUAL_SPECIAL_ASSETS,
-    ...STORY_VISUAL_LAND_USE_ASSETS
+    ...STORY_VISUAL_LAND_USE_ASSETS,
+    ...STORY_VISUAL_TRANSPORT_ASSETS
 ]);
+
+function storyVisualTransportAsset(vehicleClass, year) {
+    const normalized = String(vehicleClass || '').toUpperCase();
+    const definition = STORY_VISUAL_TRANSPORT_CLASSES[normalized] || null;
+    const period = storyVisualPeriodForYear(year == null
+        ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : year);
+    if (!definition) return {
+        ok: false, vehicleClass: normalized, periodId: period.id,
+        fallbackReason: 'UNKNOWN_VEHICLE_CLASS'
+    };
+    const resolvedAssetId = `mobile.${definition.family}.baseline.operating.modern_2010`;
+    return Object.assign({
+        ok: true,
+        vehicleClass: normalized,
+        periodId: period.id,
+        requestedAssetId: `mobile.${definition.family}.baseline.operating.${period.id.toLowerCase()}`,
+        resolvedAssetId,
+        fallbackDepth: period.id === 'MODERN_2010' ? 0 : 1,
+        fallbackReason: period.id === 'MODERN_2010' ? null : 'PERIOD_ASSET_MISSING'
+    }, definition);
+}
 
 function storyVisualClampInt(value, min, max) {
     return Math.max(min, Math.min(max, Math.floor(Number(value) || 0)));
@@ -566,7 +619,8 @@ function storyVisualCatalogValidate() {
         assetIds.add(entry.id);
         if (!packIds.has(entry.packId)) issues.push(`ASSET_UNKNOWN_PACK:${entry.id}:${entry.packId}`);
         if (!['settlements', 'constructionModern', 'urbanClimateModern',
-            'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern'].includes(entry.atlasKey)) {
+            'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern',
+            'transportRoad', 'transportRail', 'transportSea'].includes(entry.atlasKey)) {
             issues.push(`ASSET_UNKNOWN_ATLAS:${entry.id}`);
         }
         if (entry.atlasKey !== 'settlements'
@@ -594,6 +648,7 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_SPECIAL_FAMILIES,
         STORY_VISUAL_LAND_USE_FAMILIES,
         STORY_VISUAL_LAND_USE_PHASES,
+        STORY_VISUAL_TRANSPORT_CLASSES,
         STORY_VISUAL_ASSET_MANIFEST,
         storyVisualPeriodForYear,
         storyVisualNormalizeCondition,
@@ -611,6 +666,7 @@ if (typeof module !== 'undefined' && module.exports) {
         storyVisualSpecialFamily,
         storyVisualUrbanPresentationRecipe,
         storyVisualLandUseRecipe,
+        storyVisualTransportAsset,
         storyVisualUrbanRecipe,
         storyVisualCatalogValidate
     };

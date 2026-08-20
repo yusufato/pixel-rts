@@ -34,11 +34,15 @@ const sites = {
     siteById: { [site.id]: site }
 };
 let selectedEntity = null;
+let createdOrderSpec = null;
 const context = {
     console, setTimeout, clearTimeout,
     window: {},
     document: { readyState: 'loading', addEventListener() {} },
-    STORY: { _inited: true, _selectedMapEntity: { kind: 'SITE', cellId: land.cellId, regionId: land.regionId } },
+    STORY: { _inited: true, clock: 12, nodes: [
+        { id: 0, name: 'İstanbul', owner: 0 }, null, null, null, null, null, null,
+        { id: 7, name: 'Ankara', owner: 0 }
+    ], _selectedMapEntity: { kind: 'SITE', cellId: land.cellId, regionId: land.regionId } },
     STORY_WORLD_W: 4500,
     STORY_WORLD_H: 3540,
     storyHexSitesEnsure: () => sites,
@@ -53,13 +57,31 @@ const context = {
         } }
     }),
     storyHexPoliticalCellAtWorld: () => ({ id: land.cellId }),
-    storyNode: id => Number(id) === 7 ? { id: 7, name: 'Ankara' } : null,
+    STORY_RESOURCE_DEFINITIONS: [
+        { id: 'food', label: 'Gıda' }, { id: 'industrial_parts', label: 'Sanayi Parçası' }
+    ],
+    STORY_TRADE_TRANSPORTABLE: ['food', 'industrial_parts'],
+    storyTradePhysicalModes: () => ['LAND', 'RAIL'],
+    storyRoutePlannerPlan: () => ({ ok: true, modes: ['LAND', 'RAIL'],
+        totalLatencySeconds: 6.4, totalCost: 2.4, bottleneckCapacity: 12,
+        reliabilityBps: 9600, transferRegionIds: ['region:1'] }),
+    storyPlayerState: () => ({ id: 0 }),
+    storyRegionalRegionView: () => ({ stocks: { food: 24, industrial_parts: 6 } }),
+    storyTradeRegionView: () => ({ incoming: [], outgoing: [] }),
+    storyTradeCreateOrder: spec => {
+        createdOrderSpec = spec;
+        return { ok: true, order: { id: 'trade-order:ui-1', status: 'OPEN' } };
+    },
+    storyTradeDispatchOrder: (order, quantity) => ({ ok: true, order, quantity,
+        shipment: { id: 'trade-shipment:ui-1', quantity } }),
+    storyTradeNode: id => id === 'region:0' ? context.STORY.nodes[0] : context.STORY.nodes[7],
+    storyNode: id => context.STORY.nodes[Number(id)] || null,
     storySelectNode: (id, entity) => { selectedEntity = { id, entity }; }
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('js/StoryUI.js', 'utf8'), context);
 
-const city = { id: 7, name: 'Ankara' };
+const city = context.STORY.nodes[7];
 const owner = { name: 'Türk Cumhuriyeti', color: '#55ff88' };
 const basics = {
     type: 'KARARGAH', stateText: 'KOMUTA MERKEZİ', stateColor: '#4ade80',
@@ -89,6 +111,24 @@ assert.match(districtHtml, /İlçe nüfusu henüz altıgen bazında muhasebeleş
 const cityHtml = context.storyRegionContextHtml(city, { kind: 'CITY' }, owner, basics);
 assert.match(cityHtml, /Yerel İdareler Kurulu/);
 assert.match(cityHtml, /kişisel belediye başkanı karakter fazında bağlanacak/);
+assert.match(cityHtml, /ŞEHİR LOJİSTİĞİ/);
+assert.match(cityHtml, /SİPARİŞİ OLUŞTUR VE SEVK ET/);
+assert.match(cityHtml, /İstanbul/);
+assert.match(cityHtml, /Gıda · 24/);
+assert.match(cityHtml, /TIR KONVOYU → YÜK TRENİ/);
+assert.match(cityHtml, /ETA <b>6.4 sn/);
+assert.match(cityHtml, /DARBOĞAZ <b>12/);
+assert.match(cityHtml, /AKTARMA <b>1/);
+
+context.STORY._regionLogisticsDraft.quantity = '3';
+context.STORY._regionLogisticsDraft.transportMode = 'RAIL';
+const dispatch = context.storyRegionLogisticsDispatch();
+assert.strictEqual(dispatch.ok, true);
+assert.strictEqual(dispatch.shipment.quantity, 3);
+assert.strictEqual(createdOrderSpec.sourceRegionId, 'region:7');
+assert.strictEqual(createdOrderSpec.targetRegionId, 'region:0');
+assert.strictEqual(createdOrderSpec.transportMode, 'RAIL');
+assert.strictEqual(createdOrderSpec.source, 'PLAYER_REGION_LOGISTICS_UI');
 
 assert.strictEqual(context.storySelectRegionEntityAtWorld(10, 20), true);
 assert.strictEqual(selectedEntity.id, 7);

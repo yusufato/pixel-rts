@@ -99,6 +99,8 @@ const STORY = {
     aggregationPolicy: null, // Faz 13: HOT↔COLD kayıpsız kapsül ve korunum sözleşmesi
     infrastructureGraph: null, // Faz 14: kara/deniz/enerji/veri koridorları, kapasite ve hasar
     tradeLogistics: null, // Faz 18: sözleşme, sipariş, yoldaki yük, teslimat ve kapasite
+    transportTerminals: null, // HXD-9B: yükleme/boşaltma terminal slotları ve FIFO kuyrukları
+    maritimeConditions: null, // HXD-12: deniz koridoru hava ve abluka gerçeği
     mechanicalContracts: null, // Faz 38.3: müzakereden ayrı mekanik taraf/değer/ihlal/icra gerçeği
     marketPrices: null, // Faz 19: fiziksel arz/talep ve lojistik riskten türeyen bölgesel fiyat endeksleri
     economicAI: null, // Faz 22: şirket ve AI devletlerinin açıklanabilir ekonomik karar defteri
@@ -524,6 +526,9 @@ function storyNewCampaign(config = {}) {
     if (typeof storyInfrastructureWorkRestore === 'function') storyInfrastructureWorkRestore(null);
     if (typeof storyInfrastructureReset === 'function') storyInfrastructureReset({ generatedAt: 0 });
     if (typeof storyHexInfrastructureReset === 'function') storyHexInfrastructureReset();
+    if (typeof storyRoutePlannerReset === 'function') storyRoutePlannerReset();
+    if (typeof storyTransportTerminalReset === 'function') storyTransportTerminalReset();
+    if (typeof storyMaritimeConditionReset === 'function') storyMaritimeConditionReset();
     if (typeof storyResourceTaxonomyReset === 'function') storyResourceTaxonomyReset();
     if (typeof storyProductionReset === 'function') storyProductionReset();
     if (typeof storyPopulationReset === 'function') storyPopulationReset();
@@ -632,6 +637,15 @@ function storySave() {
             hexInfrastructureSegments: (typeof storyHexInfrastructureForSave === 'function')
                 ? storyHexInfrastructureForSave()
                 : STORY.hexInfrastructureSegments,
+            routePlanning: (typeof storyRoutePlannerForSave === 'function')
+                ? storyRoutePlannerForSave()
+                : STORY.routePlanning,
+            transportTerminals: (typeof storyTransportTerminalForSave === 'function')
+                ? storyTransportTerminalForSave()
+                : STORY.transportTerminals,
+            maritimeConditions: (typeof storyMaritimeConditionForSave === 'function')
+                ? storyMaritimeConditionForSave()
+                : STORY.maritimeConditions,
             resourceTaxonomy: (typeof storyResourceTaxonomyForSave === 'function')
                 ? storyResourceTaxonomyForSave()
                 : STORY.resourceTaxonomy,
@@ -807,6 +821,19 @@ function storyLoad() {
         if (typeof storyHexInfrastructureRestore === 'function') {
             const segmentRestore = storyHexInfrastructureRestore(d.hexInfrastructureSegments);
             if (!segmentRestore.ok) throw new Error(segmentRestore.code);
+        }
+        if (typeof storyRoutePlannerRestore === 'function') {
+            const routeRestore = storyRoutePlannerRestore(d.routePlanning);
+            if (!routeRestore.ok) throw new Error(routeRestore.code);
+        }
+        if (typeof storyTransportTerminalRestore === 'function') {
+            storyTransportTerminalRestore(d.transportTerminals);
+        }
+        if (typeof storyMaritimeConditionRestore === 'function') {
+            storyMaritimeConditionRestore(d.maritimeConditions);
+        }
+        if (typeof storyTransportMigrateLegacyShipments === 'function') {
+            storyTransportMigrateLegacyShipments();
         }
         // Güncel GEO kaydı kendi şehir/petrol/maden dağılımını zaten taşır.
         // STORY_TERRAIN koordinatlarıyla tekrar rasterize etmek kayıtlı ekonomiyi

@@ -586,6 +586,57 @@ Segment mutasyonu ve kompakt kalıcılık karşı-testlidir: `%60` hasar, `%80` 
 
 **Çıkış:** Aynı durum aynı rota; kırık hat güvenli yeniden planlama.
 
+**Uygulama durumu — HXD-8A çekirdeği tamamlandı:** `StoryRoutePlanner.js`,
+LAND/RAIL/SEA koridorlarını `(bölge, son taşıma modu)` durumuyla deterministik
+olarak arar; mod değişimini gerçek aktarma maliyeti ve süresi olarak kaydeder.
+Seçilen her makro koridor, `StoryHexRoads` sicilindeki sıralı hücre ve fiziksel
+segment zincirine açılmadan geçerli rota sayılmaz. Bu özellikle deniz
+koridorlarının iki liman erişimini ve su kenarlarını doğru hareket sırasına
+çevirir; sicilde kayıtlı fakat fiziksel zinciri kopuk koridor kullanılamaz.
+
+Plan sonucu yalnız toplam skor değildir: koridorlar, taşıma modları, mikro
+bacaklar, altıgen hücreleri, segmentler, aktarma bölgeleri, maliyet, gecikme,
+güvenilirlik ve darboğaz kapasitesi ayrı alanlardır. Fiziksel bakım/hasar,
+makro hasar, erişim hakkı ve daha önce ayrılmış segment kapasitesi seçimden
+önce uygulanır. Kapasite rezervasyonu tüm rota segmentlerinde tek işlem olarak
+ya kabul edilir ya da hiçbir segmente yazılmaz; süre dolumu ve açık bırakma
+save/load içinde korunur.
+
+Önbellek ağ karması, makro hasar revizyonu, fiziksel topoloji/revizyon ve
+rezervasyon revizyonuna bağlıdır. Aynı normalleştirilmiş mod kümesi aynı
+`routeId` sonucunu verir. Sentetik karşı-testte ray segmenti kapatıldığında
+önceki rota terk edilip kara alternatifi seçildi; kapasite taşması atomik
+reddedildi ve aktif rezervasyon save/load sonrasında korundu. Canlı kampanya
+smoke testinde gerçek bir kara koridoru `6` fiziksel segment ve `7` hücreye
+açıldı. Genişletilmiş `test:story-infrastructure` kabul paketi fiziksel
+kara/deniz/ray, şirket, geçiş hakkı, ekonomik AI, rota UI ve inşaat dahil
+eksiksiz geçti.
+
+**Uygulama durumu — HXD-8B tamamlandı:** cache girdileri kullandıkları bütün
+aday koridor ve fiziksel segmentlerle ters indekste bağlanır. Segment hasarı,
+makro koridor hasarı, bakım başlangıcı/bitimi, rezervasyon açma/bırakma/süre
+dolumu ve fiziksel sicil reset/restore işlemleri aynı invalidasyon kapısına
+bağlandı. Böylece ray değişikliği bağımsız LAND cache girdisini korurken yalnız
+ray veya çok modlu adayları düşürür. Canlı kampanya karşı-testinde `6`
+segmentlik cache rotasının ilk segmenti kapatıldı; `1` hedefli invalidasyon
+sonrasında kırık kenarı içermeyen `16` segmentlik alternatif bulundu.
+
+AI rota çağrısı `PERCEIVED` modundaysa `networkView` vermek zorundadır; görünüm
+yoksa dünya gerçeğine sessizce düşmek yerine `PERCEPTION_REQUIRED` döner.
+Görünüm; gözlemci, kaynak kimliği, gözlem zamanı, son kullanım zamanı, bilgi
+durumu ve güven içerir. `VERIFIED` aynen, `ESTIMATED` güven ağırlığıyla,
+`RUMOR` ise daha düşük ağırlıkla kullanılır; bilinmeyen hat `CAUTIOUS`,
+`ASSUME_NOMINAL` veya `BLOCK_UNKNOWN` politikalarından biriyle değerlendirilir.
+Rota çıktısı hangi gözlemlere dayandığını ve hangi segmentlerin belirsiz
+olduğunu taşır. Karşı-testte gerçekte kapanmış rayı eski “açık” raporuyla seçen
+AI, yeni doğrulanmış kapanma raporundan sonra kara alternatifine geçti; gizli
+gerçeği bedava okumadı.
+
+**Açık göç borcu:** `StoryTrade` sevkiyatlarını bu fiziksel rota, bilgi ve
+rezervasyon sözleşmesine geçirmek HXD-9'un işidir. Askerî ikmal de aynı
+planlayıcıyı kullanacak fakat kendi keşif görünümünü sağlayacaktır; iki tüketici
+için ayrı ve çelişkili rota motoru yazılmayacaktır.
+
 ### HXD-9 — `ShipmentV2` ve taşıma ajanı çekirdeği
 
 - Mevcut sipariş/lot/ödeme/manifestoyu koruyarak fiziksel hareket ekle.
@@ -596,6 +647,106 @@ Segment mutasyonu ve kompakt kalıcılık karşı-testlidir: `%60` hasar, `%80` 
 
 **Çıkış:** Araç varmadan hedef stok artamaz.
 
+**Uygulama durumu — HXD-9A çekirdeği tamamlandı:** Yeni ticaret sevkiyatı
+`StoryRoutePlanner` üzerinden LAND/RAIL/SEA fiziksel rota alır ve stok
+düşümünden önce bütün segmentlerde kapasiteyi atomik ayırır. Ödeme ayrılmış
+olsa bile fiziksel kapasite ayrılamazsa ödeme serbest bırakılır; stok düşümü,
+commerce lot bağlama veya ajan kurma başarısız olursa stok, ödeme ve rota
+rezervasyonu birlikte geri alınır.
+
+`StoryTransportAgents.js` her gerçek sevkiyata tek taşıma ajanı bağlar.
+`LOADING → MOVING → WAITING → UNLOADING` durumları, sıralı altıgen hücreleri,
+fiziksel segment, ilerleme oranı, araç sınıfı, hareket/bekleme süresi ve yük
+kimliği aynı kayıttadır. Kara yükü `ROAD_CONVOY`, ray yükü `FREIGHT_TRAIN`,
+deniz yükü `CARGO_SHIP` olur. Ajan hem makro koridor erişim/hasarını hem
+fiziksel segment bakım/hasarını okur; ikisinden biri kapalıysa ilerleme donar.
+Teslim veya kayıpta fiziksel kapasite serbest bırakılır. Yönlendirme eski ve
+yeni rezervasyonu atomik değiştirir; yeni rota ayrılamazsa eski kapasite
+sessizce kaybedilmez.
+
+Karşı-testte yükleme sonrasında yük iki segmentli rotanın ortasında kaldı,
+koridor kapanınca ilerleme `%50`'de dondu, onarımdan sonra son hücreye ulaşıp
+boşaltıldı. Aynı `5 sn` hareketi tek tick veya `50 × 0,1 sn` çalıştırmak aynı
+sonucu verdi. Canlı kampanyada `5` gıda `7` fiziksel segmentli konvoya bağlandı:
+koridor kapalıyken hedef stok `38` kaldı, araç onarımdan sonra varınca `43`
+oldu. Geniş altyapı kabul paketi HXD-9 testleriyle birlikte eksiksiz geçti.
+
+**Açık HXD-9B borcu:** eski aktif save sevkiyatlarının kontrollü
+`ShipmentV2` göçü, uzak toplulaştırma/yakın materyalizasyon eşitliği, ekran
+görüşüne giren gerçek ajanların render projeksiyonu, terminal kuyruğu ve
+segment ortasında güvenli alternatif rota gerekir. Araç görselleri bu ajan
+sözleşmesinin `vehicleClass`, yön ve LOD ölçülerinden üretilecek; gerçek
+sevkiyata bağlı olmayan dekoratif trafik çizilmeyecektir.
+
+**HXD-9B görünürlük dilimi:** Ajan konumu altıgen hücre merkezleri ile segment
+ilerleme oranından salt-okunur biçimde türetilir; çizim katmanı simülasyon
+durumunu değiştirmez. Yerel zoomda her gerçek sevkiyat ayrı araçtır. Bölgesel
+zoomda yalnız aynı araç sınıfı ve hücredeki gerçek sevkiyatlar tek işarette
+toplanır; toplulaştırılmış ve materyalize görünümde sevkiyat sayısı ile yük
+toplamı değişemez. Harita şimdilik sözleşme doğrulaması için yönlü vektör
+tır/tren/gemi silüeti kullanır. Nihai atlas görselleri aynı `vehicleClass`, yön
+ve LOD sözleşmesine takılacak; dekoratif taşıt eklenmeyecektir.
+
+Eski aktif kayıt göçü de kontrollüdür: fiziksel ağ ve rota defteri yüklendikten
+sonra yalnız gerçek kapasite ayrılabilen eski aktif yükler `ShipmentV2` olur.
+Rota veya kapasite bulunamazsa eski yük silinmez, hedef stoğa yazılmaz ve
+`deferred` teşhisiyle eski yürütücüde kalır. Başarılı göç yeni başlangıç
+bölgesini, rezervasyonu ve göç zamanını sevkiyat üzerinde saklar.
+
+Yoldaki yönlendirme bir aracı segment ortasından başka yere ışınlamaz. İstek
+beklemeye alınır; ajan mevcut fiziksel segmentlerini ilk güvenli makro bacak
+sınırına kadar tamamlar, o bölgeyi yeni başlangıç kabul eder ve rezervasyonu
+orada atomik değiştirir. Başarısız yeni rezervasyon eski kapasiteyi yok etmez.
+
+Terminal yükleme/boşaltma kuyruğu kalıcı FIFO defterine bağlandı. Kara
+terminali üç, ray terminali iki, deniz terminali bir eşzamanlı slotla başlar;
+kapasite dolunca araç fiziksel başlangıç/varış hücresinde bekler ve bekleme
+süresi sevkiyat teşhisine yazılır. Slot yükleme veya boşaltma bitince serbest
+kalır. Kuyruk/aktif slot defteri save/load içinde korunur; eski kayıt boş ve
+stok üretmeyen terminal defteriyle geri doldurulur.
+
+**HXD-9B tamamlandı:** Modern yüksek çözünürlüklü tır konvoyu, yük treni ve
+konteyner gemisi kaynakları `mobile-agents` görsel siciline kaydedildi. Yakın
+materyalizasyonda gerçek `ShipmentV2.vehicleClass` bu sprite'ı, fiziksel segment
+yönü de dönüşünü belirler. Uzak görünüm yük/sevkiyat toplamını koruyan düşük
+maliyetli toplulaştırılmış işareti kullanır. Kaynak yüklenemezse vektör
+silüetine kontrollü fallback vardır; sevkiyata bağlı olmayan dekoratif araç
+sınıfı katalog tarafından reddedilir. Araç resimleri bir kez decode edilip
+mevcut harita atlas havuzunda RAM'de tutulur.
+
+**Sıradaki aktif iş:** HXD-9C 3D sunum karar prototipi. HXD-12 ile kara, ray,
+aktarma, liman, gemi, hava ve abluka sözleşmeleri tamamlandığı için 3D denemesi
+artık eksik bir taşıma maketini değil kanonik dünyayı okuyabilir. Prototip
+fiziksel sevkiyat sözleşmesini yeniden yazmayacaktır.
+
+### HXD-9C — 3D hikâye sunumu karar kapısı
+
+Simülasyon 3D motora taşınmayacak; mevcut altıgen, stok, karakter, savaş,
+lojistik ve nedensellik defterleri tek otorite kalacaktır. Denenecek şey yalnız
+`StoryRender` yerine aynı defterlerden beslenen Three.js/WebGL sunum
+adaptörüdür. Böylece 3D denemesi başarısız olsa bile 2D oynanış ve kayıtlar
+geri dönüşsüz biçimde kaybedilmez.
+
+İlk dikey yalnız Marmara/Ankara koridorunu kapsar: yükseklikli altıgen arazi,
+su, orman, dağ, iki şehir seviyesi, yol/ray, liman ve HXD-9 gerçek taşıma
+ajanları. Aynı tür yüzlerce öğe instance edilir; yakın/orta/uzak üç geometri
+LOD'u ve atlas/texture-array kullanılır. UI HTML katmanında kalır. Seçim ve
+tooltip için 3D raycast sonucu mevcut `mapEntity` sözleşmesine çevrilir.
+
+Kabul kapıları: 1080p hedef makinede kamera hareketinde şehirlerin sonradan
+belirmemesi, LLM çalışırken oynanabilir kare süresi, yakın/uzak görünümde aynı
+simülasyon kimlikleri, 2D/3D save karşılıklı açılabilirliği ve 10 dakikalık
+GPU-bellek kararlılığı. Prototip bu kapıları geçmezse tam 3D üretime girilmez;
+mevcut atlas tabanlı 2.5D yol korunur.
+
+Tam Unreal/Unity göçü ayrı bir ürün yeniden yazımı sayılır: Electron UI,
+JavaScript simülasyonu, kayıtlar, test tezgâhı ve yerel LLM köprüsü yeniden
+bağlanmadan seçilmeyecektir. Öncelikli aday mevcut uygulama içinde WebGL/Three.js
+adaptörüdür. Asıl üretim maliyeti motor değil; 2010–2100 dönemlerine ait modüler
+3D model, materyal, animasyon, LOD ve görsel kalite kontrol hattıdır. Bin ayrı
+tekil model yerine dönem × bölge × işlev parçalarından türeyen modüler katalog
+kurulacaktır.
+
 ### HXD-10 — Ankara–İstanbul kara yolu dikeyi
 
 - Gerçek depo ve şirketlerle sipariş oluştur.
@@ -603,6 +754,40 @@ Segment mutasyonu ve kompakt kalıcılık karşı-testlidir: `%60` hasar, `%80` 
 - Yol segmenti kırma, bekleme/alternatif rota ve onarım karşı-testleri.
 
 **Çıkış:** Uçtan uca oynanabilir ve gözlenebilir ilk fiziksel sevkiyat.
+
+**Uygulama dilimi — HXD-10A:** Canlı 2032 dünyasındaki Ankara–İstanbul kara
+koridoru sabit bir test maketi olmadan, gerçek bölge stokları, şirket kargosu,
+sipariş defteri ve `ShipmentV2` üzerinden uçtan uca kabul testine bağlandı.
+Kara konvoyu altı fiziksel segmentte ilerler; hedef şehir bölge görünümü gelen
+yükü gösterir fakat araç boşaltmadan stok yazamaz. İlk segment tamamen
+kırıldığında ajan o segmentte `HELD / PHYSICAL_SEGMENT_BLOCKED` olur ve gerçek
+gecikme biriktirir; onarım sonrası aynı yük terminal kuyruğundan geçerek teslim
+edilir. Bu dikey HXD-9 taşıma çekirdeğinin oyuncuya görünen ilk gerçek kullanım
+kapısıdır.
+
+**Uygulama dilimi — HXD-10B:** Sağdaki mevcut `BÖLGE` brifingi, oyuncunun
+kontrolündeki şehirlerde gerçek lojistik kumandasına dönüştürüldü. Oyuncu hedef
+şehri, kanonik bölge stoklarından yükü, miktarı ve otomatik/tır/tren/gemi
+taşımasını seçer; emir `storyTradeCreateOrder → storyTradeDispatchOrder`
+zincirinden geçmeden araç üretmez. Panel terminal sırası, yükleme, fiziksel
+hareket, engelde bekleme, boşaltma, ilerleme ve kalan simülasyon süresini aynı
+`ShipmentV2` kaydından gösterir. Başarısız sevk açık emir bırakmaz; `CANCELLED`
+olarak hata nedeni ile denetlenebilir kalır. Form taslağı şehir bazında korunur
+ve panel güncellenirken odaklanmış miktar/seçim düğümü değiştirilmez; Electron
+harita testi bunu ekran görüntüsü ve DOM kimliğiyle karşı-kontrol eder.
+
+**Sıradaki aktif iş:** HXD-11 demir yolu ve aktarma. HXD-10 kara yolu dikeyi
+artık motor, gerçek stok/şirket, oyuncu emri, hareketli araç, kesinti/onarım ve
+teslim görünürlüğüyle uçtan uca oynanabilir durumdadır.
+
+**Ölçülen render borcu:** HXD-9B Electron harita karşı-testinde taşıma ajanı
+katmanı p95 `0,1 ms` kaldı; yeni araç atlası darboğaz değildir. Buna karşılık
+toplam p95 uzak/orta/yakında `50,8 / 47,3 / 44,5 ms`, kalıcı harita
+katmanlarının tahmini toplamı yaklaşık `995 MiB` ölçüldü. 60 FPS hedefi
+geçilmedi. HXD-9C 3D prototipi bu tabanı saklamayacak; şehir, doğal yüzey ve ağ
+katmanları için tile/LOD bellek bütçesi ayrı optimizasyon borcudur.
+2026-08-20 tarihinde makine savaş AI/LLM yükü altındayken kullanıcı isteğiyle
+Electron/FPS kabulü yeniden koşturulmadı; bu yüzden bu borç kapanmış sayılmaz.
 
 ### HXD-11 — Demir yolu ve aktarma
 
@@ -612,13 +797,72 @@ Segment mutasyonu ve kompakt kalıcılık karşı-testlidir: `%60` hasar, `%80` 
 
 **Çıkış:** Süre/maliyet/kapasiteye göre gerçek mod seçimi.
 
+**Uygulama dilimi — HXD-11A:** Ankara–İstanbul canlı 2032 dünyasında kara ve
+demir yolu aynı fiziksel rota planlayıcıyla ölçülür; `3,2736 sn` kara yoluna
+karşı `2,0642 sn` demir yolu nedeniyle otomatik seçim treni seçer. Demir yolu
+emri gerçek `FREIGHT_TRAIN` ajanı üretir. Ray terminalinin iki yükleme yuvası
+dolduğunda üçüncü yük `QUEUED` olur ve oyuncu sıra numarasını görür; kırık ray
+üç yükü de stok yazmadan bekletir, onarım ve boşaltma sonrası hedef stok tam
+miktar kadar artar.
+
+Karma rota artık mod sınırında aracı anında başka sprite'a çeviremez. Yük,
+aktarma hücresinde `QUEUED → TRANSFERRING → MOVING` zincirinden, iki taşıma
+türünün ortak terminal kapasitesinden ve zaman penceresinden geçer. Tır aktarma
+bitmeden yük trenine dönüşmez; planlayıcının aktarma gecikmesi fiziksel ajan
+süresine aynen yansır. Sentetik kara→ray testi mod, hücre, terminal anahtarı,
+zaman penceresi, araç sınıfı ve teslim korunumunu birlikte doğrular.
+
+**Uygulama dilimi — HXD-11B:** Canlı Bursa→İstanbul→Sofya sevkiyatı kara→ray
+karma rotasıdır. Tek `ShipmentV2`, Bursa'dan `ROAD_CONVOY` olarak çıkar,
+İstanbul'un fiziksel aktarma hücresinde terminal sırası ve zaman penceresini
+öder, ardından `FREIGHT_TRAIN` olarak Sofya'ya gider. Aktarma hedef teslimi
+sayılmaz ve stok yazmaz. Ticaret adaptörünün dünya zaman ölçeğiyle uyumsuz
+genel `25 sn` cezası, gerçek terminalde ödenen `2 sn` ve `0,1` rota maliyetine
+çekildi; böylece karma rota ne bedava ne de yapay biçimde imkânsızdır.
+
+Oyuncu emri öncesinde aynı Bölge paneli seçilecek taşıma zinciri, ETA, maliyet,
+fiziksel darboğaz kapasitesi, güvenilirlik ve aktarma sayısını mutasyon yapmadan
+önizler. Rota yoksa emir düğmesi kapanır. HXD-11 çıkış ölçütleri canlı kara/ray
+seçimi, ray terminal kuyruğu, kırık ray, sentetik deterministik aktarma ve canlı
+üç şehirli aktarma testleriyle tamamlandı.
+
 ### HXD-12 — Liman ve hareketli gemi
 
 - Liman yükleme/boşaltma, deniz rotası, gemi ve hava/abluka.
-- İstanbul–İzmir veya İstanbul–Trabzon gerçek sevkiyatı.
+- Canlı ağda gerçekten bağlı limanlar arasında fiziksel sevkiyat.
 - Sabit dekoratif gemilerin gerçek ajanlarla değiştirilmesi.
 
 **Çıkış:** Gemi hareketi görsel ve mekanik olarak aynı dünya gerçeği.
+
+**Uygulama dilimi — HXD-12A (tamamlandı):** Canlı 2032 fiziksel ağ taraması,
+planda kabul örneği yazılan İstanbul–İzmir ve İstanbul–Trabzon çiftlerinin
+gerçekte `NO_ROUTE` olduğunu gösterdi. Bu eksikliği gizlemek için sahte koridor
+eklenmedi. Oyuncu ülkesinde gerçekten bağlı İzmir–Atina hattı dikey kabul
+olarak seçildi; İstanbul'un Ege/Karadeniz bağlantıları dünya-ağı borcu olarak
+açık kaldı.
+
+İki `ShipmentV2` aynı İzmir limanından birer gerçek `CARGO_SHIP` üretir. Deniz
+terminalinin tek yükleme slotu ilk gemiyi alır, ikinciyi kalıcı FIFO sırasında
+tutar. Fırtına koridorun hareket çarpanını düşürür ve kayıp süreyi ayrı
+`weatherDelaySeconds` ölçüsünde biriktirir. Abluka stoğu silmez veya gemiyi
+ışınlamaz: ajan aynı fiziksel segmentte `HELD / MARITIME_BLOCKADE` olur;
+abluka kalkınca aynı yük yoluna devam eder. Atina stoğu ancak liman boşaltması
+tamamlandığında iki yükün toplamı kadar artar.
+
+Deniz koşulları sürümlü `maritimeConditions` defterindedir; koridor, hava
+çarpanı, ablukacı ülke, gerekçe ve zaman kaydı save/load ile korunur. Bölge
+lojistiği rota önizlemesinde abluka/hava uyarısını, canlı yük listesinde
+`ABLUKADA BEKLİYOR` veya `HAVA NEDENİYLE BEKLİYOR` nedenini gösterir. Sabit
+dekoratif gemi bu katmanda üretilmez; çizilen modern konteyner gemisi gerçek
+sevkiyat kimliğine bağlıdır. `story-izmir-atina-sea-vertical.test.js` liman
+kuyruğu, hareket, hava, abluka, stok korunumu ve tam kampanya kayıt-yüklemesini
+birlikte doğrular.
+
+**Açık borçlar:** Abluka kararını henüz donanma/siyaset AI'si üretmez ve hava
+olayı üreticisi bu deftere otomatik yazmaz; bunların sahibi HXD-14/15'tir.
+İstanbul–İzmir/Trabzon deniz koridorları, sahte bağlantı eklenmeden yetkili
+liman/hat inşasıyla tamamlanmalıdır. Dolu makine nedeniyle sakin-makine 60 FPS
+Electron kabulü çalıştırılmadı ve açık performans borcu olarak korunuyor.
 
 ### HXD-13 — Teknoloji ve filo/altyapı dönüşümü
 

@@ -736,6 +736,9 @@ function storyInfrastructureSetDamage(corridorId, damageBps, options) {
     }
     if (previous !== corridor.damageBps || (options && Object.prototype.hasOwnProperty.call(options, 'enabled'))) {
         graph.damageRevision++;
+        if (typeof storyRoutePlannerInvalidate === 'function') {
+            storyRoutePlannerInvalidate({ corridorIds: [corridor.id] });
+        }
     }
     return {
         ok: true,

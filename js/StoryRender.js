@@ -352,7 +352,10 @@ const STORY_MAP_ATLAS_SPECS = {
     terrainDetail: { src: 'assets/maps/terrain-detail-atlas-v2.png', cols: 4, rows: 4 },
     ruralEnvironment: { src: 'assets/maps/rural-environment-atlas-v1.png', cols: 4, rows: 4 },
     maritime: { src: 'assets/maps/maritime-atlas-v2.png', cols: 4, rows: 4 },
-    seaDetail: { src: 'assets/maps/sea-detail-atlas-v2.png', cols: 4, rows: 4 }
+    seaDetail: { src: 'assets/maps/sea-detail-atlas-v2.png', cols: 4, rows: 4 },
+    transportRoad: { src: 'assets/maps/transport-road-convoy-modern-v1.png', cols: 1, rows: 1 },
+    transportRail: { src: 'assets/maps/transport-freight-train-modern-v1.png', cols: 1, rows: 1 },
+    transportSea: { src: 'assets/maps/transport-cargo-ship-modern-v1.png', cols: 1, rows: 1 }
 };
 
 const STORY_SETTLEMENT_ATLAS_KEYS = Object.freeze([
@@ -2056,6 +2059,94 @@ function storyDrawNetworkLayer(ctx, farMap) {
     };
 }
 
+function storyDrawTransportAgents(ctx, mapZoomRatio) {
+    if (typeof storyTransportRenderSnapshot !== 'function'
+        || typeof storyHexWorldEnsure !== 'function') return null;
+    const world = storyHexWorldEnsure();
+    const snapshot = storyTransportRenderSnapshot({
+        world,
+        zoomRatio: mapZoomRatio,
+        materializeZoomRatio: 1.35
+    });
+    const worldScaleX = STORY_WORLD_W / Math.max(1, Number(world.width) || 1);
+    const worldScaleY = STORY_WORLD_H / Math.max(1, Number(world.height) || 1);
+    let visible = 0;
+    for (const agent of snapshot.agents) {
+        const p = storyW2S(agent.x * worldScaleX, agent.y * worldScaleY);
+        if (p.x < -40 || p.x > STORY._cw + 40 || p.y < -40 || p.y > STORY._ch + 40) continue;
+        visible++;
+        const near = snapshot.mode === 'MATERIALIZED';
+        const size = near ? (agent.vehicleClass === 'CARGO_SHIP' ? 19 : 15) : 8;
+        const visual = typeof storyVisualTransportAsset === 'function'
+            ? storyVisualTransportAsset(agent.vehicleClass, STORY.year) : null;
+        const spriteSize = agent.vehicleClass === 'CARGO_SHIP' ? [58, 39]
+            : agent.vehicleClass === 'FREIGHT_TRAIN' ? [64, 36] : [46, 31];
+        // Üretilen izometrik kaynakların doğal ileri ekseni yaklaşık +28°'dir.
+        // Segment açısı simülasyondan gelir; bu sabit yalnız resmi o eksene hizalar.
+        const spriteAngle = (Number(agent.angle) || 0) - Math.PI * 28 / 180;
+        const drewSprite = !!(near && visual && visual.ok
+            && storyDrawAtlasCell(ctx, visual.atlasKey, visual.atlasCell,
+                p.x, p.y + spriteSize[1] / 2, spriteSize[0], spriteSize[1], 1,
+                spriteAngle, false));
+        if (!drewSprite) {
+            ctx.save();
+            ctx.translate(Math.round(p.x), Math.round(p.y));
+            ctx.rotate(Number(agent.angle) || 0);
+            ctx.lineWidth = near ? 1.5 : 1;
+            ctx.strokeStyle = agent.state === 'WAITING' ? '#ff5d5d' : '#07100b';
+            ctx.fillStyle = agent.vehicleClass === 'CARGO_SHIP' ? '#56b9e9'
+                : agent.vehicleClass === 'FREIGHT_TRAIN' ? '#d5d9df' : '#f0ad2f';
+            if (agent.vehicleClass === 'CARGO_SHIP') {
+                ctx.beginPath();
+                ctx.moveTo(size * .62, 0);
+                ctx.lineTo(size * .2, size * .34);
+                ctx.lineTo(-size * .55, size * .25);
+                ctx.lineTo(-size * .55, -size * .25);
+                ctx.lineTo(size * .2, -size * .34);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            } else if (agent.vehicleClass === 'FREIGHT_TRAIN') {
+                for (let index = 0; index < (near ? 3 : 2); index++) {
+                    ctx.fillRect(-size * .58 + index * size * .42,
+                        -size * .22, size * .34, size * .44);
+                    ctx.strokeRect(-size * .58 + index * size * .42,
+                        -size * .22, size * .34, size * .44);
+                }
+            } else {
+                ctx.fillRect(-size * .52, -size * .28, size * .68, size * .56);
+                ctx.strokeRect(-size * .52, -size * .28, size * .68, size * .56);
+                ctx.fillRect(size * .16, -size * .22, size * .34, size * .44);
+                ctx.strokeRect(size * .16, -size * .22, size * .34, size * .44);
+            }
+            ctx.restore();
+        }
+        if (near && (agent.state === 'WAITING' || agent.state === 'QUEUED')) {
+            ctx.save();
+            ctx.strokeStyle = agent.state === 'WAITING' ? '#ff5d5d' : '#f6d365';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(Math.round(p.x), Math.round(p.y), 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+        if (agent.aggregate && agent.shipmentCount > 1) {
+            ctx.fillStyle = '#07100b';
+            ctx.fillRect(Math.round(p.x + 5), Math.round(p.y - 10), 14, 10);
+            ctx.fillStyle = '#f6d365';
+            ctx.font = 'bold 8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(String(agent.shipmentCount), Math.round(p.x + 12), Math.round(p.y - 2));
+        }
+    }
+    STORY._transportRenderDiagnostics = {
+        mode: snapshot.mode,
+        activeShipments: snapshot.shipmentCount,
+        renderedAgents: visible,
+        cargoQuantity: snapshot.cargoQuantity
+    };
+    return snapshot;
+}
+
 function storySettlementLayerKey(farMap, mapZoomRatio, width, height, cmdNode, adj,
     urbanSourceHash, physicalSitesSourceHash) {
     const atlasState = storySettlementAtlasesReady() ? 'ready' : 'loading';
@@ -2830,6 +2921,8 @@ function storyRender() {
     storyDrawHexGridOverlay(g, mapZoomRatio);
     storyDrawNetworkLayer(g, farMap);
     markRenderLayer('hexAndNetworks');
+    storyDrawTransportAgents(g, mapZoomRatio);
+    markRenderLayer('transportAgents');
     // (3) Kaynak işaretleri — uzak görünümde gizlenir; stratejik harita şehir
     // atlası ve önemli etiketlerle okunur, debug noktalarıyla değil.
     if ((typeof storyMapV2Enabled !== 'function' || !storyMapV2Enabled())

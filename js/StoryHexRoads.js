@@ -629,6 +629,12 @@ function storyHexInfrastructureSetSegmentDamage(segmentId, damageBps, options) {
     }
     registry.revision++;
     if (STORY.infrastructureGraph) STORY.infrastructureGraph.damageRevision++;
+    if (typeof storyRoutePlannerInvalidate === 'function') {
+        storyRoutePlannerInvalidate({
+            segmentIds: [segment.id],
+            corridorIds: segment.corridorIds.slice()
+        });
+    }
     STORY._networkLayerKey = null;
     return { ok: true, segmentId: segment.id, previous,
         current: { damageBps: segment.damageBps, maintenanceBps: segment.maintenanceBps,
@@ -654,6 +660,9 @@ function storyHexInfrastructureForSave() {
 }
 
 function storyHexInfrastructureRestore(saved) {
+    if (typeof storyRoutePlannerInvalidate === 'function') {
+        storyRoutePlannerInvalidate({ all: true });
+    }
     STORY.hexInfrastructureSegments = null;
     const registry = storyHexInfrastructureSegmentsEnsure();
     if (!registry) return { ok: false, code: 'SEGMENT_REGISTRY_UNAVAILABLE' };
@@ -686,6 +695,9 @@ function storyHexInfrastructureRestore(saved) {
 }
 
 function storyHexInfrastructureReset() {
+    if (typeof storyRoutePlannerInvalidate === 'function') {
+        storyRoutePlannerInvalidate({ all: true });
+    }
     STORY.hexInfrastructureSegments = null;
     return storyHexInfrastructureSegmentsEnsure();
 }

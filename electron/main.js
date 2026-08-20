@@ -438,6 +438,29 @@ app.whenReady().then(() => {
                 problems.push('fiziksel segment sicili geçersiz: '
                     + JSON.stringify(ramLayers && ramLayers.hexInfrastructure));
             }
+            const logisticsPanel = await js(`(() => { try {
+                const me=storyPlayerState();
+                const city=STORY.nodes.find(node=>node&&Number(node.owner)===Number(me&&me.id));
+                if(!city) return {err:'oyuncu şehri bulunamadı'};
+                storySelectNode(city.id); storyBriefSetTab('region'); storyPanelUpdate();
+                const input=document.getElementById('story-logistics-quantity');
+                const panel=document.querySelector('.story-logistics-box');
+                if(!input||!panel) return {err:'lojistik paneli üretilmedi',city:city.name};
+                input.focus(); input.value='7';
+                input.dispatchEvent(new Event('input',{bubbles:true}));
+                const before=input; storyPanelUpdate();
+                const after=document.getElementById('story-logistics-quantity');
+                return {city:city.name,visible:!!panel,focusPreserved:document.activeElement===before,
+                    nodePreserved:before===after,value:after&&after.value,
+                    hasDispatch:!!document.querySelector('[data-story-logistics-dispatch]')};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_LOGISTICS_PANEL ' + JSON.stringify(logisticsPanel));
+            await sleep(120); await settlePaint(); await shot('map-7-lojistik-panel');
+            if (!logisticsPanel || logisticsPanel.err || !logisticsPanel.visible
+                || !logisticsPanel.focusPreserved || !logisticsPanel.nodePreserved
+                || logisticsPanel.value !== '7' || !logisticsPanel.hasDispatch) {
+                problems.push('lojistik paneli/odak sözleşmesi bozuk: ' + JSON.stringify(logisticsPanel));
+            }
             console.log('MAPTEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 6)));
             console.log(problems.length ? 'MAPTEST_FAIL' : 'MAPTEST_OK');
             setTimeout(() => app.exit(problems.length ? 1 : 0), 300);

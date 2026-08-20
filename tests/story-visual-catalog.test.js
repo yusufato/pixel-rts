@@ -7,9 +7,9 @@ const catalog = require('../js/StoryVisualCatalog.js');
 
 const validation = catalog.storyVisualCatalogValidate();
 assert.strictEqual(validation.ok, true, validation.issues.join(', '));
-assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 86,
-    'HXD-6.9 A2: 6 fallback + 16 inşaat + 64 yeni fiziksel atlas hücresi.');
-assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 86);
+assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 89,
+    'HXD-9B: 86 sabit varlık + 3 gerçek sevkiyat aracı.');
+assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 89);
 
 assert.strictEqual(catalog.storyVisualPeriodForYear(2010).id, 'MODERN_2010');
 assert.strictEqual(catalog.storyVisualPeriodForYear(2049).id, 'CONNECTED_2030');
@@ -108,6 +108,15 @@ const missing = catalog.storyVisualResolveAsset({
 assert.strictEqual(missing.ok, false);
 assert.strictEqual(missing.fallbackReason, 'NO_REGISTERED_ASSET_FALLBACK');
 
+const roadVehicle = catalog.storyVisualTransportAsset('ROAD_CONVOY', 2032);
+assert.strictEqual(roadVehicle.ok, true);
+assert.strictEqual(roadVehicle.atlasKey, 'transportRoad');
+assert.strictEqual(roadVehicle.family, 'truck');
+assert.strictEqual(roadVehicle.fallbackDepth, 1,
+    '2030 dönem atlası gelene kadar 2010 modern araç açık fallback olmalı.');
+assert.strictEqual(catalog.storyVisualTransportAsset('DECORATIVE_CAR', 2032).ok, false,
+    'sevkiyata bağlı olmayan dekoratif araç sınıfı çizilmemeli');
+
 const foundation = catalog.storyVisualConstructionRecipe({
     year: 2032,
     command: { projectType: 'RESIDENTIAL', status: 'BUILDING',
@@ -192,6 +201,15 @@ for (const file of ['urban-construction-atlas-modern-v1.png',
     assert.strictEqual(bytes.toString('ascii', 1, 4), 'PNG');
     assert.ok(bytes.readUInt32BE(16) >= 1024 && bytes.readUInt32BE(20) >= 1024,
         `${file}: atlas çözünürlüğü düşük`);
+    assert.strictEqual(bytes[25], 6, `${file}: PNG gerçek RGBA olmalı`);
+}
+
+for (const file of ['transport-road-convoy-modern-v1.png',
+    'transport-freight-train-modern-v1.png', 'transport-cargo-ship-modern-v1.png']) {
+    const bytes = fs.readFileSync(path.join(__dirname, '..', 'assets', 'maps', file));
+    assert.strictEqual(bytes.toString('ascii', 1, 4), 'PNG');
+    assert.ok(bytes.readUInt32BE(16) >= 900 && bytes.readUInt32BE(20) >= 900,
+        `${file}: araç kaynağı yüksek çözünürlüklü olmalı`);
     assert.strictEqual(bytes[25], 6, `${file}: PNG gerçek RGBA olmalı`);
 }
 

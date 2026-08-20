@@ -19,6 +19,12 @@ const STORY_TRADE_RETRY_BASE_SECONDS = 8;
 const STORY_TRADE_RETRY_MAX_SECONDS = 64;
 const STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES = 18;
 const STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS = 4;
+// Kampanya zamanı sıkıştırılmıştır: Ankara-İstanbul fiziksel yolculuğu 2-3 sn.
+// Planlayıcının genel amaçlı 25 sn aktarma varsayımı bu ölçekte bütün karma
+// rotaları yapay biçimde öldürüyordu. Bu değer taşıma ajanında gerçek terminal
+// fazı olarak ödenir; bedelsiz/ışınlanan mod değişimi değildir.
+const STORY_TRADE_TRANSFER_LATENCY_SECONDS = 2;
+const STORY_TRADE_TRANSFER_COST = 0.1;
 const STORY_TRADE_DISTRIBUTION_ADAPTER_VERSION = 'story-domestic-distribution-contract-1';
 const STORY_TRADE_DISTRIBUTION_MAX_LEGS = 8;
 const STORY_TRADE_DISTRIBUTION_BATCH_LIMIT = 40;
@@ -140,6 +146,12 @@ function storyTradeModes(resourceId) {
     if (!definition) return [];
     if (definition.transportModes.includes('ENERGY_GRID')) return ['ENERGY'];
     return definition.transportModes.filter(mode => mode === 'LAND' || mode === 'SEA');
+}
+
+function storyTradePhysicalModes(resourceId) {
+    const modes = storyTradeModes(resourceId);
+    if (modes.includes('LAND') && !modes.includes('RAIL')) modes.push('RAIL');
+    return modes;
 }
 
 function storyTradeTotalsBase() {
@@ -286,6 +298,11 @@ function storyTradeValidate(ledger) {
             add('INVALID_ORDER_RETRY_TIME', `${at}.nextRetryAt`,
                 'Yeniden deneme zamanı son denemeden önce olamaz.');
         }
+        if (order.transportMode != null
+            && !storyTradePhysicalModes(order.resourceId).includes(String(order.transportMode))) {
+            add('INVALID_ORDER_TRANSPORT_MODE', `${at}.transportMode`,
+                'Sipariş taşıma modu bu kaynak için fiziksel olarak kullanılamaz.');
+        }
     });
 
     const shipmentIds = new Set();
@@ -304,13 +321,28 @@ function storyTradeValidate(ledger) {
             || shipment.routeRegionIds.length !== shipment.corridorIds.length + 1) {
             add('INVALID_SHIPMENT_ROUTE', at, 'Sevkiyat rota düğümü/koridor sayısı uyuşmuyor.');
         }
+        if (shipment.transportVersion != null) {
+            const transportValidation = typeof storyTransportShipmentValidate === 'function'
+                ? storyTransportShipmentValidate(shipment)
+                : { ok: false, issues: ['TRANSPORT_VALIDATOR_MISSING'] };
+            for (const issue of transportValidation.issues || []) {
+                add('INVALID_SHIPMENT_TRANSPORT', at + '.transportAgent',
+                    'Fiziksel taşıma ajanı geçersiz: ' + issue);
+            }
+        }
         const heldAtDestination = shipment.status === 'HELD'
+            && shipment.legIndex === shipment.corridorIds.length
+            && shipment.currentRegionId === shipment.targetRegionId;
+        const physicalUnloadingAtDestination = Number(shipment.transportVersion) === 2
+            && shipment.transportAgent
+            && shipment.transportAgent.state === 'UNLOADING'
             && shipment.legIndex === shipment.corridorIds.length
             && shipment.currentRegionId === shipment.targetRegionId;
         if (['IN_TRANSIT', 'HELD'].includes(shipment.status)
             && (shipment.legIndex < 0
                 || shipment.legIndex > shipment.corridorIds.length
-                || (shipment.legIndex === shipment.corridorIds.length && !heldAtDestination))) {
+                || (shipment.legIndex === shipment.corridorIds.length
+                    && !heldAtDestination && !physicalUnloadingAtDestination))) {
             add('INVALID_SHIPMENT_LEG', `${at}.legIndex`, 'Canlı sevkiyat geçerli rota ayağında olmalı.');
         }
     });
@@ -631,11 +663,16 @@ function storyTradeCreateOrder(spec) {
     const targetRegionId = storyTradeRegionId(spec.targetRegionId);
     const resourceId = String(spec.resourceId || '');
     const quantity = storyTradeRound(Math.max(0, Number(spec.quantity) || 0));
+    const transportMode = spec.transportMode == null
+        ? null : String(spec.transportMode).toUpperCase();
     if (!storyTradeNode(sourceRegionId) || !storyTradeNode(targetRegionId) || sourceRegionId === targetRegionId) {
         return { ok: false, code: 'INVALID_ORDER_REGION' };
     }
     if (!STORY_TRADE_TRANSPORTABLE.includes(resourceId)) return { ok: false, code: 'RESOURCE_NOT_TRANSPORTABLE' };
     if (quantity <= 0) return { ok: false, code: 'INVALID_ORDER_QUANTITY' };
+    if (transportMode && !storyTradePhysicalModes(resourceId).includes(transportMode)) {
+        return { ok: false, code: 'TRANSPORT_MODE_NOT_AVAILABLE' };
+    }
     const sellerCountryId = storyTradeCountryIdForRegion(sourceRegionId);
     const buyerCountryId = storyTradeCountryIdForRegion(targetRegionId);
     const sellerCompanyId = typeof storyCompanySellerForTrade === 'function'
@@ -688,6 +725,7 @@ function storyTradeCreateOrder(spec) {
             Number(spec.exportReserveBps) || 0
         )));
     }
+    if (transportMode) order.transportMode = transportMode;
     if (spec.distributionBatchId && spec.distributionLegId) {
         order.distributionBatchId = String(spec.distributionBatchId);
         order.distributionLegId = String(spec.distributionLegId);
@@ -696,10 +734,30 @@ function storyTradeCreateOrder(spec) {
     return { ok: true, order, contract: contractResult.contract };
 }
 
-function storyTradeFindRoute(sourceRegionId, targetRegionId, contract, resourceId) {
+function storyTradeFindRoute(sourceRegionId, targetRegionId, contract, resourceId, options) {
+    const requestedMode = options && options.transportMode
+        ? String(options.transportMode).toUpperCase() : null;
+    const availableModes = storyTradePhysicalModes(resourceId);
+    const modes = requestedMode && availableModes.includes(requestedMode)
+        ? [requestedMode] : availableModes;
+    if (typeof storyRoutePlannerPlan === 'function'
+        && modes.some(mode => ['LAND', 'RAIL', 'SEA'].includes(mode))) {
+        return storyRoutePlannerPlan(sourceRegionId, targetRegionId, {
+            modes: modes.filter(mode => ['LAND', 'RAIL', 'SEA'].includes(mode)),
+            authorizedCountryIds: contract.partyCountryIds,
+            minCapacity: 0,
+            transferCost: STORY_TRADE_TRANSFER_COST,
+            transferLatencySeconds: STORY_TRADE_TRANSFER_LATENCY_SECONDS,
+            knowledgeMode: 'TRUTH',
+            // Dispatch immediately reserves the chosen segments and therefore
+            // invalidates that capacity-dependent entry. Avoid building a
+            // thousand-edge reverse cache index for a one-shot plan.
+            useCache: false
+        });
+    }
     if (typeof storyInfrastructureFindRoute !== 'function') return { ok: false, reason: 'INFRASTRUCTURE_API_MISSING' };
     return storyInfrastructureFindRoute(sourceRegionId, targetRegionId, {
-        modes: storyTradeModes(resourceId),
+        modes,
         authorizedCountryIds: contract.partyCountryIds,
         minCapacity: 0
     });
@@ -713,6 +771,9 @@ function storyTradeCapacityAvailable(route, ledger) {
         const capacity = storyInfrastructureEffectiveCapacity(corridor);
         const used = Number(ledger.capacityWindow.usedByCorridor[corridorId]) || 0;
         available = Math.min(available, Math.max(0, capacity - used));
+    }
+    if (Number.isFinite(Number(route.bottleneckCapacity))) {
+        available = Math.min(available, Number(route.bottleneckCapacity));
     }
     return Number.isFinite(available) ? storyTradeRound(available) : 0;
 }
@@ -1015,7 +1076,13 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         * reserveBps / 10000);
     const exportable = storyTradeRound(Math.max(0, (Number(regional.stocks[order.resourceId]) || 0) - reserve));
     if (remaining <= 0 || exportable <= 0) return { ok: false, code: 'NO_EXPORTABLE_STOCK' };
-    const route = storyTradeFindRoute(order.sourceRegionId, order.targetRegionId, contract, order.resourceId);
+    const route = storyTradeFindRoute(
+        order.sourceRegionId,
+        order.targetRegionId,
+        contract,
+        order.resourceId,
+        { transportMode: order.transportMode }
+    );
     if (!route.ok || !(route.corridorIds || []).length) return { ok: false, code: route.reason || 'NO_ROUTE', route };
     const availableCapacity = storyTradeCapacityAvailable(route, ledger);
     const quantity = storyTradeRound(Math.min(
@@ -1050,11 +1117,31 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         finance: reservation
     };
 
+    const nextShipmentId = 'trade-shipment:' + (ledger.shipmentSequence + 1);
+    const routeReservation = typeof storyRoutePlannerReserve === 'function'
+        && Array.isArray(route.segmentIds) && route.segmentIds.length
+        ? storyRoutePlannerReserve(route, quantity, {
+            ownerId: nextShipmentId,
+            durationSeconds: Math.max(3600,
+                Number(route.totalLatencySeconds || 0) * 10)
+        })
+        : { ok: false, code: 'PHYSICAL_ROUTE_RESERVATION_UNAVAILABLE' };
+    if (!routeReservation.ok) {
+        if (reservation.reservationId && typeof storyBudgetReleaseTrade === 'function') {
+            storyBudgetReleaseTrade(reservation.reservationId,
+                routeReservation.code || 'PHYSICAL_ROUTE_RESERVATION_FAILED');
+        }
+        return { ok: false,
+            code: routeReservation.code || 'PHYSICAL_ROUTE_RESERVATION_FAILED',
+            route, physicalReservation: routeReservation };
+    }
+
     const debit = storyRegionalStockDelta(order.sourceRegionId, order.resourceId, -quantity, {
         type: 'TRADE_DISPATCH',
         source: order.id
     });
     if (!debit.ok) {
+        storyRoutePlannerRelease(routeReservation.reservation.id, 'SOURCE_DEBIT_FAILED');
         if (reservation.reservationId && typeof storyBudgetReleaseTrade === 'function') {
             storyBudgetReleaseTrade(reservation.reservationId, 'SOURCE_DEBIT_FAILED');
         }
@@ -1095,6 +1182,23 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         interruptionSeconds: 0,
         damageDelaySeconds: 0
     };
+    if (order.transportMode) shipment.requestedTransportMode = order.transportMode;
+    const transportAttach = typeof storyTransportAttachShipment === 'function'
+        ? storyTransportAttachShipment(shipment, route, routeReservation.reservation)
+        : { ok: false, code: 'TRANSPORT_AGENT_API_MISSING' };
+    if (!transportAttach.ok) {
+        storyRegionalStockDelta(order.sourceRegionId, order.resourceId, quantity, {
+            type: 'TRADE_DISPATCH_ROLLBACK',
+            source: order.id
+        });
+        storyRoutePlannerRelease(routeReservation.reservation.id,
+            transportAttach.code || 'TRANSPORT_ATTACH_FAILED');
+        if (reservation.reservationId && typeof storyBudgetReleaseTrade === 'function') {
+            storyBudgetReleaseTrade(reservation.reservationId,
+                transportAttach.code || 'TRANSPORT_ATTACH_FAILED');
+        }
+        return { ok: false, code: transportAttach.code || 'TRANSPORT_ATTACH_FAILED' };
+    }
     if (order.distributionBatchId && order.distributionLegId) {
         shipment.distributionBatchId = order.distributionBatchId;
         shipment.distributionLegId = order.distributionLegId;
@@ -1109,6 +1213,7 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
             if (reservation.reservationId && typeof storyBudgetReleaseTrade === 'function') {
                 storyBudgetReleaseTrade(reservation.reservationId, 'COMMERCE_CARGO_COMMIT_FAILED');
             }
+            storyTransportReleaseReservation(shipment, 'COMMERCE_CARGO_COMMIT_FAILED');
             return { ok: false, code: cargo.code || 'COMMERCE_CARGO_COMMIT_FAILED' };
         }
         shipment.commerceCargoRegionId = cargo.cargoRegionId;
@@ -1138,12 +1243,22 @@ function storyTradeApplyRedirect(shipment) {
         shipment.currentRegionId,
         shipment.pendingRedirectRegionId,
         contract,
-        shipment.resourceId
+        shipment.resourceId,
+        { transportMode: shipment.requestedTransportMode }
     );
     if (!route.ok || !(route.corridorIds || []).length) {
         shipment.status = 'HELD';
         shipment.holdReason = 'REDIRECT_ROUTE_UNAVAILABLE';
         return { ok: false, code: 'REDIRECT_ROUTE_UNAVAILABLE' };
+    }
+    if (Number(shipment.transportVersion) === 2
+        && typeof storyTransportReplaceRoute === 'function') {
+        const physical = storyTransportReplaceRoute(shipment, route, 'REDIRECT_TARGET');
+        if (!physical.ok) {
+            shipment.status = 'HELD';
+            shipment.holdReason = physical.code || 'REDIRECT_CAPACITY_UNAVAILABLE';
+            return { ok: false, code: shipment.holdReason };
+        }
     }
     shipment.targetRegionId = shipment.pendingRedirectRegionId;
     shipment.pendingRedirectRegionId = null;
@@ -1175,7 +1290,13 @@ function storyTradeRedirectShipment(shipmentId, targetRegionId, options) {
     }
     const contract = ledger.contracts.find(item => item.id === shipment.contractId);
     if (!contract || contract.status !== 'ACTIVE') return { ok: false, code: 'CONTRACT_NOT_ACTIVE' };
-    const routeProbe = storyTradeFindRoute(shipment.currentRegionId, target, contract, shipment.resourceId);
+    const routeProbe = storyTradeFindRoute(
+        shipment.currentRegionId,
+        target,
+        contract,
+        shipment.resourceId,
+        { transportMode: shipment.requestedTransportMode }
+    );
     if (!routeProbe.ok || !(routeProbe.corridorIds || []).length) return { ok: false, code: routeProbe.reason || 'NO_ROUTE' };
     ledger.amendmentSequence++;
     const amendment = {
@@ -1263,6 +1384,13 @@ function storyTradeCompleteShipment(shipment) {
     shipment.currentRegionId = shipment.targetRegionId;
     shipment.deliveredAt = storyTradeRound(STORY.clock);
     shipment.titleOwnerCountryId = shipment.buyerCountryId;
+    if (shipment.transportAgent) {
+        shipment.transportAgent.state = 'DELIVERED';
+        shipment.transportAgent.phaseRemainingSeconds = 0;
+    }
+    if (typeof storyTransportReleaseReservation === 'function') {
+        storyTransportReleaseReservation(shipment, 'DELIVERED');
+    }
     storyTradeAdd(ledger.totals.delivered, shipment.resourceId, shipment.quantity);
     const order = ledger.orders.find(item => item.id === shipment.orderId);
     if (order) {
@@ -1288,6 +1416,13 @@ function storyTradeLoseShipment(shipmentId, reason) {
     shipment.status = 'LOST';
     shipment.holdReason = String(reason || 'LOGISTICS_LOSS');
     shipment.lostAt = storyTradeRound(STORY.clock);
+    if (shipment.transportAgent) {
+        shipment.transportAgent.state = 'LOST';
+        shipment.transportAgent.phaseRemainingSeconds = 0;
+    }
+    if (typeof storyTransportReleaseReservation === 'function') {
+        storyTransportReleaseReservation(shipment, shipment.holdReason);
+    }
     if ((shipment.settlementReservationId || shipment.resaleSettlementReservationId)
         && typeof storyBudgetReleaseShipmentPayments === 'function') {
         storyBudgetReleaseShipmentPayments(shipment, shipment.holdReason);
@@ -1336,6 +1471,10 @@ function storyTradeAdvanceShipment(shipment, dtSec) {
     if (shipment.pendingRedirectRegionId
         && (shipment.status === 'HELD' || shipment.legRemainingSeconds <= 1e-9)) {
         storyTradeApplyRedirect(shipment);
+    }
+    if (Number(shipment.transportVersion) === 2
+        && typeof storyTransportAdvanceShipment === 'function') {
+        return storyTransportAdvanceShipment(shipment, dtSec);
     }
     const corridorId = shipment.corridorIds[shipment.legIndex];
     const corridor = storyInfrastructureGetCorridor(corridorId);
