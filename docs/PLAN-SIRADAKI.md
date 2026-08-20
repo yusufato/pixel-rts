@@ -8,6 +8,43 @@ Damgasız satır yoktur: her iş ya ÖLÇÜLDÜ, ya ÖN KAPIYI GEÇTİ, ya HENÜ
 
 ---
 
+---
+
+# ⭐⭐ 2026-08-20 — SEVK EDİLEN AI (iki makine, havuzlanmış kanıt)
+
+## Şu an sevk edilen arama konfigürasyonu
+
+| ayar | değer | kanıt |
+|---|---|---|
+| `LA_UFUK` | **300** | 100→200 havuz +603 (n=256) · 200→300 +980 (n=128) |
+| `LA_DERIN` | **5** | havuz +607 (n=256) · ufuk 300 üstünde +954 (M2-3) |
+| `LA_AG_KAPI` | **false** | havuz **+897** (n=256, t 6,32, taban 398) |
+| `BATTLE_MENZILE_GIR` | **true** | havuz **+975** (n=256, t 4,93, taban 554) |
+| `LA_PERIYOT_TIK` | 100 (değişmedi) | 50 reddedildi: havuz −595 |
+| `LA_KABA_ADIM` | 1 (20Hz) | 5Hz reddedildi: −2390 |
+
+Tam güçte ölçülen saldıran galibiyeti **%79,7-82,0** — projede görülen en yüksek oranlar.
+Taban karşılaştırması: arama tamamen kapalıyken +735 (B kapısı), yani arama katmanı
+başlı başına kanıtlanmış durumda.
+
+## Reddedilenler ve nedenleri
+
+| aday | sonuç | ders |
+|---|---|---|
+| 5Hz kaba rollout | −2390 | **yaklaşıklıkla ucuzlatma bu motorda çöküyor** (3. kez) |
+| karar sıklığı 50 tik | −595 | ufuk 200'de +808'di; **sevk edilen tabanda tersine döndü** |
+| karşı-batarya herkese | etki yok (std 366) | bayrak dünyayı kıpırdatmıyor |
+| aday genişliği (halka 5) | −189 / −299 | iki tabanda da ölçülemedi |
+| emir ömrü koruma | havuz +328, taban 419 | 384 maçta bile taban altı |
+
+## Kalan kapılar
+
+`T1` topçu ateş disiplini (M2-4 +349 ile havuzlanacak) · `U400b` ufuk 300 vs 400
+(M2-5 +440 ile havuzlanacak) · `Q2` arama hava birimlerini kapsasın mı (hiç ölçülmedi) ·
+`C1` kademeli eleme (beklenti negatif) · makine 2'de `M2-8` yarıçap.
+
+---
+
 # ⭐ 2026-08-19 GECESİ — SONUÇ TABLOSU (sabah ilk buraya bak)
 
 ```
