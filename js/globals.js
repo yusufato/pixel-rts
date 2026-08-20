@@ -1074,7 +1074,21 @@ function battleIsIndirectType(t) {
 // acinca IKI TARAF da alir ve A/B'de fark kimseye atfedilemez. Bu iki nesne yalniz o tarafta
 // gecerli olan degerleri tasir (null = global degeri kullan). Demet savasi bunu kullanir.
 let BATTLE_INTEL4PRO_DELTAS_RED = null, BATTLE_INTEL4PRO_DELTAS_BLUE = null;
+/* ── TRİYAJ KANCASI (2026-08-20) ────────────────────────────────────────────────
+   26 pro-delta var ve ÖNGÖRÜ pro DEĞİL — yani hiçbiri ÖNGÖRÜ kademesinde koşmuyor.
+   Her birine ayrı kapsam bayrağı yazmak (bugün dördünü öyle yaptım) triyaj için çok
+   pahalı. Bu dizi, adı geçen deltaları beyin şartından muaf tutar.
+
+   ⚠ YALNIZ ÖLÇÜM İÇİN. Sevk edilecek bir delta kendi AÇIK bayrağını alır
+   (BATTLE_IKMAL_REFAKAT_INTEL4 gibi) — "hangi ayarla koştu" sorusu sonradan
+   tartışılmasın diye.
+   ⚠ İLERİ-BAKIŞ İŞÇİSİNE TAŞINMAZ (dizi, ayar-parmakizine girmiyor). Yani arama
+   AÇIKKEN kullanma: ana iplik ile işçi farklı beyinle koşar ve bu depoda bir kez
+   yaşanmış "işçi farklı beyinle koşuyor" kusurunu geri getirir.
+   Varsayılan null = davranış değişmez. */
+let BATTLE_PRO_DELTA_TRIYAJ = null;
 function battleProDelta(isRed, key) {
+    if (BATTLE_PRO_DELTA_TRIYAJ && BATTLE_PRO_DELTA_TRIYAJ.indexOf(key) >= 0) return true;
     const _ov = isRed ? BATTLE_INTEL4PRO_DELTAS_RED : BATTLE_INTEL4PRO_DELTAS_BLUE;
     const _v = (_ov && Object.prototype.hasOwnProperty.call(_ov, key)) ? _ov[key] : BATTLE_INTEL4PRO_DELTAS[key];
     if (!_v) return false;
