@@ -131,3 +131,47 @@ Bu ölçüm bir maç kapısı değil; birkaç saatlik mekanizma ölçümü. Bug�
 
 Üçü de kabul edilebilir sonuçlar. Plan, kazanacağını değil **ölçülebilir olduğunu**
 iddia ediyor.
+
+
+---
+
+## 7. ADIM 4 ÖLÇÜLDÜ (2026-08-20) — **iddia ayakta**
+
+`tools/grup-yelpazesi.js`, 4 tohum · 2 an · 3 çapa · ufuk 200 tik (10sn).
+**Kontrollü karşılaştırma:** iki kolda da aynı hedef noktaları (aynı geometri, aynı
+sayı); tek fark kaç birim oynadığı. Böylece "yayılım farkı noktaların mı kütlenin mi"
+karışmıyor.
+
+| kip | ölçüm | ort yayılım | medyan | sıfır yayılım | **en iyi − kal** | t |
+|---|---|---|---|---|---|---|
+| BİREY (1 birim) | 18 | 165 | **0** | **%66,7** | 46 | 1,76 |
+| KÜTLE (8 birim) | 18 | **743** | 940 | %16,7 | **282** | **3,55** |
+
+- **Yayılım oranı 4,50×**
+- **Sıfır yayılım %66,7 → %16,7**
+- **"En iyi − kal"**: seçimin *yerinde kalmaya göre* kazandırdığı. Tek birimle
+  ölçülemiyor (46, t 1,76); kütleyle **282, t 3,55** — anlamlı.
+
+Birey kolunun **medyan yayılımı sıfır**: kararların yarıdan fazlası tamamen önemsiz.
+Kayıtlı %29 rakamı bu kurulumda daha da kötü çıkıyor (farklı ufuk/yarıçap, ama yön aynı).
+
+### Bu ne demek, ne demek DEĞİL
+
+**Demek:** aramanın harcadığı rollout bütçesinin büyük kısmı, sonucu değiştirmeyen
+seçimlere gidiyor. Kütle adayları hem daha çok fark yaratıyor hem de o farkın
+**yönü ölçülebilir** hale geliyor.
+
+**Demek DEĞİL:** aramanın kütle adaylarıyla maç kazanacağı. Bu ölçüm *seçimin önemli
+olduğunu* gösteriyor, *arama iyi seçecek* demiyor. O ayrı bir kapı.
+
+### Dürüstlük notları
+
+- n=18 ölçüm 4 tohumdan; aynı tohum içindeki ölçümler bağımsız değil.
+- "Kütle" burada kaba bir kurgu (en yakın 8 birim, formasyonu koruyarak) — gerçek
+  `taskGroups` değil. Gerçek grup adayları farklı davranabilir.
+- Rollout içi kazanç ölçüldü, **maç sonucu değil**.
+
+### Sıradaki adım
+
+Gerçek grup adayları (`taskGroups` + kalıcı `groupId` üzerinden: MAIN sol/merkez/sağ,
+FLANK geniş kuşatma, kütle → çıkarılmış tehdit konumu) ile aynı ölçüm; sonra maç kapısı.
