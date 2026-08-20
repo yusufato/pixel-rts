@@ -2641,7 +2641,17 @@ class Unit {
                 // INTEL4-PRO 'indirectMassing': mermi başına DEĞER. Varsayılan davranış en-yakın hedefe atmaktı
                 // ("splash zaten alan") — ama şarjör 3-8 mermi ve ölçüldü ki savunanın topçu/havan/ÇNRA'sı t=60'ta
                 // KURUYOR. Kütle-hedeflemesi: patlama yarıçapındaki düşman sayısını maksimize et, eşitlikte yakını seç.
-                if (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'indirectMassing')) {
+                /* KAPSAM (2026-08-20): kutle-hedefleme ve karsi-batarya onceligi YALNIZ pro
+                   beyninde kosuyor; ONGORU pro DEGIL -> topcusu sadece "en yakina" atiyor
+                   (asagidaki `else sc = -d`). Kapsam disari alindi ki ONGORU'de OLCULEBILSIN.
+                   ⚠ "Yazilmis ama kosmuyor" BEDAVA KAZANC DEMEK DEGIL: pro katmani butun
+                   olarak NET ZARARLI olculdu (2026-08-09) ve 9 deltanin hicbiri tek basina
+                   anlamli cikmadi. Bu yuzden once MEKANIZMA triyaji, sonra mac kapisi.
+                   VARSAYILAN = ESKI DAVRANIS (byte-ayni). */
+                const _kutleKapsam = (typeof BATTLE_TOPCU_KUTLE_INTEL4 !== 'undefined') &&
+                    BATTLE_TOPCU_KUTLE_INTEL4 === true;
+                if (_kutleKapsam ||
+                    (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'indirectMassing'))) {
                     const _pwm = STATS[this.type] && STATS[this.type].weapons && STATS[this.type].weapons[0];
                     const _R = (_pwm && _pwm.aoe > 0) ? _pwm.aoe : ARTILLERY_SPLASH_RADIUS;
                     let _kutle = 0;
@@ -2653,7 +2663,9 @@ class Unit {
                     // KARŞI-BATARYA (kullanıcı doktrini): SALDIRANIN dolaylı ateşi, savunanın DOLAYLI birimlerini
                     // öncelikler — "toplu yürüyen saldırıyı yıpratan şey savunanın topçusu; önce onu sustur".
                     // Yalnız saldıran rolde: savunanın kendi topçusunu kovalaması hattı boş bırakır.
-                    if (battleProDelta(this.isRed, 'counterBattery') && battleIsIndirectType(u.type)) {
+                    if ((_kutleKapsam ||
+                         (typeof battleProDelta === 'function' && battleProDelta(this.isRed, 'counterBattery'))) &&
+                        battleIsIndirectType(u.type)) {
                         const _cbp = (SIM.ctrlPosture && this.controllerId) ? SIM.ctrlPosture[this.controllerId] : null;
                         if (_cbp && _cbp.role === (typeof BATTLE_ROLE !== 'undefined' ? BATTLE_ROLE.ATTACKER : 'attacker')) sc += 400000;
                     }

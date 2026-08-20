@@ -1248,6 +1248,16 @@ let BATTLE_TOPCU_ILERI = 0.55;
    Mekanizma karsilastirmasi kazanani sever; kaybeden SILINIR (iki ayni-isi-yapan
    bayrak birakmak sonraki turda karisiklik uretir). VARSAYILAN KAPALI. */
 let BATTLE_IKMAL_REFAKAT_INTEL4 = false;
+
+/* ── TOPCU KUTLE-HEDEFLEME + KARSI-BATARYA (yazilmis kuralin ONGORU'ye acilmasi) ──
+   Unit.js findBestVisibleEnemy: dolayli ates icin varsayilan puan `sc = -d` yani EN YAKIN.
+   Kutle-hedefleme (patlama yaricapindaki dusman sayisini maksimize et) ve karsi-batarya
+   onceligi (dusman dolaylisina +400000) YALNIZ pro beyninde kosuyor; ONGORU pro degil.
+   Bu bayrak ikisini birden ONGORU icin acar (kod dali ortak, ayrilamiyorlar).
+   ⚠ Pro katmani BUTUN OLARAK net zararli olculdu (2026-08-09) ve tek tek deltalar
+   anlamli cikmadi — yani bu bir kazanc VAADI degil, bir OLCUM ADAYI.
+   VARSAYILAN KAPALI. */
+let BATTLE_TOPCU_KUTLE_INTEL4 = false;
 /* TAAHHUT SURESI (tik). 0 = kilit yok (eski davranis, salinimli). 600 tik = 30sn.
    Gerekce ve olcum icin bkz. battleKarsiPlanAktif icindeki TAAHHUT blogu.
    Varsayilan 0 -> davranis DEGISMEZ; kilit ancak olcerek acilir. */

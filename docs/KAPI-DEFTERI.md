@@ -106,3 +106,47 @@ Aynı soruyu **güncel tabanda** ve **ayrık tohumda** bir kez daha ölç (makin
 ⚠ **U400b koşarken `BATTLE_TOPCU_DURAGAN` varsayılanı DEĞİŞTİRİLMEYECEK.** Kapı her parça
 için taze node süreci açıyor ve dosyaları yeniden okuyor; ortada bayrak çevirmek kapının
 ilk ve son parçalarını farklı kodla koşturur. Sevk kararı kuyruk boşalınca uygulanır.
+
+
+---
+
+## ⭐ PRO-DELTA DENETİMİ (2026-08-20) — "yazılmış ama ÖNGÖRÜ'de ölü" listesi
+
+Bugün üç kez aynı desene rastladım, sonra sistematik baktım: **26 pro-delta** var,
+hepsi `battleProDelta()` kapısının arkasında, ve **ÖNGÖRÜ pro DEĞİL** — yani hiçbiri
+ÖNGÖRÜ kademesinde koşmuyor. Kodun kendi yorumu bunu yazıyor:
+*"yalnız `pro` beyninde koşuyor (ÖNGÖRÜ pro DEĞİL → hiç çalışmıyor)"*.
+
+⚠ **Bu bedava kazanç listesi DEĞİL.** Pro katmanı bütün olarak **net zararlı** ölçüldü
+(2026-08-09: 18/48 → 6 delta kapalı 27/48) ve 9 deltanın hiçbiri tek başına anlamlı
+çıkmadı. Bu yüzden kural: **her delta kendi mekanizma triyajından geçer, sonra kendi
+maç kapısına girer.** Toptan açma yok.
+
+### Yöntem: önce ucuz mekanizma triyajı, sonra pahalı maç kapısı
+
+Maç kapısı ~6 saat. Mekanizma triyajı ~15 dakika ve şu soruyu sorar: *kural kendi
+hedeflediği metriği kımıldatıyor mu?* Kımıldatmıyorsa maç kapısına hiç girmez.
+
+### Bugün triyajdan geçenler
+
+| delta | kapsam bayrağı | triyaj sonucu | durum |
+|---|---|---|---|
+| `supplyEscort` | `BATTLE_IKMAL_REFAKAT_INTEL4` | cephanesiz örnek 311→2 · ikmal ölen maç 3/6→**2/6** | **M2-10** kuyrukta |
+| `indirectMassing`+`counterBattery` | `BATTLE_TOPCU_KUTLE_INTEL4` | kütle +0,75 (t 2,92) · cbPay %0→**%27** (t 3,56) | **M2-11** kuyrukta |
+
+`supplyEscort` triyajı ayrıca **kendi yazdığım `BATTLE_IKMAL_TAKIP`'i eledi** — mevcut
+kural her eksende yendi (tehdit kapısı sayesinde ikmal aracı tabandan bile az ölüyor).
+Kendi bayrağımı sildim.
+
+### Kayda değer taban bulgusu
+
+`counterBattery` triyajında taban kolunda **cbPay 6 tohumun 6'sında da %0** çıktı:
+ÖNGÖRÜ'nün topçusu düşmanın topçusunu **hiç** hedeflemiyor. Kod bunu açıkça yazıyor —
+dolaylı ateş için varsayılan puan `sc = -d`, yani sadece en yakın.
+
+### Sıradaki triyaj adayları (ölçülmüş teşhis taşıyanlar)
+
+`ammoDiscipline` · `indirectCreep` · `killFocus` · `antiMatch` · `armorFace` ·
+`localRatio` · `adUmbrella` · `jammerPost` · `heloMass` · `engineerForward`
+
+Her biri için önce "kendi metriğini kımıldatıyor mu" ölçülecek.

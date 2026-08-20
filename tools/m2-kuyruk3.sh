@@ -76,4 +76,26 @@ kapi "M2-10: BATTLE_IKMAL_REFAKAT_INTEL4 false vs true @ tam guc" \
     node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 229000 \
     --kol BATTLE_IKMAL_REFAKAT_INTEL4 --koldeger false,true --ayar "$TAM"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# M2-11 — TOPCU KUTLE-HEDEFLEME + KARSI-BATARYA (pro-only kuralin ONGORU'ye acilmasi)
+#
+# Unit.js findBestVisibleEnemy dolayli ates icin varsayilan puan `sc = -d` veriyor:
+# EN YAKIN hedef. Kutle-hedefleme ve karsi-batarya onceligi YALNIZ pro beyninde kosuyor;
+# ONGORU pro degil -> ikisi de olu.
+#
+# MEKANIZMA TRIYAJI GECTI (tools/topcu-hedef-kalite.js, 6 tohum, eslestirilmis):
+#     kutle (mermi basina dusman)   +0.75   t 2.92   YONU DOGRU
+#     cbPay (dusman topcusu hedefi) +26.7 puan (%0 -> %27)   t 3.56   YONU DOGRU
+#     mesafe                        +203px  t 2.63   (bedel: yakinlik ikincillesiyor)
+#     dolayliOlu +0.33 · maviKayip +1428 · marj +2025  -> hepsi POZITIF ama n=6'da anlamsiz
+#
+# ⚠ Taban kolunda cbPay 6 tohumun 6'sinda da %0 cikti: ONGORU'nun topcusu dusman
+#   topcusunu HIC hedeflemiyor. Bu kapi o boslugun mac sonucuna degip degmedigini olcer.
+# ⚠ Pro katmani BUTUN OLARAK net zararli olculdu (2026-08-09) — bu yuzden delta tek tek
+#   ve kendi kapisiyla olculuyor, toptan acilmiyor.
+# ─────────────────────────────────────────────────────────────────────────────
+kapi "M2-11: BATTLE_TOPCU_KUTLE_INTEL4 false vs true @ tam guc" \
+    node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 230000 \
+    --kol BATTLE_TOPCU_KUTLE_INTEL4 --koldeger false,true --ayar "$TAM"
+
 echo "=== M2 3. PARTI BITTI $(date '+%Y-%m-%d %H:%M') ===" >> "$LOG"
