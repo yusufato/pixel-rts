@@ -413,3 +413,38 @@ ROL DENGESI — PARALEL
   parca 51 bitti (kod 0)   48/64   78.9dk
   parca 45 bitti (kod 0)   49/64   78.9dk
   parca 47 bitti (kod 0)   50/64   81.2dk
+  parca 54 bitti (kod 0)   51/64   88.5dk
+  parca 50 bitti (kod 0)   52/64   89.3dk
+  parca 49 bitti (kod 0)   53/64   89.9dk
+  parca 56 bitti (kod 0)   54/64   91.9dk
+  parca 60 bitti (kod 0)   55/64   92.8dk
+  parca 61 bitti (kod 0)   56/64   95.6dk
+  parca 52 bitti (kod 0)   57/64   95.7dk
+  parca 62 bitti (kod 0)   58/64   96.5dk
+  parca 55 bitti (kod 0)   59/64   96.9dk
+  parca 63 bitti (kod 0)   60/64   97.7dk
+  parca 57 bitti (kod 0)   61/64   97.9dk
+  parca 53 bitti (kod 0)   62/64   98.5dk
+  parca 59 bitti (kod 0)   63/64   99.0dk
+  parca 58 bitti (kod 0)   64/64   99.9dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=3           128      %82.0     2153     2203   11.06
+kol=5           128      %80.5     1963     2250    9.87
+
+  ESLESTIRILMIS FARK (5 - 3): n 128   ort -189   std 2587   t -0.83  -> anlamli DEGIL
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 640 guvenle yakalanir.  (olculen etki BUNUN ALTINDA)
+
+  sure: 99.9dk
+### M2-7: LA_HALKA 3 vs 5 @ tam guc (aday genisligi) bitti 07:50  (cikis 0)
+
+════════════════════════════════════════════════════════════
+### M2-8: LA_YARICAP 600 vs 900 @ tam guc (aday erisimi)   basladi 2026-08-20 07:50
+### komut: node tools/rol-dengesi-paralel.js --tohum 128 --tohum0 227000 --kol LA_YARICAP --koldeger 600,900 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+════════════════════════════════════════════════════════════
+ROL DENGESI — PARALEL
+  tohum: 227000..227127   parca: 64 x 2 tohum   havuz: 16 (dinamik)
+  aktarilan: --kol LA_YARICAP --koldeger 600,900 --ayar BATTLE_LOOKAHEAD_RED=true;LA_UFUK=300;LA_DERIN=5
+
+  [havuz] genislik 11   (bos RAM 9.2 GB)
