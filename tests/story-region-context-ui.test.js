@@ -33,6 +33,18 @@ const sites = {
     siteIdsByCellId: { [land.cellId]: [site.id] },
     siteById: { [site.id]: site }
 };
+const settlements = {
+    records: new Array(8).fill(null)
+};
+settlements.records[7] = {
+    requiredPort: true,
+    port: {
+        fallbackCode: 'LEGACY_GEOMETRY_FALLBACK',
+        hostRegionId: 0,
+        terminalId: 14,
+        distance: 42.75
+    }
+};
 let selectedEntity = null;
 let createdOrderSpec = null;
 const context = {
@@ -45,7 +57,9 @@ const context = {
     ], _selectedMapEntity: { kind: 'SITE', cellId: land.cellId, regionId: land.regionId } },
     STORY_WORLD_W: 4500,
     STORY_WORLD_H: 3540,
+    storyCalendarNow: () => ({ seasonIndex: 0, year: 2032, label: '10.01.2032' }),
     storyHexSitesEnsure: () => sites,
+    storyHexSettlementsEnsure: () => settlements,
     storyCompanyById: id => id === company.id ? company : null,
     storyPopulationRegionView: () => ({ populationPeople: 875000 }),
     storyPopulationLaborSupply: () => ({ status: 'COHORT_DERIVED', availableWorkersPeople: 312000 }),
@@ -81,6 +95,10 @@ const context = {
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('js/StoryUI.js', 'utf8'), context);
 
+assert.strictEqual(context.storySeasonForUi().name, 'KIŞ');
+assert.match(context.storySeasonTooltip(), /KIŞ · 10\.01\.2032/);
+assert.doesNotMatch(context.storySeasonTooltip(), /undefined/);
+
 const city = context.STORY.nodes[7];
 const owner = { name: 'Türk Cumhuriyeti', color: '#55ff88' };
 const basics = {
@@ -98,6 +116,10 @@ assert.match(facilityHtml, /FABRİKA \/ SANAYİ TESİSİ/);
 assert.match(facilityHtml, /YERLİ ÖZEL SERMAYE/);
 assert.match(facilityHtml, /%88/);
 assert.match(facilityHtml, /KAMU \/ KURUMSAL/);
+assert.match(facilityHtml, /KAPASİTE<b>240/);
+assert.match(facilityHtml, /DURUM<b>OPERATING/);
+assert.match(facilityHtml, /Ankara idarî bölgesine bağlı/);
+assert.match(facilityHtml, /BÖLGEDE KULLANILABİLİR İŞGÜCÜ: 312\.000/);
 assert.match(facilityHtml, /ŞEHRE GİR · Ankara/);
 
 const districtLand = { cellId: 'hex:ankara-residential', regionId: 'region:7',
@@ -106,6 +128,7 @@ const districtHtml = context.storyRegionContextHtml(city,
     { kind: 'DISTRICT', cellId: districtLand.cellId, land: districtLand }, owner, basics);
 assert.match(districtHtml, /KONUT İLÇESİ/);
 assert.match(districtHtml, /ŞEHİR NÜFUSU/);
+assert.match(districtHtml, /BÖLGE İŞGÜCÜ<b>312\.000/);
 assert.match(districtHtml, /İlçe nüfusu henüz altıgen bazında muhasebeleştirilmedi/);
 
 const cityHtml = context.storyRegionContextHtml(city, { kind: 'CITY' }, owner, basics);
@@ -119,6 +142,8 @@ assert.match(cityHtml, /TIR KONVOYU → YÜK TRENİ/);
 assert.match(cityHtml, /ETA <b>6.4 sn/);
 assert.match(cityHtml, /DARBOĞAZ <b>12/);
 assert.match(cityHtml, /AKTARMA <b>1/);
+assert.match(cityHtml, /KAYNAK COĞRAFYA UYARISI/);
+assert.match(cityHtml, /İstanbul · #14 · 42.8 dünya birimi/);
 
 context.STORY._regionLogisticsDraft.quantity = '3';
 context.STORY._regionLogisticsDraft.transportMode = 'RAIL';

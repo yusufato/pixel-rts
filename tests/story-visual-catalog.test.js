@@ -7,9 +7,9 @@ const catalog = require('../js/StoryVisualCatalog.js');
 
 const validation = catalog.storyVisualCatalogValidate();
 assert.strictEqual(validation.ok, true, validation.issues.join(', '));
-assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 89,
-    'HXD-9B: 86 sabit varlık + 3 gerçek sevkiyat aracı.');
-assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 89);
+assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 90,
+    'HXD-9B: 86 sabit varlık + 3 gerçek sevkiyat aracı + 1 mekanik yangın overlayi.');
+assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 90);
 
 assert.strictEqual(catalog.storyVisualPeriodForYear(2010).id, 'MODERN_2010');
 assert.strictEqual(catalog.storyVisualPeriodForYear(2049).id, 'CONNECTED_2030');
@@ -112,8 +112,17 @@ const roadVehicle = catalog.storyVisualTransportAsset('ROAD_CONVOY', 2032);
 assert.strictEqual(roadVehicle.ok, true);
 assert.strictEqual(roadVehicle.atlasKey, 'transportRoad');
 assert.strictEqual(roadVehicle.family, 'truck');
-assert.strictEqual(roadVehicle.fallbackDepth, 1,
-    '2030 dönem atlası gelene kadar 2010 modern araç açık fallback olmalı.');
+assert.strictEqual(roadVehicle.mirrorForReverse, true,
+    'raster araçlar kaliteyi bozan canvas rotasyonu yerine piksel-korumalı ayna kullanmalı');
+assert.strictEqual(roadVehicle.fallbackDepth, 0,
+    'Takvim 2030 olsa da kurulu araç kademesi yoksa modern araçta kalmalı.');
+const automatedTrain = catalog.storyVisualTransportAsset('FREIGHT_TRAIN', 2080, {
+    installedVisualStage: 2
+});
+assert.strictEqual(automatedTrain.visualStageName, 'AUTOMATED');
+assert.strictEqual(automatedTrain.assetPeriodId, 'AUTOMATED_2050');
+assert.strictEqual(automatedTrain.fallbackDepth, 1);
+assert.strictEqual(automatedTrain.fallbackReason, 'PERIOD_ASSET_MISSING');
 assert.strictEqual(catalog.storyVisualTransportAsset('DECORATIVE_CAR', 2032).ok, false,
     'sevkiyata bağlı olmayan dekoratif araç sınıfı çizilmemeli');
 
@@ -167,7 +176,34 @@ const climateCity = catalog.storyVisualUrbanPresentationRecipe({
 assert.strictEqual(climateCity.presentationSource, 'URBAN_CLIMATE');
 assert.strictEqual(climateCity.atlasKey, 'urbanClimateModern');
 assert.strictEqual(climateCity.atlasCell, 3);
-assert.strictEqual(climateCity.fallbackDepth, 1);
+assert.strictEqual(climateCity.fallbackDepth, 0,
+    'Kurulu kademe baseline ise 2032 takvimi şehri kendiliğinden yükseltmemeli.');
+
+const adaptiveRoad = catalog.storyVisualInfrastructureRecipe({
+    year: 2092,
+    kind: 'ROAD',
+    segment: { installedVisualStage: 3, status: 'OPERATING' }
+});
+assert.strictEqual(adaptiveRoad.visualStageName, 'ADAPTIVE');
+assert.strictEqual(adaptiveRoad.assetPeriodId, 'ADAPTIVE_2075');
+assert.strictEqual(adaptiveRoad.fallbackReason, 'PERIOD_ASSET_MISSING');
+assert.ok(adaptiveRoad.renderStyle.width > 1);
+const baselineRail = catalog.storyVisualInfrastructureRecipe({
+    year: 2092, kind: 'RAIL', segment: { installedVisualStage: 0 }
+});
+assert.strictEqual(baselineRail.assetPeriodId, 'MODERN_2010');
+assert.strictEqual(baselineRail.fallbackDepth, 0);
+const visualAudit = catalog.storyVisualAuditSelections([
+    roadVehicle, automatedTrain, adaptiveRoad, baselineRail
+]);
+assert.deepStrictEqual({
+    selectionCount: visualAudit.selectionCount,
+    exactCount: visualAudit.exactCount,
+    fallbackCount: visualAudit.fallbackCount,
+    assetMissingCount: visualAudit.assetMissingCount
+}, { selectionCount: 4, exactCount: 2, fallbackCount: 2, assetMissingCount: 0 });
+assert.strictEqual(visualAudit.byReason.PERIOD_ASSET_MISSING, 2);
+assert.strictEqual(visualAudit.missingRequestedIds.length, 2);
 
 const damagedIndustry = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
@@ -177,6 +213,34 @@ const damagedIndustry = catalog.storyVisualUrbanPresentationRecipe({
 assert.strictEqual(damagedIndustry.presentationSource, 'URBAN_DAMAGE');
 assert.strictEqual(damagedIndustry.atlasKey, 'urbanDamageModern');
 assert.strictEqual(damagedIndustry.atlasCell, 13);
+
+const burningIndustry = catalog.storyVisualUrbanPresentationRecipe({
+    year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
+    state: { tech: [] }, physicalSites: { registryHash: 'test' },
+    physicalSite: { id: 'site:fire:4', siteType: 'INDUSTRIAL', lifecycleState: 'BURNING' }
+});
+assert.strictEqual(burningIndustry.presentationSource, 'URBAN_DAMAGE');
+assert.strictEqual(burningIndustry.condition, 'BURNING');
+assert.strictEqual(burningIndustry.atlasKey, 'urbanDamageModern');
+assert.strictEqual(burningIndustry.atlasCell, 13,
+    'Aktif yangının altında hasarlı fiziksel yapı görünmeli.');
+assert.strictEqual(burningIndustry.fireOverlay, true);
+assert.strictEqual(burningIndustry.fireOverlayAtlasKey, 'conflictFireOverlay');
+
+const damageCells = {};
+for (const condition of ['DAMAGED', 'BURNED', 'ABANDONED']) {
+    const recipe = catalog.storyVisualUrbanPresentationRecipe({
+        year: 2018, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
+        state: { tech: [] }, physicalSites: { registryHash: 'damage-test' },
+        physicalSite: { id: `site:${condition}`, siteType: 'INDUSTRIAL',
+            lifecycleState: condition }
+    });
+    damageCells[condition] = recipe.atlasCell;
+}
+assert.strictEqual(new Set(Object.values(damageCells)).size, 3,
+    'Hasarlı, yanmış ve terk edilmiş tesisler farklı atlas hücreleri kullanmalı.');
+assert.notStrictEqual(damageCells.DAMAGED, burningIndustry.fireOverlayAtlasCell,
+    'Aktif yangın yalnız hasar hücresi değil bağımsız gerçek overlay de taşımalı.');
 
 const borealDefense = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'DEFENSE', node: { id: 8, owner: 0, ly: .2 },
@@ -194,6 +258,39 @@ assert.strictEqual(reclaimedMine.lifecyclePhase, 'RECLAIMED');
 assert.strictEqual(reclaimedMine.atlasKey, 'landUseModern');
 assert.strictEqual(reclaimedMine.atlasCell, 11);
 
+for (const family of ['AGRICULTURE', 'FORESTRY', 'MINE', 'RENEWABLE']) {
+    const cells = ['SETUP', 'OPERATING', 'DAMAGED', 'RECLAIMED'].map(lifecyclePhase =>
+        catalog.storyVisualLandUseRecipe({
+            year: 2018, landUseType: family, lifecyclePhase
+        }).atlasCell);
+    assert.strictEqual(new Set(cells).size, 4,
+        `${family}: dört yaşam döngüsü atlas üzerinde ayırt edilebilir olmalı`);
+}
+
+const stageYears = [2018, 2035, 2058, 2080, 2096];
+for (let stage = 0; stage < stageYears.length; stage++) {
+    const state = { tech: ['stageTech'] };
+    const stageTech = { stageTech: { visualStage: 4 } };
+    const city = catalog.storyVisualUrbanRecipe({
+        year: stageYears[stage], kind: 'INDUSTRIAL',
+        node: { id: 9, owner: 0, installedVisualStage: stage },
+        state, techById: stageTech, companyEconomy: { facilities: {} }
+    });
+    const road = catalog.storyVisualInfrastructureRecipe({
+        year: stageYears[stage], kind: 'ROAD',
+        segment: { installedVisualStage: stage }, state, techById: stageTech
+    });
+    const vehicle = catalog.storyVisualTransportAsset('ROAD_CONVOY',
+        stageYears[stage], { installedVisualStage: stage });
+    const expectedPeriod = catalog.STORY_VISUAL_PERIODS[stage].id;
+    assert.strictEqual(city.assetPeriodId, expectedPeriod);
+    assert.strictEqual(road.assetPeriodId, expectedPeriod);
+    assert.strictEqual(vehicle.assetPeriodId, expectedPeriod);
+    assert.strictEqual(city.visualStage, stage);
+    assert.strictEqual(road.visualStage, stage);
+    assert.strictEqual(vehicle.visualStage, stage);
+}
+
 for (const file of ['urban-construction-atlas-modern-v1.png',
     'urban-climate-atlas-modern-v1.png', 'urban-damage-atlas-modern-v1.png',
     'special-facilities-atlas-modern-v1.png', 'land-use-atlas-modern-v1.png']) {
@@ -210,6 +307,15 @@ for (const file of ['transport-road-convoy-modern-v1.png',
     assert.strictEqual(bytes.toString('ascii', 1, 4), 'PNG');
     assert.ok(bytes.readUInt32BE(16) >= 900 && bytes.readUInt32BE(20) >= 900,
         `${file}: araç kaynağı yüksek çözünürlüklü olmalı`);
+    assert.strictEqual(bytes[25], 6, `${file}: PNG gerçek RGBA olmalı`);
+}
+
+{
+    const file = 'conflict-fire-overlay-modern-v1.png';
+    const bytes = fs.readFileSync(path.join(__dirname, '..', 'assets', 'maps', file));
+    assert.strictEqual(bytes.toString('ascii', 1, 4), 'PNG');
+    assert.ok(bytes.readUInt32BE(16) >= 900 && bytes.readUInt32BE(20) >= 900,
+        `${file}: yangın overlayi yüksek çözünürlüklü olmalı`);
     assert.strictEqual(bytes[25], 6, `${file}: PNG gerçek RGBA olmalı`);
 }
 

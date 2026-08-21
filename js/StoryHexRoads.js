@@ -7,7 +7,7 @@
 // ============================================================================
 
 const STORY_HEX_ROADS_SCHEMA_VERSION = 1;
-const STORY_HEX_ROADS_ADAPTER_VERSION = 'story-hex-roads-1';
+const STORY_HEX_ROADS_ADAPTER_VERSION = 'story-hex-roads-2-forest-blocked';
 
 function storyHexRoadDistance(world, a, b) {
     const aq = Number(world.qValues[a]), ar = Number(world.rValues[a]);
@@ -47,7 +47,7 @@ function storyHexRoadHeapPop(heap) {
     return root;
 }
 
-function storyHexRoadFindPath(world, geography, startIndex, endIndex) {
+function storyHexRoadFindPath(world, geography, startIndex, endIndex, natural) {
     if (!world || !geography || startIndex < 0 || endIndex < 0) return [];
     if (startIndex === endIndex) return [startIndex];
     const count = Number(world.cellCount) || 0;
@@ -77,6 +77,13 @@ function storyHexRoadFindPath(world, geography, startIndex, endIndex) {
                 && !(Number(geography.movementMask[next]) & STORY_HEX_MOVEMENT_LAND)) continue;
             const mountainPenalty = Number(geography.mountainIntensityBps[next] || 0) / 1800;
             const coastPenalty = Number(geography.landCoverageBps[next] || 0) < 8000 ? 2.5 : 0;
+            const cover = natural && natural.coverCodes
+                ? STORY_HEX_NATURAL_COVER_NAMES[Number(natural.coverCodes[next])] : null;
+            // A visible forest is physical land cover, not decoration. Roads
+            // and rails may begin/end at a settlement cell, but cannot silently
+            // tunnel through an intervening forest without a canonical clearing
+            // or protected-corridor decision.
+            if (cover === 'FOREST' && next !== endIndex && next !== startIndex) continue;
             const nextCost = costs[index] + 10 + mountainPenalty + coastPenalty;
             if (nextCost >= costs[next]) continue;
             costs[next] = nextCost;
@@ -105,6 +112,8 @@ function storyHexRoadRegistryEnsure() {
     const world = storyHexWorldEnsure();
     const geography = storyHexGeographyEnsure();
     const settlements = storyHexSettlementsEnsure();
+    const natural = typeof storyHexNaturalResourcesEnsure === 'function'
+        ? storyHexNaturalResourcesEnsure() : null;
     const key = [STORY_HEX_ROADS_ADAPTER_VERSION, world.layoutHash,
         geography.geographyHash, settlements.settlementHash].join('|');
     if (STORY._hexRoadRegistry && STORY._hexRoadRegistry.key === key) {
@@ -116,7 +125,7 @@ function storyHexRoadRegistryEnsure() {
         key,
         world,
         geography,
-        settlements,
+        settlements, natural,
         paths: new Map(),
         routeCount: 0,
         failedRouteCount: 0,
@@ -137,7 +146,8 @@ function storyHexRoadPath(cityAId, cityBId) {
     if (registry.paths.has(key)) return registry.paths.get(key);
     const start = Number(registry.settlements.coreCellIndices[low]);
     const end = Number(registry.settlements.coreCellIndices[high]);
-    const indices = storyHexRoadFindPath(registry.world, registry.geography, start, end);
+    const indices = storyHexRoadFindPath(registry.world, registry.geography, start, end,
+        registry.natural);
     if (!indices.length) {
         registry.failedRouteCount++;
         const cities = typeof GEO_CITIES !== 'undefined' ? GEO_CITIES : [];
@@ -197,7 +207,7 @@ function storyHexRoadDiagnostics() {
 // ============================================================================
 
 const STORY_HEX_INFRASTRUCTURE_SCHEMA_VERSION = 2;
-const STORY_HEX_INFRASTRUCTURE_ADAPTER_VERSION = 'story-hex-infrastructure-segments-2';
+const STORY_HEX_INFRASTRUCTURE_ADAPTER_VERSION = 'story-hex-infrastructure-segments-3-forest-blocked';
 const STORY_HEX_INFRASTRUCTURE_LIFECYCLES = Object.freeze([
     'CONSTRUCTION', 'OPERATING', 'DAMAGED', 'CLOSED', 'UNDER_REPAIR'
 ]);
@@ -330,7 +340,7 @@ function storyHexInfrastructureRailSegmentKind(geography, a, b) {
     return 'RAIL_TRACK';
 }
 
-function storyHexInfrastructureBuild(world, geography, settlements, corridors) {
+function storyHexInfrastructureBuild(world, geography, settlements, corridors, natural) {
     const segmentsById = new Map();
     const corridorSegmentIds = {};
     const corridorCellPaths = {};
@@ -347,7 +357,7 @@ function storyHexInfrastructureBuild(world, geography, settlements, corridors) {
         const start = Number(settlements.coreCellIndices[cityA]);
         const end = Number(settlements.coreCellIndices[cityB]);
         const path = Number.isInteger(start) && Number.isInteger(end)
-            ? storyHexRoadFindPath(world, geography, start, end) : [];
+            ? storyHexRoadFindPath(world, geography, start, end, natural) : [];
         if (path.length < 2) {
             corridorSegmentIds[corridor.id] = [];
             failedCorridors.push({ corridorId: corridor.id,
@@ -389,7 +399,7 @@ function storyHexInfrastructureBuild(world, geography, settlements, corridors) {
         const start = Number(settlements.coreCellIndices[cityA]);
         const end = Number(settlements.coreCellIndices[cityB]);
         const path = Number.isInteger(start) && Number.isInteger(end)
-            ? storyHexRoadFindPath(world, geography, start, end) : [];
+            ? storyHexRoadFindPath(world, geography, start, end, natural) : [];
         if (path.length < 2) {
             corridorSegmentIds[corridor.id] = [];
             failedCorridors.push({ corridorId: corridor.id,
@@ -567,12 +577,16 @@ function storyHexInfrastructureSegmentsEnsure() {
     const world = storyHexWorldEnsure(), geography = storyHexGeographyEnsure();
     const settlements = storyHexSettlementsEnsure(), graph = storyInfrastructureEnsure();
     if (!world || !geography || !settlements || !graph) return null;
+    const natural = typeof storyHexNaturalResourcesEnsure === 'function'
+        ? storyHexNaturalResourcesEnsure() : null;
     const key = [STORY_HEX_INFRASTRUCTURE_ADAPTER_VERSION, world.layoutHash,
-        geography.geographyHash, settlements.settlementHash, graph.networkHash].join('|');
+        geography.geographyHash, settlements.settlementHash, graph.networkHash,
+        natural && natural.sourceToken || 'NO_NATURAL'].join('|');
     if (STORY.hexInfrastructureSegments && STORY.hexInfrastructureSegments.key === key) {
         return STORY.hexInfrastructureSegments;
     }
-    const registry = storyHexInfrastructureBuild(world, geography, settlements, graph.corridors);
+    const registry = storyHexInfrastructureBuild(world, geography, settlements,
+        graph.corridors, natural);
     registry.key = key;
     registry.networkHash = graph.networkHash;
     registry.worldLayoutHash = world.layoutHash;

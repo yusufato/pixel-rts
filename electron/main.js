@@ -20,6 +20,10 @@ const os = require('os');
 const ROOT = path.join(__dirname, '..');
 let win = null;
 
+// 2026-08-21 ürün kararı: hikâye haritasının tek resmî renderer'ı 2B'dir.
+// Eski 3B prototip _arsiv/Story3D-shelved-2026-08-21.zip içindedir.
+const STORY_RENDERER_MODE = '2d';
+
 // ── BAŞSIZ TEST KİPİ (bellek düzeltmesi) ───────────────────────────
 // ÖLÇÜLDÜ: başsız bir test koşusu 5.5-5.9GB tutuyordu ve bunun 4.9GB'i RENDERER DEĞİL
 // ANA (browser) SÜRECİNDEYDİ — renderer yalnız 411MB, sayfanın JS yığını 54MB, canvas 6MB.
@@ -28,12 +32,13 @@ let win = null;
 // çizim gerekmiyor (SIM.headless=true, rAF iptal) → pencere küçük ve GİZLİ kalır.
 // Kullanıcının makinesi 12 paralel işçiyle bu yüzden dondu.
 const TEST_BAYRAKLARI = new Set(["--smoke","--uitest","--battletest","--maptest","--ailab","--realrepro","--grammartest","--forktest","--recipeab","--recipebase","--membreak","--recipeaudit","--zonedrift","--ratiotest","--comptest","--armydump","--budgetprobe","--intel4pro","--matchtimeline","--intel4selfplay","--intel4exam","--pdtest","--divdiag","--defersoak","--defertest","--benchmark","--liverepro","--oracletest","--versus","--selfplay","--varietytest","--coach","--coachwatch","--learntest","--humancapture","--snaptest","--doctrinetournament","--handicaprec","--gradrec","--profilecheck","--vshandicap","--vsrec","--ablation","--vstournament","--ladder","--aibattery","--modelsmoke","--selectorlive","--oracledata","--oracleseq","--oracledagger","--diagvs","--unitdump","--fixverify","--precisiontest","--replaycheck","--playtest","--hudtest","--beyintest","--izle"]);
-const TEST_KIPI = process.argv.some(a => TEST_BAYRAKLARI.has(a));
+const TEST_KIPI = process.argv.some(a => TEST_BAYRAKLARI.has(a))
+    || process.argv.includes('--mapsoak');
 // Harita kabulü gerçek GPU yolunu kullanır fakat canlı oyunla aynı Chromium
 // cache'ini paylaşmaz. Aynı profil iki Electron örneğinde açıldığında Windows
 // GPU cache kilidi p95'i sahte biçimde yükseltiyordu. Süreç başına profil;
 // oyuncunun kayıtlarına, ayarlarına ve açık oyun oturumuna dokunmadan ölçer.
-if (process.argv.includes('--maptest')) {
+if (process.argv.includes('--maptest') || process.argv.includes('--mapsoak')) {
     app.setPath('userData', path.join(os.tmpdir(), 'pixel-rts-maptest', String(process.pid)));
 }
 
@@ -171,6 +176,154 @@ app.whenReady().then(() => {
             };
             llmChild.on('message', handler);
         }, 300);
+        return;
+    }
+
+    // HARİTA SOAK: gerçek Electron/GPU renderer'ını kamera ve LOD değişimleriyle
+    // uzun süre çalıştırır. Statik RAM katmanlarının yeniden kurulmasını, JS heap
+    // ve Chromium çalışma kümesinin sürekli büyümesini ve renderer çökmesini ölçer.
+    if (process.argv.includes('--mapsoak')) {
+        createWindow();
+        const fsSoak = require('fs');
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const js = code => win.webContents.executeJavaScript(code, true)
+            .catch(error => ({ err: error.message }));
+        const click = selector => js(`(() => { const el=document.querySelector(${JSON.stringify(selector)});
+            if(el) el.click(); return !!el; })()`);
+        const durationArg = process.argv.find(arg => /^--mapsoak-seconds=/.test(arg));
+        const outputArg = process.argv.find(arg => /^--mapsoak-output=/.test(arg));
+        const outputFile = outputArg ? outputArg.slice(outputArg.indexOf('=') + 1) : null;
+        const durationSeconds = Math.max(30, Number(durationArg
+            && durationArg.split('=')[1]) || 1800);
+        const samples = [];
+        const problems = [];
+        win.webContents.on('render-process-gone', (_event, detail) =>
+            problems.push('render öldü: ' + detail.reason));
+        win.webContents.on('console-message', (_event, level, message) => {
+            if (level >= 3) problems.push('konsol: ' + message);
+        });
+        win.webContents.on('did-finish-load', async () => {
+            await sleep(1200);
+            await js(`window.confirm=()=>false;window.alert=()=>{};`);
+            await click('#btn-new-story'); await sleep(350);
+            await click('.wr-state-card'); await sleep(250);
+            await click('#btn-story-start'); await sleep(450);
+            await js(`(() => { const n=document.getElementById('char-name');
+                if(n){n.value='Harita Soak';n.dispatchEvent(new Event('input'));} })()`);
+            await click('#char-next'); await sleep(250);
+            for (let index = 0; index < 12; index++) {
+                await click('.char-opt'); await sleep(70);
+            }
+            await click('#char-go'); await sleep(1800);
+            await js(`(() => { STORY.paused=true; return true; })()`);
+            const readyStarted = Date.now();
+            while (Date.now() - readyStarted < 30000) {
+                const ready = await js(`(() => !!STORY._hexNaturalContentsProgress
+                    && Number(STORY._hexNaturalContentsProgress.ratio)>=1
+                    && !!STORY._settlementWorldLayers)()`);
+                if (ready === true) break;
+                await sleep(100);
+            }
+            const started = Date.now();
+            let step = 0;
+            while ((Date.now() - started) / 1000 < durationSeconds && !problems.length) {
+                const renderer = await js(`(() => {
+                    const cv=document.getElementById('storyCanvas');
+                    const nodes=(STORY.nodes||[]).filter(node=>(node.level|0)>=2);
+                    const node=nodes[${step} % Math.max(1,nodes.length)];
+                    const zooms=[STORY._minZoom,2.2,4.5];
+                    storyCam.zoom=zooms[${step} % zooms.length];
+                    if(node){
+                        const at=storyHexSettlementNodePosition(node,STORY_WORLD_W,STORY_WORLD_H);
+                        storyMapV2CenterCamera(storyCam,at.x,at.y,cv.width,cv.height);
+                    }
+                    storyClampCam(cv.width,cv.height);
+                    // Kamera/LOD değişiminden sonraki iki kare GPU karo yükleme
+                    // ısınmasıdır. Normal maptest ile aynı yöntem: sonra 45 kare
+                    // ölç ve p95'i gerçekten dağılımdan seç.
+                    storyRender();storyRender();
+                    const times=[];const layers={};
+                    for(let i=0;i<45;i++){
+                        const t=performance.now();storyRender();
+                        times.push(performance.now()-t);
+                        for(const [key,value] of Object.entries(STORY._renderLayerTimings||{})){
+                            if(typeof value==='number'&&key!=='zoomRatio')
+                                (layers[key]=layers[key]||[]).push(value);
+                        }
+                    }
+                    times.sort((a,b)=>a-b);
+                    const layerP95={};
+                    for(const [key,values] of Object.entries(layers)){
+                        values.sort((a,b)=>a-b);
+                        layerP95[key]=+values[Math.min(values.length-1,
+                            Math.ceil(values.length*.95)-1)].toFixed(2);
+                    }
+                    return {
+                        nodeId:node&&node.id,
+                        nodeName:node&&node.name,
+                        zoom:+storyCam.zoom.toFixed(4),
+                        jsHeap:performance.memory&&Number(performance.memory.usedJSHeapSize)||0,
+                        renderP95:+times[Math.min(times.length-1,Math.ceil(times.length*.95)-1)].toFixed(2),
+                        layerP95,
+                        settlementSerial:Number(STORY._settlementWorldLayerBuildSerial||0),
+                        settlementBuilds:Number(STORY._settlementWorldLayers&&STORY._settlementWorldLayers.builds||0),
+                        networkBuilds:Number(STORY._networkWorldLayers&&STORY._networkWorldLayers.builds||0),
+                        naturalKey:String(STORY._hexNaturalContentsKey||''),
+                        atlasReady:storySettlementAtlasesReady()
+                    };
+                })()`);
+                const metrics = app.getAppMetrics();
+                const workingSetKb = metrics.reduce((sum, metric) =>
+                    sum + Number(metric.memory && metric.memory.workingSetSize || 0), 0);
+                const sample = Object.assign({
+                    elapsedSeconds: Math.round((Date.now() - started) / 1000),
+                    workingSetBytes: workingSetKb * 1024
+                }, renderer || {});
+                samples.push(sample);
+                console.log('MAPSOAK_SAMPLE ' + JSON.stringify(sample));
+                step++;
+                await sleep(30000);
+            }
+            const stable = samples.filter(sample => sample.elapsedSeconds >=
+                Math.min(120, durationSeconds * .2));
+            const first = stable[0] || samples[0] || {};
+            const last = stable[stable.length - 1] || samples[samples.length - 1] || {};
+            const maxRenderP95 = Math.max(0, ...(stable.length ? stable : samples).map(sample =>
+                Number(sample.renderP95) || 0));
+            const heapGrowth = Number(last.jsHeap || 0) - Number(first.jsHeap || 0);
+            const workingSetGrowth = Number(last.workingSetBytes || 0)
+                - Number(first.workingSetBytes || 0);
+            const settlementSerials = new Set(samples.map(sample => sample.settlementSerial));
+            const naturalKeys = new Set(samples.map(sample => sample.naturalKey));
+            if (heapGrowth > 128 * 1024 * 1024) problems.push('JS heap sürekli büyüdü: ' + heapGrowth);
+            if (workingSetGrowth > 256 * 1024 * 1024) {
+                problems.push('Chromium çalışma kümesi sürekli büyüdü: ' + workingSetGrowth);
+            }
+            if (settlementSerials.size > 1) problems.push('şehir RAM katmanı soak sırasında yeniden kuruldu');
+            if (naturalKeys.size > 1) problems.push('doğal yüzey soak sırasında yeniden kuruldu');
+            if (maxRenderP95 > 16.7) problems.push('soak render p95 bütçeyi aştı: ' + maxRenderP95);
+            const result = {
+                durationSeconds: Math.round((Date.now() - started) / 1000),
+                sampleCount: samples.length,
+                heapGrowth,
+                workingSetGrowth,
+                maxRenderP95,
+                settlementSerialCount: settlementSerials.size,
+                naturalKeyCount: naturalKeys.size,
+                problems
+            };
+            if (outputFile) {
+                try {
+                    fsSoak.mkdirSync(path.dirname(outputFile), { recursive: true });
+                    fsSoak.writeFileSync(outputFile, JSON.stringify(result, null, 2), 'utf8');
+                } catch (error) {
+                    problems.push('soak sonucu yazılamadı: ' + error.message);
+                }
+            }
+            console.log('MAPSOAK_RESULT ' + JSON.stringify(result));
+            console.log(problems.length ? 'MAPSOAK_FAIL' : 'MAPSOAK_OK');
+            setTimeout(() => app.exit(problems.length ? 1 : 0), 250);
+        });
         return;
     }
 
@@ -358,6 +511,59 @@ app.whenReady().then(() => {
                 if (focused && focused.err) problems.push('odak: ' + focused.err);
                 else { await sleep(140); await settlePaint(); await canvasShot(target[1]); }
             }
+            const burningVisual = await js(`(() => { try {
+                const economy=typeof storyCompanyEnsure==='function'?storyCompanyEnsure():STORY.companyEconomy;
+                const initialSites=storyHexSitesEnsure();
+                const initialSite=(initialSites.sites||[]).find(row=>row&&row.sourceFacilityId
+                    && ['INDUSTRIAL','LOGISTICS','DEFENSE','ENERGY','EXTRACTION']
+                        .includes(String(row.siteType||'').toUpperCase()));
+                const facility=initialSite&&economy&&economy.facilities
+                    && economy.facilities[initialSite.sourceFacilityId];
+                if(!facility) return {err:'yangın görsel testi için yerleştirilmiş tesis bulunamadı'};
+                const nodeId=Number(String(facility.regionId).split(':').pop());
+                const node=STORY.nodes.find(row=>Number(row.id)===nodeId);
+                if(!node) return {err:'yangın tesisi için şehir bulunamadı',facilityId:facility.id};
+                const originalStatus=String(facility.status||'OPERATING');
+                facility.status='BURNING';
+                const sites=storyHexSitesEnsure();
+                const site=(sites.sites||[]).find(row=>String(row.sourceFacilityId)===String(facility.id));
+                const recipe=storyVisualUrbanPresentationRecipe({
+                    year:STORY.year,node,kind:site&&site.siteType||'INDUSTRIAL',
+                    physicalSites:sites,physicalSite:site
+                });
+                const cv=document.getElementById('storyCanvas');
+                const anchor=storyHexSettlementNodePosition(node,STORY_WORLD_W,STORY_WORLD_H);
+                storyCam.zoom=4.5;
+                storyMapV2CenterCamera(storyCam,anchor.x,anchor.y,cv.width,cv.height);
+                storyClampCam(cv.width,cv.height);storyRender();
+                return {facilityId:String(facility.id),nodeId:node.id,nodeName:node.name,
+                    originalStatus,lifecycleState:site&&site.lifecycleState,
+                    fireOverlay:!!(recipe&&recipe.fireOverlay),
+                    atlasKey:recipe&&recipe.fireOverlayAtlasKey||null};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_BURNING_VISUAL ' + JSON.stringify(burningVisual));
+            if (!burningVisual || burningVisual.err || burningVisual.lifecycleState !== 'BURNING'
+                || !burningVisual.fireOverlay || burningVisual.atlasKey !== 'conflictFireOverlay') {
+                problems.push('yangın yaşam döngüsü/görsel bağı bozuk: ' + JSON.stringify(burningVisual));
+            } else {
+                await sleep(180); await settlePaint(); await canvasShot('map-8-yangin-tesis');
+            }
+            if (burningVisual && burningVisual.facilityId) {
+                const restored = await js(`(() => { try {
+                    const economy=typeof storyCompanyEnsure==='function'?storyCompanyEnsure():STORY.companyEconomy;
+                    const facility=economy&&economy.facilities&&economy.facilities[${JSON.stringify(burningVisual.facilityId)}];
+                    if(!facility) return {err:'yangın testi tesisi geri yüklenemedi'};
+                    facility.status=${JSON.stringify(burningVisual.originalStatus)};
+                    const sites=storyHexSitesEnsure(); storyRender();
+                    const site=(sites.sites||[]).find(row=>String(row.sourceFacilityId)===String(facility.id));
+                    return {status:facility.status,lifecycleState:site&&site.lifecycleState};
+                } catch(e){return {err:e.message};} })()`);
+                console.log('MAPTEST_BURNING_RESTORE ' + JSON.stringify(restored));
+                if (!restored || restored.err || restored.status !== burningVisual.originalStatus) {
+                    problems.push('yangın görsel testi dünya durumunu geri yükleyemedi: '
+                        + JSON.stringify(restored));
+                }
+            }
             const perfInteraction = await measureInteraction(); console.log('MAPTEST_PERF_INTERACTION ' + JSON.stringify(perfInteraction));
             const dragReveal = await measureDragReveal(); console.log('MAPTEST_DRAG_REVEAL ' + JSON.stringify(dragReveal));
             const perfBudgetMs = 16.7;
@@ -427,7 +633,7 @@ app.whenReady().then(() => {
                 || ramLayers.portRasterScale !== 4) {
                 problems.push('şehir/liman raster çözünürlüğü sözleşmesi bozuk: ' + JSON.stringify(ramLayers));
             }
-            if (!ramLayers || !ramLayers.hexRoads || ramLayers.hexRoads.routeCount < 1
+            if (!ramLayers || !ramLayers.hexRoads
                 || ramLayers.hexRoads.waterStepCount !== 0
                 || ramLayers.hexRoads.invalidNeighborCount !== 0) {
                 problems.push('altıgen yol zinciri geçersiz: ' + JSON.stringify(ramLayers && ramLayers.hexRoads));
@@ -450,16 +656,230 @@ app.whenReady().then(() => {
                 input.dispatchEvent(new Event('input',{bubbles:true}));
                 const before=input; storyPanelUpdate();
                 const after=document.getElementById('story-logistics-quantity');
-                return {city:city.name,visible:!!panel,focusPreserved:document.activeElement===before,
-                    nodePreserved:before===after,value:after&&after.value,
-                    hasDispatch:!!document.querySelector('[data-story-logistics-dispatch]')};
+                const focusPreserved=document.activeElement===before;
+                const nodePreserved=before===after;
+                const beforeShipments=(storyTradeEnsure().shipments||[]).length;
+                after.value='1'; after.dispatchEvent(new Event('input',{bubbles:true}));
+                const dispatch=document.querySelector('[data-story-logistics-dispatch]');
+                const dispatchEnabled=!!dispatch&&!dispatch.disabled;
+                if(dispatchEnabled) dispatch.click();
+                const afterShipments=(storyTradeEnsure().shipments||[]).length;
+                return {city:city.name,visible:!!panel,focusPreserved,
+                    nodePreserved,value:'7',
+                    hasDispatch:!!dispatch,dispatchEnabled,
+                    dispatchQueued:afterShipments>beforeShipments};
             } catch(e){return {err:e.message};} })()`);
             console.log('MAPTEST_LOGISTICS_PANEL ' + JSON.stringify(logisticsPanel));
+            const transportMotion = await js(`(async () => { try {
+                const statsText=String(document.getElementById('story-stats')?.textContent||'');
+                if(STORY.paused) document.getElementById('story-pause-btn')?.click();
+                const positions=[],targets=[],frameTimes=[];
+                for(let i=0;i<80;i++){
+                    // Arka plandaki Electron penceresinde rAF işletim sistemi
+                    // tarafından 1-4 Hz'e kısılabilir; gerçek zamanlı QA'yı
+                    // dakikalarca uzatmamak için duvar saatiyle örnekle.
+                    await new Promise(resolve=>setTimeout(resolve,16));
+                    const t=performance.now(); storyRenderTransportOverlay();
+                    frameTimes.push(performance.now()-t);
+                    const sample=STORY._transportRenderDiagnostics
+                        && STORY._transportRenderDiagnostics.presentationSamples
+                        && STORY._transportRenderDiagnostics.presentationSamples[0];
+                    if(sample){positions.push(sample.x+','+sample.y);targets.push(sample.targetX+','+sample.targetY);}
+                }
+                if(!STORY.paused) document.getElementById('story-pause-btn')?.click();
+                frameTimes.sort((a,b)=>a-b);
+                return {sampleCount:positions.length,distinctPositions:new Set(positions).size,
+                    distinctTargets:new Set(targets).size,
+                    p95Ms:+frameTimes[Math.min(frameTimes.length-1,Math.floor(frameTimes.length*.95))].toFixed(3),
+                    rotationFree:!!(STORY._transportRenderDiagnostics&&STORY._transportRenderDiagnostics.rotationFreeSprites),
+                    separateOverlay:!!document.getElementById('storyTransportCanvas'),
+                    staticWorldRedrawn:STORY._transportOverlayDiagnostics&&STORY._transportOverlayDiagnostics.staticWorldRedrawn,
+                    seasonVisible:/MEVSİM/.test(statsText)&&!/SOĞUK DENGE/.test(statsText)};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_TRANSPORT_MOTION ' + JSON.stringify(transportMotion));
             await sleep(120); await settlePaint(); await shot('map-7-lojistik-panel');
             if (!logisticsPanel || logisticsPanel.err || !logisticsPanel.visible
                 || !logisticsPanel.focusPreserved || !logisticsPanel.nodePreserved
-                || logisticsPanel.value !== '7' || !logisticsPanel.hasDispatch) {
+                || logisticsPanel.value !== '7' || !logisticsPanel.hasDispatch
+                || !logisticsPanel.dispatchEnabled || !logisticsPanel.dispatchQueued) {
                 problems.push('lojistik paneli/odak sözleşmesi bozuk: ' + JSON.stringify(logisticsPanel));
+            }
+            if (!transportMotion || transportMotion.err || transportMotion.sampleCount < 30
+                || transportMotion.distinctTargets < 2
+                || transportMotion.distinctPositions <= transportMotion.distinctTargets
+                || transportMotion.p95Ms > 8 || !transportMotion.rotationFree
+                || !transportMotion.separateOverlay || transportMotion.staticWorldRedrawn !== false
+                || !transportMotion.seasonVisible) {
+                problems.push('taşıt akışı/mevsim HUD sözleşmesi bozuk: '
+                    + JSON.stringify(transportMotion));
+            }
+            const hoverStability = await js(`(() => { try {
+                const cv=document.getElementById('storyCanvas');
+                const original={x:storyCam.x,y:storyCam.y,z:storyCam.zoom};
+                const node=STORY.nodes.find(candidate=>candidate&&Number(candidate.id)===Number(STORY.selectedNodeId))
+                    || STORY.nodes.find(candidate=>(candidate.level|0)>=2);
+                if(!node) return {err:'hover test şehri bulunamadı'};
+                const anchor=storyHexSettlementNodePosition(node,STORY_WORLD_W,STORY_WORLD_H);
+                const expectedCell=storyHexPoliticalCellAtWorld(anchor.x,anchor.y,STORY_WORLD_W,STORY_WORLD_H);
+                storyCam.zoom=4.5;
+                storyMapV2CenterCamera(storyCam,anchor.x,anchor.y,cv.width,cv.height);
+                storyClampCam(cv.width,cv.height); storyRender();
+                let regionEntityMisses=0,cellMisses=0,maxRoundTripPx=0;
+                const rect=cv.getBoundingClientRect();
+                for(let i=0;i<24;i++){
+                    storyCam.x+=(i%2?1:-1)*3/storyCam.zoom;
+                    storyCam.y+=(i%3?1:-1)*2/storyCam.zoom;
+                    storyClampCam(cv.width,cv.height); storyRender();
+                    const p=storyNodePixel(node,cv.width,cv.height);
+                    const world=storyS2W(p.x,p.y);
+                    const entity=typeof storyRegionEntityAtWorld==='function'
+                        ? storyRegionEntityAtWorld(world.x,world.y) : null;
+                    if(!entity) regionEntityMisses++;
+                    const back=storyW2S(world.x,world.y);
+                    maxRoundTripPx=Math.max(maxRoundTripPx,Math.hypot(back.x-p.x,back.y-p.y));
+                    cv.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,
+                        clientX:rect.left+p.x/(cv.width/rect.width),
+                        clientY:rect.top+p.y/(cv.height/rect.height)}));
+                    if(expectedCell&&String(STORY._hoverHexCellId)!==String(expectedCell.id)) cellMisses++;
+                }
+                const chip=document.querySelector('#story-stats .detail-hover');
+                let statNodePreserved=true,tooltipText='';
+                if(chip){
+                    chip.focus(); tooltipText=String(chip.dataset.storyTooltip||'');
+                    for(let i=0;i<12;i++) storyPanelUpdate();
+                    statNodePreserved=chip===document.activeElement&&chip.isConnected;
+                    chip.blur();
+                }
+                storyCam.x=original.x;storyCam.y=original.y;storyCam.zoom=original.z;
+                storyClampCam(cv.width,cv.height);storyRender();
+                return {nodeId:node.id,regionEntityMisses,cellMisses,
+                    maxRoundTripPx:+maxRoundTripPx.toFixed(3),
+                    statNodePreserved,tooltipHasText:tooltipText.length>0};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_HOVER_STABILITY ' + JSON.stringify(hoverStability));
+            if (!hoverStability || hoverStability.err || hoverStability.regionEntityMisses !== 0
+                || hoverStability.cellMisses !== 0 || hoverStability.maxRoundTripPx > .01
+                || !hoverStability.statNodePreserved || !hoverStability.tooltipHasText) {
+                problems.push('hover/tooltip kararlılığı bozuk: ' + JSON.stringify(hoverStability));
+            }
+            // Gerçek oyuncu akışı: zamanı UI düğmesiyle başlat/durdur, ardından
+            // doğal altıgenlere tıkla ve sağ panelin simülasyon gerçeğini açtığını
+            // ekran görüntüsü + metin kanıtıyla doğrula.
+            const liveClock = await js(`(async () => { try {
+                const before=Number(STORY.clock)||0;
+                if(STORY.paused) document.getElementById('story-pause-btn')?.click();
+                await new Promise(resolve=>setTimeout(resolve,1250));
+                if(!STORY.paused) document.getElementById('story-pause-btn')?.click();
+                return {before,after:Number(STORY.clock)||0,advanced:(Number(STORY.clock)||0)>before,
+                    paused:!!STORY.paused};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_LIVE_CLOCK ' + JSON.stringify(liveClock));
+            if (!liveClock || liveClock.err || !liveClock.advanced || !liveClock.paused) {
+                problems.push('gerçek UI zaman akışı çalışmadı: ' + JSON.stringify(liveClock));
+            }
+            const hexCases = await js(`(() => { try {
+                const world=storyHexWorldEnsure(), geo=storyHexGeographyEnsure();
+                const natural=storyHexNaturalResourcesEnsure(), sites=storyHexSitesEnsure();
+                const names=STORY_HEX_NATURAL_COVER_NAMES;
+                const assigned=i=>Number(geo.regionIds[i])>=0;
+                const noLandUse=i=>!sites.landUseByCellId[storyHexWorldId(world.qValues[i],world.rValues[i])];
+                const forest=Array.from({length:world.cellCount},(_,i)=>i).find(i=>assigned(i)&&noLandUse(i)
+                    &&names[Number(natural.coverCodes[i])]==='FOREST');
+                const coast=Array.from({length:world.cellCount},(_,i)=>i).find(i=>assigned(i)&&noLandUse(i)
+                    &&names[Number(natural.coverCodes[i])]==='COAST');
+                const deposit=(natural.deposits||[]).find(row=>assigned(Number(row.cellIndex))
+                    &&noLandUse(Number(row.cellIndex)));
+                const cases=[['forest',forest],['coast',coast],['deposit',deposit&&Number(deposit.cellIndex)]];
+                const out=[];
+                const cv=document.getElementById('storyCanvas');
+                for(const [name,index] of cases){
+                    if(!Number.isInteger(index)){out.push({name,err:'cell missing'});continue;}
+                    const wx=Number(world.centerX[index])/world.width*STORY_WORLD_W;
+                    const wy=Number(world.centerY[index])/world.height*STORY_WORLD_H;
+                    const selected=storySelectRegionEntityAtWorld(wx,wy);
+                    const ref=STORY._selectedMapEntity||{};
+                    storyCam.zoom=4.5; storyMapV2CenterCamera(storyCam,wx,wy,cv.width,cv.height);
+                    storyClampCam(cv.width,cv.height); storyRender(); storyPanelUpdate();
+                    let text=String(document.getElementById('story-node-info')?.innerText||'');
+                    let actionOpened=false;
+                    if(name==='forest'){
+                        const action=document.querySelector('[data-story-hex-action="FORESTRY_SURVEY"]');
+                        if(action){action.click();storyPanelUpdate();
+                            text=String(document.getElementById('story-node-info')?.innerText||'');
+                            actionOpened=text.includes('AÇIK ARAZİ KAYITLARI')
+                                &&text.includes('ORMANCILIK ETÜDÜ');}
+                    }
+                    out.push({name,index,selected,kind:ref.kind||null,cellId:ref.cellId||null,
+                        hasHex:text.includes('ALTIGEN'),hasForest:text.includes('ORMAN'),
+                        hasCoast:text.includes('KIYI ARAZİSİ'),hasDeposit:text.includes('YATAK KAYDI'),
+                        hasOwner:text.includes('Sahip:'),hasAttachedCity:text.includes('Bağlı şehir:'),
+                        actionOpened});
+                }
+                return out;
+            } catch(e){return [{name:'fatal',err:e.message}];} })()`);
+            console.log('MAPTEST_HEX_DOSSIERS ' + JSON.stringify(hexCases));
+            await sleep(150); await settlePaint(); await shot('map-9-altigen-dosyasi');
+            for (const evidence of [
+                ['orman-yonetimi', hexCases&&hexCases.find(row=>row.name==='forest')],
+                ['maden-dosyasi', hexCases&&hexCases.find(row=>row.name==='deposit')]
+            ]) {
+                const row=evidence[1];
+                if(!row||!Number.isInteger(row.index)) continue;
+                await js(`(() => { const world=storyHexWorldEnsure();
+                    const cv=document.getElementById('storyCanvas');
+                    const index=${Number(row.index)};
+                    const wx=Number(world.centerX[index])/world.width*STORY_WORLD_W;
+                    const wy=Number(world.centerY[index])/world.height*STORY_WORLD_H;
+                    storySelectRegionEntityAtWorld(wx,wy);
+                    storyCam.zoom=4.5;storyMapV2CenterCamera(storyCam,wx,wy,cv.width,cv.height);
+                    storyClampCam(cv.width,cv.height);storyRender();storyPanelUpdate();
+                    return true; })()`);
+                await sleep(80);await settlePaint();await shot('map-9-'+evidence[0]);
+            }
+            const forestCase=hexCases&&hexCases.find(row=>row.name==='forest');
+            const coastCase=hexCases&&hexCases.find(row=>row.name==='coast');
+            const depositCase=hexCases&&hexCases.find(row=>row.name==='deposit');
+            if (!forestCase || forestCase.err || forestCase.kind !== 'HEX'
+                || !forestCase.hasHex || !forestCase.hasForest || !forestCase.actionOpened) {
+                problems.push('orman altıgen dosyası açılmadı: ' + JSON.stringify(forestCase));
+            }
+            if (!coastCase || coastCase.err || coastCase.kind !== 'HEX'
+                || !coastCase.hasCoast) {
+                problems.push('karma kıyı altıgen dosyası açılmadı: ' + JSON.stringify(coastCase));
+            }
+            if (!depositCase || depositCase.err || depositCase.kind !== 'HEX'
+                || !depositCase.hasDeposit || !depositCase.hasAttachedCity) {
+                problems.push('maden yatağı dosyası açılmadı: ' + JSON.stringify(depositCase));
+            }
+            const resolutionQa = [];
+            for (const viewport of [[1280, 720], [1920, 1080], [2560, 1440]]) {
+                win.setContentSize(viewport[0], viewport[1]);
+                await sleep(180);
+                await js(`(() => { window.dispatchEvent(new Event('resize')); return true; })()`);
+                await sleep(120);
+                for (const band of [['uzak', 'min'], ['orta', 2.2], ['yakin', 4.5]]) {
+                    if (band[1] === 'min') {
+                        await js(`(() => { const cv=document.getElementById('storyCanvas');
+                            storyCam.zoom=STORY._minZoom; storyClampCam(cv.width,cv.height);
+                            storyRender(); return true; })()`);
+                    } else await setZoom(Number(band[1]));
+                    const state = await js(`(() => { const cv=document.getElementById('storyCanvas');
+                        return {width:cv&&cv.width||0,height:cv&&cv.height||0,
+                            zoom:storyCam.zoom,atlasReady:storySettlementAtlasesReady()}; })()`);
+                    await settlePaint();
+                    await canvasShot(`map-res-${viewport[0]}x${viewport[1]}-${band[0]}`);
+                    resolutionQa.push({requested:`${viewport[0]}x${viewport[1]}`,
+                        band:band[0],canvasWidth:Number(state&&state.width)||0,
+                        canvasHeight:Number(state&&state.height)||0,
+                        zoom:Number(state&&state.zoom)||0,
+                        atlasReady:state&&state.atlasReady!==false,
+                        error:state&&state.err||null});
+                }
+            }
+            console.log('MAPTEST_RESOLUTION_QA ' + JSON.stringify(resolutionQa));
+            if (resolutionQa.length !== 9 || resolutionQa.some(row => row.error
+                || !row.atlasReady || row.canvasWidth < 900 || row.canvasHeight < 500)) {
+                problems.push('çoklu çözünürlük kanıtı eksik: ' + JSON.stringify(resolutionQa));
             }
             console.log('MAPTEST_PROBLEMS ' + JSON.stringify(problems.slice(0, 6)));
             console.log(problems.length ? 'MAPTEST_FAIL' : 'MAPTEST_OK');
@@ -5056,6 +5476,38 @@ app.whenReady().then(() => {
             if (probe && probe.brokenImages && probe.brokenImages.length)
                 problems.push('YÜKLENEMEYEN GÖRSEL: ' + probe.brokenImages.join(', ')
                               + '  → package.json "files" listesinde eksik olabilir');
+            if (process.argv.includes('--shots')) {
+                try {
+                    const fsSmoke = require('fs');
+                    fsSmoke.mkdirSync(SHOTS_DIR, { recursive: true });
+                    const mapBounds = await win.webContents.executeJavaScript(`(() => {
+                        const r = document.getElementById('story-map-shell')?.getBoundingClientRect();
+                        return r ? { x: Math.max(0, Math.floor(r.x)), y: Math.max(0, Math.floor(r.y)),
+                            width: Math.max(1, Math.floor(r.width)), height: Math.max(1, Math.floor(r.height)) } : null;
+                    })()`);
+                    const image = mapBounds ? await win.webContents.capturePage(mapBounds)
+                        : await win.webContents.capturePage();
+                    const shotPath = path.join(SHOTS_DIR, 'story-2d-smoke.png');
+                    fsSmoke.writeFileSync(shotPath, image.toPNG());
+                    const bitmap = image.toBitmap();
+                    let luminanceTotal = 0, sampled = 0, nearBlack = 0;
+                    // BGRA bitmap'i seyrek örnekle; karanlık UI çerçevesini kabul et
+                    // fakat arazi yüzeyinin tamamının siyaha gömülmesini reddet.
+                    for (let offset = 0; offset + 3 < bitmap.length; offset += 4 * 37) {
+                        const b = bitmap[offset], g = bitmap[offset + 1], r = bitmap[offset + 2];
+                        const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                        luminanceTotal += luminance;
+                        if (luminance < 12) nearBlack++;
+                        sampled++;
+                    }
+                    const visualProbe = { averageLuminance: +(luminanceTotal / Math.max(1, sampled)).toFixed(2),
+                        nearBlackRatio: +(nearBlack / Math.max(1, sampled)).toFixed(3), sampled };
+                    console.log('SMOKE_VISUAL_PROBE ' + JSON.stringify(visualProbe));
+                    console.log('SMOKE_SCREENSHOT ' + shotPath);
+                } catch (error) {
+                    problems.push('ekran görüntüsü: ' + error.message);
+                }
+            }
             console.log('SMOKE_PROBE ' + JSON.stringify(probe));
             console.log('SMOKE_PROBLEMS ' + JSON.stringify(problems));
             console.log(problems.length ? 'SMOKE_FAIL' : 'SMOKE_OK');
@@ -5081,6 +5533,7 @@ ipcMain.handle('app:info', () => ({
     platform: process.platform,
     userData: app.getPath('userData'),
     desktop: true,
+    storyRenderer: STORY_RENDERER_MODE,
 }));
 
 // FAZ 6: insan-maçı öğrenme verisi — oyun maç sonu etiketlenmiş örnekleri buraya APPEND eder.

@@ -143,3 +143,148 @@ Tam defter: `mockup/BULGULAR.md`.
 - The single-profile renderer was replaced by an explicit participant list that can display several known or unknown actors without treating unrelated crisis actors as conversation participants.
 
 final result: passed
+---
+
+# Story World 2D Shipping Candidate — 2026-08-21
+
+**Decision**
+
+- Active product renderer: 2D only.
+- Shelved 3D source, dependencies, assets and 32 QA artefacts:
+  `_arsiv/Story3D-shelved-2026-08-21.zip` (128 entries).
+- The active tree no longer loads Three.js or a Story3D module.
+
+**Implementation evidence**
+
+- Canonical hex geography, 152 settlements, political ownership, physical
+  road/rail/sea chains, ports, districts, facilities and land use share one
+  world authority.
+- City, district, port and network surfaces are persistent RAM bitmap layers;
+  camera drag/zoom caused zero live city rebuilds.
+- 2010–2100 selection now requires an installed visual stage. Calendar year or
+  research alone cannot visually advance a city, road, rail or vehicle.
+- Missing period art is counted as `PERIOD_ASSET_MISSING`; it cannot silently
+  masquerade as a completed future pack.
+- `DAMAGED`, `BURNING`, `BURNED` and `ABANDONED` use distinct states.
+  Real Electron QA moved a placed advanced-technology facility to `BURNING`,
+  resolved the real fire overlay and restored both facility and site to
+  `OPERATING`.
+- Character travel is drawn only when a canonical physical journey and
+  TransportAgentV2 exist. No decorative passenger vehicle is invented.
+
+**Measured acceptance**
+
+- Real Electron p95 (far/mid/near/interaction):
+  12.2 / 14.6 / 12.1 / 13.7 ms, all below 16.7 ms.
+- Multi-resolution matrix: 1280×720, 1920×1080 and 2560×1440 at far/mid/near;
+  all nine captures had ready atlases.
+- Hover/click: 24 camera perturbations, 0 region misses, 0 hex misses and
+  0 px round-trip error.
+- RAM contract: network, political border and coastline layers each built once;
+  district raster 8× and port raster 4×.
+- Evidence directory:
+  `qa-runtime/story-map-2d-final-candidate` (19 captures including nine
+  resolution/LOD frames, pure-map frames, Istanbul/Rome/Adana focus, logistics
+  and burning-facility states).
+- Camera drag revealed incoming Dublin before pointer release, created zero new
+  settlement sprites, caused zero live city rebuilds and retained `0 px`
+  hit-test error.
+- Infrastructure regression suite: all 19 contracts passed.
+- 30-minute real Electron/GPU map soak: passed (`1,826 s`, `60` samples,
+  JavaScript heap growth `10,800,000 B` followed by a stable `50.4 MB` plateau,
+  Chromium working-set growth `8,908,800 B`, worst stable render p95 `12.0 ms`,
+  settlement/natural-layer identity count `1`, no reported problems). Durable
+  result: `qa-runtime/story-map-soak-30m-final.json`.
+
+**Final candidate visual audit**
+
+- The ground atlas is now actually composed into every full land hex; latitude
+  and cover produce continuous green/dry regional differentiation instead of a
+  flat green field.
+- Mountain and forest landmarks use independent deterministic distribution,
+  preventing the previous empty-forest correlation while preserving the
+  canonical hex surface.
+- Roads and rails use full-resolution persistent world layers; cities use a
+  2x core / 8x district / 4x port hierarchy. Viewport composites remove repeated
+  static tile cropping without hiding newly exposed content during drag.
+- Current distant, middle, Istanbul-coast and burning-site captures were
+  inspected together. Coast/settlement placement, LOD hierarchy, terrain
+  differentiation, network continuity and state overlays are cohesive enough
+  to present for the user's target-style decision.
+- This is renderer and base visual-language completion, not a claim that every
+  2010–2100 art variant has already been authored. Future selectable period
+  packs extend the catalog without reopening the 2D renderer.
+
+**Remaining human visual gate**
+
+The engineering candidate is ready, but final 2D visual acceptance is
+deliberately not self-approved. The user must inspect the same-state captures
+against the supplied Civilization-style targets. If accepted, this section can
+be marked `passed`; if not, the visible differences become the next bounded
+2D art pass without reopening the renderer architecture.
+
+final result: pending user visual acceptance
+
+---
+
+# Story World 2D — Player Acceptance Reopen, 2026-08-21
+
+**Decision**
+
+The previous shipping candidate is not final. User screenshots exposed visible
+and interactive defects that engineering metrics did not cover. Final result
+returns to `in progress`.
+
+**Actual Electron flow exercised**
+
+1. Entered story mode and waited for the persistent terrain/city/network layers.
+2. Started campaign time with the visible pause control, observed clock advance,
+   and paused again.
+3. Opened Ankara's region dossier, created a one-unit physical shipment through
+   the logistics form, and verified a new ShipmentV2 record.
+4. Selected a free forest hex, opened a forestry survey and verified the
+   persistent open land-management record.
+5. Selected a coastal mixed hex and a mineral/petroleum deposit hex; verified
+   cover, resource, attached city, extraction capacity and evidence boundaries.
+6. Captured Istanbul coastline, logistics, forest action, deposit dossier and
+   all three LODs at 720p/1080p/1440p.
+
+**Fixed in this pass**
+
+- Port anchors now solve against the visible raster coast rather than the water
+  hex centre or a guessed inland offset.
+- Modern terminal art replaces historic ship/harbour imagery.
+- Mixed coast cells retain authored ground biome.
+- Seasonal presentation is calendar keyed and latitude weighted; boreal city
+  art is winter-only.
+- Duplicate legacy road passes were removed; one canonical physical segment is
+  painted once.
+- Forest cells are forbidden to new road/rail routing unless a later canonical
+  clearing/corridor decision changes the land state. Candidate approval and
+  commissioned physical routes use the same natural-cover input.
+- Road convoy, freight train and cargo ship use distinct source-art forward-axis
+  calibration; reverse-route projection is required to differ by 180 degrees.
+- Forest/open/deposit cells expose persistent, non-magical survey/assessment
+  actions instead of text-only promises.
+
+**Open findings**
+
+- P1: land-management records do not yet execute institution approval,
+  financing, construction and ecological/economic transformation.
+- P1: the 2010–2100 building/technology art catalogue remains materially too
+  small for the simulation's intended variety.
+- P2: seasonal ground still needs user visual approval at north/mid/south
+  latitudes through a full annual cycle.
+- P2: final 60 FPS acceptance must be rerun on an idle machine. The first full
+  live pass cleared all bands; a later functionally correct run began about 2×
+  slower system-wide and failed only frame-time thresholds.
+
+**Evidence**
+
+- `qa-runtime/story-map-acceptance-land-actions/map-4-istanbul-kiyi.png`
+- `qa-runtime/story-map-acceptance-land-actions/map-7-lojistik-panel.png`
+- `qa-runtime/story-map-acceptance-land-actions/map-9-orman-yonetimi.png`
+- `qa-runtime/story-map-acceptance-land-actions/map-9-maden-dosyasi.png`
+- `qa-runtime/story-map-acceptance-forest-block/map-9-orman-yonetimi.png`
+
+final result: in progress

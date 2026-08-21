@@ -174,43 +174,58 @@ Bu yalnız temel başlangıç düzeltmesidir. Casus belli, kriz basamakları, ya
 
 ## Aktif hikâye haritası mimarisi
 
-Aktif script sırası `index.html` ile `tools/story-sim-harness.js` içinde aynıdır:
+Aktif script sırası `index.html` ile `tools/story-sim-harness.js` içinde aynıdır.
+Başlıca harita katmanları:
 
-1. `js/StoryMapRasterAsset.js` — build-time sıkıştırılmış kanonik raster.
-2. `js/StoryMapRaster.js` — `820×645` kara maskesi ve RegionId raster sözleşmesi.
-3. `js/StoryPoliticalOverlay.js` — sahiplik ve devlet rengiyle üretilen ImageData politik katmanı.
-4. `js/StoryMapCache.js` — geometri, sahiplik, çağ, palet ve viewport için merkezî cache geçersiz kılma kapısı.
-5. `js/StoryRender.js` — terrain, politik katman, adaptif warp ve ekran çizimi.
-6. `js/Era.js` — dünya çağını seçer; gerçek çağ geçişini terrain invalidation’a bağlar.
+1. `js/StoryHexWorld.js` / `StoryHexGeography.js` — kanonik altıgen dünya,
+   kara, su, kıyı ve geçilemez arazi.
+2. `js/StoryHexSettlements.js`, `StoryHexUrbanFootprints.js`,
+   `StoryHexSites.js` — şehir, ilçe, fiziksel tesis ve arazi kullanımı.
+3. `js/StoryHexRoads.js`, `StoryHexInfrastructureSegments.js`,
+   `StoryRoutePlanner.js` — kanonik komşu hücre zincirleri ve hasarlı/kapalı
+   altyapı.
+4. `js/StoryTransportAgents.js` — gerçek sevkiyat ve kanonik karakter
+   yolculuğu projeksiyonu.
+5. `js/StoryVisualCatalog.js` — 2010–2100 kurulu teknoloji kademesi, durum,
+   atlas ve açık fallback teşhisi.
+6. `js/StoryMapRendererV2.js` / `StoryRender.js` — kalıcı RAM yüzeyleri,
+   üç LOD, hareketli ajanlar, hit-test ve ekran kompozisyonu.
 
 Veri akışı:
 
 ```text
 geoData + bölge merkezleri
-    → build-time kanonik raster
-    → tek kara/region gerçeği
-    ├─→ 1350×1062 terrain + çağ paleti
-    ├─→ 820×645 politik RGBA/sınır katmanı
-    └─→ harita hit-test
-terrain + politik katman
-    → ortak adaptif warp planı
+    → kanonik altıgen dünya (10.584 hücre)
+    ├─→ coğrafya + politik sahiplik
+    ├─→ 152 şehir + ilçeler + fiziksel tesisler
+    ├─→ kara/ray/deniz segmentleri + liman terminalleri
+    └─→ seçim / hit-test / bölge dosyası
+statik dünya katmanları
+    → bir kez üretilen RAM bitmap/karolar
+hareketli lojistik + seçim + UI
+    → her kare düşük maliyetli kompozisyon
     → storyCanvas
 ```
 
-Hikâye dünyası `3000` piksel genişliğindedir; yükseklik GEO oranından türetilir. Terrain ve politik katman bağımsız GEO scanline üretmez. İkisi de aynı kanonik rasterı örnekler.
+Hikâye dünyası `3000` piksel genişliğindedir; yükseklik GEO oranından
+türetilir. Coğrafya, politik sahiplik, yol ve hit-test aynı altıgen kimliklerini
+kullanır; şehir veya araç ekran koordinatından simülasyon gerçeği üretmez.
 
 ## Harita cache sözleşmesi
 
-Tüm aktif geçersiz kılmalar `storyInvalidateMapCaches(scope, reason, details)` kapısından geçer:
+Tüm aktif geçersiz kılmalar `storyInvalidateMapCaches(scope, reason, details)`
+kapısından geçer:
 
 - `ownership`: yalnız politik veri; canvas belleği yeniden kullanılır.
 - `era`: yalnız terrain ve çağ paleti.
 - `palette`: terrain ile politik renk verisi.
-- `viewport`: yalnız adaptif warp planı.
+- `viewport`: dünya bitmaplerini yeniden üretmeden yalnız ekran görünümü.
 - `derived`: kara gridi korunarak türetilmiş render katmanları.
 - `geometry`: raster, kara gridi, terrain, politik veri ve warp planı.
 
-Çağ paletleri terrain’in gerçek RGB çıktısına uygulanır ve sürümlü `paletteKey` terrain kaynak teşhisinde saklanır. Sahiplik değişimi terrain’i yeniden üretmez.
+Şehir, ilçe, liman, yol, sınır ve doğal yüzey katmanları kalıcı RAM
+bitmapleridir. Kamera sürükleme/zoom bunları yeniden üretmez. Sahiplik değişimi
+doğal yüzeyi; araç hareketi yol/şehir bitmaplerini geçersiz kılmaz.
 
 ## Aktif ve arşiv kaynakları
 
@@ -218,6 +233,9 @@ Tüm aktif geçersiz kılmalar `storyInvalidateMapCaches(scope, reason, details)
 - `js/MapData.js` aktif taktik savaş harita verisidir; `index.html` tarafından yüklenir ve pakete girer. Hikâye renderer’ının kopyası değildir.
 - `_arsiv/kok-olu-kopyalar/StoryGeoRender.js` tarihî, bağımsız bir prototiptir. `index.html` tarafından yüklenmez ve Electron `build.files` yalnız `js/**/*` aldığı için dağıtım paketine girmez. Aktif kaynak olarak düzenlenmemelidir.
 - Eski `MapData.v2.js` / `js/mapDataV2.js` çiftleri mevcut çalışma ağacında yoktur.
+- Rafa kaldırılmış hikâye 3D prototipinin kaynak, varlık, test ve kanıtlarının
+  tamamı `_arsiv/Story3D-shelved-2026-08-21.zip` içindedir. Aktif ürün Three.js
+  yüklemez ve yalnız 2D renderer bildirir.
 
 Arşiv prototipi bilerek tutulmaktadır; çalışan renderer üzerine override olarak bağlanmamalıdır. Kaldırılacaksa ayrı bir kaynak temizliği değişikliği olarak silinmelidir.
 

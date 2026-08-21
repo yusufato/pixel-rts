@@ -91,6 +91,7 @@
     "story:visual-catalog-test": "node tests/story-visual-catalog.test.js",
     "story:hex-render-test": "node tools/story-test-parallel.js --task=hexRenderProbe --workers=1",
     "story:map-v2-test": "node tests/story-map-renderer-v2.test.js",
+    "story:map-soak": "electron . --mapsoak --mapsoak-seconds=1800 --mapsoak-output=qa-runtime/story-map-soak-30m.json",
     "start": "electron .",
     "dist": "electron-builder --win --x64",
     "dist:dir": "electron-builder --win --x64 --dir",

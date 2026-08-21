@@ -714,43 +714,24 @@ silüetine kontrollü fallback vardır; sevkiyata bağlı olmayan dekoratif ara�
 sınıfı katalog tarafından reddedilir. Araç resimleri bir kez decode edilip
 mevcut harita atlas havuzunda RAM'de tutulur.
 
-**Sıradaki aktif iş:** HXD-9C 3D sunum karar prototipi. HXD-12 ile kara, ray,
-aktarma, liman, gemi, hava ve abluka sözleşmeleri tamamlandığı için 3D denemesi
-artık eksik bir taşıma maketini değil kanonik dünyayı okuyabilir. Prototip
-fiziksel sevkiyat sözleşmesini yeniden yazmayacaktır.
+**Ürün kararı (21.08.2026):** HXD-9C karar prototipi tamamlandı ve 3D üretim
+yolu rafa kaldırıldı. Aktif hikâye renderer'ı yalnız 2D'dir. Prototipin kaynak,
+varlık, test ve kanıtları
+`_arsiv/Story3D-shelved-2026-08-21.zip` içindedir; karar değişmedikçe aktif
+ürün yoluna 3D bağımlılığı geri eklenmeyecektir.
 
-### HXD-9C — 3D hikâye sunumu karar kapısı
+### HXD-9C — 3D hikâye sunumu karar kapısı — NO-GO / ARŞİVLENDİ
 
-Bu fazın ayrıntılı ve bağlayıcı uygulama planı
-`HIKAYE_3D_GECIS_PLANI.md` dosyasındadır. Ana plan faz sırasını, 3D plan ise
-renderer sözleşmesini, varlık hattını, bellek bütçesini ve GO/NO-GO kapılarını
-yönetir.
+Prototip kanonik dünyayı salt-okunur biçimde kullanabildi; ancak hedeflenen
+görsel kalite için gereken 2010–2100 model, materyal, animasyon ve LOD üretim
+maliyeti 2D atlas yolundan belirgin biçimde daha yüksekti. Kullanıcı 2D'nin
+görsel sonucunu daha güçlü buldu. Bu nedenle karar kapısı `NO-GO` ile kapandı.
 
-Simülasyon 3D motora taşınmayacak; mevcut altıgen, stok, karakter, savaş,
-lojistik ve nedensellik defterleri tek otorite kalacaktır. Denenecek şey yalnız
-`StoryRender` yerine aynı defterlerden beslenen Three.js/WebGL sunum
-adaptörüdür. Böylece 3D denemesi başarısız olsa bile 2D oynanış ve kayıtlar
-geri dönüşsüz biçimde kaybedilmez.
-
-İlk dikey yalnız Marmara/Ankara koridorunu kapsar: yükseklikli altıgen arazi,
-su, orman, dağ, iki şehir seviyesi, yol/ray, liman ve HXD-9 gerçek taşıma
-ajanları. Aynı tür yüzlerce öğe instance edilir; yakın/orta/uzak üç geometri
-LOD'u ve atlas/texture-array kullanılır. UI HTML katmanında kalır. Seçim ve
-tooltip için 3D raycast sonucu mevcut `mapEntity` sözleşmesine çevrilir.
-
-Kabul kapıları: 1080p hedef makinede kamera hareketinde şehirlerin sonradan
-belirmemesi, LLM çalışırken oynanabilir kare süresi, yakın/uzak görünümde aynı
-simülasyon kimlikleri, 2D/3D save karşılıklı açılabilirliği ve 10 dakikalık
-GPU-bellek kararlılığı. Prototip bu kapıları geçmezse tam 3D üretime girilmez;
-mevcut atlas tabanlı 2.5D yol korunur.
-
-Tam Unreal/Unity göçü ayrı bir ürün yeniden yazımı sayılır: Electron UI,
-JavaScript simülasyonu, kayıtlar, test tezgâhı ve yerel LLM köprüsü yeniden
-bağlanmadan seçilmeyecektir. Öncelikli aday mevcut uygulama içinde WebGL/Three.js
-adaptörüdür. Asıl üretim maliyeti motor değil; 2010–2100 dönemlerine ait modüler
-3D model, materyal, animasyon, LOD ve görsel kalite kontrol hattıdır. Bin ayrı
-tekil model yerine dönem × bölge × işlev parçalarından türeyen modüler katalog
-kurulacaktır.
+Simülasyon sözleşmeleri kaybedilmedi: altıgen, stok, karakter, savaş, lojistik
+ve nedensellik defterleri renderer'dan bağımsız kalmaya devam eder. 2D
+tamamlanma kapıları `HIKAYE_2D_HARITA_TAMAMLAMA_PLANI.md` içindedir. Arşiv
+geri getirilecekse önce bu ürün kararı açıkça değiştirilmeli; ZIP aktif ağaca
+çıkarılmadan paket veya runtime bağımlılığı eklenmemelidir.
 
 ### HXD-10 — Ankara–İstanbul kara yolu dikeyi
 
@@ -785,14 +766,14 @@ harita testi bunu ekran görüntüsü ve DOM kimliğiyle karşı-kontrol eder.
 artık motor, gerçek stok/şirket, oyuncu emri, hareketli araç, kesinti/onarım ve
 teslim görünürlüğüyle uçtan uca oynanabilir durumdadır.
 
-**Ölçülen render borcu:** HXD-9B Electron harita karşı-testinde taşıma ajanı
-katmanı p95 `0,1 ms` kaldı; yeni araç atlası darboğaz değildir. Buna karşılık
-toplam p95 uzak/orta/yakında `50,8 / 47,3 / 44,5 ms`, kalıcı harita
-katmanlarının tahmini toplamı yaklaşık `995 MiB` ölçüldü. 60 FPS hedefi
-geçilmedi. HXD-9C 3D prototipi bu tabanı saklamayacak; şehir, doğal yüzey ve ağ
-katmanları için tile/LOD bellek bütçesi ayrı optimizasyon borcudur.
-2026-08-20 tarihinde makine savaş AI/LLM yükü altındayken kullanıcı isteğiyle
-Electron/FPS kabulü yeniden koşturulmadı; bu yüzden bu borç kapanmış sayılmaz.
+**Render borcu — kapandı (21.08.2026):** HXD-9B'nin tarihî ilk ölçümünde toplam
+p95 uzak/orta/yakında `50,8 / 47,3 / 44,5 ms` ve kalıcı katman tahmini yaklaşık
+`995 MiB` idi. Kalıcı RAM yüzeyleri, atlas önbelleği ve LOD kompozisyonu sonrası
+gerçek Electron kabulü `12,7 / 12,5 / 12,7 ms`, etkileşim `13,9 ms` oldu;
+kamera hareketinde canlı şehir üretimi `0` kaldı. 1.804 saniyelik GPU soak'ında
+JS heap büyümesi `0 B`, en kötü p95 `14,8 ms` ve sorun listesi boştu. HXD-9C 3D
+prototipi ürün yolundan çıkarılıp tek ZIP'e alındı; güncel kabul kaydı
+`HIKAYE_2D_HARITA_TAMAMLAMA_PLANI.md` içindedir.
 
 ### HXD-11 — Demir yolu ve aktarma
 

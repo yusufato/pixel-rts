@@ -8,7 +8,7 @@
     'use strict';
 
     const CONFIG = Object.freeze({
-        version: 'story-map-v2-flat-world-6-readable-camera',
+        version: 'story-map-v2-flat-world-7-authored-surface',
         maxZoom: 7.5,
         presentationScale: 1.5,
         overviewRatio: 1.55,
@@ -20,12 +20,12 @@
         // Civilization-style contract: city art owns a fixed physical footprint
         // in world units. Camera zoom is the only scale operation; no LOD curve
         // may secretly enlarge or shrink the city relative to its hex.
-        settlementWorldSize: Object.freeze({ 1: 12, 2: 19, 3: 27 }),
+        settlementWorldSize: Object.freeze({ 1: 13, 2: 21, 3: 30 }),
         // District art must be legible inside a 27.9 world-unit wide hex. The
         // previous 10/12 values occupied roughly one third of the cell and read
         // as noise. These remain below their 19/27 city cores while filling
         // about 57–65% of the hex width at every camera zoom.
-        districtWorldSize: Object.freeze({ 2: 16, 3: 18 }),
+        districtWorldSize: Object.freeze({ 2: 19, 3: 22 }),
         // Raster density is independent from physical footprint. Districts keep
         // the same hex size while their persistent art uses 2x more pixels.
         districtRasterScale: 8,
@@ -35,6 +35,10 @@
         // Ports leave the 0.5x road layer and use a dedicated 4x layer: 8x the
         // former linear density without inflating the complete road network.
         portRasterScale: 4,
+        // Road/rail vectors used to be downsampled to 0.5x before entering RAM.
+        // That converted continuous curves into square dotted chains at local
+        // zoom. One world pixel per world unit is the minimum acceptable mip.
+        networkRasterScale: 1,
         // One high-resolution world surface replaces the low-resolution
         // screen-space ground pass that used to rebuild on every camera frame.
         hexSurfaceScale: 2
@@ -152,7 +156,7 @@
         const level = Math.max(1, Math.min(3,
             Number(opts.visualLevel == null ? node && node.level : opts.visualLevel) | 0 || 1));
         const ratio = zoomRatio(opts.cam, opts.minZoom);
-        if (level < 2 || ratio < 3.4) return { visible: false, level, ratio, count: 0, spreadPx: 0, sizePx: 0 };
+        if (level < 2 || ratio < 2.2) return { visible: false, level, ratio, count: 0, spreadPx: 0, sizePx: 0 };
         const count = level >= 3 ? Math.min(8, 4 + Math.floor(Math.log2(ratio))) : 3;
         const worldSize = CONFIG.districtWorldSize[level >= 3 ? 3 : 2];
         return {
@@ -775,9 +779,9 @@
 
     function paintHexNaturalCell(job, index) {
         const { world, geography, occupied, natural, paint, scaleX, scaleY,
-            baseWorld, counts } = job;
+            baseWorld, counts, seasonIndex, seasonMonth } = job;
         const coverage = Number(geography.landCoverageBps[index]);
-        if (coverage < 9400) return;
+        if (coverage <= 0) return;
         const cx = Number(world.centerX[index]) * scaleX;
         const cy = Number(world.centerY[index]) * scaleY;
         const latitude = Number(world.centerY[index]) / Number(world.height);
@@ -785,6 +789,7 @@
             Number(world.rValues[index]) * 197 + 31);
         const seedB = ruralHash(Number(world.qValues[index]) * 313 + 71,
             Number(world.rValues[index]) * 89 + 911);
+        const detailSeed = ruralHash(index * 977 + 17, index * 149 + 1429);
         const registeredResource = STORY_HEX_NATURAL_RESOURCE_NAMES[
             Number(natural.resourceCodes[index])
         ] || 'NONE';
@@ -793,6 +798,15 @@
         const cover = STORY_HEX_NATURAL_COVER_NAMES[
             Number(natural.coverCodes[index])
         ] || 'OPEN_LAND';
+        // Every land hex receives a deterministic authored ground tile. The
+        // atlas had been loaded and invalidating this surface for months, but
+        // was never actually drawn; most of the world therefore remained a
+        // flat green fill with isolated icon stamps on top.
+        const groundRow = latitude > .72 ? 3 : latitude > .56 ? 2
+            : cover === 'FOREST' ? 1 : 0;
+        const groundVariant = groundRow * 4 + Math.floor(seedB * 4);
+        const groundSize = baseWorld * 2.18;
+
         let atlas = null, variant = 0, size = baseWorld * 2.04, alpha = .94, kind = null;
         const physicalLandUseSite = job.landUseSiteByCellIndex.get(index) || null;
         if (physicalLandUseSite && typeof storyVisualLandUseRecipe === 'function') {
@@ -807,19 +821,23 @@
             alpha = .98;
             kind = 'LAND_USE';
         } else if (occupied.has(index)) {
-            return;
+            // The ground remains visible beneath urban footprints, while
+            // unrelated natural landmarks stay out of the city cell.
+            atlas = null;
         } else if (resource === 'PETROLEUM') {
             atlas = 'settlements'; variant = 8; size = baseWorld * 1.86; kind = 'OIL';
         } else if (resource === 'MINERAL') {
             atlas = 'ruralEnvironment'; variant = 9; size = baseWorld * 1.96; kind = 'MINE';
-        } else if (cover === 'MOUNTAIN') {
+        } else if (cover === 'MOUNTAIN'
+            && (Number(geography.mountainIntensityBps[index]) >= 6000 || detailSeed > .48)) {
             const mountain = Number(geography.mountainIntensityBps[index]);
             atlas = 'mountains';
             const band = latitude > .68 ? 3 : latitude < .32 ? 2
                 : mountain >= 6500 ? 1 : 0;
             variant = band * 4 + Math.floor(seedB * 4);
             size = baseWorld * 2.16; alpha = .98; kind = 'MOUNTAIN';
-        } else if (cover === 'FOREST') {
+        } else if (cover === 'FOREST' && !job.infrastructureOccupiedCells.has(index)
+            && detailSeed > .58) {
             atlas = 'forests';
             const band = latitude > .68 ? 3 : latitude < .30 ? 2 : seedB > .55 ? 0 : 1;
             variant = band * 4 + Math.floor(seedB * 4);
@@ -831,10 +849,8 @@
             variant = row * 4 + Math.floor(seedB * 4);
             size = baseWorld * 2.08; alpha = .74; kind = 'TERRAIN';
         }
-        if (!atlas) return;
-
-        // Kırpma yolu yalnız gerçekten görsel çizen hücrelerde kurulur. Taban
-        // kara dokusunu StoryMapRaster taşır; su ve boş arazi burada iş üretmez.
+        // One clipped composition per physical hex: continuous ground first,
+        // then the canonical land-use/resource/cover landmark when present.
         paint.save();
         paint.beginPath();
         for (let corner = 0; corner < 6; corner++) {
@@ -845,15 +861,53 @@
         }
         paint.closePath();
         paint.clip();
-        storyDrawAtlasCell(paint, atlas, variant, cx, cy + size * .5,
-            size, size, alpha, 0, seedB > .5);
-        counts[kind]++;
+        storyDrawAtlasCell(paint, 'groundDetail', groundVariant,
+            cx, cy + groundSize * .5, groundSize, groundSize,
+            coverage < 9400 ? .76 : .48, 0, seedA > .5);
+        counts.GROUND++;
+        if (atlas) {
+            storyDrawAtlasCell(paint, atlas, variant, cx, cy + size * .5,
+                size, size, alpha, 0, seedB > .5);
+            counts[kind]++;
+        }
         paint.restore();
+    }
+
+    function paintSeasonalWorldOverlay(job) {
+        const all = typeof storyMapAtlasEnsure === 'function' ? storyMapAtlasEnsure() : null;
+        const atlas = all && all.seasonalGround;
+        const tile = atlas && atlas.seasonTiles && atlas.seasonTiles[job.seasonIndex];
+        if (!tile || !job.paint.createPattern) return 0;
+        const pattern = job.paint.createPattern(tile, 'repeat');
+        if (!pattern) return 0;
+        const bandCount = 24;
+        const bandHeight = job.canvas.height / bandCount;
+        let drawn = 0;
+        job.paint.save();
+        job.paint.fillStyle = pattern;
+        for (let band = 0; band < bandCount; band++) {
+            const latitude = (band + .5) / bandCount;
+            // This is ground weathering, not an opaque map replacement. City,
+            // forest and facility atlases must remain legible above it.
+            let alpha = job.seasonIndex === 0
+                ? Math.max(0, Math.min(.22, (.60 - latitude) * .78))
+                : job.seasonIndex === 1 ? (latitude < .28 ? .11 : .045)
+                    : job.seasonIndex === 3 ? .13 : .035;
+            if (job.seasonIndex === 0 && job.seasonMonth === 3) alpha *= .68;
+            if (alpha <= .015) continue;
+            job.paint.globalAlpha = alpha;
+            job.paint.fillRect(0, Math.floor(band * bandHeight), job.canvas.width,
+                Math.ceil(bandHeight) + 1);
+            drawn++;
+        }
+        job.paint.restore();
+        return drawn;
     }
 
     function finishHexNaturalContents(job) {
         if (job.cancelled || STORY._hexNaturalContentsJob !== job) return;
         const finishStarted = hexNaturalNow();
+        paintSeasonalWorldOverlay(job);
         const landMask = hexNaturalLandMask(job.raster);
         job.paint.save();
         job.paint.globalCompositeOperation = 'destination-in';
@@ -866,7 +920,7 @@
         STORY._hexNaturalContentsKey = job.key;
         STORY._hexNaturalContentsJob = null;
         STORY._hexNaturalContentsBuild = {
-            adapterVersion: 'hex-natural-surface-5-natural-registry', key: job.key,
+            adapterVersion: 'hex-natural-surface-8-seamless-seasonal-coast', key: job.key,
             counts: job.counts, renderScale: job.renderScale,
             occupiedCellCount: job.occupied.size,
             resourceCellCount: job.natural.deposits.length,
@@ -893,6 +947,18 @@
                 }
             }
         }
+        if (cache && cache.overviewBitmap
+            && typeof cache.overviewBitmap.close === 'function') {
+            cache.overviewBitmap.close();
+        }
+        if (cache && cache.overviewCanvas) {
+            cache.overviewCanvas.width = 1;
+            cache.overviewCanvas.height = 1;
+        }
+        if (cache && cache.viewCanvas) {
+            cache.viewCanvas.width = 1;
+            cache.viewCanvas.height = 1;
+        }
         STORY._hexNaturalContentsRamTiles = null;
         STORY._hexNaturalContentsRamInvalidation = String(reason || 'unknown');
     }
@@ -907,10 +973,36 @@
             tiles: [],
             ready: false,
             readyCount: 0,
+            overviewScale: .5,
+            overviewBitmap: null,
+            overviewCanvas: null,
+            viewCanvas: null,
+            viewKey: null,
+            viewDrawn: 0,
+            viewMode: null,
+            lastDrawMode: null,
             byteLength: Number(canvas.width) * Number(canvas.height) * 4
         };
         STORY._hexNaturalContentsRamTiles = cache;
         const jobs = [];
+        // Minimum zoom used to sample all 6000×4720 source tiles every frame.
+        // Build one canonical overview from that completed surface; it is not a
+        // second simulation or a lower-quality asset, only a mip level.
+        const overview = document.createElement('canvas');
+        overview.width = Math.max(1, Math.round(STORY_WORLD_W * cache.overviewScale));
+        overview.height = Math.max(1, Math.round(STORY_WORLD_H * cache.overviewScale));
+        const overviewPaint = overview.getContext('2d');
+        overviewPaint.imageSmoothingEnabled = true;
+        overviewPaint.imageSmoothingQuality = 'high';
+        overviewPaint.drawImage(canvas, 0, 0, canvas.width, canvas.height,
+            0, 0, overview.width, overview.height);
+        cache.overviewCanvas = overview;
+        cache.byteLength += overview.width * overview.height * 4;
+        jobs.push(createImageBitmap(overview).then(bitmap => {
+            cache.overviewBitmap = bitmap;
+            overview.width = 1;
+            overview.height = 1;
+        }));
         for (let y = 0; y < canvas.height; y += tileSize) {
             for (let x = 0; x < canvas.width; x += tileSize) {
                 const width = Math.min(tileSize, canvas.width - x);
@@ -950,29 +1042,81 @@
         const viewTop = Number(storyCam.y) || 0;
         const viewRight = viewLeft + Number(STORY._cw || 0) / zoom;
         const viewBottom = viewTop + Number(STORY._ch || 0) / zoom;
-        let drawn = 0;
-        ctx.save();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        for (const tile of cache.tiles) {
-            if (!tile.bitmap) continue;
-            const tileLeft = tile.x / scale;
-            const tileTop = tile.y / scale;
-            const tileRight = (tile.x + tile.width) / scale;
-            const tileBottom = (tile.y + tile.height) / scale;
-            const ix0 = Math.max(tileLeft, viewLeft);
-            const iy0 = Math.max(tileTop, viewTop);
-            const ix1 = Math.min(tileRight, viewRight);
-            const iy1 = Math.min(tileBottom, viewBottom);
-            if (!(ix1 > ix0) || !(iy1 > iy0)) continue;
-            ctx.drawImage(tile.bitmap,
-                (ix0 - tileLeft) * scale, (iy0 - tileTop) * scale,
-                (ix1 - ix0) * scale, (iy1 - iy0) * scale,
-                (ix0 - viewLeft) * zoom, (iy0 - viewTop) * zoom,
-                (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
-            drawn++;
+        const zoomRatio = zoom / Math.max(.0001, Number(STORY._minZoom) || zoom);
+        const viewportW = Math.max(1, Math.round(Number(STORY._cw) || 1));
+        const viewportH = Math.max(1, Math.round(Number(STORY._ch) || 1));
+        const stableViewport = !STORY._mapInteracting;
+        const viewKey = [cache.key, viewportW, viewportH,
+            viewLeft.toFixed(5), viewTop.toFixed(5), zoom.toFixed(6),
+            zoomRatio < 1.55 ? 'OVERVIEW' : 'DETAIL'].join('|');
+        if (stableViewport && cache.viewCanvas && cache.viewKey === viewKey) {
+            ctx.drawImage(cache.viewCanvas, 0, 0);
+            cache.lastDrawMode = cache.viewMode;
+            return cache.viewDrawn;
         }
-        ctx.restore();
+        let paintCtx = ctx;
+        if (stableViewport) {
+            if (!cache.viewCanvas) cache.viewCanvas = document.createElement('canvas');
+            if (cache.viewCanvas.width !== viewportW) cache.viewCanvas.width = viewportW;
+            if (cache.viewCanvas.height !== viewportH) cache.viewCanvas.height = viewportH;
+            paintCtx = cache.viewCanvas.getContext('2d');
+            paintCtx.clearRect(0, 0, viewportW, viewportH);
+        }
+        let drawn = 0;
+        let drawMode = 'DETAIL';
+        if (zoomRatio < 1.55 && cache.overviewBitmap) {
+            const overviewScale = Math.max(.1, Number(cache.overviewScale) || .5);
+            const ix0 = Math.max(0, viewLeft);
+            const iy0 = Math.max(0, viewTop);
+            const ix1 = Math.min(STORY_WORLD_W, viewRight);
+            const iy1 = Math.min(STORY_WORLD_H, viewBottom);
+            if (ix1 > ix0 && iy1 > iy0) {
+                paintCtx.save();
+                paintCtx.imageSmoothingEnabled = true;
+                paintCtx.imageSmoothingQuality = 'high';
+                paintCtx.drawImage(cache.overviewBitmap,
+                    ix0 * overviewScale, iy0 * overviewScale,
+                    (ix1 - ix0) * overviewScale, (iy1 - iy0) * overviewScale,
+                    (ix0 - viewLeft) * zoom, (iy0 - viewTop) * zoom,
+                    (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
+                paintCtx.restore();
+                drawn = 1;
+                drawMode = 'OVERVIEW';
+            }
+        } else {
+            paintCtx.save();
+            paintCtx.imageSmoothingEnabled = true;
+            paintCtx.imageSmoothingQuality = 'high';
+            for (const tile of cache.tiles) {
+                if (!tile.bitmap) continue;
+                const tileLeft = tile.x / scale;
+                const tileTop = tile.y / scale;
+                const tileRight = (tile.x + tile.width) / scale;
+                const tileBottom = (tile.y + tile.height) / scale;
+                const ix0 = Math.max(tileLeft, viewLeft);
+                const iy0 = Math.max(tileTop, viewTop);
+                const ix1 = Math.min(tileRight, viewRight);
+                const iy1 = Math.min(tileBottom, viewBottom);
+                if (!(ix1 > ix0) || !(iy1 > iy0)) continue;
+                paintCtx.drawImage(tile.bitmap,
+                    (ix0 - tileLeft) * scale, (iy0 - tileTop) * scale,
+                    (ix1 - ix0) * scale, (iy1 - iy0) * scale,
+                    (ix0 - viewLeft) * zoom, (iy0 - viewTop) * zoom,
+                    (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
+                drawn++;
+            }
+            paintCtx.restore();
+        }
+        if (stableViewport) {
+            cache.viewKey = viewKey;
+            cache.viewDrawn = drawn;
+            cache.viewMode = drawMode;
+            ctx.drawImage(cache.viewCanvas, 0, 0);
+        } else {
+            // Never reuse a pre-drag screen composite after the camera moves.
+            cache.viewKey = null;
+        }
+        cache.lastDrawMode = drawMode;
         return drawn;
     }
 
@@ -1015,22 +1159,34 @@
             || typeof storyMapRasterEnsure !== 'function'
             || typeof storyHexNaturalResourcesEnsure !== 'function'
             || typeof storyHexSitesEnsure !== 'function') return null;
-        const required = ['mountains', 'forests', 'groundDetail',
+        const required = ['mountains', 'forests', 'groundDetail', 'seasonalGround',
             'terrainDetail', 'ruralEnvironment', 'settlements', 'landUseModern'];
         if (!required.every(storyMapAtlasReady)) return null;
         const world = storyHexWorldEnsure();
         const geography = storyHexGeographyEnsure();
         const natural = storyHexNaturalResourcesEnsure();
         const physicalSites = storyHexSitesEnsure();
+        const infrastructure = typeof storyHexInfrastructureSegmentsEnsure === 'function'
+            ? storyHexInfrastructureSegmentsEnsure() : null;
         const raster = storyMapRasterEnsure();
         if (!raster || !natural || !physicalSites) return null;
         const urban = typeof storyHexUrbanFootprintsEnsure === 'function'
             ? storyHexUrbanFootprintsEnsure() : null;
         const renderScale = CONFIG.hexSurfaceScale;
+        const calendar = typeof storyCalendarNow === 'function'
+            ? storyCalendarNow() : { seasonIndex: 2, month: 7 };
+        const seasonIndex = Math.max(0, Math.min(3, Number(calendar.seasonIndex) || 0));
+        const seasonMonth = Math.max(1, Math.min(12, Number(calendar.month) || 1));
         const operatingResourceCells = new Set((physicalSites.sites || [])
             .filter(site => site.siteType === 'EXTRACTION')
             .map(site => Number(site.cellIndex)));
         const landUseSiteByCellIndex = new Map();
+        const infrastructureOccupiedCells = new Set();
+        for (const segment of infrastructure && infrastructure.segments || []) {
+            if (!['LAND', 'RAIL'].includes(String(segment.mode))) continue;
+            infrastructureOccupiedCells.add(Number(segment.fromCellIndex));
+            infrastructureOccupiedCells.add(Number(segment.toCellIndex));
+        }
         for (const site of physicalSites.sites || []) {
             const siteType = String(site.siteType || '').toUpperCase();
             const visualFamily = String(site.visualFamily || '').toUpperCase();
@@ -1057,10 +1213,12 @@
             .sort((a, b) => a[0] - b[0])
             .map(([index, site]) => `${index}:${site.siteId}:${site.landUseType}:${site.lifecycleState}`)
             .join(',');
-        const key = ['hex-natural-surface-5', world.layoutHash, geography.geographyHash,
+        const key = ['hex-natural-surface-7-coast-infrastructure', world.layoutHash, geography.geographyHash,
             natural.registryHash, urban && urban.footprintHash || '-', STORY_WORLD_W,
             STORY_WORLD_H, physicalSites.sourceHash || physicalSites.registryHash || '-',
-            resourceOperationKey, landUseOperationKey, renderScale].join('|');
+            infrastructure && infrastructure.topologyHash || '-',
+            `season:${seasonIndex}:${seasonMonth}`, resourceOperationKey,
+            landUseOperationKey, renderScale].join('|');
         if (STORY._hexNaturalContentsCanvas && STORY._hexNaturalContentsKey === key) return STORY._hexNaturalContentsCanvas;
         if (STORY._hexNaturalContentsJob && STORY._hexNaturalContentsJob.key === key) {
             return STORY._hexNaturalContentsCanvas || null;
@@ -1077,8 +1235,7 @@
         const scaleY = canvas.height / world.height;
         const occupied = new Set(urban && urban.cellIndices ? Array.from(urban.cellIndices) : []);
         const order = Array.from({ length: world.cellCount }, (_, index) => index)
-            .filter(index => Number(geography.landCoverageBps[index]) >= 9400
-                && (!occupied.has(index) || landUseSiteByCellIndex.has(index)))
+            .filter(index => Number(geography.landCoverageBps[index]) > 0)
             .sort((a, b) => {
                 const ad = Math.abs(Number(world.centerX[a]) - Number(world.width) * .5)
                     + Math.abs(Number(world.centerY[a]) - Number(world.height) * .55);
@@ -1086,12 +1243,14 @@
                     + Math.abs(Number(world.centerY[b]) - Number(world.height) * .55);
                 return ad - bd || a - b;
             });
-        const counts = { MOUNTAIN: 0, FOREST: 0, MINE: 0, OIL: 0, TERRAIN: 0, LAND_USE: 0 };
+        const counts = { GROUND: 0, MOUNTAIN: 0, FOREST: 0, MINE: 0,
+            OIL: 0, TERRAIN: 0, LAND_USE: 0 };
         const baseWorld = Number(world.radius) * Math.min(scaleX, scaleY);
         const job = {
             key, world, geography, natural, physicalSites, raster, urban, renderScale,
             canvas, paint, scaleX, scaleY, occupied, operatingResourceCells,
-            landUseSiteByCellIndex,
+            landUseSiteByCellIndex, infrastructureOccupiedCells,
+            seasonIndex, seasonMonth,
             order, counts, baseWorld,
             cursor: 0, cancelled: false, startedAt: hexNaturalNow(), frameCount: 0,
             maxSliceMs: 0, lastSliceMs: 0, frameBudgetMs: 4
@@ -1123,6 +1282,7 @@
         STORY._mapV2HexContents = Object.assign({}, STORY._hexNaturalContentsBuild || {}, {
             zoom: Number(storyCam.zoom),
             ramResident: !!drawnRamTiles,
+            ramMode: ramTiles && ramTiles.lastDrawMode || null,
             drawnRamTiles,
             ramTileCount: ramTiles && ramTiles.tiles ? ramTiles.tiles.length : 0,
             ramBytes: ramTiles ? ramTiles.byteLength : 0

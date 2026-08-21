@@ -10,6 +10,7 @@ for (const file of ['js/StoryHexWorld.js', 'js/StoryHexRoads.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
 }
 vm.runInContext('const STORY_HEX_MOVEMENT_LAND = 1;', context);
+vm.runInContext("const STORY_HEX_NATURAL_COVER_NAMES = ['WATER','COAST','OPEN_LAND','FOREST','MOUNTAIN','DRYLAND'];", context);
 
 const result = vm.runInContext(`(() => {
     const world = storyHexWorldCreate({ width: 260, height: 170, radius: 16.1 });
@@ -23,23 +24,29 @@ const result = vm.runInContext(`(() => {
     const start = storyHexWorldIndex(world, 1, 2);
     const end = storyHexWorldIndex(world, 6, 2);
     const blocked = storyHexWorldIndex(world, 3, 2);
+    const forest = storyHexWorldIndex(world, 4, 2);
     geography.movementMask[blocked] = 0;
     geography.landCoverageBps[blocked] = 0;
-    const path = storyHexRoadFindPath(world, geography, start, end);
+    const natural = { coverCodes: new Uint8Array(world.cellCount) };
+    natural.coverCodes[forest] = 3;
+    const path = storyHexRoadFindPath(world, geography, start, end, natural);
     const adjacent = path.every((cell, index) => !index
         || storyHexRoadDistance(world, path[index - 1], cell) === 1);
     const avoidsBlocked = !path.includes(blocked);
+    const avoidsForest = !path.includes(forest);
     for (const neighbor of storyHexWorldNeighbors(world,
         Number(world.qValues[end]), Number(world.rValues[end]))) {
         if (neighbor.index !== start) geography.movementMask[neighbor.index] = 0;
     }
     const disconnected = storyHexRoadFindPath(world, geography, start, end);
-    return { path, adjacent, avoidsBlocked, disconnected };
+    return { path, adjacent, avoidsBlocked, avoidsForest, disconnected };
 })()`, context);
 
 assert(result.path.length > 2, 'route should contain a real hex chain');
 assert.strictEqual(result.adjacent, true, 'every route step must share a hex edge');
 assert.strictEqual(result.avoidsBlocked, true, 'route must avoid non-land cells');
+assert.strictEqual(result.avoidsForest, true,
+    'route must not pass through a forest without a canonical clearing decision');
 assert.deepStrictEqual(Array.from(result.disconnected), [], 'disconnected land masses must not invent a road');
 console.log('STORY_HEX_ROADS_OK', JSON.stringify({ steps: result.path.length - 1 }));
 

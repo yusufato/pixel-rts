@@ -246,6 +246,26 @@ function storyWorldStateTooltip() {
         + `Teknoloji ${pct(metrics.tech)} · ${since.toFixed(1)} yıldır sürüyor`;
 }
 
+function storySeasonForUi() {
+    const calendar = typeof storyCalendarNow === 'function'
+        ? storyCalendarNow() : { seasonIndex: 0, year: STORY.year || 2032, label: '' };
+    const seasons = [
+        { name: 'KIŞ', color: '#b9dcff', detail: 'Kuzey enlemlerinde kar ve kış görünümü güçlenir.' },
+        { name: 'İLKBAHAR', color: '#83e2a0', detail: 'Kar örtüsü çekilir; yeşil yüzeyler ve tarım dönemi belirginleşir.' },
+        { name: 'YAZ', color: '#f0d66f', detail: 'Sıcak ve kuru yüzey görünümü güney enlemlerinde belirginleşir.' },
+        { name: 'SONBAHAR', color: '#e3a45e', detail: 'Bitki örtüsü ve tarım yüzeyleri sonbahar paletine geçer.' }
+    ];
+    const season = seasons[Math.max(0, Math.min(3, Number(calendar.seasonIndex) || 0))];
+    return Object.assign({ calendar }, season);
+}
+
+function storySeasonTooltip() {
+    const season = storySeasonForUi();
+    const era = storyEraForUi();
+    return `${season.name} · ${season.calendar.label || season.calendar.year}\n${season.detail}`
+        + (era ? `\n\nDünya dengesi: ${era.name}\n${era.desc}` : '');
+}
+
 function storyActivateDetailTooltips(root) {
     if (!root || typeof root.querySelectorAll !== 'function') return;
     root.querySelectorAll('.city-fact-grid > div small, .city-route-metrics').forEach(detail => {
@@ -597,6 +617,13 @@ const STORY_REGION_USE_LABELS = Object.freeze({
     CIVIC: 'KAMU İLÇESİ', DEFENSE: 'SAVUNMA İLÇESİ', LOGISTICS: 'LOJİSTİK İLÇESİ',
     AGRICULTURE: 'TARIM ALANI', EXTRACTION: 'MADEN ALANI'
 });
+const STORY_REGION_COVER_LABELS = Object.freeze({
+    WATER: 'DENİZ', COAST: 'KIYI ARAZİSİ', OPEN_LAND: 'AÇIK ARAZİ',
+    FOREST: 'ORMAN', MOUNTAIN: 'DAĞLIK ARAZİ', DRYLAND: 'KURAK ARAZİ'
+});
+const STORY_REGION_RESOURCE_LABELS = Object.freeze({
+    NONE: 'YATAK YOK', PETROLEUM: 'PETROL', MINERAL: 'MİNERAL / MADEN CEVHERİ'
+});
 const STORY_REGION_OWNER_LABELS = Object.freeze({
     STATE: 'KAMU / KURUMSAL', DOMESTIC_PRIVATE: 'YERLİ ÖZEL SERMAYE',
     FOUNDER: 'BAĞIMSIZ KURUCU', FOREIGN_PRIVATE: 'YABANCI ÖZEL SERMAYE'
@@ -616,6 +643,27 @@ function storyRegionSelectionResolve(selected) {
     try {
         const model = storyHexSitesEnsure();
         const land = model.landUseByCellId[String(ref.cellId)] || null;
+        if (ref.kind === 'HEX') {
+            const natural = typeof storyHexNaturalResourcesEnsure === 'function'
+                ? storyHexNaturalResourcesEnsure() : null;
+            const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
+            const index = Number(ref.cellIndex);
+            const cover = natural && STORY_HEX_NATURAL_COVER_NAMES[
+                Number(natural.coverCodes[index])
+            ] || 'OPEN_LAND';
+            const resource = natural && STORY_HEX_NATURAL_RESOURCE_NAMES[
+                Number(natural.resourceCodes[index])
+            ] || 'NONE';
+            const deposit = natural && natural.depositByCellId[String(ref.cellId)] || null;
+            const managementRecords = typeof storyHexLandManagementRecords === 'function'
+                ? storyHexLandManagementRecords(String(ref.cellId)) : [];
+            return { kind: 'HEX', nodeId: selected.id, regionId: ref.regionId,
+                cellId: ref.cellId, cellIndex: index, cover, resource, deposit,
+                managementRecords,
+                arableSuitabilityBps: natural && Number(natural.arableSuitabilityBps[index]) || 0,
+                forestrySuitabilityBps: natural && Number(natural.forestrySuitabilityBps[index]) || 0,
+                q: world && Number(world.qValues[index]), r: world && Number(world.rValues[index]) };
+        }
         if (!land || storyRegionNumber(land.regionId) !== Number(selected.id)) return fallback;
         const siteId = (model.siteIdsByCellId[String(ref.cellId)] || [])[0];
         const site = siteId ? model.siteById[siteId] : null;
@@ -646,6 +694,37 @@ function storyRegionLocalOffice(selected) {
     const holder = view && view.institution && view.institution.officeHolder;
     return holder ? { name: holder.name,
         provisional: holder.actorType === 'COLLECTIVE_OFFICE' || /PRE_PHASE/.test(String(holder.model || '')) } : null;
+}
+function storyRegionPortTruth(selected) {
+    if (!selected || typeof storyHexSettlementsEnsure !== 'function') return null;
+    try {
+        const model = storyHexSettlementsEnsure();
+        const record = model && model.records && model.records[Number(selected.id)];
+        if (!record || !record.requiredPort) return null;
+        if (!record.port) {
+            return {
+                status: 'UNAVAILABLE',
+                code: 'REQUIRED_PORT_UNRESOLVED',
+                message: 'Zorunlu liman için geçerli fiziksel kıyı terminali bulunamadı.'
+            };
+        }
+        const fallback = record.port.fallbackCode === 'LEGACY_GEOMETRY_FALLBACK';
+        const hostRegionId = Number(record.port.hostRegionId);
+        const host = (STORY.nodes || [])[hostRegionId];
+        return {
+            status: fallback ? 'FALLBACK' : 'DIRECT',
+            code: record.port.fallbackCode || null,
+            terminalId: record.port.terminalId,
+            hostRegionId,
+            hostRegionName: String(host && host.name || hostRegionId),
+            distance: Math.max(0, Number(record.port.distance) || 0),
+            message: fallback
+                ? 'Kaynak kıyı geometrisi yetersiz olduğu için şehir, komşu bölgedeki fiziksel terminalden hizmet alıyor.'
+                : 'Şehir kendi bölgesindeki fiziksel kıyı terminaline bağlı.'
+        };
+    } catch (_) {
+        return null;
+    }
 }
 const STORY_REGION_LOGISTICS_MODE_LABELS = Object.freeze({
     AUTO: 'EN UYGUN ROTAYI SEÇ', LAND: 'TIR KONVOYU', RAIL: 'YÜK TRENİ', SEA: 'KARGO GEMİSİ'
@@ -799,7 +878,41 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
     const esc = storyProjectionEscape;
     const pop = storyRegionPopulation(selected);
     const office = storyRegionLocalOffice(selected);
+    const portTruth = storyRegionPortTruth(selected);
+    const portTruthHtml = !portTruth ? ''
+        : portTruth.status === 'FALLBACK'
+            ? `<div class=\"story-context-warning\"><b>KAYNAK COĞRAFYA UYARISI</b><br>${esc(portTruth.message)}<br>FİZİKSEL TERMİNAL: ${esc(portTruth.hostRegionName)} · #${esc(portTruth.terminalId)} · ${portTruth.distance.toFixed(1)} dünya birimi</div>`
+            : portTruth.status === 'UNAVAILABLE'
+                ? `<div class=\"story-context-warning\"><b>LİMAN BAĞLANTISI YOK</b><br>${esc(portTruth.message)}</div>`
+                : `<div class=\"story-brief-note\">FİZİKSEL LİMAN: ${esc(portTruth.hostRegionName)} · TERMİNAL #${esc(portTruth.terminalId)}</div>`;
     const cityButton = `<button class=\"story-context-action\" data-story-enter-city=\"${selected.id}\">ŞEHRE GİR · ${esc(selected.name)}</button>`;
+    if (selection && selection.kind === 'HEX') {
+        const coverLabel = STORY_REGION_COVER_LABELS[selection.cover] || selection.cover;
+        const resourceLabel = STORY_REGION_RESOURCE_LABELS[selection.resource] || selection.resource;
+        const extraction = selection.deposit
+            ? (typeof storyHexSitesEnsure === 'function'
+                ? (storyHexSitesEnsure().sites || []).find(site => Number(site.cellIndex) === Number(selection.cellIndex)
+                    && String(site.siteType) === 'EXTRACTION') : null)
+            : null;
+        const company = extraction && typeof storyCompanyById === 'function'
+            ? storyCompanyById(extraction.ownerCompanyId) : null;
+        const actionOptions = typeof storyHexLandManagementOptions === 'function'
+            ? storyHexLandManagementOptions(selection) : [];
+        const actionButtons = actionOptions.length
+            ? `<div class=\"story-brief-note\"><b>ARAZİ YÖNETİMİ</b><br>${actionOptions.map(action =>
+                `<button class=\"story-context-action\" data-story-hex-action=\"${esc(action.actionType)}\">${esc(action.label)}</button>`).join('')}</div>` : '';
+        const managementRows = (selection.managementRecords || []).length
+            ? `<div class=\"story-brief-note\"><b>AÇIK ARAZİ KAYITLARI</b><br>${selection.managementRecords.map(record =>
+                `${esc(STORY_HEX_LAND_ACTIONS[record.actionType] && STORY_HEX_LAND_ACTIONS[record.actionType].label || record.actionType)} · ${esc(record.status)}`).join('<br>')}</div>` : '';
+        return `<div class=\"story-node-heading\"><b>${esc(selected.name)} · ${esc(coverLabel)}</b><span class=\"story-node-state\">ALTIGEN</span></div>`
+            + `<div class=\"story-context-parent\">${esc(selection.cellId)} · q${esc(selection.q)} / r${esc(selection.r)}</div>`
+            + `<div class=\"story-brief-grid\"><div class=\"story-brief-cell\">ARAZİ ÖRTÜSÜ<b>${esc(coverLabel)}</b></div>`
+            + `<div class=\"story-brief-cell\">DOĞAL KAYNAK<b>${esc(resourceLabel)}</b></div>`
+            + `<div class=\"story-brief-cell\">TARIM UYGUNLUĞU<b>%${Math.round(selection.arableSuitabilityBps / 100)}</b></div>`
+            + `<div class=\"story-brief-cell\">ORMANCILIK UYGUNLUĞU<b>%${Math.round(selection.forestrySuitabilityBps / 100)}</b></div></div>`
+            + (selection.deposit ? `<div class=\"story-brief-note\"><b>YATAK KAYDI</b><br>${esc(resourceLabel)} · ${extraction ? `faal çıkarım kapasitesi ${storyRegionFormatNumber(extraction.capacity)}` : 'çıkarım tesisi yok'}<br>Bağlı şehir: ${esc(selected.name)}${company ? `<br>Sahip: ${esc(company.name)}` : ''}<br>Rezerv miktarı: henüz kanonik jeolojik ölçüm yok; sayı uydurulmadı.</div>` : '')
+            + actionButtons + managementRows + cityButton;
+    }
     if (selection && selection.kind === 'SITE') {
         const site = selection.site;
         const company = typeof storyCompanyById === 'function' ? storyCompanyById(site.ownerCompanyId) : null;
@@ -838,7 +951,7 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
         + `<div class=\"story-brief-cell\">BELEDİYE / YEREL MAKAM<b>${esc(office ? office.name : 'ATANMADI')}</b></div>`
         + `<div class=\"story-brief-cell\">GARNİZON<b>${esc(basics.force)}</b></div></div>`
         + (office && office.provisional ? '<div class=\"story-context-warning\">Geçici kolektif yerel makam; kişisel belediye başkanı karakter fazında bağlanacak.</div>' : '')
-        + `<div class=\"story-brief-note\">${esc(basics.rewardLabel)}: ${esc(basics.reward)}<br>ORDU DOKTRİNİ: ${esc(basics.doctrine)}<br>SAVAŞ HARİTASI: ${esc(basics.mapName)}</div>${cityButton}${storyRegionLogisticsHtml(selected)}`;
+        + `<div class=\"story-brief-note\">${esc(basics.rewardLabel)}: ${esc(basics.reward)}<br>ORDU DOKTRİNİ: ${esc(basics.doctrine)}<br>SAVAŞ HARİTASI: ${esc(basics.mapName)}</div>${portTruthHtml}${cityButton}${storyRegionLogisticsHtml(selected)}`;
 }
 function storyRegionEntityAtWorld(x, y) {
     if (typeof storyHexPoliticalCellAtWorld !== 'function' || typeof storyHexSitesEnsure !== 'function') return null;
@@ -847,7 +960,9 @@ function storyRegionEntityAtWorld(x, y) {
         if (!cell) return null;
         const model = storyHexSitesEnsure();
         const land = model.landUseByCellId[String(cell.id)] || null;
-        if (!land) return null;
+        if (!land) return cell.assigned ? { kind: 'HEX', cellId: cell.id,
+            cellIndex: cell.index, regionId: `region:${cell.regionId}`,
+            nodeId: Number(cell.regionId) } : null;
         const siteId = (model.siteIdsByCellId[String(cell.id)] || [])[0] || null;
         return { kind: siteId ? 'SITE' : 'DISTRICT', cellId: cell.id,
             siteId, regionId: land.regionId, nodeId: storyRegionNumber(land.regionId) };
@@ -898,10 +1013,10 @@ function storyPanelUpdate() {
             ((me.chips != null) ? statChip('t2 tip-right', 'ELEKTRONİK', Math.floor(me.chips), 'Devletin elektronik stoku. Tank ve topçu üretimi elektronik gerektirir.') : '') +
             ((me.inflation != null) ? statChip(`${me.inflation > 15 ? 'urgent ' : ''}t2 tip-right`, 'ENF', `%${me.inflation.toFixed(0)}`, 'Enflasyon gelir verimini azaltır ve halkın refah baskısını büyütür.') : '') +
             statChip('t3 wide tip-right', 'TARİH', date, 'Hikâye dünyasının mevcut tarihi. Dünya ilerledikçe ekonomi, kurumlar ve ilişkiler bu takvime göre değişir.') +
-            ((typeof storyEra === 'function') ? (() => {
-                const e = storyEraForUi();
-                const detail = storyProjectionEscape(storyWorldStateTooltip());
-                return `<div class="story-stat-chip t2 wide world-state detail-hover" tabindex="0" data-story-tooltip="${detail}" aria-label="${storyProjectionEscape(`${e.name}. Dünya durumu ayrıntıları için odaklan.`)}">ÇAĞ<b style="color:${e.color}">${e.icon} ${e.name}</b></div>`;
+            ((typeof storyCalendarNow === 'function') ? (() => {
+                const season = storySeasonForUi();
+                const detail = storyProjectionEscape(storySeasonTooltip());
+                return `<div class="story-stat-chip t2 wide world-state detail-hover" tabindex="0" data-story-tooltip="${detail}" aria-label="${storyProjectionEscape(`${season.name} mevsimi. Mevsim ayrıntıları için odaklan.`)}">MEVSİM<b style="color:${season.color}">${season.name}</b></div>`;
             })() : '') +
             '';   // KONSEY geri-sayım çipi kaldırıldı (kullanıcı isteği) — takvim konsey panelinde
         const tooltipHeld = [...stats.querySelectorAll('.detail-hover')].some(chip => (
@@ -1727,6 +1842,20 @@ function storyInit() {
         storyPanelUpdate();
     });
     document.getElementById('story-node-info')?.addEventListener('click', (event) => {
+        const landAction = event.target.closest('[data-story-hex-action]');
+        if (landAction) {
+            const selected = storyNode(STORY.selectedNodeId);
+            const selection = storyRegionSelectionResolve(selected);
+            const result = typeof storyHexLandManagementSubmit === 'function'
+                ? storyHexLandManagementSubmit(Object.assign({}, selection, {
+                    actionType: landAction.dataset.storyHexAction
+                })) : { ok: false, code: 'LAND_MANAGEMENT_UNAVAILABLE' };
+            if (typeof storyFlash === 'function') storyFlash(result.ok
+                ? result.record.outcome : (result.code === 'LAND_ACTION_ALREADY_OPEN'
+                    ? 'Bu altıgen için aynı kayıt zaten açık.' : `Arazi işlemi açılamadı: ${result.code}`));
+            storyPanelUpdate();
+            return;
+        }
         const dispatch = event.target.closest('[data-story-logistics-dispatch]');
         if (dispatch) {
             const result = storyRegionLogisticsDispatch();

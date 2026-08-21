@@ -78,6 +78,7 @@ function storyHexSitesHexDistance(world, aIndex, bIndex) {
 
 function storyHexSitesFacilityCondition(facility) {
     const status = String(facility && facility.status || 'UNKNOWN').toUpperCase();
+    if (status === 'BURNING' || status === 'ON_FIRE') return 'BURNING';
     if (status === 'DESTROYED') return 'BURNED';
     if (status === 'ABANDONED') return 'ABANDONED';
     if (status === 'DAMAGED') return 'DAMAGED';

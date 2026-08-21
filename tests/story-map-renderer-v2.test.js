@@ -4,6 +4,13 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+const indexHtml = fs.readFileSync('index.html', 'utf8');
+const styleCss = fs.readFileSync('style.css', 'utf8');
+assert.match(indexHtml, /id="storyTransportCanvas"/,
+    'hareketli taşıtlar statik dünya canvasından ayrılmalı');
+assert.match(styleCss, /#storyTransportCanvas[^}]*pointer-events:\s*none/s,
+    'taşıt sunum katmanı harita etkileşimini engellememeli');
+
 const context = vm.createContext({ console, globalThis: null });
 context.globalThis = context;
 vm.runInContext(fs.readFileSync('js/StoryMapRendererV2.js', 'utf8'), context, {
@@ -22,7 +29,7 @@ const sizes = [.35, 2.2, 4.5].map(zoom => context.storyMapV2SettlementMetrics(
 ).size);
 assert(sizes[0] < sizes[1] && sizes[1] < sizes[2], `capital scale must be monotonic: ${sizes}`);
 const capitalWorldSizes = sizes.map((size, index) => size / [.35, 2.2, 4.5][index]);
-assert(capitalWorldSizes.every(size => Math.abs(size - 27) < 1e-9),
+assert(capitalWorldSizes.every(size => Math.abs(size - 30) < 1e-9),
     `capital must keep one fixed world-space size at every zoom: ${capitalWorldSizes}`);
 const liveTier = context.storyMapV2SettlementMetrics(
     { level: 1 }, { cam: { zoom: 4.5 }, minZoom: min, visualLevel: 3 }
@@ -45,6 +52,8 @@ assert.strictEqual(context.STORY_MAP_RENDERER_V2.districtRasterScale, 8,
     'district RAM art must use twice the former 4x raster density');
 assert.strictEqual(context.STORY_MAP_RENDERER_V2.portRasterScale, 4,
     'port RAM art must use twice the previous 2x dedicated raster density');
+assert.strictEqual(context.STORY_MAP_RENDERER_V2.networkRasterScale, 1,
+    'road and rail RAM layers must retain full world resolution');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: .35 }, .35), 'OVERVIEW');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: 2.2 }, .35), 'DISTRICT');
 assert.strictEqual(context.storyMapV2VisualZoomBand({ zoom: 4.5 }, .35), 'LOCAL');
@@ -57,7 +66,7 @@ const capitalDistrictsNear = context.storyMapV2SettlementDistrictMetrics(
 assert.strictEqual(capitalDistrictsFar.visible, false, 'overview capital must remain a single clean landmark');
 assert(capitalDistrictsNear.visible && capitalDistrictsNear.count >= 6,
     'local capital must reveal deterministic urban districts');
-assert.strictEqual(capitalDistrictsNear.worldSize, 18,
+assert.strictEqual(capitalDistrictsNear.worldSize, 22,
     'capital districts must occupy a legible majority of their hex');
 const capitalNear = context.storyMapV2SettlementMetrics({ level: 3 }, { cam: { zoom: 4.5 }, minZoom: min });
 assert(capitalDistrictsNear.sizePx < capitalNear.size,
@@ -65,7 +74,7 @@ assert(capitalDistrictsNear.sizePx < capitalNear.size,
 const tierTwoDistrict = context.storyMapV2SettlementDistrictMetrics(
     { level: 2 }, { cam: { zoom: 2.2 }, minZoom: min }
 );
-assert.strictEqual(tierTwoDistrict.worldSize, 16,
+assert.strictEqual(tierTwoDistrict.worldSize, 19,
     'tier-2 district must remain legible without matching the city core');
 
 const framed = { x: 999, y: 999, zoom: .01 };

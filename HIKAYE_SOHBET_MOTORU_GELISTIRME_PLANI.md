@@ -738,3 +738,14 @@ edilen kaynaklı deterministik cevap ile modelin doğal kabulü ayrı tutulur:
 `supportedPublicUsefulBps` yalnız doğal model/grounded-discourse kabulünü ölçer.
 Bu koşuda ekonomi için değerler sırasıyla `%100` ve `%0`dır; reddet-hepsini başarı
 gibi göstermeden oynanabilir fallback'in de kaybolmamasını sağlar.
+
+### Model-özellik uyumluluğu borcu — 21 Ağustos 2026
+
+Canlı çalıştırıcı `prompt_cache_retention is not supported on this model`
+uyarısı verdi. Depo kaynaklarında bu parametre bulunmuyor; alan dış çalıştırıcı
+veya sağlayıcı yapılandırmasından geliyor. OpenAI'nin güncel API sözleşmesinde
+bu eski alan yerine desteklenen modellerde `prompt_cache_options.ttl`
+kullanılmalıdır. İstek oluşturucu model yeteneklerini önceden
+sorgulamalı/manifestten okumalı; TTL desteği yoksa opsiyonel alanı hiç
+göndermemelidir. Bu uyarı sessizce yutulmayacak, model adı ve reddedilen alanla
+teşhise yazılacaktır. Harita/3B renderer çalışmasını engellemez.

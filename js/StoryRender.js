@@ -34,13 +34,15 @@ function storyWorldFrame(timestamp) {
             if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
         }
     }
-    // 60 FPS presentation budget. Expensive static map layers are cached or
-    // built incrementally; the live frame only composites those surfaces.
-    const renderFrameMs = 1000 / 60;
+    // Statik dünya ile hareketli ajan aynı bütçeyi paylaşmaz. Dünya 24 Hz'de
+    // güncellenir; kamera etkileşimi zaten olay başına anlık storyRender çağırır.
+    // Taşıt katmanı aşağıda bağımsız 60 Hz akar ve ağır haritayı tetiklemez.
+    const renderFrameMs = 1000 / 24;
     if (timestamp - (STORY._lastRenderT || 0) >= renderFrameMs - .5) {
         STORY._lastRenderT = timestamp;
         storyRender();
     }
+    storyRenderTransportOverlay();
 }
 
 function storyResize() {
@@ -49,6 +51,11 @@ function storyResize() {
     const w = cv.clientWidth || 800, h = cv.clientHeight || 600;
     if (cv.width !== w) cv.width = w;
     if (cv.height !== h) cv.height = h;
+    const transport = document.getElementById('storyTransportCanvas');
+    if (transport) {
+        if (transport.width !== w) transport.width = w;
+        if (transport.height !== h) transport.height = h;
+    }
 }
 // ZOOM-OUT SINIRI: tüm dünya (üst şerit dahil, sxOf(0) en geniş) ekrana ~1.15 marjla
 // sığdığında dur → harita dışını çok gösterme (kullanıcı isteği). Yüksekliği de sığdır.
@@ -349,17 +356,21 @@ const STORY_MAP_ATLAS_SPECS = {
     specialFacilitiesModern: { src: 'assets/maps/special-facilities-atlas-modern-v1.png', cols: 4, rows: 4 },
     landUseModern: { src: 'assets/maps/land-use-atlas-modern-v1.png', cols: 4, rows: 4 },
     groundDetail: { src: 'assets/maps/ground-texture-atlas-v1.png', cols: 4, rows: 4 },
+    seasonalGround: { src: 'assets/maps/seasonal-ground-atlas-v1.png', cols: 4, rows: 4 },
     terrainDetail: { src: 'assets/maps/terrain-detail-atlas-v2.png', cols: 4, rows: 4 },
     ruralEnvironment: { src: 'assets/maps/rural-environment-atlas-v1.png', cols: 4, rows: 4 },
     maritime: { src: 'assets/maps/maritime-atlas-v2.png', cols: 4, rows: 4 },
+    modernPorts: { src: 'assets/maps/modern-port-terminal-atlas-v1.png', cols: 4, rows: 4 },
     seaDetail: { src: 'assets/maps/sea-detail-atlas-v2.png', cols: 4, rows: 4 },
     transportRoad: { src: 'assets/maps/transport-road-convoy-modern-v1.png', cols: 1, rows: 1 },
     transportRail: { src: 'assets/maps/transport-freight-train-modern-v1.png', cols: 1, rows: 1 },
-    transportSea: { src: 'assets/maps/transport-cargo-ship-modern-v1.png', cols: 1, rows: 1 }
+    transportSea: { src: 'assets/maps/transport-cargo-ship-modern-v1.png', cols: 1, rows: 1 },
+    conflictFireOverlay: { src: 'assets/maps/conflict-fire-overlay-modern-v1.png', cols: 1, rows: 1 }
 };
 
 const STORY_SETTLEMENT_ATLAS_KEYS = Object.freeze([
-    'settlements', 'urbanClimateModern', 'urbanDamageModern', 'specialFacilitiesModern'
+    'settlements', 'urbanClimateModern', 'urbanDamageModern', 'specialFacilitiesModern',
+    'conflictFireOverlay'
 ]);
 
 function storySettlementAtlasesReady() {
@@ -379,7 +390,46 @@ function storyMapAtlasEnsure() {
         atlases[key] = { img, ready: false, cols: spec.cols, rows: spec.rows };
         img.onload = () => {
             atlases[key].ready = true;
-            const ownsHexSurface = ['mountains', 'forests', 'groundDetail',
+            if (key === 'seasonalGround') {
+                try {
+                    const sw = img.naturalWidth / 4, sh = img.naturalHeight / 4;
+                    atlases[key].seasonTiles = Array.from({ length: 4 }, (_, row) => {
+                        // Mirror the authored seasonal source around both axes.
+                        // The resulting canvas is a real-asset-backed seamless
+                        // texture: repeated world coverage no longer exposes the
+                        // four hard rectangular seams seen in the first winter pass.
+                        const source = document.createElement('canvas');
+                        source.width = 192; source.height = 192;
+                        source.getContext('2d').drawImage(img, 0, row * sh, sw, sh,
+                            0, 0, source.width, source.height);
+                        const tile = document.createElement('canvas');
+                        tile.width = 384; tile.height = 384;
+                        const paint = tile.getContext('2d');
+                        for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+                            paint.save();
+                            paint.translate(x * 192 + (x ? 192 : 0),
+                                y * 192 + (y ? 192 : 0));
+                            paint.scale(x ? -1 : 1, y ? -1 : 1);
+                            paint.drawImage(source, 0, 0, 192, 192);
+                            paint.restore();
+                        }
+                        return tile;
+                    });
+                } catch (_) {}
+            }
+            if (key === 'modernPorts') {
+                // Force the large generated atlas through decode/upload while
+                // the player is still in menu/character creation. Otherwise
+                // Chromium pays that cost on the first map paint slice.
+                try {
+                    const warm = document.createElement('canvas');
+                    warm.width = 16; warm.height = 16;
+                    const warmPaint = warm.getContext('2d');
+                    warmPaint.drawImage(img, 0, 0, 16, 16);
+                    atlases[key].warmCanvas = warm;
+                } catch (_) {}
+            }
+            const ownsHexSurface = ['mountains', 'forests', 'groundDetail', 'seasonalGround',
                 'terrainDetail', 'ruralEnvironment', 'settlements', 'landUseModern'].includes(key);
             if (ownsHexSurface && typeof storyMapV2InvalidateHexNaturalContents === 'function') {
                 storyMapV2InvalidateHexNaturalContents('atlas-ready:' + key);
@@ -390,7 +440,7 @@ function storyMapAtlasEnsure() {
                 STORY._settlementLayerKey = null;
                 STORY._settlementWorldLayers = null;
             }
-            if (key === 'maritime') {
+            if (key === 'maritime' || key === 'modernPorts') {
                 STORY._networkLayerKey = null;
                 STORY._portWorldLayer = null;
             }
@@ -893,6 +943,13 @@ function storyDrawSettlementSprite(ctx, node, px, py, farMap, scale, options) {
                     district.sizePx, district.sizePx, .92,
                     (storyHash(index * 31 + (node.id | 0), 557) - .5) * .12,
                     storyHash(index * 17 + (node.id | 0), 997) > .5);
+                if (districtVisualRecipe && districtVisualRecipe.fireOverlay) {
+                    storyDrawAtlasCell(ctx,
+                        districtVisualRecipe.fireOverlayAtlasKey || 'conflictFireOverlay',
+                        Number(districtVisualRecipe.fireOverlayAtlasCell) || 0,
+                        point.x, point.y - district.sizePx * .02,
+                        district.sizePx * 1.08, district.sizePx * 1.32, .88);
+                }
             }
         } else if (district.visible && typeof storyMapRasterEnsure === 'function'
             && typeof storyMapRasterSample === 'function') {
@@ -925,6 +982,12 @@ function storyDrawSettlementSprite(ctx, node, px, py, farMap, scale, options) {
     }
     storyDrawAtlasCell(ctx, coreAtlasKey, variant, visualPx,
         visualPy + Math.round(size * .27), size, size, 1);
+    if (coreVisualRecipe && coreVisualRecipe.fireOverlay) {
+        storyDrawAtlasCell(ctx,
+            coreVisualRecipe.fireOverlayAtlasKey || 'conflictFireOverlay',
+            Number(coreVisualRecipe.fireOverlayAtlasCell) || 0,
+            visualPx, visualPy, size * 1.08, size * 1.32, .88);
+    }
     return { half: Math.max(4, Math.round(size * .31)), size,
         visualX: visualPx, visualY: visualPy };
 }
@@ -995,7 +1058,11 @@ function storyDrawPhysicalConstructionSites(ctx, physicalSitesModel, mapZoomRati
 function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesModel,
     worldPositions) {
     const renderScale = Math.max(1, Number(mode && mode.renderScale) || 1);
-    const tileSize = 512;
+    // 512px tiles made a local 8x district view issue dozens of GPU blits and
+    // made the overview traverse hundreds of sparse textures. 1024px stays
+    // comfortably inside Chromium texture limits while cutting draw calls and
+    // duplicate city padding by roughly four times.
+    const tileSize = 1024;
     const tileNodes = new Map();
     const visualPositions = Object.create(null);
     const maxWidth = STORY_WORLD_W * renderScale;
@@ -1089,7 +1156,7 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         ? (visualPeriodValue.id || visualPeriodValue.key
             || JSON.stringify(visualPeriodValue)) : visualPeriodValue;
     const token = [
-        'settlement-world-layers-6-core4-district8-sparse',
+        'settlement-world-layers-7-core2-district8-tiles1024',
         storySettlementAtlasesReady() ? 'ready' : 'loading',
         urbanModel && urbanModel.footprintHash || 'no-urban',
         physicalSitesModel && physicalSitesModel.registryHash || 'no-sites',
@@ -1109,7 +1176,10 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         cw: STORY._cw, ch: STORY._ch
     };
     const modes = [
-        { id: 'CORE', minZoom: 1, renderScale: 4,
+        // CORE is used only below district LOD. A 30-world-unit capital at 2x
+        // owns 60 source pixels, enough for its largest 2.2x on-screen size;
+        // the 8x district layer takes over before closer inspection.
+        { id: 'CORE', minZoom: 1, renderScale: 2,
             sparse: true, disableDistricts: true },
         { id: 'DISTRICTS', minZoom: .25,
             renderScale: Number(typeof STORY_MAP_RENDERER_V2 !== 'undefined'
@@ -1229,36 +1299,7 @@ function storyDrawSettlementWorldLayer(ctx, worldLayers, mapZoomRatio) {
     const mode = Number(mapZoomRatio) >= 3.4 ? 'DISTRICTS' : 'CORE';
     const layer = worldLayers.layers[mode];
     if (!layer || !Array.isArray(layer.tiles)) return null;
-    const zoom = Math.max(.0001, Number(storyCam.zoom) || 1);
-    const worldScale = Math.max(1, Number(layer.worldScale) || 1);
-    const viewLeft = (Number(storyCam.x) || 0) * worldScale;
-    const viewTop = (Number(storyCam.y) || 0) * worldScale;
-    const viewRight = viewLeft + Number(STORY._cw || 0) / zoom * worldScale;
-    const viewBottom = viewTop + Number(STORY._ch || 0) / zoom * worldScale;
-    let drawnTileCount = 0;
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    for (const tile of layer.tiles) {
-        if (tile.x + tile.width < viewLeft || tile.x > viewRight
-            || tile.y + tile.height < viewTop || tile.y > viewBottom) continue;
-        const source = tile.bitmap || tile.canvas;
-        if (!source || !(source.width > 1) || !(source.height > 1)) continue;
-        const ix0 = Math.max(tile.x, viewLeft);
-        const iy0 = Math.max(tile.y, viewTop);
-        const ix1 = Math.min(tile.x + tile.width, viewRight);
-        const iy1 = Math.min(tile.y + tile.height, viewBottom);
-        const iw = ix1 - ix0;
-        const ih = iy1 - iy0;
-        if (!(iw > 0) || !(ih > 0)) continue;
-        ctx.drawImage(source,
-            ix0 - tile.x, iy0 - tile.y, iw, ih,
-            (ix0 - viewLeft) * zoom / worldScale,
-            (iy0 - viewTop) * zoom / worldScale,
-            iw * zoom / worldScale,
-            ih * zoom / worldScale);
-        drawnTileCount++;
-    }
-    ctx.restore();
+    const drawnTileCount = storyDrawWorldRamLayer(ctx, layer);
     return {
         mode,
         layer,
@@ -1278,12 +1319,45 @@ function storyCoastalNetworkEnsure() {
         const cachedHex = STORY._coastalNetwork;
         if (cachedHex && cachedHex.settlementHash === settlements.settlementHash
             && cachedHex.physicalHash === (physical && physical.topologyHash || null)) return cachedHex;
-        const ports = settlements.records.filter(record => record.port).map(record => ({
-            node: STORY.nodes[record.cityId],
-            terminalId: record.port.terminalId,
-            lx: Number(record.port.water.center.x) / Number(hexWorld.width),
-            ly: Number(record.port.water.center.y) / Number(hexWorld.height)
-        })).filter(port => !!port.node);
+        const coastRaster = typeof storyMapRasterEnsure === 'function'
+            ? storyMapRasterEnsure() : null;
+        const ports = settlements.records.filter(record => record.port).map(record => {
+            const land = record.port.land && record.port.land.center || {};
+            const water = record.port.water && record.port.water.center || {};
+            const landX = Number(land.x), landY = Number(land.y);
+            const waterX = Number(water.x), waterY = Number(water.y);
+            // The terminal building belongs to the coast edge, not to the
+            // centre of the navigable water hex. Keep a slight land bias so
+            // the quay visibly touches the shore while its waterside faces
+            // the canonical adjacent water cell.
+            const coastDx = waterX - landX, coastDy = waterY - landY;
+            let coastT = .38;
+            if (coastRaster && typeof storyMapRasterSample === 'function') {
+                // Canonical land/water neighbours are authoritative for topology,
+                // but the visible coastline is rasterised. Find that exact visual
+                // crossing once so the terminal quay touches the rendered shore.
+                let lo = 0, hi = 1;
+                for (let step = 0; step < 10; step++) {
+                    const mid = (lo + hi) * .5;
+                    const wx = (landX + coastDx * mid) / Number(hexWorld.width);
+                    const wy = (landY + coastDy * mid) / Number(hexWorld.height);
+                    if (storyMapRasterSample(coastRaster, wx, wy).land) lo = mid;
+                    else hi = mid;
+                }
+                coastT = Math.max(.08, Math.min(.92, lo - .035));
+            }
+            const anchorX = landX + coastDx * coastT;
+            const anchorY = landY + coastDy * coastT;
+            return {
+                node: STORY.nodes[record.cityId],
+                terminalId: record.port.terminalId,
+                lx: anchorX / Number(hexWorld.width),
+                ly: anchorY / Number(hexWorld.height),
+                waterLx: waterX / Number(hexWorld.width),
+                waterLy: waterY / Number(hexWorld.height),
+                coastAngle: Math.atan2(waterY - landY, waterX - landX)
+            };
+        }).filter(port => !!port.node);
         const byName = new Map(ports.map(port => [String(port.node.name), port]));
         const links = [];
         const seen = new Set();
@@ -1364,7 +1438,7 @@ function storyCoastalNetworkEnsure() {
 }
 
 function storyDrawPortTerminals(ctx, ports) {
-    if (!storyMapAtlasReady('maritime')) return 0;
+    if (!storyMapAtlasReady('modernPorts')) return 0;
     let drawn = 0;
     for (const port of ports || []) {
         const p = storyW2S(port.lx * STORY_WORLD_W, port.ly * STORY_WORLD_H);
@@ -1373,13 +1447,13 @@ function storyDrawPortTerminals(ctx, ports) {
         const metrics = typeof storyMapV2PortMetrics === 'function'
             ? storyMapV2PortMetrics(level, { cam: storyCam })
             : { size: (level >= 3 ? 10 : 8) * storyCam.zoom };
-        const size = Math.max(1, Number(metrics.size) || 1);
-        const portVariants = [9, 10, 11, 14, 15];
-        const variant = portVariants[Math.floor(storyHash(
-            port.node.id * 23 + 7, 601
-        ) * portVariants.length) % portVariants.length];
-        storyDrawAtlasCell(ctx, 'maritime', variant, p.x, p.y + size * .3,
-            size, size, .92);
+        const size = Math.max(1, (Number(metrics.size) || 1) * 1.48);
+        const variant = Math.floor(storyHash(port.node.id * 23 + 7, 601) * 16) % 16;
+        // Raster limanlar döndürülmez. Canvas rotasyonu piksel atlasını yeniden
+        // örnekleyip bulanık/dişli gösteriyordu. Kıyı doğruluğu port hücresinin
+        // fiziksel konumundan gelir; yönlü atlas ileride ayrı hücrelerle çözülür.
+        storyDrawAtlasCell(ctx, 'modernPorts', variant, p.x, p.y + size * .48,
+            size, size, .98, 0, false);
         drawn++;
     }
     return drawn;
@@ -1423,6 +1497,51 @@ function storyDrawMaritimeOverlay(ctx, farMap, includePorts) {
     ctx.restore();
 }
 
+function storyDrawPhysicalLandOverlay(ctx, farMap) {
+    if (typeof storyHexInfrastructureSegmentsEnsure !== 'function'
+        || typeof storyHexInfrastructureSegmentFactorBps !== 'function'
+        || typeof storyHexWorldEnsure !== 'function') return 0;
+    const registry = STORY.hexInfrastructureSegments
+        || storyHexInfrastructureSegmentsEnsure();
+    const world = storyHexWorldEnsure();
+    if (!registry || !world) return 0;
+    const roads = registry.segments.filter(segment => segment.mode === 'LAND');
+    const drawPass = (width, color) => {
+        ctx.lineWidth = width;
+        ctx.strokeStyle = color;
+        for (const segment of roads) {
+            const a = Number(segment.endpointCellIndices[0]);
+            const b = Number(segment.endpointCellIndices[1]);
+            const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
+            const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
+            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+        }
+    };
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    drawPass(farMap ? 1.7 : 2.55, farMap
+        ? 'rgba(42,34,27,.72)' : 'rgba(36,31,26,.82)');
+    drawPass(farMap ? .72 : 1.08, farMap
+        ? 'rgba(177,157,116,.65)' : 'rgba(137,124,99,.76)');
+    for (const segment of roads) {
+        const factor = storyHexInfrastructureSegmentFactorBps(segment);
+        if (factor >= 10000) continue;
+        const a = Number(segment.endpointCellIndices[0]);
+        const b = Number(segment.endpointCellIndices[1]);
+        const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
+        const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+        ctx.strokeStyle = factor <= 0 ? 'rgba(118,22,18,.96)'
+            : factor < 5000 ? 'rgba(211,74,28,.92)' : 'rgba(229,151,42,.84)';
+        ctx.lineWidth = farMap ? 1.5 : 2.5;
+        if (factor <= 0 && typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 2]);
+        ctx.stroke();
+        if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    }
+    ctx.restore();
+    return roads.length;
+}
+
 function storyDrawPhysicalRailOverlay(ctx, farMap) {
     if (typeof storyHexInfrastructureSegmentsEnsure !== 'function'
         || typeof storyHexInfrastructureSegmentFactorBps !== 'function'
@@ -1446,8 +1565,8 @@ function storyDrawPhysicalRailOverlay(ctx, farMap) {
     };
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    drawPass(farMap ? 1.8 : 2.6, 'rgba(31,35,31,.82)', []);
-    drawPass(farMap ? .7 : 1.05, 'rgba(207,190,132,.78)', farMap ? [2, 2] : [4, 2]);
+    drawPass(farMap ? 1.35 : 1.9, 'rgba(31,35,31,.76)', []);
+    drawPass(farMap ? .48 : .68, 'rgba(207,190,132,.72)', farMap ? [2, 2] : [3, 3]);
     if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
     for (const segment of rails) {
         const factor = storyHexInfrastructureSegmentFactorBps(segment);
@@ -1606,10 +1725,10 @@ function storyDrawPrimaryRoadOverlay(ctx, farMap) {
             || (a.y < -80 && b.y < -80) || (a.y > STORY._ch + 80 && b.y > STORY._ch + 80)) continue;
         const route = storyTraceHexRoad(ctx, edge[0], edge[1]);
         if (!route) continue;
-        ctx.strokeStyle = farMap ? 'rgba(37,29,20,.58)' : `rgba(30,24,18,${(.58 * localFade).toFixed(3)})`;
-        ctx.lineWidth = farMap ? 1.35 : Math.min(2.15, 1.45 + ratio * .045); ctx.stroke();
-        ctx.strokeStyle = farMap ? 'rgba(214,190,132,.50)' : `rgba(214,190,132,${(.54 * localFade).toFixed(3)})`;
-        ctx.lineWidth = farMap ? .55 : Math.min(.92, .58 + ratio * .022); ctx.stroke();
+        ctx.strokeStyle = farMap ? 'rgba(44,35,27,.64)' : `rgba(31,27,23,${(.69 * localFade).toFixed(3)})`;
+        ctx.lineWidth = farMap ? 1.7 : Math.min(2.55, 2.05 + ratio * .04); ctx.stroke();
+        ctx.strokeStyle = farMap ? 'rgba(177,157,116,.64)' : `rgba(126,115,91,${(.72 * localFade).toFixed(3)})`;
+        ctx.lineWidth = farMap ? .74 : Math.min(1.18, .88 + ratio * .018); ctx.stroke();
         storyDrawPhysicalRoadCondition(ctx, route, farMap);
     }
     ctx.restore();
@@ -1634,10 +1753,10 @@ function storyDrawSecondaryRoadOverlay(ctx, farMap) {
         if (a.u < -.06 || a.u > 1.06 || b.u < -.06 || b.u > 1.06) continue;
         const route = storyTraceHexRoad(ctx, link.aId, link.bId);
         if (!route) continue;
-        ctx.strokeStyle = farMap ? 'rgba(35,27,18,.25)' : `rgba(35,27,18,${(.36 * localFade).toFixed(3)})`;
-        ctx.lineWidth = farMap ? .9 : 1.55; ctx.stroke();
-        ctx.strokeStyle = farMap ? 'rgba(205,180,123,.28)' : `rgba(205,180,123,${(.35 * localFade).toFixed(3)})`;
-        ctx.lineWidth = farMap ? .34 : .62; ctx.stroke();
+        ctx.strokeStyle = farMap ? 'rgba(42,34,27,.38)' : `rgba(36,31,26,${(.51 * localFade).toFixed(3)})`;
+        ctx.lineWidth = farMap ? 1.25 : 1.85; ctx.stroke();
+        ctx.strokeStyle = farMap ? 'rgba(161,145,112,.42)' : `rgba(137,124,99,${(.50 * localFade).toFixed(3)})`;
+        ctx.lineWidth = farMap ? .54 : .82; ctx.stroke();
     }
     ctx.restore();
 }
@@ -1656,7 +1775,7 @@ function storyNetworkLayerKey(farMap) {
     const physicalSegments = typeof storyHexInfrastructureSegmentsEnsure === 'function'
         ? storyHexInfrastructureSegmentsEnsure() : null;
     return [
-        'network-world-layers-2-routes-only',
+        'network-world-layers-4-canonical-segments',
         STORY_WORLD_W, STORY_WORLD_H,
         atlasState, nodeState,
         settlements && settlements.settlementHash || '-',
@@ -1703,6 +1822,12 @@ function storyDrawScreenLayerForCamera(ctx, canvas, view) {
 
 function storyReleaseWorldRamLayer(layer) {
     if (!layer || !Array.isArray(layer.tiles)) return;
+    if (layer._viewCacheCanvas) {
+        layer._viewCacheCanvas.width = 1;
+        layer._viewCacheCanvas.height = 1;
+        layer._viewCacheCanvas = null;
+        layer._viewCacheKey = null;
+    }
     for (const tile of layer.tiles) {
         if (tile && tile.bitmap && typeof tile.bitmap.close === 'function') {
             try { tile.bitmap.close(); } catch (_error) { /* best effort */ }
@@ -1772,6 +1897,36 @@ function storyDrawWorldRamLayer(ctx, layer) {
     if (!ctx || !layer || !Array.isArray(layer.tiles)) return 0;
     const zoom = Math.max(.0001, Number(storyCam.zoom) || 1);
     const worldScale = Math.max(.1, Number(layer.worldScale) || 1);
+    // Re-cropping every persistent tile at 60 Hz is pure duplicate work while
+    // the camera is unchanged. Cache one exact viewport composite. Interactive
+    // drag deliberately bypasses it and keeps drawing canonical RAM tiles, so
+    // newly exposed roads and cities remain visible before mouse release.
+    const canCacheView = !STORY._mapInteracting
+        && Number(STORY._cw) > 0 && Number(STORY._ch) > 0;
+    const viewCacheKey = canCacheView ? [
+        Number(STORY._cw), Number(STORY._ch),
+        Number(storyCam.x).toFixed(5), Number(storyCam.y).toFixed(5),
+        zoom.toFixed(6), worldScale
+    ].join('|') : null;
+    if (canCacheView && layer._viewCacheCanvas
+        && layer._viewCacheKey === viewCacheKey) {
+        ctx.drawImage(layer._viewCacheCanvas, 0, 0);
+        layer._viewCacheHits = (Number(layer._viewCacheHits) || 0) + 1;
+        return Number(layer._viewCacheDrawnTiles) || 0;
+    }
+    let drawCtx = ctx;
+    if (canCacheView) {
+        let cacheCanvas = layer._viewCacheCanvas;
+        if (!cacheCanvas || cacheCanvas.width !== Number(STORY._cw)
+            || cacheCanvas.height !== Number(STORY._ch)) {
+            cacheCanvas = document.createElement('canvas');
+            cacheCanvas.width = Number(STORY._cw);
+            cacheCanvas.height = Number(STORY._ch);
+            layer._viewCacheCanvas = cacheCanvas;
+        }
+        drawCtx = cacheCanvas.getContext('2d');
+        drawCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
+    }
     const viewWorldLeft = Number(storyCam.x) || 0;
     const viewWorldTop = Number(storyCam.y) || 0;
     const viewLeft = viewWorldLeft * worldScale;
@@ -1779,8 +1934,8 @@ function storyDrawWorldRamLayer(ctx, layer) {
     const viewRight = viewLeft + Number(STORY._cw || 0) / zoom * worldScale;
     const viewBottom = viewTop + Number(STORY._ch || 0) / zoom * worldScale;
     let drawn = 0;
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
+    drawCtx.save();
+    drawCtx.imageSmoothingEnabled = false;
     for (const tile of layer.tiles) {
         if (tile.x + tile.width < viewLeft || tile.x > viewRight
             || tile.y + tile.height < viewTop || tile.y > viewBottom) continue;
@@ -1793,14 +1948,20 @@ function storyDrawWorldRamLayer(ctx, layer) {
         const width = x1 - x0;
         const height = y1 - y0;
         if (!(width > 0) || !(height > 0)) continue;
-        ctx.drawImage(source,
+        drawCtx.drawImage(source,
             x0 - tile.x, y0 - tile.y, width, height,
             (x0 - viewLeft) * zoom / worldScale,
             (y0 - viewTop) * zoom / worldScale,
             width * zoom / worldScale, height * zoom / worldScale);
         drawn++;
     }
-    ctx.restore();
+    drawCtx.restore();
+    if (canCacheView) {
+        layer._viewCacheKey = viewCacheKey;
+        layer._viewCacheDrawnTiles = drawn;
+        layer._viewCacheBuilds = (Number(layer._viewCacheBuilds) || 0) + 1;
+        ctx.drawImage(layer._viewCacheCanvas, 0, 0);
+    }
     return drawn;
 }
 
@@ -1880,8 +2041,7 @@ function storyDrawIncomingSettlementsDuringPan(ctx, view, farMap, mapZoomRatio,
         if (labelEligible) {
             const textStarted = clock();
             const label = String(node.name || '').toLocaleUpperCase('tr-TR');
-            const size = farMap ? ((node.level || 1) >= 3 ? 10 : 8)
-                : ((node.level || 1) >= 3 ? 11 : 9);
+            const size = storyMapLabelFontSize(node, farMap, STORY._cw, STORY._ch);
             ctx.font = `bold ${size}px monospace`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'top';
             const y = py + Math.max(5, Math.round(sizePx * .3)) + 4;
@@ -1920,13 +2080,16 @@ function storyNetworkWorldLayersEnsure() {
             paint.clearRect(0, 0, canvas.width, canvas.height);
             paint.imageSmoothingEnabled = false;
             storyDrawMaritimeOverlay(paint, mode.farMap, false);
-            storyDrawPrimaryRoadOverlay(paint, mode.farMap);
-            storyDrawSecondaryRoadOverlay(paint, mode.farMap);
+            // Draw each physical land edge exactly once. Legacy primary plus
+            // decorative secondary routes could form parallel figure-eights
+            // between the same cities and were not the simulation topology.
+            storyDrawPhysicalLandOverlay(paint, mode.farMap);
             storyDrawPhysicalRailOverlay(paint, mode.farMap);
             storyDrawInfrastructureRouteConstructionOverlay(paint, mode.farMap);
             layers[mode.id] = storyCreateWorldRamLayer(canvas, {
                 mode: mode.id,
-                worldScale: .5
+                worldScale: typeof STORY_MAP_RENDERER_V2 !== 'undefined'
+                    ? STORY_MAP_RENDERER_V2.networkRasterScale : 1
             });
         }
     } finally {
@@ -1956,12 +2119,12 @@ function storyPortWorldLayerEnsure() {
     const network = storyCoastalNetworkEnsure();
     const renderScale = Number(typeof STORY_MAP_RENDERER_V2 !== 'undefined'
         && STORY_MAP_RENDERER_V2.portRasterScale) || 2;
-    const key = `port-world-layer-1|${storyNetworkLayerKey(false)}|${renderScale}`;
+    const key = `port-world-layer-3-raster-coast-edge|${storyNetworkLayerKey(false)}|${renderScale}`;
     if (STORY._portWorldLayer && STORY._portWorldLayer.key === key) {
         STORY._portWorldLayer.hits++;
         return STORY._portWorldLayer;
     }
-    if (!storyMapAtlasReady('maritime')) return null;
+    if (!storyMapAtlasReady('modernPorts')) return null;
     const started = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
     const saved = { x: storyCam.x, y: storyCam.y, zoom: storyCam.zoom,
@@ -2059,6 +2222,16 @@ function storyDrawNetworkLayer(ctx, farMap) {
     };
 }
 
+function storyMapLabelFontSize(node, farMap, width, height) {
+    const level = Math.max(1, Number(node && node.level) || 1);
+    const base = farMap ? (level >= 3 ? 11 : 9) : (level >= 3 ? 13 : 10);
+    const pixels = Math.max(1, Number(width) || STORY._cw || 1280)
+        * Math.max(1, Number(height) || STORY._ch || 720);
+    const viewportScale = Math.max(1, Math.min(1.5,
+        Math.sqrt(pixels / (1280 * 720))));
+    return Math.max(8, Math.round(base * viewportScale));
+}
+
 function storyDrawTransportAgents(ctx, mapZoomRatio) {
     if (typeof storyTransportRenderSnapshot !== 'function'
         || typeof storyHexWorldEnsure !== 'function') return null;
@@ -2070,24 +2243,65 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     });
     const worldScaleX = STORY_WORLD_W / Math.max(1, Number(world.width) || 1);
     const worldScaleY = STORY_WORLD_H / Math.max(1, Number(world.height) || 1);
+    const renderNow = typeof performance !== 'undefined' && performance.now
+        ? performance.now() : Date.now();
+    const fixedStepSeconds = typeof STORY_FIXED_STEP_SECONDS !== 'undefined'
+        ? STORY_FIXED_STEP_SECONDS : .25;
+    const clockSpeed = Math.max(1, Number(STORY.time && STORY.time.speed) || 1);
+    const transitionMs = Math.max(36, fixedStepSeconds * 1000 / clockSpeed);
+    const tracks = STORY._transportVisualTracks instanceof Map
+        ? STORY._transportVisualTracks : (STORY._transportVisualTracks = new Map());
+    const seenTrackIds = new Set();
     let visible = 0;
+    let interpolated = 0;
+    let targetChanges = 0;
+    const presentationSamples = [];
+    const stateCounts = Object.create(null);
+    let longestQueue = 0;
     for (const agent of snapshot.agents) {
-        const p = storyW2S(agent.x * worldScaleX, agent.y * worldScaleY);
+        const representedIds = (agent.shipmentIds || []).concat(agent.journeyIds || []).sort().join(',');
+        const trackId = agent.aggregate
+            ? `aggregate:${agent.vehicleClass}:${representedIds || agent.currentCellIndex}`
+            : String(agent.authorityType || 'TRANSPORT') + ':' + String(agent.authorityId || agent.agentId);
+        seenTrackIds.add(trackId);
+        const presentation = typeof storyTransportPresentationResolve === 'function'
+            ? storyTransportPresentationResolve(
+                tracks.get(trackId), agent, renderNow, transitionMs)
+            : { track: null, x: agent.x, y: agent.y, active: false, targetChanged: false };
+        if (presentation.track) tracks.set(trackId, presentation.track);
+        if (presentation.active) interpolated++;
+        if (presentation.targetChanged) targetChanges++;
+        const p = storyW2S(presentation.x * worldScaleX, presentation.y * worldScaleY);
+        if (presentationSamples.length < 8) presentationSamples.push({
+            id: trackId,
+            x: storyTransportRound(presentation.x, 4),
+            y: storyTransportRound(presentation.y, 4),
+            targetX: storyTransportRound(agent.x, 4),
+            targetY: storyTransportRound(agent.y, 4),
+            active: !!presentation.active
+        });
         if (p.x < -40 || p.x > STORY._cw + 40 || p.y < -40 || p.y > STORY._ch + 40) continue;
         visible++;
+        const representedCount = Math.max(1,
+            Number(agent.shipmentCount || 0) + Number(agent.journeyCount || 0));
+        stateCounts[agent.state] = (stateCounts[agent.state] || 0) + representedCount;
+        longestQueue = Math.max(longestQueue,
+            Number(agent.terminalQueuePosition) || 0);
         const near = snapshot.mode === 'MATERIALIZED';
         const size = near ? (agent.vehicleClass === 'CARGO_SHIP' ? 19 : 15) : 8;
         const visual = typeof storyVisualTransportAsset === 'function'
-            ? storyVisualTransportAsset(agent.vehicleClass, STORY.year) : null;
+            ? storyVisualTransportAsset(agent.vehicleClass, STORY.year, agent) : null;
         const spriteSize = agent.vehicleClass === 'CARGO_SHIP' ? [58, 39]
             : agent.vehicleClass === 'FREIGHT_TRAIN' ? [64, 36] : [46, 31];
-        // Üretilen izometrik kaynakların doğal ileri ekseni yaklaşık +28°'dir.
-        // Segment açısı simülasyondan gelir; bu sabit yalnız resmi o eksene hizalar.
-        const spriteAngle = (Number(agent.angle) || 0) - Math.PI * 28 / 180;
+        // Tek raster sprite gerçek zamanlı döndürülmez: rotasyon her karede
+        // yeniden örnekleme ve GPU upload maliyeti yaratıp resmi bozuyordu.
+        // Yatay ayna piksel ızgarasını korur ve ters yöndeki aracı doğru çevirir.
+        const flipSprite = !!(visual && visual.mirrorForReverse
+            && Math.cos(Number(agent.angle) || 0) < 0);
         const drewSprite = !!(near && visual && visual.ok
             && storyDrawAtlasCell(ctx, visual.atlasKey, visual.atlasCell,
                 p.x, p.y + spriteSize[1] / 2, spriteSize[0], spriteSize[1], 1,
-                spriteAngle, false));
+                0, flipSprite));
         if (!drewSprite) {
             ctx.save();
             ctx.translate(Math.round(p.x), Math.round(p.y));
@@ -2120,29 +2334,108 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
             }
             ctx.restore();
         }
-        if (near && (agent.state === 'WAITING' || agent.state === 'QUEUED')) {
+        if (near && agent.state !== 'MOVING') {
             ctx.save();
-            ctx.strokeStyle = agent.state === 'WAITING' ? '#ff5d5d' : '#f6d365';
+            const blocked = agent.state === 'WAITING';
+            const queued = agent.state === 'QUEUED';
+            const phase = agent.state === 'LOADING' ? 'YÜK'
+                : agent.state === 'UNLOADING' ? 'İNDİR'
+                    : agent.state === 'TRANSFERRING' ? 'AKTAR'
+                        : blocked ? 'DURDU'
+                            : queued ? 'SIRA ' + Math.max(1,
+                                Number(agent.terminalQueuePosition) || 1) : agent.state;
+            const phaseProgress = Math.max(0, Math.min(10000,
+                Number(agent.phaseProgressBps) || 0));
+            ctx.strokeStyle = blocked ? '#ff5d5d'
+                : queued ? '#f6d365' : '#5ee58c';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(Math.round(p.x), Math.round(p.y), 8, 0, Math.PI * 2);
+            ctx.arc(Math.round(p.x), Math.round(p.y), 10, 0, Math.PI * 2);
             ctx.stroke();
+            if (!blocked && !queued && phaseProgress > 0) {
+                ctx.strokeStyle = '#f6d365';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(Math.round(p.x), Math.round(p.y), 10,
+                    -Math.PI / 2,
+                    -Math.PI / 2 + Math.PI * 2 * phaseProgress / 10000);
+                ctx.stroke();
+            }
+            ctx.font = 'bold 8px monospace';
+            const labelWidth = Math.max(31, Math.ceil(ctx.measureText(phase).width) + 8);
+            const labelX = Math.round(p.x - labelWidth / 2);
+            const labelY = Math.round(p.y - 25);
+            ctx.fillStyle = '#07100b';
+            ctx.fillRect(labelX, labelY, labelWidth, 11);
+            ctx.strokeStyle = blocked ? '#ff5d5d'
+                : queued ? '#f6d365' : '#5ee58c';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(labelX + .5, labelY + .5, labelWidth - 1, 10);
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(phase, Math.round(p.x), labelY + 5.5);
             ctx.restore();
         }
-        if (agent.aggregate && agent.shipmentCount > 1) {
+        if (agent.aggregate && representedCount > 1) {
             ctx.fillStyle = '#07100b';
             ctx.fillRect(Math.round(p.x + 5), Math.round(p.y - 10), 14, 10);
             ctx.fillStyle = '#f6d365';
             ctx.font = 'bold 8px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(String(agent.shipmentCount), Math.round(p.x + 12), Math.round(p.y - 2));
+            ctx.fillText(String(representedCount), Math.round(p.x + 12), Math.round(p.y - 2));
         }
+    }
+    for (const key of Array.from(tracks.keys())) {
+        if (!seenTrackIds.has(key)) tracks.delete(key);
     }
     STORY._transportRenderDiagnostics = {
         mode: snapshot.mode,
         activeShipments: snapshot.shipmentCount,
+        activeJourneys: snapshot.journeyCount,
+        passengerCount: snapshot.passengerCount,
         renderedAgents: visible,
-        cargoQuantity: snapshot.cargoQuantity
+        interpolatedAgents: interpolated,
+        targetChanges,
+        transitionMs,
+        rotationFreeSprites: true,
+        visualTrackCount: tracks.size,
+        presentationSamples,
+        cargoQuantity: snapshot.cargoQuantity,
+        stateCounts,
+        longestQueue
+    };
+    return snapshot;
+}
+
+function storyRenderTransportOverlay() {
+    const cv = document.getElementById('storyTransportCanvas');
+    if (!cv) return null;
+    const base = document.getElementById('storyCanvas');
+    if (base && (cv.width !== base.width || cv.height !== base.height)) {
+        cv.width = base.width;
+        cv.height = base.height;
+    }
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.imageSmoothingEnabled = false;
+    STORY._cw = cv.width;
+    STORY._ch = cv.height;
+    const mapZoomRatio = typeof storyMapV2ZoomRatio === 'function'
+        ? storyMapV2ZoomRatio(storyCam, STORY._minZoom || storyCam.zoom)
+        : storyCam.zoom / Math.max(.0001, storyMinZoom(cv.width, cv.height));
+    const started = typeof performance !== 'undefined' && performance.now
+        ? performance.now() : Date.now();
+    const snapshot = storyDrawTransportAgents(ctx, mapZoomRatio);
+    const finished = typeof performance !== 'undefined' && performance.now
+        ? performance.now() : Date.now();
+    STORY._transportOverlayDiagnostics = {
+        adapterVersion: 'transport-overlay-60hz-1',
+        frameMs: finished - started,
+        width: cv.width,
+        height: cv.height,
+        activeAgents: snapshot && snapshot.agents ? snapshot.agents.length : 0,
+        staticWorldRedrawn: false
     };
     return snapshot;
 }
@@ -2921,7 +3214,8 @@ function storyRender() {
     storyDrawHexGridOverlay(g, mapZoomRatio);
     storyDrawNetworkLayer(g, farMap);
     markRenderLayer('hexAndNetworks');
-    storyDrawTransportAgents(g, mapZoomRatio);
+    // Hareketli sevkiyatlar ayrı şeffaf canvas'ta 60 Hz çizilir. Burada çizmek
+    // her 0,25 sn konum değişiminde tüm statik haritayı tekrar birleştiriyordu.
     markRenderLayer('transportAgents');
     // (3) Kaynak işaretleri — uzak görünümde gizlenir; stratejik harita şehir
     // atlası ve önemli etiketlerle okunur, debug noktalarıyla değil.
@@ -3125,7 +3419,7 @@ function storyRender() {
             || isSelected || attackable || moveable;
         if (!cityHidden && labelEligible) {
             const label = String(n.name || '').toLocaleUpperCase('tr-TR');
-            const labelSize = farMap ? ((n.level || 1) >= 3 ? 10 : 8) : ((n.level || 1) >= 3 ? 11 : 9);
+            const labelSize = storyMapLabelFontSize(n, farMap, w, h);
             settlementG.font = `bold ${labelSize}px monospace`; settlementG.textAlign = 'left'; settlementG.textBaseline = 'middle';
             const tw = Math.ceil(settlementG.measureText(label).width), lh = labelSize + 3;
             const spriteFoot = settlement ? Math.round(settlement.size * .30) : sq;
@@ -3290,10 +3584,34 @@ function storyRender() {
         STORY._pulse--;
     }
     markRenderLayer('commanders');
-    storyPanelUpdate();
+    // Harita 60 Hz çizilir; DOM bilgi yüzeyi ise aynı veriyi her karede baştan
+    // üretmek zorunda değildir. Seçim/kaynak/log değişimi anında, akan dünya
+    // verisi en geç 500 ms içinde güncellenir. Panelin kendi olay işleyicileri
+    // doğrudan storyPanelUpdate çağırmaya devam eder.
+    const panelEntity = STORY._selectedMapEntity || {};
+    const panelRes = STORY.commander && STORY.commander.res || {};
+    const panelKey = [
+        Math.floor((Number(STORY.clock) || 0) * 2),
+        STORY.selectedNodeId,
+        STORY.commander && STORY.commander.node,
+        panelEntity.kind || '',
+        panelEntity.cellId || '',
+        Math.floor(Number(panelRes.oil) || 0),
+        Math.floor(Number(panelRes.manpower) || 0),
+        Math.floor(Number(panelRes.points) || 0),
+        (STORY.veterans || []).length,
+        (STORY.log || []).length,
+        STORY_FLOW && STORY_FLOW.tur || '',
+        STORY_FLOW && STORY_FLOW.hepsiniGoster ? 1 : 0
+    ].join('|');
+    if (STORY._panelRenderKey !== panelKey) {
+        storyPanelUpdate();
+        STORY._panelRenderKey = panelKey;
+    }
     markRenderLayer('panel');
     STORY._renderLayerTimings = Object.assign(renderLayers, {
         total: renderClock() - renderStarted,
         zoomRatio: typeof mapZoomRatio === 'number' ? mapZoomRatio : null
     });
+    storyRenderTransportOverlay();
 }

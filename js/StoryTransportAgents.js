@@ -24,6 +24,82 @@ function storyTransportRound(value, digits) {
     return Math.round(number * scale) / scale;
 }
 
+// Fixed-step simulation intentionally updates physical shipments every 0.25 s.
+// The map must not expose that cadence as quarter-second teleports. This helper
+// keeps a render-only, wall-clock track that eases from the last painted world
+// position to the newest authoritative simulation position. It never writes
+// back to a shipment, route, stock or clock record.
+function storyTransportPresentationResolve(previous, target, nowMs, durationMs) {
+    const targetX = Number(target && target.x) || 0;
+    const targetY = Number(target && target.y) || 0;
+    const now = Number(nowMs) || 0;
+    const duration = Math.max(1, Number(durationMs) || 1);
+    const sample = track => {
+        if (!track) return { x: targetX, y: targetY, active: false };
+        const ratio = Math.max(0, Math.min(1,
+            (now - Number(track.startedAt || 0)) / Math.max(1, Number(track.durationMs) || 1)));
+        return {
+            x: Number(track.fromX) + (Number(track.toX) - Number(track.fromX)) * ratio,
+            y: Number(track.fromY) + (Number(track.toY) - Number(track.fromY)) * ratio,
+            active: ratio < 1
+        };
+    };
+    if (!previous) {
+        const track = { fromX: targetX, fromY: targetY, toX: targetX, toY: targetY,
+            startedAt: now, durationMs: duration };
+        return { track, x: targetX, y: targetY, active: false, targetChanged: false };
+    }
+    const changed = Math.abs(Number(previous.toX) - targetX) > 1e-7
+        || Math.abs(Number(previous.toY) - targetY) > 1e-7;
+    if (changed) {
+        const current = sample(previous);
+        const track = { fromX: current.x, fromY: current.y, toX: targetX, toY: targetY,
+            startedAt: now, durationMs: duration };
+        return { track, x: current.x, y: current.y, active: true, targetChanged: true };
+    }
+    const current = sample(previous);
+    return { track: previous, x: current.x, y: current.y,
+        active: current.active, targetChanged: false };
+}
+
+// Fixed-step simulation intentionally updates physical shipments every 0.25 s.
+// The map must not expose that cadence as quarter-second teleports. This helper
+// keeps a render-only, wall-clock track that eases from the last painted world
+// position to the newest authoritative simulation position. It never writes
+// back to a shipment, route, stock or clock record.
+function storyTransportPresentationResolve(previous, target, nowMs, durationMs) {
+    const targetX = Number(target && target.x) || 0;
+    const targetY = Number(target && target.y) || 0;
+    const now = Number(nowMs) || 0;
+    const duration = Math.max(1, Number(durationMs) || 1);
+    const sample = track => {
+        if (!track) return { x: targetX, y: targetY, active: false };
+        const ratio = Math.max(0, Math.min(1,
+            (now - Number(track.startedAt || 0)) / Math.max(1, Number(track.durationMs) || 1)));
+        return {
+            x: Number(track.fromX) + (Number(track.toX) - Number(track.fromX)) * ratio,
+            y: Number(track.fromY) + (Number(track.toY) - Number(track.fromY)) * ratio,
+            active: ratio < 1
+        };
+    };
+    if (!previous) {
+        const track = { fromX: targetX, fromY: targetY, toX: targetX, toY: targetY,
+            startedAt: now, durationMs: duration };
+        return { track, x: targetX, y: targetY, active: false, targetChanged: false };
+    }
+    const changed = Math.abs(Number(previous.toX) - targetX) > 1e-7
+        || Math.abs(Number(previous.toY) - targetY) > 1e-7;
+    if (changed) {
+        const current = sample(previous);
+        const track = { fromX: current.x, fromY: current.y, toX: targetX, toY: targetY,
+            startedAt: now, durationMs: duration };
+        return { track, x: current.x, y: current.y, active: true, targetChanged: true };
+    }
+    const current = sample(previous);
+    return { track: previous, x: current.x, y: current.y,
+        active: current.active, targetChanged: false };
+}
+
 function storyTransportVehicleClass(mode) {
     return mode === 'SEA' ? 'CARGO_SHIP'
         : mode === 'RAIL' ? 'FREIGHT_TRAIN' : 'ROAD_CONVOY';
@@ -524,18 +600,71 @@ function storyTransportProjection(shipment, world) {
     const fromY = Number(hexWorld.centerY[fromCellIndex]);
     const toX = Number(hexWorld.centerX[toCellIndex]);
     const toY = Number(hexWorld.centerY[toCellIndex]);
+    const phaseDurationSeconds = agent.state === 'LOADING'
+        ? STORY_TRANSPORT_LOADING_SECONDS
+        : agent.state === 'UNLOADING'
+            ? STORY_TRANSPORT_UNLOADING_SECONDS
+            : agent.state === 'TRANSFERRING'
+                ? Math.max(STORY_TRANSPORT_TRANSFER_FALLBACK_SECONDS,
+                    Number(route.transferDurationSeconds) || 0)
+                : 0;
+    const phaseRemainingSeconds = Math.max(0,
+        Number(agent.phaseRemainingSeconds) || 0);
+    const phaseProgressBps = phaseDurationSeconds > 0
+        ? storyTransportRound(Math.max(0, Math.min(1,
+            1 - phaseRemainingSeconds / phaseDurationSeconds)) * 10000, 3)
+        : 0;
     return {
+        authorityType: 'SHIPMENT',
+        authorityId: String(shipment.id),
         shipmentId: String(shipment.id), agentId: String(agent.id),
+        journeyId: null, actorId: null, passengerCount: 0,
         vehicleClass: String(agent.vehicleClass), mode: String(agent.mode),
+        visualInstalledStage: agent.visualInstalledStage
+            ?? agent.installedVisualStage
+            ?? shipment.visualInstalledStage
+            ?? shipment.installedVisualStage
+            ?? 0,
         state: String(agent.state), status: String(shipment.status),
         cargoQuantity: Number(shipment.quantity) || 0,
         resourceId: String(shipment.resourceId || ''), stepIndex,
         progressBps: storyTransportRound(progress * 10000, 3),
+        phaseProgressBps,
+        phaseRemainingSeconds: storyTransportRound(phaseRemainingSeconds, 3),
+        terminalKey: agent.terminalKey == null ? null : String(agent.terminalKey),
+        terminalOperation: agent.terminalWindow && agent.terminalWindow.operation
+            ? String(agent.terminalWindow.operation) : null,
+        terminalQueuePosition: Number.isInteger(Number(agent.terminalQueuePosition))
+            ? Number(agent.terminalQueuePosition) : null,
         currentCellIndex: fromCellIndex, nextCellIndex: toCellIndex,
         x: storyTransportRound(fromX + (toX - fromX) * progress),
         y: storyTransportRound(fromY + (toY - fromY) * progress),
         angle: Math.atan2(toY - fromY, toX - fromX)
     };
+}
+
+// Character simulation owns creation, routing, ETA and completion. The map
+// accepts only an already-canonical journey carrying the same physical route
+// and TransportAgentV2 contract as cargo; it never invents a passenger vehicle.
+function storyCharacterTravelProjection(journey, world) {
+    if (!journey || journey.routeAuthority !== 'CANONICAL'
+        || Number(journey.transportVersion) !== STORY_TRANSPORT_SCHEMA_VERSION
+        || journey.transportAdapterVersion !== STORY_TRANSPORT_ADAPTER_VERSION
+        || !journey.actorId
+        || !['QUEUED', 'TRAVELLING', 'HELD'].includes(String(journey.status))) return null;
+    const projection = storyTransportProjection(journey, world);
+    if (!projection) return null;
+    return Object.assign(projection, {
+        authorityType: 'CHARACTER_TRAVEL',
+        authorityId: String(journey.id),
+        shipmentId: null,
+        journeyId: String(journey.id),
+        actorId: String(journey.actorId),
+        cargoQuantity: 0,
+        resourceId: '',
+        passengerCount: 1,
+        status: String(journey.status)
+    });
 }
 
 function storyTransportRenderSnapshot(options) {
@@ -553,19 +682,40 @@ function storyTransportRenderSnapshot(options) {
         const projection = storyTransportProjection(shipment, world);
         if (projection) projections.push(projection);
     }
+    const characterJourneys = Array.isArray(opts.characterJourneys)
+        ? opts.characterJourneys
+        : typeof STORY !== 'undefined' && STORY.characterTravel
+            && Array.isArray(STORY.characterTravel.journeys)
+            ? STORY.characterTravel.journeys : [];
+    for (const journey of characterJourneys) {
+        const projection = storyCharacterTravelProjection(journey, world);
+        if (projection) projections.push(projection);
+    }
     const cargoQuantity = storyTransportRound(projections.reduce(
         (sum, row) => sum + row.cargoQuantity, 0));
+    const journeyCount = projections.filter(row => row.journeyId).length;
+    const passengerCount = projections.reduce(
+        (sum, row) => sum + Number(row.passengerCount || 0), 0);
     if (materialized) return { mode: 'MATERIALIZED', agents: projections,
-        shipmentCount: projections.length, cargoQuantity };
+        shipmentCount: projections.length - journeyCount, journeyCount,
+        passengerCount, cargoQuantity };
     const groups = Object.create(null);
     for (const row of projections) {
         const key = row.vehicleClass + ':' + row.currentCellIndex;
         let group = groups[key];
         if (!group) group = groups[key] = Object.assign({}, row, {
-            aggregate: true, shipmentIds: [], shipmentCount: 0, cargoQuantity: 0
+            aggregate: true, shipmentIds: [], journeyIds: [],
+            shipmentCount: 0, journeyCount: 0, passengerCount: 0, cargoQuantity: 0
         });
-        group.shipmentIds.push(row.shipmentId);
-        group.shipmentCount++;
+        if (row.shipmentId) {
+            group.shipmentIds.push(row.shipmentId);
+            group.shipmentCount++;
+        }
+        if (row.journeyId) {
+            group.journeyIds.push(row.journeyId);
+            group.journeyCount++;
+            group.passengerCount += Number(row.passengerCount || 0);
+        }
         group.cargoQuantity += row.cargoQuantity;
     }
     const agents = Object.keys(groups).sort().map(key => {
@@ -573,7 +723,8 @@ function storyTransportRenderSnapshot(options) {
         return groups[key];
     });
     return { mode: 'AGGREGATED', agents,
-        shipmentCount: projections.length, cargoQuantity };
+        shipmentCount: projections.length - journeyCount, journeyCount,
+        passengerCount, cargoQuantity };
 }
 
 function storyTransportMigrateLegacyShipments() {

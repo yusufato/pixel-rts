@@ -26,7 +26,7 @@ const STORY_VISUAL_INSTALL_STAGES = Object.freeze([
 ]);
 
 const STORY_VISUAL_CONDITIONS = Object.freeze([
-    'OPERATING', 'CONSTRUCTION', 'DAMAGED', 'BURNED', 'ABANDONED'
+    'OPERATING', 'CONSTRUCTION', 'DAMAGED', 'BURNING', 'BURNED', 'ABANDONED'
 ]);
 
 // Paketler bağımsız yüklenebilir. HXD-6 yalnız `urban-core` ve
@@ -113,16 +113,49 @@ const STORY_VISUAL_LAND_USE_PHASES = Object.freeze({
 const STORY_VISUAL_TRANSPORT_CLASSES = Object.freeze({
     ROAD_CONVOY: {
         family: 'truck', atlasKey: 'transportRoad', atlasCell: 0,
-        source: 'assets/maps/transport-road-convoy-modern-v1.png'
+        source: 'assets/maps/transport-road-convoy-modern-v1.png', mirrorForReverse: true
     },
     FREIGHT_TRAIN: {
         family: 'train', atlasKey: 'transportRail', atlasCell: 0,
-        source: 'assets/maps/transport-freight-train-modern-v1.png'
+        source: 'assets/maps/transport-freight-train-modern-v1.png', mirrorForReverse: true
     },
     CARGO_SHIP: {
         family: 'ship', atlasKey: 'transportSea', atlasCell: 0,
-        source: 'assets/maps/transport-cargo-ship-modern-v1.png'
+        source: 'assets/maps/transport-cargo-ship-modern-v1.png', mirrorForReverse: true
     }
+});
+
+const STORY_VISUAL_INFRASTRUCTURE_CLASSES = Object.freeze({
+    ROAD: Object.freeze({
+        family: 'road',
+        styles: Object.freeze([
+            { width: 1.00, innerWidth: .42, dash: [] },
+            { width: 1.08, innerWidth: .48, dash: [] },
+            { width: 1.14, innerWidth: .54, dash: [] },
+            { width: 1.20, innerWidth: .58, dash: [] },
+            { width: 1.26, innerWidth: .62, dash: [] }
+        ])
+    }),
+    RAIL: Object.freeze({
+        family: 'rail',
+        styles: Object.freeze([
+            { width: 1.00, innerWidth: .38, dash: [5, 4] },
+            { width: 1.08, innerWidth: .42, dash: [6, 3] },
+            { width: 1.14, innerWidth: .46, dash: [7, 3] },
+            { width: 1.20, innerWidth: .50, dash: [8, 2] },
+            { width: 1.26, innerWidth: .54, dash: [9, 2] }
+        ])
+    }),
+    UTILITY: Object.freeze({
+        family: 'utility',
+        styles: Object.freeze([
+            { width: .72, innerWidth: .26, dash: [2, 4] },
+            { width: .78, innerWidth: .30, dash: [3, 4] },
+            { width: .84, innerWidth: .34, dash: [4, 3] },
+            { width: .90, innerWidth: .38, dash: [5, 3] },
+            { width: .96, innerWidth: .42, dash: [6, 2] }
+        ])
+    })
 });
 
 // İlk manifest mevcut modern atlasın fiziksel olarak sunduğu altı aileyi ilan
@@ -205,6 +238,20 @@ const STORY_VISUAL_TRANSPORT_ASSETS = Object.entries(STORY_VISUAL_TRANSPORT_CLAS
         condition: 'OPERATING'
     }));
 
+const STORY_VISUAL_CONFLICT_ASSETS = Object.freeze([
+    Object.freeze({
+        id: 'conflict.fire.active.modern_2010',
+        packId: 'conflict-state',
+        family: 'fire',
+        atlasKey: 'conflictFireOverlay',
+        atlasCell: 0,
+        source: 'assets/maps/conflict-fire-overlay-modern-v1.png',
+        periodId: 'MODERN_2010',
+        visualStage: 0,
+        condition: 'BURNING'
+    })
+]);
+
 const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_BASELINE_URBAN_ASSETS,
     ...STORY_VISUAL_CONSTRUCTION_ASSETS,
@@ -212,28 +259,125 @@ const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_URBAN_DAMAGE_ASSETS,
     ...STORY_VISUAL_SPECIAL_ASSETS,
     ...STORY_VISUAL_LAND_USE_ASSETS,
-    ...STORY_VISUAL_TRANSPORT_ASSETS
+    ...STORY_VISUAL_TRANSPORT_ASSETS,
+    ...STORY_VISUAL_CONFLICT_ASSETS
 ]);
 
-function storyVisualTransportAsset(vehicleClass, year) {
+function storyVisualPeriodIndex(period) {
+    const id = String(period && period.id || period || 'MODERN_2010');
+    const index = STORY_VISUAL_PERIODS.findIndex(row => row.id === id);
+    return index < 0 ? 0 : index;
+}
+
+function storyVisualSelectionContext(input) {
+    const spec = input || {};
+    const calendarPeriod = storyVisualPeriodForYear(spec.year);
+    const sources = Array.isArray(spec.installedSources)
+        ? spec.installedSources : [spec.installedSource];
+    const installedStage = sources.reduce((maximum, source) =>
+        Math.max(maximum, storyVisualExplicitInstalledStage(source)), 0);
+    const researchCeiling = spec.state
+        ? storyVisualResearchCeiling(spec.state, spec.techById) : 4;
+    const visualStage = Math.min(installedStage, researchCeiling);
+    const assetPeriodIndex = Math.min(storyVisualPeriodIndex(calendarPeriod), visualStage);
+    return {
+        calendarPeriodId: calendarPeriod.id,
+        installedStage,
+        researchCeiling,
+        visualStage,
+        visualStageName: STORY_VISUAL_INSTALL_STAGES[visualStage],
+        assetPeriodId: STORY_VISUAL_PERIODS[assetPeriodIndex].id
+    };
+}
+
+function storyVisualTransportAsset(vehicleClass, year, installedSource) {
     const normalized = String(vehicleClass || '').toUpperCase();
     const definition = STORY_VISUAL_TRANSPORT_CLASSES[normalized] || null;
-    const period = storyVisualPeriodForYear(year == null
-        ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : year);
+    const context = storyVisualSelectionContext({
+        year: year == null ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : year,
+        installedSource
+    });
     if (!definition) return {
-        ok: false, vehicleClass: normalized, periodId: period.id,
+        ok: false, vehicleClass: normalized, periodId: context.calendarPeriodId,
         fallbackReason: 'UNKNOWN_VEHICLE_CLASS'
     };
     const resolvedAssetId = `mobile.${definition.family}.baseline.operating.modern_2010`;
+    const requestedAssetId = [
+        'mobile', definition.family, context.visualStageName.toLowerCase(),
+        'operating', context.assetPeriodId.toLowerCase()
+    ].join('.');
+    const fallbackDepth = requestedAssetId === resolvedAssetId ? 0 : 1;
     return Object.assign({
         ok: true,
         vehicleClass: normalized,
-        periodId: period.id,
-        requestedAssetId: `mobile.${definition.family}.baseline.operating.${period.id.toLowerCase()}`,
+        periodId: context.calendarPeriodId,
+        assetPeriodId: context.assetPeriodId,
+        visualStage: context.visualStage,
+        visualStageName: context.visualStageName,
+        requestedAssetId,
         resolvedAssetId,
-        fallbackDepth: period.id === 'MODERN_2010' ? 0 : 1,
-        fallbackReason: period.id === 'MODERN_2010' ? null : 'PERIOD_ASSET_MISSING'
+        fallbackDepth,
+        fallbackReason: fallbackDepth ? 'PERIOD_ASSET_MISSING' : null
     }, definition);
+}
+
+function storyVisualInfrastructureRecipe(input) {
+    const spec = input || {};
+    const kind = String(spec.kind || spec.infrastructureClass || 'ROAD').toUpperCase();
+    const definition = STORY_VISUAL_INFRASTRUCTURE_CLASSES[kind]
+        || STORY_VISUAL_INFRASTRUCTURE_CLASSES.ROAD;
+    const context = storyVisualSelectionContext({
+        year: spec.year,
+        installedSource: spec.segment || spec.installedSource,
+        state: spec.state,
+        techById: spec.techById
+    });
+    const condition = storyVisualNormalizeCondition(spec.condition
+        || spec.segment && (spec.segment.lifecycleState || spec.segment.status));
+    const requestedAssetId = [
+        'infrastructure', definition.family, context.visualStageName.toLowerCase(),
+        condition.toLowerCase(), context.assetPeriodId.toLowerCase()
+    ].join('.');
+    const resolvedAssetId =
+        `infrastructure.${definition.family}.baseline.operating.modern_2010`;
+    const fallbackDepth = requestedAssetId === resolvedAssetId ? 0 : 1;
+    return Object.assign({}, context, {
+        kind,
+        family: definition.family,
+        condition,
+        requestedAssetId,
+        resolvedAssetId,
+        fallbackDepth,
+        fallbackReason: fallbackDepth ? 'PERIOD_ASSET_MISSING' : null,
+        assetMissing: false,
+        renderStyle: definition.styles[context.visualStage]
+    });
+}
+
+function storyVisualAuditSelections(selections) {
+    const rows = Array.isArray(selections) ? selections.filter(Boolean) : [];
+    const byReason = Object.create(null);
+    const missingRequestedIds = [];
+    let exactCount = 0, fallbackCount = 0, assetMissingCount = 0;
+    for (const row of rows) {
+        if (row.assetMissing) assetMissingCount++;
+        if (Number(row.fallbackDepth) > 0 || row.fallbackReason) {
+            fallbackCount++;
+            const reason = String(row.fallbackReason || 'UNSPECIFIED_FALLBACK');
+            byReason[reason] = (byReason[reason] || 0) + 1;
+            if (row.requestedAssetId && !missingRequestedIds.includes(row.requestedAssetId)) {
+                missingRequestedIds.push(row.requestedAssetId);
+            }
+        } else exactCount++;
+    }
+    return {
+        selectionCount: rows.length,
+        exactCount,
+        fallbackCount,
+        assetMissingCount,
+        byReason,
+        missingRequestedIds
+    };
 }
 
 function storyVisualClampInt(value, min, max) {
@@ -316,7 +460,8 @@ function storyVisualAssetFallbackIds(recipe) {
     const kind = String(recipe && recipe.kind || 'CORE').toLowerCase();
     const stage = String(recipe && recipe.visualStageName || 'BASELINE').toLowerCase();
     const condition = String(recipe && recipe.condition || 'OPERATING').toLowerCase();
-    const period = String(recipe && recipe.periodId || 'MODERN_2010').toLowerCase();
+    const period = String(recipe && (recipe.assetPeriodId || recipe.periodId)
+        || 'MODERN_2010').toLowerCase();
     const ids = [
         `urban.${kind}.${stage}.${condition}.${period}`,
         `urban.${kind}.${stage}.operating.${period}`,
@@ -425,7 +570,11 @@ function storyVisualClimateZone(input) {
     if (node && (node.port || node.isPort || node.coastal)) return 'COASTAL';
     const latitudeY = Number(node && (node.ly ?? node.normalizedY));
     if (Number.isFinite(latitudeY)) {
-        if (latitudeY <= .31) return 'BOREAL';
+        const calendar = typeof STORY !== 'undefined' && typeof storyCalendarNow === 'function'
+            ? storyCalendarNow() : null;
+        const winterPresentation = !calendar || Number(calendar.month) === 12
+            || Number(calendar.month) <= 3;
+        if (latitudeY <= .31 && winterPresentation) return 'BOREAL';
         if (latitudeY >= .67) return 'DRY';
     }
     return 'TEMPERATE';
@@ -480,8 +629,7 @@ function storyVisualSpecialFamily(input) {
 function storyVisualUrbanPresentationRecipe(input) {
     const spec = input || {};
     const mechanics = storyVisualUrbanRecipe(spec);
-    const period = storyVisualPeriodForYear(spec.year == null
-        ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
+    const period = mechanics.assetPeriodId || mechanics.periodId;
     const climateZone = storyVisualClimateZone(spec);
     const condition = storyVisualNormalizeCondition(spec.condition
         || spec.physicalSite && spec.physicalSite.lifecycleState || mechanics.condition);
@@ -494,8 +642,9 @@ function storyVisualUrbanPresentationRecipe(input) {
     } else {
         const family = STORY_VISUAL_A2_URBAN_FAMILIES[mechanics.kind]
             || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
-        if (['DAMAGED', 'BURNED', 'ABANDONED'].includes(condition)) {
-            art = storyVisualResolveVariant('urban-damage', family.family, condition,
+        if (['DAMAGED', 'BURNING', 'BURNED', 'ABANDONED'].includes(condition)) {
+            const damageCondition = condition === 'BURNING' ? 'DAMAGED' : condition;
+            art = storyVisualResolveVariant('urban-damage', family.family, damageCondition,
                 period, spec.assetManifest);
         } else {
             art = storyVisualResolveVariant('urban-climate', family.family, climateZone,
@@ -505,6 +654,11 @@ function storyVisualUrbanPresentationRecipe(input) {
     return Object.assign({}, mechanics, art, {
         climateZone,
         condition,
+        fireOverlay: condition === 'BURNING',
+        fireOverlayAssetId: condition === 'BURNING'
+            ? 'conflict.fire.active.modern_2010' : null,
+        fireOverlayAtlasKey: condition === 'BURNING' ? 'conflictFireOverlay' : null,
+        fireOverlayAtlasCell: condition === 'BURNING' ? 0 : null,
         presentationSource: specialFamily ? `SPECIAL_${specialFamily}`
             : condition === 'OPERATING' || condition === 'CONSTRUCTION'
                 ? 'URBAN_CLIMATE' : 'URBAN_DAMAGE'
@@ -519,7 +673,7 @@ function storyVisualLandUseRecipe(input) {
     const lifecycle = String(spec.lifecyclePhase || spec.lifecycleState || 'OPERATING').toUpperCase();
     const phase = STORY_VISUAL_LAND_USE_PHASES[lifecycle] ? lifecycle
         : lifecycle === 'CONSTRUCTION' ? 'SETUP'
-            : ['DAMAGED', 'BURNED'].includes(lifecycle) ? 'DAMAGED'
+            : ['DAMAGED', 'BURNING', 'BURNED'].includes(lifecycle) ? 'DAMAGED'
                 : lifecycle === 'ABANDONED' ? 'RECLAIMED' : 'OPERATING';
     const period = storyVisualPeriodForYear(spec.year == null
         ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
@@ -548,6 +702,9 @@ function storyVisualUrbanRecipe(input) {
     const visualStage = state ? Math.min(installedStage, researchCeiling) : installedStage;
     const period = storyVisualPeriodForYear(spec.year == null
         ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
+    const assetPeriod = STORY_VISUAL_PERIODS[
+        Math.min(storyVisualPeriodIndex(period), visualStage)
+    ];
     const condition = storyVisualNormalizeCondition(spec.condition
         || (physicalSite && physicalSite.lifecycleState)
         || (facility && facility.status) || 'OPERATING');
@@ -556,7 +713,7 @@ function storyVisualUrbanRecipe(input) {
     );
     const logicalAssetId = [
         'urban', kind.toLowerCase(), STORY_VISUAL_INSTALL_STAGES[visualStage].toLowerCase(),
-        condition.toLowerCase(), period.id.toLowerCase()
+        condition.toLowerCase(), assetPeriod.id.toLowerCase()
     ].join('.');
     const baseRecipe = {
         schemaVersion: STORY_VISUAL_CATALOG_SCHEMA_VERSION,
@@ -566,6 +723,7 @@ function storyVisualUrbanRecipe(input) {
         packId: kindDef.packId,
         family: kindDef.family,
         periodId: period.id,
+        assetPeriodId: assetPeriod.id,
         installedStage,
         researchCeiling,
         visualStage,
@@ -620,7 +778,8 @@ function storyVisualCatalogValidate() {
         if (!packIds.has(entry.packId)) issues.push(`ASSET_UNKNOWN_PACK:${entry.id}:${entry.packId}`);
         if (!['settlements', 'constructionModern', 'urbanClimateModern',
             'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern',
-            'transportRoad', 'transportRail', 'transportSea'].includes(entry.atlasKey)) {
+            'transportRoad', 'transportRail', 'transportSea',
+            'conflictFireOverlay'].includes(entry.atlasKey)) {
             issues.push(`ASSET_UNKNOWN_ATLAS:${entry.id}`);
         }
         if (entry.atlasKey !== 'settlements'
@@ -649,8 +808,11 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_LAND_USE_FAMILIES,
         STORY_VISUAL_LAND_USE_PHASES,
         STORY_VISUAL_TRANSPORT_CLASSES,
+        STORY_VISUAL_INFRASTRUCTURE_CLASSES,
+        STORY_VISUAL_CONFLICT_ASSETS,
         STORY_VISUAL_ASSET_MANIFEST,
         storyVisualPeriodForYear,
+        storyVisualSelectionContext,
         storyVisualNormalizeCondition,
         storyVisualExplicitInstalledStage,
         storyVisualResearchCeiling,
@@ -667,6 +829,8 @@ if (typeof module !== 'undefined' && module.exports) {
         storyVisualUrbanPresentationRecipe,
         storyVisualLandUseRecipe,
         storyVisualTransportAsset,
+        storyVisualInfrastructureRecipe,
+        storyVisualAuditSelections,
         storyVisualUrbanRecipe,
         storyVisualCatalogValidate
     };

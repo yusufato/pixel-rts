@@ -181,7 +181,9 @@ function storyInfrastructureRouteCandidate(spec, options) {
         : context.settlements && Number(context.settlements.coreCellIndices[to]);
     const routePath = blocks.includes('HEX_CONTEXT_UNAVAILABLE') || !Number.isInteger(start)
         || !Number.isInteger(end) ? []
-        : routeFinderAvailable(context.world, context.geography, start, end);
+        : mode === 'SEA'
+            ? routeFinderAvailable(context.world, context.geography, start, end)
+            : routeFinderAvailable(context.world, context.geography, start, end, context.natural);
     const path = mode === 'SEA' && routePath.length && ports.every(Boolean)
         ? [ports[0].landIndex, ...routePath, ports[1].landIndex] : routePath;
     if (!path.length) blocks.push('NO_PHYSICAL_ROUTE');

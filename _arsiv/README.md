@@ -44,3 +44,18 @@ sistem durumunu belirlemez. Güncel kaynaklar kökteki
 hâlâ kaynak veya kabul kanıtı olarak kullanılıyor. `OYUN_TASARIM.md` ve
 `GELISTIRME_PLANI.md` yalnız hikâye belgesi olmadığı ve savaş/genel ürün kararları da taşıdığı
 için kesin ölü kanıtı olmadan taşınmadı.
+
+---
+
+## `Story3D-shelved-2026-08-21.zip` — 3B hikâye haritası prototipi
+
+Ürün kararıyla hikâye modunun resmî haritası 2B olarak sabitlendi. ZIP; yedi
+Story3D kaynak dosyasını, yedi odak testini, CC0 GLB/doku/lisans varlıklarını,
+3B plan/doğrulama belgelerini, 32 QA kanıt dosyasını ve entegrasyon dosyalarının
+3B çalışırken alınmış kopyalarını tek geri döndürülebilir pakette saklar.
+
+**Rafa kaldırma kanıtı:** `index.html` artık Story3D script'i veya Three.js
+import map yüklemiyor; `package.json` Three.js bağımlılığı ve 3B komutlarını
+taşımıyor; Electron yalnız `2d` renderer bildiriyor. ZIP doğrulaması: 128 giriş,
+15.205.517 bayt. Arşiv açılmadan içindeki hiçbir dosya çalışan oyunun parçası
+değildir.
