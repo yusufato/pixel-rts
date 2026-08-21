@@ -160,9 +160,17 @@ let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→
 
    TASARIM: grup uyeleri BIRIM gecisinden CIKARILIR. Yani bu bir "ustune ekleme" degil,
    ayni butceyle "hangi seviyede karar verelim" sorusu. Boylece A/B tek degiskenli olur.
-   ⚠ Ana iplik yolunda kosar. Isci kipinde (BATTLE_LA_WORKER_KIP) arama isciye devredilir
-   ve grup gecisi CALISMAZ — tezgah kapilari isci olmadan kostugu icin kapi bunu olcer,
-   ama canli oyuna tasimak ayri bir istir. Bu bilerek boyle: once kapi, sonra tasima.
+   ⚠ ILK YAZDIGIMDA 'isci kipinde CALISMAZ' demistim — YANLIS, duzeltildi (2026-08-21).
+   Isci de battleLookaheadTick'i KENDI cagiriyor (lookahead-worker.js) ve orada:
+     · BattleLookahead.js yuklu -> BATTLE_LA_WORKER_KIP varsayilan false
+     · o bayrak isciye TASINMIYOR (aktarim listesinde yok) -> false kaliyor
+     · BattleWorkerKopru.js isciye YUKLENMIYOR -> battleLaWorkerTur tanimsiz, devretme
+       zaten olamaz
+     · LA_GRUP TASINIYOR ve emir kancasi kayit===true emirleri topluyor; grup emirleri
+       tam oyle veriliyor
+   Yani grup gecisi ISCININ ICINDE de kosar ve emirleri ana iplige tasinir.
+   ⚠ Bu bir KOD-OKUMA sonucu; isci gercek Worker API'si istedigi icin jsdom tezgahinda
+   dogrudan sinanamadi. Tarayici kapisi: tools/worker-tarayici-kapisi.html.
    0 = kapali (eski davranis, byte-ayni). */
 let LA_GRUP = 0;
 let LA_GRUP_MIN = 3;        // bu kadar uyesi olmayan sozlesme "grup" sayilmaz
