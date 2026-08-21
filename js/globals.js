@@ -1823,7 +1823,23 @@ const KAPMA_KENDI_R = 360;         // kendi çevresindeki tehdit (closeThreat il
    Kural: hedefi + mühimmatı olan dolaylı birim MOVE emrini yok sayar; BASTIRILMIŞSA
    yok saymaz (shoot-and-scoot meşru). Ayrıntı: js/BattleController.js `battleTopcuDuraganMi`.
    ⚠ VARSAYILAN KAPALI: yerinde kalmak karşı-batarya yemek olabilir, hükmü maç kapısı verir. */
-let BATTLE_TOPCU_DURAGAN = false;
+/* ⭐ SEVK EDİLDİ 2026-08-21: AÇILDI. İki bağımsız maç kapısı, AYRIK tohum, AYNI ayar
+   (LA_UFUK=300; LA_DERIN=5):
+     T1   (CYBORG,  n=128, tohum 123000): +318  t 2.73  taban 326  -> 8 puanla altında
+     M2-9 (makine2, n=128, tohum 228000): +544  t 4.09  taban 373  -> ANLAMLI
+     HAVUZ n=256: +416  SE 87.8  t 4.74  taban 246  -> TABANIN ÜSTÜNDE
+   Saldıran oranı: %87.5->%93.8 (T1) · %86.7->%96.1 (M2-9). İki makinede de aynı yönde.
+
+   ⚠ HAVUZLAMANIN MEŞRULUĞU DENETLENDİ. Bir gün önce aynı soruyu M2-4 ile havuzlamayı
+   denedim ve GERİ ÇEKTİM: aradaki commit (92ef7a9) iki VARSAYILANI gerçekten çevirmişti.
+   Bu sefer iki kapının tabanları arasındaki js/ farkı satır satır denetlendi
+   (git diff 82d586f 97b67f2): bütün davranış değişiklikleri `if (bayrak)` korumalı ve
+   bayrakların hepsi varsayılan KAPALI; geri kalanı render kodu (headless çizmez); tek
+   yapısal değişiklik (executionDestekHedefi çıkarması) birebir davranış-nötr doğrulandı.
+
+   TEŞHİS (kullanıcının 4 gerçek maçından): AI'nın dolaylı birimleri zamanın %42'sinde
+   HAREKET halinde (oyuncununki %13); birim başına isabet 23.0 vs 44.5. */
+let BATTLE_TOPCU_DURAGAN = true;
 
 /* ── MENZİLE GİR (A/B kolu) — kısa menzilli doğrudan ateş beklemesin ───────
    Kullanıcının 4 gerçek maçından ölçüldü: AI ile oyuncu aynı mesafede duruyor ama AI'nın

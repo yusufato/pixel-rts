@@ -173,6 +173,76 @@ function kos(seed) {
 '          enIyi: enB, kal: skorlar[0] });\n' +
 '      }\n' +
 '    }\n' +
+'\n' +
+'    /* ── UCUNCU KIP: GERCEK GOREV GRUBU ────────────────────────────────────────\n' +
+'       Ilk iki kip ("birey" ve "kutle") kontrollu ama YAPAY: kutle, capaya en yakin\n' +
+'       K birim. Aramanin gercekte kullanacagi nesne bu degil, TASK CONTRACT: kontrolor\n' +
+'       zaten MAIN/FIXING/FLANK gruplarini kuruyor ve her birinin unitIds listesi var\n' +
+'       (controller.operationalPlan.taskContracts).\n' +
+'       Hedefler de yapay halka degil, aramanin gercekte deneyecegi seyler: UC SEKTOR\n' +
+'       MERKEZI (assignSectors ile ayni x-bandlari) + kendi objektifi + yerinde kal.\n' +
+'       Yani bu kip, "grup aramasi kurulursa aday uzayi ne kadar yayilir" sorusunun\n' +
+'       en sadik hali. */\n' +
+'    let kirmiziKtrl = null;\n' +
+'    if (typeof BATTLE_CONTROLLERS !== "undefined") {\n' +
+'      for (const c of BATTLE_CONTROLLERS.values()) if (c && c.side === true) kirmiziKtrl = c;\n' +
+'    }\n' +
+'    const sozlesmeler = (kirmiziKtrl && kirmiziKtrl.operationalPlan &&\n' +
+'      kirmiziKtrl.operationalPlan.taskContracts) || [];\n' +
+'    for (const sz of sozlesmeler) {\n' +
+'      const ids = (sz.unitIds || []).slice();\n' +
+'      if (ids.length < 3) continue;                    /* tek-iki birimlik grup "grup" degil */\n' +
+'      const uyeler = [];\n' +
+'      for (const id of ids) {\n' +
+'        const u = SIM.units.find((x) => x.id === id);\n' +
+'        if (u && !u.dead && !u.loaded && !u.abandoned) uyeler.push(u);\n' +
+'      }\n' +
+'      if (uyeler.length < 3) continue;\n' +
+'      let gx = 0, gy = 0;\n' +
+'      for (const u of uyeler) { gx += u.x; gy += u.y; }\n' +
+'      gx /= uyeler.length; gy /= uyeler.length;\n' +
+'      const ofsetG = uyeler.map((u) => ({ id: u.id, dx: u.x - gx, dy: u.y - gy }));\n' +
+'\n' +
+'      /* SEKTOR MERKEZLERI: assignSectors ile ayni esikler (WORLD_W/3). Derinlik grubun\n' +
+'         kendi y sinde kalir — bu kip SEKTOR secimini olcuyor, derinlik degil. */\n' +
+'      const gHedef = [{ x: gx, y: gy }];\n' +
+'      for (const sx of [WORLD_W / 6, WORLD_W / 2, WORLD_W * 5 / 6]) {\n' +
+'        if (Math.abs(sx - gx) < 40) continue;          /* zaten oradaysa aday degil */\n' +
+'        gHedef.push({ x: sx, y: gy });\n' +
+'      }\n' +
+'      if (typeof battleObjectiveForSide === "function") {\n' +
+'        const o = battleObjectiveForSide(true);\n' +
+'        if (o) gHedef.push({ x: o.x, y: o.y });\n' +
+'      }\n' +
+'      if (gHedef.length < 3) continue;\n' +
+'\n' +
+'      const gSkor = [];\n' +
+'      for (const h of gHedef) {\n' +
+'        const fork = battleForkCapture();\n' +
+'        const bas = marj();\n' +
+'        for (const o of ofsetG) {\n' +
+'          const u = SIM.units.find((x) => x.id === o.id);\n' +
+'          if (!u || u.dead) continue;\n' +
+'          u.controlOwner = "PLAYER";\n' +
+'          u.manualTarget = null; u.attackTarget = null;\n' +
+'          u.targetX = h.x + o.dx; u.targetY = h.y + o.dy;\n' +
+'          u.manualMoveTarget = { x: h.x + o.dx, y: h.y + o.dy };\n' +
+'          u.isMovingToManualTarget = true; u._holdingPos = false;\n' +
+'        }\n' +
+'        let s3 = st;\n' +
+'        for (let t = 0; t < UFUK && phase === PHASE.BATTLE; t++) {\n' +
+'          s3 += BATTLE_TICK_MS;\n' +
+'          stepSim(s3, BATTLE_TICK_SEC, battleControllersDrive, false);\n' +
+'        }\n' +
+'        gSkor.push(marj() - bas);\n' +
+'        battleForkRestore(fork);\n' +
+'      }\n' +
+'      if (gSkor.length < 3) continue;\n' +
+'      const gB = Math.max.apply(null, gSkor), gK = Math.min.apply(null, gSkor);\n' +
+'      olcumler.push({ tik: ANLAR[anIdx - 1], kip: "grup", rol: String(sz.groupRole),\n' +
+'        birim: uyeler.length, aday: gSkor.length, yayilim: gB - gK,\n' +
+'        enIyi: gB, kal: gSkor[0] });\n' +
+'    }\n' +
 '  }\n' +
 '  return JSON.stringify(olcumler);\n' +
 '})()';
@@ -209,12 +279,12 @@ function ozet(kip) {
         kazanc: kOrt, kazancT: kStd ? kOrt / (kStd / Math.sqrt(kazanc.length)) : 0 };
 }
 
-const B = ozet('birey'), K = ozet('kutle');
+const B = ozet('birey'), K = ozet('kutle'), G = ozet('grup');
 console.log('');
 console.log('  ' + 'kip'.padEnd(10) + 'olcum'.padStart(7) + 'ort yayilim'.padStart(14) +
     'medyan'.padStart(10) + 'sifir yayilim'.padStart(15) + 'en iyi - kal'.padStart(14) + 't'.padStart(8));
 console.log('  ' + '-'.repeat(78));
-for (const [ad, o] of [['BIREY', B], ['KUTLE', K]]) {
+for (const [ad, o] of [['BIREY', B], ['KUTLE', K], ['GRUP', G]]) {
     if (!o) { console.log('  ' + ad.padEnd(10) + 'veri yok'); continue; }
     console.log('  ' + ad.padEnd(10) + String(o.n).padStart(7) + o.ort.toFixed(0).padStart(14) +
         o.med.toFixed(0).padStart(10) + (o.sifirPay.toFixed(1) + '%').padStart(15) +
@@ -226,6 +296,12 @@ if (B && K) {
     console.log('  ── HUKUM ──');
     console.log('     yayilim orani (kutle / birey): ' + (kat === Infinity ? '∞' : kat.toFixed(2)) + 'x');
     console.log('     sifir-yayilim: %' + B.sifirPay.toFixed(1) + ' -> %' + K.sifirPay.toFixed(1));
+    if (G) {
+        const gk = B.ort > 0 ? G.ort / B.ort : Infinity;
+        console.log('     GERCEK GRUP (taskContracts + sektor hedefleri):');
+        console.log('        yayilim ' + G.ort.toFixed(0) + ' (' + (gk === Infinity ? '∞' : gk.toFixed(2)) + 'x)   sifir %' + G.sifirPay.toFixed(1) +
+            '   en iyi-kal ' + G.kazanc.toFixed(0) + ' (t ' + G.kazancT.toFixed(2) + ')');
+    }
     if (kat >= 2.0 && K.sifirPay < B.sifirPay) {
         console.log('     ✅ IDDIA AYAKTA — kutle adaylari belirgin daha cok fark yaratiyor.');
         console.log('        Grup aramasi insa edilmeye deger; sonraki adim gercek grup adaylari.');

@@ -376,3 +376,39 @@ triyaj eleme yapar, karar vermez. Bugüne kadarki en net örneği bu.
 
 **M2-10** (ikmal refakati): +149, taban 328. Mekanizmada cephanesizliği 311→2 düşürüyordu
 ama maça yansımıyor. Kuyruğa yeniden alınmayacak.
+
+
+---
+
+## C1 — LA_KADEME 0 vs 60 @ tam güç (2026-08-21) · **ANLAMLI ZARAR**
+
+n=128, tohum 125000, 438 dk.
+
+| kol | maç | saldıran% | marjOrt | marjStd |
+|---|---|---|---|---|
+| kademe 0 | 128 | %83,6 | 1947 | 1952 |
+| kademe 60 | 128 | **%68,8** | 1175 | 2365 |
+
+Eşleştirilmiş fark **−773**, std 1883, t **−4,64** · taban 466 → **anlamlı ZARAR.**
+
+Başarılı yarılama (successive halving) saldıran oranını **15 puan** düşürüyor. Varsayılan
+zaten 0 olduğu için değişiklik gerekmedi — bu bir **kurtarma**: "ucuzlatma" gerekçesiyle
+açılsaydı ciddi kayıp olacaktı.
+
+Bu, deponun kendi kuralının bir doğrulaması daha: *bu motorda maliyeti **yaklaşıklıkla**
+düşürme girişimleri varsayılan olarak şüphelidir.* Kademe, adayları erken eleyerek rollout
+kısıyor — yani tam o aileden.
+
+---
+
+## FAZ 12 kapanış bilançosu (bu makine, 2026-08-20/21)
+
+| kapı | fark | taban | hüküm |
+|---|---|---|---|
+| T1 `BATTLE_TOPCU_DURAGAN` | +318 | 326 | tek başına altında → **havuzla SEVK EDİLDİ** |
+| U400b `LA_UFUK 400` | +141 | 366 | ölçülemedi, sevk yok (%33 maliyet) |
+| Q2 `BATTLE_LA_HAVA` | +24 | 264 | **etkisiz** (std düşük) |
+| C1 `LA_KADEME 60` | **−773** | 466 | **anlamlı zarar** — kapalı kalıyor |
+
+Dört kapı, ~24 saat. Biri sevk edildi (havuzla), biri zarar olarak elendi, ikisi
+ölçülemedi. **Ufuk merdiveni 300'de duruyor**, **kademe reddedildi**.
