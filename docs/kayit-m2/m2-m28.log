@@ -58,3 +58,32 @@ ROL DENGESI — PARALEL
   parca 38 bitti (kod 0)   45/64   95.0dk
   parca 47 bitti (kod 0)   46/64   96.3dk
   parca 42 bitti (kod 0)   47/64   99.1dk
+  parca 46 bitti (kod 0)   48/64   101.3dk
+  parca 45 bitti (kod 0)   49/64   103.7dk
+  parca 51 bitti (kod 0)   50/64   106.4dk
+  parca 59 bitti (kod 0)   51/64   108.7dk
+  parca 52 bitti (kod 0)   52/64   109.4dk
+  parca 50 bitti (kod 0)   53/64   110.1dk
+  parca 48 bitti (kod 0)   54/64   110.4dk
+  parca 57 bitti (kod 0)   55/64   113.6dk
+  parca 55 bitti (kod 0)   56/64   114.7dk
+  parca 53 bitti (kod 0)   57/64   116.8dk
+  parca 58 bitti (kod 0)   58/64   117.3dk
+  parca 54 bitti (kod 0)   59/64   117.6dk
+  parca 56 bitti (kod 0)   60/64   118.2dk
+  parca 61 bitti (kod 0)   61/64   118.3dk
+  parca 62 bitti (kod 0)   62/64   118.9dk
+  parca 63 bitti (kod 0)   63/64   119.5dk
+  parca 60 bitti (kod 0)   64/64   121.2dk
+
+kol             mac  saldiran%  marjOrt  marjStd       t
+--------------------------------------------------------
+kol=600         128      %84.4     2030     1812   12.68
+kol=900         128      %90.6     2161     1605   15.24
+
+  ESLESTIRILMIS FARK (900 - 600): n 128   ort 132   std 1667   t 0.89  -> anlamli DEGIL
+  SAPTAMA TABANI: bu n ile ancak |etki| >= 412 guvenle yakalanir.  (olculen etki BUNUN ALTINDA)
+
+  sure: 121.2dk
+### M2-8: LA_YARICAP 600 vs 900 @ tam guc (aday erisimi, GUNCEL taban) bitti 04:30  (cikis 0)
+=== M2-8 ARTIK KAPI BITTI 2026-08-21 04:30 ===
