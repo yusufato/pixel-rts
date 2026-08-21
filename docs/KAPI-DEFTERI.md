@@ -319,3 +319,60 @@ bunu ifade edemiyor. İki bağımsız yönden aynı sonuca varmak, bunun tesadü
 **Yapılan:** bot silinmedi (belgeli ve çalışır) ama kapının **varsayılan havuzundan
 çıkarıldı** ve tabanda `kalibre: false` damgası taşıyor. Kalibre olmayan bota karşı
 alınan sonuç AI'ı değil BOTU ölçer.
+
+
+---
+
+# ⭐⭐ SEVK KARARI: `BATTLE_TOPCU_DURAGAN = true` (2026-08-21)
+
+İki bağımsız kapı, **ayrık tohum**, **aynı ayar** (`LA_UFUK=300; LA_DERIN=5`):
+
+| kapı | makine | tohum | n | fark | std | taban | hüküm |
+|---|---|---|---|---|---|---|---|
+| T1 | CYBORG | 123000 | 128 | +318 | 1319 | 326 | 8 puanla altında |
+| M2-9 | makine 2 | 228000 | 128 | **+544** | 1508 | 373 | **ANLAMLI** |
+
+**HAVUZ (ters-varyans, n=256): +416 · SE 87,8 · t 4,74 · taban 246 → GEÇTİ**
+
+Saldıran oranı: T1 %87,5→%93,8 · M2-9 %86,7→**%96,1**. İki makinede de büyük ve aynı yönde.
+
+## ⚠ Havuzlama bu sefer neden meşru (dün değildi)
+
+Dün T1'i M2-4 ile havuzlamayı denedim ve **geri çektim**: aralarında `92ef7a9` commit'i
+vardı ve o commit iki varsayılanı gerçekten çevirmişti (`LA_AG_KAPI`, `BATTLE_MENZILE_GIR`).
+
+Bu sefer tabanlar arasındaki fark denetlendi (`git diff 82d586f 97b67f2 -- js/`):
+
+- `js/Unit.js`'teki **bütün** davranış değişiklikleri `if (bayrak)` korumalı, bayrakların
+  hepsi varsayılan **kapalı** (`BATTLE_ANTI_ESLESME_INTEL4`, `BATTLE_ZIRH_YONU_INTEL4`,
+  `BATTLE_DOLAYLI_YAKLAS_INTEL4`, `BATTLE_IKMAL_REFAKAT_INTEL4`, `BATTLE_TOPCU_KUTLE_INTEL4`)
+- Geri kalanı **render** kodu (`ctx.drawImage`) — headless tezgâh çizim yolunu hiç çağırmaz
+- `js/BattleExecution.js`'teki tek yapısal değişiklik `executionDestekHedefi` çıkarması ve
+  **birebir davranış-nötr** olduğu yedekle karşılaştırılarak doğrulandı
+- `js/globals.js` eklemeleri yalnız yeni bayrak tanımları + yorum
+
+Yani iki taban **davranış olarak aynı**. Havuzlama meşru.
+
+## Uygulama zamanlaması
+
+⚠ **C1 koşarken çevrilmeyecek.** Kapı her parça için taze node süreci açıp dosyaları
+yeniden okuyor; ortada bayrak çevirmek kapının ilk ve son parçalarını farklı kodla
+koşturur. C1 ~12:20'de bitiyor; sevk ondan sonra.
+
+---
+
+## Makine 2 — 3. parti sonuçları (2026-08-20/21)
+
+| kapı | n | fark | taban | t | hüküm |
+|---|---|---|---|---|---|
+| **M2-9** `BATTLE_TOPCU_DURAGAN` | 128 | **+544** | 373 | 4,09 | **GEÇTİ → havuza** |
+| M2-10 `BATTLE_IKMAL_REFAKAT_INTEL4` | 128 | +149 | 328 | 1,27 | ölçülemedi |
+| M2-11 `BATTLE_TOPCU_KUTLE_INTEL4` | 128 | +5 | 404 | 0,04 | **etkisiz** |
+
+**M2-11 öğretici:** mekanizma triyajını en güçlü geçen adaydı (kütle +0,75 t 2,92 ·
+düşman topçusunu hedefleme %0→%27 t 3,56) ama maç sonucuna **hiç** yansımadı (+5).
+Yani *"kural kendi metriğini kımıldatıyor"* ile *"maç kazandırıyor"* iki ayrı şey —
+triyaj eleme yapar, karar vermez. Bugüne kadarki en net örneği bu.
+
+**M2-10** (ikmal refakati): +149, taban 328. Mekanizmada cephanesizliği 311→2 düşürüyordu
+ama maça yansımıyor. Kuyruğa yeniden alınmayacak.
