@@ -142,6 +142,31 @@ let LA_YON = 8;             // aday yönü
 let LA_HALKA = 3;           // aday halkası (MENZİL çeşitliliği — ölçümde asıl kaldıraç)
 let LA_YARICAP = 600;       // en dış halka
 let LA_DERIN = 2;             // elemeden sonra GERÇEKTEN oynatılan aday (3→2: bütçe kapsama gitti)
+/* ── GRUP ARAMASI (aday uzayi: birim -> gorev grubu) ────────────────────────────
+   OLCULDU (tools/grup-yelpazesi.js, 4 tohum, ufuk 200 tik):
+     kip                          ort yayilim  sifir yayilim  "en iyi - kal"      t
+     BIREY (1 birim)                      165          %66.7              46   1.76
+     KUTLE (8 birim, yapay)               743          %16.7             282   3.55
+     GRUP  (gercek taskContracts)         654          %11.1             248   2.00
+   Yani tek birimlik adaylarda "iyi secim yapmanin yerinde kalmaya gore kazandirdigi"
+   OLCULEMIYOR (t 1.76); grup adaylarinda ANLAMLI. Ve birey kolunun MEDYAN yayilimi
+   SIFIR — kararlarin yarisindan fazlasi sonucu hic degistirmiyor, yani o rollout
+   butcesi bosa gidiyor.
+
+   Bu, ayni darligin yol actigi UC olculmus kusurun ucuncusu:
+     · kararlarin %29'unda yayilim sifir      (tools/gelecek-yelpazesi.js)
+     · deger agi aday siralamada rastgeleden kotu (%10.8 vs %18, n=55)
+     · manevra ifade edilemiyor (karsi-plan + yerel_ustunluk somurucusu, 2026-08-20)
+
+   TASARIM: grup uyeleri BIRIM gecisinden CIKARILIR. Yani bu bir "ustune ekleme" degil,
+   ayni butceyle "hangi seviyede karar verelim" sorusu. Boylece A/B tek degiskenli olur.
+   ⚠ Ana iplik yolunda kosar. Isci kipinde (BATTLE_LA_WORKER_KIP) arama isciye devredilir
+   ve grup gecisi CALISMAZ — tezgah kapilari isci olmadan kostugu icin kapi bunu olcer,
+   ama canli oyuna tasimak ayri bir istir. Bu bilerek boyle: once kapi, sonra tasima.
+   0 = kapali (eski davranis, byte-ayni). */
+let LA_GRUP = 0;
+let LA_GRUP_MIN = 3;        // bu kadar uyesi olmayan sozlesme "grup" sayilmaz
+let LA_GRUP_DERIN = 5;      // gercekten oynatilan grup adayi (birim tarafiyla ayni butce mantigi)
 /* ROLLOUT UFKU. Değer ağı zaten "bu durumdan maçın sonu ne" diye tahmin ettiği için
    ufkun UZUN olması gerekmez — kısa rollout birimi yola çıkarır, gerisini ağ söyler.
    (AlphaZero'da yaprak doğrudan değer ağıyla puanlanır, rollout yoktur.)
@@ -897,6 +922,99 @@ function battleLookaheadPolitikaKarari(uid, oz) {
    emirler oynatılır. Bu, kontrolör emirlerinin ('controller-order') izlediği
    desenin aynısıdır. Kaydedilmeseydi canlıda aramanın sürüklediği birimler
    replay'de yerinde kalır ve hash kontrolü sapma verirdi. */
+/* ── GRUP: yan taraftaki kontrolorun MUHARIP gorev gruplari ───────────────────
+   Kaynak: controller.operationalPlan.taskContracts (BattlePlanning kuruyor; her
+   sozlesmede groupRole + unitIds var). Determinist sira: rol adina gore, sonra ilk
+   birim kimligine gore — dizi sirasina guvenmek replay'de kayabilir. */
+function battleLookaheadGruplar(isRed) {
+    if (typeof BATTLE_CONTROLLERS === 'undefined') return [];
+    let ktrl = null;
+    for (const c of BATTLE_CONTROLLERS.values()) if (c && c.side === isRed) ktrl = c;
+    const sz = (ktrl && ktrl.operationalPlan && ktrl.operationalPlan.taskContracts) || [];
+    const out = [];
+    for (const s of sz) {
+        if (!s || !Array.isArray(s.unitIds)) continue;
+        /* MUHARIP roller: manevra kararini bunlar tasir. Ates-destegi/lojistik/kesif
+           kendi derinlik ve gorev kurallarinda kalir — onlari grup adayiyla savurmak
+           bugun olculen "one cik -> ol" tuzagina dogrudan davetiye olurdu. */
+        const rol = String(s.groupRole || '');
+        if (rol !== 'MAIN' && rol !== 'FIXING' && rol !== 'FLANK') continue;
+        const uyeler = [];
+        for (const id of s.unitIds) {
+            const u = SIM.units.find(x => x.id === id);
+            if (!u || u.dead || u.loaded || u.abandoned) continue;
+            if (u.controlOwner === 'PLAYER') continue;   // oyuncunun birimine ASLA dokunma
+            if (u.isAir) continue;                       // hava kendi doktrininde
+            uyeler.push(u);
+        }
+        if (uyeler.length < LA_GRUP_MIN) continue;
+        uyeler.sort((a, b) => a.id - b.id);
+        out.push({ rol: rol, uyeler: uyeler });
+    }
+    out.sort((a, b) => (a.rol < b.rol ? -1 : a.rol > b.rol ? 1 : 0) ||
+                       (a.uyeler[0].id - b.uyeler[0].id));
+    return out;
+}
+
+/* ── GRUP ADAYLARI: sektor merkezleri + objektif + yerinde kal ────────────────
+   Neden halka DEGIL: grup kararinin anlami "hangi sektorde agirlik kuralim", yani
+   assignSectors'un sordugu soru. Sektor esikleri onunla AYNI (WORLD_W/3) ki iki
+   katman ayni dunyayi bolsun. Derinlik grubun kendi y'sinde kalir — bu aday uzayi
+   SEKTOR seciyor, derinlik degil (derinligi hatta surmek bugun olculdu ve oldurdu). */
+function battleLookaheadGrupAdaylari(gx, gy, isRed) {
+    const out = [{ x: gx, y: gy, kal: true }];
+    const merkezler = [WORLD_W / 6, WORLD_W / 2, WORLD_W * 5 / 6];
+    for (const sx of merkezler) {
+        if (Math.abs(sx - gx) < 40) continue;
+        if (typeof isPassableAt === 'function' && !isPassableAt(sx, gy)) continue;
+        out.push({ x: sx, y: gy, kal: false });
+    }
+    if (typeof battleObjectiveForSide === 'function') {
+        const o = battleObjectiveForSide(isRed);
+        if (o && Math.hypot(o.x - gx, o.y - gy) > 120) out.push({ x: o.x, y: o.y, kal: false });
+    }
+    return out;
+}
+
+/* ── GRUP KARARI: fork + rollout, birim kararinin AYNI kalibi ─────────────────
+   Fark tek: bir birim degil, grubun TAMAMI formasyonunu koruyarak tasinir.
+   Donus: [{id, x, y}] emir listesi ya da null. */
+function battleLookaheadGrupKarari(grup, isRed, now) {
+    const uyeler = grup.uyeler;
+    let gx = 0, gy = 0;
+    for (const u of uyeler) { gx += u.x; gy += u.y; }
+    gx /= uyeler.length; gy /= uyeler.length;
+    const ofset = uyeler.map(u => ({ id: u.id, dx: u.x - gx, dy: u.y - gy }));
+    const adaylar = battleLookaheadGrupAdaylari(gx, gy, isRed);
+    if (adaylar.length < 2) return null;
+    const derin = adaylar.slice(0, Math.max(2, LA_GRUP_DERIN));
+
+    const fork = battleForkCapture();
+    const bas = battleLookaheadMarj(isRed);
+    let enIyi = null, enIyiSkor = -Infinity;
+    for (const a of derin) {
+        battleForkRestore(fork);
+        for (const o of ofset) {
+            const u = SIM.units.find(x => x.id === o.id);
+            if (!u || u.dead) continue;
+            u.controlOwner = 'PLAYER';
+            u.manualTarget = null; u.attackTarget = null;
+            u.targetX = a.x + o.dx; u.targetY = a.y + o.dy;
+            u.manualMoveTarget = { x: a.x + o.dx, y: a.y + o.dy };
+            u.isMovingToManualTarget = true; u._holdingPos = false;
+        }
+        battleRolloutIlerlet(now, LA_UFUK);
+        const s = battleLookaheadSkor(isRed, bas);
+        /* Esitlik bozucu: skor, sonra x, sonra y — determinist secim. */
+        if (s > enIyiSkor || (s === enIyiSkor && enIyi && (a.x < enIyi.x ||
+            (a.x === enIyi.x && a.y < enIyi.y)))) { enIyiSkor = s; enIyi = a; }
+    }
+    battleForkRestore(fork);
+    if (!enIyi || enIyi.kal) return null;   // "yerinde kal" kazandiysa emir verme
+    BATTLE_LA_SAYAC.grupKarar = (BATTLE_LA_SAYAC.grupKarar | 0) + 1;
+    return ofset.map(o => ({ id: o.id, x: enIyi.x + o.dx, y: enIyi.y + o.dy }));
+}
+
 function battleLookaheadEmirVer(uid, karar, kayit) {
     const u = SIM.units.find(x => x.id === uid);
     if (!u || u.dead) return;
@@ -960,6 +1078,26 @@ function battleLookaheadTick(now) {
 
     for (const isRed of [true, false]) {
         if (!battleLookaheadAcik(isRed)) continue;
+
+        /* ── GRUP GECISI (LA_GRUP) ─────────────────────────────────────────────
+           Manevra karari once GRUP seviyesinde alinir; karar verilen gruplarin uyeleri
+           asagidaki BIREY gecisinden CIKARILIR. Yani bu bir ustune-ekleme degil,
+           ayni butceyle "hangi seviyede karar verelim" sorusu -> A/B tek degiskenli.
+           Kapaliyken (varsayilan) tek bir Set olusur ve filtre onu bos gorur:
+           davranis birebir eski. */
+        const _grupUye = new Set();
+        if (LA_GRUP > 0 && typeof battleLookaheadGruplar === 'function') {
+            for (const g of battleLookaheadGruplar(isRed)) {
+                const emirler = battleLookaheadGrupKarari(g, isRed, now);
+                if (emirler) {
+                    for (const e of emirler) battleLookaheadEmirVer(e.id, e, true);
+                }
+                /* Karar "kal" cikip emir verilmese bile uye BIREY gecisine girmez:
+                   grup adina karar VERILDI, o kararin adi "yerinde kal". Aksi halde
+                   iki katman ayni birime celisen emir verir. */
+                for (const u of g.uyeler) _grupUye.add(u.id);
+            }
+        }
         // En DEĞERLİ birimler: karar kaldıracı en yüksek olanlar. Determinist sıra.
         /* OYUNCUNUN BİRİMİNE ASLA DOKUNMA. Canlı oyunda arama iki tarafta da açık
            olabilir; oyuncunun kendi birimlerini arama sürüklerse oyun elinden alınmış
@@ -979,7 +1117,7 @@ function battleLookaheadTick(now) {
             .filter(u => !u.dead && u.isRed === isRed && !u.loaded && !u.abandoned &&
                          (!u.isAir || (typeof BATTLE_LA_HAVA !== 'undefined' && BATTLE_LA_HAVA === true &&
                                        typeof T !== 'undefined' && u.type !== T.KAMIKAZE)) &&
-                         u.controlOwner !== 'PLAYER')
+                         u.controlOwner !== 'PLAYER' && !_grupUye.has(u.id))
             .sort((a, b) => (((STATS[b.type] && STATS[b.type].cost) || 0) - ((STATS[a.type] && STATS[a.type].cost) || 0)) || (a.id - b.id))
             .slice(0, LA_BIRIM);
         /* DÖNÜŞÜM: tur indeksi TIK'ten türetilir → determinist (duvar saati DEĞİL).
