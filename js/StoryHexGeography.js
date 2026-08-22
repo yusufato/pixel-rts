@@ -31,6 +31,32 @@ const STORY_HEX_GEOGRAPHY_POLICY = Object.freeze({
 });
 
 let STORY_HEX_GEOGRAPHY_CACHE = null;
+let STORY_HEX_GEOGRAPHY_TRANSIENT_RASTER = null;
+
+function storyHexGeographyRasterEnsure() {
+    const canonical = storyMapRasterEnsure();
+    if (canonical) return canonical;
+    // canonicalMapRaster kapalı A/B yolu doğrudan raster API'sinde null
+    // kalmalıdır. Altıgen fiziksel katmanlar yine aynı GEO kaynağına ihtiyaç
+    // duyar; bu nedenle STORY'ye yazılmayan, yalnız coğrafya adaptörünün
+    // ömrü boyunca tutulan deterministik bir uyumluluk rasterı üret.
+    if (typeof storyMapRasterEnabled !== 'function' || storyMapRasterEnabled()
+        || typeof storyMapRasterCreate !== 'function'
+        || typeof storyMapRasterSourceHash !== 'function'
+        || typeof GEO === 'undefined' || !Array.isArray(GEO.land)) return null;
+    const nodes = STORY.nodes || [];
+    if (STORY_HEX_GEOGRAPHY_TRANSIENT_RASTER) {
+        const cached = STORY_HEX_GEOGRAPHY_TRANSIENT_RASTER;
+        const expected = storyMapRasterSourceHash(nodes, cached.width, cached.height);
+        if (cached.sourceHash === expected) return cached;
+    }
+    const raster = storyMapRasterCreate({ nodes });
+    raster.diagnostics = Object.assign({}, raster.diagnostics || {}, {
+        loadMode: 'hex-transient-fallback'
+    });
+    STORY_HEX_GEOGRAPHY_TRANSIENT_RASTER = raster;
+    return raster;
+}
 
 function storyHexGeographyHashInt(hash, value) {
     const integer = Number(value) | 0;
@@ -165,7 +191,7 @@ function storyHexGeographyMajorityRegion(regionCounts) {
 function storyHexGeographyCreate(options) {
     options = options || {};
     const world = options.world || storyHexWorldEnsure();
-    const raster = options.raster || storyMapRasterEnsure();
+    const raster = options.raster || storyHexGeographyRasterEnsure();
     const geo = options.geo || (typeof GEO !== 'undefined' ? GEO : null);
     if (!world || !raster || !geo) throw new Error('HEX_GEOGRAPHY_SOURCE_MISSING');
     const sourceHash = storyHexGeographySourceHash(world, raster, geo);
@@ -279,7 +305,7 @@ function storyHexGeographyValidate(geography, world, raster) {
     const issues = [];
     const add = (code, path, message) => issues.push({ code, path, message });
     const hexWorld = world || storyHexWorldEnsure();
-    const mapRaster = raster || storyMapRasterEnsure();
+    const mapRaster = raster || storyHexGeographyRasterEnsure();
     if (!geography || typeof geography !== 'object') {
         add('GEOGRAPHY_OBJECT', '$', 'HexGeography nesnesi zorunlu.');
         return { ok: false, issues };
@@ -349,7 +375,8 @@ function storyHexGeographySummary(geography) {
 
 function storyHexGeographyEnsure() {
     const world = storyHexWorldEnsure();
-    const raster = storyMapRasterEnsure();
+    const raster = storyHexGeographyRasterEnsure();
+    if (!world || !raster) return null;
     const expectedSourceHash = storyHexGeographySourceHash(world, raster, GEO);
     if (STORY_HEX_GEOGRAPHY_CACHE && STORY_HEX_GEOGRAPHY_CACHE.sourceHash === expectedSourceHash) {
         return STORY_HEX_GEOGRAPHY_CACHE;
@@ -363,6 +390,7 @@ function storyHexGeographyEnsure() {
 
 function storyHexGeographyResetCache() {
     STORY_HEX_GEOGRAPHY_CACHE = null;
+    STORY_HEX_GEOGRAPHY_TRANSIENT_RASTER = null;
 }
 
 function storyHexGeographyCell(geography, world, q, r) {
