@@ -393,6 +393,7 @@ const STORY_MAP_ATLAS_SPECS = {
     seasonalGround: { src: 'assets/maps/seasonal-ground-atlas-v1.png', cols: 4, rows: 4 },
     terrainDetail: { src: 'assets/maps/terrain-detail-atlas-v2.png', cols: 4, rows: 4 },
     ruralEnvironment: { src: 'assets/maps/rural-environment-atlas-v1.png', cols: 4, rows: 4 },
+    geographyVarietyModern: { src: 'assets/maps/geography-variety-atlas-modern-v1.png', cols: 4, rows: 4 },
     maritime: { src: 'assets/maps/maritime-atlas-v2.png', cols: 4, rows: 4 },
     modernPorts: { src: 'assets/maps/modern-port-terminal-atlas-v1.png', cols: 4, rows: 4 },
     seaDetail: { src: 'assets/maps/sea-detail-atlas-v2.png', cols: 4, rows: 4 },
@@ -465,7 +466,8 @@ function storyMapAtlasEnsure() {
                 } catch (_) {}
             }
             const ownsHexSurface = ['mountains', 'forests', 'groundDetail', 'seasonalGround',
-                'terrainDetail', 'ruralEnvironment', 'settlements', 'landUseModern'].includes(key);
+                'terrainDetail', 'ruralEnvironment', 'geographyVarietyModern',
+                'settlements', 'landUseModern'].includes(key);
             if (ownsHexSurface && typeof storyMapV2InvalidateHexNaturalContents === 'function') {
                 storyMapV2InvalidateHexNaturalContents('atlas-ready:' + key);
             } else if (ownsHexSurface) {
@@ -1577,6 +1579,98 @@ function storyDrawPhysicalLandOverlay(ctx, farMap) {
     return roads.length;
 }
 
+function storyMapStructurePickRegistryRefresh(urbanModel, physicalSitesModel, mapZoomRatio) {
+    const targets = [];
+    if (!urbanModel || !Array.isArray(urbanModel.records)
+        || typeof storyHexWorldEnsure !== 'function') {
+        STORY._mapStructurePickTargets = targets;
+        return targets;
+    }
+    const world = storyHexWorldEnsure();
+    const siteIdsByCellId = physicalSitesModel && physicalSitesModel.siteIdsByCellId || {};
+    const siteById = physicalSitesModel && physicalSitesModel.siteById || {};
+    const visible = (point, radius) => point && point.u > -.08 && point.u < 1.08
+        && point.x > -radius && point.x < STORY._cw + radius
+        && point.y > -radius && point.y < STORY._ch + radius;
+    for (const record of urbanModel.records) {
+        if (!record || !Array.isArray(record.districts)) continue;
+        const node = STORY.nodes && STORY.nodes[record.cityId];
+        if (!node) continue;
+        const visualLevel = storySettlementVisualLevel(node, record);
+        const districtMetrics = typeof storyMapV2SettlementDistrictMetrics === 'function'
+            ? storyMapV2SettlementDistrictMetrics(node, {
+                cam: storyCam,
+                minZoom: STORY._minZoom || storyMinZoom(STORY._cw || 800, STORY._ch || 600),
+                visualLevel
+            }) : { visible: mapZoomRatio >= 2.2, sizePx: 28 };
+        if (districtMetrics.visible) {
+            for (let index = 1; index < record.districts.length; index++) {
+                const district = record.districts[index];
+                if (!district || !district.center) continue;
+                const wx = Number(district.center.x) / Number(world.width) * STORY_WORLD_W;
+                const wy = Number(district.center.y) / Number(world.height) * STORY_WORLD_H;
+                const point = storyW2S(wx, wy);
+                const size = Math.max(18, Number(districtMetrics.sizePx) || 28);
+                if (!visible(point, size)) continue;
+                const siteId = (siteIdsByCellId[String(district.id)] || [])[0] || null;
+                const site = siteId ? siteById[siteId] : null;
+                targets.push({
+                    id: siteId || `district:${district.id}`,
+                    kind: site ? 'SITE' : 'DISTRICT',
+                    siteId,
+                    districtId: district.id,
+                    cellId: district.id,
+                    cellIndex: Number(district.index),
+                    nodeId: Number(record.cityId),
+                    regionId: `region:${record.cityId}`,
+                    label: site && (site.sectorId || site.siteType) || district.kind || 'DISTRICT',
+                    x: point.x,
+                    y: point.y + size * .12,
+                    radiusX: Math.max(11, size * .48),
+                    radiusY: Math.max(11, size * .42)
+                });
+            }
+        }
+    }
+    const constructionSites = physicalSitesModel && Array.isArray(physicalSitesModel.constructionSites)
+        ? physicalSitesModel.constructionSites : [];
+    for (const site of constructionSites) {
+        const cellIndex = Number(site && site.cellIndex);
+        if (!site || !Number.isInteger(cellIndex) || cellIndex < 0
+            || cellIndex >= Number(world.cellCount)) continue;
+        const wx = Number(world.centerX[cellIndex]) / Number(world.width) * STORY_WORLD_W;
+        const wy = Number(world.centerY[cellIndex]) / Number(world.height) * STORY_WORLD_H;
+        const point = storyW2S(wx, wy);
+        const edgeWorld = Number(world.radius) / Number(world.width) * STORY_WORLD_W;
+        const edgePoint = storyW2S(wx + edgeWorld, wy);
+        const size = Math.max(24, Math.min(112,
+            Math.round(Math.abs(edgePoint.x - point.x) * 2 * 1.72)));
+        if (!visible(point, size)) continue;
+        targets.push({
+            id: site.id,
+            kind: 'SITE',
+            siteId: site.id,
+            cellId: site.cellId,
+            cellIndex,
+            nodeId: Number(site.cityId),
+            regionId: site.regionId,
+            label: site.siteType || 'CONSTRUCTION',
+            x: point.x,
+            y: point.y + size * .18,
+            radiusX: Math.max(12, size * .46),
+            radiusY: Math.max(12, size * .38)
+        });
+    }
+    STORY._mapStructurePickTargets = targets;
+    STORY._mapStructurePickDiagnostics = {
+        adapterVersion: 'visible-structure-picks-1',
+        targetCount: targets.length,
+        siteCount: targets.filter(row => row.kind === 'SITE').length,
+        districtCount: targets.filter(row => row.kind === 'DISTRICT').length
+    };
+    return targets;
+}
+
 function storyDrawPhysicalRailOverlay(ctx, farMap) {
     if (typeof storyHexInfrastructureSegmentsEnsure !== 'function'
         || typeof storyHexInfrastructureSegmentFactorBps !== 'function'
@@ -1863,6 +1957,10 @@ function storyReleaseWorldRamLayer(layer) {
         layer._viewCacheCanvas = null;
         layer._viewCacheKey = null;
     }
+    if (layer.interactionBitmap && typeof layer.interactionBitmap.close === 'function') {
+        try { layer.interactionBitmap.close(); } catch (_error) { /* best effort */ }
+        layer.interactionBitmap = null;
+    }
     for (const tile of layer.tiles) {
         if (tile && tile.bitmap && typeof tile.bitmap.close === 'function') {
             try { tile.bitmap.close(); } catch (_error) { /* best effort */ }
@@ -1894,6 +1992,22 @@ function storyCreateWorldRamLayer(canvas, metadata) {
     const tileSize = 1024;
     const width = Number(canvas.width) || 0;
     const height = Number(canvas.height) || 0;
+    let interactionBitmapPromise = null;
+    const interactionScale = .5;
+    if (typeof createImageBitmap === 'function' && width > 1 && height > 1) {
+        const interactionCanvas = document.createElement('canvas');
+        interactionCanvas.width = Math.max(1, Math.round(width * interactionScale));
+        interactionCanvas.height = Math.max(1, Math.round(height * interactionScale));
+        const interactionPaint = interactionCanvas.getContext('2d');
+        interactionPaint.imageSmoothingEnabled = true;
+        interactionPaint.imageSmoothingQuality = 'high';
+        interactionPaint.drawImage(canvas, 0, 0, width, height,
+            0, 0, interactionCanvas.width, interactionCanvas.height);
+        interactionBitmapPromise = createImageBitmap(interactionCanvas).then(bitmap => {
+            interactionCanvas.width = 1; interactionCanvas.height = 1;
+            return bitmap;
+        }).catch(() => null);
+    }
     const tiles = [];
     for (let ty = 0; ty < height; ty += tileSize) {
         for (let tx = 0; tx < width; tx += tileSize) {
@@ -1919,13 +2033,19 @@ function storyCreateWorldRamLayer(canvas, metadata) {
     }
     canvas.width = 1;
     canvas.height = 1;
-    return Object.assign({
+    const layer = Object.assign({
         tiles,
+        interactionBitmap: null,
+        interactionScale,
         width,
         height,
         tileSize,
         estimatedBytes: width * height * 4
     }, metadata || {});
+    if (interactionBitmapPromise) interactionBitmapPromise.then(bitmap => {
+        if (bitmap) layer.interactionBitmap = bitmap;
+    });
+    return layer;
 }
 
 function storyDrawWorldRamLayer(ctx, layer) {
@@ -1971,7 +2091,24 @@ function storyDrawWorldRamLayer(ctx, layer) {
     let drawn = 0;
     drawCtx.save();
     drawCtx.imageSmoothingEnabled = false;
-    for (const tile of layer.tiles) {
+    const interactionBitmap = STORY._mapInteracting && layer.interactionBitmap;
+    const selectedBitmap = interactionBitmap || null;
+    const selectedScale = Number(layer.interactionScale) || .5;
+    if (selectedBitmap) {
+        const x0 = Math.max(0, viewLeft), y0 = Math.max(0, viewTop);
+        const x1 = Math.min(Number(layer.width), viewRight);
+        const y1 = Math.min(Number(layer.height), viewBottom);
+        if (x1 > x0 && y1 > y0) {
+            drawCtx.drawImage(selectedBitmap,
+                x0 * selectedScale, y0 * selectedScale,
+                (x1 - x0) * selectedScale, (y1 - y0) * selectedScale,
+                (x0 - viewLeft) * zoom / worldScale,
+                (y0 - viewTop) * zoom / worldScale,
+                (x1 - x0) * zoom / worldScale,
+                (y1 - y0) * zoom / worldScale);
+            drawn = 1;
+        }
+    } else for (const tile of layer.tiles) {
         if (tile.x + tile.width < viewLeft || tile.x > viewRight
             || tile.y + tile.height < viewTop || tile.y > viewBottom) continue;
         const source = tile.bitmap || tile.canvas;
@@ -3353,6 +3490,7 @@ function storyRender() {
         g, settlementWorldLayers, mapZoomRatio
     );
     storyDrawPhysicalConstructionSites(g, physicalSitesModel, mapZoomRatio);
+    storyMapStructurePickRegistryRefresh(urbanModel, physicalSitesModel, mapZoomRatio);
     const settlementWorldDrawFinished = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
     const settlementOverlayStarted = settlementWorldDrawFinished;

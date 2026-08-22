@@ -825,29 +825,40 @@
             // unrelated natural landmarks stay out of the city cell.
             atlas = null;
         } else if (resource === 'PETROLEUM') {
-            atlas = 'settlements'; variant = 8; size = baseWorld * 1.86; kind = 'OIL';
+            atlas = 'geographyVarietyModern'; variant = 15;
+            size = baseWorld * 2.04; kind = 'OIL';
         } else if (resource === 'MINERAL') {
-            atlas = 'ruralEnvironment'; variant = 9; size = baseWorld * 1.96; kind = 'MINE';
+            atlas = 'geographyVarietyModern'; variant = 14;
+            size = baseWorld * 2.08; kind = 'MINE';
         } else if (cover === 'MOUNTAIN'
             && (Number(geography.mountainIntensityBps[index]) >= 6000 || detailSeed > .48)) {
             const mountain = Number(geography.mountainIntensityBps[index]);
-            atlas = 'mountains';
+            atlas = detailSeed > .72 ? 'geographyVarietyModern' : 'mountains';
             const band = latitude > .68 ? 3 : latitude < .32 ? 2
                 : mountain >= 6500 ? 1 : 0;
-            variant = band * 4 + Math.floor(seedB * 4);
+            variant = atlas === 'geographyVarietyModern'
+                ? (latitude > .66 ? 13 : 12)
+                : band * 4 + Math.floor(seedB * 4);
             size = baseWorld * 2.16; alpha = .98; kind = 'MOUNTAIN';
         } else if (cover === 'FOREST' && !job.infrastructureOccupiedCells.has(index)
             && detailSeed > .58) {
-            atlas = 'forests';
+            atlas = seedA > .58 ? 'geographyVarietyModern' : 'forests';
             const band = latitude > .68 ? 3 : latitude < .30 ? 2 : seedB > .55 ? 0 : 1;
-            variant = band * 4 + Math.floor(seedB * 4);
+            variant = atlas === 'geographyVarietyModern'
+                ? (latitude > .64 ? 2 : latitude > .48 ? 3 : seedB > .5 ? 0 : 1)
+                : band * 4 + Math.floor(seedB * 4);
             size = baseWorld * 2.10; alpha = .98; kind = 'FOREST';
         } else if (seedA > .90) {
             // Tarım alanı değildir: yalnız seyrek doğal yüzey ayrıntısıdır.
-            atlas = 'terrainDetail';
+            atlas = detailSeed > .95 ? 'geographyVarietyModern' : 'terrainDetail';
             const row = latitude > .70 ? 3 : latitude > .56 ? 2 : seedB > .62 ? 1 : 0;
-            variant = row * 4 + Math.floor(seedB * 4);
-            size = baseWorld * 2.08; alpha = .74; kind = 'TERRAIN';
+            variant = atlas === 'geographyVarietyModern'
+                ? (latitude > .70 ? 6 + Math.floor(seedB * 2)
+                    : latitude > .55 ? 5
+                        : seedB > .82 ? 11 : seedB > .60 ? 4 : 12)
+                : row * 4 + Math.floor(seedB * 4);
+            size = baseWorld * 2.08; alpha = atlas === 'geographyVarietyModern' ? .90 : .74;
+            kind = 'TERRAIN';
         }
         // One clipped composition per physical hex: continuous ground first,
         // then the canonical land-use/resource/cover landmark when present.
@@ -1064,7 +1075,7 @@
         }
         let drawn = 0;
         let drawMode = 'DETAIL';
-        if (zoomRatio < 1.55 && cache.overviewBitmap) {
+        if ((zoomRatio < 1.55 || STORY._mapInteracting) && cache.overviewBitmap) {
             const overviewScale = Math.max(.1, Number(cache.overviewScale) || .5);
             const ix0 = Math.max(0, viewLeft);
             const iy0 = Math.max(0, viewTop);
@@ -1072,8 +1083,7 @@
             const iy1 = Math.min(STORY_WORLD_H, viewBottom);
             if (ix1 > ix0 && iy1 > iy0) {
                 paintCtx.save();
-                paintCtx.imageSmoothingEnabled = true;
-                paintCtx.imageSmoothingQuality = 'high';
+                paintCtx.imageSmoothingEnabled = false;
                 paintCtx.drawImage(cache.overviewBitmap,
                     ix0 * overviewScale, iy0 * overviewScale,
                     (ix1 - ix0) * overviewScale, (iy1 - iy0) * overviewScale,
@@ -1081,7 +1091,7 @@
                     (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
                 paintCtx.restore();
                 drawn = 1;
-                drawMode = 'OVERVIEW';
+                drawMode = STORY._mapInteracting ? 'INTERACTION_MIP' : 'OVERVIEW';
             }
         } else {
             paintCtx.save();
@@ -1160,7 +1170,8 @@
             || typeof storyHexNaturalResourcesEnsure !== 'function'
             || typeof storyHexSitesEnsure !== 'function') return null;
         const required = ['mountains', 'forests', 'groundDetail', 'seasonalGround',
-            'terrainDetail', 'ruralEnvironment', 'settlements', 'landUseModern'];
+            'terrainDetail', 'ruralEnvironment', 'geographyVarietyModern',
+            'settlements', 'landUseModern'];
         if (!required.every(storyMapAtlasReady)) return null;
         const world = storyHexWorldEnsure();
         const geography = storyHexGeographyEnsure();

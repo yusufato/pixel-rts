@@ -778,6 +778,46 @@ app.whenReady().then(() => {
                 || !hoverStability.statNodePreserved || !hoverStability.tooltipHasText) {
                 problems.push('hover/tooltip kararlılığı bozuk: ' + JSON.stringify(hoverStability));
             }
+            const istanbulStructures = await js(`(() => { try {
+                const cv=document.getElementById('storyCanvas');
+                const node=STORY.nodes.find(row=>String(row&&row.name||'').toLocaleUpperCase('tr-TR')==='İSTANBUL');
+                if(!node) return {err:'İstanbul düğümü bulunamadı'};
+                const anchor=storyHexSettlementNodePosition(node,STORY_WORLD_W,STORY_WORLD_H);
+                storyCam.zoom=4.5;storyMapV2CenterCamera(storyCam,anchor.x,anchor.y,cv.width,cv.height);
+                storyClampCam(cv.width,cv.height);storyRender();storyPanelUpdate();
+                const visible=(STORY._mapStructurePickTargets||[])
+                    .filter(row=>Number(row.nodeId)===Number(node.id)
+                        &&['SITE','DISTRICT'].includes(row.kind))
+                    .sort((a,b)=>Math.hypot(a.x-cv.width/2,a.y-cv.height/2)
+                        -Math.hypot(b.x-cv.width/2,b.y-cv.height/2));
+                const picked=[];
+                for(const target of visible.slice(0,5)){
+                    const ok=storySelectRegionEntityAtCanvasPoint(target.x,target.y);
+                    storyPanelUpdate();
+                    const ref=STORY._selectedMapEntity||{};
+                    const text=String(document.getElementById('story-node-info')?.innerText||'');
+                    picked.push({ok,id:target.id,kind:target.kind,siteId:target.siteId||null,
+                        selectedKind:ref.kind||null,selectedSiteId:ref.siteId||null,
+                        selectedCellId:ref.cellId||null,
+                        dossier:text.includes('TESİS')||text.includes('İLÇE'),
+                        dossierTitle:text.split('\\n').slice(0,3).join(' · ')});
+                }
+                return {nodeId:node.id,visibleCount:visible.length,
+                    targetCount:(STORY._mapStructurePickTargets||[]).length,
+                    uniqueVisibleIds:new Set(visible.map(row=>row.id)).size,picked};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_ISTANBUL_STRUCTURE_PICKS ' + JSON.stringify(istanbulStructures));
+            await sleep(100);await settlePaint();await shot('map-8-istanbul-yapi-dosyasi');
+            if (!istanbulStructures || istanbulStructures.err
+                || istanbulStructures.visibleCount < 5
+                || istanbulStructures.uniqueVisibleIds < 5
+                || istanbulStructures.picked.length !== 5
+                || istanbulStructures.picked.some(row=>!row.ok||!row.dossier
+                    || row.kind!==row.selectedKind
+                    || (row.siteId&&row.siteId!==row.selectedSiteId))) {
+                problems.push('İstanbul görünür yapı seçim/dosya bağı bozuk: '
+                    + JSON.stringify(istanbulStructures));
+            }
             // Gerçek oyuncu akışı: zamanı UI düğmesiyle başlat/durdur, ardından
             // doğal altıgenlere tıkla ve sağ panelin simülasyon gerçeğini açtığını
             // ekran görüntüsü + metin kanıtıyla doğrula.
@@ -980,7 +1020,13 @@ app.whenReady().then(() => {
                     && constructionDossier.hasParties&&constructionDossier.hasMaterials
                     && constructionDossier.hasWorkforce)},
                 {id:'HOVER_AND_SELECTION',ok:!!(hoverStability
-                    && hoverStability.regionEntityMisses===0&&hoverStability.cellMisses===0)}
+                    && hoverStability.regionEntityMisses===0&&hoverStability.cellMisses===0)},
+                {id:'VISIBLE_STRUCTURE_DOSSIERS',ok:!!(istanbulStructures
+                    && !istanbulStructures.err&&istanbulStructures.visibleCount>=5
+                    && istanbulStructures.picked.length===5
+                    && istanbulStructures.picked.every(row=>row.ok&&row.dossier
+                        && row.kind===row.selectedKind
+                        && (!row.siteId||row.siteId===row.selectedSiteId)))}
             ];
             const successfulFlows=interactionFlows.filter(row=>row.ok).length;
             const playerInteractionReport={
@@ -992,7 +1038,7 @@ app.whenReady().then(() => {
                     staticRenderDelta:transportMotion&&transportMotion.staticRenderDelta,
                     distinctPositions:transportMotion&&transportMotion.distinctPositions},
                 evidenceScreens:['map-7-lojistik-panel.png','map-9-altigen-dosyasi.png',
-                    'map-10-insaat-dosyasi.png']
+                    'map-8-istanbul-yapi-dosyasi.png','map-10-insaat-dosyasi.png']
             };
             fsx2.writeFileSync(path.join(SHOTS_DIR,'player-ui-interaction-report.json'),
                 JSON.stringify(playerInteractionReport,null,2));

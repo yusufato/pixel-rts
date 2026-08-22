@@ -986,3 +986,10 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
   konu korunmasına rağmen takip kaydı bunu taşımıyordu. `inheritedTopic`,
   `CONTINUE_SOCIAL` ve `CLARIFY_AMBIGUOUS_INPUT` kanonikleştirildi; merkez uzun
   konuşma probunun yedi devamlılık ölçüsü birlikte geçti.
+
+### 22 Ağustos 2026 — harita UI gerçeği ve görsel borç ayrımı
+
+- Kullanıcının “altıgeni değil, İstanbul yanındaki beş yapının içeriğini görmek istiyorum” düzeltmesi doğruydu. Önceki hücre dosyası, görünen yapının kimliğini kanıtlamıyordu. Render kaynaklı görünür yapı sicili eklendi; gerçek Electron'da beş ayrı yapı beş ayrı `districtId/siteId` dosyasına bağlandı.
+- Oyuncu ve ekonomik AI inşaatı aynı fiziksel komut/site zincirindedir. Şantiye görseli seçildiğinde proje, ilerleme, bitiş, taraf, para, malzeme ve iş gücü okunur. Dekoratif veya kayıtsız inşaat kabul edilmez.
+- Taşıt hareketi artık ölçülen sorun değildir: `p95 0,3 ms`, 70 ara konum, sıfır ters-rotasyon ve statik harita yeniden çizimi yok. Genel harita kompoziti ise uzak/orta/etkileşimde `17,6 / 19,7 / 19,7 ms`; 60 FPS kapısı kırmızıdır.
+- On altı yeni coğrafya kaynağı eklendi fakat harita bütünü 4/10'dur. Öncelikli görsel borç sırası: (1) yol spline/kesişim dili, (2) modern kent-ilçe-sanayi aileleri, (3) iklimsel zemin geçişleri ve boş alan yoğunluğu, (4) üretim/mülkiyet okunabilirliği, (5) 2010–2100 teknoloji ve durum varyantları, (6) atlas kenar temizliği. Bu liste “çok resim ekle” işi değil; her varlığın mekanik kimlik, çağ, iklim, sahip ve durum seçicisine bağlanması şarttır.

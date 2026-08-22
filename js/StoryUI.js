@@ -675,7 +675,9 @@ function storyRegionSelectionResolve(selected) {
                 q: world && Number(world.qValues[index]), r: world && Number(world.rValues[index]) };
         }
         if (!land || storyRegionNumber(land.regionId) !== Number(selected.id)) return fallback;
-        const siteId = (model.siteIdsByCellId[String(ref.cellId)] || [])[0];
+        const siteIds = model.siteIdsByCellId[String(ref.cellId)] || [];
+        const siteId = ref.siteId && siteIds.includes(String(ref.siteId))
+            ? String(ref.siteId) : siteIds[0];
         const site = siteId ? model.siteById[siteId] : null;
         return { kind: site ? 'SITE' : 'DISTRICT', nodeId: selected.id,
             regionId: land.regionId, cellId: land.cellId, land, site };
@@ -1073,6 +1075,44 @@ function storyRegionEntityAtWorld(x, y) {
         return { kind: siteId ? 'SITE' : 'DISTRICT', cellId: cell.id,
             siteId, regionId: land.regionId, nodeId: storyRegionNumber(land.regionId) };
     } catch (_) { return null; }
+}
+function storyRegionEntityAtCanvasPoint(x, y) {
+    const targets = Array.isArray(STORY._mapStructurePickTargets)
+        ? STORY._mapStructurePickTargets : [];
+    for (let index = targets.length - 1; index >= 0; index--) {
+        const target = targets[index];
+        if (!target || target.hidden) continue;
+        const rx = Math.max(8, Number(target.radiusX) || Number(target.radius) || 8);
+        const ry = Math.max(8, Number(target.radiusY) || Number(target.radius) || 8);
+        const dx = (Number(x) - Number(target.x)) / rx;
+        const dy = (Number(y) - Number(target.y)) / ry;
+        if (dx * dx + dy * dy > 1) continue;
+        return {
+            kind: target.kind,
+            cellId: target.cellId || null,
+            cellIndex: Number.isInteger(target.cellIndex) ? target.cellIndex : null,
+            siteId: target.siteId || null,
+            districtId: target.districtId || null,
+            structureId: target.id || null,
+            structureLabel: target.label || null,
+            regionId: target.regionId || null,
+            nodeId: Number(target.nodeId)
+        };
+    }
+    return null;
+}
+function storyRegionCanvasPointFromEvent(canvas, event) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: (event.clientX - rect.left) * (canvas.width / Math.max(1, rect.width)),
+        y: (event.clientY - rect.top) * (canvas.height / Math.max(1, rect.height))
+    };
+}
+function storySelectRegionEntityAtCanvasPoint(x, y) {
+    const entity = storyRegionEntityAtCanvasPoint(x, y);
+    if (!entity || !Number.isInteger(entity.nodeId) || !storyNode(entity.nodeId)) return false;
+    storySelectNode(entity.nodeId, entity);
+    return true;
 }
 function storySelectRegionEntityAtWorld(x, y) {
     const entity = storyRegionEntityAtWorld(x, y);
@@ -2243,8 +2283,11 @@ function storyInit() {
                 // ŞEHRE GİR paneli açıkken harita tıklaması paneli KAPATMAZ, odağı o şehre taşır
                 // (şehir seçmek panelin doğal kullanımı — kapatmak akışı bozardı).
                 if (STORY._cityOpen || STORY._economyOpen) {
+                    const point = storyRegionCanvasPointFromEvent(cv, e);
                     const w = worldFromEvent(e), hit = pickNode(w.x, w.y);
-                    if (hit >= 0) {
+                    if (storySelectRegionEntityAtCanvasPoint(point.x, point.y)) {
+                        if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
+                    } else if (hit >= 0) {
                         storySelectNode(hit);
                         if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
                     } else if (storySelectRegionEntityAtWorld(w.x, w.y)) {
@@ -2255,19 +2298,27 @@ function storyInit() {
                     }
                 }
                 else if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); }   // diğer paneller: haritaya tık = kapat
-                else { const w = worldFromEvent(e), hit = pickNode(w.x, w.y); if (hit >= 0) storySelectNode(hit); else storySelectRegionEntityAtWorld(w.x, w.y); }
+                else {
+                    const point = storyRegionCanvasPointFromEvent(cv, e);
+                    const w = worldFromEvent(e), hit = pickNode(w.x, w.y);
+                    if (storySelectRegionEntityAtCanvasPoint(point.x, point.y)) { /* exact visible structure */ }
+                    else if (hit >= 0) storySelectNode(hit);
+                    else storySelectRegionEntityAtWorld(w.x, w.y);
+                }
             }
             dragging = false; cv.style.cursor = 'grab';
             if (wasDragging) scheduleMapRender();
         });
         cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
             if (dragging) return;
+            const point = storyRegionCanvasPointFromEvent(cv, e);
             const w = worldFromEvent(e);
             if (typeof storyHexPoliticalCellAtWorld === 'function') {
                 const cell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
                 STORY._hoverHexCellId = cell ? cell.id : null;
             }
-            const regionEntity = storyRegionEntityAtWorld(w.x, w.y);
+            const structureEntity = storyRegionEntityAtCanvasPoint(point.x, point.y);
+            const regionEntity = structureEntity || storyRegionEntityAtWorld(w.x, w.y);
             cv.style.cursor = STORY._hexConstructionPickMode
                 && STORY._hexConstructionDraft
                 && STORY._hexConstructionDraft.candidateCellIds.includes(STORY._hoverHexCellId)
