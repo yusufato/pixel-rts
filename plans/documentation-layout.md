@@ -136,10 +136,10 @@ _arsiv/
 
 - Ürün belgelerini `docs/product/` altına taşı: genel oyun tasarımı, genel geliştirme planı ve teknoloji ağacı.
 - Hikâye belgelerini amaçlarına göre `docs/story/plans`, `design`, `status`, `qa` ve `research` altına taşı. Özellikle ana katmanlı dünya planı ile uygulama durumunu ayrı tut; biri hedef, diğeri gerçekleşen durumdur.
-- `MODERN_DUNYA_EKSIKLERI.md` dosyasını yaşayan borç/status belgesi olarak işaretle; arşivleme.
-- `DIS_ANALIZ_VERI_DEFTERI.md` dosyasını araştırma girdisi olarak konumlandır; kanonik tasarımla karıştırma.
+- `../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` dosyasını yaşayan borç/status belgesi olarak işaretle; arşivleme.
+- `../docs/story/research/DIS_ANALIZ_VERI_DEFTERI.md` dosyasını araştırma girdisi olarak konumlandır; kanonik tasarımla karıştırma.
 - UI ve harita QA belgelerini `docs/ux/qa` altında topla; tasarım QA ile uygulama durumunu ayrı etiketle.
-- `INTERNET-KURULUM.md` dosyasını `docs/operations/` altına taşı.
+- `../docs/operations/INTERNET-KURULUM.md` dosyasını `docs/operations/` altına taşı.
 - `README.md`, `_arsiv/README.md` ve tüm depo içi inbound referansları aynı commit içinde yeni yollara güncelle.
 - Eski kök yollar için boş/tekrarlı yönlendirme belgeleri bırakma; bağlantı taraması geçmeden commit oluşturma.
 

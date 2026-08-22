@@ -4,10 +4,10 @@ Bu alan oyuncunun gördüğü bilgi, verebildiği karar ve görsel/etkileşim do
 
 ## Mevcut girişler
 
-- [Oyuncu UI etkileşim raporu](../../OYUNCU_UI_ETKILESIM_RAPORU.md) — oyuncunun erişebildiği bilgi ve eylemler.
-- [Genel tasarım QA](../../design-qa.md) — görsel/ürün değerlendirmesi.
-- [Hikâye haritası tasarım QA](../../story-map-design-qa.md) — harita görünümü ve etkileşim borçları.
-- [Sohbet QA](../../STORY_DIALOGUE_QA.md) — görüşme arayüzü ve konuşma kalitesi.
+- [Oyuncu UI etkileşim raporu](qa/OYUNCU_UI_ETKILESIM_RAPORU.md) — oyuncunun erişebildiği bilgi ve eylemler.
+- [Genel tasarım QA](qa/design-qa.md) — görsel/ürün değerlendirmesi.
+- [Hikâye haritası tasarım QA](qa/story-map-design-qa.md) — harita görünümü ve etkileşim borçları.
+- [Sohbet QA](../story/qa/STORY_DIALOGUE_QA.md) — görüşme arayüzü ve konuşma kalitesi.
 - [Mockup bulguları](../../mockup/BULGULAR.md) — mockup bağlamında yaşayan bulgular; kendi klasöründe kalır.
 
 ## Ayrım

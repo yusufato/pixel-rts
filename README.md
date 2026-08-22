@@ -13,11 +13,11 @@ Pixel RTS; hızlı maç ile hikâye modunda aynı taktik savaş kaynaklarını k
 
 Ayrıntılı ve güncel durum:
 
-- [Hikâye modu ana planı](HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md)
-- [Hikâye modu uygulama durumu](HIKAYE_MODU_UYGULAMA_DURUMU.md)
-- [Modern dünya eksikleri](MODERN_DUNYA_EKSIKLERI.md)
+- [Hikâye modu ana planı](docs/story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md)
+- [Hikâye modu uygulama durumu](docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md)
+- [Modern dünya eksikleri](docs/story/status/MODERN_DUNYA_EKSIKLERI.md)
 - [Savaş AI tasarım planı](SAVAS_AI_TASARIM_PLANI.md)
-- [Sohbet motoru geliştirme planı](HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md)
+- [Sohbet motoru geliştirme planı](docs/story/plans/HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md)
 
 ## Çalıştırma ve doğrulama
 
@@ -166,7 +166,7 @@ Bu ilk karar motorudur, otomatik dengeleyici değildir. 900 saniyede gıda üret
 
 Yeni kampanyada sekiz devletin bütün 28 ikili ilişkisi `peace` başlar. Ateşkes süresinin dolması otomatik savaş ilanı değildir. AI genelkurmayı, saldırı emri ve kuşatma çözümü aynı düşmanlık kapısından geçer; oyuncu barıştaki devlete saldırmak isterse önce açık savaş ilanı kararını onaylar.
 
-Bu yalnız temel başlangıç düzeltmesidir. Casus belli, kriz basamakları, yaptırım, kurum onayı ve çok hedefli diplomasi AI’si sonraki fazlardadır. Modern dünya hedefiyle çalışan kod arasındaki güncel farklar [MODERN_DUNYA_EKSIKLERI.md](MODERN_DUNYA_EKSIKLERI.md) içinde izlenir. Tam karakter ve hafıza dalgası Faz 34–38.5’tir.
+Bu yalnız temel başlangıç düzeltmesidir. Casus belli, kriz basamakları, yaptırım, kurum onayı ve çok hedefli diplomasi AI’si sonraki fazlardadır. Modern dünya hedefiyle çalışan kod arasındaki güncel farklar [docs/story/status/MODERN_DUNYA_EKSIKLERI.md](docs/story/status/MODERN_DUNYA_EKSIKLERI.md) içinde izlenir. Tam karakter ve hafıza dalgası Faz 34–38.5’tir.
 
 ## Hikâye yönetim çalışma alanı
 

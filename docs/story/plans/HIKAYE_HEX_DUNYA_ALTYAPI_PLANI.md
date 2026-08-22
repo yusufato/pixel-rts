@@ -448,7 +448,7 @@ Bu program mevcut ana fazları yeniden numaralandırmaz. Ana planın altına ça
 
 ### HXD-0 — Sözleşme ve referans dondurma
 
-**Durum: `completed` —** Sonuçlar `HIKAYE_HEX_DUNYA_ENVANTERI.md` içinde donduruldu.
+**Durum: `completed` —** Sonuçlar `../design/HIKAYE_HEX_DUNYA_ENVANTERI.md` içinde donduruldu.
 
 - Mevcut şehir, bölge, raster, koridor, sipariş, sevkiyat, depo ve kayıt şemalarını envanterle.
 - Ankara–İstanbul ile İstanbul–İzmir/Trabzon referans senaryolarını sabitle.

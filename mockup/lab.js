@@ -2,12 +2,12 @@
    MOCKUP LABORATUVAR ÇALIŞMA ZAMANI  —  OYUNA TAŞINMAZ
    ═══════════════════════════════════════════════════════════════════════════
    Görevleri:
-     1. Viewport çerçevesi   — 916×572 / 1280×800 / 1903×974 (design-qa.md:9, :58)
+     1. Viewport çerçevesi   — 916×572 / 1280×800 / 1903×974 (../docs/ux/qa/design-qa.md:9, :58)
      2. Katman anahtarı      — A (bilgi mimarisi) / B (görsel dil)
      3. Redline pinleri      — data-kusur="2,3" → numaralı rozet + lejant
      4. Kapsama kapısı       — bu yüzeye ait her kusur numarası sahnede var mı
      5. Taşma kapısı         — üç viewport'ta da yatay taşma sıfır mı
-     6. CRT yoğunluk kaydırıcısı — design-qa.md:36'daki tek açık P3 bulgusu
+     6. CRT yoğunluk kaydırıcısı — ../docs/ux/qa/design-qa.md:36'daki tek açık P3 bulgusu
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
     'use strict';
@@ -44,18 +44,18 @@
         12: { y: '02', k: 'b', t: 'Yetim CSS: #train-ai-btn ve #ai-training-screen HTML/JS\'te yok',
               kod: 'style.css:188-218, :404' },
         13: { y: '02', k: 'b', t: 'CRT yoğunluğu bazı arazi tohumlarında fazla parlak (tek açık P3)',
-              kod: 'design-qa.md:36' },
+              kod: '../docs/ux/qa/design-qa.md:36' },
         /* ── 03 HİKAYE DÜNYASI — Katman A ───────────────────────────────── */
         14: { y: '03', k: 'a', t: 'Rol seçimi navigasyonu süzmüyor: 8 düğme + 7 drawer + 3 modal herkese aynı',
-              kod: 'MODERN_DUNYA_EKSIKLERI.md MW-014 / MW-020 · index.html:230 sabit 8 araç' },
+              kod: '../docs/story/status/MODERN_DUNYA_EKSIKLERI.md MW-014 / MW-020 · index.html:230 sabit 8 araç' },
         15: { y: '03', k: 'a', t: 'Gündem yalnız yönlendiriyor, karar verdirmiyor',
               kod: 'js/StoryUI.js:237-251 storyAgendaNavigate yalnız panel açıyor · MW-003' },
         16: { y: '03', k: 'a', t: 'AKIŞ son 6 kayıtla sınırlı; oyuncu geriye dönüp okuyamıyor',
               kod: 'js/Story.js:124 log.length > 6 kırpılıyor · gazete 30 kayıt' },
         17: { y: '03', k: 'a', t: 'Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor, 25 var)',
-              kod: 'HIKAYE_MODU_UYGULAMA_DURUMU.md Faz 38.1 açık borç' },
+              kod: '../docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md Faz 38.1 açık borç' },
         18: { y: '03', k: 'a', t: '"NEDEN DEĞİŞTİ?" neden-izi bazı alanlarda yok (diplomasi, sadakat, itibar, kuyruk, ordu)',
-              kod: 'HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298 kapsam sınırı' },
+              kod: '../docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md:271-298 kapsam sınırı' },
         /* ── 03 HİKAYE DÜNYASI — Katman B ───────────────────────────────── */
         19: { y: '03', k: 'b', t: 'Eski mavi hikaye bloğu duruyor; #story-hud/#story-news/#story-tools İKİ KEZ tanımlı',
               kod: 'style.css:1005-1185 eski · :1181+ war-room ezmesi' },
@@ -63,22 +63,22 @@
               kod: 'style.css:1206 #story-stats justify-content:flex-end + overflow yok · :1207 .story-stat-chip min-width:92px · ÖLÇÜLDÜ (9 çip, içerik 1070px): 1100→549px taşma · 1280→369px · 1440→209px · 1600→49px · kanıt qa-runtime/mockup-baseline/kusur-16-akis-sekmesi.png' },
         /* ── 04 GÖRÜŞME ─────────────────────────────────────────────────── */
         20: { y: '04', k: 'a', t: 'İlişki merceği yok: geçmiş/borç/verilen söz zinciri tek yerde görünmüyor',
-              kod: 'MODERN_DUNYA_EKSIKLERI.md MW-014 · js/Talks.js:1270 profil yalnız statik' },
+              kod: '../docs/story/status/MODERN_DUNYA_EKSIKLERI.md MW-014 · js/Talks.js:1270 profil yalnız statik' },
         21: { y: '04', k: 'a', t: 'Kayıtlı oturum sayısı artınca geçmiş sütununda arama/filtre yok',
               kod: 'js/Talks.js:1549 storyTalkConversationHistoryHtml düz liste' },
         /* ── 01 MENÜ + KURULUM ──────────────────────────────────────────── */
         22: { y: '01', k: 'a', t: '12 soruluk akışta GERİ ALMA yok, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız',
               kod: 'js/Character.js:601-625 seçenek tıklanınca decisions\'a yazılıp ilerliyor, dönüş yolu yok · :596 sayaç başlık satırının içinde (tema geçişi ve rol-başı dağılım :392-399 görünmüyor) · index.html:81 adım 2 = "BRİFİNG" ama :73 aynı adım = "KARAKTER"' },
         23: { y: '01', k: 'b', t: 'Yeni tipografi ölçeği uzun Türkçe etiketlerde kırpma yapmamalı',
-              kod: 'design-qa.md:20 mevcut kabul ölçütü' },
+              kod: '../docs/ux/qa/design-qa.md:20 mevcut kabul ölçütü' },
         25: { y: '01', k: 'a', t: 'KAMPANYAYI BAŞLATAN BUTON 916×572\'de EKRAN DIŞINDA ve kaydırma yok — oyun başlatılamıyor',
               kod: 'ÖLÇÜLDÜ (gerçek giriş yolu, 8 devlet kartı dolu): #btn-story-start alt kenarı 632px / viewport 572px → 60px altta · style.css:919 .wr-setup-layout overflow YOK, height:calc(100% - 92px) sabit · .app-screen overflow:hidden (style.css:589) → kırpıyor · kurtarıcı kural style.css:994 yalnız @media(max-width:900px) altında, 916px\'te uygulanmıyor · kanıt qa-runtime/mockup-baseline/kusur-25-baslat-butonu-916x572.png' }
     };
 
     var VIEWPORTS = [
-        { w: 916,  h: 572,  ad: '916×572',   not: 'QA masaüstü tabanı (design-qa.md:9)' },
-        { w: 1280, h: 800,  ad: '1280×800',  not: 'geniş kontrol (design-qa.md:9)' },
-        { w: 1903, h: 974,  ad: '1903×974',  not: 'compositor çekimi (design-qa.md:58)' }
+        { w: 916,  h: 572,  ad: '916×572',   not: 'QA masaüstü tabanı (../docs/ux/qa/design-qa.md:9)' },
+        { w: 1280, h: 800,  ad: '1280×800',  not: 'geniş kontrol (../docs/ux/qa/design-qa.md:9)' },
+        { w: 1903, h: 974,  ad: '1903×974',  not: 'compositor çekimi (../docs/ux/qa/design-qa.md:58)' }
     ];
 
     var params = new URLSearchParams(global.location.search);
@@ -209,7 +209,7 @@
     }
 
     /* ── KAPI 2: YATAY TAŞMA ─────────────────────────────────────────────
-       design-qa.md:15'teki mevcut kabul ölçütünün aynısı: hiçbir viewport'ta
+       ../docs/ux/qa/design-qa.md:15'teki mevcut kabul ölçütünün aynısı: hiçbir viewport'ta
        yatay taşma olmayacak. Sahne overflow:hidden olduğu için scrollWidth
        yerine her çocuğun sahne kutusunu aşıp aşmadığına bakılır.
 
@@ -258,7 +258,7 @@
        Kapı 2 yalnız SAHNE kutusuna bakıyordu ve gerçek bir kusuru kaçırdı:
        hikaye komuta çubuğundaki 9 çip kendi kabını (#story-stats) 369 px
        taşırıp başlığın üstüne akıyordu, ama sahneyi taşırmadığı için kapı
-       yeşil kalıyordu. Oyunun kendi QA'sı da (design-qa.md) aynı körlükteydi:
+       yeşil kalıyordu. Oyunun kendi QA'sı da (../docs/ux/qa/design-qa.md) aynı körlükteydi:
        yalnız *sayfa* taşmasına bakıyordu. Bkz. kusur 24.
 
        Ölçüt: esnek/ızgara kaplar için çocukların uç noktaları kabın içerik

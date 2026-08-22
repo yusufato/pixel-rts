@@ -113,7 +113,7 @@ uydurulamaz; harita yalnız onların fiziksel ve etkileşimli görünümüdür.
 - [ ] Aynı viewport/state ile hedef 2B görsel ve uygulama yan yana incelenir.
 - [x] Şehir yoğunluğu, İstanbul Boğazı, dağ zinciri, ada/liman ve altyapı
   kavşağı için odak kontrolleri geçer.
-- [ ] `design-qa.md` aktif 2B sonucu `passed` demeden 2B tamamlandı denmez.
+- [ ] `../../ux/qa/design-qa.md` aktif 2B sonucu `passed` demeden 2B tamamlandı denmez.
 
 Son mühendislik adayı kanıtı:
 `qa-runtime/story-map-2d-final-candidate` ve

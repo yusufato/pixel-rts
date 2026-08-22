@@ -18,12 +18,12 @@ Bu dizin projenin kanonik belge girişidir. Oyun davranışının kaynağı kod 
 |---|---|---|---|
 | Ürün ve çalışma durumu | Aktif | [Proje README](../README.md) | Çalıştırma, doğrulama ve mevcut ürün özeti |
 | Sistem sınırları | Referans | [Mimari](ARCHITECTURE.md) | Motorların ve veri sahiplerinin kısa haritası |
-| Hikâye modu hedefi | Aktif | [Katmanlı dünya planı](../HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md) | Fazlar ve uzun vadeli dünya simülasyonu |
-| Hikâye modu gerçekleşen durum | Aktif | [Uygulama durumu](../HIKAYE_MODU_UYGULAMA_DURUMU.md) | Kodlanan ve açık kalan işler |
-| Modern dünya borçları | Aktif | [Modern dünya eksikleri](../MODERN_DUNYA_EKSIKLERI.md) | Plan ile çalışan oyun arasındaki farklar |
-| Hikâye sohbeti | Aktif | [Sohbet motoru planı](../HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md) | Serbest metin, görev ve toplantı borçları |
+| Hikâye modu hedefi | Aktif | [Katmanlı dünya planı](story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md) | Fazlar ve uzun vadeli dünya simülasyonu |
+| Hikâye modu gerçekleşen durum | Aktif | [Uygulama durumu](story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md) | Kodlanan ve açık kalan işler |
+| Modern dünya borçları | Aktif | [Modern dünya eksikleri](story/status/MODERN_DUNYA_EKSIKLERI.md) | Plan ile çalışan oyun arasındaki farklar |
+| Hikâye sohbeti | Aktif | [Sohbet motoru planı](story/plans/HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md) | Serbest metin, görev ve toplantı borçları |
 | Savaş AI | Aktif | [Savaş AI tasarım planı](../SAVAS_AI_TASARIM_PLANI.md) | Hilesiz algı–karar–uygulama zinciri |
-| Teknoloji | Aktif | [Teknoloji ağacı](../TEKNOLOJI_AGACI.md) | 2010–2100 teknoloji sözleşmesi |
+| Teknoloji | Aktif | [Teknoloji ağacı](product/TEKNOLOJI_AGACI.md) | 2010–2100 teknoloji sözleşmesi |
 | UX ve QA | Aktif | [UX/QA giriş noktası](ux/README.md) | Oyuncu etkileşimi ve görsel doğrulama |
 | Kurulum ve işletim | Referans | [Operasyon giriş noktası](operations/README.md) | Yerel kurulum ve çalışma notları |
 | Karar geçmişi | Referans | [Ledger](../LEDGER.md) | Ölçülen, doğrulanan ve reddedilen sonuçlar |

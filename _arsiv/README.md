@@ -31,18 +31,18 @@ riski gerçekti (birkaç kez yaşandı). Bkz. `docs/OLCUM-TUZAKLARI.md`.
 
 Bu klasördeki belgeler tarihî tasarım bağlamıdır; güncel uygulama sırasını veya çalışan
 sistem durumunu belirlemez. Güncel kaynaklar kökteki
-`HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`,
-`HIKAYE_MODU_UYGULAMA_DURUMU.md` ve `MODERN_DUNYA_EKSIKLERI.md` dosyalarıdır.
+`../docs/story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`,
+`../docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md` ve `../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` dosyalarıdır.
 
 | dosya | arşiv kanıtı |
 |---|---|
 | `ACIK_DUNYA_TASARIM.md` | “uygulama Faz-0'dan başlamadı”, “NODE/build/test/GPU YOK”, eski Linux çalışma yolu ve artık bulunmayan tek-dosya mimarisi gibi güncel depoyla çelişen durum beyanları taşıyor; canlı dosyalardan doğrudan atıf almıyor. |
 | `PLAN-MODERN-DUNYA.md` | Eski 0–7 aşamalı modern dünya taslağı; karakter, fraksiyon, ekonomi, medya, şirket, hafıza ve kara kuğu kapsamı güncel 71 fazlı ana plana ayrıntılı biçimde aktarıldı; canlı dosyalardan doğrudan atıf almıyor. |
 
-**Taşınmayanlar:** `HIKAYE_LLM_YETERLILIK_RAPORU.md`, `DIS_ANALIZ_VERI_DEFTERI.md`,
-`MODERN_DUNYA_EKSIKLERI.md` ve `docs/HIKAYE-TEST-PARALEL.md` güncel plan/README tarafından
-hâlâ kaynak veya kabul kanıtı olarak kullanılıyor. `OYUN_TASARIM.md` ve
-`GELISTIRME_PLANI.md` yalnız hikâye belgesi olmadığı ve savaş/genel ürün kararları da taşıdığı
+**Taşınmayanlar:** `../docs/story/qa/HIKAYE_LLM_YETERLILIK_RAPORU.md`, `../docs/story/research/DIS_ANALIZ_VERI_DEFTERI.md`,
+`../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` ve `docs/HIKAYE-TEST-PARALEL.md` güncel plan/README tarafından
+hâlâ kaynak veya kabul kanıtı olarak kullanılıyor. `../docs/product/OYUN_TASARIM.md` ve
+`../docs/product/GELISTIRME_PLANI.md` yalnız hikâye belgesi olmadığı ve savaş/genel ürün kararları da taşıdığı
 için kesin ölü kanıtı olmadan taşınmadı.
 
 ---

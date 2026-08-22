@@ -5,7 +5,7 @@ Bu alan oyunu yerelde çalıştırmak, paketlemek ve doğrulama tezgâhlarını 
 ## Mevcut girişler
 
 - [Proje çalıştırma ve doğrulama](../../README.md#çalıştırma-ve-doğrulama)
-- [İnternet/kurulum notları](../../INTERNET-KURULUM.md)
+- [İnternet/kurulum notları](INTERNET-KURULUM.md)
 - [Yerel LLM çalışma biçimi](../../README.md#yerel-llm-çalışma-biçimi)
 
 ## Kapsam

@@ -54,7 +54,7 @@ function warRoomLoadPrefs() {
     }
 }
 
-// ── KUSUR 13: CRT YOĞUNLUĞU (design-qa.md:36 · turun tek açık P3) ───────────
+// ── KUSUR 13: CRT YOĞUNLUĞU (../docs/ux/qa/design-qa.md:36 · turun tek açık P3) ───────────
 // "Canlı muharebe bazı arazi tohumlarında konsept çekimden parlak." İkili
 // anahtar bunu çözemez; ya tam tarama ya hiç. Yoğunluk --wr-crt-alpha ile
 // sürülür; ayar hem menüdeki panelden hem savaş içi duraklatma penceresinden

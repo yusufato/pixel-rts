@@ -100,7 +100,7 @@
     --wr-hit-min: 44px;     /* emir/yetenek butonları bugün 40-46px arası */
 
     /* ── CRT ─────────────────────────────────────────────────────────────── */
-    /* KUSUR 13 / design-qa.md:36 (tek açık P3 bulgusu): "canlı savaş alanı bazı
+    /* KUSUR 13 / ../docs/ux/qa/design-qa.md:36 (tek açık P3 bulgusu): "canlı savaş alanı bazı
        arazi tohumlarında konsept görüntüsünden daha parlak; opsiyonel bir CRT
        yoğunluk kaydırıcısı bunu oynanabilirliği düşürmeden ayarlayabilir."
        Kaydırıcı bu değişkeni yazar. */

@@ -130,7 +130,7 @@ function storyFlowBind() {
    sıfır, sinyal net.
 
    DETERMİNİZM: yalnız DOM sınıfı/görünürlük. Dünya durumu, sıra, kayıt ve hiçbir
-   sayı değişmiyor — `HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`'teki koşul bu. */
+   sayı değişmiyor — `../docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md:344-354`'teki koşul bu. */
 const STORY_TOOL_ROL_ONCELIK = Object.freeze({
     COMMANDER:     ['story-army-btn', 'story-city-btn', 'story-commander-btn', 'story-council-btn', 'story-talk-btn'],
     COMPANY_OWNER: ['story-economy-btn', 'story-tech-btn', 'story-city-btn', 'story-talk-btn', 'story-commander-btn'],

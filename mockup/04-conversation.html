@@ -9,7 +9,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    "ŞU AN" YENİDEN İNŞASI — style.css:2179-2263 birebir
    Bu yüzey projedeki en çok iterasyon görmüş ekran (qa-runtime/conversation-ui*
-   beş tur) ve design-qa.md'de "passed". Buradaki iş YENİDEN TASARIM DEĞİL,
+   beş tur) ve ../docs/ux/qa/design-qa.md'de "passed". Buradaki iş YENİDEN TASARIM DEĞİL,
    eksik iki merceği eklemek.
    ═══════════════════════════════════════════════════════════════════════════ */
 .stage { font-family: var(--wr-font-hud); background: #060a06; }
@@ -66,7 +66,7 @@
 /* ═══════════════════════ ÖNERİ — KATMAN B ═══════════════════════ */
 
 /* KUSUR 20 — sol sütun sekmeli: PROFİL | İLİŞKİ.
-   Yeni bir sütun EKLENMEZ: üç sütunlu kompozisyon design-qa.md'de kabul edilmiş,
+   Yeni bir sütun EKLENMEZ: üç sütunlu kompozisyon ../docs/ux/qa/design-qa.md'de kabul edilmiş,
    onu bozmak kabul edilmiş bir sonucu geri almak olur. */
 .p-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: -16px -16px 14px;
     border-bottom: 1px solid var(--wr-line); background: rgba(0,0,0,.25); }
@@ -126,7 +126,7 @@
     <header>
         <h2>1 · ŞU AN — üç sütunlu görüşme çalışma alanı</h2>
         <span class="lab-tag">js/Talks.js:1581-1622 · style.css:2179-2263</span>
-        <p>Bu kompozisyon <code>design-qa.md</code>'de kabul edilmiş. Eksik olan iki mercek: ilişki zinciri ve geçmişte arama.</p>
+        <p>Bu kompozisyon <code>../docs/ux/qa/design-qa.md</code>'de kabul edilmiş. Eksik olan iki mercek: ilişki zinciri ve geçmişte arama.</p>
     </header>
     <div class="lab-frame">
         <div class="stage">
@@ -201,7 +201,7 @@
                                     <br><br>
                                     Zincir <strong>PlayerKnowledge</strong> süzgecinden geçer:
                                     oyuncunun bilmediği bir söz burada görünmez — bilgi sınırı
-                                    korunur (HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857).
+                                    korunur (../docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md:747, :857).
                                 </div>
                             </div>
                         </div>
@@ -214,7 +214,7 @@
                                 <div class="wf-row"><span>serbest metin</span><span>sabit besteci</span></div>
                                 <div class="wf-note">
                                     Kaydırma ve besteci sabitleme borcu zaten kapatılmış
-                                    (design-qa.md:94-95). Buraya dokunulmuyor.
+                                    (../docs/ux/qa/design-qa.md:94-95). Buraya dokunulmuyor.
                                 </div>
                             </div>
                         </div>
@@ -319,7 +319,7 @@
     var G = FIX.GORUSME;
 
     /* Katılımcı kartları — bilinmeyen katılımcı uydurma veri TAŞIMAZ
-       (design-qa.md:77 kabul kuralı). */
+       (../docs/ux/qa/design-qa.md:77 kabul kuralı). */
     var p = document.getElementById('prof-simdi');
     if (p) {
         p.innerHTML = G.katilimcilar.map(function (k) {
@@ -394,7 +394,7 @@
         yuzey: '04',
         vp: 1903,
         baslik: '04 · GÖRÜŞME ÇALIŞMA ALANI',
-        altBaslik: 'js/Talks.js:1581-1622 · style.css:2179-2263 · design-qa.md bölüm 2'
+        altBaslik: 'js/Talks.js:1581-1622 · style.css:2179-2263 · ../docs/ux/qa/design-qa.md bölüm 2'
     });
 })();
 </script>

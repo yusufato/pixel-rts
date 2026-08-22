@@ -117,7 +117,7 @@ da duyuruluyor.
 | 10 | 7-9 px yazı boyutları | `style.css:1845` 8px · `:1870` 7px · `:1884` 9px · `:1893` 7px | `--wr-fs-*` ölçeği: micro 9 · small 10 · body 11 · label 13 · title 15 | **`UYGULANDI`** `2f5f62e` |
 | 11 | `:focus-visible` hover ile **birebir aynı** → klavye odağı görünmüyor — **defterde yazandan yaygın** | **dokuz** kural `:focus-visible`'ı `:hover` ile aynı gruba yazıp üstüne `outline:none` diyor: `style.css:857 · 908 · 1280 · 1317 · 1336 · 1362 · 1959 · 1969` | `--wr-focus: #6cc7ff` ile ayrı odak halkası; blok dosya SONUNDA (özgüllük değil sıra meselesi) | **`UYGULANDI`** `a870cb1` |
 | 12 | Yetim CSS | `style.css:188-218` `#train-ai-btn` · `:404` `#ai-training-screen` — HTML'de ve JS'te **sıfır** referans (ölçüldü) | Silindi: 29 satır. `#game-over-screen` paylaşımlı seçicisinden yalnız yetim yarısı çıkarıldı, canlı yarı yerinde | **`UYGULANDI`** `6e5361a` |
-| 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | **`UYGULANDI`** `9d037ac` · **öneri genişletildi** |
+| 13 | CRT bazı arazi tohumlarında konsept çekimden parlak | `../docs/ux/qa/design-qa.md:36` — turun **tek açık P3 bulgusu** | Duraklatma modalına CRT yoğunluk kaydırıcısı (`--wr-crt-alpha`); yalnız görsel katman, sim etkilenmez | **`UYGULANDI`** `9d037ac` · **öneri genişletildi** |
 
 #### 13 — uygulandı (`9d037ac`); kaydırıcı iki yere kondu
 
@@ -285,7 +285,7 @@ tanım kusur 19'da bedeli ölçülmüş bir borç, aynı borcu yeniden açmak tu
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
-| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** `931db9d` |
+| 14 | Rol seçimi navigasyonu süzmüyor: 8 araç herkese aynı | `../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` MW-014 / MW-020 · `index.html:230` sabit 8 araç | **Gizleme değil önceliklendirme**: rolün araçları öne ve numaralanmış, kalanlar tek tıklık `+N ARAÇ` şeridinde. Erişim kaybı sıfır; yalnız DOM görünürlüğü/sırası değişir → determinizm korunur | **`UYGULANDI`** `931db9d` |
 | 15 | Gündem yönlendiriyor ama **karar verdirmiyor** | `js/StoryUI.js` gündem kartı yalnız panel açıyor · MW-003 | Kart artık **isimli muhatap** + motorun kendi bedelli eylemlerini gösterir; yürütme mevcut görüşme penceresinde kalır (kart dünyayı değiştirmez) | **`UYGULANDI`** `0854cad` |
 | 16 | AKIŞ son 6 kayıtla sınırlı | `js/Story.js:124` `log.length > 6` kırpılıyor | Kırpma sınırı **veride** 6 → 240; panel arşive dönüştü: arama + tür filtresi + sayaç + kayıt zamanı. Tür, mesajın **baş simgesinden** çıkarılıyor (74 çağrı yerinin hiçbiri değişmedi) | **`UYGULANDI`** `f47499e` |
 | 17 | Uzun aday listelerinde arama/filtre yok (ilk 8 gösteriliyor) | `js/Talks.js` `question.options.slice(0, 8)` + yalnız "N adaydan ilk 8 gösteriliyor" notu — kalanına ulaşım yok | Arama + `N / M` sayacı + "TÜMÜNÜ GÖSTER"; **8 ve altında hiçbir şey eklenmez** | **`UYGULANDI`** `e966eac` |
@@ -478,7 +478,7 @@ sonra gerçek oyunda doğrulandı.
 olmadığı için fazlalık **sola**, `.story-command-title`ın üstüne akıyor.
 Yani **1650 px altındaki her masaüstü genişliğinde** üst çubuk bozuk.
 
-**Neden bugüne dek kaçtı:** `design-qa.md:15`'teki kontrol *sayfa* yatay taşmasına
+**Neden bugüne dek kaçtı:** `../docs/ux/qa/design-qa.md:15`'teki kontrol *sayfa* yatay taşmasına
 bakıyordu (`scrollWidth`), kutu-içi flex taşmasına değil. Sayfa taşmıyor —
 içerik kutunun dışına akıyor. Kanıt: `qa-runtime/mockup-baseline/kusur-16-akis-sekmesi.png`
 (1280×800, gerçek oyun — "PIXEL AVRUPA" başlığının üstünde "Türk Cumhuriyeti" ve
@@ -659,7 +659,7 @@ Değerin kendisi sorgulanabilir; o kusur 10'un işi, bu turda davranış korundu
 ## 04 · Görüşme çalışma alanı
 
 Bu yüzey projedeki en çok iterasyon görmüş ekran (`qa-runtime/conversation-ui*`, beş tur)
-ve `design-qa.md` bölüm 2'de **passed**. Buradaki iş yeniden tasarım değil, **iki eksik mercek**.
+ve `../docs/ux/qa/design-qa.md` bölüm 2'de **passed**. Buradaki iş yeniden tasarım değil, **iki eksik mercek**.
 Üç sütunlu kompozisyon korunur — kabul edilmiş bir sonucu geri almamak için.
 
 | # | Kusur | Kanıt | Öneri | Damga |
@@ -702,12 +702,12 @@ tek çağrısını kaybetti; yerinde bırakılmadı (kusur 12'de aynı sınıf t
 
 ## 01 · Menü + kurulum
 
-Handoff prototipinin en olgun kısmı, `design-qa.md` bölüm 1'de **passed**. İş dar.
+Handoff prototipinin en olgun kısmı, `../docs/ux/qa/design-qa.md` bölüm 1'de **passed**. İş dar.
 
 | # | Kusur | Kanıt | Öneri | Damga |
 |---|---|---|---|---|
 | 22 | 12 soruluk akışta **geri alma yok**, ilerleme başlığa gömülü, adım göstergesi iki ekranda tutarsız | `js/Character.js:601-625` seçenek tıklanınca deftere yazılıp ilerliyor, dönüş yolu yok · `:596` sayaç başlık satırının içinde · `:392-399` tema dağılımı role göre değişiyor ama görünmüyor · `index.html:81` adım 2 = "BRİFİNG" ⇄ `:73` aynı adım = "KARAKTER" | Tema şeridi (nokta göstergeli) + `GERİ AL` + karar defteri (satıra tıkla → o soruya dön). **Geri alma çıkarma değil YENİDEN OYNATMA** (aşağıda) | **`UYGULANDI`** `d2ad747` + `ec44b66` |
-| 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | **`UYGULANDI`** `2f5f62e` · **kapı gerçek oyuna kuruldu, mockup sahnesine değil** |
+| 23 | Yeni tipografi ölçeği uzun Türkçe etiketleri kırpmamalı | `../docs/ux/qa/design-qa.md:20` mevcut kabul ölçütü | Kanıt sahnesi: 8 gerçek devlet adı + en uzun gerçek brifing etiketleri büyütülmüş ölçekte; sahnedeki **kırpma denetimi** `scrollWidth > clientWidth` olan etiketi kırmızı işaretler | **`UYGULANDI`** `2f5f62e` · **kapı gerçek oyuna kuruldu, mockup sahnesine değil** |
 | **25** | **⛔ Kampanyayı başlatan buton 916×572'de ekran dışında ve kaydırma yok** | aşağıda | Brifing sütunu kaydırmalı + birincil eylem yapışkan alt şeritte | **`UYGULANDI`** `67a403c` |
 
 #### 21 — uygulandı (bu turda, oyunda)
@@ -811,7 +811,7 @@ ve o ekranda **hiçbir kaydırma yolu yok**. Yani bu boyutta oyuncu kampanya ba�
 
 **Kök neden yükseklik, genişlik değil.** 1024×640'ta 7 px payla kurtuluyor; kırılma
 noktası yalnız genişliğe baktığı için yükseklik kaynaklı arızayı göremiyor.
-`design-qa.md` bu ekranı **916×572'de "passed"** işaretlemiş; aynı QA notu
+`../docs/ux/qa/design-qa.md` bu ekranı **916×572'de "passed"** işaretlemiş; aynı QA notu
 *"kurulum ekranının yalnızca kısa masaüstü yüksekliği yüzünden tek sütuna
 çökmesini engelledik"* diyor — yani kırılma noktası bilinçli olarak yükseklikten
 koparılmış ve bu arıza o değişiklikle açılmış olabilir.
@@ -877,7 +877,7 @@ Her mockup sayfası üç kapı çalıştırır (araç çubuğunda canlı). **Ger
 | Kapı | Ne ölçer | Sonuç |
 |---|---|---|
 | **KAPSAMA** | Bu yüzeyin bu katmandaki her kusuru sahnede pin almış mı | 8/8 **tam** (25 kusur, 57 pin) |
-| **TAŞMA** | Öneri sahnelerinde içerik sahne kutusunu aşıyor mu (`design-qa.md:15` ölçütü) | 8/8 **taşma yok** |
+| **TAŞMA** | Öneri sahnelerinde içerik sahne kutusunu aşıyor mu (`../docs/ux/qa/design-qa.md:15` ölçütü) | 8/8 **taşma yok** |
 | **KUTU** | Esnek/ızgara kaplarında çocuklar kendi kabını aşıyor mu (kusur 24'ten sonra eklendi) | 8/8 **taşma yok** |
 | **FONT** | `Share Tech Mono` + `Press Start 2P` `file://` altında çözülüyor mu | 8/8 **çözüldü** |
 
@@ -887,8 +887,8 @@ bilerek yeniden ürettikleri için ölçülseler kapı sürekli kırmızıda kal
 **KUTU kapısı neden sonradan eklendi.** TAŞMA yalnız *sahne* kutusuna bakıyordu ve
 kusur 24'ü kaçırdı: çipler kendi kabını (`#story-stats`) 369 px taşırıp başlığın
 üstüne akıyordu ama sahneyi taşırmadığı için kapı yeşil kalıyordu. Oyunun kendi QA'sı
-da (`design-qa.md`) aynı körlükteydi — yalnız *sayfa* taşmasına bakıyordu. Ölçüt artık
-iki kademeli; `design-qa.md`'nin "Üçüncü QA turu" bölümünde de aynı şekilde güncellendi.
+da (`../docs/ux/qa/design-qa.md`) aynı körlükteydi — yalnız *sayfa* taşmasına bakıyordu. Ölçüt artık
+iki kademeli; `../docs/ux/qa/design-qa.md`'nin "Üçüncü QA turu" bölümünde de aynı şekilde güncellendi.
 
 **Kapı negatif kontrolle doğrulandı.** Yeni bir kapının asıl riski hiçbir şey
 yakalamayıp sürekli yeşil yanmasıdır. Aynı mantık "ŞU AN" sahnelerine uygulandığında

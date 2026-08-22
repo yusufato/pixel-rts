@@ -1,7 +1,7 @@
 # Hikâye Modu Katmanlı Dünya Simülasyonu — Uygulama Durumu
 
 **Başlangıç tarihi:** 30 Temmuz 2026  
-**Plan:** `HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`  
+**Plan:** `../plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`
 **Son kapanan faz:** Faz 38.7 — Önyargı, Geçici Stres ve Kamu Personası
 
 **Aktif çalışma zamanı:** Faz 38.8 — İlişki Yorumu ve Bağlamsal Hafıza Geri Çağrımı
@@ -1094,7 +1094,7 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Ayrı modalın solunda yalnız kamusal sicil kimliği ve oyuncunun taraf olduğu yönlü ilişki bulunur; gizli kişilik, yabancı konum veya ham dünya defteri sızdırılmaz. Sağdaki anlaşma ve hafıza kayıtları `PlayerKnowledge` filtresinden gelir.
 - Aynı kişiyle bütün sürümlü konuşma oturumları yeni tarihten eskiye listelenir. Açık soru taşıyan eski taslak kaldığı sorudan sürdürülebilir; tamamlanmış taslak tekrar incelenebilir; yeni konuşma eski oturumu ezmez.
 - Modal içindeki bütün tuş olayları kamera/savaş kısayollarından kesilir. StoryUI de `input`, `textarea`, `select` ve `contenteditable` hedeflerinde WASD/ok/zoom kısayollarını çalıştırmaz; metnin varsayılan yazım davranışı korunur.
-- İzole prob `4,9 sn` sürdü ve analiz doğrulaması, profil, iki konuşma geçmişi, eski konuşmaya dönüş, uygulanmış karakter eylemi görünümü, WASD, dünya nötrlüğü ve `2` oturumlu save/load birebirliğini geçti. Bağlı tarayıcı listesi boş olduğu için 1920×1080 piksel karşılaştırması yapılamadı; `design-qa.md` bu kapıyı `blocked` olarak kaydeder.
+- İzole prob `4,9 sn` sürdü ve analiz doğrulaması, profil, iki konuşma geçmişi, eski konuşmaya dönüş, uygulanmış karakter eylemi görünümü, WASD, dünya nötrlüğü ve `2` oturumlu save/load birebirliğini geçti. Bağlı tarayıcı listesi boş olduğu için 1920×1080 piksel karşılaştırması yapılamadı; `../../ux/qa/design-qa.md` bu kapıyı `blocked` olarak kaydeder.
 
 ### Üçüncü dikey — ActorBelief sınırlı mekanik muhatap cevabı
 
@@ -1163,7 +1163,7 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Kapı; niyet/söylem eşleşmesi, genel bilinmeyen cevabına yığılmama, servis-botu dili üretmeme, olgusal sınır cevaplarını LLM'e bırakmama, sıfır dünya mutasyonu ve deterministik tekrar koşullarını birlikte arar.
 - Yeni gerçek kayıt borçları kapatıldı: görev/meslek sorusu, doğrulanmamış mevcut iş, oyuncunun görev istemesi, enerji sorunu bildirimi, çekinme yorumu, açıklama talebi, kısa kabul ve cevapsızlık itirazı artık ayrı bağlamsal yanıttır.
 - Açık borç: bu hızlı laboratuvar gerçek 8B üretimini çalıştırmaz. GPU üstünde daha küçük ama gerçek-model kullanan sanal diyalog turu; tekrar, kişilik tutarlılığı, Türkçe ve uzun bağlam ölçümleriyle ayrıca kurulmalıdır. İnsan JSONL kaydı nihai kabul kaynağı olmaya devam eder.
-- Bu borcun uygulama planı `HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md` içinde S0–S12 olarak açıldı. Güncel yön, cümle başına kural yazmak veya 8B+14B'yi aynı anda canlı tutmak değildir. 8B oyun içi gerçekleştirici; Coder-14B oyun kapalıyken adversarial oyuncu ve insan-kalibreli eleştirmen; deterministik motor ise gerçek, yetki, hareket ve kalıcı söylem sahibi olacaktır.
+- Bu borcun uygulama planı `../plans/HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md` içinde S0–S12 olarak açıldı. Güncel yön, cümle başına kural yazmak veya 8B+14B'yi aynı anda canlı tutmak değildir. 8B oyun içi gerçekleştirici; Coder-14B oyun kapalıyken adversarial oyuncu ve insan-kalibreli eleştirmen; deterministik motor ise gerçek, yetki, hareket ve kalıcı söylem sahibi olacaktır.
 
 ## Faz 22.1 çalışma günlüğü (arşiv)
 
@@ -1176,7 +1176,7 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 5. Proje hazırlık iptali/iadesi, eski kayıt backfill’i, bozuk emanet kurtarması ve özellik-kapalı yol için hedefli Faz 22.1 probu eklemek.
 6. Son kodda `npm test` ve 30 oyun yıllık soak kapılarını geçirmek. Bounded retry ve kalıcı üretim emri değişikliklerinden sonraki tam paket `230bc647…ef36` karmasıyla geçti (`900` simülasyon saniyesi, test içi `50,16 sn`, çıkış kodu `0`); hedefli ticaret/bölgesel/korunum probları da geçiyor. Bu teknik geçiş denge kabulü değildir: final erişim gıda `%45,89`, enerji `%48,84`, yaşam koşulu `%55,51`; 30 oyun yıllık soak hâlâ yeniden koşulmalı.
 7. Faz 25’e yalnız Faz 22.1 fiziksel, A/B ve denge kapıları geçtikten sonra başlamak.
-8. Her faz başlangıcı ve kabul raporu öncesinde `DIS_ANALIZ_VERI_DEFTERI.md` içindeki açık kayıtları ana planla karşılaştırmak; dış öneriyi kanıt olmadan uygulanmış gerçek saymamak.
+8. Her faz başlangıcı ve kabul raporu öncesinde `../research/DIS_ANALIZ_VERI_DEFTERI.md` içindeki açık kayıtları ana planla karşılaştırmak; dış öneriyi kanıt olmadan uygulanmış gerçek saymamak.
 9. Faz 22.1E’de `OPERATING_CAPITAL` anlamı düzeltildi: tarım çevriminde `2` birim sermaye bir gider değil likidite eşiği; gerçek fiziksel enerji maliyeti `0,045`, beklenen satış `0,42`. Beş sivil sektör bu semantikte pozitif marjlı; savunma üretimi gerçek maliyet + `%12` devlet sözleşmesiyle çalışıyor. Üretim satış olmadan gelir yazmıyor; depolama, ticaret kargosu ve yatırım emaneti sahipli lotlarla kapanıyor.
 10. Hane, şirket, devlet ve ordu talepleri gerçek ödeyen kimliklerine ayrıldı. Sınır ötesi özellik-açık akışta satıcı şirket lotu, gerçek ithalatçı sektör şirketi, şirket nakit escrow’su, teslimatta satıcı COGS/gelir ve ithalatçı envanter devri tek zincirde kapanıyor; devlet varsayılan şirket girdisini ödemiyor. `20+8 sn` kayıt/devam probu `26` aktif şirket rezervasyonu ve `307,0511` escrow ile birebir geçti. Reçetelerin zaten satın aldığı enerji/parça/elektroniği ikinci kez tüketen eski `FACILITY_OPERATION`/`MAINTENANCE`/`TECH_MAINTENANCE` vekilleri settlement yolundan çıkarıldı; şirketler arası gerçek faturalar devam etti (`60 sn`de `3.996` COMPANY faturası). Güncel 300 sn treatment gıda `%55,21`, enerji `%65,89`, yaşam koşulu `%61,47`, `6` proje ve sıfır iflas üretti; bütün doğrulayıcılar geçti fakat iki kabul kapısı açık kaldı.
 11. Sıradaki 22.1E işi fiyat bonusu, otomatik kredi veya kör lojistik artışı değildir. Kredi deneyi borcu `1.010→1.737`, projeyi `7→5`, gıda/enerjiyi `%43,99/%50,00→%36,86/%40,68` yaptığı için geri alındı. Enerji hedefini büyütme, ayrı şebeke dispatch’i, upstream sektör sırası ve `18→24` üretim-girdisi sevkiyatı da genel dengeyi kötüleştirdi; hiçbiri tutulmadı. Güncel kök açık, son tikte `64` tarım bölgesinin enerji nedeniyle tamamen durması ve ihtiyaç sonuçlarının bölgeler arasında eşitsiz dağılmasıdır. Bu tahsis problemi çözülmeden 900 sn treatment kabul adayı sayılmaz.
@@ -1193,7 +1193,7 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 
 ## HXD — Altıgen dünya altyapısı tasarım kaydı (16 Ağustos 2026)
 
-- Yeni çapraz program `HIKAYE_HEX_DUNYA_ALTYAPI_PLANI.md` içinde `HXD-0–HXD-15` olarak açıldı. Bu bir uygulama kabulü değildir; mevcut aktif ana fazın tamamlandığı anlamına gelmez.
+- Yeni çapraz program `../plans/HIKAYE_HEX_DUNYA_ALTYAPI_PLANI.md` içinde `HXD-0–HXD-15` olarak açıldı. Bu bir uygulama kabulü değildir; mevcut aktif ana fazın tamamlandığı anlamına gelmez.
 - Karar: mevcut 152 bölge silinmeyecek, altıgen kümelerinin idarî üst görünümü olacaktır. Çalışan ekonomi, stok, lot, sipariş, ödeme, sevkiyat, şirket, karakter ve nedensellik defterleri korunacaktır.
 - Altıgen yalnız görsel overlay olmayacaktır. `HexCell/HexState`, şehir/saha, altyapı segmenti, rota, sevkiyat ve hareketli araç ayrı sürümlü sözleşmelerle aynı mekânsal gerçeğe bağlanacaktır.
 - Şehir çekirdekleri geçerli kara hücresine göç edecek; kıyı şehirlerinin limanı ayrı kıyı/deniz terminali olacaktır. Denizde şehir ve limansız deniz bağlantısı kabulde sıfır olmak zorundadır.
@@ -1208,7 +1208,7 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 
 - `js/StoryHexWorld.js`, `POINTY_AXIAL_QR_V1` koordinatında typed-array tabanlı `story-hex-world-1` sidecar'ını kurdu. Build-time `js/StoryHexWorldAsset.js`, `tools/make-story-hex-world.js` ile üretiliyor ve gerçek EXE ile headless harness içinde aynı sırada yükleniyor.
 - Gerçek `3000×2360` dünyada ölçülen üç aday `6.873 / 10.584 / 19.074` hücredir. Ana temel `16,1` yarıçap, `98` satır ve tam `10.584` hücre olarak seçildi. Koordinat typed-array'leri `127.796 bayt`; kaynak karması `fnv1a32:3f310aba`, yerleşim karması `fnv1a32:1ee6a11a`dır.
-- HXD-0 baseline `152` şehir, `152` bölge, `71` görsel yol, `591` altyapı koridoru (`177 LAND / 20 SEA / 197 ENERGY / 197 DATA`), `423` tesis ve `152` depoyu dondurdu. Ayrıntı `HIKAYE_HEX_DUNYA_ENVANTERI.md` içindedir.
+- HXD-0 baseline `152` şehir, `152` bölge, `71` görsel yol, `591` altyapı koridoru (`177 LAND / 20 SEA / 197 ENERGY / 197 DATA`), `423` tesis ve `152` depoyu dondurdu. Ayrıntı `../design/HIKAYE_HEX_DUNYA_ENVANTERI.md` içindedir.
 - Ankara `hex:42:63`, İstanbul `hex:38:60` geometrik ankrajına bağlandı. Bunlar farklı hücrelerdir fakat HXD-2 kara/kıyı sınıflaması tamamlanmadan şehirlerin fiziksel olarak doğru karada olduğu iddia edilmez.
 - Aynı girdide aynı checksum, merkez round-trip, sınır komşuluğu, cache, bozuk asset reddi ve dünya tarafsızlığı geçti. Runtime ilk kurulum hedefli ölçümde yaklaşık `3,2 ms`; bağımsız tüm çözünürlük testi yaklaşık `7,6 ms` verdi.
 - `npm run story:hex-test` çıkış kodu `0`; gerçek hikâye runtime'ındaki `npm run test:story -- --task=hexWorldProbe --workers=1` çıkış kodu `0` ve görev süresi yaklaşık `0,3 sn` oldu. Tam regresyon bu ilk salt-okunur dilimde yeniden çalıştırılmadı.

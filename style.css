@@ -789,7 +789,7 @@ body[data-screen="multiplayer"] #war-room-shell { display: flex; }
     inset: 0;
     z-index: 5000;
     pointer-events: none;
-    /* KUSUR 13 — CRT yoğunluğu artık sürekli. `design-qa.md:36`'daki tek açık
+    /* KUSUR 13 — CRT yoğunluğu artık sürekli. `docs/ux/qa/design-qa.md:36`'daki tek açık
        P3: "canlı muharebe bazı arazi tohumlarında konsept çekimden parlak".
        İkili anahtar bunu çözemiyordu; ya tam tarama ya hiç. Taban değerler
        (.24 tarama, .47 vinyet) --wr-crt-alpha = 1'de birebir eskisi. */
