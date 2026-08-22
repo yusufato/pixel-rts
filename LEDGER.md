@@ -88,3 +88,17 @@
 - **What happened:** Makro admission, stok ve sahipli kargo planı geçerliydi; hata kargo commitinden önce oluştu ve tek worker ile tekrarlandı.
 - **Evidence:** İki ENERGY bacağı kabul edildi, commerce cost 0,9; commit hata kodu fiziksel rezervasyon eksikliği.
 - **Implication for future audits:** ENERGY shipment yokluğunda önce rota türü/adaptör sınırını incele; stok veya commerce katmanına ancak admission/plan onları reddediyorsa geç.
+
+## 2026-08-23 — Genel eylem hamlesi mevcut askerî iddiayı kaynak dışı bırakıyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Askerî iddia diyalog hamlesi bağlama zinciri
+- **What happened:** Destek talebiyle aynı turda doğru çıkarılan Halep tehdit claim'i, `ASSESS_ACTION_REQUEST_SCOPE` politikasının boş claim türü filtresi nedeniyle diyalog hamlesine bağlanmadı.
+- **Evidence:** Seed 2032 dökümünde analysis `PLAYER_REPORTED_MILITARY_THREAT` içerirken response act'i `ASSESS_ACTION_REQUEST_SCOPE`, source policy `CURRENT_TURN_ONLY` ve `claimRefs=[]`; tek worker probu aynı assertion ile başarısız.
+- **Implication for future audits:** Eylem talebi içeren cümlelerde NLU claim varlığını tek başına yeterli sayma; karar sözleşmesinin mevcut tur kaynağını koruduğunu ayrıca denetle.
+
+## 2026-08-23 — NLU, claim kayıt sırası ve worker yarışı askerî claim kaybının nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Askerî iddia diyalog hamlesi bağlama zinciri
+- **What happened:** Claim doğru tür ve doğrulama durumuyla aynı follow-up analysis'inde mevcuttu; kayıp hamle filtresinde oluştu ve LLM kullanılmayan tek worker koşusunda tekrarlandı.
+- **Evidence:** `claim:player-reported-threat:region:141`, `UNVERIFIED_PLAYER_REPORT`, `llmUsed=false`; tek worker sonucu `militaryClaimBound=false`.
+- **Implication for future audits:** Aynı belirtiyi semantik model veya paralelliğe bağlamadan önce act politikasının `claimTypes` sözleşmesini incele.
