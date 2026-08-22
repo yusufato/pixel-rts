@@ -479,7 +479,7 @@ function battleDelta(isRed, key) {
 // Mezuniyet ölçütü (kullanıcı): 6 tohum × 2 rol = 12 maç, **≥%75 (9/12)** üstünlük → `--intel4pro`.
 // Taraf-başı bayrak: bir maçta YALNIZ bir taraf pro olur (adil karşılaştırma). Varsayılan ikisi de kapalı.
 const BATTLE_INTEL4PRO_DELTAS = {
-    // P1: SAVUNAN MÜHİMMAT DİSİPLİNİ. An-be-an teşhis (docs/INTEL4PRO-AN-BE-AN-TESHIS.md): savunan ilk 50sn'de
+    // P1: SAVUNAN MÜHİMMAT DİSİPLİNİ. An-be-an teşhis (../docs/battle-ai/reports/INTEL4PRO-AN-BE-AN-TESHIS.md): savunan ilk 50sn'de
     // uzak menzilden aşırı ateşle mühimmatını yarılıyor, atış hacmi 4× düşüyor (ordusunun %70'i sağken) ve
     // yaklaşan saldırganı durduramayıp siliniyor. Çare: yedek eşiğinin altında UZAK hedefe ateş etme.
     // 1. DENEME — ÖLÇÜLDÜ, ETKİSİZ (pro 6/12=%50). Eşik (%45) yanma penceresinden (0.85→0.61) SONRA açılıyordu.
@@ -501,7 +501,7 @@ const BATTLE_INTEL4PRO_DELTAS = {
     // (karşı-batarya). NOT: korelasyon bunu doğrulaMADI (erken pencerede r=0.077) — ama hiçbir AI bu doktrini
     // uygulamadığı için korelasyon test EDEMEZ (tedavide varyans yok). Bu yüzden uygulanıp A/B ile sınanıyor.
     counterBattery: true,
-    // P5 (KÖK NEDEN — docs/KUVVET-ORANI-HATASI.md): kuvvet-oranı istihbarat tabanı, AI'ın KENDİ başlangıç değeri
+    // P5 (KÖK NEDEN — ../docs/battle-ai/reports/KUVVET-ORANI-HATASI.md): kuvvet-oranı istihbarat tabanı, AI'ın KENDİ başlangıç değeri
     // yerine DÜŞMANIN İLAN EDİLMİŞ BÜTÇESİNDEN kurulur. Eskiden t=0'da oran daima tam 1.00 çıkıyor ve yalnızca
     // düşüyordu → forceRatio fiilen "kendi sağkalım yüzdem" idi ve STRIKE kapısı savunan için ULAŞILAMAZDI.
     trueForceRatio: true,
@@ -1121,7 +1121,7 @@ let PRO_HOLD_RESERVE_DEEP = true;   // ihtiyat da derin mevzide mi? (A/B ile sü
 // İstihkâm siper-zinciri: savunan 4/6 → 2/6 ve 6 tohumda TOPLAM 2 siper dikilebildi. Kök sebep: savunanın
 // TEK istihkâmı aynı zamanda İKMAL AĞI (siper providesSupply); onu hatta zincir dikmeye yollayınca ordu
 // mühimmatsız kalıyor — ki süre-sonu hazır-olma çarpanını (0.65+0.35×amo) kaybettiren mekanizma tam da buydu.
-// TARİF MODU (FAZ 0, docs/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md): doluysa o tarafın ordusu kategori-paylarından
+// TARİF MODU (FAZ 0, ../docs/battle-ai/plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md): doluysa o tarafın ordusu kategori-paylarından
 // deterministik kurulur ve konuşlandırma sezgiselleri (ağırlık/jitter/imza-floor/takas/taban/mızrak/artık) DEVRE DIŞI.
 let BATTLE_RECIPE_RED = null;
 let BATTLE_RECIPE_BLUE = null;
@@ -1200,7 +1200,7 @@ function battleThreatClassOf(type) {
    *"rakip mesafede durup dolaylı ateşle yıpratma uyguluyor"*.
 
    İLK ŞEMA: STANDOFF_ATIS. Kullanıcının 4 gerçek maçından ölçüldü
-   (docs/OYUNCU-MACLARI-BULGULAR.md) — oyuncunun fiilen uyguladığı şema buydu:
+   (../docs/battle-ai/reports/OYUNCU-MACLARI-BULGULAR.md) — oyuncunun fiilen uyguladığı şema buydu:
      · oyuncunun dolaylı isabeti 490, AI'nın 207 (2,4×)
      · AI birim başına oyuncunun 2 katı panikliyor (3,1 / 1,5)
      · AI'nın kısa menzilli birimleri düşmana ortalama 2,79× menzil uzakta
@@ -1846,7 +1846,7 @@ let BATTLE_TOPCU_DURAGAN = true;
    silahı yetmiyor (mesafe/menzil oranı AI 2.17-3.09 · oyuncu 1.24-1.82). AI'nın 20 silahlı
    biriminin 12'si kısa menzilli doğrudan ateş ve onları öne çeken hiçbir kural yok —
    `_dolayliYaklas` yalnız dolaylı ateşe bakıyor ve o da pro-kapılı.
-   Ayrıntı: docs/OYUNCU-MACLARI-BULGULAR.md · kural: js/Unit.js `_menzileGir`.
+   Ayrıntı: ../docs/battle-ai/reports/OYUNCU-MACLARI-BULGULAR.md · kural: js/Unit.js `_menzileGir`.
    ⚠ VARSAYILAN KAPALI: yaklaşmak ateş altına girmektir, maç kapısı karar verir. */
 /* ⭐ SEVK EDILDI 2026-08-20: ACILDI. Iki bagimsiz maç kapisi, ayrik tohum:
      M1  (CYBORG,  n=128): +748  t 2.73  taban 768  -> tabanin 20 birim ALTINDA
@@ -1854,7 +1854,7 @@ let BATTLE_TOPCU_DURAGAN = true;
      HAVUZ n=256: +975  se 198  t 4.93  taban 554  -> TABANIN USTUNDE
    ⚠ MEKANIZMA KAPISI (M0) BUNU YANLIS GOSTERMISTI: "sag kalan 12.7->5.2, marj +2071->-160"
    diyordu ve ben negatif bekledim. Sebep: M0 kurali AI SAVUNURKEN olcuyor, mac kapisi
-   SALDIRANI. Savunanin menzile yurumesi yanlis, saldiranin dogru. (docs/OLCUM-TUZAKLARI.md
+   SALDIRANI. Savunanin menzile yurumesi yanlis, saldiranin dogru. (../docs/battle-ai/research/OLCUM-TUZAKLARI.md
    8. tuzak.) Bu yuzden kural SALDIRAN icin acildi ve varsayilan boyle kaliyor. */
 let BATTLE_MENZILE_GIR = true;
 const MENZILE_GIR_HEDEF = 0.85;     // düşmanı kendi menzilinin bu kesrine alacak noktaya yürü

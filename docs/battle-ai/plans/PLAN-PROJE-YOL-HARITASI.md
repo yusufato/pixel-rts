@@ -73,7 +73,7 @@ tek yol değil ve öncelikli de değil.
 **AÇIK BORÇ:** `LA_AG_ADAY=5` aramanın davranışını değiştiriyor (atlanan karar 53→137).
 Kanıtlanmış +1262 bu konfigürasyonda **yeniden ölçülmedi**.
 
-Ayrıntı: `docs/PLAN-POLITIKA-DAMITMA.md`.
+Ayrıntı: `PLAN-POLITIKA-DAMITMA.md`.
 
 ### Alternatif (artık zorunlu değil): ayrı iş parçacığı (Web Worker)
 
@@ -90,7 +90,7 @@ tekrar üretilebilir kalır.
 host yetkili olmalı — ayrı karar.
 
 ### Yapılacaklar
-0. **Politika damıtma kapısı** (`docs/PLAN-POLITIKA-DAMITMA.md`) — canlıya sığan tek
+0. **Politika damıtma kapısı** (`PLAN-POLITIKA-DAMITMA.md`) — canlıya sığan tek
    aday bu; sonucu 1. maddenin hangi dosyaları yükleyeceğini belirler.
 1. `index.html`'e üç dosya: `BattleStateFeatures` (varsa), `BattleValueModel`, `BattleValueNet`, `BattleLookahead`
    (+ politika kapıyı geçerse `BattlePolicyModel`, `BattlePolicyNet`)
@@ -181,7 +181,7 @@ yetenek işi aynı duvara çarpar.
 ## 6. HİKÂYE MODU — kullanıcının açık işi
 
 Hex dünya altyapısı çalışma ağacında (StoryHexWorld/Geography/Regions/Settlements).
-`docs/PLAN-HARITA-KAYNAKLARI.md`'de **2 aşama AÇIK**: `labor` kaynağının canlandırılması,
+`../../story/plans/PLAN-HARITA-KAYNAKLARI.md`'de **2 aşama AÇIK**: `labor` kaynağının canlandırılması,
 118 şehre coğrafi karakter. Kullanıcı bu alanı kendisi sürüyor — koordinasyon gerektirir.
 
 ---

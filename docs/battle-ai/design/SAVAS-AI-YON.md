@@ -72,7 +72,7 @@ tekrarla. (2) ve (3) ancak bu döngüde birleşince anlam kazanır.
 
 - **Deterministik, forklanabilir motor** — arama yapılabilmesi bunun sayesinde. (`--forktest` byte-eş.)
 - **Değer ağı** — ρ 0.830, kapıyı geçti. Aramanın yaprak değerlendiricisi hazır.
-- **Ölçüm kapıları + tuzak defteri** (`docs/OLCUM-TUZAKLARI.md`) — hangi iddianın kanıtlandığını
+- **Ölçüm kapıları + tuzak defteri** (`../research/OLCUM-TUZAKLARI.md`) — hangi iddianın kanıtlandığını
   biliyoruz. Tek bir günde üç yanlış hipotezi bu sayede attık.
 - **Hazır rakip merdiveni** — lig için müfredat.
 - **Ucuz veri** — klonlama verisi rollout istemiyor: 18 → 562 karar/dk (31×).

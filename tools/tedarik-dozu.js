@@ -24,7 +24,7 @@ const N = Math.max(1, Number(arg('--tohum', 8)) || 8);
 const ATLA = Math.max(0, Number(arg('--atla', 0)) || 0);
 const SADECE = arg('--tip', '');           // "mlrs,attack_helo" gibi; bos = hepsi
 const DOZ = Number(arg('--doz', 2)) || 2;  // kac adet eklenecek/cikarilacak
-// CYBORG HAVUZU (docs/IKI-MAKINE.md): 100000-199999
+// CYBORG HAVUZU (../docs/battle-ai/operations/IKI-MAKINE.md): 100000-199999
 const HAVUZ = []; for (let i = 0; i < 96; i++) HAVUZ.push(100000 + i * 137);
 const TOHUMLAR = HAVUZ.slice(ATLA, ATLA + N);
 

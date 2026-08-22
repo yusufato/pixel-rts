@@ -32,9 +32,9 @@ node --version                # 20+ bekleniyor
 
 | dosya | neden |
 |---|---|
-| `docs/OLCUM-TUZAKLARI.md` | 10 tuzak. Hepsi **yaşandı**, hepsi ölçümü sessizce bozuyordu. |
-| `docs/KAPI-DEFTERI.md` | bugüne kadarki bütün kapı sonuçları tek tabloda |
-| `docs/PLAN-SIRADAKI.md` | en üstteki "2026-08-19 gecesi" bölümü — nerede olduğumuz |
+| `battle-ai/research/OLCUM-TUZAKLARI.md` | 10 tuzak. Hepsi **yaşandı**, hepsi ölçümü sessizce bozuyordu. |
+| `../evidence/KAPI-DEFTERI.md` | bugüne kadarki bütün kapı sonuçları tek tabloda |
+| `battle-ai/plans/PLAN-SIRADAKI.md` | en üstteki "2026-08-19 gecesi" bölümü — nerede olduğumuz |
 
 **En kritik iki kural, özet olarak:**
 
@@ -168,7 +168,7 @@ tekrar kontrol et.
 
 ```bash
 node tools/kapi-ozet.js --log docs/kayit-m2/m2.log --havuz   # kendi sonuçların
-git add docs/kayit-m2/ docs/GOREV-MAKINE2.md
+git add docs/kayit-m2/ GOREV-MAKINE2.md
 git commit -m "M2: <kapi adi> sonucu — <fark> (t <t>, taban <taban>)"
 git push
 ```

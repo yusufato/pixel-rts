@@ -18,10 +18,10 @@
 **Determinizm sözleşmesi (değişmedi):** yeni davranış `BATTLE_INTEL4_DELTAS` anahtarı arkasında; yeni sim-state → hash + fork + replay AUDIT. Kapılar: `--forktest` `--liverepro` `--defertest` `--defersoak` `--pdtest`.
 
 ### ⚠️ KONFİGÜRASYON AYRIŞMASI (dikkat — ölçümleri yanıltır)
-`BATTLE_INTEL4_DELTAS` varsayılanı ([globals.js:368](../js/globals.js#L368)):
+`BATTLE_INTEL4_DELTAS` varsayılanı ([globals.js:368](../../../js/globals.js#L368)):
 `stance:✓ shock:✓ deblob:✓ helo:✓ comp:✓ micro:✓ attack:✓ | profile:✗ drone:✗ defense:✗ backbone:✗ range:✗`
 
-- **Gerçek oyun (interaktif):** [main.js:494](../js/main.js#L494) ek olarak `defense + range + drone` AÇAR.
+- **Gerçek oyun (interaktif):** [main.js:494](../../../js/main.js#L494) ek olarak `defense + range + drone` AÇAR.
 - **`--vsrec` / `--intel4exam`:** **TÜM** deltaları açar — `backbone` dahil, ki 5000₺'de **net zararlı** ölçülmüştü (2/4→0/4).
 - **`--vstournament`:** varsayılanları kullanır (`--attack` bayrağı hariç).
 
@@ -47,30 +47,30 @@
 ## FAZ DURUMLARI (koda karşı doğrulandı)
 
 ### FAZ 0 — Kilit yamaları · **%90 BİTTİ**
-- ✅ **Kuvvet-oranı vetosu kaldırıldı.** [BattleSituation.js:184](../js/BattleSituation.js#L184) — `commitBroken` yalnız iptal-kriterlerinden oluşuyor (`!ammoOK || consolidate || losing || !hasContactGraced || lossAbort`), oran yok. *Belge bunu "KALDI" diyordu — yanlış.*
-- ✅ **Asgari kalış (dwell).** `STRIKE_DWELL = 320` tik ≈ 16s ([BattleSituation.js:79](../js/BattleSituation.js#L79)) — planın "15-20 sn" şartını karşılıyor.
+- ✅ **Kuvvet-oranı vetosu kaldırıldı.** [BattleSituation.js:184](../../../js/BattleSituation.js#L184) — `commitBroken` yalnız iptal-kriterlerinden oluşuyor (`!ammoOK || consolidate || losing || !hasContactGraced || lossAbort`), oran yok. *Belge bunu "KALDI" diyordu — yanlış.*
+- ✅ **Asgari kalış (dwell).** `STRIKE_DWELL = 320` tik ≈ 16s ([BattleSituation.js:79](../../../js/BattleSituation.js#L79)) — planın "15-20 sn" şartını karşılıyor.
 - ✅ **KABUL ÖLÇÜLDÜ: tek-tik devrilme = 0** (4 maçın hepsinde). Duruş geçişi 1-9 arası → osilasyon bitmiş.
-- ❌ **KALAN: şok-sömürüde `t<15s` korkuluğu yok.** [BattleSituation.js:120](../js/BattleSituation.js#L120) `shock` tetiğinde zaman şartı bulunmuyor. *Ama ölçülen erken-STRIKE şoktan değil `yumusatma-hazir`'dan geliyor → korkuluk şok yerine **kısa-ömürlü-gerekçe** üstüne kurulmalı.*
+- ❌ **KALAN: şok-sömürüde `t<15s` korkuluğu yok.** [BattleSituation.js:120](../../../js/BattleSituation.js#L120) `shock` tetiğinde zaman şartı bulunmuyor. *Ama ölçülen erken-STRIKE şoktan değil `yumusatma-hazir`'dan geliyor → korkuluk şok yerine **kısa-ömürlü-gerekçe** üstüne kurulmalı.*
 
 ### FAZ 1 — Operasyon nesnesi · **BÜYÜK ÖLÇÜDE BİTTİ**
-- ✅ Operasyon evreleri gerçek: `ASSEMBLE / FIRE_WINDOW / ASSAULT / EXPLOIT` + evre zaman-aşımları ([BattleExecution.js:20-28](../js/BattleExecution.js#L20)); `taskExecutor.operationHistory` gerekçeli geçiş kaydı tutuyor (`COMBAT_GROUPS_READY`, `FIRE_WINDOW_EXPIRED`, `ASSAULT_MOMENTUM`, `MISSION_TIME_CRITICAL`…).
+- ✅ Operasyon evreleri gerçek: `ASSEMBLE / FIRE_WINDOW / ASSAULT / EXPLOIT` + evre zaman-aşımları ([BattleExecution.js:20-28](../../../js/BattleExecution.js#L20)); `taskExecutor.operationHistory` gerekçeli geçiş kaydı tutuyor (`COMBAT_GROUPS_READY`, `FIRE_WINDOW_EXPIRED`, `ASSAULT_MOMENTUM`, `MISSION_TIME_CRITICAL`…).
 - ✅ **KABUL ÖLÇÜLDÜ: ilk STRIKE ≤ t=90s** (41.6s ve 17.1s).
 - ❌ **KALAN:** "STRIKE'tan geri dönüşlerin %100'ü kayıtlı iptal-kriteri gerekçesi taşır" ölçülmedi. (`--intel4exam` gerekçe histogramı tutuyor; geri-dönüş gerekçesi ayrıca sayılmalı.)
 
 ### FAZ 2 — Görev/rol sistemi · **KISMEN**
-- ✅ Rol sistemi var: `TASK_GROUP_ROLE` = MAIN / FIXING / **FLANK** / FIRE_SUPPORT / RECON / SUPPORT / RESERVE ([BattlePlanning.js:4](../js/BattlePlanning.js#L4)).
-- ✅ Omurga-tabanı `backbone`-delta yazılmış ([BattleDeployment.js:383](../js/BattleDeployment.js#L383)) — **ama varsayılan KAPALI**, 5000₺'de net zararlı ölçülmüş (bütçe-adaptif olana dek kapalı).
-- ⚠️ **KABUL METRİĞİ BAYAT — bütçe değişti.** "~820₺/maç" hedefi eski bir bütçeden türetilmişti. **Güncel Hızlı Maç varsayılanı 6500₺ ve iki taraf EŞİT** ([Screens.js:22-23](../js/Screens.js#L22)). Hedef bandı 6500'e yeniden türetilmeli (oyuncunun %16'lık payı kabul edilirse ~1040₺). **Ham 820 rakamını kullanma.**
+- ✅ Rol sistemi var: `TASK_GROUP_ROLE` = MAIN / FIXING / **FLANK** / FIRE_SUPPORT / RECON / SUPPORT / RESERVE ([BattlePlanning.js:4](../../../js/BattlePlanning.js#L4)).
+- ✅ Omurga-tabanı `backbone`-delta yazılmış ([BattleDeployment.js:383](../../../js/BattleDeployment.js#L383)) — **ama varsayılan KAPALI**, 5000₺'de net zararlı ölçülmüş (bütçe-adaptif olana dek kapalı).
+- ⚠️ **KABUL METRİĞİ BAYAT — bütçe değişti.** "~820₺/maç" hedefi eski bir bütçeden türetilmişti. **Güncel Hızlı Maç varsayılanı 6500₺ ve iki taraf EŞİT** ([Screens.js:22-23](../../../js/Screens.js#L22)). Hedef bandı 6500'e yeniden türetilmeli (oyuncunun %16'lık payı kabul edilirse ~1040₺). **Ham 820 rakamını kullanma.**
 - ✅ **Kamikaze ≥150₺ ÖLÇÜLDÜ ve GEÇTİ:** 32 maçta 204₺/birim imha (`--intel4selfplay`).
 - ❌ **KALAN:** HVT-sağkalım oranı ölçülmedi. Kayıp bandı ölçüldü (saldıran 4997₺ / savunan 3840₺, 6500₺ bütçede) ama **hedef bandı tanımlı değil** → önce hedefi türet.
 
 ### FAZ 3 — Savunma yerleşimi · **YAZILDI, ÖLÇÜLMEDİ**
-- ✅ `defense`-delta gerçek: tam-cephe garnizon ([BattleExecution.js:111](../js/BattleExecution.js#L111)), XWIDE savunma yerleşimi ([BattlePlanning.js:629,733](../js/BattlePlanning.js#L629)). İnteraktif oyunda AÇIK.
+- ✅ `defense`-delta gerçek: tam-cephe garnizon ([BattleExecution.js:111](../../../js/BattleExecution.js#L111)), XWIDE savunma yerleşimi ([BattlePlanning.js:629,733](../../../js/BattlePlanning.js#L629)). İnteraktif oyunda AÇIK.
 - ✅ **KABUL (kısmi) GEÇTİ: "en az bir savunma galibiyeti"** → 2/2 savunma maçı kazanıldı.
 - ❌ **KALAN:** "t=20'de yerel-tepe L≤8" ölçülmedi. `BATTLE_BALANCE.localDensity` sayacı var ama rapora bağlanmamış.
 
 ### FAZ 4 — Damıtılmış oyuncu politikaları · **KISMEN**
-- ✅ **R1 (angajman mesafesi)** = `range`-delta: menzil ≥520 olan birim STRIKE'ta bile 0.9×menzilde durur ([Unit.js:1270](../js/Unit.js#L1270)). İnteraktif oyunda AÇIK, varsayılan KAPALI.
+- ✅ **R1 (angajman mesafesi)** = `range`-delta: menzil ≥520 olan birim STRIKE'ta bile 0.9×menzilde durur ([Unit.js:1270](../../../js/Unit.js#L1270)). İnteraktif oyunda AÇIK, varsayılan KAPALI.
 - ⚠️ **R2 (hedef önceliği)** ve **R3 (SEAD sıralaması)**: `drone`-delta (av-paketi→HVT) var ama R2'nin "ilk-90sn %55 hasar düşman-HATTINA" kuralı ve R3'ün ortak SEAD görevi kod olarak **doğrulanamadı**.
 - ❌ **KALAN:** kabul metriği (ort. angajman menzili ≥900, dolaylı+hava payı ≥%50) ölçülmedi.
 

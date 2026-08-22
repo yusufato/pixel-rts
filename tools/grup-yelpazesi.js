@@ -2,7 +2,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
    GRUP YELPAZESI — "kutleyi oynatmak, tek birimi oynatmaktan daha cok fark yaratir mi?"
 
-   BUTUN GRUP-ARAMA PLANI TEK BIR IDDIAYA DAYANIYOR (docs/PLAN-GRUP-ARAMA.md):
+   BUTUN GRUP-ARAMA PLANI TEK BIR IDDIAYA DAYANIYOR (../docs/battle-ai/plans/PLAN-GRUP-ARAMA.md):
        grup adaylari arasi YAYILIM, birim adaylari arasindakinden belirgin BUYUKTUR.
    Bu arac o iddiayi INSA ETMEDEN sinar. Kucuk cikarsa plan DUSER.
 
@@ -253,7 +253,7 @@ console.log('');
 console.log('GRUP YELPAZESI   ' + MAC + ' tohum   ufuk ' + UFUK + ' tik (' + (UFUK * 0.05).toFixed(0) + 'sn)' +
     '   halka ' + YARICAP + 'px x ' + YON + ' yon   kutle ' + KUTLE + ' birim');
 console.log('  SORU: ayni hedef noktalari, TEK BIRIM vs KUTLE — yayilim degisiyor mu?');
-console.log('  (Bu, docs/PLAN-GRUP-ARAMA.md\'nin dayandigi TEK iddia. Kucukse plan duser.)');
+console.log('  (Bu, ../docs/battle-ai/plans/PLAN-GRUP-ARAMA.md\'nin dayandigi TEK iddia. Kucukse plan duser.)');
 console.log('');
 
 const hepsi = [];
@@ -310,7 +310,7 @@ if (B && K) {
         console.log('        ayri bir soru. Once daha cok tohumla tekrar.');
     } else {
         console.log('     ⛔ IDDIA DUSTU — kutleyi oynatmak tek birimi oynatmaktan daha cok fark');
-        console.log('        yaratmiyor. docs/PLAN-GRUP-ARAMA.md bu sonuca gore GERI CEKILIR.');
+        console.log('        yaratmiyor. ../docs/battle-ai/plans/PLAN-GRUP-ARAMA.md bu sonuca gore GERI CEKILIR.');
     }
 }
 console.log('');

@@ -168,7 +168,7 @@ for alt, ust, ad in [(0,600,'0-30sn'),(600,1400,'30-70sn'),(1400,2400,'70-120sn'
           f'{spearman(pv[m], gercek[m]):.3f}'.rjust(10) +
           f'%{((pv[m] > 0) == (gercek[m] > 0)).mean()*100:.0f}'.rjust(9))
 print('')
-print('  KAPI (docs/PLAN-BEONAI-V2-ODUL.md): rho >= 0.45 ve kazanan ayrimi >= %70')
+print('  KAPI (../docs/battle-ai/plans/PLAN-BEONAI-V2-ODUL.md): rho >= 0.45 ve kazanan ayrimi >= %70')
 print('  -> saglanirsa (1) beonai icin gercek odul sinyali, (2) kalibre erken durdurma')
 
 if KAYDET:

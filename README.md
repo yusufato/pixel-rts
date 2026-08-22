@@ -16,7 +16,7 @@ Ayrıntılı ve güncel durum:
 - [Hikâye modu ana planı](docs/story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md)
 - [Hikâye modu uygulama durumu](docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md)
 - [Modern dünya eksikleri](docs/story/status/MODERN_DUNYA_EKSIKLERI.md)
-- [Savaş AI tasarım planı](SAVAS_AI_TASARIM_PLANI.md)
+- [Savaş AI tasarım planı](docs/battle-ai/design/SAVAS_AI_TASARIM_PLANI.md)
 - [Sohbet motoru geliştirme planı](docs/story/plans/HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md)
 
 ## Çalıştırma ve doğrulama

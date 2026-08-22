@@ -23,7 +23,7 @@ kök-seviyesi script etiketi yok). `package.json` girişi `electron/main.js`.
 | `StoryGeoRender.js` | `js/` altında karşılığı YOK ve hiçbir yerden yüklenmiyor; yalnız `gercekci-harita.html` içinde "drop-in" olarak ANILIYOR (bağlanmamış tasarım ürünü) |
 
 **Neden taşındı:** `grep` her aramada iki dosya birden döndürüyordu → yanlış dosyayı düzenleme
-riski gerçekti (birkaç kez yaşandı). Bkz. `docs/OLCUM-TUZAKLARI.md`.
+riski gerçekti (birkaç kez yaşandı). Bkz. `../docs/battle-ai/research/OLCUM-TUZAKLARI.md`.
 
 ---
 
@@ -40,7 +40,7 @@ sistem durumunu belirlemez. Güncel kaynaklar kökteki
 | `PLAN-MODERN-DUNYA.md` | Eski 0–7 aşamalı modern dünya taslağı; karakter, fraksiyon, ekonomi, medya, şirket, hafıza ve kara kuğu kapsamı güncel 71 fazlı ana plana ayrıntılı biçimde aktarıldı; canlı dosyalardan doğrudan atıf almıyor. |
 
 **Taşınmayanlar:** `../docs/story/qa/HIKAYE_LLM_YETERLILIK_RAPORU.md`, `../docs/story/research/DIS_ANALIZ_VERI_DEFTERI.md`,
-`../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` ve `docs/HIKAYE-TEST-PARALEL.md` güncel plan/README tarafından
+`../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` ve `../docs/story/qa/HIKAYE-TEST-PARALEL.md` güncel plan/README tarafından
 hâlâ kaynak veya kabul kanıtı olarak kullanılıyor. `../docs/product/OYUN_TASARIM.md` ve
 `../docs/product/GELISTIRME_PLANI.md` yalnız hikâye belgesi olmadığı ve savaş/genel ürün kararları da taşıdığı
 için kesin ölü kanıtı olmadan taşınmadı.

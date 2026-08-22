@@ -86,4 +86,4 @@ Gerçek-oyun beyninde 32 maçta üremiyor (hepsinde ilk STRIKE ≥t30s). `--inte
 İlk sürümde harness `battleBalanceReport`'tan **yanlış alan adlarını** okudu (`dispersal`/`abandoned` yerine `dispersalIndex`/`grayVehicle.abandoned`) → sessizce `null`/`0` döndü ve *"mürettebat terk mekaniği ölü"* gibi sahte bir bulgu üretti. Düzeltilince mekanik sağlam çıktı.
 **Kural:** bir metrik "0" veya "null" geliyorsa, önce ölçüm kodunu doğrula, sonra bulgu ilan et.
 
-İlgili: [[pixel-rts-intel4-pro-taban]] · `docs/INTEL4-PRO-SON-KOZ-PLAN.md`
+İlgili: [[pixel-rts-intel4-pro-taban]] · `battle-ai/plans/INTEL4-PRO-SON-KOZ-PLAN.md`

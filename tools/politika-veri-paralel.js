@@ -8,7 +8,7 @@
 //  TOHUM AYRIMI (sızıntı kapısı): eğitim verisi 120000+ bandından toplanır.
 //  Ölçüm kapısı (`tools/rol-dengesi.js`) 100000+ ve 150000+ kullandı. Bantlar AYRIK,
 //  yani politika hiçbir zaman üzerinde puanlanacağı haritada eğitilmez.
-//  (Makine havuzu: CYBORG 100000-199999 — docs/IKI-MAKINE.md)
+//  (Makine havuzu: CYBORG 100000-199999 — ../docs/battle-ai/operations/IKI-MAKINE.md)
 //
 //    node tools/politika-veri-paralel.js --mac 64 --isci 8 --taraf iki
 // ═══════════════════════════════════════════════════════════════════════════

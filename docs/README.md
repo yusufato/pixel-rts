@@ -22,7 +22,7 @@ Bu dizin projenin kanonik belge girişidir. Oyun davranışının kaynağı kod 
 | Hikâye modu gerçekleşen durum | Aktif | [Uygulama durumu](story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md) | Kodlanan ve açık kalan işler |
 | Modern dünya borçları | Aktif | [Modern dünya eksikleri](story/status/MODERN_DUNYA_EKSIKLERI.md) | Plan ile çalışan oyun arasındaki farklar |
 | Hikâye sohbeti | Aktif | [Sohbet motoru planı](story/plans/HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md) | Serbest metin, görev ve toplantı borçları |
-| Savaş AI | Aktif | [Savaş AI tasarım planı](../SAVAS_AI_TASARIM_PLANI.md) | Hilesiz algı–karar–uygulama zinciri |
+| Savaş AI | Aktif | [Savaş AI tasarım planı](battle-ai/design/SAVAS_AI_TASARIM_PLANI.md) | Hilesiz algı–karar–uygulama zinciri |
 | Teknoloji | Aktif | [Teknoloji ağacı](product/TEKNOLOJI_AGACI.md) | 2010–2100 teknoloji sözleşmesi |
 | UX ve QA | Aktif | [UX/QA giriş noktası](ux/README.md) | Oyuncu etkileşimi ve görsel doğrulama |
 | Kurulum ve işletim | Referans | [Operasyon giriş noktası](operations/README.md) | Yerel kurulum ve çalışma notları |
@@ -52,4 +52,4 @@ Belge ağacı yeniden düzenlenmektedir. Bu indeks kanonik sahipliği tanımlar;
 ### Karar gerekli belgeler
 
 - `memory.md`: `memory.json` hâlâ depoda bulunduğu için yardımcı-asistan günlüğü ölü kabul edilmedi.
-- `PLANLAR.md`: kanonik savaş AI planından doğrudan referans alıyor ve tarihsel kapanışların yanında geleceğe bırakılmış eğitim maddeleri taşıyor; ayrıştırılmadan arşivlenmeyecek.
+- `battle-ai/plans/PLANLAR.md`: kanonik savaş AI planından doğrudan referans alıyor ve tarihsel kapanışların yanında geleceğe bırakılmış eğitim maddeleri taşıyor; ayrıştırılmadan arşivlenmeyecek.

@@ -1,7 +1,7 @@
 # Hafif muharebe tezgâhı (jsdom) — ölçüm kapasitesi 13 katına çıktı
 
 Tarih: 2026-08-05 · `tools/muharebe-tezgah.js` + `tools/caprazla.js --motor tezgah`
-Bağlam: [OLCUM-KRIZI-TOHUM-SAYISI.md](OLCUM-KRIZI-TOHUM-SAYISI.md) (kaç tohum gerektiği)
+Bağlam: [../reports/OLCUM-KRIZI-TOHUM-SAYISI.md](../reports/OLCUM-KRIZI-TOHUM-SAYISI.md) (kaç tohum gerektiği)
 
 ---
 

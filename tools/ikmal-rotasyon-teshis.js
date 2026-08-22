@@ -1,6 +1,6 @@
 // MUHIMMAT ROTASYONU — oyuncu ile AI arasindaki OLCULMUS yurutme-katmani farki.
 //
-// BULGU (docs/INSAN-VS-AI-SALDIRI.md): "muhimmati bitip sonra >=%50 dolu donen birim"
+// BULGU (../docs/battle-ai/reports/INSAN-VS-AI-SALDIRI.md): "muhimmati bitip sonra >=%50 dolu donen birim"
 //   seed2024  OYUNCU 7/8 (%88)   AI 0/2 (%0)
 //   seed777   OYUNCU 4/5 (%80)   AI 1/3 (%33)
 //   handikap  OYUNCU 8           AI 0

@@ -74,7 +74,7 @@ aynı muharebeyi vermiyor, yalnız aynı haritayı veriyor.
 Yani 3 tohumluk tarama ve 6 tohumluk doğrulama **istatistiksel olarak anlamsızdı**.
 Bugüne kadarki tüm 3-6 tohumluk A/B kararları bu kusuru taşıyor.
 
-## 5. Planın revizyonu (PLAN-KONUSLANDIRMA-CAPRAZLAMA.md yerine geçer)
+## 5. Planın revizyonu (battle-ai/plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md yerine geçer)
 
 ### 5.1 Kabul eşikleri
 - **Tarama:** 12 tohum; yalnız |Δmarj| > 1800 olan eksenler ilerler (2σ/√12).

@@ -23,7 +23,7 @@ function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.
 const N = Math.max(1, Number(arg('--tohum', 4)) || 4);
 const ATLA = Math.max(0, Number(arg('--atla', 0)) || 0);
 const KONTROL = process.argv.includes('--kontrol');
-// CYBORG HAVUZU (docs/IKI-MAKINE.md): 100000-199999. Diger makineyle CAKISMAZ.
+// CYBORG HAVUZU (../docs/battle-ai/operations/IKI-MAKINE.md): 100000-199999. Diger makineyle CAKISMAZ.
 const HAVUZ = [];
 for (let i = 0; i < 64; i++) HAVUZ.push(100000 + i * 137);
 const TOHUMLAR = HAVUZ.slice(ATLA, ATLA + N);

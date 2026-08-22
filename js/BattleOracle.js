@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // BattleOracle.js — Faz 1: Karşı-olgusal operasyon değerlendirici + ORACLE TAVAN TESTİ
 // ───────────────────────────────────────────────────────────────────────────
-// Plan: SAVAS-AI-PLAN-v4-LLM.md §3A. MODEL YOK. Amaç: eğitimden ÖNCE GO/NO-GO.
+// Plan: ../docs/battle-ai/plans/SAVAS-AI-PLAN-v4-LLM.md §3A. MODEL YOK. Amaç: eğitimden ÖNCE GO/NO-GO.
 //   1) Bir karar durumunda TÜM gramer adaylarını (operationGrammarGenerate) rollout et
 //      (fork → adayı enjekte et → N tik koş → ödül).
 //   2) Gerçekte en iyi sonucu veren = ORACLE. Kod-AI'ın varsayılan seçimi = "chosen".

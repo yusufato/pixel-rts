@@ -1,6 +1,6 @@
 # FAZ 1 — Taban haritası ve kontrol
 
-Tarih: 2026-08-05 · Plan: [PLAN-KONUSLANDIRMA-CAPRAZLAMA.md](PLAN-KONUSLANDIRMA-CAPRAZLAMA.md)
+Tarih: 2026-08-05 · Plan: [battle-ai/plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md](../plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md)
 Kapılar: `--recipebase`, `--recipeab`
 
 ---

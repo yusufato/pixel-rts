@@ -14,7 +14,7 @@
 //  DOĞRULAMA: veri KARAR bazında eğitim/geliştirme diye ayrılır (aynı maçın kararları
 //  aynı tarafa düşer → sızıntı yok). Rapor: dev üzerinde oracle-seçme isabeti ve
 //  ortalama regret. Bunlar MAÇ SONUCU DEĞİLDİR — gerçek karar caprazla ile çok-tohumlu
-//  değerlendirmede verilir (docs/OLCUM-KRIZI-TOHUM-SAYISI.md).
+//  değerlendirmede verilir (../docs/battle-ai/reports/OLCUM-KRIZI-TOHUM-SAYISI.md).
 //
 //  Kullanım:
 //    node tools/beonai-egit.js --veri qa-runtime/beonai-veri.jsonl --surum beonai-v1

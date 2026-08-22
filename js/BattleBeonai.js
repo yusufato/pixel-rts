@@ -17,7 +17,7 @@
 //      kaydedilir → replay byte-aynı kalır. Replay/MP oynatımında beonai KAPALIDIR.
 //   2) ÇOK-TOHUMLU DEĞERLENDİRME: marj std sapması ~3114 ölçüldü. Hiçbir beonai sürümü
 //      12 tohumdan az ile "daha iyi" ilan edilemez; nihai karar dışörneklem havuzunda.
-//      (docs/OLCUM-KRIZI-TOHUM-SAYISI.md — "6/6 kazanan" bir tarif taze tohumda 2/6 çıktı.)
+//      (../docs/battle-ai/reports/OLCUM-KRIZI-TOHUM-SAYISI.md — "6/6 kazanan" bir tarif taze tohumda 2/6 çıktı.)
 //   3) BAYAT MODEL KAPALI DURUR: roster/motor değişince model dağılım-dışı kalır.
 //      Sürüm kaydında hangi motor sürümüyle eğitildiği yazar; uyuşmazsa UYARIR.
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 # beonai — öğrenen beyin soyu (altyapı)
 
 Tarih: 2026-08-05 · Kod: `js/BattleBeonai.js`, `tools/beonai-uret.js`, `tools/beonai-egit.js`
-İlgili: [TEZGAH-JSDOM.md](TEZGAH-JSDOM.md) · [OLCUM-KRIZI-TOHUM-SAYISI.md](OLCUM-KRIZI-TOHUM-SAYISI.md)
+İlgili: [../operations/TEZGAH-JSDOM.md](../operations/TEZGAH-JSDOM.md) · [../reports/OLCUM-KRIZI-TOHUM-SAYISI.md](../reports/OLCUM-KRIZI-TOHUM-SAYISI.md)
 
 ---
 

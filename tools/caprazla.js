@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════
-//  PARALEL ÇAPRAZLAMA KOŞUCUSU (FAZ 0.5) — docs/OLCUM-KRIZI-TOHUM-SAYISI.md
+//  PARALEL ÇAPRAZLAMA KOŞUCUSU (FAZ 0.5) — ../docs/battle-ai/reports/OLCUM-KRIZI-TOHUM-SAYISI.md
 //
 //  NEDEN: marj std sapması 3114 ölçüldü → ±1000 hassasiyet ~37 tohum, ±500 ~150 tohum
 //  ister. Tek süreçte 6×6 turnuva × 48 tohum ≈ 19 saat. Maçlar BİRBİRİNDEN BAĞIMSIZ

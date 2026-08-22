@@ -213,7 +213,7 @@ const BATTLE_DOCTRINE_NAMES = ['dengeli', 'zirh-mizragi', 'piyade-dalgasi', 'top
 const BATTLE_DOCTRINE_PLAYER_META = 9;   // vekil-tuning: kullanıcının gerçek oynayış-profili (5-maç analizi) — bataryada mavi-vekil bunu kullanır
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  TARİF (RECIPE) İLE ORDU KURMA — FAZ 0, docs/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md
+//  TARİF (RECIPE) İLE ORDU KURMA — FAZ 0, ../docs/battle-ai/plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md
 //  GEREKÇE: "süpüremediğin şeyi çaprazlayamazsın." Bugün kompozisyon, aşağıdaki
 //  ağırlık/jitter/imza-floor/takas/sert-taban/mızrak/artık zincirinden ORTAYA ÇIKAN
 //  bir yan etki; tek bir payı değiştirmek ötekileri habersiz kaydırıyor. Tarif modu

@@ -3,7 +3,7 @@
 //
 // Kompozisyon modeli maci KOSMADAN tahmin ediyordu (rho 0.529). Bu onun bir ust seviyesi:
 // macin HERHANGI BIR ANINDAKI durumdan nihai marji tahmin etmek. Iki ayri isi acar:
-//   (1) beonai'nin MIYOP oracle'i yerine gercek bir DEGER FONKSIYONU (docs/PLAN-BEONAI-V2-ODUL.md)
+//   (1) beonai'nin MIYOP oracle'i yerine gercek bir DEGER FONKSIYONU (../docs/battle-ai/plans/PLAN-BEONAI-V2-ODUL.md)
 //   (2) kalibre edilmis ERKEN DURDURMA (sabit esik yerine "model %95 emin" kuralı)
 //   (3) teshis: hangi durum ozellikleri kazanmayi belirliyor
 //

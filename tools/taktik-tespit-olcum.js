@@ -8,7 +8,7 @@
 //
 //  ⚠ NEDEN ÖNCE BU: bu depoda bir modeli/skoru "mantıken doğru" diye kullanmak iki kez
 //  zarar verdi. Değer ağı (ρ 0,86, durum değerinde iyi) aday sıralamasında rastgeleden
-//  KÖTÜ çıktı ve maç kapısında kapatmak +897 kazandırdı (docs/OLCUM-TUZAKLARI.md, 9. tuzak).
+//  KÖTÜ çıktı ve maç kapısında kapatmak +897 kazandırdı (../docs/battle-ai/research/OLCUM-TUZAKLARI.md, 9. tuzak).
 //  Bir tespitçinin "makul görünmesi" isabetli olduğu anlamına gelmez.
 //
 //  YÖNTEM — İKİ KOŞUL, AYNI TOHUM:

@@ -2,7 +2,7 @@
 // Kullanici: "simdiye kadar 6 seyi guclendirdik, bu 6 seyin guclenmis hali ile guclenmemis hali
 // olan deterministik bir savas ortami hazirla."
 //
-// TASARIM KARARLARI (hepsi docs/OLCUM-TUZAKLARI.md'den):
+// TASARIM KARARLARI (hepsi ../docs/battle-ai/research/OLCUM-TUZAKLARI.md'den):
 //   * ESLESTIRILMIS FARK (E3): ayni tohumda iki kol da kosulur, fark tohum-ici alinir. Marj std'si
 //     ~3114; eslestirilmemis karsilastirmada 12 tohum hicbir sey gostermez, eslestirilmisde gosterir.
 //   * TARAF-BASI (B3): demet YALNIZ KIRMIZI'ya verilir; mavi iki kolda da AYNI (demetsiz). Boylece

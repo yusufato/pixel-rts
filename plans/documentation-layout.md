@@ -34,8 +34,8 @@ Mevcut sorunlar:
 - Hikâye modu, savaş AI, UX/QA ve operasyon belgelerinin ayrı giriş belgeleri yok.
 - `github.md` Markdown değil; PNG imzalı ikili veri yanlış uzantıyla tutuluyor.
 - `memory.md` eski bir yardımcı-asistan oturumuna ve bulunmadığı doğrulanması gereken `memory.json`, `task.md`, `implementation_plan.md` dosyalarına işaret ediyor.
-- `PLANLAR.md` güncel görev kuyruğu ile tamamlanmış savaş AI geçmişini ayırmıyor.
-- `docs/KAPI-DEFTERI.md` kendisini üretilmiş çıktı olarak tanımlıyor fakat yaşayan tasarım belgeleriyle aynı yerde.
+- `../docs/battle-ai/plans/PLANLAR.md` güncel görev kuyruğu ile tamamlanmış savaş AI geçmişini ayırmıyor.
+- `../docs/battle-ai/evidence/KAPI-DEFTERI.md` kendisini üretilmiş çıktı olarak tanımlıyor fakat yaşayan tasarım belgeleriyle aynı yerde.
 - `docs/kayit-m2/README.md` kayıtların amacı, üreticisi, şeması ve saklama politikasını açıklayacak kadar dolu değil.
 - `.agents/skills` ile `.claude/skills` altındaki benzer Markdown dosyaları proje belgesi değil, araç yapılandırmasıdır; belge tekilleştirmesine dahil edilmemelidir.
 
@@ -109,8 +109,8 @@ _arsiv/
 3. Her belge için `canonical`, `active-plan`, `status`, `design`, `qa`, `research`, `generated-evidence`, `operations` veya `archive-candidate` sınıfından biri atanmalı. Sınıflandırma yalnız dosya adına göre yapılmamalı; başlık, tarih, açık işler ve inbound referanslar okunmalı.
 4. `github.md` ilk sekiz baytının PNG imzası (`89504E470D0A1A0A`) olduğu yeniden doğrulanmalı. İmza tutmazsa uzantı değiştirme adımı iptal edilmeli.
 5. `memory.md` içindeki `memory.json`, `task.md` ve `implementation_plan.md` yolları doğrulanmalı. Yaşayan bir iş akışı bulunursa belge arşivlenmemeli.
-6. `PLANLAR.md` içindeki tamamlanmamış maddeler önce yaşayan savaş AI planına aktarılmalı; kalan içerik ancak bundan sonra tarihsel kabul edilmeli.
-7. `docs/KAPI-DEFTERI.md` dosyasını üreten/okuyan araç referansları bulunmalı. Yol çalışma zamanında sabitse taşıma öncesi üretici güncellemesi ayrı, davranış koruyan değişiklik olarak hazırlanmalı.
+6. `../docs/battle-ai/plans/PLANLAR.md` içindeki tamamlanmamış maddeler önce yaşayan savaş AI planına aktarılmalı; kalan içerik ancak bundan sonra tarihsel kabul edilmeli.
+7. `../docs/battle-ai/evidence/KAPI-DEFTERI.md` dosyasını üreten/okuyan araç referansları bulunmalı. Yol çalışma zamanında sabitse taşıma öncesi üretici güncellemesi ayrı, davranış koruyan değişiklik olarak hazırlanmalı.
 8. Taşıma öncesi Markdown bağlantı taraması ve `rg` ile eski yol referansları kaydedilmeli; başlangıçta zaten kırık olan bağlantılar yeni kırıklardan ayrılmalı.
 9. Depoda `AGENTS.md` bulunmadığı ve mevcut `plans/` çakışması olmadığı doğrulanmıştır; yeni kural dosyası bu çalışmada eklenmeyecek.
 
@@ -128,7 +128,7 @@ _arsiv/
 
 - PNG imzası doğrulanmışsa `github.md` dosyasını içerik değiştirmeden `_arsiv/binary-dumps/github.png` konumuna taşı; `_arsiv/README.md` içine kaynak yol, tarih, imza ve neden bilgisini ekle.
 - Bağımlılığı olmadığı doğrulanırsa `memory.md` dosyasını `_arsiv/assistant-history/memory-2026-07-18.md` konumuna taşı; yanlış veya artık bulunmayan referansları tarihsel not olarak açıkla, içerik silme.
-- `PLANLAR.md` içindeki yaşayan açık işleri kanonik savaş AI planına bağla; yalnız kapalı tarihsel gövdeyi `_arsiv/battle-ai/PLANLAR-2026-08-03.md` altına taşı.
+- `../docs/battle-ai/plans/PLANLAR.md` içindeki yaşayan açık işleri kanonik savaş AI planına bağla; yalnız kapalı tarihsel gövdeyi `_arsiv/battle-ai/PLANLAR-2026-08-03.md` altına taşı.
 - Belirsiz herhangi bir dosyayı arşivleme; `Needs Decision` olarak `docs/README.md` tablosunda bırak.
 - PNG imzasını, içerik byte eşitliğini ve bağlantıları doğrula; ayrı commit sınırı oluştur.
 
@@ -148,7 +148,7 @@ _arsiv/
 - Kanonik tasarım ve aktif planları `docs/battle-ai/plans` ile `docs/battle-ai/design` altına yerleştir.
 - Mimari inceleme, AR-GE ve karşılaştırma belgelerini `docs/battle-ai/research` altına yerleştir.
 - Sonuç, bilanço, değerlendirme ve kalite raporlarını `docs/battle-ai/reports` altına yerleştir.
-- Ham/üretilmiş kanıtları `docs/battle-ai/evidence` altına yerleştir. `KAPI-DEFTERI.md` için “generated; do not hand edit” başlığını ve üretici komutunu görünür kıl.
+- Ham/üretilmiş kanıtları `docs/battle-ai/evidence` altına yerleştir. `../docs/battle-ai/evidence/KAPI-DEFTERI.md` için “generated; do not hand edit” başlığını ve üretici komutunu görünür kıl.
 - Eğitim, gece koşusu, dağıtım ve model seçimi çalıştırma belgelerini `docs/battle-ai/operations` altına yerleştir.
 - Aynı olayı anlatan belgeleri sessizce birleştirme. Biri diğerinin devamıysa üstlerine `supersedes` / `superseded-by` bağlantısı ekle.
 - Dosya yollarına bağlı araç ve kaynak yorumlarını yalnız referans düzeltmesi kadar değiştir; çalışma mantığına dokunma.
@@ -188,7 +188,7 @@ _arsiv/
 | Kaynak kodu veya araçların sabit belge yoluna bağlı olması | Orta | Orta | Taşıma öncesi `rg`; aynı committe yalnız yol referansı güncellemesi |
 | GitHub dış bağlantılarının eski kök yollarda 404 vermesi | Orta | Orta | README ve arşiv provenance haritası; yayınlanmış dış bağlantılar varsa ilgili kanonik dosyayı bir sürüm daha yerinde bırakma kararı al |
 | `github.md` dosyasının yanlışlıkla gerçek Markdown kabul edilmesi veya ikili verinin bozulması | Düşük | Yüksek | PNG imzası ve byte eşitliği doğrulaması; silme yok |
-| Üretilmiş `KAPI-DEFTERI.md` yolunun generator tarafından yeniden eski konuma yazılması | Orta | Orta | Üretici/okuyucu yollarını birlikte güncelle ve yeniden üretim smoke testi yap |
+| Üretilmiş `../docs/battle-ai/evidence/KAPI-DEFTERI.md` yolunun generator tarafından yeniden eski konuma yazılması | Orta | Orta | Üretici/okuyucu yollarını birlikte güncelle ve yeniden üretim smoke testi yap |
 | Çok fazla README/özet ile yeni belge çoğaltılması | Orta | Orta | Giriş belgeleri yalnız indeks/sahiplik taşır; tasarım metni kopyalamaz |
 | Araç yapılandırma Markdown'larının proje belgesi sanılıp taşınması | Düşük | Yüksek | `prompts/**`, `.agents/**`, `.claude/**` kesin kapsam dışı |
 | Türkçe karakterli veya boşluklu yolların bağlantı araçlarını bozması | Orta | Düşük | Mevcut yolu zorunlu olmadıkça yeniden adlandırma; link validator ile doğrula |

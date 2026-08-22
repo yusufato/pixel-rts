@@ -94,7 +94,7 @@ Etkisi: kurumuş birim ikmalle 0'ın üstüne çıkmak için fazladan mühimmat 
 ### P1b — KÜTLE-HEDEFLEMESİ: ÇALIŞIYOR ✅ (2026-08-04)
 
 **Kök neden (birim-tipi kırılımı):** savunanın kuruyan birimleri **yalnızca dolaylı ateş** (topçu 1 + havan 2-3 + ÇNRA 1);
-saldıranda hiç kuru birim yok. Sebep [Unit.js:1374](../js/Unit.js#L1374): `if (this.isIndirect) { sc = -d; }`
+saldıranda hiç kuru birim yok. Sebep [Unit.js:1374](../../../js/Unit.js#L1374): `if (this.isIndirect) { sc = -d; }`
 → dolaylı ateş **en yakın** düşmana atıyor ("splash zaten alan" varsayımı) → 3-8 mermilik şarjör tek gezen keşif aracına gidiyor.
 
 **Çözüm:** pro-delta `indirectMassing` — hedef, patlama yarıçapındaki düşman **kütlesine** göre seçilir (mermi başına değer).

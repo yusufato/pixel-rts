@@ -1,7 +1,7 @@
 # PLAN — beonai v2: ödülü AI'ın kendisi öğrensin + ölçek + intel4-pro sinerjisi
 
 Tarih: 2026-08-05 · Durum: **ONAY BEKLİYOR**
-Öncesi: [BEONAI-ALTYAPI.md](BEONAI-ALTYAPI.md) · [OLCUM-KRIZI-TOHUM-SAYISI.md](OLCUM-KRIZI-TOHUM-SAYISI.md) · [TEZGAH-JSDOM.md](TEZGAH-JSDOM.md)
+Öncesi: [../design/BEONAI-ALTYAPI.md](../design/BEONAI-ALTYAPI.md) · [../reports/OLCUM-KRIZI-TOHUM-SAYISI.md](../reports/OLCUM-KRIZI-TOHUM-SAYISI.md) · [../operations/TEZGAH-JSDOM.md](../operations/TEZGAH-JSDOM.md)
 
 ---
 

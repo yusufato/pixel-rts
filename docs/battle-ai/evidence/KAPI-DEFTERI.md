@@ -3,6 +3,15 @@
 **Bu dosya ÜRETİLİR, elle yazılmaz.** Yeniden üretmek için:
 
 ```
+node tools/kapi-ozet.js
+node tools/kapi-ozet.js --log qa-runtime/gece-faz2.log --havuz
+```
+
+Araç özeti standart çıktıya yazar. Aşağıdaki bölüm, adı belirtilen gece
+loglarından alınmış tarihsel çıktıdır; yeni çalıştırmanın sonucu bu kayıtla
+sessizce birleştirilmez.
+
+```text
 
 KAPI ÖZETİ — gece-faz2.log, gece-gpu.log, gece-kapi.log, gece-stdout.log
 

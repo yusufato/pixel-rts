@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // BattleFeatures.js — Faz 3: seçici model GİRDİLERİ (stateFeatures.v1 + candidateFeatures.v1)
 // ───────────────────────────────────────────────────────────────────────────
-// Plan: SAVAS-AI-PLAN-v4-LLM.md §2.0/§2.1/§5. Model ADAY ÜRETMEZ, SIRALAR:
+// Plan: ../docs/battle-ai/plans/SAVAS-AI-PLAN-v4-LLM.md §2.0/§2.1/§5. Model ADAY ÜRETMEZ, SIRALAR:
 //   score = f(stateFeatures, candidateFeatures) → tahmini rollout-ödülü. En yüksek skorlu aday seçilir.
 // Öğretmen = Oracle'ın karşı-olgusal rollout ödülü (BattleOracle.js). Bu dosya yalnız FEATURE çıkarır;
 // eğitim/çıkarım ayrı (Faz 3b). Sektör-temelli durum (ham koordinat değil) → OPG ızgarası (8×6) yeniden kullanılır.
@@ -10,7 +10,7 @@
 const STATE_FEATURES_VERSION = 'stateFeatures.v1';
 // v2 (2026-08-07): YEREL USTUNLUK oznitelikleri eklendi (projeksiyonlu yerel oran + hedef kutle
 // payi + kanat orani). Surum ARTIRILMALI: eski modeller yeni vektorle calisamaz, uyumluluk
-// kontrolu onlari eler. Bkz docs/KARAR-UZAYI-3.md
+// kontrolu onlari eler. Bkz ../docs/battle-ai/design/KARAR-UZAYI-3.md
 const CANDIDATE_FEATURES_VERSION = 'candidateFeatures.v2';
 // FIRE_PREPARATION burada da olmali: yoksa o adaylar TUM-SIFIR intent one-hot alir ve model onlari
 // ayirt edemez (gramere ekleyip burayi unutmak sessiz bir hata olurdu).

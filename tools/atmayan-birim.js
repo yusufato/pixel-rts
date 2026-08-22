@@ -4,7 +4,7 @@
 //
 //  Kullanıcının 4 gerçek maçında AI'nın fırsat oranı oyuncunun yarısı çıktı. Bir kısmı
 //  MENZİL UYUMSUZLUĞU ile açıklandı (AI'nın silahı düşmanın durduğu yere yetmiyor —
-//  docs/OYUNCU-MACLARI-BULGULAR.md). Geriye "hiç ateş etmeyen 2-4 birim" kaldı ve o
+//  ../docs/battle-ai/reports/OYUNCU-MACLARI-BULGULAR.md). Geriye "hiç ateş etmeyen 2-4 birim" kaldı ve o
 //  kısım açıklanmadı. Bu araç onu tek tek adlandırır.
 //
 //  ⚠ İKİ ÖLÇÜM TUZAĞI, ikisi de daha önce yaşandı:

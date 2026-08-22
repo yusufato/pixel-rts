@@ -31,7 +31,7 @@ kart (1). Kural: **bir bulgu kodu suçlamadan önce aletin o bulguyu üretebildi
 gösterilmeli** — negatif kontrol, bu turda üç kez kararı kurtardı.
 
 **Damgasız satır güvenilmez sayılır.** Bu repoda plan/doküman bayatlaması ölçülmüş
-bir sorun (`docs/OLCUM-TUZAKLARI.md`); damga onun karşı önlemidir.
+bir sorun (`../docs/battle-ai/research/OLCUM-TUZAKLARI.md`); damga onun karşı önlemidir.
 
 Her kusurun **kanıtı** dosya:satır olarak verilmiştir. Kanıtı olmayan madde deftere girmez.
 

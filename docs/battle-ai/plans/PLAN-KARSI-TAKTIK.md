@@ -60,7 +60,7 @@ kompozisyon sömürüsü bulunamadı, ama **tek bir davranış botu AI'nın sağ
 
 Forensik "beni havan vurdu" diyor; gereken *"rakip **mesafede durup dolaylı ateşle yıpratma**
 şeması uyguluyor"*. İyi haber: bu şemanın verisi ve etiketi **elimizde** — kullanıcının 4
-gerçek maçından ölçüldü (`docs/OYUNCU-MACLARI-BULGULAR.md`):
+gerçek maçından ölçüldü (`../reports/OYUNCU-MACLARI-BULGULAR.md`):
 
 - oyuncunun dolaylı isabeti 490, AI'nın 207 (2,4×)
 - AI birim başına oyuncunun **2 katı** panikliyor (3,1 / 1,5)
@@ -78,7 +78,7 @@ konumunu seçiyor. Müfreze soyutlaması bu yüzden "iyi olurdu" değil **zorunl
 *"%90 yenerim"* bir **kalibrasyon** iddiasıdır: %90 dediğinde 10 seferin 9'unda kazanmalı.
 Ölçütü var (güvenilirlik eğrisi / Brier skoru) ve maç tezgâhı bunu ölçebilir.
 
-⚠ **Bugün öğrenilen kritik sınır** (`docs/OLCUM-TUZAKLARI.md` 9. tuzak): değer ağı, bir
+⚠ **Bugün öğrenilen kritik sınır** (`../research/OLCUM-TUZAKLARI.md` 9. tuzak): değer ağı, bir
 birimin 5-6 hedef noktasını sıralamada **rastgeleden iyi değil** (ilk-1 %10,8 vs taban %18,
 n=55). Sebep kategorik — adaylar birbirinden tek birimin yürüyüşü kadar farklı, global
 durum değeri bu farkla değişmiyor.

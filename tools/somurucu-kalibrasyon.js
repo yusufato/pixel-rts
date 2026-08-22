@@ -9,7 +9,7 @@
    Yani AI'i olcmeden once BOTU olcmek gerekiyor. Kalibre olmayan bir bota karsi
    alinan sonuc, yanlis rakibe gore ayarlanmis olur.
 
-   'yerel_ustunluk' BOTUNUN IMZASI (docs/INSAN-VS-AI-SALDIRI.md, kullanicinin 2 maci):
+   'yerel_ustunluk' BOTUNUN IMZASI (../docs/battle-ai/reports/INSAN-VS-AI-SALDIRI.md, kullanicinin 2 maci):
        VURULMA ANINDA cevresindeki 600px kesit
          insan : 8.9 dost / 1.2 dusman   (7.4 : 1)
          AI    : 6.9 dost / 3.4 dusman   (2.0 : 1)

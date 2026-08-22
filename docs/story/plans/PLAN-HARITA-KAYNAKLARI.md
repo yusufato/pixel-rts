@@ -216,4 +216,4 @@ olmayan bir zincire uygulanırsa etkisi ölçülemez.
 > tohum, ölçüm sırasında ilerleyen dünya, `scrollWidth`'i kirleten pseudo-eleman,
 > saniyede bir güncellenen panelden okunan bayat değer). Bir bulgu kodu
 > suçlamadan önce **aletin o bulguyu üretebildiği gösterilmeli**.
-> Ayrıntı: `docs/OLCUM-TUZAKLARI.md`, `mockup/BULGULAR.md`.
+> Ayrıntı: `../../battle-ai/research/OLCUM-TUZAKLARI.md`, `mockup/BULGULAR.md`.

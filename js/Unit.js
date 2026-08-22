@@ -2017,7 +2017,7 @@ class Unit {
 
 
     /* ── MENZİLE GİR: kısa menzilli DOĞRUDAN ateş, düşmanın erişemeyeceği yerde beklemesin ──
-       KULLANICININ 4 GERÇEK MAÇINDAN ÖLÇÜLDÜ (2026-08-18, docs/OYUNCU-MACLARI-BULGULAR.md):
+       KULLANICININ 4 GERÇEK MAÇINDAN ÖLÇÜLDÜ (2026-08-18, ../docs/battle-ai/reports/OYUNCU-MACLARI-BULGULAR.md):
          · AI ile oyuncu neredeyse AYNI mesafede duruyor (medyan 1137-1336px vs 1092-1125px)
          · ama menzile ORANI çok farklı: AI 2.17-3.09 · oyuncu 1.24-1.82
            (yani AI'nın silahı, düşmanın durduğu yere 2-3 kat yetmiyor)

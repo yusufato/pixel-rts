@@ -15,7 +15,7 @@
 //    node tools/rol-dengesi.js --tohum 96
 //    node tools/rol-dengesi.js --tohum 96 --kol BATTLE_ISTIHKAM_US
 //
-//  ÖLÇÜM TUZAKLARI (docs/OLCUM-TUZAKLARI.md):
+//  ÖLÇÜM TUZAKLARI (../docs/battle-ai/research/OLCUM-TUZAKLARI.md):
 //    · Marj std ≈ 2770 → 3-6 tohumluk koşu KARAR VERMEZ. Varsayılan 96 tohum.
 //    · Eşleştirilmiş fark kullanılır; kollar AYRI tohum kümesi görürse sonuç çöp olur.
 //    · Her maç kendi tohumuyla bağımsız; işçilere bölmek sonucu DEĞİŞTİRMEZ.
@@ -27,7 +27,7 @@ const path = require('node:path');
 
 function arg(a, d) { const i = process.argv.indexOf(a); return i >= 0 ? process.argv[i + 1] : d; }
 const N = Math.max(1, Number(arg('--tohum', 96)) || 96);
-const TOHUM0 = Number(arg('--tohum0', 100000)) || 100000;   // CYBORG havuzu (docs/IKI-MAKINE.md)
+const TOHUM0 = Number(arg('--tohum0', 100000)) || 100000;   // CYBORG havuzu (../docs/battle-ai/operations/IKI-MAKINE.md)
 const KOL = arg('--kol', null);                              // A/B'lenecek global adı
 /* --koldeger "a,b": kol değerleri (varsayılan false,true). Sayısal kipler için gerekli —
    örn. LA_POLITIKA 0/1 bekler; `true` göndermek kipi SESSİZCE kapalı bırakırdı. */
@@ -89,7 +89,7 @@ function macKos(ctx, seed, kolDeger) {
            Kol global'i `const` ilan edilmisse (or. LA_HALKA, LA_YON, LA_YARICAP) bu atama
            ya patlar ya da hicbir sey yapmaz; ikinci halde kapi "fark yok" der ve bu SAHTE
            bir sonuctur — iki kol da AYNI degeri kosmustur. Ayni sinif hata bu projede
-           birden cok kez yasandi (bkz. docs/OLCUM-TUZAKLARI.md), o yuzden atama artik
+           birden cok kez yasandi (bkz. ../docs/battle-ai/research/OLCUM-TUZAKLARI.md), o yuzden atama artik
            GERI OKUNUP dogrulanir; tutmuyorsa mac sessizce degil GURULTUYLE duser. */
         (TARIF ? ('BATTLE_RECIPE_RED = ' + (kolDeger ? JSON.stringify(TARIF) : 'null') + ';') : '') +
         (KOL ? (KOL + ' = ' + JSON.stringify(kolDeger) + ';' +

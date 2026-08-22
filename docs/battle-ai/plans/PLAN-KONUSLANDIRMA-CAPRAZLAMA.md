@@ -1,7 +1,7 @@
 # PLAN — Konuşlandırma Çaprazlaması (intel4-pro'nun ana ekseni)
 
 Tarih: 2026-08-04 · Dal: `savas-ai-mikrofix-konsantrasyon` · Durum: **ONAY BEKLİYOR**
-Öncesi: [SAVUNAN-BOLGE-TUTMA.md](SAVUNAN-BOLGE-TUTMA.md) · [KUVVET-ORANI-DUZELTME-SONUC.md](KUVVET-ORANI-DUZELTME-SONUC.md)
+Öncesi: [../reports/SAVUNAN-BOLGE-TUTMA.md](../reports/SAVUNAN-BOLGE-TUTMA.md) · [../reports/KUVVET-ORANI-DUZELTME-SONUC.md](../reports/KUVVET-ORANI-DUZELTME-SONUC.md)
 
 ---
 

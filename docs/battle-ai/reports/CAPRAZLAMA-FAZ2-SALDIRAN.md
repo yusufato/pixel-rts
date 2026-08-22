@@ -1,7 +1,7 @@
 # FAZ 2 — Saldıran kompozisyon süpürmesi (üç havuzlu, doğrulanmış)
 
-Tarih: 2026-08-05 · Plan: [PLAN-KONUSLANDIRMA-CAPRAZLAMA.md](PLAN-KONUSLANDIRMA-CAPRAZLAMA.md)
-Ölçüm disiplini: [OLCUM-KRIZI-TOHUM-SAYISI.md](OLCUM-KRIZI-TOHUM-SAYISI.md) · Tezgâh: [TEZGAH-JSDOM.md](TEZGAH-JSDOM.md)
+Tarih: 2026-08-05 · Plan: [battle-ai/plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md](../plans/PLAN-KONUSLANDIRMA-CAPRAZLAMA.md)
+Ölçüm disiplini: [OLCUM-KRIZI-TOHUM-SAYISI.md](OLCUM-KRIZI-TOHUM-SAYISI.md) · Tezgâh: [../operations/TEZGAH-JSDOM.md](../operations/TEZGAH-JSDOM.md)
 
 Toplam **1128 maç**, üç ayrık tohum havuzu, 12 paralel işçi, ~20 dakika.
 

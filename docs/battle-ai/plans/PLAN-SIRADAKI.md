@@ -306,7 +306,7 @@ Mekanizma kapısı (doğru ölçü "emir yaşadı mı" değil **"hedefe VARDI m�
   geri kalmıyor — üstelik çok daha küçük bir davranış değişikliği.
 - ⚠ İkisinde de ölçülen etki **saptama tabanının altında**: test bu büyüklükteki bir
   etkiyi güvenilir yakalayacak güçte değildi → kazananın-laneti riski. t 2,1–2,7 bu
-  projede tek başına karar verdirmez (`docs/OLCUM-TUZAKLARI.md`).
+  projede tek başına karar verdirmez (`../research/OLCUM-TUZAKLARI.md`).
 - **A ve C üst üste TOPLANAMAZ:** aynı tohumları ve aynı kontrol kolunu paylaşıyorlar,
   gürültüleri korelasyonlu. "1, 15'ten iyi" demek için doğrudan kapı gerekir.
 - D anlamsız çıktı ama **kanıt yokluğu**, yokluğun kanıtı değil: +357'yi doğrulamak

@@ -5,7 +5,7 @@
 //  NEDEN ZORUNLU: maç marjı std ≈ 2770. 48 maçlık bir kapının ayırt edebildiği en
 //  küçük etki ≈ ±800, aranan etkiler ise çoğu zaman +200..+500 bandında. Yani küçük
 //  koşular sistematik olarak GÜÇSÜZ ve bu projede pozitif çıkan birçok bulgu tam da
-//  bu yüzden doğrulamada çöktü (docs/OLCUM-TUZAKLARI.md).
+//  bu yüzden doğrulamada çöktü (../docs/battle-ai/research/OLCUM-TUZAKLARI.md).
 //  Tek süreçte n=96 (192 maç) saatler sürüyor; işçilere bölünce karar verilebilir hale
 //  geliyor. Bu araç ölçüm KURGUSUNU değiştirmez, yalnız tohumları böler.
 //

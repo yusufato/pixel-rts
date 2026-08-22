@@ -1,7 +1,7 @@
 # Dış analiz promptu #2 — "Öğrenen AI (beonai) tavana vurdu, neden ve ne yapmalı?"
 
 > Bu, aynı projenin ikinci analiz promptudur. Birincisi ölçüm altyapısıyla ilgiliydi
-> (`docs/ANALIZ-PROMPTU.md`). Bu, **öğrenen AI** hattıyla ilgili. İkisi bağımsız okunabilir.
+> (`ANALIZ-PROMPTU.md`). Bu, **öğrenen AI** hattıyla ilgili. İkisi bağımsız okunabilir.
 
 ---
 

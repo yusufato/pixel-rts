@@ -129,7 +129,7 @@ class BattlePerception {
         // AI görmediğini unutup sahte-avantaj sanıp mevziden çıkıyordu). Taban = başlangıç-tahmini(parite) − TEYİTLİ imha ₺.
         // Yalnız gördüğümüz-ve-ölen düşmanı düşeriz; görünmeyen kuvvet tabanda kalır → savunan hazır-mevzide oturur.
         // ── INTEL4-PRO 'trueForceRatio': istihbarat tabanı DÜŞMANIN İLAN EDİLMİŞ BÜTÇESİNDEN ──
-        // ESKİ HATA (docs/KUVVET-ORANI-HATASI.md): taban KENDİ başlangıç değerimdi → t=0'da oran DAİMA 1.00
+        // ESKİ HATA (../docs/battle-ai/reports/KUVVET-ORANI-HATASI.md): taban KENDİ başlangıç değerimdi → t=0'da oran DAİMA 1.00
         // çıkıyordu (düşman yarı da olsa iki katı da olsa) ve sonra yalnız düşüyordu; yani forceRatio bir
         // kuvvet oranı değil "kendi sağkalım yüzdem" oluyordu. Ölçüm: AI 6460₺ ile 4410₺'ye karşı kendini
         // 1.00 sanıyordu (gerçek 1.46) → STRIKE kapısı (≥1.15) savunan için MATEMATİKSEL OLARAK ulaşılamaz.

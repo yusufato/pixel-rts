@@ -5,7 +5,7 @@
 > motoru gibi kullanılmıştı, self-play/ödül/kabul tanımsızdı. Bunlar düzeltildi.
 >
 > **İki referans birlikte kullanılır:** bu doküman = doğru LLM sınırları + mimari çerçeve.
-> `SAVAS_AI_TASARIM_PLANI.md` §11 (öğrenme), §12 (telemetri/replay), fitness bileşenleri,
+> `../design/SAVAS_AI_TASARIM_PLANI.md` §11 (öğrenme), §12 (telemetri/replay), fitness bileşenleri,
 > şampiyon arşivi, aşırı-uyum testleri = gerçek-öğrenme ayrıntı referansı. İkisi çelişmez;
 > eskisi SİLİNMEZ, bu doküman onun üstüne LLM sınırlarını ve karşı-olgusal yöntemi koyar.
 

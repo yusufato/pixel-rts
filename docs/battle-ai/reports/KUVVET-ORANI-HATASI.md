@@ -13,7 +13,7 @@ AI **31 birimle 16 birime karşı bir kez bile taarruz etmedi**; duruş gerekçe
 | 240 | 0.60 | 1.12 | −%46 |
 | 360 | 0.27 | 0.68 | −%60 |
 
-## Kök neden ([BattlePerception.js:131](../js/BattlePerception.js#L131))
+## Kök neden ([BattlePerception.js:131](../../../js/BattlePerception.js#L131))
 
 ```js
 const intelligenceFloor = Math.max(0, this.initialFriendlyValue - this._confirmedKilledValue);

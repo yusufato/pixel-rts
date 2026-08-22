@@ -1,7 +1,7 @@
 # PLAN — Turnuva merdiveni: iki ray, tek merdiven
 
 Tarih: 2026-08-05 · Durum: **ONAY BEKLİYOR** · Kullanıcı tasarımı + istatistik düzeltmesi
-İlgili: [PLAN-BEONAI-V2-ODUL.md](PLAN-BEONAI-V2-ODUL.md) · [OLCUM-KRIZI-TOHUM-SAYISI.md](OLCUM-KRIZI-TOHUM-SAYISI.md)
+İlgili: [PLAN-BEONAI-V2-ODUL.md](PLAN-BEONAI-V2-ODUL.md) · [../reports/OLCUM-KRIZI-TOHUM-SAYISI.md](../reports/OLCUM-KRIZI-TOHUM-SAYISI.md)
 
 ---
 

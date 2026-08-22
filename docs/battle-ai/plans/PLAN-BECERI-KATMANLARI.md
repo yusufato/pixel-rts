@@ -1029,7 +1029,7 @@ yakıtta düşüyor. Tek başına etkisi küçüktü (YAKIT ölümü 10→9), as
 
 **Dürüst okuma:** titreme kökten çözüldü ve teslimat +%33 arttı; **kargo kayıp oranı değişmedi**,
 mutlak sayı arttı çünkü helo artık gerçekten taşıyor. İlk raporladığım "kargo ölümleri 6→0" ifadesi
-3 tohumluk bir koşuya dayanıyordu ve **yanlıştı** (bkz. `OLCUM-TUZAKLARI.md` C6).
+3 tohumluk bir koşuya dayanıyordu ve **yanlıştı** (bkz. `../research/OLCUM-TUZAKLARI.md` C6).
 
 **Determinizm:** `--forktest` → `forkTutarli: true`, sapma yok. Yeni birim alanları
 (`_ferryKalkti`, `_ferryPickId`, `_ferryHover`, `_ferryBosaltiyor`, `_ferryTeslimX/Y`) anlık-durum
@@ -1253,7 +1253,7 @@ atışı 0→8, tam yükle ölen SAM 8→4, düşmanın uçak bulundurma süresi
 ## 26. KALAN BİRİMLER — doğru triaj (AI'nin GERÇEK ordusu)
 
 İlk triaj tablosu `BATTLE_FORCE_VARIED` kipinde alınmıştı ve yanlış hedef gösterdi (bkz.
-`OLCUM-TUZAKLARI.md` A5/A6). `--cesitsiz` ile AI'nin gerçekten kurduğu orduda, 6 tohum:
+`../research/OLCUM-TUZAKLARI.md` A5/A6). `--cesitsiz` ile AI'nin gerçekten kurduğu orduda, 6 tohum:
 
 | birim | maliyet | ATIŞ | hedefli | ömür | GETİRİ | EMİLEN |
 |---|---|---|---|---|---|---|
