@@ -79,6 +79,16 @@ const STORY_VISUAL_A2_URBAN_FAMILIES = Object.freeze({
     INDUSTRIAL: { row: 3, family: 'industrial', packId: 'urban-industry' }
 });
 
+// HXD-7.4.3c: iklim atlası çevresel uyumu korur; bu atlas ise aynı iklim
+// kuşağındaki bütün ilçelerin aynı gri silüete dönüşmesini engeller. Satırlar
+// gerçek kentsel işleve, sütunlar deterministik mimari varyanta aittir.
+const STORY_VISUAL_FUNCTIONAL_FAMILIES = Object.freeze({
+    RESIDENTIAL: { row: 0, family: 'residential', packId: 'urban-core' },
+    CIVIC: { row: 1, family: 'civic', packId: 'urban-core' },
+    COMMERCIAL: { row: 2, family: 'commercial', packId: 'urban-core' },
+    INDUSTRIAL: { row: 3, family: 'industrial', packId: 'urban-industry' }
+});
+
 const STORY_VISUAL_DAMAGE_STATES = Object.freeze({
     OPERATING: { column: 0 },
     DAMAGED: { column: 1 },
@@ -224,6 +234,21 @@ const STORY_VISUAL_URBAN_CLIMATE_ASSETS = storyVisualGridAssets(
     'urban-climate', 'urbanClimateModern', STORY_VISUAL_A2_URBAN_FAMILIES,
     STORY_VISUAL_CLIMATE_ZONES, 'climateZone'
 );
+const STORY_VISUAL_URBAN_FUNCTIONAL_ASSETS = Object.entries(STORY_VISUAL_FUNCTIONAL_FAMILIES)
+    .flatMap(([familyId, definition]) => Array.from({ length: 4 }, (_, variant) => Object.freeze({
+        id: `urban-functional.${definition.family}.variant_${variant}.modern_2010`,
+        packId: definition.packId,
+        family: definition.family,
+        functionalFamily: familyId,
+        variant,
+        atlasKey: 'urbanFunctionalModern',
+        atlasCell: definition.row * 4 + variant,
+        atlasRow: definition.row,
+        atlasColumn: variant,
+        periodId: 'MODERN_2010',
+        visualStage: 0,
+        condition: 'OPERATING'
+    })));
 const STORY_VISUAL_URBAN_DAMAGE_ASSETS = storyVisualGridAssets(
     'urban-damage', 'urbanDamageModern', STORY_VISUAL_A2_URBAN_FAMILIES,
     STORY_VISUAL_DAMAGE_STATES, 'condition'
@@ -281,6 +306,7 @@ const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_BASELINE_URBAN_ASSETS,
     ...STORY_VISUAL_CONSTRUCTION_ASSETS,
     ...STORY_VISUAL_URBAN_CLIMATE_ASSETS,
+    ...STORY_VISUAL_URBAN_FUNCTIONAL_ASSETS,
     ...STORY_VISUAL_URBAN_DAMAGE_ASSETS,
     ...STORY_VISUAL_SPECIAL_ASSETS,
     ...STORY_VISUAL_LAND_USE_ASSETS,
@@ -671,6 +697,52 @@ function storyVisualSectorFacilityRecipe(input) {
         'OPERATING', period, spec.assetManifest));
 }
 
+function storyVisualStableVariant(value) {
+    const text = String(value == null ? '' : value);
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index++) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % 4;
+}
+
+function storyVisualFunctionalFamily(input, mechanics) {
+    const spec = input || {};
+    const siteType = String(spec.physicalSite && spec.physicalSite.siteType || '').toUpperCase();
+    const kind = String(mechanics && mechanics.kind || spec.kind || 'CORE').toUpperCase();
+    if (siteType === 'RESIDENTIAL' || kind === 'RESIDENTIAL') return 'RESIDENTIAL';
+    if (siteType === 'CIVIC' || kind === 'CIVIC' || kind === 'DEFENSE') return 'CIVIC';
+    if (siteType === 'INDUSTRIAL' || kind === 'INDUSTRIAL') return 'INDUSTRIAL';
+    if (siteType === 'LOGISTICS' || kind === 'LOGISTICS') return 'COMMERCIAL';
+    // Şehir çekirdeği nüfus seviyesi yükseldikçe konut kümesinden ticaret ve
+    // ofis silüetine geçer; bu yalnız sunumdur, yeni tesis uydurmaz.
+    return Number(spec.visualLevel) >= 2 ? 'COMMERCIAL' : 'RESIDENTIAL';
+}
+
+function storyVisualUrbanFunctionalRecipe(input, mechanics) {
+    const spec = input || {};
+    const familyId = storyVisualFunctionalFamily(spec, mechanics);
+    const definition = STORY_VISUAL_FUNCTIONAL_FAMILIES[familyId];
+    const identity = spec.physicalSite && spec.physicalSite.id
+        || spec.district && spec.district.id
+        || `${spec.node && spec.node.id || 0}:${mechanics && mechanics.kind || spec.kind || 'CORE'}`;
+    const variant = storyVisualStableVariant(identity);
+    return {
+        assetMissing: false,
+        requestedAssetId: `urban-functional.${definition.family}.variant_${variant}.modern_2010`,
+        resolvedAssetId: `urban-functional.${definition.family}.variant_${variant}.modern_2010`,
+        atlasKey: 'urbanFunctionalModern',
+        atlasCell: definition.row * 4 + variant,
+        atlasRow: definition.row,
+        atlasColumn: variant,
+        fallbackDepth: 0,
+        fallbackReason: null,
+        functionalFamily: familyId,
+        functionalVariant: variant
+    };
+}
+
 function storyVisualUrbanPresentationRecipe(input) {
     const spec = input || {};
     const mechanics = storyVisualUrbanRecipe(spec);
@@ -695,6 +767,8 @@ function storyVisualUrbanPresentationRecipe(input) {
         const row = STORY_VISUAL_SPECIAL_FAMILIES[specialFamily];
         art = storyVisualResolveVariant('special', row.family, climateZone, period,
             spec.assetManifest);
+    } else if (['TEMPERATE', 'COASTAL'].includes(climateZone)) {
+        art = storyVisualUrbanFunctionalRecipe(spec, mechanics);
     } else {
         const family = STORY_VISUAL_A2_URBAN_FAMILIES[mechanics.kind]
             || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
@@ -712,7 +786,8 @@ function storyVisualUrbanPresentationRecipe(input) {
         presentationSource: sectorFacility ? `SECTOR_${sectorFacility.sectorId.toUpperCase()}`
             : specialFamily ? `SPECIAL_${specialFamily}`
             : condition === 'OPERATING' || condition === 'CONSTRUCTION'
-                ? 'URBAN_CLIMATE' : 'URBAN_DAMAGE'
+                ? (art.atlasKey === 'urbanFunctionalModern' ? 'URBAN_FUNCTIONAL' : 'URBAN_CLIMATE')
+                : 'URBAN_DAMAGE'
     });
 }
 
@@ -827,7 +902,7 @@ function storyVisualCatalogValidate() {
         if (!entry.id || assetIds.has(entry.id)) issues.push(`DUPLICATE_ASSET:${entry.id || '?'}`);
         assetIds.add(entry.id);
         if (!packIds.has(entry.packId)) issues.push(`ASSET_UNKNOWN_PACK:${entry.id}:${entry.packId}`);
-        if (!['settlements', 'constructionModern', 'urbanClimateModern',
+        if (!['settlements', 'constructionModern', 'urbanClimateModern', 'urbanFunctionalModern',
             'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern',
             'industrialSectorsModern',
             'transportRoad', 'transportRail', 'transportSea',
@@ -855,6 +930,7 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_CONSTRUCTION_PHASES,
         STORY_VISUAL_CLIMATE_ZONES,
         STORY_VISUAL_A2_URBAN_FAMILIES,
+        STORY_VISUAL_FUNCTIONAL_FAMILIES,
         STORY_VISUAL_DAMAGE_STATES,
         STORY_VISUAL_SPECIAL_FAMILIES,
         STORY_VISUAL_SECTOR_FACILITIES,
@@ -880,6 +956,9 @@ if (typeof module !== 'undefined' && module.exports) {
         storyVisualResolveVariant,
         storyVisualSpecialFamily,
         storyVisualSectorFacilityRecipe,
+        storyVisualStableVariant,
+        storyVisualFunctionalFamily,
+        storyVisualUrbanFunctionalRecipe,
         storyVisualUrbanPresentationRecipe,
         storyVisualLandUseRecipe,
         storyVisualTransportAsset,

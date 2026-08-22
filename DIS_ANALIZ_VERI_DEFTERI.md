@@ -994,3 +994,10 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Taşıt hareketi artık ölçülen sorun değildir: `p95 0,3 ms`, 70 ara konum, sıfır ters-rotasyon ve statik harita yeniden çizimi yok. Genel harita kompoziti ise uzak/orta/etkileşimde `17,6 / 19,7 / 19,7 ms`; 60 FPS kapısı kırmızıdır.
 - On altı yeni coğrafya kaynağı eklendi fakat harita bütünü 4/10'dur. Öncelikli görsel borç sırası: (1) yol spline/kesişim dili, (2) modern kent-ilçe-sanayi aileleri, (3) iklimsel zemin geçişleri ve boş alan yoğunluğu, (4) üretim/mülkiyet okunabilirliği, (5) 2010–2100 teknoloji ve durum varyantları, (6) atlas kenar temizliği. Bu liste “çok resim ekle” işi değil; her varlığın mekanik kimlik, çağ, iklim, sahip ve durum seçicisine bağlanması şarttır.
 - Ağ+liman ve doğal yüzey ekran kompozitleri çözülmüş bitmap önbelleğine alındı. Ortalama kare süresi `12,6–14,2 ms`; p95 ölçümü koşudan koşuya `14,2–18,6 ms` dalgalandığı için kararlı 60 FPS borcu açık. Görsel denetim yolların inceltilmesini olumlu, tekrar eden gri kent/ilçe ailelerini ise sıradaki en görünür kusur olarak işaretledi.
+
+### 22 Ağustos 2026 — gri kent tekrarının gerçek sahibi kapatıldı
+
+- Sorun yalnız atlas kalitesi değildi: fiziksel sitesi olmayan bütün çekirdek ve ilçeler aynı `kind × climateZone` hücresine düşüyordu. Aynı iklim kuşağında yüzlerce kayıt bu yüzden aynı gri silüeti kullanıyordu.
+- Yeni işlevsel atlas `RESIDENTIAL / CIVIC / COMMERCIAL / INDUSTRIAL` satırlarını ve her satırda dört mimari varyantı taşır. Kararlı kimlik karması 12 örnek kayıt üzerinde her satırın dört hücresini de kullandı; kamera, tarih tiki veya yeniden çizim görünümü değiştirmedi.
+- Öncelik sırası korunmuştur: gerçek sektör ve özel tesis > fiziksel hasar/yangın > kuzey/kurak iklim > ılıman/kıyısal işlevsel çeşitlilik. Böylece görsel iyileştirme mekanik gerçeğin üzerine yazmadı.
+- Gerçek Electron görüntüsü görünür kent tekrarını belirgin düşürdü; fakat performans aynı koşuda uzak/orta/etkileşimde `16,7 ms` sınırını aştı. Bu çalışma görsel borcu küçülttü, performans borcunu kapatmadı.

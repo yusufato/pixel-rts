@@ -385,6 +385,7 @@ const STORY_MAP_ATLAS_SPECS = {
     settlements: { src: 'assets/maps/settlements-atlas-modern-v3.png', cols: 4, rows: 4 },
     constructionModern: { src: 'assets/maps/urban-construction-atlas-modern-v1.png', cols: 4, rows: 4 },
     urbanClimateModern: { src: 'assets/maps/urban-climate-atlas-modern-v1.png', cols: 4, rows: 4 },
+    urbanFunctionalModern: { src: 'assets/maps/urban-functional-atlas-modern-v1.png', cols: 4, rows: 4 },
     urbanDamageModern: { src: 'assets/maps/urban-damage-atlas-modern-v1.png', cols: 4, rows: 4 },
     specialFacilitiesModern: { src: 'assets/maps/special-facilities-atlas-modern-v1.png', cols: 4, rows: 4 },
     industrialSectorsModern: { src: 'assets/maps/industrial-sector-atlas-modern-v1.png', cols: 3, rows: 2 },
@@ -404,7 +405,7 @@ const STORY_MAP_ATLAS_SPECS = {
 };
 
 const STORY_SETTLEMENT_ATLAS_KEYS = Object.freeze([
-    'settlements', 'urbanClimateModern', 'urbanDamageModern', 'specialFacilitiesModern',
+    'settlements', 'urbanClimateModern', 'urbanFunctionalModern', 'urbanDamageModern', 'specialFacilitiesModern',
     'industrialSectorsModern',
     'conflictFireOverlay'
 ]);

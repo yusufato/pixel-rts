@@ -7,9 +7,9 @@ const catalog = require('../js/StoryVisualCatalog.js');
 
 const validation = catalog.storyVisualCatalogValidate();
 assert.strictEqual(validation.ok, true, validation.issues.join(', '));
-assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 96,
-    'HXD-6.9 A3: 90 mevcut varlık + 6 gerçek sektör tesisi.');
-assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 96);
+assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 112,
+    'HXD-7.4.3c: 96 mevcut varlık + 16 işlevsel modern kent varyantı.');
+assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 112);
 
 assert.strictEqual(catalog.storyVisualPeriodForYear(2010).id, 'MODERN_2010');
 assert.strictEqual(catalog.storyVisualPeriodForYear(2049).id, 'CONNECTED_2030');
@@ -173,9 +173,25 @@ const climateCity = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'CORE', node: { id: 1, owner: 0, ly: .45, port: true },
     state: { tech: [] }, companyEconomy: { facilities: {} }
 });
-assert.strictEqual(climateCity.presentationSource, 'URBAN_CLIMATE');
-assert.strictEqual(climateCity.atlasKey, 'urbanClimateModern');
-assert.strictEqual(climateCity.atlasCell, 3);
+assert.strictEqual(climateCity.presentationSource, 'URBAN_FUNCTIONAL');
+assert.strictEqual(climateCity.atlasKey, 'urbanFunctionalModern');
+
+const functionalCells = {};
+for (const kind of ['RESIDENTIAL', 'CIVIC', 'LOGISTICS', 'INDUSTRIAL']) {
+    const recipe = catalog.storyVisualUrbanPresentationRecipe({
+        year: 2032, kind, node: { id: 17, owner: 0, ly: .5 },
+        district: { id: `district:${kind}` }, state: { tech: [] },
+        physicalSites: { registryHash: 'functional-test' }
+    });
+    assert.strictEqual(recipe.presentationSource, kind === 'LOGISTICS'
+        ? 'SPECIAL_LOGISTICS' : 'URBAN_FUNCTIONAL');
+    if (kind !== 'LOGISTICS') functionalCells[kind] = recipe.atlasCell;
+}
+assert.strictEqual(Math.floor(functionalCells.RESIDENTIAL / 4), 0);
+assert.strictEqual(Math.floor(functionalCells.CIVIC / 4), 1);
+assert.strictEqual(Math.floor(functionalCells.INDUSTRIAL / 4), 3);
+assert.ok(climateCity.atlasCell >= 0 && climateCity.atlasCell <= 3,
+    'Baseline şehir çekirdeği dört konut varyantından deterministik seçim yapmalı.');
 assert.strictEqual(climateCity.fallbackDepth, 0,
     'Kurulu kademe baseline ise 2032 takvimi şehri kendiliğinden yükseltmemeli.');
 
@@ -235,8 +251,10 @@ const abstractIndustry = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
     state: { tech: [] }, physicalSites: { registryHash: 'sector-test' }
 });
-assert.strictEqual(abstractIndustry.presentationSource, 'URBAN_CLIMATE',
-    'Fiziksel site olmadan sektör tesisi uydurulmamalı.');
+assert.strictEqual(abstractIndustry.presentationSource, 'URBAN_FUNCTIONAL',
+    'Fiziksel site olmadan belirli sektör tesisi değil genel sanayi ailesi seçilmeli.');
+assert.strictEqual(abstractIndustry.atlasKey, 'urbanFunctionalModern');
+assert.ok(abstractIndustry.atlasCell >= 12 && abstractIndustry.atlasCell <= 15);
 
 const damagedSector = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
@@ -326,7 +344,8 @@ for (let stage = 0; stage < stageYears.length; stage++) {
 }
 
 for (const file of ['urban-construction-atlas-modern-v1.png',
-    'urban-climate-atlas-modern-v1.png', 'urban-damage-atlas-modern-v1.png',
+    'urban-climate-atlas-modern-v1.png', 'urban-functional-atlas-modern-v1.png',
+    'urban-damage-atlas-modern-v1.png',
     'special-facilities-atlas-modern-v1.png', 'land-use-atlas-modern-v1.png',
     'industrial-sector-atlas-modern-v1.png']) {
     const bytes = fs.readFileSync(path.join(__dirname, '..', 'assets', 'maps', file));
