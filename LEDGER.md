@@ -74,3 +74,17 @@
 - **What happened:** Söz kaydı geçerli holder/related kimlikleriyle oluşturuldu; pack bütçe aşımına gelmeden recall filtresinde elendi ve hata tek worker koşusunda tekrarlandı.
 - **Evidence:** `promise.applied=true`; `memoryRecall.records` içinde PROMISE yok; `--task conversationContextPackProbe --workers 1` aynı assertion ile başarısız.
 - **Implication for future audits:** Bu belirti için önce tür öncelik zincirini incele; sahiplik, bütçe veya paralellik ancak PROMISE recall’a girdiyse şüpheli olsun.
+
+## 2026-08-23 — Fiziksel lojistik ENERGY şebeke sevkiyatını reddediyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — ENERGY iç dağıtım fiziksel rezervasyonu
+- **What happened:** Çok-modlu lojistik entegrasyonu segmentli LAND/RAIL/SEA rota zorunluluğunu segment taşımayan ENERGY makro koridorlarına da uyguluyor; geçerli iç dağıtım commit edilmeden reddediliyor.
+- **Evidence:** Seed 2032’de admission `ok=true`, exportable 106,56 ve istek 5; commit ilk bacakta `PHYSICAL_ROUTE_RESERVATION_UNAVAILABLE`, shipment listesi boş. Tek worker probu aynı sonucu verdi.
+- **Implication for future audits:** Ticaret dispatchinde fiziksel taşıt modlarıyla ENERGY/DATA şebeke akışlarını ayır; segment zorunluluğunu non-vehicle moda genelleme.
+
+## 2026-08-23 — Stok, kargo sahipliği ve worker yarışı ENERGY dağıtım hatasının nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — ENERGY iç dağıtım fiziksel rezervasyonu
+- **What happened:** Makro admission, stok ve sahipli kargo planı geçerliydi; hata kargo commitinden önce oluştu ve tek worker ile tekrarlandı.
+- **Evidence:** İki ENERGY bacağı kabul edildi, commerce cost 0,9; commit hata kodu fiziksel rezervasyon eksikliği.
+- **Implication for future audits:** ENERGY shipment yokluğunda önce rota türü/adaptör sınırını incele; stok veya commerce katmanına ancak admission/plan onları reddediyorsa geç.
