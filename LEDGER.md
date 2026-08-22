@@ -46,3 +46,17 @@
 - **What happened:** Kampanya açık semantik model bayrağı ve hazır LLM test çiftiyle çalışmasına rağmen karar zinciri özellik ve köprü kontrollerine ulaşmadan kesildi.
 - **Evidence:** Açılış yanıtı model kuyruğu çağrılmadan `NOT_REQUIRED`; üretim isteği oluşmadı.
 - **Implication for future audits:** Aynı belirti için köprü veya GPU teşhisine ancak kuyruk fonksiyonunun gerçekten çağrıldığı kanıtlandıktan sonra geç.
+
+## 2026-08-22 — Raster-kapalı A/B yolu altıgen coğrafya başlatıcısında çöküyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Canonical raster kapalı kampanya
+- **What happened:** `world.canonicalMapRaster=false` sözleşme gereği null raster döndürüyor; altıgen coğrafya reset zinciri bu null değerin `sourceHash` alanını okuyor.
+- **Evidence:** Tam paket 30/88’de ve tek worker `mapRasterProbe` 1/1 koşusunda aynı `StoryHexGeography.js:62` stack’iyle çöktü.
+- **Implication for future audits:** Raster kapalı A/B yolunda kanonik API’yi zorla açma; yeni altıgen türetimler için kalıcı olmayan uyumluluk rasterı kullan.
+
+## 2026-08-22 — Raster varlığı ve paralel worker yarışı canonical-map çöküşünün nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Canonical raster kapalı kampanya
+- **What happened:** Hazır raster probu geçti; aynı çöküş tek görev ve tek worker ile yeniden üretildi.
+- **Evidence:** `prebuiltRasterProbe` başarılı; `--task mapRasterProbe --workers 1` 2,9 saniyede aynı null stack’ini verdi.
+- **Implication for future audits:** Bu belirtiyi asset bozulması veya worker yarışına bağlama; önce özellik-kapalı null sözleşmesini kontrol et.
