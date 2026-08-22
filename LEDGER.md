@@ -60,3 +60,17 @@
 - **What happened:** Hazır raster probu geçti; aynı çöküş tek görev ve tek worker ile yeniden üretildi.
 - **Evidence:** `prebuiltRasterProbe` başarılı; `--task mapRasterProbe --workers 1` 2,9 saniyede aynı null stack’ini verdi.
 - **Implication for future audits:** Bu belirtiyi asset bozulması veya worker yarışına bağlama; önce özellik-kapalı null sözleşmesini kontrol et.
+
+## 2026-08-22 — Bileşik hafıza isteği SECRET önceliğinde daralıyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Bileşik söz ve sır geri çağrımı
+- **What happened:** Aynı oyuncu cümlesinde söz ve sır açıkça sorulmasına rağmen hafıza niyet çözümleyicisi yalnız SECRET türünü seçiyor; geçerli ortak PROMISE kaydı recall ve bağlam paketine ulaşmıyor.
+- **Evidence:** Seed 2032 izole koşusunda PROMISE ve ortak SECRET kayıtları `applied=true`; yanıt recall’ı ve pack MEMORY bölümleri yalnız SECRET kayıtlarını içerdi. Tek worker probunda `canonicalPromiseIncluded=false`.
+- **Implication for future audits:** Hafıza eksikliğini token bütçesine veya kayıt sahipliğine bağlamadan önce niyet çözümleyicisinin bileşik tür sinyallerini koruduğunu denetle.
+
+## 2026-08-22 — Sahiplik, token bütçesi ve worker yarışı bağlam sözü kaybının nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Bileşik söz ve sır geri çağrımı
+- **What happened:** Söz kaydı geçerli holder/related kimlikleriyle oluşturuldu; pack bütçe aşımına gelmeden recall filtresinde elendi ve hata tek worker koşusunda tekrarlandı.
+- **Evidence:** `promise.applied=true`; `memoryRecall.records` içinde PROMISE yok; `--task conversationContextPackProbe --workers 1` aynı assertion ile başarısız.
+- **Implication for future audits:** Bu belirti için önce tür öncelik zincirini incele; sahiplik, bütçe veya paralellik ancak PROMISE recall’a girdiyse şüpheli olsun.

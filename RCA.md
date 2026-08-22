@@ -1,101 +1,108 @@
 # 1) Verdict
 
-- **Root cause:** `world.canonicalMapRaster=false` iken sözleşme gereği null dönen raster, sonradan eklenen altıgen coğrafya başlatıcısında zorunlu nesne gibi okunuyor.
+- **Root cause:** Bir oyuncu cümlesi hem ortak sözü hem ortak sırrı açıkça geri çağırdığında `storyConversationMemoryIntent`, bileşik isteği yalnız `SECRET` türüne indiriyor.
 - **Confidence:** Confirmed.
-- **Chain:** A/B bayrağı kanonik rasterı kapatıyor → `storyMapRasterEnsure()` null → kampanya altıgen altyapıyı sıfırlıyor → `storyHexGeographySourceHash` null rasterın `sourceHash` alanını okuyor → kampanya açılışı çöküyor.
-- Hata devam ediyor; tam pakette ve tekil `mapRasterProbe` görevinde yeniden üretildi.
+- **Chain:** Metinde söz + sır var → `secretRecall=true` → ilk öncelik dalı `kinds=['SECRET']` seçiyor → sahiplik-korumalı recall doğru söz kaydını filtreliyor → context pack söz hafızasını içeremiyor.
+- Hata devam ediyor; tam pakette ve tekil `conversationContextPackProbe` görevinde yeniden üretildi.
 
 # 2) Failure Definition
 
-- Kesin belirti: `TypeError: Cannot read properties of null (reading 'sourceHash')`, `js/StoryHexGeography.js:62`.
-- Yeniden üretim: `node tools/story-test-parallel.js --task mapRasterProbe --workers 1`; 1/1 başarısız.
-- Etki alanı: `world.canonicalMapRaster` kapalı başlatılan kampanyalar ve bu A/B yolunu kullanan doğrulama.
-- İlk oluşum kesin değil. Raster A/B probu eski, altıgen coğrafya tüketimi daha sonra `224dee6` ile eklendi.
+- Kesin belirti: `conversationContextPackProbe` sonucu `canonicalPromiseIncluded=false`; diğer bağlam paketi sözleşmeleri aynı koşuda geçiyor.
+- Yeniden üretim: `node tools/story-test-parallel.js --task conversationContextPackProbe --workers 1`; 1/1 başarısız.
+- Etki alanı: Aynı cümlede birden fazla kalıcı hafıza türünü soran oyuncu konuşmaları; özellikle söz + sır bileşimi.
+- İlk oluşum kesin değil. Bağlam paketi probu `5f53935` ile eklendi; seçicinin tür önceliği onunla uyumsuz.
 
 # 3) Timeline
 
 | Zaman | Olay | Kaynak | Önemi |
 |---|---|---|---|
-| 2026-08-01 | Kanonik raster kapalı A/B probu eklendi | `e886a3f` | Kapalıyken `mapRasterEnsure() === null` sözleşmesi kuruldu. |
-| 2026-08-17 | Altıgen coğrafya raster tüketicisi eklendi | `224dee6` | Null sözleşmesi yeni tüketiciye taşınmadı. |
-| 2026-08-22 | Tam paket 30/88’de çöktü | `npm test` | Belge planının kapanması yeniden engellendi. |
-| 2026-08-22 | Tekil prob aynı stack ile çöktü | `--task mapRasterProbe --workers 1` | Hata deterministik olarak izole edildi. |
+| 2026-08-13 | Kanonik söz + ortak sır bağlam paketi probu eklendi | `5f53935` | Bileşik hafıza beklentisi sözleşmeye girdi. |
+| 2026-08-22 | Tam paket 48/88 sonrasında bağlam paketinde durdu | `npm test` | Dokümantasyon planı kapanışı yeniden engellendi. |
+| 2026-08-22 | Tekil prob aynı sonucu verdi | `--task conversationContextPackProbe --workers 1` | Paralellik dışlandı. |
+| 2026-08-22 | Çalışma zamanı çıktısı yalnız iki SECRET kaydı gösterdi | İzole `createRuntime(2032)` koşusu | PROMISE kaydının depoda olduğu halde filtreye alınmadığı kanıtlandı. |
 
 # 4) Hypotheses (ranked)
 
-## H1 — Altıgen coğrafya kanonik rasterın kapalı olabileceğini hesaba katmıyor
+## H1 — Hafıza niyeti bileşik türleri korumuyor
 
-- **If true, we would also see:** Doğrudan raster API null dönerken kampanya reset zinciri coğrafya hash’inde çöker.
-- **Discriminating test:** Yalnız `mapRasterProbe` görevini tek worker ile çalıştırmak.
-- **Status:** Supported. Stack `storyMapRasterEnsure → null` sonrasında `storyHexGeographySourceHash` alan okumasında bitiyor.
+- **If true, we would also see:** Söz ve ortak sır başarıyla kaydedilir; yanıttaki `memoryRecall.records` yalnız SECRET olur ve pack içinde PROMISE bulunmaz.
+- **Discriminating test:** Seed 2032 senaryosunda kayıt uygulama sonuçlarını, analiz çıktısını, recall kayıtlarını ve MEMORY bölümlerini birlikte yazdırmak.
+- **Status:** Supported. Her iki kayıt `applied=true`; recall ve pack yalnız ortak SECRET milestone ile onun RECENT izdüşümünü içeriyor.
 
-## H2 — Raster varlığı bozuk veya eksik yüklendi
+## H2 — Söz kaydının sahiplik veya ilişki alanları geçersiz
 
-- **If true, we would also see:** Bayrak açık ana prob veya `prebuiltRasterProbe` raster doğrulamasında da hata oluşur.
-- **Discriminating test:** Tam paket çıktısındaki `prebuiltRasterProbe` tamamlanmasını ve hata bağlamındaki bayrağı karşılaştırmak.
-- **Status:** Refuted. `prebuiltRasterProbe` geçti; çöküş yalnız açıkça `world.canonicalMapRaster:false` kampanyasında oluştu.
+- **If true, we would also see:** `storyMemoryAddMilestone` söz kaydını reddeder veya ilişki filtresi onu oyuncuyla ilgisiz sayar.
+- **Discriminating test:** Kayıt uygulama sonucunu ve prob girdisindeki holder/related kimliklerini kontrol etmek.
+- **Status:** Refuted. Söz `applied=true`; dinleyici ile oyuncu holder, oyuncu ayrıca related actor.
 
-## H3 — Paralel worker paylaşılmış global durum nedeniyle rasterı kaybetti
+## H3 — Token bütçesi düşük öncelikli sözü düşürüyor
 
-- **If true, we would also see:** Tek worker/tek görev koşusunda hata kaybolur.
-- **Discriminating test:** `--task mapRasterProbe --workers 1`.
-- **Status:** Refuted. Tek worker görevi 2,9 saniyede aynı stack ile çöktü.
+- **If true, we would also see:** Recall söz kaydını içerir fakat derlenmiş pack `dropped` listesine taşır.
+- **Discriminating test:** Recall ile derlenmiş MEMORY kimliklerini karşılaştırmak.
+- **Status:** Refuted. Söz recall aşamasına hiç girmiyor; PROMISE/SECRET bölümleri ayrıca korumalı ve aynı 92 önceliğinde.
+
+## H4 — Paralel worker paylaşılmış durum üretiyor
+
+- **If true, we would also see:** Tek görev/tek worker koşusunda sonuç düzelir.
+- **Discriminating test:** `--task conversationContextPackProbe --workers 1`.
+- **Status:** Refuted. Tek worker koşusu deterministik biçimde aynı assertion ile başarısız.
 
 # 5) Mechanism
 
-1. `storyMapRasterEnsure`, özellik kapalıysa bilinçli olarak null döndürüyor (`js/StoryMapRaster.js:393-394`).
-2. `storyNewCampaign`, özelliklerden bağımsız olarak altıgen altyapıyı sıfırlıyor (`js/Story.js:528`).
-3. `storyHexInfrastructureSegmentsEnsure`, altıgen coğrafyayı istiyor (`js/StoryHexRoads.js:577`).
-4. `storyHexGeographyEnsure`, null kontrolü yapmadan rasterı source hash’e veriyor (`js/StoryHexGeography.js:350-353`).
-5. Hash üretici `raster.sourceHash` okumasında çöküyor (`js/StoryHexGeography.js:62`).
+1. `storyConversationMemoryIntent` cümlede hem `promise` hem `secretRecall` sinyallerini doğru buluyor (`js/StoryConversationUnderstanding.js:4193-4210`).
+2. Tür seçimi ilk olarak `secretRecall` kontrol ediyor ve sonucu yalnız `['SECRET']` yapıyor (`js/StoryConversationUnderstanding.js:4229-4231`).
+3. `storyConversationSocialMemoryRecall`, bu dar tür listesini sahiplik-korumalı recall kapısına gönderiyor (`js/StoryConversationUnderstanding.js:4241-4249`).
+4. Recall doğru biçimde yalnız ortak SECRET kayıtlarını döndürüyor; yabancı sır dışarıda kalıyor.
+5. Context pack yalnız açık recall kayıtlarını ve aynı dar niyetten türetilen obligation recall kayıtlarını birleştirdiği için PROMISE bölümü oluşmuyor (`js/StoryConversationUnderstanding.js:3261-3277`).
 
-- **Root cause:** Kanonik rasterın özellik sözleşmesi ile altıgen coğrafyanın zorunlu türetim bağımlılığı arasında uyumluluk adaptörü olmaması.
-- **Contributing factor:** Altıgen sistemleri eklendiğinde eski özellik-kapalı A/B yolu tam paketle kapılanmadı.
-- **Detection failure:** `mapRasterProbe` manifestte bulunuyor fakat uzun paralel pakette geç çalıştığı için daha önceki semantik hata bu sonucu gizledi.
-- **Weakest link:** Regresyonun ilk başarısız commit’i bisect edilmedi; mevcut mekanizma doğrudan kanıtlıdır.
+- **Root cause:** Hafıza niyet çözümleyicisinin birbirini dışlamayan sinyalleri öncelik zinciriyle birbirini dışlayan tek bir kategoriye çevirmesi.
+- **Contributing factor:** Gizlilik sızıntısını önlemeye yönelik SECRET önceliği, bileşik isteklerde ek türleri korumuyor.
+- **Detection failure:** Uzun paralel pakette bu görev, daha erken semantik ve raster hataları düzeltilene kadar çalışmadı.
+- **Weakest link:** İlk başarısız commit bisect edilmedi; mevcut mekanizma çalışma zamanı kayıtlarıyla doğrudan kanıtlandı.
 
 # 6) Remediation Options
 
 ## Mitigation
 
-- **Title:** Altıgen altyapı resetini raster kapalıyken atlamak
+- **Title:** Bağlam paketi derleyicisinde PROMISE için ikinci bağımsız recall yapmak
 - **Category:** Mitigation
 - **Severity:** Medium
 - **Confidence:** Likely
-- **Location:** `js/Story.js:528`
-- **Evidence:** Çöküşü önler fakat altıgen türetimleri eksik bırakır.
-- **Why it matters:** Kampanya açılır ancak A/B dünya eşitliği bozulabilir.
-- **Recommended fix:** Uygulama; yalnız acil çöküş bastırması olur.
-- **Tradeoffs / Risks:** Alt sistemlerin sessizce kaybolması.
+- **Location:** `js/StoryConversationUnderstanding.js:3261-3271`
+- **Evidence:** Eksik sözü bu tek bağlam paketine geri getirir.
+- **Why it matters:** Testi geçirir fakat karakter yanıtının ilk recall metni hâlâ sözü unutmuş görünür.
+- **Recommended fix:** Uygulama; niyet hatasını aşağı katmanda maskeleyen çift davranış yaratır.
+- **Tradeoffs / Risks:** UI yanıtı ve LLM bağlamı farklı hafıza görür.
 
 ## Fix
 
-- **Title:** Altıgen coğrafya için kalıcı olmayan raster fallback’i sağlamak
+- **Title:** Açık hafıza sinyallerini birleşik tür kümesine dönüştürmek
 - **Category:** Fix
 - **Severity:** Medium
 - **Confidence:** Confirmed
-- **Location:** `js/StoryHexGeography.js`
-- **Evidence:** Altıgen coğrafya raster verisine gerçekten ihtiyaç duyuyor; düşük seviye `storyMapRasterCreate` kanonik nesneyi `STORY` içine yazmadan aynı deterministik kaynağı üretebiliyor.
-- **Why it matters:** Doğrudan raster API kapalı kalırken yeni altıgen dünya aynı fiziksel türetimleri korur.
-- **Recommended fix:** Yalnız kanonik özellik kapalıyken transient raster oluşturup kaynak hash’iyle önbellekle; coğrafya resetinde bu cache’i temizle.
-- **Tradeoffs / Risks:** Kapalı A/B başlatmada bir kerelik raster üretim maliyeti; cache bunu tekrar maliyetinden korumalı.
+- **Location:** `js/StoryConversationUnderstanding.js:4193-4238`
+- **Evidence:** Aynı cümlede hem promise hem secret sinyali mevcut; recall kapısı tür dizisini zaten destekliyor ve sahiplik filtresi yabancı sırrı engelliyor.
+- **Why it matters:** Karakter yanıtı ile LLM context pack aynı kanonik hafızaları görür.
+- **Recommended fix:** SECRET güvenlik filtresini koruyarak tespit edilen PROMISE/DEBT/DECISION türlerini aynı kümeye ekle; genel recall fallback’ini değiştirme.
+- **Tradeoffs / Risks:** Daha çok kayıt recall limitini tüketebilir; sıralama milestone önemi ve zamanla deterministik kalır.
 
 ## Prevention
 
-- **Title:** Özellik-kapalı kampanyayı yeni fiziksel katmanlarla birlikte kapılamak
+- **Title:** Bileşik ve yabancı-gizli hafıza regresyonunu birlikte kapılamak
 - **Category:** Prevention
 - **Severity:** Low
 - **Confidence:** Confirmed
-- **Location:** `tests/story-world.test.js:5393-5394`
-- **Evidence:** Mevcut assertion null raster sözleşmesini koruyor; kampanya açılışı daha önce çöktüğü için ona ulaşamıyor.
-- **Why it matters:** Gelecekte yeni raster tüketicileri aynı sözleşmeyi bozamaz.
-- **Recommended fix:** Mevcut `mapRasterProbe` assertionlarını koru ve transient fallback’in kanonik `STORY.canonicalMapRaster` alanını doldurmadığını doğrula.
+- **Location:** `tests/story-world.test.js` / `conversationContextPackProbe`
+- **Evidence:** Mevcut prob hem ortak söz+sır kapsamını hem yabancı sır dışlamasını aynı senaryoda ölçüyor.
+- **Why it matters:** Bileşik recall genişletilirken gizlilik sınırı gevşetilemez.
+- **Recommended fix:** Mevcut assertionları koru; gerekirse recall türlerini doğrudan sınayan küçük bir test ekle.
 - **Tradeoffs / Risks:** Yok.
 
 # 7) Verification Plan
 
-- `node tools/story-test-parallel.js --task mapRasterProbe --workers 1` başarıyla bitmeli.
-- Sonuçta `disabled.raster === null`, `disabled.diagnostics.disabled === true` ve açık/kapalı dünya hash’leri eşit kalmalı.
-- `node tests/story-hex-world.test.js` ile normal altıgen coğrafya sözleşmesi doğrulanmalı.
+- `node tools/story-test-parallel.js --task conversationContextPackProbe --workers 1` başarıyla bitmeli.
+- Pack hem `context:memory:context-probe:promise` hem `context:memory:context-probe:secret:shared` içermeli.
+- Pack `context-probe:secret:foreign` kimliğini veya özetini içermemeli.
+- Doğrudan çalışma zamanı çıktısında `response.memoryRecall.records` PROMISE ve ortak SECRET türlerini göstermeli.
 - Son olarak `npm test` baştan sona geçmeli.
-- Tekrar belirtisi: özellik kapalı kampanya açılışında null alan okuması veya kanonik rasterın istemeden `STORY` içine yazılması.
+- Tekrar belirtisi: bileşik hafıza sorusunda türlerden birinin kaybolması veya yabancı sır içeriğinin görünmesi.
