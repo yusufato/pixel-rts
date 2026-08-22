@@ -57,6 +57,7 @@ const result = vm.runInContext('(() => {' +
     'const visualEnd=storyTransportPresentationResolve(visualMid.track,{x:20,y:0},500,250);' +
     'const far=storyTransportRenderSnapshot({ledger:{shipments:[viewA,viewB]},world,zoomRatio:1});' +
     'const near=storyTransportRenderSnapshot({ledger:{shipments:[viewA,viewB]},world,zoomRatio:2});' +
+    'const preparedNear=storyTransportPrepareRenderSnapshot(near);' +
     'const journey=JSON.parse(JSON.stringify(viewA));journey.id="journey:actor-7";journey.actorId="actor:7";' +
     'journey.routeAuthority="CANONICAL";journey.status="TRAVELLING";journey.transportAgent.id="transport-agent:journey:actor-7";' +
     'journey.transportAgent.cargoShipmentId=null;journey.transportAgent.stepProgressBps=2500;' +
@@ -85,6 +86,8 @@ const result = vm.runInContext('(() => {' +
     'finalStatus:shipment.status,finalCell:shipment.transportAgent.currentCellIndex,releases,' +
     'far:{mode:far.mode,agents:far.agents.length,count:far.shipmentCount,cargo:far.cargoQuantity,x:far.agents[0].x},' +
     'near:{mode:near.mode,agents:near.agents.length,count:near.shipmentCount,cargo:near.cargoQuantity,x:near.agents[0].x},' +
+    'preparedNear:{sameAgents:preparedNear.displayAgents===near.displayAgents,' +
+    'count:preparedNear.displayAgents.length,trackIds:preparedNear.displayAgents.map(row=>row.presentationTrackId)},' +
     'journeyProjection,journeyView:{mode:journeyView.mode,agents:journeyView.agents.length,shipmentCount:journeyView.shipmentCount,journeyCount:journeyView.journeyCount,passengerCount:journeyView.passengerCount},' +
     'decorativeAgents:decorativeView.agents.length,' +
     'boundaryRedirect,redirectCalls,redirectCell:redirecting.transportAgent.currentCellIndex,' +
@@ -116,6 +119,11 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(result.far)), {
 assert.deepStrictEqual(JSON.parse(JSON.stringify(result.near)), {
     mode: 'MATERIALIZED', agents: 2, count: 2, cargo: 7, x: 15
 });
+assert.deepStrictEqual(JSON.parse(JSON.stringify(result.preparedNear)), {
+    sameAgents: true,
+    count: 2,
+    trackIds: ['SHIPMENT:shipment:view-a', 'SHIPMENT:shipment:view-b']
+}, 'render snapshot must prepare stable track ids and ordering once, not once per frame');
 assert.strictEqual(result.journeyProjection.authorityType, 'CHARACTER_TRAVEL');
 assert.strictEqual(result.journeyProjection.actorId, 'actor:7');
 assert.strictEqual(result.journeyProjection.journeyId, 'journey:actor-7');
@@ -134,6 +142,12 @@ assert(Math.abs(directionDelta - Math.PI) < 0.0001,
 assert.deepStrictEqual(JSON.parse(JSON.stringify(result.visual)), {
     start: 10, mid: 15, end: 20, active: true
 }, 'render-only presentation track must fill the 0.25 s fixed-step gap smoothly');
+assert.strictEqual(context.storyTransportScreenSlotKey(12, 18, 56),
+    context.storyTransportScreenSlotKey(48, 51, 56),
+    'nearby vehicle sprites must share one visual density slot');
+assert.notStrictEqual(context.storyTransportScreenSlotKey(12, 18, 56),
+    context.storyTransportScreenSlotKey(75, 18, 56),
+    'separate screen regions must retain separate visible transport agents');
 assert.strictEqual(result.boundaryRedirect.rerouted, true);
 assert.strictEqual(result.redirectCalls, 1);
 assert.strictEqual(result.redirectCell, 12,
@@ -153,6 +167,15 @@ assert.strictEqual(result.migration.migrated, 1);
 assert.deepStrictEqual(JSON.parse(JSON.stringify(result.legacy)), {
     version: 2, routeId: 'route:1', reservation: 'reserve:legacy'
 });
+
+const renderSource = fs.readFileSync(path.join(root, 'js/StoryRender.js'), 'utf8');
+const transportDrawSource = renderSource.slice(
+    renderSource.indexOf('function storyDrawTransportAgents'),
+    renderSource.indexOf('function storyRenderTransportOverlay'));
+assert(!transportDrawSource.includes('STORY.time && STORY.time.tick'),
+    'global 0.25 s clock tick must not rebuild an unchanged transport snapshot');
+assert(transportDrawSource.includes('snapshot.displayAgents || snapshot.agents'),
+    'per-frame transport drawing must reuse the snapshot-prepared order');
 
 console.log('STORY_TRANSPORT_AGENTS_OK', JSON.stringify({
     midProgress: result.midProgress,

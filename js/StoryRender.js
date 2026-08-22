@@ -528,6 +528,12 @@ function storyMapAtlasReady(key) {
 function storyDrawAtlasCell(ctx, key, index, x, y, w, h, alpha, rotation, flipX) {
     const all = storyMapAtlasEnsure(), a = all && all[key];
     if (!a || !a.ready) return false;
+    const placementPolicy = typeof storyVisualAtlasPlacementPolicy === 'function'
+        ? storyVisualAtlasPlacementPolicy(key) : null;
+    if (placementPolicy) {
+        if (!placementPolicy.allowRotation) rotation = 0;
+        if (!placementPolicy.allowFlip) flipX = false;
+    }
     const count = a.cols * a.rows, cell = ((index % count) + count) % count;
     const col = cell % a.cols, row = Math.floor(cell / a.cols);
     const sw = a.img.naturalWidth / a.cols, sh = a.img.naturalHeight / a.rows;
@@ -850,11 +856,12 @@ function storyDrawGeoAtlasDetail(ctx, land, hgt, W, H, f, dLand, dSea) {
     }
 }
 
-function storySettlementLandScore(raster, wx, wy, radiusWorld) {
+function storySettlementLandScore(raster, wx, wy, radiusWorld, centerOffsetYWorld) {
     if (!raster || typeof storyMapRasterSample !== 'function') return 9;
     const rx = Math.max(1, Number(radiusWorld) || 1) / STORY_WORLD_W;
     const ry = Math.max(1, Number(radiusWorld) || 1) / STORY_WORLD_H;
-    const nx = wx / STORY_WORLD_W, ny = wy / STORY_WORLD_H;
+    const nx = wx / STORY_WORLD_W;
+    const ny = (wy + (Number(centerOffsetYWorld) || 0)) / STORY_WORLD_H;
     const points = [[0, 0], [-rx, 0], [rx, 0], [0, -ry], [0, ry],
         [-rx * .72, -ry * .72], [rx * .72, -ry * .72],
         [-rx * .72, ry * .72], [rx * .72, ry * .72]];
@@ -921,8 +928,9 @@ function storyDrawSettlementSprite(ctx, node, px, py, farMap, scale, options) {
         for (const district of candidates) {
             const wx = Number(district.center.x) / Number(world.width) * STORY_WORLD_W;
             const wy = Number(district.center.y) / Number(world.height) * STORY_WORLD_H;
+            const spriteWorldSize = size / Math.max(.0001, storyCam.zoom);
             const score = storySettlementLandScore(raster, wx, wy,
-                size / Math.max(.0001, storyCam.zoom) * .43);
+                spriteWorldSize * .50, -spriteWorldSize * .26);
             if (score > bestScore) {
                 const point = storyW2S(wx, wy);
                 bestScore = score; visualPx = point.x; visualPy = point.y;
@@ -978,8 +986,10 @@ function storyDrawSettlementSprite(ctx, node, px, py, farMap, scale, options) {
                     ) * 4);
                 const districtAtlasKey = districtVisualRecipe
                     && districtVisualRecipe.atlasKey || 'settlements';
+                const districtWorldSize = district.sizePx
+                    / Math.max(.0001, storyCam.zoom);
                 if (storySettlementLandScore(raster, wx, wy,
-                    district.sizePx / Math.max(.0001, storyCam.zoom) * .48) < 9) continue;
+                    districtWorldSize * .50, -districtWorldSize * .26) < 9) continue;
                 storyDrawAtlasCell(ctx, districtAtlasKey, districtVariant,
                     point.x, point.y + district.sizePx * .24,
                     district.sizePx, district.sizePx, .92,
@@ -1388,6 +1398,9 @@ function storyCoastalNetworkEnsure() {
                 }
                 coastT = Math.max(.08, Math.min(.92, lo - .035));
             }
+            coastT = typeof storyMapV2CoastalAnchorRatio === 'function'
+                ? storyMapV2CoastalAnchorRatio(coastT)
+                : Math.max(.06, Math.min(.48, coastT * .46));
             const anchorX = landX + coastDx * coastT;
             const anchorY = landY + coastDy * coastT;
             return {
@@ -1483,6 +1496,15 @@ function storyDrawPortTerminals(ctx, ports) {
     if (!storyMapAtlasReady('modernPorts')) return 0;
     let drawn = 0;
     for (const port of ports || []) {
+        const placement = typeof storyVisualPlacementDecision === 'function'
+            ? storyVisualPlacementDecision({
+                atlasKey: 'modernPorts',
+                hexDomain: 'COAST',
+                landCoverageBps: 6000,
+                port: true,
+                node: port.node
+            }) : null;
+        if (placement && !placement.ok) continue;
         const p = storyW2S(port.lx * STORY_WORLD_W, port.ly * STORY_WORLD_H);
         if (p.u < -.04 || p.u > 1.05) continue;
         const level = Math.max(2, port.node.level | 0);
@@ -2478,8 +2500,9 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         || typeof storyHexWorldEnsure !== 'function') return null;
     const world = storyHexWorldEnsure();
     const materialized = mapZoomRatio >= 1.35;
+    const renderNow = typeof performance !== 'undefined' && performance.now
+        ? performance.now() : Date.now();
     const snapshotKey = [
-        STORY.time && STORY.time.tick || 0,
         materialized ? 'MATERIALIZED' : 'AGGREGATED',
         STORY.trade && STORY.trade.tickSequence || 0,
         STORY.characterTravel && STORY.characterTravel.revision || 0
@@ -2487,8 +2510,14 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     let snapshotCache = STORY._transportSnapshotCache;
     const snapshotReused = !!(snapshotCache && snapshotCache.key === snapshotKey);
     if (!snapshotReused) {
+        const sameMode = snapshotCache && snapshotCache.mode === (materialized
+            ? 'MATERIALIZED' : 'AGGREGATED');
+        const elapsedMs = sameMode ? renderNow - Number(snapshotCache.builtAt || renderNow) : 0;
         snapshotCache = STORY._transportSnapshotCache = {
             key: snapshotKey,
+            mode: materialized ? 'MATERIALIZED' : 'AGGREGATED',
+            builtAt: renderNow,
+            transitionMs: Math.max(80, Math.min(4200, elapsedMs || 250)),
             snapshot: storyTransportRenderSnapshot({
                 world,
                 zoomRatio: mapZoomRatio,
@@ -2499,12 +2528,7 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     const snapshot = snapshotCache.snapshot;
     const worldScaleX = STORY_WORLD_W / Math.max(1, Number(world.width) || 1);
     const worldScaleY = STORY_WORLD_H / Math.max(1, Number(world.height) || 1);
-    const renderNow = typeof performance !== 'undefined' && performance.now
-        ? performance.now() : Date.now();
-    const fixedStepSeconds = typeof STORY_FIXED_STEP_SECONDS !== 'undefined'
-        ? STORY_FIXED_STEP_SECONDS : .25;
-    const clockSpeed = Math.max(1, Number(STORY.time && STORY.time.speed) || 1);
-    const transitionMs = Math.max(36, fixedStepSeconds * 1000 / clockSpeed);
+    const transitionMs = snapshotCache.transitionMs;
     const tracks = STORY._transportVisualTracks instanceof Map
         ? STORY._transportVisualTracks : (STORY._transportVisualTracks = new Map());
     const seenTrackIds = new Set();
@@ -2514,11 +2538,14 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     const presentationSamples = [];
     const stateCounts = Object.create(null);
     let longestQueue = 0;
-    for (const agent of snapshot.agents) {
-        const representedIds = (agent.shipmentIds || []).concat(agent.journeyIds || []).sort().join(',');
-        const trackId = agent.aggregate
-            ? `aggregate:${agent.vehicleClass}:${representedIds || agent.currentCellIndex}`
-            : String(agent.authorityType || 'TRANSPORT') + ':' + String(agent.authorityId || agent.agentId);
+    const slotSize = snapshot.mode === 'MATERIALIZED' ? 62 : 44;
+    const visualSlots = new Set();
+    let densityCulled = 0;
+    const displayAgents = snapshot.displayAgents || snapshot.agents;
+    for (const agent of displayAgents) {
+        const trackId = agent.presentationTrackId
+            || String(agent.authorityType || 'TRANSPORT') + ':'
+                + String(agent.authorityId || agent.agentId);
         seenTrackIds.add(trackId);
         const presentation = typeof storyTransportPresentationResolve === 'function'
             ? storyTransportPresentationResolve(
@@ -2537,6 +2564,14 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
             active: !!presentation.active
         });
         if (p.x < -40 || p.x > STORY._cw + 40 || p.y < -40 || p.y > STORY._ch + 40) continue;
+        const slotKey = typeof storyTransportScreenSlotKey === 'function'
+            ? storyTransportScreenSlotKey(p.x, p.y, slotSize)
+            : Math.floor(p.x / slotSize) + ':' + Math.floor(p.y / slotSize);
+        if (visualSlots.has(slotKey)) {
+            densityCulled++;
+            continue;
+        }
+        visualSlots.add(slotKey);
         visible++;
         const representedCount = Math.max(1,
             Number(agent.shipmentCount || 0) + Number(agent.journeyCount || 0));
@@ -2653,6 +2688,8 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         renderedAgents: visible,
         interpolatedAgents: interpolated,
         targetChanges,
+        snapshotReused,
+        snapshotTransitionMs: transitionMs,
         transitionMs,
         rotationFreeSprites: true,
         snapshotReused,
@@ -2660,7 +2697,9 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         presentationSamples,
         cargoQuantity: snapshot.cargoQuantity,
         stateCounts,
-        longestQueue
+        longestQueue,
+        densityCulledAgents: densityCulled,
+        visualSlotPx: slotSize
     };
     return snapshot;
 }

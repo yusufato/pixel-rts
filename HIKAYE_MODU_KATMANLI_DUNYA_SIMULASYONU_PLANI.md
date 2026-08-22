@@ -4821,6 +4821,36 @@ Mimari değişmezler:
 **Kabul kapısı:** En az 100 on-yıllık kampanya aynı 2050/2100 kabiliyet, uygulama ve kurulu taban bileşimine yığılmıyor; farklılık yalnız isim değil gerçek ekonomi, toplum, kurum, medya ve varlık sonucudur. Hilesiz AI ve oyuncu aynı fiziksel kurallara tabidir.
 **Bağımlılık:** Faz 42.1–42.13, Faz 55–58.2 ve tam dünya entegrasyonu sonrası nihai kabul.
 
+### Ana plan yükseltmesi — Şehre Gir / Binalar modern çalışma alanı
+
+**Amaç:** Oyuncunun “Binalar” sekmesinde dekoratif resim veya düz tablo değil; modern kentin mülkiyet, üretim, emek, altyapı, lojistik, mevzuat, çevre ve AR-GE bağlarını katman katman okuyup yetkisi oranında eyleme geçebildiği tek çalışma alanı kurmak. Arayüz ayrı bir ekonomi üretmez; Faz 17–42 arasındaki kanonik varlıkların şehir merceğidir.
+
+**Katman 0 — Şehir portföy özeti:** İlk ekran yalnız karar eşiğini gösterir: faal/inşa hâlinde/hasarlı/atıl yapı sayısı, boş kapasite, kritik girdi açığı, enerji-su-ulaşım darboğazı, toplam işçi açığı, çevresel baskı, devam eden yatırım ve oyuncu müdahalesi isteyen en çok beş vaka. Ham yüzlerce satır ilk ekrana yığılmaz.
+
+**Katman 1 — Mekânsal ve işlevsel süzgeç:** Oyuncu yapıları ilçe, sektör, mülkiyet, durum, altyapı bağı, işgücü, AR-GE ve risk mercekleriyle süzer. Haritadaki seçili altıgen/ilçe ile liste iki yönlü bağlıdır; kart seçimi kamerayı fiziksel yere götürür, harita seçimi aynı gerçek yapı dosyasını açar.
+
+**Katman 2 — Yapı kartı:** Her kart kanonik kimlik, yapı türü, bağlı şehir/ilçe/altıgen, sahibi ve işletmecisi, kamu/özel/karma payı, yaşam döngüsü, kapasite kullanımı, ana girdi/çıktı, çalışan sayısı, lojistik erişim ve görünür alarmı taşır. Bilinmeyen veri sıfır diye gösterilmez; “bilinmiyor”, kaynağı ve edinme yolu belirtilir.
+
+**Katman 3 — Ayrıntılı tesis dosyası:** Sekmeler Genel, Üretim, Çalışanlar, Mülkiyet ve Finans, Lojistik, Altyapı, Mevzuat, Çevre, Güvenlik, Projeler, AR-GE ve Geçmiş’tir. Her sekme aynı Building/Facility ID üzerinden okunur; ikinci bir UI muhasebesi kurulmaz. Üretim reçetesi, stok, bakım, vardiya, ücret, borç, sigorta, vergi, lisans, emisyon, kaza ve sabotaj bilgisi yalnız ilgili kanonik defter gerçekten varsa görünür.
+
+**Katman 4 — Proje ve inşaat dosyası:** İnşa edilen şeyin türü, fiziksel altıgeni, yüklenicisi, finansörü, malik adayı, başlangıç/bitiş tahmini, ilerleme, harcanan/kalan bütçe, tüketilen/kalan malzeme, işgücü, izin, gecikme nedeni ve iptal bedeli birlikte gösterilir. “İnşaat var” rozeti tek başına kabul edilmez. İnşaat bitince aynı kimlik tarihçesini koruyarak işletme varlığına dönüşür.
+
+**Katman 5 — Yetkili eylemler:** Oyuncu rolü ve makamı doğrulanmadan düğme oluşmaz. Olası eylemler; inceleme başlat, bütçe/hibe/kredi teklif et, kapasite yatırımı öner, bakım emri ver, üretim önceliğini değiştir, ithalat/lojistik talebi aç, ruhsatı askıya al, kamulaştırma/özelleştirme süreci başlat, yöneticiyle görüş, proje şartını müzakere et ve AR-GE programına tesis tahsis et olabilir. Her eylem bedel, yetki, onay, yürütücü, süre, risk ve beklenen sonucu önceden açıklar; UI doğrudan sayı yazmaz.
+
+**Katman 6 — Nedensellik ve geçmiş:** Yapının üretimi neden düştü, proje neden gecikti, mülkiyet neden değişti ve AR-GE neden ilerlemedi soruları kaynak etiketli olay zinciriyle cevaplanır. Son olaylar, aktif sözleşmeler, karakter konuşmaları, denetim makbuzları ve karar izleri aynı dosyada çapraz bağlanır; gizli bilgi rol/belief filtresini aşamaz.
+
+**Modern bina veri sözleşmesi:** Minimum ortak görünüm facilityId, buildingTypeId, physicalCellId, districtId, cityId, ownerEntityIds + shares, operatorEntityId, lifecycleState, constructionProjectId, installedTechnologyIds, capacity, condition, utilityLinks, transportLinks, workforce, financialAccountRefs, permitRefs, environmentalRefs, securityRefs ve researchProgramRefs alanlarını kaynak referanslarıyla ister. Alan yoksa arayüz uydurmaz; ilgili faza borç üretir.
+
+**AR-GE entegrasyonu — açık ve bloke edici borç:** Mevcut techPoints → en ucuz uygun teknoloji kendiliğinden tamamlanır scheduler’ı geçici eski davranıştır; modern AR-GE diye kabul edilemez. Binalar çalışma alanındaki AR-GE sekmesi ancak gerçek araştırma kurumu/şirketi, isimli ekip, laboratuvar veya test tesisi, program bütçesi, ekipman/hesaplama/malzeme, süre, hedef iddia, deney/prototip kanıtı, fikrî hak, lisans ve uygulama tesisi Faz 42.1–42.14 sözleşmelerine bağlandığında eylem üretir. Bunlar yokken sekme açıkça “altyapı henüz uygulanmadı” gösterir; sahte ilerleme yüzdesi veya satın alma düğmesi göstermez.
+
+**Rol ve bilgi filtresi:** Belediye/yürütme kamu hizmeti ve izinleri; şirket yöneticisi kendi şirketinin finans/üretim ayrıntısını; komutan stratejik tesis güvenliği ve ikmali; ajan yalnız elde ettiği kaynaklı bilgiyi görür. Oyuncu bağlı alt kadroları üzerinden talep/rapor üretebilir fakat onların özel bilgisini otomatik edinmez.
+
+**Performans sözleşmesi:** Şehir açılışı tüm dünya tesislerini yeniden rasterize etmez. Görünüm olay/revizyon anahtarıyla güncellenir; listeler sanallaştırılır, kapalı sekmeler hesaplanmaz, özetler kanonik tick sırasında ön-toplanır ve yazı/scroll sırasında DOM yeniden kurulmaz. 2.000 yapı fikstüründe ilk anlamlı içerik hedefi ≤100 ms, filtre/sekme geçişi ≤16 ms p95, simülasyon tikinde görünür kare takılması ≤8 ms p95’tir.
+
+**Kabul kapısı:** Oyuncu şehir merkezinden en az bir fiziksel yapıya üç tıklamadan fazla olmadan ulaşır; kimin sahip olduğunu, ne yaptığını, hangi girdiye/altyapıya bağlı olduğunu, neyin inşa edildiğini ve neden sorun yaşadığını görebilir. En az bir rol-uygun bedelli eylem gerçek yetki ve dünya makbuzuna ulaşır. AR-GE altyapısı yoksa sistem bunu dürüstçe borç gösterir.
+
+**Bağımlılık:** Faz 17–22.1, 29–38.12, 42.1–42.14; tam rol navigasyonu Faz 59–60.6. Bina görsel çeşitliliği mekanik buildingTypeId + lifecycle + region + technology bileşiminden beslenir, görsel atlas mekanik gerçek üretmez.
+
 ### Açık teknoloji borçları
 
 - `100 × 13 = 1.300` eski katalog yalnız içerik kaynağıdır; `TechnologyNodeV2` DAG'ına aile bazında yeniden yazılmalı ve her düğüm tarihsel/teknik kaynak denetiminden geçmelidir.
@@ -4835,6 +4865,7 @@ Mimari değişmezler:
 - Statik katalog kayda yazılmamalı; sürüm/checksum göçü ve bozuk/eksik katalog güvenli reddi zorunludur.
 - Yalnız aktif program, değişen uygulama, yeni kanıt ve seyrek inanç tik almalıdır; `1.300 × aktör × her tik` taraması yasaktır.
 - Askerî teknoloji, bonus etiketiyle taktik motoru değiştirmemeli; Faz 47–50 manifestosu ve aynı savaş motoru sözleşmesi üzerinden ekipman/kabiliyet taşımalıdır.
+- Binalar çalışma alanındaki AR-GE sekmesi, Faz 42 araştırma programı/ekip/tesis/kanıt/lisans/uygulama makbuzu gelmeden kapalı borçtur. Eski otomatik techPoints scheduler’ı bu kabul kapısını karşılamaz.
 
 ---
 

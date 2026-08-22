@@ -167,26 +167,36 @@ assert.strictEqual(futureFallback.fallbackDepth, 1,
     'Gelecek çağ varlığı üretilmeden modern atlas açık fallback olmalı.');
 
 assert.strictEqual(catalog.storyVisualClimateZone({ node: { ly: .18 } }), 'BOREAL');
+assert.strictEqual(catalog.storyVisualClimateZone({
+    node: { ly: .18 }, calendar: { month: 7, seasonIndex: 2 }
+}), 'TEMPERATE', 'northern city must not keep its snow atlas outside winter');
+assert.strictEqual(catalog.storyVisualClimateZone({
+    node: { ly: .18 }, calendar: { month: 1, seasonIndex: 0 }
+}), 'BOREAL', 'northern city may use its snow atlas in winter');
 assert.strictEqual(catalog.storyVisualClimateZone({ node: { ly: .78 } }), 'DRY');
 assert.strictEqual(catalog.storyVisualClimateZone({ node: { ly: .45, port: true } }), 'COASTAL');
 const climateCity = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'CORE', node: { id: 1, owner: 0, ly: .45, port: true },
     state: { tech: [] }, companyEconomy: { facilities: {} }
 });
-assert.strictEqual(climateCity.presentationSource, 'URBAN_FUNCTIONAL');
-assert.strictEqual(climateCity.atlasKey, 'urbanFunctionalModern');
+assert.strictEqual(climateCity.presentationSource, 'URBAN_CLIMATE');
+assert.strictEqual(climateCity.atlasKey, 'urbanClimateModern');
+assert.strictEqual(climateCity.atlasCell, 3,
+    'Coastal city core must use the coastal civic center cell, not a terminal/commercial cell.');
 const borealCity = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'CORE', node: { id: 2, owner: 0, ly: .18 },
     state: { tech: [] }, physicalSites: { registryHash: 'boreal-test' }
 });
-assert.strictEqual(borealCity.presentationSource, 'URBAN_FUNCTIONAL');
-assert.strictEqual(borealCity.atlasKey, 'urbanFunctionalBorealModern');
+assert.strictEqual(borealCity.presentationSource, 'URBAN_CLIMATE');
+assert.strictEqual(borealCity.atlasKey, 'urbanClimateModern');
+assert.strictEqual(borealCity.atlasCell, 2);
 const dryCity = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'CORE', node: { id: 3, owner: 0, ly: .78 },
     state: { tech: [] }, physicalSites: { registryHash: 'dry-test' }
 });
-assert.strictEqual(dryCity.presentationSource, 'URBAN_FUNCTIONAL');
-assert.strictEqual(dryCity.atlasKey, 'urbanFunctionalDryModern');
+assert.strictEqual(dryCity.presentationSource, 'URBAN_CLIMATE');
+assert.strictEqual(dryCity.atlasKey, 'urbanClimateModern');
+assert.strictEqual(dryCity.atlasCell, 1);
 
 const functionalCells = {};
 for (const kind of ['RESIDENTIAL', 'CIVIC', 'LOGISTICS', 'INDUSTRIAL']) {

@@ -42,6 +42,157 @@ const STORY_VISUAL_ASSET_PACKS = Object.freeze([
     { id: 'conflict-state', load: 'ON_DEMAND', families: ['fortification', 'damage', 'fire', 'ruin'] }
 ]);
 
+const STORY_VISUAL_SOURCE_STATUS = Object.freeze(['ACTIVE', 'ARCHIVED']);
+const STORY_VISUAL_HEX_DOMAINS = Object.freeze(['LAND', 'COAST', 'WATER', 'MOBILE', 'OVERLAY']);
+
+function storyVisualSourceDefinition(atlasKey, source, category, purpose, options) {
+    const spec = options || {};
+    return Object.freeze({
+        id: spec.id || `source.${String(atlasKey || 'archive')}.${String(purpose).toLowerCase()}`,
+        atlasKey: atlasKey || null,
+        source,
+        category,
+        purpose,
+        purposes: Object.freeze((spec.purposes || [purpose]).slice()),
+        family: spec.family || null,
+        status: spec.status || 'ACTIVE',
+        domains: Object.freeze((spec.domains || ['LAND']).slice()),
+        climateZones: Object.freeze((spec.climateZones || ['ANY']).slice()),
+        periodId: spec.periodId || 'MODERN_2010',
+        visualStage: storyVisualClampInt(spec.visualStage || 0, 0, 4),
+        archivedAliasOf: spec.archivedAliasOf || null,
+        placement: Object.freeze({
+            anchor: spec.anchor || 'HEX_FOOTPRINT_BOTTOM',
+            clipToHex: spec.clipToHex !== false,
+            allowRotation: !!spec.allowRotation,
+            allowFlip: !!spec.allowFlip,
+            minLandCoverageBps: Math.max(0, Number(spec.minLandCoverageBps) || 0),
+            requiresClearedLand: !!spec.requiresClearedLand
+        })
+    });
+}
+
+// Every runtime image under assets/maps has one semantic owner. Selection is
+// driven by purpose first, then physical domain, regional climate and installed
+// technology. Superseded files remain catalogued as ARCHIVED so an old atlas
+// cannot silently return to the live renderer merely because it still exists.
+const STORY_VISUAL_SOURCE_CATALOG = Object.freeze([
+    storyVisualSourceDefinition('mountains', 'assets/maps/terrain-mountains-atlas-v2.png',
+        'NATURAL_COVER', 'MOUNTAIN', { family: 'mountain', domains: ['LAND', 'COAST'],
+            allowFlip: true, minLandCoverageBps: 5500 }),
+    storyVisualSourceDefinition('forests', 'assets/maps/terrain-forests-atlas-v2.png',
+        'NATURAL_COVER', 'FOREST', { family: 'forest', domains: ['LAND', 'COAST'],
+            allowFlip: true, minLandCoverageBps: 7000 }),
+    storyVisualSourceDefinition('settlements', 'assets/maps/settlements-atlas-modern-v3.png',
+        'URBAN', 'URBAN_BASELINE', { family: 'settlement', domains: ['LAND'],
+            requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('constructionModern',
+        'assets/maps/urban-construction-atlas-modern-v1.png',
+        'URBAN', 'CONSTRUCTION', { family: 'construction', domains: ['LAND'],
+            requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('urbanClimateModern',
+        'assets/maps/urban-climate-atlas-modern-v1.png',
+        'URBAN', 'URBAN_CLIMATE', { family: 'urban', domains: ['LAND'],
+            climateZones: ['TEMPERATE', 'DRY', 'BOREAL', 'COASTAL'],
+            requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('urbanFunctionalModern',
+        'assets/maps/urban-functional-atlas-modern-v1.png',
+        'URBAN', 'URBAN_FUNCTIONAL', { family: 'urban', domains: ['LAND'],
+            climateZones: ['TEMPERATE', 'COASTAL'], requiresClearedLand: true,
+            minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('urbanFunctionalBorealModern',
+        'assets/maps/urban-functional-boreal-modern-v1.png',
+        'URBAN', 'URBAN_FUNCTIONAL', { family: 'urban', domains: ['LAND'],
+            climateZones: ['BOREAL'], requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('urbanFunctionalDryModern',
+        'assets/maps/urban-functional-dry-modern-v1.png',
+        'URBAN', 'URBAN_FUNCTIONAL', { family: 'urban', domains: ['LAND'],
+            climateZones: ['DRY'], requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('urbanDamageModern',
+        'assets/maps/urban-damage-atlas-modern-v1.png',
+        'URBAN', 'URBAN_DAMAGE', { family: 'urban-damage', domains: ['LAND'],
+            requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('specialFacilitiesModern',
+        'assets/maps/special-facilities-atlas-modern-v1.png',
+        'FACILITY', 'SPECIAL_FACILITY', { family: 'facility', domains: ['LAND'],
+            climateZones: ['TEMPERATE', 'DRY', 'BOREAL', 'COASTAL'],
+            requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('industrialSectorsModern',
+        'assets/maps/industrial-sector-atlas-modern-v1.png',
+        'FACILITY', 'SECTOR_FACILITY', { family: 'industry', domains: ['LAND'],
+            requiresClearedLand: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('landUseModern', 'assets/maps/land-use-atlas-modern-v1.png',
+        'LAND_USE', 'LAND_USE', { family: 'land-use', domains: ['LAND'],
+            purposes: ['LAND_USE', 'AGRICULTURE', 'FORESTRY', 'MINE', 'RENEWABLE'],
+            minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('groundDetail', 'assets/maps/ground-texture-atlas-v1.png',
+        'TERRAIN', 'GROUND_BASE', { family: 'ground', domains: ['LAND', 'COAST'],
+            allowFlip: true }),
+    storyVisualSourceDefinition('seasonalGround', 'assets/maps/seasonal-ground-atlas-v1.png',
+        'TERRAIN', 'SEASON_OVERLAY', { family: 'season', domains: ['LAND', 'COAST'],
+            climateZones: ['TEMPERATE', 'BOREAL'], allowFlip: true }),
+    storyVisualSourceDefinition('terrainDetail', 'assets/maps/terrain-detail-atlas-v2.png',
+        'TERRAIN', 'TERRAIN_DETAIL', { family: 'terrain', domains: ['LAND', 'COAST'],
+            allowFlip: true, minLandCoverageBps: 5500 }),
+    storyVisualSourceDefinition('ruralEnvironment',
+        'assets/maps/rural-environment-atlas-v1.png',
+        'TERRAIN', 'RURAL_DETAIL', { family: 'rural', domains: ['LAND'],
+            allowFlip: true, minLandCoverageBps: 9000 }),
+    storyVisualSourceDefinition('geographyVarietyModern',
+        'assets/maps/geography-variety-atlas-modern-v1.png',
+        'TERRAIN', 'GEOGRAPHY_DETAIL', { family: 'geography', domains: ['LAND', 'COAST'],
+            purposes: ['GEOGRAPHY_DETAIL', 'TERRAIN_DETAIL', 'MOUNTAIN', 'FOREST',
+                'PETROLEUM', 'MINERAL'],
+            allowFlip: true, minLandCoverageBps: 6000 }),
+    storyVisualSourceDefinition('maritime', 'assets/maps/maritime-atlas-v2.png',
+        'MARITIME', 'MARITIME_DECORATION', { family: 'maritime', domains: ['WATER'],
+            anchor: 'WATER_HEX_CENTER', clipToHex: false }),
+    storyVisualSourceDefinition('modernPorts',
+        'assets/maps/modern-port-terminal-atlas-v1.png',
+        'MARITIME', 'PORT_TERMINAL', { family: 'port', domains: ['COAST'],
+            anchor: 'COAST_LAND_EDGE', clipToHex: false, minLandCoverageBps: 3500 }),
+    storyVisualSourceDefinition('seaDetail', 'assets/maps/sea-detail-atlas-v2.png',
+        'MARITIME', 'SEA_DETAIL', { family: 'sea', domains: ['WATER'],
+            anchor: 'WATER_HEX_CENTER', clipToHex: true }),
+    storyVisualSourceDefinition('transportRoad',
+        'assets/maps/transport-road-convoy-modern-v1.png',
+        'MOBILE', 'ROAD_TRANSPORT', { family: 'truck', domains: ['LAND', 'COAST', 'MOBILE'],
+            anchor: 'ROUTE_CENTER', clipToHex: false, allowFlip: true }),
+    storyVisualSourceDefinition('transportRail',
+        'assets/maps/transport-freight-train-modern-v1.png',
+        'MOBILE', 'RAIL_TRANSPORT', { family: 'train', domains: ['LAND', 'COAST', 'MOBILE'],
+            anchor: 'ROUTE_CENTER', clipToHex: false, allowFlip: true }),
+    storyVisualSourceDefinition('transportSea',
+        'assets/maps/transport-cargo-ship-modern-v1.png',
+        'MOBILE', 'SEA_TRANSPORT', { family: 'ship', domains: ['WATER', 'COAST', 'MOBILE'],
+            anchor: 'ROUTE_CENTER', clipToHex: false, allowFlip: true }),
+    storyVisualSourceDefinition('conflictFireOverlay',
+        'assets/maps/conflict-fire-overlay-modern-v1.png',
+        'CONFLICT', 'FIRE_OVERLAY', { family: 'fire', domains: ['LAND', 'COAST', 'OVERLAY'],
+            anchor: 'ASSET_CENTER', clipToHex: false }),
+    storyVisualSourceDefinition(null, 'assets/maps/terrain-mountains-atlas-v1.png',
+        'NATURAL_COVER', 'MOUNTAIN', { id: 'archive.mountains.v1', status: 'ARCHIVED',
+            archivedAliasOf: 'mountains' }),
+    storyVisualSourceDefinition(null, 'assets/maps/terrain-forests-atlas-v1.png',
+        'NATURAL_COVER', 'FOREST', { id: 'archive.forests.v1', status: 'ARCHIVED',
+            archivedAliasOf: 'forests' }),
+    storyVisualSourceDefinition(null, 'assets/maps/settlements-atlas-v1.png',
+        'URBAN', 'URBAN_BASELINE', { id: 'archive.settlements.v1', status: 'ARCHIVED',
+            archivedAliasOf: 'settlements' }),
+    storyVisualSourceDefinition(null, 'assets/maps/settlements-atlas-v2.png',
+        'URBAN', 'URBAN_BASELINE', { id: 'archive.settlements.v2', status: 'ARCHIVED',
+            archivedAliasOf: 'settlements' }),
+    storyVisualSourceDefinition(null, 'assets/maps/terrain-detail-atlas-v1.png',
+        'TERRAIN', 'TERRAIN_DETAIL', { id: 'archive.terrain-detail.v1', status: 'ARCHIVED',
+            archivedAliasOf: 'terrainDetail' }),
+    storyVisualSourceDefinition(null, 'assets/maps/maritime-atlas-v1.png',
+        'MARITIME', 'MARITIME_DECORATION', { id: 'archive.maritime.v1', status: 'ARCHIVED',
+            archivedAliasOf: 'maritime', domains: ['WATER'] }),
+    storyVisualSourceDefinition(null, 'assets/maps/sea-detail-atlas-v1.png',
+        'MARITIME', 'SEA_DETAIL', { id: 'archive.sea-detail.v1', status: 'ARCHIVED',
+            archivedAliasOf: 'seaDetail', domains: ['WATER'] })
+]);
+
 const STORY_VISUAL_URBAN_KIND = Object.freeze({
     CORE: { family: 'core', packId: 'urban-core', legacyAtlasRow: null },
     RESIDENTIAL: { family: 'residential', packId: 'urban-core', legacyAtlasRow: 0 },
@@ -356,6 +507,147 @@ function storyVisualSelectionContext(input) {
     };
 }
 
+function storyVisualHexDomain(input) {
+    const spec = input || {};
+    const explicit = String(spec.hexDomain || spec.domain || '').toUpperCase();
+    if (STORY_VISUAL_HEX_DOMAINS.includes(explicit)) return explicit;
+    if (spec.mobile) return 'MOBILE';
+    if (spec.overlay) return 'OVERLAY';
+    if (spec.port || spec.coastal) return 'COAST';
+    const coverage = Number(spec.landCoverageBps);
+    if (Number.isFinite(coverage)) {
+        if (coverage <= 0) return 'WATER';
+        if (coverage < 9400) return 'COAST';
+        return 'LAND';
+    }
+    const cover = String(spec.cover || spec.coverType || '').toUpperCase();
+    if (cover === 'WATER') return 'WATER';
+    if (cover === 'COAST') return 'COAST';
+    return 'LAND';
+}
+
+function storyVisualSourceCandidates(input) {
+    const spec = input || {};
+    const selection = storyVisualSelectionContext(spec);
+    const purpose = String(spec.purpose || '').toUpperCase();
+    const category = String(spec.category || '').toUpperCase();
+    const family = String(spec.family || '').toLowerCase();
+    const domain = storyVisualHexDomain(spec);
+    const climateZone = storyVisualClimateZone(spec);
+    const preferred = new Set((spec.preferredAtlasKeys || []).map(String));
+    const targetPeriod = storyVisualPeriodIndex(selection.assetPeriodId);
+    return STORY_VISUAL_SOURCE_CATALOG
+        .filter(source => source.status === 'ACTIVE')
+        .filter(source => !purpose || source.purposes.includes(purpose))
+        .filter(source => !category || source.category === category)
+        .filter(source => !family || source.family === family)
+        .filter(source => source.domains.includes(domain)
+            || domain === 'MOBILE' && source.category === 'MOBILE')
+        .filter(source => source.climateZones.includes('ANY')
+            || source.climateZones.includes(climateZone))
+        .filter(source => source.visualStage <= selection.visualStage
+            && storyVisualPeriodIndex(source.periodId) <= targetPeriod)
+        .map(source => {
+            let score = source.visualStage * 20
+                + storyVisualPeriodIndex(source.periodId) * 10;
+            if (purpose && source.purposes.includes(purpose)) score += 120;
+            if (category && source.category === category) score += 60;
+            if (family && source.family === family) score += 35;
+            if (source.climateZones.includes(climateZone)) score += 25;
+            else if (source.climateZones.includes('ANY')) score += 5;
+            if (preferred.has(source.atlasKey)) score += 80;
+            return { source, score };
+        })
+        .sort((a, b) => b.score - a.score
+            || String(a.source.id).localeCompare(String(b.source.id), 'en'));
+}
+
+function storyVisualSelectCategorizedSource(input) {
+    const spec = input || {};
+    const selection = storyVisualSelectionContext(spec);
+    const candidates = storyVisualSourceCandidates(spec);
+    const selected = candidates[0] && candidates[0].source || null;
+    if (!selected) return Object.assign({}, selection, {
+        ok: false,
+        source: null,
+        atlasKey: null,
+        fallbackReason: 'NO_COMPATIBLE_CATEGORY_SOURCE'
+    });
+    const fallback = selected.visualStage < selection.visualStage
+        || selected.periodId !== selection.assetPeriodId;
+    return Object.assign({}, selection, {
+        ok: true,
+        source: selected,
+        sourceId: selected.id,
+        atlasKey: selected.atlasKey,
+        category: selected.category,
+        purpose: selected.purpose,
+        placement: selected.placement,
+        fallbackReason: fallback ? 'PERIOD_ASSET_MISSING' : null,
+        candidateCount: candidates.length
+    });
+}
+
+function storyVisualAtlasPlacementPolicy(atlasKey) {
+    const source = STORY_VISUAL_SOURCE_CATALOG.find(entry =>
+        entry.status === 'ACTIVE' && entry.atlasKey === String(atlasKey || ''));
+    return source ? source.placement : null;
+}
+
+function storyVisualPlacementDecision(input) {
+    const spec = input || {};
+    const source = STORY_VISUAL_SOURCE_CATALOG.find(entry =>
+        entry.status === 'ACTIVE' && entry.atlasKey === String(spec.atlasKey || ''));
+    const domain = storyVisualHexDomain(spec);
+    if (!source) return {
+        ok: false, domain, reason: 'UNCATEGORIZED_ATLAS', atlasKey: spec.atlasKey || null
+    };
+    if (!source.domains.includes(domain)
+        && !(domain === 'MOBILE' && source.category === 'MOBILE')) {
+        return {
+            ok: false, domain, reason: 'HEX_DOMAIN_MISMATCH',
+            atlasKey: source.atlasKey, sourceId: source.id
+        };
+    }
+    const coverage = Number(spec.landCoverageBps);
+    if (Number.isFinite(coverage)
+        && coverage < source.placement.minLandCoverageBps) {
+        return {
+            ok: false, domain, reason: 'INSUFFICIENT_LAND_FOOTPRINT',
+            atlasKey: source.atlasKey, sourceId: source.id
+        };
+    }
+    const cover = String(spec.cover || spec.coverType || '').toUpperCase();
+    if (source.placement.requiresClearedLand
+        && ['FOREST', 'MOUNTAIN'].includes(cover) && !spec.physicalOccupancy) {
+        return {
+            ok: false, domain, reason: 'UNCLEARED_HEX',
+            atlasKey: source.atlasKey, sourceId: source.id
+        };
+    }
+    const climateZone = storyVisualClimateZone(spec);
+    if (!source.climateZones.includes('ANY')
+        && !source.climateZones.includes(climateZone)) {
+        return {
+            ok: false, domain, reason: 'REGIONAL_CLIMATE_MISMATCH',
+            atlasKey: source.atlasKey, sourceId: source.id
+        };
+    }
+    return {
+        ok: true,
+        domain,
+        climateZone,
+        atlasKey: source.atlasKey,
+        sourceId: source.id,
+        category: source.category,
+        purpose: source.purpose,
+        anchor: source.placement.anchor,
+        clipToHex: source.placement.clipToHex,
+        rotation: source.placement.allowRotation ? Number(spec.rotation) || 0 : 0,
+        flipX: source.placement.allowFlip ? !!spec.flipX : false
+    };
+}
+
 function storyVisualTransportAsset(vehicleClass, year, installedSource) {
     const normalized = String(vehicleClass || '').toUpperCase();
     const definition = STORY_VISUAL_TRANSPORT_CLASSES[normalized] || null;
@@ -373,6 +665,18 @@ function storyVisualTransportAsset(vehicleClass, year, installedSource) {
         'operating', context.assetPeriodId.toLowerCase()
     ].join('.');
     const fallbackDepth = requestedAssetId === resolvedAssetId ? 0 : 1;
+    const categorized = storyVisualSelectCategorizedSource({
+        purpose: normalized === 'ROAD_CONVOY' ? 'ROAD_TRANSPORT'
+            : normalized === 'FREIGHT_TRAIN' ? 'RAIL_TRANSPORT' : 'SEA_TRANSPORT',
+        hexDomain: 'MOBILE',
+        year: year == null ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : year,
+        installedSource,
+        preferredAtlasKeys: [definition.atlasKey]
+    });
+    const placement = storyVisualPlacementDecision({
+        atlasKey: categorized.ok ? categorized.atlasKey : definition.atlasKey,
+        hexDomain: 'MOBILE'
+    });
     return Object.assign({
         ok: true,
         vehicleClass: normalized,
@@ -383,7 +687,10 @@ function storyVisualTransportAsset(vehicleClass, year, installedSource) {
         requestedAssetId,
         resolvedAssetId,
         fallbackDepth,
-        fallbackReason: fallbackDepth ? 'PERIOD_ASSET_MISSING' : null
+        fallbackReason: fallbackDepth ? 'PERIOD_ASSET_MISSING' : null,
+        category: categorized.category || 'MOBILE',
+        purpose: categorized.purpose || null,
+        placement
     }, definition);
 }
 
@@ -609,6 +916,7 @@ function storyVisualConstructionRecipe(input) {
         fallbackDepth = index;
         break;
     }
+    const atlasKey = entry && entry.atlasKey || 'constructionModern';
     return {
         schemaVersion: STORY_VISUAL_CATALOG_SCHEMA_VERSION,
         catalogVersion: STORY_VISUAL_CATALOG_VERSION,
@@ -619,12 +927,21 @@ function storyVisualConstructionRecipe(input) {
         periodId: period.id,
         requestedAssetId: requestedId,
         resolvedAssetId: entry && entry.id || null,
-        atlasKey: entry && entry.atlasKey || 'constructionModern',
+        atlasKey,
         atlasCell: entry && Number(entry.atlasCell),
         fallbackDepth,
         fallbackReason: entry ? (fallbackDepth ? 'PERIOD_ASSET_MISSING' : null)
             : 'NO_REGISTERED_CONSTRUCTION_ASSET',
-        assetMissing: !entry
+        assetMissing: !entry,
+        category: 'URBAN',
+        purpose: 'CONSTRUCTION',
+        placement: storyVisualPlacementDecision({
+            atlasKey,
+            hexDomain: 'LAND',
+            landCoverageBps: spec.landCoverageBps == null ? 10000 : spec.landCoverageBps,
+            cover: spec.cover,
+            physicalOccupancy: !!physicalSite
+        })
     };
 }
 
@@ -636,8 +953,8 @@ function storyVisualClimateZone(input) {
     if (node && (node.port || node.isPort || node.coastal)) return 'COASTAL';
     const latitudeY = Number(node && (node.ly ?? node.normalizedY));
     if (Number.isFinite(latitudeY)) {
-        const calendar = typeof STORY !== 'undefined' && typeof storyCalendarNow === 'function'
-            ? storyCalendarNow() : null;
+        const calendar = spec.calendar || (typeof STORY !== 'undefined'
+            && typeof storyCalendarNow === 'function' ? storyCalendarNow() : null);
         const winterPresentation = !calendar || Number(calendar.month) === 12
             || Number(calendar.month) <= 3;
         if (latitudeY <= .31 && winterPresentation) return 'BOREAL';
@@ -750,19 +1067,66 @@ function storyVisualUrbanFunctionalRecipe(input, mechanics) {
     } : {
         prefix: 'urban-functional', atlasKey: 'urbanFunctionalModern'
     };
+    const contextual = storyVisualSelectCategorizedSource({
+        purpose: 'URBAN_FUNCTIONAL',
+        climateZone,
+        hexDomain: 'LAND',
+        year: spec.year,
+        state: spec.state,
+        techById: spec.techById,
+        installedSources: [spec.node, spec.urbanFootprint, spec.physicalSite],
+        preferredAtlasKeys: [climate.atlasKey]
+    });
+    const atlasKey = contextual.ok ? contextual.atlasKey : climate.atlasKey;
+    const prefix = atlasKey === 'urbanFunctionalBorealModern'
+        ? 'urban-functional-boreal'
+        : atlasKey === 'urbanFunctionalDryModern'
+            ? 'urban-functional-dry' : 'urban-functional';
     return {
         assetMissing: false,
-        requestedAssetId: `${climate.prefix}.${definition.family}.variant_${variant}.modern_2010`,
-        resolvedAssetId: `${climate.prefix}.${definition.family}.variant_${variant}.modern_2010`,
-        atlasKey: climate.atlasKey,
+        requestedAssetId: `${prefix}.${definition.family}.variant_${variant}.modern_2010`,
+        resolvedAssetId: `${prefix}.${definition.family}.variant_${variant}.modern_2010`,
+        atlasKey,
         atlasCell: definition.row * 4 + variant,
         atlasRow: definition.row,
         atlasColumn: variant,
-        fallbackDepth: 0,
-        fallbackReason: null,
+        fallbackDepth: contextual.fallbackReason ? 1 : 0,
+        fallbackReason: contextual.fallbackReason,
+        category: contextual.category || 'URBAN',
+        purpose: contextual.purpose || 'URBAN_FUNCTIONAL',
         functionalFamily: familyId,
         functionalVariant: variant
     };
+}
+
+function storyVisualUrbanClimateRecipe(input, mechanics) {
+    const spec = input || {};
+    const kind = String(mechanics && mechanics.kind || spec.kind || 'CORE').toUpperCase();
+    const definition = STORY_VISUAL_A2_URBAN_FAMILIES[kind]
+        || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
+    const climateZone = storyVisualClimateZone(spec);
+    const period = mechanics && (mechanics.assetPeriodId || mechanics.periodId)
+        || storyVisualPeriodForYear(spec.year);
+    const resolved = storyVisualResolveVariant('urban-climate', definition.family,
+        climateZone, period, spec.assetManifest);
+    const contextual = storyVisualSelectCategorizedSource({
+        purpose: 'URBAN_CLIMATE',
+        climateZone,
+        hexDomain: 'LAND',
+        year: spec.year,
+        state: spec.state,
+        techById: spec.techById,
+        installedSources: [spec.node, spec.urbanFootprint],
+        preferredAtlasKeys: ['urbanClimateModern']
+    });
+    return Object.assign({}, resolved, {
+        atlasKey: contextual.ok ? contextual.atlasKey : resolved.atlasKey,
+        fallbackDepth: contextual.fallbackReason ? 1 : resolved.fallbackDepth,
+        fallbackReason: contextual.fallbackReason || resolved.fallbackReason,
+        category: contextual.category || 'URBAN',
+        purpose: contextual.purpose || 'URBAN_CLIMATE',
+        climateZone
+    });
 }
 
 function storyVisualUrbanPresentationRecipe(input) {
@@ -789,12 +1153,25 @@ function storyVisualUrbanPresentationRecipe(input) {
         const row = STORY_VISUAL_SPECIAL_FAMILIES[specialFamily];
         art = storyVisualResolveVariant('special', row.family, climateZone, period,
             spec.assetManifest);
+    } else if (mechanics.kind === 'CORE') {
+        // CORE is the civic silhouette of the city. Routing it through the
+        // functional COMMERCIAL row made coastal capitals look like bus depots.
+        art = storyVisualUrbanClimateRecipe(spec, mechanics);
     } else {
         art = storyVisualUrbanFunctionalRecipe(spec, mechanics);
     }
+    const placement = storyVisualPlacementDecision({
+        atlasKey: art.atlasKey,
+        hexDomain: 'LAND',
+        climateZone,
+        landCoverageBps: spec.landCoverageBps == null ? 10000 : spec.landCoverageBps,
+        cover: spec.cover,
+        physicalOccupancy: true
+    });
     return Object.assign({}, mechanics, art, {
         climateZone,
         condition,
+        placement,
         fireOverlay: condition === 'BURNING',
         fireOverlayAssetId: condition === 'BURNING'
             ? 'conflict.fire.active.modern_2010' : null,
@@ -821,9 +1198,29 @@ function storyVisualLandUseRecipe(input) {
                 : lifecycle === 'ABANDONED' ? 'RECLAIMED' : 'OPERATING';
     const period = storyVisualPeriodForYear(spec.year == null
         ? (typeof STORY !== 'undefined' && STORY.year) || 2010 : spec.year);
+    const art = storyVisualResolveVariant('land-use', family.family, phase, period,
+        spec.assetManifest);
+    const contextual = storyVisualSelectCategorizedSource({
+        purpose: type,
+        hexDomain: spec.hexDomain || 'LAND',
+        year: spec.year,
+        installedSource: spec.installedSource,
+        preferredAtlasKeys: [art.atlasKey || 'landUseModern']
+    });
+    const atlasKey = contextual.ok ? contextual.atlasKey : art.atlasKey;
     return Object.assign({ family: family.family, lifecyclePhase: phase, periodId: period.id },
-        storyVisualResolveVariant('land-use', family.family, phase, period,
-            spec.assetManifest));
+        art, {
+            atlasKey,
+            category: contextual.category || 'LAND_USE',
+            purpose: contextual.purpose || type,
+            placement: storyVisualPlacementDecision({
+                atlasKey,
+                hexDomain: spec.hexDomain || 'LAND',
+                landCoverageBps: spec.landCoverageBps == null ? 10000 : spec.landCoverageBps,
+                cover: spec.cover,
+                physicalOccupancy: true
+            })
+        });
 }
 
 function storyVisualUrbanRecipe(input) {
@@ -915,6 +1312,37 @@ function storyVisualCatalogValidate() {
             issues.push(`INVALID_LEGACY_ROW:${kind}`);
         }
     }
+    const sourceIds = new Set();
+    const sourcePaths = new Set();
+    const activeAtlasKeys = new Set();
+    for (const source of STORY_VISUAL_SOURCE_CATALOG) {
+        if (!source.id || sourceIds.has(source.id)) {
+            issues.push(`DUPLICATE_VISUAL_SOURCE:${source.id || '?'}`);
+        }
+        sourceIds.add(source.id);
+        if (!source.source || sourcePaths.has(source.source)) {
+            issues.push(`DUPLICATE_VISUAL_SOURCE_PATH:${source.source || '?'}`);
+        }
+        sourcePaths.add(source.source);
+        if (!STORY_VISUAL_SOURCE_STATUS.includes(source.status)) {
+            issues.push(`INVALID_VISUAL_SOURCE_STATUS:${source.id}`);
+        }
+        if (!source.purposes.length) issues.push(`VISUAL_SOURCE_WITHOUT_PURPOSE:${source.id}`);
+        if (!source.domains.length || source.domains.some(domain =>
+            !STORY_VISUAL_HEX_DOMAINS.includes(domain))) {
+            issues.push(`INVALID_VISUAL_SOURCE_DOMAIN:${source.id}`);
+        }
+        if (source.status === 'ACTIVE') {
+            if (!source.atlasKey || activeAtlasKeys.has(source.atlasKey)) {
+                issues.push(`DUPLICATE_ACTIVE_ATLAS:${source.atlasKey || '?'}`);
+            }
+            activeAtlasKeys.add(source.atlasKey);
+        } else if (!source.archivedAliasOf || !sourceIds.has(source.archivedAliasOf)
+            && !STORY_VISUAL_SOURCE_CATALOG.some(candidate =>
+                candidate.atlasKey === source.archivedAliasOf)) {
+            issues.push(`ARCHIVE_WITHOUT_ACTIVE_ALIAS:${source.id}`);
+        }
+    }
     const assetIds = new Set();
     for (const entry of STORY_VISUAL_ASSET_MANIFEST) {
         if (!entry.id || assetIds.has(entry.id)) issues.push(`DUPLICATE_ASSET:${entry.id || '?'}`);
@@ -932,6 +1360,9 @@ function storyVisualCatalogValidate() {
             && (!Number.isInteger(entry.atlasCell) || entry.atlasCell < 0 || entry.atlasCell > 15)) {
             issues.push(`ASSET_INVALID_CELL:${entry.id}`);
         }
+        if (!activeAtlasKeys.has(entry.atlasKey)) {
+            issues.push(`ASSET_ATLAS_NOT_CATEGORIZED:${entry.id}:${entry.atlasKey}`);
+        }
     }
     return { ok: issues.length === 0, issues };
 }
@@ -944,6 +1375,9 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_INSTALL_STAGES,
         STORY_VISUAL_CONDITIONS,
         STORY_VISUAL_ASSET_PACKS,
+        STORY_VISUAL_SOURCE_STATUS,
+        STORY_VISUAL_HEX_DOMAINS,
+        STORY_VISUAL_SOURCE_CATALOG,
         STORY_VISUAL_URBAN_KIND,
         STORY_VISUAL_CONSTRUCTION_FAMILIES,
         STORY_VISUAL_CONSTRUCTION_PHASES,
@@ -961,6 +1395,11 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_ASSET_MANIFEST,
         storyVisualPeriodForYear,
         storyVisualSelectionContext,
+        storyVisualHexDomain,
+        storyVisualSourceCandidates,
+        storyVisualSelectCategorizedSource,
+        storyVisualAtlasPlacementPolicy,
+        storyVisualPlacementDecision,
         storyVisualNormalizeCondition,
         storyVisualExplicitInstalledStage,
         storyVisualResearchCeiling,
@@ -978,6 +1417,7 @@ if (typeof module !== 'undefined' && module.exports) {
         storyVisualStableVariant,
         storyVisualFunctionalFamily,
         storyVisualUrbanFunctionalRecipe,
+        storyVisualUrbanClimateRecipe,
         storyVisualUrbanPresentationRecipe,
         storyVisualLandUseRecipe,
         storyVisualTransportAsset,

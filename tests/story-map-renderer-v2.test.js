@@ -160,6 +160,29 @@ assert(road.slice(1, -1).some(point => Math.abs(point.y - 20) > 1),
 assert(road.every(point => Math.abs(point.y - 20) <= 50),
     'road curvature must stay bounded around its graph edge');
 
+assert.strictEqual(context.storyMapV2SeasonalSnowEligible(.74, 2, 7, 7000, 'MOUNTAIN'), false,
+    'southern mountains must not select the snow atlas merely because latitudeY is high');
+assert.strictEqual(context.storyMapV2SeasonalSnowEligible(.58, 0, 1, 9800, 'MOUNTAIN'), false,
+    'a high southern summit must not paint its entire hex as an isolated snow island');
+assert.strictEqual(context.storyMapV2SeasonalSnowEligible(.32, 0, 1, 7000, 'MOUNTAIN'), true,
+    'winter mountain snowline must select the snow atlas');
+assert.strictEqual(context.storyMapV2SeasonalSnowEligible(.22, 2, 7, 0, 'FOREST'), false,
+    'boreal forest must not remain snow-covered in summer');
+assert.strictEqual(context.storyMapV2SeasonalSnowEligible(.22, 0, 2, 0, 'FOREST'), true,
+    'northern forest may use snow art during winter');
+assert(context.storyMapV2SeasonalGroundAlpha(0, 1, .18) > .3,
+    'winter ground must visually support snow-covered northern city assets');
+assert(context.storyMapV2SeasonalGroundAlpha(0, 1, .78) < .02,
+    'winter snow overlay must not wash the southern dry belt');
+assert(context.storyMapV2CoastalAnchorRatio(.8) < .4,
+    'coastal structures must remain land-biased instead of sitting on the raster crossing');
+assert.strictEqual(context.storyMapV2NaturalVisualPurpose('MOUNTAIN', 'NONE', null),
+    'MOUNTAIN', 'da hexinin amac1 genel arazi detay1na indirgenmemeli');
+assert.strictEqual(context.storyMapV2NaturalVisualPurpose('TERRAIN', 'MINERAL', null),
+    'MINERAL', 'i_letilen mineral kan1t1 dekoratif arazi ayr1nt1s1ndan �ncelikli olmal1');
+assert.strictEqual(context.storyMapV2NaturalVisualPurpose('TERRAIN', 'NONE', 'FORESTRY'),
+    'FORESTRY', 'fiziksel arazi kullan1m1 doal �rt�den �ncelikli olmal1');
+
 console.log('STORY_MAP_RENDERER_V2_OK', JSON.stringify({
     sizes, ruralSizes, coastSegments: coast.length, coastContours: islandContours.length, computedMin
 }));

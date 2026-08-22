@@ -24,6 +24,12 @@ function storyTransportRound(value, digits) {
     return Math.round(number * scale) / scale;
 }
 
+function storyTransportScreenSlotKey(x, y, cellSize) {
+    const size = Math.max(24, Number(cellSize) || 56);
+    return Math.floor((Number(x) || 0) / size) + ':'
+        + Math.floor((Number(y) || 0) / size);
+}
+
 // Fixed-step simulation intentionally updates physical shipments every 0.25 s.
 // The map must not expose that cadence as quarter-second teleports. This helper
 // keeps a render-only, wall-clock track that eases from the last painted world
@@ -667,6 +673,25 @@ function storyCharacterTravelProjection(journey, world) {
     });
 }
 
+function storyTransportPrepareRenderSnapshot(snapshot) {
+    const view = snapshot || { agents: [] };
+    if (Array.isArray(view.displayAgents)) return view;
+    const priority = row => row.journeyId ? 3
+        : row.state !== 'MOVING' ? 2 : row.aggregate ? 1 : 0;
+    view.displayAgents = (view.agents || []).map(agent => {
+        const representedIds = (agent.shipmentIds || [])
+            .concat(agent.journeyIds || []).sort().join(',');
+        agent.presentationTrackId = agent.aggregate
+            ? `aggregate:${agent.vehicleClass}:${representedIds || agent.currentCellIndex}`
+            : String(agent.authorityType || 'TRANSPORT') + ':'
+                + String(agent.authorityId || agent.agentId);
+        agent.presentationPriority = priority(agent);
+        return agent;
+    }).sort((a, b) => b.presentationPriority - a.presentationPriority
+        || String(a.presentationTrackId).localeCompare(String(b.presentationTrackId)));
+    return view;
+}
+
 function storyTransportRenderSnapshot(options) {
     const opts = options || {};
     const ledger = opts.ledger || (typeof storyTradeEnsure === 'function'
@@ -696,9 +721,10 @@ function storyTransportRenderSnapshot(options) {
     const journeyCount = projections.filter(row => row.journeyId).length;
     const passengerCount = projections.reduce(
         (sum, row) => sum + Number(row.passengerCount || 0), 0);
-    if (materialized) return { mode: 'MATERIALIZED', agents: projections,
+    if (materialized) return storyTransportPrepareRenderSnapshot({
+        mode: 'MATERIALIZED', agents: projections,
         shipmentCount: projections.length - journeyCount, journeyCount,
-        passengerCount, cargoQuantity };
+        passengerCount, cargoQuantity });
     const groups = Object.create(null);
     for (const row of projections) {
         const key = row.vehicleClass + ':' + row.currentCellIndex;
@@ -722,9 +748,9 @@ function storyTransportRenderSnapshot(options) {
         groups[key].cargoQuantity = storyTransportRound(groups[key].cargoQuantity);
         return groups[key];
     });
-    return { mode: 'AGGREGATED', agents,
+    return storyTransportPrepareRenderSnapshot({ mode: 'AGGREGATED', agents,
         shipmentCount: projections.length - journeyCount, journeyCount,
-        passengerCount, cargoQuantity };
+        passengerCount, cargoQuantity });
 }
 
 function storyTransportMigrateLegacyShipments() {

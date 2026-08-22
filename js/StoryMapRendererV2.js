@@ -8,7 +8,7 @@
     'use strict';
 
     const CONFIG = Object.freeze({
-        version: 'story-map-v2-flat-world-7-authored-surface',
+        version: 'story-map-v2-flat-world-8-categorized-assets',
         maxZoom: 7.5,
         presentationScale: 1.5,
         overviewRatio: 1.55,
@@ -49,6 +49,53 @@
         mediterranean: Object.freeze([0, 1, 3, 5, 7, 8, 10, 11, 13, 14]),
         dry: Object.freeze([3, 8, 9, 14, 15])
     });
+
+    function seasonalSnowEligible(latitude, seasonIndex, seasonMonth,
+        mountainIntensityBps, family) {
+        const lat = Math.max(0, Math.min(1, Number(latitude) || 0));
+        const month = Math.max(1, Math.min(12, Number(seasonMonth) || 1));
+        const winter = Number(seasonIndex) === 0
+            && (month === 12 || month <= 3);
+        const intensity = Math.max(0, Number(mountainIntensityBps) || 0);
+        if (String(family || '').toUpperCase() === 'FOREST') {
+            return winter && lat <= .42;
+        }
+        // The atlas snow band paints the whole hex white rather than only the
+        // summit. It is therefore restricted to terrain whose surrounding
+        // ground also receives the northern winter treatment; otherwise it
+        // creates isolated snow islands across Anatolia and the dry belt.
+        return winter && intensity >= 6200 && lat <= .42;
+    }
+
+    function seasonalGroundAlpha(seasonIndex, seasonMonth, latitude) {
+        const season = Math.max(0, Math.min(3, Number(seasonIndex) || 0));
+        const month = Math.max(1, Math.min(12, Number(seasonMonth) || 1));
+        const lat = Math.max(0, Math.min(1, Number(latitude) || 0));
+        let alpha = season === 0
+            ? Math.max(0, Math.min(.36, (.62 - lat) * 1.02))
+            : season === 1 ? (lat < .28 ? .11 : .045)
+                : season === 3 ? .13 : .035;
+        if (season === 0 && month === 3) alpha *= .58;
+        return alpha;
+    }
+
+    function coastalAnchorRatio(coastRatio) {
+        const crossing = Math.max(.08, Math.min(.92, Number(coastRatio) || 0));
+        // Keep the building body on land while its quay still visually reaches
+        // the coast. Anchoring at the raster crossing placed half the sprite in
+        // navigable water on narrow peninsulas and islands.
+        return Math.max(.06, Math.min(.48, crossing * .46));
+    }
+
+    function naturalVisualPurpose(kind, resource, landUseType) {
+        const use = String(landUseType || '').toUpperCase();
+        if (use) return use;
+        const deposit = String(resource || '').toUpperCase();
+        if (deposit && deposit !== 'NONE') return deposit;
+        const normalized = String(kind || '').toUpperCase();
+        if (normalized === 'MOUNTAIN' || normalized === 'FOREST') return normalized;
+        return normalized === 'TERRAIN' ? 'TERRAIN_DETAIL' : 'GROUND_BASE';
+    }
 
     function enabled() {
         // Explicit local rollback for visual comparison/debugging.
@@ -834,16 +881,20 @@
             && (Number(geography.mountainIntensityBps[index]) >= 6000 || detailSeed > .48)) {
             const mountain = Number(geography.mountainIntensityBps[index]);
             atlas = detailSeed > .72 ? 'geographyVarietyModern' : 'mountains';
-            const band = latitude > .68 ? 3 : latitude < .32 ? 2
+            const snowy = seasonalSnowEligible(latitude, seasonIndex, seasonMonth,
+                mountain, 'MOUNTAIN');
+            const band = snowy ? 2 : latitude > .68 ? 3
                 : mountain >= 6500 ? 1 : 0;
             variant = atlas === 'geographyVarietyModern'
-                ? (latitude > .66 ? 13 : 12)
+                ? (snowy ? 13 : 12)
                 : band * 4 + Math.floor(seedB * 4);
             size = baseWorld * 2.16; alpha = .98; kind = 'MOUNTAIN';
         } else if (cover === 'FOREST' && !job.infrastructureOccupiedCells.has(index)
             && detailSeed > .58) {
             atlas = seedA > .58 ? 'geographyVarietyModern' : 'forests';
-            const band = latitude > .68 ? 3 : latitude < .30 ? 2 : seedB > .55 ? 0 : 1;
+            const snowy = seasonalSnowEligible(latitude, seasonIndex, seasonMonth,
+                0, 'FOREST');
+            const band = snowy ? 2 : latitude > .68 ? 3 : seedB > .55 ? 0 : 1;
             variant = atlas === 'geographyVarietyModern'
                 ? (latitude > .64 ? 2 : latitude > .48 ? 3 : seedB > .5 ? 0 : 1)
                 : band * 4 + Math.floor(seedB * 4);
@@ -860,6 +911,36 @@
             size = baseWorld * 2.08; alpha = atlas === 'geographyVarietyModern' ? .90 : .74;
             kind = 'TERRAIN';
         }
+        const purpose = naturalVisualPurpose(kind, resource,
+            physicalLandUseSite && physicalLandUseSite.landUseType);
+        let placement = null;
+        if (atlas && typeof storyVisualSelectCategorizedSource === 'function') {
+            const climateZone = latitude <= .31 && seasonIndex === 0 ? 'BOREAL'
+                : latitude >= .67 ? 'DRY' : 'TEMPERATE';
+            const selection = storyVisualSelectCategorizedSource({
+                purpose,
+                preferredAtlasKeys: [atlas],
+                year: typeof STORY !== 'undefined' ? STORY.year : 2010,
+                installedSource: physicalLandUseSite,
+                hexDomain: coverage < 9400 ? 'COAST' : 'LAND',
+                climateZone,
+                landCoverageBps: coverage,
+                cover,
+                calendar: { seasonIndex, month: seasonMonth }
+            });
+            if (selection.ok) atlas = selection.atlasKey;
+            placement = typeof storyVisualPlacementDecision === 'function'
+                ? storyVisualPlacementDecision({
+                    atlasKey: atlas,
+                    hexDomain: coverage < 9400 ? 'COAST' : 'LAND',
+                    climateZone,
+                    landCoverageBps: coverage,
+                    cover,
+                    physicalOccupancy: !!physicalLandUseSite,
+                    flipX: seedB > .5
+                }) : null;
+            if (!selection.ok || placement && !placement.ok) atlas = null;
+        }
         // One clipped composition per physical hex: continuous ground first,
         // then the canonical land-use/resource/cover landmark when present.
         paint.save();
@@ -872,13 +953,23 @@
         }
         paint.closePath();
         paint.clip();
-        storyDrawAtlasCell(paint, 'groundDetail', groundVariant,
+        const groundSelection = typeof storyVisualSelectCategorizedSource === 'function'
+            ? storyVisualSelectCategorizedSource({
+                purpose: 'GROUND_BASE',
+                preferredAtlasKeys: ['groundDetail'],
+                year: typeof STORY !== 'undefined' ? STORY.year : 2010,
+                hexDomain: coverage < 9400 ? 'COAST' : 'LAND',
+                landCoverageBps: coverage
+            }) : null;
+        storyDrawAtlasCell(paint, groundSelection && groundSelection.ok
+            ? groundSelection.atlasKey : 'groundDetail', groundVariant,
             cx, cy + groundSize * .5, groundSize, groundSize,
             coverage < 9400 ? .76 : .48, 0, seedA > .5);
         counts.GROUND++;
         if (atlas) {
             storyDrawAtlasCell(paint, atlas, variant, cx, cy + size * .5,
-                size, size, alpha, 0, seedB > .5);
+                size, size, alpha, placement ? placement.rotation : 0,
+                placement ? placement.flipX : seedB > .5);
             counts[kind]++;
         }
         paint.restore();
@@ -900,11 +991,7 @@
             const latitude = (band + .5) / bandCount;
             // This is ground weathering, not an opaque map replacement. City,
             // forest and facility atlases must remain legible above it.
-            let alpha = job.seasonIndex === 0
-                ? Math.max(0, Math.min(.22, (.60 - latitude) * .78))
-                : job.seasonIndex === 1 ? (latitude < .28 ? .11 : .045)
-                    : job.seasonIndex === 3 ? .13 : .035;
-            if (job.seasonIndex === 0 && job.seasonMonth === 3) alpha *= .68;
+            const alpha = seasonalGroundAlpha(job.seasonIndex, job.seasonMonth, latitude);
             if (alpha <= .015) continue;
             job.paint.globalAlpha = alpha;
             job.paint.fillRect(0, Math.floor(band * bandHeight), job.canvas.width,
@@ -1256,7 +1343,7 @@
             .sort((a, b) => a[0] - b[0])
             .map(([index, site]) => `${index}:${site.siteId}:${site.landUseType}:${site.lifecycleState}`)
             .join(',');
-        const key = ['hex-natural-surface-7-coast-infrastructure', world.layoutHash, geography.geographyHash,
+        const key = ['hex-natural-surface-8-categorized-assets', world.layoutHash, geography.geographyHash,
             natural.registryHash, urban && urban.footprintHash || '-', STORY_WORLD_W,
             STORY_WORLD_H, physicalSites.sourceHash || physicalSites.registryHash || '-',
             infrastructure && infrastructure.topologyHash || '-',
@@ -1362,4 +1449,8 @@
     root.storyMapV2DrawHexNaturalContents = drawHexNaturalContents;
     root.storyMapV2InvalidateHexNaturalContents = invalidateHexNaturalContents;
     root.storyMapV2PortMetrics = portMetrics;
+    root.storyMapV2SeasonalSnowEligible = seasonalSnowEligible;
+    root.storyMapV2SeasonalGroundAlpha = seasonalGroundAlpha;
+    root.storyMapV2CoastalAnchorRatio = coastalAnchorRatio;
+    root.storyMapV2NaturalVisualPurpose = naturalVisualPurpose;
 })(typeof window !== 'undefined' ? window : globalThis);
