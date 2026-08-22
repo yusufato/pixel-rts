@@ -13,6 +13,7 @@ Pixel RTS; hızlı maç ile hikâye modunda aynı taktik savaş kaynaklarını k
 
 Ayrıntılı ve güncel durum:
 
+- [Belge haritası ve kanonik kaynaklar](docs/README.md)
 - [Hikâye modu ana planı](docs/story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md)
 - [Hikâye modu uygulama durumu](docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md)
 - [Modern dünya eksikleri](docs/story/status/MODERN_DUNYA_EKSIKLERI.md)

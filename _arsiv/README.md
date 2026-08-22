@@ -30,7 +30,7 @@ riski gerçekti (birkaç kez yaşandı). Bkz. `../docs/battle-ai/research/OLCUM-
 ## `hikaye-eski-planlar/` — yerini kanonik hikâye planına bırakmış belgeler (2026-08-07)
 
 Bu klasördeki belgeler tarihî tasarım bağlamıdır; güncel uygulama sırasını veya çalışan
-sistem durumunu belirlemez. Güncel kaynaklar kökteki
+sistem durumunu belirlemez. Güncel kaynaklar `docs/` altındaki
 `../docs/story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`,
 `../docs/story/status/HIKAYE_MODU_UYGULAMA_DURUMU.md` ve `../docs/story/status/MODERN_DUNYA_EKSIKLERI.md` dosyalarıdır.
 
