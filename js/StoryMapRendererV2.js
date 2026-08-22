@@ -966,6 +966,8 @@
             cache.overviewCanvas.width = 1;
             cache.overviewCanvas.height = 1;
         }
+        if (cache && cache.viewBitmap
+            && typeof cache.viewBitmap.close === 'function') cache.viewBitmap.close();
         if (cache && cache.viewCanvas) {
             cache.viewCanvas.width = 1;
             cache.viewCanvas.height = 1;
@@ -988,6 +990,9 @@
             overviewBitmap: null,
             overviewCanvas: null,
             viewCanvas: null,
+            viewBitmap: null,
+            viewBitmapKey: null,
+            viewBitmapPromiseKey: null,
             viewKey: null,
             viewDrawn: 0,
             viewMode: null,
@@ -1061,15 +1066,22 @@
             viewLeft.toFixed(5), viewTop.toFixed(5), zoom.toFixed(6),
             zoomRatio < 1.55 ? 'OVERVIEW' : 'DETAIL'].join('|');
         if (stableViewport && cache.viewCanvas && cache.viewKey === viewKey) {
-            ctx.drawImage(cache.viewCanvas, 0, 0);
+            const source = cache.viewBitmap && cache.viewBitmapKey === viewKey
+                ? cache.viewBitmap : cache.viewCanvas;
+            ctx.drawImage(source, 0, 0);
             cache.lastDrawMode = cache.viewMode;
             return cache.viewDrawn;
         }
         let paintCtx = ctx;
         if (stableViewport) {
             if (!cache.viewCanvas) cache.viewCanvas = document.createElement('canvas');
-            if (cache.viewCanvas.width !== viewportW) cache.viewCanvas.width = viewportW;
-            if (cache.viewCanvas.height !== viewportH) cache.viewCanvas.height = viewportH;
+            if (cache.viewCanvas.width !== viewportW || cache.viewCanvas.height !== viewportH) {
+                if (cache.viewBitmap && typeof cache.viewBitmap.close === 'function') {
+                    cache.viewBitmap.close();
+                }
+                cache.viewBitmap = null; cache.viewBitmapKey = null;
+                cache.viewCanvas.width = viewportW; cache.viewCanvas.height = viewportH;
+            }
             paintCtx = cache.viewCanvas.getContext('2d');
             paintCtx.clearRect(0, 0, viewportW, viewportH);
         }
@@ -1122,6 +1134,26 @@
             cache.viewDrawn = drawn;
             cache.viewMode = drawMode;
             ctx.drawImage(cache.viewCanvas, 0, 0);
+            if (typeof createImageBitmap === 'function'
+                && cache.viewBitmapPromiseKey !== viewKey) {
+                cache.viewBitmapPromiseKey = viewKey;
+                createImageBitmap(cache.viewCanvas).then(bitmap => {
+                    if (STORY._hexNaturalContentsRamTiles !== cache
+                        || cache.viewKey !== viewKey) {
+                        if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+                        return;
+                    }
+                    if (cache.viewBitmap && typeof cache.viewBitmap.close === 'function') {
+                        cache.viewBitmap.close();
+                    }
+                    cache.viewBitmap = bitmap;
+                    cache.viewBitmapKey = viewKey;
+                }).catch(() => {
+                    if (cache.viewBitmapPromiseKey === viewKey) {
+                        cache.viewBitmapPromiseKey = null;
+                    }
+                });
+            }
         } else {
             // Never reuse a pre-drag screen composite after the camera moves.
             cache.viewKey = null;

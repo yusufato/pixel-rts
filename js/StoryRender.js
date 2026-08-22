@@ -1556,10 +1556,13 @@ function storyDrawPhysicalLandOverlay(ctx, farMap) {
     };
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    drawPass(farMap ? 1.7 : 2.55, farMap
-        ? 'rgba(42,34,27,.72)' : 'rgba(36,31,26,.82)');
-    drawPass(farMap ? .72 : 1.08, farMap
-        ? 'rgba(177,157,116,.65)' : 'rgba(137,124,99,.76)');
+    // Roads describe connectivity without becoming the darkest object on the
+    // terrain. Thin earth/aggregate passes preserve the canonical hex edge
+    // route while avoiding the heavy black polygon look at junctions.
+    drawPass(farMap ? 1.05 : 1.65, farMap
+        ? 'rgba(54,47,38,.48)' : 'rgba(48,43,36,.58)');
+    drawPass(farMap ? .42 : .68, farMap
+        ? 'rgba(194,174,132,.58)' : 'rgba(174,155,119,.66)');
     for (const segment of roads) {
         const factor = storyHexInfrastructureSegmentFactorBps(segment);
         if (factor >= 10000) continue;
@@ -1694,8 +1697,8 @@ function storyDrawPhysicalRailOverlay(ctx, farMap) {
     };
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    drawPass(farMap ? 1.35 : 1.9, 'rgba(31,35,31,.76)', []);
-    drawPass(farMap ? .48 : .68, 'rgba(207,190,132,.72)', farMap ? [2, 2] : [3, 3]);
+    drawPass(farMap ? .95 : 1.45, 'rgba(36,40,37,.62)', []);
+    drawPass(farMap ? .38 : .58, 'rgba(218,202,150,.72)', farMap ? [2, 2] : [3, 3]);
     if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
     for (const segment of rails) {
         const factor = storyHexInfrastructureSegmentFactorBps(segment);
@@ -2366,15 +2369,76 @@ function storyDrawNetworkLayer(ctx, farMap) {
     if (!cache) return;
     const mode = farMap ? 'OVERVIEW' : 'LOCAL';
     const layer = cache.layers[mode];
-    const drawnTiles = storyDrawWorldRamLayer(ctx, layer);
     const portCache = storyPortWorldLayerEnsure();
-    const drawnPortTiles = portCache
-        ? storyDrawWorldRamLayer(ctx, portCache.layer) : 0;
+    const exactKey = [
+        'network-screen-composite-1', cache.key,
+        portCache && portCache.key || '-', mode,
+        STORY._cw, STORY._ch,
+        Number(storyCam.x).toFixed(5), Number(storyCam.y).toFixed(5),
+        Number(storyCam.zoom).toFixed(6)
+    ].join('|');
+    let screen = STORY._networkScreenComposite;
+    if (!screen || !screen.canvas || screen.canvas.width !== STORY._cw
+        || screen.canvas.height !== STORY._ch || screen.mode !== mode
+        || screen.sourceKey !== `${cache.key}|${portCache && portCache.key || '-'}`) {
+        if (screen && screen.bitmap && typeof screen.bitmap.close === 'function') {
+            screen.bitmap.close();
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = STORY._cw; canvas.height = STORY._ch;
+        screen = STORY._networkScreenComposite = {
+            canvas, key: null, sourceKey: `${cache.key}|${portCache && portCache.key || '-'}`,
+            mode, view: null, drawnTiles: 0, drawnPortTiles: 0,
+            bitmap: null, bitmapKey: null, bitmapPromiseKey: null,
+            builds: 0, hits: 0
+        };
+    }
+    const reuseInteraction = !!(STORY._mapInteracting && screen.key);
+    const rebuild = !reuseInteraction && screen.key !== exactKey;
+    if (rebuild || !screen.key) {
+        const paint = screen.canvas.getContext('2d');
+        paint.clearRect(0, 0, screen.canvas.width, screen.canvas.height);
+        screen.drawnTiles = storyDrawWorldRamLayer(paint, layer);
+        screen.drawnPortTiles = portCache
+            ? storyDrawWorldRamLayer(paint, portCache.layer) : 0;
+        screen.key = exactKey;
+        screen.view = storyScreenLayerViewSnapshot();
+        screen.builds++;
+        if (typeof createImageBitmap === 'function'
+            && screen.bitmapPromiseKey !== exactKey) {
+            screen.bitmapPromiseKey = exactKey;
+            createImageBitmap(screen.canvas).then(bitmap => {
+                if (STORY._networkScreenComposite !== screen
+                    || screen.key !== exactKey) {
+                    if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+                    return;
+                }
+                if (screen.bitmap && typeof screen.bitmap.close === 'function') {
+                    screen.bitmap.close();
+                }
+                screen.bitmap = bitmap;
+                screen.bitmapKey = exactKey;
+            }).catch(() => {
+                if (screen.bitmapPromiseKey === exactKey) screen.bitmapPromiseKey = null;
+            });
+        }
+    } else {
+        screen.hits++;
+    }
+    const screenSource = screen.bitmap && screen.bitmapKey === screen.key
+        ? screen.bitmap : screen.canvas;
+    storyDrawScreenLayerForCamera(ctx, screenSource, screen.view);
+    const drawnTiles = screen.drawnTiles;
+    const drawnPortTiles = screen.drawnPortTiles;
     STORY._networkLayerDiagnostics = {
         key: cache.key,
         mode,
         rebuilt: cache.hits === 0 && cache.builds > 0,
-        reusedInteraction: !!STORY._mapInteracting,
+        reusedInteraction: reuseInteraction,
+        compositeVersion: 'network-screen-composite-1',
+        compositeBuilds: screen.builds,
+        compositeHits: screen.hits,
+        compositeBitmapReady: !!(screen.bitmap && screen.bitmapKey === screen.key),
         buildMs: cache.buildMs,
         builds: cache.builds,
         hits: cache.hits,
