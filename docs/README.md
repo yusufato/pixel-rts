@@ -48,3 +48,8 @@ Bu dizin projenin kanonik belge girişidir. Oyun davranışının kaynağı kod 
 ## Geçiş durumu
 
 Belge ağacı yeniden düzenlenmektedir. Bu indeks kanonik sahipliği tanımlar; kök ve düz `docs/` belgeleri doğrulandıktan sonra alan klasörlerine taşınacaktır. Belirsiz belgeler sessizce arşivlenmeyecektir.
+
+### Karar gerekli belgeler
+
+- `memory.md`: `memory.json` hâlâ depoda bulunduğu için yardımcı-asistan günlüğü ölü kabul edilmedi.
+- `PLANLAR.md`: kanonik savaş AI planından doğrudan referans alıyor ve tarihsel kapanışların yanında geleceğe bırakılmış eğitim maddeleri taşıyor; ayrıştırılmadan arşivlenmeyecek.

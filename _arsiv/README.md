@@ -59,3 +59,14 @@ import map yüklemiyor; `package.json` Three.js bağımlılığı ve 3B komutlar
 taşımıyor; Electron yalnız `2d` renderer bildiriyor. ZIP doğrulaması: 128 giriş,
 15.205.517 bayt. Arşiv açılmadan içindeki hiçbir dosya çalışan oyunun parçası
 değildir.
+
+---
+
+## `binary-dumps/` — yanlış uzantıyla tutulmuş ikili kayıtlar (2026-08-22)
+
+| dosya | eski yol | arşiv kanıtı |
+|---|---|---|
+| `github.png` | `github.md` | İlk sekiz bayt `89504E470D0A1A0A` PNG imzasıdır; dosya 608.872 baytlık ikili görüntüdür ve Markdown metni değildir. İçerik değiştirilmeden doğru uzantıyla taşındı. |
+
+Bu klasör yaşayan görsel varlık kataloğu değildir. Dosyalar yalnız geçmişi
+korumak için tutulur; aktif UI veya renderer tarafından yüklenmez.
