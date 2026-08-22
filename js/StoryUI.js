@@ -624,6 +624,11 @@ const STORY_REGION_COVER_LABELS = Object.freeze({
 const STORY_REGION_RESOURCE_LABELS = Object.freeze({
     NONE: 'YATAK YOK', PETROLEUM: 'PETROL', MINERAL: 'MİNERAL / MADEN CEVHERİ'
 });
+const STORY_REGION_CONSTRUCTION_LABELS = Object.freeze({
+    RESIDENTIAL: 'KONUT VE YAŞAM ALANI',
+    INDUSTRIAL: 'SANAYİ TESİSİ',
+    LOGISTICS: 'LOJİSTİK MERKEZİ'
+});
 const STORY_REGION_OWNER_LABELS = Object.freeze({
     STATE: 'KAMU / KURUMSAL', DOMESTIC_PRIVATE: 'YERLİ ÖZEL SERMAYE',
     FOUNDER: 'BAĞIMSIZ KURUCU', FOREIGN_PRIVATE: 'YABANCI ÖZEL SERMAYE'
@@ -638,7 +643,8 @@ function storyRegionFormatNumber(value) {
 function storyRegionSelectionResolve(selected) {
     const fallback = selected ? { kind: 'CITY', nodeId: selected.id, regionId: `region:${selected.id}` } : null;
     const ref = STORY._selectedMapEntity;
-    if (!ref || !selected || storyRegionNumber(ref.regionId) !== Number(selected.id)) return fallback;
+    if (!ref || !selected) return fallback;
+    if (ref.kind !== 'HEX' && storyRegionNumber(ref.regionId) !== Number(selected.id)) return fallback;
     if (ref.kind === 'CITY' || typeof storyHexSitesEnsure !== 'function') return fallback;
     try {
         const model = storyHexSitesEnsure();
@@ -657,8 +663,12 @@ function storyRegionSelectionResolve(selected) {
             const deposit = natural && natural.depositByCellId[String(ref.cellId)] || null;
             const managementRecords = typeof storyHexLandManagementRecords === 'function'
                 ? storyHexLandManagementRecords(String(ref.cellId)) : [];
+            const administrativeAssigned = ref.assigned !== false
+                && storyRegionNumber(ref.regionId) === Number(selected.id);
             return { kind: 'HEX', nodeId: selected.id, regionId: ref.regionId,
                 cellId: ref.cellId, cellIndex: index, cover, resource, deposit,
+                administrativeAssigned,
+                nearestNodeId: administrativeAssigned ? null : selected.id,
                 managementRecords,
                 arableSuitabilityBps: natural && Number(natural.arableSuitabilityBps[index]) || 0,
                 forestrySuitabilityBps: natural && Number(natural.forestrySuitabilityBps[index]) || 0,
@@ -670,6 +680,64 @@ function storyRegionSelectionResolve(selected) {
         return { kind: site ? 'SITE' : 'DISTRICT', nodeId: selected.id,
             regionId: land.regionId, cellId: land.cellId, land, site };
     } catch (_) { return fallback; }
+}
+function storyRegionConstructionDossier(site) {
+    if (!site || !site.sourceConstructionId) return null;
+    const ledger = STORY.hexConstruction || { commands: [], applications: [] };
+    const command = (ledger.commands || []).find(row =>
+        String(row.id) === String(site.sourceConstructionId));
+    if (!command) return null;
+    const application = (ledger.applications || []).find(row =>
+        String(row.commandId || '') === String(command.id)
+        || String(row.correlationId || '') === String(command.correlationId || ''));
+    const company = typeof storyCompanyById === 'function'
+        ? storyCompanyById(command.companyId) : null;
+    const applicant = typeof storyCharacterIdentityView === 'function'
+        ? storyCharacterIdentityView(command.applicantActorId) : null;
+    const requirements = command.requirements || {};
+    const remainingDays = Math.max(0, Number(command.remainingDays) || 0);
+    const durationDays = Math.max(1, Number(requirements.durationDays) || 1);
+    const progress = Math.max(0, Math.min(100,
+        Math.round((1 - remainingDays / durationDays) * 100)));
+    const secondsPerYear = typeof STORY_CALENDAR !== 'undefined'
+        ? Number(STORY_CALENDAR.secondsPerYear) || 120 : 120;
+    const daysPerYear = typeof STORY_CALENDAR !== 'undefined'
+        ? Number(STORY_CALENDAR.daysPerYear) || 360 : 360;
+    const started = typeof storyCalendarAt === 'function'
+        ? storyCalendarAt(Number(command.startedAt) || Number(command.submittedAt) || STORY.clock) : null;
+    const expected = typeof storyCalendarAt === 'function'
+        ? storyCalendarAt((Number(STORY.clock) || 0)
+            + remainingDays / daysPerYear * secondsPerYear) : null;
+    return { command, application, company, applicant, requirements,
+        remainingDays, durationDays, progress, started, expected };
+}
+function storyRegionConstructionHtml(site, selected, cityButton) {
+    const dossier = storyRegionConstructionDossier(site);
+    if (!dossier) return '';
+    const esc = storyProjectionEscape;
+    const command = dossier.command;
+    const req = dossier.requirements;
+    const type = STORY_REGION_CONSTRUCTION_LABELS[command.projectType]
+        || command.projectType || 'YAPI';
+    const materialRows = Object.entries(req.materials || {}).map(([resourceId, quantity]) =>
+        `<span><b>${esc(storyRegionLogisticsResourceLabel(resourceId))}</b><em>${storyRegionFormatNumber(quantity)}</em></span>`).join('');
+    const authority = command.permission && command.permission.institutionId
+        || dossier.application && dossier.application.authorityRequestId || 'KAYIT YOK';
+    return `<div class="story-node-heading"><b>${esc(type)}</b><span class="story-node-state construction">İNŞAAT</span></div>`
+        + `<div class="story-context-parent">${esc(selected.name)} idarî bölgesi · ${esc(site.cellId)} · PROJE ${esc(command.id)}</div>`
+        + `<div class="story-construction-progress"><div><b>İLERLEME</b><span>%${dossier.progress}</span></div><progress max="100" value="${dossier.progress}" aria-label="İnşaat ilerlemesi yüzde ${dossier.progress}"></progress><small>${storyRegionFormatNumber(dossier.remainingDays)} dünya günü kaldı · Tahmini bitiş: ${esc(dossier.expected && dossier.expected.label || 'HESAPLANAMADI')}</small></div>`
+        + `<div class="story-brief-grid"><div class="story-brief-cell">PROJE TÜRÜ<b>${esc(type)}</b></div>`
+        + `<div class="story-brief-cell">DURUM<b>${esc(command.status || 'KAYIT YOK')}</b></div>`
+        + `<div class="story-brief-cell">BAŞLAMA<b>${esc(dossier.started && dossier.started.label || 'KAYIT YOK')}</b></div>`
+        + `<div class="story-brief-cell">TOPLAM SÜRE<b>${storyRegionFormatNumber(dossier.durationDays)} gün</b></div>`
+        + `<div class="story-brief-cell">YATIRIMCI / YÜKLENİCİ<b>${esc(dossier.company && dossier.company.name || command.companyId || 'DOĞRULANMADI')}</b></div>`
+        + `<div class="story-brief-cell">BAŞVURU SAHİBİ<b>${esc(dossier.applicant && dossier.applicant.name || command.applicantActorId || 'KAYIT YOK')}</b></div></div>`
+        + `<div class="story-ownership"><small>FİNANSMAN VE KAYNAK REZERVASYONU</small><strong>TOPLAM ${storyRegionFormatNumber(req.cash)} KREDİ</strong>`
+        + `<span><b>Yapım bütçesi</b><em>${storyRegionFormatNumber(req.constructionCash)}</em></span>`
+        + `<span><b>Arsa / kullanım hakkı</b><em>${storyRegionFormatNumber(req.landCash)}</em></span>`
+        + `<span><b>Ayrılmış işgücü</b><em>${storyRegionFormatNumber(req.workforce)} kişi</em></span>${materialRows}</div>`
+        + `<div class="story-brief-note"><b>YETKİ VE SORUMLULUK</b><br>İzin / kurum kaydı: ${esc(authority)}<br>Çevresel maliyet: ${storyRegionFormatNumber(req.environmentalCost)} · Planlanan kapasite: ${storyRegionFormatNumber(req.capacity)}</div>`
+        + cityButton;
 }
 function storyRegionOwnershipHtml(company) {
     if (!company) return '<span>Mülkiyet kaydı doğrulanmadı</span>';
@@ -896,7 +964,8 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
             : null;
         const company = extraction && typeof storyCompanyById === 'function'
             ? storyCompanyById(extraction.ownerCompanyId) : null;
-        const actionOptions = typeof storyHexLandManagementOptions === 'function'
+        const actionOptions = selection.administrativeAssigned
+            && typeof storyHexLandManagementOptions === 'function'
             ? storyHexLandManagementOptions(selection) : [];
         const actionButtons = actionOptions.length
             ? `<div class=\"story-brief-note\"><b>ARAZİ YÖNETİMİ</b><br>${actionOptions.map(action =>
@@ -904,17 +973,25 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
         const managementRows = (selection.managementRecords || []).length
             ? `<div class=\"story-brief-note\"><b>AÇIK ARAZİ KAYITLARI</b><br>${selection.managementRecords.map(record =>
                 `${esc(STORY_HEX_LAND_ACTIONS[record.actionType] && STORY_HEX_LAND_ACTIONS[record.actionType].label || record.actionType)} · ${esc(record.status)}`).join('<br>')}</div>` : '';
-        return `<div class=\"story-node-heading\"><b>${esc(selected.name)} · ${esc(coverLabel)}</b><span class=\"story-node-state\">ALTIGEN</span></div>`
+        const administrativeLabel = selection.administrativeAssigned
+            ? `BAĞLI ŞEHİR: ${esc(selected.name)}`
+            : `İDARİ BAĞ: YOK · EN YAKIN ŞEHİR: ${esc(selected.name)}`;
+        const nearestCityButton = selection.administrativeAssigned ? cityButton
+            : `<button class=\"story-context-action\" data-story-enter-city=\"${selected.id}\">EN YAKIN ŞEHİR DOSYASI · ${esc(selected.name)}</button>`;
+        return `<div class=\"story-node-heading\"><b>${selection.administrativeAssigned ? `${esc(selected.name)} · ` : ''}${esc(coverLabel)}</b><span class=\"story-node-state\">${selection.administrativeAssigned ? 'ALTIGEN' : 'BAĞIMSIZ ALTIGEN'}</span></div>`
             + `<div class=\"story-context-parent\">${esc(selection.cellId)} · q${esc(selection.q)} / r${esc(selection.r)}</div>`
             + `<div class=\"story-brief-grid\"><div class=\"story-brief-cell\">ARAZİ ÖRTÜSÜ<b>${esc(coverLabel)}</b></div>`
             + `<div class=\"story-brief-cell\">DOĞAL KAYNAK<b>${esc(resourceLabel)}</b></div>`
             + `<div class=\"story-brief-cell\">TARIM UYGUNLUĞU<b>%${Math.round(selection.arableSuitabilityBps / 100)}</b></div>`
             + `<div class=\"story-brief-cell\">ORMANCILIK UYGUNLUĞU<b>%${Math.round(selection.forestrySuitabilityBps / 100)}</b></div></div>`
-            + (selection.deposit ? `<div class=\"story-brief-note\"><b>YATAK KAYDI</b><br>${esc(resourceLabel)} · ${extraction ? `faal çıkarım kapasitesi ${storyRegionFormatNumber(extraction.capacity)}` : 'çıkarım tesisi yok'}<br>Bağlı şehir: ${esc(selected.name)}${company ? `<br>Sahip: ${esc(company.name)}` : ''}<br>Rezerv miktarı: henüz kanonik jeolojik ölçüm yok; sayı uydurulmadı.</div>` : '')
-            + actionButtons + managementRows + cityButton;
+            + `<div class=\"story-brief-note\"><b>İDARİ VE FİZİKSEL BAĞ</b><br>${administrativeLabel}</div>`
+            + (selection.deposit ? `<div class=\"story-brief-note\"><b>YATAK KAYDI</b><br>${esc(resourceLabel)} · ${extraction ? `faal çıkarım kapasitesi ${storyRegionFormatNumber(extraction.capacity)}` : 'çıkarım tesisi yok'}<br>${selection.administrativeAssigned ? 'Bağlı şehir' : 'En yakın şehir'}: ${esc(selected.name)}${company ? `<br>Sahip: ${esc(company.name)}` : ''}<br>Rezerv miktarı: henüz kanonik jeolojik ölçüm yok; sayı uydurulmadı.</div>` : '')
+            + actionButtons + managementRows + nearestCityButton;
     }
     if (selection && selection.kind === 'SITE') {
         const site = selection.site;
+        const constructionHtml = storyRegionConstructionHtml(site, selected, cityButton);
+        if (constructionHtml) return constructionHtml;
         const company = typeof storyCompanyById === 'function' ? storyCompanyById(site.ownerCompanyId) : null;
         const operator = typeof storyCompanyById === 'function' ? storyCompanyById(site.operatorCompanyId) : null;
         const type = STORY_REGION_SITE_LABELS[site.siteType] || STORY_REGION_USE_LABELS[site.siteType] || site.siteType;
@@ -953,6 +1030,30 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
         + (office && office.provisional ? '<div class=\"story-context-warning\">Geçici kolektif yerel makam; kişisel belediye başkanı karakter fazında bağlanacak.</div>' : '')
         + `<div class=\"story-brief-note\">${esc(basics.rewardLabel)}: ${esc(basics.reward)}<br>ORDU DOKTRİNİ: ${esc(basics.doctrine)}<br>SAVAŞ HARİTASI: ${esc(basics.mapName)}</div>${portTruthHtml}${cityButton}${storyRegionLogisticsHtml(selected)}`;
 }
+function storyRegionNearestNodeForCell(cell) {
+    if (!cell) return null;
+    const cache = STORY._hexNearestRegionCache instanceof Map
+        ? STORY._hexNearestRegionCache : (STORY._hexNearestRegionCache = new Map());
+    if (cache.has(String(cell.id))) return cache.get(String(cell.id));
+    const world = storyHexWorldEnsure();
+    const wx = Number(cell.center && cell.center.x) / Math.max(1, Number(world.width)) * STORY_WORLD_W;
+    const wy = Number(cell.center && cell.center.y) / Math.max(1, Number(world.height)) * STORY_WORLD_H;
+    let nearest = null;
+    let distance = Infinity;
+    for (const node of STORY.nodes || []) {
+        if (!node) continue;
+        const position = typeof storyHexSettlementNodePosition === 'function'
+            ? storyHexSettlementNodePosition(node, STORY_WORLD_W, STORY_WORLD_H)
+            : { x: Number(node.lx) * STORY_WORLD_W, y: Number(node.ly) * STORY_WORLD_H };
+        const candidateDistance = (position.x - wx) ** 2 + (position.y - wy) ** 2;
+        if (candidateDistance < distance) {
+            nearest = Number(node.id);
+            distance = candidateDistance;
+        }
+    }
+    cache.set(String(cell.id), nearest);
+    return nearest;
+}
 function storyRegionEntityAtWorld(x, y) {
     if (typeof storyHexPoliticalCellAtWorld !== 'function' || typeof storyHexSitesEnsure !== 'function') return null;
     try {
@@ -960,9 +1061,14 @@ function storyRegionEntityAtWorld(x, y) {
         if (!cell) return null;
         const model = storyHexSitesEnsure();
         const land = model.landUseByCellId[String(cell.id)] || null;
-        if (!land) return cell.assigned ? { kind: 'HEX', cellId: cell.id,
-            cellIndex: cell.index, regionId: `region:${cell.regionId}`,
-            nodeId: Number(cell.regionId) } : null;
+        if (!land) {
+            const nodeId = cell.assigned ? Number(cell.regionId)
+                : storyRegionNearestNodeForCell(cell);
+            return { kind: 'HEX', cellId: cell.id,
+                cellIndex: cell.index,
+                regionId: cell.assigned ? `region:${cell.regionId}` : null,
+                nodeId, assigned: !!cell.assigned };
+        }
         const siteId = (model.siteIdsByCellId[String(cell.id)] || [])[0] || null;
         return { kind: siteId ? 'SITE' : 'DISTRICT', cellId: cell.id,
             siteId, regionId: land.regionId, nodeId: storyRegionNumber(land.regionId) };

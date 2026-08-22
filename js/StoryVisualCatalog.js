@@ -93,6 +93,18 @@ const STORY_VISUAL_SPECIAL_FAMILIES = Object.freeze({
     DEFENSE: { row: 3, family: 'defense', packId: 'conflict-state' }
 });
 
+// HXD-6.9 A3: Şehir içindeki gerçek PhysicalSiteV1 sektörünü, genel bir
+// "sanayi" silüeti yerine kendi kanonik tesisiyle gösterir. Hücre sırası
+// üretilen 3x2 atlasın sözleşmesidir; fiziksel site olmadan bu seçici çalışmaz.
+const STORY_VISUAL_SECTOR_FACILITIES = Object.freeze({
+    civil_industry: { cell: 0, family: 'civil_industry', packId: 'urban-industry' },
+    advanced_tech: { cell: 1, family: 'advanced_tech', packId: 'urban-industry' },
+    defense_industry: { cell: 2, family: 'defense_industry', packId: 'conflict-state' },
+    energy: { cell: 3, family: 'energy', packId: 'urban-industry' },
+    extraction: { cell: 4, family: 'extraction', packId: 'urban-industry' },
+    agriculture: { cell: 5, family: 'agriculture', packId: 'land-use' }
+});
+
 const STORY_VISUAL_LAND_USE_FAMILIES = Object.freeze({
     AGRICULTURE: { row: 0, family: 'agriculture' },
     FORESTRY: { row: 1, family: 'forestry' },
@@ -224,6 +236,19 @@ const STORY_VISUAL_LAND_USE_ASSETS = storyVisualGridAssets(
     'land-use', 'landUseModern', STORY_VISUAL_LAND_USE_FAMILIES,
     STORY_VISUAL_LAND_USE_PHASES, 'lifecyclePhase'
 );
+const STORY_VISUAL_SECTOR_FACILITY_ASSETS = Object.entries(STORY_VISUAL_SECTOR_FACILITIES)
+    .map(([sectorId, definition]) => Object.freeze({
+        id: `sector-facility.${definition.family}.operating.modern_2010`,
+        packId: definition.packId,
+        family: definition.family,
+        sectorId,
+        atlasKey: 'industrialSectorsModern',
+        atlasCell: definition.cell,
+        source: 'assets/maps/industrial-sector-atlas-modern-v1.png',
+        periodId: 'MODERN_2010',
+        visualStage: 0,
+        condition: 'OPERATING'
+    }));
 const STORY_VISUAL_TRANSPORT_ASSETS = Object.entries(STORY_VISUAL_TRANSPORT_CLASSES)
     .map(([vehicleClass, definition]) => Object.freeze({
         id: `mobile.${definition.family}.baseline.operating.modern_2010`,
@@ -259,6 +284,7 @@ const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_URBAN_DAMAGE_ASSETS,
     ...STORY_VISUAL_SPECIAL_ASSETS,
     ...STORY_VISUAL_LAND_USE_ASSETS,
+    ...STORY_VISUAL_SECTOR_FACILITY_ASSETS,
     ...STORY_VISUAL_TRANSPORT_ASSETS,
     ...STORY_VISUAL_CONFLICT_ASSETS
 ]);
@@ -626,6 +652,25 @@ function storyVisualSpecialFamily(input) {
     return null;
 }
 
+function storyVisualSectorFacilityRecipe(input) {
+    const spec = input || {};
+    const site = spec.physicalSite || null;
+    const sectorId = String(site && site.sectorId || '').toLowerCase();
+    const definition = STORY_VISUAL_SECTOR_FACILITIES[sectorId] || null;
+    const condition = storyVisualNormalizeCondition(spec.condition
+        || site && site.lifecycleState || 'OPERATING');
+    if (!site || !definition || condition !== 'OPERATING') return null;
+    const mechanics = spec.mechanics || storyVisualUrbanRecipe(spec);
+    const period = mechanics.assetPeriodId || mechanics.periodId || 'MODERN_2010';
+    return Object.assign({
+        sectorId,
+        family: definition.family,
+        condition,
+        sourcePhysicalSiteId: site.id || null
+    }, storyVisualResolveVariant('sector-facility', definition.family,
+        'OPERATING', period, spec.assetManifest));
+}
+
 function storyVisualUrbanPresentationRecipe(input) {
     const spec = input || {};
     const mechanics = storyVisualUrbanRecipe(spec);
@@ -633,23 +678,28 @@ function storyVisualUrbanPresentationRecipe(input) {
     const climateZone = storyVisualClimateZone(spec);
     const condition = storyVisualNormalizeCondition(spec.condition
         || spec.physicalSite && spec.physicalSite.lifecycleState || mechanics.condition);
-    const specialFamily = storyVisualSpecialFamily(spec);
+    const damaged = ['DAMAGED', 'BURNING', 'BURNED', 'ABANDONED'].includes(condition);
+    const sectorFacility = damaged ? null
+        : storyVisualSectorFacilityRecipe(Object.assign({}, spec, { mechanics, condition }));
+    const specialFamily = damaged || sectorFacility ? null : storyVisualSpecialFamily(spec);
     let art;
-    if (specialFamily) {
+    if (damaged) {
+        const family = STORY_VISUAL_A2_URBAN_FAMILIES[mechanics.kind]
+            || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
+        const damageCondition = condition === 'BURNING' ? 'DAMAGED' : condition;
+        art = storyVisualResolveVariant('urban-damage', family.family, damageCondition,
+            period, spec.assetManifest);
+    } else if (sectorFacility) {
+        art = sectorFacility;
+    } else if (specialFamily) {
         const row = STORY_VISUAL_SPECIAL_FAMILIES[specialFamily];
         art = storyVisualResolveVariant('special', row.family, climateZone, period,
             spec.assetManifest);
     } else {
         const family = STORY_VISUAL_A2_URBAN_FAMILIES[mechanics.kind]
             || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
-        if (['DAMAGED', 'BURNING', 'BURNED', 'ABANDONED'].includes(condition)) {
-            const damageCondition = condition === 'BURNING' ? 'DAMAGED' : condition;
-            art = storyVisualResolveVariant('urban-damage', family.family, damageCondition,
-                period, spec.assetManifest);
-        } else {
-            art = storyVisualResolveVariant('urban-climate', family.family, climateZone,
-                period, spec.assetManifest);
-        }
+        art = storyVisualResolveVariant('urban-climate', family.family, climateZone,
+            period, spec.assetManifest);
     }
     return Object.assign({}, mechanics, art, {
         climateZone,
@@ -659,7 +709,8 @@ function storyVisualUrbanPresentationRecipe(input) {
             ? 'conflict.fire.active.modern_2010' : null,
         fireOverlayAtlasKey: condition === 'BURNING' ? 'conflictFireOverlay' : null,
         fireOverlayAtlasCell: condition === 'BURNING' ? 0 : null,
-        presentationSource: specialFamily ? `SPECIAL_${specialFamily}`
+        presentationSource: sectorFacility ? `SECTOR_${sectorFacility.sectorId.toUpperCase()}`
+            : specialFamily ? `SPECIAL_${specialFamily}`
             : condition === 'OPERATING' || condition === 'CONSTRUCTION'
                 ? 'URBAN_CLIMATE' : 'URBAN_DAMAGE'
     });
@@ -778,6 +829,7 @@ function storyVisualCatalogValidate() {
         if (!packIds.has(entry.packId)) issues.push(`ASSET_UNKNOWN_PACK:${entry.id}:${entry.packId}`);
         if (!['settlements', 'constructionModern', 'urbanClimateModern',
             'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern',
+            'industrialSectorsModern',
             'transportRoad', 'transportRail', 'transportSea',
             'conflictFireOverlay'].includes(entry.atlasKey)) {
             issues.push(`ASSET_UNKNOWN_ATLAS:${entry.id}`);
@@ -805,6 +857,7 @@ if (typeof module !== 'undefined' && module.exports) {
         STORY_VISUAL_A2_URBAN_FAMILIES,
         STORY_VISUAL_DAMAGE_STATES,
         STORY_VISUAL_SPECIAL_FAMILIES,
+        STORY_VISUAL_SECTOR_FACILITIES,
         STORY_VISUAL_LAND_USE_FAMILIES,
         STORY_VISUAL_LAND_USE_PHASES,
         STORY_VISUAL_TRANSPORT_CLASSES,
@@ -826,6 +879,7 @@ if (typeof module !== 'undefined' && module.exports) {
         storyVisualClimateZone,
         storyVisualResolveVariant,
         storyVisualSpecialFamily,
+        storyVisualSectorFacilityRecipe,
         storyVisualUrbanPresentationRecipe,
         storyVisualLandUseRecipe,
         storyVisualTransportAsset,

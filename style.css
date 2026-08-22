@@ -1416,12 +1416,23 @@ body[data-screen="story"] #war-room-stage::after {
 .story-node-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--wr-line); }
 .story-node-heading b { min-width: 0; color: var(--wr-amber-bright); font-size: 18px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .story-node-state { flex: none; padding: 3px 6px; border: 1px solid currentColor; border-radius: 3px; font-size: var(--wr-fs-small); letter-spacing: 1px; }
+.story-node-state.construction { color: var(--wr-amber); animation: wr-pulse 1.4s steps(2, end) infinite; }
 .story-brief-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 11px; }
 .story-brief-cell { min-height: 52px; padding: 8px; border: 1px solid var(--wr-line); background: rgba(255,176,0,.025); color: var(--wr-muted); font-size: 9px; line-height: 1.35; }
 .story-brief-cell b { display: block; margin-top: 4px; color: var(--wr-amber-bright); font-size: 12px; font-weight: 400; }
 .story-brief-note { margin-top: 10px; padding: 9px 10px; border-left: 2px solid var(--wr-amber); background: rgba(255,176,0,.045); color: var(--wr-muted); font-size: 10px; line-height: 1.45; }
 .story-context-parent { margin-top: 8px; color: var(--wr-muted); font-size: 9px; line-height: 1.45; }
 .story-context-warning { margin-top: 8px; padding: 7px 9px; border: 1px dashed rgba(255,176,0,.32); color: var(--wr-muted); font-size: 9px; line-height: 1.4; }
+.story-construction-progress { display: grid; gap: 6px; margin-top: 10px; padding: 9px;
+    border: 1px solid rgba(255,176,0,.32); background: rgba(255,176,0,.045); }
+.story-construction-progress > div { display: flex; align-items: center; justify-content: space-between;
+    color: var(--wr-muted); font-size: 8px; letter-spacing: 1px; }
+.story-construction-progress > div b { color: var(--wr-amber); font-weight: 400; }
+.story-construction-progress > div span { color: var(--wr-green); font-size: 11px; }
+.story-construction-progress progress { width: 100%; height: 7px; border: 0; background: #07120d; accent-color: var(--wr-green); }
+.story-construction-progress progress::-webkit-progress-bar { background: #07120d; border: 1px solid rgba(74,222,128,.2); }
+.story-construction-progress progress::-webkit-progress-value { background: var(--wr-green); }
+.story-construction-progress small { color: var(--wr-muted); font-size: 8px; line-height: 1.4; }
 .story-ownership { display: grid; gap: 6px; margin-top: 10px; padding: 9px; border: 1px solid var(--wr-line); background: rgba(0,0,0,.18); }
 .story-ownership > small { color: var(--wr-amber); font-size: 8px; letter-spacing: 1.4px; }
 .story-ownership > strong { color: var(--wr-amber-bright); font-size: 11px; font-weight: 400; }

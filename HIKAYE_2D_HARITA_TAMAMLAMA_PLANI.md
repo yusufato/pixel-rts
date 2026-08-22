@@ -144,6 +144,10 @@ geçmez.
   tekrar dokusu/şehir varlıkları boğulmamalı.
 - [ ] Ana faz teknoloji ve bina çeşitliliği seçicileri erkene alınarak 2010–2100
   için yüzlerce seçilebilir tesis/şehir/altyapı varyantı üretilmeli.
+  İlk ölçülü dilim bağlandı: gerçek PhysicalSiteV1.sectorId kullanan tarım,
+  enerji, maden, sivil sanayi, ileri teknoloji ve savunma sanayisi tesisleri
+  artık altı ayrı atlas hücresidir. Manifest 90 → 96 oldu. Bu madde kapanmadı;
+  beş sanat dönemi, yapı kademeleri ve bölgesel varyantlar hâlâ açık borçtur.
 - [ ] Orman kaldırma/koruma/ormancılık, tarım işletme ve maden çıkarımı açık
   kayıttan gerçek kurumsal karara ve fiziksel altıgen dönüşümüne ilerlemeli.
 - [ ] Son FPS kabulü sakin makinede tekrarlanmalı. Aynı kodun önceki canlı

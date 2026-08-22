@@ -1055,6 +1055,17 @@ Hedefli başvuru, temel inşaat, harita V2 ve altıgen render testleri geçti. �
 
 ### HXD-6.9 — Görsel üretim dalgası A: 80–150 kanonik varlık
 
+HXD-6.9 A3'ün ilk sektör diliminde industrial-sector-atlas-modern-v1.png
+(1536×1024, gerçek alfa) bağlandı. Altı hücre tarım, enerji, maden, sivil
+sanayi, ileri teknoloji ve savunma sanayisini temsil eder; katalog toplamı
+96 benzersiz kayda çıktı. Seçim yalnız gerçek PhysicalSiteV1.sectorId
+üzerinden yapılır: fiziksel tesis yoksa sektör resmi uydurulmaz. Çalışan
+tesislerde sektör kimliği, hasarlı/yanan/terk edilmiş tesislerde ise fiziksel
+yaşam döngüsü önceliklidir. Altı sektörün ayrı hücre kullandığı, soyut tesisin
+fallback'e düştüğü ve hasar önceliğinin korunduğu otomatik testtedir. Bu dilim
+2010–2100 yüzlerce varyant borcunu kapatmaz; yalnız 2032 başlangıç dünyası için
+mekanik seçicisi olan ilk sektör kimliklerini üretir.
+
 Binlerce dosyaya geçiş HXD-6.8'in fiziksel kimlikleri kararlı hâle geldikten sonra başlar; renderer içine rastgele resim yığılmaz. İlk dalga yaklaşık `80–150` kanonik kaynak üretir: altı şehir ailesi, konut/sanayi/lojistik inşaat aşamaları, temel hasar halleri, liman/karayolu/demiryolu uçları ve iklim varyantları. Her varlık önce `StoryVisualCatalog` manifestine kimlik, çağ, teknoloji kademesi, fiziksel durum, çözünürlük ve fallback zinciriyle girer; ardından atlas üretimi, bellek bütçesi ve üç zoom kabulü yapılır.
 
 İkinci dalga HXD-7 ulaşım segmentleri ve HXD-8 dinamik şehir büyümesiyle `300–500` girdiye çıkar. `2010–2100` teknoloji dönemleri, yapım/işletme/hasar/yıkım durumları ve bölgesel varyantlar tamamlandığında katalog `1.000+` girdiyi aşar. Bu sayı bir hedef kalite kapısıdır: aynı resmi kopyalayarak dosya sayısı şişirmek kabul değildir; her varyantın simülasyonda ayrı bir fiziksel seçilme nedeni olmalıdır.

@@ -34,15 +34,48 @@ function storyWorldFrame(timestamp) {
             if (STORY._economyOpen && typeof storyEconomyUpdate === 'function') storyEconomyUpdate();
         }
     }
-    // Statik dünya ile hareketli ajan aynı bütçeyi paylaşmaz. Dünya 24 Hz'de
-    // güncellenir; kamera etkileşimi zaten olay başına anlık storyRender çağırır.
-    // Taşıt katmanı aşağıda bağımsız 60 Hz akar ve ağır haritayı tetiklemez.
-    const renderFrameMs = 1000 / 24;
-    if (timestamp - (STORY._lastRenderT || 0) >= renderFrameMs - .5) {
-        STORY._lastRenderT = timestamp;
-        storyRender();
+    // Statik dünya hareketli ajanların tikine bağlanamaz. Kamera/seçim olayları
+    // zaten anlık storyRender çağırır; simülasyon tarafında yalnız gerçekten
+    // görünür dünya durumu değişince ağır katman yeniden çizilir.
+    STORY._worldVisualCheckAcc = (STORY._worldVisualCheckAcc || 0) + dt;
+    if (!STORY._worldVisualStateKey || STORY._worldVisualCheckAcc >= .5) {
+        STORY._worldVisualCheckAcc = 0;
+        const visualKey = storyWorldVisualStateKey();
+        if (visualKey !== STORY._worldVisualStateKey) {
+            STORY._worldVisualStateKey = visualKey;
+            storyRender();
+        }
+    }
+    // Üst/sağ HUD statik haritayı yeniden çizmeden 2 Hz canlı kalır.
+    STORY._panelUpdateAcc = (STORY._panelUpdateAcc || 0) + dt;
+    if (STORY._panelUpdateAcc >= .5) {
+        STORY._panelUpdateAcc = 0;
+        storyPanelUpdate();
     }
     storyRenderTransportOverlay();
+}
+
+function storyWorldVisualStateKey() {
+    const nodes = (STORY.nodes || []).map(node => node ? [
+        node.id, node.owner, node.level | 0, node.fac | 0,
+        node.oil ? 1 : 0, node.mine ? 1 : 0, node.bar | 0,
+        node.geo ? 1 : 0
+    ].join(':') : '-').join(',');
+    const commanders = (STORY.states || []).map(state => state && state.gov
+        ? (state.gov.commanders || []).map(row => [row.id, row.node, row.status || ''].join(':')).join(',')
+        : '').join('|');
+    const invalidation = STORY._mapCacheInvalidation || {};
+    return [
+        'world-visual-state-2', nodes, commanders,
+        STORY.commander && STORY.commander.node,
+        STORY.selectedNodeId,
+        STORY.hexConstruction && STORY.hexConstruction.version || 0,
+        STORY.hexLandManagement && STORY.hexLandManagement.version || 0,
+        STORY.infrastructureWorks && STORY.infrastructureWorks.revision || 0,
+        STORY.physicalInfrastructure && STORY.physicalInfrastructure.revision || 0,
+        Number(invalidation.revision) || 0,
+        typeof storyCalendarNow === 'function' ? storyCalendarNow().seasonIndex : 0
+    ].join('|');
 }
 
 function storyResize() {
@@ -354,6 +387,7 @@ const STORY_MAP_ATLAS_SPECS = {
     urbanClimateModern: { src: 'assets/maps/urban-climate-atlas-modern-v1.png', cols: 4, rows: 4 },
     urbanDamageModern: { src: 'assets/maps/urban-damage-atlas-modern-v1.png', cols: 4, rows: 4 },
     specialFacilitiesModern: { src: 'assets/maps/special-facilities-atlas-modern-v1.png', cols: 4, rows: 4 },
+    industrialSectorsModern: { src: 'assets/maps/industrial-sector-atlas-modern-v1.png', cols: 3, rows: 2 },
     landUseModern: { src: 'assets/maps/land-use-atlas-modern-v1.png', cols: 4, rows: 4 },
     groundDetail: { src: 'assets/maps/ground-texture-atlas-v1.png', cols: 4, rows: 4 },
     seasonalGround: { src: 'assets/maps/seasonal-ground-atlas-v1.png', cols: 4, rows: 4 },
@@ -370,6 +404,7 @@ const STORY_MAP_ATLAS_SPECS = {
 
 const STORY_SETTLEMENT_ATLAS_KEYS = Object.freeze([
     'settlements', 'urbanClimateModern', 'urbanDamageModern', 'specialFacilitiesModern',
+    'industrialSectorsModern',
     'conflictFireOverlay'
 ]);
 
@@ -2236,11 +2271,26 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     if (typeof storyTransportRenderSnapshot !== 'function'
         || typeof storyHexWorldEnsure !== 'function') return null;
     const world = storyHexWorldEnsure();
-    const snapshot = storyTransportRenderSnapshot({
-        world,
-        zoomRatio: mapZoomRatio,
-        materializeZoomRatio: 1.35
-    });
+    const materialized = mapZoomRatio >= 1.35;
+    const snapshotKey = [
+        STORY.time && STORY.time.tick || 0,
+        materialized ? 'MATERIALIZED' : 'AGGREGATED',
+        STORY.trade && STORY.trade.tickSequence || 0,
+        STORY.characterTravel && STORY.characterTravel.revision || 0
+    ].join('|');
+    let snapshotCache = STORY._transportSnapshotCache;
+    const snapshotReused = !!(snapshotCache && snapshotCache.key === snapshotKey);
+    if (!snapshotReused) {
+        snapshotCache = STORY._transportSnapshotCache = {
+            key: snapshotKey,
+            snapshot: storyTransportRenderSnapshot({
+                world,
+                zoomRatio: mapZoomRatio,
+                materializeZoomRatio: 1.35
+            })
+        };
+    }
+    const snapshot = snapshotCache.snapshot;
     const worldScaleX = STORY_WORLD_W / Math.max(1, Number(world.width) || 1);
     const worldScaleY = STORY_WORLD_H / Math.max(1, Number(world.height) || 1);
     const renderNow = typeof performance !== 'undefined' && performance.now
@@ -2399,6 +2449,7 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         targetChanges,
         transitionMs,
         rotationFreeSprites: true,
+        snapshotReused,
         visualTrackCount: tracks.size,
         presentationSamples,
         cargoQuantity: snapshot.cargoQuantity,
@@ -2430,7 +2481,7 @@ function storyRenderTransportOverlay() {
     const finished = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
     STORY._transportOverlayDiagnostics = {
-        adapterVersion: 'transport-overlay-60hz-1',
+        adapterVersion: 'transport-overlay-60hz-2',
         frameMs: finished - started,
         width: cv.width,
         height: cv.height,
@@ -3151,6 +3202,8 @@ function storyEnsureOwnerOverlay() {
 }
 
 function storyRender() {
+    STORY._staticWorldRenderCount = Math.max(0,
+        Number(STORY._staticWorldRenderCount) || 0) + 1;
     const renderClock = typeof performance !== 'undefined' && performance.now
         ? () => performance.now() : () => Date.now();
     const renderStarted = renderClock();
@@ -3613,5 +3666,4 @@ function storyRender() {
         total: renderClock() - renderStarted,
         zoomRatio: typeof mapZoomRatio === 'number' ? mapZoomRatio : null
     });
-    storyRenderTransportOverlay();
 }

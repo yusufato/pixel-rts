@@ -47,6 +47,8 @@ settlements.records[7] = {
 };
 let selectedEntity = null;
 let createdOrderSpec = null;
+let politicalCell = { id: land.cellId, index: 0, assigned: true,
+    regionId: 7, center: { x: 70, y: 70 } };
 const context = {
     console, setTimeout, clearTimeout,
     window: {},
@@ -57,7 +59,11 @@ const context = {
     ], _selectedMapEntity: { kind: 'SITE', cellId: land.cellId, regionId: land.regionId } },
     STORY_WORLD_W: 4500,
     STORY_WORLD_H: 3540,
+    STORY_CALENDAR: { secondsPerYear: 120, daysPerYear: 360 },
     storyCalendarNow: () => ({ seasonIndex: 0, year: 2032, label: '10.01.2032' }),
+    storyCalendarAt: seconds => ({ label: seconds > 12 ? '10.04.2032' : '10.01.2032' }),
+    storyHexWorldEnsure: () => ({ width: 100, height: 100 }),
+    storyHexSettlementNodePosition: node => ({ x: Number(node.id) * 10, y: Number(node.id) * 10 }),
     storyHexSitesEnsure: () => sites,
     storyHexSettlementsEnsure: () => settlements,
     storyCompanyById: id => id === company.id ? company : null,
@@ -70,7 +76,9 @@ const context = {
             model: 'COLLECTIVE_LOCAL_OFFICE_PRE_PHASE_35'
         } }
     }),
-    storyHexPoliticalCellAtWorld: () => ({ id: land.cellId }),
+    storyHexPoliticalCellAtWorld: () => politicalCell,
+    storyCharacterIdentityView: id => ({ id, name: 'Selin Kaya',
+        role: 'COMPANY_EXECUTIVE', organizationId: company.id }),
     STORY_RESOURCE_DEFINITIONS: [
         { id: 'food', label: 'Gıda' }, { id: 'industrial_parts', label: 'Sanayi Parçası' }
     ],
@@ -122,6 +130,34 @@ assert.match(facilityHtml, /Ankara idarî bölgesine bağlı/);
 assert.match(facilityHtml, /BÖLGEDE KULLANILABİLİR İŞGÜCÜ: 312\.000/);
 assert.match(facilityHtml, /ŞEHRE GİR · Ankara/);
 
+context.STORY.hexConstruction = {
+    commands: [{
+        id: 'hex-construction:1', correlationId: 'construction:ankara:1',
+        projectType: 'INDUSTRIAL', status: 'BUILDING', companyId: company.id,
+        applicantActorId: 'character:company-executive:ankara', startedAt: 4,
+        remainingDays: 90, permission: { institutionId: 'institution:ankara:municipality' },
+        requirements: { cash: 190, constructionCash: 160, landCash: 30,
+            materials: { raw_materials: 30, industrial_parts: 24, electronics: 2 },
+            workforce: 120, durationDays: 180, environmentalCost: 12, capacity: 1 }
+    }],
+    applications: [{ commandId: 'hex-construction:1',
+        authorityRequestId: 'institution-request:1' }]
+};
+site.sourceConstructionId = 'hex-construction:1';
+const constructionHtml = context.storyRegionContextHtml(city,
+    { kind: 'SITE', cellId: land.cellId, site }, owner, basics);
+assert.match(constructionHtml, /SANAYİ TESİSİ/);
+assert.match(constructionHtml, /İNŞAAT/);
+assert.match(constructionHtml, /%50/);
+assert.match(constructionHtml, /90 dünya günü kaldı/);
+assert.match(constructionHtml, /Tahmini bitiş: 10\.04\.2032/);
+assert.match(constructionHtml, /Ankara Çelik AŞ/);
+assert.match(constructionHtml, /Selin Kaya/);
+assert.match(constructionHtml, /TOPLAM 190 KREDİ/);
+assert.match(constructionHtml, /Ayrılmış işgücü/);
+assert.match(constructionHtml, /Sanayi Parçası/);
+site.sourceConstructionId = null;
+
 const districtLand = { cellId: 'hex:ankara-residential', regionId: 'region:7',
     activeUse: 'RESIDENTIAL', siteIds: [] };
 const districtHtml = context.storyRegionContextHtml(city,
@@ -158,6 +194,14 @@ assert.strictEqual(createdOrderSpec.source, 'PLAYER_REGION_LOGISTICS_UI');
 assert.strictEqual(context.storySelectRegionEntityAtWorld(10, 20), true);
 assert.strictEqual(selectedEntity.id, 7);
 assert.strictEqual(selectedEntity.entity.kind, 'SITE');
+
+politicalCell = { id: 'hex:free-water', index: 1, assigned: false,
+    regionId: -1, center: { x: 95, y: 95 } };
+const freeEntity = context.storyRegionEntityAtWorld(95, 95);
+assert.strictEqual(freeEntity.kind, 'HEX');
+assert.strictEqual(freeEntity.assigned, false);
+assert.strictEqual(freeEntity.regionId, null);
+assert.strictEqual(freeEntity.nodeId, 7);
 
 console.log('story-region-context-ui: OK', JSON.stringify({
     city: city.name,

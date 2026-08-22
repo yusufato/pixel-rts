@@ -672,12 +672,26 @@ app.whenReady().then(() => {
             console.log('MAPTEST_LOGISTICS_PANEL ' + JSON.stringify(logisticsPanel));
             const transportMotion = await js(`(async () => { try {
                 const statsText=String(document.getElementById('story-stats')?.textContent||'');
-                if(STORY.paused) document.getElementById('story-pause-btn')?.click();
+                STORY.paused=true;
+                const shipment=(storyTradeEnsure().shipments||[]).find(row=>row.transportAgent
+                    && row.physicalRoute && (row.physicalRoute.steps||[]).length);
+                if(shipment){
+                    shipment.status='IN_TRANSIT';
+                    shipment.transportAgent.state='MOVING';
+                    shipment.transportAgent.stepIndex=0;
+                    shipment.transportAgent.stepProgressBps=0;
+                }
+                const staticBefore=Number(STORY._staticWorldRenderCount)||0;
                 const positions=[],targets=[],frameTimes=[];
                 for(let i=0;i<80;i++){
                     // Arka plandaki Electron penceresinde rAF işletim sistemi
                     // tarafından 1-4 Hz'e kısılabilir; gerçek zamanlı QA'yı
                     // dakikalarca uzatmamak için duvar saatiyle örnekle.
+                    if(shipment && i%10===0){
+                        shipment.transportAgent.stepProgressBps=Math.min(9000,
+                            Number(shipment.transportAgent.stepProgressBps||0)+1000);
+                        STORY._transportSnapshotCache=null;
+                    }
                     await new Promise(resolve=>setTimeout(resolve,16));
                     const t=performance.now(); storyRenderTransportOverlay();
                     frameTimes.push(performance.now()-t);
@@ -686,7 +700,6 @@ app.whenReady().then(() => {
                         && STORY._transportRenderDiagnostics.presentationSamples[0];
                     if(sample){positions.push(sample.x+','+sample.y);targets.push(sample.targetX+','+sample.targetY);}
                 }
-                if(!STORY.paused) document.getElementById('story-pause-btn')?.click();
                 frameTimes.sort((a,b)=>a-b);
                 return {sampleCount:positions.length,distinctPositions:new Set(positions).size,
                     distinctTargets:new Set(targets).size,
@@ -694,6 +707,8 @@ app.whenReady().then(() => {
                     rotationFree:!!(STORY._transportRenderDiagnostics&&STORY._transportRenderDiagnostics.rotationFreeSprites),
                     separateOverlay:!!document.getElementById('storyTransportCanvas'),
                     staticWorldRedrawn:STORY._transportOverlayDiagnostics&&STORY._transportOverlayDiagnostics.staticWorldRedrawn,
+                    staticRenderDelta:(Number(STORY._staticWorldRenderCount)||0)-staticBefore,
+                    movingShipment:!!shipment,
                     seasonVisible:/MEVSİM/.test(statsText)&&!/SOĞUK DENGE/.test(statsText)};
             } catch(e){return {err:e.message};} })()`);
             console.log('MAPTEST_TRANSPORT_MOTION ' + JSON.stringify(transportMotion));
@@ -709,6 +724,7 @@ app.whenReady().then(() => {
                 || transportMotion.distinctPositions <= transportMotion.distinctTargets
                 || transportMotion.p95Ms > 8 || !transportMotion.rotationFree
                 || !transportMotion.separateOverlay || transportMotion.staticWorldRedrawn !== false
+                || transportMotion.staticRenderDelta > 1 || !transportMotion.movingShipment
                 || !transportMotion.seasonVisible) {
                 problems.push('taşıt akışı/mevsim HUD sözleşmesi bozuk: '
                     + JSON.stringify(transportMotion));
@@ -789,7 +805,10 @@ app.whenReady().then(() => {
                     &&names[Number(natural.coverCodes[i])]==='COAST');
                 const deposit=(natural.deposits||[]).find(row=>assigned(Number(row.cellIndex))
                     &&noLandUse(Number(row.cellIndex)));
-                const cases=[['forest',forest],['coast',coast],['deposit',deposit&&Number(deposit.cellIndex)]];
+                const independent=Array.from({length:world.cellCount},(_,i)=>i)
+                    .find(i=>!assigned(i)&&noLandUse(i));
+                const cases=[['forest',forest],['coast',coast],
+                    ['deposit',deposit&&Number(deposit.cellIndex)],['independent',independent]];
                 const out=[];
                 const cv=document.getElementById('storyCanvas');
                 for(const [name,index] of cases){
@@ -813,6 +832,8 @@ app.whenReady().then(() => {
                         hasHex:text.includes('ALTIGEN'),hasForest:text.includes('ORMAN'),
                         hasCoast:text.includes('KIYI ARAZİSİ'),hasDeposit:text.includes('YATAK KAYDI'),
                         hasOwner:text.includes('Sahip:'),hasAttachedCity:text.includes('Bağlı şehir:'),
+                        hasIndependent:text.includes('BAĞIMSIZ ALTIGEN'),
+                        hasNearest:text.includes('EN YAKIN ŞEHİR'),
                         actionOpened});
                 }
                 return out;
@@ -839,6 +860,7 @@ app.whenReady().then(() => {
             const forestCase=hexCases&&hexCases.find(row=>row.name==='forest');
             const coastCase=hexCases&&hexCases.find(row=>row.name==='coast');
             const depositCase=hexCases&&hexCases.find(row=>row.name==='deposit');
+            const independentCase=hexCases&&hexCases.find(row=>row.name==='independent');
             if (!forestCase || forestCase.err || forestCase.kind !== 'HEX'
                 || !forestCase.hasHex || !forestCase.hasForest || !forestCase.actionOpened) {
                 problems.push('orman altıgen dosyası açılmadı: ' + JSON.stringify(forestCase));
@@ -850,6 +872,134 @@ app.whenReady().then(() => {
             if (!depositCase || depositCase.err || depositCase.kind !== 'HEX'
                 || !depositCase.hasDeposit || !depositCase.hasAttachedCity) {
                 problems.push('maden yatağı dosyası açılmadı: ' + JSON.stringify(depositCase));
+            }
+            if (!independentCase || independentCase.err || independentCase.kind !== 'HEX'
+                || !independentCase.hasIndependent || !independentCase.hasNearest) {
+                problems.push('şehir dışı bağımsız altıgen dosyası açılmadı: '
+                    + JSON.stringify(independentCase));
+            }
+            const constructionDossier = await js(`(() => { try {
+                const ledger=storyHexConstructionEnsureLedger();
+                const economy=typeof storyCompanyEnsure==='function'
+                    ? storyCompanyEnsure() : STORY.companyEconomy;
+                const company=Object.values(economy&&economy.companies||{})
+                    .find(row=>row&&row.status==='OPERATING'&&(row.facilityIds||[]).length);
+                if(!company) return {err:'faal şirket bulunamadı'};
+                const facility=(company.facilityIds||[]).map(id=>economy.facilities[id]).find(Boolean);
+                const regionId=facility&&facility.regionId;
+                const candidate=storyHexConstructionCandidates(regionId,'INDUSTRIAL',{limit:12})[0];
+                if(!candidate) return {err:'inşaat altıgeni bulunamadı',company:company.name,regionId};
+                const sequence=Math.max(0,Number(ledger.commandSequence)||0)+1;
+                ledger.commandSequence=sequence;
+                const command={
+                    id:'maptest-construction:'+sequence,
+                    correlationId:'maptest-construction:'+sequence,
+                    status:'BUILDING',projectType:'INDUSTRIAL',
+                    regionId,countryId:company.countryId,
+                    targetCellId:candidate.targetCellId,targetCellIndex:candidate.targetCellIndex,
+                    applicantActorId:'character:company-executive:'+company.id,
+                    companyId:company.id,submittedAt:Math.max(0,Number(STORY.clock)-4),
+                    startedAt:Math.max(0,Number(STORY.clock)-2),completedAt:null,
+                    remainingDays:90,completionReceiptId:null,
+                    permission:{approved:true,authorityActorId:'maptest-local-office',
+                        institutionId:'maptest-local-authority',decisionId:'maptest-decision'},
+                    requirements:{constructionCash:160,landCash:30,cash:190,
+                        materials:{raw_materials:30,industrial_parts:24,electronics:2},
+                        workforce:120,durationDays:180,capacity:1,environmentalCost:12},
+                    resourceReservation:{id:'maptest-reservation',ownerType:'COMPANY',
+                        ownerId:company.id,cash:190,workforce:120,
+                        materials:{raw_materials:30,industrial_parts:24,electronics:2}},
+                    blockReasons:[]
+                };
+                ledger.commands.push(command);
+                ledger.applications.push({id:'maptest-application:'+sequence,
+                    correlationId:command.correlationId,commandId:command.id,
+                    origin:'ECONOMIC_AI',status:'COMMAND_CREATED',
+                    authorityRequestId:'maptest-authority-request',
+                    applicantActorId:command.applicantActorId,companyId:company.id,
+                    regionId,targetCellId:candidate.targetCellId});
+                ledger.version=Math.max(0,Number(ledger.version)||0)+1;
+                if(typeof storyHexSitesResetCache==='function')storyHexSitesResetCache();
+                const world=storyHexWorldEnsure();
+                const wx=Number(world.centerX[candidate.targetCellIndex])/world.width*STORY_WORLD_W;
+                const wy=Number(world.centerY[candidate.targetCellIndex])/world.height*STORY_WORLD_H;
+                const selected=storySelectRegionEntityAtWorld(wx,wy);
+                const cv=document.getElementById('storyCanvas');
+                storyCam.zoom=4.5;storyMapV2CenterCamera(storyCam,wx,wy,cv.width,cv.height);
+                storyClampCam(cv.width,cv.height);storyRender();storyPanelUpdate();
+                const text=String(document.getElementById('story-node-info')?.innerText||'');
+                return {selected,kind:STORY._selectedMapEntity&&STORY._selectedMapEntity.kind,
+                    company:company.name,cellId:candidate.targetCellId,
+                    hasProject:text.includes('SANAYİ TESİSİ'),
+                    hasConstruction:text.includes('İNŞAAT'),
+                    hasProgress:text.includes('%50')&&text.includes('90 dünya günü kaldı'),
+                    hasExpectedFinish:text.includes('Tahmini bitiş'),
+                    hasParties:text.includes(company.name)&&text.includes('BAŞVURU SAHİBİ'),
+                    hasCost:text.includes('TOPLAM 190 KREDİ'),
+                    hasMaterials:text.toLocaleLowerCase('tr-TR').includes('sanayi parçası')
+                        &&text.toLocaleLowerCase('tr-TR').includes('elektronik'),
+                    hasWorkforce:text.includes('120 kişi')};
+            } catch(e){return {err:e.message};} })()`);
+            console.log('MAPTEST_CONSTRUCTION_DOSSIER ' + JSON.stringify(constructionDossier));
+            await sleep(100); await settlePaint(); await shot('map-10-insaat-dosyasi');
+            if (!constructionDossier || constructionDossier.err
+                || constructionDossier.kind !== 'SITE'
+                || !constructionDossier.hasProject || !constructionDossier.hasConstruction
+                || !constructionDossier.hasProgress || !constructionDossier.hasExpectedFinish
+                || !constructionDossier.hasParties || !constructionDossier.hasCost
+                || !constructionDossier.hasMaterials || !constructionDossier.hasWorkforce) {
+                problems.push('inşaat oyuncu dosyası eksik: '
+                    + JSON.stringify(constructionDossier));
+            }
+            const uiControlAudit = await js(`(() => {
+                const root=document.getElementById('story-wrap');
+                const controls=[...(root?root.querySelectorAll('button,input,select,textarea,[tabindex]'):[])];
+                const visible=controls.filter(el=>{
+                    const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+                    return style.display!=='none'&&style.visibility!=='hidden'
+                        &&rect.width>0&&rect.height>0;
+                });
+                return {visibleControls:visible.length,
+                    enabledControls:visible.filter(el=>!el.disabled).length,
+                    buttons:visible.filter(el=>el.tagName==='BUTTON').length,
+                    formControls:visible.filter(el=>['INPUT','SELECT','TEXTAREA'].includes(el.tagName)).length,
+                    regionPanelActions:document.querySelectorAll('#story-node-info button:not(:disabled)').length};
+            })()`);
+            const interactionFlows = [
+                {id:'CITY_LOGISTICS',ok:!!(logisticsPanel&&logisticsPanel.dispatchQueued)},
+                {id:'TRANSPORT_MOTION',ok:!!(transportMotion&&transportMotion.movingShipment
+                    && transportMotion.p95Ms<=8&&transportMotion.staticRenderDelta<=1)},
+                {id:'TIME_CONTROL',ok:!!(liveClock&&liveClock.advanced&&liveClock.paused)},
+                {id:'FOREST_MANAGEMENT',ok:!!(forestCase&&forestCase.actionOpened)},
+                {id:'COAST_DOSSIER',ok:!!(coastCase&&coastCase.hasCoast)},
+                {id:'DEPOSIT_DOSSIER',ok:!!(depositCase&&depositCase.hasDeposit)},
+                {id:'INDEPENDENT_HEX',ok:!!(independentCase&&independentCase.hasIndependent
+                    && independentCase.hasNearest)},
+                {id:'CONSTRUCTION_DOSSIER',ok:!!(constructionDossier
+                    && constructionDossier.hasProgress&&constructionDossier.hasCost
+                    && constructionDossier.hasParties&&constructionDossier.hasMaterials
+                    && constructionDossier.hasWorkforce)},
+                {id:'HOVER_AND_SELECTION',ok:!!(hoverStability
+                    && hoverStability.regionEntityMisses===0&&hoverStability.cellMisses===0)}
+            ];
+            const successfulFlows=interactionFlows.filter(row=>row.ok).length;
+            const playerInteractionReport={
+                schemaVersion:1,measuredAt:new Date().toISOString(),
+                attemptedFlows:interactionFlows.length,successfulFlows,
+                successRatePercent:+(successfulFlows/interactionFlows.length*100).toFixed(1),
+                flows:interactionFlows,visibleUi:uiControlAudit,
+                transport:{p95Ms:transportMotion&&transportMotion.p95Ms,
+                    staticRenderDelta:transportMotion&&transportMotion.staticRenderDelta,
+                    distinctPositions:transportMotion&&transportMotion.distinctPositions},
+                evidenceScreens:['map-7-lojistik-panel.png','map-9-altigen-dosyasi.png',
+                    'map-10-insaat-dosyasi.png']
+            };
+            fsx2.writeFileSync(path.join(SHOTS_DIR,'player-ui-interaction-report.json'),
+                JSON.stringify(playerInteractionReport,null,2));
+            console.log('MAPTEST_PLAYER_INTERACTION ' + JSON.stringify(playerInteractionReport));
+            if (successfulFlows !== interactionFlows.length) {
+                problems.push('oyuncu UI etkileşim akışları eksik: '
+                    + JSON.stringify(interactionFlows.filter(row=>!row.ok)));
             }
             const resolutionQa = [];
             for (const viewport of [[1280, 720], [1920, 1080], [2560, 1440]]) {

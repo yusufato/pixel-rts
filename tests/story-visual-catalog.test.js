@@ -7,9 +7,9 @@ const catalog = require('../js/StoryVisualCatalog.js');
 
 const validation = catalog.storyVisualCatalogValidate();
 assert.strictEqual(validation.ok, true, validation.issues.join(', '));
-assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 90,
-    'HXD-9B: 86 sabit varlık + 3 gerçek sevkiyat aracı + 1 mekanik yangın overlayi.');
-assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 90);
+assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 96,
+    'HXD-6.9 A3: 90 mevcut varlık + 6 gerçek sektör tesisi.');
+assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 96);
 
 assert.strictEqual(catalog.storyVisualPeriodForYear(2010).id, 'MODERN_2010');
 assert.strictEqual(catalog.storyVisualPeriodForYear(2049).id, 'CONNECTED_2030');
@@ -214,6 +214,40 @@ assert.strictEqual(damagedIndustry.presentationSource, 'URBAN_DAMAGE');
 assert.strictEqual(damagedIndustry.atlasKey, 'urbanDamageModern');
 assert.strictEqual(damagedIndustry.atlasCell, 13);
 
+const sectorCells = [];
+for (const sectorId of ['civil_industry', 'advanced_tech', 'defense_industry',
+    'energy', 'extraction', 'agriculture']) {
+    const recipe = catalog.storyVisualUrbanPresentationRecipe({
+        year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
+        state: { tech: [] }, physicalSites: { registryHash: 'sector-test' },
+        physicalSite: { id: `site:${sectorId}`, siteType: 'INDUSTRIAL', sectorId,
+            lifecycleState: 'OPERATING' }
+    });
+    assert.strictEqual(recipe.presentationSource, `SECTOR_${sectorId.toUpperCase()}`);
+    assert.strictEqual(recipe.atlasKey, 'industrialSectorsModern');
+    assert.strictEqual(recipe.assetMissing, false);
+    sectorCells.push(recipe.atlasCell);
+}
+assert.strictEqual(new Set(sectorCells).size, 6,
+    'Altı ekonomik sektör atlas üzerinde birbirinden ayırt edilebilir olmalı.');
+
+const abstractIndustry = catalog.storyVisualUrbanPresentationRecipe({
+    year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
+    state: { tech: [] }, physicalSites: { registryHash: 'sector-test' }
+});
+assert.strictEqual(abstractIndustry.presentationSource, 'URBAN_CLIMATE',
+    'Fiziksel site olmadan sektör tesisi uydurulmamalı.');
+
+const damagedSector = catalog.storyVisualUrbanPresentationRecipe({
+    year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
+    state: { tech: [] }, physicalSites: { registryHash: 'sector-test' },
+    physicalSite: { id: 'site:energy:damaged', siteType: 'ENERGY', sectorId: 'energy',
+        lifecycleState: 'DAMAGED' }
+});
+assert.strictEqual(damagedSector.presentationSource, 'URBAN_DAMAGE',
+    'Hasar yaşam döngüsü çalışan sektör görselinden öncelikli olmalı.');
+assert.strictEqual(damagedSector.atlasKey, 'urbanDamageModern');
+
 const burningIndustry = catalog.storyVisualUrbanPresentationRecipe({
     year: 2032, kind: 'INDUSTRIAL', node: { id: 4, owner: 0, ly: .5 },
     state: { tech: [] }, physicalSites: { registryHash: 'test' },
@@ -293,7 +327,8 @@ for (let stage = 0; stage < stageYears.length; stage++) {
 
 for (const file of ['urban-construction-atlas-modern-v1.png',
     'urban-climate-atlas-modern-v1.png', 'urban-damage-atlas-modern-v1.png',
-    'special-facilities-atlas-modern-v1.png', 'land-use-atlas-modern-v1.png']) {
+    'special-facilities-atlas-modern-v1.png', 'land-use-atlas-modern-v1.png',
+    'industrial-sector-atlas-modern-v1.png']) {
     const bytes = fs.readFileSync(path.join(__dirname, '..', 'assets', 'maps', file));
     assert.strictEqual(bytes.toString('ascii', 1, 4), 'PNG');
     assert.ok(bytes.readUInt32BE(16) >= 1024 && bytes.readUInt32BE(20) >= 1024,
