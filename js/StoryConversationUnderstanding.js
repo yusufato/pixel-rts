@@ -4226,15 +4226,19 @@ function storyConversationMemoryIntent(raw, analysis, options) {
             'anlasma', 'teklif', 'teslimat', 'ortaklik', 'pay'
         ]));
     if (!explicitRecall && !relationshipHistory && !secretRecall && !commerceObligation) return null;
-    let kinds;
-    if (secretRecall) kinds = ['SECRET'];
-    else if (promise && !debt && !decision) kinds = ['PROMISE'];
-    else if (debt && !promise) kinds = ['DEBT', 'PROMISE'];
-    else if (conflict) kinds = ['CONFLICT', 'RELATIONSHIP', 'PROMISE', 'DEBT'];
-    else if (decision) kinds = ['DECISION', 'PROMISE', 'DEBT'];
-    else if (conversation) kinds = ['CONVERSATION', 'PROMISE', 'DECISION'];
-    else if (commerceObligation) kinds = ['PROMISE', 'DEBT', 'DECISION'];
-    else kinds = ['CONVERSATION', 'PROMISE', 'DECISION', 'CONFLICT', 'DEBT', 'RELATIONSHIP'];
+    const kinds = [];
+    // Hafıza işaretleri birbirini dışlamaz. Oyuncu aynı cümlede hem bir sözü
+    // hem ortak bir sırrı sorabilir; SECRET önceliği diğer açık türleri
+    // yutmamalıdır. Gizlilik sınırı tür seçiminde değil, holder/related actor
+    // filtrelerini uygulayan storyMemoryRecallForActor kapısında korunur.
+    if (secretRecall) kinds.push('SECRET');
+    if (promise) kinds.push('PROMISE');
+    if (debt) kinds.push('DEBT', 'PROMISE');
+    if (conflict) kinds.push('CONFLICT', 'RELATIONSHIP', 'PROMISE', 'DEBT');
+    if (decision) kinds.push('DECISION', 'PROMISE', 'DEBT');
+    if (conversation) kinds.push('CONVERSATION', 'PROMISE', 'DECISION');
+    if (commerceObligation) kinds.push('PROMISE', 'DEBT', 'DECISION');
+    if (!kinds.length) kinds.push('CONVERSATION', 'PROMISE', 'DECISION', 'CONFLICT', 'DEBT', 'RELATIONSHIP');
     return { kinds: Array.from(new Set(kinds)), explicitRecall, relationshipHistory };
 }
 
