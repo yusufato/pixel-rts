@@ -1,91 +1,90 @@
 # 1) Verdict
 
-- **Root cause:** `ASSESS_ACTION_REQUEST_SCOPE` diyalog hamlesi politikası `claimTypes: []` ile tanımlı. Bu nedenle aynı turda doğru çıkarılmış `PLAYER_REPORTED_MILITARY_THREAT` iddiası, hamle sözleşmesi kurulurken eleniyor.
+- **Root cause:** Dinamik rota tamamlanınca `storyInfrastructureReset` altyapı grafiğini yeni koridor kataloğu ve yeni `networkHash` ile kuruyor; yaşayan ticaret ve piyasa defterleri ise oluşturuldukları eski ağ karmasında kalıyor.
 - **Confidence:** Confirmed.
-- **Chain:** Oyuncu Halep'te düşman gücü bildirip destek istiyor → deterministik NLU askerî tehdidi doğru çıkarıyor → yanıt genel eylem kapsamı hamlesini seçiyor → hamle politikası mevcut tur iddialarını reddediyor → `claimRefs=[]` → doğrulama durumunu koruma yükümlülüğü sözleşmeye girmiyor.
-- Hata devam ediyor; tam pakette ve tek worker `dialogueMoveContractProbe` koşusunda yeniden üretildi.
+- **Chain:** Ekonomik AI rota inşaatını tamamlıyor → `corridor:built:*` kataloğa ekleniyor → altyapı grafiği yeniden kuruluyor → trade/market sidecar hash'leri yenilenmiyor → normal dünya çalışmayı sürdürse de `storyTradeValidate` `TRADE_NETWORK_HASH` veriyor → tam paket 88 görev bittikten sonra toplu assertion'da başarısız oluyor.
+- Hata devam ediyor; tam 900 saniyelik paket ve aynı tohumlu 180 saniyelik izole koşuda yeniden üretildi.
 
 # 2) Failure Definition
 
-- Görünen belirti: `dialogueMoveContractProbe` içinde `militaryClaimBound=false`; beklenen değer `true`.
-- Yeniden üretim: `node tools/story-test-parallel.js --task dialogueMoveContractProbe --workers 1`.
-- Etki alanı: Bir eylem veya destek talebiyle aynı cümlede sunulan doğrulanmamış oyuncu iddiaları. Karar metni iddiadan söz etse bile karar sözleşmesi kaynağı bağlamıyor.
-- Korunması gereken karşı sözleşme: Ardından gelen ilişkisiz “Bugün nasılsın?” turu önceki askerî iddiayı taşımamalı.
+- Görünen belirti: `Normal 900 saniyelik dünya geçerli ticaret defteri korumalı.` assertion'ı `false !== true`.
+- Gerçek doğrulama sorunu: yalnız `TRADE_NETWORK_HASH`, `$.networkHash`.
+- Yeniden üretim: seed 2032 ile 180 saniyelik `runStorySimulation`; `tradeValidation.ok=false`.
+- Etki alanı: Kampanya sırasında yeni kara, demir yolu veya deniz koridoru tamamlanan bütün dünyalar; kayıt öncesi doğrulama da defteri sorunlu işaretler.
+- Regresyon kaynağı: dinamik koridor tamamlanması `51489ec` ile eklendi; bağımlı sidecar revizyonu eklenmedi.
 
 # 3) Timeline
 
 | Zaman | Olay | Kaynak | Önemi |
 |---|---|---|---|
-| 2026-08-23 | Tam paket 77/88'de askerî iddia bağlama assertion'ında durdu | `npm test` | Dokümantasyon planı kapanışı engellendi. |
-| 2026-08-23 | Tek görev/tek worker aynı sonucu verdi | İzole harness koşusu | Paralel worker yarışı dışlandı. |
-| 2026-08-23 | Seed 2032 çalışma zamanı dökümü alındı | Doğrudan runtime incelemesi | İddianın NLU'da var, diyalog hamlesinde yok olduğu doğrulandı. |
+| 2026-08-20 | Dinamik kara rotası inşaatı ve tamamlanınca graph reset eklendi | `51489ec` | Ağ kataloğu çalışma sırasında değişebilir hâle geldi. |
+| 2026-08-23 | Tam paket 88/88 görev sonrasında toplu trade assertion'ında durdu | `npm test` | Önceki üç regresyon geçmesine rağmen plan kapanmadı. |
+| 2026-08-23 | Seed 2032, 180 saniyelik izole dünya aynı hash sorununu verdi | Doğrudan harness koşusu | Bozulmanın 900 saniyeye veya paralelliğe bağlı olmadığı doğrulandı. |
 
 # 4) Hypotheses (ranked)
 
-## H1 — Genel eylem hamlesinin kaynak politikası mevcut tur iddiasını eliyor
+## H1 — Dinamik koridor tamamlanması altyapı hash'ini değiştiriyor, trade sidecar eski hash'te kalıyor
 
-- **If true, we would also see:** Analizde askerî claim bulunur; yanıt act'i `ASSESS_ACTION_REQUEST_SCOPE`, source policy `CURRENT_TURN_ONLY` ve `claimRefs=[]` olur.
-- **Discriminating test:** Seed 2032'de askerî takip turunun analysis, response ve dialogueMove alanlarını birlikte yazdırmak.
-- **Status:** Supported. Analizde `claim:player-reported-threat:region:141` var; hamlede claim yok.
+- **If true, we would also see:** Tamamlanmış `corridor:built:*` kayıtları, geçerli ticaret içeriği ve tek issue olarak `TRADE_NETWORK_HASH` görülür.
+- **Discriminating test:** Aynı tohumda 180 saniyelik dünya çalıştırıp trade validation, summary ve koridor kullanımını yazdırmak.
+- **Status:** Supported. Defter 143 sözleşme, 47 açık sipariş ve 330 aktif sevkiyat taşırken tek doğrulama sorunu ağ karması; kullanılan koridorlarda `corridor:built:rail:1` ve `corridor:built:land:2` var.
 
-## H2 — Deterministik NLU askerî raporu çıkaramıyor
+## H2 — ENERGY non-vehicle düzeltmesi geçersiz shipment biçimi üretiyor
 
-- **If true, we would also see:** `analysis.claims=[]` veya claim türü politika kataloğuyla uyuşmaz.
-- **Discriminating test:** Aynı cümlenin tam analysis dökümü.
-- **Status:** Refuted. Claim türü tam olarak `PLAYER_REPORTED_MILITARY_THREAT`, durum `UNVERIFIED_PLAYER_REPORT`.
+- **If true, we would also see:** Shipment alanı, rota veya taşıt invariant issue'ları `TRADE_NETWORK_HASH` yanında raporlanır.
+- **Discriminating test:** Tam `tradeValidation.issues` listesini incelemek.
+- **Status:** Refuted. Doğrulayıcı yalnız ağ karması uyuşmazlığı raporluyor; ENERGY dağıtım probu tam pakette geçti.
 
-## H3 — Claim oturuma, hamle oluşturulduktan sonra ekleniyor
+## H3 — Ticaret grafiği veya koridor kataloğu bozuluyor
 
-- **If true, we would also see:** Hamle kurulurken current analysis boş, son session dökümünde dolu olur.
-- **Discriminating test:** Dönen follow-up nesnesindeki analysis ile response.dialogueMove'u aynı anda incelemek.
-- **Status:** Refuted. Aynı follow-up nesnesinin analysis alanında claim mevcut; filtre `storyDialogueMoveRelevantClaims` içinde oluşuyor.
+- **If true, we would also see:** Altyapı doğrulama hatası, kayıp koridor referansı veya ticaret ilerlemesinin durması beklenir.
+- **Discriminating test:** Operasyonel özette teslimat, aktif kargo ve yeni built corridor kullanımını incelemek.
+- **Status:** Refuted. 180 saniyede binlerce sevkiyat ilerliyor; yeni koridorlar rota kapasitesinde kullanılıyor. Sorun içerik değil revizyon bağı.
 
-## H4 — Paralel worker veya LLM zenginleştirme yarışı hamleyi sonradan bozuyor
+## H4 — Paralel test worker yarışı sonuç dosyasını bozuyor
 
-- **If true, we would also see:** Tek worker deterministik koşuda hata kaybolur veya LLM kullanılmadan hamle doğru olur.
-- **Discriminating test:** Tek görev/tek worker ve `llmUsed=false` dökümü.
-- **Status:** Refuted. Tek worker başarısız; kaynak deterministik ve `llmUsed=false`.
+- **If true, we would also see:** İzole tek süreçte doğrulama geçer veya farklı issue'lar oluşur.
+- **Discriminating test:** `runStorySimulation` fonksiyonunu doğrudan tek Node sürecinde çalıştırmak.
+- **Status:** Refuted. Tek süreç 180 saniyede aynı `TRADE_NETWORK_HASH` sonucunu verdi.
 
 # 5) Mechanism
 
-1. NLU, Halep'i `region:141` ile çözüp `PLAYER_REPORTED_MILITARY_THREAT` claim'i üretir.
-2. Cümlede destek talebi ağır bastığı için speech act `REQUEST_ACTION`; grounded response act'i `ASSESS_ACTION_REQUEST_SCOPE` olur.
-3. `storyConversationSessionAttachDecisionContracts` mevcut analysis'i doğru biçimde `storyDialogueMoveBuild` fonksiyonuna verir.
-4. `STORY_DIALOGUE_MOVE_ACT_POLICIES`, `ASSESS_ACTION_REQUEST_SCOPE` için `claimTypes: []` tanımlar.
-5. `storyDialogueMoveRelevantClaims` yıldız politikası bulunmadığı için mevcut turdaki claim'i siler; inherited claim de kabul etmez.
-6. `claimRefs` boş kaldığından `PRESERVE_CLAIM_VERIFICATION_STATUS` gerekli noktası eklenmez.
+1. `storyInfrastructureWorkTick`, tamamlanan route command için `corridor:built:<mode>:<n>` kaydını `infrastructureWorks.routes` listesine ekler.
+2. En az bir rota tamamlandıysa `storyInfrastructureReset` çağrılır; `storyInfrastructureDefinitions` artık built corridor'ları da içerir.
+3. Yeni graph `storyInfrastructureNetworkHash(corridors)` ile yeni hash alır.
+4. `STORY.tradeLogistics.networkHash` ve `STORY.marketPrices.networkHash` eski değerde kalır.
+5. Her iki defterin doğrulayıcısı yaşayan graph hash'iyle bire bir eşleşme ister; ticaret assertion'ı önce çalıştığı için paket orada durur.
 
-- **Root cause:** “Geçmiş iddia taşıma” ile “mevcut turdaki iddiayı kaynak gösterme” aynı `claimTypes` filtresinde aşırı daraltılmış.
-- **Detection failure:** Genel eylem yanıtının metinsel doğruluğu test edilmiş, fakat claim kaynak zinciri tam paket sonlarına kadar kapılanmamış.
-- **Weakest link:** İddia çıkarımı ve hamle kaynağı birlikte gözlenmeden sorun NLU hatası gibi görünebiliyor.
+- **Root cause:** Dinamik ağ revizyonunun bağımlı sidecar'lara yayınlanacağı tek sahipli adaptör sınırı eksik.
+- **Contributing factor:** `storyInfrastructureReset` hem restore/backfill hem de kontrollü eklemeli canlı mutasyon için kullanılıyor; genel reset içinde kör hash düzeltmesi yapmak bozuk kayıtları gizleyebilir.
+- **Detection failure:** Dinamik rota testleri koridorun oluşmasını ölçüyor, uzun dünya testinin toplu assertion'ı ise sonuç dosyaları bittikten sonra çalıştığı için hata en sonda görünür oluyor.
+- **Weakest link:** Ağ revizyonuna bağlı durable sidecar listesi açık bir sözleşme olarak tanımlanmamış.
 
 # 6) Remediation Options
 
 ## Fix
 
-- **Title:** Genel eylem kapsamı hamlesine yalnız mevcut tur claim'lerini bağlamak
+- **Title:** Kontrollü route completion sınırında ağ bağımlı sidecar hash'lerini yenilemek
 - **Category:** Fix
 - **Severity:** High
 - **Confidence:** Confirmed
-- **Location:** `js/StoryDialogueMove.js`, `ASSESS_ACTION_REQUEST_SCOPE` politikası
-- **Recommended fix:** Politikayı `CURRENT_TURN_CLAIMS_ONLY` ve `claimTypes: ['*']` yap. Mevcut `storyDialogueMoveRelevantClaims` davranışı yıldız politikasında inherited claim eklemediği için ilişkisiz sonraki tura sızıntı oluşmaz.
-- **Tradeoffs / Risks:** Aynı turda sunulan bütün claim türleri kaynak olur; bu istenen genel eylem sözleşmesidir, ancak claim çıkarım katmanının yalnız gerçek iddialar üretmesi gerekir.
+- **Location:** `js/StoryInfrastructureWorks.js`, `completedRoutes` graph reset bloğu
+- **Recommended fix:** Graph reset sonucunun `networkHash` değerini, yalnız bu eklemeli canlı rota tamamlama yolunda mevcut `tradeLogistics` ve `marketPrices` defterlerine yaz. Defter içeriklerini sıfırlama; eski koridorlar ve aktif sevkiyatlar geçerli kalır.
+- **Tradeoffs / Risks:** Gelecekte yıkıcı koridor silme desteği eklenirse kör hash ilerletme yeterli olmaz; o yol aktif shipment/contract migration gerektirmeli.
 
 ## Prevention
 
-- **Title:** Mevcut tur bağlama ve geçmiş tur taşımama sözleşmesini birlikte kapılamak
+- **Title:** Dinamik ağ revizyonu sonrası trade ve market doğrulamasını kapılamak
 - **Category:** Prevention
 - **Severity:** Medium
 - **Confidence:** Confirmed
-- **Location:** `dialogueMoveContractProbe`
-- **Recommended fix:** Var olan iki assertion'ı birlikte koru: askerî eylem turu claim ve doğrulama yükümlülüğü taşımalı; ilişkisiz sosyal tur sıfır claim taşımalı.
-- **Tradeoffs / Risks:** Yok; bu iki yönlü kapı aşırı bağlama regresyonunu da yakalar.
+- **Location:** Uzun dünya ve altyapı route completion testleri
+- **Recommended fix:** En az bir built corridor tamamlandıktan sonra iki sidecar'ın graph hash'iyle eşit olduğunu ve doğrulayıcıların geçtiğini ölç.
+- **Tradeoffs / Risks:** Tam dünya kapısı pahalı; dar route completion probu hızlı erken uyarı sağlamalı.
 
 # 7) Verification Plan
 
-- `node tools/story-test-parallel.js --task dialogueMoveContractProbe --workers 1` başarıyla bitmeli.
-- Askerî hamlenin `claimRefs` listesinde Halep tehdit claim'i olmalı.
-- Askerî hamlede `PRESERVE_CLAIM_VERIFICATION_STATUS` bulunmalı.
-- Ardından gelen `CONTINUE_SOCIAL` hamlesinin `claimRefs` listesi boş kalmalı.
-- Bütün hamlelerde `worldCommand=null` ve dünya mutasyonu yasakları korunmalı.
-- Son olarak `npm test` baştan sona geçmeli.
+- Seed 2032, 180 saniyelik izole dünya `tradeValidation.ok=true` ve `marketValidation.ok=true` vermeli.
+- Dinamik `corridor:built:*` rotaları korunmalı; ticaret sözleşmeleri, siparişler ve aktif shipmentlar sıfırlanmamalı.
+- ENERGY `distributionProbe` ve fiziksel LAND/RAIL/SEA route testleri geçmeye devam etmeli.
+- Son olarak `npm test` baştan sona, toplu assertion dahil sıfır koduyla bitmeli.

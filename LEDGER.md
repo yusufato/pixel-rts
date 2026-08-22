@@ -102,3 +102,17 @@
 - **What happened:** Claim doğru tür ve doğrulama durumuyla aynı follow-up analysis'inde mevcuttu; kayıp hamle filtresinde oluştu ve LLM kullanılmayan tek worker koşusunda tekrarlandı.
 - **Evidence:** `claim:player-reported-threat:region:141`, `UNVERIFIED_PLAYER_REPORT`, `llmUsed=false`; tek worker sonucu `militaryClaimBound=false`.
 - **Implication for future audits:** Aynı belirtiyi semantik model veya paralelliğe bağlamadan önce act politikasının `claimTypes` sözleşmesini incele.
+
+## 2026-08-23 — Dinamik koridor tamamlanması ağ bağımlı sidecar hash'lerini bayat bırakıyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Dinamik altyapı ağı revizyon zinciri
+- **What happened:** AI rota inşaatı tamamlanınca altyapı grafiği built corridor'larla yeniden kuruluyor; ticaret ve piyasa defterleri eski `networkHash` değerinde kaldığı için yaşayan dünya geçersiz işaretleniyor.
+- **Evidence:** Seed 2032, 180 saniyelik tek süreçte tek trade issue `TRADE_NETWORK_HASH`; aktif kapasite kaydında `corridor:built:rail:1` ve `corridor:built:land:2` kullanılıyor.
+- **Implication for future audits:** Canlı altyapı kataloğu değişiminde yalnız graph/cache yenilemesini yeterli sayma; durable ağ bağımlılarının revizyon bağını aynı kontrollü sınırda güncelle.
+
+## 2026-08-23 — ENERGY shipment biçimi, bozuk koridor içeriği ve worker yarışı trade hash hatasının nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Dinamik altyapı ağı revizyon zinciri
+- **What happened:** Ticaret içeriği çalışmaya ve yeni koridorları kullanmaya devam etti; doğrulayıcı yalnız hash bağı sorunu verdi ve izole tek süreç aynı sonucu üretti.
+- **Evidence:** 143 sözleşme, 47 açık sipariş, 330 aktif shipment; ENERGY dağıtım probu geçti; issue listesi yalnız `TRADE_NETWORK_HASH`.
+- **Implication for future audits:** Ağ hash uyuşmazlığını shipment içeriği veya paralelliğe bağlamadan önce kontrollü graph revizyonunun sidecar'lara yayınlanıp yayınlanmadığını kontrol et.
