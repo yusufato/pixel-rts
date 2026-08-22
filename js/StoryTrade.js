@@ -1118,14 +1118,21 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
     };
 
     const nextShipmentId = 'trade-shipment:' + (ledger.shipmentSequence + 1);
-    const routeReservation = typeof storyRoutePlannerReserve === 'function'
-        && Array.isArray(route.segmentIds) && route.segmentIds.length
+    const physicalRoute = Array.isArray(route.segmentIds) && route.segmentIds.length > 0;
+    const nonVehicleGridRoute = !physicalRoute && (route.corridorIds || []).length > 0
+        && route.corridorIds.every(corridorId => {
+            const corridor = storyInfrastructureGetCorridor(corridorId);
+            return corridor && ['ENERGY', 'DATA'].includes(String(corridor.mode));
+        });
+    const routeReservation = physicalRoute && typeof storyRoutePlannerReserve === 'function'
         ? storyRoutePlannerReserve(route, quantity, {
             ownerId: nextShipmentId,
             durationSeconds: Math.max(3600,
                 Number(route.totalLatencySeconds || 0) * 10)
         })
-        : { ok: false, code: 'PHYSICAL_ROUTE_RESERVATION_UNAVAILABLE' };
+        : nonVehicleGridRoute
+            ? { ok: true, reservation: null, nonVehicleGrid: true }
+            : { ok: false, code: 'PHYSICAL_ROUTE_RESERVATION_UNAVAILABLE' };
     if (!routeReservation.ok) {
         if (reservation.reservationId && typeof storyBudgetReleaseTrade === 'function') {
             storyBudgetReleaseTrade(reservation.reservationId,
@@ -1183,9 +1190,11 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         damageDelaySeconds: 0
     };
     if (order.transportMode) shipment.requestedTransportMode = order.transportMode;
-    const transportAttach = typeof storyTransportAttachShipment === 'function'
-        ? storyTransportAttachShipment(shipment, route, routeReservation.reservation)
-        : { ok: false, code: 'TRANSPORT_AGENT_API_MISSING' };
+    const transportAttach = physicalRoute
+        ? (typeof storyTransportAttachShipment === 'function'
+            ? storyTransportAttachShipment(shipment, route, routeReservation.reservation)
+            : { ok: false, code: 'TRANSPORT_AGENT_API_MISSING' })
+        : { ok: true, nonVehicleGrid: true };
     if (!transportAttach.ok) {
         storyRegionalStockDelta(order.sourceRegionId, order.resourceId, quantity, {
             type: 'TRADE_DISPATCH_ROLLBACK',
