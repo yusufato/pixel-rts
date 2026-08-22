@@ -114,9 +114,24 @@ async function main() {
             states: runtime.api.state().states, rel: runtime.api.state().rel }), before,
         'Semantik yorum dünya durumunu değiştirmemeli.');
 
+        const followUp = runtime.api.conversationSessionFollowUp(
+            opened.session.id, playerText);
+        assert.equal(followUp.ok, true);
+        assert.equal(followUp.followUp.response.enrichmentStatus, 'MODEL_LOADING',
+            'Grounded UNKNOWN takip turu semantik model kapısını atlamamalı.');
+        for (let index = 0; index < 50; index++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+            const current = runtime.api.conversationSessionGet(opened.session.id);
+            if (current.followUps[0].response.enrichmentStatus === 'SEMANTIC_INTERPRETED') break;
+        }
+        const followed = runtime.api.conversationSessionGet(opened.session.id);
+        assert.equal(followed.followUps[0].response.enrichmentStatus, 'SEMANTIC_INTERPRETED');
+        assert.equal(followed.followUps[0].response.semanticLlmUsed, true);
+
         process.stdout.write(`${JSON.stringify({ ok: true, schema: 'SemanticFrameCandidateV2',
             evidenceInjectionRejected: true, authorityInjectionRejected: true,
-            asyncLifecycle: 'MODEL_LOADING->SEMANTIC_INTERPRETED' })}\n`);
+            asyncLifecycle: 'MODEL_LOADING->SEMANTIC_INTERPRETED',
+            followUpLifecycle: 'MODEL_LOADING->SEMANTIC_INTERPRETED' })}\n`);
     } finally {
         runtime.dom.window.close();
     }

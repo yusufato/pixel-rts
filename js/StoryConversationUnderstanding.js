@@ -4359,8 +4359,8 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     session.candidate = storyConversationSessionCandidate(session);
     ledger.diagnostics.socialFollowUps++;
     if (heldMemory) ledger.diagnostics.memoryRecalls++;
-    const semanticQueued = response.enrichmentStatus !== 'NOT_REQUIRED'
-        && storyConversationSessionQueueSemanticLLM(session.id, response.id, text);
+    const semanticQueued = storyConversationSessionQueueSemanticLLM(
+        session.id, response.id, text);
     if (!semanticQueued && !grounded && response.enrichmentStatus !== 'NOT_REQUIRED') {
         storyConversationSessionQueueSocialLLM(session.id, response.id, text);
     }
@@ -4411,9 +4411,8 @@ function storyConversationSessionBegin(raw, context) {
     const openingResponse = session.listenerResponses.find(row => row.kind === 'SOCIAL_RESPONSE');
     if (openingResponse) storyConversationDiagnosticAppend(session, openingResponse, session.initialText, 'TURN_CREATED', 0);
     if (openingResponse) {
-        const semanticQueued = openingResponse.enrichmentStatus !== 'NOT_REQUIRED'
-            && storyConversationSessionQueueSemanticLLM(
-                session.id, openingResponse.id, session.initialText);
+        const semanticQueued = storyConversationSessionQueueSemanticLLM(
+            session.id, openingResponse.id, session.initialText);
         if (!semanticQueued && openingResponse.enrichmentStatus !== 'NOT_REQUIRED') {
             storyConversationSessionQueueSocialLLM(session.id, openingResponse.id, session.initialText);
         }
