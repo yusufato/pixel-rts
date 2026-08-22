@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # PIXEL RTS — Altıgen Dünya, Dinamik Şehir ve Fiziksel Lojistik Altyapı Planı
 
 **Belge sürümü:** 1.0  

@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # PIXEL RTS — İnsan Düzeyine Yaklaşan Hikâye Sohbet Motoru Planı
 
 **Belge sürümü:** 1.0

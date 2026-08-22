@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # Pixel RTS — Modern Dünya Uygunluk ve Eksik Sistemler Defteri
 
 **Amaç:** Her faz ilerlerken çalışan kod ile hedeflenen modern dünya simülasyonu arasındaki farkı kaybetmemek. Bir sistemin dosyada bulunması, modern dünyayı yeterince modellediği anlamına gelmez.

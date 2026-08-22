@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
 **Belge sürümü:** 1.75

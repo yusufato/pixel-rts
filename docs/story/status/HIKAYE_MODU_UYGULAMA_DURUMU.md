@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # Hikâye Modu Katmanlı Dünya Simülasyonu — Uygulama Durumu
 
 **Başlangıç tarihi:** 30 Temmuz 2026  

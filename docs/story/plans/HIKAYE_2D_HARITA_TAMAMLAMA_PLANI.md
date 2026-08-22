@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # Hikâye Modu 2B Harita Tamamlama Sözleşmesi
 
 Durum: aktif ürün yolu  

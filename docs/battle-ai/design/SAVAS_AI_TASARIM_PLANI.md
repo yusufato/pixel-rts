@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # Pixel RTS — Sıfırdan Savaş AI Tasarım Planı
 
 ## Amaç

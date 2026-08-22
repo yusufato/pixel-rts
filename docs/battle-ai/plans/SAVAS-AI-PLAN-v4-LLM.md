@@ -1,3 +1,10 @@
+---
+status: active
+owner: osman
+last-reviewed: unknown
+canonical: true
+---
+
 # Savaş AI — v6: Hafızalı Operasyon-Değerlendirici + Karşı-Olgusal Eğitim + Lig Self-Play + LLM Koç (döngü dışı)
 
 > Bu sürüm, v4 taslağına yapılan detaylı teknik review'un **tamamını** benimser. v4'ün asıl

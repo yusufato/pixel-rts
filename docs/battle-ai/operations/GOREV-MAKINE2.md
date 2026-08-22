@@ -32,9 +32,9 @@ node --version                # 20+ bekleniyor
 
 | dosya | neden |
 |---|---|
-| `battle-ai/research/OLCUM-TUZAKLARI.md` | 10 tuzak. Hepsi **yaşandı**, hepsi ölçümü sessizce bozuyordu. |
+| `../research/OLCUM-TUZAKLARI.md` | 10 tuzak. Hepsi **yaşandı**, hepsi ölçümü sessizce bozuyordu. |
 | `../evidence/KAPI-DEFTERI.md` | bugüne kadarki bütün kapı sonuçları tek tabloda |
-| `battle-ai/plans/PLAN-SIRADAKI.md` | en üstteki "2026-08-19 gecesi" bölümü — nerede olduğumuz |
+| `../plans/PLAN-SIRADAKI.md` | en üstteki "2026-08-19 gecesi" bölümü — nerede olduğumuz |
 
 **En kritik iki kural, özet olarak:**
 
