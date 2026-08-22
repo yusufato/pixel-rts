@@ -1001,3 +1001,9 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Yeni işlevsel atlas `RESIDENTIAL / CIVIC / COMMERCIAL / INDUSTRIAL` satırlarını ve her satırda dört mimari varyantı taşır. Kararlı kimlik karması 12 örnek kayıt üzerinde her satırın dört hücresini de kullandı; kamera, tarih tiki veya yeniden çizim görünümü değiştirmedi.
 - Öncelik sırası korunmuştur: gerçek sektör ve özel tesis > fiziksel hasar/yangın > kuzey/kurak iklim > ılıman/kıyısal işlevsel çeşitlilik. Böylece görsel iyileştirme mekanik gerçeğin üzerine yazmadı.
 - Gerçek Electron görüntüsü görünür kent tekrarını belirgin düşürdü; fakat performans aynı koşuda uzak/orta/etkileşimde `16,7 ms` sınırını aştı. Bu çalışma görsel borcu küçülttü, performans borcunu kapatmadı.
+
+### 22 Ağustos 2026 — iklim çeşitliliği görselden önce veri ister
+
+- Boreal ve kurak bölgeler için 32 ek işlevsel yapı üretildi; tek iklim hücresine düşme borcu atlas/seçici seviyesinde kapandı. Ancak mevcut iklim sınıfı gerçek coğrafi iklim kaynağı değildir: `ly` bantları ve liman bayrağı yaklaşık vekildir.
+- Bu ayrım özellikle Adana canlı karesinde görünür oldu. Kurak atlas doğru çalışmasına rağmen Adana'nın mevcut normalize koordinatı `DRY` eşiğini geçmedi. Şehir adına özel istisna yazılmadı; doğru çözüm altıgen/şehir iklim verisini kanonik kaynak olarak bağlamaktır.
+- Katalog `144` kayda ulaştı ve tam altyapı paketi geçti. Performans ve tek koşudaki ikinci statik katman artışı açık tutuldu; varlık sayısındaki artış başarının tek ölçütü değildir.

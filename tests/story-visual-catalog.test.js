@@ -7,9 +7,9 @@ const catalog = require('../js/StoryVisualCatalog.js');
 
 const validation = catalog.storyVisualCatalogValidate();
 assert.strictEqual(validation.ok, true, validation.issues.join(', '));
-assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 112,
-    'HXD-7.4.3c: 96 mevcut varlık + 16 işlevsel modern kent varyantı.');
-assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 112);
+assert.strictEqual(catalog.STORY_VISUAL_ASSET_MANIFEST.length, 144,
+    'HXD-7.4.3d: 96 mevcut varlık + 48 iklim uyumlu işlevsel kent varyantı.');
+assert.strictEqual(new Set(catalog.STORY_VISUAL_ASSET_MANIFEST.map(row => row.id)).size, 144);
 
 assert.strictEqual(catalog.storyVisualPeriodForYear(2010).id, 'MODERN_2010');
 assert.strictEqual(catalog.storyVisualPeriodForYear(2049).id, 'CONNECTED_2030');
@@ -175,6 +175,18 @@ const climateCity = catalog.storyVisualUrbanPresentationRecipe({
 });
 assert.strictEqual(climateCity.presentationSource, 'URBAN_FUNCTIONAL');
 assert.strictEqual(climateCity.atlasKey, 'urbanFunctionalModern');
+const borealCity = catalog.storyVisualUrbanPresentationRecipe({
+    year: 2032, kind: 'CORE', node: { id: 2, owner: 0, ly: .18 },
+    state: { tech: [] }, physicalSites: { registryHash: 'boreal-test' }
+});
+assert.strictEqual(borealCity.presentationSource, 'URBAN_FUNCTIONAL');
+assert.strictEqual(borealCity.atlasKey, 'urbanFunctionalBorealModern');
+const dryCity = catalog.storyVisualUrbanPresentationRecipe({
+    year: 2032, kind: 'CORE', node: { id: 3, owner: 0, ly: .78 },
+    state: { tech: [] }, physicalSites: { registryHash: 'dry-test' }
+});
+assert.strictEqual(dryCity.presentationSource, 'URBAN_FUNCTIONAL');
+assert.strictEqual(dryCity.atlasKey, 'urbanFunctionalDryModern');
 
 const functionalCells = {};
 for (const kind of ['RESIDENTIAL', 'CIVIC', 'LOGISTICS', 'INDUSTRIAL']) {
@@ -345,6 +357,7 @@ for (let stage = 0; stage < stageYears.length; stage++) {
 
 for (const file of ['urban-construction-atlas-modern-v1.png',
     'urban-climate-atlas-modern-v1.png', 'urban-functional-atlas-modern-v1.png',
+    'urban-functional-boreal-modern-v1.png', 'urban-functional-dry-modern-v1.png',
     'urban-damage-atlas-modern-v1.png',
     'special-facilities-atlas-modern-v1.png', 'land-use-atlas-modern-v1.png',
     'industrial-sector-atlas-modern-v1.png']) {

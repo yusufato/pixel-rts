@@ -249,6 +249,18 @@ const STORY_VISUAL_URBAN_FUNCTIONAL_ASSETS = Object.entries(STORY_VISUAL_FUNCTIO
         visualStage: 0,
         condition: 'OPERATING'
     })));
+const STORY_VISUAL_URBAN_FUNCTIONAL_BOREAL_ASSETS = STORY_VISUAL_URBAN_FUNCTIONAL_ASSETS
+    .map(entry => Object.freeze(Object.assign({}, entry, {
+        id: entry.id.replace('urban-functional.', 'urban-functional-boreal.'),
+        atlasKey: 'urbanFunctionalBorealModern',
+        climateZone: 'BOREAL'
+    })));
+const STORY_VISUAL_URBAN_FUNCTIONAL_DRY_ASSETS = STORY_VISUAL_URBAN_FUNCTIONAL_ASSETS
+    .map(entry => Object.freeze(Object.assign({}, entry, {
+        id: entry.id.replace('urban-functional.', 'urban-functional-dry.'),
+        atlasKey: 'urbanFunctionalDryModern',
+        climateZone: 'DRY'
+    })));
 const STORY_VISUAL_URBAN_DAMAGE_ASSETS = storyVisualGridAssets(
     'urban-damage', 'urbanDamageModern', STORY_VISUAL_A2_URBAN_FAMILIES,
     STORY_VISUAL_DAMAGE_STATES, 'condition'
@@ -307,6 +319,8 @@ const STORY_VISUAL_ASSET_MANIFEST = Object.freeze([
     ...STORY_VISUAL_CONSTRUCTION_ASSETS,
     ...STORY_VISUAL_URBAN_CLIMATE_ASSETS,
     ...STORY_VISUAL_URBAN_FUNCTIONAL_ASSETS,
+    ...STORY_VISUAL_URBAN_FUNCTIONAL_BOREAL_ASSETS,
+    ...STORY_VISUAL_URBAN_FUNCTIONAL_DRY_ASSETS,
     ...STORY_VISUAL_URBAN_DAMAGE_ASSETS,
     ...STORY_VISUAL_SPECIAL_ASSETS,
     ...STORY_VISUAL_LAND_USE_ASSETS,
@@ -728,11 +742,19 @@ function storyVisualUrbanFunctionalRecipe(input, mechanics) {
         || spec.district && spec.district.id
         || `${spec.node && spec.node.id || 0}:${mechanics && mechanics.kind || spec.kind || 'CORE'}`;
     const variant = storyVisualStableVariant(identity);
+    const climateZone = storyVisualClimateZone(spec);
+    const climate = climateZone === 'BOREAL' ? {
+        prefix: 'urban-functional-boreal', atlasKey: 'urbanFunctionalBorealModern'
+    } : climateZone === 'DRY' ? {
+        prefix: 'urban-functional-dry', atlasKey: 'urbanFunctionalDryModern'
+    } : {
+        prefix: 'urban-functional', atlasKey: 'urbanFunctionalModern'
+    };
     return {
         assetMissing: false,
-        requestedAssetId: `urban-functional.${definition.family}.variant_${variant}.modern_2010`,
-        resolvedAssetId: `urban-functional.${definition.family}.variant_${variant}.modern_2010`,
-        atlasKey: 'urbanFunctionalModern',
+        requestedAssetId: `${climate.prefix}.${definition.family}.variant_${variant}.modern_2010`,
+        resolvedAssetId: `${climate.prefix}.${definition.family}.variant_${variant}.modern_2010`,
+        atlasKey: climate.atlasKey,
         atlasCell: definition.row * 4 + variant,
         atlasRow: definition.row,
         atlasColumn: variant,
@@ -767,13 +789,8 @@ function storyVisualUrbanPresentationRecipe(input) {
         const row = STORY_VISUAL_SPECIAL_FAMILIES[specialFamily];
         art = storyVisualResolveVariant('special', row.family, climateZone, period,
             spec.assetManifest);
-    } else if (['TEMPERATE', 'COASTAL'].includes(climateZone)) {
-        art = storyVisualUrbanFunctionalRecipe(spec, mechanics);
     } else {
-        const family = STORY_VISUAL_A2_URBAN_FAMILIES[mechanics.kind]
-            || STORY_VISUAL_A2_URBAN_FAMILIES.CORE;
-        art = storyVisualResolveVariant('urban-climate', family.family, climateZone,
-            period, spec.assetManifest);
+        art = storyVisualUrbanFunctionalRecipe(spec, mechanics);
     }
     return Object.assign({}, mechanics, art, {
         climateZone,
@@ -786,7 +803,8 @@ function storyVisualUrbanPresentationRecipe(input) {
         presentationSource: sectorFacility ? `SECTOR_${sectorFacility.sectorId.toUpperCase()}`
             : specialFamily ? `SPECIAL_${specialFamily}`
             : condition === 'OPERATING' || condition === 'CONSTRUCTION'
-                ? (art.atlasKey === 'urbanFunctionalModern' ? 'URBAN_FUNCTIONAL' : 'URBAN_CLIMATE')
+                ? (String(art.atlasKey).startsWith('urbanFunctional')
+                    ? 'URBAN_FUNCTIONAL' : 'URBAN_CLIMATE')
                 : 'URBAN_DAMAGE'
     });
 }
@@ -903,6 +921,7 @@ function storyVisualCatalogValidate() {
         assetIds.add(entry.id);
         if (!packIds.has(entry.packId)) issues.push(`ASSET_UNKNOWN_PACK:${entry.id}:${entry.packId}`);
         if (!['settlements', 'constructionModern', 'urbanClimateModern', 'urbanFunctionalModern',
+            'urbanFunctionalBorealModern', 'urbanFunctionalDryModern',
             'urbanDamageModern', 'specialFacilitiesModern', 'landUseModern',
             'industrialSectorsModern',
             'transportRoad', 'transportRail', 'transportSea',

@@ -1504,3 +1504,11 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Canlı Electron kabulünde Ankara ve İstanbul çevresindeki konut, kamusal, ticari ve sanayi yapıları ayrı silüetlere dönüştü. İstanbul'daki `6` görünür yapı kimliği ve ilk `5` doğru dosya seçimi korundu; oyuncu etkileşimi `10/10`, yapı hit-test hatası `0 px`, sürüklemede yeni sprite üretimi `0`dır.
 - Tam `test:story-infrastructure` paketi geçti. Taşıt p95 `0,4 ms` ve statik katman yeniden çizimi yoktur. Harita p95 uzak/orta/yakın/etkileşim `21,1 / 17,8 / 15,7 / 26,9 ms` olduğundan kararlı 60 FPS kapısı kapanmadı.
 - Açık görsel borç: 2030–2100 dönemlerinin işlevsel atlasları, kuzey/kurak ailelerde eşdeğer mimari çeşitlilik, üretim/mülkiyetin haritada bir bakışta okunması ve atlaslar arası ölçek/palet birliği.
+
+## HXD-7.4.3d — boreal ve kurak işlevsel kent aileleri (`implemented / climate-data-debt`)
+
+- `urban-functional-boreal-modern-v1.png` ve `urban-functional-dry-modern-v1.png` eklendi. İkisi de `1536×1024` gerçek RGBA; her biri dört işlev × dört varyant taşır. İşlevsel kent dalgası `16 → 48`, toplam katalog `112 → 144` kanonik kayda çıktı.
+- Aynı ilçe/site kimliği iklim değişmediği sürece aynı varyantı kullanır. `BOREAL` kar uyumlu, `DRY` sıcak-kurak mimari atlasına; `TEMPERATE/COASTAL` temel işlevsel atlasa gider. Hasar, özel tesis ve gerçek sektör tesisi bu seçimden önce gelmeye devam eder.
+- Görsel katalog ve tam `test:story-infrastructure` paketi geçti. Gerçek Electron atlas yüklemesi ve çözünürlük matrisi hatasızdır. P95 uzak/orta/yakın/etkileşim `21,8 / 17,4 / 18,1 / 24,2 ms`; 60 FPS kapısı yine kırmızıdır.
+- Açık veri borcu: iklim halen şehir adı veya gerçek Köppen/veri hücresi yerine normalleştirilmiş `ly` yaklaşık değeri ve liman bayrağından türetilir. Bu yüzden örneğin Adana otomatik olarak kurak sayılmaz. Görsel seçici doğru çalışır; girdinin bilimsel iklim modeli olmadığı açıkça kaydedilir.
+- Aynı koşuda taşıt p95 `0,3 ms`, `70` ara konum ve ters rotasyon `0` iken statik katman sayacı `2` arttı; taşıt dondu denmedi fakat `TRANSPORT_MOTION` kabulü `9/10` olarak kırmızı saklandı.
