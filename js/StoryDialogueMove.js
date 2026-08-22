@@ -41,7 +41,7 @@ const STORY_DIALOGUE_MOVE_ACT_POLICIES = Object.freeze({
     ANSWER_LISTENER_LOCATION_UNKNOWN: { policyId: 'NO_LOCATION_EVIDENCE', claimTypes: [], memory: false },
     ASSESS_UNVERIFIED_MILITARY_REQUEST: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
     CONTINUE_MILITARY_SUPPORT_REQUEST: { policyId: 'PLAYER_MILITARY_CLAIM_ONLY', claimTypes: ['PLAYER_REPORTED_MILITARY_THREAT'], memory: false },
-    ASSESS_ACTION_REQUEST_SCOPE: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
+    ASSESS_ACTION_REQUEST_SCOPE: { policyId: 'CURRENT_TURN_CLAIMS_ONLY', claimTypes: ['*'], memory: false },
     ANSWER_COMPANY_FINANCE_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ANSWER_MEETING_RESULTS_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
     ANSWER_MEETING_AGENDA_BOUNDARY: { policyId: 'CURRENT_TURN_ONLY', claimTypes: [], memory: false },
