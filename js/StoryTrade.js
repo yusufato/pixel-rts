@@ -776,6 +776,25 @@ function storyTradeFindRoute(sourceRegionId, targetRegionId, contract, resourceI
     });
 }
 
+function storyTradeRouteFailureCode(route, sourceRegionId, targetRegionId, contract, resourceId, options) {
+    const reason = route && route.reason ? route.reason : 'NO_ROUTE';
+    if (reason !== 'NO_ROUTE' || typeof storyInfrastructureFindRoute !== 'function') return reason;
+
+    const requestedMode = options && options.transportMode
+        ? String(options.transportMode).toUpperCase() : null;
+    const availableModes = storyTradePhysicalModes(resourceId);
+    const modes = requestedMode && availableModes.includes(requestedMode)
+        ? [requestedMode] : availableModes;
+    const physicalRoute = storyInfrastructureFindRoute(sourceRegionId, targetRegionId, {
+        modes: modes.filter(mode => ['LAND', 'RAIL', 'SEA'].includes(mode)),
+        authorizedCountryIds: contract.partyCountryIds,
+        minCapacity: 0
+    });
+    return physicalRoute.ok && (physicalRoute.corridorIds || []).length
+        ? 'CORRIDOR_CAPACITY_EXHAUSTED'
+        : reason;
+}
+
 function storyTradeCapacityAvailable(route, ledger) {
     let available = Infinity;
     for (const corridorId of route.corridorIds || []) {
@@ -1096,7 +1115,20 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         order.resourceId,
         { transportMode: order.transportMode }
     );
-    if (!route.ok || !(route.corridorIds || []).length) return { ok: false, code: route.reason || 'NO_ROUTE', route };
+    if (!route.ok || !(route.corridorIds || []).length) {
+        return {
+            ok: false,
+            code: storyTradeRouteFailureCode(
+                route,
+                order.sourceRegionId,
+                order.targetRegionId,
+                contract,
+                order.resourceId,
+                { transportMode: order.transportMode }
+            ),
+            route
+        };
+    }
     const availableCapacity = storyTradeCapacityAvailable(route, ledger);
     const quantity = storyTradeRound(Math.min(
         remaining,

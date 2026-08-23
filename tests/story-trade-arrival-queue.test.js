@@ -67,4 +67,39 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(result)), {
     missingRoute: false
 });
 
-console.log('STORY_TRADE_ARRIVAL_QUEUE_OK', JSON.stringify(result));
+context.storyInfrastructureFindRoute = () => ({
+    ok: true,
+    corridorIds: ['corridor:road'],
+    regionIds: ['region:a', 'region:b']
+});
+const reservedRouteCode = vm.runInContext(`storyTradeRouteFailureCode(
+    { ok: false, reason: 'NO_ROUTE', corridorIds: [] },
+    'region:a', 'region:b', { partyCountryIds: ['country:0'] }, 'food', {}
+)`, context);
+assert.equal(
+    reservedRouteCode,
+    'CORRIDOR_CAPACITY_EXHAUSTED',
+    'Rezervasyon farkındalıklı arama boşalsa bile fiziksel rota varsa kapasite hatası dönmeli.'
+);
+
+context.storyInfrastructureFindRoute = () => ({
+    ok: false,
+    reason: 'NO_ROUTE',
+    corridorIds: [],
+    regionIds: []
+});
+const disconnectedRouteCode = vm.runInContext(`storyTradeRouteFailureCode(
+    { ok: false, reason: 'NO_ROUTE', corridorIds: [] },
+    'region:a', 'region:b', { partyCountryIds: ['country:0'] }, 'food', {}
+)`, context);
+assert.equal(
+    disconnectedRouteCode,
+    'NO_ROUTE',
+    'Rezervasyondan bağımsız fiziksel yol da yoksa topolojik NO_ROUTE korunmalı.'
+);
+
+console.log('STORY_TRADE_ARRIVAL_QUEUE_OK', JSON.stringify({
+    ...result,
+    reservedRouteCode,
+    disconnectedRouteCode
+}));
