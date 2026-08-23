@@ -319,3 +319,24 @@
 - **What happened:** Korunan paralel sonuç dosyasının eksik olabileceği hipotezi elendi.
 - **Evidence:** JavaScript tanımsız argümanı `storyTestResult` çağrısından önce değerlendiriyor; stack sonuç okuyucusuna girmeden duruyor ve manifest kaydı mevcut.
 - **Implication for future audits:** Sembol çözümleme hatasını sonuç deposu veya veri üretim hatasıyla karıştırma; stack aşamasını ayır.
+
+## 2026-08-23 — Sequential hikâye tüketicisinde altı ek prob importu eksik
+- **Type:** Confirmed
+- **Source:** RCA.md — Sequential hikâye testi altı harness probunu import etmiyor
+- **What happened:** İlk kariyer importu düzeltildikten sonra statik kullanım/import farkı karakter yaşamı, kohort aktivasyonu/yükselmesi/bütçesi ve hex urban/render için altı eksik sembol daha buldu.
+- **Evidence:** Altı adın tamamı test gövdesinde kullanılıyor, harness içinde tanımlı/dışa aktarılmış ve manifestte kayıtlı; test destructuring importunda yok.
+- **Implication for future audits:** ReferenceError'ı tek tek düzeltmek yerine test tüketicisinin bütün `probe*` kullanım/import farkını çıkar; paralel manifest başarısını sequential bağ kanıtı sayma.
+
+## 2026-08-23 — CharacterLifeStatus tek eksik prob değil
+- **Type:** Refuted
+- **Source:** RCA.md — Sequential hikâye testi altı harness probunu import etmiyor
+- **What happened:** İkinci ReferenceError'ın yalnız bir atlanmış import olduğu hipotezi statik taramayla elendi.
+- **Evidence:** Aynı dosyada beş ek eksik prob sembolü daha bulundu.
+- **Implication for future audits:** Ardışık tanımsız isimlerde ilk görünen sembolü bütün kök neden sanma; aynı kalıbın kapsamını statik olarak ölç.
+
+## 2026-08-23 — Altı probun harness veya manifest kaydı kayıp değil
+- **Type:** Refuted
+- **Source:** RCA.md — Sequential hikâye testi altı harness probunu import etmiyor
+- **What happened:** Prob uygulamalarının ya da paralel görev kayıtlarının eksik olabileceği hipotezi elendi.
+- **Evidence:** Altı sembol de harness içinde tanımlı ve dışa aktarılmış; karşılık gelen altı manifest görevi mevcut.
+- **Implication for future audits:** Uygulama ve üretici hazırsa yeni prob yazma; eksik tüketici bağını onar.
