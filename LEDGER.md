@@ -715,3 +715,16 @@
 - **What happened:** Belge testi eski paragraf düzenini zorunlu tutuyor olabilir diye incelendi.
 - **Evidence:** Assertion yalnız `/StoryMapCache\.js/` arıyor; başlık, sıra veya tam cümleyi sabitlemiyor.
 - **Implication for future audits:** Belge kapılarını mümkün olduğunca kanonik isim/bağlantı varlığına bağla, tam metin snapshotına değil.
+## 2026-08-23 — Yükleme-anı taşıma göç teşhisi dünya hashine sızıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Yükleme-anı taşıma göç teşhisi deterministik dünya hashine sızıyor
+- **What happened:** Scheduler devamlılık probu tam save JSON'unu kanonik dünya diye karşılaştırdı; yalnız `storyLoad()` sırasında üretilen `transportMigration` teşhisi eşit dünyaları farklı gösterdi.
+- **Evidence:** Fark listesinde tek yol `$.tradeLogistics.diagnostics.transportMigration`; ticaretin operasyonel kalıcılık görünümü `diagnostics` alanını zaten dışlıyor.
+- **Implication for future audits:** Süreç-yerel yükleme/onarım tanılarını dünya determinizmi hashinden ayır; operasyonel defter eşitliğini ayrıca koru.
+
+## 2026-08-23 — Scheduler/RNG devamlılığı bozulmadı
+- **Type:** Refuted
+- **Source:** RCA.md — Yükleme-anı taşıma göç teşhisi deterministik dünya hashine sızıyor
+- **What happened:** Hash farkının yükleme sonrası görev sırası veya RNG ayrışmasından kaynaklanabileceği incelendi.
+- **Evidence:** Hem checkpoint hem gelecek farkı yalnız taşıma göç teşhisinde; dünya, zamanlayıcı ve RNG alanlarında ikinci bir fark yok.
+- **Implication for future audits:** Ham hash ayrışmasında önce alan-yolu farkını çıkar; tanı metadatasını simülasyon sapmasıyla karıştırma.

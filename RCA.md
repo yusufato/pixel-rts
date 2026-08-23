@@ -1,39 +1,40 @@
-# RCA — README harita cache sözleşmesini anlatıyor fakat kaynak dosyayı adlandırmıyor
+# RCA — Yükleme-anı taşıma göç teşhisi deterministik dünya hashine sızıyor
 
 ## 1) Verdict
 
-- **Root cause:** README'nin harita bölümü yeniden yazılırken merkezî API ve scope'lar korundu, fakat bu sözleşmenin sahibi `js/StoryMapCache.js` adı metinden düştü.
+- **Root cause:** `probeSchedulerRegistry` tam kayıt JSON'unu deterministik dünya görünümü olarak karşılaştırıyor; `storyLoad()` ise yalnız yüklenen süreçte `tradeLogistics.diagnostics.transportMigration` alanını yeniden üretiyor.
 - **Confidence:** Confirmed.
-- Assertion bayat değildir: aktif/arşiv kaynak ayrımının amacı, geliştiricinin yanlış renderer/cache dosyasını düzenlemesini önlemektir.
+- Dünya/ekonomi durumu ayrışmıyor; fark yalnız yükleme sırasında üretilen, operasyonel olmayan tanı makbuzudur.
 
 ## 2) Failure Definition
 
-- Beklenen: Kök README hem merkezî cache kapısını hem de bu kapının aktif kaynak dosyasını açıkça göstermeli.
-- Gerçek: `storyInvalidateMapCaches(scope, reason, details)` ve altı scope ayrıntılı anlatılıyor; `StoryMapCache.js` adı yok.
-- Etki: Yeni geliştirici API'yi arayarak bulabilir ama kanonik dosya sahipliği ve index yükleme mimarisi README'den anlaşılmaz.
-- Blast radius: README harita cache sözleşmesi giriş cümlesi.
+- Beklenen: Kesintisiz ve kayıt-yükleme-devam yollarının kanonik simülasyon durumu aynı hash'i üretmeli.
+- Gerçek: Yüklenen yol 61 ertelenmiş eski sevkiyat için `LEGACY_PHYSICAL_ROUTE_UNAVAILABLE` teşhisi taşıyor; kesintisiz yol bu yükleme-anı alanını taşımıyor.
+- Etki: Görev zamanlayıcısı devamlılık kapısı, aynı dünya durumunu farklı sanıyor.
+- Blast radius: Test harness içindeki deterministik kayıt görünümü; üretim simülasyonu ve ticaret korunum hesabı etkilenmiyor.
 
 ## 3) Evidence
 
-- README `## Harita cache sözleşmesi` altında bütün scope'ları ve RAM bitmap davranışını içeriyor.
-- `rg` kök README'de `StoryMapCache` eşleşmesi bulmuyor; kanonik durum/ana plan dosyanın sahipliğini açıkça yazıyor.
-- `index.html` aktif yükleme sırasında `StoryPoliticalOverlay.js → StoryMapCache.js → StoryRender.js` sırasını koruyor.
-- Diğer assertion hedefleri `3000`, aktif `js/MapData.js` ve arşiv `StoryGeoRender.js` README'de mevcut.
+- Assertion farkı yalnız `$.tradeLogistics.diagnostics.transportMigration` yolunu gösteriyor.
+- `storyLoad()` sırasındaki `storyTransportMigrateLegacyShipments()` sonucu `ledger.diagnostics.transportMigration` alanına yazılıyor.
+- `storyTradeForSave()` defteri teşhislerle birlikte klonladığı için alan sonraki kayda giriyor.
+- Ticaret kalıcılık probları `tradeOperationalPersistenceView()` içinde `diagnostics` alanını zaten operasyonel eşitlikten çıkarıyor.
+- Kesintisiz ve devam eden yolların göç teşhisi dışındaki fark listesi boş.
 
 ## 4) Hypotheses
 
-1. **Belge reorganizasyonunda dosya adı atlandı.** Supported.
-2. **Cache kaynağı artık başka dosyaya taşındı.** Refuted: index ve runtime API hâlâ `js/StoryMapCache.js` kullanıyor.
-3. **Kök README bu ayrıntıyı taşımamalı.** Refuted: aynı bölüm aktif renderer, taktik MapData ve arşiv prototip sahipliğini zaten bilinçli olarak açıklıyor.
-4. **Assertion yalnız eski metin biçimine bağlı.** Refuted: regex sadece kanonik dosya adını arıyor, paragraf düzenini zorlamıyor.
+1. **Yükleme-anı teşhisi kanonik dünya hashine yanlışlıkla dahil edildi.** Supported.
+2. **Görev zamanlayıcısı veya RNG yükleme sonrasında ayrıştı.** Refuted: raporlanan tek fark tanı alanı; zamanlayıcı ve dünya alanlarında fark yok.
+3. **61 sevkiyat gerçekten kayboldu veya değişti.** Refuted: göç sonucu `migrated: 0`, `deferred: 61`; operasyonel ticaret görünümü teşhis hariç eşitliği ayrı kapılıyor.
+4. **Üretim kaydı bütün `diagnostics` alanlarını silmeli.** Refuted for this fix: bazı teşhisler yükleme/onarım görünürlüğü için bilinçli saklanıyor; kapsam yalnız deterministik karşılaştırmadaki süreç-yerel göç makbuzudur.
 
 ## 5) Remediation
 
-- Harita cache sözleşmesi girişine `js/StoryMapCache.js`in `storyInvalidateMapCaches` tek kapısının sahibi olduğunu belirten tek cümle ekle.
-- Mevcut scope açıklamalarını ve belge haritasını değiştirme.
+- `storyDeterministicSaveSnapshot()` içinde yalnız `tradeLogistics.diagnostics.transportMigration` alanını karşılaştırma görünümünden çıkar.
+- Ticaret defterinin operasyonel alanlarını, diğer teşhislerini ve üretim save/load davranışını değiştirme.
 
 ## 6) Verification Plan
 
-- README `StoryMapCache.js`, `3000`, aktif `js/MapData.js` ve arşiv prototip ayrımlarını birlikte geçmeli.
-- Index yükleme sırası assertionı korunmalı.
-- Sıralı assertion ve tam paket geçmeli.
+- Korunmuş sonuç setiyle sıralı assertion koşusu devamlılık eşitliğini geçmeli.
+- Ticaretin özel migration ve operasyonel kalıcılık assertionları korunmalı.
+- Tam `npm test -- --keep-results` paketi yeşil olmalı.
