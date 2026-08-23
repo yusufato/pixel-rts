@@ -3179,3 +3179,15 @@ body[data-story-durak="1"] #story-pause-flag { display: flex; }
     outline: 2px solid var(--wr-focus);
     outline-offset: 2px;
 }
+
+/* Role-gated player agency workspace: 18 canonical system families. */
+.player-agency-workspace { margin-top: 18px; border-top: 1px solid rgba(255,196,0,.34); padding-top: 12px; }
+.player-agency-workspace .agency-intro { color: #8ca394; max-width: 820px; font-size: 11px; }
+.agency-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 8px; }
+.agency-card { min-height: 128px; border: 1px solid rgba(52,213,117,.32); background: rgba(5,18,12,.72); padding: 10px; display: flex; flex-direction: column; gap: 7px; }
+.agency-card h4 { margin: 0; color: #ffc400; font: 11px 'Share Tech Mono',monospace; letter-spacing: .7px; }
+.agency-card b { color: #d9e6dc; font-size: 12px; }
+.agency-card small { color: #7fa38a; overflow-wrap: anywhere; }
+.agency-card.locked { opacity: .62; border-style: dashed; }
+.agency-card .agency-execute { margin-top: auto; width: 100%; }
+.agency-card .agency-execute.armed { border-color: #ff5b55; color: #ff8c87; }

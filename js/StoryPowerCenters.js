@@ -667,6 +667,37 @@ function storyPowerCenterRecordEvent(ledger, type, center, extra) {
     return event;
 }
 
+function storyPowerCenterPlayerConsult(centerId, options) {
+    options = options || {};
+    const ledger = storyPowerCenterEnsure();
+    const center = ledger && ledger.centers[String(centerId || '')];
+    if (!center || center.status !== 'ACTIVE') return { ok: false, code: 'ACTIVE_POWER_CENTER_REQUIRED' };
+    const ctx = typeof storyGovernancePlayerContext === 'function' ? storyGovernancePlayerContext() : {};
+    const actorId = String(options.actorId || ctx.actorId || '');
+    const actor = typeof storyCharacterIdentityView === 'function' ? storyCharacterIdentityView(actorId) : null;
+    if (!actor || actorId !== ctx.actorId || actor.countryId !== center.countryId) {
+        return { ok: false, code: 'CANONICAL_PLAYER_ACTOR_REQUIRED' };
+    }
+    const required = { COMPANY_OWNER: 'BUSINESS_COUNCIL', COMMANDER: 'ARMED_FORCES',
+        AGENT: 'SECURITY_SERVICE', CIVILIAN: 'LABOR_MOVEMENT', MAYOR: 'CIVIL_SERVICE' }[actor.role];
+    if (actor.role !== 'EXECUTIVE' && required !== center.type) {
+        return { ok: false, code: 'ROLE_CENTER_AUTHORITY_MISMATCH' };
+    }
+    const factionKey = { LABOR_MOVEMENT: 'workers', BUSINESS_COUNCIL: 'business', ARMED_FORCES: 'military',
+        CIVIL_SERVICE: 'intel', MEDIA_NETWORK: 'intel', SECURITY_SERVICE: 'military', RADICAL_NETWORK: 'radicals' }[center.type];
+    const st = typeof storyState === 'function' ? storyState(Number(center.countryId.split(':').pop())) : null;
+    if (!st || !factionKey) return { ok: false, code: 'POWER_CENTER_SOCIAL_SOURCE_MISSING' };
+    if (typeof storyFacBackfill === 'function') storyFacBackfill(st);
+    const before = Number(st.factions && st.factions[factionKey]) || 0;
+    if (typeof storyFacApply === 'function') storyFacApply(st, { [factionKey]: 2 }, `${center.name} istisaresi`);
+    const after = Number(st.factions && st.factions[factionKey]) || before;
+    const event = storyPowerCenterRecordEvent(ledger, 'PLAYER_CONSULTATION', center, {
+        actorId, actorRole: actor.role, factionKey, supportBefore: before, supportAfter: after
+    });
+    storyPowerCenterBuildSummaries(ledger);
+    return { ok: after !== before, receipt: { ledger: 'powerCenters', eventId: event.id,
+        centerId: center.id, factionKey, before, after, actorId } };
+}
 function storyPowerCenterTick() {
     const ledger = storyPowerCenterEnsure();
     if (!ledger) return { disabled: true };

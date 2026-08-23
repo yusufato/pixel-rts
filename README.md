@@ -6,6 +6,7 @@ Pixel RTS; hızlı maç ile hikâye modunda aynı taktik savaş kaynaklarını k
 
 - Hızlı maç ve hikâye savaşı aynı `BattleController → Perception → Situation → Planning → Execution` karar zincirini ve aynı birlik/fizik kurallarını yükler. Maç kaydı; motor sürümü, başlangıç durumu, olaylar ve deterministik hash'ler taşır.
 - Hikâye dünyası 2032'de sekiz devletin barış içinde başladığı; bölgesel stok, üretim, ticaret, fiyat, bütçe, şirket, nüfus, kurum, seçim, karakter, ilişki ve bilgi katmanlarına sahip bir simülasyondur.
+- Oyuncu erişim tabanı 18 sistem ailesini rol-yetkili gerçek komutlara bağlar: yürütme, şirket sahibi ve komutan aynı yetkilere sahip değildir; her başarılı eylem kanonik domain makbuzu üretir ve save/load ile korunur. Bu ilk erişim dikeyidir, sistemlerin modern dünya derinliğinin tamamlandığı anlamına gelmez.
 - Faz 38.13 kısmen çalışır durumdadır. Oyuncu karakterlerle görüşebilir, sınırlı görev kabul edebilir ve 3–4 kişilik resmî toplantı açabilir. Toplantılarda konuşma sırası, özel not, kaynaklı tutum, önerge, değişiklik, itiraz, başkan usul kararı, sürüme bağlı oylama ve `MeetingOutcomeReceiptV1` bulunur.
 - Toplantıda kabul edilen önerge henüz kendiliğinden bütçe, kurum, ordu veya dünya değerlerini değiştirmez. Yetkili uygulama adaptörü ve toplantı kapanış zinciri sıradaki Faz 38.13 borcudur.
 - Serbest metin sohbet motoru bağlam, kaynak sınırı ve karar yetkisini korur; ancak insan düzeyinde doğal ve tekrarsız sohbet tamamlanmış değildir. Gerçek 8B/14B sanal görüşme, adversarial oyuncu ve uzun bağlam testleri bunun için tutulur.

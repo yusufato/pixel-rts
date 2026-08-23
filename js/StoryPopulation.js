@@ -332,7 +332,10 @@ function storyPopulationCountryView(countryId) {
 function storyPopulationLaborSupply(regionId, worldDays) {
     const region = storyPopulationRegionView(regionId);
     if (!region) return { status: 'UNAVAILABLE', availableWorkersPeople: 0, laborLots: 0, wageIndex: null };
-    const availableWorkersPeople = region.cohorts.reduce((sum, cohort) => sum + storyPopulationAvailableWorkers(cohort), 0);
+    const baseAvailableWorkersPeople = region.cohorts.reduce((sum, cohort) => sum + storyPopulationAvailableWorkers(cohort), 0);
+    const ledger = storyPopulationEnsure();
+    const participationBps = Math.max(5000, Math.min(11000, Number(ledger.laborPolicies && ledger.laborPolicies[region.regionId]) || 10000));
+    const availableWorkersPeople = Math.floor(baseAvailableWorkersPeople * participationBps / 10000);
     const laborLots = Math.round(availableWorkersPeople / 1000 * STORY_POPULATION_LABOR_SCALE * Math.max(0, Number(worldDays) || 0) * 1e6) / 1e6;
     return {
         status: 'COHORT_DERIVED',
@@ -497,4 +500,17 @@ function storyPopulationSummary() {
         wageModelActive: false,
         diagnostics: storyPopulationClone(ledger.diagnostics)
     };
+}
+
+function storyPopulationSetLaborParticipation(regionId, participationBps, options) {
+    const ledger = storyPopulationEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    if (!ledger || !ledger.regions[id]) return { ok: false, code: 'REGION_NOT_FOUND' };
+    const value = Math.max(5000, Math.min(11000, Math.round(Number(participationBps) || 10000)));
+    if (!ledger.laborPolicies) ledger.laborPolicies = {};
+    const before = Number(ledger.laborPolicies[id]) || 10000;
+    ledger.laborPolicies[id] = value;
+    ledger.revision++;
+    return { ok: true, receipt: { ledger: 'population', regionId: id, before, after: value,
+        actorId: options && options.actorId || null, createdAt: Number(STORY.clock) || 0 } };
 }

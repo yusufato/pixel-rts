@@ -1710,12 +1710,14 @@ function storyAIResearch() {
             if (t.tier > ADMIN_TECH_MAX_TIER) continue;              // ağır teknoloji = konsey kararı
             const s = storyTechStatusFor(st.tech, t);
             if (s.state !== 'available' || s.cost > st.techPoints) continue;
-            const p = storyTechPriority(st, t, needs);
+            let p = storyTechPriority(st, t, needs);
+            if (st.playerTechPriority === t.id) p += 100000;
             if (p > bestScore) { bestScore = p; best = t; bestCost = s.cost; }
         }
         if (best) {
             st.techPoints -= bestCost;
             st.tech.push(best.id);
+            if (st.playerTechPriority === best.id) st.playerTechPriority = null;
             storyStateComputeTech(st);
             if (st.isPlayer) { storyComputeTechBonus(); storyLog(`🔬 Yönetim Ar-Ge kararı: <b>${best.name}</b> (−${bestCost}⭐ araştırma fonu)`); }
             else if (storyRandom('governance') < 0.45) storyLog(`⚙️ ${st.name} teknoloji geliştirdi: <b>${best.name}</b>`);
@@ -2374,3 +2376,15 @@ function storyInit() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', storyInit);
 else storyInit();
+
+function storyTechSetPriority(techId, options) {
+    const st = storyPlayerState();
+    const tech = typeof TECH_BY_ID !== 'undefined' ? TECH_BY_ID[String(techId)] : null;
+    if (!st || !tech) return { ok: false, code: 'TECH_NOT_FOUND' };
+    const status = storyTechStatusFor(st.tech || [], tech);
+    if (status.state !== 'available') return { ok: false, code: 'TECH_NOT_AVAILABLE', status };
+    const before = st.playerTechPriority || null;
+    st.playerTechPriority = tech.id;
+    return { ok: true, receipt: { ledger: 'states', stateId: st.id, before, after: tech.id,
+        requiredFund: status.cost, actorId: options && options.actorId || null } };
+}

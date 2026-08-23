@@ -697,6 +697,9 @@ function storySave() {
             politicalCrises: (typeof storyPoliticalCrisisForSave === 'function')
                 ? storyPoliticalCrisisForSave()
                 : STORY.politicalCrises,
+            playerAgency: (typeof storyPlayerAgencyForSave === 'function')
+                ? storyPlayerAgencyForSave()
+                : STORY.playerAgency,
             characterIdentities: (typeof storyCharacterIdentityForSave === 'function')
                 ? storyCharacterIdentityForSave()
                 : STORY.characterIdentities,
@@ -866,6 +869,7 @@ function storyLoad() {
         else STORY.elections = null;
         if (typeof storyInstitutionRestore === 'function') storyInstitutionRestore(d.institutions);
         if (typeof storyPowerCenterRestore === 'function') storyPowerCenterRestore(d.powerCenters);
+        if (typeof storyPlayerAgencyRestore === 'function') storyPlayerAgencyRestore(d.playerAgency);
         if (typeof storyStateCapacityRestore === 'function') storyStateCapacityRestore(d.stateCapacity);
         if (typeof storyElectionRestore === 'function') storyElectionRestore(d.elections);
         if (typeof storyIntegrityRestore === 'function') storyIntegrityRestore(d.integrity);

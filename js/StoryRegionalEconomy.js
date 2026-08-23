@@ -880,7 +880,7 @@ function storyRegionalEconomyTick(dtSec) {
             ? storyCollectiveRegionProductionMultiplier(regionId)
             : 1;
 
-        for (const sectorId of sectorOrder) {
+        for (const sectorId of storyRegionalSectorOrder(region, sectorOrder)) {
             const capacity = Math.max(0, Number(region.sectorCapacity[sectorId]) || 0);
             if (capacity <= 0) continue;
             const requestedCycles = storyRegionalRound(capacity * worldDays * collectiveProductionMultiplier);
@@ -1025,4 +1025,41 @@ function storyRegionalEconomyTick(dtSec) {
         unprofitableProductionHolds,
         shortageCount
     };
+}
+
+
+function storyRegionalSetSafeTarget(regionId, resourceId, quantity, options) {
+    const ledger = storyRegionalEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    const region = ledger && ledger.regions[id];
+    const value = storyRegionalRound(Math.max(0, Number(quantity) || 0));
+    if (!region) return { ok: false, code: 'REGION_NOT_FOUND' };
+    if (!STORY_RESOURCE_IDS.includes(String(resourceId))) return { ok: false, code: 'RESOURCE_NOT_FOUND' };
+    const before = Number(region.safeTargets[resourceId]) || 0;
+    region.safeTargets[resourceId] = value;
+    const transaction = storyRegionalRecordTransaction({
+        type: 'SAFE_TARGET_POLICY', source: String(options && options.source || 'PLAYER'),
+        actorId: options && options.actorId || null, regionId: id,
+        resourceId: String(resourceId), before, after: value, delta: storyRegionalRound(value - before)
+    });
+    return { ok: true, transaction, before, after: value };
+}
+
+function storyRegionalSectorOrder(region, defaults) {
+    const priority = String(region && region.playerSectorPriority || '');
+    if (!priority || !defaults.includes(priority)) return defaults;
+    return [priority].concat(defaults.filter(id => id !== priority));
+}
+function storyRegionalSetSectorPriority(regionId, sectorId, options) {
+    const ledger = storyRegionalEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    const region = ledger && ledger.regions[id];
+    if (!region) return { ok: false, code: 'REGION_NOT_FOUND' };
+    if (!STORY_PRODUCTION_SECTOR_IDS.includes(String(sectorId))) return { ok: false, code: 'SECTOR_NOT_FOUND' };
+    const before = region.playerSectorPriority || null;
+    region.playerSectorPriority = String(sectorId);
+    const transaction = storyRegionalRecordTransaction({ type: 'SECTOR_PRIORITY_POLICY',
+        source: String(options && options.source || 'PLAYER'), actorId: options && options.actorId || null,
+        regionId: id, before, after: region.playerSectorPriority });
+    return { ok: true, transaction, before, after: region.playerSectorPriority };
 }

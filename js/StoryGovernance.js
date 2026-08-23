@@ -550,6 +550,7 @@ function storyGovernancePlayerView() {
             };
         }),
         ownedRegions, selectedRegionId: defaultRegionId, actions, decisions, centers,
+        agencyFamilies: typeof storyPlayerAgencyFamilyView === 'function' ? storyPlayerAgencyFamilyView() : [],
         capacity: capacity ? {
             legitimacyBps: capacity.legitimacyBps,
             bureaucraticCapacityBps: capacity.bureaucraticCapacityBps,
@@ -623,6 +624,7 @@ function storyGovernanceRenderHtml(view) {
         + `<label class="governance-region-label">HEDEF ŞEHİR<select id="governance-region-select">${regionOptions}</select></label>`
         + `<h3>YETKILI EYLEMLER</h3><div class="governance-actions">${actionHtml}</div>`
         + `<h3>BEKLEYEN ONAYLAR VE UYGULAMA</h3><div class="governance-decisions">${decisionHtml}</div>`
+        + (typeof storyPlayerAgencyRenderHtml === 'function' ? storyPlayerAgencyRenderHtml(view.agencyFamilies) : '')
         + `<h3>MAKAMLAR</h3><div class="governance-offices">${officesHtml}</div>`
         + `<h3>GÜÇ MERKEZLERİ</h3><div class="governance-centers">${centersHtml}</div>`
         + `<div class="governance-promises">SÖZLER · Kalıcı karakter söz defteri Faz 38'de açılacak; burada sahte söz kaydı gösterilmez.</div>`
@@ -639,6 +641,8 @@ function storyGovernanceUpdate() {
 }
 
 function storyGovernanceHandleClick(event) {
+    const agencyResult = typeof storyPlayerAgencyHandleClick === 'function' ? storyPlayerAgencyHandleClick(event) : false;
+    if (agencyResult) return agencyResult;
     const resignButton = event && event.target && event.target.closest
         ? event.target.closest('[data-governance-resign]') : null;
     if (resignButton && !resignButton.disabled) {

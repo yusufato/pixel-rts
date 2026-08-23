@@ -1519,3 +1519,10 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Görsel katalog ve tam `test:story-infrastructure` paketi geçti. Gerçek Electron atlas yüklemesi ve çözünürlük matrisi hatasızdır. P95 uzak/orta/yakın/etkileşim `21,8 / 17,4 / 18,1 / 24,2 ms`; 60 FPS kapısı yine kırmızıdır.
 - Açık veri borcu: iklim halen şehir adı veya gerçek Köppen/veri hücresi yerine normalleştirilmiş `ly` yaklaşık değeri ve liman bayrağından türetilir. Bu yüzden örneğin Adana otomatik olarak kurak sayılmaz. Görsel seçici doğru çalışır; girdinin bilimsel iklim modeli olmadığı açıkça kaydedilir.
 - Aynı koşuda taşıt p95 `0,3 ms`, `70` ara konum ve ters rotasyon `0` iken statik katman sayacı `2` arttı; taşıt dondu denmedi fakat `TRANSPORT_MOTION` kabulü `9/10` olarak kırmızı saklandı.
+
+## 2026-08-23 — 18 sistem ailesi oyuncu erişim tabanı (`implemented-baseline`)
+
+- Ticaret, üretim, stok/fiyat, yatırım, şirket, banka, bütçe, altyapı, göç, emek, güç merkezi, kurum, seçim, soruşturma, diplomasi, medya, stratejik askerî yönetim ve teknoloji/AR-GE için tam `18` kayıtlı oyuncu ailesi vardır.
+- Ortak kapı yalnız `preview + execute` sahibi gerçek motor bağlayıcılarını kabul eder. Başarılı sonuç `worldMutation=true` ve domain defterini adlandıran kanonik makbuz taşımıyorsa oyuncu başarı makbuzu yazılmaz. Retler ayrı sayılır; dünya sonucu gibi gösterilmez.
+- Yürütme, şirket sahibi ve komutan fixture'ları birlikte 18/18 gerçek mutasyon üretti. Yürütme askerî makamı miras alamadı; şirket sahibi yalnız kendi kanonik şirketiyle işlem yaptı. İstifa fiziksel halefiyet üretti. Save/load `15` yürütme makbuzunu ve sıra numarasını korudu.
+- Bu kayıt **sistem derinliği tamamlandı** demek değildir. Her ailede ilk güvenli oyuncu dikeyi kapanmıştır. Çok seçenekli alan formları, kapsamlı rol navigasyonu, satış/vergilendirme/para politikası, dava yaşam döngüsü, çok taraflı diplomasi, medya kuruluşu yönetimi ve modern teknoloji DAG'ı ilgili ana faz borçlarında kalır.

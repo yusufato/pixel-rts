@@ -780,3 +780,21 @@ function storyElectionSummary() {
         eventCount: ledger.events.length
     };
 }
+
+function storyElectionCallEarly(countryId, options) {
+    const ledger = storyElectionEnsure();
+    const id = storyElectionCountryId(countryId);
+    const country = ledger && ledger.countries[id];
+    if (!country || !country.competitive) return { ok: false, code: 'COMPETITIVE_ELECTION_REQUIRED' };
+    const open = (country.electionIds || []).map(electionId => ledger.elections[electionId])
+        .find(row => row && !['CERTIFIED', 'CANCELLED'].includes(row.status));
+    if (open) return { ok: false, code: 'ELECTION_ALREADY_OPEN', election: storyElectionClone(open) };
+    const before = country.nextElectionAt;
+    country.nextElectionAt = storyElectionRound((Number(STORY.clock) || 0) + 1);
+    country.updatedAt = storyElectionRound(STORY.clock);
+    const election = storyElectionSchedule(ledger, country);
+    storyElectionRecordEvent(ledger, 'EARLY_ELECTION_CALLED', { countryId: id,
+        electionId: election && election.id || null, before, after: country.nextElectionAt,
+        actorId: options && options.actorId || null });
+    return { ok: !!election, election: storyElectionClone(election), before, after: country.nextElectionAt };
+}

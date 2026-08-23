@@ -481,12 +481,17 @@ function storyCharacterIdentityReconcileSources() {
         }
         // Rol seçimi ve kurumsal bağlar kaynak kaydının güncel gerçeğidir;
         // kişilik çekirdeğini yeniden zar atmadan eski deftere eklenebilir.
-        if (source.originModel === 'PLAYER_CHARACTER_CREATION_MIGRATION') existing.role = source.role;
+        const playerSource = source.originModel === 'PLAYER_CHARACTER_CREATION_MIGRATION';
+        const previousRole = existing.role;
+        if (playerSource) existing.role = source.role;
         for (const key of ['organizationId', 'institutionId', 'serviceId', 'publicTitle']) {
-            if (existing[key] == null && source[key] != null) existing[key] = String(source[key]);
+            if (playerSource) existing[key] = source[key] == null ? null : String(source[key]);
+            else if (existing[key] == null && source[key] != null) existing[key] = String(source[key]);
         }
         if (!existing.career || typeof existing.career !== 'object') {
             existing.career = storyCharacterIdentityCareer(existing.role);
+        } else if (playerSource && previousRole !== existing.role) {
+            existing.career.model = `ROLE_CAREER:${existing.role}`;
         }
         storyCharacterIdentityLifeBackfill(existing);
     }
@@ -527,6 +532,9 @@ function storyCharacterBindPlayerRole() {
     } else if (role === 'COMMANDER') {
         commander.institutionId = `institution:country:${stateId}:armed_forces`;
         commander.publicTitle = 'Kuvvet Komutanı';
+    }
+    if (STORY.characterIdentities && typeof storyCharacterIdentityReconcileSources === 'function') {
+        storyCharacterIdentityReconcileSources();
     }
     return {
         role,

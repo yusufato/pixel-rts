@@ -513,9 +513,9 @@ function storyCompanySubmitManagementDecision(input) {
     if (!company) return { ok: false, code: 'COMPANY_NOT_FOUND', worldMutation: false };
     const actor = typeof storyCharacterIdentityView === 'function'
         ? storyCharacterIdentityView(input.actorId) : null;
-    if (!actor || actor.role !== 'COMPANY_EXECUTIVE'
+    if (!actor || !['COMPANY_OWNER', 'COMPANY_EXECUTIVE'].includes(actor.role)
         || actor.organizationId !== company.id) {
-        return { ok: false, code: 'CANONICAL_COMPANY_EXECUTIVE_REQUIRED', worldMutation: false };
+        return { ok: false, code: 'CANONICAL_COMPANY_AUTHORITY_REQUIRED', worldMutation: false };
     }
     const decisionType = String(input.decisionType || '').toUpperCase();
     if (!STORY_COMPANY_DECISION_TYPES.includes(decisionType)) {
