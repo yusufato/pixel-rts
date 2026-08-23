@@ -298,3 +298,24 @@
 - **What happened:** Stash özel kuralları taşısa da güncel anlama motorundan binlerce satır ayrışıyor ve daha önce çözülemeyen çalışma zamanı deneylerini içeriyor.
 - **Evidence:** Güncel dosya yaklaşık 4.973 satır; ilgili stash sürümü yaklaşık 2.832 satır ve diff binlerce satırı değiştiriyor.
 - **Implication for future audits:** Kayıp bir dilimi geri almak için bütün stash'i uygulama; güncel mimariye izole, testli ve açık kapsamlı adaptör tasarla.
+
+## 2026-08-23 — Kariyer yaşam döngüsü probunun test importu eksik
+- **Type:** Confirmed
+- **Source:** RCA.md — Kariyer yaşam döngüsü probu test kapsamına alınmamış
+- **What happened:** `f2e3ad8` probu, manifest görevini ve assertion çağrısını ekledi fakat test dosyasındaki destructuring import listesine sembolü bağlamadı.
+- **Evidence:** Harness tanımı/ihracı ve manifest kaydı mevcut; `tests/story-world.test.js:3975` deterministik `ReferenceError` veriyor ve import listesinde sembol yok.
+- **Implication for future audits:** Yeni prob kabulünde manifest üretimiyle birlikte sequential assertion girişinin sembol bağını da doğrula.
+
+## 2026-08-23 — Kariyer probu silinmiş veya yeniden adlandırılmış değil
+- **Type:** Refuted
+- **Source:** RCA.md — Kariyer yaşam döngüsü probu test kapsamına alınmamış
+- **What happened:** Hatanın prob uygulamasının kaybından geldiği hipotezi incelendi.
+- **Evidence:** `probeCharacterCareerLifecycle` aynı adla harness içinde tanımlı, dışa aktarılmış ve manifestte kayıtlı.
+- **Implication for future audits:** `ReferenceError` durumunda probu yeniden yazmadan önce tüketici dosyanın import/destructuring bağını kontrol et.
+
+## 2026-08-23 — Korunan sonuç eksikliği kariyer ReferenceError'ını üretmedi
+- **Type:** Refuted
+- **Source:** RCA.md — Kariyer yaşam döngüsü probu test kapsamına alınmamış
+- **What happened:** Korunan paralel sonuç dosyasının eksik olabileceği hipotezi elendi.
+- **Evidence:** JavaScript tanımsız argümanı `storyTestResult` çağrısından önce değerlendiriyor; stack sonuç okuyucusuna girmeden duruyor ve manifest kaydı mevcut.
+- **Implication for future audits:** Sembol çözümleme hatasını sonuç deposu veya veri üretim hatasıyla karıştırma; stack aşamasını ayır.
