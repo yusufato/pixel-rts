@@ -510,3 +510,23 @@
 - **What happened:** Follow-up selectorünü birleşik listenin önüne eklemenin textarea önceliği sağlayacağı varsayıldı.
 - **Evidence:** Liste güncellendiği halde activeElement Yeni Konuşma kaldı; düğme DOMda textarea önünde.
 - **Implication for future audits:** CSS selector birleşimi ile uygulama öncelik zincirini birbirinden ayır.
+## 2026-08-23 — Genel REQUEST_SUPPORT takip dalı eksik
+- **Type:** Confirmed
+- **Source:** RCA.md — Genel yardım takip sözü grounded discourse dalına bağlanmıyor
+- **What happened:** NLU yardım takip sözünü doğru sınıflandırdı fakat grounded cevap yalnız askerî tehditli desteği ele aldığı için genel destek isteği profil fallbackine düştü.
+- **Evidence:** speechAct=REQUEST_SUPPORT; helpFollowUpUnderstood=false, response discourseAct boş; grounded kaynakta genel destek dalı yok.
+- **Implication for future audits:** Sosyal eylemleri açılışta tanımakla yetinme; aynı görüşme takip cevabı ve tekrar onarımını ayrı doğrula.
+
+## 2026-08-23 — Yardım takip hatası yalnız NLU sınıflandırması değil
+- **Type:** Refuted
+- **Source:** RCA.md — Genel yardım takip sözü grounded discourse dalına bağlanmıyor
+- **What happened:** Cümlenin REQUEST_SUPPORT olarak tanınmadığı ihtimali incelendi.
+- **Evidence:** Follow-up analizi REQUEST_SUPPORT üretiyor; kayıp, sonraki grounded response seçiminde.
+- **Implication for future audits:** Anlama, cevap politikası ve realization katmanlarını ayrı ölç.
+
+## 2026-08-23 — Harness eski deterministic discourse source etiketini bekliyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Genel yardım takip sözü grounded discourse dalına bağlanmıyor
+- **What happened:** Motor güncel grounded kaynağı DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE olarak etiketlerken dört harness kontrolü kaldırılmış etiketi kullanıyor.
+- **Evidence:** Eski etiket yalnız harness içinde; güncel ürün etiketi f29215b kaynak değişiminden geliyor.
+- **Implication for future audits:** Gözlenebilir adapter/source etiketi değiştiğinde doğrudan laboratuvar sözleşmesini aynı committe güncelle.
