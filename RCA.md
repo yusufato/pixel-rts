@@ -1,90 +1,98 @@
-# 1) Verdict
+# RCA — Varış terminali kuyruğu geçerli sevkiyatı rota dışı gösteriyor
 
-- **Root cause:** `storyTransportShipmentValidate`, fiziksel taşıma ajanı için yalnız canlı durumları kabul ediyor. Ticaret motoru ise başarıyla teslim edilen ajanı `DELIVERED`, kaybolanı `LOST` durumuna geçiriyor; terminal shipmentlar bu nedenle topluca geçersiz sayılıyor.
-- **Confidence:** Confirmed.
-- **Chain:** Fiziksel shipment oluşturuluyor → ajan geçerli canlı durumlarda ilerliyor → teslimat/kayıp tamamlanıyor → trade motoru shipment ve ajanı terminal duruma geçiriyor → validator terminal ajan durumlarını reddediyor → yüzlerce `INVALID_SHIPMENT_TRANSPORT` issue oluşuyor.
-- Ağ hash düzeltmesi bu hatayı üretmedi; daha önce `TRADE_NETWORK_HASH` erken dönüşü alttaki shipment doğrulamasını saklıyordu.
+## 1) Incident Summary
 
-# 2) Failure Definition
+- **Belirti:** Tam hikâye testi seed 2032 / 900 saniyelik dünyada `tradeValidation.ok=false` döndürüyor.
+- **Kapsam:** 7 canlı fiziksel sevkiyat `INVALID_SHIPMENT_LEG` üretiyor; piyasa defteri geçerli ve ağ hash'i güncel.
+- **Etkisi:** Sağlıklı çalışan uzun dünya testi başarısız oluyor; dokümantasyon tertip planı Landed durumuna geçirilemiyor.
+- **Yeniden üretim:** `runStorySimulation({ seed: 2032, seconds: 900 })` — 197 sözleşme, 117 açık sipariş, 335 aktif sevkiyat, 7 issue.
 
-- Görünen belirti: 180 saniyelik yeniden doğrulamada çok sayıda `INVALID_SHIPMENT_TRANSPORT`, mesaj `TRANSPORT_AGENT`.
-- İlk örnek yollar: `$.shipments[18].transportAgent`, `$.shipments[19].transportAgent` ve devamı.
-- Etki alanı: `transportVersion=2` taşıyan tamamlanmış veya kaybolmuş fiziksel shipment kayıtları; kayıt/restore doğrulaması da etkilenir.
-- Regresyon kaynağı: fiziksel çok-modlu lojistik ve validator aynı `6ece5a5` commitinde uyumsuz terminal sözleşmesiyle eklendi.
+## 2) Evidence
 
-# 3) Timeline
+- Issue'ların tamamı `INVALID_SHIPMENT_LEG`; başka trade veya market issue yok.
+- `storyTransportAdvanceShipment`, son fiziksel adım tamamlandığında:
+  - `shipment.legIndex = shipment.corridorIds.length`
+  - `shipment.currentRegionId = shipment.targetRegionId`
+  - `agent.state = 'QUEUED'`
+  yapıyor.
+- Aynı fonksiyon sonraki tickte `stepIndex >= route.steps.length` ise terminalden `UNLOAD` penceresi istiyor. Slot yoksa ajan meşru olarak `QUEUED` kalıyor.
+- `storyTradeValidate`, rota sonundaki canlı v2 sevkiyatı yalnız ajan `UNLOADING` ise kabul ediyor. Varış boşaltma kuyruğundaki `QUEUED` state sözleşmede yok.
+- `storyTransportShipmentValidate` aynı canlı `QUEUED` ajanı geçerli kabul ediyor. İki validator birbiriyle çelişiyor.
+
+## 3) Timeline
 
 | Zaman | Olay | Kaynak | Önemi |
 |---|---|---|---|
-| 2026-08-20 | Fiziksel transport agent, terminal geçişleri ve shipment validator eklendi | `6ece5a5` | Üretici `DELIVERED/LOST`, validator yalnız canlı state kabul etti. |
-| 2026-08-23 | Ağ hash uyuşmazlığı 180 saniyelik doğrulamada tek issue olarak görüldü | İlk tanı koşusu | Validator hash kontrolünden erken döndüğü için ajan sorunları görünmedi. |
-| 2026-08-23 | Ağ revizyon bağı düzeltildikten sonra aynı koşu tekrarlandı | İkinci tanı koşusu | Hash geçti; terminal ajan issue'ları görünür oldu. |
+| 2026-08-20 | Terminal slotları, kuyruk ve fiziksel transport agent eklendi | `6ece5a5` | Varışta `legIndex=end + QUEUED` meşru yaşam döngüsü oldu. |
+| 2026-08-23 | Ağ hash ve terminal status eşleşmeleri düzeltildi | `0fb0f87` öncesi zincir | Erken dönen iki hata kalkınca geç-zaman rota doğrulama çelişkisi görünür oldu. |
+| 2026-08-23 | Tam test 900 saniyede trade invariantını reddetti | `npm test` | 180 saniyelik kısa koşuda terminal yoğunluğu bu katmanı üretmedi. |
+| 2026-08-23 | Tek süreç 900 saniye ile issue sınıfı izole edildi | Seed 2032 tanı koşusu | 7/7 issue yalnız varış kuyruğundaki canlı leg sözleşmesine daraldı. |
 
-# 4) Hypotheses (ranked)
+## 4) Hypotheses (ranked)
 
-## H1 — Validator terminal ajan durumlarını kabul etmiyor
+### H1 — Trade validator varış boşaltma kuyruğunu tanımıyor
 
-- **If true, we would also see:** Trade motoru `DELIVERED/LOST` atar; validator allowed listesinde bu değerler yoktur; issue'lar tamamlanmış shipmentlarda yoğunlaşır.
-- **Discriminating test:** Terminal geçiş kodu ile `storyTransportShipmentValidate` allowed state listesini karşılaştırmak.
-- **Status:** Supported. `StoryTrade.js` ajanı `DELIVERED` ve `LOST` yapıyor; validator yalnız `QUEUED`, `LOADING`, `MOVING`, `WAITING`, `TRANSFERRING`, `UNLOADING` kabul ediyor.
+- **If true, we would also see:** `legIndex === corridorIds.length`, hedef bölge doğru, ajan canlı `QUEUED`; transport validator geçerken trade leg validator başarısız olur.
+- **Discriminating test:** Son adım geçişi ve terminal admission kodunu `physicalUnloadingAtDestination` koşuluyla karşılaştırmak.
+- **Status:** Confirmed. Üretici açıkça varışta `QUEUED` yazıyor; trade validator yalnız `UNLOADING` kabul ediyor.
 
-## H2 — Ajan attach eksik veya bozuk alanlarla nesne üretiyor
+### H2 — Rota yeniden yönlendirmesi legIndex'i eski rotada bırakıyor
 
-- **If true, we would also see:** Dikey taşıma testleri canlı durumda başarısız olur; cargo id, step index veya physical route issue'ları görülür.
-- **Discriminating test:** Attach nesnesi ve mevcut kara/demir/deniz dikey testlerini incelemek.
-- **Status:** Refuted. Dört altyapı testi ve daha önceki fiziksel dikey testler geçti; hata mesajı genel `TRANSPORT_AGENT` olsa da terminal state karşılaştırmasından kaynaklanıyor.
+- **If true, we would also see:** `legIndex > corridorIds.length`, hedef/current uyuşmazlığı veya route replacement sonrası fiziksel adım sayısı çelişkisi.
+- **Discriminating test:** Issue koşulu ile replace-route atomik alan güncellemelerini incelemek.
+- **Status:** Refuted. Issue mesajı rota sonuna eşit canlı kayıt deseninde oluşuyor; üretici bu deseni varış kuyruğu için doğrudan kuruyor.
 
-## H3 — Ağ hash senkronizasyonu ajanları bozuyor
+### H3 — Dinamik altyapı revizyonu aktif shipment rotalarını bozuyor
 
-- **If true, we would also see:** Sidecar hash ataması transportAgent alanlarını değiştirir veya sorun hash düzeltmesi olmayan koşuda bulunmaz.
-- **Discriminating test:** Hash düzeltmesi diff'i ile shipment içeriğini karşılaştırmak.
-- **Status:** Refuted. Düzeltme yalnız iki `networkHash` alanını yazar; terminal çelişki ilk fiziksel lojistik commitinde mevcut.
+- **If true, we would also see:** Eksik koridor/segment, ağ hash veya transport agent issue'ları.
+- **Discriminating test:** Aynı 900 saniyelik doğrulamadaki issue dağılımını incelemek.
+- **Status:** Refuted. Ağ hash güncel; market geçerli; issue listesi yalnız `INVALID_SHIPMENT_LEG`.
 
-## H4 — ENERGY grid shipmentları fiziksel ajanmış gibi doğrulanıyor
+### H4 — Terminal yoğunluğu sevkiyatları gerçekten kilitliyor
 
-- **If true, we would also see:** Hatalı shipmentlarda `transportVersion`/agent bulunmaz veya ENERGY legacy yoluna ait olurlar.
-- **Discriminating test:** Validatorın yalnız `transportVersion != null` shipmentlarda çağrıldığını ve issue mesajını incelemek.
-- **Status:** Refuted. ENERGY grid shipmentları fiziksel ajan taşımıyor; issue'lar agent taşıyan v2 shipmentlardan geliyor.
+- **If true, we would also see:** Kuyruk state'i yaşam döngüsünde ilerlemeyen, sürekli büyüyen ve terminal admission alamayan kayıtlar.
+- **Discriminating test:** Terminal request kuyruğu/slot kodu ile state geçişini incelemek.
+- **Status:** Refuted as root cause. Kuyruk bekleme tasarlanmış geri basınçtır; her tick yeniden admission dener. Hata ilerleme değil, bu geçerli ara durumu reddeden validator sözleşmesidir.
 
-# 5) Mechanism
+## 5) Mechanism
 
-1. `storyTransportAttachShipment`, v2 fiziksel rota ve canlı `transportAgent` oluşturur.
-2. `storyTransportAdvanceShipment` ajanı yükleme, hareket, transfer ve boşaltma durumlarından geçirir.
-3. `storyTradeDeliverShipment` başarı sonunda shipment status ve agent state'i `DELIVERED` yapar.
-4. `storyTradeLoseShipment` aynı eşleşmeyi `LOST` için yapar.
-5. `storyTransportShipmentValidate`, shipment statusunu hesaba katmadan agent state'i yalnız canlı durum listesine karşı sınar.
-6. `storyTradeValidate`, tüm geçmiş shipmentları doğruladığı için her terminal fiziksel kayıt issue üretir.
+1. Fiziksel ajan son rota adımını tamamlar.
+2. Sevkiyat makro olarak hedef bölgeye ulaşır; `legIndex` rota uzunluğuna eşitlenir.
+3. Boşaltma başlamadan önce ajan terminal slotu için `QUEUED` durumuna alınır.
+4. Slot doluysa `storyTransportTerminalRequest` ajanı kuyrukta tutar; sevkiyat hâlâ `IN_TRANSIT` ve geçerlidir.
+5. Transport validator canlı `QUEUED` durumunu kabul eder.
+6. Trade leg validator yalnız `UNLOADING` durumunu istisna sayar ve aynı kaydı `INVALID_SHIPMENT_LEG` diye reddeder.
 
-- **Root cause:** Transport agent yaşam döngüsü için status-pair invariantı tanımlanmadı; validator canlı ve terminal kayıtları ayırmıyor.
-- **Contributing factor:** Hata mesajı yalnız `TRANSPORT_AGENT` diyerek hangi alt alanın bozuk olduğunu saklıyor.
-- **Detection failure:** Dikey testler teslimat animasyonunu ve agent final state'ini ölçüyor, fakat teslimat sonrası bütün trade ledger doğrulamasını kapılamıyor.
+- **Root cause:** Trade ve transport validatorları varış terminali yaşam döngüsü için ortak invariant kullanmıyor; geçerli `QUEUED -> UNLOADING` ara durumu trade katmanında eksik.
+- **Contributing factor:** 180 saniyelik kısa dikey testler terminal slot doygunluğunu üretmedi.
+- **Detection failure:** Birim testleri kuyruk hareketini ve teslimatı ayrı ayrı ölçüyor, fakat rota sonundaki kuyrukta bekleme anında bütün trade ledger doğrulamasını çağırmıyor.
 
-# 6) Remediation Options
+## 6) Remediation Options
 
-## Fix
+### Fix
 
-- **Title:** Ajan durumunu shipment yaşam döngüsüne göre doğrulamak
+- **Title:** Rota sonundaki v2 boşaltma kuyruğunu geçerli saymak
 - **Category:** Fix
 - **Severity:** High
 - **Confidence:** Confirmed
-- **Location:** `js/StoryTransportAgents.js`, `storyTransportShipmentValidate`
-- **Recommended fix:** Aktif `IN_TRANSIT/HELD` shipmentlarda yalnız canlı agent state'lerini; `DELIVERED`, `LOST`, gelecekte `RETURNED` shipmentlarda yalnız aynı isimli terminal agent state'ini kabul et. Kimlik, rota ve step index kontrollerini koru.
-- **Tradeoffs / Risks:** `RETURNED` bugün fiziksel akışta üretilmiyor; eşleşmeli kabul ilerideki açık shipment enumuyla tutarlılık sağlar, fakat dönüş uygulaması ayrıca agentı terminal duruma geçirmek zorunda olmalı.
+- **Location:** `js/StoryTrade.js`, `storyTradeValidate`
+- **Recommended fix:** Rota sonundaki canlı fiziksel sevkiyat istisnasını yalnız `UNLOADING` yerine doğrulanabilir varış terminali aşamasına genişlet: `QUEUED` için `stepIndex === physicalRoute.steps.length`, hedef bölge eşleşmesi ve transfer hedefinin olmaması; `UNLOADING` mevcut biçimde geçerli kalsın.
+- **Tradeoffs / Risks:** Genel `QUEUED` kabul edilmemeli; yükleme veya transfer kuyruğunu yanlışlıkla varış saymamak için son-step ve hedef invariantları zorunlu.
 
-## Prevention
+### Prevention
 
-- **Title:** Fiziksel teslimat sonrası trade ledger doğrulamasını dikey testlere eklemek
+- **Title:** Varış terminali doygunluğu altında ledger invariant testi
 - **Category:** Prevention
 - **Severity:** Medium
 - **Confidence:** Confirmed
-- **Location:** Kara, demir, deniz ve multimodal dikey testler
-- **Recommended fix:** Canlı hareket assertion'larından sonra `storyTradeValidate` çağır ve terminal shipment-agent status eşleşmesini doğrula.
-- **Tradeoffs / Risks:** Küçük test maliyeti; geniş regresyon yakalama değeri yüksek.
+- **Location:** `tests/story-transport-agents.test.js` veya yeni dar trade lifecycle testi
+- **Recommended fix:** Tek slotlu terminalde ikinci sevkiyatı rota sonunda `QUEUED` bırakıp `storyTradeValidate.ok=true` olduğunu; sahte rota-sonu `QUEUED` kaydının reddedildiğini doğrula.
+- **Tradeoffs / Risks:** Küçük test maliyeti; geç-zaman dünya testine göre çok daha hızlı ve ayırt edici.
 
-# 7) Verification Plan
+## 7) Verification Plan
 
-- `tests/story-transport-agents.test.js` ve kara/demir/deniz/multimodal dikey testler geçmeli.
-- Seed 2032, 180 saniyelik dünya `tradeValidation.ok=true` ve `marketValidation.ok=true` vermeli.
-- Teslim edilmiş v2 shipmentlarda `shipment.status=DELIVERED` ve `agent.state=DELIVERED`; kayıplarda `LOST/LOST` korunmalı.
-- Aktif shipment üzerinde sahte terminal agent state validator tarafından reddedilmeli.
-- Son olarak `npm test` toplu assertion dahil sıfır koduyla tamamlanmalı.
+- Dar test: varışta `QUEUED` + son fiziksel step + doğru hedef geçerli.
+- Negatif test: yükleme/transfer kuyruğu veya eksik son-step varış istisnasından yararlanamıyor.
+- Mevcut transport agent, kara, demir, deniz ve multimodal testleri geçmeli.
+- Seed 2032 / 900 saniyelik doğrudan koşu `tradeValidation.ok=true` ve `marketValidation.ok=true` vermeli.
+- Son kapı: `npm test` sıfır koduyla tamamlanmalı.

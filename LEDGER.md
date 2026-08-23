@@ -130,3 +130,17 @@
 - **What happened:** Canlı fiziksel rota testleri ve attach alanları geçerliydi; hash düzeltmesi yalnız revizyon alanlarını değiştirdi, ENERGY grid shipmentları ise v2 agent validatorına girmez.
 - **Evidence:** Kara/demir/deniz rota testleri geçti; issue kodu yalnız agent terminal durumunda açığa çıktı; çelişkili kod `6ece5a5` commitinden beri mevcut.
 - **Implication for future audits:** Bu issue için rota üretimini veya grid fallback'i değiştirmeden önce terminal state-pair sözleşmesini denetle.
+
+## 2026-08-23 — Varış boşaltma kuyruğu trade leg validatorında eksik
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Varış terminali kuyruğu geçerli sevkiyatı rota dışı gösteriyor
+- **What happened:** Fiziksel ajan son adımda hedefe ulaşıp boşaltma terminali sırası beklerken meşru olarak `legIndex=end` ve `state=QUEUED` taşıyor; trade validator yalnız `UNLOADING` istisnasını kabul ediyor.
+- **Evidence:** Seed 2032 / 900 saniyede 7/7 issue `INVALID_SHIPMENT_LEG`; market ve ağ hash'i geçerli. Üretici `StoryTransportAgents.js` içinde rota sonunda `QUEUED` yazıyor, transport validator bunu canlı state olarak kabul ediyor.
+- **Implication for future audits:** Rota sonundaki canlı shipmentı doğrudan bozuk sayma; boşaltma terminali `QUEUED -> UNLOADING` yaşam döngüsünü ve son-step/hedef invariantlarını birlikte doğrula.
+
+## 2026-08-23 — Reroute, ağ revizyonu ve terminal kilitlenmesi leg issue'nun kök nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Varış terminali kuyruğu geçerli sevkiyatı rota dışı gösteriyor
+- **What happened:** Aynı koşuda ağ ve piyasa doğrulaması temizdi; rota sonu kuyruk durumu üretim kodunun tasarlanmış terminal geri basıncıydı.
+- **Evidence:** `marketValidation.ok=true`, ağ hash `fnv1a32:aad33143`; issue sınıfı yalnız `INVALID_SHIPMENT_LEG`, terminal kuyruğu her tick yeniden admission deniyor.
+- **Implication for future audits:** Bu belirtiyi rota grafiği veya ilerleme donması olarak düzeltmeden önce trade ile transport validatorlarının ortak yaşam döngüsü sözleşmesini karşılaştır.
