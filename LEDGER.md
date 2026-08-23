@@ -389,3 +389,17 @@
 - **What happened:** Review motorunun gerçek BROKEN olayı tanımadığı ihtimali incelendi.
 - **Evidence:** Review ok ve idempotent kaldı; ticari zarar değerlendirmesi ve kanıtsız savaş engelleri geçti, yalnız cross-border yasal dayanak oluşmadı.
 - **Implication for future audits:** Güvenli yükseltmeme davranışını arıza saymadan önce fikstürün gerçekten yabancı devlet tarafları taşıdığını doğrula.
+
+## 2026-08-23 — Söz hafızası follow-up testi sosyal olmayan oturum kullanıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Söz hafızası takip probu sosyal olmayan oturumda follow-up çağırıyor
+- **What happened:** Yeni görüşme `Söz veriyorum...` ile açıldı; NLU bunu `MAKE_PROMISE / READY_FOR_REVIEW` yaptı, fakat follow-up API yalnız sosyal hazır oturumu kabul ediyor.
+- **Evidence:** İzole runtime söz cümlesinde sosyal cevap üretmedi; selam ve önceki sözler açılışı `SOCIAL_RESPONSE_READY` üretti.
+- **Implication for future audits:** Hafıza takip testini mekanik teklif/söz oturumuyla karıştırma; sosyal oturum önkoşulunu açık doğrula.
+
+## 2026-08-23 — KEPT ve BROKEN söz hafızası kayıp değil
+- **Type:** Refuted
+- **Source:** RCA.md — Söz hafızası takip probu sosyal olmayan oturumda follow-up çağırıyor
+- **What happened:** Sonraki görüşme hatasının hafıza yazım veya uzun vade recall kaybından gelebileceği incelendi.
+- **Evidence:** `promiseMemoryResolved=true` ve `promiseRecallLongHorizon=true`; hata follow-up çağrısı cevap üretmeden önce.
+- **Implication for future audits:** Recall zincirinde depolama, doğrudan arama, oturum uygunluğu ve cevap gerçekleştirmeyi ayrı kapılar olarak değerlendir.
