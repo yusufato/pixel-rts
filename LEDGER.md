@@ -179,3 +179,17 @@
 - **What happened:** İlk koridor tam kesildiğinde rota motoru hasarlı kenarı dışlayıp 0→2→3→1 alternatifini hesapladı.
 - **Evidence:** routeBefore doğrudan 0:1; routeAfter.ok=true ve üç farklı koridor kullanıyor.
 - **Implication for future audits:** allBenchmarkRoutesFound düşüşünde önce örnek kümesinin kapalı fiziksel kenar içerip içermediğini kontrol et; motoru veya invalidationı kanıtsız değiştirme.
+
+## 2026-08-23 — Kesinti kabul eşiği fiziksel yükleme fazını yok sayıyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Ticaret kesinti eşiği fiziksel yükleme süresini yok sayıyor
+- **What happened:** 20 saniyelik probun ilk 0,5 saniyesi yükleme, kalan 19,5 saniyesi kapalı koridorda bekleme olmasına rağmen test kesinti sayacından tam 20 bekledi.
+- **Evidence:** Sevkiyat HELD/PHYSICAL_SEGMENT_BLOCKED; agent waitingSeconds=19.5; manifest interruptionSeconds=19.5; adım ilerlemesi sıfır.
+- **Implication for future audits:** Uçtan uca tick süresini tek bir yaşam döngüsü fazına eşitleme; yükleme, transfer, hareket, kuyruk ve kesinti sürelerini ayrı doğrula.
+
+## 2026-08-23 — Koridor hasarı ve kesinti telemetrisi kayıp değil
+- **Type:** Refuted
+- **Source:** RCA.md — Ticaret kesinti eşiği fiziksel yükleme süresini yok sayıyor
+- **What happened:** Koridor tam kapandı, sevkiyat bekledi ve manifest/agent sayaçları aynı gerçek süreyi kaydetti.
+- **Evidence:** effectiveCapacity=0, held=1, advanced=0, delivered=0; kesinti sonrası sevkiyat DELIVERED durumuna ulaştı ve 19,5 saniyeyi korudu.
+- **Implication for future audits:** Toplam tick eşiği düşerse telemetriyi eksik saymadan önce faz bütçesinin ne kadarının gerçekten blokajda geçtiğini ölç.
