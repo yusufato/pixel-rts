@@ -361,3 +361,17 @@
 - **What happened:** Daha sonraki sosyal UI işlemlerinin eski `completedSession` ölçümünü mutasyonla değiştirdiği hipotezi incelendi.
 - **Evidence:** `storyConversationSessionLatest` ledger satırını `storyConversationClone` ile kopyalayarak döndürüyor.
 - **Implication for future audits:** Geç ölçüm bozulması şüphesinde önce kopyalama sınırını doğrula; burada hata ölçüm alias'ında değil durumun ilk üretiminde.
+
+## 2026-08-23 — Görüşme UI probu kaldırılmış ACTORBELIEF literalini bekliyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Görüşme UI probu kaldırılmış geliştirici terimini bekliyor
+- **What happened:** Ürün UI bilgi sınırını Türkçe gösterirken harness eski `ACTORBELIEF` terimini aradı.
+- **Evidence:** `Talks.js` doğrulanmış cevap ve Türkçe güvenlik notunu render ediyor; realization ve mekanik grounding alanları true.
+- **Implication for future audits:** UI güvenlik sözleşmesini iç mimari jargonuna değil oyuncunun gördüğü açık anlama bağla.
+
+## 2026-08-23 — Domain review cevabı UI yolundan kaybolmadı
+- **Type:** Refuted
+- **Source:** RCA.md — Görüşme UI probu kaldırılmış geliştirici terimini bekliyor
+- **What happened:** Mekanik cevap veya realization render yolundan kaybolmuş olabilirdi.
+- **Evidence:** `listenerResponseRealized=true`, `mechanicalGroundingPreserved=true`; `Talks.js` cevap ve bilgi sınırını render ediyor.
+- **Implication for future audits:** Birleşik görünüm kapısında motor, render ve literal koşulu ayrı incele.
