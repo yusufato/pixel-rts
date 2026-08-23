@@ -618,3 +618,9 @@
 - **What happened:** Session participantActorIds taşısa da renderer activeMeeting yoksa tek listener profilini çizdi; bilinmeyen kimlik fallbacki de yoktu.
 - **Evidence:** Beklenen üç karta karşı sıfır participant kartı; rendererın tek koşulu formal meetingCase.
 - **Implication for future audits:** Mekanik meeting kaydı ile salt-okunur çok-katılımcı UI projeksiyonunu ayrı sınırlar olarak tasarla.
+## 2026-08-23 — Kalıcılık sayacı takip cevaplarını saymıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Kalıcılık assertionı hedef cevaplar yerine bütün sosyal açılışları sayıyor
+- **What happened:** Sayaç tüm SOCIAL_RESPONSE açılışlarını saydı fakat mesaj bunu sekiz açılış ve dört FOLLOW_UP_RESPONSE olarak yorumladı.
+- **Evidence:** restored exact ve validation true; filtre yalnız SOCIAL_RESPONSE, gerçek toplam 16.
+- **Implication for future audits:** Kalıcılık testlerinde tür toplamına sabit sayı bağlamak yerine hedef kayıt kimliklerini save/load boyunca izle.

@@ -1,42 +1,34 @@
-# RCA — Genel çok katılımcılı oturum sol profilde tek kişiye düşüyor
+# RCA — Kalıcılık assertionı hedef cevaplar yerine bütün sosyal açılışları sayıyor
 
 ## 1) Verdict
 
-- **Root cause:** Workspace renderer yalnız FORMAL_MEETING ve meetingCaseId bulunan oturumlarda participant kartlarını çiziyor; oturum düzeyindeki participantActorIds listesini projekte etmiyor. ParticipantsHtml ayrıca her satırı doğrulanmış kamusal profil olarak etiketliyor ve bilinmeyen kimlik fallbacki yok.
+- **Root cause:** Restore probu responseCount alanında ledgerdaki tüm SOCIAL_RESPONSE açılışlarını sayıyor; assertion bunu sekiz sosyal açılış artı dört bağlamsal takip yanıtı diye yorumlayıp 12ye eşitliyor. FOLLOW_UP_RESPONSE kayıtları sayaçta hiç yer almıyor.
 - **Confidence:** Confirmed.
 
 ## 2) Failure Definition
 
-- Beklenen: Bir oturum birden fazla katılımcı kimliği taşıyorsa sol sütun her kişiyi ayrı kartta göstermeli; directoryde bulunmayan kimlikler veri uydurmadan maskelenmeli.
-- Gerçek: activeMeeting null olduğunda renderer doğrudan tek listener profiline dönüyor.
-- Etki: Çok kişili görüşme UI’si toplantı adaptörü tamamlanmadan kullanılamıyor; bilinmeyen katılımcı ya görünmüyor ya da doğrulanmış sanılma riski taşıyor.
-- Blast radius: Genel multi-party oturum önizlemesi ve bilinmeyen katılımcı güvenliği; canonical formal meeting görünümü korunmalı.
+- Beklenen: Sekiz temel sosyal açılış ve dört bağlamsal takip cevabının kimlikleri save/load sonrasında bulunmalı.
+- Gerçek: Sayaç yalnız kind SOCIAL_RESPONSE satırlarını bütün retained sessionlarda sayıyor; genişleyen kalite fixturelarıyla 16 oldu.
+- Etki: exact restore ve validation geçmesine rağmen ilgisiz oturum sayısı assertionı kırıyor.
+- Blast radius: restored.responseCount metriği ve tek assertion.
 
 ## 3) Evidence
 
-- Fixture aktif sessiona üç participantActorIds ekliyor; renderer activeMeeting dışındaki bu alanı okumuyor.
-- participantCards sayısı beklenen 3 yerine tek profil görünümü nedeniyle 0.
-- storyTalkConversationParticipantsHtml her row için koşulsuz DOĞRULANMIŞ KAMUSAL PROFİL yazıyor.
-- Contact directory bilinen ikinci katılımcıyı çözebiliyor; üçüncü kimlik directoryde yok.
+- restored.exact=true ve restored.validation.ok=true.
+- responseCount filtresi yalnız row.kind === SOCIAL_RESPONSE.
+- Assertion mesajı dört takip yanıtını da saydığını söylüyor; bu kayıtlar FOLLOW_UP_RESPONSE türünde.
+- Güncel fixture ek oturumlar açtığı için sosyal açılış toplamı 16.
 
-## 4) Hypotheses
+## 4) Remediation
 
-1. **Renderer yalnız meetingCase yolunu destekliyor.** Supported.
-2. **İkinci karakter directoryde yok.** Refuted: fixture publicCharacters içinden seçiyor.
-3. **Unknown kart CSS nedeniyle gizli.** Refuted: unknown için hiç row oluşturulmuyor.
-4. **Toplantı motoru bozuk.** Refuted: hata formal meeting oluşturmadan kullanılan genel participant projectionında.
+- Ölçülmek istenen sekiz opening response ve dört contextual response kimliğini save öncesi sakla.
+- Restore sonrası bu 12 kimliğin listenerResponses içinde bulunduğunu say.
+- Bütün ledger açılışlarının sayısına sabit eşitlik kurma.
+- exact ve validation kapılarını koru.
 
-## 5) Remediation
+## 5) Verification Plan
 
-- activeMeeting yokken ve session participantActorIds birden fazlayken salt-okunur participant preview oluştur.
-- Bilinen kimlikleri contact directory kamusal alanlarıyla doldur.
-- Bilinmeyen kimliği Bilinmeyen katılımcı, Bilinmiyor ve KİMLİK DOĞRULANMADI etiketleriyle göster.
-- Formal meeting geldiğinde canonical meeting participants öncelikli kalmalı.
-- UI projectionı ledgerı veya dünyayı değiştirmemeli.
-
-## 6) Verification Plan
-
-- Üç participant kartı görünmeli ve bilinen ikinci actorId ayrı kartta olmalı.
-- Unknown kart güvenli üç etiketi taşımalı.
-- Formal meeting UI testleri ve ledger validation geçmeli.
-- Sıralı ve tam test paketi geçmeli.
+- restored.keyResponseCount=12.
+- restored.exact=true ve validation.ok=true.
+- Fixturea başka oturum eklemek bu kapıyı bozmamalı.
+- Sıralı ve tam paket geçmeli.
