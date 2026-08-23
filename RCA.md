@@ -1,52 +1,40 @@
-# RCA — Dolaylı askerî destek isteği soru olarak yanlış sınıflanıyor
+# RCA — Askerî destek probu güvenli alan hareketini yanlış etiketle reddediyor
 
 ## 1) Verdict
 
-- **Root cause:** Speech-act puanlayıcısı REQUEST_SUPPORT için dar sabit kalıplar kullanıyor; desteğini istesem kabul eder misin ifadesi bu listede yok ve genel soru işareti ASK_INFORMATION sınıfını kazanıyor.
+- **Root cause:** NLU düzeltmesinden sonra motor askerî destek isteğini doğru biçimde ASSESS_UNVERIFIED_MILITARY_REQUEST hareketine taşıyor; harness yalnız CONTINUE_REQUEST kabul ettiği için doğru güvenli cevabı başarısız sayıyor.
 - **Confidence:** Confirmed.
-- Ordu bağlamı doğru algılanıyor fakat bu bağlam yalnız primary act zaten REQUEST_SUPPORT ise askerî destek requesti oluşturuyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Ordu topluyorum, desteğini istesem kabul eder misin? sözü REQUEST_SUPPORT ve askerî destek isteği olarak anlaşılmalı.
-- Gerçek: ASK_INFORMATION, ANSWER_INFORMATION_BOUNDARY ve kesin yanıt veremem cevabı üretiliyor.
-- Etki: Oyuncunun doğal dolaylı talepleri bilgi sorusu sanılıyor; sonraki neden, tekrar ve düzeltme zinciri yanlış bağlamdan devam ediyor.
-- Blast radius: Yardım/destek kökü içeren fakat mevcut yedi sabit kalıba uymayan dolaylı destek talepleri.
+- Beklenen: Askerî destek talebi doğrulanmamış tehdit/konum için güvenli sınır koyan askerî hareketle başarılı sayılmalı.
+- Gerçek: Prob yalnız genel yardım hareketini kabul ediyor.
+- Etki: Doğru alan güvenliği başarısız görünür ve sonraki assertionlara ulaşılamaz.
+- Blast radius: contextualFollowUp.militaryAnswer ölçütü; ürün cevabı ve NLU artık doğrudur.
 
 ## 3) Evidence
 
-- Hedefli probun ilk bağlamsal turu FOLLOW_UP_RECORDED ancak speechAct ASK_INFORMATION.
-- Cevap ANSWER_INFORMATION_BOUNDARY ve kaynak DETERMINISTIC_KNOWLEDGE_BOUNDARY_RESPONSE.
-- Cümlede ordu bulunduğu için militaryContext true olabilecek veri mevcut.
-- REQUEST_SUPPORT listesi desteğini istesem veya destek kabulü sorusunu içermiyor.
-- Request üretimi act.primary REQUEST_SUPPORT koşuluna bağlı olduğu için askerî bağlam tek başına sınıfı düzeltemiyor.
+- speechAct REQUEST_SUPPORT.
+- response source DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE.
+- discourseAct ASSESS_UNVERIFIED_MILITARY_REQUEST.
+- Cevap askerî desteği açıkça anlıyor ve doğrulama olmadan kuvvet hareketi sözü vermiyor.
+- worldMutation false ve DialogueMove doğrulaması geçerli.
 
 ## 4) Hypotheses
 
-1. **Dolaylı destek kalıbı puanlanmıyor.** Supported: gerçek çıktı ASK_INFORMATION; sabit listede ifade yok.
-2. **Askerî bağlam algılanmıyor.** Refuted: ordu açıkça militaryContext kelime kümesinde.
-3. **DialogueMove kataloğu destek hareketini reddediyor.** Refuted: bu turda hareket geçerli ANSWER_INFORMATION_BOUNDARY; hata sınıflandırmadan önce değil sınıflandırmadadır.
-4. **Takip oturumu kullanılamıyor.** Refuted: sonuç FOLLOW_UP_RECORDED ve cevap mevcut.
+1. **Harness eski genel hareket etiketini zorluyor.** Supported.
+2. **NLU hâlâ ASK_INFORMATION üretiyor.** Refuted: güncel çıktı REQUEST_SUPPORT.
+3. **Motor askerî isteği anlamıyor.** Refuted: cevap açıkça askerî destek ve kuvvet hareketinden söz ediyor.
 
-## 5) Mechanism
+## 5) Remediation
 
-1. Soru işareti ve kabul eder misin yapısı genel bilgi sorusu puanı alır.
-2. Dar REQUEST_SUPPORT kalıbı eşleşmez.
-3. Primary act ASK_INFORMATION olur.
-4. militaryContext request aşamasında kullanılamaz çünkü REQUEST_SUPPORT önkoşulu sağlanmaz.
-5. Konuşmanın aktif konusu askerî destek yerine bilgi sınırı olur.
+- militaryAnswer ölçütünü domain-özel ASSESS_UNVERIFIED_MILITARY_REQUEST hareketine hizala.
+- Kaynak, speechAct, askerî metin ve dünya tarafsızlığı kontrollerini koru.
+- Genel yardım testi CONTINUE_REQUEST beklemeye devam etsin; iki davranış birleştirilmesin.
 
-## 6) Remediation
+## 6) Verification Plan
 
-- Yardım veya destek kökü ile istek/kabul soru yapısını bileşik olarak puanlayan genel bir destek-talebi kuralı ekle.
-- destegini istesem, destek istiyorum, yardimini istiyorum ve kabul eder misin benzeri biçimleri sabit tümce yerine iki anlamsal kümenin çarpımıyla kapsa.
-- OFFER_SUPPORT birinci tekil teklif kalıplarıyla karışmamalı.
-- Dünya mutasyonu ve kabul vaadi yine yasak kalmalı.
-
-## 7) Verification Plan
-
-- İlk bağlamsal tur REQUEST_SUPPORT olmalı.
-- Cevap askerî destek kapsamını belirtmeli ve bağımsız selamlama/fallback olmamalı.
-- Sonraki neden, tekrar onarımı ve konu düzeltmesi aynı oturumda geçmeli.
-- Doğrudan konuşma laboratuvarı ve 10 güvenli-fallback senaryosu korunmalı.
+- militaryAnswer true.
+- helpFollowUpUnderstood genel CONTINUE_REQUEST ile true kalmalı.
+- Dünya mutasyonu false kalmalı.
 - Sıralı ve tam test paketi geçmeli.

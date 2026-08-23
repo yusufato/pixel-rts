@@ -582,3 +582,9 @@
 - **What happened:** İlk takip turunun bekleyen LLM veya oturum durumu yüzünden reddedildiği ihtimali incelendi.
 - **Evidence:** Sonuç FOLLOW_UP_RECORDED, geçerli response ve DialogueMove içeriyor; yanlış olan speech-act seçimidir.
 - **Implication for future audits:** Boolean probe başarısızlığında result code, analysis ve response katmanlarını ayrı kaydet.
+## 2026-08-23 — Askerî destek probu doğru domain hareketini reddediyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Askerî destek probu güvenli alan hareketini yanlış etiketle reddediyor
+- **What happened:** NLU doğru REQUEST_SUPPORT ürettikten sonra motor doğrulanmamış askerî isteği güvenli alan hareketiyle ele aldı; harness genel CONTINUE_REQUEST bekledi.
+- **Evidence:** discourseAct=ASSESS_UNVERIFIED_MILITARY_REQUEST, güvenli askerî cevap, worldMutation=false ve geçerli DialogueMove.
+- **Implication for future audits:** Genel sosyal niyet ile alan-özel güvenli karar hareketinin aynı etiketi taşımasını bekleme.
