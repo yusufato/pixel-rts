@@ -1,60 +1,58 @@
-# RCA — Yeni şema-4 konuşma oturumu nullable olay alanlarını üretmiyor
+# RCA — Görüşme açılış odağı takip editörünü seçmiyor
 
 ## 1) Verdict
 
-- **Root cause:** storyConversationSessionBegin yeni şema-4 oturum nesnesinde sourceEventAnchor ve eventDecision anahtarlarını baştan oluşturmuyor.
+- **Root cause:** storyConversationWorkspaceOpen içindeki focus selector, mevcut oturumun data-conversation-follow-up editörünü hiç içermiyor ve eşleşen ilk öğe olarak Yeni Konuşma düğmesine düşüyor.
 - **Confidence:** Confirmed.
-- Göç düzeltmesi bu alanları yükleme sırasında ekleyince kayıt öncesi ve sonrası snapshot farklılaşıyor.
+- Harness mevcut bir session kimliğiyle workspace açıyor; DOMda takip editörü varken activeElement kabul edilen editörlerden biri değil.
 
 ## 2) Failure Definition
 
-- Beklenen: Yeni oturum ve yüklenmiş aynı oturum birebir aynı kanonik şekle sahip olmalı.
-- Gerçek: Yeni oturumda anahtarlar yok; restore göçü bunları null olarak ekliyor; exact=false.
-- Etki: Değişiklik yapılmadan yapılan save/load bile nesne şeklini değiştiriyor.
-- Blast radius yeni konuşma oturumlarının kalıcılık eşitliğidir.
+- Beklenen: Mevcut konuşma açıldığında oyuncu doğrudan takip mesajı yazabilmeli.
+- Gerçek: Açılış odağı takip editörü yerine data-conversation-new düğmesine gidiyor.
+- Etki: Oyuncu yazmaya başlayınca metin alanına giriş yapılmıyor; klavye akışı kırılıyor.
+- Blast radius mevcut oturumla açılan karakter görüşmeleridir; yeni boş konuşma akışı etkilenmez.
 
 ## 3) Timeline
 
 | Zaman | Olay | Kanıt |
 |---|---|---|
-| Şema 4 | Olay alanları sözleşmeye girdi | Göç ve olay-bağlı prob sözleşmesi |
-| Oturum üretimi | Constructor alanları eklemedi | storyConversationSessionBegin nesne literali |
-| Göç düzeltmesi | Eksik alanlar restore sırasında null oldu | Yeni exact=false sonucu |
+| Workspace focus eklendi | Selector yeni konuşma ve bazı form alanlarını kapsadı | Talks.js focusTarget |
+| Takip editörü UIya eklendi | data-conversation-follow-up mevcut oturumun ana girdisi oldu | Talks.js render ve harness |
+| Güncel prob | workspaceFocusSafe=false | conversationUnderstandingProbe |
 
 ## 4) Hypotheses (ranked)
 
-1. **Constructor ile migrator şekli farklı.** Supported: constructor alanları yok; migrator açık null ekliyor.
-2. **Kaydetme başka veriyi bozuyor.** Refuted: müzakere exact=true ve tek değişiklik iki yeni backfill alanı.
-3. **Exact assertion gereksiz katı.** Refuted: deterministik kayıt/yükleme sözleşmesi aynı güncel şemada şekil değiştirmemeli.
+1. **Selector takip editörünü atlıyor.** Supported: selector metninde follow-up yok, sonunda conversation-new var.
+2. **DOM takip editörünü üretmiyor.** Refuted: hemen sonraki harness sorgusu bu öğeyi bulup taslak testi yapıyor.
+3. **jsdom focus desteklemiyor.** Refuted: aynı prob diğer textarea focus ve selection işlemlerini ölçüyor.
 
 ## 5) Mechanism
 
-1. Yeni şema-4 oturum iki nullable anahtar olmadan oluşturulur.
-2. Snapshot bu eksik şekli kaydeder.
-3. Restore her kaydı migratordan geçirir.
-4. Migrator iki anahtarı null yapar.
-5. Semantik aynı olsa da JSON şekli değişir ve exact kapısı düşer.
-- Root cause constructor/migrator drift; contributing factor nullable alanların merkezî şema üreticisinden gelmemesi; detection failure göç backfilli eklenene dek missing-missing eşitliğinin hatayı gizlemesidir.
+1. Mevcut session ile workspace render edilir.
+2. querySelector sıralı adaylarda follow-up olmadığı için editörü görmez.
+3. DOMdaki Yeni Konuşma düğmesi eşleşir ve focus alır.
+4. Kullanıcı giriş odağı yanlış kontrol üzerinde kalır.
+- Root cause eksik selector; contributing factor yeni ve mevcut konuşmanın tek selectorla ele alınması; detection failure takip editörü eklendiğinde focus sözleşmesinin güncellenmemesidir.
 
 ## 6) Remediation Options
 
 ### Mitigation
 
-- Exact testi gevşetmek kanonik şema sürüklenmesini gizler; uygulanmamalı.
+- Odağı hiçbir yere vermemek düğme sorununu gizler ama klavye kullanımını yine bozar; uygulanmamalı.
 
 ### Fix
 
-- Yeni oturum nesnesine sourceEventAnchor: null ve eventDecision: null ekle.
-- Olay-bağlı akışlar daha sonra doğrulanmış değerleri bu alanlara yazabilsin.
+- data-conversation-follow-up öğesini data-conversation-new öncesinde focus adaylarına ekle.
+- Yeni konuşmada follow-up yoksa mevcut data-conversation-input davranışı korunsun.
 
 ### Prevention
 
-- Constructor ve migrator için kanonik anahtar kümesi eşitlik testi ekle.
-- Nullable alan eklenirken create, migrate, validate ve persistence yüzeylerini birlikte güncelle.
+- Yeni giriş kontrolü eklendiğinde workspace açılış focus testini mevcut ve yeni oturum için ayrı çalıştır.
 
 ## 7) Verification Plan
 
-- Güncel konuşma probunda restoredSession.exact=true olmalı.
-- Eski göçte defaultsPresent=true kalmalı.
-- Sequential assertion zinciri devam etmeli.
-- Tam kayıt/yükleme ve fallback testleri geçmeli.
+- workspaceFocusSafe=true olmalı.
+- Yeni konuşma input odağı korunmalı.
+- Taslak rerender ve klavye güvenliği kapıları yeniden çalışmalı.
+- Sequential ve tam test paketi geçmeli.

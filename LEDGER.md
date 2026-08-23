@@ -471,3 +471,16 @@
 - **What happened:** Kayıt/yükleme farkının soru, cevap, aday veya müzakere içeriğinden gelebileceği incelendi.
 - **Evidence:** Müzakere exact=true; fark, migratorun yeni eklediği fakat constructorın üretmediği iki nullable anahtardan sonra ortaya çıktı.
 - **Implication for future audits:** Persistence exact hatasında önce create/migrate shape driftini kontrol et.
+## 2026-08-23 — Workspace focus selector takip editörünü atlıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Görüşme açılış odağı takip editörünü seçmiyor
+- **What happened:** Mevcut görüşmede ana giriş data-conversation-follow-up iken açılış focus selectorü bu kontrolü içermedi ve Yeni Konuşma düğmesini seçti.
+- **Evidence:** Talks.js selectoründe follow-up yok; güncel prob workspaceFocusSafe=false.
+- **Implication for future audits:** Yeni konuşma kontrolü eklendiğinde açılış focus sırasını mevcut ve boş oturum için birlikte güncelle.
+
+## 2026-08-23 — Takip editörü DOMdan kaybolmuyor
+- **Type:** Refuted
+- **Source:** RCA.md — Görüşme açılış odağı takip editörünü seçmiyor
+- **What happened:** Odağın yanlış olmasının takip editörünün render edilmemesinden gelebileceği incelendi.
+- **Evidence:** Harness aynı render sonrasında data-conversation-follow-up öğesini bulup değer, selection ve scroll ölçümü yapabiliyor.
+- **Implication for future audits:** Element mevcutken focus düşüyorsa önce querySelector aday sırası ve kapsamını incele.
