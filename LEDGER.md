@@ -676,3 +676,16 @@
 - **What happened:** Canlı katman 1640 olduğu için tüm 300 px kontrollerinin kaldırılması ihtimali incelendi.
 - **Evidence:** Harness 300 px örneği canlı render için değil kıyı uyumu ve ince-geometri kaybını ölçmek için açıkça ayrı üretiyor.
 - **Implication for future audits:** Bayat canlı-yol assertionını kaldırırken bağımsız kalite karşılaştırmasını yanlışlıkla silme.
+## 2026-08-23 — ImageData kapalı yol artık HXD politik canvasına düşüyor
+- **Type:** Confirmed
+- **Source:** RCA.md — ImageData bayrağı kapalı testi HXD politik canvasından önceki fallbacki bekliyor
+- **What happened:** Test ImageData bayrağı kapalıyken eski 300×236 fillRect fallbackini bekledi; HXD-5 öncelik sırası bağımsız 1640×1290 politik canvası önce kullanıyor.
+- **Evidence:** disabled=true ve directCanvas=null iken hex adapter aktif, render 1640×1290, fillRect/putImageData sıfır, A/B dünya karması eşit.
+- **Implication for future audits:** Özellik bayrağı testini bütün renderer yerine bayrağın sahip olduğu adaptör sınırına bağla; öncelik zinciri değişince fallback kabulünü yeniden adlandır.
+
+## 2026-08-23 — ImageData bayrağı HXD politik katmanını kapatmıyor
+- **Type:** Refuted
+- **Source:** RCA.md — ImageData bayrağı kapalı testi HXD politik canvasından önceki fallbacki bekliyor
+- **What happened:** Bayrak kapalıyken HXD canvasın da kapanması gerektiği ihtimali incelendi.
+- **Evidence:** Bayrak `political-overlay-rgba` üreticisini kapsıyor; HXD ayrı adaptör ve runtime öncelik zincirinde ondan önce geliyor.
+- **Implication for future audits:** Bayrak sahipliğini isim, adapterVersion ve çağrı sırasıyla birlikte belgele.

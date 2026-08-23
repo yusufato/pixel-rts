@@ -1,41 +1,42 @@
-# RCA — Politik overlay testi geri dönüş fallback çözünürlüğünü canlı katman sanıyor
+# RCA — ImageData bayrağı kapalı testi HXD politik canvasından önceki fallbacki bekliyor
 
 ## 1) Verdict
 
-- **Root cause:** Kanonik harita raster testi, HXD-5 ile canlı politik katman `1640×1290` altıgen canvas'a taşındıktan sonra `renderCaches.overlay.width === 300` tarihsel Faz 14.2 beklentisini korudu.
+- **Root cause:** `politicalOverlayProbe` bayrak-kapalı assertionları, `render.imageDataPoliticalOverlay` kapatılınca `storyEnsureOwnerOverlay()` çağrısının doğrudan eski `300×236` hücre-başı `fillRect` yoluna düşeceğini varsayıyor. HXD-5 sonrasında fonksiyon önce bağımsız `hex-political-overlay-canvas-1` adaptörünü kullanıyor; yalnız ImageData üreticisi kapanıyor.
 - **Confidence:** Confirmed.
-- `300` çözünürlük artık yalnız kıyı/ince-geometri kaybını ölçen bilinçli downsample teşhisidir; canlı owner overlay çözünürlüğü değildir.
+- Güvenli fallback artık eski fillRect döngüsü değil, kanonik 1640×1290 HXD politik canvasıdır.
 
 ## 2) Failure Definition
 
-- Beklenen: Test gerçek render cache'inin güncel kanonik `1640` genişliğini ve ayrı 300 px downsample teşhisini kendi sözleşmeleriyle doğrulamalı.
-- Gerçek: Runtime canlı `1640` canvas döndürüyor; assertion bunu eski geçici `300` değerine eşitliyor.
-- Etki: Düşük çözünürlüklü politik katmanı kaldıran görsel iyileştirme sahte regresyon oluyor.
-- Blast radius: `tests/story-world.test.js` içindeki tek render-cache genişlik assertionı; 300 px teşhis ve kıyı bütçeleri korunur.
+- Beklenen: Bayrak-kapalı probu ImageData üreticisinin kapanmasını, doğrudan canvasın null kalmasını ve canlı renderın geçerli HXD politik canvas üzerinden sürmesini doğrulamalı.
+- Gerçek: Bu davranış runtime'da oluşuyor fakat test 300 px ve 10.000+ fillRect çağrısı bekliyor.
+- Etki: Eski yavaş fallbackin artık çalışmaması regresyon sayılıyor; HXD öncelik zinciriyle test sözleşmesi çelişiyor.
+- Blast radius: `tests/story-world.test.js` içindeki iki bayrak-kapalı boyut/çağrı assertionı.
 
 ## 3) Evidence
 
-- `storyEnsureOwnerOverlay()` önce `storyHexPoliticalOverlayEnsureCanvas()` yolunu kullanıyor.
-- Kanonik HXD belgeleri canlı politik canvas'ı `1640×1290`, `7.517` atanmış hücre ve `460` sınır kenarı olarak kabul etmiş.
-- `StoryMapRaster.js` ortak raster genişliğini `1640` olarak sabitliyor.
-- Harness ayrıca `mapRasterResample(300, ...)` ile yalnız karşılaştırma teşhisi üretiyor; `diagnostics.overlay300` ve ince-geometri kapıları bu amaçla ayrı kalıyor.
+- Kayıtlı çıktı: `diagnostics.disabled=true`, `directCanvas=null`, `hexDiagnostics.adapterVersion=hex-political-overlay-canvas-1`, render `1640×1290`, `fillRectCalls=0`, `putImageDataCalls=0`.
+- `storyEnsureOwnerOverlay()` sırası HXD canvas → ImageData politik overlay → legacy fillRect fallback biçimindedir.
+- HXD tanılaması 7.517 atanmış hücre ve 460 sınır kenarını doğruluyor.
+- Dünya A/B karması eşit; bayrak kapalı yol dünya durumunu değiştirmiyor.
 
 ## 4) Hypotheses
 
-1. **Canlı overlay 1640'a yükseldi, assertion bayat kaldı.** Supported.
-2. **Runtime yanlışlıkla terrain rasterını overlay diye döndürüyor.** Refuted: kaynak HXD politik canvas adaptörü ve sahiplik checksum'larını taşıyor.
-3. **300 px teşhisi tamamen kaldırılmalı.** Refuted: downsample kayıp ölçümü hâlâ yararlı ve canlı render yolundan ayrıdır.
-4. **1640 performans regresyonu yaratıyor.** Refuted for this failure: HXD gerçek EXE kabulünde politik canvas ve toplam p95 bütçeleri belgelenmiş; test ayrıca cache duvar süresi kapısını koruyor.
+1. **Test HXD öncelik zincirinden önce kalmış.** Supported.
+2. **ImageData özellik bayrağı HXD katmanını da kapatmalı.** Refuted: bayrak adı ve API yalnız `political-overlay-rgba` üreticisini kapsıyor; HXD ayrı adaptördür.
+3. **Bayrak kapalıyken politik katman tamamen yok oluyor.** Refuted: HXD diagnostics ve 1640 canvas mevcut.
+4. **Legacy fillRect maliyet kapısı korunmalı.** Refuted: sevk edilen fallback artık o yol değildir; ölü/yedek yola performans başarısızlığı zorunlu tutulamaz.
 
 ## 5) Remediation
 
-- Gerçek render cache genişliği assertionını `1640` yap ve HXD-5 kanonik politik canvas mesajıyla adlandır.
-- 300 px resample, kıyı farkı ve ince geometri kaybı assertionlarını değiştirme.
-- Performans kapısını gevşetme.
+- Bayrak-kapalı render genişliğini `1640` olarak doğrula.
+- `fillRectCalls` beklentisini `0` yap; HXD politik canvas eski hücre-başı fillRect döngüsünü çalıştırmamalı.
+- `putImageDataCalls === 0`, ImageData disabled, directCanvas null, HXD adaptör/hücre/sınır ve A/B nötrlük kapılarını koru.
+- Legacy fallback kodunu bu görevde silme.
 
 ## 6) Verification Plan
 
-- `renderCaches.overlay.width === 1640` geçmeli.
-- `overlay.width === 300`, `overlay300.thinGeometryLostRatio < 0.02` ve kıyı farkı bütçesi geçmeli.
-- `wallTimeMs < 2000` korunmalı.
-- Sıralı assertion paketi ilerlemeli; tam paket geçmeli.
+- Bayrak-kapalı bütün politik overlay assertionları güncel öncelik zinciriyle geçmeli.
+- HXD `1640×1290`, 7.517 hücre, 460 sınır ve sıfır fillRect doğrulanmalı.
+- ImageData direct canvas null ve putImageData sıfır kalmalı.
+- Sıralı assertion ve tam paket geçmeli.
