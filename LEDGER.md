@@ -747,3 +747,9 @@
 - **What happened:** jsdom VM'sinden gelen boş `missing` dizisi ana Node realm'indeki boş diziyle strict-deep karşılaştırıldı; aynı değerler farklı prototip nedeniyle reddedildi.
 - **Evidence:** Assertion `actual: []` ve `expected: []` raporladı; kabul özeti aynı anda 18 actionable aile taşıyor.
 - **Implication for future audits:** Harness sınırından gelen dizi/nesneleri strict yapısal assertiondan önce ana realm yalın değerlerine normalize et; realm kimliğini alan başarısızlığı sanma.
+## 2026-08-23 — Kurumsal istifa makbuzu domain defter sahibini belirtmiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Kurumsal istifa oyuncu makbuzu kanonik defter sahibini belirtmiyor
+- **What happened:** Fiziksel halefiyet makbuzu doğrudan ortak oyuncu zarfına geçirildi; 17 ailede bulunan `ledger` kaynağı yalnız kurum ailesinde eksik kaldı.
+- **Evidence:** Kabul testi `INSTITUTIONS` için tekil olarak defter alanı eksikliği verdi; transition ve successor alanları fiziksel uygulamayı doğruluyor.
+- **Implication for future audits:** Ortak eylem zarfları domain makbuzunu kayıpsız taşımalı fakat kaynak defteri ayrıca ve zorunlu olarak adlandırmalı.

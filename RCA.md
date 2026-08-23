@@ -1,35 +1,33 @@
-# RCA — Oyuncu eylem kabul testi jsdom dizisini ana realm dizisiyle karşılaştırıyor
+# RCA — Kurumsal istifa oyuncu makbuzu kanonik defter sahibini belirtmiyor
 
 ## 1) Verdict
 
-- **Root cause:** Yeni 18-aile kabul testi, jsdom VM realm'inden dönen `acceptance.missing` dizisini Node ana realm'inde yaratılan `[]` ile `assert.deepStrictEqual` üzerinden karşılaştırıyor.
+- **Root cause:** `INSTITUTIONS/RESIGN_OFFICE` bağlayıcısı fiziksel `domainReceipt` nesnesini doğrudan oyuncu makbuzu yapıyor; bu nesne `ledger` alanı taşımıyor.
 - **Confidence:** Confirmed.
-- Değerler aynı; prototip/realm kimliği farklı olduğu için Node 26 karşılaştırması reddediyor.
+- İstifa ve halefiyet uygulanıyor, ancak 18-aile ortak izlenebilirlik sözleşmesi defter sahibini çıkaramıyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Eksik aile sayısı sıfır olduğunda kabul kapısı geçmeli.
-- Gerçek: `actual: []`, `expected: []` olmasına rağmen “same structure but not reference-equal” assertionı oluşuyor.
-- Etki: Yeni kabul testi ilk yapısal kontrolde duruyor; oyun runtime'ı etkilenmiyor.
+- Beklenen: Her başarılı aile makbuzu gerçek domain defterini adlandırmalı.
+- Gerçek: İstifa makbuzu `physicalMutation=true` taşıyor fakat `canonicalReceipt.ledger` boş.
+- Etki: UI/QA bir kurumsal mutasyonun kaynağını ortak biçimde denetleyemiyor.
 
 ## 3) Evidence
 
-- Hata `tests/story-player-agency.test.js:48` satırındaki jsdom kaynaklı `acceptance.missing` karşılaştırmasında.
-- Assertion çıktısı iki tarafı da boş dizi gösteriyor.
-- Harness API'si VM bağlamındaki nesneyi doğrudan döndürüyor.
+- 18-aile kabul testi yalnız `INSTITUTIONS` için “canonical domain ledger missing” verdi.
+- Makbuzda geçerli `transitionId`, `institutionId`, predecessor/successor ve `physicalMutation` alanları mevcut.
 
 ## 4) Hypotheses
 
-1. **Cross-realm dizi prototipi strict deep karşılaştırmayı bozuyor.** Supported.
-2. **Gerçekte eksik sistem ailesi var.** Refuted: `missing` iki tarafta da boş ve `actionable=18`.
-3. **Oyuncu eylem defteri geçersiz.** Refuted: hata defter yürütülmeden, görünüm kabul kontrolünde.
+1. **Bağlayıcı domain makbuzunu ortak zarf olmadan geçiriyor.** Supported.
+2. **İstifa fiziksel olarak uygulanmadı.** Refuted: halefiyet ve makam geçiş kimliği mevcut.
+3. **Character action defteri yok.** Refuted: kaynak makbuz `storyCharacterActionExecutePlayer` tarafından üretiliyor.
 
 ## 5) Remediation
 
-- VM dizilerini assertion öncesinde `Array.from` ile ana realm yalın dizisine dönüştür.
-- Sayısal ve boolean kapıları koru; assertionı gevşetme.
+- Domain makbuzunu `ledger: characterActions` alanıyla ortak kanonik zarfa al; fiziksel alanları koru.
 
 ## 6) Verification Plan
 
-- 18/18 test bütün rol fixture'larını ve gerçek mutasyonları tamamlamalı.
-- Ret, UI ve save/load kapıları korunmalı.
+- 18 ailenin tamamı `canonicalReceipt.ledger` taşımalı.
+- İstifa makbuzu halefiyet ve `physicalMutation=true` alanlarını korumalı.
