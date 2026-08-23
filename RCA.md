@@ -1,43 +1,41 @@
-# RCA — Geri alınmış siyasi olay sohbet adaptörü birleşik testte hâlâ zorunlu
+# RCA — Mevsim çipi dünya dengesi metriklerini görünmez kılıyor
 
 ## 1) Verdict
 
-- **Root cause:** conversationUnderstandingProbe içindeki Faz 38.5 siyasi kriz assertion bloğu, runtime’dan geri alınmış deneysel event-counsel/kabul/hafıza adaptörünü hâlâ canlı özellik gibi zorunlu tutuyor.
+- **Root cause:** Üst çubuktaki eski çağ çipi mevsim çipine dönüştürülürken yeni `storySeasonTooltip()` yalnız çağ adı ve açıklamasını ekledi; mevcut `storyWorldStateTooltip()` içindeki savaş, refah, çalkantı, oynaklık ve teknoloji metriklerini yeniden kullanmadı.
 - **Confidence:** Confirmed.
-- Bu blok güncel doğrudan NLU laboratuvarı değildir; kanonik durum belgesinin bayat birleşik probe diye işaretlediği eski canlı entegrasyon kabulüdür.
+- Bu bir bayat test değildir: oyuncunun sohbetten çıkarılan dünya verisine üst çubuk balonundan erişebilmesi kabulü hâlâ geçerlidir.
 
 ## 2) Failure Definition
 
-- Beklenen: Onaylanan temizlik eski özel canlı-NLU/olay assertionlarını kaldırmalı; doğrudan senaryo laboratuvarları ve 10 güvenli fallback testi kalmalı.
-- Gerçek: Runtime’da EVENT_COUNSEL_RESPONSE, event-open düğmesi ve sourceEventAnchor uygulaması yokken 33 ayrı olay/kabul/hafıza sonucu true zorunlu tutuluyor.
-- Etki: Güvenli fallback ve doğrudan laboratuvar testleri geçse bile paket hiç sevk edilmemiş özelliği arıyor.
-- Blast radius: tests/story-world.test.js içindeki phase385EventConversation assertion grubu; harness ölçümü ve ana plan borcu korunabilir.
+- Beklenen: Mevsim çipi, mevsim bilgisinin yanında dünya dengesi adı, açıklaması ve karar vermeye yarayan ölçülebilir dünya metriklerini göstermeli.
+- Gerçek: Balonda `KIŞ`, takvim, mevsim açıklaması, `SOĞUK DENGE` ve anlatı açıklaması var; `Savaş` ve `Refah` dahil ölçümler yok.
+- Etki: Oyuncu çağ etiketinin yerini alan mevsim çipinden dünya hâlinin sayısal nedenlerini okuyamıyor.
+- Blast radius: `js/StoryUI.js` içindeki `storySeasonTooltip()` ve üst çubuk tooltip kabul testi.
 
 ## 3) Evidence
 
-- Depo genelinde EVENT_COUNSEL_RESPONSE ve data-conversation-event-open yalnız harness/testte geçiyor.
-- Runtime’da sourceEventAnchor yalnız şema migrasyonu ve null constructor alanı olarak mevcut.
-- Git -S araması StoryConversationUnderstanding/Talks geçmişinde bu sembollerin sevk edilmiş uygulamasını bulmadı.
-- Kanonik HIKAYE_MODU_UYGULAMA_DURUMU Faz 38.5 satırı olay çıpalı konuşmayı açık borç sayıyor.
-- Aynı belge eski birleşik conversationUnderstandingProbeun geri alınan olay-kabul API’lerini taşıdığını ve ayrıştırılması gerektiğini açıkça yazıyor.
+- Assertion çıktısı balonda mevsim ve çağ anlatısını gösteriyor fakat `/Savaş.*Refah/s` eşleşmiyor.
+- `storyWorldStateTooltip()` hâlâ savaş, refah, çalkantı, oynaklık, teknoloji ve çağ süresini üretiyor.
+- Git blame, mevsim çipinin `54210ef` ile eklendiğini; eski dünya durumu tooltip fonksiyonunun daha önce var olduğunu gösteriyor.
+- Yeni fonksiyon mevcut ayrıntı üreticisini çağırmak yerine çağ adı/açıklamasını ikinci kez elle kuruyor.
 
 ## 4) Hypotheses
 
-1. **Bayat spekülatif assertion bloğu kaldı.** Supported.
-2. **Çalışan özellik yanlışlıkla son değişiklikte silindi.** Refuted: Git sembol geçmişinde sevk edilmiş uygulama yok; kanonik durum partial/açık borç diyor.
-3. **Yalnız düğme selectorü değişti.** Refuted: event counsel response, anchor çözümü, karar ve hafıza API’lerinin tamamı yok.
-4. **Doğrudan 10 senaryo laboratuvarı buna bağlı.** Refuted: senaryo katalog/branch/truth/determinism/fallback probları ayrı çalışıyor.
+1. **Mevsim geçişinde dünya metriği birleştirmesi unutuldu.** Supported.
+2. **Test eski çağ çipini zorunlu tutuyor.** Refuted: test çip etiketini değil balondaki karar verisini doğruluyor; çip artık mevsim olabilir.
+3. **Metrikler runtime’da üretilemiyor.** Refuted: `storyWorldStateTooltip()` ve `STORY._eraMetrics` yolu mevcut.
+4. **Balon tamamen kaldırılmalı.** Refuted: önceki UX kararı dünya hâlini sohbetten çıkarıp üst çubuk hover/focus balonuna taşımıştı.
 
 ## 5) Remediation
 
-- phase385EventConversation eski canlı assertion grubunu test kapısından kaldır.
-- Harness ölçümünü tarihsel/non-gating kanıt olarak şimdilik koru; yeni özellik geliştirildiğinde ayrı, küçük ve sevk edilmiş API’ye bağlı prob kurulmalı.
-- Kanonik plan ve durum belgesindeki olay-bağlı konuşma borcunu kapatma.
-- Doğrudan senaryo laboratuvarları ve 10 güvenli fallback assertionlarını aynen koru.
+- `storySeasonTooltip()` içinde mevsim başlığından sonra mevcut `storyWorldStateTooltip()` çıktısını ekle.
+- Çağ adı ve açıklamasını elle yineleyen paralel metni kaldır; tek otoriteyi kullan.
+- Mevsim çipi ve klavye erişilebilirliği davranışını değiştirme.
 
 ## 6) Verification Plan
 
-- tests/story-world.test.js içinde phase385EventConversation zorunlu assertionı kalmamalı.
-- On doğrudan lab senaryosu ve on fallback senaryosu çalışmalı.
-- Sıralı assertion katmanı bir sonraki gerçek regresyona ilerlemeli.
-- Tam npm test paketi geçmeli.
+- Kayıtlı `cityDossierProbe` çıktısında tooltip `KIŞ`, `Dünya dengesi`, `Savaş` ve `Refah` bilgilerini birlikte taşımalı.
+- Odak/hover kararlılığı assertionları geçmeli.
+- Sıralı assertion paketi sonraki kapıya ilerlemeli.
+- Tam `npm test -- --keep-results` geçmeli.

@@ -637,3 +637,16 @@
 - **What happened:** Event button yokluğunun güncel NLU değişikliklerinden kaynaklandığı ihtimali incelendi.
 - **Evidence:** Git sembol araması sevk edilmiş runtime uygulaması bulmadı; durum belgesi bunu önceden açık borç ve bayat probe olarak kaydetmiş.
 - **Implication for future audits:** Regresyon iddiasından önce sembol geçmişi ve kanonik uygulama durumunu birlikte kontrol et.
+## 2026-08-23 — Mevsim çipi dünya dengesi metriklerini düşürüyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Mevsim çipi dünya dengesi metriklerini görünmez kılıyor
+- **What happened:** Çağ çipi mevsim çipine dönüştürülürken yeni tooltip yalnız anlatıyı taşıdı; mevcut savaş/refah/çalkantı/teknoloji ölçümleri birleştirilmedi.
+- **Evidence:** Runtime balonunda mevsim ve `SOĞUK DENGE` var, `Savaş`/`Refah` yok; eski `storyWorldStateTooltip()` aynı metrikleri hâlâ üretiyor.
+- **Implication for future audits:** Bir UI yüzeyinin etiketi değiştiğinde eski yüzeyin karar verisi sözleşmesini ayrı doğrula; aynı veriyi ikinci bir formatter ile çoğaltma.
+
+## 2026-08-23 — Dünya durumu tooltip testi eski çağ etiketine bağlı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Mevsim çipi dünya dengesi metriklerini görünmez kılıyor
+- **What happened:** Kırılmanın mevsim değişikliği sonrası bayat bir test olabileceği incelendi.
+- **Evidence:** Assertion görünür etiket metnini değil oyuncuya gerekli `Savaş` ve `Refah` karar verisini arıyor; mevsim etiketiyle çelişmiyor.
+- **Implication for future audits:** Görsel etiket değişimiyle bilgi sözleşmesi değişimini birbirinden ayır.
