@@ -1,33 +1,33 @@
-# RCA — Kolektif eylem UI testi oyuncu protestosunu rastlantıya bırakıyor
+# RCA — Karakter eylemi göç testi güncel karar izi şemasını eski sürüm sanıyor
 
 ## Verdict
 
-- **Root cause:** Kolektif eylem kabul probu 180 saniyelik doğal simülasyonda herhangi bir devlet protesto üretince oyuncunun da karar penceresi görmesini koşulsuz bekliyor. Güncel deterministik seed yalnız yabancı ülkede protesto ürettiği için oyuncuya bildirim açılmaması doğru, assertion ise yanlış negatif.
+- **Root cause:** Uzun dünya kabul testi, sürüm 2 ve sürüm 3 karakter eylemi kayıtlarının göç sonucunu sabit `schemaVersion: 8` olarak bekliyor. Kanonik motor Faz 38.6 karar izi omurgasıyla `story-character-action-ledger-9` sözleşmesine geçmiş durumda ve göç doğru olarak `9` üretiyor.
 - **Confidence:** Confirmed.
-- **Impact:** Motor ve UI gizlilik sınırı doğru çalışırken test, oyuncuya ait olmayan olay için karar penceresi bekliyor; faz ilerledikçe değişen dünya dinamikleri kabul kapısını kararsızlaştırıyor.
+- **Impact:** Geçmiş makbuzlar, seçici politikası ve doğrulama korunmasına rağmen test doğru göçü yanlış negatif sayarak 88 görevlik kabul koşusunu durduruyor.
 
 ## Evidence
 
-- Dünya özeti `activeActionCount=1`, fakat oyuncunun bölgesel bilgisinde `activeActionCount=0`.
-- `pendingResponseCount=0`, `responseNoticeCount=0` ve `staleResponseNoticeCount=0` birbiriyle tutarlı.
-- Yabancı kolektif eylem kamusal olarak görünür, gizli seferberlik/radikalleşme alanları sızmıyor.
-- Aynı probun saf durum makinesi deterministik bir `country:0` PROTEST fikstürü üretiyor; bu fikstür gerçek `storyCollectiveNotice` yolunu sınamak için kullanılabilir.
+- `js/StoryCharacterActions.js` kanonik şemayı `9`, adaptörü `story-character-action-ledger-9` olarak tanımlıyor.
+- `a3a8907` Faz 38.6 değişikliği `decisionContexts` ve `decisionTraces` defterlerini ekleyerek şemayı 8'den 9'a yükseltti.
+- Göç kodu eski 1–8 kayıtlarını kabul ediyor, eksik karar bağlamı/izi koleksiyonlarını boş ve doğrulanabilir biçimde ekliyor, ardından güncel şema/adaptörü yazıyor.
+- Korunan uzun koşuda sürüm-2 fikstürü `loaded=true`, `validation.ok=true`, `schemaVersion=9`, `receiptCount=7` üretti; hata yalnız testteki `expected 8 / actual 9` karşılaştırmasıdır.
 
 ## Ranked Hypotheses
 
-1. **Test oyuncu eylemini doğal dünya üretimine bağlıyor — Confirmed.** Güncel seed oyuncuda eylem üretmiyor.
-2. **Bildirim sistemi oyuncu protestosunu yutuyor — Unproven/Not exercised.** Oyuncuya ait canlı protesto oluşmadığı için mevcut koşu bu yolu çağırmıyor.
-3. **Bildirim süresi dolup gözlemden kaçıyor — Refuted.** Prob her 5 saniyede gözlüyor; oyuncu pending response hiç oluşmuyor.
-4. **Yabancı eylem yanlışlıkla oyuncuya karar sunmalı — Refuted.** `storyCollectiveNotice` bilinçli olarak yalnız `state.isPlayer` için pencere üretir.
+1. **Assertion Faz 38.6 şema artışında güncellenmedi — Confirmed.** İki assertion hâlâ sürüm 8 ve eski makam/geçiş metnini bekliyor.
+2. **Göç makbuz veya seçici politikasını kaybediyor — Refuted.** Yedi makbuz korunuyor, doğrulama geçiyor ve beklenen politika karması aynı.
+3. **Motor yanlışlıkla gereksiz şema artışı yaptı — Refuted.** Şema 9 kalıcı karar bağlamı ve karar izi koleksiyonlarını ekleyen açık bir veri sözleşmesi değişikliğine bağlı.
+4. **Sürüm-2/3 fikstürleri güncel kaydı doğrudan taklit ediyor — Refuted.** Harness bunları eski şemalara indirip yeni alanlar olmadan göç yolundan geçiriyor.
 
 ## Remediation
 
-- Saf durum makinesinin ürettiği geçerli oyuncu protestosu fikstürünü test harness üzerinden gerçek bildirim üreticisine ver.
-- Bildirimin dört yanıt seçeneğini taşıdığını gözle, ardından gerçek expire yoluyla temizle ve bayat düğme kalmadığını doğrula.
-- Doğal 180 saniyelik dünyayı aktif eylem, bilgi sınırı ve simülasyon gerçekçiliği için koru; UI tetikleme garantisini seed tesadüfüne bağlama.
+- Sürüm-2 ve sürüm-3 göç assertionlarını kanonik şema `9` beklentisine yükselt.
+- Assertion açıklamalarını “makam geçişi” yerine Faz 38.6 karar bağlamı/izi sözleşmesini açıkça adlandıracak şekilde düzelt.
+- Motoru ve göç kodunu değiştirme; kanıtlanan davranış doğrudur.
 
 ## Verification
 
-- `responseNoticeCount>0`, seçenekler CONCEDE/NEGOTIATE/SUPPRESS/IGNORE ve son bayat bildirim sayısı 0 olmalı.
-- Doğal dünya hâlâ en az bir kanıtlı eylem üretmeli ve yabancı sırları sızdırmamalı.
-- Korunan 88 görev sonucunda bütün assertionlar geçmeli; son tam `npm test` sıfır koduyla tamamlanmalı.
+- `characterActionsProbe` yeniden üretilip sürüm-2 ve sürüm-3 göçlerinin `schemaVersion=9`, geçerli defter ve korunmuş makbuzlar verdiği doğrulanmalı.
+- Korunan 88 görev sonucu üzerinde bütün assertionlar geçmeli.
+- Ardından temiz bir tam `npm test -- --keep-results` sıfır koduyla tamamlanmalı.

@@ -249,3 +249,17 @@
 - **What happened:** Başarısız koşuda oyuncuya ait pending eylem hiç oluşmadı; bildirim üreticisinin yutacağı bir oyuncu olayı yoktu.
 - **Evidence:** player activeActionCount=0 ve pendingResponseCount=0; `storyCollectiveNotice` yalnız oyuncu devleti için tasarlanmış.
 - **Implication for future audits:** Girdi olayı oluşmadan çıktı eksikliğini UI bugı sayma; önce tetik koşulunu kaydet.
+
+## 2026-08-23 — Karakter eylemi göç testi Faz 38.6 şema artışında kaldı
+- **Type:** Confirmed
+- **Source:** RCA.md — Karakter eylemi göç testi güncel karar izi şemasını eski sürüm sanıyor
+- **What happened:** Sürüm-2 ve sürüm-3 kayıtları doğru biçimde güncel `story-character-action-ledger-9` yapısına göçerken test sabit sürüm 8 bekledi.
+- **Evidence:** Kanonik sabit 9; `a3a8907` karar bağlamı/izi koleksiyonlarını ekliyor; korunan prob `loaded=true`, `validation.ok=true`, `schemaVersion=9`, yedi makbuz verdi.
+- **Implication for future audits:** Göç testlerinde hedef şema sabitini yeni kalıcı sözleşme değişiklikleriyle birlikte güncelle; başarılı ve veri koruyan göçü eski literal yüzünden motor hatası sayma.
+
+## 2026-08-23 — Karakter eylemi göçü makbuz veya seçici politikasını kaybetmiyor
+- **Type:** Refuted
+- **Source:** RCA.md — Karakter eylemi göç testi güncel karar izi şemasını eski sürüm sanıyor
+- **What happened:** Assertion düşmesine rağmen eski makbuzlar, güncel politika karması ve defter doğrulaması korundu.
+- **Evidence:** Sürüm-2 fikstüründe `receiptCount=7`, `validation.ok=true` ve beklenen `fnv1a32:phase38-speech-realizer-4` politika karması mevcut.
+- **Implication for future audits:** Şema eşitsizliğini veri kaybı ilan etmeden yüklenen içerik, doğrulama ve politika kanıtlarını ayrı ayrı kontrol et.
