@@ -594,3 +594,9 @@
 - **What happened:** Aktif söylem durumu mevcut olmasına rağmen Neden? genel bilgi sınırına, X değil Y düzeltmesi belirsiz girdi fallbackine düştü.
 - **Evidence:** İkinci tur ANSWER_INFORMATION_BOUNDARY, dördüncü tur CLARIFY_AMBIGUOUS_INPUT; questionFocus içinde iki operatör de yok.
 - **Implication for future audits:** Uzun bağlam yalnız geçmiş metni saklamak değildir; artgönderim, gerekçe, düzeltme ve konu dönüşü operatörleri ayrı sözleşmeler gerektirir.
+## 2026-08-23 — Tekrar onarım testi sözcük dizilimine aşırı bağlı
+- **Type:** Confirmed
+- **Source:** RCA.md — Tekrar onarım probu doğru cevabı aşırı dar metin kalıbıyla reddediyor
+- **What happened:** Doğru REPAIR_REPETITION cevabı doğrudan ve ifadesini kullandı; test yalnız doğrudan cevap tam parçasını kabul etti.
+- **Evidence:** Hareket ve kaynak doğru, metin tekrarı kabul ediyor; yalnız regex false.
+- **Implication for future audits:** Davranış kapısını yapılandırılmış hareketle kur, doğal dil kontrolünü semantik köke indir; tam sözcük dizilimini kontrat yapma.
