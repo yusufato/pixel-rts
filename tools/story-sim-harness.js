@@ -6243,6 +6243,12 @@ function probeRegionalEconomy(seed = 2032) {
     };
 }
 
+function tradeOperationalPersistenceView(ledger) {
+    const view = JSON.parse(JSON.stringify(ledger));
+    delete view.diagnostics;
+    return view;
+}
+
 function probeTradeLogistics(seed = 2032) {
     const runtime = createRuntime(seed >>> 0);
     let main;
@@ -6508,7 +6514,8 @@ function probeTradeLogistics(seed = 2032) {
             loaded,
             ledger,
             validation: restoredRuntime.api.validateTradeLedger(ledger),
-            exactLedger: JSON.stringify(ledger) === JSON.stringify(main.savedLedger),
+            exactOperationalLedger: JSON.stringify(tradeOperationalPersistenceView(ledger))
+                === JSON.stringify(tradeOperationalPersistenceView(main.savedLedger)),
             regionalUnchanged: JSON.stringify(restoredRuntime.api.regionalLedger())
                 === JSON.stringify(main.savedRegionalEconomy)
         };
@@ -6797,15 +6804,18 @@ function probeDomesticDistributionContract(seed = 2032) {
         restoredRuntime.api.putSavedRaw(savedRaw);
         restored = {
             loaded: restoredRuntime.api.loadNow(),
-            tradeExact: false,
+            tradeOperationalExact: false,
             commerceExact: false,
+            transportMigration: null,
             tradeValidation: null,
             commerceValidation: null
         };
-        restored.tradeExact = JSON.stringify(restoredRuntime.api.tradeLedger())
-            === JSON.stringify(saved.tradeLogistics);
+        restored.tradeOperationalExact = JSON.stringify(tradeOperationalPersistenceView(
+            restoredRuntime.api.tradeLedger()
+        )) === JSON.stringify(tradeOperationalPersistenceView(saved.tradeLogistics));
         restored.commerceExact = JSON.stringify(restoredRuntime.api.commerceLedger())
             === JSON.stringify(saved.companyEconomy.commerce);
+        restored.transportMigration = restoredRuntime.api.tradeLedger().diagnostics.transportMigration;
         restored.tradeValidation = restoredRuntime.api.validateTradeLedger(
             restoredRuntime.api.tradeLedger()
         );

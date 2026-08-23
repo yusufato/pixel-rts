@@ -1157,7 +1157,10 @@ function run() {
         'Bozuk sevkiyat rotası reddedilmeli.');
     assert.equal(tradeProbe.restored.loaded, true, 'Yoldaki yük taşıyan kayıt açılabilmeli.');
     assert.equal(tradeProbe.restored.validation.ok, true, 'Yüklenen ticaret defteri geçerli kalmalı.');
-    assert.equal(tradeProbe.restored.exactLedger, true, 'Sipariş, rota, ayak ilerlemesi ve kapasite kayıtta birebir korunmalı.');
+    assert.equal(tradeProbe.restored.exactOperationalLedger, true,
+        'Sipariş, rota, ayak ilerlemesi, kapasite ve toplamlar kayıtta birebir korunmalı.');
+    assert.equal(tradeProbe.restored.ledger.diagnostics.transportMigration.ok, true,
+        'Yükleme zamanı taşıma göçü teşhisi operasyonel eşitlikten ayrı ve görünür kalmalı.');
     assert.equal(tradeProbe.restored.regionalUnchanged, true, 'Ticaret yüklemesi bölgesel stoğu ikinci kez borçlandırmamalı.');
     assert.equal(tradeProbe.legacyActive.loaded, true,
         'Faz 20 öncesinden yolda kalan sınır ötesi yük yeni bütçe sistemiyle açılabilmeli.');
@@ -1233,8 +1236,10 @@ function run() {
         'Dagitim ozeti planlanan ve fiziksel teslim edilen miktari ayirmali.');
     assert.equal(distributionProbe.restored.loaded, true,
         'Yolda cok bacakli dagitim tasiyan kayit yeniden acilabilmeli.');
-    assert.equal(distributionProbe.restored.tradeExact, true,
+    assert.equal(distributionProbe.restored.tradeOperationalExact, true,
         'Dagitim sozlesmesi, bacaklar ve rota fisleri kayitta birebir korunmali.');
+    assert.equal(distributionProbe.restored.transportMigration.ok, true,
+        'Yukleme zamani tasima gocu teshisi operasyonel dagitim esitliginden ayri kalmali.');
     assert.equal(distributionProbe.restored.commerceExact, true,
         'Yoldaki dagitim kargolarinin sahiplik lotlari kayitta birebir korunmali.');
     assert.equal(distributionProbe.restored.tradeValidation.ok, true,
