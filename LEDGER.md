@@ -543,3 +543,16 @@
 - **What happened:** Null oturumun ürünün yanlış kayıt silmesinden gelebileceği incelendi.
 - **Evidence:** STORY_CONVERSATION_SESSION_LIMIT=32 ve begin en eski kayıtları bilinçli FIFO buduyor; harness eski kimliği sınırın ötesinde tutuyor.
 - **Implication for future audits:** Test verisini ürünün bounded-retention sözleşmesine uydur; limiti testi geçirmek için büyütme.
+## 2026-08-23 — Genel yardım takip hareketi katalog dışı kaldı
+- **Type:** Confirmed
+- **Source:** RCA.md — Genel yardım takip hareketi diyalog sözleşmesinde kayıtlı değil
+- **What happened:** Üretici CONTINUE_REQUEST yazdı fakat DialogueMove doğrulayıcısı bu eylemi tanımadığı için geçerli takip turu ledgerı geçersizleştirdi.
+- **Evidence:** İlk hata kalite oturumu 0 takip 6 üzerinde DIALOGUE_MOVE; metin yardım isteği, follow-up sonucu FOLLOW_UP_RECORDED, katalogda CONTINUE_REQUEST yok.
+- **Implication for future audits:** Yeni discourseAct eklerken üretici, hareket kataloğu, validator ve doğrudan laboratuvar testi aynı değişiklik sınırında güncellenmeli.
+
+## 2026-08-23 — Uzun bağlam oturumu FIFO budamasıyla kaybolmadı
+- **Type:** Refuted
+- **Source:** RCA.md — Genel yardım takip hareketi diyalog sözleşmesinde kayıtlı değil
+- **What happened:** Önceki RCA ilk kalite oturumunun 32 kayıt sınırıyla budandığını varsaydı.
+- **Evidence:** En yeni oturumu seçme değişikliğine rağmen id conversation-session:1, latest null ve sessions boş kaldı; ilk gerçek bozulma yardım turundaki DIALOGUE_MOVE doğrulama hatasıydı.
+- **Implication for future audits:** Null kayıt gördüğünde retention varsaymadan önce sequence, ham validation ve ilk bozulma turunu ölç.

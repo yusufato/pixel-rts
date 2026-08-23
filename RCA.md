@@ -1,61 +1,54 @@
-# RCA — Uzun bağlam probu oturum sınırında budanan ilk kalite oturumunu seçiyor
+# RCA — Genel yardım takip hareketi diyalog sözleşmesinde kayıtlı değil
 
 ## 1) Verdict
 
-- **Root cause:** Konuşma kalite harnessı longContextSessionId değerini üç kalite oturumunun yalnız ilkinden alıyor; önceden oluşturulan çok sayıda sosyal oturum nedeniyle 32 kayıt sınırı bu ilk adayı daha ölçüm yapılmadan buduyor.
+- **Root cause:** StoryConversationUnderstanding genel REQUEST_SUPPORT takibi için CONTINUE_REQUEST hareketi üretiyor; StoryDialogueMove hareket kataloğu bu eylemi tanımıyor.
 - **Confidence:** Confirmed.
-- conversationSessionGet kimlik için null döndürüyor ve discourseContext null initialText okurken istisna oluşuyor.
+- Sonuçta takip mesajı ilk çağrıda kaydediliyor, ledger doğrulaması DIALOGUE_MOVE hatası veriyor ve sonraki ensure çağrısı bütün konuşma ledgerını güvenli sıfırlıyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Uzun bağlam ölçümü hâlâ ledgerda bulunan, en az 15 takip turuna sahip kalite oturumunu kullanmalı.
-- Gerçek: Prob en eski kalite oturumunu sabitliyor; sonraki oturum açılışları FIFO budamasıyla onu siliyor.
-- Etki: Ürün testi davranış assertionına ulaşmadan TypeError ile duruyor.
-- Blast radius conversationUnderstandingProbe içindeki uzun bağlam kalite fikstürüdür; canlı oturum budaması beklenen davranıştır.
+- Beklenen: Genel yardım isteğinin takip cevabı doğrulanmış bir DialogueMove taşımalı ve aynı oturum sonraki turlarda korunmalı.
+- Gerçek: İlk genel yardım turundan sonra DIALOGUE_MOVE doğrulama hatası oluşuyor; sonraki oturum çağrısında kayıtlar sıfırlanıyor.
+- Etki: Uzun bağlam, oturum sürekliliği ve günlük sohbetler görünürde rastgele sıfırlanıyor.
+- Blast radius: CONTINUE_REQUEST üreten genel yardım takipleri; açılış NLU analizi ve dünya simülasyonu etkilenmiyor.
 
-## 3) Timeline
+## 3) Evidence
 
-| Zaman | Olay | Kanıt |
-|---|---|---|
-| Sosyal prob genişledi | Kalite döngüsünden önce çok sayıda oturum açıldı | story-sim-harness |
-| Ledger sınırı | 32 oturum üstünde en eski kayıtlar budanıyor | STORY_CONVERSATION_SESSION_LIMIT |
-| Güncel hedefli koşu | longContextSession null ve initialText TypeError | Worker stack |
+- Hedefli probda ilk geçersiz durum kalite oturumu 0, takip turu 6 üzerinde oluştu.
+- Bu turdaki metin Bana bu konuda yardım eder misin? ve speechAct REQUEST_SUPPORT.
+- conversationSessionFollowUp FOLLOW_UP_RECORDED döndürdü.
+- Ham ledger doğrulaması aynı anda DIALOGUE_MOVE yolunu işaretledi.
+- StoryDialogueMove kataloğunda CONTINUE_MILITARY_SUPPORT_REQUEST var, CONTINUE_REQUEST yok.
+- Bir sonraki ensure çağrısında validator başarısızlığı ledger resetini tetikliyor; bu yüzden session kimliği 1 olarak yeniden başlıyor ve liste boş görünüyor.
 
-## 4) Hypotheses (ranked)
+## 4) Hypotheses
 
-1. **İlk kalite oturumu FIFO ile budanıyor.** Supported: yalnız sessionIndex 0 kimliği tutuluyor; sonraki begin çağrıları en eski oturumu siler.
-2. **Ürün follow-up oturumu yanlış siliyor.** Refuted: budama yalnız session begin sonrasında belgelenmiş 32 sınırında çalışıyor.
-3. **Yardım branchi session kimliğini bozdu.** Refuted: branch yalnız cevap nesnesi üretir, ledger session ekleme/silme yapmaz.
-4. **Uzun bağlam için ilk oturum zorunlu.** Refuted: üç kalite oturumu da 15 veya 16 takip turu taşıyor ve >10 geçmiş kapısını karşılıyor.
+1. **CONTINUE_REQUEST kataloga kayıtlı değil.** Supported: üretici eylemi yazıyor, doğrulayıcı ACT_NOT_REGISTERED üretiyor.
+2. **32 oturum sınırı en yeni oturumu buduyor.** Refuted: tanı çıktısında her begin yeniden conversation-session:1 üretiyor ve liste boş; bu FIFO budaması değil reset belirtisi.
+3. **Follow-up sayısı tur sınırını aşıyor.** Refuted: hata yedinci takipte, sınır 24.
+4. **NLU yardım isteğini tanımıyor.** Refuted: analiz REQUEST_SUPPORT üretiyor.
 
 ## 5) Mechanism
 
-1. Prob kalite döngüsüne zaten yüksek session sayısıyla girer.
-2. İlk kalite oturumu longContextSessionId olarak kaydedilir.
-3. İkinci/üçüncü kalite oturumu ledger sınırını aşar.
-4. Begin budaması en eski kayıtlarla birlikte ilk kalite oturumunu siler.
-5. Prob silinmiş kimliği alır, null nesneyi discourseContext fonksiyonuna verir.
-- Root cause kırılgan eski-kayıt seçimi; contributing factor probun toplam session sayısının büyümesi; detection failure fikstürün kayıt sınırıyla birlikte tasarlanmamasıdır.
+1. Genel yardım takibi REQUEST_SUPPORT olarak çözümlenir.
+2. Grounded cevap CONTINUE_REQUEST discourseAct değerini üretir.
+3. DialogueMove oluşturucu katalogda politika bulamayınca UNREGISTERED_ACT kaynak politikası yazar.
+4. Ledger validator hareketi geçersiz bulur.
+5. Sonraki ensure onarım yapamayınca güvenli reset uygular.
+6. UI ve uzun bağlam testleri oturumu kaybetmiş görünür.
 
-## 6) Remediation Options
+## 6) Remediation
 
-### Mitigation
-
-- Ürün session limitini büyütmek testi geçirir ama bellek sınırını test uğruna değiştirir; uygulanmamalı.
-
-### Fix
-
-- longContextSessionId değerini her kalite oturumu açılışında güncelle; döngü sonunda en yeni ve budanmamış oturumu kullan.
-- Takip sayısı yine eski beş-tur penceresini aşacak kadar yüksek kalır.
-
-### Prevention
-
-- Bounded ledger testlerinde ölçüm adayının varlığını assert et ve en yeni fixtureyi seç.
-- Ürün limitini test verisine uydurma.
+- StoryDialogueMove hareket kataloğuna CONTINUE_REQUEST ekle.
+- Politika CURRENT_TURN_ONLY olmalı; claimTypes boş, memory false kalmalı.
+- Dünya komutu, anlaşma kabulü veya gizli bilgi yetkisi eklenmemeli.
+- Üretici ve doğrulayıcı aynı committe test edilmelidir.
 
 ## 7) Verification Plan
 
-- Hedefli probe TypeError vermeden tamamlanmalı.
-- longHistoryExceedsOldFiveTurnWindow ve token budget kapıları korunmalı.
-- Session limitinin 32 değeri değişmemeli.
-- Sequential ve tam test paketi geçmeli.
+- Hedefli conversationUnderstandingProbe çökmeden tamamlanmalı.
+- Genel yardım takip cevabı DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE ve CONTINUE_REQUEST taşımalı.
+- Aynı yardımın tekrarı REPAIR_REPETITION üretmeli.
+- Ledger validation ok kalmalı ve session kimlikleri artmalı.
+- Sıralı assertion ve tam npm test paketi geçmeli.
