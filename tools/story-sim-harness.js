@@ -5174,7 +5174,13 @@ function probeInfrastructureGraph(seed = 2032) {
         brokenRegionGraph.corridors[0].endpointRegionIds[0] = 'region:999999';
         const brokenRegion = runtime.api.validateInfrastructureGraph(brokenRegionGraph);
 
-        const routePairs = landCorridors.slice(0, 100).map(corridor => corridor.endpointRegionIds);
+        const traversableLandCorridors = snapshotAfterCut.corridors.filter(corridor => (
+            corridor.mode === 'LAND'
+            && corridor.enabled === true
+            && Number(corridor.effectiveCapacity) > 0
+        ));
+        const routePairs = traversableLandCorridors.slice(0, 100)
+            .map(corridor => corridor.endpointRegionIds);
         const benchmarkStarted = process.hrtime.bigint();
         const benchmarkRoutes = routePairs.map(endpoints => runtime.api.infrastructureFindRoute(
             endpoints[0],

@@ -757,7 +757,8 @@ function run() {
         infrastructureProbe.main.brokenRegion.issues.some(issue => issue.code === 'BROKEN_REGION_REFERENCE'),
         'Bilinmeyen uç bölge referansı reddedilmeli.'
     );
-    assert.equal(infrastructureProbe.main.allBenchmarkRoutesFound, true, 'Rota tezgâhındaki bütün komşu çiftleri bulunmalı.');
+    assert.equal(infrastructureProbe.main.allBenchmarkRoutesFound, true,
+        'Rota tezgâhındaki bütün fiziksel olarak geçilebilir komşu çiftleri bulunmalı.');
     assert.ok(
         infrastructureProbe.main.benchmark.wallTimeMs < 1000,
         `100 rota sorgusu bir saniyeyi aşmamalı: ${infrastructureProbe.main.benchmark.wallTimeMs} ms`
