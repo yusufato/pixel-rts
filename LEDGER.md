@@ -144,3 +144,17 @@
 - **What happened:** Aynı koşuda ağ ve piyasa doğrulaması temizdi; rota sonu kuyruk durumu üretim kodunun tasarlanmış terminal geri basıncıydı.
 - **Evidence:** `marketValidation.ok=true`, ağ hash `fnv1a32:aad33143`; issue sınıfı yalnız `INVALID_SHIPMENT_LEG`, terminal kuyruğu her tick yeniden admission deniyor.
 - **Implication for future audits:** Bu belirtiyi rota grafiği veya ilerleme donması olarak düzeltmeden önce trade ile transport validatorlarının ortak yaşam döngüsü sözleşmesini karşılaştır.
+
+## 2026-08-23 — Altyapı malzeme rezervasyonu sahiplik aynasını atlıyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Altyapı rezervasyonu sahiplik lotunu tüketmiyor
+- **What happened:** Rota ve bakım komutları fiziksel bölgesel stoğu azaltırken aynı malların commerce sahiplik lotlarını azaltmadı.
+- **Evidence:** Pareto 300 saniyede yalnız 7 `COMMERCE_PHYSICAL_MIRROR_MISMATCH`; farklar rota malzeme formülleriyle birebir, trade ve regional defterleri geçerli.
+- **Implication for future audits:** Bölgesel fiziksel stok kaybı ekleyen her sistem `storyCommerceApplyPhysicalLoss` veya eşdeğer atomik sahiplik kapısını da kullanmalı.
+
+## 2026-08-23 — Trade teslimatı, Pareto üretimi ve yuvarlama commerce farkının nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Altyapı rezervasyonu sahiplik lotunu tüketmiyor
+- **What happened:** Trade doğrulaması temizdi, üretim kanonik slice tüketiminden geçiyordu ve farklar tolerans gürültüsü değil tam proje girdileriydi.
+- **Evidence:** `tradeValidation.ok=true`, `regionalValidation.ok=true`; lot-stok farkları 2–36 tam birim.
+- **Implication for future audits:** Tam proje maliyeti deseninde önce doğrudan stok yazan inşaat/rezervasyon katmanlarını incele.
