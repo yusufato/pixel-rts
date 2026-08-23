@@ -13394,7 +13394,7 @@ function probeCharacterSpeechScenario(seed) {
             actorId: actor.id, createdAt: 9, createdAtTick: 9, consumeAtTick: 10
         }, {
             source: 'LOCAL_LLM_VALIDATED', status: 'ACCEPTED', verdict: 'PROPOSE',
-            candidateId: 'speech-fixture:private', actionType: 'NEGOTIATE',
+            candidateId: 'speech-fixture:private', actionType: 'PERSUADE',
             targetActorId: privateTarget.id, reasonCode: 'RELATIONSHIP_PRESSURE',
             speechPlan: {
                 opening: 'RELATIONSHIP_CONTEXT_FIRST', tone: 'GUARDED',
