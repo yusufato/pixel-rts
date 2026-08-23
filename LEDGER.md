@@ -689,3 +689,16 @@
 - **What happened:** Bayrak kapalıyken HXD canvasın da kapanması gerektiği ihtimali incelendi.
 - **Evidence:** Bayrak `political-overlay-rgba` üreticisini kapsıyor; HXD ayrı adaptör ve runtime öncelik zincirinde ondan önce geliyor.
 - **Implication for future audits:** Bayrak sahipliğini isim, adapterVersion ve çağrı sırasıyla birlikte belgele.
+## 2026-08-23 — Warp assertionı düz projeksiyon tek-blit yolunu tanımıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Warp testi düz projeksiyon tek-blit hızlı yolunu şerit döngüsü sanıyor
+- **What happened:** Test her zoomda plan satırı kadar drawImage bekledi; uzak/düz görünüm optimizasyonu katman başına tek blit kullanırken yalnız yakın perspektif şerit planını çiziyor.
+- **Evidence:** Uzak örnekler toplam 2 çağrı ve sıfır hata; yakın örnek 270×2 çağrı, 1 miss/2 hit ve %0,2101 ölçek hatası verdi.
+- **Implication for future audits:** Planlanan geometri ile fiilen seçilen render yolunun telemetrisini ayrı tut; çağrı kapısını last-frame yürütme verisine bağla.
+
+## 2026-08-23 — Tek-blit yolu harita katmanını atlamıyor
+- **Type:** Refuted
+- **Source:** RCA.md — Warp testi düz projeksiyon tek-blit hızlı yolunu şerit döngüsü sanıyor
+- **What happened:** İki çağrının terrain veya politik katmandan birinin çizilmediği anlamına gelebileceği incelendi.
+- **Evidence:** Prob iki ayrı `storyBlitWarp` çağrısında `first=true` ve `second=true`; lastFrame katman başına bir drawImage yayımlıyor.
+- **Implication for future audits:** Azalan çağrı sayısını eksik iş diye yorumlamadan çağrı başına kapsanan katman/alanı doğrula.
