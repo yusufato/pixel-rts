@@ -458,3 +458,16 @@
 - **What happened:** Birleşik defaultsPresent=false sonucunun oyuncu cevapları, kanıtlar, takipler, tavizler veya çözüm alanlarından gelebileceği incelendi.
 - **Evidence:** Araçlandırılmış iki oturumda diziler mevcut, useExistingCompany=false, withdrawnClaimIds=[] ve resolution=null; yalnız olay alanları eksik.
 - **Implication for future audits:** Birleşik prob düştüğünde her bileşeni ayrı ölç; çalışan backfillleri gereksiz değiştirme.
+## 2026-08-23 — Yeni konuşma constructorı nullable olay alanlarını üretmiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Yeni şema-4 konuşma oturumu nullable olay alanlarını üretmiyor
+- **What happened:** Yeni şema-4 oturum sourceEventAnchor ve eventDecision anahtarları olmadan oluşturulurken restore göçü bunları null ekledi.
+- **Evidence:** storyConversationSessionBegin nesne literalinde alanlar yok; göç düzeltmesinden sonra restoredSession.exact=false oldu.
+- **Implication for future audits:** Yeni şema alanında constructor ve migrator anahtar kümelerini birlikte doğrula.
+
+## 2026-08-23 — Konuşma save/load başka oturum içeriğini bozmuyor
+- **Type:** Refuted
+- **Source:** RCA.md — Yeni şema-4 konuşma oturumu nullable olay alanlarını üretmiyor
+- **What happened:** Kayıt/yükleme farkının soru, cevap, aday veya müzakere içeriğinden gelebileceği incelendi.
+- **Evidence:** Müzakere exact=true; fark, migratorun yeni eklediği fakat constructorın üretmediği iki nullable anahtardan sonra ortaya çıktı.
+- **Implication for future audits:** Persistence exact hatasında önce create/migrate shape driftini kontrol et.
