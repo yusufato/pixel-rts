@@ -612,3 +612,9 @@
 - **What happened:** Günlük sohbetlerin kasıtlı profil tabanlı kaynakları eski iki-kaynak filtresine uymadığı için sağlamlık kapısı false oldu.
 - **Evidence:** 46 profil cevabı; allAccepted ve intentsExact true, adjacentRepeats 0, unique 20, yasak fallback 0.
 - **Implication for future audits:** Kaynak etiketi kapılarını üretim cevap mimarisinin tüm güvenli katmanlarıyla birlikte sürümle.
+## 2026-08-23 — Çok katılımcılı oturum UI’si yalnız formal meeting yolunu okuyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Genel çok katılımcılı oturum sol profilde tek kişiye düşüyor
+- **What happened:** Session participantActorIds taşısa da renderer activeMeeting yoksa tek listener profilini çizdi; bilinmeyen kimlik fallbacki de yoktu.
+- **Evidence:** Beklenen üç karta karşı sıfır participant kartı; rendererın tek koşulu formal meetingCase.
+- **Implication for future audits:** Mekanik meeting kaydı ile salt-okunur çok-katılımcı UI projeksiyonunu ayrı sınırlar olarak tasarla.
