@@ -46,6 +46,32 @@ function storyInfrastructureWorkClone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
+function storyInfrastructureMaterialReserve(economy, regionId, resourceId,
+    amount, details) {
+    const physical = economy.stockDelta(regionId, resourceId, -amount, details);
+    if (!physical || !physical.ok) return physical;
+    if (!economy.commerceMirror
+        || typeof storyCommerceApplyPhysicalLoss !== 'function') return physical;
+    const ownership = storyCommerceApplyPhysicalLoss(
+        regionId, resourceId, amount, details && details.type);
+    if (ownership && ownership.ok) {
+        return Object.assign({}, physical, { ownership });
+    }
+    if (ownership && ownership.code === 'COMMERCE_LEDGER_MISSING') {
+        return physical;
+    }
+    economy.stockDelta(regionId, resourceId, amount, Object.assign({}, details, {
+        type: String(details && details.type || 'INFRASTRUCTURE_MATERIAL')
+            + '_OWNERSHIP_ROLLBACK'
+    }));
+    return {
+        ok: false,
+        code: ownership && ownership.code
+            || 'INFRASTRUCTURE_OWNERSHIP_RESERVATION_FAILED',
+        resourceId
+    };
+}
+
 function storyInfrastructureWorkEnsure(root) {
     const state = root || (typeof STORY !== 'undefined' ? STORY : null);
     if (!state) throw new Error('STORY_INFRASTRUCTURE_WORK_STATE_REQUIRED');
@@ -380,7 +406,8 @@ function storyInfrastructureRouteReserveAndSubmit(spec, options) {
     if (!cash || !cash.ok) return cash || { ok: false, code: 'ROUTE_CASH_RESERVATION_FAILED' };
     const debited = [];
     for (const [resourceId, amount] of Object.entries(requirements.materials)) {
-        const result = economy.stockDelta(regionId, resourceId, -amount,
+        const result = storyInfrastructureMaterialReserve(
+            economy, regionId, resourceId, amount,
             { type: 'INFRASTRUCTURE_ROUTE_RESERVE', ownerId, reservationId });
         if (!result || !result.ok) {
             for (const row of debited) economy.stockDelta(regionId, row.resourceId, row.amount,
@@ -1489,6 +1516,7 @@ function storyInfrastructureRouteEconomicAiTick(dtSec, options) {
 function storyInfrastructureWorkEconomy(options) {
     if (options && options.economy) return options.economy;
     return {
+        commerceMirror: true,
         cashAvailable: (ownerType, ownerId) => {
             if (ownerType === 'COMPANY') {
                 const company = typeof storyCompanyById === 'function' ? storyCompanyById(ownerId) : null;
@@ -1614,7 +1642,8 @@ function storyInfrastructureWorkReserveAndSubmit(spec, options) {
     if (!cash || !cash.ok) return cash || { ok: false, code: 'WORK_CASH_RESERVATION_FAILED' };
     const debited = [];
     for (const [resourceId, amount] of Object.entries(requirements.materials)) {
-        const result = economy.stockDelta(regionId, resourceId, -amount,
+        const result = storyInfrastructureMaterialReserve(
+            economy, regionId, resourceId, amount,
             { type: 'INFRASTRUCTURE_WORK_RESERVE', ownerId, reservationId });
         if (!result || !result.ok) {
             for (const row of debited) economy.stockDelta(regionId, row.resourceId, row.amount,
