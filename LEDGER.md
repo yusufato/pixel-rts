@@ -569,3 +569,16 @@
 - **What happened:** Assertionın taslak metninin kaybolmasından doğduğu ihtimali incelendi.
 - **Evidence:** Zorunlu rerender sonrası değer ve focus restorasyonu geçiyor; başarısız olan düğüm eşitliği ve pending bayrağı.
 - **Implication for future audits:** Görsel olarak aynı metin kalması, IME ve undo güvenliği için yeterli değildir.
+## 2026-08-23 — Dolaylı destek isteği ASK_INFORMATION sınıfına düşüyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Dolaylı askerî destek isteği soru olarak yanlış sınıflanıyor
+- **What happened:** Desteğini istesem kabul eder misin ifadesi dar REQUEST_SUPPORT listesine uymadı ve genel soru puanı baskın geldi.
+- **Evidence:** İlk bağlamsal tur speechAct=ASK_INFORMATION, discourseAct=ANSWER_INFORMATION_BOUNDARY; cümledeki ordu askeri bağlam sözlüğünde mevcut.
+- **Implication for future audits:** NLU kalıp listelerini tek tek büyütmek yerine niyet kökü ile eylem/soru biçimini bileşik özellik olarak puanla.
+
+## 2026-08-23 — Bağlamsal destek hatası oturum reddi değil
+- **Type:** Refuted
+- **Source:** RCA.md — Dolaylı askerî destek isteği soru olarak yanlış sınıflanıyor
+- **What happened:** İlk takip turunun bekleyen LLM veya oturum durumu yüzünden reddedildiği ihtimali incelendi.
+- **Evidence:** Sonuç FOLLOW_UP_RECORDED, geçerli response ve DialogueMove içeriyor; yanlış olan speech-act seçimidir.
+- **Implication for future audits:** Boolean probe başarısızlığında result code, analysis ve response katmanlarını ayrı kaydet.

@@ -1,51 +1,52 @@
-# RCA — Görüşme renderı yazım-erteleme seçeneğini yok sayıyor
+# RCA — Dolaylı askerî destek isteği soru olarak yanlış sınıflanıyor
 
 ## 1) Verdict
 
-- **Root cause:** storyConversationWorkspaceRender seçenek parametresi kabul etmiyor; harness ve LLM yerleşme akışının kullandığı deferWhileTyping isteği fonksiyona ulaşsa bile yok sayılıyor.
+- **Root cause:** Speech-act puanlayıcısı REQUEST_SUPPORT için dar sabit kalıplar kullanıyor; desteğini istesem kabul eder misin ifadesi bu listede yok ve genel soru işareti ASK_INFORMATION sınıfını kazanıyor.
 - **Confidence:** Confirmed.
-- Fonksiyon taslağı yeniden oluşturup değeri ve odağı geri yüklüyor, fakat DOM düğümünü korumuyor ve pendingConversationRender bayrağını başta siliyor.
+- Ordu bağlamı doğru algılanıyor fakat bu bağlam yalnız primary act zaten REQUEST_SUPPORT ise askerî destek requesti oluşturuyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Oyuncu dolu bir sohbet editöründe yazarken ertelenebilir render çağrısı mevcut DOMu değiştirmemeli ve bekleyen yenileme bayrağı koymalı.
-- Gerçek: Render options almıyor, main.innerHTML yeniden yazılıyor, eski textarea kopuyor ve pending bayrağı siliniyor.
-- Etki: LLM cevabı geldiğinde oyuncunun aktif yazım yüzeyi yenileniyor; değer geri konabilse bile IME, seçim, undo zinciri ve düğüm kimliği bozuluyor.
-- Blast radius: deferWhileTyping isteyen görüşme yenilemeleri; normal açık renderlar ve patchResponse yolu kapsam dışında.
+- Beklenen: Ordu topluyorum, desteğini istesem kabul eder misin? sözü REQUEST_SUPPORT ve askerî destek isteği olarak anlaşılmalı.
+- Gerçek: ASK_INFORMATION, ANSWER_INFORMATION_BOUNDARY ve kesin yanıt veremem cevabı üretiliyor.
+- Etki: Oyuncunun doğal dolaylı talepleri bilgi sorusu sanılıyor; sonraki neden, tekrar ve düzeltme zinciri yanlış bağlamdan devam ediyor.
+- Blast radius: Yardım/destek kökü içeren fakat mevcut yedi sabit kalıba uymayan dolaylı destek talepleri.
 
 ## 3) Evidence
 
-- Sıralı assertion draftDeferredWithoutReplacement=false verdi.
-- Harness storyConversationWorkspaceRender({ scroll: preserve, deferWhileTyping: true }) çağırıyor.
-- Ürün fonksiyon imzası parametresiz.
-- Fonksiyon 1926 satırında pending bayrağını siliyor, 1955 satırında main.innerHTML yazıyor.
-- Değer/odak restorasyonu yeni düğüm üzerinde çalışıyor; eski düğüm eşitliği korunmuyor.
+- Hedefli probun ilk bağlamsal turu FOLLOW_UP_RECORDED ancak speechAct ASK_INFORMATION.
+- Cevap ANSWER_INFORMATION_BOUNDARY ve kaynak DETERMINISTIC_KNOWLEDGE_BOUNDARY_RESPONSE.
+- Cümlede ordu bulunduğu için militaryContext true olabilecek veri mevcut.
+- REQUEST_SUPPORT listesi desteğini istesem veya destek kabulü sorusunu içermiyor.
+- Request üretimi act.primary REQUEST_SUPPORT koşuluna bağlı olduğu için askerî bağlam tek başına sınıfı düzeltemiyor.
 
 ## 4) Hypotheses
 
-1. **deferWhileTyping seçeneği uygulanmıyor.** Supported: fonksiyon parametresiz ve koşullu erken dönüş yok.
-2. **Taslak metni kayboluyor.** Refuted: draftSurvivedRerender ölçümü true; sorun değer değil düğüm yaşam döngüsü.
-3. **ResponseSettled hiçbir erteleme yapmıyor.** Refuted: bu fonksiyon dolu editörde bayrak koyup dönüyor; eksik olan doğrudan render sözleşmesi.
-4. **Odak selectorü hâlâ yanlış.** Refuted: workspaceFocusSafe ve draftSurvivedRerender artık true.
+1. **Dolaylı destek kalıbı puanlanmıyor.** Supported: gerçek çıktı ASK_INFORMATION; sabit listede ifade yok.
+2. **Askerî bağlam algılanmıyor.** Refuted: ordu açıkça militaryContext kelime kümesinde.
+3. **DialogueMove kataloğu destek hareketini reddediyor.** Refuted: bu turda hareket geçerli ANSWER_INFORMATION_BOUNDARY; hata sınıflandırmadan önce değil sınıflandırmadadır.
+4. **Takip oturumu kullanılamıyor.** Refuted: sonuç FOLLOW_UP_RECORDED ve cevap mevcut.
 
 ## 5) Mechanism
 
-1. Aktif dolu textarea varken render deferWhileTyping seçeneğiyle çağrılır.
-2. Parametre yok sayılır ve pending bayrağı silinir.
-3. main.innerHTML bütün konuşma gövdesini yeniden oluşturur.
-4. Değer ve seçim yeni textarea üzerine geri yazılır.
-5. Görsel metin korunmuş görünse de DOM kimliği ve ertelenmiş render sözleşmesi kaybolur.
+1. Soru işareti ve kabul eder misin yapısı genel bilgi sorusu puanı alır.
+2. Dar REQUEST_SUPPORT kalıbı eşleşmez.
+3. Primary act ASK_INFORMATION olur.
+4. militaryContext request aşamasında kullanılamaz çünkü REQUEST_SUPPORT önkoşulu sağlanmaz.
+5. Konuşmanın aktif konusu askerî destek yerine bilgi sınırı olur.
 
 ## 6) Remediation
 
-- Render fonksiyonuna options parametresi ekle ve yalnız nesne seçenekleri kabul et.
-- Aktif korumalı editörde boş olmayan değer ve deferWhileTyping=true olduğunda pendingConversationRender=1 yazıp DOM mutasyonundan önce dön.
-- Normal render başlangıcında pending bayrağını temizlemeye devam et.
-- Mevcut değer/odak restorasyonunu zorunlu renderlar için koru.
+- Yardım veya destek kökü ile istek/kabul soru yapısını bileşik olarak puanlayan genel bir destek-talebi kuralı ekle.
+- destegini istesem, destek istiyorum, yardimini istiyorum ve kabul eder misin benzeri biçimleri sabit tümce yerine iki anlamsal kümenin çarpımıyla kapsa.
+- OFFER_SUPPORT birinci tekil teklif kalıplarıyla karışmamalı.
+- Dünya mutasyonu ve kabul vaadi yine yasak kalmalı.
 
 ## 7) Verification Plan
 
-- draftDeferredWithoutReplacement true olmalı.
-- draftSurvivedRerender ve workspaceFocusSafe true kalmalı.
-- Hedefli conversationUnderstandingProbe tamamlanmalı.
-- Sıralı assertion ve tam npm test paketi geçmeli.
+- İlk bağlamsal tur REQUEST_SUPPORT olmalı.
+- Cevap askerî destek kapsamını belirtmeli ve bağımsız selamlama/fallback olmamalı.
+- Sonraki neden, tekrar onarımı ve konu düzeltmesi aynı oturumda geçmeli.
+- Doğrudan konuşma laboratuvarı ve 10 güvenli-fallback senaryosu korunmalı.
+- Sıralı ve tam test paketi geçmeli.
