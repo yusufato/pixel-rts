@@ -1088,7 +1088,18 @@ function run() {
         tradeProbe.main.targetBefore + 10,
         'Alıcı stoğu yalnız fiziksel teslimatta artmalı.'
     );
-    assert.ok(tradeProbe.main.deliveredShipment.interruptionSeconds >= 20, 'Kesinti süresi sevkiyat manifestosunda ölçülmeli.');
+    assert.ok(tradeProbe.main.heldShipment.interruptionSeconds >= 19,
+        'Yükleme fazından sonra kalan gerçek kesinti süresi manifestoda ölçülmeli.');
+    assert.equal(
+        tradeProbe.main.heldShipment.interruptionSeconds,
+        tradeProbe.main.heldShipment.transportAgent.waitingSeconds,
+        'Manifest kesintisi fiziksel taşıtın gerçek bekleme süresiyle aynı olmalı.'
+    );
+    assert.equal(
+        tradeProbe.main.deliveredShipment.interruptionSeconds,
+        tradeProbe.main.heldShipment.interruptionSeconds,
+        'Teslimat, daha önce ölçülen kesinti süresini kaybetmemeli.'
+    );
     assert.equal(tradeProbe.main.redirect.ok, true, 'Yetkili taraf geçerli sözleşme değişikliğiyle hedef depoyu değiştirebilmeli.');
     assert.equal(tradeProbe.main.redirectedShipment.status, 'DELIVERED', 'Yönlendirilen yük yeni rotada fiziksel teslimatı tamamlamalı.');
     assert.equal(
