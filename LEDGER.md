@@ -663,3 +663,16 @@
 - **What happened:** Altyapı üreticisinin 40 fazladan koridoru yanlışlıkla çoğaltmış olabileceği incelendi.
 - **Evidence:** Artış açık tanımlı RAIL kataloğunun tam boyutu; kimlik tekilleştirmesi var ve sourceRailCorridorCount fiziksel testte 40.
 - **Implication for future audits:** Toplam farkını önce mod/katalog bileşenlerine ayır, yalnız ham toplamdan regresyon sonucu çıkarma.
+## 2026-08-23 — Politik overlay kapısı eski 300 px fallbackte kalmış
+- **Type:** Confirmed
+- **Source:** RCA.md — Politik overlay testi geri dönüş fallback çözünürlüğünü canlı katman sanıyor
+- **What happened:** HXD-5 canlı politik canvası 1640×1290'a taşıdı; test gerçek render cache'ini hâlâ geçici Faz 14.2 300 px değeriyle karşılaştırdı.
+- **Evidence:** Runtime HXD politik adaptöründen 1640 döndürüyor; kanonik belgeler 7.517 hücreli 1640×1290 canvası kabul ediyor.
+- **Implication for future audits:** Canlı render çözünürlüğü ile kalite ölçümü için üretilen downsample örneğini ayrı alan ve assertion adıyla tut.
+
+## 2026-08-23 — 300 px downsample teşhisi gereksiz değil
+- **Type:** Refuted
+- **Source:** RCA.md — Politik overlay testi geri dönüş fallback çözünürlüğünü canlı katman sanıyor
+- **What happened:** Canlı katman 1640 olduğu için tüm 300 px kontrollerinin kaldırılması ihtimali incelendi.
+- **Evidence:** Harness 300 px örneği canlı render için değil kıyı uyumu ve ince-geometri kaybını ölçmek için açıkça ayrı üretiyor.
+- **Implication for future audits:** Bayat canlı-yol assertionını kaldırırken bağımsız kalite karşılaştırmasını yanlışlıkla silme.
