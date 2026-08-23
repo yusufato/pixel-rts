@@ -702,3 +702,16 @@
 - **What happened:** İki çağrının terrain veya politik katmandan birinin çizilmediği anlamına gelebileceği incelendi.
 - **Evidence:** Prob iki ayrı `storyBlitWarp` çağrısında `first=true` ve `second=true`; lastFrame katman başına bir drawImage yayımlıyor.
 - **Implication for future audits:** Azalan çağrı sayısını eksik iş diye yorumlamadan çağrı başına kapsanan katman/alanı doğrula.
+## 2026-08-23 — README cache API'sini anlatıp kaynak sahibini atlıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — README harita cache sözleşmesini anlatıyor fakat kaynak dosyayı adlandırmıyor
+- **What happened:** Harita README'si merkezî invalidation API ve scope'ları korudu, ancak kanonik `js/StoryMapCache.js` dosya adını reorganizasyonda kaybetti.
+- **Evidence:** README'de API/scope bölümü var fakat dosya adı yok; index ve kanonik durum belgesi sahipliğin değişmediğini gösteriyor.
+- **Implication for future audits:** Mimari README'de yalnız API adını değil, tek otorite dosyasını ve yükleme sınırını da belirt.
+
+## 2026-08-23 — StoryMapCache assertionı biçime aşırı bağlı değil
+- **Type:** Refuted
+- **Source:** RCA.md — README harita cache sözleşmesini anlatıyor fakat kaynak dosyayı adlandırmıyor
+- **What happened:** Belge testi eski paragraf düzenini zorunlu tutuyor olabilir diye incelendi.
+- **Evidence:** Assertion yalnız `/StoryMapCache\.js/` arıyor; başlık, sıra veya tam cümleyi sabitlemiyor.
+- **Implication for future audits:** Belge kapılarını mümkün olduğunca kanonik isim/bağlantı varlığına bağla, tam metin snapshotına değil.

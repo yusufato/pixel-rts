@@ -1,42 +1,39 @@
-# RCA — Warp testi düz projeksiyon tek-blit hızlı yolunu şerit döngüsü sanıyor
+# RCA — README harita cache sözleşmesini anlatıyor fakat kaynak dosyayı adlandırmıyor
 
 ## 1) Verdict
 
-- **Root cause:** Faz 14.5 assertionları her geçerli warp örneğinin `plan.rows × 2` drawImage çağrısı yapacağını varsayıyor. Daha sonra eklenen uzak/düz projeksiyon hızlı yolu `storyPP()≈0` iken her katmanı tek drawImage ile çiziyor; şerit planı yalnız perspektifli yakın görünümde kullanılıyor.
+- **Root cause:** README'nin harita bölümü yeniden yazılırken merkezî API ve scope'lar korundu, fakat bu sözleşmenin sahibi `js/StoryMapCache.js` adı metinden düştü.
 - **Confidence:** Confirmed.
-- Güncel probda uzak 720/1080/1440 ve fixed-1080 iki katman toplam `2` çağrı; yakın perspektif örneği `270×2=540` çağrı kullanıyor. Tersinim ve ölçek hata kapıları sıfır/bütçe içidir.
+- Assertion bayat değildir: aktif/arşiv kaynak ayrımının amacı, geliştiricinin yanlış renderer/cache dosyasını düzenlemesini önlemektir.
 
 ## 2) Failure Definition
 
-- Beklenen: Test etkin çizim yolunun yayınladığı `lastFrame.drawCallsPerLayer` değerini doğrulamalı; şerit cache kapılarını yalnız şerit yolu gerçekten kullanıldığında uygulamalı.
-- Gerçek: Düz görünüm tek-blit olmasına rağmen test 180/216/206 şerit planını fiilen çizilmiş kabul ediyor ve cache hit zorunlu tutuyor.
-- Etki: Yüzlerce gereksiz drawImage çağrısını kaldıran optimizasyon regresyon sayılıyor.
-- Blast radius: Warp assertion döngüsündeki draw-call ve plan-cache beklentileri ile iki açıklama metni.
+- Beklenen: Kök README hem merkezî cache kapısını hem de bu kapının aktif kaynak dosyasını açıkça göstermeli.
+- Gerçek: `storyInvalidateMapCaches(scope, reason, details)` ve altı scope ayrıntılı anlatılıyor; `StoryMapCache.js` adı yok.
+- Etki: Yeni geliştirici API'yi arayarak bulabilir ama kanonik dosya sahipliği ve index yükleme mimarisi README'den anlaşılmaz.
+- Blast radius: README harita cache sözleşmesi giriş cümlesi.
 
 ## 3) Evidence
 
-- Git blame `562169f` değişikliğinin tam uzak görünümde perspektif olmadığında şeritlerin gereksiz çağrı ve dikiş izi ürettiği için tek blit eklediğini gösteriyor.
-- Yeni hedefli prob uzak örneklerde `drawCalls=2`, `lastFrame.drawCallsPerLayer=1`, ölçek ve round-trip hata `0` veriyor.
-- Yakın örnek `drawCalls=540`, `lastFrame.drawCallsPerLayer=270`, cache `1 miss / 2 hit`, maksimum ölçek hatası `%0,2101`, round-trip `0` veriyor.
-- `storyWarpPlan()` yine fallback planı ve adaptif band karşılaştırması için ölçülüyor; fakat düz hızlı yolun gerçek çağrı sayısı değildir.
+- README `## Harita cache sözleşmesi` altında bütün scope'ları ve RAM bitmap davranışını içeriyor.
+- `rg` kök README'de `StoryMapCache` eşleşmesi bulmuyor; kanonik durum/ana plan dosyanın sahipliğini açıkça yazıyor.
+- `index.html` aktif yükleme sırasında `StoryPoliticalOverlay.js → StoryMapCache.js → StoryRender.js` sırasını koruyor.
+- Diğer assertion hedefleri `3000`, aktif `js/MapData.js` ve arşiv `StoryGeoRender.js` README'de mevcut.
 
 ## 4) Hypotheses
 
-1. **Test tek-blit optimizasyonundan önce kalmış.** Supported.
-2. **Renderer iki katmandan birini çizmiyor.** Refuted: `first=true`, `second=true`, toplam iki çağrı ve katman başına bir çağrı yayınlanıyor.
-3. **Yakın perspektif şerit cache'i bozuldu.** Refuted: 270 satır, iki katman 540 çağrı, bir miss ve en az bir hit korunuyor.
-4. **Plan satır ölçümleri tamamen silinmeli.** Refuted: legacy/perspektif fallback band ve %40 adaptif azaltım sözleşmesini hâlâ doğruluyor.
+1. **Belge reorganizasyonunda dosya adı atlandı.** Supported.
+2. **Cache kaynağı artık başka dosyaya taşındı.** Refuted: index ve runtime API hâlâ `js/StoryMapCache.js` kullanıyor.
+3. **Kök README bu ayrıntıyı taşımamalı.** Refuted: aynı bölüm aktif renderer, taktik MapData ve arşiv prototip sahipliğini zaten bilinçli olarak açıklıyor.
+4. **Assertion yalnız eski metin biçimine bağlı.** Refuted: regex sadece kanonik dosya adını arıyor, paragraf düzenini zorlamıyor.
 
 ## 5) Remediation
 
-- Gerçek çağrı sayısını `lastFrame.drawCallsPerLayer × 2` ile doğrula.
-- `drawCallsPerLayer===1` için tek-blit kapısı koy; cache-hit zorunluluğunu uygulama.
-- Şerit yolu için `drawCallsPerLayer===rows`, bir miss ve en az bir hit kapılarını koru.
-- 216/360 satır ve %40 azaltım mesajlarını gerçek düz-view çağrısı değil `perspektif fallback planı` olarak adlandır.
+- Harita cache sözleşmesi girişine `js/StoryMapCache.js`in `storyInvalidateMapCaches` tek kapısının sahibi olduğunu belirten tek cümle ekle.
+- Mevcut scope açıklamalarını ve belge haritasını değiştirme.
 
 ## 6) Verification Plan
 
-- Uzak/düz örneklerde iki katman toplam iki drawImage çağrısı doğrulanmalı.
-- Yakın perspektifte satır-başı çizim ve ortak plan cache'i geçmeli.
-- Ölçek hatası <%1, round-trip <1e-8, kaynak reddi ve A/B dünya nötrlüğü korunmalı.
+- README `StoryMapCache.js`, `3000`, aktif `js/MapData.js` ve arşiv prototip ayrımlarını birlikte geçmeli.
+- Index yükleme sırası assertionı korunmalı.
 - Sıralı assertion ve tam paket geçmeli.
