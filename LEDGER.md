@@ -403,3 +403,17 @@
 - **What happened:** Sonraki görüşme hatasının hafıza yazım veya uzun vade recall kaybından gelebileceği incelendi.
 - **Evidence:** `promiseMemoryResolved=true` ve `promiseRecallLongHorizon=true`; hata follow-up çağrısı cevap üretmeden önce.
 - **Implication for future audits:** Recall zincirinde depolama, doğrudan arama, oturum uygunluğu ve cevap gerçekleştirmeyi ayrı kapılar olarak değerlendir.
+
+## 2026-08-23 — Yabancı aktör fikstürü sonraki karakter eylemine sızıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Yabancı aktör test fikstürü sonraki UI eylemine sızıyor
+- **What happened:** Diplomatik test için değiştirilen listener `countryId` değeri blok sonunda geri yüklenmedi; sonraki PERSUADE eylemi başlangıç temas bağlamını kaybetti.
+- **Evidence:** Atama ile agreement çağrısı arasında teardown yok; diplomatik kapılar geçtikten sonra ilk hata `agreementVisible=false`.
+- **Implication for future audits:** Geçici aktör/ülke fikstürlerini setup ve teardown sınırlarıyla kapsülle; uzun problarda mutasyonu runtime sonuna bırakma.
+
+## 2026-08-23 — PERSUADE motoru başlangıç bağlamında kapalı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Yabancı aktör test fikstürü sonraki UI eylemine sızıyor
+- **What happened:** Agreement görünmemesinin genel karakter eylemi yetki kaybından gelebileceği incelendi.
+- **Evidence:** Aynı seed ve rolün ilk seçilen teması doğrudan ölçümde `persuade=true`; arıza geçici ülke mutasyonundan sonra oluşuyor.
+- **Implication for future audits:** Bir eylemin geç prob aşamasında düşmesini genel motor arızası saymadan önce önceki fikstür mutasyonlarını tara.
