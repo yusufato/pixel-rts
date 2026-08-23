@@ -1911,7 +1911,17 @@ function storyInfrastructureWorkTick(worldDays, options) {
             if (typeof storyHexSettlementsResetCache === 'function') storyHexSettlementsResetCache();
             if (typeof STORY !== 'undefined') STORY._hexRoadRegistry = null;
         }
-        storyInfrastructureReset({ generatedAt: typeof STORY !== 'undefined' ? Number(STORY.clock) || 0 : 0 });
+        const graph = storyInfrastructureReset({
+            generatedAt: typeof STORY !== 'undefined' ? Number(STORY.clock) || 0 : 0
+        });
+        // Route completion is an additive live catalog revision: every old
+        // corridor and in-flight shipment remains valid. Advance the durable
+        // sidecar revision links at this controlled boundary instead of
+        // resetting their economic state or weakening restore validation.
+        if (graph && typeof STORY !== 'undefined') {
+            if (STORY.tradeLogistics) STORY.tradeLogistics.networkHash = graph.networkHash;
+            if (STORY.marketPrices) STORY.marketPrices.networkHash = graph.networkHash;
+        }
         if (typeof storyHexInfrastructureReset === 'function') storyHexInfrastructureReset();
     }
     return { ok: true, processedDays: days, completed, completedRoutes };

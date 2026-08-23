@@ -572,8 +572,18 @@ function storyTransportShipmentValidate(shipment) {
         || !Array.isArray(shipment.physicalRoute.steps)
         || !shipment.physicalRoute.steps.length) issues.push('PHYSICAL_ROUTE');
     const agent = shipment.transportAgent;
+    const liveAgentStates = ['QUEUED', 'LOADING', 'MOVING', 'WAITING',
+        'TRANSFERRING', 'UNLOADING'];
+    const terminalAgentState = {
+        DELIVERED: 'DELIVERED',
+        LOST: 'LOST',
+        RETURNED: 'RETURNED'
+    }[shipment.status];
+    const agentStateMatchesShipment = ['IN_TRANSIT', 'HELD'].includes(shipment.status)
+        ? !!agent && liveAgentStates.includes(agent.state)
+        : !!agent && !!terminalAgentState && agent.state === terminalAgentState;
     if (!agent || agent.cargoShipmentId !== shipment.id
-        || !['QUEUED', 'LOADING', 'MOVING', 'WAITING', 'TRANSFERRING', 'UNLOADING'].includes(agent.state)
+        || !agentStateMatchesShipment
         || !Number.isInteger(Number(agent.stepIndex))
         || Number(agent.stepIndex) < 0
         || Number(agent.stepIndex) > shipment.physicalRoute.steps.length) {
