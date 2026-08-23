@@ -1,57 +1,59 @@
-# RCA — Görüşme UI probu kaldırılmış geliştirici terimini bekliyor
+# RCA — Diplomatik söz ihlali probu sınır aşan taraf önkoşulunu kurmuyor
 
 ## 1) Verdict
 
-- **Root cause:** `uiShowsMechanicalResponse`, güncel UI bilgi sınırını Türkçe anlattığı halde literal `ACTORBELIEF` geliştirici terimini arıyor.
+- **Root cause:** Konuşma probu ilk ikna edilebilir teması seçiyor; güncel dizinde bu kişi oyuncuyla aynı `country:0` ülkesinde. Buna rağmen diplomatik alt test `crossBorder=true` bekliyor.
 - **Confidence:** Confirmed.
-- Motor cevabı, realization ve mekanik grounding ayrı kapılarda geçiyor; hata yalnız görünür etiket koşulunda.
+- Motor aynı ülke söz ihlalini doğru biçimde ticari uyuşmazlıkta tutuyor; protesto ve anayasal savaş/barış zinciri bu yüzden açılmıyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Pencere doğrulanmış cevabı ve karakterin yalnız kendi bilgi kayıtlarını okuduğunu göstermeli.
-- Gerçek UI: `DOĞRULANMIŞ KARAKTER CEVABI`, cevap metni ve `KARAKTER YALNIZ KENDİ BİLGİ KAYITLARINI OKUDU · DÜNYA DEĞİŞMEDİ`.
-- Prob ayrıca artık görünmeyen `ACTORBELIEF` kelimesini zorunlu tutuyor.
-- Blast radius yalnız konuşma UI harness ölçümüdür.
+- Beklenen alt senaryo: İki farklı ülke aktörü arasındaki gerçek BROKEN söz, devlet yetkisi isteyen protesto incelemesi üretmeli.
+- Gerçek fikstür: Oyuncu `country:0`; ilk ikna edilebilir temas `character:0:president`, yine `country:0`; yabancı ikna edilebilir temas yok.
+- Sonuç: `candidate.crossBorder=false`, `legalStanding=false`; diplomatik review güvenlik ve sonraki yetki kapıları false.
+- Blast radius yalnız bu birleşik konuşma probunun diplomatik/anayasal alt zinciridir.
 
 ## 3) Timeline
 
 | Zaman | Olay | Kanıt |
 |---|---|---|
-| 10 Ağustos 2026 | Doğrulanmış cevap UI yolu eklendi | Git geçmişi |
-| Sonraki sadeleştirme | Teknik terim oyuncu diline çevrildi | `js/Talks.js` |
-| 23 Ağustos 2026 | Önceki kapı düzelince bayat literal görünür oldu | Sequential assertion |
+| 12 Ağustos 2026 | Diplomatik alt zincir mevcut şirket görüşmesi probuna eklendi | `4fb397e` blame |
+| Sonraki temas dizini gelişimi | Kendi ülke temasları önceliklendi | `StoryContacts.js` sıralaması |
+| 23 Ağustos 2026 | Doğrudan runtime ölçümü ilk teması aynı ülke gösterdi | Seed 2033 ölçümü |
 
 ## 4) Hypotheses (ranked)
 
-1. **Prob kaldırılmış literal terime bağlı.** Supported: UI kaynakta Türkçe eşdeğer var, `ACTORBELIEF` yok.
-2. **Realization üretilemiyor.** Refuted: `listenerResponseRealized=true` ve `mechanicalGroundingPreserved=true`.
-3. **Domain review render edilmiyor.** Refuted: `Talks.js` başlık, cevap ve güvenlik notunu aynı section içinde üretiyor.
+1. **Fikstür sınır aşan taraf kurmuyor.** Supported: ilk ikna edilebilir aktör ve oyuncu aynı `country:0`; yabancı ikna edilebilir temas yok.
+2. **Diplomatik review motoru BROKEN olayı tanımıyor.** Refuted: review çağrısı ok/idempotent; ticari zarar ve savaş engelleri doğru üretiliyor.
+3. **Durum önceliği düzeltmesi diplomasi zincirini bozdu.** Refuted: ülke seçimi durum fonksiyonundan bağımsız ve aynı seed doğrudan ölçüldü.
 
 ## 5) Mechanism
 
-1. Domain review doğru cevap ve realization üretir.
-2. UI bunu Türkçe bilgi sınırı notuyla render eder.
-3. Harness eski geliştirici terimini arar.
-4. Semantik olarak doğru UI birleşik booleanı false yapar.
-- Root cause bayat literal; contributing factor birleşik boolean; detection failure UI metin değişiminde test sözleşmesinin güncellenmemesidir.
+1. Contact directory kendi ülke/doğrudan temasları öne sıralar.
+2. Prob ilk PERSUADE eylemi açık kişiyi seçer.
+3. Hem oyuncu hem muhatap `country:0` olur.
+4. Söz sonucu ülke kimliklerinden `crossBorder=false` hesaplar.
+5. Diplomatik review yasal dayanağı reddeder; protesto ve anayasal devam zinciri doğal olarak kapanır.
+- Root cause eksik fikstür önkoşulu; contributing factor uzun probun tek görüşmeyi farklı alanlar için yeniden kullanması; detection failure aktör ülke ayrımı için açık assertion olmamasıdır.
 
 ## 6) Remediation Options
 
 ### Mitigation
 
-- UI'ya `ACTORBELIEF` geri eklemek testi geçirir fakat oyuncuya iç mimari jargonunu sızdırır; uygulanmamalı.
+- Diplomatik assertionları kaldırmak kapsam kaybıdır ve uygulanmamalı.
 
 ### Fix
 
-- Harness, `ACTORBELIEF` yerine tam Türkçe görünür bilgi sınırı ifadesini doğrulamalı. Risk yalnız gelecekte bilinçli metin değişiminde test güncellemesidir.
+- Yalnız diplomatik alt senaryodan hemen önce test muhatabının kimliğini deterministik yabancı ülkeye bağla; oyuncu ve şirket görüşmesinin önceki davranışını değiştirme.
+- Risk: Fikstür mutasyonu üretim davranışı değildir; runtime kapanınca kaybolur.
 
 ### Prevention
 
-- Etiket, cevap metni ve güvenlik notunu ayrı tanısal booleanlarla ölçmek sonraki bakımda arızayı doğrudan gösterecektir.
+- Diplomatik alt ölçüme `fixturePartiesCrossBorder` tanısı eklemek veya bu zinciri ayrı prob yapmak önkoşul kaymasını anında gösterir.
 
 ## 7) Verification Plan
 
-- `uiShowsMechanicalResponse=true` olmalı.
-- Realization ve mekanik grounding true kalmalı.
-- UI kişisel bilgi sınırı ile `DÜNYA DEĞİŞMEDİ` notunu korumalı.
-- Sequential zincir ve son temiz `npm test -- --keep-results` geçmeli.
+- Broken consequence `crossBorder=true` ve iki farklı `partyCountryIds` taşımalı.
+- Review protesto için devlet yetkisi istemeli; ham ilişki/antlaşma dünyasını değiştirmemeli.
+- Yanlış devlet ve yürütülmemiş yetki reddedilmeli; doğru protesto bir kez çalışmalı ve savaş üretmemeli.
+- Anayasal savaş/barış güvenlik kapıları ile sequential zincir ve son temiz test geçmeli.

@@ -375,3 +375,17 @@
 - **What happened:** Mekanik cevap veya realization render yolundan kaybolmuş olabilirdi.
 - **Evidence:** `listenerResponseRealized=true`, `mechanicalGroundingPreserved=true`; `Talks.js` cevap ve bilgi sınırını render ediyor.
 - **Implication for future audits:** Birleşik görünüm kapısında motor, render ve literal koşulu ayrı incele.
+
+## 2026-08-23 — Diplomatik konuşma probu sınır aşan taraf önkoşulunu kurmuyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Diplomatik söz ihlali probu sınır aşan taraf önkoşulunu kurmuyor
+- **What happened:** Prob ilk ikna edilebilir teması seçti; güncel seed içinde bu kişi ve oyuncu aynı `country:0` ülkesindeydi, fakat alt zincir sınır aşan ihlal bekledi.
+- **Evidence:** Doğrudan runtime ölçümü `firstPersuadable=character:0:president`, `ownerId=country:0`, oyuncu ülkesi `country:0`; yabancı ikna edilebilir temas yok.
+- **Implication for future audits:** Diplomatik testlerde aktör ülke ayrımını açık fikstür önkoşulu yap; temas sıralamasından türetme.
+
+## 2026-08-23 — Diplomatik review motoru aynı ülke ihlalini yanlış yükseltmedi
+- **Type:** Refuted
+- **Source:** RCA.md — Diplomatik söz ihlali probu sınır aşan taraf önkoşulunu kurmuyor
+- **What happened:** Review motorunun gerçek BROKEN olayı tanımadığı ihtimali incelendi.
+- **Evidence:** Review ok ve idempotent kaldı; ticari zarar değerlendirmesi ve kanıtsız savaş engelleri geçti, yalnız cross-border yasal dayanak oluşmadı.
+- **Implication for future audits:** Güvenli yükseltmeme davranışını arıza saymadan önce fikstürün gerçekten yabancı devlet tarafları taşıdığını doğrula.
