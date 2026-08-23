@@ -340,3 +340,24 @@
 - **What happened:** Prob uygulamalarının ya da paralel görev kayıtlarının eksik olabileceği hipotezi elendi.
 - **Evidence:** Altı sembol de harness içinde tanımlı ve dışa aktarılmış; karşılık gelen altı manifest görevi mevcut.
 - **Implication for future audits:** Uygulama ve üretici hazırsa yeni prob yazma; eksik tüketici bağını onar.
+
+## 2026-08-23 — Bağlamlı sosyal cevap mekanik konuşma kapılarını atlıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Mekanik konuşma oturumu sosyal cevap önceliğiyle alan incelemesini atlıyor
+- **What happened:** `DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE` taşıyan sosyal cevap, açık clarification soruları ve domain review durumlarından önce değerlendirildi; karmaşık ekonomik teklif `SOCIAL_RESPONSE_READY` durumunda kaldı.
+- **Evidence:** Güncel kaynakla yeniden üretilen `conversationUnderstandingProbe` aynı farkı verdi; durum fonksiyonunda sosyal dal mekanik dallardan önce.
+- **Implication for future audits:** Konuşma durumlarında doğal cevap varlığını mekanik tamamlanma kanıtı sayma; açık soru, kanıt, yetki ve domain review kapılarını öncele.
+
+## 2026-08-23 — Konuşma probu bayat sonuç nedeniyle düşmedi
+- **Type:** Refuted
+- **Source:** RCA.md — Mekanik konuşma oturumu sosyal cevap önceliğiyle alan incelemesini atlıyor
+- **What happened:** Korunan paralel prob çıktısının eski olabileceği hipotezi güncel tek görev üretimiyle sınandı.
+- **Evidence:** Yeni `conversationUnderstandingProbe.bin` ile sequential assertion yine gerçek `SOCIAL_RESPONSE_READY`, beklenen `DOMAIN_REVIEW_NEEDS_EVIDENCE` farkını verdi.
+- **Implication for future audits:** Korunan sonuç kullanıldığında şüpheli görevi yeniden üret; aynı hata sürerse ürün davranışını incele.
+
+## 2026-08-23 — Latest oturum ölçümü canlı nesne takma adı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Mekanik konuşma oturumu sosyal cevap önceliğiyle alan incelemesini atlıyor
+- **What happened:** Daha sonraki sosyal UI işlemlerinin eski `completedSession` ölçümünü mutasyonla değiştirdiği hipotezi incelendi.
+- **Evidence:** `storyConversationSessionLatest` ledger satırını `storyConversationClone` ile kopyalayarak döndürüyor.
+- **Implication for future audits:** Geç ölçüm bozulması şüphesinde önce kopyalama sınırını doğrula; burada hata ölçüm alias'ında değil durumun ilk üretiminde.
