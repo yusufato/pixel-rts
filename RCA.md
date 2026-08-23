@@ -13,6 +13,7 @@
 - Sözleşmeler, siparişler, sevkiyatlar, rota adımları, kapasite penceresi, toplamlar ve bütün kimlik/sıraçlar eşit.
 - `restored.validation.ok=true` ve `regionalUnchanged=true`.
 - İç dağıtımın bağımsız tekrar üretiminde tek fark yine aynı teşhis yolu; iki enerji bacağı `LEGACY_PHYSICAL_ROUTE_UNAVAILABLE` olarak ertelenmiş, fakat kayıtlı bacak/rota/lot alanları değişmemiş ve iki defter doğrulaması da geçmiştir.
+- Hasarlı rotada bekleyen piyasa sevkiyatının bağımsız tekrar üretiminde tek fark boş ve başarılı `transportMigration` teşhisidir; fiyat, stok ve taşıt durumu değişmemiştir.
 
 ## Ranked Hypotheses
 
@@ -27,6 +28,7 @@
 - Teşhis doğruluğunu ayrı assertion ile koru; operasyonel veri eşitliği iddiasını teşhis metadatasına bağlama.
 - Test mesajını sipariş, rota, ilerleme, kapasite ve toplamların korunduğunu açıkça belirtecek biçimde daralt.
 - Enerji dağıtımındaki iki ertelenmiş taşıma göçü uyarısını yükleme sırası/ENERGY fiziksel adaptörü borcu olarak görünür bırak; eşitlik testini geçsin diye uyarıyı silme.
+- Aynı ham ticaret eşitliğini kullanan piyasa yükleme, piyasa legacy/corrupt ve satış-uzlaşma resume kapılarını ortak operasyonel görünümle düzelt.
 
 ## Verification
 

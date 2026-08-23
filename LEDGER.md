@@ -228,3 +228,10 @@
 - **What happened:** İki bacaklı enerji dağıtımında ham ticaret defteri eşitliği yalnız yüklemede eklenen `diagnostics.transportMigration` yüzünden düştü.
 - **Evidence:** Alan farkı yalnız teşhis yolunda; iki sevkiyat `LEGACY_PHYSICAL_ROUTE_UNAVAILABLE` ile deferred listesine girmiş olsa da trade/commerce doğrulamaları ve kalıcı bacak/rota/lot alanları eşit.
 - **Implication for future audits:** Operasyonel kalıcılığı diagnostics zarfından ayrı ölç; ENERGY fiziksel adaptör/yükleme sırası uyarısını ayrıca borç olarak izle ve sessizce silme.
+
+## 2026-08-23 — Piyasa ve satış resume probları ham ticaret eşitliğini kopyalıyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Yükleme teşhisi kalıcı taşıma durumu sanılıyor
+- **What happened:** Piyasa restored/legacy/corrupt ve satış-uzlaşma resume kapıları ticaret defterini diagnostics dahil ham JSON ile karşılaştırıyordu.
+- **Evidence:** Hasarlı rotada bekleyen piyasa sevkiyatının kayıt/yükleme farkı yalnız boş başarılı `transportMigration`; stok, fiyat, sevkiyat ve taşıt alanları eşit.
+- **Implication for future audits:** Doğrulanmış aynı karşılaştırma kalıbının bütün kopyalarını ortak operasyonel görünümden geçir; aynı fail-fast kusurunu sırayla bekleme.
