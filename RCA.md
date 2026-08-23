@@ -1,26 +1,33 @@
-# RCA — Hane dağıtımında sıfır başarısızlık eşiği gerçek rekabeti reddediyor
+# RCA — Rota benchmarkı fiziksel olarak kapalı koridorları geçilebilir sayıyor
 
 ## Verdict
 
-- Altyapı sahiplik aynası düzeltildikten sonra Pareto treatment 3.690 hane siparişinin 3.512'sini sevk etti; 178 başarısızlık oranı %4,82.
-- Aynı dünyada gıda erişimi %84,40, enerji %83,96, yaşam koşulu %73,75; tüm sonuç korumaları geçiyor.
-- **Root cause:** Kabul testi, sınırlı fiziksel stok ve koridor rekabetinde sıfır geçici başarısızlık bekliyor. Bu beklenti ancak artık kaldırılan hayalet sahiplik lotlarıyla sağlanıyordu.
-- **Decision:** Sıfır-tolerans assertionını en fazla %5 kayıp oranı ile sınırla; gıda/enerji/refah sonuç eşiklerini aynen koru.
+- **Root cause:** probeInfrastructureGraph, benchmark çiftlerini bütün LAND koridorlarından seçiyor; altıgen fizik sidecar'ında yolu bulunmadığı için effectiveCapacity=0 ve BLOCKED olan koridorları elemeden rota bekliyor.
+- **Confidence:** Confirmed.
+- **Impact:** 88/88 görev tamamlandıktan sonra birleşik kabul aşaması allBenchmarkRoutesFound=false ile düşüyor; canlı rota motoru açık koridorlarda çalışıyor.
 
 ## Evidence
 
-- Commerce, trade ve regional validatorlar sıfır issue.
-- `ordersCreated=3690`, `shipmentsDispatched=3512`, `failed=178`.
-- Başarısızlık oranı %4,824; oyuncu sonucu eşikleri önceki tabandan daha iyi.
+- Başarısız iki çift: corridor:land:11:142 ve corridor:land:34:52.
+- İkisinde de enabled=true, damageBps=0, fakat fiziksel altıgen zinciri olmadığı için effectiveCapacity=0, status=BLOCKED.
+- Kesilen corridor:land:0:1 için rota motoru 0→2→3→1 alternatifini buluyor.
+- storyHexInfrastructureCorridorFactorBps, bilinen fakat boş fiziksel zinciri tasarım gereği sıfır kapasiteyle kapatıyor.
 
-## Alternatives
+## Ranked Hypotheses
 
-- Hayalet lotları geri getirmek: reddedildi; fizik ve sahiplik defterini yeniden bozar.
-- Altyapı tüketimini bedelsiz yapmak: reddedildi; modern ekonomi ve kaynak rekabetini yok eder.
-- Sonuç eşiklerini düşürmek: reddedildi; mevcut erişim kalitesini gevşetmeye gerek yok.
+1. **Benchmark kapalı koridorları filtrelemiyor — Confirmed.** İki başarısızlığın ikisi de fizik sidecar'ında BLOCKED.
+2. **Dijkstra/rota motoru komşu açık kenarı bulamıyor — Refuted.** Açık doğrudan kenarlar ve kesinti alternatifi bulunuyor.
+3. **Son sahiplik aynası düzeltmesi rota grafını bozdu — Refuted.** Değişiklik yalnız malzeme rezervasyonu ve commerce lot tüketimine dokunuyor.
+4. **Hasar cache invalidation eksik — Refuted.** Kesilen ilk koridor rota sonucundan çıkıyor ve alternatif rota hesaplanıyor.
+
+## Remediation
+
+- Benchmark çiftlerini snapshotAfterCut içindeki LAND, enabled=true, effectiveCapacity>0 koridorlarından seç.
+- Kabul mesajını “bütün komşu çiftler” yerine “bütün geçilebilir komşu çiftler” olarak netleştir.
+- Fiziksel zinciri olmayan koridorları sihirli biçimde açma; BLOCKED sözleşmesini koru.
 
 ## Verification
 
-- Pareto 300 saniye commerce/trade/regional temiz kalmalı.
-- Kayıp oranı %5'i aşmamalı.
-- Gıda, enerji ve refah mevcut mutlak eşikleri geçmeli.
+- infrastructureProbe.main.allBenchmarkRoutesFound === true.
+- Hedefli altyapı probu ve rota entegrasyon testleri geçmeli.
+- Tam npm test sıfır koduyla tamamlanmalı.

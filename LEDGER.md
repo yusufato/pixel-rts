@@ -165,3 +165,17 @@
 - **What happened:** Sahiplik aynası düzeldikten sonra 3.690 hane siparişinin 178'i geçici stok/koridor rekabetinde sevk edilemedi; sonuç erişimi yine bütün korumaları geçti.
 - **Evidence:** Başarısızlık %4,82; gıda %84,40, enerji %83,96, yaşam koşulu %73,75; commerce/trade/regional sıfır issue.
 - **Implication for future audits:** Canlı kaynak rekabetinde sıfır operasyonel başarısızlık isteme; oran tavanını sonuç kalitesi ve defter invariantlarıyla birlikte ölç.
+
+## 2026-08-23 — Rota benchmarkı fiziksel olarak kapalı koridorları açık sayıyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Rota benchmarkı fiziksel olarak kapalı koridorları geçilebilir sayıyor
+- **What happened:** Tezgâh bütün mantıksal kara koridorlarını benchmarka aldı; altıgen fizik zinciri olmayan iki BLOCKED koridordan da rota bekledi.
+- **Evidence:** corridor:land:11:142 ve corridor:land:34:52 etkin ve hasarsız görünmesine rağmen effectiveCapacity=0; açık koridorlar ve kesilen 0:1 koridorunun alternatifi bulunuyor.
+- **Implication for future audits:** Modal rota örneklerini katalog türüne göre değil, sorgu anındaki fiziksel geçilebilirlik (effectiveCapacity>0) sözleşmesine göre seç.
+
+## 2026-08-23 — Rota motoru ve hasar cache'i benchmark düşüşünün nedeni değil
+- **Type:** Refuted
+- **Source:** RCA.md — Rota benchmarkı fiziksel olarak kapalı koridorları geçilebilir sayıyor
+- **What happened:** İlk koridor tam kesildiğinde rota motoru hasarlı kenarı dışlayıp 0→2→3→1 alternatifini hesapladı.
+- **Evidence:** routeBefore doğrudan 0:1; routeAfter.ok=true ve üç farklı koridor kullanıyor.
+- **Implication for future audits:** allBenchmarkRoutesFound düşüşünde önce örnek kümesinin kapalı fiziksel kenar içerip içermediğini kontrol et; motoru veya invalidationı kanıtsız değiştirme.
