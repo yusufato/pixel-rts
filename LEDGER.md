@@ -158,3 +158,10 @@
 - **What happened:** Trade doğrulaması temizdi, üretim kanonik slice tüketiminden geçiyordu ve farklar tolerans gürültüsü değil tam proje girdileriydi.
 - **Evidence:** `tradeValidation.ok=true`, `regionalValidation.ok=true`; lot-stok farkları 2–36 tam birim.
 - **Implication for future audits:** Tam proje maliyeti deseninde önce doğrudan stok yazan inşaat/rezervasyon katmanlarını incele.
+
+## 2026-08-23 — Hane dağıtımı sıfır başarısızlık eşiği hayalet stoğa bağımlıydı
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Hane dağıtımında sıfır başarısızlık eşiği gerçek rekabeti reddediyor
+- **What happened:** Sahiplik aynası düzeldikten sonra 3.690 hane siparişinin 178'i geçici stok/koridor rekabetinde sevk edilemedi; sonuç erişimi yine bütün korumaları geçti.
+- **Evidence:** Başarısızlık %4,82; gıda %84,40, enerji %83,96, yaşam koşulu %73,75; commerce/trade/regional sıfır issue.
+- **Implication for future audits:** Canlı kaynak rekabetinde sıfır operasyonel başarısızlık isteme; oran tavanını sonuç kalitesi ve defter invariantlarıyla birlikte ölç.
