@@ -588,3 +588,9 @@
 - **What happened:** NLU doğru REQUEST_SUPPORT ürettikten sonra motor doğrulanmamış askerî isteği güvenli alan hareketiyle ele aldı; harness genel CONTINUE_REQUEST bekledi.
 - **Evidence:** discourseAct=ASSESS_UNVERIFIED_MILITARY_REQUEST, güvenli askerî cevap, worldMutation=false ve geçerli DialogueMove.
 - **Implication for future audits:** Genel sosyal niyet ile alan-özel güvenli karar hareketinin aynı etiketi taşımasını bekleme.
+## 2026-08-23 — Kısa gerekçe ve karşıt düzeltme operatörleri eksik
+- **Type:** Confirmed
+- **Source:** RCA.md — Kısa gerekçe ve karşıt konu düzeltmeleri söylem eylemine bağlanmıyor
+- **What happened:** Aktif söylem durumu mevcut olmasına rağmen Neden? genel bilgi sınırına, X değil Y düzeltmesi belirsiz girdi fallbackine düştü.
+- **Evidence:** İkinci tur ANSWER_INFORMATION_BOUNDARY, dördüncü tur CLARIFY_AMBIGUOUS_INPUT; questionFocus içinde iki operatör de yok.
+- **Implication for future audits:** Uzun bağlam yalnız geçmiş metni saklamak değildir; artgönderim, gerekçe, düzeltme ve konu dönüşü operatörleri ayrı sözleşmeler gerektirir.
