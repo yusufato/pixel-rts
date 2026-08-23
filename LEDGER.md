@@ -728,3 +728,9 @@
 - **What happened:** Hash farkının yükleme sonrası görev sırası veya RNG ayrışmasından kaynaklanabileceği incelendi.
 - **Evidence:** Hem checkpoint hem gelecek farkı yalnız taşıma göç teşhisinde; dünya, zamanlayıcı ve RNG alanlarında ikinci bir fark yok.
 - **Implication for future audits:** Ham hash ayrışmasında önce alan-yolu farkını çıkar; tanı metadatasını simülasyon sapmasıyla karıştırma.
+## 2026-08-23 — Onaylı NLU fallback ve konuşma devamlılığı paketi tamamlandı
+- **Type:** Executed
+- **Source:** plans/documentation-layout.md — Execution Record
+- **What happened:** Bayat özel canlı-NLU assertionları kaldırıldı; doğrudan laboratuvar kapıları korunarak 10 alanın her biri için güvenli, komutsuz ve dünya-nötr fallback doğrulaması eklendi. Konuşma devamlılığı ve ilgili UI/test sözleşmeleri güncellendi.
+- **Evidence:** Hedefli sıralı dünya assertionı geçti; tam `npm test -- --keep-results` koşusunda 88/88 dünya probu, 50 oyuncu regresyonu ve 60 adversarial konuşma senaryosu başarılı oldu. Sonuç dizini: `C:\Users\osman\AppData\Local\Temp\pixel-rts-story-test-DyPH47`.
+- **Implication for future audits:** Özel alan runtime bağlayıcısı gerçekten sevk edilmeden canlı entegrasyon iddiası kurma; laboratuvar anlama başarısını güvenli fallback ve dünya değişimi yetkisiyle ayrı kapıla.

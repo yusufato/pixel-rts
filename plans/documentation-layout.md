@@ -1,6 +1,6 @@
 ---
 id: documentation-layout
-status: In Progress
+status: Landed
 owner: osman
 source: ad hoc
 touches:
@@ -19,7 +19,7 @@ touches:
 depends_on: []
 conflicts_with: []
 created: 2026-08-22
-last_touched: 2026-08-22
+last_touched: 2026-08-23
 ---
 
 # 1. Refactor Thesis
@@ -236,3 +236,13 @@ $bytes = [System.IO.File]::ReadAllBytes('_arsiv/binary-dumps/github.png')[0..7]
 ```
 
 Plan onaylanmadan uygulanmaz. Uygulama sırasında her adım ayrı, açıklamalı commit sınırı olarak ele alınır.
+
+# 9. Execution Record — 2026-08-23
+
+- Belge yerleşimi ve kanonik story plan/status yüzeyleri düzenlendi; yaşayan ve arşiv kaynak sahipliği görünür kılındı.
+- Kullanıcının onayıyla kapsam, bayat canlı-NLU assertionlarının kaldırılması ve 10 doğrudan senaryo için güvenli fallback kapılarının kurulmasına genişletildi.
+- Doğrudan diyalog laboratuvarı testleri korundu; tahıl, grev, ihale, seferberlik, yaptırım, göç, banka, esir takası, boru hattı ve halefiyet girdileri ayrı ayrı dünya-nötr fallback ile kapılandı.
+- Konuşma devamlılığı, takip/itiraz/düzeltme hamleleri, yazarken render koruması ve çok katılımcılı görünüm güçlendirildi.
+- Bayat harita/UI assertionları mevcut HXD runtime sözleşmesine uyarlandı; mevsim tooltip'i dünya karar metriklerini yeniden taşıdı.
+- Hedefli sıralı assertion koşusu ve tam `npm test -- --keep-results` paketi başarılı: 88/88 dünya probu, 50 oyuncu regresyonu ve 60 adversarial konuşma senaryosu geçti.
+- Tam test sonucu: `C:\Users\osman\AppData\Local\Temp\pixel-rts-story-test-DyPH47`.
