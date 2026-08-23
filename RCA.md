@@ -1,33 +1,33 @@
-# RCA — Karakter eylemi göç testi güncel karar izi şemasını eski sürüm sanıyor
+# RCA — Konuşma gizliliği fikstürü bağlamsız MAJOR karar üretiyor
 
 ## Verdict
 
-- **Root cause:** Uzun dünya kabul testi, sürüm 2 ve sürüm 3 karakter eylemi kayıtlarının göç sonucunu sabit `schemaVersion: 8` olarak bekliyor. Kanonik motor Faz 38.6 karar izi omurgasıyla `story-character-action-ledger-9` sözleşmesine geçmiş durumda ve göç doğru olarak `9` üretiyor.
+- **Root cause:** `probeCharacterSpeechScenario`, özel AI–AI sözünün oyuncudan gizlendiğini sınamak için sentetik bir `NEGOTIATE` kararı kaydediyor fakat bu adayı kanonik karar bağlamına sunmuyor. Faz 38.6 `NEGOTIATE` eylemini `MAJOR` saydığı için bağlam ve karar izi zorunlu; motor izi haklı olarak üretmiyor ve defter `MAJOR_DECISION_TRACE_REQUIRED` ile geçersiz oluyor.
 - **Confidence:** Confirmed.
-- **Impact:** Geçmiş makbuzlar, seçici politikası ve doğrulama korunmasına rağmen test doğru göçü yanlış negatif sayarak 88 görevlik kabul koşusunu durduruyor.
+- **Impact:** Konuşma metni, tekrar önleme ve gizlilik çıktıları doğru görünse bile geçersiz sentetik karar kaydı save kapısını düşürüyor; restore boş defterden geldiği için konuşma kalıcılığı assertionları da zincirleme başarısız olacak.
 
 ## Evidence
 
-- `js/StoryCharacterActions.js` kanonik şemayı `9`, adaptörü `story-character-action-ledger-9` olarak tanımlıyor.
-- `a3a8907` Faz 38.6 değişikliği `decisionContexts` ve `decisionTraces` defterlerini ekleyerek şemayı 8'den 9'a yükseltti.
-- Göç kodu eski 1–8 kayıtlarını kabul ediyor, eksik karar bağlamı/izi koleksiyonlarını boş ve doğrulanabilir biçimde ekliyor, ardından güncel şema/adaptörü yazıyor.
-- Korunan uzun koşuda sürüm-2 fikstürü `loaded=true`, `validation.ok=true`, `schemaVersion=9`, `receiptCount=7` üretti; hata yalnız testteki `expected 8 / actual 9` karşılaştırmasıdır.
+- Korunan `characterSpeechProbe` sonucu tek doğrulama sorunu olarak `$.arbiterDecisions.character-arbiter-decision:9.decisionTraceId` yolunda `MAJOR_DECISION_TRACE_REQUIRED` veriyor.
+- `storyDecisionTraceImportance` içinde `NEGOTIATE` açıkça `MAJOR`, `PERSUADE` ise varsayılan `ROUTINE` sınıfındadır.
+- Fikstür pending verisine `decisionContext` koymuyor ve `speech-fixture:private` gerçek aday kümesinden gelmiyor; `storyDecisionTraceV2Build` sunulmayan PROPOSE adayını reddediyor.
+- Aynı probun amacı AI–AI özel sözünün gelen kutusu/UI'dan gizlenmesi; müzakere mekaniklerini veya MAJOR karar izini sınamak değildir. MAJOR iz sözleşmesi ayrı `decisionTraceV2Probe` tarafından gerçek aday bağlamıyla ölçülüyor.
 
 ## Ranked Hypotheses
 
-1. **Assertion Faz 38.6 şema artışında güncellenmedi — Confirmed.** İki assertion hâlâ sürüm 8 ve eski makam/geçiş metnini bekliyor.
-2. **Göç makbuz veya seçici politikasını kaybediyor — Refuted.** Yedi makbuz korunuyor, doğrulama geçiyor ve beklenen politika karması aynı.
-3. **Motor yanlışlıkla gereksiz şema artışı yaptı — Refuted.** Şema 9 kalıcı karar bağlamı ve karar izi koleksiyonlarını ekleyen açık bir veri sözleşmesi değişikliğine bağlı.
-4. **Sürüm-2/3 fikstürleri güncel kaydı doğrudan taklit ediyor — Refuted.** Harness bunları eski şemalara indirip yeni alanlar olmadan göç yolundan geçiriyor.
+1. **Konuşma gizliliği fikstürü kapsam dışı bir MAJOR eylem seçiyor — Confirmed.** Tek hata dokuzuncu özel NEGOTIATE kararının eksik izidir.
+2. **Karar izi motoru geçerli adayı kaydetmiyor — Refuted.** Ayrı Faz 38.6 probu gerçek aday bağlamıyla iz kuruyor ve doğruluyor.
+3. **Konuşma gerçekleştirici karar defterini mutasyona uğratıyor — Refuted.** Sorun realization alanında değil, kayıt anındaki actionType/trace zorunluluğunda oluşuyor.
+4. **Save/load konuşma geçmişini kendiliğinden siliyor — Refuted.** Save geçersiz defteri kabul etmediği için prob eski/boş kaydı okuyor; bu bağımsız kalıcılık kaybı kanıtı değil.
 
 ## Remediation
 
-- Sürüm-2 ve sürüm-3 göç assertionlarını kanonik şema `9` beklentisine yükselt.
-- Assertion açıklamalarını “makam geçişi” yerine Faz 38.6 karar bağlamı/izi sözleşmesini açıkça adlandıracak şekilde düzelt.
-- Motoru ve göç kodunu değiştirme; kanıtlanan davranış doğrudur.
+- Özel görünürlük fikstürünü `NEGOTIATE` yerine rutin `PERSUADE` sözü olarak üret; hedefi oyuncu olmayan aynı karakterde tut.
+- İlişki odaklı konuşma planı ve özel hedef korunarak UI/gelen kutusu gizlilik kapsamını değiştirme.
+- MAJOR/WORLD karar izi zorunluluğunu gevşetme ve sahte karar bağlamı uydurma.
 
 ## Verification
 
-- `characterActionsProbe` yeniden üretilip sürüm-2 ve sürüm-3 göçlerinin `schemaVersion=9`, geçerli defter ve korunmuş makbuzlar verdiği doğrulanmalı.
-- Korunan 88 görev sonucu üzerinde bütün assertionlar geçmeli.
-- Ardından temiz bir tam `npm test -- --keep-results` sıfır koduyla tamamlanmalı.
+- Yenilenen konuşma probunda defter doğrulaması, save/load, dokuz realization ve birebir metin geçmişi geçmeli.
+- Özel AI–AI söz oyuncu gelen kutusunda ve sohbet UI'ında görünmemeli.
+- Korunan 88 görev sonucu üzerindeki assertion zinciri yeniden çalıştırılmalı; son temiz tam paket sıfır koduyla tamamlanmalı.

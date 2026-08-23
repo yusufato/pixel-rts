@@ -263,3 +263,17 @@
 - **What happened:** Assertion düşmesine rağmen eski makbuzlar, güncel politika karması ve defter doğrulaması korundu.
 - **Evidence:** Sürüm-2 fikstüründe `receiptCount=7`, `validation.ok=true` ve beklenen `fnv1a32:phase38-speech-realizer-4` politika karması mevcut.
 - **Implication for future audits:** Şema eşitsizliğini veri kaybı ilan etmeden yüklenen içerik, doğrulama ve politika kanıtlarını ayrı ayrı kontrol et.
+
+## 2026-08-23 — Konuşma gizliliği fikstürü bağlamsız MAJOR karar üretiyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Konuşma gizliliği fikstürü bağlamsız MAJOR karar üretiyor
+- **What happened:** Oyuncudan gizli AI–AI sözünü sınayan fikstür, kanonik aday bağlamında bulunmayan sentetik NEGOTIATE kararı kaydetti; Faz 38.6 bunun için zorunlu karar izi istedi.
+- **Evidence:** Tek doğrulama kodu `MAJOR_DECISION_TRACE_REQUIRED`; NEGOTIATE önem sınıfı MAJOR; dokuzuncu kararın `decisionTraceId` alanı yok.
+- **Implication for future audits:** Bir UI/gizlilik fikstürü daha ağır mekanik sınıfı ölçmüyorsa MAJOR/WORLD eylem seçme; gerçek aday bağlamı gerektiren sözleşmeyi sentetik kimlikle taklit etme.
+
+## 2026-08-23 — Konuşma gerçekleştirici hakem defterini bozmuyor
+- **Type:** Refuted
+- **Source:** RCA.md — Konuşma gizliliği fikstürü bağlamsız MAJOR karar üretiyor
+- **What happened:** Assertion mesajı sorunu konuşma gerçekleştirmeye bağladı, ancak hata realization üretiminden önce seçilen eylemin karar izi zorunluluğundaydı.
+- **Evidence:** Bütün realization doğrulamaları ve tekrar/gizlilik kontrolleri geçti; tek sorun dokuzuncu kararın eksik trace referansıydı.
+- **Implication for future audits:** Üst düzey assertion metnine göre kaynak seçme; doğrulayıcının hata kodu ve kesin nesne yolunu izleyerek mutasyon aşamasını ayır.
