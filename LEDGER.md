@@ -417,3 +417,17 @@
 - **What happened:** Agreement görünmemesinin genel karakter eylemi yetki kaybından gelebileceği incelendi.
 - **Evidence:** Aynı seed ve rolün ilk seçilen teması doğrudan ölçümde `persuade=true`; arıza geçici ülke mutasyonundan sonra oluşuyor.
 - **Implication for future audits:** Bir eylemin geç prob aşamasında düşmesini genel motor arızası saymadan önce önceki fikstür mutasyonlarını tara.
+
+## 2026-08-23 — Agreement UI probu eylem öncesi DOM ve eski paneli sorguluyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Agreement UI probu eylem öncesi render ve eski panel konumu kullanıyor
+- **What happened:** Harness PERSUADE öncesi render edilen DOMu kullandı ve 15 Ağustosta İLİŞKİ sekmesine taşınmış kaydı hâlâ sağ konuşma geçmişinde aradı.
+- **Evidence:** Kaynak sırası render sonra execute; `Talks.js` kayıtların eski bloktan kaldırılıp İLİŞKİ zincirine taşındığını belgeliyor.
+- **Implication for future audits:** UI eylem testinde başarılı makbuzdan sonra rerender yap ve kaydı güncel oyuncu yüzeyinde ara.
+
+## 2026-08-23 — Uygulanmış karakter eylemi kayıt projeksiyonu kaldırılmadı
+- **Type:** Refuted
+- **Source:** RCA.md — Agreement UI probu eylem öncesi render ve eski panel konumu kullanıyor
+- **What happened:** İkna kaydının UI veri projeksiyonundan tümden kaldırılmış olabileceği incelendi.
+- **Evidence:** `storyTalkConversationKnownRecords`, APPLIED PERSUADE makbuzunu `İkna girişimi` adıyla ilişki zincirine projekte ediyor.
+- **Implication for future audits:** Görünmeyen kayıtta veri üretimi, projection, render zamanı, aktif sekme ve selector konumunu ayrı kontrol et.
