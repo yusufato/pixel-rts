@@ -741,3 +741,9 @@
 - **What happened:** 18 aile yönetim UI'sine eklenirken bölge varsayılanı aynı üst seviye yönetim görünümünü yeniden çağırdı ve stack taşmasına yol açtı.
 - **Evidence:** Deterministik runtime stack zinciri `storyGovernancePlayerView → storyPlayerAgencyFamilyView → storyPlayerAgencyRegionId → storyGovernancePlayerView` olarak tekrar ediyor.
 - **Implication for future audits:** Alt görünüm önizlemeleri üst görünüm kurucusunu çağırmamalı; seçili bağlam yalın state veya parametreden okunmalı ve kayıt sayımı gerçek render kabulünün yerine geçmemeli.
+## 2026-08-23 — Oyuncu eylem kabul testi cross-realm dizi karşılaştırmasına takılıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Oyuncu eylem kabul testi jsdom dizisini ana realm dizisiyle karşılaştırıyor
+- **What happened:** jsdom VM'sinden gelen boş `missing` dizisi ana Node realm'indeki boş diziyle strict-deep karşılaştırıldı; aynı değerler farklı prototip nedeniyle reddedildi.
+- **Evidence:** Assertion `actual: []` ve `expected: []` raporladı; kabul özeti aynı anda 18 actionable aile taşıyor.
+- **Implication for future audits:** Harness sınırından gelen dizi/nesneleri strict yapısal assertiondan önce ana realm yalın değerlerine normalize et; realm kimliğini alan başarısızlığı sanma.
