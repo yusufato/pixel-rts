@@ -1020,6 +1020,8 @@ function createRuntime(seed) {
             collectiveRespond: (movementId, mode, options) => storyCollectiveRespond(movementId, mode, options),
             collectiveAdvanceMovement: (previous, sample) => storyCollectiveAdvanceMovement(previous, sample),
             collectiveApplyResponsePure: (movement, mode, at) => storyCollectiveApplyResponsePure(movement, mode, at),
+            collectiveNotice: movement => storyCollectiveNotice(movement),
+            collectiveExpireNotice: movementId => storyFactionNoticeExpireCollective(movementId),
             humanMigrationSummary: () => storyHumanMigrationSummary(),
             humanMigrationLedger: () => storyHumanMigrationClone(STORY.humanMigration),
             validateHumanMigrationLedger: ledger => storyHumanMigrationValidate(ledger),
@@ -10120,6 +10122,7 @@ function probeCollectiveAction(seed = 2032) {
 
     const pureRuntime = createRuntime(seed >>> 0);
     let pure;
+    let protestFixture;
     try {
         pureRuntime.api.newCampaign({
             seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
@@ -10131,7 +10134,7 @@ function probeCollectiveAction(seed = 2032) {
         }
         let movement = null;
         const firstTick = { PROTEST: null, STRIKE: null, UPRISING: null };
-        let protestFixture = null;
+        protestFixture = null;
         for (let tick = 1; tick <= 120; tick++) {
             movement = pureRuntime.api.collectiveAdvanceMovement(movement, sampleFor(tick, 9800));
             if (movement && movement.stage !== 'NONE' && firstTick[movement.stage] == null) {
@@ -10196,7 +10199,11 @@ function probeCollectiveAction(seed = 2032) {
     let savedLedger;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
-        let observedResponseNotices = [];
+        runtime.api.collectiveNotice(protestFixture);
+        let observedResponseNotices = runtime.api.factionNotices().filter(
+            notice => notice.collectiveActionId === protestFixture.id
+        );
+        runtime.api.collectiveExpireNotice(protestFixture.id);
         for (let elapsed = 0; elapsed < 180; elapsed += 5) {
             runtime.api.advance(5);
             if (!observedResponseNotices.length) {
