@@ -214,6 +214,22 @@ function storyTradeActiveCargoTotals(ledger) {
     return totals;
 }
 
+function storyTradePhysicalArrivalAtDestination(shipment) {
+    if (!shipment || Number(shipment.transportVersion) !== 2
+        || !shipment.transportAgent
+        || !Array.isArray(shipment.corridorIds)
+        || shipment.legIndex !== shipment.corridorIds.length
+        || shipment.currentRegionId !== shipment.targetRegionId) return false;
+    if (shipment.transportAgent.state === 'UNLOADING') return true;
+    const steps = shipment.physicalRoute
+        && Array.isArray(shipment.physicalRoute.steps)
+        ? shipment.physicalRoute.steps : null;
+    return shipment.transportAgent.state === 'QUEUED'
+        && !!steps
+        && Number(shipment.transportAgent.stepIndex) === steps.length
+        && !shipment.transportAgent.transferToMode;
+}
+
 function storyTradeValidate(ledger) {
     const issues = [];
     const add = (code, path, message) => issues.push({ code, path, message });
@@ -333,16 +349,13 @@ function storyTradeValidate(ledger) {
         const heldAtDestination = shipment.status === 'HELD'
             && shipment.legIndex === shipment.corridorIds.length
             && shipment.currentRegionId === shipment.targetRegionId;
-        const physicalUnloadingAtDestination = Number(shipment.transportVersion) === 2
-            && shipment.transportAgent
-            && shipment.transportAgent.state === 'UNLOADING'
-            && shipment.legIndex === shipment.corridorIds.length
-            && shipment.currentRegionId === shipment.targetRegionId;
+        const physicalArrivalAtDestination
+            = storyTradePhysicalArrivalAtDestination(shipment);
         if (['IN_TRANSIT', 'HELD'].includes(shipment.status)
             && (shipment.legIndex < 0
                 || shipment.legIndex > shipment.corridorIds.length
                 || (shipment.legIndex === shipment.corridorIds.length
-                    && !heldAtDestination && !physicalUnloadingAtDestination))) {
+                    && !heldAtDestination && !physicalArrivalAtDestination))) {
             add('INVALID_SHIPMENT_LEG', `${at}.legIndex`, 'Canlı sevkiyat geçerli rota ayağında olmalı.');
         }
     });

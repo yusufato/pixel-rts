@@ -31,6 +31,7 @@ const result = vm.runInContext(`(() => {
     storyTradeCompleteShipment = shipment => {
         deliveries++;
         shipment.status = 'DELIVERED';
+        shipment.transportAgent.state = 'DELIVERED';
         storyTransportReleaseReservation(shipment, 'DELIVERED');
         return { ok: true };
     };
