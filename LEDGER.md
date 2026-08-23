@@ -624,3 +624,16 @@
 - **What happened:** Sayaç tüm SOCIAL_RESPONSE açılışlarını saydı fakat mesaj bunu sekiz açılış ve dört FOLLOW_UP_RESPONSE olarak yorumladı.
 - **Evidence:** restored exact ve validation true; filtre yalnız SOCIAL_RESPONSE, gerçek toplam 16.
 - **Implication for future audits:** Kalıcılık testlerinde tür toplamına sabit sayı bağlamak yerine hedef kayıt kimliklerini save/load boyunca izle.
+## 2026-08-23 — Geri alınmış olay sohbeti birleşik probda canlı kabul ediliyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Geri alınmış siyasi olay sohbet adaptörü birleşik testte hâlâ zorunlu
+- **What happened:** Runtime’da hiç bulunmayan event counsel, açık kabul ve karar hafızası API’leri eski birleşik assertion grubunda zorunlu kaldı.
+- **Evidence:** Semboller yalnız harness/testte; kanonik durum belgesi probeu bayat ve olay API’lerini geri alınmış olarak işaretliyor.
+- **Implication for future audits:** Planlanan veya geri alınmış dikeyi ana regresyon kapısında tutma; sevk edilmiş en küçük API ile ayrı probe kur.
+
+## 2026-08-23 — Siyasi olay sohbeti son NLU düzeltmesinde silinmedi
+- **Type:** Refuted
+- **Source:** RCA.md — Geri alınmış siyasi olay sohbet adaptörü birleşik testte hâlâ zorunlu
+- **What happened:** Event button yokluğunun güncel NLU değişikliklerinden kaynaklandığı ihtimali incelendi.
+- **Evidence:** Git sembol araması sevk edilmiş runtime uygulaması bulmadı; durum belgesi bunu önceden açık borç ve bayat probe olarak kaydetmiş.
+- **Implication for future audits:** Regresyon iddiasından önce sembol geçmişi ve kanonik uygulama durumunu birlikte kontrol et.
