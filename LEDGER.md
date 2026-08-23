@@ -277,3 +277,24 @@
 - **What happened:** Assertion mesajı sorunu konuşma gerçekleştirmeye bağladı, ancak hata realization üretiminden önce seçilen eylemin karar izi zorunluluğundaydı.
 - **Evidence:** Bütün realization doğrulamaları ve tekrar/gizlilik kontrolleri geçti; tek sorun dokuzuncu kararın eksik trace referansıydı.
 - **Implication for future audits:** Üst düzey assertion metnine göre kaynak seçme; doğrulayıcının hata kodu ve kesin nesne yolunu izleyerek mutasyon aşamasını ayır.
+
+## 2026-08-23 — Faz 38.4 özel canlı NLU adaptörleri rollbackte kayboldu
+- **Type:** Confirmed
+- **Source:** RCA.md — Faz 38.4 laboratuvar testi geri alınmış canlı NLU adaptörlerini bekliyor
+- **What happened:** On senaryo matrisi ve test beklentileri commitlenirken özel speech-act/varlık bağlayıcıları yalnız sorunlu sohbet stash'inde kaldı; güncel canlı motor bunları taşımıyor.
+- **Evidence:** Git geçmişinde `PROPOSE_LOGISTICS_REDIRECT` kaynak commit'i yok; stash'te var; on entegrasyon dalının tamamı false fakat doğrudan laboratuvar matrisi geçerli.
+- **Implication for future audits:** Test ve plan kapanışında çalışma ağacındaki kaynak dosyalarını commit kapsamıyla eşleştir; stash'te kalan uygulamayı “canlı entegrasyon” sayma.
+
+## 2026-08-23 — Faz 38.4 senaryo karar laboratuvarı bozulmadı
+- **Type:** Refuted
+- **Source:** RCA.md — Faz 38.4 laboratuvar testi geri alınmış canlı NLU adaptörlerini bekliyor
+- **What happened:** Canlı NLU beklentileri düşse de fikstür tabanlı koşul matrisleri bilgi, gerçek, yetki ve karakter dallarını deterministik üretmeye devam etti.
+- **Evidence:** Katalog, beklenen sonuç, determinizm, doğrulama, dünya nötrlüğü ve bilgi/gerçek ayrımı kapıları canlı entegrasyon bloğundan önce geçti.
+- **Implication for future audits:** Karar matrisi ile doğal dil bağlayıcısını ayrı alt sistemler olarak raporla; birinin yokluğu diğerini otomatik olarak kırık ilan etmez.
+
+## 2026-08-23 — Eski sohbet stash'ini tümden geri almak güvenli değil
+- **Type:** Refuted
+- **Source:** RCA.md — Faz 38.4 laboratuvar testi geri alınmış canlı NLU adaptörlerini bekliyor
+- **What happened:** Stash özel kuralları taşısa da güncel anlama motorundan binlerce satır ayrışıyor ve daha önce çözülemeyen çalışma zamanı deneylerini içeriyor.
+- **Evidence:** Güncel dosya yaklaşık 4.973 satır; ilgili stash sürümü yaklaşık 2.832 satır ve diff binlerce satırı değiştiriyor.
+- **Implication for future audits:** Kayıp bir dilimi geri almak için bütün stash'i uygulama; güncel mimariye izole, testli ve açık kapsamlı adaptör tasarla.
