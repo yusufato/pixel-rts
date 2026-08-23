@@ -650,3 +650,16 @@
 - **What happened:** Kırılmanın mevsim değişikliği sonrası bayat bir test olabileceği incelendi.
 - **Evidence:** Assertion görünür etiket metnini değil oyuncuya gerekli `Savaş` ve `Refah` karar verisini arıyor; mevsim etiketiyle çelişmiyor.
 - **Implication for future audits:** Görsel etiket değişimiyle bilgi sözleşmesi değişimini birbirinden ayır.
+## 2026-08-23 — HXD toplam koridor kapısı ray genişlemesinden önce kalmış
+- **Type:** Confirmed
+- **Source:** RCA.md — HXD başlangıç envanteri sonradan eklenen ray koridorlarını saymıyor
+- **What happened:** Test tarihsel 591 LAND/SEA/ENERGY/DATA temelini güncel toplam sandı; HXD-7.3 ile sevk edilen 40 bağımsız RAIL koridorunu saymadı.
+- **Evidence:** Runtime 631 üretiyor; fark tam 40 ve aynı paket bütün 40 ray koridorunun fiziksel zincirini ayrıca doğruluyor.
+- **Implication for future audits:** Tarihsel baseline sayısını güncel katalog toplamından isim ve assertion düzeyinde ayır; mod başına toplamları birlikte kapıla.
+
+## 2026-08-23 — 631 koridor topoloji çoğaltma hatası değil
+- **Type:** Refuted
+- **Source:** RCA.md — HXD başlangıç envanteri sonradan eklenen ray koridorlarını saymıyor
+- **What happened:** Altyapı üreticisinin 40 fazladan koridoru yanlışlıkla çoğaltmış olabileceği incelendi.
+- **Evidence:** Artış açık tanımlı RAIL kataloğunun tam boyutu; kimlik tekilleştirmesi var ve sourceRailCorridorCount fiziksel testte 40.
+- **Implication for future audits:** Toplam farkını önce mod/katalog bileşenlerine ayır, yalnız ham toplamdan regresyon sonucu çıkarma.
