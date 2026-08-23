@@ -235,3 +235,17 @@
 - **What happened:** Piyasa restored/legacy/corrupt ve satış-uzlaşma resume kapıları ticaret defterini diagnostics dahil ham JSON ile karşılaştırıyordu.
 - **Evidence:** Hasarlı rotada bekleyen piyasa sevkiyatının kayıt/yükleme farkı yalnız boş başarılı `transportMigration`; stok, fiyat, sevkiyat ve taşıt alanları eşit.
 - **Implication for future audits:** Doğrulanmış aynı karşılaştırma kalıbının bütün kopyalarını ortak operasyonel görünümden geçir; aynı fail-fast kusurunu sırayla bekleme.
+
+## 2026-08-23 — Kolektif eylem UI kapısı oyuncu protestosunu seed'e bırakıyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Kolektif eylem UI testi oyuncu protestosunu rastlantıya bırakıyor
+- **What happened:** Dünya bir yabancı protesto üretince test koşulsuz olarak oyuncu karar penceresi bekledi.
+- **Evidence:** world activeActionCount=1; oyuncu bölgesi activeActionCount=0; pendingResponseCount=0; responseNoticeCount=0; yabancı kamusal eylem görünür ve gizli alanlar kapalı.
+- **Implication for future audits:** UI tetikleme sözleşmesini deterministik geçerli fikstürle sınarken doğal dünyayı sıklık/dağılım ve bilgi sınırı için ayrı ölç.
+
+## 2026-08-23 — Oyuncu bildirim sisteminin protestoyu yuttuğu kanıtlanmadı
+- **Type:** Refuted
+- **Source:** RCA.md — Kolektif eylem UI testi oyuncu protestosunu rastlantıya bırakıyor
+- **What happened:** Başarısız koşuda oyuncuya ait pending eylem hiç oluşmadı; bildirim üreticisinin yutacağı bir oyuncu olayı yoktu.
+- **Evidence:** player activeActionCount=0 ve pendingResponseCount=0; `storyCollectiveNotice` yalnız oyuncu devleti için tasarlanmış.
+- **Implication for future audits:** Girdi olayı oluşmadan çıktı eksikliğini UI bugı sayma; önce tetik koşulunu kaydet.

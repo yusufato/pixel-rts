@@ -1,37 +1,33 @@
-# RCA — Yükleme teşhisi kalıcı taşıma durumu sanılıyor
+# RCA — Kolektif eylem UI testi oyuncu protestosunu rastlantıya bırakıyor
 
 ## Verdict
 
-- **Root cause:** Ticaret ve iç dağıtım kalıcılık probları tüm defteri ham JSON eşitliğiyle karşılaştırıyor. Kayıt yükleyicisi yalnız çalışma zamanı teşhisi olan `diagnostics.transportMigration` alanını eklediği için operasyonel durum birebir korunmasına rağmen eşitlik kapıları düşüyor.
+- **Root cause:** Kolektif eylem kabul probu 180 saniyelik doğal simülasyonda herhangi bir devlet protesto üretince oyuncunun da karar penceresi görmesini koşulsuz bekliyor. Güncel deterministik seed yalnız yabancı ülkede protesto ürettiği için oyuncuya bildirim açılmaması doğru, assertion ise yanlış negatif.
 - **Confidence:** Confirmed.
-- **Impact:** 88/88 simülasyon görevi ve ticaret doğrulamaları geçse bile son kabul kapısı yanlış negatif veriyor; gerçek kayıt kaybıyla zararsız yükleme teşhisi ayırt edilemiyor.
+- **Impact:** Motor ve UI gizlilik sınırı doğru çalışırken test, oyuncuya ait olmayan olay için karar penceresi bekliyor; faz ilerledikçe değişen dünya dinamikleri kabul kapısını kararsızlaştırıyor.
 
 ## Evidence
 
-- Kaydedilen ve geri yüklenen defterlerin alan düzeyi farkında tek kayıt `$.diagnostics.transportMigration`.
-- Geri yüklenen değer `{ ok: true, migrated: 0, deferred: 0, issues: [] }`; hiçbir göç veya onarım yapılmamış.
-- Sözleşmeler, siparişler, sevkiyatlar, rota adımları, kapasite penceresi, toplamlar ve bütün kimlik/sıraçlar eşit.
-- `restored.validation.ok=true` ve `regionalUnchanged=true`.
-- İç dağıtımın bağımsız tekrar üretiminde tek fark yine aynı teşhis yolu; iki enerji bacağı `LEGACY_PHYSICAL_ROUTE_UNAVAILABLE` olarak ertelenmiş, fakat kayıtlı bacak/rota/lot alanları değişmemiş ve iki defter doğrulaması da geçmiştir.
-- Hasarlı rotada bekleyen piyasa sevkiyatının bağımsız tekrar üretiminde tek fark boş ve başarılı `transportMigration` teşhisidir; fiyat, stok ve taşıt durumu değişmemiştir.
+- Dünya özeti `activeActionCount=1`, fakat oyuncunun bölgesel bilgisinde `activeActionCount=0`.
+- `pendingResponseCount=0`, `responseNoticeCount=0` ve `staleResponseNoticeCount=0` birbiriyle tutarlı.
+- Yabancı kolektif eylem kamusal olarak görünür, gizli seferberlik/radikalleşme alanları sızmıyor.
+- Aynı probun saf durum makinesi deterministik bir `country:0` PROTEST fikstürü üretiyor; bu fikstür gerçek `storyCollectiveNotice` yolunu sınamak için kullanılabilir.
 
 ## Ranked Hypotheses
 
-1. **Çalışma zamanı göç teşhisi ham eşitliği bozuyor — Confirmed.** Tek fark `diagnostics.transportMigration`.
-2. **Sipariş veya sevkiyat kayboluyor — Refuted.** Beş sipariş ve dört teslim edilmiş sevkiyat bütün alanlarıyla korunuyor.
-3. **Fiziksel rota veya kapasite penceresi değişiyor — Refuted.** Koridor/segment adımları, ajan ilerlemesi ve kapasite penceresi eşit.
-4. **Yükleme bölgesel stoğu yeniden borçlandırıyor — Refuted.** `regionalUnchanged=true`.
+1. **Test oyuncu eylemini doğal dünya üretimine bağlıyor — Confirmed.** Güncel seed oyuncuda eylem üretmiyor.
+2. **Bildirim sistemi oyuncu protestosunu yutuyor — Unproven/Not exercised.** Oyuncuya ait canlı protesto oluşmadığı için mevcut koşu bu yolu çağırmıyor.
+3. **Bildirim süresi dolup gözlemden kaçıyor — Refuted.** Prob her 5 saniyede gözlüyor; oyuncu pending response hiç oluşmuyor.
+4. **Yabancı eylem yanlışlıkla oyuncuya karar sunmalı — Refuted.** `storyCollectiveNotice` bilinçli olarak yalnız `state.isPlayer` için pencere üretir.
 
 ## Remediation
 
-- Kalıcılık eşitliğini yükleme anında üretilen `diagnostics` zarfından bağımsız, kalıcı operasyonel defter görünümü üzerinde yap.
-- Teşhis doğruluğunu ayrı assertion ile koru; operasyonel veri eşitliği iddiasını teşhis metadatasına bağlama.
-- Test mesajını sipariş, rota, ilerleme, kapasite ve toplamların korunduğunu açıkça belirtecek biçimde daralt.
-- Enerji dağıtımındaki iki ertelenmiş taşıma göçü uyarısını yükleme sırası/ENERGY fiziksel adaptörü borcu olarak görünür bırak; eşitlik testini geçsin diye uyarıyı silme.
-- Aynı ham ticaret eşitliğini kullanan piyasa yükleme, piyasa legacy/corrupt ve satış-uzlaşma resume kapılarını ortak operasyonel görünümle düzelt.
+- Saf durum makinesinin ürettiği geçerli oyuncu protestosu fikstürünü test harness üzerinden gerçek bildirim üreticisine ver.
+- Bildirimin dört yanıt seçeneğini taşıdığını gözle, ardından gerçek expire yoluyla temizle ve bayat düğme kalmadığını doğrula.
+- Doğal 180 saniyelik dünyayı aktif eylem, bilgi sınırı ve simülasyon gerçekçiliği için koru; UI tetikleme garantisini seed tesadüfüne bağlama.
 
 ## Verification
 
-- Korunan 88 görev sonucu üzerinde bütün assertionlar geçmeli.
-- Hedefli ticaret probunda `validation.ok`, operasyonel eşitlik ve `regionalUnchanged` birlikte doğru olmalı.
-- Son tam `npm test` sıfır koduyla tamamlanmalı.
+- `responseNoticeCount>0`, seçenekler CONCEDE/NEGOTIATE/SUPPRESS/IGNORE ve son bayat bildirim sayısı 0 olmalı.
+- Doğal dünya hâlâ en az bir kanıtlı eylem üretmeli ve yabancı sırları sızdırmamalı.
+- Korunan 88 görev sonucunda bütün assertionlar geçmeli; son tam `npm test` sıfır koduyla tamamlanmalı.
