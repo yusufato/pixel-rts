@@ -445,3 +445,16 @@
 - **What happened:** Göçün güncel biçime ulaşamadığı ihtimali incelendi.
 - **Evidence:** Prob `schemaVersion=4` ve `validation.ok=true` üretti; güncel doğrulayıcı da tam olarak şema 4 bekliyor.
 - **Implication for future audits:** Geçerli göç sonucu ile assertion uyuşmazsa önce bağımsız test literalini sorgula; veri formatını gereksiz yükseltme.
+## 2026-08-23 — Şema-2 konuşma göçü olay alanlarını backfill etmiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Şema-2 konuşma göçü olay alanlarını undefined bırakıyor
+- **What happened:** Eski oturumlarda bulunmayan sourceEventAnchor ve eventDecision, şema-4 göçünde açık null değerine çevrilmedi.
+- **Evidence:** Bellek içi probda iki oturumun liste/taviz/çözüm varsayılanları doğruyken bu iki anahtar JSON çıktısında yok; göç döngüsünde de karşılık gelen backfill bulunmuyor.
+- **Implication for future audits:** Yeni nullable şema alanlarını yalnız tip kontrolüyle değil açık anahtar varlığı ve serialize/restore turuyla doğrula.
+
+## 2026-08-23 — Göçteki tüm güvenli varsayılanlar bozuk değil
+- **Type:** Refuted
+- **Source:** RCA.md — Şema-2 konuşma göçü olay alanlarını undefined bırakıyor
+- **What happened:** Birleşik defaultsPresent=false sonucunun oyuncu cevapları, kanıtlar, takipler, tavizler veya çözüm alanlarından gelebileceği incelendi.
+- **Evidence:** Araçlandırılmış iki oturumda diziler mevcut, useExistingCompany=false, withdrawnClaimIds=[] ve resolution=null; yalnız olay alanları eksik.
+- **Implication for future audits:** Birleşik prob düştüğünde her bileşeni ayrı ölç; çalışan backfillleri gereksiz değiştirme.
