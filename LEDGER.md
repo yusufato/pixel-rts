@@ -606,3 +606,9 @@
 - **What happened:** Ticari oturum NEEDS_CLARIFICATION durumundayken takip API’si yalnız SOCIAL_RESPONSE_READY kabul ettiği için check-in ve belirsizlik onarımı analize ulaşmadı.
 - **Evidence:** Dört süreklilik alanı birlikte false; follow-up durum kapısı tek erken dönüş noktası.
 - **Implication for future audits:** Görüşme durumu mekanik inceleme aşamasını gösterir; sosyal konuşma yetkisini tek başına kapatmamalıdır.
+## 2026-08-23 — Elli tur kapısı geçerli profil cevaplarını dışlıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Elli turluk kalite kapısı geçerli profil cevap kaynaklarını dışlıyor
+- **What happened:** Günlük sohbetlerin kasıtlı profil tabanlı kaynakları eski iki-kaynak filtresine uymadığı için sağlamlık kapısı false oldu.
+- **Evidence:** 46 profil cevabı; allAccepted ve intentsExact true, adjacentRepeats 0, unique 20, yasak fallback 0.
+- **Implication for future audits:** Kaynak etiketi kapılarını üretim cevap mimarisinin tüm güvenli katmanlarıyla birlikte sürümle.

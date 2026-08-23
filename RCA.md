@@ -1,41 +1,41 @@
-# RCA — Mekanik inceleme açıkken aynı görüşmede sosyal takip tamamen engelleniyor
+# RCA — Elli turluk kalite kapısı geçerli profil cevap kaynaklarını dışlıyor
 
 ## 1) Verdict
 
-- **Root cause:** conversationSessionFollowUp yalnız session.status SOCIAL_RESPONSE_READY olduğunda çalışıyor; ticari görüşmeler açık açıklama soruları nedeniyle NEEDS_CLARIFICATION durumunda kaldığından sosyal ara konuşma ve belirsizlik onarımı daha analize girmeden reddediliyor.
+- **Root cause:** Kalite kapısı yalnız CHARACTER_DIALOGUE_REALIZER ve DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE kaynaklarını geçerli sayıyor; motorun günlük sosyal konuşmalar için kullandığı CHARACTER_PROFILE_SOCIAL_RESPONSE ve CHARACTER_PROFILE_SOCIAL_FOLLOW_UP kaynakları dışlanmış.
 - **Confidence:** Confirmed.
 
 ## 2) Failure Definition
 
-- Beklenen: Ticari konu açıkken oyuncu aynı karaktere bugün nasılsın diyebilmeli, ardından konu belleği korunmalı ve belirsiz ifade açıklama istemeli.
-- Gerçek: Her iki takip FOLLOW_UP_NOT_AVAILABLE; aynı session, CONTINUE_SOCIAL, activeTopic ve ambiguity repair kapıları false.
-- Etki: Sohbet mekanik forma dönüşüyor; oyuncu doğal ara konuşma yapınca görüşme devam etmiyor.
-- Blast radius: NEEDS_CLARIFICATION, domain review veya inceleme durumundaki açık görüşmelerin bütün takip mesajları.
+- Beklenen: Doğru niyet, geçerli karakter profili cevabı, bitişik tekrar olmaması, yeterli çeşitlilik ve yasak fallback bulunmaması kapıyı geçirmeli.
+- Gerçek: 46 profil tabanlı sosyal cevap yalnız source etiketi yüzünden geçersiz sayılıyor.
+- Etki: 50 turun tümü kabul edilip doğru sınıflansa da passed=false.
+- Blast radius: fiftyTurnQualityGate kaynak kabul kümesi; canlı cevap üretimi etkilenmiyor.
 
 ## 3) Evidence
 
-- Süreklilik fixtureı ticari şirket/sevkiyat cümlesiyle açılıyor ve açıklama soruları taşıyor.
-- followUp fonksiyonu session.status !== SOCIAL_RESPONSE_READY koşulunda doğrudan dönüyor.
-- Dört false alanın tamamı aynı iki reddedilen takip sonucundan türetiliyor.
-- Uzun bağlam kapıları ayrı sosyal oturumlarda geçtiği için geçmiş saklama altyapısı sağlam.
+- Kaynak dağılımı: 3 CHARACTER_PROFILE_SOCIAL_RESPONSE, 43 CHARACTER_PROFILE_SOCIAL_FOLLOW_UP, 4 grounded response.
+- allAccepted=true, intentsExact=true, adjacentRepeats=0, exactUniqueCount=20, forbiddenFallbackCount=0.
+- allCharacterRealized=false yalnız kaynak filtresinden geliyor.
+- Profil cevapları motorun kasıtlı deterministik günlük sohbet katmanı; LLM güvenlik fallbacki değildir.
 
 ## 4) Hypotheses
 
-1. **Durum kapısı gereğinden dar.** Supported.
-2. **DiscourseState ticari konuyu saklamıyor.** Refuted: başlangıç analizinden COMMERCE konusu oluşturuluyor; takip bu duruma ulaşamıyor.
-3. **Check-in NLU tarafından tanınmıyor.** Refuted: bağımsız sosyal laboratuvarda CHECK_IN doğru.
-4. **Belirsizlik onarım dalı yok.** Refuted: sosyal oturumlarda inheritedTopic ile CLARIFY_AMBIGUOUS_INPUT dalı var; çağrı kapıda reddediliyor.
+1. **Kaynak kabul kümesi eski.** Supported.
+2. **50 tur yanlış niyet üretiyor.** Refuted: intentsExact=true.
+3. **Bitişik aynı cevaplar var.** Refuted: adjacentRepeats=0.
+4. **Seni dinliyorum fallbacki dönüyor.** Refuted: forbiddenFallbackCount=0.
 
 ## 5) Remediation
 
-- Takipleri yalnız REJECTED veya sonlandırılmış resolution durumlarında engelle.
-- Açık mekanik sorular, domain review ve negotiation incelemesi aynı görüşmede sosyal/bağlamsal tur yapılmasına engel olmamalı.
-- Takip mesajı mekanik soruları otomatik cevaplamamalı, candidateı executable yapmamalı ve dünya mutasyonu üretmemeli.
-- Mevcut tur ve session limitleri korunmalı.
+- İzinli deterministik sosyal kaynakları tek yardımcı kümede tanımla: profile opening, profile follow-up ve grounded discourse.
+- CHARACTER_DIALOGUE_REALIZER kullanıldığında realization validator zorunluluğunu koru.
+- Niyet, çeşitlilik, bitişik tekrar, benzerlik ve yasak fallback kapılarını koru.
+- rolling exact repeats metriğini raporlamaya devam et; mevcut passed sözleşmesi bunu sıfır zorunluluğu yapmıyor.
 
 ## 6) Verification Plan
 
-- checkInStaysSameSession, checkInIsSocialNotPreviousAnswer ve activeTopicPreserved true.
-- ambiguousRequestsRepair true.
-- Açık mekanik questions listesi takipten sonra hâlâ açık kalmalı; dünya mutasyonu false.
-- Doğrudan laboratuvar, 10 fallback senaryosu ve tam paket geçmeli.
+- allCharacterRealized ve passed true.
+- turnCount=50, intentsExact=true, adjacentRepeats=0, exactUniqueCount>=16.
+- forbiddenFallbackCount=0.
+- Sıralı ve tam paket geçmeli.
