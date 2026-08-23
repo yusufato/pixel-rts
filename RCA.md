@@ -1,33 +1,34 @@
-# RCA — Ticaret kesinti eşiği fiziksel yükleme süresini yok sayıyor
+# RCA — Dolu fiziksel rota topolojik rota yok diye sınıflanıyor
 
 ## Verdict
 
-- **Root cause:** Ticaret probu 20 saniyelik tick'in tamamını kesinti sayıyor; v2 fiziksel taşıt yaşam döngüsü önce 0,5 saniye yükleme yapıyor ve yalnız kalan 19,5 saniyeyi gerçek koridor beklemesi olarak interruptionSeconds alanına yazıyor.
+- **Root cause:** v2 route planner aktif segment rezervasyonlarını aday kapasiteden çıkarıyor; bütün segment kapasitesi ayrılınca aday kenar kalmıyor ve NO_ROUTE dönüyor. Trade dispatch bu sonucu topolojik rota yok olarak aynen iletiyor.
 - **Confidence:** Confirmed.
-- **Impact:** Sevkiyat doğru biçimde HELD oluyor ve sonra teslim ediliyor, fakat birleşik kabul testi 19,5 değerini eski 20 eşiğiyle reddediyor.
+- **Impact:** Aynı kapasite penceresindeki ikinci sevkiyat CORRIDOR_CAPACITY_EXHAUSTED yerine NO_ROUTE alıyor; otomatik sipariş katmanları geçici kapasite yarışını kalıcı topoloji yokluğu gibi ele alabilir.
 
 ## Evidence
 
-- heldShipment.status=HELD ve holdReason=PHYSICAL_SEGMENT_BLOCKED.
-- transportAgent.state=WAITING, waitingSeconds=19.5.
-- deliveredShipment.status=DELIVERED ve interruptionSeconds=19.5.
-- Hasarlı corridor:land:0:6 effectiveCapacity=0; blocked tick held=1, advanced=0, delivered=0.
+- İlk sevkiyat 1.051 birimlik corridor:land:0:6 kapasitesinin tamamını ayırıp başarıyla teslim oluyor.
+- İkinci sevkiyatın route sonucu boş ve reason=NO_ROUTE.
+- Mantıksal/fiziksel koridor açıktır; ilk sevkiyat aynı 7 segmentli rotayı kullanmıştır.
+- storyRoutePlannerCandidate rezervasyonu segment kapasitesinden düşürür ve bottleneck sıfırsa adayı eler; storyTradeDispatchOrder rota başarısızlığını sınıflandırmadan döndürür.
 
 ## Ranked Hypotheses
 
-1. **Eski eşik yükleme fazını yok sayıyor — Confirmed.** 20 saniyenin 0,5'i LOADING, 19,5'i WAITING.
-2. **Kesinti telemetrisi hiç artmıyor — Refuted.** interruptionSeconds ve agent.waitingSeconds birlikte 19,5.
-3. **Hasar koridoru kapatmıyor — Refuted.** effectiveCapacity=0 ve PHYSICAL_SEGMENT_BLOCKED.
-4. **Yük kesintiye rağmen hareket ediyor — Refuted.** blocked tick advanced=0; adım ilerlemesi sıfır.
+1. **Rezervasyon tükenmesi NO_ROUTE olarak sızıyor — Confirmed.** Aynı açık rota ilk sevkiyat tarafından tam ayrılmıştır.
+2. **Fiziksel topoloji kopuk — Refuted.** İlk dispatch aynı koridorda ve segment zincirinde başarılıdır.
+3. **Bölgesel stok yetersiz — Refuted.** Tezgâh iki tam kapasite ve pay kadar stok yerleştirir.
+4. **Koridor hasarlı veya kapalı — Refuted.** Rota kesinti probundan sonra açılmıştır ve ilk kapasite dispatch'i geçer.
 
 ## Remediation
 
-- Kabul testinde gerçek kesinti süresinin 19 saniyeden büyük olmasını zorunlu tut.
-- Manifest kesintisini fiziksel agent waitingSeconds ile birebir eşleştir.
-- 20 saniyenin tamamını kesinti diye yazmak için yükleme süresini yanlış biçimde kesinti telemetrisine katma.
+- Trade rota planı NO_ROUTE döndüğünde, rezervasyonları dikkate almayan altyapı rota görünümünde aynı kaynak-hedef için geçilebilir yol olup olmadığını kontrol et.
+- Fiziksel yol varsa CORRIDOR_CAPACITY_EXHAUSTED, yoksa gerçek NO_ROUTE sonucunu koru.
+- Sipariş retry davranışını geçici kapasite yarışına uygun tut; topolojik hata ile karıştırma.
 
 ## Verification
 
-- Hedefli trade probunda status HELD, interruptionSeconds=waitingSeconds=19.5.
-- Ticaret ve altyapı hedefli test paketleri geçmeli.
-- Tam npm test sıfır koduyla tamamlanmalı.
+- Aynı pencerede ilk tam kapasite dispatch başarılı, ikincisi CORRIDOR_CAPACITY_EXHAUSTED olmalı.
+- Gerçek kopuk rota hâlâ NO_ROUTE dönmeli.
+- Korunan 88 görev sonucu üzerinde birleşik assertionlar yeniden çalıştırılmalı.
+- Son tam npm test sıfır koduyla tamamlanmalı.

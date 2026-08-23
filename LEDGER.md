@@ -193,3 +193,17 @@
 - **What happened:** Koridor tam kapandı, sevkiyat bekledi ve manifest/agent sayaçları aynı gerçek süreyi kaydetti.
 - **Evidence:** effectiveCapacity=0, held=1, advanced=0, delivered=0; kesinti sonrası sevkiyat DELIVERED durumuna ulaştı ve 19,5 saniyeyi korudu.
 - **Implication for future audits:** Toplam tick eşiği düşerse telemetriyi eksik saymadan önce faz bütçesinin ne kadarının gerçekten blokajda geçtiğini ölç.
+
+## 2026-08-23 — Dolu rota topolojik rota yok diye sınıflanıyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Dolu fiziksel rota topolojik rota yok diye sınıflanıyor
+- **What happened:** İlk sevkiyat segment kapasitesinin tamamını ayırınca route planner ikinci sorguda aday kenar bulamadı; trade katmanı geçici kapasite tükenmesini NO_ROUTE olarak iletti.
+- **Evidence:** İlk dispatch 1.051 birimle açık 7 segmentli rotada başarılı; ikinci dispatch aynı kaynak-hedef için NO_ROUTE.
+- **Implication for future audits:** Rezervasyon farkındalıklı rota aramasında boş aday grafı topolojik kopukluk kanıtı değildir; rezervasyonsuz fizik görünümüyle kapasite/tasarım ayrımını yap.
+
+## 2026-08-23 — Stok, hasar ve fiziksel topoloji ikinci dispatch hatasının nedeni değil
+- **Type:** Refuted
+- **Source:** RCA.md — Dolu fiziksel rota topolojik rota yok diye sınıflanıyor
+- **What happened:** Tezgâhta yeterli stok vardı, koridor yeniden açılmıştı ve aynı rota ilk sevkiyatı taşıdı.
+- **Evidence:** capacityDispatchA.ok=true, quantity=sharedCapacity=1051; fiziksel rota corridor:land:0:6 ve yedi segment içeriyor.
+- **Implication for future audits:** İlk eş dispatch başarılıysa ikinci NO_ROUTE sonucunda önce ortak kapasite rezervasyonlarını ve hata çevirisini incele.
