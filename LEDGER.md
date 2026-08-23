@@ -431,3 +431,17 @@
 - **What happened:** İkna kaydının UI veri projeksiyonundan tümden kaldırılmış olabileceği incelendi.
 - **Evidence:** `storyTalkConversationKnownRecords`, APPLIED PERSUADE makbuzunu `İkna girişimi` adıyla ilişki zincirine projekte ediyor.
 - **Implication for future audits:** Görünmeyen kayıtta veri üretimi, projection, render zamanı, aktif sekme ve selector konumunu ayrı kontrol et.
+
+## 2026-08-23 — Konuşma defteri göç assertionı yanlış şema-7 literalinde kalmış
+- **Type:** Confirmed
+- **Source:** RCA.md — Göç testi ürünün şema-4 sözleşmesine rağmen şema-7 bekliyor
+- **What happened:** Güncel ürün sözleşmesi ve başarılı göç sonucu şema 4 iken test tek başına 7 bekledi.
+- **Evidence:** Sabit, üretici, göç fonksiyonu, doğrulayıcı ve komşu test açıklaması şema 4; yalnız `tests/story-world.test.js:4463` değeri 7.
+- **Implication for future audits:** Şema assertionlarında literal, adapter sabiti, doğrulayıcı ve test açıklamasını birlikte karşılaştır.
+
+## 2026-08-23 — Konuşma defteri göç motoru eski kaydı geçersiz üretmiyor
+- **Type:** Refuted
+- **Source:** RCA.md — Göç testi ürünün şema-4 sözleşmesine rağmen şema-7 bekliyor
+- **What happened:** Göçün güncel biçime ulaşamadığı ihtimali incelendi.
+- **Evidence:** Prob `schemaVersion=4` ve `validation.ok=true` üretti; güncel doğrulayıcı da tam olarak şema 4 bekliyor.
+- **Implication for future audits:** Geçerli göç sonucu ile assertion uyuşmazsa önce bağımsız test literalini sorgula; veri formatını gereksiz yükseltme.

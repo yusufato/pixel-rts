@@ -1,59 +1,57 @@
-# RCA — Agreement UI probu eylem öncesi render ve eski panel konumu kullanıyor
+# RCA — Göç testi ürünün şema-4 sözleşmesine rağmen şema-7 bekliyor
 
 ## 1) Verdict
 
-- **Root cause:** Harness görüşme penceresini PERSUADE eyleminden önce render ediyor, eylemden sonra yenilemiyor ve kaydı 15 Ağustosta kaldırıldığı `conversation-workspace-history` alanında arıyor.
+- **Root cause:** `tests/story-world.test.js` içindeki tek bir assertion, konuşma oturumu defteri göçünün sonucunu yanlışlıkla `7` bekliyor.
 - **Confidence:** Confirmed.
-- Güncel ürün sözleşmesinde uygulanmış eylem kayıtları sol profilin `İLİŞKİ` sekmesindeki ilişki zincirinde gösteriliyor.
+- Canlı ürün sabiti, yeni defter üretimi, göç fonksiyonu, doğrulayıcı ve aynı testteki bir önceki açıklama şema `4` sözleşmesinde uzlaşıyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Başarılı PERSUADE makbuzu güncel görüşme UI kayıt yüzeyinde görünmeli.
-- Gerçek prob sırası: render → metni al → PERSUADE uygula → yeniden render etmeden eski history alanını sorgula.
-- Birleşik koşul ayrıca başarısız makbuzu `!agreementReceipt.ok` ile başarı sayıyor.
-- Blast radius yalnız agreement görünürlük ölçümüdür; UI üretim yolu kayıtları güncel İLİŞKİ sekmesine projekte ediyor.
+- Beklenen ürün davranışı: Şema 1/2/3 kayıtları güncel `STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 4` değerine göçmeli ve doğrulamayı geçmeli.
+- Gerçek çalışma: Göç sonucu `schemaVersion=4`, `validation.ok=true`.
+- Hatalı test davranışı: Başarılı göçün hemen ardından `schemaVersion === 7` bekleniyor.
+- Blast radius yalnız bayat test sabitidir; kayıt biçimini ya da oyuncu verisini değiştiren bir ürün kusuru yoktur.
 
 ## 3) Timeline
 
 | Zaman | Olay | Kanıt |
 |---|---|---|
-| 10 Ağustos 2026 | Agreement probu eski sağ kayıt paneline yazıldı | `10a81699` blame |
-| 15 Ağustos 2026 | Anlaşma ve kayıtlar İLİŞKİ sekmesine taşındı | `12b693ce` blame |
-| 23 Ağustos 2026 | Başarılı eylem eski/stale görünümde aranarak false oldu | Sequential assertion |
+| 2026-08-23 öncesi | Oturum defteri sözleşmesi şema 4 olarak tanımlandı | `STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 4` |
+| 2026-08-23 | Göç probu geçerli şema-4 kayıt üretti | `legacySessionMigration.validation.ok=true`, `schemaVersion=4` |
+| 2026-08-23 | Assertion bağımsız `7` literalinde durdu | `tests/story-world.test.js:4463` |
 
 ## 4) Hypotheses (ranked)
 
-1. **Prob render sırası ve hedef paneli bayat.** Supported: kaynakta render eylemden önce; UI yorumu kayıtların İLİŞKİ sekmesine taşındığını açıkça söylüyor.
-2. **Ürün kayıt projeksiyonu kaldırıldı.** Refuted: `storyTalkConversationKnownRecords` APPLIED PERSUADE eylemini `İkna girişimi` olarak ilişki zincirine ekliyor.
-3. **Fikstür teardown hâlâ başarısız.** Refuted: `diplomaticFixtureRestored=true`; yeni hata aynı şekilde sürüyor ve kaynakta bağımsız stale UI akışı var.
+1. **Assertion literalı bayat/yanlış.** Supported: ürünün tüm sözleşme noktaları ve komşu test açıklaması 4 diyor.
+2. **Göç fonksiyonu şema 7’ye yükseltilmeliydi.** Refuted: şema 5/6/7 için ürün sabiti, adapter veya doğrulayıcı sözleşmesi yok.
+3. **Korunan prob çıktısı eski.** Refuted: güncel kaynak şema 4 üretiyor ve sonuç güncel doğrulayıcıdan geçiyor.
 
 ## 5) Mechanism
 
-1. Modal eylem öncesi render edilir.
-2. PERSUADE başarılı makbuz üretir.
-3. DOM yenilenmediği için yeni kayıt görünmez.
-4. Assertion artık yalnız konuşma geçmişi içeren sağ paneli arar.
-5. Başarılı makbuz nedeniyle hatalı `!ok` kaçış dalı da false olur; aggregate düşer.
-- Root cause bayat test akışı; contributing factor UI taşımasında prob güncellenmemesi; detection failure başarısız eylemi başarı sayan ters koşuldur.
+1. Eski şema-2 defteri göç fonksiyonuna girer.
+2. Göç fonksiyonu güncel sabiti kullanarak şema 4 yazar.
+3. Doğrulayıcı aynı sabitle kaydı geçerli kabul eder.
+4. Testteki bağımsız `7` literali bu tutarlı sonucu hatalı biçimde reddeder.
+- Root cause yanlış test sabiti; contributing factor şema değerinin assertion içinde tekrar edilmesi; detection failure komşu açıklamayla literal arasındaki çelişkinin daha önce yakalanmamasıdır.
 
 ## 6) Remediation Options
 
 ### Mitigation
 
-- Başarısız makbuzu görünürlük başarısı saymak testi yeşil tutabilir fakat false positive üretir; kaldırılmalı.
+- Assertionı kaldırmak hatayı gizler ve göç sözleşmesini korumasız bırakır; uygulanmamalı.
 
 ### Fix
 
-- Başarılı PERSUADE sonrası workspace yeniden render edilmeli, İLİŞKİ sekmesi DOM olayıyla açılmalı ve `İkna girişimi` güncel profil yüzeyinde aranmalı.
-- Profil görünürlüğü sekme değişiminden önce snapshotlanmalı.
+- Beklenen değeri `4`, açıklamayı `şema-4` yap.
+- Ürün göç koduna dokunma.
 
 ### Prevention
 
-- UI probları eylem başarı, rerender ve güncel yüzey görünürlüğünü ayrı booleanlarla ölçmeli; layout taşımasında selector sözleşmesi güncellenmeli.
+- Şema göç testlerini mümkün olduğunda dışa aktarılan/gözlenen güncel adapter sözleşmesiyle eşleştir; açıklama ve literal çelişkisini diff incelemesinde kontrol et.
 
 ## 7) Verification Plan
 
-- Agreement receipt `ok=true` olmalı.
-- Rerender ve İLİŞKİ sekmesi sonrası profil metni `İkna girişimi` içermeli.
-- Başarısız makbuz artık görünürlük başarısı sayılmamalı.
-- Profil, geçmiş, WASD, hafıza, sequential ve temiz tam test geçmeli.
+- Korunan güncel prob çıktısıyla sequential assertion zinciri bu noktayı geçmeli.
+- Göç doğrulaması `ok=true`, şema değeri `4`, güvenli varsayılanlar mevcut kalmalı.
+- Ardından 10 senaryolu güvenli-fallback ve tam `npm test -- --keep-results` çalışmalı.
