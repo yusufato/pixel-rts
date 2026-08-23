@@ -207,3 +207,17 @@
 - **What happened:** Tezgâhta yeterli stok vardı, koridor yeniden açılmıştı ve aynı rota ilk sevkiyatı taşıdı.
 - **Evidence:** capacityDispatchA.ok=true, quantity=sharedCapacity=1051; fiziksel rota corridor:land:0:6 ve yedi segment içeriyor.
 - **Implication for future audits:** İlk eş dispatch başarılıysa ikinci NO_ROUTE sonucunda önce ortak kapasite rezervasyonlarını ve hata çevirisini incele.
+
+## 2026-08-23 — Yükleme teşhisi kalıcı ticaret durumu sanılıyordu
+- **Type:** Confirmed
+- **Source:** RCA.md — Yükleme teşhisi kalıcı ticaret durumu sanılıyor
+- **What happened:** Ham defter eşitliği, yükleme sırasında eklenen ve hiçbir dünya değişikliği taşımayan `diagnostics.transportMigration` alanını kalıcılık kaybı saydı.
+- **Evidence:** Kaydedilen/geri yüklenen defterlerde tek fark bu teşhis alanı; migrated=0, deferred=0, issues=[]; doğrulama ve bölgesel stok eşitliği geçti.
+- **Implication for future audits:** Kayıt eşitliğinde kalıcı oyun durumunu çalışma zamanı doğrulama/göç teşhislerinden ayır; ikisini ayrı sözleşmelerle test et.
+
+## 2026-08-23 — Ticaret siparişleri, rotaları ve kapasitesi yüklemede kaybolmuyor
+- **Type:** Refuted
+- **Source:** RCA.md — Yükleme teşhisi kalıcı ticaret durumu sanılıyor
+- **What happened:** Exact-ledger assertionı düşmesine rağmen operasyonel alanların hiçbirinde fark yoktu.
+- **Evidence:** Sözleşme, sipariş, sevkiyat, fiziksel segment, taşıt ilerlemesi, kapasite penceresi ve toplamların alan düzeyi karşılaştırması eşit; regionalUnchanged=true.
+- **Implication for future audits:** Ham JSON eşitsizliğini veri kaybı ilan etmeden önce fark yollarını çıkar ve yalnız kalıcı alanları sınıflandır.

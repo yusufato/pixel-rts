@@ -1,34 +1,33 @@
-# RCA — Dolu fiziksel rota topolojik rota yok diye sınıflanıyor
+# RCA — Yükleme teşhisi kalıcı ticaret durumu sanılıyor
 
 ## Verdict
 
-- **Root cause:** v2 route planner aktif segment rezervasyonlarını aday kapasiteden çıkarıyor; bütün segment kapasitesi ayrılınca aday kenar kalmıyor ve NO_ROUTE dönüyor. Trade dispatch bu sonucu topolojik rota yok olarak aynen iletiyor.
+- **Root cause:** Ticaret kalıcılık probu tüm defteri ham JSON eşitliğiyle karşılaştırıyor. Kayıt yükleyicisi yalnız çalışma zamanı teşhisi olan `diagnostics.transportMigration` alanını eklediği için operasyonel durum birebir korunmasına rağmen `exactLedger=false` oluyor.
 - **Confidence:** Confirmed.
-- **Impact:** Aynı kapasite penceresindeki ikinci sevkiyat CORRIDOR_CAPACITY_EXHAUSTED yerine NO_ROUTE alıyor; otomatik sipariş katmanları geçici kapasite yarışını kalıcı topoloji yokluğu gibi ele alabilir.
+- **Impact:** 88/88 simülasyon görevi ve ticaret doğrulamaları geçse bile son kabul kapısı yanlış negatif veriyor; gerçek kayıt kaybıyla zararsız yükleme teşhisi ayırt edilemiyor.
 
 ## Evidence
 
-- İlk sevkiyat 1.051 birimlik corridor:land:0:6 kapasitesinin tamamını ayırıp başarıyla teslim oluyor.
-- İkinci sevkiyatın route sonucu boş ve reason=NO_ROUTE.
-- Mantıksal/fiziksel koridor açıktır; ilk sevkiyat aynı 7 segmentli rotayı kullanmıştır.
-- storyRoutePlannerCandidate rezervasyonu segment kapasitesinden düşürür ve bottleneck sıfırsa adayı eler; storyTradeDispatchOrder rota başarısızlığını sınıflandırmadan döndürür.
+- Kaydedilen ve geri yüklenen defterlerin alan düzeyi farkında tek kayıt `$.diagnostics.transportMigration`.
+- Geri yüklenen değer `{ ok: true, migrated: 0, deferred: 0, issues: [] }`; hiçbir göç veya onarım yapılmamış.
+- Sözleşmeler, siparişler, sevkiyatlar, rota adımları, kapasite penceresi, toplamlar ve bütün kimlik/sıraçlar eşit.
+- `restored.validation.ok=true` ve `regionalUnchanged=true`.
 
 ## Ranked Hypotheses
 
-1. **Rezervasyon tükenmesi NO_ROUTE olarak sızıyor — Confirmed.** Aynı açık rota ilk sevkiyat tarafından tam ayrılmıştır.
-2. **Fiziksel topoloji kopuk — Refuted.** İlk dispatch aynı koridorda ve segment zincirinde başarılıdır.
-3. **Bölgesel stok yetersiz — Refuted.** Tezgâh iki tam kapasite ve pay kadar stok yerleştirir.
-4. **Koridor hasarlı veya kapalı — Refuted.** Rota kesinti probundan sonra açılmıştır ve ilk kapasite dispatch'i geçer.
+1. **Çalışma zamanı göç teşhisi ham eşitliği bozuyor — Confirmed.** Tek fark `diagnostics.transportMigration`.
+2. **Sipariş veya sevkiyat kayboluyor — Refuted.** Beş sipariş ve dört teslim edilmiş sevkiyat bütün alanlarıyla korunuyor.
+3. **Fiziksel rota veya kapasite penceresi değişiyor — Refuted.** Koridor/segment adımları, ajan ilerlemesi ve kapasite penceresi eşit.
+4. **Yükleme bölgesel stoğu yeniden borçlandırıyor — Refuted.** `regionalUnchanged=true`.
 
 ## Remediation
 
-- Trade rota planı NO_ROUTE döndüğünde, rezervasyonları dikkate almayan altyapı rota görünümünde aynı kaynak-hedef için geçilebilir yol olup olmadığını kontrol et.
-- Fiziksel yol varsa CORRIDOR_CAPACITY_EXHAUSTED, yoksa gerçek NO_ROUTE sonucunu koru.
-- Sipariş retry davranışını geçici kapasite yarışına uygun tut; topolojik hata ile karıştırma.
+- Kalıcılık eşitliğini yükleme anında üretilen `diagnostics` zarfından bağımsız, kalıcı operasyonel defter görünümü üzerinde yap.
+- Teşhis doğruluğunu ayrı assertion ile koru; operasyonel veri eşitliği iddiasını teşhis metadatasına bağlama.
+- Test mesajını sipariş, rota, ilerleme, kapasite ve toplamların korunduğunu açıkça belirtecek biçimde daralt.
 
 ## Verification
 
-- Aynı pencerede ilk tam kapasite dispatch başarılı, ikincisi CORRIDOR_CAPACITY_EXHAUSTED olmalı.
-- Gerçek kopuk rota hâlâ NO_ROUTE dönmeli.
-- Korunan 88 görev sonucu üzerinde birleşik assertionlar yeniden çalıştırılmalı.
-- Son tam npm test sıfır koduyla tamamlanmalı.
+- Korunan 88 görev sonucu üzerinde bütün assertionlar geçmeli.
+- Hedefli ticaret probunda `validation.ok`, operasyonel eşitlik ve `regionalUnchanged` birlikte doğru olmalı.
+- Son tam `npm test` sıfır koduyla tamamlanmalı.
