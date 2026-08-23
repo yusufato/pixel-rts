@@ -484,3 +484,16 @@
 - **What happened:** Odağın yanlış olmasının takip editörünün render edilmemesinden gelebileceği incelendi.
 - **Evidence:** Harness aynı render sonrasında data-conversation-follow-up öğesini bulup değer, selection ve scroll ölçümü yapabiliyor.
 - **Implication for future audits:** Element mevcutken focus düşüyorsa önce querySelector aday sırası ve kapsamını incele.
+## 2026-08-23 — Görüşme rerenderı aktif editörü DOMdan koparıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Görüşme rerenderı aktif takip editörünü DOMdan koparıyor
+- **What happened:** Workspace ana sütunu innerHTML ile yenilenirken aktif textarea durumu yakalanmadı ve yeni düğüme geri verilmedi.
+- **Evidence:** Bellek içi ölçümde hasFollowUp=true iken zorunlu render sonrasında activeElement=BODY; render fonksiyonunda focus/draft restore yok.
+- **Implication for future audits:** Form içeren innerHTML renderlarında value, selection, scroll ve focus round-tripini birlikte test et.
+
+## 2026-08-23 — Açılış focus selectorü tek başına yeterli değil
+- **Type:** Refuted
+- **Source:** RCA.md — Görüşme rerenderı aktif takip editörünü DOMdan koparıyor
+- **What happened:** Follow-up alanını açılış selectorüne eklemenin tüm odağı düzelteceği varsayıldı.
+- **Evidence:** Selector düzeltmesi sonrası workspaceFocusSafe hâlâ false; ikinci render aktif düğümü kaldırıp odağı BODYye çekiyor.
+- **Implication for future audits:** Açılış focusu ve sonraki DOM yenilemesi iki ayrı yaşam döngüsü sınırıdır; ikisini ayrı ölç.

@@ -1,58 +1,63 @@
-# RCA — Görüşme açılış odağı takip editörünü seçmiyor
+# RCA — Görüşme rerenderı aktif takip editörünü DOMdan koparıyor
 
 ## 1) Verdict
 
-- **Root cause:** storyConversationWorkspaceOpen içindeki focus selector, mevcut oturumun data-conversation-follow-up editörünü hiç içermiyor ve eşleşen ilk öğe olarak Yeni Konuşma düğmesine düşüyor.
+- **Root cause:** storyConversationWorkspaceRender, ana görüşme sütununu innerHTML ile yeniden kurmadan önce aktif editör durumunu yakalamıyor ve sonrasında geri yüklemiyor.
 - **Confidence:** Confirmed.
-- Harness mevcut bir session kimliğiyle workspace açıyor; DOMda takip editörü varken activeElement kabul edilen editörlerden biri değil.
+- Bellek içi ölçümde takip textarea DOMda mevcut olduğu halde zorunlu render sonrasında document.activeElement BODY oldu.
 
 ## 2) Failure Definition
 
-- Beklenen: Mevcut konuşma açıldığında oyuncu doğrudan takip mesajı yazabilmeli.
-- Gerçek: Açılış odağı takip editörü yerine data-conversation-new düğmesine gidiyor.
-- Etki: Oyuncu yazmaya başlayınca metin alanına giriş yapılmıyor; klavye akışı kırılıyor.
-- Blast radius mevcut oturumla açılan karakter görüşmeleridir; yeni boş konuşma akışı etkilenmez.
+- Beklenen: LLM veya periyodik UI yenilemesi sırasında aktif takip editörü, taslak metni, seçim aralığı ve kendi scroll konumu korunmalı.
+- Gerçek: main.innerHTML eski textarea düğümünü kaldırıyor; tarayıcı odağı BODYye düşürüyor.
+- Etki: Oyuncu yazarken odak ve taslak kaybı, ilk harften sonra yazamama veya mesajı sıfırlama hissi oluşabilir.
+- Blast radius görüşme workspace içindeki yeniden render edilen tüm metin editörleridir.
 
 ## 3) Timeline
 
 | Zaman | Olay | Kanıt |
 |---|---|---|
-| Workspace focus eklendi | Selector yeni konuşma ve bazı form alanlarını kapsadı | Talks.js focusTarget |
-| Takip editörü UIya eklendi | data-conversation-follow-up mevcut oturumun ana girdisi oldu | Talks.js render ve harness |
-| Güncel prob | workspaceFocusSafe=false | conversationUnderstandingProbe |
+| Açılış focus düzeltmesi | Follow-up selector adaylara eklendi | Talks.js focusTarget |
+| Zorunlu render | Harness açılıştan sonra workspace render çağırdı | story-sim-harness |
+| Bellek ölçümü | hasFollowUp=true fakat activeElement=BODY | Araçlandırılmış prob |
 
 ## 4) Hypotheses (ranked)
 
-1. **Selector takip editörünü atlıyor.** Supported: selector metninde follow-up yok, sonunda conversation-new var.
-2. **DOM takip editörünü üretmiyor.** Refuted: hemen sonraki harness sorgusu bu öğeyi bulup taslak testi yapıyor.
-3. **jsdom focus desteklemiyor.** Refuted: aynı prob diğer textarea focus ve selection işlemlerini ölçüyor.
+1. **innerHTML replacement aktif editörü koparıyor.** Supported: render üç sütunu yeniden yazar ve hiçbir focus restore kodu yok.
+2. **Açılış selectorü tek kök nedendi.** Refuted: selector düzeltmesinden sonra hata aynı kaldı; zorunlu render sonrasında BODY ölçüldü.
+3. **Textarea DOMda yok.** Refuted: aynı anda hasFollowUp=true ve tam textarea HTMLsi mevcut.
+4. **jsdom focus arızası.** Refuted: render öncesi focus ve sonraki doğrudan focus işlemleri çalışıyor.
 
 ## 5) Mechanism
 
-1. Mevcut session ile workspace render edilir.
-2. querySelector sıralı adaylarda follow-up olmadığı için editörü görmez.
-3. DOMdaki Yeni Konuşma düğmesi eşleşir ve focus alır.
-4. Kullanıcı giriş odağı yanlış kontrol üzerinde kalır.
-- Root cause eksik selector; contributing factor yeni ve mevcut konuşmanın tek selectorla ele alınması; detection failure takip editörü eklendiğinde focus sözleşmesinin güncellenmemesidir.
+1. Workspace açılışı takip textarea alanına focus verir.
+2. Sonraki UI yenilemesi main.innerHTML atar.
+3. Aktif textarea eski DOM ağacıyla birlikte kaldırılır.
+4. Tarayıcı activeElement değerini BODYye çeker.
+5. Render yeni textarea üretir fakat değer, seçim, scroll ve focus geri verilmez.
+- Root cause durum korumasız DOM replacement; contributing factor render options parametresinin fiilen kullanılmaması; detection failure yalnız açılış focusunun test edilip ikinci render sınırının geçmişte ayrı ölçülmemesidir.
 
 ## 6) Remediation Options
 
 ### Mitigation
 
-- Odağı hiçbir yere vermemek düğme sorununu gizler ama klavye kullanımını yine bozar; uygulanmamalı.
+- LLM sırasında tüm renderları kapatmak cevapların görünmesini geciktirir ve diğer UI güncellemelerini bozar; tek başına yeterli değil.
 
 ### Fix
 
-- data-conversation-follow-up öğesini data-conversation-new öncesinde focus adaylarına ekle.
-- Yeni konuşmada follow-up yoksa mevcut data-conversation-input davranışı korunsun.
+- Render öncesi aktif korumalı editörün selector, value, selectionStart, selectionEnd ve scrollTop değerlerini yakala.
+- DOM yenilendikten sonra eşdeğer editöre bu durumu ve focusu geri ver.
+- Editör aktif değilse hiçbir otomatik focus uygulama.
 
 ### Prevention
 
-- Yeni giriş kontrolü eklendiğinde workspace açılış focus testini mevcut ve yeni oturum için ayrı çalıştır.
+- Her innerHTML tabanlı form renderında focus ve draft round-trip testi zorunlu olsun.
+- Açılış focusu ile rerender focusunu ayrı kapılar olarak koru.
 
 ## 7) Verification Plan
 
 - workspaceFocusSafe=true olmalı.
-- Yeni konuşma input odağı korunmalı.
-- Taslak rerender ve klavye güvenliği kapıları yeniden çalışmalı.
+- draftSurvivedRerender=true ve selection aralığı korunmalı.
+- draftDeferredWithoutReplacement kapısı çalışmalı.
+- Yeni konuşma ve toplantı editörleri regresyona uğramamalı.
 - Sequential ve tam test paketi geçmeli.
