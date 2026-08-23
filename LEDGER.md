@@ -116,3 +116,17 @@
 - **What happened:** Ticaret içeriği çalışmaya ve yeni koridorları kullanmaya devam etti; doğrulayıcı yalnız hash bağı sorunu verdi ve izole tek süreç aynı sonucu üretti.
 - **Evidence:** 143 sözleşme, 47 açık sipariş, 330 aktif shipment; ENERGY dağıtım probu geçti; issue listesi yalnız `TRADE_NETWORK_HASH`.
 - **Implication for future audits:** Ağ hash uyuşmazlığını shipment içeriği veya paralelliğe bağlamadan önce kontrollü graph revizyonunun sidecar'lara yayınlanıp yayınlanmadığını kontrol et.
+
+## 2026-08-23 — Fiziksel taşıma validatorı terminal ajan durumlarını reddediyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Transport agent yaşam döngüsü sözleşmesi
+- **What happened:** Ticaret motoru teslim edilen ve kaybolan fiziksel ajanları `DELIVERED/LOST` durumuna geçirirken validator yalnız canlı hareket durumlarını kabul ediyor; tamamlanmış shipment geçmişi topluca geçersiz sayılıyor.
+- **Evidence:** Hash revizyonu geçtikten sonra 180 saniyelik dünyada yüzlerce `INVALID_SHIPMENT_TRANSPORT`; üretim kodunda terminal atamalar mevcut, validator allowed listesinde yok.
+- **Implication for future audits:** Agent doğrulamasını tek state listesiyle yapma; shipment ve agent yaşam döngüsü durumlarını eşleşmeli invariant olarak doğrula.
+
+## 2026-08-23 — Ajan attach, ağ hash eşitlemesi ve ENERGY grid akışı terminal validator hatasının nedeni değil
+- **Type:** Refuted
+- **Source:** `RCA.md` — Transport agent yaşam döngüsü sözleşmesi
+- **What happened:** Canlı fiziksel rota testleri ve attach alanları geçerliydi; hash düzeltmesi yalnız revizyon alanlarını değiştirdi, ENERGY grid shipmentları ise v2 agent validatorına girmez.
+- **Evidence:** Kara/demir/deniz rota testleri geçti; issue kodu yalnız agent terminal durumunda açığa çıktı; çelişkili kod `6ece5a5` commitinden beri mevcut.
+- **Implication for future audits:** Bu issue için rota üretimini veya grid fallback'i değiştirmeden önce terminal state-pair sözleşmesini denetle.
