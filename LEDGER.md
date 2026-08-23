@@ -221,3 +221,10 @@
 - **What happened:** Exact-ledger assertionı düşmesine rağmen operasyonel alanların hiçbirinde fark yoktu.
 - **Evidence:** Sözleşme, sipariş, sevkiyat, fiziksel segment, taşıt ilerlemesi, kapasite penceresi ve toplamların alan düzeyi karşılaştırması eşit; regionalUnchanged=true.
 - **Implication for future audits:** Ham JSON eşitsizliğini veri kaybı ilan etmeden önce fark yollarını çıkar ve yalnız kalıcı alanları sınıflandır.
+
+## 2026-08-23 — İç dağıtım kalıcılık kapısı da çalışma zamanı teşhisine bağlıydı
+- **Type:** Confirmed
+- **Source:** RCA.md — Yükleme teşhisi kalıcı taşıma durumu sanılıyor
+- **What happened:** İki bacaklı enerji dağıtımında ham ticaret defteri eşitliği yalnız yüklemede eklenen `diagnostics.transportMigration` yüzünden düştü.
+- **Evidence:** Alan farkı yalnız teşhis yolunda; iki sevkiyat `LEGACY_PHYSICAL_ROUTE_UNAVAILABLE` ile deferred listesine girmiş olsa da trade/commerce doğrulamaları ve kalıcı bacak/rota/lot alanları eşit.
+- **Implication for future audits:** Operasyonel kalıcılığı diagnostics zarfından ayrı ölç; ENERGY fiziksel adaptör/yükleme sırası uyarısını ayrıca borç olarak izle ve sessizce silme.
