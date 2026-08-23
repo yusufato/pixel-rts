@@ -1,54 +1,51 @@
-# RCA — Genel yardım takip hareketi diyalog sözleşmesinde kayıtlı değil
+# RCA — Görüşme renderı yazım-erteleme seçeneğini yok sayıyor
 
 ## 1) Verdict
 
-- **Root cause:** StoryConversationUnderstanding genel REQUEST_SUPPORT takibi için CONTINUE_REQUEST hareketi üretiyor; StoryDialogueMove hareket kataloğu bu eylemi tanımıyor.
+- **Root cause:** storyConversationWorkspaceRender seçenek parametresi kabul etmiyor; harness ve LLM yerleşme akışının kullandığı deferWhileTyping isteği fonksiyona ulaşsa bile yok sayılıyor.
 - **Confidence:** Confirmed.
-- Sonuçta takip mesajı ilk çağrıda kaydediliyor, ledger doğrulaması DIALOGUE_MOVE hatası veriyor ve sonraki ensure çağrısı bütün konuşma ledgerını güvenli sıfırlıyor.
+- Fonksiyon taslağı yeniden oluşturup değeri ve odağı geri yüklüyor, fakat DOM düğümünü korumuyor ve pendingConversationRender bayrağını başta siliyor.
 
 ## 2) Failure Definition
 
-- Beklenen: Genel yardım isteğinin takip cevabı doğrulanmış bir DialogueMove taşımalı ve aynı oturum sonraki turlarda korunmalı.
-- Gerçek: İlk genel yardım turundan sonra DIALOGUE_MOVE doğrulama hatası oluşuyor; sonraki oturum çağrısında kayıtlar sıfırlanıyor.
-- Etki: Uzun bağlam, oturum sürekliliği ve günlük sohbetler görünürde rastgele sıfırlanıyor.
-- Blast radius: CONTINUE_REQUEST üreten genel yardım takipleri; açılış NLU analizi ve dünya simülasyonu etkilenmiyor.
+- Beklenen: Oyuncu dolu bir sohbet editöründe yazarken ertelenebilir render çağrısı mevcut DOMu değiştirmemeli ve bekleyen yenileme bayrağı koymalı.
+- Gerçek: Render options almıyor, main.innerHTML yeniden yazılıyor, eski textarea kopuyor ve pending bayrağı siliniyor.
+- Etki: LLM cevabı geldiğinde oyuncunun aktif yazım yüzeyi yenileniyor; değer geri konabilse bile IME, seçim, undo zinciri ve düğüm kimliği bozuluyor.
+- Blast radius: deferWhileTyping isteyen görüşme yenilemeleri; normal açık renderlar ve patchResponse yolu kapsam dışında.
 
 ## 3) Evidence
 
-- Hedefli probda ilk geçersiz durum kalite oturumu 0, takip turu 6 üzerinde oluştu.
-- Bu turdaki metin Bana bu konuda yardım eder misin? ve speechAct REQUEST_SUPPORT.
-- conversationSessionFollowUp FOLLOW_UP_RECORDED döndürdü.
-- Ham ledger doğrulaması aynı anda DIALOGUE_MOVE yolunu işaretledi.
-- StoryDialogueMove kataloğunda CONTINUE_MILITARY_SUPPORT_REQUEST var, CONTINUE_REQUEST yok.
-- Bir sonraki ensure çağrısında validator başarısızlığı ledger resetini tetikliyor; bu yüzden session kimliği 1 olarak yeniden başlıyor ve liste boş görünüyor.
+- Sıralı assertion draftDeferredWithoutReplacement=false verdi.
+- Harness storyConversationWorkspaceRender({ scroll: preserve, deferWhileTyping: true }) çağırıyor.
+- Ürün fonksiyon imzası parametresiz.
+- Fonksiyon 1926 satırında pending bayrağını siliyor, 1955 satırında main.innerHTML yazıyor.
+- Değer/odak restorasyonu yeni düğüm üzerinde çalışıyor; eski düğüm eşitliği korunmuyor.
 
 ## 4) Hypotheses
 
-1. **CONTINUE_REQUEST kataloga kayıtlı değil.** Supported: üretici eylemi yazıyor, doğrulayıcı ACT_NOT_REGISTERED üretiyor.
-2. **32 oturum sınırı en yeni oturumu buduyor.** Refuted: tanı çıktısında her begin yeniden conversation-session:1 üretiyor ve liste boş; bu FIFO budaması değil reset belirtisi.
-3. **Follow-up sayısı tur sınırını aşıyor.** Refuted: hata yedinci takipte, sınır 24.
-4. **NLU yardım isteğini tanımıyor.** Refuted: analiz REQUEST_SUPPORT üretiyor.
+1. **deferWhileTyping seçeneği uygulanmıyor.** Supported: fonksiyon parametresiz ve koşullu erken dönüş yok.
+2. **Taslak metni kayboluyor.** Refuted: draftSurvivedRerender ölçümü true; sorun değer değil düğüm yaşam döngüsü.
+3. **ResponseSettled hiçbir erteleme yapmıyor.** Refuted: bu fonksiyon dolu editörde bayrak koyup dönüyor; eksik olan doğrudan render sözleşmesi.
+4. **Odak selectorü hâlâ yanlış.** Refuted: workspaceFocusSafe ve draftSurvivedRerender artık true.
 
 ## 5) Mechanism
 
-1. Genel yardım takibi REQUEST_SUPPORT olarak çözümlenir.
-2. Grounded cevap CONTINUE_REQUEST discourseAct değerini üretir.
-3. DialogueMove oluşturucu katalogda politika bulamayınca UNREGISTERED_ACT kaynak politikası yazar.
-4. Ledger validator hareketi geçersiz bulur.
-5. Sonraki ensure onarım yapamayınca güvenli reset uygular.
-6. UI ve uzun bağlam testleri oturumu kaybetmiş görünür.
+1. Aktif dolu textarea varken render deferWhileTyping seçeneğiyle çağrılır.
+2. Parametre yok sayılır ve pending bayrağı silinir.
+3. main.innerHTML bütün konuşma gövdesini yeniden oluşturur.
+4. Değer ve seçim yeni textarea üzerine geri yazılır.
+5. Görsel metin korunmuş görünse de DOM kimliği ve ertelenmiş render sözleşmesi kaybolur.
 
 ## 6) Remediation
 
-- StoryDialogueMove hareket kataloğuna CONTINUE_REQUEST ekle.
-- Politika CURRENT_TURN_ONLY olmalı; claimTypes boş, memory false kalmalı.
-- Dünya komutu, anlaşma kabulü veya gizli bilgi yetkisi eklenmemeli.
-- Üretici ve doğrulayıcı aynı committe test edilmelidir.
+- Render fonksiyonuna options parametresi ekle ve yalnız nesne seçenekleri kabul et.
+- Aktif korumalı editörde boş olmayan değer ve deferWhileTyping=true olduğunda pendingConversationRender=1 yazıp DOM mutasyonundan önce dön.
+- Normal render başlangıcında pending bayrağını temizlemeye devam et.
+- Mevcut değer/odak restorasyonunu zorunlu renderlar için koru.
 
 ## 7) Verification Plan
 
-- Hedefli conversationUnderstandingProbe çökmeden tamamlanmalı.
-- Genel yardım takip cevabı DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE ve CONTINUE_REQUEST taşımalı.
-- Aynı yardımın tekrarı REPAIR_REPETITION üretmeli.
-- Ledger validation ok kalmalı ve session kimlikleri artmalı.
+- draftDeferredWithoutReplacement true olmalı.
+- draftSurvivedRerender ve workspaceFocusSafe true kalmalı.
+- Hedefli conversationUnderstandingProbe tamamlanmalı.
 - Sıralı assertion ve tam npm test paketi geçmeli.

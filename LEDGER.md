@@ -556,3 +556,16 @@
 - **What happened:** Önceki RCA ilk kalite oturumunun 32 kayıt sınırıyla budandığını varsaydı.
 - **Evidence:** En yeni oturumu seçme değişikliğine rağmen id conversation-session:1, latest null ve sessions boş kaldı; ilk gerçek bozulma yardım turundaki DIALOGUE_MOVE doğrulama hatasıydı.
 - **Implication for future audits:** Null kayıt gördüğünde retention varsaymadan önce sequence, ham validation ve ilk bozulma turunu ölç.
+## 2026-08-23 — Görüşme renderı deferWhileTyping sözleşmesini uygulamıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Görüşme renderı yazım-erteleme seçeneğini yok sayıyor
+- **What happened:** Render aktif editör değerini yeni düğüme geri yükledi ancak deferWhileTyping seçeneğini kabul etmediği için eski DOM düğümünü yine değiştirdi.
+- **Evidence:** draftSurvivedRerender=true, draftDeferredWithoutReplacement=false; fonksiyon parametresiz ve pending bayrağını mutasyondan önce siliyor.
+- **Implication for future audits:** Taslak değerinin korunması ile aktif editör DOM kimliğinin korunmasını ayrı UX sözleşmeleri olarak test et.
+
+## 2026-08-23 — Taslak erteleme hatası metin kaybı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Görüşme renderı yazım-erteleme seçeneğini yok sayıyor
+- **What happened:** Assertionın taslak metninin kaybolmasından doğduğu ihtimali incelendi.
+- **Evidence:** Zorunlu rerender sonrası değer ve focus restorasyonu geçiyor; başarısız olan düğüm eşitliği ve pending bayrağı.
+- **Implication for future audits:** Görsel olarak aynı metin kalması, IME ve undo güvenliği için yeterli değildir.
