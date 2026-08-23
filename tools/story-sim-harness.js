@@ -7007,7 +7007,10 @@ function probeMarketPrices(seed = 2032) {
             validation: restoredRuntime.api.validateMarketLedger(ledger),
             exact: JSON.stringify(ledger) === JSON.stringify(main.savedLedger),
             regionalUnchanged: JSON.stringify(restoredRuntime.api.regionalLedger()) === JSON.stringify(main.savedRegional),
-            tradeUnchanged: JSON.stringify(restoredRuntime.api.tradeLedger()) === JSON.stringify(main.savedTrade)
+            tradeOperationalUnchanged: JSON.stringify(tradeOperationalPersistenceView(
+                restoredRuntime.api.tradeLedger()
+            )) === JSON.stringify(tradeOperationalPersistenceView(main.savedTrade)),
+            transportMigration: restoredRuntime.api.tradeLedger().diagnostics.transportMigration
         };
     } finally {
         restoredRuntime.dom.window.close();
@@ -7025,7 +7028,9 @@ function probeMarketPrices(seed = 2032) {
             ledger: legacyRuntime.api.marketLedger(),
             validation: legacyRuntime.api.validateMarketLedger(legacyRuntime.api.marketLedger()),
             regionalUnchanged: JSON.stringify(legacyRuntime.api.regionalLedger()) === JSON.stringify(legacySave.regionalEconomy),
-            tradeUnchanged: JSON.stringify(legacyRuntime.api.tradeLedger()) === JSON.stringify(legacySave.tradeLogistics)
+            tradeOperationalUnchanged: JSON.stringify(tradeOperationalPersistenceView(
+                legacyRuntime.api.tradeLedger()
+            )) === JSON.stringify(tradeOperationalPersistenceView(legacySave.tradeLogistics))
         };
     } finally {
         legacyRuntime.dom.window.close();
@@ -7043,7 +7048,9 @@ function probeMarketPrices(seed = 2032) {
             ledger: corruptRuntime.api.marketLedger(),
             validation: corruptRuntime.api.validateMarketLedger(corruptRuntime.api.marketLedger()),
             regionalUnchanged: JSON.stringify(corruptRuntime.api.regionalLedger()) === JSON.stringify(corruptSave.regionalEconomy),
-            tradeUnchanged: JSON.stringify(corruptRuntime.api.tradeLedger()) === JSON.stringify(corruptSave.tradeLogistics)
+            tradeOperationalUnchanged: JSON.stringify(tradeOperationalPersistenceView(
+                corruptRuntime.api.tradeLedger()
+            )) === JSON.stringify(tradeOperationalPersistenceView(corruptSave.tradeLogistics))
         };
     } finally {
         corruptRuntime.dom.window.close();
@@ -7868,14 +7875,16 @@ function probeSaleSettlementResume(seed = 2032) {
                 === JSON.stringify(saved.companyEconomy),
             budget: JSON.stringify(restoredRuntime.api.budgetLedger())
                 === JSON.stringify(saved.stateBudget),
-            trade: JSON.stringify(restoredRuntime.api.tradeLedger())
-                === JSON.stringify(saved.tradeLogistics)
+            tradeOperational: JSON.stringify(tradeOperationalPersistenceView(
+                restoredRuntime.api.tradeLedger()
+            )) === JSON.stringify(tradeOperationalPersistenceView(saved.tradeLogistics))
         };
         for (let elapsed = 0; elapsed < 8; elapsed++) restoredRuntime.api.advance(1);
         return {
             loaded,
             before,
             exact,
+            transportMigration: restoredRuntime.api.tradeLedger().diagnostics.transportMigration,
             after: {
                 companyValidation: restoredRuntime.api.validateCompanyLedger(
                     restoredRuntime.api.companyLedger()

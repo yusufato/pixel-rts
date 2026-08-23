@@ -1310,20 +1310,24 @@ function run() {
     assert.equal(marketProbe.restored.exact, true, 'Bölgesel fiyat, sinyal ve ulusal sepet kayıtta birebir korunmalı.');
     assert.equal(marketProbe.restored.regionalUnchanged, true,
         'Piyasa yüklemesi bölgesel stoğu ikinci kez değiştirmemeli.');
-    assert.equal(marketProbe.restored.tradeUnchanged, true,
+    assert.equal(marketProbe.restored.tradeOperationalUnchanged, true,
         'Piyasa yüklemesi yoldaki yükü ikinci kez işlememeli.');
+    assert.equal(marketProbe.restored.transportMigration.ok, true,
+        'Piyasa yüklemesinin taşıma göçü teşhisi operasyonel eşitlikten ayrı kalmalı.');
     assert.equal(marketProbe.legacy.loaded, true, 'Piyasa defteri olmayan eski kayıt açılabilmeli.');
     assert.equal(marketProbe.legacy.validation.ok, true, 'Eski kayıt güvenli baz fiyatlarla backfill edilmeli.');
     assert.equal(marketProbe.legacy.ledger.diagnostics.backfilled, true,
         'Eski kayıt piyasa backfill teşhisini açıkça taşımalı.');
     assert.equal(marketProbe.legacy.regionalUnchanged, true, 'Piyasa backfill’i mevcut stoklara dokunmamalı.');
-    assert.equal(marketProbe.legacy.tradeUnchanged, true, 'Piyasa backfill’i mevcut sevkiyatlara dokunmamalı.');
+    assert.equal(marketProbe.legacy.tradeOperationalUnchanged, true,
+        'Piyasa backfill’i mevcut sevkiyatlara dokunmamalı.');
     assert.equal(marketProbe.corrupt.loaded, true, 'Bozuk piyasa defteri dünya kaybı olmadan açılabilmeli.');
     assert.equal(marketProbe.corrupt.validation.ok, true, 'Bozuk piyasa defteri güvenli baz fiyatlarla kurtarılmalı.');
     assert.equal(marketProbe.corrupt.ledger.diagnostics.restoredFromInvalidLedger, true,
         'Bozuk piyasa kurtarması sessiz olmamalı.');
     assert.equal(marketProbe.corrupt.regionalUnchanged, true, 'Bozuk fiyat defteri stok üretmemeli veya silmemeli.');
-    assert.equal(marketProbe.corrupt.tradeUnchanged, true, 'Bozuk fiyat defteri sevkiyat üretmemeli veya silmemeli.');
+    assert.equal(marketProbe.corrupt.tradeOperationalUnchanged, true,
+        'Bozuk fiyat defteri sevkiyat üretmemeli veya silmemeli.');
     assert.equal(marketProbe.disabled.summary.disabled, true, 'Piyasa katmanı özellik bayrağıyla kapanabilmeli.');
     assert.equal(marketProbe.disabled.ledger, null, 'Kapalı piyasa katmanı sahte fiyat üretmemeli.');
     assert.equal(marketProbe.ab.changed, true, 'Piyasa açık/kapalı A/B karması fiyat defteri nedeniyle farklı olmalı.');
@@ -1646,8 +1650,10 @@ function run() {
         'Kayit probu gercek aktif sirket ithalat blokesi tasimali.');
     assert.equal(saleResume.before.orphanEscrowRejected, true,
         'Aktif uzlasmasi olmayan sirket ticaret emaneti defter dogrulamasindan gecmemeli.');
-    assert.deepEqual(saleResume.exact, { company: true, budget: true, trade: true },
+    assert.deepEqual(saleResume.exact, { company: true, budget: true, tradeOperational: true },
         'Sirket, butce uzlasmasi ve fiziksel ticaret defterleri kayit/yuklemede birebir korunmali.');
+    assert.equal(saleResume.transportMigration.ok, true,
+        'Aktif ithalat yukunun tasima gocu teshisi operasyonel kaliciliktan ayri kalmali.');
     assert.equal(saleResume.after.companyValidation.ok, true,
         'Yuklenen ithalat blokeleri ilerledikten sonra sirket defteri gecerli kalmali.');
     assert.equal(saleResume.after.budgetValidation.ok, true,
