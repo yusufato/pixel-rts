@@ -497,3 +497,16 @@
 - **What happened:** Follow-up alanını açılış selectorüne eklemenin tüm odağı düzelteceği varsayıldı.
 - **Evidence:** Selector düzeltmesi sonrası workspaceFocusSafe hâlâ false; ikinci render aktif düğümü kaldırıp odağı BODYye çekiyor.
 - **Implication for future audits:** Açılış focusu ve sonraki DOM yenilemesi iki ayrı yaşam döngüsü sınırıdır; ikisini ayrı ölç.
+## 2026-08-23 — Virüllü focus sorgusu DOM sırasındaki düğmeyi seçiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Virüllü focus selectorü aday önceliğini değil DOM sırasını kullanıyor
+- **What happened:** Follow-up selector metinde düğmeden önce olsa da querySelector birleşim kümesindeki ilk DOM öğesi olan Yeni Konuşma düğmesini döndürdü.
+- **Evidence:** Bellek içi ölçüm forced render öncesinde activeElementin data-conversation-new düğmesi olduğunu gösterdi.
+- **Implication for future audits:** Focus önceliğini virgüllü CSS selector sırasına bırakma; adayları açık ardışık sorgularla seç.
+
+## 2026-08-23 — Selector listesindeki yazım sırası focus önceliği sağlamıyor
+- **Type:** Refuted
+- **Source:** RCA.md — Virüllü focus selectorü aday önceliğini değil DOM sırasını kullanıyor
+- **What happened:** Follow-up selectorünü birleşik listenin önüne eklemenin textarea önceliği sağlayacağı varsayıldı.
+- **Evidence:** Liste güncellendiği halde activeElement Yeni Konuşma kaldı; düğme DOMda textarea önünde.
+- **Implication for future audits:** CSS selector birleşimi ile uygulama öncelik zincirini birbirinden ayır.
