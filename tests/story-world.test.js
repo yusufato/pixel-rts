@@ -3242,8 +3242,8 @@ function run() {
         'Önceki Faz 37 eylem defteri sürümü açılabilmeli.');
     assert.equal(characterActionsProbe.version2.validation.ok, true,
         'Önceki eylem defteri güncel seçici sözleşmesine geçerli göç etmeli.');
-    assert.equal(characterActionsProbe.version2.schemaVersion, 8,
-        'Sürüm-2 eylem defteri sürüm-6 makam geçişi şemasına yükseltilmeli.');
+    assert.equal(characterActionsProbe.version2.schemaVersion, 9,
+        'Sürüm-2 eylem defteri Faz 38.6 karar bağlamı ve izi şemasına yükseltilmeli.');
     assert.equal(characterActionsProbe.version2.policyHash, 'fnv1a32:phase38-speech-realizer-4',
         'Göç eski seçici karmasını koruyup yanlış politika iddiasında bulunmamalı.');
     assert.equal(characterActionsProbe.version2.receiptCount, 7,
@@ -3252,8 +3252,8 @@ function run() {
         'Gerçek sürüm-3 sosyal eylem defteri açılabilmeli.');
     assert.equal(characterActionsProbe.version3.validation.ok, true,
         'Sürüm-3 sosyal makbuzlar güncel türlü hedef şemasını geçmeli.');
-    assert.equal(characterActionsProbe.version3.schemaVersion, 8,
-        'Sürüm-3 eylem defteri sürüm-6 hedef ve makam sözleşmesine yükselmeli.');
+    assert.equal(characterActionsProbe.version3.schemaVersion, 9,
+        'Sürüm-3 eylem defteri Faz 38.6 karar bağlamı ve izi sözleşmesine yükselmeli.');
     assert.equal(characterActionsProbe.version3.receiptCount, 4,
         'Sürüm-3’ün dört sosyal makbuzu göçte kaybolmamalı.');
     assert.equal(characterActionsProbe.version3.typedContractsBackfilled, true,
