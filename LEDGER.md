@@ -530,3 +530,16 @@
 - **What happened:** Motor güncel grounded kaynağı DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE olarak etiketlerken dört harness kontrolü kaldırılmış etiketi kullanıyor.
 - **Evidence:** Eski etiket yalnız harness içinde; güncel ürün etiketi f29215b kaynak değişiminden geliyor.
 - **Implication for future audits:** Gözlenebilir adapter/source etiketi değiştiğinde doğrudan laboratuvar sözleşmesini aynı committe güncelle.
+## 2026-08-23 — Uzun bağlam fikstürü budanmış ilk kalite oturumunu kullanıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Uzun bağlam probu oturum sınırında budanan ilk kalite oturumunu seçiyor
+- **What happened:** Prob üç kalite oturumunun ilk kimliğini sakladı; daha sonraki begin çağrıları 32 kayıt sınırında bu eski oturumu budadı.
+- **Evidence:** conversationSessionGet null, worker discourseContext initialText üzerinde TypeError; longContextSessionId yalnız sessionIndex 0 için atanıyor.
+- **Implication for future audits:** Bounded ledger problarında ölçüm için en yeni canlı fixtureyi seç ve erişilebilirliğini açık doğrula.
+
+## 2026-08-23 — Canlı oturum budama sınırı arızalı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Uzun bağlam probu oturum sınırında budanan ilk kalite oturumunu seçiyor
+- **What happened:** Null oturumun ürünün yanlış kayıt silmesinden gelebileceği incelendi.
+- **Evidence:** STORY_CONVERSATION_SESSION_LIMIT=32 ve begin en eski kayıtları bilinçli FIFO buduyor; harness eski kimliği sınırın ötesinde tutuyor.
+- **Implication for future audits:** Test verisini ürünün bounded-retention sözleşmesine uydur; limiti testi geçirmek için büyütme.
