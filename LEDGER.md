@@ -600,3 +600,9 @@
 - **What happened:** Doğru REPAIR_REPETITION cevabı doğrudan ve ifadesini kullandı; test yalnız doğrudan cevap tam parçasını kabul etti.
 - **Evidence:** Hareket ve kaynak doğru, metin tekrarı kabul ediyor; yalnız regex false.
 - **Implication for future audits:** Davranış kapısını yapılandırılmış hareketle kur, doğal dil kontrolünü semantik köke indir; tam sözcük dizilimini kontrat yapma.
+## 2026-08-23 — Mekanik oturum durumu sosyal takipleri kapatıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Mekanik inceleme açıkken aynı görüşmede sosyal takip tamamen engelleniyor
+- **What happened:** Ticari oturum NEEDS_CLARIFICATION durumundayken takip API’si yalnız SOCIAL_RESPONSE_READY kabul ettiği için check-in ve belirsizlik onarımı analize ulaşmadı.
+- **Evidence:** Dört süreklilik alanı birlikte false; follow-up durum kapısı tek erken dönüş noktası.
+- **Implication for future audits:** Görüşme durumu mekanik inceleme aşamasını gösterir; sosyal konuşma yetkisini tek başına kapatmamalıdır.
