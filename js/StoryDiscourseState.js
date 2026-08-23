@@ -11,7 +11,7 @@ const STORY_DISCOURSE_CLAIM_POSITION_LIMIT = 24;
 const STORY_DISCOURSE_SOCIAL_TOPICS = Object.freeze(['SOCIAL', 'GENERAL']);
 const STORY_DISCOURSE_REPAIR_ACTS = Object.freeze([
     'REPAIR_MISUNDERSTANDING', 'REPAIR_MISSING_ANSWER', 'REPAIR_REPETITION',
-    'EXPLAIN_FALLBACK_FAILURE', 'REPAIR_ROLE_CONTRADICTION'
+    'EXPLAIN_FALLBACK_FAILURE', 'REPAIR_ROLE_CONTRADICTION', 'CORRECT_PREVIOUS_TOPIC'
 ]);
 const STORY_DISCOURSE_QUESTION_ACTS = Object.freeze([
     'CLARIFY_UNKNOWN_WITHOUT_FAKE_CONTINUITY', 'REPAIR_MISUNDERSTANDING',
@@ -77,7 +77,8 @@ function storyDiscourseStateApply(state, input) {
     const correctsPrior = ['onu demiyorum', 'yanlış anladın', 'yanlış anladınız',
         'onu kastetmedim', 'demek istediğim'].some(row => rawPlayer.includes(row))
         || ['onu demiyorum', 'yanlis anladin', 'yanlis anladiniz',
-            'onu kastetmedim', 'demek istedigim'].some(row => foldedPlayer.includes(row));
+            'onu kastetmedim', 'demek istedigim'].some(row => foldedPlayer.includes(row))
+        || (/^hayir\b/.test(foldedPlayer) && /\bdegil\b.*\bhakkinda\b/.test(foldedPlayer));
 
     // Bir önceki karakter sorusuna gerçek içerikli oyuncu cevabı geldiyse borcu
     // kapat. Onarım/selam/teşekkür cevap değildir; borcu sessizce silmez.

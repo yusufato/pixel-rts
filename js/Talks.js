@@ -1380,12 +1380,35 @@ function storyTalkConversationParticipantsHtml(meeting) {
     const esc = storyTalkConversationEscape;
     if (!meeting) return '';
     return `<div class="conversation-section-title">KATILIMCILAR</div><div class="conversation-participant-list">`
-        + meeting.participants.map(row => `<article data-conversation-participant="${esc(row.actorId)}" `
-            + `class="${row.actorId === meeting.chair.actorId ? 'chair' : ''}"><span>${row.actorId === meeting.chair.actorId ? 'BAŞKAN' : 'KATILIMCI'}</span>`
-            + `<b>${esc(row.name)}</b><small>${esc(STORY_TALK_ROLE_LABELS[row.role] || row.role)} · ${esc(row.countryName)}</small>`
-            + `<em>DOĞRULANMIŞ KAMUSAL PROFİL</em></article>`).join('') + `</div>`;
+        + meeting.participants.map(row => {
+            const verified = row.visibility !== 'IDENTITY_UNVERIFIED';
+            return `<article data-conversation-participant="${esc(row.actorId)}" `
+                + `class="${row.actorId === meeting.chair.actorId ? 'chair' : ''}"><span>${row.actorId === meeting.chair.actorId ? 'BAŞKAN' : 'KATILIMCI'}</span>`
+                + `<b>${esc(row.name)}</b><small>${esc(STORY_TALK_ROLE_LABELS[row.role] || row.role)} · ${esc(row.countryName)}</small>`
+                + `<em>${verified ? 'DOĞRULANMIŞ KAMUSAL PROFİL' : 'KİMLİK DOĞRULANMADI'}</em></article>`;
+        }).join('') + `</div>`;
 }
 
+function storyTalkConversationParticipantPreview(session, directory) {
+    const ids = Array.from(new Set((session && session.participantActorIds || [])
+        .filter(Boolean).map(String)));
+    if (ids.length < 2) return null;
+    const publicRows = directory && directory.publicCharacters || [];
+    return {
+        chair: { actorId: String(session.listenerActorId || ids[0]) },
+        participants: ids.map(actorId => {
+            const row = publicRows.find(candidate => candidate.id === actorId);
+            return row ? {
+                actorId, name: row.name, role: row.role,
+                countryName: row.countryName || 'Bilinmiyor',
+                visibility: 'KNOWN_PUBLIC_PROFILE'
+            } : {
+                actorId, name: 'Bilinmeyen katılımcı', role: 'CHARACTER',
+                countryName: 'Bilinmiyor', visibility: 'IDENTITY_UNVERIFIED'
+            };
+        })
+    };
+}
 const STORY_TALK_ROLE_LABELS = Object.freeze({
     EXECUTIVE: 'Devlet yöneticisi', POLITICAL_FIGURE: 'Siyasi isim',
     POLITICAL_CANDIDATE: 'Siyasi aday', COMMANDER: 'Komutan', AGENT: 'Ajan',
@@ -1903,9 +1926,31 @@ function storyTalkConversationHistoryHtml(listenerActorId) {
     }).join('');
 }
 
-function storyConversationWorkspaceRender() {
+function storyConversationWorkspaceRender(options) {
+    options = options && typeof options === 'object' ? options : {};
     const modal = document.getElementById('conversation-workspace-modal');
     if (!modal || modal.classList.contains('hidden')) return;
+    const protectedEditorSelectors = [
+        '[data-conversation-follow-up]', '[data-conversation-reply]',
+        '[data-conversation-input]', '[data-conversation-meeting-agenda]',
+        '[data-conversation-meeting-player-turn]', '[data-conversation-meeting-private-text]',
+        '[data-conversation-meeting-motion-text]', '[data-conversation-amendment-input]'
+    ];
+    const activeEditor = document.activeElement && modal.contains(document.activeElement)
+        ? document.activeElement : null;
+    const activeEditorSelector = activeEditor
+        ? protectedEditorSelectors.find(selector => activeEditor.matches(selector)) : null;
+    const activeEditorState = activeEditorSelector ? {
+        selector: activeEditorSelector,
+        value: String(activeEditor.value || ''),
+        selectionStart: Number.isInteger(activeEditor.selectionStart) ? activeEditor.selectionStart : null,
+        selectionEnd: Number.isInteger(activeEditor.selectionEnd) ? activeEditor.selectionEnd : null,
+        scrollTop: Number(activeEditor.scrollTop) || 0
+    } : null;
+    if (options.deferWhileTyping && activeEditorState && activeEditorState.value.length) {
+        modal.dataset.pendingConversationRender = '1';
+        return;
+    }
     delete modal.dataset.pendingConversationRender;
     const listenerActorId = modal.dataset.listenerActorId || STORY._talkFocusCharacterId;
     if (!listenerActorId) return;
@@ -1932,8 +1977,10 @@ function storyConversationWorkspaceRender() {
         && activeSession.conversationCase.meetingCaseId
         && typeof storyConversationMeetingGet === 'function'
         ? storyConversationMeetingGet(activeSession.conversationCase.meetingCaseId) : null;
-    if (profile) profile.innerHTML = activeMeeting
-        ? storyTalkConversationParticipantsHtml(activeMeeting)
+    const participantView = activeMeeting
+        || storyTalkConversationParticipantPreview(activeSession, directory);
+    if (profile) profile.innerHTML = participantView
+        ? storyTalkConversationParticipantsHtml(participantView)
         : storyTalkConversationProfileHtml(listenerActorId);
     if (main) main.innerHTML = storyTalkConversationSessionHtml(
         listenerActorId, STORY._conversationWorkspaceSessionId
@@ -1943,6 +1990,20 @@ function storyConversationWorkspaceRender() {
     // "tek yerde" olması: durum ile onu doğuran kayıtlar aynı ekranda.
     if (history) history.innerHTML = `<div class="conversation-history-block"><div class="conversation-section-title">ÖNCEKİ KONUŞMALAR</div>`
         + storyTalkConversationHistoryHtml(listenerActorId) + `</div>`;
+    if (activeEditorState) {
+        const restoredEditor = modal.querySelector(activeEditorState.selector);
+        if (restoredEditor) {
+            restoredEditor.value = activeEditorState.value;
+            restoredEditor.scrollTop = activeEditorState.scrollTop;
+            restoredEditor.focus();
+            if (activeEditorState.selectionStart != null && activeEditorState.selectionEnd != null
+                && typeof restoredEditor.setSelectionRange === 'function') {
+                restoredEditor.setSelectionRange(
+                    activeEditorState.selectionStart, activeEditorState.selectionEnd
+                );
+            }
+        }
+    }
 }
 
 function storyConversationWorkspacePauseUiSync(locked) {
@@ -1988,7 +2049,15 @@ function storyConversationWorkspaceOpen(listenerActorId, name, requestedSessionI
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     storyConversationWorkspaceRender();
-    const focusTarget = modal.querySelector('[data-conversation-input], [data-conversation-reply], [data-conversation-meeting-agenda], [data-conversation-meeting-player-turn], [data-conversation-meeting-private-text], [data-conversation-meeting-motion-text], [data-conversation-amendment-input], [data-conversation-new]');
+    const focusTarget = modal.querySelector('[data-conversation-input]')
+        || modal.querySelector('[data-conversation-reply]')
+        || modal.querySelector('[data-conversation-follow-up]')
+        || modal.querySelector('[data-conversation-meeting-agenda]')
+        || modal.querySelector('[data-conversation-meeting-player-turn]')
+        || modal.querySelector('[data-conversation-meeting-private-text]')
+        || modal.querySelector('[data-conversation-meeting-motion-text]')
+        || modal.querySelector('[data-conversation-amendment-input]')
+        || modal.querySelector('[data-conversation-new]');
     if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
     return true;
 }

@@ -214,6 +214,7 @@ kullanır; şehir veya araç ekran koordinatından simülasyon gerçeği üretme
 
 ## Harita cache sözleşmesi
 
+`js/StoryMapCache.js`, bütün harita cache geçersiz kılmalarının kanonik sahibidir.
 Tüm aktif geçersiz kılmalar `storyInvalidateMapCaches(scope, reason, details)`
 kapısından geçer:
 

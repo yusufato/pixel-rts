@@ -328,6 +328,12 @@ function storyConversationSpeechAct(folded, raw) {
     if (storyConversationContains(folded, ['sence', 'ne dusunuyorsun', 'fikrin ne', 'senin gorusun'])) add('ASK_PERSONAL_OPINION', 13);
     if (storyConversationContains(folded, ['yardim eder misin', 'yardim edecek misin', 'yardim icin gelir misin',
         'yardim gerekiyor', 'yardim lazim', 'destek olur musun', 'destek verir misin', 'destegine ihtiyacim var'])) add('REQUEST_SUPPORT', 16);
+    const supportRequestRoot = /(?:^|\s)(?:yardim|yardimini|yardimina|destek|destegi|destegini|destegine)(?:\s|$)/.test(folded);
+    const supportRequestForm = storyConversationContains(folded, [
+        'isterim', 'istesem', 'istiyorum', 'ihtiyacim var', 'kabul eder misin',
+        'verir misin', 'eder misin', 'olur musun', 'gelir misin'
+    ]);
+    if (supportRequestRoot && supportRequestForm) add('REQUEST_SUPPORT', 16);
     if (storyConversationContains(folded, ['bana guveniyor musun', 'bana guvenir misin',
         'bana guvenin var mi', 'bana güveniyor musun'])) add('ASK_RELATIONSHIP', 18);
     if (storyConversationContains(folded, ['aramizdaki guven', 'bana olan guven',
@@ -1884,6 +1890,12 @@ function storyConversationSessionMigrateLedger(saved) {
         if (!Array.isArray(session.playerResponses)) session.playerResponses = [];
         if (!Array.isArray(session.evidenceSubmissions)) session.evidenceSubmissions = [];
         if (!Array.isArray(session.followUps)) session.followUps = [];
+        if (!Object.prototype.hasOwnProperty.call(session, 'sourceEventAnchor')) {
+            session.sourceEventAnchor = null;
+        }
+        if (!Object.prototype.hasOwnProperty.call(session, 'eventDecision')) {
+            session.eventDecision = null;
+        }
         if (typeof storyDiscourseStateCreate === 'function'
             && (!session.discourseState || typeof session.discourseState !== 'object')) {
             session.discourseState = storyDiscourseStateCreate(session.id, session.analysis);
@@ -2507,17 +2519,18 @@ function storyConversationSessionStatus(session) {
     if (session.resolution && STORY_CONVERSATION_RESOLUTION_STATUSES.includes(session.resolution.status)) {
         return session.resolution.status;
     }
+    if ((session.questions || []).some(row => row.status === 'OPEN')) return 'NEEDS_CLARIFICATION';
+    if (session.domainReview && STORY_CONVERSATION_REVIEW_STATUSES.includes(session.domainReview.sessionStatus)) {
+        return session.domainReview.sessionStatus;
+    }
+    if ((session.domainChecks || []).length) return 'READY_FOR_DOMAIN_REVIEW';
     if ((session.listenerResponses || []).some(row => row.kind === 'SOCIAL_RESPONSE')
         && (STORY_CONVERSATION_SOCIAL_ACTS.includes(session.analysis.speechAct)
             || (session.listenerResponses || []).some(row =>
                 row.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'))) {
         return 'SOCIAL_RESPONSE_READY';
     }
-    if ((session.questions || []).some(row => row.status === 'OPEN')) return 'NEEDS_CLARIFICATION';
-    if (session.domainReview && STORY_CONVERSATION_REVIEW_STATUSES.includes(session.domainReview.sessionStatus)) {
-        return session.domainReview.sessionStatus;
-    }
-    return (session.domainChecks || []).length ? 'READY_FOR_DOMAIN_REVIEW' : 'READY_FOR_REVIEW';
+    return 'READY_FOR_REVIEW';
 }
 
 function storyConversationSessionCandidate(session) {
@@ -3332,6 +3345,9 @@ function storyConversationSessionUnverifiedClaims(session) {
 }
 
 function storyConversationQuestionFocus(folded) {
+    if (/^(neden|niye)$/.test(folded)) return 'ASK_REASON';
+    if (/^hayir\b/.test(folded) && /\bdegil\b/.test(folded)
+        && storyConversationContains(folded, ['hakkinda konus'])) return 'CORRECT_PREVIOUS_TOPIC';
     if (storyConversationContains(folded, ['bana bir sey soyleme', 'bana birsey soyleme'])) {
         return 'REQUEST_SILENCE';
     }
@@ -3460,6 +3476,26 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
         || ({ EXECUTIVE: 'devlet yöneticisi', COMMANDER: 'kuvvet komutanı', AGENT: 'istihbarat görevlisi',
             COMPANY_EXECUTIVE: 'şirket yöneticisi', POLITICAL_FIGURE: 'siyasi temsilci' })[actor.role])
         || 'doğrulanmamış görev sahibi';
+    if (focus === 'ASK_REASON') {
+        const priorResponse = (session.listenerResponses || []).slice(-1)[0];
+        const militaryBoundary = priorResponse && [
+            'ASSESS_UNVERIFIED_MILITARY_REQUEST', 'CONTINUE_MILITARY_SUPPORT_REQUEST'
+        ].includes(priorResponse.discourseAct);
+        return {
+            discourseAct: 'ASK_REASON',
+            text: militaryBoundary
+                ? 'Gerekçem şu: doğrulanmamış tehdit bilgisi ve belirsiz yetkiyle kuvvet hareketi sözü vermek askerleri ve sivilleri riske atar.'
+                : 'Önceki tutumumun nedeni, doğrulanmamış bilgiyle kesin sonuç veya yetkim dışında bir söz vermemektir.'
+        };
+    }
+    if (focus === 'CORRECT_PREVIOUS_TOPIC') {
+        const corrected = folded.match(/\bdegil\s+(.+?)\s+hakkinda\s+konus/);
+        const correctedTopic = corrected && corrected[1] || 'yeni belirttiğin konu';
+        return {
+            discourseAct: 'CORRECT_PREVIOUS_TOPIC',
+            text: `Düzeltmeni kaydettim; önceki konu yerine ${correctedTopic} hakkında konuşuyorsun. Bu yeni bağlamı ayrı ele alacağım.`
+        };
+    }
     if (focus === 'REQUEST_SILENCE') return {
         discourseAct: 'ANSWER_PLAYER_BOUNDARY',
         text: 'Peki. Konuşmayı burada zorlamayacağım.'
@@ -3698,6 +3734,10 @@ function storyConversationGroundedFollowUp(session, analysis, raw, sequence) {
     if (latestBudget && storyConversationContains(folded, ['dinar', 'butcem', 'butce', 'param', 'sermayem'])) return {
         discourseAct: 'ACKNOWLEDGE_UNVERIFIED_BUDGET',
         text: `${latestBudget.amountText} ${latestBudget.currencyText} bütçen olduğunu söylüyorsun; bunu doğrulanmış bakiye sayamam. Projenin gerçek maliyetini ve yetkili şirket kuruluş yolunu ayrıca incelemek gerekir.`
+    };
+    if (analysis.speechAct === 'REQUEST_SUPPORT') return {
+        discourseAct: 'CONTINUE_REQUEST',
+        text: 'Yardım talebini anlıyorum; hangi desteği, hangi amaçla istediğini ve yetki sınırımı etkileyen koşulları açıkça ayırmalısın. Bunlar doğrulanmadan yardım sözü veremem.'
     };
     if (analysis.speechAct === 'REQUEST_ACTION') return {
         discourseAct: 'ASSESS_ACTION_REQUEST_SCOPE',
@@ -4265,7 +4305,8 @@ function storyConversationSessionFollowUp(sessionId, raw) {
     const session = storyConversationSessionFind(sessionId);
     const text = String(raw == null ? '' : raw).trim();
     if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
-    if (session.status !== 'SOCIAL_RESPONSE_READY') {
+    if (session.status === 'REJECTED'
+        || STORY_CONVERSATION_RESOLUTION_STATUSES.includes(session.status)) {
         return { ok: false, code: 'FOLLOW_UP_NOT_AVAILABLE', worldMutation: false };
     }
     if ((session.listenerResponses || []).some(row =>
@@ -4390,6 +4431,8 @@ function storyConversationSessionBegin(raw, context) {
             ? ledger.sessions.filter(row => row.listenerActorId === String(context.listenerActorId)).length + 1
             : 1,
         focusRegionId: context.focusRegionId ? String(context.focusRegionId) : null,
+        sourceEventAnchor: null,
+        eventDecision: null,
         initialText: String(raw == null ? '' : raw),
         analysis: storyConversationClone(analysis),
         questions: storyConversationSessionQuestions(analysis, id),

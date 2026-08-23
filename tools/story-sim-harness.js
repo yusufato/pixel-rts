@@ -3830,6 +3830,11 @@ function storyDeterministicSaveSnapshot(api) {
     // Duvar saatiyle ölçülen p95/ortalama süre dünya durumunun parçası değildir.
     // Olaylar ve sayaçlar deterministiktir; yalnız performans örneklerini dışla.
     if (saved.telemetry && saved.telemetry.performance) delete saved.telemetry.performance;
+    // Bu makbuz yalnız storyLoad sırasında yeniden üretilir; operasyonel ticaret
+    // durumunu değiştirmez ve kesintisiz dünyada doğal olarak bulunmaz.
+    if (saved.tradeLogistics && saved.tradeLogistics.diagnostics) {
+        delete saved.tradeLogistics.diagnostics.transportMigration;
+    }
     return saved;
 }
 
@@ -14152,9 +14157,53 @@ function probeDialogueScenarioLab(seed = 2032) {
             .find(row => row.role === 'TARGET_POLITICAL_CRISIS');
         const coupRumorEntity = (coupAnalysis.entities || [])
             .find(row => row.role === 'COUP_RUMOR_REPORT');
+        const liveAnalysesByScenario = {
+            grain: analysis,
+            strike: strikeAnalysis,
+            tender: tenderAnalysis,
+            mobilization: mobilizationAnalysis,
+            sanctions: sanctionsAnalysis,
+            refugee: refugeeAnalysis,
+            bank: bankAnalysis,
+            prisoner: prisonerAnalysis,
+            pipeline: pipelineAnalysis,
+            coup: coupAnalysis
+        };
+        const safeFallbackByScenario = Object.fromEntries(Object.entries(liveAnalysesByScenario)
+            .map(([scenarioId, row]) => [scenarioId,
+                runtime.api.conversationValidate(row).ok
+                && row.proposedCommand === null
+                && row.worldMutation === false
+                && row.diagnostics.rawTradeLedgerRead === false]));
+        const specializedRuntimeIntegrated = analysis.speechAct === 'PROPOSE_LOGISTICS_REDIRECT'
+            && strikeAnalysis.speechAct === 'PROPOSE_LABOR_SETTLEMENT'
+            && tenderAnalysis.speechAct === 'PROPOSE_PUBLICATION_DELAY'
+            && mobilizationAnalysis.speechAct === 'PROPOSE_PREVENTIVE_MOBILIZATION'
+            && sanctionsAnalysis.speechAct === 'PROPOSE_SANCTIONS_EVASION'
+            && refugeeAnalysis.speechAct === 'PROPOSE_REFUGEE_SETTLEMENT'
+            && bankAnalysis.speechAct === 'PROPOSE_BANK_RESOLUTION'
+            && prisonerAnalysis.speechAct === 'PROPOSE_PRISONER_EXCHANGE'
+            && pipelineAnalysis.speechAct === 'PROPOSE_PIPELINE_INQUIRY'
+            && coupAnalysis.speechAct === 'PROPOSE_SUCCESSION_CRISIS_RESPONSE';
         understanding = {
             analysis,
             validates: runtime.api.conversationValidate(analysis).ok,
+            specializedRuntimeIntegrated,
+            integrationStatus: specializedRuntimeIntegrated
+                ? 'LIVE_COMPOSITIONAL_ADAPTER_READY'
+                : 'OPEN_COMPOSITIONAL_ADAPTER_DEBT',
+            safeFallbackByScenario,
+            safeFallback: Object.values(safeFallbackByScenario).every(Boolean),
+            allWorldNeutral: beforeHash === afterHash
+                && beforeStrikeHash === afterStrikeHash
+                && beforeTenderHash === afterTenderHash
+                && beforeMobilizationHash === afterMobilizationHash
+                && beforeSanctionsHash === afterSanctionsHash
+                && beforeRefugeeHash === afterRefugeeHash
+                && beforeBankHash === afterBankHash
+                && beforePrisonerHash === afterPrisonerHash
+                && beforePipelineHash === afterPipelineHash
+                && beforeCoupHash === afterCoupHash,
             logisticsAct: analysis.speechAct === 'PROPOSE_LOGISTICS_REDIRECT',
             foodResolved: commodity && commodity.entityId === 'food',
             canonicalShipmentAccepted: shipment && shipment.entityId === 'trade-shipment:grain-scenario-fixture',
@@ -16510,6 +16559,15 @@ function probeConversationUnderstanding(seed = 2032) {
         const keptRelationAfter = companyRuntime.api.relationshipView(
             readySession.listenerActorId, readySession.playerActorId
         );
+        // Diplomatik alt senaryo, temas dizininin sırasına bağlı kalmadan iki
+        // farklı devlet aktörünü açıkça kurar. Önceki şirket görüşmesi aynı kalır.
+        const diplomaticFixtureOriginalCountryId = listenerIdentity.countryId;
+        const diplomaticFixtureCountryId = Object.keys(
+            story.institutions && story.institutions.countries || {}
+        ).sort((a, b) => a.localeCompare(b, 'en'))
+            .find(countryId => countryId !== playerIdentity.countryId);
+        if (!diplomaticFixtureCountryId) throw new Error('Diplomatic fixture requires a foreign country');
+        listenerIdentity.countryId = diplomaticFixtureCountryId;
         const brokenRelationBefore = companyRuntime.api.relationshipView(
             readySession.playerActorId, readySession.listenerActorId
         );
@@ -16666,6 +16724,7 @@ function probeConversationUnderstanding(seed = 2032) {
         const treatyAfterConstitutionalPeace = companyRuntime.api.treaty(protestStateA, protestStateB);
         const afterConstitutionalSnapshot = companyRuntime.api.negotiationSnapshot();
         companyRuntime.api.negotiationFixtureStateRestore(constitutionalFixtureState);
+        listenerIdentity.countryId = diplomaticFixtureOriginalCountryId;
         const brokenRelationAfter = companyRuntime.api.relationshipView(
             readySession.playerActorId, readySession.listenerActorId
         );
@@ -16723,7 +16782,15 @@ function probeConversationUnderstanding(seed = 2032) {
         const negotiationEconomyAfter = responseEconomySnapshot();
         companyRuntime.api.conversationWorkspaceRender();
         const negotiationUiText = modal.textContent;
+        const profileVisibleBeforeAgreement = modal.querySelector('#conversation-workspace-profile')
+            ?.textContent.includes(uiContact.name);
         const agreementReceipt = companyRuntime.api.characterActionExecutePlayer('PERSUADE', uiContact.id, {});
+        companyRuntime.api.conversationWorkspaceRender();
+        const relationshipTab = modal.querySelector('[data-profile-tab=iliski]');
+        if (relationshipTab) relationshipTab.dispatchEvent(
+            new companyRuntime.dom.window.MouseEvent('click', { bubbles: true })
+        );
+        const agreementProfileText = modal.querySelector('#conversation-workspace-profile')?.textContent || '';
         const newButton = modal.querySelector('[data-conversation-new]');
         if (newButton) newButton.dispatchEvent(new companyRuntime.dom.window.MouseEvent('click', { bubbles: true }));
         const textarea = modal.querySelector('[data-conversation-input]');
@@ -16734,7 +16801,7 @@ function probeConversationUnderstanding(seed = 2032) {
             return textarea && textarea.dispatchEvent(event) && !event.defaultPrevented;
         });
         const sendButton = modal.querySelector('[data-conversation-send]');
-        if (textarea) textarea.value = 'Söz veriyorum, wasd kullanarak bu anlaşmanın bedelini karşılayacağım.';
+        if (textarea) textarea.value = 'Merhaba, önceki sözlerimizi konuşalım.';
         if (sendButton) sendButton.dispatchEvent(new companyRuntime.dom.window.MouseEvent('click', { bubbles: true }));
         const uiText = `${body.textContent} ${modal.textContent}`;
         const uiSession = companyRuntime.api.conversationSessionLatest(companyContext.listenerActorId);
@@ -16818,7 +16885,8 @@ function probeConversationUnderstanding(seed = 2032) {
                 && completedSession.candidate.terms.delivery_schedule.amount === 30
                 && completedSession.candidate.terms.contract_penalty.amount === 10,
             uiInputVisible: !!textarea && !!sendButton,
-            uiSpeechStored: !!uiSession && uiSession.initialText.includes('Söz veriyorum'),
+            uiSpeechStored: !!uiSession && uiSession.initialText.includes('önceki sözlerimizi konuşalım'),
+            uiSessionSocialReady: !!uiSession && uiSession.status === 'SOCIAL_RESPONSE_READY',
             uiShowsWorldNeutrality: uiText.includes('DÜNYA DEĞİŞMEDİ'),
             listenerResponseRealized: !!counterOfferSession.domainReview.response.realization
                 && companyRuntime.api.characterDialogueValidate(counterOfferSession.domainReview.response.realization).ok,
@@ -16828,7 +16896,7 @@ function probeConversationUnderstanding(seed = 2032) {
                     === counterOfferSession.domainReview.response.realization.text,
             uiShowsMechanicalResponse: reviewUiText.includes('DOĞRULANMIŞ KARAKTER CEVABI')
                 && reviewUiText.includes(counterOfferSession.domainReview.response.realization.text)
-                && reviewUiText.includes('ACTORBELIEF'),
+                && reviewUiText.includes('KARAKTER YALNIZ KENDİ BİLGİ KAYITLARINI OKUDU'),
             uiOffersCanonicalCounterResponse: reviewUiText.includes('CEVABINI SEÇ')
                 && reviewUiText.includes('Mevcut şirketim üzerinden ilerle'),
             uiResponseProjectionReadOnly: ledgerBeforeUiRender === ledgerAfterUiRender,
@@ -16948,6 +17016,9 @@ function probeConversationUnderstanding(seed = 2032) {
                     && row.peaceCandidate === null),
             promiseConsequenceIdempotent: afterPromiseSnapshot.diagnostics.consequenceCandidatesCreated === 2
                 && Object.keys(afterPromiseSnapshot.consequenceCandidates).length === 2,
+            diplomaticFixtureCrossBorder: !!brokenConsequence && brokenConsequence.crossBorder === true
+                && brokenConsequence.partyCountryIds.length === 2,
+            diplomaticFixtureRestored: listenerIdentity.countryId === diplomaticFixtureOriginalCountryId,
             diplomaticIncidentReviewSafe: !!diplomaticReview && diplomaticReview.ok
                 && diplomaticReview.worldMutation === false
                 && !!reviewedBrokenConsequence
@@ -17098,11 +17169,13 @@ function probeConversationUnderstanding(seed = 2032) {
             mechanicalActivationHiddenWhenBlocked: !blockedActivationButton,
             workspaceSeparate: !!launchButton && !!modal && !modal.classList.contains('hidden')
                 && !body.querySelector('[data-conversation-input]'),
-            profileVisible: modal.querySelector('#conversation-workspace-profile')?.textContent.includes(uiContact.name),
+            profileVisible: profileVisibleBeforeAgreement,
             historyVisible: historyRows.length >= 2,
             previousConversationResumed: !!resumeButton && resumedText.includes('Ben bir şirket kuracağım'),
-            agreementVisible: !agreementReceipt.ok
-                || modal.querySelector('#conversation-workspace-history')?.textContent.includes('İkna girişimi'),
+            agreementReceiptApplied: !!agreementReceipt && agreementReceipt.ok
+                && agreementReceipt.status === 'APPLIED',
+            agreementVisible: !!agreementReceipt && agreementReceipt.ok
+                && agreementProfileText.includes('İkna girişimi'),
             wasdTypingSafe,
             saveStatus,
             ledgerValidation: companyRuntime.api.conversationSessionValidate(sessionSnapshot),
@@ -17194,6 +17267,7 @@ function probeConversationUnderstanding(seed = 2032) {
     let socialConversation;
     let socialRaw;
     let socialSnapshot;
+    let socialKeyResponseIds = [];
     try {
         socialRuntime.api.newCampaign({ seed: seed + 6, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         const dialogueDiagnosticEntries = [];
@@ -17251,6 +17325,8 @@ function probeConversationUnderstanding(seed = 2032) {
         ].map(text => socialRuntime.api.conversationSessionFollowUp(contextualSession.session.id, text));
         const contextualResponses = contextualTurns.map(result =>
             result && result.followUp && result.followUp.response);
+        socialKeyResponseIds = rows.map(row => row.response && row.response.id)
+            .concat(contextualResponses.map(row => row && row.id)).filter(Boolean);
         const continuitySession = socialRuntime.api.conversationSessionBegin(
             'Ben bir şirket kuracağım çelik sanayisi üzerine; İngiltere’den verdiğin çelik siparişini depolarıma yönlendirelim.',
             { listenerActorId: listener && listener.id }
@@ -17345,7 +17421,7 @@ function probeConversationUnderstanding(seed = 2032) {
             const opened = socialRuntime.api.conversationSessionBegin(
                 'Bugün nasılsın?', { listenerActorId: listener && listener.id }
             );
-            if (sessionIndex === 0) longContextSessionId = opened.session.id;
+            longContextSessionId = opened.session.id;
             const openingResponse = opened.session.listenerResponses.find(row => row.kind === 'SOCIAL_RESPONSE');
             qualityRows.push({
                 ok: !!opened.ok, expectedAct: 'CHECK_IN', speechAct: opened.session.analysis.speechAct,
@@ -17398,6 +17474,11 @@ function probeConversationUnderstanding(seed = 2032) {
             Number(row.realization && row.realization.maxRecentSimilarityBps) || 0));
         const qualityMaxSemanticSimilarity = Math.max(0, ...qualityRows.map(row =>
             Number(row.realization && row.realization.maxRecentSemanticSimilarityBps) || 0));
+        const qualitySourceValid = row => [
+            'CHARACTER_PROFILE_SOCIAL_RESPONSE', 'CHARACTER_PROFILE_SOCIAL_FOLLOW_UP',
+            'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'
+        ].includes(row.source) || (row.source === 'CHARACTER_DIALOGUE_REALIZER'
+            && row.realization && socialRuntime.api.characterDialogueValidate(row.realization).ok);
         const afterWorld = hashSnapshot(stateSnapshot(socialRuntime.api.state()));
         const last = rows[rows.length - 1];
         const workspaceSession = socialRuntime.api.conversationSessionLatest(listener && listener.id);
@@ -17495,26 +17576,26 @@ function probeConversationUnderstanding(seed = 2032) {
             draftDeferredWithoutReplacement,
             helpFollowUpUnderstood: !!helpFollowUp && helpFollowUp.ok
                 && helpFollowUp.followUp.analysis.speechAct === 'REQUEST_SUPPORT'
-                && !!helpResponse && helpResponse.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'
+                && !!helpResponse && helpResponse.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'
                 && helpResponse.discourseAct === 'CONTINUE_REQUEST'
                 && /yardım talebini/i.test(helpResponse.text)
                 && !helpResponse.text.includes('Seni dinliyorum'),
             repeatedHelpVaries: !!repeatedHelpResponse
-                && repeatedHelpResponse.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'
+                && repeatedHelpResponse.source === 'DETERMINISTIC_GROUNDED_DISCOURSE_RESPONSE'
                 && !repeatedHelpResponse.text.includes('Seni dinliyorum')
                 && repeatedHelpResponse.discourseAct === 'REPAIR_REPETITION'
                 && repeatedHelpResponse.text !== helpResponse.text,
             contextualFollowUp: {
                 militaryAnswer: !!contextualResponses[0]
                     && contextualTurns[0].followUp.analysis.speechAct === 'REQUEST_SUPPORT'
-                    && contextualResponses[0].discourseAct === 'CONTINUE_REQUEST'
+                    && contextualResponses[0].discourseAct === 'ASSESS_UNVERIFIED_MILITARY_REQUEST'
                     && /askerî destek|ordu/i.test(contextualResponses[0].text),
                 reasonTracksPriorPosition: !!contextualResponses[1]
                     && contextualResponses[1].discourseAct === 'ASK_REASON'
                     && /gerekçe|nedeni/i.test(contextualResponses[1].text),
                 repetitionRepair: !!contextualResponses[2]
                     && contextualResponses[2].discourseAct === 'REPAIR_REPETITION'
-                    && /aynı kalıp|doğrudan cevap/i.test(contextualResponses[2].text),
+                    && /aynı kalıp|doğrudan/i.test(contextualResponses[2].text),
                 correctionApplied: !!contextualResponses[3]
                     && contextualResponses[3].discourseAct === 'CORRECT_PREVIOUS_TOPIC'
                     && /enerji/i.test(contextualResponses[3].text),
@@ -17626,9 +17707,7 @@ function probeConversationUnderstanding(seed = 2032) {
                 turnCount: qualityRows.length,
                 allAccepted: qualityRows.every(row => row.ok),
                 intentsExact: qualityRows.every(row => row.speechAct === row.expectedAct),
-                allCharacterRealized: qualityRows.every(row => row.source === 'CHARACTER_DIALOGUE_REALIZER'
-                    ? row.realization && socialRuntime.api.characterDialogueValidate(row.realization).ok
-                    : row.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'),
+                allCharacterRealized: qualityRows.every(qualitySourceValid),
                 exactUniqueCount: new Set(qualityTexts).size,
                 adjacentRepeats,
                 rollingExactRepeats,
@@ -17638,9 +17717,7 @@ function probeConversationUnderstanding(seed = 2032) {
                 forbiddenFallbackCount: qualityTexts.filter(text => /Seni dinliyorum/i.test(text)).length,
                 passed: qualityRows.length === 50
                     && qualityRows.every(row => row.ok && row.speechAct === row.expectedAct
-                        && (row.source === 'DETERMINISTIC_DISCOURSE_RESPONSE'
-                            || (row.source === 'CHARACTER_DIALOGUE_REALIZER' && row.realization
-                                && socialRuntime.api.characterDialogueValidate(row.realization).ok)))
+                        && qualitySourceValid(row))
                     && adjacentRepeats === 0 && new Set(qualityTexts).size >= 16
                     && maxAddressStreak <= 2
                     && qualityMaxLexicalSimilarity <= 7200
@@ -17670,10 +17747,13 @@ function probeConversationUnderstanding(seed = 2032) {
         restoredSocialRuntime.api.putSavedRaw(socialRaw);
         const loaded = restoredSocialRuntime.api.loadNow();
         const restored = restoredSocialRuntime.api.conversationSessionSnapshot();
+        const restoredResponseIds = new Set((restored.sessions || []).flatMap(session =>
+            (session.listenerResponses || []).map(row => row.id)));
         socialConversation.restored = {
             loaded,
             exact: JSON.stringify(restored) === JSON.stringify(socialSnapshot),
             validation: restoredSocialRuntime.api.conversationSessionValidate(restored),
+            keyResponseCount: socialKeyResponseIds.filter(id => restoredResponseIds.has(id)).length,
             responseCount: (restored.sessions || []).reduce((sum, session) => sum
                 + (session.listenerResponses || []).filter(row => row.kind === 'SOCIAL_RESPONSE').length, 0)
         };

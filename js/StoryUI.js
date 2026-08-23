@@ -261,9 +261,9 @@ function storySeasonForUi() {
 
 function storySeasonTooltip() {
     const season = storySeasonForUi();
-    const era = storyEraForUi();
+    const worldState = storyWorldStateTooltip();
     return `${season.name} · ${season.calendar.label || season.calendar.year}\n${season.detail}`
-        + (era ? `\n\nDünya dengesi: ${era.name}\n${era.desc}` : '');
+        + (worldState ? `\n\nDünya dengesi\n${worldState}` : '');
 }
 
 function storyActivateDetailTooltips(root) {

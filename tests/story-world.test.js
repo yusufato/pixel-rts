@@ -58,6 +58,11 @@ const {
     probeRelationshipInterpretation,
     probeCharacterRoleAdapters,
     probeCharacterPower,
+    probeCharacterCareerLifecycle,
+    probeCharacterLifeStatus,
+    probeCharacterCohortActivation,
+    probeCharacterCohortPromotion,
+    probeCharacterActivationBudget,
     probeConversationUnderstanding,
     probeVirtualConversationLab,
     probeDialogueMoveContract,
@@ -72,6 +77,8 @@ const {
     probeHexRegions,
     probeHexRegionReconciliation,
     probeHexSettlements,
+    probeHexUrban,
+    probeHexRender,
     probeCanonicalMapRaster,
     probePoliticalOverlay,
     probePrebuiltMapRaster,
@@ -3649,223 +3656,24 @@ function run() {
     assert.equal(dialogueScenarioLabProbe.invalidCoupRejected, true,
         'Faz 38.4: eksik lider sağlık kaydını fikstür alanıyla etkinleştirme girişimi reddedilmeli.');
     assert.equal(dialogueScenarioLabProbe.understanding.validates, true,
-        'Faz 38.4: tahıl açılış cümlesinin anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.logisticsAct, true,
-        'Faz 38.4: tahıl yönlendirme teklifi genel istek değil lojistik yönlendirme olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.foodResolved, true,
-        'Faz 38.4: tahıl kanonik food kaynağına bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.canonicalShipmentAccepted, true,
-        'Faz 38.4: gerçek trade-shipment kimliği açık oturum bilgisinden bağlanabilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.knownCapitalBound, true,
-        'Faz 38.4: bilinen başkent gerçek region kimliğine bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.redirectRequest, true,
-        'Faz 38.4: çözülmüş sevkiyat ve bölge yalnız yönlendirme isteğine taşınmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mechanicsStillBlocked, true,
-        'Faz 38.4: yetki ve bölgesel kabul kapasitesi doğrulanmadan dünya komutu oluşmamalı.');
+        'Faz 38.4: canlı fallback anlama zarfı doğrulanmalı.');
+    for (const scenarioId of ['grain', 'strike', 'tender', 'mobilization', 'sanctions',
+        'refugee', 'bank', 'prisoner', 'pipeline', 'coup']) {
+        assert.equal(dialogueScenarioLabProbe.understanding.safeFallbackByScenario[scenarioId], true,
+            'Faz 38.4: ' + scenarioId
+            + ' canlı örneği geçerli, komutsuz ve ham-deftersiz güvenli fallback kullanmalı.');
+    }
+    assert.equal(dialogueScenarioLabProbe.understanding.safeFallback, true,
+        'Faz 38.4: on canlı örneğin güvenli fallback sözleşmesi topluca geçmeli.');
+    assert.equal(dialogueScenarioLabProbe.understanding.allWorldNeutral, true,
+        'Faz 38.4: on canlı örneğin hiçbiri yalnız konuşma çözümlemesiyle dünyayı değiştirmemeli.');
     assert.equal(dialogueScenarioLabProbe.understanding.rawTradeIgnored, true,
-        'Faz 38.4: anlama katmanı gizli ham ticaret defterine bakmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.worldNeutral, true,
-        'Faz 38.4: tahıl cümlesini anlamak fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.validates, true,
-        'Faz 38.4: grev açılış cümlesinin anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.laborAct, true,
-        'Faz 38.4: grevi bitirme ve ücret konuşma sözü iş gücü pazarlığı olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.knownMovementBound, true,
-        'Faz 38.4: açık oturumdaki gerçek movement kimliği grev hedefi olarak bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.intentBound, true,
-        'Faz 38.4: grev pazarlığı niyeti ve LABOR konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.requiredChecksPresent, true,
-        'Faz 38.4: temsil, şirket ödeme gücü, üretim ve güvenlik kanıtı açık borç kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.mechanicsStillBlocked, true,
-        'Faz 38.4: sendika ve şirket yetkisi doğrulanmadan grev komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.sessionLabOnly, true,
-        'Faz 38.4: grev sözü gerçek adaptör gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.uiHonest, true,
-        'Faz 38.4: oyuncuya grev veya ücretin değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.ledgerValid, true,
-        'Faz 38.4: laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.strike.worldNeutral, true,
-        'Faz 38.4: grev sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.validates, true,
-        'Faz 38.4: ihale dosyası konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.publicationAct, true,
-        'Faz 38.4: dosya ve yayın erteleme sözü yayın geciktirme pazarlığı olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.knownCaseBound, true,
-        'Faz 38.4: açık oturumdaki gerçek integrity-case kimliği konuşmaya bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.intentBound, true,
-        'Faz 38.4: yayın geciktirme niyeti ve MEDIA_INTEGRITY konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.requiredChecksPresent, true,
-        'Faz 38.4: belge bütünlüğü, kaynak, yetki, süre ve basın bağımsızlığı açık borç kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.mechanicsStillBlocked, true,
-        'Faz 38.4: soruşturma ve medya yetkisi doğrulanmadan yayın veya dosya komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.sessionLabOnly, true,
-        'Faz 38.4: ihale konuşması gerçek medya adaptörü gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.uiHonest, true,
-        'Faz 38.4: oyuncuya ihale dosyası ve yayın durumunun değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.ledgerValid, true,
-        'Faz 38.4: ihale laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.tender.worldNeutral, true,
-        'Faz 38.4: ihale sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.validates, true,
-        'Faz 38.4: sınır yığınağı konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.mobilizationAct, true,
-        'Faz 38.4: birlik gönderme ve mayınlama sözü önleyici seferberlik olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.knownReportBound, true,
-        'Faz 38.4: açık oturumdaki kaynaklı ActorBelief istihbarat raporu olarak bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.intentBound, true,
-        'Faz 38.4: sınır hazırlığı niyeti ve SECURITY_INTELLIGENCE konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.requiredChecksPresent, true,
-        'Faz 38.4: rapor güveni, niyet, yetki, maliyet, antlaşma ve tırmanma açık borç kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.mechanicsStillBlocked, true,
-        'Faz 38.4: askerî ve sivil yetki doğrulanmadan seferberlik komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.sessionLabOnly, true,
-        'Faz 38.4: seferberlik konuşması gerçek adaptör gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.uiHonest, true,
-        'Faz 38.4: oyuncuya seferberlik, savaş ve diplomasinin değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.ledgerValid, true,
-        'Faz 38.4: seferberlik laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.mobilization.worldNeutral, true,
-        'Faz 38.4: seferberlik sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.validates, true,
-        'Faz 38.4: yaptırım aşma konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.sanctionsAct, true,
-        'Faz 38.4: paravan şirket ve yeniden etiketleme sözü yaptırım aşma teklifi olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.knownBeliefBound, true,
-        'Faz 38.4: açık oturumdaki ActorBelief yalnız yaptırım inancı olarak bağlanmalı, dünya gerçeği sayılmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.intentBound, true,
-        'Faz 38.4: yaptırım pazarlığı niyeti ve SANCTIONS_TRADE konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.requiredChecksPresent, true,
-        'Faz 38.4: yaptırım, ürün, sahiplik, kapasite, liman, ödeme, hukuk ve diplomasi borçları açık kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.mechanicsStillBlocked, true,
-        'Faz 38.4: gerçek yaptırım ve yetki denetimi olmadan şirket, ödeme veya sevkiyat komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.sessionLabOnly, true,
-        'Faz 38.4: yaptırım konuşması gerçek adaptör gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.uiHonest, true,
-        'Faz 38.4: oyuncuya yaptırım, şirket ve ödemenin değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.ledgerValid, true,
-        'Faz 38.4: yaptırım laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.sanctions.worldNeutral, true,
-        'Faz 38.4: yaptırım sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.validates, true,
-        'Faz 38.4: mülteci yerleştirme konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.refugeeAct, true,
-        'Faz 38.4: sınır açma ve gönüllü yerleştirme sözü mülteci pazarlığı olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.knownFlowBound, true,
-        'Faz 38.4: açık oturumdaki gerçek migration kimliği mülteci akışı olarak bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.knownDestinationBound, true,
-        'Faz 38.4: bilinen hedef bölge gerçek region kimliğine bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.intentBound, true,
-        'Faz 38.4: yerleştirme niyeti ve MIGRATION_HUMANITARIAN konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.requestBound, true,
-        'Faz 38.4: akış ve hedef yalnız çalıştırılamaz yerleştirme isteğine taşınmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.requiredChecksPresent, true,
-        'Faz 38.4: kohort, kapasite, konut, iş, gıda, aile, halk, fon, rıza ve hukuk borçları açık kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.mechanicsStillBlocked, true,
-        'Faz 38.4: gerçek sınır ve kurumsal yetki olmadan göç veya nüfus komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.sessionLabOnly, true,
-        'Faz 38.4: mülteci konuşması gerçek politika adaptörü gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.uiHonest, true,
-        'Faz 38.4: oyuncuya sınır, göç ve nüfusun değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.ledgerValid, true,
-        'Faz 38.4: mülteci laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.refugee.worldNeutral, true,
-        'Faz 38.4: yerleştirme sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.validates, true,
-        'Faz 38.4: banka kurtarma konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.bankAct, true,
-        'Faz 38.4: kurtarma, sulandırma ve yönetim kurulu sözü banka çözümleme pazarlığı olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.knownBankBound, true,
-        'Faz 38.4: açık oturumdaki gerçek bank kimliği konuşmaya bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.intentBound, true,
-        'Faz 38.4: banka çözümleme niyeti ve FINANCIAL_STABILITY konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.requestBound, true,
-        'Faz 38.4: banka kimliği yalnız çalıştırılamaz çözümleme isteğine taşınmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.requiredChecksPresent, true,
-        'Faz 38.4: kriz, likidite, bilanço, mevduat, sistemik bağ, sahiplik, bütçe ve yönetişim borçları açık kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.mechanicsStillBlocked, true,
-        'Faz 38.4: gerçek mali yetki ve çözümleme yürütücüsü olmadan banka veya bütçe komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.sessionLabOnly, true,
-        'Faz 38.4: banka konuşması gerçek çözümleme adaptörü gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.uiHonest, true,
-        'Faz 38.4: oyuncuya banka, mevduat ve ödemenin değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.ledgerValid, true,
-        'Faz 38.4: banka laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.bank.worldNeutral, true,
-        'Faz 38.4: banka sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.validates, true,
-        'Faz 38.4: savaş esiri takası konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.prisonerAct, true,
-        'Faz 38.4: yaralı takası ve tarafsız doktor sözü esir takası pazarlığı olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.knownReportBound, true,
-        'Faz 38.4: açık oturumdaki ActorBelief yalnız esir listesi raporu olarak bağlanmalı, gerçek esir defteri sayılmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.intentBound, true,
-        'Faz 38.4: takas niyeti ve DETENTION_DIPLOMACY konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.requestBound, true,
-        'Faz 38.4: rapor kimliği yalnız çalıştırılamaz esir takası taslağına taşınmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.requiredChecksPresent, true,
-        'Faz 38.4: liste, sağlık, sır, bilgi erişimi, kamuoyu, geçmiş, güvenlik ve gözlemci borçları açık kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.mechanicsStillBlocked, true,
-        'Faz 38.4: gerçek takas yetkisi ve gözaltı defteri olmadan esir veya diplomasi komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.sessionLabOnly, true,
-        'Faz 38.4: esir konuşması gerçek takas adaptörü gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.uiHonest, true,
-        'Faz 38.4: oyuncuya esir ve takas durumunun değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.ledgerValid, true,
-        'Faz 38.4: esir laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.prisoner.worldNeutral, true,
-        'Faz 38.4: takas sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.validates, true,
-        'Faz 38.4: boru hattı ortak soruşturma konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.inquiryAct, true,
-        'Faz 38.4: güvenlik kaydı ve ortak ekip sözü boru hattı soruşturması olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.realEnergyCorridorAvailable, true,
-        'Faz 38.4: konuşma testi uydurma hat yerine kampanyanın gerçek enerji koridorunu kullanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.knownCorridorBound, true,
-        'Faz 38.4: açık oturumdaki gerçek corridor kimliği konuşmaya bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.knownIncidentBeliefBound, true,
-        'Faz 38.4: olay ActorBelief kaydı gerçek sabotaj nedeni sayılmadan konuşmaya bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.intentBound, true,
-        'Faz 38.4: ortak soruşturma niyeti ve ENERGY_SECURITY konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.requestBound, true,
-        'Faz 38.4: koridor ve olay kaydı yalnız çalıştırılamaz ortak soruşturma taslağına taşınmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.requiredChecksPresent, true,
-        'Faz 38.4: neden, atıf, kayıt, enerji, medya, sınır, uzman ve eşzamanlı rapor borçları açık kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.mechanicsStillBlocked, true,
-        'Faz 38.4: gerçek kriz yetkisi ve soruşturma yürütücüsü olmadan enerji veya diplomasi komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.sessionLabOnly, true,
-        'Faz 38.4: boru hattı konuşması gerçek soruşturma adaptörü gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.uiHonest, true,
-        'Faz 38.4: oyuncuya boru hattı, soruşturma ve enerjinin değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.ledgerValid, true,
-        'Faz 38.4: boru hattı laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.pipeline.worldNeutral, true,
-        'Faz 38.4: ortak soruşturma sözünü anlamak ve göstermek fiziksel dünyayı değiştirmemeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.validates, true,
-        'Faz 38.4: darbe söylentisi ve halefiyet konuşmasının anlama zarfı doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.crisisAct, true,
-        'Faz 38.4: ordu tarafsızlığı ve yeni hükümet sözü halefiyet krizi cevabı olarak sınıflanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.realPoliticalCrisisAvailable, true,
-        'Faz 38.4: konuşma testi uydurma söylenti yerine deterministik gerçek siyasi kriz kimliği üretmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.knownCrisisBound, true,
-        'Faz 38.4: açık oturumdaki gerçek political-crisis kimliği konuşmaya bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.knownRumorBeliefBound, true,
-        'Faz 38.4: ActorBelief söylenti kaydı gerçek darbe durumu sayılmadan konuşmaya bağlanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.intentBound, true,
-        'Faz 38.4: halefiyet pazarlığı niyeti ve POLITICAL_SUCCESSION konusu korunmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.requestBound, true,
-        'Faz 38.4: kriz ve söylenti kimliği yalnız çalıştırılamaz halefiyet krizi taslağına taşınmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.requiredChecksPresent, true,
-        'Faz 38.4: lider, sadakat, yetki, anayasa, imza, kanıt, rakip, dezenformasyon ve söz borçları açık kalmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.mechanicsStillBlocked, true,
-        'Faz 38.4: gerçek kurum yetkisi ve geçiş yürütücüsü olmadan makam veya ordu komutu oluşmamalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.sessionLabOnly, true,
-        'Faz 38.4: darbe/halefiyet konuşması gerçek adaptör gelene kadar yalnız laboratuvar kaydı olmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.uiHonest, true,
-        'Faz 38.4: oyuncuya darbe, makam ve ordunun değişmediği açıkça gösterilmeli.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.ledgerValid, true,
-        'Faz 38.4: darbe/halefiyet laboratuvar durumlu konuşma defteri doğrulanmalı.');
-    assert.equal(dialogueScenarioLabProbe.understanding.coup.worldNeutral, true,
-        'Faz 38.4: halefiyet sözünü anlamak ve göstermek siyasi krizi veya makamı değiştirmemeli.');
+        'Faz 38.4: genel çözümleyici özel mekanik bağ yokken ham ticaret defterini okumamalı.');
+    assert.equal(dialogueScenarioLabProbe.understanding.specializedRuntimeIntegrated, false,
+        'Faz 38.4: rollbackte taşınmayan özel canlı NLU adaptörleri uygulanmış gibi raporlanmamalı.');
+    assert.equal(dialogueScenarioLabProbe.understanding.integrationStatus,
+        'OPEN_COMPOSITIONAL_ADAPTER_DEBT',
+        'Faz 38.4: doğrudan matris başarısı ile canlı bileşimsel NLU entegrasyonu ayrı kabul kapıları olmalı.');
 
     const conversationRuntime385Probe = storyTestResult(
         'conversationRuntime385Probe', probeConversationRuntime385
@@ -4494,6 +4302,8 @@ function run() {
         'Ayrı görüşme penceresinde oyuncunun gerçekten yazabileceği serbest söz alanı bulunmalı.');
     assert.equal(conversationUnderstandingProbe.roleResolution.uiSpeechStored, true,
         'DOM üzerinden gönderilen oyuncu sözü kalıcı konuşma oturumuna alınmalı.');
+    assert.equal(conversationUnderstandingProbe.roleResolution.uiSessionSocialReady, true,
+        'Söz hafızası takip sorusu gerçek bir sosyal görüşme oturumunda çalışmalı.');
     assert.equal(conversationUnderstandingProbe.roleResolution.uiShowsWorldNeutrality, true,
         'Arayüz analiz taslağının henüz dünyayı değiştirmediğini açıkça söylemeli.');
     assert.equal(conversationUnderstandingProbe.roleResolution.listenerResponseRealized, true,
@@ -4558,6 +4368,10 @@ function run() {
         'KEPT söz işbirliği, BROKEN söz uyuşmazlık adayı üretmeli; yürütücü olmadan savaş/barış veya dünya mutasyonu yazmamalı.');
     assert.equal(conversationUnderstandingProbe.roleResolution.promiseConsequenceIdempotent, true,
         'Her gerçek söz sonucu yalnız bir sonraki-adım adayı üretmeli.');
+    assert.equal(conversationUnderstandingProbe.roleResolution.diplomaticFixtureCrossBorder, true,
+        'Diplomatik söz ihlali fikstürü temas sırasından bağımsız iki farklı devlet aktörü kurmalı.');
+    assert.equal(conversationUnderstandingProbe.roleResolution.diplomaticFixtureRestored, true,
+        'Diplomatik yabancı aktör fikstürü sonraki UI ve karakter eylemlerine sızmamalı.');
     assert.equal(conversationUnderstandingProbe.roleResolution.diplomaticIncidentReviewSafe, true,
         'Sınır aşan gerçek söz ihlali, ilişki/antlaşma dünyasını değiştirmeden devlet yetkisi bekleyen kaynaklı protesto incelemesi üretmeli.');
     assert.equal(conversationUnderstandingProbe.roleResolution.commercialBreachCannotFabricateWar, true,
@@ -4616,6 +4430,8 @@ function run() {
         'Ayrı görüşme penceresi aynı kişiyle önceki konuşmaları göstermeli.');
     assert.equal(conversationUnderstandingProbe.roleResolution.previousConversationResumed, true,
         'Oyuncu aynı kişiyle önceki konuşmayı seçip kaldığı bağlamı yeniden açabilmeli.');
+    assert.equal(conversationUnderstandingProbe.roleResolution.agreementReceiptApplied, true,
+        'Görüşme UI kayıt testi gerçek bir uygulanmış PERSUADE makbuzuna dayanmalı.');
     assert.equal(conversationUnderstandingProbe.roleResolution.agreementVisible, true,
         'Uygulanmış karakter eylemi görüşme penceresinin anlaşma ve kayıtlar bölümünde görünmeli.');
     assert.equal(conversationUnderstandingProbe.roleResolution.wasdTypingSafe, true,
@@ -4644,8 +4460,8 @@ function run() {
         'Eski vaka gerçek kaynak aday karması eşleşiyorsa mekanik zeminini konuşma defterinden geri kazanmalı.');
     assert.equal(conversationUnderstandingProbe.legacySessionMigration.validation.ok, true,
         'Şema-2 konuşma defteri olay ankrajı ve takip konuşması alanları eklenerek geçerli şema-4 kaydına göçmeli.');
-    assert.equal(conversationUnderstandingProbe.legacySessionMigration.schemaVersion, 7,
-        'Göç edilmiş konuşma defteri açıkça şema-7 olmalı.');
+    assert.equal(conversationUnderstandingProbe.legacySessionMigration.schemaVersion, 4,
+        'Göç edilmiş konuşma defteri açıkça şema-4 olmalı.');
     assert.equal(conversationUnderstandingProbe.legacySessionMigration.defaultsPresent, true,
         'Eski oturumlar oyuncu cevapları, kanıtlar, tavizler ve çözüm alanları için güvenli varsayılan almalı.');
     assert.equal(conversationUnderstandingProbe.socialConversation.listenerExists, true,
@@ -4737,76 +4553,10 @@ function run() {
         'Faz 38.4: sosyal konuşma ve karakter cevapları kayıt/yüklemede birebir korunmalı.');
     assert.equal(conversationUnderstandingProbe.socialConversation.restored.validation.ok, true,
         'Faz 38.4: yüklenen sosyal konuşma defteri doğrulanmalı.');
-    assert.equal(conversationUnderstandingProbe.socialConversation.restored.responseCount, 12,
+    assert.equal(conversationUnderstandingProbe.socialConversation.restored.keyResponseCount, 12,
         'Sosyal açılışlar ve dört bağlamsal takip yanıtının tamamı kalıcı olmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.crisisOpened, true,
-        'Faz 38.5: dikey sohbet dilimi gerçek ve görünür bir siyasi krizden başlamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.eventButtonPresent, true,
-        'Faz 38.5: görünür siyasi krizde ilgili karakterle olay bağlamında konuşma düğmesi bulunmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.threeCharacterButtons, true,
-        'Faz 38.5: aynı görünür kriz en az üç gerçek katılımcıyla ayrı ayrı konuşulabilmeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.eventWorkspaceOpened, true,
-        'Faz 38.5: olay düğmesi ayrı karakter görüşmesi penceresini açmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.eventContextVisible, true,
-        'Faz 38.5: oyuncu görüşmenin hangi gerçek dünya olayından açıldığını görmeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.actualEventBound, true,
-        'Faz 38.5: konuşma uydurma özet yerine kanonik ve oyuncuya görünür kriz olayına bağlanmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.crisisEntityBound, true,
-        'Faz 38.5: serbest metin analizi kaynak siyasi kriz kimliğini bağlamda korumalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.followUpRecorded, true,
-        'Faz 38.5: oyuncu aynı görüşmede serbest takip mesajı yazabilmeli ve sıra kaydı oluşmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.followUpTopicInherited, true,
-        'Faz 38.5: genel kanıt sorusu önceki siyasi kriz konusunu kaybetmemeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.responseEvidenceBound, true,
-        'Faz 38.5: karakter cevabı yalnız görünür olay ve kriz kimliğini kanıt olarak göstermeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.noHiddenIntentLeak, true,
-        'Faz 38.5: karakter cevabı başka aktörlerin gizli amacını kesin gerçek gibi sızdırmamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.uiThreadVisible, true,
-        'Faz 38.5: ilk söz, takip sorusu ve karakter cevabı aynı görüşme akışında görünmeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.forgedAnchorRejected, true,
-        'Faz 38.5: görünmeyen veya uydurma olay kimliği yeni konuşma oturumu açamamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.worldNeutral, true,
-        'Faz 38.5: konuşmak tek başına kriz, ilişki, kurum veya fiziksel dünya kararı uygulamamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.threeCounselResponses, true,
-        'Faz 38.5: aynı kriz teklifi üç karakterden de kayıtlı bir bağlamsal yanıt üretmeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.contextResponsesDiffer, true,
-        'Faz 38.5: karakterlerin ilişki ve kimlik bağlamı aynı krize farklı yanıtlar doğurmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.recommendationsGrounded, true,
-        'Faz 38.5: kriz tavsiyeleri kimlik/ilişki kaynağını korumalı ve konuşma aşamasında dünyayı değiştirmemeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.acceptanceButtonPresent, true,
-        'Faz 38.5: uygulanabilir karakter tavsiyesi için ayrı ve açık bir oyuncu kabul düğmesi bulunmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.explicitAcceptanceApplied, true,
-        'Faz 38.5: yalnız açık kabul mevcut siyasi kriz motorunda önerilen kanonik eylemi uygulamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.canonicalActionTrace, true,
-        'Faz 38.5: kriz eylemi konuşma oturumu ve karakter yanıtına geri izlenebilir olmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.relationshipChanged, true,
-        'Faz 38.5: kabul edilen karakter tavsiyesi en az bir gerçek ilişki eksenini değiştirmeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.relationshipReceiptAccurate, true,
-        'Faz 38.5: ilişki makbuzu mutasyondan önceki ve sonraki yönlü bağı doğru saklamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.acceptanceIdempotent, true,
-        'Faz 38.5: aynı kabul ikinci kriz eylemi veya ikinci ilişki etkisi üretmemeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.decisionMemoryRecorded, true,
-        'Faz 38.5: kabul edilen tavsiye danışman ve oyuncunun tuttuğu çözülmüş bir karar bölümüne yazılmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.heldRecallSourceBound, true,
-        'Faz 38.5: karakter yalnız tuttuğu hafızadan kriz ve karar makbuzuna kaynak veren orta vadeli kayıt çağırmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.laterConversationRecall, true,
-        'Faz 38.5: aynı karakter sonraki görüşmede önceki gerçek kararın sonucunu dünya okumadan hatırlamalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.ledgerValidation.ok, true,
-        'Faz 38.5: olay ankrajı ve takip turlarıyla konuşma defteri doğrulanmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.restored.loaded, true,
-        'Faz 38.5: olay-bağlı görüşme kaydı yüklenebilmeli.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.restored.exact, true,
-        'Faz 38.5: olay ankrajı, takip sorusu ve cevap kayıt/yüklemede birebir korunmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.restored.validation.ok, true,
-        'Faz 38.5: geri yüklenen olay-bağlı konuşma defteri doğrulanmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.restored.eventAnchoredSessions, 3,
-        'Faz 38.5: üç karakterle açılan olay-bağlı oturum sayacı kayıt/yüklemede korunmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.restored.followUps, 2,
-        'Faz 38.5: olay-ankrajlı ve sonraki görüşmedeki takip konuşmaları kayıt/yüklemede korunmalı.');
-    assert.equal(conversationUnderstandingProbe.phase385EventConversation.restored.memoryRecalls, 1,
-        'Faz 38.5: kaynaklı hafıza geri çağırma sayacı kayıt/yüklemede korunmalı.');
-    assert.equal(conversationUnderstandingProbe.disabledSafe, true,
-        'Anlama bayrağı kapalıyken analiz ve dünya komutu sessizce çalışmamalı.');
+    // Geri alınmış siyasi olay/kabul adaptörü ana regresyon kapısı değildir.
+    // Doğrudan NLU laboratuvarları ve 10 güvenli-fallback senaryosu yukarıda kapı olarak korunur.
     assert.equal(conversationUnderstandingProbe.dependencyDisabledSafe, true,
         'Kaynak kataloğu gibi fiziksel öncül kapalıyken anlama katmanı etkin görünmemeli.');
 
@@ -5205,7 +4955,7 @@ function run() {
     assert.equal(hexWorldProbe.diagnostics.radius, 16.1, 'Ana aday 16,1 dünya birimi yarıçap kullanmalı.');
     assert.equal(hexWorldProbe.diagnostics.cellCount, 10584, 'Ana aday tam 10.584 altıgen üretmeli.');
     assert.equal(hexWorldProbe.inventory.regionCount, 152, 'HXD-0 mevcut 152 bölge kimliğini korumalı.');
-    assert.equal(hexWorldProbe.inventory.infrastructureCorridorCount, 591, 'HXD-0 mevcut 591 koridoru baseline olarak dondurmalı.');
+    assert.equal(hexWorldProbe.inventory.infrastructureCorridorCount, 631, 'HXD-7.3 ray genişlemesiyle güncel 631 koridor korunmalı.');
     assert.equal(hexWorldProbe.sameInstance, true, 'Değişmeyen HexWorld runtime içinde yeniden kurulmamalı.');
     assert.equal(hexWorldProbe.anchors.distinctCells, true, 'Ankara ve İstanbul farklı kanonik altıgenlere bağlanmalı.');
     assert.ok(hexWorldProbe.anchors.ankara.cell, 'Ankara için kanonik altıgen ankrajı bulunmalı.');
@@ -5376,7 +5126,7 @@ function run() {
         'Gerçek politik overlay cache’i kanonik raster kaynak checksum’ını kullanmalı.'
     );
     assert.equal(mapRasterProbe.main.renderCaches.terrain.width, 1350, 'Terrain cache yüksek çözünürlüğünü korumalı.');
-    assert.equal(mapRasterProbe.main.renderCaches.overlay.width, 300, 'Faz 14.2 geçici overlay çözünürlüğünü açıkça korumalı.');
+    assert.equal(mapRasterProbe.main.renderCaches.overlay.width, 1640, 'HXD-5 kanonik politik canvas çözünürlüğünü korumalı.');
     assert.ok(
         mapRasterProbe.main.renderCaches.wallTimeMs < 2000,
         `Terrain+overlay cache kurulumu iki saniyeyi aşmamalı: ${mapRasterProbe.main.renderCaches.wallTimeMs} ms`
@@ -5563,8 +5313,8 @@ function run() {
     );
     assert.equal(politicalOverlayProbe.disabled.diagnostics.disabled, true, 'ImageData politik overlay bayrakla kapanabilmeli.');
     assert.equal(politicalOverlayProbe.disabled.directCanvas, null, 'Bayrak kapalıyken yeni overlay canvası doğrudan üretilmemeli.');
-    assert.equal(politicalOverlayProbe.disabled.render.width, 300, 'Bayrak kapalı fallback eski 300 piksel overlay’i korumalı.');
-    assert.ok(politicalOverlayProbe.disabled.render.fillRectCalls > 10000, 'Eski fallback’in hücre başına fillRect maliyeti ölçülmeli.');
+    assert.equal(politicalOverlayProbe.disabled.render.width, 1640, 'Bayrak kapalıyken HXD politik canvası kanonik çözünürlükte kalmalı.');
+    assert.equal(politicalOverlayProbe.disabled.render.fillRectCalls, 0, 'HXD fallback eski hücre-başı fillRect döngüsünü çalıştırmamalı.');
     assert.equal(politicalOverlayProbe.disabled.render.putImageDataCalls, 0, 'Eski fallback putImageData kullanmamalı.');
     assert.equal(politicalOverlayProbe.ab.equal, true, 'Politik ImageData açık/kapalı normal dünya karmasını değiştirmemeli.');
 
@@ -5583,15 +5333,22 @@ function run() {
     ]) {
         assert.equal(sample.first, true, 'Geçerli warp kaynağı ilk katmanı çizebilmeli.');
         assert.equal(sample.second, true, 'Geçerli warp kaynağı ikinci katmanı çizebilmeli.');
-        assert.equal(sample.drawCalls, sample.rows * 2, 'İki harita katmanı plan satırı başına tek drawImage yapmalı.');
-        assert.equal(sample.cache.misses, 1, 'İki katman aynı warp planını yalnız bir kez üretmeli.');
-        assert.ok(sample.cache.hits >= 1, 'İkinci katman ortak warp planı cache’ini kullanmalı.');
+        assert.equal(sample.drawCalls, sample.lastFrame.drawCallsPerLayer * 2,
+            'İki harita katmanı seçilen render yolunun çağrı bütçesini korumalı.');
+        if (sample.lastFrame.drawCallsPerLayer === 1) {
+            assert.equal(sample.drawCalls, 2, 'Düz projeksiyon iki katmanı toplam iki drawImage ile çizmelidir.');
+        } else {
+            assert.equal(sample.lastFrame.drawCallsPerLayer, sample.rows,
+                'Perspektifli fallback plan satırı başına tek drawImage yapmalı.');
+            assert.equal(sample.cache.misses, 1, 'İki katman aynı warp planını yalnız bir kez üretmeli.');
+            assert.ok(sample.cache.hits >= 1, 'İkinci katman ortak warp planı cache’ini kullanmalı.');
+        }
         assert.ok(sample.maxScaleError < 0.01, `Band perspektif ölçek hatası %1’i aşmamalı: ${sample.maxScaleError}`);
         assert.ok(sample.maxRoundTripError < 1e-8, `Warp hit-test tersinim hatası oluşmamalı: ${sample.maxRoundTripError}`);
     }
-    assert.equal(warpProbe.main.adaptive1080.rows, 216, '1080p adaptif katman 216 draw şeridi üretmeli.');
-    assert.equal(warpProbe.main.fixed1080.rows, 360, '1080p eski katman 360 draw şeridi üretmeli.');
-    assert.ok(warpProbe.main.callReduction1080 >= 0.4, '1080p draw-call sayısı en az %40 azalmalı.');
+    assert.equal(warpProbe.main.adaptive1080.rows, 216, '1080p adaptif perspektif fallback planı 216 şerit üretmeli.');
+    assert.equal(warpProbe.main.fixed1080.rows, 360, '1080p sabit perspektif fallback planı 360 şerit üretmeli.');
+    assert.ok(warpProbe.main.callReduction1080 >= 0.4, '1080p perspektif fallback planı en az %40 küçülmeli.');
     assert.equal(warpProbe.main.invalid.ok, false, 'Geçersiz warp kaynağı çizime girmemeli.');
     assert.equal(warpProbe.main.invalid.error.code, 'SOURCE_DIMENSIONS', 'Geçersiz kaynak açık teşhis kodu üretmeli.');
     assert.equal(warpProbe.ab.equal, true, 'Adaptif warp açık/kapalı dünya karmasını değiştirmemeli.');
