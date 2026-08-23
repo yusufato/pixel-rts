@@ -734,3 +734,10 @@
 - **What happened:** Bayat özel canlı-NLU assertionları kaldırıldı; doğrudan laboratuvar kapıları korunarak 10 alanın her biri için güvenli, komutsuz ve dünya-nötr fallback doğrulaması eklendi. Konuşma devamlılığı ve ilgili UI/test sözleşmeleri güncellendi.
 - **Evidence:** Hedefli sıralı dünya assertionı geçti; tam `npm test -- --keep-results` koşusunda 88/88 dünya probu, 50 oyuncu regresyonu ve 60 adversarial konuşma senaryosu başarılı oldu. Sonuç dizini: `C:\Users\osman\AppData\Local\Temp\pixel-rts-story-test-DyPH47`.
 - **Implication for future audits:** Özel alan runtime bağlayıcısı gerçekten sevk edilmeden canlı entegrasyon iddiası kurma; laboratuvar anlama başarısını güvenli fallback ve dünya değişimi yetkisiyle ayrı kapıla.
+
+## 2026-08-23 — Oyuncu eylem görünümü yönetim görünümünü özyinelemeli çağırıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Oyuncu eylem görünümü yönetim görünümünü özyinelemeli çağırıyor
+- **What happened:** 18 aile yönetim UI'sine eklenirken bölge varsayılanı aynı üst seviye yönetim görünümünü yeniden çağırdı ve stack taşmasına yol açtı.
+- **Evidence:** Deterministik runtime stack zinciri `storyGovernancePlayerView → storyPlayerAgencyFamilyView → storyPlayerAgencyRegionId → storyGovernancePlayerView` olarak tekrar ediyor.
+- **Implication for future audits:** Alt görünüm önizlemeleri üst görünüm kurucusunu çağırmamalı; seçili bağlam yalın state veya parametreden okunmalı ve kayıt sayımı gerçek render kabulünün yerine geçmemeli.

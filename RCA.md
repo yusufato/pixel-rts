@@ -1,40 +1,38 @@
-# RCA — Yükleme-anı taşıma göç teşhisi deterministik dünya hashine sızıyor
+# RCA — Oyuncu eylem görünümü yönetim görünümünü özyinelemeli çağırıyor
 
 ## 1) Verdict
 
-- **Root cause:** `probeSchedulerRegistry` tam kayıt JSON'unu deterministik dünya görünümü olarak karşılaştırıyor; `storyLoad()` ise yalnız yüklenen süreçte `tradeLogistics.diagnostics.transportMigration` alanını yeniden üretiyor.
+- **Root cause:** `storyGovernancePlayerView()` 18 sistem ailesini üretirken `storyPlayerAgencyFamilyView()` çağırıyor; MARKET, PRODUCTION ve LABOR önizlemelerinin ortak `storyPlayerAgencyRegionId()` yardımcısı yeniden `storyGovernancePlayerView()` çağırıyor.
 - **Confidence:** Confirmed.
-- Dünya/ekonomi durumu ayrışmıyor; fark yalnız yükleme sırasında üretilen, operasyonel olmayan tanı makbuzudur.
+- Sonuç, ilk gerçek yürütme rolü önizlemesinde `Maximum call stack size exceeded` ile tam ekran çökmesidir.
 
 ## 2) Failure Definition
 
-- Beklenen: Kesintisiz ve kayıt-yükleme-devam yollarının kanonik simülasyon durumu aynı hash'i üretmeli.
-- Gerçek: Yüklenen yol 61 ertelenmiş eski sevkiyat için `LEGACY_PHYSICAL_ROUTE_UNAVAILABLE` teşhisi taşıyor; kesintisiz yol bu yükleme-anı alanını taşımıyor.
-- Etki: Görev zamanlayıcısı devamlılık kapısı, aynı dünya durumunu farklı sanıyor.
-- Blast radius: Test harness içindeki deterministik kayıt görünümü; üretim simülasyonu ve ticaret korunum hesabı etkilenmiyor.
+- Beklenen: Yönetim görünümü 18 aileyi tek geçişte üretmeli ve seçili bölgeyi yan etkisiz okumalı.
+- Gerçek: Yönetim görünümü → oyuncu eylem görünümü → bölge çözümleme → yönetim görünümü döngüsü oluşuyor.
+- Etki: Yönetim paneli ve 18 sistem eylem alanı açılamıyor.
+- Blast radius: `StoryGovernance` içine gömülen oyuncu eylem UI'si; simülasyon tikleri doğrudan etkilenmiyor.
 
 ## 3) Evidence
 
-- Assertion farkı yalnız `$.tradeLogistics.diagnostics.transportMigration` yolunu gösteriyor.
-- `storyLoad()` sırasındaki `storyTransportMigrateLegacyShipments()` sonucu `ledger.diagnostics.transportMigration` alanına yazılıyor.
-- `storyTradeForSave()` defteri teşhislerle birlikte klonladığı için alan sonraki kayda giriyor.
-- Ticaret kalıcılık probları `tradeOperationalPersistenceView()` içinde `diagnostics` alanını zaten operasyonel eşitlikten çıkarıyor.
-- Kesintisiz ve devam eden yolların göç teşhisi dışındaki fark listesi boş.
+- Deterministik `createRuntime(2032)` yürütme rolü önizlemesi `StoryInstitutions.js:144` klonunda stack taşması verdi.
+- Stack zinciri `storyGovernancePlayerView` → `storyPlayerAgencyFamilyView` → `storyPlayerAgencyRegionId` → `storyGovernancePlayerView` olarak tekrar ediyor.
+- Kayıt sayımı testi 18/18 yeşil görünüyordu; gerçek görünüm üretimi bu hatayı ortaya çıkardı.
 
 ## 4) Hypotheses
 
-1. **Yükleme-anı teşhisi kanonik dünya hashine yanlışlıkla dahil edildi.** Supported.
-2. **Görev zamanlayıcısı veya RNG yükleme sonrasında ayrıştı.** Refuted: raporlanan tek fark tanı alanı; zamanlayıcı ve dünya alanlarında fark yok.
-3. **61 sevkiyat gerçekten kayboldu veya değişti.** Refuted: göç sonucu `migrated: 0`, `deferred: 61`; operasyonel ticaret görünümü teşhis hariç eşitliği ayrı kapılıyor.
-4. **Üretim kaydı bütün `diagnostics` alanlarını silmeli.** Refuted for this fix: bazı teşhisler yükleme/onarım görünürlüğü için bilinçli saklanıyor; kapsam yalnız deterministik karşılaştırmadaki süreç-yerel göç makbuzudur.
+1. **Seçili bölge yardımcısı üst seviye görünüm kurucusunu yeniden çağırıyor.** Supported.
+2. **Kurum defteri döngüsel JSON veri taşıyor.** Refuted: taşma, aynı görünüm çağrı zincirinin tekrarı sırasında oluşuyor; kanonik defter klonları daha önce geçerliydi.
+3. **18 bağlayıcı sayısı tek başına stack sınırını aşıyor.** Refuted: neden derinlik değil, sınırsız özyineleme.
 
 ## 5) Remediation
 
-- `storyDeterministicSaveSnapshot()` içinde yalnız `tradeLogistics.diagnostics.transportMigration` alanını karşılaştırma görünümünden çıkar.
-- Ticaret defterinin operasyonel alanlarını, diğer teşhislerini ve üretim save/load davranışını değiştirme.
+- Bölge varsayılanını `STORY._governanceRegionId` veya oyuncunun sahip olduğu ilk bölgeden çöz; hiçbir oyuncu eylem önizlemesi üst seviye `storyGovernancePlayerView()` çağırmasın.
+- 18 aile görünümünü ve gerçek eylem kabul testini ayrı kapılarla çalıştır.
 
 ## 6) Verification Plan
 
-- Korunmuş sonuç setiyle sıralı assertion koşusu devamlılık eşitliğini geçmeli.
-- Ticaretin özel migration ve operasyonel kalıcılık assertionları korunmalı.
-- Tam `npm test -- --keep-results` paketi yeşil olmalı.
+- Yürütme rolünde `playerAgencyView()` stack taşması olmadan 18 benzersiz aile döndürmeli.
+- Governance HTML 18 sistem çalışma alanını üretmeli.
+- Yetkisiz eylem makbuz yazmamalı; başarılı eylem kanonik mutasyon makbuzu yazmalı.
+- Save/load oyuncu eylem defterini doğrulayıcıdan geçirerek korumalı.
