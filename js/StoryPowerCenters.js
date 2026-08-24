@@ -364,10 +364,13 @@ function storyPowerCenterActionLimits(countryId, type) {
     };
 }
 
-function storyPowerCenterBuild(countryId, type, previous) {
-    const support = storyPowerCenterSupport(countryId, type);
-    const companies = storyPowerCenterCompanySignals(countryId);
-    const signals = storyPowerCenterStateSignals(countryId);
+function storyPowerCenterBuild(countryId, type, previous, precalculated) {
+    const support = precalculated && precalculated.support && precalculated.support[type]
+        ? precalculated.support[type] : storyPowerCenterSupport(countryId, type);
+    const companies = precalculated && precalculated.companies
+        ? precalculated.companies : storyPowerCenterCompanySignals(countryId);
+    const signals = precalculated && precalculated.signals
+        ? precalculated.signals : storyPowerCenterStateSignals(countryId);
     const alignmentBps = storyPowerCenterLegacyAlignment(signals.state, type);
     const target = storyPowerCenterTarget(type, support, companies, signals);
     const initial = !previous;
@@ -491,6 +494,9 @@ function storyPowerCenterBuildSummaries(ledger) {
 // ilerler. Boylece kaydetmek simülasyon zamanini ilerletmez.
 function storyPowerCenterReconcileDerivedOwnership(ledger) {
     if (!ledger) return ledger;
+    const clock = STORY && Number(STORY.clock) || 0;
+    if (ledger._lastReconcileClock === clock) return ledger;
+    ledger._lastReconcileClock = clock;
     const regionIds = Object.keys(ledger.regions || {});
     let stale = regionIds.length !== (STORY.nodes || []).length;
     if (!stale) {
@@ -704,10 +710,18 @@ function storyPowerCenterTick() {
     const next = {};
     for (const state of (STORY.states || [])) {
         const countryId = storyPowerCenterCountryId(state.id);
+        const precalculated = {
+            companies: storyPowerCenterCompanySignals(countryId),
+            signals: storyPowerCenterStateSignals(countryId),
+            support: {}
+        };
+        for (const type of STORY_POWER_CENTER_TYPES) {
+            precalculated.support[type] = storyPowerCenterSupport(countryId, type);
+        }
         for (const type of STORY_POWER_CENTER_TYPES) {
             const id = storyPowerCenterId(countryId, type);
             const previous = ledger.centers[id] || null;
-            const center = storyPowerCenterBuild(countryId, type, previous);
+            const center = storyPowerCenterBuild(countryId, type, previous, precalculated);
             if (previous && previous.leader.actorId !== center.leader.actorId) {
                 storyPowerCenterRecordEvent(ledger, 'LEADER_CHANGED', center, {
                     previousLeaderId: previous.leader.actorId,

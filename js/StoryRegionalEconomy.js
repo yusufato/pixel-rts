@@ -610,6 +610,7 @@ function storyRegionalCommitProduction(regionId, proposal) {
             return { ok: false, code: 'INSUFFICIENT_ENDOWMENT', regionId: id, endowmentId: endowment.id };
         }
     }
+    let _commercePlan = null;
     if (typeof storyCommerceEnabled === 'function' && storyCommerceEnabled()
         && typeof storyCommerceCanCommitProduction === 'function') {
         const finance = storyCommerceCanCommitProduction(id, {
@@ -619,6 +620,7 @@ function storyRegionalCommitProduction(regionId, proposal) {
             produced: expectedProduced
         });
         if (!finance.ok) return Object.assign({ regionId: id }, finance);
+        if (finance.plan) _commercePlan = finance.plan;
     }
     const before = Object.assign({}, region.stocks);
     for (const [resourceId, quantity] of Object.entries(expectedConsumed)) {
@@ -656,6 +658,7 @@ function storyRegionalCommitProduction(regionId, proposal) {
         before,
         after: Object.assign({}, region.stocks)
     });
+    if (_commercePlan) transaction._commercePlan = _commercePlan;
     if (typeof storyCompanyOnProductionCommitted === 'function'
         && typeof storyCompanyEnabled === 'function'
         && storyCompanyEnabled()) {
@@ -913,7 +916,7 @@ function storyRegionalEconomyTick(dtSec) {
             if (!viability.approved) {
                 blockedProposals++;
                 unprofitableProductionHolds++;
-                productionHolds.push(storyRegionalClone(viability));
+                productionHolds.push(Object.assign({}, viability));
                 continue;
             }
             if (bootstrapPlanning) {
@@ -1007,10 +1010,10 @@ function storyRegionalEconomyTick(dtSec) {
             worldDays,
             collectiveProductionMultiplierBps: Math.round(collectiveProductionMultiplier * 10000),
             labor: laborView && laborView.status === 'COHORT_DERIVED'
-                ? storyRegionalClone(laborView)
+                ? Object.assign({}, laborView)
                 : { status: 'LEGACY_FALLBACK', laborLots: laborSupply, wageIndex: null },
             demandCount: demandResult.allocations ? demandResult.allocations.length : 0,
-            allocations: storyRegionalClone(demandResult.allocations || []),
+            allocations: demandResult.allocations ? demandResult.allocations.slice() : [],
             shortageCount: demandResult.allocations
                 ? demandResult.allocations.filter(item => item.unmet > 0).length
                 : 0,

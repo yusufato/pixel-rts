@@ -684,5 +684,6 @@ function storyProductionEvaluate(sectorId, request) {
         liveStockSystem: false
     };
     proposal.proposalHash = storyProductionHash(proposal);
+    proposal._trustedDirect = true;
     return proposal;
 }

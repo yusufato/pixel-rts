@@ -1232,8 +1232,10 @@ function storyInfrastructureRouteEconomicAiCompanies(options) {
             ? STORY.companyEconomy.companies : {});
     return (Array.isArray(source) ? source : Object.values(source || {}))
         .filter(company => company && company.status === 'OPERATING'
-            && company.licenseStatus === 'LICENSED')
-        .sort((a, b) => String(a.id).localeCompare(String(b.id), 'en'));
+            && company.licenseStatus === 'LICENSED'
+            && (Math.max(0, Number(company.cash) || 0) >= 15 || Math.max(0, Number(company.borrowingLimit) || 0) >= 25))
+        .sort((a, b) => (Number(b.cash) || 0) - (Number(a.cash) || 0) || String(a.id).localeCompare(String(b.id), 'en'))
+        .slice(0, 6);
 }
 
 function storyInfrastructureRouteEconomicAiNodes(options) {

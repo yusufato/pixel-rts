@@ -345,15 +345,51 @@ function storyOpinionBuildAggregates(cohortsById) {
     const regions = {};
     const countries = {};
     const population = typeof storyPopulationEnsure === 'function' ? storyPopulationEnsure() : null;
+
+    const cohortsByRegion = new Map();
+    const cohortsByCountry = new Map();
+    for (let i = 0; i < cohorts.length; i++) {
+        const c = cohorts[i];
+        if (c.regionId) {
+            let rList = cohortsByRegion.get(c.regionId);
+            if (!rList) { rList = []; cohortsByRegion.set(c.regionId, rList); }
+            rList.push(c);
+        }
+        if (c.countryId) {
+            let cList = cohortsByCountry.get(c.countryId);
+            if (!cList) { cList = []; cohortsByCountry.set(c.countryId, cList); }
+            cList.push(c);
+        }
+    }
+
     for (const regionId of Object.keys(population && population.regions || {}).sort()) {
-        regions[regionId] = storyOpinionAggregateScope('regionId', regionId, cohorts);
-        regions[regionId].countryId = population.regions[regionId].countryId;
+        const rows = cohortsByRegion.get(regionId) || [];
+        const popPeople = rows.reduce((sum, row) => sum + row.membersPeople, 0);
+        const wSeverity = rows.reduce((sum, row) => sum + row.rememberedSeverityBps * row.membersPeople, 0);
+        regions[regionId] = {
+            regionId,
+            countryId: population.regions[regionId].countryId,
+            populationPeople: popPeople,
+            cohortCount: rows.length,
+            affectedCohortCount: rows.filter(row => row.rememberedSeverityBps > 0).length,
+            rememberedSeverityBps: popPeople > 0 ? storyOpinionClampBps(wSeverity / popPeople) : 0,
+            topIssues: storyOpinionAggregateIssues(rows)
+        };
     }
     for (const state of (STORY.states || [])) {
         const countryId = `country:${state.id}`;
-        countries[countryId] = storyOpinionAggregateScope('countryId', countryId, cohorts);
-        countries[countryId].regionCount = Object.values(regions)
-            .filter(region => region.countryId === countryId).length;
+        const rows = cohortsByCountry.get(countryId) || [];
+        const popPeople = rows.reduce((sum, row) => sum + row.membersPeople, 0);
+        const wSeverity = rows.reduce((sum, row) => sum + row.rememberedSeverityBps * row.membersPeople, 0);
+        countries[countryId] = {
+            countryId,
+            populationPeople: popPeople,
+            cohortCount: rows.length,
+            affectedCohortCount: rows.filter(row => row.rememberedSeverityBps > 0).length,
+            rememberedSeverityBps: popPeople > 0 ? storyOpinionClampBps(wSeverity / popPeople) : 0,
+            topIssues: storyOpinionAggregateIssues(rows),
+            regionCount: Object.values(regions).filter(region => region.countryId === countryId).length
+        };
     }
     return { regions, countries };
 }
@@ -618,16 +654,19 @@ function storyOpinionTick() {
     const cohorts = {};
     for (const regionId of Object.keys(needs.regions || {}).sort()) {
         const region = needs.regions[regionId];
+        const populationRegion = STORY.population && STORY.population.regions
+            ? STORY.population.regions[regionId]
+            : null;
+        const popCohortsMap = new Map();
+        if (populationRegion && Array.isArray(populationRegion.cohorts)) {
+            for (let i = 0; i < populationRegion.cohorts.length; i++) {
+                const c = populationRegion.cohorts[i];
+                popCohortsMap.set(c.id, c);
+            }
+        }
         for (const outcome of region.cohorts || []) {
             const previous = ledger.cohorts && ledger.cohorts[outcome.cohortId];
-            // Faz 24 gorunumu meslek alanini tasimaz; kanonik nufus profiliyle
-            // salt-okunur birlestirilir.
-            const populationRegion = STORY.population && STORY.population.regions
-                ? STORY.population.regions[outcome.regionId]
-                : null;
-            const population = populationRegion && Array.isArray(populationRegion.cohorts)
-                ? populationRegion.cohorts.find(row => row.id === outcome.cohortId) || null
-                : null;
+            const population = popCohortsMap.get(outcome.cohortId) || null;
             const source = Object.assign({}, outcome, population || {});
             cohorts[outcome.cohortId] = storyOpinionCohortFromNeeds(
                 source, previous, needs.tickSequence, at

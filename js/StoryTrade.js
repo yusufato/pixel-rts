@@ -762,10 +762,7 @@ function storyTradeFindRoute(sourceRegionId, targetRegionId, contract, resourceI
             transferCost: STORY_TRADE_TRANSFER_COST,
             transferLatencySeconds: STORY_TRADE_TRANSFER_LATENCY_SECONDS,
             knowledgeMode: 'TRUTH',
-            // Dispatch immediately reserves the chosen segments and therefore
-            // invalidates that capacity-dependent entry. Avoid building a
-            // thousand-edge reverse cache index for a one-shot plan.
-            useCache: false
+            useCache: true
         });
     }
     if (typeof storyInfrastructureFindRoute !== 'function') return { ok: false, reason: 'INFRASTRUCTURE_API_MISSING' };
@@ -1810,15 +1807,28 @@ function storyTradeProductionOpportunityView(options) {
                 && lastTick.demandRequestedByResource[resourceId]
         ) || 0);
         const physical = storyTradeRound(Math.max(0, stock - localProductionNeed - consumerNeed));
-        const owned = commerce && Array.isArray(commerce.inventories)
-            ? storyTradeRound(commerce.inventories.reduce((sum, lot) => (
-                lot.regionId === region.regionId
-                    && lot.resourceId === resourceId
-                    && Number(lot.quantity) > 0
-                    ? sum + Number(lot.quantity)
-                    : sum
-            ), 0))
-            : physical;
+        let owned = physical;
+        if (commerce && Array.isArray(commerce.inventories)) {
+            const bucket = typeof storyCommerceGetInventoryBucket === 'function'
+                ? storyCommerceGetInventoryBucket(commerce, region.regionId, resourceId)
+                : null;
+            if (bucket) {
+                let sum = 0;
+                for (let i = 0; i < bucket.length; i++) {
+                    const q = Number(bucket[i].quantity) || 0;
+                    if (q > 0) sum += q;
+                }
+                owned = storyTradeRound(sum);
+            } else {
+                owned = storyTradeRound(commerce.inventories.reduce((sum, lot) => (
+                    lot.regionId === region.regionId
+                        && lot.resourceId === resourceId
+                        && Number(lot.quantity) > 0
+                        ? sum + Number(lot.quantity)
+                        : sum
+                ), 0));
+            }
+        }
         return {
             stock: storyTradeRound(stock),
             operatingReserve: storyTradeRound(localProductionNeed + consumerNeed),
@@ -3066,9 +3076,11 @@ function storyTradeAutoBalance(ledger) {
         }
         demands.sort((a, b) => b.quantity - a.quantity || a.regionId.localeCompare(b.regionId));
         supplies.sort((a, b) => b.quantity - a.quantity || a.regionId.localeCompare(b.regionId));
-        for (const demand of demands) {
+        const topDemands = demands.slice(0, 6);
+        const topSupplies = supplies.slice(0, 6);
+        for (const demand of topDemands) {
             if (shipmentsDispatched >= STORY_TRADE_MAX_AUTO_DISPATCHES) break;
-            const candidates = supplies
+            const candidates = topSupplies
                 .filter(supply => supply.quantity > 1e-6
                     && supply.regionId !== demand.regionId
                     && storyTradeCanContract(supply.countryId, demand.countryId))
@@ -3077,7 +3089,7 @@ function storyTradeAutoBalance(ledger) {
                     const bd = b.countryId === demand.countryId ? 0 : 1;
                     return ad - bd || b.quantity - a.quantity || a.regionId.localeCompare(b.regionId);
                 })
-                .slice(0, 4);
+                .slice(0, 3);
             for (const supply of candidates) {
                 if (demand.quantity <= 1e-6
                     || shipmentsDispatched >= STORY_TRADE_MAX_AUTO_DISPATCHES
@@ -3194,7 +3206,7 @@ function storyTradeHouseholdDistributionBalance(ledger) {
         supplies.sort((a, b) => b.quantity - a.quantity
             || a.regionId.localeCompare(b.regionId));
 
-        for (const demand of demands) {
+        for (const demand of demands.slice(0, Math.max(4, dispatchLimit * 2))) {
             if (resourceDispatches >= dispatchLimit) break;
             const candidates = supplies
                 .filter(supply => supply.quantity > 1e-6

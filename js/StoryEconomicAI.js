@@ -390,7 +390,20 @@ function storyEconomicAIFinance(company) {
     };
 }
 
+let _storyEconomicAIDependencyCache = null;
+let _storyEconomicAIDependencyCacheClock = -1;
+
 function storyEconomicAIDependencySignals(company) {
+    if (!company) return { foodFillBps: 10000, energyFillBps: 10000, foodProductionCoverageBps: 10000, energyProductionCoverageBps: 10000, partsStock: 0, partsTarget: 0, partsScarcityBps: 0, dependencyBonus: 0, traces: [] };
+    const clock = Number(STORY.clock) || 0;
+    const cacheKey = `${company.countryId}:${company.sectorId}`;
+    if (_storyEconomicAIDependencyCache && _storyEconomicAIDependencyCacheClock === clock) {
+        const cached = _storyEconomicAIDependencyCache.get(cacheKey);
+        if (cached) return cached;
+    } else {
+        _storyEconomicAIDependencyCache = new Map();
+        _storyEconomicAIDependencyCacheClock = clock;
+    }
     const regions = STORY.regionalEconomy && STORY.regionalEconomy.regions
         ? Object.values(STORY.regionalEconomy.regions).filter(region => {
             const nodeId = Number(String(region.regionId || '').split(':')[1]);
@@ -447,7 +460,7 @@ function storyEconomicAIDependencySignals(company) {
         dependencyBonus = Math.round(foodPressureBps * 0.2);
         traces.push('FOOD->ENERGY');
     }
-    return {
+    const result = {
         foodFillBps,
         energyFillBps,
         foodProductionCoverageBps: food.productionCoverageBps,
@@ -458,6 +471,10 @@ function storyEconomicAIDependencySignals(company) {
         dependencyBonus: storyEconomicAIBootstrapPlanningEnabled() ? dependencyBonus : 0,
         traces
     };
+    if (_storyEconomicAIDependencyCache) {
+        _storyEconomicAIDependencyCache.set(cacheKey, result);
+    }
+    return result;
 }
 
 function storyEconomicAICompletedSector(countryId, sectorId) {
@@ -537,8 +554,9 @@ function storyEconomicAIInvalidateReachableInputCache() {
     _reachableInputCacheClock = null;
 }
 
-function storyEconomicAIReachableInput(company, targetRegionId, resourceId) {
+function storyEconomicAIReachableInput(company, targetRegionId, resourceId, targetRequired) {
     const countryId = company ? company.countryId : null;
+    const needed = Math.max(1, Number(targetRequired) || 25);
     const clock = Number(STORY.clock) || 0;
     if (_reachableInputCache && _reachableInputCacheClock === clock) {
         const cached = _reachableInputCache.get(`${targetRegionId}|${countryId}|${resourceId}`);
@@ -558,7 +576,13 @@ function storyEconomicAIReachableInput(company, targetRegionId, resourceId) {
         : 0;
     let quantity = Math.max(0, (Number(target.stocks[resourceId]) || 0) - targetReserve);
     const sources = [];
+    if (quantity >= needed) {
+        const res = { quantity, sourceRegionIds: [targetRegionId] };
+        _reachableInputCache.set(`${targetRegionId}|${countryId}|${resourceId}`, res);
+        return res;
+    }
     for (const region of Object.values(regional.regions)) {
+        if (quantity >= needed) break;
         if (region.regionId === targetRegionId
             || storyEconomicAICountryIdForRegion(region.regionId) !== countryId) continue;
         const stock = Math.max(0, Number(region.stocks[resourceId]) || 0);
@@ -1378,18 +1402,29 @@ function storyEconomicAIHoldCandidate(actorId, countryId, code, score) {
 }
 
 function storyEconomicAIRecordDecision(ledger, payload) {
-    storyEconomicAIInvalidateCandidateCache();
+    if (payload && payload.execution && payload.execution.status === 'APPLIED') {
+        storyEconomicAIInvalidateCandidateCache();
+    }
     ledger.decisionSequence++;
-    const decision = Object.assign({
+    const decision = {
         id: `economic-decision:${ledger.decisionSequence}`,
         sequence: ledger.decisionSequence,
         tickSequence: ledger.tickSequence,
         at: storyEconomicAIRound(STORY.clock),
-        worldDay: storyEconomicAIWorldDay()
-    }, storyEconomicAIClone(payload));
+        worldDay: storyEconomicAIWorldDay(),
+        actorType: payload.actorType,
+        actorId: payload.actorId,
+        countryId: payload.countryId,
+        selectedCandidateId: payload.selectedCandidateId,
+        selectedAction: payload.selectedAction,
+        selectedScore: payload.selectedScore,
+        execution: payload.execution ? Object.assign({}, payload.execution) : { status: 'HELD', code: 'NO_ACTION' },
+        outcome: payload.outcome ? Object.assign({}, payload.outcome) : { status: 'NOT_APPLICABLE' },
+        candidates: Array.isArray(payload.candidates) ? payload.candidates.slice(0, 3) : []
+    };
     ledger.decisions.push(decision);
     while (ledger.decisions.length > STORY_ECONOMIC_AI_DECISION_LIMIT) {
-        const removable = ledger.decisions.findIndex(row => row.execution.status === 'HELD');
+        const removable = ledger.decisions.findIndex(row => row.execution && row.execution.status === 'HELD');
         ledger.decisions.splice(removable >= 0 ? removable : 0, 1);
     }
     return decision;

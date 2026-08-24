@@ -66,6 +66,13 @@ function storyCommerceRegionCountry(regionId) {
 }
 
 function storyCommerceUnitPrice(regionId, resourceId) {
+    const seq = STORY.regionalEconomy ? Number(STORY.regionalEconomy.tickSequence) || 0 : 0;
+    if (!storyCommerceUnitPrice._cache || storyCommerceUnitPrice._cacheSeq !== seq) {
+        storyCommerceUnitPrice._cache = new Map();
+        storyCommerceUnitPrice._cacheSeq = seq;
+    }
+    const k = `${regionId}|${resourceId}`;
+    if (storyCommerceUnitPrice._cache.has(k)) return storyCommerceUnitPrice._cache.get(k);
     const base = Math.max(0.01, Number(
         typeof STORY_COMPANY_BASE_VALUE !== 'undefined'
             && STORY_COMPANY_BASE_VALUE[resourceId]
@@ -73,7 +80,9 @@ function storyCommerceUnitPrice(regionId, resourceId) {
     const index = typeof storyCompanyMarketPrice === 'function'
         ? storyCompanyMarketPrice(regionId, resourceId)
         : 100;
-    return storyCommerceRound(Math.max(0.01, base * Math.max(1, Number(index) || 100) / 100));
+    const price = storyCommerceRound(Math.max(0.01, base * Math.max(1, Number(index) || 100) / 100));
+    storyCommerceUnitPrice._cache.set(k, price);
+    return price;
 }
 
 function storyCommerceCreateLedger(options) {
@@ -200,8 +209,15 @@ function storyCommerceAddInventoryLot(commerce, spec) {
     commerce.inventories.push(lot);
     if (commerce.inventories.length > STORY_COMMERCE_INVENTORY_LIMIT) {
         commerce.inventories = commerce.inventories.filter(row => row.quantity > 1e-8);
+        storyCommerceInvalidateInventoryMap(commerce);
+    } else if (commerce._inventoryMap) {
+        // Incrementally add to existing map instead of full rebuild
+        const k = `${lot.regionId}|${lot.resourceId}`;
+        let bucket = commerce._inventoryMap.get(k);
+        if (!bucket) { bucket = []; commerce._inventoryMap.set(k, bucket); }
+        bucket.push(lot);
+        commerce._inventoryMapRevision = commerce.inventories.length;
     }
-    storyCommerceInvalidateInventoryMap(commerce);
     return lot;
 }
 
@@ -665,7 +681,7 @@ function storyCommercePostSellerSale(seller, saleAmount, costAmount, details) {
 function storyCommerceOnProductionCommitted(regionId, transaction, company) {
     const commerce = storyCommerceEnsure();
     if (!commerce || !company) return { ok: false, code: 'COMMERCE_LEDGER_MISSING' };
-    const plan = storyCommerceProductionPlan(regionId, transaction, company);
+    const plan = transaction._commercePlan || storyCommerceProductionPlan(regionId, transaction, company);
     if (!plan.ok) return plan;
     let acquiredCost = 0;
     for (const input of plan.inputPlans) {

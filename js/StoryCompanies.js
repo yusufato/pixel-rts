@@ -586,28 +586,50 @@ function storyCompanyOperatingCash(regionId, sectorId) {
     return Math.max(0, Number(company.accounts['ASSET:CASH']) || 0);
 }
 
-function storyCompanyRegionalLiquidity(regionId) {
+let _storyCompanyRegionalLiquidityCache = null;
+let _storyCompanyRegionalLiquidityCacheSeq = -1;
+
+function storyCompanyRegionalLiquidityMap() {
     const ledger = storyCompanyEnsure();
-    if (!ledger) return null;
-    const id = storyCompanyRegionId(regionId);
-    let total = 0;
-    for (const company of Object.values(ledger.companies)) {
-        const local = company.facilityIds.filter(facilityId => ledger.facilities[facilityId]
-            && ledger.facilities[facilityId].regionId === id).length;
-        if (!local) continue;
-        total += (Number(company.accounts['ASSET:CASH']) || 0)
-            * local / Math.max(1, company.facilityIds.length);
+    if (!ledger) return new Map();
+    const seq = Number(ledger.tickSequence) || 0;
+    if (_storyCompanyRegionalLiquidityCache && _storyCompanyRegionalLiquidityCacheSeq === seq) {
+        return _storyCompanyRegionalLiquidityCache;
     }
-    return storyCompanyRound(total);
+    const map = new Map();
+    for (const company of Object.values(ledger.companies || {})) {
+        const fIds = company.facilityIds || [];
+        if (!fIds.length) continue;
+        const cash = Number(company.accounts && company.accounts['ASSET:CASH']) || 0;
+        if (cash <= 0) continue;
+        const cashPerFac = cash / fIds.length;
+        for (let i = 0; i < fIds.length; i++) {
+            const fac = ledger.facilities && ledger.facilities[fIds[i]];
+            if (fac && fac.regionId) {
+                map.set(fac.regionId, (map.get(fac.regionId) || 0) + cashPerFac);
+            }
+        }
+    }
+    _storyCompanyRegionalLiquidityCache = map;
+    _storyCompanyRegionalLiquidityCacheSeq = seq;
+    return map;
+}
+
+function storyCompanyRegionalLiquidity(regionId) {
+    const map = storyCompanyRegionalLiquidityMap();
+    const id = storyCompanyRegionId(regionId);
+    return storyCompanyRound(map.get(id) || 0);
 }
 
 function storyCompanySyncRegionalCapital(trackFlows) {
     const ledger = STORY.companyEconomy;
     const regional = STORY.regionalEconomy;
     if (!ledger || !regional || !regional.regions) return;
+    _storyCompanyRegionalLiquidityCache = null;
+    const map = storyCompanyRegionalLiquidityMap();
     for (const region of Object.values(regional.regions)) {
         const before = Math.max(0, Number(region.stocks.capital) || 0);
-        const next = storyCompanyRegionalLiquidity(region.regionId);
+        const next = storyCompanyRound(map.get(region.regionId) || 0);
         region.stocks.capital = next;
         if (trackFlows !== false && regional.totals) {
             const delta = storyCompanyRound(next - before);
@@ -619,7 +641,7 @@ function storyCompanySyncRegionalCapital(trackFlows) {
         }
         const nodeId = Number(String(region.regionId).split(':')[1]);
         const node = STORY.nodes && STORY.nodes[nodeId];
-        if (node) node.stocks = storyCompanyClone(region.stocks);
+        if (node) node.stocks = Object.assign({}, region.stocks);
     }
 }
 
@@ -632,6 +654,16 @@ function storyCompanyMarketPrice(regionId, resourceId) {
     const nodeId = Number(String(storyCompanyRegionId(regionId)).split(':')[1]);
     const node = STORY.nodes && STORY.nodes[nodeId];
     if (!node || !STORY.marketPrices || !STORY.marketPrices.regions) return localPrice;
+    // Tick-level cache for national upper-quartile price per (owner, resourceId)
+    const cacheKey = `${Number(node.owner)}|${resourceId}`;
+    const seq = STORY.regionalEconomy ? Number(STORY.regionalEconomy.tickSequence) || 0 : 0;
+    if (!storyCompanyMarketPrice._cache || storyCompanyMarketPrice._cacheSeq !== seq) {
+        storyCompanyMarketPrice._cache = new Map();
+        storyCompanyMarketPrice._cacheSeq = seq;
+    }
+    if (storyCompanyMarketPrice._cache.has(cacheKey)) {
+        return storyCompanyMarketPrice._cache.get(cacheKey);
+    }
     const nationalPrices = (STORY.nodes || [])
         .filter(candidate => Number(candidate.owner) === Number(node.owner))
         .map(candidate => STORY.marketPrices.regions[`region:${Number(candidate.id)}`])
@@ -640,14 +672,21 @@ function storyCompanyMarketPrice(regionId, resourceId) {
             && Number.isFinite(Number(price.priceIndex)))
         .map(price => Number(price.priceIndex))
         .sort((a, b) => a - b);
-    if (!nationalPrices.length) return localPrice;
-    // Ulusal şirket, yerel spot fiyat yerine erişebildiği ülke içi toptan
-    // pazarın üst çeyrek fırsat fiyatıyla plan yapar. Maksimum tek bir uç
-    // bölgenin bütün ülkeyi belirlemesine izin verilmez.
-    return nationalPrices[Math.floor((nationalPrices.length - 1) * 0.75)];
+    const result = !nationalPrices.length ? localPrice : nationalPrices[Math.floor((nationalPrices.length - 1) * 0.75)];
+    storyCompanyMarketPrice._cache.set(cacheKey, result);
+    return result;
 }
 
 function storyCompanyProductionUnitEconomics(regionId, sectorId) {
+    const seq = STORY.regionalEconomy ? Number(STORY.regionalEconomy.tickSequence) || 0 : 0;
+    if (!storyCompanyProductionUnitEconomics._cache || storyCompanyProductionUnitEconomics._cacheSeq !== seq) {
+        storyCompanyProductionUnitEconomics._cache = new Map();
+        storyCompanyProductionUnitEconomics._cacheSeq = seq;
+    }
+    const cacheKey = `${regionId}|${sectorId}`;
+    if (storyCompanyProductionUnitEconomics._cache.has(cacheKey)) {
+        return storyCompanyProductionUnitEconomics._cache.get(cacheKey);
+    }
     const sector = (typeof STORY_PRODUCTION_SECTOR_DEFINITIONS !== 'undefined'
         ? STORY_PRODUCTION_SECTOR_DEFINITIONS
         : []).find(row => row.id === sectorId);
@@ -673,13 +712,15 @@ function storyCompanyProductionUnitEconomics(regionId, sectorId) {
         expectedRevenue += quantity * baseValue
             * storyCompanyMarketPrice(regionId, output.resourceId) / 100;
     }
-    return {
+    const res = {
         sector,
         primaryOutputId,
         workingCapitalRequired: storyCompanyRound(workingCapitalRequired),
         expectedPhysicalInputCost: storyCompanyRound(expectedPhysicalInputCost),
         expectedRevenue: storyCompanyRound(expectedRevenue)
     };
+    storyCompanyProductionUnitEconomics._cache.set(cacheKey, res);
+    return res;
 }
 
 function storyCompanyProductionViability(regionId, sectorId) {
@@ -687,11 +728,25 @@ function storyCompanyProductionViability(regionId, sectorId) {
         && !storyFeatureEnabled('economy.bootstrapPlanning')) {
         return { approved: true, code: 'LEGACY_AUTO_PRODUCTION' };
     }
+    // Tick-level cache: viability result doesn't change within a tick
+    const seq = STORY.regionalEconomy ? Number(STORY.regionalEconomy.tickSequence) || 0 : 0;
+    if (!storyCompanyProductionViability._cache || storyCompanyProductionViability._cacheSeq !== seq) {
+        storyCompanyProductionViability._cache = new Map();
+        storyCompanyProductionViability._cacheSeq = seq;
+    }
+    const cacheKey = `${regionId}|${sectorId}`;
+    if (storyCompanyProductionViability._cache.has(cacheKey)) {
+        return storyCompanyProductionViability._cache.get(cacheKey);
+    }
     const company = storyCompanyForRegionSector(regionId, sectorId);
     const sector = (typeof STORY_PRODUCTION_SECTOR_DEFINITIONS !== 'undefined'
         ? STORY_PRODUCTION_SECTOR_DEFINITIONS
         : []).find(row => row.id === sectorId);
-    if (!company || !sector) return { approved: false, code: 'PRODUCTION_ACTOR_MISSING' };
+    if (!company || !sector) {
+        const res = { approved: false, code: 'PRODUCTION_ACTOR_MISSING' };
+        storyCompanyProductionViability._cache.set(cacheKey, res);
+        return res;
+    }
     if (['advanced_tech', 'defense_industry'].includes(sectorId)) {
         const regionalLedger = STORY.regionalEconomy;
         const tickSeq = regionalLedger ? Number(regionalLedger.tickSequence) || 0 : 0;
@@ -720,16 +775,24 @@ function storyCompanyProductionViability(regionId, sectorId) {
             householdEnergyFillBps = regionalLedger._countryEnergyFillCache.get(company.countryId) ?? 10000;
         }
         const countryNumber = Number(String(company.countryId).split(':')[1]);
-        const atWar = Number.isInteger(countryNumber) && (STORY.states || []).some(state => (
-            state.id !== countryNumber
-            && typeof storyIsHostile === 'function'
-            && storyIsHostile(countryNumber, state.id)
-        ));
+        if (!regionalLedger._countryAtWarCache || regionalLedger._countryAtWarCacheSeq !== tickSeq) {
+            regionalLedger._countryAtWarCache = new Map();
+            regionalLedger._countryAtWarCacheSeq = tickSeq;
+        }
+        let atWar = regionalLedger._countryAtWarCache.get(countryNumber);
+        if (atWar === undefined) {
+            atWar = Number.isInteger(countryNumber) && (STORY.states || []).some(state => (
+                state.id !== countryNumber
+                && typeof storyIsHostile === 'function'
+                && storyIsHostile(countryNumber, state.id)
+            ));
+            regionalLedger._countryAtWarCache.set(countryNumber, atWar);
+        }
         const rationingThreshold = sectorId === 'advanced_tech'
             ? 9000
             : (atWar ? 4000 : 8000);
         if (householdEnergyFillBps < rationingThreshold) {
-            return {
+            const res = {
                 approved: false,
                 code: 'STRATEGIC_ENERGY_RATIONING',
                 companyId: company.id,
@@ -739,6 +802,8 @@ function storyCompanyProductionViability(regionId, sectorId) {
                 rationingThresholdBps: rationingThreshold,
                 atWar
             };
+            storyCompanyProductionViability._cache.set(cacheKey, res);
+            return res;
         }
     }
     const economics = storyCompanyProductionUnitEconomics(regionId, sectorId);
@@ -776,7 +841,7 @@ function storyCompanyProductionViability(regionId, sectorId) {
     const requiredRevenue = expectedCostPerCycle * (wasProducing ? 0.8 : 1);
     const approved = expectedCostPerCycle <= 1e-9
         || expectedRevenuePerCycle + 1e-6 >= requiredRevenue;
-    return {
+    const res = {
         approved,
         code: settledCostBasis
             ? (approved ? 'NON_NEGATIVE_EXPECTED_SALE_MARGIN' : 'PRICE_BELOW_EXPECTED_INPUT_COST')
@@ -800,6 +865,8 @@ function storyCompanyProductionViability(regionId, sectorId) {
             ) * expectedCostPerCycle / expectedMarketRevenuePerCycle)
             : null
     };
+    storyCompanyProductionViability._cache.set(cacheKey, res);
+    return res;
 }
 
 function storyCompanyOnProductionCommitted(regionId, transaction) {

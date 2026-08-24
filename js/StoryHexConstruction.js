@@ -36,7 +36,9 @@ const STORY_HEX_CONSTRUCTION_APPLICATION_POLICY = Object.freeze({
 });
 
 function storyHexConstructionClone(value) {
-    return value == null ? value : JSON.parse(JSON.stringify(value));
+    if (value == null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.slice();
+    return Object.assign({}, value);
 }
 
 function storyHexConstructionRegionNumber(regionId) {

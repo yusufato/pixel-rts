@@ -165,14 +165,23 @@ function storyRoutePlannerExpire(now) {
 
 function storyRoutePlannerReservedBySegment(now) {
     storyRoutePlannerExpire(now);
+    const ledger = storyRoutePlannerEnsure();
+    if (ledger._reservedCache && ledger._reservedCacheRevision === ledger.reservationRevision) {
+        return ledger._reservedCache;
+    }
     const totals = new Map();
-    for (const reservation of storyRoutePlannerEnsure().reservations) {
+    for (let i = 0; i < ledger.reservations.length; i++) {
+        const reservation = ledger.reservations[i];
         if (reservation.status !== 'ACTIVE') continue;
-        for (const segmentId of reservation.segmentIds || []) {
-            totals.set(segmentId, storyRoutePlannerRound(
-                (totals.get(segmentId) || 0) + Number(reservation.amount || 0)));
+        const amt = Number(reservation.amount || 0);
+        const segs = reservation.segmentIds || [];
+        for (let j = 0; j < segs.length; j++) {
+            const sid = segs[j];
+            totals.set(sid, storyRoutePlannerRound((totals.get(sid) || 0) + amt));
         }
     }
+    ledger._reservedCache = totals;
+    ledger._reservedCacheRevision = ledger.reservationRevision;
     return totals;
 }
 
@@ -380,9 +389,17 @@ function storyRoutePlannerCandidate(corridor, fromRegionId, registry, reserved, 
 function storyRoutePlannerCacheKey(from, to, modes, demand, options, graph, registry, ledger) {
     // Corridor access depends on live ownership as well as the static network.
     // A conquest must not reuse a route cached under the previous border regime.
-    const ownershipFingerprint = storyRoutePlannerHashText(
-        ((STORY && STORY.nodes) || []).map(node =>
-            String(node && node.id) + ':' + String(node && node.owner)).join('|'));
+    const clock = STORY && Number(STORY.clock) || 0;
+    let ownershipFingerprint = STORY && STORY._routePlannerOwnershipFingerprint;
+    if (!ownershipFingerprint || STORY._routePlannerOwnershipClock !== clock) {
+        ownershipFingerprint = storyRoutePlannerHashText(
+            ((STORY && STORY.nodes) || []).map(node =>
+                String(node && node.id) + ':' + String(node && node.owner)).join('|'));
+        if (STORY) {
+            STORY._routePlannerOwnershipFingerprint = ownershipFingerprint;
+            STORY._routePlannerOwnershipClock = clock;
+        }
+    }
     return [from, to, modes.join(','), storyRoutePlannerRound(demand),
         options.actorCountryId == null ? '' : String(options.actorCountryId),
         (options.authorizedCountryIds || []).map(String).sort().join(','),
@@ -442,7 +459,7 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
         const cached = STORY._routePlannerCache.get(cacheKey);
         if (cached) {
             STORY._routePlannerCacheStats.hits++;
-            return Object.assign(storyRoutePlannerClone(cached), { cacheHit: true });
+            return Object.assign({}, cached, { cacheHit: true });
         }
         STORY._routePlannerCacheStats.misses++;
     }
@@ -453,14 +470,8 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
     const reliabilityWeight = Math.max(0, Number(options.reliabilityWeight == null
         ? 0.5 : options.reliabilityWeight));
     const adjacency = new Map();
-    const dependencyCorridorIds = [];
-    const dependencySegmentIds = [];
     for (const corridor of graph.corridors || []) {
         if (!modes.includes(String(corridor.mode))) continue;
-        dependencyCorridorIds.push(String(corridor.id));
-        for (const segmentId of registry.corridorSegmentIds[corridor.id] || []) {
-            dependencySegmentIds.push(String(segmentId));
-        }
         const endpoints = corridor.endpointRegionIds || [];
         if (endpoints.length !== 2) continue;
         const directions = [[String(endpoints[0]), String(endpoints[1])],
@@ -596,8 +607,8 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
             physical: Number(registry.revision) || 0,
             reservations: Number(ledger.reservationRevision) || 0 } };
     if (cacheEnabled) {
-        storyRoutePlannerCacheTrack(cacheKey, dependencyCorridorIds, dependencySegmentIds);
-        STORY._routePlannerCache.set(cacheKey, storyRoutePlannerClone(result));
+        storyRoutePlannerCacheTrack(cacheKey, corridorIds, segmentIds);
+        STORY._routePlannerCache.set(cacheKey, Object.assign({}, result));
         if (STORY._routePlannerCache.size > 512) {
             storyRoutePlannerCacheUntrack(STORY._routePlannerCache.keys().next().value);
         }
@@ -651,7 +662,7 @@ function storyRoutePlannerReserve(plan, amount, rawOptions) {
     ledger.reservations.push(reservation);
     ledger.reservationRevision++;
     storyRoutePlannerInvalidate({ segmentIds: uniqueSegmentIds });
-    return { ok: true, reservation: storyRoutePlannerClone(reservation) };
+    return { ok: true, reservation: Object.assign({}, reservation) };
 }
 
 function storyRoutePlannerRelease(reservationId, reason, rawOptions) {
@@ -660,7 +671,7 @@ function storyRoutePlannerRelease(reservationId, reason, rawOptions) {
         item => item.id === String(reservationId));
     if (!reservation) return { ok: false, code: 'RESERVATION_NOT_FOUND' };
     if (reservation.status !== 'ACTIVE') {
-        return { ok: true, changed: false, reservation: storyRoutePlannerClone(reservation) };
+        return { ok: true, changed: false, reservation: Object.assign({}, reservation) };
     }
     reservation.status = 'RELEASED';
     reservation.releaseReason = String(reason || 'RELEASED');

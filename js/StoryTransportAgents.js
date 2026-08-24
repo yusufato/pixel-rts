@@ -298,12 +298,15 @@ function storyTransportTerminalRelease(shipment) {
 }
 
 function storyTransportSteps(route) {
+    if (route && route._transportSteps && route._transportStepsRouteId === route.routeId) {
+        return route._transportSteps;
+    }
     const steps = [];
+    const registry = storyHexInfrastructureSegmentsEnsure();
     for (let legIndex = 0; legIndex < (route.microLegs || []).length; legIndex++) {
         const leg = route.microLegs[legIndex];
         const ids = leg.segmentIds || [];
         const cells = leg.cellIndices || [];
-        const registry = storyHexInfrastructureSegmentsEnsure();
         const weights = ids.map(id => {
             const segment = registry && registry.segmentById[id];
             return Math.max(0.001, Number(segment && segment.lengthWorld) || 1);
@@ -324,6 +327,10 @@ function storyTransportSteps(route) {
                     legDuration * weights[index] / totalWeight)
             });
         }
+    }
+    if (route) {
+        route._transportSteps = steps;
+        route._transportStepsRouteId = route.routeId;
     }
     return steps;
 }
