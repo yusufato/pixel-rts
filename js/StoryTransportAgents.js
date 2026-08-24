@@ -34,11 +34,13 @@ function storyTransportContinuousAdvance(dtSec) {
     if (typeof STORY === 'undefined' || STORY.paused) return;
     const dt = Number(dtSec);
     if (!Number.isFinite(dt) || dt <= 0 || dt > 0.5) return;
+    const speedMultiplier = Math.max(0.1, Math.min(3.0, Number(STORY.speed || 1))) * 0.25;
+    const effectiveDt = dt * speedMultiplier;
     const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
     if (!ledger || !Array.isArray(ledger.shipments)) return;
     for (const shipment of ledger.shipments) {
         if (shipment.status === 'IN_TRANSIT' && shipment.transportAgent && shipment.transportAgent.state === 'MOVING') {
-            storyTransportAdvanceShipment(shipment, dt);
+            storyTransportAdvanceShipment(shipment, effectiveDt);
         }
     }
 }
