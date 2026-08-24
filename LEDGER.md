@@ -1,3 +1,18 @@
+## 2026-08-24 — 5 Temel Ekonomik Çark ve Dış Ticaret/Gümrük Mimarisi (Geliştirme Borcu)
+- **Type:** Planned (Architectural Debt)
+- **Source:** User inquiry & Economic architecture audit
+- **What happened:** Oyunun tüm ekonomik akışını yöneten 5 temel çark ve yapılacak dış ticaret/gümrük genişletmeleri kayıt altına alındı:
+  1. *Bölgesel Üretim ve Sanayi Zinciri (`StoryRegionalEconomy.js`):* 152 bölge, 6 sektör, katı girdi/çıktı reçeteleri.
+  2. *Dinamik Fiyat ve Piyasa Arbitrajı (`StoryMarket.js`):* Yerel stok ve kıtlığa göre dinamik 25–800 fiyat endeksi.
+  3. *Fiziksel Ticaret ve Lojistik Ağı (`StoryTrade.js`):* Karayolu, demiryolu ve denizyolu sevkiyatları.
+  4. *Şirketler, İşletme Sermayesi ve Satış Muhasebesi (`StoryCommerce.js` & `StoryCompanies.js`):* Fatura ve teslimat karlılığı.
+  5. *Devlet Bütçesi ve Hazine (`StoryBudget.js`):* Vergi ve gümrük gelirleri.
+- **Next Steps / Debt to settle:**
+  - Ülkeler arası gümrük tarifesi (%10–15) ve transit geçiş ücretlerinin (`REVENUE:CUSTOMS_IMPORT/EXPORT`, `REVENUE:TRANSIT_TOLL`) `StoryTrade.js` ve `StoryBudget.js`'e eklenmesi.
+  - Sevkiyatların piyasa arbitrajına (hedef fiyat > kaynak fiyat + yol + gümrük) bağlanarak karsız mikro-sevkiyatların elenmesi.
+  - Ekonomi dosyasına (`StoryCityDossier.js`) `dis-ticaret` sekmesi eklenerek hammadde bazında İthalat/İhracat bilançosunun gösterilmesi.
+- **Implication for future audits:** Bu 5 çarkı birbirine tam entegre çalıştır; sevkiyat motorunu körlemesine kıtlık eşleştirmesinden karlı serbest piyasa arbitrajına dönüştür.
+
 ## 2026-08-24 — Araç Hızı Kalibrasyonu, Çift İlerlemenin Kaldırılması ve Sıfır-Çöp Render Optimizasyonu
 - **Type:** Executed
 - **Source:** User directive & profiling audit (Vehicle speed normalization & transport overlay zero-GC rendering)
