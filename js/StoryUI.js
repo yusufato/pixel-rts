@@ -2264,6 +2264,7 @@ function storyInit() {
         });
         window.addEventListener('mousemove', (e) => {
             if (!dragging) return;
+            STORY._mapInteracting = true;
             if (Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) > 3) moved = true;
             STORY._cw = cv.width; STORY._ch = cv.height;
             const rect = cv.getBoundingClientRect(), sc = cv.width / rect.width, scy = cv.height / rect.height;

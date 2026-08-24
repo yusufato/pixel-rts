@@ -13,7 +13,15 @@ function storyWorldFrame(timestamp) {
     let dt = (timestamp - last) / 1000;
     STORY._lastFrameT = timestamp;
     if (dt > 0.5) dt = 0.5;          // sekme arka plandayken sıçramayı engelle
-    storyAdvance(dt);
+    
+    // Ağır simülasyon mantığı (takvim, görevler, AI) sabit 10 Hz (0.1s) akümülatörle çalışır.
+    STORY._simTickAcc = (STORY._simTickAcc || 0) + dt;
+    if (STORY._simTickAcc >= 0.1) {
+        storyAdvance(STORY._simTickAcc);
+        STORY._simTickAcc = 0;
+    }
+    
+    // Canlı fiziksel araç süzülmesi 60 Hz tam akıcılıkta kalır
     if (typeof storyTransportContinuousAdvance === 'function') {
         storyTransportContinuousAdvance(dt);
     }
@@ -41,7 +49,7 @@ function storyWorldFrame(timestamp) {
     // zaten anlık storyRender çağırır; simülasyon tarafında yalnız gerçekten
     // görünür dünya durumu değişince ağır katman yeniden çizilir.
     STORY._worldVisualCheckAcc = (STORY._worldVisualCheckAcc || 0) + dt;
-    if (!STORY._worldVisualStateKey || STORY._worldVisualCheckAcc >= .5) {
+    if (!STORY._worldVisualStateKey || STORY._worldVisualCheckAcc >= 1.0) {
         STORY._worldVisualCheckAcc = 0;
         const visualKey = storyWorldVisualStateKey();
         if (visualKey !== STORY._worldVisualStateKey) {
@@ -304,9 +312,9 @@ function storyBlitWarp(g, src, alpha) {
     const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
     const W = STORY._cw, H = STORY._ch, z = storyCam.zoom;
     const kx = src.width / STORY_WORLD_W, ky = src.height / STORY_WORLD_H;
-    // Tam uzak görünümde perspektif yoktur. Şeritlere bölmek hem gereksiz yüzlerce
-    // drawImage çağrısı hem de piksel haritada yatay dikiş izi üretiyordu.
-    if (Math.abs(storyPP()) < 0.000001) {
+    // Etkileşim/sürükleme sırasında veya düz görünümde şerit kesim yerine
+    // donanım hızlandırmalı tek parça drawImage kullanılır (26 ms -> 0.1 ms).
+    if (STORY._mapInteracting || Math.abs(storyPP()) < 0.000001) {
         if (alpha != null) g.globalAlpha = alpha;
         g.drawImage(src, storyCam.x * kx, storyCam.y * ky,
             (W / z) * kx, (H / z) * ky, 0, 0, W, H);

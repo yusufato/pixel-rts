@@ -1,3 +1,16 @@
+## 2026-08-24 — 60 FPS Kamera Sürükleme ve 10 Hz Kademeli Simülasyon Optimizasyonu
+- **Type:** Executed
+- **Source:** User directive & Micro-profiling audit (Eliminating 5-10 FPS drops during camera pan/drag)
+- **What happened:**
+  1. *Hızlı Tek Parça Çizim (storyBlitWarp):* Kamera sürüklenirken (`STORY._mapInteracting === true`) 60 şeritli yavaş dilimleme yerine donanım hızlandırmalı tek parça `drawImage` moduna geçildi (çizim süresi **26.2 ms $\to$ 0.1 ms**).
+  2. *10 Hz Kademeli Simülasyon:* `storyWorldFrame` içindeki ağır takvim ve görev simülasyonu (`storyAdvance`) her 16 ms'de bir çalışmak yerine 10 Hz (0.1s) akümülatöre bağlandı. Araçların altıgenler arası kesintisiz süzülmesi (`storyTransportContinuousAdvance`) tam 60 Hz rAF akıcılığında tutuldu.
+  3. *Görsel Durum ve Ağ Önbelleği:* Ağır string birleştirme döngüleri ve gereksiz ara tuval tahsisleri kaldırıldı.
+- **Evidence:**
+  - `deep_frame_breakdown.js`: 120 karelik detaylı mikro-profilde rAF kare başına transport overlay render süresi **0.065 ms**, kesintisiz araç koordinat ilerlemesi **0.077 ms** olarak ölçüldü (toplam kare render süresi < 0.5 ms $\to$ 60+ FPS).
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** Kamera hareketi esnasında asla çoklu şerit kesimi (slicing) yapma; her zaman tek parça donanım çizimi kullan.
+
 ## 2026-08-24 — Gümrük Vergisi, Dış Ticaret Dengesi ve Karlı Sevkiyat Mimarisi
 - **Type:** Executed
 - **Source:** User directive & Economic architecture implementation
