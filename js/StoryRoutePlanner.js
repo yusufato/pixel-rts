@@ -477,18 +477,41 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
         String(a.corridor.id).localeCompare(String(b.corridor.id)));
 
     const startKey = from + '|-';
-    const best = new Map([[startKey, { regionId: from, lastMode: null,
-        score: 0, tieKey: '', regionIds: [from], corridorIds: [], modes: [],
-        microLegs: [], cost: 0, latency: 0, reliabilityBps: 10000,
-        bottleneck: Infinity, transferRegionIds: [] }]]);
+    const startState = {
+        regionId: from,
+        lastMode: null,
+        score: 0,
+        tieKey: '',
+        cost: 0,
+        latency: 0,
+        reliabilityBps: 10000,
+        bottleneck: Infinity,
+        prev: null,
+        edge: null,
+        transferRegionId: null
+    };
+    const best = new Map([[startKey, startState]]);
     const open = [startKey];
+    const openSet = new Set([startKey]);
     let winner = null;
     while (open.length) {
-        open.sort((a, b) => {
-            const av = best.get(a), bv = best.get(b);
-            return av.score - bv.score || av.tieKey.localeCompare(bv.tieKey);
-        });
-        const key = open.shift(), state = best.get(key);
+        let bestIdx = 0;
+        let bestState = best.get(open[0]);
+        for (let i = 1; i < open.length; i++) {
+            const candState = best.get(open[i]);
+            if (candState.score < bestState.score
+                || (Math.abs(candState.score - bestState.score) <= 1e-9
+                    && candState.tieKey.localeCompare(bestState.tieKey) < 0)) {
+                bestIdx = i;
+                bestState = candState;
+            }
+        }
+        const key = open[bestIdx];
+        open[bestIdx] = open[open.length - 1];
+        open.pop();
+        openSet.delete(key);
+
+        const state = bestState;
         if (state.regionId === to) { winner = state; break; }
         for (const edge of adjacency.get(state.regionId) || []) {
             const transfer = !!state.lastMode && state.lastMode !== edge.corridor.mode;
@@ -497,45 +520,71 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
             const nextReliability = Math.min(state.reliabilityBps, edge.reliabilityBps);
             const score = nextCost + nextLatency
                 + (10000 - nextReliability) / 100 * reliabilityWeight;
-            const corridorIds = state.corridorIds.concat(edge.corridor.id);
-            const tieKey = corridorIds.join('|');
+            const tieKey = (state.tieKey ? state.tieKey + '|' : '') + edge.corridor.id;
             const nextKey = edge.next + '|' + edge.corridor.mode;
             const previous = best.get(nextKey);
             if (!previous || score < previous.score - 1e-9
                 || (Math.abs(score - previous.score) <= 1e-9
                     && tieKey.localeCompare(previous.tieKey) < 0)) {
-                best.set(nextKey, { regionId: edge.next, lastMode: edge.corridor.mode,
-                    score, tieKey, regionIds: state.regionIds.concat(edge.next),
-                    corridorIds, modes: state.modes.concat(edge.corridor.mode),
-                    microLegs: state.microLegs.concat(edge.leg),
-                    cost: nextCost, latency: nextLatency,
+                const nextState = {
+                    regionId: edge.next,
+                    lastMode: edge.corridor.mode,
+                    score,
+                    tieKey,
+                    cost: nextCost,
+                    latency: nextLatency,
                     reliabilityBps: nextReliability,
                     bottleneck: Math.min(state.bottleneck, edge.capacity),
-                    transferRegionIds: transfer
-                        ? state.transferRegionIds.concat(state.regionId)
-                        : state.transferRegionIds.slice() });
-                if (!open.includes(nextKey)) open.push(nextKey);
+                    prev: state,
+                    edge,
+                    transferRegionId: transfer ? state.regionId : null
+                };
+                best.set(nextKey, nextState);
+                if (!openSet.has(nextKey)) {
+                    open.push(nextKey);
+                    openSet.add(nextKey);
+                }
             }
         }
     }
     if (!winner) return { ok: false, reason: 'NO_ROUTE',
         regionIds: [], corridorIds: [], modes, demand };
-    const segmentIds = winner.microLegs.flatMap(leg => leg.segmentIds);
-    const uncertainSegmentIds = [...new Set(winner.microLegs.flatMap(
+    const pathNodes = [];
+    let curr = winner;
+    while (curr) {
+        pathNodes.unshift(curr);
+        curr = curr.prev;
+    }
+    const regionIds = pathNodes.map(n => n.regionId);
+    const corridorIds = [];
+    const winnerModes = [];
+    const microLegs = [];
+    const transferRegionIds = [];
+    for (let i = 1; i < pathNodes.length; i++) {
+        const node = pathNodes[i];
+        corridorIds.push(node.edge.corridor.id);
+        winnerModes.push(node.edge.corridor.mode);
+        microLegs.push(node.edge.leg);
+        if (node.transferRegionId) {
+            transferRegionIds.push(node.transferRegionId);
+        }
+    }
+    const segmentIds = microLegs.flatMap(leg => leg.segmentIds);
+    const uncertainSegmentIds = [...new Set(microLegs.flatMap(
         leg => leg.uncertainSegmentIds || []))];
-    const observationIds = [...new Set(winner.microLegs.flatMap(
+    const observationIds = [...new Set(microLegs.flatMap(
         leg => leg.observationIds || []))];
     const result = { ok: true, schemaVersion: STORY_ROUTE_PLANNER_SCHEMA_VERSION,
         adapterVersion: STORY_ROUTE_PLANNER_ADAPTER_VERSION,
         routeId: storyRoutePlannerHashText(
-            [from, to, winner.corridorIds.join('|'), segmentIds.join('|')].join('>')),
-        fromRegionId: from, toRegionId: to, regionIds: winner.regionIds,
-        corridorIds: winner.corridorIds, modes: winner.modes,
-        microLegs: winner.microLegs, segmentIds,
+            [from, to, corridorIds.join('|'), segmentIds.join('|')].join('>')),
+        fromRegionId: from, toRegionId: to, regionIds,
+        corridorIds, modes: winnerModes,
+        microLegs, segmentIds,
         knowledgeMode: options.knowledgeMode,
         observerId: options._perception ? options._perception.observerId : null,
         uncertainSegmentIds, observationIds,
-        transferRegionIds: winner.transferRegionIds,
+        transferRegionIds,
         totalCost: storyRoutePlannerRound(winner.cost),
         totalLatencySeconds: storyRoutePlannerRound(winner.latency),
         reliabilityBps: winner.reliabilityBps,

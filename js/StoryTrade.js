@@ -1780,12 +1780,22 @@ function storyTradeProductionOpportunityView(options) {
 
             const sourceCandidates = [];
             let sourcesWithStock = 0;
-            for (const source of uncoveredNeed > 1e-6 ? Object.values(regional.regions) : []) {
-                if (source.regionId === region.regionId
-                    || storyTradeCountryIdForRegion(source.regionId) !== countryId) continue;
-                const availability = sourceAvailability(source, resourceId);
-                if (availability.transferable <= 1e-6) continue;
-                sourcesWithStock++;
+            const validSources = [];
+            if (uncoveredNeed > 1e-6) {
+                for (const source of Object.values(regional.regions)) {
+                    if (source.regionId === region.regionId
+                        || storyTradeCountryIdForRegion(source.regionId) !== countryId) continue;
+                    const availability = sourceAvailability(source, resourceId);
+                    if (availability.transferable <= 1e-6) continue;
+                    sourcesWithStock++;
+                    validSources.push({ source, availability });
+                }
+            }
+            validSources.sort((a, b) => b.availability.transferable - a.availability.transferable
+                || a.source.regionId.localeCompare(b.source.regionId));
+            const topSources = validSources.slice(0, 4);
+
+            for (const { source, availability } of topSources) {
                 const route = storyInfrastructureFindRoute(source.regionId, region.regionId, {
                     modes: storyTradeModes(resourceId),
                     authorizedCountryIds: [countryId],
@@ -2865,7 +2875,8 @@ function storyTradeProductionInputBalance(ledger) {
                     const aq = ad === 0 ? a.domesticQuantity : a.foreignQuantity;
                     const bq = bd === 0 ? b.domesticQuantity : b.foreignQuantity;
                     return ad - bd || bq - aq || a.regionId.localeCompare(b.regionId);
-                });
+                })
+                .slice(0, 4);
             for (const supply of candidates) {
                 if (demand.quantity <= 1e-6
                     || shipmentsDispatched >= STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES
@@ -3066,6 +3077,7 @@ function storyTradeHouseholdDistributionBalance(ledger) {
                 .filter(supply => supply.quantity > 1e-6
                     && supply.countryId === demand.countryId
                     && supply.regionId !== demand.regionId)
+                .slice(0, 4)
                 .map(supply => {
                     const route = storyInfrastructureFindRoute(
                         supply.regionId,

@@ -759,3 +759,11 @@
 - **What happened:** Eski bekleyen konuşma listesi, otomatik komutan konuşmaları ve sohbet içindeki doğrudan eylem kartı kaldırıldı. Bekleyen kararlar kanonik `speakerActorId` üzerinden ilgili karakterin karşılıklı görüşme penceresine taşındı; diplomasi ilk görünümü dört eşit sütuna geçirildi. İkili ekonomik diplomasi ile askerî bina çalışma alanı için katmanlı ana planlar eklendi.
 - **Evidence:** Hedefli temas dizini probunun yedi UI/sözleşme kapısı geçti; zamanlayıcı sırası, çalışma adetleri, A/B dünya özdeşliği ve kayıt devamlılığı korundu; oyuncu eylem testi 18/18 geçti.
 - **Implication for future audits:** Bekleyen kararların keşfi ve çözümü karakter görüşme çalışma alanından sınanmalı; eski komutan akışı, bağımsız bekleyen liste veya sohbet içi doğrudan eylem kartı yeniden oluşturulmamalı.
+
+## 2026-08-24 — Hikâye modu simülasyonu ve ticaret/lojistik mikro-donma optimizasyonları tamamlandı
+- **Type:** Executed
+- **Source:** Doğrudan kullanıcı talimatı — Hikâye modu 6 saniyelik donma ve FPS optimizasyonu
+- **What happened:** Simülasyonun ana iş parçacığında 5-8 saniyelik donmalara yol açan kök nedenler çözüldü: (1) `StoryClock.js` içindeki frame başına sınırsız simülasyon adımı accumulator limitine (max 2 adım/12ms) bağlandı; (2) `StoryRoutePlanner.js` Dijkstra algoritmasındaki her kenar gevşetmesinde 5 dizi kopyalama ve $O(K \log K)$ sıralama yerine Set indeksli minimum çekme ve geriye dönük pointer izleme getirildi; (3) `StoryTrade.js` içindeki hane halkı ve üretim girdisi arz/talep eşleştirmelerinde adaylar en iyi 4 bölgeyle sınırlandırıldı; (4) `StoryCommerce.js` envanter lotları bölge ve kaynak anahtarlı `Map` indeksine alınarak $O(N)$ dizi taramaları $O(1)$ doğrudan erişime dönüştürüldü; (5) `StoryTransportAgents.js` sözleşme aramaları Map indeksine bağlandı ve segment kayıtları resident sidecar üzerinden önbelleklendi.
+- **Evidence:** `npm run test:story-player-agency` (18/18 test OK) ve `npm run test:story-infrastructure` (20/20 test OK) tüm alt sistemleriyle eksiksiz doğrulandı.
+- **Implication for future audits:** Ticaret ve envanter işlemlerinde global array taramaları (`filter/find`) yerine daima Map indeksleri kullanılmalı; rota aramasında candidate sayısı budanmalı ve browser simülasyon accumulator'ı asla serbest bırakılmamalı.
+

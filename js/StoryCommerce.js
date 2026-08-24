@@ -154,6 +154,31 @@ function storyCommerceEnsure() {
     return commerce;
 }
 
+function storyCommerceInvalidateInventoryMap(commerce) {
+    if (commerce) {
+        commerce._inventoryMap = null;
+        commerce._inventoryMapRevision = null;
+    }
+}
+
+function storyCommerceGetInventoryBucket(commerce, regionId, resourceId) {
+    if (!commerce || !Array.isArray(commerce.inventories)) return [];
+    if (!commerce._inventoryMap || commerce._inventoryMapRevision !== commerce.inventories.length) {
+        const map = new Map();
+        for (const lot of commerce.inventories) {
+            if (Number(lot.quantity) > 1e-8) {
+                const k = `${lot.regionId}|${lot.resourceId}`;
+                let bucket = map.get(k);
+                if (!bucket) { bucket = []; map.set(k, bucket); }
+                bucket.push(lot);
+            }
+        }
+        commerce._inventoryMap = map;
+        commerce._inventoryMapRevision = commerce.inventories.length;
+    }
+    return commerce._inventoryMap.get(`${regionId}|${resourceId}`) || [];
+}
+
 function storyCommerceAddInventoryLot(commerce, spec) {
     const quantity = storyCommerceRound(Math.max(0, Number(spec.quantity) || 0));
     if (!commerce || quantity <= 0) return null;
@@ -176,6 +201,7 @@ function storyCommerceAddInventoryLot(commerce, spec) {
     if (commerce.inventories.length > STORY_COMMERCE_INVENTORY_LIMIT) {
         commerce.inventories = commerce.inventories.filter(row => row.quantity > 1e-8);
     }
+    storyCommerceInvalidateInventoryMap(commerce);
     return lot;
 }
 
@@ -183,10 +209,9 @@ function storyCommerceInventoryPlan(regionId, resourceId, quantity, preferredOwn
     const commerce = storyCommerceEnsure();
     const wanted = storyCommerceRound(Math.max(0, Number(quantity) || 0));
     if (!commerce || wanted <= 0) return { ok: false, code: 'COMMERCE_DISABLED', slices: [] };
-    const lots = commerce.inventories
-        .filter(lot => lot.regionId === String(regionId)
-            && lot.resourceId === String(resourceId)
-            && (!requiredOwnerId || lot.ownerId === String(requiredOwnerId))
+    const rawLots = storyCommerceGetInventoryBucket(commerce, regionId, resourceId);
+    const lots = rawLots
+        .filter(lot => (!requiredOwnerId || lot.ownerId === String(requiredOwnerId))
             && Number(lot.quantity) > 1e-8)
         .slice()
         .sort((a, b) => {
@@ -237,10 +262,9 @@ function storyCommerceApplyPhysicalLoss(regionId, resourceId, desiredQuantity, r
     const quantity = storyCommerceRound(Math.max(0, Number(desiredQuantity) || 0));
     if (!commerce) return { ok: false, code: 'COMMERCE_LEDGER_MISSING', applied: 0 };
     if (quantity <= 0) return { ok: true, code: 'NO_PHYSICAL_LOSS', applied: 0, cost: 0 };
-    const lots = commerce.inventories
-        .filter(lot => lot.regionId === String(regionId)
-            && lot.resourceId === String(resourceId)
-            && Number(lot.quantity) > 1e-8)
+    const rawLots = storyCommerceGetInventoryBucket(commerce, regionId, resourceId);
+    const lots = rawLots
+        .filter(lot => Number(lot.quantity) > 1e-8)
         .slice()
         .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
     let remaining = quantity;
@@ -405,6 +429,7 @@ function storyCommerceDeliverCargo(shipment) {
         lot.source = 'TRADE_DELIVERY';
         lot.correlationId = String(shipment.id);
     }
+    storyCommerceInvalidateInventoryMap(commerce);
     return { ok: true, code: 'COMMERCE_CARGO_DELIVERED', quantity: ready.quantity };
 }
 

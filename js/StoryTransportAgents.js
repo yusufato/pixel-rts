@@ -454,13 +454,20 @@ function storyTransportAdvanceShipment(shipment, dtSec) {
             agent.phaseRemainingSeconds = STORY_TRANSPORT_UNLOADING_SECONDS;
             continue;
         }
-        const registry = storyHexInfrastructureSegmentsEnsure();
+        const registry = (typeof STORY !== 'undefined' && STORY.hexInfrastructureSegments)
+            || storyHexInfrastructureSegmentsEnsure();
         const segment = registry && registry.segmentById[step.segmentId];
         const corridor = typeof storyInfrastructureGetCorridor === 'function'
             ? storyInfrastructureGetCorridor(step.corridorId) : null;
         const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
-        const contract = ledger && (ledger.contracts || []).find(
-            item => item.id === shipment.contractId);
+        let contract = null;
+        if (ledger) {
+            if (!ledger._contractsById || ledger._contractsByIdRevision !== (ledger.contracts || []).length) {
+                ledger._contractsById = new Map((ledger.contracts || []).map(item => [item.id, item]));
+                ledger._contractsByIdRevision = (ledger.contracts || []).length;
+            }
+            contract = ledger._contractsById.get(shipment.contractId);
+        }
         const access = corridor && contract
             && typeof storyInfrastructureAuthorizedCountriesCanUse === 'function'
             ? storyInfrastructureAuthorizedCountriesCanUse(
