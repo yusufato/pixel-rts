@@ -753,3 +753,9 @@
 - **What happened:** Fiziksel halefiyet makbuzu doğrudan ortak oyuncu zarfına geçirildi; 17 ailede bulunan `ledger` kaynağı yalnız kurum ailesinde eksik kaldı.
 - **Evidence:** Kabul testi `INSTITUTIONS` için tekil olarak defter alanı eksikliği verdi; transition ve successor alanları fiziksel uygulamayı doğruluyor.
 - **Implication for future audits:** Ortak eylem zarfları domain makbuzunu kayıpsız taşımalı fakat kaynak defteri ayrıca ve zorunlu olarak adlandırmalı.
+## 2026-08-24 — Bekleyen konuşmalar karakter görüşmesine taşındı
+- **Type:** Executed
+- **Source:** Doğrudan kullanıcı talimatı — sohbet ve diplomasi arayüzü sadeleştirmesi
+- **What happened:** Eski bekleyen konuşma listesi, otomatik komutan konuşmaları ve sohbet içindeki doğrudan eylem kartı kaldırıldı. Bekleyen kararlar kanonik `speakerActorId` üzerinden ilgili karakterin karşılıklı görüşme penceresine taşındı; diplomasi ilk görünümü dört eşit sütuna geçirildi. İkili ekonomik diplomasi ile askerî bina çalışma alanı için katmanlı ana planlar eklendi.
+- **Evidence:** Hedefli temas dizini probunun yedi UI/sözleşme kapısı geçti; zamanlayıcı sırası, çalışma adetleri, A/B dünya özdeşliği ve kayıt devamlılığı korundu; oyuncu eylem testi 18/18 geçti.
+- **Implication for future audits:** Bekleyen kararların keşfi ve çözümü karakter görüşme çalışma alanından sınanmalı; eski komutan akışı, bağımsız bekleyen liste veya sohbet içi doğrudan eylem kartı yeniden oluşturulmamalı.
