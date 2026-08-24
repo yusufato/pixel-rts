@@ -2542,10 +2542,16 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     const visualSlots = new Set();
     let densityCulled = 0;
     const displayAgents = snapshot.displayAgents || snapshot.agents;
+    const _agentTrackCache = STORY._agentTrackCache || (STORY._agentTrackCache = new WeakMap());
     for (const agent of displayAgents) {
-        const trackId = agent.presentationTrackId
-            || String(agent.authorityType || 'TRANSPORT') + ':'
-                + String(agent.authorityId || agent.agentId);
+        let trackId = agent.presentationTrackId;
+        if (!trackId) {
+            trackId = _agentTrackCache.get(agent);
+            if (!trackId) {
+                trackId = String(agent.authorityType || 'TRANSPORT') + ':' + String(agent.authorityId || agent.agentId);
+                _agentTrackCache.set(agent, trackId);
+            }
+        }
         seenTrackIds.add(trackId);
         const presentation = typeof storyTransportPresentationResolve === 'function'
             ? storyTransportPresentationResolve(
@@ -2566,7 +2572,7 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         if (p.x < -40 || p.x > STORY._cw + 40 || p.y < -40 || p.y > STORY._ch + 40) continue;
         const slotKey = typeof storyTransportScreenSlotKey === 'function'
             ? storyTransportScreenSlotKey(p.x, p.y, slotSize)
-            : Math.floor(p.x / slotSize) + ':' + Math.floor(p.y / slotSize);
+            : ((Math.floor(p.x / slotSize) * 10000 + Math.floor(p.y / slotSize)) | 0);
         if (visualSlots.has(slotKey)) {
             densityCulled++;
             continue;

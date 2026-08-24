@@ -123,11 +123,20 @@ function storyClockAdvance(realDtSec) {
         return 1;
     }
 
+    const isBrowser = typeof window !== 'undefined';
     state.accumulatorSeconds = storyClockRound(state.accumulatorSeconds + dt * state.speed);
+    if (isBrowser) {
+        // Prevent death spiral: cap accumulator so frame drops never accumulate unrecoverable debt
+        state.accumulatorSeconds = Math.min(STORY_FIXED_STEP_SECONDS * 2, state.accumulatorSeconds);
+    }
+
+    const startMs = isBrowser && typeof performance !== 'undefined' ? performance.now() : 0;
+    const maxSteps = isBrowser ? 2 : STORY_CLOCK_MAX_STEPS_PER_ADVANCE;
+
     let steps = 0;
     while (
         state.accumulatorSeconds + STORY_CLOCK_EPSILON_SECONDS >= STORY_FIXED_STEP_SECONDS
-        && steps < STORY_CLOCK_MAX_STEPS_PER_ADVANCE
+        && steps < maxSteps
     ) {
         state.accumulatorSeconds = storyClockRound(state.accumulatorSeconds - STORY_FIXED_STEP_SECONDS);
         if (Math.abs(state.accumulatorSeconds) <= STORY_CLOCK_EPSILON_SECONDS) {
@@ -142,6 +151,9 @@ function storyClockAdvance(realDtSec) {
             // Aynı render karesinin kalan süresi, modal/oyun-sonu açıldıktan sonra
             // geleceğe taşınamaz; aksi hâlde modal kapanınca dünya sıçrar.
             state.accumulatorSeconds = 0;
+            break;
+        }
+        if (isBrowser && typeof performance !== 'undefined' && (performance.now() - startMs) > 12) {
             break;
         }
     }
