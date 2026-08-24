@@ -1714,7 +1714,7 @@ function storyAdvanceStep(dtSec) {
     if (_storyDue('technology', '_accTech', 8) > 0) storyAIResearch();
     // FAZ-6: SOHBET (komutan/kulis/elçi) + AI'ler arası diplomasi
     if (_storyRegistryOn) {
-        if (_storyDue('chatter', '_accChat', 9) > 0 && typeof storyChatterRun === 'function') storyChatterRun();
+        _storyDue('chatter', '_accChat', 9); // Eski otomatik komutanlar-arası konuşma kaldırıldı; sayaç kayıt uyumluluğu için ilerler.
         if (_storyDue('talks', '_accTalk', 14) > 0 && typeof storyTalkRun === 'function') storyTalkRun();
     } else if (typeof storyTalkTick === 'function') {
         storyTalkTick(dtSec);

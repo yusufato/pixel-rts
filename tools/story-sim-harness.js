@@ -846,8 +846,10 @@ function createRuntime(seed) {
             contactDirectoryRenderHtml: view => storyContactDirectoryRenderHtml(view),
             talkUpdate: () => storyTalkUpdate(),
             talkBind: () => storyTalkBind(),
+            talkOpen: () => storyTalkOpen(),
             conversationWorkspaceRender: options => storyConversationWorkspaceRender(options),
             talkRun: templateId => storyTalkRun(templateId),
+            chatterCount: () => (STORY._chatter || []).length,
             talkQueue: () => JSON.parse(JSON.stringify((STORY._talks || []).map(talk => ({
                 uid: talk.uid, tpl: talk.tpl, speakerActorId: talk.speakerActorId,
                 memoryEpisodeId: talk.memoryEpisodeId,
@@ -13175,6 +13177,25 @@ function probeContactDirectory(seed = 2032) {
         if (diplomacyButton) diplomacyButton.click();
         const diplomacyOnlyAfterClick = !!(body && body.querySelector('.dip-row'))
             && !body.querySelector('.contact-directory');
+        const diplomacyRowsEqualContract = Array.from(body ? body.querySelectorAll('.dip-row') : [])
+            .every(row => row.dataset.diplomacyColumns === '4');
+        const chatterBefore = agentRuntime.api.chatterCount();
+        agentRuntime.api.advance(18);
+        const chatterAfter = agentRuntime.api.chatterCount();
+        if (!agentRuntime.api.talkQueue().some(row => row.speakerActorId)) {
+            agentRuntime.api.talkRun('need-army');
+        }
+        const pendingTalk = agentRuntime.api.talkQueue().find(row => row.speakerActorId) || null;
+        agentRuntime.api.talkOpen();
+        const conversationModal = agentRuntime.dom.window.document.getElementById('conversation-workspace-modal');
+        const pendingConversationInWorkspace = !!(conversationModal
+            && conversationModal.querySelector('.conversation-pending-card [data-talk][data-opt]'));
+        const pendingConversationTargetsSpeaker = !!(pendingTalk && conversationModal
+            && conversationModal.dataset.listenerActorId === pendingTalk.speakerActorId);
+        const drawerTextAfterPending = body ? body.textContent : '';
+        const drawerHasLegacyPendingList = drawerTextAfterPending.includes('BEKLEYEN KONUŞMALAR');
+        const drawerHasCommanderChatter = drawerTextAfterPending.includes('KOMUTANLAR ARASI');
+        const drawerHasDirectActionCard = !!(body && body.querySelector('.character-action-card'));
         agent = {
             knowledgeValidation: agentRuntime.api.validatePlayerKnowledge(knowledge),
             knowledgeSchemaVersion: knowledge.schemaVersion,
@@ -13194,6 +13215,13 @@ function probeContactDirectory(seed = 2032) {
             tabCount: talkTabs.length,
             contactsOnlyAtOpen,
             diplomacyOnlyAfterClick,
+            diplomacyRowsEqualContract,
+            automaticCommanderChatterStopped: chatterAfter === chatterBefore,
+            pendingConversationInWorkspace,
+            pendingConversationTargetsSpeaker,
+            drawerHasLegacyPendingList,
+            drawerHasCommanderChatter,
+            drawerHasDirectActionCard,
             operationButtonPresent: !!operationButton,
             sabotageReceipt: sabotageReceipt || null,
             capabilitySpent: capabilityBefore - capabilityAfter,

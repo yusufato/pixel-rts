@@ -4695,7 +4695,21 @@ function run() {
     assert.equal(contactDirectoryProbe.agent.contactsOnlyAtOpen, true,
         'Karakterler & Temaslar görünümü diplomasi tablosunu aynı uzun akışa yığmamalı.');
     assert.equal(contactDirectoryProbe.agent.diplomacyOnlyAfterClick, true,
-        'Diplomasi seçildiğinde yalnız devlet ilişkileri görünmeli; karakter sicili gizlenmeli.');
+        'Diplomasi seçildiğinde yalnız devlet ilişkileri görünmeli; karakter sicili gizlenmeli.');    assert.equal(contactDirectoryProbe.agent.diplomacyRowsEqualContract, true,
+        'Diplomasi satırları devlet, antlaşma, ilişki barı ve mesafe için dört eşit kolon sözleşmesi taşımalı.');
+    assert.equal(contactDirectoryProbe.agent.automaticCommanderChatterStopped, true,
+        'Dünya zamanı otomatik komutanlar-arası dedikodu kaydı üretmemeli.');
+    assert.equal(contactDirectoryProbe.agent.pendingConversationInWorkspace, true,
+        'Gelen görüşme talebi ayrı sohbet kartında değil karşılıklı karakter görüşme penceresinde açılmalı.');
+    assert.equal(contactDirectoryProbe.agent.pendingConversationTargetsSpeaker, true,
+        'Gelen görüşme talebi onu üreten gerçek karakterin görüşme penceresine bağlanmalı.');
+    assert.equal(contactDirectoryProbe.agent.drawerHasLegacyPendingList, false,
+        'Sohbet çekmecesi eski Bekleyen Konuşmalar listesini yeniden göstermemeli.');
+    assert.equal(contactDirectoryProbe.agent.drawerHasCommanderChatter, false,
+        'Sohbet çekmecesi Komutanlar Arası konuşma yüzeyini göstermemeli.');
+    assert.equal(contactDirectoryProbe.agent.drawerHasDirectActionCard, false,
+        'Karakter sohbet çekmecesi ayrı Doğrudan Eylemler kartı göstermemeli.');
+
     assert.equal(contactDirectoryProbe.agent.operationButtonPresent, true,
         'Gerçek sohbet DOM yolunda ajan sabotaj düğmesi bulunmalı.');
     assert.ok(contactDirectoryProbe.agent.sabotageReceipt

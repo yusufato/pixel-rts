@@ -797,7 +797,6 @@ function storyTalkToCouncil(built, tpl, ctx) {
 // ── ÜRETİM DÖNGÜSÜ ──────────────────────────────────────────────────────────
 function storyTalkTick(dtSec) {
     if (!STORY.active || STORY._session) return;
-    if (typeof storyChatterTick === 'function') storyChatterTick(dtSec);   // komutanlar arası sohbet
     STORY._accTalk = (STORY._accTalk || 0) + dtSec;
     if (STORY._accTalk < TALK_INTERVAL) return;
     STORY._accTalk = 0;
@@ -1059,12 +1058,14 @@ function storyTalkOpen() {
     if (typeof storyArmyClose === 'function') storyArmyClose();
     if (typeof storyCityClose === 'function') storyCityClose();
     if (typeof storyEconomyClose === 'function') storyEconomyClose();
-    STORY._talkView = storyTalkActiveView();
+    const pendingTalk = (STORY._talks || []).find(talk => talk.speakerActorId);
+    STORY._talkView = pendingTalk ? 'conversations' : storyTalkActiveView();
     STORY._talkOpen = true;
     const p = document.getElementById('talk-panel');
     if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
     document.getElementById('story-talk-btn')?.classList.add('active');
     storyTalkUpdate();
+    if (pendingTalk) storyConversationWorkspaceOpen(pendingTalk.speakerActorId, pendingTalk.title);
 }
 function storyTalkClose() {
     if (typeof storyConversationWorkspaceClose === 'function') storyConversationWorkspaceClose();
@@ -1178,6 +1179,29 @@ function storyTalkCharacterActionMessage(actionType, result) {
     return storyTalkCharacterActionReason(action || { reasons: [result && result.reason || 'ACTION_FAILED'] });
 }
 
+function storyTalkPendingForActor(listenerActorId) {
+    const actorId = String(listenerActorId || '');
+    if (!actorId) return [];
+    return (STORY._talks || []).filter(talk => String(talk.speakerActorId || '') === actorId);
+}
+
+function storyTalkPendingConversationHtml(listenerActorId) {
+    const talks = storyTalkPendingForActor(listenerActorId);
+    if (!talks.length) return '';
+    return `<section class="conversation-pending-section"><div class="conversation-section-title">GÖRÜŞME TALEBİ</div>`
+        + talks.map(talk => {
+            const meta = TALK_KIND_META[talk.kind] || TALK_KIND_META.internal;
+            const age = Math.max(0, TALK_EXPIRE - ((STORY.clock || 0) - talk.born));
+            return `<article class="talk-card conversation-pending-card" data-talk="${talk.uid}">`
+                + `<div class="talk-card-h"><span style="color:${meta.c}">${meta.ic} ${meta.name}</span>`
+                + `<span class="talk-age">${storyTalkRemainingLabel(age)}</span></div>`
+                + `<div class="talk-lines">${talk.lines.map(line => `<div>${line}</div>`).join('')}</div>`
+                + `<div class="talk-opts">${talk.options.map((option, index) =>
+                    `<button class="talk-opt" data-talk="${talk.uid}" data-opt="${index}">`
+                    + `<b>${option.text}</b>${option.tip ? `<span class="talk-tip">${option.tip}</span>` : ''}</button>`
+                ).join('')}</div></article>`;
+        }).join('') + `</section>`;
+}
 const STORY_TALK_CONVERSATION_STATUS = Object.freeze({
     REJECTED: 'GİRDİ REDDEDİLDİ',
     NEEDS_CLARIFICATION: 'AÇIKLAMA BEKLİYOR',
@@ -1982,9 +2006,8 @@ function storyConversationWorkspaceRender(options) {
     if (profile) profile.innerHTML = participantView
         ? storyTalkConversationParticipantsHtml(participantView)
         : storyTalkConversationProfileHtml(listenerActorId);
-    if (main) main.innerHTML = storyTalkConversationSessionHtml(
-        listenerActorId, STORY._conversationWorkspaceSessionId
-    );
+    if (main) main.innerHTML = storyTalkPendingConversationHtml(listenerActorId)
+        + storyTalkConversationSessionHtml(listenerActorId, STORY._conversationWorkspaceSessionId);
     // KUSUR 20: "ANLAŞMALAR & KAYITLAR" bloğu BURADAN KALDIRILDI; aynı zincir artık
     // sol sütunun İLİŞKİ sekmesinde, ilişki çubuklarının hemen altında. Amaç
     // "tek yerde" olması: durum ile onu doğuran kayıtlar aynı ekranda.
@@ -2112,6 +2135,12 @@ function storyConversationWorkspaceResponseSettled(responseId) {
 function storyConversationWorkspaceHandleClick(event) {
     const modal = document.getElementById('conversation-workspace-modal');
     if (!modal) return;
+    const pendingOption = event.target.closest('[data-talk][data-opt]');
+    if (pendingOption) {
+        storyTalkAnswer(Number(pendingOption.dataset.talk), Number(pendingOption.dataset.opt));
+        storyConversationWorkspaceRender();
+        return;
+    }
     const resume = event.target.closest('[data-conversation-resume]');
     if (resume) {
         STORY._conversationWorkspaceSessionId = resume.dataset.conversationResume;
@@ -2490,7 +2519,7 @@ function storyTalkUpdate() {
         const diploRows = others.map(s => {
             const v = storyRelValue(me.id, s.id), lab = storyRelLabel(v), t = TREATIES[storyTreaty(me.id, s.id)] || TREATIES.war;
             const pct = Math.round((v + 100) / 2);
-            return `<div class="dip-row"><span class="dip-n" style="color:${s.color}">⬤ ${s.name}</span>`
+            return `<div class="dip-row" data-diplomacy-columns="4"><span class="dip-n" style="color:${s.color}">⬤ ${s.name}</span>`
                 + `<span class="dip-t" style="color:${t.color}" title="${t.name}">${t.icon} ${t.name}</span>`
                 + `<span class="dip-bar"><b style="width:${pct}%;background:${lab.c}"></b></span>`
                 + `<span class="dip-v" style="color:${lab.c}" title="İlişki puanı ${v}">${lab.t} ${v > 0 ? '+' : ''}${v}</span></div>`;
@@ -2534,8 +2563,7 @@ function storyTalkUpdate() {
                 + `<div class="talk-card conversation-launch-card"><div class="talk-card-h"><span>${safeName}</span>`
                 + `<span class="talk-age">${sessionCount} kayıtlı konuşma</span></div>`
                 + `<div class="talk-note">Profil, eski görüşmeler, anlaşmalar ve yeni konuşma taslağı ayrı görüşme penceresinde açılır.</div>`
-                + `<button class="story-btn conversation-launch" data-conversation-workspace-open="${storyTalkConversationEscape(STORY._talkFocusCharacterId)}">GÖRÜŞME PENCERESİNİ AÇ</button></div>`
-                + storyTalkCharacterActionHtml(STORY._talkFocusCharacterId, STORY._talkFocusRegionId) + `</div>`;
+                + `<button class="story-btn conversation-launch" data-conversation-workspace-open="${storyTalkConversationEscape(STORY._talkFocusCharacterId)}">GÖRÜŞME PENCERESİNİ AÇ</button></div></div>`;
         }
         content = focusHtml + directedHtml;
 
@@ -2565,22 +2593,9 @@ function storyTalkUpdate() {
                 + `</div></div></div>`;
         }
 
-        content += `<div class="talk-sec"><div class="talk-h">💬 BEKLEYEN KONUŞMALAR <b>${talks.length}</b></div>`;
-        if (!talks.length) content += `<div class="talk-note">Şu an seni arayan yok. Dünya döndükçe komutanların ve yabancı elçiler kapını çalacak.</div>`;
-        for (const t of talks) {
-            const m = TALK_KIND_META[t.kind] || TALK_KIND_META.internal;
-            const age = Math.max(0, TALK_EXPIRE - ((STORY.clock || 0) - t.born));
-            content += `<div class="talk-card" data-talk="${t.uid}">`
-                + `<div class="talk-card-h"><span style="color:${m.c}">${m.ic} ${m.name}</span>`
-                + `<span class="talk-age">${storyTalkRemainingLabel(age)}</span></div>`
-                + `<div class="talk-lines">${t.lines.map(l => `<div>${l}</div>`).join('')}</div>`
-                + `<div class="talk-opts">` + t.options.map((o, i) =>
-                    `<button class="talk-opt" data-talk="${t.uid}" data-opt="${i}">`
-                    + `<b>${o.text}</b>${o.tip ? `<span class="talk-tip">${o.tip}</span>` : ''}</button>`).join('')
-                + `</div></div>`;
+        if (!focusHtml && !directedHtml && !talks.length) {
+            content += `<div class="talk-sec"><div class="talk-note">Bir karakter seçerek görüşme penceresini açabilirsin.</div></div>`;
         }
-        content += `</div>`;
-        if (typeof storyChatterHtml === 'function') content += storyChatterHtml();
     }
 
     const html = storyTalkViewTabsHtml(active)
