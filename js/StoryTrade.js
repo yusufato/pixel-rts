@@ -1455,7 +1455,124 @@ function storyTradeCompleteShipment(shipment) {
     if (shipment.distributionBatchId) {
         storyTradeRefreshDistributionBatch(shipment.distributionBatchId);
     }
+    storyTradeProcessCustomsAndTariffs(shipment, ledger);
     return { ok: true, credit, settlement };
+}
+
+function storyTradeProcessCustomsAndTariffs(shipment, ledger) {
+    if (!shipment || !ledger) return;
+    const sellerCountry = shipment.sellerCountryId;
+    const buyerCountry = shipment.buyerCountryId;
+    const isForeign = sellerCountry && buyerCountry && sellerCountry !== buyerCountry;
+    
+    const unitPrice = typeof storyCommerceUnitPrice === 'function'
+        ? storyCommerceUnitPrice(shipment.sourceRegionId, shipment.resourceId)
+        : (typeof STORY_COMPANY_BASE_VALUE !== 'undefined' && STORY_COMPANY_BASE_VALUE[shipment.resourceId] || 1.0);
+    const cargoValue = storyTradeRound((Number(shipment.quantity) || 0) * unitPrice);
+
+    ledger.foreignTrade = ledger.foreignTrade || { byCountry: {} };
+    const ft = ledger.foreignTrade.byCountry;
+
+    const ensureCountry = (cId) => {
+        if (!ft[cId]) {
+            ft[cId] = {
+                exports: {},
+                imports: {},
+                totalExportsValue: 0,
+                totalImportsValue: 0,
+                totalCustomsRevenue: 0,
+                totalTransitRevenue: 0,
+                partners: {}
+            };
+        }
+        return ft[cId];
+    };
+
+    if (isForeign) {
+        const importTariff = storyTradeRound(cargoValue * 0.12);
+        const exportTariff = storyTradeRound(cargoValue * 0.05);
+
+        if (typeof storyBudgetCredit === 'function') {
+            if (importTariff > 0) storyBudgetCredit(buyerCountry, importTariff, 'tax.customs_import');
+            if (exportTariff > 0) storyBudgetCredit(sellerCountry, exportTariff, 'tax.customs_export');
+        }
+
+        const sellerFt = ensureCountry(sellerCountry);
+        if (!sellerFt.exports[shipment.resourceId]) {
+            sellerFt.exports[shipment.resourceId] = { quantity: 0, value: 0, tariff: 0 };
+        }
+        sellerFt.exports[shipment.resourceId].quantity = storyTradeRound(sellerFt.exports[shipment.resourceId].quantity + shipment.quantity);
+        sellerFt.exports[shipment.resourceId].value = storyTradeRound(sellerFt.exports[shipment.resourceId].value + cargoValue);
+        sellerFt.exports[shipment.resourceId].tariff = storyTradeRound(sellerFt.exports[shipment.resourceId].tariff + exportTariff);
+        sellerFt.totalExportsValue = storyTradeRound(sellerFt.totalExportsValue + cargoValue);
+        sellerFt.totalCustomsRevenue = storyTradeRound(sellerFt.totalCustomsRevenue + exportTariff);
+        sellerFt.partners[buyerCountry] = storyTradeRound((sellerFt.partners[buyerCountry] || 0) + cargoValue);
+
+        const buyerFt = ensureCountry(buyerCountry);
+        if (!buyerFt.imports[shipment.resourceId]) {
+            buyerFt.imports[shipment.resourceId] = { quantity: 0, value: 0, tariff: 0 };
+        }
+        buyerFt.imports[shipment.resourceId].quantity = storyTradeRound(buyerFt.imports[shipment.resourceId].quantity + shipment.quantity);
+        buyerFt.imports[shipment.resourceId].value = storyTradeRound(buyerFt.imports[shipment.resourceId].value + cargoValue);
+        buyerFt.imports[shipment.resourceId].tariff = storyTradeRound(buyerFt.imports[shipment.resourceId].tariff + importTariff);
+        buyerFt.totalImportsValue = storyTradeRound(buyerFt.totalImportsValue + cargoValue);
+        buyerFt.totalCustomsRevenue = storyTradeRound(buyerFt.totalCustomsRevenue + importTariff);
+        buyerFt.partners[sellerCountry] = storyTradeRound((buyerFt.partners[sellerCountry] || 0) + cargoValue);
+
+        if (Array.isArray(shipment.corridorIds)) {
+            const seenTransitCountries = new Set();
+            for (const corridorId of shipment.corridorIds) {
+                const corridor = typeof storyHexCorridorById === 'function' ? storyHexCorridorById(corridorId) : null;
+                const transitCountryId = corridor && corridor.ownerCountryId;
+                if (transitCountryId && transitCountryId !== sellerCountry && transitCountryId !== buyerCountry && !seenTransitCountries.has(transitCountryId)) {
+                    seenTransitCountries.add(transitCountryId);
+                    const transitToll = storyTradeRound(cargoValue * 0.02);
+                    if (transitToll > 0 && typeof storyBudgetCredit === 'function') {
+                        storyBudgetCredit(transitCountryId, transitToll, 'tax.transit_toll');
+                    }
+                    const transitFt = ensureCountry(transitCountryId);
+                    transitFt.totalTransitRevenue = storyTradeRound(transitFt.totalTransitRevenue + transitToll);
+                }
+            }
+        }
+    }
+}
+
+function storyTradeForeignTradeSummary(countryOrId) {
+    const countryId = typeof countryOrId === 'object' && countryOrId ? countryOrId.id : String(countryOrId || 'country:0');
+    const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
+    const empty = {
+        countryId,
+        exports: {},
+        imports: {},
+        totalExportsValue: 0,
+        totalImportsValue: 0,
+        netTradeBalance: 0,
+        totalCustomsRevenue: 0,
+        totalTransitRevenue: 0,
+        partners: {}
+    };
+    if (!ledger || !ledger.foreignTrade || !ledger.foreignTrade.byCountry) return empty;
+    const data = ledger.foreignTrade.byCountry[countryId] || empty;
+    return Object.assign({}, empty, data, {
+        netTradeBalance: storyTradeRound(Number(data.totalExportsValue || 0) - Number(data.totalImportsValue || 0))
+    });
+}
+
+function storyTradeCheckArbitrageProfitability(sourceRegionId, targetRegionId, resourceId, quantity) {
+    const sourcePrice = typeof storyCommerceUnitPrice === 'function' ? storyCommerceUnitPrice(sourceRegionId, resourceId) : 1.0;
+    const targetPrice = typeof storyCommerceUnitPrice === 'function' ? storyCommerceUnitPrice(targetRegionId, resourceId) : 1.0;
+    const sameCountry = storyTradeCountryIdForRegion(sourceRegionId) === storyTradeCountryIdForRegion(targetRegionId);
+    const tariff = sameCountry ? 0 : (sourcePrice * 0.17);
+    const freightEstimate = 0.05;
+    const spread = targetPrice - (sourcePrice + freightEstimate + tariff);
+    return {
+        viable: spread >= -0.10,
+        spread: storyTradeRound(spread, 3),
+        sourcePrice: storyTradeRound(sourcePrice, 3),
+        targetPrice: storyTradeRound(targetPrice, 3),
+        tariff: storyTradeRound(tariff, 3)
+    };
 }
 
 function storyTradeLoseShipment(shipmentId, reason) {
@@ -2967,6 +3084,11 @@ function storyTradeAutoBalance(ledger) {
                     || attempts >= STORY_TRADE_MAX_AUTO_DISPATCHES * 2) break;
                 attempts++;
                 const quantity = storyTradeRound(Math.min(demand.quantity, supply.quantity));
+                if (quantity < 0.5) continue;
+                if (supply.countryId !== demand.countryId) {
+                    const arb = storyTradeCheckArbitrageProfitability(supply.regionId, demand.regionId, resourceId, quantity);
+                    if (!arb.viable) continue;
+                }
                 const created = storyTradeCreateOrder({
                     sourceRegionId: supply.regionId,
                     targetRegionId: demand.regionId,

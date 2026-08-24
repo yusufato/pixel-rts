@@ -18,7 +18,7 @@ const STORY_CITY_DOSSIER_TABS = Object.freeze([
     'genel', 'nufus', 'kurumlar', 'tarih', 'karakterler', 'binalar', 'ordu'
 ]);
 const STORY_ECONOMY_TABS = Object.freeze([
-    'genel', 'butce', 'sirketler', 'piyasa', 'lojistik', 'fraksiyonlar'
+    'genel', 'butce', 'dis-ticaret', 'sirketler', 'piyasa', 'lojistik', 'fraksiyonlar'
 ]);
 
 // Panel açıkken 0,5 saniyede bir yenileme isteği gelir. Eski akış her istekte
@@ -49,6 +49,7 @@ const STORY_CITY_DOSSIER_LEDGER_GROUPS = Object.freeze({
     economy: Object.freeze({
         genel: ['regionalEconomy'],
         butce: ['stateBudget'],
+        'dis-ticaret': ['tradeLogistics', 'stateBudget', 'marketPrices'],
         sirketler: ['companyEconomy', 'economicAI', 'marketPrices', 'hexConstruction'],
         piyasa: ['marketPrices'],
         lojistik: ['tradeLogistics', 'infrastructureGraph'],
@@ -65,6 +66,7 @@ const STORY_CITY_DOSSIER_TASK_GROUPS = Object.freeze({
     }),
     economy: Object.freeze({
         genel: ['economy', 'resource', 'production'], butce: ['economy'],
+        'dis-ticaret': ['economy', 'economy-trade-logistics'],
         sirketler: ['economy'], piyasa: ['economy'],
         lojistik: ['economy'], fraksiyonlar: ['factions', 'power-centers']
     })
@@ -1246,6 +1248,64 @@ function storyCityDossierRenderBudget(view) {
         + `</div><p class="city-hint">Bütçe değerleri devlet kredisiyle gösterilir; bu kaynak üst çubuktaki komutan puanından ayrıdır. Yeterli nakit veya borçlanma alanı olmayan harcamalar uygulanmaz.</p></section>`;
 }
 
+function storyCityDossierRenderForeignTrade(view) {
+    const countryId = view.ownerId || 'country:0';
+    const summary = typeof storyTradeForeignTradeSummary === 'function'
+        ? storyTradeForeignTradeSummary(countryId)
+        : null;
+    if (!summary) {
+        return `<section class="city-dossier-empty"><b>DIŞ TİCARET DEFTERİ BULUNAMADI</b><span>Ticaret ve gümrük kayıtları mevcut değil.</span></section>`;
+    }
+    const balance = Number(summary.netTradeBalance || 0);
+    const balanceSign = balance > 0 ? '+' : '';
+    const balanceClass = balance > 0 ? 'color:#4caf50' : balance < 0 ? 'color:#f44336' : '';
+
+    const resourceRows = (typeof STORY_RESOURCE_DEFINITIONS !== 'undefined' ? STORY_RESOURCE_DEFINITIONS : [])
+        .filter(r => !['capital', 'labor', 'workforce'].includes(r.id))
+        .map(r => {
+            const exp = summary.exports && summary.exports[r.id] || { quantity: 0, value: 0, tariff: 0 };
+            const imp = summary.imports && summary.imports[r.id] || { quantity: 0, value: 0, tariff: 0 };
+            if (exp.quantity <= 0 && imp.quantity <= 0) return '';
+            const netVal = (Number(exp.value) || 0) - (Number(imp.value) || 0);
+            const netSign = netVal > 0 ? '+' : '';
+            return `<tr>`
+                + `<td><b>${storyCityDossierEscape(r.name || r.id)}</b></td>`
+                + `<td>${storyCityDossierNumber(exp.quantity, 1)} t <small>(${storyCityDossierMoney(exp.value)})</small></td>`
+                + `<td>${storyCityDossierNumber(imp.quantity, 1)} t <small>(${storyCityDossierMoney(imp.value)})</small></td>`
+                + `<td style="${netVal > 0 ? 'color:#4caf50' : netVal < 0 ? 'color:#f44336' : ''}"><b>${netSign}${storyCityDossierMoney(netVal)}</b></td>`
+                + `<td>${storyCityDossierMoney((Number(exp.tariff) || 0) + (Number(imp.tariff) || 0))}</td>`
+                + `</tr>`;
+        }).filter(Boolean).join('');
+
+    const partners = Object.entries(summary.partners || {});
+    const partnerHtml = partners.length
+        ? `<div class="city-fact-grid" style="margin-top:10px;">`
+            + partners.map(([pId, val]) => `<div><span>${storyCityDossierEscape(pId)}</span><b>${storyCityDossierMoney(val)}</b></div>`).join('')
+            + `</div>`
+        : `<small style="opacity:0.7;">Henüz dış ticaret sevkiyatı tamamlanmadı.</small>`;
+
+    return `<section class="city-dossier-sec">`
+        + `<h3>DIŞ TİCARET VE GÜMRÜK BİLANÇOSU</h3>`
+        + `<div class="city-fact-grid">`
+        + `<div><span>TOPLAM İHRACAT</span><b style="color:#4caf50">${storyCityDossierMoney(summary.totalExportsValue)}</b></div>`
+        + `<div><span>TOPLAM İTHALAT</span><b style="color:#f44336">${storyCityDossierMoney(summary.totalImportsValue)}</b></div>`
+        + `<div><span>TİCARET DENGESİ</span><b style="${balanceClass}">${balanceSign}${storyCityDossierMoney(balance)}</b><small>${balance >= 0 ? 'cari fazla' : 'cari açık'}</small></div>`
+        + `<div><span>TOPLANAN GÜMRÜK VERGİSİ</span><b style="color:#ffc107">${storyCityDossierMoney(summary.totalCustomsRevenue)}</b></div>`
+        + `<div><span>TRANSİT GEÇİŞ GELİRİ</span><b>${storyCityDossierMoney(summary.totalTransitRevenue)}</b></div>`
+        + `</div>`
+        + `<h4 style="margin:12px 0 6px; font-size:12px; opacity:0.85;">HAMMADDE BAZINDA DIŞ TİCARET DAĞILIMI</h4>`
+        + (resourceRows
+            ? `<table class="city-table" style="width:100%; font-size:11px; text-align:left; border-collapse:collapse;">`
+                + `<thead><tr style="border-bottom:1px solid rgba(255,255,255,0.1); opacity:0.7;"><th>KAYNAK</th><th>İHRACAT</th><th>İTHALAT</th><th>NET DENGE</th><th>GÜMRÜK</th></tr></thead>`
+                + `<tbody>${resourceRows}</tbody>`
+                + `</table>`
+            : `<div class="city-hint">Bu dönem için henüz tamamlanan uluslararası sevkiyat bulunmuyor.</div>`)
+        + `<h4 style="margin:12px 0 6px; font-size:12px; opacity:0.85;">TİCARET ORTAKLARI HACMİ</h4>`
+        + partnerHtml
+        + `<p class="city-hint">İthalatçı ülke %12 gümrük vergisi, ihracatçı ülke %5 harç toplar. Üçüncü ülkelerin topraklarından geçen koridorlar %2 transit geçiş ücreti bırakır.</p>`
+        + `</section>`;
+}
+
 function storyCityDossierRenderCompanies(view) {
     const fact = view.facts.companyEconomy;
     const countryFact = view.facts.countryCompanies;
@@ -1616,8 +1676,9 @@ function storyCityDossierRender(view, active, node) {
 
 function storyEconomyTabs(active) {
     const tabs = [
-        ['genel', 'ÖZET'], ['butce', 'BÜTÇE'], ['sirketler', 'ŞİRKETLER'],
-        ['piyasa', 'PİYASA'], ['lojistik', 'LOJİSTİK'], ['fraksiyonlar', 'FRAKSİYONLAR']
+        ['genel', 'ÖZET'], ['butce', 'BÜTÇE'], ['dis-ticaret', 'DIŞ TİCARET & GÜMRÜK'],
+        ['sirketler', 'ŞİRKETLER'], ['piyasa', 'PİYASA'], ['lojistik', 'LOJİSTİK'],
+        ['fraksiyonlar', 'FRAKSİYONLAR']
     ];
     return `<div class="city-dossier-tabs economy-tabs" role="tablist" aria-label="Ekonomi bölümleri">`
         + tabs.map(([id, label]) => `<button class="economy-sub${active === id ? ' active' : ''}" data-sub="${id}" role="tab" aria-selected="${active === id ? 'true' : 'false'}">${label}</button>`).join('')
@@ -1628,6 +1689,7 @@ function storyEconomyRender(view, active) {
     return storyCityDossierCachedHtml(view, `economy:${active}`, () => {
         let content = '';
         if (active === 'butce') content = storyCityDossierRenderBudget(view);
+        else if (active === 'dis-ticaret') content = storyCityDossierRenderForeignTrade(view);
         else if (active === 'sirketler') content = storyCityDossierRenderCompanies(view);
         else if (active === 'piyasa') content = storyCityDossierRenderMarket(view);
         else if (active === 'lojistik') content = storyCityDossierRenderInfrastructureProjects(view)

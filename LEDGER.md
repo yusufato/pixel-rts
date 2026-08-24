@@ -1,17 +1,15 @@
-## 2026-08-24 — 5 Temel Ekonomik Çark ve Dış Ticaret/Gümrük Mimarisi (Geliştirme Borcu)
-- **Type:** Planned (Architectural Debt)
-- **Source:** User inquiry & Economic architecture audit
-- **What happened:** Oyunun tüm ekonomik akışını yöneten 5 temel çark ve yapılacak dış ticaret/gümrük genişletmeleri kayıt altına alındı:
-  1. *Bölgesel Üretim ve Sanayi Zinciri (`StoryRegionalEconomy.js`):* 152 bölge, 6 sektör, katı girdi/çıktı reçeteleri.
-  2. *Dinamik Fiyat ve Piyasa Arbitrajı (`StoryMarket.js`):* Yerel stok ve kıtlığa göre dinamik 25–800 fiyat endeksi.
-  3. *Fiziksel Ticaret ve Lojistik Ağı (`StoryTrade.js`):* Karayolu, demiryolu ve denizyolu sevkiyatları.
-  4. *Şirketler, İşletme Sermayesi ve Satış Muhasebesi (`StoryCommerce.js` & `StoryCompanies.js`):* Fatura ve teslimat karlılığı.
-  5. *Devlet Bütçesi ve Hazine (`StoryBudget.js`):* Vergi ve gümrük gelirleri.
-- **Next Steps / Debt to settle:**
-  - Ülkeler arası gümrük tarifesi (%10–15) ve transit geçiş ücretlerinin (`REVENUE:CUSTOMS_IMPORT/EXPORT`, `REVENUE:TRANSIT_TOLL`) `StoryTrade.js` ve `StoryBudget.js`'e eklenmesi.
-  - Sevkiyatların piyasa arbitrajına (hedef fiyat > kaynak fiyat + yol + gümrük) bağlanarak karsız mikro-sevkiyatların elenmesi.
-  - Ekonomi dosyasına (`StoryCityDossier.js`) `dis-ticaret` sekmesi eklenerek hammadde bazında İthalat/İhracat bilançosunun gösterilmesi.
-- **Implication for future audits:** Bu 5 çarkı birbirine tam entegre çalıştır; sevkiyat motorunu körlemesine kıtlık eşleştirmesinden karlı serbest piyasa arbitrajına dönüştür.
+## 2026-08-24 — Gümrük Vergisi, Dış Ticaret Dengesi ve Karlı Sevkiyat Mimarisi
+- **Type:** Executed
+- **Source:** User directive & Economic architecture implementation
+- **What happened:**
+  1. *Gümrük Vergileri ve Transit Harçları:* Uluslararası sevkiyatlarda ithalatçı devlet için %12 gümrük vergisi (`REVENUE:TAX.CUSTOMS_IMPORT`), ihracatçı devlet için %5 ihracat harcı (`REVENUE:TAX.CUSTOMS_EXPORT`) ve üçüncü ülke koridor geçişlerinde %2 transit geçiş ücreti (`REVENUE:TAX.TRANSIT_TOLL`) devlet bütçesine (`StoryBudget.js`) bağlandı.
+  2. *Piyasa Arbitrajı ve Karlı Sevkiyat:* `storyTradeCheckArbitrageProfitability` ve minimum kargo partisi filtresi ile zarar eden anlamsız mikro-sevkiyatlar elendi.
+  3. *Dış Ticaret Dosyası UI:* Ekonomi paneline (`StoryCityDossier.js`) `dis-ticaret` sekmesi eklenerek hammadde bazında İthalat/İhracat matrisi, ticaret ortakları ve toplanan gümrük gelirleri tablosu kuruldu.
+- **Evidence:**
+  - `test_customs_and_foreign_trade.js`: Gümrük vergileri, transit harçları, arbitraj spreadleri ve UI render testleri başarıyla doğrulandı.
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** 5 Temel Ekonomik Çark artık dış ticaret, gümrük gelirleri ve karlı piyasa arbitrajı ile tam entegre çalışmaktadır.
 
 ## 2026-08-24 — Araç Hızı Kalibrasyonu, Çift İlerlemenin Kaldırılması ve Sıfır-Çöp Render Optimizasyonu
 - **Type:** Executed
