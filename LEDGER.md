@@ -1,3 +1,16 @@
+## 2026-08-24 — Sevkiyat Sayısı Konsolidasyonu ve Anlamlı Kargo Partileri
+- **Type:** Executed
+- **Source:** User directive (sevkiyat sayısını azaltma ve kargo birleştirme)
+- **What happened:**
+  1. *Eşzamanlı Sevkiyat Limitleri Azaltıldı:* `STORY_TRADE_MAX_AUTO_DISPATCHES` 48'den 12'ye, hanehalkı sevkiyat limitleri 24'ten 6'ya, sanayi girdi limitleri 18'den 6'ya düşürüldü.
+  2. *Minimum Parti Büyüklüğü Artırıldı:* 0.5 tonluk mikro sevkiyatlar yerine minimum 1.0 tonluk anlamlı ve karlı kargo partileri yola çıkarılmaya başlandı.
+  3. *Harita Görsel Netliği:* Tüm dünyadaki aktif sevkiyat sayısı 200+'den sakin ve okunaklı 48'e dengelendi; her tır/tren/gemi artık stratejik ve büyük bir sevkiyatı temsil ediyor.
+- **Evidence:**
+  - `test_customs_and_foreign_trade.js`: Aktif sevkiyat sayısı 48'e dengelendi, tüm testler başarılı.
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** Mikro parçalı siparişler yerine her zaman partileri konsolide et.
+
 ## 2026-08-24 — 60 FPS Kamera Sürükleme ve 10 Hz Kademeli Simülasyon Optimizasyonu
 - **Type:** Executed
 - **Source:** User directive & Micro-profiling audit (Eliminating 5-10 FPS drops during camera pan/drag)

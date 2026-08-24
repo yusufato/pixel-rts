@@ -13,11 +13,11 @@ const STORY_TRADE_ADAPTER_VERSION = 'story-trade-logistics-ledger-1';
 const STORY_TRADE_ORDER_LIMIT = 600;
 const STORY_TRADE_SHIPMENT_LIMIT = 800;
 const STORY_TRADE_AMENDMENT_LIMIT = 300;
-const STORY_TRADE_MAX_AUTO_DISPATCHES = 48;
-const STORY_TRADE_MAX_OPEN_DISPATCH_ATTEMPTS = 48;
+const STORY_TRADE_MAX_AUTO_DISPATCHES = 12;
+const STORY_TRADE_MAX_OPEN_DISPATCH_ATTEMPTS = 16;
 const STORY_TRADE_RETRY_BASE_SECONDS = 8;
 const STORY_TRADE_RETRY_MAX_SECONDS = 64;
-const STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES = 18;
+const STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES = 6;
 const STORY_TRADE_PRODUCTION_PIPELINE_WINDOWS = 4;
 // Kampanya zamanı sıkıştırılmıştır: Ankara-İstanbul fiziksel yolculuğu 2-3 sn.
 // Planlayıcının genel amaçlı 25 sn aktarma varsayımı bu ölçekte bütün karma
@@ -27,19 +27,19 @@ const STORY_TRADE_TRANSFER_LATENCY_SECONDS = 2;
 const STORY_TRADE_TRANSFER_COST = 0.1;
 const STORY_TRADE_DISTRIBUTION_ADAPTER_VERSION = 'story-domestic-distribution-contract-1';
 const STORY_TRADE_DISTRIBUTION_MAX_LEGS = 8;
-const STORY_TRADE_DISTRIBUTION_BATCH_LIMIT = 40;
+const STORY_TRADE_DISTRIBUTION_BATCH_LIMIT = 15;
 const STORY_TRADE_PRODUCTION_ADMISSION_ADAPTER_VERSION = 'story-production-admission-plan-1';
 const STORY_TRADE_PRODUCTION_ADMISSION_MAX_PER_COUNTRY = 3;
 const STORY_TRADE_HOUSEHOLD_PIPELINE_WINDOWS = 4;
 const STORY_TRADE_HOUSEHOLD_DISPATCH_LIMITS = Object.freeze({
-    food: 24,
-    energy: 24
+    food: 6,
+    energy: 6
 });
 const STORY_TRADE_PRODUCTION_INPUT_DISPATCH_LIMITS = Object.freeze({
-    industrial_parts: 6,
-    energy: 6,
-    raw_materials: 4,
-    electronics: 2
+    industrial_parts: 3,
+    energy: 3,
+    raw_materials: 2,
+    electronics: 1
 });
 const STORY_TRADE_TRANSPORTABLE = Object.freeze(
     STORY_RESOURCE_DEFINITIONS
@@ -3084,7 +3084,7 @@ function storyTradeAutoBalance(ledger) {
                     || attempts >= STORY_TRADE_MAX_AUTO_DISPATCHES * 2) break;
                 attempts++;
                 const quantity = storyTradeRound(Math.min(demand.quantity, supply.quantity));
-                if (quantity < 0.5) continue;
+                if (quantity < 1.0) continue;
                 if (supply.countryId !== demand.countryId) {
                     const arb = storyTradeCheckArbitrageProfitability(supply.regionId, demand.regionId, resourceId, quantity);
                     if (!arb.viable) continue;
