@@ -2935,28 +2935,6 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
             ctx.strokeStyle = 'rgba(255,191,38,.95)'; ctx.lineWidth = 2; ctx.stroke();
         }
     }
-    const hoverId = String(STORY._hoverHexCellId || '');
-    if (hoverId) {
-        const hover = indices.find(index => storyHexWorldId(
-            Number(world.qValues[index]), Number(world.rValues[index])
-        ) === hoverId);
-        if (hover != null) {
-            const corners = storyHexWorldCorners(
-                world,
-                Number(world.qValues[hover]),
-                Number(world.rValues[hover])
-            ).map(corner => storyW2S(corner.x * scaleX, corner.y * scaleY));
-            ctx.beginPath();
-            ctx.moveTo(corners[0].x, corners[0].y);
-            for (let corner = 1; corner < corners.length; corner++) ctx.lineTo(corners[corner].x, corners[corner].y);
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(255,191,38,.10)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255,191,38,.72)';
-            ctx.lineWidth = 1.25;
-            ctx.stroke();
-        }
-    }
     ctx.restore();
     STORY._hexGridDiagnostics = {
         visibleCellCount: indices.length,
@@ -2966,7 +2944,6 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
         geographyHash: geography ? geography.geographyHash : null,
         rasterSourceHash: geography ? geography.rasterSourceHash : null,
         zoomRatio: Number(zoomRatio),
-        hoverCellId: hoverId || null,
         constructionCandidateCount: candidateIds ? candidateIds.size : 0,
         constructionSelectedCellId: selectedConstructionId || null
     };
@@ -2984,7 +2961,6 @@ function storyDrawHexGridOverlay(ctx, zoomRatio) {
         ? storyHexGeographyEnsure() : null;
     const key = [STORY._cw, STORY._ch, band, bucket,
         geography && geography.geographyHash || '-',
-        String(STORY._hoverHexCellId || ''),
         STORY._hexConstructionDraft
             ? `${STORY._hexConstructionDraft.projectType}:${STORY._hexConstructionDraft.selectedCellId || '-'}:${(STORY._hexConstructionDraft.candidateCellIds || []).join(',')}`
             : '-'].join('|');
@@ -2995,14 +2971,12 @@ function storyDrawHexGridOverlay(ctx, zoomRatio) {
         canvas.width = STORY._cw; canvas.height = STORY._ch;
         cache = STORY._hexGridLayerCache = { canvas, key: null, view: null, count: 0 };
     }
-    const reuseInteraction = !!(STORY._mapInteracting && cache.key
-        && String(STORY._hoverHexCellId || '') === String(cache.hoverId || ''));
+    const reuseInteraction = !!(STORY._mapInteracting && cache.key === key);
     if (!reuseInteraction && cache.key !== key) {
         const paint = cache.canvas.getContext('2d');
         paint.clearRect(0, 0, cache.canvas.width, cache.canvas.height);
         cache.count = storyPaintHexGridOverlay(paint, zoomRatio);
         cache.key = key;
-        cache.hoverId = String(STORY._hoverHexCellId || '');
         cache.view = storyScreenLayerViewSnapshot();
         cache.diagnostics = Object.assign({}, STORY._hexGridDiagnostics);
     } else if (cache.diagnostics) {
@@ -3011,6 +2985,41 @@ function storyDrawHexGridOverlay(ctx, zoomRatio) {
         });
     }
     storyDrawScreenLayerForCamera(ctx, cache.canvas, cache.view);
+
+    // Dinamik hover altıgeni statik ızgara önbelleğini patlatmaz; doğrudan 6 hafif çizgiyle çizilir (0.005 ms)
+    const hoverId = String(STORY._hoverHexCellId || '');
+    if (hoverId) {
+        const parts = hoverId.split(':');
+        if (parts.length >= 3) {
+            const q = Number(parts[1]), r = Number(parts[2]);
+            if (Number.isFinite(q) && Number.isFinite(r) && typeof storyHexWorldCorners === 'function') {
+                const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
+                if (world) {
+                    const scaleX = STORY_WORLD_W / world.width;
+                    const scaleY = STORY_WORLD_H / world.height;
+                    const corners = storyHexWorldCorners(world, q, r);
+                    if (corners && corners.length) {
+                        ctx.save();
+                        ctx.beginPath();
+                        const first = storyW2S(corners[0].x * scaleX, corners[0].y * scaleY);
+                        ctx.moveTo(first.x, first.y);
+                        for (let corner = 1; corner < corners.length; corner++) {
+                            const pt = storyW2S(corners[corner].x * scaleX, corners[corner].y * scaleY);
+                            ctx.lineTo(pt.x, pt.y);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = 'rgba(255,191,38,.10)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255,191,38,.72)';
+                        ctx.lineWidth = 1.25;
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+            }
+        }
+    }
+
     return cache.count;
 }
 

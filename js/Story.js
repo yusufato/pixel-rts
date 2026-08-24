@@ -1654,60 +1654,59 @@ function storyAdvanceStep(dtSec) {
         storyAICommanderTick();                                                 // hareket/fetih/oyuncuya saldırı
     }
     if (_storyDue('loyalty', '_accLoyalty', 1) > 0) storyApplyLoyaltyDrift(); // sadakat drift
-    const _econMacroDt = _storyDue('economy-macro', '_accEconMacro', 4);
+    const _econMacroDt = _storyDue('economy-macro', '_accEconMacro', 10);
     if (_econMacroDt > 0 && typeof storyEconomyTick === 'function') storyEconomyTick(_econMacroDt); // AŞAMA 3 makroekonomi
-    const _econRegionalDt = _storyDue('economy-regional', '_accEconRegional', 4);
+    const _econRegionalDt = _storyDue('economy-regional', '_accEconRegional', 10);
     if (_econRegionalDt > 0 && typeof storyRegionalEconomyTick === 'function') storyRegionalEconomyTick(_econRegionalDt); // Faz 17 kanonik bölgesel ekonomi
-    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 2);
+    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 10);
     if (_econTradeDt > 0 && typeof storyTradeLogisticsTick === 'function') storyTradeLogisticsTick(_econTradeDt); // Faz 18 fiziksel ticaret/lojistik
-    const _econPriceDt = _storyDue('economy-market-price', '_accEconPrice', 4);
+    const _econPriceDt = _storyDue('economy-market-price', '_accEconPrice', 10);
     if (_econPriceDt > 0 && typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_econPriceDt); // Faz 19 bölgesel piyasa/fiyat
-    const _econBudgetDt = _storyDue('economy-budget', '_accEconBudget', 4);
+    const _econBudgetDt = _storyDue('economy-budget', '_accEconBudget', 10);
     if (_econBudgetDt > 0 && typeof storyBudgetTick === 'function') storyBudgetTick(_econBudgetDt); // Faz 20 devlet bütçesi/borç/faiz
-    const _econCompanyDt = _storyDue('economy-company', '_accEconCompany', 4);
+    const _econCompanyDt = _storyDue('economy-company', '_accEconCompany', 10);
     if (_econCompanyDt > 0 && typeof storyCompanyTick === 'function') storyCompanyTick(_econCompanyDt); // Faz 21 şirket/banka/tesis/yatırım
-    const _econHexConstDt = _storyDue('economy-hex-construction', '_accEconHexConst', 4);
+    const _econHexConstDt = _storyDue('economy-hex-construction', '_accEconHexConst', 10);
     if (_econHexConstDt > 0 && typeof storyHexConstructionTickSeconds === 'function') storyHexConstructionTickSeconds(_econHexConstDt); // HXD-6 fiziksel imar/inşaat
-    const _econInfraWorkDt = _storyDue('economy-infrastructure-work', '_accEconInfraWork', 4);
+    const _econInfraWorkDt = _storyDue('economy-infrastructure-work', '_accEconInfraWork', 10);
     if (_econInfraWorkDt > 0 && typeof storyInfrastructureWorkTickSeconds === 'function') storyInfrastructureWorkTickSeconds(_econInfraWorkDt); // HXD-7.4 fiziksel bakım/onarım
-    const _econAiDt = _storyDue('economy-ai', '_accEconAi', 4);
+    const _econAiDt = _storyDue('economy-ai', '_accEconAi', 10);
     if (_econAiDt > 0 && typeof storyEconomicAITick === 'function') storyEconomicAITick(_econAiDt); // Faz 22 hilesiz ekonomik aday/seçim
-    const _econHexConstAiDt = _storyDue('economy-hex-construction-ai', '_accEconHexConstAi', 4);
+    const _econHexConstAiDt = _storyDue('economy-hex-construction-ai', '_accEconHexConstAi', 10);
     if (_econHexConstAiDt > 0 && typeof storyHexConstructionEconomicAITick === 'function') storyHexConstructionEconomicAITick(_econHexConstAiDt); // HXD-6.8 aynı imar kapısını kullanan şirket AI
-    const _growthDt = _storyDue('city-growth', '_accGrow', 5);
+    const _growthDt = _storyDue('city-growth', '_accGrow', 10);
     if (_growthDt > 0 && typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_growthDt); // organik şehir büyümesi
-    const _populationDt = _storyDue('population', '_accPopulation', 5);
+    const _populationDt = _storyDue('population', '_accPopulation', 10);
     if (_populationDt > 0 && typeof storyPopulationTick === 'function') storyPopulationTick(_populationDt); // Faz 23 nüfus kohort uzlaştırması
-    const _humanMigrationDt = _storyDue('human-migration', '_accHumanMigration', 5);
+    const _humanMigrationDt = _storyDue('human-migration', '_accHumanMigration', 10);
     if (_humanMigrationDt > 0 && typeof storyHumanMigrationTick === 'function') storyHumanMigrationTick(_humanMigrationDt); // Faz 27 rotalı göç ve mülteci akışı
-    const _institutionDt = _storyDue('institutions', '_accInstitutions', 5);
+    const _institutionDt = _storyDue('institutions', '_accInstitutions', 10);
     if (_institutionDt > 0 && typeof storyInstitutionTick === 'function') storyInstitutionTick(_institutionDt); // Faz 29 anayasa, kurum ve yasal yetki rotalari
-    const _powerCenterDt = _storyDue('power-centers', '_accPowerCenters', 5);
+    const _powerCenterDt = _storyDue('power-centers', '_accPowerCenters', 10);
     if (_powerCenterDt > 0 && typeof storyPowerCenterTick === 'function') storyPowerCenterTick(_powerCenterDt); // Faz 28 kaynaklı güç merkezleri
-    const _needsDt = _storyDue('population-needs', '_accNeeds', 5);
+    const _needsDt = _storyDue('population-needs', '_accNeeds', 10);
     if (_needsDt > 0) {
         if (typeof storyNeedsTick === 'function') storyNeedsTick(_needsDt); // Faz 24 kohort ihtiyaç/refah/güvenlik sonuçları
         if (typeof storyOpinionTick === 'function') storyOpinionTick(_needsDt); // Faz 25 biriken kamuoyu ve şikâyet hafızası
         if (typeof storyCollectiveTick === 'function') storyCollectiveTick(_needsDt); // Faz 26 kolektif eylem ve radikalleşme
     }
-    const _factionsDt = _storyDue('factions', '_accFac', 4);
+    const _factionsDt = _storyDue('factions', '_accFac', 10);
     if (_factionsDt > 0 && typeof storyFactionsTick === 'function') storyFactionsTick(_factionsDt); // AŞAMA 2 fraksiyonlar
-    if (_factionsDt > 0 && typeof storyFactionsTick === 'function') storyFactionsTick(_factionsDt); // AŞAMA 2 fraksiyonlar
-    if (_storyDue('society', '_accSocial', 4) > 0) {
+    if (_storyDue('society', '_accSocial', 10) > 0) {
         storyDissolveDeadStates(); storyApplyDefections(); storyApplyCoups();
     }
-    const _stateCapacityDt = _storyDue('state-capacity', '_accStateCapacity', 5);
+    const _stateCapacityDt = _storyDue('state-capacity', '_accStateCapacity', 10);
     if (_stateCapacityDt > 0) {
         if (typeof storyStateCapacityTick === 'function') storyStateCapacityTick(_stateCapacityDt); // Faz 30 kararın idari uygulanabilirliği
         if (typeof storyGovernanceTick === 'function') storyGovernanceTick(_stateCapacityDt); // Faz 33.1 oyuncu karari -> makam -> uygulama -> fiziksel sonuc
     }
-    const _electionDt = _storyDue('elections', '_accElections', 5);
+    const _electionDt = _storyDue('elections', '_accElections', 10);
     if (_electionDt > 0 && typeof storyElectionTick === 'function') storyElectionTick(_electionDt); // Faz 31 kohort oyu ve barışçıl makam devri
-    const _integrityDt = _storyDue('integrity', '_accIntegrity', 5);
+    const _integrityDt = _storyDue('integrity', '_accIntegrity', 10);
     if (_integrityDt > 0 && typeof storyIntegrityTick === 'function') storyIntegrityTick(_integrityDt); // Faz 32 kanitli patronaj ve sorusturma dosyalari
-    const _politicalCrisisDt = _storyDue('political-crisis', '_accPoliticalCrisis', 5);
+    const _politicalCrisisDt = _storyDue('political-crisis', '_accPoliticalCrisis', 10);
     if (_politicalCrisisDt > 0 && typeof storyPoliticalCrisisTick === 'function') storyPoliticalCrisisTick(_politicalCrisisDt); // Faz 33 aktor, hazirlik, koalisyon ve karsi hamle zinciri
-    const _characterBehaviorDt = _storyDue('character-behavior', '_accCharacterBehavior', 5);
+    const _characterBehaviorDt = _storyDue('character-behavior', '_accCharacterBehavior', 10);
     if (_characterBehaviorDt > 0 && typeof storyCharacterBehaviorTick === 'function') storyCharacterBehaviorTick(_characterBehaviorDt); // Faz 38.7 kaynakli ve sonumlenen gecici stres
     const _characterActivationDt = _storyDue('character-activation', '_accCharacterActivation', 15);
     if (_characterActivationDt > 0 && typeof storyCharacterActivationTick === 'function') storyCharacterActivationTick(); // Faz 38.11 kanitli ve butceli simulation LOD yukselmesi

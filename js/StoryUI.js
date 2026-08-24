@@ -2230,13 +2230,21 @@ function storyInit() {
         const pickNode = (wx, wy) => {
             if (typeof storyMapPickNode === 'function') return storyMapPickNode(wx, wy);
             let hit = -1, hd = 34 * 34;
-            for (const n of STORY.nodes) {
-                const position = typeof storyHexSettlementNodePosition === 'function'
-                    ? storyHexSettlementNodePosition(n, STORY_WORLD_W, STORY_WORLD_H)
-                    : { x: n.lx * STORY_WORLD_W, y: n.ly * STORY_WORLD_H };
-                const dx = position.x - wx, dy = position.y - wy;
+            const nodes = STORY.nodes || [];
+            let posCache = STORY._nodePositionsCache;
+            if (!posCache || posCache.length !== nodes.length) {
+                posCache = STORY._nodePositionsCache = nodes.map(n => {
+                    const pos = typeof storyHexSettlementNodePosition === 'function'
+                        ? storyHexSettlementNodePosition(n, STORY_WORLD_W, STORY_WORLD_H)
+                        : { x: n.lx * STORY_WORLD_W, y: n.ly * STORY_WORLD_H };
+                    return { id: n.id, x: pos.x, y: pos.y };
+                });
+            }
+            for (let i = 0; i < posCache.length; i++) {
+                const p = posCache[i];
+                const dx = p.x - wx, dy = p.y - wy;
                 const d = dx * dx + dy * dy;
-                if (d < hd) { hd = d; hit = n.id; }
+                if (d < hd) { hd = d; hit = p.id; }
             }
             return hit;
         };
@@ -2322,16 +2330,25 @@ function storyInit() {
             if (!lastHoverPoint || dragging) return;
             const pt = lastHoverPoint;
             const w = storyS2W(pt.mx, pt.my);
+            const prevHoverId = STORY._hoverHexCellId;
+            let currentCell = null;
             if (typeof storyHexPoliticalCellAtWorld === 'function') {
-                const cell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
-                STORY._hoverHexCellId = cell ? cell.id : null;
+                currentCell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
+                STORY._hoverHexCellId = currentCell ? currentCell.id : null;
             }
             const structureEntity = storyRegionEntityAtCanvasPoint(pt.cx, pt.cy);
-            const regionEntity = structureEntity || storyRegionEntityAtWorld(w.x, w.y);
-            cv.style.cursor = STORY._hexConstructionPickMode
+            const regionEntity = structureEntity || (currentCell ? storyRegionEntityAtWorld(w.x, w.y) : null);
+            const targetCursor = STORY._hexConstructionPickMode
                 && STORY._hexConstructionDraft
                 && STORY._hexConstructionDraft.candidateCellIds.includes(STORY._hoverHexCellId)
                 ? 'crosshair' : (pickNode(w.x, w.y) >= 0 || regionEntity ? 'pointer' : 'grab');
+            if (cv.style.cursor !== targetCursor) {
+                cv.style.cursor = targetCursor;
+            }
+            // Yalnızca seçili proje modu gibi durumlarda hover görseli değişince hafif tazele
+            if (STORY._hoverHexCellId !== prevHoverId && (storyCam.zoom >= 4.2 || STORY._hexConstructionPickMode)) {
+                scheduleMapRender();
+            }
         };
         cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
             if (dragging) return;

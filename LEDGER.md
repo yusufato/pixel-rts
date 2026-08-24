@@ -1,3 +1,17 @@
+## 2026-08-24 — 1 Oyun Ayı (10 Saniye) Simülasyon Takvimi ve Hızlı Fare Hover Optimizasyonu
+- **Type:** Executed
+- **Source:** User directive & Micro-profiling audit (1-month simulation cycle & eliminating mouse hover FPS drop over hexes)
+- **What happened:**
+  1. *Ağır İşlemlerin 1 Oyun Ayına (10 Saniye) Ayarlanması:* Oyundaki 1 yıl = 120 sn kuralına göre 1 ay = 10 sn olarak belirlendi. Bölgesel ekonomi, bütçe, piyasa fiyatları, şirketler, inşaat/bakım, demografi, göç, siyasi kriz ve kamuoyu sistemlerinin periyotları 10 saniyeye çekildi; ayın 10 saniyesine (0.0s ... 9.75s) faz kaydırma ile eşit yayıldı.
+  2. *Izgara Önbelleğinin Fare Hareketinden Ayrılması:* `StoryRender.js` (`storyDrawHexGridOverlay`) içinde hover altıgen kimliği önbellek anahtarından çıkarıldı; yüzlerce altıgen poligonu içeren statik ızgara önbellekte kalıcı kılındı. Fare altıgen değiştirdiğinde yalnız o tek altıgen $O(1)$ hafif çizgiyle (0.0024 ms) çizilmeye başlandı.
+  3. *Şehir Düğüm Konumu Önbelleği (`pickNode`):* `StoryUI.js` içinde 152 şehrin harita koordinatları `STORY._nodePositionsCache` ile önbelleğe alındı; her fare adımında yapılan 152 trigonometrik koordinat hesabı sıfırlandı.
+  4. *Gereksiz DOM ve Uzamsal Taramaların Engellenmesi:* `processHover` içinde mükerrer `storyHexPoliticalCellAtWorld` ve `storyRegionEntityAtWorld` çağrıları tek geçişe indirildi; `cv.style.cursor` yalnız stil değiştiğinde güncellenerek DOM layout reflow'ları sıfırlandı.
+- **Evidence:**
+  - `benchmark_hex_hover.js`: 1000 fare hover altıgen geçişi toplam **2.44 ms (0.0024 ms/geçiş)** olarak ölçüldü.
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** Dinamik hover/seçim görsel efektlerini asla statik katman önbellek anahtarına bağlama.
+
 ## 2026-08-24 — Kesintisiz 60 FPS Faz Kaydırma (Staggering), Önbellekli Enerji Analizi ve Işınlanmasız Araç Döngüsü
 - **Type:** Executed
 - **Source:** User directive & 60-Second In-Depth Gameplay Profiler (Eliminating 500ms freeze spikes & vehicle popping/teleporting)
