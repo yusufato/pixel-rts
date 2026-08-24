@@ -565,6 +565,7 @@ function storyNewCampaign(config = {}) {
     // taşıyamaz. Canlı sicil açıkken bunlar yalnız legacy gölge alanlarıdır.
     for (const key of [
         '_accResource', '_accProd', '_accCmdAI', '_accLoyalty', '_accEcon',
+        '_accEconMacro', '_accEconRegional', '_accEconTrade', '_accEconPrice', '_accEconBudget', '_accEconCompany', '_accEconHexConst', '_accEconInfraWork', '_accEconAi', '_accEconHexConstAi',
         '_accGrow', '_accPopulation', '_accHumanMigration', '_accInstitutions', '_accPowerCenters', '_accNeeds', '_accFac', '_accSocial', '_accStateCapacity', '_accElections', '_accIntegrity', '_accPoliticalCrisis', '_accCharacterBehavior', '_accCharacterActivation', '_accCharacterActions', '_accSiege', '_accTech',
         '_accNegotiationDeadlines',
         '_accDip', '_accEra', '_accCityDev', '_accReplenish', '_accTalk',
@@ -1653,19 +1654,26 @@ function storyAdvanceStep(dtSec) {
         storyAICommanderTick();                                                 // hareket/fetih/oyuncuya saldırı
     }
     if (_storyDue('loyalty', '_accLoyalty', 0.5) > 0) storyApplyLoyaltyDrift(); // sadakat drift
-    const _economyDt = _storyDue('economy', '_accEcon', 4);
-    if (_economyDt > 0) {
-        if (typeof storyEconomyTick === 'function') storyEconomyTick(_economyDt); // AŞAMA 3 makroekonomi
-        if (typeof storyRegionalEconomyTick === 'function') storyRegionalEconomyTick(_economyDt); // Faz 17 kanonik bölgesel ekonomi
-        if (typeof storyTradeLogisticsTick === 'function') storyTradeLogisticsTick(_economyDt); // Faz 18 fiziksel ticaret/lojistik
-        if (typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_economyDt); // Faz 19 bölgesel piyasa/fiyat
-        if (typeof storyBudgetTick === 'function') storyBudgetTick(_economyDt); // Faz 20 devlet bütçesi/borç/faiz
-        if (typeof storyCompanyTick === 'function') storyCompanyTick(_economyDt); // Faz 21 şirket/banka/tesis/yatırım
-        if (typeof storyHexConstructionTickSeconds === 'function') storyHexConstructionTickSeconds(_economyDt); // HXD-6 fiziksel imar/inşaat
-        if (typeof storyInfrastructureWorkTickSeconds === 'function') storyInfrastructureWorkTickSeconds(_economyDt); // HXD-7.4 fiziksel bakım/onarım
-        if (typeof storyEconomicAITick === 'function') storyEconomicAITick(_economyDt); // Faz 22 hilesiz ekonomik aday/seçim
-        if (typeof storyHexConstructionEconomicAITick === 'function') storyHexConstructionEconomicAITick(_economyDt); // HXD-6.8 aynı imar kapısını kullanan şirket AI
-    }
+    const _econMacroDt = _storyDue('economy-macro', '_accEconMacro', 4);
+    if (_econMacroDt > 0 && typeof storyEconomyTick === 'function') storyEconomyTick(_econMacroDt); // AŞAMA 3 makroekonomi
+    const _econRegionalDt = _storyDue('economy-regional', '_accEconRegional', 4);
+    if (_econRegionalDt > 0 && typeof storyRegionalEconomyTick === 'function') storyRegionalEconomyTick(_econRegionalDt); // Faz 17 kanonik bölgesel ekonomi
+    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 4);
+    if (_econTradeDt > 0 && typeof storyTradeLogisticsTick === 'function') storyTradeLogisticsTick(_econTradeDt); // Faz 18 fiziksel ticaret/lojistik
+    const _econPriceDt = _storyDue('economy-market-price', '_accEconPrice', 4);
+    if (_econPriceDt > 0 && typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_econPriceDt); // Faz 19 bölgesel piyasa/fiyat
+    const _econBudgetDt = _storyDue('economy-budget', '_accEconBudget', 4);
+    if (_econBudgetDt > 0 && typeof storyBudgetTick === 'function') storyBudgetTick(_econBudgetDt); // Faz 20 devlet bütçesi/borç/faiz
+    const _econCompanyDt = _storyDue('economy-company', '_accEconCompany', 4);
+    if (_econCompanyDt > 0 && typeof storyCompanyTick === 'function') storyCompanyTick(_econCompanyDt); // Faz 21 şirket/banka/tesis/yatırım
+    const _econHexConstDt = _storyDue('economy-hex-construction', '_accEconHexConst', 4);
+    if (_econHexConstDt > 0 && typeof storyHexConstructionTickSeconds === 'function') storyHexConstructionTickSeconds(_econHexConstDt); // HXD-6 fiziksel imar/inşaat
+    const _econInfraWorkDt = _storyDue('economy-infrastructure-work', '_accEconInfraWork', 4);
+    if (_econInfraWorkDt > 0 && typeof storyInfrastructureWorkTickSeconds === 'function') storyInfrastructureWorkTickSeconds(_econInfraWorkDt); // HXD-7.4 fiziksel bakım/onarım
+    const _econAiDt = _storyDue('economy-ai', '_accEconAi', 4);
+    if (_econAiDt > 0 && typeof storyEconomicAITick === 'function') storyEconomicAITick(_econAiDt); // Faz 22 hilesiz ekonomik aday/seçim
+    const _econHexConstAiDt = _storyDue('economy-hex-construction-ai', '_accEconHexConstAi', 4);
+    if (_econHexConstAiDt > 0 && typeof storyHexConstructionEconomicAITick === 'function') storyHexConstructionEconomicAITick(_econHexConstAiDt); // HXD-6.8 aynı imar kapısını kullanan şirket AI
     const _growthDt = _storyDue('city-growth', '_accGrow', 5);
     if (_growthDt > 0 && typeof storyCityGrowthTick === 'function') storyCityGrowthTick(_growthDt); // organik şehir büyümesi
     const _populationDt = _storyDue('population', '_accPopulation', 5);
@@ -1735,7 +1743,9 @@ function storyAdvanceStep(dtSec) {
         const _storyPerfEnd = (typeof performance !== 'undefined' && performance.now)
             ? performance.now()
             : Date.now();
-        storyTelemetryRecordStepDuration(_storyPerfEnd - _storyPerfStart);
+        const _stepDuration = _storyPerfEnd - _storyPerfStart;
+        STORY._lastStepLatencyMs = _stepDuration;
+        storyTelemetryRecordStepDuration(_stepDuration);
     }
     if (storyCheckPlayerDefeat()) return;   // ADIM 6: 0-bölge → kampanya bitti
 }

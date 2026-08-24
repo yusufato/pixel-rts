@@ -2725,6 +2725,9 @@ function storyRenderTransportOverlay() {
     const snapshot = storyDrawTransportAgents(ctx, mapZoomRatio);
     const finished = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
+    if (STORY._showPerfHud !== false) {
+        storyDrawPerfHud(ctx, cv.width, cv.height);
+    }
     STORY._transportOverlayDiagnostics = {
         adapterVersion: 'transport-overlay-60hz-2',
         frameMs: finished - started,
@@ -2734,6 +2737,56 @@ function storyRenderTransportOverlay() {
         staticWorldRedrawn: false
     };
     return snapshot;
+}
+
+function storyDrawPerfHud(ctx, width, height) {
+    if (!STORY._perfMetrics) {
+        const initNow = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+        STORY._perfMetrics = {
+            frames: 0,
+            fps: 60,
+            lastFpsUpdate: initNow
+        };
+    }
+    const metrics = STORY._perfMetrics;
+    const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    metrics.frames++;
+    if (now - metrics.lastFpsUpdate >= 500) {
+        metrics.fps = Math.round((metrics.frames * 1000) / Math.max(1, now - metrics.lastFpsUpdate));
+        metrics.frames = 0;
+        metrics.lastFpsUpdate = now;
+    }
+
+    const fps = metrics.fps || 60;
+    const simMs = STORY._lastStepLatencyMs != null ? STORY._lastStepLatencyMs.toFixed(1) : '0.0';
+    const speed = STORY.time && STORY.time.speed ? STORY.time.speed : 1;
+    const text = `FPS: ${fps} | Sim: ${simMs}ms | ${speed}x`;
+
+    ctx.save();
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+
+    const padding = 6;
+    const textWidth = ctx.measureText(text).width;
+    const x = width - 12;
+    const y = 8;
+
+    ctx.fillStyle = 'rgba(10, 15, 20, 0.75)';
+    ctx.strokeStyle = fps < 45 ? '#e74c3c' : (fps < 55 ? '#f39c12' : '#2ecc71');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x - textWidth - padding * 2, y, textWidth + padding * 2, 20, 4);
+    } else {
+        ctx.rect(x - textWidth - padding * 2, y, textWidth + padding * 2, 20);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ecf0f1';
+    ctx.fillText(text, x - padding, y + 4);
+    ctx.restore();
 }
 
 function storySettlementLayerKey(farMap, mapZoomRatio, width, height, cmdNode, adj,

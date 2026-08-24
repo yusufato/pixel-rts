@@ -9,35 +9,45 @@
 const STORY_SCHEDULER_SCHEMA_VERSION = 1;
 const STORY_SCHEDULER_EPSILON_SECONDS = 1e-9;
 const STORY_SCHEDULER_TASKS = Object.freeze([
-    Object.freeze({ id: 'resource', intervalSeconds: 1 }),
-    Object.freeze({ id: 'production', intervalSeconds: 1 }),
-    Object.freeze({ id: 'commander-ai', intervalSeconds: 1 }),
-    Object.freeze({ id: 'loyalty', intervalSeconds: 0.5 }),
-    Object.freeze({ id: 'economy', intervalSeconds: 4 }),
-    Object.freeze({ id: 'city-growth', intervalSeconds: 5 }),
-    Object.freeze({ id: 'population', intervalSeconds: 5 }),
-    Object.freeze({ id: 'human-migration', intervalSeconds: 5 }),
-    Object.freeze({ id: 'institutions', intervalSeconds: 5 }),
-    Object.freeze({ id: 'power-centers', intervalSeconds: 5 }),
-    Object.freeze({ id: 'population-needs', intervalSeconds: 5 }),
-    Object.freeze({ id: 'factions', intervalSeconds: 2 }),
-    Object.freeze({ id: 'society', intervalSeconds: 4 }),
-    Object.freeze({ id: 'state-capacity', intervalSeconds: 5 }),
-    Object.freeze({ id: 'elections', intervalSeconds: 5 }),
-    Object.freeze({ id: 'integrity', intervalSeconds: 5 }),
-    Object.freeze({ id: 'political-crisis', intervalSeconds: 5 }),
-    Object.freeze({ id: 'character-behavior', intervalSeconds: 5 }),
-    Object.freeze({ id: 'character-activation', intervalSeconds: 15 }),
-    Object.freeze({ id: 'character-actions', intervalSeconds: 10 }),
-    Object.freeze({ id: 'negotiation-deadlines', intervalSeconds: 5 }),
-    Object.freeze({ id: 'siege', intervalSeconds: 2.5 }),
-    Object.freeze({ id: 'technology', intervalSeconds: 8 }),
-    Object.freeze({ id: 'chatter', intervalSeconds: 9 }),
-    Object.freeze({ id: 'talks', intervalSeconds: 14 }),
-    Object.freeze({ id: 'diplomacy', intervalSeconds: 11 }),
-    Object.freeze({ id: 'era', intervalSeconds: 6 }),
-    Object.freeze({ id: 'city-development', intervalSeconds: 10 }),
-    Object.freeze({ id: 'replenishment', intervalSeconds: 12 })
+    Object.freeze({ id: 'resource', intervalSeconds: 1, phaseOffsetSeconds: 0.0 }),
+    Object.freeze({ id: 'production', intervalSeconds: 1, phaseOffsetSeconds: 0.25 }),
+    Object.freeze({ id: 'commander-ai', intervalSeconds: 1, phaseOffsetSeconds: 0.5 }),
+    Object.freeze({ id: 'loyalty', intervalSeconds: 0.5, phaseOffsetSeconds: 0.0 }),
+    Object.freeze({ id: 'economy', intervalSeconds: 4, phaseOffsetSeconds: 0.0 }),
+    Object.freeze({ id: 'economy-macro', intervalSeconds: 4, phaseOffsetSeconds: 0.0 }),
+    Object.freeze({ id: 'economy-regional', intervalSeconds: 4, phaseOffsetSeconds: 0.25 }),
+    Object.freeze({ id: 'economy-trade-logistics', intervalSeconds: 4, phaseOffsetSeconds: 0.5 }),
+    Object.freeze({ id: 'economy-market-price', intervalSeconds: 4, phaseOffsetSeconds: 0.75 }),
+    Object.freeze({ id: 'economy-budget', intervalSeconds: 4, phaseOffsetSeconds: 1.0 }),
+    Object.freeze({ id: 'economy-company', intervalSeconds: 4, phaseOffsetSeconds: 1.25 }),
+    Object.freeze({ id: 'economy-hex-construction', intervalSeconds: 4, phaseOffsetSeconds: 1.5 }),
+    Object.freeze({ id: 'economy-infrastructure-work', intervalSeconds: 4, phaseOffsetSeconds: 1.75 }),
+    Object.freeze({ id: 'economy-ai', intervalSeconds: 4, phaseOffsetSeconds: 2.0 }),
+    Object.freeze({ id: 'economy-hex-construction-ai', intervalSeconds: 4, phaseOffsetSeconds: 2.25 }),
+    Object.freeze({ id: 'city-growth', intervalSeconds: 5, phaseOffsetSeconds: 0.0 }),
+    Object.freeze({ id: 'population', intervalSeconds: 5, phaseOffsetSeconds: 0.5 }),
+    Object.freeze({ id: 'human-migration', intervalSeconds: 5, phaseOffsetSeconds: 1.0 }),
+    Object.freeze({ id: 'institutions', intervalSeconds: 5, phaseOffsetSeconds: 1.5 }),
+    Object.freeze({ id: 'power-centers', intervalSeconds: 5, phaseOffsetSeconds: 2.0 }),
+    Object.freeze({ id: 'population-needs', intervalSeconds: 5, phaseOffsetSeconds: 2.5 }),
+    Object.freeze({ id: 'factions', intervalSeconds: 2, phaseOffsetSeconds: 0.25 }),
+    Object.freeze({ id: 'society', intervalSeconds: 4, phaseOffsetSeconds: 2.5 }),
+    Object.freeze({ id: 'state-capacity', intervalSeconds: 5, phaseOffsetSeconds: 3.0 }),
+    Object.freeze({ id: 'elections', intervalSeconds: 5, phaseOffsetSeconds: 3.5 }),
+    Object.freeze({ id: 'integrity', intervalSeconds: 5, phaseOffsetSeconds: 4.0 }),
+    Object.freeze({ id: 'political-crisis', intervalSeconds: 5, phaseOffsetSeconds: 4.5 }),
+    Object.freeze({ id: 'character-behavior', intervalSeconds: 5, phaseOffsetSeconds: 1.25 }),
+    Object.freeze({ id: 'character-activation', intervalSeconds: 15, phaseOffsetSeconds: 3.75 }),
+    Object.freeze({ id: 'character-actions', intervalSeconds: 10, phaseOffsetSeconds: 2.75 }),
+    Object.freeze({ id: 'negotiation-deadlines', intervalSeconds: 5, phaseOffsetSeconds: 4.25 }),
+    Object.freeze({ id: 'siege', intervalSeconds: 2.5, phaseOffsetSeconds: 0.75 }),
+    Object.freeze({ id: 'technology', intervalSeconds: 8, phaseOffsetSeconds: 3.25 }),
+    Object.freeze({ id: 'chatter', intervalSeconds: 9, phaseOffsetSeconds: 4.5 }),
+    Object.freeze({ id: 'talks', intervalSeconds: 14, phaseOffsetSeconds: 5.25 }),
+    Object.freeze({ id: 'diplomacy', intervalSeconds: 11, phaseOffsetSeconds: 1.75 }),
+    Object.freeze({ id: 'era', intervalSeconds: 6, phaseOffsetSeconds: 2.25 }),
+    Object.freeze({ id: 'city-development', intervalSeconds: 10, phaseOffsetSeconds: 6.25 }),
+    Object.freeze({ id: 'replenishment', intervalSeconds: 12, phaseOffsetSeconds: 7.5 })
 ]);
 
 function storySchedulerRound(value) {
@@ -45,11 +55,15 @@ function storySchedulerRound(value) {
 }
 
 function storySchedulerTaskState(spec, elapsedSeconds) {
+    const initialElapsed = elapsedSeconds != null
+        ? elapsedSeconds
+        : (spec.phaseOffsetSeconds || 0);
     return {
         intervalSeconds: spec.intervalSeconds,
+        phaseOffsetSeconds: spec.phaseOffsetSeconds || 0,
         elapsedSeconds: Math.max(0, Math.min(
             spec.intervalSeconds,
-            storySchedulerRound(elapsedSeconds)
+            storySchedulerRound(initialElapsed)
         )),
         runCount: 0,
         lastRunSequence: null
@@ -59,7 +73,7 @@ function storySchedulerTaskState(spec, elapsedSeconds) {
 function storySchedulerReset() {
     const tasks = {};
     for (const spec of STORY_SCHEDULER_TASKS) {
-        tasks[spec.id] = storySchedulerTaskState(spec, 0);
+        tasks[spec.id] = storySchedulerTaskState(spec);
     }
     STORY.scheduler = {
         schemaVersion: STORY_SCHEDULER_SCHEMA_VERSION,
@@ -88,9 +102,10 @@ function storySchedulerSnapshot() {
     const state = storySchedulerEnsure();
     const tasks = {};
     for (const spec of STORY_SCHEDULER_TASKS) {
-        const source = state.tasks[spec.id] || storySchedulerTaskState(spec, 0);
+        const source = state.tasks[spec.id] || storySchedulerTaskState(spec);
         tasks[spec.id] = {
             intervalSeconds: spec.intervalSeconds,
+            phaseOffsetSeconds: spec.phaseOffsetSeconds || 0,
             elapsedSeconds: storySchedulerRound(source.elapsedSeconds),
             runCount: Math.max(0, Math.floor(Number(source.runCount) || 0)),
             lastRunSequence: source.lastRunSequence == null
@@ -133,12 +148,13 @@ function storySchedulerRestore(saved) {
             || Number(task.elapsedSeconds) < 0
             || Number(task.elapsedSeconds) >= spec.intervalSeconds + STORY_SCHEDULER_EPSILON_SECONDS
         ) {
-            tasks[spec.id] = storySchedulerTaskState(spec, 0);
+            tasks[spec.id] = storySchedulerTaskState(spec);
             warnings.push(`Eksik/uyumsuz görev yeniden başlatıldı: ${spec.id}`);
             continue;
         }
         tasks[spec.id] = {
             intervalSeconds: spec.intervalSeconds,
+            phaseOffsetSeconds: spec.phaseOffsetSeconds || 0,
             elapsedSeconds: storySchedulerRound(task.elapsedSeconds),
             runCount: Math.max(0, Math.floor(Number(task.runCount) || 0)),
             lastRunSequence: task.lastRunSequence == null
