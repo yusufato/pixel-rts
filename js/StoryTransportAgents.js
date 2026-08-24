@@ -484,7 +484,7 @@ function storyTransportAdvanceShipment(shipment, dtSec) {
         const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
         let contract = null;
         if (ledger) {
-            if (!ledger._contractsById || ledger._contractsByIdRevision !== (ledger.contracts || []).length) {
+            if (!(ledger._contractsById instanceof Map) || ledger._contractsByIdRevision !== (ledger.contracts || []).length) {
                 ledger._contractsById = new Map((ledger.contracts || []).map(item => [item.id, item]));
                 ledger._contractsByIdRevision = (ledger.contracts || []).length;
             }

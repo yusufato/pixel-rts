@@ -172,7 +172,7 @@ function storyCommerceInvalidateInventoryMap(commerce) {
 
 function storyCommerceGetInventoryBucket(commerce, regionId, resourceId) {
     if (!commerce || !Array.isArray(commerce.inventories)) return [];
-    if (!commerce._inventoryMap || commerce._inventoryMapRevision !== commerce.inventories.length) {
+    if (!(commerce._inventoryMap instanceof Map) || commerce._inventoryMapRevision !== commerce.inventories.length) {
         const map = new Map();
         for (const lot of commerce.inventories) {
             if (Number(lot.quantity) > 1e-8) {
@@ -210,7 +210,7 @@ function storyCommerceAddInventoryLot(commerce, spec) {
     if (commerce.inventories.length > STORY_COMMERCE_INVENTORY_LIMIT) {
         commerce.inventories = commerce.inventories.filter(row => row.quantity > 1e-8);
         storyCommerceInvalidateInventoryMap(commerce);
-    } else if (commerce._inventoryMap) {
+    } else if (commerce._inventoryMap instanceof Map) {
         // Incrementally add to existing map instead of full rebuild
         const k = `${lot.regionId}|${lot.resourceId}`;
         let bucket = commerce._inventoryMap.get(k);

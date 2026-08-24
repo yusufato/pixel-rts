@@ -752,7 +752,7 @@ function storyCompanyProductionViability(regionId, sectorId) {
         const tickSeq = regionalLedger ? Number(regionalLedger.tickSequence) || 0 : 0;
         let householdEnergyFillBps = 10000;
         if (regionalLedger) {
-            if (!regionalLedger._countryEnergyFillCache || regionalLedger._countryEnergyFillCacheSeq !== tickSeq) {
+            if (!(regionalLedger._countryEnergyFillCache instanceof Map) || regionalLedger._countryEnergyFillCacheSeq !== tickSeq) {
                 const reqMap = {};
                 const delMap = {};
                 for (const node of (STORY.nodes || [])) {
@@ -775,7 +775,7 @@ function storyCompanyProductionViability(regionId, sectorId) {
             householdEnergyFillBps = regionalLedger._countryEnergyFillCache.get(company.countryId) ?? 10000;
         }
         const countryNumber = Number(String(company.countryId).split(':')[1]);
-        if (!regionalLedger._countryAtWarCache || regionalLedger._countryAtWarCacheSeq !== tickSeq) {
+        if (!(regionalLedger._countryAtWarCache instanceof Map) || regionalLedger._countryAtWarCacheSeq !== tickSeq) {
             regionalLedger._countryAtWarCache = new Map();
             regionalLedger._countryAtWarCacheSeq = tickSeq;
         }

@@ -124,10 +124,10 @@ function storyRegionalDemandSpecs(node, worldDays) {
     let liveFacilities = [];
     if (settledCommerce && STORY.companyEconomy) {
         const ce = STORY.companyEconomy;
-        if (!ce._liveFacilitiesByRegion || ce._liveFacilitiesRevision !== Object.keys(ce.facilities || {}).length) {
+        if (!(ce._liveFacilitiesByRegion instanceof Map) || ce._liveFacilitiesRevision !== Object.keys(ce.facilities || {}).length) {
             const map = new Map();
             for (const f of Object.values(ce.facilities || {})) {
-                if (f.status === 'OPERATING' && ce.companies[f.ownerCompanyId]) {
+                if (f && f.status === 'OPERATING' && ce.companies && ce.companies[f.ownerCompanyId]) {
                     let list = map.get(f.regionId);
                     if (!list) { list = []; map.set(f.regionId, list); }
                     list.push(f);
