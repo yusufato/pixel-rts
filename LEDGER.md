@@ -767,3 +767,11 @@
 - **Evidence:** `npm run test:story-player-agency` (18/18 test OK) ve `npm run test:story-infrastructure` (20/20 test OK) tüm alt sistemleriyle eksiksiz doğrulandı.
 - **Implication for future audits:** Ticaret ve envanter işlemlerinde global array taramaları (`filter/find`) yerine daima Map indeksleri kullanılmalı; rota aramasında candidate sayısı budanmalı ve browser simülasyon accumulator'ı asla serbest bırakılmamalı.
 
+## 2026-08-24 — Ekonomik AI ve rota arama donma pikleri (1 FPS) giderildi
+- **Type:** Executed
+- **Source:** Doğrudan kullanıcı talimatı — 1 FPS donma piklerinin giderilmesi
+- **What happened:** Tekil adımlarda 1.000 ms - 1.360 ms süren piklerin nedenleri çözüldü: (1) `StoryInfrastructure.js` içindeki `storyInfrastructureFindRoute` algoritması ağ ve hasar revizyonu anahtarlı `Map` önbelleğine alındı, Set indeksli minimum çekme ve geriye dönük pointer izlemeye geçirildi; (2) `StoryEconomicAI.js` içindeki `storyEconomicAIReachableInput` girdi erişim aramaları hedef bölge, ülke ve kaynak anahtarlı önbelleğe alındı, yerel stoku yeterli olan tesislerin tüm bölgeleri taraması engellendi; (3) `StoryEconomicAI.js` şirket aday skorları portföy döngüsünde önbelleğe alınarak aynı adımların tekrar hesaplanması önlendi; (4) `StoryTrade.js` içindeki `storyTradeAutoBalance` tedarik adayları ilk 4 ile sınırlandırıldı; (5) `StoryRegionalEconomy.js` içindeki 5.000+ derin `JSON.parse` klonlaması sığ spread kopyalamalarla değiştirildi ve tesisler bölgeye göre indekslendi.
+- **Evidence:** 30 saniyelik 120 adımlı simülasyon duvar süresi 35 saniyeden 7,6 saniyeye indi (4,6 kat gerçek zamanlı hızlanma); `npm run test:story-player-agency` (18/18) ve `npm run test:story-infrastructure` (20/20) tam başarıyla geçti.
+- **Implication for future audits:** Rota ve girdi arama sonuçları simülasyon saati yerine ağ ve hasar revizyonuna göre önbelleklenmeli; şirket portföy sıralamalarında yerel stoku yeterli olan tesisler için küresel rota araması yapılmamalı.
+
+

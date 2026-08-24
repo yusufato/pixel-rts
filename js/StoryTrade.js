@@ -2959,7 +2959,8 @@ function storyTradeAutoBalance(ledger) {
                     const ad = a.countryId === demand.countryId ? 0 : 1;
                     const bd = b.countryId === demand.countryId ? 0 : 1;
                     return ad - bd || b.quantity - a.quantity || a.regionId.localeCompare(b.regionId);
-                });
+                })
+                .slice(0, 4);
             for (const supply of candidates) {
                 if (demand.quantity <= 1e-6
                     || shipmentsDispatched >= STORY_TRADE_MAX_AUTO_DISPATCHES

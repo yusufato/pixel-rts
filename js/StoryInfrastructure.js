@@ -763,21 +763,43 @@ function storyInfrastructureAuthorizedCountriesCanUse(corridor, authorizedCountr
     return owners.length > 0 && owners.every(countryId => authorized.has(countryId));
 }
 
+let _storyInfrastructureRouteCache = null;
+let _storyInfrastructureRouteCacheKey = null;
+
+function storyInfrastructureInvalidateRouteCache() {
+    _storyInfrastructureRouteCache = null;
+    _storyInfrastructureRouteCacheKey = null;
+}
+
 function storyInfrastructureFindRoute(fromRegionId, toRegionId, options) {
     options = options || {};
     const graph = STORY.infrastructureGraph || storyInfrastructureEnsure();
     if (!graph) return { ok: false, reason: 'FEATURE_DISABLED' };
     const from = String(fromRegionId);
     const to = String(toRegionId);
-    const regionIds = new Set(((STORY.regionModel && STORY.regionModel.regions) || []).map(region => region.id));
+    if (STORY.regionModel && !STORY.regionModel._regionIdSet) {
+        STORY.regionModel._regionIdSet = new Set((STORY.regionModel.regions || []).map(r => r.id));
+    }
+    const regionIds = (STORY.regionModel && STORY.regionModel._regionIdSet)
+        || new Set(((STORY.regionModel && STORY.regionModel.regions) || []).map(region => region.id));
     if (!regionIds.has(from) || !regionIds.has(to)) return { ok: false, reason: 'REGION_NOT_FOUND' };
     if (from === to) return { ok: true, regionIds: [from], corridorIds: [], totalCost: 0, totalLatencySeconds: 0, bottleneckCapacity: Infinity };
-    const modes = new Set((Array.isArray(options.modes) ? options.modes : [options.mode || 'LAND']).map(String));
+    const modesArr = (Array.isArray(options.modes) ? options.modes : [options.mode || 'LAND']).map(String).sort();
+    const modes = new Set(modesArr);
     const actorCountryId = options.actorCountryId == null ? null : String(options.actorCountryId);
     const authorizedCountryIds = Array.isArray(options.authorizedCountryIds)
-        ? options.authorizedCountryIds.map(String)
+        ? options.authorizedCountryIds.map(String).sort()
         : null;
     const minCapacity = Math.max(0, Number(options.minCapacity) || 0);
+
+    const cacheRevisionKey = `${graph.networkHash || ''}|${Number(graph.damageRevision) || 0}`;
+    if (!_storyInfrastructureRouteCache || _storyInfrastructureRouteCacheKey !== cacheRevisionKey) {
+        _storyInfrastructureRouteCache = new Map();
+        _storyInfrastructureRouteCacheKey = cacheRevisionKey;
+    }
+    const queryKey = `${from}|${to}|${modesArr.join(',')}|${authorizedCountryIds ? authorizedCountryIds.join(',') : (actorCountryId || '')}|${minCapacity}`;
+    const cached = _storyInfrastructureRouteCache.get(queryKey);
+    if (cached) return cached;
     const adjacency = new Map();
     for (const corridor of graph.corridors) {
         if (!modes.has(corridor.mode)) continue;
@@ -787,56 +809,77 @@ function storyInfrastructureFindRoute(fromRegionId, toRegionId, options) {
                 ? !storyInfrastructureAuthorizedCountriesCanUse(corridor, authorizedCountryIds)
                 : !storyInfrastructureActorCanUse(corridor, actorCountryId))) continue;
         const [a, b] = corridor.endpointRegionIds;
-        if (!adjacency.has(a)) adjacency.set(a, []);
-        if (!adjacency.has(b)) adjacency.set(b, []);
-        adjacency.get(a).push({ next: b, corridor, capacity });
-        adjacency.get(b).push({ next: a, corridor, capacity });
+        let adjA = adjacency.get(a);
+        if (!adjA) { adjA = []; adjacency.set(a, adjA); }
+        adjA.push({ next: b, corridor, capacity });
+        let adjB = adjacency.get(b);
+        if (!adjB) { adjB = []; adjacency.set(b, adjB); }
+        adjB.push({ next: a, corridor, capacity });
     }
     for (const edges of adjacency.values()) edges.sort((a, b) => a.corridor.id.localeCompare(b.corridor.id));
 
-    const best = new Map([[from, { score: 0, key: '', regions: [from], corridors: [], cost: 0, latency: 0, bottleneck: Infinity }]]);
-    const open = [from];
-    while (open.length) {
-        open.sort((a, b) => {
-            const av = best.get(a);
-            const bv = best.get(b);
-            return av.score - bv.score || av.key.localeCompare(bv.key) || a.localeCompare(b);
-        });
-        const current = open.shift();
+    const best = new Map([[from, { score: 0, cost: 0, latency: 0, bottleneck: Infinity, prevRegion: null, prevCorridor: null }]]);
+    const openSet = new Set([from]);
+    while (openSet.size > 0) {
+        let current = null;
+        let currentScore = Infinity;
+        for (const candidate of openSet) {
+            const state = best.get(candidate);
+            if (!state) continue;
+            if (state.score < currentScore || (state.score === currentScore && candidate.localeCompare(current) < 0)) {
+                currentScore = state.score;
+                current = candidate;
+            }
+        }
+        if (!current) break;
+        openSet.delete(current);
         const state = best.get(current);
         if (current === to) {
-            return {
+            const outRegions = [];
+            const outCorridors = [];
+            let curr = to;
+            while (curr) {
+                outRegions.unshift(curr);
+                const s = best.get(curr);
+                if (s && s.prevCorridor) {
+                    outCorridors.unshift(s.prevCorridor);
+                    curr = s.prevRegion;
+                } else {
+                    break;
+                }
+            }
+            const res = {
                 ok: true,
-                regionIds: state.regions,
-                corridorIds: state.corridors,
+                regionIds: outRegions,
+                corridorIds: outCorridors,
                 totalCost: storyInfrastructureRound(state.cost),
                 totalLatencySeconds: storyInfrastructureRound(state.latency),
                 bottleneckCapacity: state.bottleneck
             };
+            if (_storyInfrastructureRouteCache) _storyInfrastructureRouteCache.set(queryKey, res);
+            return res;
         }
         for (const edge of adjacency.get(current) || []) {
             const nextCost = state.cost + Number(edge.corridor.costPerUnit);
             const nextLatency = state.latency + Number(edge.corridor.latencySeconds);
             const score = nextCost + nextLatency;
-            const corridors = state.corridors.concat(edge.corridor.id);
-            const key = corridors.join('|');
             const previous = best.get(edge.next);
-            if (!previous || score < previous.score - 1e-9
-                || (Math.abs(score - previous.score) <= 1e-9 && key.localeCompare(previous.key) < 0)) {
+            if (!previous || score < previous.score - 1e-9) {
                 best.set(edge.next, {
                     score,
-                    key,
-                    regions: state.regions.concat(edge.next),
-                    corridors,
                     cost: nextCost,
                     latency: nextLatency,
-                    bottleneck: Math.min(state.bottleneck, edge.capacity)
+                    bottleneck: Math.min(state.bottleneck, edge.capacity),
+                    prevRegion: current,
+                    prevCorridor: edge.corridor.id
                 });
-                if (!open.includes(edge.next)) open.push(edge.next);
+                openSet.add(edge.next);
             }
         }
     }
-    return { ok: false, reason: 'NO_ROUTE', regionIds: [], corridorIds: [] };
+    const failRes = { ok: false, reason: 'NO_ROUTE', regionIds: [], corridorIds: [] };
+    if (_storyInfrastructureRouteCache) _storyInfrastructureRouteCache.set(queryKey, failRes);
+    return failRes;
 }
 
 function storyInfrastructureResolveFlow(flow) {

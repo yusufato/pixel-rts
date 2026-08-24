@@ -50,12 +50,16 @@ function runProfiler(options = {}) {
         'storyTradeDispatchOrder',
         'storyTradeCreateOrder',
         'storyTradeAdvanceShipment',
+        'storyTransportAdvanceShipment',
         'storyTradeRefreshDistributionBatches',
         'storyTradeGarbageCollect',
         'storyTradeFindRoute',
         'storyRoutePlannerPlan',
         'storyRoutePlannerReserve',
         'storyRegionalEconomyTick',
+        'storyRegionalAllocateDemands',
+        'storyCommerceSettleDemand',
+        'storyCommerceInventoryPlan',
         'storyEconomicAITick',
         'storyEconomicAICompanyPortfolioOrder',
         'storyEconomicAICompanyDecision',
@@ -67,7 +71,14 @@ function runProfiler(options = {}) {
         'storyHexConstructionTickSeconds',
         'storyHumanMigrationTick',
         'storyCityGrowthTick',
-        'storyPopulationTick'
+        'storyPopulationTick',
+        'storyWarfareTick',
+        'storyTacticalAITick',
+        'storySchedulerTick',
+        'storyRenderFrame',
+        'storyRenderMap',
+        'storyMapInvalidate',
+        'storyMapRebuild'
     ];
 
     for (const name of functionsToProfile) {

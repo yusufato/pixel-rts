@@ -121,13 +121,23 @@ function storyRegionalDemandSpecs(node, worldDays) {
     if (typeof storyCompanyEnabled !== 'function' || !storyCompanyEnabled()) {
         add('STATE', 'capital', level * 0.20, 'ADMINISTRATION');
     }
-    const liveFacilities = settledCommerce && STORY.companyEconomy
-        ? Object.values(STORY.companyEconomy.facilities || {}).filter(facility => (
-            facility.regionId === `region:${Number(node.id)}`
-            && facility.status === 'OPERATING'
-            && STORY.companyEconomy.companies[facility.ownerCompanyId]
-        ))
-        : [];
+    let liveFacilities = [];
+    if (settledCommerce && STORY.companyEconomy) {
+        const ce = STORY.companyEconomy;
+        if (!ce._liveFacilitiesByRegion || ce._liveFacilitiesRevision !== Object.keys(ce.facilities || {}).length) {
+            const map = new Map();
+            for (const f of Object.values(ce.facilities || {})) {
+                if (f.status === 'OPERATING' && ce.companies[f.ownerCompanyId]) {
+                    let list = map.get(f.regionId);
+                    if (!list) { list = []; map.set(f.regionId, list); }
+                    list.push(f);
+                }
+            }
+            ce._liveFacilitiesByRegion = map;
+            ce._liveFacilitiesRevision = Object.keys(ce.facilities || {}).length;
+        }
+        liveFacilities = ce._liveFacilitiesByRegion.get(`region:${Number(node.id)}`) || [];
+    }
     // In the settled economy production recipes already buy their real power,
     // maintenance parts and electronics from their owners. Adding these
     // legacy facility proxies again would double-charge the same operation and
@@ -532,7 +542,8 @@ function storyRegionalStockDelta(regionId, resourceId, amount, options) {
 }
 
 function storyRegionalProposalPayload(proposal) {
-    const payload = storyRegionalClone(proposal);
+    if (!proposal) return proposal;
+    const payload = Object.assign({}, proposal);
     delete payload.proposalHash;
     return payload;
 }
@@ -597,7 +608,7 @@ function storyRegionalCommitProduction(regionId, proposal) {
         });
         if (!finance.ok) return Object.assign({ regionId: id }, finance);
     }
-    const before = storyRegionalClone(region.stocks);
+    const before = Object.assign({}, region.stocks);
     for (const [resourceId, quantity] of Object.entries(expectedConsumed)) {
         const companyCapital = resourceId === 'capital'
             && typeof storyCompanyEnabled === 'function'
@@ -631,7 +642,7 @@ function storyRegionalCommitProduction(regionId, proposal) {
         consumed: expectedConsumed,
         produced: expectedProduced,
         before,
-        after: storyRegionalClone(region.stocks)
+        after: Object.assign({}, region.stocks)
     });
     if (typeof storyCompanyOnProductionCommitted === 'function'
         && typeof storyCompanyEnabled === 'function'
@@ -681,7 +692,7 @@ function storyRegionalAllocateDemands(regionId, demands) {
     const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
     const region = ledger && ledger.regions[id];
     if (!region) return { ok: false, code: 'REGION_NOT_FOUND', allocations: [] };
-    const ordered = (Array.isArray(demands) ? demands : []).map(storyRegionalClone)
+    const ordered = (Array.isArray(demands) ? demands : []).map(d => Object.assign({}, d))
         .sort((a, b) => Number(b.priority) - Number(a.priority) || String(a.id).localeCompare(String(b.id), 'en'));
     const allocations = [];
     for (const demand of ordered) {
@@ -1005,7 +1016,7 @@ function storyRegionalEconomyTick(dtSec) {
             lastTick.productionBottlenecks = productionBottlenecks;
         }
         region.lastTick = lastTick;
-        node.stocks = storyRegionalClone(region.stocks);
+        node.stocks = Object.assign({}, region.stocks);
     }
     // Company cash is the canonical source for regional capital while the
     // companies/banks layer is enabled. Production settlement changes company

@@ -507,7 +507,7 @@ function storyEconomicAIProcurementRouteAvailable(sourceRegionId, targetRegionId
     if (sourceRegionId === targetRegionId) return true;
     if (typeof storyInfrastructureFindRoute !== 'function') return false;
     const graph = STORY.infrastructureGraph;
-    const token = `${storyEconomicAIRound(STORY.clock)}|${Number(graph && graph.damageRevision) || 0}`;
+    const token = `${Number(graph && graph.damageRevision) || 0}|${graph && graph.networkHash || ''}`;
     if (STORY_ECONOMIC_AI_ROUTE_CACHE.token !== token) {
         STORY_ECONOMIC_AI_ROUTE_CACHE = { token, values: new Map() };
     }
@@ -529,7 +529,24 @@ function storyEconomicAIProcurementRouteAvailable(sourceRegionId, targetRegionId
     return available;
 }
 
+let _reachableInputCache = null;
+let _reachableInputCacheClock = null;
+
+function storyEconomicAIInvalidateReachableInputCache() {
+    _reachableInputCache = null;
+    _reachableInputCacheClock = null;
+}
+
 function storyEconomicAIReachableInput(company, targetRegionId, resourceId) {
+    const countryId = company ? company.countryId : null;
+    const clock = Number(STORY.clock) || 0;
+    if (_reachableInputCache && _reachableInputCacheClock === clock) {
+        const cached = _reachableInputCache.get(`${targetRegionId}|${countryId}|${resourceId}`);
+        if (cached) return cached;
+    } else {
+        _reachableInputCache = new Map();
+        _reachableInputCacheClock = clock;
+    }
     const regional = STORY.regionalEconomy;
     const target = regional && regional.regions[targetRegionId];
     if (!target) return { quantity: 0, sourceRegionIds: [] };
@@ -543,18 +560,20 @@ function storyEconomicAIReachableInput(company, targetRegionId, resourceId) {
     const sources = [];
     for (const region of Object.values(regional.regions)) {
         if (region.regionId === targetRegionId
-            || storyEconomicAICountryIdForRegion(region.regionId) !== company.countryId) continue;
+            || storyEconomicAICountryIdForRegion(region.regionId) !== countryId) continue;
         const stock = Math.max(0, Number(region.stocks[resourceId]) || 0);
         const safe = Math.max(0, Number(region.safeTargets[resourceId]) || 0);
         const exportable = storyEconomicAIRound(Math.max(0, stock - safe * reserveBps / 10000));
         if (exportable <= 1e-6
             || !storyEconomicAIProcurementRouteAvailable(
-                region.regionId, targetRegionId, company.countryId, resourceId
+                region.regionId, targetRegionId, countryId, resourceId
             )) continue;
         quantity = storyEconomicAIRound(quantity + exportable);
         sources.push(region.regionId);
     }
-    return { quantity, sourceRegionIds: sources.sort((a, b) => a.localeCompare(b)) };
+    const res = { quantity, sourceRegionIds: sources.sort((a, b) => a.localeCompare(b)) };
+    _reachableInputCache.set(`${targetRegionId}|${countryId}|${resourceId}`, res);
+    return res;
 }
 
 function storyEconomicAIPendingPreparationQuantity(preparation, resourceId) {
@@ -1156,10 +1175,12 @@ function storyEconomicAICandidateForFacility(company, facility) {
                 ? Math.max(0, Number(region.safeTargets.electronics) || 0)
                 : 0)
     ) : 0;
-    const reachableParts = storyEconomicAIReachableInput(company, facility.regionId, 'industrial_parts');
-    const reachableElectronics = requiredElectronics > 0
-        ? storyEconomicAIReachableInput(company, facility.regionId, 'electronics')
-        : { quantity: Infinity, sourceRegionIds: [] };
+    const reachableParts = availableParts >= requiredParts
+        ? { quantity: availableParts, sourceRegionIds: [facility.regionId] }
+        : storyEconomicAIReachableInput(company, facility.regionId, 'industrial_parts');
+    const reachableElectronics = requiredElectronics <= 0 || availableElectronics >= requiredElectronics
+        ? { quantity: availableElectronics, sourceRegionIds: [facility.regionId] }
+        : storyEconomicAIReachableInput(company, facility.regionId, 'electronics');
     const inputCoverageBps = Math.round(Math.min(
         requiredParts > 0
             ? storyEconomicAIClamp(reachableParts.quantity / requiredParts * 10000, 0, 10000)
@@ -1309,19 +1330,37 @@ function storyEconomicAICandidateForFacility(company, facility) {
     };
 }
 
+let _storyEconomicAICandidateCache = null;
+let _storyEconomicAICandidateCacheClock = null;
+
+function storyEconomicAIInvalidateCandidateCache() {
+    _storyEconomicAICandidateCache = null;
+    _storyEconomicAICandidateCacheClock = null;
+}
+
 function storyEconomicAICompanyCandidates(companyId) {
     const ledger = storyEconomicAIEnsure();
     const company = STORY.companyEconomy && STORY.companyEconomy.companies[companyId];
     if (!ledger || !company) return [];
+    const clock = Number(STORY.clock) || 0;
+    if (_storyEconomicAICandidateCache && _storyEconomicAICandidateCacheClock === clock) {
+        const cached = _storyEconomicAICandidateCache.get(companyId);
+        if (cached) return cached;
+    } else {
+        _storyEconomicAICandidateCache = new Map();
+        _storyEconomicAICandidateCacheClock = clock;
+    }
     const facilities = (company.facilityIds || [])
         .map(id => STORY.companyEconomy.facilities[id])
         .filter(Boolean);
-    return facilities
+    const candidates = facilities
         .map(facility => storyEconomicAICandidateForFacility(company, facility))
         .sort((a, b) => b.score - a.score
             || b.signals.inputCoverageBps - a.signals.inputCoverageBps
             || a.regionId.localeCompare(b.regionId)
             || a.facilityId.localeCompare(b.facilityId));
+    _storyEconomicAICandidateCache.set(companyId, candidates);
+    return candidates;
 }
 
 function storyEconomicAIHoldCandidate(actorId, countryId, code, score) {
@@ -1339,6 +1378,7 @@ function storyEconomicAIHoldCandidate(actorId, countryId, code, score) {
 }
 
 function storyEconomicAIRecordDecision(ledger, payload) {
+    storyEconomicAIInvalidateCandidateCache();
     ledger.decisionSequence++;
     const decision = Object.assign({
         id: `economic-decision:${ledger.decisionSequence}`,
