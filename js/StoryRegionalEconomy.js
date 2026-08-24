@@ -562,7 +562,8 @@ function storyRegionalCommitProduction(regionId, proposal) {
         || (!proposal._trustedDirect && proposal.proposalHash !== storyProductionHash(storyRegionalProposalPayload(proposal)))) {
         return { ok: false, code: 'PROPOSAL_INTEGRITY', regionId: id };
     }
-    const sector = STORY_PRODUCTION_SECTOR_DEFINITIONS.find(item => item.id === proposal.sectorId);
+    const sector = (typeof STORY_PRODUCTION_SECTOR_MAP !== 'undefined' && STORY_PRODUCTION_SECTOR_MAP[proposal.sectorId])
+        || STORY_PRODUCTION_SECTOR_DEFINITIONS.find(item => item.id === proposal.sectorId);
     if (!sector || sector.recipe.id !== proposal.recipeId || sector.recipe.version !== proposal.recipeVersion) {
         return { ok: false, code: 'PROPOSAL_RECIPE_MISMATCH', regionId: id };
     }
@@ -920,8 +921,8 @@ function storyRegionalEconomyTick(dtSec) {
                 continue;
             }
             if (bootstrapPlanning) {
-                const sectorDefinition = STORY_PRODUCTION_SECTOR_DEFINITIONS
-                    .find(row => row.id === sectorId);
+                const sectorDefinition = (typeof STORY_PRODUCTION_SECTOR_MAP !== 'undefined' && STORY_PRODUCTION_SECTOR_MAP[sectorId])
+                    || STORY_PRODUCTION_SECTOR_DEFINITIONS.find(row => row.id === sectorId);
                 for (const input of (sectorDefinition && sectorDefinition.recipe.inputs) || []) {
                     if (['labor', 'capital'].includes(input.resourceId)) continue;
                     storyRegionalAddToMap(

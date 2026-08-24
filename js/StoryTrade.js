@@ -1489,7 +1489,7 @@ function storyTradeProcessCustomsAndTariffs(shipment, ledger) {
         const importTariff = storyTradeRound(cargoValue * 0.12);
         const exportTariff = storyTradeRound(cargoValue * 0.05);
 
-        if (typeof storyBudgetCredit === 'function') {
+        if (typeof storyBudgetCredit === 'function' && (typeof storyBudgetEnabled !== 'function' || storyBudgetEnabled())) {
             if (importTariff > 0) storyBudgetCredit(buyerCountry, importTariff, 'tax.customs_import');
             if (exportTariff > 0) storyBudgetCredit(sellerCountry, exportTariff, 'tax.customs_export');
         }
@@ -1524,7 +1524,7 @@ function storyTradeProcessCustomsAndTariffs(shipment, ledger) {
                 if (transitCountryId && transitCountryId !== sellerCountry && transitCountryId !== buyerCountry && !seenTransitCountries.has(transitCountryId)) {
                     seenTransitCountries.add(transitCountryId);
                     const transitToll = storyTradeRound(cargoValue * 0.02);
-                    if (transitToll > 0 && typeof storyBudgetCredit === 'function') {
+                    if (transitToll > 0 && typeof storyBudgetCredit === 'function' && (typeof storyBudgetEnabled !== 'function' || storyBudgetEnabled())) {
                         storyBudgetCredit(transitCountryId, transitToll, 'tax.transit_toll');
                     }
                     const transitFt = ensureCountry(transitCountryId);
@@ -3097,7 +3097,7 @@ function storyTradeAutoBalance(ledger) {
                 attempts++;
                 const quantity = storyTradeRound(Math.min(demand.quantity, supply.quantity));
                 if (quantity < 1.0) continue;
-                if (supply.countryId !== demand.countryId) {
+                if (supply.countryId !== demand.countryId && typeof storyCommerceEnabled === 'function' && storyCommerceEnabled()) {
                     const arb = storyTradeCheckArbitrageProfitability(supply.regionId, demand.regionId, resourceId, quantity);
                     if (!arb.viable) continue;
                 }
@@ -3241,10 +3241,11 @@ function storyTradeHouseholdDistributionBalance(ledger) {
                     || a.supply.regionId.localeCompare(b.supply.regionId));
             for (const candidate of candidates) {
                 if (demand.quantity <= 1e-6 || resourceDispatches >= dispatchLimit) break;
+                const availableCap = storyTradeCapacityAvailable(candidate.route, ledger);
                 const quantity = storyTradeRound(Math.min(
                     demand.quantity,
                     candidate.supply.quantity,
-                    candidate.capacity
+                    availableCap
                 ));
                 if (quantity <= 1e-6) continue;
                 const created = storyTradeCreateOrder({

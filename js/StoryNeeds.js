@@ -277,7 +277,36 @@ function storyNeedsLedgerCreate(options) {
     };
 }
 
+function storyNeedsReconcilePopulationLinks(ledger) {
+    const population = typeof storyPopulationEnsure === 'function'
+        ? storyPopulationEnsure() : ((typeof STORY !== 'undefined' && STORY.population) || null);
+    if (!ledger || !population || !population.regions) return ledger;
+    const metricFields = ['foodAccessBps', 'energyAccessBps', 'incomeSecurityBps', 'unemploymentRiskBps', 'securityBps', 'publicServicesBps', 'wellbeingBps'];
+    for (const regionId of Object.keys(ledger.regions || {})) {
+        const popRegion = population.regions[regionId];
+        const reg = ledger.regions[regionId];
+        if (!popRegion || !reg) continue;
+        reg.countryId = popRegion.countryId;
+        reg.populationPeople = popRegion.populationPeople;
+        const popCohortMap = new Map((popRegion.cohorts || []).map(c => [c.id, c]));
+        for (const cohort of reg.cohorts || []) {
+            const popCohort = popCohortMap.get(cohort.cohortId);
+            if (popCohort) {
+                cohort.regionId = regionId;
+                cohort.countryId = popRegion.countryId;
+                cohort.membersPeople = popCohort.membersPeople;
+            }
+        }
+        for (const field of metricFields) {
+            reg[field] = storyNeedsWeightedAverage(reg.cohorts, field);
+        }
+    }
+    ledger.countries = storyNeedsAggregateCountries(ledger.regions || {});
+    return ledger;
+}
+
 function storyNeedsValidate(ledger) {
+    if (ledger) storyNeedsReconcilePopulationLinks(ledger);
     const issues = [];
     const add = (code, path, message) => issues.push({ code, path, message });
     if (!ledger || typeof ledger !== 'object' || Array.isArray(ledger)) return {

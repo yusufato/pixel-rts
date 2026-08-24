@@ -863,10 +863,14 @@ function storyHexConstructionEconomy(options) {
         postCash: (company, postings, details) => typeof storyCompanyPost === 'function'
             ? storyCompanyPost(company, 'hex.construction.reserve', postings, details)
             : { ok: false, code: 'COMPANY_POSTING_UNAVAILABLE' },
-        stockDelta: (regionId, resourceId, amount, details) =>
-            typeof storyRegionalStockDelta === 'function'
-                ? storyRegionalStockDelta(regionId, resourceId, amount, details)
-                : { ok: false, code: 'REGIONAL_STOCK_DELTA_UNAVAILABLE' },
+        stockDelta: (regionId, resourceId, amount, details) => {
+            if (typeof storyRegionalStockDelta !== 'function') return { ok: false, code: 'REGIONAL_STOCK_DELTA_UNAVAILABLE' };
+            const physical = storyRegionalStockDelta(regionId, resourceId, amount, details);
+            if (physical && physical.ok && amount < 0 && typeof storyCommerceApplyPhysicalLoss === 'function') {
+                storyCommerceApplyPhysicalLoss(regionId, resourceId, -amount, details && details.type);
+            }
+            return physical;
+        },
         availableWorkers: regionId => {
             const view = typeof storyPopulationLaborSupply === 'function'
                 ? storyPopulationLaborSupply(regionId, 1) : null;

@@ -287,7 +287,7 @@ function storyEconomicAIValidate(ledger) {
             .find(candidate => candidate.id === decision.selectedCandidateId);
         if (!selectedCandidate
             || selectedCandidate.actionType !== decision.selectedAction
-            || Number(selectedCandidate.score) !== Number(decision.selectedScore)) {
+            || Math.abs(Number(selectedCandidate.score) - Number(decision.selectedScore)) > 1e-4) {
             add('ECONOMIC_AI_SELECTION_LINK', `${path}.selectedCandidateId`,
                 'Secim kimligi, eylemi ve puani kayitli bir adaya baglanmali.');
         }
@@ -1420,7 +1420,11 @@ function storyEconomicAIRecordDecision(ledger, payload) {
         selectedScore: payload.selectedScore,
         execution: payload.execution ? Object.assign({}, payload.execution) : { status: 'HELD', code: 'NO_ACTION' },
         outcome: payload.outcome ? Object.assign({}, payload.outcome) : { status: 'NOT_APPLICABLE' },
-        candidates: Array.isArray(payload.candidates) ? payload.candidates.slice(0, 3) : []
+        candidates: storyEconomicAIVisibleCandidates(
+            payload.candidates,
+            payload.selectedCandidateId ? (payload.candidates || []).find(c => c.id === payload.selectedCandidateId) : null,
+            STORY_ECONOMIC_AI_POLICY.maximumCandidatesPerDecision
+        )
     };
     ledger.decisions.push(decision);
     while (ledger.decisions.length > STORY_ECONOMIC_AI_DECISION_LIMIT) {

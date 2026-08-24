@@ -40,7 +40,7 @@ function storyHexRegionsSourceHash(geography, nodes) {
     return storyHexWorldHashText(JSON.stringify({
         schemaVersion: STORY_HEX_REGIONS_SCHEMA_VERSION,
         adapterVersion: STORY_HEX_REGIONS_ADAPTER_VERSION,
-        geographyHash: geography.geographyHash,
+        geographyHash: geography ? geography.geographyHash : '',
         topologyHash,
         regionCount: (nodes || []).length
     }));
@@ -491,6 +491,7 @@ function storyHexRegionsReconcile(model) {
 function storyHexRegionsEnsure() {
     const world = storyHexWorldEnsure();
     const geography = storyHexGeographyEnsure();
+    if (!world || !geography || !(STORY.nodes && STORY.nodes.length)) return null;
     const sourceHash = storyHexRegionsSourceHash(geography, STORY.nodes || []);
     if (STORY_HEX_REGIONS_CACHE && STORY_HEX_REGIONS_CACHE.sourceHash === sourceHash) return STORY_HEX_REGIONS_CACHE;
     const model = storyHexRegionsCreate({ world, geography, nodes: STORY.nodes, loadMode: 'runtime' });
@@ -503,6 +504,7 @@ function storyHexRegionsEnsure() {
 function storyHexPoliticalViewEnsure() {
     const world = storyHexWorldEnsure();
     const model = storyHexRegionsEnsure();
+    if (!world || !model || !(STORY.nodes && STORY.nodes.length)) return null;
     const sourceHash = storyHexPoliticalOwnerSourceHash(model, STORY.nodes || []);
     if (STORY_HEX_POLITICAL_CACHE && STORY_HEX_POLITICAL_CACHE.sourceHash === sourceHash) return STORY_HEX_POLITICAL_CACHE;
     const view = storyHexPoliticalViewCreate({ world, model, nodes: STORY.nodes, loadMode: 'runtime' });

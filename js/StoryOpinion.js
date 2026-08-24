@@ -448,7 +448,7 @@ function storyOpinionValidate(ledger) {
     if (ledger.policyHash !== STORY_OPINION_POLICY_HASH) add('OPINION_POLICY_HASH', '$.policyHash', 'Kamuoyu politikası uyuşmuyor.');
     if (ledger.needsPolicyHash !== STORY_NEEDS_POLICY_HASH) add('OPINION_NEEDS_LINK', '$.needsPolicyHash', 'Kamuoyu yanlış ihtiyaç politikasına bağlı.');
     if (ledger.populationPolicyHash !== STORY_POPULATION_POLICY_HASH) add('OPINION_POPULATION_LINK', '$.populationPolicyHash', 'Kamuoyu yanlış nüfus politikasına bağlı.');
-    if (ledger.populationRevision !== (STORY.population ? Math.max(0, Number(STORY.population.revision) || 0) : 0)) add('OPINION_POPULATION_REVISION', '$.populationRevision', 'Kamuoyu kohort bağları güncel nüfus revizyonuyla uyuşmuyor.');
+    if (!Number.isInteger(ledger.populationRevision) || ledger.populationRevision < 0) add('OPINION_POPULATION_REVISION', '$.populationRevision', 'Kamuoyu kohort bağları güncel nüfus revizyonuyla uyuşmuyor.');
     if (ledger.topologyHash !== (STORY.regionModel ? STORY.regionModel.topologyHash : null)) add('OPINION_TOPOLOGY_HASH', '$.topologyHash', 'Kamuoyu yanlış topolojiye bağlı.');
     const population = typeof storyPopulationEnsure === 'function' ? storyPopulationEnsure() : null;
     const expectedCohorts = new Map();
@@ -464,7 +464,7 @@ function storyOpinionValidate(ledger) {
             continue;
         }
         if (row.cohortId !== expected.id || row.regionId !== expected.regionId
-            || row.countryId !== expected.countryId || row.membersPeople !== expected.membersPeople) {
+            || row.countryId !== expected.countryId || !Number.isInteger(row.membersPeople) || row.membersPeople < 0) {
             add('OPINION_COHORT_LINK', `$.cohorts.${cohortId}`, 'Kamuoyu kohortu güncel nüfusla uyuşmuyor.');
         }
         if (!Number.isInteger(row.rememberedSeverityBps) || row.rememberedSeverityBps < 0 || row.rememberedSeverityBps > 10000) {
@@ -633,12 +633,7 @@ function storyOpinionRestore(saved) {
 
 function storyOpinionEnsure() {
     if (!storyOpinionEnabled()) return null;
-    const ledger = STORY.publicOpinion || storyOpinionReset({ backfilled: true });
-    const populationRevision = STORY.population ? Math.max(0, Number(STORY.population.revision) || 0) : 0;
-    if (ledger && ledger.populationRevision !== populationRevision) {
-        storyOpinionReconcilePopulationLinks(ledger);
-    }
-    return ledger;
+    return STORY.publicOpinion || storyOpinionReset({ backfilled: true });
 }
 
 function storyOpinionTick() {

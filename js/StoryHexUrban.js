@@ -307,6 +307,7 @@ function storyHexUrbanFootprintsEnsure() {
     const world = storyHexWorldEnsure();
     const geography = storyHexGeographyEnsure();
     const settlements = storyHexSettlementsEnsure();
+    if (!world || !geography || !settlements) return null;
     const nodes = STORY.nodes || [];
     const sourceHash = storyHexUrbanSourceHash(world, geography, settlements, nodes);
     if (STORY_HEX_URBAN_CACHE && STORY_HEX_URBAN_CACHE.sourceHash === sourceHash) return STORY_HEX_URBAN_CACHE;

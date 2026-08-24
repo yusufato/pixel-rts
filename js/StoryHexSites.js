@@ -538,6 +538,21 @@ function storyHexSitesValidate(model, world, geography, urban, companyEconomy, n
 }
 
 function storyHexSitesEnsure() {
+    const ce = (typeof STORY !== 'undefined' ? STORY.companyEconomy : null) || null;
+    const hc = (typeof STORY !== 'undefined' ? STORY.hexConstruction : null) || null;
+    const companyRev = Number(ce && ce.revision) || 0;
+    const hexConVer = Number(hc && hc.version) || 0;
+    const facilityCount = ce && ce.facilities ? Object.keys(ce.facilities).length : 0;
+    const commandCount = hc && hc.commands ? hc.commands.length : 0;
+
+    if (STORY_HEX_SITES_CACHE
+        && STORY_HEX_SITES_CACHE._companyRev === companyRev
+        && STORY_HEX_SITES_CACHE._hexConVer === hexConVer
+        && STORY_HEX_SITES_CACHE._facilityCount === facilityCount
+        && STORY_HEX_SITES_CACHE._commandCount === commandCount) {
+        return STORY_HEX_SITES_CACHE;
+    }
+
     const world = storyHexWorldEnsure();
     const geography = storyHexGeographyEnsure();
     const urban = storyHexUrbanFootprintsEnsure();
@@ -548,14 +563,25 @@ function storyHexSitesEnsure() {
     const companyEconomy = typeof storyCompanyEnsure === 'function'
         ? storyCompanyEnsure() : (STORY.companyEconomy || { facilities: {}, projects: [] });
     const hexConstruction = STORY.hexConstruction || { commands: [] };
+
     const sourceHash = storyHexSitesSourceHash(world, geography, urban,
         companyEconomy, natural, agriculture, hexConstruction);
-    if (STORY_HEX_SITES_CACHE && STORY_HEX_SITES_CACHE.sourceHash === sourceHash) return STORY_HEX_SITES_CACHE;
+    if (STORY_HEX_SITES_CACHE && STORY_HEX_SITES_CACHE.sourceHash === sourceHash) {
+        STORY_HEX_SITES_CACHE._companyRev = companyRev;
+        STORY_HEX_SITES_CACHE._hexConVer = hexConVer;
+        STORY_HEX_SITES_CACHE._facilityCount = facilityCount;
+        STORY_HEX_SITES_CACHE._commandCount = commandCount;
+        return STORY_HEX_SITES_CACHE;
+    }
     const model = storyHexSitesCreate({ world, geography, urban, natural,
         agriculture, companyEconomy, hexConstruction });
     const validation = storyHexSitesValidate(model, world, geography, urban,
         companyEconomy, natural, agriculture, hexConstruction);
     if (!validation.ok) throw new Error(`HEX_SITES_INVALID:${validation.issues.map(issue => issue.code).join(',')}`);
+    model._companyRev = companyRev;
+    model._hexConVer = hexConVer;
+    model._facilityCount = facilityCount;
+    model._commandCount = commandCount;
     STORY_HEX_SITES_CACHE = model;
     return model;
 }

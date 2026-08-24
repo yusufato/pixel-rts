@@ -1034,26 +1034,36 @@ function storyRegionContextHtml(selected, selection, owner, basics) {
 }
 function storyRegionNearestNodeForCell(cell) {
     if (!cell) return null;
+    const key = String(cell.id || cell.index);
     const cache = STORY._hexNearestRegionCache instanceof Map
         ? STORY._hexNearestRegionCache : (STORY._hexNearestRegionCache = new Map());
-    if (cache.has(String(cell.id))) return cache.get(String(cell.id));
+    if (cache.has(key)) return cache.get(key);
     const world = storyHexWorldEnsure();
     const wx = Number(cell.center && cell.center.x) / Math.max(1, Number(world.width)) * STORY_WORLD_W;
     const wy = Number(cell.center && cell.center.y) / Math.max(1, Number(world.height)) * STORY_WORLD_H;
+
+    if (!STORY._cachedSettlementNodePositions || STORY._cachedSettlementNodePositions.length !== (STORY.nodes || []).length) {
+        STORY._cachedSettlementNodePositions = (STORY.nodes || []).map(node => {
+            if (!node) return null;
+            const pos = typeof storyHexSettlementNodePosition === 'function'
+                ? storyHexSettlementNodePosition(node, STORY_WORLD_W, STORY_WORLD_H)
+                : { x: Number(node.lx) * STORY_WORLD_W, y: Number(node.ly) * STORY_WORLD_H };
+            return { id: Number(node.id), x: pos.x, y: pos.y };
+        }).filter(Boolean);
+    }
     let nearest = null;
     let distance = Infinity;
-    for (const node of STORY.nodes || []) {
-        if (!node) continue;
-        const position = typeof storyHexSettlementNodePosition === 'function'
-            ? storyHexSettlementNodePosition(node, STORY_WORLD_W, STORY_WORLD_H)
-            : { x: Number(node.lx) * STORY_WORLD_W, y: Number(node.ly) * STORY_WORLD_H };
-        const candidateDistance = (position.x - wx) ** 2 + (position.y - wy) ** 2;
+    for (let i = 0; i < STORY._cachedSettlementNodePositions.length; i++) {
+        const node = STORY._cachedSettlementNodePositions[i];
+        const dx = node.x - wx;
+        const dy = node.y - wy;
+        const candidateDistance = dx * dx + dy * dy;
         if (candidateDistance < distance) {
-            nearest = Number(node.id);
+            nearest = node.id;
             distance = candidateDistance;
         }
     }
-    cache.set(String(cell.id), nearest);
+    cache.set(key, nearest);
     return nearest;
 }
 function storyRegionEntityAtWorld(x, y) {

@@ -185,6 +185,10 @@ const STORY_PRODUCTION_SECTOR_DEFINITIONS = Object.freeze([
     }
 ]);
 
+const STORY_PRODUCTION_SECTOR_MAP = Object.freeze(
+    STORY_PRODUCTION_SECTOR_DEFINITIONS.reduce((acc, s) => { acc[s.id] = s; return acc; }, {})
+);
+
 function storyProductionEnabled() {
     return (typeof storyFeatureEnabled !== 'function'
         || storyFeatureEnabled('economy.productionSectors'))

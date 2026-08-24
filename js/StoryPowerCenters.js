@@ -494,9 +494,6 @@ function storyPowerCenterBuildSummaries(ledger) {
 // ilerler. Boylece kaydetmek simülasyon zamanini ilerletmez.
 function storyPowerCenterReconcileDerivedOwnership(ledger) {
     if (!ledger) return ledger;
-    const clock = STORY && Number(STORY.clock) || 0;
-    if (ledger._lastReconcileClock === clock) return ledger;
-    ledger._lastReconcileClock = clock;
     const regionIds = Object.keys(ledger.regions || {});
     let stale = regionIds.length !== (STORY.nodes || []).length;
     if (!stale) {

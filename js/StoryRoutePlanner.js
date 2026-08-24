@@ -469,23 +469,25 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
         ? 25 : options.transferLatencySeconds));
     const reliabilityWeight = Math.max(0, Number(options.reliabilityWeight == null
         ? 0.5 : options.reliabilityWeight));
-    const adjacency = new Map();
-    for (const corridor of graph.corridors || []) {
-        if (!modes.includes(String(corridor.mode))) continue;
-        const endpoints = corridor.endpointRegionIds || [];
-        if (endpoints.length !== 2) continue;
-        const directions = [[String(endpoints[0]), String(endpoints[1])],
-            [String(endpoints[1]), String(endpoints[0])]];
-        for (const direction of directions) {
-            const candidate = storyRoutePlannerCandidate(
-                corridor, direction[0], registry, reserved, demand, options);
-            if (!candidate) continue;
-            if (!adjacency.has(direction[0])) adjacency.set(direction[0], []);
-            adjacency.get(direction[0]).push(Object.assign(candidate, { next: direction[1] }));
+    if (!graph._corridorsByRegion || graph._corridorsByRegionRev !== (graph.corridors || []).length) {
+        const byRegion = new Map();
+        for (const corridor of graph.corridors || []) {
+            const endpoints = corridor.endpointRegionIds || [];
+            if (endpoints.length !== 2) continue;
+            const a = String(endpoints[0]), b = String(endpoints[1]);
+            let listA = byRegion.get(a);
+            if (!listA) { listA = []; byRegion.set(a, listA); }
+            listA.push({ corridor, next: b });
+            let listB = byRegion.get(b);
+            if (!listB) { listB = []; byRegion.set(b, listB); }
+            listB.push({ corridor, next: a });
         }
+        for (const list of byRegion.values()) {
+            list.sort((a, b) => String(a.corridor.id).localeCompare(String(b.corridor.id)));
+        }
+        graph._corridorsByRegion = byRegion;
+        graph._corridorsByRegionRev = (graph.corridors || []).length;
     }
-    for (const edges of adjacency.values()) edges.sort((a, b) =>
-        String(a.corridor.id).localeCompare(String(b.corridor.id)));
 
     const startKey = from + '|-';
     const startState = {
@@ -524,7 +526,14 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
 
         const state = bestState;
         if (state.regionId === to) { winner = state; break; }
-        for (const edge of adjacency.get(state.regionId) || []) {
+        const outEdges = graph._corridorsByRegion.get(state.regionId) || [];
+        for (let i = 0; i < outEdges.length; i++) {
+            const item = outEdges[i];
+            if (!modes.includes(String(item.corridor.mode))) continue;
+            const candidate = storyRoutePlannerCandidate(
+                item.corridor, state.regionId, registry, reserved, demand, options);
+            if (!candidate) continue;
+            const edge = Object.assign(candidate, { next: item.next });
             const transfer = !!state.lastMode && state.lastMode !== edge.corridor.mode;
             const nextCost = state.cost + edge.cost + (transfer ? transferCost : 0);
             const nextLatency = state.latency + edge.latency + (transfer ? transferLatency : 0);

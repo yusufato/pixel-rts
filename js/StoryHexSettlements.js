@@ -436,6 +436,7 @@ function storyHexSettlementsEnsure() {
     const world = storyHexWorldEnsure();
     const geography = storyHexGeographyEnsure();
     const regions = storyHexRegionsEnsure();
+    if (!world || !geography || !regions) return null;
     const sourceHash = storyHexSettlementSourceHash(world, geography, regions, GEO_CITIES || []);
     if (STORY_HEX_SETTLEMENT_CACHE && STORY_HEX_SETTLEMENT_CACHE.sourceHash === sourceHash) return STORY_HEX_SETTLEMENT_CACHE;
     const model = storyHexSettlementsCreate({ world, geography, regions, cities: GEO_CITIES, loadMode: 'runtime' });

@@ -777,11 +777,12 @@ function storyInfrastructureFindRoute(fromRegionId, toRegionId, options) {
     if (!graph) return { ok: false, reason: 'FEATURE_DISABLED' };
     const from = String(fromRegionId);
     const to = String(toRegionId);
-    if (STORY.regionModel && !STORY.regionModel._regionIdSet) {
+    if (STORY.regionModel && !(STORY.regionModel._regionIdSet instanceof Set)) {
         STORY.regionModel._regionIdSet = new Set((STORY.regionModel.regions || []).map(r => r.id));
     }
-    const regionIds = (STORY.regionModel && STORY.regionModel._regionIdSet)
-        || new Set(((STORY.regionModel && STORY.regionModel.regions) || []).map(region => region.id));
+    const regionIds = (STORY.regionModel && (STORY.regionModel._regionIdSet instanceof Set))
+        ? STORY.regionModel._regionIdSet
+        : new Set(((STORY.regionModel && STORY.regionModel.regions) || []).map(region => region.id));
     if (!regionIds.has(from) || !regionIds.has(to)) return { ok: false, reason: 'REGION_NOT_FOUND' };
     if (from === to) return { ok: true, regionIds: [from], corridorIds: [], totalCost: 0, totalLatencySeconds: 0, bottleneckCapacity: Infinity };
     const modesArr = (Array.isArray(options.modes) ? options.modes : [options.mode || 'LAND']).map(String).sort();
@@ -800,23 +801,25 @@ function storyInfrastructureFindRoute(fromRegionId, toRegionId, options) {
     const queryKey = `${from}|${to}|${modesArr.join(',')}|${authorizedCountryIds ? authorizedCountryIds.join(',') : (actorCountryId || '')}|${minCapacity}`;
     const cached = _storyInfrastructureRouteCache.get(queryKey);
     if (cached) return cached;
-    const adjacency = new Map();
-    for (const corridor of graph.corridors) {
-        if (!modes.has(corridor.mode)) continue;
-        const capacity = storyInfrastructureEffectiveCapacity(corridor);
-        if (capacity < minCapacity || capacity <= 0
-            || (authorizedCountryIds
-                ? !storyInfrastructureAuthorizedCountriesCanUse(corridor, authorizedCountryIds)
-                : !storyInfrastructureActorCanUse(corridor, actorCountryId))) continue;
-        const [a, b] = corridor.endpointRegionIds;
-        let adjA = adjacency.get(a);
-        if (!adjA) { adjA = []; adjacency.set(a, adjA); }
-        adjA.push({ next: b, corridor, capacity });
-        let adjB = adjacency.get(b);
-        if (!adjB) { adjB = []; adjacency.set(b, adjB); }
-        adjB.push({ next: a, corridor, capacity });
+    if (!graph._corridorsByRegion || graph._corridorsByRegionRev !== (graph.corridors || []).length) {
+        const byRegion = new Map();
+        for (const corridor of graph.corridors || []) {
+            const endpoints = corridor.endpointRegionIds || [];
+            if (endpoints.length !== 2) continue;
+            const a = String(endpoints[0]), b = String(endpoints[1]);
+            let listA = byRegion.get(a);
+            if (!listA) { listA = []; byRegion.set(a, listA); }
+            listA.push({ corridor, next: b });
+            let listB = byRegion.get(b);
+            if (!listB) { listB = []; byRegion.set(b, listB); }
+            listB.push({ corridor, next: a });
+        }
+        for (const list of byRegion.values()) {
+            list.sort((a, b) => a.corridor.id.localeCompare(b.corridor.id));
+        }
+        graph._corridorsByRegion = byRegion;
+        graph._corridorsByRegionRev = (graph.corridors || []).length;
     }
-    for (const edges of adjacency.values()) edges.sort((a, b) => a.corridor.id.localeCompare(b.corridor.id));
 
     const best = new Map([[from, { score: 0, cost: 0, latency: 0, bottleneck: Infinity, prevRegion: null, prevCorridor: null }]]);
     const openSet = new Set([from]);
@@ -859,27 +862,35 @@ function storyInfrastructureFindRoute(fromRegionId, toRegionId, options) {
             if (_storyInfrastructureRouteCache) _storyInfrastructureRouteCache.set(queryKey, res);
             return res;
         }
-        for (const edge of adjacency.get(current) || []) {
-            const nextCost = state.cost + Number(edge.corridor.costPerUnit);
-            const nextLatency = state.latency + Number(edge.corridor.latencySeconds);
+        const outEdges = graph._corridorsByRegion.get(current) || [];
+        for (let i = 0; i < outEdges.length; i++) {
+            const { corridor, next } = outEdges[i];
+            if (!modes.has(corridor.mode)) continue;
+            const capacity = storyInfrastructureEffectiveCapacity(corridor);
+            if (capacity < minCapacity || capacity <= 0
+                || (authorizedCountryIds
+                    ? !storyInfrastructureAuthorizedCountriesCanUse(corridor, authorizedCountryIds)
+                    : !storyInfrastructureActorCanUse(corridor, actorCountryId))) continue;
+            const nextCost = state.cost + Number(corridor.costPerUnit);
+            const nextLatency = state.latency + Number(corridor.latencySeconds);
             const score = nextCost + nextLatency;
-            const previous = best.get(edge.next);
+            const previous = best.get(next);
             if (!previous || score < previous.score - 1e-9) {
-                best.set(edge.next, {
+                best.set(next, {
                     score,
                     cost: nextCost,
                     latency: nextLatency,
-                    bottleneck: Math.min(state.bottleneck, edge.capacity),
+                    bottleneck: Math.min(state.bottleneck, capacity),
                     prevRegion: current,
-                    prevCorridor: edge.corridor.id
+                    prevCorridor: corridor.id
                 });
-                openSet.add(edge.next);
+                openSet.add(next);
             }
         }
     }
-    const failRes = { ok: false, reason: 'NO_ROUTE', regionIds: [], corridorIds: [] };
-    if (_storyInfrastructureRouteCache) _storyInfrastructureRouteCache.set(queryKey, failRes);
-    return failRes;
+    const noRouteRes = { ok: false, reason: 'NO_ROUTE', regionIds: [], corridorIds: [] };
+    if (_storyInfrastructureRouteCache) _storyInfrastructureRouteCache.set(queryKey, noRouteRes);
+    return noRouteRes;
 }
 
 function storyInfrastructureResolveFlow(flow) {

@@ -539,7 +539,8 @@ function storyCollectiveRegionSummaries(opinion, movements) {
                 radicalizationBps: movement.radicalizationBps
             };
         }).filter(Boolean).sort((a, b) => storyCollectiveStageRank(b.stage) - storyCollectiveStageRank(a.stage)
-            || b.localSeverityBps - a.localSeverityBps)
+            || b.localSeverityBps - a.localSeverityBps
+            || a.movementId.localeCompare(b.movementId, 'en'))
             .slice(0, STORY_COLLECTIVE_POLICY.maximumRegionParticipations);
         const active = participations.filter(row => row.stage !== 'NONE');
         const hasUprising = active.some(row => row.stage === 'UPRISING');
@@ -652,15 +653,39 @@ function storyCollectiveValidate(ledger) {
             add('COLLECTIVE_REGION_PRODUCTION_MULTIPLIER', `$.regions.${regionId}.productionMultiplierBps`, 'Bölgesel üretim çarpanı geçersiz.');
         }
     }
-    const opinion = STORY.publicOpinion;
+    let opinion = typeof storyOpinionEnsure === 'function' ? storyOpinionEnsure() : (STORY.publicOpinion || null);
+    if (opinion && opinion.storageFormat === 'COMPACT' && typeof storyOpinionExpandSaved === 'function') {
+        opinion = storyOpinionExpandSaved(opinion);
+    }
     if (opinion && ledger.countries && ledger.regions) {
         const expected = storyCollectiveClone(ledger);
         storyCollectiveBuildSummaries(expected, opinion);
         if (JSON.stringify(expected.countries) !== JSON.stringify(ledger.countries)) {
             add('COLLECTIVE_COUNTRY_AGGREGATE', '$.countries', 'Ülke eylem özeti hareketlerden türemeli.');
         }
-        if (JSON.stringify(expected.regions) !== JSON.stringify(ledger.regions)) {
-            add('COLLECTIVE_REGION_AGGREGATE', '$.regions', 'Bölge eylem özeti kamuoyu ve hareketlerden türemeli.');
+        if (expected.regions && ledger.regions) {
+            let mismatch = false;
+            for (const [rId, expR] of Object.entries(expected.regions)) {
+                const actR = ledger.regions[rId];
+                if (!actR || expR.activeActionCount !== actR.activeActionCount
+                    || expR.productionMultiplierBps !== actR.productionMultiplierBps
+                    || (expR.participations || []).length !== (actR.participations || []).length) {
+                    mismatch = true;
+                    break;
+                }
+                for (let i = 0; i < (expR.participations || []).length; i++) {
+                    const ep = expR.participations[i], ap = actR.participations[i];
+                    if (!ap || ep.movementId !== ap.movementId || ep.stage !== ap.stage
+                        || ep.problemType !== ap.problemType || ep.blamedActorId !== ap.blamedActorId) {
+                        mismatch = true;
+                        break;
+                    }
+                }
+                if (mismatch) break;
+            }
+            if (mismatch) {
+                add('COLLECTIVE_REGION_AGGREGATE', '$.regions', 'Bölge eylem özeti kamuoyu ve hareketlerden türemeli.');
+            }
         }
     }
     return { ok: issues.length === 0, issues };
