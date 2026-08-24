@@ -2309,24 +2309,47 @@ function storyInit() {
                 }
             }
             dragging = false; cv.style.cursor = 'grab';
-            if (wasDragging) scheduleMapRender();
+            if (wasDragging) {
+                STORY._mapInteracting = false;
+                scheduleMapRender();
+            }
         });
-        cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
-            if (dragging) return;
-            const point = storyRegionCanvasPointFromEvent(cv, e);
-            const w = worldFromEvent(e);
+        let hoverFrame = 0;
+        let lastHoverPoint = null;
+        const processHover = () => {
+            hoverFrame = 0;
+            if (!lastHoverPoint || dragging) return;
+            const pt = lastHoverPoint;
+            const w = storyS2W(pt.mx, pt.my);
             if (typeof storyHexPoliticalCellAtWorld === 'function') {
                 const cell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
                 STORY._hoverHexCellId = cell ? cell.id : null;
             }
-            const structureEntity = storyRegionEntityAtCanvasPoint(point.x, point.y);
+            const structureEntity = storyRegionEntityAtCanvasPoint(pt.cx, pt.cy);
             const regionEntity = structureEntity || storyRegionEntityAtWorld(w.x, w.y);
             cv.style.cursor = STORY._hexConstructionPickMode
                 && STORY._hexConstructionDraft
                 && STORY._hexConstructionDraft.candidateCellIds.includes(STORY._hoverHexCellId)
                 ? 'crosshair' : (pickNode(w.x, w.y) >= 0 || regionEntity ? 'pointer' : 'grab');
+        };
+        cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
+            if (dragging) return;
+            const rect = cv.getBoundingClientRect();
+            const sc = cv.width / rect.width, scy = cv.height / rect.height;
+            lastHoverPoint = {
+                mx: (e.clientX - rect.left) * sc,
+                my: (e.clientY - rect.top) * scy,
+                cx: e.clientX - rect.left,
+                cy: e.clientY - rect.top
+            };
+            if (!hoverFrame) {
+                hoverFrame = requestAnimationFrame(processHover);
+            }
         });
-        cv.addEventListener('mouseleave', () => { STORY._hoverHexCellId = null; });
+        cv.addEventListener('mouseleave', () => {
+            STORY._hoverHexCellId = null;
+            if (hoverFrame) { cancelAnimationFrame(hoverFrame); hoverFrame = 0; }
+        });
         // ZOOM: fare tekerleği (imlecin altındaki dünya-noktası sabit kalır)
         cv.addEventListener('wheel', (e) => {
             e.preventDefault();

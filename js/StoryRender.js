@@ -2432,6 +2432,7 @@ function storyDrawNetworkLayer(ctx, farMap) {
         screen.view = storyScreenLayerViewSnapshot();
         screen.builds++;
         if (typeof createImageBitmap === 'function'
+            && !STORY._mapInteracting
             && screen.bitmapPromiseKey !== exactKey) {
             screen.bitmapPromiseKey = exactKey;
             createImageBitmap(screen.canvas).then(bitmap => {
@@ -2499,29 +2500,28 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     if (typeof storyTransportRenderSnapshot !== 'function'
         || typeof storyHexWorldEnsure !== 'function') return null;
     const world = storyHexWorldEnsure();
-    const materialized = mapZoomRatio >= 1.35;
+    const materialized = true;
     const renderNow = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
     const snapshotKey = [
-        materialized ? 'MATERIALIZED' : 'AGGREGATED',
+        'MATERIALIZED',
         STORY.trade && STORY.trade.tickSequence || 0,
         STORY.characterTravel && STORY.characterTravel.revision || 0
     ].join('|');
     let snapshotCache = STORY._transportSnapshotCache;
     const snapshotReused = !!(snapshotCache && snapshotCache.key === snapshotKey);
     if (!snapshotReused) {
-        const sameMode = snapshotCache && snapshotCache.mode === (materialized
-            ? 'MATERIALIZED' : 'AGGREGATED');
+        const sameMode = snapshotCache && snapshotCache.mode === 'MATERIALIZED';
         const elapsedMs = sameMode ? renderNow - Number(snapshotCache.builtAt || renderNow) : 0;
         snapshotCache = STORY._transportSnapshotCache = {
             key: snapshotKey,
-            mode: materialized ? 'MATERIALIZED' : 'AGGREGATED',
+            mode: 'MATERIALIZED',
             builtAt: renderNow,
             transitionMs: Math.max(80, Math.min(4200, elapsedMs || 250)),
             snapshot: storyTransportRenderSnapshot({
                 world,
                 zoomRatio: mapZoomRatio,
-                materializeZoomRatio: 1.35
+                materializeZoomRatio: 0.05
             })
         };
     }
@@ -2538,7 +2538,8 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     const presentationSamples = [];
     const stateCounts = Object.create(null);
     let longestQueue = 0;
-    const slotSize = snapshot.mode === 'MATERIALIZED' ? 62 : 44;
+    const lodScale = Math.min(1.0, Math.max(0.4, Number(mapZoomRatio || 1) * 0.45));
+    const slotSize = Math.max(10, Math.round(20 * lodScale));
     const visualSlots = new Set();
     let densityCulled = 0;
     const displayAgents = snapshot.displayAgents || snapshot.agents;
@@ -2584,18 +2585,19 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         stateCounts[agent.state] = (stateCounts[agent.state] || 0) + representedCount;
         longestQueue = Math.max(longestQueue,
             Number(agent.terminalQueuePosition) || 0);
-        const near = snapshot.mode === 'MATERIALIZED';
-        const size = near ? (agent.vehicleClass === 'CARGO_SHIP' ? 19 : 15) : 8;
+        const near = mapZoomRatio >= 0.8;
+        const size = Math.max(7, Math.round((agent.vehicleClass === 'CARGO_SHIP' ? 18 : 14) * lodScale));
         const visual = typeof storyVisualTransportAsset === 'function'
             ? storyVisualTransportAsset(agent.vehicleClass, STORY.year, agent) : null;
-        const spriteSize = agent.vehicleClass === 'CARGO_SHIP' ? [58, 39]
+        const baseSpriteSize = agent.vehicleClass === 'CARGO_SHIP' ? [58, 39]
             : agent.vehicleClass === 'FREIGHT_TRAIN' ? [64, 36] : [46, 31];
+        const spriteSize = [Math.max(16, Math.round(baseSpriteSize[0] * lodScale)), Math.max(10, Math.round(baseSpriteSize[1] * lodScale))];
         // Tek raster sprite gerçek zamanlı döndürülmez: rotasyon her karede
         // yeniden örnekleme ve GPU upload maliyeti yaratıp resmi bozuyordu.
         // Yatay ayna piksel ızgarasını korur ve ters yöndeki aracı doğru çevirir.
         const flipSprite = !!(visual && visual.mirrorForReverse
             && Math.cos(Number(agent.angle) || 0) < 0);
-        const drewSprite = !!(near && visual && visual.ok
+        const drewSprite = !!(visual && visual.ok
             && storyDrawAtlasCell(ctx, visual.atlasKey, visual.atlasCell,
                 p.x, p.y + spriteSize[1] / 2, spriteSize[0], spriteSize[1], 1,
                 0, flipSprite));
@@ -3657,12 +3659,15 @@ function storyRender() {
         g, settlementWorldLayers, mapZoomRatio
     );
     storyDrawPhysicalConstructionSites(g, physicalSitesModel, mapZoomRatio);
-    storyMapStructurePickRegistryRefresh(urbanModel, physicalSitesModel, mapZoomRatio);
+    if (!STORY._mapInteracting) {
+        storyMapStructurePickRegistryRefresh(urbanModel, physicalSitesModel, mapZoomRatio);
+    }
     const settlementWorldDrawFinished = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
     const settlementOverlayStarted = settlementWorldDrawFinished;
 
     // DÜĞÜMLER
+    const _labelWidthCache = STORY._labelWidthCache || (STORY._labelWidthCache = new Map());
     for (const n of STORY.nodes) {
         const cachedWorldPosition = activeSettlementWorldLayer
             && activeSettlementWorldLayer.layer.worldPositions[n.id];
@@ -3776,10 +3781,17 @@ function storyRender() {
             || (settlement && settlement.size >= 26)
             || isSelected || attackable || moveable;
         if (!cityHidden && labelEligible) {
-            const label = String(n.name || '').toLocaleUpperCase('tr-TR');
+            const label = n._upperName || (n._upperName = String(n.name || '').toLocaleUpperCase('tr-TR'));
             const labelSize = storyMapLabelFontSize(n, farMap, w, h);
+            const cacheKey = label + ':' + labelSize;
+            let tw = _labelWidthCache.get(cacheKey);
+            if (tw == null) {
+                settlementG.font = `bold ${labelSize}px monospace`;
+                tw = Math.ceil(settlementG.measureText(label).width);
+                _labelWidthCache.set(cacheKey, tw);
+            }
             settlementG.font = `bold ${labelSize}px monospace`; settlementG.textAlign = 'left'; settlementG.textBaseline = 'middle';
-            const tw = Math.ceil(settlementG.measureText(label).width), lh = labelSize + 3;
+            const lh = labelSize + 3;
             const spriteFoot = settlement ? Math.round(settlement.size * .30) : sq;
             const bx = px - Math.round(tw / 2) - 3, by = py + spriteFoot + 4;
             const box = { x: bx, y: by, w: tw + 6, h: lh };

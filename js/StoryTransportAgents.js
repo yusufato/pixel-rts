@@ -716,7 +716,7 @@ function storyTransportRenderSnapshot(options) {
     const world = opts.world || (typeof storyHexWorldEnsure === 'function'
         ? storyHexWorldEnsure() : null);
     const materialized = Math.max(0, Number(opts.zoomRatio) || 0)
-        >= Math.max(0.1, Number(opts.materializeZoomRatio) || 1.35);
+        >= Math.max(0.01, Number(opts.materializeZoomRatio == null ? 1.35 : opts.materializeZoomRatio));
     const projections = [];
     for (const shipment of (ledger && ledger.shipments) || []) {
         if (!['IN_TRANSIT', 'HELD'].includes(shipment.status)

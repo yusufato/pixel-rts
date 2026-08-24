@@ -1658,7 +1658,7 @@ function storyAdvanceStep(dtSec) {
     if (_econMacroDt > 0 && typeof storyEconomyTick === 'function') storyEconomyTick(_econMacroDt); // AŞAMA 3 makroekonomi
     const _econRegionalDt = _storyDue('economy-regional', '_accEconRegional', 4);
     if (_econRegionalDt > 0 && typeof storyRegionalEconomyTick === 'function') storyRegionalEconomyTick(_econRegionalDt); // Faz 17 kanonik bölgesel ekonomi
-    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 4);
+    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 0.5);
     if (_econTradeDt > 0 && typeof storyTradeLogisticsTick === 'function') storyTradeLogisticsTick(_econTradeDt); // Faz 18 fiziksel ticaret/lojistik
     const _econPriceDt = _storyDue('economy-market-price', '_accEconPrice', 4);
     if (_econPriceDt > 0 && typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_econPriceDt); // Faz 19 bölgesel piyasa/fiyat

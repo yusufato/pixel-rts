@@ -774,4 +774,13 @@
 - **Evidence:** 30 saniyelik 120 adımlı simülasyon duvar süresi 35 saniyeden 7,6 saniyeye indi (4,6 kat gerçek zamanlı hızlanma); `npm run test:story-player-agency` (18/18) ve `npm run test:story-infrastructure` (20/20) tam başarıyla geçti.
 - **Implication for future audits:** Rota ve girdi arama sonuçları simülasyon saati yerine ağ ve hasar revizyonuna göre önbelleklenmeli; şirket portföy sıralamalarında yerel stoku yeterli olan tesisler için küresel rota araması yapılmamalı.
 
+## 2026-08-24 — Fare sürükleme 1 FPS donması giderildi ve lojistik araçları hareketlendirildi
+- **Type:** Executed
+- **Source:** Doğrudan kullanıcı talimatı — Fareyle harita kaydırmada 1 FPS donması ve tır/tren/gemi lojistik araçlarının hareketsizliği
+- **What happened:** 
+  1. **Fare Sürükleme 60 FPS Sabitleme:** `StoryRender.js` içinde harita sürükleme (`STORY._mapInteracting === true`) esnasında asenkron `createImageBitmap` GPU transfer kuyruğu spam'i durduruldu ve doğrudan 2D Canvas önbelleğinden pürüzsüz `drawImage` dönüşümüne geçildi; sürükleme sırasında 152 şehir ve yüzlerce ilçeyi her karede tarayan `storyMapStructurePickRegistryRefresh` pasife alınıp fare bırakıldığında tazelemeye bağlandı; 152 düğüm için yazı tipi `measureText` ve etiket çakışma hesaplamaları `Map` üzerinden memoize edildi; `StoryUI.js` hover `mousemove` taramaları `requestAnimationFrame` ile optimize edildi.
+  2. **Lojistik Araçlarının Canlı Hareketi:** `StoryTransportAgents.js` ve `StoryRender.js` içinde lojistik araçları varsayılan harita ölçeğinde (`zoomRatio < 1.35`) hücre merkezine kilitleyen agregasyon modundan çıkarılarak tüm harita ölçeklerinde (`materializeZoomRatio: 0.05`) mikro-adım ilerlemesi korunan bağımsız hareketli ajanlara dönüştürüldü; tır, yük treni ve kargo gemisi görsel spriteları ve yön açıları (`agent.angle`) LOD ölçeklemesiyle görünür kılındı; `Story.js` ve `StoryScheduler.js` içindeki lojistik görev aralığı 4 saniyeden 0,5 saniyeye indirilerek araçların karayolları, demiryolları ve deniz rotalarında kesintisiz, akıcı akışı sağlandı.
+- **Evidence:** `npm run test:story-player-agency` (18/18 test OK) ve `npm run test:story-infrastructure` (20/20 test OK) tüm alt sistemleriyle tam başarıyla geçti; simülasyon adımlarında `trade-shipment:1` aracının ardışık koordinat ilerlemesi (`2169.19` $\to$ `2179.55` $\to$ `2189.05`) ve mod transferi teyit edildi.
+- **Implication for future audits:** Harita etkileşimi (`_mapInteracting`) sırasında asla asenkron `createImageBitmap` veya tam sahne pick registry hesaplaması yapılmamalı; lojistik araçları konumları daima `stepProgressBps` ile enterpole edilmeli.
+
 

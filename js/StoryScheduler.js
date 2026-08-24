@@ -16,7 +16,7 @@ const STORY_SCHEDULER_TASKS = Object.freeze([
     Object.freeze({ id: 'economy', intervalSeconds: 4, phaseOffsetSeconds: 0.0 }),
     Object.freeze({ id: 'economy-macro', intervalSeconds: 4, phaseOffsetSeconds: 0.0 }),
     Object.freeze({ id: 'economy-regional', intervalSeconds: 4, phaseOffsetSeconds: 0.25 }),
-    Object.freeze({ id: 'economy-trade-logistics', intervalSeconds: 4, phaseOffsetSeconds: 0.5 }),
+    Object.freeze({ id: 'economy-trade-logistics', intervalSeconds: 0.5, phaseOffsetSeconds: 0.0 }),
     Object.freeze({ id: 'economy-market-price', intervalSeconds: 4, phaseOffsetSeconds: 0.75 }),
     Object.freeze({ id: 'economy-budget', intervalSeconds: 4, phaseOffsetSeconds: 1.0 }),
     Object.freeze({ id: 'economy-company', intervalSeconds: 4, phaseOffsetSeconds: 1.25 }),
