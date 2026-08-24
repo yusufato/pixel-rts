@@ -39,7 +39,7 @@ function storyTransportContinuousAdvance(dtSec) {
     const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
     if (!ledger || !Array.isArray(ledger.shipments)) return;
     for (const shipment of ledger.shipments) {
-        if (shipment.status === 'IN_TRANSIT' && shipment.transportAgent && shipment.transportAgent.state === 'MOVING') {
+        if (['IN_TRANSIT', 'HELD'].includes(shipment.status) && shipment.transportAgent) {
             storyTransportAdvanceShipment(shipment, effectiveDt);
         }
     }

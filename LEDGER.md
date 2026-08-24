@@ -1,3 +1,20 @@
+## 2026-08-24 — Kesintisiz 60 FPS Faz Kaydırma (Staggering), Önbellekli Enerji Analizi ve Işınlanmasız Araç Döngüsü
+- **Type:** Executed
+- **Source:** User directive & 60-Second In-Depth Gameplay Profiler (Eliminating 500ms freeze spikes & vehicle popping/teleporting)
+- **What happened:**
+  1. *Simülasyon Görevleri Faz Kaydırma (Phase Staggering):* `StoryScheduler.js` içerisine `STORY_SCHEDULER_HEAVY_TASK_IDS` throttling eklenerek tek bir karede 8 ağır görevin aynı anda çalışıp 535 ms kilitlenme yaratması engellendi; her karede en fazla 1 ağır görev tüketilecek şekilde sıralandı.
+  2. *Bölgesel Enerji/Şirket Üretim Analizi Optimizasyonu:* `StoryCompanies.js` (`storyCompanyProductionViability`) içindeki her bölge için tüm haritayı tarayan $O(N^2)$ döngü tek geçişli memoize haritaya çevrilerek 46.208 döngü geçişi kaldırıldı.
+  3. *Ticari Talep Sıralama Optimizasyonu:* `StoryCommerce.js` (`storyCommerceInventoryPlan`) içinde tekil lotlar için gereksiz `Array.sort()` ve nesne kopyalama döngüleri atlandı.
+  4. *Kusursuz Araç Yaşam Döngüsü ve Işınlanma/Boşluktan Çıkma Tamiri:*
+     - `StoryTransportAgents.js`: `storyTransportContinuousAdvance` artık `MOVING` haricinde `LOADING`, `TRANSFERRING`, `UNLOADING` ve `QUEUED` aşamalarını da 60 Hz'de pürüzsüz ilerletiyor.
+     - `StoryTrade.js`: Canlı tarayıcı modunda fiziksel sevkiyatların makro 2 saniyelik çift zaman atlaması kaldırıldı.
+     - `StoryRender.js`: Araçlar birbirine yaklaştığında birinin silinip geri gelmesine yol açan agresif ekran slotu süzgeci normal yakınlaştırma modunda kaldırıldı ve 250 ms gecikmeli iz kayması yerine doğrudan 60 Hz akıcı koordinat çizimine bağlandı.
+- **Evidence:**
+  - `test_teleports_interleaved.js`: 300 karelik simülasyon ve makro lojistik adımlarında **0 ışınlanma ve 0 zıplama**.
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** Canlı render'da asla fiziksel araçlara makro dt sıçraması uygulama; simülasyon görevlerini her zaman faz kaydırma ile farklı alt-adımlara dağıt.
+
 ## 2026-08-24 — Sevkiyat Sayısı Konsolidasyonu ve Anlamlı Kargo Partileri
 - **Type:** Executed
 - **Source:** User directive (sevkiyat sayısını azaltma ve kargo birleştirme)

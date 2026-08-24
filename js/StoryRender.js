@@ -2559,31 +2559,23 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
             }
         }
         seenTrackIds.add(trackId);
-        const presentation = typeof storyTransportPresentationResolve === 'function'
-            ? storyTransportPresentationResolve(
-                tracks.get(trackId), agent, renderNow, transitionMs)
-            : { track: null, x: agent.x, y: agent.y, active: false, targetChanged: false };
-        if (presentation.track) tracks.set(trackId, presentation.track);
-        if (presentation.active) interpolated++;
-        if (presentation.targetChanged) targetChanges++;
-        const p = storyW2S(presentation.x * worldScaleX, presentation.y * worldScaleY);
-        if (presentationSamples.length < 8) presentationSamples.push({
-            id: trackId,
-            x: storyTransportRound(presentation.x, 4),
-            y: storyTransportRound(presentation.y, 4),
-            targetX: storyTransportRound(agent.x, 4),
-            targetY: storyTransportRound(agent.y, 4),
-            active: !!presentation.active
-        });
+        const isContinuous = typeof storyTransportContinuousAdvance === 'function' && STORY._lastFrameT;
+        const posX = isContinuous ? agent.x : (typeof storyTransportPresentationResolve === 'function'
+            ? storyTransportPresentationResolve(tracks.get(trackId), agent, renderNow, transitionMs).x : agent.x);
+        const posY = isContinuous ? agent.y : (typeof storyTransportPresentationResolve === 'function'
+            ? storyTransportPresentationResolve(tracks.get(trackId), agent, renderNow, transitionMs).y : agent.y);
+        const p = storyW2S(posX * worldScaleX, posY * worldScaleY);
         if (p.x < -40 || p.x > STORY._cw + 40 || p.y < -40 || p.y > STORY._ch + 40) continue;
-        const slotKey = typeof storyTransportScreenSlotKey === 'function'
-            ? storyTransportScreenSlotKey(p.x, p.y, slotSize)
-            : ((Math.floor(p.x / slotSize) * 10000 + Math.floor(p.y / slotSize)) | 0);
-        if (visualSlots.has(slotKey)) {
-            densityCulled++;
-            continue;
+        if (mapZoomRatio < 0.15) {
+            const slotKey = typeof storyTransportScreenSlotKey === 'function'
+                ? storyTransportScreenSlotKey(p.x, p.y, slotSize)
+                : ((Math.floor(p.x / slotSize) * 10000 + Math.floor(p.y / slotSize)) | 0);
+            if (visualSlots.has(slotKey)) {
+                densityCulled++;
+                continue;
+            }
+            visualSlots.add(slotKey);
         }
-        visualSlots.add(slotKey);
         visible++;
         const representedCount = Math.max(1,
             Number(agent.shipmentCount || 0) + Number(agent.journeyCount || 0));

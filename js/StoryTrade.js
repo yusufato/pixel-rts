@@ -3380,7 +3380,7 @@ function storyTradeLogisticsTick(dtSec, options) {
     const liveBrowserContinuous = typeof STORY !== 'undefined' && STORY._lastFrameT && typeof storyTransportContinuousAdvance === 'function';
     for (const shipment of ledger.shipments) {
         if (!['IN_TRANSIT', 'HELD'].includes(shipment.status)) continue;
-        if (liveBrowserContinuous && shipment.status === 'IN_TRANSIT' && shipment.transportAgent && shipment.transportAgent.state === 'MOVING') {
+        if (liveBrowserContinuous && ['IN_TRANSIT', 'HELD'].includes(shipment.status) && shipment.transportAgent) {
             advanced++;
             continue;
         }

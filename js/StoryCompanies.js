@@ -693,21 +693,32 @@ function storyCompanyProductionViability(regionId, sectorId) {
         : []).find(row => row.id === sectorId);
     if (!company || !sector) return { approved: false, code: 'PRODUCTION_ACTOR_MISSING' };
     if (['advanced_tech', 'defense_industry'].includes(sectorId)) {
-        let requestedEnergy = 0;
-        let deliveredEnergy = 0;
-        for (const node of (STORY.nodes || [])) {
-            if (`country:${Number(node.owner)}` !== company.countryId) continue;
-            const regional = STORY.regionalEconomy && STORY.regionalEconomy.regions
-                && STORY.regionalEconomy.regions[`region:${Number(node.id)}`];
-            for (const allocation of (regional && regional.lastTick && regional.lastTick.allocations) || []) {
-                if (allocation.consumerType !== 'HOUSEHOLDS' || allocation.resourceId !== 'energy') continue;
-                requestedEnergy += Math.max(0, Number(allocation.requested) || 0);
-                deliveredEnergy += Math.max(0, Number(allocation.delivered) || 0);
+        const regionalLedger = STORY.regionalEconomy;
+        const tickSeq = regionalLedger ? Number(regionalLedger.tickSequence) || 0 : 0;
+        let householdEnergyFillBps = 10000;
+        if (regionalLedger) {
+            if (!regionalLedger._countryEnergyFillCache || regionalLedger._countryEnergyFillCacheSeq !== tickSeq) {
+                const reqMap = {};
+                const delMap = {};
+                for (const node of (STORY.nodes || [])) {
+                    const cId = `country:${Number(node.owner)}`;
+                    const reg = regionalLedger.regions && regionalLedger.regions[`region:${Number(node.id)}`];
+                    for (const allocation of (reg && reg.lastTick && reg.lastTick.allocations) || []) {
+                        if (allocation.consumerType !== 'HOUSEHOLDS' || allocation.resourceId !== 'energy') continue;
+                        reqMap[cId] = (reqMap[cId] || 0) + Math.max(0, Number(allocation.requested) || 0);
+                        delMap[cId] = (delMap[cId] || 0) + Math.max(0, Number(allocation.delivered) || 0);
+                    }
+                }
+                regionalLedger._countryEnergyFillCache = new Map();
+                for (const cId in reqMap) {
+                    const req = reqMap[cId] || 0;
+                    const del = delMap[cId] || 0;
+                    regionalLedger._countryEnergyFillCache.set(cId, req > 0 ? Math.round(Math.max(0, Math.min(1, del / req)) * 10000) : 10000);
+                }
+                regionalLedger._countryEnergyFillCacheSeq = tickSeq;
             }
+            householdEnergyFillBps = regionalLedger._countryEnergyFillCache.get(company.countryId) ?? 10000;
         }
-        const householdEnergyFillBps = requestedEnergy > 0
-            ? Math.round(Math.max(0, Math.min(1, deliveredEnergy / requestedEnergy)) * 10000)
-            : 10000;
         const countryNumber = Number(String(company.countryId).split(':')[1]);
         const atWar = Number.isInteger(countryNumber) && (STORY.states || []).some(state => (
             state.id !== countryNumber

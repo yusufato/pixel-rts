@@ -210,11 +210,9 @@ function storyCommerceInventoryPlan(regionId, resourceId, quantity, preferredOwn
     const wanted = storyCommerceRound(Math.max(0, Number(quantity) || 0));
     if (!commerce || wanted <= 0) return { ok: false, code: 'COMMERCE_DISABLED', slices: [] };
     const rawLots = storyCommerceGetInventoryBucket(commerce, regionId, resourceId);
-    const lots = rawLots
-        .filter(lot => (!requiredOwnerId || lot.ownerId === String(requiredOwnerId))
-            && Number(lot.quantity) > 1e-8)
-        .slice()
-        .sort((a, b) => {
+    let lots = rawLots.filter(lot => (!requiredOwnerId || lot.ownerId === String(requiredOwnerId)) && Number(lot.quantity) > 1e-8);
+    if (lots.length > 1) {
+        lots = lots.slice().sort((a, b) => {
             const rank = lot => lot.ownerId === preferredOwnerId
                 ? 0
                 : (companyFirst
@@ -222,6 +220,7 @@ function storyCommerceInventoryPlan(regionId, resourceId, quantity, preferredOwn
                     : (lot.ownerType === 'MARKET_CLEARING' ? 1 : 2));
             return rank(a) - rank(b) || a.createdAt - b.createdAt || a.id.localeCompare(b.id);
         });
+    }
     let remaining = wanted;
     const slices = [];
     for (const lot of lots) {

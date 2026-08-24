@@ -172,9 +172,17 @@ function storySchedulerRestore(saved) {
     return storySchedulerSnapshot();
 }
 
-// Bir dünya adımının başında tam bir kez çağrılır. Sonuç nesnesinin anahtar
-// ekleme sırası görev sicili sırasıdır; aynı anda vadesi gelen görevler daima
-// aynı sırayla tüketilir.
+const STORY_SCHEDULER_HEAVY_TASK_IDS = new Set([
+    'economy-regional',
+    'economy-trade-logistics',
+    'population-needs',
+    'population',
+    'power-centers',
+    'human-migration',
+    'political-crisis',
+    'character-actions'
+]);
+
 function storySchedulerBeginStep(dtSec) {
     const dt = Number(dtSec);
     if (!Number.isFinite(dt) || dt <= 0) return {};
@@ -182,11 +190,21 @@ function storySchedulerBeginStep(dtSec) {
     state.sequence++;
     state.processedSeconds = storySchedulerRound(state.processedSeconds + dt);
     const due = {};
+    let heavyDueCount = 0;
 
     for (const spec of STORY_SCHEDULER_TASKS) {
         const task = state.tasks[spec.id];
         task.elapsedSeconds = storySchedulerRound(task.elapsedSeconds + dt);
         if (task.elapsedSeconds + STORY_SCHEDULER_EPSILON_SECONDS < spec.intervalSeconds) continue;
+
+        // Canlı karelerde aynı anda birden fazla ağır görev çalıştırıp 500 ms kilitlenme
+        // yaratmamak için kare başına en fazla 1 ağır görev tüketilir, diğeri bir sonraki adıma ertelenir.
+        const isHeavy = STORY_SCHEDULER_HEAVY_TASK_IDS.has(spec.id);
+        if (isHeavy && heavyDueCount >= 1) {
+            task.elapsedSeconds = spec.intervalSeconds;
+            continue;
+        }
+        if (isHeavy) heavyDueCount++;
 
         // Eski motor da büyük bir dt geldiğinde görevi bir kez çalıştırıp sayacı
         // sıfırlıyordu. A/B eşitliği için burada catch-up patlaması yapılmaz.
