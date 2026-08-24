@@ -2529,7 +2529,19 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     let densityCulled = 0;
     const displayAgents = snapshot.displayAgents || snapshot.agents;
     const _agentTrackCache = STORY._agentTrackCache || (STORY._agentTrackCache = new WeakMap());
+    const camZoom = typeof storyCam !== 'undefined' && storyCam && storyCam.zoom ? storyCam.zoom : 1;
+    const camX = typeof storyCam !== 'undefined' && storyCam && storyCam.x ? storyCam.x : 0;
+    const camY = typeof storyCam !== 'undefined' && storyCam && storyCam.y ? storyCam.y : 0;
+    const halfW = (STORY._cw / 2) / camZoom + 100;
+    const halfH = (STORY._ch / 2) / camZoom + 100;
+    const minWorldX = camX - halfW;
+    const maxWorldX = camX + halfW;
+    const minWorldY = camY - halfH;
+    const maxWorldY = camY + halfH;
     for (const agent of displayAgents) {
+        const wx = agent.x * worldScaleX;
+        const wy = agent.y * worldScaleY;
+        if (wx < minWorldX || wx > maxWorldX || wy < minWorldY || wy > maxWorldY) continue;
         let trackId = agent.presentationTrackId;
         if (!trackId) {
             trackId = _agentTrackCache.get(agent);

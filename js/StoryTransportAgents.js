@@ -34,7 +34,7 @@ function storyTransportContinuousAdvance(dtSec) {
     if (typeof STORY === 'undefined' || STORY.paused) return;
     const dt = Number(dtSec);
     if (!Number.isFinite(dt) || dt <= 0 || dt > 0.5) return;
-    const speedMultiplier = Math.max(0.1, Math.min(3.0, Number(STORY.speed || 1))) * 0.25;
+    const speedMultiplier = Math.max(0.1, Math.min(3.0, Number(STORY.speed || 1))) * 0.05;
     const effectiveDt = dt * speedMultiplier;
     const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
     if (!ledger || !Array.isArray(ledger.shipments)) return;
@@ -708,19 +708,13 @@ function storyCharacterTravelProjection(journey, world) {
 function storyTransportPrepareRenderSnapshot(snapshot) {
     const view = snapshot || { agents: [] };
     if (Array.isArray(view.displayAgents)) return view;
-    const priority = row => row.journeyId ? 3
-        : row.state !== 'MOVING' ? 2 : row.aggregate ? 1 : 0;
-    view.displayAgents = (view.agents || []).map(agent => {
-        const representedIds = (agent.shipmentIds || [])
-            .concat(agent.journeyIds || []).sort().join(',');
-        agent.presentationTrackId = agent.aggregate
-            ? `aggregate:${agent.vehicleClass}:${representedIds || agent.currentCellIndex}`
-            : String(agent.authorityType || 'TRANSPORT') + ':'
-                + String(agent.authorityId || agent.agentId);
-        agent.presentationPriority = priority(agent);
-        return agent;
-    }).sort((a, b) => b.presentationPriority - a.presentationPriority
-        || String(a.presentationTrackId).localeCompare(String(b.presentationTrackId)));
+    view.displayAgents = view.agents || [];
+    for (let i = 0; i < view.displayAgents.length; i++) {
+        const agent = view.displayAgents[i];
+        if (!agent.presentationTrackId) {
+            agent.presentationTrackId = String(agent.authorityType || 'TRANSPORT') + ':' + String(agent.authorityId || agent.agentId);
+        }
+    }
     return view;
 }
 

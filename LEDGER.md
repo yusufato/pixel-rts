@@ -1,3 +1,17 @@
+## 2026-08-24 — Araç Hızı Kalibrasyonu, Çift İlerlemenin Kaldırılması ve Sıfır-Çöp Render Optimizasyonu
+- **Type:** Executed
+- **Source:** User directive & profiling audit (Vehicle speed normalization & transport overlay zero-GC rendering)
+- **What happened:**
+  1. `storyTransportContinuousAdvance` içindeki hız katsayısı gerçekçi ve sakin bir seviyeye (`0.05 * speed`) çekildi.
+  2. `storyTradeLogisticsTick` makro adımındaki `MOVING` araçların 2 saniyede bir çift ilerletilmesi (double-advancement jump) engellendi.
+  3. `storyDrawTransportAgents` ve `storyTransportPrepareRenderSnapshot` içindeki per-frame `Array.sort()`, `map()` ve dizi tahsisleri kaldırılarak sıfır-çöp (Zero-GC) performansı sağlandı.
+  4. Ekran dışındaki araçlar için kamera görüş alanı filtrelemesi (bounding box culling) eklenerek çizim döngüsü optimize edildi.
+- **Evidence:**
+  - `profile_transport_lag.js`: 60 kare çizim süresi ortalama 0.98 ms/kare, kare başına ilerleme +17.6 Bps (önceki +88 Bps yerine 5 kat daha sakin ve gerçekçi).
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** Canlı simülasyonda rAF hareketini makro ticari sevkiyat adımlarından bağımsız tut ve render döngüsünde asla her karede `.sort()` çalıştırma.
+
 ## 2026-08-24 — 60 FPS Simülasyon, Genişletilmiş Görev Aralıkları (1s-2s) ve Canlı Altıgen Hareketi
 - **Type:** Executed
 - **Source:** User directive & profiling audit (60 FPS / <16ms latency target & continuous hex vehicle movement)
