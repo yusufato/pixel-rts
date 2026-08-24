@@ -2861,7 +2861,7 @@ function storyTradeProductionInputBalance(ledger) {
             || a.regionId.localeCompare(b.regionId));
         supplies.sort((a, b) => b.domesticQuantity - a.domesticQuantity
             || a.regionId.localeCompare(b.regionId));
-        for (const demand of demands) {
+        for (const demand of demands.slice(0, 8)) {
             if (shipmentsDispatched >= STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES) break;
             const candidates = supplies
                 .filter(supply => (supply.countryId === demand.countryId

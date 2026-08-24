@@ -30,6 +30,19 @@ function storyTransportScreenSlotKey(x, y, cellSize) {
         + Math.floor((Number(y) || 0) / size);
 }
 
+function storyTransportContinuousAdvance(dtSec) {
+    if (typeof STORY === 'undefined' || STORY.paused) return;
+    const dt = Number(dtSec);
+    if (!Number.isFinite(dt) || dt <= 0 || dt > 0.5) return;
+    const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
+    if (!ledger || !Array.isArray(ledger.shipments)) return;
+    for (const shipment of ledger.shipments) {
+        if (shipment.status === 'IN_TRANSIT' && shipment.transportAgent && shipment.transportAgent.state === 'MOVING') {
+            storyTransportAdvanceShipment(shipment, dt);
+        }
+    }
+}
+
 // Fixed-step simulation intentionally updates physical shipments every 0.25 s.
 // The map must not expose that cadence as quarter-second teleports. This helper
 // keeps a render-only, wall-clock track that eases from the last painted world

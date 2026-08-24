@@ -1577,7 +1577,7 @@ function storyAdvanceStep(dtSec) {
         return elapsed;
     };
     // KAYNAK: her sahip olunan düğüm → sahibine petrol/insan/puan biriktirir
-    const _resourceDt = _storyDue('resource', '_accResource', 1);
+    const _resourceDt = _storyDue('resource', '_accResource', 2);
     if (_resourceDt > 0) {
         const step = _resourceDt;
         const ab = STORY.cfg.abundance || 1;
@@ -1647,18 +1647,18 @@ function storyAdvanceStep(dtSec) {
         }
     }
     // FAZ-3: ŞEHİR ÜRETİMİ — kuyruktaki birlikler ilerler, bitenler havuza düşer (oyuncu + AI aynı motor)
-    const _prodDt = _storyDue('production', '_accProd', 1);
+    const _prodDt = _storyDue('production', '_accProd', 2);
     if (_prodDt > 0 && typeof prodTick === 'function') prodTick(_prodDt);
     // FAZ-2 Adım 5: KOMUTAN AI — rastgele drift/invade KALDIRILDI; komutanlar kendi konum/güç/kişilikleriyle davranır
-    if (_storyDue('commander-ai', '_accCmdAI', 1) > 0) {
+    if (_storyDue('commander-ai', '_accCmdAI', 2) > 0) {
         storyAICommanderTick();                                                 // hareket/fetih/oyuncuya saldırı
     }
-    if (_storyDue('loyalty', '_accLoyalty', 0.5) > 0) storyApplyLoyaltyDrift(); // sadakat drift
+    if (_storyDue('loyalty', '_accLoyalty', 1) > 0) storyApplyLoyaltyDrift(); // sadakat drift
     const _econMacroDt = _storyDue('economy-macro', '_accEconMacro', 4);
     if (_econMacroDt > 0 && typeof storyEconomyTick === 'function') storyEconomyTick(_econMacroDt); // AŞAMA 3 makroekonomi
     const _econRegionalDt = _storyDue('economy-regional', '_accEconRegional', 4);
     if (_econRegionalDt > 0 && typeof storyRegionalEconomyTick === 'function') storyRegionalEconomyTick(_econRegionalDt); // Faz 17 kanonik bölgesel ekonomi
-    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 0.5);
+    const _econTradeDt = _storyDue('economy-trade-logistics', '_accEconTrade', 2);
     if (_econTradeDt > 0 && typeof storyTradeLogisticsTick === 'function') storyTradeLogisticsTick(_econTradeDt); // Faz 18 fiziksel ticaret/lojistik
     const _econPriceDt = _storyDue('economy-market-price', '_accEconPrice', 4);
     if (_econPriceDt > 0 && typeof storyMarketPriceTick === 'function') storyMarketPriceTick(_econPriceDt); // Faz 19 bölgesel piyasa/fiyat
@@ -1690,7 +1690,8 @@ function storyAdvanceStep(dtSec) {
         if (typeof storyOpinionTick === 'function') storyOpinionTick(_needsDt); // Faz 25 biriken kamuoyu ve şikâyet hafızası
         if (typeof storyCollectiveTick === 'function') storyCollectiveTick(_needsDt); // Faz 26 kolektif eylem ve radikalleşme
     }
-    const _factionsDt = _storyDue('factions', '_accFac', 2);
+    const _factionsDt = _storyDue('factions', '_accFac', 4);
+    if (_factionsDt > 0 && typeof storyFactionsTick === 'function') storyFactionsTick(_factionsDt); // AŞAMA 2 fraksiyonlar
     if (_factionsDt > 0 && typeof storyFactionsTick === 'function') storyFactionsTick(_factionsDt); // AŞAMA 2 fraksiyonlar
     if (_storyDue('society', '_accSocial', 4) > 0) {
         storyDissolveDeadStates(); storyApplyDefections(); storyApplyCoups();

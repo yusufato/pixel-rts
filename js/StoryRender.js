@@ -14,6 +14,9 @@ function storyWorldFrame(timestamp) {
     STORY._lastFrameT = timestamp;
     if (dt > 0.5) dt = 0.5;          // sekme arka plandayken sıçramayı engelle
     storyAdvance(dt);
+    if (typeof storyTransportContinuousAdvance === 'function') {
+        storyTransportContinuousAdvance(dt);
+    }
     // Küçük paneller 2 Hz tazelenir. WorldV2 bilgi süzgeci kuran şehir ve ekonomi
     // dosyaları ayrı bütçededir: 1 Hz, oyuncu okurken/gezdirirken ayrıca ertelenir.
     if (STORY._councilOpen || STORY._armyOpen || STORY._techOpen || STORY._changesOpen) {
@@ -2500,35 +2503,17 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     if (typeof storyTransportRenderSnapshot !== 'function'
         || typeof storyHexWorldEnsure !== 'function') return null;
     const world = storyHexWorldEnsure();
-    const materialized = true;
     const renderNow = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
-    const snapshotKey = [
-        'MATERIALIZED',
-        STORY.trade && STORY.trade.tickSequence || 0,
-        STORY.characterTravel && STORY.characterTravel.revision || 0
-    ].join('|');
-    let snapshotCache = STORY._transportSnapshotCache;
-    const snapshotReused = !!(snapshotCache && snapshotCache.key === snapshotKey);
-    if (!snapshotReused) {
-        const sameMode = snapshotCache && snapshotCache.mode === 'MATERIALIZED';
-        const elapsedMs = sameMode ? renderNow - Number(snapshotCache.builtAt || renderNow) : 0;
-        snapshotCache = STORY._transportSnapshotCache = {
-            key: snapshotKey,
-            mode: 'MATERIALIZED',
-            builtAt: renderNow,
-            transitionMs: Math.max(80, Math.min(4200, elapsedMs || 250)),
-            snapshot: storyTransportRenderSnapshot({
-                world,
-                zoomRatio: mapZoomRatio,
-                materializeZoomRatio: 0.05
-            })
-        };
-    }
-    const snapshot = snapshotCache.snapshot;
+    const snapshot = storyTransportRenderSnapshot({
+        world,
+        zoomRatio: mapZoomRatio,
+        materializeZoomRatio: 0.05
+    });
+    if (!snapshot || !Array.isArray(snapshot.displayAgents || snapshot.agents)) return null;
     const worldScaleX = STORY_WORLD_W / Math.max(1, Number(world.width) || 1);
     const worldScaleY = STORY_WORLD_H / Math.max(1, Number(world.height) || 1);
-    const transitionMs = snapshotCache.transitionMs;
+    const transitionMs = 250;
     const tracks = STORY._transportVisualTracks instanceof Map
         ? STORY._transportVisualTracks : (STORY._transportVisualTracks = new Map());
     const seenTrackIds = new Set();
@@ -2586,17 +2571,15 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
         longestQueue = Math.max(longestQueue,
             Number(agent.terminalQueuePosition) || 0);
         const near = mapZoomRatio >= 0.8;
-        const size = Math.max(7, Math.round((agent.vehicleClass === 'CARGO_SHIP' ? 18 : 14) * lodScale));
+        const size = Math.max(8, Math.round((agent.vehicleClass === 'CARGO_SHIP' ? 20 : agent.vehicleClass === 'FREIGHT_TRAIN' ? 16 : 14) * lodScale));
         const visual = typeof storyVisualTransportAsset === 'function'
             ? storyVisualTransportAsset(agent.vehicleClass, STORY.year, agent) : null;
         const baseSpriteSize = agent.vehicleClass === 'CARGO_SHIP' ? [58, 39]
             : agent.vehicleClass === 'FREIGHT_TRAIN' ? [64, 36] : [46, 31];
         const spriteSize = [Math.max(16, Math.round(baseSpriteSize[0] * lodScale)), Math.max(10, Math.round(baseSpriteSize[1] * lodScale))];
-        // Tek raster sprite gerçek zamanlı döndürülmez: rotasyon her karede
-        // yeniden örnekleme ve GPU upload maliyeti yaratıp resmi bozuyordu.
-        // Yatay ayna piksel ızgarasını korur ve ters yöndeki aracı doğru çevirir.
         const flipSprite = !!(visual && visual.mirrorForReverse
             && Math.cos(Number(agent.angle) || 0) < 0);
+
         const drewSprite = !!(visual && visual.ok
             && storyDrawAtlasCell(ctx, visual.atlasKey, visual.atlasCell,
                 p.x, p.y + spriteSize[1] / 2, spriteSize[0], spriteSize[1], 1,

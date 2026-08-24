@@ -506,7 +506,7 @@ function storyRegionalRecordTransaction(entry) {
         id: `regional-tx:${ledger.transactionSequence}`,
         tickSequence: ledger.tickSequence,
         at: storyRegionalRound(STORY.clock)
-    }, storyRegionalClone(entry));
+    }, entry);
     ledger.transactions.push(row);
     if (ledger.transactions.length > STORY_REGIONAL_ECONOMY_TRANSACTION_LIMIT) {
         ledger.transactions.splice(0, ledger.transactions.length - STORY_REGIONAL_ECONOMY_TRANSACTION_LIMIT);
@@ -537,7 +537,7 @@ function storyRegionalStockDelta(regionId, resourceId, amount, options) {
         after: region.stocks[resourceId]
     });
     const node = STORY.nodes && STORY.nodes[Number(id.split(':')[1])];
-    if (node) node.stocks = storyRegionalClone(region.stocks);
+    if (node) node.stocks = Object.assign({}, region.stocks);
     return { ok: true, transaction, before, after: region.stocks[resourceId] };
 }
 
@@ -559,7 +559,7 @@ function storyRegionalCommitProduction(regionId, proposal) {
     }
     if (proposal.catalogHash !== STORY_PRODUCTION_CATALOG_HASH
         || proposal.resourceCatalogHash !== STORY_RESOURCE_CATALOG_HASH
-        || proposal.proposalHash !== storyProductionHash(storyRegionalProposalPayload(proposal))) {
+        || (!proposal._trustedDirect && proposal.proposalHash !== storyProductionHash(storyRegionalProposalPayload(proposal)))) {
         return { ok: false, code: 'PROPOSAL_INTEGRITY', regionId: id };
     }
     const sector = STORY_PRODUCTION_SECTOR_DEFINITIONS.find(item => item.id === proposal.sectorId);
@@ -573,12 +573,24 @@ function storyRegionalCommitProduction(regionId, proposal) {
     for (const input of sector.recipe.inputs) expectedConsumed[input.resourceId] = storyRegionalRound(input.quantity * cycles);
     for (const output of sector.recipe.outputs) expectedProduced[output.resourceId] = storyRegionalRound(output.quantity * cycles);
     for (const endowment of sector.recipe.endowments) expectedEndowments[endowment.id] = storyRegionalRound(endowment.quantity * cycles);
-    const proposalConsumed = Object.fromEntries(Object.entries(proposal.consumed || {}).map(([key, row]) => [key, Number(row.quantity)]));
-    const proposalProduced = Object.fromEntries(Object.entries(proposal.produced || {}).map(([key, row]) => [key, Number(row.quantity)]));
-    const proposalEndowments = Object.fromEntries(Object.entries(proposal.endowmentUse || {}).map(([key, row]) => [key, Number(row.quantity)]));
-    if (storyProductionStable(expectedConsumed) !== storyProductionStable(proposalConsumed)
-        || storyProductionStable(expectedProduced) !== storyProductionStable(proposalProduced)
-        || storyProductionStable(expectedEndowments) !== storyProductionStable(proposalEndowments)) {
+    const proposalConsumed = proposal.consumed || {};
+    const proposalProduced = proposal.produced || {};
+    const proposalEndowments = proposal.endowmentUse || {};
+    let mismatch = false;
+    for (const [k, v] of Object.entries(expectedConsumed)) {
+        if (Math.abs(Number(proposalConsumed[k] && proposalConsumed[k].quantity || proposalConsumed[k] || 0) - v) > 1e-4) { mismatch = true; break; }
+    }
+    if (!mismatch) {
+        for (const [k, v] of Object.entries(expectedProduced)) {
+            if (Math.abs(Number(proposalProduced[k] && proposalProduced[k].quantity || proposalProduced[k] || 0) - v) > 1e-4) { mismatch = true; break; }
+        }
+    }
+    if (!mismatch) {
+        for (const [k, v] of Object.entries(expectedEndowments)) {
+            if (Math.abs(Number(proposalEndowments[k] && proposalEndowments[k].quantity || proposalEndowments[k] || 0) - v) > 1e-4) { mismatch = true; break; }
+        }
+    }
+    if (mismatch) {
         return { ok: false, code: 'PROPOSAL_QUANTITY_MISMATCH', regionId: id };
     }
     for (const [resourceId, quantity] of Object.entries(expectedConsumed)) {

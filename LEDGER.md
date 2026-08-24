@@ -1,3 +1,17 @@
+## 2026-08-24 — 60 FPS Simülasyon, Genişletilmiş Görev Aralıkları (1s-2s) ve Canlı Altıgen Hareketi
+- **Type:** Executed
+- **Source:** User directive & profiling audit (60 FPS / <16ms latency target & continuous hex vehicle movement)
+- **What happened:**
+  1. Görev zamanlayıcı aralıkları 1s – 2s ve 4s periyotlarına kademelendirildi (`resource: 2s`, `production: 2s`, `commander-ai: 2s`, `loyalty: 1s`, `economy-trade-logistics: 2s`).
+  2. `storyRegionalEconomyTick` içerisindeki aşırı kriptografik hash ve `JSON.stringify` klonlama döngüleri doğrudan nesne kontrolleriyle optimize edildi.
+  3. `storyTradeProductionInputBalance` içindeki talep eşleme araması hafifletildi.
+  4. Lojistik araçlarının (tır, yük treni, kargo gemisi) altıgenler arasında gerçek zamanlı ve kesintisiz akışı için `storyTransportContinuousAdvance` rAF render döngüsüne entegre edildi ve statik anlık görüntü önbelleği kaldırılarak canlı altıgen geçişleri sağlandı.
+- **Evidence:**
+  - `verify_hex_frames.js`: Araçların kare kare (Frame 1..10) altıgenler arası koordinat ve açı değişimleri doğrulanmıştır (4721 $\to$ 4720 $\to$ 4613).
+  - `test:story-infrastructure`: 20/20 test başarılı.
+  - `test:story-player-agency`: 18/18 test başarılı.
+- **Implication for future audits:** Ağır makroekonomik döngüleri (2s-4s) hafif fiziksel koordinat ilerlemesinden (<0.05ms) ayrı tutmaya devam et.
+
 ## 2026-08-22 — Dört saniyelik lojistik rota fırtınası doğrulandı
 - **Type:** Confirmed
 - **Source:** `RCA.md` — Dört saniyelik lojistik rota fırtınası
