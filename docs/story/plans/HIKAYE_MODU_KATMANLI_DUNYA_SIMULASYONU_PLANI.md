@@ -4887,6 +4887,40 @@ Mimari değişmezler:
 **Kabul kapısı:** Ticaret ortağı aynı anda askerî tehdit olabilir; UI bunu açıklayabilir.  
 **Bağımlılık:** Faz 9, 18.
 
+#### FAZ 43.1 — Devlet Dosyası ve Ekonomik Diplomasi Ağacı
+
+**Amaç:** Diplomasi görünümünü tek ilişki barı listesinden çıkarıp her yabancı devlet için ilişkiler, ticaret, para akışı, bağımlılık, antlaşma, lojistik, göç, güvenlik ve kaynaklı bilgi katmanlarına açılan karar ağacına dönüştürmek. Bu ekran yeni sayı üretmez; ticaret, bütçe, şirket, rota, nüfus, antlaşma ve inanç defterlerinin ortak dış ilişkiler merceğidir.
+
+**İlk bakış sözleşmesi:** Devlet, yürürlükteki rejim/antlaşma, ilişki barı ve ilişki etiketi aynı genişlikte dört kolonda kalır. Satır açıldığında ikinci seviye özet görünür; bütün dünya tabloları ilk ekrana yığılmaz. Her devlet satırı son güncelleme zamanı, veri kaynağı ve güven düzeyi taşır.
+
+**Katman 1 — İlişki bileşenleri:** Tek toplam puanın altında güven, algılanan tehdit, ekonomik bağımlılık, itibar, tarihsel zarar/yardım, ideolojik yakınlık, sınır gerilimi ve kurumsal temas ayrı barlarda gösterilir. Barlar aynı fiziksel ölçekte olur; bilinmeyen bileşen boş veya sıfır değil `BİLİNMİYOR` görünür. Toplam puanın hangi bileşenlerden türediği açıklanabilir olmalıdır.
+
+**Katman 2 — İkili ticaret özeti:** Seçili zaman penceresinde toplam ihracat, ithalat, ticaret dengesi, teslim edilmiş mal değeri, bekleyen ödeme, devlet/şirket geliri, gümrük geliri, taşıma-sigorta maliyeti ve net kazanım ayrı gösterilir. Brüt sevkiyat değeri “kazanılan para” diye sunulmaz. Son 30 gün, 1 yıl ve kampanya toplamı aynı kanonik sipariş/sözleşme/sevkiyat/ödeme kayıtlarından türetilir.
+
+**Katman 3 — Mal ve sektör kırılımı:** Gıda, enerji, hammadde, sanayi parçası, elektronik ve askerî malzeme için miktar, değer, ortalama fiyat, yerli tüketimdeki pay, karşı ülkeye bağımlılık ve ikame süresi gösterilir. En büyük beş akış öne çıkar; tam tablo isteğe bağlıdır. Tek bir kritik maldaki yoğunlaşma toplam ticaret hacmi içinde kaybolmaz.
+
+**Katman 4 — Şirketler, sözleşmeler ve faydalananlar:** Hangi şirketin sattığı/aldığı, nihai malik, kamu/özel payı, sözleşme süresi, fiyatlama yöntemi, ödeme kanalı, teminat, ihlal, yeniden satış ve kârın hangi ülkeye aktığı izlenir. Şirket sahipliği veya nihai faydalanıcı bilinmiyorsa UI bunu açıkça söyler; aktör uydurmaz.
+
+**Katman 5 — Fiziksel lojistik:** Kullanılan kara, demir, deniz, enerji ve veri koridorları; transit ülkeler; liman/terminal bağlantısı; kapasite, ortalama gecikme, kayıp/kesinti, darboğaz ve alternatif rota gösterilir. Ticaret anlaşması ile fiziksel teslimat birbirine karıştırılmaz. Harita bağlantısı seçili sözleşmenin gerçek rotasını vurgular.
+
+**Katman 6 — Finans ve yatırım:** İkili devlet borcu, banka kredisi, doğrudan yatırım, şirket kâr transferi, yardım, tazminat, teminat ve kur riski yalnız ilgili kanonik defter varsa görünür. Para birimi/kur motoru yokken sahte döviz tablosu kurulmaz; bu alan açık borç etiketi taşır.
+
+**Katman 7 — Antlaşma, yaptırım ve hukuk:** Yürürlükteki maddeler, tarafların yükümlülükleri, kalan süre, ihlal kanıtı, yaptırım kapsamı, muafiyet, gümrük ve transit hakkı aynı dosyada ekonomik sonuçlarına bağlanır. Antlaşma etiketi bonus değildir; hangi ticaret/rota/ödeme davranışını değiştirdiği gösterilir.
+
+**Katman 8 — İnsan hareketi ve toplumsal bağ:** Göç, mülteci akışı, öğrenci/işçi hareketi, diaspora, sınır geçişi ve bunların iş gücü, kamuoyu ve diplomatik pazarlık etkileri kaynaklı görünür. Kişisel kimlikler bilgi yetkisini aşmadan toplulaştırılır.
+
+**Katman 9 — Güvenlik ve stratejik bağımlılık:** Sınır, üs erişimi, savunma yükümlülüğü, askerî tedarik, enerji güvenliği, kritik altyapı ve kriz hâlinde kesilebilecek akışlar birlikte gösterilir. Ticaret ortağı aynı anda askerî tehdit olabilir; UI iki gerçeği tek “dost/düşman” rengine ezmez.
+
+**Katman 10 — Bilgi ve nedensellik:** Her sayı `WorldFact → ActorBelief → RoleAuthorityProjection` hattından gelir. Oyuncunun bildiği, tahmin ettiği ve bilmediği ayrılır. “İlişki neden düştü?”, “bu ülkeden gerçekte ne kazanıyoruz?” ve “bağımlılık nereden geliyor?” soruları en önemli kaynaklı olay zincirleriyle cevaplanır.
+
+**Eylem ağacı:** Devlet dosyasından karakter görüşmesi aç, ticaret teklifi hazırla, sözleşme/rota incele, resmî heyet gönder, antlaşma maddesi öner, protesto/yardım/yaptırım süreci başlat ve kurum onayı iste eylemleri role göre görünür. Sohbet sonuç değildir: bağlayıcı karar gereken yerde yetki, maliyet, karşı taraf kabulü ve kanonik makbuz zorunludur.
+
+**Performans:** Kapalı devlet dosyaları ağır şirket/rota taraması yapmaz. İkili özetler domain revizyon anahtarlarıyla önbelleğe alınır; liste sanallaştırılır; açık satır yalnız seçili devletin ayrıntısını kurar. Scroll veya ilişki animasyonu DOM ağacını sıfırdan üretmez.
+
+**Kabul kapısı:** Oyuncu seçtiği devlet için en fazla üç etkileşimde toplam ticaret, net kazanç, başlıca mal, en bağımlı sektör, ana şirket, ana rota, yürürlükteki yükümlülük ve verinin güven düzeyini bulur. Brüt değer/net gelir, sözleşme/sevkiyat ve gerçek/inanç birbirine karışmaz. Rol-yetkili en az bir diplomatik eylem gerçek karşı taraf ve domain makbuzuna ulaşır.
+
+**Bağımlılık:** Faz 15–22.1, 27, 38.5, 43–46, 57, 59–60.3.
+
 ### FAZ 44 — Antlaşmalar ve Yükümlülükler
 
 **Amaç:** Antlaşmayı yalnızca bonus etiketi olmaktan çıkarmak.  
@@ -4911,6 +4945,55 @@ Mimari değişmezler:
 ---
 
 ## DALGA J — Stratejik Askerî Katman
+
+#### FAZ 47.0 — Askerî Binalar ve Üretim Çalışma Alanı
+
+**Amaç:** Şehir dosyasındaki sığ fabrika+kışla kartlarını, modern ordunun üretim, eğitim, bakım, depolama, komuta, hava savunma ve lojistik zincirini açıklayan fiziksel askerî tesis ağına dönüştürmek. Bu yükseltme yalnız askerî binaları kapsar; sivil bina portföyünün yerine geçmez.
+
+**Mevcut gerçek ve borç:** Kanonik üretim motorunda Kışla, Fabrika, Topçu Parkı, Hava Üssü, Destek Üssü ve Hava Savunma Mevzii olmak üzere altı tür vardır. Birlik kilitleri sabit iki liste yerine güncel `STATS` rosterinden türetilir; kaynak kod şu anda bunu 26 birlik olarak tanımlar. Buna rağmen şehir dosyası Binalar/Ordu görünümünde yalnız `fac + bar` çizer. İlk iş yeni içerik icat etmek değil, var olan altı tesisin tamamını aynı kanonik bağımlılık ve kuyrukla görünür kılmaktır.
+
+**Katman 0 — Askerî tesis özeti:** Şehirdeki faal, inşa hâlinde, hasarlı, bakımda ve atıl askerî tesis sayısı; toplam üretim/eğitim/bakım kapasitesi; kritik personel, enerji, yakıt, mühimmat, yedek parça ve ulaşım açığı; mevcut üretim kuyrukları ve acil riskler gösterilir.
+
+**Katman 1 — Tesis aileleri:**
+
+- Komuta: karargâh, harekât merkezi, muhabere ve veri merkezi.
+- Personel: kışla, eğitim alanı, okul, seferberlik ve yedek merkezi.
+- Kara sanayisi: montaj, ağır bakım, motor/elektronik, mühimmat ve yedek parça hattı.
+- Ateş destek: topçu parkı, füze tesisi, radar ve atış kontrol desteği.
+- Hava: hava üssü, pist/helipad, hangar, bakım, yakıt ve İHA kontrol altyapısı.
+- Hava savunma: radar, komuta, kısa/orta/uzun menzil mevzisi ve ikmal bağlantısı.
+- Destek/lojistik: hastane, depo, ikmal merkezi, mühendislik, nakliye ve kurtarma tesisi.
+- Deniz tesisi ancak savaş rosterinde gerçek deniz birimi ve kıyı/tersane üretim motoru olduğunda açılır; mevcut taşıma gemisi görseli savaş tersanesi sayılmaz.
+
+İlk uygulamada bu aileler mevcut altı kanonik bina kimliğini modüllerle genişletir; paralel ikinci üretim ekonomisi kurmaz.
+
+**Katman 2 — Tesis kartı:** Kimlik, tür, şehir/ilçe/altıgen, malik, işletmeci, komuta zinciri, seviye, modüller, durum, kapasite kullanımı, çalışan/asker sayısı, girdi stokları, bağlı rota, savunma, görünürlük ve son olaylar taşınır. “Seviye 2/3” tek başına tesis açıklaması sayılmaz.
+
+**Katman 3 — Modül ve bağımlılık grafiği:** Her seviye kör yüzde bonusu yerine fiziksel modül yuvaları açar. Pist olmadan sabit kanat, ağır bakım olmadan tank yenileme, radar/veri bağı olmadan uzun menzilli hava savunma, mühimmat deposu ve güvenli rota olmadan yüksek tempo üretim çalışmaz. Kilit kartı eksik tesisi, teknolojiyi, personeli, kaynağı ve tahmini tamamlanma yolunu ayrı gösterir.
+
+**Katman 4 — Birlik izlenebilirliği:** Her kanonik birlik tipi `birlik → gereken tesis ailesi → asgari modül/seviye → teknoloji/kabiliyet → malzeme → eğitim → üretim süresi` zinciriyle açıklanır. Roster sayısı UI veya planda sabitlenmez; manifest değiştiğinde kapsama testi yeni toplamı otomatik alır. Hiçbir birlik motorda bulunup hikâye üretiminde sessizce kaybolamaz; hiçbir kurulabilir tesis sıfır üretim seçeneğiyle bırakılamaz.
+
+**Katman 5 — Üretim, eğitim ve bakım:** Yeni birlik üretimi, personel eğitimi, ekipman modernizasyonu, hasar onarımı ve stok yenileme ayrı kuyruklardır fakat ortak tesis kapasitesini paylaşır. Oyuncu öncelik ve kapasite tahsisi yapabilir; tamamlanma tarihi gerçek iş gücü, malzeme, enerji, lojistik ve hasar durumundan türetilir.
+
+**Katman 6 — Yaşam döngüsü ve savaş etkisi:** Planlanan, izin/onay bekleyen, inşa edilen, devreye alınan, faal, bakımda, hasarlı, sabotaj görmüş, ele geçirilmiş, tahliye edilmiş ve sökülmüş durumları kanonik makbuzlarla ilerler. Harita varlığı durumla değişir; tesis vurulduğunda yalnız resim yanmaz, ilgili kapasite ve kuyruk etkilenir.
+
+**Katman 7 — Mülkiyet, yetki ve karakterler:** Devlet, ordu, kamu şirketi, özel yüklenici ve müttefik kullanım hakkı ayrılır. Komutan üretim önceliği isteyebilir fakat bütçe/ihale/mülkiyet yetkisini otomatik kazanmaz. Tesis komutanı, lojistik sorumlusu, mühendis, şirket yöneticisi ve denetçi gerçek karakter olduğunda dosyadan görüşme açılır.
+
+**Katman 8 — Harita ve lojistik:** Her tesis gerçek kara altıgenine oturur; orman, su ve dağ geçiş kurallarını ihlal etmez. Yol, ray, liman veya hava bağlantısı yalnız fiziksel koridorla kurulur. Depo/üretim/cephe akışı araç görselinden değil kanonik sevkiyat ve kapasite rezervasyonundan beslenir.
+
+**Katman 9 — Teknoloji 2010–2100:** Yeni teknoloji doğrudan “bina +%20” yazmaz. Kanıtlanmış kabiliyet belirli modülü, üretim reçetesini, sensörü, otomasyonu, enerji sistemini veya bakım yöntemini açar; tesis bunu bütçe, ekip, lisans ve kurulum süresiyle uygular. Eski ekipman çalışmaya devam edebilir fakat bakım/tedarik ve birlikte çalışabilirlik bedeli taşır.
+
+**Katman 10 — UI ve eylemler:** Portföy → tesis ailesi → tesis dosyası → modül/kuyruk/proje zinciri kademeli açılır. Kur/yükselt yerine proje hazırla, yer seç, bütçe ve yüklenici belirle, modül kur, kapasite tahsis et, bakım planla, tahliye et, onar, dönüştür veya sök eylemleri role göre görünür. Her düğme maliyet, süre, gereken onay, kayıp kapasite ve fiziksel sonucu önizler.
+
+**AI eşitliği:** AI aynı tesis, ön koşul, bütçe, süre, malzeme, personel ve rota kurallarını kullanır. Hangi birime ihtiyaç duyduğunu tehdit, mevcut envanter, bakım yükü ve tedarik darboğazına göre seçer; yalnız en ucuz binayı sırayla yükseltmez. Oyuncuya görünmeyen bedava tesis veya anında üretim yoktur.
+
+**Performans:** Altıgen/şehir görünümü statik tesis atlasını RAM/cache üzerinden çizer. Kuyruk ilerlemesi sprite veya bütün şehir DOM'unu yeniden kurmaz. Kapalı tesis ayrıntıları hesaplanmaz; özetler revizyon anahtarıyla ön-toplanır. 2.000 tesis fikstüründe şehir portföyü ve harita 60 FPS hedefini bozmayacak ayrı p95 kapıları taşır.
+
+**Kabul kapısı:** Güncel kanonik rosterdeki her birlik en az bir üretilebilir tesis zincirine sahiptir; her tesis seviyesinde en az bir anlamlı üretim/eğitim/bakım çıktısı vardır. Oyuncu bir tankın, hava savunma bataryasının veya destek biriminin neden üretilemediğini üç etkileşim içinde gerçek eksik tesise, modüle, teknolojiye, malzemeye veya personele kadar izler. İnşa edilen tesis haritada oluşur, hasar kapasiteyi düşürür, onarım gerçek kaynak tüketir ve save/load aynı kimliği korur.
+
+**Sıralama:** 1) mevcut altı tesisin UI görünürlüğü, 2) kanonik facility kimliği ve yaşam döngüsü, 3) modüller/ortak kapasite, 4) bakım-modernizasyon, 5) fiziksel harita/hasar, 6) teknoloji uygulaması, 7) karakter/ihale/AI derinliği.
+
+**Bağımlılık:** Faz 15–22.1, 37–38.13, 42.1–42.14, 47–52, 59–60.6.
 
 ### FAZ 47 — Kuvvet, Hazırlık ve Personel
 
