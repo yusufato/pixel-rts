@@ -1726,13 +1726,21 @@ function storyTradePendingInbound(ledger) {
         const key = `${regionId}|${resourceId}`;
         pending.set(key, storyTradeRound((pending.get(key) || 0) + amount));
     };
-    for (const order of ledger.orders) {
-        if (['OPEN', 'PARTIAL'].includes(order.status)) {
+    const orders = ledger.orders;
+    for (let i = 0; i < orders.length; i++) {
+        const order = orders[i];
+        if (order && (order.status === 'OPEN' || order.status === 'PARTIAL')) {
             add(order.targetRegionId, order.resourceId, Math.max(0, order.quantity - order.dispatchedQuantity));
         }
     }
-    for (const shipment of ledger.shipments) {
-        if (['IN_TRANSIT', 'HELD'].includes(shipment.status)) add(shipment.targetRegionId, shipment.resourceId, shipment.quantity);
+    const shipments = ledger.shipments;
+    if (shipments) {
+        for (let i = 0; i < shipments.length; i++) {
+            const shipment = shipments[i];
+            if (shipment && (shipment.status === 'IN_TRANSIT' || shipment.status === 'HELD')) {
+                add(shipment.targetRegionId, shipment.resourceId, shipment.quantity);
+            }
+        }
     }
     return pending;
 }
@@ -3464,17 +3472,21 @@ function storyTradeLogisticsTick(dtSec, options) {
     let delivered = 0;
     let held = 0;
     const liveBrowserContinuous = typeof STORY !== 'undefined' && STORY._lastFrameT && typeof storyTransportContinuousAdvance === 'function';
-    for (const shipment of ledger.shipments) {
-        if (!['IN_TRANSIT', 'HELD'].includes(shipment.status)) continue;
-        if (liveBrowserContinuous && ['IN_TRANSIT', 'HELD'].includes(shipment.status) && shipment.transportAgent) {
-            advanced++;
-            continue;
+    const shipments = ledger.shipments;
+    if (shipments) {
+        for (let i = 0; i < shipments.length; i++) {
+            const shipment = shipments[i];
+            if (!shipment || (shipment.status !== 'IN_TRANSIT' && shipment.status !== 'HELD')) continue;
+            if (liveBrowserContinuous && shipment.transportAgent) {
+                advanced++;
+                continue;
+            }
+            const before = shipment.status;
+            const result = storyTradeAdvanceShipment(shipment, dt);
+            if (result.moved) advanced++;
+            if (shipment.status === 'DELIVERED') delivered++;
+            if (shipment.status === 'HELD' && before !== 'HELD') held++;
         }
-        const before = shipment.status;
-        const result = storyTradeAdvanceShipment(shipment, dt);
-        if (result.moved) advanced++;
-        if (shipment.status === 'DELIVERED') delivered++;
-        if (shipment.status === 'HELD' && before !== 'HELD') held++;
     }
     let dispatchAttempts = 0;
     let retryDeferred = 0;
