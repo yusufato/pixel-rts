@@ -182,6 +182,8 @@ function storyInfrastructureRoutePortCandidate(context, cityId) {
         fallback: !local, distance };
 }
 
+const STORY_INFRASTRUCTURE_ROUTE_PATH_CACHE = new Map();
+
 function storyInfrastructureRouteCandidate(spec, options) {
     spec = spec || {};
     const context = storyInfrastructureRouteContext(options);
@@ -205,11 +207,20 @@ function storyInfrastructureRouteCandidate(spec, options) {
         : context.settlements && Number(context.settlements.coreCellIndices[from]);
     const end = mode === 'SEA' ? ports[1] && ports[1].waterIndex
         : context.settlements && Number(context.settlements.coreCellIndices[to]);
-    const routePath = blocks.includes('HEX_CONTEXT_UNAVAILABLE') || !Number.isInteger(start)
-        || !Number.isInteger(end) ? []
-        : mode === 'SEA'
-            ? routeFinderAvailable(context.world, context.geography, start, end)
-            : routeFinderAvailable(context.world, context.geography, start, end, context.natural);
+    let routePath = [];
+    if (!blocks.includes('HEX_CONTEXT_UNAVAILABLE') && Number.isInteger(start) && Number.isInteger(end)) {
+        const cacheKey = `${mode}:${start}:${end}`;
+        if (STORY_INFRASTRUCTURE_ROUTE_PATH_CACHE.has(cacheKey)) {
+            routePath = STORY_INFRASTRUCTURE_ROUTE_PATH_CACHE.get(cacheKey);
+        } else {
+            routePath = mode === 'SEA'
+                ? routeFinderAvailable(context.world, context.geography, start, end)
+                : routeFinderAvailable(context.world, context.geography, start, end, context.natural);
+            if (Array.isArray(routePath) && routePath.length) {
+                STORY_INFRASTRUCTURE_ROUTE_PATH_CACHE.set(cacheKey, routePath);
+            }
+        }
+    }
     const path = mode === 'SEA' && routePath.length && ports.every(Boolean)
         ? [ports[0].landIndex, ...routePath, ports[1].landIndex] : routePath;
     if (!path.length) blocks.push('NO_PHYSICAL_ROUTE');

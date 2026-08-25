@@ -1153,11 +1153,16 @@ function storyHexConstructionStart(commandId, options) {
 function storyHexConstructionTick(worldDays, options) {
     const ledger = storyHexConstructionEnsureLedger(options && options.root);
     const days = Math.max(0, Number(worldDays) || 0);
+    const commands = ledger.commands;
+    if (!commands || !commands.length) return { ok: true, processedDays: days, completed: [] };
+    let hasBuilding = false;
+    for (let i = 0; i < commands.length; i++) {
+        if (commands[i] && commands[i].status === 'BUILDING') { hasBuilding = true; break; }
+    }
+    if (!hasBuilding) return { ok: true, processedDays: days, completed: [] };
     const now = storyHexConstructionContext(options).clock;
     const completed = [];
-    const commands = ledger.commands;
-    if (commands && commands.length) {
-        for (let i = 0; i < commands.length; i++) {
+    for (let i = 0; i < commands.length; i++) {
             const command = commands[i];
             if (!command || command.status !== 'BUILDING') continue;
             command.remainingDays = Math.max(0, Math.round((command.remainingDays - days) * 1000) / 1000);
@@ -1224,7 +1229,6 @@ function storyHexConstructionTick(worldDays, options) {
             command.completionReceiptId = receipt.id;
             completed.push(storyHexConstructionClone(receipt));
         }
-    }
     if (completed.length && typeof storyHexSitesResetCache === 'function') storyHexSitesResetCache();
     if (completed.length) storyHexConstructionTouch(ledger);
     return { ok: true, processedDays: days, completed };
