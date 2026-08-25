@@ -774,7 +774,22 @@ function storyTradeFindRoute(sourceRegionId, targetRegionId, contract, resourceI
 }
 
 function storyTradeRouteFailureCode(route, sourceRegionId, targetRegionId, contract, resourceId, options) {
-    return (route && route.reason) ? route.reason : 'NO_ROUTE';
+    const reason = route && route.reason ? route.reason : 'NO_ROUTE';
+    if (reason !== 'NO_ROUTE' || typeof storyInfrastructureFindRoute !== 'function') return reason;
+
+    const requestedMode = options && options.transportMode
+        ? String(options.transportMode).toUpperCase() : null;
+    const availableModes = typeof storyTradePhysicalModes === 'function' ? storyTradePhysicalModes(resourceId) : ['LAND', 'RAIL', 'SEA'];
+    const modes = requestedMode && availableModes.includes(requestedMode)
+        ? [requestedMode] : availableModes;
+    const physicalRoute = storyInfrastructureFindRoute(sourceRegionId, targetRegionId, {
+        modes: modes.filter(mode => ['LAND', 'RAIL', 'SEA'].includes(mode)),
+        authorizedCountryIds: contract && contract.partyCountryIds,
+        minCapacity: 0
+    });
+    return physicalRoute && physicalRoute.ok && (physicalRoute.corridorIds || []).length
+        ? 'CORRIDOR_CAPACITY_EXHAUSTED'
+        : reason;
 }
 
 function storyTradeCapacityAvailable(route, ledger) {
@@ -1691,6 +1706,8 @@ function storyTradeAdvanceShipment(shipment, dtSec) {
 }
 
 function storyTradePendingInbound(ledger) {
+    ledger = ledger || (typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null);
+    if (!ledger || !ledger.orders) return new Map();
     const pending = new Map();
     const add = (regionId, resourceId, amount) => {
         const key = `${regionId}|${resourceId}`;
@@ -2733,6 +2750,15 @@ function storyTradeProductionAdmissionPlan(options) {
 }
 
 function storyTradeCommitProductionVolumeAdmission(ledger) {
+    ledger = ledger || (typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null);
+    if (!ledger) return {
+        productionAdmissionSelected: 0,
+        productionAdmissionFailed: 0,
+        productionAdmissionOrdersCreated: 0,
+        productionAdmissionShipmentsDispatched: 0,
+        productionAdmissionQuantity: 0,
+        productionAdmissionCode: 'LEDGER_MISSING'
+    };
     const opportunityView = storyTradeProductionOpportunityView({ includeAll: true });
     const admission = storyTradeProductionAdmissionPlan({
         opportunityView,
@@ -2834,6 +2860,8 @@ function storyTradeCommitProductionVolumeAdmission(ledger) {
 // stock, uses real contracts/routes/corridor capacity and preserves one complete
 // local operating window at the source before releasing anything.
 function storyTradeProductionInputBalance(ledger) {
+    ledger = ledger || (typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null);
+    if (!ledger) return { productionInputOrdersCreated: 0, productionInputShipmentsDispatched: 0, productionInputAttempts: 0 };
     const bootstrapPlanning = typeof storyFeatureEnabled !== 'function'
         || storyFeatureEnabled('economy.bootstrapPlanning');
     const regional = bootstrapPlanning && storyRegionalEnsure();
@@ -3045,6 +3073,8 @@ function storyTradeProductionInputBalance(ledger) {
 }
 
 function storyTradeAutoBalance(ledger) {
+    ledger = ledger || (typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null);
+    if (!ledger) return { ordersCreated: 0, shipmentsDispatched: 0 };
     const regional = storyRegionalEnsure();
     if (!regional) return { ordersCreated: 0, shipmentsDispatched: 0 };
     const pending = storyTradePendingInbound(ledger);
@@ -3126,6 +3156,8 @@ function storyTradeAutoBalance(ledger) {
 // food/energy pipeline at the worst-served regions. It creates no stock, never
 // crosses a border, and route/corridor capacity remains authoritative.
 function storyTradeHouseholdDistributionBalance(ledger) {
+    ledger = ledger || (typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null);
+    if (!ledger) return { householdPipelineOrdersCreated: 0, householdPipelineShipmentsDispatched: 0, householdPipelineQuantity: 0, householdPipelineFailed: 0, householdPipelineCode: 'LEDGER_MISSING' };
     const regional = storyRegionalEnsure();
     if (!regional) return {
         householdPipelineOrdersCreated: 0,

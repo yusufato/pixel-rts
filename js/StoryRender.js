@@ -2761,6 +2761,7 @@ function storyRenderTransportOverlay() {
         : storyCam.zoom / Math.max(.0001, storyMinZoom(cv.width, cv.height));
     const started = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
+    storyDrawHoverHex(ctx);
     const snapshot = storyDrawTransportAgents(ctx, mapZoomRatio);
     const finished = typeof performance !== 'undefined' && performance.now
         ? performance.now() : Date.now();
@@ -3022,42 +3023,41 @@ function storyDrawHexGridOverlay(ctx, zoomRatio) {
         });
     }
     storyDrawScreenLayerForCamera(ctx, cache.canvas, cache.view);
+    return cache.count;
+}
 
-    // Dinamik hover altıgeni statik ızgara önbelleğini patlatmaz; doğrudan 6 hafif çizgiyle çizilir (0.005 ms)
+function storyDrawHoverHex(ctx) {
     const hoverId = String(STORY._hoverHexCellId || '');
-    if (hoverId) {
-        const parts = hoverId.split(':');
-        if (parts.length >= 3) {
-            const q = Number(parts[1]), r = Number(parts[2]);
-            if (Number.isFinite(q) && Number.isFinite(r) && typeof storyHexWorldCorners === 'function') {
-                const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
-                if (world) {
-                    const scaleX = STORY_WORLD_W / world.width;
-                    const scaleY = STORY_WORLD_H / world.height;
-                    const corners = storyHexWorldCorners(world, q, r);
-                    if (corners && corners.length) {
-                        ctx.save();
-                        ctx.beginPath();
-                        const first = storyW2S(corners[0].x * scaleX, corners[0].y * scaleY);
-                        ctx.moveTo(first.x, first.y);
-                        for (let corner = 1; corner < corners.length; corner++) {
-                            const pt = storyW2S(corners[corner].x * scaleX, corners[corner].y * scaleY);
-                            ctx.lineTo(pt.x, pt.y);
-                        }
-                        ctx.closePath();
-                        ctx.fillStyle = 'rgba(255,191,38,.10)';
-                        ctx.fill();
-                        ctx.strokeStyle = 'rgba(255,191,38,.72)';
-                        ctx.lineWidth = 1.25;
-                        ctx.stroke();
-                        ctx.restore();
+    if (!hoverId) return;
+    const parts = hoverId.split(':');
+    if (parts.length >= 3) {
+        const q = Number(parts[1]), r = Number(parts[2]);
+        if (Number.isFinite(q) && Number.isFinite(r) && typeof storyHexWorldCorners === 'function') {
+            const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
+            if (world) {
+                const scaleX = STORY_WORLD_W / world.width;
+                const scaleY = STORY_WORLD_H / world.height;
+                const corners = storyHexWorldCorners(world, q, r);
+                if (corners && corners.length) {
+                    ctx.save();
+                    ctx.beginPath();
+                    const first = storyW2S(corners[0].x * scaleX, corners[0].y * scaleY);
+                    ctx.moveTo(first.x, first.y);
+                    for (let corner = 1; corner < corners.length; corner++) {
+                        const pt = storyW2S(corners[corner].x * scaleX, corners[corner].y * scaleY);
+                        ctx.lineTo(pt.x, pt.y);
                     }
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255,191,38,.12)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,191,38,.85)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.restore();
                 }
             }
         }
     }
-
-    return cache.count;
 }
 
 function storyDrawPoliticalBorderLayer(ctx) {

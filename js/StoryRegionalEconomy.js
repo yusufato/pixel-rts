@@ -578,23 +578,27 @@ function storyRegionalCommitProduction(regionId, proposal) {
     const proposalProduced = proposal.produced || {};
     const proposalEndowments = proposal.endowmentUse || {};
     let mismatch = false;
-    for (const [k, v] of Object.entries(expectedConsumed)) {
+    for (const k in expectedConsumed) {
+        const v = expectedConsumed[k];
         if (Math.abs(Number(proposalConsumed[k] && proposalConsumed[k].quantity || proposalConsumed[k] || 0) - v) > 1e-4) { mismatch = true; break; }
     }
     if (!mismatch) {
-        for (const [k, v] of Object.entries(expectedProduced)) {
+        for (const k in expectedProduced) {
+            const v = expectedProduced[k];
             if (Math.abs(Number(proposalProduced[k] && proposalProduced[k].quantity || proposalProduced[k] || 0) - v) > 1e-4) { mismatch = true; break; }
         }
     }
     if (!mismatch) {
-        for (const [k, v] of Object.entries(expectedEndowments)) {
+        for (const k in expectedEndowments) {
+            const v = expectedEndowments[k];
             if (Math.abs(Number(proposalEndowments[k] && proposalEndowments[k].quantity || proposalEndowments[k] || 0) - v) > 1e-4) { mismatch = true; break; }
         }
     }
     if (mismatch) {
         return { ok: false, code: 'PROPOSAL_QUANTITY_MISMATCH', regionId: id };
     }
-    for (const [resourceId, quantity] of Object.entries(expectedConsumed)) {
+    for (const resourceId in expectedConsumed) {
+        const quantity = expectedConsumed[resourceId];
         const available = resourceId === 'capital'
             && typeof storyCompanyOperatingCash === 'function'
             && typeof storyCompanyEnabled === 'function'
@@ -605,7 +609,8 @@ function storyRegionalCommitProduction(regionId, proposal) {
             return { ok: false, code: 'INSUFFICIENT_STOCK', regionId: id, resourceId };
         }
     }
-    for (const endowment of sector.recipe.endowments) {
+    for (let i = 0; i < sector.recipe.endowments.length; i++) {
+        const endowment = sector.recipe.endowments[i];
         if (endowment.depletable
             && (Number(region.endowments[endowment.id]) || 0) + 1e-9 < expectedEndowments[endowment.id]) {
             return { ok: false, code: 'INSUFFICIENT_ENDOWMENT', regionId: id, endowmentId: endowment.id };
@@ -624,7 +629,8 @@ function storyRegionalCommitProduction(regionId, proposal) {
         if (finance.plan) _commercePlan = finance.plan;
     }
     const before = Object.assign({}, region.stocks);
-    for (const [resourceId, quantity] of Object.entries(expectedConsumed)) {
+    for (const resourceId in expectedConsumed) {
+        const quantity = expectedConsumed[resourceId];
         const companyCapital = resourceId === 'capital'
             && typeof storyCompanyEnabled === 'function'
             && storyCompanyEnabled();
@@ -637,14 +643,16 @@ function storyRegionalCommitProduction(regionId, proposal) {
             storyRegionalAddToMap(ledger.totals.consumed, resourceId, quantity);
         }
     }
-    for (const endowment of sector.recipe.endowments) {
+    for (let i = 0; i < sector.recipe.endowments.length; i++) {
+        const endowment = sector.recipe.endowments[i];
         if (endowment.depletable) {
             region.endowments[endowment.id] = storyRegionalRound(
                 region.endowments[endowment.id] - expectedEndowments[endowment.id]
             );
         }
     }
-    for (const [resourceId, quantity] of Object.entries(expectedProduced)) {
+    for (const resourceId in expectedProduced) {
+        const quantity = expectedProduced[resourceId];
         region.stocks[resourceId] = storyRegionalRound(region.stocks[resourceId] + quantity);
         storyRegionalAddToMap(ledger.totals.produced, resourceId, quantity);
     }
@@ -949,6 +957,7 @@ function storyRegionalEconomyTick(dtSec) {
                 availableQuantities,
                 endowments
             });
+            if (proposal) proposal._trustedDirect = true;
             if (bootstrapPlanning) {
                 const bottlenecks = proposal.bottlenecks || [];
                 for (let b = 0; b < bottlenecks.length; b++) {

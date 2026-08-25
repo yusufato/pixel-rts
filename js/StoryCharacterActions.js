@@ -1211,10 +1211,13 @@ function storyCharacterActionAIActorActive(actor) {
 function storyCharacterActionAIContacts(actorId) {
     const ledger = typeof storyRelationshipEnsure === 'function' ? storyRelationshipEnsure() : null;
     const identities = storyCharacterActionIdentities();
+    const edges = ledger && ledger.edges;
+    if (!edges) return [];
     const targetIds = new Set();
-    for (const edge of Object.values(ledger && ledger.edges || {})) {
+    for (const key in edges) {
+        const edge = edges[key];
         if (edge.fromActorId === actorId && identities[edge.toActorId]) targetIds.add(edge.toActorId);
-        if (edge.toActorId === actorId && identities[edge.fromActorId]) targetIds.add(edge.fromActorId);
+        else if (edge.toActorId === actorId && identities[edge.fromActorId]) targetIds.add(edge.fromActorId);
     }
     return Array.from(targetIds).sort((a, b) => a.localeCompare(b, 'en'))
         .slice(0, STORY_CHARACTER_ACTION_AI_CONTACT_CAP);
@@ -1332,8 +1335,8 @@ function storyCharacterActionAIRankActor(actorId) {
                     + Number(relationshipInterpretation.scoreDelta || 0)) * 1000) / 1000,
                 reasons: (option.policyReasons || []).concat(scored.reasons || [], behavior.reasons || [],
                     relationshipInterpretation.reasons || []),
-                behavior: storyCharacterActionClone(behavior),
-                relationshipInterpretation: storyCharacterActionClone(relationshipInterpretation)
+                behavior,
+                relationshipInterpretation
             });
         }
     }

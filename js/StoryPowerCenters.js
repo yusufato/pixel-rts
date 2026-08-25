@@ -152,17 +152,22 @@ function storyPowerCenterCohortWeightBps(type, cohort) {
     return storyPowerCenterClampBps(weight);
 }
 
-function storyPowerCenterSupport(countryId, type) {
-    const population = typeof storyPopulationEnsure === 'function' ? storyPopulationEnsure() : null;
+function storyPowerCenterSupport(countryId, type, prefilteredRegions) {
+    const population = !prefilteredRegions && typeof storyPopulationEnsure === 'function' ? storyPopulationEnsure() : null;
+    const regionList = prefilteredRegions || Object.values(population && population.regions || {});
     const regions = {};
     const profilePeople = {};
     let populationPeople = 0;
     let supportPeople = 0;
-    for (const region of Object.values(population && population.regions || {})) {
-        if (region.countryId !== countryId) continue;
+    let regionalPresenceCount = 0;
+    for (let r = 0; r < regionList.length; r++) {
+        const region = regionList[r];
+        if (!prefilteredRegions && region.countryId !== countryId) continue;
         populationPeople += Math.max(0, Math.round(Number(region.populationPeople) || 0));
         let regionalSupport = 0;
-        for (const cohort of (region.cohorts || [])) {
+        const cohorts = region.cohorts || [];
+        for (let c = 0; c < cohorts.length; c++) {
+            const cohort = cohorts[c];
             const weighted = Math.round(Math.max(0, Number(cohort.membersPeople) || 0)
                 * storyPowerCenterCohortWeightBps(type, cohort) / 10000);
             regionalSupport += weighted;
@@ -170,44 +175,92 @@ function storyPowerCenterSupport(countryId, type) {
         }
         regions[region.regionId] = regionalSupport;
         supportPeople += regionalSupport;
+        if (regionalSupport > 0) regionalPresenceCount++;
     }
+    const profileKeys = [];
+    for (const key in profilePeople) {
+        if (profilePeople[key] > 0) profileKeys.push(key);
+    }
+    profileKeys.sort((a, b) => profilePeople[b] - profilePeople[a] || a.localeCompare(b, 'en'));
     return {
         populationPeople,
         supportPeople,
         supportShareBps: populationPeople > 0
             ? storyPowerCenterClampBps(supportPeople * 10000 / populationPeople) : 0,
         regions,
-        profileKeys: Object.entries(profilePeople).filter(([, people]) => people > 0)
-            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'en'))
-            .map(([profileKey]) => profileKey)
+        regionalPresenceCount,
+        profileKeys
     };
 }
 
 function storyPowerCenterCompanySignals(countryId) {
     const company = typeof storyCompanyEnsure === 'function' ? storyCompanyEnsure() : null;
-    const companies = Object.values(company && company.companies || {}).filter(row => row.countryId === countryId);
-    const facilities = Object.values(company && company.facilities || {}).filter(row => row.countryId === countryId);
-    const banks = Object.values(company && company.banks || {}).filter(row => row.countryId === countryId);
+    const allCompanies = company && company.companies;
+    const allFacilities = company && company.facilities;
+    const allBanks = company && company.banks;
+    const companies = [];
+    let cash = 0;
+    let debt = 0;
+    let lobbyInfluence = 0;
+    if (allCompanies) {
+        for (const k in allCompanies) {
+            const row = allCompanies[k];
+            if (row.countryId === countryId) {
+                companies.push(row);
+                cash += Math.max(0, Number(row.accounts && row.accounts['ASSET:CASH']) || 0);
+                debt += Math.max(0, -(Number(row.accounts && row.accounts['LIABILITY:DEBT']) || 0));
+                lobbyInfluence += Math.max(0, Number(row.lobbyInfluence) || 0);
+            }
+        }
+    }
+    const facilities = [];
+    if (allFacilities) {
+        for (const k in allFacilities) {
+            const row = allFacilities[k];
+            if (row.countryId === countryId) facilities.push(row);
+        }
+    }
+    const banks = [];
+    let bankReserves = 0;
+    if (allBanks) {
+        for (const k in allBanks) {
+            const row = allBanks[k];
+            if (row.countryId === countryId) {
+                banks.push(row);
+                bankReserves += Math.max(0, Number(row.reserves) || 0);
+            }
+        }
+    }
     return {
         companies,
         facilities,
         banks,
-        cash: storyPowerCenterRound(companies.reduce((sum, row) => sum
-            + Math.max(0, Number(row.accounts && row.accounts['ASSET:CASH']) || 0), 0)),
-        debt: storyPowerCenterRound(companies.reduce((sum, row) => sum
-            + Math.max(0, -(Number(row.accounts && row.accounts['LIABILITY:DEBT']) || 0)), 0)),
-        bankReserves: storyPowerCenterRound(banks.reduce((sum, row) => sum + Math.max(0, Number(row.reserves) || 0), 0)),
-        lobbyInfluence: storyPowerCenterRound(companies.reduce((sum, row) => sum + Math.max(0, Number(row.lobbyInfluence) || 0), 0))
+        cash: storyPowerCenterRound(cash),
+        debt: storyPowerCenterRound(debt),
+        bankReserves: storyPowerCenterRound(bankReserves),
+        lobbyInfluence: storyPowerCenterRound(lobbyInfluence)
     };
 }
 
 function storyPowerCenterStateSignals(countryId) {
     const stateId = Number(String(countryId).split(':')[1]);
     const state = typeof storyState === 'function' ? storyState(stateId) : null;
-    const nodes = (STORY.nodes || []).filter(node => Number(node.owner) === stateId);
+    const allNodes = STORY.nodes || [];
+    const nodes = [];
+    let garrison = 0;
+    for (let i = 0; i < allNodes.length; i++) {
+        const node = allNodes[i];
+        if (Number(node.owner) === stateId) {
+            nodes.push(node);
+            garrison += Math.max(0, Number(node.garrison) || 0);
+        }
+    }
     const commanders = state && state.gov && Array.isArray(state.gov.commanders) ? state.gov.commanders : [];
-    const forceUnits = commanders.reduce((sum, commander) => sum + Object.values(commander.army || {})
-        .reduce((total, count) => total + Math.max(0, Number(count) || 0), 0), 0);
+    let forceUnits = 0;
+    for (let i = 0; i < commanders.length; i++) {
+        const army = commanders[i].army || {};
+        for (const unit in army) forceUnits += Math.max(0, Number(army[unit]) || 0);
+    }
     const collective = STORY.collectiveAction && STORY.collectiveAction.countries
         ? STORY.collectiveAction.countries[countryId] : null;
     const needs = STORY.needsWelfare && STORY.needsWelfare.countries
@@ -220,7 +273,7 @@ function storyPowerCenterStateSignals(countryId) {
         nodes,
         commanders,
         forceUnits,
-        garrison: nodes.reduce((sum, node) => sum + Math.max(0, Number(node.garrison) || 0), 0),
+        garrison,
         activeActions: Math.max(0, Number(collective && collective.activeActionCount) || 0),
         maximumRadicalizationBps: storyPowerCenterClampBps(collective && collective.maximumRadicalizationBps),
         maximumMobilizationBps: storyPowerCenterClampBps(collective && collective.maximumMobilizationBps),
@@ -414,7 +467,7 @@ function storyPowerCenterBuild(countryId, type, previous, precalculated) {
             forceUnits: type === 'ARMED_FORCES' ? storyPowerCenterRound(signals.forceUnits) : 0,
             garrisonUnits: (type === 'ARMED_FORCES' || type === 'SECURITY_SERVICE')
                 ? storyPowerCenterRound(signals.garrison) : 0,
-            regionalPresenceCount: Object.values(support.regions).filter(value => value > 0).length
+            regionalPresenceCount: support.regionalPresenceCount || 0
         },
         resourceEvidence: {
             populationRevision: STORY.population ? STORY.population.revision : null,
@@ -728,16 +781,26 @@ function storyPowerCenterPlayerConsult(centerId, options) {
 function storyPowerCenterTick() {
     const ledger = storyPowerCenterEnsure();
     if (!ledger) return { disabled: true };
+    const population = typeof storyPopulationEnsure === 'function' ? storyPopulationEnsure() : null;
+    const popRegionsByCountry = new Map();
+    if (population && population.regions) {
+        for (const region of Object.values(population.regions)) {
+            let list = popRegionsByCountry.get(region.countryId);
+            if (!list) { list = []; popRegionsByCountry.set(region.countryId, list); }
+            list.push(region);
+        }
+    }
     const next = {};
     for (const state of (STORY.states || [])) {
         const countryId = storyPowerCenterCountryId(state.id);
+        const countryRegions = popRegionsByCountry.get(countryId) || [];
         const precalculated = {
             companies: storyPowerCenterCompanySignals(countryId),
             signals: storyPowerCenterStateSignals(countryId),
             support: {}
         };
         for (const type of STORY_POWER_CENTER_TYPES) {
-            precalculated.support[type] = storyPowerCenterSupport(countryId, type);
+            precalculated.support[type] = storyPowerCenterSupport(countryId, type, countryRegions);
         }
         for (const type of STORY_POWER_CENTER_TYPES) {
             const id = storyPowerCenterId(countryId, type);

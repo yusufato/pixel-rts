@@ -2366,7 +2366,7 @@ function storyInit() {
                 cv.style.cursor = targetCursor;
             }
             if (STORY._hoverHexCellId !== prevHoverId) {
-                scheduleMapRender();
+                if (typeof storyRenderTransportOverlay === 'function') storyRenderTransportOverlay();
             }
         };
         cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
