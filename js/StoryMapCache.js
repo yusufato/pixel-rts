@@ -89,8 +89,9 @@ function storyMapCacheClearTerrain(clearStaticCanvas) {
     storyMapCacheReleaseWorldLayers(STORY._settlementWorldLayers);
     storyMapCacheReleaseWorldLayers(STORY._networkWorldLayers);
     storyMapCacheReleaseWorldLayers(STORY._politicalBorderWorldLayer);
-    storyMapCacheReleaseWorldLayers(STORY._mapV2CoastlineCache);
     if (clearStaticCanvas) {
+        storyMapCacheReleaseWorldLayers(STORY._mapV2CoastlineCache);
+        STORY._mapV2CoastlineCache = null;
         STORY._terrainCache = null;
         STORY._geoTerrain = null;
         STORY._geoTerrainSource = null;
@@ -100,7 +101,6 @@ function storyMapCacheClearTerrain(clearStaticCanvas) {
     STORY._settlementWorldLayers = null;
     STORY._networkWorldLayers = null;
     STORY._politicalBorderWorldLayer = null;
-    STORY._mapV2CoastlineCache = null;
     STORY._commanderLayerKey = null;
     if (STORY._politicalBorderLayerCache) STORY._politicalBorderLayerCache.key = null;
     if (STORY._hexGridLayerCache) STORY._hexGridLayerCache.key = null;

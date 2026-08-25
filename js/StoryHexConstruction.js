@@ -525,16 +525,22 @@ function storyHexConstructionSyncApplications(options) {
     const reviewSeconds = STORY_HEX_CONSTRUCTION_APPLICATION_POLICY.authorityReviewDays
         / 365 * secondsPerYear;
     const results = [];
-    for (const application of ledger.applications.slice()) {
-        if (!['PENDING_AUTHORITY', 'AUTHORIZED', 'RESOURCE_BLOCKED'].includes(application.status)) continue;
-        if (application.status === 'PENDING_AUTHORITY'
-            && context.clock - Number(application.submittedAt || 0) + 1e-6 >= reviewSeconds
-            && typeof authority.progress === 'function') {
-            const progressed = authority.progress(application.authorityRequestId, application);
-            if (!progressed.ok) application.authorityProgressBlock = String(progressed.code || 'AUTHORITY_PROGRESS_FAILED');
-            else application.authorityProgressBlock = null;
+    const applications = ledger.applications;
+    if (applications && applications.length) {
+        for (let i = 0; i < applications.length; i++) {
+            const application = applications[i];
+            if (!application) continue;
+            const status = application.status;
+            if (status !== 'PENDING_AUTHORITY' && status !== 'AUTHORIZED' && status !== 'RESOURCE_BLOCKED') continue;
+            if (status === 'PENDING_AUTHORITY'
+                && context.clock - Number(application.submittedAt || 0) + 1e-6 >= reviewSeconds
+                && typeof authority.progress === 'function') {
+                const progressed = authority.progress(application.authorityRequestId, application);
+                if (!progressed.ok) application.authorityProgressBlock = String(progressed.code || 'AUTHORITY_PROGRESS_FAILED');
+                else application.authorityProgressBlock = null;
+            }
+            results.push(storyHexConstructionSyncApplication(application.id, options));
         }
-        results.push(storyHexConstructionSyncApplication(application.id, options));
     }
     return results;
 }
@@ -1123,71 +1129,75 @@ function storyHexConstructionTick(worldDays, options) {
     const days = Math.max(0, Number(worldDays) || 0);
     const now = storyHexConstructionContext(options).clock;
     const completed = [];
-    for (const command of ledger.commands) {
-        if (command.status !== 'BUILDING') continue;
-        command.remainingDays = Math.max(0, Math.round((command.remainingDays - days) * 1000) / 1000);
-        if (command.remainingDays > 0) continue;
-        const commissionPreflight = storyHexConstructionCommissionPreflight(command, options);
-        if (!commissionPreflight.ok) {
-            command.completionBlockedReason = commissionPreflight.code;
-            continue;
-        }
-        if (command.resourceReservation && command.resourceReservation.ownerType === 'COMPANY') {
-            const economy = storyHexConstructionEconomy(options);
-            const company = economy.company(command.resourceReservation.ownerId || command.companyId);
-            const cash = Math.max(0, Number(command.resourceReservation.cash) || 0);
-            const settled = company && economy.postCash(company, [
-                { account: 'EXPENSE:CAPACITY_INVESTMENT', amount: cash },
-                { account: 'ASSET:PROJECT_ESCROW', amount: -cash }
-            ], { commandId: command.id, completion: true });
-            if (!settled || !settled.ok) {
-                command.completionBlockedReason = settled && settled.code
-                    || 'CONSTRUCTION_FINANCIAL_SETTLEMENT_FAILED';
+    const commands = ledger.commands;
+    if (commands && commands.length) {
+        for (let i = 0; i < commands.length; i++) {
+            const command = commands[i];
+            if (!command || command.status !== 'BUILDING') continue;
+            command.remainingDays = Math.max(0, Math.round((command.remainingDays - days) * 1000) / 1000);
+            if (command.remainingDays > 0) continue;
+            const commissionPreflight = storyHexConstructionCommissionPreflight(command, options);
+            if (!commissionPreflight.ok) {
+                command.completionBlockedReason = commissionPreflight.code;
                 continue;
             }
-            const companyLedger = economy.companyLedger && economy.companyLedger();
-            if (companyLedger) {
-                companyLedger.marketClearingCash = Math.round(
-                    ((Number(companyLedger.marketClearingCash) || 0) + cash) * 1e6
+            if (command.resourceReservation && command.resourceReservation.ownerType === 'COMPANY') {
+                const economy = storyHexConstructionEconomy(options);
+                const company = economy.company(command.resourceReservation.ownerId || command.companyId);
+                const cash = Math.max(0, Number(command.resourceReservation.cash) || 0);
+                const settled = company && economy.postCash(company, [
+                    { account: 'EXPENSE:CAPACITY_INVESTMENT', amount: cash },
+                    { account: 'ASSET:PROJECT_ESCROW', amount: -cash }
+                ], { commandId: command.id, completion: true });
+                if (!settled || !settled.ok) {
+                    command.completionBlockedReason = settled && settled.code
+                        || 'CONSTRUCTION_FINANCIAL_SETTLEMENT_FAILED';
+                    continue;
+                }
+                const companyLedger = economy.companyLedger && economy.companyLedger();
+                if (companyLedger) {
+                    companyLedger.marketClearingCash = Math.round(
+                        ((Number(companyLedger.marketClearingCash) || 0) + cash) * 1e6
+                    ) / 1e6;
+                }
+                if (!company.cumulative) company.cumulative = {};
+                company.cumulative.expense = Math.round(
+                    ((Number(company.cumulative.expense) || 0) + cash) * 1e6
                 ) / 1e6;
+                company.cumulative.investment = Math.round(
+                    ((Number(company.cumulative.investment) || 0) + cash) * 1e6
+                ) / 1e6;
+                command.completionBlockedReason = null;
+                command.resourceReservation.settledAt = now;
             }
-            if (!company.cumulative) company.cumulative = {};
-            company.cumulative.expense = Math.round(
-                ((Number(company.cumulative.expense) || 0) + cash) * 1e6
-            ) / 1e6;
-            company.cumulative.investment = Math.round(
-                ((Number(company.cumulative.investment) || 0) + cash) * 1e6
-            ) / 1e6;
-            command.completionBlockedReason = null;
-            command.resourceReservation.settledAt = now;
+            ledger.receiptSequence++;
+            const receipt = {
+                id: `hex-construction-receipt:${ledger.receiptSequence}`,
+                commandId: command.id,
+                correlationId: command.correlationId,
+                projectType: command.projectType,
+                targetCellId: command.targetCellId,
+                targetCellIndex: command.targetCellIndex,
+                regionId: command.regionId,
+                capacityCreated: command.requirements.capacity,
+                consumed: storyHexConstructionClone(command.resourceReservation),
+                environmentalCost: command.requirements.environmentalCost,
+                permissionDecisionId: command.permission.decisionId,
+                landAcquisitionEvidenceId: command.landAcquisition.evidenceId,
+                completedAt: now
+            };
+            const commissioned = storyHexConstructionCommission(command, receipt, options,
+                commissionPreflight);
+            if (!commissioned.ok) {
+                command.completionBlockedReason = commissioned.code;
+                continue;
+            }
+            ledger.receipts.push(receipt);
+            command.status = 'COMPLETED';
+            command.completedAt = now;
+            command.completionReceiptId = receipt.id;
+            completed.push(storyHexConstructionClone(receipt));
         }
-        ledger.receiptSequence++;
-        const receipt = {
-            id: `hex-construction-receipt:${ledger.receiptSequence}`,
-            commandId: command.id,
-            correlationId: command.correlationId,
-            projectType: command.projectType,
-            targetCellId: command.targetCellId,
-            targetCellIndex: command.targetCellIndex,
-            regionId: command.regionId,
-            capacityCreated: command.requirements.capacity,
-            consumed: storyHexConstructionClone(command.resourceReservation),
-            environmentalCost: command.requirements.environmentalCost,
-            permissionDecisionId: command.permission.decisionId,
-            landAcquisitionEvidenceId: command.landAcquisition.evidenceId,
-            completedAt: now
-        };
-        const commissioned = storyHexConstructionCommission(command, receipt, options,
-            commissionPreflight);
-        if (!commissioned.ok) {
-            command.completionBlockedReason = commissioned.code;
-            continue;
-        }
-        ledger.receipts.push(receipt);
-        command.status = 'COMPLETED';
-        command.completedAt = now;
-        command.completionReceiptId = receipt.id;
-        completed.push(storyHexConstructionClone(receipt));
     }
     if (completed.length && typeof storyHexSitesResetCache === 'function') storyHexSitesResetCache();
     if (completed.length) storyHexConstructionTouch(ledger);
