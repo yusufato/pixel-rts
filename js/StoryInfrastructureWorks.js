@@ -1405,6 +1405,11 @@ function storyInfrastructureRouteEconomicAiApply(company, options) {
         && ['PENDING_EXECUTIVE', 'RESOURCE_BLOCKED'].includes(row.status))) {
         return { ok: false, code: 'COMPANY_ROUTE_PROPOSAL_ALREADY_OPEN' };
     }
+    const economy = storyInfrastructureWorkEconomy(options);
+    const cash = economy.cashAvailable('COMPANY', company.id);
+    if (cash < 20) {
+        return { ok: false, code: 'COMPANY_INSUFFICIENT_FUNDS' };
+    }
     const nodes = storyInfrastructureRouteEconomicAiNodes(options);
     const facilities = options && typeof options.facilitiesForCompany === 'function'
         ? options.facilitiesForCompany(company) || []

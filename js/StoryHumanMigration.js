@@ -404,15 +404,26 @@ function storyHumanMigrationPendingInbound(ledger, regionId) {
         .reduce((sum, flow) => sum + flow.people, 0);
 }
 
+const STORY_HUMAN_MIGRATION_ROUTE_CACHE = new Map();
+
 function storyHumanMigrationRoute(origin, destination) {
+    const netHash = typeof STORY !== 'undefined' && STORY.infrastructureWorks
+        && STORY.infrastructureWorks.networkHash ? STORY.infrastructureWorks.networkHash : '0';
+    const cacheKey = `${origin.regionId}:${destination.regionId}:${origin.countryId}:${destination.countryId}:${netHash}`;
+    if (STORY_HUMAN_MIGRATION_ROUTE_CACHE.has(cacheKey)) {
+        return STORY_HUMAN_MIGRATION_ROUTE_CACHE.get(cacheKey);
+    }
     const authorizedCountryIds = [...new Set([origin.countryId, destination.countryId].filter(Boolean))];
-    return typeof storyInfrastructureFindRoute === 'function'
+    const result = typeof storyInfrastructureFindRoute === 'function'
         ? storyInfrastructureFindRoute(origin.regionId, destination.regionId, {
             modes: ['LAND', 'SEA'],
             authorizedCountryIds,
             minCapacity: 1
         })
         : { ok: false, reason: 'ROUTE_SERVICE_UNAVAILABLE' };
+    if (STORY_HUMAN_MIGRATION_ROUTE_CACHE.size > 2000) STORY_HUMAN_MIGRATION_ROUTE_CACHE.clear();
+    STORY_HUMAN_MIGRATION_ROUTE_CACHE.set(cacheKey, result);
+    return result;
 }
 
 function storyHumanMigrationCandidateDestinations(origin, signals, ledger) {
