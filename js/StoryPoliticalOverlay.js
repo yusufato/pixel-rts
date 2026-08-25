@@ -271,24 +271,48 @@ function storyDrawHexPoliticalBorders(ctx) {
     const ratio = typeof storyMapV2ZoomRatio === 'function'
         ? storyMapV2ZoomRatio(storyCam, STORY._minZoom || storyCam.zoom) : 1;
     const outer = Math.min(2.8, 1.45 + Math.log2(Math.max(1, ratio)) * .22);
-    let visible = 0;
-    const drawPath = countVisible => {
+    const cw = typeof STORY !== 'undefined' && STORY._cw ? STORY._cw : 800;
+    const ch = typeof STORY !== 'undefined' && STORY._ch ? STORY._ch : 600;
+    let pointBuffer = typeof STORY !== 'undefined' && STORY._borderPointBuffer;
+    if (!pointBuffer || pointBuffer.length < segments.length * 4) {
+        pointBuffer = new Float32Array(segments.length * 4);
+        if (typeof STORY !== 'undefined') STORY._borderPointBuffer = pointBuffer;
+    }
+    let ptIndex = 0;
+    const wW = STORY_WORLD_W, wH = STORY_WORLD_H;
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        const a = storyW2S(segment.x1 * wW, segment.y1 * wH);
+        const b = storyW2S(segment.x2 * wW, segment.y2 * wH);
+        if ((a.x < -6 && b.x < -6) || (a.x > cw + 6 && b.x > cw + 6)
+            || (a.y < -6 && b.y < -6) || (a.y > ch + 6 && b.y > ch + 6)) continue;
+        pointBuffer[ptIndex++] = a.x;
+        pointBuffer[ptIndex++] = a.y;
+        pointBuffer[ptIndex++] = b.x;
+        pointBuffer[ptIndex++] = b.y;
+    }
+    const visible = ptIndex / 4;
+    if (visible > 0) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        for (const segment of segments) {
-            const a = storyW2S(segment.x1 * STORY_WORLD_W, segment.y1 * STORY_WORLD_H);
-            const b = storyW2S(segment.x2 * STORY_WORLD_W, segment.y2 * STORY_WORLD_H);
-            if ((a.x < -6 && b.x < -6) || (a.x > STORY._cw + 6 && b.x > STORY._cw + 6)
-                || (a.y < -6 && b.y < -6) || (a.y > STORY._ch + 6 && b.y > STORY._ch + 6)) continue;
-            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-            if (countVisible) visible++;
+        for (let i = 0; i < ptIndex; i += 4) {
+            ctx.moveTo(pointBuffer[i], pointBuffer[i + 1]);
+            ctx.lineTo(pointBuffer[i + 2], pointBuffer[i + 3]);
         }
-    };
-    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    drawPath(true); ctx.strokeStyle = 'rgba(20,18,13,.66)'; ctx.lineWidth = outer; ctx.stroke();
-    drawPath(false); ctx.strokeStyle = 'rgba(220,181,78,.34)'; ctx.lineWidth = .7; ctx.stroke();
-    ctx.restore();
-    STORY._hexPoliticalBorderDiagnostics = { total: segments.length, visible,
-        outerPx: Math.round(outer * 100) / 100 };
+        ctx.strokeStyle = 'rgba(20,18,13,.66)';
+        ctx.lineWidth = outer;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(220,181,78,.34)';
+        ctx.lineWidth = .7;
+        ctx.stroke();
+        ctx.restore();
+    }
+    if (typeof STORY !== 'undefined') {
+        STORY._hexPoliticalBorderDiagnostics = { total: segments.length, visible,
+            outerPx: Math.round(outer * 100) / 100 };
+    }
     return visible;
 }
 
