@@ -1066,33 +1066,21 @@
     }
 
     function promoteHexNaturalContentsToRamTiles(canvas, key, renderScale) {
-        if (!canvas || typeof createImageBitmap !== 'function') return;
+        if (!canvas) return;
         releaseHexNaturalRamTiles('replacement');
         const tileSize = 1024;
         const cache = {
             key,
             renderScale: Number(renderScale) || 1,
             tiles: [],
-            ready: false,
+            ready: true,
             readyCount: 0,
             overviewScale: .5,
             overviewBitmap: null,
             overviewCanvas: null,
-            viewCanvas: null,
-            viewBitmap: null,
-            viewBitmapKey: null,
-            viewBitmapPromiseKey: null,
-            viewKey: null,
-            viewDrawn: 0,
-            viewMode: null,
-            lastDrawMode: null,
             byteLength: Number(canvas.width) * Number(canvas.height) * 4
         };
         STORY._hexNaturalContentsRamTiles = cache;
-        const jobs = [];
-        // Minimum zoom used to sample all 6000×4720 source tiles every frame.
-        // Build one canonical overview from that completed surface; it is not a
-        // second simulation or a lower-quality asset, only a mip level.
         const overview = document.createElement('canvas');
         overview.width = Math.max(1, Math.round(STORY_WORLD_W * cache.overviewScale));
         overview.height = Math.max(1, Math.round(STORY_WORLD_H * cache.overviewScale));
@@ -1102,41 +1090,24 @@
         overviewPaint.drawImage(canvas, 0, 0, canvas.width, canvas.height,
             0, 0, overview.width, overview.height);
         cache.overviewCanvas = overview;
+        cache.overviewBitmap = overview;
         cache.byteLength += overview.width * overview.height * 4;
-        jobs.push(createImageBitmap(overview).then(bitmap => {
-            cache.overviewBitmap = bitmap;
-            overview.width = 1;
-            overview.height = 1;
-        }));
+
         for (let y = 0; y < canvas.height; y += tileSize) {
             for (let x = 0; x < canvas.width; x += tileSize) {
                 const width = Math.min(tileSize, canvas.width - x);
                 const height = Math.min(tileSize, canvas.height - y);
-                const tile = { x, y, width, height, bitmap: null };
+                const tileCanvas = document.createElement('canvas');
+                tileCanvas.width = width;
+                tileCanvas.height = height;
+                const tilePaint = tileCanvas.getContext('2d');
+                tilePaint.imageSmoothingEnabled = false;
+                tilePaint.drawImage(canvas, x, y, width, height, 0, 0, width, height);
+                const tile = { x, y, width, height, bitmap: tileCanvas };
                 cache.tiles.push(tile);
-                jobs.push(createImageBitmap(canvas, x, y, width, height).then(bitmap => {
-                    tile.bitmap = bitmap;
-                    cache.readyCount++;
-                }));
+                cache.readyCount++;
             }
         }
-        Promise.all(jobs).then(() => {
-            if (STORY._hexNaturalContentsRamTiles !== cache
-                || STORY._hexNaturalContentsKey !== key) {
-                releaseHexNaturalRamTiles('stale-promotion');
-                return;
-            }
-            cache.ready = true;
-            // Bitmapler bağımsız çözülmüş kaynaklardır. Büyük çalışma canvas'ının
-            // piksel backing store'u artık tutulmaz; referans yalnız uyumluluk
-            // için 1×1 yüzey olarak kalır.
-            canvas.width = 1;
-            canvas.height = 1;
-            if (typeof storyRender === 'function'
-                && (typeof APP_SCREEN === 'undefined' || APP_SCREEN === 'story')) storyRender();
-        }).catch(() => {
-            releaseHexNaturalRamTiles('promotion-failed');
-        });
     }
 
     function drawHexNaturalRamTiles(ctx, cache) {

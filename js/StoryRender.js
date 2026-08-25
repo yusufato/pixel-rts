@@ -1189,13 +1189,8 @@ function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesMod
             }
         }
         const tile = { x: tx, y: ty, width: tw, height: th,
-            canvas: tileCanvas, bitmap: null, bitmapFailed: false };
+            canvas: tileCanvas, bitmap: tileCanvas, bitmapFailed: false };
         tiles.push(tile);
-        if (typeof createImageBitmap === 'function') {
-            createImageBitmap(tileCanvas).then(bitmap => {
-                tile.bitmap = bitmap; tile.canvas.width = 1; tile.canvas.height = 1;
-            }).catch(() => { tile.bitmapFailed = true; });
-        }
     }
     return {
         tiles, visualPositions, worldPositions,
@@ -2097,15 +2092,8 @@ function storyCreateWorldRamLayer(canvas, metadata) {
             paint.imageSmoothingEnabled = false;
             paint.drawImage(canvas, tx, ty, tw, th, 0, 0, tw, th);
             const tile = { x: tx, y: ty, width: tw, height: th,
-                canvas: tileCanvas, bitmap: null, bitmapFailed: false };
+                canvas: tileCanvas, bitmap: tileCanvas, bitmapFailed: false };
             tiles.push(tile);
-            if (typeof createImageBitmap === 'function') {
-                createImageBitmap(tileCanvas).then(bitmap => {
-                    tile.bitmap = bitmap;
-                    tile.canvas.width = 1;
-                    tile.canvas.height = 1;
-                }).catch(() => { tile.bitmapFailed = true; });
-            }
         }
     }
     canvas.width = 1;
@@ -2411,13 +2399,8 @@ function storyPortWorldLayerEnsure() {
             paint.clearRect(0, 0, tw, th); paint.imageSmoothingEnabled = false;
             storyDrawPortTerminals(paint, ports);
             const tile = { x: tx, y: ty, width: tw, height: th,
-                canvas, bitmap: null, bitmapFailed: false };
+                canvas, bitmap: canvas, bitmapFailed: false };
             tiles.push(tile);
-            if (typeof createImageBitmap === 'function') {
-                createImageBitmap(canvas).then(bitmap => {
-                    tile.bitmap = bitmap; tile.canvas.width = 1; tile.canvas.height = 1;
-                }).catch(() => { tile.bitmapFailed = true; });
-            }
         }
     } finally {
         storyCam.x = saved.x; storyCam.y = saved.y; storyCam.zoom = saved.zoom;
@@ -2478,31 +2461,10 @@ function storyDrawNetworkLayer(ctx, farMap) {
         screen.key = exactKey;
         screen.view = storyScreenLayerViewSnapshot();
         screen.builds++;
-        if (typeof createImageBitmap === 'function'
-            && !STORY._mapInteracting
-            && screen.bitmapPromiseKey !== exactKey) {
-            screen.bitmapPromiseKey = exactKey;
-            createImageBitmap(screen.canvas).then(bitmap => {
-                if (STORY._networkScreenComposite !== screen
-                    || screen.key !== exactKey) {
-                    if (bitmap && typeof bitmap.close === 'function') bitmap.close();
-                    return;
-                }
-                if (screen.bitmap && typeof screen.bitmap.close === 'function') {
-                    screen.bitmap.close();
-                }
-                screen.bitmap = bitmap;
-                screen.bitmapKey = exactKey;
-            }).catch(() => {
-                if (screen.bitmapPromiseKey === exactKey) screen.bitmapPromiseKey = null;
-            });
-        }
     } else {
         screen.hits++;
     }
-    const screenSource = screen.bitmap && screen.bitmapKey === screen.key
-        ? screen.bitmap : screen.canvas;
-    storyDrawScreenLayerForCamera(ctx, screenSource, screen.view);
+    storyDrawScreenLayerForCamera(ctx, screen.canvas, screen.view);
     const drawnTiles = screen.drawnTiles;
     const drawnPortTiles = screen.drawnPortTiles;
     STORY._networkLayerDiagnostics = {
