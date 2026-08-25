@@ -69,10 +69,10 @@ function storyWorldVisualStateKey() {
     ].join(':') : '-').join(',');
     const invalidation = STORY._mapCacheInvalidation || {};
     return [
-        'world-visual-state-3', nodes,
+        'world-visual-state-4', nodes,
         STORY.commander && STORY.commander.node,
         STORY.selectedNodeId,
-        STORY.hexConstruction && STORY.hexConstruction.version || 0,
+        STORY.hexConstruction && STORY.hexConstruction.receiptSequence || 0,
         STORY.hexLandManagement && STORY.hexLandManagement.version || 0,
         STORY.infrastructureWorks && STORY.infrastructureWorks.revision || 0,
         STORY.physicalInfrastructure && STORY.physicalInfrastructure.revision || 0,
@@ -3351,9 +3351,7 @@ function storyFastTerrainCacheV2() {
         ? storyMapPaletteKey() : 'palette:neutral';
     const styleVersion = 'geo-terrain-v2-fast-base-1';
     if (STORY._geoTerrain && STORY._geoTerrain.width === raster.width && STORY._geoTerrain.height === raster.height
-        && STORY._geoTerrainSource
-        && STORY._geoTerrainSource.paletteKey === paletteKey
-        && STORY._geoTerrainSource.styleVersion === styleVersion) return STORY._geoTerrain;
+        && STORY._geoTerrainSource) return STORY._geoTerrain;
     const W = raster.width, H = raster.height;
     const cv = (STORY._geoTerrain && STORY._geoTerrain.width === W && STORY._geoTerrain.height === H)
         ? STORY._geoTerrain : document.createElement('canvas');
