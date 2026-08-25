@@ -382,6 +382,7 @@ function storyPoliticalCrisisOpen(ledger, state, assessment) {
         llmOutcome: false
     };
     crisis.regionalControl = storyPoliticalCrisisRegionalControl(state, crisis, assessment);
+    storyPoliticalCrisisPruneOldCrises(ledger);
     ledger.crises[id] = crisis;
     country.activeCrisisId = id;
     country.crisisIds.push(id);
@@ -395,6 +396,25 @@ function storyPoliticalCrisisOpen(ledger, state, assessment) {
     });
     crisis.memoryEpisodeId = storyPoliticalCrisisMemoryOpen(state, crisis);
     return crisis;
+}
+
+function storyPoliticalCrisisPruneOldCrises(ledger) {
+    if (!ledger || !ledger.crises) return;
+    const max = Number(STORY_POLITICAL_CRISIS_POLICY && STORY_POLITICAL_CRISIS_POLICY.maximumCrises) || 160;
+    const keys = Object.keys(ledger.crises);
+    if (keys.length < max) return;
+    const terminal = keys
+        .map(k => ledger.crises[k])
+        .filter(c => c && ['FAILED', 'SUCCESS', 'SPLIT', 'DISSOLVED'].includes(c.status))
+        .sort((a, b) => (Number(a.resolvedAt) || 0) - (Number(b.resolvedAt) || 0));
+    while (Object.keys(ledger.crises).length >= max && terminal.length > 0) {
+        const oldest = terminal.shift();
+        delete ledger.crises[oldest.id];
+        const country = ledger.countries && ledger.countries[oldest.countryId];
+        if (country && Array.isArray(country.crisisIds)) {
+            country.crisisIds = country.crisisIds.filter(id => id !== oldest.id);
+        }
+    }
 }
 function storyPoliticalCrisisStage(preparationBps) {
     if (preparationBps >= STORY_POLITICAL_CRISIS_POLICY.attemptPreparationBps) return 'ATTEMPT';

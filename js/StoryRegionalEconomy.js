@@ -132,7 +132,8 @@ function storyRegionalDemandSpecs(node, worldDays) {
     let liveFacilities = [];
     if (settledCommerce && STORY.companyEconomy) {
         const ce = STORY.companyEconomy;
-        if (!(ce._liveFacilitiesByRegion instanceof Map) || ce._liveFacilitiesRevision !== Object.keys(ce.facilities || {}).length) {
+        const currentRev = `${Number(ce.transactionSequence || 0)}:${Number(ce.tickSequence || 0)}:${Object.keys(ce.facilities || {}).length}`;
+        if (!(ce._liveFacilitiesByRegion instanceof Map) || ce._liveFacilitiesRevision !== currentRev) {
             const map = new Map();
             for (const f of Object.values(ce.facilities || {})) {
                 if (f && f.status === 'OPERATING' && ce.companies && ce.companies[f.ownerCompanyId]) {
@@ -142,7 +143,7 @@ function storyRegionalDemandSpecs(node, worldDays) {
                 }
             }
             ce._liveFacilitiesByRegion = map;
-            ce._liveFacilitiesRevision = Object.keys(ce.facilities || {}).length;
+            ce._liveFacilitiesRevision = currentRev;
         }
         liveFacilities = ce._liveFacilitiesByRegion.get(`region:${Number(node.id)}`) || [];
     }

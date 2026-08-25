@@ -1161,12 +1161,6 @@ function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesMod
             tileNodes.get(key).push({ node, anchor, footprint });
         }
     }
-    const existingTileMap = new Map();
-    if (options && options.previousLayer && Array.isArray(options.previousLayer.tiles)) {
-        for (const t of options.previousLayer.tiles) {
-            if (t && t.canvas) existingTileMap.set(`${t.x}:${t.y}`, t.canvas);
-        }
-    }
     const tiles = [];
     for (const [key, entries] of tileNodes) {
         const [gridX, gridY] = key.split(':').map(Number);
@@ -1176,16 +1170,14 @@ function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesMod
         if (!(tw > 0) || !(th > 0)) continue;
         storyCam.x = tx / renderScale; storyCam.y = ty / renderScale;
         storyCam.zoom = renderScale; STORY._cw = tw; STORY._ch = th;
-        let tileCanvas = existingTileMap.get(`${tx}:${ty}`);
-        if (!tileCanvas || tileCanvas.width !== tw || tileCanvas.height !== th) {
-            tileCanvas = document.createElement('canvas');
-            tileCanvas.width = tw; tileCanvas.height = th;
-        }
+        const tileCanvas = document.createElement('canvas');
+        tileCanvas.width = tw; tileCanvas.height = th;
         const paint = tileCanvas.getContext('2d');
         paint.clearRect(0, 0, tw, th); paint.imageSmoothingEnabled = false;
         for (const entry of entries) {
+            const screenPoint = storyW2S(entry.anchor.x, entry.anchor.y);
             const result = storyDrawSettlementSprite(
-                paint, entry.node, entry.anchor.x, entry.anchor.y, false, 1, {
+                paint, entry.node, screenPoint.x, screenPoint.y, false, 1, {
                     actionable: true,
                     minZoom: mode.minZoom,
                     disableDistricts: !!mode.disableDistricts,
@@ -1261,10 +1253,8 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         storyCam.y = 0;
         for (const mode of modes) {
             if (mode.sparse) {
-                const prev = STORY._settlementWorldLayers && STORY._settlementWorldLayers.layers
-                    && STORY._settlementWorldLayers.layers[mode.id];
                 layers[mode.id] = storyBuildSparseSettlementWorldLayer(
-                    mode, urbanModel, physicalSitesModel, worldPositions, { previousLayer: prev }
+                    mode, urbanModel, physicalSitesModel, worldPositions
                 );
                 continue;
             }

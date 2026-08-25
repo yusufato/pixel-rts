@@ -70,6 +70,9 @@ function storyHexLandManagementSubmit(input, root) {
         createdAtYear: Number(typeof STORY !== 'undefined' && STORY.year) || null,
         outcome: policy.outcome
     };
+    if (ledger.records.length >= 500) {
+        ledger.records.splice(0, ledger.records.length - 499);
+    }
     ledger.records.push(record);
     ledger.version++;
     return { ok: true, record };

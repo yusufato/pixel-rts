@@ -275,7 +275,7 @@ function storyHexUrbanFootprintsValidate(model, world, geography, settlements, n
     const hexWorld = world || storyHexWorldEnsure();
     const hexGeography = geography || storyHexGeographyEnsure();
     const hexSettlements = settlements || storyHexSettlementsEnsure();
-    const sourceNodes = nodes || STORY.nodes || [];
+    const sourceNodes = nodes || (typeof STORY !== 'undefined' && STORY.nodes) || [];
     if (!model || typeof model !== 'object') return { ok: false, issues: [{ code: 'MODEL_REQUIRED', path: '$', message: 'HexUrban zorunlu.' }] };
     if (model.schemaVersion !== STORY_HEX_URBAN_SCHEMA_VERSION) add('SCHEMA_VERSION', '$.schemaVersion', 'Şehir ayak izi şeması uyuşmuyor.');
     if (model.adapterVersion !== STORY_HEX_URBAN_ADAPTER_VERSION) add('ADAPTER_VERSION', '$.adapterVersion', 'Şehir ayak izi adaptörü uyuşmuyor.');
@@ -314,7 +314,7 @@ function storyHexUrbanFootprintsEnsure() {
     const geography = storyHexGeographyEnsure();
     const settlements = storyHexSettlementsEnsure();
     if (!world || !geography || !settlements) return null;
-    const nodes = STORY.nodes || [];
+    const nodes = (typeof STORY !== 'undefined' && STORY.nodes) ? STORY.nodes : [];
     const sourceHash = storyHexUrbanSourceHash(world, geography, settlements, nodes);
     if (STORY_HEX_URBAN_CACHE && STORY_HEX_URBAN_CACHE.sourceHash === sourceHash) return STORY_HEX_URBAN_CACHE;
     const model = storyHexUrbanFootprintsCreate({ world, geography, settlements, nodes, loadMode: 'runtime' });
@@ -333,6 +333,7 @@ function storyHexUrbanFootprintForNode(node) {
 
 function storyHexUrbanResetCache() {
     STORY_HEX_URBAN_CACHE = null;
+    STORY_HEX_URBAN_CANDIDATE_CACHE = null;
     if (typeof STORY !== 'undefined') STORY._settlementLayerKey = null;
 }
 

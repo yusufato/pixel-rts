@@ -548,21 +548,6 @@ function storyHexSitesValidate(model, world, geography, urban, companyEconomy, n
 }
 
 function storyHexSitesEnsure() {
-    const ce = (typeof STORY !== 'undefined' ? STORY.companyEconomy : null) || null;
-    const hc = (typeof STORY !== 'undefined' ? STORY.hexConstruction : null) || null;
-    const companyRev = Number(ce && ce.revision) || 0;
-    const hexConVer = Number(hc && hc.version) || 0;
-    const facilityCount = ce && ce.facilities ? Object.keys(ce.facilities).length : 0;
-    const commandCount = hc && hc.commands ? hc.commands.length : 0;
-
-    if (STORY_HEX_SITES_CACHE
-        && STORY_HEX_SITES_CACHE._companyRev === companyRev
-        && STORY_HEX_SITES_CACHE._hexConVer === hexConVer
-        && STORY_HEX_SITES_CACHE._facilityCount === facilityCount
-        && STORY_HEX_SITES_CACHE._commandCount === commandCount) {
-        return STORY_HEX_SITES_CACHE;
-    }
-
     const world = storyHexWorldEnsure();
     const geography = storyHexGeographyEnsure();
     const urban = storyHexUrbanFootprintsEnsure();
@@ -571,16 +556,12 @@ function storyHexSitesEnsure() {
     const agriculture = typeof storyHexAgricultureEnsure === 'function'
         ? storyHexAgricultureEnsure() : null;
     const companyEconomy = typeof storyCompanyEnsure === 'function'
-        ? storyCompanyEnsure() : (STORY.companyEconomy || { facilities: {}, projects: [] });
-    const hexConstruction = STORY.hexConstruction || { commands: [] };
+        ? storyCompanyEnsure() : ((typeof STORY !== 'undefined' && STORY.companyEconomy) || { facilities: {}, projects: [] });
+    const hexConstruction = (typeof STORY !== 'undefined' && STORY.hexConstruction) || { commands: [] };
 
     const sourceHash = storyHexSitesSourceHash(world, geography, urban,
         companyEconomy, natural, agriculture, hexConstruction);
     if (STORY_HEX_SITES_CACHE && STORY_HEX_SITES_CACHE.sourceHash === sourceHash) {
-        STORY_HEX_SITES_CACHE._companyRev = companyRev;
-        STORY_HEX_SITES_CACHE._hexConVer = hexConVer;
-        STORY_HEX_SITES_CACHE._facilityCount = facilityCount;
-        STORY_HEX_SITES_CACHE._commandCount = commandCount;
         return STORY_HEX_SITES_CACHE;
     }
     const model = storyHexSitesCreate({ world, geography, urban, natural,

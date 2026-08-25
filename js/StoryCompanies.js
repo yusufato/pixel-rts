@@ -438,6 +438,15 @@ function storyCompanyValidate(candidate) {
 }
 
 function storyCompanyReset(options) {
+    _storyCompanyRegionalLiquidityCache = null;
+    _storyCompanyRegionalLiquidityCacheSeq = -1;
+    if (storyCompanyMarketPrice._cache) storyCompanyMarketPrice._cache = null;
+    if (storyCompanyProductionUnitEconomics._cache) storyCompanyProductionUnitEconomics._cache = null;
+    if (storyCompanyProductionViability._cache) storyCompanyProductionViability._cache = null;
+    if (typeof STORY !== 'undefined') {
+        delete STORY._nodesByOwner;
+        delete STORY._nodesByOwnerSeq;
+    }
     if (!storyCompanyEnabled()) {
         STORY.companyEconomy = null;
         return null;
@@ -665,8 +674,8 @@ function storyCompanyMarketPrice(regionId, resourceId) {
     if (storyCompanyMarketPrice._cache.has(cacheKey)) {
         return storyCompanyMarketPrice._cache.get(cacheKey);
     }
-    let ownerNodes = STORY._nodesByOwner ? STORY._nodesByOwner.get(Number(node.owner)) : null;
-    if (!ownerNodes) {
+    const econSeq = (typeof STORY !== 'undefined' && STORY.regionalEconomy && STORY.regionalEconomy.tickSequence) || 0;
+    if (!STORY._nodesByOwner || STORY._nodesByOwnerSeq !== econSeq) {
         const map = new Map();
         for (const n of (STORY.nodes || [])) {
             const own = Number(n.owner);
@@ -675,8 +684,9 @@ function storyCompanyMarketPrice(regionId, resourceId) {
             list.push(n);
         }
         STORY._nodesByOwner = map;
-        ownerNodes = map.get(Number(node.owner)) || [];
+        STORY._nodesByOwnerSeq = econSeq;
     }
+    const ownerNodes = STORY._nodesByOwner.get(Number(node.owner)) || [];
     const nationalPrices = [];
     for (let i = 0; i < ownerNodes.length; i++) {
         const candidate = ownerNodes[i];
