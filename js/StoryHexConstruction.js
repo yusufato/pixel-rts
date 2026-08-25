@@ -250,22 +250,41 @@ function storyHexConstructionCandidateBlock(index, projectType, regionId, contex
     return { cellId, reasons: Array.from(new Set(reasons)), environment };
 }
 
+function storyHexConstructionRegionCellIndices(geography, regionNumber) {
+    if (!geography) return [];
+    if (!geography._cellIndicesByRegion) {
+        const map = new Map();
+        const regionIds = geography.regionIds || [];
+        for (let i = 0; i < regionIds.length; i++) {
+            const regNum = Number(regionIds[i]);
+            let list = map.get(regNum);
+            if (!list) { list = []; map.set(regNum, list); }
+            list.push(i);
+        }
+        geography._cellIndicesByRegion = map;
+    }
+    return geography._cellIndicesByRegion.get(Number(regionNumber)) || [];
+}
+
 function storyHexConstructionCandidates(regionId, projectType, options) {
     const context = storyHexConstructionContext(options);
     const root = options && options.root || (typeof STORY !== 'undefined' ? STORY : null);
     const ledger = root && root.hexConstruction || { applications: [], commands: [] };
     const type = String(projectType || '').toUpperCase();
     if (!context.world || !context.geography || !STORY_HEX_CONSTRUCTION_POLICY[type]) return [];
+    const regionNumber = storyHexConstructionRegionNumber(regionId);
+    const regionCellIndices = storyHexConstructionRegionCellIndices(context.geography, regionNumber);
+    if (!regionCellIndices.length) return [];
     const rows = [];
-    let centerQ = 0, centerR = 0, count = 0;
-    for (let index = 0; index < Number(context.world.cellCount); index++) {
-        if (Number(context.geography.regionIds[index]) !== storyHexConstructionRegionNumber(regionId)) continue;
+    let centerQ = 0, centerR = 0;
+    for (let i = 0; i < regionCellIndices.length; i++) {
+        const index = regionCellIndices[i];
         centerQ += Number(context.world.qValues[index]);
         centerR += Number(context.world.rValues[index]);
-        count++;
     }
-    centerQ /= Math.max(1, count); centerR /= Math.max(1, count);
-    for (let index = 0; index < Number(context.world.cellCount); index++) {
+    centerQ /= regionCellIndices.length; centerR /= regionCellIndices.length;
+    for (let i = 0; i < regionCellIndices.length; i++) {
+        const index = regionCellIndices[i];
         const checked = storyHexConstructionCandidateBlock(index, type, String(regionId), context, ledger);
         if (checked.reasons.length) continue;
         const q = Number(context.world.qValues[index]), r = Number(context.world.rValues[index]);

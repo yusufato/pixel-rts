@@ -1083,6 +1083,19 @@ function storyTradeConsumeCapacity(route, quantity, ledger) {
     }
 }
 
+function storyTradeContractById(ledger, contractId) {
+    if (!ledger || !contractId) return null;
+    if (!ledger._contractById || ledger._contractByIdRev !== (ledger.contracts || []).length) {
+        const map = new Map();
+        for (const c of (ledger.contracts || [])) {
+            map.set(c.id, c);
+        }
+        ledger._contractById = map;
+        ledger._contractByIdRev = (ledger.contracts || []).length;
+    }
+    return ledger._contractById.get(contractId) || null;
+}
+
 function storyTradeDispatchOrder(orderOrId, maxQuantity) {
     const ledger = storyTradeEnsure();
     if (!ledger) return { ok: false, code: 'FEATURE_DISABLED' };
@@ -1090,7 +1103,7 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         ? orderOrId
         : ledger.orders.find(item => item.id === String(orderOrId));
     if (!order || !['OPEN', 'PARTIAL'].includes(order.status)) return { ok: false, code: 'ORDER_NOT_OPEN' };
-    const contract = ledger.contracts.find(item => item.id === order.contractId);
+    const contract = storyTradeContractById(ledger, order.contractId);
     if (!contract || contract.status !== 'ACTIVE') return { ok: false, code: 'CONTRACT_NOT_ACTIVE' };
     if (!storyTradeCanContract(order.sellerCountryId, order.buyerCountryId)) {
         contract.status = 'SUSPENDED';
@@ -1293,7 +1306,7 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
 function storyTradeApplyRedirect(shipment) {
     if (!shipment.pendingRedirectRegionId) return { ok: true, changed: false };
     const ledger = storyTradeEnsure();
-    const contract = ledger.contracts.find(item => item.id === shipment.contractId);
+    const contract = storyTradeContractById(ledger, shipment.contractId);
     const route = storyTradeFindRoute(
         shipment.currentRegionId,
         shipment.pendingRedirectRegionId,
@@ -1343,7 +1356,7 @@ function storyTradeRedirectShipment(shipmentId, targetRegionId, options) {
     if (![shipment.sellerCountryId, shipment.buyerCountryId].includes(authorizedBy)) {
         return { ok: false, code: 'AMENDMENT_AUTHORITY_REQUIRED' };
     }
-    const contract = ledger.contracts.find(item => item.id === shipment.contractId);
+    const contract = storyTradeContractById(ledger, shipment.contractId);
     if (!contract || contract.status !== 'ACTIVE') return { ok: false, code: 'CONTRACT_NOT_ACTIVE' };
     const routeProbe = storyTradeFindRoute(
         shipment.currentRegionId,
@@ -1611,7 +1624,7 @@ function storyTradeLoseShipment(shipmentId, reason) {
 function storyTradeAdvanceShipment(shipment, dtSec) {
     if (!['IN_TRANSIT', 'HELD'].includes(shipment.status)) return { moved: false };
     const ledger = storyTradeEnsure();
-    const contract = ledger.contracts.find(item => item.id === shipment.contractId);
+    const contract = storyTradeContractById(ledger, shipment.contractId);
     if (storyTradeCountryIdForRegion(shipment.targetRegionId) !== shipment.buyerCountryId) {
         shipment.status = 'HELD';
         shipment.holdReason = 'TARGET_OWNERSHIP_CHANGED';

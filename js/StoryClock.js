@@ -131,7 +131,7 @@ function storyClockAdvance(realDtSec) {
     }
 
     const startMs = isBrowser && typeof performance !== 'undefined' ? performance.now() : 0;
-    const maxSteps = isBrowser ? 2 : STORY_CLOCK_MAX_STEPS_PER_ADVANCE;
+    const maxSteps = isBrowser ? 1 : STORY_CLOCK_MAX_STEPS_PER_ADVANCE;
 
     let steps = 0;
     while (

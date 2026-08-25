@@ -404,13 +404,18 @@ function storyEconomicAIDependencySignals(company) {
         _storyEconomicAIDependencyCache = new Map();
         _storyEconomicAIDependencyCacheClock = clock;
     }
-    const regions = STORY.regionalEconomy && STORY.regionalEconomy.regions
-        ? Object.values(STORY.regionalEconomy.regions).filter(region => {
-            const nodeId = Number(String(region.regionId || '').split(':')[1]);
-            const node = STORY.nodes && STORY.nodes[nodeId];
-            return node && `country:${Number(node.owner)}` === company.countryId;
-        })
-        : [];
+    const regional = STORY.regionalEconomy;
+    if (regional && !regional._regionsByCountry) {
+        const byCountry = new Map();
+        for (const reg of Object.values(regional.regions || {})) {
+            const cid = storyEconomicAICountryIdForRegion(reg.regionId);
+            let list = byCountry.get(cid);
+            if (!list) { list = []; byCountry.set(cid, list); }
+            list.push(reg);
+        }
+        regional._regionsByCountry = byCountry;
+    }
+    const regions = (regional && regional._regionsByCountry && regional._regionsByCountry.get(company.countryId)) || [];
     const fill = resourceId => {
         let requested = 0;
         let delivered = 0;
@@ -588,10 +593,21 @@ function storyEconomicAIReachableInput(company, targetRegionId, resourceId, targ
         _reachableInputCache.set(`${targetRegionId}|${countryId}|${resourceId}`, res);
         return res;
     }
-    for (const region of Object.values(regional.regions)) {
+    if (!regional._regionsByCountry) {
+        const byCountry = new Map();
+        for (const reg of Object.values(regional.regions)) {
+            const cid = storyEconomicAICountryIdForRegion(reg.regionId);
+            let list = byCountry.get(cid);
+            if (!list) { list = []; byCountry.set(cid, list); }
+            list.push(reg);
+        }
+        regional._regionsByCountry = byCountry;
+    }
+    const candidateRegions = regional._regionsByCountry.get(countryId) || [];
+    for (let i = 0; i < candidateRegions.length; i++) {
         if (quantity >= needed) break;
-        if (region.regionId === targetRegionId
-            || storyEconomicAICountryIdForRegion(region.regionId) !== countryId) continue;
+        const region = candidateRegions[i];
+        if (region.regionId === targetRegionId) continue;
         const stock = Math.max(0, Number(region.stocks[resourceId]) || 0);
         const safe = Math.max(0, Number(region.safeTargets[resourceId]) || 0);
         const exportable = storyEconomicAIRound(Math.max(0, stock - safe * reserveBps / 10000));
@@ -855,20 +871,29 @@ function storyEconomicAIProcurePreparedInputs(preparation) {
         const pending = storyEconomicAIPendingPreparationQuantity(preparation, resourceId);
         let need = storyEconomicAIRound(Math.max(0, required - reserved - pending));
         if (need <= 1e-6) continue;
-        const sources = Object.values(regional.regions)
-            .filter(region => region.regionId !== preparation.regionId
-                && storyEconomicAICountryIdForRegion(region.regionId) === preparation.countryId
-                && !unreachableSources.has(region.regionId))
-            .map(region => {
-                const stock = Math.max(0, Number(region.stocks[resourceId]) || 0);
-                const safe = Math.max(0, Number(region.safeTargets[resourceId]) || 0);
-                return {
-                    regionId: region.regionId,
-                    exportable: storyEconomicAIRound(Math.max(0, stock - safe * reserveBps / 10000))
-                };
-            })
-            .filter(row => row.exportable > 1e-6)
-            .sort((a, b) => b.exportable - a.exportable || a.regionId.localeCompare(b.regionId));
+        if (!regional._regionsByCountry) {
+            const byCountry = new Map();
+            for (const reg of Object.values(regional.regions)) {
+                const cid = storyEconomicAICountryIdForRegion(reg.regionId);
+                let list = byCountry.get(cid);
+                if (!list) { list = []; byCountry.set(cid, list); }
+                list.push(reg);
+            }
+            regional._regionsByCountry = byCountry;
+        }
+        const countryRegions = regional._regionsByCountry.get(preparation.countryId) || [];
+        const sources = [];
+        for (let i = 0; i < countryRegions.length; i++) {
+            const region = countryRegions[i];
+            if (region.regionId === preparation.regionId || unreachableSources.has(region.regionId)) continue;
+            const stock = Math.max(0, Number(region.stocks[resourceId]) || 0);
+            const safe = Math.max(0, Number(region.safeTargets[resourceId]) || 0);
+            const exportable = storyEconomicAIRound(Math.max(0, stock - safe * reserveBps / 10000));
+            if (exportable > 1e-6) {
+                sources.push({ regionId: region.regionId, exportable });
+            }
+        }
+        sources.sort((a, b) => b.exportable - a.exportable || a.regionId.localeCompare(b.regionId));
         for (const source of sources) {
             if (need <= 1e-6 || ordersCreated >= 4) break;
             const quantity = storyEconomicAIRound(Math.min(need, source.exportable));
@@ -1410,7 +1435,9 @@ function storyEconomicAIHoldCandidate(actorId, countryId, code, score) {
 
 function storyEconomicAIRecordDecision(ledger, payload) {
     if (payload && payload.execution && payload.execution.status === 'APPLIED') {
-        storyEconomicAIInvalidateCandidateCache();
+        if (_storyEconomicAICandidateCache) {
+            _storyEconomicAICandidateCache.delete(payload.actorId);
+        }
     }
     ledger.decisionSequence++;
     const decision = {
@@ -1434,9 +1461,8 @@ function storyEconomicAIRecordDecision(ledger, payload) {
         )
     };
     ledger.decisions.push(decision);
-    while (ledger.decisions.length > STORY_ECONOMIC_AI_DECISION_LIMIT) {
-        const removable = ledger.decisions.findIndex(row => row.execution && row.execution.status === 'HELD');
-        ledger.decisions.splice(removable >= 0 ? removable : 0, 1);
+    if (ledger.decisions.length > STORY_ECONOMIC_AI_DECISION_LIMIT) {
+        ledger.decisions.splice(0, ledger.decisions.length - STORY_ECONOMIC_AI_DECISION_LIMIT);
     }
     return decision;
 }

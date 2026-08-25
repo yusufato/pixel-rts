@@ -687,7 +687,7 @@ function storyProductionEvaluate(sectorId, request) {
         committed: false,
         liveStockSystem: false
     };
-    proposal.proposalHash = storyProductionHash(proposal);
+    proposal.proposalHash = `eval:${sector.id}:${actualCycles}:${requestedCycles}`;
     proposal._trustedDirect = true;
     return proposal;
 }

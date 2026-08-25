@@ -665,14 +665,28 @@ function storyCompanyMarketPrice(regionId, resourceId) {
     if (storyCompanyMarketPrice._cache.has(cacheKey)) {
         return storyCompanyMarketPrice._cache.get(cacheKey);
     }
-    const nationalPrices = (STORY.nodes || [])
-        .filter(candidate => Number(candidate.owner) === Number(node.owner))
-        .map(candidate => STORY.marketPrices.regions[`region:${Number(candidate.id)}`])
-        .map(region => region && region.resources && region.resources[resourceId])
-        .filter(price => price && price.status === 'ACTIVE'
-            && Number.isFinite(Number(price.priceIndex)))
-        .map(price => Number(price.priceIndex))
-        .sort((a, b) => a - b);
+    let ownerNodes = STORY._nodesByOwner ? STORY._nodesByOwner.get(Number(node.owner)) : null;
+    if (!ownerNodes) {
+        const map = new Map();
+        for (const n of (STORY.nodes || [])) {
+            const own = Number(n.owner);
+            let list = map.get(own);
+            if (!list) { list = []; map.set(own, list); }
+            list.push(n);
+        }
+        STORY._nodesByOwner = map;
+        ownerNodes = map.get(Number(node.owner)) || [];
+    }
+    const nationalPrices = [];
+    for (let i = 0; i < ownerNodes.length; i++) {
+        const candidate = ownerNodes[i];
+        const reg = STORY.marketPrices.regions[`region:${Number(candidate.id)}`];
+        const price = reg && reg.resources && reg.resources[resourceId];
+        if (price && price.status === 'ACTIVE' && Number.isFinite(Number(price.priceIndex))) {
+            nationalPrices.push(Number(price.priceIndex));
+        }
+    }
+    nationalPrices.sort((a, b) => a - b);
     const result = !nationalPrices.length ? localPrice : nationalPrices[Math.floor((nationalPrices.length - 1) * 0.75)];
     storyCompanyMarketPrice._cache.set(cacheKey, result);
     return result;

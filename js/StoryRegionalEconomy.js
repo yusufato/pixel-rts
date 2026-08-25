@@ -716,10 +716,11 @@ function storyRegionalAllocateDemands(regionId, demands) {
     const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
     const region = ledger && ledger.regions[id];
     if (!region) return { ok: false, code: 'REGION_NOT_FOUND', allocations: [] };
-    const ordered = (Array.isArray(demands) ? demands : []).map(d => Object.assign({}, d))
+    const ordered = (Array.isArray(demands) ? demands.slice() : [])
         .sort((a, b) => Number(b.priority) - Number(a.priority) || String(a.id).localeCompare(String(b.id), 'en'));
     const allocations = [];
-    for (const demand of ordered) {
+    for (let d = 0; d < ordered.length; d++) {
+        const demand = ordered[d];
         const resourceId = String(demand.resourceId);
         const requested = Math.max(0, Number(demand.quantity) || 0);
         if (!STORY_RESOURCE_IDS.includes(resourceId) || requested <= 0) continue;
@@ -755,10 +756,10 @@ function storyRegionalAllocateDemands(regionId, demands) {
         if (demand.payerType) allocation.payerType = String(demand.payerType);
         if (demand.payerId) allocation.payerId = String(demand.payerId);
         if (demand.buyerCompanyId) allocation.buyerCompanyId = String(demand.buyerCompanyId);
-        if (sale) allocation.sale = storyRegionalClone(sale.summary || {
+        if (sale) allocation.sale = sale.summary ? Object.assign({}, sale.summary) : {
             ok: sale.ok,
             code: sale.code || null
-        });
+        };
         allocations.push(allocation);
         const shortageKey = `${id}|${demand.consumerType}|${resourceId}`;
         const shortageLookup = storyRegionalShortageLookup(ledger);
