@@ -37,50 +37,14 @@ function storyTransportContinuousAdvance(dtSec) {
     const speedMultiplier = Math.max(0.1, Math.min(3.0, Number(STORY.speed || 1))) * 0.05;
     const effectiveDt = dt * speedMultiplier;
     const ledger = typeof storyTradeEnsure === 'function' ? storyTradeEnsure() : null;
-    if (!ledger || !Array.isArray(ledger.shipments)) return;
-    for (const shipment of ledger.shipments) {
-        if (['IN_TRANSIT', 'HELD'].includes(shipment.status) && shipment.transportAgent) {
+    const shipments = ledger && ledger.shipments;
+    if (!shipments || !shipments.length) return;
+    for (let i = 0; i < shipments.length; i++) {
+        const shipment = shipments[i];
+        if (shipment && (shipment.status === 'IN_TRANSIT' || shipment.status === 'HELD') && shipment.transportAgent) {
             storyTransportAdvanceShipment(shipment, effectiveDt);
         }
     }
-}
-
-// Fixed-step simulation intentionally updates physical shipments every 0.25 s.
-// The map must not expose that cadence as quarter-second teleports. This helper
-// keeps a render-only, wall-clock track that eases from the last painted world
-// position to the newest authoritative simulation position. It never writes
-// back to a shipment, route, stock or clock record.
-function storyTransportPresentationResolve(previous, target, nowMs, durationMs) {
-    const targetX = Number(target && target.x) || 0;
-    const targetY = Number(target && target.y) || 0;
-    const now = Number(nowMs) || 0;
-    const duration = Math.max(1, Number(durationMs) || 1);
-    const sample = track => {
-        if (!track) return { x: targetX, y: targetY, active: false };
-        const ratio = Math.max(0, Math.min(1,
-            (now - Number(track.startedAt || 0)) / Math.max(1, Number(track.durationMs) || 1)));
-        return {
-            x: Number(track.fromX) + (Number(track.toX) - Number(track.fromX)) * ratio,
-            y: Number(track.fromY) + (Number(track.toY) - Number(track.fromY)) * ratio,
-            active: ratio < 1
-        };
-    };
-    if (!previous) {
-        const track = { fromX: targetX, fromY: targetY, toX: targetX, toY: targetY,
-            startedAt: now, durationMs: duration };
-        return { track, x: targetX, y: targetY, active: false, targetChanged: false };
-    }
-    const changed = Math.abs(Number(previous.toX) - targetX) > 1e-7
-        || Math.abs(Number(previous.toY) - targetY) > 1e-7;
-    if (changed) {
-        const current = sample(previous);
-        const track = { fromX: current.x, fromY: current.y, toX: targetX, toY: targetY,
-            startedAt: now, durationMs: duration };
-        return { track, x: current.x, y: current.y, active: true, targetChanged: true };
-    }
-    const current = sample(previous);
-    return { track: previous, x: current.x, y: current.y,
-        active: current.active, targetChanged: false };
 }
 
 // Fixed-step simulation intentionally updates physical shipments every 0.25 s.

@@ -149,6 +149,7 @@
             'storyElectionTick',
             'storyRender',
             'storyRenderTransportOverlay',
+            'storyTransportContinuousAdvance',
             'storyWorldVisualStateKey'
         ];
 
