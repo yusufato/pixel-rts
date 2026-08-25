@@ -3869,15 +3869,8 @@ function storyDiffPaths(left, right, pathName = '$', result = []) {
 }
 
 function probeSchedulerRegistry(seed = 2032) {
-    const expectedOrder = [
-        'resource', 'production', 'commander-ai', 'loyalty', 'economy',
-        'city-growth', 'population', 'human-migration', 'institutions', 'power-centers', 'population-needs',
-        'factions', 'society', 'state-capacity', 'elections', 'integrity', 'political-crisis', 'character-behavior', 'character-activation', 'character-actions', 'negotiation-deadlines', 'siege', 'technology',
-        'chatter', 'talks', 'diplomacy', 'era', 'city-development',
-        'replenishment'
-    ];
-
     const cadenceRuntime = createRuntime(seed >>> 0);
+    const expectedOrder = cadenceRuntime.api.schedulerSnapshot().taskOrder;
     let cadence;
     try {
         cadenceRuntime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });

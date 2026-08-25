@@ -34,7 +34,7 @@ let STORY_CITY_DOSSIER_DOM_TAB_CACHE = new WeakMap();
 let STORY_CITY_DOSSIER_INTERACTION = new WeakMap();
 let STORY_CITY_DOSSIER_PANEL_PERF = null;
 let STORY_CITY_DOSSIER_PANEL_EPOCH = 0;
-const STORY_CITY_DOSSIER_PANEL_CACHE_LIMIT = 64;
+const STORY_CITY_DOSSIER_PANEL_CACHE_LIMIT = 512;
 
 const STORY_CITY_DOSSIER_LEDGER_GROUPS = Object.freeze({
     city: Object.freeze({
@@ -58,17 +58,22 @@ const STORY_CITY_DOSSIER_LEDGER_GROUPS = Object.freeze({
 });
 const STORY_CITY_DOSSIER_TASK_GROUPS = Object.freeze({
     city: Object.freeze({
-        genel: ['resource', 'production'],
+        genel: ['economy-regional'],
         nufus: ['population', 'population-needs', 'factions', 'human-migration'],
         kurumlar: ['institutions', 'power-centers', 'state-capacity', 'elections', 'integrity'],
-        tarih: [], karakterler: ['loyalty', 'commander-ai'],
-        binalar: ['resource', 'production'], ordu: ['resource', 'production']
+        tarih: [],
+        karakterler: ['character-actions'],
+        binalar: ['economy-regional'],
+        ordu: ['economy-regional']
     }),
     economy: Object.freeze({
-        genel: ['economy', 'resource', 'production'], butce: ['economy'],
-        'dis-ticaret': ['economy', 'economy-trade-logistics'],
-        sirketler: ['economy'], piyasa: ['economy'],
-        lojistik: ['economy'], fraksiyonlar: ['factions', 'power-centers']
+        genel: ['economy-regional'],
+        butce: ['economy-budget'],
+        'dis-ticaret': ['economy-trade-logistics', 'economy-market-price'],
+        sirketler: ['economy-company', 'economy-ai', 'economy-hex-construction'],
+        piyasa: ['economy-market-price'],
+        lojistik: ['economy-trade-logistics', 'economy-infrastructure-work'],
+        fraksiyonlar: ['factions', 'power-centers']
     })
 });
 
@@ -127,26 +132,26 @@ function storyCityDossierPanelLedgerTick(name) {
 
 function storyCityDossierPanelNodeToken(node) {
     if (!node) return '-';
-    const queue = (node.q || []).map(job => [
-        job.type, job.kind, Math.round((Number(job.t) || 0) * 10), job.cmd
-    ].join(':')).join(',');
-    const pool = Object.keys(node.pool || {}).sort().map(key => `${key}:${node.pool[key]}`).join(',');
     return [
         node.id, node.owner, node.name, node.level, node.garrison,
-        node.fac, node.bar, node.pop, node.wealth, node.oil, node.pts,
-        node.cities, queue, pool
+        node.fac, node.bar, Math.round(Number(node.pop) || 0),
+        Math.round(Number(node.wealth) || 0), Number(node.oil) || 0,
+        Number(node.pts) || 0, Number(node.cities) || 0
     ].join(':');
 }
 
 function storyCityDossierPanelStateToken(state) {
     if (!state) return '-';
-    const res = state.res || {};
     const fac = state.fac || {};
     return [
-        state.id, state.welfare, state.reputation, state.inflation,
-        state.marketConfidence, state.techPoints,
-        res.oil, res.manpower, res.points,
-        fac.workers, fac.capital, fac.military, fac.intel, fac.radicals
+        state.id, Math.round(Number(state.welfare) || 0),
+        Math.round(Number(state.reputation) || 0),
+        Math.round(Number(state.inflation) || 0),
+        Math.round(Number(state.marketConfidence) || 0),
+        Math.round(Number(state.techPoints) || 0),
+        Math.round(Number(fac.workers) || 0),
+        Math.round(Number(fac.capital) || 0),
+        Math.round(Number(fac.military) || 0)
     ].join(':');
 }
 
@@ -188,6 +193,13 @@ function storyCityDossierPanelRevision(node, surface, active) {
         const task = STORY.scheduler && STORY.scheduler.tasks && STORY.scheduler.tasks[name];
         parts.push(`task:${name}:${task && Number(task.runCount) || 0}`);
     }
+    if (active === 'binalar' || active === 'ordu') {
+        const queue = (node && node.q || []).map(job => [
+            job.type, job.kind, Math.round((Number(job.t) || 0) * 10), job.cmd
+        ].join(':')).join(',');
+        const pool = Object.keys(node && node.pool || {}).sort().map(key => `${key}:${node.pool[key]}`).join(',');
+        parts.push(`q:${queue}|p:${pool}`);
+    }
     if (active === 'tarih' || active === 'lojistik') {
         parts.push(`cause:${STORY.causality && Number(STORY.causality.nextSequence) || 0}`);
     }
@@ -197,10 +209,20 @@ function storyCityDossierPanelRevision(node, surface, active) {
     return parts.join('|');
 }
 
+const STORY_CITY_DOSSIER_DOMAIN_TASKS = Object.freeze(new Set([
+    'economy', 'economy-macro', 'economy-regional', 'economy-trade-logistics',
+    'economy-market-price', 'economy-budget', 'economy-company', 'economy-hex-construction',
+    'economy-infrastructure-work', 'economy-ai', 'city-growth', 'population',
+    'human-migration', 'institutions', 'power-centers', 'population-needs',
+    'factions', 'society', 'state-capacity', 'elections', 'integrity',
+    'political-crisis', 'character-actions', 'city-development'
+]));
+
 function storyCityDossierPanelWorldRevision() {
     const nodeTokens = (STORY.nodes || []).map(storyCityDossierPanelNodeToken).join('|');
     const stateTokens = (STORY.states || []).map(storyCityDossierPanelStateToken).join('|');
     const taskTokens = Object.entries(STORY.scheduler && STORY.scheduler.tasks || {})
+        .filter(([name]) => STORY_CITY_DOSSIER_DOMAIN_TASKS.has(name))
         .sort((a, b) => a[0].localeCompare(b[0], 'en'))
         .map(([name, task]) => `${name}:${Number(task && task.runCount) || 0}`)
         .join('|');
@@ -222,7 +244,9 @@ function storyCityDossierPanelWorldContext(perf) {
         perf.worldCacheHits++;
         return STORY_CITY_DOSSIER_WORLD_CACHE;
     }
-    const world = storyWorldV2ExportValidated();
+    const world = typeof storyWorldV2Snapshot === 'function'
+        ? storyWorldV2Snapshot()
+        : storyWorldV2ExportValidated();
     const playerCountryId = storyWorldV2CountryId(STORY.playerStateId);
     const knowledge = storyPlayerKnowledgeProject(world, playerCountryId);
     STORY_CITY_DOSSIER_WORLD_CACHE = { revision, world, knowledge };
@@ -525,10 +549,16 @@ function storyCityDossierCountryName(knowledge, countryId) {
         : 'Sahipsiz';
 }
 
-function storyCityDossierCollectHistory(regionId) {
-    if (typeof storyPlayerProjectionCurrent !== 'function') return [];
+function storyCityDossierCollectHistory(regionId, world, knowledge) {
+    if (typeof storyPlayerDomainProjection !== 'function') return [];
     try {
-        const projection = storyPlayerProjectionCurrent({ maxItems: 200, recentSeconds: 600 });
+        const playerCountryId = storyWorldV2CountryId(STORY.playerStateId);
+        const w = world || (typeof storyWorldV2Snapshot === 'function' ? storyWorldV2Snapshot() : storyWorldV2ExportValidated());
+        const k = knowledge || storyPlayerKnowledgeProject(w, playerCountryId);
+        const ledger = typeof storyCausalitySnapshot === 'function'
+            ? storyCausalitySnapshot()
+            : { commands: [], events: [], effects: [] };
+        const projection = storyPlayerDomainProjection(w, k, ledger, { maxItems: 200, recentSeconds: 600 });
         return (projection.items || [])
             .filter(item => item.subjectId === regionId)
             .map(item => ({
@@ -646,7 +676,7 @@ function storyCityDossierBuild(nodeId, sharedContext) {
         facts,
         neighbors: neighborIds.map(id => publicRegions.get(id)).filter(Boolean),
         corridors: storyCityDossierCorridors(regionId, facts.logistics, world),
-        history: storyCityDossierCollectHistory(regionId),
+        history: storyCityDossierCollectHistory(regionId, world, knowledge),
         characters,
         missingSystems: facts.countryPowerCenters && facts.countryPowerCenters.value
             && facts.countryInstitutions && facts.countryInstitutions.value

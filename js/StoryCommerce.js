@@ -185,7 +185,21 @@ function storyCommerceGetInventoryBucket(commerce, regionId, resourceId) {
         commerce._inventoryMap = map;
         commerce._inventoryMapRevision = commerce.inventories.length;
     }
-    return commerce._inventoryMap.get(`${regionId}|${resourceId}`) || [];
+    const key = `${regionId}|${resourceId}`;
+    const bucket = commerce._inventoryMap.get(key);
+    if (!bucket) return [];
+    if (bucket.length > 8) {
+        let zeroCount = 0;
+        for (let i = 0; i < bucket.length; i++) {
+            if (Number(bucket[i].quantity) <= 1e-8) zeroCount++;
+        }
+        if (zeroCount > 4) {
+            const compacted = bucket.filter(row => Number(row.quantity) > 1e-8);
+            commerce._inventoryMap.set(key, compacted);
+            return compacted;
+        }
+    }
+    return bucket;
 }
 
 function storyCommerceAddInventoryLot(commerce, spec) {

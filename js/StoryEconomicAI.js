@@ -416,16 +416,23 @@ function storyEconomicAIDependencySignals(company) {
         let delivered = 0;
         let produced = 0;
         for (const region of regions) {
-            produced += Math.max(0, Number(region.lastTick
-                && region.lastTick.producedByResource
-                && region.lastTick.producedByResource[resourceId]) || 0);
-            const allocations = region.lastTick && Array.isArray(region.lastTick.allocations)
-                ? region.lastTick.allocations
-                : [];
-            for (const row of allocations) {
-                if (row.consumerType !== 'HOUSEHOLDS' || row.resourceId !== resourceId) continue;
-                requested += Math.max(0, Number(row.requested) || 0);
-                delivered += Math.max(0, Number(row.delivered) || 0);
+            const last = region.lastTick;
+            if (!last) continue;
+            produced += Math.max(0, Number(
+                last.producedByResource && last.producedByResource[resourceId]) || 0);
+            if (last.consumerRequestedByResource && last.consumerRequestedByResource[resourceId]) {
+                const req = (last.consumerRequestedByResource[resourceId].HOUSEHOLDS || 0);
+                const fillBps = (last.householdFillBpsByResource && last.householdFillBpsByResource[resourceId] !== undefined)
+                    ? last.householdFillBpsByResource[resourceId] : 10000;
+                requested += req;
+                delivered += req * fillBps / 10000;
+            } else {
+                const allocations = Array.isArray(last.allocations) ? last.allocations : [];
+                for (const row of allocations) {
+                    if (row.consumerType !== 'HOUSEHOLDS' || row.resourceId !== resourceId) continue;
+                    requested += Math.max(0, Number(row.requested) || 0);
+                    delivered += Math.max(0, Number(row.delivered) || 0);
+                }
             }
         }
         return {

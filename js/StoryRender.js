@@ -14,12 +14,7 @@ function storyWorldFrame(timestamp) {
     STORY._lastFrameT = timestamp;
     if (dt > 0.5) dt = 0.5;          // sekme arka plandayken sıçramayı engelle
     
-    // Ağır simülasyon mantığı (takvim, görevler, AI) sabit 10 Hz (0.1s) akümülatörle çalışır.
-    STORY._simTickAcc = (STORY._simTickAcc || 0) + dt;
-    if (STORY._simTickAcc >= 0.1) {
-        storyAdvance(STORY._simTickAcc);
-        STORY._simTickAcc = 0;
-    }
+    storyAdvance(dt);
     
     // Canlı fiziksel araç süzülmesi 60 Hz tam akıcılıkta kalır
     if (typeof storyTransportContinuousAdvance === 'function') {

@@ -2559,11 +2559,14 @@ function storyTalkUpdate() {
                 : String(STORY._talkFocusCharacterName);
             const sessionCount = typeof storyConversationSessionList === 'function'
                 ? storyConversationSessionList(STORY._talkFocusCharacterId).length : 0;
+            const actionsHtml = typeof storyTalkCharacterActionHtml === 'function'
+                ? storyTalkCharacterActionHtml(STORY._talkFocusCharacterId, STORY._talkFocusRegionId) : '';
             focusHtml = `<div class="talk-sec talk-focus"><div class="talk-h">HEDEFLİ KARAKTER TEMASI</div>`
                 + `<div class="talk-card conversation-launch-card"><div class="talk-card-h"><span>${safeName}</span>`
                 + `<span class="talk-age">${sessionCount} kayıtlı konuşma</span></div>`
                 + `<div class="talk-note">Profil, eski görüşmeler, anlaşmalar ve yeni konuşma taslağı ayrı görüşme penceresinde açılır.</div>`
-                + `<button class="story-btn conversation-launch" data-conversation-workspace-open="${storyTalkConversationEscape(STORY._talkFocusCharacterId)}">GÖRÜŞME PENCERESİNİ AÇ</button></div></div>`;
+                + `<button class="story-btn conversation-launch" data-conversation-workspace-open="${storyTalkConversationEscape(STORY._talkFocusCharacterId)}">GÖRÜŞME PENCERESİNİ AÇ</button></div>`
+                + actionsHtml + `</div>`;
         }
         content = focusHtml + directedHtml;
 

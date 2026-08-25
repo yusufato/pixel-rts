@@ -210,8 +210,10 @@ function storyPowerCenterStateSignals(countryId) {
         .reduce((total, count) => total + Math.max(0, Number(count) || 0), 0), 0);
     const collective = STORY.collectiveAction && STORY.collectiveAction.countries
         ? STORY.collectiveAction.countries[countryId] : null;
-    const needs = typeof storyNeedsCountryView === 'function' ? storyNeedsCountryView(countryId) : null;
-    const budget = typeof storyBudgetCountryView === 'function' ? storyBudgetCountryView(countryId) : null;
+    const needs = STORY.needsWelfare && STORY.needsWelfare.countries
+        ? STORY.needsWelfare.countries[countryId] : null;
+    const budget = STORY.stateBudget && STORY.stateBudget.countries
+        ? STORY.stateBudget.countries[countryId] : null;
     return {
         stateId,
         state,

@@ -893,7 +893,9 @@ function storyTradePlanDomesticDistribution(spec) {
             routeLatencySeconds: storyTradeRound(route.totalLatencySeconds)
         });
     }
-    const source = storyRegionalRegionView(sourceRegionId);
+    const source = STORY.regionalEconomy && STORY.regionalEconomy.regions
+        && STORY.regionalEconomy.regions[sourceRegionId];
+    if (!source) return { ok: false, code: 'SOURCE_REGION_NOT_FOUND' };
     const reserve = storyTradeRound((Number(source.safeTargets[resourceId]) || 0)
         * reserveBps / 10000);
     const exportable = storyTradeRound(Math.max(
@@ -1095,7 +1097,9 @@ function storyTradeDispatchOrder(orderOrId, maxQuantity) {
         contract.updatedAt = storyTradeRound(STORY.clock);
         return { ok: false, code: 'HOSTILE_PARTIES' };
     }
-    const regional = storyRegionalRegionView(order.sourceRegionId);
+    const rId = storyTradeRegionId(order.sourceRegionId);
+    const regional = STORY.regionalEconomy && STORY.regionalEconomy.regions
+        && STORY.regionalEconomy.regions[rId];
     if (!regional) return { ok: false, code: 'SOURCE_REGION_NOT_FOUND' };
     const remaining = storyTradeRound(order.quantity - order.dispatchedQuantity);
     const reserveBps = order.exportReserveBps == null
@@ -3156,12 +3160,26 @@ function storyTradeHouseholdDistributionBalance(ledger) {
         food: new Set(['HOUSEHOLDS', 'MILITARY']),
         energy: new Set(['HOUSEHOLDS', 'MILITARY', 'STATE'])
     };
-    const requestedFor = (region, resourceId) => (region.lastTick && region.lastTick.allocations || [])
-        .filter(allocation => allocation.resourceId === resourceId
-            && finalConsumerTypes[resourceId].has(allocation.consumerType))
-        .reduce((sum, allocation) => sum + Math.max(0, Number(allocation.requested) || 0), 0);
+    const requestedFor = (region, resourceId) => {
+        const last = region.lastTick;
+        if (!last) return 0;
+        if (last.consumerRequestedByResource && last.consumerRequestedByResource[resourceId]) {
+            const m = last.consumerRequestedByResource[resourceId];
+            if (resourceId === 'food') return (m.HOUSEHOLDS || 0) + (m.MILITARY || 0);
+            if (resourceId === 'energy') return (m.HOUSEHOLDS || 0) + (m.MILITARY || 0) + (m.STATE || 0);
+        }
+        return (last.allocations || [])
+            .filter(allocation => allocation.resourceId === resourceId
+                && finalConsumerTypes[resourceId].has(allocation.consumerType))
+            .reduce((sum, allocation) => sum + Math.max(0, Number(allocation.requested) || 0), 0);
+    };
     const householdFillFor = (region, resourceId) => {
-        const allocation = (region.lastTick && region.lastTick.allocations || []).find(item => (
+        const last = region.lastTick;
+        if (!last) return 10000;
+        if (last.householdFillBpsByResource && last.householdFillBpsByResource[resourceId] !== undefined) {
+            return last.householdFillBpsByResource[resourceId];
+        }
+        const allocation = (last.allocations || []).find(item => (
             item.consumerType === 'HOUSEHOLDS' && item.resourceId === resourceId
         ));
         return allocation ? Math.max(0, Math.min(10000, Number(allocation.fillBps) || 0)) : 10000;

@@ -78,43 +78,43 @@ function storyWorldV2Countries() {
             inflation: storyWorldV2Round(state.inflation),
             marketConfidence: storyWorldV2Round(state.marketConfidence),
             market: typeof storyMarketCountryView === 'function'
-                ? storyWorldV2Clone(storyMarketCountryView(storyWorldV2CountryId(state.id)))
+                ? storyMarketCountryView(storyWorldV2CountryId(state.id))
                 : null,
             budget: typeof storyBudgetCountryView === 'function'
-                ? storyWorldV2Clone(storyBudgetCountryView(storyWorldV2CountryId(state.id)))
+                ? storyBudgetCountryView(storyWorldV2CountryId(state.id))
                 : null,
             companyEconomy: typeof storyCompanyCountryView === 'function'
-                ? storyWorldV2Clone(storyCompanyCountryView(storyWorldV2CountryId(state.id)))
+                ? storyCompanyCountryView(storyWorldV2CountryId(state.id))
                 : null,
             economicPolicy: typeof storyEconomicAICountryView === 'function'
-                ? storyWorldV2Clone(storyEconomicAICountryView(storyWorldV2CountryId(state.id)))
+                ? storyEconomicAICountryView(storyWorldV2CountryId(state.id))
                 : null,
             publicOpinion: typeof storyOpinionCountryView === 'function'
-                ? storyWorldV2Clone(storyOpinionCountryView(storyWorldV2CountryId(state.id)))
+                ? storyOpinionCountryView(storyWorldV2CountryId(state.id))
                 : null,
             collectiveAction: typeof storyCollectiveCountryView === 'function'
-                ? storyWorldV2Clone(storyCollectiveCountryView(storyWorldV2CountryId(state.id)))
+                ? storyCollectiveCountryView(storyWorldV2CountryId(state.id))
                 : null,
             humanMigration: typeof storyHumanMigrationCountryView === 'function'
-                ? storyWorldV2Clone(storyHumanMigrationCountryView(storyWorldV2CountryId(state.id)))
+                ? storyHumanMigrationCountryView(storyWorldV2CountryId(state.id))
                 : null,
             powerCenters: typeof storyPowerCenterCountryView === 'function'
-                ? storyWorldV2Clone(storyPowerCenterCountryView(storyWorldV2CountryId(state.id)))
+                ? storyPowerCenterCountryView(storyWorldV2CountryId(state.id))
                 : null,
             institutions: typeof storyInstitutionCountryView === 'function'
-                ? storyWorldV2Clone(storyInstitutionCountryView(storyWorldV2CountryId(state.id)))
+                ? storyInstitutionCountryView(storyWorldV2CountryId(state.id))
                 : null,
             stateCapacity: typeof storyStateCapacityCountryView === 'function'
-                ? storyWorldV2Clone(storyStateCapacityCountryView(storyWorldV2CountryId(state.id)))
+                ? storyStateCapacityCountryView(storyWorldV2CountryId(state.id))
                 : null,
             elections: typeof storyElectionCountryView === 'function'
-                ? storyWorldV2Clone(storyElectionCountryView(storyWorldV2CountryId(state.id)))
+                ? storyElectionCountryView(storyWorldV2CountryId(state.id))
                 : null,
             integrity: typeof storyIntegrityCountryView === 'function'
-                ? storyWorldV2Clone(storyIntegrityCountryView(storyWorldV2CountryId(state.id)))
+                ? storyIntegrityCountryView(storyWorldV2CountryId(state.id))
                 : null,
             politicalCrisis: typeof storyPoliticalCrisisCountryView === 'function'
-                ? storyWorldV2Clone(storyPoliticalCrisisCountryView(storyWorldV2CountryId(state.id)))
+                ? storyPoliticalCrisisCountryView(storyWorldV2CountryId(state.id))
                 : null,
             resources: {
                 oil: storyWorldV2Round(state.res && state.res.oil),
@@ -142,40 +142,40 @@ function storyWorldV2Regions() {
                 : null;
             return Object.assign(
                 storyWorldV2EntityBase(region.id, region.ownerId, 0, null),
-                storyWorldV2Clone(region),
+                region,
                 {
-                    stocks: regional ? storyWorldV2Clone(regional.stocks) : null,
-                    safeStockTargets: regional ? storyWorldV2Clone(regional.safeTargets) : null,
-                    stockShortages: regional ? storyWorldV2Clone(regional.shortages) : [],
+                    stocks: regional ? regional.stocks : null,
+                    safeStockTargets: regional ? regional.safeTargets : null,
+                    stockShortages: regional ? regional.shortages : [],
                     trade: typeof storyTradeRegionView === 'function'
-                        ? storyWorldV2Clone(storyTradeRegionView(region.id))
+                        ? storyTradeRegionView(region.id)
                         : null,
                     market: typeof storyMarketRegionView === 'function'
-                        ? storyWorldV2Clone(storyMarketRegionView(region.id))
+                        ? storyMarketRegionView(region.id)
                         : null,
                     companyEconomy: typeof storyCompanyRegionView === 'function'
-                        ? storyWorldV2Clone(storyCompanyRegionView(region.id))
+                        ? storyCompanyRegionView(region.id)
                         : null,
                     needsWelfare: typeof storyNeedsRegionSummaryView === 'function'
-                        ? storyWorldV2Clone(storyNeedsRegionSummaryView(region.id))
+                        ? storyNeedsRegionSummaryView(region.id)
                         : null,
                     publicOpinion: typeof storyOpinionRegionView === 'function'
-                        ? storyWorldV2Clone(storyOpinionRegionView(region.id))
+                        ? storyOpinionRegionView(region.id)
                         : null,
                     collectiveAction: typeof storyCollectiveRegionView === 'function'
-                        ? storyWorldV2Clone(storyCollectiveRegionView(region.id))
+                        ? storyCollectiveRegionView(region.id)
                         : null,
                     humanMigration: typeof storyHumanMigrationRegionView === 'function'
-                        ? storyWorldV2Clone(storyHumanMigrationRegionView(region.id))
+                        ? storyHumanMigrationRegionView(region.id)
                         : null,
                     powerCenters: typeof storyPowerCenterRegionView === 'function'
-                        ? storyWorldV2Clone(storyPowerCenterRegionView(region.id))
+                        ? storyPowerCenterRegionView(region.id)
                         : null,
                     institutions: typeof storyInstitutionRegionView === 'function'
-                        ? storyWorldV2Clone(storyInstitutionRegionView(region.id))
+                        ? storyInstitutionRegionView(region.id)
                         : null,
                     stateCapacity: typeof storyStateCapacityRegionView === 'function'
-                        ? storyWorldV2Clone(storyStateCapacityRegionView(region.id))
+                        ? storyStateCapacityRegionView(region.id)
                         : null
                 }
             );
@@ -294,14 +294,14 @@ function storyWorldV2Characters() {
                     institutionId: presidentIdentity.institutionId || null,
                     serviceId: presidentIdentity.serviceId || null,
                     publicTitle: presidentIdentity.publicTitle || null,
-                    identityProfile: storyWorldV2Clone(presidentIdentity.coreAxes),
-                    values: storyWorldV2Clone(presidentIdentity.values),
-                    fears: storyWorldV2Clone(presidentIdentity.fears),
-                    ambitions: storyWorldV2Clone(presidentIdentity.ambitions),
-                    redLines: storyWorldV2Clone(presidentIdentity.redLines),
-                    goals: storyWorldV2Clone(presidentIdentity.goals),
-                    career: storyWorldV2Clone(presidentIdentity.career),
-                    voiceProfile: storyWorldV2Clone(presidentIdentity.voiceProfile),
+                    identityProfile: presidentIdentity.coreAxes,
+                    values: presidentIdentity.values,
+                    fears: presidentIdentity.fears,
+                    ambitions: presidentIdentity.ambitions,
+                    redLines: presidentIdentity.redLines,
+                    goals: presidentIdentity.goals,
+                    career: presidentIdentity.career,
+                    voiceProfile: presidentIdentity.voiceProfile,
                     currentRegimeAlignment: presidentIdentity.currentRegimeAlignment
                 }
             ));
@@ -332,14 +332,14 @@ function storyWorldV2Characters() {
                     institutionId: identity && identity.institutionId || null,
                     serviceId: identity && identity.serviceId || null,
                     publicTitle: identity && identity.publicTitle || null,
-                    identityProfile: identity ? storyWorldV2Clone(identity.coreAxes) : null,
-                    values: identity ? storyWorldV2Clone(identity.values) : null,
-                    fears: identity ? storyWorldV2Clone(identity.fears) : [],
-                    ambitions: identity ? storyWorldV2Clone(identity.ambitions) : [],
-                    redLines: identity ? storyWorldV2Clone(identity.redLines) : [],
-                    goals: identity ? storyWorldV2Clone(identity.goals) : [],
-                    career: identity ? storyWorldV2Clone(identity.career) : null,
-                    voiceProfile: identity ? storyWorldV2Clone(identity.voiceProfile) : null,
+                    identityProfile: identity ? identity.coreAxes : null,
+                    values: identity ? identity.values : null,
+                    fears: identity ? identity.fears : [],
+                    ambitions: identity ? identity.ambitions : [],
+                    redLines: identity ? identity.redLines : [],
+                    goals: identity ? identity.goals : [],
+                    career: identity ? identity.career : null,
+                    voiceProfile: identity ? identity.voiceProfile : null,
                     currentRegimeAlignment: identity ? identity.currentRegimeAlignment : null
                 }
             ));
@@ -452,10 +452,10 @@ function storyWorldV2PopulationCohorts() {
             shareBps: row.shareBps,
             membersPeople: row.membersPeople,
             needsWelfare: typeof storyNeedsCohortView === 'function'
-                ? storyWorldV2Clone(storyNeedsCohortView(row.id))
+                ? storyNeedsCohortView(row.id)
                 : null,
             publicOpinion: typeof storyOpinionCohortView === 'function'
-                ? storyWorldV2Clone(storyOpinionCohortView(row.id))
+                ? storyOpinionCohortView(row.id)
                 : null
         }
     ));

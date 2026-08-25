@@ -646,12 +646,13 @@ function storyCompanySyncRegionalCapital(trackFlows) {
 }
 
 function storyCompanyMarketPrice(regionId, resourceId) {
-    const market = typeof storyMarketRegionView === 'function' ? storyMarketRegionView(regionId) : null;
+    const rId = storyCompanyRegionId(regionId);
+    const market = STORY.marketPrices && STORY.marketPrices.regions && STORY.marketPrices.regions[rId];
     const row = market && market.resources && market.resources[resourceId];
     const localPrice = row && Number.isFinite(Number(row.priceIndex)) ? Number(row.priceIndex) : 100;
     if (typeof storyFeatureEnabled === 'function'
         && !storyFeatureEnabled('economy.bootstrapPlanning')) return localPrice;
-    const nodeId = Number(String(storyCompanyRegionId(regionId)).split(':')[1]);
+    const nodeId = Number(String(rId).split(':')[1]);
     const node = STORY.nodes && STORY.nodes[nodeId];
     if (!node || !STORY.marketPrices || !STORY.marketPrices.regions) return localPrice;
     // Tick-level cache for national upper-quartile price per (owner, resourceId)

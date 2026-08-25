@@ -1023,7 +1023,24 @@ function storyRegionalEconomyTick(dtSec) {
             demandRequestedByResource,
             demandDeliveredByResource,
             demandUnmetByResource,
-            storageLosses: losses
+            storageLosses: losses,
+            consumerRequestedByResource: (function() {
+                const map = {};
+                for (const a of (demandResult.allocations || [])) {
+                    if (!map[a.resourceId]) map[a.resourceId] = {};
+                    map[a.resourceId][a.consumerType] = (map[a.resourceId][a.consumerType] || 0) + a.requested;
+                }
+                return map;
+            })(),
+            householdFillBpsByResource: (function() {
+                const map = {};
+                for (const a of (demandResult.allocations || [])) {
+                    if (a.consumerType === 'HOUSEHOLDS') {
+                        map[a.resourceId] = Math.max(0, Math.min(10000, Number(a.fillBps) || 0));
+                    }
+                }
+                return map;
+            })()
         };
         if (bootstrapPlanning) {
             lastTick.productionRequestedByResource = productionRequestedByResource;
