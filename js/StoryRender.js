@@ -2858,6 +2858,27 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
     let visibleLand = 0;
     let visibleWater = 0;
     let visibleImpassable = 0;
+    const rad = Number(world.radius);
+    const rcos = rad * 0.8660254037844386 * scaleX;
+    const rsin = rad * 0.5 * scaleY;
+    const rtop = rad * scaleY;
+    const traceHex = index => {
+        const cx = Number(world.centerX[index]) * scaleX;
+        const cy = Number(world.centerY[index]) * scaleY;
+        const p0 = storyW2S(cx + rcos, cy - rsin);
+        const p1 = storyW2S(cx + rcos, cy + rsin);
+        const p2 = storyW2S(cx, cy + rtop);
+        const p3 = storyW2S(cx - rcos, cy + rsin);
+        const p4 = storyW2S(cx - rcos, cy - rsin);
+        const p5 = storyW2S(cx, cy - rtop);
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineTo(p3.x, p3.y);
+        ctx.lineTo(p4.x, p4.y);
+        ctx.lineTo(p5.x, p5.y);
+        ctx.closePath();
+    };
     ctx.save();
     ctx.beginPath();
     for (const index of indices) {
@@ -2867,18 +2888,7 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
             else visibleLand++;
             if (terrain === STORY_HEX_TERRAIN_IMPASSABLE) visibleImpassable++;
         }
-        const corners = storyHexWorldCorners(
-            world,
-            Number(world.qValues[index]),
-            Number(world.rValues[index])
-        );
-        const first = storyW2S(corners[0].x * scaleX, corners[0].y * scaleY);
-        ctx.moveTo(first.x, first.y);
-        for (let corner = 1; corner < corners.length; corner++) {
-            const point = storyW2S(corners[corner].x * scaleX, corners[corner].y * scaleY);
-            ctx.lineTo(point.x, point.y);
-        }
-        ctx.closePath();
+        traceHex(index);
     }
     ctx.strokeStyle = Number(zoomRatio) >= 7
         ? 'rgba(232,211,148,.12)' : 'rgba(232,211,148,.07)';
@@ -2888,14 +2898,7 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
         ctx.beginPath();
         for (const index of indices) {
             if (Number(geography.terrainClass[index]) !== STORY_HEX_TERRAIN_IMPASSABLE) continue;
-            const corners = storyHexWorldCorners(
-                world,
-                Number(world.qValues[index]),
-                Number(world.rValues[index])
-            ).map(corner => storyW2S(corner.x * scaleX, corner.y * scaleY));
-            ctx.moveTo(corners[0].x, corners[0].y);
-            for (let corner = 1; corner < corners.length; corner++) ctx.lineTo(corners[corner].x, corners[corner].y);
-            ctx.closePath();
+            traceHex(index);
         }
         ctx.fillStyle = 'rgba(68,43,24,.24)';
         ctx.fill();
@@ -2911,12 +2914,7 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
         for (const index of indices) {
             const cellId = storyHexWorldId(Number(world.qValues[index]), Number(world.rValues[index]));
             if (!candidateIds.has(cellId)) continue;
-            const corners = storyHexWorldCorners(world,
-                Number(world.qValues[index]), Number(world.rValues[index]))
-                .map(corner => storyW2S(corner.x * scaleX, corner.y * scaleY));
-            ctx.moveTo(corners[0].x, corners[0].y);
-            for (let corner = 1; corner < corners.length; corner++) ctx.lineTo(corners[corner].x, corners[corner].y);
-            ctx.closePath();
+            traceHex(index);
         }
         ctx.fillStyle = 'rgba(62,255,144,.12)';
         ctx.fill();
@@ -2930,13 +2928,8 @@ function storyPaintHexGridOverlay(ctx, zoomRatio) {
             Number(world.qValues[index]), Number(world.rValues[index])
         ) === selectedConstructionId);
         if (selected != null) {
-            const corners = storyHexWorldCorners(world,
-                Number(world.qValues[selected]), Number(world.rValues[selected]))
-                .map(corner => storyW2S(corner.x * scaleX, corner.y * scaleY));
             ctx.beginPath();
-            ctx.moveTo(corners[0].x, corners[0].y);
-            for (let corner = 1; corner < corners.length; corner++) ctx.lineTo(corners[corner].x, corners[corner].y);
-            ctx.closePath();
+            traceHex(selected);
             ctx.fillStyle = 'rgba(255,191,38,.22)'; ctx.fill();
             ctx.strokeStyle = 'rgba(255,191,38,.95)'; ctx.lineWidth = 2; ctx.stroke();
         }

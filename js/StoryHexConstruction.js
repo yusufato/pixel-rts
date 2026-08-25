@@ -459,9 +459,7 @@ function storyHexConstructionSubmitApplication(spec, options) {
     return { ok: true, application: storyHexConstructionClone(application) };
 }
 
-function storyHexConstructionSyncApplication(applicationId, options) {
-    const ledger = storyHexConstructionEnsureLedger(options && options.root);
-    const application = ledger.applications.find(row => row.id === String(applicationId));
+function storyHexConstructionSyncApplicationDirect(application, ledger, options) {
     if (!application) return { ok: false, code: 'CONSTRUCTION_APPLICATION_NOT_FOUND' };
     if (['REJECTED', 'CANCELLED', 'COMMAND_CREATED'].includes(application.status)) {
         return { ok: true, application: storyHexConstructionClone(application), idempotent: true };
@@ -516,6 +514,12 @@ function storyHexConstructionSyncApplication(applicationId, options) {
         command: started.ok ? started.command : submitted.command };
 }
 
+function storyHexConstructionSyncApplication(applicationId, options) {
+    const ledger = storyHexConstructionEnsureLedger(options && options.root);
+    const application = ledger.applications.find(row => row.id === String(applicationId));
+    return storyHexConstructionSyncApplicationDirect(application, ledger, options);
+}
+
 function storyHexConstructionSyncApplications(options) {
     const ledger = storyHexConstructionEnsureLedger(options && options.root);
     const authority = storyHexConstructionAuthority(options);
@@ -539,7 +543,7 @@ function storyHexConstructionSyncApplications(options) {
                 if (!progressed.ok) application.authorityProgressBlock = String(progressed.code || 'AUTHORITY_PROGRESS_FAILED');
                 else application.authorityProgressBlock = null;
             }
-            results.push(storyHexConstructionSyncApplication(application.id, options));
+            results.push(storyHexConstructionSyncApplicationDirect(application, ledger, options));
         }
     }
     return results;
