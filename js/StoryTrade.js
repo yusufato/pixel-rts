@@ -774,22 +774,7 @@ function storyTradeFindRoute(sourceRegionId, targetRegionId, contract, resourceI
 }
 
 function storyTradeRouteFailureCode(route, sourceRegionId, targetRegionId, contract, resourceId, options) {
-    const reason = route && route.reason ? route.reason : 'NO_ROUTE';
-    if (reason !== 'NO_ROUTE' || typeof storyInfrastructureFindRoute !== 'function') return reason;
-
-    const requestedMode = options && options.transportMode
-        ? String(options.transportMode).toUpperCase() : null;
-    const availableModes = storyTradePhysicalModes(resourceId);
-    const modes = requestedMode && availableModes.includes(requestedMode)
-        ? [requestedMode] : availableModes;
-    const physicalRoute = storyInfrastructureFindRoute(sourceRegionId, targetRegionId, {
-        modes: modes.filter(mode => ['LAND', 'RAIL', 'SEA'].includes(mode)),
-        authorizedCountryIds: contract.partyCountryIds,
-        minCapacity: 0
-    });
-    return physicalRoute.ok && (physicalRoute.corridorIds || []).length
-        ? 'CORRIDOR_CAPACITY_EXHAUSTED'
-        : reason;
+    return (route && route.reason) ? route.reason : 'NO_ROUTE';
 }
 
 function storyTradeCapacityAvailable(route, ledger) {

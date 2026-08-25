@@ -389,15 +389,15 @@ function storyRoutePlannerCandidate(corridor, fromRegionId, registry, reserved, 
 function storyRoutePlannerCacheKey(from, to, modes, demand, options, graph, registry, ledger) {
     // Corridor access depends on live ownership as well as the static network.
     // A conquest must not reuse a route cached under the previous border regime.
-    const clock = STORY && Number(STORY.clock) || 0;
+    const rev = (STORY && STORY._ownershipRevision) || 0;
     let ownershipFingerprint = STORY && STORY._routePlannerOwnershipFingerprint;
-    if (!ownershipFingerprint || STORY._routePlannerOwnershipClock !== clock) {
+    if (!ownershipFingerprint || STORY._routePlannerOwnershipRev !== rev) {
         ownershipFingerprint = storyRoutePlannerHashText(
             ((STORY && STORY.nodes) || []).map(node =>
                 String(node && node.id) + ':' + String(node && node.owner)).join('|'));
         if (STORY) {
             STORY._routePlannerOwnershipFingerprint = ownershipFingerprint;
-            STORY._routePlannerOwnershipClock = clock;
+            STORY._routePlannerOwnershipRev = rev;
         }
     }
     return [from, to, modes.join(','), storyRoutePlannerRound(demand),
@@ -567,8 +567,16 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
             }
         }
     }
-    if (!winner) return { ok: false, reason: 'NO_ROUTE',
-        regionIds: [], corridorIds: [], modes, demand };
+    if (!winner) {
+        const failureResult = { ok: false, reason: 'NO_ROUTE', regionIds: [], corridorIds: [], modes, demand, cacheHit: false };
+        if (cacheEnabled) {
+            STORY._routePlannerCache.set(cacheKey, failureResult);
+            if (STORY._routePlannerCache.size > 512) {
+                storyRoutePlannerCacheUntrack(STORY._routePlannerCache.keys().next().value);
+            }
+        }
+        return failureResult;
+    }
     const pathNodes = [];
     let curr = winner;
     while (curr) {

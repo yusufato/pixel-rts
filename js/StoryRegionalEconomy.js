@@ -937,19 +937,22 @@ function storyRegionalEconomyTick(dtSec) {
                 energy_potential: storyRegionalRound(region.endowments.energy_potential * worldDays),
                 mineral_reserve: region.endowments.mineral_reserve
             };
+            const cash = companyCapital && typeof storyCompanyOperatingCash === 'function'
+                ? storyCompanyOperatingCash(regionId, sectorId) : null;
+            const availableQuantities = cash !== null
+                ? Object.assign({}, region.stocks, { capital: cash })
+                : region.stocks;
             const proposal = storyProductionEvaluate(sectorId, {
                 requestedCycles,
                 capacityUnits: requestedCycles,
                 efficiencyBps: 10000,
-                availableQuantities: companyCapital && typeof storyCompanyOperatingCash === 'function'
-                    ? Object.assign({}, region.stocks, {
-                        capital: storyCompanyOperatingCash(regionId, sectorId)
-                    })
-                    : region.stocks,
+                availableQuantities,
                 endowments
             });
             if (bootstrapPlanning) {
-                for (const bottleneck of (proposal.bottlenecks || [])) {
+                const bottlenecks = proposal.bottlenecks || [];
+                for (let b = 0; b < bottlenecks.length; b++) {
+                    const bottleneck = bottlenecks[b];
                     productionBottlenecks.push({
                         sectorId,
                         status: proposal.status,
@@ -965,11 +968,17 @@ function storyRegionalEconomyTick(dtSec) {
                 const receipt = storyRegionalCommitProduction(regionId, proposal);
                 if (receipt.ok) {
                     productionCommits++;
-                    for (const [resourceId, quantity] of Object.entries(receipt.transaction.produced || {})) {
-                        storyRegionalAddToMap(producedByResource, resourceId, quantity);
+                    const produced = receipt.transaction.produced;
+                    if (produced) {
+                        for (const resourceId in produced) {
+                            storyRegionalAddToMap(producedByResource, resourceId, produced[resourceId]);
+                        }
                     }
-                    for (const [resourceId, quantity] of Object.entries(receipt.transaction.consumed || {})) {
-                        storyRegionalAddToMap(productionConsumedByResource, resourceId, quantity);
+                    const consumed = receipt.transaction.consumed;
+                    if (consumed) {
+                        for (const resourceId in consumed) {
+                            storyRegionalAddToMap(productionConsumedByResource, resourceId, consumed[resourceId]);
+                        }
                     }
                 } else blockedProposals++;
             } else blockedProposals++;

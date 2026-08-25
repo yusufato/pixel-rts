@@ -456,17 +456,39 @@ function storyPowerCenterCountrySummary(countryId, centers) {
 }
 
 function storyPowerCenterRegionSummaries(centers) {
+    const byCountry = new Map();
+    for (let i = 0; i < centers.length; i++) {
+        const center = centers[i];
+        let list = byCountry.get(center.countryId);
+        if (!list) {
+            list = [];
+            byCountry.set(center.countryId, list);
+        }
+        list.push(center);
+    }
     const regions = {};
-    for (const node of (STORY.nodes || [])) {
+    const nodes = STORY.nodes || [];
+    for (let n = 0; n < nodes.length; n++) {
+        const node = nodes[n];
         const regionId = storyPowerCenterRegionId(node.id);
         const countryId = storyPowerCenterCountryId(node.owner);
-        const rows = centers.filter(center => center.countryId === countryId).map(center => ({
-            centerId: center.id,
-            type: center.type,
-            supportPeople: Math.max(0, Math.round(Number(center.supportBase.regionalPeople[regionId]) || 0)),
-            influenceBps: center.influenceBps
-        })).filter(row => row.supportPeople > 0)
-            .sort((a, b) => b.supportPeople - a.supportPeople || a.centerId.localeCompare(b.centerId, 'en'));
+        const countryCenters = byCountry.get(countryId) || [];
+        const rows = [];
+        for (let c = 0; c < countryCenters.length; c++) {
+            const center = countryCenters[c];
+            const supportPeople = Math.max(0, Math.round(Number(center.supportBase.regionalPeople[regionId]) || 0));
+            if (supportPeople > 0) {
+                rows.push({
+                    centerId: center.id,
+                    type: center.type,
+                    supportPeople,
+                    influenceBps: center.influenceBps
+                });
+            }
+        }
+        if (rows.length > 1) {
+            rows.sort((a, b) => b.supportPeople - a.supportPeople || a.centerId.localeCompare(b.centerId, 'en'));
+        }
         regions[regionId] = {
             regionId,
             countryId,

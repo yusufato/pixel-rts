@@ -1066,10 +1066,10 @@ function storyRegionNearestNodeForCell(cell) {
     cache.set(key, nearest);
     return nearest;
 }
-function storyRegionEntityAtWorld(x, y) {
+function storyRegionEntityAtWorld(x, y, precalculatedCell) {
     if (typeof storyHexPoliticalCellAtWorld !== 'function' || typeof storyHexSitesEnsure !== 'function') return null;
     try {
-        const cell = storyHexPoliticalCellAtWorld(x, y, STORY_WORLD_W, STORY_WORLD_H);
+        const cell = precalculatedCell || storyHexPoliticalCellAtWorld(x, y, STORY_WORLD_W, STORY_WORLD_H);
         if (!cell) return null;
         const model = storyHexSitesEnsure();
         const land = model.landUseByCellId[String(cell.id)] || null;
@@ -2356,8 +2356,8 @@ function storyInit() {
                 currentCell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
                 STORY._hoverHexCellId = currentCell ? currentCell.id : null;
             }
-            const structureEntity = storyRegionEntityAtCanvasPoint(pt.cx, pt.cy);
-            const regionEntity = structureEntity || (currentCell ? storyRegionEntityAtWorld(w.x, w.y) : null);
+            const structureEntity = storyRegionEntityAtCanvasPoint(pt.mx, pt.my);
+            const regionEntity = structureEntity || (currentCell ? storyRegionEntityAtWorld(w.x, w.y, currentCell) : null);
             const targetCursor = STORY._hexConstructionPickMode
                 && STORY._hexConstructionDraft
                 && STORY._hexConstructionDraft.candidateCellIds.includes(STORY._hoverHexCellId)
@@ -2365,8 +2365,7 @@ function storyInit() {
             if (cv.style.cursor !== targetCursor) {
                 cv.style.cursor = targetCursor;
             }
-            // Yalnızca seçili proje modu gibi durumlarda hover görseli değişince hafif tazele
-            if (STORY._hoverHexCellId !== prevHoverId && (storyCam.zoom >= 4.2 || STORY._hexConstructionPickMode)) {
+            if (STORY._hoverHexCellId !== prevHoverId) {
                 scheduleMapRender();
             }
         };
