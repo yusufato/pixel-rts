@@ -393,17 +393,6 @@ function storyEconomicAIFinance(company) {
 let _storyEconomicAIDependencyCache = null;
 let _storyEconomicAIDependencyCacheClock = -1;
 
-function storyEconomicAIDependencySignals(company) {
-    if (!company) return { foodFillBps: 10000, energyFillBps: 10000, foodProductionCoverageBps: 10000, energyProductionCoverageBps: 10000, partsStock: 0, partsTarget: 0, partsScarcityBps: 0, dependencyBonus: 0, traces: [] };
-    const clock = Number(STORY.clock) || 0;
-    const cacheKey = `${company.countryId}:${company.sectorId}`;
-    if (_storyEconomicAIDependencyCache && _storyEconomicAIDependencyCacheClock === clock) {
-        const cached = _storyEconomicAIDependencyCache.get(cacheKey);
-        if (cached) return cached;
-    } else {
-        _storyEconomicAIDependencyCache = new Map();
-        _storyEconomicAIDependencyCacheClock = clock;
-    }
 function storyEconomicAIRegionsByCountry(regional) {
     if (!regional || !regional.regions) return new Map();
     if (regional._regionsByCountry instanceof Map) return regional._regionsByCountry;
@@ -419,6 +408,17 @@ function storyEconomicAIRegionsByCountry(regional) {
     return byCountry;
 }
 
+function storyEconomicAIDependencySignals(company) {
+    if (!company) return { foodFillBps: 10000, energyFillBps: 10000, foodProductionCoverageBps: 10000, energyProductionCoverageBps: 10000, partsStock: 0, partsTarget: 0, partsScarcityBps: 0, dependencyBonus: 0, traces: [] };
+    const clock = Number(STORY.clock) || 0;
+    const cacheKey = `${company.countryId}:${company.sectorId}`;
+    if (_storyEconomicAIDependencyCache && _storyEconomicAIDependencyCacheClock === clock) {
+        const cached = _storyEconomicAIDependencyCache.get(cacheKey);
+        if (cached) return cached;
+    } else {
+        _storyEconomicAIDependencyCache = new Map();
+        _storyEconomicAIDependencyCacheClock = clock;
+    }
     const regional = STORY.regionalEconomy;
     const regions = (regional ? storyEconomicAIRegionsByCountry(regional).get(company.countryId) : null) || [];
     const fill = resourceId => {
