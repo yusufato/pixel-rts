@@ -286,9 +286,15 @@ function storyPopulationReconcile() {
     for (const node of (STORY.nodes || [])) {
         const id = `region:${Number(node.id)}`;
         const previous = ledger.regions[id];
+        const currentPop = storyPopulationPeople(node);
+        const currentCountry = storyPopulationCountryId(node.owner);
+        if (previous && previous.populationPeople === currentPop && previous.countryId === currentCountry) {
+            regions[id] = previous;
+            continue;
+        }
         const next = storyPopulationRegionCreate(node, previous);
         regions[id] = next;
-        if (!previous || previous.populationPeople !== next.populationPeople || previous.countryId !== next.countryId) changed = true;
+        changed = true;
     }
     ledger.regions = regions;
     ledger.countries = storyPopulationAggregateCountries(regions);

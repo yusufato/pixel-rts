@@ -698,6 +698,9 @@ function storyTransportRenderSnapshot(options) {
     const materialized = Math.max(0, Number(opts.zoomRatio) || 0)
         >= Math.max(0.01, Number(opts.materializeZoomRatio == null ? 1.35 : opts.materializeZoomRatio));
     const projections = [];
+    let cargoQuantity = 0;
+    let journeyCount = 0;
+    let passengerCount = 0;
     const shipments = ledger && ledger.shipments;
     if (shipments && shipments.length) {
         for (let i = 0; i < shipments.length; i++) {
@@ -707,7 +710,10 @@ function storyTransportRenderSnapshot(options) {
             if (status !== 'IN_TRANSIT' && status !== 'HELD') continue;
             if (Number(shipment.transportVersion) !== STORY_TRANSPORT_SCHEMA_VERSION) continue;
             const projection = storyTransportProjection(shipment, world);
-            if (projection) projections.push(projection);
+            if (projection) {
+                projections.push(projection);
+                cargoQuantity += Number(projection.cargoQuantity) || 0;
+            }
         }
     }
     const characterJourneys = Array.isArray(opts.characterJourneys)
@@ -719,14 +725,14 @@ function storyTransportRenderSnapshot(options) {
         const journey = characterJourneys[i];
         if (journey) {
             const projection = storyCharacterTravelProjection(journey, world);
-            if (projection) projections.push(projection);
+            if (projection) {
+                projections.push(projection);
+                journeyCount++;
+                passengerCount += Number(projection.passengerCount) || 0;
+            }
         }
     }
-    const cargoQuantity = storyTransportRound(projections.reduce(
-        (sum, row) => sum + row.cargoQuantity, 0));
-    const journeyCount = projections.filter(row => row.journeyId).length;
-    const passengerCount = projections.reduce(
-        (sum, row) => sum + Number(row.passengerCount || 0), 0);
+    cargoQuantity = storyTransportRound(cargoQuantity);
     if (materialized) return storyTransportPrepareRenderSnapshot({
         mode: 'MATERIALIZED', agents: projections,
         shipmentCount: projections.length - journeyCount, journeyCount,
