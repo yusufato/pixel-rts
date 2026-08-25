@@ -280,7 +280,7 @@ function storyHexConstructionCandidates(regionId, projectType, options) {
     const regionNumber = storyHexConstructionRegionNumber(regionId);
     const regionCellIndices = storyHexConstructionRegionCellIndices(context.geography, regionNumber);
     if (!regionCellIndices.length) return [];
-    const reservedSets = {
+    const reservedSets = options && options.reservedSets || {
         commandCells: new Set((ledger.commands || [])
             .filter(row => row.targetCellId && row.status !== 'CANCELLED')
             .map(row => row.targetCellId)),
@@ -728,6 +728,15 @@ function storyHexConstructionEconomicAITick(dtSec, options) {
         ? String(STORY.commander.organizationId) : null;
     let created = 0;
     const decisions = [];
+    const reservedSets = {
+        commandCells: new Set((ledger.commands || [])
+            .filter(row => row.targetCellId && row.status !== 'CANCELLED')
+            .map(row => row.targetCellId)),
+        appCells: new Set((ledger.applications || [])
+            .filter(row => row.targetCellId && !['REJECTED', 'CANCELLED'].includes(row.status))
+            .map(row => row.targetCellId))
+    };
+    const candidateOptions = Object.assign({}, options, { limit: 12, reservedSets });
     const companies = Object.values(STORY.companyEconomy.companies || {})
         .filter(company => company.status === 'OPERATING' && company.licenseStatus === 'LICENSED'
             && company.id !== playerOrganizationId)
@@ -745,7 +754,7 @@ function storyHexConstructionEconomicAITick(dtSec, options) {
             const decision = storyHexConstructionEconomicAIProject(company, regionId);
             if (!decision) continue;
             const candidate = storyHexConstructionCandidates(regionId, decision.projectType,
-                Object.assign({}, options, { limit: 12 }))
+                candidateOptions)
                 .find(row => !row.requiresEnvironmentalAssessment);
             if (!candidate) continue;
             ledger.economicAIDecisionSequence++;
@@ -762,6 +771,7 @@ function storyHexConstructionEconomicAITick(dtSec, options) {
                 },
                 decisionEvidence: decision
             }, options);
+            if (result.ok && candidate.targetCellId) reservedSets.appCells.add(candidate.targetCellId);
             decisions.push({ companyId: company.id, regionId,
                 decision: storyHexConstructionClone(decision), result: result.ok ? 'SUBMITTED' : result.code });
             if (result.ok) { created++; break; }

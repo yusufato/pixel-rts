@@ -541,7 +541,7 @@ function storyAgendaUpdate(me) {
         ? `${politicalCrisis.activeCrisis.id}:${politicalCrisis.activeCrisis.status}:${politicalCrisis.activeCrisis.preparationBps}:${politicalCrisis.activeCrisis.counterBps}`
         : '-';
     const renderKey = [
-        STORY.playerStateId, Math.floor((Number(STORY.clock) || 0) * 2), noticeCount,
+        STORY.playerStateId, noticeCount,
         talkCount, talkDeadlineKey, crisisKey,
         Math.round(Number(me.welfare) || 0), Math.round(Number(me.inflation) || 0),
         me._strikeUntil && me._strikeUntil > (STORY.clock || 0) ? 1 : 0
