@@ -1370,7 +1370,7 @@ function storyChangesProjection() {
     if (!STORY || !Array.isArray(STORY.states) || !STORY.states.length
         || typeof storyPlayerProjectionCurrent !== 'function') return null;
     const sequence = STORY.causality ? Number(STORY.causality.nextSequence) || 0 : 0;
-    const key = `${STORY.playerStateId}|${sequence}|${Math.floor((Number(STORY.clock) || 0) * 2)}`;
+    const key = `${STORY.playerStateId}|${sequence}`;
     if (STORY._changeProjectionCache && STORY._changeProjectionCache.key === key) {
         return STORY._changeProjectionCache.value;
     }
@@ -1395,11 +1395,15 @@ function storyChangesProjection() {
 function storyChangesBadgeUpdate() {
     const badge = document.getElementById('story-change-badge');
     if (!badge) return;
+    const sequence = STORY.causality ? Number(STORY.causality.nextSequence) || 0 : 0;
+    if (STORY._lastBadgeSequence === sequence && badge.dataset.sequence === String(sequence)) return;
     const projection = storyChangesProjection();
     const count = projection && !projection.disabled ? Math.max(0, Number(projection.badgeCount) || 0) : 0;
     badge.textContent = count > 99 ? '99+' : String(count || '');
     badge.classList.toggle('hidden', count === 0);
     badge.title = count ? `Son ${projection.recentSeconds || 60} saniyede ${count} görünür değişim` : '';
+    STORY._lastBadgeSequence = sequence;
+    badge.dataset.sequence = String(sequence);
 }
 
 function storyChangesOpen() {
@@ -1508,11 +1512,23 @@ function storyArmyUpdate() {
     const c = STORY.commander; const body = document.getElementById('army-body');
     if (!body || !c) return;
     const me = storyPlayerState(); if (!me) return;
+    const count = obj => { let n = 0; for (const k in (obj || {})) n += obj[k] | 0; return n; };
+    const others = storyPlayerCommanders().filter(x => !x.isPlayer);
+    const busy = STORY.nodes.filter(n => n.owner === me.id && (n.q || []).length);
+    const vets = STORY.veterans || [];
+    const myArmyStr = Object.entries(c.army || {}).map(([k, v]) => `${k}:${v}`).join(',');
+    const fp = `${c.id}:${c.node}:${Math.round(c.loyalty || 100)}|${myArmyStr}|`
+        + others.map(x => `${x.id}:${x.node}:${count(x.army)}`).join(',') + '|'
+        + busy.map(n => `${n.id}:${n.q.length}:${Math.ceil(Math.min(...n.q.map(j => j.t)))}`).join(',') + '|'
+        + vets.length;
+
+    if (STORY._armyLastFp === fp) return;
+    STORY._armyLastFp = fp;
+
     const label = t => (typeof STATS !== 'undefined' && STATS[t] && STATS[t].name) ? STATS[t].name : t;
     const rows = obj => Object.keys(obj || {}).filter(k => (obj[k] | 0) > 0)
         .sort((a, b) => ((STATS[+b] && STATS[+b].cost) || 0) - ((STATS[+a] && STATS[+a].cost) || 0))
         .map(k => `<div class="army-row"><span>${label(+k)}</span><span class="army-ct">×${obj[k] | 0}</span></div>`).join('');
-    const count = obj => { let n = 0; for (const k in (obj || {})) n += obj[k] | 0; return n; };
 
     // 1) SENİN SEFER ORDUN
     const myN = count(c.army), myCap = cmdArmyCap(c);
@@ -1527,7 +1543,6 @@ function storyArmyUpdate() {
         + `</div>`;
 
     // 2) DİĞER KOMUTANLARIN SEFER ORDULARI
-    const others = storyPlayerCommanders().filter(x => !x.isPlayer);
     const othRows = others.map(x => {
         const n = count(x.army), cap = cmdArmyCap(x), nd = storyNode(x.node);
         const col = n === 0 ? '#ff8a8a' : (n >= cap * 0.6 ? '#4cff7c' : '#ffd24c');
@@ -1541,7 +1556,6 @@ function storyArmyUpdate() {
         + `</div>`;
 
     // 3) YOLDAKİ ÜRETİM (kuyrukta bekleyen siparişler — depo kaldırıldı)
-    const busy = STORY.nodes.filter(n => n.owner === me.id && (n.q || []).length);
     const depTotal = busy.reduce((a, n) => a + n.q.length, 0);
     const depRows = busy.map(n => {
         const eta = Math.ceil(Math.min(...n.q.map(j => j.t)));
@@ -1561,7 +1575,6 @@ function storyArmyUpdate() {
         + `<div class="army-tot"><span>Yoldaki üretim</span><b>${depTotal}</b></div>`
         + `<div class="army-tot big"><span>TÜM ORDU</span><b>${myN + othTotal + depTotal}</b></div></div>`;
 
-    const vets = STORY.veterans || [];
     const groups = {};
     for (const v of vets) { const k = v.type + '|' + (v.vet | 0); groups[k] = (groups[k] || 0) + 1; }
     const vetRows = Object.keys(groups).sort((a, b) => (+b.split('|')[1]) - (+a.split('|')[1])).map(k => {
@@ -1573,7 +1586,6 @@ function storyArmyUpdate() {
         + (vets.length ? `<div class="army-vets">${vetRows}</div>` : `<div class="army-note">Henüz gazi yok — bir düelloyu kazan.</div>`)
         + `</div>`;
 
-    // KASAN bölümü kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
     storyUiSetHtml(body, html);
 }
 // ── TEKNOLOJİ AĞACI (Faz-2 Adım 4 — HER devlet kendi tech'ini geliştirir) ─────
@@ -1806,62 +1818,60 @@ function storyCouncilUpdate() {
     if (!STORY._councilOpen) return;
     const me = storyPlayerState(); if (!me) return;
     const isAdmin = !!(me.gov && me.gov.leader === 'player');
-    const banner = document.getElementById('council-admin-banner');
-    const bannerHtml =
-        `<div class="story-res">🏛️ Cumhurbaşkanı: <b style="color:${isAdmin ? '#4cff7c' : '#ffd24c'}">${isAdmin ? (STORY.commander ? STORY.commander.name + ' (SEN)' : 'SEN') : ((typeof storyPresidentName === 'function') ? storyPresidentName(me) : 'AI')}</b></div>`
-        + storyBar('Refah', me.welfare, '#54e08a')
-        + `<div class="story-res">🏅 İtibar <b>${me.reputation}/6</b>${isAdmin ? '' : (me.reputation >= 6 && me.welfare >= 60 ? ' <span style="color:#4cff7c">— seçime hazırsın!</span>' : ` <span style="color:#9fb3c8">(seçim: itibar≥6 + refah≥60)</span>`)}</div>`
-        + (isAdmin ? `<div class="story-res" style="color:#4cff7c;font-size:12px">🎖️ Komutan yaratabilir/dağıtabilirsin.</div>` : `<div class="story-res" style="color:#9fb3c8;font-size:12px">🔒 Yönetici olunca komutanları yönetirsin.</div>`);
-    storyUiSetHtml(banner, bannerHtml);
     const cmds = storyPlayerCommanders();
-    const myr = (STORY.commander && STORY.commander.res) || { oil: 0, manpower: 0, points: 0 };
-    const inc = STORY._incPerCmd || { oil: 0, manpower: 0, points: 0 };
-    const tre = document.getElementById('council-treasury');
-    // 'Senin kasan' satırı kaldırıldı (kullanıcı: kasa ana panelde zaten görünüyor)
-    const treasuryHtml = `<b>DEVLET HAZİNESİ</b>`
-        + `<br><span style="color:#dfe7ef">PETROL ${Math.floor(me.res.oil)} · İNSAN ${Math.floor(me.res.manpower)} · PUAN ${Math.floor(me.res.points)}</span>`
-        + `<br><span style="color:#9fb3c8;font-size:12px">${cmds.length} komutan · KİŞİ BAŞI/SN: PETROL +${inc.oil.toFixed(1)} · İNSAN +${inc.manpower.toFixed(1)} · PUAN +${inc.points.toFixed(1)}</span>`
-        + `<div class="council-skill-legend">YETENEKLER · ⚔ SAVAŞ · 🕊 DİPLOMASİ · ⚙ İKTİSAT · ● SADAKAT</div>`;
-    storyUiSetHtml(tre, treasuryHtml);
-    // EN GÜÇLÜ (oyuncu hariç) + sıralama (oyuncu üst, sonra skill-toplam azalan)
-    const skSum = c => c.skills ? (c.skills.warrior + c.skills.diplomat + c.skills.economist) : 0;
-    let bestId = -1, bestSum = -1;
-    for (const c of cmds) { if (c.isPlayer) continue; const s = skSum(c); if (s > bestSum) { bestSum = s; bestId = c.id; } }
-    const sorted = cmds.slice().sort((a, b) => (a.isPlayer !== b.isPlayer) ? (a.isPlayer ? -1 : 1) : (skSum(b) - skSum(a)));
-    const list = document.getElementById('council-list');
-    // CUMHURBAŞKANI KARTI: sivil lider komutan listesinin ÜSTÜNDE ayrı görünür —
-    // 'başkan listede yok' karışıklığı biter (o bir komutan değil, devletin lideri).
-    const presCard = (typeof storyPresidentName === 'function')
-        ? `<div class="pres-card">🏛️ <b>${storyPresidentName(me)}</b> — Cumhurbaşkanı <span class="pres-note">${isAdmin ? '(sensin)' : '(sivil lider — komutan değildir)'}</span></div>` : '';
-    const listHtml = presCard + sorted.map(c => {
-        const node = storyNode(c.node);
-        const front = (node && node.owner !== me.id) ? ' <span class="front">· cephe-gerisi</span>' : '';
-        const loc = node ? ('📍 ' + node.name + front) : '📍 —';
-        const col = c.isPlayer ? '#4cff7c' : ((storyState(me.id) || {}).color || '#888');
-        const star = (c.id === bestId) ? ' ⭐' : '';
-        const self = c.isPlayer ? ' <span class="cr-self">◆ SEN</span>' : '';
-        const loy = Math.round(c.loyalty || 0), risk = loy < 40 ? ' risk' : '';
-        const showX = (STORY._dismissMode && !c.isPlayer) ? '' : ' hidden';
-        return `<div class="council-row${c.isPlayer ? ' is-player' : ''}" data-node="${c.node}" data-cmd-id="${c.id}">`
-            + `<span class="cr-token" style="background:${col}"></span>`
-            + `<div class="cr-main"><div class="cr-name"><span title="${c.personality}">${storyPersonaIcon(c.personality)}</span> ${c.name}${self}${star}</div><div class="cr-loc">${loc}</div></div>`
-            + ((typeof charDiceBadge === 'function') ? charDiceBadge(c.skills) : storyCouncilSkillBars(c.skills))
-            + `<div class="cr-loyalty${risk}" title="Sadakat ${loy}/100"><span class="cr-loy-dot" style="background:${storyLoyColor(loy)}"></span>${loy}</div>`
-            + `<button class="cr-dismiss${showX}" data-cmd-id="${c.id}" title="Kov">✖</button></div>`;
-    }).join('');
-    storyUiSetHtml(list, listHtml);
-    // yönetici-yetkileri
-    const acts = document.getElementById('council-actions');
-    const createBtn = document.getElementById('council-create-btn');
-    const dismissBtn = document.getElementById('council-dismiss-btn');
-    if (acts) acts.classList.toggle('locked', !isAdmin);
-    const extra = (me.gov && me.gov.commanders) ? me.gov.commanders.length : 0;
-    const C = STORY_CMD_COST, afford = me.res.oil >= C && me.res.manpower >= C && me.res.points >= C, capFull = extra >= 9;
-    if (createBtn) { createBtn.disabled = !isAdmin || capFull || !afford; createBtn.textContent = capFull ? '➕ Konsey dolu (10)' : ((!afford && isAdmin) ? '➕ Hazine yetersiz' : '➕ Komutan Yarat'); }
-    if (dismissBtn) { dismissBtn.disabled = !isAdmin || extra === 0; dismissBtn.textContent = STORY._dismissMode ? '✓ Dağıtmayı Bitir' : '✖ Dağıt Modu'; }
-    // FAZ-4: yürürlükteki anayasa + kanunlar + sonraki toplantı sayacı (KANUNLAR sekmesi)
-    const laws = document.getElementById('council-lawbox');
-    if (laws && typeof storyCouncilLawsHtml === 'function') storyUiSetHtml(laws, storyCouncilLawsHtml(me));
+    const fp = `${isAdmin}|${Math.round(me.welfare)}|${me.reputation}|${Math.floor(me.res.oil)}|${Math.floor(me.res.manpower)}|${Math.floor(me.res.points)}|${STORY._dismissMode}|`
+        + cmds.map(c => `${c.id}:${c.node}:${Math.round(c.loyalty || 0)}`).join(',');
+    if (STORY._councilLastFp !== fp) {
+        STORY._councilLastFp = fp;
+        const banner = document.getElementById('council-admin-banner');
+        const bannerHtml =
+            `<div class="story-res">🏛️ Cumhurbaşkanı: <b style="color:${isAdmin ? '#4cff7c' : '#ffd24c'}">${isAdmin ? (STORY.commander ? STORY.commander.name + ' (SEN)' : 'SEN') : ((typeof storyPresidentName === 'function') ? storyPresidentName(me) : 'AI')}</b></div>`
+            + storyBar('Refah', me.welfare, '#54e08a')
+            + `<div class="story-res">🏅 İtibar <b>${me.reputation}/6</b>${isAdmin ? '' : (me.reputation >= 6 && me.welfare >= 60 ? ' <span style="color:#4cff7c">— seçime hazırsın!</span>' : ` <span style="color:#9fb3c8">(seçim: itibar≥6 + refah≥60)</span>`)}</div>`
+            + (isAdmin ? `<div class="story-res" style="color:#4cff7c;font-size:12px">🎖️ Komutan yaratabilir/dağıtabilirsin.</div>` : `<div class="story-res" style="color:#9fb3c8;font-size:12px">🔒 Yönetici olunca komutanları yönetirsin.</div>`);
+        storyUiSetHtml(banner, bannerHtml);
+        const inc = STORY._incPerCmd || { oil: 0, manpower: 0, points: 0 };
+        const tre = document.getElementById('council-treasury');
+        const treasuryHtml = `<b>DEVLET HAZİNESİ</b>`
+            + `<br><span style="color:#dfe7ef">PETROL ${Math.floor(me.res.oil)} · İNSAN ${Math.floor(me.res.manpower)} · PUAN ${Math.floor(me.res.points)}</span>`
+            + `<br><span style="color:#9fb3c8;font-size:12px">${cmds.length} komutan · KİŞİ BAŞI/SN: PETROL +${inc.oil.toFixed(1)} · İNSAN +${inc.manpower.toFixed(1)} · PUAN +${inc.points.toFixed(1)}</span>`
+            + `<div class="council-skill-legend">YETENEKLER · ⚔ SAVAŞ · 🕊 DİPLOMASİ · ⚙ İKTİSAT · ● SADAKAT</div>`;
+        storyUiSetHtml(tre, treasuryHtml);
+        const skSum = c => c.skills ? (c.skills.warrior + c.skills.diplomat + c.skills.economist) : 0;
+        let bestId = -1, bestSum = -1;
+        for (const c of cmds) { if (c.isPlayer) continue; const s = skSum(c); if (s > bestSum) { bestSum = s; bestId = c.id; } }
+        const sorted = cmds.slice().sort((a, b) => (a.isPlayer !== b.isPlayer) ? (a.isPlayer ? -1 : 1) : (skSum(b) - skSum(a)));
+        const list = document.getElementById('council-list');
+        const presCard = (typeof storyPresidentName === 'function')
+            ? `<div class="pres-card">🏛️ <b>${storyPresidentName(me)}</b> — Cumhurbaşkanı <span class="pres-note">${isAdmin ? '(sensin)' : '(sivil lider — komutan değildir)'}</span></div>` : '';
+        const listHtml = presCard + sorted.map(c => {
+            const node = storyNode(c.node);
+            const front = (node && node.owner !== me.id) ? ' <span class="front">· cephe-gerisi</span>' : '';
+            const loc = node ? ('📍 ' + node.name + front) : '📍 —';
+            const col = c.isPlayer ? '#4cff7c' : ((storyState(me.id) || {}).color || '#888');
+            const star = (c.id === bestId) ? ' ⭐' : '';
+            const self = c.isPlayer ? ' <span class="cr-self">◆ SEN</span>' : '';
+            const loy = Math.round(c.loyalty || 0), risk = loy < 40 ? ' risk' : '';
+            const showX = (STORY._dismissMode && !c.isPlayer) ? '' : ' hidden';
+            return `<div class="council-row${c.isPlayer ? ' is-player' : ''}" data-node="${c.node}" data-cmd-id="${c.id}">`
+                + `<span class="cr-token" style="background:${col}"></span>`
+                + `<div class="cr-main"><div class="cr-name"><span title="${c.personality}">${storyPersonaIcon(c.personality)}</span> ${c.name}${self}${star}</div><div class="cr-loc">${loc}</div></div>`
+                + ((typeof charDiceBadge === 'function') ? charDiceBadge(c.skills) : storyCouncilSkillBars(c.skills))
+                + `<div class="cr-loyalty${risk}" title="Sadakat ${loy}/100"><span class="cr-loy-dot" style="background:${storyLoyColor(loy)}"></span>${loy}</div>`
+                + `<button class="cr-dismiss${showX}" data-cmd-id="${c.id}" title="Kov">✖</button></div>`;
+        }).join('');
+        storyUiSetHtml(list, listHtml);
+        const acts = document.getElementById('council-actions');
+        const createBtn = document.getElementById('council-create-btn');
+        const dismissBtn = document.getElementById('council-dismiss-btn');
+        if (acts) acts.classList.toggle('locked', !isAdmin);
+        const extra = (me.gov && me.gov.commanders) ? me.gov.commanders.length : 0;
+        const C = STORY_CMD_COST, afford = me.res.oil >= C && me.res.manpower >= C && me.res.points >= C, capFull = extra >= 9;
+        if (createBtn) { createBtn.disabled = !isAdmin || capFull || !afford; createBtn.textContent = capFull ? '➕ Konsey dolu (10)' : ((!afford && isAdmin) ? '➕ Hazine yetersiz' : '➕ Komutan Yarat'); }
+        if (dismissBtn) { dismissBtn.disabled = !isAdmin || extra === 0; dismissBtn.textContent = STORY._dismissMode ? '✓ Dağıtmayı Bitir' : '✖ Dağıt Modu'; }
+        const laws = document.getElementById('council-lawbox');
+        if (laws && typeof storyCouncilLawsHtml === 'function') storyUiSetHtml(laws, storyCouncilLawsHtml(me));
+    }
     if (typeof storyGovernanceUpdate === 'function') storyGovernanceUpdate();
     storyCouncilSyncTabs();
 }
