@@ -1085,15 +1085,15 @@ function storyTradeConsumeCapacity(route, quantity, ledger) {
 
 function storyTradeContractById(ledger, contractId) {
     if (!ledger || !contractId) return null;
-    if (!ledger._contractById || ledger._contractByIdRev !== (ledger.contracts || []).length) {
+    if (!(ledger._contractById instanceof Map) || ledger._contractByIdRev !== (ledger.contracts || []).length) {
         const map = new Map();
         for (const c of (ledger.contracts || [])) {
-            map.set(c.id, c);
+            if (c && c.id) map.set(c.id, c);
         }
         ledger._contractById = map;
         ledger._contractByIdRev = (ledger.contracts || []).length;
     }
-    return ledger._contractById.get(contractId) || null;
+    return (ledger._contractById instanceof Map ? ledger._contractById.get(contractId) : null) || null;
 }
 
 function storyTradeDispatchOrder(orderOrId, maxQuantity) {
