@@ -569,10 +569,6 @@ function storyHexSitesEnsure() {
     const validation = storyHexSitesValidate(model, world, geography, urban,
         companyEconomy, natural, agriculture, hexConstruction);
     if (!validation.ok) throw new Error(`HEX_SITES_INVALID:${validation.issues.map(issue => issue.code).join(',')}`);
-    model._companyRev = companyRev;
-    model._hexConVer = hexConVer;
-    model._facilityCount = facilityCount;
-    model._commandCount = commandCount;
     STORY_HEX_SITES_CACHE = model;
     return model;
 }
