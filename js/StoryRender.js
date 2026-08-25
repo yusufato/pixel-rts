@@ -1119,7 +1119,7 @@ function storyDrawPhysicalConstructionSites(ctx, physicalSitesModel, mapZoomRati
 }
 
 function storyBuildSparseSettlementWorldLayer(mode, urbanModel, physicalSitesModel,
-    worldPositions) {
+    worldPositions, options) {
     const renderScale = Math.max(1, Number(mode && mode.renderScale) || 1);
     // 512px tiles made a local 8x district view issue dozens of GPU blits and
     // made the overview traverse hundreds of sparse textures. 1024px stays
