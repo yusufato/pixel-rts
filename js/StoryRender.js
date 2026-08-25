@@ -3907,31 +3907,6 @@ function storyRender() {
         STORY._pulse--;
     }
     markRenderLayer('commanders');
-    // Harita 60 Hz çizilir; DOM bilgi yüzeyi ise aynı veriyi her karede baştan
-    // üretmek zorunda değildir. Seçim/kaynak/log değişimi anında, akan dünya
-    // verisi en geç 500 ms içinde güncellenir. Panelin kendi olay işleyicileri
-    // doğrudan storyPanelUpdate çağırmaya devam eder.
-    const panelEntity = STORY._selectedMapEntity || {};
-    const panelRes = STORY.commander && STORY.commander.res || {};
-    const panelKey = [
-        Math.floor((Number(STORY.clock) || 0) * 2),
-        STORY.selectedNodeId,
-        STORY.commander && STORY.commander.node,
-        panelEntity.kind || '',
-        panelEntity.cellId || '',
-        Math.floor(Number(panelRes.oil) || 0),
-        Math.floor(Number(panelRes.manpower) || 0),
-        Math.floor(Number(panelRes.points) || 0),
-        (STORY.veterans || []).length,
-        (STORY.log || []).length,
-        STORY_FLOW && STORY_FLOW.tur || '',
-        STORY_FLOW && STORY_FLOW.hepsiniGoster ? 1 : 0
-    ].join('|');
-    if (STORY._panelRenderKey !== panelKey) {
-        storyPanelUpdate();
-        STORY._panelRenderKey = panelKey;
-    }
-    markRenderLayer('panel');
     STORY._renderLayerTimings = Object.assign(renderLayers, {
         total: renderClock() - renderStarted,
         zoomRatio: typeof mapZoomRatio === 'number' ? mapZoomRatio : null

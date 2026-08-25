@@ -167,9 +167,7 @@ function storyHexUrbanSourceHash(world, geography, settlements, nodes) {
                 demand.requested.industrial,
                 demand.requested.civic,
                 demand.requested.defense,
-                demand.requested.logistics,
-                demand.investment.industrial,
-                demand.investment.defense
+                demand.requested.logistics
             ];
         })
     }));

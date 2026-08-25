@@ -81,7 +81,19 @@ function storyHexConstructionEnvironment(context, index, spec) {
         ? STORY_HEX_NATURAL_COVER_NAMES : ['WATER', 'COAST', 'OPEN_LAND', 'FOREST', 'MOUNTAIN', 'DRYLAND'];
     const cover = natural && natural.coverCodes
         ? coverNames[Number(natural.coverCodes[index])] || 'UNKNOWN' : 'UNKNOWN';
-    const deposit = natural && (natural.deposits || []).find(row => Number(row.cellIndex) === index);
+    let deposit = null;
+    if (natural) {
+        if (!natural._depositByCellIndex && Array.isArray(natural.deposits)) {
+            natural._depositByCellIndex = new Map();
+            for (let i = 0; i < natural.deposits.length; i++) {
+                const dep = natural.deposits[i];
+                if (dep && dep.cellIndex != null) natural._depositByCellIndex.set(Number(dep.cellIndex), dep);
+            }
+        }
+        deposit = natural._depositByCellIndex
+            ? natural._depositByCellIndex.get(Number(index))
+            : (natural.deposits || []).find(row => Number(row.cellIndex) === index);
+    }
     const forestClearing = cover === 'FOREST';
     const mitigation = spec && spec.environmentalMitigation || {};
     return {
