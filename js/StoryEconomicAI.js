@@ -404,18 +404,23 @@ function storyEconomicAIDependencySignals(company) {
         _storyEconomicAIDependencyCache = new Map();
         _storyEconomicAIDependencyCacheClock = clock;
     }
-    const regional = STORY.regionalEconomy;
-    if (regional && !regional._regionsByCountry) {
-        const byCountry = new Map();
-        for (const reg of Object.values(regional.regions || {})) {
-            const cid = storyEconomicAICountryIdForRegion(reg.regionId);
-            let list = byCountry.get(cid);
-            if (!list) { list = []; byCountry.set(cid, list); }
-            list.push(reg);
-        }
-        regional._regionsByCountry = byCountry;
+function storyEconomicAIRegionsByCountry(regional) {
+    if (!regional || !regional.regions) return new Map();
+    if (regional._regionsByCountry instanceof Map) return regional._regionsByCountry;
+    const byCountry = new Map();
+    for (const reg of Object.values(regional.regions)) {
+        if (!reg || !reg.regionId) continue;
+        const cid = storyEconomicAICountryIdForRegion(reg.regionId);
+        let list = byCountry.get(cid);
+        if (!list) { list = []; byCountry.set(cid, list); }
+        list.push(reg);
     }
-    const regions = (regional && regional._regionsByCountry && regional._regionsByCountry.get(company.countryId)) || [];
+    regional._regionsByCountry = byCountry;
+    return byCountry;
+}
+
+    const regional = STORY.regionalEconomy;
+    const regions = (regional ? storyEconomicAIRegionsByCountry(regional).get(company.countryId) : null) || [];
     const fill = resourceId => {
         let requested = 0;
         let delivered = 0;
@@ -593,17 +598,7 @@ function storyEconomicAIReachableInput(company, targetRegionId, resourceId, targ
         _reachableInputCache.set(`${targetRegionId}|${countryId}|${resourceId}`, res);
         return res;
     }
-    if (!regional._regionsByCountry) {
-        const byCountry = new Map();
-        for (const reg of Object.values(regional.regions)) {
-            const cid = storyEconomicAICountryIdForRegion(reg.regionId);
-            let list = byCountry.get(cid);
-            if (!list) { list = []; byCountry.set(cid, list); }
-            list.push(reg);
-        }
-        regional._regionsByCountry = byCountry;
-    }
-    const candidateRegions = regional._regionsByCountry.get(countryId) || [];
+    const candidateRegions = (regional ? storyEconomicAIRegionsByCountry(regional).get(countryId) : null) || [];
     for (let i = 0; i < candidateRegions.length; i++) {
         if (quantity >= needed) break;
         const region = candidateRegions[i];
@@ -871,17 +866,7 @@ function storyEconomicAIProcurePreparedInputs(preparation) {
         const pending = storyEconomicAIPendingPreparationQuantity(preparation, resourceId);
         let need = storyEconomicAIRound(Math.max(0, required - reserved - pending));
         if (need <= 1e-6) continue;
-        if (!regional._regionsByCountry) {
-            const byCountry = new Map();
-            for (const reg of Object.values(regional.regions)) {
-                const cid = storyEconomicAICountryIdForRegion(reg.regionId);
-                let list = byCountry.get(cid);
-                if (!list) { list = []; byCountry.set(cid, list); }
-                list.push(reg);
-            }
-            regional._regionsByCountry = byCountry;
-        }
-        const countryRegions = regional._regionsByCountry.get(preparation.countryId) || [];
+        const countryRegions = (regional ? storyEconomicAIRegionsByCountry(regional).get(preparation.countryId) : null) || [];
         const sources = [];
         for (let i = 0; i < countryRegions.length; i++) {
             const region = countryRegions[i];
