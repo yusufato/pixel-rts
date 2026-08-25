@@ -1067,7 +1067,6 @@
 
     function promoteHexNaturalContentsToRamTiles(canvas, key, renderScale) {
         if (!canvas) return;
-        releaseHexNaturalRamTiles('replacement');
         const tileSize = 1024;
         const cache = {
             key,
@@ -1080,7 +1079,6 @@
             overviewCanvas: null,
             byteLength: Number(canvas.width) * Number(canvas.height) * 4
         };
-        STORY._hexNaturalContentsRamTiles = cache;
         const overview = document.createElement('canvas');
         overview.width = Math.max(1, Math.round(STORY_WORLD_W * cache.overviewScale));
         overview.height = Math.max(1, Math.round(STORY_WORLD_H * cache.overviewScale));
@@ -1108,6 +1106,8 @@
                 cache.readyCount++;
             }
         }
+        releaseHexNaturalRamTiles('replacement');
+        STORY._hexNaturalContentsRamTiles = cache;
     }
 
     function drawHexNaturalRamTiles(ctx, cache) {
@@ -1259,11 +1259,11 @@
             .sort((a, b) => a[0] - b[0])
             .map(([index, site]) => `${index}:${site.siteId}:${site.landUseType}:${site.lifecycleState}`)
             .join(',');
-        const key = ['hex-natural-surface-8-categorized-assets', world.layoutHash, geography.geographyHash,
+        const key = ['hex-natural-surface-9-visualhash', world.layoutHash, geography.geographyHash,
             natural.registryHash, urban && urban.footprintHash || '-', STORY_WORLD_W,
-            STORY_WORLD_H, physicalSites.sourceHash || physicalSites.registryHash || '-',
+            STORY_WORLD_H, physicalSites.visualHash || physicalSites.registryHash || '-',
             infrastructure && infrastructure.topologyHash || '-',
-            `season:${seasonIndex}:${seasonMonth}`, resourceOperationKey,
+            `season:${seasonIndex}`, resourceOperationKey,
             landUseOperationKey, renderScale].join('|');
         if (STORY._hexNaturalContentsCanvas && STORY._hexNaturalContentsKey === key) return STORY._hexNaturalContentsCanvas;
         if (STORY._hexNaturalContentsJob && STORY._hexNaturalContentsJob.key === key) {

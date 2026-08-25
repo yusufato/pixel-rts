@@ -175,12 +175,22 @@ function storySchedulerRestore(saved) {
 const STORY_SCHEDULER_HEAVY_TASK_IDS = new Set([
     'economy-regional',
     'economy-trade-logistics',
+    'economy-company',
+    'economy-hex-construction',
+    'economy-infrastructure-work',
+    'economy-ai',
+    'economy-hex-construction-ai',
+    'economy-market-price',
+    'economy-budget',
     'population-needs',
     'population',
     'power-centers',
     'human-migration',
     'political-crisis',
-    'character-actions'
+    'character-actions',
+    'institutions',
+    'state-capacity',
+    'city-growth'
 ]);
 
 function storySchedulerBeginStep(dtSec) {
