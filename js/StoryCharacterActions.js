@@ -953,13 +953,14 @@ function storyCharacterActionSyncDomainReceipts() {
     let changed = 0;
     for (const receipt of Object.values(ledger.receipts || {})) {
         if (!receipt || receipt.status !== 'APPLIED') continue;
+        const domain = receipt.domainReceipt;
+        if (!domain) continue;
         if (receipt.actionType === 'SABOTAGE') {
-            if (storyCharacterActionResolveSabotage(receipt)) changed++;
+            if (domain.outcomeModel === 'QUEUED_COVERT_OPERATION' && storyCharacterActionResolveSabotage(receipt)) changed++;
             continue;
         }
         if (receipt.actionType !== 'ORDER' || !STORY.institutions) continue;
-        const domain = receipt.domainReceipt;
-        if (!domain || domain.outcomeModel !== 'QUEUED_DOMAIN_DECISION' || !domain.requestId) continue;
+        if (domain.outcomeModel !== 'QUEUED_DOMAIN_DECISION' || !domain.requestId) continue;
         const request = STORY.institutions.requests && STORY.institutions.requests[domain.requestId];
         const result = request && request.domainDecision && request.domainDecision.result;
         if (!result) continue;

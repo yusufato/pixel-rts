@@ -141,6 +141,10 @@ function storyPoliticalCrisisRecordEvent(ledger, type, crisis, extra) {
     return event;
 }
 function storyPoliticalCrisisPowerCenter(countryId, type) {
+    if (typeof storyPowerCenterCountryDirect === 'function') {
+        const direct = storyPowerCenterCountryDirect(countryId);
+        return direct ? direct.getCenter(type) : null;
+    }
     const view = typeof storyPowerCenterCountryView === 'function'
         ? storyPowerCenterCountryView(countryId) : null;
     return view && (view.centers || []).find(row => row.type === type) || null;

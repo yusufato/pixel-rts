@@ -330,10 +330,11 @@ function storyPopulationCountryView(countryId) {
 }
 
 function storyPopulationLaborSupply(regionId, worldDays) {
-    const region = storyPopulationRegionView(regionId);
+    const ledger = storyPopulationEnsure();
+    const id = String(regionId).startsWith('region:') ? String(regionId) : `region:${Number(regionId)}`;
+    const region = ledger && ledger.regions[id];
     if (!region) return { status: 'UNAVAILABLE', availableWorkersPeople: 0, laborLots: 0, wageIndex: null };
     const baseAvailableWorkersPeople = region.cohorts.reduce((sum, cohort) => sum + storyPopulationAvailableWorkers(cohort), 0);
-    const ledger = storyPopulationEnsure();
     const participationBps = Math.max(5000, Math.min(11000, Number(ledger.laborPolicies && ledger.laborPolicies[region.regionId]) || 10000));
     const availableWorkersPeople = Math.floor(baseAvailableWorkersPeople * participationBps / 10000);
     const laborLots = Math.round(availableWorkersPeople / 1000 * STORY_POPULATION_LABOR_SCALE * Math.max(0, Number(worldDays) || 0) * 1e6) / 1e6;

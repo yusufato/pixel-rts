@@ -851,6 +851,23 @@ function storyPowerCenterTick() {
     };
 }
 
+function storyPowerCenterCountryDirect(countryId) {
+    const ledger = storyPowerCenterEnsure();
+    const id = storyPowerCenterCountryId(countryId);
+    if (!ledger || !ledger.countries[id]) return null;
+    const country = ledger.countries[id];
+    return {
+        country,
+        getCenter: type => {
+            for (let i = 0; i < country.centerIds.length; i++) {
+                const center = ledger.centers[country.centerIds[i]];
+                if (center && center.type === type) return center;
+            }
+            return null;
+        }
+    };
+}
+
 function storyPowerCenterCountryView(countryId) {
     const ledger = storyPowerCenterEnsure();
     const id = storyPowerCenterCountryId(countryId);
