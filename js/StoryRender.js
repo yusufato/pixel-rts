@@ -862,18 +862,24 @@ function storyDrawGeoAtlasDetail(ctx, land, hgt, W, H, f, dLand, dSea) {
 }
 
 function storySettlementLandScore(raster, wx, wy, radiusWorld, centerOffsetYWorld) {
-    if (!raster || typeof storyMapRasterSample !== 'function') return 9;
+    if (!raster) return 9;
+    const isLand = typeof storyMapRasterIsLand === 'function'
+        ? storyMapRasterIsLand
+        : (r, nx, ny) => (typeof storyMapRasterSample === 'function' ? storyMapRasterSample(r, nx, ny).land : true);
     const rx = Math.max(1, Number(radiusWorld) || 1) / STORY_WORLD_W;
     const ry = Math.max(1, Number(radiusWorld) || 1) / STORY_WORLD_H;
     const nx = wx / STORY_WORLD_W;
     const ny = (wy + (Number(centerOffsetYWorld) || 0)) / STORY_WORLD_H;
-    const points = [[0, 0], [-rx, 0], [rx, 0], [0, -ry], [0, ry],
-        [-rx * .72, -ry * .72], [rx * .72, -ry * .72],
-        [-rx * .72, ry * .72], [rx * .72, ry * .72]];
     let score = 0;
-    for (const point of points) {
-        if (storyMapRasterSample(raster, nx + point[0], ny + point[1]).land) score++;
-    }
+    if (isLand(raster, nx, ny)) score++;
+    if (isLand(raster, nx - rx, ny)) score++;
+    if (isLand(raster, nx + rx, ny)) score++;
+    if (isLand(raster, nx, ny - ry)) score++;
+    if (isLand(raster, nx, ny + ry)) score++;
+    if (isLand(raster, nx - rx * .72, ny - ry * .72)) score++;
+    if (isLand(raster, nx + rx * .72, ny - ry * .72)) score++;
+    if (isLand(raster, nx - rx * .72, ny + ry * .72)) score++;
+    if (isLand(raster, nx + rx * .72, ny + ry * .72)) score++;
     return score;
 }
 
@@ -1208,10 +1214,10 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         ? (visualPeriodValue.id || visualPeriodValue.key
             || JSON.stringify(visualPeriodValue)) : visualPeriodValue;
     const token = [
-        'settlement-world-layers-7-core2-district8-tiles1024',
+        'settlement-world-layers-8-visualhash-tiles1024',
         storySettlementAtlasesReady() ? 'ready' : 'loading',
         urbanModel && urbanModel.footprintHash || 'no-urban',
-        physicalSitesModel && physicalSitesModel.registryHash || 'no-sites',
+        physicalSitesModel && (physicalSitesModel.visualHash || physicalSitesModel.registryHash) || 'no-sites',
         visualPeriod
     ].join('|');
     if (STORY._settlementWorldLayers

@@ -461,6 +461,18 @@ function storyMapRasterInvalidate(reason) {
     return { ok: true, legacy: true, scope: 'geometry' };
 }
 
+function storyMapRasterIsLand(raster, normalizedX, normalizedY) {
+    if (!raster || !raster.landMask) return false;
+    const nx = Number(normalizedX);
+    const ny = Number(normalizedY);
+    if (!Number.isFinite(nx) || !Number.isFinite(ny) || nx < 0 || ny < 0 || nx >= 1 || ny >= 1) {
+        return false;
+    }
+    const x = Math.min(raster.width - 1, Math.floor(nx * raster.width));
+    const y = Math.min(raster.height - 1, Math.floor(ny * raster.height));
+    return raster.landMask[y * raster.width + x] === 1;
+}
+
 function storyMapRasterSample(raster, normalizedX, normalizedY) {
     if (!raster) return { land: false, regionId: -1, x: -1, y: -1 };
     const nx = Number(normalizedX);

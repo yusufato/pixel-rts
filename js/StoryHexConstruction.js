@@ -225,7 +225,7 @@ function storyHexConstructionTouch(ledger) {
     ledger.version = Math.max(0, Number(ledger.version) || 0) + 1;
 }
 
-function storyHexConstructionCandidateBlock(index, projectType, regionId, context, ledger) {
+function storyHexConstructionCandidateBlock(index, projectType, regionId, context, ledger, reservedSets) {
     const world = context.world, geography = context.geography;
     const cellId = storyHexConstructionCellId(world, index);
     const reasons = [];
@@ -242,17 +242,22 @@ function storyHexConstructionCandidateBlock(index, projectType, regionId, contex
     if (environment.naturalCover === 'MOUNTAIN') reasons.push('MOUNTAIN_CONSTRUCTION_FORBIDDEN');
     if (context.sites && context.sites.landUseByCellId
         && context.sites.landUseByCellId[cellId]) reasons.push('TARGET_OCCUPIED');
-    if ((ledger.commands || []).some(row => row.targetCellId === cellId && row.status !== 'CANCELLED')) {
-        reasons.push('CONSTRUCTION_TARGET_RESERVED');
+    if (reservedSets) {
+        if (reservedSets.commandCells.has(cellId)) reasons.push('CONSTRUCTION_TARGET_RESERVED');
+        if (reservedSets.appCells.has(cellId)) reasons.push('APPLICATION_TARGET_RESERVED');
+    } else {
+        if ((ledger.commands || []).some(row => row.targetCellId === cellId && row.status !== 'CANCELLED')) {
+            reasons.push('CONSTRUCTION_TARGET_RESERVED');
+        }
+        if ((ledger.applications || []).some(row => row.targetCellId === cellId
+            && !['REJECTED', 'CANCELLED'].includes(row.status))) reasons.push('APPLICATION_TARGET_RESERVED');
     }
-    if ((ledger.applications || []).some(row => row.targetCellId === cellId
-        && !['REJECTED', 'CANCELLED'].includes(row.status))) reasons.push('APPLICATION_TARGET_RESERVED');
     return { cellId, reasons: Array.from(new Set(reasons)), environment };
 }
 
 function storyHexConstructionRegionCellIndices(geography, regionNumber) {
     if (!geography) return [];
-    if (!geography._cellIndicesByRegion) {
+    if (!(geography._cellIndicesByRegion instanceof Map)) {
         const map = new Map();
         const regionIds = geography.regionIds || [];
         for (let i = 0; i < regionIds.length; i++) {
@@ -275,6 +280,14 @@ function storyHexConstructionCandidates(regionId, projectType, options) {
     const regionNumber = storyHexConstructionRegionNumber(regionId);
     const regionCellIndices = storyHexConstructionRegionCellIndices(context.geography, regionNumber);
     if (!regionCellIndices.length) return [];
+    const reservedSets = {
+        commandCells: new Set((ledger.commands || [])
+            .filter(row => row.targetCellId && row.status !== 'CANCELLED')
+            .map(row => row.targetCellId)),
+        appCells: new Set((ledger.applications || [])
+            .filter(row => row.targetCellId && !['REJECTED', 'CANCELLED'].includes(row.status))
+            .map(row => row.targetCellId))
+    };
     const rows = [];
     let centerQ = 0, centerR = 0;
     for (let i = 0; i < regionCellIndices.length; i++) {
@@ -285,7 +298,7 @@ function storyHexConstructionCandidates(regionId, projectType, options) {
     centerQ /= regionCellIndices.length; centerR /= regionCellIndices.length;
     for (let i = 0; i < regionCellIndices.length; i++) {
         const index = regionCellIndices[i];
-        const checked = storyHexConstructionCandidateBlock(index, type, String(regionId), context, ledger);
+        const checked = storyHexConstructionCandidateBlock(index, type, String(regionId), context, ledger, reservedSets);
         if (checked.reasons.length) continue;
         const q = Number(context.world.qValues[index]), r = Number(context.world.rValues[index]);
         const distance = Math.abs(q - centerQ) + Math.abs(r - centerR)

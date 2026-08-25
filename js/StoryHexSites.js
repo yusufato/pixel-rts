@@ -458,11 +458,16 @@ function storyHexSitesCreate(options) {
             site.constructionState, site.capacity, site.installedVisualStage]),
         unplaced: unplacedFacilities.map(row => [row.facilityId, row.reason])
     }));
+    const visualHash = storyHexSitesHashText(JSON.stringify({
+        cells: landUseCells.map(cell => [cell.cellId, cell.activeUse]),
+        sites: sites.map(site => [site.id, site.cellId, site.siteType, site.installedVisualStage, site.lifecycleState])
+    }));
     return {
         schemaVersion: STORY_HEX_SITES_SCHEMA_VERSION,
         adapterVersion: STORY_HEX_SITES_ADAPTER_VERSION,
         sourceHash,
         registryHash,
+        visualHash,
         geographyHash: geography.geographyHash,
         footprintHash: urban.footprintHash,
         naturalRegistryHash: natural && natural.registryHash || null,
