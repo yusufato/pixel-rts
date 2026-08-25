@@ -3357,18 +3357,20 @@ function storyFastTerrainCacheV2() {
     const paletteKey = typeof storyMapPaletteKey === 'function'
         ? storyMapPaletteKey() : 'palette:neutral';
     const styleVersion = 'geo-terrain-v2-fast-base-1';
-    if (STORY._geoTerrain && STORY._geoTerrainSource
+    if (STORY._geoTerrain && STORY._geoTerrain.width === raster.width && STORY._geoTerrain.height === raster.height
+        && STORY._geoTerrainSource
         && STORY._geoTerrainSource.paletteKey === paletteKey
         && STORY._geoTerrainSource.styleVersion === styleVersion) return STORY._geoTerrain;
     const W = raster.width, H = raster.height;
-    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const cv = (STORY._geoTerrain && STORY._geoTerrain.width === W && STORY._geoTerrain.height === H)
+        ? STORY._geoTerrain : document.createElement('canvas');
+    cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
     const image = ctx.createImageData(W, H), out = image.data;
-    // A compact canonical base is enough for the first frame. The detailed
-    // 6000x4720 hex surface is composed above it incrementally; rebuilding a
-    // second multi-million-pixel terrain on the click path only delayed cities.
-    const seaDistance = typeof _geoDistT === 'function'
-        ? _geoDistT(raster.landMask, W, H, 0) : null;
+    let seaDistance = raster._seaDistance;
+    if (!seaDistance && typeof _geoDistT === 'function') {
+        seaDistance = raster._seaDistance = _geoDistT(raster.landMask, W, H, 0);
+    }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const i = y * W + x, p = i * 4;
         let color;

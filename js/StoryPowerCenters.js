@@ -193,52 +193,64 @@ function storyPowerCenterSupport(countryId, type, prefilteredRegions) {
     };
 }
 
-function storyPowerCenterCompanySignals(countryId) {
+function storyPowerCenterAllCompanySignals() {
     const company = typeof storyCompanyEnsure === 'function' ? storyCompanyEnsure() : null;
-    const allCompanies = company && company.companies;
-    const allFacilities = company && company.facilities;
-    const allBanks = company && company.banks;
-    const companies = [];
-    let cash = 0;
-    let debt = 0;
-    let lobbyInfluence = 0;
-    if (allCompanies) {
-        for (const k in allCompanies) {
-            const row = allCompanies[k];
-            if (row.countryId === countryId) {
-                companies.push(row);
-                cash += Math.max(0, Number(row.accounts && row.accounts['ASSET:CASH']) || 0);
-                debt += Math.max(0, -(Number(row.accounts && row.accounts['LIABILITY:DEBT']) || 0));
-                lobbyInfluence += Math.max(0, Number(row.lobbyInfluence) || 0);
+    const byCountry = new Map();
+    const ensure = cid => {
+        let entry = byCountry.get(cid);
+        if (!entry) {
+            entry = {
+                companies: [], facilities: [], banks: [],
+                cash: 0, debt: 0, bankReserves: 0, lobbyInfluence: 0
+            };
+            byCountry.set(cid, entry);
+        }
+        return entry;
+    };
+    if (company && company.companies) {
+        for (const k in company.companies) {
+            const row = company.companies[k];
+            if (row && row.countryId) {
+                const e = ensure(row.countryId);
+                e.companies.push(row);
+                e.cash += Math.max(0, Number(row.accounts && row.accounts['ASSET:CASH']) || 0);
+                e.debt += Math.max(0, -(Number(row.accounts && row.accounts['LIABILITY:DEBT']) || 0));
+                e.lobbyInfluence += Math.max(0, Number(row.lobbyInfluence) || 0);
             }
         }
     }
-    const facilities = [];
-    if (allFacilities) {
-        for (const k in allFacilities) {
-            const row = allFacilities[k];
-            if (row.countryId === countryId) facilities.push(row);
-        }
-    }
-    const banks = [];
-    let bankReserves = 0;
-    if (allBanks) {
-        for (const k in allBanks) {
-            const row = allBanks[k];
-            if (row.countryId === countryId) {
-                banks.push(row);
-                bankReserves += Math.max(0, Number(row.reserves) || 0);
+    if (company && company.facilities) {
+        for (const k in company.facilities) {
+            const row = company.facilities[k];
+            if (row && row.countryId) {
+                ensure(row.countryId).facilities.push(row);
             }
         }
     }
-    return {
-        companies,
-        facilities,
-        banks,
-        cash: storyPowerCenterRound(cash),
-        debt: storyPowerCenterRound(debt),
-        bankReserves: storyPowerCenterRound(bankReserves),
-        lobbyInfluence: storyPowerCenterRound(lobbyInfluence)
+    if (company && company.banks) {
+        for (const k in company.banks) {
+            const row = company.banks[k];
+            if (row && row.countryId) {
+                const e = ensure(row.countryId);
+                e.banks.push(row);
+                e.bankReserves += Math.max(0, Number(row.reserves) || 0);
+            }
+        }
+    }
+    for (const entry of byCountry.values()) {
+        entry.cash = storyPowerCenterRound(entry.cash);
+        entry.debt = storyPowerCenterRound(entry.debt);
+        entry.bankReserves = storyPowerCenterRound(entry.bankReserves);
+        entry.lobbyInfluence = storyPowerCenterRound(entry.lobbyInfluence);
+    }
+    return byCountry;
+}
+
+function storyPowerCenterCompanySignals(countryId) {
+    const byCountry = storyPowerCenterAllCompanySignals();
+    return byCountry.get(countryId) || {
+        companies: [], facilities: [], banks: [],
+        cash: 0, debt: 0, bankReserves: 0, lobbyInfluence: 0
     };
 }
 
@@ -791,11 +803,15 @@ function storyPowerCenterTick() {
         }
     }
     const next = {};
+    const companySignalsByCountry = storyPowerCenterAllCompanySignals();
     for (const state of (STORY.states || [])) {
         const countryId = storyPowerCenterCountryId(state.id);
         const countryRegions = popRegionsByCountry.get(countryId) || [];
         const precalculated = {
-            companies: storyPowerCenterCompanySignals(countryId),
+            companies: companySignalsByCountry.get(countryId) || {
+                companies: [], facilities: [], banks: [],
+                cash: 0, debt: 0, bankReserves: 0, lobbyInfluence: 0
+            },
             signals: storyPowerCenterStateSignals(countryId),
             support: {}
         };

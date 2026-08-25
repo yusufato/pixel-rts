@@ -31,6 +31,13 @@ const STORY_REGIONAL_SAFE_DAYS = Object.freeze({
     capital: 14
 });
 
+const STORY_REGIONAL_CONSUMER_POLICY_BY_ID = Object.freeze(
+    STORY_REGIONAL_CONSUMER_POLICY.reduce((acc, row) => {
+        acc[row.id] = row;
+        return acc;
+    }, {})
+);
+
 const STORY_REGIONAL_POLICY_HASH = storyProductionHash({
     schemaVersion: STORY_REGIONAL_ECONOMY_SCHEMA_VERSION,
     adapterVersion: STORY_REGIONAL_ECONOMY_ADAPTER_VERSION,
@@ -86,7 +93,8 @@ function storyRegionalDemandSpecs(node, worldDays) {
     const countryId = `country:${Number(node && node.owner)}`;
     const rows = [];
     const add = (consumerType, resourceId, perDay, reason, payer) => {
-        const policy = STORY_REGIONAL_CONSUMER_POLICY.find(item => item.id === consumerType);
+        const policy = STORY_REGIONAL_CONSUMER_POLICY_BY_ID[consumerType]
+            || STORY_REGIONAL_CONSUMER_POLICY.find(item => item.id === consumerType);
         const quantity = storyRegionalRound(Math.max(0, perDay) * days);
         if (!policy || quantity <= 0) return;
         const row = {

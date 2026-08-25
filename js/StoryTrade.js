@@ -3479,9 +3479,18 @@ function storyTradeLogisticsTick(dtSec, options) {
     let dispatchAttempts = 0;
     let retryDeferred = 0;
     if (options.dispatchOpen !== false) {
-        for (const order of ledger.orders
-            .filter(item => ['OPEN', 'PARTIAL'].includes(item.status))
-            .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))) {
+        const openOrders = [];
+        for (let i = 0; i < ledger.orders.length; i++) {
+            const item = ledger.orders[i];
+            if (item && (item.status === 'OPEN' || item.status === 'PARTIAL')) {
+                openOrders.push(item);
+            }
+        }
+        if (openOrders.length > 1) {
+            openOrders.sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+        }
+        for (let i = 0; i < openOrders.length; i++) {
+            const order = openOrders[i];
             if (dispatchAttempts >= STORY_TRADE_MAX_OPEN_DISPATCH_ATTEMPTS
                 || ledger.capacityWindow.usedByCorridor.__dispatchCount >= STORY_TRADE_MAX_AUTO_DISPATCHES) break;
             if (storyTradeBootstrapPlanningEnabled()
