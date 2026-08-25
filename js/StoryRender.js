@@ -1576,18 +1576,26 @@ function storyDrawPhysicalLandOverlay(ctx, farMap) {
     const world = storyHexWorldEnsure();
     if (!registry || !world) return 0;
     const roads = registry._landRoads || (registry._landRoads = registry.segments.filter(segment => segment.mode === 'LAND'));
+    const coords = registry._landRoadCoords || (registry._landRoadCoords = roads.map(segment => ({
+        xa: Number(world.centerX[segment.endpointCellIndices[0]]),
+        ya: Number(world.centerY[segment.endpointCellIndices[0]]),
+        xb: Number(world.centerX[segment.endpointCellIndices[1]]),
+        yb: Number(world.centerY[segment.endpointCellIndices[1]])
+    })));
+    const ptsA = new Array(coords.length);
+    const ptsB = new Array(coords.length);
+    for (let i = 0; i < coords.length; i++) {
+        const c = coords[i];
+        ptsA[i] = storyW2S(c.xa, c.ya);
+        ptsB[i] = storyW2S(c.xb, c.yb);
+    }
     const drawPass = (width, color) => {
         ctx.lineWidth = width;
         ctx.strokeStyle = color;
         ctx.beginPath();
-        for (let i = 0; i < roads.length; i++) {
-            const segment = roads[i];
-            const a = Number(segment.endpointCellIndices[0]);
-            const b = Number(segment.endpointCellIndices[1]);
-            const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
-            const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
-            ctx.moveTo(pa.x, pa.y);
-            ctx.lineTo(pb.x, pb.y);
+        for (let i = 0; i < ptsA.length; i++) {
+            ctx.moveTo(ptsA[i].x, ptsA[i].y);
+            ctx.lineTo(ptsB[i].x, ptsB[i].y);
         }
         ctx.stroke();
     };
@@ -1600,20 +1608,29 @@ function storyDrawPhysicalLandOverlay(ctx, farMap) {
         ? 'rgba(54,47,38,.48)' : 'rgba(48,43,36,.58)');
     drawPass(farMap ? .42 : .68, farMap
         ? 'rgba(194,174,132,.58)' : 'rgba(174,155,119,.66)');
-    for (const segment of roads) {
-        const factor = storyHexInfrastructureSegmentFactorBps(segment);
-        if (factor >= 10000) continue;
-        const a = Number(segment.endpointCellIndices[0]);
-        const b = Number(segment.endpointCellIndices[1]);
-        const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
-        const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
-        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
-        ctx.strokeStyle = factor <= 0 ? 'rgba(118,22,18,.96)'
-            : factor < 5000 ? 'rgba(211,74,28,.92)' : 'rgba(229,151,42,.84)';
-        ctx.lineWidth = farMap ? 1.5 : 2.5;
-        if (factor <= 0 && typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 2]);
-        ctx.stroke();
-        if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    const damageRev = (STORY.infrastructureDamage && STORY.infrastructureDamage.revision) || 0;
+    if (registry._damagedLandRoadsRev !== damageRev || !registry._damagedLandRoads) {
+        registry._damagedLandRoads = roads.filter(segment => storyHexInfrastructureSegmentFactorBps(segment) < 10000);
+        registry._damagedLandRoadsRev = damageRev;
+    }
+    const damagedRoads = registry._damagedLandRoads;
+    if (damagedRoads && damagedRoads.length > 0) {
+        for (let i = 0; i < damagedRoads.length; i++) {
+            const segment = damagedRoads[i];
+            const factor = storyHexInfrastructureSegmentFactorBps(segment);
+            if (factor >= 10000) continue;
+            const a = Number(segment.endpointCellIndices[0]);
+            const b = Number(segment.endpointCellIndices[1]);
+            const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
+            const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
+            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+            ctx.strokeStyle = factor <= 0 ? 'rgba(118,22,18,.96)'
+                : factor < 5000 ? 'rgba(211,74,28,.92)' : 'rgba(229,151,42,.84)';
+            ctx.lineWidth = farMap ? 1.5 : 2.5;
+            if (factor <= 0 && typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 2]);
+            ctx.stroke();
+            if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+        }
     }
     ctx.restore();
     return roads.length;
@@ -1720,19 +1737,27 @@ function storyDrawPhysicalRailOverlay(ctx, farMap) {
     const world = storyHexWorldEnsure();
     if (!registry || !world) return 0;
     const rails = registry._railSegments || (registry._railSegments = registry.segments.filter(segment => segment.mode === 'RAIL'));
+    const coords = registry._railCoords || (registry._railCoords = rails.map(segment => ({
+        xa: Number(world.centerX[segment.endpointCellIndices[0]]),
+        ya: Number(world.centerY[segment.endpointCellIndices[0]]),
+        xb: Number(world.centerX[segment.endpointCellIndices[1]]),
+        yb: Number(world.centerY[segment.endpointCellIndices[1]])
+    })));
+    const ptsA = new Array(coords.length);
+    const ptsB = new Array(coords.length);
+    for (let i = 0; i < coords.length; i++) {
+        const c = coords[i];
+        ptsA[i] = storyW2S(c.xa, c.ya);
+        ptsB[i] = storyW2S(c.xb, c.yb);
+    }
     const drawPass = (width, color, dash) => {
         ctx.lineWidth = width;
         ctx.strokeStyle = color;
         if (typeof ctx.setLineDash === 'function') ctx.setLineDash(dash || []);
         ctx.beginPath();
-        for (let i = 0; i < rails.length; i++) {
-            const segment = rails[i];
-            const a = Number(segment.endpointCellIndices[0]);
-            const b = Number(segment.endpointCellIndices[1]);
-            const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
-            const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
-            ctx.moveTo(pa.x, pa.y);
-            ctx.lineTo(pb.x, pb.y);
+        for (let i = 0; i < ptsA.length; i++) {
+            ctx.moveTo(ptsA[i].x, ptsA[i].y);
+            ctx.lineTo(ptsB[i].x, ptsB[i].y);
         }
         ctx.stroke();
     };
@@ -1741,20 +1766,29 @@ function storyDrawPhysicalRailOverlay(ctx, farMap) {
     drawPass(farMap ? .95 : 1.45, 'rgba(36,40,37,.62)', []);
     drawPass(farMap ? .38 : .58, 'rgba(218,202,150,.72)', farMap ? [2, 2] : [3, 3]);
     if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
-    for (const segment of rails) {
-        const factor = storyHexInfrastructureSegmentFactorBps(segment);
-        if (factor >= 10000) continue;
-        const a = Number(segment.endpointCellIndices[0]);
-        const b = Number(segment.endpointCellIndices[1]);
-        const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
-        const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
-        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
-        ctx.strokeStyle = factor <= 0 ? 'rgba(142,28,22,.98)'
-            : factor < 5000 ? 'rgba(224,83,27,.95)' : 'rgba(234,164,50,.9)';
-        ctx.lineWidth = farMap ? 1.4 : 2.1;
-        if (factor <= 0 && typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 2]);
-        ctx.stroke();
-        if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    const damageRev = (STORY.infrastructureDamage && STORY.infrastructureDamage.revision) || 0;
+    if (registry._damagedRailSegmentsRev !== damageRev || !registry._damagedRailSegments) {
+        registry._damagedRailSegments = rails.filter(segment => storyHexInfrastructureSegmentFactorBps(segment) < 10000);
+        registry._damagedRailSegmentsRev = damageRev;
+    }
+    const damagedRails = registry._damagedRailSegments;
+    if (damagedRails && damagedRails.length > 0) {
+        for (let i = 0; i < damagedRails.length; i++) {
+            const segment = damagedRails[i];
+            const factor = storyHexInfrastructureSegmentFactorBps(segment);
+            if (factor >= 10000) continue;
+            const a = Number(segment.endpointCellIndices[0]);
+            const b = Number(segment.endpointCellIndices[1]);
+            const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
+            const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
+            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+            ctx.strokeStyle = factor <= 0 ? 'rgba(142,28,22,.98)'
+                : factor < 5000 ? 'rgba(224,83,27,.95)' : 'rgba(234,164,50,.9)';
+            ctx.lineWidth = farMap ? 1.4 : 2.1;
+            if (factor <= 0 && typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 2]);
+            ctx.stroke();
+            if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+        }
     }
     ctx.restore();
     return rails.length;
@@ -3693,56 +3727,30 @@ function storyRender() {
         const sq = Math.max(2, Math.round((isCmd ? (farMap ? 6 : 9) : (farMap ? 3.2 : 5.5))
             * sc * (farMap ? Math.min(tierBoost, 1.25) : tierBoost)));
         let px = Math.round(p.x), py = Math.round(p.y);
-        const visualLevel = storySettlementVisualLevel(
-            n, urbanModel && urbanModel.records[n.id]
-        );
-        const settlementMetrics = typeof storyMapV2SettlementMetrics === 'function'
-            ? storyMapV2SettlementMetrics(n, {
-                cam: storyCam,
-                minZoom: STORY._minZoom || storyCam.zoom,
-                visualLevel,
-                actionable: true
-            })
-            : { size: farMap ? 10 : 24, half: farMap ? 4 : 7 };
+        const visualLevel = Math.max(1, Math.min(3, Number(n.level) || 1));
+        const settlementWorldSize = visualLevel >= 3 ? 22 : (visualLevel === 2 ? 14 : 8);
+        const settlementSize = Math.max(4, farMap ? (visualLevel >= 3 ? 14 : 10) : settlementWorldSize * z);
+        const settlementHalf = Math.max(3, settlementSize * .31);
         const visualWorld = activeSettlementWorldLayer
             && activeSettlementWorldLayer.layer.visualPositions[n.id];
         const visualPoint = visualWorld
             ? storyW2S(visualWorld.x, visualWorld.y) : p;
-        const settlement = {
-            half: Math.max(3, Number(settlementMetrics.half) || 4),
-            size: Math.max(4, Number(settlementMetrics.size) || 8),
-            visualX: visualPoint.x,
-            visualY: visualPoint.y,
-            worldLayerCached: true
-        };
-        if (settlement && Number.isFinite(settlement.visualX)
-            && Number.isFinite(settlement.visualY)) {
-            px = Math.round(settlement.visualX);
-            py = Math.round(settlement.visualY);
+        if (Number.isFinite(visualPoint.x) && Number.isFinite(visualPoint.y)) {
+            px = Math.round(visualPoint.x);
+            py = Math.round(visualPoint.y);
         }
-        const cityHidden = !!(settlement && settlement.hidden);
-        if (!cityHidden) visibleSettlementNodeIds.push(n.id);
-        const markerHalf = settlement && !cityHidden
-            ? Math.max(3, Math.round(settlement.half)) : sq;
-        if (!settlement) {
-            settlementG.fillStyle = '#000'; settlementG.fillRect(px - sq - 1, py - sq - 1, 2 * sq + 2, 2 * sq + 2);
-            settlementG.fillStyle = st ? st.color : '#888';
-            settlementG.fillRect(px - sq, py - sq, 2 * sq, 2 * sq);
-        } else if (cityHidden) {
-            // Overview LOD: minor settlements are removed instead of enlarged.
-        } else if (settlement.minor) {
-            settlementG.fillStyle = '#080b08'; settlementG.fillRect(px - 2, py - 2, 5, 5);
-            settlementG.fillStyle = st ? st.color : '#888'; settlementG.fillRect(px - 1, py - 1, 3, 3);
-        } else if (settlement.size >= 8) {
-            const ownerHalf = Math.max(3, Math.round(settlement.half * .82));
+        visibleSettlementNodeIds.push(n.id);
+        const markerHalf = Math.max(3, Math.round(settlementHalf));
+        if (settlementSize >= 8) {
+            const ownerHalf = Math.max(3, Math.round(settlementHalf * .82));
             settlementG.fillStyle = '#090b08'; settlementG.fillRect(px - ownerHalf - 1, py + 1, ownerHalf * 2 + 2, 3);
             settlementG.fillStyle = st ? st.color : '#888'; settlementG.fillRect(px - ownerHalf, py + 2, ownerHalf * 2, 1);
         }
         // ── DESIGN İKONLARI: fabrika bacası / petrol kulesi / maden kazması / kışla flaması ──
         // Yakınlaşınca ya da büyük şehirlerde göster (uzak/küçük şehirde kalabalık yapmasın).
         const detail = !farMap && mapZoomRatio >= 7.5
-            && ((n.level || 1) >= 2 || (settlement && settlement.size >= 28));
-        if (!cityHidden && detail && p.u > -0.05 && p.u < 1.05 && px > -30 && px < w + 30) {
+            && ((n.level || 1) >= 2 || settlementSize >= 28);
+        if (detail && p.u > -0.05 && p.u < 1.05 && px > -30 && px < w + 30) {
             const ic = Math.max(0.7, sc);
             if ((n.fac | 0) > 0) {                          // FABRİKA: gövde + baca sayısı = seviye
                 const fx = px + markerHalf + 2, fy = py - 2;
@@ -3777,16 +3785,16 @@ function storyRender() {
         }
         if (isSelected) {
             const r = markerHalf + 6;
-            const lift = settlement ? Math.round(settlement.size * .20) : 0;
+            const lift = Math.round(settlementSize * .20);
             settlementG.strokeStyle = '#ffb000'; settlementG.lineWidth = 2;
             settlementG.strokeRect(px - r, py - r - lift, r * 2, r * 2);
         }
         // Referans-stili stratejik şehir etiketi. Sadece final ekran uzayında çizilir;
         // böylece terrain/politik katman altında kaybolmaz ve zoom ile okunur kalır.
         const labelEligible = (n.level || 1) >= 2
-            || (settlement && settlement.size >= 26)
+            || settlementSize >= 26
             || isSelected || attackable || moveable;
-        if (!cityHidden && labelEligible) {
+        if (labelEligible) {
             const label = n._upperName || (n._upperName = String(n.name || '').toLocaleUpperCase('tr-TR'));
             const labelSize = storyMapLabelFontSize(n, farMap, w, h);
             const cacheKey = label + ':' + labelSize;
@@ -3796,14 +3804,14 @@ function storyRender() {
                 tw = Math.ceil(settlementG.measureText(label).width);
                 _labelWidthCache.set(cacheKey, tw);
             }
-            settlementG.font = `bold ${labelSize}px monospace`; settlementG.textAlign = 'left'; settlementG.textBaseline = 'middle';
             const lh = labelSize + 3;
-            const spriteFoot = settlement ? Math.round(settlement.size * .30) : sq;
+            const spriteFoot = Math.round(settlementSize * .30);
             const bx = px - Math.round(tw / 2) - 3, by = py + spriteFoot + 4;
             const box = { x: bx, y: by, w: tw + 6, h: lh };
             if (!labelBoxes.some(p => box.x < p.x + p.w + 3 && box.x + box.w + 3 > p.x
                 && box.y < p.y + p.h + 2 && box.y + box.h + 2 > p.y)) {
                 labelBoxes.push(box);
+                settlementG.font = `bold ${labelSize}px monospace`; settlementG.textAlign = 'left'; settlementG.textBaseline = 'middle';
                 settlementG.fillStyle = 'rgba(7,13,10,.88)'; settlementG.fillRect(box.x, box.y, box.w, box.h);
                 settlementG.strokeStyle = (n.level || 1) >= 3 ? '#e0bd54' : 'rgba(142,164,122,.9)'; settlementG.lineWidth = 1;
                 settlementG.strokeRect(box.x + .5, box.y + .5, box.w - 1, box.h - 1);

@@ -2426,7 +2426,15 @@ function storyInit() {
         else if (k === 's' || k === 'arrowdown') { storyCam.y += s; m = true; }
         else if (k === '+' || k === '=') { storyCam.zoom = Math.min(5, storyCam.zoom * 1.2); m = true; }
         else if (k === '-' || k === '_') { const c = document.getElementById('storyCanvas'); storyCam.zoom = Math.max(storyMinZoom(c ? c.width : 800, c ? c.height : 600), storyCam.zoom / 1.2); m = true; }
-        if (m) { const c = document.getElementById('storyCanvas'); if (c) storyClampCam(c.width, c.height); storyRender(); e.preventDefault(); }
+        if (m) {
+            STORY._mapInteracting = true;
+            const c = document.getElementById('storyCanvas');
+            if (c) storyClampCam(c.width, c.height);
+            scheduleMapRender();
+            if (STORY._mapInteractionTimer) clearTimeout(STORY._mapInteractionTimer);
+            STORY._mapInteractionTimer = setTimeout(finishMapInteraction, 120);
+            e.preventDefault();
+        }
     });
     window.addEventListener('resize', () => {
         if (typeof APP_SCREEN === 'undefined' || APP_SCREEN !== 'story') return;
