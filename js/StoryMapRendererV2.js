@@ -175,7 +175,9 @@
         ctx.save();
         ctx.imageSmoothingEnabled = zoomRatio(cam,
             (typeof STORY !== 'undefined' && STORY && STORY._minZoom) || cam.zoom) >= CONFIG.smoothTerrainRatio;
-        if (ctx.imageSmoothingEnabled) ctx.imageSmoothingQuality = 'high';
+        if (ctx.imageSmoothingEnabled) {
+            ctx.imageSmoothingQuality = (typeof STORY !== 'undefined' && STORY && STORY._mapInteracting) ? 'low' : 'medium';
+        }
         if (alpha != null) ctx.globalAlpha = alpha;
         ctx.drawImage(source,
             cam.x * kx, cam.y * ky,

@@ -1575,17 +1575,21 @@ function storyDrawPhysicalLandOverlay(ctx, farMap) {
         || storyHexInfrastructureSegmentsEnsure();
     const world = storyHexWorldEnsure();
     if (!registry || !world) return 0;
-    const roads = registry.segments.filter(segment => segment.mode === 'LAND');
+    const roads = registry._landRoads || (registry._landRoads = registry.segments.filter(segment => segment.mode === 'LAND'));
     const drawPass = (width, color) => {
         ctx.lineWidth = width;
         ctx.strokeStyle = color;
-        for (const segment of roads) {
+        ctx.beginPath();
+        for (let i = 0; i < roads.length; i++) {
+            const segment = roads[i];
             const a = Number(segment.endpointCellIndices[0]);
             const b = Number(segment.endpointCellIndices[1]);
             const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
             const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
-            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
         }
+        ctx.stroke();
     };
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1715,18 +1719,22 @@ function storyDrawPhysicalRailOverlay(ctx, farMap) {
         || storyHexInfrastructureSegmentsEnsure();
     const world = storyHexWorldEnsure();
     if (!registry || !world) return 0;
-    const rails = registry.segments.filter(segment => segment.mode === 'RAIL');
+    const rails = registry._railSegments || (registry._railSegments = registry.segments.filter(segment => segment.mode === 'RAIL'));
     const drawPass = (width, color, dash) => {
         ctx.lineWidth = width;
         ctx.strokeStyle = color;
         if (typeof ctx.setLineDash === 'function') ctx.setLineDash(dash || []);
-        for (const segment of rails) {
+        ctx.beginPath();
+        for (let i = 0; i < rails.length; i++) {
+            const segment = rails[i];
             const a = Number(segment.endpointCellIndices[0]);
             const b = Number(segment.endpointCellIndices[1]);
             const pa = storyW2S(Number(world.centerX[a]), Number(world.centerY[a]));
             const pb = storyW2S(Number(world.centerX[b]), Number(world.centerY[b]));
-            ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
         }
+        ctx.stroke();
     };
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';

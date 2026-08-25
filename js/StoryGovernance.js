@@ -478,6 +478,12 @@ function storyGovernanceStatusLabel(request) {
 function storyGovernancePlayerView() {
     const ctx = storyGovernancePlayerContext();
     if (!storyGovernanceEnabled() || !ctx.st || !ctx.country) return { disabled: true };
+    const instRev = STORY.institutions && STORY.institutions.revision || 0;
+    const reqLen = (ctx.country.requests || []).length;
+    const fp = `${ctx.countryId}|${ctx.actorId}|${instRev}|${reqLen}|${STORY._governanceRegionId || ''}|${STORY._governanceResignConfirmId || ''}|${STORY.selectedNodeId || ''}`;
+    if (STORY._governancePlayerViewCache && STORY._governancePlayerViewCache.key === fp) {
+        return STORY._governancePlayerViewCache.view;
+    }
     const ownedRegions = (STORY.nodes || []).filter(node => Number(node.owner) === Number(ctx.st.id))
         .sort((a, b) => String(a.name).localeCompare(String(b.name), 'tr'))
         .map(node => ({
@@ -522,7 +528,7 @@ function storyGovernancePlayerView() {
             result: storyGovernanceClone(request.domainDecision.result),
             funds: storyGovernanceClone(request.domainDecision.funds)
         }));
-    return {
+    const view = {
         disabled: false, countryId: ctx.countryId, actorId: ctx.actorId, role,
         heldInstitutions: ctx.heldInstitutions.map(row => ({
             id: row.id, type: row.type, name: row.name,
@@ -558,6 +564,8 @@ function storyGovernancePlayerView() {
             institutionalIntegrityBps: capacity.institutionalIntegrityBps
         } : null
     };
+    STORY._governancePlayerViewCache = { key: fp, view };
+    return view;
 }
 
 function storyGovernanceEscape(value) {

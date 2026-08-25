@@ -45,9 +45,10 @@ function storyContactDirectoryRolePriority(role) {
 }
 
 function storyContactDirectoryBuild() {
-    const revision = typeof storyCityDossierPanelWorldRevision === 'function'
-        ? storyCityDossierPanelWorldRevision() : `${Number(STORY.clock) || 0}`;
-    const cacheKey = `${revision}|registry:${STORY._contactDirectoryRegistryOpen ? 1 : 0}`;
+    const charRev = STORY.characterIdentities && STORY.characterIdentities.revision || 0;
+    const relRev = STORY.characterRelationships && STORY.characterRelationships.revision || 0;
+    const actRev = STORY.characterActions && STORY.characterActions.revision || 0;
+    const cacheKey = `${STORY.playerStateId}|${charRev}|${relRev}|${actRev}|registry:${STORY._contactDirectoryRegistryOpen ? 1 : 0}`;
     if (STORY_CONTACT_DIRECTORY_CACHE && STORY_CONTACT_DIRECTORY_CACHE.key === cacheKey) {
         return STORY_CONTACT_DIRECTORY_CACHE.view;
     }
