@@ -1874,12 +1874,16 @@ function storyEconomicAITick(dtSec) {
     // sonraki bölgesel tüketimden önce proje emanetine al; kalan açığı yalnız
     // gerçek Faz 18 siparişleri ve gecikmeli sevkiyatlarla tamamla.
     if (storyEconomicAIBootstrapPlanningEnabled()) {
-        for (const preparation of (ledger.preparations || [])
-            .filter(row => row.status === 'ACCUMULATING')
-            .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))) {
-            storyEconomicAIReservePreparedInputs(preparation.regionId);
-            if (preparation.status === 'ACCUMULATING') {
-                storyEconomicAIProcurePreparedInputs(preparation);
+        const preps = ledger.preparations;
+        if (preps && preps.length) {
+            for (let i = 0; i < preps.length; i++) {
+                const preparation = preps[i];
+                if (preparation && preparation.status === 'ACCUMULATING') {
+                    storyEconomicAIReservePreparedInputs(preparation.regionId);
+                    if (preparation.status === 'ACCUMULATING') {
+                        storyEconomicAIProcurePreparedInputs(preparation);
+                    }
+                }
             }
         }
     }

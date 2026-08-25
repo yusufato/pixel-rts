@@ -332,9 +332,11 @@ function storyMarketCorridor(corridorId) {
 function storyMarketInboundIndex() {
     const ledger = STORY.tradeLogistics;
     const index = new Map();
-    if (!ledger || !Array.isArray(ledger.shipments)) return index;
-    for (const shipment of ledger.shipments) {
-        if (!['IN_TRANSIT', 'HELD'].includes(shipment.status)) continue;
+    const shipments = ledger && ledger.shipments;
+    if (!shipments || !shipments.length) return index;
+    for (let i = 0; i < shipments.length; i++) {
+        const shipment = shipments[i];
+        if (!shipment || (shipment.status !== 'IN_TRANSIT' && shipment.status !== 'HELD')) continue;
         const quantity = Math.max(0, Number(shipment.quantity) || 0);
         const key = `${shipment.targetRegionId}|${shipment.resourceId}`;
         const row = index.get(key) || {
@@ -517,14 +519,33 @@ function storyMarketRecordBandEvent(ledger, region, resource, previousBand) {
 
 function storyMarketCountrySummaries(ledger) {
     const countries = {};
-    for (const state of (STORY.states || [])) {
+    const nodesByOwner = new Map();
+    const nodes = (typeof STORY !== 'undefined' && STORY.nodes) || [];
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (!node) continue;
+        const ow = Number(node.owner);
+        let list = nodesByOwner.get(ow);
+        if (!list) { list = []; nodesByOwner.set(ow, list); }
+        list.push(node);
+    }
+    const states = (typeof STORY !== 'undefined' && STORY.states) || [];
+    for (let s = 0; s < states.length; s++) {
+        const state = states[s];
         const countryId = storyMarketCountryId(state.id);
-        const owned = (STORY.nodes || []).filter(node => Number(node.owner) === Number(state.id));
+        const owned = nodesByOwner.get(Number(state.id)) || [];
         let populationWeight = 0;
         let householdTotal = 0;
         let producerTotal = 0;
-        const resourceTotals = Object.fromEntries(STORY_MARKET_ACTIVE_RESOURCES.map(id => [id, { total: 0, weight: 0 }]));
-        for (const node of owned) {
+        const resTotals = {};
+        const resWeights = {};
+        for (let r = 0; r < STORY_MARKET_ACTIVE_RESOURCES.length; r++) {
+            const resId = STORY_MARKET_ACTIVE_RESOURCES[r];
+            resTotals[resId] = 0;
+            resWeights[resId] = 0;
+        }
+        for (let i = 0; i < owned.length; i++) {
+            const node = owned[i];
             const region = ledger.regions[`region:${Number(node.id)}`];
             if (!region) continue;
             const pop = typeof storyRegionalPopulation === 'function'
@@ -533,9 +554,10 @@ function storyMarketCountrySummaries(ledger) {
             populationWeight += pop;
             householdTotal += region.householdCpi * pop;
             producerTotal += region.producerPriceIndex * pop;
-            for (const resourceId of STORY_MARKET_ACTIVE_RESOURCES) {
-                resourceTotals[resourceId].total += region.resources[resourceId].priceIndex * pop;
-                resourceTotals[resourceId].weight += pop;
+            for (let r = 0; r < STORY_MARKET_ACTIVE_RESOURCES.length; r++) {
+                const resourceId = STORY_MARKET_ACTIVE_RESOURCES[r];
+                resTotals[resourceId] += region.resources[resourceId].priceIndex * pop;
+                resWeights[resourceId] += pop;
             }
         }
         const previous = ledger.countries[countryId];
@@ -545,9 +567,10 @@ function storyMarketCountrySummaries(ledger) {
         const tickChangeBps = Math.round((householdCpi / previousCpi - 1) * 10000);
         const priorSmoothed = previous ? Number(previous.smoothedPriceChangeBps) || 0 : 0;
         const prices = {};
-        for (const resourceId of STORY_MARKET_ACTIVE_RESOURCES) {
-            const row = resourceTotals[resourceId];
-            prices[resourceId] = row.weight > 0 ? storyMarketRound(row.total / row.weight) : 100;
+        for (let r = 0; r < STORY_MARKET_ACTIVE_RESOURCES.length; r++) {
+            const resourceId = STORY_MARKET_ACTIVE_RESOURCES[r];
+            const w = resWeights[resourceId];
+            prices[resourceId] = w > 0 ? storyMarketRound(resTotals[resourceId] / w) : 100;
         }
         countries[countryId] = {
             countryId,
