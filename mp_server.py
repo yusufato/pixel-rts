@@ -175,15 +175,15 @@ async def process_request(path, request_headers):
 
 async def main():
     ip = lan_ip()
-    print('═' * 60)
-    print('  PIXEL RTS — LAN ÇOK OYUNCULU SUNUCU')
-    print('═' * 60)
-    print(f'  Sunucu çalışıyor (port {PORT}).')
-    print(f'  ► İKİ PC de tarayıcıdan aç:   http://{ip}:{PORT}')
-    print(f'    (bu PC için:  http://localhost:{PORT})')
-    print(f'  Firewall: Linux `sudo ufw allow {PORT}/tcp` · Windows: özel ağda izin ver.')
-    print(f'  AYNI Chrome/Chromium kullanın. Kapatmak: Ctrl+C')
-    print('═' * 60)
+    print('=' * 60)
+    print('  PIXEL RTS - LAN COK OYUNCULU SUNUCU')
+    print('=' * 60)
+    print(f'  Sunucu calisiyor (port {PORT}).')
+    print(f'  > IKI PC de tarayicidan ac:   http://{ip}:{PORT}')
+    print(f'    (bu PC icin:  http://localhost:{PORT})')
+    print(f'  Firewall: Linux `sudo ufw allow {PORT}/tcp` - Windows: ozel agda izin ver.')
+    print(f'  AYNI Chrome/Chromium kullanin. Kapatmak: Ctrl+C')
+    print('=' * 60)
     async with websockets.serve(ws_handler, '0.0.0.0', PORT, process_request=process_request,
                                 ping_interval=20, ping_timeout=20, max_size=2 ** 20):
         await asyncio.Future()  # sonsuza dek çalış

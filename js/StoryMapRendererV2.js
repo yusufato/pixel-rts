@@ -1148,32 +1148,6 @@
         const viewRight = viewLeft + Number(STORY._cw || 0) / zoom;
         const viewBottom = viewTop + Number(STORY._ch || 0) / zoom;
         const zoomRatio = zoom / Math.max(.0001, Number(STORY._minZoom) || zoom);
-        const viewportW = Math.max(1, Math.round(Number(STORY._cw) || 1));
-        const viewportH = Math.max(1, Math.round(Number(STORY._ch) || 1));
-        const stableViewport = !STORY._mapInteracting;
-        const viewKey = [cache.key, viewportW, viewportH,
-            viewLeft.toFixed(5), viewTop.toFixed(5), zoom.toFixed(6),
-            zoomRatio < 1.55 ? 'OVERVIEW' : 'DETAIL'].join('|');
-        if (stableViewport && cache.viewCanvas && cache.viewKey === viewKey) {
-            const source = cache.viewBitmap && cache.viewBitmapKey === viewKey
-                ? cache.viewBitmap : cache.viewCanvas;
-            ctx.drawImage(source, 0, 0);
-            cache.lastDrawMode = cache.viewMode;
-            return cache.viewDrawn;
-        }
-        let paintCtx = ctx;
-        if (stableViewport) {
-            if (!cache.viewCanvas) cache.viewCanvas = document.createElement('canvas');
-            if (cache.viewCanvas.width !== viewportW || cache.viewCanvas.height !== viewportH) {
-                if (cache.viewBitmap && typeof cache.viewBitmap.close === 'function') {
-                    cache.viewBitmap.close();
-                }
-                cache.viewBitmap = null; cache.viewBitmapKey = null;
-                cache.viewCanvas.width = viewportW; cache.viewCanvas.height = viewportH;
-            }
-            paintCtx = cache.viewCanvas.getContext('2d');
-            paintCtx.clearRect(0, 0, viewportW, viewportH);
-        }
         let drawn = 0;
         let drawMode = 'DETAIL';
         if ((zoomRatio < 1.55 || STORY._mapInteracting) && cache.overviewBitmap) {
@@ -1183,21 +1157,21 @@
             const ix1 = Math.min(STORY_WORLD_W, viewRight);
             const iy1 = Math.min(STORY_WORLD_H, viewBottom);
             if (ix1 > ix0 && iy1 > iy0) {
-                paintCtx.save();
-                paintCtx.imageSmoothingEnabled = false;
-                paintCtx.drawImage(cache.overviewBitmap,
+                ctx.save();
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(cache.overviewBitmap,
                     ix0 * overviewScale, iy0 * overviewScale,
                     (ix1 - ix0) * overviewScale, (iy1 - iy0) * overviewScale,
                     (ix0 - viewLeft) * zoom, (iy0 - viewTop) * zoom,
                     (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
-                paintCtx.restore();
+                ctx.restore();
                 drawn = 1;
                 drawMode = STORY._mapInteracting ? 'INTERACTION_MIP' : 'OVERVIEW';
             }
         } else {
-            paintCtx.save();
-            paintCtx.imageSmoothingEnabled = true;
-            paintCtx.imageSmoothingQuality = 'high';
+            ctx.save();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             for (const tile of cache.tiles) {
                 if (!tile.bitmap) continue;
                 const tileLeft = tile.x / scale;
@@ -1209,43 +1183,14 @@
                 const ix1 = Math.min(tileRight, viewRight);
                 const iy1 = Math.min(tileBottom, viewBottom);
                 if (!(ix1 > ix0) || !(iy1 > iy0)) continue;
-                paintCtx.drawImage(tile.bitmap,
+                ctx.drawImage(tile.bitmap,
                     (ix0 - tileLeft) * scale, (iy0 - tileTop) * scale,
                     (ix1 - ix0) * scale, (iy1 - iy0) * scale,
                     (ix0 - viewLeft) * zoom, (iy0 - viewTop) * zoom,
                     (ix1 - ix0) * zoom, (iy1 - iy0) * zoom);
                 drawn++;
             }
-            paintCtx.restore();
-        }
-        if (stableViewport) {
-            cache.viewKey = viewKey;
-            cache.viewDrawn = drawn;
-            cache.viewMode = drawMode;
-            ctx.drawImage(cache.viewCanvas, 0, 0);
-            if (typeof createImageBitmap === 'function'
-                && cache.viewBitmapPromiseKey !== viewKey) {
-                cache.viewBitmapPromiseKey = viewKey;
-                createImageBitmap(cache.viewCanvas).then(bitmap => {
-                    if (STORY._hexNaturalContentsRamTiles !== cache
-                        || cache.viewKey !== viewKey) {
-                        if (bitmap && typeof bitmap.close === 'function') bitmap.close();
-                        return;
-                    }
-                    if (cache.viewBitmap && typeof cache.viewBitmap.close === 'function') {
-                        cache.viewBitmap.close();
-                    }
-                    cache.viewBitmap = bitmap;
-                    cache.viewBitmapKey = viewKey;
-                }).catch(() => {
-                    if (cache.viewBitmapPromiseKey === viewKey) {
-                        cache.viewBitmapPromiseKey = null;
-                    }
-                });
-            }
-        } else {
-            // Never reuse a pre-drag screen composite after the camera moves.
-            cache.viewKey = null;
+            ctx.restore();
         }
         cache.lastDrawMode = drawMode;
         return drawn;
@@ -1278,8 +1223,6 @@
         if (job.cursor >= job.order.length) finishHexNaturalContents(job);
         else hexNaturalRequestFrame(() => {
             processHexNaturalContents(job);
-            if (typeof storyRender === 'function'
-                && (typeof APP_SCREEN === 'undefined' || APP_SCREEN === 'story')) storyRender();
         });
     }
 

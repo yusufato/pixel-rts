@@ -85,14 +85,16 @@ function storyMapCacheClearOwner() {
     // _ownerCache canvas belleği kasıtlı olarak korunur ve rebuild'de yeniden kullanılır.
 }
 
-function storyMapCacheClearTerrain() {
+function storyMapCacheClearTerrain(clearStaticCanvas) {
     storyMapCacheReleaseWorldLayers(STORY._settlementWorldLayers);
     storyMapCacheReleaseWorldLayers(STORY._networkWorldLayers);
     storyMapCacheReleaseWorldLayers(STORY._politicalBorderWorldLayer);
     storyMapCacheReleaseWorldLayers(STORY._mapV2CoastlineCache);
-    STORY._terrainCache = null;
-    STORY._geoTerrain = null;
-    STORY._geoTerrainSource = null;
+    if (clearStaticCanvas) {
+        STORY._terrainCache = null;
+        STORY._geoTerrain = null;
+        STORY._geoTerrainSource = null;
+    }
     STORY._networkLayerKey = null;
     STORY._settlementLayerKey = null;
     STORY._settlementWorldLayers = null;
@@ -143,7 +145,7 @@ function storyInvalidateMapCaches(scope, reason, details) {
         STORY.canonicalMapRaster = null;
         STORY._landGrid = null;
         STORY._landGridSource = null;
-        storyMapCacheClearTerrain();
+        storyMapCacheClearTerrain(true);
         storyMapCacheClearOwner();
         storyMapCacheClearWarp();
     } else if (normalizedScope === 'viewport') {

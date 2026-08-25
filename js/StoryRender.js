@@ -67,12 +67,9 @@ function storyWorldVisualStateKey() {
         node.oil ? 1 : 0, node.mine ? 1 : 0, node.bar | 0,
         node.geo ? 1 : 0
     ].join(':') : '-').join(',');
-    const commanders = (STORY.states || []).map(state => state && state.gov
-        ? (state.gov.commanders || []).map(row => [row.id, row.node, row.status || ''].join(':')).join(',')
-        : '').join('|');
     const invalidation = STORY._mapCacheInvalidation || {};
     return [
-        'world-visual-state-2', nodes, commanders,
+        'world-visual-state-3', nodes,
         STORY.commander && STORY.commander.node,
         STORY.selectedNodeId,
         STORY.hexConstruction && STORY.hexConstruction.version || 0,
@@ -84,12 +81,14 @@ function storyWorldVisualStateKey() {
     ].join('|');
 }
 
-function storyResize() {
+function storyResize(force) {
     const cv = document.getElementById('storyCanvas');
     if (!cv) return;
+    if (!force && STORY._cw && STORY._ch && cv.width === STORY._cw && cv.height === STORY._ch) return;
     const w = cv.clientWidth || 800, h = cv.clientHeight || 600;
     if (cv.width !== w) cv.width = w;
     if (cv.height !== h) cv.height = h;
+    STORY._cw = w; STORY._ch = h;
     const transport = document.getElementById('storyTransportCanvas');
     if (transport) {
         if (transport.width !== w) transport.width = w;
@@ -1241,7 +1240,7 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
             sparse: true, disableDistricts: true },
         { id: 'DISTRICTS', minZoom: .25,
             renderScale: Number(typeof STORY_MAP_RENDERER_V2 !== 'undefined'
-                && STORY_MAP_RENDERER_V2.districtRasterScale) || 8,
+                && STORY_MAP_RENDERER_V2.districtRasterScale) || 3,
             sparse: true }
     ];
     const layers = Object.create(null);
@@ -2561,16 +2560,19 @@ function storyDrawTransportAgents(ctx, mapZoomRatio) {
     const transitionMs = 250;
     const tracks = STORY._transportVisualTracks instanceof Map
         ? STORY._transportVisualTracks : (STORY._transportVisualTracks = new Map());
-    const seenTrackIds = new Set();
+    const seenTrackIds = STORY._seenTrackIds || (STORY._seenTrackIds = new Set());
+    seenTrackIds.clear();
     let visible = 0;
     let interpolated = 0;
     let targetChanges = 0;
-    const presentationSamples = [];
+    const presentationSamples = STORY._presentationSamples || (STORY._presentationSamples = []);
+    presentationSamples.length = 0;
     const stateCounts = Object.create(null);
     let longestQueue = 0;
     const lodScale = Math.min(1.0, Math.max(0.4, Number(mapZoomRatio || 1) * 0.45));
     const slotSize = Math.max(10, Math.round(20 * lodScale));
-    const visualSlots = new Set();
+    const visualSlots = STORY._visualSlots || (STORY._visualSlots = new Set());
+    visualSlots.clear();
     let densityCulled = 0;
     const displayAgents = snapshot.displayAgents || snapshot.agents;
     const _agentTrackCache = STORY._agentTrackCache || (STORY._agentTrackCache = new WeakMap());
@@ -2747,15 +2749,13 @@ function storyRenderTransportOverlay() {
     const cv = document.getElementById('storyTransportCanvas');
     if (!cv) return null;
     const base = document.getElementById('storyCanvas');
-    if (base && (cv.width !== base.width || cv.height !== base.height)) {
-        cv.width = base.width;
-        cv.height = base.height;
+    if (base && (cv.width !== STORY._cw || cv.height !== STORY._ch)) {
+        cv.width = STORY._cw || base.width;
+        cv.height = STORY._ch || base.height;
     }
     const ctx = cv.getContext('2d');
     ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.imageSmoothingEnabled = false;
-    STORY._cw = cv.width;
-    STORY._ch = cv.height;
     const mapZoomRatio = typeof storyMapV2ZoomRatio === 'function'
         ? storyMapV2ZoomRatio(storyCam, STORY._minZoom || storyCam.zoom)
         : storyCam.zoom / Math.max(.0001, storyMinZoom(cv.width, cv.height));
@@ -3027,34 +3027,40 @@ function storyDrawHexGridOverlay(ctx, zoomRatio) {
 }
 
 function storyDrawHoverHex(ctx) {
-    const hoverId = String(STORY._hoverHexCellId || '');
+    const hoverId = STORY._hoverHexCellId;
     if (!hoverId) return;
-    const parts = hoverId.split(':');
-    if (parts.length >= 3) {
-        const q = Number(parts[1]), r = Number(parts[2]);
-        if (Number.isFinite(q) && Number.isFinite(r) && typeof storyHexWorldCorners === 'function') {
-            const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
-            if (world) {
-                const scaleX = STORY_WORLD_W / world.width;
-                const scaleY = STORY_WORLD_H / world.height;
-                const corners = storyHexWorldCorners(world, q, r);
-                if (corners && corners.length) {
-                    ctx.save();
-                    ctx.beginPath();
-                    const first = storyW2S(corners[0].x * scaleX, corners[0].y * scaleY);
-                    ctx.moveTo(first.x, first.y);
-                    for (let corner = 1; corner < corners.length; corner++) {
-                        const pt = storyW2S(corners[corner].x * scaleX, corners[corner].y * scaleY);
-                        ctx.lineTo(pt.x, pt.y);
-                    }
-                    ctx.closePath();
-                    ctx.fillStyle = 'rgba(255,191,38,.12)';
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(255,191,38,.85)';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                    ctx.restore();
+    let hoverParsed = STORY._hoverHexParsed;
+    if (!hoverParsed || hoverParsed.id !== hoverId) {
+        const parts = String(hoverId).split(':');
+        hoverParsed = STORY._hoverHexParsed = {
+            id: hoverId,
+            q: parts.length >= 3 ? Number(parts[1]) : NaN,
+            r: parts.length >= 3 ? Number(parts[2]) : NaN
+        };
+    }
+    const q = hoverParsed.q, r = hoverParsed.r;
+    if (Number.isFinite(q) && Number.isFinite(r) && typeof storyHexWorldCorners === 'function') {
+        const world = typeof storyHexWorldEnsure === 'function' ? storyHexWorldEnsure() : null;
+        if (world) {
+            const scaleX = STORY_WORLD_W / world.width;
+            const scaleY = STORY_WORLD_H / world.height;
+            const corners = storyHexWorldCorners(world, q, r);
+            if (corners && corners.length) {
+                ctx.save();
+                ctx.beginPath();
+                const first = storyW2S(corners[0].x * scaleX, corners[0].y * scaleY);
+                ctx.moveTo(first.x, first.y);
+                for (let corner = 1; corner < corners.length; corner++) {
+                    const pt = storyW2S(corners[corner].x * scaleX, corners[corner].y * scaleY);
+                    ctx.lineTo(pt.x, pt.y);
                 }
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(255,191,38,.12)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,191,38,.85)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
             }
         }
     }
@@ -3062,65 +3068,9 @@ function storyDrawHoverHex(ctx) {
 
 function storyDrawPoliticalBorderLayer(ctx) {
     if (typeof storyDrawHexPoliticalBorders !== 'function') return 0;
-    const political = typeof storyHexPoliticalViewEnsure === 'function'
-        ? storyHexPoliticalViewEnsure() : null;
-    const key = ['political-border-world-1', STORY_WORLD_W, STORY_WORLD_H,
-        political && political.ownershipHash || '-'].join('|');
-    let cache = STORY._politicalBorderWorldLayer;
-    let rebuilt = false;
-    if (!cache || cache.key !== key) {
-        const started = typeof performance !== 'undefined' && performance.now
-            ? performance.now() : Date.now();
-        const saved = { x: storyCam.x, y: storyCam.y, zoom: storyCam.zoom,
-            cw: STORY._cw, ch: STORY._ch };
-        const canvas = document.createElement('canvas');
-        canvas.width = STORY_WORLD_W; canvas.height = STORY_WORLD_H;
-        let count = 0;
-        let diagnostics = null;
-        try {
-            storyCam.x = 0; storyCam.y = 0; storyCam.zoom = 1;
-            STORY._cw = STORY_WORLD_W; STORY._ch = STORY_WORLD_H;
-            const paint = canvas.getContext('2d');
-            paint.clearRect(0, 0, canvas.width, canvas.height);
-            count = storyDrawHexPoliticalBorders(paint);
-            diagnostics = Object.assign({}, STORY._hexPoliticalBorderDiagnostics);
-        } finally {
-            storyCam.x = saved.x; storyCam.y = saved.y; storyCam.zoom = saved.zoom;
-            STORY._cw = saved.cw; STORY._ch = saved.ch;
-        }
-        if (cache && cache.layer) storyReleaseWorldRamLayer(cache.layer);
-        const finished = typeof performance !== 'undefined' && performance.now
-            ? performance.now() : Date.now();
-        cache = STORY._politicalBorderWorldLayer = {
-            key,
-            count,
-            diagnostics,
-            layer: storyCreateWorldRamLayer(canvas, {
-                mode: 'POLITICAL',
-                worldScale: .5
-            }),
-            builds: (Number(cache && cache.builds) || 0) + 1,
-            hits: 0,
-            buildMs: finished - started
-        };
-        rebuilt = true;
-    } else {
-        cache.hits++;
-    }
-    const drawnTiles = storyDrawWorldRamLayer(ctx, cache.layer);
-    STORY._hexPoliticalBorderDiagnostics = Object.assign({}, cache.diagnostics, {
-        cached: !rebuilt,
-        ramResident: true,
-        reusedInteraction: !!STORY._mapInteracting,
-        builds: cache.builds,
-        hits: cache.hits,
-        buildMs: cache.buildMs,
-        estimatedBytes: cache.layer && cache.layer.estimatedBytes || 0,
-        tileCount: cache.layer && cache.layer.tiles ? cache.layer.tiles.length : 0,
-        drawnTiles
-    });
-    return cache.count;
+    return storyDrawHexPoliticalBorders(ctx);
 }
+
 function storyGeoTerrainCache() {
     const terrainStyleVersion = 'geo-terrain-modern-clean-v1';
     const mapPalette = typeof storyMapPaletteDescriptor === 'function'
@@ -3493,16 +3443,28 @@ function storyEnsureTerrainCache() {
     }
     const cv = document.createElement('canvas'); cv.width = STORY_GW; cv.height = STORY_GH;
     const g = cv.getContext('2d'); const grid = STORY._landGrid;
+    const img = g.createImageData(STORY_GW, STORY_GH);
+    const out = img.data;
     const at = (x, y) => (x < 0 || y < 0 || x >= STORY_GW || y >= STORY_GH) ? -1 : grid[y * STORY_GW + x];
-    for (let gy = 0; gy < STORY_GH; gy++) for (let gx = 0; gx < STORY_GW; gx++) {
-        const id = grid[gy * STORY_GW + gx], hsh = storyHash(gx * 3 + 1, gy * 3 + 7);
-        if (id < 0) {
-            const coast = (at(gx - 1, gy) >= 0 || at(gx + 1, gy) >= 0 || at(gx, gy - 1) >= 0 || at(gx, gy + 1) >= 0);
-            if (coast) g.fillStyle = 'rgb(64,118,158)';
-            else { const s = Math.floor(hsh * 9); g.fillStyle = `rgb(${20 + s},${60 + s},${92 + s})`; }
-        } else { const t = storyTerrainColor((gy + 0.5) / STORY_GH, hsh); g.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; }
-        g.fillRect(gx, gy, 1, 1);
+    for (let gy = 0; gy < STORY_GH; gy++) {
+        const row = gy * STORY_GW;
+        const normY = (gy + 0.5) / STORY_GH;
+        for (let gx = 0; gx < STORY_GW; gx++) {
+            const idx = row + gx;
+            const p = idx * 4;
+            const id = grid[idx], hsh = storyHash(gx * 3 + 1, gy * 3 + 7);
+            if (id < 0) {
+                const coast = (at(gx - 1, gy) >= 0 || at(gx + 1, gy) >= 0 || at(gx, gy - 1) >= 0 || at(gx, gy + 1) >= 0);
+                if (coast) { out[p] = 64; out[p + 1] = 118; out[p + 2] = 158; }
+                else { const s = Math.floor(hsh * 9); out[p] = 20 + s; out[p + 1] = 60 + s; out[p + 2] = 92 + s; }
+            } else {
+                const t = storyTerrainColor(normY, hsh);
+                out[p] = t[0]; out[p + 1] = t[1]; out[p + 2] = t[2];
+            }
+            out[p + 3] = 255;
+        }
     }
+    g.putImageData(img, 0, 0);
     STORY._terrainCache = cv; return cv;
 }
 
@@ -3531,19 +3493,34 @@ function storyEnsureOwnerOverlay() {
     }
     const g = cv.getContext('2d'); g.clearRect(0, 0, STORY_GW, STORY_GH);
     const grid = STORY._landGrid;
+    const img = g.createImageData(STORY_GW, STORY_GH);
+    const out = img.data;
     const ownerAt = (x, y) => { if (x < 0 || y < 0 || x >= STORY_GW || y >= STORY_GH) return -1; const id = grid[y * STORY_GW + x]; return id < 0 ? -1 : STORY.nodes[id].owner; };
-    for (let gy = 0; gy < STORY_GH; gy++) for (let gx = 0; gx < STORY_GW; gx++) {
-        const id = grid[gy * STORY_GW + gx];
-        if (id < 0) continue;                              // deniz → şeffaf (terrain görünür)
-        const ow = STORY.nodes[id].owner;
-        const oc = storyHexRgb((storyState(ow) || {}).color || '#888888');
-        const bord = (ownerAt(gx + 1, gy) !== ow && ownerAt(gx + 1, gy) !== -1) || (ownerAt(gx, gy + 1) !== ow && ownerAt(gx, gy + 1) !== -1)
-                  || (ownerAt(gx - 1, gy) !== ow && ownerAt(gx - 1, gy) !== -1) || (ownerAt(gx, gy - 1) !== ow && ownerAt(gx, gy - 1) !== -1);
-        // DESIGN v3: gerçekçi rölyef görünsün → politik tint HAFİF (sınır belirgin, iç bölge şeffaf)
-        if (bord) g.fillStyle = `rgba(${oc[0] * 0.5 | 0},${oc[1] * 0.5 | 0},${oc[2] * 0.5 | 0},0.68)`; // imparatorluk sınırı
-        else g.fillStyle = `rgba(${oc[0]},${oc[1]},${oc[2]},0.10)`;                                    // iç bölge: rölyef görünsün
-        g.fillRect(gx, gy, 1, 1);
+    for (let gy = 0; gy < STORY_GH; gy++) {
+        const row = gy * STORY_GW;
+        for (let gx = 0; gx < STORY_GW; gx++) {
+            const idx = row + gx;
+            const id = grid[idx];
+            if (id < 0) continue;                              // deniz → şeffaf (terrain görünür)
+            const p = idx * 4;
+            const ow = STORY.nodes[id].owner;
+            const oc = storyHexRgb((storyState(ow) || {}).color || '#888888');
+            const bord = (ownerAt(gx + 1, gy) !== ow && ownerAt(gx + 1, gy) !== -1) || (ownerAt(gx, gy + 1) !== ow && ownerAt(gx, gy + 1) !== -1)
+                      || (ownerAt(gx - 1, gy) !== ow && ownerAt(gx - 1, gy) !== -1) || (ownerAt(gx, gy - 1) !== ow && ownerAt(gx, gy - 1) !== -1);
+            if (bord) {
+                out[p] = oc[0] * 0.5 | 0;
+                out[p + 1] = oc[1] * 0.5 | 0;
+                out[p + 2] = oc[2] * 0.5 | 0;
+                out[p + 3] = 173; // 0.68 * 255
+            } else {
+                out[p] = oc[0];
+                out[p + 1] = oc[1];
+                out[p + 2] = oc[2];
+                out[p + 3] = 26; // 0.10 * 255
+            }
+        }
     }
+    g.putImageData(img, 0, 0);
     STORY._ownerKey = key; return cv;
 }
 
@@ -3562,11 +3539,10 @@ function storyRender() {
     };
     const cv = document.getElementById('storyCanvas');
     if (!cv) return;
-    storyResize();
+    if (!STORY._cw || !STORY._ch || cv.width !== STORY._cw || cv.height !== STORY._ch) storyResize();
     const g = cv.getContext('2d');
-    const w = cv.width, h = cv.height;
+    const w = STORY._cw || cv.width, h = STORY._ch || cv.height;
     storyClampCam(w, h);
-    STORY._cw = w; STORY._ch = h;
     g.clearRect(0, 0, w, h);
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#03080f'; g.fillRect(0, 0, w, h);   // hologram zemini (uzay/deniz karası)

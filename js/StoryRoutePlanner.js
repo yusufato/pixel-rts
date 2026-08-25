@@ -433,8 +433,11 @@ function storyRoutePlannerPlan(fromRegionId, toRegionId, rawOptions) {
             options.networkView, storyRoutePlannerNow(options));
         if (!options._perception.ok) return options._perception;
     }
-    const regions = new Set(((STORY.regionModel && STORY.regionModel.regions) || [])
-        .map(region => String(region.id)));
+    if (!STORY._regionIdSet || STORY._regionIdSetRev !== ((STORY.regionModel && STORY.regionModel.regions) || []).length) {
+        STORY._regionIdSet = new Set(((STORY.regionModel && STORY.regionModel.regions) || []).map(region => String(region.id)));
+        STORY._regionIdSetRev = ((STORY.regionModel && STORY.regionModel.regions) || []).length;
+    }
+    const regions = STORY._regionIdSet;
     if (!regions.has(from) || !regions.has(to)) {
         return { ok: false, reason: 'REGION_NOT_FOUND', regionIds: [], corridorIds: [] };
     }

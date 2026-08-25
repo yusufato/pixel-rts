@@ -297,7 +297,7 @@ function storyRegionalSyncNodeMirrors() {
     }
     for (const node of (STORY.nodes || [])) {
         const region = ledger.regions[`region:${Number(node.id)}`];
-        if (region) node.stocks = storyRegionalClone(region.stocks);
+        if (region && region.stocks) node.stocks = Object.assign({}, region.stocks);
         else delete node.stocks;
     }
 }
@@ -1015,10 +1015,18 @@ function storyRegionalEconomyTick(dtSec) {
         const demandRequestedByResource = storyRegionalResourceMap(0);
         const demandDeliveredByResource = storyRegionalResourceMap(0);
         const demandUnmetByResource = storyRegionalResourceMap(0);
+        const consumerRequestedByResource = {};
+        const householdFillBpsByResource = {};
         for (const allocation of (demandResult.allocations || [])) {
             storyRegionalAddToMap(demandRequestedByResource, allocation.resourceId, allocation.requested);
             storyRegionalAddToMap(demandDeliveredByResource, allocation.resourceId, allocation.delivered);
             storyRegionalAddToMap(demandUnmetByResource, allocation.resourceId, allocation.unmet);
+            if (!consumerRequestedByResource[allocation.resourceId]) consumerRequestedByResource[allocation.resourceId] = {};
+            consumerRequestedByResource[allocation.resourceId][allocation.consumerType] =
+                (consumerRequestedByResource[allocation.resourceId][allocation.consumerType] || 0) + allocation.requested;
+            if (allocation.consumerType === 'HOUSEHOLDS') {
+                householdFillBpsByResource[allocation.resourceId] = Math.max(0, Math.min(10000, Number(allocation.fillBps) || 0));
+            }
         }
         shortageCount += demandResult.allocations
             ? demandResult.allocations.filter(item => item.unmet > 0).length
@@ -1043,23 +1051,8 @@ function storyRegionalEconomyTick(dtSec) {
             demandDeliveredByResource,
             demandUnmetByResource,
             storageLosses: losses,
-            consumerRequestedByResource: (function() {
-                const map = {};
-                for (const a of (demandResult.allocations || [])) {
-                    if (!map[a.resourceId]) map[a.resourceId] = {};
-                    map[a.resourceId][a.consumerType] = (map[a.resourceId][a.consumerType] || 0) + a.requested;
-                }
-                return map;
-            })(),
-            householdFillBpsByResource: (function() {
-                const map = {};
-                for (const a of (demandResult.allocations || [])) {
-                    if (a.consumerType === 'HOUSEHOLDS') {
-                        map[a.resourceId] = Math.max(0, Math.min(10000, Number(a.fillBps) || 0));
-                    }
-                }
-                return map;
-            })()
+            consumerRequestedByResource,
+            householdFillBpsByResource
         };
         if (bootstrapPlanning) {
             lastTick.productionRequestedByResource = productionRequestedByResource;

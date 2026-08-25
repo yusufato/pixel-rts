@@ -2286,6 +2286,18 @@ function storyInit() {
             }
             scheduleMapRender();
         };
+        let cachedRect = null, lastRectUpdate = 0;
+        const getCachedCvRect = () => {
+            const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+            if (!cachedRect || now - lastRectUpdate > 250) {
+                cachedRect = cv.getBoundingClientRect();
+                lastRectUpdate = now;
+            }
+            return cachedRect;
+        };
+        window.addEventListener('resize', () => { cachedRect = null; });
+        window.addEventListener('scroll', () => { cachedRect = null; }, { passive: true });
+
         cv.addEventListener('mousedown', (e) => {
             dragging = true; moved = false; lastX = e.clientX; lastY = e.clientY;
             STORY._mapInteracting = true;
@@ -2295,24 +2307,24 @@ function storyInit() {
             STORY._mapInteracting = true;
             if (Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) > 3) moved = true;
             STORY._cw = cv.width; STORY._ch = cv.height;
-            const rect = cv.getBoundingClientRect(), sc = cv.width / rect.width, scy = cv.height / rect.height;
+            const rect = getCachedCvRect(), sc = cv.width / (rect.width || 1), scy = cv.height / (rect.height || 1);
             const a = storyS2W((lastX - rect.left) * sc, (lastY - rect.top) * scy);
             const b = storyS2W((e.clientX - rect.left) * sc, (e.clientY - rect.top) * scy);
-            storyCam.x += a.x - b.x; storyCam.y += a.y - b.y; lastX = e.clientX; lastY = e.clientY;
+            storyCam.x -= (b.x - a.x); storyCam.y -= (b.y - a.y);
             storyClampCam(cv.width, cv.height); cv.style.cursor = 'grabbing'; scheduleMapRender();
+            lastX = e.clientX; lastY = e.clientY;
         });
         window.addEventListener('mouseup', (e) => {
             const wasDragging = dragging;
-            STORY._mapInteracting = false;
             if (dragging && !moved) {
                 if (STORY._hexConstructionPickMode && typeof storyHexConstructionPlayerPickCell === 'function') {
                     const picked = storyHexConstructionPlayerPickCell(STORY._hoverHexCellId);
                     if (!picked.ok && typeof storyFlash === 'function') storyFlash('Bu altıgen seçili proje için uygun değil.');
                     dragging = false; cv.style.cursor = 'grab'; scheduleMapRender();
+                    finishMapInteraction();
                     return;
                 }
                 // ŞEHRE GİR paneli açıkken harita tıklaması paneli KAPATMAZ, odağı o şehre taşır
-                // (şehir seçmek panelin doğal kullanımı — kapatmak akışı bozardı).
                 if (STORY._cityOpen || STORY._economyOpen) {
                     const point = storyRegionCanvasPointFromEvent(cv, e);
                     const w = worldFromEvent(e), hit = pickNode(w.x, w.y);
@@ -2328,7 +2340,7 @@ function storyInit() {
                         if (STORY._economyOpen) storyEconomyClose();
                     }
                 }
-                else if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); }   // diğer paneller: haritaya tık = kapat
+                else if (STORY._councilOpen || STORY._techOpen || STORY._armyOpen) { storyCouncilClose(); storyTechClose(); storyArmyClose(); }
                 else {
                     const point = storyRegionCanvasPointFromEvent(cv, e);
                     const w = worldFromEvent(e), hit = pickNode(w.x, w.y);
@@ -2339,12 +2351,11 @@ function storyInit() {
             }
             dragging = false; cv.style.cursor = 'grab';
             if (wasDragging) {
-                STORY._mapInteracting = false;
                 scheduleMapRender();
             }
+            finishMapInteraction();
         });
-        let hoverFrame = 0;
-        let lastHoverPoint = null;
+        let lastHoverPoint = null, hoverFrame = 0;
         const processHover = () => {
             hoverFrame = 0;
             if (!lastHoverPoint || dragging) return;
@@ -2355,6 +2366,9 @@ function storyInit() {
             if (typeof storyHexPoliticalCellAtWorld === 'function') {
                 currentCell = storyHexPoliticalCellAtWorld(w.x, w.y, STORY_WORLD_W, STORY_WORLD_H);
                 STORY._hoverHexCellId = currentCell ? currentCell.id : null;
+            } else if (typeof storyHexWorldFindCellAtWorldPoint === 'function') {
+                currentCell = storyHexWorldFindCellAtWorldPoint(w.x, w.y);
+                STORY._hoverHexCellId = currentCell && currentCell.id ? currentCell.id : null;
             }
             const structureEntity = storyRegionEntityAtCanvasPoint(pt.mx, pt.my);
             const regionEntity = structureEntity || (currentCell ? storyRegionEntityAtWorld(w.x, w.y, currentCell) : null);
@@ -2371,8 +2385,8 @@ function storyInit() {
         };
         cv.addEventListener('mousemove', (e) => {            // hover imleci (sürüklemiyorken)
             if (dragging) return;
-            const rect = cv.getBoundingClientRect();
-            const sc = cv.width / rect.width, scy = cv.height / rect.height;
+            const rect = getCachedCvRect();
+            const sc = cv.width / (rect.width || 1), scy = cv.height / (rect.height || 1);
             lastHoverPoint = {
                 mx: (e.clientX - rect.left) * sc,
                 my: (e.clientY - rect.top) * scy,
@@ -2391,9 +2405,9 @@ function storyInit() {
         cv.addEventListener('wheel', (e) => {
             e.preventDefault();
             STORY._mapInteracting = true;
-            const rect = cv.getBoundingClientRect();
-            const mx = (e.clientX - rect.left) * (cv.width / rect.width);
-            const my = (e.clientY - rect.top) * (cv.height / rect.height);
+            const rect = getCachedCvRect();
+            const mx = (e.clientX - rect.left) * (cv.width / (rect.width || 1));
+            const my = (e.clientY - rect.top) * (cv.height / (rect.height || 1));
             STORY._cw = cv.width; STORY._ch = cv.height;
             const wpt = storyS2W(mx, my);               // imleç altındaki dünya noktası (warp)
             storyCam.zoom = Math.max(storyMinZoom(cv.width, cv.height), Math.min(5, storyCam.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));

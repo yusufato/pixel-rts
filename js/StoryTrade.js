@@ -3016,24 +3016,37 @@ function storyTradeProductionInputBalance(ledger) {
             || a.fillBps - b.fillBps
             || b.quantity - a.quantity
             || a.regionId.localeCompare(b.regionId));
-        supplies.sort((a, b) => b.domesticQuantity - a.domesticQuantity
-            || a.regionId.localeCompare(b.regionId));
+        const domesticByCountry = new Map();
+        for (let i = 0; i < supplies.length; i++) {
+            const s = supplies[i];
+            let list = domesticByCountry.get(s.countryId);
+            if (!list) { list = []; domesticByCountry.set(s.countryId, list); }
+            list.push(s);
+        }
         for (const demand of demands.slice(0, 8)) {
             if (shipmentsDispatched >= STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES) break;
-            const candidates = supplies
-                .filter(supply => (supply.countryId === demand.countryId
-                    ? supply.domesticQuantity
-                    : supply.foreignQuantity) > 1e-6
-                    && supply.regionId !== demand.regionId)
-                .filter(supply => storyTradeCanContract(supply.countryId, demand.countryId))
-                .sort((a, b) => {
-                    const ad = a.countryId === demand.countryId ? 0 : 1;
-                    const bd = b.countryId === demand.countryId ? 0 : 1;
-                    const aq = ad === 0 ? a.domesticQuantity : a.foreignQuantity;
-                    const bq = bd === 0 ? b.domesticQuantity : b.foreignQuantity;
-                    return ad - bd || bq - aq || a.regionId.localeCompare(b.regionId);
-                })
-                .slice(0, 4);
+            const domesticList = domesticByCountry.get(demand.countryId) || [];
+            const domesticCandidates = [];
+            for (let i = 0; i < domesticList.length; i++) {
+                const s = domesticList[i];
+                if (s.domesticQuantity > 1e-6 && s.regionId !== demand.regionId) {
+                    domesticCandidates.push(s);
+                    if (domesticCandidates.length >= 4) break;
+                }
+            }
+            let candidates = domesticCandidates;
+            if (candidates.length < 4) {
+                const foreignCandidates = [];
+                for (let i = 0; i < supplies.length; i++) {
+                    const s = supplies[i];
+                    if (s.countryId !== demand.countryId && s.foreignQuantity > 1e-6 && s.regionId !== demand.regionId
+                        && storyTradeCanContract(s.countryId, demand.countryId)) {
+                        foreignCandidates.push(s);
+                        if (candidates.length + foreignCandidates.length >= 4) break;
+                    }
+                }
+                candidates = candidates.concat(foreignCandidates);
+            }
             for (const supply of candidates) {
                 if (demand.quantity <= 1e-6
                     || shipmentsDispatched >= STORY_TRADE_MAX_PRODUCTION_INPUT_DISPATCHES
@@ -3254,13 +3267,25 @@ function storyTradeHouseholdDistributionBalance(ledger) {
         supplies.sort((a, b) => b.quantity - a.quantity
             || a.regionId.localeCompare(b.regionId));
 
+        const suppliesByCountry = new Map();
+        for (let i = 0; i < supplies.length; i++) {
+            const s = supplies[i];
+            let list = suppliesByCountry.get(s.countryId);
+            if (!list) { list = []; suppliesByCountry.set(s.countryId, list); }
+            list.push(s);
+        }
         for (const demand of demands.slice(0, Math.max(4, dispatchLimit * 2))) {
             if (resourceDispatches >= dispatchLimit) break;
-            const candidates = supplies
-                .filter(supply => supply.quantity > 1e-6
-                    && supply.countryId === demand.countryId
-                    && supply.regionId !== demand.regionId)
-                .slice(0, 4)
+            const countrySupplies = suppliesByCountry.get(demand.countryId) || [];
+            const rawCandidates = [];
+            for (let i = 0; i < countrySupplies.length; i++) {
+                const supply = countrySupplies[i];
+                if (supply.quantity > 1e-6 && supply.regionId !== demand.regionId) {
+                    rawCandidates.push(supply);
+                    if (rawCandidates.length >= 4) break;
+                }
+            }
+            const candidates = rawCandidates
                 .map(supply => {
                     const route = storyInfrastructureFindRoute(
                         supply.regionId,
@@ -3474,17 +3499,19 @@ function storyTradeLogisticsTick(dtSec, options) {
         }
     }
     delete ledger.capacityWindow.usedByCorridor.__dispatchCount;
-    const productionInputs = options.autoBalance === false
+    const isEvenTick = ledger.tickSequence % 2 === 0;
+    const productionInputs = (options.autoBalance === false || !isEvenTick)
         ? {
             productionInputOrdersCreated: 0,
             productionInputShipmentsDispatched: 0,
             productionInputAttempts: 0
         }
         : storyTradeProductionInputBalance(ledger);
-    const balance = options.autoBalance === false
+    const balance = (options.autoBalance === false || isEvenTick)
         ? { ordersCreated: 0, shipmentsDispatched: 0, attempts: 0 }
         : storyTradeAutoBalance(ledger);
     const paretoVolumeAdmission = options.autoBalance !== false
+        && isEvenTick
         && typeof storyFeatureEnabled === 'function'
         && storyFeatureEnabled('economy.paretoVolumeAdmission');
     const volumeAdmission = paretoVolumeAdmission
@@ -3498,6 +3525,7 @@ function storyTradeLogisticsTick(dtSec, options) {
             productionAdmissionCode: 'ADMISSION_DISABLED'
         };
     const householdDistributionAdmission = options.autoBalance !== false
+        && !isEvenTick
         && typeof storyFeatureEnabled === 'function'
         && storyFeatureEnabled('economy.householdDistributionAdmission');
     const householdDistribution = householdDistributionAdmission
