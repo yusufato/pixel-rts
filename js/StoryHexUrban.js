@@ -159,10 +159,18 @@ function storyHexUrbanSourceHash(world, geography, settlements, nodes) {
         geographyHash: geography.geographyHash,
         settlementHash: settlements.settlementHash,
         nodes: (nodes || []).map(node => {
-            const population = storyHexUrbanPopulation(node);
-            const investment = storyHexUrbanInvestment(node);
-            return [node.id, population.people, population.source,
-                Number(node.wealth) || 0, investment.buildings];
+            const settlementRecord = settlements && settlements.records && settlements.records[Number(node.id)] || null;
+            const demand = storyHexUrbanDemand(node, settlementRecord);
+            return [
+                node.id,
+                demand.requested.residential,
+                demand.requested.industrial,
+                demand.requested.civic,
+                demand.requested.defense,
+                demand.requested.logistics,
+                demand.investment.industrial,
+                demand.investment.defense
+            ];
         })
     }));
 }

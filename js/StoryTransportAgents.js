@@ -734,20 +734,29 @@ function storyTransportRenderSnapshot(options) {
     const materialized = Math.max(0, Number(opts.zoomRatio) || 0)
         >= Math.max(0.01, Number(opts.materializeZoomRatio == null ? 1.35 : opts.materializeZoomRatio));
     const projections = [];
-    for (const shipment of (ledger && ledger.shipments) || []) {
-        if (!['IN_TRANSIT', 'HELD'].includes(shipment.status)
-            || Number(shipment.transportVersion) !== STORY_TRANSPORT_SCHEMA_VERSION) continue;
-        const projection = storyTransportProjection(shipment, world);
-        if (projection) projections.push(projection);
+    const shipments = ledger && ledger.shipments;
+    if (shipments && shipments.length) {
+        for (let i = 0; i < shipments.length; i++) {
+            const shipment = shipments[i];
+            if (!shipment) continue;
+            const status = shipment.status;
+            if (status !== 'IN_TRANSIT' && status !== 'HELD') continue;
+            if (Number(shipment.transportVersion) !== STORY_TRANSPORT_SCHEMA_VERSION) continue;
+            const projection = storyTransportProjection(shipment, world);
+            if (projection) projections.push(projection);
+        }
     }
     const characterJourneys = Array.isArray(opts.characterJourneys)
         ? opts.characterJourneys
         : typeof STORY !== 'undefined' && STORY.characterTravel
             && Array.isArray(STORY.characterTravel.journeys)
             ? STORY.characterTravel.journeys : [];
-    for (const journey of characterJourneys) {
-        const projection = storyCharacterTravelProjection(journey, world);
-        if (projection) projections.push(projection);
+    for (let i = 0; i < characterJourneys.length; i++) {
+        const journey = characterJourneys[i];
+        if (journey) {
+            const projection = storyCharacterTravelProjection(journey, world);
+            if (projection) projections.push(projection);
+        }
     }
     const cargoQuantity = storyTransportRound(projections.reduce(
         (sum, row) => sum + row.cargoQuantity, 0));

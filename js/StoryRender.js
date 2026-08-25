@@ -1390,16 +1390,16 @@ function storyCoastalNetworkEnsure() {
             // the canonical adjacent water cell.
             const coastDx = waterX - landX, coastDy = waterY - landY;
             let coastT = .38;
-            if (coastRaster && typeof storyMapRasterSample === 'function') {
-                // Canonical land/water neighbours are authoritative for topology,
-                // but the visible coastline is rasterised. Find that exact visual
-                // crossing once so the terminal quay touches the rendered shore.
+            if (coastRaster) {
+                const isLand = typeof storyMapRasterIsLand === 'function'
+                    ? storyMapRasterIsLand
+                    : (r, nx, ny) => (typeof storyMapRasterSample === 'function' ? storyMapRasterSample(r, nx, ny).land : true);
                 let lo = 0, hi = 1;
                 for (let step = 0; step < 10; step++) {
                     const mid = (lo + hi) * .5;
                     const wx = (landX + coastDx * mid) / Number(hexWorld.width);
                     const wy = (landY + coastDy * mid) / Number(hexWorld.height);
-                    if (storyMapRasterSample(coastRaster, wx, wy).land) lo = mid;
+                    if (isLand(coastRaster, wx, wy)) lo = mid;
                     else hi = mid;
                 }
                 coastT = Math.max(.08, Math.min(.92, lo - .035));
