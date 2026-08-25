@@ -462,12 +462,17 @@ function storyHexSitesCreate(options) {
         cells: landUseCells.map(cell => [cell.cellId, cell.activeUse]),
         sites: sites.map(site => [site.id, site.cellId, site.siteType, site.installedVisualStage, site.lifecycleState])
     }));
+    const settlementVisualHash = storyHexSitesHashText(JSON.stringify({
+        cells: landUseCells.filter(cell => cell.activeUse !== 'CONSTRUCTION').map(cell => [cell.cellId, cell.activeUse]),
+        sites: sites.filter(site => site.lifecycleState === 'OPERATING').map(site => [site.id, site.cellId, site.siteType, site.installedVisualStage])
+    }));
     return {
         schemaVersion: STORY_HEX_SITES_SCHEMA_VERSION,
         adapterVersion: STORY_HEX_SITES_ADAPTER_VERSION,
         sourceHash,
         registryHash,
         visualHash,
+        settlementVisualHash,
         geographyHash: geography.geographyHash,
         footprintHash: urban.footprintHash,
         naturalRegistryHash: natural && natural.registryHash || null,

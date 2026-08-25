@@ -1214,10 +1214,10 @@ function storySettlementWorldLayersEnsure(urbanModel, physicalSitesModel) {
         ? (visualPeriodValue.id || visualPeriodValue.key
             || JSON.stringify(visualPeriodValue)) : visualPeriodValue;
     const token = [
-        'settlement-world-layers-8-visualhash-tiles1024',
+        'settlement-world-layers-9-settlementvisualhash-tiles1024',
         storySettlementAtlasesReady() ? 'ready' : 'loading',
         urbanModel && urbanModel.footprintHash || 'no-urban',
-        physicalSitesModel && (physicalSitesModel.visualHash || physicalSitesModel.registryHash) || 'no-sites',
+        physicalSitesModel && (physicalSitesModel.settlementVisualHash || physicalSitesModel.visualHash || physicalSitesModel.registryHash) || 'no-sites',
         visualPeriod
     ].join('|');
     if (STORY._settlementWorldLayers
