@@ -534,6 +534,17 @@ function storyHexConstructionSyncApplication(applicationId, options) {
 
 function storyHexConstructionSyncApplications(options) {
     const ledger = storyHexConstructionEnsureLedger(options && options.root);
+    const applications = ledger && ledger.applications;
+    if (!applications || !applications.length) return [];
+    let hasActive = false;
+    for (let i = 0; i < applications.length; i++) {
+        const s = applications[i] && applications[i].status;
+        if (s === 'PENDING_AUTHORITY' || s === 'AUTHORIZED' || s === 'RESOURCE_BLOCKED') {
+            hasActive = true;
+            break;
+        }
+    }
+    if (!hasActive) return [];
     const authority = storyHexConstructionAuthority(options);
     const context = storyHexConstructionContext(options);
     const secondsPerYear = typeof STORY_CALENDAR !== 'undefined'
@@ -541,22 +552,19 @@ function storyHexConstructionSyncApplications(options) {
     const reviewSeconds = STORY_HEX_CONSTRUCTION_APPLICATION_POLICY.authorityReviewDays
         / 365 * secondsPerYear;
     const results = [];
-    const applications = ledger.applications;
-    if (applications && applications.length) {
-        for (let i = 0; i < applications.length; i++) {
-            const application = applications[i];
-            if (!application) continue;
-            const status = application.status;
-            if (status !== 'PENDING_AUTHORITY' && status !== 'AUTHORIZED' && status !== 'RESOURCE_BLOCKED') continue;
-            if (status === 'PENDING_AUTHORITY'
-                && context.clock - Number(application.submittedAt || 0) + 1e-6 >= reviewSeconds
-                && typeof authority.progress === 'function') {
-                const progressed = authority.progress(application.authorityRequestId, application);
-                if (!progressed.ok) application.authorityProgressBlock = String(progressed.code || 'AUTHORITY_PROGRESS_FAILED');
-                else application.authorityProgressBlock = null;
-            }
-            results.push(storyHexConstructionSyncApplicationDirect(application, ledger, options));
+    for (let i = 0; i < applications.length; i++) {
+        const application = applications[i];
+        if (!application) continue;
+        const status = application.status;
+        if (status !== 'PENDING_AUTHORITY' && status !== 'AUTHORIZED' && status !== 'RESOURCE_BLOCKED') continue;
+        if (status === 'PENDING_AUTHORITY'
+            && context.clock - Number(application.submittedAt || 0) + 1e-6 >= reviewSeconds
+            && typeof authority.progress === 'function') {
+            const progressed = authority.progress(application.authorityRequestId, application);
+            if (!progressed.ok) application.authorityProgressBlock = String(progressed.code || 'AUTHORITY_PROGRESS_FAILED');
+            else application.authorityProgressBlock = null;
         }
+        results.push(storyHexConstructionSyncApplicationDirect(application, ledger, options));
     }
     return results;
 }

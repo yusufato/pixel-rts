@@ -152,8 +152,15 @@ function storyPowerCenterCohortWeightBps(type, cohort) {
     return storyPowerCenterClampBps(weight);
 }
 
+const STORY_POWER_CENTER_SUPPORT_CACHE = new Map();
+
 function storyPowerCenterSupport(countryId, type, prefilteredRegions) {
     const population = !prefilteredRegions && typeof storyPopulationEnsure === 'function' ? storyPopulationEnsure() : null;
+    const popRev = population ? population.revision : (typeof STORY !== 'undefined' && STORY.population ? STORY.population.revision : 0);
+    const cacheKey = !prefilteredRegions ? `${countryId}:${type}:${popRev}` : null;
+    if (cacheKey && STORY_POWER_CENTER_SUPPORT_CACHE.has(cacheKey)) {
+        return STORY_POWER_CENTER_SUPPORT_CACHE.get(cacheKey);
+    }
     const regionList = prefilteredRegions || Object.values(population && population.regions || {});
     const regions = {};
     const profilePeople = {};
@@ -182,7 +189,7 @@ function storyPowerCenterSupport(countryId, type, prefilteredRegions) {
         if (profilePeople[key] > 0) profileKeys.push(key);
     }
     profileKeys.sort((a, b) => profilePeople[b] - profilePeople[a] || a.localeCompare(b, 'en'));
-    return {
+    const result = {
         populationPeople,
         supportPeople,
         supportShareBps: populationPeople > 0
@@ -191,6 +198,11 @@ function storyPowerCenterSupport(countryId, type, prefilteredRegions) {
         regionalPresenceCount,
         profileKeys
     };
+    if (cacheKey) {
+        if (STORY_POWER_CENTER_SUPPORT_CACHE.size > 500) STORY_POWER_CENTER_SUPPORT_CACHE.clear();
+        STORY_POWER_CENTER_SUPPORT_CACHE.set(cacheKey, result);
+    }
+    return result;
 }
 
 function storyPowerCenterAllCompanySignals() {
