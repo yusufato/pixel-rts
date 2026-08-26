@@ -1,6 +1,6 @@
 ---
 id: phase-38-turkish-semantic-intent-router
-status: Approved # Kullanıcı 27 Ağustos 2026 tarihinde onayladı
+status: In Progress # Kullanıcı 27 Ağustos 2026 tarihinde onayladı
 owner: osman
 source: EXT-003 / Kullanıcının 27 Ağustos 2026 embedding önerisi
 touches:
