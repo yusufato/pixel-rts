@@ -21,9 +21,11 @@ touches:
   - LEDGER.md
 depends_on:
   - worktree-reconciliation-no-delete
+  - phase-38-13-meeting-closure-routing
 conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - bugfix-council-motion-atomicity
+  - phase-38-13-meeting-closure-routing
 created: 2026-08-26
 last_touched: 2026-08-26
 ---

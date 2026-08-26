@@ -20,7 +20,9 @@ touches:
 depends_on:
   - plans/25-agustos-belge-hedefleme-duzeni.md
   - worktree-reconciliation-no-delete
-conflicts_with: []
+  - phase-38-13-meeting-closure-routing
+conflicts_with:
+  - phase-38-13-meeting-closure-routing
 created: 2026-08-25
 last_touched: 2026-08-26
 ---
