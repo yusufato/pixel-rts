@@ -49,6 +49,7 @@ const LABEL_VALUES = Object.freeze({
 const LABEL_AXES = Object.freeze(Object.keys(LABEL_VALUES));
 const REQUIRED_LABEL_FIELDS = Object.freeze([...LABEL_AXES, 'outOfDomain']);
 const SPLITS = Object.freeze(['prototype', 'calibration', 'blind_test']);
+const GOLD_REVIEWERS = Object.freeze(['LOCAL_HUMAN', 'CODEX_INDIVIDUAL_REVIEW']);
 
 function readJson(filePath, fallback) {
     try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_) { return fallback; }
@@ -102,6 +103,16 @@ function validateCorpus(corpus) {
         if (row.labelStatus !== 'CANDIDATE_UNREVIEWED') {
             issues.push(`UNTRUSTED_GOLD_STATUS:${row.id || ''}`);
         }
+        if (row.adjudication) {
+            if (row.adjudication.id !== row.id) issues.push(`ADJUDICATION_ID:${row.id || ''}`);
+            if (!GOLD_REVIEWERS.includes(row.adjudication.reviewer)) {
+                issues.push(`ADJUDICATION_REVIEWER:${row.id || ''}`);
+            }
+            if (!['ACCEPT', 'EDIT'].includes(row.adjudication.verdict)
+                || !validateLabels(row.adjudication.labels).ok) {
+                issues.push(`ADJUDICATION_LABELS:${row.id || ''}`);
+            }
+        }
     }
     for (const [family, splits] of familySplits) {
         if (splits.size > 1) issues.push(`FAMILY_SPLIT_LEAK:${family}`);
@@ -115,6 +126,15 @@ function isHumanGoldReview(review, candidateIds) {
         && candidateIds.has(review.id)
         && review.annotationContractVersion === 1
         && review.reviewer === 'LOCAL_HUMAN'
+        && ['ACCEPT', 'EDIT'].includes(review.verdict)
+        && validateLabels(review.labels).ok);
+}
+
+function isGoldReview(review, candidateIds) {
+    return !!(review
+        && candidateIds.has(review.id)
+        && review.annotationContractVersion === 1
+        && GOLD_REVIEWERS.includes(review.reviewer)
         && ['ACCEPT', 'EDIT'].includes(review.verdict)
         && validateLabels(review.labels).ok);
 }
@@ -213,8 +233,18 @@ function buildBenchmark(options) {
     const corpusValidation = validateCorpus(corpus);
     const candidates = corpus && Array.isArray(corpus.candidates) ? corpus.candidates : [];
     const candidateIds = new Set(candidates.map(row => row.id));
-    const reviews = Array.isArray(reviewsLedger) ? reviewsLedger : reviewsLedger.reviews || [];
-    const goldReviews = reviews.filter(row => isHumanGoldReview(row, candidateIds));
+    const externalReviews = Array.isArray(reviewsLedger)
+        ? reviewsLedger : reviewsLedger.reviews || [];
+    const decisionById = new Map(candidates.filter(row => row.adjudication)
+        .map(row => [row.id, row.adjudication]));
+    for (const review of externalReviews) {
+        if (candidateIds.has(review.id)) decisionById.set(review.id, review);
+    }
+    const reviews = [...decisionById.values()];
+    const goldReviews = reviews.filter(row => isGoldReview(row, candidateIds));
+    const humanGold = goldReviews.filter(row => row.reviewer === 'LOCAL_HUMAN').length;
+    const codexGold = goldReviews.filter(row =>
+        row.reviewer === 'CODEX_INDIVIDUAL_REVIEW').length;
     const reviewById = new Map(goldReviews.map(row => [row.id, row]));
     const proposals = options.proposals || (options.includePredictions === false
         ? new Map() : buildBaselineProposals(candidates));
@@ -252,7 +282,9 @@ function buildBenchmark(options) {
         inventory: {
             candidates: candidates.length,
             reviewed: reviews.filter(row => candidateIds.has(row.id)).length,
-            humanGold: goldReviews.length,
+            gold: goldReviews.length,
+            humanGold,
+            codexGold,
             remainingForPrototype: Math.max(0, prototypeThreshold - goldReviews.length),
             remainingForProduct: Math.max(0, productThreshold - goldReviews.length),
             bySource: Object.fromEntries(['OBSERVED_PLAYER', 'MODEL_GENERATED_CANDIDATE']
@@ -286,7 +318,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-    LABEL_VALUES, LABEL_AXES, REQUIRED_LABEL_FIELDS, SPLITS,
-    normalizeText, validateLabels, validateCorpus, isHumanGoldReview,
+    LABEL_VALUES, LABEL_AXES, REQUIRED_LABEL_FIELDS, SPLITS, GOLD_REVIEWERS,
+    normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark
 };

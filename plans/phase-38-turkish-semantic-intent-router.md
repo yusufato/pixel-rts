@@ -238,3 +238,13 @@ alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable o
   kayıtlarıyla birleştirilmez veya insan etiketi diye raporlanmaz.
 - İnceleme geri alınabilir partiler halinde commit edilir. Otomatik öneriyi
   değiştirmeden kopyalamak tek başına inceleme kanıtı değildir.
+
+### 27 Ağustos 2026 — Codex tekil inceleme partisi 1
+
+- İlk 20 gözlenmiş oyuncu turu cümle ve son üç turluk bağlamıyla ayrı ayrı
+  incelendi; bütün speech-act ve `SemanticFrameV2` eksenleri gerekçeli
+  `CODEX_INDIVIDUAL_REVIEW` kayıtlarına dönüştürüldü.
+- Mevcut deterministik motor ana speech-act değerini 20 kaydın 11'inde yanlış
+  seçti. İlk kısmi baseline macro-F1 `0,324675`, ECE `0,2985` ölçüldü.
+- Güncel kapı `20/200` prototip gold ve `20/1000` ürün gold; bu kısmi ölçüm
+  model seçmek veya entegrasyona geçmek için yeterli değildir.

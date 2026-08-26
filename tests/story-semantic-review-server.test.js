@@ -21,7 +21,8 @@ assert.equal(corpusValidation.ok, true, corpusValidation.issues.join(', '));
 assert.equal(corpusValidation.count, 200);
 assert.equal(corpusValidation.uniqueTexts, 200);
 
-const candidate = corpus.candidates[0];
+const candidate = Object.assign({}, corpus.candidates[0]);
+delete candidate.adjudication;
 const labels = Object.fromEntries(Object.entries(benchmark.LABEL_VALUES)
     .map(([axis, values]) => [axis, values[0]]));
 labels.outOfDomain = false;
@@ -39,6 +40,8 @@ const corpusQueue = review.buildQueue({
 assert.equal(corpusQueue.rows.length, 1);
 assert.equal(corpusQueue.rows[0].annotationMode, 'FULL_LABEL_V1');
 assert.equal(corpusQueue.status.humanGold, 0);
+assert.equal(corpusQueue.status.codexGold, 0);
+assert.equal(corpusQueue.status.gold, 0);
 assert.equal(corpusQueue.status.prototype.pass, false);
 
 const fullAccepted = review.validateReview({
@@ -48,6 +51,13 @@ assert.equal(fullAccepted.ok, true);
 assert.equal(fullAccepted.value.annotationContractVersion, 1);
 assert.equal(fullAccepted.value.reviewer, 'LOCAL_HUMAN');
 assert.equal(benchmark.isHumanGoldReview(fullAccepted.value, new Set([candidate.id])), true);
+assert.equal(benchmark.isGoldReview(fullAccepted.value, new Set([candidate.id])), true);
+
+const codexAccepted = Object.assign({}, fullAccepted.value, {
+    reviewer: 'CODEX_INDIVIDUAL_REVIEW'
+});
+assert.equal(benchmark.isHumanGoldReview(codexAccepted, new Set([candidate.id])), false);
+assert.equal(benchmark.isGoldReview(codexAccepted, new Set([candidate.id])), true);
 
 const incomplete = Object.assign({}, labels);
 delete incomplete.predicate;
@@ -58,12 +68,21 @@ assert.equal(review.validateReview({
     id: candidate.id, verdict: 'REJECT', notes: 'Doğal veya tek anlamlı değil.'
 }, corpusQueue).ok, true);
 
+const unreviewedCorpus = Object.assign({}, corpus, {
+    candidates: corpus.candidates.map(row => {
+        const copy = Object.assign({}, row);
+        delete copy.adjudication;
+        return copy;
+    })
+});
 const inventory = benchmark.buildBenchmark({
-    corpus, reviews: { reviews: [] }, includePredictions: false
+    corpus: unreviewedCorpus, reviews: { reviews: [] }, includePredictions: false
 });
 assert.equal(inventory.ok, true);
 assert.equal(inventory.inventory.candidates, 200);
 assert.equal(inventory.inventory.humanGold, 0);
+assert.equal(inventory.inventory.codexGold, 0);
+assert.equal(inventory.inventory.gold, 0);
 assert.equal(inventory.gates.prototype.pass, false);
 assert.equal(inventory.gates.product.pass, false);
 

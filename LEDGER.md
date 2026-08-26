@@ -1336,3 +1336,10 @@
 - **What happened:** Önceki yalnız `LOCAL_HUMAN` gold kapısı, kullanıcının açık kararıyla cümle ve bağlamı tek tek okunup bütün etiketleri kararlaştırılan `CODEX_INDIVIDUAL_REVIEW` kayıtlarını da kabul edecek biçimde genişletildi.
 - **Evidence:** Kullanıcının “sen tek tek inceleme yap... sadece tek tek incelediğinde gold sayılsın” talimatı. İnsan, Codex ve otomatik öneri provenansları ayrı tutulur.
 - **Implication for future audits:** Codex tekil incelemesini insan etiketi diye raporlama; fakat otomatik/model önerisiyle de eşitleme. Yalnız eksiksiz, satır bazlı `CODEX_INDIVIDUAL_REVIEW` kaydı gold kapısına girebilir.
+
+## 2026-08-27 — İlk 20 Türkçe tur tek tek Codex tarafından etiketlendi
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1 / Codex partisi 1
+- **What happened:** İlk 20 gözlenmiş oyuncu cümlesi bağlamıyla tek tek incelendi; eksiksiz kapalı etiketler ve kayıt başına gerekçe corpus'a `CODEX_INDIVIDUAL_REVIEW` provenansıyla işlendi.
+- **Evidence:** Corpus 20 Codex gold, 0 insan gold raporluyor. Deterministik baseline 20 kaydın 11'inde ana speech-act'i kaçırdı; macro-F1 `0,3246753247`, ECE `0,2985`. Corpus/provenans, eski gece kapısı ve SemanticFrameV2 testleri exit `0`.
+- **Implication for future audits:** İlk 20 kaydı yeniden etiketsiz veya insan-gold sayma. Bu kısmi sonuç mevcut Türkçe anlamanın ciddi hatasını doğrular fakat 200 kayıt tamamlanmadan model karşılaştırması için kabul kanıtı değildir.

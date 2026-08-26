@@ -47,7 +47,9 @@ function buildQueue(options) {
     const corpus = options.corpus || readJson(CORPUS_PATH, { candidates: [], gates: {} });
     const reviewRows = Array.isArray(reviews) ? reviews : reviews.reviews || [];
     const qualityById = new Map((quality.results || []).map(row => [row.id, row]));
-    const reviewById = new Map(reviewRows.map(row => [row.id, row]));
+    const reviewById = new Map((corpus.candidates || []).filter(row => row.adjudication)
+        .map(row => [row.id, row.adjudication]));
+    for (const review of reviewRows) reviewById.set(review.id, review);
     const teacherRows = (teacher.results || []).map(row => ({
         id: row.id, utterance: row.utterance, target: row.target,
         dataset: 'LEGACY_TEACHER', annotationMode: 'AXIS_APPROVAL_V2',
@@ -77,8 +79,13 @@ function buildQueue(options) {
     });
     const rows = corpusRows.concat(teacherRows);
     const candidateIds = new Set(corpusRows.map(row => row.id));
-    const humanGold = reviewRows.filter(row =>
-        semanticBenchmark.isHumanGoldReview(row, candidateIds)).length;
+    const corpusDecisions = corpusRows.map(row => row.review).filter(Boolean);
+    const goldReviews = corpusDecisions.filter(row =>
+        semanticBenchmark.isGoldReview(row, candidateIds));
+    const humanGold = goldReviews.filter(row => row.reviewer === 'LOCAL_HUMAN').length;
+    const codexGold = goldReviews.filter(row =>
+        row.reviewer === 'CODEX_INDIVIDUAL_REVIEW').length;
+    const gold = goldReviews.length;
     const prototypeThreshold = Number(corpus.gates && corpus.gates.prototypeHumanGold) || 200;
     const productThreshold = Number(corpus.gates && corpus.gates.productHumanGold) || 1000;
     return { schemaVersion: 2, axes: AXES.slice(),
@@ -90,9 +97,9 @@ function buildQueue(options) {
             accepted: rows.filter(row => row.review
                 && ['ACCEPT', 'EDIT'].includes(row.review.verdict)).length,
             rejected: rows.filter(row => row.review && row.review.verdict === 'REJECT').length,
-            humanGold,
-            prototype: { threshold: prototypeThreshold, pass: humanGold >= prototypeThreshold },
-            product: { threshold: productThreshold, pass: humanGold >= productThreshold }
+            gold, humanGold, codexGold,
+            prototype: { threshold: prototypeThreshold, pass: gold >= prototypeThreshold },
+            product: { threshold: productThreshold, pass: gold >= productThreshold }
         } };
 }
 

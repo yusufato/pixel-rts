@@ -54,7 +54,7 @@ function options(axis,selected){return (queue.labelValues[axis]||[]).map(v=>`<op
 function tags(obj){return Object.entries(obj||{}).map(([k,v])=>`<span class="tag"><b>${esc(axisTr[k]||k)}:</b> ${esc(valueTr[v]||v)}</span>`).join('')}
 function render(){
  const r=rows[index],s=queue.status;
- e('status').textContent=`Gold ${s.humanGold||0}/${s.prototype?.threshold||200} prototip · ${s.humanGold||0}/${s.product?.threshold||1000} ürün · ${rows.length} filtrelenmiş`;
+ e('status').textContent=`Gold ${s.gold||0}/${s.prototype?.threshold||200} prototip · ${s.gold||0}/${s.product?.threshold||1000} ürün · insan ${s.humanGold||0} / Codex ${s.codexGold||0} · ${rows.length} filtrelenmiş`;
  if(!r){e('id').textContent='';e('utterance').textContent='Bu filtrede kayıt yok.';e('meta').innerHTML='';e('fullEditor').style.display='none';e('legacyEditor').style.display='none';return}
  e('id').textContent=`${r.id} · ${index+1}/${rows.length}`;
  e('meta').innerHTML=[r.sourceType,r.split,r.speakerFamily,r.proposalSource].filter(Boolean).map(x=>`<span class="tag">${esc(x)}</span>`).join('');

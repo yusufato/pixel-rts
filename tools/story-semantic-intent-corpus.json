@@ -35,8 +35,30 @@
   },
   "candidates": [
     {
-      "id": "semantic-intent:4049e1bba5ab1f83",
-      "text": "merhaba",
+     "id": "semantic-intent:4049e1bba5ab1f83",
+      "adjudication": {
+        "id": "semantic-intent:4049e1bba5ab1f83",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "GREETING",
+          "communicativeFunction": "GREET",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "UNSPECIFIED",
+          "target": "UNSPECIFIED",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Tek başına doğal bir selamlaşma; mekanik istek veya konu taşımıyor.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "merhaba",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:440aa4f16ad691e5a76ef6d97a894b414d01811c0f5f25c77a76d04fda5fd91e",
       "familyId": "sha256:062fdb37dfed3202efcd4ba847b9a7644d0e4b99575a03a22b029ccbf82c141c",
@@ -47,8 +69,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:7c228323e2b70bef",
-      "text": "ana muhalefet lideri olduğunuzu biliyorum",
+     "id": "semantic-intent:7c228323e2b70bef",
+      "adjudication": {
+        "id": "semantic-intent:7c228323e2b70bef",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "IDENTITY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin güncel siyasal kimliğini kesin bildirim olarak ileri sürüyor; UNKNOWN değil.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "ana muhalefet lideri olduğunuzu biliyorum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:e1d9009bdb6bec0da813fb54394a12853591bae8a39d6520a1386c242835cc87",
       "familyId": "sha256:062fdb37dfed3202efcd4ba847b9a7644d0e4b99575a03a22b029ccbf82c141c",
@@ -64,8 +108,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:b26c915dc1a9d1eb",
-      "text": "sizce de devlet yöneticimiz bencil değil mi",
+     "id": "semantic-intent:b26c915dc1a9d1eb",
+      "adjudication": {
+        "id": "semantic-intent:b26c915dc1a9d1eb",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_PERSONAL_OPINION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "OPINION",
+          "target": "THIRD_PARTY",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "OPINION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "ASK_INFORMATION"
+          ]
+        },
+        "notes": "“Sizce” kişisel görüş istiyor; yargının hedefi üçüncü taraf devlet yöneticisi.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "sizce de devlet yöneticimiz bencil değil mi",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:f252841d7b7f449b3b572d8a145d1fce8e65c136ed56d11cd6e84045a35925db",
       "familyId": "sha256:062fdb37dfed3202efcd4ba847b9a7644d0e4b99575a03a22b029ccbf82c141c",
@@ -85,8 +153,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:bf46d02824261b3d",
-      "text": "size neden daha fazla bilgi vereyim uşağınız değilim siz muhalefet liderisiniz",
+     "id": "semantic-intent:bf46d02824261b3d",
+      "adjudication": {
+        "id": "semantic-intent:bf46d02824261b3d",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CHALLENGE",
+          "communicativeFunction": "REJECT",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "RELATIONSHIP",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "ACCUSE"
+          ]
+        },
+        "notes": "Gerçek bilgi sorusu değil; önceki talebi ve dinleyicinin oyuncu üzerindeki otoritesini reddeden meydan okuma.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "size neden daha fazla bilgi vereyim uşağınız değilim siz muhalefet liderisiniz",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:62c4a0339f2a206543a14339d8cd32f6e021315a8e3a3081208de6469b37885b",
       "familyId": "sha256:062fdb37dfed3202efcd4ba847b9a7644d0e4b99575a03a22b029ccbf82c141c",
@@ -110,8 +202,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:db0970c3dbcb5fcc",
-      "text": "önceki sözün devamı derken neyi kast ediyorsun",
+     "id": "semantic-intent:db0970c3dbcb5fcc",
+      "adjudication": {
+        "id": "semantic-intent:db0970c3dbcb5fcc",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Önceki karakter sözünün anlamını açıkça soruyor; konu ekseni katalogda özel karşılık taşımıyor ama OOD değil.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "önceki sözün devamı derken neyi kast ediyorsun",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:0fea87aeb846e40dde6dde3624ac57d1724106d276db082e49077064b8d92371",
       "familyId": "sha256:062fdb37dfed3202efcd4ba847b9a7644d0e4b99575a03a22b029ccbf82c141c",
@@ -135,8 +249,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:58dfd67bae753e02",
-      "text": "selamlar dostum",
+     "id": "semantic-intent:58dfd67bae753e02",
+      "adjudication": {
+        "id": "semantic-intent:58dfd67bae753e02",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "GREETING",
+          "communicativeFunction": "GREET",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "RELATIONSHIP",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Selamlaşma ana eylem; “dostum” dinleyiciye yönelik ilişki hitabını taşıyor.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "selamlar dostum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:299a91c9dd721b141aaa41f9596fa6bffb5e8339652644e5f4b06b29ec1a8098",
       "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
@@ -147,8 +283,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:ec694680da1f3b50",
-      "text": "sağol benden çekindiğini hissediyorum çekinmene gerek yok dostum",
+     "id": "semantic-intent:ec694680da1f3b50",
+      "adjudication": {
+        "id": "semantic-intent:ec694680da1f3b50",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "THANK",
+          "communicativeFunction": "THANK",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "EMOTION",
+          "target": "LISTENER",
+          "polarity": "MIXED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "SMALL_TALK"
+          ]
+        },
+        "notes": "Teşekkürle açılıp dinleyicinin korkusuna dair çıkarım ve güvence veriyor; duygu kutbu karışık.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "sağol benden çekindiğini hissediyorum çekinmene gerek yok dostum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:8d0e775ee2b0763909ba381a9be10f686a7b6114838acf9f9d9b2d221cc425a6",
       "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
@@ -164,8 +324,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:3639d1a6b22fa80d",
-      "text": "ne zaman cepheye geri döneceksin",
+     "id": "semantic-intent:3639d1a6b22fa80d",
+      "adjudication": {
+        "id": "semantic-intent:3639d1a6b22fa80d",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin gelecekte cepheye dönüş zamanını soran doğrudan askerî bilgi sorusu.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "ne zaman cepheye geri döneceksin",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:04b966556c1e178424b3bab7dbe8b19e5db24a88ef9fa20c2aa5a25718b70448",
       "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
@@ -185,8 +367,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:5d73a2195798db41",
-      "text": "bu görevlerden benim haberim yok ne işler yapıyorsun",
+     "id": "semantic-intent:5d73a2195798db41",
+      "adjudication": {
+        "id": "semantic-intent:5d73a2195798db41",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "İlk parça bilgisizliği bildiriyor, baskın amaç dinleyicinin mevcut işlerini öğrenmek; eylem talebi değil.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "bu görevlerden benim haberim yok ne işler yapıyorsun",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:decb844f365feb16a15a61e0558499c0d654654ffdf8fc1ccff27fe661c2b8c4",
       "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
@@ -210,8 +414,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:1ed33faaa340543a",
-      "text": "görevin ne diyorum",
+     "id": "semantic-intent:1ed33faaa340543a",
+      "adjudication": {
+        "id": "semantic-intent:1ed33faaa340543a",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "REPAIR",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Önceki yanlış anlamayı düzelterek dinleyicinin görevini yeniden soruyor.",
+        "reviewedAt": "2026-08-26T22:36:04.833Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "görevin ne diyorum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:6ee63da79a1be70d2fc78d1b8ce23841b01dfa97cce9f4f18f7d74086674c4cc",
       "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
@@ -235,8 +461,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:d9f2968e1b411627",
-      "text": "tamam onu biliyorum dostum işim var dedin işini soruyorum",
+     "id": "semantic-intent:d9f2968e1b411627",
+      "adjudication": {
+        "id": "semantic-intent:d9f2968e1b411627",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "REPAIR",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Önceki yanıtın kaçırdığı soruyu açıklayıp dinleyicinin işini yeniden soruyor; baskın işlev onarım içindeki bilgi sorusu.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "tamam onu biliyorum dostum işim var dedin işini soruyorum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:a3a1058e5b2ad1554a503bb32aec88537875d9caa07e6e7b25f031900c3a9122",
       "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
@@ -260,8 +508,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:088b1f63be1359dd",
-      "text": "selamlar çelik [KARAKTER]",
+     "id": "semantic-intent:088b1f63be1359dd",
+      "adjudication": {
+        "id": "semantic-intent:088b1f63be1359dd",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "GREETING",
+          "communicativeFunction": "GREET",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "IDENTITY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Adla hitap edilen doğal selamlaşma; kimlik ifadesi yalnız muhatabı belirliyor.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "selamlar çelik [KARAKTER]",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:fa01df650a65feff4c4545e22e28cdb0cc6bb87cd69281fce4fa18fa2e28bd78",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -272,8 +542,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:487edbde294d66ef",
-      "text": "kendinizi bana tanıtın",
+     "id": "semantic-intent:487edbde294d66ef",
+      "adjudication": {
+        "id": "semantic-intent:487edbde294d66ef",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "IMPERATIVE",
+          "predicate": "IDENTITY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyiciden kendisini tanıtmasını isteyen açık emir/eylem talebi; UNKNOWN değil.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "kendinizi bana tanıtın",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:9e44a1dec07038c213cf024546f99a891ff12933108bce22126a42dcdf29fdbe",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -289,8 +581,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:d26683e56f724328",
-      "text": "rolünüz devlet yöneticisi olarak gözüküyor",
+     "id": "semantic-intent:d26683e56f724328",
+      "adjudication": {
+        "id": "semantic-intent:d26683e56f724328",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CORRECT_STATEMENT",
+          "communicativeFunction": "CORRECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "IDENTITY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "CORRECTION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Önceki şirket yöneticisi tanıtımıyla çelişen görünen rolü işaret ederek kimlik düzeltmesi yapıyor.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "rolünüz devlet yöneticisi olarak gözüküyor",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:0bc27d77897bf227a4eba1084b2dfd0f3c45104e4496f1bb9e97c1509db5ae75",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -310,8 +624,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:e846279d26b45ed2",
-      "text": "devlet yönetmek bir şirket yönetmek değildir",
+     "id": "semantic-intent:e846279d26b45ed2",
+      "adjudication": {
+        "id": "semantic-intent:e846279d26b45ed2",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CORRECT_STATEMENT",
+          "communicativeFunction": "CORRECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "WORK",
+          "target": "WORLD",
+          "polarity": "NEGATIVE",
+          "temporality": "HABITUAL",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CORRECTION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Devlet ve şirket yönetiminin eşitlenmesini genel ve kesin bir rol/iş ayrımıyla düzeltiyor.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "devlet yönetmek bir şirket yönetmek değildir",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:336d09f3b3237fa190d5ecaaba0680f4700647af39edfb07ef6b51e5b6d521b2",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -335,8 +671,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:0c5657f6f70d99b1",
-      "text": "hangi şirkette çalışıyorsun",
+     "id": "semantic-intent:0c5657f6f70d99b1",
+      "adjudication": {
+        "id": "semantic-intent:0c5657f6f70d99b1",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin çalıştığı kurumu soran mevcut iş bilgisi sorusu.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "hangi şirkette çalışıyorsun",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:4150279a75168175af59ba5ea8323c9b4dbbe758b0b67baea0352c9a0d0b8cd7",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -360,8 +718,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:b6b10757328dd7ec",
-      "text": "peki konuyu değiştirelim hangi şehirdesin",
+     "id": "semantic-intent:b6b10757328dd7ec",
+      "adjudication": {
+        "id": "semantic-intent:b6b10757328dd7ec",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "LOCATION",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "SMALL_TALK"
+          ]
+        },
+        "notes": "Açık konu değişiminden sonra dinleyicinin güncel şehrini soruyor; yeni başlık olarak etiketlendi.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "peki konuyu değiştirelim hangi şehirdesin",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:d08469ce14d8698c7f47bcd4e969daf36bf057ef6d61b8ac6e1e06172bbd8b00",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -385,8 +767,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:7c39513e72199e21",
-      "text": "beni ne kadar iyi tanıyorsunuz efendim",
+     "id": "semantic-intent:7c39513e72199e21",
+      "adjudication": {
+        "id": "semantic-intent:7c39513e72199e21",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_RELATIONSHIP",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "RELATIONSHIP",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin oyuncuya aşinalık derecesini soruyor; genel bilgi değil yönlü ilişki sorusu.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "beni ne kadar iyi tanıyorsunuz efendim",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:b0f4ff49ae758c849df598525932637a5a9af6053f8c6e61b00b33157e0ddf88",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -410,8 +814,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:90ab1281cf875353",
-      "text": "benden kastediyorum beni tanıyor musunuz",
+     "id": "semantic-intent:90ab1281cf875353",
+      "adjudication": {
+        "id": "semantic-intent:90ab1281cf875353",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_RELATIONSHIP",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "RELATIONSHIP",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "REPAIR",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Yanlış kişi yorumunu düzelterek dinleyicinin oyuncuyu tanıyıp tanımadığını tekrar soruyor.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "benden kastediyorum beni tanıyor musunuz",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:03072d5eb5e2e690af27b1f2b00c9b8ded9c5bb38201530a585ebbe5dbf603e6",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
@@ -435,8 +861,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:f0189278e678988e",
-      "text": "her hangi bir konu konuşmak istemiyorum görüşürüz",
+     "id": "semantic-intent:f0189278e678988e",
+      "adjudication": {
+        "id": "semantic-intent:f0189278e678988e",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "FAREWELL",
+          "communicativeFunction": "CLOSE",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "REJECT"
+          ]
+        },
+        "notes": "Konuşma isteğini reddedip görüşmeyi kapatıyor; soru biçimi veya görüş talebi değil.",
+        "reviewedAt": "2026-08-26T22:36:41.438Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "her hangi bir konu konuşmak istemiyorum görüşürüz",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:e4dbfd874a547ed7910ebd697cc817211ff000a91296a2f43bd14bec304fbdbe",
       "familyId": "sha256:ee3fd731f2498b18a052819c580442c57caefebebbc0fbacd57e56ff75f7a434",
