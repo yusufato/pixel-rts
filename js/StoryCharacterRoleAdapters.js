@@ -112,13 +112,19 @@ function storyCharacterRoleAdapterInstitutionBindings(actorId) {
                     institutionId: institution.id, institutionType: institution.type,
                     countryId: country.countryId, status: institution.status,
                     authorityGrantCount: (institution.authorityGrants || []).length,
-                    authorityGrants: (institution.authorityGrants || []).map(grant => ({
-                        actionType: grant.actionType,
-                        canPropose: grant.canPropose === true,
-                        canApprove: grant.canApprove === true,
-                        canExecute: grant.canExecute === true,
-                        legalBasis: grant.legalBasis || null
-                    })).sort((a, b) => a.actionType.localeCompare(b.actionType, 'en'))
+                    authorityGrants: (institution.authorityGrants || []).map(grant => {
+                        const canonicalRoute = country.authorityByAction
+                            && country.authorityByAction[grant.actionType];
+                        return {
+                            actionType: grant.actionType,
+                            canPropose: grant.canPropose === true,
+                            canApprove: grant.canApprove === true,
+                            canExecute: grant.canExecute === true,
+                            legalBasis: grant.legalBasis || null,
+                            targetScope: canonicalRoute && canonicalRoute.targetScope || null,
+                            routeMode: canonicalRoute && canonicalRoute.mode || null
+                        };
+                    }).sort((a, b) => a.actionType.localeCompare(b.actionType, 'en'))
                 });
             }
         }
@@ -244,10 +250,28 @@ function storyCharacterRoleInstitutionActionPreview(input) {
     if (!eligibleRoutes.length) {
         return { ok: false, code: `ACTOR_NOT_AUTHORIZED_TO_${phase}`, worldMutation: false };
     }
+    const route = eligibleRoutes[0];
+    let targetRegionId = null;
+    if (phase === 'PROPOSE' && route.targetScope === 'REGION') {
+        if (input.targetRegionId == null || typeof storyInstitutionRegionId !== 'function') {
+            return { ok: false, code: 'INSTITUTION_TARGET_REGION_REQUIRED', worldMutation: false };
+        }
+        targetRegionId = storyInstitutionRegionId(input.targetRegionId);
+        const nodeId = Number(String(targetRegionId).split(':').pop());
+        const node = (STORY.nodes || []).find(row => Number(row.id) === nodeId);
+        const nodeCountryId = node && typeof storyInstitutionCountryId === 'function'
+            ? storyInstitutionCountryId(node.owner) : null;
+        if (!node || nodeCountryId !== route.countryId) {
+            return { ok: false, code: 'INSTITUTION_TARGET_OUTSIDE_JURISDICTION', worldMutation: false };
+        }
+    } else if (phase === 'PROPOSE' && input.targetRegionId != null) {
+        return { ok: false, code: 'INSTITUTION_TARGET_REGION_NOT_ALLOWED', worldMutation: false };
+    }
     return {
         ok: true, code: 'INSTITUTION_ROLE_ROUTE_READY', phase, actionType,
         requestId: request ? request.id : null,
-        route: storyCharacterRoleAdapterClone(eligibleRoutes[0]),
+        route: storyCharacterRoleAdapterClone(route),
+        targetRegionId,
         actorId: adapter.actorId, worldMutation: false
     };
 }
@@ -264,7 +288,7 @@ function storyCharacterRoleInstitutionAction(input) {
             ? storyInstitutionSubmitAction({
                 ...actorInput, countryId: preview.route.countryId,
                 actionType: preview.actionType,
-                targetRegionId: input && input.targetRegionId
+                targetRegionId: preview.targetRegionId
             }) : { ok: false, reason: 'INSTITUTION_EXECUTOR_MISSING' };
     } else if (preview.phase === 'APPROVE') {
         result = typeof storyInstitutionApproveAction === 'function'

@@ -1056,6 +1056,77 @@ function storyConversationMeetingBySession(sessionId) {
     return row ? storyConversationClone(row) : null;
 }
 
+function storyConversationMeetingProposalRoutes(meetingCaseId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', routes: [], worldMutation: false };
+    const view = typeof storyCharacterRoleAdapterView === 'function'
+        ? storyCharacterRoleAdapterView(meeting.chair.actorId) : null;
+    if (!view || !view.ok || !view.adapter) {
+        return { ok: false, code: 'MEETING_CHAIR_ROLE_ADAPTER_UNAVAILABLE', routes: [], worldMutation: false };
+    }
+    const routes = (view.adapter.authorityRoutes || []).filter(route =>
+        route.canPropose === true
+        && route.countryId === meeting.countryId
+        && route.institutionId === meeting.chair.institutionId
+        && ['COUNTRY', 'REGION'].includes(route.targetScope))
+        .map(route => ({
+            actionType: route.actionType,
+            countryId: route.countryId,
+            institutionId: route.institutionId,
+            institutionType: route.institutionType,
+            targetScope: route.targetScope,
+            routeMode: route.routeMode,
+            legalBasis: route.legalBasis,
+            requiresTargetRegion: route.targetScope === 'REGION',
+            worldMutation: false
+        }))
+        .sort((a, b) => a.actionType.localeCompare(b.actionType, 'en'));
+    return { ok: true, code: 'MEETING_PROPOSAL_ROUTES', routes: storyConversationClone(routes),
+        worldMutation: false };
+}
+
+function storyConversationMeetingProposalIntentBuild(meeting, motionVersionId, input) {
+    if (!input || typeof input !== 'object' || !input.actionType) {
+        return { ok: false, code: 'MEETING_PROPOSAL_INTENT_REQUIRED', worldMutation: false };
+    }
+    const preview = typeof storyCharacterRoleInstitutionActionPreview === 'function'
+        ? storyCharacterRoleInstitutionActionPreview({
+            phase: 'PROPOSE',
+            actorId: meeting.chair.actorId,
+            actionType: input.actionType,
+            targetRegionId: input.targetRegionId
+        }) : null;
+    if (!preview || !preview.ok) {
+        return { ok: false, code: preview && preview.code || 'MEETING_PROPOSAL_ROUTE_UNAVAILABLE',
+            worldMutation: false };
+    }
+    if (preview.route.countryId !== meeting.countryId
+        || preview.route.institutionId !== meeting.chair.institutionId) {
+        return { ok: false, code: 'MEETING_PROPOSAL_ROUTE_CHAIR_MISMATCH', worldMutation: false };
+    }
+    const intent = {
+        schemaVersion: 1,
+        id: `${motionVersionId}:institution-proposal-intent`,
+        kind: 'INSTITUTION_ACTION',
+        motionVersionId,
+        actionType: preview.actionType,
+        targetRegionId: preview.targetRegionId,
+        countryId: preview.route.countryId,
+        proposerActorId: meeting.chair.actorId,
+        proposerInstitutionId: preview.route.institutionId,
+        proposerInstitutionType: preview.route.institutionType,
+        authoritySource: 'CANONICAL_CHARACTER_ROLE_ADAPTER',
+        legalBasis: preview.route.legalBasis,
+        targetScope: preview.route.targetScope,
+        routeMode: preview.route.routeMode,
+        previewedAt: Number(STORY.clock) || 0,
+        worldMutation: false
+    };
+    return { ok: true, code: 'MEETING_PROPOSAL_INTENT_READY',
+        proposalIntent: intent, worldMutation: false };
+}
+
 function storyConversationMeetingAdvanceSpeaker(meetingCaseId) {
     const ledger = storyConversationSessionEnsure();
     const row = ledger && ledger.meetingCases.find(item => item.id === String(meetingCaseId));
@@ -1171,7 +1242,7 @@ function storyConversationMeetingSendPrivateNote(meetingCaseId, recipientActorId
         meetingCase: storyConversationClone(meeting), worldMutation: false };
 }
 
-function storyConversationMeetingMotionPropose(meetingCaseId, text) {
+function storyConversationMeetingMotionPropose(meetingCaseId, text, proposalIntentInput) {
     const ledger = storyConversationSessionEnsure();
     const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
     if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
@@ -1190,6 +1261,14 @@ function storyConversationMeetingMotionPropose(meetingCaseId, text) {
     const sequence = meeting.motions.length + 1;
     const motionId = `${meeting.id}:motion:${sequence}`;
     const versionId = `${motionId}:version:1`;
+    let proposalIntent = null;
+    if (proposalIntentInput != null) {
+        const intentResult = storyConversationMeetingProposalIntentBuild(
+            meeting, versionId, proposalIntentInput
+        );
+        if (!intentResult.ok) return intentResult;
+        proposalIntent = intentResult.proposalIntent;
+    }
     const motion = {
         schemaVersion: 1, id: motionId, sequence,
         agendaItemId: meeting.agendaItems[0].id, proposerActorId: session.playerActorId,
@@ -1202,6 +1281,7 @@ function storyConversationMeetingMotionPropose(meetingCaseId, text) {
             createdAt: Number(STORY.clock) || 0, worldMutation: false
         }],
         chairReview: null, responses: [], voting: null, outcomeReceiptId: null,
+        proposalIntent,
         proposedAt: Number(STORY.clock) || 0,
         worldMutation: false
     };
@@ -1209,6 +1289,30 @@ function storyConversationMeetingMotionPropose(meetingCaseId, text) {
     meeting.updatedAt = motion.proposedAt || meeting.updatedAt;
     return { ok: true, code: 'MEETING_MOTION_PROPOSED', motion: storyConversationClone(motion),
         meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingMotionProposalIntentSet(meetingCaseId, motionId, input) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    if (meeting.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_NOT_OPEN', worldMutation: false };
+    }
+    const motion = meeting.motions.find(row => row.id === String(motionId));
+    if (!motion) return { ok: false, code: 'MEETING_MOTION_NOT_FOUND', worldMutation: false };
+    if (motion.voting) {
+        return { ok: false, code: 'MEETING_PROPOSAL_INTENT_LOCKED_BY_VOTE', worldMutation: false };
+    }
+    const intentResult = storyConversationMeetingProposalIntentBuild(
+        meeting, motion.activeVersionId, input
+    );
+    if (!intentResult.ok) return intentResult;
+    motion.proposalIntent = intentResult.proposalIntent;
+    meeting.updatedAt = Number(STORY.clock) || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_PROPOSAL_INTENT_SET',
+        proposalIntent: storyConversationClone(motion.proposalIntent),
+        motion: storyConversationClone(motion), meetingCase: storyConversationClone(meeting),
+        worldMutation: false };
 }
 
 function storyConversationMeetingMotionChairReview(meetingCaseId, motionId) {
@@ -1379,6 +1483,7 @@ function storyConversationMeetingMotionAmendmentDecision(meetingCaseId, motionId
         motion.text = normalizedText;
         motion.status = 'PENDING_CHAIR_REVIEW';
         motion.chairReview = null;
+        motion.proposalIntent = null;
     }
     return { ok: true, code: `MEETING_AMENDMENT_${response.status}`,
         response: storyConversationClone(response), motion: storyConversationClone(motion),
@@ -1835,6 +1940,7 @@ function storyConversationSessionMigrateLedger(saved) {
             if (!Array.isArray(motion.responses)) motion.responses = [];
             if (!Object.prototype.hasOwnProperty.call(motion, 'voting')) motion.voting = null;
             if (!Object.prototype.hasOwnProperty.call(motion, 'outcomeReceiptId')) motion.outcomeReceiptId = null;
+            if (!Object.prototype.hasOwnProperty.call(motion, 'proposalIntent')) motion.proposalIntent = null;
             if (!Array.isArray(motion.versions) || !motion.versions.length) {
                 motion.versions = [{
                     schemaVersion: 1, id: `${motion.id}:version:1`, sequence: 1,
@@ -1843,6 +1949,7 @@ function storyConversationSessionMigrateLedger(saved) {
                     createdAt: Number(motion.proposedAt) || 0, worldMutation: false
                 }];
                 motion.activeVersionId = motion.versions[0].id;
+                motion.proposalIntent = null;
             }
             for (const response of motion.responses) {
                 if (!Object.prototype.hasOwnProperty.call(response, 'motionVersionId')) {
@@ -4832,6 +4939,25 @@ function storyConversationSessionValidateLedger(candidate) {
                 || motion.proposerActorId !== (sourceSession && sourceSession.playerActorId)
                 || typeof motion.text !== 'string' || motion.text.length < 12 || motion.text.length > 600
                 || !Number.isFinite(motion.proposedAt)
+                || (motion.proposalIntent != null && (
+                    motion.proposalIntent.schemaVersion !== 1
+                    || motion.proposalIntent.id !== `${motion.proposalIntent.motionVersionId}:institution-proposal-intent`
+                    || motion.proposalIntent.kind !== 'INSTITUTION_ACTION'
+                    || motion.proposalIntent.motionVersionId !== motion.activeVersionId
+                    || !motion.proposalIntent.actionType
+                    || motion.proposalIntent.countryId !== meeting.countryId
+                    || motion.proposalIntent.proposerActorId !== meeting.chair.actorId
+                    || motion.proposalIntent.proposerInstitutionId !== meeting.chair.institutionId
+                    || motion.proposalIntent.proposerInstitutionType !== meeting.chair.institutionType
+                    || motion.proposalIntent.authoritySource !== 'CANONICAL_CHARACTER_ROLE_ADAPTER'
+                    || !motion.proposalIntent.legalBasis
+                    || !['COUNTRY', 'REGION'].includes(motion.proposalIntent.targetScope)
+                    || (motion.proposalIntent.targetScope === 'COUNTRY'
+                        && motion.proposalIntent.targetRegionId !== null)
+                    || (motion.proposalIntent.targetScope === 'REGION'
+                        && !motion.proposalIntent.targetRegionId)
+                    || !Number.isFinite(motion.proposalIntent.previewedAt)
+                    || motion.proposalIntent.worldMutation !== false))
                 || !Array.isArray(motion.versions) || motion.versions.length < 1
                 || motion.versions.length > 7
                 || motion.versions.filter(version => version.status === 'ACTIVE').length !== 1

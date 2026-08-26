@@ -723,8 +723,12 @@ function createRuntime(seed) {
             conversationMeetingSendPrivateNote: (meetingId, recipientActorId, text) => (
                 storyConversationMeetingSendPrivateNote(meetingId, recipientActorId, text)
             ),
-            conversationMeetingMotionPropose: (meetingId, text) => (
-                storyConversationMeetingMotionPropose(meetingId, text)
+            conversationMeetingProposalRoutes: meetingId => storyConversationMeetingProposalRoutes(meetingId),
+            conversationMeetingMotionPropose: (meetingId, text, proposalIntent) => (
+                storyConversationMeetingMotionPropose(meetingId, text, proposalIntent)
+            ),
+            conversationMeetingMotionProposalIntentSet: (meetingId, motionId, proposalIntent) => (
+                storyConversationMeetingMotionProposalIntentSet(meetingId, motionId, proposalIntent)
             ),
             conversationMeetingMotionChairReview: (meetingId, motionId) => (
                 storyConversationMeetingMotionChairReview(meetingId, motionId)

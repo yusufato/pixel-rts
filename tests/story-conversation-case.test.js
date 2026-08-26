@@ -235,10 +235,24 @@ try {
 
     assert.equal(runtime.api.conversationMeetingMotionPropose(meeting.id, 'kısa').code,
         'MEETING_MOTION_TEXT_INVALID');
+    const proposalRoutes = runtime.api.conversationMeetingProposalRoutes(meeting.id);
+    assert.equal(proposalRoutes.ok, true);
+    const budgetRoute = proposalRoutes.routes.find(row =>
+        row.actionType === 'AUTHORIZE_BUDGET' && row.requiresTargetRegion === false);
+    assert.ok(budgetRoute, 'Kanonik yürütme başkanı ülke kapsamlı bütçe teklifi rotası taşımalı.');
+    const beforeUnauthorizedIntent = JSON.stringify(runtime.api.conversationSessionSnapshot());
+    assert.equal(runtime.api.conversationMeetingMotionPropose(meeting.id,
+        'Sanayi yatırımı kaynak tahsisi kurum planına bağlansın.',
+        { actionType: 'REVIEW_LEGALITY' }).code, 'ACTOR_NOT_AUTHORIZED_TO_PROPOSE');
+    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()), beforeUnauthorizedIntent);
     const motionProposed = runtime.api.conversationMeetingMotionPropose(meeting.id,
-        'Sanayi yatırımı kaynak tahsisi ve kurum denetimi birlikte yazılı plana bağlansın.');
+        'Sanayi yatırımı kaynak tahsisi ve kurum denetimi birlikte yazılı plana bağlansın.',
+        { actionType: budgetRoute.actionType });
     assert.equal(motionProposed.ok, true);
     assert.equal(motionProposed.motion.status, 'PENDING_CHAIR_REVIEW');
+    assert.equal(motionProposed.motion.proposalIntent.actionType, 'AUTHORIZE_BUDGET');
+    assert.equal(motionProposed.motion.proposalIntent.motionVersionId,
+        motionProposed.motion.activeVersionId);
     assert.equal(motionProposed.worldMutation, false);
     const motionReviewed = runtime.api.conversationMeetingMotionChairReview(
         meeting.id, motionProposed.motion.id
@@ -372,6 +386,11 @@ try {
     assert.equal(amendmentAccepted.motion.versions.length, 2);
     assert.equal(amendmentAccepted.motion.versions[0].status, 'SUPERSEDED');
     assert.equal(amendmentAccepted.motion.versions[1].status, 'ACTIVE');
+    assert.equal(amendmentAccepted.motion.proposalIntent, null);
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    assert.ok(runtime.dom.window.document.querySelector(
+        `[data-conversation-motion-intent-set="${motionProposed.motion.id}"]`));
+    runtime.dom.window.storyConversationWorkspaceClose();
     assert.equal(amendmentAccepted.motion.versions[1].sourceResponseId, amendment.response.id);
     assert.equal(amendmentAccepted.motion.text, revisedText);
     assert.equal(amendmentAccepted.motion.chairReview, null);
@@ -391,6 +410,11 @@ try {
     assert.equal(revisedReview.motion.status, 'IN_ORDER');
     assert.equal(revisedReview.motion.activeVersionId, amendmentAccepted.motion.versions[1].id);
     assert.equal(revisedReview.motion.versions[1].chairReview.rulingTurnId, revisedReview.turn.id);
+    const reboundIntent = runtime.api.conversationMeetingMotionProposalIntentSet(
+        meeting.id, motionProposed.motion.id, { actionType: budgetRoute.actionType }
+    );
+    assert.equal(reboundIntent.ok, true);
+    assert.equal(reboundIntent.proposalIntent.motionVersionId, revisedReview.motion.activeVersionId);
     assert.equal(runtime.api.conversationMeetingMotionOpenVote(
         meeting.id, motionProposed.motion.id).code, 'MEETING_VOTE_UNRESOLVED_OBJECTION');
     runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
