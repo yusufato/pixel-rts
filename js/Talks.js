@@ -1269,19 +1269,53 @@ function storyTalkConversationTaskOffersHtml(session) {
         || typeof storyConversationTaskOfferList !== 'function') return '';
     const esc = storyTalkConversationEscape;
     const offers = storyConversationTaskOfferList(session.id);
+    const institutionalPreview = typeof storyConversationInstitutionalTaskOfferPreview === 'function'
+        ? storyConversationInstitutionalTaskOfferPreview(session.id) : null;
     if (!offers.length) return `<section class="conversation-task-offers"><header>GÖREV & İŞ</header>`
         + `<p>Muhatap yalnız gerçek ve erişilebilir bir karakterle görüşme görevi önerebilir. Para, makam veya gizli ödül uydurulmaz.</p>`
-        + `<button class="story-btn" data-conversation-task-create="${esc(session.id)}">KAYNAKLI GÖREV TEKLİFİ İSTE</button></section>`;
+        + `<button class="story-btn" data-conversation-task-create="${esc(session.id)}">KİŞİSEL GÖREV TEKLİFİ İSTE</button>`
+        + (institutionalPreview && institutionalPreview.ok && institutionalPreview.preview.payerSufficient
+            ? `<button class="story-btn" data-conversation-institutional-task-create="${esc(session.id)}">KURUMSAL ÜCRETLİ GÖREV TEKLİFİ İSTE</button>` : '')
+        + (institutionalPreview && institutionalPreview.ok && !institutionalPreview.preview.payerSufficient
+            ? `<small>KURUMSAL GÖREV KULLANILAMAZ · MAKAM BAKİYESİ YETERSİZ</small>` : '')
+        + `</section>`;
     return `<section class="conversation-task-offers"><header>GÖREV & İŞ</header>`
-        + offers.map(offer => `<article><div><b>${esc(offer.issuerName)} → SEN</b><span>${esc(STORY_TALK_TASK_STATUS_LABELS[offer.status] || offer.status)}</span></div>`
+        + offers.map(offer => {
+            const institutional = offer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK' && offer.institutional;
+            const institution = institutional && STORY.institutions && STORY.institutions.countries
+                && STORY.institutions.countries[institutional.countryId]
+                && STORY.institutions.countries[institutional.countryId].institutions[institutional.institutionId];
+            const paymentLabel = institutional ? {
+                NOT_RESERVED: 'HENÜZ AYRILMADI', RESERVED: 'ESCROW AYRILDI',
+                SETTLED: 'ÖDENDİ', RELEASED: 'İADE EDİLDİ'
+            }[institutional.paymentStatus] || 'DOĞRULANMADI' : null;
+            return `<article data-task-offer-kind="${esc(offer.kind)}"><div><b>${esc(offer.issuerName)} → SEN</b><span>${esc(STORY_TALK_TASK_STATUS_LABELS[offer.status] || offer.status)}</span></div>`
             + `<p>${esc(offer.objective.targetName)} ile ayrı bir görüşme yap. Son tarih: ${esc(storyTalkConversationDate(offer.dueAt))}.</p>`
-            + `<small>KİŞİSEL TALEP · ZORLAMA YETKİSİ YOK · ÖDÜL YOK</small>`
+            + (institutional
+                ? `<small>KURUMSAL GÖREV · ${esc(institution && institution.name || 'SİLAHLI KUVVETLER MAKAMI')} · YASAL DAYANAK: ANAYASAL GÖREV İHALE YETKİSİ</small>`
+                    + `<p>Görev bedeli: ${esc(institutional.amount)} DEVLET KREDİSİ · Ödeme: ${esc(paymentLabel)}</p>`
+                : `<small>KİŞİSEL TALEP · ZORLAMA YETKİSİ YOK · ÖDÜL YOK</small>`)
             + (offer.status === 'OFFERED' ? `<footer><button class="story-btn" data-conversation-task-decision="ACCEPT" `
                 + `data-task-offer-id="${esc(offer.id)}">KABUL ET</button><button class="story-btn" `
                 + `data-conversation-task-decision="DECLINE" data-task-offer-id="${esc(offer.id)}">REDDET</button></footer>` : '')
             + (offer.status === 'ACCEPTED' ? `<footer><span>Görevi tamamlamak için ${esc(offer.objective.targetName)} ile yeni bir görüşme aç.</span></footer>` : '')
-            + (offer.status === 'COMPLETED' ? `<footer><span>TAMAMLANDI · ${esc(storyTalkConversationDate(offer.completedAt))}</span></footer>` : '')
-            + `</article>`).join('') + `</section>`;
+            + (offer.status === 'COMPLETED' ? `<footer><span>TAMAMLANDI · ${esc(storyTalkConversationDate(offer.completedAt))}`
+                + (institutional ? ` · ÖDEME MAKBUZU DOĞRULANDI` : '') + `</span></footer>` : '')
+            + `</article>`;
+        }).join('') + `</section>`;
+}
+
+function storyTalkInstitutionalTaskError(code) {
+    const key = String(code || '');
+    if (key === 'INSTITUTIONAL_TASK_INSUFFICIENT_CASH') return 'Görev veren makamın kullanılabilir bakiyesi yetersiz.';
+    if (key === 'TASK_OFFER_NOT_OPEN') return 'Bu görev teklifi artık açık değil.';
+    if (key.includes('AUTHORITY') || key.includes('OFFICE') || key.includes('ROLE')) {
+        return 'Muhatap doğrulanmış kurumsal görev ihale yetkisine sahip değil.';
+    }
+    if (key.includes('BUDGET') || key.includes('PAYMENT') || key.includes('ESCROW')) {
+        return 'Kurumsal görev ödemesi doğrulanamadı; hiçbir ödeme yapılmadı.';
+    }
+    return 'Kurumsal görev işlemi tamamlanamadı.';
 }
 
 function storyTalkConversationMeetingHtml(session) {
@@ -2271,15 +2305,32 @@ function storyConversationWorkspaceHandleClick(event) {
         storyConversationWorkspaceRender();
         return;
     }
+    const institutionalTaskCreate = event.target.closest('[data-conversation-institutional-task-create]');
+    if (institutionalTaskCreate && typeof storyConversationInstitutionalTaskOfferCreate === 'function') {
+        const result = storyConversationInstitutionalTaskOfferCreate(
+            institutionalTaskCreate.dataset.conversationInstitutionalTaskCreate);
+        storyFlash(result && result.ok
+            ? 'Yetkili kurumsal görev teklifi oluşturuldu; ödeme henüz ayrılmadı.'
+            : storyTalkInstitutionalTaskError(result && result.code));
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
     const taskDecision = event.target.closest('[data-conversation-task-decision]');
     if (taskDecision && typeof storyConversationTaskOfferDecision === 'function') {
         const result = storyConversationTaskOfferDecision(
             taskDecision.dataset.taskOfferId,
             taskDecision.dataset.conversationTaskDecision
         );
+        const institutional = result && result.taskOffer
+            && result.taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK';
         storyFlash(result && result.ok
-            ? (result.taskOffer.status === 'ACCEPTED' ? 'Görev kabul edildi.' : 'Görev reddedildi.')
-            : `Görev kararı uygulanamadı: ${result && result.code || 'UNKNOWN'}`);
+            ? (result.taskOffer.status === 'ACCEPTED'
+                ? (institutional ? 'Kurumsal görev kabul edildi; bedel escrow hesabına ayrıldı.' : 'Görev kabul edildi.')
+                : 'Görev reddedildi.')
+            : (institutional
+                ? storyTalkInstitutionalTaskError(result && result.code)
+                : `Görev kararı uygulanamadı: ${result && result.code || 'UNKNOWN'}`));
         if (result && result.ok && typeof storySave === 'function') storySave();
         storyConversationWorkspaceRender();
         return;

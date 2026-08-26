@@ -43,11 +43,32 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(authorityPreview.preview.institutionId, armedForces.id);
         assert.equal(authorityPreview.preview.payerCommanderId, payerCommanderId);
         assert.equal(authorityPreview.preview.payerSufficient, true);
+        taskRuntime.api.talkBind();
+        taskRuntime.dom.window.storyConversationWorkspaceOpen(
+            issuerActorId, armedForces.officeHolder.name, acceptedSessionId);
+        assert.ok(taskRuntime.dom.window.document.querySelector('[data-conversation-task-create]'));
+        const institutionalCreateButton = taskRuntime.dom.window.document.querySelector(
+            '[data-conversation-institutional-task-create]');
+        assert.ok(institutionalCreateButton);
+        institutionalCreateButton.click();
+        assert.equal(taskRuntime.api.conversationTaskOfferList(acceptedSessionId)[0].kind,
+            'INSTITUTIONAL_PAID_CONTACT_TASK');
+        taskRuntime.dom.window.storyConversationWorkspaceClose();
         const payerBefore = payerCommander.res.points;
         const escrowBefore = taskRuntime.api.budgetLedger().countries['country:0'].accounts['ASSET:TASK_ESCROW'];
         const created = taskRuntime.api.conversationInstitutionalTaskOfferCreate(acceptedSessionId);
         assert.equal(created.ok, true);
         assert.equal(created.taskOffer.kind, 'INSTITUTIONAL_PAID_CONTACT_TASK');
+        taskRuntime.dom.window.storyConversationWorkspaceOpen(
+            issuerActorId, armedForces.officeHolder.name, acceptedSessionId);
+        const institutionalCard = taskRuntime.dom.window.document.querySelector(
+            '[data-task-offer-kind="INSTITUTIONAL_PAID_CONTACT_TASK"]');
+        assert.ok(institutionalCard);
+        assert.match(institutionalCard.textContent, /KURUMSAL GÖREV/);
+        assert.match(institutionalCard.textContent, /25 DEVLET KREDİSİ/);
+        assert.match(institutionalCard.textContent, /ANAYASAL GÖREV İHALE YETKİSİ/);
+        assert.doesNotMatch(institutionalCard.textContent, /payerCommanderId|payeeCommanderId|budget-settlement/);
+        taskRuntime.dom.window.storyConversationWorkspaceClose();
         const institutionRequest = taskRuntime.api.institutionLedger().requests[created.taskOffer.authority.institutionRequestId];
         assert.equal(institutionRequest.status, 'EXECUTED');
         assert.equal(institutionRequest.proposer.actorId, issuerActorId);
@@ -88,6 +109,13 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(settledPayment.status, 'SETTLED');
         assert.equal(resultReceipt.payerTransactionId, settledPayment.payerTransactionId);
         assert.equal(resultReceipt.payeeTransactionId, settledPayment.payeeTransactionId);
+        taskRuntime.dom.window.storyConversationWorkspaceOpen(
+            issuerActorId, armedForces.officeHolder.name, acceptedSessionId);
+        const completedInstitutionalCard = taskRuntime.dom.window.document.querySelector(
+            '[data-task-offer-kind="INSTITUTIONAL_PAID_CONTACT_TASK"]');
+        assert.match(completedInstitutionalCard.textContent, /ÖDEME MAKBUZU DOĞRULANDI/);
+        assert.doesNotMatch(completedInstitutionalCard.textContent, /budget:/);
+        taskRuntime.dom.window.storyConversationWorkspaceClose();
         const duplicateCompletionBefore = JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
             playerPoints: taskStory.commander.res.points
