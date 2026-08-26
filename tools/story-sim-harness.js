@@ -565,8 +565,12 @@ function createRuntime(seed) {
             characterIdentityLifeTransition: input => storyCharacterIdentityLifeTransition(input),
             relationshipLedger: () => storyRelationshipSnapshot(),
             validateRelationshipLedger: ledger => storyRelationshipValidate(ledger),
+            relationshipRestore: ledger => storyRelationshipRestore(ledger),
             relationshipView: (fromActorId, toActorId) => storyRelationshipView(fromActorId, toActorId),
             relationshipAdjust: (fromActorId, toActorId, deltas, meta) => storyRelationshipAdjust(fromActorId, toActorId, deltas, meta),
+            relationshipApplyResult: input => storyRelationshipApplyResult(input),
+            relationshipResultReceipt: receiptId => storyRelationshipResultReceiptGet(receiptId),
+            relationshipResultReceipts: filter => storyRelationshipResultReceiptList(filter),
             characterMemoryLedger: () => storyMemorySnapshot(),
             characterMemorySummary: () => storyMemorySummary(),
             validateCharacterMemoryLedger: ledger => storyMemoryValidate(ledger),
@@ -15499,6 +15503,8 @@ function probeRelationshipInterpretation(seed = 2032) {
     let result;
     let savedRaw;
     let memorySnapshot;
+    let relationshipSnapshot;
+    let legacyRelationshipFixture;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         const story = runtime.api.state();
@@ -15650,6 +15656,103 @@ function probeRelationshipInterpretation(seed = 2032) {
             worldNeutral: worldBefore === worldAfter,
             onlyFixtureMemoriesAdded: memoryAfterCount - memoryBeforeCount === 5
         };
+        legacyRelationshipFixture = JSON.parse(relationshipBefore);
+        legacyRelationshipFixture.schemaVersion = 1;
+        legacyRelationshipFixture.adapterVersion = 'story-character-relationship-ledger-1';
+        delete legacyRelationshipFixture.nextResultReceiptSequence;
+        delete legacyRelationshipFixture.resultReceipts;
+        const resultWorldBefore = hashSnapshot(stateSnapshot(story));
+        const reverseBefore = JSON.stringify(runtime.api.relationshipView(target.id, holder.id));
+        runtime.api.relationshipAdjust(holder.id, target.id, {
+            trustBps: 10000, fearBps: 0, respectBps: 0, debtBps: 0, hostilityBps: -10000
+        }, { source: 'test.fixture', reason: 'RESULT_CLAMP_BOUNDARY', recordDebtMemory: false });
+        const keptResult = runtime.api.relationshipApplyResult({
+            sourceType: 'TASK_RESULT', sourceReceiptId: 'task-result:phase3813:kept',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_KEPT'
+        });
+        const keptDuplicate = runtime.api.relationshipApplyResult({
+            sourceType: 'TASK_RESULT', sourceReceiptId: 'task-result:phase3813:kept',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_KEPT'
+        });
+        const keptCooldown = runtime.api.relationshipApplyResult({
+            sourceType: 'TASK_RESULT', sourceReceiptId: 'task-result:phase3813:kept-second',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_KEPT'
+        });
+        const brokenResult = runtime.api.relationshipApplyResult({
+            sourceType: 'TASK_RESULT', sourceReceiptId: 'task-result:phase3813:broken',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_BROKEN'
+        });
+        const beforeRejectedMeeting = JSON.stringify(runtime.api.relationshipView(holder.id, target.id));
+        const rejectedMeeting = runtime.api.relationshipApplyResult({
+            sourceType: 'MEETING_OUTCOME', sourceReceiptId: 'meeting-result:phase3813:rejected',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'MEETING_SHARED_SUCCESS', noChangeReason: 'MEETING_REJECTED'
+        });
+        const afterRejectedMeeting = JSON.stringify(runtime.api.relationshipView(holder.id, target.id));
+        const meetingResult = runtime.api.relationshipApplyResult({
+            sourceType: 'MEETING_OUTCOME', sourceReceiptId: 'meeting-result:phase3813:shared-success',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'MEETING_SHARED_SUCCESS'
+        });
+        const meetingCooldown = runtime.api.relationshipApplyResult({
+            sourceType: 'MEETING_OUTCOME', sourceReceiptId: 'meeting-result:phase3813:shared-success-second',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'MEETING_SHARED_SUCCESS'
+        });
+        const wrongPolicy = runtime.api.relationshipApplyResult({
+            sourceType: 'MEETING_OUTCOME', sourceReceiptId: 'meeting-result:phase3813:wrong-policy',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_KEPT'
+        });
+        const missingActor = runtime.api.relationshipApplyResult({
+            sourceType: 'TASK_RESULT', sourceReceiptId: 'task-result:phase3813:missing-actor',
+            fromActorId: 'actor:missing', toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_KEPT'
+        });
+        const receiptRows = runtime.api.relationshipResultReceipts({
+            fromActorId: holder.id, toActorId: target.id
+        });
+        relationshipSnapshot = runtime.api.relationshipLedger();
+        const tamperedDelta = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedDelta.resultReceipts[keptResult.receipt.id].deltas.trustBps = 251;
+        const tamperedDirection = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedDirection.resultReceipts[keptResult.receipt.id].toActorId = holder.id;
+        result.resultReceipts = {
+            keptApplied: keptResult.applied === true
+                && JSON.stringify(keptResult.receipt.deltas) === JSON.stringify({
+                    trustBps: 250, fearBps: 0, respectBps: 150, debtBps: 0, hostilityBps: -100
+                }),
+            clampApplied: keptResult.receipt.before.trustBps === 10000
+                && keptResult.receipt.after.trustBps === 10000
+                && keptResult.receipt.before.hostilityBps === 0
+                && keptResult.receipt.after.hostilityBps === 0,
+            duplicateStable: keptDuplicate.duplicate === true
+                && JSON.stringify(keptDuplicate.receipt) === JSON.stringify(keptResult.receipt),
+            cooldownNoChange: keptCooldown.applied === false
+                && keptCooldown.receipt.decision === 'NO_CHANGE'
+                && keptCooldown.receipt.reason === 'COOLDOWN_ACTIVE',
+            brokenApplied: brokenResult.applied === true
+                && brokenResult.receipt.interpretationFamily === 'TASK_NEGATIVE',
+            rejectedMeetingNeutral: rejectedMeeting.receipt.decision === 'NO_CHANGE'
+                && rejectedMeeting.receipt.reason === 'MEETING_REJECTED'
+                && beforeRejectedMeeting === afterRejectedMeeting,
+            taskMeetingIndependent: meetingResult.applied === true
+                && meetingResult.receipt.interpretationFamily === 'MEETING_POSITIVE',
+            meetingCooldownNoChange: meetingCooldown.receipt.decision === 'NO_CHANGE'
+                && meetingCooldown.receipt.reason === 'COOLDOWN_ACTIVE',
+            invalidInputsRejected: wrongPolicy.reason === 'RELATION_RESULT_POLICY_REJECTED'
+                && missingActor.reason === 'RELATION_RESULT_ACTOR_REJECTED',
+            directional: reverseBefore === JSON.stringify(runtime.api.relationshipView(target.id, holder.id)),
+            receiptCountExact: receiptRows.length === 6,
+            tamperRejected: !runtime.api.validateRelationshipLedger(tamperedDelta).ok
+                && !runtime.api.validateRelationshipLedger(tamperedDirection).ok,
+            physicalWorldNeutral: resultWorldBefore === hashSnapshot(stateSnapshot(story)),
+            validation: runtime.api.validateRelationshipLedger(relationshipSnapshot)
+        };
         memorySnapshot = runtime.api.characterMemoryLedger();
         runtime.api.saveNow();
         savedRaw = runtime.api.savedRaw();
@@ -15665,7 +15768,26 @@ function probeRelationshipInterpretation(seed = 2032) {
                 === JSON.stringify(memorySnapshot),
             validation: restored.api.validateCharacterMemoryLedger(
                 restored.api.characterMemoryLedger()
+            ),
+            relationshipExact: JSON.stringify(restored.api.relationshipLedger())
+                === JSON.stringify(relationshipSnapshot),
+            relationshipValidation: restored.api.validateRelationshipLedger(
+                restored.api.relationshipLedger()
             )
+        };
+        const legacyExpected = JSON.stringify({
+            edges: legacyRelationshipFixture.edges,
+            revision: legacyRelationshipFixture.revision,
+            generatedAt: legacyRelationshipFixture.generatedAt
+        });
+        const migrated = restored.api.relationshipRestore(legacyRelationshipFixture);
+        result.legacyRelationshipMigration = {
+            valid: restored.api.validateRelationshipLedger(migrated).ok,
+            preserved: JSON.stringify({
+                edges: migrated.edges, revision: migrated.revision, generatedAt: migrated.generatedAt
+            }) === legacyExpected,
+            receiptsEmpty: migrated.nextResultReceiptSequence === 1
+                && Object.keys(migrated.resultReceipts || {}).length === 0
         };
     } finally {
         restored.dom.window.close();

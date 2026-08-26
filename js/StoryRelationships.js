@@ -6,9 +6,33 @@
 //  gerçek kurumsal/mesleki temaslardan seyrek grafik kurulur.
 // ══════════════════════════════════════════════════════════════════════════
 
-const STORY_RELATIONSHIP_SCHEMA_VERSION = 1;
-const STORY_RELATIONSHIP_ADAPTER_VERSION = 'story-character-relationship-ledger-1';
+const STORY_RELATIONSHIP_SCHEMA_VERSION = 2;
+const STORY_RELATIONSHIP_ADAPTER_VERSION = 'story-character-relationship-ledger-2';
 const STORY_RELATIONSHIP_AXES = Object.freeze(['trustBps', 'fearBps', 'respectBps', 'debtBps', 'hostilityBps']);
+const STORY_RELATIONSHIP_RESULT_RECEIPT_SCHEMA_VERSION = 1;
+const STORY_RELATIONSHIP_RESULT_RECEIPT_LIMIT = 256;
+const STORY_RELATIONSHIP_RESULT_COOLDOWN_SECONDS = 300;
+const STORY_RELATIONSHIP_ZERO_DELTAS = Object.freeze({
+    trustBps: 0, fearBps: 0, respectBps: 0, debtBps: 0, hostilityBps: 0
+});
+const STORY_RELATIONSHIP_RESULT_POLICIES = Object.freeze({
+    TASK_COMMITMENT_KEPT: Object.freeze({
+        sourceType: 'TASK_RESULT', interpretationFamily: 'TASK_POSITIVE',
+        deltas: Object.freeze({ trustBps: 250, fearBps: 0, respectBps: 150, debtBps: 0, hostilityBps: -100 })
+    }),
+    TASK_COMMITMENT_BROKEN: Object.freeze({
+        sourceType: 'TASK_RESULT', interpretationFamily: 'TASK_NEGATIVE',
+        deltas: Object.freeze({ trustBps: -600, fearBps: 0, respectBps: -250, debtBps: 0, hostilityBps: 350 })
+    }),
+    MEETING_SHARED_SUCCESS: Object.freeze({
+        sourceType: 'MEETING_OUTCOME', interpretationFamily: 'MEETING_POSITIVE',
+        deltas: Object.freeze({ trustBps: 180, fearBps: 0, respectBps: 160, debtBps: 0, hostilityBps: -80 }),
+        noChangeReasons: Object.freeze(['MEETING_REJECTED', 'PLAYER_VOTE_NOT_YES', 'OBSERVER_VOTE_NOT_YES'])
+    })
+});
+const STORY_RELATIONSHIP_RESULT_NO_CHANGE_REASONS = Object.freeze([
+    'COOLDOWN_ACTIVE', 'MEETING_REJECTED', 'PLAYER_VOTE_NOT_YES', 'OBSERVER_VOTE_NOT_YES'
+]);
 
 function storyRelationshipEnabled() {
     return typeof storyFeatureEnabled !== 'function'
@@ -22,6 +46,9 @@ function storyRelationshipClamp(value) {
 }
 function storyRelationshipId(fromActorId, toActorId) {
     return `relationship:${String(fromActorId)}=>${String(toActorId)}`;
+}
+function storyRelationshipResultId(sourceType, sourceReceiptId, fromActorId, toActorId) {
+    return `relationship-result:${String(sourceType)}:${String(sourceReceiptId)}:${String(fromActorId)}=>${String(toActorId)}`;
 }
 function storyRelationshipRoleFamily(role) {
     if (['COMPANY_OWNER', 'COMPANY_EXECUTIVE'].includes(role)) return 'COMPANY';
@@ -81,6 +108,8 @@ function storyRelationshipLedgerCreate() {
         adapterVersion: STORY_RELATIONSHIP_ADAPTER_VERSION,
         axes: STORY_RELATIONSHIP_AXES.slice(),
         edges: {},
+        nextResultReceiptSequence: 1,
+        resultReceipts: {},
         revision: 1,
         generatedAt: Number(STORY.clock) || 0
     };
@@ -113,10 +142,73 @@ function storyRelationshipLedgerCreate() {
     }
     return ledger;
 }
+function storyRelationshipMigrate(saved) {
+    const candidate = storyRelationshipClone(saved);
+    if (!candidate || typeof candidate !== 'object') return candidate;
+    if (candidate.schemaVersion === 1) {
+        candidate.schemaVersion = STORY_RELATIONSHIP_SCHEMA_VERSION;
+        candidate.adapterVersion = STORY_RELATIONSHIP_ADAPTER_VERSION;
+        candidate.nextResultReceiptSequence = 1;
+        candidate.resultReceipts = {};
+    }
+    return candidate;
+}
+function storyRelationshipAxesSnapshot(edge) {
+    return edge ? Object.fromEntries(STORY_RELATIONSHIP_AXES.map(axis => [axis, Number(edge[axis])])) : null;
+}
+function storyRelationshipAxesEqual(left, right) {
+    return STORY_RELATIONSHIP_AXES.every(axis => Number(left && left[axis]) === Number(right && right[axis]));
+}
+function storyRelationshipResultCooldownKey(fromActorId, toActorId, family) {
+    return `${storyRelationshipId(fromActorId, toActorId)}:${String(family)}`;
+}
+function storyRelationshipActorActive(identity) {
+    return !!identity && (!identity.life || identity.life.status == null || identity.life.status === 'ACTIVE');
+}
+function storyRelationshipResultReceiptValidate(receipt, id, identities, receipts) {
+    const issues = [];
+    const path = `$.resultReceipts.${id}`;
+    const policy = receipt && STORY_RELATIONSHIP_RESULT_POLICIES[receipt.interpretationType];
+    if (!receipt || receipt.id !== id) issues.push({ code: 'RELATION_RESULT_ID', path });
+    if (!receipt || receipt.schemaVersion !== STORY_RELATIONSHIP_RESULT_RECEIPT_SCHEMA_VERSION) issues.push({ code: 'RELATION_RESULT_SCHEMA', path: `${path}.schemaVersion` });
+    if (!receipt || !Number.isInteger(receipt.sequence) || receipt.sequence < 1) issues.push({ code: 'RELATION_RESULT_SEQUENCE', path: `${path}.sequence` });
+    if (!policy || policy.sourceType !== receipt.sourceType) issues.push({ code: 'RELATION_RESULT_POLICY', path: `${path}.interpretationType` });
+    if (!receipt || !String(receipt.sourceReceiptId || '')) issues.push({ code: 'RELATION_RESULT_SOURCE', path: `${path}.sourceReceiptId` });
+    if (receipt && receipt.id !== storyRelationshipResultId(receipt.sourceType, receipt.sourceReceiptId, receipt.fromActorId, receipt.toActorId)) issues.push({ code: 'RELATION_RESULT_SOURCE_ID', path: `${path}.id` });
+    if (!receipt || receipt.fromActorId === receipt.toActorId || !identities[receipt.fromActorId] || !identities[receipt.toActorId]) issues.push({ code: 'RELATION_RESULT_DIRECTION', path });
+    if (receipt && receipt.relationshipId !== storyRelationshipId(receipt.fromActorId, receipt.toActorId)) issues.push({ code: 'RELATION_RESULT_RELATIONSHIP', path: `${path}.relationshipId` });
+    if (policy && receipt.interpretationFamily !== policy.interpretationFamily) issues.push({ code: 'RELATION_RESULT_FAMILY', path: `${path}.interpretationFamily` });
+    if (receipt && receipt.cooldownKey !== storyRelationshipResultCooldownKey(receipt.fromActorId, receipt.toActorId, receipt.interpretationFamily)) issues.push({ code: 'RELATION_RESULT_COOLDOWN_KEY', path: `${path}.cooldownKey` });
+    if (receipt && receipt.cooldownSeconds !== STORY_RELATIONSHIP_RESULT_COOLDOWN_SECONDS) issues.push({ code: 'RELATION_RESULT_COOLDOWN_SECONDS', path: `${path}.cooldownSeconds` });
+    if (receipt && receipt.physicalMutation !== false) issues.push({ code: 'RELATION_RESULT_PHYSICAL_MUTATION', path: `${path}.physicalMutation` });
+    if (receipt && receipt.decision === 'APPLIED') {
+        if (receipt.reason !== 'POLICY_APPLIED' || receipt.relationshipMutation !== true) issues.push({ code: 'RELATION_RESULT_APPLIED_STATE', path });
+        if (!policy || !storyRelationshipAxesEqual(receipt.deltas, policy.deltas)) issues.push({ code: 'RELATION_RESULT_DELTAS', path: `${path}.deltas` });
+        if (!receipt.before || !receipt.after || receipt.edgeVersionAfter !== receipt.edgeVersionBefore + 1) issues.push({ code: 'RELATION_RESULT_EDGE_VERSION', path });
+        for (const axis of STORY_RELATIONSHIP_AXES) {
+            if (storyRelationshipClamp(Number(receipt.before && receipt.before[axis]) + Number(receipt.deltas && receipt.deltas[axis])) !== Number(receipt.after && receipt.after[axis])) issues.push({ code: 'RELATION_RESULT_AXIS_MATH', path: `${path}.after.${axis}` });
+        }
+    } else if (receipt && receipt.decision === 'NO_CHANGE') {
+        if (!STORY_RELATIONSHIP_RESULT_NO_CHANGE_REASONS.includes(receipt.reason) || receipt.relationshipMutation !== false) issues.push({ code: 'RELATION_RESULT_NO_CHANGE_STATE', path });
+        if (receipt.reason !== 'COOLDOWN_ACTIVE' && (!policy.noChangeReasons || !policy.noChangeReasons.includes(receipt.reason))) issues.push({ code: 'RELATION_RESULT_NO_CHANGE_POLICY', path: `${path}.reason` });
+        if (!storyRelationshipAxesEqual(receipt.deltas, STORY_RELATIONSHIP_ZERO_DELTAS)) issues.push({ code: 'RELATION_RESULT_NO_CHANGE_DELTAS', path: `${path}.deltas` });
+        if ((receipt.before == null) !== (receipt.after == null) || (receipt.before && !storyRelationshipAxesEqual(receipt.before, receipt.after))) issues.push({ code: 'RELATION_RESULT_NO_CHANGE_AXES', path });
+        if (receipt.edgeVersionBefore !== receipt.edgeVersionAfter) issues.push({ code: 'RELATION_RESULT_NO_CHANGE_VERSION', path });
+        if (receipt.reason === 'COOLDOWN_ACTIVE') {
+            const prior = Object.values(receipts || {}).some(row => row.id !== receipt.id && row.decision === 'APPLIED'
+                && row.cooldownKey === receipt.cooldownKey && row.sequence < receipt.sequence
+                && receipt.appliedAt - row.appliedAt >= 0 && receipt.appliedAt - row.appliedAt < STORY_RELATIONSHIP_RESULT_COOLDOWN_SECONDS);
+            if (!prior) issues.push({ code: 'RELATION_RESULT_COOLDOWN_EVIDENCE', path });
+        }
+    } else issues.push({ code: 'RELATION_RESULT_DECISION', path: `${path}.decision` });
+    return issues;
+}
 function storyRelationshipValidate(candidate) {
     const issues = [];
     if (!candidate || typeof candidate !== 'object') return { ok: false, issues: [{ code: 'RELATION_LEDGER_REQUIRED', path: '$' }] };
     if (candidate.schemaVersion !== STORY_RELATIONSHIP_SCHEMA_VERSION) issues.push({ code: 'RELATION_SCHEMA_VERSION', path: '$.schemaVersion' });
+    if (candidate.adapterVersion !== STORY_RELATIONSHIP_ADAPTER_VERSION) issues.push({ code: 'RELATION_ADAPTER_VERSION', path: '$.adapterVersion' });
+    if (!Array.isArray(candidate.axes) || candidate.axes.join('|') !== STORY_RELATIONSHIP_AXES.join('|')) issues.push({ code: 'RELATION_AXES', path: '$.axes' });
     const identities = typeof storyCharacterIdentityEnsure === 'function'
         ? (storyCharacterIdentityEnsure().identities || {}) : {};
     for (const [id, edge] of Object.entries(candidate.edges || {})) {
@@ -129,6 +221,13 @@ function storyRelationshipValidate(candidate) {
             if (!Number.isInteger(value) || value < 0 || value > 10000) issues.push({ code: 'RELATION_AXIS_RANGE', path: `$.edges.${id}.${axis}` });
         }
     }
+    const receipts = candidate.resultReceipts;
+    if (!receipts || typeof receipts !== 'object' || Array.isArray(receipts)) issues.push({ code: 'RELATION_RESULT_RECEIPTS', path: '$.resultReceipts' });
+    const receiptEntries = Object.entries(receipts || {});
+    if (receiptEntries.length > STORY_RELATIONSHIP_RESULT_RECEIPT_LIMIT) issues.push({ code: 'RELATION_RESULT_LIMIT', path: '$.resultReceipts' });
+    for (const [id, receipt] of receiptEntries) issues.push(...storyRelationshipResultReceiptValidate(receipt, id, identities, receipts));
+    const maxSequence = receiptEntries.reduce((max, row) => Math.max(max, Number(row[1] && row[1].sequence) || 0), 0);
+    if (!Number.isInteger(candidate.nextResultReceiptSequence) || candidate.nextResultReceiptSequence <= maxSequence) issues.push({ code: 'RELATION_RESULT_NEXT_SEQUENCE', path: '$.nextResultReceiptSequence' });
     return { ok: issues.length === 0, issues };
 }
 function storyRelationshipReset() {
@@ -148,7 +247,7 @@ function storyRelationshipSnapshot() {
 function storyRelationshipForSave() { return storyRelationshipSnapshot(); }
 function storyRelationshipRestore(saved) {
     if (!storyRelationshipEnabled()) { STORY.characterRelationships = null; return null; }
-    const candidate = storyRelationshipClone(saved);
+    const candidate = storyRelationshipMigrate(saved);
     if (candidate && storyRelationshipValidate(candidate).ok) STORY.characterRelationships = candidate;
     else STORY.characterRelationships = storyRelationshipLedgerCreate();
     return storyRelationshipSnapshot();
@@ -212,6 +311,111 @@ function storyRelationshipAdjust(fromActorId, toActorId, deltas, meta) {
         });
     }
     return { applied: true, edge: storyRelationshipClone(edge), debtMemory };
+}
+function storyRelationshipResultReceiptGet(receiptId) {
+    const ledger = storyRelationshipEnsure();
+    const receipt = ledger && ledger.resultReceipts && ledger.resultReceipts[String(receiptId)];
+    return receipt ? storyRelationshipClone(receipt) : null;
+}
+function storyRelationshipResultReceiptList(filter) {
+    const ledger = storyRelationshipEnsure();
+    return Object.values(ledger && ledger.resultReceipts || {})
+        .filter(receipt => !filter || (
+            (filter.sourceType == null || receipt.sourceType === filter.sourceType)
+            && (filter.sourceReceiptId == null || receipt.sourceReceiptId === String(filter.sourceReceiptId))
+            && (filter.fromActorId == null || receipt.fromActorId === filter.fromActorId)
+            && (filter.toActorId == null || receipt.toActorId === filter.toActorId)
+        ))
+        .sort((left, right) => left.sequence - right.sequence)
+        .map(storyRelationshipClone);
+}
+function storyRelationshipApplyResult(input) {
+    const ledger = storyRelationshipEnsure();
+    const sourceType = String(input && input.sourceType || '');
+    const sourceReceiptId = String(input && input.sourceReceiptId || '');
+    const fromActorId = String(input && input.fromActorId || '');
+    const toActorId = String(input && input.toActorId || '');
+    const interpretationType = String(input && input.interpretationType || '');
+    const policy = STORY_RELATIONSHIP_RESULT_POLICIES[interpretationType];
+    if (!ledger || !sourceReceiptId || !policy || policy.sourceType !== sourceType) {
+        return { applied: false, reason: 'RELATION_RESULT_POLICY_REJECTED' };
+    }
+    const identityLedger = typeof storyCharacterIdentityEnsure === 'function'
+        ? storyCharacterIdentityEnsure() : null;
+    const identities = identityLedger && identityLedger.identities || {};
+    if (fromActorId === toActorId || !storyRelationshipActorActive(identities[fromActorId])
+        || !storyRelationshipActorActive(identities[toActorId])) {
+        return { applied: false, reason: 'RELATION_RESULT_ACTOR_REJECTED' };
+    }
+    const id = storyRelationshipResultId(sourceType, sourceReceiptId, fromActorId, toActorId);
+    const existing = ledger.resultReceipts[id];
+    if (existing) return { applied: existing.decision === 'APPLIED', duplicate: true, receipt: storyRelationshipClone(existing) };
+    if (Object.keys(ledger.resultReceipts).length >= STORY_RELATIONSHIP_RESULT_RECEIPT_LIMIT) {
+        return { applied: false, reason: 'RELATION_RESULT_RECEIPT_LIMIT' };
+    }
+    const beforeLedger = storyRelationshipClone(ledger);
+    const appliedAt = Number(STORY.clock) || 0;
+    const cooldownKey = storyRelationshipResultCooldownKey(fromActorId, toActorId, policy.interpretationFamily);
+    const requestedNoChangeReason = input && input.noChangeReason != null ? String(input.noChangeReason) : null;
+    if ((requestedNoChangeReason
+        && (!policy.noChangeReasons || !policy.noChangeReasons.includes(requestedNoChangeReason)))
+        || requestedNoChangeReason === 'COOLDOWN_ACTIVE') {
+        return { applied: false, reason: 'RELATION_RESULT_NO_CHANGE_REJECTED' };
+    }
+    const cooldownReceipt = Object.values(ledger.resultReceipts).find(receipt => receipt.decision === 'APPLIED'
+        && receipt.cooldownKey === cooldownKey && appliedAt - receipt.appliedAt >= 0
+        && appliedAt - receipt.appliedAt < STORY_RELATIONSHIP_RESULT_COOLDOWN_SECONDS);
+    const noChangeReason = requestedNoChangeReason || (cooldownReceipt ? 'COOLDOWN_ACTIVE' : null);
+    let edgeBefore = ledger.edges[storyRelationshipId(fromActorId, toActorId)] || null;
+    if (!noChangeReason && !edgeBefore) edgeBefore = storyRelationshipEnsureEdge(fromActorId, toActorId, interpretationType);
+    const before = storyRelationshipAxesSnapshot(edgeBefore);
+    const edgeVersionBefore = edgeBefore ? edgeBefore.version : null;
+    let after = before;
+    let edgeVersionAfter = edgeVersionBefore;
+    if (!noChangeReason) {
+        const adjusted = storyRelationshipAdjust(fromActorId, toActorId, policy.deltas, {
+            source: 'relationship.result', sourceReceiptId: id,
+            reason: interpretationType, recordDebtMemory: false
+        });
+        if (!adjusted.applied) {
+            STORY.characterRelationships = beforeLedger;
+            return { applied: false, reason: adjusted.reason || 'RELATION_RESULT_ADJUST_FAILED' };
+        }
+        after = storyRelationshipAxesSnapshot(adjusted.edge);
+        edgeVersionAfter = adjusted.edge.version;
+    }
+    const receipt = {
+        schemaVersion: STORY_RELATIONSHIP_RESULT_RECEIPT_SCHEMA_VERSION,
+        id,
+        sequence: ledger.nextResultReceiptSequence++,
+        sourceType,
+        sourceReceiptId,
+        fromActorId,
+        toActorId,
+        relationshipId: storyRelationshipId(fromActorId, toActorId),
+        interpretationType,
+        interpretationFamily: policy.interpretationFamily,
+        decision: noChangeReason ? 'NO_CHANGE' : 'APPLIED',
+        reason: noChangeReason || 'POLICY_APPLIED',
+        deltas: storyRelationshipClone(noChangeReason ? STORY_RELATIONSHIP_ZERO_DELTAS : policy.deltas),
+        before,
+        after,
+        edgeVersionBefore,
+        edgeVersionAfter,
+        cooldownKey,
+        cooldownSeconds: STORY_RELATIONSHIP_RESULT_COOLDOWN_SECONDS,
+        appliedAt,
+        relationshipMutation: !noChangeReason,
+        physicalMutation: false
+    };
+    ledger.resultReceipts[id] = receipt;
+    ledger.revision++;
+    const validation = storyRelationshipValidate(ledger);
+    if (!validation.ok) {
+        STORY.characterRelationships = beforeLedger;
+        return { applied: false, reason: 'RELATION_RESULT_VALIDATION_FAILED', issues: validation.issues };
+    }
+    return { applied: !noChangeReason, duplicate: false, receipt: storyRelationshipClone(receipt) };
 }
 
 const STORY_RELATIONSHIP_ORIGIN_TAG_DELTAS = Object.freeze({

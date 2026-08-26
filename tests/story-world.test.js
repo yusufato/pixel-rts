@@ -3977,6 +3977,41 @@ function run() {
         'Faz 38.8: yorum üretmek fiziksel dünyayı değiştirmemeli.');
     assert.equal(relationshipInterpretationProbe.onlyFixtureMemoriesAdded, true,
         'Faz 38.8: salt-okunur yorum fazladan hafıza kaydı üretmemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.keptApplied, true,
+        'Faz 38.13: tamamlanan görev yalnız karakterden hedefe kapalı politika deltasını uygulamalı.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.clampApplied, true,
+        'Faz 38.13: sonuç deltası ilişki eksenlerinin 0–10000 sınırını aşmamalı.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.duplicateStable, true,
+        'Faz 38.13: aynı kaynak ve yön ikinci kez ilişkiyi değiştirmemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.cooldownNoChange, true,
+        'Faz 38.13: aynı yorum ailesindeki yeni kaynak 300 saniyelik soğumada NO_CHANGE olmalı.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.brokenApplied, true,
+        'Faz 38.13: bozulan görev sözü olumsuz görev ailesinde uygulanmalı.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.rejectedMeetingNeutral, true,
+        'Faz 38.13: reddedilen toplantı açık fiş üretirken ilişki cezası vermemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.taskMeetingIndependent, true,
+        'Faz 38.13: görev sonucu toplantı sonucu ailesini soğutamamalı.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.meetingCooldownNoChange, true,
+        'Faz 38.13: toplantı başarı ailesi kendi tekrarını soğutmalı.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.invalidInputsRejected, true,
+        'Faz 38.13: kaynak-politika uyuşmazlığı ve kanonik olmayan aktör kapalı reddedilmeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.directional, true,
+        'Faz 38.13: yönlü sonuç ters ilişki kenarını değiştirmemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.receiptCountExact, true,
+        'Faz 38.13: duplicate ve geçersiz girişler yeni sonuç fişi üretmemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.tamperRejected, true,
+        'Faz 38.13: delta veya yön tahrifi defter doğrulamasından geçmemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.physicalWorldNeutral, true,
+        'Faz 38.13: ilişki sonucu fiziksel dünya durumunu değiştirmemeli.');
+    assert.equal(relationshipInterpretationProbe.resultReceipts.validation.ok, true,
+        'Faz 38.13: kaynak-bağlı ilişki sonuç fişleri defter sözleşmesini geçmeli.');
+    assert.equal(relationshipInterpretationProbe.restored.relationshipExact, true,
+        'Faz 38.13: ilişki sonuç fişleri save-load sırasında birebir korunmalı.');
+    assert.equal(relationshipInterpretationProbe.restored.relationshipValidation.ok, true,
+        'Faz 38.13: geri yüklenen ilişki sonuç defteri geçerli kalmalı.');
+    assert.deepEqual(relationshipInterpretationProbe.legacyRelationshipMigration,
+        { valid: true, preserved: true, receiptsEmpty: true },
+        'Faz 38.13: şema-1 defteri kayıpsız göçmeli ve geçmişe dönük sonuç uydurmamalı.');
     assert.equal(relationshipInterpretationProbe.disabled.code, 'FEATURE_DISABLED',
         'Faz 38.8: özellik bayrağı kapalıyken yorum güvenli biçimde kapanmalı.');
 
