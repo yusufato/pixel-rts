@@ -5262,6 +5262,10 @@ function storyConversationSessionValidateLedger(candidate) {
             }
             if (note.kind !== 'CHARACTER_REPLY') return true;
             const parent = privateNotes.find(row => row && row.id === note.replyToPrivateNoteId);
+            const publicTurnIdsAtReply = (meeting.turns || [])
+                .slice(0, Number(note.publicTurnCountAtReply) || 0)
+                .filter(turn => turn && turn.visibility === 'MEETING_PUBLIC')
+                .map(turn => turn.id);
             if (!parent || parent.kind !== 'PLAYER_NOTE' || parent.sequence >= note.sequence
                 || note.authorActorId !== parent.recipientActorId
                 || note.recipientActorId !== parent.authorActorId
@@ -5277,6 +5281,9 @@ function storyConversationSessionValidateLedger(candidate) {
                 || !note.sourceRefs.includes(parent.id)
                 || !note.sourceRefs.includes(meeting.agendaItems[0].id)
                 || note.sourceRefs.some(ref => privateNoteIds.includes(ref) && ref !== parent.id)
+                || note.sourceRefs.some(ref =>
+                    publicTurnIds.includes(ref) && !publicTurnIdsAtReply.includes(ref))
+                || publicTurnIdsAtReply.some(ref => !note.sourceRefs.includes(ref))
                 || (note.grounding != null && (!note.grounding.beliefId
                     || !note.grounding.worldFactId
                     || !note.sourceRefs.includes(note.grounding.beliefId)
@@ -5285,6 +5292,11 @@ function storyConversationSessionValidateLedger(candidate) {
                 || (note.stance != null && (note.stance.schemaVersion !== 1
                     || !['SUPPORT', 'LEAN_SUPPORT', 'UNDECIDED', 'LEAN_OPPOSE', 'OPPOSE']
                         .includes(note.stance.direction)
+                    || !Number.isInteger(note.stance.scoreBps)
+                    || note.stance.scoreBps < -10000 || note.stance.scoreBps > 10000
+                    || !Number.isInteger(note.stance.confidenceBps)
+                    || note.stance.confidenceBps < 0 || note.stance.confidenceBps > 10000
+                    || !Array.isArray(note.stance.publicReasonCodes)
                     || !Array.isArray(note.stance.sourceRefs)
                     || note.stance.sourceRefs.some(ref => !note.sourceRefs.includes(ref))
                     || note.stance.rawPersonalityAxesExposed !== false

@@ -250,7 +250,12 @@ try {
     assert.equal(privateReplyResult.privateReply.knowledgePolicy.rawWorldRead, false);
     assert.ok(privateReplyResult.privateReply.sourceRefs.includes(privateNoteResult.privateNote.id));
     assert.ok(!privateReplyResult.privateReply.sourceRefs.includes(privateTrap.privateNote.id));
+    assert.ok(!privateReplyResult.privateReply.sourceRefs.includes(privateBeliefId));
+    assert.ok(!privateReplyResult.privateReply.sourceRefs.includes(privateFactId));
     assert.doesNotMatch(privateReplyResult.privateReply.text, /UCUNCU_TARAF_GIZLI_TUZAK/);
+    assert.doesNotMatch(privateReplyResult.privateReply.text, /Bu özel plan toplantıda açıklanmamalı/i);
+    assert.ok(!privateReplyResult.privateReply.grounding
+        || ['PUBLIC', 'INSTITUTIONAL'].includes(privateReplyResult.privateReply.grounding.visibility));
     const meetingAfterPrivateReply = runtime.api.conversationMeetingGet(meeting.id);
     assert.equal(meetingAfterPrivateReply.turns.length, publicTurnsBeforePrivateReply);
     assert.equal(meetingAfterPrivateReply.currentSpeakerIndex, speakerIndexBeforePrivateReply);
@@ -791,6 +796,43 @@ try {
     uninvolvedVisibility.visiblePrivateNoteIds.push(note.id);
     assert.ok(runtime.api.conversationSessionValidate(forgedPrivateVisibility).issues
         .some(row => row.code === 'MEETING_VISIBILITY_MATRIX'));
+    const forgedReplyParent = JSON.parse(JSON.stringify(snapshot));
+    const forgedReplyRows = forgedReplyParent.meetingCases[0].privateNotes
+        .filter(row => row.kind === 'CHARACTER_REPLY');
+    forgedReplyRows[0].replyToPrivateNoteId = forgedReplyRows[1].id;
+    assert.ok(runtime.api.conversationSessionValidate(forgedReplyParent).issues
+        .some(row => row.code === 'MEETING_PRIVATE_NOTES'));
+    const forgedSecondReply = JSON.parse(JSON.stringify(snapshot));
+    const forgedSecondMeeting = forgedSecondReply.meetingCases[0];
+    const originalReply = forgedSecondMeeting.privateNotes.find(row =>
+        row.kind === 'CHARACTER_REPLY');
+    const duplicateReply = JSON.parse(JSON.stringify(originalReply));
+    duplicateReply.sequence = forgedSecondMeeting.privateNotes.length + 1;
+    duplicateReply.id = `${forgedSecondMeeting.id}:private-note:${duplicateReply.sequence}`;
+    forgedSecondMeeting.privateNotes.push(duplicateReply);
+    for (const row of forgedSecondMeeting.visibilityMatrix) {
+        if (row.actorId === duplicateReply.authorActorId
+            || row.actorId === duplicateReply.recipientActorId) {
+            row.visiblePrivateNoteIds.push(duplicateReply.id);
+        }
+    }
+    assert.ok(runtime.api.conversationSessionValidate(forgedSecondReply).issues
+        .some(row => row.code === 'MEETING_PRIVATE_NOTES'));
+    const forgedFutureTurnSource = JSON.parse(JSON.stringify(snapshot));
+    const forgedFutureMeeting = forgedFutureTurnSource.meetingCases[0];
+    const forgedFutureReply = forgedFutureMeeting.privateNotes.find(row =>
+        row.kind === 'CHARACTER_REPLY');
+    const futureTurn = forgedFutureMeeting.turns.find(row =>
+        row.sequence > forgedFutureReply.publicTurnCountAtReply);
+    forgedFutureReply.sourceRefs.push(futureTurn.id);
+    assert.ok(runtime.api.conversationSessionValidate(forgedFutureTurnSource).issues
+        .some(row => row.code === 'MEETING_PRIVATE_NOTES'));
+    const forgedPrivateReplyGrounding = JSON.parse(JSON.stringify(snapshot));
+    const privateGroundingReply = forgedPrivateReplyGrounding.meetingCases[0].privateNotes
+        .find(row => row.kind === 'CHARACTER_REPLY' && row.grounding);
+    privateGroundingReply.grounding.visibility = 'PRIVATE';
+    assert.ok(runtime.api.conversationSessionValidate(forgedPrivateReplyGrounding).issues
+        .some(row => row.code === 'MEETING_PRIVATE_NOTES'));
     assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 6);
     const restoredSnapshot = runtime.api.conversationSessionSnapshot();
     const restoreDifference = firstDifference(restoredSnapshot, snapshot);
@@ -815,6 +857,41 @@ try {
     assert.ok(migrated.sessions.every(session => session.conversationCase
         && session.conversationCase.modeHistory.length === 1));
     assert.equal(runtime.api.conversationSessionValidate(migrated).ok, true);
+
+    const schemaFiveLedger = JSON.parse(JSON.stringify(snapshot));
+    schemaFiveLedger.schemaVersion = 5;
+    schemaFiveLedger.adapterVersion = 'story-conversation-session-ledger-5';
+    for (const session of schemaFiveLedger.sessions) session.schemaVersion = 5;
+    for (const oldMeeting of schemaFiveLedger.meetingCases) {
+        oldMeeting.privateNotes = oldMeeting.privateNotes
+            .filter(row => row.kind === 'PLAYER_NOTE')
+            .map((row, index) => {
+                const legacyNote = {
+                    schemaVersion: 1, id: `${oldMeeting.id}:private-note:${index + 1}`,
+                    sequence: index + 1, authorActorId: row.authorActorId,
+                    recipientActorId: row.recipientActorId, text: row.text,
+                    visibility: row.visibility, sourceTurnId: null,
+                    createdAt: row.createdAt, worldMutation: false
+                };
+                return legacyNote;
+            });
+        for (const visibility of oldMeeting.visibilityMatrix) {
+            visibility.visiblePrivateNoteIds = oldMeeting.privateNotes.filter(note =>
+                note.authorActorId === visibility.actorId
+                || note.recipientActorId === visibility.actorId).map(note => note.id);
+        }
+    }
+    const migratedSchemaFive = runtime.api.conversationSessionMigrate(schemaFiveLedger);
+    assert.equal(migratedSchemaFive.schemaVersion, 6);
+    assert.ok(migratedSchemaFive.meetingCases.every(row =>
+        row.privateNotes.every(note => note.schemaVersion === 2
+            && note.kind === 'PLAYER_NOTE'
+            && note.replyToPrivateNoteId === null
+            && note.sourceRefs.length === 0)));
+    assert.equal(migratedSchemaFive.meetingCases
+        .flatMap(row => row.privateNotes)
+        .filter(note => note.kind === 'CHARACTER_REPLY').length, 0);
+    assert.equal(runtime.api.conversationSessionValidate(migratedSchemaFive).ok, true);
 
     const preVersionLedger = JSON.parse(JSON.stringify(openMeetingSnapshot));
     preVersionLedger.meetingCases[0].votes = [];
@@ -845,6 +922,9 @@ try {
         motionVersions: runtime.api.conversationMeetingGet(meeting.id).motions[0].versions.length,
         meetingChairInstitution: meeting.chair.institutionType,
         modeHistory: runtime.api.conversationSessionCaseGet(sessionId).modeHistory.length,
+        privateNotes: runtime.api.conversationMeetingGet(meeting.id).privateNotes.length,
+        privateReplies: runtime.api.conversationMeetingGet(meeting.id).privateNotes
+            .filter(row => row.kind === 'CHARACTER_REPLY').length,
         migratedSessions: migrated.sessions.length
     })}\n`);
 } finally {
