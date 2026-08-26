@@ -205,3 +205,18 @@ alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable o
   veya paket/lisans kaydı doğrulanamıyorsa runtime seçimi reddedilir.
 - Mevcut deterministik fallback, save/load ya da mekanik karma değişirse plan
   `Landed` yapılmaz.
+
+## 9) Yürütme kaydı
+
+### 27 Ağustos 2026 — Adım 1, insan etiketleme kuyruğu hazır
+
+- 46 benzersiz gözlenmiş oyuncu turu ve 154 model üretimi aday, toplam 200
+  benzersiz cümle olarak sürümlü corpus'a alındı. Model üretimi satırlar yalnız
+  adaydır; insan kararı olmadan gold değildir.
+- 160 konuşmacı/şablon ailesi aynı anda birden fazla split'e düşmeyecek biçimde
+  127 prototip, 27 kalibrasyon ve 46 kör test satırına ayrıldı.
+- İnceleme ekranı mevcut deterministik önerinin bütün `SemanticFrameV2`
+  eksenlerini ve speech-act değerini insana düzelttirir. Eksik etiketli kabul
+  gold sayılmaz.
+- Güncel kapı: `0/200` prototip gold, `0/1000` ürün gold. Adım 1 ve model
+  spike'ı, 200 insan-onaylı kayıt tamamlanana kadar açık kalır.

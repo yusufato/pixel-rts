@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const review = require('../tools/story-semantic-review-server');
+const benchmark = require('../tools/story-semantic-intent-benchmark');
+const corpus = require('../tools/story-semantic-intent-corpus.json');
 
 const queue = { rows: [{ id: 'semantic-teacher:0001' }] };
 const axes = ['communicativeFunction', 'surfaceForm', 'predicate'];
@@ -14,4 +16,56 @@ assert.equal(review.validateReview({ id: 'semantic-teacher:9999', verdict: 'REJE
 assert.equal(review.validateReview({ id: 'semantic-teacher:0001', verdict: 'EDIT',
     correctedUtterance: '', approvedAxes: axes }, queue).code, 'EDIT_TEXT_REQUIRED');
 
-console.log('Story semantic review server test passed.');
+const corpusValidation = benchmark.validateCorpus(corpus);
+assert.equal(corpusValidation.ok, true, corpusValidation.issues.join(', '));
+assert.equal(corpusValidation.count, 200);
+assert.equal(corpusValidation.uniqueTexts, 200);
+
+const candidate = corpus.candidates[0];
+const labels = Object.fromEntries(Object.entries(benchmark.LABEL_VALUES)
+    .map(([axis, values]) => [axis, values[0]]));
+labels.outOfDomain = false;
+labels.secondarySpeechActs = [];
+const corpusQueue = review.buildQueue({
+    teacher: { results: [] },
+    quality: { results: [] },
+    reviews: { reviews: [] },
+    corpus: { candidates: [candidate],
+        gates: { prototypeHumanGold: 200, productHumanGold: 1000 } },
+    proposals: new Map([[candidate.id, {
+        labels, confidenceBps: 5000, source: 'TEST_PROPOSAL'
+    }]])
+});
+assert.equal(corpusQueue.rows.length, 1);
+assert.equal(corpusQueue.rows[0].annotationMode, 'FULL_LABEL_V1');
+assert.equal(corpusQueue.status.humanGold, 0);
+assert.equal(corpusQueue.status.prototype.pass, false);
+
+const fullAccepted = review.validateReview({
+    id: candidate.id, verdict: 'ACCEPT', labels, notes: 'İnsan tarafından kontrol edildi.'
+}, corpusQueue);
+assert.equal(fullAccepted.ok, true);
+assert.equal(fullAccepted.value.annotationContractVersion, 1);
+assert.equal(fullAccepted.value.reviewer, 'LOCAL_HUMAN');
+assert.equal(benchmark.isHumanGoldReview(fullAccepted.value, new Set([candidate.id])), true);
+
+const incomplete = Object.assign({}, labels);
+delete incomplete.predicate;
+assert.equal(review.validateReview({
+    id: candidate.id, verdict: 'ACCEPT', labels: incomplete
+}, corpusQueue).code, 'FULL_LABELS_REQUIRED');
+assert.equal(review.validateReview({
+    id: candidate.id, verdict: 'REJECT', notes: 'Doğal veya tek anlamlı değil.'
+}, corpusQueue).ok, true);
+
+const inventory = benchmark.buildBenchmark({
+    corpus, reviews: { reviews: [] }, includePredictions: false
+});
+assert.equal(inventory.ok, true);
+assert.equal(inventory.inventory.candidates, 200);
+assert.equal(inventory.inventory.humanGold, 0);
+assert.equal(inventory.gates.prototype.pass, false);
+assert.equal(inventory.gates.product.pass, false);
+
+console.log(JSON.stringify({ ok: true, candidates: corpusValidation.count,
+    families: corpusValidation.familyCount, prototypeGold: inventory.inventory.humanGold }));

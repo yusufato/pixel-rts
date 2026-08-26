@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const semanticBenchmark = require('./story-semantic-intent-benchmark');
 
 const ROOT = path.resolve(__dirname, '..');
 const HOST = '127.0.0.1';
@@ -11,10 +12,13 @@ const HTML_PATH = path.join(__dirname, 'story-semantic-review.html');
 const TEACHER_PATH = path.join(ROOT, 'qa-runtime', 'story-conversation-semantic-teacher-coverage.json');
 const QUALITY_PATH = path.join(ROOT, 'qa-runtime', 'story-conversation-semantic-quality.json');
 const REVIEWS_PATH = path.join(ROOT, 'qa-runtime', 'story-conversation-semantic-human-reviews.json');
+const CORPUS_PATH = path.join(__dirname, 'story-semantic-intent-corpus.json');
 const AXES = Object.freeze(['communicativeFunction', 'surfaceForm', 'predicate', 'target',
     'polarity', 'temporality', 'epistemicStatus', 'continuity', 'requestedOutcome']);
 const VERDICTS = Object.freeze(['ACCEPT', 'REJECT', 'EDIT']);
 const UI_CONTRACT_VERSION = 2;
+const ANNOTATION_CONTRACT_VERSION = 1;
+let baselineProposalCache = null;
 
 function readJson(filePath, fallback) {
     try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_) { return fallback; }
@@ -27,14 +31,26 @@ function atomicWrite(filePath, value) {
     fs.renameSync(temporaryPath, filePath);
 }
 
-function buildQueue() {
-    const teacher = readJson(TEACHER_PATH, { results: [] });
-    const quality = readJson(QUALITY_PATH, { results: [] });
-    const reviews = readJson(REVIEWS_PATH, { reviews: [] });
+function baselineProposals(corpus, supplied) {
+    if (supplied instanceof Map) return supplied;
+    if (!baselineProposalCache) {
+        baselineProposalCache = semanticBenchmark.buildBaselineProposals(corpus.candidates || []);
+    }
+    return baselineProposalCache;
+}
+
+function buildQueue(options) {
+    options = options && typeof options === 'object' ? options : {};
+    const teacher = options.teacher || readJson(TEACHER_PATH, { results: [] });
+    const quality = options.quality || readJson(QUALITY_PATH, { results: [] });
+    const reviews = options.reviews || readJson(REVIEWS_PATH, { reviews: [] });
+    const corpus = options.corpus || readJson(CORPUS_PATH, { candidates: [], gates: {} });
+    const reviewRows = Array.isArray(reviews) ? reviews : reviews.reviews || [];
     const qualityById = new Map((quality.results || []).map(row => [row.id, row]));
-    const reviewById = new Map((reviews.reviews || []).map(row => [row.id, row]));
-    const rows = (teacher.results || []).map(row => ({
+    const reviewById = new Map(reviewRows.map(row => [row.id, row]));
+    const teacherRows = (teacher.results || []).map(row => ({
         id: row.id, utterance: row.utterance, target: row.target,
+        dataset: 'LEGACY_TEACHER', annotationMode: 'AXIS_APPROVAL_V2',
         semanticCoreAccepted: !!row.accepted, exactAccepted: !!row.exactAccepted,
         verifiedAxes: row.verifiedAxes || [], maskedAxes: row.maskedAxes || [],
         evidenceSpans: row.evidenceSpans || [], quality: qualityById.get(row.id) || null,
@@ -43,18 +59,51 @@ function buildQueue() {
         legacyReview: reviewById.get(row.id) && reviewById.get(row.id).uiContractVersion !== UI_CONTRACT_VERSION
             ? reviewById.get(row.id) : null
     }));
-    return { schemaVersion: 1, axes: AXES.slice(), rows,
-        status: { total: rows.length, reviewed: rows.filter(row => row.review).length,
-            accepted: rows.filter(row => row.review && ['ACCEPT', 'EDIT'].includes(row.review.verdict)).length,
-            rejected: rows.filter(row => row.review && row.review.verdict === 'REJECT').length } };
+    const proposals = baselineProposals(corpus, options.proposals);
+    const corpusRows = (corpus.candidates || []).map(row => {
+        const proposal = proposals.get(row.id) || null;
+        const review = reviewById.get(row.id);
+        return {
+            id: row.id, utterance: row.text, history: row.history || [],
+            dataset: 'SEMANTIC_INTENT_CORPUS', annotationMode: 'FULL_LABEL_V1',
+            sourceType: row.sourceType, sourceId: row.sourceId,
+            familyId: row.familyId, speakerFamily: row.speakerFamily, split: row.split,
+            proposal: proposal && proposal.labels || null,
+            proposalConfidenceBps: proposal && proposal.confidenceBps || 0,
+            proposalSource: proposal && proposal.source || null,
+            review: review && review.annotationContractVersion === ANNOTATION_CONTRACT_VERSION
+                ? review : null
+        };
+    });
+    const rows = corpusRows.concat(teacherRows);
+    const candidateIds = new Set(corpusRows.map(row => row.id));
+    const humanGold = reviewRows.filter(row =>
+        semanticBenchmark.isHumanGoldReview(row, candidateIds)).length;
+    const prototypeThreshold = Number(corpus.gates && corpus.gates.prototypeHumanGold) || 200;
+    const productThreshold = Number(corpus.gates && corpus.gates.productHumanGold) || 1000;
+    return { schemaVersion: 2, axes: AXES.slice(),
+        labelValues: semanticBenchmark.LABEL_VALUES, rows,
+        status: {
+            total: rows.length,
+            corpusTotal: corpusRows.length,
+            reviewed: rows.filter(row => row.review).length,
+            accepted: rows.filter(row => row.review
+                && ['ACCEPT', 'EDIT'].includes(row.review.verdict)).length,
+            rejected: rows.filter(row => row.review && row.review.verdict === 'REJECT').length,
+            humanGold,
+            prototype: { threshold: prototypeThreshold, pass: humanGold >= prototypeThreshold },
+            product: { threshold: productThreshold, pass: humanGold >= productThreshold }
+        } };
 }
 
 function validateReview(input, queue) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return { ok: false, code: 'OBJECT_REQUIRED' };
-    const allowed = new Set(['id', 'verdict', 'correctedUtterance', 'approvedAxes', 'notes']);
+    const allowed = new Set(['id', 'verdict', 'correctedUtterance', 'approvedAxes',
+        'labels', 'notes']);
     if (Object.keys(input).some(key => !allowed.has(key))) return { ok: false, code: 'UNKNOWN_FIELD' };
     const id = String(input.id || '');
-    if (!queue.rows.some(row => row.id === id)) return { ok: false, code: 'UNKNOWN_ID' };
+    const queueRow = queue.rows.find(row => row.id === id);
+    if (!queueRow) return { ok: false, code: 'UNKNOWN_ID' };
     const verdict = String(input.verdict || '');
     if (!VERDICTS.includes(verdict)) return { ok: false, code: 'INVALID_VERDICT' };
     const correctedUtterance = String(input.correctedUtterance || '').trim();
@@ -64,11 +113,30 @@ function validateReview(input, queue) {
     const approvedAxes = Array.isArray(input.approvedAxes)
         ? [...new Set(input.approvedAxes.map(String))] : [];
     if (approvedAxes.some(axis => !AXES.includes(axis))) return { ok: false, code: 'INVALID_AXIS' };
+    const notes = String(input.notes || '').trim().slice(0, 500);
+    if (queueRow.annotationMode === 'FULL_LABEL_V1') {
+        const labelValidation = semanticBenchmark.validateLabels(input.labels);
+        if (['ACCEPT', 'EDIT'].includes(verdict) && !labelValidation.ok) {
+            return { ok: false, code: 'FULL_LABELS_REQUIRED',
+                issues: labelValidation.issues };
+        }
+        if (input.labels != null && !labelValidation.ok) {
+            return { ok: false, code: 'INVALID_LABELS', issues: labelValidation.issues };
+        }
+        return { ok: true, value: {
+            id, verdict, annotationContractVersion: ANNOTATION_CONTRACT_VERSION,
+            correctedUtterance: verdict === 'EDIT' ? correctedUtterance : null,
+            labels: labelValidation.ok ? Object.assign({}, input.labels, {
+                secondarySpeechActs: (input.labels.secondarySpeechActs || []).slice()
+            }) : null,
+            notes, reviewedAt: new Date().toISOString(), reviewer: 'LOCAL_HUMAN'
+        } };
+    }
     if (['ACCEPT', 'EDIT'].includes(verdict)
-        && !['communicativeFunction', 'surfaceForm', 'predicate'].every(axis => approvedAxes.includes(axis))) {
+        && !['communicativeFunction', 'surfaceForm', 'predicate']
+            .every(axis => approvedAxes.includes(axis))) {
         return { ok: false, code: 'CORE_AXES_REQUIRED' };
     }
-    const notes = String(input.notes || '').trim().slice(0, 500);
     return { ok: true, value: { id, verdict, uiContractVersion: UI_CONTRACT_VERSION,
         correctedUtterance: verdict === 'EDIT' ? correctedUtterance : null,
         approvedAxes, notes, reviewedAt: new Date().toISOString(), reviewer: 'LOCAL_HUMAN' } };
@@ -141,4 +209,7 @@ if (require.main === module) {
     });
 }
 
-module.exports = { AXES, VERDICTS, UI_CONTRACT_VERSION, buildQueue, validateReview, saveReview, createServer };
+module.exports = {
+    AXES, VERDICTS, UI_CONTRACT_VERSION, ANNOTATION_CONTRACT_VERSION,
+    buildQueue, validateReview, saveReview, createServer
+};

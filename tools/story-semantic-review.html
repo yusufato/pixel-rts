@@ -2,27 +2,92 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pixel RTS — Semantik İnceleme</title>
+<title>Pixel RTS — Türkçe Anlam İncelemesi</title>
 <style>
-:root{color-scheme:dark;--bg:#06110c;--panel:#0b1a12;--line:#29462e;--text:#d8e8dc;--muted:#7d9b84;--gold:#e7b91f;--green:#55e887;--red:#ff6574;--blue:#73b7ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Consolas,monospace}header{position:sticky;top:0;z-index:2;background:#07120deF;border-bottom:1px solid var(--line);padding:16px 24px;display:flex;justify-content:space-between;gap:20px}h1{font-size:18px;margin:0;color:var(--gold);letter-spacing:2px}.status{color:var(--muted)}main{max-width:1120px;margin:24px auto;padding:0 20px}.card{border:1px solid var(--line);background:var(--panel);padding:22px}.id{color:var(--gold);font-size:12px}.utterance{font-size:24px;margin:18px 0;padding:18px;border-left:4px solid var(--blue);background:#07140f}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.box{border:1px solid var(--line);padding:14px}.box h2{font-size:12px;color:var(--gold);letter-spacing:1px;margin:0 0 10px}.tag{display:inline-block;border:1px solid var(--line);padding:5px 8px;margin:3px;color:var(--muted)}.tag.ok{border-color:#2f8050;color:var(--green)}.tag.bad{border-color:#7f3039;color:var(--red)}.axes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}.axes label{border:1px solid var(--line);padding:9px;cursor:pointer}.axes input{margin-right:8px}textarea{width:100%;min-height:76px;background:#06110c;color:var(--text);border:1px solid var(--line);padding:12px;font:inherit}.edit{display:none}.actions{display:flex;gap:10px;margin-top:14px}.actions button{flex:1;padding:13px;border:1px solid var(--line);background:#122117;color:var(--text);font:700 14px Consolas;cursor:pointer}.actions .accept{border-color:#2f8050}.actions .reject{border-color:#7f3039}.actions .editBtn{border-color:#806a2f}.nav{display:flex;justify-content:space-between;margin-top:16px}button:disabled{opacity:.35}.notice{min-height:24px;margin-top:12px;color:var(--gold)}@media(max-width:760px){.grid{grid-template-columns:1fr}.axes{grid-template-columns:1fr}.utterance{font-size:19px}}
+:root{color-scheme:dark;--bg:#06110c;--panel:#0b1a12;--line:#29462e;--text:#d8e8dc;--muted:#8aa18f;--gold:#e7b91f;--green:#55e887;--red:#ff6574;--blue:#73b7ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Consolas,monospace}header{position:sticky;top:0;z-index:2;background:#07120df2;border-bottom:1px solid var(--line);padding:14px 22px;display:flex;justify-content:space-between;gap:18px}h1{font-size:18px;margin:0;color:var(--gold);letter-spacing:2px}.muted,.status{color:var(--muted)}main{max-width:1220px;margin:20px auto;padding:0 18px}.panel{border:1px solid var(--line);background:var(--panel);padding:18px;margin-bottom:14px}.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.filters label,.field label{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}select,textarea,button{background:#07140f;color:var(--text);border:1px solid var(--line);font:inherit}select,button{padding:9px}textarea{width:100%;min-height:70px;padding:10px}.id{color:var(--gold);font-size:12px}.utterance{font-size:23px;margin:14px 0;padding:16px;border-left:4px solid var(--blue);background:#07140f}.context{white-space:pre-wrap;color:var(--muted);font-size:13px;max-height:160px;overflow:auto}.meta{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.tag{border:1px solid var(--line);padding:4px 7px;color:var(--muted)}.tag.ok{border-color:#2f8050;color:var(--green)}.tag.bad{border-color:#7f3039;color:var(--red)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.labels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field select{width:100%}.wide{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:9px}.legacyAxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.legacyAxes label{border:1px solid var(--line);padding:8px}.actions,.nav{display:flex;gap:9px;margin-top:12px}.actions button{flex:1;font-weight:700}.accept{border-color:#2f8050}.reject{border-color:#7f3039}.editBtn{border-color:#806a2f}.nav{justify-content:space-between}.notice{min-height:24px;margin-top:10px;color:var(--gold)}button:disabled{opacity:.35}@media(max-width:820px){.filters,.grid,.labels{grid-template-columns:1fr}.legacyAxes{grid-template-columns:1fr}.utterance{font-size:19px}}
 </style></head>
-<body><header><div><h1>SEMANTİK ALTIN VERİ İNCELEMESİ</h1><div class="status" id="status">Yükleniyor…</div></div><div class="status">Model önerir · İnsan karar verir</div></header>
-<main><section class="card" style="margin-bottom:16px"><b>Burada neye karar veriyorsun?</b><p><b>KABUL:</b> Bu cümle doğal ve hedef anlam cümleyi doğru tarif ediyor. <b>REDDET:</b> Cümle yapay veya hedef anlam yanlış. <b>DÜZELT:</b> Amaç kullanılabilir fakat cümlenin Türkçesini değiştirmek gerekiyor.</p><p style="color:var(--muted)">Model kutuları yalnız öneridir. Yeşil olması doğru olduğu anlamına gelmez. Özellikle “kanıt” alıntısının etiketi gerçekten anlattığını kontrol et.</p></section><section class="card" id="card"><div class="id" id="id"></div><div class="utterance" id="utterance"></div>
-<div class="grid"><div class="box"><h2>HEDEF ÇERÇEVE</h2><div id="target"></div></div><div class="box"><h2>MODEL DENETİMİ</h2><div id="model"></div></div></div>
-<h2>ONAYLANAN EKSENLER</h2><div class="axes" id="axes"></div>
-<div class="edit" id="editBox"><h2>DÜZELTİLMİŞ OYUNCU SÖZÜ</h2><textarea id="corrected"></textarea></div>
-<h2>İNCELEME NOTU</h2><textarea id="notes" placeholder="Neden kabul/reddedildi? Özellikle doğal olmayan Türkçeyi ve yanlış kanıtı yaz."></textarea>
-<div class="actions"><button class="reject" onclick="save('REJECT')">CÜMLEYİ / ETİKETİ REDDET</button><button class="editBtn" id="editBtn" onclick="toggleEdit()">CÜMLEYİ DÜZELT</button><button class="accept" onclick="save('ACCEPT')">CÜMLE VE ETİKET DOĞRU</button></div>
-<div class="notice" id="notice"></div><div class="nav"><button onclick="move(-1)">← ÖNCEKİ</button><button onclick="move(1)">SONRAKİ →</button></div></section></main>
+<body>
+<header><div><h1>TÜRKÇE ANLAM GOLD İNCELEMESİ</h1><div class="status" id="status">Yükleniyor…</div></div><div class="status">Motor önerir · İnsan düzeltir · Kod karar vermez</div></header>
+<main>
+<section class="panel">
+  <b>Gold kuralı:</b> Önerilen bütün alanları kontrol et. Kabul veya düzeltme
+  kararı ve eksiksiz insan etiketi bulunmayan cümle gold sayılmaz.
+  <div class="filters" style="margin-top:12px">
+    <div><label for="datasetFilter">Veri kümesi</label><select id="datasetFilter"><option value="SEMANTIC_INTENT_CORPUS">200 adaylık corpus</option><option value="LEGACY_TEACHER">Eski öğretmen kuyruğu</option><option value="ALL">Tümü</option></select></div>
+    <div><label for="reviewFilter">Durum</label><select id="reviewFilter"><option value="PENDING">İncelenmemiş</option><option value="ALL">Tümü</option><option value="ACCEPTED">Kabul/düzeltme</option><option value="REJECTED">Reddedilmiş</option></select></div>
+    <div><label for="sourceFilter">Kaynak</label><select id="sourceFilter"><option value="ALL">Bütün kaynaklar</option><option value="OBSERVED_PLAYER">Gerçek oyuncu kaydı</option><option value="MODEL_GENERATED_CANDIDATE">Model üretimi aday</option></select></div>
+    <div><label for="splitFilter">Bölüm</label><select id="splitFilter"><option value="ALL">Bütün bölümler</option><option value="prototype">Prototip</option><option value="calibration">Kalibrasyon</option><option value="blind_test">Kör test</option></select></div>
+  </div>
+</section>
+<section class="panel" id="card">
+  <div class="id" id="id"></div><div class="meta" id="meta"></div>
+  <div class="utterance" id="utterance"></div>
+  <div id="contextWrap"><b>Önceki bağlam</b><div class="context" id="context"></div></div>
+  <div id="fullEditor">
+    <p class="muted">Aşağıdaki değerler mevcut deterministik motorun önerisidir; yanlışsa değiştir.</p>
+    <div class="labels" id="labels"></div>
+  </div>
+  <div id="legacyEditor">
+    <div class="grid"><div><b>Hedef çerçeve</b><div id="target"></div></div><div><b>Model denetimi</b><div id="model"></div></div></div>
+    <h3>Onaylanan eksenler</h3><div class="legacyAxes" id="axes"></div>
+  </div>
+  <div id="editBox" style="display:none"><h3>Düzeltilmiş oyuncu sözü</h3><textarea id="corrected"></textarea></div>
+  <h3>İnceleme notu</h3><textarea id="notes" placeholder="Yanlış etiketi, doğal olmayan Türkçeyi veya belirsizliği yaz."></textarea>
+  <div class="actions"><button class="reject" onclick="save('REJECT')">REDDET</button><button class="editBtn" id="editBtn" onclick="toggleEdit()">CÜMLEYİ DÜZELT</button><button class="accept" onclick="save('ACCEPT')">ETİKETLERİ KABUL ET</button></div>
+  <div class="notice" id="notice"></div>
+  <div class="nav"><button onclick="move(-1)">← ÖNCEKİ</button><button onclick="move(1)">SONRAKİ →</button></div>
+</section>
+</main>
 <script>
-let queue={rows:[],axes:[],status:{}},index=0,editing=false;
-const e=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const axisTr={communicativeFunction:'Oyuncunun amacı',surfaceForm:'Cümle biçimi',predicate:'Konuşulan konu',target:'Sözün hedefi',polarity:'Olumlu/olumsuz',temporality:'Zaman',epistemicStatus:'Bilgi kesinliği',continuity:'Önceki sözle bağlantı',requestedOutcome:'Beklenen karşılık',FUNCTION:'Amaç kanıtı',PREDICATE:'Konu kanıtı',TARGET:'Hedef kanıtı',TIME:'Zaman kanıtı',EPISTEMIC:'Kesinlik kanıtı'};
-const valueTr={ASK:'Bilgi/görüş soruyor',REQUEST:'Bir eylem istiyor',TELL:'Bir şey bildiriyor',OFFER:'Teklif sunuyor',CONFIDE:'Gizli bilgi paylaşıyor',CORRECT:'Önceki bilgiyi düzeltiyor',INTERROGATIVE:'Soru biçimi',DECLARATIVE:'Bildirim biçimi',IMPERATIVE:'Emir/istek biçimi',RELATIONSHIP:'İlişki ve güven',WORK:'İş ve görev',SECRET:'Gizlilik',EMOTION:'Duygu',MILITARY:'Askerî konu',ECONOMY:'Ekonomi',LOCATION:'Konum',OPINION:'Görüş',PLAYER:'Oyuncu',LISTENER:'Konuşulan karakter',PLAYER_AND_LISTENER:'İki taraf',THIRD_PARTY:'Üçüncü kişi',ORGANIZATION:'Kurum',POSITIVE_OR_UNMARKED:'Olumlu veya işaretsiz',NEGATIVE:'Olumsuz',PAST:'Geçmiş',FUTURE:'Gelecek',CURRENT_OR_UNMARKED:'Şimdi veya zaman belirtilmemiş',QUESTIONED:'Sorgulanıyor',UNMARKED:'Kesinlik belirtilmemiş',HEARSAY:'Duyum',CLAIMED_CERTAIN:'Kesin olduğu iddia ediliyor',NEW_OR_UNMARKED:'Yeni başlık/işaretsiz',CONTINUATION:'Önceki konunun devamı',CORRECTION:'Düzeltme',INFORMATION:'Bilgi cevabı',ACTION:'Eylem',OPINION:'Kişisel görüş',NONE:'Özel karşılık yok',CONFIDENTIAL_HANDLING:'Gizli tutma'};
-async function load(){queue=await fetch('/api/queue').then(r=>r.json());const pending=queue.rows.findIndex(r=>!r.review);index=pending<0?0:pending;render()}
-function tags(obj,verified=[],masked=[]){return Object.entries(obj||{}).map(([k,v])=>`<span class="tag ${verified.includes(k)?'ok':masked.includes(k)?'bad':''}" title="${esc(k)} = ${esc(v)}"><b>${esc(axisTr[k]||k)}:</b> ${esc(valueTr[v]||v)}</span>`).join('')}
-function render(){const r=queue.rows[index];e('status').textContent=`${queue.status.reviewed}/${queue.status.total} V2 inceleme · ${queue.status.accepted} kabul/düzeltme · ${queue.status.rejected} ret`;if(!r){e('card').innerHTML='Kuyruk boş.';return}e('id').textContent=`${r.id} · ${index+1}/${queue.rows.length}`;e('utterance').textContent=r.utterance;e('target').innerHTML=tags(r.target,r.verifiedAxes,r.maskedAxes);const q=r.quality?.quality;const evidence=(r.evidenceSpans||[]).map(x=>`${axisTr[x.axis]||x.axis}: “${x.quote}”`).join('<br>')||'Kanıt alıntısı yok.';e('model').innerHTML=`14B çekirdek mutabakatı: <b>${r.semanticCoreAccepted?'GEÇTİ':'KALDI'}</b> · Dokuz alanın tamamı: ${r.exactAccepted?'EVET':'HAYIR'}<br>8B kalite eleştirmeni: ${r.quality?.qualityPassed?'GEÇTİ':'KALDI/GEÇERSİZ'}<hr style="border-color:var(--line)"><b>Modelin kanıt saydığı alıntılar:</b><br>${evidence}<br><span style="color:var(--muted)">${q?esc(q.reason):'Geçerli eleştirmen çıktısı yok.'}</span>`;e('axes').innerHTML=queue.axes.map(a=>`<label title="${esc(a)}"><input type="checkbox" value="${esc(a)}" ${r.verifiedAxes.includes(a)?'checked':''}>${esc(axisTr[a]||a)}</label>`).join('');editing=r.review?.verdict==='EDIT';e('editBox').style.display=editing?'block':'none';e('corrected').value=r.review?.correctedUtterance||r.utterance;e('notes').value=r.review?.notes||'';e('editBtn').textContent=editing?'DÜZELTİLMİŞİ KAYDET':'CÜMLEYİ DÜZELT';e('notice').textContent=r.review?`V2 kayıtlı karar: ${r.review.verdict}`:r.legacyReview?'Önceki belirsiz arayüzde verdiğin karar saklandı; bu örnek V2 ile yeniden incelenmeli.':''}
-function move(d){index=Math.max(0,Math.min(queue.rows.length-1,index+d));render()}function toggleEdit(){if(editing){save('EDIT');return}editing=true;e('editBox').style.display='block';e('editBtn').textContent='DÜZELTİLMİŞİ KAYDET';e('corrected').focus()}
-async function save(verdict){if(editing&&verdict==='ACCEPT')verdict='EDIT';const approvedAxes=[...e('axes').querySelectorAll('input:checked')].map(x=>x.value);const body={id:queue.rows[index].id,verdict,correctedUtterance:e('corrected').value,approvedAxes,notes:e('notes').value};const res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const out=await res.json();if(!res.ok){e('notice').textContent=`HATA: ${out.code}`;return}queue=await fetch('/api/queue').then(r=>r.json());if(index<queue.rows.length-1)index++;render()}
+let queue={rows:[],axes:[],labelValues:{},status:{}},rows=[],index=0,editing=false;
+const e=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const axisTr={speechAct:'Ana konuşma eylemi',communicativeFunction:'Oyuncunun amacı',surfaceForm:'Cümle biçimi',predicate:'Konuşulan konu',target:'Sözün hedefi',polarity:'Olumlu/olumsuz',temporality:'Zaman',epistemicStatus:'Bilgi kesinliği',continuity:'Önceki sözle bağlantı',requestedOutcome:'Beklenen karşılık'};
+const valueTr={ASK:'Soruyor',TELL:'Bildiriyor',REQUEST:'Eylem istiyor',OFFER:'Teklif ediyor',CONFIDE:'Gizli paylaşıyor',CORRECT:'Düzeltiyor',REPAIR:'Onarım istiyor',CLOSE:'Kapatıyor',GREET:'Selamlıyor',THANK:'Teşekkür ediyor',APOLOGIZE:'Özür diliyor',UNRESOLVED:'Çözülemedi',INTERROGATIVE:'Soru',DECLARATIVE:'Bildirim',IMPERATIVE:'Emir/istek',EXCLAMATORY:'Ünlem',FRAGMENT:'Eksik parça',UNSPECIFIED:'Belirtilmemiş',POSITIVE_OR_UNMARKED:'Olumlu/işaretsiz',NEGATIVE:'Olumsuz',MIXED:'Karışık',CURRENT_OR_UNMARKED:'Şimdi/işaretsiz',NEW_OR_UNMARKED:'Yeni/işaretsiz',INFORMATION:'Bilgi',ACTION:'Eylem',OPINION:'Görüş',NONE:'Özel karşılık yok',UNKNOWN:'Bilinmeyen/OOD'};
+function reviewed(r){return !!r.review}
+function applyFilters(){
+ const dataset=e('datasetFilter').value,status=e('reviewFilter').value,source=e('sourceFilter').value,split=e('splitFilter').value;
+ rows=queue.rows.filter(r=>(dataset==='ALL'||r.dataset===dataset)&&(source==='ALL'||r.sourceType===source)&&(split==='ALL'||r.split===split)&&(status==='ALL'||status==='PENDING'&&!reviewed(r)||status==='ACCEPTED'&&reviewed(r)&&['ACCEPT','EDIT'].includes(r.review.verdict)||status==='REJECTED'&&reviewed(r)&&r.review.verdict==='REJECT'));
+ index=Math.min(index,Math.max(0,rows.length-1));render();
+}
+function options(axis,selected){return (queue.labelValues[axis]||[]).map(v=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(valueTr[v]||v)} — ${esc(v)}</option>`).join('')}
+function tags(obj){return Object.entries(obj||{}).map(([k,v])=>`<span class="tag"><b>${esc(axisTr[k]||k)}:</b> ${esc(valueTr[v]||v)}</span>`).join('')}
+function render(){
+ const r=rows[index],s=queue.status;
+ e('status').textContent=`Gold ${s.humanGold||0}/${s.prototype?.threshold||200} prototip · ${s.humanGold||0}/${s.product?.threshold||1000} ürün · ${rows.length} filtrelenmiş`;
+ if(!r){e('id').textContent='';e('utterance').textContent='Bu filtrede kayıt yok.';e('meta').innerHTML='';e('fullEditor').style.display='none';e('legacyEditor').style.display='none';return}
+ e('id').textContent=`${r.id} · ${index+1}/${rows.length}`;
+ e('meta').innerHTML=[r.sourceType,r.split,r.speakerFamily,r.proposalSource].filter(Boolean).map(x=>`<span class="tag">${esc(x)}</span>`).join('');
+ e('utterance').textContent=r.utterance;
+ const history=(r.history||[]).map(x=>`OYUNCU: ${x.playerText||''}\nKARAKTER: ${x.characterText||''}`).join('\n\n');
+ e('context').textContent=history||'Bağlam kaydı yok.';e('contextWrap').style.display=r.annotationMode==='FULL_LABEL_V1'?'block':'none';
+ const full=r.annotationMode==='FULL_LABEL_V1';e('fullEditor').style.display=full?'block':'none';e('legacyEditor').style.display=full?'none':'block';
+ if(full){
+  const labels=r.review?.labels||r.proposal||{};
+  e('labels').innerHTML=Object.keys(queue.labelValues).map(axis=>`<div class="field"><label for="label-${esc(axis)}">${esc(axisTr[axis]||axis)}</label><select id="label-${esc(axis)}" data-axis="${esc(axis)}">${options(axis,labels[axis])}</select></div>`).join('')+
+   `<label class="check"><input id="outOfDomain" type="checkbox" ${labels.outOfDomain?'checked':''}>Bu söz oyun kataloğunun dışında / bilinmeyen (OOD)</label><div class="field"><label for="secondaryActs">İkincil eylemler — Ctrl ile en fazla 3</label><select id="secondaryActs" multiple size="4">${(queue.labelValues.speechAct||[]).map(v=>`<option value="${esc(v)}" ${(labels.secondarySpeechActs||[]).includes(v)?'selected':''}>${esc(valueTr[v]||v)} — ${esc(v)}</option>`).join('')}</select></div>`;
+ }else{
+  e('target').innerHTML=tags(r.target);
+  e('model').innerHTML=`Çekirdek: <b>${r.semanticCoreAccepted?'GEÇTİ':'KALDI'}</b> · Tam çerçeve: ${r.exactAccepted?'EVET':'HAYIR'}`;
+  e('axes').innerHTML=queue.axes.map(a=>`<label><input type="checkbox" value="${esc(a)}" ${(r.review?.approvedAxes||r.verifiedAxes||[]).includes(a)?'checked':''}>${esc(axisTr[a]||a)}</label>`).join('');
+ }
+ editing=r.review?.verdict==='EDIT';e('editBox').style.display=editing?'block':'none';e('corrected').value=r.review?.correctedUtterance||r.utterance;e('notes').value=r.review?.notes||'';e('editBtn').textContent=editing?'DÜZELTİLMİŞİ KAYDET':'CÜMLEYİ DÜZELT';e('notice').textContent=r.review?`Kayıtlı karar: ${r.review.verdict}`:'';
+}
+function move(delta){index=Math.max(0,Math.min(rows.length-1,index+delta));render()}
+function toggleEdit(){if(editing){save('EDIT');return}editing=true;e('editBox').style.display='block';e('editBtn').textContent='DÜZELTİLMİŞİ KAYDET';e('corrected').focus()}
+function collectLabels(){
+ const labels={};e('labels').querySelectorAll('select[data-axis]').forEach(x=>labels[x.dataset.axis]=x.value);
+ labels.outOfDomain=e('outOfDomain').checked;labels.secondarySpeechActs=[...e('secondaryActs').selectedOptions].map(x=>x.value).slice(0,3);return labels;
+}
+async function save(verdict){
+ const r=rows[index];if(!r)return;if(editing&&verdict==='ACCEPT')verdict='EDIT';
+ const body={id:r.id,verdict,correctedUtterance:e('corrected').value,notes:e('notes').value};
+ if(r.annotationMode==='FULL_LABEL_V1')body.labels=collectLabels();else body.approvedAxes=[...e('axes').querySelectorAll('input:checked')].map(x=>x.value);
+ const res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),out=await res.json();
+ if(!res.ok){e('notice').textContent=`HATA: ${out.code} ${(out.issues||[]).join(', ')}`;return}
+ const oldId=r.id;queue=await fetch('/api/queue').then(x=>x.json());applyFilters();const next=rows.findIndex(x=>x.id===oldId);if(next>=0)index=Math.min(next,rows.length-1);render();
+}
+async function load(){queue=await fetch('/api/queue').then(r=>r.json());['datasetFilter','reviewFilter','sourceFilter','splitFilter'].forEach(id=>e(id).addEventListener('change',()=>{index=0;applyFilters()}));applyFilters()}
+document.addEventListener('keydown',event=>{if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();save('ACCEPT')}else if(event.altKey&&event.key.toLowerCase()==='r'){event.preventDefault();save('REJECT')}});
 load().catch(err=>e('status').textContent=err.message);
 </script></body></html>

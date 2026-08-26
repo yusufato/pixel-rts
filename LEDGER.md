@@ -1322,3 +1322,10 @@
 - **What happened:** Harness ve sequential testte zaten bulunan `institutionalTaskBudgetProbe`, doğrulamalı görev olarak paralel manifestte kaydedildi. Böylece manifest kapsam kontrolü ilişki ve konuşma worker'larını özellik koduna ulaşmadan durdurmuyor.
 - **Evidence:** `institutionalTaskBudgetProbe`, `relationshipInterpretationProbe` ve `conversationUnderstandingProbe` tek worker ile exit `0`; `node tests/story-conversation-case.test.js` exit `0`; manifest sözdizimi ve `git diff --check` temiz.
 - **Implication for future audits:** `institutionalTaskBudgetProbe` manifest eksikliğini açık kabul borcu olarak yeniden raporlama. Faz 38.13 yönlü ilişki sonuç fişi planı `Landed`dır; genel gıda/kriz assertion'ı bu kapanış için zayıflatılmadı.
+
+## 2026-08-27 — Türkçe semantik yönlendirici için insan-gold kuyruğu kuruldu
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1
+- **What happened:** 46 gözlenmiş oyuncu turu ve 154 model üretimi adaydan oluşan 200 benzersiz cümlelik, 160 aileli corpus kuruldu. Toplu inceleme aracı bütün kapalı konuşma etiketlerini düzeltilebilir gösteriyor ve yalnız eksiksiz `LOCAL_HUMAN` kabulünü gold sayıyor.
+- **Evidence:** Corpus doğrulaması 200/200 benzersiz metin ve sıfır aile-split sızıntısı verdi; prototip/kalibrasyon/kör dağılımı 127/27/46. İnceleme testi, SemanticFrameV2 testi, semantik gece kapısı testi ve ana konuşma senaryosu exit `0`; güncel sayaç `0/200` prototip ve `0/1000` ürün gold.
+- **Implication for future audits:** Model/gece çıktısını veya mevcut motor önerisini insan etiketi sayma. Model/runtime spike'ı ancak 200 eksiksiz insan-onaylı corpus kaydından sonra başlayabilir; ürün entegrasyonu ve plan kapanışı için 1.000 gold şartı korunur.
