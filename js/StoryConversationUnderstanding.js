@@ -965,7 +965,7 @@ function storyConversationInstitutionalTaskOfferCreate(sessionId) {
                 compensationPolicyId: preview.preview.compensationPolicyId,
                 amount: preview.preview.amount, currency: preview.preview.currency,
                 paymentStatus: 'NOT_RESERVED', escrowReservationId: null,
-                resultReceiptId: null
+                resultReceiptId: null, resultReceipt: null
             },
             createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
             status: 'OFFERED', acceptedAt: null, declinedAt: null, completedAt: null,
@@ -1160,12 +1160,70 @@ function storyConversationTaskOfferCompleteForConversation(ledger, completedSess
     const now = Number(STORY.clock) || 0;
     const completed = [];
     for (const taskOffer of ledger.taskOffers || []) {
-        if (taskOffer.kind !== 'PERSONAL_CONTACT_REQUEST'
-            || taskOffer.status !== 'ACCEPTED' || taskOffer.assigneeActorId !== completedSession.playerActorId
+        if (taskOffer.status !== 'ACCEPTED' || taskOffer.assigneeActorId !== completedSession.playerActorId
             || taskOffer.objective.type !== 'HOLD_CONVERSATION'
             || taskOffer.objective.targetActorId !== completedSession.listenerActorId
             || taskOffer.sessionId === completedSession.id) continue;
-        if (now > taskOffer.dueAt) { taskOffer.status = 'EXPIRED'; continue; }
+        if (now > taskOffer.dueAt) {
+            if (taskOffer.kind === 'PERSONAL_CONTACT_REQUEST') taskOffer.status = 'EXPIRED';
+            continue;
+        }
+        if (taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK') {
+            const payment = storyConversationInstitutionalTaskPaymentSpec(taskOffer);
+            if (!payment.ok || taskOffer.institutional.paymentStatus !== 'RESERVED'
+                || !taskOffer.institutional.escrowReservationId) continue;
+            const budgetSnapshot = storyConversationClone(STORY.stateBudget);
+            const payee = storyConversationTaskCommanderAccount(taskOffer.assigneeActorId);
+            const payeePoints = payee && Number(payee.commander.res && payee.commander.res.points) || 0;
+            const previousTask = storyConversationClone(taskOffer);
+            const settled = typeof storyBudgetSettleInstitutionalTaskPayment === 'function'
+                ? storyBudgetSettleInstitutionalTaskPayment(
+                    taskOffer.institutional.escrowReservationId, payment.spec)
+                : { ok: false, code: 'INSTITUTIONAL_TASK_BUDGET_REQUIRED' };
+            if (!settled.ok) continue;
+            try {
+                const settlement = settled.settlement;
+                const receipt = {
+                    schemaVersion: 1,
+                    id: `${taskOffer.id}:receipt:1`,
+                    taskOfferId: taskOffer.id,
+                    sourceSessionId: taskOffer.sessionId,
+                    completionSessionId: completedSession.id,
+                    institutionRequestId: taskOffer.institutional.institutionRequestId,
+                    institutionId: taskOffer.institutional.institutionId,
+                    countryId: taskOffer.institutional.countryId,
+                    legalBasis: taskOffer.institutional.legalBasis,
+                    escrowReservationId: settlement.id,
+                    payerCountryId: settlement.payerCountryId,
+                    payerCommanderId: settlement.payerCommanderId,
+                    payeeCountryId: settlement.payeeCountryId,
+                    payeeCommanderId: settlement.payeeCommanderId,
+                    payerTransactionId: settlement.payerTransactionId,
+                    payeeTransactionId: settlement.payeeTransactionId,
+                    amount: settlement.amount,
+                    currency: settlement.currency,
+                    completedAt: now,
+                    physicalMutation: false,
+                    worldMutation: false
+                };
+                taskOffer.institutional.paymentStatus = 'SETTLED';
+                taskOffer.institutional.resultReceiptId = receipt.id;
+                taskOffer.institutional.resultReceipt = receipt;
+                taskOffer.status = 'COMPLETED';
+                taskOffer.completedAt = now;
+                taskOffer.completionSessionId = completedSession.id;
+                const validation = storyConversationSessionValidateLedger(ledger);
+                if (!validation.ok) throw new Error('INSTITUTIONAL_TASK_RECEIPT_INVALID');
+            } catch (error) {
+                STORY.stateBudget = budgetSnapshot;
+                if (payee && payee.commander && payee.commander.res) payee.commander.res.points = payeePoints;
+                Object.keys(taskOffer).forEach(key => delete taskOffer[key]);
+                Object.assign(taskOffer, previousTask);
+                continue;
+            }
+            completed.push(taskOffer.id);
+            continue;
+        }
         taskOffer.status = 'COMPLETED';
         taskOffer.completedAt = now;
         taskOffer.completionSessionId = completedSession.id;
@@ -5461,6 +5519,44 @@ function storyConversationSessionValidateLedger(candidate) {
                 }
                 if ((taskOffer.status === 'COMPLETED') !== !!institution.resultReceiptId) {
                     add('TASK_OFFER_INSTITUTIONAL_RECEIPT', `${at}.institutional.resultReceiptId`);
+                }
+                const receipt = institution.resultReceipt;
+                if (taskOffer.status === 'COMPLETED') {
+                    const settlement = STORY.stateBudget && (STORY.stateBudget.settlements || []).find(row =>
+                        row.id === institution.escrowReservationId);
+                    const sourceSession = (candidate.sessions || []).find(row => row.id === taskOffer.sessionId);
+                    const completionSession = (candidate.sessions || []).find(row =>
+                        row.id === taskOffer.completionSessionId);
+                    if (!receipt || receipt.schemaVersion !== 1
+                        || receipt.id !== `${taskOffer.id}:receipt:1`
+                        || receipt.id !== institution.resultReceiptId
+                        || receipt.taskOfferId !== taskOffer.id
+                        || receipt.sourceSessionId !== taskOffer.sessionId || !sourceSession
+                        || receipt.completionSessionId !== taskOffer.completionSessionId || !completionSession
+                        || receipt.completionSessionId === receipt.sourceSessionId
+                        || completionSession.playerActorId !== taskOffer.assigneeActorId
+                        || completionSession.listenerActorId !== taskOffer.objective.targetActorId
+                        || receipt.institutionRequestId !== institution.institutionRequestId
+                        || receipt.institutionId !== institution.institutionId
+                        || receipt.countryId !== institution.countryId
+                        || receipt.legalBasis !== institution.legalBasis
+                        || receipt.escrowReservationId !== institution.escrowReservationId
+                        || receipt.payerCountryId !== institution.payerCountryId
+                        || String(receipt.payerCommanderId) !== String(institution.payerCommanderId)
+                        || receipt.payeeCountryId !== institution.payeeCountryId
+                        || String(receipt.payeeCommanderId) !== String(institution.payeeCommanderId)
+                        || receipt.amount !== institution.amount || receipt.currency !== institution.currency
+                        || receipt.completedAt !== taskOffer.completedAt
+                        || receipt.physicalMutation !== false || receipt.worldMutation !== false
+                        || !settlement || settlement.status !== 'SETTLED'
+                        || settlement.correlationId !== institution.correlationId
+                        || settlement.payerTransactionId !== receipt.payerTransactionId
+                        || settlement.payeeTransactionId !== receipt.payeeTransactionId
+                        || settlement.amount !== receipt.amount || settlement.currency !== receipt.currency) {
+                        add('TASK_OFFER_INSTITUTIONAL_RECEIPT', `${at}.institutional.resultReceipt`);
+                    }
+                } else if (receipt != null) {
+                    add('TASK_OFFER_INSTITUTIONAL_RECEIPT', `${at}.institutional.resultReceipt`);
                 }
             }
         }

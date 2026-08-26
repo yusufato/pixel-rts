@@ -69,6 +69,45 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger()
         }), doubleAcceptBefore, 'Double accept must not mutate the task or budget ledgers.');
+        const playerPointsBeforeCompletion = taskStory.commander.res.points;
+        const completion = taskRuntime.api.conversationSessionBegin('G�rev g�r�_mesini tamamlamak i�in geldim.', {
+            listenerActorId: created.taskOffer.objective.targetActorId
+        });
+        assert.equal(completion.ok, true);
+        const completedInstitutional = taskRuntime.api.conversationTaskOfferList(acceptedSessionId)
+            .find(row => row.id === created.taskOffer.id);
+        assert.equal(completedInstitutional.status, 'COMPLETED');
+        assert.equal(completedInstitutional.institutional.paymentStatus, 'SETTLED');
+        assert.equal(taskStory.commander.res.points, playerPointsBeforeCompletion + 25);
+        const resultReceipt = completedInstitutional.institutional.resultReceipt;
+        assert.equal(resultReceipt.schemaVersion, 1);
+        assert.equal(resultReceipt.completionSessionId, completion.session.id);
+        assert.equal(resultReceipt.institutionRequestId, institutionRequest.id);
+        const settledPayment = taskRuntime.api.budgetLedger().settlements.find(row =>
+            row.id === completedInstitutional.institutional.escrowReservationId);
+        assert.equal(settledPayment.status, 'SETTLED');
+        assert.equal(resultReceipt.payerTransactionId, settledPayment.payerTransactionId);
+        assert.equal(resultReceipt.payeeTransactionId, settledPayment.payeeTransactionId);
+        const duplicateCompletionBefore = JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
+            playerPoints: taskStory.commander.res.points
+        });
+        assert.equal(taskRuntime.api.conversationSessionBegin('Ayo1 hedefle tekrar g�r�_�yorum.', {
+            listenerActorId: created.taskOffer.objective.targetActorId
+        }).ok, true);
+        const duplicateCompletionAfter = {
+            budget: taskRuntime.api.budgetLedger(), playerPoints: taskStory.commander.res.points
+        };
+        const duplicateCompletionExpected = JSON.parse(duplicateCompletionBefore);
+        assert.equal(JSON.stringify(duplicateCompletionAfter), JSON.stringify({
+            budget: duplicateCompletionExpected.budget,
+            playerPoints: duplicateCompletionExpected.playerPoints
+        }), 'A repeated target conversation must not settle or pay the task twice.');
+        const forgedReceiptLedger = taskRuntime.api.conversationSessionSnapshot();
+        forgedReceiptLedger.taskOffers.find(row => row.id === created.taskOffer.id)
+            .institutional.resultReceipt.payeeTransactionId = 'budget:forged';
+        assert.ok(taskRuntime.api.conversationSessionValidate(forgedReceiptLedger).issues
+            .some(row => row.code === 'TASK_OFFER_INSTITUTIONAL_RECEIPT'));
 
         const declinedSessionId = openTaskSession(issuerActorId);
         const declinedCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(declinedSessionId);
@@ -128,6 +167,23 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(taskRuntime.api.conversationSessionValidate(taskStory.conversationUnderstanding).ok, false,
             'The deliberately forged payer fixture must be rejected by validation.');
         liveForged.institutional.payerCommanderId = payerCommanderId;
+        const blockedSettlementAccept = taskRuntime.api.conversationTaskOfferDecision(forgedCreated.taskOffer.id, 'ACCEPT');
+        assert.equal(blockedSettlementAccept.ok, true);
+        const taskEscrowAccount = taskStory.stateBudget.countries['country:0'].accounts;
+        const taskEscrowBeforeTamper = taskEscrowAccount['ASSET:TASK_ESCROW'];
+        const playerBeforeBlockedSettlement = taskStory.commander.res.points;
+        taskEscrowAccount['ASSET:TASK_ESCROW'] = 0;
+        assert.equal(taskRuntime.api.conversationSessionBegin('�deme kaq1s1 bozukken hedef g�r�_me.', {
+            listenerActorId: forgedCreated.taskOffer.objective.targetActorId
+        }).ok, true);
+        const blockedSettlementTask = taskStory.conversationUnderstanding.taskOffers.find(row =>
+            row.id === forgedCreated.taskOffer.id);
+        assert.equal(blockedSettlementTask.status, 'ACCEPTED');
+        assert.equal(blockedSettlementTask.institutional.paymentStatus, 'RESERVED');
+        assert.equal(blockedSettlementTask.institutional.resultReceiptId, null);
+        assert.equal(taskStory.commander.res.points, playerBeforeBlockedSettlement,
+            'A failed escrow gate must not credit the player or mark the task completed.');
+        taskEscrowAccount['ASSET:TASK_ESCROW'] = taskEscrowBeforeTamper;
 
         const unauthorized = taskDirectory.publicCharacters.find(row => {
             const parts = row.id.split(':');
@@ -244,7 +300,8 @@ try {
         payeeCountryId: 'country:0', payeeCommanderId: '0',
         compensationPolicyId: 'institutional-contact-task-v1',
         amount: 25, currency: 'STATE_CREDIT',
-        escrowReservationId: null, paymentStatus: 'NOT_RESERVED', resultReceiptId: null
+        escrowReservationId: null, paymentStatus: 'NOT_RESERVED',
+        resultReceiptId: null, resultReceipt: null
     };
     assert.equal(runtime.api.conversationSessionValidate(institutionalFixture).ok, true,
         'A complete offered institutional branch must satisfy TaskOfferV2.');
