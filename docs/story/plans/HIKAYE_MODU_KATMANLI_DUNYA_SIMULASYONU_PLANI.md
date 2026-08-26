@@ -4633,11 +4633,31 @@ refahı, bütçeyi, ilişkiyi veya başka dünya değerini değiştirmez. Birle�
 turda dört tekil oy, `3–1` kabul sonucu, eski sürüm oyunun reddi, sahte sayım/sürüm tahrifi,
 Türkçe UI, kayıt/geri-yükleme ve dünya nötrlüğü kapılarını geçti.
 
-Sıradaki borç, sonuç makbuzunu toplantıyı kapatan ayrı bir başkan tutanağına bağlamak ve yalnız
-kanıtlanmış yetkisi bulunan alan adaptörüne teklif olarak yönlendirmektir. İlk uygulama gerçek
-dünya etkisini aynı fonksiyonda doğurmamalı: Faz 29 kurum isteği veya Faz 38.9 rol adaptörü yeni
-bir yürütme/onay zinciri açmalı. Karakterden gelen özel not cevabı ve toplantının yönlü ilişki
-fişleri de hâlâ açıktır.
+**On üçüncü dikey — sürüme mühürlü kurumsal niyet, kapanış ve teklif yönlendirmesi:**
+Yönlendirilebilir önerge, oylama açılmadan önce kanonik başkanın Faz 38.9
+`canPropose` rotasına bağlı `InstitutionProposalIntentV1` taşır. Eylem türü,
+ülke, kurum, hedef kapsamı ve aktif önerge sürümü birlikte mühürlenir; revizyon
+eski niyeti siler ve canlı yetki önizlemesini yeniden zorunlu kılar. Böylece
+oylamadan sonra serbest `actionType` seçilip kabul makbuzunun başka bir devlet
+eylemine bağlanması engellenir.
+
+`MeetingClosureRecordV1`, sonuç makbuzunu değiştirmeden başkanın ayrı kapanış
+turuna bağlar. Ret sonucu `CLOSED_REJECTED` olur ve kurum isteği üretmez. Kabul
+sonucu önce `CLOSED_ADOPTED_PENDING_PROPOSAL`, ardından canlı Faz 38.9 preview
+başarılıysa mevcut Faz 29 `PROPOSE` yoluyla tek kurum isteği üretip
+`CLOSED_ADOPTED_PROPOSAL_ROUTED` olur. Bu istek onay veya icra değildir; bütçe,
+ordu, kurum kadrosu, ilişki ve fiziksel dünya değerini yazmaz. Şema-5 göçü eski
+kayıtlara kapanış veya niyet uydurmaz. Birleşik hedefli test `37` turda kabul ve
+ret kapanışını, çift kapanış/çift yönlendirme reddini, yetkisiz rotada konuşma +
+kurum + fiziksel snapshot için sıfır farkı, açık/kapalı save-load sürekliliğini,
+tahrif edilmiş closure reddini ve kurum isteği kimliğinden sonuç makbuzuna geri
+izi doğruladı. UI yalnız başkan sırasında kapanış sunar; terminal toplantıda
+konuşma/önerge/oy kontrollerini kapatır ve “teklif ≠ onay/uygulama” sınırını
+Türkçe gösterir.
+
+Sıradaki borç karakterden gelen özel nota kaynak ve görünürlük sınırı içinde
+yanıt üretmektir. Kurumsal/ücretli görev ve toplantının yönlü ilişki fişleri de
+hâlâ açıktır.
 
 **Dördüncü dikey — sıra kontrollü çok taraflı transkript ve görünürlük matrisi:**
 Toplantı artık yalnız katılımcı listesi değildir. En çok `40` turluk döngü,
@@ -4659,14 +4679,12 @@ zeminli çok taraflı görüş, özel/ikili not, önerge ve oy hâlâ açık bor
 Bu yükseltme aktif Faz 38.5'i baştan yazdırmaz. Önce sohbetten sonuca zorunlu mini zincir kapanır. Faz 38.6–38.8 bu zincirin kanıtını genelleştirir; 38.7 ve 38.9 medya Faz 39–42 ile, 38.9–38.11 de sonraki ekonomi/askerî/diplomasi fazlarıyla çapraz ilerleyebilir.
 
 **26 Ağustos 2026 — aktif imleç uzlaştırması:** Güncel yürütme sınırı
-`Faz 38.13 / partial`dır. Mevcut toplantı motoru sonuç makbuzuna kadar doğrulanır
-ve dünyayı bilinçli olarak değiştirmez. Sıradaki tek uygulama dilimi, kabul veya
-ret makbuzunu ayrı bir toplantı kapanış kaydına bağlayıp yalnız kanonik yetki
-taşıyan Faz 29/Faz 38.9 adaptörüne idempotent teklif olarak yönlendirmektir.
-Bu dilim bütçe, kurum, ordu veya ilişki değerini doğrudan yazamaz. Tamamlanma
-kapısı; çift kapanışın reddi, yetkisiz yönlendirmenin sıfır dünya farkı, açık
-toplantının save/load devamlılığı ve yetkili teklif kimliğinden sonuç makbuzuna
-geri izlenebilirliktir. Özel not yanıtı, kurumsal/ücretli görev ve yönlü ilişki
+`Faz 38.13 / partial`dır. Toplantı motoru sonuç makbuzu, ayrı başkan kapanışı
+ve kanonik Faz 38.9 → Faz 29 teklif yönlendirmesine kadar doğrulandı. Çift
+kapanış/yönlendirme reddi, yetkisiz rotada sıfır dünya farkı, açık ve kapanmış
+toplantı save/load devamlılığı ile teklif kimliğinden sonuç makbuzuna geri iz
+çalışıyor. Sıradaki tek uygulama dilimi, karakterin ikili özel nota yalnız kendi
+görünür bağlamı içinde yanıt vermesidir. Kurumsal/ücretli görev ve yönlü ilişki
 fişleri sonraki ayrı Faz 38.13 dilimleridir; Faz 39'a geçiş bunlar kapanmadan
 ilan edilmez.
 

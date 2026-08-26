@@ -1252,3 +1252,17 @@
 - **What happened:** Ana planın Faz 38.1 ve durum belgesinin Faz 38.8 aktif imleçleri, güncel uygulama kanıtıyla Faz 38.13 `partial` sınırına taşındı. Faz 39 başlatılmadı.
 - **Evidence:** `node tests/story-conversation-case.test.js` başarılı; 4 katılımcı, 33 tur, iki önerge, `OBJECTION / AMENDMENT_REQUEST / ENDORSEMENT`, iki sürüm ve sonuç makbuzu doğrulandı. Toplantı kapanışı ve yetkili uygulama yönlendirmesi kaynakta hâlâ açık sınırdır.
 - **Implication for future audits:** Faz 38.1 veya 38.8'i aktif çalışma imleci olarak yeniden raporlama; Faz 38.13 ancak kapanış/yetkili yönlendirme, özel not yanıtı, kurumsal görev ve yönlü ilişki fişleri tamamlanınca kapanabilir.
+
+## 2026-08-26 — Faz 38.13 toplantı kapanışı kanonik kurum teklifine bağlandı
+- **Type:** Executed
+- **Source:** `phase-38-13-meeting-closure-routing`
+- **What happened:** Oylanan önerge sürümü oylama öncesi kanonik teklif niyetine bağlandı; kabul/ret sonucu ayrı başkan kapanış kaydı üretiyor. Kabul yalnız Faz 38.9 canlı yetki önizlemesinden sonra tek Faz 29 kurum isteği açıyor; ret istek üretmiyor.
+- **Evidence:** `node tests/story-conversation-case.test.js` başarılı; 4 katılımcı, 37 tur, çift kapanış/yönlendirme reddi, yetkisiz rotada konuşma+kurum+fiziksel snapshot sıfır farkı, açık/kapalı save-load, şema-5 göçü ve proposal→closure→outcome trace doğrulandı.
+- **Implication for future audits:** Toplantı kapanışı/yetkili teklif yönlendirmesini açık Faz 38.13 borcu olarak yeniden raporlama. Kurum isteğini onay veya fiziksel uygulama sayma; sıradaki tek toplantı dilimi karakterin özel nota görünürlük-korumalı yanıtıdır.
+
+## 2026-08-26 — Oylama sonrası serbest kurum eylemi seçimi reddedildi
+- **Type:** Rejected
+- **Source:** `phase-38-13-meeting-closure-routing` plan çürütmesi
+- **What happened:** `closeMeeting(meetingId, actionType)` yaklaşımı uygulanmadı; oylanan sanayi önergesinin kapanışta savaş ilanı gibi ilgisiz bir eyleme bağlanmasına mekanik engel yoktu.
+- **Evidence:** Mevcut önerge metni doğal dil, Faz 29 girişi kapalı `actionType` kataloğudur. Uygulanan `InstitutionProposalIntentV1` eylem/ülke/kurum/hedef kapsamını aktif önerge sürümüne oylama öncesi mühürler ve revizyonda sıfırlar.
+- **Implication for future audits:** Toplantı sonucundan LLM, anahtar sözcük veya kapanış payload'u ile eylem türü türetme. Yeni alan rotaları oylama öncesi kanonik preview ve sürüm bağı olmadan executable yapılmamalıdır.
