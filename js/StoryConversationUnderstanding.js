@@ -656,8 +656,8 @@ function storyConversationContract() {
 // NegotiationCase değildir: karakter henüz kabul/ret vermemiş, dünya komutu
 // oluşmamıştır. Oyuncunun cümle ve açıklamalarını kaybolmayan, sınırlandırılmış
 // bir mekanik inceleme adayına taşır. Gerçek söz/borç/anlaşma Faz 38.3'e aittir.
-const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 4;
-const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-4';
+const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 5;
+const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-5';
 const STORY_CONVERSATION_SESSION_LIMIT = 32;
 const STORY_CONVERSATION_TASK_OFFER_LIMIT = 64;
 const STORY_CONVERSATION_MEETING_LIMIT = 16;
@@ -693,9 +693,11 @@ function storyConversationSessionLedgerCreate() {
         nextSequence: 1,
         nextTaskOfferSequence: 1,
         nextMeetingSequence: 1,
+        nextMeetingClosureSequence: 1,
         sessions: [],
         taskOffers: [],
         meetingCases: [],
+        meetingClosures: [],
         diagnostics: {
             prunedSessions: 0, rejectedReplies: 0, worldMutations: 0,
             domainReviews: 0, listenerBeliefReads: 0, rawWorldReads: 0,
@@ -1025,6 +1027,7 @@ function storyConversationMeetingCreate(sessionId, agendaText) {
         }],
         speakingOrderActorIds: participantActorIds.slice(), currentSpeakerIndex: 0,
         turns: [], privateNotes: [], motions: [], votes: [], outcomeReceipts: [], outcomeReceiptId: null,
+        closureId: null,
         visibilityMatrix: participantActorIds.map(actorId => ({
             actorId,
             visibleParticipantActorIds: participantActorIds.slice(),
@@ -1054,6 +1057,80 @@ function storyConversationMeetingBySession(sessionId) {
     const ledger = storyConversationSessionEnsure();
     const row = ledger && ledger.meetingCases.find(item => item.sessionId === String(sessionId));
     return row ? storyConversationClone(row) : null;
+}
+
+function storyConversationMeetingClosureGet(meetingClosureId) {
+    const ledger = storyConversationSessionEnsure();
+    const row = ledger && ledger.meetingClosures.find(item => item.id === String(meetingClosureId));
+    return row ? storyConversationClone(row) : null;
+}
+
+function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    if (meeting.closureId || meeting.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_ALREADY_CLOSED', worldMutation: false };
+    }
+    const receipt = (meeting.outcomeReceipts || []).find(row =>
+        row.id === String(outcomeReceiptId || meeting.outcomeReceiptId));
+    if (!receipt || receipt.id !== meeting.outcomeReceiptId) {
+        return { ok: false, code: 'MEETING_OUTCOME_RECEIPT_REQUIRED', worldMutation: false };
+    }
+    const motion = meeting.motions.find(row => row.id === receipt.motionId);
+    if (!motion || !motion.voting || motion.voting.status !== 'COMPLETED'
+        || motion.activeVersionId !== receipt.motionVersionId
+        || motion.outcomeReceiptId !== receipt.id) {
+        return { ok: false, code: 'MEETING_OUTCOME_NOT_TERMINAL', worldMutation: false };
+    }
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (currentActorId !== meeting.chair.actorId) {
+        return { ok: false, code: 'MEETING_CHAIR_TURN_REQUIRED', worldMutation: false };
+    }
+    const turnResult = storyConversationMeetingAppendTurn(meeting, {
+        actorId: meeting.chair.actorId,
+        addressedActorId: null,
+        text: receipt.decision === 'ADOPTED'
+            ? 'Oylama sonucu kabul olarak kaydedildi. Toplantıyı kapatıyorum; bu kayıt henüz kurum onayı veya uygulama değildir.'
+            : 'Oylama sonucu ret olarak kaydedildi. Toplantıyı teklif üretmeden kapatıyorum.',
+        kind: 'MEETING_CLOSURE_RECORDED',
+        sourceRefs: [meeting.agendaItems[0].id, motion.id, motion.activeVersionId,
+            receipt.id, meeting.chair.institutionId]
+    });
+    if (!turnResult.ok) return turnResult;
+    const sequence = ledger.nextMeetingClosureSequence++;
+    const closureId = `meeting-closure:${sequence}`;
+    const closure = {
+        schemaVersion: 1,
+        id: closureId,
+        sequence,
+        meetingCaseId: meeting.id,
+        sessionId: meeting.sessionId,
+        conversationCaseId: meeting.conversationCaseId,
+        agendaItemId: meeting.agendaItems[0].id,
+        motionId: motion.id,
+        motionVersionId: motion.activeVersionId,
+        outcomeReceiptId: receipt.id,
+        decision: receipt.decision,
+        status: receipt.decision === 'ADOPTED'
+            ? 'CLOSED_ADOPTED_PENDING_PROPOSAL' : 'CLOSED_REJECTED',
+        chairActorId: meeting.chair.actorId,
+        chairInstitutionId: meeting.chair.institutionId,
+        authoritySource: 'CANONICAL_INSTITUTION_OFFICE',
+        closingTurnId: turnResult.turn.id,
+        proposalIntentId: motion.proposalIntent && motion.proposalIntent.id || null,
+        proposalId: null,
+        proposalStatus: receipt.decision === 'ADOPTED' ? 'NOT_ROUTED' : 'NOT_APPLICABLE_REJECTED',
+        closedAt: Number(STORY.clock) || 0,
+        physicalMutation: false,
+        worldMutation: false
+    };
+    ledger.meetingClosures.push(closure);
+    meeting.closureId = closure.id;
+    meeting.status = closure.status;
+    meeting.updatedAt = closure.closedAt || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_CLOSED', closure: storyConversationClone(closure),
+        turn: turnResult.turn, meetingCase: storyConversationClone(meeting), worldMutation: false };
 }
 
 function storyConversationMeetingProposalRoutes(meetingCaseId) {
@@ -1919,7 +1996,7 @@ function storyConversationMeetingGenerateCharacterTurn(meetingCaseId, addressedA
 function storyConversationSessionMigrateLedger(saved) {
     const ledger = storyConversationClone(saved);
     if (!ledger || typeof ledger !== 'object'
-        || ![1, 2, 3, STORY_CONVERSATION_SESSION_SCHEMA_VERSION].includes(Number(ledger.schemaVersion))) return null;
+        || ![1, 2, 3, 4, STORY_CONVERSATION_SESSION_SCHEMA_VERSION].includes(Number(ledger.schemaVersion))) return null;
     ledger.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
     ledger.adapterVersion = STORY_CONVERSATION_SESSION_ADAPTER_VERSION;
     ledger.nextTaskOfferSequence = Number.isInteger(ledger.nextTaskOfferSequence)
@@ -1927,8 +2004,12 @@ function storyConversationSessionMigrateLedger(saved) {
     if (!Array.isArray(ledger.taskOffers)) ledger.taskOffers = [];
     ledger.nextMeetingSequence = Number.isInteger(ledger.nextMeetingSequence)
         && ledger.nextMeetingSequence > 0 ? ledger.nextMeetingSequence : 1;
+    ledger.nextMeetingClosureSequence = Number.isInteger(ledger.nextMeetingClosureSequence)
+        && ledger.nextMeetingClosureSequence > 0 ? ledger.nextMeetingClosureSequence : 1;
     if (!Array.isArray(ledger.meetingCases)) ledger.meetingCases = [];
+    if (!Array.isArray(ledger.meetingClosures)) ledger.meetingClosures = [];
     for (const meeting of ledger.meetingCases) {
+        if (!Object.prototype.hasOwnProperty.call(meeting, 'closureId')) meeting.closureId = null;
         if (!Array.isArray(meeting.turns)) meeting.turns = [];
         if (!Array.isArray(meeting.privateNotes)) meeting.privateNotes = [];
         for (const turn of meeting.turns) {
@@ -4788,6 +4869,10 @@ function storyConversationSessionValidateLedger(candidate) {
     if (!Number.isInteger(candidate.nextMeetingSequence) || candidate.nextMeetingSequence < 1) {
         add('NEXT_MEETING_SEQUENCE', '$.nextMeetingSequence');
     }
+    if (!Number.isInteger(candidate.nextMeetingClosureSequence)
+        || candidate.nextMeetingClosureSequence < 1) {
+        add('NEXT_MEETING_CLOSURE_SEQUENCE', '$.nextMeetingClosureSequence');
+    }
     if (!Array.isArray(candidate.taskOffers)
         || candidate.taskOffers.length > STORY_CONVERSATION_TASK_OFFER_LIMIT) {
         add('TASK_OFFERS_REQUIRED', '$.taskOffers');
@@ -4841,7 +4926,8 @@ function storyConversationSessionValidateLedger(candidate) {
             add('MEETING_SESSION_REFERENCE', at);
         }
         if (meeting.meetingType !== 'FORMAL_CONSULTATION'
-            || meeting.status !== 'OPEN_NO_DECISION_ADAPTER') add('MEETING_CASE_STATUS', at);
+            || !['OPEN_NO_DECISION_ADAPTER', 'CLOSED_ADOPTED_PENDING_PROPOSAL',
+                'CLOSED_REJECTED'].includes(meeting.status)) add('MEETING_CASE_STATUS', at);
         if (!meeting.chair || !meeting.chair.actorId || !meeting.chair.institutionId
             || meeting.chair.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE') {
             add('MEETING_CHAIR_AUTHORITY', `${at}.chair`);
@@ -5139,6 +5225,54 @@ function storyConversationSessionValidateLedger(candidate) {
             || (outcomeReceipts.length > 0
                 && meeting.outcomeReceiptId !== outcomeReceipts[outcomeReceipts.length - 1].id)
             || meeting.worldMutation !== false) add('MEETING_OUTCOME_RECEIPTS', at);
+    }
+    const meetingClosures = Array.isArray(candidate.meetingClosures)
+        ? candidate.meetingClosures : [];
+    if (!Array.isArray(candidate.meetingClosures)
+        || candidate.meetingClosures.length > STORY_CONVERSATION_MEETING_LIMIT
+        || meetingClosures.some((closure, closureIndex) => {
+            const meeting = closure && meetingById.get(closure.meetingCaseId);
+            const receipt = meeting && (meeting.outcomeReceipts || []).find(row =>
+                row.id === closure.outcomeReceiptId);
+            const motion = meeting && meeting.motions.find(row => row.id === closure.motionId);
+            return !closure || closure.schemaVersion !== 1
+                || closure.id !== `meeting-closure:${closureIndex + 1}`
+                || closure.sequence !== closureIndex + 1
+                || !meeting || meeting.closureId !== closure.id
+                || closure.sessionId !== meeting.sessionId
+                || closure.conversationCaseId !== meeting.conversationCaseId
+                || closure.agendaItemId !== meeting.agendaItems[0].id
+                || !receipt || receipt.motionId !== closure.motionId
+                || receipt.motionVersionId !== closure.motionVersionId
+                || receipt.decision !== closure.decision
+                || !motion || motion.activeVersionId !== closure.motionVersionId
+                || !['ADOPTED', 'REJECTED'].includes(closure.decision)
+                || closure.status !== (closure.decision === 'ADOPTED'
+                    ? 'CLOSED_ADOPTED_PENDING_PROPOSAL' : 'CLOSED_REJECTED')
+                || meeting.status !== closure.status
+                || closure.chairActorId !== meeting.chair.actorId
+                || closure.chairInstitutionId !== meeting.chair.institutionId
+                || closure.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE'
+                || !meeting.turns.some(turn => turn.id === closure.closingTurnId
+                    && turn.actorId === meeting.chair.actorId
+                    && turn.kind === 'MEETING_CLOSURE_RECORDED'
+                    && turn.sourceRefs.includes(closure.outcomeReceiptId))
+                || closure.proposalIntentId !== (motion.proposalIntent
+                    && motion.proposalIntent.id || null)
+                || closure.proposalId !== null
+                || closure.proposalStatus !== (closure.decision === 'ADOPTED'
+                    ? 'NOT_ROUTED' : 'NOT_APPLICABLE_REJECTED')
+                || !Number.isFinite(closure.closedAt)
+                || closure.physicalMutation !== false || closure.worldMutation !== false;
+        })) {
+        add('MEETING_CLOSURES', '$.meetingClosures');
+    }
+    for (const meeting of meetingById.values()) {
+        const closure = meetingClosures.find(row => row.id === meeting.closureId);
+        if ((meeting.status === 'OPEN_NO_DECISION_ADAPTER' && meeting.closureId !== null)
+            || (meeting.status !== 'OPEN_NO_DECISION_ADAPTER' && !closure)) {
+            add('MEETING_CLOSURE_REFERENCE', `$.meetingCases.${meeting.id}`);
+        }
     }
     for (const [index, session] of (candidate.sessions || []).entries()) {
         if (!session.id || session.schemaVersion !== STORY_CONVERSATION_SESSION_SCHEMA_VERSION) add('SESSION_ID', `$.sessions[${index}]`);

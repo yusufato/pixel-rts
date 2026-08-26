@@ -716,6 +716,10 @@ function createRuntime(seed) {
             conversationMeetingCreate: (sessionId, agenda) => storyConversationMeetingCreate(sessionId, agenda),
             conversationMeetingGet: meetingId => storyConversationMeetingGet(meetingId),
             conversationMeetingBySession: sessionId => storyConversationMeetingBySession(sessionId),
+            conversationMeetingClosureGet: closureId => storyConversationMeetingClosureGet(closureId),
+            conversationMeetingClose: (meetingId, outcomeReceiptId) => (
+                storyConversationMeetingClose(meetingId, outcomeReceiptId)
+            ),
             conversationMeetingAdvanceSpeaker: meetingId => storyConversationMeetingAdvanceSpeaker(meetingId),
             conversationMeetingSubmitPlayerTurn: (meetingId, text, addressedActorId) => (
                 storyConversationMeetingSubmitPlayerTurn(meetingId, text, addressedActorId)

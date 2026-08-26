@@ -509,6 +509,72 @@ try {
     assert.doesNotMatch(completedVoteUi, /ADOPTED|REJECTED|ABSTAIN|\bYES\b/);
     runtime.dom.window.storyConversationWorkspaceClose();
 
+    const openMeetingSnapshot = runtime.api.conversationSessionSnapshot();
+    assert.equal(runtime.api.conversationSessionRestore(openMeetingSnapshot).schemaVersion, 5);
+    assert.equal(runtime.api.conversationMeetingGet(meeting.id).status, 'OPEN_NO_DECISION_ADAPTER');
+    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()),
+        JSON.stringify(openMeetingSnapshot));
+    const closeBeforeChair = JSON.stringify(runtime.api.conversationSessionSnapshot());
+    assert.equal(runtime.api.conversationMeetingClose(
+        meeting.id, completedVote.outcomeReceipt.id).code, 'MEETING_CHAIR_TURN_REQUIRED');
+    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()), closeBeforeChair);
+    while (runtime.api.conversationMeetingGet(meeting.id)
+        .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex]
+        !== meeting.chair.actorId) {
+        const currentActorId = runtime.api.conversationMeetingGet(meeting.id)
+            .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex];
+        const advanced = currentActorId === opened.session.playerActorId
+            ? runtime.api.conversationMeetingSubmitPlayerTurn(meeting.id,
+                'Oylama tamamlandı; başkanın kapanış tutanağını bekliyorum.', null)
+            : runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null);
+        assert.equal(advanced.ok, true);
+    }
+    const closedMeeting = runtime.api.conversationMeetingClose(
+        meeting.id, completedVote.outcomeReceipt.id
+    );
+    assert.equal(closedMeeting.ok, true);
+    assert.equal(closedMeeting.closure.outcomeReceiptId, completedVote.outcomeReceipt.id);
+    assert.equal(closedMeeting.closure.decision, completedVote.outcomeReceipt.decision);
+    assert.equal(closedMeeting.closure.proposalId, null);
+    assert.equal(closedMeeting.closure.physicalMutation, false);
+    assert.equal(runtime.api.conversationMeetingClose(
+        meeting.id, completedVote.outcomeReceipt.id).code, 'MEETING_ALREADY_CLOSED');
+    assert.equal(runtime.api.conversationMeetingClosureGet(closedMeeting.closure.id).id,
+        closedMeeting.closure.id);
+    const adoptedClosedSnapshot = runtime.api.conversationSessionSnapshot();
+    const rejectedOpenSnapshot = JSON.parse(JSON.stringify(openMeetingSnapshot));
+    const rejectedMeeting = rejectedOpenSnapshot.meetingCases.find(row => row.id === meeting.id);
+    const rejectedReceipt = rejectedMeeting.outcomeReceipts.find(row =>
+        row.id === completedVote.outcomeReceipt.id);
+    const rejectedVotes = rejectedMeeting.votes.filter(row =>
+        rejectedReceipt.voteIds.includes(row.id));
+    for (const vote of rejectedVotes) vote.choice = 'NO';
+    rejectedReceipt.tally = { yes: 0, no: rejectedVotes.length, abstain: 0 };
+    rejectedReceipt.decision = 'REJECTED';
+    assert.equal(runtime.api.conversationSessionValidate(rejectedOpenSnapshot).ok, true);
+    runtime.api.conversationSessionRestore(rejectedOpenSnapshot);
+    while (runtime.api.conversationMeetingGet(meeting.id)
+        .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex]
+        !== meeting.chair.actorId) {
+        const currentActorId = runtime.api.conversationMeetingGet(meeting.id)
+            .speakingOrderActorIds[runtime.api.conversationMeetingGet(meeting.id).currentSpeakerIndex];
+        const advanced = currentActorId === opened.session.playerActorId
+            ? runtime.api.conversationMeetingSubmitPlayerTurn(meeting.id,
+                'Ret sonucunun başkan kapanış tutanağını bekliyorum.', null)
+            : runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null);
+        assert.equal(advanced.ok, true);
+    }
+    const rejectedClosure = runtime.api.conversationMeetingClose(meeting.id, rejectedReceipt.id);
+    assert.equal(rejectedClosure.ok, true);
+    assert.equal(rejectedClosure.closure.status, 'CLOSED_REJECTED');
+    assert.equal(rejectedClosure.closure.proposalStatus, 'NOT_APPLICABLE_REJECTED');
+    assert.equal(rejectedClosure.closure.proposalId, null);
+    assert.equal(runtime.api.conversationSessionValidate(
+        runtime.api.conversationSessionSnapshot()).ok, true);
+    runtime.api.conversationSessionRestore(adoptedClosedSnapshot);
+    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()),
+        JSON.stringify(adoptedClosedSnapshot));
+
     const completion = runtime.api.conversationSessionBegin('Merhaba, görev için geldim.', {
         listenerActorId: taskTargetActorId
     });
@@ -572,6 +638,10 @@ try {
     forgedOutcome.meetingCases[0].outcomeReceipts[0].tally.yes += 1;
     assert.ok(runtime.api.conversationSessionValidate(forgedOutcome).issues
         .some(row => row.code === 'MEETING_OUTCOME_RECEIPTS'));
+    const forgedClosure = JSON.parse(JSON.stringify(snapshot));
+    forgedClosure.meetingClosures[0].closingTurnId = 'meeting-turn:forged';
+    assert.ok(runtime.api.conversationSessionValidate(forgedClosure).issues
+        .some(row => row.code === 'MEETING_CLOSURES'));
     const forgedMotionVersion = JSON.parse(JSON.stringify(snapshot));
     forgedMotionVersion.meetingCases[0].motions[0].versions[1].text = 'Kaynak dışı sahte sürüm';
     assert.ok(runtime.api.conversationSessionValidate(forgedMotionVersion).issues
@@ -583,7 +653,7 @@ try {
     uninvolvedVisibility.visiblePrivateNoteIds.push(note.id);
     assert.ok(runtime.api.conversationSessionValidate(forgedPrivateVisibility).issues
         .some(row => row.code === 'MEETING_VISIBILITY_MATRIX'));
-    assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 4);
+    assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 5);
     const restoredSnapshot = runtime.api.conversationSessionSnapshot();
     const restoreDifference = firstDifference(restoredSnapshot, snapshot);
     assert.equal(restoreDifference, null, `Kayıt geri yükleme farkı: ${JSON.stringify(restoreDifference)}`);
@@ -595,18 +665,20 @@ try {
     delete legacy.taskOffers;
     delete legacy.nextMeetingSequence;
     delete legacy.meetingCases;
+    delete legacy.nextMeetingClosureSequence;
+    delete legacy.meetingClosures;
     for (const session of legacy.sessions) {
         session.schemaVersion = 3;
         delete session.conversationCase;
     }
     const migrated = runtime.api.conversationSessionMigrate(legacy);
-    assert.equal(migrated.schemaVersion, 4);
-    assert.equal(migrated.adapterVersion, 'story-conversation-session-ledger-4');
+    assert.equal(migrated.schemaVersion, 5);
+    assert.equal(migrated.adapterVersion, 'story-conversation-session-ledger-5');
     assert.ok(migrated.sessions.every(session => session.conversationCase
         && session.conversationCase.modeHistory.length === 1));
     assert.equal(runtime.api.conversationSessionValidate(migrated).ok, true);
 
-    const preVersionLedger = JSON.parse(JSON.stringify(snapshot));
+    const preVersionLedger = JSON.parse(JSON.stringify(openMeetingSnapshot));
     preVersionLedger.meetingCases[0].votes = [];
     preVersionLedger.meetingCases[0].outcomeReceipts = [];
     preVersionLedger.meetingCases[0].outcomeReceiptId = null;
