@@ -216,6 +216,54 @@ try {
     assert.equal(privateNoteResult.privateNote.replyToPrivateNoteId, null);
     assert.equal(privateNoteResult.privateNote.generationMode, 'PLAYER_AUTHORED');
     assert.equal(privateNoteResult.privateNote.knowledgePolicy.rawWorldRead, false);
+    const privateTrapRecipient = meeting.participants.find(row =>
+        row.actorId !== opened.session.playerActorId
+        && row.actorId !== opened.session.listenerActorId);
+    const privateTrap = runtime.api.conversationMeetingSendPrivateNote(meeting.id,
+        privateTrapRecipient.actorId, 'UCUNCU_TARAF_GIZLI_TUZAK bu ikili kanalın dışına çıkmamalı.');
+    assert.equal(privateTrap.ok, true);
+    const beforeWrongSpeakerReply = JSON.stringify(runtime.api.conversationSessionSnapshot());
+    const physicalBeforeWrongSpeakerReply = physicalSnapshot();
+    assert.equal(runtime.api.conversationMeetingPrivateNoteRespond(
+        meeting.id, privateTrap.privateNote.id).code,
+    'MEETING_PRIVATE_NOTE_RECIPIENT_NOT_SPEAKER');
+    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()), beforeWrongSpeakerReply);
+    assert.equal(physicalSnapshot(), physicalBeforeWrongSpeakerReply);
+    const beforePrivateReply = runtime.api.conversationMeetingGet(meeting.id);
+    assert.equal(beforePrivateReply.speakingOrderActorIds[beforePrivateReply.currentSpeakerIndex],
+        opened.session.listenerActorId);
+    const publicTurnsBeforePrivateReply = beforePrivateReply.turns.length;
+    const speakerIndexBeforePrivateReply = beforePrivateReply.currentSpeakerIndex;
+    const physicalBeforePrivateReply = physicalSnapshot();
+    const privateReplyResult = runtime.api.conversationMeetingPrivateNoteRespond(
+        meeting.id, privateNoteResult.privateNote.id
+    );
+    assert.equal(privateReplyResult.ok, true);
+    assert.equal(privateReplyResult.privateReply.kind, 'CHARACTER_REPLY');
+    assert.equal(privateReplyResult.privateReply.replyToPrivateNoteId,
+        privateNoteResult.privateNote.id);
+    assert.equal(privateReplyResult.privateReply.authorActorId, opened.session.listenerActorId);
+    assert.equal(privateReplyResult.privateReply.recipientActorId, opened.session.playerActorId);
+    assert.equal(privateReplyResult.privateReply.generationMode, 'DETERMINISTIC_SOURCE_BOUND');
+    assert.equal(privateReplyResult.privateReply.knowledgePolicy.rootPrivateNoteOnly, true);
+    assert.equal(privateReplyResult.privateReply.knowledgePolicy.otherPrivateContextReadable, false);
+    assert.equal(privateReplyResult.privateReply.knowledgePolicy.rawWorldRead, false);
+    assert.ok(privateReplyResult.privateReply.sourceRefs.includes(privateNoteResult.privateNote.id));
+    assert.ok(!privateReplyResult.privateReply.sourceRefs.includes(privateTrap.privateNote.id));
+    assert.doesNotMatch(privateReplyResult.privateReply.text, /UCUNCU_TARAF_GIZLI_TUZAK/);
+    const meetingAfterPrivateReply = runtime.api.conversationMeetingGet(meeting.id);
+    assert.equal(meetingAfterPrivateReply.turns.length, publicTurnsBeforePrivateReply);
+    assert.equal(meetingAfterPrivateReply.currentSpeakerIndex, speakerIndexBeforePrivateReply);
+    assert.equal(physicalSnapshot(), physicalBeforePrivateReply);
+    assert.equal(JSON.stringify(meetingAfterPrivateReply.visibilityMatrix
+        .filter(row => row.visiblePrivateNoteIds.includes(privateReplyResult.privateReply.id))
+        .map(row => row.actorId).sort()),
+    JSON.stringify([opened.session.playerActorId, opened.session.listenerActorId].sort()));
+    const beforeDuplicatePrivateReply = JSON.stringify(runtime.api.conversationSessionSnapshot());
+    assert.equal(runtime.api.conversationMeetingPrivateNoteRespond(
+        meeting.id, privateNoteResult.privateNote.id).code,
+    'MEETING_PRIVATE_NOTE_ALREADY_ANSWERED');
+    assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()), beforeDuplicatePrivateReply);
     const meetingAfterNote = runtime.api.conversationMeetingGet(meeting.id);
     assert.equal(JSON.stringify(meetingAfterNote.visibilityMatrix
         .filter(row => row.visiblePrivateNoteIds.includes(privateNoteResult.privateNote.id))

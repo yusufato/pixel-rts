@@ -1423,6 +1423,120 @@ function storyConversationMeetingSendPrivateNote(meetingCaseId, recipientActorId
         meetingCase: storyConversationClone(meeting), worldMutation: false };
 }
 
+function storyConversationMeetingPrivateNoteReplyContext(meeting, rootNote, participant, playerActorId) {
+    const visibility = (meeting.visibilityMatrix || []).find(row =>
+        row.actorId === participant.actorId);
+    if (!visibility || !visibility.visiblePrivateNoteIds.includes(rootNote.id)
+        || visibility.mayReadOtherPrivateContext !== false) return null;
+    const visibleTurnIds = new Set(visibility.visibleTurnIds || []);
+    const publicTurns = (meeting.turns || []).filter(turn =>
+        turn.visibility === 'MEETING_PUBLIC' && visibleTurnIds.has(turn.id));
+    const grounding = storyConversationMeetingBeliefGrounding(meeting, participant);
+    const stance = storyConversationMeetingStanceEvaluate(
+        meeting, participant, grounding, playerActorId
+    );
+    return {
+        rootPrivateNoteId: rootNote.id,
+        agendaItemId: meeting.agendaItems[0].id,
+        visiblePublicTurnIds: publicTurns.map(turn => turn.id),
+        grounding,
+        stance,
+        knowledgePolicy: {
+            agendaVisible: true, priorPublicTurnsVisible: true,
+            rootPrivateNoteOnly: true, otherPrivateContextReadable: false,
+            rawWorldRead: false
+        }
+    };
+}
+
+function storyConversationMeetingPrivateNoteReplyText(grounding, stance) {
+    let sourceBoundary;
+    if (grounding) {
+        const confidence = grounding.confidenceBps >= 8000 ? 'yüksek güvenli'
+            : grounding.confidenceBps >= 5500 ? 'desteklenmiş' : 'sınırlı güvenli';
+        sourceBoundary = grounding.summary
+            ? `Kendi ${confidence} kaydımda “${grounding.summary}” bilgisi var; değerlendirmemi bununla sınırlıyorum.`
+            : `Bu konuda kendi ${confidence} kurumsal kaydım var; onun sınırını aşmıyorum.`;
+    } else {
+        sourceBoundary = 'Notundaki iddiayı doğrulanmış gerçek saymıyorum; kendi kayıtlarımda yeterli dayanak olmadan taahhüt vermeyeceğim.';
+    }
+    const posture = stance && ({
+        SUPPORT: 'Mevcut tutumum bu çerçeveyi destekliyor.',
+        LEAN_SUPPORT: 'Mevcut tutumum desteğe yakın, fakat koşullar açık kalmalı.',
+        UNDECIDED: 'Mevcut bilgilerle tutumum henüz açık.',
+        LEAN_OPPOSE: 'Mevcut tutumum çekinceli; koşullar değişmeden destek vermem.',
+        OPPOSE: 'Mevcut tutumum bu çerçeveye karşı.'
+    })[stance.direction];
+    return `İkili notunu aldım. ${sourceBoundary} ${posture || ''} Bu özel yanıt bir karar, emir veya taahhüt değildir.`
+        .replace(/\s+/g, ' ').trim();
+}
+
+function storyConversationMeetingPrivateNoteRespond(meetingCaseId, privateNoteId) {
+    const ledger = storyConversationSessionEnsure();
+    const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
+    if (!meeting) return { ok: false, code: 'MEETING_NOT_FOUND', worldMutation: false };
+    if (meeting.status !== 'OPEN_NO_DECISION_ADAPTER') {
+        return { ok: false, code: 'MEETING_NOT_OPEN', worldMutation: false };
+    }
+    const session = storyConversationSessionFind(meeting.sessionId);
+    if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const rootNote = (meeting.privateNotes || []).find(row => row.id === String(privateNoteId));
+    if (!rootNote) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_NOT_FOUND', worldMutation: false };
+    }
+    if (rootNote.kind !== 'PLAYER_NOTE' || rootNote.authorActorId !== session.playerActorId
+        || rootNote.replyToPrivateNoteId !== null) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_NOT_PLAYER_ROOT', worldMutation: false };
+    }
+    if ((meeting.privateNotes || []).some(row =>
+        row.kind === 'CHARACTER_REPLY' && row.replyToPrivateNoteId === rootNote.id)) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_ALREADY_ANSWERED', worldMutation: false };
+    }
+    const currentActorId = meeting.speakingOrderActorIds[meeting.currentSpeakerIndex];
+    if (currentActorId !== rootNote.recipientActorId) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_RECIPIENT_NOT_SPEAKER', worldMutation: false };
+    }
+    if ((meeting.privateNotes || []).length >= 24) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_LIMIT', worldMutation: false };
+    }
+    const participant = meeting.participants.find(row => row.actorId === rootNote.recipientActorId);
+    const context = participant && storyConversationMeetingPrivateNoteReplyContext(
+        meeting, rootNote, participant, session.playerActorId
+    );
+    if (!context) {
+        return { ok: false, code: 'MEETING_PRIVATE_NOTE_CONTEXT_NOT_VISIBLE', worldMutation: false };
+    }
+    const sequence = meeting.privateNotes.length + 1;
+    const sourceRefs = Array.from(new Set([
+        rootNote.id, context.agendaItemId
+    ].concat(context.visiblePublicTurnIds,
+        context.grounding ? [context.grounding.beliefId, context.grounding.worldFactId] : [],
+        context.stance ? context.stance.sourceRefs : []).map(String)));
+    const reply = {
+        schemaVersion: 2, id: `${meeting.id}:private-note:${sequence}`, sequence,
+        kind: 'CHARACTER_REPLY', replyToPrivateNoteId: rootNote.id,
+        authorActorId: rootNote.recipientActorId, recipientActorId: rootNote.authorActorId,
+        text: storyConversationMeetingPrivateNoteReplyText(context.grounding, context.stance),
+        visibility: 'BILATERAL_PRIVATE', sourceTurnId: null,
+        sourceRefs, grounding: storyConversationClone(context.grounding),
+        stance: storyConversationClone(context.stance),
+        knowledgePolicy: context.knowledgePolicy,
+        generationMode: 'DETERMINISTIC_SOURCE_BOUND',
+        publicTurnCountAtReply: meeting.turns.length,
+        createdAt: Number(STORY.clock) || 0, worldMutation: false
+    };
+    meeting.privateNotes.push(reply);
+    for (const row of meeting.visibilityMatrix || []) {
+        if (row.actorId === reply.authorActorId || row.actorId === reply.recipientActorId) {
+            row.visiblePrivateNoteIds.push(reply.id);
+        }
+    }
+    meeting.updatedAt = Number(STORY.clock) || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_PRIVATE_NOTE_ANSWERED',
+        privateReply: storyConversationClone(reply),
+        meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
 function storyConversationMeetingMotionPropose(meetingCaseId, text, proposalIntentInput) {
     const ledger = storyConversationSessionEnsure();
     const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
