@@ -910,8 +910,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:ceea4ec752f93be9",
-      "text": "selamlar",
+     "id": "semantic-intent:ceea4ec752f93be9",
+      "adjudication": {
+        "id": "semantic-intent:ceea4ec752f93be9",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "GREETING",
+          "communicativeFunction": "GREET",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "UNSPECIFIED",
+          "target": "UNSPECIFIED",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Doğal selamlaşma.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "selamlar",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:bc7a30dae407a7a5e3c33ae4850d48807b8a756b26dc3e0ea221094fc2387483",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -922,8 +944,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:2d095b5ae8368ef8",
-      "text": "yavuz bey hangi işi yapıyorsunuz",
+     "id": "semantic-intent:2d095b5ae8368ef8",
+      "adjudication": {
+        "id": "semantic-intent:2d095b5ae8368ef8",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin işini soruyor; eylem talebi değil.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "yavuz bey hangi işi yapıyorsunuz",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:1252c209bc0ce012b714ef94d57f1203e7068394085e9109c0716044d94c77ee",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -939,8 +983,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:53777ebce2bf748f",
-      "text": "devlet yöneticisi olarak halka ne hizmet yapacaksınız",
+     "id": "semantic-intent:53777ebce2bf748f",
+      "adjudication": {
+        "id": "semantic-intent:53777ebce2bf748f",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin gelecekteki kamu hizmeti planını soruyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "devlet yöneticisi olarak halka ne hizmet yapacaksınız",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:933c399927e4e1316ec7198f1bdf1d8454bb4a38e8c53a088702930fc381ca82",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -960,8 +1026,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:823b1be5b7ee9f3a",
-      "text": "hangi şehirdesiniz şu an",
+     "id": "semantic-intent:823b1be5b7ee9f3a",
+      "adjudication": {
+        "id": "semantic-intent:823b1be5b7ee9f3a",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "LOCATION",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin mevcut konumunu soruyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "hangi şehirdesiniz şu an",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:51b3342a16a83243d6acdfc324a17cb555f1e7fb63f9dcf2d43bd22f77e3630f",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -985,8 +1073,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:a4055ad05e56d02c",
-      "text": "gaziantepteyim ve halep sınırlarında düşman birlikleri yoğunlanlaşıyor yardım için gelir misiniz",
+     "id": "semantic-intent:a4055ad05e56d02c",
+      "adjudication": {
+        "id": "semantic-intent:a4055ad05e56d02c",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_SUPPORT",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "REPORT_MILITARY"
+          ]
+        },
+        "notes": "Askerî tehdidi bildirip dinleyiciden gelecekte fiilî destek istiyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "gaziantepteyim ve halep sınırlarında düşman birlikleri yoğunlanlaşıyor yardım için gelir misiniz",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:5acc8b285c66c414c168a18808bb3e7957d1f0de6f6c20f67b7f6b7c93a868d0",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -1010,8 +1122,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:e3abcc2276ea5b73",
-      "text": "evet şu an hangi şehirdeyim",
+     "id": "semantic-intent:e3abcc2276ea5b73",
+      "adjudication": {
+        "id": "semantic-intent:e3abcc2276ea5b73",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "LOCATION",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Oyuncu kendi mevcut şehrini soruyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "evet şu an hangi şehirdeyim",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:25a67bf7c75cd43ea8c47db93d237dd7c0a6b00c53a7de7b4b4e69ae0db303b4",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -1035,8 +1169,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:816560acc1ccc650",
-      "text": "aynı şeyleri dedin efendim",
+     "id": "semantic-intent:816560acc1ccc650",
+      "adjudication": {
+        "id": "semantic-intent:816560acc1ccc650",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CORRECT_STATEMENT",
+          "communicativeFunction": "CORRECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CORRECTION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Karakterin önceki cevabı tekrarladığını düzeltiyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "aynı şeyleri dedin efendim",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:55b86ae989515250b797ad278f3256c30ab51c58b2b9bfc70b8c3977bc502b75",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -1060,8 +1216,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:939eb350bfc45f20",
-      "text": "yardım gerekiyor efendim yardım",
+     "id": "semantic-intent:939eb350bfc45f20",
+      "adjudication": {
+        "id": "semantic-intent:939eb350bfc45f20",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_SUPPORT",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "MILITARY",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Önceki askerî bağlamdaki yardım talebini parçalı biçimde yineliyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "yardım gerekiyor efendim yardım",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:feb15bb8d0290808f5a1f9d028e9d953c8bb770e60a040315c1195df19ab83b5",
       "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
@@ -1085,8 +1263,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:1de30c1d1a93ab90",
-      "text": "bana verebileceğiniz iş var mı",
+     "id": "semantic-intent:1de30c1d1a93ab90",
+      "adjudication": {
+        "id": "semantic-intent:1de30c1d1a93ab90",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Oyuncu kendisine görev verilmesini istiyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "bana verebileceğiniz iş var mı",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:695820da053a59bd5cd2a36358f3791c52fd330200f9bf016d344e8d850beeb2",
       "familyId": "sha256:9ea27f6515d9824732a137661263e51fff9593250474f64cb98c5c6ae058cd5f",
@@ -1102,8 +1302,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:d9e560a180f670a9",
-      "text": "istediğiniz bir şey var mı",
+     "id": "semantic-intent:d9e560a180f670a9",
+      "adjudication": {
+        "id": "semantic-intent:d9e560a180f670a9",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "OFFER_SUPPORT",
+          "communicativeFunction": "OFFER",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyiciye yardım/iş desteği teklif ediyor; salt bilgi sorusu değil.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "istediğiniz bir şey var mı",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:00450827f7f4b04dea1cb783226729f39d3ae258ef8a972f7f55b6f3f4937f4d",
       "familyId": "sha256:9ea27f6515d9824732a137661263e51fff9593250474f64cb98c5c6ae058cd5f",
@@ -1123,8 +1345,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:9eb47fb27a9ad49d",
-      "text": "bana cevap ver",
+     "id": "semantic-intent:9eb47fb27a9ad49d",
+      "adjudication": {
+        "id": "semantic-intent:9eb47fb27a9ad49d",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "IMPERATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "REPAIR",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Önceki yanıtsız turlardan sonra doğrudan cevap eylemi istiyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "bana cevap ver",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:553f71533db5b78c3ae85b3d581fee1e987830d282738bdad0532ac474be6377",
       "familyId": "sha256:9ea27f6515d9824732a137661263e51fff9593250474f64cb98c5c6ae058cd5f",
@@ -1148,8 +1392,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:7b59b6e875b5e5da",
-      "text": "bir şirket açmak istiyorum",
+     "id": "semantic-intent:7b59b6e875b5e5da",
+      "adjudication": {
+        "id": "semantic-intent:7b59b6e875b5e5da",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Şirket kurma niyetini eylem süreci açacak istek olarak bildiriyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "bir şirket açmak istiyorum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:2439090d9197e7ba1f76b4048e71606b3dc5c26bfce515922231ff7f5ddae18c",
       "familyId": "sha256:86dea362dfe9a50761333dfb1eff78fcf19b3af5008e5c902cdd3da29889eeb4",
@@ -1165,8 +1431,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:1af2314955af0973",
-      "text": "ankaraya elektronik fabrikası kurmak istiyorum biraz bütçem var",
+     "id": "semantic-intent:1af2314955af0973",
+      "adjudication": {
+        "id": "semantic-intent:1af2314955af0973",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Konum, şirket türü ve bütçe bilgisiyle şirket kurma isteğini ayrıntılandırıyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "ankaraya elektronik fabrikası kurmak istiyorum biraz bütçem var",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:485f27b5f992459d773f14b4928095aab97a0b6fc9e1981553fa098d4efb9781",
       "familyId": "sha256:86dea362dfe9a50761333dfb1eff78fcf19b3af5008e5c902cdd3da29889eeb4",
@@ -1186,8 +1474,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:4d0f9c88364d9e3b",
-      "text": "1000 dinarım var ve bu iş için hazırım",
+     "id": "semantic-intent:4d0f9c88364d9e3b",
+      "adjudication": {
+        "id": "semantic-intent:4d0f9c88364d9e3b",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Oyuncu bütçe miktarını ve hazır oluşunu bildiriyor; OOD değil.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "1000 dinarım var ve bu iş için hazırım",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:54e369ff8784e9def88bfd1a83e8d66903b37cff7dfab1b377f249a0faf4b425",
       "familyId": "sha256:86dea362dfe9a50761333dfb1eff78fcf19b3af5008e5c902cdd3da29889eeb4",
@@ -1211,8 +1521,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:24aa2b0a5ceb13ba",
-      "text": "1000 dinarım var diyorum",
+     "id": "semantic-intent:24aa2b0a5ceb13ba",
+      "adjudication": {
+        "id": "semantic-intent:24aa2b0a5ceb13ba",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "REPAIR",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Kaçırılan bütçe bilgisini onarım olarak tekrar ediyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "1000 dinarım var diyorum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:aed8ef9b161d7e2b3a9c00f235c8c47329cc4a555bba0dc0d6291eddae846b43",
       "familyId": "sha256:86dea362dfe9a50761333dfb1eff78fcf19b3af5008e5c902cdd3da29889eeb4",
@@ -1236,8 +1568,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:bf92664cd7a9e8f6",
-      "text": "siz kafayı yemişsiniz",
+     "id": "semantic-intent:bf92664cd7a9e8f6",
+      "adjudication": {
+        "id": "semantic-intent:bf92664cd7a9e8f6",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CHALLENGE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "EMOTION",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "ACCUSE"
+          ]
+        },
+        "notes": "Dinleyiciye yöneltilmiş hakaret ve meydan okuma.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "siz kafayı yemişsiniz",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:1177b14c456396eed298cf6d7d0e085949c1c6d290dad32c76d199b45f755bc1",
       "familyId": "sha256:86dea362dfe9a50761333dfb1eff78fcf19b3af5008e5c902cdd3da29889eeb4",
@@ -1261,8 +1617,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:64ad193ced692c22",
-      "text": "[KARAKTER] bey nasılsınız",
+     "id": "semantic-intent:64ad193ced692c22",
+      "adjudication": {
+        "id": "semantic-intent:64ad193ced692c22",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CHECK_IN",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "HEALTH",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin hâlini soran check-in.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "[KARAKTER] bey nasılsınız",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:46290dc5223dbc9b96876599706a17a7523d3ed7ff1efc216f3ec803bc236ccf",
       "familyId": "sha256:e2a7ceaf5616b525aa7fb0fe3554533682cc7e1c69ad5a685a4a97d128057b9b",
@@ -1273,8 +1651,30 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:91482450bc943ad0",
-      "text": "[KARAKTER] bey diyerek size hakaret etmiş olmaz mıyım",
+     "id": "semantic-intent:91482450bc943ad0",
+      "adjudication": {
+        "id": "semantic-intent:91482450bc943ad0",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "RELATIONSHIP",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Hitabın hakaret sayılıp sayılmayacağını varsayımsal olarak soruyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "[KARAKTER] bey diyerek size hakaret etmiş olmaz mıyım",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:038ef1a3347138ceb64fe454516c70f398da5e1eee5d9460f6c92a8ad4cfc154",
       "familyId": "sha256:e2a7ceaf5616b525aa7fb0fe3554533682cc7e1c69ad5a685a4a97d128057b9b",
@@ -1290,8 +1690,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:cdbb6fe55351cd31",
-      "text": "neden sadece bana soru soruyorsun işin gereği olsa gerek",
+     "id": "semantic-intent:cdbb6fe55351cd31",
+      "adjudication": {
+        "id": "semantic-intent:cdbb6fe55351cd31",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "CHALLENGE"
+          ]
+        },
+        "notes": "Karakterin soru sorma davranışının iş gereği olup olmadığını sorguluyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "neden sadece bana soru soruyorsun işin gereği olsa gerek",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:9ba3445ad0f2e94478993026fa2332d7e42555ece5db5b59c01ca773b6a6d7b4",
       "familyId": "sha256:e2a7ceaf5616b525aa7fb0fe3554533682cc7e1c69ad5a685a4a97d128057b9b",
@@ -1311,8 +1735,32 @@
       "labelStatus": "CANDIDATE_UNREVIEWED"
     },
     {
-      "id": "semantic-intent:69cf35ab07edd1ff",
-      "text": "önceki sözün devamı olarak anladım insanlar arasında popüler herhalde",
+     "id": "semantic-intent:69cf35ab07edd1ff",
+      "adjudication": {
+        "id": "semantic-intent:69cf35ab07edd1ff",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CHALLENGE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "OPINION",
+          "target": "LISTENER",
+          "polarity": "MIXED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "HEARSAY",
+          "continuity": "CONTINUATION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "SMALL_TALK"
+          ]
+        },
+        "notes": "Karakterin kalıp onarım sözünü alaycı biçimde eleştiriyor.",
+        "reviewedAt": "2026-08-26T22:41:14.031Z",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
+     "text": "önceki sözün devamı olarak anladım insanlar arasında popüler herhalde",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:a444f4c9d02c3c027987a47b4f6cce697193cb199f7d370dbe736fe1b19c240e",
       "familyId": "sha256:e2a7ceaf5616b525aa7fb0fe3554533682cc7e1c69ad5a685a4a97d128057b9b",

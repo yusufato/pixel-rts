@@ -1343,3 +1343,10 @@
 - **What happened:** İlk 20 gözlenmiş oyuncu cümlesi bağlamıyla tek tek incelendi; eksiksiz kapalı etiketler ve kayıt başına gerekçe corpus'a `CODEX_INDIVIDUAL_REVIEW` provenansıyla işlendi.
 - **Evidence:** Corpus 20 Codex gold, 0 insan gold raporluyor. Deterministik baseline 20 kaydın 11'inde ana speech-act'i kaçırdı; macro-F1 `0,3246753247`, ECE `0,2985`. Corpus/provenans, eski gece kapısı ve SemanticFrameV2 testleri exit `0`.
 - **Implication for future audits:** İlk 20 kaydı yeniden etiketsiz veya insan-gold sayma. Bu kısmi sonuç mevcut Türkçe anlamanın ciddi hatasını doğrular fakat 200 kayıt tamamlanmadan model karşılaştırması için kabul kanıtı değildir.
+
+## 2026-08-27 — Codex tekil semantik incelemesi 40 gold kayda ulaştı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1 / Codex partisi 2
+- **What happened:** İkinci 20 gözlenmiş oyuncu turu bağlamıyla tek tek etiketlendi; toplam 40 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
+- **Evidence:** Corpus doğrulaması exit `0`; kısmi baseline macro-F1 `0,3830492424`, ECE `0,2455`; sayaç `40/200`.
+- **Implication for future audits:** İlk 40 kaydı tamamlanmış Codex gold kabul et; fakat 200 kapısı dolmadan embedding/model spike'ına başlama.

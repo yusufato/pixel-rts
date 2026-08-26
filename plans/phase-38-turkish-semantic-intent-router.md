@@ -248,3 +248,11 @@ alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable o
   seçti. İlk kısmi baseline macro-F1 `0,324675`, ECE `0,2985` ölçüldü.
 - Güncel kapı `20/200` prototip gold ve `20/1000` ürün gold; bu kısmi ölçüm
   model seçmek veya entegrasyona geçmek için yeterli değildir.
+
+### 27 Ağustos 2026 — Codex tekil inceleme partisi 2
+
+- Sonraki 20 gözlenmiş oyuncu turu bağlamıyla ayrı ayrı incelendi. Birleşik
+  askerî rapor+destek isteği, destek teklifi, ekonomik miktar bildirimi, onarım,
+  hakaret ve alaycı meydan okuma ayrımları açıkça etiketlendi.
+- Toplam `40/200` prototip gold oldu. Deterministik kısmi baseline macro-F1
+  `0,383049`, ECE `0,2455`; prototip kapısı kapalıdır.
