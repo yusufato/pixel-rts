@@ -596,6 +596,7 @@ function createRuntime(seed) {
             characterRoleAdapterView: actorId => storyCharacterRoleAdapterView(actorId),
             characterRoleAdapterCatalog: () => storyCharacterRoleAdapterCatalog(),
             characterRoleInstitutionActionPreview: input => storyCharacterRoleInstitutionActionPreview(input),
+            characterRoleInstitutionTaskCommissionPreview: input => storyCharacterRoleInstitutionTaskCommissionPreview(input),
             characterRoleInstitutionAction: input => storyCharacterRoleInstitutionAction(input),
             characterRoleInstitutionReviewPreview: input => storyCharacterRoleInstitutionReviewPreview(input),
             characterRoleInstitutionReviewApply: input => storyCharacterRoleInstitutionReviewApply(input),
@@ -1064,6 +1065,7 @@ function createRuntime(seed) {
             institutionSummary: () => storyInstitutionSummary(),
             institutionLedger: () => storyInstitutionClone(typeof storyInstitutionEnsure === 'function' ? storyInstitutionEnsure() : STORY.institutions),
             validateInstitutionLedger: ledger => storyInstitutionValidate(ledger),
+            migrateInstitutionLedger: ledger => storyInstitutionMigrateLedger(ledger),
             institutionForSave: () => storyInstitutionForSave(),
             institutionCountryView: countryId => storyInstitutionCountryView(countryId),
             institutionRegionView: regionId => storyInstitutionRegionView(regionId),
@@ -10856,6 +10858,7 @@ function probeInstitutions(seed = 2032) {
     let main;
     let savedRaw;
     let savedLedger;
+    let proxyDenied;
     try {
         runtime.api.newCampaign({ seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
         runtime.api.advance(10);
@@ -10863,6 +10866,18 @@ function probeInstitutions(seed = 2032) {
         const countryId = 'country:0';
         const ledger = runtime.api.institutionLedger();
         const country = ledger.countries[countryId];
+        const legacyLedger = JSON.parse(JSON.stringify(ledger));
+        legacyLedger.schemaVersion = 1;
+        legacyLedger.adapterVersion = 'story-institution-authority-ledger-1';
+        legacyLedger.policyHash = 'fnv1a32:dc93047e';
+        for (const legacyCountry of Object.values(legacyLedger.countries)) {
+            delete legacyCountry.authorityByAction.COMMISSION_PAID_CONTACT_TASK;
+            for (const institution of Object.values(legacyCountry.institutions)) {
+                institution.authorityGrants = institution.authorityGrants.filter(
+                    grant => grant.actionType !== 'COMMISSION_PAID_CONTACT_TASK'
+                );
+            }
+        }
         const institutionOf = type => Object.values(country.institutions).find(row => row.type === type);
         const actorFor = institution => ({
             institutionId: institution.id,
@@ -10875,6 +10890,46 @@ function probeInstitutions(seed = 2032) {
         }, actorFor(judiciary)));
         const directExecuted = directSubmitted.ok
             ? runtime.api.institutionExecute(directSubmitted.request.id, actorFor(judiciary)) : directSubmitted;
+
+        const executive = institutionOf('EXECUTIVE');
+        const armedForces = institutionOf('ARMED_FORCES');
+        const commissionContext = {
+            correlationId: 'institution-task-probe:1',
+            sourceConversationCaseId: 'conversation-case:probe',
+            targetActorId: 'character:0:target',
+            assigneeActorId: 'character:0:assignee',
+            objectiveType: 'HOLD_CONVERSATION',
+            compensationPolicyId: 'institutional-contact-task-v1'
+        };
+        const commissionPreview = runtime.api.characterRoleInstitutionTaskCommissionPreview({
+            actorId: executive.officeHolder.actorId,
+            commissionContext
+        });
+        const commissionSubmitted = runtime.api.characterRoleInstitutionAction({
+            phase: 'PROPOSE',
+            actorId: executive.officeHolder.actorId,
+            actionType: 'COMMISSION_PAID_CONTACT_TASK',
+            commissionContext
+        });
+        const commissionExecuted = commissionSubmitted.ok
+            ? runtime.api.characterRoleInstitutionAction({
+                phase: 'EXECUTE',
+                actorId: executive.officeHolder.actorId,
+                requestId: commissionSubmitted.request.id
+            }) : commissionSubmitted;
+        const commissionMissingContext = runtime.api.institutionSubmit(Object.assign({
+            countryId, actionType: 'COMMISSION_PAID_CONTACT_TASK'
+        }, actorFor(executive)));
+        const unrelatedGrantDenied = runtime.api.characterRoleInstitutionTaskCommissionPreview({
+            actorId: armedForces.officeHolder.actorId,
+            commissionContext
+        });
+        const migratedLegacyLedger = runtime.api.migrateInstitutionLedger(legacyLedger);
+        const migratedLegacyValidation = runtime.api.validateInstitutionLedger(migratedLegacyLedger);
+        const corruptLegacyLedger = JSON.parse(JSON.stringify(legacyLedger));
+        corruptLegacyLedger.policyHash = 'fnv1a32:badc0ffe';
+        const rejectedLegacyLedger = runtime.api.migrateInstitutionLedger(corruptLegacyLedger);
+        const corruptLegacyValidation = runtime.api.validateInstitutionLedger(rejectedLegacyLedger);
 
         const business = Object.values(story.powerCenters.centers)
             .find(row => row.countryId === countryId && row.type === 'BUSINESS_COUNCIL');
@@ -10952,6 +11007,23 @@ function probeInstitutions(seed = 2032) {
             powerCenterValidation: runtime.api.validatePowerCenterLedger(runtime.api.powerCenterLedger()),
             summary: runtime.api.institutionSummary(),
             direct: { submitted: directSubmitted, executed: directExecuted },
+            paidTaskCommission: {
+                preview: commissionPreview,
+                submitted: commissionSubmitted,
+                executed: commissionExecuted,
+                missingContext: commissionMissingContext,
+                unrelatedGrantDenied,
+                proxyDenied
+            },
+            authorityMigration: {
+                validation: migratedLegacyValidation,
+                schemaVersion: migratedLegacyLedger.schemaVersion,
+                requestCountBefore: Object.keys(legacyLedger.requests).length,
+                requestCountAfter: Object.keys(migratedLegacyLedger.requests).length,
+                routeAdded: Object.values(migratedLegacyLedger.countries).every(row =>
+                    !!row.authorityByAction.COMMISSION_PAID_CONTACT_TASK),
+                corruptRejected: corruptLegacyValidation.ok === false
+            },
             centerDirect: { submitted: centerDirectSubmitted, executed: centerDirectExecuted },
             petition: { submitted: petitionSubmitted, approved: petitionCurrent, executed: petitionExecuted },
             denied: { fakeActor, prohibited, outsideJurisdiction },
@@ -10983,6 +11055,42 @@ function probeInstitutions(seed = 2032) {
     } finally {
         runtime.dom.window.close();
     }
+
+    const proxyRuntime = createRuntime((seed + 17) >>> 0);
+    try {
+        proxyRuntime.api.newCampaign({
+            seed: (seed + 17) >>> 0,
+            playerStateId: 0,
+            abundance: 1,
+            doctrine: 'combined',
+            fog: true,
+            featureFlags: { 'government.electionsTransfer': false }
+        });
+        const proxyLedger = proxyRuntime.api.institutionLedger();
+        const proxyCountry = Object.values(proxyLedger.countries).find(row => {
+            const office = Object.values(row.institutions).find(item => item.type === 'EXECUTIVE');
+            return office && office.officeHolder.actorType !== 'CHARACTER';
+        });
+        const proxyExecutive = proxyCountry && Object.values(proxyCountry.institutions)
+            .find(row => row.type === 'EXECUTIVE');
+        proxyDenied = proxyExecutive ? proxyRuntime.api.institutionSubmit({
+            countryId: proxyCountry.countryId,
+            actionType: 'COMMISSION_PAID_CONTACT_TASK',
+            institutionId: proxyExecutive.id,
+            actorId: proxyExecutive.officeHolder.actorId,
+            commissionContext: {
+                correlationId: 'institution-task-proxy-probe:1',
+                sourceConversationCaseId: 'conversation-case:proxy-probe',
+                targetActorId: 'character:0:target',
+                assigneeActorId: 'character:0:assignee',
+                objectiveType: 'HOLD_CONVERSATION',
+                compensationPolicyId: 'institutional-contact-task-v1'
+            }
+        }) : { ok: false, reason: 'NO_PROXY_FIXTURE' };
+    } finally {
+        proxyRuntime.dom.window.close();
+    }
+    main.paidTaskCommission.proxyDenied = proxyDenied;
 
     const restoredRuntime = createRuntime(seed >>> 0);
     let restored;

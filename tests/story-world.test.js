@@ -2277,6 +2277,31 @@ function run() {
         'Tek makamlı anayasal eylem doğru makam tarafından doğrudan yetkilendirilmeli.');
     assert.equal(institutionProbe.main.direct.executed.ok, true,
         'Doğrudan yetkili makam karar kaydını yürütebilmeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.preview.ok, true,
+        'Ücretli temas görevi yalnız açık kanonik commission grant’iyle önizlenebilmeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.submitted.request.status, 'AUTHORIZED',
+        'Gerçek yürütme makamının görev ihalesi ayrı yetki rotasında yetkilendirilmeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.executed.ok, true,
+        'Yetkili ücretli görev ihalesi kayıtla sınırlı kurum icrası üretebilmeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.submitted.request.commission.amount, 25,
+        'Görev bedeli istemciden değil kapalı kurum politikasından türetilmeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.missingContext.reason, 'PAID_CONTACT_TASK_CONTEXT_INVALID',
+        'Kaynak vaka ve hedef bağlamı olmayan ücretli görev ihalesi reddedilmeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.unrelatedGrantDenied.code, 'ACTOR_NOT_AUTHORIZED_TO_PROPOSE',
+        'Başka action grant’leri görev ihale yetkisine çevrilmemeli.');
+    assert.equal(institutionProbe.main.paidTaskCommission.proxyDenied.reason, 'REAL_CHARACTER_OFFICE_HOLDER_REQUIRED',
+        'Proxy veya kolektif makam ücretli karakter görevi verememeli.');
+    assert.equal(institutionProbe.main.authorityMigration.validation.ok, true,
+        'Kurum şema-1 kaydı geçmiş istekleri silmeden şema-2 yetki kataloğuna göçmeli.');
+    assert.equal(institutionProbe.main.authorityMigration.schemaVersion, 2,
+        'Göçmüş kurum defteri şema-2 olmalı.');
+    assert.equal(institutionProbe.main.authorityMigration.requestCountAfter,
+        institutionProbe.main.authorityMigration.requestCountBefore,
+        'Kurum göçü geçmişe ücretli görev isteği uydurmamalı.');
+    assert.equal(institutionProbe.main.authorityMigration.routeAdded, true,
+        'Göçmüş ülkelerin tamamı yeni commission rotasını kanonik katalogdan almalı.');
+    assert.equal(institutionProbe.main.authorityMigration.corruptRejected, true,
+        'Allowlist dışı eski politika karması güvenli göç gibi kabul edilmemeli.');
     assert.equal(institutionProbe.main.centerDirect.executed.ok, true,
         'Güç merkezinin kendi alanındaki doğrudan eylemi ikinci bir sahte makam istememeli.');
     assert.equal(institutionProbe.main.petition.submitted.request.status, 'PENDING_APPROVAL',

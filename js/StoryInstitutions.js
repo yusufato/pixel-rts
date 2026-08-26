@@ -9,8 +9,13 @@
 //  payload'i makam, yetki, onay ya da yasal dayanak uretemez.
 // ============================================================================
 
-const STORY_INSTITUTION_SCHEMA_VERSION = 1;
-const STORY_INSTITUTION_ADAPTER_VERSION = 'story-institution-authority-ledger-1';
+const STORY_INSTITUTION_SCHEMA_VERSION = 2;
+const STORY_INSTITUTION_ADAPTER_VERSION = 'story-institution-authority-ledger-2';
+const STORY_INSTITUTION_LEGACY_SCHEMA = Object.freeze({
+    schemaVersion: 1,
+    adapterVersion: 'story-institution-authority-ledger-1',
+    policyHash: 'fnv1a32:dc93047e'
+});
 const STORY_INSTITUTION_TYPES = Object.freeze([
     'EXECUTIVE', 'LEGISLATURE', 'JUDICIARY', 'ARMED_FORCES', 'LOCAL_ADMINISTRATION'
 ]);
@@ -41,6 +46,7 @@ const STORY_INSTITUTION_ACTIONS = Object.freeze({
     APPOINT_COMMANDER: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     DISMISS_COMMANDER: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     AUTHORIZE_BUDGET: Object.freeze({ executor: 'LEGISLATURE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'LEGISLATURE'], centers: ['BUSINESS_COUNCIL', 'LABOR_CONFEDERATION', 'CIVIL_SERVICE', 'ARMED_FORCES'] }),
+    COMMISSION_PAID_CONTACT_TASK: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     ISSUE_DIPLOMATIC_PROTEST: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     SIGN_TREATY: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     DECLARE_WAR: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
@@ -126,7 +132,13 @@ const STORY_INSTITUTION_POLICY = Object.freeze({
     institutionsPerCountry: STORY_INSTITUTION_TYPES.length,
     effectModel: 'AUTHORIZATION_RECORD_ONLY_PHASE_29',
     officeHolderModel: 'CANONICAL_WHERE_AVAILABLE_OTHERWISE_EXPLICIT_PROXY_PRE_PHASE_34',
-    localOfficeModel: 'COLLECTIVE_LOCAL_OFFICE_PRE_PHASE_35'
+    localOfficeModel: 'COLLECTIVE_LOCAL_OFFICE_PRE_PHASE_35',
+    paidContactTask: Object.freeze({
+        id: 'institutional-contact-task-v1',
+        objectiveType: 'HOLD_CONVERSATION',
+        amount: 25,
+        currency: 'STATE_CREDIT'
+    })
 });
 const STORY_INSTITUTION_POLICY_HASH = storyProductionHash({
     schemaVersion: STORY_INSTITUTION_SCHEMA_VERSION,
@@ -418,6 +430,28 @@ function storyInstitutionValidate(ledger) {
         const at = `$.requests.${request && request.id}`;
         if (!request || !request.id || !knownCountries.has(request.countryId)) { add('INSTITUTION_REQUEST_IDENTITY', at, 'Karar isteği kimliği/ülkesi geçersiz.'); continue; }
         if (!STORY_INSTITUTION_ACTIONS[request.actionType]) add('INSTITUTION_REQUEST_ACTION', `${at}.actionType`, 'Karar isteği bilinmeyen eylem taşıyor.');
+        const commissionPolicy = STORY_INSTITUTION_POLICY.paidContactTask;
+        if (request.actionType === 'COMMISSION_PAID_CONTACT_TASK') {
+            const commission = request.commission;
+            if (!commission || !commission.correlationId || !commission.sourceConversationCaseId
+                || !commission.targetActorId || !commission.assigneeActorId
+                || commission.targetActorId === commission.assigneeActorId
+                || commission.objectiveType !== commissionPolicy.objectiveType
+                || commission.compensationPolicyId !== commissionPolicy.id
+                || Number(commission.amount) !== commissionPolicy.amount
+                || commission.currency !== commissionPolicy.currency
+                || commission.physicalMutation !== false) {
+                add('INSTITUTION_TASK_COMMISSION_CONTEXT', `${at}.commission`, 'Ücretli görev ihalesi kapalı politika ve kaynak bağlamı taşımalı.');
+            }
+            const proposerInstitution = request.proposer && request.proposer.sourceId
+                && ledger.countries[request.countryId].institutions[request.proposer.sourceId];
+            if (!proposerInstitution || proposerInstitution.officeHolder.actorType !== 'CHARACTER'
+                || proposerInstitution.officeHolder.actorId !== request.proposer.actorId) {
+                add('INSTITUTION_TASK_COMMISSION_HOLDER', `${at}.proposer`, 'Ücretli görev veren gerçek karakter makam sahibi olmalı.');
+            }
+        } else if (request.commission != null) {
+            add('INSTITUTION_TASK_COMMISSION_UNEXPECTED', `${at}.commission`, 'Başka kurum eylemi görev ihale bağlamı taşıyamaz.');
+        }
         if (!STORY_INSTITUTION_REQUEST_STATUSES.includes(request.status)) add('INSTITUTION_REQUEST_STATUS', `${at}.status`, 'Karar isteği durumu geçersiz.');
         if (!Array.isArray(request.requiredInstitutionIds) || !Array.isArray(request.approvalInstitutionIds)) add('INSTITUTION_REQUEST_APPROVALS', at, 'Onay listeleri zorunlu.');
         const approvals = new Set(request.approvalInstitutionIds || []);
@@ -461,8 +495,23 @@ function storyInstitutionReset(options) {
 function storyInstitutionMigrateLedger(saved) {
     const ledger = storyInstitutionClone(saved);
     if (!ledger || typeof ledger !== 'object') return ledger;
+    const legacy = ledger.schemaVersion === STORY_INSTITUTION_LEGACY_SCHEMA.schemaVersion
+        && ledger.adapterVersion === STORY_INSTITUTION_LEGACY_SCHEMA.adapterVersion
+        && ledger.policyHash === STORY_INSTITUTION_LEGACY_SCHEMA.policyHash;
+    if (legacy) {
+        const countries = storyInstitutionBuildCountries();
+        ledger.schemaVersion = STORY_INSTITUTION_SCHEMA_VERSION;
+        ledger.adapterVersion = STORY_INSTITUTION_ADAPTER_VERSION;
+        ledger.policyHash = STORY_INSTITUTION_POLICY_HASH;
+        ledger.countries = countries;
+        ledger.sourceSignature = storyInstitutionSourceSignature(countries);
+        if (!ledger.diagnostics || typeof ledger.diagnostics !== 'object') ledger.diagnostics = {};
+        if (!Array.isArray(ledger.diagnostics.warnings)) ledger.diagnostics.warnings = [];
+        ledger.diagnostics.warnings.push('Kurum şema-1 kaydı görev ihale yetkisi uydurulmadan şema-2 yetki kataloğuna taşındı.');
+    }
     for (const request of Object.values(ledger.requests || {})) {
         if (!Array.isArray(request.reviewRecords)) request.reviewRecords = [];
+        if (request.commission === undefined) request.commission = null;
     }
     return ledger;
 }
@@ -551,6 +600,36 @@ function storyInstitutionActorCanPropose(route, actor) {
         ? route.proposerInstitutionTypes.includes(actor.institutionType)
         : route.proposerPowerCenterTypes.includes(actor.powerCenterType);
 }
+function storyInstitutionCommissionContext(input, actionType) {
+    if (actionType !== 'COMMISSION_PAID_CONTACT_TASK') {
+        return input && input.commissionContext != null
+            ? { ok: false, reason: 'COMMISSION_CONTEXT_NOT_ALLOWED' }
+            : { ok: true, value: null };
+    }
+    const raw = input && input.commissionContext;
+    const policy = STORY_INSTITUTION_POLICY.paidContactTask;
+    const correlationId = String(raw && raw.correlationId || '').trim();
+    const sourceConversationCaseId = String(raw && raw.sourceConversationCaseId || '').trim();
+    const targetActorId = String(raw && raw.targetActorId || '').trim();
+    const assigneeActorId = String(raw && raw.assigneeActorId || '').trim();
+    if (!correlationId || !sourceConversationCaseId || !targetActorId || !assigneeActorId
+        || targetActorId === assigneeActorId
+        || String(raw && raw.objectiveType || '') !== policy.objectiveType
+        || String(raw && raw.compensationPolicyId || '') !== policy.id) {
+        return { ok: false, reason: 'PAID_CONTACT_TASK_CONTEXT_INVALID' };
+    }
+    return {
+        ok: true,
+        value: {
+            correlationId, sourceConversationCaseId, targetActorId, assigneeActorId,
+            objectiveType: policy.objectiveType,
+            compensationPolicyId: policy.id,
+            amount: policy.amount,
+            currency: policy.currency,
+            physicalMutation: false
+        }
+    };
+}
 function storyInstitutionDenied(ledger, input, reason) {
     storyInstitutionRecordEvent(ledger, 'ACTION_DENIED', {
         countryId: input && input.countryId ? storyInstitutionCountryId(input.countryId) : null,
@@ -575,6 +654,11 @@ function storyInstitutionSubmitAction(input) {
     const actor = storyInstitutionResolveActor(country, input);
     if (!actor) return storyInstitutionDenied(ledger, input, 'ACTOR_SOURCE_MISMATCH');
     if (!storyInstitutionActorCanPropose(route, actor)) return storyInstitutionDenied(ledger, input, 'ACTOR_NOT_AUTHORIZED_TO_PROPOSE');
+    const commission = storyInstitutionCommissionContext(input, actionType);
+    if (!commission.ok) return storyInstitutionDenied(ledger, input, commission.reason);
+    if (actionType === 'COMMISSION_PAID_CONTACT_TASK' && actor.actorType !== 'CHARACTER') {
+        return storyInstitutionDenied(ledger, input, 'REAL_CHARACTER_OFFICE_HOLDER_REQUIRED');
+    }
     if (route.targetScope === 'REGION') {
         const regionId = storyInstitutionRegionId(input.targetRegionId);
         const nodeId = Number(regionId.split(':').pop());
@@ -610,7 +694,8 @@ function storyInstitutionSubmitAction(input) {
         executedAt: null,
         effectModel: STORY_INSTITUTION_POLICY.effectModel,
         result: null,
-        reviewRecords: []
+        reviewRecords: [],
+        commission: commission.value
     };
     ledger.requests[requestId] = request;
     const ids = Object.keys(ledger.requests).sort((a, b) => Number(a.split(':').pop()) - Number(b.split(':').pop()));

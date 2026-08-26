@@ -272,8 +272,17 @@ function storyCharacterRoleInstitutionActionPreview(input) {
         requestId: request ? request.id : null,
         route: storyCharacterRoleAdapterClone(route),
         targetRegionId,
-        actorId: adapter.actorId, worldMutation: false
+        actorId: adapter.actorId,
+        commissionContext: actionType === 'COMMISSION_PAID_CONTACT_TASK'
+            ? storyCharacterRoleAdapterClone(input.commissionContext || null) : null,
+        worldMutation: false
     };
+}
+function storyCharacterRoleInstitutionTaskCommissionPreview(input) {
+    return storyCharacterRoleInstitutionActionPreview(Object.assign({}, input || {}, {
+        phase: 'PROPOSE',
+        actionType: 'COMMISSION_PAID_CONTACT_TASK'
+    }));
 }
 function storyCharacterRoleInstitutionAction(input) {
     const preview = storyCharacterRoleInstitutionActionPreview(input);
@@ -288,7 +297,8 @@ function storyCharacterRoleInstitutionAction(input) {
             ? storyInstitutionSubmitAction({
                 ...actorInput, countryId: preview.route.countryId,
                 actionType: preview.actionType,
-                targetRegionId: preview.targetRegionId
+                targetRegionId: preview.targetRegionId,
+                commissionContext: preview.commissionContext
             }) : { ok: false, reason: 'INSTITUTION_EXECUTOR_MISSING' };
     } else if (preview.phase === 'APPROVE') {
         result = typeof storyInstitutionApproveAction === 'function'
