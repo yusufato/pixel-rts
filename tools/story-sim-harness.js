@@ -711,6 +711,8 @@ function createRuntime(seed) {
             conversationSessionMigrate: ledger => storyConversationSessionMigrateLedger(ledger),
             conversationTaskOfferPreview: sessionId => storyConversationTaskOfferPreview(sessionId),
             conversationTaskOfferCreate: sessionId => storyConversationTaskOfferCreate(sessionId),
+            conversationInstitutionalTaskOfferPreview: sessionId => storyConversationInstitutionalTaskOfferPreview(sessionId),
+            conversationInstitutionalTaskOfferCreate: sessionId => storyConversationInstitutionalTaskOfferCreate(sessionId),
             conversationTaskOfferList: sessionId => storyConversationTaskOfferList(sessionId),
             conversationTaskOfferDecision: (taskOfferId, decision) => storyConversationTaskOfferDecision(taskOfferId, decision),
             conversationTaskOfferTick: () => storyConversationTaskOfferTick(),
@@ -11076,28 +11078,32 @@ function probeInstitutions(seed = 2032) {
             compensationPolicyId: 'institutional-contact-task-v1'
         };
         const commissionPreview = runtime.api.characterRoleInstitutionTaskCommissionPreview({
-            actorId: executive.officeHolder.actorId,
+            actorId: armedForces.officeHolder.actorId,
             commissionContext
         });
         const commissionSubmitted = runtime.api.characterRoleInstitutionAction({
             phase: 'PROPOSE',
-            actorId: executive.officeHolder.actorId,
+            actorId: armedForces.officeHolder.actorId,
             actionType: 'COMMISSION_PAID_CONTACT_TASK',
             commissionContext
         });
         const commissionExecuted = commissionSubmitted.ok
             ? runtime.api.characterRoleInstitutionAction({
                 phase: 'EXECUTE',
-                actorId: executive.officeHolder.actorId,
+                actorId: armedForces.officeHolder.actorId,
                 requestId: commissionSubmitted.request.id
             }) : commissionSubmitted;
         const commissionMissingContext = runtime.api.institutionSubmit(Object.assign({
             countryId, actionType: 'COMMISSION_PAID_CONTACT_TASK'
-        }, actorFor(executive)));
+        }, actorFor(armedForces)));
         const unrelatedGrantDenied = runtime.api.characterRoleInstitutionTaskCommissionPreview({
-            actorId: armedForces.officeHolder.actorId,
+            actorId: executive.officeHolder.actorId,
             commissionContext
         });
+        const previousCommissionLedger = runtime.api.institutionLedger();
+        previousCommissionLedger.policyHash = 'fnv1a32:e226c6b2';
+        const migratedPreviousCommission = runtime.api.migrateInstitutionLedger(previousCommissionLedger);
+        const migratedPreviousCommissionValidation = runtime.api.validateInstitutionLedger(migratedPreviousCommission);
         const migratedLegacyLedger = runtime.api.migrateInstitutionLedger(legacyLedger);
         const migratedLegacyValidation = runtime.api.validateInstitutionLedger(migratedLegacyLedger);
         const corruptLegacyLedger = JSON.parse(JSON.stringify(legacyLedger));
@@ -11196,7 +11202,10 @@ function probeInstitutions(seed = 2032) {
                 requestCountAfter: Object.keys(migratedLegacyLedger.requests).length,
                 routeAdded: Object.values(migratedLegacyLedger.countries).every(row =>
                     !!row.authorityByAction.COMMISSION_PAID_CONTACT_TASK),
-                corruptRejected: corruptLegacyValidation.ok === false
+                corruptRejected: corruptLegacyValidation.ok === false,
+                previousCommissionValidation: migratedPreviousCommissionValidation,
+                previousCommissionStatus: migratedPreviousCommission.requests[commissionSubmitted.request.id].status,
+                previousCommissionReason: migratedPreviousCommission.requests[commissionSubmitted.request.id].result.reasonCode
             },
             centerDirect: { submitted: centerDirectSubmitted, executed: centerDirectExecuted },
             petition: { submitted: petitionSubmitted, approved: petitionCurrent, executed: petitionExecuted },
@@ -11240,18 +11249,19 @@ function probeInstitutions(seed = 2032) {
             fog: true,
             featureFlags: { 'government.electionsTransfer': false }
         });
-        const proxyLedger = proxyRuntime.api.institutionLedger();
-        const proxyCountry = Object.values(proxyLedger.countries).find(row => {
-            const office = Object.values(row.institutions).find(item => item.type === 'EXECUTIVE');
-            return office && office.officeHolder.actorType !== 'CHARACTER';
-        });
-        const proxyExecutive = proxyCountry && Object.values(proxyCountry.institutions)
-            .find(row => row.type === 'EXECUTIVE');
-        proxyDenied = proxyExecutive ? proxyRuntime.api.institutionSubmit({
+        const proxyLedger = proxyRuntime.api.state().institutions;
+        const proxyCountry = proxyLedger.countries['country:0'];
+        const proxyArmedForces = Object.values(proxyCountry.institutions)
+            .find(row => row.type === 'ARMED_FORCES');
+        proxyArmedForces.officeHolder = {
+            actorId: 'officeholder:country:0:armed-forces-proxy',
+            actorType: 'OFFICEHOLDER_PROXY', name: 'Vekil Komuta', model: 'TEST_PROXY'
+        };
+        proxyDenied = proxyRuntime.api.institutionSubmit({
             countryId: proxyCountry.countryId,
             actionType: 'COMMISSION_PAID_CONTACT_TASK',
-            institutionId: proxyExecutive.id,
-            actorId: proxyExecutive.officeHolder.actorId,
+            institutionId: proxyArmedForces.id,
+            actorId: proxyArmedForces.officeHolder.actorId,
             commissionContext: {
                 correlationId: 'institution-task-proxy-probe:1',
                 sourceConversationCaseId: 'conversation-case:proxy-probe',
@@ -11260,7 +11270,7 @@ function probeInstitutions(seed = 2032) {
                 objectiveType: 'HOLD_CONVERSATION',
                 compensationPolicyId: 'institutional-contact-task-v1'
             }
-        }) : { ok: false, reason: 'NO_PROXY_FIXTURE' };
+        });
     } finally {
         proxyRuntime.dom.window.close();
     }

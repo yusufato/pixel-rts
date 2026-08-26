@@ -2352,7 +2352,7 @@ function run() {
     assert.equal(institutionProbe.main.paidTaskCommission.preview.ok, true,
         'Ücretli temas görevi yalnız açık kanonik commission grant’iyle önizlenebilmeli.');
     assert.equal(institutionProbe.main.paidTaskCommission.submitted.request.status, 'AUTHORIZED',
-        'Gerçek yürütme makamının görev ihalesi ayrı yetki rotasında yetkilendirilmeli.');
+        'Gerçek komutan hesabına bağlı Silahlı Kuvvetler makamının görev ihalesi yetkilendirilmeli.');
     assert.equal(institutionProbe.main.paidTaskCommission.executed.ok, true,
         'Yetkili ücretli görev ihalesi kayıtla sınırlı kurum icrası üretebilmeli.');
     assert.equal(institutionProbe.main.paidTaskCommission.submitted.request.commission.amount, 25,
@@ -2374,6 +2374,12 @@ function run() {
         'Göçmüş ülkelerin tamamı yeni commission rotasını kanonik katalogdan almalı.');
     assert.equal(institutionProbe.main.authorityMigration.corruptRejected, true,
         'Allowlist dışı eski politika karması güvenli göç gibi kabul edilmemeli.');
+    assert.equal(institutionProbe.main.authorityMigration.previousCommissionValidation.ok, true,
+        'Önceki şema-2 yürütme commission kaydı yeni makam kataloğuna doğrulanabilir biçimde göçmeli.');
+    assert.equal(institutionProbe.main.authorityMigration.previousCommissionStatus, 'CANCELLED');
+    assert.equal(institutionProbe.main.authorityMigration.previousCommissionReason,
+        'PAYER_COMMANDER_BINDING_UNAVAILABLE',
+        'Komutan hesabı kanıtlanamayan eski commission kaydı sahte payer üretmeden açıkça iptal edilmeli.');
     assert.equal(institutionProbe.main.centerDirect.executed.ok, true,
         'Güç merkezinin kendi alanındaki doğrudan eylemi ikinci bir sahte makam istememeli.');
     assert.equal(institutionProbe.main.petition.submitted.request.status, 'PENDING_APPROVAL',

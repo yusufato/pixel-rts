@@ -16,6 +16,149 @@ function firstDifference(left, right, path = '$') {
     return null;
 }
 
+function verifyInstitutionalTaskOfferDecisions() {
+    const taskRuntime = createRuntime(3813002);
+    try {
+        taskRuntime.api.newCampaign({ seed: 3813002, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
+        const taskStory = taskRuntime.api.state();
+        const taskDirectory = taskRuntime.api.contactDirectoryBuild();
+        const country = taskRuntime.api.institutionLedger().countries['country:0'];
+        const armedForces = Object.values(country.institutions).find(row => row.type === 'ARMED_FORCES');
+        const issuerActorId = armedForces.officeHolder.actorId;
+        const payerCommanderId = issuerActorId.split(':').pop();
+        const payerCommander = taskStory.states[0].gov.commanders.find(row => String(row.id) === payerCommanderId);
+        assert.ok(payerCommander && taskDirectory.publicCharacters.some(row => row.id === issuerActorId && row.contactable),
+            'The institutional issuer must be both the canonical armed-forces holder and a contactable commander.');
+
+        const openTaskSession = listenerActorId => {
+            const openedTask = taskRuntime.api.conversationSessionBegin('Merhaba.', { listenerActorId });
+            assert.equal(openedTask.ok, true);
+            assert.equal(taskRuntime.api.conversationSessionSetMode(openedTask.session.id, 'TASKS_JOBS').ok, true);
+            return openedTask.session.id;
+        };
+
+        const acceptedSessionId = openTaskSession(issuerActorId);
+        const authorityPreview = taskRuntime.api.conversationInstitutionalTaskOfferPreview(acceptedSessionId);
+        assert.equal(authorityPreview.ok, true);
+        assert.equal(authorityPreview.preview.institutionId, armedForces.id);
+        assert.equal(authorityPreview.preview.payerCommanderId, payerCommanderId);
+        assert.equal(authorityPreview.preview.payerSufficient, true);
+        const payerBefore = payerCommander.res.points;
+        const escrowBefore = taskRuntime.api.budgetLedger().countries['country:0'].accounts['ASSET:TASK_ESCROW'];
+        const created = taskRuntime.api.conversationInstitutionalTaskOfferCreate(acceptedSessionId);
+        assert.equal(created.ok, true);
+        assert.equal(created.taskOffer.kind, 'INSTITUTIONAL_PAID_CONTACT_TASK');
+        const institutionRequest = taskRuntime.api.institutionLedger().requests[created.taskOffer.authority.institutionRequestId];
+        assert.equal(institutionRequest.status, 'EXECUTED');
+        assert.equal(institutionRequest.proposer.actorId, issuerActorId);
+        const duplicatePersonal = taskRuntime.api.conversationTaskOfferCreate(acceptedSessionId);
+        assert.equal(duplicatePersonal.code, 'TASK_OFFER_ALREADY_OPEN');
+        assert.equal(duplicatePersonal.taskOffer.id, created.taskOffer.id);
+        const accepted = taskRuntime.api.conversationTaskOfferDecision(created.taskOffer.id, 'ACCEPT');
+        assert.equal(accepted.ok, true);
+        assert.equal(accepted.taskOffer.status, 'ACCEPTED');
+        assert.equal(accepted.taskOffer.institutional.paymentStatus, 'RESERVED');
+        assert.equal(payerCommander.res.points, payerBefore - 25);
+        assert.equal(taskRuntime.api.budgetLedger().countries['country:0'].accounts['ASSET:TASK_ESCROW'], escrowBefore + 25);
+        const doubleAcceptBefore = JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger()
+        });
+        const doubleAccept = taskRuntime.api.conversationTaskOfferDecision(created.taskOffer.id, 'ACCEPT');
+        assert.equal(doubleAccept.ok, false);
+        assert.equal(doubleAccept.code, 'TASK_OFFER_NOT_OPEN');
+        assert.equal(JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger()
+        }), doubleAcceptBefore, 'Double accept must not mutate the task or budget ledgers.');
+
+        const declinedSessionId = openTaskSession(issuerActorId);
+        const declinedCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(declinedSessionId);
+        const declineBudgetBefore = JSON.stringify(taskRuntime.api.budgetLedger());
+        const declined = taskRuntime.api.conversationTaskOfferDecision(declinedCreated.taskOffer.id, 'DECLINE');
+        assert.equal(declined.ok, true);
+        assert.equal(declined.taskOffer.status, 'DECLINED');
+        assert.equal(declined.taskOffer.institutional.paymentStatus, 'NOT_RESERVED');
+        assert.equal(JSON.stringify(taskRuntime.api.budgetLedger()), declineBudgetBefore,
+            'Declining an institutional offer must not reserve compensation.');
+
+        const insufficientSessionId = openTaskSession(issuerActorId);
+        const insufficientCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(insufficientSessionId);
+        const spendAmount = payerCommander.res.points - 10;
+        assert.equal(taskRuntime.api.budgetDebit(0, spendAmount, 'test.institutional_task_payer_spend', {
+            commander: payerCommander, commanderOnly: true,
+            correlationId: 'test:institutional-task:payer-spend'
+        }).ok, true);
+        const insufficientBefore = JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger()
+        });
+        const insufficient = taskRuntime.api.conversationTaskOfferDecision(insufficientCreated.taskOffer.id, 'ACCEPT');
+        assert.equal(insufficient.ok, false);
+        assert.equal(insufficient.code, 'INSTITUTIONAL_TASK_INSUFFICIENT_CASH');
+        assert.equal(insufficient.taskOffer.status, 'OFFERED');
+        assert.equal(JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger()
+        }), insufficientBefore, 'Insufficient cash must leave both ledgers unchanged.');
+
+        const forgedSessionId = openTaskSession(issuerActorId);
+        const lowCreateBefore = JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(),
+            institutions: taskRuntime.api.institutionLedger(), budget: taskRuntime.api.budgetLedger()
+        });
+        const lowCreate = taskRuntime.api.conversationInstitutionalTaskOfferCreate(forgedSessionId);
+        assert.equal(lowCreate.ok, false);
+        assert.equal(lowCreate.code, 'INSTITUTIONAL_TASK_INSUFFICIENT_CASH');
+        assert.equal(JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(),
+            institutions: taskRuntime.api.institutionLedger(), budget: taskRuntime.api.budgetLedger()
+        }), lowCreateBefore, 'An already-insolvent issuer must not create an institution request or task.');
+        assert.equal(taskRuntime.api.budgetCredit(0, 100, 'test.institutional_task_payer_refill', {
+            commander: payerCommander, correlationId: 'test:institutional-task:payer-refill'
+        }).ok, true);
+        const forgedCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(forgedSessionId);
+        const liveForged = taskStory.conversationUnderstanding.taskOffers.find(row => row.id === forgedCreated.taskOffer.id);
+        liveForged.institutional.payerCommanderId = String(taskStory.commander.id);
+        const forgedBefore = JSON.stringify({
+            conversation: taskStory.conversationUnderstanding, budget: taskRuntime.api.budgetLedger()
+        });
+        const forged = taskRuntime.api.conversationTaskOfferDecision(forgedCreated.taskOffer.id, 'ACCEPT');
+        assert.equal(forged.ok, false);
+        assert.equal(forged.code, 'INSTITUTIONAL_TASK_AUTHORITY_STALE');
+        assert.equal(JSON.stringify({
+            conversation: taskStory.conversationUnderstanding, budget: taskRuntime.api.budgetLedger()
+        }), forgedBefore, 'A forged payer must produce zero partial mutation.');
+        assert.equal(taskRuntime.api.conversationSessionValidate(taskStory.conversationUnderstanding).ok, false,
+            'The deliberately forged payer fixture must be rejected by validation.');
+        liveForged.institutional.payerCommanderId = payerCommanderId;
+
+        const unauthorized = taskDirectory.publicCharacters.find(row => {
+            const parts = row.id.split(':');
+            return row.contactable && row.id !== taskDirectory.playerActorId && row.id !== issuerActorId
+                && parts.length === 3 && /^\d+$/.test(parts[2]);
+        });
+        assert.ok(unauthorized, 'A title-only/non-office commander fixture must exist.');
+        const unauthorizedSessionId = openTaskSession(unauthorized.id);
+        const unauthorizedBefore = JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), institutions: taskRuntime.api.institutionLedger(),
+            budget: taskRuntime.api.budgetLedger()
+        });
+        const unauthorizedPreview = taskRuntime.api.conversationInstitutionalTaskOfferPreview(unauthorizedSessionId);
+        assert.equal(unauthorizedPreview.ok, false);
+        assert.ok(['CANONICAL_OFFICE_REQUIRED', 'ACTOR_NOT_AUTHORIZED_TO_PROPOSE'].includes(unauthorizedPreview.code));
+        assert.equal(JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), institutions: taskRuntime.api.institutionLedger(),
+            budget: taskRuntime.api.budgetLedger()
+        }), unauthorizedBefore, 'A non-office title must not mutate any ledger.');
+
+        assert.equal(taskRuntime.api.conversationSessionValidate(taskRuntime.api.conversationSessionSnapshot()).ok, true);
+        assert.equal(taskRuntime.api.validateInstitutionLedger(taskRuntime.api.institutionLedger()).ok, true);
+        assert.equal(taskRuntime.api.validateBudgetLedger(taskRuntime.api.budgetLedger(), { checkWalletMirrors: true }).ok, true);
+        return { accepted: accepted.taskOffer.status, declined: declined.taskOffer.status };
+    } finally {
+        taskRuntime.dom.window.close();
+    }
+}
+
+const institutionalTaskDecisions = verifyInstitutionalTaskOfferDecisions();
+
 const runtime = createRuntime(3813001);
 try {
     runtime.api.newCampaign({ seed: 3813001, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true });
@@ -92,6 +235,7 @@ try {
         kind: 'STATE_CREDIT_COMPENSATION', amount: 25, currency: 'STATE_CREDIT'
     };
     institutionalTask.institutional = {
+        correlationId: 'conversation-task-offer:fixture:institutional-payment',
         institutionRequestId: 'institution-request:fixture',
         institutionId: 'institution:country:0:executive',
         countryId: 'country:0',
@@ -988,7 +1132,9 @@ try {
         privateNotes: runtime.api.conversationMeetingGet(meeting.id).privateNotes.length,
         privateReplies: runtime.api.conversationMeetingGet(meeting.id).privateNotes
             .filter(row => row.kind === 'CHARACTER_REPLY').length,
-        migratedSessions: migrated.sessions.length
+        migratedSessions: migrated.sessions.length,
+        institutionalAccepted: institutionalTaskDecisions.accepted,
+        institutionalDeclined: institutionalTaskDecisions.declined
     })}\n`);
 } finally {
     runtime.dom.window.close();

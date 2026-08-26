@@ -807,6 +807,182 @@ function storyConversationTaskOfferTarget(session) {
     return candidates.length ? { listener, target: candidates[0].row, preview: candidates[0].preview } : null;
 }
 
+function storyConversationTaskCommanderAccount(actorId) {
+    const match = /^character:(\d+):([^:]+)$/.exec(String(actorId || ''));
+    if (!match || !/^\d+$/.test(match[2])) return null;
+    const state = (STORY.states || []).find(row => Number(row.id) === Number(match[1]));
+    const commanders = state && typeof storyStateCommanders === 'function'
+        ? storyStateCommanders(state) : [];
+    const commander = commanders.find(row => String(row.id) === match[2]);
+    return commander ? {
+        actorId: String(actorId), countryId: `country:${state.id}`,
+        commanderId: String(commander.id), commander
+    } : null;
+}
+
+function storyConversationInstitutionalTaskOfferPreview(sessionId) {
+    const ledger = storyConversationSessionEnsure();
+    const session = storyConversationSessionFind(sessionId);
+    if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    if (!session.conversationCase || session.conversationCase.mode !== 'TASKS_JOBS') {
+        return { ok: false, code: 'TASK_MODE_REQUIRED', worldMutation: false };
+    }
+    const source = storyConversationTaskOfferTarget(session);
+    if (!source) return { ok: false, code: 'NO_ELIGIBLE_CONTACT_TASK', worldMutation: false };
+    const payer = storyConversationTaskCommanderAccount(session.listenerActorId);
+    const payee = storyConversationTaskCommanderAccount(session.playerActorId);
+    if (!payer) return { ok: false, code: 'INSTITUTIONAL_TASK_PAYER_ACCOUNT_REQUIRED', worldMutation: false };
+    if (!payee || payee.commander !== STORY.commander) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_PLAYER_ACCOUNT_REQUIRED', worldMutation: false };
+    }
+    const policy = typeof STORY_INSTITUTION_POLICY === 'object'
+        ? STORY_INSTITUTION_POLICY.paidContactTask : null;
+    if (!policy) return { ok: false, code: 'INSTITUTIONAL_TASK_POLICY_REQUIRED', worldMutation: false };
+    const sequence = ledger.nextTaskOfferSequence;
+    const taskOfferId = `conversation-task-offer:${sequence}`;
+    const correlationId = `${taskOfferId}:institutional-payment`;
+    const commissionContext = {
+        correlationId, sourceConversationCaseId: session.conversationCase.id,
+        targetActorId: source.target.id, assigneeActorId: session.playerActorId,
+        objectiveType: policy.objectiveType, compensationPolicyId: policy.id
+    };
+    const authority = typeof storyCharacterRoleInstitutionTaskCommissionPreview === 'function'
+        ? storyCharacterRoleInstitutionTaskCommissionPreview({
+            actorId: session.listenerActorId, commissionContext
+        }) : { ok: false, code: 'INSTITUTIONAL_TASK_AUTHORITY_REQUIRED' };
+    if (!authority.ok) return { ...authority, worldMutation: false };
+    if (authority.route.routeMode !== 'DIRECT' || authority.route.institutionType !== 'ARMED_FORCES'
+        || authority.route.canPropose !== true || authority.route.canApprove !== true
+        || authority.route.canExecute !== true) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_DIRECT_ROUTE_REQUIRED', worldMutation: false };
+    }
+    const available = Number(payer.commander.res && payer.commander.res.points) || 0;
+    return {
+        ok: true, code: 'INSTITUTIONAL_TASK_OFFER_PREVIEW_READY',
+        preview: {
+            taskOfferId, sequence, correlationId, commissionContext,
+            kind: 'INSTITUTIONAL_PAID_CONTACT_TASK',
+            issuerActorId: session.listenerActorId, issuerName: source.listener.name,
+            assigneeActorId: session.playerActorId,
+            targetActorId: source.target.id, targetName: source.target.name,
+            objectiveType: policy.objectiveType, actionCandidateId: source.preview.id,
+            deadlineSeconds: 300, institutionId: authority.route.institutionId,
+            countryId: authority.route.countryId, legalBasis: authority.route.legalBasis,
+            payerCountryId: payer.countryId, payerCommanderId: payer.commanderId,
+            payeeCountryId: payee.countryId, payeeCommanderId: payee.commanderId,
+            compensationPolicyId: policy.id, amount: policy.amount, currency: policy.currency,
+            payerAvailable: available, payerSufficient: available + 1e-6 >= policy.amount,
+            worldMutation: false
+        },
+        worldMutation: false
+    };
+}
+
+function storyConversationInstitutionalTaskOfferCreate(sessionId) {
+    const ledger = storyConversationSessionEnsure();
+    const session = storyConversationSessionFind(sessionId);
+    if (!ledger || !session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
+    const existing = ledger.taskOffers.find(row => row.sessionId === session.id
+        && ['OFFERED', 'ACCEPTED'].includes(row.status));
+    if (existing) return { ok: true, code: 'TASK_OFFER_ALREADY_OPEN', taskOffer: storyConversationClone(existing), worldMutation: false };
+    const preview = storyConversationInstitutionalTaskOfferPreview(sessionId);
+    if (!preview.ok) return preview;
+    if (!preview.preview.payerSufficient) {
+        return {
+            ok: false, code: 'INSTITUTIONAL_TASK_INSUFFICIENT_CASH',
+            available: preview.preview.payerAvailable, required: preview.preview.amount,
+            worldMutation: false
+        };
+    }
+    const removable = ledger.taskOffers.length >= STORY_CONVERSATION_TASK_OFFER_LIMIT
+        ? ledger.taskOffers.findIndex(row => ['DECLINED', 'COMPLETED', 'EXPIRED'].includes(row.status)) : -1;
+    if (ledger.taskOffers.length >= STORY_CONVERSATION_TASK_OFFER_LIMIT && removable < 0) {
+        return { ok: false, code: 'TASK_OFFER_LIMIT', worldMutation: false };
+    }
+    const conversationSnapshot = storyConversationClone(ledger);
+    const institutionSnapshot = storyConversationClone(STORY.institutions);
+    const rollback = code => {
+        STORY.conversationUnderstanding = conversationSnapshot;
+        STORY.institutions = institutionSnapshot;
+        return { ok: false, code, rolledBack: true, worldMutation: false };
+    };
+    const proposed = storyCharacterRoleInstitutionAction({
+        phase: 'PROPOSE', actorId: session.listenerActorId,
+        actionType: 'COMMISSION_PAID_CONTACT_TASK',
+        commissionContext: preview.preview.commissionContext
+    });
+    if (!proposed.ok || !proposed.request || proposed.request.status !== 'AUTHORIZED') {
+        return rollback(proposed.code || 'INSTITUTIONAL_TASK_AUTHORIZATION_FAILED');
+    }
+    const executed = storyCharacterRoleInstitutionAction({
+        phase: 'EXECUTE', actorId: session.listenerActorId,
+        requestId: proposed.request.id
+    });
+    if (!executed.ok || !executed.request || executed.request.status !== 'EXECUTED') {
+        return rollback(executed.code || 'INSTITUTIONAL_TASK_EXECUTION_FAILED');
+    }
+    try {
+        if (removable >= 0) {
+            const removed = ledger.taskOffers.splice(removable, 1)[0];
+            for (const row of ledger.sessions) if (row.conversationCase) {
+                row.conversationCase.taskOfferIds = row.conversationCase.taskOfferIds.filter(id => id !== removed.id);
+            }
+            ledger.diagnostics.prunedTaskOffers++;
+        }
+        const sequence = ledger.nextTaskOfferSequence++;
+        if (sequence !== preview.preview.sequence) return rollback('INSTITUTIONAL_TASK_SEQUENCE_CONFLICT');
+        const createdAt = Number(STORY.clock) || 0;
+        const taskOffer = {
+            schemaVersion: STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION,
+            id: preview.preview.taskOfferId, sequence,
+            caseId: session.conversationCase.id, sessionId: session.id,
+            kind: preview.preview.kind, issuerActorId: preview.preview.issuerActorId,
+            issuerName: preview.preview.issuerName, assigneeActorId: preview.preview.assigneeActorId,
+            authority: {
+                model: 'INSTITUTIONAL_COMMISSION', sourceActorId: preview.preview.issuerActorId,
+                canCompel: false, institutionRequestId: executed.request.id,
+                institutionId: preview.preview.institutionId, countryId: preview.preview.countryId,
+                legalBasis: preview.preview.legalBasis
+            },
+            objective: {
+                type: preview.preview.objectiveType, targetActorId: preview.preview.targetActorId,
+                targetName: preview.preview.targetName, minimumConversationCount: 1,
+                actionCandidateId: preview.preview.actionCandidateId
+            },
+            reward: {
+                kind: 'STATE_CREDIT_COMPENSATION', amount: preview.preview.amount,
+                currency: preview.preview.currency
+            },
+            institutional: {
+                correlationId: preview.preview.correlationId,
+                institutionRequestId: executed.request.id,
+                institutionId: preview.preview.institutionId, countryId: preview.preview.countryId,
+                legalBasis: preview.preview.legalBasis,
+                payerCountryId: preview.preview.payerCountryId,
+                payerCommanderId: preview.preview.payerCommanderId,
+                payeeCountryId: preview.preview.payeeCountryId,
+                payeeCommanderId: preview.preview.payeeCommanderId,
+                compensationPolicyId: preview.preview.compensationPolicyId,
+                amount: preview.preview.amount, currency: preview.preview.currency,
+                paymentStatus: 'NOT_RESERVED', escrowReservationId: null,
+                resultReceiptId: null
+            },
+            createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
+            status: 'OFFERED', acceptedAt: null, declinedAt: null, completedAt: null,
+            completionSessionId: null, sourceTurnId: `conversation-mode:${session.id}`,
+            worldMutation: false
+        };
+        ledger.taskOffers.push(taskOffer);
+        session.conversationCase.taskOfferIds.push(taskOffer.id);
+        session.conversationCase.updatedAt = createdAt;
+        const validation = storyConversationSessionValidateLedger(ledger);
+        if (!validation.ok) return rollback('INSTITUTIONAL_TASK_LEDGER_WRITE_REJECTED');
+        return { ok: true, code: 'INSTITUTIONAL_TASK_OFFER_CREATED', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+    } catch (error) {
+        return rollback('INSTITUTIONAL_TASK_LEDGER_WRITE_FAILED');
+    }
+}
+
 function storyConversationTaskOfferPreview(sessionId) {
     const session = storyConversationSessionFind(sessionId);
     if (!session) return { ok: false, code: 'SESSION_NOT_FOUND', worldMutation: false };
@@ -881,17 +1057,53 @@ function storyConversationTaskOfferList(sessionId) {
         .map(storyConversationClone);
 }
 
+function storyConversationInstitutionalTaskPaymentSpec(taskOffer) {
+    const terms = taskOffer && taskOffer.institutional;
+    const session = taskOffer && STORY.conversationUnderstanding
+        && (STORY.conversationUnderstanding.sessions || []).find(row => row.id === taskOffer.sessionId);
+    const request = terms && STORY.institutions && STORY.institutions.requests
+        ? STORY.institutions.requests[terms.institutionRequestId] : null;
+    const payer = taskOffer && storyConversationTaskCommanderAccount(taskOffer.issuerActorId);
+    const payee = taskOffer && storyConversationTaskCommanderAccount(taskOffer.assigneeActorId);
+    const policy = typeof STORY_INSTITUTION_POLICY === 'object'
+        ? STORY_INSTITUTION_POLICY.paidContactTask : null;
+    if (!terms || !session || session.listenerActorId !== taskOffer.issuerActorId
+        || session.playerActorId !== taskOffer.assigneeActorId || !payer || !payee
+        || payee.commander !== STORY.commander || !policy
+        || terms.payerCountryId !== payer.countryId || String(terms.payerCommanderId) !== payer.commanderId
+        || terms.payeeCountryId !== payee.countryId || String(terms.payeeCommanderId) !== payee.commanderId
+        || terms.compensationPolicyId !== policy.id || terms.amount !== policy.amount
+        || terms.currency !== policy.currency || taskOffer.reward.amount !== policy.amount
+        || taskOffer.reward.currency !== policy.currency
+        || !request || request.status !== 'EXECUTED'
+        || request.actionType !== 'COMMISSION_PAID_CONTACT_TASK'
+        || request.proposer.actorId !== taskOffer.issuerActorId
+        || request.proposer.sourceId !== terms.institutionId
+        || request.countryId !== terms.countryId || request.legalBasis !== terms.legalBasis
+        || !request.commission || request.commission.correlationId !== terms.correlationId
+        || request.commission.sourceConversationCaseId !== taskOffer.caseId
+        || request.commission.targetActorId !== taskOffer.objective.targetActorId
+        || request.commission.assigneeActorId !== taskOffer.assigneeActorId) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_AUTHORITY_STALE' };
+    }
+    return {
+        ok: true,
+        spec: {
+            correlationId: terms.correlationId,
+            payerCountryId: payer.countryId, payerCommanderId: payer.commanderId,
+            payeeCountryId: payee.countryId, payeeCommanderId: payee.commanderId,
+            amount: policy.amount, currency: policy.currency
+        }
+    };
+}
+
 function storyConversationTaskOfferDecision(taskOfferId, decision) {
-    const ledger = storyConversationSessionEnsure();
+    const ledger = STORY.conversationUnderstanding || storyConversationSessionEnsure();
     const taskOffer = ledger && ledger.taskOffers.find(row => row.id === String(taskOfferId));
     const normalized = String(decision || '').toUpperCase();
     if (!taskOffer) return { ok: false, code: 'TASK_OFFER_NOT_FOUND', worldMutation: false };
     if (!['ACCEPT', 'DECLINE'].includes(normalized)) {
         return { ok: false, code: 'TASK_DECISION_INVALID', worldMutation: false };
-    }
-    if (taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK') {
-        return { ok: false, code: 'INSTITUTIONAL_TASK_DECISION_UNAVAILABLE',
-            taskOffer: storyConversationClone(taskOffer), worldMutation: false };
     }
     if (taskOffer.status !== 'OFFERED') {
         return { ok: false, code: 'TASK_OFFER_NOT_OPEN', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
@@ -900,6 +1112,29 @@ function storyConversationTaskOfferDecision(taskOfferId, decision) {
     if (now > taskOffer.dueAt) {
         taskOffer.status = 'EXPIRED';
         return { ok: false, code: 'TASK_OFFER_EXPIRED', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+    }
+    if (taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK') {
+        if (normalized === 'DECLINE') {
+            taskOffer.status = 'DECLINED';
+            taskOffer.declinedAt = now;
+            return { ok: true, code: 'TASK_OFFER_DECLINED', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+        }
+        const payment = storyConversationInstitutionalTaskPaymentSpec(taskOffer);
+        if (!payment.ok) {
+            return { ...payment, taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+        }
+        const reserved = typeof storyBudgetReserveInstitutionalTaskPayment === 'function'
+            ? storyBudgetReserveInstitutionalTaskPayment(payment.spec)
+            : { ok: false, code: 'INSTITUTIONAL_TASK_BUDGET_REQUIRED' };
+        if (!reserved.ok) {
+            return { ...reserved, taskOffer: storyConversationClone(taskOffer), worldMutation: false };
+        }
+        taskOffer.institutional.paymentStatus = 'RESERVED';
+        taskOffer.institutional.escrowReservationId = reserved.reservationId;
+        taskOffer.status = 'ACCEPTED';
+        taskOffer.acceptedAt = now;
+        return { ok: true, code: 'TASK_OFFER_ACCEPTED', duplicate: reserved.duplicate === true,
+            taskOffer: storyConversationClone(taskOffer), worldMutation: false };
     }
     taskOffer.status = normalized === 'ACCEPT' ? 'ACCEPTED' : 'DECLINED';
     taskOffer[normalized === 'ACCEPT' ? 'acceptedAt' : 'declinedAt'] = now;
@@ -5183,7 +5418,7 @@ function storyConversationSessionValidateLedger(candidate) {
                 || taskOffer.reward.amount !== 25 || taskOffer.reward.currency !== 'STATE_CREDIT') {
                 add('TASK_OFFER_REWARD', `${at}.reward`);
             }
-            if (!institution || !institution.institutionRequestId || !institution.institutionId
+            if (!institution || !institution.correlationId || !institution.institutionRequestId || !institution.institutionId
                 || !/^country:\d+$/.test(String(institution.countryId || '')) || !institution.legalBasis
                 || !/^country:\d+$/.test(String(institution.payerCountryId || ''))
                 || institution.payerCommanderId == null
@@ -5194,6 +5429,24 @@ function storyConversationSessionValidateLedger(candidate) {
                 || !['NOT_RESERVED', 'RESERVED', 'SETTLED', 'RELEASED'].includes(institution.paymentStatus)) {
                 add('TASK_OFFER_INSTITUTIONAL_TERMS', `${at}.institutional`);
             } else {
+                const liveRequest = STORY.institutions && STORY.institutions.requests
+                    ? STORY.institutions.requests[institution.institutionRequestId] : null;
+                if (liveRequest) {
+                    const payer = storyConversationTaskCommanderAccount(taskOffer.issuerActorId);
+                    const payee = storyConversationTaskCommanderAccount(taskOffer.assigneeActorId);
+                    if (!payer || !payee
+                        || institution.payerCountryId !== payer.countryId
+                        || String(institution.payerCommanderId) !== payer.commanderId
+                        || institution.payeeCountryId !== payee.countryId
+                        || String(institution.payeeCommanderId) !== payee.commanderId
+                        || liveRequest.proposer.actorId !== taskOffer.issuerActorId
+                        || liveRequest.proposer.sourceId !== institution.institutionId
+                        || liveRequest.countryId !== institution.countryId
+                        || !liveRequest.commission
+                        || liveRequest.commission.correlationId !== institution.correlationId) {
+                        add('TASK_OFFER_INSTITUTIONAL_PARTIES', `${at}.institutional`);
+                    }
+                }
                 const requiresEscrow = ['RESERVED', 'SETTLED', 'RELEASED'].includes(institution.paymentStatus);
                 if (requiresEscrow !== !!institution.escrowReservationId) {
                     add('TASK_OFFER_INSTITUTIONAL_ESCROW', `${at}.institutional`);

@@ -16,6 +16,11 @@ const STORY_INSTITUTION_LEGACY_SCHEMA = Object.freeze({
     adapterVersion: 'story-institution-authority-ledger-1',
     policyHash: 'fnv1a32:dc93047e'
 });
+const STORY_INSTITUTION_EXECUTIVE_COMMISSION_SCHEMA = Object.freeze({
+    schemaVersion: 2,
+    adapterVersion: 'story-institution-authority-ledger-2',
+    policyHash: 'fnv1a32:e226c6b2'
+});
 const STORY_INSTITUTION_TYPES = Object.freeze([
     'EXECUTIVE', 'LEGISLATURE', 'JUDICIARY', 'ARMED_FORCES', 'LOCAL_ADMINISTRATION'
 ]);
@@ -46,7 +51,7 @@ const STORY_INSTITUTION_ACTIONS = Object.freeze({
     APPOINT_COMMANDER: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     DISMISS_COMMANDER: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
     AUTHORIZE_BUDGET: Object.freeze({ executor: 'LEGISLATURE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'LEGISLATURE'], centers: ['BUSINESS_COUNCIL', 'LABOR_CONFEDERATION', 'CIVIL_SERVICE', 'ARMED_FORCES'] }),
-    COMMISSION_PAID_CONTACT_TASK: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
+    COMMISSION_PAID_CONTACT_TASK: Object.freeze({ executor: 'ARMED_FORCES', scope: 'COUNTRY', proposers: ['ARMED_FORCES'], centers: [] }),
     ISSUE_DIPLOMATIC_PROTEST: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     SIGN_TREATY: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE'], centers: [] }),
     DECLARE_WAR: Object.freeze({ executor: 'EXECUTIVE', scope: 'COUNTRY', proposers: ['EXECUTIVE', 'ARMED_FORCES'], centers: ['ARMED_FORCES'] }),
@@ -443,10 +448,14 @@ function storyInstitutionValidate(ledger) {
                 || commission.physicalMutation !== false) {
                 add('INSTITUTION_TASK_COMMISSION_CONTEXT', `${at}.commission`, 'Ücretli görev ihalesi kapalı politika ve kaynak bağlamı taşımalı.');
             }
+            const migratedCommissionCancellation = request.status === 'CANCELLED' && request.result
+                && request.result.reasonCode === 'PAYER_COMMANDER_BINDING_UNAVAILABLE'
+                && request.result.physicalMutation === false;
             const proposerInstitution = request.proposer && request.proposer.sourceId
                 && ledger.countries[request.countryId].institutions[request.proposer.sourceId];
-            if (!proposerInstitution || proposerInstitution.officeHolder.actorType !== 'CHARACTER'
-                || proposerInstitution.officeHolder.actorId !== request.proposer.actorId) {
+            if (!migratedCommissionCancellation
+                && (!proposerInstitution || proposerInstitution.officeHolder.actorType !== 'CHARACTER'
+                || proposerInstitution.officeHolder.actorId !== request.proposer.actorId)) {
                 add('INSTITUTION_TASK_COMMISSION_HOLDER', `${at}.proposer`, 'Ücretli görev veren gerçek karakter makam sahibi olmalı.');
             }
         } else if (request.commission != null) {
@@ -508,6 +517,30 @@ function storyInstitutionMigrateLedger(saved) {
         if (!ledger.diagnostics || typeof ledger.diagnostics !== 'object') ledger.diagnostics = {};
         if (!Array.isArray(ledger.diagnostics.warnings)) ledger.diagnostics.warnings = [];
         ledger.diagnostics.warnings.push('Kurum şema-1 kaydı görev ihale yetkisi uydurulmadan şema-2 yetki kataloğuna taşındı.');
+    }
+    const executiveCommission = ledger.schemaVersion === STORY_INSTITUTION_EXECUTIVE_COMMISSION_SCHEMA.schemaVersion
+        && ledger.adapterVersion === STORY_INSTITUTION_EXECUTIVE_COMMISSION_SCHEMA.adapterVersion
+        && ledger.policyHash === STORY_INSTITUTION_EXECUTIVE_COMMISSION_SCHEMA.policyHash;
+    if (executiveCommission) {
+        const countries = storyInstitutionBuildCountries();
+        ledger.policyHash = STORY_INSTITUTION_POLICY_HASH;
+        ledger.countries = countries;
+        ledger.sourceSignature = storyInstitutionSourceSignature(countries);
+        if (!ledger.diagnostics || typeof ledger.diagnostics !== 'object') ledger.diagnostics = {};
+        if (!Array.isArray(ledger.diagnostics.warnings)) ledger.diagnostics.warnings = [];
+        ledger.diagnostics.warnings.push('Görev ihale yetkisi, gerçek komutan ödeme hesabı bulunan Silahlı Kuvvetler makamına taşındı.');
+        for (const request of Object.values(ledger.requests || {})) {
+            if (request.actionType === 'COMMISSION_PAID_CONTACT_TASK') {
+                const previousStatus = request.status;
+                request.status = 'CANCELLED';
+                request.updatedAt = storyInstitutionRound(STORY.clock);
+                request.result = {
+                    status: 'CANCELLED', reasonCode: 'PAYER_COMMANDER_BINDING_UNAVAILABLE',
+                    previousStatus, physicalMutation: false,
+                    effectModel: STORY_INSTITUTION_POLICY.effectModel
+                };
+            }
+        }
     }
     for (const request of Object.values(ledger.requests || {})) {
         if (!Array.isArray(request.reviewRecords)) request.reviewRecords = [];
