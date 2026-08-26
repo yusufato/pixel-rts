@@ -372,7 +372,8 @@ try {
     runtime.dom.window.storyConversationWorkspaceClose();
     const taskCreated = runtime.api.conversationTaskOfferCreate(sessionId);
     assert.equal(taskCreated.ok, true);
-    assert.equal(taskCreated.taskOffer.schemaVersion, 2);
+    assert.equal(taskCreated.taskOffer.schemaVersion, 3);
+    assert.equal(taskCreated.taskOffer.relationshipResultReceiptId, null);
     assert.equal(taskCreated.taskOffer.kind, 'PERSONAL_CONTACT_REQUEST');
     assert.equal(taskCreated.taskOffer.status, 'OFFERED');
     assert.equal(taskCreated.taskOffer.authority.model, 'PERSONAL_REQUEST');
@@ -406,10 +407,11 @@ try {
         compensationPolicyId: 'institutional-contact-task-v1',
         amount: 25, currency: 'STATE_CREDIT',
         escrowReservationId: null, paymentStatus: 'NOT_RESERVED',
-        resultReceiptId: null, resultReceipt: null
+        resultReceiptId: null, resultReceipt: null,
+        relationshipResultReceiptId: null
     };
     assert.equal(runtime.api.conversationSessionValidate(institutionalFixture).ok, true,
-        'A complete offered institutional branch must satisfy TaskOfferV2.');
+        'A complete offered institutional branch must satisfy TaskOfferV3.');
     const mixedPersonalFixture = JSON.parse(JSON.stringify(institutionalFixture));
     const mixedPersonalTask = mixedPersonalFixture.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
     mixedPersonalTask.kind = 'PERSONAL_CONTACT_REQUEST';
@@ -434,11 +436,12 @@ try {
     delete legacyTask.institutional;
     const migratedTaskLedger = runtime.api.conversationSessionMigrate(legacyTaskLedger);
     const migratedTask = migratedTaskLedger.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
-    assert.equal(migratedTask.schemaVersion, 2);
+    assert.equal(migratedTask.schemaVersion, 3);
     assert.equal(migratedTask.kind, 'PERSONAL_CONTACT_REQUEST');
     assert.equal(JSON.stringify(migratedTask.authority), legacyAuthority);
     assert.equal(JSON.stringify(migratedTask.reward), legacyReward);
     assert.equal(migratedTask.institutional, null);
+    assert.equal(migratedTask.relationshipResultReceiptId, null);
     assert.equal(runtime.api.conversationSessionValidate(migratedTaskLedger).ok, true,
         'TaskOfferV1 must migrate without inventing authority, compensation, escrow, or receipts.');
     const taskTargetActorId = taskCreated.taskOffer.objective.targetActorId;
@@ -941,6 +944,8 @@ try {
         completedVote = result;
     }
     assert.ok(completedVote.outcomeReceipt);
+    assert.equal(completedVote.outcomeReceipt.schemaVersion, 2);
+    assert.equal(JSON.stringify(completedVote.outcomeReceipt.relationshipResultReceiptIds), '[]');
     assert.ok(['ADOPTED', 'REJECTED'].includes(completedVote.outcomeReceipt.decision));
     assert.equal(Object.values(completedVote.outcomeReceipt.tally)
         .reduce((sum, value) => sum + value, 0), meeting.participantActorIds.length);
@@ -955,7 +960,7 @@ try {
     runtime.dom.window.storyConversationWorkspaceClose();
 
     const openMeetingSnapshot = runtime.api.conversationSessionSnapshot();
-    assert.equal(runtime.api.conversationSessionRestore(openMeetingSnapshot).schemaVersion, 6);
+    assert.equal(runtime.api.conversationSessionRestore(openMeetingSnapshot).schemaVersion, 7);
     assert.equal(runtime.api.conversationMeetingGet(meeting.id).status, 'OPEN_NO_DECISION_ADAPTER');
     assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()),
         JSON.stringify(openMeetingSnapshot));
@@ -982,6 +987,7 @@ try {
     );
     assert.equal(closedMeeting.ok, true);
     assert.equal(closedMeeting.closure.outcomeReceiptId, completedVote.outcomeReceipt.id);
+    assert.equal(JSON.stringify(closedMeeting.closure.relationshipResultReceiptIds), '[]');
     assert.equal(closedMeeting.closure.decision, completedVote.outcomeReceipt.decision);
     assert.equal(closedMeeting.closure.proposalId, null);
     assert.equal(closedMeeting.closure.physicalMutation, false);
@@ -1150,6 +1156,27 @@ try {
     forgedOutcome.meetingCases[0].outcomeReceipts[0].tally.yes += 1;
     assert.ok(runtime.api.conversationSessionValidate(forgedOutcome).issues
         .some(row => row.code === 'MEETING_OUTCOME_RECEIPTS'));
+    const linkedCompletedTask = snapshot.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
+    const linkedTaskResult = runtime.api.relationshipApplyResult({
+        sourceType: 'TASK_RESULT', sourceReceiptId: linkedCompletedTask.id,
+        fromActorId: linkedCompletedTask.issuerActorId, toActorId: linkedCompletedTask.assigneeActorId,
+        interpretationType: 'TASK_COMMITMENT_KEPT'
+    });
+    assert.equal(linkedTaskResult.applied, true);
+    const linkedTaskLedger = JSON.parse(JSON.stringify(snapshot));
+    linkedTaskLedger.taskOffers.find(row => row.id === linkedCompletedTask.id)
+        .relationshipResultReceiptId = linkedTaskResult.receipt.id;
+    assert.equal(runtime.api.conversationSessionValidate(linkedTaskLedger).ok, true);
+    const forgedTaskRelationshipLink = JSON.parse(JSON.stringify(linkedTaskLedger));
+    forgedTaskRelationshipLink.taskOffers.find(row => row.id === linkedCompletedTask.id)
+        .relationshipResultReceiptId = 'relationship-result:missing';
+    assert.ok(runtime.api.conversationSessionValidate(forgedTaskRelationshipLink).issues
+        .some(row => row.code === 'TASK_OFFER_RELATIONSHIP_RESULT_LINK'));
+    const forgedOutcomeRelationshipLink = JSON.parse(JSON.stringify(snapshot));
+    forgedOutcomeRelationshipLink.meetingCases[0].outcomeReceipts[0]
+        .relationshipResultReceiptIds = ['relationship-result:missing'];
+    assert.ok(runtime.api.conversationSessionValidate(forgedOutcomeRelationshipLink).issues
+        .some(row => row.code === 'MEETING_OUTCOME_RECEIPTS'));
     const forgedClosure = JSON.parse(JSON.stringify(snapshot));
     forgedClosure.meetingClosures[0].closingTurnId = 'meeting-turn:forged';
     assert.ok(runtime.api.conversationSessionValidate(forgedClosure).issues
@@ -1202,10 +1229,45 @@ try {
     privateGroundingReply.grounding.visibility = 'PRIVATE';
     assert.ok(runtime.api.conversationSessionValidate(forgedPrivateReplyGrounding).issues
         .some(row => row.code === 'MEETING_PRIVATE_NOTES'));
-    assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 6);
+    assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 7);
     const restoredSnapshot = runtime.api.conversationSessionSnapshot();
     const restoreDifference = firstDifference(restoredSnapshot, snapshot);
     assert.equal(restoreDifference, null, `Kayıt geri yükleme farkı: ${JSON.stringify(restoreDifference)}`);
+
+    const schemaSixLedger = JSON.parse(JSON.stringify(snapshot));
+    schemaSixLedger.schemaVersion = 6;
+    schemaSixLedger.adapterVersion = 'story-conversation-session-ledger-6';
+    for (const oldTask of schemaSixLedger.taskOffers) {
+        oldTask.schemaVersion = 2;
+        delete oldTask.relationshipResultReceiptId;
+        if (oldTask.institutional) {
+            delete oldTask.institutional.relationshipResultReceiptId;
+            if (oldTask.institutional.resultReceipt) {
+                delete oldTask.institutional.resultReceipt.relationshipResultReceiptId;
+            }
+        }
+    }
+    for (const oldMeeting of schemaSixLedger.meetingCases) {
+        for (const oldOutcome of oldMeeting.outcomeReceipts) {
+            oldOutcome.schemaVersion = 1;
+            delete oldOutcome.relationshipResultReceiptIds;
+        }
+    }
+    for (const oldClosure of schemaSixLedger.meetingClosures) {
+        delete oldClosure.relationshipResultReceiptIds;
+    }
+    const migratedSchemaSix = runtime.api.conversationSessionMigrate(schemaSixLedger);
+    assert.equal(migratedSchemaSix.schemaVersion, 7);
+    assert.ok(migratedSchemaSix.taskOffers.every(row => row.schemaVersion === 3
+        && row.relationshipResultReceiptId === null
+        && (!row.institutional || row.institutional.relationshipResultReceiptId === null)
+        && (!row.institutional || !row.institutional.resultReceipt
+            || row.institutional.resultReceipt.relationshipResultReceiptId === null)));
+    assert.ok(migratedSchemaSix.meetingCases.every(row => row.outcomeReceipts.every(receipt =>
+        receipt.schemaVersion === 2 && receipt.relationshipResultReceiptIds.length === 0)));
+    assert.ok(migratedSchemaSix.meetingClosures.every(row =>
+        row.relationshipResultReceiptIds.length === 0));
+    assert.equal(runtime.api.conversationSessionValidate(migratedSchemaSix).ok, true);
 
     const legacy = JSON.parse(JSON.stringify(snapshot));
     legacy.schemaVersion = 3;
@@ -1221,8 +1283,8 @@ try {
         delete session.conversationCase;
     }
     const migrated = runtime.api.conversationSessionMigrate(legacy);
-    assert.equal(migrated.schemaVersion, 6);
-    assert.equal(migrated.adapterVersion, 'story-conversation-session-ledger-6');
+    assert.equal(migrated.schemaVersion, 7);
+    assert.equal(migrated.adapterVersion, 'story-conversation-session-ledger-7');
     assert.ok(migrated.sessions.every(session => session.conversationCase
         && session.conversationCase.modeHistory.length === 1));
     assert.equal(runtime.api.conversationSessionValidate(migrated).ok, true);
@@ -1251,7 +1313,7 @@ try {
         }
     }
     const migratedSchemaFive = runtime.api.conversationSessionMigrate(schemaFiveLedger);
-    assert.equal(migratedSchemaFive.schemaVersion, 6);
+    assert.equal(migratedSchemaFive.schemaVersion, 7);
     assert.ok(migratedSchemaFive.meetingCases.every(row =>
         row.privateNotes.every(note => note.schemaVersion === 2
             && note.kind === 'PLAYER_NOTE'

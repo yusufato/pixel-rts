@@ -656,11 +656,12 @@ function storyConversationContract() {
 // NegotiationCase değildir: karakter henüz kabul/ret vermemiş, dünya komutu
 // oluşmamıştır. Oyuncunun cümle ve açıklamalarını kaybolmayan, sınırlandırılmış
 // bir mekanik inceleme adayına taşır. Gerçek söz/borç/anlaşma Faz 38.3'e aittir.
-const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 6;
-const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-6';
+const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 7;
+const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-7';
 const STORY_CONVERSATION_SESSION_LIMIT = 32;
 const STORY_CONVERSATION_TASK_OFFER_LIMIT = 64;
-const STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION = 2;
+const STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION = 3;
+const STORY_CONVERSATION_MEETING_OUTCOME_RECEIPT_SCHEMA_VERSION = 2;
 const STORY_CONVERSATION_TASK_OFFER_KINDS = Object.freeze([
     'PERSONAL_CONTACT_REQUEST', 'INSTITUTIONAL_PAID_CONTACT_TASK'
 ]);
@@ -965,11 +966,13 @@ function storyConversationInstitutionalTaskOfferCreate(sessionId) {
                 compensationPolicyId: preview.preview.compensationPolicyId,
                 amount: preview.preview.amount, currency: preview.preview.currency,
                 paymentStatus: 'NOT_RESERVED', escrowReservationId: null,
-                resultReceiptId: null, resultReceipt: null
+                resultReceiptId: null, resultReceipt: null,
+                relationshipResultReceiptId: null
             },
             createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
             status: 'OFFERED', acceptedAt: null, declinedAt: null, completedAt: null,
             completionSessionId: null, sourceTurnId: `conversation-mode:${session.id}`,
+            relationshipResultReceiptId: null,
             worldMutation: false
         };
         ledger.taskOffers.push(taskOffer);
@@ -1043,6 +1046,7 @@ function storyConversationTaskOfferCreate(sessionId) {
         createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
         status: 'OFFERED', acceptedAt: null, declinedAt: null, completedAt: null,
         completionSessionId: null, sourceTurnId: `conversation-mode:${session.id}`,
+        relationshipResultReceiptId: null,
         worldMutation: false
     };
     ledger.taskOffers.push(taskOffer);
@@ -1237,6 +1241,7 @@ function storyConversationTaskOfferCompleteForConversation(ledger, completedSess
                     amount: settlement.amount,
                     currency: settlement.currency,
                     completedAt: now,
+                    relationshipResultReceiptId: null,
                     physicalMutation: false,
                     worldMutation: false
                 };
@@ -1449,6 +1454,7 @@ function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
         motionId: motion.id,
         motionVersionId: motion.activeVersionId,
         outcomeReceiptId: receipt.id,
+        relationshipResultReceiptIds: receipt.relationshipResultReceiptIds.slice(),
         decision: receipt.decision,
         status: receipt.decision === 'ADOPTED'
             ? 'CLOSED_ADOPTED_PENDING_PROPOSAL' : 'CLOSED_REJECTED',
@@ -2314,11 +2320,13 @@ function storyConversationMeetingMotionCastVote(meetingCaseId, motionId, choice)
         const decision = tally.yes > tally.no ? 'ADOPTED' : 'REJECTED';
         const receiptSequence = meeting.outcomeReceipts.length + 1;
         outcomeReceipt = {
-            schemaVersion: 1, id: `${meeting.id}:outcome:${receiptSequence}`, sequence: receiptSequence,
+            schemaVersion: STORY_CONVERSATION_MEETING_OUTCOME_RECEIPT_SCHEMA_VERSION,
+            id: `${meeting.id}:outcome:${receiptSequence}`, sequence: receiptSequence,
             meetingCaseId: meeting.id, agendaItemId: motion.agendaItemId, motionId: motion.id,
             motionVersionId: motion.activeVersionId, decision, tally,
             voteIds: motionVotes.map(row => row.id), completedByTurnId: turnResult.turn.id,
             completedAt: Number(STORY.clock) || 0,
+            relationshipResultReceiptIds: [],
             authoritySource: 'MEETING_RECORDED_VOTE', physicalMutation: false, worldMutation: false
         };
         meeting.outcomeReceipts.push(outcomeReceipt);
@@ -2552,7 +2560,7 @@ function storyConversationMeetingGenerateCharacterTurn(meetingCaseId, addressedA
 function storyConversationSessionMigrateLedger(saved) {
     const ledger = storyConversationClone(saved);
     if (!ledger || typeof ledger !== 'object'
-        || ![1, 2, 3, 4, 5, STORY_CONVERSATION_SESSION_SCHEMA_VERSION]
+        || ![1, 2, 3, 4, 5, 6, STORY_CONVERSATION_SESSION_SCHEMA_VERSION]
             .includes(Number(ledger.schemaVersion))) return null;
     ledger.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
     ledger.adapterVersion = STORY_CONVERSATION_SESSION_ADAPTER_VERSION;
@@ -2560,10 +2568,22 @@ function storyConversationSessionMigrateLedger(saved) {
         && ledger.nextTaskOfferSequence > 0 ? ledger.nextTaskOfferSequence : 1;
     if (!Array.isArray(ledger.taskOffers)) ledger.taskOffers = [];
     for (const taskOffer of ledger.taskOffers) {
-        if (taskOffer && taskOffer.schemaVersion === 1) {
+        if (taskOffer && [1, 2].includes(taskOffer.schemaVersion)) {
             taskOffer.schemaVersion = STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION;
             if (taskOffer.kind === 'CONTACT_REQUEST') taskOffer.kind = 'PERSONAL_CONTACT_REQUEST';
             if (!Object.prototype.hasOwnProperty.call(taskOffer, 'institutional')) taskOffer.institutional = null;
+        }
+        if (taskOffer && !Object.prototype.hasOwnProperty.call(taskOffer, 'relationshipResultReceiptId')) {
+            taskOffer.relationshipResultReceiptId = null;
+        }
+        if (taskOffer && taskOffer.institutional) {
+            if (!Object.prototype.hasOwnProperty.call(taskOffer.institutional, 'relationshipResultReceiptId')) {
+                taskOffer.institutional.relationshipResultReceiptId = null;
+            }
+            if (taskOffer.institutional.resultReceipt
+                && !Object.prototype.hasOwnProperty.call(taskOffer.institutional.resultReceipt, 'relationshipResultReceiptId')) {
+                taskOffer.institutional.resultReceipt.relationshipResultReceiptId = null;
+            }
         }
     }
     ledger.nextMeetingSequence = Number.isInteger(ledger.nextMeetingSequence)
@@ -2629,6 +2649,14 @@ function storyConversationSessionMigrateLedger(saved) {
         }
         if (!Array.isArray(meeting.votes)) meeting.votes = [];
         if (!Array.isArray(meeting.outcomeReceipts)) meeting.outcomeReceipts = [];
+        for (const receipt of meeting.outcomeReceipts) {
+            if (receipt && receipt.schemaVersion === 1) {
+                receipt.schemaVersion = STORY_CONVERSATION_MEETING_OUTCOME_RECEIPT_SCHEMA_VERSION;
+            }
+            if (receipt && !Array.isArray(receipt.relationshipResultReceiptIds)) {
+                receipt.relationshipResultReceiptIds = [];
+            }
+        }
         if (!Object.prototype.hasOwnProperty.call(meeting, 'outcomeReceiptId')) meeting.outcomeReceiptId = null;
         const participantActorIds = Array.isArray(meeting.participantActorIds)
             ? meeting.participantActorIds.slice() : [];
@@ -2650,6 +2678,11 @@ function storyConversationSessionMigrateLedger(saved) {
                 row.visiblePrivateNoteIds = meeting.privateNotes.filter(note =>
                     note.authorActorId === row.actorId || note.recipientActorId === row.actorId).map(note => note.id);
             }
+        }
+    }
+    for (const closure of ledger.meetingClosures) {
+        if (closure && !Array.isArray(closure.relationshipResultReceiptIds)) {
+            closure.relationshipResultReceiptIds = [];
         }
     }
     ledger.diagnostics = Object.assign({
@@ -5444,6 +5477,8 @@ function storyConversationSessionValidationContext(session, response) {
 function storyConversationSessionValidateLedger(candidate) {
     const issues = [];
     const add = (code, path) => issues.push({ code, path });
+    const relationshipReceipts = STORY.characterRelationships
+        && STORY.characterRelationships.resultReceipts || {};
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
         return { ok: false, issues: [{ code: 'LEDGER_REQUIRED', path: '$' }] };
     }
@@ -5478,6 +5513,25 @@ function storyConversationSessionValidateLedger(candidate) {
             continue;
         }
         taskOfferIds.add(taskOffer.id);
+        if (!Object.prototype.hasOwnProperty.call(taskOffer, 'relationshipResultReceiptId')
+            || (taskOffer.relationshipResultReceiptId !== null
+                && typeof taskOffer.relationshipResultReceiptId !== 'string')) {
+            add('TASK_OFFER_RELATIONSHIP_RESULT_REFERENCE', `${at}.relationshipResultReceiptId`);
+        }
+        if (taskOffer.relationshipResultReceiptId !== null) {
+            const relationshipReceipt = relationshipReceipts[taskOffer.relationshipResultReceiptId];
+            const expectedInterpretation = taskOffer.status === 'COMPLETED'
+                ? 'TASK_COMMITMENT_KEPT' : taskOffer.status === 'EXPIRED' && Number.isFinite(taskOffer.acceptedAt)
+                    ? 'TASK_COMMITMENT_BROKEN' : null;
+            if (!relationshipReceipt || !expectedInterpretation
+                || relationshipReceipt.sourceType !== 'TASK_RESULT'
+                || relationshipReceipt.sourceReceiptId !== taskOffer.id
+                || relationshipReceipt.fromActorId !== taskOffer.issuerActorId
+                || relationshipReceipt.toActorId !== taskOffer.assigneeActorId
+                || relationshipReceipt.interpretationType !== expectedInterpretation) {
+                add('TASK_OFFER_RELATIONSHIP_RESULT_LINK', `${at}.relationshipResultReceiptId`);
+            }
+        }
         if (!['OFFERED', 'ACCEPTED', 'DECLINED', 'COMPLETED', 'EXPIRED'].includes(taskOffer.status)) {
             add('TASK_OFFER_STATUS', `${at}.status`);
         }
@@ -5504,7 +5558,11 @@ function storyConversationSessionValidateLedger(candidate) {
                 || taskOffer.authority.institutionId !== institution.institutionId
                 || taskOffer.authority.countryId !== institution.countryId
                 || taskOffer.authority.legalBasis !== institution.legalBasis) {
-                add('TASK_OFFER_AUTHORITY', at);
+                    add('TASK_OFFER_AUTHORITY', at);
+            }
+            if (institution && (!Object.prototype.hasOwnProperty.call(institution, 'relationshipResultReceiptId')
+                || institution.relationshipResultReceiptId !== taskOffer.relationshipResultReceiptId)) {
+                add('TASK_OFFER_INSTITUTIONAL_RELATIONSHIP_LINK', `${at}.institutional.relationshipResultReceiptId`);
             }
             if (!taskOffer.reward || taskOffer.reward.kind !== 'STATE_CREDIT_COMPENSATION'
                 || taskOffer.reward.amount !== 25 || taskOffer.reward.currency !== 'STATE_CREDIT') {
@@ -5572,6 +5630,10 @@ function storyConversationSessionValidateLedger(candidate) {
                     add('TASK_OFFER_INSTITUTIONAL_RECEIPT', `${at}.institutional.resultReceiptId`);
                 }
                 const receipt = institution.resultReceipt;
+                if (receipt && (!Object.prototype.hasOwnProperty.call(receipt, 'relationshipResultReceiptId')
+                    || receipt.relationshipResultReceiptId !== taskOffer.relationshipResultReceiptId)) {
+                    add('TASK_OFFER_INSTITUTIONAL_RELATIONSHIP_LINK', `${at}.institutional.resultReceipt.relationshipResultReceiptId`);
+                }
                 if (taskOffer.status === 'COMPLETED') {
                     const settlement = STORY.stateBudget && (STORY.stateBudget.settlements || []).find(row =>
                         row.id === institution.escrowReservationId);
@@ -5972,11 +6034,26 @@ function storyConversationSessionValidateLedger(candidate) {
                 const motion = meeting.motions.find(row => row.id === (receipt && receipt.motionId));
                 const receiptVoteIds = receipt && Array.isArray(receipt.voteIds) ? receipt.voteIds : [];
                 const receiptVotes = meetingVotes.filter(vote => receiptVoteIds.includes(vote.id));
+                const sourceSession = (candidate.sessions || []).find(row => row.id === meeting.sessionId);
+                const relationshipIds = receipt && receipt.relationshipResultReceiptIds;
+                const expectedRelationshipActors = sourceSession
+                    ? meeting.participantActorIds.filter(actorId => actorId !== sourceSession.playerActorId) : [];
+                const relationshipLinksValid = Array.isArray(relationshipIds) && (relationshipIds.length === 0
+                    || (relationshipIds.length === expectedRelationshipActors.length
+                        && relationshipIds.every((relationshipId, relationshipIndex) => {
+                            const relationshipReceipt = relationshipReceipts[relationshipId];
+                            return relationshipReceipt
+                                && relationshipReceipt.sourceType === 'MEETING_OUTCOME'
+                                && relationshipReceipt.sourceReceiptId === receipt.id
+                                && relationshipReceipt.fromActorId === expectedRelationshipActors[relationshipIndex]
+                                && relationshipReceipt.toActorId === sourceSession.playerActorId
+                                && relationshipReceipt.interpretationType === 'MEETING_SHARED_SUCCESS';
+                        })));
                 const tally = receiptVotes.reduce((sum, vote) => {
                     sum[vote.choice.toLowerCase()]++;
                     return sum;
                 }, { yes: 0, no: 0, abstain: 0 });
-                return !receipt || receipt.schemaVersion !== 1
+                return !receipt || receipt.schemaVersion !== STORY_CONVERSATION_MEETING_OUTCOME_RECEIPT_SCHEMA_VERSION
                     || receipt.id !== `${meeting.id}:outcome:${receiptIndex + 1}`
                     || receipt.sequence !== receiptIndex + 1 || receipt.meetingCaseId !== meeting.id
                     || !motion || receipt.agendaItemId !== motion.agendaItemId
@@ -5992,6 +6069,7 @@ function storyConversationSessionValidateLedger(candidate) {
                     || !publicTurnIds.includes(receipt.completedByTurnId)
                     || receipt.completedByTurnId !== receiptVotes[receiptVotes.length - 1].turnId
                     || !Number.isFinite(receipt.completedAt)
+                    || !relationshipLinksValid
                     || receipt.authoritySource !== 'MEETING_RECORDED_VOTE'
                     || receipt.physicalMutation !== false || receipt.worldMutation !== false;
             })
@@ -6019,6 +6097,9 @@ function storyConversationSessionValidateLedger(candidate) {
                 || !receipt || receipt.motionId !== closure.motionId
                 || receipt.motionVersionId !== closure.motionVersionId
                 || receipt.decision !== closure.decision
+                || !Array.isArray(closure.relationshipResultReceiptIds)
+                || JSON.stringify(closure.relationshipResultReceiptIds)
+                    !== JSON.stringify(receipt.relationshipResultReceiptIds)
                 || !motion || motion.activeVersionId !== closure.motionVersionId
                 || !['ADOPTED', 'REJECTED'].includes(closure.decision)
                 || !((closure.decision === 'ADOPTED'
