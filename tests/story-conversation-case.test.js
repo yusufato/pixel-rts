@@ -154,6 +154,16 @@ function verifyInstitutionalTaskOfferDecisions() {
             .institutional.resultReceipt.payeeTransactionId = 'budget:forged';
         assert.ok(taskRuntime.api.conversationSessionValidate(forgedReceiptLedger).issues
             .some(row => row.code === 'TASK_OFFER_INSTITUTIONAL_RECEIPT'));
+        const forgedInstitutionalRelationshipLink = taskRuntime.api.conversationSessionSnapshot();
+        forgedInstitutionalRelationshipLink.taskOffers.find(row => row.id === created.taskOffer.id)
+            .institutional.relationshipResultReceiptId = 'relationship-result:forged';
+        assert.ok(taskRuntime.api.conversationSessionValidate(forgedInstitutionalRelationshipLink).issues
+            .some(row => row.code === 'TASK_OFFER_INSTITUTIONAL_RELATIONSHIP_LINK'));
+        const forgedPaymentRelationshipLink = taskRuntime.api.conversationSessionSnapshot();
+        forgedPaymentRelationshipLink.taskOffers.find(row => row.id === created.taskOffer.id)
+            .institutional.resultReceipt.relationshipResultReceiptId = 'relationship-result:forged';
+        assert.ok(taskRuntime.api.conversationSessionValidate(forgedPaymentRelationshipLink).issues
+            .some(row => row.code === 'TASK_OFFER_INSTITUTIONAL_RELATIONSHIP_LINK'));
 
         const declinedSessionId = openTaskSession(issuerActorId);
         const declinedCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(declinedSessionId);
@@ -1328,6 +1338,26 @@ try {
     forgedClosure.meetingClosures[0].closingTurnId = 'meeting-turn:forged';
     assert.ok(runtime.api.conversationSessionValidate(forgedClosure).issues
         .some(row => row.code === 'MEETING_CLOSURES'));
+    const forgedClosureRelationshipLinks = JSON.parse(JSON.stringify(snapshot));
+    forgedClosureRelationshipLinks.meetingClosures[0].relationshipResultReceiptIds.reverse();
+    assert.ok(runtime.api.conversationSessionValidate(forgedClosureRelationshipLinks).issues
+        .some(row => row.code === 'MEETING_CLOSURES'));
+    const forgedMeetingDecisionLink = JSON.parse(JSON.stringify(snapshot));
+    const forgedDecisionMeeting = forgedMeetingDecisionLink.meetingCases[0];
+    const forgedDecisionOutcome = forgedDecisionMeeting.outcomeReceipts[0];
+    const appliedRelationshipId = forgedDecisionOutcome.relationshipResultReceiptIds.find(id =>
+        runtime.api.relationshipResultReceipt(id).decision === 'APPLIED');
+    const appliedRelationship = runtime.api.relationshipResultReceipt(appliedRelationshipId);
+    const forgedDecisionVote = forgedDecisionMeeting.votes.find(row =>
+        row.actorId === appliedRelationship.fromActorId
+        && forgedDecisionOutcome.voteIds.includes(row.id));
+    forgedDecisionVote.choice = 'NO';
+    forgedDecisionOutcome.tally.yes--;
+    forgedDecisionOutcome.tally.no++;
+    forgedDecisionOutcome.decision = forgedDecisionOutcome.tally.yes > forgedDecisionOutcome.tally.no
+        ? 'ADOPTED' : 'REJECTED';
+    assert.ok(runtime.api.conversationSessionValidate(forgedMeetingDecisionLink).issues
+        .some(row => row.code === 'MEETING_OUTCOME_RECEIPTS'));
     const forgedMotionVersion = JSON.parse(JSON.stringify(snapshot));
     forgedMotionVersion.meetingCases[0].motions[0].versions[1].text = 'Kaynak dışı sahte sürüm';
     assert.ok(runtime.api.conversationSessionValidate(forgedMotionVersion).issues

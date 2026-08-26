@@ -15721,6 +15721,23 @@ function probeRelationshipInterpretation(seed = 2032) {
         tamperedDelta.resultReceipts[keptResult.receipt.id].deltas.trustBps = 251;
         const tamperedDirection = JSON.parse(JSON.stringify(relationshipSnapshot));
         tamperedDirection.resultReceipts[keptResult.receipt.id].toActorId = holder.id;
+        const tamperedSource = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedSource.resultReceipts[keptResult.receipt.id].sourceReceiptId = 'task-result:forged';
+        const tamperedInterpretation = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedInterpretation.resultReceipts[keptResult.receipt.id].interpretationType = 'TASK_COMMITMENT_BROKEN';
+        const tamperedBefore = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedBefore.resultReceipts[keptResult.receipt.id].before.respectBps -= 1;
+        const tamperedVersion = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedVersion.resultReceipts[keptResult.receipt.id].edgeVersionAfter += 1;
+        const tamperedCooldown = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedCooldown.resultReceipts[keptCooldown.receipt.id].cooldownKey = 'relationship:forged';
+        const tamperedDecision = JSON.parse(JSON.stringify(relationshipSnapshot));
+        tamperedDecision.resultReceipts[keptResult.receipt.id].decision = 'NO_CHANGE';
+        const invalidTaskNoChange = runtime.api.relationshipApplyResult({
+            sourceType: 'TASK_RESULT', sourceReceiptId: 'task-result:phase3813:forged-no-change',
+            fromActorId: holder.id, toActorId: target.id,
+            interpretationType: 'TASK_COMMITMENT_KEPT', noChangeReason: 'MEETING_REJECTED'
+        });
         result.resultReceipts = {
             keptApplied: keptResult.applied === true
                 && JSON.stringify(keptResult.receipt.deltas) === JSON.stringify({
@@ -15745,11 +15762,14 @@ function probeRelationshipInterpretation(seed = 2032) {
             meetingCooldownNoChange: meetingCooldown.receipt.decision === 'NO_CHANGE'
                 && meetingCooldown.receipt.reason === 'COOLDOWN_ACTIVE',
             invalidInputsRejected: wrongPolicy.reason === 'RELATION_RESULT_POLICY_REJECTED'
-                && missingActor.reason === 'RELATION_RESULT_ACTOR_REJECTED',
+                && missingActor.reason === 'RELATION_RESULT_ACTOR_REJECTED'
+                && invalidTaskNoChange.reason === 'RELATION_RESULT_NO_CHANGE_REJECTED',
             directional: reverseBefore === JSON.stringify(runtime.api.relationshipView(target.id, holder.id)),
             receiptCountExact: receiptRows.length === 6,
-            tamperRejected: !runtime.api.validateRelationshipLedger(tamperedDelta).ok
-                && !runtime.api.validateRelationshipLedger(tamperedDirection).ok,
+            tamperRejected: [tamperedDelta, tamperedDirection, tamperedSource,
+                tamperedInterpretation, tamperedBefore, tamperedVersion,
+                tamperedCooldown, tamperedDecision].every(row =>
+                !runtime.api.validateRelationshipLedger(row).ok),
             physicalWorldNeutral: resultWorldBefore === hashSnapshot(stateSnapshot(story)),
             validation: runtime.api.validateRelationshipLedger(relationshipSnapshot)
         };
