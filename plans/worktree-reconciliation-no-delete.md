@@ -1,6 +1,6 @@
 ---
 id: worktree-reconciliation-no-delete
-status: In Progress # Kullanıcı 26 Ağustos 2026 tarihinde onayladı
+status: Landed # Kullanıcı 26 Ağustos 2026 tarihinde onayladı
 owner: osman
 source: BACKLOG.md plan soy ağacı düzeltmesi / kullanıcı sıralı onayı
 touches:
