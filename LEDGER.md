@@ -1329,3 +1329,10 @@
 - **What happened:** 46 gözlenmiş oyuncu turu ve 154 model üretimi adaydan oluşan 200 benzersiz cümlelik, 160 aileli corpus kuruldu. Toplu inceleme aracı bütün kapalı konuşma etiketlerini düzeltilebilir gösteriyor ve yalnız eksiksiz `LOCAL_HUMAN` kabulünü gold sayıyor.
 - **Evidence:** Corpus doğrulaması 200/200 benzersiz metin ve sıfır aile-split sızıntısı verdi; prototip/kalibrasyon/kör dağılımı 127/27/46. İnceleme testi, SemanticFrameV2 testi, semantik gece kapısı testi ve ana konuşma senaryosu exit `0`; güncel sayaç `0/200` prototip ve `0/1000` ürün gold.
 - **Implication for future audits:** Model/gece çıktısını veya mevcut motor önerisini insan etiketi sayma. Model/runtime spike'ı ancak 200 eksiksiz insan-onaylı corpus kaydından sonra başlayabilir; ürün entegrasyonu ve plan kapanışı için 1.000 gold şartı korunur.
+
+## 2026-08-27 — Codex tekil semantik incelemeleri gold provenansına alındı
+- **Type:** Reversed
+- **Source:** Kullanıcı kararı / `phase-38-turkish-semantic-intent-router`
+- **What happened:** Önceki yalnız `LOCAL_HUMAN` gold kapısı, kullanıcının açık kararıyla cümle ve bağlamı tek tek okunup bütün etiketleri kararlaştırılan `CODEX_INDIVIDUAL_REVIEW` kayıtlarını da kabul edecek biçimde genişletildi.
+- **Evidence:** Kullanıcının “sen tek tek inceleme yap... sadece tek tek incelediğinde gold sayılsın” talimatı. İnsan, Codex ve otomatik öneri provenansları ayrı tutulur.
+- **Implication for future audits:** Codex tekil incelemesini insan etiketi diye raporlama; fakat otomatik/model önerisiyle de eşitleme. Yalnız eksiksiz, satır bazlı `CODEX_INDIVIDUAL_REVIEW` kaydı gold kapısına girebilir.

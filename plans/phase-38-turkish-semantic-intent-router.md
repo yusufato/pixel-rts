@@ -54,10 +54,13 @@ embedding/LLM kapalıyken mekanik oyun eşdeğer kalır; hiçbir model eylem, he
 miktar, yetki, sonuç veya ilişki deltası yazamaz.
 
 **Durum:** Kullanıcı 27 Ağustos 2026 tarihinde kapsamı genişleten iki düzeltmeyle
-onayladı. Aynı tarihte, tek geliştiricilik iş akışı için 200 insan-onaylı gold
-örneğini model/runtime prototip kapısı; 1.000 insan-onaylı gold örneğini ürün
-entegrasyonu ve `Landed` kapısı yapmayı, ayrıca toplu inceleme aracı kapsamını
-onayladı. `depends_on` planı Landed'dır; uygulama başlamıştır.
+onayladı. Aynı tarihte, tek geliştiricilik iş akışı için 200 tek tek
+onaylanmış gold örneğini model/runtime prototip kapısı; 1.000 tek tek
+onaylanmış gold örneğini ürün entegrasyonu ve `Landed` kapısı yapmayı, ayrıca
+toplu inceleme aracı kapsamını onayladı. Kullanıcı daha sonra Codex'in her
+cümleyi bağlamıyla ayrı inceleyip eksiksiz etiketlediği kayıtların da açık
+`CODEX_INDIVIDUAL_REVIEW` provenansıyla gold sayılmasını istedi.
+`depends_on` planı Landed'dır; uygulama başlamıştır.
 
 ## 2) Önerilen kapalı zincir
 
@@ -119,7 +122,7 @@ onayladı. `depends_on` planı Landed'dır; uygulama başlamıştır.
 
 | # | Adım | Çıktı | Commit |
 |---|---|---|---|
-| 1 | Gerçek Türkçe tabanı ölç | 200 insan-onaylı prototip gold, kör ayrım, mevcut hata matrisi; 1.000 ürün kapısı korunur | `test(story): establish Turkish intent baseline` |
+| 1 | Gerçek Türkçe tabanı ölç | 200 tekil incelemeli prototip gold, kör ayrım, mevcut hata matrisi; 1.000 ürün kapısı korunur | `test(story): establish Turkish intent baseline` |
 | 2 | Model/runtime spike | İki aday, EXE CPU/RAM/latans/paket ölçümü; ürün bağı yok | `test(story): benchmark local multilingual embeddings` |
 | 3 | Kapalı katalog ve yönlendirici | Sürümlü prototipler, ölçülmüş top-K, skor/marj, OOD ret | `feat(story): add bounded semantic intent candidates` |
 | 4 | SemanticFrameV2 birleşimi | Aday doğrulama, çoklu niyet ve netleştirme | `feat(story): validate embedding candidates through semantic frames` |
@@ -130,12 +133,17 @@ onayladı. `depends_on` planı Landed'dır; uygulama başlamıştır.
 
 ## 6) Corpus ve kabul kapıları
 
-- Model/runtime prototipi en az 200 insan etiketli, birbirinin yeniden yazımı
-  olmayan Türkçe turdan önce başlamaz. Ürün entegrasyonu ve planın `Landed`
-  olması için ilk gold set en az 1.000 insan etiketli tur taşır. Her iki kapıda
-  da prototip, kalibrasyon ve kör test konuşmacı/şablon ailesine göre ayrılır.
-- Model, gece QA'sı ve mevcut deterministik motor yalnız etiket adayı üretir;
-  açık insan kararı bulunmayan kayıt hiçbir kapıda gold sayılmaz.
+- Model/runtime prototipi en az 200 tek tek incelenmiş, birbirinin yeniden
+  yazımı olmayan Türkçe turdan önce başlamaz. Ürün entegrasyonu ve planın
+  `Landed` olması için gold set en az 1.000 tekil incelemeli tur taşır. Her iki
+  kapıda da prototip, kalibrasyon ve kör test konuşmacı/şablon ailesine göre
+  ayrılır.
+- Gold provenansı yalnız `LOCAL_HUMAN` veya kullanıcının yetkilendirdiği,
+  cümle+bağlam+bütün etiket eksenleri tek tek okunmuş
+  `CODEX_INDIVIDUAL_REVIEW` olabilir. İki kaynak ayrı sayaçlanır.
+- Model, gece QA'sı, toplu heuristic ve mevcut deterministik motor yalnız
+  etiket adayı üretir; tekil inceleme kaydı bulunmayan satır hiçbir kapıda gold
+  sayılmaz.
 - Gündelik sohbet, bilgi, görüş, görev, ticaret, rüşvet, tehdit, ittifak, sır,
   rapor, toplantı ve açık `UNKNOWN/OOD` sınıfları bulunur.
 - Ekli biçim, yazım hatası, eksik noktalama, argo, olumsuzluk, varsayım,
@@ -219,4 +227,14 @@ alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable o
   eksenlerini ve speech-act değerini insana düzelttirir. Eksik etiketli kabul
   gold sayılmaz.
 - Güncel kapı: `0/200` prototip gold, `0/1000` ürün gold. Adım 1 ve model
-  spike'ı, 200 insan-onaylı kayıt tamamlanana kadar açık kalır.
+  spike'ı, 200 tekil incelemeli kayıt tamamlanana kadar açık kalır.
+
+### 27 Ağustos 2026 — Codex tekil inceleme yetkisi
+
+- Kullanıcı, Codex'in cümleleri toplu model çıktısıyla değil metin ve bağlamı
+  tek tek okuyarak bütün kapalı etiketleri kararlaştırmasını ve bu kayıtların
+  gold sayılmasını istedi.
+- Kayıtlar `CODEX_INDIVIDUAL_REVIEW` olarak saklanır; `LOCAL_HUMAN`
+  kayıtlarıyla birleştirilmez veya insan etiketi diye raporlanmaz.
+- İnceleme geri alınabilir partiler halinde commit edilir. Otomatik öneriyi
+  değiştirmeden kopyalamak tek başına inceleme kanıtı değildir.
