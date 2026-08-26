@@ -1,6 +1,6 @@
 ---
 id: phase-38-13-institutional-paid-task
-status: In Progress # Kullanıcı 26 Ağustos 2026 tarihinde onayladı
+status: Landed # Kullanıcı 26 Ağustos 2026 tarihinde onayladı
 owner: osman
 source: Faz 38.13 / 26 Ağustos 2026 aktif uygulama sırası
 touches:
@@ -483,3 +483,24 @@ sonra uygulanmalıdır. Tahmin tek geliştirici için yaklaşık **10 kişi-gün
 - Ana plan ve durum belgesi Faz 38.13 `partial` üzerinde eşleşir; şirket
   görevleri ve yönlü ilişki fişleri açık kalır, Faz 39 başlamaz.
 - Kapanış çalışma ağacı temizdir.
+
+## 9) Uygulama fişi — 26 Ağustos 2026
+
+- Commit zinciri: `3472f96` kurum commission yetkisi; `991b1b2` bütçe escrow;
+  `b82ca14` TaskOfferV2; `8068970` yetkili teklif ve atomik karar; `371dfad`
+  makbuzlu settlement; `0c807de` süre aşımı/tahrif/save-load; `b0db82b` UI;
+  `7213ff3` kanonik belge ve ledger uzlaştırması.
+- Commission rotası, başkan kimliğine sahte komutan payer bağlamak yerine gerçek
+  `CANONICAL_COMMANDER` office holder taşıyan Silahlı Kuvvetler makamına
+  daraltıldı. Önceki şema-2 yürütme commission kayıtları açık
+  `CANCELLED / PAYER_COMMANDER_BINDING_UNAVAILABLE` telafisiyle göçer.
+- `node tests/story-conversation-case.test.js`, kurum commission+göç probu,
+  bütçe reserve/release/settle+restore probu ve `git diff --check` geçti.
+- Tam `node tests/story-world.test.js`, bu dikeyin assertion'larına ulaşmadan
+  kriz-duyarlı genel `foodAccessBps >= 4500` sabitinde durdu. Kullanıcı farklı
+  dünyalarda kriz, düşük üretim ve insanlığın yok oluşunun geçerli olabileceğini
+  açıkça onayladığı için bu genel eşik değiştirilmedi ve bu dikeyin kapanış
+  kapısı sayılmadı.
+- Faz 38.13 bütünüyle kapanmadı: devlet kurumu ücretli görevi tamamlandı;
+  şirket bütçeli görevler ayrı kapsam, yönlü ilişki sonuç fişleri sıradaki açık
+  dilimdir. Faz 39 aktif değildir.
