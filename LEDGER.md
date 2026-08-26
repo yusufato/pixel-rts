@@ -1350,3 +1350,15 @@
 - **What happened:** İkinci 20 gözlenmiş oyuncu turu bağlamıyla tek tek etiketlendi; toplam 40 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
 - **Evidence:** Corpus doğrulaması exit `0`; kısmi baseline macro-F1 `0,3830492424`, ECE `0,2455`; sayaç `40/200`.
 - **Implication for future audits:** İlk 40 kaydı tamamlanmış Codex gold kabul et; fakat 200 kapısı dolmadan embedding/model spike'ına başlama.
+## 2026-08-27 — Semantik düzeltmeler hata ailesi kapısına bağlandı
+- **Type:** Executed
+- **Source:** `plans/phase-38-turkish-semantic-intent-router.md` — Adım 1
+- **What happened:** İlk 40 gold üzerindeki baseline farkları bütün semantik çerçeve eksenlerinde yeniden kullanılabilir hata aileleri olarak raporlanmaya başlandı; literal cümle yaması yasaklandı. Model spike için eylem-zıtı hard-negative, kısa parça dilimi, model-özel prefix, çapa eğrisi, L2-dot/kosinüs eşitliği ve sınıf/risk bazlı eşik kalibrasyonu zorunlu kılındı.
+- **Evidence:** `tests/story-semantic-review-server.test.js` hata ailelerinin etiket/cümle çiftini ezberlemeyen kapalı sınıflar olduğunu doğrular; benchmark her aile için sayı ve en fazla beş örnek kimliği üretir.
+- **Implication for future audits:** Tek bir oyuncu cümlesini geçiren regex veya çapa değişikliğini bugfix sayma; aynı kök hata ailesinin family-split holdout sonucunu ve karşıt örneklerini iste.
+## 2026-08-27 — İlk 40 gold için semantik hata aileleri ölçüldü
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1 / hata ailesi tabanı
+- **What happened:** Deterministik baseline'ın yalnız ana speech-act'i değil bütün `SemanticFrameV2` eksenleri gold etiketlerle karşılaştırıldı.
+- **Evidence:** Tam çerçeve eşleşmesi `2/40` (`%5`); epistemik durum `28`, hedef `27`, predicate `22`, devamlılık `22`, speech-act `21`, istenen sonuç `15`, yanlış OOD `11` hata. Macro-F1 `0,3830492424`, ECE `0,2455` değişmedi.
+- **Implication for future audits:** Genel başarı oranıyla yetinme; düzeltmeleri bu ailelerdeki family-split holdout değişimiyle değerlendir ve bu 40 kayıtla model seçme.

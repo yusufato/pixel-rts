@@ -1052,9 +1052,31 @@ parametrik ele alınır.
 
 ### Karar durumu
 
-`candidate`. Mimari ilke kabul edilmeye değer; model seçimi, eşikler, corpus ve
-çalışma zamanı henüz onaylanmış değildir. Uygulama planı
-`plans/phase-38-turkish-semantic-intent-router.md` içinde Draft'tır.
+`accepted-for-measurement`. Kullanıcı planı onayladı; model seçimi, eşikler ve
+çalışma zamanı yalnız corpus kapıları geçerse ürünleşebilir. Uygulama planı
+`plans/phase-38-turkish-semantic-intent-router.md` içinde `In Progress`tır.
+
+### 27 Ağustos ek araştırması — kelime listesi, zıtlık, norm ve prefix
+
+- **Kabul:** Genel embedding konu yakınlığını eylem yönü sanabilir. Saldırı–savunma,
+  savaş–barış, teklif–ret gibi çiftler ayrı hard-negative ailesidir; bildirilen
+  `0,85+` değeri varsayılmaz, seçilen model üzerinde ölçülür.
+- **Düzeltme:** “3–5 kelimenin altında doğruluk çöker” evrensel bir model
+  sözleşmesi değildir. Tek kelime/parça girdileri uzunluğa göre ayrı ölçülür;
+  belirsizse bağlam/netleştirme kullanılır, kör uzunluk reddi yazılmaz.
+- **Kabul:** Tek çapa kapsamı düşürür. Ancak `5–10` sihirli sayı değildir;
+  `1/3/5/10/20` çapa eğrisi ölçülür. Çapalar ham kelime değil tam eylem kalıbı
+  ve eylem-zıtı karşı örnek taşır.
+- **Düzeltme:** Kosinüs formülü normu zaten içerir. Açık L2 normalizasyonu,
+  dot-product ile kosinüs eşdeğerliği için zorunludur. Sabit `0,75` yerine
+  sınıf/risk bazlı calibration ve top-1/top-2 marjı kullanılır.
+- **Model-özel karar:** `multilingual-e5-small` kartı bütün girdilere prefix ister
+  ve retrieval dışı görevlerde `query:` kullanılmasını söyler. `query/query`
+  resmî tabandır; `query/passage` ayrıca deney koludur. BGE v1.5 instruction
+  etkisi görev bağımlıdır ve E5 kuralı ona kopyalanmaz.
+- **Genelleme kapısı:** Düzeltme cümleye özel regex/prototip değil, kök neden
+  katmanı ve hata ailesi üzerinden yapılır. Görülen örnek, farklı ifadeli olumlu
+  örnek ve konu-yakın eylem-zıtı family-split holdout'ta birlikte iyileşmelidir.
 
 ### Kabul kapısı
 

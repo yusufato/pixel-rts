@@ -59,6 +59,20 @@ const codexAccepted = Object.assign({}, fullAccepted.value, {
 assert.equal(benchmark.isHumanGoldReview(codexAccepted, new Set([candidate.id])), false);
 assert.equal(benchmark.isGoldReview(codexAccepted, new Set([candidate.id])), true);
 
+const oppositeActionFamilies = benchmark.classifyErrorFamilies({
+    ...labels, speechAct: 'THREATEN', communicativeFunction: 'REQUEST',
+    polarity: 'POSITIVE_OR_UNMARKED', epistemicStatus: 'UNMARKED'
+}, {
+    ...labels, speechAct: 'ASK_INFORMATION', communicativeFunction: 'ASK',
+    polarity: 'NEGATIVE', epistemicStatus: 'HYPOTHETICAL'
+});
+assert.deepEqual(oppositeActionFamilies, [
+    'SPEECH_ACT_DISAMBIGUATION', 'COMMUNICATIVE_FUNCTION', 'POLARITY',
+    'EPISTEMIC_STATUS'
+]);
+assert.equal(oppositeActionFamilies.some(id => id.includes('THREATEN')), false,
+    'Error families must describe reusable failure logic, not memorize a sentence or label pair.');
+
 const incomplete = Object.assign({}, labels);
 delete incomplete.predicate;
 assert.equal(review.validateReview({
@@ -85,6 +99,17 @@ assert.equal(inventory.inventory.codexGold, 0);
 assert.equal(inventory.inventory.gold, 0);
 assert.equal(inventory.gates.prototype.pass, false);
 assert.equal(inventory.gates.product.pass, false);
+
+const measured = benchmark.buildBenchmark({
+    corpus, reviews: { reviews: [] },
+    proposals: new Map(corpus.candidates.filter(row => row.adjudication).map(row => [row.id, {
+        labels: row.id === corpus.candidates[0].id ? row.adjudication.labels : labels,
+        confidenceBps: 5000, source: 'TEST_PROPOSAL'
+    }]))
+});
+assert.ok(Object.keys(measured.baseline.errorFamilies).every(id =>
+    benchmark.ERROR_FAMILY_DEFINITIONS[id]));
+assert.equal(measured.baseline.errorFamilies.OUT_OF_DOMAIN_GATE.exampleIds.length <= 5, true);
 
 console.log(JSON.stringify({ ok: true, candidates: corpusValidation.count,
     families: corpusValidation.familyCount, prototypeGold: inventory.inventory.humanGold }));

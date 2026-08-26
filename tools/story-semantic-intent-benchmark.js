@@ -50,6 +50,20 @@ const LABEL_AXES = Object.freeze(Object.keys(LABEL_VALUES));
 const REQUIRED_LABEL_FIELDS = Object.freeze([...LABEL_AXES, 'outOfDomain']);
 const SPLITS = Object.freeze(['prototype', 'calibration', 'blind_test']);
 const GOLD_REVIEWERS = Object.freeze(['LOCAL_HUMAN', 'CODEX_INDIVIDUAL_REVIEW']);
+const ERROR_FAMILY_DEFINITIONS = Object.freeze({
+    OUT_OF_DOMAIN_GATE: Object.freeze({ rootCauseLayer: 'CALIBRATION', scope: 'Known game language must not be rejected as OOD, and real OOD must not be forced in-domain.' }),
+    SPEECH_ACT_DISAMBIGUATION: Object.freeze({ rootCauseLayer: 'PRAGMATICS', scope: 'Topic and surface form must not replace the utterance action.' }),
+    COMMUNICATIVE_FUNCTION: Object.freeze({ rootCauseLayer: 'PRAGMATICS', scope: 'Ask, tell, request, offer, reject, repair and close must remain distinct.' }),
+    SURFACE_FORM: Object.freeze({ rootCauseLayer: 'COMPOSITION', scope: 'Question marks and cue words must not override the complete clause structure.' }),
+    PREDICATE: Object.freeze({ rootCauseLayer: 'SEMANTIC_RETRIEVAL', scope: 'The game topic must be recovered without confusing related or opposite actions.' }),
+    TARGET: Object.freeze({ rootCauseLayer: 'SLOT_RESOLUTION', scope: 'Player, listener, third party, organization and world targets must remain distinct.' }),
+    POLARITY: Object.freeze({ rootCauseLayer: 'COMPOSITION', scope: 'Affirmation, negation and mixed clauses must be composed before routing.' }),
+    TEMPORALITY: Object.freeze({ rootCauseLayer: 'COMPOSITION', scope: 'Past, current, future and habitual references must remain distinct.' }),
+    EPISTEMIC_STATUS: Object.freeze({ rootCauseLayer: 'COMPOSITION', scope: 'Question, certainty, hearsay and hypothetical language are execution gates.' }),
+    CONTINUITY: Object.freeze({ rootCauseLayer: 'CONTEXT', scope: 'Continuation, correction, repair and answer depend on dialogue history.' }),
+    REQUESTED_OUTCOME: Object.freeze({ rootCauseLayer: 'POLICY', scope: 'Information, opinion, action and acknowledgement requests must not be interchanged.' }),
+    SECONDARY_SPEECH_ACT_COMPOSITION: Object.freeze({ rootCauseLayer: 'COMPOSITION', scope: 'Compound utterances must preserve material secondary acts.' })
+});
 
 function readJson(filePath, fallback) {
     try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_) { return fallback; }
@@ -77,6 +91,40 @@ function validateLabels(labels) {
         issues.push('INVALID_LABEL:secondarySpeechActs');
     }
     return { ok: issues.length === 0, issues };
+}
+
+function classifyErrorFamilies(actual, predicted) {
+    if (!actual || !predicted) return [];
+    const families = [];
+    if (actual.outOfDomain !== predicted.outOfDomain) families.push('OUT_OF_DOMAIN_GATE');
+    if (actual.speechAct !== predicted.speechAct) families.push('SPEECH_ACT_DISAMBIGUATION');
+    const axes = [
+        ['communicativeFunction', 'COMMUNICATIVE_FUNCTION'], ['surfaceForm', 'SURFACE_FORM'],
+        ['predicate', 'PREDICATE'], ['target', 'TARGET'], ['polarity', 'POLARITY'],
+        ['temporality', 'TEMPORALITY'], ['epistemicStatus', 'EPISTEMIC_STATUS'],
+        ['continuity', 'CONTINUITY'], ['requestedOutcome', 'REQUESTED_OUTCOME']
+    ];
+    for (const [axis, family] of axes) {
+        if (actual[axis] !== predicted[axis]) families.push(family);
+    }
+    const actualSecondary = [...(actual.secondarySpeechActs || [])].sort();
+    const predictedSecondary = [...(predicted.secondarySpeechActs || [])].sort();
+    if (JSON.stringify(actualSecondary) !== JSON.stringify(predictedSecondary)) {
+        families.push('SECONDARY_SPEECH_ACT_COMPOSITION');
+    }
+    return families;
+}
+
+function summarizeErrorFamilies(compared) {
+    const result = Object.fromEntries(Object.entries(ERROR_FAMILY_DEFINITIONS)
+        .map(([id, definition]) => [id, Object.assign({ count: 0, exampleIds: [] }, definition)]));
+    for (const comparison of compared) {
+        for (const family of classifyErrorFamilies(comparison.actual, comparison.predicted)) {
+            result[family].count += 1;
+            if (result[family].exampleIds.length < 5) result[family].exampleIds.push(comparison.row.id);
+        }
+    }
+    return result;
 }
 
 function validateCorpus(corpus) {
@@ -258,6 +306,8 @@ function buildBenchmark(options) {
         });
     const actualActs = compared.map(row => row.actual.speechAct);
     const predictedActs = compared.map(row => row.predicted.speechAct);
+    const exactFrameMatches = compared.filter(row =>
+        classifyErrorFamilies(row.actual, row.predicted).length === 0).length;
     const confusion = {};
     for (const row of compared) {
         const key = `${row.actual.speechAct}=>${row.predicted.speechAct}`;
@@ -301,11 +351,13 @@ function buildBenchmark(options) {
         baseline: {
             comparedGold: compared.length,
             speechActMacroF1: macroF1(actualActs, predictedActs),
+            exactFrameMatchRate: compared.length ? exactFrameMatches / compared.length : null,
             oodFalseAcceptanceRate: ood.length
                 ? ood.filter(row => !row.predicted.outOfDomain).length / ood.length : null,
             expectedCalibrationError: expectedCalibrationError(compared),
             confusion,
-            domainErrors
+            domainErrors,
+            errorFamilies: summarizeErrorFamilies(compared)
         }
     };
 }
@@ -319,6 +371,7 @@ if (require.main === module) {
 
 module.exports = {
     LABEL_VALUES, LABEL_AXES, REQUIRED_LABEL_FIELDS, SPLITS, GOLD_REVIEWERS,
+    ERROR_FAMILY_DEFINITIONS, classifyErrorFamilies, summarizeErrorFamilies,
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark
 };

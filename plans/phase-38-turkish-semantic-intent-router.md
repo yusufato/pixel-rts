@@ -88,6 +88,21 @@ cümleyi bağlamıyla ayrı inceleyip eksiksiz etiketlediği kayıtların da aç
 9. LLM açıksa yalnız doğrulanmış `[SONUÇ, KAMUSAL SEBEP, SES PROFİLİ]` zarfını
    1–2 doğal cümleye çevirir. Çıktı doğrulanamazsa şablon kullanılır.
 
+### Hata ailesi sözleşmesi
+
+- Bir yanlış cümleye özel kelime, regex veya prototip eklemek çözüm sayılmaz.
+  Her bulgu `NORMALIZATION`, `SEMANTIC_RETRIEVAL`, `PRAGMATICS`, `COMPOSITION`,
+  `SLOT_RESOLUTION`, `CONTEXT`, `POLICY` veya `CALIBRATION` kök katmanına ve
+  sürümlü bir hata ailesine bağlanır.
+- Düzeltme; görülen örnek yanında aynı niyetin farklı kelimeli olumlu örneği,
+  konu bakımından yakın fakat eylemce zıt hard-negative, uygulanıyorsa
+  olumsuz/varsayımsal biçim ve aile-split dışında tutulan en az bir karşı örnekle
+  doğrulanmadan kabul edilmez. Aileye uymayan varyant zorla üretilmez.
+- Benchmark OOD, iletişim işlevi, yüzey, konu, hedef, kutup, zaman, epistemik
+  durum, devamlılık, istenen sonuç ve ikincil eylem kayıplarını ayrı sayar.
+- Kaynak cümlenin tam metnine dallanan üretim kodu yasaktır. Katalog örnekleri
+  yalnız aday temsilidir; yürütme kararı bütün deterministik kapılardan geçer.
+
 ## 3) Model seçimi
 
 - İngilizce `all-MiniLM-L6-v2` ve `bge-small-en-v1.5`, Türkçe benchmarkı
@@ -101,6 +116,19 @@ cümleyi bağlamıyla ayrı inceleyip eksiksiz etiketlediği kayıtların da aç
   kalibrasyon ve geri alma planıyla kosinüs tabanını açıkça geçerse ayrı plandır.
 - Çalışma zamanı renderer içinde kurulmaz. Ayrı süreç, kapalı IPC şeması, istek
   tavanı, timeout, bellek tavanı ve boşta unload taşır.
+- Modelin resmî giriş sözleşmesi sürümlü encoding profile içinde tutulur.
+  `multilingual-e5-small` için resmî `query:`/`query:` tabanı ile oyuncu=`query:`,
+  çapa=`passage:` deney kolu aynı kör sette karşılaştırılır. E5 kuralı BGE'ye
+  kopyalanmaz; BGE v1.5 instruction kullanımı ayrıca ölçülür.
+- Kosinüs normu paydada zaten uygular. Dot-product yolu ancak açık L2
+  normalizasyonundan sonra kosinüsle eşdeğer kabul edilir; eşitlik test edilir.
+- Tek küresel `0,75` eşik yoktur. Eşik ve marj model, sınıf, dil/biçim ve risk
+  katmanında calibration split'inden öğrenilir; blind test eşik seçmez.
+- Tek kelime/kısa parça otomatik reddedilmez; uzunluğa göre ayrı ölçülür ve
+  belirsizse bağlam/netleştirme kullanılır. Çapa sayısı `1/3/5/10/20` kapsama
+  eğrisiyle ölçülür; `5–10` evrensel sabit değildir.
+- Çapalar ham kelime listesi değil tam eylem kalıplarıdır. Olumlu, olumsuz,
+  varsayımsal, iptal, soru/emir ve konu-yakın eylem-zıtı çiftler taşır.
 
 ## 4) Niyet ve karakter sözleşmesi
 
@@ -151,6 +179,8 @@ cümleyi bağlamıyla ayrı inceleyip eksiksiz etiketlediği kayıtların da aç
   adversarial aileleri zorunludur.
 - Başarı yalnız accuracy değildir: macro-F1, sınıf recall, OOD yanlış kabul,
   top-1/top-2 marjı, expected calibration error ve domain hata matrisi ölçülür.
+- Her düzeltme için hata ailesi ve aile dışı holdout sonucu önce/sonra raporlanır.
+  Tek görülen cümleyi geçirip aile holdout'unu iyileştirmeyen değişiklik reddedilir.
 - `K`; recall artışı, yanlış kabul, gecikme ve bellek eğrisi birlikte ölçülerek
   seçilir. Üç aday yetersizse büyütülür; büyüyen listenin oyuncuya veya mekanik
   yürütücüye filtresiz aktarılması yasaktır.
@@ -204,6 +234,24 @@ onlarca domain seçimi taşır. Sabit beş alanlı validator yeni domainleri ses
 atlanmış veya güvensiz bırakır. Katalog her yürütülebilir adayın istediği kapalı
 alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable olamaz.
 
+### Tek cümleye kural veya çapa ekleyerek testi geçirmek
+
+Görülen cümleyi ezberleten regex/prototip yalnız o satırı yeşile çevirebilir.
+Her değişim kök katman + hata ailesi + karşıt örnek paketiyle kabul edilir;
+literal cümle dalları ve yalnız görülen satırdaki kazanç reddedilir.
+
+### “Saldır” ve “savun”u konu yakınlığıyla ayırmak
+
+Embedding askerî bağlamı doğru bulsa bile eylem yönünü garanti etmez. Eylem-zıtı
+çiftler hard-negative olarak ölçülür; olumsuzluk, kip ve uygulanabilir eylem
+deterministik kompozisyon kapısından geçmeden askerî aday çalıştırılmaz.
+
+### Her model için aynı prefix, eşik ve çapa sayısı
+
+E5, BGE ve diğer modellerin eğitim sözleşmeleri aynı değildir; kosinüs skoru da
+kalibre edilmiş olasılık değildir. Prefix, normalizasyon, çapa eğrisi ve eşikler
+model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar reddedilir.
+
 ## 8) Durma koşulları
 
 - Türkçe kör testte tabana göre anlamlı kazanç yoksa ürün entegrasyonu yapılmaz.
@@ -256,3 +304,18 @@ alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable o
   hakaret ve alaycı meydan okuma ayrımları açıkça etiketlendi.
 - Toplam `40/200` prototip gold oldu. Deterministik kısmi baseline macro-F1
   `0,383049`, ECE `0,2455`; prototip kapısı kapalıdır.
+
+### 27 Ağustos 2026 — Hata ailesi ve embedding deney sözleşmesi
+
+- Kullanıcının “cümleyi değil hata mantığını düzelt” şartı bağlayıcı kabul
+  sözleşmesine dönüştürüldü. Benchmark bütün `SemanticFrameV2` eksenlerindeki
+  tekrar eden hata ailelerini ayrı sayar; literal cümle yaması kabul edilmez.
+- Eylem-zıtı hard-negative, kısa parça dilimi, çapa kapsama eğrisi, model-özel
+  prefix, normalize dot/kosinüs eşitliği ve sınıf/risk bazlı threshold kalibrasyonu
+  model/runtime spike'ın zorunlu deneyleridir.
+- İlk 40 gold korunur; bunlar model kabulü değildir. Yeni ölçüler bir sonraki
+  tekil inceleme partilerinden önce taban raporuna eklenmiştir.
+- Gerçek baseline'da tam çerçeve eşleşmesi `2/40` (`%5`) çıktı. En sık aileler:
+  epistemik durum `28`, hedef `27`, konu/predicate `22`, devamlılık `22`, ana
+  speech-act `21`, istenen sonuç `15` ve yanlış OOD kapısı `11`. Bu sayılar
+  öncelik kanıtıdır; tek başına kök neden veya model kabulü değildir.
