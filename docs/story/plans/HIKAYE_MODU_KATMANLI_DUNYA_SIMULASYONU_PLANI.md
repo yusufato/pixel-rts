@@ -1,15 +1,15 @@
 ---
 status: active
 owner: osman
-last-reviewed: unknown
+last-reviewed: 2026-08-26
 canonical: true
 ---
 
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.75
+**Belge sürümü:** 1.76
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Dalga A / Faz 0–3.1, Dalga B / Faz 4–10.1, Dalga C / Faz 11–14.6, Dalga D / Faz 15–22, Dalga E / Faz 23–27, Dalga F / Faz 28–33.1 ve Dalga G / Faz 34–38 tamamlandı; aktif sıra Faz 38.1 — Oyuncu Konuşmasını Anlama
+**Durum:** Faz 0–38.7 kabul edildi; Faz 38.8–38.13 kısmi dikeyler taşıyor. Güncel tek aktif dilim Faz 38.13'ün toplantı kapanışı ve yetkili uygulama yönlendirmesidir; Faz 39 henüz başlamadı.
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
 **Oynanabilirlik kapısı:** Yalnız veri, tablo, bildirim veya salt-okunur görünüm üreten katman tamamlanmış oyun özelliği sayılmaz. Oyuncu en az bir yetkili ve bedelli eylemle dünyaya müdahale edebilmeli; karakter bulunan alanlarda bu eylem isimli karakter, ilişki, söz, karşılık veya çatışma üzerinden kurulmalı ve sonucu kanonik dünya/olay defterine yazılmalıdır. Arayüz henüz var olmayan hedefli etkileşimi varmış gibi gösteremez.
@@ -23,6 +23,15 @@ canonical: true
 **1.74 değişikliği:** Faz 38 sonrası kompleks sohbet yükseltmesi `HIKAYE_SOHBET_MOTORU_GELISTIRME_PLANI.md` belgesine bağlandı. Milyonlarca cümleyi kodlama yaklaşımı reddedildi; `DialogueMove + domain adaptörü + söylem durumu + kanıt referansı + 8B gerçekleştirici` mimarisi kabul edildi. Yaklaşık 8,99 GB Coder-14B canlı ikinci model değil, oyun kapalıyken sırayla çalışan adversarial oyuncu/eleştirmen/öğretmen olarak sınırlandı. Mevcut 8B'nin gerçek `8192` bağlam tavanı korundu; 10 bin ham token yerine çalışma belleği, episodik özet ve kanonik hafıza ayrıldı. Gerçek oyuncu JSONL kayıtları nihai kabul kaynağıdır.
 
 **1.75 değişikliği:** Stratejik haritanın yalnız görsel değil fiziksel altyapısı altıgen dünya modeline yükseltildi. Ayrıntılı program `HIKAYE_HEX_DUNYA_ALTYAPI_PLANI.md` içinde `HXD-0–HXD-15` olarak tanımlandı. Mevcut 152 bölge, stok/lot/sipariş/ödeme/sevkiyat defterleri ve harita sanat varlıkları korunacak; altlarında `HexCell/HexState`, büyüyen şehir ayak izi, fiziksel altyapı segmentleri, çok modlu rota ve gerçek hareketli tır/tren/gemi katmanı kurulacaktır. Faz 11, 14, 22/22.1, 33.1, 42 ve 47+ bu ortak mekânsal gerçeğe bağlanmadan dönüşüm tamamlanmış sayılmaz. İlk kabul dikeyi Ankara–İstanbul kara/demir yolu; deniz karşılığı İstanbul–İzmir veya İstanbul–Trabzon'dur. Altıgen yalnız çizim overlay'i olamaz ve eski/yeni fizik iki ayrı kanonik mutasyon yolu olarak birlikte yaşayamaz.
+
+**1.76 değişikliği:** Ana plan imleci güncel kod, hedefli kabul testi ve uygulama
+durumuyla uzlaştırıldı. Faz 38.1 başlıkta aktif görünse de çalışma Faz 38.13'ün
+on iki dikeyine kadar ilerlemiştir. `node tests/story-conversation-case.test.js`
+26 Ağustos 2026'da 4 katılımcı, 33 kamusal tur, iki önerge, üç tepki türü, iki
+sürüm ve sonuç makbuzuyla geçti. Bu kanıt Faz 38.13'ü tamamlamaz: toplantı
+kapanışı, yetkili domain uygulama yönlendirmesi, karakterin özel nota yanıtı,
+kurumsal görev ve yönlü ilişki sonuç fişleri açık kalır. Faz 39 bu mini zincir
+kapanmadan aktif sayılamaz.
 
 **1.4 değişikliği:** Arayüz, simülasyon planından türetilen ayrı bir bilgi mimarisi olarak tanımlandı; oyuncu bilgi filtresi, şehir/yönetim/sohbet ve tüm alan çalışma ekranları, kademeli veri sunumu, bağlamsal navigasyon ve uçtan uca UI kabul fazları eklendi.
 
@@ -4648,6 +4657,18 @@ aynı-aktör tekrar yokluğu ve save/restore bütünlüğünü geçti. Gerçek A
 zeminli çok taraflı görüş, özel/ikili not, önerge ve oy hâlâ açık borçtur.
 
 Bu yükseltme aktif Faz 38.5'i baştan yazdırmaz. Önce sohbetten sonuca zorunlu mini zincir kapanır. Faz 38.6–38.8 bu zincirin kanıtını genelleştirir; 38.7 ve 38.9 medya Faz 39–42 ile, 38.9–38.11 de sonraki ekonomi/askerî/diplomasi fazlarıyla çapraz ilerleyebilir.
+
+**26 Ağustos 2026 — aktif imleç uzlaştırması:** Güncel yürütme sınırı
+`Faz 38.13 / partial`dır. Mevcut toplantı motoru sonuç makbuzuna kadar doğrulanır
+ve dünyayı bilinçli olarak değiştirmez. Sıradaki tek uygulama dilimi, kabul veya
+ret makbuzunu ayrı bir toplantı kapanış kaydına bağlayıp yalnız kanonik yetki
+taşıyan Faz 29/Faz 38.9 adaptörüne idempotent teklif olarak yönlendirmektir.
+Bu dilim bütçe, kurum, ordu veya ilişki değerini doğrudan yazamaz. Tamamlanma
+kapısı; çift kapanışın reddi, yetkisiz yönlendirmenin sıfır dünya farkı, açık
+toplantının save/load devamlılığı ve yetkili teklif kimliğinden sonuç makbuzuna
+geri izlenebilirliktir. Özel not yanıtı, kurumsal/ücretli görev ve yönlü ilişki
+fişleri sonraki ayrı Faz 38.13 dilimleridir; Faz 39'a geçiş bunlar kapanmadan
+ilan edilmez.
 
 ---
 

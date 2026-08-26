@@ -28,7 +28,7 @@ test, yeniden koşum ve geri alma doğrulaması efora dahildir.
 
 | Plan | Status | Age | Owner | Remaining effort | Disposition |
 |---|---|---:|---|---:|---|
-| PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı | active / kanonik eski metadata | son commit 2 gün | osman | Uzun vadeli; Faz 38.1–70 açık/uzlaştırılacak | **Continue as the top-level live roadmap.** Faz 0–70, 71 tam fazdır. Başlık Faz 38.1'i aktif gösterirken uygulama durumunda 38.13'e kadar partial dilimler bulunduğu için ilk iş gerçek ilerleme uzlaştırmasıdır. |
+| PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı | active / kanonik | 0 gün | osman | Faz 38.13 `partial`; Faz 39–70 açık | **Continue as the top-level live roadmap.** Faz 0–70, 71 tam fazdır. İlerleme 26 Ağustos 2026'da kod ve hedefli test kanıtıyla uzlaştırıldı. Sıradaki tek dilim Faz 38.13 toplantı kapanışı ve yetkili uygulama yönlendirmesidir; Faz 39 henüz aktif değildir. |
 | PIXEL RTS — İnsan Düzeyine Yaklaşan Hikâye Sohbet Motoru Planı | active alt plan | son commit 4 gün | osman | Ana plan Faz 38.x içinde | **Subordinate.** Bağımsız ana yol değildir; Faz 38.x kabulüne hizmet eder. |
 | PIXEL RTS — Altıgen Dünya, Dinamik Şehir ve Fiziksel Lojistik Altyapı Planı | active çapraz plan | son commit 4 gün | osman | HXD-6–HXD-15 | **Subordinate/cross-cutting.** Ana planın mekânsal bağımlılıklarını sağlar; bağımsız son hedef değildir. |
 | Hikâye Modu 2B Harita Tamamlama Sözleşmesi | active / sonra açılmış | son commit 4 gün | osman | G2/G3/G5/G6/G8 kabul borçları | **Sequence after the 71-phase main roadmap.** Ana planın Faz 61 harita kapısı ve ana fazları bloke eden teknik harita regresyonları istisnadır; ayrı görsel/tamamlama işi Faz 70 sonrasına sıralanır. |
@@ -54,11 +54,14 @@ test, yeniden koşum ve geri alma doğrulaması efora dahildir.
 **Uygulama beklemede.** Aşağıdaki üç küme önceki 10 kişi-günlük teknik
 dağılımdır; kaynak değişikliği yetkisi değildir. Yeni önerilen üst sıra:
 
-1. Kirli çalışma ağacındaki 96 durum satırını kayıp üretmeden uzlaştır.
-2. 71 fazlı ana planın başlıkta Faz 38.1, durum belgesinde 38.13'e uzanan
-   kısmi ilerlemesini gerçek kod/test kanıtıyla uzlaştır ve sıradaki tek ana
-   fazı belirle.
-3. Ana planı Faz 70 sürüm adayına kadar üst yol haritası olarak yürüt.
+1. **Tamamlandı:** Kirli çalışma ağacı kayıp üretmeden uzlaştırıldı;
+   `worktree-reconciliation-no-delete` Landed oldu.
+2. **Tamamlandı:** 71 fazlı ana planın gerçek sınırı kod ve hedefli testle
+   Faz 38.13 `partial` olarak uzlaştırıldı.
+3. **Aktif:** Faz 38.13 toplantı kapanışı ve yetkili uygulama yönlendirmesini
+   ayrı kabul dilimiyle kapat; ardından kalan özel not/kurumsal görev/yönlü
+   ilişki fişlerini sırayla tamamla. Ana planı sonrasında Faz 70 sürüm adayına
+   kadar üst yol haritası olarak yürüt.
 4. Ayrı 2B harita tamamlama/görsel düzeltme sözleşmesini sonra yürüt; yalnız
    ana Faz 61'i veya çalışmayı bloke eden harita regresyonlarını ana plan içinde
    çöz.

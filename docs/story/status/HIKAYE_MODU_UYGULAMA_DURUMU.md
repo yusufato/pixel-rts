@@ -1,7 +1,7 @@
 ---
 status: active
 owner: osman
-last-reviewed: unknown
+last-reviewed: 2026-08-26
 canonical: true
 ---
 
@@ -11,9 +11,17 @@ canonical: true
 **Plan:** `../plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md`
 **Son kapanan faz:** Faz 38.7 — Önyargı, Geçici Stres ve Kamu Personası
 
-**Aktif çalışma zamanı:** Faz 38.8 — İlişki Yorumu ve Bağlamsal Hafıza Geri Çağrımı
-**Aktif uygulama sırası:** Sohbet motoru yükseltmesi S6 — sert çıktı doğrulayıcıları ve gerçekten benzersiz adversarial 8B konuşma bataryası
+**Aktif çalışma zamanı:** Faz 38.13 — Oynanabilir Karakter Etkileşimi ve Resmî Toplantılar (`partial`)
+**Aktif uygulama sırası:** Toplantı kapanış kaydı → kanonik yetkili adaptöre idempotent teklif yönlendirmesi
 **Modern dünya gap defteri:** `MODERN_DUNYA_EKSIKLERI.md`
+
+**26 Ağustos ilerleme uzlaştırması:** Ana planın Faz 38.1 imleci ve bu belgenin
+Faz 38.8 çalışma satırı bayattı. Güncel kaynak ve hedefli
+`node tests/story-conversation-case.test.js` kabulü; 4 katılımcı, 33 tur, iki
+önerge, üç tepki türü, iki sürüm ve `MeetingOutcomeReceiptV1` üretti. Bu nedenle
+gerçek sınır Faz 38.13 `partial`dır. Toplantı kapanışı/yetkili uygulama
+yönlendirmesi, karakterin özel nota yanıtı, kurumsal görev ve yönlü ilişki
+fişleri kapanmadan Faz 39 aktif değildir.
 
 **14 Ağustos kanıt dikeyi:** Ekonomi FACT zincirinden sonra karakter→oyuncu yönlü
 ilişki kaydı da imzalı DomainEvidence/ContextPack kaynağına bağlandı. Ters yön ve

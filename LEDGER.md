@@ -1245,3 +1245,10 @@
 - **What happened:** TG-06'nın Electron savaş/harita kabulü değil, karakter aktivasyon probunun metadata yerine gerçek callback davranışını ölçmesiyle ilgili olduğu görüldü. 3,5 günlük Electron planından çıkarılıp tetikleyicili Next işi yapıldı.
 - **Evidence:** TEST_GAPS.md TG-06 konumu `tools/story-sim-harness.js:16183`; Electron yaşam döngüsü kanıtları TG-01, TG-31, TG-32 ve TG-33 altında.
 - **Implication for future audits:** Bulgu kimliklerini yalnız ortak “yanlış güven” etiketiyle kümelendirme; kapatılacak üretim sınırı ve dokunulan kaynak yüzeyiyle yeniden doğrula.
+
+## 2026-08-26 — Ana hikâye planının gerçek sınırı Faz 38.13 partial olarak uzlaştırıldı
+- **Type:** Measured
+- **Source:** 71 fazlı ana plan ilerleme uzlaştırması
+- **What happened:** Ana planın Faz 38.1 ve durum belgesinin Faz 38.8 aktif imleçleri, güncel uygulama kanıtıyla Faz 38.13 `partial` sınırına taşındı. Faz 39 başlatılmadı.
+- **Evidence:** `node tests/story-conversation-case.test.js` başarılı; 4 katılımcı, 33 tur, iki önerge, `OBJECTION / AMENDMENT_REQUEST / ENDORSEMENT`, iki sürüm ve sonuç makbuzu doğrulandı. Toplantı kapanışı ve yetkili uygulama yönlendirmesi kaynakta hâlâ açık sınırdır.
+- **Implication for future audits:** Faz 38.1 veya 38.8'i aktif çalışma imleci olarak yeniden raporlama; Faz 38.13 ancak kapanış/yetkili yönlendirme, özel not yanıtı, kurumsal görev ve yönlü ilişki fişleri tamamlanınca kapanabilir.
