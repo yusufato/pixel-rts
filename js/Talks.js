@@ -1264,6 +1264,53 @@ function storyTalkConversationCaseHtml(session) {
         + `<p>Tür seçimi yalnız görüşmenin bağlamını değiştirir; tek başına görev, ödül, anlaşma veya toplantı sonucu üretmez.</p></section>`;
 }
 
+function storyTalkRelationshipResultReceipt(receiptId) {
+    if (!receiptId || typeof storyRelationshipResultReceiptGet !== 'function') return null;
+    return storyRelationshipResultReceiptGet(receiptId);
+}
+
+function storyTalkTaskRelationshipOutcomeHtml(offer) {
+    const receipt = storyTalkRelationshipResultReceipt(offer && offer.relationshipResultReceiptId);
+    if (!receipt || receipt.fromActorId !== offer.issuerActorId
+        || receipt.toActorId !== offer.assigneeActorId) return '';
+    const issuerName = storyTalkConversationEscape(offer.issuerName || 'Görev veren');
+    let text = '';
+    if (receipt.decision === 'APPLIED' && receipt.interpretationType === 'TASK_COMMITMENT_KEPT') {
+        text = `${issuerName} sana daha fazla güven ve saygı duyuyor; gerilim azaldı.`;
+    } else if (receipt.decision === 'APPLIED'
+        && receipt.interpretationType === 'TASK_COMMITMENT_BROKEN') {
+        text = `${issuerName} tutulmayan taahhüt nedeniyle sana daha az güveniyor; gerilim arttı.`;
+    } else if (receipt.decision === 'NO_CHANGE') {
+        text = `${issuerName} bu sonucu yakın zamanda değerlendirdi; ilişkiniz yeniden değişmedi.`;
+    }
+    return text ? `<div class="conversation-relationship-outcome"><b>İLİŞKİ SONUCU · ${issuerName} → SEN</b><span>${text}</span></div>` : '';
+}
+
+function storyTalkMeetingRelationshipOutcomesHtml(session, meeting, closure) {
+    if (!session || !meeting || !closure || !Array.isArray(closure.relationshipResultReceiptIds)) return '';
+    const esc = storyTalkConversationEscape;
+    const rows = closure.relationshipResultReceiptIds.map(receiptId => {
+        const receipt = storyTalkRelationshipResultReceipt(receiptId);
+        const participant = receipt && meeting.participants.find(row =>
+            row.actorId === receipt.fromActorId);
+        if (!receipt || !participant || receipt.toActorId !== session.playerActorId) return '';
+        let text = '';
+        if (receipt.decision === 'APPLIED') {
+            text = 'Ortak başarı kayda geçti; sana duyduğu güven ve saygı arttı.';
+        } else if (receipt.reason === 'MEETING_REJECTED') {
+            text = 'Önerge reddedildi; kişisel ilişkiniz değişmedi.';
+        } else if (receipt.reason === 'PLAYER_VOTE_NOT_YES') {
+            text = 'Sen ortak başarı yönünde oy vermedin; kişisel ilişkiniz değişmedi.';
+        } else if (receipt.reason === 'OBSERVER_VOTE_NOT_YES') {
+            text = 'Ortak kabul oyu oluşmadı; kişisel ilişkiniz değişmedi.';
+        } else if (receipt.decision === 'NO_CHANGE') {
+            text = 'Bu sonuç yakın zamanda değerlendirildi; kişisel ilişkiniz yeniden değişmedi.';
+        }
+        return text ? `<div class="conversation-relationship-outcome"><b>${esc(participant.name)} → SEN</b><span>${esc(text)}</span></div>` : '';
+    }).join('');
+    return rows ? `<div class="conversation-meeting-relationship-results"><b>TOPLANTI İLİŞKİ SONUÇLARI</b>${rows}</div>` : '';
+}
+
 function storyTalkConversationTaskOffersHtml(session) {
     if (!session || !session.conversationCase || session.conversationCase.mode !== 'TASKS_JOBS'
         || typeof storyConversationTaskOfferList !== 'function') return '';
@@ -1301,6 +1348,8 @@ function storyTalkConversationTaskOffersHtml(session) {
             + (offer.status === 'ACCEPTED' ? `<footer><span>Görevi tamamlamak için ${esc(offer.objective.targetName)} ile yeni bir görüşme aç.</span></footer>` : '')
             + (offer.status === 'COMPLETED' ? `<footer><span>TAMAMLANDI · ${esc(storyTalkConversationDate(offer.completedAt))}`
                 + (institutional ? ` · ÖDEME MAKBUZU DOĞRULANDI` : '') + `</span></footer>` : '')
+            + (offer.status === 'EXPIRED' ? `<footer><span>SÜRESİ DOLDU</span></footer>` : '')
+            + storyTalkTaskRelationshipOutcomeHtml(offer)
             + `</article>`;
         }).join('') + `</section>`;
 }
@@ -1456,6 +1505,7 @@ function storyTalkConversationMeetingHtml(session) {
     const latestOutcome = (meeting.outcomeReceipts || [])[meeting.outcomeReceipts.length - 1];
     const closureControl = closure
         ? `<section class="conversation-meeting-closure"><header><b>TOPLANTI KAPANDI</b><span>${closure.decision === 'ADOPTED' ? 'ÖNERGE KABUL EDİLDİ' : 'ÖNERGE REDDEDİLDİ'}</span></header>`
+            + storyTalkMeetingRelationshipOutcomesHtml(session, meeting, closure)
             + (closure.status === 'CLOSED_ADOPTED_PENDING_PROPOSAL'
                 ? `<p>Kapanış tutanağı hazır; kurum teklifi henüz oluşturulmadı.</p><button class="story-btn" data-conversation-meeting-route-closure="${esc(closure.id)}">KURUMA TEKLİF OLARAK YÖNLENDİR</button>`
                 : closure.status === 'CLOSED_ADOPTED_PROPOSAL_ROUTED'

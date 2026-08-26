@@ -130,7 +130,11 @@ function verifyInstitutionalTaskOfferDecisions() {
         const completedInstitutionalCard = taskRuntime.dom.window.document.querySelector(
             '[data-task-offer-kind="INSTITUTIONAL_PAID_CONTACT_TASK"]');
         assert.match(completedInstitutionalCard.textContent, /ÖDEME MAKBUZU DOĞRULANDI/);
+        assert.match(completedInstitutionalCard.textContent, /İLİŞKİ SONUCU/);
+        assert.match(completedInstitutionalCard.textContent, /güven ve saygı/);
         assert.doesNotMatch(completedInstitutionalCard.textContent, /budget:/);
+        assert.doesNotMatch(completedInstitutionalCard.textContent,
+            /trustBps|respectBps|hostilityBps|relationship-result:|sourceReceiptId|cooldownKey/);
         taskRuntime.dom.window.storyConversationWorkspaceClose();
         const duplicateCompletionBefore = JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
@@ -264,6 +268,17 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(unacceptedExpiredTask.status, 'EXPIRED');
         assert.equal(unacceptedExpiredTask.acceptedAt, null);
         assert.equal(unacceptedExpiredTask.relationshipResultReceiptId, null);
+        taskRuntime.dom.window.storyConversationWorkspaceOpen(
+            issuerActorId, armedForces.officeHolder.name, forgedSessionId
+        );
+        const expiredTaskCard = taskRuntime.dom.window.document.querySelector(
+            '[data-task-offer-kind="INSTITUTIONAL_PAID_CONTACT_TASK"]'
+        );
+        assert.match(expiredTaskCard.textContent, /SÜRESİ DOLDU/);
+        assert.match(expiredTaskCard.textContent, /tutulmayan taahhüt/);
+        assert.doesNotMatch(expiredTaskCard.textContent,
+            /trustBps|respectBps|hostilityBps|relationship-result:|sourceReceiptId|cooldownKey/);
+        taskRuntime.dom.window.storyConversationWorkspaceClose();
         const duplicateExpiryBefore = JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
             relationships: taskRuntime.api.relationshipLedger(),
@@ -1185,6 +1200,10 @@ try {
     assert.equal(runtime.dom.window.document.querySelector(
         '[data-conversation-meeting-private-reply]'), null);
     assert.match(routedUiText, /TOPLANTI KAPANDI · ÖZEL YAZIŞMA YALNIZ OKUNABİLİR/);
+    assert.match(routedUiText, /TOPLANTI İLİŞKİ SONUÇLARI/);
+    assert.match(routedUiText, /→ SEN/);
+    assert.doesNotMatch(routedUiText,
+        /trustBps|respectBps|hostilityBps|relationship-result:|sourceReceiptId|cooldownKey/);
     runtime.dom.window.storyConversationWorkspaceClose();
     const adoptedClosedSnapshot = runtime.api.conversationSessionSnapshot();
     const rejectedOpenSnapshot = JSON.parse(JSON.stringify(openMeetingSnapshot));
@@ -1230,6 +1249,13 @@ try {
     }
     assert.equal(runtime.api.conversationMeetingClosureRoute(
         rejectedClosure.closure.id).code, 'MEETING_REJECTED_NO_PROPOSAL');
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    const rejectedUiText = runtime.dom.window.document
+        .getElementById('conversation-workspace-modal').textContent;
+    assert.match(rejectedUiText, /Önerge reddedildi; kişisel ilişkiniz değişmedi/);
+    assert.doesNotMatch(rejectedUiText,
+        /trustBps|respectBps|hostilityBps|relationship-result:|sourceReceiptId|cooldownKey/);
+    runtime.dom.window.storyConversationWorkspaceClose();
     assert.equal(Object.keys(story.institutions.requests || {}).length,
         rejectedRequestCountBefore);
     assert.equal(runtime.api.conversationSessionValidate(
